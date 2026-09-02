@@ -69,7 +69,7 @@ try {
     Add-CheckResult -Name 'Storage-UI zeigt das normalisierte Ziel vor der bestätigten Mutation' -Success (
         $storageContractText -match 'Normalisiertes Ziel:' -and
         $storageContractText -match 'Diese Lab_Data-Location initialisieren und registrieren\?' -and
-        $storageContractText -match 'Set-LabDataLocation\s+-LabDataParent\s+\$parent\s+-Confirm:\$false'
+        $storageContractText -match 'Set-LabDataLocation\s+-LabDataRoot\s+\$dataRoot\s+-Confirm:\$false'
     )
     Add-CheckResult -Name 'Standalone-Initialisierung verwendet denselben nicht-administrativen Volume-GUID-Fallback' -Success (
         $dataRootToolText -match 'mountvol\.exe' -and $dataRootToolText -match "'/L'" -and

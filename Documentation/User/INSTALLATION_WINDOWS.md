@@ -23,10 +23,11 @@ abgelegt. Die kanonische, automatisch erzeugbare Struktur steht unter
 [Externer Media Root](../HowTo/MEDIA_ROOT_LAYOUT.md).
 
 Nach dem Modulimport führt `Invoke-SqlServerLab -Action Setup` durch die
-gemeinsame Einrichtung von `Lab_Base` und einer oder mehreren
-`Lab_Data`-Locations. Der Assistent speichert die Auswahl für neue Prozesse,
-fragt bei Wiederholungen nur fehlende oder ungültige Werte ab und überschreibt
-keine vorhandenen Dateien.
+gemeinsame hostweite Einrichtung eines Media-Roots und einer oder mehrerer
+Lab-Datenlocations. Die Rootnamen sind frei wählbar, beispielsweise
+`D:\Lab1_Base` und `D:\Lab1_Data`. Der Assistent speichert die Auswahl für neue
+Prozesse, fragt bei Wiederholungen nur fehlende oder ungültige Werte ab und
+überschreibt keine vorhandenen Dateien.
 
 ## 2. Benötigte Komponenten
 

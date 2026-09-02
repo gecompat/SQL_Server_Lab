@@ -95,6 +95,31 @@ function Resolve-LabStorageParentPath {
     }
 }
 
+function Resolve-LabStorageRootPath {
+    <# .SYNOPSIS Normalisiert einen frei wählbaren, nicht zu breiten Lab-Datenroot. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    $candidate = $Path.Trim()
+    if ([string]::IsNullOrWhiteSpace($candidate) -or
+        $candidate -match '^[A-Za-z]:$' -or
+        -not [IO.Path]::IsPathFullyQualified($candidate)) {
+        throw 'LAB_DATA_ROOT_NOT_FULLY_QUALIFIED'
+    }
+    try { $root = [IO.Path]::GetFullPath($candidate).TrimEnd('\', '/') }
+    catch { throw "LAB_DATA_ROOT_INVALID: $($_.Exception.Message)" }
+    $volumeRoot = [IO.Path]::GetPathRoot($root).TrimEnd('\', '/')
+    if ([string]::Equals($root, $volumeRoot, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'LAB_DATA_ROOT_TOO_BROAD: Ein Laufwerks- oder Dateisystemroot ist nicht zulaessig.'
+    }
+    return [PSCustomObject]@{
+        InputPath = $Path
+        LabDataParent = Split-Path -Parent $root
+        LabDataRoot = $root
+        VolumeRoot = [IO.Path]::GetPathRoot($root)
+    }
+}
+
 function Get-LabStorageTopology {
     [CmdletBinding()]
     param(
@@ -190,9 +215,6 @@ function Initialize-LabManagedDataRoot {
     )
 
     $root = [System.IO.Path]::GetFullPath($DataRoot).TrimEnd('\', '/')
-    if (-not [string]::Equals((Split-Path -Leaf $root), 'Lab_Data', [StringComparison]::OrdinalIgnoreCase)) {
-        throw 'LAB_DATA_ROOT_NAME_REQUIRED: Der verwaltete Root muss Lab_Data heissen.'
-    }
     if ($script:ModuleRoot) {
         $repositoryRoot = [System.IO.Path]::GetFullPath($script:ModuleRoot).TrimEnd('\', '/')
         $comparison = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
@@ -412,12 +434,18 @@ function Register-LabDataRoot {
 function Set-LabDataLocation {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact='Medium')]
     param(
-        [Parameter(Mandatory)][string]$LabDataParent,
+        [Parameter(Mandatory, ParameterSetName='Root')][string]$LabDataRoot,
+        [Parameter(Mandatory, ParameterSetName='LegacyParent')][string]$LabDataParent,
         [switch]$SetDefault,
         [switch]$ProcessEnvironmentOnly
     )
 
-    $resolvedParent = Resolve-LabStorageParentPath -Path $LabDataParent
+    $resolvedParent = if ($PSCmdlet.ParameterSetName -eq 'Root') {
+        Resolve-LabStorageRootPath -Path $LabDataRoot
+    }
+    else {
+        Resolve-LabStorageParentPath -Path $LabDataParent
+    }
     $parent = [string]$resolvedParent.LabDataParent
     $dataRoot = [string]$resolvedParent.LabDataRoot
     if (-not $PSCmdlet.ShouldProcess($dataRoot, 'Normalisierte Lab_Data-Location initialisieren und registrieren')) { return $null }
@@ -1377,7 +1405,7 @@ function Invoke-LabStorageInteractive {
         }
         else { 'Noch keine verwaltete Lab_Data-Location' }
         $menu = Invoke-LabConsoleMenu -ScreenId 'storage-management' -Title 'Storage verwalten' -Subtitle $subtitle -Items @(
-            New-LabConsoleItem -Id 'add' -Label 'Lab_Data-Location hinzufügen' -Value 'ändert einen vorhandenen Standard nicht' -Shortcut '1'
+            New-LabConsoleItem -Id 'add' -Label 'Lab-Datenroot hinzufügen' -Value 'vollständiger Pfad; ändert einen vorhandenen Standard nicht' -Shortcut '1'
             New-LabConsoleItem -Id 'show' -Label 'Locations und Topologie aktualisieren' -Shortcut '2'
             New-LabConsoleItem -Id 'metadata' -Label 'Anzeigename und portable Selektoren ändern' -Shortcut '3' -Disabled:(@($configuration.LabDataLocations).Count -eq 0)
             New-LabConsoleItem -Id 'default' -Label 'Globalen Fallback explizit festlegen' -Shortcut '4' -Disabled:(@($configuration.LabDataLocations).Count -lt 2)
@@ -1391,12 +1419,12 @@ function Invoke-LabStorageInteractive {
         try {
             switch ([string]$menu.SelectedItem.Id) {
                 'add' {
-                    $parent = Read-Host '  Parent-Pfad eingeben (z. B. C:\; daraus wird C:\Lab_Data)'
-                    $resolved = Resolve-LabStorageParentPath -Path $parent
+                    $dataRoot = Read-Host '  Vollständigen Lab-Datenroot eingeben (z. B. D:\Lab1_Data)'
+                    $resolved = Resolve-LabStorageRootPath -Path $dataRoot
                     Write-LabInfo "Normalisiertes Ziel: $($resolved.LabDataRoot)"
                     if (-not (Read-LabConfirm -Prompt '  Diese Lab_Data-Location initialisieren und registrieren?' -Default $false)) { continue }
-                    $result = Set-LabDataLocation -LabDataParent $parent -Confirm:$false
-                    Write-LabSuccess "Lab_Data registriert: $($result.LabDataRoot)"
+                    $result = Set-LabDataLocation -LabDataRoot $dataRoot -Confirm:$false
+                    Write-LabSuccess "Lab-Datenroot registriert: $($result.LabDataRoot)"
                     Write-LabInfo "LocationId=$($result.LocationId); Topologie=$($result.TopologyStatus); Standard blieb unverändert."
                 }
                 'show' {

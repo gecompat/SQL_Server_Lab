@@ -101,9 +101,6 @@ function Add-DataRootReadme {
 
 $dataRoot = [System.IO.Path]::GetFullPath($RootPath)
 $dataRoot = $dataRoot.TrimEnd('\', '/')
-if (-not [string]::Equals((Split-Path -Leaf $dataRoot), 'Lab_Data', [StringComparison]::OrdinalIgnoreCase)) {
-    throw 'LAB_DATA_ROOT_NAME_REQUIRED: RootPath muss auf einen Ordner namens Lab_Data zeigen.'
-}
 $volumeRoot = [System.IO.Path]::GetPathRoot($dataRoot)
 if ($dataRoot.TrimEnd('\', '/') -eq $volumeRoot.TrimEnd('\', '/')) {
     throw 'DATA_ROOT_TOO_BROAD: Ein Laufwerks- oder Dateisystemroot ist nicht zulaessig.'
