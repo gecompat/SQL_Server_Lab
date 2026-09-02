@@ -221,7 +221,8 @@ function Register-LabBackupSetPersistentStorage {
     param(
         [Parameter(Mandatory)]$BackupRecord,
         [Parameter(Mandatory)][string]$DataRoot,
-        [AllowNull()]$Configuration
+        [AllowNull()]$Configuration,
+        [switch]$Preview
     )
 
     $configuration = if ($Configuration) { $Configuration } else { Get-LabStorageConfiguration -DataRoot $DataRoot }
@@ -263,10 +264,17 @@ function Register-LabBackupSetPersistentStorage {
                 $nextStore = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$existing.PersistentStorageId))[0]
                 $nextStore.State = $expectedState; $nextStore.UpdatedAt = Get-LabTimestamp
                 $next.Revision = [int]$next.Revision + 1
+                if ($Preview) {
+                    return [PSCustomObject]@{ Changed=$true; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision; Preview=$true }
+                }
                 $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
-                return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision }
+                return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision; Preview=$false }
             }
-            return [PSCustomObject]@{ Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision }
+            return [PSCustomObject]@{ Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision; Preview=[bool]$Preview }
+        }
+
+        if ($Preview) {
+            return [PSCustomObject]@{ Changed=$true; Store=$null; CatalogRevision=[int]$catalog.Document.Revision; Preview=$true }
         }
 
         $now = Get-LabTimestamp
@@ -288,7 +296,7 @@ function Register-LabBackupSetPersistentStorage {
         $next.Stores = @($next.Stores) + @($store)
         $null = Test-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
         $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
-        return [PSCustomObject]@{ Changed=$true; Store=$store; CatalogRevision=[int]$next.Revision }
+        return [PSCustomObject]@{ Changed=$true; Store=$store; CatalogRevision=[int]$next.Revision; Preview=$false }
     }
 }
 
@@ -297,7 +305,8 @@ function Register-LabDatabasePackagePersistentStorage {
     param(
         [Parameter(Mandatory)]$PackageRecord,
         [Parameter(Mandatory)][string]$DataRoot,
-        [AllowNull()]$Configuration
+        [AllowNull()]$Configuration,
+        [switch]$Preview
     )
 
     $configuration = if ($Configuration) { $Configuration } else { Get-LabStorageConfiguration -DataRoot $DataRoot }
@@ -339,10 +348,17 @@ function Register-LabDatabasePackagePersistentStorage {
                 $nextStore = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$existing.PersistentStorageId))[0]
                 $nextStore.State = $expectedState; $nextStore.UpdatedAt = Get-LabTimestamp
                 $next.Revision = [int]$next.Revision + 1
+                if ($Preview) {
+                    return [PSCustomObject]@{ Changed=$true; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision; Preview=$true }
+                }
                 $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
-                return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision }
+                return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision; Preview=$false }
             }
-            return [PSCustomObject]@{ Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision }
+            return [PSCustomObject]@{ Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision; Preview=[bool]$Preview }
+        }
+
+        if ($Preview) {
+            return [PSCustomObject]@{ Changed=$true; Store=$null; CatalogRevision=[int]$catalog.Document.Revision; Preview=$true }
         }
 
         $now = Get-LabTimestamp
@@ -363,7 +379,7 @@ function Register-LabDatabasePackagePersistentStorage {
         $next.Stores = @($next.Stores) + @($store)
         $null = Test-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
         $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
-        return [PSCustomObject]@{ Changed=$true; Store=$store; CatalogRevision=[int]$next.Revision }
+        return [PSCustomObject]@{ Changed=$true; Store=$store; CatalogRevision=[int]$next.Revision; Preview=$false }
     }
 }
 

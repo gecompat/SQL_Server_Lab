@@ -104,6 +104,10 @@ COMMANDS
         Executes retain or verified backup-on-remove for a Docker or Podman
         instance store with a resumable journal.
 
+    Sync-SqlServerLabPersistentStorageArtifact
+        Revalidates one existing backup set or database package and synchronizes
+        it with the storage catalog by stable artifact ID.
+
     Get-SqlServerLabDatabasePackage
         Lists path-free database-package selections by stable DatabasePackageId
         and optionally verifies all immutable package objects.

@@ -65,6 +65,15 @@ Add-CheckResult -Name 'Container-Runtime-Scope aktiviert read-only Vertrag sowie
     'Invoke-ContainerRuntimeScopeChecks.ps1' -in $containerRuntimeScope.StaticChecks
 )
 
+$persistentStorageArtifact = & $selector -ChangedPath @('Public/Sync-SqlServerLabPersistentStorageArtifact.ps1')
+Add-CheckResult -Name 'Reiner Persistent-Storage-Artefakt-Sync aktiviert nur die betroffenen statischen Verträge' -Success (
+    -not $persistentStorageArtifact.Docker -and -not $persistentStorageArtifact.Podman -and
+    -not $persistentStorageArtifact.Mixed -and -not $persistentStorageArtifact.HyperV -and -not $persistentStorageArtifact.Adapter -and
+    'Invoke-PersistentStorageCatalogChecks.ps1' -in $persistentStorageArtifact.StaticChecks -and
+    'Invoke-BackupLibraryChecks.ps1' -in $persistentStorageArtifact.StaticChecks -and
+    'Invoke-DatabasePackageChecks.ps1' -in $persistentStorageArtifact.StaticChecks
+)
+
 $hostToolResolution = & $selector -ChangedPath @('Private/HostToolResolution.ps1')
 Add-CheckResult -Name 'Host-Tool-Auflösung aktiviert Resolver-/Bootstrap-Verträge und beide Container-Runtimes' -Success (
     $hostToolResolution.Docker -and $hostToolResolution.Podman -and
