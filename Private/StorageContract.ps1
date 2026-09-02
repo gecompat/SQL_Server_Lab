@@ -1381,7 +1381,7 @@ function Invoke-LabStorageInteractive {
         try {
             switch ([string]$menu.SelectedItem.Id) {
                 'add' {
-                    $parent = Read-Host '  Vollqualifizierter Parent auf dem Zielvolume (Volume-Root ist erlaubt)'
+                    $parent = Read-Host '  Parent-Pfad eingeben (z. B. C:\; daraus wird C:\Lab_Data)'
                     $resolved = Resolve-LabStorageParentPath -Path $parent
                     Write-LabInfo "Normalisiertes Ziel: $($resolved.LabDataRoot)"
                     if (-not (Read-LabConfirm -Prompt '  Diese Lab_Data-Location initialisieren und registrieren?' -Default $false)) { continue }
