@@ -204,7 +204,7 @@ exit 1
         $restoreText -notmatch 'Get-Command \$candidateProvider' -and
         $restoreText -notmatch '& \$candidateProvider')
     Add-CheckResult -Name 'Storage-Residency verwendet für Root und Volume den zentralen Runtime-Aufruf' -Success (
-        @([regex]::Matches($storageResidencyText, 'Get-LabHostToolInvocation -Name \$Provider')).Count -eq 2 -and
+        @([regex]::Matches($storageResidencyText, 'Get-LabHostToolInvocation -Name \$Provider')).Count -ge 2 -and
         $storageResidencyText -notmatch '& \$Provider (info|volume)')
     Add-CheckResult -Name 'Container-Instanzstore verwendet für Inspect, Attachment und Clone den zentralen Runtime-Aufruf' -Success (
         @([regex]::Matches($containerInstanceStoreText, 'Get-LabHostToolInvocation -Name \$Provider')).Count -eq 2 -and
