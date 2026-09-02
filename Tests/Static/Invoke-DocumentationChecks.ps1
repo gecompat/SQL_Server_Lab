@@ -60,6 +60,78 @@ function Get-RepositoryFiles {
         }
 }
 
+function Test-FoundationUpgradeAssessmentContract {
+    param(
+        [Parameter(Mandatory)][object]$Assessment,
+        [Parameter(Mandatory)][System.Collections.IDictionary]$ExpectedCandidates,
+        [Parameter(Mandatory)][string]$InstalledVersion,
+        [Parameter(Mandatory)][string]$SourceVersion,
+        [Parameter(Mandatory)][string]$SourceRef
+    )
+
+    $issues = [System.Collections.Generic.List[string]]::new()
+    if ([string]$Assessment.installed_version -ne $InstalledVersion) {
+        $issues.Add("installed_version=$($Assessment.installed_version)")
+    }
+    if ([string]$Assessment.source_version -ne $SourceVersion) {
+        $issues.Add("source_version=$($Assessment.source_version)")
+    }
+    if ([string]$Assessment.source_ref -ne $SourceRef) {
+        $issues.Add("source_ref=$($Assessment.source_ref)")
+    }
+
+    $records = @($Assessment.assessments)
+    $recordIds = @($records | ForEach-Object { [string]$_.feature_id })
+    $duplicateIds = @($recordIds | Group-Object | Where-Object Count -gt 1 | ForEach-Object Name)
+    if ($duplicateIds.Count -gt 0) {
+        $issues.Add("duplicate feature_id: $($duplicateIds -join ', ')")
+    }
+
+    $missingIds = @($ExpectedCandidates.Keys | Where-Object { $_ -notin $recordIds })
+    $unexpectedIds = @($recordIds | Where-Object { -not $ExpectedCandidates.Contains($_) })
+    if ($missingIds.Count -gt 0) {
+        $issues.Add("missing feature_id: $($missingIds -join ', ')")
+    }
+    if ($unexpectedIds.Count -gt 0) {
+        $issues.Add("unexpected feature_id: $($unexpectedIds -join ', ')")
+    }
+
+    foreach ($featureId in $ExpectedCandidates.Keys) {
+        $matchingRecords = @($records | Where-Object { [string]$_.feature_id -eq $featureId })
+        if ($matchingRecords.Count -ne 1) {
+            continue
+        }
+
+        $record = $matchingRecords[0]
+        $expected = $ExpectedCandidates[$featureId]
+        $actualReasons = @($record.candidate_reasons | ForEach-Object { [string]$_ })
+        $reasonDiff = @(Compare-Object -ReferenceObject @($expected.Reasons) -DifferenceObject $actualReasons)
+        if ($reasonDiff.Count -gt 0) {
+            $issues.Add("$featureId candidate_reasons")
+        }
+        if ([string]$record.classification -ne [string]$expected.Classification) {
+            $issues.Add("$featureId classification=$($record.classification)")
+        }
+        if (@($record.evidence).Count -eq 0 -or @($record.evidence | Where-Object { [string]::IsNullOrWhiteSpace([string]$_) }).Count -gt 0) {
+            $issues.Add("$featureId evidence")
+        }
+        if ([string]::IsNullOrWhiteSpace([string]$record.rationale)) {
+            $issues.Add("$featureId rationale")
+        }
+        if (-not $record.PSObject.Properties['selected_capabilities'] -or @($record.selected_capabilities).Count -ne 0) {
+            $issues.Add("$featureId selected_capabilities")
+        }
+        if ([string]$expected.Classification -eq 'RECOMMENDED' -and [string]::IsNullOrWhiteSpace([string]$record.recommendation)) {
+            $issues.Add("$featureId recommendation")
+        }
+    }
+
+    [pscustomobject]@{
+        Success = $issues.Count -eq 0
+        Message = $issues -join '; '
+    }
+}
+
 Write-Host ''
 Write-Host 'SQL_Server_Lab - Static Contract Validation' -ForegroundColor Cyan
 Write-Host "Repository: $repoRoot" -ForegroundColor DarkGray
@@ -476,6 +548,7 @@ $coreFiles = @(
     '.ai/WORKING_RULES.md'
     '.ai/repo_map.yaml'
     '.ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md'
+    '.ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json'
     '.ai/foundation/FOUNDATION_RULESET.md'
     '.ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md'
     '.ai/foundation/PROJECT_RULES.md'
@@ -583,6 +656,10 @@ $agentContract = Get-Content -LiteralPath (Join-Path $repoRoot 'AGENTS.md') -Raw
 $modelRoutingPolicy = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\MODEL_ROUTING_POLICY.md') -Raw -Encoding utf8
 $projectContext = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\PROJECT_CONTEXT.md') -Raw -Encoding utf8
 $repoMap = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\repo_map.yaml') -Raw -Encoding utf8
+$foundationUpgradeAssessmentPath = Join-Path $repoRoot '.ai\foundation-upgrade-assessments\1.4.0-to-1.7.0.json'
+$foundationUpgradeAssessmentSchemaPath = Join-Path $repoRoot '.ai\foundation\schemas\upgrade-assessment.schema.json'
+$foundationUpgradeAssessmentJson = Get-Content -LiteralPath $foundationUpgradeAssessmentPath -Raw -Encoding utf8
+$foundationUpgradeAssessment = $foundationUpgradeAssessmentJson | ConvertFrom-Json -Depth 100
 $foundationRuleset = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\FOUNDATION_RULESET.md') -Raw -Encoding utf8
 $foundationRepoMap = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\repo_map.yaml') -Raw -Encoding utf8
 $foundationNotice = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\AI_REPOSITORY_FOUNDATION_NOTICE.md') -Raw -Encoding utf8
@@ -696,16 +773,83 @@ Add-ValidationResult `
         $repoMap -match 'ruleset_version: "1\.7\.0"' -and
         $repoMap -match 'github-copilot' -and
         $repoMap -match 'sql_cu_watch_policy: ops/sql-cu-policy\.md' -and
+        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.4\.0-to-1\.7\.0\.json' -and
         $repoMap -match 'unresolved_conflicts: \[\]')
 
+$foundationUpgradeAssessmentSchemaValid = $false
+$foundationUpgradeAssessmentSchemaMessage = $null
+try {
+    $foundationUpgradeAssessmentSchemaValid = $foundationUpgradeAssessmentJson |
+        Test-Json -SchemaFile $foundationUpgradeAssessmentSchemaPath -ErrorAction Stop
+}
+catch {
+    $foundationUpgradeAssessmentSchemaMessage = $_.Exception.Message
+}
 Add-ValidationResult `
-    -Name 'Foundation-Upgrade bewertet alle sechs Kandidaten ohne stille Auslassung' `
-    -Success ($repoMap -match 'artifact-registration: ALREADY_EQUIVALENT' -and
-        $repoMap -match 'central-artifact-registry: NOT_APPLICABLE' -and
-        $repoMap -match 'layered-validation: APPLY_DEFAULT' -and
-        $repoMap -match 'repository-continuity-break-glass: RECOMMENDED' -and
-        $repoMap -match 'semantic-integration: APPLY_DEFAULT' -and
-        $repoMap -match 'semantic-upgrade-applicability: APPLY_DEFAULT')
+    -Name 'Foundation-Upgrade-Assessment entspricht dem installierten Schema' `
+    -Success $foundationUpgradeAssessmentSchemaValid `
+    -Message $foundationUpgradeAssessmentSchemaMessage
+
+$expectedFoundationUpgradeCandidates = [ordered]@{
+    'artifact-registration' = @{
+        Reasons = @('material_change:1.6.0')
+        Classification = 'ALREADY_EQUIVALENT'
+    }
+    'central-artifact-registry' = @{
+        Reasons = @('introduced_in:1.6.0')
+        Classification = 'NOT_APPLICABLE'
+    }
+    'layered-validation' = @{
+        Reasons = @('material_change:1.7.0')
+        Classification = 'APPLY_DEFAULT'
+    }
+    'repository-continuity-break-glass' = @{
+        Reasons = @('introduced_in:1.7.0')
+        Classification = 'RECOMMENDED'
+    }
+    'semantic-integration' = @{
+        Reasons = @('material_change:1.5.0')
+        Classification = 'APPLY_DEFAULT'
+    }
+    'semantic-upgrade-applicability' = @{
+        Reasons = @('introduced_in:1.5.0')
+        Classification = 'APPLY_DEFAULT'
+    }
+}
+$foundationUpgradeContract = Test-FoundationUpgradeAssessmentContract `
+    -Assessment $foundationUpgradeAssessment `
+    -ExpectedCandidates $expectedFoundationUpgradeCandidates `
+    -InstalledVersion '1.4.0' `
+    -SourceVersion '1.7.0' `
+    -SourceRef 'd49f978f33001fcc098998ff7c04ffb209b28033'
+Add-ValidationResult `
+    -Name 'Foundation-Upgrade bewertet den exakten Sechser-Delta samt Gruenden und Evidence' `
+    -Success $foundationUpgradeContract.Success `
+    -Message $foundationUpgradeContract.Message
+
+$missingEvidenceFixture = $foundationUpgradeAssessmentJson | ConvertFrom-Json -Depth 100
+$missingEvidenceFixture.assessments[0].evidence = @()
+$missingEvidenceResult = Test-FoundationUpgradeAssessmentContract `
+    -Assessment $missingEvidenceFixture `
+    -ExpectedCandidates $expectedFoundationUpgradeCandidates `
+    -InstalledVersion '1.4.0' `
+    -SourceVersion '1.7.0' `
+    -SourceRef 'd49f978f33001fcc098998ff7c04ffb209b28033'
+Add-ValidationResult `
+    -Name 'Foundation-Upgrade-Vertrag verwirft fehlende Repository-Evidence' `
+    -Success (-not $missingEvidenceResult.Success)
+
+$missingCandidateFixture = $foundationUpgradeAssessmentJson | ConvertFrom-Json -Depth 100
+$missingCandidateFixture.assessments = @($missingCandidateFixture.assessments | Select-Object -Skip 1)
+$missingCandidateResult = Test-FoundationUpgradeAssessmentContract `
+    -Assessment $missingCandidateFixture `
+    -ExpectedCandidates $expectedFoundationUpgradeCandidates `
+    -InstalledVersion '1.4.0' `
+    -SourceVersion '1.7.0' `
+    -SourceRef 'd49f978f33001fcc098998ff7c04ffb209b28033'
+Add-ValidationResult `
+    -Name 'Foundation-Upgrade-Vertrag verwirft still ausgelassene Delta-Kandidaten' `
+    -Success (-not $missingCandidateResult.Success)
 
 Add-ValidationResult `
     -Name 'Repository-Continuity ist mit unveraenderlichem Kernschutz und PR-only Break-Glass umgesetzt' `
