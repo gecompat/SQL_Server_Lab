@@ -1686,35 +1686,102 @@ function Enable-HyperVLabPersistentData {
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Off') { throw 'HYPERV_LAB_PERSISTENT_DATA_VM_MUST_BE_OFF' }
-    if ($lab.Instance.persistentStorage) { throw 'HYPERV_LAB_PERSISTENT_DATA_ALREADY_ENABLED' }
     $sqlVersion = if ($lab.Instance.sqlVersion) { [string]$lab.Instance.sqlVersion } else { 'windows' }
-    $storage = Get-LabPersistentInstanceStorage -DataRoot $DataRoot -LabName ([string]$lab.Run.metadata.name) -Provider hyperv -InstanceId ([string]$lab.Instance.id) -SqlVersion $sqlVersion -Create
-    if (Test-Path -LiteralPath $storage.HyperVVhdxPath -PathType Leaf) { throw 'HYPERV_LAB_PERSISTENT_DATA_VHDX_ALREADY_EXISTS' }
-    $null = New-VHD -Path $storage.HyperVVhdxPath -Dynamic -SizeBytes ([long]$SizeGB * 1GB) -ErrorAction Stop
-    $vhd = Get-VHD -Path $storage.HyperVVhdxPath -ErrorAction Stop
-    $drive = [PSCustomObject]@{
-        Id = 'persistent-sql-data'; Role = 'sqlData'; SizeBytes = [long]$SizeGB * 1GB; VhdType = 'dynamic'
-        Path = [string]$storage.HyperVVhdxPath; DiskIdentifier = ([string]$vhd.DiskIdentifier).ToUpperInvariant()
-        # S: ist bewusst gewählt: D: ist in vielen Gastinstallationen das
-        # DVD-Laufwerk. Der Gast wählt bei einem Konflikt selbst einen freien
-        # Datenbuchstaben und speichert ihn anschließend in den VM-Notes.
-        GuestPath = 'S:\SQLData'; DriveLetter = 'S'; FileSystem = 'NTFS'; AllocationUnitKB = 64; VolumeLabel = 'SQLLAB_DATA'
+    $storage = Get-LabPersistentInstanceStorage -DataRoot $DataRoot -LabName ([string]$lab.Run.metadata.name) -Provider hyperv -InstanceId ([string]$lab.Instance.id) -SqlVersion $sqlVersion
+    $configuration = Get-LabStorageConfiguration -DataRoot $storage.DataRoot
+    $relativePath = [IO.Path]::GetRelativePath([string]$storage.DataRoot,[string]$storage.HyperVVhdxPath)
+    $reservation = $null
+    try {
+        $reservation = Register-LabHyperVInstanceStoreReservation `
+            -RunId ([string]$lab.Run.runId) -ScopeId ([string]$lab.Run.scopeId) `
+            -DisplayName "$([string]$lab.Run.metadata.name) / $([string]$lab.Instance.id) / SQL $sqlVersion" `
+            -DataRoot ([string]$storage.DataRoot) -RelativePath $relativePath -Configuration $configuration
+        $storageId = [string]$reservation.Store.PersistentStorageId
+        if ($lab.Instance.persistentStorage -and
+            ([string]$lab.Instance.persistentStorage.persistentStorageId -ne $storageId -or
+             -not [string]::Equals([IO.Path]::GetFullPath([string]$lab.Instance.persistentStorage.hostPath),[IO.Path]::GetFullPath([string]$storage.HyperVVhdxPath),[StringComparison]::OrdinalIgnoreCase))) {
+            throw 'HYPERV_LAB_PERSISTENT_DATA_ALREADY_ENABLED'
+        }
+
+        $storage = Get-LabPersistentInstanceStorage -DataRoot $DataRoot -LabName ([string]$lab.Run.metadata.name) `
+            -Provider hyperv -InstanceId ([string]$lab.Instance.id) -SqlVersion $sqlVersion -Create
+        $vhdxParent = Split-Path -Parent ([string]$storage.HyperVVhdxPath)
+        if (-not (Test-Path -LiteralPath $vhdxParent -PathType Container)) {
+            $null = New-Item -ItemType Directory -Path $vhdxParent -Force
+        }
+        if (-not (Test-Path -LiteralPath $storage.HyperVVhdxPath -PathType Leaf)) {
+            $null = New-VHD -Path $storage.HyperVVhdxPath -Dynamic -SizeBytes ([long]$SizeGB * 1GB) -ErrorAction Stop
+        }
+        $vhd = Get-VHD -Path $storage.HyperVVhdxPath -ErrorAction Stop
+        if ([long]$vhd.Size -ne ([long]$SizeGB * 1GB) -or -not $vhd.DiskIdentifier) {
+            throw 'HYPERV_LAB_PERSISTENT_DATA_VHDX_POSTCONDITION_FAILED'
+        }
+        $inspection = Get-LabHyperVPersistentDataRuntimeInspection -Path ([string]$storage.HyperVVhdxPath) -TargetVMName ([string]$lab.Instance.vmName)
+        if ([string]$inspection.Status -ne 'AVAILABLE' -or [string]$inspection.Target.Status -ne 'AVAILABLE' -or
+            [string]$inspection.Target.VMId -ne [string]$managed.VM.Id -or [string]$inspection.Target.State -ne 'Off' -or
+            [int]$inspection.Target.CheckpointCount -gt 0 -or @($inspection.CheckpointReferences).Count -gt 0 -or
+            @($inspection.Attachments | Where-Object { [string]$_.VMId -ne [string]$managed.VM.Id }).Count -gt 0 -or
+            @($inspection.Attachments).Count -gt 1) {
+            throw 'HYPERV_LAB_PERSISTENT_DATA_ATTACHMENT_CONFLICT'
+        }
+
+        $attachedDrive = $null
+        if (@($inspection.Attachments).Count -eq 0) {
+            $attachedDrive = Add-VMHardDiskDrive -VMName $lab.Instance.vmName -ControllerType SCSI -ControllerNumber 0 -Path $storage.HyperVVhdxPath -Passthru -ErrorAction Stop
+        }
+        else {
+            $attachment = @($inspection.Attachments)[0]
+            $attachedDrive = Get-VMHardDiskDrive -VMName ([string]$lab.Instance.vmName) -ControllerType ([string]$attachment.ControllerType) `
+                -ControllerNumber ([int]$attachment.ControllerNumber) -ControllerLocation ([int]$attachment.ControllerLocation) -ErrorAction Stop
+        }
+        if (-not $attachedDrive -or -not [string]::Equals([IO.Path]::GetFullPath([string]$attachedDrive.Path),[IO.Path]::GetFullPath([string]$storage.HyperVVhdxPath),[StringComparison]::OrdinalIgnoreCase)) {
+            throw 'HYPERV_LAB_PERSISTENT_DATA_ATTACHMENT_POSTCONDITION_FAILED'
+        }
+        if ($MaximumIops -gt 0) {
+            $null = Set-VMHardDiskDrive -VMHardDiskDrive $attachedDrive -MaximumIOPS $MaximumIops -ErrorAction Stop
+        }
+        $drive = [PSCustomObject]@{
+            Id='persistent-sql-data'; Role='sqlData'; SizeBytes=[long]$vhd.Size; VhdType=([string]$vhd.VhdType).ToLowerInvariant()
+            Path=[string]$storage.HyperVVhdxPath; DiskIdentifier=([string]$vhd.DiskIdentifier).ToUpperInvariant()
+            ControllerNumber=[int]$attachedDrive.ControllerNumber; ControllerLocation=[int]$attachedDrive.ControllerLocation
+            # S: ist bewusst gewählt: D: ist in vielen Gastinstallationen das DVD-Laufwerk.
+            GuestPath='S:\SQLData'; DriveLetter='S'; FileSystem='NTFS'; AllocationUnitKB=64; VolumeLabel='SQLLAB_DATA'
+            MaximumIops=$MaximumIops; HostRoot=[string]$storage.DataRoot; LocationId=[string]$reservation.LocationId; Selector=$null
+            PersistentStorageId=$storageId; Retention='RETAINED'; CleanupDisposition='PRESERVE'
+        }
+        $allDrives = @($managed.Identity.additionalDrives | Where-Object {
+            -not $_.path -or -not [string]::Equals([IO.Path]::GetFullPath([string]$_.path),[IO.Path]::GetFullPath([string]$storage.HyperVVhdxPath),[StringComparison]::OrdinalIgnoreCase)
+        }) + @($drive)
+        $notes = ConvertTo-HyperVLabNotes -RunId $lab.Run.runId -ScopeId $lab.Run.scopeId -InstanceId ([string]$lab.Instance.id) `
+            -ChildVhdxPath ([string]$managed.Identity.childVhdxPath) -AdditionalDrives $allDrives
+        $null = Set-VM -VMName $lab.Instance.vmName -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
+        $lab.Instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{
+            mode='cataloged-data-root-vhdx'; root=[string]$storage.SqlRoot; hostPath=[string]$storage.HyperVVhdxPath
+            persistentStorageId=$storageId; locationId=[string]$reservation.LocationId; relativePath=[string]$reservation.RelativePath
+            diskIdentifier=([string]$vhd.DiskIdentifier).ToUpperInvariant(); guestPath='S:\SQLData'
+            backupGuestPath='S:\SQLData\Backups'; backupMode='guest-data-vhdx'; maximumIops=$MaximumIops
+            state='ATTACHED_PENDING_INITIALIZATION'
+        }) -Force
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+        $commit = Complete-LabHyperVInstanceStoreReservation -PersistentStorageId $storageId `
+            -RunId ([string]$lab.Run.runId) -ScopeId ([string]$lab.Run.scopeId) `
+            -DiskIdentifier ([string]$vhd.DiskIdentifier) -Configuration $configuration
+        $lab.Instance.persistentStorage | Add-Member -NotePropertyName catalogRevision -NotePropertyValue ([int]$commit.CatalogRevision) -Force
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+        Write-LabSuccess "Persistente Daten-VHDX ist katalogisiert und angehängt. Nach dem VM-Start einmal initialisieren."
+        return $lab.Instance.persistentStorage
     }
-    $allDrives = @($managed.Identity.additionalDrives) + @($drive)
-    $notes = ConvertTo-HyperVLabNotes -RunId $lab.Run.runId -ScopeId $lab.Run.scopeId -InstanceId ([string]$lab.Instance.id) -ChildVhdxPath ([string]$managed.Identity.childVhdxPath) -AdditionalDrives $allDrives
-    $attachedDrive = Add-VMHardDiskDrive -VMName $lab.Instance.vmName -ControllerType SCSI -ControllerNumber 0 -Path $storage.HyperVVhdxPath -Passthru -ErrorAction Stop
-    if ($MaximumIops -gt 0) {
-        $null = Set-VMHardDiskDrive -VMHardDiskDrive $attachedDrive -MaximumIOPS $MaximumIops -ErrorAction Stop
+    catch {
+        $errorCode = if ($_.Exception.Message -cmatch '[A-Z][A-Z0-9_]{5,127}') { [string]$Matches[0] } else { 'HYPERV_LAB_PERSISTENT_DATA_ENABLE_FAILED' }
+        if ($reservation -and $reservation.Store -and $configuration) {
+            try {
+                $null = Set-LabHyperVInstanceStoreRecoveryRequired -PersistentStorageId ([string]$reservation.Store.PersistentStorageId) `
+                    -RunId ([string]$lab.Run.runId) -ScopeId ([string]$lab.Run.scopeId) -Configuration $configuration
+            }
+            catch { $errorCode = 'HYPERV_LAB_PERSISTENT_DATA_CATALOG_RECOVERY_FAILED' }
+        }
+        throw "HYPERV_LAB_PERSISTENT_DATA_RECOVERY_REQUIRED: $errorCode"
     }
-    $null = Set-VM -VMName $lab.Instance.vmName -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
-    $lab.Instance | Add-Member -NotePropertyName persistentStorage -NotePropertyValue ([PSCustomObject]@{
-        mode = 'data-root-vhdx'; root = [string]$storage.SqlRoot; hostPath = [string]$storage.HyperVVhdxPath
-        guestPath = 'S:\SQLData'; backupGuestPath = 'S:\SQLData\Backups'; backupMode = 'guest-data-vhdx'
-        maximumIops = $MaximumIops; state = 'ATTACHED_PENDING_INITIALIZATION'
-    }) -Force
-    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
-    Write-LabSuccess "Persistente Daten-VHDX angehängt: $($storage.HyperVVhdxPath). Nach dem VM-Start einmal initialisieren."
-    return $lab.Instance.persistentStorage
 }
 
 function Initialize-HyperVLabPersistentData {

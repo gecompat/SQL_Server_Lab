@@ -152,7 +152,7 @@ function Get-LabStorageResidencyInventory {
                     $hostBindings.Add([PSCustomObject]@{
                         Provider=$provider; RunId=[string]$run.runId; Name=[string]$drive.id; Path=[string]$drive.hostPath
                         Class=if ([string]$drive.containerPath -match '/backup$') { 'BACKUP_WORKSPACE' } else { 'INSTANCE_STORE' }
-                        Persistence=[string]$drive.persistence
+                        Persistence=[string]$drive.persistence; InventoryKey=$null
                     })
                 }
             }
@@ -164,6 +164,10 @@ function Get-LabStorageResidencyInventory {
                         Path=[string]$instance.persistentStorage.$property
                         Class=if ($property -eq 'backupHostPath') { 'BACKUP_WORKSPACE' } else { 'INSTANCE_STORE' }
                         Persistence='declared-persistent-storage'
+                        InventoryKey=if ($provider -eq 'hyperv' -and $property -eq 'hostPath' -and
+                            $instance.persistentStorage.locationId -and $instance.persistentStorage.relativePath) {
+                            "hyperv-instance-store|$([string]$Configuration.ControllerId)|$([string]$instance.persistentStorage.locationId)|$([string]$instance.persistentStorage.relativePath)"
+                        } else { $null }
                     })
                 }
             }
@@ -235,9 +239,10 @@ function Get-LabStorageResidencyInventory {
     foreach ($binding in @($hostBindings)) {
         $key = "$([string]$binding.Provider)|$([string]$binding.Path)|$([string]$binding.RunId)"
         if (-not $seenHostBindings.Add($key)) { continue }
+        $objectKey = if ($binding.InventoryKey) { [string]$binding.InventoryKey } else { "host-binding|$key" }
         $relation = Get-LabStoragePathRelation -Path ([string]$binding.Path) -KnownRoots $knownRoots
         $residency = if ($relation -eq 'INSIDE') { 'LAB_DATA' } elseif ($relation -eq 'OUTSIDE') { 'EXTERNAL_HOST' } else { 'UNKNOWN' }
-        $objects.Add((New-LabStorageResidencyObject -Key "host-binding|$key" -ObjectClass ([string]$binding.Class) `
+        $objects.Add((New-LabStorageResidencyObject -Key $objectKey -ObjectClass ([string]$binding.Class) `
             -Provider $(if ([string]$binding.Provider -in @('docker','podman','hyperv')) { [string]$binding.Provider } else { 'external' }) `
             -Lifecycle $(if ([string]$binding.Persistence -match 'persistent|data-root') { 'RETAINED' } else { 'RUN_SCOPED' }) `
             -Residency $residency -PathVisibility HOST_VISIBLE -LabDataRelation $relation -LogicalName ([string]$binding.Name) `

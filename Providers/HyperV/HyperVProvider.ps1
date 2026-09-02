@@ -92,7 +92,7 @@ function ConvertTo-HyperVLabNotes {
     )
 
     $identity = [ordered]@{
-        contractVersion = '0.3'
+        contractVersion = '0.7'
         provider        = 'hyperv'
         runId           = $RunId
         scopeId         = $ScopeId
@@ -121,6 +121,9 @@ function ConvertTo-HyperVLabNotes {
                     hostRoot = if ($_.HostRoot) { [string]$_.HostRoot } else { $null }
                     locationId = if ($_.LocationId) { [string]$_.LocationId } else { $null }
                     selector = if ($_.Selector) { [string]$_.Selector } else { $null }
+                    persistentStorageId = if ($_.PersistentStorageId) { [string]$_.PersistentStorageId } else { $null }
+                    retention = if ($_.Retention) { [string]$_.Retention } else { $null }
+                    cleanupDisposition = if ($_.CleanupDisposition) { [string]$_.CleanupDisposition } else { $null }
                 }
             }
         )

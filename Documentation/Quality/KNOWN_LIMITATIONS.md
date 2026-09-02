@@ -992,6 +992,15 @@ als `DETACHED` frei. Erfolgreich provisionierte Benutzerdatenbanken erhalten
 stabile aktive `DATABASE`-Referenzen; Lease-Freigabe löst sie atomar mit der
 Run-Referenz, und eine erneute Lease blockiert verbliebene aktive
 Datenbankreferenzen. Runtime-Abweichungen bleiben `RECOVERY_REQUIRED`.
+Reguläre Hyper-V-Labs reservieren ihre persistente Daten-VHDX inzwischen vor
+der ersten VHDX-Mutation controllerweit als `INCOMPLETE` mit stabiler
+`PersistentStorageId`, portabler `Lab_Data`-Bindung, aktiver Run-Referenz und
+exklusiver Lease. Nach verifizierter DiskIdentifier- und VM-Attachment-
+Postcondition wird derselbe Store auf `IN_USE` committed; Teilfehler bleiben
+`RECOVERY_REQUIRED` und sind unter derselben ID fortsetzbar. VM-Notes,
+Connection-State und Residency-Audit korrelieren diese Katalogbindung ohne
+einen Hostpfad als öffentliche Identität zu verwenden. Die Katalogcommits der
+getrennten Hyper-V-Reattach-/Release-/Clone-Aktionen bleiben offen.
 `New-SqlServerLab` und die Browseroberfläche können einen solchen detached
 Docker-/Podman-Store inzwischen per stabiler ID für einen neuen kompatiblen Run
 fortsetzen oder unabhängig klonen. Noch nicht implementiert sind die generische
