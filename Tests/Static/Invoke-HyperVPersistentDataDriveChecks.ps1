@@ -86,6 +86,13 @@ try {
         $releaseInspection.Target.Attachments += [PSCustomObject]@{ Path=$sourcePath; ControllerType='SCSI'; ControllerNumber=0; ControllerLocation=1 }
         $releasePlan=Get-LabHyperVPersistentDataPlan -Intent $releaseIntent -Catalog $releaseCatalog -Configuration $configuration -RuntimeInspection $releaseInspection
 
+        $script:hvpSelectionInspection=$inspection
+        $detachedSelection=@(Get-LabHyperVPersistentDataSelection -Configuration $configuration -Catalog $catalog -InspectRuntime -RuntimeInspector { param($Path) $script:hvpSelectionInspection })
+        $script:hvpSelectionInspection=$releaseInspection
+        $attachedSelection=@(Get-LabHyperVPersistentDataSelection -Configuration $configuration -Catalog $releaseCatalog -InspectRuntime -RuntimeInspector { param($Path) $script:hvpSelectionInspection })
+        $uninspectedSelection=@(Get-LabHyperVPersistentDataSelection -Configuration $configuration -Catalog $catalog)
+        Remove-Variable hvpSelectionInspection -Scope Script -ErrorAction SilentlyContinue
+
         $originalInspection=(Get-Command Get-LabHyperVPersistentDataRuntimeInspection).ScriptBlock
         $originalHash=(Get-Command Get-FileHash).ScriptBlock
         $originalConvert=(Get-Command Convert-VHD -ErrorAction SilentlyContinue).ScriptBlock
@@ -157,6 +164,8 @@ try {
             FirstFailure=$firstFailure; FailedJournal=$failedJournal; CompletedJournal=$completedJournal
             FailedCatalog=$failedCatalog; CompletedCatalog=$completedCatalog; SourceId=$sourceId; TargetId=$targetId
             ReattachLease=$reattachLease; ReattachCommit=$reattachCommit; ReleaseCommit=$releaseCommit; LifecycleCatalog=$lifecycleCatalog
+            DetachedSelection=$detachedSelection; AttachedSelection=$attachedSelection; UninspectedSelection=$uninspectedSelection
+            SourcePath=$sourcePath; DiskId=$diskId
         }
     } $dataRoot $sourceRelativePath $temporaryRoot
 
@@ -202,6 +211,24 @@ try {
         $evidence.CompletedJournal.TargetDiskIdentifier -and $evidence.CompletedJournal.TargetDiskIdentifier -ne $evidence.ClonePlan.Source.DiskIdentifier)
     Add-CheckResult -Name 'Intent und Plan bleiben schema-valide und geheimnisfrei' -Success (
         $evidence.IntentValid -and (($evidence.ClonePlan | ConvertTo-Json -Depth 30) -notmatch '(?i)password|secret|credential'))
+    $selectionJson=@($evidence.DetachedSelection + $evidence.AttachedSelection + $evidence.UninspectedSelection) | ConvertTo-Json -Depth 20
+    Add-CheckResult -Name 'Oeffentliche Auswahl bindet die stabile ID ohne Hostpfad oder DiskIdentifier' -Success (
+        @($evidence.DetachedSelection).Count -eq 1 -and
+        [string]$evidence.DetachedSelection[0].PersistentStorageId -eq [string]$evidence.SourceId -and
+        $selectionJson -notmatch [regex]::Escape([string]$evidence.SourcePath) -and
+        $selectionJson -notmatch [regex]::Escape([string]$evidence.DiskId))
+    Add-CheckResult -Name 'Detached VHDX zeigt Reattach und Clone fail-closed bis zur Evidence' -Success (
+        $evidence.DetachedSelection[0].AttachmentState -eq 'DETACHED' -and
+        @($evidence.DetachedSelection[0].LifecycleActions).Count -eq 2 -and
+        @($evidence.DetachedSelection[0].AvailableActions).Count -eq 0 -and
+        'CLEAN_DETACH_EVIDENCE_REQUIRED' -in @($evidence.DetachedSelection[0].Issues) -and
+        'TARGET_BINDING_EVIDENCE_REQUIRED' -in @($evidence.DetachedSelection[0].Issues) -and
+        -not $evidence.DetachedSelection[0].DatabaseFilesOnline)
+    Add-CheckResult -Name 'Attached VHDX zeigt Release und fehlende Runtime bleibt explizit' -Success (
+        $evidence.AttachedSelection[0].AttachmentState -eq 'ATTACHED' -and
+        @($evidence.AttachedSelection[0].LifecycleActions) -contains 'RELEASE' -and
+        'CLEAN_DETACH_EVIDENCE_REQUIRED' -in @($evidence.AttachedSelection[0].Issues) -and
+        'HYPERV_RUNTIME_NOT_INSPECTED' -in @($evidence.UninspectedSelection[0].Issues))
 }
 catch {
     Add-CheckResult -Name 'Hyper-V Persistent Data Drive Testausfuehrung' -Success $false -Message $_.Exception.Message

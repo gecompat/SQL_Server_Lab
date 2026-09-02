@@ -61,6 +61,7 @@ function Get-SqlServerLabWorkflow {
     $databasePackageLibrary = @()
     $persistentStorageRemovalCandidates = @()
     $containerInstanceStoreCandidates = @()
+    $hyperVPersistentDataCandidates = @()
     $mediaSources = @()
     $hyperVLabs = @()
     $hyperVSwitches = @()
@@ -168,9 +169,12 @@ function Get-SqlServerLabWorkflow {
                     }
                 }
             )
+            $hyperVPersistentDataCandidates = @(Get-LabHyperVPersistentDataSelection `
+                -Configuration $storageConfiguration -Catalog $storageCatalog `
+                -InspectRuntime:([bool]($hyperV.Available -and $isElevated)))
         }
     }
-    catch { $persistentStorageRemovalCandidates = @(); $containerInstanceStoreCandidates = @() }
+    catch { $persistentStorageRemovalCandidates = @(); $containerInstanceStoreCandidates = @(); $hyperVPersistentDataCandidates = @() }
     if ($hyperV.Supported) {
         $hyperVLabs = @($activeRuns | Where-Object { [string]$_.metadata.workflowKind -eq 'hyperv-lab' } | ForEach-Object {
             $run = $_
@@ -360,6 +364,7 @@ function Get-SqlServerLabWorkflow {
         DatabasePackageLibrary = $databasePackageLibrary
         PersistentStorageRemovalCandidates = $persistentStorageRemovalCandidates
         ContainerInstanceStoreCandidates = $containerInstanceStoreCandidates
+        HyperVPersistentDataCandidates = $hyperVPersistentDataCandidates
         MediaSources = $mediaSources
         TemplatePool = $templatePool
         HyperVLabs = $hyperVLabs
