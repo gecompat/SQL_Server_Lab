@@ -90,15 +90,54 @@ Add-CheckResult -Name 'Refresh bindet bestehende SQL-Volumes statt neue Namen ab
     @($replacementBinding.drives | Where-Object containerPath -eq '/sys/fs/cgroup').Count -eq 0 -and
     $source -match '-ContainerName \$name'
 )
+$baseImageReplacementBinding = & $module {
+    $instance = [PSCustomObject]@{
+        id='external-runtime'; drives=@(
+            [PSCustomObject]@{ id='runtime-mssql'; containerPath='/var/opt/mssql'; persistence='run-scoped-runtime-volume' },
+            [PSCustomObject]@{ id='data'; containerPath='/sqldata'; persistence='run-scoped-runtime-volume' },
+            [PSCustomObject]@{ id='scripts'; containerPath='/scripts'; hostPath='/host/scripts'; readOnly=$true }
+        )
+    }
+    New-LabExternalRuntimeReplacementInstance -ResolvedInstance $instance -ExcludeExternalRuntimeVolumes `
+        -ContainerInspect ([PSCustomObject]@{
+            Mounts=@(
+                [PSCustomObject]@{ Type='volume'; Name='stable-system-volume'; Destination='/var/opt/mssql' },
+                [PSCustomObject]@{ Type='volume'; Name='stable-external-languages-volume'; Destination='/var/opt/mssql-extensibility/externallanguages' },
+                [PSCustomObject]@{ Type='volume'; Name='stable-external-libraries-volume'; Destination='/var/opt/mssql-extensibility/externallibraries' },
+                [PSCustomObject]@{ Type='volume'; Name='stable-data-volume'; Destination='/sqldata' },
+                [PSCustomObject]@{ Type='bind'; Source='/host/scripts'; Destination='/scripts'; RW=$false },
+                [PSCustomObject]@{ Type='bind'; Source='/host/backups'; Destination='/var/opt/mssql/backup'; RW=$true }
+            )
+        })
+}
+Add-CheckResult -Name 'Basisimage-Rueckweg haengt nur External-Runtime-Sidecars aus' -Success (
+    @($baseImageReplacementBinding.drives | Where-Object containerPath -eq '/var/opt/mssql')[0].volumeName -eq 'stable-system-volume' -and
+    @($baseImageReplacementBinding.drives | Where-Object containerPath -eq '/sqldata')[0].volumeName -eq 'stable-data-volume' -and
+    @($baseImageReplacementBinding.drives | Where-Object containerPath -eq '/scripts')[0].hostPath -eq '/host/scripts' -and
+    @($baseImageReplacementBinding.drives | Where-Object containerPath -eq '/var/opt/mssql/backup')[0].hostPath -eq '/host/backups' -and
+    @($baseImageReplacementBinding.drives | Where-Object { [string]$_.containerPath -in @(
+        '/var/opt/mssql-extensibility/externallanguages',
+        '/var/opt/mssql-extensibility/externallibraries'
+    ) }).Count -eq 0
+)
 Add-CheckResult -Name 'External-Runtime-Reconcile akzeptiert alle drei aktiven SQL-Versionen für Docker und Podman' -Success (
     $reconcileSource -match "Version -notin @\('2019', '2022', '2025'\)" -and
     $reconcileSource -match "Provider -notin @\('docker', 'podman'\)"
 )
 Add-CheckResult -Name 'Atomarer Ersatz ignoriert ausschließlich den exakt benannten gestoppten Rollback-Container' -Success (
-    $reconcileSource -match '-EndpointBindingIgnoreContainerName \$backupName' -and
+    $reconcileSource -match 'EndpointBindingIgnoreContainerName=\$backupName' -and
     $newLabSource -match '-EndpointBindingIgnoreContainerName \$EndpointBindingIgnoreContainerName' -and
     $dockerSource -match 'StartsWith\("docker:\$EndpointBindingIgnoreContainerName \("' -and
     $podmanSource -match 'StartsWith\("podman:\$EndpointBindingIgnoreContainerName \("'
+)
+Add-CheckResult -Name 'Letzte Entfernung baut kein Derived Image und entfernt Runtime-State erst nach SQL-Postcondition' -Success (
+    $reconcileSource -match '(?s)if \(\$context\.ImagePlan\).*?Invoke-LabExternalRuntimeContainerImageBuild' -and
+    $reconcileSource -match 'if \(\$artifact\) \{ \$newContainerParameters\.ContainerImageArtifact = \$artifact \}' -and
+    $reconcileSource -match 'Disable-LabExternalRuntimes' -and
+    $lifecycleSource -match "external scripts enabled', 0" -and
+    $lifecycleSource -match 'SQLLAB_EXTERNAL_SCRIPTS\|0\|0' -and
+    $reconcileSource.IndexOf('Disable-LabExternalRuntimes') -lt $reconcileSource.IndexOf("Properties.Remove('externalRuntime')") -and
+    $reconcileSource.IndexOf("Properties.Remove('externalRuntime')") -lt $stateCommitIndex
 )
 
 $initialInstallBinding = & $module {
@@ -357,10 +396,19 @@ try {
         @($removalPlan.Diff | Where-Object SoftwareId -eq 'sql-r').Count -eq 1 -and
         $removalPlan.HighestChangeClass -eq 'recreate'
     )
-    $lastRemovalRejected = $false
-    try { $null = Get-SqlServerLabReconcilePlan -RunId $fixture.RunId -ManifestPath $lastRemovalManifestPath -InstanceId external-runtime -StateRoot $fixture.StateRoot }
-    catch { $lastRemovalRejected = $_.Exception.Message -match 'LAST_RUNTIME_REMOVAL_UNSUPPORTED' }
-    Add-CheckResult -Name 'Entfernung der letzten Runtime bleibt bis zum Basisimage-Rueckweg fail-closed' -Success $lastRemovalRejected
+    $lastRemovalPlan = Get-SqlServerLabReconcilePlan -RunId $fixture.RunId -ManifestPath $lastRemovalManifestPath `
+        -InstanceId external-runtime -StateRoot $fixture.StateRoot
+    Add-CheckResult -Name 'Entfernung der letzten Runtime plant den sanitisierten Basisimage-Rueckweg' -Success (
+        @($lastRemovalPlan.Actions).Count -eq 1 -and
+        $lastRemovalPlan.Actions[0].Operation -eq 'RemoveExternalRuntime' -and
+        $null -eq $lastRemovalPlan.Actions[0].ImageKey -and
+        $null -eq $lastRemovalPlan.Desired.ImageKey -and
+        @($lastRemovalPlan.Desired.PlanKeys).Count -eq 0 -and
+        @($lastRemovalPlan.Desired.Software).Count -eq 0 -and
+        @($lastRemovalPlan.Diff | Where-Object { $_.SoftwareId -eq 'sql-python' -and $_.ChangeClassification.Intent -eq 'remove' }).Count -eq 1 -and
+        @($lastRemovalPlan.Warnings | Where-Object { $_ -match 'katalogisierte SQL-Basisimage' }).Count -eq 1 -and
+        (($lastRemovalPlan | ConvertTo-Json -Depth 30) -notmatch 'secret-host|secret-container|14331|last-removal\.json')
+    )
 }
 finally {
     if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -Recurse -Force }
