@@ -19,11 +19,18 @@ function Get-LabMediaSourceCatalog {
 
     $sources = @(
         [PSCustomObject]@{
-            Id = 'windows-server-evaluation'; Category = 'Windows Server'; DisplayName = 'Windows Server Evaluation'
-            Url = 'https://www.microsoft.com/evalcenter/evaluate-windows-server'
-            Acquisition = 'MANUAL_PORTAL_SELECTION'; TargetRelativePath = 'WindowsServer/<Version>/Eval/ISO (empfohlen; freie Unterordner sind zulässig)'
+            Id = 'windows-server-evaluation'; Category = 'Windows Server'; DisplayName = 'Windows Server 2025 Evaluation'
+            Url = 'https://www.microsoft.com/en-us/evalcenter/download-windows-server-2025'
+            Acquisition = 'MANUAL_PORTAL_SELECTION'; TargetRelativePath = 'WindowsServer/2025/Eval/ISO'
             BootInteraction = [PSCustomObject]@{ InitialMediaKey = 'space' }
-            Note = 'Im Evaluation Center ISO, Version und Sprache auswählen. Die Erkennung ist nicht an WindowsServer gebunden und bietet die ISO unabhängig vom Unterordner automatisch an.'
+            Note = 'Im Evaluation Center ISO, 64-bit und Sprache auswählen. Für den ersten Windows-Builder wird English (United States) empfohlen.'
+        }
+        [PSCustomObject]@{
+            Id = 'windows-server-2022-evaluation'; Category = 'Windows Server'; DisplayName = 'Windows Server 2022 Evaluation'
+            Url = 'https://www.microsoft.com/en-us/evalcenter/download-windows-server-2022'
+            Acquisition = 'MANUAL_PORTAL_SELECTION'; TargetRelativePath = 'WindowsServer/2022/Eval/ISO'
+            BootInteraction = [PSCustomObject]@{ InitialMediaKey = 'space' }
+            Note = 'Im Evaluation Center ISO, 64-bit und Sprache auswählen. Die ISO mit Originaldateinamen in diesen Ordner ablegen.'
         }
         [PSCustomObject]@{
             Id = 'ubuntu-server'; Category = 'Linux'; DisplayName = 'Ubuntu Server'
