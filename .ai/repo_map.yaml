@@ -182,7 +182,7 @@ sources_of_truth:
   validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
-  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-08-29.md
+  latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-09-02.md
   test_environment_group_lifecycle_validation: Documentation/Quality/VALIDATION_RESULT_2026-08-29_TEST_ENVIRONMENT_GROUP_LIFECYCLE.md
   repository_continuity_runbook: Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md
 
@@ -964,6 +964,8 @@ validation:
       - catalog_failure_blocks_completion
       - central_host_tool_resolution
       - public_cli_browser_selection
+      - external_runtime_sidecar_role_binding
+      - incomplete_sidecar_group_fail_closed
   static_container_runtime_scope:
     command: '.\Tests\Static\Invoke-ContainerRuntimeScopeChecks.ps1'
     source: Tests/Static/Invoke-ContainerRuntimeScopeChecks.ps1
@@ -1157,7 +1159,7 @@ validation:
     source: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance.ps1
     docker: '.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider docker'
     podman: '.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider podman'
-    execution_status: "Docker und Podman am 2026-09-01 getrennt positiv ausgefuehrt; Datenbankreferenz-Lifecycle bestaetigt und test-eigene Ressourcen vollstaendig bereinigt"
+    execution_status: "Docker und Podman am 2026-09-02 getrennt positiv ausgefuehrt; Mehr-Volume-Continue/Clone, Datenbankreferenz-Lifecycle und vollstaendiger Cleanup bestaetigt"
     checks:
       - stable_id_continue_selection
       - server_state_after_recreate
@@ -1167,6 +1169,9 @@ validation:
       - persistent_data_database_reference_lifecycle
       - user_database_online_readiness
       - server_and_user_data_live_in_clone
+      - external_runtime_sidecar_continue_binding
+      - external_runtime_sidecar_digest_verified_clone
+      - central_provider_tool_resolution
   container_runtime_scope_acceptance:
     source: Tests/Integration/Invoke-ContainerRuntimeScopeAcceptance.ps1
     command: '.\Tests\Integration\Invoke-ContainerRuntimeScopeAcceptance.ps1'
@@ -1234,10 +1239,10 @@ validation:
     static_push_trigger: true
     runtime_push_trigger: false
   last_confirmed_result:
-    date: "2026-08-29"
-    source: Documentation/Quality/VALIDATION_RESULT_2026-08-29.md
-    docker: "PASS – SQL-2019-Java sowie SQL-2025-Python/R/Java einschließlich Refresh, Java-Removal, Persistenz, Restart und Cleanup; SQL-2022-Befund vom 2026-08-28 bleibt gültig"
-    podman: "PASS – SQL-2019-Java sowie SQL-2025-Python/R/Java einschließlich Refresh, Java-Removal, Persistenz, Restart und Cleanup; SQL-2022-Befund vom 2026-08-28 bleibt gültig"
+    date: "2026-09-02"
+    source: Documentation/Quality/VALIDATION_RESULT_2026-09-02.md
+    docker: "PASS – PSR-005-Mehr-Volume-Continue/Clone einschließlich Sidecar-Digests und Live-SQL; External-Runtime-Befunde vom 2026-08-28/29 bleiben gültig"
+    podman: "PASS – PSR-005-Mehr-Volume-Continue/Clone einschließlich Sidecar-Digests und Live-SQL; External-Runtime-Befunde vom 2026-08-28/29 bleiben gültig"
     hyperv: "PASS (übernommen vom 2026-08-27-Befund) – frischer Windows-Slot, SQL Server 2025, Lifecycle, Persistenz und Cleanup"
 
 change_coupling:

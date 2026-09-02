@@ -21,6 +21,22 @@ function Test-LabContainerInstanceStoreIntent {
     return $true
 }
 
+function Get-LabContainerInstanceStoreSidecarDefinitions {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$BaseVolumeName)
+
+    @(
+        [PSCustomObject]@{
+            Role='EXTERNAL_LANGUAGES'; ContainerPath='/var/opt/mssql-extensibility/externallanguages'
+            VolumeName="${BaseVolumeName}-external-languages"
+        },
+        [PSCustomObject]@{
+            Role='EXTERNAL_LIBRARIES'; ContainerPath='/var/opt/mssql-extensibility/externallibraries'
+            VolumeName="${BaseVolumeName}-external-libraries"
+        }
+    )
+}
+
 function Get-LabContainerInstanceStoreRuntimeInspection {
     [CmdletBinding()]
     param(
@@ -50,7 +66,8 @@ function Get-LabContainerInstanceStorePlan {
     param(
         [Parameter(Mandatory)]$Intent,
         [Parameter(Mandatory)]$Catalog,
-        [Parameter(Mandatory)]$RuntimeInspection
+        [Parameter(Mandatory)]$RuntimeInspection,
+        [array]$SidecarRuntimeInspection = @()
     )
 
     $null = Test-LabContainerInstanceStoreIntent -Intent $Intent
@@ -106,6 +123,43 @@ function Get-LabContainerInstanceStorePlan {
     if ($sourceSqlMajor -notmatch '^\d{4}$') { $issues.Add('SOURCE_SQL_VERSION_UNVERIFIED') }
     elseif ($sourceSqlMajor -ne [string]$Intent.TargetSqlMajorVersion) { $issues.Add('SOURCE_SQL_VERSION_INCOMPATIBLE') }
 
+    $sourceSidecars = @()
+    if ([bool]$Intent.IncludeExternalRuntimeSidecars) {
+        $sidecarDefinitions = if ([string]::IsNullOrWhiteSpace($expectedVolumeName)) {
+            $issues.Add('SOURCE_SIDECAR_GROUP_UNRESOLVED')
+            @()
+        }
+        else { @(Get-LabContainerInstanceStoreSidecarDefinitions -BaseVolumeName $expectedVolumeName) }
+        foreach ($definition in $sidecarDefinitions) {
+            $matches = @($SidecarRuntimeInspection | Where-Object {
+                [string]$_.VolumeName -eq [string]$definition.VolumeName
+            })
+            $inspection = if ($matches.Count -eq 1) { $matches[0] } else { $null }
+            if ($matches.Count -ne 1 -or [string]$inspection.Status -ne 'AVAILABLE') {
+                $issues.Add("SOURCE_SIDECAR_$([string]$definition.Role)_NOT_OBSERVED")
+            }
+            elseif ([string]$inspection.Provider -ne [string]$Intent.Provider -or
+                [string]$inspection.VolumeName -ne [string]$definition.VolumeName) {
+                $issues.Add("SOURCE_SIDECAR_$([string]$definition.Role)_IDENTITY_MISMATCH")
+            }
+            if ($inspection -and @($inspection.AttachedContainers).Count -gt 0) {
+                $issues.Add("SOURCE_SIDECAR_$([string]$definition.Role)_ATTACHED")
+            }
+            if ($inspection -and
+                ([string]$inspection.Labels.'sql-server-lab.persistent-storage-id' -ne [string]$Intent.SourcePersistentStorageId -or
+                 [string]$inspection.Labels.'sql-server-lab.sql-major-version' -ne [string]$Intent.TargetSqlMajorVersion -or
+                 [string]$inspection.Labels.'sql-server-lab.storage-role' -ne [string]$definition.Role)) {
+                $issues.Add("SOURCE_SIDECAR_$([string]$definition.Role)_LABEL_MISMATCH")
+            }
+            $sourceSidecars += [PSCustomObject]@{
+                Role=[string]$definition.Role; ContainerPath=[string]$definition.ContainerPath
+                VolumeName=[string]$definition.VolumeName
+                VolumeId=if ($inspection -and $inspection.VolumeId) { [string]$inspection.VolumeId } else { $null }
+                AttachedContainers=@($inspection.AttachedContainers | Where-Object { $_ })
+            }
+        }
+    }
+
     if ([string]$Intent.Action -eq 'CLONE') {
         if ([string]$Intent.TargetPersistentStorageId -eq [string]$Intent.SourcePersistentStorageId) { $issues.Add('TARGET_STORAGE_ID_REUSED') }
         if ([string]$Intent.TargetVolumeName -eq $expectedVolumeName) { $issues.Add('TARGET_VOLUME_NAME_REUSED') }
@@ -139,17 +193,28 @@ function Get-LabContainerInstanceStorePlan {
             PersistentStorageId=[string]$Intent.SourcePersistentStorageId; VolumeName=$expectedVolumeName
             VolumeId=if ($RuntimeInspection.VolumeId) { [string]$RuntimeInspection.VolumeId } else { $null }
             State=if ($store) { [string]$store.State } else { $null }; SqlMajorVersion=if ($sourceSqlMajor) { $sourceSqlMajor } else { $null }
-            AttachedContainers=@($RuntimeInspection.AttachedContainers)
+            AttachedContainers=@($RuntimeInspection.AttachedContainers); Sidecars=@($sourceSidecars)
         }
         Target=if ([string]$Intent.Action -eq 'CLONE') {
-            [PSCustomObject]@{ PersistentStorageId=[string]$Intent.TargetPersistentStorageId; VolumeName=[string]$Intent.TargetVolumeName; RunId=[string]$Intent.TargetRunId; ScopeId=[string]$Intent.TargetScopeId; SqlMajorVersion=[string]$Intent.TargetSqlMajorVersion; HelperImage=[string]$Intent.HelperImage }
+            [PSCustomObject]@{
+                PersistentStorageId=[string]$Intent.TargetPersistentStorageId; VolumeName=[string]$Intent.TargetVolumeName
+                RunId=[string]$Intent.TargetRunId; ScopeId=[string]$Intent.TargetScopeId
+                SqlMajorVersion=[string]$Intent.TargetSqlMajorVersion; HelperImage=[string]$Intent.HelperImage
+                Sidecars=@(if ([bool]$Intent.IncludeExternalRuntimeSidecars) {
+                    Get-LabContainerInstanceStoreSidecarDefinitions -BaseVolumeName ([string]$Intent.TargetVolumeName) | ForEach-Object {
+                        [PSCustomObject]@{ Role=[string]$_.Role; ContainerPath=[string]$_.ContainerPath; VolumeName=[string]$_.VolumeName; VolumeId=$null; AttachedContainers=@() }
+                    }
+                })
+            }
         } else { $null }
         Steps=$steps; Blockers=$blockers
         Preview=[PSCustomObject]@{ SourceMutation=$false; SourceDeletion=$false; TargetCreated=([string]$Intent.Action -eq 'CLONE'); RequiresDetachedSource=$true; CatalogCommitRequired=([string]$Intent.Action -eq 'CLONE') }
     }
     $schemaPath = Join-Path $script:SchemasPath 'container-instance-store-plan.schema.json'
-    if (-not (($plan | ConvertTo-Json -Depth 30) | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)) {
-        throw 'CONTAINER_INSTANCE_STORE_PLAN_SCHEMA_INVALID'
+    $schemaErrors = @()
+    if (-not (($plan | ConvertTo-Json -Depth 30) | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue -ErrorVariable +schemaErrors)) {
+        $detail = @($schemaErrors | ForEach-Object { $_.Exception.Message } | Where-Object { $_ } | Select-Object -First 1)
+        throw "CONTAINER_INSTANCE_STORE_PLAN_SCHEMA_INVALID$(if ($detail.Count -eq 1) { ": $($detail[0])" })"
     }
     return $plan
 }
@@ -166,7 +231,8 @@ function New-LabContainerInstanceStoreSelectionPlan {
         [Parameter(Mandatory)][string]$TargetSqlVersion,
         [Parameter(Mandatory)]$Configuration,
         [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$OperationId,
-        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$TargetPersistentStorageId
+        [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$TargetPersistentStorageId,
+        [switch]$IncludeExternalRuntimeSidecars
     )
 
     if ($TargetSqlVersion.Length -lt 4 -or $TargetSqlVersion.Substring(0,4) -notmatch '^\d{4}$') {
@@ -191,6 +257,12 @@ function New-LabContainerInstanceStoreSelectionPlan {
             Labels=[PSCustomObject]@{}; AttachedContainers=@()
         }
     }
+    $sidecarRuntimeInspection = if ($IncludeExternalRuntimeSidecars -and $sourceStores.Count -eq 1 -and $sourceVolumeName) {
+        @(Get-LabContainerInstanceStoreSidecarDefinitions -BaseVolumeName $sourceVolumeName | ForEach-Object {
+            Get-LabContainerInstanceStoreRuntimeInspection -Provider $Provider -VolumeName ([string]$_.VolumeName)
+        })
+    }
+    else { @() }
 
     $resolvedOperationId = if ($OperationId) { $OperationId } else { [Guid]::NewGuid().ToString('D') }
     $resolvedTargetStorageId = if ($Action -eq 'CLONE') {
@@ -207,8 +279,10 @@ function New-LabContainerInstanceStoreSelectionPlan {
         TargetPersistentStorageId=$resolvedTargetStorageId; TargetVolumeName=$targetVolumeName; Provider=$Provider
         TargetRunId=$TargetRunId; TargetScopeId=$TargetScopeId; TargetSqlMajorVersion=$sqlMajorVersion
         HelperImage=if ($Action -eq 'CLONE') { Get-SqlServerDockerImage -VersionId $TargetSqlVersion } else { $null }
+        IncludeExternalRuntimeSidecars=[bool]$IncludeExternalRuntimeSidecars
     }
-    return Get-LabContainerInstanceStorePlan -Intent $intent -Catalog $catalog -RuntimeInspection $runtimeInspection
+    return Get-LabContainerInstanceStorePlan -Intent $intent -Catalog $catalog -RuntimeInspection $runtimeInspection `
+        -SidecarRuntimeInspection $sidecarRuntimeInspection
 }
 
 function Get-LabContainerInstanceStoreDriveBinding {
@@ -296,15 +370,40 @@ function Invoke-LabContainerInstanceStoreClone {
             Provider=[string]$Plan.Provider; Status='PREPARED'
             Source=[PSCustomObject]@{ PersistentStorageId=[string]$Plan.Source.PersistentStorageId; VolumeName=[string]$Plan.Source.VolumeName; VolumeId=[string]$Plan.Source.VolumeId; Evidence=$null }
             Target=[PSCustomObject]@{ PersistentStorageId=[string]$Plan.Target.PersistentStorageId; VolumeName=[string]$Plan.Target.VolumeName; VolumeId=$null; Evidence=$null }
+            Sidecars=@($Plan.Source.Sidecars | ForEach-Object {
+                $sourceSidecar = $_
+                $targetSidecar = @($Plan.Target.Sidecars | Where-Object Role -eq ([string]$sourceSidecar.Role))[0]
+                [PSCustomObject]@{
+                    Role=[string]$sourceSidecar.Role; ContainerPath=[string]$sourceSidecar.ContainerPath
+                    Source=[PSCustomObject]@{ PersistentStorageId=[string]$Plan.Source.PersistentStorageId; VolumeName=[string]$sourceSidecar.VolumeName; VolumeId=[string]$sourceSidecar.VolumeId; Evidence=$null }
+                    Target=[PSCustomObject]@{ PersistentStorageId=[string]$Plan.Target.PersistentStorageId; VolumeName=[string]$targetSidecar.VolumeName; VolumeId=$null; Evidence=$null }
+                }
+            })
             TargetRunId=[string]$Plan.Target.RunId; TargetScopeId=[string]$Plan.Target.ScopeId
             SqlMajorVersion=[string]$Plan.Target.SqlMajorVersion; HelperImage=[string]$Plan.Target.HelperImage
             Recovery=[PSCustomObject]@{ Status='RETRY_CLONE'; Attempts=0; ErrorCode=$null; Errors=@() }; UpdatedAt=Get-LabTimestamp
         }
     }
+    if (-not $journal.PSObject.Properties['Sidecars']) {
+        # Bereits begonnene Main-Volume-Clones aus Vertrag 1.0 bleiben ohne
+        # stillen Scopewechsel fortsetzbar. Sidecars werden niemals nachträglich
+        # in eine bestehende Operation aufgenommen.
+        $journal | Add-Member -NotePropertyName Sidecars -NotePropertyValue @()
+    }
     if ([string]$journal.OperationId -ne [string]$Plan.OperationId -or [string]$journal.Provider -ne [string]$Plan.Provider -or
         [string]$journal.Source.PersistentStorageId -ne [string]$Plan.Source.PersistentStorageId -or
-        [string]$journal.Target.PersistentStorageId -ne [string]$Plan.Target.PersistentStorageId) {
+        [string]$journal.Target.PersistentStorageId -ne [string]$Plan.Target.PersistentStorageId -or
+        @($journal.Sidecars).Count -ne @($Plan.Source.Sidecars).Count) {
         throw 'CONTAINER_INSTANCE_STORE_JOURNAL_IDENTITY_MISMATCH'
+    }
+    foreach ($sidecar in @($Plan.Source.Sidecars)) {
+        $journalSidecar = @($journal.Sidecars | Where-Object Role -eq ([string]$sidecar.Role))
+        $targetSidecar = @($Plan.Target.Sidecars | Where-Object Role -eq ([string]$sidecar.Role))
+        if ($journalSidecar.Count -ne 1 -or $targetSidecar.Count -ne 1 -or
+            [string]$journalSidecar[0].Source.VolumeName -ne [string]$sidecar.VolumeName -or
+            [string]$journalSidecar[0].Target.VolumeName -ne [string]$targetSidecar[0].VolumeName) {
+            throw 'CONTAINER_INSTANCE_STORE_JOURNAL_IDENTITY_MISMATCH'
+        }
     }
     if ([string]$journal.Status -eq 'COMPLETED') {
         $null = Register-LabContainerInstanceStoreClone -Plan $Plan -Journal $journal -Configuration $Configuration
@@ -314,58 +413,88 @@ function Invoke-LabContainerInstanceStoreClone {
     $journal.Recovery.Attempts = [int]$journal.Recovery.Attempts + 1
     try {
         $null = Set-LabContainerInstanceStoreCloneLease -Plan $Plan -Configuration $Configuration
-        $source = Get-LabContainerInstanceStoreRuntimeInspection -Provider ([string]$Plan.Provider) -VolumeName ([string]$Plan.Source.VolumeName)
-        if ([string]$source.Status -ne 'AVAILABLE' -or [string]$source.VolumeId -ne [string]$Plan.Source.VolumeId -or
-            @($source.AttachedContainers).Count -gt 0 -or
-            [string]$source.Labels.'sql-server-lab.persistent-storage-id' -ne [string]$Plan.Source.PersistentStorageId) {
-            throw 'CONTAINER_INSTANCE_STORE_SOURCE_REVALIDATION_FAILED'
-        }
-        $sourceEvidence = Get-LabContainerVolumeContentEvidence -Provider ([string]$Plan.Provider) -VolumeName ([string]$Plan.Source.VolumeName) -HelperImage ([string]$Plan.Target.HelperImage)
-        if ($journal.Source.Evidence -and [string]$journal.Source.Evidence.Sha256 -ne [string]$sourceEvidence.Sha256) {
-            throw 'CONTAINER_INSTANCE_STORE_SOURCE_DRIFTED'
-        }
-        $journal.Source.Evidence = $sourceEvidence
+        $copies = @([PSCustomObject]@{
+            Role='SYSTEM'; SourcePlan=$Plan.Source; TargetPlan=$Plan.Target
+            SourceJournal=$journal.Source; TargetJournal=$journal.Target
+        }) + @($Plan.Source.Sidecars | ForEach-Object {
+            $sourcePlan = $_
+            $targetPlan = @($Plan.Target.Sidecars | Where-Object Role -eq ([string]$sourcePlan.Role))[0]
+            $sidecarJournal = @($journal.Sidecars | Where-Object Role -eq ([string]$sourcePlan.Role))[0]
+            [PSCustomObject]@{
+                Role=[string]$sourcePlan.Role; SourcePlan=$sourcePlan; TargetPlan=$targetPlan
+                SourceJournal=$sidecarJournal.Source; TargetJournal=$sidecarJournal.Target
+            }
+        })
 
-        $target = Get-LabContainerInstanceStoreRuntimeInspection -Provider ([string]$Plan.Provider) -VolumeName ([string]$Plan.Target.VolumeName)
-        if ([string]$target.Status -eq 'MISSING') {
-            $null = Invoke-LabContainerInstanceStoreRuntimeCommand -Provider ([string]$Plan.Provider) -Arguments @(
-                'volume','create',
-                '--label',"sql-server-lab.persistent-storage-id=$([string]$Plan.Target.PersistentStorageId)",
-                '--label',"sql-server-lab.clone-source-id=$([string]$Plan.Source.PersistentStorageId)",
-                '--label',"sql-server-lab.operation-id=$([string]$Plan.OperationId)",
-                '--label',"sql-server-lab.run-id=$([string]$Plan.Target.RunId)",
-                '--label',"sql-server-lab.scope-id=$([string]$Plan.Target.ScopeId)",
-                '--label',"sql-server-lab.sql-major-version=$([string]$Plan.Target.SqlMajorVersion)",
-                '--label','sql-server-lab.retention=retained',
-                [string]$Plan.Target.VolumeName
-            ) -ErrorCode 'CONTAINER_INSTANCE_STORE_TARGET_CREATE_FAILED'
-            $target = Get-LabContainerInstanceStoreRuntimeInspection -Provider ([string]$Plan.Provider) -VolumeName ([string]$Plan.Target.VolumeName)
+        foreach ($copy in $copies) {
+            $source = Get-LabContainerInstanceStoreRuntimeInspection -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.SourcePlan.VolumeName)
+            $sourceRoleValid = [string]$copy.Role -eq 'SYSTEM' -or
+                [string]$source.Labels.'sql-server-lab.storage-role' -eq [string]$copy.Role
+            if ([string]$source.Status -ne 'AVAILABLE' -or [string]$source.VolumeId -ne [string]$copy.SourcePlan.VolumeId -or
+                @($source.AttachedContainers).Count -gt 0 -or -not $sourceRoleValid -or
+                [string]$source.Labels.'sql-server-lab.persistent-storage-id' -ne [string]$Plan.Source.PersistentStorageId -or
+                [string]$source.Labels.'sql-server-lab.sql-major-version' -ne [string]$Plan.Target.SqlMajorVersion) {
+                throw 'CONTAINER_INSTANCE_STORE_SOURCE_REVALIDATION_FAILED'
+            }
+            $sourceEvidence = Get-LabContainerVolumeContentEvidence -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.SourcePlan.VolumeName) -HelperImage ([string]$Plan.Target.HelperImage)
+            if ($copy.SourceJournal.Evidence -and [string]$copy.SourceJournal.Evidence.Sha256 -ne [string]$sourceEvidence.Sha256) {
+                throw 'CONTAINER_INSTANCE_STORE_SOURCE_DRIFTED'
+            }
+            $copy.SourceJournal.Evidence = $sourceEvidence
+
+            $target = Get-LabContainerInstanceStoreRuntimeInspection -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.TargetPlan.VolumeName)
+            if ([string]$target.Status -eq 'MISSING') {
+                $arguments = @(
+                    'volume','create',
+                    '--label',"sql-server-lab.persistent-storage-id=$([string]$Plan.Target.PersistentStorageId)",
+                    '--label',"sql-server-lab.clone-source-id=$([string]$Plan.Source.PersistentStorageId)",
+                    '--label',"sql-server-lab.operation-id=$([string]$Plan.OperationId)",
+                    '--label',"sql-server-lab.run-id=$([string]$Plan.Target.RunId)",
+                    '--label',"sql-server-lab.scope-id=$([string]$Plan.Target.ScopeId)",
+                    '--label',"sql-server-lab.sql-major-version=$([string]$Plan.Target.SqlMajorVersion)",
+                    '--label','sql-server-lab.retention=retained'
+                )
+                if ([string]$copy.Role -ne 'SYSTEM') {
+                    $arguments += @('--label',"sql-server-lab.storage-role=$([string]$copy.Role)")
+                }
+                $arguments += [string]$copy.TargetPlan.VolumeName
+                $null = Invoke-LabContainerInstanceStoreRuntimeCommand -Provider ([string]$Plan.Provider) `
+                    -Arguments $arguments -ErrorCode 'CONTAINER_INSTANCE_STORE_TARGET_CREATE_FAILED'
+                $target = Get-LabContainerInstanceStoreRuntimeInspection -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.TargetPlan.VolumeName)
+            }
+            $targetRoleValid = [string]$copy.Role -eq 'SYSTEM' -or
+                [string]$target.Labels.'sql-server-lab.storage-role' -eq [string]$copy.Role
+            if ([string]$target.Status -ne 'AVAILABLE' -or @($target.AttachedContainers).Count -gt 0 -or -not $targetRoleValid -or
+                [string]$target.Labels.'sql-server-lab.persistent-storage-id' -ne [string]$Plan.Target.PersistentStorageId -or
+                [string]$target.Labels.'sql-server-lab.operation-id' -ne [string]$Plan.OperationId) {
+                throw 'CONTAINER_INSTANCE_STORE_TARGET_SCOPE_MISMATCH'
+            }
+            $copy.TargetJournal.VolumeId = [string]$target.VolumeId
         }
-        if ([string]$target.Status -ne 'AVAILABLE' -or @($target.AttachedContainers).Count -gt 0 -or
-            [string]$target.Labels.'sql-server-lab.persistent-storage-id' -ne [string]$Plan.Target.PersistentStorageId -or
-            [string]$target.Labels.'sql-server-lab.operation-id' -ne [string]$Plan.OperationId) {
-            throw 'CONTAINER_INSTANCE_STORE_TARGET_SCOPE_MISMATCH'
-        }
-        $journal.Target.VolumeId = [string]$target.VolumeId
         $journal.Status = 'TARGET_CREATED'
         $null = Write-LabContainerInstanceStoreJournal -Journal $journal -Path $path
 
         $copyScript = 'set -eu; find /target -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +; cp -a /source/. /target/'
-        $null = Invoke-LabContainerInstanceStoreRuntimeCommand -Provider ([string]$Plan.Provider) -Arguments @(
-            'run','--rm','--user','0:0','--entrypoint','/bin/sh',
-            '-v',"$([string]$Plan.Source.VolumeName):/source:ro",'-v',"$([string]$Plan.Target.VolumeName):/target",
-            [string]$Plan.Target.HelperImage,'-c',$copyScript
-        ) -ErrorCode 'CONTAINER_INSTANCE_STORE_COPY_FAILED'
+        foreach ($copy in $copies) {
+            $null = Invoke-LabContainerInstanceStoreRuntimeCommand -Provider ([string]$Plan.Provider) -Arguments @(
+                'run','--rm','--user','0:0','--entrypoint','/bin/sh',
+                '-v',"$([string]$copy.SourcePlan.VolumeName):/source:ro",'-v',"$([string]$copy.TargetPlan.VolumeName):/target",
+                [string]$Plan.Target.HelperImage,'-c',$copyScript
+            ) -ErrorCode 'CONTAINER_INSTANCE_STORE_COPY_FAILED'
+        }
         $journal.Status = 'CONTENT_COPIED'
         $null = Write-LabContainerInstanceStoreJournal -Journal $journal -Path $path
 
-        $sourceAfter = Get-LabContainerVolumeContentEvidence -Provider ([string]$Plan.Provider) -VolumeName ([string]$Plan.Source.VolumeName) -HelperImage ([string]$Plan.Target.HelperImage)
-        $targetEvidence = Get-LabContainerVolumeContentEvidence -Provider ([string]$Plan.Provider) -VolumeName ([string]$Plan.Target.VolumeName) -HelperImage ([string]$Plan.Target.HelperImage)
-        if ([string]$sourceAfter.Sha256 -ne [string]$sourceEvidence.Sha256 -or [long]$sourceAfter.FileCount -ne [long]$sourceEvidence.FileCount -or
-            [long]$sourceAfter.TotalBytes -ne [long]$sourceEvidence.TotalBytes) { throw 'CONTAINER_INSTANCE_STORE_SOURCE_DRIFTED' }
-        if ([string]$targetEvidence.Sha256 -ne [string]$sourceEvidence.Sha256 -or [long]$targetEvidence.FileCount -ne [long]$sourceEvidence.FileCount -or
-            [long]$targetEvidence.TotalBytes -ne [long]$sourceEvidence.TotalBytes) { throw 'CONTAINER_INSTANCE_STORE_POSTCONDITION_FAILED' }
-        $journal.Target.Evidence = $targetEvidence
+        foreach ($copy in $copies) {
+            $sourceEvidence = $copy.SourceJournal.Evidence
+            $sourceAfter = Get-LabContainerVolumeContentEvidence -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.SourcePlan.VolumeName) -HelperImage ([string]$Plan.Target.HelperImage)
+            $targetEvidence = Get-LabContainerVolumeContentEvidence -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.TargetPlan.VolumeName) -HelperImage ([string]$Plan.Target.HelperImage)
+            if ([string]$sourceAfter.Sha256 -ne [string]$sourceEvidence.Sha256 -or [long]$sourceAfter.FileCount -ne [long]$sourceEvidence.FileCount -or
+                [long]$sourceAfter.TotalBytes -ne [long]$sourceEvidence.TotalBytes) { throw 'CONTAINER_INSTANCE_STORE_SOURCE_DRIFTED' }
+            if ([string]$targetEvidence.Sha256 -ne [string]$sourceEvidence.Sha256 -or [long]$targetEvidence.FileCount -ne [long]$sourceEvidence.FileCount -or
+                [long]$targetEvidence.TotalBytes -ne [long]$sourceEvidence.TotalBytes) { throw 'CONTAINER_INSTANCE_STORE_POSTCONDITION_FAILED' }
+            $copy.TargetJournal.Evidence = $targetEvidence
+        }
         $journal.Status = 'VERIFIED'; $journal.Recovery.Status = 'NOT_REQUIRED'; $journal.Recovery.ErrorCode = $null
         $null = Write-LabContainerInstanceStoreJournal -Journal $journal -Path $path
         $null = Register-LabContainerInstanceStoreClone -Plan $Plan -Journal $journal -Configuration $Configuration

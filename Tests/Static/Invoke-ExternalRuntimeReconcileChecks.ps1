@@ -119,7 +119,13 @@ Add-CheckResult -Name 'Erstinstallation ergänzt neue External-Runtime-Volumes u
 )
 
 $persistentInstallBinding = & $module {
-    $instance = [PSCustomObject]@{ id='external-runtime'; drives=@() }
+    $storageId=[guid]::NewGuid().ToString('D')
+    $instance = [PSCustomObject]@{ id='external-runtime'; drives=@(
+        [PSCustomObject]@{
+            id='persistent-mssql'; containerPath='/var/opt/mssql'; volumeName='stable-persistent-system'
+            persistence='data-root-runtime-volume'; persistentStorageId=$storageId
+        }
+    ) }
     New-LabExternalRuntimeReplacementInstance -ResolvedInstance $instance -AllowNewExternalRuntimeVolumes -PersistentData `
         -ContainerInspect ([PSCustomObject]@{
             Mounts=@([PSCustomObject]@{ Type='volume'; Name='stable-persistent-system'; Destination='/var/opt/mssql' })
@@ -128,6 +134,9 @@ $persistentInstallBinding = & $module {
 Add-CheckResult -Name 'Erstinstallation in persistentem Lab verwendet langlebige Data-Root-Volume-Namen' -Success (
     @($persistentInstallBinding.drives | Where-Object containerPath -eq '/var/opt/mssql-extensibility/externallanguages')[0].volumeName -eq 'stable-persistent-system-external-languages' -and
     @($persistentInstallBinding.drives | Where-Object containerPath -eq '/var/opt/mssql-extensibility/externallibraries')[0].volumeName -eq 'stable-persistent-system-external-libraries' -and
+    @($persistentInstallBinding.drives | Where-Object persistentStorageRole -eq 'EXTERNAL_LANGUAGES').Count -eq 1 -and
+    @($persistentInstallBinding.drives | Where-Object persistentStorageRole -eq 'EXTERNAL_LIBRARIES').Count -eq 1 -and
+    @($persistentInstallBinding.drives | Where-Object { [string]$_.containerPath -like '*/external*' -and -not $_.persistentStorageId }).Count -eq 0 -and
     @($persistentInstallBinding.drives | Where-Object { [string]$_.containerPath -like '*/external*' -and [string]$_.persistence -ne 'data-root-runtime-volume' }).Count -eq 0
 )
 

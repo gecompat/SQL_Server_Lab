@@ -133,6 +133,7 @@ function Initialize-DockerSqlNamedVolume {
         [Parameter(Mandatory)][string]$InstanceId,
         [Parameter(Mandatory)][ValidatePattern('^/[A-Za-z0-9._/-]+$')][string]$ContainerPath,
         [string]$PersistentStorageId,
+        [ValidatePattern('^$|^(EXTERNAL_LANGUAGES|EXTERNAL_LIBRARIES)$')][string]$PersistentStorageRole,
         [string]$Persistence,
         [switch]$SyncImageContent
     )
@@ -148,6 +149,10 @@ function Initialize-DockerSqlNamedVolume {
             [string]$inspection.Labels.'sql-server-lab.sql-major-version' -ne $VersionId.Substring(0,4)) {
             throw "DOCKER_SQL_VOLUME_STABLE_ID_MISMATCH: $VolumeName"
         }
+        if ($PersistentStorageRole -and
+            [string]$inspection.Labels.'sql-server-lab.storage-role' -ne $PersistentStorageRole) {
+            throw "DOCKER_SQL_VOLUME_STORAGE_ROLE_MISMATCH: $VolumeName"
+        }
     }
 
     if (-not $volumeExists) {
@@ -159,6 +164,7 @@ function Initialize-DockerSqlNamedVolume {
         )
         if ($Persistence) { $labelArguments += @('--label', "sql-server-lab.persistence=$Persistence") }
         if ($PersistentStorageId) { $labelArguments += @('--label', "sql-server-lab.persistent-storage-id=$PersistentStorageId") }
+        if ($PersistentStorageRole) { $labelArguments += @('--label', "sql-server-lab.storage-role=$PersistentStorageRole") }
         $created = & $dockerInvocation volume create @labelArguments $VolumeName 2>&1
         if ($LASTEXITCODE -ne 0) {
             throw "DOCKER_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
@@ -249,6 +255,7 @@ function New-DockerInstance {
             $null = Initialize-DockerSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId -VersionId $VersionId -InstanceId $InstanceId `
                 -ContainerPath ([string]$drive.containerPath) `
                 -PersistentStorageId ([string]$drive.persistentStorageId) -Persistence ([string]$drive.persistence) `
+                -PersistentStorageRole ([string]$drive.persistentStorageRole) `
                 -SyncImageContent:($ExternalRuntimeLaunchMode -in @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1') -and
                     [string]$drive.containerPath -in @('/var/opt/mssql-extensibility/externallanguages','/var/opt/mssql-extensibility/externallibraries'))
         }

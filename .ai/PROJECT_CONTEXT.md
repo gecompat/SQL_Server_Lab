@@ -85,9 +85,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Löschung persistenter Stores ausdrücklich außerhalb des Run-Cleanups; der
   PSR-005-Core wählt detached Docker-/Podman-Instanzstores per stabiler ID und
   Runtime-Label, liefert Continue-Bindings und klont die Quelle read-only mit
-  Digest-Postcondition und wiederaufnehmbarem Journal; Docker und Podman sind
-  getrennt live belegt, während Katalog-Commit und öffentliche Bedienung offen
-  bleiben; `SqlServerLab.ContainerRuntimeScope/1.0` bindet zusätzlich den
+  Digest-Postcondition und wiederaufnehmbarem Journal; der Mehr-Volume-Vertrag
+  revalidiert und klont zusätzlich rollenfest gelabelte External-Language- und
+  External-Library-Sidecars. Docker und Podman sind einschließlich Katalogcommit
+  und öffentlicher Bedienung getrennt live belegt; unvollständige Legacy-
+  Sidecargruppen bleiben fail-closed; `SqlServerLab.ContainerRuntimeScope/1.0`
+  bindet zusätzlich den
   aktiven Docker-Context beziehungsweise die Podman-Connection/Machine an eine
   stabile sanitisierte Runtime-ID, weist geteilte Runtimes als
   `SHARED_EXTERNAL`/`REPORT_ONLY` aus und blockiert Relocation, Removal,

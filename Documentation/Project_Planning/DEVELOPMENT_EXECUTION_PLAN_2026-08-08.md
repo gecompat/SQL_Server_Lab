@@ -1084,8 +1084,11 @@ Der `PSR-005`-Core wählt katalogisierte detached Docker-/Podman-Instanzstores
 über stabile ID plus Runtime-Label, liefert ein Continue-Binding und klont eine
 read-only Quelle journalisiert mit Datei-/Byte-/SHA-256-Postcondition. Getrennte
 reale Docker- und Podman-Läufe bestätigen Server- und Benutzerdaten nach
-Recreate sowie im Clone; Katalog-Commit, Sidecars und öffentliche CLI/GUI-
-Anbindung bleiben offen.
+Recreate sowie im Clone. Der öffentliche CLI-/GUI-Flow, der atomare
+Katalogcommit und ein rollenfester Mehr-Volume-Vertrag für External-Language-
+und External-Library-Sidecars sind umgesetzt; beide Provider bestätigten am
+2026-09-02 zusätzlich Sidecar-Continue und den getrennt digestverifizierten
+Clone. Unvollständige Legacy-Gruppen bleiben fail-closed.
 Der read-only `PSR-006`-Slice bindet aktive Docker-Contexts sowie Podman-
 Connections/Machines an eine stabile sanitisierte Runtime-ID und klassifiziert
 bestehende Runtimes ohne Ownership-Evidence als `SHARED_EXTERNAL` und
