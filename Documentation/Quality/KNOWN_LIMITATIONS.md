@@ -421,10 +421,16 @@ Data Root mit versionsgetrennten Data-/Log-Bereichen und einer gemeinsamen
 Backup-Übergabeebene. `Backup-SqlServerLabDatabase` veröffentlicht vollständige
 Backups providerneutral erst nach SQL-Checksum, `RESTORE VERIFYONLY`, Host-Hash
 und sanitiertem Receipt in der inhaltsadressierten `Lab_Data`-Bibliothek; ein
-realer Docker→Podman-Restore mit Inhaltsdigest ist belegt. Noch offen sind die
-Retention-/Attach-/Clone-/Delete-Parität und ein realer FILESTREAM-Cross-
-Provider-Nachweis. Die öffentliche CLI und die lokale Workflow-UI wählen ein
-Restore-Backup inzwischen ausschließlich per stabiler `BackupSetId`; die
+realer Docker→Podman-Restore mit Inhaltsdigest ist belegt. Noch offen ist die
+Retention-/Attach-/Clone-/Delete-Parität. Ein FILESTREAM-Cross-Provider-Lauf
+ist in der aktuellen Matrix nicht möglich und deshalb `NOT_APPLICABLE`:
+Microsoft unterstützt FILESTREAM unter SQL Server auf Linux nicht, sodass
+Docker und Podman kein FILESTREAM-fähiges Quell-/Zielpaar bilden. Der
+Backup-Core verlangt bei gesetztem FILESTREAM-Metadatum dennoch echte
+FILESTREAM-Inhaltsevidence und bleibt damit für eine künftige Erweiterung um
+einen zweiten fähigen Provider fail-closed. Die öffentliche CLI und die lokale
+Workflow-UI wählen ein Restore-Backup inzwischen ausschließlich per stabiler
+`BackupSetId`; die
 sanitisierte UI-Inventur hasht große Objekte nicht bei jedem Refresh, während
 die konkrete Auswahl Status, Verification-Evidence, Datei und SHA-256 erneut
 fail-closed prüft. TDE endet ohne separaten Zertifikat- und

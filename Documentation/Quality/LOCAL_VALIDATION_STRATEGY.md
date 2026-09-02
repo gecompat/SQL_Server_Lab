@@ -527,7 +527,11 @@ konfiguriertem `DataRoot`. Die Auswahl prüft Receipt-Status, Verification-
 Evidence, Objektpräsenz und SHA-256 erneut. Quelle und Ziel müssen denselben
 sanitisierten Inhaltsdigest liefern. Da SQL Server in den verwendeten Linux-
 Containern keine FILESTREAM-Evidence liefert, zählt dieser Lauf ausdrücklich
-nicht als FILESTREAM-Abnahme.
+nicht als FILESTREAM-Abnahme. Für `PSR-008` ist das kein offener Testersatz:
+FILESTREAM ist laut Microsoft unter SQL Server auf Linux nicht unterstützt,
+und die aktuelle Provider-Matrix besitzt daher kein zweites FILESTREAM-fähiges
+Cross-Provider-Ziel. Das Kriterium ist `NOT_APPLICABLE` und wird erst bei einer
+künftigen Capability-Erweiterung wieder zum verpflichtenden nativen Gate.
 
 `Invoke-DatabasePackageChecks.ps1` prüft den PSR-009-Core deterministisch mit
 einer synthetischen MDF-/NDF-/LDF-Dateimenge und einem verschachtelten
