@@ -622,6 +622,7 @@ Sicherheitsgarantien.
 | `QUAL-904` | Release-Check, Versionierung, Notes und optionale hashgebundene Pakete | reproduzierbare lokale Freigabe (lokale Artefaktkopie + Hash-Option) |
 | `QUAL-905` | Operator-, Recovery- und Troubleshooting-Dokumentation abschließen | sichere Bedienbarkeit ohne Chatkontext |
 | `QUAL-906` | öffentliche Vertragsversion erst nach Adapter- und Providerabnahme festlegen | belastbare Kompatibilitätsgrenze |
+| `QUAL-907` | Windows-Anmeldekoordinator für Docker und Podman ohne sichtbares Terminal ausführen und Runtime-Ereignisausgabe vollständig kapseln | stiller, begrenzter Autostart ausschließlich markierter Lab-Container; explizite manuelle Diagnose bleibt möglich |
 
 **Gate M9:**
 
