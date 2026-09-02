@@ -256,19 +256,46 @@ try {
         $originalOwnership=(Get-Command Test-LabDataRootOwnership -CommandType Function).ScriptBlock
         Set-Item Function:script:Test-LabDataRootOwnership -Value { param($DataRoot,$ControllerId) $null=$DataRoot,$ControllerId; return $true }
         try {
+            $catalogPaths=@($config.LabDataLocations | ForEach-Object { Join-Path ([string]$_.LabDataRoot) 'Catalog/persistent-stores.json' })
+            $preview=Register-LabHyperVInstanceStoreReservation -RunId $runId -ScopeId $scopeId `
+                -DisplayName 'Hyper-V catalog test' -DataRoot $root -RelativePath $relativePath `
+                -Configuration $config -ExpectedRevision 0 -Preview
+            $previewWasReadOnly=@($catalogPaths | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }).Count -eq 0
             $reserved=Register-LabHyperVInstanceStoreReservation -RunId $runId -ScopeId $scopeId `
-                -DisplayName 'Hyper-V catalog test' -DataRoot $root -RelativePath $relativePath -Configuration $config
+                -DisplayName 'Hyper-V catalog test' -DataRoot $root -RelativePath $relativePath `
+                -Configuration $config -ExpectedRevision 0
+            $reservationHashes=@($catalogPaths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash })
+            $staleReservationBlocked=$false
+            try {
+                Register-LabHyperVInstanceStoreReservation -RunId $runId -ScopeId $scopeId `
+                    -DisplayName 'Hyper-V catalog test' -DataRoot $root -RelativePath $relativePath `
+                    -Configuration $config -ExpectedRevision 0 | Out-Null
+            }
+            catch { $staleReservationBlocked=$_.Exception.Message -match 'PERSISTENT_STORAGE_CATALOG_REVISION_CONFLICT' }
+            $staleReservationReadOnly=(@($catalogPaths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash }) -join '|') -eq ($reservationHashes -join '|')
             $absolutePath=Join-Path $root $relativePath
             New-Item -ItemType Directory -Path (Split-Path -Parent $absolutePath) -Force | Out-Null
             New-Item -ItemType File -Path $absolutePath -Force | Out-Null
             $recovery=Set-LabHyperVInstanceStoreRecoveryRequired -PersistentStorageId ([string]$reserved.Store.PersistentStorageId) `
-                -RunId $runId -ScopeId $scopeId -Configuration $config
+                -RunId $runId -ScopeId $scopeId -Configuration $config -ExpectedRevision ([int]$reserved.CatalogRevision)
             $resumed=Register-LabHyperVInstanceStoreReservation -RunId $runId -ScopeId $scopeId `
-                -DisplayName 'Hyper-V catalog test' -DataRoot $root -RelativePath $relativePath -Configuration $config
+                -DisplayName 'Hyper-V catalog test' -DataRoot $root -RelativePath $relativePath `
+                -Configuration $config -ExpectedRevision ([int]$recovery.CatalogRevision)
             $completed=Complete-LabHyperVInstanceStoreReservation -PersistentStorageId ([string]$reserved.Store.PersistentStorageId) `
-                -RunId $runId -ScopeId $scopeId -DiskIdentifier $diskId -Configuration $config
+                -RunId $runId -ScopeId $scopeId -DiskIdentifier $diskId -Configuration $config `
+                -ExpectedRevision ([int]$resumed.CatalogRevision)
             $completedAgain=Complete-LabHyperVInstanceStoreReservation -PersistentStorageId ([string]$reserved.Store.PersistentStorageId) `
-                -RunId $runId -ScopeId $scopeId -DiskIdentifier $diskId -Configuration $config
+                -RunId $runId -ScopeId $scopeId -DiskIdentifier $diskId -Configuration $config `
+                -ExpectedRevision ([int]$completed.CatalogRevision)
+            $completionHashes=@($catalogPaths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash })
+            $staleCompletionBlocked=$false
+            try {
+                Complete-LabHyperVInstanceStoreReservation -PersistentStorageId ([string]$reserved.Store.PersistentStorageId) `
+                    -RunId $runId -ScopeId $scopeId -DiskIdentifier $diskId -Configuration $config `
+                    -ExpectedRevision ([int]$recovery.CatalogRevision) | Out-Null
+            }
+            catch { $staleCompletionBlocked=$_.Exception.Message -match 'PERSISTENT_STORAGE_CATALOG_REVISION_CONFLICT' }
+            $staleCompletionReadOnly=(@($catalogPaths | ForEach-Object { (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash }) -join '|') -eq ($completionHashes -join '|')
             $foreignBlocked=$false
             try {
                 Register-LabHyperVInstanceStoreReservation -RunId ([Guid]::NewGuid().ToString('D')) `
@@ -306,13 +333,21 @@ try {
                 Set-Item Function:script:Get-LabDatabasePackageDocument -Value $originalPackageDocument
             }
             [PSCustomObject]@{
-                Reserved=$reserved; Recovery=$recovery; Resumed=$resumed; Completed=$completed
-                CompletedAgain=$completedAgain; ForeignBlocked=$foreignBlocked; Catalog=$catalog; Inventory=$inventory; Plan=$plan
+                Preview=$preview; PreviewWasReadOnly=$previewWasReadOnly; Reserved=$reserved
+                StaleReservationBlocked=$staleReservationBlocked; StaleReservationReadOnly=$staleReservationReadOnly
+                Recovery=$recovery; Resumed=$resumed; Completed=$completed; CompletedAgain=$completedAgain
+                StaleCompletionBlocked=$staleCompletionBlocked; StaleCompletionReadOnly=$staleCompletionReadOnly
+                ForeignBlocked=$foreignBlocked; Catalog=$catalog; Inventory=$inventory; Plan=$plan
             }
         }
         finally { Set-Item Function:script:Test-LabDataRootOwnership -Value $originalOwnership }
     } $hyperVConfiguration $hyperVRoot1 $hyperVRelativePath $hyperVRunId $hyperVScopeId $hyperVDiskId
     $hyperVStore=@($hyperVEvidence.Catalog.Document.Stores)[0]
+    Add-CheckResult -Name 'Hyper-V-Reservierung plant read-only und bindet Apply per Revision an denselben Katalogstand' -Success (
+        $hyperVEvidence.Preview.Changed -and $hyperVEvidence.Preview.Preview -and
+        $hyperVEvidence.Preview.CatalogRevision -eq 0 -and $hyperVEvidence.Preview.ProposedRevision -eq 1 -and
+        $hyperVEvidence.PreviewWasReadOnly -and $hyperVEvidence.StaleReservationBlocked -and
+        $hyperVEvidence.StaleReservationReadOnly)
     Add-CheckResult -Name 'Reguläre Hyper-V-VHDX erhält vor der Mutation eine stabile INCOMPLETE-Reservierung und Run-Lease' -Success (
         $hyperVEvidence.Reserved.Changed -and -not $hyperVEvidence.Reserved.Reused -and
         $hyperVEvidence.Reserved.Store.State -eq 'INCOMPLETE' -and
@@ -324,6 +359,7 @@ try {
         [string]$hyperVEvidence.Resumed.Store.PersistentStorageId -eq [string]$hyperVEvidence.Reserved.Store.PersistentStorageId)
     Add-CheckResult -Name 'Verifizierte Hyper-V-Disk-ID committed idempotent auf IN_USE und blockiert fremde Runs' -Success (
         $hyperVEvidence.Completed.Changed -and -not $hyperVEvidence.CompletedAgain.Changed -and $hyperVEvidence.ForeignBlocked -and
+        $hyperVEvidence.StaleCompletionBlocked -and $hyperVEvidence.StaleCompletionReadOnly -and
         $hyperVStore.State -eq 'IN_USE' -and [string]$hyperVStore.LocationBinding.ProviderResourceId -eq $hyperVDiskId -and
         @($hyperVEvidence.Catalog.Sources).Count -eq 2)
     Add-CheckResult -Name 'Residency-Audit korreliert die katalogisierte Hyper-V-VHDX über dieselbe stabile Objektidentität' -Success (
@@ -334,10 +370,22 @@ try {
         $hyperVEvidence.Plan.Stores[0].ObservationStatus -eq 'MATCHED' -and $hyperVEvidence.Plan.Stores[0].LeaseStatus -eq 'CONSISTENT')
     $hyperVEnvironmentText=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
     $hyperVProviderText=Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/HyperV/HyperVProvider.ps1') -Raw -Encoding utf8
+    $catalogWriterText=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/PersistentStorageCatalog.ps1') -Raw -Encoding utf8
+    $hyperVReservationWriterStart=$catalogWriterText.IndexOf('function Register-LabHyperVInstanceStoreReservation')
+    $hyperVReservationWriterEnd=$catalogWriterText.IndexOf('function Set-LabHyperVPersistentDataOperationLease')
+    $hyperVReservationWriterText=$catalogWriterText.Substring(
+        $hyperVReservationWriterStart,
+        $hyperVReservationWriterEnd - $hyperVReservationWriterStart)
+    Add-CheckResult -Name 'Alle regulären Hyper-V-Instanzstore-Writer verwenden ausschließlich den gemeinsamen Mutationskern' -Success (
+        $hyperVReservationWriterStart -ge 0 -and $hyperVReservationWriterEnd -gt $hyperVReservationWriterStart -and
+        @([regex]::Matches($hyperVReservationWriterText,'Invoke-LabPersistentStorageCatalogMutation')).Count -eq 3 -and
+        $hyperVReservationWriterText -notmatch 'Invoke-LabPersistentStorageCatalogLock' -and
+        $hyperVReservationWriterText -notmatch 'Write-LabPersistentStorageCatalogDocument')
     Add-CheckResult -Name 'Regulärer Hyper-V-Erstellungsflow reserviert vor New-VHD und committed erst nach Attachment' -Success (
         $hyperVEnvironmentText.IndexOf('Register-LabHyperVInstanceStoreReservation') -lt $hyperVEnvironmentText.IndexOf('New-VHD -Path $storage.HyperVVhdxPath') -and
         $hyperVEnvironmentText.IndexOf('Complete-LabHyperVInstanceStoreReservation') -gt $hyperVEnvironmentText.IndexOf('Add-VMHardDiskDrive -VMName $lab.Instance.vmName') -and
-        $hyperVEnvironmentText -match 'Set-LabHyperVInstanceStoreRecoveryRequired')
+        $hyperVEnvironmentText -match 'Set-LabHyperVInstanceStoreRecoveryRequired' -and
+        $hyperVEnvironmentText -match '-ExpectedRevision \(\[int\]\$reservation\.CatalogRevision\)')
     Add-CheckResult -Name 'Hyper-V-VM-Identität trägt stabile Storage-ID, Retention und Cleanup-Disposition' -Success (
         $hyperVProviderText -match 'persistentStorageId = if \(\$_\.PersistentStorageId\)' -and
         $hyperVProviderText -match 'cleanupDisposition = if \(\$_\.CleanupDisposition\)')

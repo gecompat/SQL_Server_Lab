@@ -1765,7 +1765,8 @@ function Enable-HyperVLabPersistentData {
         Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
         $commit = Complete-LabHyperVInstanceStoreReservation -PersistentStorageId $storageId `
             -RunId ([string]$lab.Run.runId) -ScopeId ([string]$lab.Run.scopeId) `
-            -DiskIdentifier ([string]$vhd.DiskIdentifier) -Configuration $configuration
+            -DiskIdentifier ([string]$vhd.DiskIdentifier) -Configuration $configuration `
+            -ExpectedRevision ([int]$reservation.CatalogRevision)
         $lab.Instance.persistentStorage | Add-Member -NotePropertyName catalogRevision -NotePropertyValue ([int]$commit.CatalogRevision) -Force
         Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
         Write-LabSuccess "Persistente Daten-VHDX ist katalogisiert und angehängt. Nach dem VM-Start einmal initialisieren."

@@ -1029,8 +1029,11 @@ Reguläre Hyper-V-Labs reservieren ihre persistente Daten-VHDX inzwischen vor
 der ersten VHDX-Mutation controllerweit als `INCOMPLETE` mit stabiler
 `PersistentStorageId`, portabler `Lab_Data`-Bindung, aktiver Run-Referenz und
 exklusiver Lease. Nach verifizierter DiskIdentifier- und VM-Attachment-
-Postcondition wird derselbe Store auf `IN_USE` committed; Teilfehler bleiben
-`RECOVERY_REQUIRED` und sind unter derselben ID fortsetzbar. VM-Notes,
+Postcondition wird derselbe Store auf `IN_USE` committed. Reservierung,
+Abschluss und Recovery-Markierung verwenden denselben Preview-/CAS-
+Mutationskern; der Abschluss akzeptiert nur die Revision der zuvor
+persistierten Reservierung. Teilfehler bleiben `RECOVERY_REQUIRED` und sind
+unter derselben ID fortsetzbar. VM-Notes,
 Connection-State und Residency-Audit korrelieren diese Katalogbindung ohne
 einen Hostpfad als öffentliche Identität zu verwenden. Die getrennten Hyper-V-
 Reattach-/Release-/Clone-Aktionen leasen ihre Quelle operationsgebunden,
