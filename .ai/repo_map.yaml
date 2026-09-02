@@ -412,6 +412,12 @@ public_commands:
       - Microsoft Update Catalog
       - Microsoft Container Registry
       - docker_or_podman_for_linux
+  - name: Get-SqlServerLabCuStatus
+    source: Public/Get-SqlServerLabCuStatus.ps1
+    purpose: "Offizielle Microsoft-Buildtabellen read-only gegen den lokalen CU-Katalog prüfen"
+    mutates_host: false
+    external_dependencies:
+      - Microsoft Learn
 
 internal_components:
   - name: ManifestBuilder
@@ -1331,6 +1337,10 @@ change_coupling:
     - en-US/about_SqlServerLab.help.txt
     - de-DE/about_SqlServerLab.help.txt
     - Public/Save-SqlServerLabCuResource.ps1
+    - Public/Get-SqlServerLabCuStatus.ps1
+    - Private/CuStatus.ps1
+    - Catalogs/sql-server-cu-status-sources.json
+    - Schemas/cu-status-sources.schema.json
     - Private/VersionCatalog.ps1
     - Tests/Static/Invoke-VersionCatalogChecks.ps1
   manifest_field_change:

@@ -1,0 +1,24 @@
+{
+  "$schema": "../Schemas/cu-status-sources.schema.json",
+  "contract": "SqlServerLab.CuStatusSources/1.0",
+  "sources": [
+    {
+      "id": "microsoft-latest-update-history",
+      "url": "https://learn.microsoft.com/en-us/troubleshoot/sql/releases/download-and-install-latest-updates",
+      "allowedHosts": [
+        "learn.microsoft.com",
+        "github.com",
+        "raw.githubusercontent.com"
+      ],
+      "excludedUpdates": [
+        {
+          "version": "2019",
+          "update": "CU7",
+          "kb": "KB4570012",
+          "reason": "Von Microsoft wegen eines Fehlers bei Datenbanksnapshots zurückgezogen; Microsoft empfiehlt CU8 oder neuer."
+        }
+      ],
+      "description": "Microsoft Learn: aktuelle SQL-Server-Updates und vollständige Buildtabellen"
+    }
+  ]
+}

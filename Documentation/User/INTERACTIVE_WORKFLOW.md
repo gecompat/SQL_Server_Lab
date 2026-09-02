@@ -157,6 +157,10 @@ mit einem bloßen Fehler:
 - Unter `[c] Verbindungszentrale und SSMS-Endpunkte` stehen der passwortfreie Endpunktkatalog,
   ein SSMS-`.regsrvr`-Export, die sichere Aktualisierung einer lokalen SSMS-Gruppe
   sowie ein idempotentes CMS-Synchronisationsskript zur Verfügung.
+- Unter **Storage & Medien → [w] Aktuelle CUs bei Microsoft prüfen** erscheint
+  eine read-only Änderungsvorschau. Sie wartet anschließend auf Enter oder
+  Escape. Neue CUs werden erst nach Hash-, Signatur- und MCR-Tag-Bindung als
+  Download angeboten.
 
 ## Erledigt-Liste
 

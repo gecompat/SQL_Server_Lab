@@ -7,6 +7,7 @@
 | [Start-SqlServerLabUi.ps1](Start-SqlServerLabUi.ps1) | Startet das lokale Browser-Cockpit für Workflow, Hintergrundaktionen und Live-Logs auf 127.0.0.1 |
 | [Prepare-LocalRelease.ps1](Prepare-LocalRelease.ps1) | Erzeugt ein reproduzierbares lokales Release-Artefakt inkl. Manifest, optionalem SHA-256-Digest und optionalem ZIP-Archiv |
 | [Get-CiTestSelection.ps1](Get-CiTestSelection.ps1) | Klassifiziert geänderte Pfade für schnelle, betroffene PR-Checks und gezielte Runtime-Smokes |
+| [Get-SqlServerCuStatus.ps1](Get-SqlServerCuStatus.ps1) | Zeigt den read-only CU-Abgleich mit den wartbar katalogisierten Microsoft-Learn-Buildtabellen an |
 | [Initialize-SqlServerLabHostTools.ps1](Initialize-SqlServerLabHostTools.ps1) | Löst Docker, Podman und Python zentral auf und ergänzt fehlende Installationsverzeichnisse ausschließlich im aktuellen Prozess-PATH |
 | [CheckLargeGitFilesPush.ps1](../CheckLargeGitFilesPush.ps1) | Prüft staged/untracked Dateien auf Größe, schreibt optional Log und kann Commit+Push nach Prüfung ausführen |
 

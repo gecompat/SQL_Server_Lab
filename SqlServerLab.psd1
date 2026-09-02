@@ -65,6 +65,7 @@
         'Test-SqlServerLabAdapter'
         'Install-SqlServerLabAdapter'
         'Install-SqlServerLab7Zip'
+        'Get-SqlServerLabCuStatus'
         'Save-SqlServerLabCuResource'
     )
 
