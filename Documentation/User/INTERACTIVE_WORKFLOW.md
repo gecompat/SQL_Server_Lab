@@ -154,7 +154,7 @@ mit einem bloßen Fehler:
 - Vor der Containeränderung werden CPU, RAM und Port gemeinsam validiert und in
   einer Review-Ansicht gezeigt. Erst die dortige Aktion `Anwenden` ruft den
   bestehenden Reconcile-Pfad auf.
-- Unter `[k] SQL-Verbindungszentrale` stehen der passwortfreie Endpunktkatalog,
+- Unter `[c] Verbindungszentrale und SSMS-Endpunkte` stehen der passwortfreie Endpunktkatalog,
   ein SSMS-`.regsrvr`-Export, die sichere Aktualisierung einer lokalen SSMS-Gruppe
   sowie ein idempotentes CMS-Synchronisationsskript zur Verfügung.
 
