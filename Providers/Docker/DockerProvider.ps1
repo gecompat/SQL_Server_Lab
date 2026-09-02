@@ -17,7 +17,7 @@ function Test-DockerAvailable {
         return [PSCustomObject]@{
             Available = $false
             Version   = $null
-            Message   = 'Docker ist nicht installiert oder konnte nicht aufgeloest werden.'
+            Message   = "Docker-CLI konnte nicht aufgeloest werden: $($_.Exception.Message)"
         }
     }
 

@@ -58,11 +58,14 @@ function Get-FreeTcpPort {
 
 try {
     Write-Host "CLI-Akzeptanz: $Provider / SQL Server $Version" -ForegroundColor Cyan
+    $runtimeResolution = @(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
+    Assert-Acceptance $runtimeResolution.Available "Runtime-CLI '$Provider' ist zentral aufloesbar"
+    $runtimeInvocation = [string]$runtimeResolution.Invocation
     if ($Provider -eq 'podman') { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') | Out-Host }
-    foreach ($command in @($Provider, 'sqlcmd')) {
+    foreach ($command in @('sqlcmd')) {
         Assert-Acceptance ([bool](Get-Command $command -ErrorAction SilentlyContinue)) "Befehl '$command' ist verfuegbar"
     }
-    & $Provider info 1>$null 2>$null
+    & $runtimeInvocation info 1>$null 2>$null
     Assert-Acceptance ($LASTEXITCODE -eq 0) "Runtime '$Provider' ist erreichbar"
 
     New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
@@ -104,7 +107,7 @@ try {
     $instance = $lab.Instances[0]
     $sqlHost = if ($instance.Host) { [string]$instance.Host } else { '127.0.0.1' }
     $containerName = [string]$instance.ContainerName
-    $ownedVolumeNames = @((& $Provider inspect $containerName | ConvertFrom-Json -Depth 50).Mounts | Where-Object Type -eq volume | ForEach-Object Name)
+    $ownedVolumeNames = @((& $runtimeInvocation inspect $containerName | ConvertFrom-Json -Depth 50).Mounts | Where-Object Type -eq volume | ForEach-Object Name)
 
     $initialRestart = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 180 -Force
     Assert-Acceptance ($initialRestart.Status -eq 'RUNNING' -and $initialRestart.Errors -eq 0) 'Erster Stop/Start-Zyklus erreicht stabile SQL-Readiness'
@@ -157,7 +160,7 @@ GO
     Assert-Acceptance ($rename.Result.Changed -and $rename.Result.RuntimeRenamed) 'Lab und Container wurden ueber die Workflow-CLI umbenannt'
     $containerName = [string]$rename.Result.RuntimeObjects[0].NewName
 
-    $currentInspect = @(& $Provider inspect $containerName | ConvertFrom-Json -Depth 50)[0]
+    $currentInspect = @(& $runtimeInvocation inspect $containerName | ConvertFrom-Json -Depth 50)[0]
     $currentContainerId = [string]$currentInspect.Id
     $currentPort = [int](@($currentInspect.NetworkSettings.Ports.'1433/tcp')[0].HostPort)
     $noOpPlan = Get-SqlServerLabReconcilePlan -RunId $lab.RunId -Container -Cpu 2 -MemoryMB 3072 `
@@ -165,7 +168,7 @@ GO
     Assert-Acceptance ($noOpPlan.IsNoOp -and -not $noOpPlan.MutationAllowed -and @($noOpPlan.Actions).Count -eq 0) 'Identischer Container-Zielzustand ergibt einen read-only No-op-Plan'
     $noOpAction = Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -Container -Cpu 2 -MemoryMB 3072 `
         -Port $currentPort -SqlMaxMemoryMB 1536 -StateRoot $stateRoot -Confirm:$false
-    $afterNoOpId = [string](@(& $Provider inspect $containerName | ConvertFrom-Json -Depth 50)[0].Id)
+    $afterNoOpId = [string](@(& $runtimeInvocation inspect $containerName | ConvertFrom-Json -Depth 50)[0].Id)
     Assert-Acceptance ($noOpAction.ExecutionSummary.Status -eq 'NO_OP' -and $afterNoOpId -eq $currentContainerId) 'No-op-Action mutiert den realen Container nicht'
 
     $livePlan = Get-SqlServerLabReconcilePlan -RunId $lab.RunId -Container -Cpu 1 -MemoryMB 2560 `
@@ -174,7 +177,7 @@ GO
     $liveAction = Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -Container -Cpu 1 -MemoryMB 2560 `
         -Port $currentPort -SqlMaxMemoryMB 1408 -StateRoot $stateRoot -Confirm:$false
     Assert-Acceptance ($liveAction.ExecutionSummary.Status -eq 'SUCCEEDED') 'Live-Reconcile wurde ueber die gemeinsame Action ausgefuehrt'
-    $inspect = @(& $Provider inspect $containerName | ConvertFrom-Json -Depth 50)[0]
+    $inspect = @(& $runtimeInvocation inspect $containerName | ConvertFrom-Json -Depth 50)[0]
     Assert-Acceptance ([long]$inspect.HostConfig.Memory -eq 2560MB -and [string]$inspect.Id -eq $currentContainerId) 'Runtime meldet 2560 MB ohne Container-Recreate'
     Assert-Acceptance ((Invoke-AcceptanceQuery "SET NOCOUNT ON; SELECT value_in_use FROM sys.configurations WHERE name='max server memory (MB)';" -Port $currentPort) -eq '1408') 'SQL max server memory wurde live auf 1408 MB gesetzt'
     $journalPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $lab.RunId) 'container-reconcile-journal.json'
@@ -194,7 +197,7 @@ GO
         & $module { param($Path,$Secret) Save-LabSecret -Path $Path -Name 'sa-password' -Secret $Secret } $runDirectory $savedSecret
     }
     $rollbackJournal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
-    $afterRollback = @(& $Provider inspect $containerName | ConvertFrom-Json -Depth 50)[0]
+    $afterRollback = @(& $runtimeInvocation inspect $containerName | ConvertFrom-Json -Depth 50)[0]
     Assert-Acceptance ($rollbackAction.ExecutionSummary.Status -eq 'FAILED' -and $rollbackJournal.Status -eq 'ROLLED_BACK') 'Fehlgeschlagenes Recreate wird journalisiert zurueckgerollt'
     Assert-Acceptance ([string]$afterRollback.Id -eq $currentContainerId -and [int](@($afterRollback.NetworkSettings.Ports.'1433/tcp')[0].HostPort) -eq $currentPort) 'Rollback stellt exakte Original-ID und alten Hostport wieder her'
     $rollbackReadiness = & $module {
@@ -212,7 +215,7 @@ GO
         -Port $newPort -SqlMaxMemoryMB 1408 -ReadinessTimeoutSeconds 180 -StateRoot $stateRoot -Confirm:$false
     Assert-Acceptance ($reconcile.ExecutionSummary.Status -eq 'SUCCEEDED' -and $reconcile.ExecutionPlan[0].Result.Recreated) 'Hostport wurde durch die gemeinsame Reconcile-Action geaendert'
     $completedJournal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
-    $replacementInspect = @(& $Provider inspect $containerName | ConvertFrom-Json -Depth 50)[0]
+    $replacementInspect = @(& $runtimeInvocation inspect $containerName | ConvertFrom-Json -Depth 50)[0]
     $backupExists = & $module { param($Runtime,$Identity) Test-LabContainerReconcileRuntimeExists -Provider $Runtime -Identity $Identity } $Provider ([string]$completedJournal.Runtime.BackupName)
     Assert-Acceptance ($completedJournal.Status -eq 'COMPLETED' -and [string]$replacementInspect.Id -ne $currentContainerId -and -not $backupExists) 'Recreate commitet die Ersatz-ID und entfernt erst danach den Original-Container'
     $databaseReadiness = & $module {
@@ -235,10 +238,10 @@ GO
 
     Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false | Out-Null
     $lab = $null
-    $containerCheck = @(& $Provider ps -a -q --filter "name=$containerName" 2>$null)
+    $containerCheck = @(& $runtimeInvocation ps -a -q --filter "name=$containerName" 2>$null)
     Assert-Acceptance ([string]::IsNullOrWhiteSpace(($containerCheck -join ''))) 'Container wurde vollstaendig entfernt'
     foreach ($volumeName in $ownedVolumeNames) {
-        $volumeCheck = @(& $Provider volume ls -q --filter "name=^${volumeName}$" 2>$null)
+        $volumeCheck = @(& $runtimeInvocation volume ls -q --filter "name=^${volumeName}$" 2>$null)
         Assert-Acceptance ([string]::IsNullOrWhiteSpace(($volumeCheck -join ''))) "Run-eigenes Volume '$volumeName' wurde entfernt"
     }
     $completed = $true

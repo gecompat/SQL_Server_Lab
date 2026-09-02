@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-09-01 |
+| Stand | 2026-09-02 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -13,6 +13,15 @@ Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimep
 
 Docker und Podman sind implementiert. Start, Stop und Live-Status verwenden den
 pro Instanz in `connection-info.json` gespeicherten Provider.
+
+Docker, Podman und Python werden beim Modulimport und in eigenständig
+gestarteten Runtime-Acceptances prozesslokal über den zentralen Host-Tool-
+Resolver aufgelöst. Neue Shell- oder Agentprozesse müssen erneut
+initialisieren; eine persistierende Änderung des Benutzer- oder Maschinen-
+`PATH` ist bewusst kein Frameworkvertrag. Ein `Available = True` mit
+anschließendem `info`-, Named-Pipe-, Connection- oder Berechtigungsfehler ist
+eine Runtime-/Zugriffsstörung und darf nicht als fehlende Installation
+ausgegeben werden.
 
 Container erhalten neben dem harten Runtime-Limit ein SQL-internes
 `MSSQL_MEMORY_LIMIT_MB` mit 20 Prozent Headroom. Das ist insbesondere fuer SQL

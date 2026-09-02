@@ -17,6 +17,16 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   den nativen Continue-/Clone-Pfad einschließlich Live-SQL- und Sidecar-Marker-
   Nachweis.
 
+### Geändert
+
+- Eigenständig gestartete Docker-/Podman-Acceptances lösen die Runtime-CLI vor
+  ihrem ersten Probe über den zentralen Host-Tool-Resolver auf und verwenden
+  anschließend den absoluten Aufrufpfad. Agent-, No-Profile- und Testprozesse
+  unterscheiden damit CLI-Auflösung, Runtime-Erreichbarkeit und Berechtigung;
+  sie melden eine installierte, aber nicht erreichbare Runtime nicht mehr als
+  fehlende Installation. Python wird im selben Initialisierungsschritt des
+  Modulimports prozesslokal verfügbar gemacht.
+
 ## 2026-09-01
 
 ### Hinzugefügt

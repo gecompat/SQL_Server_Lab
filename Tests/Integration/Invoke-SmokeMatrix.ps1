@@ -289,11 +289,12 @@ Write-Host '====================================================================
 
 $podmanBootstrapPath = Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1'
 $repoRoot = Split-Path -Parent $modulePath
-$null = & (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name docker,podman
+$hostToolResolutions = @(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name docker,podman)
+$podmanResolution = @($hostToolResolutions | Where-Object Name -eq 'podman' | Select-Object -First 1)
 if ($Provider -eq 'podman') {
     $null = & $podmanBootstrapPath
 }
-elseif ($Provider -eq 'all' -and (Get-Command podman -ErrorAction SilentlyContinue)) {
+elseif ($Provider -eq 'all' -and $podmanResolution.Available) {
     try {
         $null = & $podmanBootstrapPath
     }
