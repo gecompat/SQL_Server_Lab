@@ -174,9 +174,12 @@ Mutation mit dem Residency-Inventar ab. Folgende Arbeit bleibt getrennt:
   Attach-Aktion;
 - `PSR-008`/`PSR-009`: Backup-Bibliothek und kontrollierte Datenbankpakete.
 
-`SqlServerLab.StorageResidencyInventory/1.0` darf deshalb weiterhin `PARTIAL`
-melden. Dieser Status ist korrekt, solange physisches Desktop-/Machine-Backing
-oder externe Objekte nicht sicher aufgelöst werden können.
+`SqlServerLab.StorageResidencyInventory/1.0` löst unterstützte lokale Docker-
+Desktop- und Podman-WSL-Backings read-only bis zu VHDX und Konfiguration auf.
+Diese verifizierte Hostsicht macht sie weder zu `Lab_Data` noch zu Lab-Eigentum.
+Bei Remote-Endpunkten, unbekannten Providerlayouts oder anderen nicht sicher
+auflösbaren externen Objekten darf das Inventar weiterhin korrekt `PARTIAL`
+melden.
 
 ## 8. Abnahmekriterien
 

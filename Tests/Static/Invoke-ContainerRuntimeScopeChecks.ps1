@@ -15,6 +15,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $module = Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru -ErrorAction Stop
 $schemaPath = Join-Path $repoRoot 'Schemas/container-runtime-scope.schema.json'
 $failures = [Collections.Generic.List[string]]::new(); $passed = 0
+$temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-runtime-backing-$([guid]::NewGuid().ToString('N'))"
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 Write-Host ''; Write-Host 'SQL_Server_Lab - Container Runtime Scope Checks' -ForegroundColor Cyan
 
@@ -34,6 +35,25 @@ Add-CheckResult -Name 'Docker-Desktop-Context wird stabil und schemawahr klassif
 Add-CheckResult -Name 'Geteilte Docker-Runtime bleibt REPORT_ONLY und nicht loeschbar' -Success (
     $docker.Ownership.Status -eq 'SHARED_EXTERNAL' -and -not $docker.Summary.CanManageRuntime -and
     'REMOVE_RUNTIME' -in @($docker.BlockedActions) -and 'USE_LABELED_RESOURCES' -in @($docker.AllowedActions))
+
+$dockerBackingRoot = Join-Path $temporaryRoot 'Docker\wsl\disk'
+$dockerConfiguration = Join-Path $temporaryRoot 'Docker\settings-store.json'
+$null = New-Item -ItemType Directory -Path $dockerBackingRoot -Force
+$null = New-Item -ItemType Directory -Path (Split-Path -Parent $dockerConfiguration) -Force
+[IO.File]::WriteAllBytes((Join-Path $dockerBackingRoot 'docker_data.vhdx'), [byte[]](1..64))
+[IO.File]::WriteAllText($dockerConfiguration, '{}')
+$dockerBacking = & $module {
+    param($Scope,$BackingRoot,$ConfigurationPath)
+    Get-LabContainerRuntimeHostBackingEvidence -Scope $Scope -CandidateRoots @($BackingRoot) `
+        -ConfigurationPaths @($ConfigurationPath) -UseProvidedPaths
+} $docker $dockerBackingRoot $dockerConfiguration
+$docker = & $module { param($Scope,$Evidence) Set-LabContainerRuntimeScopePhysicalBacking -Scope $Scope -Evidence $Evidence } $docker $dockerBacking
+Add-CheckResult -Name 'Docker-Desktop-Backing wird hostseitig verifiziert und im Scope nur sanitisiert zusammengefasst' -Success (
+    $dockerBacking.Status -eq 'VERIFIED' -and @($dockerBacking.Items | Where-Object Kind -eq 'BACKING_STORE').Count -eq 1 -and
+    @($dockerBacking.Items | Where-Object Kind -eq 'CONFIGURATION').Count -eq 1 -and
+    $docker.Binding.HostMode -eq 'WINDOWS_WSL2' -and $docker.PhysicalBacking.HostBackingStatus -eq 'VERIFIED' -and
+    $docker.PhysicalBacking.BackingStoreCount -eq 1 -and 'RUNTIME_HOST_BACKING_UNVERIFIABLE' -notin @($docker.Issues) -and
+    (($docker | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile $schemaPath))
 
 $dockerAgain = & $module { param($e) ConvertTo-LabContainerRuntimeScope -Evidence $e } $dockerEvidence
 $otherDockerEvidence = $dockerEvidence | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
@@ -60,6 +80,24 @@ Add-CheckResult -Name 'Podman-Default-Connection bindet eindeutig dieselbe WSL-M
     $podman.Status -eq 'AVAILABLE' -and $podman.Binding.BackendKind -eq 'PODMAN_MACHINE' -and
     $podman.Binding.EndpointKind -eq 'LOCAL_MACHINE_SSH' -and $podman.Binding.HostMode -eq 'WINDOWS_WSL2' -and
     $podman.Binding.MachineName -eq 'podman-machine-default' -and $podman.Binding.Rootless -eq $false -and
+    (($podman | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile $schemaPath))
+
+$podmanBackingRoot = Join-Path $temporaryRoot 'Podman\wsldist\podman-machine-default'
+$podmanConfiguration = Join-Path $temporaryRoot 'Podman\podman-machine-default.json'
+$null = New-Item -ItemType Directory -Path $podmanBackingRoot -Force
+$null = New-Item -ItemType Directory -Path (Split-Path -Parent $podmanConfiguration) -Force
+[IO.File]::WriteAllBytes((Join-Path $podmanBackingRoot 'ext4.vhdx'), [byte[]](1..32))
+[IO.File]::WriteAllText($podmanConfiguration, '{}')
+$podmanBacking = & $module {
+    param($Scope,$BackingRoot,$ConfigurationPath)
+    Get-LabContainerRuntimeHostBackingEvidence -Scope $Scope -CandidateRoots @($BackingRoot) `
+        -ConfigurationPaths @($ConfigurationPath) -UseProvidedPaths
+} $podman $podmanBackingRoot $podmanConfiguration
+$podman = & $module { param($Scope,$Evidence) Set-LabContainerRuntimeScopePhysicalBacking -Scope $Scope -Evidence $Evidence } $podman $podmanBacking
+Add-CheckResult -Name 'Podman-Machine-Disk und Konfiguration werden physisch getrennt verifiziert' -Success (
+    $podmanBacking.Status -eq 'VERIFIED' -and @($podmanBacking.Items | Where-Object { $_.Kind -eq 'BACKING_STORE' -and $_.Role -eq 'DATA' }).Count -eq 1 -and
+    @($podmanBacking.Items | Where-Object Kind -eq 'CONFIGURATION').Count -eq 1 -and
+    $podman.PhysicalBacking.HostBackingStatus -eq 'VERIFIED' -and $podman.PhysicalBacking.BackingStoreCount -eq 1 -and
     (($podman | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile $schemaPath))
 
 $sanitizedJson = @($docker,$podman) | ConvertTo-Json -Depth 20
@@ -89,6 +127,8 @@ $withSecret = $docker | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
 $withSecret.Binding | Add-Member -NotePropertyName Endpoint -NotePropertyValue 'synthetic-secret'
 Add-CheckResult -Name 'Strenges Schema blockiert zusaetzliche Endpoint- oder Secretfelder' -Success (
     -not (($withSecret | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue))
+
+if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force }
 
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0

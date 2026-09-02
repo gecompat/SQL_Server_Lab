@@ -88,12 +88,14 @@ lokale Journal werden im garantierten Cleanup entfernt.
 
 ## Invoke-ContainerRuntimeScopeAcceptance.ps1
 
-Der PSR-006-Nachweis inspiziert den aktiven Docker-Context und die aktive
-Podman-Connection/Machine ausschließlich read-only. Er validiert den
-sanitisierten `SqlServerLab.ContainerRuntimeScope/1.0`-Vertrag und vergleicht
-Container, Volumes, Context-/Connection-Auswahl und Machines vor und nach der
-Inspektion. Engine, Machine, physisches Backing und Hostdefaults werden weder
-verändert noch als Lab-Eigentum ausgegeben.
+Der gemeinsame PSR-001-/PSR-006-Nachweis inspiziert den aktiven Docker-Context
+und die aktive Podman-Connection/Machine ausschließlich read-only. Er validiert
+den sanitisierten `SqlServerLab.ContainerRuntimeScope/1.0`-Vertrag, löst die
+lokalen VHDX- und Konfigurationsdateien hostseitig auf und prüft die
+normalisierten Image-, Container-, Volume- und Build-Cache-Klassen. Container,
+Volumes, Context-/Connection-Auswahl und Machines werden vor und nach der
+Inspektion verglichen. Engine, Machine, physisches Backing und Hostdefaults
+werden weder verändert noch als Lab-Eigentum ausgegeben.
 
 ```powershell
 .\Tests\Integration\Invoke-ContainerRuntimeScopeAcceptance.ps1
