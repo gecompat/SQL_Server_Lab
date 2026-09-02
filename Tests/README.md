@@ -156,7 +156,9 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
   geheimnissicherem Ergebnis;
 - External-Runtime-Reconcile-Vertrag: versionsbewusster SQL-2019-/2022-/2025-
   Container-Refresh, Nicht-Software-Drift-/Removal-Gates, sanitisiertes
-  `-WhatIf`, Journal, Rollback und Umschaltreihenfolge;
+  `-WhatIf`, Journal, Rollback, Umschaltreihenfolge und Rückweg vom letzten
+  Runtime-Image zum katalogisierten SQL-Basisimage ohne vorzeitiges Löschen der
+  Runtime-Sidecars;
 - portabler Storage-Intent, lokale Selector-/Topologiebindung, vollständige
   SQL-Dateipläne und der getrennte Runtime-Receipt-Vertrag;
 - Hyper-V-Legacy-Migration: schema-valides read-only Inventar, Checkpoint-

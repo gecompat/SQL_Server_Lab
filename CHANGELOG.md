@@ -19,6 +19,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Docker und Podman können über den öffentlichen External-Runtime-Reconcile-
+  Pfad nun auch die letzte Runtime entfernen. Der journalgebundene
+  Ersatzcontainer kehrt auf das katalogisierte SQL-Basisimage zurück,
+  deaktiviert `external scripts enabled`, leert Runtime-State und Receipts erst
+  nach SQL-Postcondition und hängt die beiden Runtime-Sidecars aus, ohne deren
+  Retention-/Cleanup-Vertrag zu umgehen. Getrennte native Abnahmen bestätigten
+  SQL-Datenpersistenz, Restart, Journalabschluss und vollständigen Cleanup.
 - Eigenständig gestartete Docker-/Podman-Acceptances lösen die Runtime-CLI vor
   ihrem ersten Probe über den zentralen Host-Tool-Resolver auf und verwenden
   anschließend den absoluten Aufrufpfad. Agent-, No-Profile- und Testprozesse
