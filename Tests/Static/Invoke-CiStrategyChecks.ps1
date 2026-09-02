@@ -181,7 +181,7 @@ Add-CheckResult -Name 'PR-Gate validiert betroffene Foundation-Aenderungen gegen
     $prWorkflow -match 'ref:\s*7ddc29988b23570f462e46ebf527f8dfdd05fd75' -and
     $prWorkflow -match 'foundation_validator\.py' -and
     $prWorkflow -match '--adapters github-copilot' -and
-    $prWorkflow -match '--capabilities none' -and
+    $prWorkflow -match '--capabilities rule-context-cache' -and
     $prWorkflow -match "foundation = '\$\{\{ needs\.foundation-integrity\.result \}\}'"
 )
 
