@@ -343,7 +343,7 @@ RECONFIGURE WITH OVERRIDE;
             -InstanceId $receiptInstanceId -Receipts @($receipts)
         $null = Set-LabHyperVExternalRuntimeStatus -RunId $RunId -Status EXTENSIONS_READY_RUN `
             -Receipts @($receipts | ForEach-Object {
-                [PSCustomObject]@{ SoftwareId=$_.SoftwareId; VariantId=$_.VariantId; RuntimeVersion=$_.RuntimeVersion; Status=$_.Status; CompletedAt=$_.CompletedAt }
+                [PSCustomObject]@{ SoftwareId=$_.SoftwareId; PlanKey=$_.PlanKey; VariantId=$_.VariantId; RuntimeVersion=$_.RuntimeVersion; Status=$_.Status; CompletedAt=$_.CompletedAt }
             }) -StateRoot $lab.StateRoot
         return @($receipts)
     }
