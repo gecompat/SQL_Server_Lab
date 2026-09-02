@@ -93,6 +93,10 @@ function Set-LabMediaRootDefault {
     param([Parameter(Mandatory)][string]$MediaRoot)
 
     $resolved = (Resolve-Path -LiteralPath $MediaRoot -ErrorAction Stop).Path
+    $volumeRoot = [System.IO.Path]::GetPathRoot($resolved)
+    if ($resolved.TrimEnd('\', '/') -eq $volumeRoot.TrimEnd('\', '/')) {
+        throw 'MEDIA_ROOT_TOO_BROAD: Bitte den vollstaendigen Media-Root-Ordner angeben, z. B. C:\Lab_Base.'
+    }
     $env:SQL_SERVER_LAB_MEDIA_ROOT = $resolved
     [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_MEDIA_ROOT', $resolved, 'User')
     Set-LabProjectPreferenceValue -Name mediaRoot -Value $resolved
