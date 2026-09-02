@@ -833,5 +833,8 @@ function Invoke-LabConnectionCenterInteractive {
             '7' { foreach ($entry in $center.Entries) { Write-Host ('    {0} / {1}: {2} ({3})' -f $center.Grouping.RootGroupName, $entry.Group, $entry.Server, $entry.RuntimeState) -ForegroundColor DarkGray } }
             default { Write-LabWarning 'Ungültige Auswahl.' }
         }
+        if ($choice -in @('1', '2', '3', '5', '6', '7')) {
+            $null = Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zur SQL-Verbindungszentrale'
+        }
     }
 }
