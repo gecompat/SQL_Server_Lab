@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/hyperv-persistent-data-detach-evidence.schema.json",
+  "title": "SqlServerLab.HyperVPersistentDataDetachEvidence/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "PersistentStorageId", "ControllerId", "SourceRunId", "SourceScopeId", "SourceVMId", "SourceFileLength", "SourceLastWriteTimeUtc", "DetachEvidence", "RecordedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVPersistentDataDetachEvidence/1.0" },
+    "PersistentStorageId": { "type": "string", "format": "uuid" },
+    "ControllerId": { "type": "string", "format": "uuid" },
+    "SourceRunId": { "type": ["string", "null"], "format": "uuid" },
+    "SourceScopeId": { "type": ["string", "null"], "format": "uuid" },
+    "SourceVMId": { "type": ["string", "null"], "format": "uuid" },
+    "SourceFileLength": { "type": "integer", "minimum": 1 },
+    "SourceLastWriteTimeUtc": { "type": "string", "format": "date-time" },
+    "DetachEvidence": {
+      "type": "object",
+      "required": ["Status", "DirtyState", "DiskIdentifier", "SqlMajorVersion", "GuestPath", "DatabasesState", "ObservedAt"],
+      "properties": {
+        "Status": { "const": "CLEAN_DETACHED" },
+        "DirtyState": { "const": "CLEAN" },
+        "DiskIdentifier": { "type": "string", "format": "uuid" },
+        "SqlMajorVersion": { "type": "string", "pattern": "^20(19|22|25)$" },
+        "GuestPath": { "type": "string", "pattern": "^[D-Zd-z]:\\\\" },
+        "DatabasesState": { "enum": ["OFFLINE_OR_DETACHED", "NO_DATABASE_FILES"] },
+        "ObservedAt": { "type": "string", "format": "date-time" }
+      },
+      "additionalProperties": false
+    },
+    "RecordedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}
