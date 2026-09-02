@@ -262,7 +262,9 @@ Der lokale PSR-008-Cross-Provider-Nachweis verwendet zusätzlich dieselbe
 test-eigene Quelle für Docker → Podman und registriert nur den sanitierten
 Inhaltsdigest. Die Backup-Erstellung führt dabei auch das read-only PSR-010-
 Inventar aus und speichert nur Serverobjekt-/TDE-Kategorien und Counts, keine
-Objekt-, Host-, Credential- oder Schlüsselnamen:
+Objekt-, Host-, Credential- oder Schlüsselnamen. FILESTREAM ist für diesen
+Linux-Container-Paarlauf capability-basiert `NOT_APPLICABLE`; eine positive
+FILESTREAM-Evidence darf daraus nicht abgeleitet werden:
 
 ```powershell
 .\Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1

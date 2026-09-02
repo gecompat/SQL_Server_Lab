@@ -865,7 +865,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-003 dokumentiert partielle klassenbezogene Katalogcommits ohne breites Mutationsversprechen' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / PSR_001_PARTIAL_PSR_002_COMPLETE_PSR_003_004_011_PARTIAL_PSR_006_READ_ONLY_PSR_005_007_008_009_010_012_IMPLEMENTED_CORE`' -and
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / 10_TOP_LEVEL_PACKAGES_REMAIN / PSR_002_005_008_COMPLETE / PSR_001_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_007_009_010_012_IMPLEMENTED_CORE / PSR_013_PLANNED`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
@@ -955,6 +955,17 @@ Add-ValidationResult `
         $repoMap -match 'hyperv_persistent_data_intent_schema: Schemas/hyperv-persistent-data-intent\.schema\.json' -and
         $repoMap -match 'validation_hyperv_persistent_data_drive: Tests/Static/Invoke-HyperVPersistentDataDriveChecks\.ps1' -and
         $repoMap -match 'acceptance_hyperv_persistent_data_drive: Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance\.ps1')
+
+Add-ValidationResult `
+    -Name 'PSR-008 ist nur für tatsächlich unterstützte Provider-Capabilities abgeschlossen' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-008` .*\| `COMPLETE`:' -and
+        $persistentStorageBacklog -match '10_TOP_LEVEL_PACKAGES_REMAIN' -and
+        $persistentStorageBacklog -match 'Cross-Provider-FILESTREAM.*`NOT_APPLICABLE`' -and
+        $persistentStorageBacklog -match 'SQL Server\s*2025 auf Linux' -and
+        $knownLimitations -match 'FILESTREAM-Cross-Provider-Lauf\s*ist in der aktuellen Matrix nicht möglich' -and
+        $knownLimitations -match 'echte\s*FILESTREAM-Inhaltsevidence' -and
+        $localValidationStrategy -match 'Kriterium ist `NOT_APPLICABLE`' -and
+        $repoMap -match 'acceptance_backup_library_cross_provider: Tests/Integration/Invoke-BackupLibraryCrossProviderAcceptance\.ps1')
 
 Add-ValidationResult `
     -Name 'PSR-010 trennt Datenbankartefakte von Serverobjekten, TDE-Keymaterial und externen Services' `
