@@ -156,11 +156,11 @@ function Get-LabExternalRuntimeReconcileContext {
         throw 'EXTERNAL_RUNTIME_RECONCILE_CURRENT_PLAN_KEYS_INVALID'
     }
     $removedIds = @($currentPlans.SoftwareId | Where-Object { $_ -notin @($desiredPlans.SoftwareId) })
-    if ($desiredPlans.Count -eq 0) {
-        throw 'EXTERNAL_RUNTIME_RECONCILE_LAST_RUNTIME_REMOVAL_UNSUPPORTED'
+    $imagePlan = if ($desiredPlans.Count -gt 0) {
+        New-LabExternalRuntimeContainerImagePlan -Provider ([string]$connectionInstance.provider) `
+            -SqlVersion ([string]$connectionInstance.version) -SoftwarePlans $desiredPlans
     }
-    $imagePlan = New-LabExternalRuntimeContainerImagePlan -Provider ([string]$connectionInstance.provider) `
-        -SqlVersion ([string]$connectionInstance.version) -SoftwarePlans $desiredPlans
+    else { $null }
     $preview = Get-LabExternalRuntimePlanPreview -DesiredPlans $desiredPlans -CurrentPlans $currentPlans
     $currentKeys = @($currentPlans.PlanKey | Sort-Object -Unique)
     $desiredKeys = @($desiredPlans.PlanKey | Sort-Object -Unique)
@@ -188,9 +188,9 @@ function New-LabExternalRuntimeReconcilePlan {
     $instance = $context.ConnectionInstance
     $action = if ($context.IsNoOp) { @() } else {
         @([PSCustomObject]@{
-            Operation=$(if ($context.CurrentPlans.Count -eq 0) { 'InstallExternalRuntime' } else { 'RefreshExternalRuntime' }); Provider=[string]$instance.provider
+            Operation=$(if ($context.DesiredPlans.Count -eq 0) { 'RemoveExternalRuntime' } elseif ($context.CurrentPlans.Count -eq 0) { 'InstallExternalRuntime' } else { 'RefreshExternalRuntime' }); Provider=[string]$instance.provider
             InstanceId=[string]$instance.id; ChangeClass='recreate'
-            ImageKey=[string]$context.ImagePlan.ImageKey
+            ImageKey=$(if ($context.ImagePlan) { [string]$context.ImagePlan.ImageKey } else { $null })
         })
     }
     return [PSCustomObject]@{
@@ -198,7 +198,7 @@ function New-LabExternalRuntimeReconcilePlan {
         RunId=[string]$context.Run.runId; PlanKind='ExternalRuntime'; InstanceId=[string]$instance.id
         Desired=[PSCustomObject]@{
             Provider=[string]$instance.provider; SqlVersion=[string]$instance.version
-            PlanKeys=@($context.DesiredPlanKeys); ImageKey=[string]$context.ImagePlan.ImageKey
+            PlanKeys=@($context.DesiredPlanKeys); ImageKey=$(if ($context.ImagePlan) { [string]$context.ImagePlan.ImageKey } else { $null })
             Software=@($context.DesiredPlans | Sort-Object SoftwareId | ForEach-Object {
                 [PSCustomObject]@{ SoftwareId=[string]$_.SoftwareId; VariantId=[string]$_.VariantId; RuntimeVersion=[string]$_.RuntimeVersion; PlanKey=[string]$_.PlanKey }
             })
@@ -218,7 +218,9 @@ function New-LabExternalRuntimeReconcilePlan {
         }))
         Actions=$action; HighestChangeClass=if ($context.IsNoOp) { 'no-op' } else { 'recreate' }
         IsNoOp=[bool]$context.IsNoOp; MutationAllowed=$false
-        Warnings=if ($context.IsNoOp) { @() } else { @('Downtime erforderlich. Das bisherige Image bleibt erhalten; der bisherige Container wird erst nach erfolgreicher SQL-Validierung entfernt.') }
+        Warnings=if ($context.IsNoOp) { @() } elseif ($context.DesiredPlans.Count -eq 0) {
+            @('Downtime erforderlich. Der Ersatzcontainer verwendet wieder das katalogisierte SQL-Basisimage; External-Runtime-Sidecars und das bisherige Derived Image bleiben gemäß Retention- und Cleanup-Vertrag erhalten.')
+        } else { @('Downtime erforderlich. Das bisherige Image bleibt erhalten; der bisherige Container wird erst nach erfolgreicher SQL-Validierung entfernt.') }
     }
 }
 
@@ -250,6 +252,7 @@ function New-LabExternalRuntimeReplacementInstance {
         [Parameter(Mandatory)]$ResolvedInstance,
         [Parameter(Mandatory)]$ContainerInspect,
         [switch]$AllowNewExternalRuntimeVolumes,
+        [switch]$ExcludeExternalRuntimeVolumes,
         [switch]$PersistentData
     )
 
@@ -260,18 +263,23 @@ function New-LabExternalRuntimeReplacementInstance {
     # LaunchPad data and sandboxes remain container-local to avoid retaining
     # namespace ownership and nested-mount state.
     $replacement = $ResolvedInstance | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
-    $null = Add-LabRunScopedContainerSystemDrive -Instance $replacement -IncludeExternalRuntimeState
-    $drives = @($replacement.drives | Where-Object { [string]$_.containerPath -ne '/var/opt/mssql-extensibility' })
+    $externalRuntimeDestinations = @(
+        '/var/opt/mssql-extensibility/externallanguages',
+        '/var/opt/mssql-extensibility/externallibraries'
+    )
+    $null = Add-LabRunScopedContainerSystemDrive -Instance $replacement `
+        -IncludeExternalRuntimeState:(-not $ExcludeExternalRuntimeVolumes)
+    $drives = @($replacement.drives | Where-Object {
+        [string]$_.containerPath -ne '/var/opt/mssql-extensibility' -and
+        (-not $ExcludeExternalRuntimeVolumes -or [string]$_.containerPath -notin $externalRuntimeDestinations)
+    })
     foreach ($drive in $drives) {
         if (-not $drive -or -not $drive.containerPath) { continue }
         $mount = @($ContainerInspect.Mounts | Where-Object {
             [string]$_.Destination -eq [string]$drive.containerPath
         })
         if ($mount.Count -eq 0 -and $AllowNewExternalRuntimeVolumes -and
-            [string]$drive.containerPath -in @(
-                '/var/opt/mssql-extensibility/externallanguages',
-                '/var/opt/mssql-extensibility/externallibraries'
-            )) {
+            [string]$drive.containerPath -in $externalRuntimeDestinations) {
             if ($PersistentData) {
                 $systemDrive = @($drives | Where-Object { [string]$_.containerPath -eq '/var/opt/mssql' })[0]
                 if (-not $systemDrive -or [string]::IsNullOrWhiteSpace([string]$systemDrive.volumeName)) {
@@ -312,6 +320,7 @@ function New-LabExternalRuntimeReplacementInstance {
     $additionalIndex = 0
     foreach ($mount in @($ContainerInspect.Mounts | Where-Object {
         [string]$_.Destination -notin @('/sys/fs/cgroup','/var/opt/mssql-extensibility') -and
+        (-not $ExcludeExternalRuntimeVolumes -or [string]$_.Destination -notin $externalRuntimeDestinations) -and
         [string]$_.Destination -notin $boundDestinations
     })) {
         $additionalIndex++
@@ -563,9 +572,11 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
         throw 'EXTERNAL_RUNTIME_REFRESH_CONTAINER_NAME_INVALID'
     }
     $isInitialInstall = $context.CurrentPlans.Count -eq 0
+    $isLastRemoval = $context.DesiredPlans.Count -eq 0 -and $context.CurrentPlans.Count -gt 0
     $replacementInstance = New-LabExternalRuntimeReplacementInstance `
         -ResolvedInstance $context.ResolvedInstance -ContainerInspect $inspect `
         -AllowNewExternalRuntimeVolumes:$isInitialInstall `
+        -ExcludeExternalRuntimeVolumes:$isLastRemoval `
         -PersistentData:([bool]$context.PersistedSnapshot.PersistentData)
     $backupName = "$name-runtime-refresh-$([guid]::NewGuid().ToString('N').Substring(0,8))"
     $saPassword = Get-LabSecret -Path $context.RunDirectory -Name 'sa-password'
@@ -579,18 +590,23 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
         Get-Content -LiteralPath $cleanupPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
     } else { $null }
     $javaCleanup = Get-LabExternalRuntimeJavaCleanupPlan -Context $context -PreviousReceipts $previousReceipts
-    $artifact = Invoke-LabExternalRuntimeContainerImageBuild -ImagePlan $context.ImagePlan -StateRoot $StateRoot
+    $artifact = if ($context.ImagePlan) {
+        Invoke-LabExternalRuntimeContainerImageBuild -ImagePlan $context.ImagePlan -StateRoot $StateRoot
+    }
+    else { $null }
+    $previousConnection = $context.Connection | ConvertTo-Json -Depth 100 | ConvertFrom-Json -Depth 100
+    $previousRunState = $context.Run | ConvertTo-Json -Depth 100 | ConvertFrom-Json -Depth 100
     $journalPath = Get-LabExternalRuntimeRefreshJournalPath -RunDirectory $context.RunDirectory
     $journal = [PSCustomObject]@{
         contract=[PSCustomObject]@{ name='SqlServerLab.ExternalRuntimeRefreshJournal'; version='1.0' }
         runId=$RunId; scopeId=[string]$context.Run.scopeId; instanceId=[string]$context.ConnectionInstance.id
         provider=$provider; containerName=$name; backupName=$backupName
         previousImageKey=$(if ($context.ConnectionInstance.externalRuntime) { [string]$context.ConnectionInstance.externalRuntime.ImageKey } else { $null })
-        desiredImageKey=[string]$artifact.ImageKey; status='PREPARED'; updatedAt=Get-LabTimestamp
+        desiredImageKey=$(if ($artifact) { [string]$artifact.ImageKey } else { $null }); status='PREPARED'; updatedAt=Get-LabTimestamp
         javaCleanup=if ($javaCleanup) { [PSCustomObject]@{
             software=$javaCleanup.Software; records=@($javaCleanup.Records)
         } } else { $null }
-        previousConnection=$context.Connection; previousRunState=$context.Run; previousReceipts=$previousReceipts
+        previousConnection=$previousConnection; previousRunState=$previousRunState; previousReceipts=$previousReceipts
         previousCleanupPlan=$previousCleanupPlan
     }
     Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal
@@ -604,11 +620,18 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
         if ($LASTEXITCODE -ne 0) { throw "EXTERNAL_RUNTIME_REFRESH_RENAME_FAILED: $($renameOutput -join ' ')" }
         Set-LabExternalRuntimeRefreshJournalStatus -Journal $journal -Path $journalPath -Status 'ORIGINAL_RENAMED'
 
-        $replacement = New-LabProviderContainer -Instance $replacementInstance -RunState ([PSCustomObject]@{
+        $newContainerParameters = @{
+            Instance=$replacementInstance
+            RunState=[PSCustomObject]@{
             RunId=$RunId; ScopeId=[string]$context.Run.scopeId; metadata=$context.Run.metadata
-        }) -SaPassword $saPassword -Port ([int]$context.ConnectionInstance.port) `
-            -ContainerImageArtifact $artifact -ContainerName $name `
-            -EndpointBindingIgnoreContainerName $backupName
+            }
+            SaPassword=$saPassword
+            Port=[int]$context.ConnectionInstance.port
+            ContainerName=$name
+            EndpointBindingIgnoreContainerName=$backupName
+        }
+        if ($artifact) { $newContainerParameters.ContainerImageArtifact = $artifact }
+        $replacement = New-LabProviderContainer @newContainerParameters
         if ($isInitialInstall) {
             Add-LabExternalRuntimeCleanupVolumes -RunDirectory $context.RunDirectory -Provider $provider `
                 -ContainerName $name -ReplacementInstance $replacementInstance -SoftwarePlans $context.DesiredPlans
@@ -624,10 +647,19 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
             Provider=$provider; Host=[string]$context.ConnectionInstance.host; Port=[int]$replacement.Port
             ContainerId=[string]$replacement.ContainerId; Databases=@($context.ConnectionInstance.databases)
         }
-        $receipts = @(Initialize-LabExternalRuntimes -SoftwarePlans $context.DesiredPlans -LabInstance $labInstance `
-            -ImageArtifact $artifact -SaPassword $saPassword -RunDirectory $context.RunDirectory `
-            -ResourceGovernorConfig $context.ResolvedInstance.serverConfig.externalScripts.resourceGovernor `
-            -CompensationRecords ([ref]$javaCompensations))
+        $receipts = if ($isLastRemoval) {
+            Disable-LabExternalRuntimes -LabInstance $labInstance -SaPassword $saPassword `
+                -ReadinessTimeoutSeconds $ReadinessTimeoutSeconds
+            $null = Save-LabExternalRuntimeInstallationReceipts -RunDirectory $context.RunDirectory `
+                -InstanceId ([string]$labInstance.Id) -Receipts @()
+            @()
+        }
+        else {
+            @(Initialize-LabExternalRuntimes -SoftwarePlans $context.DesiredPlans -LabInstance $labInstance `
+                -ImageArtifact $artifact -SaPassword $saPassword -RunDirectory $context.RunDirectory `
+                -ResourceGovernorConfig $context.ResolvedInstance.serverConfig.externalScripts.resourceGovernor `
+                -CompensationRecords ([ref]$javaCompensations))
+        }
         if ($javaCleanup) {
             Set-LabExternalRuntimeRefreshJournalStatus -Journal $journal -Path $journalPath -Status 'JAVA_CLEANUP_PREPARED'
             Remove-LabExternalRuntimeManagedJavaObjects -CleanupPlan $javaCleanup `
@@ -640,15 +672,20 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
         $instance | Add-Member -NotePropertyName containerId -NotePropertyValue ([string]$replacement.ContainerId) -Force
         $instance | Add-Member -NotePropertyName containerName -NotePropertyValue ([string]$replacement.ContainerName) -Force
         $instance | Add-Member -NotePropertyName runtimeId -NotePropertyValue ([string]$replacement.ContainerId) -Force
-        $instance | Add-Member -NotePropertyName externalRuntime -NotePropertyValue ([PSCustomObject]@{
-            ImageKey=[string]$artifact.ImageKey; SoftwarePlanKeys=@($context.ImagePlan.SoftwarePlanKeys)
-            LaunchMode=[string]$artifact.LaunchMode; VariantIds=@($context.ImagePlan.VariantIds)
-            Languages=@($context.ImagePlan.Languages); Status='EXTENSIONS_READY_RUN'
-            Receipts=@($receipts | ForEach-Object { [PSCustomObject]@{
-                SoftwareId=[string]$_.SoftwareId; PlanKey=[string]$_.PlanKey; VariantId=[string]$_.VariantId
-                RuntimeVersion=[string]$_.RuntimeVersion; Status=[string]$_.Status; CompletedAt=[string]$_.CompletedAt
-            } })
-        }) -Force
+        if ($isLastRemoval) {
+            $instance.PSObject.Properties.Remove('externalRuntime')
+        }
+        else {
+            $instance | Add-Member -NotePropertyName externalRuntime -NotePropertyValue ([PSCustomObject]@{
+                ImageKey=[string]$artifact.ImageKey; SoftwarePlanKeys=@($context.ImagePlan.SoftwarePlanKeys)
+                LaunchMode=[string]$artifact.LaunchMode; VariantIds=@($context.ImagePlan.VariantIds)
+                Languages=@($context.ImagePlan.Languages); Status='EXTENSIONS_READY_RUN'
+                Receipts=@($receipts | ForEach-Object { [PSCustomObject]@{
+                    SoftwareId=[string]$_.SoftwareId; PlanKey=[string]$_.PlanKey; VariantId=[string]$_.VariantId
+                    RuntimeVersion=[string]$_.RuntimeVersion; Status=[string]$_.Status; CompletedAt=[string]$_.CompletedAt
+                } })
+            }) -Force
+        }
         $context.Run.metadata.desiredState = $context.DesiredSnapshot
         Write-LabArtifactJsonAtomic -Path $context.ConnectionPath -InputObject $context.Connection
         Write-LabArtifactJsonAtomic -Path (Join-Path $context.RunDirectory 'run-state.json') -InputObject $context.Run
@@ -658,7 +695,7 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
         Set-LabExternalRuntimeRefreshJournalStatus -Journal $journal -Path $journalPath -Status 'COMPLETED'
         return [PSCustomObject]@{
             Status='SUCCEEDED'; RunId=$RunId; InstanceId=[string]$instance.id; Provider=$provider; Changed=$true
-            ImageKey=[string]$artifact.ImageKey; PlanKeys=@($context.DesiredPlanKeys); Receipts=@($receipts)
+            ImageKey=$(if ($artifact) { [string]$artifact.ImageKey } else { $null }); PlanKeys=@($context.DesiredPlanKeys); Receipts=@($receipts)
         }
     }
     catch {
