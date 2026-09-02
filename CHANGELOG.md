@@ -8,6 +8,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Get-SqlServerLabDatabaseMigrationDependency` macht die vorhandene
+  schema-validierte PSR-010-Live-Inventur öffentlich. Direkte Ziele oder stabile
+  Run-/Instanzbindungen liefern ausschließlich sanitisierte Kategorien, Counts
+  und Migrationsgrenzen; Host, Port, Secret-, Objekt- und Schlüsselnamen werden
+  nicht in das Ergebnis übernommen.
 - `PSR-005` behandelt persistente SQL-Containerstores mit External Runtimes als
   explizite Mehr-Volume-Gruppe. External-Language- und External-Library-
   Sidecars tragen dieselbe stabile Storage-ID sowie eindeutige Rollenlabels;

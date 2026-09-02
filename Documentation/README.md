@@ -68,7 +68,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 54 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 55 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -114,6 +114,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabPersistentStorageRemovalPlan` | Explizite Retention-Auswahlen per stabiler Storage-ID gegen einen frisch inventarisierten, schema-validierten Removal-Plan prüfen |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | Unterstützte Retention-Policies mit Backup-Postconditions und fortsetzbarem Journal ausführen |
 | `Get-SqlServerLabDatabasePackage` | Datenbankpakete pfadfrei per stabiler `DatabasePackageId` inventarisieren und optional vollständig hashen; Attach bis zur Zielbindung blockieren |
+| `Get-SqlServerLabDatabaseMigrationDependency` | SQL-seitig beobachtbare Migrationsabhängigkeiten direkt oder per Run-/Instanzbindung read-only als sanitisierte Kategorien und Counts inventarisieren |
 | `Get-SqlServerLabConnectionCenter` | Passwortfreien SQL-Endpunktkatalog für SSMS und CMS ermitteln |
 | `Sync-SqlServerLabConnectionCenter` | Endpunktkatalog der Verbindungszentrale aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | Kennwortfreien SSMS-`.regsrvr`-Export erzeugen |
