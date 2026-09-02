@@ -2,10 +2,10 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `NATIVE_MULTI_VOLUME_HOST_TOOL_AND_LAST_RUNTIME_REMOVAL_PASS` |
-| Provider | Docker Desktop, Podman-WSL und isolierter Hyper-V-Linux-Gast, jeweils getrennte Läufe |
-| Verträge | `SqlServerLab.ContainerInstanceStoreIntent/1.0`; zentraler Host-Tool-Vertrag; `SqlServerLab.ExternalRuntimeContainerAcceptance/1.4` |
-| Scope | Persistente External-Runtime-Sidecars; Docker-/Podman-/Python-Auflösung in neuen Prozessen; letzter Container-Runtime-Removal |
+| Status | `NATIVE_MULTI_VOLUME_HOST_TOOL_HYPERV_CATALOG_CAS_AND_LAST_RUNTIME_REMOVAL_PASS` |
+| Provider | Docker Desktop, Podman-WSL, nativer Hyper-V-Host und isolierter Hyper-V-Linux-Gast, jeweils getrennte Läufe |
+| Verträge | `SqlServerLab.ContainerInstanceStoreIntent/1.0`; `SqlServerLab.PersistentStorageCatalog/1.0`; zentraler Host-Tool-Vertrag; `SqlServerLab.ExternalRuntimeContainerAcceptance/1.4` |
+| Scope | Persistente External-Runtime-Sidecars; Docker-/Podman-/Python-Auflösung in neuen Prozessen; revisionsgeschützte Hyper-V-Instanzstore-Writer; letzter Container-Runtime-Removal |
 
 Die unveränderten breiteren External-Runtime-Befunde vom 2026-08-28/29 und der
 Hyper-V-Befund vom 2026-08-27 werden nicht neu ausgeführt und bleiben als
@@ -81,6 +81,28 @@ Der Resolver kann installierte Werkzeuge auffinden und absolute Aufrufe
 bereitstellen; er startet nicht automatisch Docker Desktop und errät keine
 Podman-Machine oder Connection. Runtime-Start und Zugriff bleiben getrennte,
 explizit diagnostizierte Operationen.
+
+## Revisionsgeschützte Hyper-V-Instanzstore-Writer
+
+Reservierung, Abschluss und Recovery-Markierung regulärer persistenter
+Hyper-V-Instanzstores verwenden denselben Katalog-Mutationskern wie die bereits
+umgestellten Artefaktwriter. Preview blieb ohne Katalogdatei, veraltete
+Revisionen änderten keinen Spiegel, und der Abschluss nach VHDX-Erzeugung sowie
+Attachment akzeptierte exakt die Revision der vorherigen Reservierung.
+
+Die fokussierte Katalogsuite bestand 40/40 Prüfungen. Der native Hyper-V-
+Lifecycle-Smoke bestätigte Hostzugriff, VM-/VHDX-Lifecycle und vollständigen
+scopegebundenen Cleanup. Die präzisere Daten-VHDX-Acceptance reservierte die
+Quelle, committed deren echte DiskIdentifier-Postcondition revisionsgeschützt,
+klonte sie quellenunverändert, reattachte und releaste den Clone und entfernte
+alle test-eigenen Ressourcen. Beide nativen Läufe installieren weder Windows
+noch SQL Server und sind daher kein Gast- oder SQL-Onlinenachweis.
+
+```powershell
+pwsh -NoLogo -NoProfile -File Tests/Static/Invoke-PersistentStorageCatalogChecks.ps1
+pwsh -NoLogo -NoProfile -File Tests/Integration/Invoke-HyperVSmokeTest.ps1
+pwsh -NoLogo -NoProfile -File Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1
+```
 
 ## Entfernung der letzten Container-Runtime
 

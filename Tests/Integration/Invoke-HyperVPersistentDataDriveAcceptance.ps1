@@ -65,10 +65,10 @@ try {
     $null = Set-VM -VM $vm -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
     $null = Add-VMHardDiskDrive -VMName $vmName -ControllerType SCSI -ControllerNumber 0 -ControllerLocation 1 -Path $sourcePath -ErrorAction Stop
     $null = & $module {
-        param($StorageId,$RunId,$ScopeId,$DiskIdentifier,$Configuration)
+        param($StorageId,$RunId,$ScopeId,$DiskIdentifier,$Configuration,$ExpectedRevision)
         Complete-LabHyperVInstanceStoreReservation -PersistentStorageId $StorageId -RunId $RunId -ScopeId $ScopeId `
-            -DiskIdentifier $DiskIdentifier -Configuration $Configuration
-    } $sourceId $runId $scopeId ([string]$sourceVhd.DiskIdentifier) $configuration
+            -DiskIdentifier $DiskIdentifier -Configuration $Configuration -ExpectedRevision $ExpectedRevision
+    } $sourceId $runId $scopeId ([string]$sourceVhd.DiskIdentifier) $configuration ([int]$reservation.CatalogRevision)
     $targetEvidence=[PSCustomObject]@{ VMId=[string]$vm.Id; SqlMajorVersion='2025'; GuestPath='S:\SQLData'; GuestPathAvailable=$true; ObservedAt=(Get-Date).ToUniversalTime().ToString('o') }
     $sourceDetach=[PSCustomObject]@{ Status='CLEAN_DETACHED'; DirtyState='CLEAN'; DiskIdentifier=([string]$sourceVhd.DiskIdentifier).ToUpperInvariant(); SqlMajorVersion='2025'; GuestPath='S:\SQLData'; DatabasesState='NO_DATABASE_FILES'; ObservedAt=(Get-Date).ToUniversalTime().ToString('o') }
 
