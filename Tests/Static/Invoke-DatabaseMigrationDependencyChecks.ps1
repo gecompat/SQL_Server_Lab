@@ -26,6 +26,17 @@ try {
         $observation=Get-LabDatabaseMigrationDependencySqlObservation -Port 14330 -SaPlain 'ephemeral-test-value' -DatabaseName Evidence
         $blocked=New-LabDatabaseMigrationDependencyInventory -DatabaseName Evidence -Provider hyperv -RunId 'sanitized-run' -InstanceId primary -Observation $observation
         $review=New-LabDatabaseMigrationDependencyInventory -DatabaseName Evidence -Provider hyperv -Observation $observation -TdeRecoveryEvidenceVerified $true
+        $password=[SecureString]::new()
+        foreach($character in 'ephemeral-test-value'.ToCharArray()){$password.AppendChar($character)}
+        $password.MakeReadOnly()
+        $publicDirect=Get-SqlServerLabDatabaseMigrationDependency -HostName 127.0.0.1 -Port 14330 `
+            -Provider external -SaPassword $password -DatabaseName Evidence -TdeRecoveryEvidenceVerified
+        Set-Item Function:script:Resolve-LabRunInstance -Value {
+            [PSCustomObject]@{HostName='127.0.0.1';Port=14330;Provider='hyperv';ContainerName='';VMName='SQLLAB-PSR010';Version='2025'}
+        }
+        $publicRun=Get-SqlServerLabDatabaseMigrationDependency `
+            -RunId '11111111-1111-1111-1111-111111111111' -InstanceId primary `
+            -SaPassword $password -DatabaseName Evidence
         $boundary=Get-LabDatabaseArtifactMigrationBoundary -DependencyInventory $review -ExternalDependencies @('CUSTOM_EXTERNAL_RUNTIME')
         $duplicate=$false
         $invalid=$review|ConvertTo-Json -Depth 40|ConvertFrom-Json -Depth 40
@@ -34,7 +45,11 @@ try {
         $missing=$false
         Set-Item Function:script:Invoke-SqlQuery -Value { @('PSR010_META|17|NONE|0|0|NONE','PSR010_COUNT|SERVER_LOGIN_MAPPING|0') }
         try{$null=Get-LabDatabaseMigrationDependencySqlObservation -Port 14330 -SaPlain 'ephemeral-test-value' -DatabaseName Evidence}catch{$missing=$_.Exception.Message -match 'COUNT_MISSING'}
-        [PSCustomObject]@{Observation=$observation;Blocked=$blocked;Review=$review;Boundary=$boundary;Missing=$missing;Duplicate=$duplicate;Query=$script:capturedQuery}
+        [PSCustomObject]@{
+            Observation=$observation;Blocked=$blocked;Review=$review
+            PublicDirect=$publicDirect;PublicRun=$publicRun;Boundary=$boundary
+            Missing=$missing;Duplicate=$duplicate;Query=$script:capturedQuery
+        }
     }
     Add-CheckResult 'Read-only SQL-Inventar erfasst Login-, Job-, Proxy-, Linked-Server- und TDE-Kategorien als Counts' (
         $result.Observation.ServerLoginMappingCount -eq 2 -and $result.Observation.SqlAgentJobCount -eq 1 -and
@@ -47,6 +62,15 @@ try {
         -not $result.Review.MigrationBoundary.FullInstanceMigration -and -not $result.Review.MigrationBoundary.TdeKeyMaterialIncluded)
     Add-CheckResult 'Nicht SQL-seitig beweisbare Serverkonfiguration, SSISDB und SSAS bleiben sichtbar NOT_OBSERVABLE' (
         @($result.Review.Dependencies|Where-Object Status -eq 'NOT_OBSERVABLE').Count -eq 3)
+    Add-CheckResult 'Öffentliche direkte Live-Inventur bleibt schema-validiert und geheimnisfrei' (
+        $result.PublicDirect.ContractVersion -eq 'SqlServerLab.DatabaseMigrationDependencyInventory/1.0' -and
+        $result.PublicDirect.Source.Provider -eq 'external' -and -not $result.PublicDirect.Source.RunId -and
+        (($result.PublicDirect|ConvertTo-Json -Depth 40) -notmatch '127\.0\.0\.1|14330|ephemeral-test-value'))
+    Add-CheckResult 'Öffentliche Run-/Instanzbindung verwendet die stabile Quellidentität ohne Endpunktprojektion' (
+        $result.PublicRun.Source.Provider -eq 'hyperv' -and
+        $result.PublicRun.Source.RunId -eq '11111111-1111-1111-1111-111111111111' -and
+        $result.PublicRun.Source.InstanceId -eq 'primary' -and
+        (($result.PublicRun|ConvertTo-Json -Depth 40) -notmatch 'SQLLAB-PSR010|127\.0\.0\.1|14330'))
     Add-CheckResult 'Artefaktgrenze weist DATABASE_FILES_ONLY und getrennte Abhängigkeiten aus' (
         $result.Boundary.ArtifactScope -eq 'DATABASE_FILES_ONLY' -and -not $result.Boundary.FullInstanceMigration -and
         'CUSTOM_EXTERNAL_RUNTIME' -in $result.Boundary.DependencyCategories -and 'SERVER_LOGIN_MAPPING' -in $result.Boundary.DependencyCategories)

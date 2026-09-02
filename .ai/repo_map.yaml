@@ -47,6 +47,7 @@ sources_of_truth:
   validation_database_package: Tests/Static/Invoke-DatabasePackageChecks.ps1
   acceptance_database_package_sql: Tests/Integration/Invoke-DatabasePackageSqlAcceptance.ps1
   database_migration_dependency_inventory: Private/DatabaseMigrationDependency.ps1
+  database_migration_dependency_public_inventory: Public/Get-SqlServerLabDatabaseMigrationDependency.ps1
   database_migration_dependency_inventory_schema: Schemas/database-migration-dependency-inventory.schema.json
   validation_database_migration_dependency: Tests/Static/Invoke-DatabaseMigrationDependencyChecks.ps1
   host_tool_resolution: Private/HostToolResolution.ps1
@@ -502,6 +503,7 @@ internal_components:
       - "Datenbankdateien und Backups nie als vollstaendige Instanzmigration oder als TDE-Key-/Secret-Export darstellen"
       - "sanitisierte Migration-Boundaries in neue Backup- und Datenbankpaket-Receipts einbetten"
       - "persistierte Migrationskategorien und Warnungen pfad- und geheimnisfrei ueber die Datenbankpaket-Auswahl an CLI und Browser projizieren"
+      - "Live-Inventur direkt oder ueber stabile Run-/Instanzbindung als oeffentliches read-only Cmdlet bereitstellen"
   - name: SampleArtifactHandlers
     source: Private/SampleArtifactHandlers.ps1
     responsibilities:

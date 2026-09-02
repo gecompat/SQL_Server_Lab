@@ -141,8 +141,9 @@ Service-Mitnahme ausnahmslos auf `false`. TDE ohne verifizierte Recovery-
 Evidence bleibt blockiert. Objekt-, Host-, Credential- und Schlüsselnamen
 werden nicht im sanitierten Receipt gespeichert. Persistierte Kategorien und
 Warnungen werden über die stabile `DatabasePackageId` ohne erneute SQL-Abfrage
-pfad- und geheimnisfrei in CLI und Browser angezeigt. Eine öffentliche Live-
-Inventur sowie Export-/Import-Executor bleiben Folgearbeit.
+pfad- und geheimnisfrei in CLI und Browser angezeigt. Die öffentliche read-only
+Live-Inventur bindet eine direkte Quelle oder eine stabile Run-/Instanz-ID an
+denselben Vertrag. Export-/Import-Executor bleiben Folgearbeit.
 
 Der nächste öffentliche Slice `PSR-011` inventarisiert Datenbankpakete in CLI
 und Browser über dieselbe stabile `DatabasePackageId`. Die Auswahlansicht ist
@@ -441,7 +442,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_CORE`: Storage-ID-, Disk-/VM-/Checkpoint-/Clean-Detach-/SQL-Versions-validierter Host-Lifecycle, unabhängiger Clone und realer Hyper-V-Nachweis; Katalog-Commit, öffentliche Bedienung und explizite Datenbankaktion bleiben getrennt |
 | `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `IMPLEMENTED_CORE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt, öffentliche BackupSetId-Auswahl und realer Docker→Podman-Inhaltsnachweis; reale FILESTREAM-Cross-Provider-Evidence bleibt offen |
 | `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | `IMPLEMENTED_CORE`: vollständiger Offline-Dateivertrag, rekursive Hashes, unabhängiger Clone und journalisiertes Copy-then-Attach; native Hyper-V-/FILESTREAM-Abnahme sowie öffentliche Bedienung offen |
-| `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | `IMPLEMENTED_CORE`: read-only SQL-Counts, TDE-Recovery-Gate, externe Review-Grenzen und sanitisierte `DATABASE_FILES_ONLY`-Receipts; persistierte Kategorien und Warnungen sind paketgebunden in CLI/Browser sichtbar, Live-Inventur und Export/Import bleiben offen |
+| `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | `IMPLEMENTED_CORE`: öffentliche read-only Live-Inventur per direktem Ziel oder stabiler Run-/Instanzbindung, TDE-Recovery-Gate, externe Review-Grenzen und sanitisierte `DATABASE_FILES_ONLY`-Receipts; persistierte Kategorien und Warnungen sind paketgebunden in CLI/Browser sichtbar, Export/Import bleibt offen |
 | `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | `IMPLEMENTED_PARTIAL`: Backup-Inventur/Restore, Container-Continue/Clone, Retention-Vorschau, Retain/Backup-on-Remove sowie die pfadfreie Datenbankpaket-Inventur verwenden in CLI und Browser dieselben stabilen IDs und Fachkerne; Paket-Vollhashing erfolgt explizit oder vor Verwendung, Datenbankpaket-Attach bleibt bis zur sicheren Zielbindung gesperrt und endgültiges Delete bleibt offen |
 | `PSR-012` | P1 | Cleanup-Audit um persistente Stores, Runtime-Backing, Orphans und Referenzschutz erweitern | `IMPLEMENTED_CORE`: strikte getrennte Findings für Retention, unerwartete Residuen, Recovery und unverifizierbare Evidence; automatische Mutation bleibt ausgeschlossen |
 | `PSR-013` | P2 | journalisierte Migration vorhandener Volumes/VHDX und Metadaten bereitstellen | Resume, Rollback, Hash- und Kapazitätsnachweis |
@@ -513,15 +514,16 @@ eigener Provider-Nachweis offen und wird nicht vorweggenommen.
 - Serverobjekte, TDE-Keymaterial, Credentials und externe Services werden bei
   Backup oder Datenbankpaket nicht als implizit mitgenommen ausgegeben.
 
-Stand 2026-09-01: `SqlServerLab.DatabaseMigrationDependencyInventory/1.0`
+Stand 2026-09-02: `SqlServerLab.DatabaseMigrationDependencyInventory/1.0`
 liefert ausschließlich sanitisierte Kategorien und Counts. SQL-seitig
 beobachtbare Login-Mappings, Agent-Jobs, Proxies, Linked-Server-Kandidaten und
 TDE-Protectoren werden getrennt ausgewiesen; Serverkonfiguration, SSISDB und
 SSAS bleiben `NOT_OBSERVABLE`. Backup- und Package-Receipts zeigen
 `DATABASE_FILES_ONLY` sowie `FullInstanceMigration=false`. Ohne verifizierte
-TDE-Recovery-Evidence bleibt portable Migration `BLOCKED`. Ein Export- oder
-Recreate-Executor, Keymaterialtransfer und öffentliche CLI-/GUI-Flows sind
-nicht Teil dieses Slices.
+TDE-Recovery-Evidence bleibt portable Migration `BLOCKED`. Die öffentliche
+Live-Inventur verwendet direkte Ziele oder stabile Run-/Instanzbindungen. Ein
+Export- oder Recreate-Executor, Keymaterialtransfer und schreibende GUI-Flows
+sind nicht Teil dieses Slices.
 - `BACKUP_ON_REMOVE` entfernt die Umgebung erst nach erfolgreicher
   Sicherungs- und Verifikationsevidence oder endet ohne Datenlöschung in
   `RECOVERY_REQUIRED`.

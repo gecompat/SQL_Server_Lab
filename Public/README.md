@@ -26,6 +26,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Get-SqlServerLabPersistentStorageRemovalPlan` | `Get-SqlServerLabPersistentStorageRemovalPlan.ps1` | Retention-Folgen einer Run-Entfernung anhand stabiler Storage-IDs über den frisch inventarisierten, schema-validierten Removal-Plan read-only prüfen |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | `Invoke-SqlServerLabPersistentStorageRemoval.ps1` | `RETAIN_INSTANCE_STORE` und `BACKUP_ON_REMOVE` revalidiert, journalisiert und wiederaufnehmbar ausführen; Package, Löschen und externe Freigabe bleiben blockiert |
 | `Get-SqlServerLabDatabasePackage` | `Get-SqlServerLabDatabasePackage.ps1` | Datenbankpakete pfadfrei per stabiler `DatabasePackageId` inventarisieren und optional mit `-VerifyIntegrity` vollständig revalidieren; Attach bleibt bis zur Zielbindung gesperrt |
+| `Get-SqlServerLabDatabaseMigrationDependency` | `Get-SqlServerLabDatabaseMigrationDependency.ps1` | SQL-seitig beobachtbare Login-, Job-, Proxy-, Linked-Server- und TDE-Abhängigkeiten direkt oder per Run-/Instanzbindung read-only als sanitisierte Kategorien und Counts inventarisieren |
 | `Get-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Passwortfreie Endpunktübersicht für SSMS, CMS und Exporte |
 | `Sync-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Endpunktkatalog der Verbindungszentrale atomar aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | `Sync-SqlServerLabConnectionCenter.ps1` | Kennwortfreien SSMS-`.regsrvr`-Export erzeugen |

@@ -85,6 +85,7 @@ Get-SqlServerLabCleanupAudit           # Daten-/Runtime-Reste, Residency und Hyp
 Get-SqlServerLabPersistentStorageRemovalPlan # Retention-Folgen per stabiler Storage-ID read-only planen
 Invoke-SqlServerLabPersistentStorageRemoval  # Retain/Backup-on-Remove journalisiert ausführen
 Get-SqlServerLabDatabasePackage              # Datenbankpakete per stabiler ID pfadfrei inventarisieren
+Get-SqlServerLabDatabaseMigrationDependency  # SQL-Migrationsabhaengigkeiten read-only inventarisieren
 Get-SqlServerLabConnectionCenter       # Passwortfreier SQL-Endpunktkatalog für SSMS und CMS
 Sync-SqlServerLabConnectionCenter      # Endpunktkatalog atomar aktualisieren
 Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erzeugen
