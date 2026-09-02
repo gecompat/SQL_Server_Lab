@@ -394,12 +394,109 @@ function Register-LabExchangeWorkspacePersistentStorage {
     }
 }
 
+function Register-LabPersistentStorageArtifactBinding {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der Katalog-Mutation-Closure verwendet.')]
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$ArtifactId,
+        [Parameter(Mandatory)][ValidateSet('BACKUP_SET','DATABASE_PACKAGE')][string]$StorageClass,
+        [Parameter(Mandatory)][ValidateSet('docker','podman','hyperv','external')][string]$Provider,
+        [Parameter(Mandatory)][ValidateSet('AVAILABLE','RECOVERY_REQUIRED')][string]$State,
+        [Parameter(Mandatory)][ValidateLength(1,128)][string]$DisplayName,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$LocationId,
+        [Parameter(Mandatory)][ValidatePattern('^storage-object-[a-f0-9]{24}$')][string]$InventoryObjectId,
+        [Parameter(Mandatory)][string]$RelativePath,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Z][A-Z0-9_]{2,127}$')][string]$ErrorPrefix,
+        [Parameter(Mandatory)]$Configuration,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision = -1,
+        [switch]$Preview
+    )
+
+    $now = Get-LabTimestamp
+    $newStorageId = New-LabPersistentStorageId
+    $mutation = {
+        param($Document)
+        $matches = @($Document.Stores | Where-Object {
+            @($_.References | Where-Object {
+                [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.TargetId -eq $ArtifactId
+            }).Count -gt 0
+        })
+        if ($matches.Count -gt 1) { throw "${ErrorPrefix}_REFERENCE_DUPLICATE" }
+        if ($matches.Count -eq 1) {
+            $existing = $matches[0]
+            if ([string]$existing.StorageClass -ne $StorageClass -or [string]$existing.Provider -ne $Provider -or
+                [string]$existing.LocationBinding.Residency -ne 'LAB_DATA' -or
+                [string]$existing.LocationBinding.LocationId -ne $LocationId -or
+                $existing.LocationBinding.ProviderResourceId -or
+                [string]$existing.LocationBinding.InventoryObjectId -ne $InventoryObjectId -or
+                [string]$existing.LocationBinding.RelativePath -ne $RelativePath -or $null -ne $existing.Lease -or
+                [string]$existing.Retention -ne 'RETAINED' -or [string]$existing.CleanupDisposition -ne 'PRESERVE' -or
+                @($existing.References | Where-Object {
+                    [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq $ArtifactId
+                }).Count -ne 1) {
+                throw "${ErrorPrefix}_BINDING_CONFLICT"
+            }
+            $previousStore = $null
+            if ([string]$existing.State -ne $State) {
+                if ($Preview) {
+                    $previousStore = $existing | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+                }
+                $existing.State = $State
+                $existing.UpdatedAt = $now
+            }
+            return [PSCustomObject]@{
+                PersistentStorageId=[string]$existing.PersistentStorageId
+                WasExisting=$true
+                PreviousStore=$previousStore
+            }
+        }
+
+        $store = [PSCustomObject][ordered]@{
+            PersistentStorageId=$newStorageId; DisplayName=$DisplayName; StorageClass=$StorageClass
+            State=$State; Provider=$Provider
+            LocationBinding=[PSCustomObject][ordered]@{
+                Residency='LAB_DATA'; LocationId=$LocationId; ProviderResourceId=$null
+                InventoryObjectId=$InventoryObjectId; RelativePath=$RelativePath
+            }
+            References=@([PSCustomObject][ordered]@{
+                ReferenceId=$ArtifactId; Kind='ARTIFACT'; State='ACTIVE'; TargetId=$ArtifactId
+            })
+            Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt=$now; UpdatedAt=$now
+        }
+        $Document.Stores = @($Document.Stores) + @($store)
+        return [PSCustomObject]@{
+            PersistentStorageId=$newStorageId
+            WasExisting=$false
+            PreviousStore=$null
+        }
+    }.GetNewClosure()
+
+    $transaction = Invoke-LabPersistentStorageCatalogMutation -Configuration $Configuration `
+        -MutationName "REGISTER_$StorageClass" -Mutation $mutation -ExpectedRevision $ExpectedRevision -Preview:$Preview
+    $store = if ($Preview -and -not [bool]$transaction.Value.WasExisting) {
+        $null
+    }
+    elseif ($Preview -and $transaction.Value.PreviousStore) {
+        $transaction.Value.PreviousStore
+    }
+    else {
+        @($transaction.Document.Stores | Where-Object {
+            [string]$_.PersistentStorageId -eq [string]$transaction.Value.PersistentStorageId
+        })[0]
+    }
+    return [PSCustomObject]@{
+        Changed=[bool]$transaction.Changed; Store=$store; CatalogRevision=[int]$transaction.CatalogRevision
+        ProposedRevision=[int]$transaction.ProposedRevision; Preview=[bool]$transaction.Preview
+    }
+}
+
 function Register-LabBackupSetPersistentStorage {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$BackupRecord,
         [Parameter(Mandatory)][string]$DataRoot,
         [AllowNull()]$Configuration,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision = -1,
         [switch]$Preview
     )
 
@@ -412,70 +509,17 @@ function Register-LabBackupSetPersistentStorage {
         [string]::Equals(([IO.Path]::GetFullPath([string]$_.LabDataRoot).TrimEnd('\','/')),$resolvedRoot,[StringComparison]::OrdinalIgnoreCase)
     })
     if ($locations.Count -ne 1) { throw 'BACKUP_SET_STORAGE_LOCATION_UNRESOLVED' }
-    if ([string]$BackupRecord.Source.Provider -notin @('docker','podman','hyperv')) { throw 'BACKUP_SET_STORAGE_PROVIDER_INVALID' }
+    $provider = [string]$BackupRecord.Source.Provider
+    if ($provider -notin @('docker','podman','hyperv')) { throw 'BACKUP_SET_STORAGE_PROVIDER_INVALID' }
     $backupSetId = [string]$BackupRecord.BackupSetId
-    $inventoryObjectId = Get-LabStorageResidencyObjectId -Key "backup-set|$([string]$configuration.ControllerId)|$backupSetId"
-
-    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$configuration.ControllerId) -ScriptBlock {
-        $catalog = Get-LabPersistentStorageCatalog -Configuration $configuration
-        if ([string]$catalog.Status -in @('INVALID','DIVERGED','UNAVAILABLE')) {
-            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
-        }
-        $matches = @($catalog.Document.Stores | Where-Object {
-            @($_.References | Where-Object { [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.TargetId -eq $backupSetId }).Count -gt 0
-        })
-        if ($matches.Count -gt 1) { throw 'BACKUP_SET_STORAGE_REFERENCE_DUPLICATE' }
-        $relativePath = (Join-Path 'Backups' ([string]$BackupRecord.Artifact.RelativePath)).Replace('\','/')
-        $expectedState = if ([string]$BackupRecord.Status -eq 'REUSABLE') { 'AVAILABLE' } else { 'RECOVERY_REQUIRED' }
-        if ($matches.Count -eq 1) {
-            $existing = $matches[0]
-            if ([string]$existing.StorageClass -ne 'BACKUP_SET' -or [string]$existing.Provider -ne [string]$BackupRecord.Source.Provider -or
-                [string]$existing.LocationBinding.LocationId -ne [string]$locations[0].LocationId -or
-                [string]$existing.LocationBinding.InventoryObjectId -ne $inventoryObjectId -or
-                [string]$existing.LocationBinding.RelativePath -ne $relativePath -or $null -ne $existing.Lease -or
-                [string]$existing.Retention -ne 'RETAINED' -or [string]$existing.CleanupDisposition -ne 'PRESERVE' -or
-                @($existing.References | Where-Object { [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq $backupSetId }).Count -ne 1) {
-                throw 'BACKUP_SET_STORAGE_BINDING_CONFLICT'
-            }
-            if ([string]$existing.State -ne $expectedState) {
-                $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
-                $nextStore = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$existing.PersistentStorageId))[0]
-                $nextStore.State = $expectedState; $nextStore.UpdatedAt = Get-LabTimestamp
-                $next.Revision = [int]$next.Revision + 1
-                if ($Preview) {
-                    return [PSCustomObject]@{ Changed=$true; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision; Preview=$true }
-                }
-                $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
-                return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision; Preview=$false }
-            }
-            return [PSCustomObject]@{ Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision; Preview=[bool]$Preview }
-        }
-
-        if ($Preview) {
-            return [PSCustomObject]@{ Changed=$true; Store=$null; CatalogRevision=[int]$catalog.Document.Revision; Preview=$true }
-        }
-
-        $now = Get-LabTimestamp
-        $displayName = "$([string]$BackupRecord.DatabaseName) backup $([string]$BackupRecord.CreatedAt)"
-        if ($displayName.Length -gt 128) { $displayName = $displayName.Substring(0,128) }
-        $store = [PSCustomObject][ordered]@{
-            PersistentStorageId=(New-LabPersistentStorageId); DisplayName=$displayName; StorageClass='BACKUP_SET'
-            State=$expectedState
-            Provider=[string]$BackupRecord.Source.Provider
-            LocationBinding=[PSCustomObject][ordered]@{
-                Residency='LAB_DATA'; LocationId=[string]$locations[0].LocationId; ProviderResourceId=$null
-                InventoryObjectId=$inventoryObjectId; RelativePath=$relativePath
-            }
-            References=@([PSCustomObject][ordered]@{ ReferenceId=$backupSetId; Kind='ARTIFACT'; State='ACTIVE'; TargetId=$backupSetId })
-            Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt=$now; UpdatedAt=$now
-        }
-        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
-        $next.Revision = [int]$next.Revision + 1
-        $next.Stores = @($next.Stores) + @($store)
-        $null = Test-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
-        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
-        return [PSCustomObject]@{ Changed=$true; Store=$store; CatalogRevision=[int]$next.Revision; Preview=$false }
-    }
+    $displayName = "$([string]$BackupRecord.DatabaseName) backup $([string]$BackupRecord.CreatedAt)"
+    if ($displayName.Length -gt 128) { $displayName = $displayName.Substring(0,128) }
+    return Register-LabPersistentStorageArtifactBinding -ArtifactId $backupSetId -StorageClass BACKUP_SET `
+        -Provider $provider -State $(if ([string]$BackupRecord.Status -eq 'REUSABLE') { 'AVAILABLE' } else { 'RECOVERY_REQUIRED' }) `
+        -DisplayName $displayName -LocationId ([string]$locations[0].LocationId) `
+        -InventoryObjectId (Get-LabStorageResidencyObjectId -Key "backup-set|$([string]$configuration.ControllerId)|$backupSetId") `
+        -RelativePath ((Join-Path 'Backups' ([string]$BackupRecord.Artifact.RelativePath)).Replace('\','/')) `
+        -ErrorPrefix BACKUP_SET_STORAGE -Configuration $configuration -ExpectedRevision $ExpectedRevision -Preview:$Preview
 }
 
 function Register-LabDatabasePackagePersistentStorage {
@@ -484,6 +528,7 @@ function Register-LabDatabasePackagePersistentStorage {
         [Parameter(Mandatory)]$PackageRecord,
         [Parameter(Mandatory)][string]$DataRoot,
         [AllowNull()]$Configuration,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision = -1,
         [switch]$Preview
     )
 
@@ -496,69 +541,17 @@ function Register-LabDatabasePackagePersistentStorage {
         [string]::Equals(([IO.Path]::GetFullPath([string]$_.LabDataRoot).TrimEnd('\','/')),$resolvedRoot,[StringComparison]::OrdinalIgnoreCase)
     })
     if ($locations.Count -ne 1) { throw 'DATABASE_PACKAGE_STORAGE_LOCATION_UNRESOLVED' }
-    if ([string]$PackageRecord.Source.Provider -notin @('docker','podman','hyperv','external')) { throw 'DATABASE_PACKAGE_STORAGE_PROVIDER_INVALID' }
+    $provider = [string]$PackageRecord.Source.Provider
+    if ($provider -notin @('docker','podman','hyperv','external')) { throw 'DATABASE_PACKAGE_STORAGE_PROVIDER_INVALID' }
     $packageId = [string]$PackageRecord.DatabasePackageId
-    $inventoryObjectId = Get-LabStorageResidencyObjectId -Key "database-package|$([string]$configuration.ControllerId)|$packageId"
-
-    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$configuration.ControllerId) -ScriptBlock {
-        $catalog = Get-LabPersistentStorageCatalog -Configuration $configuration
-        if ([string]$catalog.Status -in @('INVALID','DIVERGED','UNAVAILABLE')) {
-            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
-        }
-        $catalogMatches = @($catalog.Document.Stores | Where-Object {
-            @($_.References | Where-Object { [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.TargetId -eq $packageId }).Count -gt 0
-        })
-        if ($catalogMatches.Count -gt 1) { throw 'DATABASE_PACKAGE_STORAGE_REFERENCE_DUPLICATE' }
-        $relativePath = (Join-Path 'DatabasePackages' (Join-Path 'Objects' ([string]$PackageRecord.ManifestSha256))).Replace('\','/')
-        $expectedState = if ([string]$PackageRecord.Status -eq 'REUSABLE') { 'AVAILABLE' } else { 'RECOVERY_REQUIRED' }
-        if ($catalogMatches.Count -eq 1) {
-            $existing = $catalogMatches[0]
-            if ([string]$existing.StorageClass -ne 'DATABASE_PACKAGE' -or [string]$existing.Provider -ne [string]$PackageRecord.Source.Provider -or
-                [string]$existing.LocationBinding.LocationId -ne [string]$locations[0].LocationId -or
-                [string]$existing.LocationBinding.InventoryObjectId -ne $inventoryObjectId -or
-                [string]$existing.LocationBinding.RelativePath -ne $relativePath -or $null -ne $existing.Lease -or
-                [string]$existing.Retention -ne 'RETAINED' -or [string]$existing.CleanupDisposition -ne 'PRESERVE' -or
-                @($existing.References | Where-Object { [string]$_.Kind -eq 'ARTIFACT' -and [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq $packageId }).Count -ne 1) {
-                throw 'DATABASE_PACKAGE_STORAGE_BINDING_CONFLICT'
-            }
-            if ([string]$existing.State -ne $expectedState) {
-                $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
-                $nextStore = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$existing.PersistentStorageId))[0]
-                $nextStore.State = $expectedState; $nextStore.UpdatedAt = Get-LabTimestamp
-                $next.Revision = [int]$next.Revision + 1
-                if ($Preview) {
-                    return [PSCustomObject]@{ Changed=$true; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision; Preview=$true }
-                }
-                $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
-                return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision; Preview=$false }
-            }
-            return [PSCustomObject]@{ Changed=$false; Store=$existing; CatalogRevision=[int]$catalog.Document.Revision; Preview=[bool]$Preview }
-        }
-
-        if ($Preview) {
-            return [PSCustomObject]@{ Changed=$true; Store=$null; CatalogRevision=[int]$catalog.Document.Revision; Preview=$true }
-        }
-
-        $now = Get-LabTimestamp
-        $displayName = "$([string]$PackageRecord.DatabaseName) package $([string]$PackageRecord.CreatedAt)"
-        if ($displayName.Length -gt 128) { $displayName = $displayName.Substring(0,128) }
-        $store = [PSCustomObject][ordered]@{
-            PersistentStorageId=(New-LabPersistentStorageId); DisplayName=$displayName; StorageClass='DATABASE_PACKAGE'
-            State=$expectedState; Provider=[string]$PackageRecord.Source.Provider
-            LocationBinding=[PSCustomObject][ordered]@{
-                Residency='LAB_DATA'; LocationId=[string]$locations[0].LocationId; ProviderResourceId=$null
-                InventoryObjectId=$inventoryObjectId; RelativePath=$relativePath
-            }
-            References=@([PSCustomObject][ordered]@{ ReferenceId=$packageId; Kind='ARTIFACT'; State='ACTIVE'; TargetId=$packageId })
-            Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt=$now; UpdatedAt=$now
-        }
-        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
-        $next.Revision = [int]$next.Revision + 1
-        $next.Stores = @($next.Stores) + @($store)
-        $null = Test-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
-        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $configuration
-        return [PSCustomObject]@{ Changed=$true; Store=$store; CatalogRevision=[int]$next.Revision; Preview=$false }
-    }
+    $displayName = "$([string]$PackageRecord.DatabaseName) package $([string]$PackageRecord.CreatedAt)"
+    if ($displayName.Length -gt 128) { $displayName = $displayName.Substring(0,128) }
+    return Register-LabPersistentStorageArtifactBinding -ArtifactId $packageId -StorageClass DATABASE_PACKAGE `
+        -Provider $provider -State $(if ([string]$PackageRecord.Status -eq 'REUSABLE') { 'AVAILABLE' } else { 'RECOVERY_REQUIRED' }) `
+        -DisplayName $displayName -LocationId ([string]$locations[0].LocationId) `
+        -InventoryObjectId (Get-LabStorageResidencyObjectId -Key "database-package|$([string]$configuration.ControllerId)|$packageId") `
+        -RelativePath ((Join-Path 'DatabasePackages' (Join-Path 'Objects' ([string]$PackageRecord.ManifestSha256))).Replace('\','/')) `
+        -ErrorPrefix DATABASE_PACKAGE_STORAGE -Configuration $configuration -ExpectedRevision $ExpectedRevision -Preview:$Preview
 }
 
 function Register-LabHyperVInstanceStoreReservation {

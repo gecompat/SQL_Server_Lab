@@ -63,6 +63,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- Backup-Set- und Datenbankpaket-Registrierung verwenden jetzt denselben
+  Artifact-Writer über dem generischen Katalog-Mutationskern. Der öffentliche
+  Preview-/Apply-Flow bindet alle drei unterstützten Artefakttypen per
+  erwarteter Revision an den zuvor gelesenen Katalogstand und blockiert damit
+  auch konkurrierende No-op-Annahmen fail-closed.
 - Der native SQL-2022-Hyper-V-External-Runtime-Aufbau besitzt jetzt einen
   getrennten Reconcile-Einstieg. Er persistiert einen softwarefreien Desired
   State und prüft den öffentlichen Plan-/`WhatIf`-/Apply-/No-op-/Removal-

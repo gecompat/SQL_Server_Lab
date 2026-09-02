@@ -885,13 +885,15 @@ Add-ValidationResult `
         $persistentStorageBacklog -match 'stabiler Datenbankreferenzen' -and
         $persistentStorageBacklog -match 'Paket-Katalogcommit quarantänisiert Library-Eintrag und Recovery-Journal' -and
         $persistentStorageBacklog -match 'Compare-and-Swap über die erwartete Revision' -and
+        $persistentStorageBacklog -match 'darauf vereinheitlichte `BACKUP_SET`-/`DATABASE_PACKAGE`-Writer' -and
         $persistentStorageBacklog -match 'vorhandene `BackupSetId`-, `DatabasePackageId`- oder\s*`ExchangeWorkspaceId`-Einträge' -and
         $persistentStorageBacklog -match '`-WhatIf` ohne Katalogmutation' -and
         $knownLimitations -match 'Reguläre Docker-/Podman-Labs mit[\s\S]*?`-PersistentData`[\s\S]*?exklusive Run-Lease' -and
         $knownLimitations -match 'stabile aktive `DATABASE`-Referenzen' -and
         $knownLimitations -match 'Sync-SqlServerLabPersistentStorageArtifact' -and
         $knownLimitations -match 'gemeinsamen Katalog-Mutationskern mit read-only Preview, erwarteter Revision' -and
-        $knownLimitations -match 'Noch nicht implementiert sind die Umstellung\s*der übrigen klassenbezogenen Writer' -and
+        $knownLimitations -match 'Backup-Set und Datenbankpaket verwenden dafür\s*denselben Artifact-Writer' -and
+        $knownLimitations -match 'Noch nicht implementiert sind die Umstellung\s*der übrigen Instanzstore-Writer' -and
         $knownLimitations -match '`BACKUP_SET` beziehungsweise `DATABASE_PACKAGE`' -and
         $repoMap -match 'persistent_storage_catalog: Private/PersistentStorageCatalog\.ps1' -and
         $repoMap -match 'persistent_storage_artifact_sync: Public/Sync-SqlServerLabPersistentStorageArtifact\.ps1' -and
