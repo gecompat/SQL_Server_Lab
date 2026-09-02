@@ -153,9 +153,19 @@ function Get-LabHyperVPersistentDataPlan {
             if (-not $store.Lease -or [string]$store.Lease.RunId -ne [string]$Intent.TargetRunId -or [string]$store.Lease.ScopeId -ne [string]$Intent.TargetScopeId) { $issues.Add('SOURCE_LEASE_TARGET_MISMATCH') }
         }
         else {
-            if ([string]$store.State -notin @('AVAILABLE','DETACHED')) { $issues.Add('SOURCE_STATE_NOT_DETACHED') }
-            if ($store.Lease) { $issues.Add('SOURCE_LEASE_ACTIVE') }
-            if (@($store.References | Where-Object State -eq 'ACTIVE').Count -gt 0) { $issues.Add('SOURCE_REFERENCE_ACTIVE') }
+            $operationReferences = @($store.References | Where-Object {
+                [string]$_.ReferenceId -eq [string]$Intent.OperationId -and [string]$_.Kind -eq 'RUN' -and
+                [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq [string]$Intent.TargetRunId
+            })
+            $sameOperationLease = [string]$store.State -in @('INCOMPLETE','RECOVERY_REQUIRED') -and $store.Lease -and
+                [string]$store.Lease.LeaseId -eq [string]$Intent.OperationId -and
+                [string]$store.Lease.RunId -eq [string]$Intent.TargetRunId -and
+                [string]$store.Lease.ScopeId -eq [string]$Intent.TargetScopeId -and $operationReferences.Count -eq 1
+            if (-not $sameOperationLease) {
+                if ([string]$store.State -notin @('AVAILABLE','DETACHED')) { $issues.Add('SOURCE_STATE_NOT_DETACHED') }
+                if ($store.Lease) { $issues.Add('SOURCE_LEASE_ACTIVE') }
+                if (@($store.References | Where-Object State -eq 'ACTIVE').Count -gt 0) { $issues.Add('SOURCE_REFERENCE_ACTIVE') }
+            }
         }
         if ([string]$store.Retention -ne 'RETAINED' -or [string]$store.CleanupDisposition -ne 'PRESERVE') { $issues.Add('SOURCE_RETENTION_NOT_PERSISTENT') }
     }
@@ -227,12 +237,16 @@ function Get-LabHyperVPersistentDataPlan {
         Source=[PSCustomObject]@{
             PersistentStorageId=[string]$Intent.SourcePersistentStorageId; Path=if ($binding) { [string]$binding.Path } else { $null }
             LocationId=if ($store) { [string]$store.LocationBinding.LocationId } else { $null }
+            RelativePath=if ($store) { [string]$store.LocationBinding.RelativePath } else { $null }
+            InventoryObjectId=if ($store) { [string]$store.LocationBinding.InventoryObjectId } else { $null }
             DiskIdentifier=[string]$RuntimeInspection.DiskIdentifier; VhdType=[string]$RuntimeInspection.VhdType
             SizeBytes=[long]$RuntimeInspection.SizeBytes; SqlMajorVersion=[string]$detach.SqlMajorVersion; GuestPath=[string]$detach.GuestPath
             Retention=if ($store) { [string]$store.Retention } else { $null }; CleanupDisposition=if ($store) { [string]$store.CleanupDisposition } else { $null }
         }
         Target=[PSCustomObject]@{
             PersistentStorageId=if ($action -eq 'CLONE') { [string]$Intent.TargetPersistentStorageId } else { $null }; Path=$targetPath
+            LocationId=if ($action -eq 'CLONE') { [string]$Intent.TargetLocationId } else { $null }
+            RelativePath=if ($action -eq 'CLONE') { (([string]$Intent.TargetRelativePath) -replace '\\','/') } else { $null }
             VMName=[string]$Intent.TargetVMName; VMId=[string]$target.VMId; RunId=[string]$Intent.TargetRunId; ScopeId=[string]$Intent.TargetScopeId
             InstanceId=[string]$target.InstanceId; SqlMajorVersion=[string]$Intent.TargetSqlMajorVersion; GuestPath=[string]$Intent.TargetGuestPath
             ControllerNumber=0; ControllerLocation=$controllerLocation
@@ -298,7 +312,8 @@ function Invoke-LabHyperVPersistentDataPlan {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Plan,
-        [Parameter(Mandatory)][string]$OperationDirectory
+        [Parameter(Mandatory)][string]$OperationDirectory,
+        [Parameter(Mandatory)]$Configuration
     )
 
     if ([string]$Plan.Status -ne 'READY') { throw 'HYPERV_PERSISTENT_DATA_READY_PLAN_REQUIRED' }
@@ -312,15 +327,31 @@ function Invoke-LabHyperVPersistentDataPlan {
             ContractVersion='SqlServerLab.HyperVPersistentDataJournal/1.0'; OperationId=[string]$Plan.OperationId
             Action=[string]$Plan.Action; Status='PREPARED'; Source=$Plan.Source; Target=$Plan.Target
             SourceSha256=$null; TargetDiskIdentifier=$null; TargetOwnedByOperation=$false
+            CatalogLeaseAcquired=$false; CatalogCommitted=$false; CatalogRevision=$null; CatalogRecoveryErrorCode=$null
             Recovery=[PSCustomObject]@{ Status='RETRY'; Attempts=0; ErrorCode=$null }; UpdatedAt=Get-LabTimestamp
         }
     }
     if ([string]$journal.OperationId -ne [string]$Plan.OperationId -or [string]$journal.Action -ne [string]$Plan.Action -or
         [string]$journal.Source.PersistentStorageId -ne [string]$Plan.Source.PersistentStorageId) { throw 'HYPERV_PERSISTENT_DATA_JOURNAL_IDENTITY_MISMATCH' }
-    if ([string]$journal.Status -eq 'COMPLETED') { return $journal }
+    foreach ($field in @(
+        @{ Name='CatalogLeaseAcquired'; Value=$false }, @{ Name='CatalogCommitted'; Value=$false },
+        @{ Name='CatalogRevision'; Value=$null }, @{ Name='CatalogRecoveryErrorCode'; Value=$null }
+    )) {
+        if (-not $journal.PSObject.Properties[$field.Name]) {
+            $journal | Add-Member -NotePropertyName $field.Name -NotePropertyValue $field.Value
+        }
+    }
+    if ([string]$journal.Status -eq 'COMPLETED' -and [bool]$journal.CatalogCommitted) { return $journal }
     $journal.Recovery.Attempts = [int]$journal.Recovery.Attempts + 1
 
     try {
+        if ([string]$Plan.Action -in @('CLONE','REATTACH')) {
+            $lease = Set-LabHyperVPersistentDataOperationLease -Plan $Plan -Configuration $Configuration
+            $journal.CatalogLeaseAcquired = $true
+            $journal.CatalogRevision = [int]$lease.CatalogRevision
+            $journal.Status = if ([bool]$lease.CatalogCommitted) { 'CATALOG_COMMITTED' } else { 'CATALOG_LEASED' }
+            $null = Write-LabHyperVPersistentDataJournal -Journal $journal -Path $journalPath
+        }
         $inspection = Get-LabHyperVPersistentDataRuntimeInspection -Path ([string]$Plan.Source.Path) -TargetVMName ([string]$Plan.Target.VMName)
         if ([string]$inspection.Status -ne 'AVAILABLE' -or [string]$inspection.DiskIdentifier -ne [string]$Plan.Source.DiskIdentifier -or
             [string]$inspection.Target.VMId -ne [string]$Plan.Target.VMId -or [string]$inspection.Target.State -ne 'Off' -or
@@ -331,6 +362,7 @@ function Invoke-LabHyperVPersistentDataPlan {
         switch ([string]$Plan.Action) {
             'CLONE' {
                 if (@($inspection.Attachments).Count -gt 0) { throw 'HYPERV_PERSISTENT_DATA_CLONE_PRECONDITION_FAILED' }
+                $reuseVerifiedTarget = $false
                 if (Test-Path -LiteralPath ([string]$Plan.Target.Path)) {
                     if (-not [bool]$journal.TargetOwnedByOperation) { throw 'HYPERV_PERSISTENT_DATA_CLONE_TARGET_OWNERSHIP_UNVERIFIED' }
                     $targetAttachments = @(
@@ -339,22 +371,34 @@ function Invoke-LabHyperVPersistentDataPlan {
                         }
                     )
                     if ($targetAttachments.Count -gt 0) { throw 'HYPERV_PERSISTENT_DATA_CLONE_TARGET_ATTACHED' }
-                    Remove-Item -LiteralPath ([string]$Plan.Target.Path) -Force -ErrorAction Stop
+                    if ([string]$journal.SourceSha256 -and [string]$journal.TargetDiskIdentifier) {
+                        $sourceHash = (Get-FileHash -LiteralPath ([string]$Plan.Source.Path) -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+                        $targetVhd = Get-VHD -Path ([string]$Plan.Target.Path) -ErrorAction Stop
+                        $reuseVerifiedTarget = $sourceHash -eq [string]$journal.SourceSha256 -and
+                            [long]$targetVhd.Size -eq [long]$inspection.SizeBytes -and
+                            [string]$targetVhd.DiskIdentifier -eq [string]$journal.TargetDiskIdentifier -and
+                            [string]$targetVhd.DiskIdentifier -ne [string]$Plan.Source.DiskIdentifier
+                    }
+                    if (-not $reuseVerifiedTarget) {
+                        Remove-Item -LiteralPath ([string]$Plan.Target.Path) -Force -ErrorAction Stop
+                    }
                 }
-                $journal.SourceSha256 = (Get-FileHash -LiteralPath ([string]$Plan.Source.Path) -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
-                $targetParent = Split-Path -Parent ([string]$Plan.Target.Path)
-                if (-not (Test-Path -LiteralPath $targetParent -PathType Container)) { $null = New-Item -ItemType Directory -Path $targetParent -Force }
-                $targetDrive = [IO.DriveInfo]::new([IO.Path]::GetPathRoot([string]$Plan.Target.Path))
-                if ([long]$targetDrive.AvailableFreeSpace -lt ([long]$inspection.FileSizeBytes + 64MB)) { throw 'HYPERV_PERSISTENT_DATA_CLONE_CAPACITY_INSUFFICIENT' }
-                $journal.TargetOwnedByOperation=$true; $journal.Status='TARGET_CREATING'
-                $null = Write-LabHyperVPersistentDataJournal -Journal $journal -Path $journalPath
-                $null = Convert-VHD -Path ([string]$Plan.Source.Path) -DestinationPath ([string]$Plan.Target.Path) -VHDType Dynamic -ErrorAction Stop
-                $null = Set-VHD -Path ([string]$Plan.Target.Path) -ResetDiskIdentifier -Force -ErrorAction Stop
-                $sourceAfter = (Get-FileHash -LiteralPath ([string]$Plan.Source.Path) -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
-                $targetVhd = Get-VHD -Path ([string]$Plan.Target.Path) -ErrorAction Stop
-                if ($sourceAfter -ne [string]$journal.SourceSha256 -or [long]$targetVhd.Size -ne [long]$inspection.SizeBytes -or
-                    [string]$targetVhd.DiskIdentifier -eq [string]$Plan.Source.DiskIdentifier) { throw 'HYPERV_PERSISTENT_DATA_CLONE_POSTCONDITION_FAILED' }
-                $journal.TargetDiskIdentifier = ([string]$targetVhd.DiskIdentifier).ToUpperInvariant()
+                if (-not $reuseVerifiedTarget) {
+                    $journal.SourceSha256 = (Get-FileHash -LiteralPath ([string]$Plan.Source.Path) -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+                    $targetParent = Split-Path -Parent ([string]$Plan.Target.Path)
+                    if (-not (Test-Path -LiteralPath $targetParent -PathType Container)) { $null = New-Item -ItemType Directory -Path $targetParent -Force }
+                    $targetDrive = [IO.DriveInfo]::new([IO.Path]::GetPathRoot([string]$Plan.Target.Path))
+                    if ([long]$targetDrive.AvailableFreeSpace -lt ([long]$inspection.FileSizeBytes + 64MB)) { throw 'HYPERV_PERSISTENT_DATA_CLONE_CAPACITY_INSUFFICIENT' }
+                    $journal.TargetOwnedByOperation=$true; $journal.Status='TARGET_CREATING'
+                    $null = Write-LabHyperVPersistentDataJournal -Journal $journal -Path $journalPath
+                    $null = Convert-VHD -Path ([string]$Plan.Source.Path) -DestinationPath ([string]$Plan.Target.Path) -VHDType Dynamic -ErrorAction Stop
+                    $null = Set-VHD -Path ([string]$Plan.Target.Path) -ResetDiskIdentifier -Force -ErrorAction Stop
+                    $sourceAfter = (Get-FileHash -LiteralPath ([string]$Plan.Source.Path) -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+                    $targetVhd = Get-VHD -Path ([string]$Plan.Target.Path) -ErrorAction Stop
+                    if ($sourceAfter -ne [string]$journal.SourceSha256 -or [long]$targetVhd.Size -ne [long]$inspection.SizeBytes -or
+                        [string]$targetVhd.DiskIdentifier -eq [string]$Plan.Source.DiskIdentifier) { throw 'HYPERV_PERSISTENT_DATA_CLONE_POSTCONDITION_FAILED' }
+                    $journal.TargetDiskIdentifier = ([string]$targetVhd.DiskIdentifier).ToUpperInvariant()
+                }
                 $journal.Status = 'TARGET_VERIFIED'
             }
             'REATTACH' {
@@ -383,11 +427,24 @@ function Invoke-LabHyperVPersistentDataPlan {
                 $journal.Status = 'CLEAN_DETACHED'
             }
         }
-        $journal.Recovery.Status='NOT_REQUIRED'; $journal.Recovery.ErrorCode=$null; $journal.Status='COMPLETED'
+        $null = Write-LabHyperVPersistentDataJournal -Journal $journal -Path $journalPath
+        $catalogCommit = Complete-LabHyperVPersistentDataCatalogOperation -Plan $Plan -Journal $journal -Configuration $Configuration
+        $journal.CatalogCommitted=$true; $journal.CatalogRevision=[int]$catalogCommit.CatalogRevision
+        $journal.Recovery.Status='NOT_REQUIRED'; $journal.Recovery.ErrorCode=$null; $journal.CatalogRecoveryErrorCode=$null
+        $journal.Status='CATALOG_COMMITTED'
+        $null = Write-LabHyperVPersistentDataJournal -Journal $journal -Path $journalPath
+        $journal.Status='COMPLETED'
         return (Write-LabHyperVPersistentDataJournal -Journal $journal -Path $journalPath)
     }
     catch {
         $code = if ($_.Exception.Message -cmatch '[A-Z][A-Z0-9_]{5,127}') { [string]$Matches[0] } else { 'HYPERV_PERSISTENT_DATA_EXECUTION_FAILED' }
+        try {
+            $recovery = Set-LabHyperVPersistentDataOperationRecoveryRequired -Plan $Plan -Configuration $Configuration
+            $journal.CatalogRevision = [int]$recovery.CatalogRevision
+        }
+        catch {
+            $journal.CatalogRecoveryErrorCode = if ($_.Exception.Message -cmatch '[A-Z][A-Z0-9_]{5,127}') { [string]$Matches[0] } else { 'HYPERV_PERSISTENT_DATA_CATALOG_RECOVERY_FAILED' }
+        }
         $journal.Status='RECOVERY_REQUIRED'; $journal.Recovery.Status='RETRY'; $journal.Recovery.ErrorCode=$code
         $null = Write-LabHyperVPersistentDataJournal -Journal $journal -Path $journalPath
         throw "HYPERV_PERSISTENT_DATA_RECOVERY_REQUIRED: $code"

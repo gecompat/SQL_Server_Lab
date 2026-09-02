@@ -160,7 +160,8 @@ Der Auto-Modus wählt für den mutierenden Lifecycle genau eine Runtime: Docker 
 Der letzte Runner benötigt keinen Windows-Gast und belegt mit kleinen,
 test-eigenen Ressourcen den nativen Host-Lifecycle einer persistenten VHDX:
 unveränderte Quelle, eigenständiger Clone mit neuem DiskIdentifier, Reattach an
-eine ausgeschaltete Generation-2-VM, Release und vollständiger Cleanup. Er
+eine ausgeschaltete Generation-2-VM, Release, operationsgebundene Leases sowie
+atomare Katalogcommits und vollständiger Cleanup. Er
 behauptet ausdrücklich keinen SQL-/Gast- oder Datenbank-Onlinenachweis.
 
 Fehlt auf dem Host ein dauerhaft veröffentlichtes SQL-2025-Prepared-Artifact,

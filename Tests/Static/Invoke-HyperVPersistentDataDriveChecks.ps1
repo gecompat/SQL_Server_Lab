@@ -93,8 +93,11 @@ try {
         $originalGetVhd=(Get-Command Get-VHD -ErrorAction SilentlyContinue).ScriptBlock
         $originalGetVm=(Get-Command Get-VM -ErrorAction SilentlyContinue).ScriptBlock
         $originalGetVmDrive=(Get-Command Get-VMHardDiskDrive -ErrorAction SilentlyContinue).ScriptBlock
+        $originalOwnership=(Get-Command Test-LabDataRootOwnership).ScriptBlock
         try {
             $script:hvpInspection=$inspection; $script:hvpSourceHash=('a' * 64); $script:hvpConvertAttempts=0; $script:hvpTargetDiskId=[guid]::NewGuid().ToString('D').ToUpperInvariant()
+            Set-Item Function:Test-LabDataRootOwnership -Value { param($DataRoot,$ControllerId) $true }
+            $null=Write-LabPersistentStorageCatalogDocument -Document $catalog.Document -Configuration $configuration
             Set-Item Function:Get-LabHyperVPersistentDataRuntimeInspection -Value { param($Path,$TargetVMName) $script:hvpInspection }
             Set-Item Function:Get-FileHash -Value { param($LiteralPath,$Algorithm) [PSCustomObject]@{ Hash=$script:hvpSourceHash } }
             Set-Item Function:Convert-VHD -Value {
@@ -108,9 +111,34 @@ try {
             Set-Item Function:Get-VM -Value { @() }
             Set-Item Function:Get-VMHardDiskDrive -Value { @() }
             $firstFailure=$null
-            try { $null=Invoke-LabHyperVPersistentDataPlan -Plan $clonePlan -OperationDirectory $OperationRoot } catch { $firstFailure=$_.Exception.Message }
+            try { $null=Invoke-LabHyperVPersistentDataPlan -Plan $clonePlan -OperationDirectory $OperationRoot -Configuration $configuration } catch { $firstFailure=$_.Exception.Message }
             $failedJournal=Get-Content -LiteralPath (Get-LabHyperVPersistentDataJournalPath -OperationDirectory $OperationRoot) -Raw | ConvertFrom-Json -Depth 30
-            $completedJournal=Invoke-LabHyperVPersistentDataPlan -Plan $clonePlan -OperationDirectory $OperationRoot
+            $failedCatalog=Get-LabPersistentStorageCatalog -Configuration $configuration
+            $completedJournal=Invoke-LabHyperVPersistentDataPlan -Plan $clonePlan -OperationDirectory $OperationRoot -Configuration $configuration
+            $completedCatalog=Get-LabPersistentStorageCatalog -Configuration $configuration
+            $cloneStore=@($completedCatalog.Document.Stores | Where-Object PersistentStorageId -eq $targetId)[0]
+            $lifecycleReattachPlan=$clonePlan | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+            $lifecycleReattachPlan.OperationId=[guid]::NewGuid().ToString('D'); $lifecycleReattachPlan.Action='REATTACH'
+            $lifecycleReattachPlan.Source.PersistentStorageId=$targetId; $lifecycleReattachPlan.Source.Path=$clonePlan.Target.Path
+            $lifecycleReattachPlan.Source.LocationId=$clonePlan.Target.LocationId; $lifecycleReattachPlan.Source.RelativePath=$clonePlan.Target.RelativePath
+            $lifecycleReattachPlan.Source.InventoryObjectId=[string]$cloneStore.LocationBinding.InventoryObjectId
+            $lifecycleReattachPlan.Source.DiskIdentifier=[string]$completedJournal.TargetDiskIdentifier
+            $lifecycleReattachPlan.Target.PersistentStorageId=$null; $lifecycleReattachPlan.Target.Path=$null
+            $lifecycleReattachPlan.Target.LocationId=$null; $lifecycleReattachPlan.Target.RelativePath=$null
+            $reattachLease=Set-LabHyperVPersistentDataOperationLease -Plan $lifecycleReattachPlan -Configuration $configuration
+            $reattachJournal=[PSCustomObject]@{
+                ContractVersion='SqlServerLab.HyperVPersistentDataJournal/1.0'; OperationId=[string]$lifecycleReattachPlan.OperationId
+                Action='REATTACH'; Status='ATTACHED_FILES_OFFLINE'; Source=$lifecycleReattachPlan.Source
+            }
+            $reattachCommit=Complete-LabHyperVPersistentDataCatalogOperation -Plan $lifecycleReattachPlan -Journal $reattachJournal -Configuration $configuration
+            $lifecycleReleasePlan=$lifecycleReattachPlan | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+            $lifecycleReleasePlan.OperationId=[guid]::NewGuid().ToString('D'); $lifecycleReleasePlan.Action='RELEASE'
+            $releaseJournal=[PSCustomObject]@{
+                ContractVersion='SqlServerLab.HyperVPersistentDataJournal/1.0'; OperationId=[string]$lifecycleReleasePlan.OperationId
+                Action='RELEASE'; Status='CLEAN_DETACHED'; Source=$lifecycleReleasePlan.Source
+            }
+            $releaseCommit=Complete-LabHyperVPersistentDataCatalogOperation -Plan $lifecycleReleasePlan -Journal $releaseJournal -Configuration $configuration
+            $lifecycleCatalog=Get-LabPersistentStorageCatalog -Configuration $configuration
         }
         finally {
             Set-Item Function:Get-LabHyperVPersistentDataRuntimeInspection -Value $originalInspection
@@ -120,12 +148,15 @@ try {
             if ($originalGetVhd) { Set-Item Function:Get-VHD -Value $originalGetVhd } else { Remove-Item Function:Get-VHD -ErrorAction SilentlyContinue }
             if ($originalGetVm) { Set-Item Function:Get-VM -Value $originalGetVm } else { Remove-Item Function:Get-VM -ErrorAction SilentlyContinue }
             if ($originalGetVmDrive) { Set-Item Function:Get-VMHardDiskDrive -Value $originalGetVmDrive } else { Remove-Item Function:Get-VMHardDiskDrive -ErrorAction SilentlyContinue }
+            Set-Item Function:Test-LabDataRootOwnership -Value $originalOwnership
             Remove-Variable hvpInspection,hvpSourceHash,hvpConvertAttempts,hvpTargetDiskId -Scope Script -ErrorAction SilentlyContinue
         }
         [PSCustomObject]@{
             ReattachPlan=$reattachPlan; ClonePlan=$clonePlan; ReleasePlan=$releasePlan; AttachedPlan=$attachedPlan
             CheckpointPlan=$checkpointPlan; VersionPlan=$versionPlan; IntentValid=(Test-LabHyperVPersistentDataIntent -Intent $cloneIntent)
             FirstFailure=$firstFailure; FailedJournal=$failedJournal; CompletedJournal=$completedJournal
+            FailedCatalog=$failedCatalog; CompletedCatalog=$completedCatalog; SourceId=$sourceId; TargetId=$targetId
+            ReattachLease=$reattachLease; ReattachCommit=$reattachCommit; ReleaseCommit=$releaseCommit; LifecycleCatalog=$lifecycleCatalog
         }
     } $dataRoot $sourceRelativePath $temporaryRoot
 
@@ -148,7 +179,25 @@ try {
         $evidence.VersionPlan.Status -eq 'BLOCKED' -and 'SOURCE_SQL_VERSION_INCOMPATIBLE' -in @($evidence.VersionPlan.Blockers))
     Add-CheckResult -Name 'Clone-Fehler persistiert RECOVERY_REQUIRED und ist wiederaufnehmbar' -Success (
         $evidence.FirstFailure -match '^HYPERV_PERSISTENT_DATA_RECOVERY_REQUIRED' -and $evidence.FailedJournal.Status -eq 'RECOVERY_REQUIRED' -and
-        $evidence.FailedJournal.TargetOwnedByOperation -and $evidence.CompletedJournal.Status -eq 'COMPLETED' -and $evidence.CompletedJournal.Recovery.Attempts -eq 2)
+        $evidence.FailedJournal.TargetOwnedByOperation -and $evidence.CompletedJournal.Status -eq 'COMPLETED' -and
+        $evidence.CompletedJournal.CatalogCommitted -and $evidence.CompletedJournal.Recovery.Attempts -eq 2)
+    $failedStore=@($evidence.FailedCatalog.Document.Stores | Where-Object PersistentStorageId -eq $evidence.SourceId)[0]
+    $completedSource=@($evidence.CompletedCatalog.Document.Stores | Where-Object PersistentStorageId -eq $evidence.SourceId)[0]
+    $completedTarget=@($evidence.CompletedCatalog.Document.Stores | Where-Object PersistentStorageId -eq $evidence.TargetId)[0]
+    Add-CheckResult -Name 'Clone-Lease und Recovery werden vor der Runtime-Mutation katalogisiert' -Success (
+        $failedStore.State -eq 'RECOVERY_REQUIRED' -and $failedStore.Lease.LeaseId -eq $evidence.ClonePlan.OperationId -and
+        @($failedStore.References | Where-Object { $_.ReferenceId -eq $evidence.ClonePlan.OperationId -and $_.State -eq 'ACTIVE' }).Count -eq 1)
+    Add-CheckResult -Name 'Clone-Commit registriert Ziel atomar und gibt die Quell-Lease frei' -Success (
+        $completedSource.State -eq 'DETACHED' -and -not $completedSource.Lease -and
+        @($completedSource.References | Where-Object { $_.ReferenceId -eq $evidence.ClonePlan.OperationId -and $_.State -eq 'RELEASED' }).Count -eq 1 -and
+        $completedTarget.State -eq 'DETACHED' -and $completedTarget.LocationBinding.ProviderResourceId -eq $evidence.CompletedJournal.TargetDiskIdentifier)
+    $releasedTarget=@($evidence.LifecycleCatalog.Document.Stores | Where-Object PersistentStorageId -eq $evidence.TargetId)[0]
+    Add-CheckResult -Name 'Reattach-Commit bindet dieselbe Storage-ID unter der operationsgebundenen Lease' -Success (
+        $evidence.ReattachLease.Changed -and $evidence.ReattachCommit.Changed -and $evidence.ReattachCommit.Store.State -eq 'IN_USE' -and
+        [string]$evidence.ReattachCommit.Store.Lease.LeaseId -eq [string]$evidence.ReattachLease.Store.Lease.LeaseId)
+    Add-CheckResult -Name 'Release-Commit bewahrt die VHDX-ID und löst aktive Lease sowie Referenz' -Success (
+        $evidence.ReleaseCommit.Changed -and $releasedTarget.State -eq 'DETACHED' -and -not $releasedTarget.Lease -and
+        @($releasedTarget.References | Where-Object State -eq 'ACTIVE').Count -eq 0)
     Add-CheckResult -Name 'Target-DiskIdentifier unterscheidet sich nach Clone von der Quelle' -Success (
         $evidence.CompletedJournal.TargetDiskIdentifier -and $evidence.CompletedJournal.TargetDiskIdentifier -ne $evidence.ClonePlan.Source.DiskIdentifier)
     Add-CheckResult -Name 'Intent und Plan bleiben schema-valide und geheimnisfrei' -Success (
