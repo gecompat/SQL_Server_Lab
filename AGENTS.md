@@ -7,7 +7,9 @@ Chat-Historie sicher weiterzuarbeiten.
 <!-- AI_REPOSITORY_FOUNDATION:BEGIN v1 -->
 ## AI Repository Foundation baseline
 
-Before project work, read `.ai/foundation/FOUNDATION_RULESET.md` and then only the Foundation rule files relevant to the current scope. Project-specific instructions in this repository remain the source of truth for project facts, domain rules, architecture, state, and selected overrides.
+At the start of every new run, let Codex rebuild the applicable `AGENTS.override.md`/`AGENTS.md` chain. Before project work, read `.ai/foundation/FOUNDATION_RULESET.md` and then only the Foundation and project rule files relevant to the current scope. Project-specific instructions in this repository remain the source of truth for project facts, domain rules, architecture, state, and selected overrides.
+
+After additional rules have been fully read and analyzed once for a scope, later change waves may reuse that session analysis only through `.ai/foundation/RULE_CONTEXT_CACHE_POLICY.md`: run deterministic discovery/fingerprint checking first, use the exact validated analysis key on `CACHE_HIT`, reread changed rules plus transitive dependents on `PARTIAL_INVALIDATION`, and fully reread on `CACHE_MISS` or uncertainty. A cache never replaces native instruction discovery, repository sources, current instructions, or validation evidence.
 
 Active project-specific governance must be transitively discoverable from this root `AGENTS.md`. If this repository keeps authoritative project rules elsewhere, preserve or add a concise project-owned discovery section outside this managed Foundation block that points to their canonical entrypoints or documents the scoped-`AGENTS.md` convention. Do not copy project rule text into this Foundation block. Active authority that cannot be discovered is an integration defect.
 
