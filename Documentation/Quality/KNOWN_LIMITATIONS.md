@@ -653,7 +653,11 @@ müssen bei neuen Microsoft-Veröffentlichungen weiter gepflegt werden. SQL
 Server 2019 CU7 bleibt wegen des von Microsoft dokumentierten Rückzugs bewusst
 nicht auswählbar.
 
-`Save-SqlServerLabCuResource` und der Konsolenpunkt unter Storage und Medien
+`Get-SqlServerLabCuStatus` prüft die wartbar katalogisierte offizielle
+Microsoft-Learn-Buildtabelle read-only gegen den lokalen Versionskatalog.
+Neue Funde aktualisieren weder Katalog noch Medien automatisch, weil sie erst
+mit MCR-Tag, Microsoft-Downloadziel, SHA-256 und Signaturvertrag verifiziert
+werden müssen. `Save-SqlServerLabCuResource` und der Konsolenpunkt unter Storage und Medien
 stellen jeden dieser CUs ohne KI-Unterstützung bereit. Windows akzeptiert nur
 die katalogisierte Microsoft-HTTPS-Quelle und veröffentlicht ein Paket erst
 nach SHA-256- sowie Microsoft-Authenticode-Prüfung im Media Root. Linux zieht

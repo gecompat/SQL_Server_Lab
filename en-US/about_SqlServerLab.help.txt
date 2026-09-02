@@ -250,6 +250,12 @@ COMMANDS
         Optionally installs 7-Zip through winget after explicit confirmation for
         catalogued .7z backups with a .bak payload.
 
+    Get-SqlServerLabCuStatus
+        Read-only comparison of the local CU catalog with the configured
+        Microsoft Learn build tables. Newly detected CUs are not downloadable
+        until their MCR tag, download source, SHA-256, and signature contract
+        are catalogued.
+
     Save-SqlServerLabCuResource
         Downloads any catalogued SQL Server CU. Windows packages require the
         catalogued SHA-256 and a valid Microsoft Authenticode signature; Linux

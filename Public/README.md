@@ -62,6 +62,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Test-SqlServerLabAdapter` | `Test-SqlServerLabAdapter.ps1` | Project Adapter gegen Schema, Pfadgrenzen und optional eine Run-Instanz prüfen |
 | `Install-SqlServerLabAdapter` | `Install-SqlServerLabAdapter.ps1` | Validierten Adapter-Entrypoint ohne Lifecycle-Seiteneffekt auf eine Instanz anwenden |
 | `Install-SqlServerLab7Zip` | `Install-SqlServerLab7Zip.ps1` | 7-Zip ausschließlich auf expliziten Aufruf über `winget` für katalogisierte `.7z`-Backups installieren |
+| `Get-SqlServerLabCuStatus` | `Get-SqlServerLabCuStatus.ps1` | Microsoft-Learn-Buildtabellen read-only gegen den lokalen CU-Katalog prüfen; neue Funde bleiben bis zur Hash-/Signaturbindung nicht downloadbar |
 | `Save-SqlServerLabCuResource` | `Save-SqlServerLabCuResource.ps1` | Einen beliebigen katalogisierten Windows-CU mit SHA-256 und Microsoft-Authenticode in den Media Root oder den exakten Linux-MCR-Tag in Docker/Podman laden |
 
 `Test-SqlServerLabPrerequisite` ist öffentlich exportiert, obwohl seine Definition im internen Resource-Assessment-Baustein liegt. Der Ablageort allein bestimmt nicht die Sichtbarkeit; maßgeblich ist `FunctionsToExport` im Modulmanifest.
