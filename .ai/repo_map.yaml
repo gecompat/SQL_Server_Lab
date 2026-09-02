@@ -40,12 +40,16 @@ sources_of_truth:
   acceptance_backup_library_cross_provider: Tests/Integration/Invoke-BackupLibraryCrossProviderAcceptance.ps1
   database_package: Private/DatabasePackage.ps1
   database_package_inventory: Public/Get-SqlServerLabDatabasePackage.ps1
+  database_package_attach: Public/Invoke-SqlServerLabDatabasePackageAttach.ps1
+  database_package_hyperv_attach: Providers/HyperV/HyperVDatabasePackage.ps1
   database_package_library_schema: Schemas/database-package-library.schema.json
   database_package_attach_plan_schema: Schemas/database-package-attach-plan.schema.json
   database_package_journal_schema: Schemas/database-package-journal.schema.json
   database_package_attach_journal_schema: Schemas/database-package-attach-journal.schema.json
+  database_package_attach_result_schema: Schemas/database-package-attach-result.schema.json
   validation_database_package: Tests/Static/Invoke-DatabasePackageChecks.ps1
   acceptance_database_package_sql: Tests/Integration/Invoke-DatabasePackageSqlAcceptance.ps1
+  acceptance_database_package_hyperv_attach: Tests/Integration/Invoke-HyperVDatabasePackageAttachAcceptance.ps1
   database_migration_dependency_inventory: Private/DatabaseMigrationDependency.ps1
   database_migration_dependency_public_inventory: Public/Get-SqlServerLabDatabaseMigrationDependency.ps1
   database_migration_dependency_inventory_schema: Schemas/database-migration-dependency-inventory.schema.json
@@ -568,7 +572,8 @@ internal_components:
       - "stabile Persistent-Storage-IDs, Klassen, Zustände, Referenzen und exklusive Leases read-only validieren und mit dem Residency-Inventar abgleichen"
       - "verifizierte Backup-Sets und Datenbankpakete controllerweit rollbackfähig mit eigener PersistentStorageId registrieren und Katalogfehler fail-closed quarantänisieren"
       - "vorhandene Backup-Sets und Datenbankpakete öffentlich einzeln vollständig revalidieren, previewfähig und idempotent mit dem controllergebundenen Katalog synchronisieren"
-      - "Datenbankpakete fuer CLI und Browser pfadfrei per stabiler DatabasePackageId inventarisieren; Voll-Hashing nur bei expliziter Integritaetspruefung und Attach bis zur Zielbindung blockieren"
+      - "Datenbankpakete fuer CLI und Browser pfadfrei per stabiler DatabasePackageId inventarisieren; Voll-Hashing nur bei expliziter Integritaetspruefung oder unmittelbar vor Verwendung ausfuehren"
+      - "Datenbankpakete per stabiler Run-/Instanzbindung an das live ermittelte SQL-Default-Data-Verzeichnis eines scopegebundenen Hyper-V-Gasts kopieren, dort vollstaendig hashen und erst nach vorab persistiertem Recovery-Journal attachen"
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
       - "RETAIN_INSTANCE_STORE und BACKUP_ON_REMOVE für Docker-/Podman-Instanzstores frisch revalidiert, backupverifiziert und journalisiert ausführen; Package, Delete und externe Freigabe vor Mutation blockieren"
       - "CLI und Browser-UI über denselben frisch inventarisierten Retention-Plan-Core ausschließlich per stabiler Storage-ID vorausschauen und die unterstützten Policies bestätigt ausführen lassen"
@@ -1016,6 +1021,22 @@ validation:
       - residency_binding_without_content_rehash
       - public_path_free_inventory_and_explicit_integrity_verification
       - public_sanitized_migration_boundary_projection
+      - public_path_free_hyperv_target_binding
+      - pre_mutation_attach_recovery_journal
+      - sanitized_attach_result
+  acceptance_database_package_hyperv_attach:
+    command: '.\Tests\Integration\Invoke-HyperVDatabasePackageAttachAcceptance.ps1'
+    source: Tests/Integration/Invoke-HyperVDatabasePackageAttachAcceptance.ps1
+    covers:
+      - isolated_sql_2025_prepared_run
+      - clean_detached_mdf_ndf_ldf_package
+      - stable_database_package_and_run_target_selection
+      - process_scoped_guest_credential
+      - sql_default_data_target_binding
+      - powershell_direct_copy_and_guest_sha256_verification
+      - public_whatif_without_mutation
+      - online_attach_content_and_journal_postconditions
+      - scope_bound_cleanup
   static_database_migration_dependency:
     command: '.\Tests\Static\Invoke-DatabaseMigrationDependencyChecks.ps1'
     source: Tests/Static/Invoke-DatabaseMigrationDependencyChecks.ps1

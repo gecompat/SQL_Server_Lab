@@ -456,11 +456,18 @@ Die Publikation registriert das Paket rollbackfähig mit eigener
 Katalogcommit quarantänisiert Library-Eintrag und Journal fail-closed. CLI und
 Browser inventarisieren Pakete inzwischen pfadfrei über dieselbe stabile
 `DatabasePackageId`; große Objekte werden nur mit explizitem
-`-VerifyIntegrity` oder vor Verwendung vollständig gehasht. Der sichtbare
-Browser-Attach bleibt gesperrt, solange Zielinstanz und providergebundene
-Zielpfadabbildung nicht sicher gebunden sind. Offen sind damit der ausführbare
-öffentliche Attach und der reale SQL-Server-/FILESTREAM-Hyper-V-Nachweis; die
-statische Dateisystem-Abnahme wird nicht als nativer SQL-Attach ausgegeben.
+`-VerifyIntegrity` oder vor Verwendung vollständig gehasht. Der öffentliche
+CLI-/Browser-Attach unterstützt Hyper-V-Ziele per stabiler Run-/Instanz-ID.
+Ein freier Zielpfad ist nicht Teil des Vertrags: Das Framework ermittelt SQLs
+Default-Data-Verzeichnis live im scopegebundenen Gast, kopiert dorthin in eine
+paketeigene Unterstruktur, verifiziert jeden Hash im Gast und persistiert den
+Recovery-Zustand vor der SQL-Mutation. TDE bleibt ohne Ziel-Key-Vertrag
+fail-closed. Weitere Providerbindungen, öffentliche Paketpublikation und ein
+eigener automatischer Recovery-/Detach-Befehl bleiben offen. Der native
+Hyper-V-Transportlauf und der native Windows-SQL-/FILESTREAM-Inhaltslauf sind
+getrennte Nachweise; keiner wird durch die statische Dateisystem-Abnahme ersetzt.
+Der Hyper-V-Transportlauf ist am 2026-09-02 gegen einen laufenden verwalteten
+SQL-2025-Run einschließlich Gast-Hashes, Inhalt, Journal und Cleanup real grün.
 
 Der read-only PSR-010-Core inventarisiert SQL-seitig beobachtbare Server-
 Login-Mappings, datenbankgebundene SQL-Agent-Jobs und deren Proxies,

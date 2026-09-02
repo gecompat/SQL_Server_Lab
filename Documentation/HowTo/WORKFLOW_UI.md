@@ -80,6 +80,14 @@ Bestätigung und führt ausschließlich die hinterlegten Cleanup-Pläne aus;
 persistente Data-Root-Inhalte und veröffentlichte Hyper-V-Images bleiben
 erhalten.
 
+Die Datenbankpaket-Ansicht arbeitet ebenso pfadfrei. Für ein auswählbares,
+nicht TDE-geschütztes Paket kann genau ein laufender Hyper-V-SQL-Run gewählt
+werden. Erst nach Eingabe des flüchtigen Gast-Credentials revalidiert der
+gemeinsame Core Paket, VM-Eigentum, SQL-Version, FILESTREAM-Capability,
+Datenbankname und Zielzustand. Das Ziel wird live aus SQLs Default-Data-
+Verzeichnis abgeleitet; ein Host- oder Gastpfad kann nicht eingegeben werden.
+Die Paketkopie wird im Gast vollständig gehasht und erst danach attached.
+
 ## Einheitliche Umgebungsaktionen
 
 Docker-, Podman- und Hyper-V-Labs zeigen den tatsächlichen Laufzeitstatus sowie

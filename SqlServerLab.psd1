@@ -55,6 +55,7 @@
         'Invoke-SqlServerLabPersistentStorageRemoval'
         'Sync-SqlServerLabPersistentStorageArtifact'
         'Get-SqlServerLabDatabasePackage'
+        'Invoke-SqlServerLabDatabasePackageAttach'
         'Get-SqlServerLabDatabaseMigrationDependency'
         'New-SqlServerLabDatabase'
         'Backup-SqlServerLabDatabase'

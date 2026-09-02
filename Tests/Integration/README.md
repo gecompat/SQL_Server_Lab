@@ -207,6 +207,26 @@ dem Lauf bereinigt.
 .\Tests\Integration\Invoke-DatabasePackageSqlAcceptance.ps1
 ```
 
+## Invoke-HyperVDatabasePackageAttachAcceptance.ps1
+
+Die Hyper-V-Abnahme benötigt einen laufenden verwalteten SQL-2025-Run oder ein
+verifiziertes SQL-2025-Prepared-Artifact sowie die tatsächlichen Hyper-V-
+Hostrechte; ein lokales Administrator-Rollenbit ist kein Ersatz für diesen
+Capability-Probe. Ohne `-RunId` erstellt sie genau einen isolierten Run, detached darin
+eine synthetische MDF/NDF/LDF-Datenbank, publiziert die kopierten Dateien in
+einem temporären `Lab_Data`-Root und verwendet anschließend ausschließlich
+`DatabasePackageId`, `RunId` und `InstanceId`. Der Zielpfad wird live aus SQLs
+Default-Data-Verzeichnis gebunden. WhatIf, PowerShell-Direct-Kopie,
+Hashverifikation im Gast, Online-/Inhalts-Postcondition, Journal und Cleanup
+werden real geprüft. Der getrennte lokale Windows-SQL-Runner bleibt der native
+FILESTREAM-Inhaltsnachweis.
+
+```powershell
+# mit Hyper-V-Hostrechten
+.\Tests\Integration\Invoke-HyperVDatabasePackageAttachAcceptance.ps1 `
+    -RunId '<laufender-verwalteter-sql-2025-run>'
+```
+
 ## Invoke-HyperVSmokeTest.ps1
 
 Der Hyper-V-Smoke-Test prüft Image-Registry und Lifecycle-Grundlage auf einem

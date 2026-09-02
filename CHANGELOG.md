@@ -8,6 +8,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Invoke-SqlServerLabDatabasePackageAttach` bindet ein vollständig
+  revalidiertes Datenbankpaket per stabiler `DatabasePackageId`, `RunId` und
+  `InstanceId` an einen laufenden verwalteten Hyper-V-SQL-Run. Der Zielpfad
+  wird live aus SQLs Default-Data-Verzeichnis abgeleitet; Gastkopie, SHA-256-
+  Prüfung, Attach, Online-Postcondition und Recovery werden journalisiert. CLI
+  und Browser verwenden denselben pfadfreien Fachkern. Der native SQL-2025-
+  Hyper-V-Lauf ist einschließlich Inhaltsprüfung und Cleanup grün.
 - `Sync-SqlServerLabPersistentStorageArtifact` übernimmt vorhandene verifizierte
   Backup-Sets oder Datenbankpakete einzeln per stabiler Artefakt-ID in den
   controllergebundenen Persistent-Storage-Katalog. Derselbe Konfliktcheck läuft

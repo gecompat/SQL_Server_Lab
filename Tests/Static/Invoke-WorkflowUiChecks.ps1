@@ -207,19 +207,27 @@ Add-CheckResult -Name 'CLI und Workflow-UI restaurieren Lab_Data-Backups über d
     $scriptText -match 'parameters\.BackupSetId = backupSetId' -and
     $scriptText -notmatch 'parameters\.Backup(Source|Path)'
 )
-Add-CheckResult -Name 'CLI und Browser inventarisieren Datenbankpakete pfadfrei über dieselbe stabile DatabasePackageId' -Success (
+Add-CheckResult -Name 'CLI und Browser verwenden Datenbankpakete pfadfrei über dieselbe stabile DatabasePackageId und Run-Bindung' -Success (
     $workflowText -match 'Get-LabDatabasePackageSelection -DataRoot \$dataRoot' -and
     $workflowText -match 'DatabasePackageLibrary = \$databasePackageLibrary' -and
     $htmlText -match 'id="database-package-source"' -and
+    $htmlText -match 'id="database-package-target"' -and
     $htmlText -match 'id="database-package-attach"[^>]+disabled' -and
     $scriptText -match 'function renderDatabasePackageOptions' -and
+    $scriptText -match 'function renderDatabasePackageTargetOptions' -and
+    $scriptText -match "item\.State === 'RUNNING' && item\.VMState === 'Running' && item\.Workload !== 'windows'" -and
+    $scriptText -notmatch 'databasePackageAttachTargets[\s\S]{0,300}PENDING_COMPLETE_IMAGE' -and
     $scriptText -match 'item\.DatabasePackageId' -and
     $scriptText -match 'selected\.DependencyCategories' -and
     $scriptText -match 'selected\.MigrationWarnings' -and
     $scriptText -match 'selected\.DependencyInventoryStatus' -and
-    $scriptText -match 'TARGET_PROVIDER_PATH_MAPPING_NOT_BOUND|AttachReason' -and
+    $scriptText -match 'AttachHyperVDatabasePackage' -and
+    $scriptText -match 'parameters\.DatabasePackageId = pendingDatabasePackageAttach\.DatabasePackageId' -and
+    $actionText -match "'AttachHyperVDatabasePackage'" -and
+    $actionText -match 'Invoke-SqlServerLabDatabasePackageAttach @attachArguments' -and
     $scriptText -notmatch 'selected\.(Path|ManifestSha256|Sha256)' -and
-    $htmlText -match 'Zielbindung fehlt' -and
+    $scriptText -notmatch 'pendingDatabasePackageAttach\.(TargetDirectory|Path)' -and
+    $htmlText -match 'ein freier Pfad kann nicht eingegeben werden' -and
     $htmlText -match 'sanitisierte Migrationskategorien'
 )
 Add-CheckResult -Name 'CLI und Browser planen und führen unterstützte Retention über dieselben Fachbefehle aus' -Success (

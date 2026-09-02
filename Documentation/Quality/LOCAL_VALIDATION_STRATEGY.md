@@ -543,8 +543,10 @@ FILESTREAM-Attach; dessen Acceptance muss separat in Hyper-V laufen.
 Die Suite prüft zusätzlich die pfadfreie CLI-/Browser-Inventur per stabiler
 `DatabasePackageId`, aufgeschobenes Voll-Hashing beim Refresh, explizite
 Integritätsverifikation, die sanitisierte Projektion persistierter
-Migrationskategorien und Warnungen sowie die weiterhin fail-closed gesperrte
-Zielbindung. Die Projektion führt keine neue SQL-Abfrage aus. Gemeinsam mit
+Migrationskategorien und Warnungen sowie den öffentlichen Hyper-V-WhatIf-/
+Attach-Vertrag mit stabiler Run-/Instanzbindung, vorab persistiertem Recovery-
+Journal und pfad-/hash-/geheimnisfreiem Ergebnis. Die Projektion führt keine
+neue SQL-Abfrage aus. Gemeinsam mit
 `Invoke-BackupLibraryChecks.ps1` prüft sie außerdem den öffentlichen,
 einzelobjektgebundenen Bestands-Sync: `-WhatIf` schreibt keine Katalogrevision,
 der Apply-Pfad registriert nach vollständiger Artefaktverifikation genau eine
@@ -570,6 +572,21 @@ Der ausführbare native Windows-SQL-Nachweis ist:
 Er setzt SQL Server 2025 mit effektivem FILESTREAM voraus und räumt ausschließlich
 seine zufällig benannten Datenbanken und `sql-lab-psr009-*`-Wurzeln auf. Ein
 nicht erhöhter Prozess endet vor neuer Mutation fail-closed.
+
+Der native Hyper-V-Providernachweis ist:
+
+```powershell
+# benötigt Hyper-V-Hostrechte und einen laufenden SQL-2025-Run (alternativ ein Prepared-Artifact)
+.\Tests\Integration\Invoke-HyperVDatabasePackageAttachAcceptance.ps1 `
+    -RunId '<laufender-verwalteter-sql-2025-run>'
+```
+
+Er verwendet mit `-RunId` ressourcenschonend einen laufenden verwalteten
+SQL-2025-Run oder erzeugt andernfalls einen isolierten Prepared-Run. Ein
+temporärer `Lab_Data`-Root hält alle Paketdaten. Geprüft werden pfadfreie
+öffentliche Auswahl, Live-Zielbindung, PowerShell-Direct-Kopie, Gast-Hashes,
+Online-/Inhalts-Postcondition, Journal und vollständiger Test-Cleanup.
+FILESTREAM bleibt im getrennten lokalen Windows-SQL-Lauf belegt.
 
 Für einen manuellen Restore-Nachweis sind mindestens zu dokumentieren:
 
