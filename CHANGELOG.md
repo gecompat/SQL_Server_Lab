@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Invoke-SqlServerLab -Action Setup` führt durch eine gemeinsame, idempotente
+  Ersteinrichtung von `Lab_Base` und mehreren `Lab_Data`-Locations. Der
+  read-only Plan leitet Rootnamen aus vollqualifizierten Parents ab, erzwingt
+  unterschiedliche Volumes und eine ausdrückliche globale Default-Auswahl;
+  vorhandene gültige Einstellungen werden nicht erneut abgefragt, fremde
+  nichtleere Datenroots vor jeder Mutation abgelehnt.
 - `Invoke-SqlServerLabDatabasePackageAttach` bindet ein vollständig
   revalidiertes Datenbankpaket per stabiler `DatabasePackageId`, `RunId` und
   `InstanceId` an einen laufenden verwalteten Hyper-V-SQL-Run. Der Zielpfad

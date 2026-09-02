@@ -157,6 +157,18 @@ Set-Location .\SQL_Server_Lab
 Import-Module .\SqlServerLab.psd1 -Force
 ```
 
+Beim ersten Start richtet ein gemeinsamer Assistent den einmaligen `Lab_Base`
+und eine oder mehrere `Lab_Data`-Locations ein:
+
+```powershell
+Invoke-SqlServerLab -Action Setup
+```
+
+Anzugeben sind jeweils die Parent-Verzeichnisse; das Framework leitet daraus
+`Lab_Base` beziehungsweise `Lab_Data` ab. Bei mehreren Daten-Volumes wird der
+globale Standard ausdrücklich gewählt. Bereits gültige Einstellungen werden
+nicht erneut abgefragt, vorhandene Roots und Dateien nicht überschrieben.
+
 Ressourcen prüfen, ohne etwas zu verändern:
 
 ```powershell
