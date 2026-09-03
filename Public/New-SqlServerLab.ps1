@@ -492,6 +492,8 @@ function New-SqlServerLab {
     $providers = @($resolved.instances | ForEach-Object { $_.provider } | Sort-Object -Unique)
     $externalRuntimePlansByInstance = @{}
     $externalRuntimeImagePlansByInstance = @{}
+    $containerToolPlansByInstance = @{}
+    $containerToolImagePlansByInstance = @{}
     foreach ($instance in $resolved.instances) {
         $softwarePlans = @(Resolve-LabSoftwarePlansForInstance -Instance $instance)
         $rejectedPlans = @($softwarePlans | Where-Object { [string]$_.Status -ne 'RESOLVED' })
@@ -500,7 +502,12 @@ function New-SqlServerLab {
             throw "SOFTWARE_PLAN_REJECTED: $($instance.id) / $($rejected.SoftwareId) / $($rejected.ReasonCode) - $($rejected.Reason)"
         }
         $externalRuntimePlans = @($softwarePlans | Where-Object { [string]$_.Kind -eq 'sqlExternalRuntime' })
+        $containerToolPlans = @($softwarePlans | Where-Object { [string]$_.Kind -eq 'generalSoftware' })
+        if ($externalRuntimePlans.Count -gt 0 -and $containerToolPlans.Count -gt 0) {
+            throw "CONTAINER_TOOL_EXTERNAL_RUNTIME_COMBINATION_NOT_IMPLEMENTED: $($instance.id)"
+        }
         $externalRuntimePlansByInstance[[string]$instance.id] = $externalRuntimePlans
+        $containerToolPlansByInstance[[string]$instance.id] = $containerToolPlans
         if ($externalRuntimePlans.Count -gt 0 -and [string]$instance.provider -in @('docker', 'podman')) {
             $imagePlan = New-LabExternalRuntimeContainerImagePlan -Provider ([string]$instance.provider) `
                 -SqlVersion ([string]$instance.version) -SoftwarePlans $externalRuntimePlans
@@ -509,6 +516,13 @@ function New-SqlServerLab {
                 throw "EXTERNAL_RUNTIME_CONTAINER_HOST_REJECTED: $($instance.id) / $($hostStatus.Status) - $($hostStatus.Reason)"
             }
             $externalRuntimeImagePlansByInstance[[string]$instance.id] = $imagePlan
+        }
+        if ($containerToolPlans.Count -gt 0) {
+            if ([string]$instance.provider -notin @('docker', 'podman')) {
+                throw "CONTAINER_TOOL_PROVIDER_UNSUPPORTED: $($instance.id) / $($instance.provider)"
+            }
+            $containerToolImagePlansByInstance[[string]$instance.id] = New-LabContainerToolImagePlan `
+                -Provider ([string]$instance.provider) -SqlVersion ([string]$instance.version) -SoftwarePlans $containerToolPlans
         }
     }
 
@@ -927,6 +941,14 @@ function New-SqlServerLab {
                 -ImagePlan $externalRuntimeImagePlansByInstance[[string]$instance.id] `
                 -StateRoot $effectiveStateRoot
         }
+        foreach ($instance in @($resolved.instances | Where-Object {
+            $containerToolImagePlansByInstance.ContainsKey([string]$_.id)
+        })) {
+            Write-LabInfo "Derived Container-Tool-Image für '$($instance.id)' aufbauen oder wiederverwenden..."
+            $containerImageArtifactsByInstance[[string]$instance.id] = Invoke-LabContainerToolImageBuild `
+                -ImagePlan $containerToolImagePlansByInstance[[string]$instance.id] `
+                -StateRoot $effectiveStateRoot
+        }
 
         $labInstances = @()
 
@@ -993,7 +1015,7 @@ function New-SqlServerLab {
                 ConnectionString = New-SqlConnectionString -HostName $containerHost -Port $container.Port
                 Databases        = @()
                 PersistentStorage = $instance.persistentStorage
-                ExternalRuntime  = if ($containerImageArtifactsByInstance.ContainsKey([string]$instance.id)) {
+                ExternalRuntime  = if ($externalRuntimeImagePlansByInstance.ContainsKey([string]$instance.id)) {
                     $artifact = $containerImageArtifactsByInstance[[string]$instance.id]
                     $imagePlan = $externalRuntimeImagePlansByInstance[[string]$instance.id]
                     [PSCustomObject]@{
@@ -1004,6 +1026,18 @@ function New-SqlServerLab {
                         Languages = @($imagePlan.Languages)
                         Status = 'IMAGE_READY'
                         Receipts = @()
+                    }
+                }
+                else { $null }
+                ContainerTools = if ($containerToolImagePlansByInstance.ContainsKey([string]$instance.id)) {
+                    $artifact = $containerImageArtifactsByInstance[[string]$instance.id]
+                    $imagePlan = $containerToolImagePlansByInstance[[string]$instance.id]
+                    [PSCustomObject]@{
+                        ImageKey = [string]$artifact.ImageKey
+                        SoftwarePlanKeys = @($imagePlan.SoftwarePlanKeys)
+                        ToolIds = @($imagePlan.ToolIds)
+                        RuntimeVersion = [string]$imagePlan.RuntimeVersion
+                        Status = 'IMAGE_READY'
                     }
                 }
                 else { $null }
