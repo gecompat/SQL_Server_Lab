@@ -67,6 +67,14 @@ Add-CheckResult -Name 'Workflow fasst Baselines, SQL-Images und offene Builds zu
     $workflowText -match 'PendingSqlBuilds' -and
     $workflowText -match 'NextStep'
 )
+Add-CheckResult -Name 'Workflow und Browser zeigen den read-only Evaluation-Refreshstatus ohne neue Aktion an' -Success (
+    $workflowText -match 'Get-SqlServerLabHyperVImageArtifact' -and
+    $workflowText -match 'EvaluationStatus' -and
+    $workflowText -match 'RefreshAction' -and
+    $scriptText -match 'function artifactRefreshDetail' -and
+    $scriptText -match 'MANUAL_REBUILD_REQUIRED' -and
+    $scriptText -match 'MANUAL_REBUILD_RECOMMENDED'
+)
 Add-CheckResult -Name 'UI-Aktionen halten Gastpasswoerter nur fluechtig' -Success (
     $actionText.Contains('[SecureString]$GuestPassword') -and
     $actionText.Contains('[SecureString]$SaPassword') -and
