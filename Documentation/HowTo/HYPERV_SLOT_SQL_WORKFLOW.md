@@ -7,6 +7,10 @@ im Menüsystem nach der aktuellen Implementierung:
 - SQL-Slot-Setup: SQL-Plan setzen und optional direkt installieren
 - SQL-Prepared-Image-Pfad: bestehende vorbereitete Slots weiterverarbeiten
 
+Der vollständige Aufbau der Windows-/Linux-Matrix einschließlich CMS steht im
+[End-to-End-Runbook](END_TO_END_TEST_ENVIRONMENT.md). Dieses Dokument vertieft
+nur den Hyper-V-Slotpfad.
+
 ## Zielbild
 
 Typischer Ablauf:
@@ -28,7 +32,7 @@ Typischer Ablauf:
 .\Invoke-SqlServerLab.ps1 -Action Image
 ```
 
-2. Menü: `i` → **Windows-OS-Baselines verwalten**
+2. `[1] Windows-OS-Vorlage aus DVD erstellen oder fortsetzen` wählen.
 3. neuen Builder ausführen bis zur allgemeinen Veröffentlichung:
 
 - ISO auswählen, Build durchführen
@@ -41,13 +45,15 @@ Die veröffentlichte OS-Baseline kann als reine Windows-Vorlage verwendet werden
 
 ## 2) Windows-Slot aus OS-Baseline erstellen
 
-1. Hauptmenü `Hyper-V` aufrufen.
-2. Aktion **[1] Neue Hyper-V-Umgebung aus Windows- oder SQL-Vorlage erstellen**.
-3. Zieltyp direkt auswählen (ab sofort in diesem Pfad):
+1. Image-Menü direkt öffnen:
 
-- `[2] Windows-OS-Slot für spätere Anpassung/Installation`
+```powershell
+.\Invoke-SqlServerLab.ps1 -Action Image
+```
 
-4. OS-Slot auswählen und bestätigen.
+2. `[2] Betriebssystem-Slot aus Windows-OS-Vorlage erstellen` wählen.
+3. Die gewünschte `OS_SEALED`-Baseline auswählen und den neuen Slot
+   bestätigen.
 
 Seit dem neuen Codepfad wird die VM bei Slot-Erstellung automatisch gestartet
 und VMConnect geöffnet, damit das OOBE direkt im Fenster weitergeführt werden kann.
@@ -60,9 +66,11 @@ und VMConnect geöffnet, damit das OOBE direkt im Fenster weitergeführt werden 
 1. Zur Slot-Verwaltung:
 
 ```powershell
-.\Invoke-SqlServerLab.ps1
-Hyper-V → [5] Hyper-V-Umgebungen verwalten → [i] SQL-Slots verwalten (Windows-Slot auswählen)
+.\Invoke-SqlServerLab.ps1 -Action Image
 ```
+
+Dann `[4] Betriebssystem- und SQL-Slots verwalten` und den Windows-Slot
+auswählen.
 
 2. Aktion **[o] Windows-Grundinstallation übernehmen**
 
@@ -115,7 +123,9 @@ in diesem Slot gestartet werden soll.
 Nutzt denselben Installationspfad wie `[a]`, wenn bereits ein vollständiger
 Ausbauplan im Slot liegt.
 
-Im Erfolgsfall werden Connection-String und SA-Passwort im Klartext ausgegeben.
+Im Erfolgsfall erreicht der Plan `SQL_SLOT_READY`; Connection String und
+SA-Passwort werden in der ausdrücklich geöffneten Ergebnisansicht ausgegeben.
+Das Passwort nicht in Dokumentation, Git oder Diagnoseartefakte übernehmen.
 
 ## 5) SQL-Prepared-Image-Slot-Weg
 

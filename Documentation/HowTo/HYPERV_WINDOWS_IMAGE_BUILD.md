@@ -8,6 +8,10 @@
 | Build | Generation 2, Secure Boot, isoliert ohne Netzwerkadapter |
 | Fortsetzung | persistenter Build-State und PowerShell Direct |
 
+Der anschließende Aufbau von drei Windows-SQL-Slots, drei Linux-Zielen und
+einem separaten CMS steht im
+[End-to-End-Runbook](END_TO_END_TEST_ENVIRONMENT.md).
+
 ## 1. Voraussetzungen
 
 - Windows-Host mit aktivem Hyper-V und lokalen Administratorrechten;
@@ -29,22 +33,25 @@ D:\Lab_Base\WindowsServer\2025\Eval\ISO\<Originaldateiname>.iso
 
 ## 2. Image-Menü starten
 
-Windows-OS-Baselines werden im Menü unter `e` → **Windows-OS-Baselines
-verwalten** erstellt. Der Build selbst bleibt ein bewusster administrativer
+Windows-OS-Baselines werden über die Image-Aktion und dort über `[1]
+Windows-OS-Vorlage aus DVD erstellen oder fortsetzen` erstellt. Der Build
+selbst bleibt ein bewusster administrativer
 Schritt, weil Windows einmal installiert und generalisiert werden muss. Die
 veröffentlichte `OS_SEALED`-Baseline ist danach jedoch der Standard für
 schnelle, reine Windows-Klone. Für ein SQL-Prepared-Image ist weiterhin der
-frische Windows+SQL-Pfad im Hauptmenü vorgesehen.
+getrennte Punkt `[3] Neue SQL-Prepared-Vorlage aus DVD erstellen` im selben
+Image-Menü vorgesehen.
 
 ```powershell
-Set-Location D:\r\pu\SQL_Server_Lab
+Set-Location <Repository>
 
 .\Invoke-SqlServerLab.ps1 -Action Image
 ```
 
-Alternativ im Hauptmenü `i` wählen.
+Der gleichwertige Hauptmenüpfad lautet `Hyper-V-Infrastruktur` → `Hyper-V
+Infrastruktur: OS-Images und ISOs verwalten`.
 
-Das Image-Untermenü bietet:
+Im Image-Menü führt `[1]` in das Baseline-Untermenü. Dieses bietet:
 
 1. neuen Builder aus dem Media Root vorbereiten;
 2. Build-Status anzeigen;
@@ -195,16 +202,17 @@ Zusammenführung in die Basis-VHDX abgewartet werden.
 
 ## 8. Reine Windows-VM aus einer OS-Baseline bereitstellen
 
-Nach der Veröffentlichung im Hyper-V-Hauptmenü **Neue Hyper-V-Umgebung aus
-Windows- oder SQL-Vorlage erstellen** wählen. Die Auswahl unterscheidet
-sichtbar:
+Nach der Veröffentlichung wieder `-Action Image` öffnen und `[2]
+Betriebssystem-Slot aus Windows-OS-Vorlage erstellen` wählen. Dieser Pfad
+wählt ausschließlich eine Windows-OS-Baseline:
 
 - **Windows-OS-Baseline**: Klont eine reine Windows-VM. Die OOBE mit dem
   gewählten Administratorpasswort, Region, Sprache und Tastatur wird in der
   run-eigenen Child-VHDX automatisiert. SQL Server, SQL-WMI, SQL-TCP und
   Connection Strings werden dabei bewusst nicht angefasst.
-- **SQL-Prepared-Image**: Klont Windows mit vorbereitetem SQL Server und
-  vervollständigt SQL, WMI und TCP/IP für Anwendungen auf dem Host.
+
+SQL-Prepared-Images besitzen den getrennten Punkt `[3]` und werden unter
+[Hyper-V SQL-Prepared-Image](HYPERV_SQL_PREPARED_IMAGE.md) beschrieben.
 
 Die Parent-VHDX bleibt in beiden Fällen unveränderlich. Jeder Klon besitzt
 eine eigene differenzierende Child-VHDX und kann ohne Einfluss auf die
@@ -264,18 +272,20 @@ angeboten.
 Ein manuelles Löschen von VM, VHDX oder Build-State kann die gebundene
 Recovery-Information zerstören und ist nicht der normale Ablauf.
 
-## 9. Aktuelle Grenze
+## 10. Aktuelle Grenze
 
-Diese Welle erstellt eine generalisierte Windows-OS-Baseline. Noch nicht Teil
-des freigegebenen End-to-End-Pfads sind:
+Dieser Ablauf erstellt eine generalisierte Windows-OS-Baseline. Er installiert
+bewusst noch keinen SQL Server. Der nachgelagerte freigegebene Slot- und
+Testgruppenpfad ist im End-to-End-Runbook beschrieben. Offene Grenzen der
+Baseline-Erstellung sind:
 
 - unattended Windows-Installation;
 - Updates während des Builds;
-- SQL Server `CompleteImage` und reguläre SQL-Lab-Runs;
-- Netzwerk, IPAM und regulärer Hyper-V-Lab-Run aus einem Manifest;
-- automatische SQL-Readiness auf einer realen Baseline.
+- der allgemeine deklarative Hyper-V-SQL-Runtimepfad über alle
+  Manifestkombinationen;
+- automatische Artifact-Refresh-/Rebuild-Aktionen.
 
-## 10. Reale Validierung vom 3. August 2026
+## 11. Reale Validierung vom 3. August 2026
 
 Auf dem Self-hosted Hyper-V-Host `KEY18` wurden zwei reale Medienpfade geprüft:
 

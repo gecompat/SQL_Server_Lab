@@ -1,10 +1,16 @@
 # SQL-Verbindungszentrale
 
-Die SQL-Verbindungszentrale ist über `Invoke-SqlServerLab.ps1` mit `[k]` erreichbar.
-Sie ist der zentrale, providerübergreifende Katalog aller bekannten SQL-Endpunkte aus
-Docker, Podman und Hyper-V. Einträge werden bei den üblichen Konsolen-Lifecycle-Aktionen
-automatisch aktualisiert und können jederzeit mit `[6] Jetzt synchronisieren` neu erzeugt
-werden.
+Die SQL-Verbindungszentrale ist über den Direktaufruf
+`.\Invoke-SqlServerLab.ps1 -Action ConnectionCenter` erreichbar. Der
+gleichwertige Hauptmenüpfad lautet `Datenbanken und Verbindungen` →
+`Verbindungszentrale und SSMS-Endpunkte`. Sie ist der zentrale,
+providerübergreifende Katalog aller bekannten SQL-Endpunkte aus Docker, Podman
+und Hyper-V. Einträge werden bei den üblichen Konsolen-Lifecycle-Aktionen
+automatisch aktualisiert und können jederzeit mit `[6] Jetzt synchronisieren`
+neu erzeugt werden.
+
+Der vollständige Aufbau der sechs Windows-/Linux-Testziele und des getrennten
+CMS steht im [End-to-End-Runbook](../HowTo/END_TO_END_TEST_ENVIRONMENT.md).
 
 Der Katalog liegt im State Root unter `catalog/sql-connection-center.json`. Er enthält
 Endpunkt, Anzeigename, Provider und aktuellen Runtime-Status, aber ausdrücklich keine
@@ -35,6 +41,21 @@ werden. Das SA-Passwort wird einmalig angezeigt und anschließend nur run-lokal 
 geschützt gespeichert. Jede Lifecycle-Aktion der Konsole synchronisiert diesen CMS
 best-effort mit dem aktuellen Katalog.
 
+Empfohlener Ablauf:
+
+1. `Datenbanken und Verbindungen` → `Verbindungszentrale und SSMS-Endpunkte`
+   → `CMS verwalten und synchronisieren` öffnen.
+2. `Kompakten persistenten CMS automatisch erstellen` wählen. Docker wird
+   bevorzugt, Podman ist der Fallback.
+3. Das einmalig angezeigte CMS-SA-Passwort sicher ablegen.
+4. `CMS jetzt synchronisieren` ausführen.
+5. `CMS-Zugang anzeigen` öffnen und Serverziel sowie Zugang kontrollieren.
+
+Die geschützten Mitglieder der automatisierten Testgruppe sind keine
+zulässigen CMS-Kandidaten. Alternativ darf nur ein anderer geeigneter
+bestehender Run über `Bestehende SQL-Umgebung als CMS verwenden` übernommen
+werden.
+
 Der verwaltete CMS wird stets mit `autostart=on` erstellt. Bei Docker/Podman
 greifen Restart-Policy und Hostkoordinator; unter Windows ist er nach der ersten
 Anmeldung des einrichtenden Benutzers verfügbar. So bleibt die zentrale Instanz
@@ -58,6 +79,11 @@ aktualisieren und **SQL Server Lab -> Running** aufklappen; darunter folgen opti
 die Providergruppen `DOCKER`, `PODMAN` und `HYPERV`. Das CMS-Menü zeigt dafür den
 konkreten Servernamen. Zugangsdaten bleiben im geschützten Run-Secret und werden
 nicht in den CMS-Registrierungen gespeichert.
+
+Bei der einmaligen CMS-Registrierung in SSMS ist SQL-Authentifizierung mit
+Login `sa` und dem gesicherten CMS-Passwort zulässig. Microsoft dokumentiert
+diesen Weg unter
+[Create a central management server and server group](https://learn.microsoft.com/en-us/ssms/register-servers/create-a-central-management-server-and-server-group).
 
 Der CMS selbst wird nicht als verwaltetes Ziel in seinen eigenen Unterbaum
 eingetragen. Bei sechs fertigen Testumgebungen meldet der CMS-Abgleich daher sechs
