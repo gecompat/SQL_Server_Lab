@@ -148,6 +148,14 @@ function renderArtifactList(target, items, kind, title, detail) {
   ).join('') : empty('Noch keine Einträge vorhanden.');
 }
 
+function artifactRefreshDetail(item) {
+  const action = item.RefreshAction || 'UNKNOWN';
+  if (action === 'MANUAL_REBUILD_REQUIRED') return 'Evaluation abgelaufen · manueller Parallel-Rebuild erforderlich';
+  if (action === 'MANUAL_REBUILD_RECOMMENDED') return 'Evaluation läuft ab · manueller Parallel-Rebuild empfohlen';
+  if (action === 'EVALUATION_REVIEW_REQUIRED') return 'Evaluation prüfen · Ablaufdatum fehlt';
+  return action === 'NO_ACTION' ? '' : 'Refresh-Status: ' + action;
+}
+
 function getHyperVArtifactCandidates(sqlItems = workflow?.SqlPreparedImages || [], windowsItems = workflow?.WindowsBaselines || []) {
   return [
     ...(sqlItems || []).map((item) => ({ ...item, Workload: 'sql' })),
@@ -512,8 +520,8 @@ function renderWorkflow(data) {
   renderBuilds('#sql-builds', 'sql', data.SqlBuilds);
   $('#windows-count').textContent = data.WindowsBuilds.length + ' Build(s)';
   $('#sql-count').textContent = data.SqlBuilds.length + ' Build(s)';
-  renderArtifactList('#windows-baselines', data.WindowsBaselines, 'OS-Baseline', (item) => item.DisplayName || (item.OperatingSystem + ' · ' + item.Edition), (item) => item.InstallationType + ' · ' + shortId(item.ArtifactId));
-  renderArtifactList('#sql-images', data.SqlPreparedImages, 'SQL-Prepared-Image', (item) => item.DisplayName || (item.OperatingSystem + ' · SQL Server ' + item.SqlVersion), (item) => item.WindowsEdition + ' · ' + item.SqlEdition + ' · ' + shortId(item.ArtifactId));
+  renderArtifactList('#windows-baselines', data.WindowsBaselines, 'OS-Baseline', (item) => item.DisplayName || (item.OperatingSystem + ' · ' + item.Edition), (item) => [item.InstallationType, shortId(item.ArtifactId), artifactRefreshDetail(item)].filter(Boolean).join(' · '));
+  renderArtifactList('#sql-images', data.SqlPreparedImages, 'SQL-Prepared-Image', (item) => item.DisplayName || (item.OperatingSystem + ' · SQL Server ' + item.SqlVersion), (item) => [item.WindowsEdition, item.SqlEdition, shortId(item.ArtifactId), artifactRefreshDetail(item)].filter(Boolean).join(' · '));
   renderAcceptance(data.AcceptanceEnvironments);
   renderActiveLabs(data.ActiveLabs);
   renderHyperVLabs(data.HyperVLabs || []);

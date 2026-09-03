@@ -382,6 +382,11 @@ Inventur mutiert oder entfernt weder das vorhandene Artifact noch referenzierte
 Labs; Build, Validierung, Umschaltung und spätere referenzsichere Bereinigung
 bleiben getrennte Schritte.
 
+Die lokale Workflow- und Browseransicht zeigt denselben Evaluation- und
+Refreshstatus direkt neben den veröffentlichten Baselines und Prepared-Images.
+Sie löst dadurch keine Aktion aus und bietet insbesondere keinen automatischen
+Refresh oder eine Bereinigung an.
+
 ## 9. Direkte Windows-SQL-Abnahmeumgebungen
 
 Neben dem Prepared-Image-Lifecycle können vorhandene run-lokale

@@ -8,7 +8,8 @@
     verwendet werden.
 .OUTPUTS
     System.Management.Automation.PSCustomObject. Enthält Hostfähigkeiten,
-    Workflow-Status, veröffentlichte Images, Abnahmeumgebungen und aktive Labs.
+    Workflow-Status, veröffentlichte Images einschließlich ihres read-only
+    Evaluation-/Refreshstatus, Abnahmeumgebungen und aktive Labs.
 .EXAMPLE
     Get-SqlServerLabWorkflow
 .PARAMETER MediaRoot
@@ -84,6 +85,10 @@ function Get-SqlServerLabWorkflow {
             try { $hyperVExistingVmSources = @(Get-HyperVExistingVmLabSource) } catch { }
         }
     }
+    $artifactInventory = @()
+    try { $artifactInventory = @(Get-SqlServerLabHyperVImageArtifact -StateRoot $stateRoot) } catch { }
+    $artifactInventoryById = @{}
+    foreach ($inventoryItem in $artifactInventory) { $artifactInventoryById[[string]$inventoryItem.ArtifactId] = $inventoryItem }
     try { $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot 2>$null) } catch { }
     $activeContainerRuns = @($activeRuns | Where-Object { [string]$_.metadata.workflowKind -ne 'hyperv-lab' })
     try {
@@ -384,18 +389,24 @@ function Get-SqlServerLabWorkflow {
             QueueLength = if ($queue) { [int]$queue.length } else { 0 }
         }
         WindowsBaselines = @($artifacts | Where-Object artifactState -eq 'OS_SEALED' | ForEach-Object {
+            $inventoryItem = $artifactInventoryById[[string]$_.artifactId]
             [PSCustomObject]@{
                 ArtifactId = [string]$_.artifactId; OperatingSystem = [string]$_.operatingSystem.id
                 Version = [string]$_.operatingSystem.version; Edition = [string]$_.operatingSystem.edition
                 InstallationType = [string]$_.operatingSystem.installationType; DisplayName = [string]$_.displayName; PublishedAt = [string]$_.registeredAt
+                EvaluationStatus = if ($inventoryItem) { [string]$inventoryItem.Evaluation.Status } else { 'UNKNOWN' }
+                RefreshAction = if ($inventoryItem) { [string]$inventoryItem.Refresh.Action } else { 'UNKNOWN' }
             }
         })
         SqlPreparedImages = @($artifacts | Where-Object artifactState -eq 'SQL_PREPARED_SEALED' | ForEach-Object {
+            $inventoryItem = $artifactInventoryById[[string]$_.artifactId]
             [PSCustomObject]@{
                 ArtifactId = [string]$_.artifactId; OperatingSystem = [string]$_.operatingSystem.id
                 WindowsEdition = [string]$_.operatingSystem.edition; InstallationType = [string]$_.operatingSystem.installationType
                 SqlVersion = [string]$_.sql.version; SqlEdition = [string]$_.sql.edition
                 SqlBuild = [string]$_.sql.build; DisplayName = [string]$_.displayName; PublishedAt = [string]$_.registeredAt
+                EvaluationStatus = if ($inventoryItem) { [string]$inventoryItem.Evaluation.Status } else { 'UNKNOWN' }
+                RefreshAction = if ($inventoryItem) { [string]$inventoryItem.Refresh.Action } else { 'UNKNOWN' }
             }
         })
         WindowsBuilds = $windowsItems
