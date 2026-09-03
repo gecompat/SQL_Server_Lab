@@ -308,3 +308,4 @@ SEE ALSO
     about_Modules
     about_Command_Syntax
     about_CommonParameters
+    Test-SqlServerLabContainerTool - Kataloggebundenes SqlPackage read-only prüfen.
