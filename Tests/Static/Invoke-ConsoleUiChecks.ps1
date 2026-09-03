@@ -347,6 +347,10 @@ $connectionCenterSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/
     $sqlIntentMatch = [regex]::Match($entrySource, 'function Read-LabSqlEnvironmentIntentInteractive \{[\s\S]+?\n\}(?=\r?\n\r?\nfunction Resolve-LabSqlIntentProvider)')
 Add-ConsoleUiCheck 'SQL-Zielkonfiguration verwendet gemeinsames Formular und Review' ($sqlIntentMatch.Success -and $sqlIntentMatch.Value -match 'Invoke-LabConsoleForm' -and $sqlIntentMatch.Value -match 'New-LabConsoleField')
 Add-ConsoleUiCheck 'Providerentscheidung bleibt ausserhalb der Formularnavigation' ($sqlIntentMatch.Success -and $sqlIntentMatch.Value -notmatch 'Resolve-LabSqlIntentProvider|Invoke-LabNewContainerEnvironmentInteractive|Invoke-LabNewHyperVEnvironmentInteractive')
+$batchConsoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/BatchConsole.ps1') -Raw
+Add-ConsoleUiCheck 'Testmatrix nennt die unterstützten Betriebssysteme direkt im Eingabeprompt' (
+    $batchConsoleSource -match 'Betriebssysteme, kommagetrennt \(Linux, Windows\) \[Linux\]'
+)
 
 $cui008Functions = @('Invoke-LabHyperVImageAction','Invoke-LabHyperVPreparedImageWorkflowMenu','Invoke-LabHyperVPublishedImageMenu','Invoke-LabHyperVAdvancedMenu','Invoke-LabHyperVWindowsBaselineMenu','Invoke-LabHyperVSqlAcceptanceMenu','Select-LabReusableHyperVWindowsSlotInteractive','Manage-LabHyperVEnvironmentInteractive')
 $cui008MenuCoverage = @($cui008Functions | Where-Object {

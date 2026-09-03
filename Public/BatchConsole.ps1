@@ -135,7 +135,9 @@ function Add-LabMatrixComposerItemsInteractive {
     param([Parameter(Mandatory)][AllowEmptyCollection()][Collections.Generic.List[object]]$Basket)
 
     $parse = { param($Text, $Default) $values = @(([string]$Text).Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }); if ($values.Count -eq 0) { @($Default) } else { $values } }
-    $osValues = @(& $parse (Read-Host '  Betriebssysteme, kommagetrennt [Linux]') 'Linux')
+    # Der Matrixpfad kann derzeit nur Linux-Container oder Windows über Hyper-V
+    # planen. Die Auswahl steht im Prompt, damit kein implizites Raten nötig ist.
+    $osValues = @(& $parse (Read-Host '  Betriebssysteme, kommagetrennt (Linux, Windows) [Linux]') 'Linux')
     $sqlValues = @(& $parse (Read-Host '  SQL-Versionen, kommagetrennt [2022]') '2022')
     $cuValues = @(& $parse (Read-Host '  CU/Patchstaende, kommagetrennt [latest]') 'latest')
     $platformValues = @(& $parse (Read-Host '  Plattformen, kommagetrennt [Auto]') 'Auto')
