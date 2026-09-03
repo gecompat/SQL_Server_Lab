@@ -67,11 +67,15 @@ Add-CheckResult -Name 'Workflow fasst Baselines, SQL-Images und offene Builds zu
     $workflowText -match 'PendingSqlBuilds' -and
     $workflowText -match 'NextStep'
 )
-Add-CheckResult -Name 'Workflow und Browser zeigen den read-only Evaluation-Refreshstatus ohne neue Aktion an' -Success (
+Add-CheckResult -Name 'Workflow und Browser zeigen den read-only Evaluation-Refresh- und Fallbackstatus ohne neue Aktion an' -Success (
     $workflowText -match 'Get-SqlServerLabHyperVImageArtifact' -and
     $workflowText -match 'EvaluationStatus' -and
     $workflowText -match 'RefreshAction' -and
+    $workflowText -match 'AutomaticFallbackEligible' -and
+    $workflowText -match 'AutomaticFallbackReasons' -and
     $scriptText -match 'function artifactRefreshDetail' -and
+    $scriptText -match 'function artifactFallbackDetail' -and
+    $scriptText -match 'Automatischer SQL-Fallback' -and
     $scriptText -match 'MANUAL_REBUILD_REQUIRED' -and
     $scriptText -match 'MANUAL_REBUILD_RECOMMENDED'
 )
