@@ -612,7 +612,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `New-SqlServerLabManifest` | Schema-gesteuertes Manifest in der Konsole erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung strukturell und fachlich prüfen |
 | `New-SqlServerLab` | Umgebung ad hoc oder per Manifest erstellen |
-| `Get-SqlServerLab` | State und Live-Status anzeigen |
+| `Get-SqlServerLab` | State, Live-Status und sanitisierte kataloggebundene Container-Tool-Metadaten anzeigen |
 | `Start-SqlServerLab` | Gestoppte Umgebung starten |
 | `Stop-SqlServerLab` | Laufende Umgebung stoppen |
 | `Restart-SqlServerLab` | Stop und Start kombinieren |
