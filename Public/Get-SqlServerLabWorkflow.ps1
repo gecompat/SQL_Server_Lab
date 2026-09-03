@@ -396,6 +396,8 @@ function Get-SqlServerLabWorkflow {
                 InstallationType = [string]$_.operatingSystem.installationType; DisplayName = [string]$_.displayName; PublishedAt = [string]$_.registeredAt
                 EvaluationStatus = if ($inventoryItem) { [string]$inventoryItem.Evaluation.Status } else { 'UNKNOWN' }
                 RefreshAction = if ($inventoryItem) { [string]$inventoryItem.Refresh.Action } else { 'UNKNOWN' }
+                AutomaticFallbackEligible = if ($inventoryItem) { [bool]$inventoryItem.ManifestFallback.Eligible } else { $false }
+                AutomaticFallbackReasons = if ($inventoryItem) { @($inventoryItem.ManifestFallback.Reasons) } else { @('inventory-unavailable') }
             }
         })
         SqlPreparedImages = @($artifacts | Where-Object artifactState -eq 'SQL_PREPARED_SEALED' | ForEach-Object {
@@ -407,6 +409,8 @@ function Get-SqlServerLabWorkflow {
                 SqlBuild = [string]$_.sql.build; DisplayName = [string]$_.displayName; PublishedAt = [string]$_.registeredAt
                 EvaluationStatus = if ($inventoryItem) { [string]$inventoryItem.Evaluation.Status } else { 'UNKNOWN' }
                 RefreshAction = if ($inventoryItem) { [string]$inventoryItem.Refresh.Action } else { 'UNKNOWN' }
+                AutomaticFallbackEligible = if ($inventoryItem) { [bool]$inventoryItem.ManifestFallback.Eligible } else { $false }
+                AutomaticFallbackReasons = if ($inventoryItem) { @($inventoryItem.ManifestFallback.Reasons) } else { @('inventory-unavailable') }
             }
         })
         WindowsBuilds = $windowsItems

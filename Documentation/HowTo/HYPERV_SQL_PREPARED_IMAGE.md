@@ -400,6 +400,9 @@ Löschanweisung:
 Fehlt eine kompatible automatische Vorlage, nennt die Fehlermeldung nur
 normalisierte Ablehnungsgründe (etwa `evaluation-expiring` oder
 `sql-version-mismatch`), keine lokalen Pfade oder Artifact-IDs.
+Die read-only Image-Inventur und Workflowansicht weisen dieselbe automatische
+Fallback-Eignung samt Gründen je veröffentlichter Vorlage aus; sie starten
+dadurch weder einen Rebuild noch eine andere Mutation.
 
 Die lokale Workflow- und Browseransicht zeigt denselben Evaluation- und
 Refreshstatus direkt neben den veröffentlichten Baselines und Prepared-Images.
