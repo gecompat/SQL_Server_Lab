@@ -81,6 +81,13 @@ $result = & $module {
     }
     $generalPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $generalRequest -SqlVersion '2022' -Provider docker -OperatingSystem linux
     $toolImagePlan = New-LabContainerToolImagePlan -Provider docker -SqlVersion '2022' -SoftwarePlans @($generalPlan)
+    $dockerRuntimePlan = Resolve-LabExternalRuntimePlan -SoftwareItem ([PSCustomObject]@{
+        Id = 'sql-python'; Version = $null; Variant = $null; Scope = 'sqlExternalRuntime'
+        InstallMethod = 'catalog'; Optional = $false; Packages = @(); RequestSource = 'software'
+    }) -SqlVersion '2022' -Provider docker -OperatingSystem linux
+    $externalRuntimeImagePlan = New-LabExternalRuntimeContainerImagePlan -Provider docker -SqlVersion '2022' -SoftwarePlans @($dockerRuntimePlan)
+    $combinedToolRuntimeImagePlan = New-LabContainerToolExternalRuntimeImagePlan `
+        -ExternalRuntimeImagePlan $externalRuntimeImagePlan -ContainerToolImagePlan $toolImagePlan
 
     $packageRequest = [PSCustomObject]@{
         Id = 'sql-python'; Version = $null; Variant = $null; Scope = 'sqlExternalRuntime'
@@ -164,6 +171,12 @@ $result = & $module {
             [string]$toolImagePlan.Contract.Name -eq 'SqlServerLab.ContainerToolImagePlan' -and
             [string]$toolImagePlan.ImageKey -match '^[a-f0-9]{64}$' -and
             [string]$toolImagePlan.SqlPackageArchiveSha256 -eq 'e81ede2429f3a15d9e752845c8928569c7706b3a911fad2d1717c0f03e0fc7c3'
+        CombinedContainerImage = [string]$combinedToolRuntimeImagePlan.Contract.Name -eq 'SqlServerLab.ContainerToolExternalRuntimeImagePlan' -and
+            [string]$combinedToolRuntimeImagePlan.ImageKey -match '^[a-f0-9]{64}$' -and
+            [string]$combinedToolRuntimeImagePlan.ExternalRuntimeImageKey -eq [string]$externalRuntimeImagePlan.ImageKey -and
+            [string]$combinedToolRuntimeImagePlan.ContainerToolImageKey -eq [string]$toolImagePlan.ImageKey -and
+            [string]$combinedToolRuntimeImagePlan.LaunchMode -eq 'sql2022-namespace-v1' -and
+            (@($combinedToolRuntimeImagePlan.ToolIds) -join ',') -eq 'sqlpackage'
         PackageLock = $packagePlan.ReasonCode -eq 'PACKAGE_NOT_LOCKED'
         HyperVJava = $javaPlan.Status -eq 'RESOLVED' -and -not $javaPlan.ReasonCode -and
             $javaPlan.VariantId -eq 'sql2022-java17-windows-hyperv'
@@ -215,6 +228,7 @@ Add-CheckResult -Name 'SQL-2022-Python wird fuer Podman deterministisch als frei
 Add-CheckResult -Name 'SQL Server 2025 erbt keine unbelegte SQL-2022-Runtimeannahme' -Success $result.Sql2025
 Add-CheckResult -Name 'C# bleibt ohne freigegebenen Binär- und Native-Evidence-Pfad explizit fail-closed' -Success $result.CSharp
 Add-CheckResult -Name 'SqlPackage erhält einen kataloggebundenen Tool-Image-Plan mit SHA-256-Artefakten' -Success $result.GeneralSoftware
+Add-CheckResult -Name 'SqlPackage und SQL-2022-External-Runtime erhalten einen gemeinsam gebundenen Derived-Image-Plan' -Success $result.CombinedContainerImage
 Add-CheckResult -Name 'Nicht katalogisierte Zusatzpakete werden vor der Mutation abgelehnt' -Success $result.PackageLock
 Add-CheckResult -Name 'Hyper-V/Windows-Java besitzt einen nativ belegten deterministischen Plan' -Success $result.HyperVJava
 Add-CheckResult -Name 'Doppelte Legacy- und software-Anforderung wird abgelehnt' -Success $result.DuplicateRejected
@@ -261,6 +275,13 @@ Add-CheckResult -Name 'Provisionierung bindet den Container-Tool-Plan vor Run-St
     $newLabSource -match 'Invoke-LabContainerToolImageBuild' -and
     $newLabSource.IndexOf('New-LabContainerToolImagePlan') -lt $newLabSource.IndexOf('New-LabRunState') -and
     $newLabSource.IndexOf('Invoke-LabContainerToolImageBuild') -lt $newLabSource.LastIndexOf('New-LabProviderContainer')
+)
+Add-CheckResult -Name 'Provisionierung komponiert Tool und External Runtime vor dem Containerstart ohne Freitext-Installationspfad' -Success (
+    $newLabSource -notmatch 'CONTAINER_TOOL_EXTERNAL_RUNTIME_COMBINATION_NOT_IMPLEMENTED' -and
+    $newLabSource -match 'New-LabContainerToolExternalRuntimeImagePlan' -and
+    $newLabSource -match 'Invoke-LabContainerToolExternalRuntimeImageBuild' -and
+    $newLabSource.IndexOf('New-LabContainerToolExternalRuntimeImagePlan') -lt $newLabSource.IndexOf('New-LabRunState') -and
+    $newLabSource.IndexOf('Invoke-LabContainerToolExternalRuntimeImageBuild') -lt $newLabSource.LastIndexOf('New-LabProviderContainer')
 )
 
 $legacyExampleResult = Test-SqlServerLabManifest -Path (Join-Path $repoRoot 'Schemas/example-ml-services.json')
