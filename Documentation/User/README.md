@@ -2,6 +2,7 @@
 
 | Dokument | Inhalt |
 |---|---|
+| [END_TO_END_TEST_ENVIRONMENT.md](../HowTo/END_TO_END_TEST_ENVIRONMENT.md) | Autoritatives Operator-Runbook für OS-Baseline, Windows-/Linux-SQL-2019/2022/2025-Testmatrix und separaten CMS |
 | [INSTALLATION_WINDOWS.md](INSTALLATION_WINDOWS.md) | Schrittweise Windows-Installation für AnwenderInnen einschließlich Docker, Podman Machine, WSL 2 und `sqlcmd` |
 | [INSTALLATION_LINUX.md](INSTALLATION_LINUX.md) | Schrittweise Ubuntu-Installation für AnwenderInnen einschließlich PowerShell, Docker/Podman und `mssql-tools18` |
 | [Getting_Started.md](Getting_Started.md) | Schnellstart und Bedienung der öffentlichen Cmdlets |

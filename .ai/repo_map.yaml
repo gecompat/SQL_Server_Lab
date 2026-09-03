@@ -171,6 +171,7 @@ sources_of_truth:
   user_installation_windows: Documentation/User/INSTALLATION_WINDOWS.md
   user_installation_linux: Documentation/User/INSTALLATION_LINUX.md
   user_walkthrough: Documentation/User/Getting_Started.md
+  operator_end_to_end_test_environment: Documentation/HowTo/END_TO_END_TEST_ENVIRONMENT.md
   development_test_setup_windows: Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_WINDOWS.md
   development_test_setup_linux: Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_LINUX.md
   external_media_root: Documentation/HowTo/MEDIA_ROOT_LAYOUT.md

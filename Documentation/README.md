@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_INDEX` |
-| Stand | 2026-08-13 |
+| Stand | 2026-09-03 |
 
 Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../README.md) ist der operative Einstieg. Bei Widersprüchen zwischen Planungsdokumenten und implementiertem Verhalten gelten Code, Schemas, Kataloge, Tests und die dokumentierten bekannten Grenzen als Ist-Nachweis.
 
@@ -13,18 +13,19 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 
 1. [Installation für AnwenderInnen unter Windows](User/INSTALLATION_WINDOWS.md)
 2. [Installation für AnwenderInnen unter Linux](User/INSTALLATION_LINUX.md)
-3. [Externer Media Root](HowTo/MEDIA_ROOT_LAYOUT.md)
-4. [Windows-Server-Baseline aus ISO mit Hyper-V erstellen](HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
-5. [Hyper-V Slot- und SQL-Workflow (OS-Slot → SQL-Slot)](HowTo/HYPERV_SLOT_SQL_WORKFLOW.md)
-6. [SQL-Prepared-Images aus frischer Windows-Installation](HowTo/HYPERV_SQL_PREPARED_IMAGE.md)
-7. [Persistente Daten und Evaluation-Refresh](HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md)
-8. [Lokale Workflow-Oberfläche](HowTo/WORKFLOW_UI.md)
-9. [Getting Started](User/Getting_Started.md)
-9. [Root-README](../README.md)
-10. [Manifest-Schemas und Beispiele](../Schemas/README.md)
-11. [Öffentliche Cmdlets](../Public/README.md)
-12. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
-13. [Tests](../Tests/README.md)
+3. [End-to-End-Testumgebung für Windows/Linux 2019–2025 und CMS](HowTo/END_TO_END_TEST_ENVIRONMENT.md)
+4. [Externer Media Root](HowTo/MEDIA_ROOT_LAYOUT.md)
+5. [Windows-Server-Baseline aus ISO mit Hyper-V erstellen](HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
+6. [Hyper-V Slot- und SQL-Workflow (OS-Slot → SQL-Slot)](HowTo/HYPERV_SLOT_SQL_WORKFLOW.md)
+7. [SQL-Prepared-Images aus frischer Windows-Installation](HowTo/HYPERV_SQL_PREPARED_IMAGE.md)
+8. [Persistente Daten und Evaluation-Refresh](HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md)
+9. [Lokale Workflow-Oberfläche](HowTo/WORKFLOW_UI.md)
+10. [Getting Started](User/Getting_Started.md)
+11. [Root-README](../README.md)
+12. [Manifest-Schemas und Beispiele](../Schemas/README.md)
+13. [Öffentliche Cmdlets](../Public/README.md)
+14. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+15. [Tests](../Tests/README.md)
 
 ### Projekt weiterentwickeln
 

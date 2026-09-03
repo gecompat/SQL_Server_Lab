@@ -1,11 +1,38 @@
 # Automatisierte Testumgebungen
 
-Über den Hauptmenüpunkt **[e] Umgebung für automatisierte Tests anlegen** können
-mehrere SQL-Zielumgebungen gesammelt und anschließend in einem Auftrag erstellt
-werden. Linux verwendet Docker oder Podman und läuft vollständig automatisiert.
-Windows verwendet Hyper-V; wenn keine vollständig vorbereitete SQL-Vorlage
-vorhanden ist, pausiert der Ablauf ausschließlich für Windows-OOBE,
+Mehrere SQL-Zielumgebungen werden über den aktuellen Direkteinstieg gesammelt
+und anschließend in einem Auftrag erstellt:
+
+```powershell
+.\Invoke-SqlServerLab.ps1 -Action AutomatedTestEnvironment
+```
+
+Der frühere Hauptmenüpunkt `[e]` ist kein aktueller Einstieg. Linux verwendet
+Docker oder Podman und läuft vollständig automatisiert. Windows verwendet
+Hyper-V; wenn keine vollständig vorbereitete SQL-Vorlage vorhanden ist,
+pausiert der Ablauf ausschließlich für Windows-OOBE,
 Administratorpasswort und die erste Anmeldung.
+
+Die vollständige Schrittfolge von der `OS_SEALED`-Baseline über sechs Ziele bis
+zur SSMS-/CMS-Kontrolle steht im
+[End-to-End-Runbook](../HowTo/END_TO_END_TEST_ENVIRONMENT.md).
+
+## Schnellablauf für die Sechs-Ziele-Matrix
+
+1. Im Composer nacheinander `Linux hinzufügen` und `Windows hinzufügen`
+   verwenden.
+2. Für Linux 2019, 2022 und 2025 jeweils `latest` wählen.
+3. Für Windows 2019, 2022 und 2025 jeweils `base` wählen.
+4. `Alle vorgemerkten Umgebungen erstellen` ausführen.
+5. Windows-OOBE, Slotübernahme und Evaluation-Aktivierung nur dort abschließen,
+   wo der Workflow anhält.
+6. `Export aktualisieren` wählen und erst bei `groupStatus = READY` sowie sechs
+   Einzelstatus `READY` mit Tests beginnen.
+
+Die Standardmatrix besteht exakt aus `LINUX_2019_LATEST`,
+`LINUX_2022_LATEST`, `LINUX_2025_LATEST`, `WINDOWS_2019_BASE`,
+`WINDOWS_2022_BASE` und `WINDOWS_2025_BASE`. Explizite katalogisierte CUs sind
+eine optionale Alternative und erzeugen entsprechend andere Schlüssel.
 
 Windows-Testslots werden nicht ohne aktivierte und noch gültige Evaluation als
 bereit veröffentlicht. Nach OOBE aktiviert das Framework jede eindeutige
@@ -203,7 +230,7 @@ Der vollständige wiederverwendbare Agenten-Prompt steht in
 ## Nicht interaktiver Linux-Aufruf
 
 ```powershell
-Import-Module D:\r\pu\SQL_Server_Lab\SqlServerLab.psd1 -Force
+Import-Module .\SqlServerLab.psd1 -Force
 
 New-SqlServerLabAutomatedTestEnvironment -Specification @(
     @{ Platform='linux'; SqlVersion='2019'; Patch='latest' }

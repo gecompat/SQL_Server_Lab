@@ -532,6 +532,7 @@ $coreFiles = @(
     'Documentation/Development/DEVELOPMENT_AND_TEST_SETUP_LINUX.md'
     'Documentation/HowTo/PODMAN_WINDOWS_NETWORKING.md'
     'Documentation/HowTo/MEDIA_ROOT_LAYOUT.md'
+    'Documentation/HowTo/END_TO_END_TEST_ENVIRONMENT.md'
     'Documentation/HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md'
     'Documentation/Quality/KNOWN_LIMITATIONS.md'
     'Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md'
@@ -685,6 +686,13 @@ $labDataResidencyDecision = Get-Content -LiteralPath (Join-Path $repoRoot 'Docum
 $batchWorkflowPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md') -Raw -Encoding utf8
 $futureUseCases = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md') -Raw -Encoding utf8
 $knownLimitations = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\KNOWN_LIMITATIONS.md') -Raw -Encoding utf8
+$endToEndTestEnvironment = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\END_TO_END_TEST_ENVIRONMENT.md') -Raw -Encoding utf8
+$hyperVSlotWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\HYPERV_SLOT_SQL_WORKFLOW.md') -Raw -Encoding utf8
+$hyperVWindowsImageBuild = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\HYPERV_WINDOWS_IMAGE_BUILD.md') -Raw -Encoding utf8
+$automatedTestEnvironments = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\User\AUTOMATED_TEST_ENVIRONMENTS.md') -Raw -Encoding utf8
+$sqlConnectionCenter = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\User\SQL_CONNECTION_CENTER.md') -Raw -Encoding utf8
+$interactiveWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\User\INTERACTIVE_WORKFLOW.md') -Raw -Encoding utf8
+$interactiveMenu = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
 $hyperVManifestRuntime = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\New-SqlServerLab.ps1') -Raw -Encoding utf8
 $hyperVLabEnvironmentRuntime = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\HyperVLabEnvironment.ps1') -Raw -Encoding utf8
 $latestValidationResult = Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Documentation\Quality') -Filter 'VALIDATION_RESULT_*.md' -File |
@@ -747,6 +755,62 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'Lokale Validierungsstrategie beschreibt den Matrixeinstieg korrekt' `
     -Success ($localValidationStrategy -match 'Invoke-SmokeMatrix\.ps1' -and $localValidationStrategy -notmatch 'kein übergeordnetes Skript')
+
+$requiredTestEnvironmentKeys = @(
+    'LINUX_2019_LATEST'
+    'LINUX_2022_LATEST'
+    'LINUX_2025_LATEST'
+    'WINDOWS_2019_BASE'
+    'WINDOWS_2022_BASE'
+    'WINDOWS_2025_BASE'
+)
+$missingTestEnvironmentKeys = @(
+    $requiredTestEnvironmentKeys |
+        Where-Object { $endToEndTestEnvironment -notmatch [regex]::Escape($_) }
+)
+Add-ValidationResult `
+    -Name 'End-to-End-Runbook bindet die vollständige Sechs-Ziele-Matrix' `
+    -Success ($missingTestEnvironmentKeys.Count -eq 0) `
+    -Message ($missingTestEnvironmentKeys -join ', ')
+
+Add-ValidationResult `
+    -Name 'End-to-End-Runbook bindet aktuelle Operator-Einstiege und Readiness' `
+    -Success ($endToEndTestEnvironment -match [regex]::Escape('-Action Image') -and
+        $endToEndTestEnvironment -match [regex]::Escape('-Action AutomatedTestEnvironment') -and
+        $endToEndTestEnvironment -match [regex]::Escape('-Action ConnectionCenter') -and
+        $endToEndTestEnvironment -match [regex]::Escape('Datenbanken und Verbindungen') -and
+        $endToEndTestEnvironment -match [regex]::Escape('Verbindungszentrale und SSMS-Endpunkte') -and
+        $endToEndTestEnvironment -match [regex]::Escape('CMS verwalten und synchronisieren') -and
+        $endToEndTestEnvironment -match [regex]::Escape('SQL_SLOT_READY') -and
+        $endToEndTestEnvironment -match 'groupStatus\s*=\s*READY')
+
+Add-ValidationResult `
+    -Name 'End-to-End-Runbook schützt Testgruppe vor CMS-Uebernahme' `
+    -Success ($endToEndTestEnvironment -match 'Keines der\s+sechs geschützten Testgruppenmitglieder darf als CMS verwendet werden' -and
+        $endToEndTestEnvironment -match 'Kompakten persistenten CMS automatisch erstellen' -and
+        $endToEndTestEnvironment -match 'SQL Server-Authentifizierung')
+
+Add-ValidationResult `
+    -Name 'Operator-Indizes verlinken das End-to-End-Runbook' `
+    -Success ($rootReadme -match [regex]::Escape('Documentation/HowTo/END_TO_END_TEST_ENVIRONMENT.md') -and
+        $documentationIndex -match [regex]::Escape('HowTo/END_TO_END_TEST_ENVIRONMENT.md') -and
+        $repoMap -match [regex]::Escape('operator_end_to_end_test_environment: Documentation/HowTo/END_TO_END_TEST_ENVIRONMENT.md'))
+
+$staleOperatorMenuText = @(
+    if ($automatedTestEnvironments -match 'Über den Hauptmenüpunkt\s+\*\*\[e\]') { 'AUTOMATED_TEST_ENVIRONMENTS: [e]' }
+    if ($sqlConnectionCenter -match 'mit\s+`\[k\]`\s+erreichbar') { 'SQL_CONNECTION_CENTER: [k]' }
+    if ($hyperVSlotWorkflow -match '\[i\]\s*(?:→|->)\s*\[4\]') { 'HYPERV_SLOT_SQL_WORKFLOW: [i] -> [4]' }
+    if ($hyperVWindowsImageBuild -match 'Alternativ im Hauptmenü\s+`i`') { 'HYPERV_WINDOWS_IMAGE_BUILD: Hauptmenü i' }
+    if ($interactiveWorkflow -match '\[i\]\s*(?:→|->)\s*\[4\]') { 'INTERACTIVE_WORKFLOW: [i] -> [4]' }
+    if ($interactiveMenu -match 'Unter \[k\] -> \[4\]' -or
+        $interactiveMenu -match '\[e\] -> \[r\]' -or
+        $interactiveMenu -match 'unter \[i\] -> \[4\]' -or
+        $interactiveMenu -match 'Hauptmenü \[[rd]\]') { 'Invoke-SqlServerLab: veralteter Menüpfad' }
+)
+Add-ValidationResult `
+    -Name 'Operator-Dokumente und Hilfetexte verwenden keine veralteten Einstiege' `
+    -Success ($staleOperatorMenuText.Count -eq 0) `
+    -Message ($staleOperatorMenuText -join '; ')
 
 Add-ValidationResult `
     -Name 'Agentenvertrag bindet Modellrouting und kosteneffiziente Tests ein' `
