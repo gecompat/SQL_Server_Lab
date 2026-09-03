@@ -138,14 +138,27 @@ mit einem bloßen Fehler:
   `Read-Host`-Fallback vollständig bedienbar.
 - Mit `./Invoke-SqlServerLab.ps1 -ConsoleMode Fallback` lässt sich derselbe
   nummerierte Fallback im normalen PowerShell-7-Terminal bewusst erzwingen.
-  `0` bricht die aktuelle Auswahl kontrolliert ab. `Ctrl+C` beendet sowohl im
+  Jede Auswahl zeigt dafür sichtbar `[0] Zurück`; auch freie Textfelder nennen
+  `(0: Abbruch)` und verwerfen bei `0` die Eingabe, statt einen Default zu
+  übernehmen. `Ctrl+C` beendet sowohl im
   Cursor- als auch im Fallback-Modus die gesamte aktuelle Verarbeitung und wird
   nicht als normaler Menüfehler fortgesetzt.
 - Der stabile Footer zeigt offene Punkte aus einem gemeinsamen read-only Snapshot:
   fehlende aktuelle CU-Windows-Pakete, veralteten CU-Katalog, niedrigen SQL-Slot-
   oder Vorlagenbestand, offene Image-Builder sowie Recovery/Cleanup. Pfeiltasten
   lesen diesen Status nicht erneut; `F5` aktualisiert ihn bewusst und löst keine
-  Medienbeschaffung, Slot-Erzeugung oder andere Mutation aus.
+  Medienbeschaffung, Slot-Erzeugung oder andere Mutation aus. Zu jedem Befund
+  mit hinterlegter Abhilfe erscheint direkt eine Zeile `Lösung: ...`.
+- **Systemstatus und Einstellungen → Cleanup-Audit anzeigen (read-only)**
+  schreibt kein Audit-Artefakt. Die Ansicht trennt Recovery, unerwartete Reste,
+  nicht prüfbare und bewusst aufbewahrte Objekte und zeigt pro Befund den
+  sicheren nächsten Schritt. Ein persistentes JSON entsteht nur beim bewusst
+  ohne `-NoWrite` aufgerufenen Fachbefehl.
+- Die Statusansicht trennt Providerzustand und SQL-Bereitschaft. Hyper-V-
+  Windows-Slots werden als VM mit ihrem Live-Zustand angezeigt; eine laufende
+  VM wird nicht mehr wegen fehlendem Containerendpunkt als SQL `[DOWN]`
+  bezeichnet. Bei Hyper-V-SQL bleibt eine nicht live geprüfte SQL-Bereitschaft
+  ausdrücklich als solche markiert.
 - Die gemeinsame UI-Schicht besitzt reproduzierbare Verträge für kleine und
   wechselnde Terminalgrößen, das Löschen alter Renderzeilen, stabile Auswahl-IDs,
   nummerierten Fallback, Session-Recovery und maskierte Secret-Formulare. Bei

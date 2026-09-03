@@ -18,6 +18,8 @@ function Add-ConsoleUiCheck {
 }
 
 Write-Host "`nSQL_Server_Lab - Console UI Checks" -ForegroundColor Cyan
+$statusLine = @(& { Write-LabStatus -Label 'Nicht pruefbare Provider' -Value '0' } 6>&1) -join ''
+Add-ConsoleUiCheck 'Statuszeilen trennen auch lange Labels sichtbar vom Wert' ($statusLine -match 'Provider\s+0')
 $previousConsoleMode = $script:LabConsoleMode
 $script:LabConsoleMode = 'Fallback'
 $forcedFallbackCapability = Test-LabConsoleCapability
@@ -67,11 +69,18 @@ $writePlan = Get-LabConsoleWritePlan -Session $writeSession -Frame ([PSCustomObj
 Add-ConsoleUiCheck 'Write-Plan ueberschreibt alte Restzeilen vollstaendig' ($writePlan.Rows.Count -eq 5 -and @($writePlan.Rows | Where-Object ClearsPrevious).Count -eq 3 -and @($writePlan.Rows | Where-Object { $_.Text.Length -ne 11 }).Count -eq 0)
 
 $state.Snapshot = [PSCustomObject]@{ AttentionItems=@(
-    [PSCustomObject]@{ Severity='Critical'; Message='Recovery erforderlich.' }
-    [PSCustomObject]@{ Severity='Warning'; Message='CU-Paket fehlt.' }
+    [PSCustomObject]@{ Severity='Critical'; Message='Recovery erforderlich.'; ActionHint='Recovery-Pfad fortsetzen.' }
+    [PSCustomObject]@{ Severity='Warning'; Message='CU-Paket fehlt.'; ActionHint='CU im Storage-Menue laden.' }
 ) }
 $attentionFrame = Get-LabConsoleFrame -State $state -Title 'Attention' -Width 50 -Height 10
 Add-ConsoleUiCheck 'Footer zeigt read-only Attention Items aus dem Snapshot' (@($attentionFrame.Lines | Where-Object { $_ -match '^Offen \[!\]' }).Count -eq 2)
+Add-ConsoleUiCheck 'Attention Items nennen direkt den Loesungsweg' (@($attentionFrame.Lines | Where-Object { $_ -match '^Loesung:' }).Count -eq 2)
+$smallAttentionFrame = Get-LabConsoleFrame -State $state -Title 'Attention klein' -Width 50 -Height 6
+Add-ConsoleUiCheck 'Attention verdraengt in kleinem Terminal weder Viewport noch Navigation' (
+    $smallAttentionFrame.Lines.Count -eq 6 -and
+    @($smallAttentionFrame.Lines | Where-Object { $_ -match '^Loesung:' }).Count -eq 1 -and
+    @($smallAttentionFrame.Lines | Where-Object { $_ -match '^Pfeile:' }).Count -eq 1
+)
 $state.Snapshot = $null
 
 $textEscapeKeys = [System.Collections.Generic.Queue[object]]::new()
@@ -89,6 +98,32 @@ $textDefaultKeys = [System.Collections.Generic.Queue[object]]::new()
 $textDefaultKeys.Enqueue([PSCustomObject]@{ Key='Enter'; KeyChar=[char]13 })
 $textDefaultResult = Read-LabConsoleTextInput -Prompt 'Batch-Name' -Default 'Neue Umgebungen' -Capability ([PSCustomObject]@{ Supported=$true }) -ReadKey { $textDefaultKeys.Dequeue() } -WriteText { param($text) }
 Add-ConsoleUiCheck 'Texteingabe bestaetigt mit Enter den Default' ($textDefaultResult.Status -eq 'Confirmed' -and $textDefaultResult.Value -eq 'Neue Umgebungen')
+
+$fallbackTextPrompt = ''
+$fallbackTextResult = Read-LabConsoleTextInput -Prompt 'Batch-Name' -Default 'Neue Umgebungen' -Capability ([PSCustomObject]@{ Supported=$false }) -ReadInput { param($prompt) $script:fallbackTextPrompt=$prompt; '0' }
+Add-ConsoleUiCheck 'Fallback-Texteingabe dokumentiert und akzeptiert 0 als Abbruch' (
+    $fallbackTextResult.Status -eq 'Cancelled' -and $null -eq $fallbackTextResult.Value -and $fallbackTextPrompt -match '0: Abbruch'
+)
+
+$fallbackMaskedPrompt = ''
+$fallbackMaskedResult = Read-LabConsoleTextInput -Prompt 'Maskierter Wert' -MaskInput -Capability ([PSCustomObject]@{ Supported=$false }) -ReadInput { param($prompt) $script:fallbackMaskedPrompt=$prompt; '0' }
+Add-ConsoleUiCheck 'Fallback verwechselt die Ziffer 0 in maskierten Eingaben nicht mit Abbruch' (
+    $fallbackMaskedResult.Status -eq 'Confirmed' -and $fallbackMaskedResult.Value -eq '0' -and $fallbackMaskedPrompt -match 'Ctrl\+C: Abbruch'
+)
+
+$emptyComposerBasket = [Collections.Generic.List[object]]::new()
+$originalSqlIntentReader = ${function:Read-LabSqlEnvironmentIntentInteractive}
+try {
+    Set-Item -LiteralPath Function:\Read-LabSqlEnvironmentIntentInteractive -Value { return $null }
+    Add-LabSqlComposerItemInteractive -Basket $emptyComposerBasket
+    $emptyComposerAccepted = $true
+}
+catch { $emptyComposerAccepted = $false }
+finally {
+    if ($originalSqlIntentReader) { Set-Item -LiteralPath Function:\Read-LabSqlEnvironmentIntentInteractive -Value $originalSqlIntentReader }
+    else { Remove-Item -LiteralPath Function:\Read-LabSqlEnvironmentIntentInteractive -ErrorAction SilentlyContinue }
+}
+Add-ConsoleUiCheck 'Erste SQL-Position akzeptiert den noch leeren Batch-Warenkorb' ($emptyComposerAccepted -and $emptyComposerBasket.Count -eq 0)
 
 $hostEscapeKeys = [System.Collections.Generic.Queue[object]]::new()
 $hostEscapeKeys.Enqueue([PSCustomObject]@{ Key='Escape'; KeyChar=[char]27 })
@@ -121,6 +156,11 @@ $fallback = Invoke-LabConsoleMenu -ScreenId 'fallback' -Title 'Fallback' -Items 
 Add-ConsoleUiCheck 'Read-Host-Fallback waehlt nummeriert' ($fallback.Status -eq 'Selected' -and $fallback.SelectedItem.Id -eq 'two')
 $cancelledFallback = Invoke-LabConsoleMenu -ScreenId 'fallback-cancel' -Title 'Fallback' -Items $items -ForceFallback -ReadInput { param($prompt) '0' }
 Add-ConsoleUiCheck 'Read-Host-Fallback bricht mit 0 kontrolliert ab' ($cancelledFallback.Status -eq 'Cancelled' -and $null -eq $cancelledFallback.SelectedItem)
+
+$fallbackRendering = @(& { Invoke-LabConsoleMenu -ScreenId 'fallback-visible-cancel' -Title 'Fallback' -Items $items -ForceFallback -ReadInput { param($prompt) '0' } } 6>&1)
+Add-ConsoleUiCheck 'Read-Host-Fallback zeigt den Abbruchpunkt auch ohne explizites 0-Item' (
+    (@($fallbackRendering | ForEach-Object { [string]$_ }) -join "`n") -match '\[0\] Zurueck'
+)
 
 $invalidFallback = Invoke-LabConsoleMenu -ScreenId 'fallback-invalid' -Title 'Fallback' -Items $items -ForceFallback -ReadInput { param($prompt) '99' }
 $disabledFallback = Invoke-LabConsoleMenu -ScreenId 'fallback-disabled' -Title 'Fallback' -Items @(
@@ -268,6 +308,24 @@ Add-ConsoleUiCheck 'Verbindungszentrale durchläuft jede Ausgabeaktion mit einer
 
 $consoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ConsoleUi.ps1') -Raw
 $containerSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Update-SqlServerLabContainer.ps1') -Raw
+$entryScriptPath = Join-Path $repoRoot 'Invoke-SqlServerLab.ps1'
+$publicEntryPath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
+$entryTokens = $null; $entryErrors = $null
+$entryAst = [Management.Automation.Language.Parser]::ParseFile($entryScriptPath, [ref]$entryTokens, [ref]$entryErrors)
+$publicTokens = $null; $publicErrors = $null
+$publicEntryAst = [Management.Automation.Language.Parser]::ParseFile($publicEntryPath, [ref]$publicTokens, [ref]$publicErrors)
+$getActionValues = {
+    param($Ast)
+    $parameter = @($Ast.FindAll({ param($node) $node -is [Management.Automation.Language.ParameterAst] -and $node.Name.VariablePath.UserPath -eq 'Action' }, $true))[0]
+    $validation = @($parameter.Attributes | Where-Object { $_.TypeName.FullName -eq 'ValidateSet' })[0]
+    return @($validation.PositionalArguments | ForEach-Object { [string]$_.SafeGetValue() } | Sort-Object)
+}
+$entryActions = @(& $getActionValues $entryAst)
+$publicActions = @(& $getActionValues $publicEntryAst)
+Add-ConsoleUiCheck 'Standalone-Einstieg und Modul bieten dieselben Direktaktionen an' (
+    @($entryErrors).Count -eq 0 -and @($publicErrors).Count -eq 0 -and
+    ($entryActions -join '|') -eq ($publicActions -join '|')
+)
 Add-ConsoleUiCheck 'Key-Loops verwenden kein Clear-Host' ($consoleSource -notmatch 'Clear-Host' -and $containerSource -notmatch 'Clear-Host')
 Add-ConsoleUiCheck 'Alle Console-Key-Loops reichen Ctrl+C als PipelineStoppedException durch' (
     ([regex]::Matches($consoleSource, 'Assert-LabConsoleKeyNotInterrupted -Key \$key')).Count -eq 4 -and
@@ -355,6 +413,11 @@ Add-ConsoleUiCheck 'Umgebungsmenue bietet genau einen zustandsabhaengigen Testgr
     $entrySource -match 'Stop-SqlServerLabAutomatedTestEnvironment -Force -Confirm:\$false'
 )
 Add-ConsoleUiCheck 'Read-only Menueaktionen warten zentral auf genau eine Rueckkehrbestaetigung' ($entrySource -match '\$ActionName -in @\(''Status'', ''CleanupAudit'', ''Catalog''\)[\s\S]+?Wait-LabConsoleAcknowledgement')
+Add-ConsoleUiCheck 'Cleanup-Audit-Menue bleibt read-only und zeigt Befunde mit Loesungsweg' (
+    $entrySource -match "'CleanupAudit' \{[\s\S]+?Get-SqlServerLabCleanupAudit -NoWrite" -and
+    $entrySource -match 'Show-LabCleanupAuditFindings -Findings \$result\.Audit\.Findings' -and
+    $entrySource -match 'Loesung: \$\(\$finding\.Guidance\)'
+)
 Add-ConsoleUiCheck 'Umgebungsauswahl verwendet Namen als Primaertext und weist die technische Run-ID als Detail aus' ($entrySource -match 'function Get-LabRunSelectorPresentation' -and $entrySource -match 'Label = \$name' -and $entrySource -match "\('Run \{0\}'")
 Add-ConsoleUiCheck 'Connection-Center-CMS ist als nicht mutierbarer Systemdienst klassifiziert' ($entrySource -match "'CMS-Systemdienst'" -and $entrySource -match '-Disabled:\(\$protected -or \(\$DisableSystemServices -and \$systemService\)\)')
 Add-ConsoleUiCheck 'Containerverwaltung macht External-Languages-Erstinstallation und Reconcile sichtbar' (

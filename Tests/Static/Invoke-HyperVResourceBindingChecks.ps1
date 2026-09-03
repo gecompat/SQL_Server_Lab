@@ -284,6 +284,11 @@ try {
         $generalizeAcceptanceText -match 'Resolve-LabHyperVBuilderDiskPath\s+-Build\s+\$Build' -and
         $hyperVSmokeText -match 'Resolve-LabHyperVBuilderDiskPath\s+-Build\s+\$Build'
     )
+    Add-CheckResult -Name 'Nativer Hyper-V-Smoke räumt Buildreferenzen und alle synthetischen Registry-Artefakte auf' -Success (
+        $hyperVSmokeText -match 'Remove-HyperVWindowsImageBuild' -and
+        $hyperVSmokeText -match 'Remove-HyperVImageArtifact' -and
+        $hyperVSmokeText -match 'Hyper-V-Smoke hinterliess Registry-Artefakte'
+    )
     Add-CheckResult -Name 'Image-Registry trennt Control-State von gebundenem Image- und Staging-Store' -Success (
         $registryText -match "ResourceId\s+'hyperv-image-store'[\s\S]+ResourceClass\s+Image" -and
         $registryText -match "ResourceId\s+'hyperv-staging-store'[\s\S]+ResourceClass\s+Staging" -and

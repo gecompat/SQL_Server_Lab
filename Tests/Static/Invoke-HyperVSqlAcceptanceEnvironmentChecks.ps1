@@ -210,7 +210,7 @@ try {
     Add-CheckResult -Name 'InvokeLab-Menue bietet Installation, Abnahmetest und Matrix' -Success (
         $menuText -match "'1' \{ Invoke-LabHyperVMenuAction -Title 'OOBE und SQL-Setup' -Action \{ Invoke-LabHyperVSqlAcceptanceInstallInteractive \} \}" -and
         $menuText -match "'2' \{ Invoke-LabHyperVMenuAction -Title 'SQL-Abnahmetest' -Action \{ Test-LabHyperVSqlAcceptanceInteractive \} \}" -and
-        $menuText -match "'3' \{ Invoke-LabHyperVMenuAction -Title 'SQL-Abnahmematrix' -Action \{ Show-LabHyperVSqlAcceptanceMatrix \} \}" -and
+        $menuText -match '''3'' \{ Invoke-LabHyperVMenuAction -Title ''SQL-Abnahmematrix'' -Action \{ Show-LabHyperVSqlAcceptanceMatrix \} -RequiresAdministrator:\$false \}' -and
         $menuText -match "'4' \{ Invoke-LabHyperVMenuAction -Title 'Manuelle OOBE übernehmen' -Action \{ Invoke-LabHyperVSqlManualOobeAcceptanceInstallInteractive \} \}"
     )
 }

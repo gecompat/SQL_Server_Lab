@@ -78,7 +78,10 @@ function Get-LabCleanupAuditFindings {
                 elseif ([string]$object.ObjectClass -eq 'LEGACY_STATE') { 'LEGACY_STATE_REVIEW' }
                 elseif ([string]$object.ObjectClass -eq 'HYPERV_RUN_RESOURCE') { 'UNTRACKED_HYPERV_RESOURCE' }
                 else { 'UNEXPECTED_STORAGE_RESIDUAL' }
-            $guidance = if ([string]$object.CleanupPolicy -eq 'RUN_CLEANUP') {
+            $guidance = if ([string]$object.ObjectClass -eq 'REPOSITORY_RESIDUE') {
+                'Dateien im genannten Repository-Verzeichnis prüfen, reproduzierbare Testreste scopegebunden entfernen und Runtime-State außerhalb des Checkouts halten.'
+            }
+            elseif ([string]$object.CleanupPolicy -eq 'RUN_CLEANUP') {
                 'Zugehörigen Run- und Cleanup-Plan revalidieren und ausschließlich scopegebunden fortsetzen.'
             }
             else {

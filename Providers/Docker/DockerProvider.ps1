@@ -308,6 +308,10 @@ function New-DockerInstance {
             $nextPort = if ($automaticPort) { 14330 } else { $Port }
             $selectedPort = $null
             $output = $null
+            $containerId = $null
+            $bindingVerificationRetries = 0
+
+            Write-LabInfo 'Docker lädt ein lokal fehlendes Image beim ersten Start; der erste Containerstart kann deshalb mehrere Minuten dauern.'
 
             while ($true) {
                 $selectedPort = if ($automaticPort) {
@@ -359,7 +363,36 @@ function New-DockerInstance {
                 $output = & $dockerInvocation @dockerArguments 2>&1
                 $exitCode = $LASTEXITCODE
                 if ($exitCode -eq 0) {
-                    break
+                    $containerId = $output |
+                        ForEach-Object { ([string]$_).Trim() } |
+                        Where-Object { $_ -match '^[0-9a-f]{12,64}$' } |
+                        Select-Object -Last 1
+                    if (-not $containerId) {
+                        & $dockerInvocation rm -f $containerName 1>$null 2>$null
+                        throw "Docker lieferte keine gueltige Container-ID: $(($output | Out-String).Trim())"
+                    }
+
+                    $inspect = $null
+                    try { $inspect = @(& $dockerInvocation inspect $containerId 2>$null | ConvertFrom-Json -Depth 30)[0] } catch { $inspect = $null }
+                    $publishedBindings = if ($inspect -and $inspect.NetworkSettings -and $inspect.NetworkSettings.Ports) {
+                        @($inspect.NetworkSettings.Ports.'1433/tcp')
+                    }
+                    else { @() }
+                    $expectedBinding = @($publishedBindings | Where-Object {
+                        [string]$_.HostPort -eq [string]$selectedPort -and [string]$_.HostIp -eq '127.0.0.1'
+                    })
+                    if ($LASTEXITCODE -eq 0 -and $publishedBindings.Count -eq 1 -and $expectedBinding.Count -eq 1) {
+                        break
+                    }
+
+                    & $dockerInvocation rm -f $containerName 1>$null 2>$null
+                    $bindingVerificationRetries++
+                    if ($bindingVerificationRetries -gt 1) {
+                        throw "DOCKER_PORT_BINDING_NOT_PUBLISHED: Docker hat 1433/tcp nicht auf 127.0.0.1:$selectedPort veröffentlicht. Docker Desktop bzw. die Container-Runtime prüfen und den Start erneut ausführen."
+                    }
+                    if ($automaticPort) { $nextPort = $selectedPort + 1 }
+                    Write-LabWarning "Docker meldete den Containerstart erfolgreich, veröffentlichte Port $selectedPort aber nicht. Der Start wird einmal kontrolliert wiederholt."
+                    continue
                 }
 
                 $outputText = ($output | Out-String).Trim()
@@ -371,14 +404,6 @@ function New-DockerInstance {
                 & $dockerInvocation rm -f $containerName 1>$null 2>$null
                 $nextPort = $selectedPort + 1
                 Write-LabWarning "Port $selectedPort wurde beim Runtime-Bindungsschritt belegt. Docker versucht Port $nextPort."
-            }
-
-            $containerId = $output |
-                ForEach-Object { ([string]$_).Trim() } |
-                Where-Object { $_ -match '^[0-9a-f]{12,64}$' } |
-                Select-Object -Last 1
-            if (-not $containerId) {
-                throw "Docker lieferte keine gueltige Container-ID: $(($output | Out-String).Trim())"
             }
 
             [PSCustomObject]@{

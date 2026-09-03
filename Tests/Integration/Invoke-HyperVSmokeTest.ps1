@@ -36,9 +36,11 @@ $isoPath = Join-Path $testRoot 'synthetic-windows.iso'
 $evidencePath = Join-Path $testRoot 'synthetic-generalization-evidence.json'
 $runId = [guid]::NewGuid().ToString()
 $scopeId = [guid]::NewGuid().ToString()
+$imageArtifact = $null
 $instance = $null
 $builder = $null
 $builderDiskPath = $null
+$published = $null
 $reconcileImageArtifact = $null
 $reconcileRun = $null
 $reconcileStartPlan = $null
@@ -49,6 +51,7 @@ $module = $null
 $cleanupComplete = $false
 $builderCleanupComplete = $false
 $reconcileCleanupComplete = $false
+$artifactCleanupFailures = [System.Collections.Generic.List[string]]::new()
 $mutexName = 'Global\SQL_Server_Lab_Runtime_Smoke'
 $mutex = [System.Threading.Mutex]::new($false, $mutexName)
 $mutexAcquired = $false
@@ -313,23 +316,16 @@ finally {
                 $reconcileCleanupComplete = $true
             }
         }
-        if ($module -and $reconcileImageArtifact) {
+        if ($module -and $builder -and (Test-Path -LiteralPath (Join-Path $builder.BuildDirectory 'cleanup-plan.json'))) {
             try {
-                $artifactIdToRemove = [string]$reconcileImageArtifact.artifactId
-                if ($artifactIdToRemove -match '^hyperv-os-sealed-[a-f0-9]{64}$') {
-                    & $module {
-                        param($ArtifactId, $StateRoot)
-                        Remove-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
-                    } $artifactIdToRemove $stateRoot | Out-Null
+                $builderRemoval = & $module {
+                    param($BuildId, $StateRoot)
+                    Remove-HyperVWindowsImageBuild -BuildId $BuildId -StateRoot $StateRoot
+                } $builder.buildId $stateRoot
+                if ($builderRemoval.Status -ne 'CLEANUP_SUCCEEDED' -or $builderRemoval.Build.state -ne 'CLEANED_UP') {
+                    Write-Warning "Hyper-V-Builder-Smoke-Cleanup unvollstaendig: $($builderRemoval.Status)/$($builderRemoval.Build.state)"
                 }
-            }
-            catch {
-                Write-Warning "Reconcile-OS-Artifact-Cleanup fehlgeschlagen: $($_.Exception.Message)"
-            }
-        }
-        if ($module -and $builder -and -not $builderCleanupComplete -and (Test-Path -LiteralPath (Join-Path $builder.BuildDirectory 'cleanup-plan.json'))) {
-            try {
-                $null = & $module { param($Dir,$Scope) Invoke-CleanupPlan -RunDir $Dir -ScopeId $Scope } $builder.BuildDirectory $builder.scopeId
+                else { $builderCleanupComplete = $true }
             }
             catch { Write-Warning "Hyper-V-Builder-Smoke-Cleanup fehlgeschlagen: $($_.Exception.Message)" }
         }
@@ -342,6 +338,29 @@ finally {
             }
             catch {
                 Write-Warning "Hyper-V-Smoke-Cleanup fehlgeschlagen: $($_.Exception.Message)"
+            }
+        }
+
+        if ($module) {
+            $artifactIds = @(
+                if ($published -and $published.Artifact) { [string]$published.Artifact.artifactId }
+                if ($reconcileImageArtifact) { [string]$reconcileImageArtifact.artifactId }
+                if ($imageArtifact) { [string]$imageArtifact.artifactId }
+            ) | Where-Object { $_ } | Sort-Object -Unique
+            foreach ($artifactIdToRemove in $artifactIds) {
+                try {
+                    $artifactRemoval = & $module {
+                        param($ArtifactId, $StateRoot)
+                        Remove-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
+                    } $artifactIdToRemove $stateRoot
+                    if ($artifactRemoval.Status -ne 'REMOVED') {
+                        throw "Unerwarteter Status: $($artifactRemoval.Status)"
+                    }
+                }
+                catch {
+                    $artifactCleanupFailures.Add("$artifactIdToRemove`: $($_.Exception.Message)")
+                    Write-Warning "Hyper-V-Test-Artifact-Cleanup fehlgeschlagen ($artifactIdToRemove): $($_.Exception.Message)"
+                }
             }
         }
 
@@ -364,6 +383,10 @@ finally {
         $mutex.ReleaseMutex()
     }
     $mutex.Dispose()
+}
+
+if (-not $KeepOnFailure -and $artifactCleanupFailures.Count -gt 0) {
+    throw "Hyper-V-Smoke hinterliess Registry-Artefakte: $($artifactCleanupFailures -join '; ')"
 }
 
 Write-Host 'Hyper-V-Lifecycle-Smoke-Test erfolgreich.' -ForegroundColor Green
