@@ -181,7 +181,9 @@ Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kont
   Image-Store sowie `WAITING_FOR_CONSUMERS` bis zum referenzfreien Resume-
   Cleanup;
 - Pester-Vertrag: projektspezifische Baseline, Manifest-/Exportkonsistenz und
-  deterministisch ausführbare Unit-/Contract-Tests unter `Tests/Pester`;
+  deterministisch ausführbare Unit-/Contract-Tests unter `Tests/Pester`; der
+  reguläre Runner wertet das Ergebnis direkt aus und hinterlässt keinen XML-
+  Bericht im Repository;
 - Ausschluss bekannter veralteter Beispiele und Statusangaben.
 - ProviderSubRuns, Mixed-Provider-Beispiel und Cleanup-Zuordnung.
 - Trust Store, inhaltsadressierten Artifact Cache, Quarantäne und sanitisiertes Run Lock mit ausschliesslich synthetischen Testbytes.

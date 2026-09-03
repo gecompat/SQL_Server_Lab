@@ -5,6 +5,8 @@
 
 .DESCRIPTION
     Der Check startet reproduzierbare Pester-Tests unter Tests\Pester.
+    Ergebnisse werden nur in der Konsole ausgewertet; der Check persistiert
+    keine XML-Berichte im Repository.
     Falls Pester nicht installiert ist, wird der Check bewusst als übersprungen
     bewertet (PASS), damit reproduzierbare lokale Arbeit ohne externes Modul
     möglich bleibt.
@@ -25,6 +27,20 @@ $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 
+$legacyArtifactDir = Join-Path $repoRoot '.artifacts\pester'
+if (Test-Path -LiteralPath $legacyArtifactDir -PathType Container) {
+    $artifactDirectory = Get-Item -LiteralPath $legacyArtifactDir -Force
+    if (($artifactDirectory.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw "PESTER_ARTIFACT_CLEANUP_UNSAFE: Reparse-Point wird nicht bereinigt: $legacyArtifactDir"
+    }
+    foreach ($legacyReport in @(Get-ChildItem -LiteralPath $legacyArtifactDir -Filter 'Pester-Results-*.xml' -File -Force)) {
+        Remove-Item -LiteralPath $legacyReport.FullName -Force -ErrorAction Stop
+    }
+    if (@(Get-ChildItem -LiteralPath $legacyArtifactDir -Force).Count -eq 0) {
+        Remove-Item -LiteralPath $legacyArtifactDir -Force -ErrorAction Stop
+    }
+}
+
 Write-Host ''
 Write-Host 'SQL_Server_Lab - Pester Checks' -ForegroundColor Cyan
 
@@ -39,9 +55,6 @@ if (-not $pesterModule) {
 Add-CheckResult -Name 'Pester verfügbar' -Success $true -Message "Gefundene Version $($pesterModule.Version)"
 
 $pesterRoot = Join-Path $repoRoot 'Tests\Pester'
-$artifactDir = Join-Path $repoRoot '.artifacts\pester'
-New-Item -ItemType Directory -Path $artifactDir -Force | Out-Null
-$outputXml = Join-Path $artifactDir ('Pester-Results-{0:yyyyMMdd-HHmmss}.xml' -f (Get-Date))
 
 $previousErrorAction = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
@@ -51,13 +64,10 @@ try {
         $configuration.Run.Path = @($pesterRoot)
         $configuration.Run.PassThru = $true
         $configuration.Output.Verbosity = 'Normal'
-        $configuration.TestResult.Enabled = $true
-        $configuration.TestResult.OutputPath = $outputXml
-        $configuration.TestResult.OutputFormat = 'NUnitXml'
         $result = Invoke-Pester -Configuration $configuration -ErrorAction SilentlyContinue
     }
     else {
-        $result = Invoke-Pester -Script $pesterRoot -PassThru -OutputFile $outputXml -OutputFormat NUnitXml -ErrorAction SilentlyContinue
+        $result = Invoke-Pester -Script $pesterRoot -PassThru -ErrorAction SilentlyContinue
     }
 }
 finally {
@@ -69,12 +79,12 @@ $total = if ($result.PSObject.Properties.Name -contains 'TotalCount') { [int]$re
 Add-CheckResult -Name 'Pester-Testsatz findet ausführbare Tests' -Success ($total -gt 0) -Message "Gefunden: $total"
 
 if ($failed -gt 0) {
-    Add-CheckResult -Name 'Pester-Testlauf' -Success $false -Message ('{0} Testfehler (Report: {1})' -f $failed, $outputXml)
+    Add-CheckResult -Name 'Pester-Testlauf' -Success $false -Message ("$failed Testfehler")
     Write-Host "`nERGEBNIS: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Red
     exit 1
 }
 
-Add-CheckResult -Name 'Pester-Testlauf' -Success $true -Message ("Ergebnis: {0} Total, {1} Failed, XML={2}" -f $total, $failed, $outputXml)
+Add-CheckResult -Name 'Pester-Testlauf' -Success $true -Message ("Ergebnis: {0} Total, {1} Failed" -f $total, $failed)
 
 Write-Host "`nERGEBNIS: $passed PASS, 0 FAIL" -ForegroundColor Green
 exit 0
