@@ -12,10 +12,70 @@
       "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-java?view=sql-server-ver17",
       "https://learn.microsoft.com/en-us/sql/linux/install-upgrade/setup-language-extensions-java?view=sql-server-ver17",
       "https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-c-sharp?view=sql-server-ver17",
-      "https://packages.ubuntu.com/jammy/amd64/libgomp1/download"
+      "https://packages.ubuntu.com/jammy/amd64/libgomp1/download",
+      "https://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver17"
     ]
   },
   "software": [
+    {
+      "id": "sqlpackage",
+      "kind": "generalSoftware",
+      "displayName": "SqlPackage für DACPAC-Operationen",
+      "variants": [
+        {
+          "id": "sql2022-sqlpackage170-linux-derived",
+          "status": "SUPPORTED",
+          "reason": "Der SQL-2022-Linux-Containerpfad verwendet das self-contained Microsoft-Archiv, eine SHA-256-gebundene libunwind8-Laufzeitbibliothek und einen getrennten Tool-Image-Vertrag ohne Launchpad-Rechte.",
+          "language": "SqlPackage",
+          "runtimeVersion": "170.4.83.3",
+          "extensionVersion": null,
+          "sqlMajorVersions": [16],
+          "minimumCu": null,
+          "operatingSystem": "linux",
+          "distributions": ["ubuntu-22.04"],
+          "architecture": "x86_64",
+          "providers": ["docker", "podman"],
+          "installMethod": "derived-image",
+          "recipeVersion": "1",
+          "requiresCapabilities": ["software-catalog-planning", "derived-image-build", "container-tool-image"],
+          "sourceUrls": [
+            "https://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver17"
+          ],
+          "artifacts": [
+            {
+              "id": "mssql-server-linux-2022-cu26",
+              "sourceType": "container-base",
+              "source": "oci://mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+              "version": "16.0.4265.3",
+              "sha256": "ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89",
+              "integrityOrigin": "Microsoft Container Registry manifest digest",
+              "license": "Microsoft SQL Server container EULA"
+            },
+            {
+              "id": "sqlpackage-linux-x64",
+              "sourceType": "archive",
+              "source": "https://download.microsoft.com/download/18a5e51e-8332-4cbe-bb50-6d3a50c704c5/sqlpackage-linux-x64-en-170.4.83.3.zip",
+              "version": "170.4.83.3",
+              "sha256": "e81ede2429f3a15d9e752845c8928569c7706b3a911fad2d1717c0f03e0fc7c3",
+              "integrityOrigin": "SHA-256 verified against the versioned Microsoft download on 2026-09-03",
+              "license": "Microsoft SQL Server Data-Tier Application Framework License"
+            },
+            {
+              "id": "ubuntu-jammy-libunwind8",
+              "sourceType": "os-package",
+              "source": "https://archive.ubuntu.com/ubuntu/pool/main/libu/libunwind/libunwind8_1.3.2-2build2_amd64.deb",
+              "version": "1.3.2-2build2",
+              "sha256": "475ae509da614dd5d7210f605fd5894a3c98b6fb8c18738b16d8d4b700553c30",
+              "integrityOrigin": "SHA-256 verified against the Ubuntu 22.04 archive package on 2026-09-03",
+              "license": "MIT"
+            }
+          ],
+          "packageLocks": [],
+          "restart": { "sqlServer": false, "launchpad": false, "guest": false },
+          "validation": { "type": "command", "language": "SqlPackage", "probeId": "sqlpackage-version", "expectedRuntimeVersion": "170.4.83.3" }
+        }
+      ]
+    },
     {
       "id": "sql-python",
       "kind": "sqlExternalRuntime",
