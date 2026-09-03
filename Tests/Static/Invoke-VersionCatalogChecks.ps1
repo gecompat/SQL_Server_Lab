@@ -24,6 +24,16 @@ Add-CheckResult -Name 'SQL Server 2017 löst auf das offizielle latest-Image auf
     $sql2017 -eq 'mcr.microsoft.com/mssql/server:2017-latest'
 )
 
+$containerTagFailures = @()
+foreach ($versionId in @('2025-CU999-ubuntu-24.04', '2022-CU99-ubuntu-22.04', '2099-CU1-ubuntu-24.04')) {
+    try { $null = & $module { param($id) Get-SqlServerDockerImage -VersionId $id } $versionId }
+    catch { $containerTagFailures += $_.Exception.Message }
+}
+Add-CheckResult -Name 'Nicht katalogisierte exakte Container-Tags werden vor einer Runtime-Mutation abgewiesen' -Success (
+    $containerTagFailures.Count -eq 3 -and
+    @($containerTagFailures | Where-Object { $_ -notmatch '^(SQL_CONTAINER_TAG_NOT_CATALOGUED|Basisversion)' }).Count -eq 0
+)
+
 $sql2022Builds = & $module { @(Get-SqlServerBuilds -VersionId '2022') }
 Add-CheckResult -Name 'SQL Server 2022 enthält eindeutige katalogisierte CU-Tags' -Success (
     $sql2022Builds.Count -eq 26 -and
