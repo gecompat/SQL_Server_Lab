@@ -253,6 +253,7 @@ Add-CheckResult -Name 'External Runtimes verbieten freie command-Ausfuehrung im 
 $serverConfigSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ServerConfig.ps1') -Raw -Encoding utf8
 $newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
 $getLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLab.ps1') -Raw -Encoding utf8
+$toolProbeSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Test-SqlServerLabContainerTool.ps1') -Raw -Encoding utf8
 $legacyInstallerSource = [regex]::Match(
     $serverConfigSource,
     '(?s)function Install-LabExternalLanguages\s*\{.*?(?=\r?\nfunction\s|\z)'
@@ -289,6 +290,13 @@ Add-CheckResult -Name 'Statussicht zeigt nur sanitisierte Container-Tool-Identit
     $getLabSource -match 'ToolIds\s*=\s*@\(\$instance\.containerTools\.toolIds' -and
     $getLabSource -match 'RuntimeVersion\s*=\s*\[string\]\$instance\.containerTools\.runtimeVersion' -and
     $getLabSource -notmatch 'containerTools\.(source|receipt|localImageId)'
+)
+Add-CheckResult -Name 'Container-Tool-Probe bindet Run und Scope und akzeptiert keine freien Toolargumente' -Success (
+    $toolProbeSource -match 'Get-LabRunState' -and
+    $toolProbeSource -match 'sql-server-lab\.run-id' -and
+    $toolProbeSource -match 'sql-server-lab\.scope-id' -and
+    $toolProbeSource -match '/opt/sql-server-lab/tools/sqlpackage/sqlpackage /Version' -and
+    $toolProbeSource -notmatch '\[string\[\]\]\$Arguments|\[string\]\$Command|Copy-Item|docker cp|podman cp'
 )
 
 $legacyExampleResult = Test-SqlServerLabManifest -Path (Join-Path $repoRoot 'Schemas/example-ml-services.json')
