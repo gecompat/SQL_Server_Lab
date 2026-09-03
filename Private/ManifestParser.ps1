@@ -509,6 +509,9 @@ function Resolve-ManifestDefaults {
         description       = $Manifest.description
         instances         = $resolvedInstances
         resourceOverrides = $Manifest.resourceOverrides
+        artifacts         = [PSCustomObject]@{
+            minimumEvaluationDaysRemaining = if ($Manifest.artifacts -and $null -ne $Manifest.artifacts.minimumEvaluationDaysRemaining) { [int]$Manifest.artifacts.minimumEvaluationDaysRemaining } else { 30 }
+        }
         persistentData    = [PSCustomObject]@{
             enabled    = [bool]($Manifest.persistentData -and $Manifest.persistentData.enabled -eq $true)
             dataRoot   = $persistentDataRoot

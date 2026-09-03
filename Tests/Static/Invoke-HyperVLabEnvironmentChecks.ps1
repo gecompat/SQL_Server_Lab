@@ -124,7 +124,8 @@ try {
         $newLabText -match 'HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND' -and
         $newLabText -match 'Keine lokale SQL_PREPARED_SEALED-Vorlage' -and
         $newLabText -match 'Test-HyperVImageArtifactEvaluationEligibility' -and
-        $newLabText -match 'HYPERV_MANIFEST_EVALUATION_NOT_ELIGIBLE'
+        $newLabText -match 'HYPERV_MANIFEST_EVALUATION_NOT_ELIGIBLE' -and
+        $newLabText -match 'MinimumEvaluationDaysRemaining \$minimumEvaluationDaysRemaining'
     )
     Add-CheckResult -Name 'Hyper-V-Manifest bindet CREATE, Restore und Samples an den verifizierten SQL-Storage-Vertrag' -Success (
         $newLabText.IndexOf('Assert-LabStorageManifestDatabaseCoverage') -ge 0 -and
