@@ -86,9 +86,11 @@ function New-LabProviderContainer {
     $labName = Resolve-LabRuntimeName -RunState $RunState
     $resolvedImage = $null
     $externalRuntimeLaunchMode = 'none'
+    $allowStandardLaunchResolvedImage = $false
     if ($ContainerImageArtifact) {
-        if (-not $ContainerImageArtifact.Contract -or
-            [string]$ContainerImageArtifact.Contract.Name -notin @('SqlServerLab.ExternalRuntimeContainerImageArtifact', 'SqlServerLab.ContainerToolExternalRuntimeImageArtifact') -or
+        $artifactContractName = if ($ContainerImageArtifact.Contract) { [string]$ContainerImageArtifact.Contract.Name } else { '' }
+        if ($artifactContractName -in @('SqlServerLab.ExternalRuntimeContainerImageArtifact', 'SqlServerLab.ContainerToolExternalRuntimeImageArtifact')) {
+            if (
             [string]$ContainerImageArtifact.Contract.Version -ne '1.0' -or
             [string]$ContainerImageArtifact.Provider -ne [string]$Instance.provider -or
             [string]$ContainerImageArtifact.ImageKey -notmatch '^[a-f0-9]{64}$' -or
@@ -96,9 +98,23 @@ function New-LabProviderContainer {
             (@($ContainerImageArtifact.RequiredLinuxCapabilities) -join ',') -ne 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -or
             (@($ContainerImageArtifact.RequiredSecurityOptions) -join ',') -ne 'apparmor=unconfined,seccomp=unconfined') {
             throw "EXTERNAL_RUNTIME_CONTAINER_IMAGE_ARTIFACT_INVALID: $($Instance.id)"
+            }
+            $externalRuntimeLaunchMode = [string]$ContainerImageArtifact.LaunchMode
+        }
+        elseif ($artifactContractName -eq 'SqlServerLab.ContainerToolImageArtifact') {
+            if ([string]$ContainerImageArtifact.Contract.Version -ne '1.0' -or
+                [string]$ContainerImageArtifact.Provider -ne [string]$Instance.provider -or
+                [string]$ContainerImageArtifact.ImageKey -notmatch '^[a-f0-9]{64}$' -or
+                [string]::IsNullOrWhiteSpace([string]$ContainerImageArtifact.Image) -or
+                (@($ContainerImageArtifact.SoftwarePlanKeys | Where-Object { [string]$_ -notmatch '^[a-f0-9]{64}$' }).Count -gt 0)) {
+                throw "CONTAINER_TOOL_IMAGE_ARTIFACT_INVALID: $($Instance.id)"
+            }
+            $allowStandardLaunchResolvedImage = $true
+        }
+        else {
+            throw "CONTAINER_IMAGE_ARTIFACT_INVALID: $($Instance.id)"
         }
         $resolvedImage = [string]$ContainerImageArtifact.Image
-        $externalRuntimeLaunchMode = [string]$ContainerImageArtifact.LaunchMode
     }
 
     switch ($Instance.provider) {
@@ -121,7 +137,8 @@ function New-LabProviderContainer {
                 -AutoStart $Instance.autostart `
                 -Collation $Instance.collation `
                 -ResolvedImage $resolvedImage `
-                -ExternalRuntimeLaunchMode $externalRuntimeLaunchMode
+                -ExternalRuntimeLaunchMode $externalRuntimeLaunchMode `
+                -AllowStandardLaunchResolvedImage:$allowStandardLaunchResolvedImage
         }
         'podman' {
             return New-PodmanInstance `
@@ -142,7 +159,8 @@ function New-LabProviderContainer {
                 -AutoStart $Instance.autostart `
                 -Collation $Instance.collation `
                 -ResolvedImage $resolvedImage `
-                -ExternalRuntimeLaunchMode $externalRuntimeLaunchMode
+                -ExternalRuntimeLaunchMode $externalRuntimeLaunchMode `
+                -AllowStandardLaunchResolvedImage:$allowStandardLaunchResolvedImage
         }
         default {
             throw "Provider '$($Instance.provider)' ist noch nicht implementiert."
@@ -1309,6 +1327,7 @@ function New-SqlServerLab {
                     databases        = @($_.Databases)
                     persistentStorage = $_.PersistentStorage
                     externalRuntime  = $_.ExternalRuntime
+                    containerTools   = $_.ContainerTools
                 }
             })
         }

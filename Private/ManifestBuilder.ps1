@@ -1159,10 +1159,18 @@ function Get-LabManifestValidationResult {
                 }
             }
         }
-        elseif (@($instance.software | Where-Object {
-            $_ -and [string]$_.id -notin @('sql-python', 'sql-r', 'sql-java', 'sql-csharp')
-        }).Count -gt 0) {
-            $errors.Add("$instancePath.software: Software-Installationen benötigen den Hyper-V-Manifestpfad.")
+        else {
+            $allowedSoftwareIds = if ($effectiveProvider -in @('docker', 'podman')) {
+                @('sql-python', 'sql-r', 'sql-java', 'sql-csharp', 'sqlpackage')
+            }
+            else {
+                @('sql-python', 'sql-r', 'sql-java', 'sql-csharp')
+            }
+            if (@($instance.software | Where-Object {
+                $_ -and [string]$_.id -notin $allowedSoftwareIds
+            }).Count -gt 0) {
+                $errors.Add("$instancePath.software: Die angeforderte Software wird für Provider '$effectiveProvider' nicht über den Manifestpfad unterstützt.")
+            }
         }
 
         $versionCheck = Test-SqlServerVersionSupported -VersionId $instance.version
