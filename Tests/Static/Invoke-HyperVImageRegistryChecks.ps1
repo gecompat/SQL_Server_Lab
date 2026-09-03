@@ -122,6 +122,26 @@ try {
     )
     Add-CheckResult -Name 'Manifest Lock enthaelt keinen Hostpfad' -Success (($lock | ConvertTo-Json -Depth 30) -notmatch [regex]::Escape($temporaryRoot))
 
+    $inventory = @(Get-SqlServerLabHyperVImageArtifact -StateRoot $stateRoot)
+    $inventoryItem = @($inventory | Where-Object ArtifactId -eq $result.Artifact.artifactId)[0]
+    Add-CheckResult -Name 'Oeffentliche Artifact-Inventur ist exportiert und pfadfrei' -Success (
+        $inventoryItem -and
+        $inventoryItem.ContractVersion -eq 'SqlServerLab.HyperVImageArtifactInventory/1.0' -and
+        $inventoryItem.IntegrityStatus -eq 'NOT_VERIFIED' -and
+        $inventoryItem.References.Status -eq 'UNREFERENCED' -and
+        ($inventoryItem | ConvertTo-Json -Depth 20) -notmatch [regex]::Escape($temporaryRoot)
+    )
+    $verifiedInventory = @(Get-SqlServerLabHyperVImageArtifact -ArtifactId $result.Artifact.artifactId -StateRoot $stateRoot -VerifyIntegrity)[0]
+    Add-CheckResult -Name 'Oeffentliche Artifact-Inventur prueft Parent-Integritaet nur auf Wunsch' -Success (
+        $verifiedInventory.IntegrityStatus -eq 'VERIFIED'
+    )
+    $missingInventoryRejected = $false
+    try {
+        Get-SqlServerLabHyperVImageArtifact -ArtifactId ('hyperv-os-sealed-' + ('0' * 64)) -StateRoot $stateRoot | Out-Null
+    }
+    catch { $missingInventoryRejected = $_.Exception.Message -match 'HYPERV_ARTIFACT_NOT_FOUND' }
+    Add-CheckResult -Name 'Oeffentliche Artifact-Inventur lehnt unbekannte stabile IDs fail-closed ab' -Success $missingInventoryRejected
+
     $generalizationRejected = $false
     try {
         & $module {
