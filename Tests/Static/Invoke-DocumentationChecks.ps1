@@ -321,9 +321,10 @@ foreach ($sample in @($sampleCatalog.databases)) {
                 'backup' { '\.bak$' }
                 'archive-backup' { '\.(zip|7z)$' }
                 'sql-script' { '\.sql$' }
+                'bacpac' { '\.bacpac$' }
                 default { $null }
             }
-            if ([string]$definition.artifactType -notin @('backup', 'archive-backup', 'sql-script') -or
+            if ([string]$definition.artifactType -notin @('backup', 'archive-backup', 'sql-script', 'bacpac') -or
                 [string]$definition.installation.kind -ne [string]$definition.artifactType -or
                 -not $expectedExtension -or
                 [string]$definition.url -notmatch "(?i)$expectedExtension" -or

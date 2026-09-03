@@ -28,6 +28,8 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $consolePath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
 $restorePath = Join-Path $repoRoot 'Public/Restore-SqlServerLabDatabase.ps1'
+$sampleHandlerPath = Join-Path $repoRoot 'Private/SampleArtifactHandlers.ps1'
+$newLabPath = Join-Path $repoRoot 'Public/New-SqlServerLab.ps1'
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 
@@ -38,6 +40,8 @@ Write-Host 'SQL_Server_Lab - Sample Handler Checks' -ForegroundColor Cyan
 
 $consoleText = Get-Content -LiteralPath $consolePath -Raw -Encoding utf8
 $restoreText = Get-Content -LiteralPath $restorePath -Raw -Encoding utf8
+$sampleHandlerText = Get-Content -LiteralPath $sampleHandlerPath -Raw -Encoding utf8
+$newLabText = Get-Content -LiteralPath $newLabPath -Raw -Encoding utf8
 
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-sample-check-$([guid]::NewGuid().ToString('N'))"
 try {
@@ -85,6 +89,11 @@ try {
             -SampleDefinition ([PSCustomObject]@{ id = 'northwind'; variant = 'script' }) `
             -SqlVersion '2022' `
             -TargetDatabaseName 'Northwind'
+
+        $bacpacContract = Resolve-LabSampleRestore `
+            -SampleDefinition ([PSCustomObject]@{ id = 'wideworldimporters'; variant = 'bacpac-standard' }) `
+            -SqlVersion '2022' `
+            -TargetDatabaseName 'WideWorldImporters'
 
         Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
         $zipPath = Join-Path $StateRoot 'archive.zip'
@@ -275,7 +284,7 @@ CREATE DATABASE [$(SecondDatabase)];
             -DatabaseName 'WideWorldImporters')
 
         [PSCustomObject]@{
-            AllExecutableSupported = @($allVariants | Where-Object { $_.ArtifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle') }).Count -eq 0
+            AllExecutableSupported = @($allVariants | Where-Object { $_.ArtifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle', 'bacpac') }).Count -eq 0
             NoDescriptiveVariants = @($allVariants | Where-Object { $_.SampleId -eq 'stackoverflow-50gb' }).Count -eq 0
             VersionFilterWorks    = @($variants2019 | Where-Object { $_.MinSqlVersion -eq '2022' }).Count -eq 0 -and
                 @($variants2022 | Where-Object { $_.SampleId -eq 'adventureworks-2022' }).Count -gt 0
@@ -298,6 +307,11 @@ CREATE DATABASE [$(SecondDatabase)];
             DescriptiveRejected   = $descriptiveRejected
             ScriptContractWorks   = $scriptContract.artifactType -eq 'sql-script' -and
                 $scriptContract.installation.executionMode -eq 'existing-database'
+            BacpacContractWorks   = $bacpacContract.artifactType -eq 'bacpac' -and
+                $bacpacContract.installation.importMode -eq 'sqlpackage' -and
+                $bacpacContract.idempotencyMode -eq 'fail-if-exists' -and
+                $bacpacContract.installation.baselinePolicy -eq 'not-eligible' -and
+                $bacpacContract.source -match 'WideWorldImporters-Standard\.bacpac$'
             ScriptHandlerWorks    = $scriptHandlerResult.Status -eq 'DATASET_READY' -and $scriptHandlerResult.Success
             BundleContractWorks   = $bundleContract.artifactType -eq 'script-bundle' -and
                 @($bundleContract.expectedOutputs).Count -eq 2 -and
@@ -328,6 +342,7 @@ CREATE DATABASE [$(SecondDatabase)];
     Add-CheckResult -Name 'Abweichender Zieldatenbankname wird abgelehnt' -Success $result.WrongNameRejected
     Add-CheckResult -Name 'Beschreibende Varianten werden nicht ausgefuehrt' -Success $result.DescriptiveRejected
     Add-CheckResult -Name 'SQL-Skript-Sample liefert einen typisierten Installationsvertrag' -Success $result.ScriptContractWorks
+    Add-CheckResult -Name 'Wide World Importers BACPAC liefert einen typisierten SqlPackage-Importvertrag' -Success $result.BacpacContractWorks
     Add-CheckResult -Name 'SQL-Skript-Handler erstellt Ziel und verifiziert die Datenbank' -Success $result.ScriptHandlerWorks
     Add-CheckResult -Name 'Script-Bundle-Aufloesung liefert mehrere typisierte Datenbankoutputs' -Success $result.BundleContractWorks
     Add-CheckResult -Name 'Script-Bundle-Handler expandiert sichere sqlcmd-Includes und verifiziert alle Outputs' -Success $result.BundleHandlerWorks
@@ -358,6 +373,22 @@ CREATE DATABASE [$(SecondDatabase)];
         $restoreText -match '\$fileListLines = @\(' -and
         $restoreText -match 'FILELISTONLY lieferte keine Dateizeilen' -and
         $restoreText -match 'New-LabRestoreMoveStatements -FileListOutput \$fileListLines'
+    )
+    Add-CheckResult -Name 'BACPAC-Handler bindet Container, Scope, Versionsprobe, temporäre Kopie und Cleanup fail-closed' -Success (
+        $sampleHandlerText -match 'function Invoke-LabContainerBacpacImport' -and
+        $sampleHandlerText -match 'sql-server-lab\.run-id' -and
+        $sampleHandlerText -match 'sql-server-lab\.scope-id' -and
+        $sampleHandlerText -match 'sql-server-lab\.container-tool\.ids' -and
+        $sampleHandlerText -match 'sqlpackage /Version' -and
+        $sampleHandlerText -match 'BACPAC_SQLPACKAGE_VERSION_MISMATCH' -and
+        $sampleHandlerText -match 'BACPAC_CONTAINER_COPY_FAILED' -and
+        $sampleHandlerText -match 'BACPAC_IMPORT_CLEANUP_FAILED' -and
+        $sampleHandlerText -match 'rm -f -- \$containerArtifactPath'
+    )
+    Add-CheckResult -Name 'Ad-hoc-BACPAC-Sample bindet SqlPackage vor jeder Container-Mutation automatisch' -Success (
+        $newLabText -match "artifactType -eq 'bacpac'" -and
+        $newLabText -match 'id = ''sqlpackage''; version = \$null; variant = \$null; scope = ''instance''' -and
+        $newLabText -match '-ContainerTools \$labInstance\.ContainerTools'
     )
 }
 catch {

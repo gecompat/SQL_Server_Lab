@@ -17,8 +17,10 @@ function Get-LabExecutableSampleVariant {
         Listet automatisch installierbare Sample-Varianten des Katalogs auf.
     .DESCRIPTION
         Liefert nur Varianten, fuer die ein freigegebener Runtime-Handler
-        vorhanden ist: direkte Backups, ZIP-/7z-Backups, einzelne T-SQL-Skripte
-        und Script Bundles. Bundles duerfen mehrere erwartete Datenbanken definieren.
+        vorhanden ist: direkte Backups, ZIP-/7z-Backups, einzelne T-SQL-Skripte,
+        Script Bundles und BACPAC-Imports. BACPAC verlangt beim Lauf ein
+        gebundenes SqlPackage-Container-Tool. Bundles duerfen mehrere erwartete
+        Datenbanken definieren.
         Optional wird nach SQL-Version gefiltert.
     #>
     [CmdletBinding()]
@@ -43,7 +45,7 @@ function Get-LabExecutableSampleVariant {
         foreach ($variantProperty in @($sample.versions.PSObject.Properties)) {
             $definition = $variantProperty.Value
             if ($definition.runtimeStatus -ne 'executable' -or
-                $definition.artifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle') -or
+                $definition.artifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle', 'bacpac') -or
                 [string]$definition.installation.kind -ne [string]$definition.artifactType) {
                 continue
             }
@@ -457,6 +459,107 @@ function Convert-LabScriptBundleToSql {
     return $flattenedPath
 }
 
+function Invoke-LabContainerBacpacImport {
+    <#
+    .SYNOPSIS
+        Importiert ein verifiziertes BACPAC in einen scopegebundenen Container.
+    .DESCRIPTION
+        Der Handler akzeptiert ausschließlich einen bereits vom Lab erstellten
+        Docker- oder Podman-Container mit dem katalogisierten SqlPackage-Tool.
+        Vor der Mutation wird dessen Version read-only geprüft. Das BACPAC wird
+        unter einem zufälligen, ausschließlich vom Handler erzeugten /tmp-Pfad
+        übertragen und unabhängig vom Importergebnis wieder entfernt.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
+        [Parameter(Mandatory)][string]$ContainerName,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)][string]$ArtifactPath,
+        [Parameter(Mandatory)][string]$DatabaseName,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [string]$ExpectedRuntimeVersion,
+        [string]$StateRoot,
+        [ValidateRange(30, 3600)][int]$TimeoutSeconds = 900
+    )
+
+    if ($DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        throw "BACPAC_DATABASE_NAME_INVALID: '$DatabaseName'"
+    }
+    $resolvedArtifactPath = (Resolve-Path -LiteralPath $ArtifactPath -ErrorAction Stop).Path
+    if (-not (Test-Path -LiteralPath $resolvedArtifactPath -PathType Leaf) -or
+        [IO.Path]::GetExtension($resolvedArtifactPath) -notmatch '(?i)^\.bacpac$') {
+        throw 'BACPAC_ARTIFACT_INVALID: Erwartet wird eine vorhandene .bacpac-Datei.'
+    }
+
+    $run = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
+    $runtime = Get-LabHostToolInvocation -Name $Provider
+    $inspect = @((& $runtime inspect $ContainerName 2>$null | ConvertFrom-Json -Depth 30))[0]
+    if (-not $inspect -or [string]$inspect.Config.Labels.'sql-server-lab.run-id' -ne $RunId -or
+        [string]$inspect.Config.Labels.'sql-server-lab.scope-id' -ne [string]$run.scopeId -or
+        [string]$inspect.Config.Labels.'sql-server-lab.instance-id' -ne $InstanceId) {
+        throw 'BACPAC_CONTAINER_OWNERSHIP_MISMATCH'
+    }
+    if ([string]$inspect.State.Status -ne 'running' -or
+        [string]$inspect.Config.Labels.'sql-server-lab.container-tool.ids' -ne 'sqlpackage') {
+        throw 'BACPAC_SQLPACKAGE_TOOL_NOT_READY'
+    }
+
+    $probeOutput = @(& $runtime exec --user mssql $ContainerName /opt/sql-server-lab/tools/sqlpackage/sqlpackage /Version 2>&1)
+    if ($LASTEXITCODE -ne 0 -or (@($probeOutput) -join "`n") -notmatch '(?<version>[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)') {
+        throw 'BACPAC_SQLPACKAGE_VERSION_PROBE_FAILED'
+    }
+    $runtimeVersion = [string]$Matches.version
+    if ($ExpectedRuntimeVersion -and $runtimeVersion -ne $ExpectedRuntimeVersion) {
+        throw "BACPAC_SQLPACKAGE_VERSION_MISMATCH: erwartete $ExpectedRuntimeVersion, erhielt $runtimeVersion"
+    }
+
+    $containerArtifactPath = "/tmp/sql-server-lab-bacpac-$([guid]::NewGuid().ToString('N')).bacpac"
+    $copied = $false
+    $importSucceeded = $false
+    $importFailure = $null
+    try {
+        $copyOutput = @(& $runtime cp $resolvedArtifactPath "${ContainerName}:$containerArtifactPath" 2>&1)
+        if ($LASTEXITCODE -ne 0) { throw 'BACPAC_CONTAINER_COPY_FAILED' }
+        $copied = $true
+
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+        try {
+            $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            $command = 'exec /opt/sql-server-lab/tools/sqlpackage/sqlpackage /Action:Import "/SourceFile:$1" /TargetServerName:localhost "/TargetDatabaseName:$2" /TargetUser:sa /TargetTrustServerCertificate:True "/TargetPassword:$SQLSERVERLAB_SA_PASSWORD" /p:CommandTimeout=' + $TimeoutSeconds
+            $importOutput = @(& $runtime exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $ContainerName sh -ceu $command -- $containerArtifactPath $DatabaseName 2>&1)
+            if ($LASTEXITCODE -ne 0) {
+                $safeOutput = (($importOutput -join ' ') -replace [regex]::Escape($saPlain), '***') -replace '(?i)(password\s*[=:]\s*)[^;\s]+', '$1***'
+                throw "BACPAC_IMPORT_FAILED: $safeOutput"
+            }
+            $importSucceeded = $true
+        }
+        finally {
+            $saPlain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    }
+    catch {
+        $importFailure = $_.Exception.Message
+    }
+    finally {
+        if ($copied) {
+            $cleanupOutput = @(& $runtime exec --user root $ContainerName rm -f -- $containerArtifactPath 2>&1)
+            if ($LASTEXITCODE -ne 0) {
+                if ($importFailure) { throw "BACPAC_IMPORT_AND_CLEANUP_FAILED: $importFailure" }
+                throw 'BACPAC_IMPORT_CLEANUP_FAILED'
+            }
+        }
+    }
+    if ($importFailure) { throw $importFailure }
+
+    return [PSCustomObject]@{
+        Status = 'BACPAC_IMPORTED'; Provider = $Provider; RunId = $RunId; InstanceId = $InstanceId
+        DatabaseName = $DatabaseName; RuntimeVersion = $runtimeVersion; TimeoutSeconds = $TimeoutSeconds
+    }
+}
+
 function Install-LabSampleDatabase {
     <#
     .SYNOPSIS
@@ -477,6 +580,7 @@ function Install-LabSampleDatabase {
         [string]$ContainerName,
         [string]$RunId,
         [string]$InstanceId = 'primary',
+        $ContainerTools,
         [PSCredential]$GuestCredential,
         [Parameter(Mandatory)]$RestoreDefinition,
         [switch]$NonInteractive,
@@ -780,6 +884,24 @@ function Install-LabSampleDatabase {
                     $result.Status = 'RECOVERY_REQUIRED'
                     $result.Message = "Script Bundle wurde nicht vollstaendig ausgefuehrt: $($scriptResult.Message)"
                     return [PSCustomObject]$result
+                }
+            }
+            'bacpac' {
+                if ($Provider -notin @('docker', 'podman') -or -not $RunId) {
+                    throw 'BACPAC_CONTAINER_RUN_REQUIRED'
+                }
+                $bacpacResult = Invoke-LabContainerBacpacImport `
+                    -Provider $Provider `
+                    -ContainerName $ContainerName `
+                    -RunId $RunId `
+                    -InstanceId $InstanceId `
+                    -ArtifactPath ([string]$artifactResolution.Path) `
+                    -DatabaseName $databaseName `
+                    -SaPassword $SaPassword `
+                    -ExpectedRuntimeVersion ([string]$ContainerTools.RuntimeVersion) `
+                    -StateRoot $StateRoot
+                if ([string]$bacpacResult.Status -ne 'BACPAC_IMPORTED') {
+                    throw 'BACPAC_IMPORT_RESULT_INVALID'
                 }
             }
             'baseline-bundle' {

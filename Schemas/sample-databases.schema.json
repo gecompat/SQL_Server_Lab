@@ -290,7 +290,8 @@
                   "backup",
                   "archive-backup",
                   "sql-script",
-                  "script-bundle"
+                  "script-bundle",
+                  "bacpac"
                 ]
               }
             }
