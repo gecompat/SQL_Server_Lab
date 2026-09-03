@@ -151,7 +151,8 @@ function New-PodmanInstance {
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS',
         [string]$ResolvedImage,
-        [ValidateSet('none', 'sql2019-namespace-v1', 'sql2022-namespace-v1', 'sql2025-namespace-v1')][string]$ExternalRuntimeLaunchMode = 'none'
+        [ValidateSet('none', 'sql2019-namespace-v1', 'sql2022-namespace-v1', 'sql2025-namespace-v1')][string]$ExternalRuntimeLaunchMode = 'none',
+        [switch]$AllowStandardLaunchResolvedImage
     )
 
     if ($ResolvedImage -and $ResolvedImage -notmatch '^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$') {
@@ -160,7 +161,7 @@ function New-PodmanInstance {
     if ($ExternalRuntimeLaunchMode -ne 'none' -and -not $ResolvedImage) {
         throw 'PODMAN_EXTERNAL_RUNTIME_IMAGE_REQUIRED'
     }
-    if ($ResolvedImage -and $ExternalRuntimeLaunchMode -eq 'none') {
+    if ($ResolvedImage -and $ExternalRuntimeLaunchMode -eq 'none' -and -not $AllowStandardLaunchResolvedImage) {
         throw 'PODMAN_RESOLVED_IMAGE_LAUNCH_MODE_REQUIRED'
     }
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
