@@ -122,7 +122,9 @@ try {
     )
     Add-CheckResult -Name 'Manifestpfad bleibt ohne fertige SQL-Vorlage fail-closed' -Success (
         $newLabText -match 'HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND' -and
-        $newLabText -match 'Keine lokale SQL_PREPARED_SEALED-Vorlage'
+        $newLabText -match 'Keine lokale SQL_PREPARED_SEALED-Vorlage' -and
+        $newLabText -match 'Test-HyperVImageArtifactEvaluationEligibility' -and
+        $newLabText -match 'HYPERV_MANIFEST_EVALUATION_NOT_ELIGIBLE'
     )
     Add-CheckResult -Name 'Hyper-V-Manifest bindet CREATE, Restore und Samples an den verifizierten SQL-Storage-Vertrag' -Success (
         $newLabText.IndexOf('Assert-LabStorageManifestDatabaseCoverage') -ge 0 -and

@@ -447,10 +447,9 @@ function Resolve-HyperVImageArtifact {
                 $reasons += "os-$field"
             }
         }
-        if ($artifact.license.type -eq 'evaluation' -and $artifact.license.evaluationExpiresAt) {
-            $remaining = ([datetime]$artifact.license.evaluationExpiresAt).ToUniversalTime() - [datetime]::UtcNow
-            if ($remaining.TotalDays -lt $MinimumEvaluationDaysRemaining) { $reasons += 'evaluation-expiring' }
-        }
+        $evaluationEligibility = Test-HyperVImageArtifactEvaluationEligibility -Artifact $artifact `
+            -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining
+        if (-not $evaluationEligibility.Eligible) { $reasons += $evaluationEligibility.Reason }
         if ($SqlVersion) {
             if ($artifact.artifactState -ne 'SQL_PREPARED_SEALED') { $reasons += 'sql-not-prepared' }
             if ([string]$artifact.sql.version -ne $SqlVersion -or [string]$artifact.sql.edition -ne $SqlEdition) { $reasons += 'sql-version-edition' }
@@ -473,6 +472,30 @@ function Resolve-HyperVImageArtifact {
     }
 }
 
+function Test-HyperVImageArtifactEvaluationEligibility {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Artifact,
+        [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30
+    )
+
+    if (-not ([string]$Artifact.license.type).Equals('evaluation', [System.StringComparison]::OrdinalIgnoreCase)) {
+        return [PSCustomObject]@{ Eligible=$true; Reason=$null }
+    }
+    $expiryText = [string]$Artifact.license.evaluationExpiresAt
+    if (-not $expiryText) {
+        return [PSCustomObject]@{ Eligible=$false; Reason='evaluation-expiry-unknown' }
+    }
+    [datetime]$expiresAt = [datetime]::MinValue
+    if (-not [datetime]::TryParse($expiryText, [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$expiresAt)) {
+        return [PSCustomObject]@{ Eligible=$false; Reason='evaluation-expiry-invalid' }
+    }
+    if (($expiresAt.ToUniversalTime() - [datetime]::UtcNow).TotalDays -le $MinimumEvaluationDaysRemaining) {
+        return [PSCustomObject]@{ Eligible=$false; Reason='evaluation-expiring' }
+    }
+    return [PSCustomObject]@{ Eligible=$true; Reason=$null }
+}
+
 function Resolve-HyperVManifestFallbackArtifact {
     [CmdletBinding()]
     param(
@@ -481,7 +504,6 @@ function Resolve-HyperVManifestFallbackArtifact {
         [string]$StateRoot
     )
 
-    $now = [datetime]::UtcNow
     $candidates = foreach ($artifact in @(Get-HyperVImageArtifact -StateRoot $StateRoot)) {
         if ([string]$artifact.artifactState -ne 'SQL_PREPARED_SEALED' -or
             -not [bool]$artifact.generalized -or -not [bool]$artifact.sqlPrepared -or
@@ -492,10 +514,9 @@ function Resolve-HyperVManifestFallbackArtifact {
             -not ([string]$artifact.sql.version).Equals($SqlVersion, [System.StringComparison]::OrdinalIgnoreCase)) {
             continue
         }
-        if ($artifact.license.evaluationExpiresAt) {
-            $remaining = ([datetime]$artifact.license.evaluationExpiresAt).ToUniversalTime() - $now
-            if ($remaining.TotalDays -lt $MinimumEvaluationDaysRemaining) { continue }
-        }
+        $evaluationEligibility = Test-HyperVImageArtifactEvaluationEligibility -Artifact $artifact `
+            -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining
+        if (-not $evaluationEligibility.Eligible) { continue }
         $versionMatch = [regex]::Match([string]$artifact.operatingSystem.version, '\d{4}')
         $versionRank = if ($versionMatch.Success) { [int]$versionMatch.Value } else { -1 }
         [PSCustomObject]@{ Artifact = $artifact; VersionRank = $versionRank }
