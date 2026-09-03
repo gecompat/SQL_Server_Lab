@@ -23,6 +23,7 @@ ARG LIBUNWIND_DEB_URL
 ARG LIBUNWIND_DEB_SHA256
 ARG LIBUNWIND_DEB_VERSION
 ARG CONTENT_ID=characterization
+ARG FINAL_USER=mssql
 USER root
 COPY --from=sqlpackage-extract /opt/sqlpackage /opt/sql-server-lab/tools/sqlpackage
 RUN set -eux; \
@@ -44,5 +45,5 @@ LABEL org.opencontainers.image.title="SQL Server Lab SQLPackage Tool" \
       sql-server-lab.container-tool.contract="1.0" \
       sql-server-lab.container-tool.image-key="${CONTENT_ID}" \
       sql-server-lab.container-tool.ids="sqlpackage"
-USER mssql
+USER ${FINAL_USER}
 CMD ["/opt/mssql/bin/sqlservr"]
