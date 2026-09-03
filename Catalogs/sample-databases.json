@@ -287,6 +287,29 @@
       "license": "MIT",
       "source": "https://github.com/Microsoft/sql-server-samples",
       "versions": {
+        "bacpac-standard": {
+          "artifactType": "bacpac",
+          "handlerContractVersion": "1",
+          "url": "https://github.com/microsoft/sql-server-samples/releases/download/wide-world-importers-v1.0/WideWorldImporters-Standard.bacpac",
+          "downloadSizeMB": 58.2,
+          "estimatedInstallSizeMB": null,
+          "resourceEstimateStatus": "unknown",
+          "sha256": null,
+          "integrityOrigin": null,
+          "trustPolicy": "interactive-once",
+          "compatibility": 130,
+          "expectedOutputs": [
+            { "name": "WideWorldImporters", "kind": "database" }
+          ],
+          "installation": {
+            "kind": "bacpac",
+            "importMode": "sqlpackage",
+            "idempotencyMode": "fail-if-exists",
+            "baselinePolicy": "not-eligible"
+          },
+          "note": "Importiert ausschließlich über das vom Lab gebundene SqlPackage-Container-Tool; die erste unbekannte Prüfsumme benötigt interaktiven Trust.",
+          "runtimeStatus": "executable"
+        },
         "full": {
           "artifactType": "backup",
           "handlerContractVersion": "1",

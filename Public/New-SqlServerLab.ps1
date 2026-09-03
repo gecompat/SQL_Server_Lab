@@ -395,6 +395,7 @@ function New-SqlServerLab {
     }
     else {
         $sampleDatabases = @()
+        $sampleSoftware = @()
         $selectedSampleOutputs = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
         foreach ($sampleSpec in @($Sample | Where-Object { $_ })) {
             $specParts = ([string]$sampleSpec).Split(':', 2)
@@ -424,6 +425,12 @@ function New-SqlServerLab {
                 -SampleDefinition $sampleDefinition `
                 -SqlVersion $Version `
                 -TargetDatabaseName $targetDatabaseName
+            if ([string]$restoreDefinition.artifactType -eq 'bacpac') {
+                $sampleSoftware += [PSCustomObject]@{
+                    id = 'sqlpackage'; version = $null; variant = $null; scope = 'instance'
+                    installMethod = 'catalog'; packages = @(); optional = $false; requestSource = 'sample-bacpac'
+                }
+            }
             foreach ($outputName in $targetDatabaseNames) { $null = $selectedSampleOutputs.Add($outputName) }
 
             $sampleDatabases += [PSCustomObject]@{
@@ -456,7 +463,7 @@ function New-SqlServerLab {
                         cpu = if ($Cpu -gt 0) { $Cpu } else { [decimal]$profileDefinition.maxCpus }
                         memoryMB = if ($MemoryMB -gt 0) { $MemoryMB } else { [int]$profileDefinition.maxMemoryMB }
                     }
-                    software      = @()
+                    software      = @($sampleSoftware | Group-Object id,scope | ForEach-Object { $_.Group[0] })
                     postProvision = @()
                 }
             )
@@ -1176,6 +1183,10 @@ function New-SqlServerLab {
                         -Port $labInstance.Port `
                         -SaPassword $SaPassword `
                         -ContainerName $labInstance.ContainerName `
+                        -Provider $labInstance.Provider `
+                        -RunId $runState.RunId `
+                        -InstanceId $labInstance.Id `
+                        -ContainerTools $labInstance.ContainerTools `
                         -RestoreDefinition $database.restore `
                         -SqlVersion ([string]$instance.version) `
                         -NonInteractive:$effectiveNonInteractive `

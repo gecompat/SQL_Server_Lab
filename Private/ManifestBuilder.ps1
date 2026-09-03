@@ -1360,6 +1360,19 @@ function Get-LabManifestValidationResult {
             }
         }
 
+        $bacpacSamplePlans = @($samplePlans | Where-Object { $_.Status -eq 'RESOLVED' -and $_.ArtifactType -eq 'bacpac' })
+        if ($bacpacSamplePlans.Count -gt 0) {
+            $hasSqlPackageIntent = @($instance.software | Where-Object {
+                [string]$_.id -eq 'sqlpackage' -and [string]$_.scope -eq 'instance'
+            }).Count -gt 0
+            if (-not $hasSqlPackageIntent) {
+                $errors.Add("$instancePath.software: BACPAC-Samples benötigen den katalogisierten Software-Intent 'sqlpackage' mit scope 'instance'.")
+            }
+            if ([string]$instance.provider -notin @('docker', 'podman')) {
+                $errors.Add("$instancePath.databases: BACPAC-Samples werden nur für Docker oder Podman unterstützt.")
+            }
+        }
+
         if ($instance.serverConfig -and
             $instance.serverConfig.memory -and
             $null -ne $instance.serverConfig.memory.minMB -and

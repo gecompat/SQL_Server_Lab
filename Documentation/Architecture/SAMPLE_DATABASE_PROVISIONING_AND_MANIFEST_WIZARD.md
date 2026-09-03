@@ -93,7 +93,7 @@ Die Zielarchitektur unterscheidet mindestens:
 | `backup` | direkter SQL-Server-Backup-Restore | hoch; bestehender Pfad |
 | `sql-script` | einzelnes T-SQL-/sqlcmd-Installationsskript | hoch |
 | `script-bundle` | Paket aus mehreren Skripten mit definiertem Entrypoint | hoch |
-| `bacpac` | Import über ein nachgewiesenes `SqlPackage` | mittel |
+| `bacpac` | Import über ein nachgewiesenes `SqlPackage` | implementiert für SQL-2022-Linux unter Docker/Podman |
 | `archive-backup` | verifiziertes Archiv mit Backup als Payload | mittel |
 | `attach` | kontrolliertes Attach katalogisierter MDF/LDF-Dateien | niedrig |
 
@@ -320,9 +320,16 @@ typisierten Plan.
 
 ### 7.2 BACPAC
 
-Ein BACPAC darf nur angeboten werden, wenn ein kompatibles `SqlPackage`
-read-only nachgewiesen wurde. Importziel, Editionseinschränkungen,
-Ressourcenschätzung und Verification müssen vor Mutation sichtbar sein.
+Der erste ausführbare BACPAC-Slice verwendet ausschließlich SQL-2022-Linux
+unter Docker oder Podman. Er verlangt ein kataloggebundenes `sqlpackage` mit
+Scope `instance`, prüft dessen Version vor der Mutation im run-/scopegebundenen
+Container und importiert nur ein durch den gemeinsamen Artifact-Resolver
+verifiziertes `.bacpac` in genau eine katalogisierte Zieldatenbank. Der
+zufällige `/tmp`-Übertragungspfad wird nach Erfolg und Fehler entfernt; ein
+Cleanupfehler ist `RECOVERY_REQUIRED`. `WideWorldImporters:bacpac-standard`
+nutzt bis zur Veröffentlichung einer vertrauenswürdigen Hersteller-Prüfsumme
+den bestehenden interaktiven Trust-Store. Edition-, Ressourcen- und
+Providerkombinationen außerhalb dieses Slice bleiben nicht unterstützt.
 
 ### 7.3 Archive und Attach
 
@@ -702,7 +709,8 @@ Runtime-Evidence ist weiterhin offen.
 
 ### Welle 6 – Weitere Artifact Types und Hyper-V-Bindung
 
-- BACPAC;
+- BACPAC für SQL-2022-Linux/Docker/Podman mit katalogisiertem SqlPackage,
+  Version-Preflight, Artifact-Trust, Import, SQL-Roundtrip und Cleanup;
 - verifizierte Archive;
 - kontrolliertes Attach;
 - Parent-/Differencing-VHDX-Bindings;

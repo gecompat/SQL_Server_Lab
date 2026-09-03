@@ -691,6 +691,15 @@ und Java für Docker und Podman. Native SQL-Roundtrip-Nachweise liegen für Java
 auf SQL Server 2019 und für Python, R und Java auf SQL Server 2022 und 2025 vor,
 jeweils getrennt für Docker und Podman.
 
+Katalogisierte BACPAC-Samples sind auf SQL-2022-Linux unter Docker und Podman
+begrenzt. Sie benötigen das gebundene `sqlpackage`-Tool, prüfen dessen Version
+im eigenen Run-/Scope-Container vor dem Import und verwenden ausschließlich
+den gemeinsamen HTTPS-/Trust-/Cache-Vertrag. Der erste Wide-World-Importers-
+Eintrag besitzt bewusst noch keine vom Herausgeber veröffentlichte SHA-256 und
+fordert deshalb einmaligen interaktiven Trust; er ist für unbeaufsichtigte
+Läufe vorab zu vertrauen. Andere SQL-Versionen, Hyper-V, freie Quellen und
+Attach-/Archivformate bleiben fail-closed.
+
 Für SQL Server 2022/Python, R und Java existieren inzwischen ein per MCR-Digest
 gebundener Buildkontext, vollständige DEB-, Wheel-, R-Paket-, JDK-, Java-
 Extension- und OCI-Locks, ein

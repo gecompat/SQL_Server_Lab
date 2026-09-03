@@ -425,7 +425,7 @@ function Resolve-LabArtifact {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Source,
-        [ValidateSet('backup', 'archive-backup', 'sql-script')][string]$ArtifactType = 'backup',
+        [ValidateSet('backup', 'archive-backup', 'sql-script', 'script-bundle', 'bacpac')][string]$ArtifactType = 'backup',
         [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
         [ValidateSet('catalog-only', 'interactive-once')][string]$TrustPolicy = 'interactive-once',
         [string]$SampleId,
@@ -448,6 +448,8 @@ function Resolve-LabArtifact {
         'archive-backup' { '\.(zip|7z)$' }
         'sql-script' { '\.sql$' }
     }
+    if ($ArtifactType -eq 'script-bundle') { $expectedExtension = '\\.zip$' }
+    if ($ArtifactType -eq 'bacpac') { $expectedExtension = '\\.bacpac$' }
     if ($sourceUri.AbsolutePath -notmatch "(?i)$expectedExtension") {
         throw "ARTIFACT_SOURCE_INVALID: Artifact Type '$ArtifactType' verweist nicht auf eine passende direkte Quelle: $canonicalSource"
     }
