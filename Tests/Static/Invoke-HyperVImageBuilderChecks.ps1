@@ -57,6 +57,21 @@ try {
         }).Count -eq 1 -and
         @($mediaCatalog | Where-Object { $_.Url -match '/evalcenter/evaluate-windows-server$' }).Count -eq 0
     )
+    $retryableDiscovery = & $module {
+        Test-HyperVWindowsMediaDiscoveryRetry -Cached @([PSCustomObject]@{ State = 'RETRY_ELEVATED' })
+    }
+    $stableDiscovery = & $module {
+        Test-HyperVWindowsMediaDiscoveryRetry -Cached @([PSCustomObject]@{ State = 'UNRECOGNIZED' })
+    }
+    $legacyElevationDiscovery = & $module {
+        Test-HyperVWindowsMediaDiscoveryRetry -Cached @([PSCustomObject]@{ State = 'UNRECOGNIZED'; Message = 'Der angeforderte Vorgang erfordert erhöhte Rechte.' })
+    }
+    $elevationMessageDetected = 'Der angeforderte Vorgang erfordert erhöhte Rechte.' -match '(?i)(erh.\s*hte Rechte|elevated (privilege|rights)|access (is )?denied|zugriff verweigert)'
+    Add-CheckResult -Name 'Berechtigungsbedingte ISO-Erkennung wird erneut versucht und nicht persistent gecached' -Success (
+        $retryableDiscovery -and -not $stableDiscovery -and $legacyElevationDiscovery -and $elevationMessageDetected -and
+        $operatorText -match 'State = if \(\$requiresElevation\) \{ ''RETRY_ELEVATED'' \}' -and
+        $operatorText -match 'Test-HyperVWindowsMediaDiscoveryRetry -Cached \$entry'
+    )
     Add-CheckResult -Name 'Cleanup-Plan existiert vor Provider-Mutation' -Success (Test-Path (Join-Path $plan.BuildDirectory 'cleanup-plan.json'))
     $rawState = Get-Content (Join-Path $plan.BuildDirectory 'build-state.json') -Raw
     Add-CheckResult -Name 'Portabler Build-State enthaelt keinen ISO-Hostpfad' -Success ($rawState -notmatch [regex]::Escape($isoPath))
