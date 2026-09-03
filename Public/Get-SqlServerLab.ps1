@@ -4,6 +4,9 @@
 .DESCRIPTION
     Liest den gespeicherten Run-State und ergaenzt ihn, soweit moeglich, um den
     Live-Status der zugeordneten Docker-/Podman-Container oder Hyper-V-VMs.
+    Kataloggebundene Container-Tools werden als sanitisierte Identitaets- und
+    Versionsmetadaten angezeigt; Quellen, lokale Image-IDs und Receipts bleiben
+    außerhalb der öffentlichen Statussicht.
     Mehrere Provider innerhalb eines Runs werden getrennt abgefragt. Der
     Runtime-Status einer Hyper-V-VM wird nicht als ungepruefter SQL-Status
     ausgegeben. Das Cmdlet veraendert weder Run-State noch Providerressourcen.
@@ -156,6 +159,15 @@ function Get-SqlServerLab {
                 Healthy       = if ($containerInfo) { $containerInfo.Healthy } else { $false }
                 SqlStatus     = if ($containerInfo) { if ($containerInfo.Healthy) { 'READY' } elseif ($containerInfo.Running) { 'STARTING_OR_UNHEALTHY' } else { 'STOPPED' } } elseif ($provider -eq 'hyperv' -and ([string]$instance.workload -eq 'sql' -or $instance.version)) { 'NOT_LIVE_VERIFIED' } else { 'NOT_APPLICABLE' }
                 AutoStart     = if ($containerInfo) { if ($containerInfo.AutoStart) { 'on' } else { 'off' } } elseif ($hyperVInfo -and $hyperVInfo.AutoStart) { [string]$hyperVInfo.AutoStart } elseif ($instance.autostart) { [string]$instance.autostart } else { 'off' }
+                ContainerTools = if ($instance.containerTools) {
+                    [PSCustomObject]@{
+                        ToolIds = @($instance.containerTools.toolIds | ForEach-Object { [string]$_ })
+                        RuntimeVersion = [string]$instance.containerTools.runtimeVersion
+                        Status = [string]$instance.containerTools.status
+                        ImageKey = [string]$instance.containerTools.imageKey
+                    }
+                }
+                else { $null }
                 RuntimeNote   = $instanceRuntimeNote
             }
         }
@@ -211,6 +223,9 @@ function Get-SqlServerLab {
                 Write-LabStatus `
                     -Label "  $($instance.Id)" `
                     -Value "$($instance.Host):$($instance.Port) (SQL $($instance.Version), $($instance.Provider)) $upText$healthText$autoStartText"
+                if ($instance.ContainerTools) {
+                    Write-LabStatus -Label '    Tools' -Value "$($instance.ContainerTools.ToolIds -join ', ') $($instance.ContainerTools.RuntimeVersion) [$($instance.ContainerTools.Status)]"
+                }
             }
         }
 

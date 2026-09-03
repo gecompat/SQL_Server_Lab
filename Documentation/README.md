@@ -130,7 +130,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `New-SqlServerLabManifest` | Manifest schema-gesteuert erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung prüfen |
 | `New-SqlServerLab` | Umgebung ad hoc oder per Manifest erstellen |
-| `Get-SqlServerLab` | State sowie providerneutralen Container-/VM-Live-Status anzeigen; ungeprüfte Hyper-V-SQL-Bereitschaft bleibt davon getrennt |
+| `Get-SqlServerLab` | State sowie providerneutralen Container-/VM-Live-Status und sanitisierte kataloggebundene Container-Tool-Metadaten anzeigen; ungeprüfte Hyper-V-SQL-Bereitschaft bleibt davon getrennt |
 | `Start-SqlServerLab` | Gestoppte Umgebung starten |
 | `Stop-SqlServerLab` | Laufende Umgebung stoppen |
 | `Restart-SqlServerLab` | Stop und Start kombinieren |
