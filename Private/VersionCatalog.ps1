@@ -115,10 +115,15 @@ function Get-SqlServerDockerImage {
 
     if ($VersionId -match '^(\d{4})-CU\d+-.+$') {
         $baseVersion = $Matches[1]
-        if (-not (Get-SqlServerVersion -VersionId $baseVersion)) {
+        $version = Get-SqlServerVersion -VersionId $baseVersion
+        if (-not $version) {
             throw "Basisversion '$baseVersion' ist nicht im Versionskatalog enthalten."
         }
-        return "mcr.microsoft.com/mssql/server:$VersionId"
+        $build = @($version.docker.builds | Where-Object { [string]$_.tag -eq $VersionId })
+        if ($build.Count -ne 1) {
+            throw "SQL_CONTAINER_TAG_NOT_CATALOGUED: $VersionId"
+        }
+        return "mcr.microsoft.com/mssql/server:$([string]$build[0].tag)"
     }
 
     if ($VersionId -match '^(\d{4})-(CU\d+)$') {
