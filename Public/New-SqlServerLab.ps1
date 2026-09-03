@@ -88,7 +88,7 @@ function New-LabProviderContainer {
     $externalRuntimeLaunchMode = 'none'
     if ($ContainerImageArtifact) {
         if (-not $ContainerImageArtifact.Contract -or
-            [string]$ContainerImageArtifact.Contract.Name -ne 'SqlServerLab.ExternalRuntimeContainerImageArtifact' -or
+            [string]$ContainerImageArtifact.Contract.Name -notin @('SqlServerLab.ExternalRuntimeContainerImageArtifact', 'SqlServerLab.ContainerToolExternalRuntimeImageArtifact') -or
             [string]$ContainerImageArtifact.Contract.Version -ne '1.0' -or
             [string]$ContainerImageArtifact.Provider -ne [string]$Instance.provider -or
             [string]$ContainerImageArtifact.ImageKey -notmatch '^[a-f0-9]{64}$' -or
@@ -494,6 +494,7 @@ function New-SqlServerLab {
     $externalRuntimeImagePlansByInstance = @{}
     $containerToolPlansByInstance = @{}
     $containerToolImagePlansByInstance = @{}
+    $containerToolExternalRuntimeImagePlansByInstance = @{}
     foreach ($instance in $resolved.instances) {
         $softwarePlans = @(Resolve-LabSoftwarePlansForInstance -Instance $instance)
         $rejectedPlans = @($softwarePlans | Where-Object { [string]$_.Status -ne 'RESOLVED' })
@@ -503,9 +504,6 @@ function New-SqlServerLab {
         }
         $externalRuntimePlans = @($softwarePlans | Where-Object { [string]$_.Kind -eq 'sqlExternalRuntime' })
         $containerToolPlans = @($softwarePlans | Where-Object { [string]$_.Kind -eq 'generalSoftware' })
-        if ($externalRuntimePlans.Count -gt 0 -and $containerToolPlans.Count -gt 0) {
-            throw "CONTAINER_TOOL_EXTERNAL_RUNTIME_COMBINATION_NOT_IMPLEMENTED: $($instance.id)"
-        }
         $externalRuntimePlansByInstance[[string]$instance.id] = $externalRuntimePlans
         $containerToolPlansByInstance[[string]$instance.id] = $containerToolPlans
         if ($externalRuntimePlans.Count -gt 0 -and [string]$instance.provider -in @('docker', 'podman')) {
@@ -523,6 +521,12 @@ function New-SqlServerLab {
             }
             $containerToolImagePlansByInstance[[string]$instance.id] = New-LabContainerToolImagePlan `
                 -Provider ([string]$instance.provider) -SqlVersion ([string]$instance.version) -SoftwarePlans $containerToolPlans
+        }
+        if ($externalRuntimeImagePlansByInstance.ContainsKey([string]$instance.id) -and
+            $containerToolImagePlansByInstance.ContainsKey([string]$instance.id)) {
+            $containerToolExternalRuntimeImagePlansByInstance[[string]$instance.id] = New-LabContainerToolExternalRuntimeImagePlan `
+                -ExternalRuntimeImagePlan $externalRuntimeImagePlansByInstance[[string]$instance.id] `
+                -ContainerToolImagePlan $containerToolImagePlansByInstance[[string]$instance.id]
         }
     }
 
@@ -944,10 +948,19 @@ function New-SqlServerLab {
         foreach ($instance in @($resolved.instances | Where-Object {
             $containerToolImagePlansByInstance.ContainsKey([string]$_.id)
         })) {
-            Write-LabInfo "Derived Container-Tool-Image für '$($instance.id)' aufbauen oder wiederverwenden..."
-            $containerImageArtifactsByInstance[[string]$instance.id] = Invoke-LabContainerToolImageBuild `
-                -ImagePlan $containerToolImagePlansByInstance[[string]$instance.id] `
-                -StateRoot $effectiveStateRoot
+            if ($containerToolExternalRuntimeImagePlansByInstance.ContainsKey([string]$instance.id)) {
+                Write-LabInfo "Kombiniertes External-Runtime-/Container-Tool-Image für '$($instance.id)' aufbauen oder wiederverwenden..."
+                $containerImageArtifactsByInstance[[string]$instance.id] = Invoke-LabContainerToolExternalRuntimeImageBuild `
+                    -ImagePlan $containerToolExternalRuntimeImagePlansByInstance[[string]$instance.id] `
+                    -ExternalRuntimeImageArtifact $containerImageArtifactsByInstance[[string]$instance.id] `
+                    -StateRoot $effectiveStateRoot
+            }
+            else {
+                Write-LabInfo "Derived Container-Tool-Image für '$($instance.id)' aufbauen oder wiederverwenden..."
+                $containerImageArtifactsByInstance[[string]$instance.id] = Invoke-LabContainerToolImageBuild `
+                    -ImagePlan $containerToolImagePlansByInstance[[string]$instance.id] `
+                    -StateRoot $effectiveStateRoot
+            }
         }
 
         $labInstances = @()

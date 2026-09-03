@@ -677,9 +677,10 @@ Der providerneutrale Softwarekatalog und Capability Resolver normalisieren
 Python-, R-, Java- und C#-Anforderungen nach SQL-Version, Betriebssystem,
 Architektur und Provider. `sqlpackage` 170.4.83.3 ist für SQL-2022-Linux unter
 Docker und Podman als separates, hashgebundenes Derived Tool Image verfügbar;
-eine gemeinsame Imagebindung mit External Runtimes sowie weitere SQL-Versionen
-und allgemeine Zusatzsoftware bleiben vor jeder Provisionierungsmutation
-abgelehnt. Unvollständig belegte Varianten, freie Commands, nicht gesperrte
+mit kataloggebundenen Python-, R- oder Java-External-Runtimes wird es als
+gemeinsames Inhalts- und Receipt-gebundenes Derived Image aufgebaut. Weitere
+SQL-Versionen und allgemeine Zusatzsoftware bleiben vor jeder
+Provisionierungsmutation abgelehnt. Unvollständig belegte Varianten, freie Commands, nicht gesperrte
 Zusatzpakete und der bisherige
 `post-start`-Installer werden
 vor der Mutation sichtbar abgelehnt. SQL Server 2019 besitzt im Linux-
