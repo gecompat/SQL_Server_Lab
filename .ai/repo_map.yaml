@@ -665,6 +665,7 @@ providers:
     image_migration: Private/HyperVImageMigration.ps1
     physical_resource_root: "registered Lab_Data/HyperV; StateRoot contains control state only; persisted builder disks resolve through their Build binding"
     image_registry: Private/HyperVImageRegistry.ps1
+    image_artifact_inventory: "Public/Get-SqlServerLabHyperVImageArtifact.ps1; pfadfreie read-only Registry-, Evaluierungs- und Referenzsicht, optionale Parent-Hash-Pruefung ohne Refresh- oder Loeschautoritaet"
     image_builder: Private/HyperVImageBuilder.ps1
     metadata: Providers/HyperV/provider.json
     documentation: Providers/HyperV/README.md
