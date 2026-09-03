@@ -156,6 +156,12 @@ function artifactRefreshDetail(item) {
   return action === 'NO_ACTION' ? '' : 'Refresh-Status: ' + action;
 }
 
+function artifactFallbackDetail(item) {
+  if (item.AutomaticFallbackEligible) return 'Automatischer SQL-Fallback geeignet';
+  const reasons = Array.isArray(item.AutomaticFallbackReasons) ? item.AutomaticFallbackReasons.filter(Boolean) : [];
+  return reasons.length ? 'Kein automatischer SQL-Fallback: ' + reasons.join(', ') : 'Automatischer SQL-Fallback nicht verifizierbar';
+}
+
 function getHyperVArtifactCandidates(sqlItems = workflow?.SqlPreparedImages || [], windowsItems = workflow?.WindowsBaselines || []) {
   return [
     ...(sqlItems || []).map((item) => ({ ...item, Workload: 'sql' })),
@@ -209,7 +215,7 @@ function renderHyperVArtifactDetails(items) {
   const workload = isSql
     ? '<span>SQL Server ' + escapeHtml(selected.SqlVersion) + ' · ' + escapeHtml(selected.SqlEdition) + (selected.SqlBuild ? ' · Build ' + escapeHtml(selected.SqlBuild) : '') + '</span>'
     : '<span>Reine Windows-VM: OOBE wird automatisch eingerichtet; SQL, WMI und SQL-TCP bleiben unangetastet.</span>';
-  target.innerHTML = '<strong>' + escapeHtml(title) + '</strong><span>Windows: ' + escapeHtml(selected.OperatingSystem) + ' · ' + escapeHtml(windowsEdition) + ' · ' + escapeHtml(selected.InstallationType) + '</span>' + workload + '<code>ArtifactId: ' + escapeHtml(selected.ArtifactId) + '</code>';
+  target.innerHTML = '<strong>' + escapeHtml(title) + '</strong><span>Windows: ' + escapeHtml(selected.OperatingSystem) + ' · ' + escapeHtml(windowsEdition) + ' · ' + escapeHtml(selected.InstallationType) + '</span>' + workload + '<span>' + escapeHtml(artifactFallbackDetail(selected)) + '</span><code>ArtifactId: ' + escapeHtml(selected.ArtifactId) + '</code>';
   updateHyperVLabWorkload(selected);
 }
 
@@ -520,8 +526,8 @@ function renderWorkflow(data) {
   renderBuilds('#sql-builds', 'sql', data.SqlBuilds);
   $('#windows-count').textContent = data.WindowsBuilds.length + ' Build(s)';
   $('#sql-count').textContent = data.SqlBuilds.length + ' Build(s)';
-  renderArtifactList('#windows-baselines', data.WindowsBaselines, 'OS-Baseline', (item) => item.DisplayName || (item.OperatingSystem + ' · ' + item.Edition), (item) => [item.InstallationType, shortId(item.ArtifactId), artifactRefreshDetail(item)].filter(Boolean).join(' · '));
-  renderArtifactList('#sql-images', data.SqlPreparedImages, 'SQL-Prepared-Image', (item) => item.DisplayName || (item.OperatingSystem + ' · SQL Server ' + item.SqlVersion), (item) => [item.WindowsEdition, item.SqlEdition, shortId(item.ArtifactId), artifactRefreshDetail(item)].filter(Boolean).join(' · '));
+  renderArtifactList('#windows-baselines', data.WindowsBaselines, 'OS-Baseline', (item) => item.DisplayName || (item.OperatingSystem + ' · ' + item.Edition), (item) => [item.InstallationType, shortId(item.ArtifactId), artifactRefreshDetail(item), artifactFallbackDetail(item)].filter(Boolean).join(' · '));
+  renderArtifactList('#sql-images', data.SqlPreparedImages, 'SQL-Prepared-Image', (item) => item.DisplayName || (item.OperatingSystem + ' · SQL Server ' + item.SqlVersion), (item) => [item.WindowsEdition, item.SqlEdition, shortId(item.ArtifactId), artifactRefreshDetail(item), artifactFallbackDetail(item)].filter(Boolean).join(' · '));
   renderAcceptance(data.AcceptanceEnvironments);
   renderActiveLabs(data.ActiveLabs);
   renderHyperVLabs(data.HyperVLabs || []);

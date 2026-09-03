@@ -175,6 +175,8 @@ try {
         $inventoryItem -and
         $inventoryItem.ContractVersion -eq 'SqlServerLab.HyperVImageArtifactInventory/1.0' -and
         $inventoryItem.IntegrityStatus -eq 'NOT_VERIFIED' -and
+        -not $inventoryItem.ManifestFallback.Eligible -and
+        $inventoryItem.ManifestFallback.Reasons -contains 'artifact-not-sql-prepared-sealed' -and
         $inventoryItem.References.Status -eq 'UNREFERENCED' -and
         ($inventoryItem | ConvertTo-Json -Depth 20) -notmatch [regex]::Escape($temporaryRoot)
     )

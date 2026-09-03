@@ -496,6 +496,30 @@ function Test-HyperVImageArtifactEvaluationEligibility {
     return [PSCustomObject]@{ Eligible=$true; Reason=$null }
 }
 
+function Get-HyperVManifestFallbackArtifactRejectionReasons {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Artifact,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$SqlVersion,
+        [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30
+    )
+
+    $reasons = @()
+    if ([string]$Artifact.artifactState -ne 'SQL_PREPARED_SEALED') { $reasons += 'artifact-not-sql-prepared-sealed' }
+    if (-not [bool]$Artifact.generalized) { $reasons += 'artifact-not-generalized' }
+    if (-not [bool]$Artifact.sqlPrepared) { $reasons += 'artifact-sql-not-prepared' }
+    if ([string]$Artifact.operatingSystem.id -notmatch '^windows-server') { $reasons += 'operating-system-not-windows-server' }
+    if ([string]$Artifact.operatingSystem.edition -notmatch '(?i)standard') { $reasons += 'operating-system-not-standard' }
+    if (-not ([string]$Artifact.operatingSystem.installationType).Equals('desktop-experience', [System.StringComparison]::OrdinalIgnoreCase)) { $reasons += 'installation-type-not-desktop-experience' }
+    if (-not ([string]$Artifact.license.type).Equals('evaluation', [System.StringComparison]::OrdinalIgnoreCase)) { $reasons += 'license-not-evaluation' }
+    if ([string]::IsNullOrWhiteSpace([string]$Artifact.sql.version)) { $reasons += 'sql-version-missing' }
+    elseif (-not ([string]$Artifact.sql.version).Equals($SqlVersion, [System.StringComparison]::OrdinalIgnoreCase)) { $reasons += 'sql-version-mismatch' }
+    $evaluationEligibility = Test-HyperVImageArtifactEvaluationEligibility -Artifact $Artifact `
+        -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining
+    if (-not $evaluationEligibility.Eligible) { $reasons += $evaluationEligibility.Reason }
+    return @($reasons | Sort-Object -Unique)
+}
+
 function Get-HyperVManifestFallbackArtifactSelection {
     [CmdletBinding()]
     param(
@@ -507,20 +531,10 @@ function Get-HyperVManifestFallbackArtifactSelection {
     $candidates = @()
     $reasons = @()
     foreach ($artifact in @(Get-HyperVImageArtifact -StateRoot $StateRoot)) {
-        $artifactReasons = @()
-        if ([string]$artifact.artifactState -ne 'SQL_PREPARED_SEALED') { $artifactReasons += 'artifact-not-sql-prepared-sealed' }
-        if (-not [bool]$artifact.generalized) { $artifactReasons += 'artifact-not-generalized' }
-        if (-not [bool]$artifact.sqlPrepared) { $artifactReasons += 'artifact-sql-not-prepared' }
-        if ([string]$artifact.operatingSystem.id -notmatch '^windows-server') { $artifactReasons += 'operating-system-not-windows-server' }
-        if ([string]$artifact.operatingSystem.edition -notmatch '(?i)standard') { $artifactReasons += 'operating-system-not-standard' }
-        if (-not ([string]$artifact.operatingSystem.installationType).Equals('desktop-experience', [System.StringComparison]::OrdinalIgnoreCase)) { $artifactReasons += 'installation-type-not-desktop-experience' }
-        if (-not ([string]$artifact.license.type).Equals('evaluation', [System.StringComparison]::OrdinalIgnoreCase)) { $artifactReasons += 'license-not-evaluation' }
-        if (-not ([string]$artifact.sql.version).Equals($SqlVersion, [System.StringComparison]::OrdinalIgnoreCase)) { $artifactReasons += 'sql-version-mismatch' }
-        $evaluationEligibility = Test-HyperVImageArtifactEvaluationEligibility -Artifact $artifact `
-            -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining
-        if (-not $evaluationEligibility.Eligible) { $artifactReasons += $evaluationEligibility.Reason }
+        $artifactReasons = @(Get-HyperVManifestFallbackArtifactRejectionReasons -Artifact $artifact `
+            -SqlVersion $SqlVersion -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining)
         if ($artifactReasons.Count -gt 0) {
-            $reasons += @($artifactReasons | Sort-Object -Unique)
+            $reasons += $artifactReasons
             continue
         }
         $versionMatch = [regex]::Match([string]$artifact.operatingSystem.version, '\d{4}')
