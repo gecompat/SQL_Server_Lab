@@ -13,6 +13,7 @@
     "resource-limits",
     "software-catalog-planning",
     "derived-image-build",
+    "container-tool-image",
     "sql-external-runtime"
   ],
   "limitations": [
