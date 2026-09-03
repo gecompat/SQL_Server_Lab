@@ -98,4 +98,16 @@ Describe 'Statische Testskripte' {
             }
         }
     }
+
+    It 'darf bei regulaeren Pester-Laeufen keine Repository-Artefakte persistieren' {
+        $runnerPath = Join-Path $repoRoot 'Tests' 'Static' 'Invoke-PesterChecks.ps1'
+        $runnerText = Get-Content -LiteralPath $runnerPath -Raw -Encoding utf8
+        if ($runnerText -match '\bOutputFile\b|TestResult\.OutputPath|TestResult\.Enabled\s*=\s*\$true') {
+            throw 'Der Pester-Runner erzeugt weiterhin einen persistenten Testbericht.'
+        }
+        if ($runnerText -notmatch "Get-ChildItem[^\r\n]+-Filter 'Pester-Results-\*\.xml'" -or
+            $runnerText -notmatch 'Remove-Item -LiteralPath \$legacyReport\.FullName') {
+            throw 'Der Pester-Runner bereinigt seine früheren XML-Berichte nicht eng begrenzt.'
+        }
+    }
 }
