@@ -96,6 +96,8 @@ function Get-SqlServerLabHyperVImageArtifact {
         $runReferenceCount = @($activeRuns | Where-Object {
             [string]$_.metadata.imageArtifactId -eq [string]$artifact.artifactId
         }).Count
+        $fallbackReasons = @(Get-HyperVManifestFallbackArtifactRejectionReasons -Artifact $artifact `
+            -SqlVersion ([string]$artifact.sql.version) -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining)
 
         [PSCustomObject]@{
             ContractVersion = 'SqlServerLab.HyperVImageArtifactInventory/1.0'
@@ -126,6 +128,10 @@ function Get-SqlServerLabHyperVImageArtifact {
                 MinimumDaysRemaining = $MinimumEvaluationDaysRemaining
             }
             Refresh = $refresh
+            ManifestFallback = [PSCustomObject]@{
+                Eligible = $fallbackReasons.Count -eq 0
+                Reasons = $fallbackReasons
+            }
             References = [PSCustomObject]@{
                 ActiveRuns = $runReferenceCount
                 ActiveBuilds = $buildReferenceCount
