@@ -539,6 +539,12 @@ function New-SqlServerLab {
         if (-not $artifact -and -not $artifactId) {
             throw 'HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND: Keine lokale SQL_PREPARED_SEALED-Vorlage für die angeforderte SQL-Version auf Windows Server Standard Evaluation mit Desktop Experience und mindestens 30 verbleibenden Evaluationstagen gefunden.'
         }
+        if ($artifact) {
+            $evaluationEligibility = Test-HyperVImageArtifactEvaluationEligibility -Artifact $artifact
+            if (-not $evaluationEligibility.Eligible) {
+                throw "HYPERV_MANIFEST_EVALUATION_NOT_ELIGIBLE: $($evaluationEligibility.Reason)"
+            }
+        }
         $artifactState = [string]$artifact.artifactState
         if (-not $artifact -or $artifactState -notin @('SQL_PREPARED_SEALED', 'OS_SEALED')) {
             throw 'HYPERV_MANIFEST_HYPERV_IMAGE_REQUIRED'
