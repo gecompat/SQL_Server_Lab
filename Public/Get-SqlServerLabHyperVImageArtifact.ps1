@@ -61,6 +61,31 @@ function Get-SqlServerLabHyperVImageArtifact {
             'EVALUATION_EXPIRING'
         }
         else { 'EVALUATION_VALID' }
+        $refresh = switch ($evaluationStatus) {
+            'EVALUATION_EXPIRED' {
+                [PSCustomObject]@{
+                    Action='MANUAL_REBUILD_REQUIRED'; Reasons=@('evaluation-expired')
+                    MutationAllowed=$false; RetainExisting=$true
+                }
+            }
+            'EVALUATION_EXPIRING' {
+                [PSCustomObject]@{
+                    Action='MANUAL_REBUILD_RECOMMENDED'; Reasons=@('evaluation-expiring')
+                    MutationAllowed=$false; RetainExisting=$true
+                }
+            }
+            'EVALUATION_EXPIRY_UNKNOWN' {
+                [PSCustomObject]@{
+                    Action='EVALUATION_REVIEW_REQUIRED'; Reasons=@('evaluation-expiry-unknown')
+                    MutationAllowed=$false; RetainExisting=$true
+                }
+            }
+            default {
+                [PSCustomObject]@{
+                    Action='NO_ACTION'; Reasons=@(); MutationAllowed=$false; RetainExisting=$true
+                }
+            }
+        }
 
         $buildReferenceCount = @($windowsBuilds | Where-Object {
             [string]$_.artifact.artifactId -eq [string]$artifact.artifactId
@@ -100,6 +125,7 @@ function Get-SqlServerLabHyperVImageArtifact {
                 Status = $evaluationStatus
                 MinimumDaysRemaining = $MinimumEvaluationDaysRemaining
             }
+            Refresh = $refresh
             References = [PSCustomObject]@{
                 ActiveRuns = $runReferenceCount
                 ActiveBuilds = $buildReferenceCount
