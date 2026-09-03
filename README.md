@@ -222,6 +222,12 @@ Interaktive Bedienung:
 Invoke-SqlServerLab
 ```
 
+Der Standalone-Einstieg akzeptiert dieselben Direktaktionen wie das importierte
+Modul, beispielsweise `./Invoke-SqlServerLab.ps1 -Action Setup` oder
+`./Invoke-SqlServerLab.ps1 -Action CleanupAudit`. Die interaktive Fallback-
+Ansicht zeigt `[0] Zurück`; freie Textfelder verwenden `0` als sichtbaren
+Abbruchalias.
+
 Standard für Skript-Hilfeeinträge (`-ShowHelp` und `--help`; `/?` sowie
 `-help`/`-h`/`-?` können je nach PowerShell-Kontext die Engine-Hilfe auslösen):
 

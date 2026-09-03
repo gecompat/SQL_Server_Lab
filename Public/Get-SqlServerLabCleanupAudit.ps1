@@ -180,6 +180,17 @@ function Get-SqlServerLabCleanupAudit {
             }
 
             $cleanupResources = @(); $protectedPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+            $managedVmConfigurationRoots = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+            if ($runState) {
+                foreach ($configurationBinding in @($hyperVResources | Where-Object {
+                    -not $_.Orphan -and $_.StorageStatus -eq 'VERIFIED' -and
+                    [string]$_.RunId -eq [string]$runState.runId -and [string]$_.ScopeId -eq [string]$runState.scopeId
+                } | ForEach-Object { @($_.StorageBindings | Where-Object ResourceKind -eq 'VM_CONFIGURATION') })) {
+                    if ($configurationBinding.Path) {
+                        $null = $managedVmConfigurationRoots.Add([IO.Path]::GetFullPath([string]$configurationBinding.Path).TrimEnd('\', '/'))
+                    }
+                }
+            }
             $cleanupPath = Join-Path $runDirectory.FullName 'cleanup-plan.json'
             if (Test-Path -LiteralPath $cleanupPath -PathType Leaf) {
                 try {
@@ -218,7 +229,11 @@ function Get-SqlServerLabCleanupAudit {
                 if (-not (Test-Path -LiteralPath $resourceRoot.Path -PathType Container)) { continue }
                 foreach ($file in @(Get-ChildItem -LiteralPath $resourceRoot.Path -File -Recurse -Force -ErrorAction SilentlyContinue)) {
                     $fileCount++
-                    if (-not $protectedPaths.Contains([IO.Path]::GetFullPath($file.FullName))) {
+                    $fullFilePath = [IO.Path]::GetFullPath($file.FullName)
+                    $isManagedVmConfiguration = @($managedVmConfigurationRoots | Where-Object {
+                        $fullFilePath.StartsWith($_ + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
+                    }).Count -gt 0
+                    if (-not $protectedPaths.Contains($fullFilePath) -and -not $isManagedVmConfiguration) {
                         $entry = [PSCustomObject]@{
                             RunId=if ($runState) { [string]$runState.runId } else { $runDirectory.Name }
                             RootKind=[string]$resourceRoot.Kind; Path=$file.FullName

@@ -3,7 +3,7 @@
 .SYNOPSIS
     Fuehrt den vertieften CLI-Akzeptanztest fuer Docker oder Podman aus.
 .DESCRIPTION
-    Provisioniert genau einen repraesentativen SQL-Server-CU, installiert eine
+    Provisioniert den festgelegten Referenzstand SQL Server 2022 CU18, installiert eine
     katalogverifizierte Testdatenbank und prueft getrennte Daten-, Log- und
     TempDB-Volumes, SQL-Ressourcenkonfiguration, Container-Ressourcen,
     Port-Reconcile, Persistenz sowie den vollstaendigen Cleanup.
@@ -11,7 +11,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
-    [string]$Version = '2022-CU18',
+    [ValidateSet('2022-CU18')][string]$Version = '2022-CU18',
     [string]$Sample = 'chinook:sql-server',
     [switch]$KeepOnFailure
 )

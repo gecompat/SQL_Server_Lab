@@ -209,7 +209,7 @@ Der bestehende Test prüft einen explizit gewählten Provider vollständig:
 
 `-Provider auto` wählt weiterhin genau einen erreichbaren Container-Provider, bevorzugt Docker vor Podman. Ein erfolgreicher Docker-Lauf ist kein Nachweis für Podman und umgekehrt.
 
-`-Provider hyperv` startet den Hyper-V-native Smoke-Test (`Invoke-HyperVSmokeTest.ps1`) und überprüft damit ausschließlich den VM-/VHDX-/Image-Builder-Lifecycle (ohne SQL-Containerlaufzeit).
+`-Provider hyperv` startet den Hyper-V-native Smoke-Test (`Invoke-HyperVSmokeTest.ps1`) und überprüft damit ausschließlich den VM-/VHDX-/Image-Builder-Lifecycle (ohne SQL-Containerlaufzeit). Nach Run- und Builder-Cleanup entfernt der Test auch alle von ihm veröffentlichten synthetischen Registry-Artefakte; ein verbliebenes Test-Image lässt den Lauf fehlschlagen.
 
 ## Gemischter Container-Provider-Smoke-Test
 

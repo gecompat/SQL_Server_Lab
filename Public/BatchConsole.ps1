@@ -75,7 +75,7 @@ function Read-LabComposerInteger {
 
 function Add-LabSqlComposerItemInteractive {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][Collections.Generic.List[object]]$Basket)
+    param([Parameter(Mandatory)][AllowEmptyCollection()][Collections.Generic.List[object]]$Basket)
 
     $intent = Read-LabSqlEnvironmentIntentInteractive
     if ($null -eq $intent) { return }
@@ -99,7 +99,7 @@ function Add-LabSqlComposerItemInteractive {
 function Add-LabWindowsComposerItemInteractive {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][Collections.Generic.List[object]]$Basket,
+        [Parameter(Mandatory)][AllowEmptyCollection()][Collections.Generic.List[object]]$Basket,
         [switch]$Slot
     )
 
@@ -132,7 +132,7 @@ function Add-LabWindowsComposerItemInteractive {
 
 function Add-LabMatrixComposerItemsInteractive {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][Collections.Generic.List[object]]$Basket)
+    param([Parameter(Mandatory)][AllowEmptyCollection()][Collections.Generic.List[object]]$Basket)
 
     $parse = { param($Text, $Default) $values = @(([string]$Text).Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }); if ($values.Count -eq 0) { @($Default) } else { $values } }
     $osValues = @(& $parse (Read-Host '  Betriebssysteme, kommagetrennt [Linux]') 'Linux')
@@ -153,7 +153,7 @@ function Add-LabMatrixComposerItemsInteractive {
 
 function Edit-LabComposerItemsInteractive {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][Collections.Generic.List[object]]$Basket)
+    param([Parameter(Mandatory)][AllowEmptyCollection()][Collections.Generic.List[object]]$Basket)
 
     $selected = Select-LabWorkflowItems -ScreenId 'batch-bulk-edit' -Title 'Positionen fuer gemeinsame Aenderung auswaehlen' -Source @($Basket) -Label { param($x) "$($x.id) · $($x.kind)" } -Value { param($x) "Anzahl $($x.count)" }
     if ($selected.Count -eq 0) { return }

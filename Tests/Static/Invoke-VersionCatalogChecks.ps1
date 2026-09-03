@@ -89,6 +89,11 @@ Add-CheckResult -Name 'Jeder verfügbare CU-Kurzbezeichner löst auf einen expli
 )
 
 $cuWatchText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tools/Get-SqlServerCuStatus.ps1') -Raw -Encoding utf8
+$containerAcceptanceText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-ContainerCliAcceptance.ps1') -Raw -Encoding utf8
+Add-CheckResult -Name 'Container-CLI-Abnahme bindet Parameter und SQL-Nachweis an denselben Referenzstand' -Success (
+    $containerAcceptanceText -match "\[ValidateSet\('2022-CU18'\)\]\[string\]\`$Version = '2022-CU18'" -and
+    $containerAcceptanceText -match "\^16\\\|" -and $containerAcceptanceText -match "CU18"
+)
 Add-CheckResult -Name 'CU-Watch verwendet den öffentlichen read-only CU-Abgleich und den wartbaren Quellenkatalog' -Success (
     $cuWatchText -match 'Get-SqlServerLabCuStatus' -and
     $cuWatchText -match 'sql-server-cu-status-sources\.json' -and
