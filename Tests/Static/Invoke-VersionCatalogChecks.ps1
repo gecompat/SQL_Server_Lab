@@ -35,11 +35,19 @@ Add-CheckResult -Name 'Nicht katalogisierte exakte Container-Tags werden vor ein
 )
 
 $sql2022Builds = & $module { @(Get-SqlServerBuilds -VersionId '2022') }
+$catalog = Get-Content -LiteralPath (Join-Path $repoRoot 'Catalogs\sql-server-versions.json') -Raw | ConvertFrom-Json -Depth 30
 Add-CheckResult -Name 'SQL Server 2022 enthält eindeutige katalogisierte CU-Tags' -Success (
     $sql2022Builds.Count -eq 26 -and
     @($sql2022Builds.cu | Sort-Object -Unique).Count -eq $sql2022Builds.Count -and
     @($sql2022Builds.tag | Sort-Object -Unique).Count -eq $sql2022Builds.Count
 )
+$catalogTagCollisions = @($catalog.versions | Where-Object { $_.docker } | ForEach-Object {
+    $version = $_
+    @($version.docker.builds | Group-Object tag | Where-Object Count -gt 1 | ForEach-Object { "$($version.id):$($_.Name)" })
+})
+Add-CheckResult -Name 'Jede SQL-Version führt jeden exakten Container-Tag höchstens einmal' -Success (
+    $catalogTagCollisions.Count -eq 0
+) -Message ($catalogTagCollisions -join ', ')
 $invalid2022Resolutions = @($sql2022Builds | Where-Object {
     $versionId = "2022-$($_.cu)"
     $resolvedImage = & $module { param($id) Get-SqlServerDockerImage -VersionId $id } $versionId
