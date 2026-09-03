@@ -90,9 +90,13 @@ function Read-LabConsoleTextInput {
     if (-not $Capability) { $Capability = Test-LabConsoleCapability }
     $promptText = if ($Default) { "$Prompt [$Default]" } else { $Prompt }
     if (-not [bool]$Capability.Supported) {
-        $value = if ($ReadInput) { & $ReadInput $promptText } elseif ($AsSecureString) { Microsoft.PowerShell.Utility\Read-Host $promptText -AsSecureString } elseif ($MaskInput) { Microsoft.PowerShell.Utility\Read-Host $promptText -MaskInput } else { Microsoft.PowerShell.Utility\Read-Host $promptText }
+        $fallbackPrompt = if ($AsSecureString -or $MaskInput) { "$promptText (Ctrl+C: Abbruch)" } else { "$promptText (0: Abbruch)" }
+        $value = if ($ReadInput) { & $ReadInput $fallbackPrompt } elseif ($AsSecureString) { Microsoft.PowerShell.Utility\Read-Host $fallbackPrompt -AsSecureString } elseif ($MaskInput) { Microsoft.PowerShell.Utility\Read-Host $fallbackPrompt -MaskInput } else { Microsoft.PowerShell.Utility\Read-Host $fallbackPrompt }
         if ($null -eq $value) { return [PSCustomObject]@{ Status='Cancelled'; Value=$null } }
         if ($AsSecureString) { return [PSCustomObject]@{ Status='Confirmed'; Value=$value } }
+        if (-not $MaskInput -and ([string]$value -eq '0' -or [string]$value -eq [string][char]27)) {
+            return [PSCustomObject]@{ Status='Cancelled'; Value=$null }
+        }
         return [PSCustomObject]@{ Status='Confirmed'; Value=$(if ([string]::IsNullOrWhiteSpace([string]$value)) { $Default } else { [string]$value }) }
     }
 
@@ -402,14 +406,19 @@ function Get-LabConsoleFrame {
     $header.Add('')
     $attentionItems = if ($State.Snapshot -and $State.Snapshot.PSObject.Properties['AttentionItems']) { @($State.Snapshot.AttentionItems) } else { @() }
     $footerLines = [System.Collections.Generic.List[string]]::new()
-    $footerLines.Add('')
-    $attentionLimit = [Math]::Min(2, $attentionItems.Count)
-    for ($index = 0; $index -lt $attentionLimit; $index++) {
+    $baseFooterLineCount = 1 + $(if ($State.Message) { 1 } else { 0 })
+    $availableAttentionLines = [Math]::Max(0, $Height - $header.Count - 1 - $baseFooterLineCount)
+    $attentionShown = 0
+    for ($index = 0; $index -lt [Math]::Min(2, $attentionItems.Count); $index++) {
         $attention = $attentionItems[$index]
+        $requiredLines = 1 + $(if ([string]$attention.ActionHint) { 1 } else { 0 })
+        if ($footerLines.Count + $requiredLines -gt $availableAttentionLines) { break }
         $marker = switch ([string]$attention.Severity) { 'Critical' { '[!]' } 'Warning' { '[!]' } default { '[i]' } }
         $footerLines.Add("Offen $marker $($attention.Message)")
+        if ([string]$attention.ActionHint) { $footerLines.Add("Loesung: $($attention.ActionHint)") }
+        $attentionShown++
     }
-    if ($attentionItems.Count -gt $attentionLimit) { $footerLines.Add("Weitere offene Punkte: $($attentionItems.Count - $attentionLimit)") }
+    if ($attentionItems.Count -gt $attentionShown -and $footerLines.Count -lt $availableAttentionLines) { $footerLines.Add("Weitere offene Punkte: $($attentionItems.Count - $attentionShown)") }
     if ($State.Message) { $footerLines.Add("Hinweis: $($State.Message)") }
     $footerLines.Add($Footer)
     $viewportHeight = [Math]::Max(1, $Height - $header.Count - $footerLines.Count)
@@ -540,7 +549,10 @@ function Invoke-LabConsoleMenu {
     if ($ForceFallback -or -not [bool]$Capability.Supported) {
         if ($Snapshot -and @($Snapshot.AttentionItems).Count -gt 0) {
             Write-Host "  Offene Punkte: $(@($Snapshot.AttentionItems).Count)"
-            foreach ($attention in @($Snapshot.AttentionItems | Select-Object -First 3)) { Write-Host "    [$($attention.Severity)] $($attention.Message)" }
+            foreach ($attention in @($Snapshot.AttentionItems | Select-Object -First 3)) {
+                Write-Host "    [$($attention.Severity)] $($attention.Message)"
+                if ([string]$attention.ActionHint) { Write-Host "      Loesung: $($attention.ActionHint)" }
+            }
         }
         for ($index = 0; $index -lt $Items.Count; $index++) {
             $item = $Items[$index]
@@ -549,7 +561,10 @@ function Invoke-LabConsoleMenu {
             $disabled = if ([bool]$item.Disabled) { ' (nicht verfuegbar)' } else { '' }
             Write-Host ("    [{0}] {1}{2}{3}" -f $shortcut, $item.Label, $value, $disabled) -ForegroundColor $(if ([bool]$item.Disabled) { 'DarkGray' } else { 'Gray' })
         }
-        $answer = if ($ReadInput) { & $ReadInput $FallbackPrompt } else { Read-Host $FallbackPrompt }
+        if (@($Items | Where-Object { [string]$_.Shortcut -eq '0' }).Count -eq 0) {
+            Write-Host '    [0] Zurueck' -ForegroundColor Gray
+        }
+        $answer = if ($ReadInput) { & $ReadInput "$FallbackPrompt (0: Zurueck)" } else { Read-Host "$FallbackPrompt (0: Zurueck)" }
         if (-not $answer) { return [PSCustomObject]@{ Status='Cancelled'; SelectedItem=$null; State=$null } }
         if ([string]$answer -eq '0') { return [PSCustomObject]@{ Status='Cancelled'; SelectedItem=$null; State=$null } }
         for ($index = 0; $index -lt $Items.Count; $index++) {
@@ -725,7 +740,10 @@ function Invoke-LabConsoleMultiSelect {
     if ($ForceFallback -or -not [bool]$Capability.Supported) {
         if ($Snapshot -and @($Snapshot.AttentionItems).Count -gt 0) {
             Write-Host "  Offene Punkte: $(@($Snapshot.AttentionItems).Count)"
-            foreach ($attention in @($Snapshot.AttentionItems | Select-Object -First 3)) { Write-Host "    [$($attention.Severity)] $($attention.Message)" }
+            foreach ($attention in @($Snapshot.AttentionItems | Select-Object -First 3)) {
+                Write-Host "    [$($attention.Severity)] $($attention.Message)"
+                if ([string]$attention.ActionHint) { Write-Host "      Loesung: $($attention.ActionHint)" }
+            }
         }
         while ($true) {
             $displayItems = & $getDisplayItems
@@ -735,7 +753,10 @@ function Invoke-LabConsoleMultiSelect {
                 $value = if ($null -ne $item.Value -and [string]$item.Value) { " - $($item.Value)" } else { '' }
                 Write-Host ("    [{0}] {1}{2}" -f $shortcut, $item.Label, $value)
             }
-            $answer = if ($ReadInput) { & $ReadInput '  Auswahl' } else { Read-Host '  Auswahl' }
+            if (@($displayItems | Where-Object { [string]$_.Shortcut -eq '0' }).Count -eq 0) {
+                Write-Host '    [0] Abbrechen' -ForegroundColor Gray
+            }
+            $answer = if ($ReadInput) { & $ReadInput '  Auswahl (Enter: Uebernehmen, 0: Abbrechen)' } else { Read-Host '  Auswahl (Enter: Uebernehmen, 0: Abbrechen)' }
             if ([string]::IsNullOrWhiteSpace([string]$answer)) {
                 return [PSCustomObject]@{ Status='Confirmed'; SelectedItems=(& $getSelectedItems); State=$null }
             }

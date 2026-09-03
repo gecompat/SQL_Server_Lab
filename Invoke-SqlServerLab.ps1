@@ -6,7 +6,8 @@
     Importiert das Modul automatisch und startet den interaktiven Modus
     oder fuehrt eine Direkt-Aktion aus.
 .PARAMETER Action
-    Optionale Direkt-Aktion: New, Status, Start, Stop, Restart, Remove, Clear, Script, Database, Image.
+    Optionale Direkt-Aktion des Moduls, zum Beispiel Setup, New, Status,
+    ConnectionCenter, CleanupAudit oder Image.
     Ohne Angabe startet das interaktive Menue.
 .PARAMETER Manifest
     Pfad zu einer Manifest-JSON-Datei fuer New-SqlServerLab.
@@ -28,7 +29,7 @@ param(
     [Alias('h','help','?')][switch]$ShowHelp,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$RemainingArgs,
-    [ValidateSet('New', 'Status', 'Start', 'Stop', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image')]
+    [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
     [string]$Action,
 
     [string]$Manifest,
@@ -63,7 +64,7 @@ param(
     Write-Host "  .\$ScriptName -ShowHelp" -ForegroundColor Cyan
     Write-Host ''
     Write-Host 'Parameter:' -ForegroundColor Magenta
-    Write-Host '  -Action <string>      Direkt-Aktion (New, Status, Start, Stop, Restart, Remove, Clear, Script, Database, Image).' -ForegroundColor Cyan
+    Write-Host '  -Action <string>      Direkt-Aktion; z. B. Setup, New, Status, CleanupAudit, ConnectionCenter oder Image.' -ForegroundColor Cyan
     Write-Host '  -Manifest <string>    Optionaler Pfad zu Manifest fuer New-SqlServerLab.' -ForegroundColor Cyan
     Write-Host '  -ConsoleMode <string> Auto oder diagnostischer Fallback fuer interaktive Menues.' -ForegroundColor Cyan
     Write-Host '  -ShowHelp             Zeigt diese Hilfe.' -ForegroundColor Cyan
@@ -84,14 +85,6 @@ if ($showHelpRequested) {
     Show-Usage -ScriptName (Split-Path -Leaf $PSCommandPath)
     return
 }
-
-if ($Action) {
-    $validActions = @('New', 'Status', 'Start', 'Stop', 'Restart', 'Remove', 'Clear', 'Script', 'Database', 'Image')
-    if ($Action -notin $validActions) {
-        throw "Ungueltige Action '$Action'. Gültige Werte: $($validActions -join ', ')."
-    }
-}
-
 
 $ErrorActionPreference = 'Stop'
 

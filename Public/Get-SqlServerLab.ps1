@@ -3,9 +3,10 @@
     Zeigt Status aller oder einzelner SQL_Server_Lab-Umgebungen.
 .DESCRIPTION
     Liest den gespeicherten Run-State und ergaenzt ihn, soweit moeglich, um den
-    Live-Status der zugeordneten Docker- oder Podman-Container. Mehrere
-    Provider innerhalb eines Runs werden als getrennte ProviderSubRuns
-    abgefragt. Das Cmdlet veraendert weder Run-State noch Container.
+    Live-Status der zugeordneten Docker-/Podman-Container oder Hyper-V-VMs.
+    Mehrere Provider innerhalb eines Runs werden getrennt abgefragt. Der
+    Runtime-Status einer Hyper-V-VM wird nicht als ungepruefter SQL-Status
+    ausgegeben. Das Cmdlet veraendert weder Run-State noch Providerressourcen.
 .PARAMETER RunId
     Optional: Nur diese RunId anzeigen.
 .PARAMETER Detailed
@@ -63,6 +64,7 @@ function Get-SqlServerLab {
 
         foreach ($providerGroup in $providerGroups) {
             $provider = ([string]$providerGroup.Name).ToLowerInvariant()
+            if ($provider -notin @('docker', 'podman')) { continue }
             $runtime = Get-ContainerRuntime -PreferredRuntime $provider
             if (-not $runtime) {
                 $runtimeNotes += "Container-Runtime '$provider' ist lokal nicht verfuegbar."
@@ -114,17 +116,47 @@ function Get-SqlServerLab {
         }
 
         foreach ($instance in $instanceList) {
-            $containerInfo = $containerMap[$instance.id]
+            $provider = ([string]$instance.provider).ToLowerInvariant()
+            $containerInfo = if ($provider -in @('docker', 'podman')) { $containerMap[$instance.id] } else { $null }
+            $hyperVInfo = $null
+            $instanceRuntimeNote = ''
+            if ($provider -eq 'hyperv') {
+                if ([string]::IsNullOrWhiteSpace([string]$instance.vmName)) {
+                    $instanceRuntimeNote = "Hyper-V-Status fuer Instanz '$($instance.id)' ist ohne VM-Namen nicht pruefbar."
+                }
+                else {
+                    try {
+                        $hyperVInfo = Get-HyperVInstanceStatus -VMName ([string]$instance.vmName) `
+                            -ExpectedRunId ([string]$run.runId) -ExpectedScopeId ([string]$run.scopeId)
+                    }
+                    catch {
+                        $instanceRuntimeNote = "Hyper-V-Status fuer VM '$($instance.vmName)' konnte nicht gelesen werden: $($_.Exception.Message)"
+                    }
+                }
+            }
+            elseif ($provider -notin @('docker', 'podman')) {
+                $instanceRuntimeNote = "Provider '$provider' besitzt keine Statusabfrage."
+            }
+            if ($instanceRuntimeNote) { $runtimeNotes += $instanceRuntimeNote }
+            $runtimeName = if ($containerInfo) { [string]$containerInfo.Name } elseif ($hyperVInfo) { [string]$hyperVInfo.VMName } elseif ($instance.vmName) { [string]$instance.vmName } else { '' }
+            $running = if ($containerInfo) { [bool]$containerInfo.Running } elseif ($hyperVInfo) { [bool]($hyperVInfo.Exists -and [string]$hyperVInfo.State -eq 'Running') } else { $false }
+            $runtimeState = if ($containerInfo) { if ($containerInfo.Running) { 'Running' } else { 'Stopped' } } elseif ($hyperVInfo) { [string]$hyperVInfo.State } else { 'Unverifiable' }
             $instances += [PSCustomObject]@{
                 Id            = $instance.id
-                Version       = $instance.version
-                Provider      = $instance.provider
+                Version       = if ($instance.version) { [string]$instance.version } else { [string]$instance.sqlVersion }
+                Workload      = if ($instance.workload) { [string]$instance.workload } elseif ($instance.version) { 'sql' } else { 'windows' }
+                Provider      = $provider
                 Host          = $instance.host
                 Port          = $instance.port
                 ContainerName = if ($containerInfo) { $containerInfo.Name } else { '' }
                 ContainerUp   = if ($containerInfo) { $containerInfo.Running } else { $false }
+                RuntimeName   = $runtimeName
+                RuntimeState  = $runtimeState
+                Running       = $running
                 Healthy       = if ($containerInfo) { $containerInfo.Healthy } else { $false }
-                AutoStart     = if ($containerInfo) { if ($containerInfo.AutoStart) { 'on' } else { 'off' } } elseif ($instance.autostart) { [string]$instance.autostart } else { 'off' }
+                SqlStatus     = if ($containerInfo) { if ($containerInfo.Healthy) { 'READY' } elseif ($containerInfo.Running) { 'STARTING_OR_UNHEALTHY' } else { 'STOPPED' } } elseif ($provider -eq 'hyperv' -and ([string]$instance.workload -eq 'sql' -or $instance.version)) { 'NOT_LIVE_VERIFIED' } else { 'NOT_APPLICABLE' }
+                AutoStart     = if ($containerInfo) { if ($containerInfo.AutoStart) { 'on' } else { 'off' } } elseif ($hyperVInfo -and $hyperVInfo.AutoStart) { [string]$hyperVInfo.AutoStart } elseif ($instance.autostart) { [string]$instance.autostart } else { 'off' }
+                RuntimeNote   = $instanceRuntimeNote
             }
         }
 
@@ -166,12 +198,20 @@ function Get-SqlServerLab {
         Write-LabStatus -Label 'Erstellt' -Value $createdAtText
 
         foreach ($instance in $lab.Instances) {
-            $upText = if ($instance.ContainerUp) { '[UP]' } else { '[DOWN]' }
-            $healthText = if ($instance.Healthy) { ' healthy' } else { '' }
             $autoStartText = if ($instance.AutoStart -eq 'on') { ' autostart' } else { '' }
-            Write-LabStatus `
-                -Label "  $($instance.Id)" `
-                -Value "$($instance.Host):$($instance.Port) (SQL $($instance.Version), $($instance.Provider)) $upText$healthText$autoStartText"
+            if ($instance.Provider -eq 'hyperv') {
+                $upText = if ($instance.Running) { '[UP]' } elseif ($instance.RuntimeState -eq 'Unverifiable') { '[NICHT PRUEFBAR]' } else { '[DOWN]' }
+                $workloadText = if ($instance.Workload -eq 'sql') { "SQL $($instance.Version)" } else { 'Windows' }
+                $sqlText = if ($instance.SqlStatus -eq 'NOT_LIVE_VERIFIED') { ' · SQL nicht live geprueft' } else { '' }
+                Write-LabStatus -Label "  $($instance.Id)" -Value "VM $($instance.RuntimeName) ($workloadText, hyperv) $upText$autoStartText$sqlText"
+            }
+            else {
+                $upText = if ($instance.ContainerUp) { '[UP]' } else { '[DOWN]' }
+                $healthText = if ($instance.Healthy) { ' healthy' } else { '' }
+                Write-LabStatus `
+                    -Label "  $($instance.Id)" `
+                    -Value "$($instance.Host):$($instance.Port) (SQL $($instance.Version), $($instance.Provider)) $upText$healthText$autoStartText"
+            }
         }
 
         if ($lab.RuntimeNote) {

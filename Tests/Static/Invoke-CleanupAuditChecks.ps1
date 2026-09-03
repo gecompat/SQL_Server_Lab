@@ -7,12 +7,14 @@ $toolPath = Join-Path $repoRoot 'Tools/Initialize-SqlServerLabDataRoot.ps1'
 $temporaryParent = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-cleanup-audit-$([Guid]::NewGuid().ToString('N'))"
 $dataRoot = Join-Path $temporaryParent 'Lab_Data'
 $previousDataRoot = $env:SQL_SERVER_LAB_DATA_ROOT
+$previousStateRoot = $env:SQL_SERVER_LAB_STATE
 $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 Write-Host ''; Write-Host 'SQL_Server_Lab - Cleanup Audit Checks' -ForegroundColor Cyan
 try {
     $receipt = & $toolPath -RootPath $dataRoot
     $env:SQL_SERVER_LAB_DATA_ROOT = $dataRoot
+    $env:SQL_SERVER_LAB_STATE = Join-Path $temporaryParent 'State'
     $module = Import-Module $modulePath -Force -PassThru -ErrorAction Stop
     $result = & $module {
         function docker {
@@ -401,6 +403,12 @@ try {
     Add-CheckResult -Name 'Ungetrackte Run-Datei wird nur als Preserve-Befund gemeldet' -Success (
         @($result.Audit.HyperV.UntrackedFiles | Where-Object { $_.Path -eq $result.UntrackedFile -and $_.Preservation -eq 'PRESERVE_UNTRACKED' }).Count -eq 1 -and
         (Test-Path -LiteralPath $result.UntrackedFile -PathType Leaf))
+    $auditSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLabCleanupAudit.ps1') -Raw -Encoding utf8
+    Add-CheckResult -Name 'Verifizierte Hyper-V-VM-Konfigurationsdateien gelten nicht als ungetrackte Residuen' -Success (
+        $auditSource -match 'managedVmConfigurationRoots' -and
+        $auditSource -match "ResourceKind -eq 'VM_CONFIGURATION'" -and
+        $auditSource -match 'isManagedVmConfiguration'
+    )
     Add-CheckResult -Name 'Nichtterminales Migrationsjournal blockiert Cleanup vor jeder Mutation' -Success (
         $result.MigrationBlocked.Status -eq 'CLEANUP_BLOCKED' -and $result.ProtectedAfterMigrationBlock)
     Add-CheckResult -Name 'Nichtterminale Location-Migration blockiert Cleanup vor jeder Mutation' -Success (
@@ -419,6 +427,7 @@ try {
 catch { Add-CheckResult -Name 'Cleanup-Audit-Testausfuehrung' -Success $false -Message "$($_.Exception.Message) [$($_.ScriptStackTrace)]" }
 finally {
     $env:SQL_SERVER_LAB_DATA_ROOT = $previousDataRoot
+    $env:SQL_SERVER_LAB_STATE = $previousStateRoot
     if ($result -and $result.RuntimeBackingPath -and (Test-Path -LiteralPath $result.RuntimeBackingPath)) { Remove-Item -LiteralPath $result.RuntimeBackingPath -Force }
     if (Test-Path -LiteralPath $temporaryParent) { Remove-Item -LiteralPath $temporaryParent -Recurse -Force }
 }
