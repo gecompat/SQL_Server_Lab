@@ -208,6 +208,25 @@ function Test-HyperVSqlPreparedWindowsMediaCompatibility {
     }
 }
 
+function Test-HyperVWindowsMediaDiscoveryRetry {
+    <#
+    .SYNOPSIS
+        Kennzeichnet fluechtige Medien-Erkennungsfehler, die nicht persistiert werden duerfen.
+    .DESCRIPTION
+        Das Einhaengen einer Windows-ISO kann in einer nicht erhoehten Sitzung
+        fehlschlagen. Dieser Zustand sagt nichts ueber das Medium aus und muss
+        bei einem erneuten (gegebenenfalls erhoehten) Aufruf erneut geprueft
+        werden.
+    #>
+    [CmdletBinding()]
+    param($Cached)
+
+    return @($Cached | Where-Object {
+        [string]$_.State -eq 'RETRY_ELEVATED' -or
+        [string]$_.Message -match '(?i)(erh.\s*hte Rechte|elevated (privilege|rights)|access (is )?denied|zugriff verweigert)'
+    }).Count -gt 0
+}
+
 function Get-HyperVWindowsInstallationMediaCandidates {
     <# .SYNOPSIS Findet Windows-Server- und Windows-Client-ISOs in jeder Medien-Unterstruktur. #>
     [CmdletBinding()]
@@ -238,7 +257,7 @@ function Get-HyperVWindowsInstallationMediaCandidates {
         $null = $knownPaths.Add($item.FullName)
         $fingerprint = "$($item.Length):$($item.LastWriteTimeUtc.Ticks)"
         $cached = $script:HyperVWindowsMediaScanCache[$item.FullName]
-        if (-not $cached -or $cached.Fingerprint -ne $fingerprint) {
+        if (-not $cached -or $cached.Fingerprint -ne $fingerprint -or (Test-HyperVWindowsMediaDiscoveryRetry -Cached $cached)) {
             $relativePath = [IO.Path]::GetRelativePath($resolvedRoot, $item.FullName).Replace('\', '/')
             try {
                 $variants = @(Get-HyperVWindowsInstallationMediaInfo -IsoPath $item.FullName | ForEach-Object {
@@ -247,7 +266,14 @@ function Get-HyperVWindowsInstallationMediaCandidates {
                 $cached = $variants
             }
             catch {
-                $cached = @([PSCustomObject]@{ Fingerprint = $fingerprint; MediaId = $relativePath; OperatingSystemId = $null; WindowsEdition = $null; InstallationType = $null; ImageName = $null; ImageIndex = $null; State = 'UNRECOGNIZED'; Message = $_.Exception.Message })
+                $message = [string]$_.Exception.Message
+                $requiresElevation = $message -match '(?i)(erh.\s*hte Rechte|elevated (privilege|rights)|access (is )?denied|zugriff verweigert)'
+                $cached = @([PSCustomObject]@{
+                    Fingerprint = $fingerprint; MediaId = $relativePath; OperatingSystemId = $null
+                    WindowsEdition = $null; InstallationType = $null; ImageName = $null; ImageIndex = $null
+                    State = if ($requiresElevation) { 'RETRY_ELEVATED' } else { 'UNRECOGNIZED' }
+                    Message = $message
+                })
             }
             $script:HyperVWindowsMediaScanCache[$item.FullName] = $cached
             $cacheChanged = $true
@@ -257,7 +283,10 @@ function Get-HyperVWindowsInstallationMediaCandidates {
     if ($cacheChanged) {
         $persistentCache = @{}
         foreach ($path in @($script:HyperVWindowsMediaScanCache.Keys | Where-Object { $_.StartsWith($resolvedRoot, [System.StringComparison]::OrdinalIgnoreCase) })) {
-            $persistentCache[$path] = $script:HyperVWindowsMediaScanCache[$path]
+            $entry = $script:HyperVWindowsMediaScanCache[$path]
+            if (-not (Test-HyperVWindowsMediaDiscoveryRetry -Cached $entry)) {
+                $persistentCache[$path] = $entry
+            }
         }
         Save-HyperVMediaDiscoveryCache -MediaRoot $resolvedRoot -Kind windows -Cache $persistentCache
     }
