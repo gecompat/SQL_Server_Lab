@@ -52,6 +52,20 @@
       },
       "additionalProperties": false
     },
+    "artifacts": {
+      "type": "object",
+      "description": "Read-only Auswahlrichtlinien für veröffentlichte Artifacts. Sie starten weder Download noch Refresh oder Bereinigung.",
+      "properties": {
+        "minimumEvaluationDaysRemaining": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3650,
+          "default": 30,
+          "description": "Mindestrestlaufzeit einer Windows-Evaluation für die automatische oder explizite Hyper-V-Imageauswahl."
+        }
+      },
+      "additionalProperties": false
+    },
     "persistentData": {
       "type": "object",
       "description": "Optionale langlebige SQL-Daten je Instanz. Container verwenden ein Data-Root-Runtime-Volume; Hyper-V eine eigene Daten-VHDX.",

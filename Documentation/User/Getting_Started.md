@@ -593,6 +593,7 @@ aktuell implementierten Runtime-Defaults auf. Zu den wichtigsten gehören:
 | Manifestfeld | Effektiver Framework-Default bei fehlender Angabe |
 |---|---|
 | `instances[].provider` | automatische Auswahl: normalerweise `docker`; `hyperv` benötigt explizit `os: "windows"` und einen `hyperv.preparedImageId`-Verweis auf ein `OS_SEALED`- oder `SQL_PREPARED_SEALED`-Artifact |
+| `artifacts.minimumEvaluationDaysRemaining` | 30 Tage; schließt Windows-Evaluationen mit zu kurzer, fehlender oder ungültiger Restlaufzeit vor der Hyper-V-Imageauswahl aus |
 | `instances[].os` | `linux` |
 | `instances[].profile` | `standard` |
 | `instances[].collation` | `SQL_Latin1_General_CP1_CI_AS` (nativer Containerstandard) |
