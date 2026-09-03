@@ -2040,7 +2040,8 @@ function Invoke-LabHyperVMenuAction {
         [Parameter(Mandatory)][string]$Title,
         [Parameter(Mandatory)][scriptblock]$Action,
         [ValidateSet('Run', 'Build', 'Image', 'Staging', 'Recovery')]
-        [string[]]$ResourceClass
+        [string[]]$ResourceClass,
+        [bool]$RequiresAdministrator = $true
     )
 
     Show-LabHyperVMenuActionHeader -Title $Title
@@ -2061,6 +2062,28 @@ function Invoke-LabHyperVMenuAction {
             return
         }
     }
+    if ($RequiresAdministrator -and -not (Test-LabAdministrator)) {
+        try {
+            $elevationPreview = if ($script:HyperVResourceLocationHandoff) {
+                Assert-LabHyperVResourceLocationPreview -Preview $script:HyperVResourceLocationHandoff
+            }
+            else {
+                Get-LabHyperVResourceLocationPreview
+            }
+            $elevation = Start-LabElevatedAction -Action Image -ResourcePreview $elevationPreview
+            if ($elevation.Started) {
+                Write-LabInfo 'Die gewählte Hyper-V-Aktion wird im erhöhten Hyper-V-Menü fortgesetzt. Dort bitte denselben Menüpunkt wählen.'
+            }
+            $null = Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zum Hyper-V-Menü'
+            return $elevation
+        }
+        catch {
+            Write-LabError "Hyper-V-Aktion benötigt Administratorrechte: $($_.Exception.Message)"
+            $null = Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zum Hyper-V-Menü'
+            return
+        }
+    }
+
     & $Action
     Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zum Hyper-V-Menü'
 }
@@ -2091,7 +2114,7 @@ function Invoke-LabHyperVPreparedImageWorkflowMenu {
             '2' { Invoke-LabHyperVMenuAction -Title 'Windows bestätigen und automatisch fertigstellen' -Action { Confirm-LabHyperVSqlWindowsInstallationInteractive } -ResourceClass Build,Image,Staging }
             '3' { Invoke-LabHyperVMenuAction -Title 'Automatischen Abschluss fortsetzen' -Action { Invoke-LabHyperVSqlPrepareInteractive } -ResourceClass Build,Image,Staging }
             '4' { Invoke-LabHyperVMenuAction -Title 'Prepared-Image manuell veröffentlichen' -Action { Publish-LabHyperVSqlImageBuildInteractive } -ResourceClass Build,Image,Staging }
-            '5' { Invoke-LabHyperVMenuAction -Title 'Builder-Status' -Action { $null = Show-LabHyperVSqlImageBuilds } }
+            '5' { Invoke-LabHyperVMenuAction -Title 'Builder-Status' -Action { $null = Show-LabHyperVSqlImageBuilds } -RequiresAdministrator:$false }
             'r' { Invoke-LabHyperVMenuAction -Title 'Sysprep-Recovery' -Action { Resume-LabHyperVSqlPreparedImageGeneralizationInteractive } -ResourceClass Build,Image,Staging }
             'c' { Invoke-LabHyperVMenuAction -Title 'Unfertigen Builder aufräumen' -Action { Remove-LabHyperVSqlImageBuildInteractive } }
             default { Write-LabWarning "Ungueltige Auswahl: $choice" }
@@ -2175,7 +2198,7 @@ function Invoke-LabHyperVWindowsBaselineMenu {
         switch ($choice) {
             '0' { $exitMenu = $true }
             '1' { Invoke-LabHyperVMenuAction -Title 'Windows-Builder vorbereiten' -Action { New-LabHyperVImageBuildInteractive } -ResourceClass Build }
-            '2' { Invoke-LabHyperVMenuAction -Title 'Windows-Build-Status' -Action { $null = Show-LabHyperVImageBuilds } }
+            '2' { Invoke-LabHyperVMenuAction -Title 'Windows-Build-Status' -Action { $null = Show-LabHyperVImageBuilds } -RequiresAdministrator:$false }
             '3' { Invoke-LabHyperVMenuAction -Title 'Windows-Builder starten' -Action { Start-LabHyperVImageBuildInteractive } }
             '4' { Invoke-LabHyperVMenuAction -Title 'Windows generalisieren' -Action { Invoke-LabHyperVImageGeneralizationInteractive } }
             '5' { Invoke-LabHyperVMenuAction -Title 'Windows-Image veröffentlichen' -Action { Publish-LabHyperVImageBuildInteractive } -ResourceClass Image,Staging }
@@ -2206,7 +2229,7 @@ function Invoke-LabHyperVSqlAcceptanceMenu {
             '0' { $exitMenu = $true }
             '1' { Invoke-LabHyperVMenuAction -Title 'OOBE und SQL-Setup' -Action { Invoke-LabHyperVSqlAcceptanceInstallInteractive } }
             '2' { Invoke-LabHyperVMenuAction -Title 'SQL-Abnahmetest' -Action { Test-LabHyperVSqlAcceptanceInteractive } }
-            '3' { Invoke-LabHyperVMenuAction -Title 'SQL-Abnahmematrix' -Action { Show-LabHyperVSqlAcceptanceMatrix } }
+            '3' { Invoke-LabHyperVMenuAction -Title 'SQL-Abnahmematrix' -Action { Show-LabHyperVSqlAcceptanceMatrix } -RequiresAdministrator:$false }
             '4' { Invoke-LabHyperVMenuAction -Title 'Manuelle OOBE übernehmen' -Action { Invoke-LabHyperVSqlManualOobeAcceptanceInstallInteractive } }
             default { Write-LabWarning "Ungueltige Auswahl: $choice" }
         }
@@ -2275,8 +2298,15 @@ function New-LabHyperVImageBuildInteractive {
     try { $mediaRoot = Set-LabMediaRootDefault -MediaRoot $mediaRoot }
     catch { Write-LabError "Media Root ist ungueltig: $($_.Exception.Message)"; return }
 
-    $candidates = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $mediaRoot | Where-Object { $_.State -eq 'READY' })
+    $allCandidates = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $mediaRoot)
+    $candidates = @($allCandidates | Where-Object { $_.State -eq 'READY' })
     if ($candidates.Count -eq 0) {
+        $elevationBlocked = @($allCandidates | Where-Object { $_.State -eq 'RETRY_ELEVATED' })
+        if ($elevationBlocked.Count -gt 0) {
+            Write-LabError 'Windows-ISO gefunden, aber ihre Metadaten benötigen eine erhöhte PowerShell-Sitzung.'
+            Write-LabInfo 'Diese Erkennung wird nicht dauerhaft gecached. Die Aktion im erhöhten Hyper-V-Menü erneut auswählen.'
+            return
+        }
         Write-LabError 'Kein erkennbares Windows-Installationsmedium im Media Root gefunden.'
         return
     }
