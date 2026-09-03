@@ -120,6 +120,29 @@ try {
     Add-CheckResult -Name 'Manifest-Fallback wählt deterministisch die höchste Standard-Evaluation mit Desktop Experience' -Success (
         $fallbackSelection.artifactId -eq 'prepared-2025'
     )
+    $fallbackDiagnostics = & $module {
+        function Get-HyperVImageArtifact {
+            @(
+                [PSCustomObject]@{
+                    artifactId = 'expired'; artifactState = 'SQL_PREPARED_SEALED'; generalized = $true; sqlPrepared = $true
+                    registeredAt = '2026-08-01T00:00:00Z'; operatingSystem = [PSCustomObject]@{ id = 'windows-server-2025'; version = '2025'; edition = 'standard-evaluation'; installationType = 'desktop-experience' }
+                    license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = [datetime]::UtcNow.AddDays(-1).ToString('o') }; sql = [PSCustomObject]@{ version = '2025' }
+                },
+                [PSCustomObject]@{
+                    artifactId = 'wrong-version'; artifactState = 'SQL_PREPARED_SEALED'; generalized = $true; sqlPrepared = $true
+                    registeredAt = '2026-08-02T00:00:00Z'; operatingSystem = [PSCustomObject]@{ id = 'windows-server-2025'; version = '2025'; edition = 'standard-evaluation'; installationType = 'desktop-experience' }
+                    license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = [datetime]::UtcNow.AddDays(90).ToString('o') }; sql = [PSCustomObject]@{ version = '2022' }
+                }
+            )
+        }
+        Get-HyperVManifestFallbackArtifactSelection -SqlVersion 2025
+    }
+    Add-CheckResult -Name 'Manifest-Fallback liefert nur sanitisierte, konkrete Ablehnungsgründe' -Success (
+        -not $fallbackDiagnostics.Selected -and
+        $fallbackDiagnostics.Reasons -contains 'evaluation-expiring' -and
+        $fallbackDiagnostics.Reasons -contains 'sql-version-mismatch' -and
+        ($fallbackDiagnostics | ConvertTo-Json -Depth 10) -notmatch 'artifactId'
+    )
     $evaluationSelection = & $module {
         function Get-HyperVImageArtifact {
             @(
