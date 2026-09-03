@@ -86,6 +86,10 @@ COMMANDS
         Liefert die zusammengefasste Workflow-Sicht fuer lokale Labs,
         Windows-Baselines, SQL-Prepared-Images und Abnahmeumgebungen.
 
+    Get-SqlServerLabHyperVImageArtifact
+        Listet Hyper-V-Image-Artefakte read-only mit Evaluation, Integritaets-
+        und Referenzstatus ohne lokale Pfade.
+
     Get-SqlServerLabHyperVResourcePreview
         Zeigt die registrierte Hyper-V-Location, freien Speicher und die
         physischen Klassenroots read-only vor einer Hostmutation an.

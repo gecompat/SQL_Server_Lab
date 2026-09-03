@@ -367,6 +367,15 @@ Datenbanken liegen nicht im austauschbaren Image. Der Refresh- und
 Backupvertrag steht unter
 [Persistente Daten und Evaluation-Refresh](PERSISTENT_DATA_AND_EVALUATION_REFRESH.md).
 
+Die read-only Registry-Sicht zeigt veröffentlichte Images, Evaluation und
+aktive Referenzen ohne lokale Pfade. Sie startet keinen Build und ersetzt keinen
+späteren Refresh-/Rebuild-Vertrag:
+
+```powershell
+Get-SqlServerLabHyperVImageArtifact
+Get-SqlServerLabHyperVImageArtifact -ArtifactId '<ArtifactId>' -VerifyIntegrity
+```
+
 ## 9. Direkte Windows-SQL-Abnahmeumgebungen
 
 Neben dem Prepared-Image-Lifecycle können vorhandene run-lokale
