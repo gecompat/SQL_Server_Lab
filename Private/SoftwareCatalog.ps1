@@ -181,6 +181,53 @@ function New-LabUnsupportedSoftwarePlan {
     }
 }
 
+function New-LabUnsupportedGeneralSoftwarePlan {
+    <#
+    .SYNOPSIS
+        Stellt einen nicht ausführbaren allgemeinen Software-Intent explizit dar.
+
+    .DESCRIPTION
+        Allgemeine Tools sind erst nach Katalog-, Artefakt- und Lifecycle-Bindung
+        ausführbar. Bis dahin darf ihr Manifest-Intent weder stillschweigend
+        ignoriert noch als freier Installer interpretiert werden.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$SoftwareItem,
+        [Parameter(Mandatory)][string]$SqlVersion,
+        [Parameter(Mandatory)][ValidateSet('docker', 'podman', 'hyperv')][string]$Provider,
+        [Parameter(Mandatory)][ValidateSet('linux', 'windows')][string]$OperatingSystem
+    )
+
+    return [PSCustomObject]@{
+        Contract = [PSCustomObject]@{ Name = 'SqlServerLab.SoftwarePlan'; Version = '1.0'; EvidenceBoundary = 'catalog-and-provider-metadata' }
+        PlanKey = $null
+        SoftwareId = [string]$SoftwareItem.id
+        Kind = 'generalSoftware'
+        Optional = if ($null -ne $SoftwareItem.optional) { [bool]$SoftwareItem.optional } else { $true }
+        Language = $null
+        RequestedVersion = [string]$SoftwareItem.version
+        SqlVersion = $SqlVersion
+        Provider = $Provider
+        OperatingSystem = $OperatingSystem
+        Architecture = 'x86_64'
+        Status = 'DECLARED_UNSUPPORTED'
+        ReasonCode = 'GENERAL_SOFTWARE_RUNTIME_NOT_IMPLEMENTED'
+        Reason = "Allgemeine Software '$($SoftwareItem.id)' besitzt noch keinen kataloggebundenen, reproduzierbaren Runtime-Pfad."
+        VariantId = $null
+        VariantStatus = $null
+        RuntimeVersion = $null
+        InstallationMethod = if ($SoftwareItem.installMethod) { [string]$SoftwareItem.installMethod } else { 'catalog' }
+        RecipeVersion = $null
+        RequiredCapabilities = @()
+        ArtifactRefs = @()
+        PackageLocks = @()
+        Restart = $null
+        Validation = $null
+        RequestSource = if ($SoftwareItem.requestSource) { [string]$SoftwareItem.requestSource } else { 'software' }
+    }
+}
+
 function Resolve-LabExternalRuntimePlan {
     <#
     .SYNOPSIS
@@ -360,6 +407,29 @@ function Resolve-LabExternalRuntimePlansForInstance {
         Resolve-LabExternalRuntimePlan -SoftwareItem $_ -SqlVersion ([string]$Instance.version) `
             -Provider ([string]$Instance.provider) -OperatingSystem ([string]$Instance.os)
     })
+}
+
+function Resolve-LabSoftwarePlansForInstance {
+    <#
+    .SYNOPSIS
+        Löst sämtliche Software-Intents einer Instanz vor jeder Mutation auf.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Instance)
+
+    $externalRuntimeIds = @('sql-python', 'sql-r', 'sql-java', 'sql-csharp')
+    $operatingSystem = [string]$Instance.os
+    if (-not $operatingSystem) {
+        $operatingSystem = if ([string]$Instance.provider -eq 'hyperv') { 'windows' } else { 'linux' }
+    }
+    $generalPlans = @($Instance.software | Where-Object {
+        $_ -and [string]$_.id -notin $externalRuntimeIds
+    } | ForEach-Object {
+        New-LabUnsupportedGeneralSoftwarePlan -SoftwareItem $_ -SqlVersion ([string]$Instance.version) `
+            -Provider ([string]$Instance.provider) -OperatingSystem $operatingSystem
+    })
+    $externalRuntimePlans = @(Resolve-LabExternalRuntimePlansForInstance -Instance $Instance)
+    return @($generalPlans) + @($externalRuntimePlans)
 }
 
 function Get-LabSoftwarePlanKey {

@@ -675,8 +675,11 @@ nicht auf Hyper-V beschränkt.
 
 Der providerneutrale Softwarekatalog und Capability Resolver normalisieren
 Python-, R-, Java- und C#-Anforderungen nach SQL-Version, Betriebssystem,
-Architektur und Provider. Unvollständig belegte Varianten, freie Commands,
-nicht gesperrte Zusatzpakete und der bisherige `post-start`-Installer werden
+Architektur und Provider. Allgemeine Tools wie `sqlpackage` bleiben bis zu
+einem kataloggebundenen Artifact-/Lifecycle-Pfad `DECLARED_UNSUPPORTED` und
+werden vor jeder Provisionierungsmutation abgelehnt. Unvollständig belegte
+Varianten, freie Commands, nicht gesperrte Zusatzpakete und der bisherige
+`post-start`-Installer werden
 vor der Mutation sichtbar abgelehnt. SQL Server 2019 besitzt im Linux-
 Containerpfad derzeit nur die Java-Variante; dessen älterer Python-/R-
 Machine-Learning-Paketstack wird nicht mit dem Custom-Runtime-Vertrag von SQL
