@@ -103,10 +103,11 @@ mit einem bloßen Fehler:
   Datenträgern automatisch sauber herunter und führt die SQL-Installation aus. Ein
   Wechsel in das Hyper-V-Verwaltungsmenü ist im Normalfall nicht erforderlich.
 - `[b] Problem - Workflow abbrechen` hält den Ablauf kontrolliert an und lässt den
-  Slot bestehen. Nur für diesen Wiederaufnahmefall dient `[i] -> [4] -> [o]`.
+  Slot bestehen. Nur für diesen Wiederaufnahmefall dient `-Action Image` →
+  `[4] Betriebssystem- und SQL-Slots verwalten` → `[o]`.
 - Fehlt auch die OS-Vorlage, wird ein offener OS-Builder fortgesetzt oder ein
   neuer Builder aus der Windows-DVD begonnen.
-- Nach Veröffentlichung der OS-Vorlage wird `[1] Neue Umgebung erstellen`
+- Nach Veröffentlichung der OS-Vorlage wird `Umgebungen planen und erstellen`
   erneut gewählt; der Workflow setzt dann beim Windows-Slot fort.
 - Manifest- und NonInteractive-Aufrufe brechen weiterhin eindeutig ab, wenn die
   notwendige fertige SQL-Vorlage fehlt, weil dort keine OOBE übernommen werden kann.
