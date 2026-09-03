@@ -272,24 +272,13 @@ function New-LabInstanceIntentSnapshot {
         ReasonCode = [string]$networkPlan.ReasonCode
     }
 
-    $externalRuntimePlans = @(Resolve-LabExternalRuntimePlansForInstance -Instance $Instance)
-    $generalSoftwareItems = @($Instance.software | Where-Object {
-        $_ -and [string]$_.id -notin @('sql-python', 'sql-r', 'sql-java', 'sql-csharp')
-    } | ForEach-Object {
-        [PSCustomObject]@{
-            Id = [string]$_.id
-            Optional = if ($null -ne $_.optional) { [bool]$_.optional } else { $true }
-            Scope = if ($_.scope) { [string]$_.scope } else { 'instance' }
-            Status = 'DECLARED_UNSUPPORTED'
-            ReasonCode = 'SOFTWARE_NOT_CATALOGUED'
-        }
-    })
-    $externalRuntimeItems = @($externalRuntimePlans | ForEach-Object {
+    $softwarePlans = @(Resolve-LabSoftwarePlansForInstance -Instance $Instance)
+    $softwareItems = @($softwarePlans | ForEach-Object {
         [PSCustomObject]@{
             Id = [string]$_.SoftwareId
             PlanKey = [string]$_.PlanKey
-            Optional = $false
-            Scope = 'sqlExternalRuntime'
+            Optional = if ($_.PSObject.Properties['Optional']) { [bool]$_.Optional } else { [string]$_.Kind -ne 'sqlExternalRuntime' }
+            Scope = if ([string]$_.Kind -eq 'sqlExternalRuntime') { 'sqlExternalRuntime' } else { 'instance' }
             Status = [string]$_.Status
             ReasonCode = [string]$_.ReasonCode
             VariantId = [string]$_.VariantId
@@ -302,7 +291,6 @@ function New-LabInstanceIntentSnapshot {
             Validation = $_.Validation
         }
     })
-    $softwareItems = @($generalSoftwareItems) + @($externalRuntimeItems)
     $planningCapabilityStatus = if ($softwareItems.Count -eq 0) {
         'NOT_REQUESTED'
     }
