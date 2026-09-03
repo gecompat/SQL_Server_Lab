@@ -191,7 +191,7 @@ function Write-LabStatus {
         Write-Information "[STATUS] ${Label}: $Value" -Tags 'SqlServerLabUi' -InformationAction Continue
         return
     }
-    Write-Host "  $($Label.PadRight(24))" -NoNewline -ForegroundColor $script:Colors.Muted
+    Write-Host "  $($Label.PadRight(24)) " -NoNewline -ForegroundColor $script:Colors.Muted
     Write-Host $Value -ForegroundColor $Color
 }
 

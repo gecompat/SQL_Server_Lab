@@ -896,6 +896,11 @@ Dialogabbruch der grafischen Workflow-UI ist im lokalen Browser real mit
 Konsole ist im realen PowerShell-7-PTY für Cursor- und erzwungenen Fallback-
 Modus geprüft: `Ctrl+C` beendet die aktuelle Verarbeitung, der Fallback ist über
 `-ConsoleMode Fallback` reproduzierbar und `0` beendet ihn kontrolliert.
+Der Fallback zeigt den `0`-Rückweg auch dann, wenn ein Fachmenü keinen eigenen
+Null-Eintrag definiert; freie Textfelder weisen mit `(0: Abbruch)` auf denselben
+Vertrag hin. Attention-Meldungen geben vorhandene Handlungshinweise unmittelbar
+als `Lösung` aus. Der interaktive Cleanup-Audit bleibt mit `-NoWrite` wirklich
+schreibfrei und zeigt die kategorisierten Findings samt Guidance.
 Die konkrete Restmigration ist ebenfalls abgeschlossen: Storage,
 Connection Center/CMS, Erstellungs- und Hyper-V-Auswahllisten verwenden die
 gemeinsame Cursor-/Fallback-Schicht; ein statisches AST-Inventar lässt keine

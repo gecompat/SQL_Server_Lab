@@ -488,7 +488,8 @@ function Get-LabStorageResidencyInventory {
     foreach ($residue in @($RepositoryResidues)) {
         $objects.Add((New-LabStorageResidencyObject -Key "repository|$([string]$residue.Path)" -ObjectClass REPOSITORY_RESIDUE `
             -Provider core -Lifecycle UNMANAGED_OR_UNKNOWN -Residency REPOSITORY -PathVisibility HOST_VISIBLE -LabDataRelation OUTSIDE `
-            -LogicalName 'Repository residue' -Path ([string]$residue.Path) -CleanupPolicy REPORT_ONLY -AuditStatus RESIDUAL `
+            -LogicalName "Repository-Verzeichnis $([IO.Path]::GetFileName([string]$residue.Path)) ($([int]$residue.FileCount) Dateien)" `
+            -Path ([string]$residue.Path) -CleanupPolicy REPORT_ONLY -AuditStatus RESIDUAL `
             -Details @{ FileCount=[int]$residue.FileCount }))
     }
     foreach ($legacy in @($LegacyStateRoots)) {

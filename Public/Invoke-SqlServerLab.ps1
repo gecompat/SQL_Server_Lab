@@ -143,6 +143,35 @@ function Invoke-LabMenuAction {
 
 }
 
+function Show-LabCleanupAuditFindings {
+    <# .SYNOPSIS Zeigt kategorisierte Audit-Befunde samt sicherem Handlungshinweis. #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object]$Findings, [ValidateRange(1, 100)][int]$Maximum = 20)
+
+    $groups = @(
+        [PSCustomObject]@{ Property='RecoveryRequired'; Label='Recovery erforderlich' }
+        [PSCustomObject]@{ Property='UnexpectedResiduals'; Label='Unerwartete Reste' }
+        [PSCustomObject]@{ Property='Unverifiable'; Label='Nicht pruefbar' }
+        [PSCustomObject]@{ Property='Retained'; Label='Bewusst behalten' }
+    )
+    $shown = 0
+    foreach ($group in $groups) {
+        $items = @($Findings.($group.Property))
+        if ($items.Count -eq 0) { continue }
+        Write-Host "  $($group.Label): $($items.Count)" -ForegroundColor Yellow
+        foreach ($finding in @($items | Select-Object -First ([Math]::Max(0, $Maximum - $shown)))) {
+            Write-Host "    - $($finding.DisplayName) [$($finding.Provider)/$($finding.ReasonCode)]" -ForegroundColor Gray
+            Write-Host "      Loesung: $($finding.Guidance)" -ForegroundColor DarkGray
+            $shown++
+        }
+        if ($shown -ge $Maximum) { break }
+    }
+    $total = @($groups | ForEach-Object { @($Findings.($_.Property)).Count } | Measure-Object -Sum).Sum
+    if ($total -gt $shown) {
+        Write-LabInfo "$($total - $shown) weitere Befunde sind über Get-SqlServerLabCleanupAudit -NoWrite abrufbar."
+    }
+}
+
 function Show-LabSubMenu {
     [CmdletBinding()]
     param(
@@ -621,11 +650,12 @@ function Invoke-LabAction {
             Invoke-LabStorageInteractive
         }
         'CleanupAudit' {
-            $result = Get-SqlServerLabCleanupAudit
+            $result = Get-SqlServerLabCleanupAudit -NoWrite
             Write-LabStatus -Label 'Audit-Status' -Value $result.Audit.Status -Color $(if ($result.Audit.Status -eq 'CLEAN') { 'Green' } else { 'Yellow' })
             Write-LabStatus -Label 'Verbleibende Ressourcen' -Value $result.Audit.Summary.ResidualCount
             Write-LabStatus -Label 'Nicht pruefbare Provider' -Value $result.Audit.Summary.UnverifiableProviders
-            if ($result.Path) { Write-LabInfo "Audit gespeichert: $($result.Path)" }
+            Show-LabCleanupAuditFindings -Findings $result.Audit.Findings
+            Write-LabInfo 'Diese Menüansicht ist read-only und hat kein Audit-Artefakt geschrieben.'
         }
         'TestDataRoot' {
             $currentTestDataRoot = Get-LabTestDataRootDefault

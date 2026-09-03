@@ -17,7 +17,7 @@ Statische Vertragspruefungen und Runtime-Nachweise sind getrennte Evidence.
 | Nachweis | Docker | Podman | Hyper-V / Windows |
 |---|---|---|---|
 | echte Provisionierung | `2022-CU18` | `2022-CU18` | frischer `OS_SEALED`-Klon, danach SQL-Setup |
-| CU-Abdeckung | ein beliebiger katalogisierter CU: CU18 | ein beliebiger katalogisierter CU: CU18 | kein CU-Zwang; optional nur mit lokal verifiziertem Paket |
+| CU-Abdeckung | fest gebundener Referenzstand CU18 | fest gebundener Referenzstand CU18 | kein CU-Zwang; optional nur mit lokal verifiziertem Paket |
 | reale Testdatenbank | Chinook, katalogisierter SHA-256 | Chinook, katalogisierter SHA-256 | Chinook, katalogisierter SHA-256 |
 | SQL-Systemzustand | run-scoped `/var/opt/mssql`-Volume | run-scoped `/var/opt/mssql`-Volume | Child-VHDX der VM |
 | getrennte Daten/Log-Pfade | `/sqldata`, `/sqllog` | `/sqldata`, `/sqllog` | `E:\SQLData`, `L:\SQLLog` auf eigenen VHDX |
@@ -48,15 +48,15 @@ Statische Vertragspruefungen und Runtime-Nachweise sind getrennte Evidence.
 | `New/Clear/Export-SqlServerLabAutomatedTestEnvironment` | Testumgebungs- und Recovery-Suites | sechs gemeinsam registrierte SQL-Ziele und CMS |
 | `Install/Test-SqlServerLabAdapter` | Adapter-Schema und Capability-Gates | GitHub-hosted Adapter-Smoke |
 | `Install-SqlServerLab7Zip` | 7-Zip- und Archivhandler-Vertraege | nur fuer ZIP-Samples erforderlich; Chinook benoetigt 7-Zip nicht |
-| `Clear-SqlServerLab`, `Get-SqlServerLabCleanupAudit` | Cleanup-, Recovery- und Scope-Suites | Provider-Akzeptanz prueft den engeren rungebundenen Cleanup; globales Clear wird nicht gegen fremde Labs ausgefuehrt |
+| `Clear-SqlServerLab`, `Get-SqlServerLabCleanupAudit` | Cleanup-, Recovery- und Scope-Suites; interaktiver Audit ruft `-NoWrite` auf und zeigt Findings samt Guidance | Provider-Akzeptanz prueft den engeren rungebundenen Cleanup; globales Clear wird nicht gegen fremde Labs ausgefuehrt |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | `Invoke-PersistentStorageRemovalExecutorChecks.ps1` | `Invoke-PersistentStorageRemovalExecutorAcceptance.ps1` belegt Docker und Podman getrennt mit echtem Backup-on-Remove und retained Store |
 | `Get-SqlServerLabGeneratedSqlAccess` | Secret-/DPAPI-Vertraege | Windows-SQL-Pfad mit runlokalem SA-Secret |
-| `Invoke-SqlServerLab` | Menue-, Routing- und Self-Reload-Vertraege | interaktive Tastatureingaben bleiben UI-Contract; die mutierenden Zielaktionen laufen ueber dieselben oeffentlichen Fachfunktionen |
+| `Invoke-SqlServerLab` | Menue-, Routing- und Self-Reload-Vertraege; Fallback zeigt `0` auch bei Textfeldern, Attention nennt Abhilfe | interaktive Tastatureingaben bleiben UI-Contract; die mutierenden Zielaktionen laufen ueber dieselben oeffentlichen Fachfunktionen |
 
 ## Grenzen und bewusste Nichtziele
 
 - Es werden nicht alle SQL-Hauptversionen mit allen CUs kombiniert. Der
-  repraesentative Container-CU beweist Aufloesung, Pull und Start eines
+  auf `2022-CU18` begrenzte Container-Akzeptanzparameter beweist Aufloesung, Pull und Start eines
   katalogisierten CU-Tags; die Versionsmetadaten bleiben statisch vollstaendig
   zu pruefen.
 - Windows-CUs werden nur installiert, wenn ein katalogisiertes, lokales und
