@@ -427,7 +427,8 @@ function Resolve-LabSoftwarePlansForInstance {
     } | ForEach-Object {
         $softwareItem = $_
         $freeInstallerFields = @('source', 'package', 'url', 'command') | Where-Object {
-            $_ -in @($softwareItem.PSObject.Properties.Name)
+            $_ -in @($softwareItem.PSObject.Properties.Name) -and
+            -not [string]::IsNullOrWhiteSpace([string]$softwareItem.$_)
         }
         if ($freeInstallerFields.Count -gt 0) {
             $blockedPlan = New-LabUnsupportedGeneralSoftwarePlan -SoftwareItem $softwareItem -SqlVersion ([string]$Instance.version) `

@@ -52,6 +52,11 @@ Add-CheckResult -Name 'Container-Reconcile aktiviert Vertrag sowie Docker- und P
     'Invoke-ReadinessContractChecks.ps1' -in $containerReconcile.StaticChecks
 )
 
+$containerTool = & $selector -ChangedPath @('Public/Test-SqlServerLabContainerTool.ps1')
+Add-CheckResult -Name 'Container-Tool-Aenderung aktiviert getrennte Docker- und Podman-Akzeptanz' -Success (
+    $containerTool.Docker -and $containerTool.Podman
+)
+
 $containerInstanceStore = & $selector -ChangedPath @('Private/ContainerInstanceStore.ps1')
 Add-CheckResult -Name 'Container-Instanzstore aktiviert Core-Verträge sowie getrennte Docker-/Podman-Nachweise' -Success (
     $containerInstanceStore.Docker -and $containerInstanceStore.Podman -and

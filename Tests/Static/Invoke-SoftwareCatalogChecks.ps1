@@ -81,6 +81,14 @@ $result = & $module {
     }
     $generalPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $generalRequest -SqlVersion '2022' -Provider docker -OperatingSystem linux
     $toolImagePlan = New-LabContainerToolImagePlan -Provider docker -SqlVersion '2022' -SoftwarePlans @($generalPlan)
+    $nullFreeInputPlan = @(Resolve-LabSoftwarePlansForInstance -Instance ([PSCustomObject]@{
+        version='2022'; provider='docker'; os='linux'; serverConfig=$null
+        software=@([PSCustomObject]@{ id='sqlpackage'; scope='instance'; source=$null; package=$null; url=$null; command=$null })
+    }))[0]
+    $freeInputPlan = @(Resolve-LabSoftwarePlansForInstance -Instance ([PSCustomObject]@{
+        version='2022'; provider='docker'; os='linux'; serverConfig=$null
+        software=@([PSCustomObject]@{ id='sqlpackage'; scope='instance'; source='https://invalid.example/sqlpackage'; package=$null; url=$null; command=$null })
+    }))[0]
     $dockerRuntimePlan = Resolve-LabExternalRuntimePlan -SoftwareItem ([PSCustomObject]@{
         Id = 'sql-python'; Version = $null; Variant = $null; Scope = 'sqlExternalRuntime'
         InstallMethod = 'catalog'; Optional = $false; Packages = @(); RequestSource = 'software'
@@ -171,6 +179,9 @@ $result = & $module {
             [string]$toolImagePlan.Contract.Name -eq 'SqlServerLab.ContainerToolImagePlan' -and
             [string]$toolImagePlan.ImageKey -match '^[a-f0-9]{64}$' -and
             [string]$toolImagePlan.SqlPackageArchiveSha256 -eq 'e81ede2429f3a15d9e752845c8928569c7706b3a911fad2d1717c0f03e0fc7c3'
+        GeneralSoftwareNullInput = $nullFreeInputPlan.Status -eq 'RESOLVED' -and
+            $freeInputPlan.Status -eq 'DECLARED_UNSUPPORTED' -and
+            $freeInputPlan.ReasonCode -eq 'GENERAL_SOFTWARE_FREE_INPUT_FORBIDDEN'
         CombinedContainerImage = [string]$combinedToolRuntimeImagePlan.Contract.Name -eq 'SqlServerLab.ContainerToolExternalRuntimeImagePlan' -and
             [string]$combinedToolRuntimeImagePlan.ImageKey -match '^[a-f0-9]{64}$' -and
             [string]$combinedToolRuntimeImagePlan.ExternalRuntimeImageKey -eq [string]$externalRuntimeImagePlan.ImageKey -and
@@ -228,6 +239,7 @@ Add-CheckResult -Name 'SQL-2022-Python wird fuer Podman deterministisch als frei
 Add-CheckResult -Name 'SQL Server 2025 erbt keine unbelegte SQL-2022-Runtimeannahme' -Success $result.Sql2025
 Add-CheckResult -Name 'C# bleibt ohne freigegebenen Binär- und Native-Evidence-Pfad explizit fail-closed' -Success $result.CSharp
 Add-CheckResult -Name 'SqlPackage erhält einen kataloggebundenen Tool-Image-Plan mit SHA-256-Artefakten' -Success $result.GeneralSoftware
+Add-CheckResult -Name 'Leere Manifestfelder bleiben erlaubt, freie allgemeine Softwarequellen werden abgelehnt' -Success $result.GeneralSoftwareNullInput
 Add-CheckResult -Name 'SqlPackage und SQL-2022-External-Runtime erhalten einen gemeinsam gebundenen Derived-Image-Plan' -Success $result.CombinedContainerImage
 Add-CheckResult -Name 'Nicht katalogisierte Zusatzpakete werden vor der Mutation abgelehnt' -Success $result.PackageLock
 Add-CheckResult -Name 'Hyper-V/Windows-Java besitzt einen nativ belegten deterministischen Plan' -Success $result.HyperVJava
@@ -254,6 +266,7 @@ $serverConfigSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/Ser
 $newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
 $getLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLab.ps1') -Raw -Encoding utf8
 $toolProbeSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Test-SqlServerLabContainerTool.ps1') -Raw -Encoding utf8
+$toolAcceptanceSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-ContainerToolAcceptance.ps1') -Raw -Encoding utf8
 $legacyInstallerSource = [regex]::Match(
     $serverConfigSource,
     '(?s)function Install-LabExternalLanguages\s*\{.*?(?=\r?\nfunction\s|\z)'
@@ -275,6 +288,8 @@ Add-CheckResult -Name 'Provisionierung löst sämtliche Software-Intents vor jed
 Add-CheckResult -Name 'Provisionierung bindet den Container-Tool-Plan vor Run-State und Containerstart' -Success (
     $newLabSource -match 'New-LabContainerToolImagePlan' -and
     $newLabSource -match 'Invoke-LabContainerToolImageBuild' -and
+    $newLabSource -match "SqlServerLab\.ContainerToolImageArtifact" -and
+    $newLabSource -match 'AllowStandardLaunchResolvedImage:\$allowStandardLaunchResolvedImage' -and
     $newLabSource.IndexOf('New-LabContainerToolImagePlan') -lt $newLabSource.IndexOf('New-LabRunState') -and
     $newLabSource.IndexOf('Invoke-LabContainerToolImageBuild') -lt $newLabSource.LastIndexOf('New-LabProviderContainer')
 )
@@ -289,6 +304,7 @@ Add-CheckResult -Name 'Statussicht zeigt nur sanitisierte Container-Tool-Identit
     $getLabSource -match 'ContainerTools\s*=\s*if \(\$instance\.containerTools\)' -and
     $getLabSource -match 'ToolIds\s*=\s*@\(\$instance\.containerTools\.toolIds' -and
     $getLabSource -match 'RuntimeVersion\s*=\s*\[string\]\$instance\.containerTools\.runtimeVersion' -and
+    $newLabSource -match 'containerTools\s*=\s*\$_\.ContainerTools' -and
     $getLabSource -notmatch 'containerTools\.(source|receipt|localImageId)'
 )
 Add-CheckResult -Name 'Container-Tool-Probe bindet Run und Scope und akzeptiert keine freien Toolargumente' -Success (
@@ -298,6 +314,25 @@ Add-CheckResult -Name 'Container-Tool-Probe bindet Run und Scope und akzeptiert 
     $toolProbeSource -match '/opt/sql-server-lab/tools/sqlpackage/sqlpackage /Version' -and
     $toolProbeSource -notmatch '\[string\[\]\]\$Arguments|\[string\]\$Command|Copy-Item|docker cp|podman cp'
 )
+Add-CheckResult -Name 'Container-Tool-Akzeptanz prueft Manifest, Probe, Restart und scoped Cleanup nativ' -Success (
+    $toolAcceptanceSource -match 'New-SqlServerLab -Manifest' -and
+    $toolAcceptanceSource -match 'Test-SqlServerLabContainerTool' -and
+    $toolAcceptanceSource -match 'Restart-SqlServerLab' -and
+    $toolAcceptanceSource -match 'Remove-SqlServerLab' -and
+    $toolAcceptanceSource -match 'image rm --force' -and
+    $toolAcceptanceSource -match "ValidateSet\('docker', 'podman'\)"
+)
+
+$containerToolManifest = [PSCustomObject]@{
+    name = 'container-tool-manifest-check'
+    automation = [PSCustomObject]@{ mode = 'unattended' }
+    instances = @([PSCustomObject]@{
+        id = 'container-tool'; version = '2022'; provider = 'docker'; profile = 'compact'
+        software = @([PSCustomObject]@{ id = 'sqlpackage'; scope = 'instance' })
+    })
+}
+$containerToolManifestResult = Test-SqlServerLabManifest -InputObject $containerToolManifest
+Add-CheckResult -Name 'Docker-Manifest akzeptiert den kataloggebundenen SqlPackage-Tool-Intent' -Success $containerToolManifestResult.IsValid -Message ($containerToolManifestResult.Errors -join '; ')
 
 $legacyExampleResult = Test-SqlServerLabManifest -Path (Join-Path $repoRoot 'Schemas/example-ml-services.json')
 Add-CheckResult -Name 'Legacy-ML-Beispiel wird vor Provisionierung sichtbar als nicht reproduzierbar abgelehnt' -Success (
