@@ -120,6 +120,30 @@ try {
     Add-CheckResult -Name 'Manifest-Fallback wählt deterministisch die höchste Standard-Evaluation mit Desktop Experience' -Success (
         $fallbackSelection.artifactId -eq 'prepared-2025'
     )
+    $evaluationSelection = & $module {
+        function Get-HyperVImageArtifact {
+            @(
+                [PSCustomObject]@{
+                    artifactId = 'expiry-unknown'; artifactState = 'SQL_PREPARED_SEALED'; generalized = $true; sqlPrepared = $true
+                    registeredAt = '2026-08-01T00:00:00Z'; operatingSystem = [PSCustomObject]@{ id = 'windows-server-2025'; version = '2025'; edition = 'standard-evaluation'; installationType = 'desktop-experience'; language = 'en-US'; architecture = 'x64' }
+                    license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = $null }; sql = [PSCustomObject]@{ version = '2025'; edition = 'Enterprise'; features = @() }
+                },
+                [PSCustomObject]@{
+                    artifactId = 'expiry-soon'; artifactState = 'SQL_PREPARED_SEALED'; generalized = $true; sqlPrepared = $true
+                    registeredAt = '2026-08-02T00:00:00Z'; operatingSystem = [PSCustomObject]@{ id = 'windows-server-2025'; version = '2025'; edition = 'standard-evaluation'; installationType = 'desktop-experience'; language = 'en-US'; architecture = 'x64' }
+                    license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = [datetime]::UtcNow.AddDays(29).ToString('o') }; sql = [PSCustomObject]@{ version = '2025'; edition = 'Enterprise'; features = @() }
+                }
+            )
+        }
+        Resolve-HyperVImageArtifact -OperatingSystemId windows-server-2025 -OperatingSystemVersion 2025 `
+            -Edition standard-evaluation -InstallationType desktop-experience -SqlVersion 2025 -SqlEdition Enterprise
+    }
+    Add-CheckResult -Name 'Resolver schließt Evaluation ohne Ablaufdatum oder mit zu kurzer Restlaufzeit fail-closed aus' -Success (
+        $evaluationSelection.Status -eq 'BASELINE_NOT_COMPATIBLE' -and
+        $evaluationSelection.Rejected.Count -eq 2 -and
+        @($evaluationSelection.Rejected.Reasons | ForEach-Object { $_ }) -contains 'evaluation-expiry-unknown' -and
+        @($evaluationSelection.Rejected.Reasons | ForEach-Object { $_ }) -contains 'evaluation-expiring'
+    )
     Add-CheckResult -Name 'Manifest Lock enthaelt keinen Hostpfad' -Success (($lock | ConvertTo-Json -Depth 30) -notmatch [regex]::Escape($temporaryRoot))
 
     $inventory = @(Get-SqlServerLabHyperVImageArtifact -StateRoot $stateRoot)

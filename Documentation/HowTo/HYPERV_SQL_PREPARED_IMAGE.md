@@ -382,6 +382,11 @@ Inventur mutiert oder entfernt weder das vorhandene Artifact noch referenzierte
 Labs; Build, Validierung, Umschaltung und spätere referenzsichere Bereinigung
 bleiben getrennte Schritte.
 
+Vor der Hyper-V-Labauswahl sind Evaluationen ohne dokumentiertes Ablaufdatum
+oder mit höchstens 30 verbleibenden Tagen ausgeschlossen. Das gilt sowohl für
+die automatische Auswahl als auch für ein im Manifest ausdrücklich angegebenes
+`preparedImageId`; ein abgelehntes Image wird nicht verändert.
+
 Die lokale Workflow- und Browseransicht zeigt denselben Evaluation- und
 Refreshstatus direkt neben den veröffentlichten Baselines und Prepared-Images.
 Sie löst dadurch keine Aktion aus und bietet insbesondere keinen automatischen
