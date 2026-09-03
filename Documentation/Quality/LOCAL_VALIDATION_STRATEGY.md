@@ -767,6 +767,20 @@ Dateiauflösung weder Engine-Erreichbarkeit noch Ausführungsberechtigung beweis
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
 ```
 
+### Kataloggebundenes SqlPackage oder BACPAC betroffen
+
+```powershell
+.\Tests\Static\Invoke-SampleHandlerChecks.ps1
+.\Tests\Static\Invoke-SoftwareCatalogChecks.ps1
+.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider podman
+```
+
+Die Acceptance erzeugt ein synthetisches BACPAC im gebundenen Container,
+importiert es wieder über den normalen Tool-Handler, prüft die importierten SQL-
+Daten und die Entfernung des temporären Containerartefakts. Sie lädt kein
+fremdes Sample-Artefakt herunter.
+
 ### Hyper-V-Lifecycle betroffen
 
 ```powershell

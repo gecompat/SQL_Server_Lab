@@ -25,6 +25,8 @@ $previousStateRoot = $env:SQL_SERVER_LAB_STATE
 $lab = $null
 $runtimeInvocation = $null
 $imageName = $null
+$bacpacSourcePath = $null
+$bacpacContainerPath = $null
 $completed = $false
 
 function Assert-ContainerToolAcceptance {
@@ -108,6 +110,65 @@ try {
         [string]$postRestartProbe.Status -eq 'PASS' -and [string]$postRestartProbe.RuntimeVersion -eq [string]$probe.RuntimeVersion
     ) 'Oeffentliche Versionsprobe bleibt nach Restart read-only erfolgreich'
 
+    $sourceDatabase = 'BacpacSource'
+    $targetDatabase = 'BacpacImported'
+    $sourceCreation = & $module {
+        param($HostName, $PortNumber, $Password, $SourceDatabase)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Query "CREATE DATABASE [$SourceDatabase];" -TimeoutSeconds 90 | Out-Null
+            Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $SourceDatabase -Query "CREATE TABLE dbo.BacpacProbe (Id int NOT NULL PRIMARY KEY, Marker nvarchar(40) NOT NULL); INSERT INTO dbo.BacpacProbe (Id, Marker) VALUES (1, N'container-tool-bacpac');" -TimeoutSeconds 90 | Out-Null
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $sourceDatabase
+    Assert-ContainerToolAcceptance ($null -eq $sourceCreation) 'Synthetische BACPAC-Quelldatenbank wurde nur im Test-Run angelegt'
+
+    $bacpacContainerPath = "/tmp/sql-server-lab-bacpac-export-$([guid]::NewGuid().ToString('N')).bacpac"
+    $exportCommand = 'exec /opt/sql-server-lab/tools/sqlpackage/sqlpackage /Action:Export /SourceServerName:localhost "/SourceDatabaseName:$1" /SourceUser:sa /SourceTrustServerCertificate:True "/SourcePassword:$SQLSERVERLAB_SA_PASSWORD" "/TargetFile:$2"'
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
+    try {
+        $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        $exportOutput = @(& $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $exportCommand -- $sourceDatabase $bacpacContainerPath 2>&1)
+        Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Kataloggebundenes SqlPackage exportiert ein synthetisches BACPAC ohne Host-Tool'
+    }
+    finally {
+        $saPlain = $null
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+    $bacpacSourcePath = Join-Path $testRoot 'synthetic-source.bacpac'
+    & $runtimeInvocation cp "$($instance.ContainerName):$bacpacContainerPath" $bacpacSourcePath 1>$null
+    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $bacpacSourcePath -PathType Leaf)) 'Exportiertes BACPAC wird als kontrolliertes Testartefakt aus dem Run gelesen'
+    & $runtimeInvocation exec --user root $instance.ContainerName rm -f -- $bacpacContainerPath 1>$null
+    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Temporäres Export-BACPAC wird vor dem Import aus dem Container entfernt'
+    $bacpacContainerPath = $null
+
+    $bacpacImport = & $module {
+        param($ArtifactPath, $LabInstance, $Password, $ProviderName, $RunIdentifier, $Root, $TargetDatabase)
+        Invoke-LabContainerBacpacImport -Provider $ProviderName -ContainerName $LabInstance.ContainerName `
+            -RunId $RunIdentifier -InstanceId $LabInstance.Id -ArtifactPath $ArtifactPath -DatabaseName $TargetDatabase `
+            -SaPassword $Password -ExpectedRuntimeVersion ([string]$LabInstance.ContainerTools.RuntimeVersion) -StateRoot $Root
+    } $bacpacSourcePath $instance $saPassword $Provider $lab.RunId $stateRoot $targetDatabase
+    Assert-ContainerToolAcceptance ([string]$bacpacImport.Status -eq 'BACPAC_IMPORTED') 'BACPAC-Handler importiert in die scopegebundene Zieldatenbank'
+    $bacpacMarker = & $module {
+        param($HostName, $PortNumber, $Password, $DatabaseName)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            @(Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $DatabaseName -Query 'SET NOCOUNT ON; SELECT Marker FROM dbo.BacpacProbe WHERE Id = 1;')
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $targetDatabase
+    Assert-ContainerToolAcceptance ((@($bacpacMarker | ForEach-Object { ([string]$_).Trim() }) -contains 'container-tool-bacpac')) 'Importierte BACPAC-Daten bestehen den SQL-Roundtrip'
+    $residualBacpac = @(& $runtimeInvocation exec --user root $instance.ContainerName sh -ceu 'test -z "$(find /tmp -maxdepth 1 -name ''sql-server-lab-bacpac-*.bacpac'' -print -quit)"' 2>&1)
+    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'BACPAC-Import hinterlässt kein temporäres Containerartefakt'
+
     $cleanup = Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false
     Assert-ContainerToolAcceptance ([string]$cleanup.Status -eq 'REMOVED') 'Registrierter Run-Cleanup entfernt ausschliesslich Run-Ressourcen'
     $lab = $null
@@ -124,6 +185,7 @@ try {
             contract = [ordered]@{ name = 'SqlServerLab.ContainerToolAcceptance'; version = '1.0' }
             status = 'PASS'; provider = $Provider; sqlVersion = '2022'
             tool = [ordered]@{ id = [string]$probe.ToolId; runtimeVersion = [string]$probe.RuntimeVersion; imageKey = [string]$instance.ContainerTools.ImageKey }
+            bacpac = [ordered]@{ status = [string]$bacpacImport.Status; source = 'synthetic'; targetDatabase = $targetDatabase; dataRoundtrip = $true }
             restart = [ordered]@{ status = [string]$restart.Status; probeStatus = [string]$postRestartProbe.Status }
             cleanup = [ordered]@{ runStatus = [string]$cleanup.Status; reusableImageExplicitlyRemoved = $true }
             completedAt = [DateTimeOffset]::UtcNow.ToString('o')
@@ -139,6 +201,9 @@ finally {
     }
     if ($imageName -and -not $KeepOnFailure -and $runtimeInvocation) {
         try { & $runtimeInvocation image rm --force $imageName 1>$null 2>$null } catch { }
+    }
+    if ($bacpacContainerPath -and -not $KeepOnFailure -and $runtimeInvocation -and $lab) {
+        try { & $runtimeInvocation exec --user root $lab.Instances[0].ContainerName rm -f -- $bacpacContainerPath 1>$null 2>$null } catch { }
     }
     if (($completed -or -not $KeepOnFailure) -and (Test-Path -LiteralPath $testRoot)) {
         Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue

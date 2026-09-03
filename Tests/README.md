@@ -63,6 +63,10 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
     -MediaRoot D:\Lab_Base
 ```
 
+`Invoke-ContainerToolAcceptance` erzeugt zusätzlich ein synthetisches BACPAC
+und prüft dessen scoped SqlPackage-Import einschließlich Datenrücklauf und
+Aufräumen der temporären Containerdatei.
+
 Der Testdatenbank-Reconcile-Runner verwendet für seine Sample-Bibliothek einen
 prozesslokalen temporären Root. Er belegt im selben isolierten Hyper-V-Lauf die
 Erzeugung, Hashprüfung, bevorzugte Wiederverwendung und abschließende
