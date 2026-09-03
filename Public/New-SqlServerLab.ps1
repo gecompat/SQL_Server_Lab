@@ -493,16 +493,17 @@ function New-SqlServerLab {
     $externalRuntimePlansByInstance = @{}
     $externalRuntimeImagePlansByInstance = @{}
     foreach ($instance in $resolved.instances) {
-        $softwarePlans = @(Resolve-LabExternalRuntimePlansForInstance -Instance $instance)
-        $externalRuntimePlansByInstance[[string]$instance.id] = $softwarePlans
+        $softwarePlans = @(Resolve-LabSoftwarePlansForInstance -Instance $instance)
         $rejectedPlans = @($softwarePlans | Where-Object { [string]$_.Status -ne 'RESOLVED' })
         if ($rejectedPlans.Count -gt 0) {
             $rejected = $rejectedPlans[0]
-            throw "EXTERNAL_RUNTIME_PLAN_REJECTED: $($instance.id) / $($rejected.SoftwareId) / $($rejected.ReasonCode) - $($rejected.Reason)"
+            throw "SOFTWARE_PLAN_REJECTED: $($instance.id) / $($rejected.SoftwareId) / $($rejected.ReasonCode) - $($rejected.Reason)"
         }
-        if ($softwarePlans.Count -gt 0 -and [string]$instance.provider -in @('docker', 'podman')) {
+        $externalRuntimePlans = @($softwarePlans | Where-Object { [string]$_.Kind -eq 'sqlExternalRuntime' })
+        $externalRuntimePlansByInstance[[string]$instance.id] = $externalRuntimePlans
+        if ($externalRuntimePlans.Count -gt 0 -and [string]$instance.provider -in @('docker', 'podman')) {
             $imagePlan = New-LabExternalRuntimeContainerImagePlan -Provider ([string]$instance.provider) `
-                -SqlVersion ([string]$instance.version) -SoftwarePlans $softwarePlans
+                -SqlVersion ([string]$instance.version) -SoftwarePlans $externalRuntimePlans
             $hostStatus = Test-LabExternalRuntimeContainerHost -Provider ([string]$instance.provider) -ImagePlan $imagePlan
             if ([string]$hostStatus.Status -ne 'READY') {
                 throw "EXTERNAL_RUNTIME_CONTAINER_HOST_REJECTED: $($instance.id) / $($hostStatus.Status) - $($hostStatus.Reason)"

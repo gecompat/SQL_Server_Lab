@@ -468,8 +468,8 @@ Add-CheckResult -Name 'Jeder finale Target übernimmt den versionsgebundenen Lau
         $artifactSource -match 'if \(\$rootless\)'
     )
     Add-CheckResult -Name 'Software- und Host-Gates laufen vor Run-State und jeder Provider-Mutation' -Success (
-        $newLabSource.IndexOf('Resolve-LabExternalRuntimePlansForInstance') -ge 0 -and
-        $newLabSource.IndexOf('Resolve-LabExternalRuntimePlansForInstance') -lt $newLabSource.IndexOf('New-LabRunState') -and
+        $newLabSource.IndexOf('Resolve-LabSoftwarePlansForInstance') -ge 0 -and
+        $newLabSource.IndexOf('Resolve-LabSoftwarePlansForInstance') -lt $newLabSource.IndexOf('New-LabRunState') -and
         $newLabSource.IndexOf('Test-LabExternalRuntimeContainerHost') -lt $newLabSource.IndexOf('New-LabRunState')
     )
     Add-CheckResult -Name 'Image-Build erfolgt erst nach Cleanup-Plan und bleibt außerhalb normaler Run-Cleanup-Schritte' -Success (
