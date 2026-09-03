@@ -376,6 +376,12 @@ Get-SqlServerLabHyperVImageArtifact
 Get-SqlServerLabHyperVImageArtifact -ArtifactId '<ArtifactId>' -VerifyIntegrity
 ```
 
+`Refresh` empfiehlt bei abgelaufenen oder innerhalb der gewählten Restlaufzeit
+ablaufenden Evaluationen ausschließlich einen manuellen Parallel-Rebuild. Die
+Inventur mutiert oder entfernt weder das vorhandene Artifact noch referenzierte
+Labs; Build, Validierung, Umschaltung und spätere referenzsichere Bereinigung
+bleiben getrennte Schritte.
+
 ## 9. Direkte Windows-SQL-Abnahmeumgebungen
 
 Neben dem Prepared-Image-Lifecycle können vorhandene run-lokale
