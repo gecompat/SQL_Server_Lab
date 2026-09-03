@@ -167,6 +167,13 @@ try {
         $evaluationArtifact.artifactId -and
         $evaluationArtifact.license.evaluationExpiresAt.ToUniversalTime().ToString('o') -eq '2027-01-30T00:00:00.0000000Z'
     )
+    $evaluationRefresh = @(Get-SqlServerLabHyperVImageArtifact -ArtifactId $evaluationArtifact.artifactId -StateRoot (Join-Path $temporaryRoot 'evaluation-state') -MinimumEvaluationDaysRemaining 365)[0]
+    Add-CheckResult -Name 'Evaluation-Inventur plant einen manuellen Parallel-Rebuild ohne Mutation' -Success (
+        $evaluationRefresh.Evaluation.Status -eq 'EVALUATION_EXPIRING' -and
+        $evaluationRefresh.Refresh.Action -eq 'MANUAL_REBUILD_RECOMMENDED' -and
+        -not $evaluationRefresh.Refresh.MutationAllowed -and
+        $evaluationRefresh.Refresh.RetainExisting
+    )
 
     $sqlEvaluationArtifact = & $module {
         param($SourcePath, $Sha256, $StateRoot, $Expiry)
