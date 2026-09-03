@@ -397,6 +397,10 @@ Löschanweisung:
 }
 ```
 
+Fehlt eine kompatible automatische Vorlage, nennt die Fehlermeldung nur
+normalisierte Ablehnungsgründe (etwa `evaluation-expiring` oder
+`sql-version-mismatch`), keine lokalen Pfade oder Artifact-IDs.
+
 Die lokale Workflow- und Browseransicht zeigt denselben Evaluation- und
 Refreshstatus direkt neben den veröffentlichten Baselines und Prepared-Images.
 Sie löst dadurch keine Aktion aus und bietet insbesondere keinen automatischen

@@ -496,6 +496,51 @@ function Test-HyperVImageArtifactEvaluationEligibility {
     return [PSCustomObject]@{ Eligible=$true; Reason=$null }
 }
 
+function Get-HyperVManifestFallbackArtifactSelection {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$SqlVersion,
+        [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30,
+        [string]$StateRoot
+    )
+
+    $candidates = @()
+    $reasons = @()
+    foreach ($artifact in @(Get-HyperVImageArtifact -StateRoot $StateRoot)) {
+        $artifactReasons = @()
+        if ([string]$artifact.artifactState -ne 'SQL_PREPARED_SEALED') { $artifactReasons += 'artifact-not-sql-prepared-sealed' }
+        if (-not [bool]$artifact.generalized) { $artifactReasons += 'artifact-not-generalized' }
+        if (-not [bool]$artifact.sqlPrepared) { $artifactReasons += 'artifact-sql-not-prepared' }
+        if ([string]$artifact.operatingSystem.id -notmatch '^windows-server') { $artifactReasons += 'operating-system-not-windows-server' }
+        if ([string]$artifact.operatingSystem.edition -notmatch '(?i)standard') { $artifactReasons += 'operating-system-not-standard' }
+        if (-not ([string]$artifact.operatingSystem.installationType).Equals('desktop-experience', [System.StringComparison]::OrdinalIgnoreCase)) { $artifactReasons += 'installation-type-not-desktop-experience' }
+        if (-not ([string]$artifact.license.type).Equals('evaluation', [System.StringComparison]::OrdinalIgnoreCase)) { $artifactReasons += 'license-not-evaluation' }
+        if (-not ([string]$artifact.sql.version).Equals($SqlVersion, [System.StringComparison]::OrdinalIgnoreCase)) { $artifactReasons += 'sql-version-mismatch' }
+        $evaluationEligibility = Test-HyperVImageArtifactEvaluationEligibility -Artifact $artifact `
+            -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining
+        if (-not $evaluationEligibility.Eligible) { $artifactReasons += $evaluationEligibility.Reason }
+        if ($artifactReasons.Count -gt 0) {
+            $reasons += @($artifactReasons | Sort-Object -Unique)
+            continue
+        }
+        $versionMatch = [regex]::Match([string]$artifact.operatingSystem.version, '\d{4}')
+        $candidates += [PSCustomObject]@{
+            Artifact = $artifact
+            VersionRank = if ($versionMatch.Success) { [int]$versionMatch.Value } else { -1 }
+        }
+    }
+
+    $selected = @($candidates | Sort-Object `
+        @{ Expression = { $_.VersionRank }; Descending = $true }, `
+        @{ Expression = { [datetime]$_.Artifact.registeredAt }; Descending = $true }, `
+        @{ Expression = { [string]$_.Artifact.artifactId }; Descending = $false } |
+        Select-Object -First 1 | ForEach-Object { $_.Artifact })[0]
+    return [PSCustomObject]@{
+        Selected = $selected
+        Reasons = if ($reasons.Count -gt 0) { @($reasons | Sort-Object -Unique) } else { @('no-published-artifact') }
+    }
+}
+
 function Resolve-HyperVManifestFallbackArtifact {
     [CmdletBinding()]
     param(
@@ -504,29 +549,8 @@ function Resolve-HyperVManifestFallbackArtifact {
         [string]$StateRoot
     )
 
-    $candidates = foreach ($artifact in @(Get-HyperVImageArtifact -StateRoot $StateRoot)) {
-        if ([string]$artifact.artifactState -ne 'SQL_PREPARED_SEALED' -or
-            -not [bool]$artifact.generalized -or -not [bool]$artifact.sqlPrepared -or
-            [string]$artifact.operatingSystem.id -notmatch '^windows-server' -or
-            [string]$artifact.operatingSystem.edition -notmatch '(?i)standard' -or
-            -not ([string]$artifact.operatingSystem.installationType).Equals('desktop-experience', [System.StringComparison]::OrdinalIgnoreCase) -or
-            -not ([string]$artifact.license.type).Equals('evaluation', [System.StringComparison]::OrdinalIgnoreCase) -or
-            -not ([string]$artifact.sql.version).Equals($SqlVersion, [System.StringComparison]::OrdinalIgnoreCase)) {
-            continue
-        }
-        $evaluationEligibility = Test-HyperVImageArtifactEvaluationEligibility -Artifact $artifact `
-            -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining
-        if (-not $evaluationEligibility.Eligible) { continue }
-        $versionMatch = [regex]::Match([string]$artifact.operatingSystem.version, '\d{4}')
-        $versionRank = if ($versionMatch.Success) { [int]$versionMatch.Value } else { -1 }
-        [PSCustomObject]@{ Artifact = $artifact; VersionRank = $versionRank }
-    }
-
-    return @($candidates | Sort-Object `
-        @{ Expression = { $_.VersionRank }; Descending = $true }, `
-        @{ Expression = { [datetime]$_.Artifact.registeredAt }; Descending = $true }, `
-        @{ Expression = { [string]$_.Artifact.artifactId }; Descending = $false } |
-        Select-Object -First 1 | ForEach-Object { $_.Artifact })[0]
+    return (Get-HyperVManifestFallbackArtifactSelection -SqlVersion $SqlVersion `
+        -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining -StateRoot $StateRoot).Selected
 }
 
 function Add-HyperVImageManifestLockEntry {
