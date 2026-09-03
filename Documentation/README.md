@@ -68,7 +68,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 59 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 60 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -140,6 +140,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
 | `Backup-SqlServerLabDatabase` | Datenbank verifiziert in die `Lab_Data`-Backup-Bibliothek sichern |
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
+| `Test-SqlServerLabContainerTool` | Kataloggebundenes SqlPackage read-only per Run-/Scope-gebundener Versionsprobe prüfen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Laufzeit-generierte SQL-Access-Daten inkl. SA-Passwort und ConnectionString aus einem Hyper-V-Run beziehen |
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
 | `Export-SqlServerLabTestEnvironment` | Testzugänge nach gebundener Live-Health-Prüfung als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |

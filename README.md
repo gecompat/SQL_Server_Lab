@@ -622,6 +622,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Backup-SqlServerLabDatabase` | Datenbank nach `CHECKSUM`, `RESTORE VERIFYONLY` und SHA-256 in der `Lab_Data`-Bibliothek veröffentlichen |
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
+| `Test-SqlServerLabContainerTool` | Kataloggebundenes SqlPackage read-only per Run-/Scope-gebundener Versionsprobe prüfen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
 | `Export-SqlServerLabTestEnvironment` | Registrierte Testumgebungen als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
