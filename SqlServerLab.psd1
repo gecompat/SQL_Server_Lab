@@ -61,6 +61,7 @@
         'New-SqlServerLabDatabase'
         'Backup-SqlServerLabDatabase'
         'Invoke-SqlServerLabScript'
+        'Test-SqlServerLabContainerTool'
         'Restore-SqlServerLabDatabase'
         'Test-SqlServerLabPrerequisite'
         'Test-SqlServerLabAdapter'
