@@ -443,6 +443,7 @@ function New-SqlServerLab {
                 }
             )
             resourceOverrides = $null
+            artifacts         = [PSCustomObject]@{ minimumEvaluationDaysRemaining = 30 }
             manifestPath      = $null
         }
     }
@@ -530,17 +531,22 @@ function New-SqlServerLab {
         $artifactId = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['preparedImageId']) {
             [string]$hyperVSettings.preparedImageId
         } else { $null }
+        $minimumEvaluationDaysRemaining = if ($resolved.artifacts -and $resolved.artifacts.PSObject.Properties['minimumEvaluationDaysRemaining']) {
+            [int]$resolved.artifacts.minimumEvaluationDaysRemaining
+        } else { 30 }
         $artifact = if ($artifactId) {
             Get-HyperVImageArtifact -ArtifactId $artifactId -StateRoot $StateRoot
         }
         else {
-            Resolve-HyperVManifestFallbackArtifact -SqlVersion ([string]$instance.version) -StateRoot $StateRoot
+            Resolve-HyperVManifestFallbackArtifact -SqlVersion ([string]$instance.version) `
+                -MinimumEvaluationDaysRemaining $minimumEvaluationDaysRemaining -StateRoot $StateRoot
         }
         if (-not $artifact -and -not $artifactId) {
-            throw 'HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND: Keine lokale SQL_PREPARED_SEALED-Vorlage für die angeforderte SQL-Version auf Windows Server Standard Evaluation mit Desktop Experience und mindestens 30 verbleibenden Evaluationstagen gefunden.'
+            throw "HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND: Keine lokale SQL_PREPARED_SEALED-Vorlage für die angeforderte SQL-Version auf Windows Server Standard Evaluation mit Desktop Experience und mindestens $minimumEvaluationDaysRemaining verbleibenden Evaluationstagen gefunden."
         }
         if ($artifact) {
-            $evaluationEligibility = Test-HyperVImageArtifactEvaluationEligibility -Artifact $artifact
+            $evaluationEligibility = Test-HyperVImageArtifactEvaluationEligibility -Artifact $artifact `
+                -MinimumEvaluationDaysRemaining $minimumEvaluationDaysRemaining
             if (-not $evaluationEligibility.Eligible) {
                 throw "HYPERV_MANIFEST_EVALUATION_NOT_ELIGIBLE: $($evaluationEligibility.Reason)"
             }

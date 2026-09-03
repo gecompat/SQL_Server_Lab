@@ -443,6 +443,7 @@ Add-CheckResult `
 
 $hyperVManifest = [ordered]@{
     name = 'hyperv-manifest-check'
+    artifacts = [ordered]@{ minimumEvaluationDaysRemaining = 45 }
     persistentData = [ordered]@{ enabled = $true; dataDiskGB = 128 }
     instances = @(
         [ordered]@{
@@ -456,6 +457,22 @@ Add-CheckResult `
     -Name 'Hyper-V-Manifest referenziert ein Prepared-Image ohne Klartextpasswort' `
     -Success $hyperVManifestResult.IsValid `
     -Message ($hyperVManifestResult.Errors -join '; ')
+
+$resolvedHyperVEvaluationPolicy = & $module {
+    param($Manifest)
+    (Resolve-ManifestDefaults -Manifest $Manifest -ManifestPath (Join-Path $PWD 'in-memory-hyperv-evaluation.json')).artifacts
+} $hyperVManifest
+Add-CheckResult `
+    -Name 'Manifest löst die Evaluation-Mindestrestlaufzeit für die Hyper-V-Imageauswahl auf' `
+    -Success ($resolvedHyperVEvaluationPolicy.minimumEvaluationDaysRemaining -eq 45)
+
+$invalidHyperVEvaluationPolicy = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$invalidHyperVEvaluationPolicy.artifacts.minimumEvaluationDaysRemaining = -1
+$invalidHyperVEvaluationPolicyResult = Test-SqlServerLabManifest -InputObject $invalidHyperVEvaluationPolicy
+Add-CheckResult `
+    -Name 'Manifest lehnt negative Evaluation-Mindestrestlaufzeit ab' `
+    -Success (-not $invalidHyperVEvaluationPolicyResult.IsValid) `
+    -Message ($invalidHyperVEvaluationPolicyResult.Errors -join '; ')
 
 $hyperVSampleManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
 $hyperVSampleManifest.instances[0] | Add-Member -NotePropertyName storageIntent -NotePropertyValue ([PSCustomObject]@{

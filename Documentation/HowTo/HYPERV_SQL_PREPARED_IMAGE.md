@@ -387,6 +387,16 @@ oder mit höchstens 30 verbleibenden Tagen ausgeschlossen. Das gilt sowohl für
 die automatische Auswahl als auch für ein im Manifest ausdrücklich angegebenes
 `preparedImageId`; ein abgelehntes Image wird nicht verändert.
 
+Die Restlaufzeit kann pro Manifest ausschließlich für diese Auswahl auf einen
+anderen Wert von 0 bis 3650 Tagen gesetzt werden. Sie ist keine Refresh- oder
+Löschanweisung:
+
+```json
+"artifacts": {
+  "minimumEvaluationDaysRemaining": 45
+}
+```
+
 Die lokale Workflow- und Browseransicht zeigt denselben Evaluation- und
 Refreshstatus direkt neben den veröffentlichten Baselines und Prepared-Images.
 Sie löst dadurch keine Aktion aus und bietet insbesondere keinen automatischen
