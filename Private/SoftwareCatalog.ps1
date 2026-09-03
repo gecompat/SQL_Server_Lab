@@ -425,8 +425,31 @@ function Resolve-LabSoftwarePlansForInstance {
     $generalPlans = @($Instance.software | Where-Object {
         $_ -and [string]$_.id -notin $externalRuntimeIds
     } | ForEach-Object {
-        New-LabUnsupportedGeneralSoftwarePlan -SoftwareItem $_ -SqlVersion ([string]$Instance.version) `
+        $softwareItem = $_
+        $freeInstallerFields = @('source', 'package', 'url', 'command') | Where-Object {
+            $_ -in @($softwareItem.PSObject.Properties.Name)
+        }
+        if ($freeInstallerFields.Count -gt 0) {
+            $blockedPlan = New-LabUnsupportedGeneralSoftwarePlan -SoftwareItem $softwareItem -SqlVersion ([string]$Instance.version) `
+                -Provider ([string]$Instance.provider) -OperatingSystem $operatingSystem
+            $blockedPlan.ReasonCode = 'GENERAL_SOFTWARE_FREE_INPUT_FORBIDDEN'
+            $blockedPlan.Reason = "Allgemeine Software '$($softwareItem.id)' darf keine freie Installationsquelle oder Command-Ausführung deklarieren."
+            $blockedPlan
+        }
+        else {
+        $request = [PSCustomObject]@{
+            Id = [string]$_.id
+            Version = [string]$_.version
+            Variant = [string]$_.variant
+            Scope = if ($_.scope) { [string]$_.scope } else { 'instance' }
+            InstallMethod = if ($_.installMethod) { [string]$_.installMethod } else { 'catalog' }
+            Optional = if ($null -ne $_.optional) { [bool]$_.optional } else { $true }
+            Packages = @($_.packages | Where-Object { $_ })
+            RequestSource = if ($_.requestSource) { [string]$_.requestSource } else { 'software' }
+        }
+        Resolve-LabExternalRuntimePlan -SoftwareItem $request -SqlVersion ([string]$Instance.version) `
             -Provider ([string]$Instance.provider) -OperatingSystem $operatingSystem
+        }
     })
     $externalRuntimePlans = @(Resolve-LabExternalRuntimePlansForInstance -Instance $Instance)
     return @($generalPlans) + @($externalRuntimePlans)
@@ -503,7 +526,7 @@ function Get-LabExternalRuntimeSelectionOptions {
     )
 
     $options = [System.Collections.Generic.List[object]]::new()
-    foreach ($definition in @((Get-LabSoftwareCatalog).software | Sort-Object id)) {
+    foreach ($definition in @((Get-LabSoftwareCatalog).software | Where-Object { [string]$_.kind -eq 'sqlExternalRuntime' } | Sort-Object id)) {
         foreach ($variant in @($definition.variants | Sort-Object id)) {
             $request = [PSCustomObject]@{
                 Id = [string]$definition.id

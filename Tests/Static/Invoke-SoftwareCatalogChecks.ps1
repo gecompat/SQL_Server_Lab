@@ -24,8 +24,8 @@ Add-CheckResult -Name 'Softwarekatalog entspricht dem versionierten JSON-Schema'
 $catalog = Get-Content -LiteralPath $catalogPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
 $softwareIds = @($catalog.software | ForEach-Object { [string]$_.id })
 $variants = @($catalog.software | ForEach-Object { @($_.variants) })
-Add-CheckResult -Name 'Python, R, Java und C# besitzen eindeutige Katalog-IDs und Varianten' -Success (
-    (@($softwareIds | Sort-Object) -join ',') -eq 'sql-csharp,sql-java,sql-python,sql-r' -and
+Add-CheckResult -Name 'External Runtimes und SqlPackage besitzen eindeutige Katalog-IDs und Varianten' -Success (
+    (@($softwareIds | Sort-Object) -join ',') -eq 'sql-csharp,sql-java,sql-python,sql-r,sqlpackage' -and
     @($softwareIds | Sort-Object -Unique).Count -eq $softwareIds.Count -and
     @($variants.id | Sort-Object -Unique).Count -eq $variants.Count
 )
@@ -75,9 +75,12 @@ $result = & $module {
         Id='sql-csharp'; Version=$null; Variant=$null; Scope='sqlExternalRuntime'; InstallMethod='catalog'
         Optional=$false; Packages=@(); RequestSource='software'
     }) -SqlVersion '2019' -Provider hyperv -OperatingSystem windows
-    $generalPlan = New-LabUnsupportedGeneralSoftwarePlan -SoftwareItem ([PSCustomObject]@{
-        id = 'sqlpackage'; version = '170.4.83.3'; installMethod = 'catalog'; requestSource = 'software'
-    }) -SqlVersion '2025' -Provider docker -OperatingSystem linux
+    $generalRequest = [PSCustomObject]@{
+        Id='sqlpackage'; Version='170.4.83.3'; Variant=$null; Scope='instance'; InstallMethod='catalog'
+        Optional=$false; Packages=@(); RequestSource='software'
+    }
+    $generalPlan = Resolve-LabExternalRuntimePlan -SoftwareItem $generalRequest -SqlVersion '2022' -Provider docker -OperatingSystem linux
+    $toolImagePlan = New-LabContainerToolImagePlan -Provider docker -SqlVersion '2022' -SoftwarePlans @($generalPlan)
 
     $packageRequest = [PSCustomObject]@{
         Id = 'sql-python'; Version = $null; Variant = $null; Scope = 'sqlExternalRuntime'
@@ -155,9 +158,12 @@ $result = & $module {
         CSharp = $csharpPlan.Status -eq 'DECLARED_UNSUPPORTED' -and $csharpPlan.ReasonCode -eq 'VARIANT_PREVIEW' -and
             $csharpPlan.Language -eq 'CSharp'
         GeneralSoftware = $generalPlan.Kind -eq 'generalSoftware' -and
-            $generalPlan.Status -eq 'DECLARED_UNSUPPORTED' -and
-            $generalPlan.ReasonCode -eq 'GENERAL_SOFTWARE_RUNTIME_NOT_IMPLEMENTED' -and
-            -not $generalPlan.PlanKey
+            $generalPlan.Status -eq 'RESOLVED' -and
+            $generalPlan.RuntimeVersion -eq '170.4.83.3' -and
+            @($generalPlan.ArtifactRefs).Count -eq 2 -and
+            [string]$toolImagePlan.Contract.Name -eq 'SqlServerLab.ContainerToolImagePlan' -and
+            [string]$toolImagePlan.ImageKey -match '^[a-f0-9]{64}$' -and
+            [string]$toolImagePlan.SqlPackageArchiveSha256 -eq 'e81ede2429f3a15d9e752845c8928569c7706b3a911fad2d1717c0f03e0fc7c3'
         PackageLock = $packagePlan.ReasonCode -eq 'PACKAGE_NOT_LOCKED'
         HyperVJava = $javaPlan.Status -eq 'RESOLVED' -and -not $javaPlan.ReasonCode -and
             $javaPlan.VariantId -eq 'sql2022-java17-windows-hyperv'
@@ -208,7 +214,7 @@ Add-CheckResult -Name 'Legacy-post-start bleibt vor jeder Mutation NON_REPRODUCI
 Add-CheckResult -Name 'SQL-2022-Python wird fuer Podman deterministisch als freigegeben aufgeloest' -Success $result.Supported
 Add-CheckResult -Name 'SQL Server 2025 erbt keine unbelegte SQL-2022-Runtimeannahme' -Success $result.Sql2025
 Add-CheckResult -Name 'C# bleibt ohne freigegebenen Binär- und Native-Evidence-Pfad explizit fail-closed' -Success $result.CSharp
-Add-CheckResult -Name 'Allgemeine Software bleibt ohne kataloggebundenen Runtime-Pfad explizit fail-closed' -Success $result.GeneralSoftware
+Add-CheckResult -Name 'SqlPackage erhält einen kataloggebundenen Tool-Image-Plan mit SHA-256-Artefakten' -Success $result.GeneralSoftware
 Add-CheckResult -Name 'Nicht katalogisierte Zusatzpakete werden vor der Mutation abgelehnt' -Success $result.PackageLock
 Add-CheckResult -Name 'Hyper-V/Windows-Java besitzt einen nativ belegten deterministischen Plan' -Success $result.HyperVJava
 Add-CheckResult -Name 'Doppelte Legacy- und software-Anforderung wird abgelehnt' -Success $result.DuplicateRejected
@@ -249,6 +255,12 @@ Add-CheckResult -Name 'Provisionierung löst sämtliche Software-Intents vor jed
     $newLabSource -match 'Resolve-LabSoftwarePlansForInstance' -and
     $newLabSource -match 'SOFTWARE_PLAN_REJECTED' -and
     $newLabSource.IndexOf('Resolve-LabSoftwarePlansForInstance') -lt $newLabSource.IndexOf('New-LabRunState')
+)
+Add-CheckResult -Name 'Provisionierung bindet den Container-Tool-Plan vor Run-State und Containerstart' -Success (
+    $newLabSource -match 'New-LabContainerToolImagePlan' -and
+    $newLabSource -match 'Invoke-LabContainerToolImageBuild' -and
+    $newLabSource.IndexOf('New-LabContainerToolImagePlan') -lt $newLabSource.IndexOf('New-LabRunState') -and
+    $newLabSource.IndexOf('Invoke-LabContainerToolImageBuild') -lt $newLabSource.LastIndexOf('New-LabProviderContainer')
 )
 
 $legacyExampleResult = Test-SqlServerLabManifest -Path (Join-Path $repoRoot 'Schemas/example-ml-services.json')

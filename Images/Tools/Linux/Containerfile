@@ -1,0 +1,48 @@
+ARG EXTRACTOR_IMAGE=docker.io/library/alpine@sha256:c64c687cbea9300178b30c95835354e34c4e4febc4badfe27102879de0483b5e
+ARG BASE_IMAGE=mcr.microsoft.com/mssql/server@sha256:ba4c8329f48fb8f02e1416be6a930ebfd71268caee78aa985f3af4315e457c89
+
+FROM ${EXTRACTOR_IMAGE} AS sqlpackage-extract
+ARG SQLPACKAGE_ARCHIVE_URL
+ARG SQLPACKAGE_ARCHIVE_SHA256
+ARG SQLPACKAGE_VERSION
+RUN set -eux; \
+    test -n "${SQLPACKAGE_ARCHIVE_URL}"; \
+    test -n "${SQLPACKAGE_ARCHIVE_SHA256}"; \
+    test -n "${SQLPACKAGE_VERSION}"; \
+    wget -q -O /tmp/sqlpackage.zip "${SQLPACKAGE_ARCHIVE_URL}"; \
+    echo "${SQLPACKAGE_ARCHIVE_SHA256}  /tmp/sqlpackage.zip" | sha256sum -c; \
+    mkdir -p /opt/sqlpackage; \
+    unzip -q /tmp/sqlpackage.zip -d /opt/sqlpackage; \
+    test -f /opt/sqlpackage/sqlpackage; \
+    chmod 0755 /opt/sqlpackage/sqlpackage; \
+    rm -f /tmp/sqlpackage.zip
+
+FROM ${BASE_IMAGE}
+ARG SQLPACKAGE_VERSION
+ARG LIBUNWIND_DEB_URL
+ARG LIBUNWIND_DEB_SHA256
+ARG LIBUNWIND_DEB_VERSION
+ARG CONTENT_ID=characterization
+USER root
+COPY --from=sqlpackage-extract /opt/sqlpackage /opt/sql-server-lab/tools/sqlpackage
+RUN set -eux; \
+    test -n "${LIBUNWIND_DEB_URL}"; \
+    test -n "${LIBUNWIND_DEB_SHA256}"; \
+    test -n "${LIBUNWIND_DEB_VERSION}"; \
+    wget -q --https-only --secure-protocol=TLSv1_2 --timeout=60 --tries=3 \
+        "${LIBUNWIND_DEB_URL}" -O /tmp/libunwind8.deb; \
+    echo "${LIBUNWIND_DEB_SHA256}  /tmp/libunwind8.deb" | sha256sum --check --strict; \
+    test "$(dpkg-deb -f /tmp/libunwind8.deb Version)" = "${LIBUNWIND_DEB_VERSION}"; \
+    dpkg -i /tmp/libunwind8.deb; \
+    rm -f /tmp/libunwind8.deb; \
+    /opt/sql-server-lab/tools/sqlpackage/sqlpackage /Version | grep -F "${SQLPACKAGE_VERSION}"; \
+    test -x /opt/sql-server-lab/tools/sqlpackage/sqlpackage
+
+ENV PATH="/opt/sql-server-lab/tools/sqlpackage:${PATH}"
+LABEL org.opencontainers.image.title="SQL Server Lab SQLPackage Tool" \
+      org.opencontainers.image.vendor="SQL_Server_Lab" \
+      sql-server-lab.container-tool.contract="1.0" \
+      sql-server-lab.container-tool.image-key="${CONTENT_ID}" \
+      sql-server-lab.container-tool.ids="sqlpackage"
+USER mssql
+CMD ["/opt/mssql/bin/sqlservr"]
