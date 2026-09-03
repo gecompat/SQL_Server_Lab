@@ -57,6 +57,11 @@ Add-CheckResult -Name 'Container-Tool-Aenderung aktiviert getrennte Docker- und 
     $containerTool.Docker -and $containerTool.Podman
 )
 
+$bacpac = & $selector -ChangedPath @('Catalogs/sample-databases.json', 'Private/SampleArtifactHandlers.ps1')
+Add-CheckResult -Name 'BACPAC-Aenderung aktiviert getrennte Docker- und Podman-Akzeptanz' -Success (
+    $bacpac.Docker -and $bacpac.Podman
+)
+
 $containerInstanceStore = & $selector -ChangedPath @('Private/ContainerInstanceStore.ps1')
 Add-CheckResult -Name 'Container-Instanzstore aktiviert Core-Verträge sowie getrennte Docker-/Podman-Nachweise' -Success (
     $containerInstanceStore.Docker -and $containerInstanceStore.Podman -and

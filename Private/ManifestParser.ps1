@@ -214,8 +214,9 @@ function Resolve-LabSampleRestore {
         Loest eine Sample-Referenz in einen aktuell unterstuetzten Installationsvertrag auf.
 
     .DESCRIPTION
-        Unterstuetzt direkte Backups, ZIP-/7z-Backups, einzelne T-SQL-Skripte
-        und katalogisierte Script Bundles mit einem oder mehreren Datenbankoutputs.
+    Unterstuetzt direkte Backups, ZIP-/7z-Backups, einzelne T-SQL-Skripte,
+    katalogisierte Script Bundles und BACPAC-Imports. Ein BACPAC setzt einen
+    separat gebundenen SqlPackage-Tool-Intent der Containerinstanz voraus.
         Eine fehlende Katalogpruefsumme ist zulaessig; die Integritaet wird dann
         zur Laufzeit ueber den Trust-Pfad (interactive-once) des Artifact
         Resolvers gesichert. Nicht interaktive Laeufe enden dort mit
@@ -238,7 +239,7 @@ function Resolve-LabSampleRestore {
     if ($artifact.runtimeStatus -ne 'executable') {
         throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' ist nur beschreibend katalogisiert und nicht fuer die automatische Ausfuehrung freigegeben."
     }
-    if ($artifact.artifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle') -or
+    if ($artifact.artifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle', 'bacpac') -or
         [string]$artifact.installation.kind -ne [string]$artifact.artifactType) {
         throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' hat Artifact Type '$($artifact.artifactType)'. Der Manifestpfad unterstuetzt diesen Handler nicht."
     }

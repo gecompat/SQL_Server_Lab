@@ -49,6 +49,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Sample-Identität, Idempotenzregel und ONLINE-Verification;
 - sichere `script-bundle`-Installation aus ZIP-Dateien mit root-gebundenem
   SQL-Entrypoint und mehreren erwarteten Outputs;
+- BACPAC-Import für katalogisierte SQL-2022-Linux-Samples unter Docker und
+  Podman über das gebundene SqlPackage-Tool, mit Versionsprobe vor Mutation,
+  Trust-/Cache-Artifact, scoped temporärem Transfer, SQL-Roundtrip und Cleanup;
 - inhaltsadressierte `LAB_GENERATED`-Baselines für Single- und Multi-Output-
   Container- und run-gebundene Hyper-V-Samples einschließlich kompatibler
   Aufsetzpunktauswahl; Hyper-V exportiert nur aus der verifizierten Backup-
