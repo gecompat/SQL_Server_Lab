@@ -42,6 +42,8 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
 .\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -Provider docker
 .\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -Provider podman
 .\Tests\Integration\Invoke-ContainerRuntimeScopeAcceptance.ps1
+.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider podman
 .\Tests\Integration\Invoke-HyperVCliAcceptance.ps1 -MediaRoot D:\Lab_Base -SqlVersion 2025
 .\Tests\Integration\Invoke-HyperVSqlPreparedImageAcceptance.ps1
 .\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1 `
