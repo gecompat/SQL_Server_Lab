@@ -119,6 +119,9 @@ Der native Ubuntu-Pfad ist getrennt in der
 beschrieben. ISO-, VHDX- und SQL-Installationsmedien liegen in einem
 operatorseitig angegebenen [externen Media Root](Documentation/HowTo/MEDIA_ROOT_LAYOUT.md),
 nicht im Repository.
+Der vollständige Operatorablauf für eine Windows-/Linux-Testmatrix mit SQL
+Server 2019, 2022 und 2025 sowie einem separaten CMS steht im
+[End-to-End-Runbook](Documentation/HowTo/END_TO_END_TEST_ENVIRONMENT.md).
 Eine optionale Windows-OS-Baseline wird über die
 [Hyper-V-Image-Build-Anleitung](Documentation/HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
 aus der verifizierten ISO erstellt. Wiederverwendbare SQL-Prepared-Images
@@ -789,6 +792,7 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 
 ## Weiterführende Dokumentation
 
+- [End-to-End-Testumgebung für Windows/Linux 2019–2025 und CMS](Documentation/HowTo/END_TO_END_TEST_ENVIRONMENT.md)
 - [Konsolidierter Entwicklungs- und Ausführungsplan](Documentation/Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md)
 - [Konsolen-, Lifecycle- und Storage-Konsolidierungsplan aus der manuellen Abnahme](Documentation/Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
 - [Providerneutraler Batch-, Queue- und Resume-Workflow](Documentation/Project_Planning/PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md)

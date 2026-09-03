@@ -96,7 +96,7 @@ function Sync-LabConnectionCenterAfterLifecycle {
         }
     }
     catch {
-        Write-LabWarning "CMS-Synchronisation fehlgeschlagen: $($_.Exception.Message). Unter [k] -> [4] erneut ausführen."
+        Write-LabWarning "CMS-Synchronisation fehlgeschlagen: $($_.Exception.Message). Unter Datenbanken und Verbindungen -> Verbindungszentrale und SSMS-Endpunkte -> CMS verwalten und synchronisieren erneut ausführen."
     }
 }
 
@@ -1210,7 +1210,7 @@ function Show-LabOperatingSystemSourcesInteractive {
             Write-LabStatus -Label 'Lab_Base' -Value $mediaRoot -Color White
         }
         else {
-            Write-LabWarning 'Lab_Base ist noch nicht konfiguriert. Nach dem Download zuerst unter [p] den Media-Root festlegen.'
+            Write-LabWarning 'Lab_Base ist noch nicht konfiguriert. Nach dem Download unter Medien, Testdaten und Speicher -> Lab_Base / Media-Root konfigurieren festlegen.'
         }
 
         foreach ($source in $operatingSystemSources) {
@@ -1574,7 +1574,7 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
     param()
 
     $dataRoot = Get-LabDataRootDefault
-    if (-not $dataRoot) { Write-LabError 'Für TestUmgebung.env muss zuerst unter [d] ein Data Root konfiguriert werden.'; return }
+    if (-not $dataRoot) { Write-LabError 'Für TestUmgebung.env muss zuerst unter Medien, Testdaten und Speicher -> Lab_Data verwalten ein Data Root konfiguriert werden.'; return }
     $queue = [Collections.Generic.List[object]]::new()
     while ($true) {
         Write-Host ''
@@ -1707,7 +1707,7 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
         $null = Sync-LabAutomatedTestEnvironmentConnectionCenter
         Write-LabSuccess "TestUmgebung.env geschrieben: $($export.EnvPath)"
         Write-LabSuccess "Kanonischer Maschinenvertrag: $($export.JsonPath)"
-        Write-LabInfo "Bereit: $($export.Ready) von $($export.Entries). Nicht bereite Hyper-V-Runs später fortsetzen und mit [e] -> [r] neu exportieren."
+        Write-LabInfo "Bereit: $($export.Ready) von $($export.Entries). Nicht bereite Hyper-V-Runs später fortsetzen und über -Action AutomatedTestEnvironment -> Export aktualisieren neu exportieren."
         return
     }
 }
@@ -1950,7 +1950,7 @@ function Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive {
         })
         if ($osArtifacts.Count -eq 0) {
             Write-LabInfo 'Die OS-Vorlage benötigt noch die angezeigten manuellen Windows-Schritte.'
-            Write-LabInfo 'Danach erneut [1] „Neue Umgebung erstellen“ wählen; der Workflow setzt automatisch beim Windows-Slot fort.'
+            Write-LabInfo 'Danach erneut „Umgebungen planen und erstellen“ wählen; der Workflow setzt automatisch beim Windows-Slot fort.'
             return
         }
         Write-LabSuccess 'Windows-OS-Vorlage ist jetzt verfügbar; der SQL-Umgebungsworkflow wird fortgesetzt.'
@@ -3565,7 +3565,7 @@ function New-LabHyperVSqlDeploymentPlanInteractive {
         $deploymentMode = if ($mode -eq '1') { 'sql-pool-slot' } else { 'adhoc-install' }
     }
     $mediaRoot = Get-LabMediaRootDefault
-    if (-not $mediaRoot) { throw 'Kein Media Root gespeichert. Zuerst Hauptmenü [r] konfigurieren.' }
+    if (-not $mediaRoot) { throw 'Kein Media Root gespeichert. Zuerst unter Medien, Testdaten und Speicher -> Lab_Base / Media-Root konfigurieren festlegen.' }
     $mediaArguments = @{ MediaRoot=$mediaRoot }
     if ($Intent) {
         $mediaArguments.SqlVersion = [string]$Intent.BaseVersion
@@ -3623,7 +3623,7 @@ function New-LabHyperVSqlDeploymentPlanInteractive {
     Write-LabSuccess "SQL-Ausbau gespeichert: SQL $($plan.sqlVersion) · $($plan.deploymentMode) · $($plan.processorCount) vCPU"
     if ([long]$plan.maximumDataIops -gt 0) {
         $dataRoot = Get-LabDataRootDefault
-        if (-not $dataRoot) { throw 'Kein Data Root gespeichert. Zuerst Hauptmenü [d] konfigurieren.' }
+        if (-not $dataRoot) { throw 'Kein Data Root gespeichert. Zuerst unter Medien, Testdaten und Speicher -> Lab_Data verwalten konfigurieren.' }
         $storage = Enable-HyperVLabPersistentData -RunId $RunId -DataRoot $dataRoot -SizeGB 128 -MaximumIops ([long]$plan.maximumDataIops)
         Write-LabSuccess "Gedrosselte SQL-Datenplatte angehängt: max. $($plan.maximumDataIops) IOPS · $($storage.hostPath)"
     }
@@ -3643,7 +3643,7 @@ function Invoke-LabHyperVSqlSlotInstallInteractive {
         return $false
     }
     $mediaRoot = Get-LabMediaRootDefault
-    if (-not $mediaRoot) { throw 'Kein Media Root gespeichert. Zuerst Hauptmenü [r] konfigurieren.' }
+    if (-not $mediaRoot) { throw 'Kein Media Root gespeichert. Zuerst unter Medien, Testdaten und Speicher -> Lab_Base / Media-Root konfigurieren festlegen.' }
     Write-Host "  SQL: $($Plan.sqlVersion) · $($Plan.deploymentMode) · Medium $($Plan.mediaEdition)" -ForegroundColor White
     Write-Host '  SQL wird vollständig installiert. Es wird kein Sysprep ausgeführt und dieser Slot wird nicht geklont.' -ForegroundColor Yellow
     if (-not (Read-LabConfirm -Prompt '  Vollständige SQL-Installation jetzt ausführen?' -Default $true)) { return $false }
@@ -3678,7 +3678,7 @@ function Complete-LabHyperVManualWindowsWorkflowInteractive {
     )
     if (-not $done) { $done = 'b' }
     if ($done -eq 'b') {
-        Write-LabWarning 'Workflow angehalten. Der Slot bleibt erhalten; Wiederaufnahme unter [i] -> [4] mit [o] „Windows-Grundinstallation übernehmen“.'
+        Write-LabWarning 'Workflow angehalten. Der Slot bleibt erhalten; Wiederaufnahme über -Action Image -> Betriebssystem- und SQL-Slots verwalten -> [o] „Windows-Grundinstallation übernehmen“.'
         return $false
     }
 
@@ -3899,7 +3899,7 @@ function New-LabHyperVEnvironmentInteractive {
             }
             else {
                 Write-LabInfo 'Windows-OOBE jetzt manuell abschließen, Administratorpasswort setzen und einmal vollständig anmelden.'
-                Write-LabInfo 'Dieser bewusst einzeln erzeugte OS-Slot kann danach unter [i] -> [4] mit [o] übernommen werden.'
+                Write-LabInfo 'Dieser bewusst einzeln erzeugte OS-Slot kann danach über -Action Image -> Betriebssystem- und SQL-Slots verwalten -> [o] übernommen werden.'
             }
         }
         catch { Write-LabError $_.Exception.Message }
@@ -4243,7 +4243,7 @@ function Manage-LabHyperVEnvironmentInteractive {
             'd' {
                 if ($persistentStorage) { Write-LabWarning 'Für diese Umgebung ist bereits eine Daten-VHDX angehängt.'; return }
                 $dataRoot = Get-LabDataRootDefault
-                if (-not $dataRoot) { Write-LabError 'Kein Data Root gespeichert. Zuerst Hauptmenü [d] konfigurieren.'; return }
+                if (-not $dataRoot) { Write-LabError 'Kein Data Root gespeichert. Zuerst unter Medien, Testdaten und Speicher -> Lab_Data verwalten konfigurieren.'; return }
                 $sizeGB = Read-Host '  Größe Daten-VHDX in GB [128]'
                 if (-not $sizeGB) { $sizeGB = 128 }
                 $storage = Enable-HyperVLabPersistentData -RunId $runId -DataRoot $dataRoot -SizeGB ([int]$sizeGB)
@@ -4333,7 +4333,7 @@ function Manage-LabHyperVEnvironmentInteractive {
                     Write-LabWarning 'Kein ausführbarer SQL-Prepared-Ausbauplan vorhanden.'; return
                 }
                 $mediaRoot = Get-LabMediaRootDefault
-                if (-not $mediaRoot) { throw 'Kein Media Root gespeichert. Zuerst Hauptmenü [r] konfigurieren.' }
+                if (-not $mediaRoot) { throw 'Kein Media Root gespeichert. Zuerst unter Medien, Testdaten und Speicher -> Lab_Base / Media-Root konfigurieren festlegen.' }
                 Write-Host "  SQL: $($plan.sqlVersion) · Medium $($plan.mediaEdition) · Features $(@($plan.features) -join ', ')" -ForegroundColor White
                 if ([string]$plan.state -eq 'PREPARE_RUNNING') {
                     Write-Host '  SQL PrepareImage und Sysprep werden nicht wiederholt; nur der laufende Generalize-Vorgang wird übernommen.' -ForegroundColor Yellow
