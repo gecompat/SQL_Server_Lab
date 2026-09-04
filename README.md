@@ -603,6 +603,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Sync-SqlServerLabPersistentStorageArtifact` | Ein vorhandenes Backup-Set, Datenbankpaket oder sicheres relatives Exchange-Workspace per stabiler Artefakt-ID idempotent mit dem Persistent-Storage-Katalog synchronisieren |
 | `Sync-SqlServerLabRunScopedContainerStore` | Einen laufenden, vollständig run-, scope-, label- und containergebunden nachgewiesenen Docker-/Podman-Store revisionsgeschützt katalogisieren |
 | `Get-SqlServerLabDatabasePackage` | Datenbankpakete pfadfrei anhand ihrer stabilen `DatabasePackageId` auswählen und optional vollständig verifizieren |
+| `Export-SqlServerLabDatabasePackage` | Eine per Run- und Instanz-ID gebundene Docker-/Podman-Datenbank nach exklusivem Offline-Commit als automatisch SHA-256-verifiziertes Paket veröffentlichen |
 | `Invoke-SqlServerLabDatabasePackageAttach` | Ein vollständig revalidiertes Datenbankpaket per stabiler ID als unabhängige, im Gast erneut gehashte Kopie an einen laufenden scopegebundenen Hyper-V-SQL-Run attachen; das Ziel wird live aus SQL Default Data abgeleitet |
 | `Get-SqlServerLabConnectionCenter` | Passwortfreien, providerübergreifenden SQL-Endpunktkatalog ermitteln |
 | `Sync-SqlServerLabConnectionCenter` | Den Endpunktkatalog der SSMS-/CMS-Verbindungszentrale aktualisieren |

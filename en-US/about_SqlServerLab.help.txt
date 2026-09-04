@@ -117,6 +117,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Lists path-free database-package selections by stable DatabasePackageId
         and optionally verifies all immutable package objects.
 
+    Export-SqlServerLabDatabasePackage
+        Publishes only a Docker or Podman database bound by run and instance ID
+        after an exclusive offline commit as a SHA-256-verified package.
+
     Invoke-SqlServerLabDatabasePackageAttach
         Copies a fully verified database package by stable package and run IDs
         into a Hyper-V guest's live-bound SQL default-data target and attaches

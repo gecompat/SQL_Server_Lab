@@ -57,6 +57,7 @@
         'Sync-SqlServerLabPersistentStorageArtifact'
         'Sync-SqlServerLabRunScopedContainerStore'
         'Get-SqlServerLabDatabasePackage'
+        'Export-SqlServerLabDatabasePackage'
         'Invoke-SqlServerLabDatabasePackageAttach'
         'Get-SqlServerLabDatabaseMigrationDependency'
         'New-SqlServerLabDatabase'

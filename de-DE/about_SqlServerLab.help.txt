@@ -119,6 +119,11 @@ Sync-SqlServerLabRunScopedContainerStore
         Listet Datenbankpakete pfadfrei per stabiler DatabasePackageId und
         verifiziert optional alle unveraenderlichen Paketobjekte.
 
+    Export-SqlServerLabDatabasePackage
+        Veröffentlicht ausschließlich eine per Run- und Instanz-ID gebundene
+        Docker-/Podman-Datenbank nach exklusivem Offline-Commit als
+        SHA-256-verifiziertes Paket.
+
     Invoke-SqlServerLabDatabasePackageAttach
         Kopiert ein vollstaendig verifiziertes Datenbankpaket per stabiler
         Paket-/Run-ID in das live gebundene SQL-Default-Data-Ziel eines
