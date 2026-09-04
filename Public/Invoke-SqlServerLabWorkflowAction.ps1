@@ -183,7 +183,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
             'ExecutePersistentStorageRemoval',
-            'CreateContainerDatabase', 'ExportContainerDatabasePackage', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
+            'CreateContainerDatabase', 'InspectContainerDatabaseMigrationDependencies', 'ExportContainerDatabasePackage', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
             'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'ReleaseHyperVPersistentData', 'ReattachHyperVPersistentData', 'CloneHyperVPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'AttachHyperVDatabasePackage', 'RecoverHyperVDatabasePackageAttach', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
             'NewSqlBuild', 'NewSqlBuildFromBaseline', 'SetSqlMediaHash', 'OpenSqlConsole', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'ResumeSqlImage', 'PublishSqlImage',
@@ -294,7 +294,7 @@ function Invoke-SqlServerLabWorkflowAction {
 
     $containerActions = @(
         'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
-        'ClearAllLabs', 'CreateContainerDatabase', 'ExportContainerDatabasePackage', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
+        'ClearAllLabs', 'CreateContainerDatabase', 'InspectContainerDatabaseMigrationDependencies', 'ExportContainerDatabasePackage', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
         'ExecutePersistentStorageRemoval',
         'StartLabReconcile', 'StopLabReconcile'
     )
@@ -317,7 +317,7 @@ function Invoke-SqlServerLabWorkflowAction {
     elseif ($GuestPassword) {
         $credential = [PSCredential]::new($GuestUserName, $GuestPassword)
     }
-    if ($Action -in @('NewContainerLab', 'NewContainerLabFromManifest', 'CreateContainerDatabase', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript') -and -not $SaPassword) {
+    if ($Action -in @('NewContainerLab', 'NewContainerLabFromManifest', 'CreateContainerDatabase', 'InspectContainerDatabaseMigrationDependencies', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript') -and -not $SaPassword) {
         throw 'CONTAINER_WORKFLOW_SA_PASSWORD_REQUIRED'
     }
     if ($Action -eq 'RemoveHyperVImageArtifact' -and [string]::IsNullOrWhiteSpace($ArtifactId)) {
@@ -347,6 +347,10 @@ function Invoke-SqlServerLabWorkflowAction {
     if ($Action -eq 'ExportContainerDatabasePackage' -and
         ([string]::IsNullOrWhiteSpace($BuildId) -or [string]::IsNullOrWhiteSpace($InstanceId) -or $DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$')) {
         throw 'DATABASE_PACKAGE_CONTAINER_WORKFLOW_TARGET_REQUIRED'
+    }
+    if ($Action -eq 'InspectContainerDatabaseMigrationDependencies' -and
+        ([string]::IsNullOrWhiteSpace($BuildId) -or [string]::IsNullOrWhiteSpace($InstanceId) -or $DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$')) {
+        throw 'MIGRATION_DEPENDENCY_CONTAINER_WORKFLOW_TARGET_REQUIRED'
     }
     if ($Action -in @('AttachHyperVDatabasePackage', 'RecoverHyperVDatabasePackageAttach') -and
         ([string]::IsNullOrWhiteSpace($BuildId) -or [string]::IsNullOrWhiteSpace($DatabasePackageId))) {
@@ -386,6 +390,7 @@ function Invoke-SqlServerLabWorkflowAction {
         'ReattachHyperVPersistentData' { 'Persistierte Clean-Detach-Evidenz, VHDX, Ziel-VM und Katalog werden geprüft; danach wird die VHDX gebunden.' }
         'CloneHyperVPersistentData' { 'Die unveränderte, sauber freigegebene VHDX wird in einen eigenständigen katalogisierten Klon kopiert.' }
         'InspectHyperVLabSqlInstances' { 'SQL-Instanzen, Dienste und TCP-Ports werden ausschließlich lesend in der laufenden Lab-VM geprüft.' }
+        'InspectContainerDatabaseMigrationDependencies' { 'Die an Run, Instanz und Datenbanknamen gebundene Containerdatenbank wird ausschließlich lesend auf Migrationsabhängigkeiten geprüft.' }
         'ExportContainerDatabasePackage' { 'Die an Run, Instanz und Datenbanknamen gebundene Containerdatenbank wird exklusiv offline als SHA-256-verifiziertes Paket veröffentlicht.' }
         'AttachHyperVDatabasePackage' { 'Paket und gebundenes SQL-Ziel werden vollständig geprüft; danach folgen Gastkopie, Hashprüfung, Attach und Online-Postcondition.' }
         'RecoverHyperVDatabasePackageAttach' { 'Nur ein passendes persistiertes Attach-Recovery-Journal wird erneut an Paket, Run, Instanz und SQL-Ziel gebunden und ausgeführt.' }
@@ -512,6 +517,9 @@ function Invoke-SqlServerLabWorkflowAction {
         'CreateContainerDatabase' {
             if ($Port -lt 1 -or -not $DatabaseName) { throw 'CONTAINER_WORKFLOW_DATABASE_TARGET_REQUIRED' }
             New-SqlServerLabDatabase -HostName $HostName -Port $Port -SaPassword $SaPassword -DatabaseName $DatabaseName
+        }
+        'InspectContainerDatabaseMigrationDependencies' {
+            Get-SqlServerLabDatabaseMigrationDependency -RunId $BuildId -InstanceId $InstanceId -SaPassword $SaPassword -DatabaseName $DatabaseName
         }
         'ExportContainerDatabasePackage' {
             $exportArguments = @{
