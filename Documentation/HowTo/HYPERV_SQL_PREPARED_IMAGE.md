@@ -1,4 +1,4 @@
-# SQL Server 2019, 2022 und 2025 als Hyper-V-Prepared-Image
+# SQL Server 2016, 2017, 2019, 2022 und 2025 als Hyper-V-Prepared-Image
 
 | Merkmal | Wert |
 |---|---|
@@ -75,11 +75,15 @@ Developer. Windows und SQL werden dabei in derselben Builder-VM installiert.
    eine Kombination nicht unterstützen, endet der Build mit dessen konkreter
    Diagnose statt mit einer pauschalen Vorauswahl-Sperre.
 4. Bei SQL-Version `2025` und SQL-Medien-Edition `Enterprise` bestätigen.
-5. Optional einen sprechenden Namen vergeben. Fehlt ein SHA-256-Sidecar,
+5. Den Lizenzmodus auswählen. `Evaluation` bleibt schlüssellos; bei
+   Enterprise und Standard ist `Developer Edition (ohne Key)` die
+   Standardauswahl. Nur eine ausdrücklich gewählte passende Profil-ID nutzt
+   einen Product Key.
+6. Optional einen sprechenden Namen vergeben. Fehlt ein SHA-256-Sidecar,
    dessen Berechnung bestätigen. Der Builder ändert
    dabei keine ISO, sondern schreibt nur die Prüfsumme unter `Hashes`.
-6. Den Builder erzeugen, starten und VMConnect öffnen lassen.
-7. Windows installieren, die OOBE abschließen, das lokale Passwort für `Administrator` setzen und sich
+7. Den Builder erzeugen, starten und VMConnect öffnen lassen.
+8. Windows installieren, die OOBE abschließen, das lokale Passwort für `Administrator` setzen und sich
    einmal vollständig anmelden. Das Passwort nur für den unmittelbar folgenden
    Schritt merken; es wird nicht im Build-State oder Git gespeichert.
 
@@ -112,7 +116,7 @@ Erwartetes Ergebnis: `SQL_PREPARED_SEALED` mit einer Artifact-ID. Erst eine
 spätere Laufzeit-VM führt SQL `CompleteImage` aus und erhält konkrete
 Instanz-, Administrator- und Netzwerkdaten.
 
-### Die drei Image-Versionen real prüfen
+### Die SQL-Versionen real prüfen
 
 Die Images werden nacheinander gebaut, nie parallel. Zwischen zwei Läufen
 zuerst die Veröffentlichung aus dem vorigen Lauf abwarten und das Ergebnis im
@@ -123,6 +127,8 @@ Builder-Status kontrollieren.
 | 1 | Windows Server 2025 ISO; SQL 2025 Enterprise | Status `SQL_PREPARED_SEALED`, Artifact-ID und Evaluation-Ende festhalten |
 | 2 | Windows Server 2025 ISO; SQL 2022 und passende Medien-Edition | eigener Builder und eigene Artifact-ID |
 | 3 | Windows Server 2025 ISO; SQL 2019 und passende Medien-Edition | eigener Builder und eigene Artifact-ID |
+| 4 | Kompatible Windows-ISO; SQL 2017 und passende Medien-Edition | eigener Builder; Kompatibilität durch Setup-/Sysprep-Evidence bestätigen |
+| 5 | Kompatible Windows-ISO; SQL 2016 und passende Medien-Edition | eigener Builder; Kompatibilität durch Setup-/Sysprep-Evidence bestätigen |
 
 Für jeden Lauf gilt: Builder erstellen → Windows installieren → Installation
 bestätigen → automatischer SQL-Prepare/Sysprep/Publish-Abschluss. Nur die
@@ -351,7 +357,7 @@ Das Ergebnis ist ein `SQL_PREPARED_SEALED`-Artifact. Eine spätere Lab-VM muss
 noch SQL `CompleteImage` ausführen und Instanzkonto, Administratoren,
 Authentifizierung und Pfade konfigurieren.
 
-## 8. Evaluation und Developer
+## 8. Evaluation, Developer und optionale Lizenzprofile
 
 Windows- und SQL-Lizenzstatus werden getrennt gespeichert:
 
@@ -360,8 +366,17 @@ Windows- und SQL-Lizenzstatus werden getrennt gespeichert:
   `CompleteImage` beginnt; ein erfundenes Ablaufdatum wird nicht gespeichert;
 - Enterprise Developer und Standard Developer sind nicht für Produktion
   freigegeben;
+- Evaluation, Developer und Express benötigen weiterhin kein Lizenzprofil;
+- nur eine ausdrücklich gewählte, exakt zu SQL-Version und Edition passende
+  Profil-ID setzt beim `PrepareImage` den SQL-Setup-Parameter `/PID`;
+- der Product Key erscheint weder im Build-State noch in Receipts oder
+  Artifact-Metadaten; dort stehen nur Lizenztyp und Profil-ID;
+- Enterprise Core und Web werden nur mit passendem Lizenzprofil zugelassen;
 - ein ablaufendes Image wird neu aus Originalmedien gebaut, nicht verlängert
   oder manipuliert.
+
+Anlegen, Prüfen und Entfernen der Profile beschreibt
+[Optionale Lizenzprofile für Windows und SQL Server](LICENSE_PROFILES.md).
 
 Datenbanken liegen nicht im austauschbaren Image. Der Refresh- und
 Backupvertrag steht unter

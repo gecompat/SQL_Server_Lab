@@ -79,6 +79,10 @@
         'Get-SqlServerLabResourcePlan'
         'Save-SqlServerLabResourceSet'
         'Save-SqlServerLabMediaSource'
+        'Set-SqlServerLabLicenseProfile'
+        'Get-SqlServerLabLicenseProfile'
+        'Test-SqlServerLabLicenseProfile'
+        'Remove-SqlServerLabLicenseProfile'
     )
 
     CmdletsToExport   = @()

@@ -51,6 +51,9 @@ SQL_Server_Lab-Internal-Switch verwendet.
     Zielversion für ein neues SQL-Prepared-Image.
 .PARAMETER SqlEdition
     Edition des SQL-Installationsmediums.
+.PARAMETER SqlLicenseProfileId
+    Optionale lokale Lizenzprofil-ID. Ohne Angabe bleiben Evaluation und die
+    vorhandenen Developer-Pfade schluessellos; ein Key wird nie vorausgesetzt.
 .PARAMETER SqlMediaPath
     Relativer Pfad einer automatisch erkannten SQL-ISO innerhalb von MediaRoot.
 .PARAMETER WindowsMediaSha256
@@ -213,7 +216,8 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidatePattern('^[a-z0-9-]+$')][string]$WindowsEdition = 'standard-evaluation',
         [ValidateSet('core', 'desktop-experience')][string]$InstallationType = 'desktop-experience',
         [string]$SqlVersion = '2022',
-        [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$SqlEdition = 'Eval',
+        [ValidateSet('Eval', 'Enterprise', 'EnterpriseCore', 'Standard', 'Web')][string]$SqlEdition = 'Eval',
+        [ValidatePattern('^[a-z][a-z0-9.-]{2,63}$')][string]$SqlLicenseProfileId,
         [string]$SqlMediaPath,
         [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$WindowsMediaSha256,
         [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$SqlMediaSha256,
@@ -624,14 +628,27 @@ function Invoke-SqlServerLabWorkflowAction {
             if ($windowsMedia.HashStatus -ne 'SIDECAR_READY' -and $WindowsMediaSha256) { $null = Set-HyperVWindowsMediaHashSidecar -MediaRoot $MediaRoot -OperatingSystemId $OperatingSystemId -WindowsMediaPath $WindowsMediaPath -WindowsEdition $WindowsEdition -InstallationType $InstallationType -ExpectedSha256 $WindowsMediaSha256 }
             $sqlMedia = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $SqlEdition -SqlMediaPath $SqlMediaPath
             if ($sqlMedia.HashStatus -ne 'SIDECAR_READY' -and $SqlMediaSha256) { $null = Set-HyperVSqlMediaHashSidecar -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $SqlEdition -SqlMediaPath $SqlMediaPath -ExpectedSha256 $SqlMediaSha256 }
-            Initialize-HyperVSqlFreshPreparedImageBuild -MediaRoot $MediaRoot -OperatingSystemId $OperatingSystemId -WindowsEdition $WindowsEdition -InstallationType $InstallationType -WindowsMediaPath $WindowsMediaPath -SqlVersion $SqlVersion -MediaEdition $SqlEdition -SqlMediaPath $SqlMediaPath -ImageName $ImageName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount -OsDiskSizeBytes ($OsDiskSizeGB * 1GB)
+            $initializeSqlArguments = @{
+                MediaRoot = $MediaRoot; OperatingSystemId = $OperatingSystemId; WindowsEdition = $WindowsEdition
+                InstallationType = $InstallationType; WindowsMediaPath = $WindowsMediaPath; SqlVersion = $SqlVersion
+                MediaEdition = $SqlEdition; SqlMediaPath = $SqlMediaPath; ImageName = $ImageName
+                MemoryStartupBytes = ($MemoryStartupMB * 1MB); ProcessorCount = $ProcessorCount; OsDiskSizeBytes = ($OsDiskSizeGB * 1GB)
+            }
+            if (-not [string]::IsNullOrWhiteSpace($SqlLicenseProfileId)) { $initializeSqlArguments.LicenseProfileId = $SqlLicenseProfileId }
+            Initialize-HyperVSqlFreshPreparedImageBuild @initializeSqlArguments
         }
         'NewSqlBuildFromBaseline' {
             if (-not $ArtifactId) { throw 'HYPERV_WORKFLOW_OS_BASELINE_REQUIRED' }
             if (-not $SqlMediaPath) { throw 'HYPERV_WORKFLOW_SQL_MEDIA_REQUIRED' }
             $sqlMedia = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $SqlEdition -SqlMediaPath $SqlMediaPath
             if ($sqlMedia.HashStatus -ne 'SIDECAR_READY' -and $SqlMediaSha256) { $null = Set-HyperVSqlMediaHashSidecar -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $SqlEdition -SqlMediaPath $SqlMediaPath -ExpectedSha256 $SqlMediaSha256 }
-            Initialize-HyperVSqlPreparedImageBuild -MediaRoot $MediaRoot -ImageArtifactId $ArtifactId -SqlVersion $SqlVersion -MediaEdition $SqlEdition -SqlMediaPath $SqlMediaPath -ImageName $ImageName -MemoryStartupBytes ($MemoryStartupMB * 1MB) -ProcessorCount $ProcessorCount
+            $initializeSqlArguments = @{
+                MediaRoot = $MediaRoot; ImageArtifactId = $ArtifactId; SqlVersion = $SqlVersion
+                MediaEdition = $SqlEdition; SqlMediaPath = $SqlMediaPath; ImageName = $ImageName
+                MemoryStartupBytes = ($MemoryStartupMB * 1MB); ProcessorCount = $ProcessorCount
+            }
+            if (-not [string]::IsNullOrWhiteSpace($SqlLicenseProfileId)) { $initializeSqlArguments.LicenseProfileId = $SqlLicenseProfileId }
+            Initialize-HyperVSqlPreparedImageBuild @initializeSqlArguments
         }
         'SetSqlMediaHash' {
             if (-not $SqlMediaPath) { throw 'HYPERV_WORKFLOW_SQL_MEDIA_REQUIRED' }

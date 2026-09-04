@@ -153,6 +153,7 @@ try {
                     contractVersion = '1'; buildId = $ArgumentList[0]; scopeId = $ArgumentList[1]; challenge = $ArgumentList[2]
                     action = 'PrepareImage'; sqlVersion = '2019'; setupFileVersion = '15.0.2000.5'
                     features = @([string]$ArgumentList[5] -split ','); exitCode = 0; rebootScheduled = $false
+                    licenseType = [string]$ArgumentList[8]; edition = [string]$ArgumentList[9]
                     completedAt = [datetime]::UtcNow.ToString('o')
                 }
             }
@@ -176,6 +177,19 @@ try {
     $menuText = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     Add-CheckResult -Name 'SQL Setup verwendet PrepareImage quiet und akzeptiert Lizenzbedingungen' -Success (
         $builderText -match '/ACTION=PrepareImage' -and $builderText -match '/IACCEPTSQLSERVERLICENSETERMS'
+    )
+    Add-CheckResult -Name 'SQL Product Key wird nur bei explizitem Profil kurzfristig als PID an Setup uebergeben' -Success (
+        $builderText.Contains('Get-LabLicenseProfileSecret') -and
+        $builderText.Contains('$arguments += "/PID=$plainKey"') -and
+        $builderText.Contains('ZeroFreeBSTR($keyBstr)') -and
+        $builderText.Contains("Where-Object { `$_ -notlike '/PID=*' }")
+    )
+    Add-CheckResult -Name 'SQL Build-State speichert nur Profilreferenz und Lizenzmetadaten' -Success (
+        $builderText.Contains('profileId = if ($licenseSelection.ProfileId)') -and
+        $rawState -notmatch '(?i)product.?key|/PID='
+    )
+    Add-CheckResult -Name 'SQL Setup-Fehler redigieren moegliche PID-Werte' -Success (
+        $builderText -match '<redacted>' -and $builderText -match '\(/PID=\|PID\\s\*\[:=\]'
     )
     Add-CheckResult -Name 'SQL Setup besitzt ein hartes Timeout' -Success (
         $builderText -match 'WaitForExit\(\$TimeoutSeconds \* 1000\)' -and $builderText -match 'SQL_SETUP_PREPARE_IMAGE_TIMEOUT'
@@ -239,12 +253,16 @@ try {
     )
     $dynamicEditionMapping = & $module {
         (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2025/Standard_Developer/ISO/sql.iso') -eq 'Standard' -and
-        (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2022/Developer/ISO/sql.iso') -eq 'Enterprise'
+        (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2022/Developer/ISO/sql.iso') -eq 'Enterprise' -and
+        (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2016/Enterprise_Core/ISO/sql.iso') -eq 'EnterpriseCore' -and
+        (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2016/Web/ISO/sql.iso') -eq 'Web'
     }
     Add-CheckResult -Name 'Automatische Medienedition bevorzugt Standard vor dem Developer-Zusatz' -Success $dynamicEditionMapping
     $artifactEditionMapping = & $module {
         (ConvertTo-HyperVSqlMediaEdition -SqlEdition EnterpriseDeveloper) -eq 'Enterprise' -and
+        (ConvertTo-HyperVSqlMediaEdition -SqlEdition EnterpriseCore) -eq 'EnterpriseCore' -and
         (ConvertTo-HyperVSqlMediaEdition -SqlEdition StandardDeveloper) -eq 'Standard' -and
+        (ConvertTo-HyperVSqlMediaEdition -SqlEdition Web) -eq 'Web' -and
         (ConvertTo-HyperVSqlMediaEdition -SqlEdition Evaluation) -eq 'Eval'
     }
     Add-CheckResult -Name 'Artifact-Produkteditionen werden für die ISO-Suche rückwärtskompatibel abgebildet' -Success $artifactEditionMapping

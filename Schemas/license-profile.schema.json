@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/license-profile.schema.json",
+  "title": "SQL Server Lab local license profile metadata",
+  "description": "Secret-free metadata for a locally protected product key. The key is stored separately and never validates against this schema.",
+  "type": "object",
+  "required": ["contractVersion", "id", "product", "version", "edition", "channel", "createdAt", "updatedAt"],
+  "properties": {
+    "contractVersion": { "const": "SqlServerLab.LicenseProfile/1.0" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9.-]{2,63}$" },
+    "product": { "type": "string", "enum": ["SqlServer", "Windows"] },
+    "version": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$" },
+    "edition": { "type": "string", "minLength": 2, "maxLength": 64 },
+    "channel": { "type": "string", "enum": ["Retail", "OEM", "MAK", "KMS", "ADBA", "Volume", "VisualStudio", "Other"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

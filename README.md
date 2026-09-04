@@ -224,6 +224,13 @@ Dateigröße und SHA-256 in `Catalogs/sql-server-media-sources.json` gebunden.
 SQL Server 7.0 und 6.5 benötigen weiterhin manuell bereitgestellte lizenzierte
 Originalmedien; Azure-Varianten gehören nicht zum Katalog.
 
+Optionale lokale Lizenzprofile ergänzen den Bestand, ohne den bisherigen
+schlüssellosen Betrieb zu verändern. Evaluation, Developer und Express bleiben
+ohne Product Key nutzbar. Für ein lizenziertes SQL-Prepared-Image wird eine
+passende Profil-ID ausdrücklich gewählt; Schlüssel werden nie in Git, Manifeste
+oder Build-State geschrieben. Siehe
+[Optionale Lizenzprofile](Documentation/HowTo/LICENSE_PROFILES.md).
+
 Vor dem Download kann der aktuelle Microsoft-Stand read-only geprüft werden:
 
 ```powershell
@@ -704,6 +711,10 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabResourcePlan` | Sample- und Windows-/Hyper-V-External-Runtime-Ressourcen read-only planen |
 | `Save-SqlServerLabResourceSet` | Katalogisierte Ressourcen aus Cache, lokalem Altbestand oder HTTP(S) hashverifiziert vorab bereitstellen |
 | `Save-SqlServerLabMediaSource` | Katalogisiertes SQL-Basismedium oder Bootstrapper nach Größen-, SHA-256- und Microsoft-Signaturprüfung in den Media Root laden |
+| `Set-SqlServerLabLicenseProfile` | Editions- und versionsgebundenen Product Key lokal DPAPI-geschützt speichern |
+| `Get-SqlServerLabLicenseProfile` | Geheimnisfreie Metadaten lokaler Lizenzprofile auflisten |
+| `Test-SqlServerLabLicenseProfile` | Lokale Struktur und Keyformat prüfen, ohne eine Onlineaktivierung auszuführen |
+| `Remove-SqlServerLabLicenseProfile` | Ein exakt ausgewähltes lokales Lizenzprofil sicher entfernen |
 
 `SqlServerLab.psd1` ist die autoritative Liste der exportierten Funktionen.
 
