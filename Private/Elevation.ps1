@@ -30,7 +30,7 @@ function Get-LabActionPrivilegeClass {
     param([Parameter(Mandatory)][string]$Action)
 
     switch ($Action) {
-        'Image' { 'Administrator' }
+        { $_ -in @('Image', 'WindowsSlotPool') } { 'Administrator' }
         { $_ -in @(
             'New', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment',
             'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'Script', 'Database',
@@ -44,7 +44,7 @@ function Start-LabElevatedAction {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [ValidateSet('Image')]
+        [ValidateSet('Image', 'WindowsSlotPool')]
         [string]$Action,
         $ResourcePreview,
         [scriptblock]$AdministratorProbe = { Test-LabAdministrator },

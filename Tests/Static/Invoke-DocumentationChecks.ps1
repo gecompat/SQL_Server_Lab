@@ -1285,7 +1285,7 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'PSR-012 trennt Retention, Residuen, Recovery und unverifizierbare Evidence read-only' `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-012` .*\| `IMPLEMENTED_CORE`:' -and
-        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.CleanupFindings/1.0') -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.CleanupFindings/1.1') -and
         $persistentStorageBacklog -match [regex]::Escape('AutomaticMutationAllowed=false') -and
         $knownLimitations -match 'bewusst retained und geteilte Ressourcen, unerwartete Residuen' -and
         $knownLimitations -match [regex]::Escape('AutomaticMutationAllowed=false') -and

@@ -225,6 +225,26 @@ Interaktive Bedienung:
 Invoke-SqlServerLab
 ```
 
+Einen Windows-Slot-Pool interaktiv erstellen oder fortsetzen:
+
+```powershell
+.\Invoke-SqlServerLab.ps1 -Action WindowsSlotPool
+```
+
+Der Workflow prüft zuerst, ob eine geeignete `OS_SEALED`-Windows-Baseline mit
+ausreichender Evaluation-Restlaufzeit vorhanden ist. Fehlt sie oder läuft sie
+bald ab, führt das Menü in den bestehenden Windows-Image-Aufbau. Danach fragt
+es Anzahl, Slotnummer, vCPU, minimalen/Start-/maximalen RAM (Standard
+`1024/2048/4096 MB`), Region, System-Locale, Anzeigesprache, Tastaturlayout und
+Zeitzone ab. Für die Slots kann entweder je Slot ein generiertes Passwort oder
+ein eigenes gemeinsames Passwort verwendet werden. OOBE und Erstanmeldung der
+Slots laufen unbeaufsichtigt; fertige Slots werden standardmäßig gestoppt.
+
+Der erstmalige Aufbau der generalisierten Windows-Baseline aus einer ISO bleibt
+derzeit geführt und enthält noch manuelle Windows-Installationsschritte. Der
+anschließende Poollauf ist wiederaufnehmbar und überspringt bereits fertige,
+exakt passende Slots.
+
 Der Standalone-Einstieg akzeptiert dieselben Direktaktionen wie das importierte
 Modul, beispielsweise `./Invoke-SqlServerLab.ps1 -Action Setup` oder
 `./Invoke-SqlServerLab.ps1 -Action CleanupAudit`. Die interaktive Fallback-
@@ -597,7 +617,8 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabHyperVImageArtifact` | Pfadfreie, read-only Hyper-V-Image-Registry mit Evaluierungs-, Refresh- und Referenzstatus; `-VerifyIntegrity` prüft ausgewählte Parent-VHDX erneut |
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, freien Speicher und physische Run-/Build-/Image-/Staging-Roots ohne Mutation anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
-| `Get-SqlServerLabCleanupAudit` | Lab-Daten, Runtime-Scopes und Persistent Storage read-only prüfen sowie retained Objekte, unerwartete Residuen, Recovery und unverifizierbare Evidence getrennt ausgeben |
+| `Get-SqlServerLabCleanupAudit` | `Lab_Data`, Runtime-Scopes und Persistent Storage read-only prüfen sowie jedes auffällige Objekt mit Typ, Grund, Löschungs-/Bewahrungsempfehlung und Warnung ausgeben |
+| `Sync-SqlServerLabRuntimeState` | Gespeicherte Runs mit Docker, Podman und Hyper-V synchronisieren; eindeutig fehlende gebundene Ressourcen als `RECOVERY_REQUIRED` markieren, ohne zu löschen oder neu zu erstellen |
 | `Get-SqlServerLabPersistentStorageRemovalPlan` | Retention-, Backup-/Package- und Bindungsfolgen einer Run-Entfernung anhand stabiler Storage-IDs read-only und fail-closed planen |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | Retained Docker-/Podman-Instanzstores optional verifiziert sichern, den Run journalisiert entfernen und den Store detached erhalten |
 | `Sync-SqlServerLabPersistentStorageArtifact` | Ein vorhandenes Backup-Set, Datenbankpaket oder sicheres relatives Exchange-Workspace per stabiler Artefakt-ID idempotent mit dem Persistent-Storage-Katalog synchronisieren |
@@ -629,6 +650,8 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Test-SqlServerLabContainerTool` | Kataloggebundenes SqlPackage read-only per Run-/Scope-gebundener Versionsprobe prüfen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |
+| `Get-SqlServerLabGeneratedWindowsAccess` | Das automatisch generierte Windows-Administratorpasswort eines ausgewählten Hyper-V-Slots gezielt abrufen |
+| `New-SqlServerLabWindowsSlotPool` | N Windows-Slots aus einer gültigen `OS_SEALED`-Baseline mit RAM-/Locale-Vorgaben und unbeaufsichtigter OOBE erstellen oder fortsetzen |
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
 | `Export-SqlServerLabTestEnvironment` | Registrierte Testumgebungen als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
 | `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen, Health, Autostart, Windows-Aktivierung und sprechende Runtime-Namen der registrierten Testgruppe sicher abgleichen |

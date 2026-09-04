@@ -102,6 +102,7 @@ Invoke-SqlServerLabReconcileAction     # Start/Stop oder validierten Container-R
 Invoke-SqlServerLabWorkflowAction      # UI-tauglicher, nicht interaktiver Hyper-V-Schritt oder gebundener Container-Paketexport
 New-SqlServerLab                       # Neue Umgebung
 Get-SqlServerLab                       # Status
+Sync-SqlServerLabRuntimeState          # State mit Docker, Podman und Hyper-V abgleichen
 Start-SqlServerLab                     # Starten
 Stop-SqlServerLab                      # Stoppen
 Restart-SqlServerLab                   # Neustart
@@ -119,6 +120,8 @@ Restore-SqlServerLabDatabase          # Datenbank aus .bak wiederherstellen
 Invoke-SqlServerLabScript             # T-SQL-Skript ausfuehren
 Test-SqlServerLabContainerTool         # Kataloggebundenes SqlPackage read-only pruefen
 Get-SqlServerLabGeneratedSqlAccess      # Hyper-V-Generierte SQL-Accessdaten (ConnectionString/Passwort) abrufen
+New-SqlServerLabWindowsSlotPool         # N Windows-Slots mit unbeaufsichtigter OOBE erstellen/fortsetzen
+Get-SqlServerLabGeneratedWindowsAccess  # Generierten Windows-Administratorzugang gezielt abrufen
 New-SqlServerLabAutomatedTestEnvironment # Automatisierte Linux-Testumgebungen und Maschinenvertrag erzeugen
 Export-SqlServerLabTestEnvironment      # TestUmgebung.env/JSON/JSON-Schema/Markdown unter Lab_Data aktualisieren
 Repair-SqlServerLabAutomatedTestEnvironment # Testgruppe inklusive sprechender Container-/VM-Namen kontrolliert reparieren

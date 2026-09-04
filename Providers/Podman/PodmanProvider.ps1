@@ -357,7 +357,10 @@ function Get-PodmanInstanceStatus {
         $podmanInvocation = Get-LabHostToolInvocation -Name podman
         $inspect = & $podmanInvocation inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
         if ($LASTEXITCODE -ne 0 -or -not $inspect) {
+            & $podmanInvocation info 1>$null 2>$null
+            $runtimeAvailable = $LASTEXITCODE -eq 0
             return [PSCustomObject]@{
+                Available = $runtimeAvailable
                 Exists  = $false
                 Running = $false
                 Healthy = $false
@@ -370,6 +373,7 @@ function Get-PodmanInstanceStatus {
         $item = @($inspect)[0]
         $health = if ($item.State.Health) { [string]$item.State.Health.Status } else { $null }
         return [PSCustomObject]@{
+            Available = $true
             Exists  = $true
             Running = $item.State.Status -eq 'running'
             Healthy = $health -eq 'healthy'
@@ -380,6 +384,7 @@ function Get-PodmanInstanceStatus {
     }
     catch {
         return [PSCustomObject]@{
+            Available = $false
             Exists  = $false
             Running = $false
             Healthy = $false

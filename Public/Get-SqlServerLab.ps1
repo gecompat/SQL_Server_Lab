@@ -9,7 +9,9 @@
     außerhalb der öffentlichen Statussicht.
     Mehrere Provider innerhalb eines Runs werden getrennt abgefragt. Der
     Runtime-Status einer Hyper-V-VM wird nicht als ungepruefter SQL-Status
-    ausgegeben. Das Cmdlet veraendert weder Run-State noch Providerressourcen.
+    ausgegeben. Eindeutig fehlende gebundene Container oder VMs erscheinen als
+    MISSING; eine nicht erreichbare Runtime bleibt davon getrennt. Das Cmdlet
+    veraendert weder Run-State noch Providerressourcen.
 .PARAMETER RunId
     Optional: Nur diese RunId anzeigen.
 .PARAMETER Detailed
@@ -48,6 +50,7 @@ function Get-SqlServerLab {
 
     foreach ($run in $runs) {
         $runDirectory = Join-Path (Join-Path $stateRoot 'runs') $run.runId
+        $liveRuntime = Get-LabRunRuntimeStatus -Run $run -StateRoot $stateRoot
         $connectionInfoPath = Join-Path $runDirectory 'connection-info.json'
         $connectionInfo = if (Test-Path -LiteralPath $connectionInfoPath -PathType Leaf) {
             Get-Content -LiteralPath $connectionInfoPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
@@ -120,6 +123,9 @@ function Get-SqlServerLab {
 
         foreach ($instance in $instanceList) {
             $provider = ([string]$instance.provider).ToLowerInvariant()
+            $boundRuntime = @($liveRuntime.Instances | Where-Object {
+                [string]$_.Id -eq [string]$instance.id -and [string]$_.Provider -eq $provider
+            } | Select-Object -First 1)[0]
             $containerInfo = if ($provider -in @('docker', 'podman')) { $containerMap[$instance.id] } else { $null }
             $hyperVInfo = $null
             $instanceRuntimeNote = ''
@@ -143,7 +149,10 @@ function Get-SqlServerLab {
             if ($instanceRuntimeNote) { $runtimeNotes += $instanceRuntimeNote }
             $runtimeName = if ($containerInfo) { [string]$containerInfo.Name } elseif ($hyperVInfo) { [string]$hyperVInfo.VMName } elseif ($instance.vmName) { [string]$instance.vmName } else { '' }
             $running = if ($containerInfo) { [bool]$containerInfo.Running } elseif ($hyperVInfo) { [bool]($hyperVInfo.Exists -and [string]$hyperVInfo.State -eq 'Running') } else { $false }
-            $runtimeState = if ($containerInfo) { if ($containerInfo.Running) { 'Running' } else { 'Stopped' } } elseif ($hyperVInfo) { [string]$hyperVInfo.State } else { 'Unverifiable' }
+            $runtimeState = if ([string]$boundRuntime.State -eq 'MISSING') { 'Missing' }
+                elseif ($containerInfo) { if ($containerInfo.Running) { 'Running' } else { 'Stopped' } }
+                elseif ($hyperVInfo -and $hyperVInfo.Exists) { [string]$hyperVInfo.State }
+                else { 'Unverifiable' }
             $instances += [PSCustomObject]@{
                 Id            = $instance.id
                 Version       = if ($instance.version) { [string]$instance.version } else { [string]$instance.sqlVersion }
@@ -179,6 +188,7 @@ function Get-SqlServerLab {
             Name        = $run.metadata.name
             CreatedAt   = $run.createdAt
             UpdatedAt   = $run.updatedAt
+            RuntimeState = [string]$liveRuntime.State
             Instances   = $instances
             RuntimeNote = ($runtimeNotes -join ' ')
         }
@@ -212,13 +222,13 @@ function Get-SqlServerLab {
         foreach ($instance in $lab.Instances) {
             $autoStartText = if ($instance.AutoStart -eq 'on') { ' autostart' } else { '' }
             if ($instance.Provider -eq 'hyperv') {
-                $upText = if ($instance.Running) { '[UP]' } elseif ($instance.RuntimeState -eq 'Unverifiable') { '[NICHT PRUEFBAR]' } else { '[DOWN]' }
+                $upText = if ($instance.Running) { '[UP]' } elseif ($instance.RuntimeState -eq 'Missing') { '[MISSING]' } elseif ($instance.RuntimeState -eq 'Unverifiable') { '[NICHT PRUEFBAR]' } else { '[DOWN]' }
                 $workloadText = if ($instance.Workload -eq 'sql') { "SQL $($instance.Version)" } else { 'Windows' }
                 $sqlText = if ($instance.SqlStatus -eq 'NOT_LIVE_VERIFIED') { ' · SQL nicht live geprueft' } else { '' }
                 Write-LabStatus -Label "  $($instance.Id)" -Value "VM $($instance.RuntimeName) ($workloadText, hyperv) $upText$autoStartText$sqlText"
             }
             else {
-                $upText = if ($instance.ContainerUp) { '[UP]' } else { '[DOWN]' }
+                $upText = if ($instance.RuntimeState -eq 'Missing') { '[MISSING]' } elseif ($instance.ContainerUp) { '[UP]' } else { '[DOWN]' }
                 $healthText = if ($instance.Healthy) { ' healthy' } else { '' }
                 Write-LabStatus `
                     -Label "  $($instance.Id)" `

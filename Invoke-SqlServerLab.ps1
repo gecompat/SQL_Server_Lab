@@ -29,7 +29,7 @@ param(
     [Alias('h','help','?')][switch]$ShowHelp,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$RemainingArgs,
-    [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
+    [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
     [string]$Action,
 
     [string]$Manifest,
@@ -64,7 +64,7 @@ param(
     Write-Host "  .\$ScriptName -ShowHelp" -ForegroundColor Cyan
     Write-Host ''
     Write-Host 'Parameter:' -ForegroundColor Magenta
-    Write-Host '  -Action <string>      Direkt-Aktion; z. B. Setup, New, Status, CleanupAudit, ConnectionCenter oder Image.' -ForegroundColor Cyan
+    Write-Host '  -Action <string>      Direkt-Aktion; z. B. Setup, New, Status, SyncRuntime, WindowsSlotPool oder Image.' -ForegroundColor Cyan
     Write-Host '  -Manifest <string>    Optionaler Pfad zu Manifest fuer New-SqlServerLab.' -ForegroundColor Cyan
     Write-Host '  -ConsoleMode <string> Auto oder diagnostischer Fallback fuer interaktive Menues.' -ForegroundColor Cyan
     Write-Host '  -ShowHelp             Zeigt diese Hilfe.' -ForegroundColor Cyan
@@ -75,6 +75,8 @@ param(
     Write-Host '  -> Startet das interaktive Menue.' -ForegroundColor Green
     Write-Host "  .\$ScriptName -Action Status" -ForegroundColor Cyan
     Write-Host '  -> Zeigt direkt den aktuellen Status an.' -ForegroundColor Green
+    Write-Host "  .\$ScriptName -Action WindowsSlotPool" -ForegroundColor Cyan
+    Write-Host '  -> Erstellt oder vervollständigt mehrere unbeaufsichtigte Windows-OS-Slots.' -ForegroundColor Green
     Write-Host "  .\$ScriptName -Manifest .\\scenarios\\my-lab.json" -ForegroundColor Cyan
     Write-Host '  -> Startet ein Lab aus einer Manifest-Datei.' -ForegroundColor Green
     Write-Host "  .\$ScriptName -ShowHelp" -ForegroundColor Cyan

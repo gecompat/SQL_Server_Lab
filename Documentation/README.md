@@ -69,7 +69,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 62 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 65 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -112,7 +112,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabHyperVImageArtifact` | Pfadfreie Read-only-Sicht auf Hyper-V-Images, Evaluation, Integrität und Referenzen |
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, Kapazität und physische Klassenroots read-only anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
-| `Get-SqlServerLabCleanupAudit` | Lab-Daten, Runtime-Scopes und Persistent Storage read-only prüfen sowie retained Objekte, unerwartete Residuen, Recovery und unverifizierbare Evidence getrennt ausgeben |
+| `Get-SqlServerLabCleanupAudit` | `Lab_Data`, Runtime-Scopes und Persistent Storage read-only prüfen sowie jedes auffällige Objekt mit Löschungs-/Bewahrungsempfehlung ausgeben |
+| `Sync-SqlServerLabRuntimeState` | Runs mit Docker, Podman und Hyper-V abgleichen und eindeutig fehlende gebundene Runtimeobjekte fail-closed als `RECOVERY_REQUIRED` markieren |
 | `Get-SqlServerLabPersistentStorageRemovalPlan` | Explizite Retention-Auswahlen per stabiler Storage-ID gegen einen frisch inventarisierten, schema-validierten Removal-Plan prüfen |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | Unterstützte Retention-Policies mit Backup-Postconditions und fortsetzbarem Journal ausführen |
 | `Sync-SqlServerLabPersistentStorageArtifact` | Vorhandene Backup-Sets, Datenbankpakete oder sichere relative Exchange-Workspaces einzeln revalidieren und idempotent in den Persistent-Storage-Katalog übernehmen |
@@ -145,6 +146,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Test-SqlServerLabContainerTool` | Kataloggebundenes SqlPackage read-only per Run-/Scope-gebundener Versionsprobe prüfen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Laufzeit-generierte SQL-Access-Daten inkl. SA-Passwort und ConnectionString aus einem Hyper-V-Run beziehen |
+| `Get-SqlServerLabGeneratedWindowsAccess` | Automatisch generierten, run-lokal geschützten Windows-Administratorzugang eines Hyper-V-Slots gezielt abrufen |
+| `New-SqlServerLabWindowsSlotPool` | N Windows-Slots aus einer gültigen `OS_SEALED`-Baseline mit RAM-/Locale-Vertrag und unbeaufsichtigter OOBE erstellen oder fortsetzen |
 | `New-SqlServerLabAutomatedTestEnvironment` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |
 | `Export-SqlServerLabTestEnvironment` | Testzugänge nach gebundener Live-Health-Prüfung als dotenv, schema-validierbares JSON, portablen Agenten-Prompt und Markdown exportieren |
 | `Repair-SqlServerLabAutomatedTestEnvironment` | Ressourcen, Health, Autostart, Windows-Aktivierung und sprechende Container-/VM-Namen der registrierten Testgruppe sicher abgleichen |

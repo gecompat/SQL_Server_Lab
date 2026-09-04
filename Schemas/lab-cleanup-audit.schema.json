@@ -41,7 +41,7 @@
       "type": "object",
       "required": ["ContractVersion", "Retained", "UnexpectedResiduals", "RecoveryRequired", "Unverifiable", "Summary"],
       "properties": {
-        "ContractVersion": { "const": "SqlServerLab.CleanupFindings/1.0" },
+        "ContractVersion": { "const": "SqlServerLab.CleanupFindings/1.1" },
         "Retained": {
           "type": "array",
           "items": { "allOf": [{ "$ref": "#/$defs/finding" }, { "properties": { "Category": { "const": "RETAINED" } } }] }
@@ -80,15 +80,17 @@
   "$defs": {
     "finding": {
       "type": "object",
-      "required": ["Category", "SubjectKind", "SubjectId", "Provider", "DisplayName", "ReasonCode", "Guidance", "AutomaticMutationAllowed"],
+      "required": ["Category", "SubjectKind", "ObjectType", "SubjectId", "Provider", "DisplayName", "ReasonCode", "Guidance", "Recommendation", "AutomaticMutationAllowed"],
       "properties": {
         "Category": { "enum": ["RETAINED", "UNEXPECTED_RESIDUAL", "RECOVERY_REQUIRED", "UNVERIFIABLE"] },
         "SubjectKind": { "enum": ["STORAGE_OBJECT", "PERSISTENT_STORAGE", "CONTAINER", "HYPERV_RUN"] },
+        "ObjectType": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,127}$" },
         "SubjectId": { "type": "string", "minLength": 1 },
         "Provider": { "enum": ["core", "docker", "podman", "hyperv", "external"] },
         "DisplayName": { "type": "string", "minLength": 1 },
         "ReasonCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]{2,127}$" },
         "Guidance": { "type": "string", "minLength": 1 },
+        "Recommendation": { "enum": ["REVIEW_FOR_SCOPED_REMOVAL", "PRESERVE_DO_NOT_DELETE", "RECOVER_BEFORE_REMOVAL", "DO_NOT_DELETE_UNTIL_VERIFIED"] },
         "AutomaticMutationAllowed": { "const": false }
       },
       "additionalProperties": false
