@@ -28,6 +28,7 @@
           "installation": {
             "kind": "backup",
             "restoreMode": "direct-backup",
+            "allowTargetDatabaseOverride": true,
             "idempotencyMode": "fail-if-exists",
             "baselinePolicy": "eligible-after-verification"
           },
@@ -50,6 +51,7 @@
           "installation": {
             "kind": "backup",
             "restoreMode": "direct-backup",
+            "allowTargetDatabaseOverride": true,
             "idempotencyMode": "fail-if-exists",
             "baselinePolicy": "eligible-after-verification"
           },
@@ -85,6 +87,7 @@
           "installation": {
             "kind": "backup",
             "restoreMode": "direct-backup",
+            "allowTargetDatabaseOverride": true,
             "idempotencyMode": "fail-if-exists",
             "baselinePolicy": "eligible-after-verification"
           },
@@ -107,6 +110,7 @@
           "installation": {
             "kind": "backup",
             "restoreMode": "direct-backup",
+            "allowTargetDatabaseOverride": true,
             "idempotencyMode": "fail-if-exists",
             "baselinePolicy": "eligible-after-verification"
           },

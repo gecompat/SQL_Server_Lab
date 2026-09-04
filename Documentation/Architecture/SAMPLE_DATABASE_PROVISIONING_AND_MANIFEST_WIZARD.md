@@ -663,8 +663,11 @@ nicht interaktiv endet die Aufloesung mit `TRUST_REQUIRED`. Mehrfachauswahl ist 
 `New-SqlServerLab -Sample` verfügbar; Kollisionen erwarteter Outputs werden als
 `SAMPLE_OUTPUT_CONFLICT` abgewiesen. Der Manifest-Wizard bietet für
 `sample`-Felder eine Katalogauswahl. Das Storage-Assessment rechnet Download-
-und geschätzte Installationsgrößen ein. Das Überschreiben erwarteter
-Zieldatenbanknamen und mehrere Outputs pro Installation bleiben offen.
+und geschätzte Installationsgrößen ein. Für katalogisierte Ein-Output-Backups
+kann der Katalog die abgeleitete Zieldatenbank mit
+`allowTargetDatabaseOverride` ausdrücklich freigeben. Diese Freigabe gilt nie
+implizit und niemals für SQL-Skripte oder Script-Bundles; mehrere Outputs pro
+Installation bleiben offen.
 
 ### Welle 4 – SQL-Skripte und Bundles
 
