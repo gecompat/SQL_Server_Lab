@@ -679,6 +679,38 @@ function Invoke-LabContainerBacpacImport {
     }
 }
 
+function Invoke-LabContainerAttach {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [Parameter(Mandatory)][string]$ContainerName,[Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,[Parameter(Mandatory)][object[]]$Payloads,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9_]{0,127}$')][string]$DatabaseName,
+        [Parameter(Mandatory)][string]$HostName,[Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword,[string]$StateRoot
+    )
+    $run=Get-LabRunState -RunId $RunId -StateRoot $StateRoot;$runtime=Get-LabHostToolInvocation -Name $Provider
+    $inspect=@((& $runtime inspect $ContainerName 2>$null|ConvertFrom-Json -Depth 30))[0]
+    if(-not $inspect -or [string]$inspect.Config.Labels.'sql-server-lab.run-id' -ne $RunId -or [string]$inspect.Config.Labels.'sql-server-lab.scope-id' -ne [string]$run.scopeId -or [string]$inspect.Config.Labels.'sql-server-lab.instance-id' -ne $InstanceId){throw 'ATTACH_CONTAINER_OWNERSHIP_MISMATCH'}
+    if([string]$inspect.State.Status -ne 'running'){throw 'ATTACH_CONTAINER_NOT_RUNNING'}
+    $target="/var/opt/mssql/data/sql-server-lab-attach-$([guid]::NewGuid().ToString('N'))"
+    $journalPath=$null
+    if($StateRoot){$journalDirectory=Join-Path $StateRoot "operations/attach/$RunId";New-Item -ItemType Directory -Path $journalDirectory -Force|Out-Null;$journalPath=Join-Path $journalDirectory "attach-$([guid]::NewGuid().ToString('N')).json"}
+    $journal=[ordered]@{ContractVersion='SqlServerLab.ContainerAttachJournal/1.0';RunId=$RunId;InstanceId=$InstanceId;DatabaseName=$DatabaseName;Status='COPYING';TargetDirectory=$target;CopyVerified=$false;AttachInvoked=$false;PostconditionVerified=$false;Recovery='REMOVE_UNATTACHED_TARGET_COPY'}
+    if($journalPath){Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal}
+    $null=& $runtime exec --user root $ContainerName mkdir -p -- $target;if($LASTEXITCODE -ne 0){throw 'ATTACH_CONTAINER_DIRECTORY_CREATE_FAILED'}
+    $files=[Collections.Generic.List[object]]::new()
+    try{
+        $names=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach($payload in $Payloads){$source=(Resolve-Path -LiteralPath ([string]$payload.Path) -ErrorAction Stop).Path;$name=[IO.Path]::GetFileName($source);if(-not $names.Add($name)){throw 'ATTACH_CONTAINER_FILE_NAME_COLLISION'};$destination="$target/$name";$null=& $runtime cp $source "${ContainerName}:$destination";if($LASTEXITCODE -ne 0){throw 'ATTACH_CONTAINER_COPY_FAILED'};$files.Add([PSCustomObject]@{Path=$destination;Role=$payload.Role})}
+        $journal.CopyVerified=$true;$journal.Status='ATTACHING';if($journalPath){Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal}
+        $null=& $runtime exec --user root $ContainerName chown -R mssql:root -- $target;if($LASTEXITCODE -ne 0){throw 'ATTACH_CONTAINER_OWNERSHIP_SET_FAILED'}
+        $bstr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword);try{$plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)}
+        try{$journal.AttachInvoked=$true;$journal.Recovery='DETACH_TARGET_COPY_AND_PRESERVE_TARGET';if($journalPath){Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal};$escaped=$DatabaseName.Replace(']',']]');$clauses=@($files|ForEach-Object{"(FILENAME=N'$(([string]$_.Path).Replace("'","''"))')"}) -join ',';$null=Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $plain -Database master -TimeoutSeconds 600 -Query "CREATE DATABASE [$escaped] ON $clauses FOR ATTACH;"; $state=@(Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $plain -Database master -Query "SELECT state_desc FROM sys.databases WHERE name=N'$($DatabaseName.Replace("'","''"))';"|ForEach-Object{([string]$_).Trim()});if($state -notcontains 'ONLINE'){throw 'ATTACH_DATABASE_NOT_ONLINE'};$journal.PostconditionVerified=$true;$journal.Status='COMPLETED';$journal.Recovery='NOT_REQUIRED';if($journalPath){Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal}}finally{$plain=$null}
+        return [PSCustomObject]@{Status='ATTACHED';DatabaseName=$DatabaseName;TargetDirectory=$target;Files=@($files)}
+    }catch{$journal.Status='RECOVERY_REQUIRED';$journal.Recovery=if($journal.AttachInvoked){'DETACH_TARGET_COPY_AND_PRESERVE_TARGET'}else{'REMOVE_UNATTACHED_TARGET_COPY'};if($journalPath){Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal};throw "ATTACH_RECOVERY_REQUIRED: $($_.Exception.Message)"}
+}
+
 function Install-LabSampleDatabase {
     <#
     .SYNOPSIS
@@ -1022,6 +1054,13 @@ function Install-LabSampleDatabase {
                 if ([string]$bacpacResult.Status -ne 'BACPAC_IMPORTED') {
                     throw 'BACPAC_IMPORT_RESULT_INVALID'
                 }
+            }
+            'attach' {
+                if ($Provider -notin @('docker','podman') -or -not $RunId) { throw 'ATTACH_CONTAINER_RUN_REQUIRED' }
+                if ([string]$RestoreDefinition.installation.archiveFormat -ne 'zip') { throw 'ATTACH_ARCHIVE_FORMAT_NOT_YET_SUPPORTED' }
+                $temporaryArchivePayload = Get-LabArchiveAttachPayloads -ArchivePath $artifactResolution.Path -ArchiveFormat zip -PayloadLayout @($RestoreDefinition.installation.payloadLayout) -RunDirectory $RunDirectory
+                $attachResult=Invoke-LabContainerAttach -Provider $Provider -ContainerName $ContainerName -RunId $RunId -InstanceId $InstanceId -Payloads @($temporaryArchivePayload.Payloads) -DatabaseName $databaseName -HostName $HostName -Port $Port -SaPassword $SaPassword -StateRoot $StateRoot
+                if([string]$attachResult.Status -ne 'ATTACHED'){throw 'ATTACH_RESULT_INVALID'}
             }
             'baseline-bundle' {
                 $temporaryBaselineBundle = Expand-LabSampleBaselineBundle `

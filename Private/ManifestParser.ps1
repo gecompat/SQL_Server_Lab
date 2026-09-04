@@ -239,7 +239,7 @@ function Resolve-LabSampleRestore {
     if ($artifact.runtimeStatus -ne 'executable') {
         throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' ist nur beschreibend katalogisiert und nicht fuer die automatische Ausfuehrung freigegeben."
     }
-    if ($artifact.artifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle', 'bacpac') -or
+    if ($artifact.artifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle', 'bacpac', 'attach') -or
         [string]$artifact.installation.kind -ne [string]$artifact.artifactType) {
         throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' hat Artifact Type '$($artifact.artifactType)'. Der Manifestpfad unterstuetzt diesen Handler nicht."
     }
