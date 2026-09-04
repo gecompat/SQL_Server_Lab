@@ -88,6 +88,8 @@ try {
         $source -match '\$scriptContent = \$lines -join \[Environment\]::NewLine' -and
         $source -match "Invoke-LabCmsSqlInMemory -Query" -and
         $source -match '\[System\.Data\.SqlClient\.SqlConnection\]::new' -and
+        $source -match '\$builder\[''Data Source''\]' -and
+        $source -match '\$builder\[''TrustServerCertificate''\]' -and
         $source -match '\$command\.CommandText = \$Query' -and
         $source -match "Kennwortfreies CMS-Synchronisationsskript exportieren")
 

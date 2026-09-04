@@ -627,13 +627,16 @@ function Invoke-LabCmsSqlInMemory {
     try {
         $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
         $builder = [System.Data.SqlClient.SqlConnectionStringBuilder]::new()
-        $builder.DataSource = '{0},{1}' -f $HostName, $Port
-        $builder.InitialCatalog = 'master'
-        $builder.UserID = 'sa'
-        $builder.Password = $saPlain
-        $builder.Encrypt = $true
-        $builder.TrustServerCertificate = $true
-        $builder.ConnectTimeout = [Math]::Max(2, [Math]::Min($TimeoutSeconds, 30))
+        # PowerShell adaptiert DbConnectionStringBuilder auch als Dictionary.
+        # Die kanonischen Provider-Keywords vermeiden dabei pseudo-Properties
+        # wie `DataSource`, die als unbekannter Schlüssel interpretiert würden.
+        $builder['Data Source'] = '{0},{1}' -f $HostName, $Port
+        $builder['Initial Catalog'] = 'master'
+        $builder['User ID'] = 'sa'
+        $builder['Password'] = $saPlain
+        $builder['Encrypt'] = $true
+        $builder['TrustServerCertificate'] = $true
+        $builder['Connect Timeout'] = [Math]::Max(2, [Math]::Min($TimeoutSeconds, 30))
         $connection = [System.Data.SqlClient.SqlConnection]::new($builder.ConnectionString)
         $command = $connection.CreateCommand()
         $command.CommandText = $Query
@@ -660,7 +663,7 @@ function Invoke-LabCmsSqlInMemory {
     finally {
         if ($command) { $command.Dispose() }
         if ($connection) { $connection.Dispose() }
-        if ($builder) { $builder.Password = '' }
+        if ($builder) { $builder['Password'] = '' }
         $saPlain = $null
         [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
     }
