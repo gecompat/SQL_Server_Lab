@@ -1140,7 +1140,9 @@ jeder Mutation blockiert. Die Workflow-Projektion bietet diese Policy nur für
 einen aktiven Docker-/Podman-`INSTANCE_STORE` mit `RUN_SCOPED`/`RUN_CLEANUP`,
 `NATIVE_RUNTIME`-Binding und Provider-Ressourcen-ID an; Plan und Executor
 revalidieren die verbleibende Lease- und Ownership-Evidence weiterhin vor der
-Mutation.
+Mutation. Der Executor revalidiert zusätzlich gegen den aktuellen Katalog die
+`INSTANCE_STORE`-Klasse sowie `RUN_SCOPED`/`RUN_CLEANUP`; eine nach der Planung
+veränderte Retention erhält keine Delete-Autorität.
 Neue kurzlebige Docker-/Podman-Systemvolume-Gruppen erhalten inzwischen vor
 der ersten Runtime-Mutation eine UUID. Sie wird im gewünschten Run-State
 persistiert, als `sql-server-lab.persistent-storage-id` auf jedes zugehörige
