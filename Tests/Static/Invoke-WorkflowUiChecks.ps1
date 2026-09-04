@@ -148,15 +148,24 @@ Add-CheckResult -Name 'Browser inventarisiert Migrationsabhaengigkeiten containe
     $serverText -match '\$inventory = \$result\.Result' -and
     $serverText -match "\[INVENTAR\]" -and
     $serverText -match 'FullInstanceMigration' -and
+    $serverText -match 'ExecutionPlan = if \(\$inventory\.ExecutionPlan\)' -and
+    $serverText -match 'TransferAuthority = \[string\]\$inventory\.ExecutionPlan\.TransferAuthority' -and
+    $serverText -match 'IncludedInTransfer = \[bool\]\$_.IncludedInTransfer' -and
     $serverText -notmatch 'HostName = \[string\]\$result\.HostName'
 )
-Add-CheckResult -Name 'Browser rendert das sanitisierte Migrationsinventar strukturiert aus dem bestehenden Live-Log-Kanal' -Success (
+Add-CheckResult -Name 'Browser rendert Migrationsinventar und nicht ausführbaren Plan strukturiert aus dem bestehenden Live-Log-Kanal' -Success (
     $scriptText -match 'function migrationInventoryResult' -and
     $scriptText -match "startsWith\('\[INVENTAR\] '\)" -and
     $scriptText -match 'SqlServerLab\.DatabaseMigrationDependencyInventory/1\.0' -and
+    $scriptText -match 'SqlServerLab\.DatabaseMigrationExecutionPlan/1\.0' -and
+    $scriptText -match "executionPlan\.MutationAllowed === false" -and
+    $scriptText -match "executionPlan\.TransferAuthority === 'NONE'" -and
+    $scriptText -match "executionPlan\.ArtifactScope === 'DATABASE_FILES_ONLY'" -and
+    $scriptText -match 'Nicht ausführbarer Migrationsplan' -and
+    $scriptText -match 'step\.IncludedInTransfer === false' -and
     $scriptText -match 'job-inventory' -and
     $scriptText -match "job\.Action === 'InspectContainerDatabaseMigrationDependencies'" -and
-    $scriptText -notmatch 'inventory\.(HostName|Port|SaPassword|ObjectName|KeyName)' -and
+    $scriptText -notmatch 'inventory\.(HostName|Port|SaPassword|ObjectName|KeyName|ExecutionPlan\.Secret)' -and
     $htmlText -match 'Live-Log' -and
     $styleText -match '\.job-inventory'
 )

@@ -88,6 +88,14 @@ Datenbankname und Zielzustand. Das Ziel wird live aus SQLs Default-Data-
 Verzeichnis abgeleitet; ein Host- oder Gastpfad kann nicht eingegeben werden.
 Die Paketkopie wird im Gast vollständig gehasht und erst danach attached.
 
+Die Aktion **Migrationsabhängigkeiten prüfen** bleibt gleichfalls read-only.
+Ihr Live-Log zeigt das sanitisierte Inventar zusammen mit dem versionierten
+`SqlServerLab.DatabaseMigrationExecutionPlan/1.0`. Der Browser akzeptiert und
+rendert diesen Plan nur als `DATABASE_FILES_ONLY` mit
+`MutationAllowed=false` und `TransferAuthority=NONE`; seine Kategorie-Schritte
+und TDE-Blocker sind Hinweise für getrennte manuelle Arbeit, keine Export-,
+Import- oder Transferaktion.
+
 ## Einheitliche Umgebungsaktionen
 
 Docker-, Podman- und Hyper-V-Labs zeigen den tatsächlichen Laufzeitstatus sowie
