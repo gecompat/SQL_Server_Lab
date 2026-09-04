@@ -118,6 +118,12 @@ function Get-LabDatabasePackageManifestSha256 {
         foreach($category in @($boundary.DependencyCategories|Sort-Object -Unique)){$lines.Add("DEPENDENCY|$category")}
         foreach($warning in @($boundary.Warnings|Sort-Object -Unique)){$lines.Add("WARNING|$warning")}
     }
+    if($Package.DatabaseMetadata.PSObject.Properties['MigrationExecutionPlan'] -and $Package.DatabaseMetadata.MigrationExecutionPlan){
+        $executionPlan=$Package.DatabaseMetadata.MigrationExecutionPlan
+        $lines.Add("EXECUTION_PLAN|$($executionPlan.ContractVersion)|$($executionPlan.ExecutionStatus)|$([bool]$executionPlan.MutationAllowed)|$($executionPlan.TransferAuthority)|$($executionPlan.ArtifactScope)")
+        foreach($blocker in @($executionPlan.Blockers|Sort-Object -Unique)){$lines.Add("EXECUTION_PLAN_BLOCKER|$blocker")}
+        foreach($step in @($executionPlan.Steps|Sort-Object Category)){$lines.Add("EXECUTION_PLAN_STEP|$($step.Category)|$($step.Status)|$($step.Scope)|$($step.RequiredAction)|$([bool]$step.IncludedInTransfer)")}
+    }
     $bytes=[Text.Encoding]::UTF8.GetBytes(($lines -join "`n"))
     return ([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes))).ToLowerInvariant()
 }
@@ -192,12 +198,14 @@ function New-LabDatabasePackage {
     $fileStreamEntries=@($source.DatabaseFiles|Where-Object Type -eq 'FILESTREAM')
     if(([bool]$DatabaseMetadata.HasFileStream) -ne ($fileStreamEntries.Count -gt 0)){throw 'DATABASE_PACKAGE_FILESTREAM_METADATA_MISMATCH'}
     if($MigrationDependencyInventory){
+        $null=Test-LabDatabaseMigrationDependencyInventory -Inventory $MigrationDependencyInventory
         if([string]$MigrationDependencyInventory.DatabaseName -ne $DatabaseName){throw 'DATABASE_PACKAGE_DEPENDENCY_DATABASE_MISMATCH'}
         if([string]$MigrationDependencyInventory.Source.SqlMajorVersion -ne [string]$SqlMajorVersion){throw 'DATABASE_PACKAGE_DEPENDENCY_SQL_VERSION_MISMATCH'}
         if([bool]$MigrationDependencyInventory.Database.IsEncrypted -ne [bool]$DatabaseMetadata.IsEncrypted){throw 'DATABASE_PACKAGE_DEPENDENCY_ENCRYPTION_MISMATCH'}
         if([bool]$DatabaseMetadata.IsEncrypted -and [bool]$MigrationDependencyInventory.Database.TdeRecoveryEvidenceVerified -ne [bool]$DatabaseMetadata.TdeKeyEvidenceVerified){throw 'DATABASE_PACKAGE_DEPENDENCY_TDE_EVIDENCE_MISMATCH'}
     }
     $migrationBoundary=Get-LabDatabaseArtifactMigrationBoundary -DependencyInventory $MigrationDependencyInventory -ExternalDependencies $ExternalDependencies
+    $migrationExecutionPlan=if($MigrationDependencyInventory){$MigrationDependencyInventory.ExecutionPlan}else{$null}
     $packageId=[Guid]::NewGuid().ToString('D');$now=Get-LabTimestamp
     $record=[PSCustomObject][ordered]@{
         DatabasePackageId=$packageId;Status='REUSABLE';DatabaseName=$DatabaseName
@@ -212,6 +220,7 @@ function New-LabDatabasePackage {
         ManifestSha256='0'*64;CaptureEvidence=[PSCustomObject][ordered]@{AccessMode='EXCLUSIVE';WriterCount=0;StateObservedAfterLock=$true;SourceReleased=$false}
         CreatedAt=$now;UpdatedAt=$now
     }
+    if($migrationExecutionPlan){$record.DatabaseMetadata|Add-Member -NotePropertyName MigrationExecutionPlan -NotePropertyValue $migrationExecutionPlan}
     $record.ManifestSha256=Get-LabDatabasePackageManifestSha256 -Package $record
     $paths=Get-LabDatabasePackagePaths -DataRoot $DataRoot
     $published = Invoke-LabDatabasePackageLock -LibraryRoot $paths.LibraryRoot -ScriptBlock {
@@ -308,6 +317,7 @@ function Get-LabDatabasePackageSelection {
         }else{
             Get-LabDatabaseArtifactMigrationBoundary -DependencyInventory $null -ExternalDependencies @($record.DatabaseMetadata.ExternalDependencies)
         }
+        $migrationExecutionPlan=if($record.DatabaseMetadata.PSObject.Properties['MigrationExecutionPlan']){$record.DatabaseMetadata.MigrationExecutionPlan}else{$null}
         $missingObjects=if(Test-Path -LiteralPath $root -PathType Container){
             @($objects|Where-Object{-not(Test-Path -LiteralPath (Join-Path $root ([string]$_.RelativePath)) -PathType Leaf)}).Count
         }else{$objects.Count}
@@ -328,6 +338,9 @@ function Get-LabDatabasePackageSelection {
             DependencyInventoryStatus=[string]$migrationBoundary.DependencyInventoryStatus
             DependencyCategories=@($migrationBoundary.DependencyCategories|Sort-Object -Unique)
             MigrationWarnings=@($migrationBoundary.Warnings|Sort-Object -Unique)
+            MigrationExecutionStatus=if($migrationExecutionPlan){[string]$migrationExecutionPlan.ExecutionStatus}else{'NOT_CAPTURED'}
+            MigrationPlanBlockers=if($migrationExecutionPlan){@($migrationExecutionPlan.Blockers|Sort-Object -Unique)}else{@()}
+            MigrationPlanStepCount=if($migrationExecutionPlan){@($migrationExecutionPlan.Steps).Count}else{0}
             AttachStatus='TARGET_BINDING_REQUIRED'
             AttachReason='TARGET_PROVIDER_PATH_MAPPING_NOT_BOUND'
             CreatedAt=[string]$record.CreatedAt
