@@ -516,6 +516,14 @@ Live-Log-Kanal. Noch offen sind
 Export-/Import-Executor für Serverobjekte, Keymaterialtransfer
 und externe Serviceprüfung.
 
+Jeder aktuelle Inventur-Receipt enthält außerdem einen versionierten
+`SqlServerLab.DatabaseMigrationExecutionPlan/1.0`. Dieser leitet ausschließlich
+sanitisierte Kategorien in `NOT_REQUIRED`, `MANUAL_REQUIRED`,
+`EXTERNAL_REVIEW_REQUIRED` oder `BLOCKED` über. Er setzt ausnahmslos
+`MutationAllowed=false` und `TransferAuthority=NONE`; insbesondere ersetzt er
+weder den TDE-Recovery-Nachweis noch exportiert oder importiert er
+Serverobjekte, Schlüssel, Secrets oder externe Services.
+
 ## Restore
 
 Unterstützt werden Bibliotheksbackups per stabiler `BackupSetId` sowie direkte

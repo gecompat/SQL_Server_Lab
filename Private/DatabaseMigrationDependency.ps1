@@ -118,7 +118,53 @@ function Test-LabDatabaseMigrationDependencyInventory {
         }
     }
     foreach($category in $expected){if(-not $seen.Contains($category)){throw "MIGRATION_DEPENDENCY_CATEGORY_MISSING: $category"}}
+    if($Inventory.PSObject.Properties['ExecutionPlan'] -and $Inventory.ExecutionPlan){
+        $plan=$Inventory.ExecutionPlan
+        try{$planValid=$plan|ConvertTo-Json -Depth 40|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'database-migration-execution-plan.schema.json') -ErrorAction Stop}catch{throw "MIGRATION_EXECUTION_PLAN_SCHEMA_INVALID: $($_.Exception.Message)"}
+        if(-not $planValid){throw 'MIGRATION_EXECUTION_PLAN_SCHEMA_INVALID'}
+        if([string]$plan.InventoryContractVersion -ne [string]$Inventory.ContractVersion -or [string]$plan.DatabaseName -ne [string]$Inventory.DatabaseName){throw 'MIGRATION_EXECUTION_PLAN_INVENTORY_BINDING_INVALID'}
+        $planCategories=@($plan.Steps|ForEach-Object{[string]$_.Category})
+        if(@($planCategories|Sort-Object -Unique).Count -ne $expected.Count -or @($expected|Where-Object{$_ -notin $planCategories}).Count -ne 0){throw 'MIGRATION_EXECUTION_PLAN_CATEGORY_SET_INVALID'}
+    }
     return $true
+}
+
+function New-LabDatabaseMigrationExecutionPlan {
+    <#
+    .SYNOPSIS
+        Leitet aus einem sanitierten Inventar einen strikt nicht ausführbaren Migrationsplan ab.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Inventory)
+
+    $steps=[Collections.Generic.List[object]]::new()
+    $blockers=[Collections.Generic.List[string]]::new()
+    $tdeBlocked=@($Inventory.MigrationBoundary.Blockers|Where-Object{[string]$_ -in @('TDE_PROTECTOR_NOT_RESOLVED','TDE_RECOVERY_EVIDENCE_REQUIRED')}).Count -gt 0
+    foreach($dependency in @($Inventory.Dependencies)){
+        $category=[string]$dependency.Category
+        $status=switch([string]$dependency.Status){
+            'NOT_DETECTED' {'NOT_REQUIRED'}
+            'NOT_OBSERVABLE' {'EXTERNAL_REVIEW_REQUIRED'}
+            default {'MANUAL_REQUIRED'}
+        }
+        if($category -eq 'TDE_PROTECTOR' -and $tdeBlocked){
+            $status='BLOCKED'
+        }
+        $steps.Add([PSCustomObject][ordered]@{Category=$category;Status=$status;Scope=[string]$dependency.Scope;RequiredAction=[string]$dependency.RequiredAction;IncludedInTransfer=$false})
+    }
+    foreach($blocker in @($Inventory.MigrationBoundary.Blockers)){if($blocker){$blockers.Add([string]$blocker)}}
+    [PSCustomObject][ordered]@{
+        ContractVersion='SqlServerLab.DatabaseMigrationExecutionPlan/1.0'
+        InventoryContractVersion=[string]$Inventory.ContractVersion
+        DatabaseName=[string]$Inventory.DatabaseName
+        ExecutionStatus=if($blockers.Count -gt 0){'BLOCKED'}else{'MANUAL_REVIEW_REQUIRED'}
+        MutationAllowed=$false
+        TransferAuthority='NONE'
+        ArtifactScope='DATABASE_FILES_ONLY'
+        Blockers=@($blockers|Sort-Object -Unique)
+        Steps=@($steps|Sort-Object Category)
+        GeneratedAt=Get-LabTimestamp
+    }
 }
 
 function New-LabDatabaseMigrationDependencyInventory {
@@ -187,6 +233,8 @@ function New-LabDatabaseMigrationDependencyInventory {
         }
         ObservedAt=Get-LabTimestamp
     }
+    $null=Test-LabDatabaseMigrationDependencyInventory -Inventory $inventory
+    $inventory | Add-Member -NotePropertyName ExecutionPlan -NotePropertyValue (New-LabDatabaseMigrationExecutionPlan -Inventory $inventory)
     $null=Test-LabDatabaseMigrationDependencyInventory -Inventory $inventory
     return $inventory
 }
