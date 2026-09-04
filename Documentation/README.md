@@ -69,7 +69,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 61 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 62 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -118,6 +118,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Sync-SqlServerLabPersistentStorageArtifact` | Vorhandene Backup-Sets, Datenbankpakete oder sichere relative Exchange-Workspaces einzeln revalidieren und idempotent in den Persistent-Storage-Katalog übernehmen |
 | `Sync-SqlServerLabRunScopedContainerStore` | Einen laufenden Docker-/Podman-Run-Store aus persistierter Run- und Runtime-Evidence revisionsgeschützt in den Katalog übernehmen |
 | `Get-SqlServerLabDatabasePackage` | Datenbankpakete pfadfrei per stabiler `DatabasePackageId` inventarisieren und optional vollständig hashen |
+| `Export-SqlServerLabDatabasePackage` | Eine Run-/Instanz-gebundene Docker-/Podman-Datenbank nach exklusivem Offline-Commit als SHA-256-verifiziertes Paket veröffentlichen |
 | `Invoke-SqlServerLabDatabasePackageAttach` | Paket und Hyper-V-Ziel per stabilen IDs binden, das Ziel live aus SQL Default Data ableiten und erst nach Gastkopie plus SHA-256-Postcondition attachen |
 | `Get-SqlServerLabDatabaseMigrationDependency` | SQL-seitig beobachtbare Migrationsabhängigkeiten direkt oder per Run-/Instanzbindung read-only als sanitisierte Kategorien und Counts inventarisieren |
 | `Get-SqlServerLabConnectionCenter` | Passwortfreien SQL-Endpunktkatalog für SSMS und CMS ermitteln |

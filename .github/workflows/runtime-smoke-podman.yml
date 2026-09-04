@@ -97,6 +97,12 @@ jobs:
                 -RuntimeMutexAlreadyHeld 2>&1 | Tee-Object -FilePath $logPath -Append
               $removalExitCode = $LASTEXITCODE
               if ($removalExitCode -ne 0) { throw "Podman Persistent-Storage-Removal-Akzeptanz endete mit Exitcode $removalExitCode." }
+
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerDatabasePackageExportAcceptance.ps1 `
+                -Provider podman `
+                -RuntimeMutexAlreadyHeld 2>&1 | Tee-Object -FilePath $logPath -Append
+              $packageExportExitCode = $LASTEXITCODE
+              if ($packageExportExitCode -ne 0) { throw "Podman Database-Package-Export-Akzeptanz endete mit Exitcode $packageExportExitCode." }
             }
           }
           finally {

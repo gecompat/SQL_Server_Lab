@@ -852,6 +852,11 @@ zusätzlich die öffentliche `DELETE_WITH_RUN`-Acceptance aus. Sie teilen den
 bereits gehaltenen Runtime-Mutex, erzeugen einen isolierten rungebundenen Store
 und verlangen Registrierung, Missing-Volume-Nachweis sowie `DETACHED`-Katalog-
 abschluss; Backup- und Paket-SHA-256-Verträge bleiben davon getrennt.
+Danach belegen dieselben getrennten Provider-Gates auch den öffentlichen
+`Export-SqlServerLabDatabasePackage`-Pfad unter demselben Parent-Mutex:
+`WhatIf`, live gebundene Quelle, exklusives Offline, stabile Paket-/Storage-ID,
+vollständige Integritätsprüfung und Cleanup. Die Acceptance akzeptiert keine
+freien Container- oder Hostpfade.
 Dieser checkt den in `.ai/repo_map.yaml` gebundenen Foundation-Quellcommit aus
 und führt den Foundation-Validator mit den projektspezifisch ausgewählten
 Adaptern und Capabilities aus. Sein Ergebnis fließt in den geschützten
