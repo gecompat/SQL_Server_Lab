@@ -131,6 +131,14 @@ try {
         $deletePlan.Status -eq 'READY' -and $deletePlan.Stores[0].Outcome -eq 'DELETE_RUN_RESOURCE' -and
         $deletePlan.Stores[0].Destructive -and -not $deletePlan.Stores[0].RequiresSeparateStorageDelete) `
         -Message (($deletePlan | ConvertTo-Json -Depth 20 -Compress))
+    $unsupportedDeleteDocument=Copy-TestObject $deleteDocument
+    $unsupportedDeleteDocument.Stores[0].Provider='hyperv'
+    $unsupportedDeletePlan=& $module { param($cat,$value,$inv) Get-LabPersistentStorageRemovalPlan -Catalog $cat -Intent $value -ResidencyInventory $inv } ([PSCustomObject]@{ Status='AVAILABLE'; Document=$unsupportedDeleteDocument }) $deleteIntent $inventory
+    Add-CheckResult -Name 'DELETE_WITH_RUN bleibt für nicht unterstützte Provider bereits im Plan blockiert' -Success (
+        $unsupportedDeletePlan.Status -eq 'BLOCKED' -and
+        'DELETE_WITH_RUN_NOT_ALLOWED' -in @($unsupportedDeletePlan.Stores[0].Blockers) -and
+        $unsupportedDeletePlan.Execution.Status -eq 'BLOCKED' -and
+        -not $unsupportedDeletePlan.Stores[0].Destructive)
     $unsafeDeleteIntent=Copy-TestObject $intent; $unsafeDeleteIntent.Selections[0].Policy='DELETE_WITH_RUN'
     $unsafeDeletePlan=& $module { param($cat,$value,$inv) Get-LabPersistentStorageRemovalPlan -Catalog $cat -Intent $value -ResidencyInventory $inv } $catalog $unsafeDeleteIntent $inventory
     Add-CheckResult -Name 'DELETE_WITH_RUN kann retained Persistent Storage nicht freigeben' -Success (
