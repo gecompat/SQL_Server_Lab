@@ -27,7 +27,7 @@
   ],
   "properties": {
     "ContractVersion": { "const": "SqlServerLab.DatabasePackageAttachResult/1.0" },
-    "Status": { "enum": ["BLOCKED", "PLANNED", "ATTACHED"] },
+    "Status": { "enum": ["BLOCKED", "PLANNED", "ATTACHED", "RECOVERED"] },
     "DatabasePackageId": { "type": "string", "format": "uuid" },
     "DatabaseName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$" },
     "TargetRunId": { "type": "string", "minLength": 1 },

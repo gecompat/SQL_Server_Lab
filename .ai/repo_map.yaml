@@ -1052,6 +1052,7 @@ validation:
       - public_sanitized_migration_boundary_projection
       - public_path_free_hyperv_target_binding
       - pre_mutation_attach_recovery_journal
+      - public_journal_bound_attach_recovery
       - sanitized_attach_result
   acceptance_database_package_hyperv_attach:
     command: '.\Tests\Integration\Invoke-HyperVDatabasePackageAttachAcceptance.ps1'

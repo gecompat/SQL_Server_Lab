@@ -1,7 +1,7 @@
 function New-LabPublicDatabasePackageAttachResult {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][ValidateSet('BLOCKED', 'PLANNED', 'ATTACHED')][string]$Status,
+        [Parameter(Mandatory)][ValidateSet('BLOCKED', 'PLANNED', 'ATTACHED', 'RECOVERED')][string]$Status,
         [Parameter(Mandatory)]$Package,
         [Parameter(Mandatory)]$Plan,
         [Parameter(Mandatory)]$Context,
@@ -31,7 +31,7 @@ function New-LabPublicDatabasePackageAttachResult {
         PostconditionVerified = $PostconditionVerified
         MigrationBoundary = $Plan.MigrationBoundary
         Blockers = @($Blockers | Sort-Object -Unique)
-        Recovery = if ($Status -eq 'ATTACHED') { 'NOT_REQUIRED' } else { 'NOT_STARTED' }
+        Recovery = if ($Status -in @('ATTACHED', 'RECOVERED')) { 'NOT_REQUIRED' } else { 'NOT_STARTED' }
         CompletedAt = Get-LabTimestamp
     }
     try {
@@ -67,6 +67,11 @@ function Invoke-SqlServerLabDatabasePackageAttach {
         Stabile ID des laufenden Hyper-V-Ziel-Runs.
     .PARAMETER InstanceId
         Instanz-ID innerhalb des Ziel-Runs. Standard ist primary.
+    .PARAMETER Recover
+        Führt ausschließlich einen vorhandenen, passenden
+        `RECOVERY_REQUIRED`-Attach-Journalzustand aus. Der Befehl akzeptiert
+        keine freien Pfade und detacht nur eine erneut als zielgebunden
+        nachgewiesene Datenbank.
     .PARAMETER GuestCredential
         Fluechtiges lokales Administratorcredential fuer PowerShell Direct.
         Es wird weder im Journal noch im Rueckgabeobjekt gespeichert.
@@ -88,6 +93,11 @@ function Invoke-SqlServerLabDatabasePackageAttach {
 
         Kopiert das Paket in das gebundene SQL-Default-Data-Verzeichnis des
         Hyper-V-Gasts, verifiziert die Kopie und attached die Datenbank.
+    .EXAMPLE
+        Invoke-SqlServerLabDatabasePackageAttach -DatabasePackageId $packageId -RunId $lab.RunId -GuestCredential $credential -Recover -Confirm:$false
+
+        Führt nur den vorher für genau dieses Paket und Ziel persistierten
+        Recovery-Schritt aus.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
     param(
@@ -96,6 +106,7 @@ function Invoke-SqlServerLabDatabasePackageAttach {
         [string]$DatabasePackageId,
         [Parameter(Mandatory)][string]$RunId,
         [string]$InstanceId = 'primary',
+        [switch]$Recover,
         [Parameter(Mandatory)][PSCredential]$GuestCredential,
         [string]$DataRoot,
         [string]$StateRoot
@@ -110,6 +121,23 @@ function Invoke-SqlServerLabDatabasePackageAttach {
     $package = Get-LabDatabasePackage -DatabasePackageId $DatabasePackageId -DataRoot $DataRoot
     $context = Get-LabHyperVDatabasePackageAttachContext -Package $package -RunId $RunId `
         -InstanceId $InstanceId -Credential $GuestCredential -StateRoot $StateRoot
+    if ($Recover) {
+        $journalPath = Join-Path ([string]$context.OperationDirectory) 'database-package-attach-journal.json'
+        if (-not (Test-Path -LiteralPath $journalPath -PathType Leaf)) { throw 'DATABASE_PACKAGE_ATTACH_RECOVERY_JOURNAL_NOT_FOUND' }
+        $journal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+        $null = Test-LabDatabasePackageAttachJournal -Journal $journal
+        if ([string]$journal.DatabasePackageId -ne $DatabasePackageId -or [string]$journal.Status -ne 'RECOVERY_REQUIRED' -or
+            -not [string]::Equals([string]$journal.TargetDirectory, [string]$context.TargetDirectory, [StringComparison]::OrdinalIgnoreCase)) {
+            throw 'DATABASE_PACKAGE_ATTACH_RECOVERY_JOURNAL_INVALID'
+        }
+        $recoveryPlan = Get-LabDatabasePackageAttachPlan -Package $package -TargetEvidence $context.TargetEvidence -TargetDirectory ([string]$context.TargetDirectory)
+        if (-not $PSCmdlet.ShouldProcess("$RunId/$InstanceId", "Recover database package attach $DatabasePackageId")) {
+            return New-LabPublicDatabasePackageAttachResult -Status PLANNED -Package $package -Plan $recoveryPlan -Context $context -RunId $RunId -InstanceId $InstanceId
+        }
+        $recovered = Invoke-LabHyperVDatabasePackageAttachRecovery -Package $package -Context $context -Journal $journal -Credential $GuestCredential -Confirm:$false
+        $journal.Status = 'RECOVERED'; $journal.Recovery = 'NOT_REQUIRED'; Write-LabDatabasePackageAttachJournal -Journal $journal -Path $journalPath
+        return New-LabPublicDatabasePackageAttachResult -Status RECOVERED -Package $package -Plan $recoveryPlan -Context $context -RunId $RunId -InstanceId $InstanceId -TargetCopyVerified ([bool]$journal.TargetCopyVerified) -AttachInvoked ([bool]$journal.AttachInvoked)
+    }
     $plan = Get-LabDatabasePackageAttachPlan -Package $package `
         -TargetEvidence $context.TargetEvidence -TargetDirectory ([string]$context.TargetDirectory)
 

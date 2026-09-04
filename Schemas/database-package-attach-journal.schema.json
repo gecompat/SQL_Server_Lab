@@ -6,7 +6,7 @@
   "properties": {
     "ContractVersion": { "const": "SqlServerLab.DatabasePackageAttachJournal/1.0" },
     "DatabasePackageId": { "type": "string", "format": "uuid" },
-    "Status": { "enum": ["COPYING", "ATTACHING", "VERIFYING", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "Status": { "enum": ["COPYING", "ATTACHING", "VERIFYING", "COMPLETED", "RECOVERY_REQUIRED", "RECOVERED"] },
     "TargetDirectory": { "type": "string", "minLength": 1 },
     "TargetCopyVerified": { "type": "boolean" }, "AttachInvoked": { "type": "boolean" }, "PostconditionVerified": { "type": "boolean" },
     "Recovery": { "enum": ["REMOVE_UNATTACHED_TARGET_COPY", "DETACH_TARGET_COPY_AND_PRESERVE_PACKAGE", "NOT_REQUIRED"] },
