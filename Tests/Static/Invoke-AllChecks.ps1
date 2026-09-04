@@ -40,6 +40,7 @@ $checks = @(
     'Invoke-PortAllocationChecks.ps1',
     'Invoke-BatchWorkflowChecks.ps1',
     'Invoke-ArtifactResolverChecks.ps1',
+    'Invoke-ResourceSetChecks.ps1',
     'Invoke-CleanupRecoveryChecks.ps1',
     'Invoke-CleanupAuditChecks.ps1',
     'Invoke-PersistentStorageCatalogChecks.ps1',

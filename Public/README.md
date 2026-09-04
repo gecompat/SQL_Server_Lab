@@ -71,6 +71,8 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Install-SqlServerLab7Zip` | `Install-SqlServerLab7Zip.ps1` | 7-Zip ausschließlich auf expliziten Aufruf über `winget` für katalogisierte `.7z`-Backups installieren |
 | `Get-SqlServerLabCuStatus` | `Get-SqlServerLabCuStatus.ps1` | Microsoft-Learn-Buildtabellen read-only gegen den lokalen CU-Katalog prüfen; neue Funde bleiben bis zur Hash-/Signaturbindung nicht downloadbar |
 | `Save-SqlServerLabCuResource` | `Save-SqlServerLabCuResource.ps1` | Einen beliebigen katalogisierten Windows-CU mit SHA-256 und Microsoft-Authenticode in den Media Root oder den exakten Linux-MCR-Tag in Docker/Podman laden |
+| `Get-SqlServerLabResourcePlan` | `Get-SqlServerLabResourcePlan.ps1` | Fehlende katalogisierte Samples und Windows-/Hyper-V-External-Runtime-Medien read-only planen und einen optionalen alten Media Root als Importquelle prüfen |
+| `Save-SqlServerLabResourceSet` | `Save-SqlServerLabResourceSet.ps1` | Ausgewählte Ressourcen aus verifiziertem Cache, hashgeprüftem lokalem Bestand oder katalogisierter HTTP(S)-Quelle vorab bereitstellen; unterstützt `-WhatIf` |
 
 `Test-SqlServerLabPrerequisite` ist öffentlich exportiert, obwohl seine Definition im internen Resource-Assessment-Baustein liegt. Der Ablageort allein bestimmt nicht die Sichtbarkeit; maßgeblich ist `FunctionsToExport` im Modulmanifest.
 

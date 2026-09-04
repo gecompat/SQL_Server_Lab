@@ -282,6 +282,14 @@ Sync-SqlServerLabRunScopedContainerStore
         catalogued SHA-256 and a valid Microsoft Authenticode signature; Linux
         pulls the exact MCR tag into Docker or Podman.
 
+    Get-SqlServerLabResourcePlan
+        Plans catalogued sample and Windows/Hyper-V external-runtime resources
+        read-only, including an optional existing media root.
+
+    Save-SqlServerLabResourceSet
+        Prefetches selected resources from cache, a re-hashed existing media
+        root, or the catalogued HTTP(S) source without installing SQL content.
+
 NAMING AND OWNERSHIP
     PowerShell associates each exported command with SqlServerLab through the
     Source and ModuleName properties:

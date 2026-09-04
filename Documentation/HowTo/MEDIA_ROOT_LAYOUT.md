@@ -88,6 +88,7 @@ mehr existierender lokaler Pfad wird nicht als Default angeboten.
 ├── Testdaten\
 │   ├── Sammlungen\<Kategorie>\<Sample>\<Variante>\
 │   └── _verified\sha256\
+├── ExternalLanguages\Windows\<sha256>\<datei>
 ├── Hashes\
 ├── Evidence\
 └── Exports\
@@ -103,8 +104,9 @@ Zielpfad, Auswahlkriterien und Verwendungshinweisen.
 ### Testdaten-Bibliothek
 
 `Testdaten` ist die sichtbare, wiederverwendbare Bibliothek für katalogisierte
-Backups, ZIP-/7z-Archive und T-SQL-Skripte. Ein Download startet weiterhin nur
-bei einer expliziten Testdatenbank-Installation. Nach SHA-256-Prüfung erscheint
+Backups, ZIP-/7z-Archive und T-SQL-Skripte. Ein Download startet bei einer
+expliziten Testdatenbank-Installation oder beim eigenständigen
+`Save-SqlServerLabResourceSet`. Nach SHA-256-Prüfung erscheint
 die Datei unter `Sammlungen\<Kategorie>\<Sample>\<Variante>` zusammen mit einer
 `artifact.json` (Quelle, Hash, Lizenz-/Trust-Herkunft und Zeitpunkt).
 
@@ -120,6 +122,13 @@ geprüft und die Datei in die neue sichtbare Bibliothek übernommen.
 Der Testdaten-Root kann in der Workflow-UI unter **Medienquellen** oder in der
 Konsole über **[t] Testdaten-Bibliothek konfigurieren** geändert werden. Ohne
 eigene Einstellung lautet der Default `<MediaRoot>\Testdaten`.
+
+`ExternalLanguages\Windows` enthält die katalogisierten Offline-Installer und
+Pakete für SQL-2022-Python, R und Java unter Hyper-V. Der Digest ist Teil des
+Pfades; `Save-SqlServerLabResourceSet` veröffentlicht dort erst nach
+SHA-256-Prüfung. `Get-SqlServerLabResourcePlan` und `-WhatIf` bleiben read-only.
+Mit `-SourceMediaRoot` wird ein älterer Bestand erneut geprüft und importiert;
+fehlende Dateien werden aus den katalogisierten Quellen geladen.
 
 ## 3. Struktur automatisch erstellen
 

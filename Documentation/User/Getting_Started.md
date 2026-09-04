@@ -163,6 +163,31 @@ CU und Container-Provider. Ein fehlender oder nicht katalogisierter CU wird
 fail-closed abgelehnt; SQL Server 2019 CU7 ist wegen des Microsoft-Rückzugs
 nicht auswählbar.
 
+### 4b. Samples und External-Runtime-Medien vorab bereitstellen
+
+Der eigenständige Prefetch benötigt keine laufende SQL-Instanz und keine
+Provider-Mutation. Zuerst den Plan prüfen, danach dieselben IDs speichern:
+
+```powershell
+$resources = @(
+    'sample:northwind:script'
+    'sample:adventureworks-2019:lightweight'
+    'software:sql-python:sql2022-python-windows-hyperv'
+    'software:sql-r:sql2022-r-windows-hyperv'
+    'software:sql-java:sql2022-java17-windows-hyperv'
+)
+
+Get-SqlServerLabResourcePlan -ResourceId $resources -MediaRoot 'D:\Lab_Base'
+Save-SqlServerLabResourceSet -ResourceId $resources -MediaRoot 'D:\Lab_Base' -TrustUnknownArtifact
+```
+
+Ein vorhandener älterer Bestand kann mit `-SourceMediaRoot` als Importquelle
+angegeben werden. Jede Datei wird erneut gehasht; unpassende Bytes blockieren
+den Lauf. Fehlende Importdateien werden aus der katalogisierten HTTP(S)-Quelle
+geladen. `-WhatIf` schreibt weder Media-, Testdaten- noch State-Dateien.
+`-TrustUnknownArtifact` ist nur für Samples ohne Katalog-SHA-256 erforderlich
+und vertraut ausschließlich den während dieses Laufs gehashten Bytes.
+
 ### Aktuellen CU-Stand bei Microsoft prüfen
 
 Vor der Medienbeschaffung kann der Katalog gegen die offizielle Microsoft-
