@@ -687,6 +687,11 @@ $labDataResidencyDecision = Get-Content -LiteralPath (Join-Path $repoRoot 'Docum
 $batchWorkflowPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md') -Raw -Encoding utf8
 $futureUseCases = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md') -Raw -Encoding utf8
 $knownLimitations = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\KNOWN_LIMITATIONS.md') -Raw -Encoding utf8
+$publicReadme = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\README.md') -Raw -Encoding utf8
+$removalPlanCommand = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Get-SqlServerLabPersistentStorageRemovalPlan.ps1') -Raw -Encoding utf8
+$workflowActionCommand = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Invoke-SqlServerLabWorkflowAction.ps1') -Raw -Encoding utf8
+$architecture = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md') -Raw -Encoding utf8
+$cliAcceptanceMatrix = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\CLI_ACCEPTANCE_MATRIX.md') -Raw -Encoding utf8
 $endToEndTestEnvironment = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\END_TO_END_TEST_ENVIRONMENT.md') -Raw -Encoding utf8
 $hyperVSlotWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\HYPERV_SLOT_SQL_WORKFLOW.md') -Raw -Encoding utf8
 $hyperVWindowsImageBuild = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\HYPERV_WINDOWS_IMAGE_BUILD.md') -Raw -Encoding utf8
@@ -1175,6 +1180,11 @@ Add-ValidationResult `
         $knownLimitations -match 'MDF/NDF/LDF-Dateien' -and
         $knownLimitations -match '(?s)`BACKUP_AND_PACKAGE`.*Backup.*Offline' -and
         $knownLimitations -match 'Noch nicht implementiert sind `DELETE_WITH_RUN`, externe' -and
+        $publicReadme -match '(?s)`PACKAGE_ON_REMOVE`.*`BACKUP_AND_PACKAGE`.*FILESTREAM, TDE, endgültiges Löschen und externe Freigabe bleiben blockiert' -and
+        $removalPlanCommand -match '(?s)RETAIN_INSTANCE_STORE, BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und\s*BACKUP_AND_PACKAGE startbar' -and
+        $workflowActionCommand -match '(?s)RETAIN_INSTANCE_STORE,\s*BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE aus' -and
+        $architecture -match '(?s)BACKUP_AND_PACKAGE.*Backup vor dem Offline-Schritt' -and
+        $cliAcceptanceMatrix -match '(?s)MDF/NDF/LDF-Package-on-Remove und `BACKUP_AND_PACKAGE`.*Backup vor Offline-Schritt' -and
         $repoMap -match 'persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan\.ps1' -and
         $repoMap -match 'persistent_storage_removal_executor: Private/PersistentStorageRemovalExecutor\.ps1' -and
         $repoMap -match 'container_database_package: Private/ContainerDatabasePackage\.ps1' -and
