@@ -84,7 +84,7 @@ Get-SqlServerLabHyperVResourcePreview  # Physische Hyper-V-Klassenroots und Kapa
 Get-SqlServerLabCatalog                # Laufzeit-Workflow-Katalog als JSON-Artefakt schreiben
 Get-SqlServerLabCleanupAudit           # Daten-/Runtime-Reste, Residency und Hyper-V-Schutzbindungen read-only inventarisieren
 Get-SqlServerLabPersistentStorageRemovalPlan # Retention-Folgen per stabiler Storage-ID read-only planen
-Invoke-SqlServerLabPersistentStorageRemoval  # Retain/Backup-on-Remove journalisiert ausführen
+Invoke-SqlServerLabPersistentStorageRemoval  # Retain, Backup, Datenbankpaket oder beides journalisiert ausführen
 Sync-SqlServerLabPersistentStorageArtifact   # Vorhandenes Backup/Paket/Exchange-Workspace per stabiler ID katalogisieren
 Get-SqlServerLabDatabasePackage              # Datenbankpakete per stabiler ID pfadfrei inventarisieren
 Invoke-SqlServerLabDatabasePackageAttach     # Paket pfadfrei an einen stabil gebundenen Hyper-V-SQL-Run attachen
