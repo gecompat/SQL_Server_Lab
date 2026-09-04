@@ -40,9 +40,15 @@ inventarisierten MDF/NDF/LDF-Dateien werden paketiert und Objekt- sowie
 Manifest-SHA-256 erneut geprüft. `BACKUP_AND_PACKAGE` prüft beide Artefakte in
 sicherer Reihenfolge: Backup vor Offline-Commit. Alle Varianten verlangen die journalisierte
 Run-Entfernung bei erhaltenem, detached Instanzstore.
+`DELETE_WITH_RUN` erstellt dagegen einen neu provisionierten rungebundenen
+Containerstore, registriert ihn öffentlich aus Run-/Scope-/Container- und
+Runtime-Label-Evidence und bestätigt danach getrennt den fehlenden Runtime-
+Volume-Nachweis sowie den detached Katalogabschluss. Die Artefaktvarianten
+behalten ihren automatischen SHA-256-Nachweis unverändert bei.
 
 ```powershell
 .\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -Provider docker -Policy BACKUP_AND_PACKAGE
+.\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -Provider podman -Policy DELETE_WITH_RUN
 ```
 
 ## Aktueller lokaler Nachweis (2026-08-12)
