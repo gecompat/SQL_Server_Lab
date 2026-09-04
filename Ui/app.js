@@ -781,10 +781,25 @@ function migrationInventoryResult(lines) {
     }).join('') || '<li>Keine Dependency-Einträge geliefert.</li>';
     const warnings = Array.isArray(inventory.Warnings) ? inventory.Warnings : [];
     const blockers = Array.isArray(inventory.Blockers) ? inventory.Blockers : [];
+    const executionPlan = inventory.ExecutionPlan;
+    const hasSafeExecutionPlan = executionPlan?.ContractVersion === 'SqlServerLab.DatabaseMigrationExecutionPlan/1.0' &&
+      executionPlan.MutationAllowed === false && executionPlan.TransferAuthority === 'NONE' &&
+      executionPlan.ArtifactScope === 'DATABASE_FILES_ONLY';
+    const planSteps = hasSafeExecutionPlan && Array.isArray(executionPlan.Steps) ? executionPlan.Steps : [];
+    const planRows = planSteps.map((step) => '<li><strong>' + escapeHtml(String(step.Category || 'UNKNOWN')) + '</strong>: ' +
+      escapeHtml(String(step.Status || 'UNKNOWN')) + ' · ' + escapeHtml(String(step.Scope || 'UNKNOWN')) +
+      ' · ' + escapeHtml(String(step.RequiredAction || 'MANUAL_REVIEW')) +
+      ' · Transfer: ' + escapeHtml(step.IncludedInTransfer === false ? 'nein' : 'ungültig') + '</li>').join('');
+    const plan = hasSafeExecutionPlan
+      ? '<section class="job-execution-plan" aria-label="Nicht ausführbarer Migrationsplan"><strong>Nicht ausführbarer Migrationsplan</strong>' +
+        '<span>' + escapeHtml(String(executionPlan.ExecutionStatus || 'UNKNOWN')) + ' · Mutation: nein · Transferautorität: NONE</span>' +
+        '<ul>' + (planRows || '<li>Keine Plan-Schritte geliefert.</li>') + '</ul><span>Plan-Blocker: ' +
+        escapeHtml((Array.isArray(executionPlan.Blockers) ? executionPlan.Blockers : []).join(', ') || 'keine') + '</span></section>'
+      : '';
     return '<section class="job-inventory" aria-label="Migrationsinventar"><strong>Migrationsinventar: ' + escapeHtml(String(inventory.DatabaseName)) + '</strong>' +
       '<span>' + escapeHtml(String(inventory.ObservationStatus || 'UNKNOWN')) + ' · Grenze: ' + escapeHtml(String(inventory.MigrationBoundary || 'DATABASE_ONLY')) +
       ' · Vollmigration: ' + escapeHtml(inventory.FullInstanceMigration ? 'ja' : 'nein') + '</span>' +
-      '<ul>' + rows + '</ul><span>Hinweise: ' + escapeHtml(warnings.join(', ') || 'keine') + '</span><span>Blocker: ' + escapeHtml(blockers.join(', ') || 'keine') + '</span></section>';
+      '<ul>' + rows + '</ul><span>Hinweise: ' + escapeHtml(warnings.join(', ') || 'keine') + '</span><span>Blocker: ' + escapeHtml(blockers.join(', ') || 'keine') + '</span>' + plan + '</section>';
   }
   catch { return ''; }
 }
