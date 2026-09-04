@@ -299,6 +299,48 @@ try {
         $runScopedEvidence.Registered.Store.Lease.RunId -eq $runScopedRunId -and
         -not $runScopedEvidence.Again.Changed)
 
+    $publicRunScopedEvidence = & $module {
+        param($config,$root)
+        $runId=[Guid]::NewGuid().ToString('D');$scopeId=[Guid]::NewGuid().ToString('D');$storageId=[Guid]::NewGuid().ToString('D')
+        $runDirectory=Join-Path (Join-Path $root 'state/runs') $runId;New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
+        [PSCustomObject]@{runId=$runId;scopeId=$scopeId;instances=@([PSCustomObject]@{id='primary';containerId=('b'*64);containerName='public-run-store'})} | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $runDirectory 'connection-info.json') -Encoding utf8NoBOM
+        $originalConfiguration=(Get-Command Get-LabStorageConfiguration -CommandType Function).ScriptBlock
+        $originalResolver=(Get-Command Resolve-LabDataRootForUse -CommandType Function).ScriptBlock
+        $originalRun=(Get-Command Get-LabRunState -CommandType Function).ScriptBlock
+        $originalDesired=(Get-Command Get-LabPersistedDesiredState -CommandType Function).ScriptBlock
+        $originalOwnership=(Get-Command Test-LabDataRootOwnership -CommandType Function).ScriptBlock
+        $originalInspection=(Get-Command Get-LabContainerInstanceStoreRuntimeInspection -CommandType Function).ScriptBlock
+        Set-Item Function:script:Get-LabStorageConfiguration -Value { param($DataRoot) $null=$DataRoot; $config }
+        Set-Item Function:script:Resolve-LabDataRootForUse -Value { param($DataRoot) $null=$DataRoot; $root }
+        Set-Item Function:script:Get-LabRunState -Value { param($RunId,$StateRoot) $null=$RunId,$StateRoot;[PSCustomObject]@{state='RUNNING';scopeId=$scopeId} }
+        Set-Item Function:script:Get-LabPersistedDesiredState -Value { param($RunId,$StateRoot) $null=$RunId,$StateRoot;[PSCustomObject]@{Status='VALID';Snapshot=[PSCustomObject]@{LabName='Public run store';Instances=@([PSCustomObject]@{Id='primary';Provider='docker';Version='2025-latest';Intents=[PSCustomObject]@{Drives=@([PSCustomObject]@{Id='runtime-mssql';Persistence='run-scoped-runtime-volume';PersistentStorageId=$storageId})}})}} }
+        Set-Item Function:script:Test-LabDataRootOwnership -Value { param($DataRoot,$ControllerId) $null=$DataRoot,$ControllerId;$true }
+        Set-Item Function:script:Get-LabContainerInstanceStoreRuntimeInspection -Value { param($Provider,$VolumeName) [PSCustomObject]@{Status='AVAILABLE';Provider=$Provider;VolumeName=$VolumeName;VolumeId=$VolumeName;AttachedContainers=@(('b'*64));Labels=[PSCustomObject]@{'sql-server-lab.persistent-storage-id'=$storageId;'sql-server-lab.run-id'=$runId;'sql-server-lab.scope-id'=$scopeId;'sql-server-lab.sql-major-version'='2025';'sql-server-lab.persistence'='run-scoped-runtime-volume'}} }
+        try {
+            $planned=Sync-SqlServerLabRunScopedContainerStore -RunId $runId -InstanceId primary -DataRoot $root -StateRoot (Join-Path $root 'state') -WhatIf
+            $applied=Sync-SqlServerLabRunScopedContainerStore -RunId $runId -InstanceId primary -DataRoot $root -StateRoot (Join-Path $root 'state') -Confirm:$false
+            $again=Sync-SqlServerLabRunScopedContainerStore -RunId $runId -InstanceId primary -DataRoot $root -StateRoot (Join-Path $root 'state') -Confirm:$false
+            $catalog=Get-LabPersistentStorageCatalog -Configuration $config
+            [PSCustomObject]@{Planned=$planned;Applied=$applied;Again=$again;Catalog=$catalog;RunId=$runId;ScopeId=$scopeId;StorageId=$storageId}
+        }
+        finally {
+            Set-Item Function:script:Get-LabStorageConfiguration -Value $originalConfiguration
+            Set-Item Function:script:Resolve-LabDataRootForUse -Value $originalResolver
+            Set-Item Function:script:Get-LabRunState -Value $originalRun
+            Set-Item Function:script:Get-LabPersistedDesiredState -Value $originalDesired
+            Set-Item Function:script:Test-LabDataRootOwnership -Value $originalOwnership
+            Set-Item Function:script:Get-LabContainerInstanceStoreRuntimeInspection -Value $originalInspection
+        }
+    } $runScopedConfiguration $runScopedRoot
+    $publicRunScopedStore=@($publicRunScopedEvidence.Catalog.Document.Stores | Where-Object PersistentStorageId -eq $publicRunScopedEvidence.StorageId)[0]
+    Add-CheckResult -Name 'Öffentlicher Run-Store-Sync plant mutationsfrei, übernimmt dieselbe Stable-ID und bleibt idempotent' -Success (
+        $publicRunScopedEvidence.Planned.Status -eq 'PLANNED' -and -not $publicRunScopedEvidence.Planned.Changed -and $publicRunScopedEvidence.Planned.WouldChange -and
+        $publicRunScopedEvidence.Applied.Status -eq 'SYNCED' -and $publicRunScopedEvidence.Applied.Changed -and
+        $publicRunScopedEvidence.Again.Status -eq 'NO_CHANGE' -and -not $publicRunScopedEvidence.Again.Changed -and
+        [string]$publicRunScopedStore.PersistentStorageId -eq [string]$publicRunScopedEvidence.StorageId -and
+        [string]$publicRunScopedStore.Lease.RunId -eq [string]$publicRunScopedEvidence.RunId -and
+        [string]$publicRunScopedStore.Lease.ScopeId -eq [string]$publicRunScopedEvidence.ScopeId)
+
     $hyperVRoot1 = Join-Path $temporaryRoot 'hyperv-one/Lab_Data'
     $hyperVRoot2 = Join-Path $temporaryRoot 'hyperv-two/Lab_Data'
     New-Item -Path (Join-Path $hyperVRoot1 'Catalog'),(Join-Path $hyperVRoot2 'Catalog') -ItemType Directory -Force | Out-Null
