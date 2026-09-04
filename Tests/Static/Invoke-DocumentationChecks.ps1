@@ -1182,6 +1182,7 @@ Add-ValidationResult `
         $knownLimitations -match '(?s)`EXTERNAL_UNMANAGED`.*SourceMutated=false' -and
         $knownLimitations -match '(?s)`DELETE_WITH_RUN` ist weiterhin keine öffentlich ausführbare.*?stabiler Storage-ID' -and
         $knownLimitations -match '(?s)vor\s+der ersten Runtime-Mutation eine UUID.*?`sql-server-lab\.persistent-storage-id`.*?keine zusätzliche Delete-Autorität' -and
+        $knownLimitations -match '(?s)exakt einem erwarteten Container.*?revisionsgeschützt.*?`RUN_SCOPED`/\s*`RUN_CLEANUP`' -and
         $knownLimitations -match '(?s)Run-Cleanup entfernt.*?`sql-server-lab\.run-id`.*?`sql-server-lab\.scope-id`.*?Recovery-Pfad' -and
         $publicReadme -match '(?s)`PACKAGE_ON_REMOVE`.*`BACKUP_AND_PACKAGE`.*`EXTERNAL_UNMANAGED`.*ausschließlich die eigene Katalogbindung' -and
         $removalPlanCommand -match '(?s)RETAIN_INSTANCE_STORE, BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und\s*BACKUP_AND_PACKAGE startbar' -and
