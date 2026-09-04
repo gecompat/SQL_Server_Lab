@@ -92,7 +92,7 @@ try {
 
         $unsupported=$false
         $unsupportedPlan=$retainPlan|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20;$unsupportedPlan.Stores[0].Policy='DELETE_WITH_RUN'
-        try{$null=Assert-LabPersistentStorageRemovalExecutablePlan -Plan $unsupportedPlan}catch{$unsupported=$_.Exception.Message -match 'PERSISTENT_STORAGE_REMOVAL_POLICY_NOT_EXECUTABLE'}
+        try{$null=Assert-LabPersistentStorageRemovalExecutablePlan -Plan $unsupportedPlan}catch{$unsupported=$_.Exception.Message -match 'PERSISTENT_STORAGE_REMOVAL_EXECUTION_STORE_UNSUPPORTED'}
         $externalRoot=Join-Path $Root 'external-release';New-Item -ItemType Directory -Path $externalRoot -Force | Out-Null
         $externalSelection=@([PSCustomObject]@{PersistentStorageId=$storageId;Policy='EXTERNAL_UNMANAGED';DatabaseReferenceIds=@()})
         $externalPlan=[PSCustomObject]@{
@@ -127,7 +127,7 @@ try {
         $evidence.RemoveFailure -match '^PERSISTENT_STORAGE_REMOVAL_RECOVERY_REQUIRED: SYNTHETIC_REMOVE_FAILURE' -and
         $evidence.RemoveFailedJournal.Removal.Status -eq 'STARTED' -and $evidence.RemoveCompleted.Status -eq 'COMPLETED' -and
         $evidence.RemoveCalls -eq 2 -and $evidence.ReplanCalls -eq 2)
-    Add-CheckResult -Name 'DELETE_WITH_RUN bleibt vor jeder Executor-Mutation blockiert' -Success $evidence.Unsupported
+    Add-CheckResult -Name 'Unsicher modelliertes DELETE_WITH_RUN bleibt vor jeder Executor-Mutation blockiert' -Success $evidence.Unsupported
     Add-CheckResult -Name 'EXTERNAL_UNMANAGED loest nur die journalisierte Katalogbindung und ist idempotent' -Success (
         $evidence.ExternalCompleted.Status -eq 'COMPLETED' -and $evidence.ExternalCompletedAgain.OperationId -eq $evidence.ExternalCompleted.OperationId -and
         @($evidence.ExternalCompleted.ExternalBindings | Where-Object { $_.Status -eq 'COMPLETED' -and -not $_.SourceMutated -and $_.CatalogRevision -eq 11 }).Count -eq 1 -and
