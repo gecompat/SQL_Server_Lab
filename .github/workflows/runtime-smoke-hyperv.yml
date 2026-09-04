@@ -56,11 +56,17 @@ on:
 permissions:
   contents: read
 
+env:
+  SQL_SERVER_LAB_RESOURCE_LIFECYCLE: test
+  SQL_SERVER_LAB_TEST_OPERATION_ID: github-${{ github.run_id }}-${{ github.run_attempt }}
+
 concurrency:
   group: sql-server-lab-runtime-smoke-hyperv-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Jede Runtime-Ressource ist damit auch nach einem harten Runner-Abbruch
+  # zeitgebunden und vom Maintenance-Plan sicher als Testartefakt erkennbar.
   hyperv-lifecycle-smoke:
     name: Hyper-V lifecycle, isolated OS-slot batch, or shared environments
     runs-on: [self-hosted, SQL_Lab, Hyper-V]

@@ -62,6 +62,16 @@ Abgleich löscht oder rekonstruiert nichts. `UNAVAILABLE`, `PARTIAL` und
 `UNKNOWN` bleiben diagnostisch, damit ein nicht erreichbarer Runtime-Dienst
 nicht fälschlich als manuelle Löschung behandelt wird.
 
+`Get-SqlServerLabMaintenancePlan` erweitert diesen Abgleich auf alle
+vorhandenen Container und Hyper-V-VMs. `Invoke-SqlServerLabMaintenance` kann
+eindeutigen State-Drift sicher korrigieren und im Modus `Cleanup` nur
+scopegebundene Lab-Orphans entfernen. Alte Testartefakte ohne vollständige
+Run-/Scope-Identität werden ausschließlich gestoppt beziehungsweise
+ausgeschaltet, unter registrierten Lab-Roots und nach dem separaten Schalter
+`AllowLegacyTestArtifactRemoval` gelöscht. Fremde Ressourcen werden nicht in
+einen Aktionsplan aufgenommen. Diese Grenzen ersetzen keine fachliche
+Retention-Entscheidung für Datenbanken, Backups oder katalogisierte Stores.
+
 ### Hyper-V
 
 Hyper-V besitzt eine ausführbare Lifecycle-Grundlage für eine Generation-2-VM

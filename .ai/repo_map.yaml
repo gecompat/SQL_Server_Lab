@@ -367,6 +367,14 @@ public_commands:
     source: Public/Sync-SqlServerLabRuntimeState.ps1
     purpose: "Gespeicherten Run-State mit Docker, Podman und Hyper-V abgleichen und fehlende gebundene Runtimeobjekte fail-closed als RECOVERY_REQUIRED markieren"
     mutates_host: true
+  - name: Get-SqlServerLabMaintenancePlan
+    source: Public/Maintenance.ps1
+    purpose: "State und alle vorhandenen Docker-, Podman- und Hyper-V-Ressourcen read-only auf Drift, Orphans und Testartefakte vergleichen"
+    mutates_host: false
+  - name: Invoke-SqlServerLabMaintenance
+    source: Public/Maintenance.ps1
+    purpose: "Revalidierte sichere, scopegebundene und ausdruecklich freigegebene Maintenance-Aktionen ausfuehren"
+    mutates_host: true
   - name: Start-SqlServerLab
     source: Public/Start-SqlServerLab.ps1
     purpose: "Gestoppten Run über alle gespeicherten ProviderSubRuns starten"
@@ -601,6 +609,10 @@ internal_components:
     persistent_storage_removal_executor: Private/PersistentStorageRemovalExecutor.ps1
     persistent_storage_removal_action: Public/Invoke-SqlServerLabPersistentStorageRemoval.ps1
     container_runtime_scope: Private/ContainerRuntimeScope.ps1
+    maintenance_core: Private/Maintenance.ps1
+    maintenance_commands: Public/Maintenance.ps1
+    maintenance_schema: Schemas/lab-maintenance-plan.schema.json
+    maintenance_script: Tools/Invoke-SqlServerLabMaintenance.ps1
     hyperv_persistent_data_drive: Private/HyperVPersistentDataDrive.ps1
     responsibilities:
       - "Cleanup-Plan und providergebundene Cleanup-SubRuns vor Mutation erzeugen"

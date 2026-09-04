@@ -16,6 +16,9 @@ jobs:
     name: Docker and Podman in one lifecycle
     runs-on: [self-hosted, SQL_Lab, Docker, Podman]
     timeout-minutes: 20
+    env:
+      SQL_SERVER_LAB_RESOURCE_LIFECYCLE: test
+      SQL_SERVER_LAB_TEST_OPERATION_ID: github-${{ github.run_id }}-${{ github.run_attempt }}
 
     defaults:
       run:

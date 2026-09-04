@@ -103,6 +103,8 @@ Invoke-SqlServerLabWorkflowAction      # UI-tauglicher, nicht interaktiver Hyper
 New-SqlServerLab                       # Neue Umgebung
 Get-SqlServerLab                       # Status
 Sync-SqlServerLabRuntimeState          # State mit Docker, Podman und Hyper-V abgleichen
+Get-SqlServerLabMaintenancePlan        # gesamten State-/Runtime-Drift read-only planen
+Invoke-SqlServerLabMaintenance         # revalidierte sichere/scopegebundene Wartung ausführen
 Start-SqlServerLab                     # Starten
 Stop-SqlServerLab                      # Stoppen
 Restart-SqlServerLab                   # Neustart

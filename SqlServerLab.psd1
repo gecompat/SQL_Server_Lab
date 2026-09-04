@@ -55,6 +55,8 @@
         'Remove-SqlServerLab'
         'Clear-SqlServerLab'
         'Get-SqlServerLabCleanupAudit'
+        'Get-SqlServerLabMaintenancePlan'
+        'Invoke-SqlServerLabMaintenance'
         'Get-SqlServerLabPersistentStorageRemovalPlan'
         'Invoke-SqlServerLabPersistentStorageRemoval'
         'Sync-SqlServerLabPersistentStorageArtifact'
