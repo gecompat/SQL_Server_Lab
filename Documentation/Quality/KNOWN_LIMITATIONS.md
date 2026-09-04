@@ -575,12 +575,18 @@ wie andere Sample-Artefakte entweder per Katalog-SHA-256 oder durch den
 einmaligen Trust-Pfad mit automatisch berechneter und gecachter SHA-256
 gebunden; der neue Vertrag entfernt diesen bestehenden Trust-Pfad nicht.
 Für künftige ZIP-Quellen ist die exakte, isolierte Mehrdatei-Extraktion bereits
-implementiert und statisch mit synthetischer MDF/LDF-Menge geprüft. Die
-Container-Kopie, das SQL-`FOR ATTACH` und der 7z-Mehrdateipfad folgen als
-getrennte Runtime-Welle.
+implementiert und statisch mit synthetischer MDF/LDF-Menge geprüft. Für
+`runtimeStatus: executable` mit ZIP führt der Docker-/Podman-Handler eine
+Run-/Scope-/Instanz-Eigentumsprüfung, Kopie in einen zufälligen ausschließlich
+Lab-eigenen SQL-Datenordner, `mssql`-Eigentümerschaft, `FOR ATTACH`,
+ONLINE-Postcondition und ein persistiertes Recovery-Journal aus. Der
+7z-Mehrdateipfad sowie ein nativer Attach-Akzeptanzlauf mit echtem SQL-Server
+sind noch nicht implementiert beziehungsweise nicht ausgeführt; die aktuellen
+StackOverflow-Einträge bleiben deshalb `descriptive`.
 
-Noch nicht implementiert sind Attach-Handler und das Überschreiben der
-erwarteten Zieldatenbanknamen. Run-gebundene Hyper-V-`LAB_GENERATED`-Backups verwenden
+Noch nicht implementiert sind der 7z-Attach-Handler, Hyper-V-Attach für
+Katalogartefakte und das Überschreiben der erwarteten Zieldatenbanknamen.
+Run-gebundene Hyper-V-`LAB_GENERATED`-Backups verwenden
 eine verifizierte Storage-Receipt-Backup-Lane, PowerShell Direct für den Export
 und denselben run-gebundenen Restorepfad; dieser Vertrag ist synthetisch, aber
 noch nicht real auf einem Host belegt. Die automatische Hyper-V-
