@@ -127,6 +127,42 @@ try {
             Remove-Item -LiteralPath $sevenZipPayload.WorkingDirectory -Recurse -Force
         }
 
+        $attachPayloadLayout = Get-LabAttachPayloadLayout -PayloadLayout @(
+            [PSCustomObject]@{ path = 'data/StackOverflow.mdf'; role = 'primary' },
+            [PSCustomObject]@{ path = 'data/StackOverflow_Archive.ndf'; role = 'data' },
+            [PSCustomObject]@{ path = 'data/StackOverflow_log.ldf'; role = 'log' }
+        )
+        $unsafeAttachLayoutRejected = $false
+        try {
+            $null = Get-LabAttachPayloadLayout -PayloadLayout @(
+                [PSCustomObject]@{ path = '../outside.mdf'; role = 'primary' },
+                [PSCustomObject]@{ path = 'data/inside.ldf'; role = 'log' }
+            )
+        }
+        catch { $unsafeAttachLayoutRejected = $_.Exception.Message -match 'SAMPLE_ATTACH_PAYLOAD_LAYOUT_INVALID' }
+        $duplicateAttachLayoutRejected = $false
+        try {
+            $null = Get-LabAttachPayloadLayout -PayloadLayout @(
+                [PSCustomObject]@{ path = 'data/same.mdf'; role = 'primary' },
+                [PSCustomObject]@{ path = 'data/same.mdf'; role = 'data' },
+                [PSCustomObject]@{ path = 'data/same.ldf'; role = 'log' }
+            )
+        }
+        catch { $duplicateAttachLayoutRejected = $_.Exception.Message -match 'SAMPLE_ATTACH_PAYLOAD_LAYOUT_INVALID' }
+
+        $schemaPath = Join-Path $script:SchemasPath 'sample-databases.schema.json'
+        $attachContractCatalog = Get-Content -LiteralPath (Join-Path $script:CatalogsPath 'sample-databases.json') -Raw | ConvertFrom-Json -Depth 100
+        $attachContractVariant = $attachContractCatalog.databases | Where-Object id -eq 'stackoverflow-50gb' | ForEach-Object { $_.versions.'10gb' } | Select-Object -First 1
+        $attachContractVariant.runtimeStatus = 'executable'
+        $attachContractVariant.installation.payloadSelection = 'catalog-path'
+        $attachContractVariant.installation | Add-Member -NotePropertyName payloadLayout -NotePropertyValue @(
+            [PSCustomObject]@{ path = 'payload/StackOverflow2010.mdf'; role = 'primary' },
+            [PSCustomObject]@{ path = 'payload/StackOverflow2010_log.ldf'; role = 'log' }
+        )
+        $trustBoundAttachSchemaWorks = (($attachContractCatalog | ConvertTo-Json -Depth 100) | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)
+        $attachContractVariant.installation.payloadLayout = $null
+        $missingAttachLayoutRejected = -not (($attachContractCatalog | ConvertTo-Json -Depth 100) | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)
+
         $dummyPassword = ConvertTo-SecureString 'Static-Check-Only-1!' -AsPlainText -Force
         $handlerResult = Install-LabSampleDatabase `
             -Port 14330 `
@@ -326,6 +362,11 @@ CREATE DATABASE [$(SecondDatabase)];
                 $bundleWorkingDirectoryRemoved
             ArchivePayloadWorks   = $archivePayloadWorks
             SevenZipPayloadWorks  = $sevenZipPayloadWorks
+            AttachPayloadLayoutWorks = @($attachPayloadLayout).Count -eq 3 -and $attachPayloadLayout[0].Role -eq 'primary' -and $attachPayloadLayout[2].Role -eq 'log'
+            UnsafeAttachLayoutRejected = $unsafeAttachLayoutRejected
+            DuplicateAttachLayoutRejected = $duplicateAttachLayoutRejected
+            TrustBoundAttachSchemaWorks = $trustBoundAttachSchemaWorks
+            MissingAttachLayoutRejected = $missingAttachLayoutRejected
             TrustRequired         = $handlerResult.Status -eq 'TRUST_REQUIRED' -and -not $handlerResult.Success
             LocalStatusUntrusted  = $status.TrustStatus -eq 'TRUST_REQUIRED' -and $status.CacheStatus -eq 'MISS'
             InMemoryMoveWorks     = $wideWorldMoves.Count -eq 3 -and
@@ -335,6 +376,9 @@ CREATE DATABASE [$(SecondDatabase)];
 
     Add-CheckResult -Name 'Katalogliste enthaelt nur freigegebene Sample-Handler-Varianten' -Success $result.AllExecutableSupported
     Add-CheckResult -Name 'Beschreibende Attach-Varianten bleiben ausgeschlossen' -Success $result.NoDescriptiveVariants
+    Add-CheckResult -Name 'Attach-Payload-Layout ist rollen- und pfadgebunden' -Success $result.AttachPayloadLayoutWorks
+    Add-CheckResult -Name 'Attach-Payload-Layout weist Traversal und doppelte Pfade ab' -Success ($result.UnsafeAttachLayoutRejected -and $result.DuplicateAttachLayoutRejected)
+    Add-CheckResult -Name 'Ausfuehrbare Attach-Varianten koennen per Trust-Hash und Katalogpfad gebunden werden' -Success ($result.TrustBoundAttachSchemaWorks -and $result.MissingAttachLayoutRejected)
     Add-CheckResult -Name 'Versionsfilter beruecksichtigt minSqlVersion und CU-Bezeichner' -Success $result.VersionFilterWorks
     Add-CheckResult -Name 'Aktuelle Microsoft-Backups fuer AdventureWorks und Data Warehouse sind katalogisiert' -Success $result.CurrentMicrosoftBackups
     Add-CheckResult -Name 'Contoso-Backups sind als direkt restaurierbare Groessenvarianten katalogisiert' -Success $result.ContosoBackups

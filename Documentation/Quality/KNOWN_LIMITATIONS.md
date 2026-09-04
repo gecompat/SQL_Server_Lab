@@ -569,7 +569,11 @@ Einzelskripte katalogisiert: Northwind erhält zuerst eine leere Zieldatenbank,
 Chinook legt seine Datenbank selbst an. Große Stack-Overflow-`.7z`-Archive
 bleiben bewusst `descriptive`, weil sie MDF/LDF-Dateien für einen noch nicht
 implementierten Attach-Handler enthalten – sie werden nicht als `.bak`
-umgedeutet.
+umgedeutet. Der Vertrag für eine künftige ausführbare Attach-Variante verlangt
+eine vollständige rollen- und pfadgebundene MDF/NDF/LDF-Liste. Die Quelle wird
+wie andere Sample-Artefakte entweder per Katalog-SHA-256 oder durch den
+einmaligen Trust-Pfad mit automatisch berechneter und gecachter SHA-256
+gebunden; der neue Vertrag entfernt diesen bestehenden Trust-Pfad nicht.
 
 Noch nicht implementiert sind Attach-Handler und das Überschreiben der
 erwarteten Zieldatenbanknamen. Run-gebundene Hyper-V-`LAB_GENERATED`-Backups verwenden
