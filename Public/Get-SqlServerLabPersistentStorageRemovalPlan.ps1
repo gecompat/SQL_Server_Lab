@@ -8,8 +8,9 @@
     Feld Execution trennt einen sicheren Plan von der aktuell implementierten
     Executor-Capability. Fuer Docker-/Podman-Instanzstores sind
     RETAIN_INSTANCE_STORE, BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und
-    BACKUP_AND_PACKAGE startbar; FILESTREAM, TDE, externe Freigabe und die
-    getrennte endgueltige Storage-Loeschung bleiben fail-closed.
+    BACKUP_AND_PACKAGE startbar. EXTERNAL_UNMANAGED loest nur die eigene
+    Katalogbindung und belaesst die Quelle unveraendert; FILESTREAM, TDE und
+    die getrennte endgueltige Storage-Loeschung bleiben fail-closed.
     Das Cmdlet entfernt weder den Run noch Daten, Leases oder Referenzen.
 .PARAMETER RunId
     Stabile Run-ID der zu prüfenden Umgebung.

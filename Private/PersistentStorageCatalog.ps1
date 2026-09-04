@@ -300,6 +300,46 @@ function Invoke-LabPersistentStorageCatalogMutation {
     }
 }
 
+function Release-LabExternalPersistentStorageBinding {
+    <#
+    .SYNOPSIS
+        Loest die eigene Katalogbindung eines extern verwalteten Speichers.
+    .DESCRIPTION
+        Diese Aktion mutiert niemals die externe Quelle. Sie setzt ausschliesslich
+        die zum angegebenen Run gehoerigen aktiven Katalogreferenzen auf RELEASED
+        und ist bei bereits geloester Bindung idempotent.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$RunId,
+        [Parameter(Mandatory)]$Configuration,
+        [Parameter(Mandatory)][ValidateRange(0,2147483647)][int]$ExpectedRevision
+    )
+
+    Invoke-LabPersistentStorageCatalogMutation -Configuration $Configuration -MutationName 'RELEASE_EXTERNAL_BINDING' -ExpectedRevision $ExpectedRevision -Mutation {
+        param($Document)
+        $matches=@($Document.Stores | Where-Object { [string]$_.PersistentStorageId -eq $PersistentStorageId })
+        if($matches.Count -ne 1){throw 'EXTERNAL_PERSISTENT_STORAGE_BINDING_UNRESOLVED'}
+        $store=$matches[0]
+        if([string]$store.Provider -ne 'external' -or [string]$store.Retention -ne 'EXTERNAL_UNMANAGED' -or [string]$store.CleanupDisposition -ne 'REPORT_ONLY'){
+            throw 'EXTERNAL_PERSISTENT_STORAGE_RELEASE_NOT_ALLOWED'
+        }
+        if($store.Lease){throw 'EXTERNAL_PERSISTENT_STORAGE_RELEASE_LEASE_CONFLICT'}
+        $foreignRuns=@($store.References | Where-Object { [string]$_.Kind -eq 'RUN' -and [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -ne $RunId })
+        if($foreignRuns.Count -gt 0){throw 'EXTERNAL_PERSISTENT_STORAGE_RELEASE_FOREIGN_REFERENCE'}
+        $activeRuns=@($store.References | Where-Object { [string]$_.Kind -eq 'RUN' -and [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq $RunId })
+        if($activeRuns.Count -gt 1){throw 'EXTERNAL_PERSISTENT_STORAGE_RELEASE_RUN_REFERENCE_CONFLICT'}
+        if($activeRuns.Count -eq 0){
+            return [PSCustomObject]@{ PersistentStorageId=$PersistentStorageId; RunId=$RunId; Released=$false; SourceMutated=$false }
+        }
+        @($activeRuns) | ForEach-Object { $_.State='RELEASED' }
+        @($store.References | Where-Object { [string]$_.Kind -eq 'DATABASE' -and [string]$_.State -eq 'ACTIVE' }) | ForEach-Object { $_.State='RELEASED' }
+        $store.UpdatedAt=Get-LabTimestamp
+        [PSCustomObject]@{ PersistentStorageId=$PersistentStorageId; RunId=$RunId; Released=$true; SourceMutated=$false }
+    }
+}
+
 function Register-LabExchangeWorkspacePersistentStorage {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der Katalog-Mutation-Closure verwendet.')]
     [CmdletBinding()]

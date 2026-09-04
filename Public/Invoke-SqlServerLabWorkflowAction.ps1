@@ -119,7 +119,8 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
 .PARAMETER PersistentStorageSelection
     Explizite Retention-Auswahl je stabiler PersistentStorageId. Der Workflow
     fuehrt fuer Docker-/Podman-Instanzstores RETAIN_INSTANCE_STORE,
-    BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE aus.
+    BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE aus. Eine
+    EXTERNAL_UNMANAGED-Auswahl loest ausschliesslich die eigene Katalogbindung.
 .PARAMETER GuestUserName
     Lokaler Administratorname im Gast für PowerShell Direct.
 .PARAMETER GuestPassword

@@ -64,6 +64,7 @@ function Read-LabPersistentStorageRemovalJournal {
     # not carry a Packages array. They are semantically equivalent to an empty
     # array and remain resumable without weakening schema validation.
     if (-not $journal.PSObject.Properties['Packages']) { $journal | Add-Member -NotePropertyName Packages -NotePropertyValue @() }
+    if (-not $journal.PSObject.Properties['ExternalBindings']) { $journal | Add-Member -NotePropertyName ExternalBindings -NotePropertyValue @() }
     $null = Test-LabPersistentStorageRemovalJournal -Journal $journal
     return $journal
 }
@@ -75,12 +76,18 @@ function Assert-LabPersistentStorageRemovalExecutablePlan {
     if ([string]$Plan.ContractVersion -ne 'SqlServerLab.PersistentStorageRemovalPlan/1.0' -or [string]$Plan.Status -ne 'READY') {
         throw 'PERSISTENT_STORAGE_REMOVAL_EXECUTION_PLAN_NOT_READY'
     }
-    $unsupported = @($Plan.Stores | Where-Object { [string]$_.Policy -notin @('RETAIN_INSTANCE_STORE','BACKUP_ON_REMOVE','PACKAGE_ON_REMOVE','BACKUP_AND_PACKAGE') })
+    $unsupported = @($Plan.Stores | Where-Object { [string]$_.Policy -notin @('RETAIN_INSTANCE_STORE','BACKUP_ON_REMOVE','PACKAGE_ON_REMOVE','BACKUP_AND_PACKAGE','EXTERNAL_UNMANAGED') })
     if ($unsupported.Count -gt 0) {
         $policies = @($unsupported.Policy | ForEach-Object { if ($_){[string]$_}else{'NONE'} } | Sort-Object -Unique)
         throw "PERSISTENT_STORAGE_REMOVAL_POLICY_NOT_EXECUTABLE: $($policies -join ',')"
     }
     foreach ($store in @($Plan.Stores)) {
+        if ([string]$store.Policy -eq 'EXTERNAL_UNMANAGED') {
+            if ([string]$store.Provider -ne 'external' -or [bool]$store.Destructive -or -not [bool]$store.RequiresSeparateStorageDelete) {
+                throw 'PERSISTENT_STORAGE_REMOVAL_EXECUTION_STORE_UNSUPPORTED'
+            }
+            continue
+        }
         if ([string]$store.StorageClass -ne 'INSTANCE_STORE' -or [string]$store.Provider -notin @('docker','podman') -or
             [bool]$store.Destructive -or -not [bool]$store.RequiresSeparateStorageDelete) {
             throw 'PERSISTENT_STORAGE_REMOVAL_EXECUTION_STORE_UNSUPPORTED'
@@ -101,11 +108,14 @@ function New-LabPersistentStorageRemovalExecutionContext {
     $runId = [string]$Plan.RunId
     $run = Get-LabRunState -RunId $runId -StateRoot $StateRoot
     $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $runId
-    $connectionPath = Join-Path $runDirectory 'connection-info.json'
-    if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { throw 'PERSISTENT_STORAGE_REMOVAL_CONNECTION_INFO_MISSING' }
-    $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30 -ErrorAction Stop
-    if ([string]$connection.runId -ne $runId -or [string]$connection.scopeId -ne [string]$run.scopeId) {
-        throw 'PERSISTENT_STORAGE_REMOVAL_RUN_SCOPE_CONFLICT'
+    $connection=$null
+    if(@($Plan.Stores | Where-Object { [string]$_.Policy -ne 'EXTERNAL_UNMANAGED' }).Count -gt 0){
+        $connectionPath = Join-Path $runDirectory 'connection-info.json'
+        if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { throw 'PERSISTENT_STORAGE_REMOVAL_CONNECTION_INFO_MISSING' }
+        $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30 -ErrorAction Stop
+        if ([string]$connection.runId -ne $runId -or [string]$connection.scopeId -ne [string]$run.scopeId) {
+            throw 'PERSISTENT_STORAGE_REMOVAL_RUN_SCOPE_CONFLICT'
+        }
     }
 
     $configuration = Get-LabStorageConfiguration -DataRoot $DataRoot
@@ -113,12 +123,19 @@ function New-LabPersistentStorageRemovalExecutionContext {
     if ([string]$catalog.Status -ne 'AVAILABLE' -or [int]$catalog.Document.Revision -ne [int]$Plan.CatalogRevision) {
         throw 'PERSISTENT_STORAGE_REMOVAL_CATALOG_REVISION_CONFLICT'
     }
-    $backupTasks = [Collections.Generic.List[object]]::new(); $packageTasks = [Collections.Generic.List[object]]::new()
+    $backupTasks = [Collections.Generic.List[object]]::new(); $packageTasks = [Collections.Generic.List[object]]::new(); $externalBindings = [Collections.Generic.List[object]]::new()
     foreach ($plannedStore in @($Plan.Stores)) {
         $storageId = [string]$plannedStore.PersistentStorageId
         $stores = @($catalog.Document.Stores | Where-Object PersistentStorageId -eq $storageId)
         if ($stores.Count -ne 1) { throw 'PERSISTENT_STORAGE_REMOVAL_STORE_UNRESOLVED' }
         $store = $stores[0]
+        if([string]$plannedStore.Policy -eq 'EXTERNAL_UNMANAGED'){
+            if([string]$store.Provider -ne 'external' -or [string]$store.Retention -ne 'EXTERNAL_UNMANAGED' -or [string]$store.CleanupDisposition -ne 'REPORT_ONLY' -or $store.Lease){
+                throw 'PERSISTENT_STORAGE_REMOVAL_EXTERNAL_BINDING_CONFLICT'
+            }
+            $externalBindings.Add([PSCustomObject][ordered]@{ PersistentStorageId=$storageId; Status='PENDING'; CatalogRevision=$null; SourceMutated=$false })
+            continue
+        }
         if ([string]$store.State -ne 'IN_USE' -or -not $store.Lease -or
             [string]$store.Lease.RunId -ne $runId -or [string]$store.Lease.ScopeId -ne [string]$run.scopeId) {
             throw 'PERSISTENT_STORAGE_REMOVAL_STORE_LEASE_CONFLICT'
@@ -150,7 +167,7 @@ function New-LabPersistentStorageRemovalExecutionContext {
     }
     [PSCustomObject]@{
         Run=$run; RunDirectory=$runDirectory; ScopeId=[string]$run.scopeId; Configuration=$configuration
-        DataRoot=$DataRoot; StateRoot=$StateRoot; Selection=@($Selection); BackupTasks=@($backupTasks); PackageTasks=@($packageTasks)
+        DataRoot=$DataRoot; StateRoot=$StateRoot; Selection=@($Selection); BackupTasks=@($backupTasks); PackageTasks=@($packageTasks); ExternalBindings=@($externalBindings)
         SaPassword=(Get-LabSecret -Path $runDirectory -Name 'sa-password')
     }
 }
@@ -169,7 +186,7 @@ function New-LabPersistentStorageRemovalResumeContext {
     [PSCustomObject]@{
         Run=$run;RunDirectory=$runDirectory;ScopeId=[string]$run.scopeId
         Configuration=(Get-LabStorageConfiguration -DataRoot $DataRoot)
-        DataRoot=$DataRoot;StateRoot=$StateRoot;Selection=@($Selection);BackupTasks=@();PackageTasks=@()
+        DataRoot=$DataRoot;StateRoot=$StateRoot;Selection=@($Selection);BackupTasks=@();PackageTasks=@();ExternalBindings=@()
         SaPassword=(Get-LabSecret -Path $runDirectory -Name 'sa-password')
     }
 }
@@ -209,6 +226,8 @@ function Invoke-LabPersistentStorageRemovalExecutor {
         [Parameter(Mandatory)][scriptblock]$BackupVerificationAction,
         [Parameter(Mandatory)][scriptblock]$PackageAction,
         [Parameter(Mandatory)][scriptblock]$PackageVerificationAction,
+        [scriptblock]$ExternalBindingReleaseAction,
+        [scriptblock]$ExternalBindingVerificationAction,
         [Parameter(Mandatory)][scriptblock]$ReplanAction,
         [Parameter(Mandatory)][scriptblock]$RemoveAction,
         [Parameter(Mandatory)][scriptblock]$PostconditionAction
@@ -236,7 +255,7 @@ function Invoke-LabPersistentStorageRemovalExecutor {
                 ContractVersion='SqlServerLab.PersistentStorageRemovalJournal/1.0'; OperationId=[Guid]::NewGuid().ToString('D')
                 IntentId=[string]$Plan.IntentId; RunId=[string]$Plan.RunId; ScopeId=[string]$Context.ScopeId
                 SelectionFingerprint=$fingerprint; CatalogRevision=[int]$Plan.CatalogRevision; Status='PREPARED'
-                Selections=@($Selection); Backups=@($Context.BackupTasks | Where-Object { $_ }); Packages=@($Context.PackageTasks | Where-Object { $_ })
+                Selections=@($Selection); Backups=@($Context.BackupTasks | Where-Object { $_ }); Packages=@($Context.PackageTasks | Where-Object { $_ }); ExternalBindings=@($Context.ExternalBindings | Where-Object { $_ })
                 Removal=[PSCustomObject][ordered]@{ Status='PENDING'; Cleanup=$null }
                 Recovery=[PSCustomObject][ordered]@{ Status='RETRY_EXECUTION'; Attempts=0; ErrorCode=$null; Errors=@() }
                 CreatedAt=$now; UpdatedAt=$now
@@ -294,6 +313,18 @@ function Invoke-LabPersistentStorageRemovalExecutor {
             $freshPlan=& $ReplanAction ([string]$Plan.RunId) @($Selection)
             $null=Assert-LabPersistentStorageRemovalExecutablePlan -Plan $freshPlan
             $journal.CatalogRevision=[int]$freshPlan.CatalogRevision
+            foreach($binding in @($journal.ExternalBindings)){
+                if([string]$binding.Status -eq 'COMPLETED'){
+                    if(-not $ExternalBindingVerificationAction -or -not (& $ExternalBindingVerificationAction ([string]$binding.PersistentStorageId) ([string]$journal.RunId) $Context.Configuration)){throw 'PERSISTENT_STORAGE_REMOVAL_EXTERNAL_BINDING_REVALIDATION_FAILED'}
+                    continue
+                }
+                if(-not $ExternalBindingReleaseAction){throw 'PERSISTENT_STORAGE_REMOVAL_EXTERNAL_BINDING_ACTION_MISSING'}
+                $released=& $ExternalBindingReleaseAction ([string]$binding.PersistentStorageId) ([string]$journal.RunId) $Context.Configuration ([int]$journal.CatalogRevision)
+                if(-not $released -or -not [bool]$released.Released -or [bool]$released.SourceMutated -or [int]$released.CatalogRevision -lt 1){throw 'PERSISTENT_STORAGE_REMOVAL_EXTERNAL_BINDING_POSTCONDITION_FAILED'}
+                $binding.Status='COMPLETED';$binding.CatalogRevision=[int]$released.CatalogRevision;$binding.SourceMutated=$false
+                $journal.CatalogRevision=[int]$released.CatalogRevision
+                $null=Write-LabPersistentStorageRemovalJournal -Journal $journal -Path $journalPath
+            }
             $null=Write-LabPersistentStorageRemovalJournal -Journal $journal -Path $journalPath
 
             $journal.Status='REMOVAL_STARTED'; $journal.Removal.Status='STARTED'
