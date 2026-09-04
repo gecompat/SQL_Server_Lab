@@ -32,6 +32,7 @@ $result = & $module {
         Status = Get-LabActionPrivilegeClass -Action Status
         ContainerLifecycle = Get-LabActionPrivilegeClass -Action Start
         HyperVImage = Get-LabActionPrivilegeClass -Action Image
+        WindowsSlotPool = Get-LabActionPrivilegeClass -Action WindowsSlotPool
     }
 
     [pscustomobject]@{ AlreadyElevated=$alreadyElevated; Declined=$declined; Approved=$approved; Calls=$calls; Privileges=$privileges; Preview=$preview }
@@ -61,7 +62,8 @@ Add-CheckResult -Name 'UAC-Folgeprozess erhält die explizite Location-Preview u
 Add-CheckResult -Name 'Read-only, Runtimezugriff und Administratoraktion sind explizit getrennt' -Success (
     $result.Privileges.Status -eq 'User' -and
     $result.Privileges.ContainerLifecycle -eq 'RuntimeAccess' -and
-    $result.Privileges.HyperVImage -eq 'Administrator'
+    $result.Privileges.HyperVImage -eq 'Administrator' -and
+    $result.Privileges.WindowsSlotPool -eq 'Administrator'
 )
 
 $menuElevation = & $module {

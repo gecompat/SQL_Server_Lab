@@ -29,6 +29,7 @@ function Test-DockerAvailable {
 
         $originalConfig = if (Test-Path Env:DOCKER_CONFIG) { $env:DOCKER_CONFIG } else { $null }
         $fallbackConfig = Join-Path $env:TEMP ("sql-lab-docker-config-{0}" -f [System.Guid]::NewGuid().ToString('N'))
+        $fallbackConfigCreated = $false
         $attempts = @(
             @{ Config = $originalConfig; Label = 'Primary' },
             @{ Config = $fallbackConfig; Label = 'Fallback' }
@@ -44,6 +45,7 @@ function Test-DockerAvailable {
             foreach ($attempt in $attempts) {
                 if ($attempt.Label -eq 'Fallback') {
                     New-Item -Path $attempt.Config -ItemType Directory -Force | Out-Null
+                    $fallbackConfigCreated = $true
                 }
 
                 if ($null -eq $attempt.Config) {
@@ -83,6 +85,9 @@ function Test-DockerAvailable {
             }
             else {
                 $env:DOCKER_CONFIG = $originalConfig
+            }
+            if ($fallbackConfigCreated) {
+                Remove-Item -LiteralPath $fallbackConfig -Recurse -Force -ErrorAction Stop
             }
         }
     }
@@ -436,7 +441,10 @@ function Get-DockerInstanceStatus {
         $dockerInvocation = Get-LabHostToolInvocation -Name docker
         $inspect = & $dockerInvocation inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
         if ($LASTEXITCODE -ne 0 -or -not $inspect) {
+            & $dockerInvocation info 1>$null 2>$null
+            $runtimeAvailable = $LASTEXITCODE -eq 0
             return [PSCustomObject]@{
+                Available = $runtimeAvailable
                 Exists  = $false
                 Running = $false
                 Healthy = $false
@@ -449,6 +457,7 @@ function Get-DockerInstanceStatus {
         $item = @($inspect)[0]
         $health = if ($item.State.Health) { [string]$item.State.Health.Status } else { $null }
         return [PSCustomObject]@{
+            Available = $true
             Exists  = $true
             Running = $item.State.Status -eq 'running'
             Healthy = $health -eq 'healthy'
@@ -459,6 +468,7 @@ function Get-DockerInstanceStatus {
     }
     catch {
         return [PSCustomObject]@{
+            Available = $false
             Exists  = $false
             Running = $false
             Healthy = $false

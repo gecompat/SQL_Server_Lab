@@ -16,8 +16,8 @@ nur den Hyper-V-Slotpfad.
 Typischer Ablauf:
 
 1. Baseline-OS vorbereiten (`OS_SEALED`)
-2. OS-Slot erzeugen (run-lokale Child-VHDX)
-3. Windows-OOBE manuell im Gast abschließen
+2. einen oder N OS-Slots erzeugen (run-lokale Child-VHDX)
+3. Windows-OOBE, Locale und Erstanmeldung im Poollauf unbeaufsichtigt abschließen
 4. bei automatisierten Testslots die Windows-Evaluation in der eindeutigen,
    wiederverwendbaren Child-VHDX online aktivieren
 5. Slot übernehmen (`o`)
@@ -43,7 +43,39 @@ Typischer Ablauf:
 
 Die veröffentlichte OS-Baseline kann als reine Windows-Vorlage verwendet werden.
 
-## 2) Windows-Slot aus OS-Baseline erstellen
+## 2) Automatischen Windows-Slot-Pool erstellen
+
+Der bevorzugte Weg für mehrere Slots ist:
+
+```powershell
+.\Invoke-SqlServerLab.ps1 -Action WindowsSlotPool
+```
+
+Der Workflow prüft zuerst, ob eine gültige, generalisierte `OS_SEALED`-Baseline
+mit der gewünschten Evaluation-Restlaufzeit vorhanden ist. Fehlt sie oder läuft
+sie bald ab, wird der in Abschnitt 1 beschriebene Baseline-Aufbau angeboten.
+Dieser erstmalige Aufbau aus ISO bleibt geführt; die daraus erzeugten Slots
+benötigen danach keine manuelle OOBE oder Erstanmeldung mehr.
+
+Der Pooldialog fragt Anzahl, Startindex, Namenspräfix, vCPU sowie minimalen,
+Start- und maximalen RAM ab. Die Standards sind `1024/2048/4096 MB`. Danach
+folgen Region, System-Locale, Anzeigesprache, Tastaturlayout und Zeitzone. Für
+die Anmeldung kann entweder je Slot ein starkes Passwort generiert oder ein
+eigenes gemeinsames Passwort für alle Slots verwendet werden.
+
+Der Lauf ist wiederaufnehmbar. Bereits vollständig eingerichtete, exakt passende
+Slots werden übersprungen; Konflikte bei Name, Baseline, Ressourcen oder
+Runtimebindung brechen vor weiteren Slotmutationen ab. Fertige Slots werden
+standardmäßig gestoppt.
+
+Generierte Zugangsdaten werden pro Run DPAPI-geschützt gespeichert und nur
+gezielt ausgegeben:
+
+```powershell
+Get-SqlServerLabGeneratedWindowsAccess -RunId <RunId>
+```
+
+## 3) Einzelnen Windows-Slot manuell aus OS-Baseline erstellen
 
 1. Image-Menü direkt öffnen:
 
@@ -61,7 +93,7 @@ und VMConnect geöffnet, damit das OOBE direkt im Fenster weitergeführt werden 
 > Bei SQL-Zielen läuft die Provider-Auswahl danach. Dadurch wird verhindert, dass du
 > bereits vor der Zielentscheidung den richtigen Container-/Hyper-V-Anbieter raten musst.
 
-## 3) Windows-Manual OOBE prüfen und übernehmen
+## 4) Windows-Manual OOBE prüfen und übernehmen
 
 1. Zur Slot-Verwaltung:
 
@@ -106,7 +138,7 @@ Ist nach der Übernahme noch kein SQL-Plan vorhanden, bietet das System direkt a
 SQL-Ausbau ist noch nicht geplant. Jetzt direkt mit Standardfragen erstellen?
 ```
 
-## 4) SQL-Ausbau festlegen und direkt installieren
+## 5) SQL-Ausbau festlegen und direkt installieren
 
 ### Neuer 1-Klick-Pfad
 
@@ -127,7 +159,7 @@ Im Erfolgsfall erreicht der Plan `SQL_SLOT_READY`; Connection String und
 SA-Passwort werden in der ausdrücklich geöffneten Ergebnisansicht ausgegeben.
 Das Passwort nicht in Dokumentation, Git oder Diagnoseartefakte übernehmen.
 
-## 5) SQL-Prepared-Image-Slot-Weg
+## 6) SQL-Prepared-Image-Slot-Weg
 
 Für bereits vorbereitete `SQL_PREPARED_SEALED`-Artefakte läuft weiterhin der
 Resilienzpfad:
@@ -139,7 +171,7 @@ Resilienzpfad:
 Nach erfolgreichem Abschluss wartet der Slot auf Veröffentlichung als
 `SQL_PREPARED_SEALED`.
 
-## 6) Zustandssicht in der Slot-Übersicht
+## 7) Zustandssicht in der Slot-Übersicht
 
 Die Übersicht zeigt jetzt pro Slot zusätzlich kompakt:
 
@@ -150,7 +182,7 @@ Die Übersicht zeigt jetzt pro Slot zusätzlich kompakt:
 Damit ist auf einen Blick erkennbar, welcher Slot direkt nutzbar ist und wo
 manuell nachgeliefert werden muss.
 
-## 7) Smoke-Test / Selbstprüfung (lokal)
+## 8) Smoke-Test / Selbstprüfung (lokal)
 
 Nach dem neuen Flow empfiehlt sich mindestens:
 
@@ -178,12 +210,14 @@ abgedeckt, bevor reale VM-Läufe gestartet werden.
 - SQL-Planung und direkte Ausführung stehen im selben Pfad (`a` + optionaler
   Direktstart, `x` übernimmt denselben Pfad).
 - SQL-Prepared-Auswahl ist bei der Hyper-V-Neuerzeugung über `SQL_PREPARED` getrennt.
+- N-Slot-Pool mit RAM-/Locale-Abfrage, generierten oder gemeinsamen Passwörtern
+  und unbeaufsichtigter OOBE/Erstanmeldung ist implementiert.
 - Dokumentation ergänzt: aktueller Hyper-V-Workflow mit Zuständen und Entscheidungspunkten.
 
 ### Backlog
 
-- Vollständiger End-to-End-Hot-Update ohne manuelle Interventionspunkte für neue
-  Standard-ISOs.
+- Vollautomatische Erstellung der generalisierten Windows-Baseline direkt aus
+  einer neuen Standard-ISO ohne manuelle Installationsschritte.
 - Einheitlicher Zustandstext bei allen Hyper-V-Abhängigkeiten in der UI.
 - Remote-Hyper-V als produktiver Standardpfad.
 - Weitere Laufzeit-Smoke-Cases für SQL-Installationspfade direkt im neuen Slot-Flow.

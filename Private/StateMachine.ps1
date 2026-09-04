@@ -643,6 +643,7 @@ function Get-LabRunRuntimeStatus {
             $liveState = if ($provider -eq 'hyperv') {
                 if (-not $status.Exists) { 'MISSING' } elseif ([string]$status.State -eq 'Running') { 'RUNNING' } elseif ([string]$status.State -eq 'Off') { 'STOPPED' } else { ([string]$status.State).ToUpperInvariant() }
             }
+            elseif ($status.PSObject.Properties['Available'] -and -not [bool]$status.Available) { 'UNAVAILABLE' }
             elseif (-not $status.Exists) { 'MISSING' }
             elseif ($status.Running) { 'RUNNING' }
             else { 'STOPPED' }

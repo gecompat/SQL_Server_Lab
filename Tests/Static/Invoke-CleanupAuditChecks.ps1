@@ -310,12 +310,20 @@ try {
     $allFindings = @($result.Audit.Findings.Retained) + @($result.Audit.Findings.UnexpectedResiduals) +
         @($result.Audit.Findings.RecoveryRequired) + @($result.Audit.Findings.Unverifiable)
     Add-CheckResult -Name 'Cleanup-Findings sind streng versioniert, gezählt und nicht mutierend' -Success (
-        $result.Audit.Findings.ContractVersion -eq 'SqlServerLab.CleanupFindings/1.0' -and
+        $result.Audit.Findings.ContractVersion -eq 'SqlServerLab.CleanupFindings/1.1' -and
         $result.Audit.Findings.Summary.Retained -eq @($result.Audit.Findings.Retained).Count -and
         $result.Audit.Findings.Summary.UnexpectedResiduals -eq @($result.Audit.Findings.UnexpectedResiduals).Count -and
         $result.Audit.Findings.Summary.RecoveryRequired -eq @($result.Audit.Findings.RecoveryRequired).Count -and
         $result.Audit.Findings.Summary.Unverifiable -eq @($result.Audit.Findings.Unverifiable).Count -and
         @($allFindings | Where-Object AutomaticMutationAllowed).Count -eq 0)
+    Add-CheckResult -Name 'Jeder Cleanup-Befund enthält eine ausdrückliche Löschungs- oder Bewahrungsempfehlung' -Success (
+        @($allFindings).Count -gt 0 -and
+        @($allFindings | Where-Object { -not $_.ObjectType }).Count -eq 0 -and
+        @($allFindings | Where-Object { -not $_.Recommendation }).Count -eq 0 -and
+        @($result.Audit.Findings.UnexpectedResiduals | Where-Object Recommendation -eq 'REVIEW_FOR_SCOPED_REMOVAL').Count -ge 1 -and
+        @($result.Audit.Findings.Retained | Where-Object Recommendation -eq 'PRESERVE_DO_NOT_DELETE').Count -ge 1 -and
+        @($result.Audit.Findings.RecoveryRequired | Where-Object Recommendation -eq 'RECOVER_BEFORE_REMOVAL').Count -ge 1 -and
+        @($result.Audit.Findings.Unverifiable | Where-Object Recommendation -eq 'DO_NOT_DELETE_UNTIL_VERIFIED').Count -ge 1)
     Add-CheckResult -Name 'Bewusst retained Storage wird mit stabilem Grund getrennt ausgewiesen' -Success (
         @($result.Audit.Findings.Retained | Where-Object {
             $_.SubjectId -eq $persistentVolume.ObjectId -and $_.ReasonCode -eq 'PRESERVE_RETAINED_POLICY'
