@@ -592,7 +592,7 @@ internal_components:
       - "Katalogmutationen mit read-only Preview, erwarteter Revision, unveraenderlicher Controller-/Vertragsgrenze, genau einem Revisionsschritt und rollbackfaehigem Spiegelcommit ausfuehren"
       - "verifizierte Backup-Sets und Datenbankpakete ueber denselben CAS-geschuetzten Artifact-Writer controllerweit rollbackfaehig mit eigener PersistentStorageId registrieren und Katalogfehler fail-closed quarantaenisieren"
       - "vorhandene Backup-Sets, Datenbankpakete und sichere Exchange-Workspaces oeffentlich einzeln revalidieren, previewfaehig und idempotent mit dem controllergebundenen Katalog synchronisieren"
-      - "Datenbankpakete fuer CLI und Browser pfadfrei per stabiler DatabasePackageId inventarisieren; Voll-Hashing nur bei expliziter Integritaetspruefung oder unmittelbar vor Verwendung ausfuehren"
+      - "Datenbankpakete fuer CLI und Browser pfadfrei per stabiler DatabasePackageId inventarisieren; Voll-Hashing nur bei expliziter Integritaetspruefung oder unmittelbar vor Verwendung ausfuehren; den strikt nicht ausführbaren Migrationsplan nur als Manifest-SHA-gebundene Status-/Schrittzahl-/Blocker-Projektion ausgeben"
       - "laufende Docker-/Podman-Datenbanken im Browser nur ueber stabile Run-/Instanzbindung und validierten Datenbanknamen an denselben exklusiven Offline- und SHA-256-verifizierten Paketexport-Core binden; Host, Port, Pfad und Secrets nicht als UI-Vertrag transportieren"
       - "laufende Docker-/Podman-Datenbanken im Browser ausschliesslich per stabiler Run-/Instanzbindung, validiertem Datenbanknamen und fluechtigem SA-Passwort read-only auf Migrationsabhaengigkeiten inventarisieren; nur sanitisierte Kategorien, Counts, Grenzen und Review-Schritte im Live-Log ausgeben"
       - "Datenbankpakete per stabiler Run-/Instanzbindung an das live ermittelte SQL-Default-Data-Verzeichnis eines scopegebundenen Hyper-V-Gasts kopieren, dort vollstaendig hashen und erst nach vorab persistiertem Recovery-Journal attachen"
@@ -1068,6 +1068,7 @@ validation:
       - residency_binding_without_content_rehash
       - public_path_free_inventory_and_explicit_integrity_verification
       - public_sanitized_migration_boundary_projection
+      - manifest_sha_bound_non_executable_migration_plan_projection
       - public_path_free_hyperv_target_binding
       - pre_mutation_attach_recovery_journal
       - public_journal_bound_attach_recovery

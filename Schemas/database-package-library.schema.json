@@ -36,7 +36,8 @@
             "HasFileStream": { "type": "boolean" }, "FileStreamInventoryComplete": { "type": "boolean" },
             "IsEncrypted": { "type": "boolean" }, "TdeKeyEvidenceVerified": { "type": "boolean" },
             "ExternalDependencies": { "type": "array", "items": { "type": "string", "minLength": 1, "maxLength": 128 }, "uniqueItems": true },
-            "MigrationBoundary": { "$ref": "#/$defs/migrationBoundary" }
+            "MigrationBoundary": { "$ref": "#/$defs/migrationBoundary" },
+            "MigrationExecutionPlan": { "$ref": "#/$defs/migrationExecutionPlan" }
           }
         },
         "DatabaseFiles": {
@@ -68,6 +69,28 @@
         "ExternalServicesIncluded": { "const": false },
         "DependencyCategories": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z0-9_]+$" }, "uniqueItems": true },
         "Warnings": { "type": "array", "minItems": 4, "items": { "type": "string", "pattern": "^[A-Z0-9_]+$" }, "uniqueItems": true }
+      }
+    },
+    "migrationExecutionPlan": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ContractVersion", "InventoryContractVersion", "DatabaseName", "ExecutionStatus", "MutationAllowed", "TransferAuthority", "ArtifactScope", "Blockers", "Steps", "GeneratedAt"],
+      "properties": {
+        "ContractVersion": { "const": "SqlServerLab.DatabaseMigrationExecutionPlan/1.0" },
+        "InventoryContractVersion": { "const": "SqlServerLab.DatabaseMigrationDependencyInventory/1.0" },
+        "DatabaseName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$" },
+        "ExecutionStatus": { "enum": ["BLOCKED", "MANUAL_REVIEW_REQUIRED"] },
+        "MutationAllowed": { "const": false },
+        "TransferAuthority": { "const": "NONE" },
+        "ArtifactScope": { "const": "DATABASE_FILES_ONLY" },
+        "Blockers": { "type": "array", "items": { "enum": ["TDE_PROTECTOR_NOT_RESOLVED", "TDE_RECOVERY_EVIDENCE_REQUIRED"] }, "uniqueItems": true },
+        "Steps": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "type": "object", "additionalProperties": false, "required": ["Category", "Status", "Scope", "RequiredAction", "IncludedInTransfer"], "properties": {
+          "Category": { "enum": ["SERVER_LOGIN_MAPPING", "SQL_AGENT_JOB", "CREDENTIAL_OR_PROXY", "LINKED_SERVER", "SERVER_CONFIGURATION", "TDE_PROTECTOR", "SSISDB", "SSAS"] },
+          "Status": { "enum": ["NOT_REQUIRED", "MANUAL_REQUIRED", "EXTERNAL_REVIEW_REQUIRED", "BLOCKED"] },
+          "Scope": { "enum": ["DATABASE_BOUND", "INSTANCE_WIDE", "EXTERNAL"] },
+          "RequiredAction": { "enum": ["SCRIPT_AND_REMAP", "SCRIPT_OR_RECREATE", "VERIFY_AND_RECREATE", "PROVIDE_TDE_RECOVERY_EVIDENCE", "MANUAL_REVIEW", "EXPORT_SEPARATELY"] },
+          "IncludedInTransfer": { "const": false }
+        } } },
+        "GeneratedAt": { "type": "string", "format": "date-time" }
       }
     }
   }
