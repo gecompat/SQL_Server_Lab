@@ -9,7 +9,9 @@ permissions:
 
 concurrency:
   group: sql-server-lab-runtime-smoke-mixed-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Forced cancellation can bypass the PowerShell finally cleanup on the
+  # persistent self-hosted runner. Serialize newer runs instead.
+  cancel-in-progress: false
 
 jobs:
   mixed-provider-smoke:

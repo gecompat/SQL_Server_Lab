@@ -39,6 +39,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- PR-Gate und native self-hosted Runtime-Workflows reihen neuere Revisionen
+  hinter bereits gestarteten Läufen ein. Dadurch kann deren scopegebundener
+  Cleanup vollständig laufen, statt bei automatischer GitHub-Concurrency-
+  Abbrechung Testcontainer oder Volumes auf dem Runner zu hinterlassen.
 - CMS-Synchronisationen zeigen rekursive Umgebungszahlen an Root-, Status- und
   Providergruppen, beispielsweise `SQL Server Lab (8) -> Running (3) ->
   HYPERV (2)`. Bestehende verwaltete Gruppen werden ID-stabil umbenannt und

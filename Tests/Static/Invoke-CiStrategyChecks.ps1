@@ -158,11 +158,15 @@ $runtimeWorkflows = @(
     'runtime-smoke-mixed-providers.yml', 'runtime-smoke-hyperv.yml'
 )
 $duplicates = @()
+$unsafeCancellation = @()
 foreach ($workflow in $runtimeWorkflows) {
     $text = Get-Content -LiteralPath (Join-Path $repoRoot ".github/workflows/$workflow") -Raw -Encoding utf8
     if ($text -match 'Invoke-AllChecks\.ps1|name:\s*Static contracts') { $duplicates += $workflow }
+    if ($text -notmatch '(?m)^\s{2}cancel-in-progress:\s*false\s*$') { $unsafeCancellation += $workflow }
 }
 Add-CheckResult -Name 'Runtime-Workflows wiederholen keine statische Vollregression' -Success ($duplicates.Count -eq 0) -Message ($duplicates -join ', ')
+Add-CheckResult -Name 'Self-hosted Runtime-Workflows werden vor ihrem regulären Cleanup nicht hart abgebrochen' `
+    -Success ($unsafeCancellation.Count -eq 0) -Message ($unsafeCancellation -join ', ')
 
 $dockerWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-docker.yml') -Raw -Encoding utf8
 $podmanWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-podman.yml') -Raw -Encoding utf8
@@ -189,6 +193,9 @@ Add-CheckResult -Name 'Hyper-V-Workflow kann geschuetzte Testumgebungen gezielt 
 $prWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/static-contracts.yml') -Raw -Encoding utf8
 Add-CheckResult -Name 'PR-Gate laeuft nicht erneut bei Push auf main' -Success ($prWorkflow -notmatch '(?m)^\s*push:\s*$')
 Add-CheckResult -Name 'PR-Gate besitzt stabilen Abschlusscheck' -Success ($prWorkflow -match 'name:\s*PR Gate')
+Add-CheckResult -Name 'PR-Gate reiht neue Revisionen hinter laufenden nativen Cleanups ein' -Success (
+    $prWorkflow -match '(?m)^\s{2}cancel-in-progress:\s*false\s*$'
+)
 Add-CheckResult -Name 'PR-Gate schützt Self-hosted Runner vor Fork-Code' -Success (
     $prWorkflow -match 'pull_request\.head\.repo\.full_name == github\.repository'
 )
