@@ -118,7 +118,8 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
     journalisierten Fachkern eine unabhängige Kopie.
 .PARAMETER PersistentStorageSelection
     Explizite Retention-Auswahl je stabiler PersistentStorageId. Der Workflow
-    führt ausschließlich RETAIN_INSTANCE_STORE und BACKUP_ON_REMOVE aus.
+    fuehrt fuer Docker-/Podman-Instanzstores RETAIN_INSTANCE_STORE,
+    BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE aus.
 .PARAMETER GuestUserName
     Lokaler Administratorname im Gast für PowerShell Direct.
 .PARAMETER GuestPassword

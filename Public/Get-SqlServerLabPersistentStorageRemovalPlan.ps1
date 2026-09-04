@@ -6,8 +6,10 @@
     schema-validierten Removal-Intent, inventarisiert Katalog und Residency
     read-only neu und liefert den bestehenden fail-closed Removal-Plan. Das
     Feld Execution trennt einen sicheren Plan von der aktuell implementierten
-    Executor-Capability; PACKAGE_ON_REMOVE bleibt damit sichtbar geplant, aber
-    eindeutig nicht als startbare Mutation ausgewiesen.
+    Executor-Capability. Fuer Docker-/Podman-Instanzstores sind
+    RETAIN_INSTANCE_STORE, BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und
+    BACKUP_AND_PACKAGE startbar; FILESTREAM, TDE, externe Freigabe und die
+    getrennte endgueltige Storage-Loeschung bleiben fail-closed.
     Das Cmdlet entfernt weder den Run noch Daten, Leases oder Referenzen.
 .PARAMETER RunId
     Stabile Run-ID der zu prüfenden Umgebung.
