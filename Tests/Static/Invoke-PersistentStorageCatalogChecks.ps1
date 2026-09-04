@@ -262,6 +262,43 @@ try {
         $leaseEvidence.RecoveryBlocked -and $leaseStore.State -eq 'RECOVERY_REQUIRED' -and
         [string]$leaseStore.Lease.RunId -eq $leaseRunId -and @($leaseEvidence.Catalog.Sources).Count -eq 2)
 
+    $runScopedRoot = Join-Path $temporaryRoot 'run-scoped/Lab_Data'
+    New-Item -Path (Join-Path $runScopedRoot 'Catalog') -ItemType Directory -Force | Out-Null
+    $runScopedConfiguration = [PSCustomObject]@{
+        ControllerId=[Guid]::NewGuid().ToString('D')
+        LabDataLocations=@([PSCustomObject]@{ LocationId=[Guid]::NewGuid().ToString('D'); LabDataRoot=$runScopedRoot })
+    }
+    $runScopedRunId=[Guid]::NewGuid().ToString('D'); $runScopedScopeId=[Guid]::NewGuid().ToString('D')
+    $runScopedEvidence = & $module {
+        param($config,$root,$runId,$scopeId)
+        $originalOwnership=(Get-Command Test-LabDataRootOwnership -CommandType Function).ScriptBlock
+        $originalInspection=(Get-Command Get-LabContainerInstanceStoreRuntimeInspection -CommandType Function).ScriptBlock
+        $script:runScopedStorageId=[Guid]::NewGuid().ToString('D'); $script:runScopedContainerId=('a' * 64)
+        Set-Item Function:script:Test-LabDataRootOwnership -Value { param($DataRoot,$ControllerId) $null=$DataRoot,$ControllerId; return $true }
+        Set-Item Function:script:Get-LabContainerInstanceStoreRuntimeInspection -Value {
+            param($Provider,$VolumeName)
+            [PSCustomObject]@{ Status='AVAILABLE'; Provider=$Provider; VolumeName=$VolumeName; VolumeId=$VolumeName; AttachedContainers=@($script:runScopedContainerId)
+                Labels=[PSCustomObject]@{ 'sql-server-lab.persistent-storage-id'=$script:runScopedStorageId; 'sql-server-lab.run-id'=$runId; 'sql-server-lab.scope-id'=$scopeId; 'sql-server-lab.sql-major-version'='2025'; 'sql-server-lab.persistence'='run-scoped-runtime-volume' } }
+        }
+        try {
+            $preview=Register-LabRunScopedContainerStore -Provider docker -VolumeName 'sql-lab-run-scoped-test' -RunId $runId -ScopeId $scopeId -ContainerId $script:runScopedContainerId -SqlVersion '2025-latest' -DisplayName 'Run scoped test' -DataRoot $root -Configuration $config -Preview
+            $registered=Register-LabRunScopedContainerStore -Provider docker -VolumeName 'sql-lab-run-scoped-test' -RunId $runId -ScopeId $scopeId -ContainerId $script:runScopedContainerId -SqlVersion '2025-latest' -DisplayName 'Run scoped test' -DataRoot $root -Configuration $config -ExpectedRevision 0
+            $again=Register-LabRunScopedContainerStore -Provider docker -VolumeName 'sql-lab-run-scoped-test' -RunId $runId -ScopeId $scopeId -ContainerId $script:runScopedContainerId -SqlVersion '2025-latest' -DisplayName 'Run scoped test' -DataRoot $root -Configuration $config -ExpectedRevision 1
+            [PSCustomObject]@{ Preview=$preview; Registered=$registered; Again=$again }
+        }
+        finally {
+            Set-Item Function:script:Test-LabDataRootOwnership -Value $originalOwnership
+            Set-Item Function:script:Get-LabContainerInstanceStoreRuntimeInspection -Value $originalInspection
+            Remove-Variable -Scope Script -Name runScopedStorageId,runScopedContainerId -ErrorAction SilentlyContinue
+        }
+    } $runScopedConfiguration $runScopedRoot $runScopedRunId $runScopedScopeId
+    Add-CheckResult -Name 'Laufender labelgebundener Run-Store wird nur nach Container-Ownership revisionsgeschützt katalogisiert' -Success (
+        $runScopedEvidence.Preview.Preview -and $runScopedEvidence.Preview.ProposedRevision -eq 1 -and
+        $runScopedEvidence.Registered.Changed -and $runScopedEvidence.Registered.Store.Retention -eq 'RUN_SCOPED' -and
+        $runScopedEvidence.Registered.Store.CleanupDisposition -eq 'RUN_CLEANUP' -and
+        $runScopedEvidence.Registered.Store.Lease.RunId -eq $runScopedRunId -and
+        -not $runScopedEvidence.Again.Changed)
+
     $hyperVRoot1 = Join-Path $temporaryRoot 'hyperv-one/Lab_Data'
     $hyperVRoot2 = Join-Path $temporaryRoot 'hyperv-two/Lab_Data'
     New-Item -Path (Join-Path $hyperVRoot1 'Catalog'),(Join-Path $hyperVRoot2 'Catalog') -ItemType Directory -Force | Out-Null

@@ -126,7 +126,12 @@ der Run bleibt recoverbar. Neue rungebundene Systemvolume-Gruppen erhalten
 zuvor eine UUID, die im Desired State des Runs persistiert und auf alle
 zugehörigen Runtime-Volumes gelabelt wird. Dieser Nachweis ist die notwendige
 Identitätsbrücke für einen späteren selektierbaren Katalogstore; er registriert
-heute weder Altbestände noch eine Löschautorität. Der Plan weist unabhängig von seiner
+heute weder Altbestände noch eine Löschautorität. Der interne Katalogkern
+akzeptiert eine folgende Registrierung ausschließlich mit derselben Label-ID,
+dem einzigen erwarteten Container und vollständiger Run-/Scope-/SQL-/Persistenz-
+Evidence; er erstellt dabei eine exklusive `RUN_SCOPED`/`RUN_CLEANUP`-Lease.
+Öffentlicher Einstieg und Cleanup-Finalisierung bleiben ein gemeinsamer nächster
+Slice. Der Plan weist unabhängig von seiner
 fachlichen Gültigkeit mit `Execution.Status` aus, ob die verlangte Policy
 heute ausführbar ist (`EXECUTABLE`), nur vollständig geplant ist
 (`PLANNED_NOT_EXECUTABLE`) oder fachlich blockiert bleibt (`BLOCKED`).

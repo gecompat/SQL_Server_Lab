@@ -970,6 +970,7 @@ validation:
       - public_exchange_workspace_registration_and_residency_binding
       - exchange_workspace_reference_and_binding_uniqueness
       - revision_guarded_hyperv_instance_store_reservation_completion_and_recovery
+      - revision_guarded_run_scoped_container_store_registration
   static_persistent_storage_removal_plan:
     command: '.\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1'
     source: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1
