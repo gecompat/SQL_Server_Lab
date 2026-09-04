@@ -80,6 +80,16 @@ Bestätigung und führt ausschließlich die hinterlegten Cleanup-Pläne aus;
 persistente Data-Root-Inhalte und veröffentlichte Hyper-V-Images bleiben
 erhalten.
 
+Die Auswahl zeigt für jedes ausführbare Sample den read-only Trust- und
+Cache-Status. Fehlt eine Katalog-SHA-256, zeigt sie erst
+**SHA-256-Freigabe erforderlich**. Nach einer ausdrücklich bestätigten ersten
+Bereitstellung wird die automatisch berechnete SHA-256 lokal an genau diese
+Sample-Variante gebunden; spätere Inventuren zeigen **lokale SHA-256** und bei
+vorhandenem verifiziertem Inhalt **Cache bereit**. Die Oberfläche erhält dabei
+weder den Hashwert noch Trust-Store-, Cache- oder Hostpfade und kann keinen
+Trust erzeugen. Der Startpfad prüft den lokalen Record erneut, sodass die
+Anzeige keine Sicherheitsentscheidung ersetzt.
+
 Die Datenbankpaket-Ansicht arbeitet ebenso pfadfrei. Für ein auswählbares,
 nicht TDE-geschütztes Paket kann genau ein laufender Hyper-V-SQL-Run gewählt
 werden. Erst nach Eingabe des flüchtigen Gast-Credentials revalidiert der
