@@ -116,9 +116,13 @@ Manifest-SHA-256. Er revalidiert den Plan vor Cleanup und setzt einen begonnenen
 Cleanup idempotent fort. Der Run wird entfernt, der Store bleibt detached
 katalogisiert. `EXTERNAL_UNMANAGED` löst revisionsgeschützt ausschließlich
 die eigene Katalogbindung, journalisiert `SourceMutated=false` und verändert
-weder externe Quelle noch Inhalt. FILESTREAM, TDE, `DELETE_WITH_RUN` und
-endgültige Löschung bleiben vor jeder Mutation blockierte, getrennte
-Folgearbeit. Der Plan weist unabhängig von seiner
+weder externe Quelle noch Inhalt. FILESTREAM, TDE, `DELETE_WITH_RUN` als
+öffentliche Storage-Auswahl und endgültige Löschung bleiben vor jeder Mutation
+blockierte, getrennte Folgearbeit. Der reguläre Run-Cleanup ist davon getrennt:
+Er entfernt ein rungebundenes Docker-/Podman-Volume nur, wenn dessen frische
+Runtime-Labels RunId und ScopeId exakt mit dem Cleanup-Plan übereinstimmen;
+bei fehlender oder abweichender Ownership-Evidence erfolgt kein `volume rm` und
+der Run bleibt recoverbar. Der Plan weist unabhängig von seiner
 fachlichen Gültigkeit mit `Execution.Status` aus, ob die verlangte Policy
 heute ausführbar ist (`EXECUTABLE`), nur vollständig geplant ist
 (`PLANNED_NOT_EXECUTABLE`) oder fachlich blockiert bleibt (`BLOCKED`).

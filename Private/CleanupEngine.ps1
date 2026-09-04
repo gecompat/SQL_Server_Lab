@@ -165,14 +165,33 @@ function Remove-LabRuntimeResourceForCleanup {
     param(
         [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
         [Parameter(Mandatory)][ValidateSet('volume', 'network')][string]$ResourceType,
-        [Parameter(Mandatory)][string]$ResourceId
+        [Parameter(Mandatory)][string]$ResourceId,
+        [string]$ExpectedRunId,
+        [string]$ExpectedScopeId
     )
 
     $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
-    & $runtimeInvocation $ResourceType inspect $ResourceId 1>$null 2>$null
+    $inspectionOutput = @(& $runtimeInvocation $ResourceType inspect $ResourceId 2>$null)
     if ($LASTEXITCODE -ne 0) {
         Write-LabInfo "  Bereits entfernt oder nicht vorhanden: $ResourceType $ResourceId"
         return
+    }
+
+    # Run-gebundene Volumes dürfen niemals allein wegen ihres im Journal
+    # gespeicherten Namens entfernt werden. Die Runtime-Labels sind die zweite,
+    # unmittelbare Ownership-Evidence für genau diesen Run und Scope.
+    if ($ResourceType -eq 'volume') {
+        if ([string]::IsNullOrWhiteSpace($ExpectedRunId) -or [string]::IsNullOrWhiteSpace($ExpectedScopeId)) {
+            throw 'RUNTIME_VOLUME_OWNERSHIP_EXPECTATION_REQUIRED'
+        }
+        try { $inspection = @($inspectionOutput | ConvertFrom-Json -Depth 20 -ErrorAction Stop)[0] }
+        catch { throw "RUNTIME_VOLUME_INSPECTION_INVALID: $ResourceId" }
+        $labels = if ($inspection.Labels) { $inspection.Labels } elseif ($inspection.labels) { $inspection.labels } else { $null }
+        if (-not $labels -or
+            [string]$labels.'sql-server-lab.run-id' -ne $ExpectedRunId -or
+            [string]$labels.'sql-server-lab.scope-id' -ne $ExpectedScopeId) {
+            throw "RUNTIME_VOLUME_OWNERSHIP_MISMATCH: $ResourceId"
+        }
     }
 
     & $runtimeInvocation $ResourceType rm $ResourceId 1>$null 2>$null
@@ -455,7 +474,9 @@ function Invoke-CleanupPlan {
                     Remove-LabRuntimeResourceForCleanup `
                         -Provider $provider `
                         -ResourceType 'volume' `
-                        -ResourceId $step.resourceId
+                        -ResourceId $step.resourceId `
+                        -ExpectedRunId ([string]$plan.runId) `
+                        -ExpectedScopeId $ScopeId
                 }
                 'network' {
                     if (-not $provider) {

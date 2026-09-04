@@ -1083,8 +1083,10 @@ Backup-`CHECKSUM`/`RESTORE VERIFYONLY`, Offline-/Hash-/Package-Evidence,
 Fremdreferenzschutz und `RECOVERY_REQUIRED`. Der erste journalisierte Executor
 führt für Docker-/Podman-Instanzstores `RETAIN_INSTANCE_STORE`,
 `BACKUP_ON_REMOVE` und MDF/NDF/LDF-`PACKAGE_ON_REMOVE` aus. FILESTREAM, TDE,
-Kombinationspolicy, externe Freigabe, `DELETE_WITH_RUN` und endgültige
-Persistent-Storage-Löschung bleiben getrennt und fail-closed.
+`DELETE_WITH_RUN` als öffentliche Storage-Auswahl und endgültige
+Persistent-Storage-Löschung bleiben getrennt und fail-closed. Die zuvor
+offenen Kombinations- und externen Policies werden inzwischen über denselben
+journalisierten Removal-Executor ausgeführt.
 Der `PSR-005`-Core wählt katalogisierte detached Docker-/Podman-Instanzstores
 über stabile ID plus Runtime-Label, liefert ein Continue-Binding und klont eine
 read-only Quelle journalisiert mit Datei-/Byte-/SHA-256-Postcondition. Getrennte
