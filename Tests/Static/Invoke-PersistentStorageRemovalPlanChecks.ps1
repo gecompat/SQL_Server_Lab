@@ -148,6 +148,7 @@ try {
     $externalPlan=& $module { param($cat,$value,$inv) Get-LabPersistentStorageRemovalPlan -Catalog $cat -Intent $value -ResidencyInventory $inv } ([PSCustomObject]@{Status='AVAILABLE';Document=$externalDocument}) $externalIntent $externalInventory
     Add-CheckResult -Name 'EXTERNAL_UNMANAGED löst nur die Bindung und mutiert niemals die Quelle' -Success (
         $externalPlan.Status -eq 'READY' -and $externalPlan.Stores[0].Outcome -eq 'RELEASE_BINDING_ONLY' -and
+        $externalPlan.Execution.Status -eq 'EXECUTABLE' -and 'EXTERNAL_UNMANAGED' -in @($externalPlan.Execution.ExecutablePolicies) -and
         @($externalPlan.Stores[0].Steps | Where-Object Mutation -in @('SQL','STORAGE')).Count -eq 0 -and
         @($externalPlan.Stores[0].Steps.Action) -contains 'RELEASE_EXTERNAL_BINDING')
 

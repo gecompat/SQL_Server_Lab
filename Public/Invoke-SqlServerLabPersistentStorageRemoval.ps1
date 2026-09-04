@@ -8,8 +8,9 @@
     materialisieren nach exklusivem Offline-Commit ausschließlich inventarisierte
     MDF/NDF/LDF-Dateien und werden automatisch mit Objekt- und Manifest-SHA-256
     registriert. Ein lokales Journal ermöglicht sichere Wiederaufnahme.
-    FILESTREAM, TDE, externe Freigabe und endgültige Store-Löschung bleiben vor
-    jeder Mutation blockiert.
+    EXTERNAL_UNMANAGED loest ausschliesslich die eigene revisionsgeschuetzte
+    Katalogbindung; die externe Quelle bleibt unveraendert. FILESTREAM, TDE
+    und endgueltige Store-Loeschung bleiben vor jeder Mutation blockiert.
 .PARAMETER RunId
     Stabile Run-ID der zu entfernenden Umgebung.
 .PARAMETER Selection
@@ -77,13 +78,26 @@ function Invoke-SqlServerLabPersistentStorageRemoval {
     $backupVerificationAction={ param($BackupSetId,$RemovalDataRoot) Get-LabDatabaseBackup -BackupSetId $BackupSetId -DataRoot $RemovalDataRoot }
     $packageAction={ param($RemovalRunId,$RemovalInstanceId,$RemovalDatabaseName,$RemovalDataRoot,$RemovalStateRoot) Export-LabContainerDatabasePackage -RunId $RemovalRunId -InstanceId $RemovalInstanceId -DatabaseName $RemovalDatabaseName -DataRoot $RemovalDataRoot -StateRoot $RemovalStateRoot }
     $packageVerificationAction={ param($DatabasePackageId,$RemovalDataRoot) Get-LabDatabasePackage -DatabasePackageId $DatabasePackageId -DataRoot $RemovalDataRoot }
+    $externalBindingReleaseAction={
+        param($PersistentStorageId,$RemovalRunId,$RemovalConfiguration,$ExpectedRevision)
+        $mutation=Release-LabExternalPersistentStorageBinding -PersistentStorageId $PersistentStorageId -RunId $RemovalRunId -Configuration $RemovalConfiguration -ExpectedRevision $ExpectedRevision
+        [PSCustomObject]@{ Released=[bool]$mutation.Value.Released; SourceMutated=[bool]$mutation.Value.SourceMutated; CatalogRevision=[int]$mutation.CatalogRevision }
+    }
+    $externalBindingVerificationAction={
+        param($PersistentStorageId,$RemovalRunId,$RemovalConfiguration)
+        $catalog=Get-LabPersistentStorageCatalog -Configuration $RemovalConfiguration
+        if([string]$catalog.Status -ne 'AVAILABLE'){return $false}
+        $stores=@($catalog.Document.Stores | Where-Object { [string]$_.PersistentStorageId -eq $PersistentStorageId })
+        if($stores.Count -ne 1 -or [string]$stores[0].Provider -ne 'external'){return $false}
+        @($stores[0].References | Where-Object { [string]$_.State -eq 'ACTIVE' -and ([string]$_.Kind -eq 'DATABASE' -or ([string]$_.Kind -eq 'RUN' -and [string]$_.TargetId -eq $RemovalRunId)) }).Count -eq 0
+    }
     $replanAction={ param($RemovalRunId,$RemovalSelection) Get-SqlServerLabPersistentStorageRemovalPlan -RunId $RemovalRunId -Selection $RemovalSelection -StateRoot $StateRoot -DataRoot $DataRoot }
     $removeAction={ param($RemovalRunId,$RemovalStateRoot) Remove-SqlServerLab -RunId $RemovalRunId -StateRoot $RemovalStateRoot -Force -Confirm:$false }
     $postconditionAction={ param($RemovalRunId,$RemovalSelection,$RemovalConfiguration) Assert-LabPersistentStorageRemovalPostcondition -RunId $RemovalRunId -Selection $RemovalSelection -Configuration $RemovalConfiguration }
 
     $journal=Invoke-LabPersistentStorageRemovalExecutor -Plan $plan -Selection $normalizedSelections -Context $context `
         -BackupAction $backupAction -BackupVerificationAction $backupVerificationAction -PackageAction $packageAction -PackageVerificationAction $packageVerificationAction -ReplanAction $replanAction `
-        -RemoveAction $removeAction -PostconditionAction $postconditionAction
+        -ExternalBindingReleaseAction $externalBindingReleaseAction -ExternalBindingVerificationAction $externalBindingVerificationAction -RemoveAction $removeAction -PostconditionAction $postconditionAction
     [PSCustomObject]@{
         Status=if([string]$journal.Status -eq 'COMPLETED'){'REMOVED'}else{[string]$journal.Status}
         RunId=$RunId;OperationId=[string]$journal.OperationId;JournalStatus=[string]$journal.Status

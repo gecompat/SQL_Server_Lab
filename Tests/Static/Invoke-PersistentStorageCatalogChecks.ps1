@@ -70,6 +70,30 @@ try {
     Add-CheckResult -Name 'Identische controllergebundene Katalogspiegel werden read-only zusammengeführt' -Success (
         $catalog.Status -eq 'AVAILABLE' -and @($catalog.Sources).Count -eq 2 -and @($catalog.Document.Stores).Count -eq 1)
 
+    $externalDocument=$document | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+    $externalStore=$externalDocument.Stores[0]
+    $externalStore.State='DETACHED';$externalStore.Provider='external';$externalStore.Lease=$null
+    $externalStore.Retention='EXTERNAL_UNMANAGED';$externalStore.CleanupDisposition='REPORT_ONLY'
+    $externalStore.LocationBinding.Residency='EXTERNAL_HOST';$externalStore.LocationBinding.LocationId=$null
+    $externalStore.LocationBinding.ProviderResourceId='external-catalog-test';$externalStore.LocationBinding.InventoryObjectId=$null
+    $externalStore.References += [PSCustomObject]@{ReferenceId=[Guid]::NewGuid().ToString('D');Kind='DATABASE';State='ACTIVE';TargetId='ExternalCatalogTest'}
+    $externalJson=$externalDocument | ConvertTo-Json -Depth 30
+    Set-Content -LiteralPath $catalogPath1,$catalogPath2 -Value $externalJson -Encoding utf8NoBOM
+    $externalEvidence=& $module {
+        param($Configuration,$StorageId,$RunId)
+        $first=Release-LabExternalPersistentStorageBinding -PersistentStorageId $StorageId -RunId $RunId -Configuration $Configuration -ExpectedRevision 4
+        $second=Release-LabExternalPersistentStorageBinding -PersistentStorageId $StorageId -RunId $RunId -Configuration $Configuration -ExpectedRevision ([int]$first.CatalogRevision)
+        $catalog=Get-LabPersistentStorageCatalog -Configuration $Configuration
+        [PSCustomObject]@{First=$first;Second=$second;Store=@($catalog.Document.Stores | Where-Object PersistentStorageId -eq $StorageId)[0]}
+    } $configuration $storageId $runId
+    Add-CheckResult -Name 'Externe Bindungsfreigabe mutiert nur Katalogreferenzen, ist CAS-geschützt und idempotent' -Success (
+        $externalEvidence.First.Changed -and [bool]$externalEvidence.First.Value.Released -and -not [bool]$externalEvidence.First.Value.SourceMutated -and
+        -not $externalEvidence.Second.Changed -and -not [bool]$externalEvidence.Second.Value.Released -and
+        [string]$externalEvidence.Store.LocationBinding.ProviderResourceId -eq 'external-catalog-test' -and
+        @($externalEvidence.Store.References | Where-Object State -eq 'ACTIVE').Count -eq 0 -and
+        @($externalEvidence.Store.References | Where-Object State -eq 'RELEASED').Count -eq 2)
+    Set-Content -LiteralPath $catalogPath1,$catalogPath2 -Value $catalogJson -Encoding utf8NoBOM
+
     $backupSetId = [Guid]::NewGuid().ToString('D')
     $backupRecord = [PSCustomObject]@{
         BackupSetId=$backupSetId; Status='REUSABLE'; DatabaseName='CatalogedBackup'

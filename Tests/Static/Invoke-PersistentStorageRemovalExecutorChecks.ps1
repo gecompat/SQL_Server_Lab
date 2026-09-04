@@ -93,9 +93,24 @@ try {
         $unsupported=$false
         $unsupportedPlan=$retainPlan|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20;$unsupportedPlan.Stores[0].Policy='DELETE_WITH_RUN'
         try{$null=Assert-LabPersistentStorageRemovalExecutablePlan -Plan $unsupportedPlan}catch{$unsupported=$_.Exception.Message -match 'PERSISTENT_STORAGE_REMOVAL_POLICY_NOT_EXECUTABLE'}
+        $externalRoot=Join-Path $Root 'external-release';New-Item -ItemType Directory -Path $externalRoot -Force | Out-Null
+        $externalSelection=@([PSCustomObject]@{PersistentStorageId=$storageId;Policy='EXTERNAL_UNMANAGED';DatabaseReferenceIds=@()})
+        $externalPlan=[PSCustomObject]@{
+            ContractVersion='SqlServerLab.PersistentStorageRemovalPlan/1.0';IntentId=[Guid]::NewGuid().ToString('D');RunId=$runId;CatalogRevision=10;Status='READY'
+            Stores=@([PSCustomObject]@{PersistentStorageId=$storageId;StorageClass='INSTANCE_STORE';Provider='external';Policy='EXTERNAL_UNMANAGED';Destructive=$false;RequiresSeparateStorageDelete=$true;DatabaseReferenceIds=@()})
+        }
+        $externalContext=[PSCustomObject]@{Run=[PSCustomObject]@{state='RUNNING'};RunDirectory=$externalRoot;ScopeId=$scopeId;Configuration=$context.Configuration;DataRoot=$context.DataRoot;StateRoot=$context.StateRoot;Selection=$externalSelection;SaPassword=$null;BackupTasks=@();PackageTasks=@();ExternalBindings=@([PSCustomObject]@{PersistentStorageId=$storageId;Status='PENDING';CatalogRevision=$null;SourceMutated=$false})}
+        $script:externalReleaseCalls=0;$script:externalRemoveCalls=0
+        $externalRelease={param($StorageId,$ActionRunId,$ActionConfiguration,$ExpectedRevision)$null=$StorageId,$ActionRunId,$ActionConfiguration;$script:externalReleaseCalls++;[PSCustomObject]@{Released=$true;SourceMutated=$false;CatalogRevision=($ExpectedRevision+1)}}
+        $externalVerify={param($StorageId,$ActionRunId,$ActionConfiguration)$null=$StorageId,$ActionRunId,$ActionConfiguration;$true}
+        $externalRemove={param($ActionRunId,$ActionStateRoot)$null=$ActionRunId,$ActionStateRoot;$script:externalRemoveCalls++;[PSCustomObject]@{Status='REMOVED';Errors=0;Cleanup='EXTERNAL_BINDING_RELEASED'}}
+        $externalReplan={param($ActionRunId,$ActionSelection)$null=$ActionRunId,$ActionSelection;$externalPlan}
+        $externalCompleted=Invoke-LabPersistentStorageRemovalExecutor -Plan $externalPlan -Selection $externalSelection -Context $externalContext -BackupAction $backupAction -BackupVerificationAction $verifyAction -PackageAction $packageAction -PackageVerificationAction $packageVerifyAction -ExternalBindingReleaseAction $externalRelease -ExternalBindingVerificationAction $externalVerify -ReplanAction $externalReplan -RemoveAction $externalRemove -PostconditionAction $postAction
+        $externalCompletedAgain=Invoke-LabPersistentStorageRemovalExecutor -Plan $externalPlan -Selection $externalSelection -Context $externalContext -BackupAction $backupAction -BackupVerificationAction $verifyAction -PackageAction $packageAction -PackageVerificationAction $packageVerifyAction -ExternalBindingReleaseAction $externalRelease -ExternalBindingVerificationAction $externalVerify -ReplanAction $externalReplan -RemoveAction $externalRemove -PostconditionAction $postAction
         $removeCalls=$script:removalRemoveCalls;$replanCalls=$script:removalReplanCalls
-        Remove-Variable removalBackupCalls,removalFailSecond,removalReceipts,removalRemoveCalls,removalReplanCalls,removalFailRemove -Scope Script -ErrorAction SilentlyContinue
-        [PSCustomObject]@{FirstFailure=$firstFailure;FailedJournal=$failedJournal;Completed=$completed;CompletedAgain=$completedAgain;LegacyRead=$legacyRead;BackupCalls=$backupCalls;RemoveFailure=$removeFailure;RemoveFailedJournal=$removeFailedJournal;RemoveCompleted=$removeCompleted;RemoveCalls=$removeCalls;ReplanCalls=$replanCalls;Unsupported=$unsupported}
+        $externalReleaseCalls=$script:externalReleaseCalls;$externalRemoveCalls=$script:externalRemoveCalls
+        Remove-Variable removalBackupCalls,removalFailSecond,removalReceipts,removalRemoveCalls,removalReplanCalls,removalFailRemove,externalReleaseCalls,externalRemoveCalls -Scope Script -ErrorAction SilentlyContinue
+        [PSCustomObject]@{FirstFailure=$firstFailure;FailedJournal=$failedJournal;Completed=$completed;CompletedAgain=$completedAgain;LegacyRead=$legacyRead;BackupCalls=$backupCalls;RemoveFailure=$removeFailure;RemoveFailedJournal=$removeFailedJournal;RemoveCompleted=$removeCompleted;RemoveCalls=$removeCalls;ReplanCalls=$replanCalls;Unsupported=$unsupported;ExternalCompleted=$externalCompleted;ExternalCompletedAgain=$externalCompletedAgain;ExternalReleaseCalls=$externalReleaseCalls;ExternalRemoveCalls=$externalRemoveCalls}
     } $temporaryRoot
 
     Add-CheckResult -Name 'Fehler nach erstem Backup bleibt mit einzeln persistierter Evidence wiederaufnehmbar' -Success (
@@ -112,7 +127,11 @@ try {
         $evidence.RemoveFailure -match '^PERSISTENT_STORAGE_REMOVAL_RECOVERY_REQUIRED: SYNTHETIC_REMOVE_FAILURE' -and
         $evidence.RemoveFailedJournal.Removal.Status -eq 'STARTED' -and $evidence.RemoveCompleted.Status -eq 'COMPLETED' -and
         $evidence.RemoveCalls -eq 2 -and $evidence.ReplanCalls -eq 2)
-    Add-CheckResult -Name 'Delete- und externe Policies bleiben vor jeder Executor-Mutation blockiert' -Success $evidence.Unsupported
+    Add-CheckResult -Name 'DELETE_WITH_RUN bleibt vor jeder Executor-Mutation blockiert' -Success $evidence.Unsupported
+    Add-CheckResult -Name 'EXTERNAL_UNMANAGED loest nur die journalisierte Katalogbindung und ist idempotent' -Success (
+        $evidence.ExternalCompleted.Status -eq 'COMPLETED' -and $evidence.ExternalCompletedAgain.OperationId -eq $evidence.ExternalCompleted.OperationId -and
+        @($evidence.ExternalCompleted.ExternalBindings | Where-Object { $_.Status -eq 'COMPLETED' -and -not $_.SourceMutated -and $_.CatalogRevision -eq 11 }).Count -eq 1 -and
+        $evidence.ExternalReleaseCalls -eq 1 -and $evidence.ExternalRemoveCalls -eq 1)
     Add-CheckResult -Name 'Journal erfüllt striktes Schema und enthält keine Secrets oder Hostpfade' -Success (
         (& $module {param($Journal)Test-LabPersistentStorageRemovalJournal -Journal $Journal} $evidence.Completed) -and
         (($evidence.Completed|ConvertTo-Json -Depth 30) -notmatch '(?i)password|secret|credential|[A-Z]:\\'))
