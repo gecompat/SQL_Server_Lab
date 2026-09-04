@@ -7,8 +7,10 @@
     persistente Storage-Katalog und exklusive Leases werden gegen das Inventar
     geprüft; nicht katalogisierte retained Objekte bleiben ID-lose Kandidaten.
     Bewusst retained Objekte, unerwartete Residuen, Recovery-Befunde und
-    unverifizierbare Evidence werden mit Reason-Code und Handlungshinweis
-    getrennt ausgegeben; daraus folgt niemals automatische Mutationsautorität.
+    unverifizierbare Evidence werden je Objekt mit Art, stabiler Identität,
+    Reason-Code, ausdrücklicher Löschungs-/Bewahrungsempfehlung und
+    Handlungshinweis getrennt ausgegeben; daraus folgt niemals automatische
+    Mutationsautorität.
     Aktive Docker-Contexts und Podman-Connections/Machines werden sanitisiert
     als read-only Runtime-Scope ausgegeben. Das Residency-Inventar ergänzt
     providerseitige Host-Backings, Konfigurationen, verwaltete Images und

@@ -314,6 +314,14 @@ public_commands:
     source: Public/Get-SqlServerLabHyperVResourcePreview.ps1
     purpose: "Registrierte Hyper-V-Location, Kapazitaet und physische Klassenroots vor UAC read-only aufloesen"
     mutates_host: false
+  - name: New-SqlServerLabWindowsSlotPool
+    source: Public/New-SqlServerLabWindowsSlotPool.ps1
+    purpose: "N resumierbare Windows-Hyper-V-Slots aus einer geeigneten OS_SEALED-Baseline mit Ressourcen-/Locale-Vertrag und unbeaufsichtigter OOBE erzeugen"
+    mutates_host: true
+  - name: Get-SqlServerLabGeneratedWindowsAccess
+    source: Public/Get-SqlServerLabGeneratedWindowsAccess.ps1
+    purpose: "Automatisch generierten, run-lokal DPAPI-geschuetzten Windows-Administratorzugang gezielt abrufen"
+    mutates_host: false
   - name: Get-SqlServerLabCatalog
     source: Public/Get-SqlServerLabCatalog.ps1
     purpose: "Laufzeitworkflow-Katalog als persistentes, maschinenlesbares JSON-Artefakt erstellen"
@@ -355,6 +363,10 @@ public_commands:
     source: Public/Get-SqlServerLab.ps1
     purpose: "State und Live-Status je ProviderSubRun lesen"
     mutates_host: false
+  - name: Sync-SqlServerLabRuntimeState
+    source: Public/Sync-SqlServerLabRuntimeState.ps1
+    purpose: "Gespeicherten Run-State mit Docker, Podman und Hyper-V abgleichen und fehlende gebundene Runtimeobjekte fail-closed als RECOVERY_REQUIRED markieren"
+    mutates_host: true
   - name: Start-SqlServerLab
     source: Public/Start-SqlServerLab.ps1
     purpose: "Gestoppten Run über alle gespeicherten ProviderSubRuns starten"
@@ -678,6 +690,7 @@ providers:
     image_registry: Private/HyperVImageRegistry.ps1
     image_artifact_inventory: "Public/Get-SqlServerLabHyperVImageArtifact.ps1 und Get-SqlServerLabWorkflow.ps1; pfadfreie read-only Registry-, Workflow-, Evaluierungs-, manueller Refresh- und Referenzsicht, optionale Parent-Hash-Pruefung ohne Refresh- oder Loeschautoritaet"
     image_builder: Private/HyperVImageBuilder.ps1
+    windows_slot_pool: "Public/New-SqlServerLabWindowsSlotPool.ps1; geeignete OS_SEALED-Baseline, N resumierbare Child-VMs, RAM-/Locale-Vertrag, generierte oder gemeinsame Passwoerter und unbeaufsichtigte OOBE"
     metadata: Providers/HyperV/provider.json
     documentation: Providers/HyperV/README.md
     command: Get-VMHost
@@ -685,6 +698,7 @@ providers:
     native_smoke: Tests/Integration/Invoke-HyperVSmokeTest.ps1
     registry_static_checks: Tests/Static/Invoke-HyperVImageRegistryChecks.ps1
     builder_static_checks: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
+    windows_slot_pool_static_checks: Tests/Static/Invoke-WindowsSlotPoolChecks.ps1
     resource_binding_static_checks: Tests/Static/Invoke-HyperVResourceBindingChecks.ps1
     resource_migration_static_checks: Tests/Static/Invoke-HyperVResourceMigrationChecks.ps1
     resource_reconcile_static_checks: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1
@@ -919,6 +933,23 @@ validation:
       - provider_subrun_state
       - mixed_provider_example
       - grouped_lifecycle_and_cleanup
+  static_runtime_state_sync:
+    command: '.\Tests\Static\Invoke-RuntimeStateSyncChecks.ps1'
+    source: Tests/Static/Invoke-RuntimeStateSyncChecks.ps1
+    covers:
+      - missing_bound_runtime_to_recovery_required
+      - unavailable_runtime_diagnostic_only
+      - whatif_without_state_mutation
+      - explicit_missing_status_projection
+  static_windows_slot_pool:
+    command: '.\Tests\Static\Invoke-WindowsSlotPoolChecks.ps1'
+    source: Tests/Static/Invoke-WindowsSlotPoolChecks.ps1
+    covers:
+      - exported_pool_and_generated_access_commands
+      - default_dynamic_memory_contract
+      - locale_and_password_modes
+      - unattended_oobe_without_native_vm_mutation
+      - resumable_existing_slot_contract
   static_artifact_resolver:
     command: '.\Tests\Static\Invoke-ArtifactResolverChecks.ps1'
     source: Tests/Static/Invoke-ArtifactResolverChecks.ps1
@@ -956,6 +987,7 @@ validation:
       - persistent_storage_registration_candidates
       - physical_runtime_backing_and_configuration_inventory
       - normalized_runtime_usage_and_managed_image_inventory
+      - explicit_deletion_or_preservation_recommendation_per_finding
   static_persistent_storage_catalog:
     command: '.\Tests\Static\Invoke-PersistentStorageCatalogChecks.ps1'
     source: Tests/Static/Invoke-PersistentStorageCatalogChecks.ps1

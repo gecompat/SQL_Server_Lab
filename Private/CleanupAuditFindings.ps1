@@ -13,6 +13,7 @@ function New-LabCleanupAuditFinding {
     param(
         [Parameter(Mandatory)][ValidateSet('RETAINED','UNEXPECTED_RESIDUAL','RECOVERY_REQUIRED','UNVERIFIABLE')][string]$Category,
         [Parameter(Mandatory)][ValidateSet('STORAGE_OBJECT','PERSISTENT_STORAGE','CONTAINER','HYPERV_RUN')][string]$SubjectKind,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Z][A-Z0-9_]{2,127}$')][string]$ObjectType,
         [Parameter(Mandatory)][string]$SubjectId,
         [Parameter(Mandatory)][ValidateSet('core','docker','podman','hyperv','external')][string]$Provider,
         [Parameter(Mandatory)][string]$DisplayName,
@@ -23,11 +24,18 @@ function New-LabCleanupAuditFinding {
     [PSCustomObject]@{
         Category = $Category
         SubjectKind = $SubjectKind
+        ObjectType = $ObjectType
         SubjectId = $SubjectId
         Provider = $Provider
         DisplayName = $DisplayName
         ReasonCode = $ReasonCode
         Guidance = $Guidance
+        Recommendation = switch ($Category) {
+            'UNEXPECTED_RESIDUAL' { 'REVIEW_FOR_SCOPED_REMOVAL' }
+            'RETAINED' { 'PRESERVE_DO_NOT_DELETE' }
+            'RECOVERY_REQUIRED' { 'RECOVER_BEFORE_REMOVAL' }
+            default { 'DO_NOT_DELETE_UNTIL_VERIFIED' }
+        }
         AutomaticMutationAllowed = $false
     }
 }
@@ -63,7 +71,7 @@ function Get-LabCleanupAuditFindings {
             else {
                 'Geteilte Ressource bewahren; Consumer und Ownership vor jeder getrennten Änderung prüfen.'
             }
-            $retained.Add((New-LabCleanupAuditFinding -Category RETAINED -SubjectKind STORAGE_OBJECT `
+            $retained.Add((New-LabCleanupAuditFinding -Category RETAINED -SubjectKind STORAGE_OBJECT -ObjectType ([string]$object.ObjectClass) `
                 -SubjectId $subjectId -Provider $provider -DisplayName $displayName -ReasonCode $reason -Guidance $guidance))
         }
 
@@ -87,12 +95,12 @@ function Get-LabCleanupAuditFindings {
             else {
                 'Ownership, Referenzen und physischen Scope prüfen; keine automatische Löschung aus dem Audit.'
             }
-            $unexpected.Add((New-LabCleanupAuditFinding -Category UNEXPECTED_RESIDUAL -SubjectKind STORAGE_OBJECT `
+            $unexpected.Add((New-LabCleanupAuditFinding -Category UNEXPECTED_RESIDUAL -SubjectKind STORAGE_OBJECT -ObjectType ([string]$object.ObjectClass) `
                 -SubjectId $subjectId -Provider $provider -DisplayName $displayName -ReasonCode $reason -Guidance $guidance))
         }
 
         if ([string]$object.AuditStatus -eq 'UNVERIFIABLE') {
-            $unverifiable.Add((New-LabCleanupAuditFinding -Category UNVERIFIABLE -SubjectKind STORAGE_OBJECT `
+            $unverifiable.Add((New-LabCleanupAuditFinding -Category UNVERIFIABLE -SubjectKind STORAGE_OBJECT -ObjectType ([string]$object.ObjectClass) `
                 -SubjectId $subjectId -Provider $provider -DisplayName $displayName `
                 -ReasonCode 'STORAGE_EVIDENCE_UNVERIFIABLE' `
                 -Guidance 'Providerzugriff, Ownership und physische Evidence herstellen; bis dahin keine Mutation ableiten.'))
@@ -103,7 +111,7 @@ function Get-LabCleanupAuditFindings {
         $provider = ([string]$container.Provider).ToLowerInvariant()
         if ($provider -notin @('docker','podman')) { $provider = 'external' }
         $subjectId = if ($container.Id) { [string]$container.Id } else { [string]$container.Name }
-        $unexpected.Add((New-LabCleanupAuditFinding -Category UNEXPECTED_RESIDUAL -SubjectKind CONTAINER `
+        $unexpected.Add((New-LabCleanupAuditFinding -Category UNEXPECTED_RESIDUAL -SubjectKind CONTAINER -ObjectType CONTAINER `
             -SubjectId $subjectId -Provider $provider -DisplayName ([string]$container.Name) `
             -ReasonCode 'ORPHAN_CONTAINER' `
             -Guidance 'Run-Zuordnung und Runtime-Labels prüfen; nur über einen bestätigten scopegebundenen Cleanup entfernen.'))
@@ -118,7 +126,8 @@ function Get-LabCleanupAuditFindings {
     }) {
         $state = [string]$store.State
         $reason = "PERSISTENT_STORAGE_$state"
-        $recovery.Add((New-LabCleanupAuditFinding -Category RECOVERY_REQUIRED -SubjectKind PERSISTENT_STORAGE `
+        $objectType = if ($store.StorageClass) { ([string]$store.StorageClass).ToUpperInvariant() } else { 'PERSISTENT_STORAGE' }
+        $recovery.Add((New-LabCleanupAuditFinding -Category RECOVERY_REQUIRED -SubjectKind PERSISTENT_STORAGE -ObjectType $objectType `
             -SubjectId ([string]$store.PersistentStorageId) -Provider ([string]$store.Provider) `
             -DisplayName ([string]$store.DisplayName) -ReasonCode $reason `
             -Guidance 'Persistierte Operation und Evidence revalidieren; denselben Recovery-Pfad fortsetzen oder kontrolliert zurückrollen.'))
@@ -128,7 +137,7 @@ function Get-LabCleanupAuditFindings {
     }
     else { 'UNAVAILABLE' }
     if ($catalogStatus -in @('INVALID','DIVERGED','UNAVAILABLE')) {
-        $recovery.Add((New-LabCleanupAuditFinding -Category RECOVERY_REQUIRED -SubjectKind PERSISTENT_STORAGE `
+        $recovery.Add((New-LabCleanupAuditFinding -Category RECOVERY_REQUIRED -SubjectKind PERSISTENT_STORAGE -ObjectType PERSISTENT_STORAGE_CATALOG `
             -SubjectId 'persistent-storage-catalog' -Provider core -DisplayName 'Persistent Storage Catalog' `
             -ReasonCode "PERSISTENT_STORAGE_CATALOG_$catalogStatus" `
             -Guidance 'Katalogspiegel und Controller-Bindung prüfen; vor der Reparatur keine Storage-Mutation ausführen.'))
@@ -141,18 +150,18 @@ function Get-LabCleanupAuditFindings {
                 'HYPERV_MIGRATION_RECOVERY_REQUIRED'
             }
             else { 'HYPERV_MIGRATION_JOURNAL_INVALID' }
-            $recovery.Add((New-LabCleanupAuditFinding -Category RECOVERY_REQUIRED -SubjectKind HYPERV_RUN `
+            $recovery.Add((New-LabCleanupAuditFinding -Category RECOVERY_REQUIRED -SubjectKind HYPERV_RUN -ObjectType HYPERV_RUN `
                 -SubjectId $runId -Provider hyperv -DisplayName $runId -ReasonCode $reason `
                 -Guidance 'Hyper-V-Migrationsjournal prüfen und denselben journalisierten Resume-Pfad fortsetzen.'))
         }
         if ([string]$scope.BindingStatus -in @('INVALID','IDENTITY_MISMATCH')) {
-            $recovery.Add((New-LabCleanupAuditFinding -Category RECOVERY_REQUIRED -SubjectKind HYPERV_RUN `
+            $recovery.Add((New-LabCleanupAuditFinding -Category RECOVERY_REQUIRED -SubjectKind HYPERV_RUN -ObjectType HYPERV_RUN `
                 -SubjectId $runId -Provider hyperv -DisplayName $runId `
                 -ReasonCode 'HYPERV_BINDING_REVALIDATION_REQUIRED' `
                 -Guidance 'Run-State und Ressourcenbinding gemeinsam revalidieren; keine Hostressource vorher verändern.'))
         }
         if (@($scope.CleanupResources | Where-Object ProtectionStatus -eq 'UNSAFE').Count -gt 0) {
-            $recovery.Add((New-LabCleanupAuditFinding -Category RECOVERY_REQUIRED -SubjectKind HYPERV_RUN `
+            $recovery.Add((New-LabCleanupAuditFinding -Category RECOVERY_REQUIRED -SubjectKind HYPERV_RUN -ObjectType HYPERV_RUN `
                 -SubjectId $runId -Provider hyperv -DisplayName $runId `
                 -ReasonCode 'HYPERV_CLEANUP_PROTECTION_REQUIRED' `
                 -Guidance 'Cleanup-SafetyRoot und Besitznachweis reparieren; bis dahin bleibt der gesamte Cleanup blockiert.'))
@@ -164,7 +173,7 @@ function Get-LabCleanupAuditFindings {
     $recoveryArray = @($recovery | Sort-Object Provider, SubjectKind, SubjectId, ReasonCode)
     $unverifiableArray = @($unverifiable | Sort-Object Provider, SubjectKind, SubjectId, ReasonCode)
     [PSCustomObject]@{
-        ContractVersion = 'SqlServerLab.CleanupFindings/1.0'
+        ContractVersion = 'SqlServerLab.CleanupFindings/1.1'
         Retained = $retainedArray
         UnexpectedResiduals = $unexpectedArray
         RecoveryRequired = $recoveryArray

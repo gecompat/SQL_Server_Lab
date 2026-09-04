@@ -213,7 +213,7 @@ dessen Freigabe verpflichtend. Quelle:
 
 Der read-only Core-Slice `PSR-012` ist implementiert. Der öffentliche
 Cleanup-Audit projiziert die Residency-Matrix zusätzlich als strikten Vertrag
-`SqlServerLab.CleanupFindings/1.0`: bewusst retained und geteilte Objekte,
+`SqlServerLab.CleanupFindings/1.1`: bewusst retained und geteilte Objekte,
 unerwartete Residuen einschließlich Orphan-Containern und -Volumes,
 recoverypflichtige Katalog-/Hyper-V-Zustände sowie unverifizierbare Evidence
 stehen in getrennten Listen. Jeder Befund bindet eine stabile Subjektidentität,
@@ -673,7 +673,7 @@ sind nicht Teil dieses Slices.
 - Der Cleanup-Audit zeigt nach Erfolg alle bewusst retained Objekte mit Grund
   sowie unerwartete Residuen getrennt an.
 
-Stand 2026-09-01: `SqlServerLab.CleanupFindings/1.0` trennt retained und
+Stand 2026-09-04: `SqlServerLab.CleanupFindings/1.1` trennt retained und
 geteilte Ressourcen von Orphan-Containern/-Volumes, externen oder ungetrackten
 Residuen, recoverypflichtigen Persistent-Storage-/Hyper-V-Zuständen und
 unverifizierbarer Provider-Evidence. Stabile Subjektidentität, Provider,

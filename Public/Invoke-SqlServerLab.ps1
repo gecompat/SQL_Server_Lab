@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -146,7 +146,7 @@ function Invoke-LabMenuAction {
 function Show-LabCleanupAuditFindings {
     <# .SYNOPSIS Zeigt kategorisierte Audit-Befunde samt sicherem Handlungshinweis. #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)][object]$Findings, [ValidateRange(1, 100)][int]$Maximum = 20)
+    param([Parameter(Mandatory)][object]$Findings, [ValidateRange(1, 2147483647)][int]$Maximum = 2147483647)
 
     $groups = @(
         [PSCustomObject]@{ Property='RecoveryRequired'; Label='Recovery erforderlich' }
@@ -160,7 +160,8 @@ function Show-LabCleanupAuditFindings {
         if ($items.Count -eq 0) { continue }
         Write-Host "  $($group.Label): $($items.Count)" -ForegroundColor Yellow
         foreach ($finding in @($items | Select-Object -First ([Math]::Max(0, $Maximum - $shown)))) {
-            Write-Host "    - $($finding.DisplayName) [$($finding.Provider)/$($finding.ReasonCode)]" -ForegroundColor Gray
+            Write-Host "    - $($finding.DisplayName) [$($finding.ObjectType) · $($finding.Provider) · $($finding.ReasonCode)]" -ForegroundColor Gray
+            Write-Host "      Empfehlung: $($finding.Recommendation)" -ForegroundColor $(if ($finding.Recommendation -eq 'REVIEW_FOR_SCOPED_REMOVAL') { 'Yellow' } else { 'DarkYellow' })
             Write-Host "      Loesung: $($finding.Guidance)" -ForegroundColor DarkGray
             $shown++
         }
@@ -222,6 +223,7 @@ function Show-LabEnvironmentMenu {
     $items = @(
         New-LabConsoleItem -Id 'Manage' -Label 'Umgebung auswaehlen und verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut '1' -Disabled:(-not $hasRuns)
         New-LabConsoleItem -Id 'Status' -Label 'Status aller Umgebungen anzeigen' -Shortcut '2' -Disabled:(-not $hasRuns)
+        New-LabConsoleItem -Id 'SyncRuntime' -Label 'Mit Docker, Podman und Hyper-V abgleichen' -Value 'fehlende Objekte -> Recovery; keine Löschung' -Shortcut 's' -Disabled:(-not $hasRuns)
         New-LabConsoleItem -Id 'Stop' -Label 'Umgebung stoppen' -Shortcut '3' -Disabled:(-not $hasRunning)
         New-LabConsoleItem -Id 'Start' -Label 'Umgebung starten' -Shortcut '4' -Disabled:(-not $hasStopped)
         New-LabConsoleItem -Id 'Restart' -Label 'Umgebung neustarten' -Shortcut '5' -Disabled:(-not ($hasRunning -or $hasStopped))
@@ -244,6 +246,7 @@ function Show-LabEnvironmentMenu {
 function Show-LabHyperVMenu {
     $items = @(
         New-LabConsoleItem -Id 'Image' -Label 'Hyper-V Infrastruktur: OS-Images und ISOs verwalten' -Value 'Windows-/SQL-Basen, ISO-Download und Baseline-Builds' -Shortcut '1'
+        New-LabConsoleItem -Id 'WindowsSlotPool' -Label 'Windows-OS-Slot-Pool automatisch erstellen' -Value 'Baseline prüfen · RAM/Locale · Unattended OOBE' -Shortcut 'p'
         New-LabConsoleItem -Id 'HyperVManage' -Label 'Hyper-V Slots und Infrastrukturverwaltung' -Value 'OS-/SQL-Slots übernehmen, freigeben, fortsetzen' -Shortcut '2'
         New-LabConsoleItem -Id 'BulkSlots' -Label 'Mehrere Slots gemeinsam bereitstellen' -Value 'Mengenfaehiger Composer · gemeinsame Vorlagenabhaengigkeiten' -Shortcut '3'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
@@ -923,6 +926,17 @@ function Invoke-LabAction {
 
         'Image' {
             Invoke-LabHyperVImageAction
+        }
+        'WindowsSlotPool' {
+            Invoke-LabHyperVImageAction -WindowsSlotPool
+        }
+        'SyncRuntime' {
+            $results = @(Sync-SqlServerLabRuntimeState -Confirm:$false)
+            if ($results.Count -eq 0) { Write-LabInfo 'Keine aktiven Lab-Runs vorhanden.'; return }
+            foreach ($result in $results) {
+                $color = if ($result.RuntimeState -eq 'MISSING') { 'Yellow' } elseif ($result.RuntimeState -in @('UNAVAILABLE','UNKNOWN','PARTIAL')) { 'DarkYellow' } else { 'Green' }
+                Write-LabStatus -Label ([string]$result.RunId) -Value ("{0} -> {1} ({2})" -f $result.RuntimeState, $result.State, $result.Action) -Color $color
+            }
         }
         'Catalog' {
             $stateRoot = Get-LabStateRoot
@@ -1961,9 +1975,123 @@ function Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive {
     New-LabHyperVEnvironmentInteractive -WindowsOnly -ContinueSqlWorkflow -Intent $Intent
 }
 
-function Invoke-LabHyperVImageAction {
+function Invoke-LabHyperVWindowsSlotPoolInteractive {
+    <#
+    .SYNOPSIS
+        Erstellt oder vervollständigt einen unbeaufsichtigten Windows-Slot-Pool.
+    #>
     [CmdletBinding()]
     param()
+
+    $minimumEvaluationDays = Read-LabIntegerIntentValue -Prompt 'Mindestens verbleibende Evaluation-Tage' -Default 30 -Minimum 0 -Maximum 3650
+    $artifact = Resolve-LabWindowsSlotPoolArtifact -MinimumEvaluationDaysRemaining $minimumEvaluationDays
+    if (-not $artifact) {
+        $inventory = @(Get-SqlServerLabHyperVImageArtifact -MinimumEvaluationDaysRemaining $minimumEvaluationDays)
+        $expiring = @($inventory | Where-Object { $_.ArtifactState -eq 'OS_SEALED' -and $_.Evaluation.Status -in @('EVALUATION_EXPIRING','EVALUATION_EXPIRED','EVALUATION_EXPIRY_UNKNOWN') })
+        if ($expiring.Count -gt 0) {
+            foreach ($item in $expiring) {
+                Write-LabWarning ("Windows-Baseline {0}: {1}, Ablauf {2}." -f $item.ArtifactId, $item.Evaluation.Status, $(if ($item.Evaluation.ExpiresAt) { $item.Evaluation.ExpiresAt } else { 'unbekannt' }))
+            }
+        }
+        else { Write-LabWarning 'Keine veröffentlichte Windows-OS-Baseline vorhanden.' }
+        Write-LabInfo 'Der Pool verwendet keine fehlende, abgelaufene oder bald ablaufende Evaluation-Baseline.'
+        if (-not (Read-LabConfirm -Prompt '  Windows-OS-Vorlage jetzt erstellen oder einen offenen Build fortsetzen?' -Default $true)) { return }
+        Invoke-LabHyperVWindowsBaselineMenu
+        $artifact = Resolve-LabWindowsSlotPoolArtifact -MinimumEvaluationDaysRemaining $minimumEvaluationDays
+        if (-not $artifact) {
+            Write-LabWarning 'Noch keine geeignete OS_SEALED-Baseline veröffentlicht. Der Slot-Pool wurde nicht verändert.'
+            Write-LabInfo 'Den Windows-Image-Aufbau abschließen und dieselbe Aktion danach erneut starten; sie setzt beim Pool fort.'
+            return
+        }
+    }
+
+    $count = Read-LabIntegerIntentValue -Prompt 'Anzahl Windows-OS-Slots' -Default 20 -Minimum 1 -Maximum 100
+    $startIndex = Read-LabIntegerIntentValue -Prompt 'Erste Slotnummer' -Default 1 -Minimum 1 -Maximum 9999
+    $namePrefix = Read-Host '  Namenspräfix [windows-sql-slot]'
+    if (-not $namePrefix) { $namePrefix = 'windows-sql-slot' }
+
+    while ($true) {
+        $memoryMinimumMB = Read-LabIntegerIntentValue -Prompt 'Minimaler RAM pro Slot in MB' -Default 1024 -Minimum 512 -Maximum 1048576
+        $memoryStartupMB = Read-LabIntegerIntentValue -Prompt 'Startspeicher pro Slot in MB' -Default 2048 -Minimum 512 -Maximum 1048576
+        $memoryMaximumMB = Read-LabIntegerIntentValue -Prompt 'Maximaler RAM pro Slot in MB' -Default 4096 -Minimum 512 -Maximum 1048576
+        if ($memoryMinimumMB -le $memoryStartupMB -and $memoryStartupMB -le $memoryMaximumMB) { break }
+        Write-LabWarning 'Erforderlich ist: Minimum ≤ Startspeicher ≤ Maximum.'
+    }
+    $processorCount = Read-LabIntegerIntentValue -Prompt 'vCPU pro Slot' -Default 4 -Minimum 1 -Maximum 64
+    $artifactLanguage = if ($artifact.operatingSystem.language) { [string]$artifact.operatingSystem.language } else { 'en-US' }
+    while ($true) {
+        $locale = Read-LabHyperVLocaleSettings -DefaultRegion AT -DefaultSystemLocale de-AT -DefaultUiLanguage $artifactLanguage
+        if ([string]$locale.UiLanguage -ieq $artifactLanguage) { break }
+        Write-LabWarning "Die Anzeigesprache muss der OS-Baseline entsprechen ($artifactLanguage). Andere Sprachen benötigen zuerst eine eigene Baseline oder ein gebundenes Sprachpaket."
+    }
+
+    $passwordMode = Show-LabSubMenu -ScreenId 'windows-slot-pool-password-mode' -Title 'Windows-Administratorpasswörter' -Items @(
+        New-LabConsoleItem -Id 'generated' -Label 'Für jeden Slot sicher generieren' -Value 'DPAPI-geschützt und später per Run-ID abrufbar' -Shortcut '1'
+        New-LabConsoleItem -Id 'shared' -Label 'Eigenes gemeinsames Passwort verwenden' -Value 'Ein Passwort für alle Slots' -Shortcut '2'
+    )
+    if (-not $passwordMode) { return }
+    $sharedPassword = $null
+    if ($passwordMode -eq 'shared') {
+        $sharedPassword = Read-Host '  Gemeinsames lokales Administratorpasswort' -AsSecureString
+        $confirmation = Read-Host '  Passwort bestätigen' -AsSecureString
+        $firstBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sharedPassword)
+        $secondBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($confirmation)
+        try {
+            if ([Runtime.InteropServices.Marshal]::PtrToStringBSTR($firstBstr) -ne [Runtime.InteropServices.Marshal]::PtrToStringBSTR($secondBstr)) {
+                Write-LabWarning 'Passwörter stimmen nicht überein.'
+                return
+            }
+        }
+        finally {
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($firstBstr)
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($secondBstr)
+        }
+    }
+
+    $lastIndex = $startIndex + $count - 1
+    Write-Host ''
+    Write-Host '  Poolvorschau' -ForegroundColor Cyan
+    Write-LabStatus -Label 'Slots' -Value ("{0}-{1} ({2} Stück)" -f $startIndex, $lastIndex, $count)
+    Write-LabStatus -Label 'Namenspräfix' -Value $namePrefix
+    Write-LabStatus -Label 'RAM Min/Start/Max' -Value ("{0}/{1}/{2} MB" -f $memoryMinimumMB, $memoryStartupMB, $memoryMaximumMB)
+    Write-LabStatus -Label 'vCPU' -Value $processorCount
+    Write-LabStatus -Label 'Windows' -Value ("{0}, Region {1}, Format {2}, Tastatur {3}" -f $locale.UiLanguage, $locale.Region, $locale.SystemLocale, $locale.InputLocale)
+    Write-LabStatus -Label 'Baseline' -Value ([string]$artifact.artifactId)
+    Write-LabInfo 'Alle Slots werden zuerst als unabhängige Child-VHDX erstellt, danach sequenziell unbeaufsichtigt eingerichtet und wieder gestoppt.'
+    if (-not (Read-LabConfirm -Prompt '  Diesen Windows-Slot-Pool jetzt erstellen oder fortsetzen?' -Default $false)) { return }
+
+    $arguments = @{
+        Count=$count; StartIndex=$startIndex; NamePrefix=$namePrefix
+        ArtifactId=[string]$artifact.artifactId; MinimumEvaluationDaysRemaining=$minimumEvaluationDays
+        MemoryMinimumMB=$memoryMinimumMB; MemoryStartupMB=$memoryStartupMB; MemoryMaximumMB=$memoryMaximumMB
+        ProcessorCount=$processorCount; Region=$locale.Region; SystemLocale=$locale.SystemLocale
+        UiLanguage=$locale.UiLanguage; InputLocale=$locale.InputLocale; TimeZone=$locale.TimeZone
+        Confirm=$false
+    }
+    if ($passwordMode -eq 'generated') { $arguments.GenerateAdministratorPasswords = $true }
+    else { $arguments.AdministratorPassword = $sharedPassword }
+    try {
+        $result = New-SqlServerLabWindowsSlotPool @arguments
+        Write-LabSuccess "Windows-Slot-Pool abgeschlossen: $(@($result.Slots).Count)/$($result.Count) Slots, Status $($result.Status)."
+        foreach ($slot in @($result.Slots)) {
+            Write-LabStatus -Label ([string]$slot.Name) -Value ("{0} · Run {1}" -f $slot.State, $slot.RunId)
+        }
+        if ($passwordMode -eq 'generated') {
+            Write-LabInfo 'Generierte Windows-Zugänge werden gezielt pro Run abgerufen:'
+            Write-Host '  Get-SqlServerLabGeneratedWindowsAccess -RunId <RunId>' -ForegroundColor White
+        }
+        return $result
+    }
+    catch {
+        Write-LabError $_.Exception.Message
+        Write-LabInfo 'Bereits erzeugte Slots und Recovery-Evidence bleiben erhalten. Dieselbe Aktion kann sicher erneut gestartet werden.'
+    }
+    finally { $sharedPassword = $null }
+}
+
+function Invoke-LabHyperVImageAction {
+    [CmdletBinding()]
+    param([switch]$WindowsSlotPool)
 
     $resourcePreview = try {
         if ($script:HyperVResourceLocationHandoff) {
@@ -1982,7 +2110,8 @@ function Invoke-LabHyperVImageAction {
 
     if (-not (Test-LabAdministrator)) {
         try {
-            $elevation = Start-LabElevatedAction -Action Image -ResourcePreview $resourcePreview
+            $elevationAction = if ($WindowsSlotPool) { 'WindowsSlotPool' } else { 'Image' }
+            $elevation = Start-LabElevatedAction -Action $elevationAction -ResourcePreview $resourcePreview
             if ($elevation.Started) {
                 Write-LabInfo 'Hyper-V-Aktion wird in einem erhoehten PowerShell-Fenster fortgesetzt.'
             }
@@ -2019,11 +2148,16 @@ function Invoke-LabHyperVImageAction {
         return
     }
 
+    if ($WindowsSlotPool) {
+        return Invoke-LabHyperVWindowsSlotPoolInteractive
+    }
+
     $exitImageMenu = $false
     while (-not $exitImageMenu) {
         $items = @(
             New-LabConsoleItem -Id '1' -Label 'Windows-OS-Vorlage aus DVD erstellen oder fortsetzen' -Shortcut '1' -Value 'Standardpfad'
             New-LabConsoleItem -Id '2' -Label 'Betriebssystem-Slot aus Windows-OS-Vorlage erstellen' -Shortcut '2'
+            New-LabConsoleItem -Id 'p' -Label 'Windows-OS-Slot-Pool automatisch erstellen oder fortsetzen' -Shortcut 'p' -Value 'N Slots · Unattended OOBE'
             New-LabConsoleItem -Id '3' -Label 'Neue SQL-Prepared-Vorlage aus DVD erstellen' -Shortcut '3' -Value 'optional'
             New-LabConsoleItem -Id 's' -Label 'Offenen SQL-Prepared-Builder fortsetzen' -Shortcut 's'
             New-LabConsoleItem -Id '4' -Label 'Betriebssystem- und SQL-Slots verwalten' -Shortcut '4'
@@ -2039,6 +2173,7 @@ function Invoke-LabHyperVImageAction {
             '0' { $exitImageMenu = $true }
             '1' { Invoke-LabHyperVWindowsBaselineMenu }
             '2' { Invoke-LabHyperVMenuAction -Title 'Betriebssystem-Slot aus Windows-OS-Vorlage' -Action { New-LabHyperVEnvironmentInteractive -WindowsOnly } -ResourceClass Run }
+            'p' { Invoke-LabHyperVMenuAction -Title 'Automatischer Windows-OS-Slot-Pool' -Action { Invoke-LabHyperVWindowsSlotPoolInteractive } -ResourceClass Run,Image,Staging }
             '3' { Invoke-LabHyperVMenuAction -Title 'Neue SQL-Prepared-Vorlage' -Action { New-LabHyperVSqlImageBuildInteractive } -ResourceClass Build,Image,Staging }
             's' { Invoke-LabHyperVPreparedImageWorkflowMenu }
             '4' { Invoke-LabHyperVMenuAction -Title 'Betriebssystem- und SQL-Slots verwalten' -Action { Manage-LabHyperVEnvironmentInteractive } }
@@ -3518,22 +3653,28 @@ function Read-LabHyperVSqlSaPassword {
 
 function Read-LabHyperVLocaleSettings {
     [CmdletBinding()]
-    param()
+    param(
+        [string]$DefaultRegion = 'DE',
+        [string]$DefaultSystemLocale = 'de-DE',
+        [string]$DefaultUiLanguage = 'en-US',
+        [string]$DefaultInputLocale = '0407:00000407',
+        [string]$DefaultTimeZone = 'W. Europe Standard Time'
+    )
 
-    $region = Read-Host '  Region (z. B. DE, AT oder de-AT) [DE]'
-    if (-not $region) { $region = 'DE' }
+    $region = Read-Host "  Region (z. B. DE, AT oder de-AT) [$DefaultRegion]"
+    if (-not $region) { $region = $DefaultRegion }
 
-    $systemLocale = Read-Host '  System-Locale (z. B. de-DE, en-US oder de-AT) [de-DE]'
-    if (-not $systemLocale) { $systemLocale = 'de-DE' }
+    $systemLocale = Read-Host "  System-Locale (z. B. de-DE, en-US oder de-AT) [$DefaultSystemLocale]"
+    if (-not $systemLocale) { $systemLocale = $DefaultSystemLocale }
 
-    $uiLanguage = Read-Host '  UI-Language (z. B. de-DE oder en-US) [en-US]'
-    if (-not $uiLanguage) { $uiLanguage = 'en-US' }
+    $uiLanguage = Read-Host "  Windows-Anzeigesprache [$DefaultUiLanguage]"
+    if (-not $uiLanguage) { $uiLanguage = $DefaultUiLanguage }
 
-    $inputLocale = Read-Host '  Input-Locale [0407:00000407]'
-    if (-not $inputLocale) { $inputLocale = '0407:00000407' }
+    $inputLocale = Read-Host "  Tastaturlayout / Input-Locale [$DefaultInputLocale]"
+    if (-not $inputLocale) { $inputLocale = $DefaultInputLocale }
 
-    $timeZone = Read-Host '  Zeitzone [W. Europe Standard Time]'
-    if (-not $timeZone) { $timeZone = 'W. Europe Standard Time' }
+    $timeZone = Read-Host "  Zeitzone [$DefaultTimeZone]"
+    if (-not $timeZone) { $timeZone = $DefaultTimeZone }
 
     return [PSCustomObject]@{
         Region = $region

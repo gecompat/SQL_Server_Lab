@@ -10,6 +10,8 @@ Container, Datenbanken oder Run-States.
 | `Invoke-CiStrategyChecks.ps1` | Prueft Pfadklassifikation, PR-/Nightly-Trennung und das Verbot redundanter Volltests | `.\Tests\Static\Invoke-CiStrategyChecks.ps1` |
 | `Invoke-ActionResultChecks.ps1` | `ActionResult/1.0`, No-op-/Abbruchgrenzen und exakt ein Connection-Center-/CMS-Sync fuer endpunktrelevante Mutationen | `.\Tests\Static\Invoke-ActionResultChecks.ps1` |
 | `Invoke-ElevationChecks.ps1` | UAC-Vorschau, Ablehnung, Zustimmung und bereits erhöhte Sitzung ohne vorsorglichen Prozessstart | `.\Tests\Static\Invoke-ElevationChecks.ps1` |
+| `Invoke-WindowsSlotPoolChecks.ps1` | Resumierbarer Windows-Slot-Pool, RAM-/Locale-Vertrag, Passwortmodi und unbeaufsichtigte OOBE ohne echte VM-Mutation | `.\Tests\Static\Invoke-WindowsSlotPoolChecks.ps1` |
+| `Invoke-RuntimeStateSyncChecks.ps1` | Eindeutig fehlende Docker-/Podman-/Hyper-V-Ressourcen, `RECOVERY_REQUIRED`, `WhatIf` und Runtime-unavailable-Abgrenzung | `.\Tests\Static\Invoke-RuntimeStateSyncChecks.ps1` |
 | `Invoke-PortAllocationChecks.ps1` | Read-only-Pruefung expliziter SQL-Hostports mit Besitzer/Grund sowie erneutes Docker-/Podman-Gate innerhalb des atomaren Port-Locks | `.\Tests\Static\Invoke-PortAllocationChecks.ps1` |
 | `Invoke-CleanupRecoveryChecks.ps1` | Simulierter Providerfehler, `RECOVERY_REQUIRED`, persistierte Fehlerursache und erfolgreicher Cleanup-Retry | `.\Tests\Static\Invoke-CleanupRecoveryChecks.ps1` |
 | `Invoke-CleanupAuditChecks.ps1` | Cleanup-Residuen, Hyper-V-Schutzbindungen und versionierte Storage-Residency für `Lab_Data`, native Runtime-Volumes, externe Pfade und Retention | `.\Tests\Static\Invoke-CleanupAuditChecks.ps1` |

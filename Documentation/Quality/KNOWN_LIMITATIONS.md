@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-09-02 |
+| Stand | 2026-09-04 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -54,6 +54,14 @@ Umfang und die Recovery-Regeln stehen im
 Nicht enthalten sind ein gemeinsames providerübergreifendes Containernetzwerk,
 Cluster- oder Failoversemantik sowie Hyper-V-SubRuns.
 
+`Get-SqlServerLab` liest den gebundenen Runtimezustand live und kennzeichnet
+manuell gelöschte Container oder VMs als `MISSING`. Mit
+`Sync-SqlServerLabRuntimeState` kann dieser eindeutige Befund für Docker,
+Podman und Hyper-V explizit in `RECOVERY_REQUIRED` übernommen werden. Der
+Abgleich löscht oder rekonstruiert nichts. `UNAVAILABLE`, `PARTIAL` und
+`UNKNOWN` bleiben diagnostisch, damit ein nicht erreichbarer Runtime-Dienst
+nicht fälschlich als manuelle Löschung behandelt wird.
+
 ### Hyper-V
 
 Hyper-V besitzt eine ausführbare Lifecycle-Grundlage für eine Generation-2-VM
@@ -81,6 +89,16 @@ Operatorseitig bereitgestellte, bereits generalisierte `OS_SEALED`- und
 lokalen Registry abgelegt, deterministisch ausgewählt und per portablem
 Manifest Lock an einen Run gebunden werden. Die Registry erzeugt oder
 generalisiert diese Images nicht selbst.
+
+`New-SqlServerLabWindowsSlotPool` kann aus einer geeigneten `OS_SEALED`-
+Baseline bis zu 100 deterministisch benannte, wiederaufnehmbare Windows-Slots
+erzeugen. RAM-Grenzen, vCPU, Region, System-Locale, Anzeigesprache,
+Tastaturlayout und Zeitzone sind gebunden; OOBE und Erstanmeldung erfolgen im
+erhöhten Runner unbeaufsichtigt. Passwörter sind entweder ein vom Benutzer
+übergebenes gemeinsames `SecureString` oder je Slot generiert und run-lokal
+DPAPI-geschützt. Der Pool erstellt keine neue Baseline aus ISO und verlängert
+keine abgelaufene Evaluation. Die statischen Verträge sind abgedeckt; ein
+eigener positiver nativer 20-Slot-Poollauf ist noch nicht ausgeführt.
 
 Die Windows-Image-Builder-Grundlage verifiziert ein lokales ISO, erstellt einen
 persistenten Build-Plan und kann den isolierten Generation-2-Builder samt
@@ -1081,10 +1099,11 @@ definiert `Lab_Data` deshalb als hostseitigen Katalog-, Austausch- und
 Recovery-Einstieg statt als Vollresidenzversprechen. Native katalogisierte
 Container-Instanzstores bleiben zulässig; globale Runtime-/Machine-Ablagen und
 labfremde Ressourcen werden ohne getrennten Ownership-Vertrag nicht verändert.
-Der zusätzliche strikte Vertrag `SqlServerLab.CleanupFindings/1.0` trennt
+Der zusätzliche strikte Vertrag `SqlServerLab.CleanupFindings/1.1` trennt
 bewusst retained und geteilte Ressourcen, unerwartete Residuen,
 recoverypflichtige Katalog-/Hyper-V-Zustände und unverifizierbare Evidence.
-Jeder Befund enthält nur stabile Subjektidentität, Provider, Reason-Code und
+Jeder Befund enthält nur stabile Subjektidentität, Objektart, Provider,
+Reason-Code, eine ausdrückliche Löschungs-/Bewahrungsempfehlung und einen
 sanitisierten Handlungshinweis und setzt `AutomaticMutationAllowed=false`.
 Diese verständliche Auditprojektion ist implementiert; sie repariert oder
 entfernt keine Ressource und ersetzt weder Ownership- noch Referenzprüfung.
