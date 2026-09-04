@@ -124,7 +124,10 @@ dann den Run und finalisiert nach frischem Nachweis eines fehlenden Volumes zu
 `DETACHED`. Die Workflow-Auswahl bietet `DELETE_WITH_RUN` nur für einen aktiven
 Docker-/Podman-`INSTANCE_STORE` mit `RUN_SCOPED`/`RUN_CLEANUP`,
 `NATIVE_RUNTIME`-Binding und Provider-Ressourcen-ID an; Plan und Executor
-bleiben für Lease- und Ownership-Evidence maßgeblich. FILESTREAM, TDE und jede andere endgültige Persistent-Storage-
+bleiben für Lease- und Ownership-Evidence maßgeblich. Der Executor revalidiert
+gegen den aktuellen Katalog zusätzlich Storage-Klasse und
+`RUN_SCOPED`/`RUN_CLEANUP`; eine nach der Planung geänderte Retention erlangt
+dadurch keine Delete-Autorität. FILESTREAM, TDE und jede andere endgültige Persistent-Storage-
 Löschung bleiben vor jeder Mutation blockierte, getrennte Folgearbeit. Der
 reguläre Run-Cleanup ist davon getrennt:
 Er entfernt ein rungebundenes Docker-/Podman-Volume nur, wenn dessen frische
