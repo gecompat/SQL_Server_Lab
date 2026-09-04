@@ -374,3 +374,83 @@ function Invoke-LabHyperVDatabasePackageAttachPlan {
         throw
     }
 }
+
+function Invoke-LabHyperVDatabasePackageAttachRecovery {
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)]$Package,
+        [Parameter(Mandatory)]$Context,
+        [Parameter(Mandatory)]$Journal,
+        [Parameter(Mandatory)][PSCredential]$Credential
+    )
+
+    if ([string]$Journal.ContractVersion -ne 'SqlServerLab.DatabasePackageAttachJournal/1.0' -or
+        [string]$Journal.DatabasePackageId -ne [string]$Package.Record.DatabasePackageId -or
+        [string]$Journal.Status -ne 'RECOVERY_REQUIRED' -or
+        -not [string]::Equals([string]$Journal.TargetDirectory, [string]$Context.TargetDirectory, [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'DATABASE_PACKAGE_ATTACH_RECOVERY_JOURNAL_INVALID'
+    }
+    if (-not $PSCmdlet.ShouldProcess(
+            "$($Context.Lab.Run.runId)/$($Context.Lab.Instance.id)",
+            "Recover database package attach $($Package.Record.DatabasePackageId)")) {
+        return $null
+    }
+    $lab = $Context.Lab
+    $result = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
+        -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId) `
+        -Credential $Credential -ArgumentList @(
+            [string]$Package.Record.DatabaseName,
+            [string]$Context.TargetDirectory,
+            [string]$Journal.Recovery
+        ) -ScriptBlock {
+            param($DatabaseName, $TargetDirectory, $Recovery)
+            $ErrorActionPreference = 'Stop'
+            $target = [IO.Path]::GetFullPath($TargetDirectory).TrimEnd('\\')
+            if ($target -notmatch '^[A-Za-z]:\\') { throw 'DATABASE_PACKAGE_HYPERV_TARGET_PATH_SCOPE_INVALID' }
+            Add-Type -AssemblyName System.Data
+            $connection = [Data.SqlClient.SqlConnection]::new(
+                'Server=localhost;Database=master;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;Connect Timeout=30;')
+            try {
+                $connection.Open()
+                $query = $connection.CreateCommand()
+                $query.CommandText = 'SELECT physical_name FROM sys.master_files WHERE database_id=DB_ID(@databaseName) ORDER BY file_id;'
+                $null = $query.Parameters.Add('@databaseName', [Data.SqlDbType]::NVarChar, 128)
+                $query.Parameters['@databaseName'].Value = $DatabaseName
+                $reader = $query.ExecuteReader()
+                $paths = [Collections.Generic.List[string]]::new()
+                while ($reader.Read()) { $paths.Add([IO.Path]::GetFullPath([string]$reader.GetValue(0))) }
+                $reader.Dispose()
+                if ($Recovery -eq 'DETACH_TARGET_COPY_AND_PRESERVE_PACKAGE' -and $paths.Count -gt 0) {
+                    foreach ($path in $paths) {
+                        if (-not $path.StartsWith($target + '\\', [StringComparison]::OrdinalIgnoreCase)) {
+                            throw 'DATABASE_PACKAGE_ATTACH_RECOVERY_FOREIGN_DATABASE_PATH'
+                        }
+                    }
+                    $detach = $connection.CreateCommand()
+                    $detach.CommandTimeout = 600
+                    $detach.CommandText = 'ALTER DATABASE [' + $DatabaseName.Replace(']', ']]') + '] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; EXEC master.dbo.sp_detach_db @dbname = @databaseName;'
+                    $null = $detach.Parameters.Add('@databaseName', [Data.SqlDbType]::NVarChar, 128)
+                    $detach.Parameters['@databaseName'].Value = $DatabaseName
+                    $null = $detach.ExecuteNonQuery()
+                }
+                elseif ($Recovery -eq 'REMOVE_UNATTACHED_TARGET_COPY') {
+                    if ($paths.Count -ne 0) { throw 'DATABASE_PACKAGE_ATTACH_RECOVERY_DATABASE_STILL_ATTACHED' }
+                    if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force }
+                }
+                else { throw 'DATABASE_PACKAGE_ATTACH_RECOVERY_ACTION_INVALID' }
+                $verify = $connection.CreateCommand()
+                $verify.CommandText = 'SELECT CASE WHEN DB_ID(@databaseName) IS NULL THEN 0 ELSE 1 END;'
+                $null = $verify.Parameters.Add('@databaseName', [Data.SqlDbType]::NVarChar, 128)
+                $verify.Parameters['@databaseName'].Value = $DatabaseName
+                $databaseAbsent = [int]$verify.ExecuteScalar() -eq 0
+                if (-not $databaseAbsent) { throw 'DATABASE_PACKAGE_ATTACH_RECOVERY_POSTCONDITION_FAILED' }
+                [PSCustomObject]@{ Status = 'RECOVERED'; DatabaseAbsent = $databaseAbsent }
+            }
+            finally { $connection.Dispose() }
+        }
+    $result = @($result)[-1]
+    if ([string]$result.Status -ne 'RECOVERED' -or -not [bool]$result.DatabaseAbsent) {
+        throw 'DATABASE_PACKAGE_ATTACH_RECOVERY_POSTCONDITION_FAILED'
+    }
+    return $result
+}

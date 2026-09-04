@@ -472,8 +472,12 @@ Ein freier Zielpfad ist nicht Teil des Vertrags: Das Framework ermittelt SQLs
 Default-Data-Verzeichnis live im scopegebundenen Gast, kopiert dorthin in eine
 paketeigene Unterstruktur, verifiziert jeden Hash im Gast und persistiert den
 Recovery-Zustand vor der SQL-Mutation. TDE bleibt ohne Ziel-Key-Vertrag
-fail-closed. Weitere Providerbindungen, öffentliche Paketpublikation und ein
-eigener automatischer Recovery-/Detach-Befehl bleiben offen. Der native
+fail-closed. Weitere Providerbindungen und öffentliche Paketpublikation bleiben
+offen. Der öffentliche Hyper-V-Paket-Attach kann einen passenden persistierten
+`RECOVERY_REQUIRED`-Journalzustand mit `-Recover` ausführen: er bindet den
+Vorgang erneut an Paket-ID, Run, Instanz und SQL-Default-Data-Ziel, detacht
+eine Datenbank nur bei ausschließlich zu diesem Ziel gehörenden Dateien und
+entfernt eine nicht angehängte Zielkopie nur innerhalb dieses Zielordners. Der native
 Hyper-V-Transportlauf und der native Windows-SQL-/FILESTREAM-Inhaltslauf sind
 getrennte Nachweise; keiner wird durch die statische Dateisystem-Abnahme ersetzt.
 Der Hyper-V-Transportlauf ist am 2026-09-02 gegen einen laufenden verwalteten

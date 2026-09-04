@@ -788,6 +788,11 @@ der Test verlangt dafür das persistierte `RECOVERY_REQUIRED`-Journal mit der
 passenden Detach-Aktion. Sie lädt
 kein fremdes Sample-Artefakt herunter.
 
+Der Datenbankpaket-Static-Check ergänzt dazu den öffentlichen Hyper-V-
+Recoverypfad: Nur ein für dieselbe Paket-ID, Run-/Instanzbindung und
+Zielunterstruktur validiertes `RECOVERY_REQUIRED`-Journal darf mit
+`Invoke-SqlServerLabDatabasePackageAttach -Recover` ausgeführt werden.
+
 ### Hyper-V-Lifecycle betroffen
 
 ```powershell
