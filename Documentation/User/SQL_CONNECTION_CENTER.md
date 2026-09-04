@@ -79,8 +79,21 @@ aktualisieren und beispielsweise **SQL Server Lab (8) -> Running (3)** aufklappe
 darunter folgen optional die nichtleeren Providergruppen wie `DOCKER (1)` und
 `HYPERV (2)`. Root-, Status- und Providergruppen zeigen bei jedem Abgleich die
 Anzahl aller jeweils darunterliegenden Umgebungen. Das CMS-Menü zeigt dafür den
-konkreten Servernamen. Zugangsdaten bleiben im geschützten Run-Secret und werden
-nicht in den CMS-Registrierungen gespeichert.
+konkreten Servernamen. CMS-Mitglieder speichern selbst keine Anmeldung: Microsoft
+beschränkt deren [zentrale Registrierung](https://learn.microsoft.com/en-us/ssms/register-servers/create-a-new-registered-server-sql-server-management-studio)
+auf Servername, sichtbaren Namen und Beschreibung. Nur die einmalige lokale
+Verbindung von SSMS zum CMS kann ein von SSMS verschlüsselt gespeichertes Kennwort
+verwenden.
+
+Das CMS-Menü bietet zusätzlich **Generiertes Passwort im CMS-Namen anzeigen**.
+Der sichere Standard ist **Aus**. Nach ausdrücklicher Klartextwarnung kann die
+Option aktiviert werden; dann lautet ein Mitglied beispielsweise
+`Demo_GeneriertesPasswort (primary)`. Ausschließlich Kennwörter, deren Herkunft
+das Framework als selbst erzeugt nachweist, werden ergänzt. Manuell eingegebene,
+manifestbasierte und über Lizenzprofile bereitgestellte Geheimnisse erscheinen
+niemals im Namen. Die Option erleichtert den bewussten Zugriff auf kurzlebige
+Testumgebungen, macht das jeweilige Kennwort aber auch in SSMS, CMS-Backups,
+Screenshots und für alle CMS-Leser sichtbar.
 
 Bei der einmaligen CMS-Registrierung in SSMS ist SQL-Authentifizierung mit
 Login `sa` und dem gesicherten CMS-Passwort zulässig. Microsoft dokumentiert
@@ -100,12 +113,16 @@ Ansicht und bleiben bis **Enter** oder **Escape** lesbar. Voraussetzung ist, das
 DPAPI-Schlüssel den Run entschlüsseln kann. Manuell eingegebene oder manifestbasierte
 Kennwörter bleiben immer maskiert.
 
-Alternativ schreibt `[4]` unter `Lab_Data/Exports` ein idempotentes
+Alternativ schreibt die Exportaktion unter `Lab_Data/Exports` ein idempotentes
 `sql-server-lab-cms-sync.sql`. Das Skript nutzt die dokumentierten
 `msdb.dbo.sp_sysmanagement_*`-Prozeduren und gleicht den vollständig durch SQL Server Lab
 verwalteten CMS-Unterbaum mit dem Framework-State ab. Es legt Einträge an, verschiebt sie
 zwischen `Running` und `Stopped` und entfernt veraltete Einträge nur, wenn der zugehörige
-Provider lokal sicher geprüft werden kann. Das Skript enthält keine Kennwörter.
+Provider lokal sicher geprüft werden kann. Das exportierte Skript enthält auch
+bei aktivierter Namensanzeige keine Kennwörter und verwendet deshalb normale
+Anzeigenamen. Der direkte CMS-Abgleich erzeugt den kennworthaltigen Plan
+ausschließlich im Arbeitsspeicher, führt ihn unmittelbar aus und verwirft den
+Klartext danach; es entsteht keine kennworthaltige Sync-Datei.
 
 ## Gruppen
 

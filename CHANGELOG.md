@@ -4,6 +4,22 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-09-05
+
+### Hinzugefügt
+
+- Das CMS-Menü kann vom Lab erzeugte SA-Passwörter optional als
+  `Umgebungsname_Passwort (Instanz)` im Anzeigenamen darstellen. Die Option ist
+  standardmäßig deaktiviert, warnt ausdrücklich vor der Klartextwirkung und
+  schließt manuell eingegebene sowie manifestbasierte Passwörter aus.
+
+### Geändert
+
+- Der passwortfreie Connection-Center-Katalog und dauerhafte CMS-/SSMS-Exporte
+  bleiben auch bei aktivierter Namensdarstellung geheimnisfrei. Nur der direkte
+  CMS-Abgleich verwendet einen ausschließlich im Arbeitsspeicher gehaltenen
+  Sync-Plan.
+
 ## 2026-09-04
 
 ### Hinzugefügt

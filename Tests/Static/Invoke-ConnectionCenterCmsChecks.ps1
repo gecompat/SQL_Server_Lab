@@ -1,7 +1,7 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Prueft sichtbare, dynamische CMS-Gruppenzaehler und deren sichere Migration.
+    Prueft CMS-Gruppenzaehler, sichere Migration und optionale Kennwort-Aliasse.
 #>
 [CmdletBinding()]
 param()
@@ -68,6 +68,42 @@ try {
         $source -match 'if \(\$runningProviderEntries\.Count -gt 0\)' -and
         $source -match 'if \(\$stoppedProviderEntries\.Count -gt 0\)' -and
         $source -match 'sp_sysmanagement_delete_shared_server_group')
+
+    $aliasEntry = [PSCustomObject]@{ RunId='generated-run'; DisplayName='Demo (primary)' }
+    $generatedAlias = Get-LabCmsRegisteredServerDisplayName -Entry $aliasEntry -StateRoot 'unused' `
+        -IncludeGeneratedPassword -GeneratedPasswordResolver { param($RunId, $StateRoot) 'Generated!234' }
+    $manualName = Get-LabCmsRegisteredServerDisplayName -Entry $aliasEntry -StateRoot 'unused' `
+        -IncludeGeneratedPassword -GeneratedPasswordResolver { param($RunId, $StateRoot) $null }
+    Add-CheckResult -Name 'Nur aufgeloeste generierte Passwoerter werden in den CMS-Namen aufgenommen' -Success (
+        $generatedAlias -eq 'Demo_Generated!234 (primary)' -and $manualName -eq 'Demo (primary)')
+
+    $longEntry = [PSCustomObject]@{ RunId='generated-run'; DisplayName=(('x' * 160) + ' (primary)') }
+    $boundedAlias = Get-LabCmsRegisteredServerDisplayName -Entry $longEntry -StateRoot 'unused' `
+        -IncludeGeneratedPassword -GeneratedPasswordResolver { param($RunId, $StateRoot) 'Generated!234' }
+    Add-CheckResult -Name 'CMS-Kennwortalias bleibt innerhalb der sysname-Grenze' -Success (
+        $boundedAlias.Length -eq 128 -and $boundedAlias.EndsWith('_Generated!234 (primary)'))
+
+    Add-CheckResult -Name 'Kennworthaltige Sync-Plaene sind fluechtig und Exporte bleiben kennwortfrei' -Success (
+        $source -match 'PASSWORD_ALIAS_REQUIRES_IN_MEMORY_SCRIPT' -and
+        $source -match '\$scriptContent = \$lines -join \[Environment\]::NewLine' -and
+        $source -match "Invoke-LabCmsSqlInMemory -Query" -and
+        $source -match '\[System\.Data\.SqlClient\.SqlConnection\]::new' -and
+        $source -match '\$command\.CommandText = \$Query' -and
+        $source -match "Kennwortfreies CMS-Synchronisationsskript exportieren")
+
+    Add-CheckResult -Name 'CMS-Kennwortanzeige ist kompatibel standardmaessig deaktiviert' -Success (
+        $source -match "ConnectionCenterGroups/1\.2" -and
+        $source -match 'CmsShowGeneratedPasswordInName = \$false' -and
+        $source -match 'if \(\$null -eq \$saved\.CmsShowGeneratedPasswordInName\) \{ \$false \}')
+
+    Add-CheckResult -Name 'CMS-Menue warnt vor Klartext und bewahrt manuelle Passwoerter' -Success (
+        $source -match "Generiertes Passwort im CMS-Namen anzeigen" -and
+        $source -match 'Klartext in CMS-Namen, SSMS-Ansichten, Screenshots und CMS-Backups' -and
+        $source -match 'Manuell eingegebene und manifestbasierte Passwoerter bleiben immer ausgeschlossen')
+
+    Add-CheckResult -Name 'CMS-In-Memory-Executor schreibt weder Query- noch Skriptdatei' -Success (
+        $source -match 'function Invoke-LabCmsSqlInMemory' -and
+        [regex]::Match($source, 'function Invoke-LabCmsSqlInMemory[\s\S]+?(?=\r?\nfunction Export-SqlServerLabCmsSyncScript)').Value -notmatch 'WriteAllText|WriteAllLines|GetTempFileName|sqlcmd')
 }
 catch {
     Add-CheckResult -Name 'Connection-Center-CMS-Vertragspruefung' -Success $false -Message $_.Exception.Message
