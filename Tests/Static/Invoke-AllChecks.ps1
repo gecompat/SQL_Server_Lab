@@ -35,6 +35,7 @@ $checks = @(
     'Invoke-PSScriptAnalyzerChecks.ps1',
     'Invoke-CiStrategyChecks.ps1',
     'Invoke-ConsoleUiChecks.ps1',
+    'Invoke-ConnectionCenterCmsChecks.ps1',
     'Invoke-ActionResultChecks.ps1',
     'Invoke-ElevationChecks.ps1',
     'Invoke-PortAllocationChecks.ps1',
