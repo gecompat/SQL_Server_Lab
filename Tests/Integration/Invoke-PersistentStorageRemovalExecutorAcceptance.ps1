@@ -14,6 +14,7 @@ param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
     [string]$Version='2022-CU18',
     [ValidateSet('BACKUP_ON_REMOVE','PACKAGE_ON_REMOVE','BACKUP_AND_PACKAGE','DELETE_WITH_RUN')][string]$Policy='BACKUP_ON_REMOVE',
+    [switch]$RuntimeMutexAlreadyHeld,
     [switch]$KeepOnFailure
 )
 
@@ -30,7 +31,7 @@ $previousTestDataRoot=$env:SQL_SERVER_LAB_TEST_DATA_ROOT
 $lab=$null;$module=$null;$persistentVolume=$null;$completed=$false
 $databaseName='Psr004Evidence'
 $isDeleteWithRun=$Policy -eq 'DELETE_WITH_RUN'
-$runtimeMutex=[Threading.Mutex]::new($false,$(if($IsWindows){'Global\SQL_Server_Lab_Runtime_Smoke'}else{'SQL_Server_Lab_Runtime_Smoke'}))
+$runtimeMutex=$null
 $mutexAcquired=$false
 
 function Assert-RemovalAcceptance {
@@ -41,8 +42,11 @@ function Assert-RemovalAcceptance {
 
 try {
     Write-Host "PSR-004-Executor-Abnahme: $Provider" -ForegroundColor Cyan
-    $mutexAcquired=$runtimeMutex.WaitOne([TimeSpan]::FromMinutes(10))
-    if(-not $mutexAcquired){throw 'PERSISTENT_STORAGE_REMOVAL_ACCEPTANCE_LOCK_TIMEOUT'}
+    if(-not $RuntimeMutexAlreadyHeld){
+        $runtimeMutex=[Threading.Mutex]::new($false,$(if($IsWindows){'Global\SQL_Server_Lab_Runtime_Smoke'}else{'SQL_Server_Lab_Runtime_Smoke'}))
+        $mutexAcquired=$runtimeMutex.WaitOne([TimeSpan]::FromMinutes(10))
+        if(-not $mutexAcquired){throw 'PERSISTENT_STORAGE_REMOVAL_ACCEPTANCE_LOCK_TIMEOUT'}
+    }
     New-Item -ItemType Directory -Path $testRoot -Force|Out-Null
     $env:SQL_SERVER_LAB_STATE=$stateRoot
     $env:SQL_SERVER_LAB_DATA_ROOT=$dataRoot
@@ -139,8 +143,10 @@ finally {
     $env:SQL_SERVER_LAB_STATE=$previousStateRoot
     $env:SQL_SERVER_LAB_DATA_ROOT=$previousDataRoot
     $env:SQL_SERVER_LAB_TEST_DATA_ROOT=$previousTestDataRoot
-    if($mutexAcquired){try{$runtimeMutex.ReleaseMutex()}catch{}}
-    $runtimeMutex.Dispose()
+    if($runtimeMutex){
+        if($mutexAcquired){try{$runtimeMutex.ReleaseMutex()}catch{}}
+        $runtimeMutex.Dispose()
+    }
 }
 
 Write-Host "PSR-004-Executor-Abnahme erfolgreich: $Provider" -ForegroundColor Green

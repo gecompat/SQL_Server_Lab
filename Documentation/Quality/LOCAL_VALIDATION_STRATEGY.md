@@ -847,6 +847,11 @@ Ubuntu nur betroffene statische Suites aus und schaltet ausschließlich passende
 Runtime-Smokes zu. Änderungen am Foundation-Core, Root-Agentenvertrag,
 Upgrade-Assessment, Copilot-Adapter oder PR-Gate starten zusätzlich den Job
 `Foundation integrity`.
+Die Docker- und Podman-Lifecycle-Gates führen nach ihren jeweiligen Smokes
+zusätzlich die öffentliche `DELETE_WITH_RUN`-Acceptance aus. Sie teilen den
+bereits gehaltenen Runtime-Mutex, erzeugen einen isolierten rungebundenen Store
+und verlangen Registrierung, Missing-Volume-Nachweis sowie `DETACHED`-Katalog-
+abschluss; Backup- und Paket-SHA-256-Verträge bleiben davon getrennt.
 Dieser checkt den in `.ai/repo_map.yaml` gebundenen Foundation-Quellcommit aus
 und führt den Foundation-Validator mit den projektspezifisch ausgewählten
 Adaptern und Capabilities aus. Sein Ergebnis fließt in den geschützten
