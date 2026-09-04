@@ -242,6 +242,12 @@ Add-CheckResult -Name 'CLI und Browser verwenden Datenbankpakete pfadfrei über 
     $htmlText -match 'ein freier Pfad kann nicht eingegeben werden' -and
     $htmlText -match 'sanitisierte Migrationskategorien'
 )
+Add-CheckResult -Name 'Workflow führt Attach-Recovery nur als getrennte journalgebundene Aktion aus' -Success (
+    $actionText -match "'RecoverHyperVDatabasePackageAttach'" -and
+    $actionText -match 'Recover = \$true' -and
+    $actionText -match 'DATABASE_PACKAGE_HYPERV_WORKFLOW_TARGET_REQUIRED' -and
+    $actionText -match 'HYPERV_WORKFLOW_GUEST_PASSWORD_REQUIRED'
+)
 Add-CheckResult -Name 'CLI und Browser planen und führen unterstützte Retention über dieselben Fachbefehle aus' -Success (
     $removalPreviewText -match 'function Get-SqlServerLabPersistentStorageRemovalPlan' -and
     $removalPreviewText -match 'Get-SqlServerLabCleanupAudit -NoWrite -StateRoot \$StateRoot -DataRoot \$DataRoot' -and

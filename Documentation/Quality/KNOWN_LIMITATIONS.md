@@ -473,7 +473,8 @@ Default-Data-Verzeichnis live im scopegebundenen Gast, kopiert dorthin in eine
 paketeigene Unterstruktur, verifiziert jeden Hash im Gast und persistiert den
 Recovery-Zustand vor der SQL-Mutation. TDE bleibt ohne Ziel-Key-Vertrag
 fail-closed. Weitere Providerbindungen und öffentliche Paketpublikation bleiben
-offen. Der öffentliche Hyper-V-Paket-Attach kann einen passenden persistierten
+offen. Der öffentliche Hyper-V-Paket-Attach und dessen getrennte Workflow-Aktion
+kann einen passenden persistierten
 `RECOVERY_REQUIRED`-Journalzustand mit `-Recover` ausführen: er bindet den
 Vorgang erneut an Paket-ID, Run, Instanz und SQL-Default-Data-Ziel, detacht
 eine Datenbank nur bei ausschließlich zu diesem Ziel gehörenden Dateien und
