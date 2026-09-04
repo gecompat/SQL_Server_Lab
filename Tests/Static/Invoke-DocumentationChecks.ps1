@@ -1189,8 +1189,8 @@ Add-ValidationResult `
         $knownLimitations -match '(?s)exakt einem erwarteten Container.*?revisionsgeschützt.*?`RUN_SCOPED`/\s*`RUN_CLEANUP`' -and
         $knownLimitations -match '(?s)Run-Cleanup entfernt.*?`sql-server-lab\.run-id`.*?`sql-server-lab\.scope-id`.*?Recovery-Pfad' -and
         $publicReadme -match '(?s)`PACKAGE_ON_REMOVE`.*`BACKUP_AND_PACKAGE`.*`EXTERNAL_UNMANAGED`.*ausschließlich die eigene Katalogbindung.*`DELETE_WITH_RUN`.*rungebundenen Containerstore.*jede andere endgültige Löschung bleiben blockiert' -and
-        $removalPlanCommand -match '(?s)RETAIN_INSTANCE_STORE, BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und\s*BACKUP_AND_PACKAGE startbar' -and
-        $workflowActionCommand -match '(?s)RETAIN_INSTANCE_STORE,\s*BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE aus' -and
+        $removalPlanCommand -match '(?s)RETAIN_INSTANCE_STORE, BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und\s*BACKUP_AND_PACKAGE startbar.*?DELETE_WITH_RUN.*?RUN_SCOPED/RUN_CLEANUP' -and
+        $workflowActionCommand -match '(?s)RETAIN_INSTANCE_STORE,\s*BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE aus.*?DELETE_WITH_RUN.*?RUN_SCOPED/RUN_CLEANUP.*?DELETE_PENDING.*?Missing-Volume-Nachweis' -and
         $architecture -match '(?s)BACKUP_AND_PACKAGE.*Backup vor dem Offline-Schritt' -and
         $cliAcceptanceMatrix -match '(?s)MDF/NDF/LDF-Package-on-Remove und `BACKUP_AND_PACKAGE`.*Backup vor Offline-Schritt' -and
         $repoMap -match 'persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan\.ps1' -and

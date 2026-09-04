@@ -9,8 +9,11 @@
     MDF/NDF/LDF-Dateien und werden automatisch mit Objekt- und Manifest-SHA-256
     registriert. Ein lokales Journal ermöglicht sichere Wiederaufnahme.
     EXTERNAL_UNMANAGED loest ausschliesslich die eigene revisionsgeschuetzte
-    Katalogbindung; die externe Quelle bleibt unveraendert. FILESTREAM, TDE
-    und endgueltige Store-Loeschung bleiben vor jeder Mutation blockiert.
+    Katalogbindung; die externe Quelle bleibt unveraendert. DELETE_WITH_RUN ist
+    zusätzlich ausschließlich für einen registrierten RUN_SCOPED/RUN_CLEANUP-
+    Docker-/Podman-Instanzstore zweiphasig über DELETE_PENDING und einen
+    Missing-Volume-Nachweis ausführbar. FILESTREAM, TDE und jede andere
+    endgueltige Store-Loeschung bleiben vor jeder Mutation blockiert.
 .PARAMETER RunId
     Stabile Run-ID der zu entfernenden Umgebung.
 .PARAMETER Selection
