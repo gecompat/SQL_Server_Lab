@@ -4,15 +4,16 @@
     Belegt den PSR-004-Executor gegen eine reale Docker- oder Podman-Runtime.
 .DESCRIPTION
     Erstellt einen isolierten persistenten Container-Run und eine Datenbank,
-    führt eine wählbare Artefaktpolicy über den öffentlichen Befehl aus und
-    bestätigt Backup, Paket oder beide unabhängigen Nachweise, den entfernten
-    Run sowie den detached, nicht gelöschten Instanzstore.
+    führt eine wählbare Artefakt- oder Run-Delete-Policy über den öffentlichen
+    Befehl aus und bestätigt Backup, Paket oder beide unabhängigen Nachweise
+    beziehungsweise den Missing-Volume-Nachweis, den entfernten Run und den
+    passenden finalen Katalogzustand.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
     [string]$Version='2022-CU18',
-    [ValidateSet('BACKUP_ON_REMOVE','PACKAGE_ON_REMOVE','BACKUP_AND_PACKAGE')][string]$Policy='BACKUP_ON_REMOVE',
+    [ValidateSet('BACKUP_ON_REMOVE','PACKAGE_ON_REMOVE','BACKUP_AND_PACKAGE','DELETE_WITH_RUN')][string]$Policy='BACKUP_ON_REMOVE',
     [switch]$KeepOnFailure
 )
 
@@ -28,6 +29,7 @@ $previousDataRoot=$env:SQL_SERVER_LAB_DATA_ROOT
 $previousTestDataRoot=$env:SQL_SERVER_LAB_TEST_DATA_ROOT
 $lab=$null;$module=$null;$persistentVolume=$null;$completed=$false
 $databaseName='Psr004Evidence'
+$isDeleteWithRun=$Policy -eq 'DELETE_WITH_RUN'
 $runtimeMutex=[Threading.Mutex]::new($false,$(if($IsWindows){'Global\SQL_Server_Lab_Runtime_Smoke'}else{'SQL_Server_Lab_Runtime_Smoke'}))
 $mutexAcquired=$false
 
@@ -57,36 +59,50 @@ try {
 
     $token=[Guid]::NewGuid().ToString('N').Substring(0,16)
     $saPassword=ConvertTo-SecureString "Psr004_${token}!Aa7" -AsPlainText -Force
-    $lab=New-SqlServerLab -Version $Version -Provider $Provider -Profile compact -Cpu 1 -MemoryMB 2560 `
-        -LabName "psr004-$Provider-$($token.Substring(0,8))" -PersistentData -DataRoot $dataRoot `
-        -SaPassword $saPassword -StateRoot $stateRoot -SkipAssessment
-    Assert-RemovalAcceptance ($lab.State -eq 'Running') 'Persistenter Test-Run wurde provisioniert'
+    $newLabArguments=@{ Version=$Version;Provider=$Provider;Profile='compact';Cpu=1;MemoryMB=2560
+        LabName="psr004-$Provider-$($token.Substring(0,8))";DataRoot=$dataRoot;SaPassword=$saPassword;StateRoot=$stateRoot;SkipAssessment=$true }
+    if(-not $isDeleteWithRun){$newLabArguments.PersistentData=$true}
+    $lab=New-SqlServerLab @newLabArguments
+    $provisionedDescription=if($isDeleteWithRun){'Rungebundener Test-Run wurde provisioniert'}else{'Persistenter Test-Run wurde provisioniert'}
+    Assert-RemovalAcceptance ($lab.State -eq 'Running') $provisionedDescription
     $instance=$lab.Instances[0]
     $null=New-SqlServerLabDatabase -HostName ([string]$instance.Host) -Port ([int]$instance.Port) `
         -SaPassword $saPassword -DatabaseName $databaseName
 
     $catalogEvidence=& $module {
-        param($Root,$Run,$Scope,$Database)
+        param($Root,$State,$Run,$Scope,$Database,$DeleteWithRun)
         $configuration=Get-LabStorageConfiguration -DataRoot $Root
+        if($DeleteWithRun){
+            $sync=Sync-SqlServerLabRunScopedContainerStore -RunId $Run -InstanceId primary -DataRoot $Root -StateRoot $State -Confirm:$false
+            $catalog=Get-LabPersistentStorageCatalog -Configuration $configuration
+            $stores=@($catalog.Document.Stores|Where-Object {[string]$_.PersistentStorageId -eq [string]$sync.PersistentStorageId})
+            if($stores.Count -ne 1){throw 'PERSISTENT_STORAGE_REMOVAL_ACCEPTANCE_RUN_SCOPED_STORE_UNRESOLVED'}
+            return [PSCustomObject]@{Store=$stores[0];Catalog=$catalog}
+        }
         $catalog=Get-LabPersistentStorageCatalog -Configuration $configuration
         $stores=@($catalog.Document.Stores|Where-Object {$_.StorageClass -eq 'INSTANCE_STORE' -and [string]$_.Lease.RunId -eq $Run})
         if($stores.Count -ne 1){throw 'PERSISTENT_STORAGE_REMOVAL_ACCEPTANCE_STORE_UNRESOLVED'}
         $sync=Sync-LabContainerInstanceStoreDatabaseReference -PersistentStorageId ([string]$stores[0].PersistentStorageId) `
             -RunId $Run -ScopeId $Scope -DatabaseName @($Database) -Configuration $configuration
         [PSCustomObject]@{Store=$sync.Store;Catalog=Get-LabPersistentStorageCatalog -Configuration $configuration}
-    } $dataRoot $lab.RunId $lab.ScopeId $databaseName
+    } $dataRoot $stateRoot $lab.RunId $lab.ScopeId $databaseName $isDeleteWithRun
     $store=$catalogEvidence.Store
     $persistentVolume=[string]$store.LocationBinding.ProviderResourceId
     $databaseReference=@($store.References|Where-Object {$_.Kind -eq 'DATABASE' -and $_.State -eq 'ACTIVE' -and $_.TargetId -eq $databaseName})
-    Assert-RemovalAcceptance ($databaseReference.Count -eq 1) 'Datenbank ist über stabile aktive Referenz an den Instanzstore gebunden'
+    if($isDeleteWithRun){
+        Assert-RemovalAcceptance ($store.Retention -eq 'RUN_SCOPED' -and $store.CleanupDisposition -eq 'RUN_CLEANUP' -and $store.State -eq 'IN_USE') 'Run-Store ist mit RUN_SCOPED/RUN_CLEANUP und aktiver Lease registriert'
+    } else {
+        Assert-RemovalAcceptance ($databaseReference.Count -eq 1) 'Datenbank ist über stabile aktive Referenz an den Instanzstore gebunden'
+    }
 
     $selection=@([PSCustomObject]@{
         PersistentStorageId=[string]$store.PersistentStorageId
         Policy=$Policy
-        DatabaseReferenceIds=@([string]$databaseReference[0].ReferenceId)
+        DatabaseReferenceIds=if($isDeleteWithRun){@()}else{@([string]$databaseReference[0].ReferenceId)}
     })
     $plan=Get-SqlServerLabPersistentStorageRemovalPlan -RunId $lab.RunId -Selection $selection -StateRoot $stateRoot -DataRoot $dataRoot
-    Assert-RemovalAcceptance ($plan.Status -eq 'READY' -and $plan.Execution.Status -eq 'EXECUTABLE' -and @($plan.Stores).Count -eq 1) 'Frischer Removal-Plan ist blockerfrei und ausführbar'
+    Assert-RemovalAcceptance ($plan.Status -eq 'READY' -and $plan.Execution.Status -eq 'EXECUTABLE' -and @($plan.Stores).Count -eq 1 -and
+        ((-not $isDeleteWithRun) -or $plan.Stores[0].Outcome -eq 'DELETE_RUN_RESOURCE')) 'Frischer Removal-Plan ist blockerfrei und ausführbar'
     $result=Invoke-SqlServerLabPersistentStorageRemoval -RunId $lab.RunId -Selection $selection `
         -StateRoot $stateRoot -DataRoot $dataRoot -Force -Confirm:$false
     $requiresBackup=$Policy -in @('BACKUP_ON_REMOVE','BACKUP_AND_PACKAGE')
@@ -104,10 +120,16 @@ try {
         @(Get-LabPersistentStorageCatalog -Configuration $configuration).Document.Stores|Where-Object PersistentStorageId -eq $StorageId|Select-Object -First 1
     } $dataRoot ([string]$store.PersistentStorageId)
     $null=& $runtimeInvocation volume inspect $persistentVolume 2>$null
-    Assert-RemovalAcceptance ($LASTEXITCODE -eq 0) 'Persistenter Instanzstore wurde nicht gelöscht'
+    $volumeExists=$LASTEXITCODE -eq 0
+    $volumeDescription=if($isDeleteWithRun){'Rungebundener Instanzstore wurde gelöscht'}else{'Persistenter Instanzstore wurde nicht gelöscht'}
+    Assert-RemovalAcceptance ($volumeExists -eq (-not $isDeleteWithRun)) $volumeDescription
     Assert-RemovalAcceptance ($runState.state -eq 'REMOVED' -and $finalStore.State -eq 'DETACHED' -and -not $finalStore.Lease) 'Run ist entfernt und Store exakt detached'
-    Assert-RemovalAcceptance ((-not $requiresBackup -or ($backup.Record.DatabaseName -eq $databaseName -and [string]$backup.Record.Artifact.Sha256 -match '^[a-f0-9]{64}$')) -and
-        (-not $requiresPackage -or ($package.Record.DatabaseName -eq $databaseName -and [string]$package.Record.ManifestSha256 -match '^[a-f0-9]{64}$'))) "$Policy ist in Lab_Data per SHA-256 wiederverwendbar"
+    if($isDeleteWithRun){
+        Assert-RemovalAcceptance ($finalStore.Retention -eq 'RUN_SCOPED' -and $finalStore.CleanupDisposition -eq 'RUN_CLEANUP') 'Delete-Abschluss behält nur die revisionsgebundene Katalogevidence'
+    } else {
+        Assert-RemovalAcceptance ((-not $requiresBackup -or ($backup.Record.DatabaseName -eq $databaseName -and [string]$backup.Record.Artifact.Sha256 -match '^[a-f0-9]{64}$')) -and
+            (-not $requiresPackage -or ($package.Record.DatabaseName -eq $databaseName -and [string]$package.Record.ManifestSha256 -match '^[a-f0-9]{64}$'))) "$Policy ist in Lab_Data per SHA-256 wiederverwendbar"
+    }
     $lab=$null;$completed=$true
 }
 finally {
