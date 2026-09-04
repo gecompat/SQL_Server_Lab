@@ -244,6 +244,7 @@ function New-LabInstanceIntentSnapshot {
             SizeGB = if ($_.sizeLimitGB) { [double]$_.sizeLimitGB } else { $null }
             PerformanceClass = if ($_.type) { [string]$_.type } else { 'auto' }
             Persistence = if ($_.persistence) { [string]$_.persistence } elseif ($_.hostPath) { 'external-host-path' } else { 'run-scoped' }
+            PersistentStorageId = if ($_.persistentStorageId) { [string]$_.persistentStorageId } else { $null }
             RequiredCapability = $driveCapability
             CapabilityStatus = Get-LabDeclaredIntentCapabilityStatus -ProviderCapability $ProviderCapability -RequiredCapability $driveCapability
         }

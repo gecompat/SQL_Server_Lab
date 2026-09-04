@@ -135,7 +135,8 @@ try {
     Add-CheckResult -Name 'Kurzlebige Container-Labs behalten SQL-Systemdaten ueber einen Recreate' -Success (
         $runScopedSystemDrives.Count -eq 1 -and
         $runScopedSystemDrives[0].id -eq 'runtime-mssql' -and
-        $runScopedSystemDrives[0].persistence -eq 'run-scoped-runtime-volume'
+        $runScopedSystemDrives[0].persistence -eq 'run-scoped-runtime-volume' -and
+        [string]$runScopedSystemDrives[0].persistentStorageId -match '^[0-9a-f-]{36}$'
     )
     Add-CheckResult -Name 'Kurzlebige Container-Labs erhalten External-Artefakte ohne LaunchPad-Arbeitsverzeichnisse' -Success (
         @($runScopedDriveContract | Where-Object containerPath -in @(
@@ -146,7 +147,22 @@ try {
             '/var/opt/mssql-extensibility',
             '/var/opt/mssql-extensibility/data',
             '/var/opt/mssql-extensibility/sandboxes'
-        )).Count -eq 0
+        )).Count -eq 0 -and
+        @($runScopedDriveContract | Where-Object {
+            $_.persistence -eq 'run-scoped-runtime-volume' -and
+            [string]$_.persistentStorageId -ne [string]$runScopedSystemDrives[0].persistentStorageId
+        }).Count -eq 0
+    )
+
+    $runScopedSnapshot = & $module {
+        param($instance)
+        New-LabInstanceIntentSnapshot -Instance $instance -ProviderCapability ([PSCustomObject]@{ Capabilities=@('volume-mounts') })
+    } ([PSCustomObject]@{ provider='docker'; storageIntent=$null; drives=$runScopedDriveContract; software=@(); hyperv=$null; network=$null; databases=@() })
+    Add-CheckResult -Name 'Run-Desired-State persistiert die vor Runtime-Mutation vergebene stabile Volume-ID' -Success (
+        @($runScopedSnapshot.Drives | Where-Object {
+            $_.Persistence -eq 'run-scoped-runtime-volume' -and
+            [string]$_.PersistentStorageId -eq [string]$runScopedSystemDrives[0].persistentStorageId
+        }).Count -eq 3
     )
 
     $secondaryRoot = Join-Path (Join-Path $temporaryParent 'secondary') 'Lab_Data'

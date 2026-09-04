@@ -157,6 +157,17 @@ function Add-LabRunScopedContainerSystemDrive {
         $required += [PSCustomObject]@{ id='runtime-mssql-external-libraries'; containerPath='/var/opt/mssql-extensibility/externallibraries'; persistence='run-scoped-runtime-volume' }
     }
     $missing = @($required | Where-Object { $path = $_.containerPath; @($currentDrives | Where-Object containerPath -eq $path).Count -eq 0 })
+    $existingIds = @($currentDrives | Where-Object {
+        [string]$_.persistence -eq 'run-scoped-runtime-volume' -and $_.persistentStorageId
+    } | ForEach-Object { [string]$_.persistentStorageId } | Sort-Object -Unique)
+    if ($existingIds.Count -gt 1) { throw 'RUN_SCOPED_CONTAINER_STORE_IDENTITY_CONFLICT' }
+    $storageId = if ($existingIds.Count -eq 1) { [string]$existingIds[0] } else { New-LabPersistentStorageId }
+    foreach ($drive in $missing) {
+        # Die ID wird vor der Runtime-Mutation im gewünschten Run-State
+        # persistiert und als unveränderliches Volume-Label weitergereicht.
+        # Sie ist noch kein Persistent-Storage-Katalogeintrag.
+        $drive | Add-Member -NotePropertyName persistentStorageId -NotePropertyValue $storageId -Force
+    }
     $Instance | Add-Member -NotePropertyName drives -NotePropertyValue (@($missing) + $currentDrives) -Force
     return $Instance
 }
