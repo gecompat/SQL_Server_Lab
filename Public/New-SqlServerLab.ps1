@@ -833,6 +833,18 @@ function New-SqlServerLab {
             }
     )
 
+    # Kurzlebige Containerstores erhalten ihre stabile, labelgebundene
+    # Identität vor dem Persistieren des Run-State. Persistente Daten bleiben
+    # beim bestehenden Katalog-/Lease-Pfad und werden erst nach Run-Erzeugung
+    # ergänzt.
+    if (-not $PersistentData) {
+        foreach ($instance in @($resolved.instances | Where-Object { $_.provider -in @('docker', 'podman') })) {
+            $hasExternalRuntime = @($externalRuntimePlansByInstance[[string]$instance.id]).Count -gt 0
+            $null = Add-LabRunScopedContainerSystemDrive -Instance $instance `
+                -IncludeExternalRuntimeState:$hasExternalRuntime
+        }
+    }
+
     $desiredProvisioningMode = if ($PSCmdlet.ParameterSetName -eq 'Manifest') { 'manifest' } else { 'adhoc' }
     $desiredState = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode $desiredProvisioningMode -PersistentData ([bool]$PersistentData)
     $runMetadata = @{
@@ -933,10 +945,12 @@ function New-SqlServerLab {
             Write-LabInfo "Persistenter Data Root wird eingebunden: $DataRoot"
         }
 
-        foreach ($instance in @($resolved.instances | Where-Object { $_.provider -in @('docker', 'podman') })) {
-            $hasExternalRuntime = @($externalRuntimePlansByInstance[[string]$instance.id]).Count -gt 0
-            $null = Add-LabRunScopedContainerSystemDrive -Instance $instance `
-                -IncludeExternalRuntimeState:$hasExternalRuntime
+        if ($PersistentData) {
+            foreach ($instance in @($resolved.instances | Where-Object { $_.provider -in @('docker', 'podman') })) {
+                $hasExternalRuntime = @($externalRuntimePlansByInstance[[string]$instance.id]).Count -gt 0
+                $null = Add-LabRunScopedContainerSystemDrive -Instance $instance `
+                    -IncludeExternalRuntimeState:$hasExternalRuntime
+            }
         }
 
         foreach ($instance in $resolved.instances) {

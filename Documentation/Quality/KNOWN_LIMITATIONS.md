@@ -1133,6 +1133,13 @@ Journal, setzt nur aktive eigene Katalogreferenzen auf `RELEASED` und prüft
 `DELETE_WITH_RUN` ist weiterhin keine öffentlich ausführbare
 Persistent-Storage-Removal-Policy, weil rungebundene Runtime-Volumes noch
 nicht als selektierbare Katalogstores mit stabiler Storage-ID geführt werden.
+Neue kurzlebige Docker-/Podman-Systemvolume-Gruppen erhalten inzwischen vor
+der ersten Runtime-Mutation eine UUID. Sie wird im gewünschten Run-State
+persistiert, als `sql-server-lab.persistent-storage-id` auf jedes zugehörige
+Volume gelabelt und für eine External-Runtime-Gruppe gemeinsam verwendet. Das
+ist ausschließlich eine label- und rungebundene Identitätsbrücke, kein
+Katalogeintrag und keine zusätzliche Delete-Autorität. Ungelabelte bestehende
+Volumes werden nicht still übernommen.
 Der bestehende normale Run-Cleanup entfernt seine im Cleanup-Plan gebundenen
 Docker-/Podman-Volumes jedoch nur nach einer frischen Runtime-Prüfung beider
 Labels `sql-server-lab.run-id` und `sql-server-lab.scope-id`; fehlende oder
