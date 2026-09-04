@@ -139,7 +139,10 @@ function Get-LabPersistentStorageRemovalPlan {
 
         switch ($policy) {
             'DELETE_WITH_RUN' {
-                if ([string]$store.Retention -ne 'RUN_SCOPED' -or [string]$store.CleanupDisposition -ne 'RUN_CLEANUP') { $blockers.Add('DELETE_WITH_RUN_NOT_ALLOWED') }
+                if ([string]$store.StorageClass -ne 'INSTANCE_STORE' -or [string]$store.Provider -notin @('docker','podman') -or
+                    [string]$store.Retention -ne 'RUN_SCOPED' -or [string]$store.CleanupDisposition -ne 'RUN_CLEANUP' -or
+                    [string]$store.State -ne 'IN_USE' -or [string]$store.LocationBinding.Residency -ne 'NATIVE_RUNTIME' -or
+                    [string]::IsNullOrWhiteSpace([string]$store.LocationBinding.ProviderResourceId)) { $blockers.Add('DELETE_WITH_RUN_NOT_ALLOWED') }
                 $outcome='DELETE_RUN_RESOURCE'; $destructive=$true; $separateDelete=$false
                 $steps.Add((New-LabPersistentStorageRemovalStep -Order ($steps.Count + 1) -Action 'DELETE_RUN_RESOURCE' -Mutation 'STORAGE' -FailureState 'RECOVERY_REQUIRED' -Evidence @('SCOPE_POSTCONDITION')))
             }
