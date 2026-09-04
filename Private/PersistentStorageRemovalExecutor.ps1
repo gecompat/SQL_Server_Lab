@@ -75,7 +75,7 @@ function Assert-LabPersistentStorageRemovalExecutablePlan {
     if ([string]$Plan.ContractVersion -ne 'SqlServerLab.PersistentStorageRemovalPlan/1.0' -or [string]$Plan.Status -ne 'READY') {
         throw 'PERSISTENT_STORAGE_REMOVAL_EXECUTION_PLAN_NOT_READY'
     }
-    $unsupported = @($Plan.Stores | Where-Object { [string]$_.Policy -notin @('RETAIN_INSTANCE_STORE','BACKUP_ON_REMOVE','PACKAGE_ON_REMOVE') })
+    $unsupported = @($Plan.Stores | Where-Object { [string]$_.Policy -notin @('RETAIN_INSTANCE_STORE','BACKUP_ON_REMOVE','PACKAGE_ON_REMOVE','BACKUP_AND_PACKAGE') })
     if ($unsupported.Count -gt 0) {
         $policies = @($unsupported.Policy | ForEach-Object { if ($_){[string]$_}else{'NONE'} } | Sort-Object -Unique)
         throw "PERSISTENT_STORAGE_REMOVAL_POLICY_NOT_EXECUTABLE: $($policies -join ',')"
@@ -127,7 +127,7 @@ function New-LabPersistentStorageRemovalExecutionContext {
             $_.persistentStorage -and [string]$_.persistentStorage.persistentStorageId -eq $storageId
         })
         if ($instances.Count -ne 1) { throw 'PERSISTENT_STORAGE_REMOVAL_INSTANCE_UNRESOLVED' }
-        if ([string]$plannedStore.Policy -eq 'BACKUP_ON_REMOVE') {
+        if ([string]$plannedStore.Policy -in @('BACKUP_ON_REMOVE','BACKUP_AND_PACKAGE')) {
             foreach ($referenceId in @($plannedStore.DatabaseReferenceIds | Sort-Object -Unique)) {
                 $references = @($store.References | Where-Object {
                     [string]$_.ReferenceId -eq [string]$referenceId -and [string]$_.Kind -eq 'DATABASE' -and [string]$_.State -eq 'ACTIVE'
@@ -140,7 +140,7 @@ function New-LabPersistentStorageRemovalExecutionContext {
                 })
             }
         }
-        if ([string]$plannedStore.Policy -eq 'PACKAGE_ON_REMOVE') {
+        if ([string]$plannedStore.Policy -in @('PACKAGE_ON_REMOVE','BACKUP_AND_PACKAGE')) {
             foreach ($referenceId in @($plannedStore.DatabaseReferenceIds | Sort-Object -Unique)) {
                 $references = @($store.References | Where-Object { [string]$_.ReferenceId -eq [string]$referenceId -and [string]$_.Kind -eq 'DATABASE' -and [string]$_.State -eq 'ACTIVE' })
                 if ($references.Count -ne 1) { throw 'PERSISTENT_STORAGE_REMOVAL_DATABASE_REFERENCE_UNRESOLVED' }
@@ -290,7 +290,7 @@ function Invoke-LabPersistentStorageRemovalExecutor {
                 $package.Status='COMPLETED';$package.DatabasePackageId=[string]$result.DatabasePackageId;$package.ArtifactPersistentStorageId=[string]$result.PersistentStorageId;$package.ManifestSha256=([string]$result.ManifestSha256).ToLowerInvariant()
                 $null=Write-LabPersistentStorageRemovalJournal -Journal $journal -Path $journalPath
             }
-            $journal.Status='BACKUPS_COMPLETED'
+            $journal.Status='ARTIFACTS_COMPLETED'
             $freshPlan=& $ReplanAction ([string]$Plan.RunId) @($Selection)
             $null=Assert-LabPersistentStorageRemovalExecutablePlan -Plan $freshPlan
             $journal.CatalogRevision=[int]$freshPlan.CatalogRevision

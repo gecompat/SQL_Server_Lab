@@ -53,12 +53,12 @@
         "Status": { "enum": ["EXECUTABLE", "PLANNED_NOT_EXECUTABLE", "BLOCKED"] },
         "ExecutablePolicies": {
           "type": "array",
-          "items": { "enum": ["RETAIN_INSTANCE_STORE", "BACKUP_ON_REMOVE", "PACKAGE_ON_REMOVE"] },
+          "items": { "enum": ["RETAIN_INSTANCE_STORE", "BACKUP_ON_REMOVE", "PACKAGE_ON_REMOVE", "BACKUP_AND_PACKAGE"] },
           "uniqueItems": true
         },
         "PlannedPolicies": {
           "type": "array",
-          "items": { "enum": ["DELETE_WITH_RUN", "BACKUP_AND_PACKAGE", "EXTERNAL_UNMANAGED"] },
+          "items": { "enum": ["DELETE_WITH_RUN", "EXTERNAL_UNMANAGED"] },
           "uniqueItems": true
         },
         "Reason": { "enum": ["READY_FOR_EXECUTION", "EXECUTOR_CAPABILITY_NOT_IMPLEMENTED", "PLAN_BLOCKED"] }

@@ -91,7 +91,7 @@ try {
         $removeCompleted=Invoke-LabPersistentStorageRemovalExecutor -Plan $retainPlan -Selection $retainSelection -Context $retainContext -BackupAction $backupAction -BackupVerificationAction $verifyAction -PackageAction $packageAction -PackageVerificationAction $packageVerifyAction -ReplanAction $retainReplan -RemoveAction $retainRemove -PostconditionAction $postAction
 
         $unsupported=$false
-        $unsupportedPlan=$retainPlan|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20;$unsupportedPlan.Stores[0].Policy='BACKUP_AND_PACKAGE'
+        $unsupportedPlan=$retainPlan|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20;$unsupportedPlan.Stores[0].Policy='DELETE_WITH_RUN'
         try{$null=Assert-LabPersistentStorageRemovalExecutablePlan -Plan $unsupportedPlan}catch{$unsupported=$_.Exception.Message -match 'PERSISTENT_STORAGE_REMOVAL_POLICY_NOT_EXECUTABLE'}
         $removeCalls=$script:removalRemoveCalls;$replanCalls=$script:removalReplanCalls
         Remove-Variable removalBackupCalls,removalFailSecond,removalReceipts,removalRemoveCalls,removalReplanCalls,removalFailRemove -Scope Script -ErrorAction SilentlyContinue
@@ -112,7 +112,7 @@ try {
         $evidence.RemoveFailure -match '^PERSISTENT_STORAGE_REMOVAL_RECOVERY_REQUIRED: SYNTHETIC_REMOVE_FAILURE' -and
         $evidence.RemoveFailedJournal.Removal.Status -eq 'STARTED' -and $evidence.RemoveCompleted.Status -eq 'COMPLETED' -and
         $evidence.RemoveCalls -eq 2 -and $evidence.ReplanCalls -eq 2)
-    Add-CheckResult -Name 'Kombinierte, Delete- und externe Policies bleiben vor jeder Executor-Mutation blockiert' -Success $evidence.Unsupported
+    Add-CheckResult -Name 'Delete- und externe Policies bleiben vor jeder Executor-Mutation blockiert' -Success $evidence.Unsupported
     Add-CheckResult -Name 'Journal erfüllt striktes Schema und enthält keine Secrets oder Hostpfade' -Success (
         (& $module {param($Journal)Test-LabPersistentStorageRemovalJournal -Journal $Journal} $evidence.Completed) -and
         (($evidence.Completed|ConvertTo-Json -Depth 30) -notmatch '(?i)password|secret|credential|[A-Z]:\\'))
