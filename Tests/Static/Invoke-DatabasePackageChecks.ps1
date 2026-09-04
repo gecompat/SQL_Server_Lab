@@ -117,6 +117,25 @@ try {
             Set-Item Function:script:Invoke-LabHyperVDatabasePackageSqlAttach -Value $originalSqlAttach
             Set-Item Function:script:Invoke-LabHyperVDatabasePackageAttachRecovery -Value $originalRecovery
         }
+        $originalContainerContext=(Get-Command Get-LabContainerReconcileContext -CommandType Function).ScriptBlock
+        $originalContainerExport=(Get-Command Export-LabContainerDatabasePackage -CommandType Function).ScriptBlock
+        $script:publicContainerPackageExportCalls=0
+        try {
+            Set-Item Function:script:Get-LabContainerReconcileContext -Value {
+                [PSCustomObject]@{Provider='docker';WasRunning=$true}
+            }
+            Set-Item Function:script:Export-LabContainerDatabasePackage -Value {
+                param($RunId,$InstanceId,$DatabaseName,$DataRoot,$StateRoot)
+                $script:publicContainerPackageExportCalls++
+                [PSCustomObject]@{Status='REUSABLE';DatabasePackageId='11111111-1111-1111-1111-111111111111';PersistentStorageId='22222222-2222-2222-2222-222222222222';Path=$DataRoot;ManifestSha256='a'*64}
+            }
+            $publicContainerExportPreview=Export-SqlServerLabDatabasePackage -RunId '33333333-3333-3333-3333-333333333333' -InstanceId primary -DatabaseName Evidence -DataRoot $Root -StateRoot (Join-Path $WorkRoot 'container-state') -WhatIf
+            $publicContainerExport=Export-SqlServerLabDatabasePackage -RunId '33333333-3333-3333-3333-333333333333' -InstanceId primary -DatabaseName Evidence -DataRoot $Root -StateRoot (Join-Path $WorkRoot 'container-state') -Confirm:$false
+        }
+        finally {
+            Set-Item Function:script:Get-LabContainerReconcileContext -Value $originalContainerContext
+            Set-Item Function:script:Export-LabContainerDatabasePackage -Value $originalContainerExport
+        }
         $badDetach=$false
         try { $null=New-LabDatabasePackage -DatabaseName BadDetach -Provider hyperv -SqlMajorVersion 17 -SourceEvidence ([PSCustomObject]@{DatabaseState='ONLINE';DetachState='UNKNOWN';AccessMode='MULTI_USER';WriterCount=1;StateObservedAfterLock=$false}) -DatabaseMetadata $metadata -FileInventory $inventory -DataRoot $Root } catch { $badDetach=$_.Exception.Message -match 'SOURCE_NOT_OFFLINE|CLEAN_DETACH_UNVERIFIED|SOURCE_NOT_EXCLUSIVE' }
         $tde=$false
@@ -141,7 +160,7 @@ try {
         [IO.File]::AppendAllText($objectPath,'tamper')
         $tamper=$false
         try{$null=Get-LabDatabasePackage -DatabasePackageId $created.DatabasePackageId -DataRoot $Root}catch{$tamper=$_.Exception.Message -match 'OBJECT_HASH_MISMATCH'}
-        [PSCustomObject]@{Created=$created;Package=$package;Selection=$selection;PublicSelection=$publicSelection;PublicSyncPreview=$publicSyncPreview;PublicSync=$publicSync;PublicSyncAgain=$publicSyncAgain;PreviewDidNotMutate=$previewHashBefore -eq $previewHashAfter;InitialPersistentCatalog=$initialPersistentCatalog;PersistentCatalog=$persistentCatalog;ResidencyInventory=$residencyInventory;SyncResult=$syncResult;Clone=$clone;Ready=$ready;Old=$old;NoStream=$noStream;Parallel=$parallel;Attached=$attached;AttachCalls=@($attachCalls);PublicAttachPreview=$publicPreview;PublicAttachPreviewDidNotExecute=$previewDidNotExecute;PublicAttach=$publicAttach;PublicRecovery=$publicRecovery;PublicAttachRecoveryCalls=$script:publicAttachRecoveryCalls;PublicAttachCopyCalls=$script:publicAttachCopyCalls;PublicAttachSqlCalls=$script:publicAttachSqlCalls;PublicAttachJournalProtected=$script:publicAttachJournalProtected;BadDetach=$badDetach;Tde=$tde;CatalogFailure=$catalogFailure;CatalogFailureQuarantined=$quarantined.Count -eq 1;QuarantineGuard=$quarantineGuard;CatalogFailureJournal=$catalogFailureJournal;Tamper=$tamper;CloneFiles=@(Get-ChildItem -LiteralPath $cloneRoot -File -Recurse)}
+        [PSCustomObject]@{Created=$created;Package=$package;Selection=$selection;PublicSelection=$publicSelection;PublicSyncPreview=$publicSyncPreview;PublicSync=$publicSync;PublicSyncAgain=$publicSyncAgain;PreviewDidNotMutate=$previewHashBefore -eq $previewHashAfter;InitialPersistentCatalog=$initialPersistentCatalog;PersistentCatalog=$persistentCatalog;ResidencyInventory=$residencyInventory;SyncResult=$syncResult;Clone=$clone;Ready=$ready;Old=$old;NoStream=$noStream;Parallel=$parallel;Attached=$attached;AttachCalls=@($attachCalls);PublicAttachPreview=$publicPreview;PublicAttachPreviewDidNotExecute=$previewDidNotExecute;PublicAttach=$publicAttach;PublicRecovery=$publicRecovery;PublicAttachRecoveryCalls=$script:publicAttachRecoveryCalls;PublicAttachCopyCalls=$script:publicAttachCopyCalls;PublicAttachSqlCalls=$script:publicAttachSqlCalls;PublicAttachJournalProtected=$script:publicAttachJournalProtected;PublicContainerExportPreview=$publicContainerExportPreview;PublicContainerExport=$publicContainerExport;PublicContainerExportCalls=$script:publicContainerPackageExportCalls;BadDetach=$badDetach;Tde=$tde;CatalogFailure=$catalogFailure;CatalogFailureQuarantined=$quarantined.Count -eq 1;QuarantineGuard=$quarantineGuard;CatalogFailureJournal=$catalogFailureJournal;Tamper=$tamper;CloneFiles=@(Get-ChildItem -LiteralPath $cloneRoot -File -Recurse)}
     } $dataRoot $testRoot
 
     Add-CheckResult 'Offline-Paket enthält MDF, NDF, LDF und vollständigen FILESTREAM-Baum' ($result.Package.Record.DatabaseFiles.Count -eq 4 -and $result.Package.Record.Objects.Count -eq 5 -and @($result.Package.Record.DatabaseFiles|Where-Object Type -eq 'FILESTREAM').Count -eq 1)
@@ -201,6 +220,19 @@ try {
         $null -ne (Get-Command Invoke-SqlServerLabDatabasePackageAttach -Module SqlServerLab -ErrorAction SilentlyContinue))
     Add-CheckResult 'Öffentlicher Hyper-V-Paket-Attach führt nur ein passendes Recovery-Journal aus' (
         $result.PublicRecovery.Status -eq 'RECOVERED' -and $result.PublicAttachRecoveryCalls -eq 1)
+    $publicContainerExportJson=$result.PublicContainerExport|ConvertTo-Json -Depth 20
+    Add-CheckResult 'Öffentlicher Container-Paketexport plant ohne Offline-Mutation und veröffentlicht nur sanitisierte stabile IDs' (
+        $result.PublicContainerExportPreview.Status -eq 'PLANNED' -and
+        -not $result.PublicContainerExportPreview.DatabasePackageId -and
+        $result.PublicContainerExport.Status -eq 'REUSABLE' -and
+        $result.PublicContainerExport.Provider -eq 'docker' -and
+        $result.PublicContainerExport.DatabasePackageId -eq '11111111-1111-1111-1111-111111111111' -and
+        $result.PublicContainerExport.PersistentStorageId -eq '22222222-2222-2222-2222-222222222222' -and
+        $result.PublicContainerExportCalls -eq 1 -and
+        $publicContainerExportJson -notmatch [regex]::Escape($testRoot) -and
+        $publicContainerExportJson -notmatch 'Path|Sha256|Password|Credential')
+    Add-CheckResult 'Öffentlicher Container-Paketexport ist tatsächlich aus dem Modul exportiert' (
+        $null -ne (Get-Command Export-SqlServerLabDatabasePackage -Module SqlServerLab -ErrorAction SilentlyContinue))
     Add-CheckResult 'Neuer-zu-älter-SQL-Attach endet fail-closed' ('TARGET_SQL_VERSION_OLDER_THAN_SOURCE' -in $result.Old.Blockers)
     Add-CheckResult 'Fehlende FILESTREAM-Capability endet fail-closed' ('TARGET_FILESTREAM_CAPABILITY_MISSING' -in $result.NoStream.Blockers)
     Add-CheckResult 'Parallele Read/Write-Nutzung endet fail-closed' ('TARGET_EXCLUSIVE_USE_UNVERIFIED' -in $result.Parallel.Blockers -and 'PACKAGE_PARALLEL_WRITER_OBSERVED' -in $result.Parallel.Blockers)

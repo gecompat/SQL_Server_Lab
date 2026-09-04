@@ -155,8 +155,10 @@ bleibt getrennt:
   Docker-/Podman-Executor für `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`,
   MDF/NDF/LDF-`PACKAGE_ON_REMOVE` und `BACKUP_AND_PACKAGE` sind umgesetzt.
   Die Kombination erzeugt und verifiziert das Backup vor dem Offline-Schritt
-  des Datenbankpakets; FILESTREAM, TDE, externe Freigabe und die explizite
-  endgültige Storage-Löschung bleiben offen;
+  des Datenbankpakets. `EXTERNAL_UNMANAGED` löst nur die eigene Katalogbindung,
+  und `DELETE_WITH_RUN` ist eng für nachgewiesene rungebundene Docker-/Podman-
+  Stores ausführbar; FILESTREAM, TDE und jede andere endgültige Storage-
+  Löschung bleiben offen;
 - `PSR-005`: Der stabile ID-, Continue- und detached Clone-Core ist samt
   Katalogcommit, öffentlicher Bedienung und rollenfestem Mehr-Volume-Vertrag
   für External-Language-/Library-Sidecars umgesetzt und getrennt real mit

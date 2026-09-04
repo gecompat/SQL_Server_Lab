@@ -468,11 +468,17 @@ Browser inventarisieren Pakete inzwischen pfadfrei über dieselbe stabile
 `DatabasePackageId`; große Objekte werden nur mit explizitem
 `-VerifyIntegrity` oder vor Verwendung vollständig gehasht. Der öffentliche
 CLI-/Browser-Attach unterstützt Hyper-V-Ziele per stabiler Run-/Instanz-ID.
+`Export-SqlServerLabDatabasePackage` veröffentlicht zusätzlich ausschließlich
+eine per Run- und Instanz-ID gebundene Docker-/Podman-Quelle nach dem
+bestehenden exklusiven Offline-, Objekt- und Manifest-SHA-256-Vertrag; sein
+Ergebnis gibt nur stabile Paket- und Storage-IDs zurück. Die getrennten
+Docker- und Podman-Runner vom 2026-09-04 bestätigten `WhatIf`, Offline-
+Postcondition, vollständige Integritätsprüfung und Cleanup.
 Ein freier Zielpfad ist nicht Teil des Vertrags: Das Framework ermittelt SQLs
 Default-Data-Verzeichnis live im scopegebundenen Gast, kopiert dorthin in eine
 paketeigene Unterstruktur, verifiziert jeden Hash im Gast und persistiert den
 Recovery-Zustand vor der SQL-Mutation. TDE bleibt ohne Ziel-Key-Vertrag
-fail-closed. Weitere Providerbindungen und öffentliche Paketpublikation bleiben
+fail-closed. Weitere Providerbindungen und eine Browser-Exportaktion bleiben
 offen. Der öffentliche Hyper-V-Paket-Attach und dessen getrennte Workflow-Aktion
 kann einen passenden persistierten
 `RECOVERY_REQUIRED`-Journalzustand mit `-Recover` ausführen: er bindet den
