@@ -30,6 +30,20 @@ End-to-End-Test des gesamten Lab-Lifecycles.
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider hyperv
 ```
 
+## Persistenter Storage-Removal-Executor
+
+`Invoke-PersistentStorageRemovalExecutorAcceptance.ps1` prüft den öffentlichen
+Docker-/Podman-Removal-Pfad jeweils gegen eine isolierte persistente Instanz.
+`BACKUP_ON_REMOVE` belegt `CHECKSUM` und `RESTORE VERIFYONLY`; für
+`PACKAGE_ON_REMOVE` wird die Datenbank exklusiv offline gesetzt, die von SQL
+inventarisierten MDF/NDF/LDF-Dateien werden paketiert und Objekt- sowie
+Manifest-SHA-256 erneut geprüft. Beide Varianten verlangen die journalisierte
+Run-Entfernung bei erhaltenem, detached Instanzstore.
+
+```powershell
+.\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -Provider docker -Policy PACKAGE_ON_REMOVE
+```
+
 ## Aktueller lokaler Nachweis (2026-08-12)
 
 ```text

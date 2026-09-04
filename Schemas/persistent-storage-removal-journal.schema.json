@@ -3,7 +3,7 @@
   "$id": "https://sql-server-lab.local/schemas/persistent-storage-removal-journal.schema.json",
   "title": "SqlServerLab.PersistentStorageRemovalJournal/1.0",
   "type": "object",
-  "required": ["ContractVersion", "OperationId", "IntentId", "RunId", "ScopeId", "SelectionFingerprint", "CatalogRevision", "Status", "Selections", "Backups", "Removal", "Recovery", "CreatedAt", "UpdatedAt"],
+  "required": ["ContractVersion", "OperationId", "IntentId", "RunId", "ScopeId", "SelectionFingerprint", "CatalogRevision", "Status", "Selections", "Backups", "Packages", "Removal", "Recovery", "CreatedAt", "UpdatedAt"],
   "properties": {
     "ContractVersion": { "const": "SqlServerLab.PersistentStorageRemovalJournal/1.0" },
     "OperationId": { "type": "string", "format": "uuid" },
@@ -21,7 +21,7 @@
         "required": ["PersistentStorageId", "Policy", "DatabaseReferenceIds"],
         "properties": {
           "PersistentStorageId": { "type": "string", "format": "uuid" },
-          "Policy": { "enum": ["RETAIN_INSTANCE_STORE", "BACKUP_ON_REMOVE"] },
+          "Policy": { "enum": ["RETAIN_INSTANCE_STORE", "BACKUP_ON_REMOVE", "PACKAGE_ON_REMOVE"] },
           "DatabaseReferenceIds": { "type": "array", "items": { "type": "string", "format": "uuid" }, "uniqueItems": true }
         },
         "additionalProperties": false
@@ -42,6 +42,24 @@
           "ArtifactPersistentStorageId": { "type": ["string", "null"], "format": "uuid" },
           "Sha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
           "Bytes": { "type": ["integer", "null"], "minimum": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["PersistentStorageId", "DatabaseReferenceId", "InstanceId", "DatabaseName", "Status", "DatabasePackageId", "ArtifactPersistentStorageId", "ManifestSha256"],
+        "properties": {
+          "PersistentStorageId": { "type": "string", "format": "uuid" },
+          "DatabaseReferenceId": { "type": "string", "format": "uuid" },
+          "InstanceId": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "DatabaseName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$" },
+          "Status": { "enum": ["PENDING", "COMPLETED"] },
+          "DatabasePackageId": { "type": ["string", "null"], "format": "uuid" },
+          "ArtifactPersistentStorageId": { "type": ["string", "null"], "format": "uuid" },
+          "ManifestSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" }
         },
         "additionalProperties": false
       }

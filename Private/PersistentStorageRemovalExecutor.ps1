@@ -2,10 +2,11 @@
 .SYNOPSIS
     Executes the supported persistent-storage removal policies journaled.
 .DESCRIPTION
-    Supports retained Docker/Podman instance stores with optional verified
-    database backups. The run is removed only after every selected backup is
-    reusable. Package export, external release, and explicit storage deletion
-    remain fail-closed boundaries.
+    Supports retained Docker/Podman instance stores with verified database
+    backups or offline container database packages. The run is removed only
+    after every selected artifact is reusable. FILESTREAM, TDE, combined
+    policies, external release, and explicit storage deletion remain
+    fail-closed boundaries.
 #>
 
 function Get-LabPersistentStorageRemovalJournalPath {
@@ -59,6 +60,10 @@ function Read-LabPersistentStorageRemovalJournal {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return $null }
     try { $journal = Get-Content -LiteralPath $Path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40 -ErrorAction Stop }
     catch { throw "PERSISTENT_STORAGE_REMOVAL_JOURNAL_INVALID: $($_.Exception.Message)" }
+    # Version 1.0 journals written before PACKAGE_ON_REMOVE was executable did
+    # not carry a Packages array. They are semantically equivalent to an empty
+    # array and remain resumable without weakening schema validation.
+    if (-not $journal.PSObject.Properties['Packages']) { $journal | Add-Member -NotePropertyName Packages -NotePropertyValue @() }
     $null = Test-LabPersistentStorageRemovalJournal -Journal $journal
     return $journal
 }
@@ -70,7 +75,7 @@ function Assert-LabPersistentStorageRemovalExecutablePlan {
     if ([string]$Plan.ContractVersion -ne 'SqlServerLab.PersistentStorageRemovalPlan/1.0' -or [string]$Plan.Status -ne 'READY') {
         throw 'PERSISTENT_STORAGE_REMOVAL_EXECUTION_PLAN_NOT_READY'
     }
-    $unsupported = @($Plan.Stores | Where-Object { [string]$_.Policy -notin @('RETAIN_INSTANCE_STORE','BACKUP_ON_REMOVE') })
+    $unsupported = @($Plan.Stores | Where-Object { [string]$_.Policy -notin @('RETAIN_INSTANCE_STORE','BACKUP_ON_REMOVE','PACKAGE_ON_REMOVE') })
     if ($unsupported.Count -gt 0) {
         $policies = @($unsupported.Policy | ForEach-Object { if ($_){[string]$_}else{'NONE'} } | Sort-Object -Unique)
         throw "PERSISTENT_STORAGE_REMOVAL_POLICY_NOT_EXECUTABLE: $($policies -join ',')"
@@ -108,7 +113,7 @@ function New-LabPersistentStorageRemovalExecutionContext {
     if ([string]$catalog.Status -ne 'AVAILABLE' -or [int]$catalog.Document.Revision -ne [int]$Plan.CatalogRevision) {
         throw 'PERSISTENT_STORAGE_REMOVAL_CATALOG_REVISION_CONFLICT'
     }
-    $backupTasks = [Collections.Generic.List[object]]::new()
+    $backupTasks = [Collections.Generic.List[object]]::new(); $packageTasks = [Collections.Generic.List[object]]::new()
     foreach ($plannedStore in @($Plan.Stores)) {
         $storageId = [string]$plannedStore.PersistentStorageId
         $stores = @($catalog.Document.Stores | Where-Object PersistentStorageId -eq $storageId)
@@ -135,10 +140,17 @@ function New-LabPersistentStorageRemovalExecutionContext {
                 })
             }
         }
+        if ([string]$plannedStore.Policy -eq 'PACKAGE_ON_REMOVE') {
+            foreach ($referenceId in @($plannedStore.DatabaseReferenceIds | Sort-Object -Unique)) {
+                $references = @($store.References | Where-Object { [string]$_.ReferenceId -eq [string]$referenceId -and [string]$_.Kind -eq 'DATABASE' -and [string]$_.State -eq 'ACTIVE' })
+                if ($references.Count -ne 1) { throw 'PERSISTENT_STORAGE_REMOVAL_DATABASE_REFERENCE_UNRESOLVED' }
+                $packageTasks.Add([PSCustomObject][ordered]@{ PersistentStorageId=$storageId; DatabaseReferenceId=[string]$referenceId; InstanceId=[string]$instances[0].id; DatabaseName=[string]$references[0].TargetId; Status='PENDING'; DatabasePackageId=$null; ArtifactPersistentStorageId=$null; ManifestSha256=$null })
+            }
+        }
     }
     [PSCustomObject]@{
         Run=$run; RunDirectory=$runDirectory; ScopeId=[string]$run.scopeId; Configuration=$configuration
-        DataRoot=$DataRoot; StateRoot=$StateRoot; Selection=@($Selection); BackupTasks=@($backupTasks)
+        DataRoot=$DataRoot; StateRoot=$StateRoot; Selection=@($Selection); BackupTasks=@($backupTasks); PackageTasks=@($packageTasks)
         SaPassword=(Get-LabSecret -Path $runDirectory -Name 'sa-password')
     }
 }
@@ -157,7 +169,7 @@ function New-LabPersistentStorageRemovalResumeContext {
     [PSCustomObject]@{
         Run=$run;RunDirectory=$runDirectory;ScopeId=[string]$run.scopeId
         Configuration=(Get-LabStorageConfiguration -DataRoot $DataRoot)
-        DataRoot=$DataRoot;StateRoot=$StateRoot;Selection=@($Selection);BackupTasks=@()
+        DataRoot=$DataRoot;StateRoot=$StateRoot;Selection=@($Selection);BackupTasks=@();PackageTasks=@()
         SaPassword=(Get-LabSecret -Path $runDirectory -Name 'sa-password')
     }
 }
@@ -195,6 +207,8 @@ function Invoke-LabPersistentStorageRemovalExecutor {
         [Parameter(Mandatory)]$Context,
         [Parameter(Mandatory)][scriptblock]$BackupAction,
         [Parameter(Mandatory)][scriptblock]$BackupVerificationAction,
+        [Parameter(Mandatory)][scriptblock]$PackageAction,
+        [Parameter(Mandatory)][scriptblock]$PackageVerificationAction,
         [Parameter(Mandatory)][scriptblock]$ReplanAction,
         [Parameter(Mandatory)][scriptblock]$RemoveAction,
         [Parameter(Mandatory)][scriptblock]$PostconditionAction
@@ -222,7 +236,7 @@ function Invoke-LabPersistentStorageRemovalExecutor {
                 ContractVersion='SqlServerLab.PersistentStorageRemovalJournal/1.0'; OperationId=[Guid]::NewGuid().ToString('D')
                 IntentId=[string]$Plan.IntentId; RunId=[string]$Plan.RunId; ScopeId=[string]$Context.ScopeId
                 SelectionFingerprint=$fingerprint; CatalogRevision=[int]$Plan.CatalogRevision; Status='PREPARED'
-                Selections=@($Selection); Backups=@($Context.BackupTasks)
+                Selections=@($Selection); Backups=@($Context.BackupTasks | Where-Object { $_ }); Packages=@($Context.PackageTasks | Where-Object { $_ })
                 Removal=[PSCustomObject][ordered]@{ Status='PENDING'; Cleanup=$null }
                 Recovery=[PSCustomObject][ordered]@{ Status='RETRY_EXECUTION'; Attempts=0; ErrorCode=$null; Errors=@() }
                 CreatedAt=$now; UpdatedAt=$now
@@ -265,6 +279,17 @@ function Invoke-LabPersistentStorageRemovalExecutor {
                 $backup.Sha256=([string]$result.Sha256).ToLowerInvariant(); $backup.Bytes=[long]$result.Bytes
                 $null=Write-LabPersistentStorageRemovalJournal -Journal $journal -Path $journalPath
             }
+            foreach ($package in @($journal.Packages)) {
+                if ([string]$package.Status -eq 'COMPLETED') {
+                    $verified=& $PackageVerificationAction ([string]$package.DatabasePackageId) ([string]$Context.DataRoot)
+                    if ([string]$verified.Record.DatabaseName -ne [string]$package.DatabaseName -or [string]$verified.Record.ManifestSha256 -ne [string]$package.ManifestSha256) { throw 'PERSISTENT_STORAGE_REMOVAL_PACKAGE_REVALIDATION_FAILED' }
+                    continue
+                }
+                $result=& $PackageAction ([string]$Plan.RunId) ([string]$package.InstanceId) ([string]$package.DatabaseName) ([string]$Context.DataRoot) ([string]$Context.StateRoot)
+                if ([string]$result.Status -ne 'REUSABLE' -or [string]$result.DatabasePackageId -notmatch '^[0-9a-fA-F-]{36}$' -or [string]$result.PersistentStorageId -notmatch '^[0-9a-fA-F-]{36}$' -or [string]$result.ManifestSha256 -notmatch '^[a-fA-F0-9]{64}$') { throw 'PERSISTENT_STORAGE_REMOVAL_PACKAGE_POSTCONDITION_FAILED' }
+                $package.Status='COMPLETED';$package.DatabasePackageId=[string]$result.DatabasePackageId;$package.ArtifactPersistentStorageId=[string]$result.PersistentStorageId;$package.ManifestSha256=([string]$result.ManifestSha256).ToLowerInvariant()
+                $null=Write-LabPersistentStorageRemovalJournal -Journal $journal -Path $journalPath
+            }
             $journal.Status='BACKUPS_COMPLETED'
             $freshPlan=& $ReplanAction ([string]$Plan.RunId) @($Selection)
             $null=Assert-LabPersistentStorageRemovalExecutablePlan -Plan $freshPlan
@@ -284,6 +309,7 @@ function Invoke-LabPersistentStorageRemovalExecutor {
         foreach ($backup in @($journal.Backups)) {
             $null=& $BackupVerificationAction ([string]$backup.BackupSetId) ([string]$Context.DataRoot)
         }
+        foreach ($package in @($journal.Packages)) { $null=& $PackageVerificationAction ([string]$package.DatabasePackageId) ([string]$Context.DataRoot) }
         $journal.Status='COMPLETED'; $journal.Removal.Status='COMPLETED'; $journal.Recovery.Status='NOT_REQUIRED'; $journal.Recovery.ErrorCode=$null
         $null=Write-LabPersistentStorageRemovalJournal -Journal $journal -Path $journalPath
         return $journal

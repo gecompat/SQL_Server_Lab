@@ -56,15 +56,22 @@ try {
             $receipt
         }
         $verifyAction={param($BackupSetId,$ActionDataRoot)$null=$ActionDataRoot;if(-not $script:removalReceipts.ContainsKey($BackupSetId)){throw 'SYNTHETIC_BACKUP_MISSING'};$script:removalReceipts[$BackupSetId]}
+        $packageAction={param($ActionRunId,$ActionInstanceId,$ActionDatabaseName,$ActionDataRoot,$ActionStateRoot)$null=$ActionRunId,$ActionInstanceId,$ActionDatabaseName,$ActionDataRoot,$ActionStateRoot;throw 'SYNTHETIC_PACKAGE_UNEXPECTED'}
+        $packageVerifyAction={param($DatabasePackageId,$ActionDataRoot)$null=$DatabasePackageId,$ActionDataRoot;throw 'SYNTHETIC_PACKAGE_UNEXPECTED'}
         $replanAction={param($ActionRunId,$ActionSelection)$null=$ActionRunId,$ActionSelection;$plan}
         $removeAction={param($ActionRunId,$ActionStateRoot)$null=$ActionRunId,$ActionStateRoot;[PSCustomObject]@{Status='REMOVED';Errors=0;Cleanup='CLEANUP_SUCCEEDED'}}
         $postAction={param($ActionRunId,$ActionSelection,$ActionConfiguration)$null=$ActionRunId,$ActionSelection,$ActionConfiguration;$true}
         $firstFailure=$null
-        try{$null=Invoke-LabPersistentStorageRemovalExecutor -Plan $plan -Selection $selection -Context $context -BackupAction $backupAction -BackupVerificationAction $verifyAction -ReplanAction $replanAction -RemoveAction $removeAction -PostconditionAction $postAction}catch{$firstFailure=$_.Exception.Message}
+        try{$null=Invoke-LabPersistentStorageRemovalExecutor -Plan $plan -Selection $selection -Context $context -BackupAction $backupAction -BackupVerificationAction $verifyAction -PackageAction $packageAction -PackageVerificationAction $packageVerifyAction -ReplanAction $replanAction -RemoveAction $removeAction -PostconditionAction $postAction}catch{$firstFailure=$_.Exception.Message}
         $failedJournal=Read-LabPersistentStorageRemovalJournal -Path (Get-LabPersistentStorageRemovalJournalPath -RunDirectory $context.RunDirectory)
         $script:removalFailSecond=$false
-        $completed=Invoke-LabPersistentStorageRemovalExecutor -Plan $plan -Selection $selection -Context $context -BackupAction $backupAction -BackupVerificationAction $verifyAction -ReplanAction $replanAction -RemoveAction $removeAction -PostconditionAction $postAction
-        $completedAgain=Invoke-LabPersistentStorageRemovalExecutor -Plan $plan -Selection $selection -Context $context -BackupAction $backupAction -BackupVerificationAction $verifyAction -ReplanAction $replanAction -RemoveAction $removeAction -PostconditionAction $postAction
+        $completed=Invoke-LabPersistentStorageRemovalExecutor -Plan $plan -Selection $selection -Context $context -BackupAction $backupAction -BackupVerificationAction $verifyAction -PackageAction $packageAction -PackageVerificationAction $packageVerifyAction -ReplanAction $replanAction -RemoveAction $removeAction -PostconditionAction $postAction
+        $completedAgain=Invoke-LabPersistentStorageRemovalExecutor -Plan $plan -Selection $selection -Context $context -BackupAction $backupAction -BackupVerificationAction $verifyAction -PackageAction $packageAction -PackageVerificationAction $packageVerifyAction -ReplanAction $replanAction -RemoveAction $removeAction -PostconditionAction $postAction
+        $legacyJournal=$completed|ConvertTo-Json -Depth 40|ConvertFrom-Json -Depth 40
+        $legacyJournal.PSObject.Properties.Remove('Packages')
+        $legacyJournalPath=Join-Path $Root 'legacy-removal-journal.json'
+        Write-LabArtifactJsonAtomic -Path $legacyJournalPath -InputObject $legacyJournal
+        $legacyRead=Read-LabPersistentStorageRemovalJournal -Path $legacyJournalPath
         $backupCalls=@{};foreach($key in $script:removalBackupCalls.Keys){$backupCalls[$key]=$script:removalBackupCalls[$key]}
 
         $retainRoot=Join-Path $Root 'remove-resume';New-Item -ItemType Directory -Path $retainRoot -Force | Out-Null
@@ -78,17 +85,17 @@ try {
         $retainReplan={param($ActionRunId,$ActionSelection)$null=$ActionRunId,$ActionSelection;$script:removalReplanCalls++;$retainPlan}
         $retainRemove={param($ActionRunId,$ActionStateRoot)$null=$ActionRunId,$ActionStateRoot;$script:removalRemoveCalls++;if($script:removalFailRemove){throw 'SYNTHETIC_REMOVE_FAILURE'};[PSCustomObject]@{Status='REMOVED';Errors=0;Cleanup='CLEANUP_SUCCEEDED'}}
         $removeFailure=$null
-        try{$null=Invoke-LabPersistentStorageRemovalExecutor -Plan $retainPlan -Selection $retainSelection -Context $retainContext -BackupAction $backupAction -BackupVerificationAction $verifyAction -ReplanAction $retainReplan -RemoveAction $retainRemove -PostconditionAction $postAction}catch{$removeFailure=$_.Exception.Message}
+        try{$null=Invoke-LabPersistentStorageRemovalExecutor -Plan $retainPlan -Selection $retainSelection -Context $retainContext -BackupAction $backupAction -BackupVerificationAction $verifyAction -PackageAction $packageAction -PackageVerificationAction $packageVerifyAction -ReplanAction $retainReplan -RemoveAction $retainRemove -PostconditionAction $postAction}catch{$removeFailure=$_.Exception.Message}
         $removeFailedJournal=Read-LabPersistentStorageRemovalJournal -Path (Get-LabPersistentStorageRemovalJournalPath -RunDirectory $retainRoot)
         $script:removalFailRemove=$false;$retainContext.Run.state='RECOVERY_REQUIRED'
-        $removeCompleted=Invoke-LabPersistentStorageRemovalExecutor -Plan $retainPlan -Selection $retainSelection -Context $retainContext -BackupAction $backupAction -BackupVerificationAction $verifyAction -ReplanAction $retainReplan -RemoveAction $retainRemove -PostconditionAction $postAction
+        $removeCompleted=Invoke-LabPersistentStorageRemovalExecutor -Plan $retainPlan -Selection $retainSelection -Context $retainContext -BackupAction $backupAction -BackupVerificationAction $verifyAction -PackageAction $packageAction -PackageVerificationAction $packageVerifyAction -ReplanAction $retainReplan -RemoveAction $retainRemove -PostconditionAction $postAction
 
         $unsupported=$false
-        $unsupportedPlan=$retainPlan|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20;$unsupportedPlan.Stores[0].Policy='PACKAGE_ON_REMOVE'
+        $unsupportedPlan=$retainPlan|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20;$unsupportedPlan.Stores[0].Policy='BACKUP_AND_PACKAGE'
         try{$null=Assert-LabPersistentStorageRemovalExecutablePlan -Plan $unsupportedPlan}catch{$unsupported=$_.Exception.Message -match 'PERSISTENT_STORAGE_REMOVAL_POLICY_NOT_EXECUTABLE'}
         $removeCalls=$script:removalRemoveCalls;$replanCalls=$script:removalReplanCalls
         Remove-Variable removalBackupCalls,removalFailSecond,removalReceipts,removalRemoveCalls,removalReplanCalls,removalFailRemove -Scope Script -ErrorAction SilentlyContinue
-        [PSCustomObject]@{FirstFailure=$firstFailure;FailedJournal=$failedJournal;Completed=$completed;CompletedAgain=$completedAgain;BackupCalls=$backupCalls;RemoveFailure=$removeFailure;RemoveFailedJournal=$removeFailedJournal;RemoveCompleted=$removeCompleted;RemoveCalls=$removeCalls;ReplanCalls=$replanCalls;Unsupported=$unsupported}
+        [PSCustomObject]@{FirstFailure=$firstFailure;FailedJournal=$failedJournal;Completed=$completed;CompletedAgain=$completedAgain;LegacyRead=$legacyRead;BackupCalls=$backupCalls;RemoveFailure=$removeFailure;RemoveFailedJournal=$removeFailedJournal;RemoveCompleted=$removeCompleted;RemoveCalls=$removeCalls;ReplanCalls=$replanCalls;Unsupported=$unsupported}
     } $temporaryRoot
 
     Add-CheckResult -Name 'Fehler nach erstem Backup bleibt mit einzeln persistierter Evidence wiederaufnehmbar' -Success (
@@ -97,13 +104,15 @@ try {
     Add-CheckResult -Name 'Resume verifiziert fertige Backups und erzeugt kein doppeltes Artefakt' -Success (
         $evidence.Completed.Status -eq 'COMPLETED' -and $evidence.CompletedAgain.OperationId -eq $evidence.Completed.OperationId -and
         $evidence.BackupCalls.ApplicationOne -eq 1 -and $evidence.BackupCalls.ApplicationTwo -eq 2)
+    Add-CheckResult -Name 'Bestehende 1.0-Journale ohne Packages-Array bleiben sicher resumierbar' -Success (
+        @($evidence.LegacyRead.Packages).Count -eq 0 -and $evidence.LegacyRead.OperationId -eq $evidence.Completed.OperationId)
     Add-CheckResult -Name 'Erfolg enthält ausschließlich stabile Backup- und Storage-IDs mit Hash-Postcondition' -Success (
         @($evidence.Completed.Backups).Count -eq 2 -and @($evidence.Completed.Backups|Where-Object {$_.BackupSetId -match '^[0-9a-f-]{36}$' -and $_.ArtifactPersistentStorageId -match '^[0-9a-f-]{36}$' -and $_.Sha256 -match '^[a-f0-9]{64}$'}).Count -eq 2)
     Add-CheckResult -Name 'Begonnener Cleanup wird ohne erneute Planung journalisiert fortgesetzt' -Success (
         $evidence.RemoveFailure -match '^PERSISTENT_STORAGE_REMOVAL_RECOVERY_REQUIRED: SYNTHETIC_REMOVE_FAILURE' -and
         $evidence.RemoveFailedJournal.Removal.Status -eq 'STARTED' -and $evidence.RemoveCompleted.Status -eq 'COMPLETED' -and
         $evidence.RemoveCalls -eq 2 -and $evidence.ReplanCalls -eq 2)
-    Add-CheckResult -Name 'Package, Delete und externe Policies bleiben vor jeder Executor-Mutation blockiert' -Success $evidence.Unsupported
+    Add-CheckResult -Name 'Kombinierte, Delete- und externe Policies bleiben vor jeder Executor-Mutation blockiert' -Success $evidence.Unsupported
     Add-CheckResult -Name 'Journal erfüllt striktes Schema und enthält keine Secrets oder Hostpfade' -Success (
         (& $module {param($Journal)Test-LabPersistentStorageRemovalJournal -Journal $Journal} $evidence.Completed) -and
         (($evidence.Completed|ConvertTo-Json -Depth 30) -notmatch '(?i)password|secret|credential|[A-Z]:\\'))

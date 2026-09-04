@@ -119,6 +119,7 @@ sources_of_truth:
   persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
   persistent_storage_removal_preview: Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1
   persistent_storage_removal_executor: Private/PersistentStorageRemovalExecutor.ps1
+  container_database_package: Private/ContainerDatabasePackage.ps1
   persistent_storage_removal_action: Public/Invoke-SqlServerLabPersistentStorageRemoval.ps1
   persistent_storage_removal_intent_schema: Schemas/persistent-storage-removal-intent.schema.json
   persistent_storage_removal_plan_schema: Schemas/persistent-storage-removal-plan.schema.json
@@ -589,7 +590,7 @@ internal_components:
       - "Datenbankpakete fuer CLI und Browser pfadfrei per stabiler DatabasePackageId inventarisieren; Voll-Hashing nur bei expliziter Integritaetspruefung oder unmittelbar vor Verwendung ausfuehren"
       - "Datenbankpakete per stabiler Run-/Instanzbindung an das live ermittelte SQL-Default-Data-Verzeichnis eines scopegebundenen Hyper-V-Gasts kopieren, dort vollstaendig hashen und erst nach vorab persistiertem Recovery-Journal attachen"
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
-      - "RETAIN_INSTANCE_STORE und BACKUP_ON_REMOVE für Docker-/Podman-Instanzstores frisch revalidiert, backupverifiziert und journalisiert ausführen; Package, Delete und externe Freigabe vor Mutation blockieren"
+      - "RETAIN_INSTANCE_STORE, BACKUP_ON_REMOVE und MDF/NDF/LDF-PACKAGE_ON_REMOVE für Docker-/Podman-Instanzstores frisch revalidiert, artefaktverifiziert und journalisiert ausführen; FILESTREAM, TDE, Kombinationspolicy, Delete und externe Freigabe vor Mutation blockieren"
       - "CLI und Browser-UI über denselben frisch inventarisierten Retention-Plan-Core ausschließlich per stabiler Storage-ID vorausschauen und die unterstützten Policies bestätigt ausführen lassen"
       - "katalogisierte Docker-/Podman-Instanzstores in CLI und Browser per stabiler ID und Runtime-Label detached revalidieren, fuer Continue an den neuen Run leasen oder unter exklusiver Operations-Lease digestverifiziert klonen; verifizierte Datenbanken stabil referenzieren sowie Zielcommit und Quellfreigabe atomar koppeln"
       - "reguläre Hyper-V-Daten-VHDX vor ihrer Erzeugung controllerweit als INCOMPLETE mit stabiler Storage-ID und exklusiver Run-Lease reservieren, nach DiskIdentifier- und VM-Attachment-Postcondition auf IN_USE committen und Abbrüche als RECOVERY_REQUIRED fortsetzbar halten"
@@ -970,6 +971,7 @@ validation:
       - public_cli_and_browser_retention_preview
       - backup_checksum_and_restore_verification
       - offline_package_hash_and_postcondition
+      - container_offline_package_materialization
       - explicit_execution_capability_classification
       - foreign_reference_and_recovery_guards
       - external_source_non_mutation
@@ -983,10 +985,11 @@ validation:
       - strict_secret_free_journal
       - unsupported_policy_pre_mutation_boundary
   acceptance_persistent_storage_removal_executor:
-    command: '.\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -Provider <docker|podman>'
+    command: '.\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -Provider <docker|podman> -Policy <BACKUP_ON_REMOVE|PACKAGE_ON_REMOVE>'
     source: Tests/Integration/Invoke-PersistentStorageRemovalExecutorAcceptance.ps1
     covers:
-      - real_verified_backup_on_remove
+      - real_verified_backup_on_remove_or_package_on_remove
+      - real_container_package_collation_normalization
       - removed_run_and_detached_retained_instance_store
       - docker_and_podman_runtime_evidence
   static_container_instance_store:
