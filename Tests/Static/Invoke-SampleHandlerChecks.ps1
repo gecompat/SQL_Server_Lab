@@ -209,6 +209,10 @@ try {
         $trustBoundAttachSchemaWorks = (($attachContractCatalog | ConvertTo-Json -Depth 100) | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)
         $attachContractVariant.installation.payloadLayout = $null
         $missingAttachLayoutRejected = -not (($attachContractCatalog | ConvertTo-Json -Depth 100) | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)
+        $sampleCatalogText = Get-Content -LiteralPath (Join-Path $script:CatalogsPath 'sample-databases.json') -Raw
+        $descriptiveAttachExplanationWorks = ([regex]::Matches($sampleCatalogText, 'verifizierte exakte MDF/NDF/LDF-Payload-Liste').Count -eq 2) -and
+            ([regex]::Matches($sampleCatalogText, '"payloadSelection": "manual-required"').Count -eq 2) -and
+            $sampleCatalogText -notmatch 'Handler ist noch nicht implementiert'
 
         $containerAttachTarget = "/var/opt/mssql/data/sql-server-lab-attach-$([guid]::NewGuid().ToString('N'))"
         $containerAttachJournal = [ordered]@{
@@ -541,6 +545,7 @@ CREATE DATABASE [$(SecondDatabase)];
             DuplicateAttachLayoutRejected = $duplicateAttachLayoutRejected
             TrustBoundAttachSchemaWorks = $trustBoundAttachSchemaWorks
             MissingAttachLayoutRejected = $missingAttachLayoutRejected
+            DescriptiveAttachExplanationWorks = $descriptiveAttachExplanationWorks
             ContainerAttachJournalSchemaWorks = $containerAttachJournalSchemaWorks
             ContainerAttachFailureJournalWorks = $containerAttachFailureJournalWorks
             ContainerAttachInvalidJournalRejected = $containerAttachInvalidJournalRejected
@@ -560,6 +565,7 @@ CREATE DATABASE [$(SecondDatabase)];
     Add-CheckResult -Name '7z-Attach-Payloads werden bei verfügbarem 7-Zip exakt und isoliert extrahiert' -Success $result.AttachSevenZipPayloadWorks
     Add-CheckResult -Name 'Attach-Payload-Layout weist Traversal und doppelte Pfade ab' -Success ($result.UnsafeAttachLayoutRejected -and $result.DuplicateAttachLayoutRejected)
     Add-CheckResult -Name 'Ausfuehrbare Attach-Varianten koennen per Trust-Hash und Katalogpfad gebunden werden' -Success ($result.TrustBoundAttachSchemaWorks -and $result.MissingAttachLayoutRejected)
+    Add-CheckResult -Name 'Beschreibende Attach-Varianten benennen die fehlende Payload-Bindung statt einen fehlenden Handler' -Success $result.DescriptiveAttachExplanationWorks
     Add-CheckResult -Name 'Container-Attach-Journal ist schema- und zeitstempelgebunden atomar persistiert' -Success $result.ContainerAttachJournalSchemaWorks
     Add-CheckResult -Name 'Container-Attach-Journal bildet erfolgreiche und fehlgeschlagene Recovery-Zustaende fail-closed ab' -Success ($result.ContainerAttachFailureJournalWorks -and $result.ContainerAttachInvalidJournalRejected)
     Add-CheckResult -Name 'Container-Attach-Handler kopiert Payloads, ruft FOR ATTACH auf und verifiziert ONLINE' -Success $result.ContainerAttachHandlerWorks
