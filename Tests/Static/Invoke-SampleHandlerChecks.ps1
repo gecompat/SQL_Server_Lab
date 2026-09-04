@@ -178,6 +178,44 @@ try {
         $attachContractVariant.installation.payloadLayout = $null
         $missingAttachLayoutRejected = -not (($attachContractCatalog | ConvertTo-Json -Depth 100) | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)
 
+        $containerAttachTarget = "/var/opt/mssql/data/sql-server-lab-attach-$([guid]::NewGuid().ToString('N'))"
+        $containerAttachJournal = [ordered]@{
+            ContractVersion = 'SqlServerLab.ContainerAttachJournal/1.0'
+            RunId = [guid]::NewGuid().ToString()
+            InstanceId = 'primary'
+            DatabaseName = 'AttachStaticCheck'
+            Status = 'COMPLETED'
+            TargetDirectory = $containerAttachTarget
+            CopyVerified = $true
+            AttachInvoked = $true
+            PostconditionVerified = $true
+            Recovery = 'NOT_REQUIRED'
+            UpdatedAt = Get-LabTimestamp
+        }
+        $containerAttachJournalPath = Join-Path $StateRoot 'container-attach-journal.json'
+        $containerAttachJournalSchemaWorks = (Assert-LabContainerAttachJournal -Journal $containerAttachJournal) -and
+            (Write-LabContainerAttachJournal -Journal $containerAttachJournal -Path $containerAttachJournalPath).UpdatedAt -and
+            ((Get-Content -LiteralPath $containerAttachJournalPath -Raw | ConvertFrom-Json).Status -eq 'COMPLETED')
+        $containerAttachFailureJournal = [ordered]@{
+            ContractVersion = 'SqlServerLab.ContainerAttachJournal/1.0'
+            RunId = [guid]::NewGuid().ToString()
+            InstanceId = 'primary'
+            DatabaseName = 'AttachStaticCheck'
+            Status = 'RECOVERY_REQUIRED'
+            TargetDirectory = $containerAttachTarget
+            CopyVerified = $true
+            AttachInvoked = $true
+            PostconditionVerified = $false
+            Recovery = 'DETACH_TARGET_COPY_AND_PRESERVE_TARGET'
+            UpdatedAt = Get-LabTimestamp
+        }
+        $containerAttachFailureJournalWorks = Assert-LabContainerAttachJournal -Journal $containerAttachFailureJournal
+        $containerAttachInvalidJournalRejected = $false
+        $containerAttachInvalidJournal = $containerAttachFailureJournal | ConvertTo-Json -Depth 20 | ConvertFrom-Json
+        $containerAttachInvalidJournal.PostconditionVerified = $true
+        try { $null = Assert-LabContainerAttachJournal -Journal $containerAttachInvalidJournal }
+        catch { $containerAttachInvalidJournalRejected = $_.Exception.Message -match 'CONTAINER_ATTACH_JOURNAL_STATE_INVALID' }
+
         $dummyPassword = ConvertTo-SecureString 'Static-Check-Only-1!' -AsPlainText -Force
         $handlerResult = Install-LabSampleDatabase `
             -Port 14330 `
@@ -383,6 +421,9 @@ CREATE DATABASE [$(SecondDatabase)];
             DuplicateAttachLayoutRejected = $duplicateAttachLayoutRejected
             TrustBoundAttachSchemaWorks = $trustBoundAttachSchemaWorks
             MissingAttachLayoutRejected = $missingAttachLayoutRejected
+            ContainerAttachJournalSchemaWorks = $containerAttachJournalSchemaWorks
+            ContainerAttachFailureJournalWorks = $containerAttachFailureJournalWorks
+            ContainerAttachInvalidJournalRejected = $containerAttachInvalidJournalRejected
             TrustRequired         = $handlerResult.Status -eq 'TRUST_REQUIRED' -and -not $handlerResult.Success
             LocalStatusUntrusted  = $status.TrustStatus -eq 'TRUST_REQUIRED' -and $status.CacheStatus -eq 'MISS'
             InMemoryMoveWorks     = $wideWorldMoves.Count -eq 3 -and
@@ -396,6 +437,8 @@ CREATE DATABASE [$(SecondDatabase)];
     Add-CheckResult -Name 'ZIP-Attach-Payloads werden exakt und isoliert extrahiert' -Success $result.AttachArchivePayloadWorks
     Add-CheckResult -Name 'Attach-Payload-Layout weist Traversal und doppelte Pfade ab' -Success ($result.UnsafeAttachLayoutRejected -and $result.DuplicateAttachLayoutRejected)
     Add-CheckResult -Name 'Ausfuehrbare Attach-Varianten koennen per Trust-Hash und Katalogpfad gebunden werden' -Success ($result.TrustBoundAttachSchemaWorks -and $result.MissingAttachLayoutRejected)
+    Add-CheckResult -Name 'Container-Attach-Journal ist schema- und zeitstempelgebunden atomar persistiert' -Success $result.ContainerAttachJournalSchemaWorks
+    Add-CheckResult -Name 'Container-Attach-Journal bildet erfolgreiche und fehlgeschlagene Recovery-Zustaende fail-closed ab' -Success ($result.ContainerAttachFailureJournalWorks -and $result.ContainerAttachInvalidJournalRejected)
     Add-CheckResult -Name 'Versionsfilter beruecksichtigt minSqlVersion und CU-Bezeichner' -Success $result.VersionFilterWorks
     Add-CheckResult -Name 'Aktuelle Microsoft-Backups fuer AdventureWorks und Data Warehouse sind katalogisiert' -Success $result.CurrentMicrosoftBackups
     Add-CheckResult -Name 'Contoso-Backups sind als direkt restaurierbare Groessenvarianten katalogisiert' -Success $result.ContosoBackups

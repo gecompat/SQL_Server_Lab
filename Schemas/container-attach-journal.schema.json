@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/container-attach-journal.schema.json",
+  "title": "SqlServerLab.ContainerAttachJournal/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "RunId", "InstanceId", "DatabaseName", "Status", "TargetDirectory", "CopyVerified", "AttachInvoked", "PostconditionVerified", "Recovery", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.ContainerAttachJournal/1.0" },
+    "RunId": { "type": "string", "minLength": 1 },
+    "InstanceId": { "type": "string", "minLength": 1 },
+    "DatabaseName": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$" },
+    "Status": { "enum": ["COPYING", "ATTACHING", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "TargetDirectory": { "type": "string", "pattern": "^/var/opt/mssql/data/sql-server-lab-attach-[0-9a-f]{32}$" },
+    "CopyVerified": { "type": "boolean" },
+    "AttachInvoked": { "type": "boolean" },
+    "PostconditionVerified": { "type": "boolean" },
+    "Recovery": { "enum": ["REMOVE_UNATTACHED_TARGET_COPY", "DETACH_TARGET_COPY_AND_PRESERVE_TARGET", "NOT_REQUIRED"] },
+    "UpdatedAt": { "type": "string", "format": "date-time" }
+  }
+}
