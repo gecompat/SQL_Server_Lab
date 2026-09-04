@@ -179,7 +179,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
             'ExecutePersistentStorageRemoval',
             'CreateContainerDatabase', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
-            'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'ReleaseHyperVPersistentData', 'ReattachHyperVPersistentData', 'CloneHyperVPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'AttachHyperVDatabasePackage', 'OpenHyperVConsole', 'RemoveHyperVLab',
+            'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'ReleaseHyperVPersistentData', 'ReattachHyperVPersistentData', 'CloneHyperVPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'AttachHyperVDatabasePackage', 'RecoverHyperVDatabasePackageAttach', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
             'NewSqlBuild', 'NewSqlBuildFromBaseline', 'SetSqlMediaHash', 'OpenSqlConsole', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'ResumeSqlImage', 'PublishSqlImage',
             'RunSqlAcceptanceSetup', 'RunSqlAcceptanceTests',
@@ -300,7 +300,7 @@ function Invoke-SqlServerLabWorkflowAction {
     }
 
     $credential = $null
-    $credentialRequired = $Action -in @('ConfirmWindowsInstall', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'InitializeHyperVLabPersistentData', 'AttachHyperVDatabasePackage')
+    $credentialRequired = $Action -in @('ConfirmWindowsInstall', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'InitializeHyperVLabPersistentData', 'AttachHyperVDatabasePackage', 'RecoverHyperVDatabasePackageAttach')
     if ($Action -eq 'GeneralizeWindowsBuild') {
         $existingWindowsBuild = Get-HyperVImageBuildPlan -BuildId $BuildId
         $credentialRequired = $existingWindowsBuild -and [string]$existingWindowsBuild.state -eq 'MANUAL_ACTION_REQUIRED'
@@ -339,7 +339,7 @@ function Invoke-SqlServerLabWorkflowAction {
     if ($Action -eq 'ExecutePersistentStorageRemoval' -and ([string]::IsNullOrWhiteSpace($BuildId) -or @($PersistentStorageSelection).Count -eq 0)) {
         throw 'PERSISTENT_STORAGE_REMOVAL_WORKFLOW_SELECTION_REQUIRED'
     }
-    if ($Action -eq 'AttachHyperVDatabasePackage' -and
+    if ($Action -in @('AttachHyperVDatabasePackage', 'RecoverHyperVDatabasePackageAttach') -and
         ([string]::IsNullOrWhiteSpace($BuildId) -or [string]::IsNullOrWhiteSpace($DatabasePackageId))) {
         throw 'DATABASE_PACKAGE_HYPERV_WORKFLOW_TARGET_REQUIRED'
     }
@@ -378,6 +378,7 @@ function Invoke-SqlServerLabWorkflowAction {
         'CloneHyperVPersistentData' { 'Die unveränderte, sauber freigegebene VHDX wird in einen eigenständigen katalogisierten Klon kopiert.' }
         'InspectHyperVLabSqlInstances' { 'SQL-Instanzen, Dienste und TCP-Ports werden ausschließlich lesend in der laufenden Lab-VM geprüft.' }
         'AttachHyperVDatabasePackage' { 'Paket und gebundenes SQL-Ziel werden vollständig geprüft; danach folgen Gastkopie, Hashprüfung, Attach und Online-Postcondition.' }
+        'RecoverHyperVDatabasePackageAttach' { 'Nur ein passendes persistiertes Attach-Recovery-Journal wird erneut an Paket, Run, Instanz und SQL-Ziel gebunden und ausgeführt.' }
         'SetLabResources' { 'CPU- und Speicherwerte werden am echten Runtime-Objekt geprüft und anschließend aktualisiert.' }
         'ConfirmSqlWindowsInstall' { 'Die manuell installierte Windows-Edition wird geprüft; anschließend laufen SQL PrepareImage, Neustarts, Sysprep und Veröffentlichung automatisch.' }
         'PrepareSqlImage' { 'Der automatische Abschluss mit SQL PrepareImage, Neustarts, Sysprep und Veröffentlichung wird fortgesetzt.' }
@@ -470,6 +471,18 @@ function Invoke-SqlServerLabWorkflowAction {
                 RunId = $BuildId
                 InstanceId = $InstanceId
                 GuestCredential = $credential
+                Confirm = $false
+            }
+            if ($DataRoot) { $attachArguments.DataRoot = $DataRoot }
+            Invoke-SqlServerLabDatabasePackageAttach @attachArguments
+        }
+        'RecoverHyperVDatabasePackageAttach' {
+            $attachArguments = @{
+                DatabasePackageId = $DatabasePackageId
+                RunId = $BuildId
+                InstanceId = $InstanceId
+                GuestCredential = $credential
+                Recover = $true
                 Confirm = $false
             }
             if ($DataRoot) { $attachArguments.DataRoot = $DataRoot }
