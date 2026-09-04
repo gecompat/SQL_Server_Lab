@@ -765,6 +765,30 @@ async function refreshUiConfig() {
   uiConfig.jobLogBurstLimit = Number.isFinite(requestedLimit) ? Math.max(1, Math.floor(requestedLimit)) : uiConfig.jobLogBurstLimit;
 }
 
+function migrationInventoryResult(lines) {
+  const inventoryLine = [...(lines || [])].reverse().find((line) => String(line).startsWith('[INVENTAR] '));
+  if (!inventoryLine) return '';
+  try {
+    const inventory = JSON.parse(String(inventoryLine).substring('[INVENTAR] '.length));
+    if (inventory?.ContractVersion !== 'SqlServerLab.DatabaseMigrationDependencyInventory/1.0' ||
+      !/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(String(inventory.DatabaseName || ''))) return '';
+    const dependencies = Array.isArray(inventory.Dependencies) ? inventory.Dependencies : [];
+    const rows = dependencies.map((dependency) => {
+      const count = dependency.Count === null || dependency.Count === undefined ? 'nicht beobachtbar' : String(dependency.Count);
+      return '<li><strong>' + escapeHtml(String(dependency.Category || 'UNKNOWN')) + '</strong>: ' +
+        escapeHtml(String(dependency.Status || 'UNKNOWN')) + ' · ' + escapeHtml(count) +
+        ' · ' + escapeHtml(String(dependency.Scope || 'UNKNOWN')) + ' · ' + escapeHtml(String(dependency.RequiredAction || 'MANUAL_REVIEW')) + '</li>';
+    }).join('') || '<li>Keine Dependency-Einträge geliefert.</li>';
+    const warnings = Array.isArray(inventory.Warnings) ? inventory.Warnings : [];
+    const blockers = Array.isArray(inventory.Blockers) ? inventory.Blockers : [];
+    return '<section class="job-inventory" aria-label="Migrationsinventar"><strong>Migrationsinventar: ' + escapeHtml(String(inventory.DatabaseName)) + '</strong>' +
+      '<span>' + escapeHtml(String(inventory.ObservationStatus || 'UNKNOWN')) + ' · Grenze: ' + escapeHtml(String(inventory.MigrationBoundary || 'DATABASE_ONLY')) +
+      ' · Vollmigration: ' + escapeHtml(inventory.FullInstanceMigration ? 'ja' : 'nein') + '</span>' +
+      '<ul>' + rows + '</ul><span>Hinweise: ' + escapeHtml(warnings.join(', ') || 'keine') + '</span><span>Blocker: ' + escapeHtml(blockers.join(', ') || 'keine') + '</span></section>';
+  }
+  catch { return ''; }
+}
+
 function renderJobs(serverJobs) {
   const jobsByServer = serverJobs || [];
   const known = new Set(jobsByServer.map((job) => String(job.Id)));
@@ -789,7 +813,8 @@ function renderJobs(serverJobs) {
     const mergedLines = (isOptimisticOnly ? incomingLines : [...previousLines, ...incomingLines]).slice(-burstLimit);
     jobLineCache[jobId] = mergedLines;
     const lines = [...mergedLines, ...(heartbeat ? [heartbeat] : [])].join('\n') || 'Aktion läuft …';
-    return '<article class="job"><div class="job-header"><strong>' + escapeHtml(job.Action + runtime) + '</strong><span class="status ' + (job.State === 'Failed' ? 'failed' : job.State === 'Completed' ? 'done' : 'pending') + '">' + escapeHtml(job.State) + '</span></div>' + (running ? '<div class="job-progress" aria-label="Aktion läuft"></div>' : '') + '<pre class="log">' + escapeHtml(lines) + '</pre></article>';
+    const inventory = job.Action === 'InspectContainerDatabaseMigrationDependencies' ? migrationInventoryResult(mergedLines) : '';
+    return '<article class="job"><div class="job-header"><strong>' + escapeHtml(job.Action + runtime) + '</strong><span class="status ' + (job.State === 'Failed' ? 'failed' : job.State === 'Completed' ? 'done' : 'pending') + '">' + escapeHtml(job.State) + '</span></div>' + (running ? '<div class="job-progress" aria-label="Aktion läuft"></div>' : '') + inventory + '<pre class="log">' + escapeHtml(lines) + '</pre></article>';
   }).join('') : empty('Noch keine Aktion wurde aus der Oberfläche gestartet.');
   const feedback = $('#action-feedback');
   const presentJobIds = new Set(jobs.map((job) => String(job.Id)));
