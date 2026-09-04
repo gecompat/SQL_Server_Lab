@@ -98,6 +98,7 @@ $checks = @(
     'Invoke-InstanceIntentChecks.ps1',
     'Invoke-MixedProviderLifecycleChecks.ps1',
     'Invoke-RuntimeStateSyncChecks.ps1',
+    'Invoke-MaintenanceChecks.ps1',
     'Invoke-ProjectAdapterChecks.ps1',
     'Invoke-SampleHandlerChecks.ps1',
     'Invoke-SampleBaselineRegistryChecks.ps1',

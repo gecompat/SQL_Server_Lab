@@ -295,6 +295,34 @@ und erzeugt sie auch nicht neu. Nicht erreichbare Runtimes bleiben reine
 Diagnosezustände, damit ein ausgeschalteter Dienst nicht mit einer Löschung
 verwechselt wird.
 
+### Lab-Zustand jederzeit deterministisch warten
+
+Der Maintenance-Plan vergleicht den gesamten gespeicherten Run-State mit allen
+vorhandenen Docker-, Podman- und Hyper-V-Ressourcen. Er ignoriert fremde
+Ressourcen und trennt automatische State-Korrekturen, scopegebundenes Cleanup
+und alte Testartefakte ohne vollständige Identität. Zusätzlich werden nur
+eindeutig benannte SQL-Lab-Testobjekte direkt im echten Benutzer-Temp nach
+Ablauf der gewählten Schwelle als eine revalidierte Cleanup-Aktion geplant:
+
+```powershell
+# Nur lesen
+.\Tools\Invoke-SqlServerLabMaintenance.ps1
+
+# State korrigieren und eindeutig scopegebundene Lab-Reste entfernen
+.\Tools\Invoke-SqlServerLabMaintenance.ps1 -Apply -Cleanup
+
+# Einmalige, eng revalidierte Bereinigung alter Testartefakte
+.\Tools\Invoke-SqlServerLabMaintenance.ps1 -Apply -Cleanup `
+    -AllowLegacyTestArtifactRemoval
+```
+
+Für einen regelmäßigen Lauf kann Windows Task Scheduler denselben zweiten
+Aufruf mit `pwsh.exe -NoLogo -NoProfile -File` starten. Das Skript liefert bei
+fehlgeschlagenen Aktionen Exitcode 1 und mit `-AsJson` ein maschinenlesbares
+Ergebnis. Neu erzeugte CI-/Smoke-Ressourcen tragen zusätzlich Lifecycle- und
+Ablaufmetadaten; ein nicht vollständig bereinigter Runtime-Smoke schlägt fehl,
+statt nur zu warnen.
+
 ### Verwaiste Objekte in Lab_Data prüfen
 
 ```powershell

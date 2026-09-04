@@ -46,7 +46,8 @@ function Get-LabCleanupAuditFindings {
         [Parameter(Mandatory)]$ResidencyInventory,
         [AllowNull()]$PersistentStorageCatalog,
         [AllowEmptyCollection()][object[]]$HyperVRunScopes = @(),
-        [AllowEmptyCollection()][object[]]$Containers = @()
+        [AllowEmptyCollection()][object[]]$Containers = @(),
+        [AllowEmptyCollection()][object[]]$UnregisteredTestArtifacts = @()
     )
 
     $retained = [Collections.Generic.List[object]]::new()
@@ -115,6 +116,16 @@ function Get-LabCleanupAuditFindings {
             -SubjectId $subjectId -Provider $provider -DisplayName ([string]$container.Name) `
             -ReasonCode 'ORPHAN_CONTAINER' `
             -Guidance 'Run-Zuordnung und Runtime-Labels prüfen; nur über einen bestätigten scopegebundenen Cleanup entfernen.'))
+    }
+
+    foreach ($artifact in @($UnregisteredTestArtifacts)) {
+        $provider = ([string]$artifact.Provider).ToLowerInvariant()
+        $subjectKind = if ($provider -eq 'hyperv') { 'HYPERV_RUN' } else { 'CONTAINER' }
+        $objectType = if ($provider -eq 'hyperv') { 'LEGACY_TEST_VM' } else { 'LEGACY_TEST_CONTAINER' }
+        $unexpected.Add((New-LabCleanupAuditFinding -Category UNEXPECTED_RESIDUAL -SubjectKind $subjectKind -ObjectType $objectType `
+            -SubjectId ([string]$artifact.ResourceId) -Provider $provider -DisplayName ([string]$artifact.Name) `
+            -ReasonCode 'LEGACY_TEST_ARTIFACT_WITHOUT_COMPLETE_IDENTITY' `
+            -Guidance 'Testartefakt über den Maintenance-Plan revalidieren; Legacy-Entfernung benötigt eine ausdrückliche objektgebundene Freigabe.'))
     }
 
     $catalogDocument = if ($PersistentStorageCatalog -and $PersistentStorageCatalog.PSObject.Properties['Document']) {

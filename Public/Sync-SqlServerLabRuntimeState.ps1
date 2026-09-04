@@ -37,6 +37,9 @@ function Sync-SqlServerLabRuntimeState {
         $changed = $false
         $action = 'NO_CHANGE'
         if ([string]$runtime.State -in @('RUNNING','STOPPED')) {
+            if ($previousState -in @('RUNNING','STOPPED') -and $previousState -ne [string]$runtime.State) {
+                $action = 'STATE_SYNCHRONIZE_PLANNED'
+            }
             if ($PSCmdlet.ShouldProcess([string]$run.runId, "Run-State mit Runtimezustand $($runtime.State) abgleichen")) {
                 $sync = Sync-LabRunRuntimeState -Run $run -StateRoot $StateRoot
                 $run = $sync.Run
@@ -46,6 +49,9 @@ function Sync-SqlServerLabRuntimeState {
         }
         elseif ([string]$runtime.State -eq 'MISSING') {
             $action = if ($previousState -eq 'RECOVERY_REQUIRED') { 'ALREADY_RECOVERY_REQUIRED' } else { 'RECOVERY_REQUIRED' }
+            if ($WhatIfPreference -and $previousState -in @('RUNNING','STOPPED')) {
+                $action = 'RECOVERY_REQUIRED_PLANNED'
+            }
             if ($previousState -in @('RUNNING','STOPPED') -and
                 $PSCmdlet.ShouldProcess([string]$run.runId, 'Fehlende Runtime als RECOVERY_REQUIRED markieren')) {
                 foreach ($provider in @($runtime.Instances | Where-Object State -eq 'MISSING' |

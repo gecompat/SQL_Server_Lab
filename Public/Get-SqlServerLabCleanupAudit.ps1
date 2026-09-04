@@ -64,7 +64,7 @@ function Get-SqlServerLabCleanupAudit {
     $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot)
     $knownRunIds = @($activeRuns | ForEach-Object { [string]$_.runId })
     $runtimeResults = @(); $runtimeScopes = @(); $runtimeStorageUsage = @(); $managedImages = @()
-    $containers = @(); $managedVolumes = @(); $managedNetworks = @()
+    $containers = @(); $managedVolumes = @(); $managedNetworks = @(); $unregisteredTestArtifacts = @()
     foreach ($runtime in @('docker', 'podman')) {
         $runtimeScope = Get-LabContainerRuntimeScope -Provider $runtime
         $runtimeScopes += $runtimeScope
@@ -106,6 +106,8 @@ function Get-SqlServerLabCleanupAudit {
                 RunId=[string]$container.RunId; ScopeId=[string]$container.ScopeId; Orphan=[bool](-not $container.RunId -or [string]$container.RunId -notin $knownRunIds)
             }
         }
+        $maintenanceInventory = Get-LabMaintenanceContainerInventory -Provider $runtime
+        $unregisteredTestArtifacts += @($maintenanceInventory.Resources | Where-Object Classification -eq 'LEGACY_TEST_CANDIDATE')
         foreach ($name in @(& $runtimeInvocation volume ls --format '{{.Name}}' 2>$null | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -match '^sql-lab-' })) {
             $managedVolumes += [PSCustomObject]@{ Provider=$runtime; Name=$name }
         }
@@ -142,6 +144,10 @@ function Get-SqlServerLabCleanupAudit {
             $hyperVStatus = 'AVAILABLE'
         }
         catch { $hyperVStatus = 'UNAVAILABLE' }
+    }
+    if ($hyperVStatus -eq 'AVAILABLE') {
+        $maintenanceHyperV = Get-LabMaintenanceHyperVInventory
+        $unregisteredTestArtifacts += @($maintenanceHyperV.Resources | Where-Object Classification -eq 'LEGACY_TEST_CANDIDATE')
     }
 
     $hyperVRunScopes = @(); $hyperVUntrackedFiles = @()
@@ -314,7 +320,8 @@ function Get-SqlServerLabCleanupAudit {
         -RepositoryResidues $repositoryResidues -LegacyStateRoots $legacyStateRoots
     $persistentStoragePlan = Get-LabPersistentStoragePlan -Catalog $persistentStorageCatalog -ResidencyInventory $storageResidency
     $findings = Get-LabCleanupAuditFindings -ResidencyInventory $storageResidency `
-        -PersistentStorageCatalog $persistentStorageCatalog -HyperVRunScopes $hyperVRunScopes -Containers $containers
+        -PersistentStorageCatalog $persistentStorageCatalog -HyperVRunScopes $hyperVRunScopes -Containers $containers `
+        -UnregisteredTestArtifacts $unregisteredTestArtifacts
 
     $unverifiable = @($runtimeScopes | Where-Object Status -ne 'AVAILABLE').Count +
         @($runtimeHostBackings | Where-Object Status -eq 'UNVERIFIABLE').Count +
@@ -324,13 +331,14 @@ function Get-SqlServerLabCleanupAudit {
         $_.MigrationStatus -in @('RECOVERY_REQUIRED','INVALID') -or
         @($_.CleanupResources | Where-Object ProtectionStatus -eq 'UNSAFE').Count -gt 0
     }).Count
-    $residualCount = @($activeRuns).Count + @($containers).Count + @($managedVolumes).Count + @($managedNetworks).Count + @($hyperVResources).Count + @($externalReferences).Count + @($repositoryResidues).Count + @($legacyStateRoots | Where-Object RunCount -gt 0).Count + @($rootResults | Where-Object { -not $_.Exists -or -not $_.Owned }).Count + @($hyperVUntrackedFiles).Count + $hyperVProtectionIssues
+    $residualCount = @($activeRuns).Count + @($containers).Count + @($managedVolumes).Count + @($managedNetworks).Count + @($hyperVResources).Count + @($unregisteredTestArtifacts).Count + @($externalReferences).Count + @($repositoryResidues).Count + @($legacyStateRoots | Where-Object RunCount -gt 0).Count + @($rootResults | Where-Object { -not $_.Exists -or -not $_.Owned }).Count + @($hyperVUntrackedFiles).Count + $hyperVProtectionIssues
     $status = if ($residualCount -gt 0) { 'RESIDUALS' } elseif ($unverifiable -gt 0) { 'UNVERIFIABLE' } else { 'CLEAN' }
     $audit = [PSCustomObject]@{
         ContractVersion='SqlServerLab.CleanupAudit/1.0'; AuditId=[Guid]::NewGuid().ToString('D'); CreatedAt=Get-LabTimestamp; Status=$status
         ControllerId=[string]$configuration.ControllerId; StateRoot=$stateRoot; DataRoots=$rootResults; ActiveRuns=$activeRuns
         Runtimes=$runtimeResults; RuntimeScopes=$runtimeScopes; RuntimeStorageUsage=$runtimeStorageUsage
-        Containers=$containers; ManagedImages=$managedImages; ManagedVolumes=$managedVolumes; ManagedNetworks=$managedNetworks
+        Containers=$containers; UnregisteredTestArtifacts=$unregisteredTestArtifacts
+        ManagedImages=$managedImages; ManagedVolumes=$managedVolumes; ManagedNetworks=$managedNetworks
         HyperV=[PSCustomObject]@{
             Status=$hyperVStatus; Resources=$hyperVResources; RunScopes=$hyperVRunScopes
             SharedRoots=$hyperVSharedRoots; UntrackedFiles=$hyperVUntrackedFiles

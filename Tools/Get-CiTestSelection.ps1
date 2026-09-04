@@ -70,6 +70,7 @@ end {
         @{ Pattern = '(?i)(Elevation|Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-ElevationChecks.ps1') },
         @{ Pattern = '(?i)(WindowsSlotPool|GeneratedWindowsAccess|New-SqlServerLabWindowsSlotPool)'; Checks = @('Invoke-WindowsSlotPoolChecks.ps1','Invoke-HyperVLabEnvironmentChecks.ps1','Invoke-ElevationChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(RuntimeStateSync|Sync-SqlServerLabRuntimeState|Get-SqlServerLab\.ps1|Providers[\\/](Docker|Podman)[\\/])'; Checks = @('Invoke-RuntimeStateSyncChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1') },
+        @{ Pattern = '(?i)(Maintenance|UnregisteredTestArtifacts|Invoke-HyperVSmokeTest|Clear-SqlServerLab)'; Checks = @('Invoke-MaintenanceChecks.ps1','Invoke-CleanupAuditChecks.ps1','Invoke-RuntimeStateSyncChecks.ps1') },
         @{ Pattern = '(?i)(ArtifactResolver|MediaSourceCatalog|SevenZip)'; Checks = @('Invoke-ArtifactResolverChecks.ps1','Invoke-MediaRootLayoutChecks.ps1') },
         @{ Pattern = '(?i)(ResourceSet|ResourcePlan)'; Checks = @('Invoke-ResourceSetChecks.ps1','Invoke-ArtifactResolverChecks.ps1','Invoke-ExternalRuntimeWindowsChecks.ps1') },
         @{ Pattern = '(?i)(ContainerAutoStart|Start-SqlServerLab|Stop-SqlServerLab|Restart-SqlServerLab)'; Checks = @('Invoke-ContainerAutoStartChecks.ps1') },

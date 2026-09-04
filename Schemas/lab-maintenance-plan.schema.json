@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sql-server-lab.local/schemas/lab-maintenance-plan.schema.json",
+  "title": "SqlServerLab.MaintenancePlan/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "PlanId", "CreatedAt", "Mode", "Status", "StaleAfterMinutes", "Providers", "Actions", "Summary"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.MaintenancePlan/1.0" },
+    "PlanId": { "type": "string", "format": "uuid" },
+    "CreatedAt": { "type": "string", "format": "date-time" },
+    "Mode": { "enum": ["Runtime", "Full"] },
+    "Status": { "enum": ["CLEAN", "CHANGES_AVAILABLE", "REVIEW_REQUIRED", "UNVERIFIABLE"] },
+    "StaleAfterMinutes": { "type": "integer", "minimum": 5, "maximum": 10080 },
+    "Providers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["Provider", "Status"],
+        "properties": {
+          "Provider": { "enum": ["docker", "podman", "hyperv"] },
+          "Status": { "enum": ["AVAILABLE", "NOT_INSTALLED", "UNAVAILABLE"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["ActionId", "ActionType", "Disposition", "Provider", "ReasonCode", "Fingerprint", "Evidence"],
+        "properties": {
+          "ActionId": { "type": "string", "pattern": "^maintenance-action-[a-f0-9]{24}$" },
+          "ActionType": { "enum": ["SYNC_RUNTIME_STATE", "MARK_RECOVERY_REQUIRED", "RETRY_RUN_CLEANUP", "REMOVE_ORPHAN_CONTAINER", "REMOVE_ORPHAN_HYPERV", "REMOVE_LEGACY_TEST_CONTAINER", "REMOVE_LEGACY_TEST_HYPERV", "REMOVE_STALE_TEST_TEMP_ARTIFACTS"] },
+          "Disposition": { "enum": ["SAFE_AUTOMATIC", "SCOPED_CLEANUP", "EXPLICIT_LEGACY_APPROVAL", "REVIEW_ONLY"] },
+          "Provider": { "enum": ["core", "docker", "podman", "hyperv"] },
+          "RunId": { "type": ["string", "null"] },
+          "ScopeId": { "type": ["string", "null"] },
+          "ResourceId": { "type": ["string", "null"] },
+          "Name": { "type": ["string", "null"] },
+          "CurrentState": { "type": ["string", "null"] },
+          "TargetState": { "type": ["string", "null"] },
+          "ReasonCode": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]+$" },
+          "Fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "Evidence": { "type": "object" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Summary": {
+      "type": "object",
+      "required": ["Actions", "SafeAutomatic", "ScopedCleanup", "LegacyApproval", "ReviewOnly", "ForeignResources"]
+    },
+    "FullAudit": { "type": ["object", "null"] }
+  },
+  "additionalProperties": false
+}

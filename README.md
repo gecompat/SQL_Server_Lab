@@ -643,6 +643,8 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
 | `Get-SqlServerLabCleanupAudit` | `Lab_Data`, Runtime-Scopes und Persistent Storage read-only prüfen sowie jedes auffällige Objekt mit Typ, Grund, Löschungs-/Bewahrungsempfehlung und Warnung ausgeben |
 | `Sync-SqlServerLabRuntimeState` | Gespeicherte Runs mit Docker, Podman und Hyper-V synchronisieren; eindeutig fehlende gebundene Ressourcen als `RECOVERY_REQUIRED` markieren, ohne zu löschen oder neu zu erstellen |
+| `Get-SqlServerLabMaintenancePlan` | State und alle vorhandenen Docker-/Podman-Container sowie Hyper-V-VMs read-only auf Drift, Orphans und alte Testartefakte prüfen |
+| `Invoke-SqlServerLabMaintenance` | Den revalidierten Plan sicher oder einschließlich scopegebundenem Cleanup ausführen; fremde Ressourcen bleiben unangetastet |
 | `Get-SqlServerLabPersistentStorageRemovalPlan` | Retention-, Backup-/Package- und Bindungsfolgen einer Run-Entfernung anhand stabiler Storage-IDs read-only und fail-closed planen |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | Retained Docker-/Podman-Instanzstores optional verifiziert sichern, den Run journalisiert entfernen und den Store detached erhalten |
 | `Sync-SqlServerLabPersistentStorageArtifact` | Ein vorhandenes Backup-Set, Datenbankpaket oder sicheres relatives Exchange-Workspace per stabiler Artefakt-ID idempotent mit dem Persistent-Storage-Katalog synchronisieren |
