@@ -69,7 +69,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 65 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 69 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -114,6 +114,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
 | `Get-SqlServerLabCleanupAudit` | `Lab_Data`, Runtime-Scopes und Persistent Storage read-only prüfen sowie jedes auffällige Objekt mit Löschungs-/Bewahrungsempfehlung ausgeben |
 | `Sync-SqlServerLabRuntimeState` | Runs mit Docker, Podman und Hyper-V abgleichen und eindeutig fehlende gebundene Runtimeobjekte fail-closed als `RECOVERY_REQUIRED` markieren |
+| `Get-SqlServerLabMaintenancePlan` | State sowie alle vorhandenen Container und Hyper-V-VMs read-only auf Drift, Orphans und alte Testartefakte prüfen |
+| `Invoke-SqlServerLabMaintenance` | Revalidierte sichere oder scopegebundene Korrekturen ausführen; Legacy-Testartefakte erfordern einen eigenen Schalter |
 | `Get-SqlServerLabPersistentStorageRemovalPlan` | Explizite Retention-Auswahlen per stabiler Storage-ID gegen einen frisch inventarisierten, schema-validierten Removal-Plan prüfen |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | Unterstützte Retention-Policies mit Backup-Postconditions und fortsetzbarem Journal ausführen |
 | `Sync-SqlServerLabPersistentStorageArtifact` | Vorhandene Backup-Sets, Datenbankpakete oder sichere relative Exchange-Workspaces einzeln revalidieren und idempotent in den Persistent-Storage-Katalog übernehmen |
@@ -160,6 +162,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Install-SqlServerLab7Zip` | 7-Zip für katalogisierte `.7z`-Backup-Payloads ausdrücklich und optional über `winget` installieren |
 | `Get-SqlServerLabCuStatus` | Offizielle Microsoft-Buildtabellen read-only gegen den lokalen CU-Katalog vergleichen |
 | `Save-SqlServerLabCuResource` | Katalogisierten Windows-CU mit SHA-256 und Microsoft-Authenticode in den Media Root oder exakten Linux-MCR-Tag in Docker/Podman laden |
+| `Get-SqlServerLabResourcePlan` | Katalogisierte Sample- und Windows-/Hyper-V-External-Runtime-Ressourcen read-only planen |
+| `Save-SqlServerLabResourceSet` | Ressourcen aus Cache, hashgeprüftem Altbestand oder katalogisierter HTTP(S)-Quelle vorab bereitstellen |
 
 Die Liste in `SqlServerLab.psd1` ist autoritativ.
 

@@ -62,6 +62,16 @@ Abgleich löscht oder rekonstruiert nichts. `UNAVAILABLE`, `PARTIAL` und
 `UNKNOWN` bleiben diagnostisch, damit ein nicht erreichbarer Runtime-Dienst
 nicht fälschlich als manuelle Löschung behandelt wird.
 
+`Get-SqlServerLabMaintenancePlan` erweitert diesen Abgleich auf alle
+vorhandenen Container und Hyper-V-VMs. `Invoke-SqlServerLabMaintenance` kann
+eindeutigen State-Drift sicher korrigieren und im Modus `Cleanup` nur
+scopegebundene Lab-Orphans entfernen. Alte Testartefakte ohne vollständige
+Run-/Scope-Identität werden ausschließlich gestoppt beziehungsweise
+ausgeschaltet, unter registrierten Lab-Roots und nach dem separaten Schalter
+`AllowLegacyTestArtifactRemoval` gelöscht. Fremde Ressourcen werden nicht in
+einen Aktionsplan aufgenommen. Diese Grenzen ersetzen keine fachliche
+Retention-Entscheidung für Datenbanken, Backups oder katalogisierte Stores.
+
 ### Hyper-V
 
 Hyper-V besitzt eine ausführbare Lifecycle-Grundlage für eine Generation-2-VM
@@ -618,6 +628,14 @@ Quarantäne bei Hash-Mismatch. Ein nicht interaktiver Aufruf ohne bekannte
 Prüfsumme endet mit `TRUST_REQUIRED`. Die im Katalog hinterlegten Prüfsummen
 können bei Trust-Pfad-Varianten `null` sein.
 
+`Get-SqlServerLabResourcePlan` und `Save-SqlServerLabResourceSet` stellen
+ausgewählte ausführbare Sample-Artefakte unabhängig von einer SQL-Installation
+bereit. Der Apply-Pfad verwendet denselben Trust Store und Content Cache,
+unterstützt `-WhatIf` und kann einen expliziten älteren Media Root nur nach
+erneuter SHA-256-Prüfung importieren. Ohne Kataloghash oder vorhandenen lokalen
+Trust Record bleibt die nicht interaktive Bereitstellung bis zur ausdrücklichen
+Option `-TrustUnknownArtifact` bei `TRUST_REQUIRED`.
+
 Mehrere Samples pro Instanz sind ad-hoc über `New-SqlServerLab -Sample` und den
 Menüschritt `Testdatenbanken` wählbar; kollidierende erwartete Ausgaben werden
 als `SAMPLE_OUTPUT_CONFLICT` abgewiesen. Der Manifest-Wizard bietet für
@@ -750,6 +768,13 @@ die katalogisierte Microsoft-HTTPS-Quelle und veröffentlicht ein Paket erst
 nach SHA-256- sowie Microsoft-Authenticode-Prüfung im Media Root. Linux zieht
 den exakten MCR-Tag in den gewählten Docker-/Podman-Cache. Der Cache ist kein
 portables Offlineartefakt und wird nicht in `Lab_Base` gespiegelt.
+
+Die katalogisierten Windows-/Hyper-V-External-Runtime-Pakete für SQL 2022
+können mit `Save-SqlServerLabResourceSet` unabhängig von einem VM-Lauf in den
+content-addressed Media Root geladen oder aus einem expliziten Altbestand
+importiert werden. Das installiert noch keine Runtime im Gast. Allgemeiner
+Artifact Refresh/Rebuild, Variantenwechsel und automatische Katalogpflege
+bleiben davon unberührt und weiterhin nicht implementiert.
 
 Kurzbezeichner wie `2022-CU16` werden nur akzeptiert, wenn der Build im Katalog vorhanden ist. Unbekannte CU-Bezeichner werden nicht mehr durch eine vermutete Image-Tag-Konvention ersetzt.
 

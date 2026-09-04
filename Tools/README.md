@@ -9,6 +9,7 @@
 | [Get-CiTestSelection.ps1](Get-CiTestSelection.ps1) | Klassifiziert geänderte Pfade für schnelle, betroffene PR-Checks und gezielte Runtime-Smokes |
 | [Get-SqlServerCuStatus.ps1](Get-SqlServerCuStatus.ps1) | Zeigt den read-only CU-Abgleich mit den wartbar katalogisierten Microsoft-Learn-Buildtabellen an |
 | [Initialize-SqlServerLabHostTools.ps1](Initialize-SqlServerLabHostTools.ps1) | Löst Docker, Podman und Python zentral auf und ergänzt fehlende Installationsverzeichnisse ausschließlich im aktuellen Prozess-PATH |
+| [Invoke-SqlServerLabMaintenance.ps1](Invoke-SqlServerLabMaintenance.ps1) | Plant oder korrigiert State-/Runtime-Drift und bereinigt eng gebundene Lab-Artefakte deterministisch; geeignet für manuelle Aufrufe und Windows Task Scheduler |
 | [CheckLargeGitFilesPush.ps1](../CheckLargeGitFilesPush.ps1) | Prüft staged/untracked Dateien auf Größe, schreibt optional Log und kann Commit+Push nach Prüfung ausführen |
 
 Werkzeuge unter `Tools/` sind keine exportierten Cmdlets des PowerShell-Moduls.
@@ -38,6 +39,7 @@ Projektweit häufig zusätzlich genutzt:
 - `.\Tools\Initialize-SqlServerLabMediaRoot.ps1 -ShowHelp`
 - `.\Tools\Start-SqlServerLabUi.ps1 -ShowHelp`
 - `.\Tools\Prepare-LocalRelease.ps1 -ShowHelp`
+- `.\Tools\Invoke-SqlServerLabMaintenance.ps1 -ShowHelp`
 - `.\CheckLargeGitFilesPush.ps1 --help`
 
 Damit wird direkt die Skript-spezifische Hilfe angezeigt und anschließend die

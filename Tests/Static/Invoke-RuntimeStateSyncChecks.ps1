@@ -52,7 +52,8 @@ try {
         $behavior.Missing.Changed -and $behavior.MissingState -eq 'RECOVERY_REQUIRED' -and
         $behavior.MissingSubState -eq 'RECOVERY_REQUIRED' -and $behavior.MissingErrors -eq 1)
     Add-CheckResult -Name 'WhatIf verändert einen fehlenden Runtime-Run nicht' -Success (
-        -not $behavior.WhatIf.Changed -and $behavior.WhatIfState -eq 'RUNNING')
+        -not $behavior.WhatIf.Changed -and $behavior.WhatIfState -eq 'RUNNING' -and
+        $behavior.WhatIf.Action -eq 'RECOVERY_REQUIRED_PLANNED')
     Add-CheckResult -Name 'Nicht erreichbare Runtime bleibt Diagnose und wird nicht als Löschung verbucht' -Success (
         $behavior.Unavailable.Action -eq 'DIAGNOSTIC_ONLY' -and -not $behavior.Unavailable.Changed -and
         $behavior.UnavailableState -eq 'RUNNING')

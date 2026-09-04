@@ -203,12 +203,14 @@ function Clear-SqlServerLab {
                 continue
             }
 
-            $containersForRun = @(
+            $runtimeResourcesForRun = @(
                 $allContainers | Where-Object { $_.RunId -eq $run.runId }
             )
-            if ($containersForRun.Count -gt 0) {
-                Write-LabWarning "Run $($run.runId): State ist nicht verwaist; $($containersForRun.Count) Container vorhanden."
-                $errors++
+            $runtimeResourcesForRun += @(
+                $auditBefore.Audit.HyperV.Resources | Where-Object { [string]$_.RunId -eq [string]$run.runId }
+            )
+            if ($runtimeResourcesForRun.Count -gt 0) {
+                Write-LabInfo "Run $($run.runId): State bleibt erhalten; $($runtimeResourcesForRun.Count) gebundene Runtime-Ressource(n) vorhanden."
                 continue
             }
 

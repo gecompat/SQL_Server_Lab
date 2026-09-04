@@ -273,6 +273,12 @@ function New-PodmanInstance {
                     }
                 }
 
+                $lifecycleArguments = @()
+                if ($env:SQL_SERVER_LAB_RESOURCE_LIFECYCLE -eq 'test') {
+                    $expiresAt = if ($env:SQL_SERVER_LAB_RESOURCE_EXPIRES_AT) { $env:SQL_SERVER_LAB_RESOURCE_EXPIRES_AT } else { (Get-Date).ToUniversalTime().AddHours(24).ToString('o') }
+                    $lifecycleArguments = @('--label','sql-server-lab.lifecycle=test','--label',"sql-server-lab.expires-at=$expiresAt")
+                    if ($env:SQL_SERVER_LAB_TEST_OPERATION_ID) { $lifecycleArguments += @('--label',"sql-server-lab.test-operation-id=$($env:SQL_SERVER_LAB_TEST_OPERATION_ID)") }
+                }
                 $podmanArguments = @(
                     'run', '-d',
                     '--name', $containerName,
@@ -284,7 +290,7 @@ function New-PodmanInstance {
                     '-e', 'MSSQL_PID=Developer',
                     '-e', "MSSQL_MEMORY_LIMIT_MB=$sqlMemoryLimitMB",
                     '-e', 'MSSQL_AGENT_ENABLED=true'
-                ) + $collationArguments + $restartArguments + $externalRuntimeArguments + @(
+                ) + $collationArguments + $restartArguments + $externalRuntimeArguments + $lifecycleArguments + @(
                     '--memory', $memoryLimit,
                     '--cpus', $cpuLimit,
                     '--label', "sql-server-lab.run-id=$RunId",

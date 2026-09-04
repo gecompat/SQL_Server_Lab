@@ -55,6 +55,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | Run-State und Cleanup-Plan | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
 | Datenbankerstellung | implementiert | `New-SqlServerLabDatabase` |
 | Backup-Restore mit Artifact Resolver | implementiert | `Restore-SqlServerLabDatabase`, `Private/ArtifactResolver.ps1` |
+| Standalone Ressourcen-Prefetch | implementiert | `Get-SqlServerLabResourcePlan`, `Save-SqlServerLabResourceSet`; Samples und Windows-/Hyper-V-External-Runtime-Medien ohne SQL-/Provider-Mutation |
 | Datenbank-Migrationsgrenzen | öffentliche read-only Live-Inventur per direktem Ziel oder stabiler Run-/Instanzbindung; Backup-/Package-Receipts trennen Datenbankinhalt von Serverobjekten, TDE-Keymaterial, Secrets und externen Services | `Get-SqlServerLabDatabaseMigrationDependency`, `Private/DatabaseMigrationDependency.ps1`, `Schemas/database-migration-dependency-inventory.schema.json` |
 | Sample-Datenbanken (Backup) | implementiert | `Private/SampleArtifactHandlers.ps1`; direkte `.bak`-Varianten über Trust-/Hash-Pfad, Mehrfachauswahl im Menü und `New-SqlServerLab -Sample` |
 | Project Adapter (v0.1) | implementiert | `Schemas/project-adapter.schema.json`, `Test-SqlServerLabAdapter`, `Install-SqlServerLabAdapter`; T-SQL-Entrypoints ohne Lifecycle-Seiteneffekt |
@@ -189,6 +190,25 @@ Save-SqlServerLabCuResource -SqlVersion 2022 -Cu CU18 -Platform Windows -MediaRo
 # Linux: exakten MCR-Tag in den lokalen Runtimecache ziehen
 Save-SqlServerLabCuResource -SqlVersion 2022 -Cu CU18 -Platform Linux -Provider Docker
 ```
+
+Katalogisierte Samples und die Offline-Pakete der SQL-2022-Windows-
+External-Runtimes können unabhängig von einer Provisionierung geplant und
+bereitgestellt werden:
+
+```powershell
+$ids = @(
+    'sample:northwind:script'
+    'sample:adventureworks-2019:lightweight'
+    'software:sql-python:sql2022-python-windows-hyperv'
+)
+Get-SqlServerLabResourcePlan -ResourceId $ids -MediaRoot 'D:\Lab_Base'
+Save-SqlServerLabResourceSet -ResourceId $ids -MediaRoot 'D:\Lab_Base' -TrustUnknownArtifact
+```
+
+`-SourceMediaRoot` verwendet einen älteren Bestand vor dem Netzwerkdownload,
+akzeptiert aber nur die katalogisierte Identität und erneut geprüfte SHA-256.
+`-WhatIf` zeigt die geplanten Mutationen. Samples ohne Kataloghash benötigen
+weiterhin die ausdrückliche einmalige Freigabe `-TrustUnknownArtifact`.
 
 Der gleiche Ablauf ist ohne Kommandozeilenkenntnisse unter **Medien,
 Testdaten und Speicher → SQL Server CU herunterladen oder prüfen** verfügbar.
@@ -484,6 +504,10 @@ registriert den berechneten Hash im lokalen Trust Store und legt das Artefakt
 im inhaltsadressierten Cache ab. Nicht interaktive Läufe enden ohne bekannten
 Hash mit `TRUST_REQUIRED`.
 
+Der Download kann vor einem Lab-Lauf mit `Get-SqlServerLabResourcePlan` geplant
+und mit `Save-SqlServerLabResourceSet` ausgeführt werden. Dieser Prefetch nutzt
+denselben Trust-, Cache- und Quarantänevertrag und installiert keine Datenbank.
+
 Ad-hoc können mehrere Samples pro Instanz gewählt werden – im Menü von
 `Invoke-SqlServerLab` über den Schritt `Testdatenbanken` oder direkt:
 
@@ -619,6 +643,8 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
 | `Get-SqlServerLabCleanupAudit` | `Lab_Data`, Runtime-Scopes und Persistent Storage read-only prüfen sowie jedes auffällige Objekt mit Typ, Grund, Löschungs-/Bewahrungsempfehlung und Warnung ausgeben |
 | `Sync-SqlServerLabRuntimeState` | Gespeicherte Runs mit Docker, Podman und Hyper-V synchronisieren; eindeutig fehlende gebundene Ressourcen als `RECOVERY_REQUIRED` markieren, ohne zu löschen oder neu zu erstellen |
+| `Get-SqlServerLabMaintenancePlan` | State und alle vorhandenen Docker-/Podman-Container sowie Hyper-V-VMs read-only auf Drift, Orphans und alte Testartefakte prüfen |
+| `Invoke-SqlServerLabMaintenance` | Den revalidierten Plan sicher oder einschließlich scopegebundenem Cleanup ausführen; fremde Ressourcen bleiben unangetastet |
 | `Get-SqlServerLabPersistentStorageRemovalPlan` | Retention-, Backup-/Package- und Bindungsfolgen einer Run-Entfernung anhand stabiler Storage-IDs read-only und fail-closed planen |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | Retained Docker-/Podman-Instanzstores optional verifiziert sichern, den Run journalisiert entfernen und den Store detached erhalten |
 | `Sync-SqlServerLabPersistentStorageArtifact` | Ein vorhandenes Backup-Set, Datenbankpaket oder sicheres relatives Exchange-Workspace per stabiler Artefakt-ID idempotent mit dem Persistent-Storage-Katalog synchronisieren |
@@ -664,6 +690,8 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Install-SqlServerLab7Zip` | 7-Zip für katalogisierte `.7z`-Backup-Payloads ausdrücklich und optional über `winget` installieren |
 | `Get-SqlServerLabCuStatus` | Offizielle Microsoft-Buildtabellen read-only gegen den lokalen CU-Katalog vergleichen |
 | `Save-SqlServerLabCuResource` | Beliebigen katalogisierten Windows-CU hash- und Authenticode-geprüft in den Media Root oder den exakten Linux-MCR-Tag in Docker/Podman laden |
+| `Get-SqlServerLabResourcePlan` | Sample- und Windows-/Hyper-V-External-Runtime-Ressourcen read-only planen |
+| `Save-SqlServerLabResourceSet` | Katalogisierte Ressourcen aus Cache, lokalem Altbestand oder HTTP(S) hashverifiziert vorab bereitstellen |
 
 `SqlServerLab.psd1` ist die autoritative Liste der exportierten Funktionen.
 

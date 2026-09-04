@@ -52,6 +52,7 @@ $cleanupComplete = $false
 $builderCleanupComplete = $false
 $reconcileCleanupComplete = $false
 $artifactCleanupFailures = [System.Collections.Generic.List[string]]::new()
+$runtimeCleanupFailures = [System.Collections.Generic.List[string]]::new()
 $mutexName = 'Global\SQL_Server_Lab_Runtime_Smoke'
 $mutex = [System.Threading.Mutex]::new($false, $mutexName)
 $mutexAcquired = $false
@@ -123,6 +124,8 @@ try {
             -RunId $RunId `
             -ScopeId $ScopeId `
             -InstanceId 'lifecycle-smoke' `
+            -Lifecycle test `
+            -ExpiresAt ((Get-Date).ToUniversalTime().AddHours(4).ToString('o')) `
             -MemoryStartupBytes 512MB `
             -ProcessorCount 1 `
             -AutoStart on `
@@ -306,10 +309,12 @@ finally {
                     Remove-SqlServerLab -RunId $RunId -StateRoot $StateRoot -Force
                 } $reconcileRun.RunId $stateRoot
                 if ($reconcileRemoval.Status -ne 'REMOVED' -and $reconcileRemoval.Cleanup -ne 'CLEANUP_SUCCEEDED') {
+                    $runtimeCleanupFailures.Add("Reconcile-Run: $($reconcileRemoval.Status)/$($reconcileRemoval.Cleanup)")
                     Write-Warning "Reconcile-Run-Cleanup unvollstaendig: $($reconcileRemoval.Status)/$($reconcileRemoval.Cleanup)"
                 }
             }
             catch {
+                $runtimeCleanupFailures.Add("Reconcile-Run: $($_.Exception.Message)")
                 Write-Warning "Reconcile-Run-Cleanup fehlgeschlagen: $($_.Exception.Message)"
             }
             finally {
@@ -323,20 +328,26 @@ finally {
                     Remove-HyperVWindowsImageBuild -BuildId $BuildId -StateRoot $StateRoot
                 } $builder.buildId $stateRoot
                 if ($builderRemoval.Status -ne 'CLEANUP_SUCCEEDED' -or $builderRemoval.Build.state -ne 'CLEANED_UP') {
+                    $runtimeCleanupFailures.Add("Builder: $($builderRemoval.Status)/$($builderRemoval.Build.state)")
                     Write-Warning "Hyper-V-Builder-Smoke-Cleanup unvollstaendig: $($builderRemoval.Status)/$($builderRemoval.Build.state)"
                 }
                 else { $builderCleanupComplete = $true }
             }
-            catch { Write-Warning "Hyper-V-Builder-Smoke-Cleanup fehlgeschlagen: $($_.Exception.Message)" }
+            catch { $runtimeCleanupFailures.Add("Builder: $($_.Exception.Message)"); Write-Warning "Hyper-V-Builder-Smoke-Cleanup fehlgeschlagen: $($_.Exception.Message)" }
         }
         if ($module -and -not $cleanupComplete -and (Test-Path -LiteralPath (Join-Path $runDirectory 'cleanup-plan.json'))) {
             try {
-                $null = & $module {
+                $fallbackCleanup = & $module {
                     param($RunDirectory, $ScopeId)
                     Invoke-CleanupPlan -RunDir $RunDirectory -ScopeId $ScopeId
                 } $runDirectory $scopeId
+                if ([string]$fallbackCleanup.Status -ne 'CLEANUP_SUCCEEDED' -or
+                    ($instance -and (Get-VM -Name ([string]$instance.VMName) -ErrorAction SilentlyContinue))) {
+                    $runtimeCleanupFailures.Add("Lifecycle: $($fallbackCleanup.Status)")
+                }
             }
             catch {
+                $runtimeCleanupFailures.Add("Lifecycle: $($_.Exception.Message)")
                 Write-Warning "Hyper-V-Smoke-Cleanup fehlgeschlagen: $($_.Exception.Message)"
             }
         }
@@ -387,6 +398,9 @@ finally {
 
 if (-not $KeepOnFailure -and $artifactCleanupFailures.Count -gt 0) {
     throw "Hyper-V-Smoke hinterliess Registry-Artefakte: $($artifactCleanupFailures -join '; ')"
+}
+if (-not $KeepOnFailure -and $runtimeCleanupFailures.Count -gt 0) {
+    throw "Hyper-V-Smoke hinterliess Runtime-Ressourcen: $($runtimeCleanupFailures -join '; ')"
 }
 
 Write-Host 'Hyper-V-Lifecycle-Smoke-Test erfolgreich.' -ForegroundColor Green

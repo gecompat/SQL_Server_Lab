@@ -100,6 +100,14 @@ COMMANDS
         Inventories known lab data and runtime resources read-only and reports
         residuals or unavailable providers without removing anything.
 
+    Get-SqlServerLabMaintenancePlan
+        Compares stored state with every Docker, Podman, and Hyper-V resource
+        and separates safe, scope-bound, and explicit legacy actions.
+
+    Invoke-SqlServerLabMaintenance
+        Executes a revalidated maintenance plan without touching foreign
+        resources.
+
     Get-SqlServerLabPersistentStorageRemovalPlan
         Plans retention, backup/package, and binding consequences of removing a
         run by stable storage ID without mutating the run, catalog, or storage.
@@ -281,6 +289,14 @@ Sync-SqlServerLabRunScopedContainerStore
         Downloads any catalogued SQL Server CU. Windows packages require the
         catalogued SHA-256 and a valid Microsoft Authenticode signature; Linux
         pulls the exact MCR tag into Docker or Podman.
+
+    Get-SqlServerLabResourcePlan
+        Plans catalogued sample and Windows/Hyper-V external-runtime resources
+        read-only, including an optional existing media root.
+
+    Save-SqlServerLabResourceSet
+        Prefetches selected resources from cache, a re-hashed existing media
+        root, or the catalogued HTTP(S) source without installing SQL content.
 
 NAMING AND OWNERSHIP
     PowerShell associates each exported command with SqlServerLab through the
