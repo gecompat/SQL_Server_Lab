@@ -577,7 +577,11 @@ Runtime-Mutation: Parser und Schema für read-only SQL-Counts, Server-Login-,
 Agent-Job-, Proxy-, Linked-Server- und TDE-Kategorien, die
 `NOT_OBSERVABLE`-Grenze für Serverkonfiguration/SSISDB/SSAS, das TDE-Recovery-
 Gate, den öffentlichen direkten und Run-/Instanz-gebundenen Aufruf sowie
-sanitisierte `DATABASE_FILES_ONLY`-Receipts. Der bestehende
+sanitisierte `DATABASE_FILES_ONLY`-Receipts. Der Receipt enthält zusätzlich den
+separat schema-validierten `SqlServerLab.DatabaseMigrationExecutionPlan/1.0`.
+Die Suite prüft dessen TDE-Blockierung, kategoriebasierten manuellen/externalen
+Review-Schritte sowie `MutationAllowed=false` und `TransferAuthority=NONE`; der
+Plan führt keine Export-, Import- oder sonstige Runtime-Mutation aus. Der bestehende
 `Invoke-WorkflowUiChecks.ps1` prüft zusätzlich die lokale Browserbindung der
 Containerinventur: Nur Run-ID, Instanz-ID, validierter Datenbankname und
 flüchtiges SA-Passwort erreichen die Workflowaktion; die Ergebnisprojektion
