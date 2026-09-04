@@ -38,7 +38,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Sync-SqlServerLabCms` | `Sync-SqlServerLabConnectionCenter.ps1` | Verwalteten lokalen CMS mit dem aktuellen Katalog abgleichen |
 | `Get-SqlServerLabReconcilePlan` | `Get-SqlServerLabReconcilePlan.ps1` | Read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-Konfigurations-/Port-/Testdatenbank-, Containerressourcen-/Autostart- oder resolvergebundener External-Runtime-Reconcile-Plan einschließlich additiver Hyper-V-Gastinstallation |
 | `Invoke-SqlServerLabReconcileAction` | `Invoke-SqlServerLabReconcileAction.ps1` | `START`/`STOP`, eigentumsgebundene Hyper-V-Netzwerk-, Ressourcen-, Storage-, SQL- oder Testdatenbank-Aktionen, Container-Replacement sowie additive Hyper-V-External-Runtime-Aktionen mit Validierung, Recovery und `-WhatIf` ausführen |
-| `Invoke-SqlServerLabWorkflowAction` | `Invoke-SqlServerLabWorkflowAction.ps1` | Nicht interaktive, UI-taugliche Hyper-V-Workflow-Aktion |
+| `Invoke-SqlServerLabWorkflowAction` | `Invoke-SqlServerLabWorkflowAction.ps1` | Nicht interaktive, UI-taugliche Hyper-V-Workflow-Aktion einschließlich getrenntem journalgebundenem Datenbankpaket-Attach-Recovery |
 | `New-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema-gesteuertes Manifest interaktiv oder aus einem Objekt erstellen |
 | `Test-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema, Kataloge und Runtime-Grenzen prüfen und eine mutationsfreie External-Runtime-Planvorschau liefern |
 | `New-SqlServerLab` | `New-SqlServerLab.ps1` | Neue Umgebung ad hoc oder per Manifest erstellen; detached Docker-/Podman-Instanzstore optional per stabiler ID fortsetzen oder unabhängig klonen |
