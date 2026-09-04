@@ -2,13 +2,13 @@
 
 ## Status und Priorität
 
-`ACTIVE / 8_TOP_LEVEL_PACKAGES_REMAIN / PSR_001_002_005_007_008_014_COMPLETE / PSR_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE / PSR_013_PLANNED` – die vorhandenen
+`ACTIVE / 7_TOP_LEVEL_PACKAGES_REMAIN / PSR_001_002_005_007_008_013_014_COMPLETE / PSR_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
 
 Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-001`, `PSR-002`, `PSR-005`,
-`PSR-007`, `PSR-008` und `PSR-014` abgeschlossen. Damit verbleiben acht Top-Level-Pakete; ein Paket
+`PSR-007`, `PSR-008`, `PSR-013` und `PSR-014` abgeschlossen. Damit verbleiben sieben Top-Level-Pakete; ein Paket
 mit implementiertem Core oder read-only Slice zählt bis zum vollständigen
 eigenen Abnahmekriterium weiterhin als offen.
 
@@ -539,7 +539,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | `IMPLEMENTED_CORE`: öffentliche read-only Live-Inventur per direktem Ziel oder stabiler Run-/Instanzbindung, TDE-Recovery-Gate, externe Review-Grenzen und sanitisierte `DATABASE_FILES_ONLY`-Receipts; persistierte Kategorien und Warnungen sind paketgebunden in CLI/Browser sichtbar. Jeder neue Receipt enthält zusätzlich den versionierten, geheimnisfreien `SqlServerLab.DatabaseMigrationExecutionPlan/1.0`: Er ordnet jede Kategorie einem nicht ausführbaren Review-, Blocker- oder Nicht-erforderlich-Schritt zu, setzt `MutationAllowed=false` und `TransferAuthority=NONE`. Neue Datenbankpakete persistieren denselben Plan im Receipt und binden ihn über die kanonischen Manifestzeilen an den SHA-256 des vollständigen Paketpayloads; neue Backups erhalten eine separate Binding-Evidence mit derselben automatisch berechneten Backup-SHA-256. Katalogansichten projizieren nur Status, Schrittzahl und Blocker. Die Browseraktion bindet eine laufende Containerquelle ausschließlich per Run, Instanz, validiertem Datenbanknamen und flüchtigem SA-Passwort; sie gibt nur sanitisierte Kategorien, Counts, Review-Schritte und Migrationsgrenzen aus. Export/Import bleibt offen |
 | `PSR-011` | P1 | identische CLI- und GUI-Flows für Auswahl, Retention, Restore, Attach, Clone und Delete liefern | `IMPLEMENTED_PARTIAL`: Backup-Inventur/Restore, Container-Continue/Clone, Retention-Vorschau, Retain/Backup-on-Remove sowie pfadfreie Datenbankpaket- und Hyper-V-Daten-VHDX-Auswahl verwenden in CLI und Browser dieselben stabilen IDs und Fachkerne; Hyper-V-Release/Reattach/Clone und Datenbankpaket-Attach laufen über dieselben öffentlichen ID-/Run-gebundenen Actions; der öffentliche finale Delete ist derzeit eng auf den revisionsgebundenen Docker-/Podman-`INSTANCE_STORE`-`DELETE_WITH_RUN`-Pfad beschränkt; weitere Paketprovider und jede andere endgültige Löschung bleiben offen |
 | `PSR-012` | P1 | Cleanup-Audit um persistente Stores, Runtime-Backing, Orphans und Referenzschutz erweitern | `IMPLEMENTED_CORE`: strikte getrennte Findings für Retention, unerwartete Residuen, Recovery und unverifizierbare Evidence; automatische Mutation bleibt ausgeschlossen |
-| `PSR-013` | P2 | journalisierte Migration vorhandener Volumes/VHDX und Metadaten bereitstellen | Resume, Rollback, Hash- und Kapazitätsnachweis |
+| `PSR-013` | P2 | journalisierte Migration vorhandener Volumes/VHDX und Metadaten bereitstellen | `COMPLETE`: unveränderlicher `SqlServerLab.StorageMigrationPlan/1.0` mit stabiler Location-/Volume-ID, Kapazitäts-, Run-, Binding-, VM-Konfigurations- und VHDX-Inventar; Copy/Hash/Referenzumschaltung, exaktes Hyper-V-Rebind, spätes Quell-Cleanup, Resume und `RECOVERY_REQUIRED`-Journal sind schema-validiert und fail-closed. Der erhöhte Parent-Migrationsrunner belegt Hin- und Rückmigration einer nicht-default Location mit VM-Konfiguration, Snapshot, Smart Paging und VHDX sowie vollständigem Cleanup; Container-Bind-Mounts bleiben ein expliziter Plan-Blocker. |
 | `PSR-014` | P1 (hoch) | Interaktiven Ersteinrichtungsassistenten für `Lab_Base` und mehrere `Lab_Data`-Locations bereitstellen | `COMPLETE`: `Invoke-SqlServerLab -Action Setup` und das Storage-Menü verwenden denselben read-only Plan und Apply-Core, fragen nur fehlende oder ungültige Werte über den gemeinsamen abbrechbaren Eingabeadapter ab, leiten `Lab_Base` und je Parent `Lab_Data` ab, registrieren mehrere unterschiedliche Volumes und verlangen die ausdrückliche globale Default-Auswahl; gültige Konfigurationen sind No-op, vorhandene Dateien bleiben unverändert und fremde nichtleere Datenroots werden vor jeder Mutation fail-closed abgelehnt |
 
 `P0-Analyse` bedeutet hier, dass die Entscheidung vor jeder breiten

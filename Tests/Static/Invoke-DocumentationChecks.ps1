@@ -1132,7 +1132,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-003 dokumentiert generischen Katalogkern und sicheren Exchange-Workspace-Slice' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / 8_TOP_LEVEL_PACKAGES_REMAIN / PSR_001_002_005_007_008_014_COMPLETE / PSR_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE / PSR_013_PLANNED`' -and
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / 7_TOP_LEVEL_PACKAGES_REMAIN / PSR_001_002_005_007_008_013_014_COMPLETE / PSR_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
@@ -1249,7 +1249,7 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'PSR-008 ist nur für tatsächlich unterstützte Provider-Capabilities abgeschlossen' `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-008` .*\| `COMPLETE`:' -and
-        $persistentStorageBacklog -match '8_TOP_LEVEL_PACKAGES_REMAIN' -and
+        $persistentStorageBacklog -match '7_TOP_LEVEL_PACKAGES_REMAIN' -and
         $persistentStorageBacklog -match 'Cross-Provider-FILESTREAM.*`NOT_APPLICABLE`' -and
         $persistentStorageBacklog -match 'SQL Server\s*2025 auf Linux' -and
         $knownLimitations -match 'FILESTREAM-Cross-Provider-Lauf\s*ist in der aktuellen Matrix nicht möglich' -and
@@ -1260,7 +1260,7 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'PSR-014 bindet die idempotente Ersteinrichtung an Core, Konsole und Dokumentation' `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-014` .*\| `COMPLETE`:' -and
-        $persistentStorageBacklog -match 'Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-001`, `PSR-002`, `PSR-005`,\s*`PSR-007`, `PSR-008` und `PSR-014` abgeschlossen\. Damit verbleiben acht Top-Level-Pakete' -and
+        $persistentStorageBacklog -match 'Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-001`, `PSR-002`, `PSR-005`,\s*`PSR-007`, `PSR-008`, `PSR-013` und `PSR-014` abgeschlossen\. Damit verbleiben sieben Top-Level-Pakete' -and
         $persistentStorageBacklog -match 'vor jeder Mutation fail-closed abgelehnt' -and
         $projectContext -match 'gemeinsamer idempotenter\s*Ersteinrichtungsassistent' -and
         $knownLimitations -match 'nichtleeren, noch nicht\s*controllergebundenen `Lab_Data`-Ordner' -and
@@ -1291,6 +1291,18 @@ Add-ValidationResult `
         $knownLimitations -match [regex]::Escape('AutomaticMutationAllowed=false') -and
         $repoMap -match 'cleanup_audit_findings: Private/CleanupAuditFindings\.ps1' -and
         $repoMap -match 'cleanup_audit_schema: Schemas/lab-cleanup-audit\.schema\.json')
+
+Add-ValidationResult `
+    -Name 'PSR-013 dokumentiert die journalisierte Location- und Hyper-V-Storage-Migration evidenzgebunden' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-013` .*\| `COMPLETE`:' -and
+        $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.StorageMigrationPlan/1.0') -and
+        $persistentStorageBacklog -match 'Copy/Hash/Referenzumschaltung' -and
+        $persistentStorageBacklog -match 'Container-Bind-Mounts bleiben ein expliziter Plan-Blocker' -and
+        $localValidationStrategy -match 'Invoke-StorageMigrationChecks\.ps1' -and
+        $localValidationStrategy -match 'allgemeine `Lab_Data`-Parent-Migration' -and
+        $repoMap -match 'validation_storage_migration: Tests/Static/Invoke-StorageMigrationChecks\.ps1' -and
+        $repoMap -match 'storage_migration_plan_schema: Schemas/lab-storage-migration-plan\.schema\.json' -and
+        $repoMap -match 'storage_migration_journal_schema: Schemas/lab-storage-migration-journal\.schema\.json')
 
 Add-ValidationResult `
     -Name 'Roadmap beschreibt den real belegten Container-Reconcile-Stand widerspruchsfrei' `
