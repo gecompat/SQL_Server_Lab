@@ -119,6 +119,28 @@ try {
             -TestDataRoot $paths.TestDataRoot `
             -StateRoot $StateRoot
 
+        $firstTrustSource = 'https://example.invalid/samples/first-trust.bak'
+        $script:ArtifactDownloadCalls = 0
+        Set-Item Function:script:Invoke-WebRequest -Value {
+            param([string]$Uri, [string]$OutFile)
+            $script:ArtifactDownloadCalls++
+            Copy-Item -LiteralPath $payloadPath -Destination $OutFile -Force
+        }
+        $firstTrust = Resolve-LabArtifact `
+            -Source $firstTrustSource `
+            -SampleId 'first-trust-sample' `
+            -SampleVariant 'unit' `
+            -TrustUnknownArtifact `
+            -TestDataRoot $paths.TestDataRoot `
+            -StateRoot $StateRoot
+        $firstTrustReplay = Resolve-LabArtifact `
+            -Source $firstTrustSource `
+            -SampleId 'first-trust-sample' `
+            -SampleVariant 'unit' `
+            -NonInteractive `
+            -TestDataRoot $paths.TestDataRoot `
+            -StateRoot $StateRoot
+
         [PSCustomObject]@{
             StoreCreated = (Test-Path -LiteralPath $paths.TrustStorePath -PathType Leaf)
             TrustMatches = $trust.sha256 -eq $resolvedTrust.sha256 -and $trust.integrityOrigin -eq 'user-trusted-generated'
@@ -133,6 +155,10 @@ try {
             LegacyMigrationWorks = $legacyResolution.Status -eq 'ARTIFACT_READY' -and $legacyResolution.CacheStatus -eq 'HIT' -and
                 $legacyResolution.Path -like (Join-Path $paths.LibraryRoot '*') -and (Test-Path -LiteralPath $legacyResolution.Path -PathType Leaf)
             SevenZipTrustRequired = $sevenZipTrust.Status -eq 'TRUST_REQUIRED'
+            FirstTrustCreatesReusableSha256 = $firstTrust.Status -eq 'ARTIFACT_READY' -and
+                $firstTrust.Sha256 -eq $sha256 -and $firstTrust.IntegrityOrigin -eq 'user-trusted-generated' -and
+                $firstTrustReplay.Status -eq 'ARTIFACT_READY' -and $firstTrustReplay.CacheStatus -eq 'HIT' -and
+                $firstTrustReplay.Sha256 -eq $sha256 -and $script:ArtifactDownloadCalls -eq 1
         }
     } $temporaryRoot
 
@@ -146,6 +172,7 @@ try {
     Add-CheckResult -Name 'Verifizierte Artefakte werden sichtbar in der Testdaten-Bibliothek veröffentlicht' -Success $result.LibraryVisible
     Add-CheckResult -Name 'Verifizierte Bestände aus dem alten State-Cache werden ohne Download übernommen' -Success $result.LegacyMigrationWorks
     Add-CheckResult -Name 'Katalogisierte .7z-Archive passieren den sicheren Artifact-Vertrag' -Success $result.SevenZipTrustRequired
+    Add-CheckResult -Name 'Einmaliger Trust erzeugt SHA-256 und ein nichtinteraktiver Folgelauf verwendet nur den hashgeprüften Cache' -Success $result.FirstTrustCreatesReusableSha256
 }
 catch {
     Add-CheckResult -Name 'Artifact Resolver Testausfuehrung' -Success $false -Message $_.Exception.Message

@@ -191,7 +191,11 @@ Vorgesehene lokale Ablage:
 ```
 
 Der Trust Store bleibt erhalten, wenn nur der Cache gelöscht wird. Ein späterer
-Download derselben Quelle wird gegen die registrierte Prüfsumme geprüft.
+Download derselben Quelle wird gegen die registrierte Prüfsumme geprüft. Der
+Folgelauf ohne Katalog-SHA-256 bleibt damit verwendbar: Er lädt entweder nicht
+erneut und nutzt den erneut hashgeprüften Cache, oder prüft einen notwendigen
+erneuten Download gegen den lokal erzeugten SHA-256-Record. Fehlt nur die
+Katalog-Prüfsumme, entfällt also niemals die SHA-256-Prüfung.
 
 Ein Run-spezifisches Manifest Lock enthält den vollständig aufgelösten
 Artifact-Vertrag, aber keine Secrets. Für andere Hosts oder frische Runner kann
