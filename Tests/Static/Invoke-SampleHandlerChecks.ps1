@@ -217,6 +217,90 @@ try {
         catch { $containerAttachInvalidJournalRejected = $_.Exception.Message -match 'CONTAINER_ATTACH_JOURNAL_STATE_INVALID' }
 
         $dummyPassword = ConvertTo-SecureString 'Static-Check-Only-1!' -AsPlainText -Force
+        $attachRunId = [guid]::NewGuid().ToString()
+        $attachScopeId = [guid]::NewGuid().ToString()
+        $attachContainerName = 'static-attach-container'
+        $attachPayloadRoot = Join-Path $StateRoot 'attach-handler-payloads'
+        New-Item -ItemType Directory -Path $attachPayloadRoot -Force | Out-Null
+        $attachPrimaryPath = Join-Path $attachPayloadRoot 'attach-handler.mdf'
+        $attachLogPath = Join-Path $attachPayloadRoot 'attach-handler_log.ldf'
+        [System.IO.File]::WriteAllText($attachPrimaryPath, 'primary')
+        [System.IO.File]::WriteAllText($attachLogPath, 'log')
+        $script:AttachRuntimeCalls = [System.Collections.Generic.List[string]]::new()
+        $script:AttachSqlQueries = [System.Collections.Generic.List[string]]::new()
+        $script:AttachFailureMode = $false
+        $originalLastExitCode = $global:LASTEXITCODE
+        $script:AttachRuntime = {
+            $command = [string]$args[0]
+            [void]$script:AttachRuntimeCalls.Add(($args -join ' '))
+            $global:LASTEXITCODE = 0
+            if ($command -eq 'inspect') {
+                [PSCustomObject]@{
+                    Config = [PSCustomObject]@{ Labels = [PSCustomObject]@{
+                        'sql-server-lab.run-id' = $script:AttachRunId
+                        'sql-server-lab.scope-id' = $script:AttachScopeId
+                        'sql-server-lab.instance-id' = 'primary'
+                    } }
+                    State = [PSCustomObject]@{ Status = 'running' }
+                } | ConvertTo-Json -Depth 10
+            }
+        }
+        $script:AttachRunId = $attachRunId
+        $script:AttachScopeId = $attachScopeId
+        $originalGetRunState = (Get-Command Get-LabRunState).ScriptBlock
+        $originalGetHostToolInvocation = (Get-Command Get-LabHostToolInvocation).ScriptBlock
+        $originalInvokeSqlQuery = (Get-Command Invoke-SqlQuery).ScriptBlock
+        try {
+            Set-Item Function:Get-LabRunState -Value { param($RunId, $StateRoot) [PSCustomObject]@{ scopeId = $script:AttachScopeId } }
+            Set-Item Function:Get-LabHostToolInvocation -Value { param($Name) $script:AttachRuntime }
+            Set-Item Function:Invoke-SqlQuery -Value {
+                param($HostName, $Port, $SaPlain, $Database, $TimeoutSeconds, $Query)
+                [void]$script:AttachSqlQueries.Add($Query)
+                if ($script:AttachFailureMode -and $Query -match '^CREATE DATABASE') { throw 'SYNTHETIC_ATTACH_FAILURE' }
+                if ($Query -match 'SELECT state_desc') { return 'ONLINE' }
+            }
+            $attachHandlerResult = Invoke-LabContainerAttach -Provider docker -ContainerName $attachContainerName `
+                -RunId $attachRunId -InstanceId primary -Payloads @(
+                    [PSCustomObject]@{ Path = $attachPrimaryPath; Role = 'primary' },
+                    [PSCustomObject]@{ Path = $attachLogPath; Role = 'log' }
+                ) -DatabaseName AttachStaticCheck -HostName 127.0.0.1 -Port 1433 -SaPassword $dummyPassword -StateRoot $StateRoot
+            $attachHandlerJournalPath = Get-ChildItem -LiteralPath (Join-Path $StateRoot "operations/attach/$attachRunId") -Filter '*.json' |
+                Where-Object { (Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json).DatabaseName -eq 'AttachStaticCheck' } |
+                Select-Object -First 1 -ExpandProperty FullName
+            $attachHandlerJournal = Get-Content -LiteralPath $attachHandlerJournalPath -Raw | ConvertFrom-Json
+            $script:AttachFailureMode = $true
+            $attachFailureRejected = $false
+            try {
+                $null = Invoke-LabContainerAttach -Provider docker -ContainerName $attachContainerName `
+                    -RunId $attachRunId -InstanceId primary -Payloads @(
+                        [PSCustomObject]@{ Path = $attachPrimaryPath; Role = 'primary' },
+                        [PSCustomObject]@{ Path = $attachLogPath; Role = 'log' }
+                    ) -DatabaseName AttachStaticFailure -HostName 127.0.0.1 -Port 1433 -SaPassword $dummyPassword -StateRoot $StateRoot
+            }
+            catch { $attachFailureRejected = $_.Exception.Message -match 'ATTACH_RECOVERY_REQUIRED: SYNTHETIC_ATTACH_FAILURE' }
+            $attachFailureJournalPath = Get-ChildItem -LiteralPath (Join-Path $StateRoot "operations/attach/$attachRunId") -Filter '*.json' |
+                Where-Object { (Get-Content -LiteralPath $_.FullName -Raw | ConvertFrom-Json).DatabaseName -eq 'AttachStaticFailure' } |
+                Select-Object -First 1 -ExpandProperty FullName
+            $attachFailureJournal = Get-Content -LiteralPath $attachFailureJournalPath -Raw | ConvertFrom-Json
+        }
+        finally {
+            Set-Item Function:Get-LabRunState -Value $originalGetRunState
+            Set-Item Function:Get-LabHostToolInvocation -Value $originalGetHostToolInvocation
+            Set-Item Function:Invoke-SqlQuery -Value $originalInvokeSqlQuery
+            $global:LASTEXITCODE = $originalLastExitCode
+        }
+        $containerAttachHandlerWorks = $attachHandlerResult.Status -eq 'ATTACHED' -and
+            @($script:AttachRuntimeCalls | Where-Object { $_ -match '^cp ' }).Count -eq 4 -and
+            @($script:AttachRuntimeCalls | Where-Object { $_ -match 'chown -R mssql:root' }).Count -eq 2 -and
+            @($script:AttachSqlQueries | Where-Object { $_ -match '^CREATE DATABASE \[AttachStaticCheck\].*FOR ATTACH;' }).Count -eq 1 -and
+            @($script:AttachSqlQueries | Where-Object { $_ -match 'SELECT state_desc' }).Count -ge 1 -and
+            $attachHandlerJournal.Status -eq 'COMPLETED' -and $attachHandlerJournal.CopyVerified -and
+            $attachHandlerJournal.AttachInvoked -and $attachHandlerJournal.PostconditionVerified -and
+            $attachHandlerJournal.Recovery -eq 'NOT_REQUIRED'
+        $containerAttachFailureWorks = $attachFailureRejected -and $attachFailureJournal.Status -eq 'RECOVERY_REQUIRED' -and
+            $attachFailureJournal.CopyVerified -and $attachFailureJournal.AttachInvoked -and -not $attachFailureJournal.PostconditionVerified -and
+            $attachFailureJournal.Recovery -eq 'DETACH_TARGET_COPY_AND_PRESERVE_TARGET'
+
         $handlerResult = Install-LabSampleDatabase `
             -Port 14330 `
             -SaPassword $dummyPassword `
@@ -424,6 +508,8 @@ CREATE DATABASE [$(SecondDatabase)];
             ContainerAttachJournalSchemaWorks = $containerAttachJournalSchemaWorks
             ContainerAttachFailureJournalWorks = $containerAttachFailureJournalWorks
             ContainerAttachInvalidJournalRejected = $containerAttachInvalidJournalRejected
+            ContainerAttachHandlerWorks = $containerAttachHandlerWorks
+            ContainerAttachHandlerFailureWorks = $containerAttachFailureWorks
             TrustRequired         = $handlerResult.Status -eq 'TRUST_REQUIRED' -and -not $handlerResult.Success
             LocalStatusUntrusted  = $status.TrustStatus -eq 'TRUST_REQUIRED' -and $status.CacheStatus -eq 'MISS'
             InMemoryMoveWorks     = $wideWorldMoves.Count -eq 3 -and
@@ -439,6 +525,8 @@ CREATE DATABASE [$(SecondDatabase)];
     Add-CheckResult -Name 'Ausfuehrbare Attach-Varianten koennen per Trust-Hash und Katalogpfad gebunden werden' -Success ($result.TrustBoundAttachSchemaWorks -and $result.MissingAttachLayoutRejected)
     Add-CheckResult -Name 'Container-Attach-Journal ist schema- und zeitstempelgebunden atomar persistiert' -Success $result.ContainerAttachJournalSchemaWorks
     Add-CheckResult -Name 'Container-Attach-Journal bildet erfolgreiche und fehlgeschlagene Recovery-Zustaende fail-closed ab' -Success ($result.ContainerAttachFailureJournalWorks -and $result.ContainerAttachInvalidJournalRejected)
+    Add-CheckResult -Name 'Container-Attach-Handler kopiert Payloads, ruft FOR ATTACH auf und verifiziert ONLINE' -Success $result.ContainerAttachHandlerWorks
+    Add-CheckResult -Name 'Container-Attach-Handler persistiert nach SQL-Fehler eine passende Recovery-Aktion' -Success $result.ContainerAttachHandlerFailureWorks
     Add-CheckResult -Name 'Versionsfilter beruecksichtigt minSqlVersion und CU-Bezeichner' -Success $result.VersionFilterWorks
     Add-CheckResult -Name 'Aktuelle Microsoft-Backups fuer AdventureWorks und Data Warehouse sind katalogisiert' -Success $result.CurrentMicrosoftBackups
     Add-CheckResult -Name 'Contoso-Backups sind als direkt restaurierbare Groessenvarianten katalogisiert' -Success $result.ContosoBackups
