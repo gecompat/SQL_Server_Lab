@@ -149,6 +149,15 @@ try {
     Add-CheckResult 'Quarantänestatus sperrt die exakte BackupSetId-Auswahl fail-closed' $result.QuarantineGuard
     Add-CheckResult 'Receipt enthält sanitisierte Metadaten ohne Runtime-Endpunkte oder Credentials' (($result.Registry | ConvertTo-Json -Depth 40) -notmatch '14333|runtime-only|sanitized-at-runtime|not-persisted|BackupLibrary_Test')
     Add-CheckResult 'Backup-Receipt weist Datenbankdateien und getrennte Serverobjekte statt Vollmigration aus' ($result.Registry.Backups[0].DatabaseMetadata.MigrationBoundary.ArtifactScope -eq 'DATABASE_FILES_ONLY' -and -not $result.Registry.Backups[0].DatabaseMetadata.MigrationBoundary.FullInstanceMigration -and 'SERVER_LOGIN_MAPPING' -in $result.Registry.Backups[0].DatabaseMetadata.MigrationBoundary.DependencyCategories)
+    $migrationPlanBinding=$result.Registry.Backups[0].DatabaseMetadata.MigrationExecutionPlanBinding
+    Add-CheckResult 'Backup-Receipt bindet den nicht ausführbaren Migrationsplan an die exakte Backup-SHA und projiziert nur Reviewstatus' (
+        $migrationPlanBinding.BindingVersion -eq 'SqlServerLab.BackupMigrationExecutionPlanBinding/1.0' -and
+        $migrationPlanBinding.ArtifactSha256 -eq $result.Registry.Backups[0].Artifact.Sha256 -and
+        $migrationPlanBinding.PlanContractVersion -eq 'SqlServerLab.DatabaseMigrationExecutionPlan/1.0' -and
+        -not $migrationPlanBinding.MutationAllowed -and $migrationPlanBinding.TransferAuthority -eq 'NONE' -and
+        @($migrationPlanBinding.Steps).Count -eq 8 -and
+        $result.Catalog[0].MigrationExecutionStatus -eq 'MANUAL_REVIEW_REQUIRED' -and
+        $result.Catalog[0].MigrationPlanStepCount -eq 8)
     Add-CheckResult 'Cross-Provider-Inhaltsdigest wird getrennt als Restore-Evidence erfasst' ($result.Verification.TargetProvider -eq 'podman' -and $result.Verification.ContentSha256 -match '^[a-f0-9]{64}$')
     Add-CheckResult 'FILESTREAM-Backup verlangt echte FILESTREAM-Inhaltsevidence' $result.FileStreamGuard
     Add-CheckResult 'TDE-Backup wird ohne Zertifikat- und Recovery-Vertrag nicht veröffentlicht' $result.TdeGuard

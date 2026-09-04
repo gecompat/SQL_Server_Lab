@@ -268,6 +268,11 @@ Add-CheckResult -Name 'CLI und Workflow-UI restaurieren Lab_Data-Backups über d
     $actionText -match 'BackupSetId = \$BackupSetId' -and
     $htmlText -match 'id="container-library-backup"' -and
     $scriptText -match 'renderContainerLibraryBackups' -and
+    $scriptText -match 'data-migration-plan-status' -and
+    $scriptText -match 'MigrationExecutionStatus' -and
+    $scriptText -match 'MigrationPlanStepCount' -and
+    $scriptText -match 'MigrationPlanBlockers' -and
+    $scriptText -match 'Nicht ausführbarer Migrationsplan' -and
     $scriptText -match "action = 'RestoreContainerLibraryBackup'" -and
     $scriptText -match 'parameters\.BackupSetId = backupSetId' -and
     $scriptText -notmatch 'parameters\.Backup(Source|Path)'
