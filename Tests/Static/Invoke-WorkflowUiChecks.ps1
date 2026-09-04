@@ -239,6 +239,10 @@ Add-CheckResult -Name 'Testdaten-Root ist konfigurierbar und wird als sichtbare 
 Add-CheckResult -Name 'Datenbankdialog bietet katalogisierte Testdatenbanken mit explizitem Trust an' -Success (
     $workflowText -match 'SampleDatabases = \$sampleDatabases' -and
     $workflowText -match 'Get-LabExecutableSampleVariant' -and
+    $workflowText -match 'Get-LabSampleArtifactLocalStatus' -and
+    $workflowText -match 'TrustPolicy = \$_.TrustPolicy' -and
+    $workflowText -match 'TrustStatus = \$localStatus.TrustStatus' -and
+    $workflowText -match 'CacheStatus = \$localStatus.CacheStatus' -and
     $workflowText -match 'ArtifactType = \$_.ArtifactType' -and
     $actionText -match 'InstallContainerSampleDatabase' -and
     $actionText -match 'Resolve-LabRunInstance' -and
@@ -252,6 +256,8 @@ Add-CheckResult -Name 'Datenbankdialog bietet katalogisierte Testdatenbanken mit
     $scriptText -match 'Handler: ' -and
     $scriptText -match 'TrustUnknownSample' -and
     $scriptText -match 'SampleSha256' -and
+    $scriptText -match 'lokale SHA-256' -and
+    $scriptText -match 'Cache bereit' -and
     $scriptText -match "container-sample-trust'\)\.checked = false"
 )
 Add-CheckResult -Name 'UI und Workflow unterstützen Mehrfachauswahl von Testdatenbanken' -Success (
