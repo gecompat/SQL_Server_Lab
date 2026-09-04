@@ -1110,17 +1110,23 @@ und die lokale Browseroberfläche erzeugen über denselben Core eine frische,
 schema-validierte Retention-Vorschau ausschließlich anhand stabiler Storage-
 IDs; die Vorschau mutiert weder Run, Katalog noch Storage. Der öffentliche,
 journalisierte Executor unterstützt für Docker-/Podman-Instanzstores inzwischen
-`RETAIN_INSTANCE_STORE` und `BACKUP_ON_REMOVE`. Jeder read-only Removal-Plan
+`RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE` und `PACKAGE_ON_REMOVE` für
+MDF/NDF/LDF-Dateien. Der Paketpfad revalidiert Run, Scope und Instanz live,
+inventarisiert die SQL-Dateien, setzt die Quelle exklusiv offline und
+veröffentlicht sie nur über die bestehende Objekt- und Manifest-SHA-256-
+Bibliothek. FILESTREAM und TDE bleiben bis zu einem vollständigen Inventar-
+beziehungsweise Recovery-Key-Vertrag vor der Offline-Mutation fail-closed.
+Jeder read-only Removal-Plan
 trägt zusätzlich `Execution.Status`: `EXECUTABLE` bedeutet aktuell startbar,
 `PLANNED_NOT_EXECUTABLE` bezeichnet einen vollständigen, sicheren Plan ohne
 implementierte Executor-Capability und `BLOCKED` einen fachlichen Blocker.
 Damit wird insbesondere `PACKAGE_ON_REMOVE` mit seinen Offline-, vollständigen
-Dateiinventar-, automatischen SHA-256- und Paket-Postconditions nicht als
+Dateiinventar-, automatischen SHA-256- und Paket-Postconditions als
 ausführbare Mutation dargestellt. Der Executor veröffentlicht Backups erst
 nach `CHECKSUM` und `RESTORE VERIFYONLY`, revalidiert vor Cleanup und lässt den
 Store detached bestehen. Noch nicht implementiert sind die sichere
-Container-Dateimaterialisierung und darauf aufbauende Package-Erzeugung,
-`DELETE_WITH_RUN`, externe Bindungsfreigabe und die getrennte endgültige
+Kombinationspolicy `BACKUP_AND_PACKAGE`, `DELETE_WITH_RUN`, externe
+Bindungsfreigabe und die getrennte endgültige
 Storage-Löschaktion; diese Policies bleiben vor jeder Mutation blockiert.
 Der PSR-005-Core kann einen bereits katalogisierten und passend gelabelten
 Docker-/Podman-Instanzstore detached per stabiler ID für Continue binden oder

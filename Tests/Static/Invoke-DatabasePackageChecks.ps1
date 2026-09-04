@@ -213,6 +213,10 @@ try {
     Add-CheckResult 'Veränderte Paketobjekte werden bei erneuter Auswahl blockiert' $result.Tamper
     $registryJson=$result.Package.Record|ConvertTo-Json -Depth 60
     Add-CheckResult 'Package-Receipt enthält keine Quellpfade oder Credentials' ($registryJson -notmatch [regex]::Escape($testRoot) -and $registryJson -notmatch 'Password|Credential|SaPassword')
+    $containerExporter=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ContainerDatabasePackage.ps1') -Raw
+    Add-CheckResult 'Container-Dateiinventar normiert Systemmetadaten vor der Paketverkettung kollationsfest' (
+        @([regex]::Matches($containerExporter,'COLLATE Latin1_General_100_BIN2')).Count -eq 3 -and
+        $containerExporter -notmatch "CONCAT\(N'PKG_FILE\|', mf\.type_desc")
 }
 finally { $env:SQL_SERVER_LAB_DATA_ROOT=$previousDataRoot;Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue;Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue }
 

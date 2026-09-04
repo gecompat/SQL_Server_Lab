@@ -105,12 +105,14 @@ Scope-, Referenz- und Lease-Prüfung vor jede Folge, verlangt für Backups
 vollständiges Dateiinventar, SHA-256 und Postcondition und setzt Fehler ab der
 ersten Mutation auf `RECOVERY_REQUIRED`. Fremde Referenzen, Recovery-Zustände
 und nicht katalogisierte retained Objekte blockieren. Der öffentliche Executor
-führt für Docker-/Podman-Instanzstores `RETAIN_INSTANCE_STORE` und
-`BACKUP_ON_REMOVE` aus. Er schreibt vor dem ersten Backup ein geheimnisfreies
-Journal, veröffentlicht ausschließlich per `CHECKSUM` und
-`RESTORE VERIFYONLY` bestätigte Backup-Sets, revalidiert den Plan vor Cleanup
-und setzt einen begonnenen Cleanup idempotent fort. Der Run wird entfernt, der
-Store bleibt detached katalogisiert. Package, externe Freigabe,
+führt für Docker-/Podman-Instanzstores `RETAIN_INSTANCE_STORE`,
+`BACKUP_ON_REMOVE` und MDF/NDF/LDF-`PACKAGE_ON_REMOVE` aus. Er schreibt vor
+der ersten Artefaktmutation ein geheimnisfreies Journal, veröffentlicht Backups
+erst nach `CHECKSUM` und `RESTORE VERIFYONLY` und Pakete erst nach exklusivem
+Offline-Commit, vollständiger SQL-Dateiinventur und automatischem Objekt- und
+Manifest-SHA-256. Er revalidiert den Plan vor Cleanup und setzt einen begonnenen
+Cleanup idempotent fort. Der Run wird entfernt, der Store bleibt detached
+katalogisiert. FILESTREAM, TDE, Kombinationspolicy, externe Freigabe,
 `DELETE_WITH_RUN` und endgültige Löschung bleiben vor jeder Mutation
 blockierte, getrennte Folgearbeit. Der Plan weist unabhängig von seiner
 fachlichen Gültigkeit mit `Execution.Status` aus, ob die verlangte Policy
@@ -491,7 +493,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-001` | P0-Analyse | Ist-Inventar aller persistenten, rungebundenen und verbleibenden Objekte für Docker, Podman und Hyper-V | `COMPLETE`: versionierte read-only Matrix mit stabilen Objekt-IDs, Residency, Lifecycle, Cleanup-Policy und Provider-Coverage; lokales Docker-Desktop-/Podman-WSL-Backing samt Konfiguration sowie normalisierte Image-, Container-, Volume- und Build-Cache-Nutzung real belegt |
 | `PSR-002` | P0-Analyse | `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen entscheiden | `COMPLETE`: bindender `SqlServerLab.LabDataResidencyDecision/1.0`-Entscheid |
 | `PSR-003` | P1 | Storage-Katalog mit stabiler ID, Klassen, Zuständen, Referenzen und Leases entwerfen | `IMPLEMENTED_PARTIAL`: Schema, Parser, Planner, Inventarbindung, generischer CAS-/Preview-Mutationskern mit genau einem rollbackfähigen Revisionscommit, darauf vereinheitlichte `BACKUP_SET`-/`DATABASE_PACKAGE`-Writer, Clone-`INSTANCE_STORE`-Registrierung, exklusive Lease/Freigabe regulärer `-PersistentData`-Containerstores einschließlich stabiler Datenbankreferenzen sowie revisionsgeschützte Preview-/Apply-Writer für Reservierung, Abschluss und Recovery regulärer Hyper-V-Instanzstores auf allen controllergebundenen Spiegeln; vorhandene Backup-Sets, Datenbankpakete und sichere `EXCHANGE_WORKSPACE`-Verzeichnisse lassen sich öffentlich einzeln, revisionsgeschützt, previewfähig und idempotent synchronisieren; Umstellung der übrigen Instanzstore-Writer, breite Bestandsmigration, providerübergreifende Wiederverwendung und Löschung bleiben offen |
-| `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_PARTIAL`: verlustsicherer Plan mit explizitem `Execution.Status` plus journalisierter Docker-/Podman-Executor für Retain und verifiziertes Backup-on-Remove; die sichere Container-Dateimaterialisierung für Package, externe Freigabe und getrennte endgültige Storage-Löschung bleiben offen |
+| `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_PARTIAL`: verlustsicherer Plan mit explizitem `Execution.Status` plus journalisierter Docker-/Podman-Executor für Retain, verifiziertes Backup-on-Remove und MDF/NDF/LDF-`PACKAGE_ON_REMOVE`; FILESTREAM, TDE, `BACKUP_AND_PACKAGE`, externe Freigabe und getrennte endgültige Storage-Löschung bleiben fail-closed offen |
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED`: öffentliche CLI-/Browser-Auswahl per stabiler ID, detached Continue/Clone, operationsgebundene Quell-Lease, Digest/Resume, atomarer Zielcommit plus Quellfreigabe und rollenfester External-Runtime-Mehr-Volume-Vertrag; Docker und Podman getrennt real belegt, unvollständige Legacy-Sidecargruppen fail-closed |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
 | `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `COMPLETE`: reguläre Erzeugung reserviert Storage-ID und Run-Lease vor der VHDX-Mutation; der öffentliche pfadfreie CLI-/Browser-Flow prüft alle SQL-Dateibindungen im Gast, blockiert aktive Datenbankdateien, fährt sauber herunter und persistiert einen an Storage-ID, DiskIdentifier, Dateigröße und Änderungszeit gebundenen Detach-Receipt; Reattach/Release/Clone revalidieren VM, Checkpoints, Gastpfad und SQL-Version, sind operationsgeleast, journalisiert, atomar katalogisiert, idempotent und nativ belegt; vorhandene Datenbankdateien bleiben bis zur expliziten Restore-/Attach-Aktion offline |
