@@ -1176,6 +1176,8 @@ Add-ValidationResult `
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageRemovalPlan/1.0') -and
         $persistentStorageBacklog -match '`CHECKSUM` und `RESTORE VERIFYONLY`' -and
         $persistentStorageBacklog -match 'geheimnisfreies\s*Journal' -and
+        $persistentStorageBacklog -match '(?s)`DELETE_WITH_RUN`.*persistierter.*?`DELETE_PENDING`.*?`DETACHED`' -and
+        $developmentExecutionPlan -match '(?s)`DELETE_WITH_RUN`.*persistierter.*?`DELETE_PENDING`.*?`DETACHED`' -and
         $knownLimitations -match 'Executor unterstützt für Docker-/Podman-Instanzstores inzwischen\s*`RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`, `PACKAGE_ON_REMOVE` und' -and
         $knownLimitations -match 'MDF/NDF/LDF-Dateien' -and
         $knownLimitations -match '(?s)`BACKUP_AND_PACKAGE`.*Backup.*Offline' -and
