@@ -1179,8 +1179,9 @@ Add-ValidationResult `
         $knownLimitations -match 'Executor unterstützt für Docker-/Podman-Instanzstores inzwischen\s*`RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`, `PACKAGE_ON_REMOVE` und' -and
         $knownLimitations -match 'MDF/NDF/LDF-Dateien' -and
         $knownLimitations -match '(?s)`BACKUP_AND_PACKAGE`.*Backup.*Offline' -and
-        $knownLimitations -match 'Noch nicht implementiert sind `DELETE_WITH_RUN`, externe' -and
-        $publicReadme -match '(?s)`PACKAGE_ON_REMOVE`.*`BACKUP_AND_PACKAGE`.*FILESTREAM, TDE, endgültiges Löschen und externe Freigabe bleiben blockiert' -and
+        $knownLimitations -match '(?s)`EXTERNAL_UNMANAGED`.*SourceMutated=false' -and
+        $knownLimitations -match 'Noch nicht\s*implementiert sind `DELETE_WITH_RUN` und die getrennte\s*endgültige' -and
+        $publicReadme -match '(?s)`PACKAGE_ON_REMOVE`.*`BACKUP_AND_PACKAGE`.*`EXTERNAL_UNMANAGED`.*ausschließlich die eigene Katalogbindung' -and
         $removalPlanCommand -match '(?s)RETAIN_INSTANCE_STORE, BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und\s*BACKUP_AND_PACKAGE startbar' -and
         $workflowActionCommand -match '(?s)RETAIN_INSTANCE_STORE,\s*BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE aus' -and
         $architecture -match '(?s)BACKUP_AND_PACKAGE.*Backup vor dem Offline-Schritt' -and
