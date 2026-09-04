@@ -103,6 +103,8 @@ Invoke-SqlServerLabWorkflowAction      # UI-tauglicher, nicht interaktiver Hyper
 New-SqlServerLab                       # Neue Umgebung
 Get-SqlServerLab                       # Status
 Sync-SqlServerLabRuntimeState          # State mit Docker, Podman und Hyper-V abgleichen
+Get-SqlServerLabMaintenancePlan        # gesamten State-/Runtime-Drift read-only planen
+Invoke-SqlServerLabMaintenance         # revalidierte sichere/scopegebundene Wartung ausführen
 Start-SqlServerLab                     # Starten
 Stop-SqlServerLab                      # Stoppen
 Restart-SqlServerLab                   # Neustart
@@ -138,6 +140,8 @@ Install-SqlServerLabAdapter           # Adapter-Entrypoint ohne Lifecycle-Seiten
 Install-SqlServerLab7Zip              # 7-Zip optional via winget für sichere .7z-Backup-Payloads installieren
 Get-SqlServerLabCuStatus              # Microsoft-Learn-CU-Stand read-only gegen den lokalen Katalog prüfen
 Save-SqlServerLabCuResource           # Katalogisierten Windows-CU oder exakten Linux-MCR-Tag sicher bereitstellen
+Get-SqlServerLabResourcePlan          # Sample- und Windows-/Hyper-V-Ressourcen read-only vorplanen
+Save-SqlServerLabResourceSet          # Katalogisierte Ressourcen hashverifiziert vorab bereitstellen
 ```
 
 Für Docker-/Podman-Ad-hoc-Labs kann `New-SqlServerLab -PersistentData` einen

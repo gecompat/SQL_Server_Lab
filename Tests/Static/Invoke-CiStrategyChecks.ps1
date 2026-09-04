@@ -84,6 +84,15 @@ Add-CheckResult -Name 'Reiner Persistent-Storage-Artefakt-Sync aktiviert nur die
     'Invoke-DatabasePackageChecks.ps1' -in $persistentStorageArtifact.StaticChecks
 )
 
+$resourceSet = & $selector -ChangedPath @('Public/Save-SqlServerLabResourceSet.ps1', 'Private/ResourceSet.ps1')
+Add-CheckResult -Name 'Resource-Prefetch aktiviert nur seine Store- und Katalogverträge' -Success (
+    -not $resourceSet.Docker -and -not $resourceSet.Podman -and -not $resourceSet.Mixed -and
+    -not $resourceSet.HyperV -and -not $resourceSet.Adapter -and
+    'Invoke-ResourceSetChecks.ps1' -in $resourceSet.StaticChecks -and
+    'Invoke-ArtifactResolverChecks.ps1' -in $resourceSet.StaticChecks -and
+    'Invoke-ExternalRuntimeWindowsChecks.ps1' -in $resourceSet.StaticChecks
+)
+
 $hostToolResolution = & $selector -ChangedPath @('Private/HostToolResolution.ps1')
 Add-CheckResult -Name 'Host-Tool-Auflösung aktiviert Resolver-/Bootstrap-Verträge und beide Container-Runtimes' -Success (
     $hostToolResolution.Docker -and $hostToolResolution.Podman -and

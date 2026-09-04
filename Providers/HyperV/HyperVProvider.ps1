@@ -88,7 +88,9 @@ function ConvertTo-HyperVLabNotes {
         [Parameter(Mandatory)][string]$ScopeId,
         [Parameter(Mandatory)][string]$InstanceId,
         [Parameter(Mandatory)][string]$ChildVhdxPath,
-        [object[]]$AdditionalDrives = @()
+        [object[]]$AdditionalDrives = @(),
+        [ValidateSet('run','test')][string]$Lifecycle = 'run',
+        [string]$ExpiresAt
     )
 
     $identity = [ordered]@{
@@ -97,6 +99,8 @@ function ConvertTo-HyperVLabNotes {
         runId           = $RunId
         scopeId         = $ScopeId
         instanceId      = $InstanceId
+        lifecycle       = $Lifecycle
+        expiresAt       = if ($ExpiresAt) { $ExpiresAt } else { $null }
         childVhdxPath   = [System.IO.Path]::GetFullPath($ChildVhdxPath)
         additionalVhdxPaths = @(
             $AdditionalDrives | ForEach-Object { [System.IO.Path]::GetFullPath([string]$_.Path) }
@@ -477,8 +481,17 @@ function New-HyperVInstance {
         [object[]]$AdditionalDrives = @(),
         [string]$ResourceLocationId,
         [string]$DataRoot,
-        [ValidateSet('Run', 'Build')][string]$ResourceClass = 'Run'
+        [ValidateSet('Run', 'Build')][string]$ResourceClass = 'Run',
+        [ValidateSet('run','test')][string]$Lifecycle = 'run',
+        [string]$ExpiresAt
     )
+
+    if (-not $PSBoundParameters.ContainsKey('Lifecycle') -and $env:SQL_SERVER_LAB_RESOURCE_LIFECYCLE -eq 'test') {
+        $Lifecycle = 'test'
+    }
+    if ($Lifecycle -eq 'test' -and -not $ExpiresAt) {
+        $ExpiresAt = if ($env:SQL_SERVER_LAB_RESOURCE_EXPIRES_AT) { $env:SQL_SERVER_LAB_RESOURCE_EXPIRES_AT } else { (Get-Date).ToUniversalTime().AddHours(24).ToString('o') }
+    }
 
     foreach ($memoryBoundary in @($MemoryMinimumBytes, $MemoryMaximumBytes)) {
         if ($memoryBoundary -ne 0 -and ($memoryBoundary -lt 512MB -or $memoryBoundary -gt 1TB)) {
@@ -670,7 +683,9 @@ function New-HyperVInstance {
         -ScopeId $ScopeId `
         -InstanceId $InstanceId `
         -ChildVhdxPath $childVhdxPath `
-        -AdditionalDrives $additionalDrivePlan
+        -AdditionalDrives $additionalDrivePlan `
+        -Lifecycle $Lifecycle `
+        -ExpiresAt $ExpiresAt
     $null = Set-VM -VM $vm -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
     $automaticStartAction = if ($AutoStart -eq 'on') { 'Start' } else { 'Nothing' }
     $null = Set-VM -VM $vm -AutomaticStartAction $automaticStartAction -ErrorAction Stop

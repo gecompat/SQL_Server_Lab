@@ -55,6 +55,8 @@
         'Remove-SqlServerLab'
         'Clear-SqlServerLab'
         'Get-SqlServerLabCleanupAudit'
+        'Get-SqlServerLabMaintenancePlan'
+        'Invoke-SqlServerLabMaintenance'
         'Get-SqlServerLabPersistentStorageRemovalPlan'
         'Invoke-SqlServerLabPersistentStorageRemoval'
         'Sync-SqlServerLabPersistentStorageArtifact'
@@ -74,6 +76,8 @@
         'Install-SqlServerLab7Zip'
         'Get-SqlServerLabCuStatus'
         'Save-SqlServerLabCuResource'
+        'Get-SqlServerLabResourcePlan'
+        'Save-SqlServerLabResourceSet'
     )
 
     CmdletsToExport   = @()

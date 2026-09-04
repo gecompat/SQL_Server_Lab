@@ -48,6 +48,7 @@ $initialImageName = $null
 $allRuntimeImageName = $null
 $completed = $false
 $acceptanceNetworkName = $null
+$cleanupFailure = $null
 
 function Assert-ExternalRuntimeAcceptance {
     param(
@@ -560,8 +561,11 @@ FROM sys.configurations WHERE name=N'external scripts enabled';
 }
 finally {
     if ($lab -and -not $KeepOnFailure) {
-        try { Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false | Out-Null }
-        catch { Write-Warning "Fehler-Cleanup des Runs schlug fehl: $($_.Exception.Message)" }
+        try {
+            $cleanupResult = Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false
+            if ([string]$cleanupResult.Status -ne 'REMOVED') { throw "Status $($cleanupResult.Status)" }
+        }
+        catch { $cleanupFailure = $_.Exception.Message; Write-Warning "Fehler-Cleanup des Runs schlug fehl: $cleanupFailure" }
     }
     if ($imageName -and -not $completed -and -not $KeepOnFailure) {
         try { & $runtimeInvocation image rm --force $imageName 1>$null 2>$null } catch { }
@@ -581,4 +585,8 @@ finally {
     $env:SQL_SERVER_LAB_STATE = $previousStateRoot
     $env:SQL_SERVER_LAB_PODMAN_NETWORK = $previousPodmanNetwork
     $env:SQL_SERVER_LAB_PODMAN_SUBNET = $previousPodmanSubnet
+}
+
+if ($cleanupFailure) {
+    throw "EXTERNAL_RUNTIME_CONTAINER_CLEANUP_FAILED: $cleanupFailure"
 }

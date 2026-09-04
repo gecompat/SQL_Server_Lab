@@ -21,6 +21,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   ab. Eindeutig fehlende gebundene Runtimeobjekte wechseln fail-closed nach
   `RECOVERY_REQUIRED`; nicht erreichbare Runtimes bleiben diagnostisch und es
   wird nichts gelöscht oder neu erzeugt.
+- `Get-SqlServerLabMaintenancePlan`, `Invoke-SqlServerLabMaintenance` und der
+  skriptfähige Wrapper unter `Tools/` erkennen State-Drift, scopegebundene
+  Orphans und alte Testartefakte über alle vorhandenen Container und Hyper-V-
+  VMs. Fremde Ressourcen bleiben ausgeschlossen; Legacy-Entfernung benötigt
+  einen ausdrücklichen Schalter.
 
 ### Geändert
 
@@ -28,6 +33,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   `MISSING`. `SqlServerLab.CleanupFindings/1.1` ergänzt für jeden auffälligen
   `Lab_Data`-/Runtimebefund eine ausdrückliche Löschungs- oder
   Bewahrungsempfehlung; der Audit bleibt vollständig read-only.
+- CI-/Smoke-Ressourcen erhalten Lifecycle- und Ablaufmetadaten. Fehlgeschlagene
+  Runtime-Cleanups lassen Hyper-V- und External-Runtime-Smokes nun fehlschlagen;
+  `Clear-SqlServerLab -StateOnly` schützt auch vorhandene Hyper-V-Ressourcen.
 
 ## 2026-09-02
 

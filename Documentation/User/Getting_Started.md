@@ -163,6 +163,31 @@ CU und Container-Provider. Ein fehlender oder nicht katalogisierter CU wird
 fail-closed abgelehnt; SQL Server 2019 CU7 ist wegen des Microsoft-Rückzugs
 nicht auswählbar.
 
+### 4b. Samples und External-Runtime-Medien vorab bereitstellen
+
+Der eigenständige Prefetch benötigt keine laufende SQL-Instanz und keine
+Provider-Mutation. Zuerst den Plan prüfen, danach dieselben IDs speichern:
+
+```powershell
+$resources = @(
+    'sample:northwind:script'
+    'sample:adventureworks-2019:lightweight'
+    'software:sql-python:sql2022-python-windows-hyperv'
+    'software:sql-r:sql2022-r-windows-hyperv'
+    'software:sql-java:sql2022-java17-windows-hyperv'
+)
+
+Get-SqlServerLabResourcePlan -ResourceId $resources -MediaRoot 'D:\Lab_Base'
+Save-SqlServerLabResourceSet -ResourceId $resources -MediaRoot 'D:\Lab_Base' -TrustUnknownArtifact
+```
+
+Ein vorhandener älterer Bestand kann mit `-SourceMediaRoot` als Importquelle
+angegeben werden. Jede Datei wird erneut gehasht; unpassende Bytes blockieren
+den Lauf. Fehlende Importdateien werden aus der katalogisierten HTTP(S)-Quelle
+geladen. `-WhatIf` schreibt weder Media-, Testdaten- noch State-Dateien.
+`-TrustUnknownArtifact` ist nur für Samples ohne Katalog-SHA-256 erforderlich
+und vertraut ausschließlich den während dieses Laufs gehashten Bytes.
+
 ### Aktuellen CU-Stand bei Microsoft prüfen
 
 Vor der Medienbeschaffung kann der Katalog gegen die offizielle Microsoft-
@@ -269,6 +294,34 @@ Eine eindeutig fehlende gebundene VM oder ein Container führt zu
 und erzeugt sie auch nicht neu. Nicht erreichbare Runtimes bleiben reine
 Diagnosezustände, damit ein ausgeschalteter Dienst nicht mit einer Löschung
 verwechselt wird.
+
+### Lab-Zustand jederzeit deterministisch warten
+
+Der Maintenance-Plan vergleicht den gesamten gespeicherten Run-State mit allen
+vorhandenen Docker-, Podman- und Hyper-V-Ressourcen. Er ignoriert fremde
+Ressourcen und trennt automatische State-Korrekturen, scopegebundenes Cleanup
+und alte Testartefakte ohne vollständige Identität. Zusätzlich werden nur
+eindeutig benannte SQL-Lab-Testobjekte direkt im echten Benutzer-Temp nach
+Ablauf der gewählten Schwelle als eine revalidierte Cleanup-Aktion geplant:
+
+```powershell
+# Nur lesen
+.\Tools\Invoke-SqlServerLabMaintenance.ps1
+
+# State korrigieren und eindeutig scopegebundene Lab-Reste entfernen
+.\Tools\Invoke-SqlServerLabMaintenance.ps1 -Apply -Cleanup
+
+# Einmalige, eng revalidierte Bereinigung alter Testartefakte
+.\Tools\Invoke-SqlServerLabMaintenance.ps1 -Apply -Cleanup `
+    -AllowLegacyTestArtifactRemoval
+```
+
+Für einen regelmäßigen Lauf kann Windows Task Scheduler denselben zweiten
+Aufruf mit `pwsh.exe -NoLogo -NoProfile -File` starten. Das Skript liefert bei
+fehlgeschlagenen Aktionen Exitcode 1 und mit `-AsJson` ein maschinenlesbares
+Ergebnis. Neu erzeugte CI-/Smoke-Ressourcen tragen zusätzlich Lifecycle- und
+Ablaufmetadaten; ein nicht vollständig bereinigter Runtime-Smoke schlägt fehl,
+statt nur zu warnen.
 
 ### Verwaiste Objekte in Lab_Data prüfen
 
