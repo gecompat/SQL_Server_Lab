@@ -36,6 +36,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 - CI-/Smoke-Ressourcen erhalten Lifecycle- und Ablaufmetadaten. Fehlgeschlagene
   Runtime-Cleanups lassen Hyper-V- und External-Runtime-Smokes nun fehlschlagen;
   `Clear-SqlServerLab -StateOnly` schützt auch vorhandene Hyper-V-Ressourcen.
+- Der schema-validierte SQL-Medienquellenkatalog hält direkte Microsoft-Links,
+  verifizierte Archiv-Fallbacks und manuelle Lizenzmedien getrennt fest. Das
+  neue `Save-SqlServerLabMediaSource` veröffentlicht Downloads erst nach
+  Größen-, SHA-256- und bei EXE-Dateien Microsoft-Authenticode-Prüfung. Der
+  nicht-Azure Versionsbestand reicht damit mit mindestens einer verfügbaren
+  Engine-Variante von SQL Server 2000 bis 2025; SQL Server 7.0 und 6.5 bleiben
+  mangels legalem öffentlichem Vollmedium manuell.
 
 ## 2026-09-02
 

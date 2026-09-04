@@ -57,6 +57,33 @@ try {
         }).Count -eq 1 -and
         @($mediaCatalog | Where-Object { $_.Url -match '/evalcenter/evaluate-windows-server$' }).Count -eq 0
     )
+    $sqlMedia = @($mediaCatalog | Where-Object { $_.Id -like 'sql-server-*' -and $_.Id -ne 'sql-server-downloads' })
+    Add-CheckResult -Name 'SQL-Medienkatalog bindet alle automatischen Downloads an Größe und SHA-256' -Success (
+        $sqlMedia.Count -ge 25 -and
+        @($sqlMedia | Where-Object { $_.Automatable -and (-not $_.ExpectedBytes -or -not $_.ExpectedSha256 -or -not $_.DownloadUrl) }).Count -eq 0
+    )
+    Add-CheckResult -Name 'SQL-2025-Express-Quelle ist der verifizierte Microsoft-2025-Link' -Success (
+        @($sqlMedia | Where-Object {
+            $_.Id -eq 'sql-server-2025-express-bootstrapper' -and
+            $_.DownloadUrl -eq 'https://download.microsoft.com/download/7ab8f535-7eb8-4b16-82eb-eca0fa2d38f3/SQL2025-SSEI-Expr.exe' -and
+            $_.ExpectedSha256 -eq '1c677a33b318481c3217128835f8405cf0026621dcd04b13eb6cb0982e823f27'
+        }).Count -eq 1
+    )
+    Add-CheckResult -Name 'Historische Archivquellen und manuelle Lizenzlücken sind explizit getrennt' -Success (
+        @($sqlMedia | Where-Object { $_.Version -in @('2008','2005','2000') -and $_.Acquisition -eq 'ARCHIVE_FALLBACK_VERIFIED' }).Count -eq 3 -and
+        @($sqlMedia | Where-Object { $_.Version -in @('7.0','6.5') -and -not $_.Automatable -and $_.Acquisition -eq 'MANUAL_LICENSED_MEDIA' }).Count -eq 2
+    )
+    $plannedSqlMedia = Save-SqlServerLabMediaSource -Id 'sql-server-2016-developer-sp3-iso' -MediaRoot $temporaryRoot -WhatIf
+    Add-CheckResult -Name 'SQL-Basismedien-Download besitzt einen mutationsfreien WhatIf-Plan' -Success (
+        $plannedSqlMedia.Status -eq 'PLANNED' -and
+        $plannedSqlMedia.Sha256 -eq 'c293d7e267d34cf4af4e8f03cf472f489772acad6e205da4ceab080cb32b71ad'
+    )
+    $manualMediaBlocked = try {
+        $null = Save-SqlServerLabMediaSource -Id 'sql-server-7.0-licensed-media' -MediaRoot $temporaryRoot -ErrorAction Stop
+        $false
+    }
+    catch { $_.Exception.Message -match '^SQL_MEDIA_SOURCE_MANUAL_REQUIRED:' }
+    Add-CheckResult -Name 'SQL-7.0-Lizenzmedium bleibt fail-closed manuell' -Success $manualMediaBlocked
     $retryableDiscovery = & $module {
         Test-HyperVWindowsMediaDiscoveryRetry -Cached @([PSCustomObject]@{ State = 'RETRY_ELEVATED' })
     }
