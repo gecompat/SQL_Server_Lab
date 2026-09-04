@@ -1180,7 +1180,7 @@ Add-ValidationResult `
         $knownLimitations -match 'MDF/NDF/LDF-Dateien' -and
         $knownLimitations -match '(?s)`BACKUP_AND_PACKAGE`.*Backup.*Offline' -and
         $knownLimitations -match '(?s)`EXTERNAL_UNMANAGED`.*SourceMutated=false' -and
-        $knownLimitations -match '(?s)`DELETE_WITH_RUN` ist weiterhin keine öffentlich ausführbare.*?stabiler Storage-ID' -and
+        $knownLimitations -match '(?s)`DELETE_WITH_RUN`.*persistierter.*?`DELETE_PENDING`.*?`DETACHED`.*?fehlendem Volume' -and
         $knownLimitations -match '(?s)vor\s+der ersten Runtime-Mutation eine UUID.*?`sql-server-lab\.persistent-storage-id`.*?keine zusätzliche Delete-Autorität' -and
         $knownLimitations -match '(?s)exakt einem erwarteten Container.*?revisionsgeschützt.*?`RUN_SCOPED`/\s*`RUN_CLEANUP`' -and
         $knownLimitations -match '(?s)Run-Cleanup entfernt.*?`sql-server-lab\.run-id`.*?`sql-server-lab\.scope-id`.*?Recovery-Pfad' -and

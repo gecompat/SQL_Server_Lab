@@ -3,7 +3,7 @@
   "$id": "https://sql-server-lab.local/schemas/persistent-storage-removal-journal.schema.json",
   "title": "SqlServerLab.PersistentStorageRemovalJournal/1.0",
   "type": "object",
-  "required": ["ContractVersion", "OperationId", "IntentId", "RunId", "ScopeId", "SelectionFingerprint", "CatalogRevision", "Status", "Selections", "Backups", "Packages", "ExternalBindings", "Removal", "Recovery", "CreatedAt", "UpdatedAt"],
+    "required": ["ContractVersion", "OperationId", "IntentId", "RunId", "ScopeId", "SelectionFingerprint", "CatalogRevision", "Status", "Selections", "Backups", "Packages", "ExternalBindings", "DeleteStores", "Removal", "Recovery", "CreatedAt", "UpdatedAt"],
   "properties": {
     "ContractVersion": { "const": "SqlServerLab.PersistentStorageRemovalJournal/1.0" },
     "OperationId": { "type": "string", "format": "uuid" },
@@ -21,7 +21,7 @@
         "required": ["PersistentStorageId", "Policy", "DatabaseReferenceIds"],
         "properties": {
           "PersistentStorageId": { "type": "string", "format": "uuid" },
-          "Policy": { "enum": ["RETAIN_INSTANCE_STORE", "BACKUP_ON_REMOVE", "PACKAGE_ON_REMOVE", "BACKUP_AND_PACKAGE", "EXTERNAL_UNMANAGED"] },
+          "Policy": { "enum": ["RETAIN_INSTANCE_STORE", "BACKUP_ON_REMOVE", "PACKAGE_ON_REMOVE", "BACKUP_AND_PACKAGE", "EXTERNAL_UNMANAGED", "DELETE_WITH_RUN"] },
           "DatabaseReferenceIds": { "type": "array", "items": { "type": "string", "format": "uuid" }, "uniqueItems": true }
         },
         "additionalProperties": false
@@ -74,6 +74,22 @@
           "Status": { "enum": ["PENDING", "COMPLETED"] },
           "CatalogRevision": { "type": ["integer", "null"], "minimum": 0 },
           "SourceMutated": { "type": "boolean", "const": false }
+        },
+        "additionalProperties": false
+      }
+    },
+    "DeleteStores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["PersistentStorageId", "Provider", "VolumeName", "Status", "StartCatalogRevision", "CompletionCatalogRevision"],
+        "properties": {
+          "PersistentStorageId": { "type": "string", "format": "uuid" },
+          "Provider": { "enum": ["docker", "podman"] },
+          "VolumeName": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$" },
+          "Status": { "enum": ["PENDING", "DELETE_PENDING", "COMPLETED"] },
+          "StartCatalogRevision": { "type": ["integer", "null"], "minimum": 0 },
+          "CompletionCatalogRevision": { "type": ["integer", "null"], "minimum": 0 }
         },
         "additionalProperties": false
       }

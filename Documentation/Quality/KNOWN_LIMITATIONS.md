@@ -1130,9 +1130,13 @@ nach `CHECKSUM` und `RESTORE VERIFYONLY`, revalidiert vor Cleanup und lässt den
 Store detached bestehen. `EXTERNAL_UNMANAGED` schreibt ein fortsetzbares
 Journal, setzt nur aktive eigene Katalogreferenzen auf `RELEASED` und prüft
 `SourceMutated=false`; Quelle und Inhalt bleiben unverändert.
-`DELETE_WITH_RUN` ist weiterhin keine öffentlich ausführbare
-Persistent-Storage-Removal-Policy, weil rungebundene Runtime-Volumes noch
-nicht als selektierbare Katalogstores mit stabiler Storage-ID geführt werden.
+`DELETE_WITH_RUN` ist ausschließlich für einen öffentlich aus persistierter
+Run-, Scope-, Container- und Runtime-Label-Evidence registrierten Docker-/
+Podman-`INSTANCE_STORE` ausführbar. Der Executor journalisiert die
+revisionsgebundenen Zustände `DELETE_PENDING` und `DETACHED`; die zweite Phase
+akzeptiert nur eine frische Runtime-Inspektion mit fehlendem Volume. FILESTREAM,
+TDE und jede abweichende Store-, Lease- oder Ownership-Evidence bleiben vor
+jeder Mutation blockiert.
 Neue kurzlebige Docker-/Podman-Systemvolume-Gruppen erhalten inzwischen vor
 der ersten Runtime-Mutation eine UUID. Sie wird im gewünschten Run-State
 persistiert, als `sql-server-lab.persistent-storage-id` auf jedes zugehörige
@@ -1143,8 +1147,8 @@ Volumes werden nicht still übernommen.
 Der interne Katalogkern kann einen solchen bereits laufenden Store inzwischen
 nur mit derselben UUID, exakt einem erwarteten Container sowie passenden Run-,
 Scope-, SQL-Major- und Persistenzlabels revisionsgeschützt als `RUN_SCOPED`/
-`RUN_CLEANUP` registrieren. Die öffentliche Registrierung, die Einbindung in
-den normalen Run-Cleanup und `DELETE_WITH_RUN` folgen erst gemeinsam, damit
+`RUN_CLEANUP` registrieren. Der öffentliche Registrierungseinstieg ist
+`WhatIf`-fähig; `DELETE_WITH_RUN` nutzt den zweiphasigen Journalvertrag, damit
 keine aktive Lease nach einer physischen Volume-Entfernung zurückbleibt.
 Der bestehende normale Run-Cleanup entfernt seine im Cleanup-Plan gebundenen
 Docker-/Podman-Volumes jedoch nur nach einer frischen Runtime-Prüfung beider
