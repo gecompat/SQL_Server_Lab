@@ -132,6 +132,22 @@ Add-CheckResult -Name 'Browser exportiert Container-Datenbankpakete nur ueber Ru
     $actionText -notmatch 'Export-SqlServerLabDatabasePackage.*-HostName' -and
     $actionText -notmatch 'Export-SqlServerLabDatabasePackage.*-SaPassword'
 )
+Add-CheckResult -Name 'Browser inventarisiert Migrationsabhaengigkeiten containergebunden und gibt nur sanitisierte Ergebnisse aus' -Success (
+    $scriptText -match 'data-container-operation="InspectContainerDatabaseMigrationDependencies"' -and
+    $scriptText -match "const isDependencyInventoryAction = action === 'InspectContainerDatabaseMigrationDependencies'" -and
+    $scriptText -match "action === 'InspectContainerDatabaseMigrationDependencies'" -and
+    $scriptText -match 'Migrationsabhängigkeiten prüfen' -and
+    $actionText -match "'InspectContainerDatabaseMigrationDependencies'" -and
+    $actionText -match 'MIGRATION_DEPENDENCY_CONTAINER_WORKFLOW_TARGET_REQUIRED' -and
+    $actionText -match 'Get-SqlServerLabDatabaseMigrationDependency -RunId \$BuildId -InstanceId \$InstanceId -SaPassword \$SaPassword -DatabaseName \$DatabaseName' -and
+    $actionText -notmatch 'Get-SqlServerLabDatabaseMigrationDependency.*-HostName' -and
+    $actionText -notmatch 'Get-SqlServerLabDatabaseMigrationDependency.*-Port' -and
+    $serverText -match "\$JobAction -eq 'InspectContainerDatabaseMigrationDependencies'" -and
+    $serverText -match '\$inventory = \$result\.Result' -and
+    $serverText -match "\[INVENTAR\]" -and
+    $serverText -match 'FullInstanceMigration' -and
+    $serverText -notmatch 'HostName = \[string\]\$result\.HostName'
+)
 Add-CheckResult -Name 'UI bietet erkannte Windows- und SQL-Medien ohne manuelle Editionsauswahl an' -Success (
     $workflowText -match 'WindowsInstallationMedia' -and
     $htmlText -match 'id="windows-media"' -and
