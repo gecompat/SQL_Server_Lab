@@ -436,6 +436,16 @@ public_commands:
     source: Public/Get-SqlServerLabCuStatus.ps1
     purpose: "Offizielle Microsoft-Buildtabellen read-only gegen den lokalen CU-Katalog prüfen"
     mutates_host: false
+  - name: Get-SqlServerLabResourcePlan
+    source: Public/Get-SqlServerLabResourcePlan.ps1
+    purpose: "Katalogisierte Sample- und Windows-/Hyper-V-External-Runtime-Ressourcen samt lokalem Importkandidaten read-only planen"
+    mutates_host: false
+  - name: Save-SqlServerLabResourceSet
+    source: Public/Save-SqlServerLabResourceSet.ps1
+    purpose: "Ausgewaehlte Ressourcen aus Cache, hashverifiziertem Altbestand oder katalogisierter HTTP(S)-Quelle atomar vorab bereitstellen"
+    mutates_host: true
+    external_dependencies:
+      - catalogued HTTP(S) artifact sources
     external_dependencies:
       - Microsoft Learn
 
@@ -1409,6 +1419,8 @@ change_coupling:
     - de-DE/about_SqlServerLab.help.txt
     - Public/Save-SqlServerLabCuResource.ps1
     - Public/Get-SqlServerLabCuStatus.ps1
+    - Public/Get-SqlServerLabResourcePlan.ps1
+    - Public/Save-SqlServerLabResourceSet.ps1
     - Private/CuStatus.ps1
     - Catalogs/sql-server-cu-status-sources.json
     - Schemas/cu-status-sources.schema.json

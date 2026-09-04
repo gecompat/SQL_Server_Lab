@@ -74,6 +74,8 @@
         'Install-SqlServerLab7Zip'
         'Get-SqlServerLabCuStatus'
         'Save-SqlServerLabCuResource'
+        'Get-SqlServerLabResourcePlan'
+        'Save-SqlServerLabResourceSet'
     )
 
     CmdletsToExport   = @()
