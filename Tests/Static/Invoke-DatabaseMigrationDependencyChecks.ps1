@@ -49,6 +49,7 @@ try {
             Observation=$observation;Blocked=$blocked;Review=$review
             PublicDirect=$publicDirect;PublicRun=$publicRun;Boundary=$boundary
             Missing=$missing;Duplicate=$duplicate;Query=$script:capturedQuery
+            BlockedPlan=$blocked.ExecutionPlan;ReviewPlan=$review.ExecutionPlan
         }
     }
     Add-CheckResult 'Read-only SQL-Inventar erfasst Login-, Job-, Proxy-, Linked-Server- und TDE-Kategorien als Counts' (
@@ -78,6 +79,17 @@ try {
     Add-CheckResult 'Doppelte oder fehlende Dependency-Kategorien werden semantisch abgelehnt' $result.Duplicate
     Add-CheckResult 'Inventar erfüllt das versionierte JSON-Schema' (
         ($result.Review|ConvertTo-Json -Depth 40)|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/database-migration-dependency-inventory.schema.json') -ErrorAction SilentlyContinue)
+    Add-CheckResult 'Versionierter Migrationsplan bleibt strikt nicht ausführbar und blockiert TDE ohne Recovery-Evidence' (
+        $result.BlockedPlan.ContractVersion -eq 'SqlServerLab.DatabaseMigrationExecutionPlan/1.0' -and
+        $result.BlockedPlan.ExecutionStatus -eq 'BLOCKED' -and -not $result.BlockedPlan.MutationAllowed -and
+        $result.BlockedPlan.TransferAuthority -eq 'NONE' -and
+        (@($result.BlockedPlan.Steps|Where-Object Category -eq 'TDE_PROTECTOR')[0].Status -eq 'BLOCKED') -and
+        (($result.BlockedPlan|ConvertTo-Json -Depth 40)|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/database-migration-execution-plan.schema.json') -ErrorAction SilentlyContinue))
+    Add-CheckResult 'Migrationsplan ordnet beobachtete und externe Kategorien einem separaten manuellen Review zu' (
+        $result.ReviewPlan.ExecutionStatus -eq 'MANUAL_REVIEW_REQUIRED' -and
+        (@($result.ReviewPlan.Steps|Where-Object Category -eq 'SERVER_LOGIN_MAPPING')[0].Status -eq 'MANUAL_REQUIRED') -and
+        (@($result.ReviewPlan.Steps|Where-Object Category -eq 'SSISDB')[0].Status -eq 'EXTERNAL_REVIEW_REQUIRED') -and
+        @($result.ReviewPlan.Steps|Where-Object IncludedInTransfer).Count -eq 0)
     $json=$result.Review|ConvertTo-Json -Depth 40
     Add-CheckResult 'Receipt enthält keine Zugangsdaten, Endpunkte, Objekt- oder Schlüsselnamen' (
         $json -notmatch 'ephemeral-test-value|14330|HostName|Password|CredentialValue|PrivateKey|CertificateName')
