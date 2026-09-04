@@ -589,7 +589,9 @@ Arbeitsverzeichnis und ist statisch mit synthetischen MDF/LDF-Dateien belegt.
 Der native Attach-Akzeptanzlauf wurde am 2026-09-04 getrennt für Docker und
 Podman mit einer synthetisch erzeugten, detachierten MDF/LDF-Quelle positiv
 ausgeführt: der Handler kopiert die Dateien, erreicht `ONLINE`, bestätigt einen
-SQL-Inhaltsroundtrip und räumt den Run vollständig auf. Die aktuellen
+SQL-Inhaltsroundtrip und räumt den Run vollständig auf. Derselbe Nachweis
+erzwingt anschließend einen SQL-Fehler und prüft den persistierten
+`RECOVERY_REQUIRED`-Zustand mit Detach-Aktion. Die aktuellen
 StackOverflow-Einträge bleiben dennoch `descriptive`, solange keine konkrete
 lizenz- und größenvalidierte ausführbare Katalogvariante freigegeben ist.
 

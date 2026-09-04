@@ -226,6 +226,26 @@ try {
         }
     } $instance.Host ([int]$instance.Port) $saPassword $attachTargetDatabase
     Assert-ContainerToolAcceptance ((@($attachMarker | ForEach-Object { ([string]$_).Trim() }) -contains 'container-native-attach')) 'Attached Datenbank besteht den SQL-Inhaltsroundtrip'
+    $attachFailureRejected = $false
+    try {
+        $null = & $module {
+            param($ProviderName, $LabInstance, $RunIdentifier, $PayloadRoot, $Password, $Root, $TargetDatabase)
+            Invoke-LabContainerAttach -Provider $ProviderName -ContainerName $LabInstance.ContainerName `
+                -RunId $RunIdentifier -InstanceId $LabInstance.Id -Payloads @(
+                    [PSCustomObject]@{ Path = (Join-Path $PayloadRoot 'AttachNativeSource.mdf'); Role = 'primary' },
+                    [PSCustomObject]@{ Path = (Join-Path $PayloadRoot 'AttachNativeSource_log.ldf'); Role = 'log' }
+                ) -DatabaseName $TargetDatabase -HostName $LabInstance.Host -Port ([int]$LabInstance.Port) -SaPassword $Password -StateRoot $Root
+        } $Provider $instance $lab.RunId $attachPayloadRoot $saPassword $stateRoot $attachTargetDatabase
+    }
+    catch { $attachFailureRejected = $_.Exception.Message -match 'ATTACH_RECOVERY_REQUIRED' }
+    $attachFailureJournalPath = Get-ChildItem -LiteralPath (Join-Path $stateRoot "operations/attach/$($lab.RunId)") -Filter '*.json' |
+        Where-Object { $_.FullName -ne $attachJournalPath } | Select-Object -First 1 -ExpandProperty FullName
+    $attachFailureJournal = Get-Content -LiteralPath $attachFailureJournalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    Assert-ContainerToolAcceptance (
+        $attachFailureRejected -and [string]$attachFailureJournal.Status -eq 'RECOVERY_REQUIRED' -and
+        $attachFailureJournal.CopyVerified -and $attachFailureJournal.AttachInvoked -and -not $attachFailureJournal.PostconditionVerified -and
+        [string]$attachFailureJournal.Recovery -eq 'DETACH_TARGET_COPY_AND_PRESERVE_TARGET'
+    ) 'Container-Attach persistiert nach realem SQL-Fehler die passende Recovery-Aktion'
 
     $cleanup = Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false
     Assert-ContainerToolAcceptance ([string]$cleanup.Status -eq 'REMOVED') 'Registrierter Run-Cleanup entfernt ausschliesslich Run-Ressourcen'
@@ -245,6 +265,7 @@ try {
             tool = [ordered]@{ id = [string]$probe.ToolId; runtimeVersion = [string]$probe.RuntimeVersion; imageKey = [string]$instance.ContainerTools.ImageKey }
             bacpac = [ordered]@{ status = [string]$bacpacImport.Status; source = 'synthetic'; targetDatabase = $targetDatabase; dataRoundtrip = $true }
             attach = [ordered]@{ status = [string]$attachResult.Status; source = 'synthetic-detached-mdf-ldf'; targetDatabase = $attachTargetDatabase; dataRoundtrip = $true; journalStatus = [string]$attachJournal.Status }
+            attachRecovery = [ordered]@{ status = [string]$attachFailureJournal.Status; controlledSqlFailure = $attachFailureRejected; recovery = [string]$attachFailureJournal.Recovery }
             restart = [ordered]@{ status = [string]$restart.Status; probeStatus = [string]$postRestartProbe.Status }
             cleanup = [ordered]@{ runStatus = [string]$cleanup.Status; reusableImageExplicitlyRemoved = $true }
             completedAt = [DateTimeOffset]::UtcNow.ToString('o')
