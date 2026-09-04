@@ -580,7 +580,10 @@ implementiert und statisch mit synthetischer MDF/LDF-Menge geprüft. Für
 Run-/Scope-/Instanz-Eigentumsprüfung, Kopie in einen zufälligen ausschließlich
 Lab-eigenen SQL-Datenordner, `mssql`-Eigentümerschaft, `FOR ATTACH`,
 ONLINE-Postcondition und ein persistiertes, schema- und zustandsgebundenes
-Recovery-Journal (`SqlServerLab.ContainerAttachJournal/1.0`) aus. Der
+Recovery-Journal (`SqlServerLab.ContainerAttachJournal/1.0`) aus. Ein
+synthetischer Handlernachweis prüft die Kopierfolge, `FOR ATTACH`, die
+ONLINE-Abfrage und einen SQL-Teilfehler mit passender Recovery-Aktion; er
+ersetzt keinen nativen Attach-Akzeptanzlauf. Der
 7z-Mehrdateipfad sowie ein nativer Attach-Akzeptanzlauf mit echtem SQL-Server
 sind noch nicht implementiert beziehungsweise nicht ausgeführt; die aktuellen
 StackOverflow-Einträge bleiben deshalb `descriptive`.
