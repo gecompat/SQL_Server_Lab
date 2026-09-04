@@ -66,6 +66,7 @@ end {
         @{ Pattern = '(?i)(PersistentStorageRemoval|persistent-storage-removal)'; Checks = @('Invoke-PersistentStorageRemovalPlanChecks.ps1','Invoke-PersistentStorageRemovalExecutorChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(BatchWorkflow|BatchConsole|lab-batch)'; Checks = @('Invoke-BatchWorkflowChecks.ps1') },
         @{ Pattern = '(?i)(ConsoleUi|Invoke-SqlServerLab\.ps1|Workflow)'; Checks = @('Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
+        @{ Pattern = '(?i)(ConnectionCenter|CmsSync|ConnectionCenterCms)'; Checks = @('Invoke-ConnectionCenterCmsChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
         @{ Pattern = '(?i)(ActionResult|Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-ActionResultChecks.ps1') },
         @{ Pattern = '(?i)(Elevation|Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-ElevationChecks.ps1') },
         @{ Pattern = '(?i)(WindowsSlotPool|GeneratedWindowsAccess|New-SqlServerLabWindowsSlotPool)'; Checks = @('Invoke-WindowsSlotPoolChecks.ps1','Invoke-HyperVLabEnvironmentChecks.ps1','Invoke-ElevationChecks.ps1','Invoke-WorkflowUiChecks.ps1') },

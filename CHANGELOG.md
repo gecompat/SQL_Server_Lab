@@ -39,6 +39,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Geändert
 
+- CMS-Synchronisationen zeigen rekursive Umgebungszahlen an Root-, Status- und
+  Providergruppen, beispielsweise `SQL Server Lab (8) -> Running (3) ->
+  HYPERV (2)`. Bestehende verwaltete Gruppen werden ID-stabil umbenannt und
+  leere Providergruppen entfernt.
 - `Get-SqlServerLab` kennzeichnet manuell entfernte VMs und Container als
   `MISSING`. `SqlServerLab.CleanupFindings/1.1` ergänzt für jeden auffälligen
   `Lab_Data`-/Runtimebefund eine ausdrückliche Löschungs- oder

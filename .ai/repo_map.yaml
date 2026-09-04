@@ -34,6 +34,8 @@ sources_of_truth:
   batch_queue_resume_contract: Private/BatchWorkflow.ps1
   manifest_resolution: Private/ManifestParser.ps1
   manifest_builder_validation: Private/ManifestBuilder.ps1
+  connection_center_cms: Public/Sync-SqlServerLabConnectionCenter.ps1
+  validation_connection_center_cms: Tests/Static/Invoke-ConnectionCenterCmsChecks.ps1
   sql_versions: Catalogs/sql-server-versions.json
   sample_databases: Catalogs/sample-databases.json
   container_attach_journal_schema: Schemas/container-attach-journal.schema.json
