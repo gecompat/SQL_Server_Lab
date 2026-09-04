@@ -309,6 +309,60 @@ function Get-LabAttachPayloadLayout {
     return @($validated)
 }
 
+function Get-LabArchiveAttachPayloads {
+    <#
+    .SYNOPSIS
+        Extrahiert ausschliesslich die katalogisierten Attach-Dateien eines ZIP-Archivs.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ArchivePath,
+        [Parameter(Mandatory)][object[]]$PayloadLayout,
+        [Parameter(Mandatory)][ValidateSet('zip')][string]$ArchiveFormat,
+        [string]$RunDirectory
+    )
+
+    if (-not (Test-Path -LiteralPath $ArchivePath -PathType Leaf)) {
+        throw "SAMPLE_ARCHIVE_NOT_FOUND: $ArchivePath"
+    }
+    $layout = @(Get-LabAttachPayloadLayout -PayloadLayout $PayloadLayout)
+    $temporaryBase = if ($RunDirectory -and (Test-Path -LiteralPath $RunDirectory -PathType Container)) {
+        Join-Path $RunDirectory 'artifact-work'
+    } else {
+        Join-Path ([System.IO.Path]::GetTempPath()) 'sql-server-lab-artifacts'
+    }
+    $workingDirectory = Join-Path $temporaryBase ([guid]::NewGuid().ToString('N'))
+    New-Item -Path $workingDirectory -ItemType Directory -Force | Out-Null
+
+    try {
+        Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
+        $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+        try {
+            $targetRoot = [System.IO.Path]::GetFullPath($workingDirectory + [System.IO.Path]::DirectorySeparatorChar)
+            $payloads = [System.Collections.Generic.List[object]]::new()
+            foreach ($item in $layout) {
+                $matches = @($archive.Entries | Where-Object { $_.FullName.Replace('\\', '/') -ieq $item.Path })
+                if ($matches.Count -ne 1 -or $matches[0].Length -le 0) {
+                    throw "SAMPLE_ATTACH_PAYLOAD_NOT_FOUND: ZIP muss genau die katalogisierte Payload '$($item.Path)' enthalten."
+                }
+                $targetPath = [System.IO.Path]::GetFullPath((Join-Path $workingDirectory ($item.Path -replace '/', [System.IO.Path]::DirectorySeparatorChar)))
+                if (-not $targetPath.StartsWith($targetRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    throw "SAMPLE_ATTACH_PAYLOAD_INVALID: '$($item.Path)' verlaesst das temporaere Arbeitsverzeichnis."
+                }
+                New-Item -Path (Split-Path -Parent $targetPath) -ItemType Directory -Force | Out-Null
+                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($matches[0], $targetPath, $false)
+                $payloads.Add([PSCustomObject]@{ Path = $targetPath; Role = $item.Role; ArchivePath = $item.Path })
+            }
+            return [PSCustomObject]@{ Payloads = @($payloads); WorkingDirectory = $workingDirectory }
+        }
+        finally { $archive.Dispose() }
+    }
+    catch {
+        if (Test-Path -LiteralPath $workingDirectory) { Remove-Item -LiteralPath $workingDirectory -Recurse -Force -ErrorAction SilentlyContinue }
+        throw
+    }
+}
+
 function Expand-LabScriptBundlePayload {
     <#
     .SYNOPSIS

@@ -108,6 +108,21 @@ try {
             ([System.IO.File]::ReadAllText($archivePayload.Path) -eq 'static-check-backup')
         Remove-Item -LiteralPath $archivePayload.WorkingDirectory -Recurse -Force
 
+        $attachZipSource = Join-Path $StateRoot 'attach-zip-source'
+        New-Item -Path (Join-Path $attachZipSource 'payload') -ItemType Directory -Force | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $attachZipSource 'payload/sample.mdf'), 'primary')
+        [System.IO.File]::WriteAllText((Join-Path $attachZipSource 'payload/sample_log.ldf'), 'log')
+        $attachZipPath = Join-Path $StateRoot 'attach.zip'
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($attachZipSource, $attachZipPath)
+        $attachArchivePayloads = Get-LabArchiveAttachPayloads -ArchivePath $attachZipPath -ArchiveFormat zip -PayloadLayout @(
+            [PSCustomObject]@{ path = 'payload/sample.mdf'; role = 'primary' },
+            [PSCustomObject]@{ path = 'payload/sample_log.ldf'; role = 'log' }
+        ) -RunDirectory $StateRoot
+        $attachArchivePayloadWorks = @($attachArchivePayloads.Payloads).Count -eq 2 -and
+            ([System.IO.File]::ReadAllText($attachArchivePayloads.Payloads[0].Path) -eq 'primary') -and
+            ([System.IO.File]::ReadAllText($attachArchivePayloads.Payloads[1].Path) -eq 'log')
+        Remove-Item -LiteralPath $attachArchivePayloads.WorkingDirectory -Recurse -Force
+
         $sevenZipPayloadWorks = $true
         $sevenZip = Get-Lab7ZipExecutable
         if ($sevenZip) {
@@ -361,6 +376,7 @@ CREATE DATABASE [$(SecondDatabase)];
                 $script:BundleFlattenedContent -notmatch '(?im)^\s*:(?:r|setvar)' -and
                 $bundleWorkingDirectoryRemoved
             ArchivePayloadWorks   = $archivePayloadWorks
+            AttachArchivePayloadWorks = $attachArchivePayloadWorks
             SevenZipPayloadWorks  = $sevenZipPayloadWorks
             AttachPayloadLayoutWorks = @($attachPayloadLayout).Count -eq 3 -and $attachPayloadLayout[0].Role -eq 'primary' -and $attachPayloadLayout[2].Role -eq 'log'
             UnsafeAttachLayoutRejected = $unsafeAttachLayoutRejected
@@ -377,6 +393,7 @@ CREATE DATABASE [$(SecondDatabase)];
     Add-CheckResult -Name 'Katalogliste enthaelt nur freigegebene Sample-Handler-Varianten' -Success $result.AllExecutableSupported
     Add-CheckResult -Name 'Beschreibende Attach-Varianten bleiben ausgeschlossen' -Success $result.NoDescriptiveVariants
     Add-CheckResult -Name 'Attach-Payload-Layout ist rollen- und pfadgebunden' -Success $result.AttachPayloadLayoutWorks
+    Add-CheckResult -Name 'ZIP-Attach-Payloads werden exakt und isoliert extrahiert' -Success $result.AttachArchivePayloadWorks
     Add-CheckResult -Name 'Attach-Payload-Layout weist Traversal und doppelte Pfade ab' -Success ($result.UnsafeAttachLayoutRejected -and $result.DuplicateAttachLayoutRejected)
     Add-CheckResult -Name 'Ausfuehrbare Attach-Varianten koennen per Trust-Hash und Katalogpfad gebunden werden' -Success ($result.TrustBoundAttachSchemaWorks -and $result.MissingAttachLayoutRejected)
     Add-CheckResult -Name 'Versionsfilter beruecksichtigt minSqlVersion und CU-Bezeichner' -Success $result.VersionFilterWorks

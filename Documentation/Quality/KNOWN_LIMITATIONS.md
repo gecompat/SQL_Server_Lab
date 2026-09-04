@@ -574,6 +574,10 @@ eine vollständige rollen- und pfadgebundene MDF/NDF/LDF-Liste. Die Quelle wird
 wie andere Sample-Artefakte entweder per Katalog-SHA-256 oder durch den
 einmaligen Trust-Pfad mit automatisch berechneter und gecachter SHA-256
 gebunden; der neue Vertrag entfernt diesen bestehenden Trust-Pfad nicht.
+Für künftige ZIP-Quellen ist die exakte, isolierte Mehrdatei-Extraktion bereits
+implementiert und statisch mit synthetischer MDF/LDF-Menge geprüft. Die
+Container-Kopie, das SQL-`FOR ATTACH` und der 7z-Mehrdateipfad folgen als
+getrennte Runtime-Welle.
 
 Noch nicht implementiert sind Attach-Handler und das Überschreiben der
 erwarteten Zieldatenbanknamen. Run-gebundene Hyper-V-`LAB_GENERATED`-Backups verwenden
