@@ -1115,6 +1115,7 @@ validation:
       - idempotency_and_trust_contract
       - trust_required_non_interactive
       - container_attach_journal_schema_and_recovery_invariants
+      - container_attach_handler_sql_and_recovery_sequence
   static_project_adapter:
     command: '.\Tests\Static\Invoke-ProjectAdapterChecks.ps1'
     source: Tests/Static/Invoke-ProjectAdapterChecks.ps1
