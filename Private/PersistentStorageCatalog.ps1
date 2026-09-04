@@ -1315,13 +1315,17 @@ function Register-LabRunScopedContainerStore {
     $runtime = Get-LabContainerInstanceStoreRuntimeInspection -Provider $Provider -VolumeName $VolumeName
     $storageId = [string]$runtime.Labels.'sql-server-lab.persistent-storage-id'
     $inventoryObjectId = Get-LabStorageResidencyObjectId -Key "runtime-volume|$Provider|$VolumeName"
+    $attachedContainerId = if (@($runtime.AttachedContainers).Count -eq 1) { [string]$runtime.AttachedContainers[0] } else { $null }
+    $containerMatches = $attachedContainerId -eq $ContainerId -or (
+        $attachedContainerId -match '^[0-9a-fA-F]{12}$' -and $ContainerId -match '^[0-9a-fA-F]{64}$' -and
+        $ContainerId.StartsWith($attachedContainerId, [StringComparison]::OrdinalIgnoreCase))
     if ([string]$runtime.Status -ne 'AVAILABLE' -or
         $storageId -notmatch '^[0-9a-fA-F-]{36}$' -or
         [string]$runtime.Labels.'sql-server-lab.run-id' -ne $RunId -or
         [string]$runtime.Labels.'sql-server-lab.scope-id' -ne $ScopeId -or
         [string]$runtime.Labels.'sql-server-lab.sql-major-version' -ne $SqlVersion.Substring(0,4) -or
         [string]$runtime.Labels.'sql-server-lab.persistence' -ne 'run-scoped-runtime-volume' -or
-        @($runtime.AttachedContainers).Count -ne 1 -or [string]$runtime.AttachedContainers[0] -ne $ContainerId) {
+        -not $containerMatches) {
         throw 'RUN_SCOPED_CONTAINER_STORE_RUNTIME_OWNERSHIP_INVALID'
     }
     $now = Get-LabTimestamp

@@ -1154,8 +1154,16 @@ Der interne Katalogkern kann einen solchen bereits laufenden Store inzwischen
 nur mit derselben UUID, exakt einem erwarteten Container sowie passenden Run-,
 Scope-, SQL-Major- und Persistenzlabels revisionsgeschützt als `RUN_SCOPED`/
 `RUN_CLEANUP` registrieren. Der öffentliche Registrierungseinstieg ist
-`WhatIf`-fähig; `DELETE_WITH_RUN` nutzt den zweiphasigen Journalvertrag, damit
+`WhatIf`-fähig. Die Runtime-Evidence akzeptiert dabei neben der vollen
+Connection-Container-ID ausschließlich den kanonischen zwölfstelligen
+hexadezimalen Docker-/Podman-Präfix derselben ID; eine abweichende oder mehrdeutige
+Bindung bleibt blockiert. `DELETE_WITH_RUN` nutzt den zweiphasigen Journalvertrag, damit
 keine aktive Lease nach einer physischen Volume-Entfernung zurückbleibt.
+Die öffentliche `DELETE_WITH_RUN`-Abnahme lief am 2026-09-04 für Docker und
+Podman getrennt erfolgreich durch: rungebundene Registrierung, frischer
+`EXECUTABLE`-Plan, journalisierte Entfernung, Missing-Volume-Nachweis und
+`DETACHED`-Katalogpostcondition. Die automatischen SHA-256-Nachweise der
+getrennten Backup- und Paketpfade bleiben davon unverändert verpflichtend.
 Der bestehende normale Run-Cleanup entfernt seine im Cleanup-Plan gebundenen
 Docker-/Podman-Volumes jedoch nur nach einer frischen Runtime-Prüfung beider
 Labels `sql-server-lab.run-id` und `sql-server-lab.scope-id`; fehlende oder

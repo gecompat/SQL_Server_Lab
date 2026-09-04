@@ -112,12 +112,12 @@ try {
         $unsupported=$false
         $unsupportedPlan=$retainPlan|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20;$unsupportedPlan.Stores[0].Policy='DELETE_WITH_RUN'
         try{$null=Assert-LabPersistentStorageRemovalExecutablePlan -Plan $unsupportedPlan}catch{$unsupported=$_.Exception.Message -match 'PERSISTENT_STORAGE_REMOVAL_EXECUTION_STORE_UNSUPPORTED'}
-        $deleteContextRejected=$false
+        $deleteContextAccepted=$false;$deleteContextRejected=$false
         $deleteContextRoot=Join-Path $Root 'delete-context-revalidation';$deleteContextRunDirectory=Join-Path (Join-Path $deleteContextRoot 'runs') $runId
         New-Item -ItemType Directory -Path $deleteContextRunDirectory -Force | Out-Null
         Write-LabArtifactJsonAtomic -Path (Join-Path $deleteContextRunDirectory 'connection-info.json') -InputObject ([PSCustomObject]@{runId=$runId;scopeId=$scopeId;instances=@()})
         $script:deleteContextRunId=$runId;$script:deleteContextScopeId=$scopeId;$script:deleteContextStore=[PSCustomObject]@{
-            PersistentStorageId=$storageId;StorageClass='INSTANCE_STORE';Provider='docker';State='IN_USE';Retention='RETAINED';CleanupDisposition='PRESERVE'
+            PersistentStorageId=$storageId;StorageClass='INSTANCE_STORE';Provider='docker';State='IN_USE';Retention='RUN_SCOPED';CleanupDisposition='RUN_CLEANUP'
             Lease=[PSCustomObject]@{RunId=$runId;ScopeId=$scopeId};LocationBinding=[PSCustomObject]@{Residency='NATIVE_RUNTIME';ProviderResourceId='sql-lab-synthetic-runtime-mssql'};References=@()
         }
         $originalGetLabRunState=${function:Get-LabRunState};$originalGetLabStorageConfiguration=${function:Get-LabStorageConfiguration};$originalGetLabPersistentStorageCatalog=${function:Get-LabPersistentStorageCatalog}
@@ -125,6 +125,9 @@ try {
             Set-Item -LiteralPath Function:\Get-LabRunState -Value { param($RunId,$StateRoot)$null=$RunId,$StateRoot;[PSCustomObject]@{scopeId=$script:deleteContextScopeId} }
             Set-Item -LiteralPath Function:\Get-LabStorageConfiguration -Value { param($DataRoot)$null=$DataRoot;[PSCustomObject]@{ControllerId=[Guid]::NewGuid().ToString('D')} }
             Set-Item -LiteralPath Function:\Get-LabPersistentStorageCatalog -Value { param($Configuration)$null=$Configuration;[PSCustomObject]@{Status='AVAILABLE';Document=[PSCustomObject]@{Revision=11;Stores=@($script:deleteContextStore)}} }
+            $deleteContext=New-LabPersistentStorageRemovalExecutionContext -Plan $deletePlan -Selection $deleteSelection -StateRoot $deleteContextRoot -DataRoot $context.DataRoot
+            $deleteContextAccepted=@($deleteContext.DeleteStores).Count -eq 1 -and @($deleteContext.BackupTasks).Count -eq 0 -and @($deleteContext.PackageTasks).Count -eq 0
+            $script:deleteContextStore.Retention='RETAINED';$script:deleteContextStore.CleanupDisposition='PRESERVE'
             try { $null=New-LabPersistentStorageRemovalExecutionContext -Plan $deletePlan -Selection $deleteSelection -StateRoot $deleteContextRoot -DataRoot $context.DataRoot } catch { $deleteContextRejected=$_.Exception.Message -eq 'PERSISTENT_STORAGE_REMOVAL_DELETE_STORE_UNRESOLVED' }
         }
         finally {
@@ -151,7 +154,7 @@ try {
         $externalReleaseCalls=$script:externalReleaseCalls;$externalRemoveCalls=$script:externalRemoveCalls
         $deleteStartCalls=$script:deleteStartCalls;$deleteCompleteCalls=$script:deleteCompleteCalls;$deleteRemoveCalls=$script:deleteRemoveCalls
         Remove-Variable removalBackupCalls,removalFailSecond,removalReceipts,removalRemoveCalls,removalReplanCalls,removalFailRemove,deleteStartCalls,deleteCompleteCalls,deleteRemoveCalls,deleteFailRemove,externalReleaseCalls,externalRemoveCalls -Scope Script -ErrorAction SilentlyContinue
-        [PSCustomObject]@{FirstFailure=$firstFailure;FailedJournal=$failedJournal;Completed=$completed;CompletedAgain=$completedAgain;LegacyRead=$legacyRead;BackupCalls=$backupCalls;RemoveFailure=$removeFailure;RemoveFailedJournal=$removeFailedJournal;RemoveCompleted=$removeCompleted;RemoveCalls=$removeCalls;ReplanCalls=$replanCalls;DeleteFailure=$deleteFailure;DeleteFailedJournal=$deleteFailedJournal;DeleteCompleted=$deleteCompleted;DeleteCompletedAgain=$deleteCompletedAgain;DeleteStartCalls=$deleteStartCalls;DeleteCompleteCalls=$deleteCompleteCalls;DeleteRemoveCalls=$deleteRemoveCalls;Unsupported=$unsupported;DeleteContextRejected=$deleteContextRejected;ExternalCompleted=$externalCompleted;ExternalCompletedAgain=$externalCompletedAgain;ExternalReleaseCalls=$externalReleaseCalls;ExternalRemoveCalls=$externalRemoveCalls}
+        [PSCustomObject]@{FirstFailure=$firstFailure;FailedJournal=$failedJournal;Completed=$completed;CompletedAgain=$completedAgain;LegacyRead=$legacyRead;BackupCalls=$backupCalls;RemoveFailure=$removeFailure;RemoveFailedJournal=$removeFailedJournal;RemoveCompleted=$removeCompleted;RemoveCalls=$removeCalls;ReplanCalls=$replanCalls;DeleteFailure=$deleteFailure;DeleteFailedJournal=$deleteFailedJournal;DeleteCompleted=$deleteCompleted;DeleteCompletedAgain=$deleteCompletedAgain;DeleteStartCalls=$deleteStartCalls;DeleteCompleteCalls=$deleteCompleteCalls;DeleteRemoveCalls=$deleteRemoveCalls;Unsupported=$unsupported;DeleteContextAccepted=$deleteContextAccepted;DeleteContextRejected=$deleteContextRejected;ExternalCompleted=$externalCompleted;ExternalCompletedAgain=$externalCompletedAgain;ExternalReleaseCalls=$externalReleaseCalls;ExternalRemoveCalls=$externalRemoveCalls}
     } $temporaryRoot
 
     Add-CheckResult -Name 'Fehler nach erstem Backup bleibt mit einzeln persistierter Evidence wiederaufnehmbar' -Success (
@@ -176,6 +179,7 @@ try {
         @($evidence.DeleteCompleted.DeleteStores | Where-Object { $_.Status -eq 'COMPLETED' -and $_.StartCatalogRevision -eq 12 -and $_.CompletionCatalogRevision -eq 13 }).Count -eq 1 -and
         $evidence.DeleteStartCalls -eq 1 -and $evidence.DeleteCompleteCalls -eq 1 -and $evidence.DeleteRemoveCalls -eq 2)
     Add-CheckResult -Name 'Unsicher modelliertes DELETE_WITH_RUN bleibt vor jeder Executor-Mutation blockiert' -Success $evidence.Unsupported
+    Add-CheckResult -Name 'DELETE_WITH_RUN benötigt keine persistente Instanzbindung ohne SQL-Artefaktaktion' -Success $evidence.DeleteContextAccepted
     Add-CheckResult -Name 'DELETE_WITH_RUN revalidiert RUN_SCOPED/RUN_CLEANUP gegen den aktuellen Katalog' -Success $evidence.DeleteContextRejected
     Add-CheckResult -Name 'EXTERNAL_UNMANAGED loest nur die journalisierte Katalogbindung und ist idempotent' -Success (
         $evidence.ExternalCompleted.Status -eq 'COMPLETED' -and $evidence.ExternalCompletedAgain.OperationId -eq $evidence.ExternalCompleted.OperationId -and

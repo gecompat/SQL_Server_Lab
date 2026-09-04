@@ -141,12 +141,20 @@ keine Altbestände. Der interne Katalogkern
 akzeptiert eine folgende Registrierung ausschließlich mit derselben Label-ID,
 dem einzigen erwarteten Container und vollständiger Run-/Scope-/SQL-/Persistenz-
 Evidence; er erstellt dabei eine exklusive `RUN_SCOPED`/`RUN_CLEANUP`-Lease.
+Die Runtime-Evidence normalisiert nur die kanonische zwölfstellige hexadezimale
+Docker-/Podman-Kurz-ID gegen die volle persistierte Connection-ID; abweichende
+oder mehrdeutige Containerbindungen bleiben blockiert.
 Der öffentliche, `WhatIf`-fähige Einstieg und die zweiphasige
 Cleanup-Finalisierung verwenden diese Lease revisionsgebunden. Der Plan weist
 unabhängig von seiner
 fachlichen Gültigkeit mit `Execution.Status` aus, ob die verlangte Policy
 heute ausführbar ist (`EXECUTABLE`), nur vollständig geplant ist
 (`PLANNED_NOT_EXECUTABLE`) oder fachlich blockiert bleibt (`BLOCKED`).
+Stand 2026-09-04: Die öffentliche `DELETE_WITH_RUN`-Abnahme ist für Docker und
+Podman getrennt positiv belegt – jeweils mit einer öffentlichen rungebundenen
+Registrierung, frischem ausführbaren Plan, journalisierter Entfernung,
+Missing-Volume-Nachweis und `DETACHED`-Katalogabschluss. Die Artefaktpfade
+behalten ihre automatischen SHA-256-Postconditions unabhängig davon bei.
 
 Der Core-Slice `PSR-005` ist implementiert und für Docker und Podman getrennt
 real belegt. `SqlServerLab.ContainerInstanceStoreIntent/1.0` wählt eine bereits
