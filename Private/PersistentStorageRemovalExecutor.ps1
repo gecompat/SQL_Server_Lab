@@ -149,7 +149,9 @@ function New-LabPersistentStorageRemovalExecutionContext {
             throw 'PERSISTENT_STORAGE_REMOVAL_STORE_LEASE_CONFLICT'
         }
         if ([string]$plannedStore.Policy -eq 'DELETE_WITH_RUN') {
-            if ([string]$store.Provider -notin @('docker','podman') -or [string]$store.LocationBinding.Residency -ne 'NATIVE_RUNTIME' -or [string]::IsNullOrWhiteSpace([string]$store.LocationBinding.ProviderResourceId)) { throw 'PERSISTENT_STORAGE_REMOVAL_DELETE_STORE_UNRESOLVED' }
+            if ([string]$store.StorageClass -ne 'INSTANCE_STORE' -or [string]$store.Provider -notin @('docker','podman') -or
+                [string]$store.Retention -ne 'RUN_SCOPED' -or [string]$store.CleanupDisposition -ne 'RUN_CLEANUP' -or
+                [string]$store.LocationBinding.Residency -ne 'NATIVE_RUNTIME' -or [string]::IsNullOrWhiteSpace([string]$store.LocationBinding.ProviderResourceId)) { throw 'PERSISTENT_STORAGE_REMOVAL_DELETE_STORE_UNRESOLVED' }
             $deleteStores.Add([PSCustomObject][ordered]@{ PersistentStorageId=$storageId; Provider=[string]$store.Provider; VolumeName=[string]$store.LocationBinding.ProviderResourceId; Status='PENDING'; StartCatalogRevision=$null; CompletionCatalogRevision=$null })
         }
         $instances = @($connection.instances | Where-Object {
