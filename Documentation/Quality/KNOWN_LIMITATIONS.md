@@ -1129,9 +1129,16 @@ ausführbare Mutation dargestellt. Der Executor veröffentlicht Backups erst
 nach `CHECKSUM` und `RESTORE VERIFYONLY`, revalidiert vor Cleanup und lässt den
 Store detached bestehen. `EXTERNAL_UNMANAGED` schreibt ein fortsetzbares
 Journal, setzt nur aktive eigene Katalogreferenzen auf `RELEASED` und prüft
-`SourceMutated=false`; Quelle und Inhalt bleiben unverändert. Noch nicht
-implementiert sind `DELETE_WITH_RUN` und die getrennte endgültige
-Storage-Löschaktion; diese Policies bleiben vor jeder Mutation blockiert.
+`SourceMutated=false`; Quelle und Inhalt bleiben unverändert.
+`DELETE_WITH_RUN` ist weiterhin keine öffentlich ausführbare
+Persistent-Storage-Removal-Policy, weil rungebundene Runtime-Volumes noch
+nicht als selektierbare Katalogstores mit stabiler Storage-ID geführt werden.
+Der bestehende normale Run-Cleanup entfernt seine im Cleanup-Plan gebundenen
+Docker-/Podman-Volumes jedoch nur nach einer frischen Runtime-Prüfung beider
+Labels `sql-server-lab.run-id` und `sql-server-lab.scope-id`; fehlende oder
+abweichende Ownership-Evidence blockiert den Remove-Aufruf und hält den Run im
+Recovery-Pfad. Die getrennte endgültige Storage-Löschaktion bleibt vor jeder
+Mutation blockiert.
 Der PSR-005-Core kann einen bereits katalogisierten und passend gelabelten
 Docker-/Podman-Instanzstore detached per stabiler ID für Continue binden oder
 in ein neues Volume klonen. Quelle und SQL-Major-Version werden unmittelbar vor
