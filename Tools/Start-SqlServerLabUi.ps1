@@ -235,6 +235,25 @@ function Start-UiWorkflowJob {
                     })
                     Warnings = @($inventory.MigrationBoundary.Warnings | ForEach-Object { [string]$_ })
                     Blockers = @($inventory.MigrationBoundary.Blockers | ForEach-Object { [string]$_ })
+                    ExecutionPlan = if ($inventory.ExecutionPlan) {
+                        [ordered]@{
+                            ContractVersion = [string]$inventory.ExecutionPlan.ContractVersion
+                            ExecutionStatus = [string]$inventory.ExecutionPlan.ExecutionStatus
+                            MutationAllowed = [bool]$inventory.ExecutionPlan.MutationAllowed
+                            TransferAuthority = [string]$inventory.ExecutionPlan.TransferAuthority
+                            ArtifactScope = [string]$inventory.ExecutionPlan.ArtifactScope
+                            Blockers = @($inventory.ExecutionPlan.Blockers | ForEach-Object { [string]$_ })
+                            Steps = @($inventory.ExecutionPlan.Steps | ForEach-Object {
+                                [ordered]@{
+                                    Category = [string]$_.Category
+                                    Status = [string]$_.Status
+                                    Scope = [string]$_.Scope
+                                    RequiredAction = [string]$_.RequiredAction
+                                    IncludedInTransfer = [bool]$_.IncludedInTransfer
+                                }
+                            })
+                        }
+                    } else { $null }
                 }
                 Write-Output ('[INVENTAR] ' + ($summary | ConvertTo-Json -Depth 8 -Compress))
             }
