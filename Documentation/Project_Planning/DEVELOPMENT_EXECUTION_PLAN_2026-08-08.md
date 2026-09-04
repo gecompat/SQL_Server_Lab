@@ -1118,6 +1118,15 @@ innerhalb dieser fünf Wellen. Sie bleiben in M8/M9 beziehungsweise den
 dedizierten Backlogs erhalten und werden nach den Gates N3 bis N5 neu
 priorisiert.
 
+Repository-lokale KI-Skills sind als fachlich akzeptierter, noch nicht
+implementierter [Backlog](REPOSITORY_AGENT_SKILLS_BACKLOG.md) ebenfalls diesem
+nachgelagerten Horizont zugeordnet. Eine spätere Skill-Welle beginnt mit einem
+KI-unabhängigen, read-only Client-Readiness-Einstiegspunkt und dem darauf
+aufbauenden `sql-server-lab-readiness`-Skill; anschließend folgen
+`sql-server-lab-validation` und `sql-server-lab-operate`. Diese interne
+Reihenfolge weist dem Backlog noch keine Priorität gegenüber den übrigen
+nachgelagerten Produktvorhaben zu.
+
 ## 13. Gesamt-Definition-of-Done
 
 Das Kernvorhaben gilt als abgeschlossen, wenn:
