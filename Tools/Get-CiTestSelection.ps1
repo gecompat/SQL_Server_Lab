@@ -68,6 +68,8 @@ end {
         @{ Pattern = '(?i)(ConsoleUi|Invoke-SqlServerLab\.ps1|Workflow)'; Checks = @('Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(ActionResult|Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-ActionResultChecks.ps1') },
         @{ Pattern = '(?i)(Elevation|Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-ElevationChecks.ps1') },
+        @{ Pattern = '(?i)(WindowsSlotPool|GeneratedWindowsAccess|New-SqlServerLabWindowsSlotPool)'; Checks = @('Invoke-WindowsSlotPoolChecks.ps1','Invoke-HyperVLabEnvironmentChecks.ps1','Invoke-ElevationChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
+        @{ Pattern = '(?i)(RuntimeStateSync|Sync-SqlServerLabRuntimeState|Get-SqlServerLab\.ps1|Providers[\\/](Docker|Podman)[\\/])'; Checks = @('Invoke-RuntimeStateSyncChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(ArtifactResolver|MediaSourceCatalog|SevenZip)'; Checks = @('Invoke-ArtifactResolverChecks.ps1','Invoke-MediaRootLayoutChecks.ps1') },
         @{ Pattern = '(?i)(ContainerAutoStart|Start-SqlServerLab|Stop-SqlServerLab|Restart-SqlServerLab)'; Checks = @('Invoke-ContainerAutoStartChecks.ps1') },
         @{ Pattern = '(?i)(DockerProvider|PodmanProvider|ContainerVolume)'; Checks = @('Invoke-ContainerVolumeContractChecks.ps1','Invoke-PortAllocationChecks.ps1') },

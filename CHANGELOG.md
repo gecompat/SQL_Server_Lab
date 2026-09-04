@@ -4,6 +4,31 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-09-04
+
+### Hinzugefügt
+
+- `New-SqlServerLabWindowsSlotPool` und die Direktaktion `WindowsSlotPool`
+  erstellen oder vervollständigen N Windows-Hyper-V-Slots aus einer geeigneten
+  `OS_SEALED`-Baseline. Der Workflow fragt RAM, vCPU und Locale ab, unterstützt
+  je Slot generierte oder ein gemeinsames eigenes Passwort und schließt OOBE
+  sowie Erstanmeldung unbeaufsichtigt ab. Der ISO-basierte Baseline-Aufbau
+  bleibt geführt.
+- `Get-SqlServerLabGeneratedWindowsAccess` gibt ausschließlich den gezielt
+  ausgewählten, automatisch generierten und run-lokal DPAPI-geschützten
+  Windows-Administratorzugang aus.
+- `Sync-SqlServerLabRuntimeState` gleicht Runs mit Docker, Podman und Hyper-V
+  ab. Eindeutig fehlende gebundene Runtimeobjekte wechseln fail-closed nach
+  `RECOVERY_REQUIRED`; nicht erreichbare Runtimes bleiben diagnostisch und es
+  wird nichts gelöscht oder neu erzeugt.
+
+### Geändert
+
+- `Get-SqlServerLab` kennzeichnet manuell entfernte VMs und Container als
+  `MISSING`. `SqlServerLab.CleanupFindings/1.1` ergänzt für jeden auffälligen
+  `Lab_Data`-/Runtimebefund eine ausdrückliche Löschungs- oder
+  Bewahrungsempfehlung; der Audit bleibt vollständig read-only.
+
 ## 2026-09-02
 
 ### Hinzugefügt

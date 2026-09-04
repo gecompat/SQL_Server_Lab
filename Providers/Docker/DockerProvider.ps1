@@ -436,7 +436,10 @@ function Get-DockerInstanceStatus {
         $dockerInvocation = Get-LabHostToolInvocation -Name docker
         $inspect = & $dockerInvocation inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
         if ($LASTEXITCODE -ne 0 -or -not $inspect) {
+            & $dockerInvocation info 1>$null 2>$null
+            $runtimeAvailable = $LASTEXITCODE -eq 0
             return [PSCustomObject]@{
+                Available = $runtimeAvailable
                 Exists  = $false
                 Running = $false
                 Healthy = $false
@@ -449,6 +452,7 @@ function Get-DockerInstanceStatus {
         $item = @($inspect)[0]
         $health = if ($item.State.Health) { [string]$item.State.Health.Status } else { $null }
         return [PSCustomObject]@{
+            Available = $true
             Exists  = $true
             Running = $item.State.Status -eq 'running'
             Healthy = $health -eq 'healthy'
@@ -459,6 +463,7 @@ function Get-DockerInstanceStatus {
     }
     catch {
         return [PSCustomObject]@{
+            Available = $false
             Exists  = $false
             Running = $false
             Healthy = $false

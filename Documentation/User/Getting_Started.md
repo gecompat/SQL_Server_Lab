@@ -206,6 +206,84 @@ für SQL-Umgebungen wird danach der Provider abgefragt, für einen OS-Slot wird 
 der Hyper-V-Weg genutzt. Details stehen unter
 [INTERACTIVE_WORKFLOW.md](./INTERACTIVE_WORKFLOW.md).
 
+### Windows-Slot-Pool ohne manuelle OOBE
+
+Für mehrere gleichartige Windows-Slots steht ein eigener resumierbarer
+CLI-Workflow zur Verfügung:
+
+```powershell
+.\Invoke-SqlServerLab.ps1 -Action WindowsSlotPool
+```
+
+Er prüft vor jeder Erstellung die `OS_SEALED`-Baseline und deren
+Evaluation-Restlaufzeit. Ist keine geeignete Baseline vorhanden, wird zuerst
+der geführte Windows-Image-Aufbau angeboten. Die erstmalige Windows-Installation
+aus ISO und die Veröffentlichung dieser generalisierten Baseline bleiben dabei
+manuell geführt. Aus der fertigen Baseline erfolgen Slot-Erstellung, OOBE,
+Region-/Sprach-/Tastatureinstellungen und Erstanmeldung dagegen vollständig
+unbeaufsichtigt.
+
+Abgefragt werden Anzahl und Startindex, vCPU, minimaler RAM, Startspeicher und
+maximaler RAM. Die RAM-Standards sind `1024`, `2048` und `4096 MB`. Zusätzlich
+werden Region, System-Locale, Anzeigesprache, Tastaturlayout und Zeitzone
+abgefragt. Das Passwort kann automatisch je Slot generiert oder als eigenes
+gemeinsames `SecureString` für alle Slots angegeben werden.
+
+Nicht interaktiv entspricht das beispielsweise:
+
+```powershell
+New-SqlServerLabWindowsSlotPool `
+    -Count 20 `
+    -GenerateAdministratorPasswords `
+    -MemoryMinimumMB 1024 `
+    -MemoryStartupMB 2048 `
+    -MemoryMaximumMB 4096 `
+    -Region AT `
+    -SystemLocale de-AT `
+    -UiLanguage en-US `
+    -InputLocale '0407:00000407'
+```
+
+Ein automatisch generiertes Passwort wird nur gezielt für den gewünschten Run
+entschlüsselt:
+
+```powershell
+Get-SqlServerLabGeneratedWindowsAccess -RunId $runId
+```
+
+Ein eigener Passwortwert wird nicht durch das Modul wieder ausgegeben.
+
+### Runtime-State nach manuellen Löschungen abgleichen
+
+Nach einer manuellen Löschung in Hyper-V, Docker oder Podman zeigt
+`Get-SqlServerLab` den gebundenen Runtimezustand als `MISSING`. Der explizite
+Abgleich übernimmt diesen Befund fail-closed in den Lab-State:
+
+```powershell
+Sync-SqlServerLabRuntimeState -WhatIf
+Sync-SqlServerLabRuntimeState
+```
+
+Eine eindeutig fehlende gebundene VM oder ein Container führt zu
+`RECOVERY_REQUIRED`. Der Abgleich löscht weder `Lab_Data` noch Runtimeobjekte
+und erzeugt sie auch nicht neu. Nicht erreichbare Runtimes bleiben reine
+Diagnosezustände, damit ein ausgeschalteter Dienst nicht mit einer Löschung
+verwechselt wird.
+
+### Verwaiste Objekte in Lab_Data prüfen
+
+```powershell
+Get-SqlServerLabCleanupAudit
+# oder mit vollständiger Konsolenausgabe
+.\Invoke-SqlServerLab.ps1 -Action CleanupAudit
+```
+
+Der Audit ist read-only. Jeder auffällige Befund nennt Objektart und stabile ID,
+Provider, Grund, eine ausdrückliche Empfehlung und den nächsten sicheren
+Schritt. `REVIEW_FOR_SCOPED_REMOVAL` empfiehlt eine eigentumsgebundene
+Entfernungsprüfung; `PRESERVE_DO_NOT_DELETE`, `RECOVER_BEFORE_REMOVAL` und
+`DO_NOT_DELETE_UNTIL_VERIFIED` warnen ausdrücklich vor einer Löschung.
+
 Für eine geführte Übersicht mit OS-Baselines, SQL-Prepared-Images,
 Hintergrundaktionen und Live-Log kann die
 [lokale Workflow-Oberfläche](../HowTo/WORKFLOW_UI.md) gestartet werden.

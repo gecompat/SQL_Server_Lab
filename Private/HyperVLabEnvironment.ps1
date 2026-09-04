@@ -869,6 +869,9 @@ function Invoke-HyperVLabUnattendedProvision {
 
     Write-LabInfo 'Schritt 2/6: Gastpasswort wird nur für diesen Run DPAPI-geschützt abgelegt.'
     Save-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password' -Secret $AdministratorPassword
+    if ($PasswordSource -eq 'generated') {
+        Save-LabSecret -Path $lab.RunDirectory -Name 'generated-windows-administrator-password' -Secret $AdministratorPassword
+    }
     $credential = [PSCredential]::new('Administrator', $AdministratorPassword)
     $unattend = $null; $bootstrap = $null; $fallbackAddress = $null; $networkBootstrapMode = 'none'
     $localeSettings = Get-HyperVUnattendedLocaleSettings -Region $Region -SystemLocale $SystemLocale -UiLanguage $UiLanguage -InputLocale $InputLocale -TimeZone $TimeZone

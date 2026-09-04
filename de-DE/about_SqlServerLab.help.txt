@@ -182,6 +182,10 @@ Sync-SqlServerLabRunScopedContainerStore
     Get-SqlServerLab
         Zeigt gespeicherten und, soweit verfuegbar, aktuellen Runtime-Status.
 
+    Sync-SqlServerLabRuntimeState
+        Gleicht gespeicherte Runs mit Docker, Podman und Hyper-V ab und markiert
+        eindeutig fehlende gebundene Ressourcen als RECOVERY_REQUIRED.
+
     Start-SqlServerLab
         Startet eine gestoppte Labumgebung.
 
@@ -214,6 +218,14 @@ Sync-SqlServerLabRunScopedContainerStore
     Get-SqlServerLabGeneratedSqlAccess
         Liefert den Laufzeitzugriff auf ein automatisch generiertes SQL Server
         SA-Konto inklusive ConnectionString.
+
+    New-SqlServerLabWindowsSlotPool
+        Erstellt oder vervollständigt N Windows-Hyper-V-Slots aus einer
+        geeigneten OS_SEALED-Baseline einschließlich unbeaufsichtigter OOBE.
+
+    Get-SqlServerLabGeneratedWindowsAccess
+        Liefert den automatisch generierten Windows-Administratorzugang eines
+        gezielt ausgewählten Hyper-V-Slots.
 
     New-SqlServerLabAutomatedTestEnvironment
         Erstellt eine oder mehrere Linux-SQL-Testumgebungen mit getrennten
