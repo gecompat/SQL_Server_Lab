@@ -23,6 +23,9 @@ try {
         $poolCommand.Definition -match '\$MemoryMaximumMB\s*=\s*4096')
 
     $behavior = & $module {
+        $originalIsWindows = Get-Variable -Name IsWindows -Scope Script -ErrorAction SilentlyContinue
+        Set-Variable -Name IsWindows -Scope Script -Value $true -Force
+        try {
         $script:poolLabs = @{}
         $script:createCalls = [Collections.Generic.List[object]]::new()
         $script:provisionCalls = [Collections.Generic.List[object]]::new()
@@ -92,6 +95,15 @@ try {
             -StateRoot 'X:\state' -Confirm:$false
         [PSCustomObject]@{
             Result=$result; Creates=@($script:createCalls); Provisions=@($script:provisionCalls); Stops=@($script:stopCalls)
+        }
+        }
+        finally {
+            if ($originalIsWindows) {
+                Set-Variable -Name IsWindows -Scope Script -Value ([bool]$originalIsWindows.Value) -Force
+            }
+            else {
+                Remove-Variable -Name IsWindows -Scope Script -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 
