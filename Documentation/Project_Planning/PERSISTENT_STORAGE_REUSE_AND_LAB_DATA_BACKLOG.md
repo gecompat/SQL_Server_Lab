@@ -122,7 +122,11 @@ blockierte, getrennte Folgearbeit. Der reguläre Run-Cleanup ist davon getrennt:
 Er entfernt ein rungebundenes Docker-/Podman-Volume nur, wenn dessen frische
 Runtime-Labels RunId und ScopeId exakt mit dem Cleanup-Plan übereinstimmen;
 bei fehlender oder abweichender Ownership-Evidence erfolgt kein `volume rm` und
-der Run bleibt recoverbar. Der Plan weist unabhängig von seiner
+der Run bleibt recoverbar. Neue rungebundene Systemvolume-Gruppen erhalten
+zuvor eine UUID, die im Desired State des Runs persistiert und auf alle
+zugehörigen Runtime-Volumes gelabelt wird. Dieser Nachweis ist die notwendige
+Identitätsbrücke für einen späteren selektierbaren Katalogstore; er registriert
+heute weder Altbestände noch eine Löschautorität. Der Plan weist unabhängig von seiner
 fachlichen Gültigkeit mit `Execution.Status` aus, ob die verlangte Policy
 heute ausführbar ist (`EXECUTABLE`), nur vollständig geplant ist
 (`PLANNED_NOT_EXECUTABLE`) oder fachlich blockiert bleibt (`BLOCKED`).
