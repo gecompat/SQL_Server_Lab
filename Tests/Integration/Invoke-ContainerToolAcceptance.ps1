@@ -27,6 +27,7 @@ $runtimeInvocation = $null
 $imageName = $null
 $bacpacSourcePath = $null
 $bacpacContainerPath = $null
+$attachPayloadRoot = $null
 $completed = $false
 
 function Assert-ContainerToolAcceptance {
@@ -169,6 +170,63 @@ try {
     $residualBacpac = @(& $runtimeInvocation exec --user root $instance.ContainerName sh -ceu 'test -z "$(find /tmp -maxdepth 1 -name ''sql-server-lab-bacpac-*.bacpac'' -print -quit)"' 2>&1)
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'BACPAC-Import hinterlässt kein temporäres Containerartefakt'
 
+    $attachSourceDatabase = 'AttachNativeSource'
+    $attachTargetDatabase = 'AttachNativeTarget'
+    & $module {
+        param($HostName, $PortNumber, $Password, $SourceDatabase)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Query "CREATE DATABASE [$SourceDatabase];" -TimeoutSeconds 90 | Out-Null
+            Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $SourceDatabase -Query "CREATE TABLE dbo.AttachProbe (Id int NOT NULL PRIMARY KEY, Marker nvarchar(40) NOT NULL); INSERT INTO dbo.AttachProbe (Id, Marker) VALUES (1, N'container-native-attach');" -TimeoutSeconds 90 | Out-Null
+            Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Query "ALTER DATABASE [$SourceDatabase] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; EXEC sp_detach_db N'$SourceDatabase';" -TimeoutSeconds 90 | Out-Null
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $attachSourceDatabase
+    Assert-ContainerToolAcceptance $true 'Synthetische Attach-Quelldatenbank wurde im isolierten Test-Run detachiert'
+
+    $attachPayloadRoot = Join-Path $testRoot 'attach-payload'
+    New-Item -Path $attachPayloadRoot -ItemType Directory -Force | Out-Null
+    $attachPrimaryPath = Join-Path $attachPayloadRoot "$attachSourceDatabase.mdf"
+    $attachLogPath = Join-Path $attachPayloadRoot "${attachSourceDatabase}_log.ldf"
+    & $runtimeInvocation cp "$($instance.ContainerName):/var/opt/mssql/data/$attachSourceDatabase.mdf" $attachPrimaryPath 1>$null
+    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $attachPrimaryPath -PathType Leaf)) 'Detach-MDF wird als kontrollierte Testpayload aus dem Container gelesen'
+    & $runtimeInvocation cp "$($instance.ContainerName):/var/opt/mssql/data/${attachSourceDatabase}_log.ldf" $attachLogPath 1>$null
+    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $attachLogPath -PathType Leaf)) 'Detach-LDF wird als kontrollierte Testpayload aus dem Container gelesen'
+
+    $attachResult = & $module {
+        param($ProviderName, $LabInstance, $RunIdentifier, $PayloadRoot, $Password, $Root, $TargetDatabase)
+        Invoke-LabContainerAttach -Provider $ProviderName -ContainerName $LabInstance.ContainerName `
+            -RunId $RunIdentifier -InstanceId $LabInstance.Id -Payloads @(
+                [PSCustomObject]@{ Path = (Join-Path $PayloadRoot 'AttachNativeSource.mdf'); Role = 'primary' },
+                [PSCustomObject]@{ Path = (Join-Path $PayloadRoot 'AttachNativeSource_log.ldf'); Role = 'log' }
+            ) -DatabaseName $TargetDatabase -HostName $LabInstance.Host -Port ([int]$LabInstance.Port) -SaPassword $Password -StateRoot $Root
+    } $Provider $instance $lab.RunId $attachPayloadRoot $saPassword $stateRoot $attachTargetDatabase
+    Assert-ContainerToolAcceptance ([string]$attachResult.Status -eq 'ATTACHED') 'Container-Attach kopiert die kontrollierte Payload und erreicht ONLINE'
+    $attachJournalPath = Get-ChildItem -LiteralPath (Join-Path $stateRoot "operations/attach/$($lab.RunId)") -Filter '*.json' | Select-Object -First 1 -ExpandProperty FullName
+    $attachJournal = Get-Content -LiteralPath $attachJournalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    Assert-ContainerToolAcceptance (
+        [string]$attachJournal.Status -eq 'COMPLETED' -and $attachJournal.CopyVerified -and
+        $attachJournal.AttachInvoked -and $attachJournal.PostconditionVerified -and
+        [string]$attachJournal.Recovery -eq 'NOT_REQUIRED'
+    ) 'Container-Attach-Journal belegt Kopie, SQL-Mutation und ONLINE-Postcondition'
+    $attachMarker = & $module {
+        param($HostName, $PortNumber, $Password, $DatabaseName)
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password)
+        try {
+            $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+            @(Invoke-SqlQuery -HostName $HostName -Port $PortNumber -SaPlain $plain -Database $DatabaseName -Query 'SET NOCOUNT ON; SELECT Marker FROM dbo.AttachProbe WHERE Id = 1;')
+        }
+        finally {
+            $plain = $null
+            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+        }
+    } $instance.Host ([int]$instance.Port) $saPassword $attachTargetDatabase
+    Assert-ContainerToolAcceptance ((@($attachMarker | ForEach-Object { ([string]$_).Trim() }) -contains 'container-native-attach')) 'Attached Datenbank besteht den SQL-Inhaltsroundtrip'
+
     $cleanup = Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false
     Assert-ContainerToolAcceptance ([string]$cleanup.Status -eq 'REMOVED') 'Registrierter Run-Cleanup entfernt ausschliesslich Run-Ressourcen'
     $lab = $null
@@ -186,6 +244,7 @@ try {
             status = 'PASS'; provider = $Provider; sqlVersion = '2022'
             tool = [ordered]@{ id = [string]$probe.ToolId; runtimeVersion = [string]$probe.RuntimeVersion; imageKey = [string]$instance.ContainerTools.ImageKey }
             bacpac = [ordered]@{ status = [string]$bacpacImport.Status; source = 'synthetic'; targetDatabase = $targetDatabase; dataRoundtrip = $true }
+            attach = [ordered]@{ status = [string]$attachResult.Status; source = 'synthetic-detached-mdf-ldf'; targetDatabase = $attachTargetDatabase; dataRoundtrip = $true; journalStatus = [string]$attachJournal.Status }
             restart = [ordered]@{ status = [string]$restart.Status; probeStatus = [string]$postRestartProbe.Status }
             cleanup = [ordered]@{ runStatus = [string]$cleanup.Status; reusableImageExplicitlyRemoved = $true }
             completedAt = [DateTimeOffset]::UtcNow.ToString('o')

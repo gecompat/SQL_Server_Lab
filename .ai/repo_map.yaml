@@ -1225,6 +1225,16 @@ validation:
       - journaled_port_recreate_rollback_and_exact_runtime_identity
       - lifecycle_and_reconcile_persistence
       - scope_bound_cleanup
+  container_attach_acceptance:
+    source: Tests/Integration/Invoke-ContainerToolAcceptance.ps1
+    docker: '.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider docker'
+    podman: '.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider podman'
+    execution_status: "Docker und Podman am 2026-09-04 getrennt positiv ausgefuehrt; synthetischer Detach, kataloggebundener Container-Attach, ONLINE-/Inhalts-/Journalpostcondition und vollstaendiger Cleanup bestaetigt"
+    checks:
+      - synthetic_detached_mdf_ldf_payload
+      - container_copy_attach_and_online_postcondition
+      - attach_journal_and_sql_content_roundtrip
+      - scope_bound_cleanup
   container_instance_store_acceptance:
     source: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance.ps1
     docker: '.\Tests\Integration\Invoke-ContainerInstanceStoreAcceptance.ps1 -Provider docker'

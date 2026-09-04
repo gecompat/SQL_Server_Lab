@@ -586,8 +586,12 @@ ONLINE-Abfrage und einen SQL-Teilfehler mit passender Recovery-Aktion; er
 ersetzt keinen nativen Attach-Akzeptanzlauf. Der ZIP- und 7z-Mehrdateipfad
 extrahiert ausschließlich jede katalogisierte Datei in ein isoliertes
 Arbeitsverzeichnis und ist statisch mit synthetischen MDF/LDF-Dateien belegt.
-Ein nativer Attach-Akzeptanzlauf mit echtem SQL-Server ist noch nicht
-ausgeführt; die aktuellen StackOverflow-Einträge bleiben deshalb `descriptive`.
+Der native Attach-Akzeptanzlauf wurde am 2026-09-04 getrennt für Docker und
+Podman mit einer synthetisch erzeugten, detachierten MDF/LDF-Quelle positiv
+ausgeführt: der Handler kopiert die Dateien, erreicht `ONLINE`, bestätigt einen
+SQL-Inhaltsroundtrip und räumt den Run vollständig auf. Die aktuellen
+StackOverflow-Einträge bleiben dennoch `descriptive`, solange keine konkrete
+lizenz- und größenvalidierte ausführbare Katalogvariante freigegeben ist.
 
 Noch nicht implementiert sind Hyper-V-Attach für Katalogartefakte und das
 Überschreiben der erwarteten Zieldatenbanknamen.

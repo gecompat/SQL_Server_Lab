@@ -72,6 +72,21 @@ Invoke-SmokeMatrix.ps1                 => PASS=5 FAIL=0 SKIP=0
 `smoke-test-query.sql` wird waehrend des Tests erzeugt und geloescht.
 Bei Abbruch bleibt sie liegen → .gitignore verhindert Commit.
 
+## Invoke-ContainerToolAcceptance.ps1
+
+Der Docker-/Podman-Nachweis provisioniert einen isolierten SQL-2022-Run mit
+kataloggebundenem `SqlPackage`, prüft dessen BACPAC-Export/-Import und erzeugt
+danach ausschließlich im Test-Run eine Datenbank mit Marker. Die Quelldatenbank
+wird sauber detachiert; ihre MDF/LDF werden als kontrollierte Testpayloads durch
+`Invoke-LabContainerAttach` wieder angehängt. Der Test verlangt `ONLINE`, den
+SQL-Inhaltsroundtrip und ein abgeschlossenes Container-Attach-Journal und
+entfernt Run, Runtime-Volume und test-eigenes Derived Image im Cleanup.
+
+```powershell
+.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider podman
+```
+
 ## Invoke-ContainerInstanceStoreAcceptance.ps1
 
 Der PSR-005-Nachweis läuft für Docker und Podman getrennt. Er erzeugt einen
