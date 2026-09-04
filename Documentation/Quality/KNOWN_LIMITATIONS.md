@@ -530,6 +530,13 @@ den Paketmanifest-SHA-256 ein; der Browser zeigt aus dem Katalog nur
 Status, Schrittzahl und Blocker. Weder die Hashbindung noch die Darstellung
 erweitern den Plan zu einer Export-, Import- oder Transferautorität.
 
+Neue Backup-Sets erhalten zusätzlich eine getrennte
+`SqlServerLab.BackupMigrationExecutionPlanBinding/1.0`-Evidence. Sie bindet
+den nicht ausführbaren Plan an die automatisch berechnete SHA-256 des
+veröffentlichten Backupobjekts. Diese Bindung bleibt rein beschreibend und
+ändert weder Restore-Autorität noch das verpflichtende `VERIFYONLY WITH
+CHECKSUM` vor der tatsächlichen Wiederherstellung.
+
 ## Restore
 
 Unterstützt werden Bibliotheksbackups per stabiler `BackupSetId` sowie direkte

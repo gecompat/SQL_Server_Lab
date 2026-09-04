@@ -586,6 +586,10 @@ Plan führt keine Export-, Import- oder sonstige Runtime-Mutation aus. Der beste
 `DATABASE_PACKAGE`-Receipts diesen Plan nur geheimnisfrei persistieren, seine
 kanonischen Felder in den Paketmanifest-SHA-256 aufnehmen und im pfadfreien
 Katalog lediglich Status, Schrittzahl und Blocker anzeigen.
+`Invoke-BackupLibraryChecks.ps1` prüft die dazu passende Backup-Binding-
+Evidence: Neue Backupsets referenzieren die exakt bei der Veröffentlichung
+berechnete Objekt-SHA-256, bewahren alle acht nicht ausführbaren Plan-Schritte
+und projizieren nur Status, Schrittzahl und Blocker in die Auswahlansicht.
 Der bestehende
 `Invoke-WorkflowUiChecks.ps1` prüft zusätzlich die lokale Browserbindung der
 Containerinventur: Nur Run-ID, Instanz-ID, validierter Datenbankname und
