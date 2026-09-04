@@ -1177,6 +1177,8 @@ Add-ValidationResult `
         $persistentStorageBacklog -match '`CHECKSUM` und `RESTORE VERIFYONLY`' -and
         $persistentStorageBacklog -match 'geheimnisfreies\s*Journal' -and
         $persistentStorageBacklog -match '(?s)`DELETE_WITH_RUN`.*persistierter.*?`DELETE_PENDING`.*?`DETACHED`' -and
+        $persistentStorageBacklog -match '(?ms)^\| `PSR-004` .*`DELETE_WITH_RUN`.*`DELETE_PENDING`.*`DETACHED`.*$' -and
+        $persistentStorageBacklog -match '(?ms)^\| `PSR-011` .*öffentliche finale Delete.*`DELETE_WITH_RUN`.*$' -and
         $developmentExecutionPlan -match '(?s)`DELETE_WITH_RUN`.*persistierter.*?`DELETE_PENDING`.*?`DETACHED`' -and
         $knownLimitations -match 'Executor unterstützt für Docker-/Podman-Instanzstores inzwischen\s*`RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`, `PACKAGE_ON_REMOVE` und' -and
         $knownLimitations -match 'MDF/NDF/LDF-Dateien' -and
