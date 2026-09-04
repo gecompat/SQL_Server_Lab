@@ -141,6 +141,25 @@ try {
             -TestDataRoot $paths.TestDataRoot `
             -StateRoot $StateRoot
 
+        # Die read-only Workflow-Projektion muss einen bereits lokal
+        # erzeugten Sample-Hash wiedererkennen, ohne Download oder neue
+        # Vertrauensentscheidung. Der Test verwendet einen echten
+        # ausführbaren Katalogeintrag, aber ausschließlich synthetischen State.
+        $workflowVariant = @(Get-LabExecutableSampleVariant | Where-Object { -not $_.ExpectedSha256 } | Select-Object -First 1)
+        if ($workflowVariant.Count -ne 1) { throw 'WORKFLOW_TRUST_TEST_SAMPLE_NOT_FOUND' }
+        Register-LabArtifactTrustRecord `
+            -Source $workflowVariant[0].Source `
+            -Sha256 ('b' * 64) `
+            -SampleId $workflowVariant[0].SampleId `
+            -SampleVariant $workflowVariant[0].Variant `
+            -ArtifactType $workflowVariant[0].ArtifactType `
+            -HandlerContractVersion '1' `
+            -StateRoot $StateRoot | Out-Null
+        $workflowSample = Get-LabSampleWorkflowProjection `
+            -Variant $workflowVariant[0] `
+            -StateRoot $StateRoot `
+            -TestDataRoot $paths.TestDataRoot
+
         [PSCustomObject]@{
             StoreCreated = (Test-Path -LiteralPath $paths.TrustStorePath -PathType Leaf)
             TrustMatches = $trust.sha256 -eq $resolvedTrust.sha256 -and $trust.integrityOrigin -eq 'user-trusted-generated'
@@ -159,6 +178,8 @@ try {
                 $firstTrust.Sha256 -eq $sha256 -and $firstTrust.IntegrityOrigin -eq 'user-trusted-generated' -and
                 $firstTrustReplay.Status -eq 'ARTIFACT_READY' -and $firstTrustReplay.CacheStatus -eq 'HIT' -and
                 $firstTrustReplay.Sha256 -eq $sha256 -and $script:ArtifactDownloadCalls -eq 1
+            WorkflowProjectsLocalTrust = $workflowSample.TrustStatus -eq 'user-trusted-generated' -and
+                $workflowSample.CacheStatus -eq 'MISS'
         }
     } $temporaryRoot
 
@@ -173,6 +194,7 @@ try {
     Add-CheckResult -Name 'Verifizierte Bestände aus dem alten State-Cache werden ohne Download übernommen' -Success $result.LegacyMigrationWorks
     Add-CheckResult -Name 'Katalogisierte .7z-Archive passieren den sicheren Artifact-Vertrag' -Success $result.SevenZipTrustRequired
     Add-CheckResult -Name 'Einmaliger Trust erzeugt SHA-256 und ein nichtinteraktiver Folgelauf verwendet nur den hashgeprüften Cache' -Success $result.FirstTrustCreatesReusableSha256
+    Add-CheckResult -Name 'Workflow-Inventur projiziert lokalen Sample-Trust ohne Download oder erneute Freigabe' -Success $result.WorkflowProjectsLocalTrust
 }
 catch {
     Add-CheckResult -Name 'Artifact Resolver Testausfuehrung' -Success $false -Message $_.Exception.Message
