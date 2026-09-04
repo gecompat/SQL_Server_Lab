@@ -529,7 +529,7 @@
             "idempotencyMode": "fail-if-exists",
             "baselinePolicy": "not-eligible"
           },
-          "note": "7z-Archiv; ein Attach-Handler ist noch nicht implementiert.",
+          "note": "7z-Archiv bleibt beschreibend, bis eine verifizierte exakte MDF/NDF/LDF-Payload-Liste katalogisiert ist; der vorhandene Attach-Handler verlangt dann catalog-path und bindet die beim interaktiven Trust automatisch berechnete SHA-256 lokal.",
           "runtimeStatus": "descriptive"
         },
         "10gb": {
@@ -554,7 +554,7 @@
             "idempotencyMode": "fail-if-exists",
             "baselinePolicy": "not-eligible"
           },
-          "note": "7z-Archiv; ein Attach-Handler ist noch nicht implementiert.",
+          "note": "7z-Archiv bleibt beschreibend, bis eine verifizierte exakte MDF/NDF/LDF-Payload-Liste katalogisiert ist; der vorhandene Attach-Handler verlangt dann catalog-path und bindet die beim interaktiven Trust automatisch berechnete SHA-256 lokal.",
           "runtimeStatus": "descriptive"
         }
       },
