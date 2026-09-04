@@ -1234,6 +1234,7 @@ validation:
       - synthetic_detached_mdf_ldf_payload
       - container_copy_attach_and_online_postcondition
       - attach_journal_and_sql_content_roundtrip
+      - controlled_sql_failure_and_recovery_journal
       - scope_bound_cleanup
   container_instance_store_acceptance:
     source: Tests/Integration/Invoke-ContainerInstanceStoreAcceptance.ps1
