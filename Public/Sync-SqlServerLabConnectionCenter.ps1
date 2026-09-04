@@ -5,22 +5,24 @@ function Get-LabConnectionCenterConfiguration {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $path = Join-Path (Join-Path $StateRoot 'catalog') 'sql-connection-center-groups.json'
     $defaults = [PSCustomObject]@{
-        ContractVersion = 'SqlServerLab.ConnectionCenterGroups/1.1'
+        ContractVersion = 'SqlServerLab.ConnectionCenterGroups/1.2'
         RootGroupName = 'SQL Server Lab'
         GroupBy = 'Provider'
         CmsUseRootGroup = $true
         CmsGroupByProvider = $true
+        CmsShowGeneratedPasswordInName = $false
     }
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $defaults }
     try {
         $saved = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 10
         if ([string]::IsNullOrWhiteSpace([string]$saved.RootGroupName)) { return $defaults }
         return [PSCustomObject]@{
-            ContractVersion = 'SqlServerLab.ConnectionCenterGroups/1.1'
+            ContractVersion = 'SqlServerLab.ConnectionCenterGroups/1.2'
             RootGroupName = [string]$saved.RootGroupName
             GroupBy = 'Provider'
             CmsUseRootGroup = if ($null -eq $saved.CmsUseRootGroup) { $true } else { [bool]$saved.CmsUseRootGroup }
             CmsGroupByProvider = if ($null -eq $saved.CmsGroupByProvider) { $true } else { [bool]$saved.CmsGroupByProvider }
+            CmsShowGeneratedPasswordInName = if ($null -eq $saved.CmsShowGeneratedPasswordInName) { $false } else { [bool]$saved.CmsShowGeneratedPasswordInName }
         }
     }
     catch { return $defaults }
@@ -44,6 +46,7 @@ function Set-LabConnectionCenterConfiguration {
         [Parameter(Mandatory)][string]$RootGroupName,
         [bool]$CmsUseRootGroup = $true,
         [bool]$CmsGroupByProvider = $true,
+        [bool]$CmsShowGeneratedPasswordInName = $false,
         [string]$StateRoot
     )
 
@@ -53,11 +56,12 @@ function Set-LabConnectionCenterConfiguration {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $path = Join-Path (Join-Path $StateRoot 'catalog') 'sql-connection-center-groups.json'
     $configuration = [PSCustomObject]@{
-        ContractVersion = 'SqlServerLab.ConnectionCenterGroups/1.1'
+        ContractVersion = 'SqlServerLab.ConnectionCenterGroups/1.2'
         RootGroupName = $RootGroupName.Trim()
         GroupBy = 'Provider'
         CmsUseRootGroup = $CmsUseRootGroup
         CmsGroupByProvider = $CmsGroupByProvider
+        CmsShowGeneratedPasswordInName = $CmsShowGeneratedPasswordInName
         UpdatedAt = Get-LabTimestamp
     }
     Write-LabArtifactJsonAtomic -Path $path -InputObject $configuration
@@ -552,6 +556,116 @@ function ConvertTo-LabXPathLiteral {
     return "'$Value'"
 }
 
+function Get-LabCmsRegisteredServerDisplayName {
+    <#
+    .SYNOPSIS
+        Erzeugt den optionalen CMS-Anzeigenamen fuer genau ein Lab-Ziel.
+    .DESCRIPTION
+        Haengt nur dann ein Kennwort an, wenn der zentrale Generatornachweis
+        `Get-LabAutomaticallyGeneratedRunSaPassword` es als vom Lab erzeugt
+        freigibt. Manuelle und manifestbasierte Kennwoerter liefern dort `$null`
+        und bleiben damit immer aus dem Anzeigenamen ausgeschlossen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Entry,
+        [string]$StateRoot,
+        [switch]$IncludeGeneratedPassword,
+        [scriptblock]$GeneratedPasswordResolver
+    )
+
+    $displayName = [string]$Entry.DisplayName
+    if (-not $IncludeGeneratedPassword) { return $displayName }
+    if (-not $GeneratedPasswordResolver) {
+        $GeneratedPasswordResolver = {
+            param($RunId, $ResolvedStateRoot)
+            Get-LabAutomaticallyGeneratedRunSaPassword -RunId $RunId -StateRoot $ResolvedStateRoot
+        }
+    }
+    $password = & $GeneratedPasswordResolver ([string]$Entry.RunId) $StateRoot
+    if ([string]::IsNullOrWhiteSpace([string]$password)) { return $displayName }
+
+    # Der Instanzzusatz bleibt am Ende lesbar: Umgebung_Passwort (primary).
+    $environmentName = $displayName
+    $instanceSuffix = ''
+    if ($displayName -match '^(?<Environment>.+) (?<Instance>\([^()]+\))$') {
+        $environmentName = [string]$Matches.Environment
+        $instanceSuffix = ' ' + [string]$Matches.Instance
+    }
+    $passwordSuffix = '_{0}{1}' -f [string]$password, $instanceSuffix
+    if ($passwordSuffix.Length -ge 128) {
+        throw 'CONNECTION_CENTER_CMS_GENERATED_PASSWORD_NAME_TOO_LONG: Das generierte Kennwort passt nicht in einen CMS-Anzeigenamen.'
+    }
+    $maximumEnvironmentLength = 128 - $passwordSuffix.Length
+    if ($environmentName.Length -gt $maximumEnvironmentLength) {
+        $environmentName = $environmentName.Substring(0, $maximumEnvironmentLength)
+    }
+    return $environmentName + $passwordSuffix
+}
+
+function Invoke-LabCmsSqlInMemory {
+    <#
+    .SYNOPSIS
+        Fuehrt genau einen CMS-Synchronisationsbatch ohne Skriptdatei aus.
+    .DESCRIPTION
+        Verwendet ADO.NET, damit auch ein langer Batch mit Kennwortaliasen weder
+        auf der Kommandozeile noch in einer temporaeren Datei landen muss.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$HostName,
+        [Parameter(Mandatory)][ValidateRange(1, 65535)][int]$Port,
+        [Parameter(Mandatory)][SecureString]$SaPassword,
+        [Parameter(Mandatory)][string]$Query,
+        [int]$TimeoutSeconds = 300
+    )
+
+    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+    $connection = $null
+    $command = $null
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        $saPlain = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+        $builder = [System.Data.SqlClient.SqlConnectionStringBuilder]::new()
+        $builder.DataSource = '{0},{1}' -f $HostName, $Port
+        $builder.InitialCatalog = 'master'
+        $builder.UserID = 'sa'
+        $builder.Password = $saPlain
+        $builder.Encrypt = $true
+        $builder.TrustServerCertificate = $true
+        $builder.ConnectTimeout = [Math]::Max(2, [Math]::Min($TimeoutSeconds, 30))
+        $connection = [System.Data.SqlClient.SqlConnection]::new($builder.ConnectionString)
+        $command = $connection.CreateCommand()
+        $command.CommandText = $Query
+        $command.CommandTimeout = $TimeoutSeconds
+        $connection.Open()
+        $null = $command.ExecuteNonQuery()
+        $stopwatch.Stop()
+        return [PSCustomObject]@{
+            Success = $true
+            Batches = 1
+            Duration = $stopwatch.Elapsed
+            Message = 'CMS-Synchronisationsbatch erfolgreich im Arbeitsspeicher ausgefuehrt.'
+        }
+    }
+    catch {
+        $stopwatch.Stop()
+        return [PSCustomObject]@{
+            Success = $false
+            Batches = 0
+            Duration = $stopwatch.Elapsed
+            Message = "CMS-Synchronisationsbatch fehlgeschlagen: $($_.Exception.Message)"
+        }
+    }
+    finally {
+        if ($command) { $command.Dispose() }
+        if ($connection) { $connection.Dispose() }
+        if ($builder) { $builder.Password = '' }
+        $saPlain = $null
+        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+    }
+}
+
 function Export-SqlServerLabCmsSyncScript {
     <#
     .SYNOPSIS
@@ -568,13 +682,28 @@ function Export-SqlServerLabCmsSyncScript {
     .PARAMETER CmsProvider
         Optionaler Provider eines verwalteten lokalen CMS. Lokale Containerziele
         erhalten dafür den passenden Host-Alias.
+    .PARAMETER IncludeGeneratedPasswordAliases
+        Interner Schalter fuer den direkten CMS-Abgleich. Erfordert `InMemory`
+        und darf nicht fuer einen dauerhaften Export verwendet werden.
+    .PARAMETER InMemory
+        Gibt den sensiblen Plan ausschließlich zur unmittelbaren Ausführung im
+        Arbeitsspeicher zurück und schreibt keine Datei.
     .OUTPUTS
         PSCustomObject mit Exportpfad und Endpunktanzahl.
     #>
     [CmdletBinding()]
-    param([string]$Path, [string]$StateRoot, [ValidateSet('docker', 'podman')][string]$CmsProvider)
+    param(
+        [string]$Path,
+        [string]$StateRoot,
+        [ValidateSet('docker', 'podman')][string]$CmsProvider,
+        [Parameter(DontShow)][switch]$IncludeGeneratedPasswordAliases,
+        [Parameter(DontShow)][switch]$InMemory
+    )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    if ($IncludeGeneratedPasswordAliases -and -not $InMemory) {
+        throw 'CONNECTION_CENTER_CMS_PASSWORD_ALIAS_REQUIRES_IN_MEMORY_SCRIPT: Kennworthaltige CMS-Anzeigenamen duerfen nicht dauerhaft exportiert werden.'
+    }
     $center = (Sync-SqlServerLabConnectionCenter -StateRoot $StateRoot -Quiet).ConnectionCenter
     $cmsConfiguration = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
     if ($cmsConfiguration) {
@@ -613,7 +742,12 @@ function Export-SqlServerLabCmsSyncScript {
     $providerAvailability['hyperv'] = $hyperVAvailable
 
     $lines = [System.Collections.Generic.List[string]]::new()
-    $lines.Add('-- SQL Server Lab CMS-Synchronisation. Passwörter sind absichtlich nicht enthalten.')
+    if ($IncludeGeneratedPasswordAliases) {
+        $lines.Add('-- SQL Server Lab CMS-Synchronisation. Nur fluechtige Direktanwendung; Anzeigenamen koennen Lab-generierte Kennwoerter enthalten.')
+    }
+    else {
+        $lines.Add('-- SQL Server Lab CMS-Synchronisation. Passwörter sind absichtlich nicht enthalten.')
+    }
     $lines.Add('-- Der Unterbaum SQL Server Lab ist exklusiv durch SQL Server Lab verwaltet.')
     $lines.Add('USE msdb;')
     $lines.Add('SET XACT_ABORT ON;')
@@ -678,7 +812,8 @@ function Export-SqlServerLabCmsSyncScript {
 
             foreach ($entry in @($providerEntries | Sort-Object RuntimeState, DisplayName, Server)) {
                 $server = & $escape (ConvertTo-LabCmsServerTarget -Server $entry.Server -CmsProvider $CmsProvider)
-                $displayName = & $escape $entry.DisplayName
+                $resolvedDisplayName = Get-LabCmsRegisteredServerDisplayName -Entry $entry -StateRoot $StateRoot -IncludeGeneratedPassword:$IncludeGeneratedPasswordAliases
+                $displayName = & $escape $resolvedDisplayName
                 $runtimeState = ([string]$entry.RuntimeState).ToUpperInvariant()
                 if ([bool]$center.Grouping.CmsGroupByProvider) {
                     $targetGroup = if ($runtimeState -eq 'RUNNING') { "@RunningProvider_$suffix" } else { "@StoppedProvider_$suffix" }
@@ -717,15 +852,23 @@ function Export-SqlServerLabCmsSyncScript {
         $lines.Add("DECLARE @ManagedRootCount int; WITH ManagedRootTree AS (SELECT @ManagedRootId AS server_group_id UNION ALL SELECT g.server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups g INNER JOIN ManagedRootTree p ON g.parent_id = p.server_group_id) SELECT @ManagedRootCount = COUNT(*) FROM msdb.dbo.sysmanagement_shared_registered_servers s WHERE s.server_group_id IN (SELECT server_group_id FROM ManagedRootTree); DECLARE @ManagedRootName sysname = CONCAT(N'$safeRootGroupName (', @ManagedRootCount, N')'); IF EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @DatabaseEngineRootId AND name = @ManagedRootName AND server_group_id <> @ManagedRootId) THROW 51005, 'CMS managed root group name collision.', 1; IF (SELECT name FROM msdb.dbo.sysmanagement_shared_server_groups WHERE server_group_id = @ManagedRootId) <> @ManagedRootName EXEC msdb.dbo.sp_sysmanagement_rename_shared_server_group @server_group_id = @ManagedRootId, @new_name = @ManagedRootName;")
     }
     $lines.Add('COMMIT TRANSACTION;')
-    $directory = Split-Path -Parent $Path
-    if ($directory) { $null = New-Item -ItemType Directory -Path $directory -Force }
-    [System.IO.File]::WriteAllLines($Path, $lines, [System.Text.UTF8Encoding]::new($false))
+    $scriptContent = $null
+    if ($InMemory) {
+        $scriptContent = $lines -join [Environment]::NewLine
+    }
+    else {
+        $directory = Split-Path -Parent $Path
+        if ($directory) { $null = New-Item -ItemType Directory -Path $directory -Force }
+        [System.IO.File]::WriteAllLines($Path, $lines, [System.Text.UTF8Encoding]::new($false))
+    }
     return [PSCustomObject]@{
         Path = $Path
         Entries = $center.Entries.Count
         Hierarchy = $hierarchy
         ReconciledProviders = @($reconciledProviders)
         SkippedProviderUnavailable = @($skippedProviders | Sort-Object -Unique)
+        IncludesGeneratedPasswordAliases = [bool]$IncludeGeneratedPasswordAliases
+        ScriptContent = $scriptContent
     }
 }
 
@@ -752,12 +895,42 @@ function Sync-SqlServerLabCms {
     $runDirectory = Join-Path (Join-Path $StateRoot 'runs') ([string]$configuration.RunId)
     $password = Get-LabSecret -Path $runDirectory -Name 'sa-password'
     if (-not $password) { throw 'CONNECTION_CENTER_CMS_SECRET_UNAVAILABLE: Das CMS-SA-Passwort kann nicht lokal entschlüsselt werden.' }
+    $layout = Get-LabConnectionCenterConfiguration -StateRoot $StateRoot
+    $includeGeneratedPasswordAliases = [bool]$layout.CmsShowGeneratedPasswordInName
     $scriptPath = Join-Path (Get-LabConnectionCenterExportDirectory -StateRoot $StateRoot) 'sql-server-lab-cms-sync.sql'
-    $export = Export-SqlServerLabCmsSyncScript -Path $scriptPath -StateRoot $StateRoot -CmsProvider ([string]$configuration.Provider)
-    $execution = Invoke-SqlServerLabScript -RunId ([string]$configuration.RunId) -SaPassword $password -ScriptPath $export.Path -Database 'master' -StateRoot $StateRoot
-    if (-not $execution.Success) { throw "CONNECTION_CENTER_CMS_SYNC_FAILED: $($execution.Message)" }
-    if (-not $Quiet) { Write-LabSuccess "CMS synchronisiert: $($export.Entries) Endpunkt(e)." }
-    return $export
+    $export = $null
+    try {
+        $export = Export-SqlServerLabCmsSyncScript -Path $scriptPath -StateRoot $StateRoot `
+            -CmsProvider ([string]$configuration.Provider) `
+            -IncludeGeneratedPasswordAliases:$includeGeneratedPasswordAliases `
+            -InMemory:$includeGeneratedPasswordAliases
+        if ($includeGeneratedPasswordAliases) {
+            $connectionPath = Join-Path $runDirectory 'connection-info.json'
+            $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+            $instance = @($connection.instances | Where-Object { [string]$_.id -eq 'primary' } | Select-Object -First 1)[0]
+            if (-not $instance -or [string]::IsNullOrWhiteSpace([string]$instance.host) -or [int]$instance.port -le 0) {
+                throw 'CONNECTION_CENTER_CMS_TARGET_INVALID: Das CMS-Ziel kann nicht aus dem Run-State aufgeloest werden.'
+            }
+            $execution = Invoke-LabCmsSqlInMemory -Query ([string]$export.ScriptContent) `
+                -HostName ([string]$instance.host) -Port ([int]$instance.port) -SaPassword $password
+        }
+        else {
+            $execution = Invoke-SqlServerLabScript -RunId ([string]$configuration.RunId) -SaPassword $password -ScriptPath $export.Path -Database 'master' -StateRoot $StateRoot
+        }
+        if (-not $execution.Success) { throw "CONNECTION_CENTER_CMS_SYNC_FAILED: $($execution.Message)" }
+        if (-not $Quiet) { Write-LabSuccess "CMS synchronisiert: $($export.Entries) Endpunkt(e)." }
+        return [PSCustomObject]@{
+            Path = if ($includeGeneratedPasswordAliases) { $null } else { $export.Path }
+            Entries = $export.Entries
+            Hierarchy = $export.Hierarchy
+            ReconciledProviders = $export.ReconciledProviders
+            SkippedProviderUnavailable = $export.SkippedProviderUnavailable
+            IncludesGeneratedPasswordAliases = $includeGeneratedPasswordAliases
+        }
+    }
+    finally {
+        if ($export -and $export.PSObject.Properties['ScriptContent']) { $export.ScriptContent = $null }
+    }
 }
 
 function Invoke-LabCmsInteractive {
@@ -781,7 +954,7 @@ function Invoke-LabCmsInteractive {
         $menu = Invoke-LabConsoleMenu -ScreenId 'cms-create-menu' -Title 'CMS bereitstellen' -Subtitle 'Docker/Podman primaer; vorhandene SQL-Umgebung providerneutral uebernehmen' -Items @(
             New-LabConsoleItem -Id create -Label 'Kompakten persistenten CMS automatisch erstellen' -Value 'Docker bevorzugt · Podman als Fallback' -Shortcut 1 -Disabled:($containerProviders.Count -eq 0)
             New-LabConsoleItem -Id adopt -Label 'Bestehende SQL-Umgebung als CMS verwenden' -Value $candidateSummary -Shortcut 2 -Disabled:($candidates.Count -eq 0)
-            New-LabConsoleItem -Id export -Label 'Nur CMS-Synchronisationsskript exportieren' -Shortcut 3
+            New-LabConsoleItem -Id export -Label 'Nur kennwortfreies CMS-Synchronisationsskript exportieren' -Shortcut 3
             New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
         ) -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  Esc: Zurueck'
         if ($menu.Status -ne 'Selected' -or [string]$menu.SelectedItem.Id -eq 'back') { return }
@@ -817,7 +990,7 @@ function Invoke-LabCmsInteractive {
             if ([string]$selected.State -eq 'RUNNING') { $null = Sync-SqlServerLabCms -StateRoot $StateRoot }
             else { Write-LabWarning 'Der CMS ist derzeit nicht gestartet. Nach dem Start kann die Synchronisation fortgesetzt werden.' }
         }
-        elseif ([string]$menu.SelectedItem.Id -eq 'export') { $result = Export-SqlServerLabCmsSyncScript -StateRoot $StateRoot; Write-LabSuccess "CMS-Synchronisationsskript erstellt: $($result.Path)" }
+        elseif ([string]$menu.SelectedItem.Id -eq 'export') { $result = Export-SqlServerLabCmsSyncScript -StateRoot $StateRoot; Write-LabSuccess "Kennwortfreies CMS-Synchronisationsskript erstellt: $($result.Path)" }
         return
     }
     Write-Host "  Verwalteter CMS: $($configuration.RunId) · Provider: $($configuration.Provider)" -ForegroundColor White
@@ -835,25 +1008,42 @@ function Invoke-LabCmsInteractive {
     $menu = Invoke-LabConsoleMenu -ScreenId 'connection-center-cms' -Title 'CMS verwalten und synchronisieren' `
         -Subtitle $(if ($cmsTarget) { "CMS: $cmsTarget" } else { 'CMS-Ziel wird aus der Konfiguration ermittelt' }) -Items @(
             New-LabConsoleItem -Id '1' -Label 'CMS jetzt synchronisieren' -Shortcut '1'
-            New-LabConsoleItem -Id '2' -Label 'CMS-Synchronisationsskript exportieren' -Shortcut '2'
+            New-LabConsoleItem -Id '2' -Label 'Kennwortfreies CMS-Synchronisationsskript exportieren' -Shortcut '2'
             New-LabConsoleItem -Id '3' -Label 'CMS-Ordnerstruktur konfigurieren' -Shortcut '3'
-            New-LabConsoleItem -Id '4' -Label 'CMS-Zugang anzeigen' -Value 'Connection String und automatisch erzeugtes SA-Passwort' -Shortcut '4'
+            New-LabConsoleItem -Id '4' -Label 'Generiertes Passwort im CMS-Namen anzeigen' -Value $(if ((Get-LabConnectionCenterConfiguration -StateRoot $StateRoot).CmsShowGeneratedPasswordInName) { 'Ein · Klartext im CMS' } else { 'Aus · sicherer Standard' }) -Shortcut '4'
+            New-LabConsoleItem -Id '5' -Label 'CMS-Zugang anzeigen' -Value 'Connection String und automatisch erzeugtes SA-Passwort' -Shortcut '5'
             New-LabConsoleItem -Id '0' -Label 'Zurück' -Shortcut '0'
         )
     if ($menu.Status -ne 'Selected') { return }
     $choice = [string]$menu.SelectedItem.Id
     if ($choice -eq '1') { $null = Sync-SqlServerLabCms -StateRoot $StateRoot }
-    elseif ($choice -eq '2') { $result = Export-SqlServerLabCmsSyncScript -StateRoot $StateRoot -CmsProvider ([string]$configuration.Provider); Write-LabSuccess "CMS-Synchronisationsskript erstellt: $($result.Path)" }
+    elseif ($choice -eq '2') { $result = Export-SqlServerLabCmsSyncScript -StateRoot $StateRoot -CmsProvider ([string]$configuration.Provider); Write-LabSuccess "Kennwortfreies CMS-Synchronisationsskript erstellt: $($result.Path)" }
     elseif ($choice -eq '3') {
         $layout = Get-LabConnectionCenterConfiguration -StateRoot $StateRoot
         Write-LabInfo ("Aktuell: Root-Ordner={0}, Provider-Ordner={1}" -f $(if ($layout.CmsUseRootGroup) { 'Ein' } else { 'Aus' }), $(if ($layout.CmsGroupByProvider) { 'Ein' } else { 'Aus' }))
         $useRoot = Read-LabConfirm -Prompt "  Eigenen Root-Ordner '$($layout.RootGroupName)' unter dem CMS verwenden?" -Default ([bool]$layout.CmsUseRootGroup)
         $groupByProvider = Read-LabConfirm -Prompt '  Provider-Ordner unter Running/Stopped verwenden?' -Default ([bool]$layout.CmsGroupByProvider)
-        $saved = Set-LabConnectionCenterConfiguration -RootGroupName ([string]$layout.RootGroupName) -CmsUseRootGroup $useRoot -CmsGroupByProvider $groupByProvider -StateRoot $StateRoot
+        $saved = Set-LabConnectionCenterConfiguration -RootGroupName ([string]$layout.RootGroupName) -CmsUseRootGroup $useRoot -CmsGroupByProvider $groupByProvider -CmsShowGeneratedPasswordInName ([bool]$layout.CmsShowGeneratedPasswordInName) -StateRoot $StateRoot
         Write-LabSuccess ("CMS-Ordnerstruktur gespeichert: Root-Ordner={0}, Provider-Ordner={1}" -f $(if ($saved.CmsUseRootGroup) { 'Ein' } else { 'Aus' }), $(if ($saved.CmsGroupByProvider) { 'Ein' } else { 'Aus' }))
         if (Read-LabConfirm -Prompt '  CMS jetzt mit der neuen Ordnerstruktur synchronisieren?' -Default $true) { $null = Sync-SqlServerLabCms -StateRoot $StateRoot }
     }
     elseif ($choice -eq '4') {
+        $layout = Get-LabConnectionCenterConfiguration -StateRoot $StateRoot
+        $enable = -not [bool]$layout.CmsShowGeneratedPasswordInName
+        if ($enable) {
+            Write-LabWarning 'Dadurch stehen Lab-generierte SA-Passwoerter als Klartext in CMS-Namen, SSMS-Ansichten, Screenshots und CMS-Backups.'
+            Write-LabInfo 'Manuell eingegebene und manifestbasierte Passwoerter bleiben immer ausgeschlossen.'
+            if (-not (Read-LabConfirm -Prompt '  Generierte Passwoerter trotzdem in CMS-Namen anzeigen?' -Default $false)) { return }
+        }
+        $saved = Set-LabConnectionCenterConfiguration -RootGroupName ([string]$layout.RootGroupName) `
+            -CmsUseRootGroup ([bool]$layout.CmsUseRootGroup) `
+            -CmsGroupByProvider ([bool]$layout.CmsGroupByProvider) `
+            -CmsShowGeneratedPasswordInName $enable `
+            -StateRoot $StateRoot
+        Write-LabSuccess ("Generierte Passwoerter in CMS-Namen: {0}" -f $(if ($saved.CmsShowGeneratedPasswordInName) { 'Ein' } else { 'Aus' }))
+        if (Read-LabConfirm -Prompt '  CMS jetzt mit den neuen Anzeigenamen synchronisieren?' -Default $true) { $null = Sync-SqlServerLabCms -StateRoot $StateRoot }
+    }
+    elseif ($choice -eq '5') {
         Write-Host ''
         Write-Host '  CMS-Zugang' -ForegroundColor Cyan
         Write-Host '  ---------------------------------------------------------------------' -ForegroundColor DarkCyan
@@ -888,7 +1078,7 @@ function Invoke-LabConnectionCenterInteractive {
             '2' { Write-LabInfo 'Die versionsabhängige lokale SSMS-Datei wird nicht direkt verändert. Mit [3] einen validen Export nach Lab_Data/Exports erstellen und ihn in SSMS unter Ansicht -> Registrierte Server -> Aufgaben -> Importieren importieren.' }
             '3' { $result = Export-SqlServerLabSsmsRegistration -StateRoot $stateRoot; Write-LabSuccess "SSMS-Export erstellt: $($result.Path)" }
             '4' { Invoke-LabCmsInteractive -StateRoot $stateRoot }
-            '5' { $name = Read-Host "  Name der verwalteten SSMS-/CMS-Gruppe [$($center.Grouping.RootGroupName)]"; if (-not $name) { $name = $center.Grouping.RootGroupName }; $saved = Set-LabConnectionCenterConfiguration -RootGroupName $name -CmsUseRootGroup ([bool]$center.Grouping.CmsUseRootGroup) -CmsGroupByProvider ([bool]$center.Grouping.CmsGroupByProvider) -StateRoot $stateRoot; Write-LabSuccess "Gruppenname gespeichert: $($saved.RootGroupName)" }
+            '5' { $name = Read-Host "  Name der verwalteten SSMS-/CMS-Gruppe [$($center.Grouping.RootGroupName)]"; if (-not $name) { $name = $center.Grouping.RootGroupName }; $saved = Set-LabConnectionCenterConfiguration -RootGroupName $name -CmsUseRootGroup ([bool]$center.Grouping.CmsUseRootGroup) -CmsGroupByProvider ([bool]$center.Grouping.CmsGroupByProvider) -CmsShowGeneratedPasswordInName ([bool]$center.Grouping.CmsShowGeneratedPasswordInName) -StateRoot $stateRoot; Write-LabSuccess "Gruppenname gespeichert: $($saved.RootGroupName)" }
             '6' { $null = Sync-SqlServerLabConnectionCenter -StateRoot $stateRoot }
             '7' { foreach ($entry in $center.Entries) { Write-Host ('    {0} / {1}: {2} ({3})' -f $center.Grouping.RootGroupName, $entry.Group, $entry.Server, $entry.RuntimeState) -ForegroundColor DarkGray } }
             default { Write-LabWarning 'Ungültige Auswahl.' }

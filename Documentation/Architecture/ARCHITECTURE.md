@@ -94,9 +94,9 @@ Get-SqlServerLabDatabaseMigrationDependency  # SQL-Migrationsabhaengigkeiten rea
 Get-SqlServerLabConnectionCenter       # Passwortfreier SQL-Endpunktkatalog für SSMS und CMS
 Sync-SqlServerLabConnectionCenter      # Endpunktkatalog atomar aktualisieren
 Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erzeugen
-Export-SqlServerLabCmsSyncScript       # CMS-Synchronisationsskript erzeugen
+Export-SqlServerLabCmsSyncScript       # Kennwortfreies CMS-Synchronisationsskript erzeugen
 Initialize-SqlServerLabCms             # Kompakten persistenten lokalen CMS erstellen
-Sync-SqlServerLabCms                   # Verwalteten CMS mit Endpunkten abgleichen
+Sync-SqlServerLabCms                   # CMS abgleichen; optionale generierte Kennwortaliase nur In-Memory
 Get-SqlServerLabReconcilePlan          # Read-only Lifecycle- oder External-Runtime-Reconcile-Plan
 Invoke-SqlServerLabReconcileAction     # Start/Stop oder validierten Container-Runtime-Refresh ausfuehren
 Invoke-SqlServerLabWorkflowAction      # UI-tauglicher, nicht interaktiver Hyper-V-Schritt oder gebundener Container-Paketexport
