@@ -1116,6 +1116,7 @@ function openPersistentStorageRemovalPreview(runId, labName) {
 
 function renderPersistentStorageRemovalPlan(plan, selections) {
   const summary = plan?.Summary || {};
+  const execution = plan?.Execution || {};
   const stores = Array.isArray(plan?.Stores) ? plan.Stores : [];
   const issues = Array.isArray(plan?.Issues) ? plan.Issues : [];
   const statusClassName = statusClass(plan?.Status || 'BLOCKED');
@@ -1124,10 +1125,11 @@ function renderPersistentStorageRemovalPlan(plan, selections) {
     const steps = Array.isArray(store.Steps) ? store.Steps.map((step) => escapeHtml(step.Order + '. ' + step.Action + (step.Mutation !== 'NONE' ? ' [' + step.Mutation + ']' : ''))).join('<br>') : '';
     return '<div class="list-item"><div><strong>' + escapeHtml(store.Outcome) + '</strong><span>' + escapeHtml(shortId(store.PersistentStorageId) + ' · ' + (store.Policy || 'automatisch behalten')) + '</span><div class="build-meta">' + steps + '</div>' + blockers + '</div></div>';
   }).join('');
-  $('#persistent-storage-removal-result').innerHTML = '<div class="build-card-top"><strong>Planstatus</strong><span class="status ' + statusClassName + '">' + escapeHtml(plan?.Status || 'BLOCKED') + '</span></div><div class="build-meta">' + escapeHtml((summary.StoreCount || 0) + ' Store(s) · ' + (summary.RecoveryGuardedSteps || 0) + ' recovery-geschützte Schritte · ' + (summary.Blockers || 0) + ' Blocker') + '</div>' + (issues.length ? '<div class="build-meta"><strong>Issues:</strong> ' + escapeHtml(issues.join(', ')) + '</div>' : '') + storeHtml;
+  const executionStatus = execution.Status || 'BLOCKED';
+  const executionReason = execution.Reason || 'PLAN_EXECUTION_STATUS_UNAVAILABLE';
+  $('#persistent-storage-removal-result').innerHTML = '<div class="build-card-top"><strong>Planstatus</strong><span class="status ' + statusClassName + '">' + escapeHtml(plan?.Status || 'BLOCKED') + '</span></div><div class="build-meta"><strong>Ausführung:</strong> ' + escapeHtml(executionStatus + ' · ' + executionReason) + '</div><div class="build-meta">' + escapeHtml((summary.StoreCount || 0) + ' Store(s) · ' + (summary.RecoveryGuardedSteps || 0) + ' recovery-geschützte Schritte · ' + (summary.Blockers || 0) + ' Blocker') + '</div>' + (issues.length ? '<div class="build-meta"><strong>Issues:</strong> ' + escapeHtml(issues.join(', ')) + '</div>' : '') + storeHtml;
   $('#persistent-storage-removal-result').hidden = false;
-  const executablePolicies = ['RETAIN_INSTANCE_STORE', 'BACKUP_ON_REMOVE'];
-  const executable = plan?.Status === 'READY' && selections.length > 0 && selections.every((selection) => executablePolicies.includes(selection.Policy));
+  const executable = executionStatus === 'EXECUTABLE' && plan?.Status === 'READY' && selections.length > 0;
   pendingPersistentStorageRemoval = executable ? { runId: $('#persistent-storage-removal-run').value, selections, plan } : null;
   $('#persistent-storage-removal-execute').disabled = !executable;
 }
