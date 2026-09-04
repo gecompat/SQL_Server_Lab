@@ -243,21 +243,10 @@ function Get-SqlServerLabWorkflow {
             # Die Workflow-Inventur darf keinen Download und keine neue
             # Vertrauensentscheidung ausloesen. Sie projiziert ausschliesslich
             # den bereits vorhandenen lokalen Trust-/Cache-Status der Variante.
-            $localStatus = Get-LabSampleArtifactLocalStatus `
-                -Source $_.Source `
-                -SampleId $_.SampleId `
-                -SampleVariant $_.Variant `
-                -ExpectedSha256 $_.ExpectedSha256 `
+            Get-LabSampleWorkflowProjection `
+                -Variant $_ `
                 -StateRoot $stateRoot `
                 -TestDataRoot $testDataRoot
-            [PSCustomObject]@{
-                SampleId = $_.SampleId; Variant = $_.Variant; DisplayName = $_.DisplayName
-                Description = $_.Description; ExpectedDatabase = $_.ExpectedDatabase
-                ArtifactType = $_.ArtifactType; DownloadSizeMB = $_.DownloadSizeMB; MinSqlVersion = $_.MinSqlVersion
-                TrustPolicy = $_.TrustPolicy
-                TrustStatus = $localStatus.TrustStatus
-                CacheStatus = $localStatus.CacheStatus
-            }
         })
     }
     catch { }

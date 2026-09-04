@@ -20,6 +20,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $serverPath = Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'
 $moduleLoaderPath = Join-Path $repoRoot 'SqlServerLab.psm1'
 $commonPath = Join-Path $repoRoot 'Private/Common.ps1'
+$sampleArtifactHandlerPath = Join-Path $repoRoot 'Private/SampleArtifactHandlers.ps1'
 $workflowPath = Join-Path $repoRoot 'Public/Get-SqlServerLabWorkflow.ps1'
 $removalPreviewPath = Join-Path $repoRoot 'Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1'
 $removalExecutorPath = Join-Path $repoRoot 'Public/Invoke-SqlServerLabPersistentStorageRemoval.ps1'
@@ -41,6 +42,7 @@ Write-Host 'SQL_Server_Lab - Workflow UI Checks' -ForegroundColor Cyan
 $serverText = Get-Content -LiteralPath $serverPath -Raw -Encoding utf8
 $moduleLoaderText = Get-Content -LiteralPath $moduleLoaderPath -Raw -Encoding utf8
 $commonText = Get-Content -LiteralPath $commonPath -Raw -Encoding utf8
+$sampleArtifactHandlerText = Get-Content -LiteralPath $sampleArtifactHandlerPath -Raw -Encoding utf8
 $workflowText = Get-Content -LiteralPath $workflowPath -Raw -Encoding utf8
 $removalPreviewText = Get-Content -LiteralPath $removalPreviewPath -Raw -Encoding utf8
 $removalExecutorText = Get-Content -LiteralPath $removalExecutorPath -Raw -Encoding utf8
@@ -239,11 +241,12 @@ Add-CheckResult -Name 'Testdaten-Root ist konfigurierbar und wird als sichtbare 
 Add-CheckResult -Name 'Datenbankdialog bietet katalogisierte Testdatenbanken mit explizitem Trust an' -Success (
     $workflowText -match 'SampleDatabases = \$sampleDatabases' -and
     $workflowText -match 'Get-LabExecutableSampleVariant' -and
-    $workflowText -match 'Get-LabSampleArtifactLocalStatus' -and
-    $workflowText -match 'TrustPolicy = \$_.TrustPolicy' -and
-    $workflowText -match 'TrustStatus = \$localStatus.TrustStatus' -and
-    $workflowText -match 'CacheStatus = \$localStatus.CacheStatus' -and
-    $workflowText -match 'ArtifactType = \$_.ArtifactType' -and
+    $workflowText -match 'Get-LabSampleWorkflowProjection' -and
+    $sampleArtifactHandlerText -match 'function Get-LabSampleWorkflowProjection' -and
+    $sampleArtifactHandlerText -match 'Get-LabSampleArtifactLocalStatus' -and
+    $sampleArtifactHandlerText -match 'ArtifactType = \$Variant.ArtifactType' -and
+    $sampleArtifactHandlerText -match 'TrustStatus = \$localStatus.TrustStatus' -and
+    $sampleArtifactHandlerText -match 'CacheStatus = \$localStatus.CacheStatus' -and
     $actionText -match 'InstallContainerSampleDatabase' -and
     $actionText -match 'Resolve-LabRunInstance' -and
     $actionText -match 'CONTAINER_WORKFLOW_SAMPLE_TRUST_REQUIRED' -and

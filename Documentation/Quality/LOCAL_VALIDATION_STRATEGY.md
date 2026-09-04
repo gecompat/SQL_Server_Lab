@@ -534,6 +534,12 @@ Katalog-SHA-256, prüft die Erzeugung des lokalen SHA-256-Trust-Records und
 fordert anschließend nichtinteraktiv dieselbe Quelle erneut an. Der Folgelauf
 muss den hashgeprüften Content-Cache verwenden und darf keinen zweiten Download
 auslösen. Der Test benötigt weder Netzwerk noch Container oder SQL Server.
+Er registriert außerdem für eine echte ausführbare Katalogvariante ausschließlich
+synthetischen lokalen Trust-State und prüft die gemeinsame
+Workflow-Projektion auf `user-trusted-generated` mit `CacheStatus: MISS`.
+Der öffentliche `Get-SqlServerLabWorkflow` verwendet exakt diesen read-only
+Projektionscore. Auch dieser Teil erzeugt keinen Download, keine Freigabe und
+keine Provider-Mutation.
 
 `Invoke-BackupLibraryCrossProviderAcceptance.ps1` ist der isolierte PSR-008-
 Nachweis: Er erzeugt ein synthetisches Backup in Docker, veröffentlicht es nur

@@ -129,6 +129,40 @@ function Get-LabSampleArtifactLocalStatus {
     }
 }
 
+function Get-LabSampleWorkflowProjection {
+    <#
+    .SYNOPSIS
+        Erstellt die sichere read-only Workflow-Sicht einer Sample-Variante.
+    .DESCRIPTION
+        Liest nur den Katalogvertrag sowie den vorhandenen lokalen Trust- und
+        Cache-Status. Die Funktion lädt kein Artifact herunter und erzeugt
+        weder Trust-Records noch Runtime-Mutationen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Variant,
+        [string]$StateRoot,
+        [string]$TestDataRoot
+    )
+
+    $localStatus = Get-LabSampleArtifactLocalStatus `
+        -Source $Variant.Source `
+        -SampleId $Variant.SampleId `
+        -SampleVariant $Variant.Variant `
+        -ExpectedSha256 $Variant.ExpectedSha256 `
+        -StateRoot $StateRoot `
+        -TestDataRoot $TestDataRoot
+
+    return [PSCustomObject]@{
+        SampleId = $Variant.SampleId; Variant = $Variant.Variant; DisplayName = $Variant.DisplayName
+        Description = $Variant.Description; ExpectedDatabase = $Variant.ExpectedDatabase
+        ArtifactType = $Variant.ArtifactType; DownloadSizeMB = $Variant.DownloadSizeMB; MinSqlVersion = $Variant.MinSqlVersion
+        TrustPolicy = $Variant.TrustPolicy
+        TrustStatus = $localStatus.TrustStatus
+        CacheStatus = $localStatus.CacheStatus
+    }
+}
+
 function Get-LabArchiveBackupPayload {
     <#
     .SYNOPSIS
