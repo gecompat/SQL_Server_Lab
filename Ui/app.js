@@ -974,7 +974,11 @@ function renderContainerLibraryBackups(sqlVersion) {
   const backups = catalog.filter((backup) => backup.Availability === 'SELECTABLE' && (!targetMajor || Number(backup.SourceSqlMajorVersion) <= targetMajor));
   select.innerHTML = '<option value="">Kein Bibliotheksbackup ausgewählt</option>' + backups.map((backup) => {
     const size = backup.Bytes ? ' · ' + Math.ceil(Number(backup.Bytes) / 1048576) + ' MB' : '';
-    return '<option value="' + escapeHtml(backup.BackupSetId) + '" data-database="' + escapeHtml(backup.DatabaseName) + '">' + escapeHtml(backup.DatabaseName) + ' · ' + escapeHtml(backup.SourceProvider) + ' · SQL ' + escapeHtml(backup.SourceSqlMajorVersion) + size + '</option>';
+    const planStatus = backup.MigrationExecutionStatus || 'NOT_CAPTURED';
+    const planSteps = Number(backup.MigrationPlanStepCount || 0);
+    const planBlockers = Array.isArray(backup.MigrationPlanBlockers) ? backup.MigrationPlanBlockers.join(', ') : '';
+    const plan = planStatus === 'NOT_CAPTURED' ? '' : ' · Migrationsplan ' + planStatus + ' (' + planSteps + ' Schritte)';
+    return '<option value="' + escapeHtml(backup.BackupSetId) + '" data-database="' + escapeHtml(backup.DatabaseName) + '" data-migration-plan-status="' + escapeHtml(planStatus) + '" data-migration-plan-steps="' + escapeHtml(String(planSteps)) + '" data-migration-plan-blockers="' + escapeHtml(planBlockers) + '">' + escapeHtml(backup.DatabaseName) + ' · ' + escapeHtml(backup.SourceProvider) + ' · SQL ' + escapeHtml(backup.SourceSqlMajorVersion) + size + plan + '</option>';
   }).join('');
   updateContainerLibraryBackupSelection();
 }
@@ -995,8 +999,14 @@ function updateContainerLibraryBackupSelection() {
     $('#container-database-name').disabled = false;
     $('#container-database-name').value = '';
   }
+  const migrationPlanStatus = option?.dataset?.migrationPlanStatus || 'NOT_CAPTURED';
+  const migrationPlanSteps = option?.dataset?.migrationPlanSteps || '0';
+  const migrationPlanBlockers = option?.dataset?.migrationPlanBlockers || '';
+  const migrationPlanNote = migrationPlanStatus === 'NOT_CAPTURED'
+    ? ''
+    : ' Nicht ausführbarer Migrationsplan: ' + migrationPlanStatus + ' (' + migrationPlanSteps + ' Schritte)' + (migrationPlanBlockers ? '; Blocker: ' + migrationPlanBlockers : '') + '.';
   $('#container-library-backup-note').textContent = selected
-    ? 'Das Backup wird beim Start anhand seiner BackupSetId erneut status-, evidence- und SHA-256-geprüft.'
+    ? 'Das Backup wird beim Start anhand seiner BackupSetId erneut status-, evidence- und SHA-256-geprüft.' + migrationPlanNote
     : 'Die Auswahl erfolgt ausschließlich über die stabile BackupSetId; lokale Hostpfade werden nicht an den Browser übertragen.';
 }
 

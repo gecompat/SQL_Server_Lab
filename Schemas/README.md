@@ -12,7 +12,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `sample-databases.schema.json` | Struktur von `Catalogs/sample-databases.json` |
 | `software-catalog.schema.json` | Versionierter Katalogvertrag für SQL-bezogene Python-, R- und Java-Runtimes |
 | `sample-baseline-registry.schema.json` | Portables Register verifizierter, inhaltsadressierter Single-Backup- und Multi-Database-ZIP-`LAB_GENERATED`-Objekte |
-| `backup-library.schema.json` | Strikter `SqlServerLab.BackupLibrary/1.0`-Vertrag für inhaltsadressierte, per SQL-Checksum, `RESTORE VERIFYONLY`, Host-Hash und Metadatenreceipt veröffentlichte Backups sowie getrennte Restore-Evidence |
+| `backup-library.schema.json` | Strikter `SqlServerLab.BackupLibrary/1.0`-Vertrag für inhaltsadressierte, per SQL-Checksum, `RESTORE VERIFYONLY`, Host-Hash und Metadatenreceipt veröffentlichte Backups, getrennte Restore-Evidence sowie eine an die automatisch berechnete Backup-SHA-256 gebundene, nicht ausführbare Migrationsplan-Evidence |
 | `database-migration-dependency-inventory.schema.json` | Read-only Vertrag `SqlServerLab.DatabaseMigrationDependencyInventory/1.0` für sanitisierte Serverobjekt-/TDE-Kategorien, Counts und die ausdrückliche Datenbank-statt-Instanz-Migrationsgrenze |
 | `database-migration-execution-plan.schema.json` | Strikt nicht ausführbarer Vertrag `SqlServerLab.DatabaseMigrationExecutionPlan/1.0` für kategoriebasierte Review- und TDE-Blocker-Schritte ohne Objekt-, Schlüssel- oder Credentialdaten |
 | `project-adapter.schema.json` | Adaptervertrag konsumierender Projekte (`Adapters/`), Version `0.1-draft` |
