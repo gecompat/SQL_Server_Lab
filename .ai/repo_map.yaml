@@ -993,7 +993,7 @@ validation:
       - strict_secret_free_journal
       - unsupported_policy_pre_mutation_boundary
   acceptance_persistent_storage_removal_executor:
-    command: '.\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -Provider <docker|podman> -Policy <BACKUP_ON_REMOVE|PACKAGE_ON_REMOVE|BACKUP_AND_PACKAGE>'
+    command: '.\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -Provider <docker|podman> -Policy <BACKUP_ON_REMOVE|PACKAGE_ON_REMOVE|BACKUP_AND_PACKAGE|DELETE_WITH_RUN>'
     source: Tests/Integration/Invoke-PersistentStorageRemovalExecutorAcceptance.ps1
     covers:
       - real_verified_backup_on_remove_package_on_remove_or_combined

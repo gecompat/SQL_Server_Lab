@@ -91,6 +91,13 @@ jobs:
                 -EvidencePath (Join-Path $env:RUNNER_TEMP 'docker-container-tool-acceptance.json') 2>&1 | Tee-Object -FilePath $logPath -Append
               $toolExitCode = $LASTEXITCODE
               if ($toolExitCode -ne 0) { throw "Docker Container-Tool-Akzeptanz endete mit Exitcode $toolExitCode." }
+
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 `
+                -Provider docker `
+                -Policy DELETE_WITH_RUN `
+                -RuntimeMutexAlreadyHeld 2>&1 | Tee-Object -FilePath $logPath -Append
+              $removalExitCode = $LASTEXITCODE
+              if ($removalExitCode -ne 0) { throw "Docker Persistent-Storage-Removal-Akzeptanz endete mit Exitcode $removalExitCode." }
             }
           }
           finally {
