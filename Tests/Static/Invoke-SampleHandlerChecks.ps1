@@ -63,10 +63,15 @@ try {
             -SqlVersion '2022' `
             -TargetDatabaseName 'AdventureWorksLT2022'
 
+        $overridden = Resolve-LabSampleRestore `
+            -SampleDefinition ([PSCustomObject]@{ id = 'adventureworks-2022'; variant = 'lightweight' }) `
+            -SqlVersion '2022' `
+            -TargetDatabaseName 'AdventureWorksTraining'
+
         $wrongNameRejected = $false
         try {
             $null = Resolve-LabSampleRestore `
-                -SampleDefinition ([PSCustomObject]@{ id = 'adventureworks-2022'; variant = 'lightweight' }) `
+                -SampleDefinition ([PSCustomObject]@{ id = 'northwind'; variant = 'script' }) `
                 -SqlVersion '2022' `
                 -TargetDatabaseName 'FalscherName'
         }
@@ -499,6 +504,9 @@ CREATE DATABASE [$(SecondDatabase)];
                 $resolved.trustPolicy -eq 'interactive-once' -and
                 $resolved.sampleId -eq 'adventureworks-2022' -and
                 $resolved.downloadSizeMB -gt 0
+            BackupTargetOverride  = $overridden.targetDatabaseOverride -and
+                $overridden.sourceExpectedDatabase -eq 'AdventureWorksLT2022' -and
+                $overridden.expectedOutputs[0].name -eq 'AdventureWorksTraining'
             WrongNameRejected     = $wrongNameRejected
             DescriptiveRejected   = $descriptiveRejected
             ScriptContractWorks   = $scriptContract.artifactType -eq 'sql-script' -and
@@ -556,6 +564,7 @@ CREATE DATABASE [$(SecondDatabase)];
     Add-CheckResult -Name 'Aktuelle Microsoft-Backups fuer AdventureWorks und Data Warehouse sind katalogisiert' -Success $result.CurrentMicrosoftBackups
     Add-CheckResult -Name 'Contoso-Backups sind als direkt restaurierbare Groessenvarianten katalogisiert' -Success $result.ContosoBackups
     Add-CheckResult -Name 'Sample-Aufloesung liefert Trust-, Idempotenz- und Groessenvertrag' -Success $result.ResolvedContract
+    Add-CheckResult -Name 'Katalogfreigegebene Backup-Varianten können den Zielnamen sicher ableiten' -Success $result.BackupTargetOverride
     Add-CheckResult -Name 'Abweichender Zieldatenbankname wird abgelehnt' -Success $result.WrongNameRejected
     Add-CheckResult -Name 'Beschreibende Varianten werden nicht ausgefuehrt' -Success $result.DescriptiveRejected
     Add-CheckResult -Name 'SQL-Skript-Sample liefert einen typisierten Installationsvertrag' -Success $result.ScriptContractWorks
