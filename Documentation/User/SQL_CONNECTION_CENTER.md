@@ -17,13 +17,16 @@ Endpunkt, Anzeigename, Provider und aktuellen Runtime-Status, aber ausdrücklich
 Kennwörter oder Connection Strings mit Kennwort.
 
 Der Katalog ist interne Zustandsverwaltung. Sichtbare Exporte werden davon getrennt
-unter `Lab_Data/Exports` abgelegt. Ist kein Data Root konfiguriert, verwendet SQL Server
-Lab als Rückfall den State Root unter `exports`.
+unter `Lab_Data/Exports` abgelegt. Das interaktive Menü zeigt den vollständigen
+Zielpfad vor dem Schreiben an und erlaubt eine Änderung. Ist kein `Lab_Data`
+konfiguriert, wird kein benutzerspezifischer State-Root-Pfad vorgeschlagen; stattdessen
+muss ein Zielpfad ausdrücklich eingegeben oder der Export abgebrochen werden.
 
 ## SSMS
 
-`[3]` erzeugt unter `Lab_Data/Exports/sql-server-lab.regsrvr` einen kennwortfreien,
-SSMS-kompatiblen `.regsrvr`-Export für den SSMS-Import. SSMS verlangt
+`[3]` schlägt `Lab_Data/Exports/sql-server-lab.regsrvr` vor und erzeugt dort oder
+am ausdrücklich eingegebenen Ziel einen kennwortfreien, SSMS-kompatiblen
+`.regsrvr`-Export für den SSMS-Import. SSMS verlangt
 das SQL-Login-Passwort beim ersten Verbinden. Das entspricht dem Standardverhalten von
 SSMS-Exporten ohne gespeicherte Kennwörter.
 
