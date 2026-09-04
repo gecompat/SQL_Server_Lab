@@ -106,9 +106,9 @@ try {
     $packagePlan=& $module { param($cat,$value,$inv) Get-LabPersistentStorageRemovalPlan -Catalog $cat -Intent $value -ResidencyInventory $inv } $catalog $packageIntent $inventory
     Add-CheckResult -Name 'Package-on-Remove plant Offline, vollständiges Inventar, SHA-256 und Postcondition' -Success (
         $packagePlan.Status -eq 'READY' -and $packagePlan.Stores[0].Outcome -eq 'PACKAGE_AND_RETAIN' -and
-        $packagePlan.Execution.Status -eq 'PLANNED_NOT_EXECUTABLE' -and
-        $packagePlan.Execution.Reason -eq 'EXECUTOR_CAPABILITY_NOT_IMPLEMENTED' -and
-        'PACKAGE_ON_REMOVE' -in @($packagePlan.Execution.PlannedPolicies) -and
+        $packagePlan.Execution.Status -eq 'EXECUTABLE' -and
+        $packagePlan.Execution.Reason -eq 'READY_FOR_EXECUTION' -and
+        'PACKAGE_ON_REMOVE' -in @($packagePlan.Execution.ExecutablePolicies) -and
         (@('OFFLINE_DATABASES','MATERIALIZE_PACKAGE','HASH_PACKAGE','VERIFY_PACKAGE') | Where-Object { $_ -notin @($packagePlan.Stores[0].Steps.Action) }).Count -eq 0) `
         -Message (($packagePlan | ConvertTo-Json -Depth 20 -Compress))
 

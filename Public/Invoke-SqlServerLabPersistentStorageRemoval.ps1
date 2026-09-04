@@ -2,11 +2,14 @@
 .SYNOPSIS
     Entfernt einen Run nach bestätigter persistenter Retention-Policy.
 .DESCRIPTION
-    Führt `RETAIN_INSTANCE_STORE` und `BACKUP_ON_REMOVE` über den gemeinsamen
-    Removal-Plan aus. Backups werden mit CHECKSUM und RESTORE VERIFYONLY in der
-    Lab_Data-Bibliothek veröffentlicht. Ein lokales Journal ermöglicht sichere
-    Wiederaufnahme. Package, externe Freigabe und endgültige Store-Löschung
-    bleiben vor jeder Mutation blockiert.
+    Führt `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE` und
+    `PACKAGE_ON_REMOVE` über den gemeinsamen Removal-Plan aus. Backups werden
+    mit CHECKSUM und RESTORE VERIFYONLY veröffentlicht; Container-Pakete
+    materialisieren nach exklusivem Offline-Commit ausschließlich inventarisierte
+    MDF/NDF/LDF-Dateien und werden automatisch mit Objekt- und Manifest-SHA-256
+    registriert. Ein lokales Journal ermöglicht sichere Wiederaufnahme.
+    FILESTREAM, TDE, Kombinationspolicy, externe Freigabe und endgültige
+    Store-Löschung bleiben vor jeder Mutation blockiert.
 .PARAMETER RunId
     Stabile Run-ID der zu entfernenden Umgebung.
 .PARAMETER Selection
@@ -14,12 +17,13 @@
 .PARAMETER StateRoot
     Optionaler State-Root.
 .PARAMETER DataRoot
-    Ziel für verifizierte Backup-Artefakte.
+    Ziel für verifizierte Backup- und Paket-Artefakte.
 .PARAMETER Force
     Überspringt die zusätzliche interaktive Bestätigung.
 .OUTPUTS
     System.Management.Automation.PSCustomObject. Liefert Status, RunId,
-    OperationId, Journalstatus, stabile BackupSetIds und Cleanup-Ergebnis.
+    OperationId, Journalstatus, stabile BackupSetIds, DatabasePackageIds und
+    Cleanup-Ergebnis.
 .EXAMPLE
     Invoke-SqlServerLabPersistentStorageRemoval -RunId $runId -Selection @(
         @{ PersistentStorageId=$storageId; Policy='BACKUP_ON_REMOVE'; DatabaseReferenceIds=@($databaseReferenceId) }
@@ -71,16 +75,18 @@ function Invoke-SqlServerLabPersistentStorageRemoval {
             -SaPassword $RemovalSaPassword -DataRoot $RemovalDataRoot -StateRoot $RemovalStateRoot
     }
     $backupVerificationAction={ param($BackupSetId,$RemovalDataRoot) Get-LabDatabaseBackup -BackupSetId $BackupSetId -DataRoot $RemovalDataRoot }
+    $packageAction={ param($RemovalRunId,$RemovalInstanceId,$RemovalDatabaseName,$RemovalDataRoot,$RemovalStateRoot) Export-LabContainerDatabasePackage -RunId $RemovalRunId -InstanceId $RemovalInstanceId -DatabaseName $RemovalDatabaseName -DataRoot $RemovalDataRoot -StateRoot $RemovalStateRoot }
+    $packageVerificationAction={ param($DatabasePackageId,$RemovalDataRoot) Get-LabDatabasePackage -DatabasePackageId $DatabasePackageId -DataRoot $RemovalDataRoot }
     $replanAction={ param($RemovalRunId,$RemovalSelection) Get-SqlServerLabPersistentStorageRemovalPlan -RunId $RemovalRunId -Selection $RemovalSelection -StateRoot $StateRoot -DataRoot $DataRoot }
     $removeAction={ param($RemovalRunId,$RemovalStateRoot) Remove-SqlServerLab -RunId $RemovalRunId -StateRoot $RemovalStateRoot -Force -Confirm:$false }
     $postconditionAction={ param($RemovalRunId,$RemovalSelection,$RemovalConfiguration) Assert-LabPersistentStorageRemovalPostcondition -RunId $RemovalRunId -Selection $RemovalSelection -Configuration $RemovalConfiguration }
 
     $journal=Invoke-LabPersistentStorageRemovalExecutor -Plan $plan -Selection $normalizedSelections -Context $context `
-        -BackupAction $backupAction -BackupVerificationAction $backupVerificationAction -ReplanAction $replanAction `
+        -BackupAction $backupAction -BackupVerificationAction $backupVerificationAction -PackageAction $packageAction -PackageVerificationAction $packageVerificationAction -ReplanAction $replanAction `
         -RemoveAction $removeAction -PostconditionAction $postconditionAction
     [PSCustomObject]@{
         Status=if([string]$journal.Status -eq 'COMPLETED'){'REMOVED'}else{[string]$journal.Status}
         RunId=$RunId;OperationId=[string]$journal.OperationId;JournalStatus=[string]$journal.Status
-        BackupSetIds=@($journal.Backups | ForEach-Object {[string]$_.BackupSetId});Cleanup=[string]$journal.Removal.Cleanup
+        BackupSetIds=@($journal.Backups | ForEach-Object {[string]$_.BackupSetId});DatabasePackageIds=@($journal.Packages | ForEach-Object {[string]$_.DatabasePackageId});Cleanup=[string]$journal.Removal.Cleanup
     }
 }
