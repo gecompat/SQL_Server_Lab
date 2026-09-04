@@ -244,6 +244,71 @@ function Get-LabArchiveBackupPayload {
     }
 }
 
+function Get-LabAttachPayloadLayout {
+    <#
+    .SYNOPSIS
+        Validiert den katalogisierten Layout-Vertrag eines Attach-Artefakts.
+    .DESCRIPTION
+        Attach-Dateien werden nur über eine vollständige, eindeutige Liste
+        relativer Archivpfade adressiert. Der Vertrag verlangt genau eine
+        primaere MDF und mindestens eine LDF; weitere Daten-Dateien duerfen
+        MDF oder NDF sein. Diese Funktion liest oder extrahiert keine Datei.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]
+        [object[]]$PayloadLayout
+    )
+
+    $entries = @($PayloadLayout)
+    if ($entries.Count -lt 2) {
+        throw 'SAMPLE_ATTACH_PAYLOAD_LAYOUT_INVALID: Mindestens primaere MDF- und Log-LDF-Payload sind erforderlich.'
+    }
+
+    $paths = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    $primaryCount = 0
+    $logCount = 0
+    $validated = [System.Collections.Generic.List[object]]::new()
+
+    foreach ($entry in $entries) {
+        $path = (([string]$entry.path -replace '\\', '/').Trim()).TrimStart('/')
+        $role = [string]$entry.role
+        if ([string]::IsNullOrWhiteSpace($path) -or
+            $path -match '^(?:[A-Za-z]:|/)' -or
+            @($path -split '/' | Where-Object { $_ -in @('.', '..') }).Count -gt 0 -or
+            $path -notmatch '(?i)\.(mdf|ndf|ldf)$') {
+            throw "SAMPLE_ATTACH_PAYLOAD_LAYOUT_INVALID: '$($entry.path)' ist kein sicherer relativer MDF/NDF/LDF-Pfad."
+        }
+        if (-not $paths.Add($path)) {
+            throw "SAMPLE_ATTACH_PAYLOAD_LAYOUT_INVALID: '$path' ist mehrfach katalogisiert."
+        }
+
+        $extension = [System.IO.Path]::GetExtension($path).ToLowerInvariant()
+        switch ($role) {
+            'primary' {
+                if ($extension -ne '.mdf') { throw "SAMPLE_ATTACH_PAYLOAD_LAYOUT_INVALID: Primaere Payload '$path' muss eine MDF-Datei sein." }
+                $primaryCount++
+            }
+            'data' {
+                if ($extension -notin @('.mdf', '.ndf')) { throw "SAMPLE_ATTACH_PAYLOAD_LAYOUT_INVALID: Daten-Payload '$path' muss MDF oder NDF sein." }
+            }
+            'log' {
+                if ($extension -ne '.ldf') { throw "SAMPLE_ATTACH_PAYLOAD_LAYOUT_INVALID: Log-Payload '$path' muss eine LDF-Datei sein." }
+                $logCount++
+            }
+            default { throw "SAMPLE_ATTACH_PAYLOAD_LAYOUT_INVALID: Rolle '$role' ist nicht unterstuetzt." }
+        }
+
+        $validated.Add([PSCustomObject]@{ Path = $path; Role = $role })
+    }
+
+    if ($primaryCount -ne 1 -or $logCount -lt 1) {
+        throw 'SAMPLE_ATTACH_PAYLOAD_LAYOUT_INVALID: Der Attach-Vertrag verlangt genau eine primaere MDF und mindestens eine Log-LDF.'
+    }
+
+    return @($validated)
+}
+
 function Expand-LabScriptBundlePayload {
     <#
     .SYNOPSIS
