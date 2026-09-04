@@ -153,11 +153,29 @@ function Register-LabDatabaseBackupArtifact {
     $objectPath = Join-Path $paths.LibraryRoot $relativePath
     $now = Get-LabTimestamp
     if($MigrationDependencyInventory){
+        $null=Test-LabDatabaseMigrationDependencyInventory -Inventory $MigrationDependencyInventory
         if([string]$MigrationDependencyInventory.DatabaseName -ne $DatabaseName){throw 'BACKUP_LIBRARY_DEPENDENCY_DATABASE_MISMATCH'}
         if([string]$MigrationDependencyInventory.Source.SqlMajorVersion -ne [string]$Metadata.SqlMajorVersion){throw 'BACKUP_LIBRARY_DEPENDENCY_SQL_VERSION_MISMATCH'}
         if([bool]$MigrationDependencyInventory.Database.IsEncrypted -ne [bool]$Metadata.IsEncrypted){throw 'BACKUP_LIBRARY_DEPENDENCY_ENCRYPTION_MISMATCH'}
     }
     $migrationBoundary=Get-LabDatabaseArtifactMigrationBoundary -DependencyInventory $MigrationDependencyInventory
+    $migrationExecutionPlanBinding=if($MigrationDependencyInventory){
+        $plan=$MigrationDependencyInventory.ExecutionPlan
+        [PSCustomObject][ordered]@{
+            BindingVersion='SqlServerLab.BackupMigrationExecutionPlanBinding/1.0'
+            ArtifactSha256=$sha256
+            PlanContractVersion=[string]$plan.ContractVersion
+            InventoryContractVersion=[string]$plan.InventoryContractVersion
+            DatabaseName=[string]$plan.DatabaseName
+            ExecutionStatus=[string]$plan.ExecutionStatus
+            MutationAllowed=[bool]$plan.MutationAllowed
+            TransferAuthority=[string]$plan.TransferAuthority
+            ArtifactScope=[string]$plan.ArtifactScope
+            Blockers=@($plan.Blockers|Sort-Object -Unique)
+            Steps=@($plan.Steps|ForEach-Object{[PSCustomObject][ordered]@{Category=[string]$_.Category;Status=[string]$_.Status;Scope=[string]$_.Scope;RequiredAction=[string]$_.RequiredAction;IncludedInTransfer=[bool]$_.IncludedInTransfer}}|Sort-Object Category)
+            GeneratedAt=[string]$plan.GeneratedAt
+        }
+    }else{$null}
 
     $published = Invoke-LabBackupLibraryLock -LibraryRoot $paths.LibraryRoot -ScriptBlock {
         foreach ($directory in @($paths.LibraryRoot,$paths.ObjectsRoot)) {
@@ -214,6 +232,7 @@ function Register-LabDatabaseBackupArtifact {
             CreatedAt = $now
             UpdatedAt = $now
         }
+        if($migrationExecutionPlanBinding){$record.DatabaseMetadata|Add-Member -NotePropertyName MigrationExecutionPlanBinding -NotePropertyValue $migrationExecutionPlanBinding}
         $document.Revision = [int]$document.Revision + 1
         $document.UpdatedAt = $now
         $document.Backups = @($document.Backups) + @($record)
@@ -297,6 +316,9 @@ function Get-LabDatabaseBackupSelection {
             HasFileStream = [bool]$record.DatabaseMetadata.HasFileStream
             IsEncrypted = [bool]$record.DatabaseMetadata.IsEncrypted
             MigrationBoundary = [string]$record.DatabaseMetadata.MigrationBoundary.ArtifactScope
+            MigrationExecutionStatus=if($record.DatabaseMetadata.PSObject.Properties['MigrationExecutionPlanBinding']){[string]$record.DatabaseMetadata.MigrationExecutionPlanBinding.ExecutionStatus}else{'NOT_CAPTURED'}
+            MigrationPlanBlockers=if($record.DatabaseMetadata.PSObject.Properties['MigrationExecutionPlanBinding']){@($record.DatabaseMetadata.MigrationExecutionPlanBinding.Blockers|Sort-Object -Unique)}else{@()}
+            MigrationPlanStepCount=if($record.DatabaseMetadata.PSObject.Properties['MigrationExecutionPlanBinding']){@($record.DatabaseMetadata.MigrationExecutionPlanBinding.Steps).Count}else{0}
             RestoreVerificationCount = @($record.Verification.RestoreVerifications).Count
             CreatedAt = [string]$record.CreatedAt
         }
