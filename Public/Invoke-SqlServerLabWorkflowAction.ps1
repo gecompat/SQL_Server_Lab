@@ -183,7 +183,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
             'ExecutePersistentStorageRemoval',
-            'CreateContainerDatabase', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
+            'CreateContainerDatabase', 'ExportContainerDatabasePackage', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
             'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'ReleaseHyperVPersistentData', 'ReattachHyperVPersistentData', 'CloneHyperVPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'AttachHyperVDatabasePackage', 'RecoverHyperVDatabasePackageAttach', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
             'NewSqlBuild', 'NewSqlBuildFromBaseline', 'SetSqlMediaHash', 'OpenSqlConsole', 'ConfirmSqlWindowsInstall', 'PrepareSqlImage', 'ResumeSqlImage', 'PublishSqlImage',
@@ -294,7 +294,7 @@ function Invoke-SqlServerLabWorkflowAction {
 
     $containerActions = @(
         'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
-        'ClearAllLabs', 'CreateContainerDatabase', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
+        'ClearAllLabs', 'CreateContainerDatabase', 'ExportContainerDatabasePackage', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
         'ExecutePersistentStorageRemoval',
         'StartLabReconcile', 'StopLabReconcile'
     )
@@ -344,6 +344,10 @@ function Invoke-SqlServerLabWorkflowAction {
     if ($Action -eq 'ExecutePersistentStorageRemoval' -and ([string]::IsNullOrWhiteSpace($BuildId) -or @($PersistentStorageSelection).Count -eq 0)) {
         throw 'PERSISTENT_STORAGE_REMOVAL_WORKFLOW_SELECTION_REQUIRED'
     }
+    if ($Action -eq 'ExportContainerDatabasePackage' -and
+        ([string]::IsNullOrWhiteSpace($BuildId) -or [string]::IsNullOrWhiteSpace($InstanceId) -or $DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$')) {
+        throw 'DATABASE_PACKAGE_CONTAINER_WORKFLOW_TARGET_REQUIRED'
+    }
     if ($Action -in @('AttachHyperVDatabasePackage', 'RecoverHyperVDatabasePackageAttach') -and
         ([string]::IsNullOrWhiteSpace($BuildId) -or [string]::IsNullOrWhiteSpace($DatabasePackageId))) {
         throw 'DATABASE_PACKAGE_HYPERV_WORKFLOW_TARGET_REQUIRED'
@@ -382,6 +386,7 @@ function Invoke-SqlServerLabWorkflowAction {
         'ReattachHyperVPersistentData' { 'Persistierte Clean-Detach-Evidenz, VHDX, Ziel-VM und Katalog werden geprüft; danach wird die VHDX gebunden.' }
         'CloneHyperVPersistentData' { 'Die unveränderte, sauber freigegebene VHDX wird in einen eigenständigen katalogisierten Klon kopiert.' }
         'InspectHyperVLabSqlInstances' { 'SQL-Instanzen, Dienste und TCP-Ports werden ausschließlich lesend in der laufenden Lab-VM geprüft.' }
+        'ExportContainerDatabasePackage' { 'Die an Run, Instanz und Datenbanknamen gebundene Containerdatenbank wird exklusiv offline als SHA-256-verifiziertes Paket veröffentlicht.' }
         'AttachHyperVDatabasePackage' { 'Paket und gebundenes SQL-Ziel werden vollständig geprüft; danach folgen Gastkopie, Hashprüfung, Attach und Online-Postcondition.' }
         'RecoverHyperVDatabasePackageAttach' { 'Nur ein passendes persistiertes Attach-Recovery-Journal wird erneut an Paket, Run, Instanz und SQL-Ziel gebunden und ausgeführt.' }
         'SetLabResources' { 'CPU- und Speicherwerte werden am echten Runtime-Objekt geprüft und anschließend aktualisiert.' }
@@ -507,6 +512,16 @@ function Invoke-SqlServerLabWorkflowAction {
         'CreateContainerDatabase' {
             if ($Port -lt 1 -or -not $DatabaseName) { throw 'CONTAINER_WORKFLOW_DATABASE_TARGET_REQUIRED' }
             New-SqlServerLabDatabase -HostName $HostName -Port $Port -SaPassword $SaPassword -DatabaseName $DatabaseName
+        }
+        'ExportContainerDatabasePackage' {
+            $exportArguments = @{
+                RunId = $BuildId
+                InstanceId = $InstanceId
+                DatabaseName = $DatabaseName
+                Confirm = $false
+            }
+            if ($DataRoot) { $exportArguments.DataRoot = $DataRoot }
+            Export-SqlServerLabDatabasePackage @exportArguments
         }
         'RestoreContainerLibraryBackup' {
             if (-not $BuildId -or -not $BackupSetId -or -not $DatabaseName) { throw 'CONTAINER_WORKFLOW_BACKUP_LIBRARY_TARGET_REQUIRED' }

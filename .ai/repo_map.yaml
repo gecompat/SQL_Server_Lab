@@ -328,7 +328,7 @@ public_commands:
     mutates_host: true
   - name: Invoke-SqlServerLabWorkflowAction
     source: Public/Invoke-SqlServerLabWorkflowAction.ps1
-    purpose: "Nicht interaktive UI-Aktion für einen zulässigen Hyper-V-Workflow-Schritt"
+    purpose: "Nicht interaktive UI-Aktion für einen zulässigen Hyper-V-Workflow-Schritt oder einen pfad-/secretfreien, Run-/Instanz-/Datenbank-gebundenen Container-Paketexport"
     mutates_host: true
   - name: New-SqlServerLabManifest
     source: Public/New-SqlServerLabManifest.ps1
@@ -591,6 +591,7 @@ internal_components:
       - "verifizierte Backup-Sets und Datenbankpakete ueber denselben CAS-geschuetzten Artifact-Writer controllerweit rollbackfaehig mit eigener PersistentStorageId registrieren und Katalogfehler fail-closed quarantaenisieren"
       - "vorhandene Backup-Sets, Datenbankpakete und sichere Exchange-Workspaces oeffentlich einzeln revalidieren, previewfaehig und idempotent mit dem controllergebundenen Katalog synchronisieren"
       - "Datenbankpakete fuer CLI und Browser pfadfrei per stabiler DatabasePackageId inventarisieren; Voll-Hashing nur bei expliziter Integritaetspruefung oder unmittelbar vor Verwendung ausfuehren"
+      - "laufende Docker-/Podman-Datenbanken im Browser nur ueber stabile Run-/Instanzbindung und validierten Datenbanknamen an denselben exklusiven Offline- und SHA-256-verifizierten Paketexport-Core binden; Host, Port, Pfad und Secrets nicht als UI-Vertrag transportieren"
       - "Datenbankpakete per stabiler Run-/Instanzbindung an das live ermittelte SQL-Default-Data-Verzeichnis eines scopegebundenen Hyper-V-Gasts kopieren, dort vollstaendig hashen und erst nach vorab persistiertem Recovery-Journal attachen"
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
       - "RETAIN_INSTANCE_STORE, BACKUP_ON_REMOVE, MDF/NDF/LDF-PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE für Docker-/Podman-Instanzstores frisch revalidiert, artefaktverifiziert und journalisiert ausführen; EXTERNAL_UNMANAGED löst ausschließlich revisionsgeschützt die eigene Katalogbindung und bestätigt die unveränderte Quelle; DELETE_WITH_RUN ist ausschließlich für nachgewiesene RUN_SCOPED/RUN_CLEANUP-Containerstores zweiphasig ausführbar, FILESTREAM, TDE und jede andere endgültige Löschung bleiben vor Mutation blockiert"

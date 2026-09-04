@@ -116,6 +116,22 @@ Add-CheckResult -Name 'SQL-Aktionsdialog behaelt Passwortfeld und blendet katalo
     $scriptText -notmatch "container-operation-password-label'\)\.textContent" -and
     $scriptText -match "container-sample-note'\)\.hidden = !showContainerSamples"
 )
+Add-CheckResult -Name 'Browser exportiert Container-Datenbankpakete nur ueber Run-, Instanz- und Datenbankbindung' -Success (
+    $scriptText -match 'data-container-operation="ExportContainerDatabasePackage"' -and
+    $scriptText -match "const isExportAction = action === 'ExportContainerDatabasePackage'" -and
+    $scriptText -match "action === 'ExportContainerDatabasePackage'" -and
+    $scriptText -match 'const exportParameters = \{' -and
+    $scriptText -match 'DatabaseName: databaseName' -and
+    $scriptText -match 'container-operation-password.*required = !isExportAction' -and
+    $scriptText -match 'automatisch per SHA-256 verifiziert' -and
+    $actionText -match "'ExportContainerDatabasePackage'" -and
+    $actionText -match 'DATABASE_PACKAGE_CONTAINER_WORKFLOW_TARGET_REQUIRED' -and
+    $actionText -match 'Export-SqlServerLabDatabasePackage @exportArguments' -and
+    $actionText -match 'RunId = \$BuildId' -and
+    $actionText -match 'InstanceId = \$InstanceId' -and
+    $actionText -notmatch 'Export-SqlServerLabDatabasePackage.*-HostName' -and
+    $actionText -notmatch 'Export-SqlServerLabDatabasePackage.*-SaPassword'
+)
 Add-CheckResult -Name 'UI bietet erkannte Windows- und SQL-Medien ohne manuelle Editionsauswahl an' -Success (
     $workflowText -match 'WindowsInstallationMedia' -and
     $htmlText -match 'id="windows-media"' -and

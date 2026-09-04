@@ -555,8 +555,12 @@ Integritätsverifikation, die sanitisierte Projektion persistierter
 Migrationskategorien und Warnungen sowie den öffentlichen Hyper-V-WhatIf-/
 Attach-Vertrag mit stabiler Run-/Instanzbindung, vorab persistiertem Recovery-
 Journal und pfad-/hash-/geheimnisfreiem Ergebnis. Die Projektion führt keine
-neue SQL-Abfrage aus. Gemeinsam mit
-`Invoke-BackupLibraryChecks.ps1` prüft sie außerdem den öffentlichen,
+neue SQL-Abfrage aus. `Invoke-WorkflowUiChecks.ps1` prüft zusätzlich die lokale Browseraktion für
+den Container-Paketexport: Der Request enthält ausschließlich Run-ID,
+Instanz-ID und validierten Datenbanknamen; Host, Port, Pfad und SA-Passwort
+werden nicht übertragen. Die reale Docker-/Podman-Acceptance des öffentlichen
+Export-Cores bleibt der getrennte Runtime-Nachweis.
+Gemeinsam mit `Invoke-BackupLibraryChecks.ps1` prüft die Suite außerdem den öffentlichen,
 einzelobjektgebundenen Bestands-Sync: `-WhatIf` schreibt keine Katalogrevision,
 der Apply-Pfad registriert nach vollständiger Artefaktverifikation genau eine
 stabile ID und die Wiederholung bleibt ein `NO_CHANGE`.
