@@ -528,6 +528,13 @@ Ein Katalogeintrag oder vorhandener Testparameter beweist nicht, dass ein Image 
 
 Der allgemeine Smoke-Test prüft derzeit keinen Download und keinen Restore einer öffentlichen Sample-Datenbank, um Laufzeit, Netzwerkabhängigkeit und Datenmenge klein zu halten.
 
+`Invoke-ArtifactResolverChecks.ps1` ist der deterministische Nachweis für den
+lokalen Artifact-Trust-Vertrag: Er simuliert einen einzelnen Download ohne
+Katalog-SHA-256, prüft die Erzeugung des lokalen SHA-256-Trust-Records und
+fordert anschließend nichtinteraktiv dieselbe Quelle erneut an. Der Folgelauf
+muss den hashgeprüften Content-Cache verwenden und darf keinen zweiten Download
+auslösen. Der Test benötigt weder Netzwerk noch Container oder SQL Server.
+
 `Invoke-BackupLibraryCrossProviderAcceptance.ps1` ist der isolierte PSR-008-
 Nachweis: Er erzeugt ein synthetisches Backup in Docker, veröffentlicht es nur
 nach `CHECKSUM`, `RESTORE VERIFYONLY`, Host-Hash und Metadatenreceipt, entfernt
