@@ -601,6 +601,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabPersistentStorageRemovalPlan` | Retention-, Backup-/Package- und Bindungsfolgen einer Run-Entfernung anhand stabiler Storage-IDs read-only und fail-closed planen |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | Retained Docker-/Podman-Instanzstores optional verifiziert sichern, den Run journalisiert entfernen und den Store detached erhalten |
 | `Sync-SqlServerLabPersistentStorageArtifact` | Ein vorhandenes Backup-Set, Datenbankpaket oder sicheres relatives Exchange-Workspace per stabiler Artefakt-ID idempotent mit dem Persistent-Storage-Katalog synchronisieren |
+| `Sync-SqlServerLabRunScopedContainerStore` | Einen laufenden, vollständig run-, scope-, label- und containergebunden nachgewiesenen Docker-/Podman-Store revisionsgeschützt katalogisieren |
 | `Get-SqlServerLabDatabasePackage` | Datenbankpakete pfadfrei anhand ihrer stabilen `DatabasePackageId` auswählen und optional vollständig verifizieren |
 | `Invoke-SqlServerLabDatabasePackageAttach` | Ein vollständig revalidiertes Datenbankpaket per stabiler ID als unabhängige, im Gast erneut gehashte Kopie an einen laufenden scopegebundenen Hyper-V-SQL-Run attachen; das Ziel wird live aus SQL Default Data abgeleitet |
 | `Get-SqlServerLabConnectionCenter` | Passwortfreien, providerübergreifenden SQL-Endpunktkatalog ermitteln |
