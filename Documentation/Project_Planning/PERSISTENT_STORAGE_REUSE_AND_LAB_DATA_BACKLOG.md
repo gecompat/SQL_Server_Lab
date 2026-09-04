@@ -116,22 +116,28 @@ Manifest-SHA-256. Er revalidiert den Plan vor Cleanup und setzt einen begonnenen
 Cleanup idempotent fort. Der Run wird entfernt, der Store bleibt detached
 katalogisiert. `EXTERNAL_UNMANAGED` löst revisionsgeschützt ausschließlich
 die eigene Katalogbindung, journalisiert `SourceMutated=false` und verändert
-weder externe Quelle noch Inhalt. FILESTREAM, TDE, `DELETE_WITH_RUN` als
-öffentliche Storage-Auswahl und endgültige Löschung bleiben vor jeder Mutation
-blockierte, getrennte Folgearbeit. Der reguläre Run-Cleanup ist davon getrennt:
+weder externe Quelle noch Inhalt. `DELETE_WITH_RUN` ist nun eng auf einen
+öffentlich aus persistierter Run-, Scope-, Container- und Runtime-Label-Evidence
+registrierten Docker-/Podman-`INSTANCE_STORE` begrenzt: Der journalisierte
+Executor löst zuerst die exklusive Lease in `DELETE_PENDING`, entfernt erst
+dann den Run und finalisiert nach frischem Nachweis eines fehlenden Volumes zu
+`DETACHED`. FILESTREAM, TDE und jede andere endgültige Persistent-Storage-
+Löschung bleiben vor jeder Mutation blockierte, getrennte Folgearbeit. Der
+reguläre Run-Cleanup ist davon getrennt:
 Er entfernt ein rungebundenes Docker-/Podman-Volume nur, wenn dessen frische
 Runtime-Labels RunId und ScopeId exakt mit dem Cleanup-Plan übereinstimmen;
 bei fehlender oder abweichender Ownership-Evidence erfolgt kein `volume rm` und
 der Run bleibt recoverbar. Neue rungebundene Systemvolume-Gruppen erhalten
 zuvor eine UUID, die im Desired State des Runs persistiert und auf alle
 zugehörigen Runtime-Volumes gelabelt wird. Dieser Nachweis ist die notwendige
-Identitätsbrücke für einen späteren selektierbaren Katalogstore; er registriert
-heute weder Altbestände noch eine Löschautorität. Der interne Katalogkern
+Identitätsbrücke für einen selektierbaren Katalogstore; er registriert weiterhin
+keine Altbestände. Der interne Katalogkern
 akzeptiert eine folgende Registrierung ausschließlich mit derselben Label-ID,
 dem einzigen erwarteten Container und vollständiger Run-/Scope-/SQL-/Persistenz-
 Evidence; er erstellt dabei eine exklusive `RUN_SCOPED`/`RUN_CLEANUP`-Lease.
-Öffentlicher Einstieg und Cleanup-Finalisierung bleiben ein gemeinsamer nächster
-Slice. Der Plan weist unabhängig von seiner
+Der öffentliche, `WhatIf`-fähige Einstieg und die zweiphasige
+Cleanup-Finalisierung verwenden diese Lease revisionsgebunden. Der Plan weist
+unabhängig von seiner
 fachlichen Gültigkeit mit `Execution.Status` aus, ob die verlangte Policy
 heute ausführbar ist (`EXECUTABLE`), nur vollständig geplant ist
 (`PLANNED_NOT_EXECUTABLE`) oder fachlich blockiert bleibt (`BLOCKED`).
