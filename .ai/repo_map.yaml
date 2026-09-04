@@ -61,6 +61,7 @@ sources_of_truth:
   validation_host_tool_resolution: Tests/Static/Invoke-HostToolResolutionChecks.ps1
   state_contract: Private/StateMachine.ps1
   cleanup_contract: Private/CleanupEngine.ps1
+  validation_cleanup_volume_ownership: Tests/Static/Invoke-CleanupVolumeOwnershipChecks.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1
   container_reconcile_journal_schema: Schemas/container-reconcile-journal.schema.json
   validation_container_reconcile: Tests/Static/Invoke-ContainerReconcileChecks.ps1
@@ -929,6 +930,12 @@ validation:
       - persisted_failure_cause
       - successful_cleanup_retry
       - deferred_secret_removal
+  static_cleanup_volume_ownership:
+    command: '.\Tests\Static\Invoke-CleanupVolumeOwnershipChecks.ps1'
+    source: Tests/Static/Invoke-CleanupVolumeOwnershipChecks.ps1
+    covers:
+      - runtime_volume_run_and_scope_label_revalidation
+      - mismatch_blocks_before_runtime_remove
   static_cleanup_audit:
     command: '.\Tests\Static\Invoke-CleanupAuditChecks.ps1'
     source: Tests/Static/Invoke-CleanupAuditChecks.ps1
