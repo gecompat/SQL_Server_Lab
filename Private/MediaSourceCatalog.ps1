@@ -65,6 +65,79 @@ function Get-LabMediaSourceCatalog {
         $source | Add-Member -NotePropertyName Available -NotePropertyValue $available
     }
 
+    $catalogRoot = if ($script:CatalogsPath) {
+        $script:CatalogsPath
+    }
+    else {
+        Join-Path (Split-Path -Parent $PSScriptRoot) 'Catalogs'
+    }
+    $sqlMediaCatalogPath = Join-Path $catalogRoot 'sql-server-media-sources.json'
+    if (-not (Test-Path -LiteralPath $sqlMediaCatalogPath -PathType Leaf)) {
+        throw "MEDIA_SOURCE_CATALOG_MISSING: $sqlMediaCatalogPath"
+    }
+
+    try {
+        $sqlMediaCatalog = Get-Content -LiteralPath $sqlMediaCatalogPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+    }
+    catch {
+        throw "MEDIA_SOURCE_CATALOG_INVALID: $($_.Exception.Message)"
+    }
+
+    $catalogIds = @($sqlMediaCatalog.entries | ForEach-Object { [string]$_.id })
+    if (@($catalogIds | Sort-Object -Unique).Count -ne $catalogIds.Count) {
+        throw 'MEDIA_SOURCE_CATALOG_INVALID: duplicate entry id'
+    }
+
+    foreach ($entry in @($sqlMediaCatalog.entries)) {
+        $target = if ($root) { Join-Path $root ([string]$entry.targetRelativePath -replace '/', '\') } else { $null }
+        $available = [bool]($target -and -not $target.Contains('<') -and (Test-Path -LiteralPath $target -PathType Leaf))
+        $integrityStatus = if ($available) { 'PRESENT_UNVERIFIED' } else { 'MISSING' }
+        if ($available -and $entry.expectedBytes -and (Get-Item -LiteralPath $target).Length -ne [long]$entry.expectedBytes) {
+            $integrityStatus = 'SIZE_MISMATCH'
+        }
+        elseif ($available -and $entry.expectedSha256 -and $root) {
+            $sidecarPath = Join-Path (Join-Path $root 'Hashes') (([string]$entry.targetRelativePath -replace '/', '\') + '.sha256')
+            if (Test-Path -LiteralPath $sidecarPath -PathType Leaf) {
+                $sidecarHash = ((Get-Content -LiteralPath $sidecarPath -TotalCount 1 -Encoding ascii) -split '\s+')[0].ToLowerInvariant()
+                $integrityStatus = if ($sidecarHash -eq ([string]$entry.expectedSha256).ToLowerInvariant()) {
+                    'CATALOG_HASH_SIDECAR_MATCH'
+                }
+                else {
+                    'HASH_SIDECAR_MISMATCH'
+                }
+            }
+        }
+
+        $effectiveUrl = if ($entry.downloadUrl) { [string]$entry.downloadUrl } else { [string]$entry.referenceUrl }
+        $sources += [PSCustomObject]@{
+            Id = [string]$entry.id
+            Category = 'SQL Server'
+            DisplayName = [string]$entry.displayName
+            Url = $effectiveUrl
+            DownloadUrl = if ($entry.downloadUrl) { [string]$entry.downloadUrl } else { $null }
+            ReferenceUrl = if ($entry.referenceUrl) { [string]$entry.referenceUrl } else { $null }
+            OriginalMicrosoftUrl = if ($entry.originalMicrosoftUrl) { [string]$entry.originalMicrosoftUrl } else { $null }
+            Acquisition = [string]$entry.acquisition
+            SourceStatus = [string]$entry.sourceStatus
+            Version = [string]$entry.version
+            Edition = [string]$entry.edition
+            MediaKind = [string]$entry.mediaKind
+            Architecture = if ($entry.architecture) { [string]$entry.architecture } else { $null }
+            Language = if ($entry.language) { [string]$entry.language } else { $null }
+            TargetRelativePath = [string]$entry.targetRelativePath
+            TargetPath = $target
+            Available = $available
+            IntegrityStatus = $integrityStatus
+            ExpectedBytes = if ($entry.expectedBytes) { [long]$entry.expectedBytes } else { $null }
+            ExpectedSha256 = if ($entry.expectedSha256) { [string]$entry.expectedSha256 } else { $null }
+            ExpectedSha1 = if ($entry.expectedSha1) { [string]$entry.expectedSha1 } else { $null }
+            ProductVersion = if ($entry.productVersion) { [string]$entry.productVersion } else { $null }
+            Automatable = [bool]$entry.automatable
+            BootInteraction = [PSCustomObject]@{ InitialMediaKey = 'none' }
+            Note = [string]$entry.note
+        }
+    }
+
     foreach ($sample in @(Get-LabExecutableSampleVariant)) {
         $sources += [PSCustomObject]@{
             Id = "sample:$($sample.SampleId):$($sample.Variant)"; Category = 'Testdatenbank'; DisplayName = "$($sample.DisplayName) · $($sample.Variant)"

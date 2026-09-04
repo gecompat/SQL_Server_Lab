@@ -142,6 +142,7 @@ Get-SqlServerLabCuStatus              # Microsoft-Learn-CU-Stand read-only gegen
 Save-SqlServerLabCuResource           # Katalogisierten Windows-CU oder exakten Linux-MCR-Tag sicher bereitstellen
 Get-SqlServerLabResourcePlan          # Sample- und Windows-/Hyper-V-Ressourcen read-only vorplanen
 Save-SqlServerLabResourceSet          # Katalogisierte Ressourcen hashverifiziert vorab bereitstellen
+Save-SqlServerLabMediaSource          # Katalogisiertes SQL-Basismedium hash- und signaturgeprüft bereitstellen
 ```
 
 Für Docker-/Podman-Ad-hoc-Labs kann `New-SqlServerLab -PersistentData` einen

@@ -301,6 +301,11 @@ Sync-SqlServerLabRunScopedContainerStore
         Stellt ausgewählte Ressourcen aus Cache, erneut gehashtem Altbestand
         oder katalogisierter HTTP(S)-Quelle ohne SQL-Installation bereit.
 
+    Save-SqlServerLabMediaSource
+        Lädt ein katalogisiertes SQL-Basismedium oder einen Bootstrapper nach
+        Größen-, SHA-256- und Microsoft-Signaturprüfung in den Media Root.
+        Lizenzmedien ohne legalen öffentlichen Download bleiben manuell.
+
 NAMING AND OWNERSHIP
     PowerShell ordnet jeden exportierten Befehl ueber die Source- und
     ModuleName-Eigenschaften dem Modul SqlServerLab zu:

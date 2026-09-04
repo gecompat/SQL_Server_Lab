@@ -8,6 +8,7 @@ Die Kataloge sind maschinenlesbare Runtimeeingaben. Änderungen müssen mit Sche
 |---|---|---|
 | `sql-server-versions.json` | SQL-Server-Versionen, Major Version, Compatibility Level, Status, Images, CU-Builds und Ressourcenprofile | `../Schemas/version-catalog.schema.json` |
 | `sql-server-cu-status-sources.json` | Wartbare offizielle Microsoft-Quellen für den read-only CU-Abgleich einschließlich dokumentierter Rückzüge | `../Schemas/cu-status-sources.schema.json` |
+| `sql-server-media-sources.json` | Direkte Microsoft-Downloads, verifizierte Archiv-Fallbacks und manuelle Lizenzmedien für nicht-Azure SQL-Server-Basisversionen | `../Schemas/sql-server-media-sources.schema.json` |
 | `sample-databases.json` | Metadaten öffentlicher Testdatenbanken, Varianten, Lizenzen, URLs und Mindestversionen | `sample-databases.schema.json` → `../Schemas/sample-databases.schema.json` |
 | `software.json` | Providerneutrale SQL-bezogene Software- und External-Runtime-Varianten mit Support-, Integrity- und Verification-Metadaten | `../Schemas/software-catalog.schema.json` |
 
@@ -88,6 +89,28 @@ Download verfügbar. Damit kann ein wechselnder Herstellerlink keinen
 ungeprüften Binärcode in den Media Root bringen. Für die CU-Historie sind die
 Microsoft-Buildtabellen, der Microsoft Update Catalog und die veröffentlichte
 MCR-Tagliste die autoritativen Quellen.
+
+## Medienquellenkatalog
+
+`sql-server-media-sources.json` hält aufgelöste Download-URLs dauerhaft fest,
+statt nur auf wechselnde Produktseiten zu verweisen. Jeder automatisierbare
+Eintrag bindet Zielpfad, Dateigröße und SHA-256. EXE-Dateien müssen beim
+Download zusätzlich eine gültige Microsoft-Authenticode-Signatur besitzen.
+
+Die Herkunft ist ausdrücklich typisiert:
+
+- `DIRECT_MICROSOFT_DOWNLOAD`: aktive Datei auf `download.microsoft.com`;
+- `ARCHIVE_FALLBACK_VERIFIED`: archivierte frühere Microsoft-Datei, deren
+  Original-URL zurückgezogen wurde und deren Hash und Signatur geprüft wurden;
+- `MANUAL_LICENSED_MEDIA`: kein legaler öffentlicher Vollmedium-Download;
+- `BOOTSTRAPPER` bezeichnet nur das kleine Downloadprogramm, nicht das von ihm
+  später interaktiv erzeugte ISO.
+
+`Save-SqlServerLabMediaSource -Id <id> -MediaRoot <root>` lädt nur Einträge mit
+vollständigen Integritätsmetadaten. Abweichende vorhandene Dateien werden nicht
+überschrieben. MSSQLTips dient als Discovery-Quelle, aber nie allein als
+Integritäts- oder Herkunftsnachweis. SQL Server 2019 CU7 gehört nicht in diesen
+Basismedienkatalog und bleibt im separaten CU-Katalog zurückgezogen.
 
 ## Softwarekatalog
 
