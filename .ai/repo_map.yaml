@@ -57,6 +57,7 @@ sources_of_truth:
   database_migration_dependency_inventory: Private/DatabaseMigrationDependency.ps1
   database_migration_dependency_public_inventory: Public/Get-SqlServerLabDatabaseMigrationDependency.ps1
   database_migration_dependency_inventory_schema: Schemas/database-migration-dependency-inventory.schema.json
+  database_migration_execution_plan_schema: Schemas/database-migration-execution-plan.schema.json
   validation_database_migration_dependency: Tests/Static/Invoke-DatabaseMigrationDependencyChecks.ps1
   host_tool_resolution: Private/HostToolResolution.ps1
   host_tool_initializer: Tools/Initialize-SqlServerLabHostTools.ps1
@@ -527,6 +528,7 @@ internal_components:
       - "sanitisierte Migration-Boundaries in neue Backup- und Datenbankpaket-Receipts einbetten"
       - "persistierte Migrationskategorien und Warnungen pfad- und geheimnisfrei ueber die Datenbankpaket-Auswahl an CLI und Browser projizieren"
       - "Live-Inventur direkt oder ueber stabile Run-/Instanzbindung als oeffentliches read-only Cmdlet bereitstellen"
+      - "aus jedem validierten Inventar einen versionierten, geheimnisfreien und strikt nicht ausfuehrbaren Migrations-Review-Plan mit TDE-Blockern ableiten"
   - name: SampleArtifactHandlers
     source: Private/SampleArtifactHandlers.ps1
     responsibilities:
