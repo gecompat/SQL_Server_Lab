@@ -579,7 +579,8 @@ implementiert und statisch mit synthetischer MDF/LDF-Menge geprüft. Für
 `runtimeStatus: executable` mit ZIP führt der Docker-/Podman-Handler eine
 Run-/Scope-/Instanz-Eigentumsprüfung, Kopie in einen zufälligen ausschließlich
 Lab-eigenen SQL-Datenordner, `mssql`-Eigentümerschaft, `FOR ATTACH`,
-ONLINE-Postcondition und ein persistiertes Recovery-Journal aus. Der
+ONLINE-Postcondition und ein persistiertes, schema- und zustandsgebundenes
+Recovery-Journal (`SqlServerLab.ContainerAttachJournal/1.0`) aus. Der
 7z-Mehrdateipfad sowie ein nativer Attach-Akzeptanzlauf mit echtem SQL-Server
 sind noch nicht implementiert beziehungsweise nicht ausgeführt; die aktuellen
 StackOverflow-Einträge bleiben deshalb `descriptive`.

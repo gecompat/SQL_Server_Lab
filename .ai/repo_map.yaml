@@ -33,6 +33,8 @@ sources_of_truth:
   manifest_builder_validation: Private/ManifestBuilder.ps1
   sql_versions: Catalogs/sql-server-versions.json
   sample_databases: Catalogs/sample-databases.json
+  container_attach_journal_schema: Schemas/container-attach-journal.schema.json
+  container_attach_handler: Private/SampleArtifactHandlers.ps1
   sample_baseline_registry_schema: Schemas/sample-baseline-registry.schema.json
   backup_library: Private/BackupLibrary.ps1
   backup_library_schema: Schemas/backup-library.schema.json
@@ -1112,6 +1114,7 @@ validation:
       - sample_restore_resolution
       - idempotency_and_trust_contract
       - trust_required_non_interactive
+      - container_attach_journal_schema_and_recovery_invariants
   static_project_adapter:
     command: '.\Tests\Static\Invoke-ProjectAdapterChecks.ps1'
     source: Tests/Static/Invoke-ProjectAdapterChecks.ps1

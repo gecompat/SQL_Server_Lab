@@ -679,6 +679,63 @@ function Invoke-LabContainerBacpacImport {
     }
 }
 
+function Assert-LabContainerAttachJournal {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Journal)
+
+    $schemaPath = Join-Path $script:SchemasPath 'container-attach-journal.schema.json'
+    try {
+        $valid = ($Journal | ConvertTo-Json -Depth 20 | Test-Json -SchemaFile $schemaPath -ErrorAction Stop)
+    }
+    catch {
+        throw "CONTAINER_ATTACH_JOURNAL_SCHEMA_INVALID: $($_.Exception.Message)"
+    }
+    if (-not $valid) { throw 'CONTAINER_ATTACH_JOURNAL_SCHEMA_INVALID' }
+
+    $expectedRecovery = if ([bool]$Journal.AttachInvoked) {
+        'DETACH_TARGET_COPY_AND_PRESERVE_TARGET'
+    }
+    else {
+        'REMOVE_UNATTACHED_TARGET_COPY'
+    }
+    switch ([string]$Journal.Status) {
+        'COPYING' {
+            if ($Journal.CopyVerified -or $Journal.AttachInvoked -or $Journal.PostconditionVerified -or
+                [string]$Journal.Recovery -ne 'REMOVE_UNATTACHED_TARGET_COPY') {
+                throw 'CONTAINER_ATTACH_JOURNAL_STATE_INVALID'
+            }
+        }
+        'ATTACHING' {
+            if (-not $Journal.CopyVerified -or $Journal.PostconditionVerified -or
+                [string]$Journal.Recovery -ne $expectedRecovery) {
+                throw 'CONTAINER_ATTACH_JOURNAL_STATE_INVALID'
+            }
+        }
+        'COMPLETED' {
+            if (-not $Journal.CopyVerified -or -not $Journal.AttachInvoked -or -not $Journal.PostconditionVerified -or
+                [string]$Journal.Recovery -ne 'NOT_REQUIRED') {
+                throw 'CONTAINER_ATTACH_JOURNAL_STATE_INVALID'
+            }
+        }
+        'RECOVERY_REQUIRED' {
+            if ($Journal.PostconditionVerified -or [string]$Journal.Recovery -ne $expectedRecovery) {
+                throw 'CONTAINER_ATTACH_JOURNAL_STATE_INVALID'
+            }
+        }
+    }
+    return $true
+}
+
+function Write-LabContainerAttachJournal {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Journal, [Parameter(Mandatory)][string]$Path)
+
+    $Journal.UpdatedAt = Get-LabTimestamp
+    $null = Assert-LabContainerAttachJournal -Journal $Journal
+    Write-LabArtifactJsonAtomic -Path $Path -InputObject $Journal
+    return $Journal
+}
+
 function Invoke-LabContainerAttach {
     [CmdletBinding()]
     param(
@@ -697,18 +754,18 @@ function Invoke-LabContainerAttach {
     $journalPath=$null
     if($StateRoot){$journalDirectory=Join-Path $StateRoot "operations/attach/$RunId";New-Item -ItemType Directory -Path $journalDirectory -Force|Out-Null;$journalPath=Join-Path $journalDirectory "attach-$([guid]::NewGuid().ToString('N')).json"}
     $journal=[ordered]@{ContractVersion='SqlServerLab.ContainerAttachJournal/1.0';RunId=$RunId;InstanceId=$InstanceId;DatabaseName=$DatabaseName;Status='COPYING';TargetDirectory=$target;CopyVerified=$false;AttachInvoked=$false;PostconditionVerified=$false;Recovery='REMOVE_UNATTACHED_TARGET_COPY'}
-    if($journalPath){Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal}
+    if($journalPath){Write-LabContainerAttachJournal -Path $journalPath -Journal $journal|Out-Null}
     $null=& $runtime exec --user root $ContainerName mkdir -p -- $target;if($LASTEXITCODE -ne 0){throw 'ATTACH_CONTAINER_DIRECTORY_CREATE_FAILED'}
     $files=[Collections.Generic.List[object]]::new()
     try{
         $names=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
         foreach($payload in $Payloads){$source=(Resolve-Path -LiteralPath ([string]$payload.Path) -ErrorAction Stop).Path;$name=[IO.Path]::GetFileName($source);if(-not $names.Add($name)){throw 'ATTACH_CONTAINER_FILE_NAME_COLLISION'};$destination="$target/$name";$null=& $runtime cp $source "${ContainerName}:$destination";if($LASTEXITCODE -ne 0){throw 'ATTACH_CONTAINER_COPY_FAILED'};$files.Add([PSCustomObject]@{Path=$destination;Role=$payload.Role})}
-        $journal.CopyVerified=$true;$journal.Status='ATTACHING';if($journalPath){Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal}
+        $journal.CopyVerified=$true;$journal.Status='ATTACHING';if($journalPath){Write-LabContainerAttachJournal -Path $journalPath -Journal $journal|Out-Null}
         $null=& $runtime exec --user root $ContainerName chown -R mssql:root -- $target;if($LASTEXITCODE -ne 0){throw 'ATTACH_CONTAINER_OWNERSHIP_SET_FAILED'}
         $bstr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword);try{$plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)}
-        try{$journal.AttachInvoked=$true;$journal.Recovery='DETACH_TARGET_COPY_AND_PRESERVE_TARGET';if($journalPath){Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal};$escaped=$DatabaseName.Replace(']',']]');$clauses=@($files|ForEach-Object{"(FILENAME=N'$(([string]$_.Path).Replace("'","''"))')"}) -join ',';$null=Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $plain -Database master -TimeoutSeconds 600 -Query "CREATE DATABASE [$escaped] ON $clauses FOR ATTACH;"; $state=@(Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $plain -Database master -Query "SELECT state_desc FROM sys.databases WHERE name=N'$($DatabaseName.Replace("'","''"))';"|ForEach-Object{([string]$_).Trim()});if($state -notcontains 'ONLINE'){throw 'ATTACH_DATABASE_NOT_ONLINE'};$journal.PostconditionVerified=$true;$journal.Status='COMPLETED';$journal.Recovery='NOT_REQUIRED';if($journalPath){Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal}}finally{$plain=$null}
+        try{$journal.AttachInvoked=$true;$journal.Recovery='DETACH_TARGET_COPY_AND_PRESERVE_TARGET';if($journalPath){Write-LabContainerAttachJournal -Path $journalPath -Journal $journal|Out-Null};$escaped=$DatabaseName.Replace(']',']]');$clauses=@($files|ForEach-Object{"(FILENAME=N'$(([string]$_.Path).Replace("'","''"))')"}) -join ',';$null=Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $plain -Database master -TimeoutSeconds 600 -Query "CREATE DATABASE [$escaped] ON $clauses FOR ATTACH;"; $state=@(Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $plain -Database master -Query "SELECT state_desc FROM sys.databases WHERE name=N'$($DatabaseName.Replace("'","''"))';"|ForEach-Object{([string]$_).Trim()});if($state -notcontains 'ONLINE'){throw 'ATTACH_DATABASE_NOT_ONLINE'};$journal.PostconditionVerified=$true;$journal.Status='COMPLETED';$journal.Recovery='NOT_REQUIRED';if($journalPath){Write-LabContainerAttachJournal -Path $journalPath -Journal $journal|Out-Null}}finally{$plain=$null}
         return [PSCustomObject]@{Status='ATTACHED';DatabaseName=$DatabaseName;TargetDirectory=$target;Files=@($files)}
-    }catch{$journal.Status='RECOVERY_REQUIRED';$journal.Recovery=if($journal.AttachInvoked){'DETACH_TARGET_COPY_AND_PRESERVE_TARGET'}else{'REMOVE_UNATTACHED_TARGET_COPY'};if($journalPath){Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal};throw "ATTACH_RECOVERY_REQUIRED: $($_.Exception.Message)"}
+    }catch{$journal.Status='RECOVERY_REQUIRED';$journal.Recovery=if($journal.AttachInvoked){'DETACH_TARGET_COPY_AND_PRESERVE_TARGET'}else{'REMOVE_UNATTACHED_TARGET_COPY'};if($journalPath){Write-LabContainerAttachJournal -Path $journalPath -Journal $journal|Out-Null};throw "ATTACH_RECOVERY_REQUIRED: $($_.Exception.Message)"}
 }
 
 function Install-LabSampleDatabase {
