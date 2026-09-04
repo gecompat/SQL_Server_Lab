@@ -103,6 +103,28 @@ try {
         $source -match 'Klartext in CMS-Namen, SSMS-Ansichten, Screenshots und CMS-Backups' -and
         $source -match 'Manuell eingegebene und manifestbasierte Passwoerter bleiben immer ausgeschlossen')
 
+    Add-CheckResult -Name 'SSMS-Exportmenue verwendet Lab_Data statt Benutzerprofil-Fallback' -Success (
+        $source -match 'function Read-LabConnectionCenterSsmsExportPath' -and
+        $source -match 'Join-Path \(Join-Path \$dataRoot ''Exports''\) ''sql-server-lab\.regsrvr''' -and
+        $source -match 'State Root unter dem Benutzerprofil wird nicht als sichtbares Exportziel verwendet' -and
+        $source -match 'Export-SqlServerLabSsmsRegistration -Path \$exportPath')
+
+    $script:testDataRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'sql-lab-menu-data'
+    $script:testExportInput = ''
+    $script:testExportWarning = $null
+    function Get-LabDataRootDefault { return $script:testDataRoot }
+    function Read-Host { param([string]$Prompt) return $script:testExportInput }
+    function Write-LabWarning { param([string]$Message) $script:testExportWarning = $Message }
+    $defaultExportPath = Read-LabConnectionCenterSsmsExportPath
+    Add-CheckResult -Name 'Leere Menueeingabe waehlt den portablen Lab_Data-Exportpfad' -Success (
+        $defaultExportPath -eq (Join-Path (Join-Path $script:testDataRoot 'Exports') 'sql-server-lab.regsrvr'))
+
+    $script:testDataRoot = $null
+    $script:testExportInput = ''
+    $cancelledExportPath = Read-LabConnectionCenterSsmsExportPath
+    Add-CheckResult -Name 'Ohne Lab_Data entsteht kein stiller Benutzerprofil-Export' -Success (
+        $null -eq $cancelledExportPath -and $script:testExportWarning -match 'Benutzerprofil')
+
     Add-CheckResult -Name 'CMS-In-Memory-Executor schreibt weder Query- noch Skriptdatei' -Success (
         $source -match 'function Invoke-LabCmsSqlInMemory' -and
         [regex]::Match($source, 'function Invoke-LabCmsSqlInMemory[\s\S]+?(?=\r?\nfunction Export-SqlServerLabCmsSyncScript)').Value -notmatch 'WriteAllText|WriteAllLines|GetTempFileName|sqlcmd')

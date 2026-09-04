@@ -523,6 +523,24 @@ function Export-SqlServerLabSsmsRegistration {
     return [PSCustomObject]@{ Path = $Path; Entries = $center.Entries.Count; GroupName = $center.Grouping.RootGroupName }
 }
 
+function Read-LabConnectionCenterSsmsExportPath {
+    [CmdletBinding()]
+    param()
+
+    $dataRoot = Get-LabDataRootDefault
+    if ([string]::IsNullOrWhiteSpace([string]$dataRoot)) {
+        Write-LabWarning 'Kein Lab_Data-Standard ist konfiguriert. Der internen State Root unter dem Benutzerprofil wird nicht als sichtbares Exportziel verwendet.'
+        $path = Read-Host '  Vollständiger Zielpfad für die .regsrvr-Datei (leer = Abbrechen)'
+        if ([string]::IsNullOrWhiteSpace([string]$path)) { return $null }
+        return [System.IO.Path]::GetFullPath($path.Trim())
+    }
+
+    $defaultPath = Join-Path (Join-Path $dataRoot 'Exports') 'sql-server-lab.regsrvr'
+    $path = Read-Host "  Zielpfad für die .regsrvr-Datei [$defaultPath]"
+    if ([string]::IsNullOrWhiteSpace([string]$path)) { return $defaultPath }
+    return [System.IO.Path]::GetFullPath($path.Trim())
+}
+
 function Get-LabSsmsRegistrationFiles {
     [CmdletBinding()]
     param()
@@ -1079,7 +1097,16 @@ function Invoke-LabConnectionCenterInteractive {
             '0' { return }
             '1' { $result = Sync-SqlServerLabConnectionCenter -StateRoot $stateRoot; foreach ($entry in $result.ConnectionCenter.Entries) { Write-Host ('    [{0}] {1} -> {2}' -f $entry.RuntimeState, $entry.DisplayName, $entry.Server) -ForegroundColor DarkGray } }
             '2' { Write-LabInfo 'Die versionsabhängige lokale SSMS-Datei wird nicht direkt verändert. Mit [3] einen validen Export nach Lab_Data/Exports erstellen und ihn in SSMS unter Ansicht -> Registrierte Server -> Aufgaben -> Importieren importieren.' }
-            '3' { $result = Export-SqlServerLabSsmsRegistration -StateRoot $stateRoot; Write-LabSuccess "SSMS-Export erstellt: $($result.Path)" }
+            '3' {
+                $exportPath = Read-LabConnectionCenterSsmsExportPath
+                if ($exportPath) {
+                    $result = Export-SqlServerLabSsmsRegistration -Path $exportPath -StateRoot $stateRoot
+                    Write-LabSuccess "SSMS-Export erstellt: $($result.Path)"
+                }
+                else {
+                    Write-LabInfo 'SSMS-Export abgebrochen.'
+                }
+            }
             '4' { Invoke-LabCmsInteractive -StateRoot $stateRoot }
             '5' { $name = Read-Host "  Name der verwalteten SSMS-/CMS-Gruppe [$($center.Grouping.RootGroupName)]"; if (-not $name) { $name = $center.Grouping.RootGroupName }; $saved = Set-LabConnectionCenterConfiguration -RootGroupName $name -CmsUseRootGroup ([bool]$center.Grouping.CmsUseRootGroup) -CmsGroupByProvider ([bool]$center.Grouping.CmsGroupByProvider) -CmsShowGeneratedPasswordInName ([bool]$center.Grouping.CmsShowGeneratedPasswordInName) -StateRoot $stateRoot; Write-LabSuccess "Gruppenname gespeichert: $($saved.RootGroupName)" }
             '6' { $null = Sync-SqlServerLabConnectionCenter -StateRoot $stateRoot }

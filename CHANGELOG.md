@@ -19,6 +19,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   bleiben auch bei aktivierter Namensdarstellung geheimnisfrei. Nur der direkte
   CMS-Abgleich verwendet einen ausschließlich im Arbeitsspeicher gehaltenen
   Sync-Plan.
+- Der interaktive `.regsrvr`-Export zeigt und akzeptiert seinen Zielpfad vor dem
+  Schreiben. Er schlägt `Lab_Data/Exports` vor und verwendet ohne konfiguriertes
+  `Lab_Data` keinen benutzerspezifischen State-Root-Pfad mehr als stillen Default.
 
 ## 2026-09-04
 

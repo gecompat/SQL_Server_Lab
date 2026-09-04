@@ -288,6 +288,9 @@ function Sync-SqlServerLabConnectionCenter {
 function Export-SqlServerLabSsmsRegistration {
     [PSCustomObject]@{ Path='test-state-root/exports/sql-server-lab.regsrvr' }
 }
+function Read-LabConnectionCenterSsmsExportPath {
+    'test-data-root/Exports/sql-server-lab.regsrvr'
+}
 function Wait-LabConsoleAcknowledgement {
     $script:connectionCenterAcknowledgements++
 }
