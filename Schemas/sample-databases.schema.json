@@ -291,7 +291,33 @@
                   "archive-backup",
                   "sql-script",
                   "script-bundle",
-                  "bacpac"
+                  "bacpac",
+                  "attach"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "artifactType": { "const": "attach" },
+              "runtimeStatus": { "const": "executable" }
+            }
+          },
+          "then": {
+            "properties": {
+              "installation": {
+                "allOf": [
+                  { "$ref": "#/definitions/attachInstallation" },
+                  {
+                    "required": ["payloadLayout"],
+                    "properties": {
+                      "sourceLayout": { "const": "archive-with-attach-files" },
+                      "archiveFormat": { "type": "string", "enum": ["zip", "7z"] },
+                      "payloadSelection": { "const": "catalog-path" }
+                    }
+                  }
                 ]
               }
             }
@@ -601,6 +627,20 @@
             "catalog-path",
             "manual-required"
           ]
+        },
+        "payloadLayout": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["path", "role"],
+            "properties": {
+              "path": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*\\.(mdf|ndf|ldf)$" },
+              "role": { "enum": ["primary", "data", "log"] }
+            },
+            "additionalProperties": false
+          },
+          "description": "Exakte relative MDF/NDF/LDF-Pfade des verifizierten Archivs. Die Runtime prueft Rollen, Eindeutigkeit und Pfadsicherheit vor jeder Extraktion."
         },
         "idempotencyMode": {
           "$ref": "#/definitions/idempotencyMode"

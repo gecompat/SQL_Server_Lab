@@ -201,7 +201,7 @@ Beispiel:
 }
 ```
 
-Der Manifestparser akzeptiert nur als `executable` katalogisierte Varianten. Unterstützt sind direkte Backups, exakt katalogisierte Backup-Archive, einzelne SQL-Skripte und sichere Script Bundles mit festen erwarteten Datenbanken. Attach-Szenarien bleiben `descriptive` und werden nicht stillschweigend umgedeutet.
+Der Manifestparser akzeptiert nur als `executable` katalogisierte Varianten. Unterstützt sind direkte Backups, exakt katalogisierte Backup-Archive, einzelne SQL-Skripte und sichere Script Bundles mit festen erwarteten Datenbanken. Der Schema-Vertrag für künftige Attach-Varianten verlangt vollständige, sichere MDF/NDF/LDF-Katalogpfade; die Quellbindung bleibt sowohl per Katalog-SHA-256 als auch per einmaligem Trust mit automatisch berechneter Cache-SHA-256 möglich. Bis zum Runtime-Handler bleiben Attach-Szenarien `descriptive` und werden nicht stillschweigend umgedeutet.
 
 ## Nutzung
 
