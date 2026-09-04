@@ -110,7 +110,8 @@ COMMANDS
         Fuehrt Retain oder verifiziertes Backup-on-Remove fuer einen
         Docker-/Podman-Instanzstore journalisiert und wiederaufnehmbar aus.
 
-    Sync-SqlServerLabPersistentStorageArtifact
+Sync-SqlServerLabPersistentStorageArtifact
+Sync-SqlServerLabRunScopedContainerStore
         Revalidiert ein vorhandenes Backup-Set oder Datenbankpaket und
         synchronisiert es per stabiler Artefakt-ID mit dem Storage-Katalog.
 
