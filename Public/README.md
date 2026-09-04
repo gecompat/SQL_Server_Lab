@@ -75,6 +75,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Save-SqlServerLabCuResource` | `Save-SqlServerLabCuResource.ps1` | Einen beliebigen katalogisierten Windows-CU mit SHA-256 und Microsoft-Authenticode in den Media Root oder den exakten Linux-MCR-Tag in Docker/Podman laden |
 | `Get-SqlServerLabResourcePlan` | `Get-SqlServerLabResourcePlan.ps1` | Fehlende katalogisierte Samples und Windows-/Hyper-V-External-Runtime-Medien read-only planen und einen optionalen alten Media Root als Importquelle prüfen |
 | `Save-SqlServerLabResourceSet` | `Save-SqlServerLabResourceSet.ps1` | Ausgewählte Ressourcen aus verifiziertem Cache, hashgeprüftem lokalem Bestand oder katalogisierter HTTP(S)-Quelle vorab bereitstellen; unterstützt `-WhatIf` |
+| `Save-SqlServerLabMediaSource` | `Save-SqlServerLabMediaSource.ps1` | Ein katalogisiertes SQL-Basismedium oder einen Bootstrapper nach Größen-, SHA-256- und Microsoft-Signaturprüfung atomar in den Media Root laden; manuelle Lizenzmedien bleiben gesperrt |
 
 `Test-SqlServerLabPrerequisite` ist öffentlich exportiert, obwohl seine Definition im internen Resource-Assessment-Baustein liegt. Der Ablageort allein bestimmt nicht die Sichtbarkeit; maßgeblich ist `FunctionsToExport` im Modulmanifest.
 

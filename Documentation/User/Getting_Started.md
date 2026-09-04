@@ -188,6 +188,22 @@ geladen. `-WhatIf` schreibt weder Media-, Testdaten- noch State-Dateien.
 `-TrustUnknownArtifact` ist nur für Samples ohne Katalog-SHA-256 erforderlich
 und vertraut ausschließlich den während dieses Laufs gehashten Bytes.
 
+### 4c. SQL-Basismedium vorab bereitstellen
+
+Direkte Microsoft-Downloads und verifizierte Archiv-Fallbacks für historische
+Versionen sind in einem eigenen Katalog gebunden:
+
+```powershell
+Save-SqlServerLabMediaSource `
+    -Id sql-server-2014-express-sp3-full `
+    -MediaRoot 'D:\Lab_Base'
+```
+
+Der Befehl prüft Größe und SHA-256, bei EXE-Dateien zusätzlich die Microsoft-
+Signatur. Mit `-WhatIf` lässt sich der Zielpfad ohne Download anzeigen. Die IDs
+`sql-server-7.0-licensed-media` und `sql-server-6.5-licensed-media` erklären
+bewusst den manuellen Bedarf und starten keinen Download.
+
 ### Aktuellen CU-Stand bei Microsoft prüfen
 
 Vor der Medienbeschaffung kann der Katalog gegen die offizielle Microsoft-

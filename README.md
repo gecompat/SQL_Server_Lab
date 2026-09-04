@@ -213,6 +213,17 @@ weiterhin die ausdrückliche einmalige Freigabe `-TrustUnknownArtifact`.
 Der gleiche Ablauf ist ohne Kommandozeilenkenntnisse unter **Medien,
 Testdaten und Speicher → SQL Server CU herunterladen oder prüfen** verfügbar.
 
+Ein katalogisiertes SQL-Basismedium oder einen Bootstrapper herunterladen:
+
+```powershell
+Save-SqlServerLabMediaSource -Id sql-server-2016-developer-sp3-iso -MediaRoot 'D:\Lab_Base'
+```
+
+Die direkten Microsoft-URLs und verifizierten historischen Fallbacks sind mit
+Dateigröße und SHA-256 in `Catalogs/sql-server-media-sources.json` gebunden.
+SQL Server 7.0 und 6.5 benötigen weiterhin manuell bereitgestellte lizenzierte
+Originalmedien; Azure-Varianten gehören nicht zum Katalog.
+
 Vor dem Download kann der aktuelle Microsoft-Stand read-only geprüft werden:
 
 ```powershell
@@ -692,6 +703,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Save-SqlServerLabCuResource` | Beliebigen katalogisierten Windows-CU hash- und Authenticode-geprüft in den Media Root oder den exakten Linux-MCR-Tag in Docker/Podman laden |
 | `Get-SqlServerLabResourcePlan` | Sample- und Windows-/Hyper-V-External-Runtime-Ressourcen read-only planen |
 | `Save-SqlServerLabResourceSet` | Katalogisierte Ressourcen aus Cache, lokalem Altbestand oder HTTP(S) hashverifiziert vorab bereitstellen |
+| `Save-SqlServerLabMediaSource` | Katalogisiertes SQL-Basismedium oder Bootstrapper nach Größen-, SHA-256- und Microsoft-Signaturprüfung in den Media Root laden |
 
 `SqlServerLab.psd1` ist die autoritative Liste der exportierten Funktionen.
 

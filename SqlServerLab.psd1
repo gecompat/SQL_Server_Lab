@@ -78,6 +78,7 @@
         'Save-SqlServerLabCuResource'
         'Get-SqlServerLabResourcePlan'
         'Save-SqlServerLabResourceSet'
+        'Save-SqlServerLabMediaSource'
     )
 
     CmdletsToExport   = @()

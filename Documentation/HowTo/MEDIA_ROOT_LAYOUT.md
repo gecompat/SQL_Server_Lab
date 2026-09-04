@@ -276,23 +276,45 @@ Heruntergeladene ISOs liegen nach Version und Edition unter `SQL`.
 Offizielle Quelle:
 [SQL Server Downloads](https://www.microsoft.com/en-us/sql-server/sql-server-downloads).
 
-### Developer-Downloadreferenzen
+### Versionierter Basismedienkatalog
 
-Die folgenden Links werden als lokale Referenz für manuelle Medienbeschaffung
-geführt. Nach dem Download bleiben Originaldateiname und SHA-256 nachvollziehbar;
-die Datei wird erst danach in die passende Media-Root-Struktur einsortiert.
+Die direkten Microsoft-URLs werden in
+`Catalogs/sql-server-media-sources.json` zusammen mit Zielpfad, erwarteter
+Dateigröße und SHA-256 dauerhaft geführt. Damit bleibt eine aufgelöste URL auch
+dann nachvollziehbar, wenn die Microsoft-Produktseite später geändert wird.
 
-| Version | Edition | Offizielle Downloadreferenz | Einordnung |
-| --- | --- | --- | --- |
-| SQL Server 2022 | Developer | [Bootstrap-Installer](https://aka.ms/sqlserver2022developer) | Aktiver Lab-Umfang; daraus ein ISO-Medium erzeugen und unter `SQL\2022\<Edition>\ISO` ablegen. |
-| SQL Server 2019 | Developer | [Bootstrap-Installer](https://download.microsoft.com/download/d/a/2/da259851-b941-459d-989c-54a18a5d44dd/SQL2019-SSEI-Dev.exe) | Aktiver Lab-Umfang; daraus ein ISO-Medium erzeugen und unter `SQL\2019\<Edition>\ISO` ablegen. |
-| SQL Server 2017 | Developer | [Microsoft-Produktseite](https://www.microsoft.com/de-de/sql-server/sql-server-2017) | Legacy-Referenz; derzeit nicht als automatischer Lab-Build auswählbar. |
-| SQL Server 2016 SP3 | Developer | [Full Slipstream ISO](https://download.microsoft.com/download/f/9/8/f982347c-fee3-4b3e-a8dc-c95383aa3020/sql16_sp3_dlc/en-us/SQLServer2016SP3-FullSlipstream-x64-ENU-DEV.iso) | Legacy-Referenz; derzeit nicht als automatischer Lab-Build auswählbar. |
+```powershell
+Save-SqlServerLabMediaSource `
+    -Id sql-server-2016-developer-sp3-iso `
+    -MediaRoot 'D:\Lab1_Base'
+```
 
-SQL Server 2016 und 2017 werden bewusst nur als Downloadreferenzen geführt.
-Der aktuell automatisierte Container- und Hyper-V-Workflow unterstützt SQL
-Server 2019, 2022 und 2025. Für eine Erweiterung auf 2016/2017 müssen erst
-Versionskatalog, Medienprüfung und Abnahmematrix ergänzt werden.
+Der Befehl veröffentlicht die Datei erst nach Größen- und SHA-256-Prüfung. Bei
+EXE-Dateien muss außerdem die Microsoft-Authenticode-Signatur gültig sein.
+`-WhatIf` zeigt Quelle und Ziel ohne Download.
+
+| Versionsbereich | Verfügbare Basis | Beschaffung |
+| --- | --- | --- |
+| 2025 | Enterprise Developer, Standard Developer und Express Bootstrapper | direkter Microsoft-Download; Bootstrapper erzeugen das Vollmedium in einem getrennten interaktiven Schritt |
+| 2022, 2019, 2017 | Developer-/Evaluation-/Express-Bootstrapper; vorhandene Developer-/Evaluation-ISOs bleiben bevorzugte Offlinequelle | direkter Microsoft-Download |
+| 2016 SP3 | vollständiges Developer-ISO sowie Evaluation-/Express-Bootstrapper | direkter Microsoft-Download |
+| 2014 RTM und SP3, 2012 SP4, 2008 R2 SP2 | Express-Vollpaket | direkter Microsoft-Download |
+| 2008 SP3, 2005 SP4 | Express-Vollpaket | verifizierte Archivkopie der früheren, heute mit 404 antwortenden Microsoft-Datei |
+| 2000 | MSDE Release A | verifizierte Archivkopie; MSDE ist kein Ersatz für Standard/Enterprise |
+| 7.0 und 6.5 | kein freies Vollmedium ermittelt | originales lizenziertes Medium manuell unter `SQL\<Version>\<Edition>\ISO` bereitstellen |
+
+Der Bestand deckt damit jede Hauptversion ab SQL Server 2000 mit mindestens
+einer legal verfügbaren Engine-Variante ab. Er ist nicht editionsvollständig:
+für lizenzierte Standard-/Enterprise-Ausgaben älterer Versionen müssen eigene
+Originalmedien verwendet werden. Azure-Varianten sind bewusst ausgeschlossen.
+MSSQLTips wird nur zur Linksuche verwendet; die tatsächliche Datei wird anhand
+von Produktversion, Microsoft-Signatur und Hash klassifiziert. So wurde ein
+dort als SQL Server 2025 Express bezeichneter Link als tatsächliches SQL Server
+2022 Express erkannt und nicht falsch einsortiert.
+
+SQL Server 2016 und 2017 sind als Medienquellen verfügbar, aber noch nicht als
+automatische Hyper-V-Lab-Builds freigegeben. Dafür müssen Versionskatalog,
+Gastautomatisierung und Abnahmematrix je Betriebssystem ergänzt werden.
 
 Der Hyper-V-Image-Pfad kann diese Medien SHA-256-verifiziert an einen
 resumierbaren SQL-`PrepareImage`-Builder binden. Der Ablauf steht unter

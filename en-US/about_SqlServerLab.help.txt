@@ -298,6 +298,11 @@ Sync-SqlServerLabRunScopedContainerStore
         Prefetches selected resources from cache, a re-hashed existing media
         root, or the catalogued HTTP(S) source without installing SQL content.
 
+    Save-SqlServerLabMediaSource
+        Downloads a catalogued SQL Server base medium or bootstrapper into the
+        media root after size, SHA-256, and Microsoft signature verification.
+        Licensed media without a legal public download remains manual.
+
 NAMING AND OWNERSHIP
     PowerShell associates each exported command with SqlServerLab through the
     Source and ModuleName properties:
