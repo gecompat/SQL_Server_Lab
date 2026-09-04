@@ -51,6 +51,21 @@ behalten ihren automatischen SHA-256-Nachweis unverändert bei.
 .\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -Provider podman -Policy DELETE_WITH_RUN
 ```
 
+## Öffentlicher Container-Datenbankpaketexport
+
+`Invoke-ContainerDatabasePackageExportAcceptance.ps1` belegt den öffentlichen
+`Export-SqlServerLabDatabasePackage`-Pfad für Docker und Podman getrennt. Der
+Runner verlangt eine reine Run-/Instanz-/Datenbankbindung, prüft `WhatIf`,
+exklusives Offline der Quelle, stabile Paket- und Storage-ID, vollständige
+Objekt-/Manifest-SHA-256-Integrität sowie Cleanup. Freie Container- oder
+Hostpfade, TDE und FILESTREAM bleiben außerhalb dieses Container-Slices
+fail-closed.
+
+```powershell
+.\Tests\Integration\Invoke-ContainerDatabasePackageExportAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-ContainerDatabasePackageExportAcceptance.ps1 -Provider podman
+```
+
 ## Aktueller lokaler Nachweis (2026-08-12)
 
 ```text

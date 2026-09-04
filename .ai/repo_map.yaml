@@ -42,6 +42,7 @@ sources_of_truth:
   acceptance_backup_library_cross_provider: Tests/Integration/Invoke-BackupLibraryCrossProviderAcceptance.ps1
   database_package: Private/DatabasePackage.ps1
   database_package_inventory: Public/Get-SqlServerLabDatabasePackage.ps1
+  database_package_export: Public/Export-SqlServerLabDatabasePackage.ps1
   database_package_attach: Public/Invoke-SqlServerLabDatabasePackageAttach.ps1
   database_package_hyperv_attach: Providers/HyperV/HyperVDatabasePackage.ps1
   database_package_library_schema: Schemas/database-package-library.schema.json
@@ -51,6 +52,7 @@ sources_of_truth:
   database_package_attach_result_schema: Schemas/database-package-attach-result.schema.json
   validation_database_package: Tests/Static/Invoke-DatabasePackageChecks.ps1
   acceptance_database_package_sql: Tests/Integration/Invoke-DatabasePackageSqlAcceptance.ps1
+  acceptance_container_database_package_export: Tests/Integration/Invoke-ContainerDatabasePackageExportAcceptance.ps1
   acceptance_database_package_hyperv_attach: Tests/Integration/Invoke-HyperVDatabasePackageAttachAcceptance.ps1
   database_migration_dependency_inventory: Private/DatabaseMigrationDependency.ps1
   database_migration_dependency_public_inventory: Public/Get-SqlServerLabDatabaseMigrationDependency.ps1
@@ -591,7 +593,7 @@ internal_components:
       - "Datenbankpakete fuer CLI und Browser pfadfrei per stabiler DatabasePackageId inventarisieren; Voll-Hashing nur bei expliziter Integritaetspruefung oder unmittelbar vor Verwendung ausfuehren"
       - "Datenbankpakete per stabiler Run-/Instanzbindung an das live ermittelte SQL-Default-Data-Verzeichnis eines scopegebundenen Hyper-V-Gasts kopieren, dort vollstaendig hashen und erst nach vorab persistiertem Recovery-Journal attachen"
       - "Retention, Backup-/Package-on-Remove, externe Bindungsfreigabe und Recovery-Postconditions read-only planen; persistente Storage-Löschung getrennt halten"
-      - "RETAIN_INSTANCE_STORE, BACKUP_ON_REMOVE, MDF/NDF/LDF-PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE für Docker-/Podman-Instanzstores frisch revalidiert, artefaktverifiziert und journalisiert ausführen; EXTERNAL_UNMANAGED löst ausschließlich revisionsgeschützt die eigene Katalogbindung und bestätigt die unveränderte Quelle; FILESTREAM, TDE und Delete bleiben vor Mutation blockiert"
+      - "RETAIN_INSTANCE_STORE, BACKUP_ON_REMOVE, MDF/NDF/LDF-PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE für Docker-/Podman-Instanzstores frisch revalidiert, artefaktverifiziert und journalisiert ausführen; EXTERNAL_UNMANAGED löst ausschließlich revisionsgeschützt die eigene Katalogbindung und bestätigt die unveränderte Quelle; DELETE_WITH_RUN ist ausschließlich für nachgewiesene RUN_SCOPED/RUN_CLEANUP-Containerstores zweiphasig ausführbar, FILESTREAM, TDE und jede andere endgültige Löschung bleiben vor Mutation blockiert"
       - "CLI und Browser-UI über denselben frisch inventarisierten Retention-Plan-Core ausschließlich per stabiler Storage-ID vorausschauen und die unterstützten Policies bestätigt ausführen lassen"
       - "katalogisierte Docker-/Podman-Instanzstores in CLI und Browser per stabiler ID und Runtime-Label detached revalidieren, fuer Continue an den neuen Run leasen oder unter exklusiver Operations-Lease digestverifiziert klonen; verifizierte Datenbanken stabil referenzieren sowie Zielcommit und Quellfreigabe atomar koppeln"
       - "reguläre Hyper-V-Daten-VHDX vor ihrer Erzeugung controllerweit als INCOMPLETE mit stabiler Storage-ID und exklusiver Run-Lease reservieren, nach DiskIdentifier- und VM-Attachment-Postcondition auf IN_USE committen und Abbrüche als RECOVERY_REQUIRED fortsetzbar halten"
