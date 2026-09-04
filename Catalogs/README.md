@@ -224,6 +224,15 @@ Prüfsummen sollen mittelfristig als
 `catalog-verified` mit `trustPolicy: catalog-only` in den Katalog übernommen
 werden.
 
+Die read-only Workflow-Inventur und die lokale Browserauswahl zeigen dazu nur
+den sicheren Status (`TRUST_REQUIRED`, `catalog-verified` oder lokal erzeugter
+Trust) sowie `CacheStatus` (`HIT`/`MISS`). Dadurch ist eine einmalig erzeugte
+SHA-256 vor dem nächsten Start sichtbar und die Freigabe wird nicht erneut
+verlangt. Der konkrete Hash, die Trust-Store-Datei und lokale Cache- oder
+Hostpfade bleiben ausschließlich im PowerShell-Core und werden nicht an den
+Browser übertragen. Die Inventur lädt nichts herunter und erzeugt keinen neuen
+Trust-Record.
+
 ## Validierung
 
 ```powershell
