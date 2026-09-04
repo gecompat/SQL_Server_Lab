@@ -782,7 +782,10 @@ Daten und die Entfernung des temporären Containerartefakts. Zusätzlich erzeugt
 sie eine synthetische Datenbank, detacht deren MDF/LDF, kopiert nur diese
 Testpayloads in den Host-Workspace und führt den normalen Container-Attach-
 Handler mit ONLINE-, Inhalts- und Journalpostcondition aus. Der garantierte
-Run-Cleanup entfernt sämtliche testbezogenen Container und Volumes. Sie lädt
+Run-Cleanup entfernt sämtliche testbezogenen Container und Volumes. Ein zweiter
+Attach auf die bereits vorhandene Testdatenbank erzwingt einen SQL-Teilfehler;
+der Test verlangt dafür das persistierte `RECOVERY_REQUIRED`-Journal mit der
+passenden Detach-Aktion. Sie lädt
 kein fremdes Sample-Artefakt herunter.
 
 ### Hyper-V-Lifecycle betroffen

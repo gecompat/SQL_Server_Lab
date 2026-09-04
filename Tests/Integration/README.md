@@ -80,7 +80,8 @@ danach ausschließlich im Test-Run eine Datenbank mit Marker. Die Quelldatenbank
 wird sauber detachiert; ihre MDF/LDF werden als kontrollierte Testpayloads durch
 `Invoke-LabContainerAttach` wieder angehängt. Der Test verlangt `ONLINE`, den
 SQL-Inhaltsroundtrip und ein abgeschlossenes Container-Attach-Journal und
-entfernt Run, Runtime-Volume und test-eigenes Derived Image im Cleanup.
+erzwingt danach einen SQL-Fehler mit `RECOVERY_REQUIRED`-Journal. Er entfernt
+Run, Runtime-Volume und test-eigenes Derived Image im Cleanup.
 
 ```powershell
 .\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -Provider docker
