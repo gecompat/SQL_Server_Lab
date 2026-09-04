@@ -1366,6 +1366,53 @@ function Register-LabRunScopedContainerStore {
     return [PSCustomObject]@{ Changed=[bool]$transaction.Changed; Store=@($transaction.Document.Stores | Where-Object PersistentStorageId -eq $storageId)[0]; CatalogRevision=[int]$transaction.CatalogRevision; ProposedRevision=[int]$transaction.ProposedRevision; Preview=[bool]$transaction.Preview }
 }
 
+function Start-LabRunScopedContainerStoreDeletion {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$RunId,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$ScopeId,
+        [Parameter(Mandatory)]$Configuration,
+        [ValidateRange(0,2147483647)][int]$ExpectedRevision
+    )
+    $now = Get-LabTimestamp
+    Invoke-LabPersistentStorageCatalogMutation -Configuration $Configuration -MutationName START_RUN_SCOPED_CONTAINER_STORE_DELETION -ExpectedRevision $ExpectedRevision -Mutation {
+        param($Document)
+        $matches=@($Document.Stores | Where-Object { [string]$_.PersistentStorageId -eq $PersistentStorageId })
+        if($matches.Count -ne 1){throw 'RUN_SCOPED_CONTAINER_STORE_DELETE_UNRESOLVED'}
+        $store=$matches[0]
+        if([string]$store.State -eq 'DELETE_PENDING'){return [string]$store.PersistentStorageId}
+        if([string]$store.StorageClass -ne 'INSTANCE_STORE' -or [string]$store.Retention -ne 'RUN_SCOPED' -or [string]$store.CleanupDisposition -ne 'RUN_CLEANUP' -or [string]$store.State -ne 'IN_USE' -or -not $store.Lease -or [string]$store.Lease.RunId -ne $RunId -or [string]$store.Lease.ScopeId -ne $ScopeId){throw 'RUN_SCOPED_CONTAINER_STORE_DELETE_CONFLICT'}
+        @($store.References | Where-Object { [string]$_.State -eq 'ACTIVE' -and [string]$_.Kind -in @('RUN','DATABASE') }) | ForEach-Object { $_.State='RELEASED' }
+        $store.Lease=$null;$store.State='DELETE_PENDING';$store.UpdatedAt=$now
+        [string]$store.PersistentStorageId
+    }.GetNewClosure()
+}
+
+function Complete-LabRunScopedContainerStoreDeletion {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName,
+        [Parameter(Mandatory)]$Configuration,
+        [ValidateRange(0,2147483647)][int]$ExpectedRevision
+    )
+    $runtime=Get-LabContainerInstanceStoreRuntimeInspection -Provider $Provider -VolumeName $VolumeName
+    if([string]$runtime.Status -ne 'MISSING'){throw 'RUN_SCOPED_CONTAINER_STORE_DELETE_RUNTIME_STILL_PRESENT'}
+    $now=Get-LabTimestamp
+    Invoke-LabPersistentStorageCatalogMutation -Configuration $Configuration -MutationName COMPLETE_RUN_SCOPED_CONTAINER_STORE_DELETION -ExpectedRevision $ExpectedRevision -Mutation {
+        param($Document)
+        $matches=@($Document.Stores | Where-Object { [string]$_.PersistentStorageId -eq $PersistentStorageId })
+        if($matches.Count -ne 1){throw 'RUN_SCOPED_CONTAINER_STORE_DELETE_UNRESOLVED'}
+        $store=$matches[0]
+        if([string]$store.State -eq 'DETACHED'){return [string]$store.PersistentStorageId}
+        if([string]$store.State -ne 'DELETE_PENDING' -or [string]$store.Provider -ne $Provider -or [string]$store.LocationBinding.ProviderResourceId -ne $VolumeName -or $store.Lease -or @($store.References|Where-Object{[string]$_.State -eq 'ACTIVE'}).Count -gt 0){throw 'RUN_SCOPED_CONTAINER_STORE_DELETE_FINALIZATION_CONFLICT'}
+        $store.State='DETACHED';$store.UpdatedAt=$now
+        [string]$store.PersistentStorageId
+    }.GetNewClosure()
+}
+
 function Sync-LabContainerInstanceStoreDatabaseReference {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der serialisierten Katalog-Lock-Closure verwendet.')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Interner Katalogcommit nach bereits bestaetigter und verifizierter Lab-Provisionierung.')]
