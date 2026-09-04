@@ -49,7 +49,7 @@ Statische Vertragspruefungen und Runtime-Nachweise sind getrennte Evidence.
 | `Install/Test-SqlServerLabAdapter` | Adapter-Schema und Capability-Gates | GitHub-hosted Adapter-Smoke |
 | `Install-SqlServerLab7Zip` | 7-Zip- und Archivhandler-Vertraege | nur fuer ZIP-Samples erforderlich; Chinook benoetigt 7-Zip nicht |
 | `Clear-SqlServerLab`, `Get-SqlServerLabCleanupAudit` | Cleanup-, Recovery- und Scope-Suites; interaktiver Audit ruft `-NoWrite` auf und zeigt Findings samt Guidance | Provider-Akzeptanz prueft den engeren rungebundenen Cleanup; globales Clear wird nicht gegen fremde Labs ausgefuehrt |
-| `Invoke-SqlServerLabPersistentStorageRemoval` | `Invoke-PersistentStorageRemovalPlanChecks.ps1`, `Invoke-PersistentStorageRemovalExecutorChecks.ps1` | Der Plan unterscheidet `EXECUTABLE`, `PLANNED_NOT_EXECUTABLE` und `BLOCKED`; die Runtime-Abnahme belegt Docker und Podman getrennt mit echtem Backup-on-Remove und retained Store |
+| `Invoke-SqlServerLabPersistentStorageRemoval` | `Invoke-PersistentStorageRemovalPlanChecks.ps1`, `Invoke-PersistentStorageRemovalExecutorChecks.ps1` | Der Plan unterscheidet `EXECUTABLE`, `PLANNED_NOT_EXECUTABLE` und `BLOCKED`; die Runtime-Abnahme belegt Docker und Podman getrennt mit Backup-on-Remove, MDF/NDF/LDF-Package-on-Remove und `BACKUP_AND_PACKAGE` (Backup vor Offline-Schritt) sowie retained Store |
 | `Get-SqlServerLabGeneratedSqlAccess` | Secret-/DPAPI-Vertraege | Windows-SQL-Pfad mit runlokalem SA-Secret |
 | `Invoke-SqlServerLab` | Menue-, Routing- und Self-Reload-Vertraege; Fallback zeigt `0` auch bei Textfeldern, Attention nennt Abhilfe | interaktive Tastatureingaben bleiben UI-Contract; die mutierenden Zielaktionen laufen ueber dieselben oeffentlichen Fachfunktionen |
 

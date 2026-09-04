@@ -152,10 +152,11 @@ bleibt getrennt:
   umstellen sowie breite Bestandsmigration und Wiederverwendungsaktionen
   ergänzen;
 - `PSR-004`: Der read-only Retention-/Removal-Plan sowie der journalisierte
-  Docker-/Podman-Executor für `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE` und
-  MDF/NDF/LDF-`PACKAGE_ON_REMOVE` sind umgesetzt; FILESTREAM, TDE,
-  Kombinationspolicy, externe Freigabe und explizite endgültige
-  Storage-Löschung bleiben offen;
+  Docker-/Podman-Executor für `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`,
+  MDF/NDF/LDF-`PACKAGE_ON_REMOVE` und `BACKUP_AND_PACKAGE` sind umgesetzt.
+  Die Kombination erzeugt und verifiziert das Backup vor dem Offline-Schritt
+  des Datenbankpakets; FILESTREAM, TDE, externe Freigabe und die explizite
+  endgültige Storage-Löschung bleiben offen;
 - `PSR-005`: Der stabile ID-, Continue- und detached Clone-Core ist samt
   Katalogcommit, öffentlicher Bedienung und rollenfestem Mehr-Volume-Vertrag
   für External-Language-/Library-Sidecars umgesetzt und getrennt real mit
