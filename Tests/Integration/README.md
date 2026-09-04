@@ -60,6 +60,9 @@ exklusives Offline der Quelle, stabile Paket- und Storage-ID, vollständige
 Objekt-/Manifest-SHA-256-Integrität sowie Cleanup. Freie Container- oder
 Hostpfade, TDE und FILESTREAM bleiben außerhalb dieses Container-Slices
 fail-closed.
+Die Browseraktion `Datenbank paketieren` transportiert an denselben öffentlichen
+Core nur Run-ID, Instanz-ID und den validierten Datenbanknamen; ihr
+UI-Vertrag wird zusätzlich durch `Invoke-WorkflowUiChecks.ps1` geprüft.
 
 ```powershell
 .\Tests\Integration\Invoke-ContainerDatabasePackageExportAcceptance.ps1 -Provider docker
