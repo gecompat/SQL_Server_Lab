@@ -583,13 +583,14 @@ ONLINE-Postcondition und ein persistiertes, schema- und zustandsgebundenes
 Recovery-Journal (`SqlServerLab.ContainerAttachJournal/1.0`) aus. Ein
 synthetischer Handlernachweis prüft die Kopierfolge, `FOR ATTACH`, die
 ONLINE-Abfrage und einen SQL-Teilfehler mit passender Recovery-Aktion; er
-ersetzt keinen nativen Attach-Akzeptanzlauf. Der
-7z-Mehrdateipfad sowie ein nativer Attach-Akzeptanzlauf mit echtem SQL-Server
-sind noch nicht implementiert beziehungsweise nicht ausgeführt; die aktuellen
-StackOverflow-Einträge bleiben deshalb `descriptive`.
+ersetzt keinen nativen Attach-Akzeptanzlauf. Der ZIP- und 7z-Mehrdateipfad
+extrahiert ausschließlich jede katalogisierte Datei in ein isoliertes
+Arbeitsverzeichnis und ist statisch mit synthetischen MDF/LDF-Dateien belegt.
+Ein nativer Attach-Akzeptanzlauf mit echtem SQL-Server ist noch nicht
+ausgeführt; die aktuellen StackOverflow-Einträge bleiben deshalb `descriptive`.
 
-Noch nicht implementiert sind der 7z-Attach-Handler, Hyper-V-Attach für
-Katalogartefakte und das Überschreiben der erwarteten Zieldatenbanknamen.
+Noch nicht implementiert sind Hyper-V-Attach für Katalogartefakte und das
+Überschreiben der erwarteten Zieldatenbanknamen.
 Run-gebundene Hyper-V-`LAB_GENERATED`-Backups verwenden
 eine verifizierte Storage-Receipt-Backup-Lane, PowerShell Direct für den Export
 und denselben run-gebundenen Restorepfad; dieser Vertrag ist synthetisch, aber

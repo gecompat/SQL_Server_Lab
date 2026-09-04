@@ -142,6 +142,29 @@ try {
             Remove-Item -LiteralPath $sevenZipPayload.WorkingDirectory -Recurse -Force
         }
 
+        $attachSevenZipPayloadWorks = $true
+        if ($sevenZip) {
+            $attachSevenZipSource = Join-Path $StateRoot 'attach-seven-zip-source'
+            New-Item -Path (Join-Path $attachSevenZipSource 'payload') -ItemType Directory -Force | Out-Null
+            [System.IO.File]::WriteAllText((Join-Path $attachSevenZipSource 'payload/sample.mdf'), 'seven-zip-primary')
+            [System.IO.File]::WriteAllText((Join-Path $attachSevenZipSource 'payload/sample_log.ldf'), 'seven-zip-log')
+            $attachSevenZipArchive = Join-Path $StateRoot 'attach.7z'
+            Push-Location $attachSevenZipSource
+            try {
+                & ([string]$sevenZip.Path) a -t7z $attachSevenZipArchive 'payload/sample.mdf' 'payload/sample_log.ldf' | Out-Null
+                if ($LASTEXITCODE -ne 0) { throw "Statisches 7z-Attach-Testarchiv konnte nicht erstellt werden (ExitCode $LASTEXITCODE)." }
+            }
+            finally { Pop-Location }
+            $attachSevenZipPayloads = Get-LabArchiveAttachPayloads -ArchivePath $attachSevenZipArchive -ArchiveFormat 7z -PayloadLayout @(
+                [PSCustomObject]@{ path = 'payload/sample.mdf'; role = 'primary' },
+                [PSCustomObject]@{ path = 'payload/sample_log.ldf'; role = 'log' }
+            ) -RunDirectory $StateRoot
+            $attachSevenZipPayloadWorks = @($attachSevenZipPayloads.Payloads).Count -eq 2 -and
+                ([System.IO.File]::ReadAllText($attachSevenZipPayloads.Payloads[0].Path) -eq 'seven-zip-primary') -and
+                ([System.IO.File]::ReadAllText($attachSevenZipPayloads.Payloads[1].Path) -eq 'seven-zip-log')
+            Remove-Item -LiteralPath $attachSevenZipPayloads.WorkingDirectory -Recurse -Force
+        }
+
         $attachPayloadLayout = Get-LabAttachPayloadLayout -PayloadLayout @(
             [PSCustomObject]@{ path = 'data/StackOverflow.mdf'; role = 'primary' },
             [PSCustomObject]@{ path = 'data/StackOverflow_Archive.ndf'; role = 'data' },
@@ -499,6 +522,7 @@ CREATE DATABASE [$(SecondDatabase)];
                 $bundleWorkingDirectoryRemoved
             ArchivePayloadWorks   = $archivePayloadWorks
             AttachArchivePayloadWorks = $attachArchivePayloadWorks
+            AttachSevenZipPayloadWorks = $attachSevenZipPayloadWorks
             SevenZipPayloadWorks  = $sevenZipPayloadWorks
             AttachPayloadLayoutWorks = @($attachPayloadLayout).Count -eq 3 -and $attachPayloadLayout[0].Role -eq 'primary' -and $attachPayloadLayout[2].Role -eq 'log'
             UnsafeAttachLayoutRejected = $unsafeAttachLayoutRejected
@@ -521,6 +545,7 @@ CREATE DATABASE [$(SecondDatabase)];
     Add-CheckResult -Name 'Beschreibende Attach-Varianten bleiben ausgeschlossen' -Success $result.NoDescriptiveVariants
     Add-CheckResult -Name 'Attach-Payload-Layout ist rollen- und pfadgebunden' -Success $result.AttachPayloadLayoutWorks
     Add-CheckResult -Name 'ZIP-Attach-Payloads werden exakt und isoliert extrahiert' -Success $result.AttachArchivePayloadWorks
+    Add-CheckResult -Name '7z-Attach-Payloads werden bei verfügbarem 7-Zip exakt und isoliert extrahiert' -Success $result.AttachSevenZipPayloadWorks
     Add-CheckResult -Name 'Attach-Payload-Layout weist Traversal und doppelte Pfade ab' -Success ($result.UnsafeAttachLayoutRejected -and $result.DuplicateAttachLayoutRejected)
     Add-CheckResult -Name 'Ausfuehrbare Attach-Varianten koennen per Trust-Hash und Katalogpfad gebunden werden' -Success ($result.TrustBoundAttachSchemaWorks -and $result.MissingAttachLayoutRejected)
     Add-CheckResult -Name 'Container-Attach-Journal ist schema- und zeitstempelgebunden atomar persistiert' -Success $result.ContainerAttachJournalSchemaWorks

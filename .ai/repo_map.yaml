@@ -1116,6 +1116,7 @@ validation:
       - trust_required_non_interactive
       - container_attach_journal_schema_and_recovery_invariants
       - container_attach_handler_sql_and_recovery_sequence
+      - exact_zip_and_7z_attach_payload_extraction
   static_project_adapter:
     command: '.\Tests\Static\Invoke-ProjectAdapterChecks.ps1'
     source: Tests/Static/Invoke-ProjectAdapterChecks.ps1
