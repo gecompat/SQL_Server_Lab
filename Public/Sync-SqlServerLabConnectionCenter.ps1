@@ -243,6 +243,42 @@ function ConvertTo-LabCmsServerTarget {
     return $Server
 }
 
+function Get-LabCmsHierarchySummary {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$ConnectionCenter)
+
+    $entries = @($ConnectionCenter.Entries)
+    $running = @($entries | Where-Object { ([string]$_.RuntimeState).ToUpperInvariant() -eq 'RUNNING' })
+    $stopped = @($entries | Where-Object { ([string]$_.RuntimeState).ToUpperInvariant() -ne 'RUNNING' })
+    $newProviderSummary = {
+        param([object[]]$Items)
+        @($Items | Group-Object { ([string]$_.Provider).ToUpperInvariant() } | Sort-Object Name | ForEach-Object {
+            [PSCustomObject]@{
+                Provider = [string]$_.Name
+                Count = @($_.Group).Count
+                DisplayName = ('{0} ({1})' -f [string]$_.Name, @($_.Group).Count)
+            }
+        })
+    }
+    $rootName = [string]$ConnectionCenter.Grouping.RootGroupName
+    return [PSCustomObject]@{
+        Root = [PSCustomObject]@{
+            Count = $entries.Count
+            DisplayName = ('{0} ({1})' -f $rootName, $entries.Count)
+        }
+        Running = [PSCustomObject]@{
+            Count = $running.Count
+            DisplayName = ('Running ({0})' -f $running.Count)
+            Providers = @(& $newProviderSummary $running)
+        }
+        Stopped = [PSCustomObject]@{
+            Count = $stopped.Count
+            DisplayName = ('Stopped ({0})' -f $stopped.Count)
+            Providers = @(& $newProviderSummary $stopped)
+        }
+    }
+}
+
 function Initialize-SqlServerLabCms {
     <#
     .SYNOPSIS
@@ -548,6 +584,10 @@ function Export-SqlServerLabCmsSyncScript {
     }
     if (-not $Path) { $Path = Join-Path (Get-LabConnectionCenterExportDirectory -StateRoot $StateRoot) 'sql-server-lab-cms-sync.sql' }
     $escape = { param([string]$Value) $Value.Replace("'", "''") }
+    $hierarchy = Get-LabCmsHierarchySummary -ConnectionCenter $center
+    $managedRootDisplayName = [string]$hierarchy.Root.DisplayName
+    $runningDisplayName = [string]$hierarchy.Running.DisplayName
+    $stoppedDisplayName = [string]$hierarchy.Stopped.DisplayName
     $providerAvailability = [ordered]@{}
     foreach ($provider in @('docker', 'podman')) {
         $available = $false
@@ -580,71 +620,84 @@ function Export-SqlServerLabCmsSyncScript {
     $lines.Add('BEGIN TRANSACTION;')
     $lines.Add('DECLARE @DatabaseEngineRootId int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE server_type = 0 AND is_system_object = 1 ORDER BY server_group_id);')
     $lines.Add("IF @DatabaseEngineRootId IS NULL THROW 51000, 'CMS database-engine root group was not found.', 1;")
-    $lines.Add("DECLARE @ManagedRootId int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE name = N'$(& $escape $center.Grouping.RootGroupName)' AND parent_id = @DatabaseEngineRootId);")
+    $lines.Add("DECLARE @ManagedRootId int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @DatabaseEngineRootId AND (description = N'ManagedBy=SQL_Server_Lab;Contract=1.0' OR description LIKE N'ManagedBy=SQL_Server_Lab;Contract=%;Role=Root%' OR name = N'$(& $escape $center.Grouping.RootGroupName)') ORDER BY CASE WHEN description LIKE N'ManagedBy=SQL_Server_Lab;Contract=%;Role=Root%' THEN 0 WHEN description = N'ManagedBy=SQL_Server_Lab;Contract=1.0' THEN 1 ELSE 2 END, server_group_id);")
     if ([bool]$center.Grouping.CmsUseRootGroup) {
-        $lines.Add("IF @ManagedRootId IS NULL BEGIN EXEC msdb.dbo.sp_sysmanagement_add_shared_server_group @name = N'$(& $escape $center.Grouping.RootGroupName)', @description = N'ManagedBy=SQL_Server_Lab;Contract=1.0', @server_type = 0, @parent_id = @DatabaseEngineRootId, @server_group_id = @ManagedRootId OUTPUT; END;")
+        $lines.Add("IF @ManagedRootId IS NULL BEGIN EXEC msdb.dbo.sp_sysmanagement_add_shared_server_group @name = N'$(& $escape $managedRootDisplayName)', @description = N'ManagedBy=SQL_Server_Lab;Contract=1.1;Role=Root', @server_type = 0, @parent_id = @DatabaseEngineRootId, @server_group_id = @ManagedRootId OUTPUT; END;")
+        $lines.Add("EXEC msdb.dbo.sp_sysmanagement_update_shared_server_group @server_group_id = @ManagedRootId, @description = N'ManagedBy=SQL_Server_Lab;Contract=1.1;Role=Root';")
         $lines.Add('DECLARE @LabRootId int = @ManagedRootId;')
     }
     else {
         $lines.Add('DECLARE @LabRootId int = @DatabaseEngineRootId;')
     }
-    $lines.Add("DECLARE @RunningId int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE name = N'Running' AND parent_id = @LabRootId);")
-    $lines.Add("IF @RunningId IS NULL BEGIN EXEC msdb.dbo.sp_sysmanagement_add_shared_server_group @name = N'Running', @description = N'SQL Server Lab: aktive SQL-Endpunkte', @server_type = 0, @parent_id = @LabRootId, @server_group_id = @RunningId OUTPUT; END;")
-    $lines.Add("DECLARE @StoppedId int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE name = N'Stopped' AND parent_id = @LabRootId);")
-    $lines.Add("IF @StoppedId IS NULL BEGIN EXEC msdb.dbo.sp_sysmanagement_add_shared_server_group @name = N'Stopped', @description = N'SQL Server Lab: gestoppte SQL-Endpunkte', @server_type = 0, @parent_id = @LabRootId, @server_group_id = @StoppedId OUTPUT; END;")
+    $lines.Add("DECLARE @RunningId int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @LabRootId AND (description = N'ManagedBy=SQL_Server_Lab;Contract=1.1;Role=RuntimeState;State=RUNNING' OR name = N'Running') ORDER BY CASE WHEN description LIKE N'ManagedBy=SQL_Server_Lab;Contract=%;Role=RuntimeState;State=RUNNING' THEN 0 ELSE 1 END, server_group_id);")
+    $lines.Add("IF @RunningId IS NULL BEGIN EXEC msdb.dbo.sp_sysmanagement_add_shared_server_group @name = N'$(& $escape $runningDisplayName)', @description = N'ManagedBy=SQL_Server_Lab;Contract=1.1;Role=RuntimeState;State=RUNNING', @server_type = 0, @parent_id = @LabRootId, @server_group_id = @RunningId OUTPUT; END;")
+    $lines.Add("EXEC msdb.dbo.sp_sysmanagement_update_shared_server_group @server_group_id = @RunningId, @description = N'ManagedBy=SQL_Server_Lab;Contract=1.1;Role=RuntimeState;State=RUNNING';")
+    $lines.Add("DECLARE @StoppedId int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @LabRootId AND (description = N'ManagedBy=SQL_Server_Lab;Contract=1.1;Role=RuntimeState;State=STOPPED' OR name = N'Stopped') ORDER BY CASE WHEN description LIKE N'ManagedBy=SQL_Server_Lab;Contract=%;Role=RuntimeState;State=STOPPED' THEN 0 ELSE 1 END, server_group_id);")
+    $lines.Add("IF @StoppedId IS NULL BEGIN EXEC msdb.dbo.sp_sysmanagement_add_shared_server_group @name = N'$(& $escape $stoppedDisplayName)', @description = N'ManagedBy=SQL_Server_Lab;Contract=1.1;Role=RuntimeState;State=STOPPED', @server_type = 0, @parent_id = @LabRootId, @server_group_id = @StoppedId OUTPUT; END;")
+    $lines.Add("EXEC msdb.dbo.sp_sysmanagement_update_shared_server_group @server_group_id = @StoppedId, @description = N'ManagedBy=SQL_Server_Lab;Contract=1.1;Role=RuntimeState;State=STOPPED';")
 
     $reconciledProviders = @()
     $skippedProviders = @()
     foreach ($provider in $providerAvailability.Keys) {
         $providerEntries = @($center.Entries | Where-Object { [string]$_.Provider -eq $provider })
+        $runningProviderEntries = @($providerEntries | Where-Object { ([string]$_.RuntimeState).ToUpperInvariant() -eq 'RUNNING' })
+        $stoppedProviderEntries = @($providerEntries | Where-Object { ([string]$_.RuntimeState).ToUpperInvariant() -ne 'RUNNING' })
         $providerName = $provider.ToUpperInvariant()
         $suffix = $providerName -replace '[^A-Z0-9_]', '_'
         $safeProviderName = & $escape $providerName
+        $runningProviderDisplayName = & $escape ('{0} ({1})' -f $providerName, $runningProviderEntries.Count)
+        $stoppedProviderDisplayName = & $escape ('{0} ({1})' -f $providerName, $stoppedProviderEntries.Count)
+        $runningProviderDescription = & $escape ("ManagedBy=SQL_Server_Lab;Contract=1.1;Role=Provider;Provider={0};RuntimeState=RUNNING" -f $provider)
+        $stoppedProviderDescription = & $escape ("ManagedBy=SQL_Server_Lab;Contract=1.1;Role=Provider;Provider={0};RuntimeState=STOPPED" -f $provider)
         $legacyGroupName = & $escape ('{0} - {1}' -f $center.Grouping.RootGroupName, $providerName)
-        if (-not $providerAvailability[$provider]) {
-            $skippedProviders += $provider
-            $lines.Add("-- Provider '$provider' ist nicht sicher pruefbar; vorhandene Eintraege bleiben unveraendert.")
-            continue
-        }
-
-        $reconciledProviders += $provider
-        $lines.Add("DECLARE @RunningProvider_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE name = N'$safeProviderName' AND parent_id = @RunningId);")
-        $lines.Add("DECLARE @StoppedProvider_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE name = N'$safeProviderName' AND parent_id = @StoppedId);")
-        if ([bool]$center.Grouping.CmsGroupByProvider) {
-            $lines.Add("IF @RunningProvider_$suffix IS NULL BEGIN EXEC msdb.dbo.sp_sysmanagement_add_shared_server_group @name = N'$safeProviderName', @description = N'SQL Server Lab Providergruppe', @server_type = 0, @parent_id = @RunningId, @server_group_id = @RunningProvider_$suffix OUTPUT; END;")
-            $lines.Add("IF @StoppedProvider_$suffix IS NULL BEGIN EXEC msdb.dbo.sp_sysmanagement_add_shared_server_group @name = N'$safeProviderName', @description = N'SQL Server Lab Providergruppe', @server_type = 0, @parent_id = @StoppedId, @server_group_id = @StoppedProvider_$suffix OUTPUT; END;")
+        $lines.Add("DECLARE @RunningProvider_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @RunningId AND (description = N'$runningProviderDescription' OR name = N'$safeProviderName') ORDER BY CASE WHEN description = N'$runningProviderDescription' THEN 0 ELSE 1 END, server_group_id);")
+        $lines.Add("DECLARE @StoppedProvider_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @StoppedId AND (description = N'$stoppedProviderDescription' OR name = N'$safeProviderName') ORDER BY CASE WHEN description = N'$stoppedProviderDescription' THEN 0 ELSE 1 END, server_group_id);")
+        if ([bool]$center.Grouping.CmsGroupByProvider -and $providerAvailability[$provider]) {
+            if ($runningProviderEntries.Count -gt 0) {
+                $lines.Add("IF @RunningProvider_$suffix IS NULL BEGIN EXEC msdb.dbo.sp_sysmanagement_add_shared_server_group @name = N'$runningProviderDisplayName', @description = N'$runningProviderDescription', @server_type = 0, @parent_id = @RunningId, @server_group_id = @RunningProvider_$suffix OUTPUT; END;")
+            }
+            if ($stoppedProviderEntries.Count -gt 0) {
+                $lines.Add("IF @StoppedProvider_$suffix IS NULL BEGIN EXEC msdb.dbo.sp_sysmanagement_add_shared_server_group @name = N'$stoppedProviderDisplayName', @description = N'$stoppedProviderDescription', @server_type = 0, @parent_id = @StoppedId, @server_group_id = @StoppedProvider_$suffix OUTPUT; END;")
+            }
         }
         $lines.Add("DECLARE @LegacyProvider_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE name = N'$legacyGroupName' AND parent_id = @ManagedRootId);")
-        $lines.Add("DECLARE @OldManagedRunning_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE name = N'Running' AND parent_id = @ManagedRootId);")
-        $lines.Add("DECLARE @OldManagedStopped_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE name = N'Stopped' AND parent_id = @ManagedRootId);")
-        $lines.Add("DECLARE @OldRunningProvider_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE name = N'$safeProviderName' AND parent_id = @OldManagedRunning_$suffix);")
-        $lines.Add("DECLARE @OldStoppedProvider_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE name = N'$safeProviderName' AND parent_id = @OldManagedStopped_$suffix);")
-        $lines.Add("DECLARE CmsServerCursor_$suffix CURSOR LOCAL FAST_FORWARD FOR SELECT server_id FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id IN (@RunningProvider_$suffix, @StoppedProvider_$suffix, @LegacyProvider_$suffix, @OldRunningProvider_$suffix, @OldStoppedProvider_$suffix) OR (server_group_id IN (@RunningId, @StoppedId, @OldManagedRunning_$suffix, @OldManagedStopped_$suffix) AND description LIKE N'ManagedBy=SQL_Server_Lab;%;Provider=$provider;%');")
-        $lines.Add("DECLARE @DeleteServerId_$suffix int; OPEN CmsServerCursor_$suffix; FETCH NEXT FROM CmsServerCursor_$suffix INTO @DeleteServerId_$suffix;")
-        $lines.Add("WHILE @@FETCH_STATUS = 0 BEGIN EXEC msdb.dbo.sp_sysmanagement_delete_shared_registered_server @server_id = @DeleteServerId_$suffix; FETCH NEXT FROM CmsServerCursor_$suffix INTO @DeleteServerId_$suffix; END; CLOSE CmsServerCursor_$suffix; DEALLOCATE CmsServerCursor_$suffix;")
+        $lines.Add("DECLARE @OldManagedRunning_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE @ManagedRootId IS NOT NULL AND @ManagedRootId <> @LabRootId AND parent_id = @ManagedRootId AND (description LIKE N'ManagedBy=SQL_Server_Lab;Contract=%;Role=RuntimeState;State=RUNNING' OR name = N'Running'));")
+        $lines.Add("DECLARE @OldManagedStopped_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE @ManagedRootId IS NOT NULL AND @ManagedRootId <> @LabRootId AND parent_id = @ManagedRootId AND (description LIKE N'ManagedBy=SQL_Server_Lab;Contract=%;Role=RuntimeState;State=STOPPED' OR name = N'Stopped'));")
+        $lines.Add("DECLARE @OldRunningProvider_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @OldManagedRunning_$suffix AND (description = N'$runningProviderDescription' OR name = N'$safeProviderName'));")
+        $lines.Add("DECLARE @OldStoppedProvider_$suffix int = (SELECT TOP (1) server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @OldManagedStopped_$suffix AND (description = N'$stoppedProviderDescription' OR name = N'$safeProviderName'));")
 
-        foreach ($entry in @($providerEntries | Sort-Object RuntimeState, DisplayName, Server)) {
-            $server = & $escape (ConvertTo-LabCmsServerTarget -Server $entry.Server -CmsProvider $CmsProvider)
-            $displayName = & $escape $entry.DisplayName
-            $runtimeState = ([string]$entry.RuntimeState).ToUpperInvariant()
-            if ([bool]$center.Grouping.CmsGroupByProvider) {
-                $targetGroup = if ($runtimeState -eq 'RUNNING') { "@RunningProvider_$suffix" } else { "@StoppedProvider_$suffix" }
+        if (-not $providerAvailability[$provider]) {
+            $skippedProviders += $provider
+            $lines.Add("-- Provider '$provider' ist nicht sicher pruefbar; vorhandene Eintraege bleiben unveraendert, sichtbare Zaehler werden aus dem CMS-Istbestand aktualisiert.")
+        }
+        else {
+            $reconciledProviders += $provider
+            $lines.Add("DECLARE CmsServerCursor_$suffix CURSOR LOCAL FAST_FORWARD FOR SELECT server_id FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id IN (@RunningProvider_$suffix, @StoppedProvider_$suffix, @LegacyProvider_$suffix, @OldRunningProvider_$suffix, @OldStoppedProvider_$suffix) OR (server_group_id IN (@RunningId, @StoppedId, @OldManagedRunning_$suffix, @OldManagedStopped_$suffix) AND description LIKE N'ManagedBy=SQL_Server_Lab;%;Provider=$provider;%');")
+            $lines.Add("DECLARE @DeleteServerId_$suffix int; OPEN CmsServerCursor_$suffix; FETCH NEXT FROM CmsServerCursor_$suffix INTO @DeleteServerId_$suffix;")
+            $lines.Add("WHILE @@FETCH_STATUS = 0 BEGIN EXEC msdb.dbo.sp_sysmanagement_delete_shared_registered_server @server_id = @DeleteServerId_$suffix; FETCH NEXT FROM CmsServerCursor_$suffix INTO @DeleteServerId_$suffix; END; CLOSE CmsServerCursor_$suffix; DEALLOCATE CmsServerCursor_$suffix;")
+
+            foreach ($entry in @($providerEntries | Sort-Object RuntimeState, DisplayName, Server)) {
+                $server = & $escape (ConvertTo-LabCmsServerTarget -Server $entry.Server -CmsProvider $CmsProvider)
+                $displayName = & $escape $entry.DisplayName
+                $runtimeState = ([string]$entry.RuntimeState).ToUpperInvariant()
+                if ([bool]$center.Grouping.CmsGroupByProvider) {
+                    $targetGroup = if ($runtimeState -eq 'RUNNING') { "@RunningProvider_$suffix" } else { "@StoppedProvider_$suffix" }
+                }
+                else {
+                    $targetGroup = if ($runtimeState -eq 'RUNNING') { '@RunningId' } else { '@StoppedId' }
+                }
+                $identity = & $escape ([string]$entry.Id)
+                $description = & $escape ("ManagedBy=SQL_Server_Lab;Contract=1.0;Identity={0};Provider={1};RuntimeState={2}" -f $entry.Id, $provider, $runtimeState)
+                $variableSuffix = [Guid]::NewGuid().ToString('N').Substring(0, 8)
+                $lines.Add("DECLARE @ServerId_$variableSuffix int;")
+                $lines.Add("EXEC msdb.dbo.sp_sysmanagement_add_shared_registered_server @name = N'$displayName', @server_group_id = $targetGroup, @server_name = N'$server', @description = N'$description', @server_type = 0, @server_id = @ServerId_$variableSuffix OUTPUT;")
             }
-            else {
-                $targetGroup = if ($runtimeState -eq 'RUNNING') { '@RunningId' } else { '@StoppedId' }
-            }
-            $identity = & $escape ([string]$entry.Id)
-            $description = & $escape ("ManagedBy=SQL_Server_Lab;Contract=1.0;Identity={0};Provider={1};RuntimeState={2}" -f $entry.Id, $provider, $runtimeState)
-            $variableSuffix = [Guid]::NewGuid().ToString('N').Substring(0, 8)
-            $lines.Add("DECLARE @ServerId_$variableSuffix int;")
-            $lines.Add("EXEC msdb.dbo.sp_sysmanagement_add_shared_registered_server @name = N'$displayName', @server_group_id = $targetGroup, @server_name = N'$server', @description = N'$description', @server_type = 0, @server_id = @ServerId_$variableSuffix OUTPUT;")
+
+            $lines.Add("IF @LegacyProvider_$suffix IS NOT NULL AND NOT EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id = @LegacyProvider_$suffix) EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @LegacyProvider_$suffix;")
         }
 
-        $lines.Add("IF @LegacyProvider_$suffix IS NOT NULL AND NOT EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id = @LegacyProvider_$suffix) EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @LegacyProvider_$suffix;")
-        if (-not [bool]$center.Grouping.CmsGroupByProvider) {
-            $lines.Add("IF @RunningProvider_$suffix IS NOT NULL AND NOT EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id = @RunningProvider_$suffix) EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @RunningProvider_$suffix;")
-            $lines.Add("IF @StoppedProvider_$suffix IS NOT NULL AND NOT EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id = @StoppedProvider_$suffix) EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @StoppedProvider_$suffix;")
-        }
+        $lines.Add("IF @RunningProvider_$suffix IS NOT NULL BEGIN DECLARE @RunningProviderCount_$suffix int = (SELECT COUNT(*) FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id = @RunningProvider_$suffix); IF @RunningProviderCount_$suffix = 0 BEGIN EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @RunningProvider_$suffix; SET @RunningProvider_$suffix = NULL; END ELSE BEGIN EXEC msdb.dbo.sp_sysmanagement_update_shared_server_group @server_group_id = @RunningProvider_$suffix, @description = N'$runningProviderDescription'; DECLARE @RunningProviderName_$suffix sysname = CONCAT(N'$safeProviderName (', @RunningProviderCount_$suffix, N')'); IF EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @RunningId AND name = @RunningProviderName_$suffix AND server_group_id <> @RunningProvider_$suffix) THROW 51001, 'CMS running provider group name collision.', 1; IF (SELECT name FROM msdb.dbo.sysmanagement_shared_server_groups WHERE server_group_id = @RunningProvider_$suffix) <> @RunningProviderName_$suffix EXEC msdb.dbo.sp_sysmanagement_rename_shared_server_group @server_group_id = @RunningProvider_$suffix, @new_name = @RunningProviderName_$suffix; END; END;")
+        $lines.Add("IF @StoppedProvider_$suffix IS NOT NULL BEGIN DECLARE @StoppedProviderCount_$suffix int = (SELECT COUNT(*) FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id = @StoppedProvider_$suffix); IF @StoppedProviderCount_$suffix = 0 BEGIN EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @StoppedProvider_$suffix; SET @StoppedProvider_$suffix = NULL; END ELSE BEGIN EXEC msdb.dbo.sp_sysmanagement_update_shared_server_group @server_group_id = @StoppedProvider_$suffix, @description = N'$stoppedProviderDescription'; DECLARE @StoppedProviderName_$suffix sysname = CONCAT(N'$safeProviderName (', @StoppedProviderCount_$suffix, N')'); IF EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @StoppedId AND name = @StoppedProviderName_$suffix AND server_group_id <> @StoppedProvider_$suffix) THROW 51002, 'CMS stopped provider group name collision.', 1; IF (SELECT name FROM msdb.dbo.sysmanagement_shared_server_groups WHERE server_group_id = @StoppedProvider_$suffix) <> @StoppedProviderName_$suffix EXEC msdb.dbo.sp_sysmanagement_rename_shared_server_group @server_group_id = @StoppedProvider_$suffix, @new_name = @StoppedProviderName_$suffix; END; END;")
     }
     foreach ($group in @($center.Entries | Group-Object Provider | Where-Object { $_.Name -notin $providerAvailability.Keys })) {
         $skippedProviders += [string]$group.Name
@@ -657,6 +710,12 @@ function Export-SqlServerLabCmsSyncScript {
         $lines.Add('OPEN EmptyStatusCursor; FETCH NEXT FROM EmptyStatusCursor INTO @EmptyGroupId; WHILE @@FETCH_STATUS = 0 BEGIN EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @EmptyGroupId; FETCH NEXT FROM EmptyStatusCursor INTO @EmptyGroupId; END; CLOSE EmptyStatusCursor; DEALLOCATE EmptyStatusCursor;')
         $lines.Add("IF @ManagedRootId IS NOT NULL AND NOT EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id = @ManagedRootId) AND NOT EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @ManagedRootId) EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @ManagedRootId;")
     }
+    $lines.Add("DECLARE @RunningCount int; WITH RunningGroupTree AS (SELECT @RunningId AS server_group_id UNION ALL SELECT g.server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups g INNER JOIN RunningGroupTree p ON g.parent_id = p.server_group_id) SELECT @RunningCount = COUNT(*) FROM msdb.dbo.sysmanagement_shared_registered_servers s WHERE s.server_group_id IN (SELECT server_group_id FROM RunningGroupTree); DECLARE @RunningName sysname = CONCAT(N'Running (', @RunningCount, N')'); IF EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @LabRootId AND name = @RunningName AND server_group_id <> @RunningId) THROW 51003, 'CMS running group name collision.', 1; IF (SELECT name FROM msdb.dbo.sysmanagement_shared_server_groups WHERE server_group_id = @RunningId) <> @RunningName EXEC msdb.dbo.sp_sysmanagement_rename_shared_server_group @server_group_id = @RunningId, @new_name = @RunningName;")
+    $lines.Add("DECLARE @StoppedCount int; WITH StoppedGroupTree AS (SELECT @StoppedId AS server_group_id UNION ALL SELECT g.server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups g INNER JOIN StoppedGroupTree p ON g.parent_id = p.server_group_id) SELECT @StoppedCount = COUNT(*) FROM msdb.dbo.sysmanagement_shared_registered_servers s WHERE s.server_group_id IN (SELECT server_group_id FROM StoppedGroupTree); DECLARE @StoppedName sysname = CONCAT(N'Stopped (', @StoppedCount, N')'); IF EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @LabRootId AND name = @StoppedName AND server_group_id <> @StoppedId) THROW 51004, 'CMS stopped group name collision.', 1; IF (SELECT name FROM msdb.dbo.sysmanagement_shared_server_groups WHERE server_group_id = @StoppedId) <> @StoppedName EXEC msdb.dbo.sp_sysmanagement_rename_shared_server_group @server_group_id = @StoppedId, @new_name = @StoppedName;")
+    if ([bool]$center.Grouping.CmsUseRootGroup) {
+        $safeRootGroupName = & $escape ([string]$center.Grouping.RootGroupName)
+        $lines.Add("DECLARE @ManagedRootCount int; WITH ManagedRootTree AS (SELECT @ManagedRootId AS server_group_id UNION ALL SELECT g.server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups g INNER JOIN ManagedRootTree p ON g.parent_id = p.server_group_id) SELECT @ManagedRootCount = COUNT(*) FROM msdb.dbo.sysmanagement_shared_registered_servers s WHERE s.server_group_id IN (SELECT server_group_id FROM ManagedRootTree); DECLARE @ManagedRootName sysname = CONCAT(N'$safeRootGroupName (', @ManagedRootCount, N')'); IF EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @DatabaseEngineRootId AND name = @ManagedRootName AND server_group_id <> @ManagedRootId) THROW 51005, 'CMS managed root group name collision.', 1; IF (SELECT name FROM msdb.dbo.sysmanagement_shared_server_groups WHERE server_group_id = @ManagedRootId) <> @ManagedRootName EXEC msdb.dbo.sp_sysmanagement_rename_shared_server_group @server_group_id = @ManagedRootId, @new_name = @ManagedRootName;")
+    }
     $lines.Add('COMMIT TRANSACTION;')
     $directory = Split-Path -Parent $Path
     if ($directory) { $null = New-Item -ItemType Directory -Path $directory -Force }
@@ -664,6 +723,7 @@ function Export-SqlServerLabCmsSyncScript {
     return [PSCustomObject]@{
         Path = $Path
         Entries = $center.Entries.Count
+        Hierarchy = $hierarchy
         ReconciledProviders = @($reconciledProviders)
         SkippedProviderUnavailable = @($skippedProviders | Sort-Object -Unique)
     }

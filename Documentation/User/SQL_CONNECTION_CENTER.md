@@ -75,8 +75,10 @@ Die CMS-Einträge erscheinen in SSMS nicht im normalen **Objekt-Explorer** und a
 nicht unter **Lokale Servergruppen**. Der verwaltete CMS muss einmal unter
 **Ansicht -> Registrierte Server -> Datenbankmodul -> Zentrale Verwaltungsserver**
 mit dem im CMS-Menü angezeigten Serverziel registriert werden. Danach den Knoten
-aktualisieren und **SQL Server Lab -> Running** aufklappen; darunter folgen optional
-die Providergruppen `DOCKER`, `PODMAN` und `HYPERV`. Das CMS-Menü zeigt dafür den
+aktualisieren und beispielsweise **SQL Server Lab (8) -> Running (3)** aufklappen;
+darunter folgen optional die nichtleeren Providergruppen wie `DOCKER (1)` und
+`HYPERV (2)`. Root-, Status- und Providergruppen zeigen bei jedem Abgleich die
+Anzahl aller jeweils darunterliegenden Umgebungen. Das CMS-Menü zeigt dafür den
 konkreten Servernamen. Zugangsdaten bleiben im geschützten Run-Secret und werden
 nicht in den CMS-Registrierungen gespeichert.
 
@@ -111,4 +113,7 @@ Provider lokal sicher geprüft werden kann. Das Skript enthält keine Kennwörte
 die sichtbare Hierarchie zusätzlich unabhängig konfiguriert werden: eigener Root-Ordner
 ein oder aus sowie Provider-Ordner unter `Running` und `Stopped` ein oder aus. Damit sind
 vier Layouts möglich, einschließlich der flachsten Variante mit Umgebungen direkt unter
-`Running` und `Stopped`. Der Name des CMS-Knotens selbst bleibt eine lokale SSMS-Eigenschaft.
+`Running` und `Stopped`. Sichtbare Gruppennamen erhalten automatisch einen aktuellen
+Anzahlzusatz; der gespeicherte logische Root-Name bleibt davon unberührt. Leere
+Providergruppen werden nicht angezeigt. Der Name des CMS-Knotens selbst bleibt eine
+lokale SSMS-Eigenschaft.
