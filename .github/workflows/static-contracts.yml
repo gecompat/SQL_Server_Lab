@@ -11,7 +11,9 @@ permissions:
 
 concurrency:
   group: sql-server-lab-pr-gate-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Native runtime jobs mutate persistent self-hosted runners. A newer commit
+  # must queue so the active run can execute its scoped cleanup.
+  cancel-in-progress: false
 
 jobs:
   classify:

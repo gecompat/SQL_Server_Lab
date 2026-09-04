@@ -886,6 +886,13 @@ Ubuntu nur betroffene statische Suites aus und schaltet ausschließlich passende
 Runtime-Smokes zu. Änderungen am Foundation-Core, Root-Agentenvertrag,
 Upgrade-Assessment, Copilot-Adapter oder PR-Gate starten zusätzlich den Job
 `Foundation integrity`.
+Der PR-Gate und die nativen Docker-, Podman-, Mixed- und Hyper-V-Workflows
+brechen einen bereits gestarteten Lauf bei einer neueren Revision nicht hart
+ab. Der neue Lauf wartet in derselben Concurrency-Gruppe, damit der laufende
+PowerShell-Prozess seinen scopegebundenen `finally`-Cleanup auf dem persistenten
+self-hosted Runner ausführen kann. Ein manueller Workflow-Abbruch oder ein
+Runner-Ausfall bleibt davon getrennt und ist über Lifecycle-Metadaten,
+Maintenance-Plan und objektgebundenes Cleanup zu behandeln.
 Die Docker- und Podman-Lifecycle-Gates führen nach ihren jeweiligen Smokes
 zusätzlich die öffentliche `DELETE_WITH_RUN`-Acceptance aus. Sie teilen den
 bereits gehaltenen Runtime-Mutex, erzeugen einen isolierten rungebundenen Store
