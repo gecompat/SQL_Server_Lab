@@ -181,11 +181,14 @@ Beispiel:
 
 Der Katalog wird in den gemeinsamen Artifact-Vertrag aufgelöst. Automatisch
 bereitstellen kann der aktuelle Runtimepfad direkte Backups (`backup` und
-`.bak`), sichere Archiv-Backups (`archive-backup` mit `.zip` oder `.7z`) sowie
-einzelne T-SQL-Skripte (`sql-script` und `.sql`) und katalogisierte ZIP-Script-
-Bundles (`script-bundle`), jeweils mit
-`runtimeStatus: executable`. Archiv-Backups benötigen eine exakte
-`installation.payloadPath`-Angabe und werden nur temporär entpackt. Für `.7z`
+`.bak`), sichere Archiv-Backups (`archive-backup` mit `.zip` oder `.7z`),
+einzelne T-SQL-Skripte (`sql-script` und `.sql`), katalogisierte ZIP-Script-
+Bundles (`script-bundle`) sowie Attach-Archive (`attach` mit `.zip` oder `.7z`),
+jeweils mit `runtimeStatus: executable`. Archiv-Backups benötigen eine exakte
+`installation.payloadPath`-Angabe; ausführbare Attach-Archive benötigen
+zusätzlich eine vollständige rollen- und pfadgebundene
+`installation.payloadLayout`-Liste und `payloadSelection: catalog-path`.
+Beide Archivarten werden nur temporär entpackt. Für `.7z`
 muss die lokale 7-Zip-Kommandozeile verfügbar sein; sie kann nach expliziter
 Bestätigung mit `Install-SqlServerLab7Zip` bzw. über den Konsolenmenüpunkt
 `[z]` installiert werden. Die Integrität sichert entweder eine
@@ -196,7 +199,8 @@ Läufe enden ohne bekannten Hash mit `TRUST_REQUIRED`.
 Nicht automatisch ausführbar sind unter anderem:
 
 - nicht katalogisierte Archive
-- Attach-Szenarien
+- Attach-Archive ohne `runtimeStatus: executable`, `payloadSelection:
+  catalog-path` oder vollständiges `payloadLayout`
 - Script-Bundles mit nicht freigegebenen sqlcmd-Features, `:connect` oder
   Shell-Escapes; `:r` und `:setvar` sind nur innerhalb des extrahierten
   Bundle-Roots und bei explizitem `allowedSqlcmdFeatures` zulässig
@@ -213,7 +217,10 @@ In diesem Fall muss `integrityOrigin: null` und
 `trustPolicy: interactive-once` gesetzt sein. Der implementierte Trust Store
 darf nach einer ausdrücklichen interaktiven Entscheidung nur lokal einen
 erwarteten Hash registrieren; `cachePolicy.verifyChecksum` allein erzeugt keine
-Prüfsumme. Kontrolliert verifizierte Prüfsummen sollen mittelfristig als
+Prüfsumme. Der Trust-Pfad berechnet die SHA-256 des tatsächlich geladenen
+Artefakts automatisch, bindet sie lokal an die konkrete Sample-Variante und
+prüft sie bei späterer Wiederverwendung erneut. Kontrolliert verifizierte
+Prüfsummen sollen mittelfristig als
 `catalog-verified` mit `trustPolicy: catalog-only` in den Katalog übernommen
 werden.
 
