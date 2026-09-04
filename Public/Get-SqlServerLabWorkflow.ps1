@@ -108,7 +108,10 @@ function Get-SqlServerLabWorkflow {
                     if ([string]$store.StorageClass -eq 'INSTANCE_STORE' -and [string]$store.Retention -eq 'RETAINED' -and [string]$store.CleanupDisposition -eq 'PRESERVE') {
                         $allowedPolicies = @('RETAIN_INSTANCE_STORE', 'BACKUP_ON_REMOVE', 'PACKAGE_ON_REMOVE', 'BACKUP_AND_PACKAGE')
                     }
-                    elseif ([string]$store.Retention -eq 'RUN_SCOPED' -and [string]$store.CleanupDisposition -eq 'RUN_CLEANUP') {
+                    elseif ([string]$store.StorageClass -eq 'INSTANCE_STORE' -and [string]$store.Provider -in @('docker','podman') -and
+                        [string]$store.Retention -eq 'RUN_SCOPED' -and [string]$store.CleanupDisposition -eq 'RUN_CLEANUP' -and
+                        [string]$store.State -eq 'IN_USE' -and [string]$store.LocationBinding.Residency -eq 'NATIVE_RUNTIME' -and
+                        -not [string]::IsNullOrWhiteSpace([string]$store.LocationBinding.ProviderResourceId)) {
                         $allowedPolicies = @('DELETE_WITH_RUN')
                     }
                     elseif ([string]$store.Provider -eq 'external' -and [string]$store.Retention -eq 'EXTERNAL_UNMANAGED' -and [string]$store.CleanupDisposition -eq 'REPORT_ONLY') {

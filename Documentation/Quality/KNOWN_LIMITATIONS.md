@@ -1136,7 +1136,11 @@ Podman-`INSTANCE_STORE` ausführbar. Der Executor journalisiert die
 revisionsgebundenen Zustände `DELETE_PENDING` und `DETACHED`; die zweite Phase
 akzeptiert nur eine frische Runtime-Inspektion mit fehlendem Volume. FILESTREAM,
 TDE und jede abweichende Store-, Lease- oder Ownership-Evidence bleiben vor
-jeder Mutation blockiert.
+jeder Mutation blockiert. Die Workflow-Projektion bietet diese Policy nur für
+einen aktiven Docker-/Podman-`INSTANCE_STORE` mit `RUN_SCOPED`/`RUN_CLEANUP`,
+`NATIVE_RUNTIME`-Binding und Provider-Ressourcen-ID an; Plan und Executor
+revalidieren die verbleibende Lease- und Ownership-Evidence weiterhin vor der
+Mutation.
 Neue kurzlebige Docker-/Podman-Systemvolume-Gruppen erhalten inzwischen vor
 der ersten Runtime-Mutation eine UUID. Sie wird im gewünschten Run-State
 persistiert, als `sql-server-lab.persistent-storage-id` auf jedes zugehörige
