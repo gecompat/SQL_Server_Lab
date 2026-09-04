@@ -13,6 +13,7 @@ $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 . (Join-Path $PSScriptRoot '..\Common\CheckResult.ps1')
 . (Join-Path $repoRoot 'Private\HostToolResolution.ps1')
+. (Join-Path $repoRoot 'Providers\Docker\DockerProvider.ps1')
 
 $originalProcessPath = $env:PATH
 $originalUserPath = [Environment]::GetEnvironmentVariable('Path','User')
@@ -103,6 +104,53 @@ exit 1
         $restoreCandidate.Provider -eq 'docker' -and
         $restoreCandidate.ContainerName -eq 'synthetic-container' -and
         $restoreCandidate.RunId -eq '11111111-1111-1111-1111-111111111111')
+
+    if ($IsWindows) {
+        @'
+@echo off
+if /I not "%~1"=="info" exit /b 1
+if /I "%DOCKER_CONFIG%"=="denied-config" (
+  echo Error loading config file: Permission denied 1>&2
+  exit /b 1
+)
+echo 27.0.0
+exit /b 0
+'@ | Set-Content -LiteralPath $dockerPath -Encoding ascii
+    }
+    else {
+        @'
+#!/bin/sh
+if [ "$1" != "info" ]; then exit 1; fi
+if [ "$DOCKER_CONFIG" = "denied-config" ]; then
+  printf '%s\n' 'Error loading config file: Permission denied' >&2
+  exit 1
+fi
+printf '%s\n' '27.0.0'
+exit 0
+'@ | Set-Content -LiteralPath $dockerPath -Encoding utf8NoBOM
+        & /bin/chmod +x $dockerPath
+    }
+    $probeTempRoot = Join-Path $temporaryRoot 'docker-probe-temp'
+    New-Item -Path $probeTempRoot -ItemType Directory -Force | Out-Null
+    $originalTemp = $env:TEMP
+    $originalDockerConfig = if (Test-Path Env:DOCKER_CONFIG) { $env:DOCKER_CONFIG } else { $null }
+    try {
+        $env:TEMP = $probeTempRoot
+        $env:DOCKER_CONFIG = 'denied-config'
+        $dockerAvailability = Test-DockerAvailable
+        $dockerConfigRestored = $env:DOCKER_CONFIG -eq 'denied-config'
+        $fallbackResidue = @(Get-ChildItem -LiteralPath $probeTempRoot -Force -Filter 'sql-lab-docker-config-*' -ErrorAction SilentlyContinue)
+    }
+    finally {
+        $env:TEMP = $originalTemp
+        if ($null -eq $originalDockerConfig) { Remove-Item Env:DOCKER_CONFIG -ErrorAction SilentlyContinue }
+        else { $env:DOCKER_CONFIG = $originalDockerConfig }
+    }
+    Add-CheckResult -Name 'Docker-Probe entfernt die temporaere Fallback-Konfiguration nach erfolgreicher Wiederholung' -Success (
+        $dockerAvailability.Available -and
+        $dockerAvailability.Version -eq '27.0.0' -and
+        $dockerConfigRestored -and
+        $fallbackResidue.Count -eq 0)
 
     $resolverText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private\HostToolResolution.ps1') -Raw -Encoding utf8
     $dockerProviderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers\Docker\DockerProvider.ps1') -Raw -Encoding utf8

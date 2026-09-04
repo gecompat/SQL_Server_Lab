@@ -29,6 +29,7 @@ function Test-DockerAvailable {
 
         $originalConfig = if (Test-Path Env:DOCKER_CONFIG) { $env:DOCKER_CONFIG } else { $null }
         $fallbackConfig = Join-Path $env:TEMP ("sql-lab-docker-config-{0}" -f [System.Guid]::NewGuid().ToString('N'))
+        $fallbackConfigCreated = $false
         $attempts = @(
             @{ Config = $originalConfig; Label = 'Primary' },
             @{ Config = $fallbackConfig; Label = 'Fallback' }
@@ -44,6 +45,7 @@ function Test-DockerAvailable {
             foreach ($attempt in $attempts) {
                 if ($attempt.Label -eq 'Fallback') {
                     New-Item -Path $attempt.Config -ItemType Directory -Force | Out-Null
+                    $fallbackConfigCreated = $true
                 }
 
                 if ($null -eq $attempt.Config) {
@@ -83,6 +85,9 @@ function Test-DockerAvailable {
             }
             else {
                 $env:DOCKER_CONFIG = $originalConfig
+            }
+            if ($fallbackConfigCreated) {
+                Remove-Item -LiteralPath $fallbackConfig -Recurse -Force -ErrorAction Stop
             }
         }
     }
