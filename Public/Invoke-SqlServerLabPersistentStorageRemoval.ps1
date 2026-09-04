@@ -91,13 +91,23 @@ function Invoke-SqlServerLabPersistentStorageRemoval {
         if($stores.Count -ne 1 -or [string]$stores[0].Provider -ne 'external'){return $false}
         @($stores[0].References | Where-Object { [string]$_.State -eq 'ACTIVE' -and ([string]$_.Kind -eq 'DATABASE' -or ([string]$_.Kind -eq 'RUN' -and [string]$_.TargetId -eq $RemovalRunId)) }).Count -eq 0
     }
+    $startDeleteAction={
+        param($PersistentStorageId,$ExpectedRevision)
+        $mutation=Start-LabRunScopedContainerStoreDeletion -PersistentStorageId $PersistentStorageId -RunId $RunId -ScopeId ([string]$context.ScopeId) -Configuration $context.Configuration -ExpectedRevision $ExpectedRevision
+        [PSCustomObject]@{ CatalogRevision=[int]$mutation.CatalogRevision }
+    }
+    $completeDeleteAction={
+        param($PersistentStorageId,$Provider,$VolumeName,$ExpectedRevision)
+        $mutation=Complete-LabRunScopedContainerStoreDeletion -PersistentStorageId $PersistentStorageId -Provider $Provider -VolumeName $VolumeName -Configuration $context.Configuration -ExpectedRevision $ExpectedRevision
+        [PSCustomObject]@{ CatalogRevision=[int]$mutation.CatalogRevision }
+    }
     $replanAction={ param($RemovalRunId,$RemovalSelection) Get-SqlServerLabPersistentStorageRemovalPlan -RunId $RemovalRunId -Selection $RemovalSelection -StateRoot $StateRoot -DataRoot $DataRoot }
     $removeAction={ param($RemovalRunId,$RemovalStateRoot) Remove-SqlServerLab -RunId $RemovalRunId -StateRoot $RemovalStateRoot -Force -Confirm:$false }
     $postconditionAction={ param($RemovalRunId,$RemovalSelection,$RemovalConfiguration) Assert-LabPersistentStorageRemovalPostcondition -RunId $RemovalRunId -Selection $RemovalSelection -Configuration $RemovalConfiguration }
 
     $journal=Invoke-LabPersistentStorageRemovalExecutor -Plan $plan -Selection $normalizedSelections -Context $context `
         -BackupAction $backupAction -BackupVerificationAction $backupVerificationAction -PackageAction $packageAction -PackageVerificationAction $packageVerificationAction -ReplanAction $replanAction `
-        -ExternalBindingReleaseAction $externalBindingReleaseAction -ExternalBindingVerificationAction $externalBindingVerificationAction -RemoveAction $removeAction -PostconditionAction $postconditionAction
+        -ExternalBindingReleaseAction $externalBindingReleaseAction -ExternalBindingVerificationAction $externalBindingVerificationAction -StartDeleteAction $startDeleteAction -CompleteDeleteAction $completeDeleteAction -RemoveAction $removeAction -PostconditionAction $postconditionAction
     [PSCustomObject]@{
         Status=if([string]$journal.Status -eq 'COMPLETED'){'REMOVED'}else{[string]$journal.Status}
         RunId=$RunId;OperationId=[string]$journal.OperationId;JournalStatus=[string]$journal.Status
