@@ -12,6 +12,7 @@
 param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
     [string]$Version='2022-CU18',
+    [ValidateSet('BACKUP_ON_REMOVE','PACKAGE_ON_REMOVE')][string]$Policy='BACKUP_ON_REMOVE',
     [switch]$KeepOnFailure
 )
 
@@ -81,17 +82,22 @@ try {
 
     $selection=@([PSCustomObject]@{
         PersistentStorageId=[string]$store.PersistentStorageId
-        Policy='BACKUP_ON_REMOVE'
+        Policy=$Policy
         DatabaseReferenceIds=@([string]$databaseReference[0].ReferenceId)
     })
     $plan=Get-SqlServerLabPersistentStorageRemovalPlan -RunId $lab.RunId -Selection $selection -StateRoot $stateRoot -DataRoot $dataRoot
     Assert-RemovalAcceptance ($plan.Status -eq 'READY' -and @($plan.Stores).Count -eq 1) 'Frischer Removal-Plan ist blockerfrei'
     $result=Invoke-SqlServerLabPersistentStorageRemoval -RunId $lab.RunId -Selection $selection `
         -StateRoot $stateRoot -DataRoot $dataRoot -Force -Confirm:$false
-    Assert-RemovalAcceptance ($result.Status -eq 'REMOVED' -and $result.JournalStatus -eq 'COMPLETED' -and @($result.BackupSetIds).Count -eq 1) 'Executor schließt Backup und Run-Entfernung journalisiert ab'
+    $artifactIds = if($Policy -eq 'PACKAGE_ON_REMOVE'){@($result.DatabasePackageIds)}else{@($result.BackupSetIds)}
+    Assert-RemovalAcceptance ($result.Status -eq 'REMOVED' -and $result.JournalStatus -eq 'COMPLETED' -and $artifactIds.Count -eq 1) "Executor schließt $Policy und Run-Entfernung journalisiert ab"
 
     $runState=& $module {param($Run,$State)Get-LabRunState -RunId $Run -StateRoot $State} $lab.RunId $stateRoot
-    $backup=& $module {param($Id,$Root)Get-LabDatabaseBackup -BackupSetId $Id -DataRoot $Root} ([string]$result.BackupSetIds[0]) $dataRoot
+    $artifact=if($Policy -eq 'PACKAGE_ON_REMOVE'){
+        & $module {param($Id,$Root)Get-LabDatabasePackage -DatabasePackageId $Id -DataRoot $Root} ([string]$result.DatabasePackageIds[0]) $dataRoot
+    }else{
+        & $module {param($Id,$Root)Get-LabDatabaseBackup -BackupSetId $Id -DataRoot $Root} ([string]$result.BackupSetIds[0]) $dataRoot
+    }
     $finalStore=& $module {
         param($Root,$StorageId)
         $configuration=Get-LabStorageConfiguration -DataRoot $Root
@@ -100,7 +106,8 @@ try {
     $null=& $runtimeInvocation volume inspect $persistentVolume 2>$null
     Assert-RemovalAcceptance ($LASTEXITCODE -eq 0) 'Persistenter Instanzstore wurde nicht gelöscht'
     Assert-RemovalAcceptance ($runState.state -eq 'REMOVED' -and $finalStore.State -eq 'DETACHED' -and -not $finalStore.Lease) 'Run ist entfernt und Store exakt detached'
-    Assert-RemovalAcceptance ($backup.Record.DatabaseName -eq $databaseName -and $backup.Record.Artifact.Sha256 -match '^[a-f0-9]{64}$') 'Backup ist in Lab_Data per SHA-256 wiederverwendbar'
+    $hash = if($Policy -eq 'PACKAGE_ON_REMOVE'){[string]$artifact.Record.ManifestSha256}else{[string]$artifact.Record.Artifact.Sha256}
+    Assert-RemovalAcceptance ($artifact.Record.DatabaseName -eq $databaseName -and $hash -match '^[a-f0-9]{64}$') "$Policy ist in Lab_Data per SHA-256 wiederverwendbar"
     $lab=$null;$completed=$true
 }
 finally {

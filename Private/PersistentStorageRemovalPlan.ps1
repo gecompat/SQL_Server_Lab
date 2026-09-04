@@ -201,7 +201,7 @@ function Get-LabPersistentStorageRemovalPlan {
     foreach ($plannedStore in $storeArray) { $storeBlockerCount += @($plannedStore.Blockers).Count }
     $blockerCount = $storeBlockerCount + $issues.Count
     $recoverySteps = @($storeArray.Steps | ForEach-Object { $_ } | Where-Object FailureState -eq 'RECOVERY_REQUIRED').Count
-    $executablePolicies = @('RETAIN_INSTANCE_STORE','BACKUP_ON_REMOVE')
+    $executablePolicies = @('RETAIN_INSTANCE_STORE','BACKUP_ON_REMOVE','PACKAGE_ON_REMOVE')
     $plannedPolicies = @($storeArray | Where-Object {
         [string]$_.Policy -and [string]$_.Policy -notin $executablePolicies
     } | ForEach-Object { [string]$_.Policy } | Sort-Object -Unique)
