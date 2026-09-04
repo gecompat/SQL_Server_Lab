@@ -29,8 +29,10 @@ Sample-Identität in Trust Store und Run Lock, Idempotenz- und
 Output-Verification, die Mehrfachauswahl im Ad-hoc-Menü und per
 `New-SqlServerLab -Sample` sowie eine Katalogauswahl im Manifest-Wizard.
 Einzelne gepinnte SQL-Skript-Samples und sichere ZIP-Script-Bundles mit mehreren
-fest katalogisierten Datenbankoutputs sind implementiert; Baseline-Erzeugung
-bleibt offen.
+fest katalogisierten Datenbankoutputs sind implementiert. Verifizierte Single-
+und Multi-Output-Container-Samples erzeugen `LAB_GENERATED`-Baselines mit
+SQL-Checksum und Wiederverwendung; der entsprechende Hyper-V-Vertrag ist
+synthetisch belegt, seine reale Runtime-Evidence bleibt offen.
 
 Der gemeinsame Katalogvertrag für Artifact Type, Installation, erwartete
 Outputs, Trust Policy und Größenmetadaten ist implementiert. Für die
