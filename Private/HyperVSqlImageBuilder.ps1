@@ -105,7 +105,9 @@ function Get-HyperVSqlMediaEditionFromPath {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Path)
 
+    if ($Path -match '(?i)(?:^|[\\/_\-.])enterprise(?:[\\/_\-.]?core)(?:$|[\\/_\-.])') { return 'EnterpriseCore' }
     if ($Path -match '(?i)(?:^|[\\/_\-.])standard(?:$|[\\/_\-.])') { return 'Standard' }
+    if ($Path -match '(?i)(?:^|[\\/_\-.])web(?:$|[\\/_\-.])') { return 'Web' }
     if ($Path -match '(?i)(?:^|[\\/_\-.])(?:eval|evaluation)(?:$|[\\/_\-.])') { return 'Eval' }
     if ($Path -match '(?i)(?:^|[\\/_\-.])(?:enterprise|developer)(?:$|[\\/_\-.])') { return 'Enterprise' }
     return $null
@@ -125,7 +127,9 @@ function ConvertTo-HyperVSqlMediaEdition {
     switch -Regex ($SqlEdition.Trim()) {
         '^(Eval|Evaluation)$' { return 'Eval' }
         '^(Enterprise|EnterpriseDeveloper)$' { return 'Enterprise' }
+        '^EnterpriseCore$' { return 'EnterpriseCore' }
         '^(Standard|StandardDeveloper)$' { return 'Standard' }
+        '^Web$' { return 'Web' }
         default { throw "HYPERV_SQL_MEDIA_EDITION_UNSUPPORTED: $SqlEdition" }
     }
 }
@@ -220,7 +224,7 @@ function Resolve-HyperVSqlInstallationMedia {
     param(
         [Parameter(Mandatory)][string]$MediaRoot,
         [Parameter(Mandatory)][string]$SqlVersion,
-        [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval',
+        [ValidateSet('Eval', 'Enterprise', 'EnterpriseCore', 'Standard', 'Web')][string]$MediaEdition = 'Eval',
         [string]$SqlMediaPath
     )
 
@@ -446,7 +450,7 @@ function New-HyperVSqlMediaHashSidecar {
     param(
         [Parameter(Mandatory)][string]$MediaRoot,
         [Parameter(Mandatory)][string]$SqlVersion,
-        [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval',
+        [ValidateSet('Eval', 'Enterprise', 'EnterpriseCore', 'Standard', 'Web')][string]$MediaEdition = 'Eval',
         [string]$SqlMediaPath
     )
 
@@ -471,7 +475,8 @@ function New-HyperVSqlImageBuildPlan {
         [Parameter(Mandatory)][string]$IsoPath,
         [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
         [Parameter(Mandatory)][string]$SqlVersion,
-        [Parameter(Mandatory)][ValidateSet('Eval', 'Enterprise', 'Standard')][string]$SqlEdition,
+        [Parameter(Mandatory)][ValidateSet('Eval', 'Enterprise', 'EnterpriseCore', 'Standard', 'Web')][string]$SqlEdition,
+        [ValidatePattern('^[a-z][a-z0-9.-]{2,63}$')][string]$LicenseProfileId,
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
         [ValidateLength(1, 80)][string]$ImageName,
         [string]$StateRoot
@@ -492,6 +497,9 @@ function New-HyperVSqlImageBuildPlan {
     if ($normalizedFeatures.Count -eq 0 -or @($normalizedFeatures | Where-Object { $_ -notin @('SQLENGINE', 'FULLTEXT', 'REPLICATION', 'ADVANCEDANALYTICS') }).Count -gt 0) {
         throw 'HYPERV_SQL_FEATURES_UNSUPPORTED'
     }
+    $licenseSelectionArguments = @{ SqlVersion = $SqlVersion; MediaEdition = $SqlEdition; StateRoot = $StateRoot }
+    if (-not [string]::IsNullOrWhiteSpace($LicenseProfileId)) { $licenseSelectionArguments.LicenseProfileId = $LicenseProfileId }
+    $licenseSelection = Resolve-LabSqlLicenseSelection @licenseSelectionArguments
 
     $buildId = New-LabGuid
     $scopeId = New-LabGuid
@@ -516,14 +524,12 @@ function New-HyperVSqlImageBuildPlan {
         sql = [PSCustomObject]@{
             version = $SqlVersion
             mediaEdition = $SqlEdition
-            edition = switch ($SqlEdition) {
-                'Eval' { 'Evaluation' }
-                'Enterprise' { 'EnterpriseDeveloper' }
-                'Standard' { 'StandardDeveloper' }
-            }
+            edition = [string]$licenseSelection.Edition
             license = [PSCustomObject]@{
-                type = if ($SqlEdition -eq 'Eval') { 'evaluation' } else { 'developer' }
-                evaluationStartsAt = if ($SqlEdition -eq 'Eval') { 'complete-image' } else { $null }
+                type = [string]$licenseSelection.LicenseType
+                profileId = if ($licenseSelection.ProfileId) { [string]$licenseSelection.ProfileId } else { $null }
+                channel = if ($licenseSelection.Channel) { [string]$licenseSelection.Channel } else { $null }
+                evaluationStartsAt = $licenseSelection.EvaluationStartsAt
                 evaluationExpiresAt = $null
                 productionUseAllowed = $false
             }
@@ -556,7 +562,8 @@ function New-HyperVSqlFreshImageBuildPlan {
         [Parameter(Mandatory)][string]$SqlIsoPath,
         [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSqlSha256,
         [Parameter(Mandatory)][string]$SqlVersion,
-        [Parameter(Mandatory)][ValidateSet('Eval', 'Enterprise', 'Standard')][string]$SqlEdition,
+        [Parameter(Mandatory)][ValidateSet('Eval', 'Enterprise', 'EnterpriseCore', 'Standard', 'Web')][string]$SqlEdition,
+        [ValidatePattern('^[a-z][a-z0-9.-]{2,63}$')][string]$LicenseProfileId,
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
         [ValidateLength(1, 80)][string]$ImageName,
         [ValidateRange(32GB, 1TB)][long]$OsDiskSizeBytes = 80GB,
@@ -576,6 +583,9 @@ function New-HyperVSqlFreshImageBuildPlan {
     if ($features.Count -eq 0 -or @($features | Where-Object { $_ -notin @('SQLENGINE', 'FULLTEXT', 'REPLICATION', 'ADVANCEDANALYTICS') }).Count -gt 0) {
         throw 'HYPERV_SQL_FEATURES_UNSUPPORTED'
     }
+    $licenseSelectionArguments = @{ SqlVersion = $SqlVersion; MediaEdition = $SqlEdition; StateRoot = $StateRoot }
+    if (-not [string]::IsNullOrWhiteSpace($LicenseProfileId)) { $licenseSelectionArguments.LicenseProfileId = $LicenseProfileId }
+    $licenseSelection = Resolve-LabSqlLicenseSelection @licenseSelectionArguments
 
     $buildId = New-LabGuid; $scopeId = New-LabGuid
     $buildDirectory = Join-Path (Join-Path $StateRoot 'image-builds/hyperv-sql') $buildId
@@ -604,8 +614,15 @@ function New-HyperVSqlFreshImageBuildPlan {
         resources = [PSCustomObject]@{ osDiskSizeBytes = $OsDiskSizeBytes }
         sql = [PSCustomObject]@{
             version = $SqlVersion; mediaEdition = $SqlEdition
-            edition = switch ($SqlEdition) { 'Eval' { 'Evaluation' }; 'Enterprise' { 'EnterpriseDeveloper' }; 'Standard' { 'StandardDeveloper' } }
-            license = [PSCustomObject]@{ type = if ($SqlEdition -eq 'Eval') { 'evaluation' } else { 'developer' }; evaluationStartsAt = if ($SqlEdition -eq 'Eval') { 'complete-image' } else { $null }; evaluationExpiresAt = $null; productionUseAllowed = $false }
+            edition = [string]$licenseSelection.Edition
+            license = [PSCustomObject]@{
+                type = [string]$licenseSelection.LicenseType
+                profileId = if ($licenseSelection.ProfileId) { [string]$licenseSelection.ProfileId } else { $null }
+                channel = if ($licenseSelection.Channel) { [string]$licenseSelection.Channel } else { $null }
+                evaluationStartsAt = $licenseSelection.EvaluationStartsAt
+                evaluationExpiresAt = $null
+                productionUseAllowed = $false
+            }
             features = $features; mediaSha256 = $sqlSha256; setupBuild = $null
         }
         builder = $null; manualAction = $null; installationEvidence = $null; setupEvidence = $null; generalizationEvidence = $null
@@ -622,7 +639,7 @@ function Set-HyperVSqlMediaHashSidecar {
         [Parameter(Mandatory)][string]$MediaRoot,
         [Parameter(Mandatory)][string]$SqlVersion,
         [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
-        [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval',
+        [ValidateSet('Eval', 'Enterprise', 'EnterpriseCore', 'Standard', 'Web')][string]$MediaEdition = 'Eval',
         [string]$SqlMediaPath
     )
     $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion $SqlVersion -MediaEdition $MediaEdition -SqlMediaPath $SqlMediaPath
@@ -639,8 +656,9 @@ function Initialize-HyperVSqlPreparedImageBuild {
         [Parameter(Mandatory)][string]$MediaRoot,
         [Parameter(Mandatory)][string]$ImageArtifactId,
         [Parameter(Mandatory)][string]$SqlVersion,
-        [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval',
+        [ValidateSet('Eval', 'Enterprise', 'EnterpriseCore', 'Standard', 'Web')][string]$MediaEdition = 'Eval',
         [string]$SqlMediaPath,
+        [ValidatePattern('^[a-z][a-z0-9.-]{2,63}$')][string]$LicenseProfileId,
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
         [ValidateLength(1, 80)][string]$ImageName,
         [ValidateRange(2GB, 1TB)][long]$MemoryStartupBytes = 4GB,
@@ -661,6 +679,7 @@ function Initialize-HyperVSqlPreparedImageBuild {
         SqlFeatures = $SqlFeatures
         StateRoot = $StateRoot
     }
+    if (-not [string]::IsNullOrWhiteSpace($LicenseProfileId)) { $planArguments.LicenseProfileId = $LicenseProfileId }
     if (-not [string]::IsNullOrWhiteSpace($ImageName)) { $planArguments.ImageName = $ImageName.Trim() }
     $plan = New-HyperVSqlImageBuildPlan @planArguments
     try {
@@ -701,8 +720,9 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
         [Parameter(Mandatory)][ValidateSet('core', 'desktop-experience')][string]$InstallationType,
         [string]$WindowsMediaPath,
         [Parameter(Mandatory)][string]$SqlVersion,
-        [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Eval',
+        [ValidateSet('Eval', 'Enterprise', 'EnterpriseCore', 'Standard', 'Web')][string]$MediaEdition = 'Eval',
         [string]$SqlMediaPath,
+        [ValidatePattern('^[a-z][a-z0-9.-]{2,63}$')][string]$LicenseProfileId,
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
         [ValidateLength(1, 80)][string]$ImageName,
         [ValidateRange(32GB, 1TB)][long]$OsDiskSizeBytes = 80GB,
@@ -731,6 +751,7 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
         OsDiskSizeBytes = $OsDiskSizeBytes
         StateRoot = $StateRoot
     }
+    if (-not [string]::IsNullOrWhiteSpace($LicenseProfileId)) { $planArguments.LicenseProfileId = $LicenseProfileId }
     if (-not [string]::IsNullOrWhiteSpace($ImageName)) { $planArguments.ImageName = $ImageName.Trim() }
     $plan = New-HyperVSqlFreshImageBuildPlan @planArguments
     try {
@@ -939,11 +960,17 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
     # persistiert. Scheitert erst das anschliessende Sysprep, darf ein
     # Wiederholungsaufruf SQL Setup nicht ein zweites Mal ausfuehren.
     if ($build.state -eq 'MANUAL_ACTION_REQUIRED' -and -not $build.setupEvidence) {
+        $productKey = $null
+        if ($build.sql.license -and -not [string]::IsNullOrWhiteSpace([string]$build.sql.license.profileId)) {
+            $null = Resolve-LabLicenseProfile -Id ([string]$build.sql.license.profileId) -Product SqlServer `
+                -Version ([string]$build.sql.version) -Edition ([string]$build.sql.edition) -StateRoot $StateRoot
+            $productKey = Get-LabLicenseProfileSecret -Id ([string]$build.sql.license.profileId) -StateRoot $StateRoot
+        }
         $receipt = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
             -ExpectedScopeId $build.scopeId -Credential $Credential `
-            -ArgumentList @($build.buildId, $build.scopeId, $build.manualAction.challenge, $build.sql.version, $setupVersionPattern, ($build.sql.features -join ','), $SetupTimeoutSeconds) `
+            -ArgumentList @($build.buildId, $build.scopeId, $build.manualAction.challenge, $build.sql.version, $setupVersionPattern, ($build.sql.features -join ','), $SetupTimeoutSeconds, $productKey, $build.sql.license.type, $build.sql.edition) `
             -ScriptBlock {
-                param($ExpectedBuildId, $ExpectedScopeId, $Challenge, $ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $TimeoutSeconds)
+                param($ExpectedBuildId, $ExpectedScopeId, $Challenge, $ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $TimeoutSeconds, [SecureString]$ProductKey, $ExpectedLicenseType, $ExpectedEdition)
                 $ErrorActionPreference = 'Stop'
                 $Features = @([string]$FeaturesCsv -split ',' | Where-Object { $_ })
                 $allSetup = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
@@ -963,7 +990,33 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
                     '/Q', '/ACTION=PrepareImage', "/FEATURES=$(@($Features) -join ',')",
                     '/INSTANCEID=MSSQLSERVER', '/ENU=True', '/IACCEPTSQLSERVERLICENSETERMS', '/INDICATEPROGRESS'
                 )
-                $process = Start-Process -FilePath $setup[0].FullName -ArgumentList $arguments -PassThru -NoNewWindow
+                $keyBstr = [IntPtr]::Zero
+                $plainKey = $null
+                $process = $null
+                try {
+                    if ($ProductKey) {
+                        $keyBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($ProductKey)
+                        $plainKey = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($keyBstr)
+                        if ($plainKey -notmatch '^(?:[A-Z0-9]{5}-){4}[A-Z0-9]{5}$') {
+                            throw 'SQL_SETUP_PRODUCT_KEY_FORMAT_INVALID'
+                        }
+                        $arguments += "/PID=$plainKey"
+                    }
+                    try {
+                        $process = Start-Process -FilePath $setup[0].FullName -ArgumentList $arguments -PassThru -NoNewWindow
+                    }
+                    catch {
+                        throw "SQL_SETUP_PROCESS_START_FAILED: $($_.Exception.GetType().FullName)"
+                    }
+                }
+                finally {
+                    $arguments = @($arguments | Where-Object { $_ -notlike '/PID=*' })
+                    $plainKey = $null
+                    if ($keyBstr -ne [IntPtr]::Zero) {
+                        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($keyBstr)
+                    }
+                }
+                if (-not $process) { throw 'SQL_SETUP_PROCESS_NOT_STARTED' }
                 if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
                     Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
                     throw "SQL_SETUP_PREPARE_IMAGE_TIMEOUT: $TimeoutSeconds"
@@ -980,6 +1033,7 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
                         $relevant = @($lines | Where-Object { $_ -match '(?i)error|failed|failure|exit code|result' } | Select-Object -Last 8)
                         if ($relevant.Count -eq 0) { $relevant = @($lines | Select-Object -Last 8) }
                         $detail = (($relevant -join ' ') -replace '\s+', ' ').Trim()
+                        $detail = $detail -replace '(?i)(/PID=|PID\s*[:=]\s*)[A-Z0-9-]+', '$1<redacted>'
                         if ($detail.Length -gt 1200) { $detail = $detail.Substring(0, 1200) }
                         $detail = "Summary=$($summary.FullName); Detail=$detail"
                     }
@@ -992,14 +1046,17 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
                     contractVersion = '1'; buildId = $ExpectedBuildId; scopeId = $ExpectedScopeId
                     challenge = $Challenge; action = 'PrepareImage'; sqlVersion = $ExpectedSqlVersion
                     setupFileVersion = $setupVersion; features = @($Features); exitCode = $exitCode
+                    licenseType = [string]$ExpectedLicenseType; edition = [string]$ExpectedEdition
                     rebootScheduled = ($exitCode -eq 3010); bootTimeBeforeRestart = $bootTimeBeforeRestart; completedAt = [datetime]::UtcNow.ToString('o')
                 }
             }
+        $productKey = $null
         $receipt = @($receipt)[-1]
         if (-not $receipt -or [string]$receipt.contractVersion -ne '1' -or
             [string]$receipt.buildId -ne [string]$build.buildId -or [string]$receipt.scopeId -ne [string]$build.scopeId -or
             [string]$receipt.challenge -ne [string]$build.manualAction.challenge -or [string]$receipt.action -ne 'PrepareImage' -or
             [string]$receipt.sqlVersion -ne [string]$build.sql.version -or [int]$receipt.exitCode -notin @(0, 3010) -or
+            [string]$receipt.licenseType -ne [string]$build.sql.license.type -or [string]$receipt.edition -ne [string]$build.sql.edition -or
             (@($receipt.features | Sort-Object -Unique) -join '|') -ne (@($build.sql.features | Sort-Object -Unique) -join '|') -or
             -not [string]$receipt.setupFileVersion -or -not [string]$receipt.completedAt) {
             throw 'HYPERV_SQL_PREPARE_RECEIPT_INVALID'
@@ -1007,6 +1064,7 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
         $build.setupEvidence = [PSCustomObject]@{
             action = 'PrepareImage'; sqlVersion = [string]$receipt.sqlVersion; setupFileVersion = [string]$receipt.setupFileVersion
             features = @($receipt.features | ForEach-Object { [string]$_ } | Sort-Object -Unique)
+            licenseType = [string]$receipt.licenseType; edition = [string]$receipt.edition
             exitCode = [int]$receipt.exitCode; completedAt = [string]$receipt.completedAt; acceptedAt = Get-LabTimestamp
         }
         $build.sql.setupBuild = [string]$receipt.setupFileVersion

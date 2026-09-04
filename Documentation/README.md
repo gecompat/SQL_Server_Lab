@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_INDEX` |
-| Stand | 2026-09-03 |
+| Stand | 2026-09-04 |
 
 Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../README.md) ist der operative Einstieg. Bei Widersprüchen zwischen Planungsdokumenten und implementiertem Verhalten gelten Code, Schemas, Kataloge, Tests und die dokumentierten bekannten Grenzen als Ist-Nachweis.
 
@@ -18,14 +18,15 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 5. [Windows-Server-Baseline aus ISO mit Hyper-V erstellen](HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md)
 6. [Hyper-V Slot- und SQL-Workflow (OS-Slot → SQL-Slot)](HowTo/HYPERV_SLOT_SQL_WORKFLOW.md)
 7. [SQL-Prepared-Images aus frischer Windows-Installation](HowTo/HYPERV_SQL_PREPARED_IMAGE.md)
-8. [Persistente Daten und Evaluation-Refresh](HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md)
-9. [Lokale Workflow-Oberfläche](HowTo/WORKFLOW_UI.md)
-10. [Getting Started](User/Getting_Started.md)
-11. [Root-README](../README.md)
-12. [Manifest-Schemas und Beispiele](../Schemas/README.md)
-13. [Öffentliche Cmdlets](../Public/README.md)
-14. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
-15. [Tests](../Tests/README.md)
+8. [Optionale Lizenzprofile für Windows und SQL Server](HowTo/LICENSE_PROFILES.md)
+9. [Persistente Daten und Evaluation-Refresh](HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md)
+10. [Lokale Workflow-Oberfläche](HowTo/WORKFLOW_UI.md)
+11. [Getting Started](User/Getting_Started.md)
+12. [Root-README](../README.md)
+13. [Manifest-Schemas und Beispiele](../Schemas/README.md)
+14. [Öffentliche Cmdlets](../Public/README.md)
+15. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+16. [Tests](../Tests/README.md)
 
 ### Projekt weiterentwickeln
 
@@ -69,7 +70,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 70 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 74 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -165,6 +166,10 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabResourcePlan` | Katalogisierte Sample- und Windows-/Hyper-V-External-Runtime-Ressourcen read-only planen |
 | `Save-SqlServerLabResourceSet` | Ressourcen aus Cache, hashgeprüftem Altbestand oder katalogisierter HTTP(S)-Quelle vorab bereitstellen |
 | `Save-SqlServerLabMediaSource` | Katalogisiertes SQL-Basismedium oder Bootstrapper nach Größen-, SHA-256- und Microsoft-Signaturprüfung in den Media Root laden |
+| `Set-SqlServerLabLicenseProfile` | Optionalen Product Key versions- und editionsgebunden außerhalb des Repositorys DPAPI-geschützt speichern |
+| `Get-SqlServerLabLicenseProfile` | Lokale Lizenzprofile ohne geheime Werte auflisten |
+| `Test-SqlServerLabLicenseProfile` | Lokale Struktur und Keyformat ohne Onlineaktivierung prüfen |
+| `Remove-SqlServerLabLicenseProfile` | Ein exakt ausgewähltes lokales Lizenzprofil entfernen |
 
 Die Liste in `SqlServerLab.psd1` ist autoritativ.
 
@@ -176,6 +181,7 @@ Die Liste in `SqlServerLab.psd1` ist autoritativ.
 | `Schemas/version-catalog.schema.json` | Struktur des SQL-Version-Katalogs |
 | `Schemas/cu-status-sources.schema.json` | Struktur der wartbaren Microsoft-Quellen für den CU-Abgleich |
 | `Schemas/sample-databases.schema.json` | Struktur des Sample-Katalogs |
+| `Schemas/license-profile.schema.json` | Geheimnisfreier lokaler Metadatenvertrag optionaler Lizenzprofile |
 | `Catalogs/sql-server-versions.json` | Versionen, Images, Builds und Profile |
 | `Catalogs/sql-server-cu-status-sources.json` | Offizielle Microsoft-Quellen und dokumentierte CU-Rückzüge |
 | `Catalogs/sample-databases.json` | Öffentliche Testdatenbank-Metadaten |

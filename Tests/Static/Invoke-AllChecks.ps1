@@ -66,6 +66,7 @@ $checks = @(
     'Invoke-HyperVImageBuilderChecks.ps1',
     'Invoke-HyperVImageOperatorChecks.ps1',
     'Invoke-HyperVSqlImageBuilderChecks.ps1',
+    'Invoke-LicenseProfileChecks.ps1',
     'Invoke-WorkflowUiChecks.ps1',
     'Invoke-TestEnvironmentChecks.ps1',
     'Invoke-HyperVSqlAcceptanceEnvironmentChecks.ps1',

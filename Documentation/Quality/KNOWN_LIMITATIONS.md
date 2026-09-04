@@ -157,6 +157,24 @@ synthetisch abgesichert; die reale Aktivierung der vorhandenen lokalen Slots ist
 ein hostlokaler Betriebsnachweis und kein portables Repository-Artefakt. Eine
 abgelaufene Evaluation wird nicht verlängert oder technisch zurückgesetzt.
 
+Optionale Lizenzprofile speichern Windows- und SQL-Product-Keys ausschließlich
+im lokalen State Root und unter Windows DPAPI-geschützt. Die öffentlichen
+Ausgaben und portablen Build-Verträge enthalten keine Keys oder Key-Fragmente.
+Der Hyper-V-SQL-Prepared-Builder kann SQL Server 2016, 2017, 2019, 2022 und 2025 mit einer
+ausdrücklich ausgewählten, versions- und editionsgleichen Profil-ID als
+`licensed` über SQL Setups `/PID` vorbereiten. Ohne Profil bleiben SQL
+Evaluation sowie Enterprise-/Standard-Developer schlüssellos; Express- und
+Containerpfade wurden nicht auf einen Key-Zwang umgestellt. Enterprise Core und
+Web benötigen im Prepared-Builder ein passendes Profil. Dieser Vertrag wurde
+statisch und mit synthetischem Keymaterial geprüft, aber noch nicht für jede
+Version/Edition mit einem realen Product Key end-to-end aktiviert.
+
+Windows-Lizenzprofile sind derzeit nur ein sicherer lokaler Inventarvertrag.
+Automatische Windows-Key-Eingabe, Editionskonvertierung und Onlineaktivierung
+sind noch nicht implementiert. Insbesondere wird die mögliche digitale
+Aktivierungsberechtigung eines konkreten Geräts nicht aus einem Windows-10-Key
+abgeleitet und nicht automatisch auf Windows 11 übertragen.
+
 Mit
 `Tests/Integration/Invoke-HyperVWindowsBaselineAcceptanceRun.ps1` existiert
 nun ein dedizierter realer Cold-Path-Runner für veröffentlichte

@@ -3068,6 +3068,52 @@ function Select-LabSqlInstallationMedia {
         -Items $mediaItems -SelectedId ([string]$versionChoices[0].MediaId)
 }
 
+function Select-LabSqlLicenseProfile {
+    <#
+    .SYNOPSIS
+        Waehlt optional ein passendes lokales SQL-Lizenzprofil.
+    .DESCRIPTION
+        Evaluation sowie Enterprise-/Standard-Developer bleiben die
+        Standardauswahl ohne Product Key. Nur eine ausdruecklich gewaehlte
+        Profil-ID aktiviert den lizenzierten Setup-Pfad.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$SqlVersion,
+        [Parameter(Mandatory)][ValidateSet('Eval','Enterprise','EnterpriseCore','Standard','Web')][string]$MediaEdition
+    )
+
+    if ($MediaEdition -eq 'Eval') {
+        Write-LabInfo 'SQL-Lizenz: Evaluation ohne Product Key.'
+        return [PSCustomObject]@{ ProfileId = $null; LicenseType = 'evaluation'; Label = 'Evaluation (ohne Key)' }
+    }
+
+    $profiles = @(Get-SqlServerLabLicenseProfile | Where-Object {
+        $_.Product -eq 'SqlServer' -and $_.Version -eq $SqlVersion -and $_.Edition -eq $MediaEdition -and $_.KeyAvailable
+    })
+    $items = [Collections.Generic.List[object]]::new()
+    if ($MediaEdition -in @('Enterprise','Standard')) {
+        $items.Add((New-LabConsoleItem -Id '__keyless' -Label 'Developer Edition (ohne Key)' `
+            -Value 'Standard; keine Lizenzprofilbindung' -Shortcut '1' `
+            -Data ([PSCustomObject]@{ ProfileId = $null; LicenseType = 'developer'; Label = 'Developer (ohne Key)' })))
+    }
+    foreach ($profile in $profiles) {
+        $items.Add((New-LabConsoleItem -Id ([string]$profile.Id) -Label ([string]$profile.Id) `
+            -Value ("{0} · {1}" -f $profile.Edition, $profile.Channel) -Shortcut ([string]($items.Count + 1)) `
+            -Data ([PSCustomObject]@{ ProfileId = [string]$profile.Id; LicenseType = 'licensed'; Label = "Lizenzprofil $($profile.Id)" })))
+    }
+    if ($items.Count -eq 0) {
+        Write-LabError "Fuer SQL Server $SqlVersion $MediaEdition ist ein passendes lokales Lizenzprofil erforderlich."
+        return $null
+    }
+    if ($items.Count -eq 1 -and $items[0].Id -eq '__keyless') {
+        Write-LabInfo 'SQL-Lizenz: Developer Edition ohne Product Key.'
+        return $items[0].Data
+    }
+    return Select-LabConsoleDataItem -ScreenId 'hyperv-sql-license-profile-select' `
+        -Title 'SQL-Lizenzmodus auswählen' -Items $items.ToArray() -SelectedId ([string]$items[0].Id)
+}
+
 function New-LabHyperVSqlImageBuildInteractive {
     [CmdletBinding()]
     param()
@@ -3109,6 +3155,8 @@ function New-LabHyperVSqlImageBuildInteractive {
     $sqlVersion = [string]$selectedSqlMedia.SqlVersion
     $mediaEdition = [string]$selectedSqlMedia.MediaEdition
     $sqlMediaPath = [string]$selectedSqlMedia.MediaId
+    $licenseSelection = Select-LabSqlLicenseProfile -SqlVersion $sqlVersion -MediaEdition $mediaEdition
+    if (-not $licenseSelection) { return }
     $imageName = Read-Host '  Frei wählbarer Image-Name (optional)'
     if ($imageName -and $imageName.Trim().Length -gt 80) { Write-LabError 'Der Image-Name darf höchstens 80 Zeichen enthalten.'; return }
 
@@ -3132,6 +3180,7 @@ function New-LabHyperVSqlImageBuildInteractive {
         $operatingSystemLabel = Get-LabWindowsMediaOperatingSystemLabel -OperatingSystemId $operatingSystemId
         Write-Host "  Windows: $operatingSystemLabel / $windowsEdition / $installationType / $windowsLicenseType" -ForegroundColor DarkGray
         Write-Host "  SQL:     $sqlVersion $mediaEdition; SQLENGINE, FULLTEXT, REPLICATION" -ForegroundColor DarkGray
+        Write-Host "  Lizenz:  $($licenseSelection.Label)" -ForegroundColor DarkGray
         Write-Host '  Ablauf: Windows installieren -> SQL PrepareImage -> ein finaler Sysprep.' -ForegroundColor Yellow
         if ($operatingSystemId -ne 'windows-server-2025') {
             Write-LabWarning "Die Kombination $operatingSystemLabel / SQL Server $sqlVersion wird auf Ihre Entscheidung gebaut; Installation und Sysprep liefern bei echter Inkompatibilität die konkrete Diagnose."
@@ -3149,6 +3198,9 @@ function New-LabHyperVSqlImageBuildInteractive {
         }
         if (-not [string]::IsNullOrWhiteSpace($imageName)) {
             $buildArguments.ImageName = $imageName.Trim()
+        }
+        if (-not [string]::IsNullOrWhiteSpace([string]$licenseSelection.ProfileId)) {
+            $buildArguments.LicenseProfileId = [string]$licenseSelection.ProfileId
         }
         $build = Initialize-HyperVSqlFreshPreparedImageBuild @buildArguments
         Write-LabSuccess "Frischer SQL-Builder erstellt. BuildId: $($build.buildId)"
@@ -3177,6 +3229,8 @@ function New-LabHyperVSqlAcceptanceBuildInteractive {
     $sqlVersion = [string]$selectedSqlMedia.SqlVersion
     $mediaEdition = [string]$selectedSqlMedia.MediaEdition
     $sqlMediaPath = [string]$selectedSqlMedia.MediaId
+    $licenseSelection = Select-LabSqlLicenseProfile -SqlVersion $sqlVersion -MediaEdition $mediaEdition
+    if (-not $licenseSelection) { return }
     $artifact = Select-LabHyperVOsArtifact
     if (-not $artifact) { return }
     $imageName = Read-Host '  Frei wählbarer Image-Name (optional)'
@@ -3192,11 +3246,19 @@ function New-LabHyperVSqlAcceptanceBuildInteractive {
         }
         Write-Host "  Parent: $($artifact.artifactId)" -ForegroundColor DarkGray
         Write-Host "  SQL:    $sqlVersion $mediaEdition; SQLENGINE, FULLTEXT, REPLICATION" -ForegroundColor DarkGray
+        Write-Host "  Lizenz: $($licenseSelection.Label)" -ForegroundColor DarkGray
         Write-Host '  Die OS-Baseline bleibt unverändert; Windows wird nicht erneut installiert.' -ForegroundColor DarkGray
         Write-Host '  Die Evaluation-Ablaufzeit der OS-Baseline wird in das neue Artifact übernommen.' -ForegroundColor DarkGray
         if (-not (Read-LabConfirm -Prompt '  SQL-Prepared-Image-Builder aus OS-Baseline jetzt erzeugen?' -Default $false)) { return }
-        $build = Initialize-HyperVSqlPreparedImageBuild -MediaRoot $mediaRoot -ImageArtifactId $artifact.artifactId `
-            -SqlVersion $sqlVersion -MediaEdition $mediaEdition -SqlMediaPath $sqlMediaPath -ImageName $imageName
+        $buildArguments = @{
+            MediaRoot = $mediaRoot; ImageArtifactId = $artifact.artifactId; SqlVersion = $sqlVersion
+            MediaEdition = $mediaEdition; SqlMediaPath = $sqlMediaPath
+        }
+        if (-not [string]::IsNullOrWhiteSpace($imageName)) { $buildArguments.ImageName = $imageName.Trim() }
+        if (-not [string]::IsNullOrWhiteSpace([string]$licenseSelection.ProfileId)) {
+            $buildArguments.LicenseProfileId = [string]$licenseSelection.ProfileId
+        }
+        $build = Initialize-HyperVSqlPreparedImageBuild @buildArguments
         Write-LabSuccess "SQL-Prepared-Image-Builder aus OS-Baseline erstellt. BuildId: $($build.buildId)"
         Show-LabHyperVSqlManualInstructions -Build $build
         if (Read-LabConfirm -Prompt '  Builder starten und VMConnect oeffnen?' -Default $true) {
