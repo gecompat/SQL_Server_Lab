@@ -262,10 +262,13 @@ Add-CheckResult -Name 'CLI und Browser planen und führen unterstützte Retentio
     $htmlText -match 'id="persistent-storage-removal-execute"' -and
     $scriptText -match 'data-persistent-storage-removal-preview' -and
     $scriptText -match "fetch\('/api/persistent-storage/removal-plan'" -and
+    $scriptText -match "const execution = plan\?\.Execution \|\| \{\};" -and
+    $scriptText -match "executionStatus === 'EXECUTABLE'" -and
     $scriptText -match "'ExecutePersistentStorageRemoval'" -and
     $scriptText -match "persistent-storage-removal-selections'\)\.addEventListener\('change'" -and
     $actionText -match 'Invoke-SqlServerLabPersistentStorageRemoval -RunId \$BuildId -Selection \$PersistentStorageSelection' -and
-    $htmlText -match 'Package, Löschen und externe Freigabe bleiben blockiert'
+    $htmlText -match 'Execution.Status' -and
+    $htmlText -match 'ohne sichere Executor-Capability deaktiviert'
 )
 Add-CheckResult -Name 'CLI und Browser erstellen Labs per stabiler Continue-/Clone-Storage-Auswahl' -Success (
     $workflowText -match 'ContainerInstanceStoreCandidates = \$containerInstanceStoreCandidates' -and
