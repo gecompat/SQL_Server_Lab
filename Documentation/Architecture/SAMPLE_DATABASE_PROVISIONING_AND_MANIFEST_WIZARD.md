@@ -95,7 +95,7 @@ Die Zielarchitektur unterscheidet mindestens:
 | `script-bundle` | Paket aus mehreren Skripten mit definiertem Entrypoint | hoch |
 | `bacpac` | Import über ein nachgewiesenes `SqlPackage` | implementiert für SQL-2022-Linux unter Docker/Podman |
 | `archive-backup` | verifiziertes Archiv mit Backup als Payload | mittel |
-| `attach` | kontrolliertes Attach katalogisierter MDF/LDF-Dateien | niedrig |
+| `attach` | kontrolliertes ZIP-Attach katalogisierter MDF/NDF/LDF-Dateien | Docker/Podman implementiert; 7z und Hyper-V offen |
 
 Neue Typen werden über registrierte Handler ergänzt. Ein unbekannter Typ wird
 nicht anhand der Dateiendung geraten oder als anderer Typ ausgeführt.
