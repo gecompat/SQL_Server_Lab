@@ -30,6 +30,7 @@ $hyperVLabPath = Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1'
 $mediaSourcePath = Join-Path $repoRoot 'Private/MediaSourceCatalog.ps1'
 $htmlPath = Join-Path $repoRoot 'Ui/index.html'
 $scriptPath = Join-Path $repoRoot 'Ui/app.js'
+$stylePath = Join-Path $repoRoot 'Ui/app.css'
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
@@ -50,6 +51,7 @@ $hyperVLabText = Get-Content -LiteralPath $hyperVLabPath -Raw -Encoding utf8
 $mediaSourceText = Get-Content -LiteralPath $mediaSourcePath -Raw -Encoding utf8
 $htmlText = Get-Content -LiteralPath $htmlPath -Raw -Encoding utf8
 $scriptText = Get-Content -LiteralPath $scriptPath -Raw -Encoding utf8
+$styleText = Get-Content -LiteralPath $stylePath -Raw -Encoding utf8
 
 Add-CheckResult -Name 'UI lauscht ausschliesslich auf Loopback' -Success (
     $serverText.Contains('http://127.0.0.1:$Port/') -and
@@ -147,6 +149,16 @@ Add-CheckResult -Name 'Browser inventarisiert Migrationsabhaengigkeiten containe
     $serverText -match "\[INVENTAR\]" -and
     $serverText -match 'FullInstanceMigration' -and
     $serverText -notmatch 'HostName = \[string\]\$result\.HostName'
+)
+Add-CheckResult -Name 'Browser rendert das sanitisierte Migrationsinventar strukturiert aus dem bestehenden Live-Log-Kanal' -Success (
+    $scriptText -match 'function migrationInventoryResult' -and
+    $scriptText -match "startsWith\('\[INVENTAR\] '\)" -and
+    $scriptText -match 'SqlServerLab\.DatabaseMigrationDependencyInventory/1\.0' -and
+    $scriptText -match 'job-inventory' -and
+    $scriptText -match "job\.Action === 'InspectContainerDatabaseMigrationDependencies'" -and
+    $scriptText -notmatch 'inventory\.(HostName|Port|SaPassword|ObjectName|KeyName)' -and
+    $htmlText -match 'Live-Log' -and
+    $styleText -match '\.job-inventory'
 )
 Add-CheckResult -Name 'UI bietet erkannte Windows- und SQL-Medien ohne manuelle Editionsauswahl an' -Success (
     $workflowText -match 'WindowsInstallationMedia' -and

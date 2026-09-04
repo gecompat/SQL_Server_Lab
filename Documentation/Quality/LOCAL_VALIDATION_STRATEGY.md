@@ -575,6 +575,9 @@ sanitisierte `DATABASE_FILES_ONLY`-Receipts. Der bestehende
 Containerinventur: Nur Run-ID, Instanz-ID, validierter Datenbankname und
 flüchtiges SA-Passwort erreichen die Workflowaktion; die Ergebnisprojektion
 enthält ausschließlich Kategorien, Counts, Grenzen und Review-Schritte. Der
+Browser parst nur die versionierte `[INVENTAR]`-Projektion aus dem bestehenden
+Live-Log und rendert sie strukturiert, ohne einen weiteren Endpunkt oder
+Rohdatenpfad einzuführen. Der
 UI-Slice führt keine Runtime-Mutation aus; der bestehende öffentliche PSR-010-
 Core und dessen separate Runtime-Evidence bleiben maßgeblich.
 `Invoke-BackupLibraryCrossProviderAcceptance.ps1` führt die echte SQL-Abfrage

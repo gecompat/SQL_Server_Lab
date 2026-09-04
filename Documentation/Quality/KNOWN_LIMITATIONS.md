@@ -510,7 +510,9 @@ read-only Live-Inventur direkt oder über eine stabile Run-/Instanzbindung aus.
 Die Browseraktion für eine laufende Containerinstanz übergibt nur Run-ID,
 Instanz-ID, validierten Datenbanknamen und ein flüchtiges SA-Passwort; ihr
 Live-Log enthält ausschließlich die sanitisierte Inventarprojektion mit
-Kategorien, Counts, Migrationsgrenzen und Review-Schritten. Noch offen sind
+Kategorien, Counts, Migrationsgrenzen und Review-Schritten; der Browser rendert
+diese bekannte Vertragsprojektion zusätzlich strukturiert aus demselben
+Live-Log-Kanal. Noch offen sind
 Export-/Import-Executor für Serverobjekte, Keymaterialtransfer
 und externe Serviceprüfung.
 
