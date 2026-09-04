@@ -473,13 +473,16 @@ eine per Run- und Instanz-ID gebundene Docker-/Podman-Quelle nach dem
 bestehenden exklusiven Offline-, Objekt- und Manifest-SHA-256-Vertrag; sein
 Ergebnis gibt nur stabile Paket- und Storage-IDs zurück. Die getrennten
 Docker- und Podman-Runner vom 2026-09-04 bestätigten `WhatIf`, Offline-
-Postcondition, vollständige Integritätsprüfung und Cleanup.
+Postcondition, vollständige Integritätsprüfung und Cleanup. Die lokale
+Browseraktion `Datenbank paketieren` verwendet exakt denselben öffentlichen
+Core: Sie übergibt weder Host, Port noch Passwort oder Pfad, sondern nur die
+stabil gebundene Run-/Instanz-ID und einen strikt validierten Datenbanknamen.
 Ein freier Zielpfad ist nicht Teil des Vertrags: Das Framework ermittelt SQLs
 Default-Data-Verzeichnis live im scopegebundenen Gast, kopiert dorthin in eine
 paketeigene Unterstruktur, verifiziert jeden Hash im Gast und persistiert den
 Recovery-Zustand vor der SQL-Mutation. TDE bleibt ohne Ziel-Key-Vertrag
-fail-closed. Weitere Providerbindungen und eine Browser-Exportaktion bleiben
-offen. Der öffentliche Hyper-V-Paket-Attach und dessen getrennte Workflow-Aktion
+fail-closed. Weitere Providerbindungen, FILESTREAM-/TDE-Export und alle
+nicht dokumentierten Exportwege bleiben offen. Der öffentliche Hyper-V-Paket-Attach und dessen getrennte Workflow-Aktion
 kann einen passenden persistierten
 `RECOVERY_REQUIRED`-Journalzustand mit `-Recover` ausführen: er bindet den
 Vorgang erneut an Paket-ID, Run, Instanz und SQL-Default-Data-Ziel, detacht

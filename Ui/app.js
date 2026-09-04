@@ -622,6 +622,7 @@ function renderActiveLabs(items) {
         : '';
       const operations = running && instance.Port ? [
         '<button class="button secondary" data-container-operation="CreateContainerDatabase" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-container-operation-host="' + escapeHtml(instance.Host || '127.0.0.1') + '" data-sql-version="' + escapeHtml(instance.SqlVersion) + '" data-port="' + escapeHtml(instance.Port) + '">Datenbank anlegen</button>',
+        '<button class="button secondary" data-container-operation="ExportContainerDatabasePackage" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '">Datenbank paketieren</button>',
         '<button class="button secondary" data-container-operation="ExecuteContainerScript" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-container-operation-host="' + escapeHtml(instance.Host || '127.0.0.1') + '" data-port="' + escapeHtml(instance.Port) + '">SQL-Skript ausführen</button>'
       ].join('') : '';
       const resource = resourceForInstance(item.Resources, instance.Id);
@@ -987,19 +988,23 @@ function updateContainerSampleSelection() {
 function openContainerOperation(action, runId, port, instanceId, sqlVersion, kind, host) {
   const operationKind = kind === 'hyperv' ? 'hyperv' : 'container';
   const isCreateAction = action === 'CreateContainerDatabase' || action === 'CreateHyperVLabDatabase';
-  const databaseAction = isCreateAction;
+  const isExportAction = action === 'ExportContainerDatabasePackage';
+  const databaseAction = isCreateAction || isExportAction;
   $('#container-operation-action').value = action;
   $('#container-operation-run').value = runId;
   $('#container-operation-port').value = port;
   $('#container-operation-host').value = host || '127.0.0.1';
   $('#container-operation-kind').value = operationKind;
   $('#container-operation-badge').textContent = 'LAB-AKTION';
+  $('#container-operation-password-label').hidden = isExportAction;
+  $('#container-operation-password').required = !isExportAction;
   $('#container-operation-password-text').textContent = operationKind === 'hyperv' ? 'Gastpasswort' : 'SA-Passwort';
+  $('#container-operation-password-note').hidden = isExportAction;
   $('#container-operation-password-note').textContent = operationKind === 'hyperv'
     ? 'Das Passwort dient für PowerShell Direct und den SQL-Zugriff auf die laufende Hyper-V-VM.'
     : 'Das Passwort wird nicht gespeichert oder im Log angezeigt.';
   $('#container-operation-instance').value = instanceId || 'primary';
-  $('#container-operation-title').textContent = databaseAction ? 'Datenbank anlegen oder wiederherstellen' : 'SQL-Skript ausführen';
+  $('#container-operation-title').textContent = isExportAction ? 'Datenbank als Paket veröffentlichen' : (databaseAction ? 'Datenbank anlegen oder wiederherstellen' : 'SQL-Skript ausführen');
   $('#container-database-field').hidden = !databaseAction;
   const showContainerSamples = isCreateAction && operationKind === 'container';
   $('#container-library-backup-field').hidden = !showContainerSamples;
@@ -1012,6 +1017,10 @@ function openContainerOperation(action, runId, port, instanceId, sqlVersion, kin
   $('#container-sample-trust').checked = false;
   $('#container-script-field').hidden = databaseAction;
   $('#container-script-database-field').hidden = databaseAction;
+  if (isExportAction) {
+    $('#container-sample-note').hidden = false;
+    $('#container-sample-note').textContent = 'Der Export übergibt ausschließlich Run, Instanz und Datenbankname. Die Quelle wird serverseitig neu gebunden, exklusiv offline genommen und automatisch per SHA-256 verifiziert.';
+  }
   if (isCreateAction && operationKind === 'container') {
     renderContainerLibraryBackups(sqlVersion);
     renderContainerSampleOptions(sqlVersion);
@@ -1597,6 +1606,21 @@ $('#container-operation-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   let action = $('#container-operation-action').value;
   const operationKind = $('#container-operation-kind').value || 'container';
+  if (action === 'ExportContainerDatabasePackage') {
+    const databaseName = $('#container-database-name').value.trim();
+    if (!/^[A-Za-z][A-Za-z0-9_]{0,127}$/.test(databaseName)) {
+      showError(new Error('Der Datenbankname ist ungültig. Erlaubt sind Buchstaben, Zahlen und Unterstrich; das erste Zeichen muss ein Buchstabe sein.'));
+      return;
+    }
+    const exportParameters = {
+      BuildId: $('#container-operation-run').value,
+      InstanceId: $('#container-operation-instance').value,
+      DatabaseName: databaseName
+    };
+    if (workflow?.Defaults?.DataRoot) exportParameters.DataRoot = workflow.Defaults.DataRoot;
+    queueBackgroundAction(action, exportParameters, $('#container-operation-dialog'));
+    return;
+  }
   const targetPort = Number($('#container-operation-port').value);
   const password = $('#container-operation-password').value;
   const operationPort = Number.isFinite(targetPort) ? Number(targetPort) : 0;
