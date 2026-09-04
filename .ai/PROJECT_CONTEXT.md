@@ -177,6 +177,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - providerneutraler Instanz-Autostart: Hyper-V `AutomaticStartAction`,
   Docker/Podman-Restart-Policy, Windows-Anmeldekoordinator und Podman-User-
   systemd-Service; der verwaltete CMS verwendet Autostart zwingend;
+- passwortfreier providerübergreifender Connection-Center-Katalog und
+  dauerhafte SSMS-/CMS-Exporte; der direkte CMS-Abgleich kann nach expliziter
+  Klartextwarnung ausschließlich nachweislich vom Lab erzeugte SA-Passwörter
+  im Anzeigenamen ergänzen und führt den sensiblen Plan nur im Arbeitsspeicher
+  aus; manuelle und manifestbasierte Passwörter bleiben ausgeschlossen;
 - Hyper-V-Lifecycle-Grundlage mit Generation 2, Secure Boot, verifizierter
   Parent-/Child-VHDX, Status, Start, Stop, deklarativem VM-Autostart und
   scopegebundenem Cleanup;
