@@ -14,6 +14,7 @@
 | PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md | Providerübergreifender P1-Backlog für auswählbare Instanzspeicher, Backup-/Restore- und MDF/LDF/FILESTREAM-Pakete, sichere Retention sowie die noch erforderliche physische `Lab_Data`-Analyse für Docker, Podman und Hyper-V |
 | PROJECT_ADAPTER_PRIORITIZATION.md | Entscheidung, Project Adapter vor Hyper-V umzusetzen, mit Arbeitspaketen |
 | EXTERNAL_LANGUAGES_IMPLEMENTATION_PLAN.md | Providerneutraler Umsetzungsplan für Python, R und Java auf Hyper-V/Windows sowie Docker/Podman unter Linux; konkretisiert `SFT-711` und `SFT-712` |
+| REPOSITORY_AGENT_SKILLS_BACKLOG.md | Fachlich akzeptierter Backlog für repository-lokale KI-Skills; trennt den eigenständig ausführbaren Client-Readiness-Check vom Skill-Loader und priorisiert `Readiness` vor `Validation` und `Operate` |
 | CU_MONITORING_BACKLOG.md | Backlog zur Katalogaktualität der SQL-Server-Builds |
 | HYPERV_REMOTE_HOST_BACKLOG.md | Spätere Steuerung eines entfernten Windows-Hyper-V-Hosts aus der lokalen Workflow-Oberfläche |
 | WINDOWS_LOCALE_CONFIGURATION_BACKLOG.md | Deklarative, pro Windows-Instanz konfigurierbare Sprache, Region, Tastatur und Zeitzone für Manifest- und Batch-Pfade |
