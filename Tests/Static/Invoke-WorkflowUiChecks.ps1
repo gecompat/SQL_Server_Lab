@@ -255,6 +255,9 @@ Add-CheckResult -Name 'CLI und Browser planen und führen unterstützte Retentio
     $removalExecutorText -match 'function Invoke-SqlServerLabPersistentStorageRemoval' -and
     $removalExecutorText -match 'Invoke-LabPersistentStorageRemovalExecutor' -and
     $workflowText -match 'PersistentStorageRemovalCandidates = \$persistentStorageRemovalCandidates' -and
+    $workflowText -match '(?s)Retention -eq .RUN_SCOPED..*CleanupDisposition -eq .RUN_CLEANUP..*\$allowedPolicies = @\(.DELETE_WITH_RUN.\)' -and
+    $removalPreviewText -match '(?s)DELETE_WITH_RUN.*RUN_SCOPED/RUN_CLEANUP.*Docker-/Podman-Instanzstore' -and
+    $removalExecutorText -match '(?s)DELETE_WITH_RUN.*RUN_SCOPED/RUN_CLEANUP.*DELETE_PENDING.*Missing-Volume-Nachweis' -and
     $workflowText -notmatch 'ProviderResourceId = \[string\]\$store\.LocationBinding' -and
     $serverText -match '/api/persistent-storage/removal-plan' -and
     $serverText -match 'Get-SqlServerLabPersistentStorageRemovalPlan -RunId \$runId -Selection \$selections' -and
