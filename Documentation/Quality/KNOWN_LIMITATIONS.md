@@ -1305,7 +1305,11 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
    implementiert; positive native Reparaturnachweise, alte Runs ohne
    Testdatenbank-Ownership-Receipt, Storage-Removal/-Rebinding,
    User-/Systemdatenbankbewegung und weitere Hardware-/SQL-Klassen bleiben offen.
-3. Artifact Registry, Refresh/Rebuild und Evaluierungsablauf implementieren.
+3. Die bestehende lokale, read-only Artifact Registry sowie Evaluierungs- und
+   Refresh-Empfehlungen um einen explizit autorisierten Rebuild-/Retire-
+   Lifecycle erweitern. Die Inventur liefert bereits stabile Artifact-IDs,
+   Integritätsstatus, Referenzzähler und `MANUAL_REBUILD_*`-Hinweise, erteilt
+   aber bewusst keine Build-, Refresh- oder Löschmutation.
 4. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
    allgemeinen Hyper-V-Manifestbindung und zu weiteren realen
    Versions-/Editionsnachweisen ausbauen.

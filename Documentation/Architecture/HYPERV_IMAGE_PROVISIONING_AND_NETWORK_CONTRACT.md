@@ -136,6 +136,24 @@ werden. Eine vollständig konfigurierte SQL-VM ohne korrektes
 - Parents, Cache und Baselines werden referenzgezählt und erst ohne Referenzen
   zur Bereinigung angeboten.
 
+### 4.4 Bestehende Registry- und Evaluierungsgrenze
+
+Die lokale Registry für veröffentlichte Parent-VHDX und der öffentliche
+`Get-SqlServerLabHyperVImageArtifact`-Aufruf sind implementiert. Die
+pfadfreie read-only Inventur liefert stabile Artifact-IDs, sanitisierte OS-/
+SQL-Metadaten, Referenzen durch aktive Runs und Builds sowie einen optionalen
+erneuten SHA-256-/Read-only-Integritätscheck. Bei abgelaufener, auslaufender
+oder unbekannter Evaluation gibt sie ausschließlich
+`MANUAL_REBUILD_REQUIRED`, `MANUAL_REBUILD_RECOMMENDED` beziehungsweise
+`EVALUATION_REVIEW_REQUIRED` aus. In allen Fällen bleiben
+`MutationAllowed=false` und `RetainExisting=true`.
+
+Ein automatischer Rebuild, eine Referenzumschaltung oder ein Retire-/Löschpfad
+ist damit nicht impliziert. Dafür fehlen noch die konkrete Medien- und
+Lizenzquelle, ein atomarer Build-/Switchover-/Recovery-Vertrag, eine
+referenzsichere Retire-Autorität und der passende native Nachweis. Bis diese
+Autorität geschlossen ist, bleibt die Empfehlung absichtlich rein informativ.
+
 ## 5. Deterministische Auswahl der besten Ausgangsbasis
 
 `imagePolicy: bestAvailable` bedeutet nicht „neuester Zustand“. Der Resolver
