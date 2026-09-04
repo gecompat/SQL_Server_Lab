@@ -524,6 +524,12 @@ sanitisierte Kategorien in `NOT_REQUIRED`, `MANUAL_REQUIRED`,
 weder den TDE-Recovery-Nachweis noch exportiert oder importiert er
 Serverobjekte, Schlüssel, Secrets oder externe Services.
 
+Neue Datenbankpakete übernehmen diesen Plan ausschließlich als geheimnisfreie
+Receipt-Evidence. Seine kanonischen Kategorien, Status und Blocker gehen in
+den Paketmanifest-SHA-256 ein; der Browser zeigt aus dem Katalog nur
+Status, Schrittzahl und Blocker. Weder die Hashbindung noch die Darstellung
+erweitern den Plan zu einer Export-, Import- oder Transferautorität.
+
 ## Restore
 
 Unterstützt werden Bibliotheksbackups per stabiler `BackupSetId` sowie direkte

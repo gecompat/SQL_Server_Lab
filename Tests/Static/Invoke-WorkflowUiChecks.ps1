@@ -285,6 +285,9 @@ Add-CheckResult -Name 'CLI und Browser verwenden Datenbankpakete pfadfrei über 
     $scriptText -match 'item\.DatabasePackageId' -and
     $scriptText -match 'selected\.DependencyCategories' -and
     $scriptText -match 'selected\.MigrationWarnings' -and
+    $scriptText -match 'selected\.MigrationExecutionStatus' -and
+    $scriptText -match 'selected\.MigrationPlanBlockers' -and
+    $scriptText -match 'Nicht ausführbarer Migrationsplan' -and
     $scriptText -match 'selected\.DependencyInventoryStatus' -and
     $scriptText -match 'AttachHyperVDatabasePackage' -and
     $scriptText -match 'parameters\.DatabasePackageId = pendingDatabasePackageAttach\.DatabasePackageId' -and

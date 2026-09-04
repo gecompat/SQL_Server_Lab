@@ -385,6 +385,7 @@ function updateDatabasePackageDetails(items = workflow?.DatabasePackageLibrary |
   const capabilities = [selected.HasFileStream ? 'FILESTREAM' : 'ohne FILESTREAM', selected.IsEncrypted ? 'TDE' : 'nicht verschlüsselt'];
   const dependencyCategories = Array.isArray(selected.DependencyCategories) ? selected.DependencyCategories : [];
   const migrationWarnings = Array.isArray(selected.MigrationWarnings) ? selected.MigrationWarnings : [];
+  const migrationPlanBlockers = Array.isArray(selected.MigrationPlanBlockers) ? selected.MigrationPlanBlockers : [];
   const dependencySummary = dependencyCategories.length ? dependencyCategories.join(', ') : 'keine erkannten oder veröffentlichten Kategorien';
   const warningSummary = migrationWarnings.length ? migrationWarnings.join(', ') : 'keine';
   const targetSummary = targetRun
@@ -393,7 +394,7 @@ function updateDatabasePackageDetails(items = workflow?.DatabasePackageLibrary |
   const packageReady = selected.Availability === 'SELECTABLE' && !selected.IsEncrypted;
   attach.disabled = !(packageReady && targetRun);
   const packageBlocker = selected.IsEncrypted ? '<span>Attach gesperrt: TDE-Ziel-Key-Vertrag fehlt</span>' : '';
-  target.innerHTML = '<strong>' + escapeHtml(selected.DatabaseName) + '</strong><span>' + escapeHtml(selected.SourceProvider + ' · SQL ' + selected.SourceSqlMajorVersion + ' · ' + capabilities.join(' · ')) + '</span><span>' + escapeHtml(selected.DatabaseFileCount + ' Datenbankdatei(en) · ' + selected.ObjectCount + ' gehashte(s) Objekt(e) · ' + selected.MigrationBoundary) + '</span><span>Migrationsinventar: ' + escapeHtml(selected.DependencyInventoryStatus) + '</span><span>Getrennt zu behandeln: ' + escapeHtml(dependencySummary) + '</span><span>Hinweise: ' + escapeHtml(warningSummary) + '</span><code>DatabasePackageId: ' + escapeHtml(selected.DatabasePackageId) + '</code><span>' + escapeHtml(targetSummary) + '</span>' + packageBlocker;
+  target.innerHTML = '<strong>' + escapeHtml(selected.DatabaseName) + '</strong><span>' + escapeHtml(selected.SourceProvider + ' · SQL ' + selected.SourceSqlMajorVersion + ' · ' + capabilities.join(' · ')) + '</span><span>' + escapeHtml(selected.DatabaseFileCount + ' Datenbankdatei(en) · ' + selected.ObjectCount + ' gehashte(s) Objekt(e) · ' + selected.MigrationBoundary) + '</span><span>Migrationsinventar: ' + escapeHtml(selected.DependencyInventoryStatus) + '</span><span>Getrennt zu behandeln: ' + escapeHtml(dependencySummary) + '</span><span>Hinweise: ' + escapeHtml(warningSummary) + '</span><span>Nicht ausführbarer Migrationsplan: ' + escapeHtml(selected.MigrationExecutionStatus || 'NOT_CAPTURED') + ' · ' + escapeHtml(String(selected.MigrationPlanStepCount || 0)) + ' Schritt(e) · Blocker: ' + escapeHtml(migrationPlanBlockers.join(', ') || 'keine') + '</span><code>DatabasePackageId: ' + escapeHtml(selected.DatabasePackageId) + '</code><span>' + escapeHtml(targetSummary) + '</span>' + packageBlocker;
 }
 
 function renderSqlInstallationMedia(items) {

@@ -87,6 +87,10 @@ gemeinsame Core Paket, VM-Eigentum, SQL-Version, FILESTREAM-Capability,
 Datenbankname und Zielzustand. Das Ziel wird live aus SQLs Default-Data-
 Verzeichnis abgeleitet; ein Host- oder Gastpfad kann nicht eingegeben werden.
 Die Paketkopie wird im Gast vollständig gehasht und erst danach attached.
+Die Katalogauswahl zeigt außerdem nur den Status, die Schrittzahl und die
+Blocker des beim Paket erfassten nicht ausführbaren Migrationsplans. Diese
+Planprojektion gehört zum hashgebundenen Paketmanifest; sie erteilt keine
+Transfer- oder Mutationsautorität.
 
 Die Aktion **Migrationsabhängigkeiten prüfen** bleibt gleichfalls read-only.
 Ihr Live-Log zeigt das sanitisierte Inventar zusammen mit dem versionierten

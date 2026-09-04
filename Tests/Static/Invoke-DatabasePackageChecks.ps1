@@ -160,7 +160,7 @@ try {
         [IO.File]::AppendAllText($objectPath,'tamper')
         $tamper=$false
         try{$null=Get-LabDatabasePackage -DatabasePackageId $created.DatabasePackageId -DataRoot $Root}catch{$tamper=$_.Exception.Message -match 'OBJECT_HASH_MISMATCH'}
-        [PSCustomObject]@{Created=$created;Package=$package;Selection=$selection;PublicSelection=$publicSelection;PublicSyncPreview=$publicSyncPreview;PublicSync=$publicSync;PublicSyncAgain=$publicSyncAgain;PreviewDidNotMutate=$previewHashBefore -eq $previewHashAfter;InitialPersistentCatalog=$initialPersistentCatalog;PersistentCatalog=$persistentCatalog;ResidencyInventory=$residencyInventory;SyncResult=$syncResult;Clone=$clone;Ready=$ready;Old=$old;NoStream=$noStream;Parallel=$parallel;Attached=$attached;AttachCalls=@($attachCalls);PublicAttachPreview=$publicPreview;PublicAttachPreviewDidNotExecute=$previewDidNotExecute;PublicAttach=$publicAttach;PublicRecovery=$publicRecovery;PublicAttachRecoveryCalls=$script:publicAttachRecoveryCalls;PublicAttachCopyCalls=$script:publicAttachCopyCalls;PublicAttachSqlCalls=$script:publicAttachSqlCalls;PublicAttachJournalProtected=$script:publicAttachJournalProtected;PublicContainerExportPreview=$publicContainerExportPreview;PublicContainerExport=$publicContainerExport;PublicContainerExportCalls=$script:publicContainerPackageExportCalls;BadDetach=$badDetach;Tde=$tde;CatalogFailure=$catalogFailure;CatalogFailureQuarantined=$quarantined.Count -eq 1;QuarantineGuard=$quarantineGuard;CatalogFailureJournal=$catalogFailureJournal;Tamper=$tamper;CloneFiles=@(Get-ChildItem -LiteralPath $cloneRoot -File -Recurse)}
+        [PSCustomObject]@{Created=$created;Package=$package;Selection=$selection;PublicSelection=$publicSelection;PublicSyncPreview=$publicSyncPreview;PublicSync=$publicSync;PublicSyncAgain=$publicSyncAgain;PreviewDidNotMutate=$previewHashBefore -eq $previewHashAfter;InitialPersistentCatalog=$initialPersistentCatalog;PersistentCatalog=$persistentCatalog;ResidencyInventory=$residencyInventory;SyncResult=$syncResult;Clone=$clone;Ready=$ready;Old=$old;NoStream=$noStream;Parallel=$parallel;Attached=$attached;AttachCalls=@($attachCalls);PublicAttachPreview=$publicPreview;PublicAttachPreviewDidNotExecute=$previewDidNotExecute;PublicAttach=$publicAttach;PublicRecovery=$publicRecovery;PublicAttachRecoveryCalls=$script:publicAttachRecoveryCalls;PublicAttachCopyCalls=$script:publicAttachCopyCalls;PublicAttachSqlCalls=$script:publicAttachSqlCalls;PublicAttachJournalProtected=$script:publicAttachJournalProtected;PublicContainerExportPreview=$publicContainerExportPreview;PublicContainerExport=$publicContainerExport;PublicContainerExportCalls=$script:publicContainerPackageExportCalls;BadDetach=$badDetach;Tde=$tde;CatalogFailure=$catalogFailure;CatalogFailureQuarantined=$quarantined.Count -eq 1;QuarantineGuard=$quarantineGuard;CatalogFailureJournal=$catalogFailureJournal;Tamper=$tamper;ManifestMatches=(Get-LabDatabasePackageManifestSha256 -Package $package.Record) -eq $package.Record.ManifestSha256;CloneFiles=@(Get-ChildItem -LiteralPath $cloneRoot -File -Recurse)}
     } $dataRoot $testRoot
 
     Add-CheckResult 'Offline-Paket enthält MDF, NDF, LDF und vollständigen FILESTREAM-Baum' ($result.Package.Record.DatabaseFiles.Count -eq 4 -and $result.Package.Record.Objects.Count -eq 5 -and @($result.Package.Record.DatabaseFiles|Where-Object Type -eq 'FILESTREAM').Count -eq 1)
@@ -187,6 +187,18 @@ try {
         'SERVER_CONFIGURATION' -in $result.Selection[0].DependencyCategories -and
         'SERVER_OBJECTS_NOT_INCLUDED' -in $result.Selection[0].MigrationWarnings -and
         $selectionJson -notmatch 'RunId|InstanceId|HostName|ObjectName|KeyName')
+    $migrationPlan=$result.Package.Record.DatabaseMetadata.MigrationExecutionPlan
+    $migrationPlanEvidence=[ordered]@{
+        ContractVersion=($migrationPlan.ContractVersion -eq 'SqlServerLab.DatabaseMigrationExecutionPlan/1.0')
+        NoMutation=(-not $migrationPlan.MutationAllowed)
+        NoTransferAuthority=($migrationPlan.TransferAuthority -eq 'NONE')
+        EightSteps=(@($migrationPlan.Steps).Count -eq 8)
+        CatalogStatus=($result.Selection[0].MigrationExecutionStatus -eq 'MANUAL_REVIEW_REQUIRED')
+        CatalogSteps=($result.Selection[0].MigrationPlanStepCount -eq 8)
+        ManifestMatches=$result.ManifestMatches
+    }
+    Add-CheckResult 'Paketreceipt bindet den nicht ausführbaren Migrationsplan in den Manifest-SHA und die Katalogprojektion ein' (
+        @($migrationPlanEvidence.Values|Where-Object{-not $_}).Count -eq 0)
     $initialPersistentStores=@($result.InitialPersistentCatalog.Document.Stores|Where-Object StorageClass -eq 'DATABASE_PACKAGE')
     $persistentStores=@($result.PersistentCatalog.Document.Stores|Where-Object StorageClass -eq 'DATABASE_PACKAGE')
     Add-CheckResult 'Paketpublikation registriert eine getrennte stabile PersistentStorageId atomar im zentralen Katalog' (
@@ -244,7 +256,8 @@ try {
         $result.CatalogFailureJournal.Recovery -eq 'RETRY_PERSISTENT_STORAGE_CATALOG_REGISTRATION')
     Add-CheckResult 'Veränderte Paketobjekte werden bei erneuter Auswahl blockiert' $result.Tamper
     $registryJson=$result.Package.Record|ConvertTo-Json -Depth 60
-    Add-CheckResult 'Package-Receipt enthält keine Quellpfade oder Credentials' ($registryJson -notmatch [regex]::Escape($testRoot) -and $registryJson -notmatch 'Password|Credential|SaPassword')
+    $registrySecretScan=$registryJson -replace 'CREDENTIAL_OR_PROXY',''
+    Add-CheckResult 'Package-Receipt enthält keine Quellpfade oder Credentials' ($registrySecretScan -notmatch [regex]::Escape($testRoot) -and $registrySecretScan -notmatch 'Password|Credential|SaPassword')
     $containerExporter=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ContainerDatabasePackage.ps1') -Raw
     Add-CheckResult 'Container-Dateiinventar normiert Systemmetadaten vor der Paketverkettung kollationsfest' (
         @([regex]::Matches($containerExporter,'COLLATE Latin1_General_100_BIN2')).Count -eq 3 -and

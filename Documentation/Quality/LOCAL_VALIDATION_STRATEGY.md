@@ -582,6 +582,11 @@ separat schema-validierten `SqlServerLab.DatabaseMigrationExecutionPlan/1.0`.
 Die Suite prüft dessen TDE-Blockierung, kategoriebasierten manuellen/externalen
 Review-Schritte sowie `MutationAllowed=false` und `TransferAuthority=NONE`; der
 Plan führt keine Export-, Import- oder sonstige Runtime-Mutation aus. Der bestehende
+`Invoke-DatabasePackageChecks.ps1` prüft ergänzend, dass neue
+`DATABASE_PACKAGE`-Receipts diesen Plan nur geheimnisfrei persistieren, seine
+kanonischen Felder in den Paketmanifest-SHA-256 aufnehmen und im pfadfreien
+Katalog lediglich Status, Schrittzahl und Blocker anzeigen.
+Der bestehende
 `Invoke-WorkflowUiChecks.ps1` prüft zusätzlich die lokale Browserbindung der
 Containerinventur: Nur Run-ID, Instanz-ID, validierter Datenbankname und
 flüchtiges SA-Passwort erreichen die Workflowaktion; die Ergebnisprojektion
