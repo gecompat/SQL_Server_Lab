@@ -571,6 +571,12 @@ Agent-Job-, Proxy-, Linked-Server- und TDE-Kategorien, die
 `NOT_OBSERVABLE`-Grenze für Serverkonfiguration/SSISDB/SSAS, das TDE-Recovery-
 Gate, den öffentlichen direkten und Run-/Instanz-gebundenen Aufruf sowie
 sanitisierte `DATABASE_FILES_ONLY`-Receipts. Der bestehende
+`Invoke-WorkflowUiChecks.ps1` prüft zusätzlich die lokale Browserbindung der
+Containerinventur: Nur Run-ID, Instanz-ID, validierter Datenbankname und
+flüchtiges SA-Passwort erreichen die Workflowaktion; die Ergebnisprojektion
+enthält ausschließlich Kategorien, Counts, Grenzen und Review-Schritte. Der
+UI-Slice führt keine Runtime-Mutation aus; der bestehende öffentliche PSR-010-
+Core und dessen separate Runtime-Evidence bleiben maßgeblich.
 `Invoke-BackupLibraryCrossProviderAcceptance.ps1` führt die echte SQL-Abfrage
 bei der Docker-Backup-Erstellung aus; dies ist kein Windows-TDE-,
 Serverobjekt-Export- oder Hyper-V-FILESTREAM-Nachweis.

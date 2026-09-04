@@ -215,7 +215,29 @@ function Start-UiWorkflowJob {
                 $invokeParameters['SaPassword'] = ConvertTo-SecureString -String $plainPassword -AsPlainText -Force
             }
             Write-Output "[START] $JobAction"
-            $null = Invoke-SqlServerLabWorkflowAction -Action $JobAction @invokeParameters
+            $result = Invoke-SqlServerLabWorkflowAction -Action $JobAction @invokeParameters
+            if ($JobAction -eq 'InspectContainerDatabaseMigrationDependencies') {
+                $inventory = $result.Result
+                $summary = [ordered]@{
+                    ContractVersion = [string]$inventory.ContractVersion
+                    DatabaseName = [string]$inventory.DatabaseName
+                    ObservationStatus = [string]$inventory.ObservationStatus
+                    MigrationBoundary = [string]$inventory.MigrationBoundary.ArtifactScope
+                    FullInstanceMigration = [bool]$inventory.MigrationBoundary.FullInstanceMigration
+                    Dependencies = @($inventory.Dependencies | ForEach-Object {
+                        [ordered]@{
+                            Category = [string]$_.Category
+                            Status = [string]$_.Status
+                            Count = if ($null -eq $_.Count) { $null } else { [long]$_.Count }
+                            Scope = [string]$_.Scope
+                            RequiredAction = [string]$_.RequiredAction
+                        }
+                    })
+                    Warnings = @($inventory.MigrationBoundary.Warnings | ForEach-Object { [string]$_ })
+                    Blockers = @($inventory.MigrationBoundary.Blockers | ForEach-Object { [string]$_ })
+                }
+                Write-Output ('[INVENTAR] ' + ($summary | ConvertTo-Json -Depth 8 -Compress))
+            }
             Write-Output '[OK] Aktion erfolgreich abgeschlossen. Die Workflow-Ansicht wird aktualisiert.'
         }
         catch {

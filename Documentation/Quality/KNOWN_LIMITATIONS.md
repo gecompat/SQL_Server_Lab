@@ -507,7 +507,11 @@ persistiert. Persistierte Migrationskategorien und Warnungen sind über die
 stabile `DatabasePackageId` in CLI und Browser sichtbar, ohne SQL erneut
 abzufragen. `Get-SqlServerLabDatabaseMigrationDependency` führt dieselbe
 read-only Live-Inventur direkt oder über eine stabile Run-/Instanzbindung aus.
-Noch offen sind Export-/Import-Executor für Serverobjekte, Keymaterialtransfer
+Die Browseraktion für eine laufende Containerinstanz übergibt nur Run-ID,
+Instanz-ID, validierten Datenbanknamen und ein flüchtiges SA-Passwort; ihr
+Live-Log enthält ausschließlich die sanitisierte Inventarprojektion mit
+Kategorien, Counts, Migrationsgrenzen und Review-Schritten. Noch offen sind
+Export-/Import-Executor für Serverobjekte, Keymaterialtransfer
 und externe Serviceprüfung.
 
 ## Restore
