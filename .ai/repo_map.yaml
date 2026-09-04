@@ -1113,6 +1113,7 @@ validation:
     covers:
       - executable_variant_listing
       - sample_restore_resolution
+      - catalog_bound_target_database_override
       - idempotency_and_trust_contract
       - trust_required_non_interactive
       - container_attach_journal_schema_and_recovery_invariants

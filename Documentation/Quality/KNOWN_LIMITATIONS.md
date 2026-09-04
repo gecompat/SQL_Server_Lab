@@ -599,8 +599,11 @@ erzwingt anschließend einen SQL-Fehler und prüft den persistierten
 StackOverflow-Einträge bleiben dennoch `descriptive`, solange keine konkrete
 lizenz- und größenvalidierte ausführbare Katalogvariante freigegeben ist.
 
-Noch nicht implementiert sind Hyper-V-Attach für Katalogartefakte und das
-Überschreiben der erwarteten Zieldatenbanknamen.
+Noch nicht implementiert ist Hyper-V-Attach für Katalogartefakte. Katalogisierte
+Ein-Output-Backups können ihren Zieldatenbanknamen jetzt nur bei explizitem
+`allowTargetDatabaseOverride` ableiten; derselbe enge Vertrag ist für Backup-,
+Archiv-Backup-, BACPAC- und Attach-Handler vorgesehen. SQL-Skripte und Bundles
+bleiben bei abweichenden Namen fail-closed.
 Run-gebundene Hyper-V-`LAB_GENERATED`-Backups verwenden
 eine verifizierte Storage-Receipt-Backup-Lane, PowerShell Direct für den Export
 und denselben run-gebundenen Restorepfad; dieser Vertrag ist synthetisch, aber

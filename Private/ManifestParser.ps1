@@ -253,9 +253,17 @@ function Resolve-LabSampleRestore {
     if ($artifact.artifactType -ne 'script-bundle' -and $databaseOutputs.Count -ne 1) {
         throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' kann mit Handler '$($artifact.artifactType)' nicht mehrere Datenbanken erzeugen."
     }
-    if ($databaseOutputs[0].name -ne $TargetDatabaseName) {
+    $targetOverrideRequested = $databaseOutputs[0].name -ne $TargetDatabaseName
+    $targetOverrideAllowed = [bool]$artifact.installation.allowTargetDatabaseOverride -and
+        $artifact.artifactType -in @('backup', 'archive-backup', 'bacpac', 'attach') -and
+        $databaseOutputs.Count -eq 1
+    if ($targetOverrideRequested -and -not $targetOverrideAllowed) {
         throw "Sample '$($artifact.sampleId)' Variante '$($artifact.sampleVariant)' erwartet als fuehrende Datenbank '$($databaseOutputs[0].name)', nicht '$TargetDatabaseName'."
     }
+    $resolvedOutputs = @($artifact.expectedOutputs | ForEach-Object {
+        [PSCustomObject]@{ name = [string]$_.name; kind = [string]$_.kind }
+    })
+    if ($targetOverrideRequested) { $resolvedOutputs[0].name = $TargetDatabaseName }
 
     return [PSCustomObject]@{
         source                  = $artifact.source
@@ -268,7 +276,9 @@ function Resolve-LabSampleRestore {
         handlerContractVersion  = $artifact.handlerContractVersion
         license                 = $artifact.license
         sourcePage              = $artifact.sourcePage
-        expectedOutputs         = $artifact.expectedOutputs
+        expectedOutputs         = $resolvedOutputs
+        sourceExpectedDatabase  = [string]$databaseOutputs[0].name
+        targetDatabaseOverride  = $targetOverrideRequested
         expectedSha256          = $artifact.expectedSha256
         integrityOrigin         = $artifact.integrityOrigin
         trustPolicy             = $artifact.trustPolicy
