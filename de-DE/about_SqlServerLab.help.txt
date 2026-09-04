@@ -306,6 +306,19 @@ Sync-SqlServerLabRunScopedContainerStore
         Größen-, SHA-256- und Microsoft-Signaturprüfung in den Media Root.
         Lizenzmedien ohne legalen öffentlichen Download bleiben manuell.
 
+    Set-SqlServerLabLicenseProfile
+        Speichert einen optionalen Product Key versions- und editionsgebunden
+        außerhalb des Repositorys unter Windows DPAPI-geschützt.
+
+    Get-SqlServerLabLicenseProfile
+        Listet lokale Lizenzprofile ohne Keys oder Key-Fragmente auf.
+
+    Test-SqlServerLabLicenseProfile
+        Prüft die lokale Profilstruktur und das Keyformat ohne Onlineaktivierung.
+
+    Remove-SqlServerLabLicenseProfile
+        Entfernt ausschließlich das exakt ausgewählte lokale Lizenzprofil.
+
 NAMING AND OWNERSHIP
     PowerShell ordnet jeden exportierten Befehl ueber die Source- und
     ModuleName-Eigenschaften dem Modul SqlServerLab zu:

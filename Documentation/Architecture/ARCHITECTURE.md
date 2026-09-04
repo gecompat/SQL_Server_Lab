@@ -143,6 +143,10 @@ Save-SqlServerLabCuResource           # Katalogisierten Windows-CU oder exakten 
 Get-SqlServerLabResourcePlan          # Sample- und Windows-/Hyper-V-Ressourcen read-only vorplanen
 Save-SqlServerLabResourceSet          # Katalogisierte Ressourcen hashverifiziert vorab bereitstellen
 Save-SqlServerLabMediaSource          # Katalogisiertes SQL-Basismedium hash- und signaturgeprüft bereitstellen
+Set-SqlServerLabLicenseProfile        # Optionalen Product Key lokal DPAPI-geschützt hinter einer Profil-ID speichern
+Get-SqlServerLabLicenseProfile        # Geheimnisfreie Lizenzprofil-Metadaten lesen
+Test-SqlServerLabLicenseProfile       # Lokale Struktur prüfen, ohne Onlineaktivierung
+Remove-SqlServerLabLicenseProfile     # Exaktes lokales Lizenzprofil entfernen
 ```
 
 Für Docker-/Podman-Ad-hoc-Labs kann `New-SqlServerLab -PersistentData` einen

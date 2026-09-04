@@ -18,6 +18,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `database-migration-execution-plan.schema.json` | Strikt nicht ausführbarer Vertrag `SqlServerLab.DatabaseMigrationExecutionPlan/1.0` für kategoriebasierte Review- und TDE-Blocker-Schritte ohne Objekt-, Schlüssel- oder Credentialdaten |
 | `project-adapter.schema.json` | Adaptervertrag konsumierender Projekte (`Adapters/`), Version `0.1-draft` |
 | `test-environment.schema.json` | Vertrag `SqlServerLab.TestEnvironment/1.0` für den lokalen Export automatisierter Testumgebungen |
+| `license-profile.schema.json` | Geheimnisfreier lokaler Metadatenvertrag `SqlServerLab.LicenseProfile/1.0`; Product Keys liegen ausschließlich im separaten Secret Store |
 | `lab-storage-contract.schema.json` | Lokale Multi-Root-Registry mit stabilen Location-IDs, Anzeigenamen, Selektoren und Topologiebeleg |
 | `lab-storage-intent.schema.json` | Portabler Manifestvertrag `SqlServerLab.StorageIntent/1.0` ohne lokale Pfade oder Geräte-IDs |
 | `lab-storage-bound-plan.schema.json` | Lokaler read-only Vertrag `SqlServerLab.StorageBoundPlan/1.0` für Selector-, Location-, Topologie- und Dateibindung |

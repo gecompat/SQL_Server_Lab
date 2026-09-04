@@ -8,6 +8,16 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `Set-`, `Get-`, `Test-` und `Remove-SqlServerLabLicenseProfile` verwalten
+  optionale, versions- und editionsgebundene Product Keys ausschließlich im
+  lokalen State Root. Keys werden als `SecureString` angenommen, unter Windows
+  DPAPI-geschützt und weder in öffentlichen Ausgaben noch Build-State oder
+  Artifact-Metadaten geschrieben.
+- Der Hyper-V-SQL-Prepared-Builder unterstützt explizit ausgewählte
+  SQL-Lizenzprofile für Enterprise, Enterprise Core, Standard und Web sowie
+  SQL Server 2016/2017. Evaluation und die vorhandenen Developer-/Express-Pfade
+  bleiben unverändert ohne Key nutzbar; auch der interaktive Dialog bietet den
+  schlüssellosen Modus zuerst an.
 - `New-SqlServerLabWindowsSlotPool` und die Direktaktion `WindowsSlotPool`
   erstellen oder vervollständigen N Windows-Hyper-V-Slots aus einer geeigneten
   `OS_SEALED`-Baseline. Der Workflow fragt RAM, vCPU und Locale ab, unterstützt

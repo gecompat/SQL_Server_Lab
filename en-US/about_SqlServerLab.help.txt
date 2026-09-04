@@ -303,6 +303,19 @@ Sync-SqlServerLabRunScopedContainerStore
         media root after size, SHA-256, and Microsoft signature verification.
         Licensed media without a legal public download remains manual.
 
+    Set-SqlServerLabLicenseProfile
+        Stores an optional version- and edition-bound product key outside the
+        repository, protected by Windows DPAPI.
+
+    Get-SqlServerLabLicenseProfile
+        Lists local license profiles without keys or key fragments.
+
+    Test-SqlServerLabLicenseProfile
+        Validates local profile structure and key format without online activation.
+
+    Remove-SqlServerLabLicenseProfile
+        Removes only the exact selected local license profile.
+
 NAMING AND OWNERSHIP
     PowerShell associates each exported command with SqlServerLab through the
     Source and ModuleName properties:
