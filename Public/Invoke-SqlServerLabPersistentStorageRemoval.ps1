@@ -2,14 +2,14 @@
 .SYNOPSIS
     Entfernt einen Run nach bestätigter persistenter Retention-Policy.
 .DESCRIPTION
-    Führt `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE` und
-    `PACKAGE_ON_REMOVE` über den gemeinsamen Removal-Plan aus. Backups werden
+    Führt `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`, `PACKAGE_ON_REMOVE` und
+    `BACKUP_AND_PACKAGE` über den gemeinsamen Removal-Plan aus. Backups werden
     mit CHECKSUM und RESTORE VERIFYONLY veröffentlicht; Container-Pakete
     materialisieren nach exklusivem Offline-Commit ausschließlich inventarisierte
     MDF/NDF/LDF-Dateien und werden automatisch mit Objekt- und Manifest-SHA-256
     registriert. Ein lokales Journal ermöglicht sichere Wiederaufnahme.
-    FILESTREAM, TDE, Kombinationspolicy, externe Freigabe und endgültige
-    Store-Löschung bleiben vor jeder Mutation blockiert.
+    FILESTREAM, TDE, externe Freigabe und endgültige Store-Löschung bleiben vor
+    jeder Mutation blockiert.
 .PARAMETER RunId
     Stabile Run-ID der zu entfernenden Umgebung.
 .PARAMETER Selection

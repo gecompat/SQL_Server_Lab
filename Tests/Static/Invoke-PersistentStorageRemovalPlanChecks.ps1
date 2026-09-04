@@ -114,9 +114,10 @@ try {
 
     $bothIntent=Copy-TestObject $backupIntent; $bothIntent.Selections[0].Policy='BACKUP_AND_PACKAGE'
     $bothPlan=& $module { param($cat,$value,$inv) Get-LabPersistentStorageRemovalPlan -Catalog $cat -Intent $value -ResidencyInventory $inv } $catalog $bothIntent $inventory
-    Add-CheckResult -Name 'Backup-and-Package plant zwei unabhängige Nachweise und keine implizite Store-Löschung' -Success (
+    Add-CheckResult -Name 'Backup-and-Package führt beide Nachweise ohne implizite Store-Löschung aus' -Success (
         $bothPlan.Status -eq 'READY' -and $bothPlan.Stores[0].Outcome -eq 'BACKUP_PACKAGE_AND_RETAIN' -and
-        $bothPlan.Execution.Status -eq 'PLANNED_NOT_EXECUTABLE' -and 'BACKUP_AND_PACKAGE' -in @($bothPlan.Execution.PlannedPolicies) -and
+        $bothPlan.Execution.Status -eq 'EXECUTABLE' -and $bothPlan.Execution.Reason -eq 'READY_FOR_EXECUTION' -and
+        'BACKUP_AND_PACKAGE' -in @($bothPlan.Execution.ExecutablePolicies) -and
         @($bothPlan.Stores[0].Steps.Action) -contains 'VERIFY_RESTORE' -and @($bothPlan.Stores[0].Steps.Action) -contains 'VERIFY_PACKAGE' -and
         -not $bothPlan.Stores[0].Destructive -and $bothPlan.Stores[0].RequiresSeparateStorageDelete) `
         -Message (($bothPlan | ConvertTo-Json -Depth 20 -Compress))

@@ -1165,15 +1165,16 @@ Add-ValidationResult `
         $repoMap -match 'database_package_hyperv_attach: Providers/HyperV/HyperVDatabasePackage\.ps1')
 
 Add-ValidationResult `
-    -Name 'PSR-004 führt Retain, Backup und Container-Package journalisiert aus und blockiert übrige Policies' `
+    -Name 'PSR-004 führt Retain, Backup, Container-Package und Kombination journalisiert aus' `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-004` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageRemovalIntent/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageRemovalPlan/1.0') -and
         $persistentStorageBacklog -match '`CHECKSUM` und `RESTORE VERIFYONLY`' -and
         $persistentStorageBacklog -match 'geheimnisfreies\s*Journal' -and
-        $knownLimitations -match 'Executor unterstützt für Docker-/Podman-Instanzstores inzwischen\s*`RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE` und' -and
+        $knownLimitations -match 'Executor unterstützt für Docker-/Podman-Instanzstores inzwischen\s*`RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`, `PACKAGE_ON_REMOVE` und' -and
         $knownLimitations -match 'MDF/NDF/LDF-Dateien' -and
-        $knownLimitations -match 'Kombinationspolicy `BACKUP_AND_PACKAGE`, `DELETE_WITH_RUN`, externe' -and
+        $knownLimitations -match '(?s)`BACKUP_AND_PACKAGE`.*Backup.*Offline' -and
+        $knownLimitations -match 'Noch nicht implementiert sind `DELETE_WITH_RUN`, externe' -and
         $repoMap -match 'persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan\.ps1' -and
         $repoMap -match 'persistent_storage_removal_executor: Private/PersistentStorageRemovalExecutor\.ps1' -and
         $repoMap -match 'container_database_package: Private/ContainerDatabasePackage\.ps1' -and
