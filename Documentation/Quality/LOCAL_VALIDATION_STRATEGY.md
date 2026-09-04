@@ -767,7 +767,7 @@ Dateiauflösung weder Engine-Erreichbarkeit noch Ausführungsberechtigung beweis
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
 ```
 
-### Kataloggebundenes SqlPackage oder BACPAC betroffen
+### Kataloggebundenes SqlPackage, BACPAC oder Container-Attach betroffen
 
 ```powershell
 .\Tests\Static\Invoke-SampleHandlerChecks.ps1
@@ -778,8 +778,12 @@ Dateiauflösung weder Engine-Erreichbarkeit noch Ausführungsberechtigung beweis
 
 Die Acceptance erzeugt ein synthetisches BACPAC im gebundenen Container,
 importiert es wieder über den normalen Tool-Handler, prüft die importierten SQL-
-Daten und die Entfernung des temporären Containerartefakts. Sie lädt kein
-fremdes Sample-Artefakt herunter.
+Daten und die Entfernung des temporären Containerartefakts. Zusätzlich erzeugt
+sie eine synthetische Datenbank, detacht deren MDF/LDF, kopiert nur diese
+Testpayloads in den Host-Workspace und führt den normalen Container-Attach-
+Handler mit ONLINE-, Inhalts- und Journalpostcondition aus. Der garantierte
+Run-Cleanup entfernt sämtliche testbezogenen Container und Volumes. Sie lädt
+kein fremdes Sample-Artefakt herunter.
 
 ### Hyper-V-Lifecycle betroffen
 
