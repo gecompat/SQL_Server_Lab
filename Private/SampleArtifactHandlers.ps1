@@ -45,7 +45,7 @@ function Get-LabExecutableSampleVariant {
         foreach ($variantProperty in @($sample.versions.PSObject.Properties)) {
             $definition = $variantProperty.Value
             if ($definition.runtimeStatus -ne 'executable' -or
-                $definition.artifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle', 'bacpac') -or
+            $definition.artifactType -notin @('backup', 'archive-backup', 'sql-script', 'script-bundle', 'bacpac', 'attach') -or
                 [string]$definition.installation.kind -ne [string]$definition.artifactType) {
                 continue
             }
@@ -54,7 +54,7 @@ function Get-LabExecutableSampleVariant {
             if ($outputs.Count -eq 0 -or @($outputs | Where-Object { $_.kind -ne 'database' }).Count -gt 0) {
                 continue
             }
-            if ($definition.artifactType -ne 'script-bundle' -and $outputs.Count -ne 1) {
+        if ($definition.artifactType -ne 'script-bundle' -and $outputs.Count -ne 1) {
                 continue
             }
 
@@ -312,13 +312,14 @@ function Get-LabAttachPayloadLayout {
 function Get-LabArchiveAttachPayloads {
     <#
     .SYNOPSIS
-        Extrahiert ausschliesslich die katalogisierten Attach-Dateien eines ZIP-Archivs.
+        Extrahiert ausschliesslich die katalogisierten Attach-Dateien eines ZIP-
+        oder 7z-Archivs.
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$ArchivePath,
         [Parameter(Mandatory)][object[]]$PayloadLayout,
-        [Parameter(Mandatory)][ValidateSet('zip')][string]$ArchiveFormat,
+        [Parameter(Mandatory)][ValidateSet('zip', '7z')][string]$ArchiveFormat,
         [string]$RunDirectory
     )
 
@@ -335,27 +336,63 @@ function Get-LabArchiveAttachPayloads {
     New-Item -Path $workingDirectory -ItemType Directory -Force | Out-Null
 
     try {
-        Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
-        $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
-        try {
-            $targetRoot = [System.IO.Path]::GetFullPath($workingDirectory + [System.IO.Path]::DirectorySeparatorChar)
-            $payloads = [System.Collections.Generic.List[object]]::new()
-            foreach ($item in $layout) {
-                $matches = @($archive.Entries | Where-Object { $_.FullName.Replace('\\', '/') -ieq $item.Path })
-                if ($matches.Count -ne 1 -or $matches[0].Length -le 0) {
-                    throw "SAMPLE_ATTACH_PAYLOAD_NOT_FOUND: ZIP muss genau die katalogisierte Payload '$($item.Path)' enthalten."
+        if ($ArchiveFormat -eq 'zip') {
+            Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
+            $archive = [System.IO.Compression.ZipFile]::OpenRead($ArchivePath)
+            try {
+                $targetRoot = [System.IO.Path]::GetFullPath($workingDirectory + [System.IO.Path]::DirectorySeparatorChar)
+                $payloads = [System.Collections.Generic.List[object]]::new()
+                foreach ($item in $layout) {
+                    $matches = @($archive.Entries | Where-Object { $_.FullName.Replace('\\', '/') -ieq $item.Path })
+                    if ($matches.Count -ne 1 -or $matches[0].Length -le 0) {
+                        throw "SAMPLE_ATTACH_PAYLOAD_NOT_FOUND: ZIP muss genau die katalogisierte Payload '$($item.Path)' enthalten."
+                    }
+                    $targetPath = [System.IO.Path]::GetFullPath((Join-Path $workingDirectory ($item.Path -replace '/', [System.IO.Path]::DirectorySeparatorChar)))
+                    if (-not $targetPath.StartsWith($targetRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                        throw "SAMPLE_ATTACH_PAYLOAD_INVALID: '$($item.Path)' verlaesst das temporaere Arbeitsverzeichnis."
+                    }
+                    New-Item -Path (Split-Path -Parent $targetPath) -ItemType Directory -Force | Out-Null
+                    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($matches[0], $targetPath, $false)
+                    $payloads.Add([PSCustomObject]@{ Path = $targetPath; Role = $item.Role; ArchivePath = $item.Path })
                 }
-                $targetPath = [System.IO.Path]::GetFullPath((Join-Path $workingDirectory ($item.Path -replace '/', [System.IO.Path]::DirectorySeparatorChar)))
-                if (-not $targetPath.StartsWith($targetRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
-                    throw "SAMPLE_ATTACH_PAYLOAD_INVALID: '$($item.Path)' verlaesst das temporaere Arbeitsverzeichnis."
-                }
-                New-Item -Path (Split-Path -Parent $targetPath) -ItemType Directory -Force | Out-Null
-                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($matches[0], $targetPath, $false)
-                $payloads.Add([PSCustomObject]@{ Path = $targetPath; Role = $item.Role; ArchivePath = $item.Path })
+                return [PSCustomObject]@{ Payloads = @($payloads); WorkingDirectory = $workingDirectory }
             }
-            return [PSCustomObject]@{ Payloads = @($payloads); WorkingDirectory = $workingDirectory }
+            finally { $archive.Dispose() }
         }
-        finally { $archive.Dispose() }
+
+        $sevenZip = Get-Lab7ZipExecutable
+        if (-not $sevenZip) {
+            throw 'SAMPLE_ATTACH_7ZIP_UNAVAILABLE: Für katalogisierte .7z-Attach-Artefakte wird 7-Zip benötigt. Optional installieren: Install-SqlServerLab7Zip.'
+        }
+        $sevenZipPath = [string]$sevenZip.Path
+        $targetRoot = [System.IO.Path]::GetFullPath($workingDirectory + [System.IO.Path]::DirectorySeparatorChar)
+        $payloads = [System.Collections.Generic.List[object]]::new()
+        foreach ($item in $layout) {
+            $listing = @(& $sevenZipPath l -slt $ArchivePath $item.Path 2>&1)
+            if ($LASTEXITCODE -ne 0) {
+                throw "SAMPLE_ATTACH_INSPECTION_FAILED: 7-Zip konnte '$($item.Path)' nicht prüfen (ExitCode $LASTEXITCODE): $($listing -join ' ')"
+            }
+            $matches = @($listing | Where-Object {
+                $line = ([string]$_).Trim()
+                $line -match '^Path\s*=\s*(.+)$' -and (($Matches[1] -replace '\\', '/') -ieq $item.Path)
+            })
+            if ($matches.Count -ne 1) {
+                throw "SAMPLE_ATTACH_PAYLOAD_NOT_FOUND: 7z muss genau die katalogisierte Payload '$($item.Path)' enthalten."
+            }
+            $targetPath = [System.IO.Path]::GetFullPath((Join-Path $workingDirectory ($item.Path -replace '/', [System.IO.Path]::DirectorySeparatorChar)))
+            if (-not $targetPath.StartsWith($targetRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                throw "SAMPLE_ATTACH_PAYLOAD_INVALID: '$($item.Path)' verlaesst das temporaere Arbeitsverzeichnis."
+            }
+            $output = @(& $sevenZipPath x $ArchivePath ("-o{0}" -f $workingDirectory) '-y' $item.Path 2>&1)
+            if ($LASTEXITCODE -ne 0) {
+                throw "SAMPLE_ATTACH_EXTRACTION_FAILED: 7-Zip konnte '$($item.Path)' nicht extrahieren (ExitCode $LASTEXITCODE): $($output -join ' ')"
+            }
+            if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf) -or (Get-Item -LiteralPath $targetPath).Length -le 0) {
+                throw "SAMPLE_ATTACH_PAYLOAD_NOT_FOUND: 7z muss genau die katalogisierte Payload '$($item.Path)' enthalten."
+            }
+            $payloads.Add([PSCustomObject]@{ Path = $targetPath; Role = $item.Role; ArchivePath = $item.Path })
+        }
+        return [PSCustomObject]@{ Payloads = @($payloads); WorkingDirectory = $workingDirectory }
     }
     catch {
         if (Test-Path -LiteralPath $workingDirectory) { Remove-Item -LiteralPath $workingDirectory -Recurse -Force -ErrorAction SilentlyContinue }
@@ -1114,8 +1151,9 @@ function Install-LabSampleDatabase {
             }
             'attach' {
                 if ($Provider -notin @('docker','podman') -or -not $RunId) { throw 'ATTACH_CONTAINER_RUN_REQUIRED' }
-                if ([string]$RestoreDefinition.installation.archiveFormat -ne 'zip') { throw 'ATTACH_ARCHIVE_FORMAT_NOT_YET_SUPPORTED' }
-                $temporaryArchivePayload = Get-LabArchiveAttachPayloads -ArchivePath $artifactResolution.Path -ArchiveFormat zip -PayloadLayout @($RestoreDefinition.installation.payloadLayout) -RunDirectory $RunDirectory
+                $archiveFormat = [string]$RestoreDefinition.installation.archiveFormat
+                if ($archiveFormat -notin @('zip', '7z')) { throw 'ATTACH_ARCHIVE_FORMAT_NOT_YET_SUPPORTED' }
+                $temporaryArchivePayload = Get-LabArchiveAttachPayloads -ArchivePath $artifactResolution.Path -ArchiveFormat $archiveFormat -PayloadLayout @($RestoreDefinition.installation.payloadLayout) -RunDirectory $RunDirectory
                 $attachResult=Invoke-LabContainerAttach -Provider $Provider -ContainerName $ContainerName -RunId $RunId -InstanceId $InstanceId -Payloads @($temporaryArchivePayload.Payloads) -DatabaseName $databaseName -HostName $HostName -Port $Port -SaPassword $SaPassword -StateRoot $StateRoot
                 if([string]$attachResult.Status -ne 'ATTACHED'){throw 'ATTACH_RESULT_INVALID'}
             }

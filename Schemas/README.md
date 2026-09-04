@@ -202,7 +202,7 @@ Beispiel:
 }
 ```
 
-Der Manifestparser akzeptiert nur als `executable` katalogisierte Varianten. Unterstützt sind direkte Backups, exakt katalogisierte Backup-Archive, einzelne SQL-Skripte, sichere Script Bundles mit festen erwarteten Datenbanken und ZIP-basierte Attach-Archive für run-gebundene Docker-/Podman-Container. Der Attach-Vertrag verlangt vollständige, sichere MDF/NDF/LDF-Katalogpfade; die Quellbindung bleibt sowohl per Katalog-SHA-256 als auch per einmaligem Trust mit automatisch berechneter Cache-SHA-256 möglich. Der Handler kopiert nur diese Pfade in einen eigenen Container-Datenordner, journalisiert Recovery und verlangt die SQL-ONLINE-Postcondition. 7z- und Hyper-V-Attach bleiben `descriptive` und werden nicht stillschweigend umgedeutet.
+Der Manifestparser akzeptiert nur als `executable` katalogisierte Varianten. Unterstützt sind direkte Backups, exakt katalogisierte Backup-Archive, einzelne SQL-Skripte, sichere Script Bundles mit festen erwarteten Datenbanken sowie ZIP- und 7z-basierte Attach-Archive für run-gebundene Docker-/Podman-Container. Der Attach-Vertrag verlangt vollständige, sichere MDF/NDF/LDF-Katalogpfade; die Quellbindung bleibt sowohl per Katalog-SHA-256 als auch per einmaligem Trust mit automatisch berechneter Cache-SHA-256 möglich. Der Handler kopiert nur diese Pfade in einen eigenen Container-Datenordner, journalisiert Recovery und verlangt die SQL-ONLINE-Postcondition. Hyper-V-Attach bleibt `descriptive` und wird nicht stillschweigend umgedeutet.
 
 ## Nutzung
 
