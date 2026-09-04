@@ -30,6 +30,8 @@ $consolePath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
 $restorePath = Join-Path $repoRoot 'Public/Restore-SqlServerLabDatabase.ps1'
 $sampleHandlerPath = Join-Path $repoRoot 'Private/SampleArtifactHandlers.ps1'
 $newLabPath = Join-Path $repoRoot 'Public/New-SqlServerLab.ps1'
+$sampleArchitecturePath = Join-Path $repoRoot 'Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md'
+$gettingStartedPath = Join-Path $repoRoot 'Documentation/User/Getting_Started.md'
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 
@@ -42,6 +44,8 @@ $consoleText = Get-Content -LiteralPath $consolePath -Raw -Encoding utf8
 $restoreText = Get-Content -LiteralPath $restorePath -Raw -Encoding utf8
 $sampleHandlerText = Get-Content -LiteralPath $sampleHandlerPath -Raw -Encoding utf8
 $newLabText = Get-Content -LiteralPath $newLabPath -Raw -Encoding utf8
+$sampleArchitectureText = Get-Content -LiteralPath $sampleArchitecturePath -Raw -Encoding utf8
+$gettingStartedText = Get-Content -LiteralPath $gettingStartedPath -Raw -Encoding utf8
 
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-sample-check-$([guid]::NewGuid().ToString('N'))"
 try {
@@ -572,6 +576,13 @@ CREATE DATABASE [$(SecondDatabase)];
     Add-CheckResult -Name 'SQL-Skript-Handler erstellt Ziel und verifiziert die Datenbank' -Success $result.ScriptHandlerWorks
     Add-CheckResult -Name 'Script-Bundle-Aufloesung liefert mehrere typisierte Datenbankoutputs' -Success $result.BundleContractWorks
     Add-CheckResult -Name 'Script-Bundle-Handler expandiert sichere sqlcmd-Includes und verifiziert alle Outputs' -Success $result.BundleHandlerWorks
+    Add-CheckResult -Name 'Architektur und Getting Started weisen sichere Script-Bundles als ausführbar aus und halten Attach gesperrt' -Success (
+        $sampleArchitectureText -match 'Script-Bundles verwenden dagegen ihren eigenen sicheren ZIP-Handler' -and
+        $sampleArchitectureText -match 'Erfüllt ein Bundle diesen\s+Vertrag, ist es `executable`' -and
+        $sampleArchitectureText -notmatch 'Script-Bundles benötigen weiterhin einen eigenen\s+Handler und bleiben `descriptive`' -and
+        $gettingStartedText -match 'sichere ZIP-Script-Bundles mit katalogisiertem' -and
+        $gettingStartedText -match 'Attach-Verfahren und\s+nicht katalogisierte Archive werden nicht automatisch verarbeitet'
+    )
     Add-CheckResult -Name 'ZIP-Backup-Payload wird nur im temporaeren Arbeitsbereich extrahiert' -Success $result.ArchivePayloadWorks
     Add-CheckResult -Name '7z-Backup-Payload wird bei verfügbarem 7-Zip sicher extrahiert' -Success $result.SevenZipPayloadWorks
     Add-CheckResult -Name 'Nicht interaktiver Handler ohne Trust endet mit TRUST_REQUIRED' -Success $result.TrustRequired

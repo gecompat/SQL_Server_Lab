@@ -247,9 +247,12 @@ vollständig beschreibt. Der aktuelle Handler unterstützt:
   Self-Creating-Modus;
 - genau eine erwartete erzeugte Datenbank.
 
-`:r`, `:setvar`, `:connect` und Shell-Escapes sind für katalogisierte Samples
-absichtlich nicht freigegeben. Script-Bundles benötigen weiterhin einen eigenen
-Handler und bleiben `descriptive`.
+Einzelskripte erlauben weder `:r`, `:setvar`, `:connect` noch Shell-Escapes.
+Script-Bundles verwenden dagegen ihren eigenen sicheren ZIP-Handler: Ein
+katalogisierter, root-gebundener SQL-Entrypoint darf nur explizit freigegebene
+`GO`-, `:r`- und `:setvar`-Features verwenden. Erfüllt ein Bundle diesen
+Vertrag, ist es `executable`; `:connect`, Shell-Escapes, Include-Traversal und
+rekursive Includes bleiben abgelehnt.
 
 ### 6.2 Typspezifische Metadaten
 
@@ -267,8 +270,8 @@ Ein Script Handler benötigt mindestens:
 - `partialFailurePolicy`;
 - `baselinePolicy`.
 
-Ein künftiges Bundle darf mehrere Datenbanken erzeugen. Die gesamte Liste muss
-vor Ausführung im Plan sichtbar sein.
+Ein Bundle darf mehrere Datenbanken erzeugen. Die gesamte Liste muss vor
+Ausführung im Plan sichtbar sein.
 
 ### 6.3 Sicherheitsgrenzen
 
