@@ -119,7 +119,10 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
 .PARAMETER PersistentStorageSelection
     Explizite Retention-Auswahl je stabiler PersistentStorageId. Der Workflow
     fuehrt fuer Docker-/Podman-Instanzstores RETAIN_INSTANCE_STORE,
-    BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE aus. Eine
+    BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE aus.
+    DELETE_WITH_RUN ist zusätzlich ausschließlich für einen registrierten
+    RUN_SCOPED/RUN_CLEANUP-Docker-/Podman-Instanzstore zweiphasig über
+    DELETE_PENDING und einen Missing-Volume-Nachweis ausführbar. Eine
     EXTERNAL_UNMANAGED-Auswahl loest ausschliesslich die eigene Katalogbindung.
 .PARAMETER GuestUserName
     Lokaler Administratorname im Gast für PowerShell Direct.
