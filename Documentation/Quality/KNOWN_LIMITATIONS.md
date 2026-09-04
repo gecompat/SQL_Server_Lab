@@ -1111,7 +1111,8 @@ schema-validierte Retention-Vorschau ausschließlich anhand stabiler Storage-
 IDs; die Vorschau mutiert weder Run, Katalog noch Storage. Der öffentliche,
 journalisierte Executor unterstützt für Docker-/Podman-Instanzstores inzwischen
 `RETAIN_INSTANCE_STORE`, `BACKUP_ON_REMOVE`, `PACKAGE_ON_REMOVE` und
-`BACKUP_AND_PACKAGE` für MDF/NDF/LDF-Dateien. Die Kombinationspolicy
+`BACKUP_AND_PACKAGE` für MDF/NDF/LDF-Dateien sowie `EXTERNAL_UNMANAGED` für
+eine ausschließlich katalogisierte Bindungsfreigabe. Die Kombinationspolicy
 verifiziert das Backup vor dem exklusiven Offline-Commit für das Paket. Der
 Paketpfad revalidiert Run, Scope und Instanz live,
 inventarisiert die SQL-Dateien, setzt die Quelle exklusiv offline und
@@ -1126,8 +1127,10 @@ Damit wird insbesondere `PACKAGE_ON_REMOVE` mit seinen Offline-, vollständigen
 Dateiinventar-, automatischen SHA-256- und Paket-Postconditions als
 ausführbare Mutation dargestellt. Der Executor veröffentlicht Backups erst
 nach `CHECKSUM` und `RESTORE VERIFYONLY`, revalidiert vor Cleanup und lässt den
-Store detached bestehen. Noch nicht implementiert sind `DELETE_WITH_RUN`, externe
-Bindungsfreigabe und die getrennte endgültige
+Store detached bestehen. `EXTERNAL_UNMANAGED` schreibt ein fortsetzbares
+Journal, setzt nur aktive eigene Katalogreferenzen auf `RELEASED` und prüft
+`SourceMutated=false`; Quelle und Inhalt bleiben unverändert. Noch nicht
+implementiert sind `DELETE_WITH_RUN` und die getrennte endgültige
 Storage-Löschaktion; diese Policies bleiben vor jeder Mutation blockiert.
 Der PSR-005-Core kann einen bereits katalogisierten und passend gelabelten
 Docker-/Podman-Instanzstore detached per stabiler ID für Continue binden oder
