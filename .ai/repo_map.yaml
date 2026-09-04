@@ -970,6 +970,7 @@ validation:
       - public_cli_and_browser_retention_preview
       - backup_checksum_and_restore_verification
       - offline_package_hash_and_postcondition
+      - explicit_execution_capability_classification
       - foreign_reference_and_recovery_guards
       - external_source_non_mutation
       - separate_persistent_storage_delete_boundary

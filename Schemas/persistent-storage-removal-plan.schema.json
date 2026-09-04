@@ -3,7 +3,7 @@
   "$id": "https://sql-server-lab.local/schemas/persistent-storage-removal-plan.schema.json",
   "title": "SqlServerLab.PersistentStorageRemovalPlan/1.0",
   "type": "object",
-  "required": ["ContractVersion", "IntentId", "RunId", "CatalogRevision", "Status", "Stores", "Issues", "Summary"],
+  "required": ["ContractVersion", "IntentId", "RunId", "CatalogRevision", "Status", "Stores", "Issues", "Execution", "Summary"],
   "properties": {
     "ContractVersion": { "const": "SqlServerLab.PersistentStorageRemovalPlan/1.0" },
     "IntentId": { "type": "string", "format": "uuid" },
@@ -46,6 +46,25 @@
       }
     },
     "Issues": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "Execution": {
+      "type": "object",
+      "required": ["Status", "ExecutablePolicies", "PlannedPolicies", "Reason"],
+      "properties": {
+        "Status": { "enum": ["EXECUTABLE", "PLANNED_NOT_EXECUTABLE", "BLOCKED"] },
+        "ExecutablePolicies": {
+          "type": "array",
+          "items": { "enum": ["RETAIN_INSTANCE_STORE", "BACKUP_ON_REMOVE"] },
+          "uniqueItems": true
+        },
+        "PlannedPolicies": {
+          "type": "array",
+          "items": { "enum": ["DELETE_WITH_RUN", "PACKAGE_ON_REMOVE", "BACKUP_AND_PACKAGE", "EXTERNAL_UNMANAGED"] },
+          "uniqueItems": true
+        },
+        "Reason": { "enum": ["READY_FOR_EXECUTION", "EXECUTOR_CAPABILITY_NOT_IMPLEMENTED", "PLAN_BLOCKED"] }
+      },
+      "additionalProperties": false
+    },
     "Summary": {
       "type": "object",
       "required": ["StoreCount", "DestructiveStoreCount", "ProtectedStoreCount", "RecoveryGuardedSteps", "Blockers"],

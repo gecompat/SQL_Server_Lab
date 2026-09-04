@@ -56,6 +56,7 @@ try {
     $retainPlan=& $module { param($cat,$value,$inv) Get-LabPersistentStorageRemovalPlan -Catalog $cat -Intent $value -ResidencyInventory $inv } $catalog $intent $inventory
     Add-CheckResult -Name 'Retained Instanzstore wird bewahrt und erst danach aus Lease und Run gelöst' -Success (
         $retainPlan.Status -eq 'READY' -and $retainPlan.Stores[0].Outcome -eq 'RETAIN_CATALOGED' -and
+        $retainPlan.Execution.Status -eq 'EXECUTABLE' -and $retainPlan.Execution.Reason -eq 'READY_FOR_EXECUTION' -and
         -not $retainPlan.Stores[0].Destructive -and $retainPlan.Stores[0].RequiresSeparateStorageDelete -and
         (@($retainPlan.Stores[0].Steps.Action) -join ',') -match 'PRESERVE_STORE,RELEASE_LEASE,RELEASE_RUN_REFERENCE$') `
         -Message (($retainPlan | ConvertTo-Json -Depth 20 -Compress))
@@ -105,6 +106,9 @@ try {
     $packagePlan=& $module { param($cat,$value,$inv) Get-LabPersistentStorageRemovalPlan -Catalog $cat -Intent $value -ResidencyInventory $inv } $catalog $packageIntent $inventory
     Add-CheckResult -Name 'Package-on-Remove plant Offline, vollständiges Inventar, SHA-256 und Postcondition' -Success (
         $packagePlan.Status -eq 'READY' -and $packagePlan.Stores[0].Outcome -eq 'PACKAGE_AND_RETAIN' -and
+        $packagePlan.Execution.Status -eq 'PLANNED_NOT_EXECUTABLE' -and
+        $packagePlan.Execution.Reason -eq 'EXECUTOR_CAPABILITY_NOT_IMPLEMENTED' -and
+        'PACKAGE_ON_REMOVE' -in @($packagePlan.Execution.PlannedPolicies) -and
         (@('OFFLINE_DATABASES','MATERIALIZE_PACKAGE','HASH_PACKAGE','VERIFY_PACKAGE') | Where-Object { $_ -notin @($packagePlan.Stores[0].Steps.Action) }).Count -eq 0) `
         -Message (($packagePlan | ConvertTo-Json -Depth 20 -Compress))
 
@@ -112,6 +116,7 @@ try {
     $bothPlan=& $module { param($cat,$value,$inv) Get-LabPersistentStorageRemovalPlan -Catalog $cat -Intent $value -ResidencyInventory $inv } $catalog $bothIntent $inventory
     Add-CheckResult -Name 'Backup-and-Package plant zwei unabhängige Nachweise und keine implizite Store-Löschung' -Success (
         $bothPlan.Status -eq 'READY' -and $bothPlan.Stores[0].Outcome -eq 'BACKUP_PACKAGE_AND_RETAIN' -and
+        $bothPlan.Execution.Status -eq 'PLANNED_NOT_EXECUTABLE' -and 'BACKUP_AND_PACKAGE' -in @($bothPlan.Execution.PlannedPolicies) -and
         @($bothPlan.Stores[0].Steps.Action) -contains 'VERIFY_RESTORE' -and @($bothPlan.Stores[0].Steps.Action) -contains 'VERIFY_PACKAGE' -and
         -not $bothPlan.Stores[0].Destructive -and $bothPlan.Stores[0].RequiresSeparateStorageDelete) `
         -Message (($bothPlan | ConvertTo-Json -Depth 20 -Compress))
@@ -129,6 +134,8 @@ try {
     $unsafeDeletePlan=& $module { param($cat,$value,$inv) Get-LabPersistentStorageRemovalPlan -Catalog $cat -Intent $value -ResidencyInventory $inv } $catalog $unsafeDeleteIntent $inventory
     Add-CheckResult -Name 'DELETE_WITH_RUN kann retained Persistent Storage nicht freigeben' -Success (
         $unsafeDeletePlan.Status -eq 'BLOCKED' -and 'DELETE_WITH_RUN_NOT_ALLOWED' -in @($unsafeDeletePlan.Stores[0].Blockers) -and -not $unsafeDeletePlan.Stores[0].Destructive)
+    Add-CheckResult -Name 'Fachlich blockierter Plan wird nicht als Executor-Capability missverstanden' -Success (
+        $unsafeDeletePlan.Execution.Status -eq 'BLOCKED' -and $unsafeDeletePlan.Execution.Reason -eq 'PLAN_BLOCKED')
 
     $externalDocument=Copy-TestObject $document
     $externalDocument.Stores[0].State='DETACHED'; $externalDocument.Stores[0].Provider='external'; $externalDocument.Stores[0].Lease=$null

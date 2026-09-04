@@ -201,10 +201,37 @@ function Get-LabPersistentStorageRemovalPlan {
     foreach ($plannedStore in $storeArray) { $storeBlockerCount += @($plannedStore.Blockers).Count }
     $blockerCount = $storeBlockerCount + $issues.Count
     $recoverySteps = @($storeArray.Steps | ForEach-Object { $_ } | Where-Object FailureState -eq 'RECOVERY_REQUIRED').Count
+    $executablePolicies = @('RETAIN_INSTANCE_STORE','BACKUP_ON_REMOVE')
+    $plannedPolicies = @($storeArray | Where-Object {
+        [string]$_.Policy -and [string]$_.Policy -notin $executablePolicies
+    } | ForEach-Object { [string]$_.Policy } | Sort-Object -Unique)
+    $executionStatus = if ($blockerCount -gt 0) {
+        'BLOCKED'
+    }
+    elseif ($plannedPolicies.Count -gt 0) {
+        'PLANNED_NOT_EXECUTABLE'
+    }
+    else {
+        'EXECUTABLE'
+    }
     [PSCustomObject]@{
         ContractVersion='SqlServerLab.PersistentStorageRemovalPlan/1.0'; IntentId=[string]$Intent.IntentId; RunId=$runId
         CatalogRevision=[int]$document.Revision; Status=if ($blockerCount -gt 0) { 'BLOCKED' } else { 'READY' }
         Stores=$storeArray; Issues=@($issues | Sort-Object -Unique)
+        Execution=[PSCustomObject]@{
+            Status=$executionStatus
+            ExecutablePolicies=$executablePolicies
+            PlannedPolicies=$plannedPolicies
+            Reason=if ($executionStatus -eq 'PLANNED_NOT_EXECUTABLE') {
+                'EXECUTOR_CAPABILITY_NOT_IMPLEMENTED'
+            }
+            elseif ($executionStatus -eq 'BLOCKED') {
+                'PLAN_BLOCKED'
+            }
+            else {
+                'READY_FOR_EXECUTION'
+            }
+        }
         Summary=[PSCustomObject]@{
             StoreCount=$storeArray.Count; DestructiveStoreCount=@($storeArray | Where-Object Destructive).Count
             ProtectedStoreCount=@($storeArray | Where-Object RequiresSeparateStorageDelete).Count

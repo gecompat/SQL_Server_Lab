@@ -4,7 +4,10 @@
 .DESCRIPTION
     Erzeugt aus stabilen PersistentStorageIds und expliziten Policies einen
     schema-validierten Removal-Intent, inventarisiert Katalog und Residency
-    read-only neu und liefert den bestehenden fail-closed Removal-Plan.
+    read-only neu und liefert den bestehenden fail-closed Removal-Plan. Das
+    Feld Execution trennt einen sicheren Plan von der aktuell implementierten
+    Executor-Capability; PACKAGE_ON_REMOVE bleibt damit sichtbar geplant, aber
+    eindeutig nicht als startbare Mutation ausgewiesen.
     Das Cmdlet entfernt weder den Run noch Daten, Leases oder Referenzen.
 .PARAMETER RunId
     Stabile Run-ID der zu prüfenden Umgebung.
