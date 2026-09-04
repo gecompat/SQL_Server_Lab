@@ -1140,6 +1140,12 @@ Volume gelabelt und für eine External-Runtime-Gruppe gemeinsam verwendet. Das
 ist ausschließlich eine label- und rungebundene Identitätsbrücke, kein
 Katalogeintrag und keine zusätzliche Delete-Autorität. Ungelabelte bestehende
 Volumes werden nicht still übernommen.
+Der interne Katalogkern kann einen solchen bereits laufenden Store inzwischen
+nur mit derselben UUID, exakt einem erwarteten Container sowie passenden Run-,
+Scope-, SQL-Major- und Persistenzlabels revisionsgeschützt als `RUN_SCOPED`/
+`RUN_CLEANUP` registrieren. Die öffentliche Registrierung, die Einbindung in
+den normalen Run-Cleanup und `DELETE_WITH_RUN` folgen erst gemeinsam, damit
+keine aktive Lease nach einer physischen Volume-Entfernung zurückbleibt.
 Der bestehende normale Run-Cleanup entfernt seine im Cleanup-Plan gebundenen
 Docker-/Podman-Volumes jedoch nur nach einer frischen Runtime-Prüfung beider
 Labels `sql-server-lab.run-id` und `sql-server-lab.scope-id`; fehlende oder

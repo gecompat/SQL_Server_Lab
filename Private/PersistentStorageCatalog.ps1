@@ -1284,6 +1284,88 @@ function Register-LabContainerInstanceStoreLease {
     }
 }
 
+function Register-LabRunScopedContainerStore {
+    <#
+    .SYNOPSIS
+        Registriert einen bereits laufenden, labelgebundenen Containerstore.
+    .DESCRIPTION
+        Der Aufrufer muss die eindeutige Containerbindung nachweisen. Diese
+        Funktion übernimmt weder Legacy-Volumes noch erzeugt sie Runtime-Daten.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$RunId,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$ScopeId,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{12,64}$')][string]$ContainerId,
+        [Parameter(Mandatory)][string]$SqlVersion,
+        [Parameter(Mandatory)][ValidateLength(1,128)][string]$DisplayName,
+        [Parameter(Mandatory)][string]$DataRoot,
+        [AllowNull()]$Configuration,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision = -1,
+        [switch]$Preview
+    )
+
+    $configuration = if ($Configuration) { $Configuration } else { Get-LabStorageConfiguration -DataRoot $DataRoot }
+    if ([string]::IsNullOrWhiteSpace([string]$configuration.ControllerId)) { throw 'RUN_SCOPED_CONTAINER_STORE_CONFIGURATION_INVALID' }
+    if ($SqlVersion.Length -lt 4 -or $SqlVersion.Substring(0,4) -notmatch '^\d{4}$') { throw 'RUN_SCOPED_CONTAINER_STORE_SQL_VERSION_INVALID' }
+    $safeDisplayName = $DisplayName.Trim()
+    if ([string]::IsNullOrWhiteSpace($safeDisplayName)) { throw 'RUN_SCOPED_CONTAINER_STORE_DISPLAY_NAME_INVALID' }
+    $runtime = Get-LabContainerInstanceStoreRuntimeInspection -Provider $Provider -VolumeName $VolumeName
+    $storageId = [string]$runtime.Labels.'sql-server-lab.persistent-storage-id'
+    $inventoryObjectId = Get-LabStorageResidencyObjectId -Key "runtime-volume|$Provider|$VolumeName"
+    if ([string]$runtime.Status -ne 'AVAILABLE' -or
+        $storageId -notmatch '^[0-9a-fA-F-]{36}$' -or
+        [string]$runtime.Labels.'sql-server-lab.run-id' -ne $RunId -or
+        [string]$runtime.Labels.'sql-server-lab.scope-id' -ne $ScopeId -or
+        [string]$runtime.Labels.'sql-server-lab.sql-major-version' -ne $SqlVersion.Substring(0,4) -or
+        [string]$runtime.Labels.'sql-server-lab.persistence' -ne 'run-scoped-runtime-volume' -or
+        @($runtime.AttachedContainers).Count -ne 1 -or [string]$runtime.AttachedContainers[0] -ne $ContainerId) {
+        throw 'RUN_SCOPED_CONTAINER_STORE_RUNTIME_OWNERSHIP_INVALID'
+    }
+    $now = Get-LabTimestamp
+    $mutation = {
+        param($Document)
+        $idMatches = @($Document.Stores | Where-Object { [string]$_.PersistentStorageId -eq $storageId })
+        $bindingMatches = @($Document.Stores | Where-Object {
+            [string]$_.Provider -eq $Provider -and [string]$_.LocationBinding.ProviderResourceId -eq $VolumeName
+        })
+        if ($idMatches.Count -gt 1 -or $bindingMatches.Count -gt 1 -or
+            ($idMatches.Count -eq 1 -and $bindingMatches.Count -eq 1 -and
+             [string]$idMatches[0].PersistentStorageId -ne [string]$bindingMatches[0].PersistentStorageId)) {
+            throw 'RUN_SCOPED_CONTAINER_STORE_BINDING_CONFLICT'
+        }
+        if ($idMatches.Count -eq 1) {
+            $existing = $idMatches[0]
+            $activeRuns = @($existing.References | Where-Object { [string]$_.Kind -eq 'RUN' -and [string]$_.State -eq 'ACTIVE' })
+            if ([string]$existing.StorageClass -ne 'INSTANCE_STORE' -or [string]$existing.Provider -ne $Provider -or
+                [string]$existing.State -ne 'IN_USE' -or [string]$existing.LocationBinding.Residency -ne 'NATIVE_RUNTIME' -or
+                [string]$existing.LocationBinding.ProviderResourceId -ne $VolumeName -or
+                [string]$existing.LocationBinding.InventoryObjectId -ne $inventoryObjectId -or $existing.LocationBinding.LocationId -or
+                $existing.LocationBinding.RelativePath -or [string]$existing.Retention -ne 'RUN_SCOPED' -or
+                [string]$existing.CleanupDisposition -ne 'RUN_CLEANUP' -or -not $existing.Lease -or
+                [string]$existing.Lease.RunId -ne $RunId -or [string]$existing.Lease.ScopeId -ne $ScopeId -or
+                $activeRuns.Count -ne 1 -or [string]$activeRuns[0].TargetId -ne $RunId) {
+                throw 'RUN_SCOPED_CONTAINER_STORE_BINDING_CONFLICT'
+            }
+            return [string]$existing.PersistentStorageId
+        }
+        $store = [PSCustomObject][ordered]@{
+            PersistentStorageId=$storageId; DisplayName=$safeDisplayName; StorageClass='INSTANCE_STORE'; State='IN_USE'; Provider=$Provider
+            LocationBinding=[PSCustomObject][ordered]@{ Residency='NATIVE_RUNTIME'; LocationId=$null; ProviderResourceId=$VolumeName; InventoryObjectId=$inventoryObjectId; RelativePath=$null }
+            References=@([PSCustomObject][ordered]@{ ReferenceId=$RunId; Kind='RUN'; State='ACTIVE'; TargetId=$RunId })
+            Lease=[PSCustomObject][ordered]@{ LeaseId=([Guid]::NewGuid().ToString('D')); RunId=$RunId; ScopeId=$ScopeId; Mode='EXCLUSIVE'; AcquiredAt=$now; ExpiresAt=$null }
+            Retention='RUN_SCOPED'; CleanupDisposition='RUN_CLEANUP'; CreatedAt=$now; UpdatedAt=$now
+        }
+        $Document.Stores=@($Document.Stores)+@($store)
+        return [string]$store.PersistentStorageId
+    }.GetNewClosure()
+    $transaction = Invoke-LabPersistentStorageCatalogMutation -Configuration $configuration -MutationName REGISTER_RUN_SCOPED_CONTAINER_STORE `
+        -Mutation $mutation -ExpectedRevision $ExpectedRevision -Preview:$Preview
+    return [PSCustomObject]@{ Changed=[bool]$transaction.Changed; Store=@($transaction.Document.Stores | Where-Object PersistentStorageId -eq $storageId)[0]; CatalogRevision=[int]$transaction.CatalogRevision; ProposedRevision=[int]$transaction.ProposedRevision; Preview=[bool]$transaction.Preview }
+}
+
 function Sync-LabContainerInstanceStoreDatabaseReference {
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSReviewUnusedParameter', '', Justification='Die Parameter werden in der serialisierten Katalog-Lock-Closure verwendet.')]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSUseShouldProcessForStateChangingFunctions', '', Justification='Interner Katalogcommit nach bereits bestaetigter und verifizierter Lab-Provisionierung.')]
