@@ -957,7 +957,11 @@ function renderContainerSampleOptions(sqlVersion) {
     const trustRequired = sample.TrustStatus === 'TRUST_REQUIRED';
     const size = sample.DownloadSizeMB ? ' · ' + sample.DownloadSizeMB + ' MB' : '';
     const type = sample.ArtifactType ? ' · ' + sample.ArtifactType : '';
-    return '<option value="' + escapeHtml(sample.SampleId + ':' + sample.Variant) + '" data-database="' + escapeHtml(sample.ExpectedDatabase) + '" data-artifact-type="' + escapeHtml(sample.ArtifactType || '') + '" data-trust-required="' + trustRequired + '" data-sha256="' + escapeHtml(sample.ExpectedSha256 || '') + '">' + escapeHtml(sample.DisplayName) + ' · ' + escapeHtml(sample.Variant) + ' → ' + escapeHtml(sample.ExpectedDatabase) + type + size + '</option>';
+    const trust = trustRequired
+      ? ' · SHA-256-Freigabe erforderlich'
+      : (sample.TrustStatus === 'catalog-verified' ? ' · Katalog-SHA-256' : ' · lokale SHA-256');
+    const cache = sample.CacheStatus === 'HIT' ? ' · Cache bereit' : '';
+    return '<option value="' + escapeHtml(sample.SampleId + ':' + sample.Variant) + '" data-database="' + escapeHtml(sample.ExpectedDatabase) + '" data-artifact-type="' + escapeHtml(sample.ArtifactType || '') + '" data-trust-required="' + trustRequired + '" data-sha256="' + escapeHtml(sample.ExpectedSha256 || '') + '">' + escapeHtml(sample.DisplayName) + ' · ' + escapeHtml(sample.Variant) + ' → ' + escapeHtml(sample.ExpectedDatabase) + type + size + trust + cache + '</option>';
   }).join('');
   updateContainerSampleSelection();
 }
