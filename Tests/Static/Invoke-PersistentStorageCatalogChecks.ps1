@@ -316,7 +316,7 @@ try {
         Set-Item Function:script:Get-LabPersistedDesiredState -Value { param($RunId,$StateRoot) $null=$RunId,$StateRoot;[PSCustomObject]@{Status='VALID';Snapshot=[PSCustomObject]@{LabName='Public run store';Instances=@([PSCustomObject]@{Id='primary';Provider='docker';Version='2025-latest';Intents=[PSCustomObject]@{Drives=@([PSCustomObject]@{Id='runtime-mssql';Persistence='run-scoped-runtime-volume';PersistentStorageId=$storageId})}})}} }
         Set-Item Function:script:Test-LabDataRootOwnership -Value { param($DataRoot,$ControllerId) $null=$DataRoot,$ControllerId;$true }
         $script:publicRunStoreOwnershipValid=$false
-        Set-Item Function:script:Get-LabContainerInstanceStoreRuntimeInspection -Value { param($Provider,$VolumeName) $containerId=if($script:publicRunStoreOwnershipValid){'b'*64}else{'c'*64};[PSCustomObject]@{Status='AVAILABLE';Provider=$Provider;VolumeName=$VolumeName;VolumeId=$VolumeName;AttachedContainers=@($containerId);Labels=[PSCustomObject]@{'sql-server-lab.persistent-storage-id'=$storageId;'sql-server-lab.run-id'=$runId;'sql-server-lab.scope-id'=$scopeId;'sql-server-lab.sql-major-version'='2025';'sql-server-lab.persistence'='run-scoped-runtime-volume'}} }
+        Set-Item Function:script:Get-LabContainerInstanceStoreRuntimeInspection -Value { param($Provider,$VolumeName) $containerId=if($script:publicRunStoreOwnershipValid){'b'*12}else{'c'*64};[PSCustomObject]@{Status='AVAILABLE';Provider=$Provider;VolumeName=$VolumeName;VolumeId=$VolumeName;AttachedContainers=@($containerId);Labels=[PSCustomObject]@{'sql-server-lab.persistent-storage-id'=$storageId;'sql-server-lab.run-id'=$runId;'sql-server-lab.scope-id'=$scopeId;'sql-server-lab.sql-major-version'='2025';'sql-server-lab.persistence'='run-scoped-runtime-volume'}} }
         try {
             $catalogPath=Join-Path $root 'Catalog/persistent-stores.json';$beforeRejected=(Get-FileHash -LiteralPath $catalogPath -Algorithm SHA256).Hash;$ownershipRejected=$false
             try{Sync-SqlServerLabRunScopedContainerStore -RunId $runId -InstanceId primary -DataRoot $root -StateRoot (Join-Path $root 'state') -WhatIf | Out-Null}catch{$ownershipRejected=$_.Exception.Message -match 'RUN_SCOPED_CONTAINER_STORE_RUNTIME_OWNERSHIP_INVALID'}
@@ -338,7 +338,7 @@ try {
         }
     } $runScopedConfiguration $runScopedRoot
     $publicRunScopedStore=@($publicRunScopedEvidence.Catalog.Document.Stores | Where-Object PersistentStorageId -eq $publicRunScopedEvidence.StorageId)[0]
-    Add-CheckResult -Name 'Öffentlicher Run-Store-Sync plant mutationsfrei, übernimmt dieselbe Stable-ID und bleibt idempotent' -Success (
+    Add-CheckResult -Name 'Öffentlicher Run-Store-Sync akzeptiert den kanonischen Docker-Kurzpräfix, plant mutationsfrei und bleibt idempotent' -Success (
         $publicRunScopedEvidence.Planned.Status -eq 'PLANNED' -and -not $publicRunScopedEvidence.Planned.Changed -and $publicRunScopedEvidence.Planned.WouldChange -and
         $publicRunScopedEvidence.Applied.Status -eq 'SYNCED' -and $publicRunScopedEvidence.Applied.Changed -and
         $publicRunScopedEvidence.Again.Status -eq 'NO_CHANGE' -and -not $publicRunScopedEvidence.Again.Changed -and

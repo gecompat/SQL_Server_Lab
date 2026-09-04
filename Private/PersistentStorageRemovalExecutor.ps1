@@ -157,7 +157,9 @@ function New-LabPersistentStorageRemovalExecutionContext {
         $instances = @($connection.instances | Where-Object {
             $_.persistentStorage -and [string]$_.persistentStorage.persistentStorageId -eq $storageId
         })
-        if ($instances.Count -ne 1) { throw 'PERSISTENT_STORAGE_REMOVAL_INSTANCE_UNRESOLVED' }
+        if ([string]$plannedStore.Policy -ne 'DELETE_WITH_RUN' -and $instances.Count -ne 1) {
+            throw 'PERSISTENT_STORAGE_REMOVAL_INSTANCE_UNRESOLVED'
+        }
         if ([string]$plannedStore.Policy -in @('BACKUP_ON_REMOVE','BACKUP_AND_PACKAGE')) {
             foreach ($referenceId in @($plannedStore.DatabaseReferenceIds | Sort-Object -Unique)) {
                 $references = @($store.References | Where-Object {
