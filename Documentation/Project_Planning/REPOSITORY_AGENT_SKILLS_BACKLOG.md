@@ -113,6 +113,80 @@ Start, Stop und Entfernen. Read-only Preview, Mutation, Cleanup und Recovery
 bleiben sichtbar getrennt; destruktive Ziele werden weiterhin durch die
 bestehenden öffentlichen Verträge begrenzt.
 
+## Optionale lokale REST-API
+
+Eine versionierte REST-API wird als sinnvoller, optionaler Adapter für
+repository-lokale Skills, CI-Systeme und externe Testwerkzeuge in das Backlog
+aufgenommen. Sie ersetzt weder die PowerShell-Fachlogik noch die interaktiven
+Windows-, OOBE- oder Rechteerhöhungsabläufe. Öffentliche Cmdlets und die
+bestehenden Zustandsverträge bleiben die fachliche Quelle der Wahrheit.
+
+Die API wird in drei Ausbaustufen geplant:
+
+1. read-only Discovery mit Health, Readiness, Capabilities, Katalog und Status;
+2. idempotente Plan- und asynchrone Operationsabfragen;
+3. ausdrücklich autorisierte Mutationen für Erstellen, Start, Stop,
+   Wiederaufnahme und vollständigen Gruppen-Cleanup.
+
+Der minimale, noch nicht implementierte Ressourcenvertrag umfasst:
+
+```text
+GET  /v1/health
+GET  /v1/readiness
+GET  /v1/capabilities
+GET  /v1/catalog/sql-versions
+GET  /v1/test-environments
+POST /v1/test-environments/plan
+POST /v1/test-environments
+GET  /v1/operations/{operationId}
+POST /v1/operations/{operationId}/resume
+POST /v1/test-environments/start
+POST /v1/test-environments/stop
+DELETE /v1/test-environments
+```
+
+`health` weist ausschließlich nach, dass der API-Prozess antwortet.
+`readiness` bewertet zusätzlich Frameworkversion, Modulimport, Katalog,
+Storage-Konfiguration, Providerzugriff und die für die angeforderte Operation
+notwendigen Rechte. `capabilities` veröffentlicht maschinenlesbar, welche
+Provider und Funktionen auf dem aktuellen Client tatsächlich verwendbar sind.
+Die drei Verträge dürfen fehlende Installation, fehlende Erreichbarkeit,
+fehlende Berechtigung und erforderliche Benutzeraktion nicht zusammenfassen.
+
+Für länger laufende Operationen liefert die API eine stabile Operation-ID und
+einen persistierten Status. Windows-OOBE, UAC und andere nicht delegierbare
+Schritte werden als `USER_ACTION_REQUIRED` mit einem konkreten Resume-Vertrag
+gemeldet; die API versucht keine stille Rechteerhöhung. Wiederholte Requests
+verwenden Idempotency-Schlüssel und dürfen keine doppelten Runs oder
+Testumgebungsschlüssel erzeugen.
+
+Die Sicherheitsgrenze lautet:
+
+- standardmäßig ausschließlich an Loopback binden;
+- keine Endpunkte für beliebige PowerShell- oder Shell-Ausführung;
+- versionierte Request-, Response- und Fehlerschemas;
+- keine Kennwörter, Connection Strings oder Secret-Store-Inhalte in Discovery,
+  Status, Fehlern oder Logs;
+- mutierende Endpunkte mit Authentisierung, Autorisierung, Preview und klarer
+  Scope-Bindung;
+- Remote-Bindung nur als getrenntes, ausdrücklich konfiguriertes und
+  transportverschlüsseltes Betriebsmodell;
+- Cleanup bleibt gruppenbezogen, recoverbar soweit der bestehende Vertrag dies
+  vorsieht, und nutzt dieselben Schutzregeln wie die PowerShell-Einstiege.
+
+Repository-Skills prüfen zuerst den eigenständigen Client-Readiness-Vertrag.
+Wenn eine kompatible lokale API bereitsteht, dürfen sie diese als Transport
+verwenden; andernfalls bleiben die vorhandenen PowerShell-Einstiege der
+Fallback. Der Skill enthält weder kopierte REST-Schemas noch eine zweite
+Parameterwahrheit, sondern ermittelt API-Version und Capabilities zur Laufzeit.
+
+Vor mutierenden Endpunkten muss der read-only Kern automatisiert geprüft sein.
+Die Abnahmekriterien dafür sind mindestens Loopback-Bindung, deterministische
+Health-/Readiness-Antworten, secretfreie Logs, versionierte JSON-Schemas,
+negative Authentisierungs- und Autorisierungstests sowie eindeutige Ergebnisse
+für `READY`, `UNAVAILABLE`, `ELEVATION_REQUIRED` und
+`USER_ACTION_REQUIRED`.
+
 ## Statische und funktionale Prüfung
 
 Die Umsetzung soll einen lokalen statischen Einstiegspunkt
@@ -145,6 +219,9 @@ Skill-Erkennung selbst gestört ist.
   bestanden.
 - `Operate` ermittelt aktuelle Cmdlet-Parameter aus dem Modul und besitzt keine
   kopierte, unabhängig driftende Parameterspezifikation.
+- Der optionale REST-Adapter delegiert an dieselben öffentlichen Fachverträge,
+  bleibt standardmäßig lokal und veröffentlicht keine Secrets über Discovery-
+  oder Operationsantworten.
 - Statische Dokumentations-, Privacy- und Skill-Prüfungen sind lokal
   ausführbar und Teil der betroffenen Check-Auswahl.
 
