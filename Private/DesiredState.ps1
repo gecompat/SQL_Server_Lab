@@ -356,6 +356,7 @@ function New-LabDesiredStateSnapshot {
         ProvisioningMode = $ProvisioningMode
         LabName = [string]$ResolvedLab.name
         PersistentData = $PersistentData
+        Ai = $ResolvedLab.ai
         Instances = @($ResolvedLab.instances | ForEach-Object {
             $instance = $_
             $providerCapability = $providerCapabilities | Where-Object { $_.Provider -eq [string]$instance.provider } | Select-Object -First 1

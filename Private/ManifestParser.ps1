@@ -537,6 +537,7 @@ function Resolve-ManifestDefaults {
         expertActions     = [PSCustomObject]@{
             hostWriteMounts = [bool]($Manifest.expertActions -and $Manifest.expertActions.hostWriteMounts -eq $true)
         }
+        ai                 = Resolve-LabAiManifestIntent -Ai $Manifest.ai
         manifestPath      = $ManifestPath
     }
 }

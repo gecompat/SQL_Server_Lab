@@ -1,0 +1,35 @@
+{
+  "contract": {
+    "name": "SqlServerLab.AiDataset",
+    "version": "1.0"
+  },
+  "id": "synthetic-vector-core-de",
+  "version": "1.0",
+  "classification": "SYNTHETIC_OR_REDISTRIBUTABLE",
+  "documents": [
+    {
+      "id": 1,
+      "title": "Vektorsuche",
+      "content": "SQL Server speichert Vektoren typisiert und vergleicht ihre Distanz.",
+      "embedding": [1, 0, 0]
+    },
+    {
+      "id": 2,
+      "title": "Sicherung",
+      "content": "Eine geprüfte Sicherung unterstützt kontrollierte Wiederherstellungstests.",
+      "embedding": [0, 1, 0]
+    },
+    {
+      "id": 3,
+      "title": "Netzwerk",
+      "content": "Ein isoliertes Labornetz begrenzt unerwünschten Datenverkehr.",
+      "embedding": [0, 0, 1]
+    },
+    {
+      "id": 4,
+      "title": "Ähnliche Suche",
+      "content": "Exakte Vektordistanzen bilden die Referenz für semantische Suche.",
+      "embedding": [0.98, 0.02, 0]
+    }
+  ]
+}

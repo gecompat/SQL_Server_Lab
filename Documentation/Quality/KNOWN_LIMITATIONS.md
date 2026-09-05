@@ -796,6 +796,30 @@ bleiben davon unberührt und weiterhin nicht implementiert.
 
 Kurzbezeichner wie `2022-CU16` werden nur akzeptiert, wenn der Build im Katalog vorhanden ist. Unbekannte CU-Bezeichner werden nicht mehr durch eine vermutete Image-Tag-Konvention ersetzt.
 
+## KI-, Vector- und Modellruntimes
+
+Der Manifest- und Szenariovertrag `SqlServerLab.AiIntent/1.0` beziehungsweise
+`SqlServerLab.AiScenario/1.0` sowie das synthetische Szenario
+`vector-core-ci/1.0` sind implementiert. Das Szenario benötigt SQL Server 2025
+und Compatibility Level 170 und führt ausschließlich feste Vektoren, exakte
+Distanzsuche und `AI_GENERATE_CHUNKS` aus. Es erzeugt keine Embeddings durch
+ein Modell und verwendet weder Netzwerk noch Cloud.
+
+Die getrennten nativen Docker- und Podman-Läufe über
+`Tests/Integration/Invoke-AiVectorCoreAcceptance.ps1` waren am 2026-09-05
+erfolgreich; der deterministische Vector-Core gilt damit als `SUPPORTED`.
+Ollama, TLS-Gateway, Endpoint-Stub,
+OpenAI, Azure OpenAI, Ollama Cloud, lokales Windows-ONNX, RAG, Agenten und
+Preview-ANN besitzen noch keinen ausführbaren Produktpfad. Ein Manifest darf
+diese Modellprovider strukturell beschreiben; `Invoke-SqlServerLabAiScenario`
+blockiert sie derzeit mit `AI_SCENARIO_MODEL_PROVIDER_NOT_IMPLEMENTED` und
+führt keinen stillen Fallback aus.
+
+`CREATE VECTOR INDEX` und `VECTOR_SEARCH` bleiben Preview und sind nicht Teil
+des Vector-Core-Pflichtszenarios. External Languages und KI-Modellfähigkeit
+sind getrennte Capabilities; eine vorhandene Python-, R- oder Java-Runtime
+beweist keine Embedding- oder Generationsfähigkeit.
+
 ## External Languages
 
 Die Installation von R, Python, Java oder C# ist von SQL-Version, Betriebssystem,

@@ -143,12 +143,22 @@ Interpretation:
 .\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1
 .\Tests\Static\Invoke-PersistentStorageRemovalExecutorChecks.ps1
 .\Tests\Static\Invoke-DatabaseMigrationDependencyChecks.ps1
+.\Tests\Static\Invoke-AiScenarioChecks.ps1
 .\Tests\Static\Invoke-ContainerInstanceStoreChecks.ps1
 .\Tests\Static\Invoke-ContainerRuntimeScopeChecks.ps1
 .\Tests\Static\Invoke-HostToolResolutionChecks.ps1
 .\Tests\Static\Invoke-PodmanBootstrapChecks.ps1
 .\Tests\Static\Invoke-PesterChecks.ps1
 .\Tests\Static\Invoke-ReleaseReadinessChecks.ps1
+```
+
+Die native Vector-Core-Abnahme wird für die beiden Linux-Provider getrennt
+ausgeführt. Jeder Lauf provisioniert ein eigenes SQL-2025-Lab und benötigt
+weder Modell-Download noch Internetzugriff:
+
+```powershell
+.\Tests\Integration\Invoke-AiVectorCoreAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-AiVectorCoreAcceptance.ps1 -Provider podman
 ```
 
 Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kontrollieren unter anderem:

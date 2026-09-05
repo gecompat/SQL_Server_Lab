@@ -1,0 +1,47 @@
+{
+  "$schema": "./lab-manifest.schema.json",
+  "name": "ai-vector-core-ci",
+  "description": "Deterministisches SQL-Server-2025-Vector-Lab ohne externes Modell und ohne Egress.",
+  "automation": {
+    "mode": "unattended",
+    "secrets": {
+      "saPassword": "SQL_SERVER_LAB_SECRET_SA_PASSWORD"
+    }
+  },
+  "ai": {
+    "models": [
+      {
+        "id": "fixed-vector-3",
+        "purpose": "embedding",
+        "provider": "precomputed",
+        "variant": "synthetic-fixed-v1",
+        "dimension": 3,
+        "timeoutSeconds": 30,
+        "retryCount": 0
+      }
+    ],
+    "policies": {
+      "dataClassification": "synthetic-only",
+      "egress": "denied",
+      "allowedTools": [],
+      "contentLogging": "metadata-only",
+      "fallback": "disabled"
+    },
+    "scenarios": [
+      {
+        "id": "vector-core-ci",
+        "version": "1.0",
+        "instanceId": "primary"
+      }
+    ]
+  },
+  "instances": [
+    {
+      "id": "primary",
+      "version": "2025",
+      "provider": "docker",
+      "os": "linux",
+      "profile": "compact"
+    }
+  ]
+}

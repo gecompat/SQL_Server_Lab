@@ -57,7 +57,7 @@ $forbiddenPresent = @($forbiddenPlannerMutations | Where-Object { $source -match
         }
 
         $snapshot = New-LabDesiredStateSnapshot -ResolvedLab $snapshotInput -ProvisioningMode 'manifest' -PersistentData $true
-        $topUnknown = @($snapshot.PSObject.Properties.Name | Where-Object { $_ -notin @('Contract', 'ProvisioningMode', 'LabName', 'PersistentData', 'Instances') })
+        $topUnknown = @($snapshot.PSObject.Properties.Name | Where-Object { $_ -notin @('Contract', 'ProvisioningMode', 'LabName', 'PersistentData', 'Ai', 'Instances') })
         $instanceUnknown = @(
             $snapshot.Instances | ForEach-Object {
                 @($_.PSObject.Properties.Name | Where-Object { $_ -notin @('Id', 'Provider', 'Version', 'Profile', 'AutoStart', 'DatabaseNames', 'Intents') })

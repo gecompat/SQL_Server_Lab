@@ -141,6 +141,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Inventarisiert SQL-seitig beobachtbare Migrationsabhaengigkeiten direkt
         oder per Run-/Instanzbindung read-only als sanitisierte Counts.
 
+    Get-SqlServerLabAiScenario
+        Loest ein hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen
+        Run auf und zeigt nur sanitisierte Plan- und Evidence-Metadaten.
+
     Get-SqlServerLabConnectionCenter
         Liefert den passwortfreien SQL-Endpunktkatalog für SSMS und CMS.
 
@@ -222,6 +226,10 @@ Sync-SqlServerLabRunScopedContainerStore
 
     Invoke-SqlServerLabScript
         Fuehrt ein T-SQL-Skript mit Unterstuetzung fuer GO-Batches aus.
+
+    Invoke-SqlServerLabAiScenario
+        Fuehrt ein deklariertes SQL-KI-Szenario nach Hash-, Intent- und
+        Capability-Pruefung journalisiert mit Cleanup aus.
 
     Get-SqlServerLabGeneratedSqlAccess
         Liefert den Laufzeitzugriff auf ein automatisch generiertes SQL Server

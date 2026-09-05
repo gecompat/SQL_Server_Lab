@@ -1059,6 +1059,15 @@ Platzierung nicht verändern.
 
 ### Nachgelagerter Horizont
 
+Der [SQL-2025-KI-Plattform-Backlog](SQL2025_AI_PLATFORM_BACKLOG.md) ordnet die
+KI-Integration local-first ein. `AI-00` ist als Manifest-, Szenario-, PlanKey-
+und Public-API-Vertrag implementiert. Der deterministische `AI-10A`-Vector-Core
+ist seit den getrennten nativen Docker-/Podman-Läufen vom 2026-09-05
+runtime-validiert. Endpoint-Stub, Ollama, Retrieval/RAG, Evaluation,
+Read-only Agent, Cloud, Windows-ONNX, ANN und Schulung bleiben in den dort
+definierten Folgewellen. Diese KI-Wellen verdrängen keine offenen P0-/Recovery-
+Arbeiten des Kernplans.
+
 Die physische Bestandsanalyse und Architekturentscheidung für persistente
 Instanzspeicher, portable Backups, Datenbank-/FILESTREAM-Pakete sowie
 Docker-/Podman-Runtime-Daten unter beziehungsweise außerhalb von `Lab_Data`

@@ -82,6 +82,7 @@ end {
         @{ Pattern = '(?i)(BackupLibrary|backup-library|Backup-SqlServerLabDatabase|Restore-SqlServerLabDatabase)'; Checks = @('Invoke-BackupLibraryChecks.ps1','Invoke-DatabaseMigrationDependencyChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(DatabasePackage|database-package)'; Checks = @('Invoke-DatabasePackageChecks.ps1','Invoke-DatabaseMigrationDependencyChecks.ps1') },
         @{ Pattern = '(?i)(DatabaseMigrationDependency|database-migration-dependency)'; Checks = @('Invoke-DatabaseMigrationDependencyChecks.ps1','Invoke-BackupLibraryChecks.ps1','Invoke-DatabasePackageChecks.ps1') },
+        @{ Pattern = '(?i)(AiScenario|ai-scenario|SQL2025_AI_PLATFORM|SQL2025_VECTOR_EMBEDDING|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(HyperVPersistentDataDrive|hyperv-persistent-data)'; Checks = @('Invoke-HyperVPersistentDataDriveChecks.ps1','Invoke-HyperVProviderChecks.ps1') },
         @{ Pattern = '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools|Initialize-PodmanRuntime|PodmanBootstrap)'; Checks = @('Invoke-HostToolResolutionChecks.ps1','Invoke-PodmanBootstrapChecks.ps1') },
         @{ Pattern = '(?i)(LabNetwork|PortAllocation)'; Checks = @('Invoke-LabNetworkChecks.ps1','Invoke-PortAllocationChecks.ps1') },
@@ -102,7 +103,7 @@ end {
         @{ Pattern = '(?i)(ContainerReconcile|Update-SqlServerLabContainer)'; Checks = @('Invoke-ContainerReconcileChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1','Invoke-ReadinessContractChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-PortAllocationChecks.ps1') },
         @{ Pattern = '(?i)(ProviderCapability|provider\.json)'; Checks = @('Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(InstanceIntent|ServerConfig|ResourceAssessment)'; Checks = @('Invoke-InstanceIntentChecks.ps1') },
-        @{ Pattern = '(?i)(ManifestBuilder|ManifestParser|lab-manifest|New-SqlServerLabManifest)'; Checks = @('Invoke-ManifestBuilderChecks.ps1') },
+        @{ Pattern = '(?i)(ManifestBuilder|ManifestParser|lab-manifest|New-SqlServerLabManifest)'; Checks = @('Invoke-ManifestBuilderChecks.ps1','Invoke-AiScenarioChecks.ps1') },
         @{ Pattern = '(?i)(SampleArtifact|sample-databases)'; Checks = @('Invoke-SampleHandlerChecks.ps1','Invoke-SampleBaselineRegistryChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(ProjectAdapter|Adapters/|project-adapter)'; Checks = @('Invoke-ProjectAdapterChecks.ps1') },
         @{ Pattern = '(?i)(MixedProvider|ProviderSubRun|StateMachine)'; Checks = @('Invoke-MixedProviderLifecycleChecks.ps1') },
@@ -146,6 +147,7 @@ end {
         if (Test-AnyPath '(?i)(ContainerReconcile|Update-SqlServerLabContainer|Invoke-ContainerCliAcceptance|ContainerTool|Test-SqlServerLabContainerTool|Bacpac|SampleArtifactHandlers|sample-databases)') { $runtime.Docker = $true; $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(ContainerInstanceStore|container-instance-store)') { $runtime.Docker = $true; $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(ContainerRuntimeScope|container-runtime-scope)') { $runtime.Docker = $true; $runtime.Podman = $true }
+        if (Test-AnyPath '(?i)(AiScenario|ai-scenario|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario|AiVectorCoreAcceptance)') { $runtime.Docker = $true; $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(PersistentStorageRemoval|persistent-storage-removal)') { $runtime.Docker = $true; $runtime.Podman = $true }
         if (Test-AnyPath '(?i)(BackupLibrary|backup-library|Backup-SqlServerLabDatabase)') { $runtime.Mixed = $true }
         if (Test-AnyPath '(?i)(DatabasePackage|database-package)') { $runtime.HyperV = $true }

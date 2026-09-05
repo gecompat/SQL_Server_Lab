@@ -16,7 +16,8 @@
     "software-catalog-planning",
     "derived-image-build",
     "container-tool-image",
-    "sql-external-runtime"
+    "sql-external-runtime",
+    "sql2025-vector-core"
   ],
   "limitations": [
     "no-gui",

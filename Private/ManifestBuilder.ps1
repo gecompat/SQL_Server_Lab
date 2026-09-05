@@ -1425,6 +1425,10 @@ function Get-LabManifestValidationResult {
         }
     }
 
+    $aiValidation = Get-LabAiManifestValidationResult -Ai $Manifest.ai -Manifest $Manifest
+    foreach ($aiError in @($aiValidation.Errors)) { $errors.Add($aiError) }
+    foreach ($aiWarning in @($aiValidation.Warnings)) { $warnings.Add($aiWarning) }
+
     $hyperVInstances = @($Manifest.instances | Where-Object {
         $candidateProvider = if ($_.provider) { [string]$_.provider } else { Resolve-ProviderAutoSelect -Instance $_ }
         $candidateProvider -eq 'hyperv'

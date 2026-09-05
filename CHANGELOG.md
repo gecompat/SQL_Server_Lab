@@ -8,6 +8,16 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Hinzugefügt
 
+- `SqlServerLab.AiIntent/1.0` erweitert Manifeste um portable Modell-, Policy-
+  und Szenariobindungen. `SqlServerLab.AiScenario/1.0`,
+  `Get-SqlServerLabAiScenario` und `Invoke-SqlServerLabAiScenario` validieren
+  Dataset- und Skripthashes, PlanKey, Capability, Journal und Cleanup.
+- Das synthetische Szenario `vector-core-ci/1.0` prüft SQL Server 2025,
+  `VECTOR(3)`, exakte Cosine-Distanz, Top-k, `AI_GENERATE_CHUNKS` und
+  Modell-/Datasetbindung ohne Netzwerk- oder Modellabhängigkeit.
+- Die native Vector-Core-Abnahme ist für Docker und Podman getrennt ausführbar;
+  beide Provider-Läufe waren am 2026-09-05 einschließlich Evidence-, Szenario-
+  und Provider-Cleanup erfolgreich.
 - Das CMS-Menü kann vom Lab erzeugte SA-Passwörter optional als
   `Umgebungsname_Passwort (Instanz)` im Anzeigenamen darstellen. Die Option ist
   standardmäßig deaktiviert, warnt ausdrücklich vor der Klartextwirkung und

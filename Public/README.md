@@ -35,6 +35,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Export-SqlServerLabDatabasePackage` | `Export-SqlServerLabDatabasePackage.ps1` | Eine ausschließlich per Run-/Instanz-ID gebundene Docker-/Podman-Datenbank nach exklusivem Offline-Commit als hashgebundenes Paket veröffentlichen |
 | `Invoke-SqlServerLabDatabasePackageAttach` | `Invoke-SqlServerLabDatabasePackageAttach.ps1` | Ein Paket ausschließlich per stabiler ID an einen scopegebundenen laufenden Hyper-V-SQL-Run binden, in das live ermittelte SQL-Default-Data-Ziel kopieren, im Gast hashen und attachen |
 | `Get-SqlServerLabDatabaseMigrationDependency` | `Get-SqlServerLabDatabaseMigrationDependency.ps1` | SQL-seitig beobachtbare Login-, Job-, Proxy-, Linked-Server- und TDE-Abhängigkeiten direkt oder per Run-/Instanzbindung read-only als sanitisierte Kategorien und Counts inventarisieren |
+| `Get-SqlServerLabAiScenario` | `Get-SqlServerLabAiScenario.ps1` | Hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen Run auflösen; Ausgabe bleibt frei von Pfaden, Endpoints und Secrets |
 | `Get-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Passwortfreie Endpunktübersicht für SSMS, CMS und Exporte |
 | `Sync-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Endpunktkatalog der Verbindungszentrale atomar aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | `Sync-SqlServerLabConnectionCenter.ps1` | Kennwortfreien SSMS-`.regsrvr`-Export erzeugen |
@@ -56,6 +57,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `New-SqlServerLabDatabase` | `New-SqlServerLabDatabase.ps1` | Datenbank mit konfigurierbaren Dateien und Pfaden erstellen |
 | `Backup-SqlServerLabDatabase` | `Backup-SqlServerLabDatabase.ps1` | Providerneutrales, gehashtes SQL-Backup erst nach `CHECKSUM` und `RESTORE VERIFYONLY` in der registrierten `Lab_Data`-Bibliothek veröffentlichen |
 | `Invoke-SqlServerLabScript` | `Invoke-SqlServerLabScript.ps1` | T-SQL-Skript mit `GO`-Batchtrennung ausführen |
+| `Invoke-SqlServerLabAiScenario` | `Invoke-SqlServerLabAiScenario.ps1` | Deklariertes SQL-KI-Szenario nach Revalidierung journalisiert ausführen; unterstützt `WhatIf`, No-op, Force und automatisches Cleanup |
 | `Test-SqlServerLabContainerTool` | `Test-SqlServerLabContainerTool.ps1` | Kataloggebundenes SqlPackage per Run-/Scope-gebundenem read-only Versionsprobe prüfen |
 | `Restore-SqlServerLabDatabase` | `Restore-SqlServerLabDatabase.ps1` | Verifiziertes Lab_Data-Backup per stabiler `BackupSetId` oder direkte `.bak`-Datei wiederherstellen; URL-Acquisition mit SHA-256, lokalem Trust Store und inhaltsadressiertem Cache; Ziel bevorzugt per RunId aufloesen |
 | `Get-SqlServerLabGeneratedSqlAccess` | `Get-SqlServerLabGeneratedSqlAccess.ps1` | Hyper-V-SQL-Laufzeit passwortgesicherte SA-Zugriffsdaten mit ConnectionString als kopierfertiges Objekt zurückgeben |

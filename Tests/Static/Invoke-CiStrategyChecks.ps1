@@ -57,6 +57,14 @@ Add-CheckResult -Name 'Container-Tool-Aenderung aktiviert getrennte Docker- und 
     $containerTool.Docker -and $containerTool.Podman
 )
 
+$aiScenario = & $selector -ChangedPath @('Private/AiScenario.ps1', 'Scenarios/Ai/vector-core-ci/1.0/assert.sql')
+Add-CheckResult -Name 'KI-Szenario-Aenderung aktiviert Vertrag sowie getrennte Docker-/Podman-Akzeptanz' -Success (
+    $aiScenario.Docker -and $aiScenario.Podman -and
+    'Invoke-AiScenarioChecks.ps1' -in $aiScenario.StaticChecks -and
+    'Invoke-ManifestBuilderChecks.ps1' -in $aiScenario.StaticChecks -and
+    'Invoke-ProviderCapabilityChecks.ps1' -in $aiScenario.StaticChecks
+)
+
 $bacpac = & $selector -ChangedPath @('Catalogs/sample-databases.json', 'Private/SampleArtifactHandlers.ps1')
 Add-CheckResult -Name 'BACPAC-Aenderung aktiviert getrennte Docker- und Podman-Akzeptanz' -Success (
     $bacpac.Docker -and $bacpac.Podman
@@ -174,6 +182,10 @@ $hyperVWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflo
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten den realen Batch-Smoke' -Success (
     $dockerWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`?\s*-Provider docker' -and
     $podmanWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`?\s*-Provider podman'
+)
+Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die getrennte AI-Vector-Core-Abnahme' -Success (
+    $dockerWorkflow -match 'Invoke-AiVectorCoreAcceptance\.ps1\s+`?\s*-Provider docker' -and
+    $podmanWorkflow -match 'Invoke-AiVectorCoreAcceptance\.ps1\s+`?\s*-Provider podman'
 )
 Add-CheckResult -Name 'Hyper-V-Workflow bietet gezielten OS-Slot-Batch mit scopegebundenem Cleanup' -Success (
     $hyperVWorkflow -match '(?m)^\s*- slot-batch\s*$' -and
