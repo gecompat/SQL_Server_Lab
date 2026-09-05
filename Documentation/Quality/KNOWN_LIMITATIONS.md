@@ -127,6 +127,20 @@ Installation und beweist daher kein Gast-Sysprep. Synthetische CI-Builds koennen
 ausschließlich `LIFECYCLE_TEST_ONLY`, niemals `OS_SEALED`, veröffentlichen und
 duerfen den automatischen Sysprep-Pfad nicht ausfuehren.
 
+Der Medienkatalog enthält zusätzlich hashgebundene Windows-Server-2008-R2- und
+2012-R2-Evaluation-ISOs sowie historische SQL-Medien. Das erweitert den
+Runtimenachweis nicht: Der Windows-Builder bleibt Generation 2 und der reale
+SQL-Prepared-Image-Vertrag ist weiterhin nur für die ausdrücklich
+dokumentierten neueren SQL-Versionen belegt. Für SQL Server 2000/2005 gefundene
+Community-Scans werden nur nach `-AllowCommunityScan` unter `Incoming`
+geladen. Auch nach erfolgreicher Struktur- und Lizenzprüfung bleiben sie als
+`COMMUNITY_UNVERIFIED` gekennzeichnet und dürfen nur isoliert getestet werden.
+SQL Server 2008 RTM ist als exakt CDX- und hashgebundene Wayback-Aufnahme des
+früheren Microsoft-Evaluation-ISOs verfügbar; SQL Server 2008 R2 als gültig von
+Microsoft signiertes x64-Evaluation-SFX. Die frühere 2008-R2-x86-Datei und die
+auf der weiterhin sichtbaren SQL-2008-Produktseite verlinkten x86/x64-SFX-Ziele
+sind nicht mehr abrufbar. Die vollständige SQL-2008-ISO deckt x86 und x64 ab.
+
 Ein realer Windows-Server-2025-Standard-Evaluation-Core-Gast wurde aus ISO
 installiert, per PowerShell Direct verifiziert und erfolgreich generalisiert.
 Die dabei entdeckten Fehler in kulturabhängigen Evidenz-Zeitstempeln,

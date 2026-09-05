@@ -268,7 +268,7 @@ die geforderten Generalisierungs-, Read-only-, SHA-256- und Metadatenverträge
 erfüllt. Eine Evaluation-VHDX ist nicht allein aufgrund ihrer Herkunft bereits
 ein `OS_SEALED`-Artifact.
 
-## 7. SQL-Server-Medien
+## 7. SQL- und historische Windows-Server-Medien
 
 SQL-Server-Webinstaller werden nach Version unter `SQL\Installers` abgelegt.
 Heruntergeladene ISOs liegen nach Version und Edition unter `SQL`.
@@ -278,14 +278,14 @@ Offizielle Quelle:
 
 ### Versionierter Basismedienkatalog
 
-Die direkten Microsoft-URLs werden in
+Direkte Microsoft-URLs und exakt geprüfte Archiv-Fallbacks werden in
 `Catalogs/sql-server-media-sources.json` zusammen mit Zielpfad, erwarteter
 Dateigröße und SHA-256 dauerhaft geführt. Damit bleibt eine aufgelöste URL auch
 dann nachvollziehbar, wenn die Microsoft-Produktseite später geändert wird.
 
 ```powershell
 Save-SqlServerLabMediaSource `
-    -Id sql-server-2016-developer-sp3-iso `
+    -Id sql-server-2016-evaluation-sp2-iso `
     -MediaRoot 'D:\Lab1_Base'
 ```
 
@@ -293,18 +293,42 @@ Der Befehl veröffentlicht die Datei erst nach Größen- und SHA-256-Prüfung. B
 EXE-Dateien muss außerdem die Microsoft-Authenticode-Signatur gültig sein.
 `-WhatIf` zeigt Quelle und Ziel ohne Download.
 
+Für zurückgezogene Windows-Server-Evaluationen bindet derselbe Katalog die
+Archive.org-Identifier, deren maschinenlesbare Metadata-URLs, die frühere
+Microsoft-URL und die exakten Hashes. Beispielsweise:
+
+```powershell
+Save-SqlServerLabMediaSource `
+    -Id windows-server-2008r2-sp1-evaluation-iso `
+    -MediaRoot 'D:\Lab1_Base'
+```
+
+Für Windows Server 2016, 2019, 2022 und 2025 enthält der Katalog außerdem die
+öffentlich erreichbaren Microsoft-Binärziele hinter den Evaluation-Center-
+Weiterleitungen. Dadurch ist der englische ISO-Download reproduzierbar, ohne ein
+Formular zu automatisieren; Größe und SHA-256 bleiben zwingende
+Abnahmekriterien.
+
+Die Freigabe gilt nur für die konkrete katalogisierte Datei, nicht pauschal
+für weitere Uploads innerhalb einer Archive.org-Sammlung. Nicht als Original
+bestätigte Evaluation-Scans benötigen zusätzlich `-AllowCommunityScan` und
+bleiben bis zur Inhaltsprüfung unter `Incoming\CommunityScan`.
+
 | Versionsbereich | Verfügbare Basis | Beschaffung |
 | --- | --- | --- |
 | 2025 | Enterprise Developer, Standard Developer und Express Bootstrapper | direkter Microsoft-Download; Bootstrapper erzeugen das Vollmedium in einem getrennten interaktiven Schritt |
 | 2022, 2019, 2017 | Developer-/Evaluation-/Express-Bootstrapper; vorhandene Developer-/Evaluation-ISOs bleiben bevorzugte Offlinequelle | direkter Microsoft-Download |
-| 2016 SP3 | vollständiges Developer-ISO sowie Evaluation-/Express-Bootstrapper | direkter Microsoft-Download |
-| 2014 RTM und SP3, 2012 SP4, 2008 R2 SP2 | Express-Vollpaket | direkter Microsoft-Download |
-| 2008 SP3, 2005 SP4 | Express-Vollpaket | verifizierte Archivkopie der früheren, heute mit 404 antwortenden Microsoft-Datei |
-| 2000 | MSDE Release A | verifizierte Archivkopie; MSDE ist kein Ersatz für Standard/Enterprise |
+| 2016 SP2/SP3 | vollständige SP2-Evaluation- und SP3-Developer-ISOs sowie Evaluation-/Express-Bootstrapper | direkter Microsoft-Download; das vorhandene SP2-ISO ist zusätzlich read-only über Volume, Slipstream-Manifest und Build geprüft |
+| 2014 RTM und SP3, 2012 SP4 | Express-Vollpaket; zusätzlich SQL Server 2012 Evaluation als ISO | direkter Microsoft-Download beziehungsweise verifizierter Archiv-Fallback |
+| 2008 R2 | Express SP2 sowie x64-Evaluation RTM 10.50.1600.1 als selbstextrahierendes Vollpaket | Express direkt von Microsoft; Evaluation als exakt hash- und signaturgeprüfte Wayback-Kopie der früheren Microsoft-Datei; x86 nicht gefunden |
+| 2008 | Enterprise Evaluation RTM 10.0.1600.22 als x86/x64/IA64-ISO sowie Express SP3 | Evaluation als CDX-, größen- und hashgebundene Wayback-Aufnahme der früheren Microsoft-Datei; Express als verifizierte Archivkopie |
+| 2005 SP4 | Express-Vollpaket; zusätzlich geprüftes SQL-2005-Evaluation-ISO | Express als verifizierte Archivkopie der früheren Microsoft-Datei; Evaluation als ausdrücklich quarantänisierter Community-Scan |
+| 2000 | MSDE Release A sowie geprüftes 120-Tage-Evaluation-ISO | MSDE als verifizierte Archivkopie; Evaluation als ausdrücklich quarantänisierter Community-Scan |
 | 7.0 und 6.5 | kein freies Vollmedium ermittelt | originales lizenziertes Medium manuell unter `SQL\<Version>\<Edition>\ISO` bereitstellen |
 
 Der Bestand deckt damit jede Hauptversion ab SQL Server 2000 mit mindestens
-einer legal verfügbaren Engine-Variante ab. Er ist nicht editionsvollständig:
+einer technisch prüfbaren Engine-Variante ab. Nutzungsrechte folgen weiterhin
+den jeweiligen Microsoft-Lizenzbedingungen. Der Bestand ist nicht editionsvollständig:
 für lizenzierte Standard-/Enterprise-Ausgaben älterer Versionen müssen eigene
 Originalmedien verwendet werden. Azure-Varianten sind bewusst ausgeschlossen.
 MSSQLTips wird nur zur Linksuche verwendet; die tatsächliche Datei wird anhand

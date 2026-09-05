@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/sql-server-media-sources.schema.json",
-  "title": "SQL Server Lab Media Source Catalog",
+  "title": "SQL Server Lab Base Media Source Catalog",
   "type": "object",
   "required": ["catalogMetadata", "entries"],
   "properties": {
@@ -83,13 +83,13 @@
         "note"
       ],
       "properties": {
-        "id": { "type": "string", "pattern": "^sql-server-[a-z0-9.-]+$" },
+        "id": { "type": "string", "pattern": "^(?:sql|windows)-server-[a-z0-9.-]+$" },
         "displayName": { "type": "string", "minLength": 1 },
         "version": { "type": "string", "pattern": "^(?:\\d{4}(?:R2)?|\\d+\\.\\d+)$" },
         "edition": { "type": "string", "minLength": 1 },
         "mediaKind": {
           "type": "string",
-          "enum": ["ISO", "BOOTSTRAPPER", "SELF_EXTRACTING_EXE", "LICENSED_MEDIA"]
+          "enum": ["ISO", "BOOTSTRAPPER", "SELF_EXTRACTING_EXE", "ARCHIVE_CONTAINER", "LICENSED_MEDIA"]
         },
         "architecture": { "$ref": "#/definitions/nullableString" },
         "language": { "$ref": "#/definitions/nullableString" },
@@ -99,23 +99,36 @@
             "DIRECT_MICROSOFT_DOWNLOAD",
             "MICROSOFT_REDIRECT",
             "ARCHIVE_FALLBACK_VERIFIED",
+            "COMMUNITY_SCAN_QUARANTINED",
             "MANUAL_PORTAL_SELECTION",
             "MANUAL_LICENSED_MEDIA"
           ]
         },
         "sourceStatus": {
           "type": "string",
-          "enum": ["ACTIVE", "ORIGINAL_URL_RETIRED", "MANUAL_ONLY"]
+          "enum": ["ACTIVE", "ORIGINAL_URL_RETIRED", "COMMUNITY_UNVERIFIED", "MANUAL_ONLY"]
         },
         "downloadUrl": { "$ref": "#/definitions/nullableUri" },
         "referenceUrl": { "$ref": "#/definitions/nullableUri" },
         "originalMicrosoftUrl": { "$ref": "#/definitions/nullableUri" },
-        "targetRelativePath": { "type": "string", "pattern": "^SQL/[^\\r\\n]+$" },
+        "targetRelativePath": { "type": "string", "pattern": "^(?:SQL|WindowsServer|Incoming/CommunityScan/(?:SQL|WindowsServer))/[^\\r\\n]+$" },
         "expectedBytes": { "$ref": "#/definitions/nullableInteger" },
         "expectedSha256": { "$ref": "#/definitions/nullableSha256" },
         "expectedSha1": { "$ref": "#/definitions/nullableSha1" },
         "productVersion": { "$ref": "#/definitions/nullableString" },
         "automatable": { "type": "boolean" },
+        "archiveIdentifier": {
+          "oneOf": [
+            { "type": "null" },
+            { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" }
+          ]
+        },
+        "archiveMetadataUrl": { "$ref": "#/definitions/nullableUri" },
+        "requiresExplicitTrust": { "type": "boolean" },
+        "derivedTargetRelativePath": { "$ref": "#/definitions/nullableString" },
+        "derivedExpectedBytes": { "$ref": "#/definitions/nullableInteger" },
+        "derivedExpectedSha256": { "$ref": "#/definitions/nullableSha256" },
+        "conversion": { "$ref": "#/definitions/nullableString" },
         "note": { "type": "string", "minLength": 1 }
       },
       "additionalProperties": false

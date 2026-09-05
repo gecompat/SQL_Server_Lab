@@ -1,10 +1,12 @@
 function Save-SqlServerLabMediaSource {
     <#
     .SYNOPSIS
-        Lädt ein katalogisiertes SQL-Server-Basismedium oder einen Bootstrapper.
+        Lädt ein katalogisiertes Server-Basismedium oder einen Bootstrapper.
     .DESCRIPTION
         Verwendet ausschließlich den versionierten Medienquellenkatalog. Jede
-        automatisierbare Quelle besitzt eine erwartete Länge und SHA-256. EXE-
+        automatisierbare Quelle besitzt eine erwartete Länge und SHA-256.
+        Historische Quellen können zusätzlich an den veröffentlichten SHA-1
+        gebunden sein. EXE-
         Dateien müssen zusätzlich eine gültige Microsoft-Authenticode-Signatur
         tragen. Erst danach wird die Datei atomar im Media Root veröffentlicht
         und eine gespiegelte SHA-256-Sidecar-Datei geschrieben.
@@ -13,24 +15,34 @@ function Save-SqlServerLabMediaSource {
         nicht geladen. Bereits vorhandene Dateien werden erneut geprüft und bei
         Abweichung nicht überschrieben.
     .PARAMETER Id
-        ID aus Catalogs/sql-server-media-sources.json.
+        ID aus Catalogs/sql-server-media-sources.json. Der historisch benannte
+        Katalog enthält auch verifizierte Windows-Server-Basismedien.
     .PARAMETER MediaRoot
         Ziel-Media-Root. Ohne Angabe wird der lokal konfigurierte Media Root
         verwendet.
+    .PARAMETER AllowCommunityScan
+        Erlaubt den Download eines ausdrücklich als unbestätigter Community-
+        Scan katalogisierten Archivcontainers nach Incoming. Diese Freigabe
+        bestätigt weder Originalität noch Produktivverwendung.
     .EXAMPLE
         Save-SqlServerLabMediaSource -Id sql-server-2016-developer-sp3-iso -MediaRoot 'D:\Lab1_Base'
     .EXAMPLE
         Save-SqlServerLabMediaSource -Id sql-server-2005-express-sp4-archive -MediaRoot 'D:\Lab1_Base' -WhatIf
+    .EXAMPLE
+        Save-SqlServerLabMediaSource -Id windows-server-2008r2-sp1-evaluation-iso -MediaRoot 'D:\Lab1_Base'
     .OUTPUTS
-        PSCustomObject mit Status, Quelle, Ziel, Länge, SHA-256 und Signaturstatus.
+        PSCustomObject mit Status, Quelle, Ziel, Länge, SHA-256, optionalem
+        SHA-1 und Signaturstatus.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
         [Parameter(Mandatory)]
-        [ValidatePattern('^sql-server-[a-z0-9.-]+$')]
+        [ValidatePattern('^(?:sql|windows)-server-[a-z0-9.-]+$')]
         [string]$Id,
 
-        [string]$MediaRoot
+        [string]$MediaRoot,
+
+        [switch]$AllowCommunityScan
     )
 
     if ([string]::IsNullOrWhiteSpace($MediaRoot)) { $MediaRoot = Get-LabMediaRootDefault }
@@ -44,6 +56,9 @@ function Save-SqlServerLabMediaSource {
     $entry = @(Get-LabMediaSourceCatalog -MediaRoot $resolvedRoot | Where-Object { $_.Id -eq $Id })
     if ($entry.Count -ne 1) { throw "SQL_MEDIA_SOURCE_NOT_FOUND: $Id" }
     $source = $entry[0]
+    if ($source.RequiresExplicitTrust -and -not $AllowCommunityScan) {
+        throw "SQL_MEDIA_SOURCE_EXPLICIT_TRUST_REQUIRED: $Id / -AllowCommunityScan ist für diesen quarantänisierten Community-Scan erforderlich."
+    }
     if (-not $source.Automatable -or [string]::IsNullOrWhiteSpace([string]$source.DownloadUrl)) {
         throw "SQL_MEDIA_SOURCE_MANUAL_REQUIRED: $Id / $($source.Note)"
     }
@@ -67,6 +82,13 @@ function Save-SqlServerLabMediaSource {
         if ($sha256 -ne ([string]$Definition.ExpectedSha256).ToLowerInvariant()) {
             throw "SQL_MEDIA_SOURCE_HASH_MISMATCH: $($Definition.Id) / erhalten $sha256"
         }
+        $sha1 = $null
+        if (-not [string]::IsNullOrWhiteSpace([string]$Definition.ExpectedSha1)) {
+            $sha1 = (Get-FileHash -LiteralPath $Path -Algorithm SHA1).Hash.ToLowerInvariant()
+            if ($sha1 -ne ([string]$Definition.ExpectedSha1).ToLowerInvariant()) {
+                throw "SQL_MEDIA_SOURCE_SHA1_MISMATCH: $($Definition.Id) / erhalten $sha1"
+            }
+        }
         $signatureStatus = 'NOT_APPLICABLE'
         if ([System.IO.Path]::GetExtension($Path) -ieq '.exe') {
             $signature = Get-AuthenticodeSignature -FilePath $Path
@@ -76,7 +98,7 @@ function Save-SqlServerLabMediaSource {
                 throw "SQL_MEDIA_SOURCE_SIGNATURE_INVALID: $($Definition.Id) / $signatureStatus"
             }
         }
-        [PSCustomObject]@{ File = $file; Sha256 = $sha256; SignatureStatus = $signatureStatus }
+        [PSCustomObject]@{ File = $file; Sha256 = $sha256; Sha1 = $sha1; SignatureStatus = $signatureStatus }
     }
 
     $alreadyPresent = Test-Path -LiteralPath $targetPath -PathType Leaf
@@ -86,6 +108,7 @@ function Save-SqlServerLabMediaSource {
             Contract = 'SqlServerLab.MediaSource/1.0'; Id = $Id; Status = 'READY'
             Acquisition = 'NONE'; AlreadyPresent = $true; SourceUrl = [string]$source.DownloadUrl
             TargetPath = $targetPath; Bytes = $verification.File.Length; Sha256 = $verification.Sha256
+            Sha1 = $verification.Sha1
             SignatureStatus = $verification.SignatureStatus; SourceStatus = [string]$source.SourceStatus
         }
     }
@@ -95,6 +118,7 @@ function Save-SqlServerLabMediaSource {
             Contract = 'SqlServerLab.MediaSource/1.0'; Id = $Id; Status = 'PLANNED'
             Acquisition = [string]$source.Acquisition; AlreadyPresent = $false; SourceUrl = [string]$source.DownloadUrl
             TargetPath = $targetPath; Bytes = [long]$source.ExpectedBytes; Sha256 = [string]$source.ExpectedSha256
+            Sha1 = if ($source.ExpectedSha1) { [string]$source.ExpectedSha1 } else { $null }
             SignatureStatus = if ([System.IO.Path]::GetExtension($targetPath) -ieq '.exe') { 'MICROSOFT_REQUIRED' } else { 'NOT_APPLICABLE' }
             SourceStatus = [string]$source.SourceStatus
         }
@@ -116,6 +140,7 @@ function Save-SqlServerLabMediaSource {
             Contract = 'SqlServerLab.MediaSource/1.0'; Id = $Id; Status = 'READY'
             Acquisition = [string]$source.Acquisition; AlreadyPresent = $false; SourceUrl = [string]$source.DownloadUrl
             TargetPath = $targetPath; Bytes = $verification.File.Length; Sha256 = $verification.Sha256
+            Sha1 = $verification.Sha1
             SignatureStatus = $verification.SignatureStatus; SourceStatus = [string]$source.SourceStatus
         }
     }

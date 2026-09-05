@@ -70,13 +70,105 @@ try {
         }).Count -eq 1
     )
     Add-CheckResult -Name 'Historische Archivquellen und manuelle Lizenzlücken sind explizit getrennt' -Success (
-        @($sqlMedia | Where-Object { $_.Version -in @('2008','2005','2000') -and $_.Acquisition -eq 'ARCHIVE_FALLBACK_VERIFIED' }).Count -eq 3 -and
+        @($sqlMedia | Where-Object { $_.Version -in @('2008','2005','2000') -and $_.Acquisition -eq 'ARCHIVE_FALLBACK_VERIFIED' }).Count -eq 4 -and
         @($sqlMedia | Where-Object { $_.Version -in @('7.0','6.5') -and -not $_.Automatable -and $_.Acquisition -eq 'MANUAL_LICENSED_MEDIA' }).Count -eq 2
+    )
+    $archivedWindowsMedia = @($mediaCatalog | Where-Object { $_.Id -in @(
+        'windows-server-2008r2-sp1-evaluation-iso',
+        'windows-server-2012r2-evaluation-iso'
+    ) })
+    Add-CheckResult -Name 'Historische Windows-Evaluationen sind als maschinenlesbare Archive.org-Quellen gebunden' -Success (
+        $archivedWindowsMedia.Count -eq 2 -and
+        @($archivedWindowsMedia | Where-Object {
+            $_.Category -ne 'Windows Server' -or
+            $_.Acquisition -ne 'ARCHIVE_FALLBACK_VERIFIED' -or
+            -not $_.ArchiveIdentifier -or
+            $_.ArchiveMetadataUrl -notlike 'https://archive.org/metadata/*' -or
+            -not $_.ExpectedBytes -or
+            -not $_.ExpectedSha256 -or
+            -not $_.ExpectedSha1 -or
+            $_.BootInteraction.InitialMediaKey -ne 'space'
+        }).Count -eq 0
+    )
+    $directWindowsMedia = @($mediaCatalog | Where-Object { $_.Id -in @(
+        'windows-server-2016-evaluation-iso',
+        'windows-server-2019-evaluation-iso',
+        'windows-server-2022-evaluation-iso',
+        'windows-server-2025-evaluation-iso'
+    ) })
+    Add-CheckResult -Name 'Aktuelle Windows-Evaluationen verwenden hashgebundene öffentliche Microsoft-Binärziele' -Success (
+        $directWindowsMedia.Count -eq 4 -and
+        @($directWindowsMedia | Where-Object {
+            $_.Category -ne 'Windows Server' -or
+            $_.Acquisition -ne 'DIRECT_MICROSOFT_DOWNLOAD' -or
+            $_.SourceStatus -ne 'ACTIVE' -or
+            $_.DownloadUrl -notlike 'https://software-static.download.prss.microsoft.com/*' -or
+            $_.ReferenceUrl -notlike 'https://www.microsoft.com/en-us/evalcenter/*' -or
+            -not $_.ExpectedBytes -or
+            -not $_.ExpectedSha256 -or
+            $_.RequiresExplicitTrust
+        }).Count -eq 0
+    )
+    $plannedDirectWindowsMedia = Save-SqlServerLabMediaSource -Id 'windows-server-2022-evaluation-iso' -MediaRoot $temporaryRoot -WhatIf
+    Add-CheckResult -Name 'Microsoft-Evaluation besitzt ohne Formularmutation einen reproduzierbaren WhatIf-Plan' -Success (
+        $plannedDirectWindowsMedia.Status -eq 'PLANNED' -and
+        $plannedDirectWindowsMedia.Bytes -eq 5044094976 -and
+        $plannedDirectWindowsMedia.Sha256 -eq '3e4fa6d8507b554856fc9ca6079cc402df11a8b79344871669f0251535255325'
+    )
+    $plannedWindowsMedia = Save-SqlServerLabMediaSource -Id 'windows-server-2008r2-sp1-evaluation-iso' -MediaRoot $temporaryRoot -WhatIf
+    Add-CheckResult -Name 'Archiviertes Windows-Basismedium besitzt einen mutationsfreien WhatIf-Plan' -Success (
+        $plannedWindowsMedia.Status -eq 'PLANNED' -and
+        $plannedWindowsMedia.Bytes -eq 3166840832 -and
+        $plannedWindowsMedia.Sha1 -eq 'beed231a34e90e1dd9a04b3afabec31d62ce3889' -and
+        $plannedWindowsMedia.Sha256 -eq '30832ad76ccfa4ce48ccb936edefe02079d42fb1da32201bf9e3a880c8ed6312'
+    )
+    $communityScanBlocked = try {
+        $null = Save-SqlServerLabMediaSource -Id 'sql-server-2000-evaluation-community-scan' -MediaRoot $temporaryRoot -WhatIf -ErrorAction Stop
+        $false
+    }
+    catch { $_.Exception.Message -match '^SQL_MEDIA_SOURCE_EXPLICIT_TRUST_REQUIRED:' }
+    Add-CheckResult -Name 'Community-Scan bleibt ohne ausdrückliche Quarantänefreigabe gesperrt' -Success $communityScanBlocked
+    $plannedCommunityScan = Save-SqlServerLabMediaSource -Id 'sql-server-2000-evaluation-community-scan' -MediaRoot $temporaryRoot -AllowCommunityScan -WhatIf
+    Add-CheckResult -Name 'Freigegebener Community-Scan plant ausschließlich den Incoming-Quarantänepfad' -Success (
+        $plannedCommunityScan.Status -eq 'PLANNED' -and
+        $plannedCommunityScan.TargetPath -like "$(Join-Path $temporaryRoot 'Incoming\CommunityScan\SQL\2000\Evaluation')*" -and
+        $plannedCommunityScan.Sha256 -eq '7c9ceb672a15cfcdc828c9bd8458b87f57b0c570c823847e0676c4fab2592feb'
+    )
+    $plannedSql2005CommunityScan = Save-SqlServerLabMediaSource -Id 'sql-server-2005-evaluation-community-scan' -MediaRoot $temporaryRoot -AllowCommunityScan -WhatIf
+    Add-CheckResult -Name 'SQL-2005-Evaluation bindet Quellcontainer und abgeleitetes geprüftes ISO getrennt' -Success (
+        $plannedSql2005CommunityScan.Status -eq 'PLANNED' -and
+        $plannedSql2005CommunityScan.TargetPath -like "$(Join-Path $temporaryRoot 'Incoming\CommunityScan\SQL\2005\Evaluation')*" -and
+        @($mediaCatalog | Where-Object {
+            $_.Id -eq 'sql-server-2005-evaluation-community-scan' -and
+            $_.DerivedTargetRelativePath -eq 'SQL/2005/Evaluation/ISO/SQL2005_Evaluation.iso' -and
+            $_.DerivedExpectedSha256 -eq 'fccbd167a95c7399227a8fb7ae3a0c8c932411663d9248fa650623ef53c2268c'
+        }).Count -eq 1
     )
     $plannedSqlMedia = Save-SqlServerLabMediaSource -Id 'sql-server-2016-developer-sp3-iso' -MediaRoot $temporaryRoot -WhatIf
     Add-CheckResult -Name 'SQL-Basismedien-Download besitzt einen mutationsfreien WhatIf-Plan' -Success (
         $plannedSqlMedia.Status -eq 'PLANNED' -and
         $plannedSqlMedia.Sha256 -eq 'c293d7e267d34cf4af4e8f03cf472f489772acad6e205da4ceab080cb32b71ad'
+    )
+    $plannedSql2016Evaluation = Save-SqlServerLabMediaSource -Id 'sql-server-2016-evaluation-sp2-iso' -MediaRoot $temporaryRoot -WhatIf
+    Add-CheckResult -Name 'SQL-2016-SP2-Evaluation ist als hashgebundenes Microsoft-Vollmedium registriert' -Success (
+        $plannedSql2016Evaluation.Status -eq 'PLANNED' -and
+        $plannedSql2016Evaluation.Bytes -eq 2970245120 -and
+        $plannedSql2016Evaluation.Sha1 -eq '6309d729a0f063d11c0bb7f840f1069483406755' -and
+        $plannedSql2016Evaluation.Sha256 -eq '863c14f9cc03dad80f6a9ebd7ed462cd21da73f1e8f461f41ea1a4bd8a2e61bb'
+    )
+    $plannedSql2008R2Evaluation = Save-SqlServerLabMediaSource -Id 'sql-server-2008r2-evaluation-x64-sfx-archive' -MediaRoot $temporaryRoot -WhatIf
+    Add-CheckResult -Name 'SQL-2008-R2-x64-Evaluation bindet die exakte frühere Microsoft-SFX-Datei' -Success (
+        $plannedSql2008R2Evaluation.Status -eq 'PLANNED' -and
+        $plannedSql2008R2Evaluation.Bytes -eq 1581398808 -and
+        $plannedSql2008R2Evaluation.Sha1 -eq 'e9f0de0981895bf801e3edc63c9e28575d0aef7f' -and
+        $plannedSql2008R2Evaluation.Sha256 -eq '098f017b5c2aa3d755fe0372537a02c9d8230a08c3bfea1f0fd856f4ee55f63e'
+    )
+    $plannedSql2008Evaluation = Save-SqlServerLabMediaSource -Id 'sql-server-2008-evaluation-iso-archive' -MediaRoot $temporaryRoot -WhatIf
+    Add-CheckResult -Name 'SQL-2008-RTM-Evaluation bindet die geprüfte Microsoft-Wayback-Aufnahme' -Success (
+        $plannedSql2008Evaluation.Status -eq 'PLANNED' -and
+        $plannedSql2008Evaluation.Bytes -eq 3256913920 -and
+        $plannedSql2008Evaluation.Sha1 -eq '883493544d7c90c9d7377005a1d8ffcdaae8b6ca' -and
+        $plannedSql2008Evaluation.Sha256 -eq '5c77401099beb3a7e9543e718ca55283102611444a9eca323d097e861a75ea39'
     )
     $manualMediaBlocked = try {
         $null = Save-SqlServerLabMediaSource -Id 'sql-server-7.0-licensed-media' -MediaRoot $temporaryRoot -ErrorAction Stop
