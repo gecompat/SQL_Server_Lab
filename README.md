@@ -252,6 +252,13 @@ Eine SQL-Server-2025-Umgebung erstellen:
 $lab = New-SqlServerLab -Version '2025' -Provider docker -AutoStart on
 ```
 
+SQL Server 2017 ist als veralteter Containerpfad katalogisiert und benötigt
+einen ausdrücklichen Opt-in:
+
+```powershell
+$lab = New-SqlServerLab -Version '2017' -Provider docker -AllowDeprecated
+```
+
 Mit Podman:
 
 ```powershell
