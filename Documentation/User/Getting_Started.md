@@ -230,6 +230,13 @@ Docker:
 $lab = New-SqlServerLab -Version '2025' -Provider docker
 ```
 
+Der katalogisierte SQL-Server-2017-Container ist `DEPRECATED` und wird nur mit
+einem ausdrücklichen Opt-in bereitgestellt:
+
+```powershell
+$lab = New-SqlServerLab -Version '2017' -Provider docker -AllowDeprecated
+```
+
 Podman:
 
 ```powershell
