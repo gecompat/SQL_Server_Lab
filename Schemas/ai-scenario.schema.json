@@ -1,0 +1,131 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-scenario.schema.json",
+  "title": "SQL Server Lab AI Scenario",
+  "type": "object",
+  "required": ["contract", "id", "version", "status", "requirements", "modelBindings", "dataset", "steps", "assertions", "evaluation", "cleanup"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "contract": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "SqlServerLab.AiScenario" },
+        "version": { "const": "1.0" }
+      },
+      "additionalProperties": false
+    },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+    "version": { "type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+$" },
+    "status": { "enum": ["SUPPORTED", "PREVIEW", "BACKLOG"] },
+    "description": { "type": "string", "minLength": 1 },
+    "requirements": {
+      "type": "object",
+      "required": ["sqlMajor", "compatibilityLevel", "providers", "requiredCapabilities"],
+      "properties": {
+        "sqlMajor": { "const": 17 },
+        "compatibilityLevel": { "const": 170 },
+        "providers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "enum": ["docker", "podman", "hyperv"] }
+        },
+        "requiredCapabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]+$" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "modelBindings": {
+      "type": "object",
+      "required": ["embedding"],
+      "properties": {
+        "embedding": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+        "generation": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" }
+      },
+      "additionalProperties": false
+    },
+    "dataset": {
+      "type": "object",
+      "required": ["id", "version", "classification", "artifact", "contentDigest"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+        "version": { "type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+$" },
+        "classification": { "const": "SYNTHETIC_OR_REDISTRIBUTABLE" },
+        "artifact": { "type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\)(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+\\.json$" },
+        "contentDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "promptSet": {
+      "type": "object",
+      "required": ["id", "version", "contentDigest"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+        "version": { "type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+$" },
+        "contentDigest": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      },
+      "additionalProperties": false
+    },
+    "tools": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["id", "phase", "kind", "script", "sha256"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+          "phase": { "enum": ["setup", "execute", "assert", "cleanup"] },
+          "kind": { "const": "sql-script" },
+          "script": { "type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\)(?!.*(?:^|[\\\\/])\\.\\.(?:[\\\\/]|$)).+\\.sql$" },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "database": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$", "default": "master" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "assertions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+          "description": { "type": "string", "minLength": 1 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "evaluation": {
+      "type": "object",
+      "required": ["id", "version", "blockingMetrics", "informationalMetrics"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+        "version": { "type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+$" },
+        "blockingMetrics": { "type": "array", "uniqueItems": true, "items": { "enum": ["top-k-order", "distance", "chunk-count", "source-binding", "recall-at-k", "precision-at-k", "mrr", "ndcg"] } },
+        "informationalMetrics": { "type": "array", "uniqueItems": true, "items": { "enum": ["latency-ms", "embedding-coverage", "answer-quality", "model-judge"] } }
+      },
+      "additionalProperties": false
+    },
+    "cleanup": {
+      "type": "object",
+      "required": ["mode", "stepId"],
+      "properties": {
+        "mode": { "enum": ["always", "on-failure", "manual"] },
+        "stepId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

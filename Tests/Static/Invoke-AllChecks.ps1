@@ -50,6 +50,7 @@ $checks = @(
     'Invoke-BackupLibraryChecks.ps1',
     'Invoke-DatabasePackageChecks.ps1',
     'Invoke-DatabaseMigrationDependencyChecks.ps1',
+    'Invoke-AiScenarioChecks.ps1',
     'Invoke-ContainerInstanceStoreChecks.ps1',
     'Invoke-ContainerRuntimeScopeChecks.ps1',
     'Invoke-HyperVPersistentDataDriveChecks.ps1',

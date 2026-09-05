@@ -108,6 +108,11 @@ jobs:
                 -RuntimeMutexAlreadyHeld 2>&1 | Tee-Object -FilePath $logPath -Append
               $packageExportExitCode = $LASTEXITCODE
               if ($packageExportExitCode -ne 0) { throw "Podman Database-Package-Export-Akzeptanz endete mit Exitcode $packageExportExitCode." }
+
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-AiVectorCoreAcceptance.ps1 `
+                -Provider podman 2>&1 | Tee-Object -FilePath $logPath -Append
+              $aiVectorExitCode = $LASTEXITCODE
+              if ($aiVectorExitCode -ne 0) { throw "Podman AI-Vector-Core-Akzeptanz endete mit Exitcode $aiVectorExitCode." }
             }
           }
           finally {
