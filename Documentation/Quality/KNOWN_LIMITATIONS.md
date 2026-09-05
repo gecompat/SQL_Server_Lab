@@ -769,6 +769,12 @@ der
 
 ## SQL Server Builds und CUs
 
+SQL Server 2017 ist ausschließlich als `DEPRECATED`-Containerpfad mit
+`mcr.microsoft.com/mssql/server:2017-latest` katalogisiert. Eine Bereitstellung
+über `New-SqlServerLab` benötigt `-AllowDeprecated`; ohne diesen ausdrücklichen
+Opt-in endet der Lauf vor State- und Provider-Mutationen. Dieser Pfad besitzt
+keine CU-Auswahl und gehört nicht zur regulären Runtime-Matrix.
+
 Der Versionskatalog enthält für SQL Server 2019, 2022 und 2025 die vollständige
 bei Microsoft weiterhin verfügbare CU-Historie mit expliziten MCR-Tags sowie
 hashgebundenen Windows-Paketen. Diese Daten sind nicht automatisch aktuell und

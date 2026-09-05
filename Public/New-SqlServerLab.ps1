@@ -286,6 +286,10 @@ function New-SqlServerLab {
         Unterbindet Kennwortabfragen. Fehlende, erforderliche Secrets werden
         stattdessen mit einem klaren Fehler abgelehnt; gedacht für CI/CD und
         deklarative Manifestbereitstellungen.
+    .PARAMETER AllowDeprecated
+        Erlaubt ausdrücklich eine im Versionskatalog als DEPRECATED markierte
+        SQL-Server-Version. Ohne diesen Schalter bleibt die Bereitstellung vor
+        State- oder Provider-Mutationen blockiert.
     .PARAMETER AllowExpertHostWriteMounts
         Zweite, absichtliche Freigabe für im Manifest deklarierte schreibende
         beliebige Host-Mounts. Standard-Manifeste verwenden ausschließlich
@@ -373,6 +377,7 @@ function New-SqlServerLab {
         [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale = '0407:00000407',
         [string]$TimeZone = 'W. Europe Standard Time',
         [switch]$NonInteractive,
+        [switch]$AllowDeprecated,
         [switch]$AllowExpertHostWriteMounts,
         [switch]$SkipAssessment
     )
@@ -776,7 +781,9 @@ function New-SqlServerLab {
     }
 
     foreach ($instance in $resolved.instances) {
-        $versionCheck = Test-SqlServerVersionSupported -VersionId $instance.version
+        $versionCheck = Test-SqlServerVersionSupported `
+            -VersionId $instance.version `
+            -AllowDeprecated:$AllowDeprecated
         if (-not $versionCheck.Supported) {
             throw "Version $($instance.version): $($versionCheck.Message)"
         }

@@ -25,8 +25,9 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 12. [Root-README](../README.md)
 13. [Manifest-Schemas und Beispiele](../Schemas/README.md)
 14. [Öffentliche Cmdlets](../Public/README.md)
-15. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
-16. [Tests](../Tests/README.md)
+15. [Funktionsübersicht für CLI und Browser-GUI](User/FUNCTIONS_CLI_GUI.md)
+16. [Bekannte Grenzen](Quality/KNOWN_LIMITATIONS.md)
+17. [Tests](../Tests/README.md)
 
 ### Projekt weiterentwickeln
 

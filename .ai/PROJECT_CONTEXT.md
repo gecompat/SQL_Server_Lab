@@ -383,6 +383,9 @@ SQL-Versionen werden über `Catalogs/sql-server-versions.json` aufgelöst.
 
 Aktuelle Katalogeinträge:
 
+- SQL Server 2016 ohne Containerpfad (`DEPRECATED`);
+- SQL Server 2017 als ausdrücklich freizugebender Containerpfad
+  (`DEPRECATED`, `New-SqlServerLab -AllowDeprecated`);
 - SQL Server 2019;
 - SQL Server 2022;
 - SQL Server 2025.

@@ -24,6 +24,17 @@ Add-CheckResult -Name 'SQL Server 2017 löst auf das offizielle latest-Image auf
     $sql2017 -eq 'mcr.microsoft.com/mssql/server:2017-latest'
 )
 
+$sql2017Default = & $module { Test-SqlServerVersionSupported -VersionId '2017' }
+$sql2017Explicit = & $module { Test-SqlServerVersionSupported -VersionId '2017' -AllowDeprecated }
+$newLabCommand = Get-Command New-SqlServerLab -Module SqlServerLab -ErrorAction Stop
+$newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw -Encoding utf8
+Add-CheckResult -Name 'Veraltete SQL-Versionen benötigen den ausdrücklichen öffentlichen Opt-in' -Success (
+    -not $sql2017Default.Supported -and
+    $sql2017Explicit.Supported -and
+    $newLabCommand.Parameters.ContainsKey('AllowDeprecated') -and
+    $newLabSource -match '-AllowDeprecated:\$AllowDeprecated'
+)
+
 $containerTagFailures = @()
 foreach ($versionId in @('2025-CU999-ubuntu-24.04', '2022-CU99-ubuntu-22.04', '2099-CU1-ubuntu-24.04')) {
     try { $null = & $module { param($id) Get-SqlServerDockerImage -VersionId $id } $versionId }
