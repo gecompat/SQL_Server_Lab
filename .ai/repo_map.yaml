@@ -27,6 +27,12 @@ sources_of_truth:
   exported_commands: SqlServerLab.psd1
   module_loading: SqlServerLab.psm1
   manifest_structure: Schemas/lab-manifest.schema.json
+  ai_scenario_schema: Schemas/ai-scenario.schema.json
+  ai_scenario_contract: Private/AiScenario.ps1
+  ai_scenario_inventory: Public/Get-SqlServerLabAiScenario.ps1
+  ai_scenario_execution: Public/Invoke-SqlServerLabAiScenario.ps1
+  ai_vector_core_scenario: Scenarios/Ai/vector-core-ci/1.0/scenario.json
+  validation_ai_scenario: Tests/Static/Invoke-AiScenarioChecks.ps1
   license_profile_contract: Private/LicenseProfile.ps1
   license_profile_schema: Schemas/license-profile.schema.json
   validation_license_profile: Tests/Static/Invoke-LicenseProfileChecks.ps1
@@ -194,6 +200,7 @@ sources_of_truth:
   windows_slot_activation_backlog: Documentation/Project_Planning/WINDOWS_SLOT_ACTIVATION_BACKLOG.md
   repository_agent_skills_backlog: Documentation/Project_Planning/REPOSITORY_AGENT_SKILLS_BACKLOG.md
   polybase_s3_object_storage_backlog: Documentation/Project_Planning/POLYBASE_S3_OBJECT_STORAGE_BACKLOG.md
+  sql2025_ai_platform_backlog: Documentation/Project_Planning/SQL2025_AI_PLATFORM_BACKLOG.md
   sql2025_vector_embedding_backlog: Documentation/Project_Planning/SQL2025_VECTOR_EMBEDDING_BACKLOG.md
   manual_acceptance_consolidation_plan: Documentation/Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
@@ -415,6 +422,18 @@ public_commands:
     source: Public/Invoke-SqlServerLabScript.ps1
     purpose: "T-SQL-Skript ausführen"
     mutates_sql: true
+  - name: Get-SqlServerLabAiScenario
+    source: Public/Get-SqlServerLabAiScenario.ps1
+    purpose: "Katalogisiertes SQL-KI-Szenario und sanitisierte Run-Evidence read-only auflösen"
+    mutates_host: false
+    mutates_sql: false
+  - name: Invoke-SqlServerLabAiScenario
+    source: Public/Invoke-SqlServerLabAiScenario.ps1
+    purpose: "Deklariertes hashgebundenes SQL-KI-Szenario journalisiert ausführen und bereinigen"
+    mutates_host: false
+    mutates_sql: true
+    external_dependencies:
+      - sqlcmd
   - name: Start-SqlServerLabAutomatedTestEnvironment
     source: Public/TestEnvironmentLifecycle.ps1
     purpose: "Registrierte Mitglieder gruppenweise starten, Windows-Lizenz sowie SQL-Dienste live pruefen und den Export bis READY validieren"

@@ -130,6 +130,10 @@
       },
       "additionalProperties": false
     },
+    "ai": {
+      "$ref": "#/definitions/aiIntent",
+      "description": "Providerneutraler, geheimnisfreier KI-Intent. Er bindet Modelle, Policies und katalogisierte SQL-KI-Szenarien; die konkrete Ausführung erfolgt separat."
+    },
     "expertActions": {
       "type": "object",
       "description": "Explizite Freigaben fuer erweiterte, potenziell nicht wegwerfbare Aktionen. Sie sind kein Bestandteil des Standard-Labpfads.",
@@ -1296,6 +1300,80 @@
           "description": "Maximale Dateigroesse in MB (MAXSIZE). -1 = UNLIMITED.",
           "default": -1
         }
+      },
+      "additionalProperties": false
+    },
+    "aiIntent": {
+      "type": "object",
+      "required": ["models", "policies", "scenarios"],
+      "properties": {
+        "models": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/aiModel" }
+        },
+        "policies": { "$ref": "#/definitions/aiPolicies" },
+        "scenarios": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/aiScenarioReference" }
+        }
+      },
+      "additionalProperties": false
+    },
+    "aiModel": {
+      "type": "object",
+      "required": ["id", "purpose", "provider", "variant", "timeoutSeconds", "retryCount"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+        "purpose": { "type": "string", "enum": ["embedding", "generation"] },
+        "provider": { "type": "string", "enum": ["precomputed", "stub", "ollama", "openai", "azure-openai", "onnx"] },
+        "variant": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{1,127}$" },
+        "endpointRef": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+        "credentialRef": { "$ref": "#/definitions/secretEnvironmentVariable" },
+        "dimension": { "type": "integer", "minimum": 1, "maximum": 1998 },
+        "timeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 600, "default": 30 },
+        "retryCount": { "type": "integer", "minimum": 0, "maximum": 10, "default": 0 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "purpose": { "const": "embedding" } } },
+          "then": { "required": ["dimension"] }
+        },
+        {
+          "if": { "properties": { "provider": { "enum": ["stub", "ollama", "openai", "azure-openai"] } } },
+          "then": { "required": ["endpointRef"] }
+        },
+        {
+          "if": { "properties": { "provider": { "enum": ["openai", "azure-openai"] } } },
+          "then": { "required": ["credentialRef"] }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "aiPolicies": {
+      "type": "object",
+      "required": ["dataClassification", "egress", "allowedTools", "contentLogging", "fallback"],
+      "properties": {
+        "dataClassification": { "type": "string", "enum": ["synthetic-only", "public-or-redistributable", "internal-explicit"] },
+        "egress": { "type": "string", "enum": ["denied", "explicit"] },
+        "allowedTools": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" }
+        },
+        "contentLogging": { "type": "string", "enum": ["disabled", "metadata-only"] },
+        "fallback": { "type": "string", "enum": ["disabled", "explicit"] }
+      },
+      "additionalProperties": false
+    },
+    "aiScenarioReference": {
+      "type": "object",
+      "required": ["id", "version", "instanceId"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+        "version": { "type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+$" },
+        "instanceId": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$" }
       },
       "additionalProperties": false
     },

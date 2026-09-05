@@ -2,11 +2,15 @@
 
 ## Status
 
-`BACKLOG` – SQL_Server_Lab katalogisiert SQL Server 2025 und besitzt
-providerneutrale SQL-, Software-, Secret-, Lifecycle- und Testverträge. Ein
-ausführbares Vector-/Embedding-Szenario mit lokalem oder externem Modell ist
-noch nicht implementiert. Reihenfolge und Priorität richten sich nach dem
-kanonischen Entwicklungs- und Ausführungsplan.
+`VECTOR_CORE SUPPORTED`, `LOCAL_ONNX BACKLOG`,
+`EXTERNAL_EMBEDDINGS BACKLOG`. Das hashgebundene Szenario
+`vector-core-ci/1.0` führt feste synthetische Vektoren, exakte Suche und
+Chunking aus. Die getrennten nativen Docker-/Podman-Nachweise waren am
+2026-09-05 erfolgreich; jede echte lokale oder externe Embedding-Erzeugung
+steht noch aus. Reihenfolge und Priorität folgen
+dem übergeordneten
+[KI-Plattform-Backlog](SQL2025_AI_PLATFORM_BACKLOG.md) und dem kanonischen
+Entwicklungs- und Ausführungsplan.
 
 ## Ausgangslage
 

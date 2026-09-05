@@ -610,6 +610,20 @@ Core und dessen separate Runtime-Evidence bleiben maßgeblich.
 bei der Docker-Backup-Erstellung aus; dies ist kein Windows-TDE-,
 Serverobjekt-Export- oder Hyper-V-FILESTREAM-Nachweis.
 
+`Invoke-AiScenarioChecks.ps1` prüft den AI-00-/AI-10-Vertrag ohne laufenden
+SQL Server: Manifest- und Package-Schema, portable Modell-/Szenario-PlanKeys,
+Dataset- und Skript-SHA-256, pfadfreie öffentliche Projektion, persistierte
+Intentbindung, Docker-/Podman-Capability, mutationsfreies `WhatIf`, verweigerten
+Cloud-Egress und Traversal-Schutz. Dieser statische Lauf ist kein Nachweis,
+dass `VECTOR`, `VECTOR_DISTANCE` oder `AI_GENERATE_CHUNKS` im Container
+erfolgreich ausgeführt wurden. Der native Nachweis verwendet einen zuvor per
+KI-Manifest erstellten SQL-2025-Run und anschließend
+`Invoke-SqlServerLabAiScenario`; Docker und Podman sind getrennt auszuführen.
+Der ausführbare, run-eigene Nachweis dafür ist
+`Tests/Integration/Invoke-AiVectorCoreAcceptance.ps1 -Provider docker|podman`.
+Er prüft Vector-Distanz, Chunking, sanitisierte Evidence und Szenario-Cleanup
+und entfernt danach den zugehörigen Provider-Run.
+
 Der ausführbare native Windows-SQL-Nachweis ist:
 
 ```powershell

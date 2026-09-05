@@ -61,6 +61,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   `New-SqlServerLab -Sample`;
 - gemischter Docker-/Podman-Lifecycle mit getrennten `ProviderSubRuns`;
 - Post-Provision-T-SQL;
+- providerneutraler `SqlServerLab.AiIntent/1.0`-Manifestvertrag und
+  `SqlServerLab.AiScenario/1.0`-Packagevertrag mit portablen Modell-, Dataset-,
+  Evaluations- und Szenario-PlanKeys; das synthetische SQL-2025-Szenario
+  `vector-core-ci/1.0` prüft feste `VECTOR(3)`-Werte, exakte Cosine-Suche,
+  Chunking, Identitätsbindung, Journal und Cleanup. Der Codepfad ist
+  implementiert, die getrennten nativen Docker-/Podman-Nachweise sowie
+  Endpoint-Stub, Ollama, Cloud, ONNX, RAG und Agenten bleiben offen;
 - Start, Stop, Restart, Status, Remove und Clear;
 - read-only Desired/Actual/Diff-Reconcile, kontrollierte START-/STOP-Aktionen
   sowie journalisierter Container-Reconcile für CPU, RAM, SQL `max server

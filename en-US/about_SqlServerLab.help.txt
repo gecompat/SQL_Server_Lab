@@ -138,6 +138,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Inventories SQL-observable migration dependencies directly or through
         a run and instance binding as sanitized read-only counts.
 
+    Get-SqlServerLabAiScenario
+        Resolves a hash-bound SQL AI scenario from the catalog or against a run
+        and returns sanitized plan and evidence metadata only.
+
     Get-SqlServerLabConnectionCenter
         Returns the password-free SQL endpoint catalog used by SSMS and CMS.
 
@@ -219,6 +223,10 @@ Sync-SqlServerLabRunScopedContainerStore
 
     Invoke-SqlServerLabScript
         Executes a T-SQL script with GO batch support.
+
+    Invoke-SqlServerLabAiScenario
+        Runs a declared SQL AI scenario after hash, intent, and capability
+        validation with a journaled cleanup path.
 
     Get-SqlServerLabGeneratedSqlAccess
         Returns runtime SQL access for an automatically generated SQL Server SA

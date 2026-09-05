@@ -7,6 +7,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | Datei | Zweck |
 |---|---|
 | `lab-manifest.schema.json` | Struktur deklarativer Labdefinitionen |
+| `ai-scenario.schema.json` | Versioniertes, hashgebundenes SQL-KI-Szenariopaket mit Dataset, Schritten, Assertions, Evaluation und Cleanup |
 | `lab-batch.schema.json` | Mengenfähiger Vertrag `SqlServerLab.BatchManifest/1.0` mit Defaults, Positionen, Anzahl, Intent und Overrides |
 | `version-catalog.schema.json` | Struktur von `Catalogs/sql-server-versions.json` |
 | `sql-server-media-sources.schema.json` | Direkte, archivierte oder manuelle Beschaffungsverträge für `Catalogs/sql-server-media-sources.json` |
@@ -57,6 +58,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | Datei | Zweck | Erwarteter Status |
 |---|---|---|
 | `example-lab.json` | einfache Instanz mit Datenbank und Post-Provision | ausführbar, sofern referenzierte SQL-Datei vorhanden ist |
+| `example-ai-vector-core.json` | SQL Server 2025 mit geheimnisfreiem KI-Intent und deterministischem Vector-Core-Szenario | Manifest ausführbar; Szenario separat über `Invoke-SqlServerLabAiScenario` |
 | `example-restore-lab.json` | Restore einer `.bak`-Quelle | ausführbar bei erreichbarer Quelle |
 | `example-performance-lab.json` | Volumes, Data-/Log-Pfade, TempDB, Memory, MaxDOP und DB-Optionen | ausführbar mit ausreichenden Ressourcen |
 | `example-cu-comparison.json` | zwei katalogisierte SQL-2022-CU-Stände mit identischer Sample-Datenbank | ausführbar über den Sample-Backup-Handler; ohne Katalog-SHA-256 fragt ein interaktiver Lauf einmalig nach Vertrauen |

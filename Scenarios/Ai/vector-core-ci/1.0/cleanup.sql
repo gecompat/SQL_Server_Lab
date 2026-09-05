@@ -1,0 +1,9 @@
+USE [master];
+GO
+
+IF DB_ID(N'SqlServerLabAiVectorCore') IS NOT NULL
+BEGIN
+    ALTER DATABASE [SqlServerLabAiVectorCore] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE [SqlServerLabAiVectorCore];
+END;
+GO

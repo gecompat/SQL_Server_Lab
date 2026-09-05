@@ -1406,6 +1406,33 @@ State, Secrets, konkrete Hostpfade und Connection Information dürfen nicht in G
 
 ## 18. Smoke-Test
 
+### SQL-2025-Vector-Core-Szenario
+
+`Schemas/example-ai-vector-core.json` zeigt den neuen KI-Manifestvertrag. Er
+verwendet nur synthetische Daten, feste Vektoren und `egress: denied`:
+
+```powershell
+$password = Read-Host 'SA-Passwort' -AsSecureString
+$lab = New-SqlServerLab `
+    -Manifest .\Schemas\example-ai-vector-core.json `
+    -SaPassword $password
+
+Get-SqlServerLabAiScenario `
+    -ScenarioId vector-core-ci `
+    -RunId $lab.RunId
+
+Invoke-SqlServerLabAiScenario `
+    -ScenarioId vector-core-ci `
+    -RunId $lab.RunId `
+    -SaPassword $password
+```
+
+Das Szenario prüft `VECTOR(3)`, exakte Cosine-Distanz,
+`AI_GENERATE_CHUNKS`, Dataset-/Modellbindung und entfernt seine Testdatenbank
+auch im Erfolgsfall. Ein identischer erfolgreicher Plan ergibt beim nächsten
+Aufruf `NO_OP`; `-Force` führt ihn erneut aus. Ollama, Cloud, ONNX, RAG und
+Agenten sind dadurch nicht als implementiert oder validiert ausgewiesen.
+
 Docker:
 
 ```powershell

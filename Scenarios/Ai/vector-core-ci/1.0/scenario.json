@@ -1,0 +1,93 @@
+{
+  "$schema": "../../../../Schemas/ai-scenario.schema.json",
+  "contract": {
+    "name": "SqlServerLab.AiScenario",
+    "version": "1.0"
+  },
+  "id": "vector-core-ci",
+  "version": "1.0",
+  "status": "SUPPORTED",
+  "description": "Deterministischer SQL-Server-2025-Vector-Core ohne Modell-, Netzwerk- oder Secretabhängigkeit.",
+  "requirements": {
+    "sqlMajor": 17,
+    "compatibilityLevel": 170,
+    "providers": [
+      "docker",
+      "podman"
+    ],
+    "requiredCapabilities": [
+      "sql2025-vector-core"
+    ]
+  },
+  "modelBindings": {
+    "embedding": "fixed-vector-3"
+  },
+  "dataset": {
+    "id": "synthetic-vector-core-de",
+    "version": "1.0",
+    "classification": "SYNTHETIC_OR_REDISTRIBUTABLE",
+    "artifact": "dataset.json",
+    "contentDigest": "c98bb88fe6e7f234a92627ee8c242b9e57bb31eb652ba67885a214c58ab1bcb6"
+  },
+  "steps": [
+    {
+      "id": "create-vector-fixture",
+      "phase": "setup",
+      "kind": "sql-script",
+      "script": "setup.sql",
+      "sha256": "7e5a1d1e7d40240ed7860d09bde7d676271ba1f341983ae59561a8fa28b5e3be",
+      "database": "master"
+    },
+    {
+      "id": "assert-vector-core",
+      "phase": "assert",
+      "kind": "sql-script",
+      "script": "assert.sql",
+      "sha256": "6342053132656bfdfa4def00eb517f8017471e0722bf8c0556892a62dbd37ab8",
+      "database": "master"
+    },
+    {
+      "id": "remove-vector-fixture",
+      "phase": "cleanup",
+      "kind": "sql-script",
+      "script": "cleanup.sql",
+      "sha256": "569913b2e8b7ce9279c6f4fc866825a1892f1e1445f01a36928472b77102adcd",
+      "database": "master"
+    }
+  ],
+  "assertions": [
+    {
+      "id": "exact-top-k",
+      "description": "Die exakte Cosine-Suche liefert den identischen Vektor zuerst."
+    },
+    {
+      "id": "exact-distance",
+      "description": "Die Cosine-Distanz identischer Vektoren ist null."
+    },
+    {
+      "id": "deterministic-chunking",
+      "description": "AI_GENERATE_CHUNKS erzeugt bei Compatibility Level 170 mehrere Chunks."
+    },
+    {
+      "id": "identity-binding",
+      "description": "Alle Zeilen sind an Dataset- und Modellidentität gebunden."
+    }
+  ],
+  "evaluation": {
+    "id": "vector-core-contract",
+    "version": "1.0",
+    "blockingMetrics": [
+      "top-k-order",
+      "distance",
+      "chunk-count",
+      "source-binding"
+    ],
+    "informationalMetrics": [
+      "latency-ms"
+    ]
+  },
+  "cleanup": {
+    "mode": "always",
+    "stepId": "remove-vector-fixture"
+  }
+}

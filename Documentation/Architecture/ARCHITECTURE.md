@@ -91,6 +91,7 @@ Get-SqlServerLabDatabasePackage              # Datenbankpakete per stabiler ID p
 Export-SqlServerLabDatabasePackage           # Rungebundene Container-Datenbank nach Offline-Commit hashgebunden veröffentlichen
 Invoke-SqlServerLabDatabasePackageAttach     # Paket pfadfrei an einen stabil gebundenen Hyper-V-SQL-Run attachen
 Get-SqlServerLabDatabaseMigrationDependency  # SQL-Migrationsabhaengigkeiten read-only inventarisieren
+Get-SqlServerLabAiScenario                   # SQL-KI-Szenario und sanitisierte Evidence read-only aufloesen
 Get-SqlServerLabConnectionCenter       # Passwortfreier SQL-Endpunktkatalog für SSMS und CMS
 Sync-SqlServerLabConnectionCenter      # Endpunktkatalog atomar aktualisieren
 Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erzeugen
@@ -120,6 +121,7 @@ New-SqlServerLabDatabase              # Datenbank anlegen (mit File-Layout)
 Backup-SqlServerLabDatabase           # Verifiziertes Backup in Lab_Data veröffentlichen
 Restore-SqlServerLabDatabase          # Datenbank aus .bak wiederherstellen
 Invoke-SqlServerLabScript             # T-SQL-Skript ausfuehren
+Invoke-SqlServerLabAiScenario          # Deklariertes hashgebundenes SQL-KI-Szenario journalisiert ausfuehren
 Test-SqlServerLabContainerTool         # Kataloggebundenes SqlPackage read-only pruefen
 Get-SqlServerLabGeneratedSqlAccess      # Hyper-V-Generierte SQL-Accessdaten (ConnectionString/Passwort) abrufen
 New-SqlServerLabWindowsSlotPool         # N Windows-Slots mit unbeaufsichtigter OOBE erstellen/fortsetzen
