@@ -151,6 +151,8 @@ function Get-LabAutomatedTestEnvironmentStatus {
                                         else { $statusCode = $runtimeState; $displayStatus = "SQL fertig, VM $($runtimeState.ToLowerInvariant()) (startbar)" }
                                     }
                                     'CONFIGURATION_PENDING' { $statusCode = $planState; $displayStatus = 'SQL-Abschluss fortsetzbar' }
+                                    'PATCH_PENDING' { $statusCode = $planState; $displayStatus = 'SQL-CU-Installation fortsetzbar' }
+                                    'PATCH_RETRY_PENDING' { $statusCode = $planState; $displayStatus = 'SQL-CU-Installation wiederholbar' }
                                     'INSTALL_RETRY_PENDING' { $statusCode = $planState; $displayStatus = 'SQL-Installation wiederholbar' }
                                     'INSTALLING' { $statusCode = $planState; $displayStatus = 'SQL-Installation läuft' }
                                     'PLANNED' { $statusCode = $planState; $displayStatus = 'SQL-Installation fortsetzbar' }

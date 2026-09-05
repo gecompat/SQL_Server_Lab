@@ -100,7 +100,29 @@ try {
         $environmentText -match "SQL_SETUP_\(\?:INSTALL_FAILED\|INSTALL_TIMEOUT\|INSTALLATION_NOT_REGISTERED\)" -and
         $environmentText -match 'lastSetupFailureAt' -and
         $environmentText -match '\^Final result:\\s\+Failed' -and
-        $menuText -match "'PLANNED', 'INSTALL_RETRY_PENDING', 'CONFIGURATION_PENDING'"
+        $menuText -match "'PLANNED', 'INSTALL_RETRY_PENDING', 'PATCH_PENDING', 'PATCH_RETRY_PENDING', 'CONFIGURATION_PENDING'"
+    )
+    Add-CheckResult -Name 'SQL Setup und CU warten auf den vollständigen Installer-Prozessbaum' -Success (
+        ([regex]::Matches($environmentText, "'setup\.exe', 'msiexec\.exe'").Count -ge 2) -and
+        ([regex]::Matches($environmentText, 'preexistingInstallerIds').Count -ge 4) -and
+        ([regex]::Matches($environmentText, 'TotalSeconds -ge 15').Count -ge 2) -and
+        $environmentText -match 'SQL_SETUP_INSTALL_TIMEOUT' -and
+        $environmentText -match 'SQL_CU_INSTALL_TIMEOUT'
+    )
+    Add-CheckResult -Name 'CU-Nachweis liest den laufenden SQL-Engine-Build statt des statischen Registry-Builds' -Success (
+        $environmentText -match 'System\.Data\.SqlClient\.SqlConnection' -and
+        $environmentText -match "SERVERPROPERTY\('ProductVersion'\)" -and
+        $environmentText -match 'TrustServerCertificate=True' -and
+        $environmentText -notmatch 'MSSQLServer\\CurrentVersion.+CurrentVersion'
+    )
+    Add-CheckResult -Name 'CU-Fehler bleiben getrennt und idempotent wiederaufnehmbar' -Success (
+        $environmentText -match '\$plan\.state = if \(\$plan\.sqlUpdatePath.+\{ ''PATCH_PENDING'' \}' -and
+        $environmentText -match '\$plan\.state -in @\(''PATCH_PENDING'', ''PATCH_RETRY_PENDING''\)' -and
+        $environmentText -match '\$plan\.state = ''PATCH_RETRY_PENDING''' -and
+        $environmentText -match 'lastPatchFailureAt' -and
+        $environmentText -match 'HYPERV_SQL_CU_GUEST_COPY_FAILED' -and
+        $environmentText.IndexOf('$actualBuild = Invoke-HyperVPowerShellDirect') -lt $environmentText.IndexOf('HYPERV_SQL_CU_PACKAGE_MISSING') -and
+        $environmentText -match '\$actualBuild -ne \[string\]\$plan\.expectedSqlBuild'
     )
     Add-CheckResult -Name 'SA-Passwort wird bei ALTER LOGIN sicher als SQL-Literal erzeugt' -Success (
         $environmentText -match 'QUOTENAME\(@password' -and

@@ -224,7 +224,11 @@ memory`, vier TempDB-Datendateien, Hostzugriff und `AutoStart = on`.
 Bei einem Fehler bleibt der reservierte Slot erhalten:
 
 - `INSTALL_RETRY_PENDING`: denselben Windows-Schlüssel erneut in den Composer
-  aufnehmen; der gespeicherte SQL-Installationsschritt wird fortgesetzt;
+  aufnehmen; das fehlgeschlagene SQL-Basis-Setup wird wiederholt;
+- `PATCH_PENDING`: das Basis-Setup ist abgeschlossen und der gespeicherte
+  CU-Schritt wird fortgesetzt;
+- `PATCH_RETRY_PENDING`: der CU-Schritt wird fortgesetzt; zuerst wird der
+  tatsächliche Engine-Build geprüft und ein bereits wirksames CU übernommen;
 - `CONFIGURATION_PENDING`: ebenfalls denselben Schlüssel fortsetzen;
 - `ACTIVATION_REQUIRED`: Konnektivität, External-Switch und den konkreten
   Microsoft-Aktivierungsfehler prüfen, dann die Gruppenreparatur ausführen;

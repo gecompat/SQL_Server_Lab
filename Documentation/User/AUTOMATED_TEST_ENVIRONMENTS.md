@@ -61,11 +61,16 @@ aus der veröffentlichten Windows-OS-Vorlage; dann können OOBE und erste Anmeld
 nötig werden. Bereits einer Testgruppe zugeordnete Slots werden nicht für andere
 Ziele vergeben.
 
-Schlägt SQL Setup fehl, bleibt der reservierte Slot im Zustand
-`INSTALL_RETRY_PENDING`. Wird derselbe Windows-Schlüssel erneut zur Batch-Liste
-hinzugefügt, setzt das Framework genau diesen Run fort; es belegt weder einen
-weiteren Pool-Slot noch legt es einen Schlüssel mit Suffix an. Eine bereits fertige
-Umgebung wird idempotent erkannt und nicht erneut installiert.
+Schlägt das SQL-Basis-Setup fehl, bleibt der reservierte Slot im Zustand
+`INSTALL_RETRY_PENDING`. Nach erfolgreichem Basis-Setup wird vor dem CU-Schritt
+`PATCH_PENDING` persistiert; ein Fehler beim Kopieren, Installieren oder Prüfen
+des CU führt zu `PATCH_RETRY_PENDING`. Bei der Wiederaufnahme prüft das Framework
+zuerst den Build der laufenden SQL-Engine. Ein bereits vollständig wirksames CU
+wird dadurch übernommen und nicht erneut installiert. Wird derselbe
+Windows-Schlüssel erneut zur Batch-Liste hinzugefügt, setzt das Framework genau
+diesen Run fort; es belegt weder einen weiteren Pool-Slot noch legt es einen
+Schlüssel mit Suffix an. Eine bereits fertige Umgebung wird idempotent erkannt
+und nicht erneut installiert.
 
 Alle Testumgebungen bilden eine gemeinsame, geschützte Lifecycle-Gruppe:
 
