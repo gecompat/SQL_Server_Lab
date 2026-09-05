@@ -1599,7 +1599,7 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
         if ($existingStatus.Total -eq 0) { Write-Host '    Keine Testumgebung registriert.' -ForegroundColor DarkGray }
         else {
             foreach ($existing in @($existingStatus.Entries)) {
-                $statusColor = if ($existing.StatusCode -eq 'READY') { 'Green' } elseif ($existing.StatusCode -in @('INSTALLING','CONFIGURATION_PENDING','INSTALL_RETRY_PENDING','PLANNED','WINDOWS_READY','OOBE_PENDING','STOPPED')) { 'Yellow' } else { 'Red' }
+                $statusColor = if ($existing.StatusCode -eq 'READY') { 'Green' } elseif ($existing.StatusCode -in @('INSTALLING','CONFIGURATION_PENDING','PATCH_PENDING','PATCH_RETRY_PENDING','INSTALL_RETRY_PENDING','PLANNED','WINDOWS_READY','OOBE_PENDING','STOPPED')) { 'Yellow' } else { 'Red' }
                 Write-Host ("    {0} · {1} · SQL {2} · {3} · {4}" -f $existing.Key, $existing.Platform, $existing.SqlVersion, $existing.Patch, $existing.DisplayStatus) -ForegroundColor $statusColor
             }
         }
@@ -3841,7 +3841,7 @@ function Invoke-LabHyperVSqlSlotInstallInteractive {
     )
 
     if ([string]$Plan.deploymentMode -notin @('sql-pool-slot', 'adhoc-install') -or
-        [string]$Plan.state -notin @('PLANNED', 'INSTALL_RETRY_PENDING', 'CONFIGURATION_PENDING')) {
+        [string]$Plan.state -notin @('PLANNED', 'INSTALL_RETRY_PENDING', 'PATCH_PENDING', 'PATCH_RETRY_PENDING', 'CONFIGURATION_PENDING')) {
         Write-LabWarning 'Kein ausführbarer vollständiger SQL-Installationsplan vorhanden.'
         return $false
     }
@@ -3930,7 +3930,7 @@ function Select-LabReusableHyperVWindowsSlotInteractive {
             $plan = $lab.Instance.sqlDeploymentPlan
             $resumableSqlPlan = $plan -and
                 [string]$plan.deploymentMode -in @('sql-pool-slot', 'adhoc-install') -and
-                [string]$plan.state -in @('PLANNED', 'INSTALL_RETRY_PENDING', 'CONFIGURATION_PENDING')
+                [string]$plan.state -in @('PLANNED', 'INSTALL_RETRY_PENDING', 'PATCH_PENDING', 'PATCH_RETRY_PENDING', 'CONFIGURATION_PENDING')
             $readySqlPlan = $intendedTestRunId -and $plan -and
                 [string]$plan.deploymentMode -in @('sql-pool-slot', 'adhoc-install') -and
                 [string]$plan.state -eq 'SQL_SLOT_READY'
@@ -4262,6 +4262,8 @@ function Manage-LabHyperVEnvironmentInteractive {
                     'PLANNED' { $sqlState = "geplant: SQL $($sqlPlan.sqlVersion) · $($sqlPlan.deploymentMode)"; $sqlColor = 'Yellow' }
                     'INSTALLING' { $sqlState = "Installation läuft oder wurde unterbrochen: SQL $($sqlPlan.sqlVersion)"; $sqlColor = 'Yellow' }
                     'INSTALL_RETRY_PENDING' { $sqlState = "Setup fehlgeschlagen, erneute Installation möglich: SQL $($sqlPlan.sqlVersion)"; $sqlColor = 'Yellow' }
+                    'PATCH_PENDING' { $sqlState = "Basisinstallation abgeschlossen, CU-Installation ausständig: SQL $($sqlPlan.sqlVersion)"; $sqlColor = 'Yellow' }
+                    'PATCH_RETRY_PENDING' { $sqlState = "CU-Installation unterbrochen, Wiederaufnahme möglich: SQL $($sqlPlan.sqlVersion)"; $sqlColor = 'Yellow' }
                     'CONFIGURATION_PENDING' { $sqlState = "installiert, Abschlusskonfiguration ausständig: SQL $($sqlPlan.sqlVersion)"; $sqlColor = 'Yellow' }
                     'SQL_SLOT_READY' { $sqlState = "bereit und verwendbar: SQL $($sqlPlan.sqlVersion) · $($sqlPlan.deploymentMode)"; $sqlColor = 'Green' }
                     'PREPARE_RUNNING' { $sqlState = 'nicht verwendbar: alter PrepareImage-/Sysprep-Versuch'; $sqlColor = 'Red' }
@@ -4357,7 +4359,7 @@ function Manage-LabHyperVEnvironmentInteractive {
                 $plan = $selectedLab.Instance.sqlDeploymentPlan
                 $iopsLabel = if ([long]$plan.maximumDataIops -gt 0) { [string]$plan.maximumDataIops } else { 'unbegrenzt' }
                 Write-Host ("        SQL-Ziel: {0} · {1} · {2} vCPU · Data-I/O max. {3} IOPS" -f $plan.sqlVersion, $plan.deploymentMode, $plan.processorCount, $iopsLabel) -ForegroundColor Cyan
-                if ([string]$plan.deploymentMode -in @('sql-pool-slot','adhoc-install') -and [string]$plan.state -in @('PLANNED','INSTALL_RETRY_PENDING','CONFIGURATION_PENDING')) {
+                if ([string]$plan.deploymentMode -in @('sql-pool-slot','adhoc-install') -and [string]$plan.state -in @('PLANNED','INSTALL_RETRY_PENDING','PATCH_PENDING','PATCH_RETRY_PENDING','CONFIGURATION_PENDING')) {
                     Write-Host '    [x] SQL vollständig installieren und konfigurieren' -ForegroundColor Yellow
                     Write-Host '        Installiert eine fertige SQL-Instanz in diesen eindeutigen Slot. Kein Sysprep und kein anschließendes Klonen.' -ForegroundColor DarkGray
                 }
@@ -4405,7 +4407,7 @@ function Manage-LabHyperVEnvironmentInteractive {
         else {
             if (-not $windowsSlotReady) { New-LabConsoleItem -Id 'o' -Label 'Windows-Grundinstallation übernehmen' -Shortcut 'o' }
             elseif (-not $selectedLab.Instance.sqlDeploymentPlan) { New-LabConsoleItem -Id 'a' -Label 'SQL-Ausbau festlegen und direkt ausführen' -Shortcut 'a' }
-            elseif ([string]$selectedLab.Instance.sqlDeploymentPlan.deploymentMode -in @('sql-pool-slot','adhoc-install') -and [string]$selectedLab.Instance.sqlDeploymentPlan.state -in @('PLANNED','INSTALL_RETRY_PENDING','CONFIGURATION_PENDING')) {
+            elseif ([string]$selectedLab.Instance.sqlDeploymentPlan.deploymentMode -in @('sql-pool-slot','adhoc-install') -and [string]$selectedLab.Instance.sqlDeploymentPlan.state -in @('PLANNED','INSTALL_RETRY_PENDING','PATCH_PENDING','PATCH_RETRY_PENDING','CONFIGURATION_PENDING')) {
                 New-LabConsoleItem -Id 'x' -Label 'SQL vollständig installieren und konfigurieren' -Shortcut 'x'
             }
             elseif ([string]$selectedLab.Instance.sqlDeploymentPlan.deploymentMode -eq 'prepared-template' -and [string]$selectedLab.Instance.sqlDeploymentPlan.state -in @('PLANNED','PREPARE_RUNNING')) {
@@ -4494,7 +4496,7 @@ function Manage-LabHyperVEnvironmentInteractive {
                 Write-LabSuccess "Windows-Slot übernommen: $($result.VMName) · $($result.ComputerName)"
                 $selectedPlan = $selectedLab.Instance.sqlDeploymentPlan
                 if ($selectedPlan -and [string]$selectedPlan.deploymentMode -in @('sql-pool-slot', 'adhoc-install') -and
-                    [string]$selectedPlan.state -in @('PLANNED', 'INSTALL_RETRY_PENDING', 'CONFIGURATION_PENDING')) {
+                    [string]$selectedPlan.state -in @('PLANNED', 'INSTALL_RETRY_PENDING', 'PATCH_PENDING', 'PATCH_RETRY_PENDING', 'CONFIGURATION_PENDING')) {
                     if (Read-LabConfirm -Prompt '  Windows ist übernommen. Soll jetzt der SQL-Ausbau automatisch abgeschlossen werden?' -Default $true) {
                         if (-not (& $executeSqlSlotInstall $selectedPlan $runId)) { return }
                     }

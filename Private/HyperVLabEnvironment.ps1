@@ -1191,7 +1191,7 @@ function Invoke-HyperVLabSqlSlotInstall {
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $plan = $lab.Instance.sqlDeploymentPlan
     if (-not $plan -or [string]$plan.deploymentMode -notin @('sql-pool-slot', 'adhoc-install') -or
-        [string]$plan.state -notin @('PLANNED', 'INSTALL_RETRY_PENDING', 'CONFIGURATION_PENDING')) {
+        [string]$plan.state -notin @('PLANNED', 'INSTALL_RETRY_PENDING', 'PATCH_PENDING', 'PATCH_RETRY_PENDING', 'CONFIGURATION_PENDING')) {
         throw 'HYPERV_LAB_SQL_INSTALL_PLAN_REQUIRED'
     }
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
@@ -1312,18 +1312,42 @@ function Invoke-HyperVLabSqlSlotInstall {
                         $arguments += "/SQLTEMPDBLOGDIR=$($paths.Temp)"
                         $arguments += "/SQLBACKUPDIR=$($paths.Backup)"
                     }
+                    $installerProcessNames = @('setup.exe', 'msiexec.exe')
+                    $preexistingInstallerIds = @(Get-CimInstance Win32_Process -ErrorAction Stop |
+                        Where-Object { [string]$_.Name -in $installerProcessNames } |
+                        ForEach-Object { [int]$_.ProcessId })
                     $process = Start-Process -FilePath $setups[0].FullName -ArgumentList $arguments -PassThru -NoNewWindow
-                    if (-not $process.WaitForExit([int]$TimeoutSeconds * 1000)) {
-                        Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-                        throw "SQL_SETUP_INSTALL_TIMEOUT: $TimeoutSeconds"
+                    $deadline = [datetime]::UtcNow.AddSeconds($TimeoutSeconds)
+                    $quietSince = $null
+                    while ($true) {
+                        $rootExited = $process.HasExited
+                        $activeInstallers = if ($rootExited) {
+                            @(Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object {
+                                [string]$_.Name -in $installerProcessNames -and
+                                [int]$_.ProcessId -notin $preexistingInstallerIds
+                            })
+                        }
+                        else { @($process) }
+                        if ($rootExited -and $activeInstallers.Count -eq 0) {
+                            if (-not $quietSince) { $quietSince = [datetime]::UtcNow }
+                            if (([datetime]::UtcNow - $quietSince).TotalSeconds -ge 15) { break }
+                        }
+                        else { $quietSince = $null }
+                        if ([datetime]::UtcNow -ge $deadline) {
+                            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+                            throw "SQL_SETUP_INSTALL_TIMEOUT: $TimeoutSeconds"
+                        }
+                        Start-Sleep -Seconds 1
                     }
-                    if ([int]$process.ExitCode -notin @(0,3010)) { throw "SQL_SETUP_INSTALL_FAILED: $($process.ExitCode)" }
+                    $process.WaitForExit()
+                    $setupExitCode = [int]$process.ExitCode
+                    if ($setupExitCode -notin @(0,3010)) { throw "SQL_SETUP_INSTALL_FAILED: $setupExitCode" }
                     $summary = Get-ChildItem -LiteralPath 'C:\Program Files\Microsoft SQL Server' -Filter Summary.txt -Recurse -File -ErrorAction SilentlyContinue |
                         Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
                     $summaryText = if ($summary) { Get-Content -LiteralPath $summary.FullName -Raw -ErrorAction SilentlyContinue } else { $null }
                     if ($summaryText -match '(?im)^Final result:\s+Failed\s*$') {
                         $summaryTail = @(Get-Content -LiteralPath $summary.FullName -Tail 12 -ErrorAction SilentlyContinue) -join ' | '
-                        throw "SQL_SETUP_INSTALL_FAILED: ExitCode=$([int]$process.ExitCode); Summary=$summaryTail"
+                        throw "SQL_SETUP_INSTALL_FAILED: ExitCode=$setupExitCode; Summary=$summaryTail"
                     }
                     $instanceRegistryPath = 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL'
                     $registrationDeadline = [datetime]::UtcNow.AddMinutes(5)
@@ -1335,11 +1359,11 @@ function Invoke-HyperVLabSqlSlotInstall {
                     } while (-not $instanceRegistered -and [datetime]::UtcNow -lt $registrationDeadline)
                     if (-not $instanceRegistered) {
                         $summaryTail = if ($summary) { (@(Get-Content -LiteralPath $summary.FullName -Tail 12 -ErrorAction SilentlyContinue) -join ' | ') } else { 'nicht gefunden' }
-                        throw "SQL_SETUP_INSTALLATION_NOT_REGISTERED: ExitCode=$([int]$process.ExitCode); Summary=$summaryTail"
+                        throw "SQL_SETUP_INSTALLATION_NOT_REGISTERED: ExitCode=$setupExitCode; Summary=$summaryTail"
                     }
                     [PSCustomObject]@{
                         action='Install'; sqlVersion=$ExpectedSqlVersion; setupVersion=[string]$setups[0].VersionInfo.FileVersion
-                        features=$features; exitCode=[int]$process.ExitCode; completedAt=[datetime]::UtcNow.ToString('o')
+                        features=$features; exitCode=$setupExitCode; completedAt=[datetime]::UtcNow.ToString('o')
                     }
                 }
                 finally {
@@ -1369,40 +1393,146 @@ function Invoke-HyperVLabSqlSlotInstall {
                 -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $ReadinessTimeoutSeconds
             if (-not $ready.Ready) { throw "HYPERV_LAB_SQL_INSTALL_RESTART_TIMEOUT: $($ready.Message)" }
         }
-        if ($plan.sqlUpdatePath -and -not $plan.patchAppliedAt) {
-            if (-not (Test-Path -LiteralPath $plan.sqlUpdatePath -PathType Leaf)) { throw "HYPERV_SQL_CU_PACKAGE_MISSING: $($plan.sqlUpdatePath)" }
-            Write-LabInfo "SQL $($plan.sqlPatch) wird im Gast installiert."
-            $guestFolder='C:\SqlServerLab\Updates'
-            $guestUpdatePath=Join-Path $guestFolder (Split-Path -Leaf ([string]$plan.sqlUpdatePath))
-            $null=Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -ArgumentList @($guestFolder) -ScriptBlock {param($Path);$null=New-Item -ItemType Directory -Path $Path -Force}
-            $guestService=Get-VMIntegrationService -VMName ([string]$lab.Instance.vmName) -ErrorAction Stop |
-                Where-Object { ([string]$_.Id).EndsWith('6C09BB55-D683-4DA0-8931-C9BF705F6480', [StringComparison]::OrdinalIgnoreCase) } |
-                Select-Object -First 1
-            if(-not $guestService){throw 'HYPERV_GUEST_FILE_COPY_SERVICE_NOT_FOUND'}
-            if(-not $guestService.Enabled){$null=Enable-VMIntegrationService -VMIntegrationService $guestService -ErrorAction Stop}
-            Copy-VMFile -VMName ([string]$lab.Instance.vmName) -SourcePath ([string]$plan.sqlUpdatePath) -DestinationPath $guestUpdatePath -FileSource Host -CreateFullPath -Force -ErrorAction Stop
-            $patchReceipt=Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -ArgumentList @($guestUpdatePath,$SetupTimeoutSeconds) -ScriptBlock {
-                param($PackagePath,$TimeoutSeconds)
-                $process=Start-Process -FilePath $PackagePath -ArgumentList @('/quiet','/IAcceptSQLServerLicenseTerms','/Action=Patch','/AllInstances') -PassThru
-                if(-not $process.WaitForExit([int]$TimeoutSeconds*1000)){Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue;throw "SQL_CU_INSTALL_TIMEOUT: $TimeoutSeconds"}
-                if([int]$process.ExitCode -notin @(0,3010)){throw "SQL_CU_INSTALL_FAILED: $($process.ExitCode)"}
-                [PSCustomObject]@{exitCode=[int]$process.ExitCode;completedAt=[datetime]::UtcNow.ToString('o')}
-            }
-            $patchReceipt=@($patchReceipt)[-1]
-            if([int]$patchReceipt.exitCode -eq 3010){$null=Restart-VM -Name ([string]$lab.Instance.vmName) -Force -ErrorAction Stop;$ready=Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $ReadinessTimeoutSeconds;if(-not $ready.Ready){throw 'HYPERV_SQL_CU_RESTART_TIMEOUT'}}
-            $actualBuild=Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -ScriptBlock {$instance=(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL' -ErrorAction Stop).MSSQLSERVER;(Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$instance\MSSQLServer\CurrentVersion" -ErrorAction Stop).CurrentVersion}
-            $actualBuild=[string]@($actualBuild)[-1]
-            if($plan.expectedSqlBuild -and $actualBuild -ne [string]$plan.expectedSqlBuild){throw "HYPERV_SQL_CU_BUILD_MISMATCH: expected=$($plan.expectedSqlBuild); actual=$actualBuild"}
-            $plan | Add-Member -NotePropertyName patchAppliedAt -NotePropertyValue ([string]$patchReceipt.completedAt) -Force
-            $plan | Add-Member -NotePropertyName installedSqlBuild -NotePropertyValue $actualBuild -Force
-        }
-        $plan.state = 'CONFIGURATION_PENDING'
         $plan | Add-Member -NotePropertyName setupVersion -NotePropertyValue ([string]$receipt.setupVersion) -Force
         $plan | Add-Member -NotePropertyName installedAt -NotePropertyValue ([string]$receipt.completedAt) -Force
         $lab.Instance | Add-Member -NotePropertyName workload -NotePropertyValue 'sql' -Force
         $lab.Instance | Add-Member -NotePropertyName sqlVersion -NotePropertyValue ([string]$plan.sqlVersion) -Force
         $lab.Instance | Add-Member -NotePropertyName sqlEdition -NotePropertyValue ([string]$plan.mediaEdition) -Force
+        $plan.state = if ($plan.sqlUpdatePath -and -not $plan.patchAppliedAt) { 'PATCH_PENDING' } else { 'CONFIGURATION_PENDING' }
         Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    }
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+    $plan = $lab.Instance.sqlDeploymentPlan
+    if ([string]$plan.state -in @('PATCH_PENDING', 'PATCH_RETRY_PENDING')) {
+        try {
+            $engineBuildScript = {
+                param($TimeoutSeconds)
+                $deadline = [datetime]::UtcNow.AddSeconds($TimeoutSeconds)
+                do {
+                    $connection = $null
+                    try {
+                        $service = Get-Service -Name 'MSSQLSERVER' -ErrorAction Stop
+                        if ([string]$service.Status -ne 'Running') {
+                            Start-Service -Name 'MSSQLSERVER' -ErrorAction Stop
+                            $service.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Running, [timespan]::FromSeconds(60))
+                        }
+                        $connection = [System.Data.SqlClient.SqlConnection]::new(
+                            'Server=localhost;Database=master;Integrated Security=True;Encrypt=False;TrustServerCertificate=True;Connection Timeout=5')
+                        $connection.Open()
+                        $command = $connection.CreateCommand()
+                        $command.CommandText = "SELECT CONVERT(nvarchar(128), SERVERPROPERTY('ProductVersion'))"
+                        return [string]$command.ExecuteScalar()
+                    }
+                    catch {
+                        if ([datetime]::UtcNow -ge $deadline) { throw 'SQL_ENGINE_BUILD_QUERY_TIMEOUT' }
+                        Start-Sleep -Seconds 2
+                    }
+                    finally { if ($connection) { $connection.Dispose() } }
+                } while ([datetime]::UtcNow -lt $deadline)
+                throw 'SQL_ENGINE_BUILD_QUERY_TIMEOUT'
+            }
+            $actualBuild = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
+                -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
+                -ArgumentList @($ReadinessTimeoutSeconds) -ScriptBlock $engineBuildScript
+            $actualBuild = [string]@($actualBuild)[-1]
+            $patchCompletedAt = Get-LabTimestamp
+            if (-not $plan.expectedSqlBuild -or $actualBuild -ne [string]$plan.expectedSqlBuild) {
+                if (-not (Test-Path -LiteralPath $plan.sqlUpdatePath -PathType Leaf)) { throw "HYPERV_SQL_CU_PACKAGE_MISSING: $($plan.sqlUpdatePath)" }
+                Write-LabInfo "SQL $($plan.sqlPatch) wird im Gast installiert."
+                $guestFolder = 'C:\SqlServerLab\Updates'
+                $guestUpdatePath = Join-Path $guestFolder (Split-Path -Leaf ([string]$plan.sqlUpdatePath))
+                $null = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
+                    -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
+                    -ArgumentList @($guestFolder) -ScriptBlock { param($Path); $null = New-Item -ItemType Directory -Path $Path -Force }
+                $guestService = Get-VMIntegrationService -VMName ([string]$lab.Instance.vmName) -ErrorAction Stop |
+                    Where-Object { ([string]$_.Id).EndsWith('6C09BB55-D683-4DA0-8931-C9BF705F6480', [StringComparison]::OrdinalIgnoreCase) } |
+                    Select-Object -First 1
+                if (-not $guestService) { throw 'HYPERV_GUEST_FILE_COPY_SERVICE_NOT_FOUND' }
+                if (-not $guestService.Enabled) { $null = Enable-VMIntegrationService -VMIntegrationService $guestService -ErrorAction Stop }
+                $copied = $false
+                for ($copyAttempt = 1; $copyAttempt -le 6 -and -not $copied; $copyAttempt++) {
+                    try {
+                        Copy-VMFile -VMName ([string]$lab.Instance.vmName) -SourcePath ([string]$plan.sqlUpdatePath) `
+                            -DestinationPath $guestUpdatePath -FileSource Host -CreateFullPath -Force -ErrorAction Stop
+                        $copied = $true
+                    }
+                    catch {
+                        if ($copyAttempt -eq 6) { throw 'HYPERV_SQL_CU_GUEST_COPY_FAILED' }
+                        Start-Sleep -Seconds 5
+                    }
+                }
+                $patchReceipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
+                    -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
+                    -ArgumentList @($guestUpdatePath, $SetupTimeoutSeconds) -ScriptBlock {
+                    param($PackagePath, $TimeoutSeconds)
+                    $packageProcessName = [IO.Path]::GetFileName($PackagePath)
+                    $installerProcessNames = @($packageProcessName, 'setup.exe', 'msiexec.exe')
+                    $preexistingInstallerIds = @(Get-CimInstance Win32_Process -ErrorAction Stop |
+                        Where-Object { [string]$_.Name -in $installerProcessNames } |
+                        ForEach-Object { [int]$_.ProcessId })
+                    $process = Start-Process -FilePath $PackagePath `
+                        -ArgumentList @('/quiet','/IAcceptSQLServerLicenseTerms','/Action=Patch','/AllInstances') -PassThru
+                    $deadline = [datetime]::UtcNow.AddSeconds($TimeoutSeconds)
+                    $quietSince = $null
+                    while ($true) {
+                        $rootExited = $process.HasExited
+                        $activeInstallers = if ($rootExited) {
+                            @(Get-CimInstance Win32_Process -ErrorAction Stop | Where-Object {
+                                [string]$_.Name -in $installerProcessNames -and
+                                [int]$_.ProcessId -notin $preexistingInstallerIds
+                            })
+                        }
+                        else { @($process) }
+                        if ($rootExited -and $activeInstallers.Count -eq 0) {
+                            if (-not $quietSince) { $quietSince = [datetime]::UtcNow }
+                            if (([datetime]::UtcNow - $quietSince).TotalSeconds -ge 15) { break }
+                        }
+                        else { $quietSince = $null }
+                        if ([datetime]::UtcNow -ge $deadline) {
+                            if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+                            throw "SQL_CU_INSTALL_TIMEOUT: $TimeoutSeconds"
+                        }
+                        Start-Sleep -Seconds 1
+                    }
+                    $process.WaitForExit()
+                    $patchExitCode = [int]$process.ExitCode
+                    if ($patchExitCode -notin @(0,3010)) { throw "SQL_CU_INSTALL_FAILED: $patchExitCode" }
+                    [PSCustomObject]@{ exitCode=$patchExitCode; completedAt=[datetime]::UtcNow.ToString('o') }
+                }
+                $patchReceipt = @($patchReceipt)[-1]
+                $patchCompletedAt = [string]$patchReceipt.completedAt
+                if ([int]$patchReceipt.exitCode -eq 3010) {
+                    $null = Restart-VM -Name ([string]$lab.Instance.vmName) -Force -ErrorAction Stop
+                    $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
+                        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
+                        -TimeoutSeconds $ReadinessTimeoutSeconds
+                    if (-not $ready.Ready) { throw 'HYPERV_SQL_CU_RESTART_TIMEOUT' }
+                }
+                $actualBuild = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
+                    -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
+                    -ArgumentList @($ReadinessTimeoutSeconds) -ScriptBlock $engineBuildScript
+                $actualBuild = [string]@($actualBuild)[-1]
+            }
+            if ($plan.expectedSqlBuild -and $actualBuild -ne [string]$plan.expectedSqlBuild) {
+                throw "HYPERV_SQL_CU_BUILD_MISMATCH: expected=$($plan.expectedSqlBuild); actual=$actualBuild"
+            }
+            $plan | Add-Member -NotePropertyName patchAppliedAt -NotePropertyValue $patchCompletedAt -Force
+            $plan | Add-Member -NotePropertyName installedSqlBuild -NotePropertyValue $actualBuild -Force
+            $plan.state = 'CONFIGURATION_PENDING'
+            foreach ($failureProperty in @('lastPatchFailure', 'lastPatchFailureAt')) {
+                if ($plan.PSObject.Properties[$failureProperty]) { $plan.PSObject.Properties.Remove($failureProperty) }
+            }
+            Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+        }
+        catch {
+            $plan.state = 'PATCH_RETRY_PENDING'
+            $failureCode = if ($_.Exception.Message -match '(?:HYPERV_SQL|SQL_CU|SQL_ENGINE)_[A-Z_]+') { $Matches[0] } else { 'SQL_CU_FAILED' }
+            $plan | Add-Member -NotePropertyName lastPatchFailure -NotePropertyValue $failureCode -Force
+            $plan | Add-Member -NotePropertyName lastPatchFailureAt -NotePropertyValue (Get-LabTimestamp) -Force
+            Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+            throw
+        }
     }
 
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot

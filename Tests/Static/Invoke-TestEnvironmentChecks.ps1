@@ -283,7 +283,7 @@ try {
         $menuText -match 'Freier Windows-Slot wird automatisch aus dem Pool entnommen' -and
         $menuText -match 'Get-LabAutomatedTestEnvironmentRunIds' -and
         $menuText -match '\$intendedTestRunId' -and
-        $menuText -match "'PLANNED', 'INSTALL_RETRY_PENDING', 'CONFIGURATION_PENDING'" -and
+        $menuText -match "'PLANNED', 'INSTALL_RETRY_PENDING', 'PATCH_PENDING', 'PATCH_RETRY_PENDING', 'CONFIGURATION_PENDING'" -and
         $menuText -match 'SQL-Testumgebung ist bereits vollständig bereit' -and
         $testEnvironmentText -match '\[switch\]\$ReuseExisting' -and
         $menuText -match '-ReuseExisting:' -and
