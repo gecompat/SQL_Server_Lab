@@ -177,6 +177,15 @@ abgenommen:
 .\Tests\Integration\Invoke-AiOllamaContainerAcceptance.ps1 -Provider podman
 ```
 
+Der vollständige lokale RAG-Pfad verbindet dieselben Modelle mit einer echten,
+flüchtigen SQL-Server-2025-Vektorsuche. Docker und Podman werden getrennt samt
+Restart und Cleanup geprüft:
+
+```powershell
+.\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider podman
+```
+
 Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kontrollieren unter anderem:
 
 - JSON-Syntax der Kataloge, Schemas und Beispiele;

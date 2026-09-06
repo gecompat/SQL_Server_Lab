@@ -124,6 +124,7 @@ Invoke-SqlServerLabScript             # T-SQL-Skript ausfuehren
 Invoke-SqlServerLabAiScenario          # Deklariertes hashgebundenes SQL-KI-Szenario journalisiert ausfuehren
 Invoke-SqlServerLabAiModel             # Katalogisiertes lokales oder Cloud-Ollama-Modell kontrolliert aufrufen
 Measure-SqlServerLabAiRetrieval        # Retrieval-Rangfolge deterministisch gegen Qualitätsgrenzen prüfen
+Invoke-SqlServerLabAiRag               # Lokales RAG mit SQL-2025 als Retrieval-Zentrum ausführen
 Test-SqlServerLabContainerTool         # Kataloggebundenes SqlPackage read-only pruefen
 Get-SqlServerLabGeneratedSqlAccess      # Hyper-V-Generierte SQL-Accessdaten (ConnectionString/Passwort) abrufen
 New-SqlServerLabWindowsSlotPool         # N Windows-Slots mit unbeaufsichtigter OOBE erstellen/fortsetzen

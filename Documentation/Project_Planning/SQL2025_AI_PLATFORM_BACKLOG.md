@@ -3,7 +3,7 @@
 ## Status
 
 `AI-00 IMPLEMENTED`, `AI-05 IMPLEMENTED`, `AI-10A SUPPORTED`,
-`AI-10B IN_PROGRESS`, `AI-20A SUPPORTED`, `AI-20B` bis `AI-30 BACKLOG`,
+`AI-10B IN_PROGRESS`, `AI-20A SUPPORTED`, `AI-20B BACKLOG`, `AI-30A SUPPORTED`,
 `AI-40A IMPLEMENTED`, `AI-40B` bis `AI-50 BACKLOG`, `AI-60A SUPPORTED`,
 `AI-60B BACKLOG`, `AI-70` bis `AI-90 BACKLOG`.
 
@@ -111,6 +111,16 @@ Es berechnet Recall@k, Precision@k, MRR und nDCG aus eindeutigen Dokument-IDs,
 weist doppelte beziehungsweise ungültige IDs ab und liefert bei unterschrittenen
 Schwellen maschinenlesbare Blocker. Die Bindung an ein Golden Dataset und einen
 ausgeführten SQL-RAG-Lauf bleibt `AI-40B`.
+
+`AI-30A` implementiert die lokale Controller-Orchestrierung für RAG. Dokumente
+werden flüchtig mit dem katalogisierten 768-dimensionalen Ollama-Modell
+eingebettet; SQL Server 2025 ordnet ausschließlich IDs und Vektoren per exakter
+Cosine-Distanz in einer Tabellenvariable. Nur die ausgewählten Dokumenttexte
+werden danach an das lokale Generierungsmodell gegeben. Es entstehen weder
+dauerhafte SQL-Objekte noch Inhaltsjournale. Die getrennten nativen Docker- und
+Podman-Läufe waren am 2026-09-06 einschließlich SQL-/Ollama-Restart, erwarteter
+Top-Quelle und vollständigem Cleanup erfolgreich. Hybride Volltextsuche,
+Aktualisierung/Löschung und Re-Embedding bleiben offen.
 
 ## Sicherheits- und Betriebsvertrag
 

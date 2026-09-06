@@ -225,6 +225,8 @@ try {
     $hyperVAi=@(($capabilities | Where-Object Provider -eq hyperv).Capabilities.SourceKey)
     Add-CheckResult 'Docker und Podman deklarieren lokale Ollama-Evidence getrennt von Hyper-V' (
         $dockerAi -contains 'ollama-local' -and $podmanAi -contains 'ollama-local' -and $hyperVAi -notcontains 'ollama-local')
+    Add-CheckResult 'Docker und Podman deklarieren native lokale SQL-RAG-Evidence getrennt von Hyper-V' (
+        $dockerAi -contains 'sql2025-rag-local' -and $podmanAi -contains 'sql2025-rag-local' -and $hyperVAi -notcontains 'sql2025-rag-local')
 
     $perfect=Measure-SqlServerLabAiRetrieval -ExpectedDocumentId doc-1,doc-2 -RankedDocumentId doc-1,doc-2,doc-3 -K 2
     $degraded=Measure-SqlServerLabAiRetrieval -ExpectedDocumentId doc-1,doc-2 -RankedDocumentId doc-3,doc-1,doc-4 -K 3 `
@@ -240,6 +242,24 @@ try {
     try { Measure-SqlServerLabAiRetrieval -ExpectedDocumentId doc-1 -RankedDocumentId doc-1,doc-1 }
     catch { $duplicateRankingRejected=$_.Exception.Message -eq 'AI_EVALUATION_RANKED_ID_DUPLICATE' }
     Add-CheckResult 'Doppelte Ranking-IDs werden vor einer irreführenden Metrik abgelehnt' $duplicateRankingRejected
+
+    $rag=& $module {
+        $documents=@([PSCustomObject]@{Id='doc-alpha';Content='Alpha ist der erste synthetische Eintrag.'},[PSCustomObject]@{Id='doc-beta';Content='Beta ist der zweite synthetische Eintrag.'})
+        $plan=New-LabAiRagPlan -RunId '11111111-2222-4333-8444-555555555555' -InstanceId primary -Question 'Was ist Alpha?' -Document $documents -EmbeddingModelKey ollama-embeddinggemma-300m-q4 -GenerationModelKey ollama-gemma3-1b-local -LocalPort 11434 -TopK 2
+        $embeddingTransport={param($request)[PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{embeddings=@(,@(1..768|ForEach-Object{if($_ -eq 1){1.0}else{0.0}}))}}}
+        $generationTransport={param($request)[PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{response='Alpha ist der erste Eintrag [doc-alpha].'}}}
+        $sqlExecutor={param($query) @('AI_RAG_ROW|doc-alpha|0.0','AI_RAG_ROW|doc-beta|0.5')}
+        $password=[SecureString]::new()
+        $publicPlan=Invoke-SqlServerLabAiRag -RunId '11111111-2222-4333-8444-555555555555' -SaPassword $password -Question 'Was ist Alpha?' -Document $documents -TopK 2 -WhatIf
+        $result=Invoke-LabAiRag -Plan $plan -SaPassword $password -Target ([PSCustomObject]@{Version='2025';Provider='docker';HostName='127.0.0.1';Port=1433}) -Question 'Was ist Alpha?' -EmbeddingTransport $embeddingTransport -GenerationTransport $generationTransport -SqlExecutor $sqlExecutor
+        [PSCustomObject]@{Plan=$plan;PublicPlan=$publicPlan;Result=$result}
+    }
+    Add-CheckResult 'Lokales RAG bindet Ollama-Embeddings an exakte SQL-2025-Vektorsuche' (
+        $rag.Plan.Status -eq 'READY' -and $rag.Result.Status -eq 'SUCCEEDED' -and
+        @($rag.Result.Citations) -join ',' -eq 'doc-alpha,doc-beta' -and $rag.Result.ToolExecutions[0].RowCount -eq 2)
+    Add-CheckResult 'RAG-Ergebnis erfüllt den geheimnisfreien Query-Result-Vertrag' (
+        (($rag.Result|ConvertTo-Json -Depth 20)|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-query-result.schema.json') -ErrorAction SilentlyContinue) -and
+        (($rag.PublicPlan|ConvertTo-Json -Depth 20) -notmatch 'Alpha ist|Beta ist|Was ist'))
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue

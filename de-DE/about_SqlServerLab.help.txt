@@ -239,6 +239,9 @@ Sync-SqlServerLabRunScopedContainerStore
         Bewertet eine Retrieval-Rangfolge deterministisch mit Recall@k,
         Precision@k, MRR und nDCG gegen blockierende Schwellwerte.
 
+    Invoke-SqlServerLabAiRag
+        Führt lokales Ollama-RAG mit exakter SQL-2025-Vektorsuche aus.
+
     Get-SqlServerLabGeneratedSqlAccess
         Liefert den Laufzeitzugriff auf ein automatisch generiertes SQL Server
         SA-Konto inklusive ConnectionString.
