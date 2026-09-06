@@ -17,6 +17,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $acceptancePath = Join-Path $repoRoot 'Private/HyperVSqlAcceptanceEnvironment.ps1'
+$legacyAcceptanceToolPath = Join-Path $repoRoot 'Tools/New-LegacySqlServerAcceptanceEnvironment.ps1'
 $menuPath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-sql-acceptance-$([guid]::NewGuid().ToString('N'))"
 $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
@@ -191,7 +192,7 @@ try {
 
     $acceptanceText = Get-Content -LiteralPath $acceptancePath -Raw -Encoding utf8
     Add-CheckResult -Name 'Reale Abnahme prueft SQL-Version, Backup CHECKSUM und RESTORE VERIFYONLY' -Success (
-        $acceptanceText -match "SERVERPROPERTY\('ProductMajorVersion'\)" -and
+        $acceptanceText -match "PARSENAME\(CONVERT\(varchar\(128\),SERVERPROPERTY\('ProductVersion'\)\),4\)" -and
         $acceptanceText -match 'BACKUP DATABASE[\s\S]+CHECKSUM' -and $acceptanceText -match 'RESTORE VERIFYONLY'
     )
     Add-CheckResult -Name 'SQL-Abnahme verwendet Windows-PowerShell-5.1-kompatible Connection-String-Keywords' -Success (
@@ -205,6 +206,58 @@ try {
     Add-CheckResult -Name 'OOBE nutzt bei ausgefallenem PowerShell Direct das Hyper-V-Labnetz' -Success (
         $acceptanceText -match 'bootstrapVersion.*network-winrm-v1' -and
         $acceptanceText -match 'FallbackAddress\s+\$fallbackAddress'
+    )
+    Add-CheckResult -Name 'SQL 2012 erhält nur versionsgültige unbeaufsichtigte Setupoptionen' -Success (
+        $acceptanceText -match 'if\s*\((?:\[int\]\$config\.expectedMajor|\$expectedMajor)\s*-ge\s*13\).*SQLSVCINSTANTFILEINIT=True' -and
+        $acceptanceText -match "'2012'.*'2014'.*'2016'.*'2017'.*'2019'.*'2022'.*'2025'"
+    )
+    Add-CheckResult -Name 'Legacy-SQL-Setup läuft mit geladenem Administratorprofil und ohne Klartextpasswort im Task' -Success (
+        $acceptanceText -match 'ProtectedData\]::Protect' -and
+        $acceptanceText -match 'Register-ScheduledTask[\s\S]+-User ''Administrator''[\s\S]+-RunLevel Highest' -and
+        $acceptanceText -match 'Unregister-ScheduledTask[\s\S]+Remove-Item -LiteralPath \$workRoot' -and
+        $acceptanceText -notmatch 'New-ScheduledTaskAction[^\r\n]+SAPWD'
+    )
+    Add-CheckResult -Name 'SQL 2012 bezieht NetFx3 eindeutig aus dem verifizierten Windows-Medium' -Success (
+        $acceptanceText -match "expectedMajor -le 12" -and
+        $acceptanceText -match "sources\\sxs" -and
+        $acceptanceText -match 'Install-WindowsFeature -Name NET-Framework-Core -Source \$sources\[0\]' -and
+        $acceptanceText -match 'SQL_SETUP_NETFX3_SOURCE_NOT_UNIQUE'
+    )
+    Add-CheckResult -Name 'SQL-2012-Abnahme fällt bei fehlendem InstanceDefaultBackupPath auf die Registry zurück' -Success (
+        $acceptanceText -match "SERVERPROPERTY\('InstanceDefaultBackupPath'\)" -and
+        $acceptanceText -match 'Instance Names\\SQL' -and
+        $acceptanceText -match 'BackupDirectory'
+    )
+    $legacyAcceptanceToolText = Get-Content -LiteralPath $legacyAcceptanceToolPath -Raw -Encoding utf8
+    Add-CheckResult -Name 'SQL-2012-Abnahmetool ist hash-, OS-, Elevation- und Postcondition-gebunden' -Success (
+        $legacyAcceptanceToolText -match "ValidateSet\('2012'\)" -and
+        $legacyAcceptanceToolText -match 'ShowHelp' -and
+        $legacyAcceptanceToolText -match 'Resolve-HyperVImageArtifact' -and
+        $legacyAcceptanceToolText -match 'Confirm-HyperVSqlInstallationMediaVersion' -and
+        $legacyAcceptanceToolText -match 'LEGACY_SQL_ACCEPTANCE_REQUIRES_ELEVATED_RUNNER' -and
+        $legacyAcceptanceToolText -match 'Invoke-HyperVSqlUnattendedOobe' -and
+        $legacyAcceptanceToolText -match 'Invoke-HyperVSqlTestEnvironmentInstall' -and
+        $legacyAcceptanceToolText -match 'Test-HyperVSqlAcceptanceEnvironment' -and
+        $legacyAcceptanceToolText -match "state -ne 'TESTS_PASSED'" -and
+        $legacyAcceptanceToolText -match 'CredentialDisclosed=\$false;PasswordDisclosed=\$false'
+    )
+    $resumeStart = $legacyAcceptanceToolText.IndexOf('$resolved=if($existingBuilds.Count -eq 1)')
+    $newBuildStart = $legacyAcceptanceToolText.IndexOf('}else{& $module {', $resumeStart)
+    $resumeText = if ($resumeStart -ge 0 -and $newBuildStart -gt $resumeStart) {
+        $legacyAcceptanceToolText.Substring($resumeStart, $newBuildStart - $resumeStart)
+    } else { '' }
+    Add-CheckResult -Name 'Unveränderter Legacy-SQL-Resume verwendet den Prüfbeleg statt die große ISO erneut zu hashen' -Success (
+        $resumeText -match 'mediaVerification' -and
+        $resumeText -match 'lengthBytes' -and
+        $resumeText -match 'lastWriteTimeUtc' -and
+        $resumeText -match 'LEGACY_SQL_ACCEPTANCE_MEDIA_CHANGED_REVERIFY_REQUIRED' -and
+        $resumeText -match 'LEGACY_SQL_ACCEPTANCE_MEDIA_HASH_BINDING_CHANGED' -and
+        $resumeText -notmatch 'Get-FileHash'
+    )
+    Add-CheckResult -Name 'Legacy-SQL-Tool bindet den NetFx3-Quell-Datenträger an vorhandene Verifikationsevidenz' -Success (
+        $legacyAcceptanceToolText -match 'windows-server-evaluation-media-validation\.json' -and
+        $legacyAcceptanceToolText -match 'WINDOWS_FEATURE_SOURCE_CHANGED_REVERIFY_REQUIRED' -and
+        $legacyAcceptanceToolText -match 'Add-VMDvdDrive[\s\S]+WindowsFeatureSource\.IsoPath'
     )
     $menuText = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     Add-CheckResult -Name 'InvokeLab-Menue bietet Installation, Abnahmetest und Matrix' -Success (

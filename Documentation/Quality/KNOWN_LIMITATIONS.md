@@ -147,6 +147,16 @@ Microsoft signiertes x64-Evaluation-SFX. Die frühere 2008-R2-x86-Datei und die
 auf der weiterhin sichtbaren SQL-2008-Produktseite verlinkten x86/x64-SFX-Ziele
 sind nicht mehr abrufbar. Die vollständige SQL-2008-ISO deckt x86 und x64 ab.
 
+SQL Server 2012 Evaluation ist inzwischen auf der child- und
+aktivierungsgeprüften Windows-Server-2012-R2-Baseline real automatisiert. Der
+versionsgerechte Lab-WinRM-Pfad installiert NetFx3 aus dem bereits verifizierten
+Windows-ISO, führt SQL Setup mit geladenem lokalem Administratorprofil aus und
+prüft SQL 11.0.2100.60 über Create, Insert, Backup mit CHECKSUM, RESTORE
+VERIFYONLY und Cleanup. Beim Resume wird der beim ersten vollständigen Hashing
+gespeicherte Medienbeleg verwendet; Größe, Änderungszeit oder Sidecar-Drift
+sperren die Wiederverwendung. SQL Server 2014 und älter bleiben bis zu einem
+entsprechenden realen Lauf nicht freigegeben.
+
 Windows Server 2003 SP2 besitzt einen getrennten experimentellen Legacy-Pfad.
 Das direkte Microsoft-x86-SP2-ISO ist samt Größe, SHA-1 und SHA-256 katalogisiert
 und liefert Sysprep `5.2.3790.3959`. Das schlüsselfreie Hilfsmedium und der

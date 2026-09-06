@@ -136,8 +136,8 @@ function Get-HyperVWindowsSlotLicenseStatus {
         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential `
         -ScriptBlock {
             $ErrorActionPreference = 'Stop'
-            $edition = [string](Get-ItemPropertyValue `
-                -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name EditionID -ErrorAction Stop)
+            $edition = [string](Get-ItemProperty `
+                -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name EditionID -ErrorAction Stop).EditionID
             $products = @(Get-CimInstance -ClassName SoftwareLicensingProduct -Filter `
                 "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f'" -ErrorAction Stop |
                 Where-Object { $_.PartialProductKey -and -not [bool]$_.LicenseIsAddon } |
@@ -308,8 +308,8 @@ function Invoke-HyperVWindowsSlotActivation {
                     Start-Sleep -Seconds 3
                     $product = Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "ID='$($product.ID)'" -ErrorAction Stop
                 } while ([int]$product.LicenseStatus -ne 1 -and [datetime]::UtcNow -lt $deadline)
-                $edition = [string](Get-ItemPropertyValue `
-                    -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name EditionID -ErrorAction Stop)
+                $edition = [string](Get-ItemProperty `
+                    -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name EditionID -ErrorAction Stop).EditionID
                 $observedAt = [datetime]::UtcNow
                 [PSCustomObject]@{
                     edition=$edition; licenseStatus=[int]$product.LicenseStatus
@@ -773,19 +773,20 @@ function Get-HyperVUnattendedPostLoginScript {
         Set-Culture -CultureInfo $SystemLocale
         Set-WinUILanguageOverride -Language $UiLanguage
         Set-WinDefaultInputMethodOverride -InputTip $InputLocale
-        Set-TimeZone -Id $TimeZone
+        $null = & "$env:WINDIR\System32\tzutil.exe" /s $TimeZone
+        if ($LASTEXITCODE -ne 0) { throw "WINDOWS_TIME_ZONE_SET_FAILED: $LASTEXITCODE" }
         Remove-Item -LiteralPath "$env:WINDIR\Panther\Unattend.xml" -Force -ErrorAction SilentlyContinue
         Remove-Item -LiteralPath "$env:WINDIR\Panther\Unattend\Unattend.xml" -Force -ErrorAction SilentlyContinue
         Remove-Item -LiteralPath "$env:WINDIR\Setup\Scripts\SetupComplete.cmd" -Force -ErrorAction SilentlyContinue
         [PSCustomObject]@{
             runId = $ExpectedRunId
             computerName = [Environment]::MachineName
-            imageState = [string](Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState)
+            imageState = [string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState).ImageState
             geoId = [int](Get-WinHomeLocation).GeoId
             systemLocale = [string](Get-WinSystemLocale)
             uiLanguage = [string](Get-WinUILanguageOverride)
             inputLocale = [string](Get-WinDefaultInputMethodOverride).InputMethodTip
-            timeZone = [string](Get-TimeZone).Id
+            timeZone = [string](& "$env:WINDIR\System32\tzutil.exe" /g)
             observedAt = [datetime]::UtcNow.ToString('o')
         }
     }.GetNewClosure()
@@ -1709,7 +1710,7 @@ function Invoke-HyperVLabSqlPreparedSlot {
             if ([int]$sysprep.ExitCode -ne 0) { throw "WINDOWS_SYSPREP_FAILED: $($sysprep.ExitCode)" }
             $deadline = [datetime]::UtcNow.AddMinutes(10)
             do {
-                $imageState = [string](Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState)
+                $imageState = [string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState).ImageState
                 if ($imageState -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE') { break }
                 Start-Sleep -Seconds 2
             } while ([datetime]::UtcNow -lt $deadline)
@@ -2282,7 +2283,7 @@ function Wait-HyperVLabSqlCompletionRestart {
                 -Credential $Credential -FallbackAddress $FallbackAddress -ScriptBlock {
                     [PSCustomObject]@{
                         bootTime = (Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')
-                        imageState = [string](Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState -ErrorAction Stop)
+                        imageState = [string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState -ErrorAction Stop).ImageState
                     }
                 }
             $probe = @($probe)[-1]

@@ -59,6 +59,7 @@ try {
                     id = 'windows-server-2025'; version = '2025'; edition = 'datacenter-evaluation'
                     installationType = 'core'; language = 'en-US'; architecture = 'x64'
                 }
+                platform = [PSCustomObject]@{ vmGeneration = 2; secureBoot = $true; guestControl = 'powershell-direct' }
                 license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = [datetime]::UtcNow.AddDays(120).ToString('o') }
             }
         }
@@ -72,7 +73,9 @@ try {
     $builderText = Get-Content -LiteralPath $builderPath -Raw
     Add-CheckResult -Name 'SQL-Builder erhält einen begrenzten dynamischen Speicherbereich' -Success ($builderText -match 'Math\]::Max\(\[double\]512MB,\s*\[double\]\$MemoryStartupBytes\s*/\s*2\)[\s\S]+Math\]::Min\(\[double\]1TB,\s*\[double\]\$MemoryStartupBytes\s*\*\s*2\)[\s\S]+Set-VMMemory[\s\S]+MaximumBytes\s+\$memoryMaximumBytes')
     Add-CheckResult -Name 'Evaluation-Ablaufmetadaten werden vom OS-Parent uebernommen' -Success (
-        -not [string]::IsNullOrWhiteSpace([string]$plan.parentArtifact.license.evaluationExpiresAt)
+        -not [string]::IsNullOrWhiteSpace([string]$plan.parentArtifact.license.evaluationExpiresAt) -and
+        $plan.parentArtifact.platform.vmGeneration -eq 2 -and
+        $plan.parentArtifact.platform.guestControl -eq 'powershell-direct'
     )
     $freshPlan = & $module {
         param($Iso,$Sha,$Root)
@@ -146,7 +149,7 @@ try {
             [PSCustomObject]@{ VM = [PSCustomObject]@{ State = if ($script:sqlImageMockCall -ge 2) { 'Off' } else { 'Running' } }; Identity = [PSCustomObject]@{} }
         }
         function Invoke-HyperVPowerShellDirect {
-            param($VMName,$ExpectedRunId,$ExpectedScopeId,$Credential,$ScriptBlock,$ArgumentList)
+            param($VMName,$ExpectedRunId,$ExpectedScopeId,$Credential,$ScriptBlock,$ArgumentList,$FallbackAddress)
             $script:sqlImageMockCall++
             if ($script:sqlImageMockCall -eq 1) {
                 return [PSCustomObject]@{
@@ -166,7 +169,8 @@ try {
     } $plan.buildId $stateRoot $credential
     Add-CheckResult -Name 'PrepareImage- und Sysprep-Receipts fuehren zu RESUME_PENDING' -Success (
         $resumed.state -eq 'RESUME_PENDING' -and $resumed.setupEvidence.action -eq 'PrepareImage' -and
-        $resumed.generalizationEvidence.shutdownObserved -eq $true
+        $resumed.generalizationEvidence.shutdownObserved -eq $true -and
+        $resumed.generalizationEvidence.source -eq 'powershell-direct-or-lab-winrm'
     )
     $resumedRawState = Get-Content -LiteralPath (Join-Path $resumed.BuildDirectory 'build-state.json') -Raw
     Add-CheckResult -Name 'Gast-Credentials werden im SQL-Builder nicht persistiert' -Success (
@@ -178,6 +182,12 @@ try {
     Add-CheckResult -Name 'SQL Setup verwendet PrepareImage quiet und akzeptiert Lizenzbedingungen' -Success (
         $builderText -match '/ACTION=PrepareImage' -and $builderText -match '/IACCEPTSQLSERVERLICENSETERMS'
     )
+    Add-CheckResult -Name 'Prepared-Builder bewahrt Plattformvertrag und kann Legacy-Gaeste ueber Lab-WinRM steuern' -Success (
+        $builderText -match 'platform = \$artifact\.platform' -and
+        $builderText -match 'generation = \[int\]\$instance\.VMGeneration' -and
+        ([regex]::Matches($builderText, '-FallbackAddress \$fallbackAddress')).Count -ge 3 -and
+        $builderText -match "source = 'powershell-direct-or-lab-winrm'"
+    )
     Add-CheckResult -Name 'SQL Product Key wird nur bei explizitem Profil kurzfristig als PID an Setup uebergeben' -Success (
         $builderText.Contains('Get-LabLicenseProfileSecret') -and
         $builderText.Contains('$arguments += "/PID=$plainKey"') -and
@@ -187,6 +197,13 @@ try {
     Add-CheckResult -Name 'SQL Build-State speichert nur Profilreferenz und Lizenzmetadaten' -Success (
         $builderText.Contains('profileId = if ($licenseSelection.ProfileId)') -and
         $rawState -notmatch '(?i)product.?key|/PID='
+    )
+    Add-CheckResult -Name 'Einmalige SQL-Medienprüfung wird für schnelle unveränderte Resumes buildlokal gebunden' -Success (
+        $builderText -match "build-local\.json'[\s\S]+mediaVerification\s*=\s*\[PSCustomObject\]" -and
+        $builderText -match 'sha256\s*=\s*\$sha256' -and
+        $builderText -match 'lengthBytes\s*=\s*\[long\]\$verifiedMedia\.Length' -and
+        $builderText -match 'lastWriteTimeUtc\s*=\s*\$verifiedMedia\.LastWriteTimeUtc\.ToString' -and
+        $builderText -match 'verifiedAt\s*=\s*Get-LabTimestamp'
     )
     Add-CheckResult -Name 'SQL Setup-Fehler redigieren moegliche PID-Werte' -Success (
         $builderText -match '<redacted>' -and $builderText -match '\(/PID=\|PID\\s\*\[:=\]'
