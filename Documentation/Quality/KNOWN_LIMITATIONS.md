@@ -38,6 +38,15 @@ und Cleanup nativ geprüft. Golden-Dataset-Bindung, hybride Suche und automatisc
 Antworttreueprüfung bleiben offen. Ein Modell-Judge wird bewusst nicht als
 blockierendes Gate verwendet.
 
+Der read-only Diagnose-Agent besitzt ausschließlich die katalogisierten
+Werkzeuge `server-summary`, `database-capacity`, `wait-statistics` und
+`active-requests`. Er verwendet pro Lauf eine kurzlebige Login-Identität mit
+reinen Sichtrechten und entfernt sie anschließend. Freie SQL-Ausführung,
+Modell-gesteuerte Toolauswahl, DDL/DML-Werkzeuge und automatische Reparaturen
+sind nicht implementiert. Docker und Podman wurden am 2026-09-06 getrennt mit
+echter Login-/Sichtrechteausführung, Login-Cleanup, Ollama-Restart und Lab-
+Cleanup geprüft. Der Hyper-V-Nachweis steht noch aus.
+
 ## Provider
 
 ### Docker und Podman
