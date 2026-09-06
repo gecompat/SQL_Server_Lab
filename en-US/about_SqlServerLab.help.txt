@@ -228,6 +228,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Runs a declared SQL AI scenario after hash, intent, and capability
         validation with a journaled cleanup path.
 
+    Invoke-SqlServerLabAiModel
+        Calls a cataloged Ollama Cloud model with explicit egress, declared
+        data classification, a local secret, and a bounded request budget.
+
     Get-SqlServerLabGeneratedSqlAccess
         Returns runtime SQL access for an automatically generated SQL Server SA
         account, including the connection string.

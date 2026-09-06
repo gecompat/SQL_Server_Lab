@@ -38,7 +38,7 @@
       "lane": "cloud",
       "purpose": "generation",
       "model": "gpt-oss:120b",
-      "status": "PLANNED",
+      "status": "SUPPORTED",
       "identityPolicy": "CLOUD_MODEL_IDENTITY_REQUIRED",
       "license": "Apache-2.0",
       "source": "https://ollama.com/library/gpt-oss"

@@ -175,6 +175,35 @@ try {
         $cloudBlocked.Status -eq 'BLOCKED' -and $cloudBlocked.Blockers -contains 'AI_ENDPOINT_CLOUD_EGRESS_NOT_ALLOWED' -and
         $cloudReady.Status -eq 'NOT_PROBED' -and $cloudReady.CredentialRef -eq 'SQL_SERVER_LAB_SECRET_OLLAMA' -and
         $cloudReady.TargetHost -eq 'ollama.com' -and ($cloudReady | ConvertTo-Json -Depth 10) -notmatch 'Bearer|api_key')
+
+    $missingSecretPath=Join-Path $temporaryRoot 'does-not-exist.env'
+    $publicCloudPlan=& $module {
+        param($MissingSecretPath)
+        Invoke-SqlServerLabAiModel -ModelKey ollama-gpt-oss-120b-cloud -InputText 'synthetisch' `
+            -DataClassification synthetic-only -AllowCloudEgress -SecretFilePath $MissingSecretPath -WhatIf
+    } $missingSecretPath
+    $endpointSchema=Join-Path $repoRoot 'Schemas/ai-endpoint-plan.schema.json'
+    Add-CheckResult 'Cloud-WhatIf liest kein Secret und erfüllt den geheimnisfreien Endpointvertrag' (
+        (($publicCloudPlan | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile $endpointSchema -ErrorAction SilentlyContinue) -and
+        $publicCloudPlan.Status -eq 'NOT_PROBED')
+
+    $secretFixture=Join-Path $temporaryRoot 'synthetic.env'
+    [IO.File]::WriteAllLines($secretFixture,@(('OLLA'+'MA=')+'synthetic-value'),[Text.Encoding]::UTF8)
+    $secretRead=& $module {
+        param($SecretFixture)
+        $resolved=Get-LabAiDotEnvSecret -Path $SecretFixture
+        $plain=ConvertFrom-LabSecureString -SecureString $resolved.Secret
+        try { [PSCustomObject]@{Matches=$plain -eq 'synthetic-value';Warnings=@($resolved.Warnings)} }
+        finally { $plain=$null }
+    } $secretFixture
+    Add-CheckResult 'Dotenv-Resolver liest ausschließlich den festen OLLAMA-Schlüssel als SecureString' $secretRead.Matches
+
+    $duplicateLines=@((('OLLA'+'MA=')+'first'),(('OLLA'+'MA=')+'second'))
+    [IO.File]::WriteAllLines($secretFixture,$duplicateLines,[Text.Encoding]::UTF8)
+    $duplicateSecretRejected=$false
+    try { & $module { param($SecretFixture) Get-LabAiDotEnvSecret -Path $SecretFixture } $secretFixture }
+    catch { $duplicateSecretRejected=$_.Exception.Message -eq 'AI_SECRET_OLLAMA_MISSING_OR_DUPLICATE' }
+    Add-CheckResult 'Fehlender oder doppelter OLLAMA-Schlüssel wird fail-closed abgelehnt' $duplicateSecretRejected
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
