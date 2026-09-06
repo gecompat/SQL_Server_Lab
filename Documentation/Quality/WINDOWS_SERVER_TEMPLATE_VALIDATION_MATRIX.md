@@ -115,7 +115,7 @@ gewertet.
 | 2008 | hashgebundene frühere Microsoft-Eval-ISO und Express-EXE | Windows Server 2008 R2 SP1, aktuell nur kurzlebiges `OOB_GRACE` | fehlt |
 | 2008 R2 | Microsoft-signiertes Eval-SFX und Express-EXE | Windows Server 2008 R2 SP1 | SFX-Staging und Installation fehlen |
 | 2012 | hashgebundene Eval-ISO und Express-EXE | Windows Server 2012 R2, child- und aktivierungsgeprüft | real bestanden: unbeaufsichtigtes Eval-Setup, SQL 11.0.2100.60, Dienst-/Versionsprüfung, Create/Insert/Backup CHECKSUM/RESTORE VERIFYONLY/Drop |
-| 2014 | Express-RTM-/SP3-SFX, kein Eval-ISO | Windows Server 2012 R2 | SFX-/Express-Adapter und Installation fehlen |
+| 2014 | Microsoft-signiertes Express-SP3-SFX, daraus hashgebundenes Offline-Daten-ISO | Windows Server 2012 R2, child- und aktivierungsgeprüft | real bestanden: unbeaufsichtigtes Express-SP3-Setup, SQL 12.0.6024.0, Dienst-/Versionsprüfung, Create/Insert/Backup CHECKSUM/RESTORE VERIFYONLY/Drop |
 
 SQL Server 2012 ist am 6. September 2026 mit Build
 `f5ebb3d1-3989-4415-8d77-65e151619172` real bis `TESTS_PASSED` abgenommen.
@@ -132,7 +132,19 @@ Der wiederaufnehmbare Operatorpfad lautet:
 Die 4,5-GB-Medien werden beim erstmaligen Build vollständig gehasht. Ein
 unveränderter Resume verwendet anschließend den buildlokalen SHA-256-Beleg
 zusammen mit Dateigröße, Änderungszeit und unverändertem Sidecar. Nur eine
-Abweichung erzwingt die erneute Medienverifikation. Die nächste Welle erweitert
-den belegten Gastkanal auf 2014, danach 2008/2008 R2 und zuletzt den getrennten
-NT5/x86-Pfad für 2005/2000. Keine weitere SQL-Version wird vor einem echten
-Setup-, Dienst-, Versions- und Verbindungsnachweis als `READY` ausgewiesen.
+Abweichung erzwingt die erneute Medienverifikation.
+
+SQL Server 2014 Express SP3 ist am 6. September 2026 mit Build
+`e1d61b10-7592-49a8-97b9-a496d89640e2` ebenfalls real bis `TESTS_PASSED`
+abgenommen. Der Runner verpackte das katalogisierte Microsoft-Vollpaket als
+Offline-Daten-ISO, erkannte Setup `12.3.6024.0` und prüfte die installierte
+Engine `12.0.6024.0` als `Express Edition (64-bit)`. Der unveränderte
+Wiederholungsaufruf verwendete denselben Build und war einschließlich UAC nach
+6,1 Sekunden beendet. Der Aufruf entspricht dem obigen Beispiel mit
+`-SqlVersion 2014` und dem Nachweis
+`D:\Lab1_Base\Evidence\sql-server-2014-acceptance.json`.
+
+Die nächste Welle erweitert den belegten Gastkanal auf 2008/2008 R2 und zuletzt
+den getrennten NT5/x86-Pfad für 2005/2000. Keine weitere SQL-Version wird vor
+einem echten Setup-, Dienst-, Versions- und Verbindungsnachweis als `READY`
+ausgewiesen.

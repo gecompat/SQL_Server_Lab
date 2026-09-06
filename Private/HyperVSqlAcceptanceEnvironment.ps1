@@ -76,7 +76,9 @@ if (`$observed.Count -ne 1) { throw 'SQL_LAB_OOBE_DHCP_ADDRESS_NOT_READY' }
 `$dnsServers = @(Get-DnsClientServerAddress -InterfaceIndex `$adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses
 Set-NetConnectionProfile -InterfaceIndex `$adapter.ifIndex -NetworkCategory Private -ErrorAction SilentlyContinue
 Set-Service -Name WinRM -StartupType Automatic -ErrorAction Stop
-Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction Stop
+`$winRmReady = (Get-Service -Name WinRM -ErrorAction SilentlyContinue).Status -eq 'Running' -and
+    @(Get-ChildItem -LiteralPath WSMan:\localhost\Listener -ErrorAction SilentlyContinue).Count -gt 0
+if (-not `$winRmReady) { Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction Stop }
 `$ruleName = 'SQL_Server_Lab WinRM LAN'
 if (-not (Get-NetFirewallRule -DisplayName `$ruleName -ErrorAction SilentlyContinue)) {
     New-NetFirewallRule -DisplayName `$ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5985 -RemoteAddress LocalSubnet | Out-Null
@@ -118,7 +120,9 @@ if ('$gateway') {
 if (`$dnsServers.Count -gt 0) { Set-DnsClientServerAddress -InterfaceIndex `$adapter.ifIndex -ServerAddresses `$dnsServers -ErrorAction Stop }
 Set-NetConnectionProfile -InterfaceIndex `$adapter.ifIndex -NetworkCategory Private -ErrorAction SilentlyContinue
 Set-Service -Name WinRM -StartupType Automatic -ErrorAction Stop
-Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction Stop
+`$winRmReady = (Get-Service -Name WinRM -ErrorAction SilentlyContinue).Status -eq 'Running' -and
+    @(Get-ChildItem -LiteralPath WSMan:\localhost\Listener -ErrorAction SilentlyContinue).Count -gt 0
+if (-not `$winRmReady) { Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction Stop }
 `$ruleName = 'SQL_Server_Lab WinRM Host'
 if (-not (Get-NetFirewallRule -DisplayName `$ruleName -ErrorAction SilentlyContinue)) {
     New-NetFirewallRule -DisplayName `$ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5985 -RemoteAddress '$hostAddress' | Out-Null
