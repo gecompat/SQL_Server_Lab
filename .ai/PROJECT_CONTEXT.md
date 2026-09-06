@@ -284,6 +284,17 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   insbesondere Rebinding, Adapter-Neuanlage, Gastadressreparatur, vollständige
   `sp_configure`-Entfernung, freie Mount-/Image-Änderungen und Hyper-V-Software;
 - versionierter Refresh-/Rebuild-Lifecycle für Medien, VHDX und Container-Images;
+- vollständiger Evaluation-Refresh durch parallelen Neuaufbau und nachgewiesen
+  gleichwertige Übernahme von Datenbanken, Serverobjekten, Konfiguration,
+  Keymaterial und SQL-nahen Diensten einschließlich Cutover und Rollback; der
+  Zielvertrag ist geplant, bestehende Datenbank-Migrationspläne bleiben
+  `FullInstanceMigration=false` und strikt read-only;
+- querschnittliche Plattformfähigkeiten ohne bisherigen Einzelbacklog:
+  zeitgesteuerte Evaluation-Warnung, portabler Gesamt-Lab-Transfer, externe
+  Secret Stores, gemeinsame Observability/Evidence, verwaltete Recovery
+  Points, Framework-/State-Upgrades, Air-Gap-Pakete, erweiterte
+  Kapazitätssteuerung sowie entscheidungspflichtiger Mehrbenutzer- und
+  API-/IaC-Betrieb;
 - weitere konsumierende Lab-Packages über die drei abgeschlossenen
   Project-Adapter-Vertical-Slices hinaus;
 - langfristige Planner-, Package- und Supporting-Component-Architektur;

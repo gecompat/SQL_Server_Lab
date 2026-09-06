@@ -68,6 +68,13 @@ Mindestens 30 Tage vor Ablauf:
 Das vermeidet eine In-place-Verlängerung abgelaufener Evaluationen und erlaubt
 einen jederzeit reproduzierbaren Neuaufbau.
 
+Dieser Ablauf überträgt im aktuellen Implementierungsstand Datenbanken, aber
+noch keine vollständige SQL-Instanz. Backup- und Datenbankpaket-Receipts bleiben
+`DATABASE_FILES_ONLY` mit `FullInstanceMigration=false`. Der fachlich
+akzeptierte Zielvertrag für die klassifizierte Übernahme von Serverobjekten,
+Konfiguration, Keymaterial, SQL-nahen Diensten, Cutover und Rollback steht im
+[Backlog für den vollständigen Instanz-Refresh](../Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md).
+
 ## 4. Sicherheits- und Cleanup-Grenzen
 
 Der Data Root wird nicht vom normalen Run-Cleanup gelöscht. Löschoperationen

@@ -1127,6 +1127,22 @@ innerhalb dieser fünf Wellen. Sie bleiben in M8/M9 beziehungsweise den
 dedizierten Backlogs erhalten und werden nach den Gates N3 bis N5 neu
 priorisiert.
 
+Der vollständige Evaluation-Refresh ist als eigener
+[nachgelagerter Zielvertrag](FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md)
+festgehalten. Er erweitert die vorhandene Datenbank-Migrationsinventur um
+parallelen Neuaufbau, vollständige Instanzklassifikation,
+Gleichwertigkeitsnachweis, Cutover und Rollback, ohne den derzeit strikt
+read-only Migrationsplan als ausführbar darzustellen.
+
+Weitere bisher nicht eigenständig geplante Querschnittsfähigkeiten sind im
+[Plattformfähigkeiten-Backlog](CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md)
+erfasst. Evaluation-Watchdog, Gesamt-Lab-Portabilität, externe Secret Stores,
+Observability/Evidence, Recovery Points, Framework-/State-Upgrades und Air-Gap-
+Pakete sind dort als Bedarf festgehalten. Kapazitätsquoten, Mehrbenutzerbetrieb
+sowie eine Automation-API mit IaC-Adaptern bleiben vor einer Priorisierung
+entscheidungspflichtig. Dieser Sammelbacklog ändert die Ausführungsreihenfolge
+dieses Plans nicht.
+
 Repository-lokale KI-Skills sind als fachlich akzeptierter, noch nicht
 implementierter [Backlog](REPOSITORY_AGENT_SKILLS_BACKLOG.md) ebenfalls diesem
 nachgelagerten Horizont zugeordnet. Eine spätere Skill-Welle beginnt mit einem
