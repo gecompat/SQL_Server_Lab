@@ -11,14 +11,14 @@ laufen unbeaufsichtigt. Passwörter werden zufällig erzeugt, DPAPI-geschützt i
 buildlokalen Secret Store gehalten und weder ausgegeben noch in den portablen
 Build-State geschrieben.
 
-Freigegeben sind SQL Server 2012 Evaluation und SQL Server 2014 Express SP3
-auf Windows Server 2012 R2 Standard Evaluation. Das offizielle SQL-2014-
-Vollpaket wird bei Bedarf geladen, verifiziert und als offline einbindbares
-Daten-ISO verpackt. Erfolgreiche Runs bleiben als TESTS_PASSED-Abnahmeumgebung
-erhalten und werden bei einem erneuten Aufruf wiederverwendet.
+Freigegeben sind SQL Server 2008 SP3 und 2008 R2 SP2 Express auf Windows
+Server 2008 R2 sowie SQL Server 2012 Evaluation und SQL Server 2014 Express
+SP3 auf Windows Server 2012 R2. Die Vollpakete werden bei Bedarf geladen,
+verifiziert und als offline einbindbare Daten-ISOs verpackt. Erfolgreiche Runs
+bleiben als TESTS_PASSED-Abnahmeumgebung erhalten und werden wiederverwendet.
 
 .PARAMETER SqlVersion
-Legacy-SQL-Hauptversion. SQL Server 2012 und 2014 sind freigegeben.
+Legacy-SQL-Hauptversion. SQL Server 2008, 2008 R2, 2012 und 2014 sind freigegeben.
 
 .PARAMETER ArtifactId
 Optionales exaktes OS_SEALED-Artefakt. Ohne Angabe wird die kompatible,
@@ -32,7 +32,7 @@ Zeigt die vollständige Hilfe und beendet das Skript ohne Prüfung oder Mutation
 #>
 [CmdletBinding(SupportsShouldProcess, ConfirmImpact='High')]
 param(
-    [ValidateSet('2012','2014')]
+    [ValidateSet('2008','2008R2','2012','2014')]
     [string]$SqlVersion,
     [string]$ArtifactId,
     [string]$MediaRoot='D:\Lab1_Base',
@@ -58,16 +58,32 @@ $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 if(-not $StateRoot){$StateRoot=& $module { Get-LabStateRoot }}
 $mapping=@{
+    '2008'=[pscustomobject]@{
+        OperatingSystemId='windows-server-2008-r2';OperatingSystemVersion='2008-r2'
+        Edition='standard-evaluation';InstallationType='desktop-experience';MediaEdition='Express'
+        SqlFeatures=@('SQLENGINE');PackageSourceId='sql-server-2008-express-sp3-archive'
+        PackageIsoRelativePath='SQL/2008/Express/ISO/SQLServer2008SP3Express-x64-ENU.iso'
+        MinimumEvaluationDaysRemaining=1
+    }
+    '2008R2'=[pscustomobject]@{
+        OperatingSystemId='windows-server-2008-r2';OperatingSystemVersion='2008-r2'
+        Edition='standard-evaluation';InstallationType='desktop-experience';MediaEdition='Express'
+        SqlFeatures=@('SQLENGINE');PackageSourceId='sql-server-2008r2-express-sp2-full'
+        PackageIsoRelativePath='SQL/2008R2/Express/ISO/SQLServer2008R2SP2Express-x64-ENU.iso'
+        MinimumEvaluationDaysRemaining=1
+    }
     '2012'=[pscustomobject]@{
         OperatingSystemId='windows-server-2012-r2';OperatingSystemVersion='2012-r2'
         Edition='standard-evaluation';InstallationType='desktop-experience';MediaEdition='Eval'
         SqlFeatures=@('SQLENGINE','FULLTEXT','REPLICATION');PackageSourceId=$null;PackageIsoRelativePath=$null
+        MinimumEvaluationDaysRemaining=30
     }
     '2014'=[pscustomobject]@{
         OperatingSystemId='windows-server-2012-r2';OperatingSystemVersion='2012-r2'
         Edition='standard-evaluation';InstallationType='desktop-experience';MediaEdition='Express'
         SqlFeatures=@('SQLENGINE');PackageSourceId='sql-server-2014-express-sp3-full'
         PackageIsoRelativePath='SQL/2014/Express/ISO/SQLServer2014SP3Express-x64-ENU.iso'
+        MinimumEvaluationDaysRemaining=30
     }
 }
 $target=$mapping[$SqlVersion]
@@ -81,7 +97,7 @@ $existingBuilds=@(& $module {
         [string]$_.parentArtifact.operatingSystem.edition -eq [string]$Target.Edition -and
         [string]$_.parentArtifact.operatingSystem.installationType -eq [string]$Target.InstallationType -and
         (-not $ArtifactId -or [string]$_.parentArtifact.artifactId -eq $ArtifactId) -and
-        [string]$_.state -notin @('CLEANED_UP','SQL_PREPARED_SEALED','FAILED')
+        [string]$_.state -notin @('CLEANED_UP','SQL_PREPARED_SEALED','FAILED','MEDIA_VERIFIED')
     })
 } $target $ArtifactId $SqlVersion $StateRoot)
 if($existingBuilds.Count -gt 1){throw "LEGACY_SQL_ACCEPTANCE_BUILD_AMBIGUOUS: $($existingBuilds.Count)"}
@@ -97,7 +113,7 @@ $resolved=if($existingBuilds.Count -eq 1){
             throw 'LEGACY_SQL_ACCEPTANCE_ARTIFACT_NOT_ELIGIBLE'
         }
         if([string]$artifact.license.type -eq 'evaluation' -and $artifact.license.evaluationExpiresAt -and
-            ([datetime]$artifact.license.evaluationExpiresAt).ToUniversalTime() -lt [datetime]::UtcNow.AddDays(30)){
+            ([datetime]$artifact.license.evaluationExpiresAt).ToUniversalTime() -lt [datetime]::UtcNow.AddDays([int]$Target.MinimumEvaluationDaysRemaining)){
             throw 'LEGACY_SQL_ACCEPTANCE_OS_EVALUATION_EXPIRING'
         }
         $localPath=Join-Path $Build.BuildDirectory 'build-local.json'
@@ -135,7 +151,7 @@ $resolved=if($existingBuilds.Count -eq 1){
         $artifact=Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
         if(-not $artifact){throw 'LEGACY_SQL_ACCEPTANCE_ARTIFACT_NOT_FOUND'}
         $reasons=@(Get-HyperVManifestFallbackArtifactRejectionReasons -Artifact $artifact `
-            -SqlVersion '' -MinimumEvaluationDaysRemaining 30 | Where-Object {
+            -SqlVersion '' -MinimumEvaluationDaysRemaining ([int]$Target.MinimumEvaluationDaysRemaining) | Where-Object {
                 $_ -notin @('artifact-not-sql-prepared-sealed','artifact-sql-not-prepared','sql-version-missing','sql-version-mismatch')
             })
         if($artifact.artifactState -ne 'OS_SEALED' -or $reasons.Count){
@@ -144,7 +160,7 @@ $resolved=if($existingBuilds.Count -eq 1){
     }else{
         $selection=Resolve-HyperVImageArtifact -OperatingSystemId $Target.OperatingSystemId `
             -OperatingSystemVersion $Target.OperatingSystemVersion -Edition $Target.Edition `
-            -InstallationType $Target.InstallationType -MinimumEvaluationDaysRemaining 30 -StateRoot $StateRoot
+            -InstallationType $Target.InstallationType -MinimumEvaluationDaysRemaining ([int]$Target.MinimumEvaluationDaysRemaining) -StateRoot $StateRoot
         if(-not $selection.Selected){throw 'LEGACY_SQL_ACCEPTANCE_OS_BASELINE_NOT_AVAILABLE'}
         $artifact=$selection.Selected
     }
@@ -162,8 +178,10 @@ $resolved=if($existingBuilds.Count -eq 1){
         $entries=@(Get-LabMediaSourceCatalog -MediaRoot $MediaRoot|Where-Object Id -eq $Target.PackageSourceId)
         if($entries.Count -ne 1){throw "LEGACY_SQL_ACCEPTANCE_PACKAGE_SOURCE_NOT_FOUND: $($Target.PackageSourceId)"}
         $entry=$entries[0]
+        $sourceEligible=[string]$entry.SourceStatus -eq 'ACTIVE' -or
+            ([string]$entry.SourceStatus -eq 'ORIGINAL_URL_RETIRED' -and [string]$entry.Acquisition -eq 'ARCHIVE_FALLBACK_VERIFIED')
         if(-not $entry.Automatable -or -not $entry.ExpectedSha256 -or -not $entry.ExpectedBytes -or
-            [string]$entry.SourceStatus -ne 'ACTIVE' -or [string]$entry.MediaKind -ne 'SELF_EXTRACTING_EXE' -or
+            -not $sourceEligible -or [string]$entry.MediaKind -ne 'SELF_EXTRACTING_EXE' -or
             [string]$entry.Version -ne $SqlVersion -or [string]$entry.Edition -ne [string]$Target.MediaEdition -or
             [string]$entry.DerivedTargetRelativePath -ne [string]$Target.PackageIsoRelativePath -or
             [string]$entry.Conversion -ne 'IMAPI2FS_DATA_ISO'){
@@ -226,7 +244,39 @@ if(-not $PSCmdlet.ShouldProcess("SQL Server $SqlVersion / $($resolved.Artifact.o
 $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
 $principal=[Security.Principal.WindowsPrincipal]::new($identity)
 if(-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){
-    throw 'LEGACY_SQL_ACCEPTANCE_REQUIRES_ELEVATED_RUNNER'
+    if($env:SQL_SERVER_LAB_ELEVATED_CHILD -eq '1'){
+        throw 'LEGACY_SQL_ACCEPTANCE_REQUIRES_ELEVATED_RUNNER'
+    }
+    $forward=[ordered]@{
+        SqlVersion=$SqlVersion;MediaRoot=$MediaRoot;MemoryStartupMB=$MemoryStartupMB
+        ProcessorCount=$ProcessorCount;OobeTimeoutSeconds=$OobeTimeoutSeconds
+        SetupTimeoutSeconds=$SetupTimeoutSeconds;ReadinessTimeoutSeconds=$ReadinessTimeoutSeconds
+    }
+    foreach($optional in @('ArtifactId','StateRoot','SqlMediaPath','ResultPath')){
+        $value=Get-Variable -Name $optional -ValueOnly
+        if(-not[string]::IsNullOrWhiteSpace([string]$value)){$forward[$optional]=[string]$value}
+    }
+    $payload=[Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($forward|ConvertTo-Json -Depth 4 -Compress)))
+    $escapedScript=$PSCommandPath.Replace("'","''")
+    $command=@"
+`$ErrorActionPreference='Stop'
+`$env:SQL_SERVER_LAB_ELEVATED_CHILD='1'
+`$json=[Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$payload'))|ConvertFrom-Json
+`$arguments=@{}
+foreach(`$property in `$json.PSObject.Properties){`$arguments[`$property.Name]=`$property.Value}
+& '$escapedScript' @arguments -Confirm:`$false
+"@
+    $encoded=[Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+    $pwsh=(Get-Command pwsh.exe -ErrorAction Stop).Source
+    try{
+        Start-Process -FilePath $pwsh -Verb RunAs -ArgumentList @('-NoLogo','-NoProfile','-EncodedCommand',$encoded) -ErrorAction Stop
+    }catch{
+        throw "LEGACY_SQL_ACCEPTANCE_ELEVATION_START_FAILED: $($_.Exception.Message)"
+    }
+    return [pscustomobject]@{
+        Status='ELEVATION_STARTED';SqlVersion=$SqlVersion;ExistingBuildId=[string]$resolved.ExistingBuildId
+        ResultPath=$ResultPath;CredentialDisclosed=$false;PasswordDisclosed=$false
+    }
 }
 
 try{
@@ -254,7 +304,7 @@ if($resolved.PackageSource){
             [string]$_.provisioningMode -eq 'sealed-os-baseline' -and
             [string]$_.parentArtifact.artifactId -eq [string]$Resolved.Artifact.artifactId -and
             [string]$_.sql.version -eq $SqlVersion -and
-            [string]$_.state -notin @('CLEANED_UP','SQL_PREPARED_SEALED')
+            [string]$_.state -notin @('CLEANED_UP','SQL_PREPARED_SEALED','FAILED','MEDIA_VERIFIED')
         })}
         if($active.Count -gt 1){throw "LEGACY_SQL_ACCEPTANCE_BUILD_AMBIGUOUS: $($active.Count)"}
         if($active.Count -eq 1){$build=$active[0]}
@@ -264,6 +314,7 @@ if($resolved.PackageSource){
                 SqlVersion=$SqlVersion;MediaEdition=[string]$Target.MediaEdition;SqlMediaPath=[string]$Resolved.Media.RelativePath
                 SqlFeatures=@($Target.SqlFeatures)
                 ImageName="SQL Server $SqlVersion Acceptance"
+                MinimumEvaluationDaysRemaining=[int]$Target.MinimumEvaluationDaysRemaining
                 MemoryStartupBytes=([long]$MemoryStartupMB*1MB);ProcessorCount=$ProcessorCount;StateRoot=$StateRoot
             }
             $build=Initialize-HyperVSqlPreparedImageBuild @init

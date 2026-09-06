@@ -84,8 +84,16 @@ function Set-HyperVSqlImageBuildState {
 function Get-HyperVSqlVersionFromMajor {
     <# .SYNOPSIS Ordnet die von SQL Setup gemeldete Hauptversion einer Produktversion zu. #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)][int]$MajorVersion)
+    param(
+        [Parameter(Mandatory)][int]$MajorVersion,
+        [string]$SetupVersion
+    )
 
+    if ($MajorVersion -eq 10) {
+        if ($SetupVersion -match '^10\.50\.') { return '2008R2' }
+        if ($SetupVersion -match '^10\.0\.') { return '2008' }
+        return 'major-10'
+    }
     $known = @{ 11 = '2012'; 12 = '2014'; 13 = '2016'; 14 = '2017'; 15 = '2019'; 16 = '2022'; 17 = '2025' }
     if ($known.ContainsKey($MajorVersion)) { return $known[$MajorVersion] }
     return "major-$MajorVersion"
@@ -96,7 +104,7 @@ function Get-HyperVSqlMajorVersionFromVersion {
     param([Parameter(Mandatory)][string]$SqlVersion)
 
     if ($SqlVersion -match '^major-(?<major>\d+)$') { return [int]$Matches.major }
-    $known = @{ '2012' = 11; '2014' = 12; '2016' = 13; '2017' = 14; '2019' = 15; '2022' = 16; '2025' = 17 }
+    $known = @{ '2008' = 10; '2008R2' = 10; '2012' = 11; '2014' = 12; '2016' = 13; '2017' = 14; '2019' = 15; '2022' = 16; '2025' = 17 }
     if ($known.ContainsKey($SqlVersion)) { return [int]$known[$SqlVersion] }
     throw "HYPERV_SQL_MEDIA_VERSION_UNKNOWN: $SqlVersion"
 }
@@ -159,7 +167,7 @@ function Get-HyperVSqlInstallationMediaInfo {
         if ($setupVersion -notmatch '(?<!\d)(?<major>\d{2})\.') { throw "HYPERV_SQL_MEDIA_VERSION_UNREADABLE: $setupVersion" }
         $major = [int]$Matches.major
         return [PSCustomObject]@{
-            SqlVersion = Get-HyperVSqlVersionFromMajor -MajorVersion $major
+            SqlVersion = Get-HyperVSqlVersionFromMajor -MajorVersion $major -SetupVersion $setupVersion
             MajorVersion = $major; SetupVersion = $setupVersion
             SetupFileName = [string]$setupFiles[0].Name
             MediaKind = if ($setupFiles[0].Name -ine 'setup.exe') { 'PACKAGE_ISO' } else { 'INSTALLATION_ISO' }
@@ -443,6 +451,8 @@ function Get-HyperVSqlSetupVersionPattern {
 
     $major = Get-HyperVSqlMajorVersionFromVersion -SqlVersion $SqlVersion
     if ($SqlVersion -match '^major-\d+$') { return "(?<!\d)$major\." }
+    if ($SqlVersion -eq '2008R2') { return '(?<!\d)10\.50\.' }
+    if ($SqlVersion -eq '2008') { return '(?<!\d)10\.0\.' }
     $yearMarker = '{0:d4}' -f ($major * 10)
     return "(?<!\d)(?:$major|$SqlVersion\.$yearMarker)\."
 }
@@ -616,6 +626,7 @@ function New-HyperVSqlImageBuildPlan {
         [ValidatePattern('^[a-z][a-z0-9.-]{2,63}$')][string]$LicenseProfileId,
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
         [ValidateLength(1, 80)][string]$ImageName,
+        [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30,
         [string]$StateRoot
     )
 
@@ -623,7 +634,7 @@ function New-HyperVSqlImageBuildPlan {
     $artifact = Get-HyperVImageArtifact -ArtifactId $ImageArtifactId -StateRoot $StateRoot
     if (-not $artifact -or $artifact.artifactState -ne 'OS_SEALED') { throw 'HYPERV_SQL_IMAGE_OS_BASELINE_REQUIRED' }
     if ($artifact.license.type -eq 'evaluation' -and $artifact.license.evaluationExpiresAt -and
-        ([datetime]$artifact.license.evaluationExpiresAt).ToUniversalTime() -lt [datetime]::UtcNow.AddDays(30)) {
+        ([datetime]$artifact.license.evaluationExpiresAt).ToUniversalTime() -lt [datetime]::UtcNow.AddDays($MinimumEvaluationDaysRemaining)) {
         throw 'HYPERV_SQL_IMAGE_OS_EVALUATION_EXPIRING'
     }
     $resolvedIso = (Resolve-Path -LiteralPath $IsoPath -ErrorAction Stop).Path
@@ -806,6 +817,7 @@ function Initialize-HyperVSqlPreparedImageBuild {
         [ValidatePattern('^[a-z][a-z0-9.-]{2,63}$')][string]$LicenseProfileId,
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
         [ValidateLength(1, 80)][string]$ImageName,
+        [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30,
         [ValidateRange(2GB, 1TB)][long]$MemoryStartupBytes = 4GB,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [string]$StateRoot
@@ -822,6 +834,7 @@ function Initialize-HyperVSqlPreparedImageBuild {
         SqlVersion = $SqlVersion
         SqlEdition = $MediaEdition
         SqlFeatures = $SqlFeatures
+        MinimumEvaluationDaysRemaining = $MinimumEvaluationDaysRemaining
         StateRoot = $StateRoot
     }
     if (-not [string]::IsNullOrWhiteSpace($LicenseProfileId)) { $planArguments.LicenseProfileId = $LicenseProfileId }
@@ -834,6 +847,10 @@ function Initialize-HyperVSqlPreparedImageBuild {
             -SwitchName $labNetwork.Name -ResourceClass Build
         $managed = Get-HyperVManagedVM -VMName $instance.VMName -ExpectedRunId $plan.buildId -ExpectedScopeId $plan.scopeId
         if ([string]$plan.parentArtifact.platform.guestControl -eq 'legacy-wmi') {
+            if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_SQL_LEGACY_NETWORK_REQUIRES_STOPPED_VM' }
+            @($managed.VM | Get-VMNetworkAdapter -ErrorAction Stop) | Remove-VMNetworkAdapter -ErrorAction Stop
+            $null = Add-VMNetworkAdapter -VM $managed.VM -SwitchName $labNetwork.Name `
+                -Name 'SQL_LAB_HYPERV_LEGACY' -IsLegacy $true -ErrorAction Stop
             $null = Set-HyperVManagedVMIdentityProperty -ManagedVM $managed -PropertyName guestTransport `
                 -Value 'lab-winrm' -ContractVersion '0.8'
         }

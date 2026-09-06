@@ -177,7 +177,7 @@ Runtimenachweis allein noch nicht: Der Builder und Artifact-/Child-Vertrag
 bewahren inzwischen VM-Generation, Secure-Boot-Zustand und den
 Gaststeuerungstyp (`powershell-direct` oder `legacy-wmi`), der reale
 SQL-Prepared-Image-Vertrag ist aber weiterhin nur für die ausdrücklich
-dokumentierten neueren SQL-Versionen belegt. Für SQL Server 2000/2005 gefundene
+dokumentierten SQL-Versionen belegt. Für SQL Server 2000/2005 gefundene
 Community-Scans werden nur nach `-AllowCommunityScan` unter `Incoming`
 geladen. Auch nach erfolgreicher Struktur- und Lizenzprüfung bleiben sie als
 `COMMUNITY_UNVERIFIED` gekennzeichnet und dürfen nur isoliert getestet werden.
@@ -199,8 +199,11 @@ OS-Baseline ebenfalls real bis `TESTS_PASSED` belegt. Der Adapter lädt bei
 Bedarf das katalogisierte Microsoft-SFX, verifiziert Größe, SHA-256 und
 Microsoft-Signatur, erstellt ein hashgebundenes Offline-Daten-ISO und prüft die
 installierte Engine 12.0.6024.0 über denselben Create-/Backup-/Restore-Vertrag.
-Andere SQL-2014-Editionen sowie SQL Server 2008 R2 und älter bleiben bis zu
-einem entsprechenden realen Lauf nicht freigegeben.
+SQL Server 2008 R2 Express SP2 und SQL Server 2008 Express SP3 sind auf Windows
+Server 2008 R2 über den getrennten PowerShell-2-kompatiblen WMI-/SMB-Kanal
+ebenfalls real bis `TESTS_PASSED` belegt (Engines 10.50.4000.0 und
+10.0.5500.0). Andere SQL-2014-Editionen sowie SQL Server 2005 und älter bleiben
+bis zu einem entsprechenden realen Lauf nicht freigegeben.
 
 Windows Server 2003 SP2 besitzt einen getrennten experimentellen Legacy-Pfad.
 Das direkte Microsoft-x86-SP2-ISO ist samt Größe, SHA-1 und SHA-256 katalogisiert
