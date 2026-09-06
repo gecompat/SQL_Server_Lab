@@ -2,7 +2,7 @@
 
 ## Status
 
-`AI-00 IMPLEMENTED`, `AI-05 IMPLEMENTED`, `AI-10A SUPPORTED`, `AI-10B BACKLOG`, `AI-20` bis
+`AI-00 IMPLEMENTED`, `AI-05 IMPLEMENTED`, `AI-10A SUPPORTED`, `AI-10B IN_PROGRESS`, `AI-20` bis
 `AI-90 BACKLOG`.
 
 Dieser Backlog ist der übergeordnete SQL-zentrierte KI-Plan. Der
@@ -77,6 +77,14 @@ Re-Embedding bleiben als `AI-10B` offen.
 | AI-70 | Lokales ONNX unter Windows/Hyper-V und spätere Python-External-Language-Brücke | Jede OS-/Provider-/Runtimekombination besitzt eigenen Restart- und SQL-Nachweis |
 | AI-80 | Preview-ANN, Skalierung, Ausfall, Backup/Restore, Observability und Kosten | Exakte Suche bleibt Referenz; Preview-Ergebnisse werden separat ausgewiesen |
 | AI-90 | Geführte Vector-, Retrieval-, RAG- und Agent-Demos | Gleiche Szenariopakete und Assertions wie Entwicklung/CI |
+
+Der erste Slice von `AI-10B` ist implementiert: Die interne Endpointplanung
+bindet ausschließlich katalogisierte Modelle, blockiert Cloud ohne expliziten
+Egress und erzeugt stabile PlanKeys. Der gemeinsame Requestvertrag prüft
+Embedding-Dimensionen sowie Generate-Antworten, begrenzt Retries und gibt bei
+Timeout, Rate Limit oder ungültigen Antworten ausschließlich sanitisierte
+Reason-Codes aus. Ein deterministischer Offline-Transport deckt diese Fälle ab;
+ein realer HTTPS-Stub und native Modellruntimes bleiben offen.
 
 ## Sicherheits- und Betriebsvertrag
 

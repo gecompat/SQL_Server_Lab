@@ -32,6 +32,7 @@ sources_of_truth:
   ai_scenario_inventory: Public/Get-SqlServerLabAiScenario.ps1
   ai_scenario_execution: Public/Invoke-SqlServerLabAiScenario.ps1
   ai_vector_core_scenario: Scenarios/Ai/vector-core-ci/1.0/scenario.json
+  ai_endpoint_contract: Private/AiEndpoint.ps1
   ai_model_catalog: Catalogs/ai-models.json
   ai_model_catalog_schema: Schemas/ai-model-catalog.schema.json
   ai_endpoint_plan_schema: Schemas/ai-endpoint-plan.schema.json
