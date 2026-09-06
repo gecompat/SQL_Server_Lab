@@ -83,6 +83,17 @@ try {
     Add-CheckResult -Name 'Registry kopiert Parent in lokalen Store' -Success (Test-Path -LiteralPath $result.Artifact.Path -PathType Leaf)
     Add-CheckResult -Name 'Registry-Parent ist read-only' -Success ((Get-Item -LiteralPath $result.Artifact.Path).IsReadOnly)
     Add-CheckResult -Name 'Import ist idempotent' -Success ($result.Again.artifactId -eq $result.Artifact.artifactId)
+    $integrityCachePath = Join-Path (Split-Path -Parent $result.Artifact.Path) 'integrity-cache.json'
+    $integrityCache = Get-Content -LiteralPath $integrityCachePath -Raw -Encoding utf8 | ConvertFrom-Json
+    Add-CheckResult -Name 'Ein unveränderter Parent verwendet den gebundenen Integritätscache statt erneutem Vollhash' -Success (
+        $result.Artifact.integrityVerification.status -eq 'VERIFIED_CACHE' -and
+        $result.Again.integrityVerification.status -eq 'VERIFIED_CACHE' -and
+        $integrityCache.contractVersion -eq 'SqlServerLab.HyperVArtifactIntegrityCache/1.0' -and
+        $integrityCache.artifactId -eq $result.Artifact.artifactId -and
+        $integrityCache.sha256 -eq $result.Artifact.sha256 -and
+        [long]$integrityCache.lengthBytes -eq (Get-Item -LiteralPath $result.Artifact.Path).Length -and
+        [long]$integrityCache.lastWriteTimeUtcTicks -eq (Get-Item -LiteralPath $result.Artifact.Path).LastWriteTimeUtc.Ticks
+    )
     Add-CheckResult -Name 'Anzeigename ist nachträglich änderbar, ohne die Artifact-ID zu ändern' -Success (
         $result.Renamed.displayName -eq 'Umbenanntes Testimage' -and
         $result.Renamed.artifactId -eq $result.Artifact.artifactId -and

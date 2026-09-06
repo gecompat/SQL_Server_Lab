@@ -92,8 +92,9 @@ Die OS-Vorlagen 2008 R2 bis 2025 sind auf diesem Host real bis zum Child-Boot
 geprüft. Der allgemeine Slot- und SQL-Installationspfad verwendet außerhalb
 dieser Template-Abnahme teilweise noch PowerShell Direct. Für 2012 R2 ist der
 Lab-WinRM-Fallback inzwischen bis zu einem realen SQL-Server-2012-Setup samt
-SQL-Abnahme belegt. 2008 R2 und die allgemeinen Slotpfade benötigen weiterhin
-ihren getrennten versionsgerechten Gastkanal.
+SQL-Abnahme belegt. Für 2008 R2 ist der getrennte Legacy-WMI-/SMB-Kanal bis
+SQL-Setup und Datenbankabnahme belegt; die allgemeinen Slotpfade verwenden
+diesen Gastkanal noch nicht durchgängig.
 
 Microsoft dokumentiert für Windows Server 2008 R2 SP1 Evaluation keinen
 einzugebenden Product Key, aber eine Aktivierung innerhalb von zehn Tagen und
@@ -112,8 +113,8 @@ gewertet.
 |---|---|---|---|
 | 2000 | Eval-ISO und MSDE-EXE; Eval bleibt `COMMUNITY_UNVERIFIED` | Windows Server 2003 SP2 x86, getrenntes `LEGACY_TEMPLATE_SEALED` | fehlt |
 | 2005 | Eval-ISO und Express-SP4-EXE; Eval bleibt `COMMUNITY_UNVERIFIED` | Windows Server 2003 SP2 x86 | fehlt |
-| 2008 | hashgebundene frühere Microsoft-Eval-ISO und Express-EXE | Windows Server 2008 R2 SP1, aktuell nur kurzlebiges `OOB_GRACE` | fehlt |
-| 2008 R2 | Microsoft-signiertes Eval-SFX und Express-EXE | Windows Server 2008 R2 SP1 | SFX-Staging und Installation fehlen |
+| 2008 | hashgebundene frühere Microsoft-Eval-ISO und Express-SP3-EXE, daraus hashgebundenes Offline-Daten-ISO | Windows Server 2008 R2 SP1, child-geprüft im `OOB_GRACE` | real bestanden: unbeaufsichtigtes Express-SP3-Setup, SQL 10.0.5500.0, Legacy-WMI-Dienst-/Versionsprüfung, Create/Insert/Backup CHECKSUM/RESTORE VERIFYONLY/Drop |
+| 2008 R2 | Microsoft-signiertes Eval-SFX und Express-SP2-EXE, daraus hashgebundenes Offline-Daten-ISO | Windows Server 2008 R2 SP1, child-geprüft im `OOB_GRACE` | real bestanden: unbeaufsichtigtes Express-SP2-Setup, SQL 10.50.4000.0, Legacy-WMI-Dienst-/Versionsprüfung, Create/Insert/Backup CHECKSUM/RESTORE VERIFYONLY/Drop |
 | 2012 | hashgebundene Eval-ISO und Express-EXE | Windows Server 2012 R2, child- und aktivierungsgeprüft | real bestanden: unbeaufsichtigtes Eval-Setup, SQL 11.0.2100.60, Dienst-/Versionsprüfung, Create/Insert/Backup CHECKSUM/RESTORE VERIFYONLY/Drop |
 | 2014 | Microsoft-signiertes Express-SP3-SFX, daraus hashgebundenes Offline-Daten-ISO | Windows Server 2012 R2, child- und aktivierungsgeprüft | real bestanden: unbeaufsichtigtes Express-SP3-Setup, SQL 12.0.6024.0, Dienst-/Versionsprüfung, Create/Insert/Backup CHECKSUM/RESTORE VERIFYONLY/Drop |
 
@@ -129,10 +130,12 @@ Der wiederaufnehmbare Operatorpfad lautet:
     -Confirm:$false
 ```
 
-Die 4,5-GB-Medien werden beim erstmaligen Build vollständig gehasht. Ein
+Die SQL-Medien werden beim erstmaligen Build vollständig gehasht. Ein
 unveränderter Resume verwendet anschließend den buildlokalen SHA-256-Beleg
-zusammen mit Dateigröße, Änderungszeit und unverändertem Sidecar. Nur eine
-Abweichung erzwingt die erneute Medienverifikation.
+zusammen mit Dateigröße, Änderungszeit und unverändertem Sidecar. Versiegelte
+Parent-VHDX verwenden nach einer vollständigen SHA-256-Prüfung einen separaten,
+artifactgebundenen Integritätsbeleg aus Hash, Größe, UTC-Dateizeit und
+Read-only-Status. Nur eine Abweichung erzwingt einen erneuten Vollhash.
 
 SQL Server 2014 Express SP3 ist am 6. September 2026 mit Build
 `e1d61b10-7592-49a8-97b9-a496d89640e2` ebenfalls real bis `TESTS_PASSED`
@@ -144,7 +147,21 @@ Wiederholungsaufruf verwendete denselben Build und war einschließlich UAC nach
 `-SqlVersion 2014` und dem Nachweis
 `D:\Lab1_Base\Evidence\sql-server-2014-acceptance.json`.
 
-Die nächste Welle erweitert den belegten Gastkanal auf 2008/2008 R2 und zuletzt
-den getrennten NT5/x86-Pfad für 2005/2000. Keine weitere SQL-Version wird vor
+SQL Server 2008 R2 Express SP2 ist am 7. September 2026 mit Build
+`781923a9-7b50-481b-b787-71080c74487a` auf Windows Server 2008 R2 bis
+`TESTS_PASSED` abgenommen. Der PowerShell-2-kompatible WMI-/SMB-Kanal arbeitet
+ohne WinRM und ohne SQL-Kennwort in der Setup-Befehlszeile. Er erkannte die
+Engine `10.50.4000.0` als `Express Edition (64-bit)` und bestand denselben
+Create-/Backup-/Restore-Vertrag wie 2012 und 2014.
+
+SQL Server 2008 Express SP3 ist anschließend mit Build
+`724a4fad-c1c6-4d39-bb2b-2f3520141148` auf derselben OS-Vorlage real bis
+`TESTS_PASSED` gelaufen. Das Setup `10.0.5500.0` benötigt im Unterschied zu
+2008 R2 weder `/ENU` noch `/IACCEPTSQLSERVERLICENSETERMS`; der Runner bindet
+diesen historischen Parametersatz ausdrücklich an Version 2008 und prüft den
+asynchronen SFX-Start über den tatsächlichen `MSSQLSERVER`-Dienst.
+
+Die nächste Welle erweitert den getrennten NT5/x86-Pfad für 2005/2000. Keine
+weitere SQL-Version wird vor
 einem echten Setup-, Dienst-, Versions- und Verbindungsnachweis als `READY`
 ausgewiesen.

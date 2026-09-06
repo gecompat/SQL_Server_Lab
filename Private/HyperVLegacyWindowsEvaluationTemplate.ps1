@@ -131,11 +131,13 @@ function Get-HyperVLegacyWindowsRegistryValue {
         [Parameter(Mandatory)][Management.ManagementScope]$Scope,
         [Parameter(Mandatory)][string]$SubKey,
         [Parameter(Mandatory)][string]$Name,
+        [ValidateSet('HKLM','HKU')][string]$Hive='HKLM',
         [ValidateSet('String','DWORD')][string]$Type='String'
     )
     $registry=[Management.ManagementClass]::new($Scope,[Management.ManagementPath]::new('StdRegProv'),$null)
     $method=if($Type -eq 'DWORD'){'GetDWORDValue'}else{'GetStringValue'}
-    $input=$registry.GetMethodParameters($method); $input['hDefKey']=[uint32]2147483650
+    $input=$registry.GetMethodParameters($method)
+    $input['hDefKey']=if($Hive -eq 'HKU'){[uint32]2147483651}else{[uint32]2147483650}
     $input['sSubKeyName']=$SubKey; $input['sValueName']=$Name
     $output=$registry.InvokeMethod($method,$input,$null)
     if([uint32]$output['ReturnValue'] -ne 0){return $null}

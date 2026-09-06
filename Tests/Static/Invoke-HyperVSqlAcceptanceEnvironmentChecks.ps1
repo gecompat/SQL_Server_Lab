@@ -237,12 +237,15 @@ try {
         $acceptanceText -match 'BackupDirectory'
     )
     $legacyAcceptanceToolText = Get-Content -LiteralPath $legacyAcceptanceToolPath -Raw -Encoding utf8
-    Add-CheckResult -Name 'SQL-2012/2014-Abnahmetool ist hash-, OS-, Elevation- und Postcondition-gebunden' -Success (
-        $legacyAcceptanceToolText -match "ValidateSet\('2012','2014'\)" -and
+    Add-CheckResult -Name 'SQL-2008-bis-2014-Abnahmetool ist hash-, OS-, Elevation- und Postcondition-gebunden' -Success (
+        $legacyAcceptanceToolText -match "ValidateSet\('2008','2008R2','2012','2014'\)" -and
         $legacyAcceptanceToolText -match 'ShowHelp' -and
         $legacyAcceptanceToolText -match 'Resolve-HyperVImageArtifact' -and
         $legacyAcceptanceToolText -match 'Confirm-HyperVSqlInstallationMediaVersion' -and
         $legacyAcceptanceToolText -match 'LEGACY_SQL_ACCEPTANCE_REQUIRES_ELEVATED_RUNNER' -and
+        $legacyAcceptanceToolText -match 'SQL_SERVER_LAB_ELEVATED_CHILD' -and
+        $legacyAcceptanceToolText -match 'Start-Process -FilePath \$pwsh -Verb RunAs' -and
+        $legacyAcceptanceToolText -match "Status='ELEVATION_STARTED'" -and
         $legacyAcceptanceToolText -match 'Invoke-HyperVSqlUnattendedOobe' -and
         $legacyAcceptanceToolText -match 'Invoke-HyperVSqlTestEnvironmentInstall' -and
         $legacyAcceptanceToolText -match 'Test-HyperVSqlAcceptanceEnvironment' -and
@@ -255,6 +258,27 @@ try {
         $legacyAcceptanceToolText -match 'Save-SqlServerLabMediaSource' -and
         $legacyAcceptanceToolText -match 'New-HyperVSqlPackageMediaIso' -and
         $legacyAcceptanceToolText -match "SqlFeatures=@\('SQLENGINE'\)"
+    )
+    Add-CheckResult -Name 'SQL 2008 und 2008 R2 nutzen verifizierte Express-Service-Pack-Pakete auf Server 2008 R2' -Success (
+        $legacyAcceptanceToolText -match 'sql-server-2008-express-sp3-archive' -and
+        $legacyAcceptanceToolText -match 'SQLServer2008SP3Express-x64-ENU\.iso' -and
+        $legacyAcceptanceToolText -match 'sql-server-2008r2-express-sp2-full' -and
+        $legacyAcceptanceToolText -match 'SQLServer2008R2SP2Express-x64-ENU\.iso' -and
+        $legacyAcceptanceToolText -match "OperatingSystemId='windows-server-2008-r2'" -and
+        $legacyAcceptanceToolText -match 'MinimumEvaluationDaysRemaining=1'
+    )
+    Add-CheckResult -Name 'Server-2008-R2-Gastpfad bleibt PowerShell-2-kompatibel und setzt die Logon-Tastatur' -Success (
+        $acceptanceText -match 'New-HyperVSqlLegacyGuestNetworkBootstrapScript' -and
+        $acceptanceText -match 'Get-WmiObject Win32_NetworkAdapterConfiguration' -and
+        $acceptanceText -match 'HKU\\\.DEFAULT\\Keyboard Layout\\Preload' -and
+        $acceptanceText -match 'Invoke-HyperVLegacySqlSetup' -and
+        $acceptanceText -match 'New-Object PSObject -Property' -and
+        $acceptanceText -match 'NETWORK SERVICE' -and
+        $acceptanceText -match 'Wait-HyperVLegacySqlReady' -and
+        $acceptanceText -match 'Invoke-HyperVLegacySqlAcceptanceTest' -and
+        $acceptanceText -match 'Integrated Security=SSPI' -and
+        $acceptanceText -match 'Export-Csv -Path \$temporaryPath -NoTypeInformation' -and
+        $acceptanceText -notmatch 'Export-Clixml'
     )
     $resumeStart = $legacyAcceptanceToolText.IndexOf('$resolved=if($existingBuilds.Count -eq 1)')
     $newBuildStart = $legacyAcceptanceToolText.IndexOf('}else{& $module {', $resumeStart)
