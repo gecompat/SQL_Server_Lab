@@ -58,7 +58,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Backup-SqlServerLabDatabase` | `Backup-SqlServerLabDatabase.ps1` | Providerneutrales, gehashtes SQL-Backup erst nach `CHECKSUM` und `RESTORE VERIFYONLY` in der registrierten `Lab_Data`-Bibliothek veröffentlichen |
 | `Invoke-SqlServerLabScript` | `Invoke-SqlServerLabScript.ps1` | T-SQL-Skript mit `GO`-Batchtrennung ausführen |
 | `Invoke-SqlServerLabAiScenario` | `Invoke-SqlServerLabAiScenario.ps1` | Deklariertes SQL-KI-Szenario nach Revalidierung journalisiert ausführen; unterstützt `WhatIf`, No-op, Force und automatisches Cleanup |
-| `Invoke-SqlServerLabAiModel` | `Invoke-SqlServerLabAiModel.ps1` | Katalogisiertes Ollama-Cloud-Modell mit explizitem Egress, Datenklasse, begrenztem Budget und lokalem `.env`-Secret aufrufen |
+| `Invoke-SqlServerLabAiModel` | `Invoke-SqlServerLabAiModel.ps1` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress, Datenklasse und begrenztem Budget aufrufen |
 | `Test-SqlServerLabContainerTool` | `Test-SqlServerLabContainerTool.ps1` | Kataloggebundenes SqlPackage per Run-/Scope-gebundenem read-only Versionsprobe prüfen |
 | `Restore-SqlServerLabDatabase` | `Restore-SqlServerLabDatabase.ps1` | Verifiziertes Lab_Data-Backup per stabiler `BackupSetId` oder direkte `.bak`-Datei wiederherstellen; URL-Acquisition mit SHA-256, lokalem Trust Store und inhaltsadressiertem Cache; Ziel bevorzugt per RunId aufloesen |
 | `Get-SqlServerLabGeneratedSqlAccess` | `Get-SqlServerLabGeneratedSqlAccess.ps1` | Hyper-V-SQL-Laufzeit passwortgesicherte SA-Zugriffsdaten mit ConnectionString als kopierfertiges Objekt zurückgeben |

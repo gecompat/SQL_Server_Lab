@@ -60,7 +60,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | Sample-Datenbanken (Backup) | implementiert | `Private/SampleArtifactHandlers.ps1`; direkte `.bak`-Varianten über Trust-/Hash-Pfad, Mehrfachauswahl im Menü und `New-SqlServerLab -Sample` |
 | Project Adapter (v0.1) | implementiert | `Schemas/project-adapter.schema.json`, `Test-SqlServerLabAdapter`, `Install-SqlServerLabAdapter`; T-SQL-Entrypoints ohne Lifecycle-Seiteneffekt |
 | T-SQL-Skriptausführung | implementiert | `Invoke-SqlServerLabScript` |
-| SQL-2025-KI-Szenarien | Manifest-/Szenariovertrag, deterministischer Vector-Core und opt-in Ollama-Cloud-Generation implementiert; lokale Modellruntimes bleiben offen | `Get-SqlServerLabAiScenario`, `Invoke-SqlServerLabAiScenario`, `Invoke-SqlServerLabAiModel` |
+| SQL-2025-KI-Szenarien | Manifest-/Szenariovertrag, deterministischer Vector-Core, lokale Ollama-Embedding-/Generation-Lanes für Docker und Podman sowie opt-in Cloud-Generation implementiert | `Get-SqlServerLabAiScenario`, `Invoke-SqlServerLabAiScenario`, `Invoke-SqlServerLabAiModel` |
 | Provider-/Versions-/Parallel-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeMatrix.ps1` |
 | Einzelprovider-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
 | Statische Konsistenzprüfung | implementiert | `Tests/Static/Invoke-DocumentationChecks.ps1` |
@@ -712,7 +712,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Get-SqlServerLabAiScenario` | Katalogisierten KI-Szenarioplan und optionale sanitisierte Run-Evidence anzeigen |
 | `Invoke-SqlServerLabAiScenario` | Deklariertes, hashgebundenes SQL-KI-Szenario journalisiert ausführen |
-| `Invoke-SqlServerLabAiModel` | Katalogisiertes Ollama-Cloud-Modell mit explizitem Egress und lokalem `.env`-Secret aufrufen |
+| `Invoke-SqlServerLabAiModel` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress und lokalem `.env`-Secret aufrufen |
 | `Test-SqlServerLabContainerTool` | Kataloggebundenes SqlPackage read-only per Run-/Scope-gebundener Versionsprobe prüfen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |
 | `Get-SqlServerLabGeneratedWindowsAccess` | Das automatisch generierte Windows-Administratorpasswort eines ausgewählten Hyper-V-Slots gezielt abrufen |

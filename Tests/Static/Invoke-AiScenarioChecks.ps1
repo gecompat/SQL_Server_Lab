@@ -204,6 +204,27 @@ try {
     try { & $module { param($SecretFixture) Get-LabAiDotEnvSecret -Path $SecretFixture } $secretFixture }
     catch { $duplicateSecretRejected=$_.Exception.Message -eq 'AI_SECRET_OLLAMA_MISSING_OR_DUPLICATE' }
     Add-CheckResult 'Fehlender oder doppelter OLLAMA-Schlüssel wird fail-closed abgelehnt' $duplicateSecretRejected
+
+    $publicLocalPlan=& $module {
+        Invoke-SqlServerLabAiModel -ModelKey ollama-embeddinggemma-300m-q4 -Lane local -LocalPort 23456 `
+            -InputText 'synthetisch' -DataClassification synthetic-only -WhatIf
+    }
+    Add-CheckResult 'Lokaler WhatIf-Plan bindet dynamischen Loopback-Port ohne Credential oder Egress' (
+        (($publicLocalPlan | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile $endpointSchema -ErrorAction SilentlyContinue) -and
+        $publicLocalPlan.Port -eq 23456 -and $null -eq $publicLocalPlan.CredentialRef -and $publicLocalPlan.Egress -eq 'denied')
+
+    $laneMismatch=& $module {
+        New-LabAiEndpointPlan -ModelKey ollama-gpt-oss-120b-cloud -EndpointRef ollama-local -Lane local
+    }
+    Add-CheckResult 'Cloudmodell kann nicht still auf die lokale Lane wechseln' (
+        $laneMismatch.Status -eq 'BLOCKED' -and $laneMismatch.Blockers -contains 'AI_ENDPOINT_MODEL_LANE_MISMATCH')
+
+    $capabilities=& $module { Get-LabProviderCapabilityContract }
+    $dockerAi=@(($capabilities | Where-Object Provider -eq docker).Capabilities.SourceKey)
+    $podmanAi=@(($capabilities | Where-Object Provider -eq podman).Capabilities.SourceKey)
+    $hyperVAi=@(($capabilities | Where-Object Provider -eq hyperv).Capabilities.SourceKey)
+    Add-CheckResult 'Docker und Podman deklarieren lokale Ollama-Evidence getrennt von Hyper-V' (
+        $dockerAi -contains 'ollama-local' -and $podmanAi -contains 'ollama-local' -and $hyperVAi -notcontains 'ollama-local')
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue

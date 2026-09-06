@@ -38,7 +38,8 @@ function New-LabAiEndpointPlan {
         [int]$MaximumRequests = 10,
         [int]$MaximumOutputTokens = 512,
         [int]$TimeoutSeconds = 60,
-        [int]$RetryCount = 1
+        [int]$RetryCount = 1,
+        [ValidateRange(1024,65535)][int]$LocalPort = 11434
     )
 
     $model = Get-LabAiModelCatalogEntry -ModelKey $ModelKey
@@ -58,6 +59,7 @@ function New-LabAiEndpointPlan {
         Contract='SqlServerLab.AiEndpointPlan/1.0';Lane=$Lane;EndpointRef=$EndpointRef
         ModelKey=$ModelKey;Model=[string]$model.model;IdentityPolicy=[string]$model.identityPolicy
         Purpose=[string]$model.purpose;Dimension=if ($model.dimension) { [int]$model.dimension } else { $null }
+        Port=if ($Lane -eq 'local') { $LocalPort } else { $null }
         CredentialRef=$credentialRef;Egress=if ($AllowCloudEgress) { 'explicit' } else { 'denied' }
         RequestBudget=[ordered]@{MaximumRequests=$MaximumRequests;MaximumOutputTokens=$MaximumOutputTokens;TimeoutSeconds=$TimeoutSeconds;RetryCount=$RetryCount}
     }
@@ -66,11 +68,12 @@ function New-LabAiEndpointPlan {
         Status=if ($blockers.Count) { 'BLOCKED' } else { 'NOT_PROBED' }
         Lane=$Lane;EndpointRef=$EndpointRef;TargetHost=$hostName;ModelKey=$ModelKey
         Purpose=[string]$model.purpose;Dimension=if ($model.dimension) { [int]$model.dimension } else { $null }
+        Port=if ($Lane -eq 'local') { $LocalPort } else { $null }
         CredentialRef=$credentialRef;Egress=if ($AllowCloudEgress) { 'explicit' } else { 'denied' }
         RequestBudget=[PSCustomObject]$planIdentity.RequestBudget
         Blockers=@($blockers);Warnings=@();PlanKey=Get-LabAiPlanKey -InputObject $planIdentity
         InternalModel=[string]$model.model
-        InternalBaseUri=switch ($Lane) { 'stub' { $null }; 'local' { 'http://127.0.0.1:11434' }; 'cloud' { 'https://ollama.com' } }
+        InternalBaseUri=switch ($Lane) { 'stub' { $null }; 'local' { "http://127.0.0.1:$LocalPort" }; 'cloud' { 'https://ollama.com' } }
     }
 }
 

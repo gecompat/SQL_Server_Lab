@@ -4,6 +4,16 @@
     "name": "SqlServerLab.AiModelCatalog",
     "version": "1.0"
   },
+  "runtimes": [
+    {
+      "key": "ollama-container-0-11-10",
+      "image": "ollama/ollama",
+      "version": "0.11.10",
+      "status": "SUPPORTED",
+      "identityPolicy": "LIVE_IMAGE_DIGEST_REQUIRED",
+      "source": "https://hub.docker.com/r/ollama/ollama"
+    }
+  ],
   "models": [
     {
       "key": "ollama-embeddinggemma-300m-q4",
@@ -12,7 +22,7 @@
       "purpose": "embedding",
       "model": "embeddinggemma:300m-qat-q4_0",
       "dimension": 768,
-      "status": "PLANNED",
+      "status": "SUPPORTED",
       "minimumOllamaVersion": "0.11.10",
       "identityPolicy": "LIVE_MANIFEST_DIGEST_REQUIRED",
       "estimatedSizeBytes": 250609664,
@@ -25,7 +35,7 @@
       "lane": "local",
       "purpose": "generation",
       "model": "gemma3:1b",
-      "status": "PLANNED",
+      "status": "SUPPORTED",
       "minimumOllamaVersion": "0.11.10",
       "identityPolicy": "LIVE_MANIFEST_DIGEST_REQUIRED",
       "estimatedSizeBytes": 1073741824,

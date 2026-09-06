@@ -168,6 +168,15 @@ benötigt eine lokale `.env`-Datei mit dem Schlüssel `OLLAMA`:
 .\Tests\Integration\Invoke-AiOllamaCloudAcceptance.ps1 -SecretFilePath 'D:\Lab1_Base\.env'
 ```
 
+Lokale Embedding- und Generation-Modelle werden mit getrennten nativen
+Providerläufen, dynamischem Loopback-Port, Live-Digests, Restart und Cleanup
+abgenommen:
+
+```powershell
+.\Tests\Integration\Invoke-AiOllamaContainerAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-AiOllamaContainerAcceptance.ps1 -Provider podman
+```
+
 Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kontrollieren unter anderem:
 
 - JSON-Syntax der Kataloge, Schemas und Beispiele;

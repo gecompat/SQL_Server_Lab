@@ -229,8 +229,8 @@ Sync-SqlServerLabRunScopedContainerStore
         validation with a journaled cleanup path.
 
     Invoke-SqlServerLabAiModel
-        Calls a cataloged Ollama Cloud model with explicit egress, declared
-        data classification, a local secret, and a bounded request budget.
+        Calls a cataloged local or Ollama Cloud model with declared data
+        classification and a bounded request budget.
 
     Get-SqlServerLabGeneratedSqlAccess
         Returns runtime SQL access for an automatically generated SQL Server SA

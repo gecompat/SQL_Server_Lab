@@ -12,15 +12,22 @@ Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimep
 Der Ollama-Modellkatalog sowie die Verträge für Endpointplan, Runtimejournal
 und sanitisierte Abfrageergebnisse sind vorhanden. Ollama-Cloud-Generation ist
 mit `gpt-oss:120b` für synthetische oder öffentlich/weiterverteilbare Inhalte
-opt-in unterstützt und am 2026-09-06 real nachgewiesen. Lokale Modelle und
-Ollama-Cloud-Embeddings bleiben `PLANNED`; es gibt dafür noch keinen Docker-,
-Podman- oder Hyper-V-Nachweis.
+opt-in unterstützt und am 2026-09-06 real nachgewiesen. Lokale Embedding- und
+Generierungsmodelle sind am selben Tag unter Docker und Podman getrennt mit
+Live-Digests, Restart und Cleanup nachgewiesen. Ollama-Cloud-Embeddings und
+die Hyper-V-Ollama-Lane bleiben `PLANNED`.
 Der implementierte Offline-Transport prüft Request-, Retry-, Dimensions- und
 Fehlerverträge, stellt aber selbst keinen Netzwerkdienst bereit.
 Interne Inhalte werden vom Cloud-Command fail-closed abgelehnt. Eine breit
 lesbare `.env` erzeugt nur eine Warnung, weil dieser Repositorylauf ausdrücklich
 auf Warn-only festgelegt wurde. Secretwerte bleiben aus Plan, State,
 Prozessargumenten, Logs und Ergebnissen ausgeschlossen.
+
+Die lokale Controller-Lane akzeptiert ausschließlich einen dynamisch oder fest
+gebundenen Loopback-Port. Sie ist noch keine SQL-seitige External-Model-
+Integration: SQL Server benötigt dafür einen HTTPS-Endpunkt samt gebundenem
+Trust- und Credential-Lifecycle. Der derzeitige Container-Smoke hält bewusst
+keinen Modellcache zurück und lädt Modelle daher bei jedem Lauf erneut.
 
 ## Provider
 
