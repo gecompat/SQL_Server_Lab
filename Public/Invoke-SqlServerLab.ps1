@@ -495,8 +495,8 @@ function Get-LabWindowsMediaOperatingSystemLabel {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$OperatingSystemId)
 
-    if ($OperatingSystemId -match '^windows-server-(?<version>[0-9]+)$') {
-        return "Windows Server $($Matches.version)"
+    if ($OperatingSystemId -match '^windows-server-(?<version>[0-9]+)(?<r2>-r2)?$') {
+        return "Windows Server $($Matches.version)$(if ([string]$Matches.r2) { ' R2' })"
     }
     if ($OperatingSystemId -match '^windows-(?<version>[0-9]+)$') {
         return "Windows $($Matches.version)"
@@ -509,8 +509,8 @@ function Get-LabWindowsMediaOperatingSystemSortKey {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$OperatingSystemId)
 
-    if ($OperatingSystemId -match '^windows-server-(?<version>[0-9]+)$') {
-        return ('0-{0:D4}' -f (9999 - [int]$Matches.version))
+    if ($OperatingSystemId -match '^windows-server-(?<version>[0-9]+)(?<r2>-r2)?$') {
+        return ('0-{0:D4}-{1}' -f (9999 - [int]$Matches.version), $(if ([string]$Matches.r2) { '0' } else { '1' }))
     }
     if ($OperatingSystemId -match '^windows-(?<version>[0-9]+)$') {
         return ('1-{0:D4}' -f (9999 - [int]$Matches.version))
@@ -1935,7 +1935,7 @@ function Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive {
     }
     $osArtifacts = @($artifacts | Where-Object {
         [string]$_.artifactState -eq 'OS_SEALED' -and
-        [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+$'
+        [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+(?:-r2)?$'
     })
 
     if ($osArtifacts.Count -eq 0) {
@@ -1960,7 +1960,7 @@ function Invoke-LabNewHyperVSqlEnvironmentWorkflowInteractive {
 
         $osArtifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object {
             [string]$_.artifactState -eq 'OS_SEALED' -and
-            [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+$'
+            [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+(?:-r2)?$'
         })
         if ($osArtifacts.Count -eq 0) {
             Write-LabInfo 'Die OS-Vorlage benötigt noch die angezeigten manuellen Windows-Schritte.'
@@ -2948,7 +2948,7 @@ function Select-LabHyperVOsArtifact {
     param()
 
     $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck | Where-Object {
-        $_.artifactState -eq 'OS_SEALED' -and [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+$'
+        $_.artifactState -eq 'OS_SEALED' -and [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+(?:-r2)?$'
     })
     if ($artifacts.Count -eq 0) { Write-LabError 'Keine veröffentlichte Windows-OS-Baseline vorhanden.'; return $null }
     if ($artifacts.Count -eq 1) { return $artifacts[0] }

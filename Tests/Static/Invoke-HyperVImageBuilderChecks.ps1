@@ -17,6 +17,9 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $builderPath = Join-Path $repoRoot 'Private/HyperVImageBuilder.ps1'
+$evaluationTemplatePath = Join-Path $repoRoot 'Private/HyperVWindowsEvaluationTemplate.ps1'
+$legacyEvaluationTemplatePath = Join-Path $repoRoot 'Private/HyperVLegacyWindowsEvaluationTemplate.ps1'
+$evaluationTemplateToolPath = Join-Path $repoRoot 'Tools/New-WindowsServerEvaluationTemplate.ps1'
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-image-builder-$([guid]::NewGuid().ToString('N'))"
 $isoPath = Join-Path $temporaryRoot 'synthetic.iso'
 $evidencePath = Join-Path $temporaryRoot 'generalization-evidence.json'
@@ -30,6 +33,8 @@ try {
     $sha = (Get-FileHash $isoPath -Algorithm SHA256).Hash
     $module = Import-Module $modulePath -Force -PassThru
     $operatorText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVImageOperator.ps1') -Raw
+    $builderText = Get-Content -LiteralPath $builderPath -Raw
+    $legacyEvaluationTemplateText = Get-Content -LiteralPath $legacyEvaluationTemplatePath -Raw
     $plan = & $module { param($Iso,$Sha,$Root) New-HyperVWindowsImageBuildPlan -IsoPath $Iso -ExpectedSha256 $Sha -OperatingSystemId synthetic-ci -Edition none -InstallationType synthetic -LicenseType test-only -OsDiskSizeBytes 64MB -StateRoot $Root } $isoPath $sha $temporaryRoot
     Add-CheckResult -Name 'Build startet in MEDIA_VERIFIED' -Success ($plan.state -eq 'MEDIA_VERIFIED')
     Add-CheckResult -Name 'Windows-Build persistiert den initialen Leertastenvertrag' -Success ($plan.media.bootInteraction.initialMediaKey -eq 'space')
@@ -39,6 +44,59 @@ try {
     )
     $noInputPlan = & $module { param($Iso,$Sha,$Root) New-HyperVWindowsImageBuildPlan -IsoPath $Iso -ExpectedSha256 $Sha -OperatingSystemId synthetic-ci -Edition none -InstallationType synthetic -LicenseType test-only -InitialMediaKey none -OsDiskSizeBytes 64MB -StateRoot $Root } $isoPath $sha (Join-Path $temporaryRoot 'no-input-plan')
     Add-CheckResult -Name 'Installationsmedium kann Tastatureingaben explizit deaktivieren' -Success ($noInputPlan.media.bootInteraction.initialMediaKey -eq 'none')
+    $legacyGenerationPlan = & $module { param($Iso,$Sha,$Root) New-HyperVWindowsImageBuildPlan -IsoPath $Iso -ExpectedSha256 $Sha -OperatingSystemId windows-server-2008-r2 -Edition standard-evaluation -InstallationType desktop-experience -LicenseType evaluation -OsDiskSizeBytes 64MB -StateRoot $Root } $isoPath $sha (Join-Path $temporaryRoot 'legacy-generation-plan')
+    Add-CheckResult -Name 'Windows Server 2008 R2 plant Generation 1 ohne Secure Boot' -Success (
+        $legacyGenerationPlan.platform.vmGeneration -eq 1 -and
+        -not $legacyGenerationPlan.platform.secureBoot -and
+        $legacyGenerationPlan.platform.guestControl -eq 'legacy-wmi'
+    )
+    $legacy2012Plan = & $module { param($Iso,$Sha,$Root) New-HyperVWindowsImageBuildPlan -IsoPath $Iso -ExpectedSha256 $Sha -OperatingSystemId windows-server-2012-r2 -Edition standard-evaluation -InstallationType desktop-experience -LicenseType evaluation -OsDiskSizeBytes 64MB -StateRoot $Root } $isoPath $sha (Join-Path $temporaryRoot 'legacy-2012-platform-plan')
+    Add-CheckResult -Name 'Windows Server 2012 R2 bleibt Generation 2 mit Secure Boot aus' -Success (
+        [int]$legacy2012Plan.platform.vmGeneration -eq 2 -and $legacy2012Plan.platform.secureBoot -eq $false -and
+        $builderText -match 'Set-VMFirmware[^\r\n]+-EnableSecureBoot Off'
+    )
+    $legacyVariantRoot = Join-Path $temporaryRoot 'legacy-variant-evidence'
+    $legacyVariantEvidenceRoot = Join-Path $legacyVariantRoot 'Evidence'
+    New-Item -Path $legacyVariantEvidenceRoot -ItemType Directory -Force | Out-Null
+    $legacyVariantDocument = [pscustomobject]@{
+        Kind = 'windows-server-evaluation-media-validation'
+        Results = @([pscustomobject]@{
+            Status = 'VERIFIED'; WindowsVersion = '2008R2'; Sha256 = $sha.ToLowerInvariant()
+            Images = @(
+                [pscustomobject]@{ Index=1; Name='Windows Server 2008 R2 Standard (Full Installation)'; EditionId='ServerStandard'; InstallationType='Server' },
+                [pscustomobject]@{ Index=2; Name='Windows Server 2008 R2 Standard (Server Core Installation)'; EditionId='ServerStandard'; InstallationType='Server Core' }
+            )
+        })
+    }
+    [IO.File]::WriteAllText(
+        (Join-Path $legacyVariantEvidenceRoot 'windows-server-evaluation-media-validation.json'),
+        ($legacyVariantDocument | ConvertTo-Json -Depth 8),
+        [Text.UTF8Encoding]::new($false))
+    $legacyVariant = & $module {
+        param($Root,$Sha)
+        Get-HyperVWindowsEvaluationVariantEvidence -MediaRoot $Root -Version 2008R2 `
+            -OperatingSystemId windows-server-2008-r2 -ExpectedSha256 $Sha
+    } $legacyVariantRoot $sha
+    Add-CheckResult -Name 'Windows Server 2008 R2 erkennt Standard Full Installation eindeutig' -Success (
+        $legacyVariant.ImageIndex -eq 1 -and $legacyVariant.InstallationType -eq 'desktop-experience'
+    )
+    $partitionAnswers = & $module {
+        $root='<unattend xmlns="urn:schemas-microsoft-com:unattend"></unattend>'
+        [pscustomobject]@{
+            Bios = Add-HyperVWindowsSetupPassToUnattend -OobeUnattend $root -ImageIndex 4 -VmGeneration 1
+            Uefi = Add-HyperVWindowsSetupPassToUnattend -OobeUnattend $root -ImageIndex 2 -VmGeneration 2
+        }
+    }
+    [void][xml]$partitionAnswers.Bios
+    [void][xml]$partitionAnswers.Uefi
+    Add-CheckResult -Name 'Unattended Setup trennt BIOS-MBR und UEFI-GPT deterministisch' -Success (
+        $partitionAnswers.Bios -match '<Active>true</Active>' -and
+        $partitionAnswers.Bios -match '<PartitionID>2</PartitionID></InstallTo>' -and
+        $partitionAnswers.Bios -notmatch '<Type>EFI</Type>' -and
+        $partitionAnswers.Uefi -match '<Type>EFI</Type>' -and
+        $partitionAnswers.Uefi -match '<Type>MSR</Type>' -and
+        $partitionAnswers.Uefi -match '<PartitionID>3</PartitionID></InstallTo>'
+    )
     $mediaCatalog = & $module { Get-LabMediaSourceCatalog }
     Add-CheckResult -Name 'Medienkatalog trennt Windows-Leertaste und Linux ohne Eingabe' -Success (
         @($mediaCatalog | Where-Object { $_.Category -like 'Windows*' -and $_.BootInteraction.InitialMediaKey -ne 'space' }).Count -eq 0 -and
@@ -108,11 +166,15 @@ try {
     $legacyChildToolPath = Join-Path $repoRoot 'Tools/New-WindowsServer2003LegacyChild.ps1'
     $legacyActivationToolPath = Join-Path $repoRoot 'Tools/Invoke-WindowsServer2003LegacyActivation.ps1'
     $legacyIntegrationMediaToolPath = Join-Path $repoRoot 'Tools/Test-WindowsServer2003HyperVIntegrationMedia.ps1'
+    $windowsEvaluationMediaToolPath = Join-Path $repoRoot 'Tools/Test-WindowsServerEvaluationMedia.ps1'
+    $windowsMediaInspectorInstallerPath = Join-Path $repoRoot 'Tools/Install-WindowsServerMediaInspector.ps1'
     $legacyTemplateRunbookPath = Join-Path $repoRoot 'Documentation/HowTo/WINDOWS_SERVER_2003_LEGACY_TEMPLATE.md'
     $legacySysprepToolText = Get-Content -LiteralPath $legacySysprepToolPath -Raw -Encoding utf8
     $legacyChildToolText = Get-Content -LiteralPath $legacyChildToolPath -Raw -Encoding utf8
     $legacyActivationToolText = Get-Content -LiteralPath $legacyActivationToolPath -Raw -Encoding utf8
     $legacyIntegrationMediaToolText = Get-Content -LiteralPath $legacyIntegrationMediaToolPath -Raw -Encoding utf8
+    $windowsEvaluationMediaToolText = Get-Content -LiteralPath $windowsEvaluationMediaToolPath -Raw -Encoding utf8
+    $windowsMediaInspectorInstallerText = Get-Content -LiteralPath $windowsMediaInspectorInstallerPath -Raw -Encoding utf8
     $legacyTemplateRunbookText = Get-Content -LiteralPath $legacyTemplateRunbookPath -Raw -Encoding utf8
     Add-CheckResult -Name 'Windows-Server-2003-Legacy-Reseal bleibt schlüsselfrei und Generation 1 getrennt' -Success (
         $legacySysprepToolText -match 'SysprepVersion\s*=\s*\$sysprepVersion' -and
@@ -165,6 +227,11 @@ try {
         $legacyActivationToolText -notmatch '(?i)(?<![A-Z0-9])[A-Z0-9]{5}(?:-[A-Z0-9]{5}){4}(?![A-Z0-9])' -and
         $legacyActivationToolText -match 'Win32_WindowsProductActivation' -and
         $legacyActivationToolText -match 'ActivateOnline' -and
+        $legacyActivationToolText -match 'GetInstallationID' -and
+        $legacyActivationToolText -match 'ActivateOffline' -and
+        $legacyActivationToolText -match '\[SecureString\]\s*\$OfflineConfirmationId' -and
+        $legacyActivationToolText -match 'OFFLINE_ACTIVATION_PREPARED' -and
+        $legacyActivationToolText -match 'ConfirmationIdDisclosed\s*=\s*\$false' -and
         $legacyActivationToolText -match 'ActivationRequired' -and
         $legacyActivationToolText -match 'shutdown\.exe -s -t 0 -f'
     )
@@ -212,6 +279,28 @@ try {
             -not $_.ExpectedSha256 -or
             $_.RequiresExplicitTrust
         }).Count -eq 0
+    )
+    Add-CheckResult -Name 'Windows-Evaluationsmedien werden katalog-, hash- und WIM-gebunden geprüft' -Success (
+        $windowsEvaluationMediaToolText -match 'sql-server-media-sources\.json' -and
+        $windowsEvaluationMediaToolText -match 'expectedBytes' -and
+        $windowsEvaluationMediaToolText -match 'expectedSha256' -and
+        $windowsEvaluationMediaToolText -match 'Get-WindowsImage' -and
+        $windowsEvaluationMediaToolText -match "ValidateSet\('Auto', 'Microsoft', 'Wimlib'\)" -and
+        $windowsEvaluationMediaToolText -match 'wimlib-imagex' -and
+        $windowsEvaluationMediaToolText -match 'PORTABLE_EXTRACTION_CLEANUP_SCOPE_INVALID' -and
+        $windowsEvaluationMediaToolText -match '2f446d6fa3866582175f1a22a7be198eeee0aec7aba5b4e04ad25c99eae2d265' -and
+        $windowsEvaluationMediaToolText -match 'Mount-DiskImage[\s\S]+-Access ReadOnly' -and
+        $windowsEvaluationMediaToolText -match 'if \(\$mountedByThisRun[\s\S]+Dismount-DiskImage' -and
+        $windowsEvaluationMediaToolText -match "'2008R2'\) \{ 1 \} else \{ 2 \}" -and
+        $windowsEvaluationMediaToolText -match 'SecureBoot = \$requiredGeneration -eq 2 -and \[string\]\$entry\.version -ne ''2012R2''' -and
+        $windowsEvaluationMediaToolText -match "Kind = 'windows-server-evaluation-media-validation'"
+    )
+    Add-CheckResult -Name 'Portabler WIM-Prüfer ist reproduzierbar installierbar und hashgebunden' -Success (
+        $windowsMediaInspectorInstallerText -match 'https://wimlib\.net/downloads/wimlib-1\.14\.5-windows-x86_64-bin\.zip' -and
+        $windowsMediaInspectorInstallerText -match '2f446d6fa3866582175f1a22a7be198eeee0aec7aba5b4e04ad25c99eae2d265' -and
+        $windowsMediaInspectorInstallerText -match '34c0c4165591ad1f592837ed99d08273c58d6ed3fe0ed6360cf34e7b0739b353' -and
+        $windowsMediaInspectorInstallerText -match 'WINDOWS_SERVER_MEDIA_INSPECTOR_TARGET_CONFLICT' -and
+        $windowsMediaInspectorInstallerText -match 'SupportsShouldProcess'
     )
     $plannedDirectWindowsMedia = Save-SqlServerLabMediaSource -Id 'windows-server-2022-evaluation-iso' -MediaRoot $temporaryRoot -WhatIf
     Add-CheckResult -Name 'Microsoft-Evaluation besitzt ohne Formularmutation einen reproduzierbaren WhatIf-Plan' -Success (
@@ -305,7 +394,8 @@ try {
     Add-CheckResult -Name 'Cleanup-Plan existiert vor Provider-Mutation' -Success (Test-Path (Join-Path $plan.BuildDirectory 'cleanup-plan.json'))
     $rawState = Get-Content (Join-Path $plan.BuildDirectory 'build-state.json') -Raw
     Add-CheckResult -Name 'Portabler Build-State enthaelt keinen ISO-Hostpfad' -Success ($rawState -notmatch [regex]::Escape($isoPath))
-    $builderText = Get-Content $builderPath -Raw
+    $evaluationTemplateText = Get-Content $evaluationTemplatePath -Raw
+    $evaluationTemplateToolText = Get-Content $evaluationTemplateToolPath -Raw
     Add-CheckResult -Name 'Cleanup-Schritte stehen vor New-VHD' -Success ($builderText -match 'Add-CleanupStep[\s\S]+Add-CleanupStep[\s\S]+New-VHD')
     $notesIndex = $builderText.IndexOf('ConvertTo-HyperVLabNotes')
     $dvdIndex = $builderText.IndexOf('Add-VMDvdDrive')
@@ -315,8 +405,66 @@ try {
         $builderText -match 'New-VM[\s\S]+?-Path\s+\$resourceRoot' -and
         $builderText -match 'Assert-HyperVVMResourceBinding'
     )
-    Add-CheckResult -Name 'Builder ist Generation 2 mit Secure Boot' -Success ($builderText -match 'Generation\s+2[\s\S]+EnableSecureBoot\s+On')
+    Add-CheckResult -Name 'Builder leitet Generation und Secure Boot versionsgerecht ab' -Success (
+        $builderText -match "windows-server-2008-r2'\)\) \{ 1 \} else \{ 2 \}" -and
+        $builderText -match 'New-VM[\s\S]+-Generation\s+\$vmGeneration' -and
+        $builderText -match 'if \(\$vmGeneration -eq 2\)[\s\S]+EnableSecureBoot\s+On' -and
+        $builderText -match 'Set-VMBios[\s\S]+BootDevice\]::CD[\s\S]+BootDevice\]::IDE'
+    )
     Add-CheckResult -Name 'Builder deaktiviert automatische Hyper-V-Checkpoints' -Success ($builderText -match 'Set-VM[^\r\n]+AutomaticCheckpointsEnabled\s+\$false')
+    Add-CheckResult -Name 'Windows Server 2016 bis 2025 besitzen einen geheimnisfreien Unattended-Publish-Pfad' -Success (
+        $evaluationTemplateToolText -match "ValidateSet\('2008R2','2012R2','2016','2019','2022','2025'\)" -and
+        $evaluationTemplateText -match 'New-HyperVSqlUnattendedPassword' -and
+        $evaluationTemplateText -match 'Wait-HyperVPowerShellDirect' -and
+        $evaluationTemplateText -match 'SoftwareLicensingProduct' -and
+        $evaluationTemplateText -match 'Invoke-HyperVWindowsEvaluationBuilderActivation' -and
+        $evaluationTemplateText -match '\$activationErrorText[\s\S]+\[string\]\$_[\s\S]+another activation attempt is in progress' -and
+        $evaluationTemplateText -match 'Resolve-HyperVWindowsEvaluationCatalogMedia' -and
+        $evaluationTemplateText -match 'CATALOG_HASH_SIDECAR_MATCH' -and
+        $evaluationTemplateText -match "Language -eq 'en-US'" -and
+        $evaluationTemplateText -match 'SQL_SERVER_LAB_ACTIVATION_TEMP' -and
+        $evaluationTemplateText -match 'Add-VMNetworkAdapter[\s\S]+Remove-VMNetworkAdapter' -and
+        $evaluationTemplateText -match 'HYPERV_WINDOWS_TEMPLATE_EVALUATION_NOT_ACTIVE' -and
+        $evaluationTemplateText -match 'Remove-VMDvdDrive[\s\S]+Remove-Item -LiteralPath \$answerIsoPath[\s\S]+Confirm-HyperVWindowsImageInstallation[\s\S]+Invoke-HyperVWindowsImageGeneralization[\s\S]+Publish-HyperVWindowsImageBuild' -and
+        $evaluationTemplateText -match 'KeepOnFailure' -and
+        $evaluationTemplateText -match 'Remove-HyperVWindowsImageBuild' -and
+        $evaluationTemplateText -match 'New-HyperVLabEnvironment[\s\S]+template-validation-answer\.iso[\s\S]+Add-VMDvdDrive[\s\S]+Wait-HyperVPowerShellDirect[\s\S]+Stop-HyperVInstance[\s\S]+Start-HyperVInstance[\s\S]+HYPERV_WINDOWS_TEMPLATE_CHILD_POSTCONDITION_FAILED' -and
+        $evaluationTemplateText -match 'RequireChildBootValidation' -and
+        $evaluationTemplateText -match 'TemplateValidationRun' -and
+        $evaluationTemplateText -match 'Set-HyperVImageArtifactChildValidation[\s\S]+CHILD_BOOT_VERIFIED' -and
+        $evaluationTemplateText -match 'Remove-HyperVImageArtifact[\s\S]+childFailure' -and
+        $evaluationTemplateText -match "Status='CHILD_BOOT_VERIFIED'" -and
+        $evaluationTemplateText -match 'SqlServerLab\.HyperVWindowsTemplateValidation/1\.0' -and
+        $evaluationTemplateText -match 'CredentialDisclosed=\$false'
+    )
+    Add-CheckResult -Name 'Windows Server 2008 R2 und 2012 R2 besitzen einen fail-closed Legacy-WMI-Pfad' -Success (
+        $evaluationTemplateToolText -match "ValidateSet\('2008R2','2012R2','2016','2019','2022','2025'\)" -and
+        $legacyEvaluationTemplateText -match 'Wait-HyperVLegacyWindowsWmi' -and
+        $legacyEvaluationTemplateText -match 'Msvm_KvpExchangeComponent' -and
+        $legacyEvaluationTemplateText -match 'GuestIntrinsicExchangeItems' -and
+        $legacyEvaluationTemplateText -match 'NetworkAddressIPv4' -and
+        $legacyEvaluationTemplateText -match 'Wait-HyperVLegacyWindowsGuestComplete' -and
+        $legacyEvaluationTemplateText -match 'SQL_SERVER_LAB_LEGACY_TEMP' -and
+        @([regex]::Matches($legacyEvaluationTemplateText, '-IsLegacy:\(\$Version -eq ''2008R2''\)')).Count -eq 2 -and
+        @([regex]::Matches($legacyEvaluationTemplateText, 'Set-VMDvdDrive -Path \$null')).Count -eq 2 -and
+        $legacyEvaluationTemplateText -notmatch 'Remove-VMDvdDrive' -and
+        $legacyEvaluationTemplateText -match 'Invoke-HyperVLegacyWindowsEvaluationActivation' -and
+        $legacyEvaluationTemplateText -match '-AllowActivationGrace:\(\$Version -eq ''2008R2''\)' -and
+        $legacyEvaluationTemplateText -match "'OOB_GRACE'" -and
+        $legacyEvaluationTemplateText -match 'childLicenseUsable' -and
+        $legacyEvaluationTemplateText -match 'activationGrace=' -and
+        $legacyEvaluationTemplateText -match 'slmgr\.vbs.+/ato' -and
+        $legacyEvaluationTemplateText -match 'Invoke-HyperVLegacyWindowsSysprep' -and
+        $legacyEvaluationTemplateText -match '2>nul & del' -and
+        $legacyEvaluationTemplateText -match 'enable=no & netsh\.exe' -and
+        $legacyEvaluationTemplateText -notmatch '\^&|\^>' -and
+        $legacyEvaluationTemplateText -match "source='legacy-wmi'" -and
+        $builderText -match "'legacy-wmi'" -and
+        $legacyEvaluationTemplateText -match 'RequireChildBootValidation' -and
+        $legacyEvaluationTemplateText -match 'HYPERV_LEGACY_TEMPLATE_CHILD_COLD_START_FAILED' -and
+        $legacyEvaluationTemplateText -match 'Set-HyperVImageArtifactChildValidation' -and
+        $legacyEvaluationTemplateText -match 'CredentialDisclosed=\$false'
+    )
     Add-CheckResult -Name 'Windows-Builder erhält einen begrenzten dynamischen Speicherbereich' -Success ($builderText -match 'Math\]::Max\(\[double\]512MB,\s*\[double\]\$MemoryStartupBytes\s*/\s*2\)[\s\S]+Math\]::Min\(\[double\]1TB,\s*\[double\]\$MemoryStartupBytes\s*\*\s*2\)[\s\S]+Set-VMMemory[\s\S]+MaximumBytes\s+\$memoryMaximumBytes')
     Add-CheckResult -Name 'Builder bindet ISO als DVD ein' -Success ($builderText -match 'Add-VMDvdDrive[\s\S]+FirstBootDevice')
     $operatorText = Get-Content (Join-Path $repoRoot 'Private/HyperVImageOperator.ps1') -Raw

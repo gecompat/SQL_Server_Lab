@@ -79,14 +79,17 @@ und synthetische Test-Artefakte aus und begründet verworfene Kandidaten.
 
 `Private/HyperVImageBuilder.ps1` plant einen Build aus einem lokal
 SHA-256- und ISO-9660-verifizierten Windows-Medium, persistiert Resume-State und
-erzeugt einen isolierten Generation-2-Builder mit Secure Boot, OS-VHDX und
-DVD-Boot. Die OS-Installation endet zunächst bewusst in
+erzeugt einen isolierten, versionsgerechten Generation-1-/Generation-2-Builder
+mit BIOS- beziehungsweise UEFI-DVD-Boot. Secure Boot ist für Windows Server
+2016 und neuer aktiv, für Windows Server 2012 R2 wegen der alten, auf aktuellen
+Hosts DBX-blockierten Bootkette jedoch aus. Die OS-Installation endet zunächst bewusst in
 `MANUAL_ACTION_REQUIRED`. Nach der manuellen OS-Installation kann die Runtime
 Sysprep ueber PowerShell Direct ausfuehren, den Microsoft-ImageState pruefen,
 den Gast-Shutdown beobachten und die an BuildId, ScopeId und Challenge
 gebundene Evidenz automatisch erzeugen. Der Zwischenzustand `REBOOT_REQUIRED`
 ist ohne erneute Credential-Eingabe resumierbar; Gast-Credentials werden nicht
-persistiert. Vor der Publikation prüft die Runtime außerdem VM-Identität,
+persistiert. Für 2008 R2 und 2012 R2 übernimmt ein getrennter Legacy-WMI-Pfad
+Installationsevidence, Lizenzstatus, Sysprep und Child-Kaltstart. Vor der Publikation prüft die Runtime außerdem VM-Identität,
 fehlende Checkpoints und die VHDX-Pfadgrenze. Reale Medien werden erst danach
 als immutable `OS_SEALED` registriert; synthetische CI-Medien bleiben zwingend
 `LIFECYCLE_TEST_ONLY` und duerfen den Sysprep-Pfad nicht ausfuehren.

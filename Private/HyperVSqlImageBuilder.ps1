@@ -556,7 +556,7 @@ function New-HyperVSqlFreshImageBuildPlan {
     param(
         [Parameter(Mandatory)][string]$WindowsIsoPath,
         [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedWindowsSha256,
-        [Parameter(Mandatory)][ValidatePattern('^windows-(server-)?[0-9]+$')][string]$OperatingSystemId,
+        [Parameter(Mandatory)][ValidatePattern('^windows-(server-)?[0-9]+(?:-r2)?$')][string]$OperatingSystemId,
         [Parameter(Mandatory)][ValidatePattern('^[a-z0-9-]+$')][string]$WindowsEdition,
         [Parameter(Mandatory)][ValidateSet('core', 'desktop-experience')][string]$InstallationType,
         [Parameter(Mandatory)][string]$SqlIsoPath,
@@ -715,7 +715,7 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$MediaRoot,
-        [Parameter(Mandatory)][ValidatePattern('^windows-(server-)?[0-9]+$')][string]$OperatingSystemId,
+        [Parameter(Mandatory)][ValidatePattern('^windows-(server-)?[0-9]+(?:-r2)?$')][string]$OperatingSystemId,
         [Parameter(Mandatory)][ValidatePattern('^[a-z0-9-]+$')][string]$WindowsEdition,
         [Parameter(Mandatory)][ValidateSet('core', 'desktop-experience')][string]$InstallationType,
         [string]$WindowsMediaPath,
@@ -1294,6 +1294,8 @@ function Publish-HyperVSqlPreparedImageBuild {
         -ArtifactState SQL_PREPARED_SEALED -OperatingSystemId $parent.operatingSystem.id `
         -OperatingSystemVersion $parent.operatingSystem.version -Edition $parent.operatingSystem.edition `
         -InstallationType $parent.operatingSystem.installationType -Language $parent.operatingSystem.language `
+        -VmGeneration ([int]$parent.platform.vmGeneration) -SecureBoot:([bool]$parent.platform.secureBoot) `
+        -GuestControl ([string]$parent.platform.guestControl) `
         -LicenseType $parent.license.type -IntegrityOrigin generated-by-runtime -Generalized -SqlPrepared `
         -SqlVersion $build.sql.version -SqlEdition $build.sql.edition -SqlBuild $build.sql.setupBuild `
         -SqlFeatures @($build.sql.features) -SqlLicenseType $build.sql.license.type `

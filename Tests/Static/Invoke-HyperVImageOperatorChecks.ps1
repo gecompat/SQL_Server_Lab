@@ -155,7 +155,9 @@ try {
                     [PSCustomObject]@{ ImageName = 'Windows 11 Enterprise Evaluation'; ImageIndex = 4 },
                     [PSCustomObject]@{ ImageName = 'Windows Server 2016 SERVERSTANDARD'; ImageIndex = 5 },
                     [PSCustomObject]@{ ImageName = 'Windows 11 Enterprise LTSC Evaluation'; ImageIndex = 6 },
-                    [PSCustomObject]@{ ImageName = 'Windows Server, version 1709'; ImageDescription = 'Windows Server Datacenter'; EditionId = 'ServerDatacenter'; ImageIndex = 7 }
+                    [PSCustomObject]@{ ImageName = 'Windows Server, version 1709'; ImageDescription = 'Windows Server Datacenter'; EditionId = 'ServerDatacenter'; ImageIndex = 7 },
+                    [PSCustomObject]@{ ImageName = 'Windows Server 2008 R2 Standard Evaluation'; ImageIndex = 8 },
+                    [PSCustomObject]@{ ImageName = 'Windows Server 2012 R2 Datacenter Evaluation'; ImageIndex = 9 }
                 )
             }
             function Dismount-DiskImage { }
@@ -167,6 +169,8 @@ try {
             @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
             @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2016' -and $_.WindowsEdition -eq 'standard' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
             @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2016' -and $_.WindowsEdition -eq 'datacenter' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
+            @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2008-r2' -and $_.WindowsEdition -eq 'standard-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
+            @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-server-2012-r2' -and $_.WindowsEdition -eq 'datacenter-evaluation' -and $_.InstallationType -eq 'desktop-experience' }).Count -eq 1 -and
             @($parsedMedia | Where-Object { $_.OperatingSystemId -eq 'windows-11' -and $_.WindowsEdition -eq 'enterprise-ltsc-evaluation' }).Count -eq 1
         )
     }

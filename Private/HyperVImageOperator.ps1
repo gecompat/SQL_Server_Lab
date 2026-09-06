@@ -81,6 +81,7 @@ function Save-HyperVMediaDiscoveryCache {
         [Parameter(Mandatory)][hashtable]$Cache
     )
 
+    if ($WhatIfPreference) { return }
     try {
         $evidenceRoot = Join-Path $MediaRoot 'Evidence'
         New-Item -Path $evidenceRoot -ItemType Directory -Force | Out-Null
@@ -132,12 +133,13 @@ function Get-HyperVWindowsInstallationMediaInfo {
                 $operatingSystemId = $null
                 $edition = $null
                 $installationType = 'desktop-experience'
-                if ($metadataText -match '(?i)Windows Server (?<year>20\d{2})') {
+                if ($metadataText -match '(?i)Windows Server (?<year>20\d{2})(?<r2>\s+R2)?') {
                     $year = [string]$Matches.year
-                    $operatingSystemId = "windows-server-$year"
+                    $release = if ([string]$Matches.r2) { "$year-r2" } else { $year }
+                    $operatingSystemId = "windows-server-$release"
                     $editionBase = if ($metadataText -match '(?i)Datacenter') { 'datacenter' } elseif ($metadataText -match '(?i)Standard') { 'standard' } elseif ($metadataText -match '(?i)Azure Edition') { 'azure-edition' } else { $null }
                     if ($editionBase) {
-                        $edition = if ($metadataText -match '(?i)(evaluation|eval)') { "$editionBase-evaluation" } else { $editionBase }
+                        $edition = if ($fallbackText -match '(?i)(evaluation|eval)') { "$editionBase-evaluation" } else { $editionBase }
                     }
                     # Windows Server 2016/2019 nennen Desktop Experience nicht
                     # immer aus. Ihre Core-Abbilder tragen dafür üblicherweise
@@ -201,7 +203,7 @@ function Test-HyperVSqlPreparedWindowsMediaCompatibility {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$OperatingSystemId)
 
-    $recognizedWindows = $OperatingSystemId -match '^windows-(server-)?[0-9]+$'
+    $recognizedWindows = $OperatingSystemId -match '^windows-(server-)?[0-9]+(?:-r2)?$'
     return [PSCustomObject]@{
         Compatible = $recognizedWindows
         Reason = if ($recognizedWindows) { 'Erkanntes Windows-Medium; die Windows-/SQL-Kombination wird auf Benutzerwunsch ausgeführt.' } else { "Kein unterstütztes Windows-Medienformat: '$OperatingSystemId'." }
@@ -327,7 +329,9 @@ function Resolve-HyperVWindowsInstallationMedia {
         if ($match.Count -ne 1) { throw "HYPERV_WINDOWS_MEDIA_VARIANT_MISMATCH: $WindowsMediaPath" }
     }
     else {
-        $legacyServerVersion = if ($OperatingSystemId -match '^windows-server-(?<version>20\d{2})$') { [string]$Matches.version } else { $null }
+        $legacyServerVersion = if ($OperatingSystemId -match '^windows-server-(?<version>20\d{2})(?<r2>-r2)?$') {
+            if ([string]$Matches.r2) { "$($Matches.version)R2" } else { [string]$Matches.version }
+        } else { $null }
         $matches = @(Get-HyperVWindowsInstallationMediaCandidates -MediaRoot $resolvedRoot | Where-Object {
             $_.State -eq 'READY' -and $_.OperatingSystemId -eq $OperatingSystemId -and
             (-not $WindowsEdition -or $_.WindowsEdition -eq $WindowsEdition) -and
@@ -565,8 +569,9 @@ function Confirm-HyperVWindowsImageInstallation {
         throw 'HYPERV_IMAGE_INSTALLATION_RECEIPT_INVALID'
     }
 
-    $expectedVersion = [string]$build.operatingSystem.id -replace '^windows-(server-)?', ''
-    if ([string]$receipt.productName -notmatch [regex]::Escape($expectedVersion)) {
+    $expectedVersion = ([string]$build.operatingSystem.id -replace '^windows-(server-)?', '') -replace '[^a-zA-Z0-9]', ''
+    $detectedProductVersion = ([string]$receipt.productName) -replace '[^a-zA-Z0-9]', ''
+    if ($detectedProductVersion -notmatch [regex]::Escape($expectedVersion)) {
         throw "HYPERV_IMAGE_INSTALLATION_VERSION_MISMATCH: erwartet $expectedVersion, erkannt $($receipt.productName)"
     }
 
