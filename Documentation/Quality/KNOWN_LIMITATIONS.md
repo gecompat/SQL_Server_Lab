@@ -13,6 +13,8 @@ Der Ollama-Modellkatalog sowie die Verträge für Endpointplan, Runtimejournal
 und sanitisierte Abfrageergebnisse sind vorhanden. Die katalogisierten lokalen
 und Cloudmodelle sind noch `PLANNED`: Es gibt derzeit weder einen ausgeführten
 Ollama-Modellaufruf noch einen Docker-, Podman-, Hyper-V- oder Cloud-Nachweis.
+Der implementierte Offline-Transport prüft Request-, Retry-, Dimensions- und
+Fehlerverträge, stellt aber selbst keinen Netzwerkdienst bereit.
 Ein lokaler `.env`-Verweis und ein vorhandener API-Key ändern diesen Status
 nicht. Die Laufzeitintegration muss Secretwerte weiterhin vollständig aus
 Plan, State, Prozessargumenten, Logs und Ergebnissen fernhalten.
