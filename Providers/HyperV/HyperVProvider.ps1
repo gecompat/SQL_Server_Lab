@@ -574,9 +574,17 @@ function New-HyperVInstance {
     if (-not $parentItem.IsReadOnly) {
         throw 'Hyper-V-Parent muss read-only sein.'
     }
-    $actualHash = (Get-FileHash -LiteralPath $resolvedParent -Algorithm SHA256).Hash
-    if (-not $actualHash.Equals($ParentSha256, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw 'PARENT_VHDX_INTEGRITY_MISMATCH'
+    if ($PSCmdlet.ParameterSetName -eq 'Artifact') {
+        if (-not $imageArtifact.integrityVerification -or
+            [string]$imageArtifact.integrityVerification.status -notin @('VERIFIED_HASH', 'VERIFIED_CACHE')) {
+            throw 'PARENT_VHDX_INTEGRITY_EVIDENCE_MISSING'
+        }
+    }
+    else {
+        $actualHash = (Get-FileHash -LiteralPath $resolvedParent -Algorithm SHA256).Hash
+        if (-not $actualHash.Equals($ParentSha256, [System.StringComparison]::OrdinalIgnoreCase)) {
+            throw 'PARENT_VHDX_INTEGRITY_MISMATCH'
+        }
     }
 
     if ($SwitchName -and -not (Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue)) {
@@ -1034,7 +1042,7 @@ function Wait-HyperVPowerShellDirect {
             $probe = Invoke-HyperVPowerShellDirect `
                 -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId `
                 -Credential $Credential -FallbackAddress $FallbackAddress -ScriptBlock {
-                    [PSCustomObject]@{
+                    New-Object PSObject -Property @{
                         computerName = [Environment]::MachineName
                         imageState = [string](Get-ItemProperty `
                             -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' `
@@ -1116,7 +1124,7 @@ function Set-HyperVWindowsGuestSpecialization {
                 -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName' `
                 -Name ComputerName `
                 -ErrorAction Stop).ComputerName
-            [PSCustomObject]@{
+            New-Object PSObject -Property @{
                 computerName = [Environment]::MachineName
                 pendingComputerName = $pendingName
                 imageState = [string](Get-ItemProperty `
@@ -1208,7 +1216,7 @@ function Set-HyperVWindowsGuestSpecialization {
         -Credential $Credential `
         -FallbackAddress $FallbackAddress `
         -ScriptBlock {
-            [PSCustomObject]@{
+            New-Object PSObject -Property @{
                 computerName = [Environment]::MachineName
                 imageState = [string](Get-ItemProperty `
                     -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' `
@@ -1348,7 +1356,7 @@ SELECT
                                 throw "SQL system database readiness mismatch: $onlineSystemDatabases/4 online"
                             }
                             $stopwatch.Stop()
-                            return [PSCustomObject]@{
+                            return New-Object PSObject -Property @{
                                 status = 'SQL_READY_RUN'
                                 instanceName = [string]$SqlInstanceName
                                 serviceName = $serviceName

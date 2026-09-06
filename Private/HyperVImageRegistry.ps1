@@ -167,10 +167,39 @@ function Get-HyperVImageArtifact {
             $metadata.platform | Add-Member -NotePropertyName guestControl -NotePropertyValue $derivedGuestControl
         }
         if (-not $SkipIntegrityCheck) {
-            $observed = (Get-FileHash -LiteralPath $vhdxPath -Algorithm SHA256).Hash.ToLowerInvariant()
-            if ($observed -ne [string]$metadata.sha256 -or -not (Get-Item -LiteralPath $vhdxPath).IsReadOnly) {
+            $item = Get-Item -LiteralPath $vhdxPath -Force
+            $cachePath = Join-Path $directory 'integrity-cache.json'
+            $cache = if (Test-Path -LiteralPath $cachePath -PathType Leaf) {
+                try { Get-Content -LiteralPath $cachePath -Raw -Encoding utf8 | ConvertFrom-Json } catch { $null }
+            }
+            else { $null }
+            $cacheValid = $cache -and
+                [string]$cache.contractVersion -eq 'SqlServerLab.HyperVArtifactIntegrityCache/1.0' -and
+                [string]$cache.artifactId -eq [string]$metadata.artifactId -and
+                [string]$cache.sha256 -eq [string]$metadata.sha256 -and
+                [long]$cache.lengthBytes -eq [long]$item.Length -and
+                [long]$cache.lastWriteTimeUtcTicks -eq [long]$item.LastWriteTimeUtc.Ticks -and
+                $item.IsReadOnly
+            if (-not $cacheValid) {
+                $observed = (Get-FileHash -LiteralPath $vhdxPath -Algorithm SHA256).Hash.ToLowerInvariant()
+                if ($observed -ne [string]$metadata.sha256 -or -not $item.IsReadOnly) {
+                    throw "HYPERV_ARTIFACT_INTEGRITY_MISMATCH: $($metadata.artifactId)"
+                }
+                Write-LabArtifactJsonAtomic -Path $cachePath -InputObject ([PSCustomObject]@{
+                    contractVersion = 'SqlServerLab.HyperVArtifactIntegrityCache/1.0'
+                    artifactId = [string]$metadata.artifactId; sha256 = $observed
+                    lengthBytes = [long]$item.Length; lastWriteTimeUtc = $item.LastWriteTimeUtc.ToString('o')
+                    lastWriteTimeUtcTicks = [long]$item.LastWriteTimeUtc.Ticks
+                    verifiedAt = Get-LabTimestamp
+                })
+            }
+            if (-not $item.IsReadOnly) {
                 throw "HYPERV_ARTIFACT_INTEGRITY_MISMATCH: $($metadata.artifactId)"
             }
+            $metadata | Add-Member -NotePropertyName integrityVerification -NotePropertyValue ([PSCustomObject]@{
+                status = if ($cacheValid) { 'VERIFIED_CACHE' } else { 'VERIFIED_HASH' }
+                lengthBytes = [long]$item.Length; lastWriteTimeUtc = $item.LastWriteTimeUtc.ToString('o')
+            }) -Force
         }
         $metadata | Add-Member -NotePropertyName Path -NotePropertyValue $vhdxPath -Force
         $results += $metadata
@@ -363,6 +392,14 @@ function Import-HyperVImageArtifact {
                 -not (Test-Path -LiteralPath (Join-Path $targetDirectory 'metadata.json') -PathType Leaf)) {
                 throw 'HYPERV_ARTIFACT_PUBLISH_POSTCONDITION_FAILED'
             }
+            $publishedVhdx = Get-Item -LiteralPath (Join-Path $targetDirectory 'parent.vhdx') -Force
+            Write-LabArtifactJsonAtomic -Path (Join-Path $targetDirectory 'integrity-cache.json') -InputObject ([PSCustomObject]@{
+                contractVersion = 'SqlServerLab.HyperVArtifactIntegrityCache/1.0'
+                artifactId = $artifactId; sha256 = $copiedSha
+                lengthBytes = [long]$publishedVhdx.Length; lastWriteTimeUtc = $publishedVhdx.LastWriteTimeUtc.ToString('o')
+                lastWriteTimeUtcTicks = [long]$publishedVhdx.LastWriteTimeUtc.Ticks
+                verifiedAt = Get-LabTimestamp
+            })
         }
         finally {
             if (Test-Path -LiteralPath $stagingDirectory) { Remove-Item -LiteralPath $stagingDirectory -Recurse -Force }
