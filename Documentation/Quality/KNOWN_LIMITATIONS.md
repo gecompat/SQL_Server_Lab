@@ -7,6 +7,16 @@
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
+## KI und Ollama
+
+Der Ollama-Modellkatalog sowie die Verträge für Endpointplan, Runtimejournal
+und sanitisierte Abfrageergebnisse sind vorhanden. Die katalogisierten lokalen
+und Cloudmodelle sind noch `PLANNED`: Es gibt derzeit weder einen ausgeführten
+Ollama-Modellaufruf noch einen Docker-, Podman-, Hyper-V- oder Cloud-Nachweis.
+Ein lokaler `.env`-Verweis und ein vorhandener API-Key ändern diesen Status
+nicht. Die Laufzeitintegration muss Secretwerte weiterhin vollständig aus
+Plan, State, Prozessargumenten, Logs und Ergebnissen fernhalten.
+
 ## Provider
 
 ### Docker und Podman
