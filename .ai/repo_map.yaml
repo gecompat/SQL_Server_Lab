@@ -793,7 +793,7 @@ providers:
     metadata: Providers/HyperV/provider.json
     documentation: Providers/HyperV/README.md
     command: Get-VMHost
-    sql_provisioning: "real_prepared_image_manifest_clone_to_SQL_READY_RUN fuer Windows 2025 und SQL 2025 plus reale SQL-2012-Evaluation-Abnahme auf Windows Server 2012 R2 bis TESTS_PASSED ueber Tools/New-LegacySqlServerAcceptanceEnvironment.ps1; breite Manifestbindung und weitere Legacy-Versionen bleiben partiell"
+    sql_provisioning: "real_prepared_image_manifest_clone_to_SQL_READY_RUN fuer Windows 2025 und SQL 2025 plus reale SQL-2012-Evaluation- und SQL-2014-Express-SP3-Abnahme auf Windows Server 2012 R2 bis TESTS_PASSED ueber Tools/New-LegacySqlServerAcceptanceEnvironment.ps1; breite Manifestbindung und weitere Legacy-Versionen bleiben partiell"
     native_smoke: Tests/Integration/Invoke-HyperVSmokeTest.ps1
     registry_static_checks: Tests/Static/Invoke-HyperVImageRegistryChecks.ps1
     builder_static_checks: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1

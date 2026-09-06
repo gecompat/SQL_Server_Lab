@@ -3080,12 +3080,16 @@ function Select-LabSqlLicenseProfile {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$SqlVersion,
-        [Parameter(Mandatory)][ValidateSet('Eval','Enterprise','EnterpriseCore','Standard','Web')][string]$MediaEdition
+        [Parameter(Mandatory)][ValidateSet('Eval','Express','Enterprise','EnterpriseCore','Standard','Web')][string]$MediaEdition
     )
 
     if ($MediaEdition -eq 'Eval') {
         Write-LabInfo 'SQL-Lizenz: Evaluation ohne Product Key.'
         return [PSCustomObject]@{ ProfileId = $null; LicenseType = 'evaluation'; Label = 'Evaluation (ohne Key)' }
+    }
+    if ($MediaEdition -eq 'Express') {
+        Write-LabInfo 'SQL-Lizenz: Express Edition ohne Product Key.'
+        return [PSCustomObject]@{ ProfileId = $null; LicenseType = 'express'; Label = 'Express (ohne Key)' }
     }
 
     $profiles = @(Get-SqlServerLabLicenseProfile | Where-Object {
