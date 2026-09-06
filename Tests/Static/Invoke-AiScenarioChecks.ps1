@@ -36,7 +36,10 @@ try {
             metadata=[PSCustomObject]@{desiredState=$desired};errors=@()
         })
         Write-LabArtifactJsonAtomic -Path (Join-Path $runDirectory 'connection-info.json') -InputObject ([PSCustomObject]@{
-            instances=@([PSCustomObject]@{id='primary';provider='docker';containerName='synthetic-ai-target';host='127.0.0.1';port=14330;version='2025'})
+            instances=@(
+                [PSCustomObject]@{id='primary';provider='docker';containerName='synthetic-ai-target';host='127.0.0.1';port=14330;version='2025'},
+                [PSCustomObject]@{id='hyperv-ai';provider='hyperv';vmName='synthetic-ai-vm';host='192.0.2.10';port=1433;sqlVersion='2025'}
+            )
         })
 
         $catalogPlan=Get-SqlServerLabAiScenario -ScenarioId vector-core-ci
@@ -56,6 +59,7 @@ try {
         catch{$pathRejected=$_.Exception.Message -match 'AI_SCENARIO_ARTIFACT_PATH_INVALID'}
 
         $providerCapabilities=@(Get-LabProviderCapabilityContract)
+        $hyperVTarget=Resolve-LabRunInstance -RunId $runId -InstanceId hyperv-ai -StateRoot $TemporaryRoot
         [PSCustomObject]@{
             ManifestSchemaResult=$manifestSchemaResult;Resolved=$resolved;Desired=$desired;CatalogPlan=$catalogPlan;RunPlan=$runPlan;WhatIf=$whatIf
             JournalAbsent=-not (Test-Path -LiteralPath $journalPath)
@@ -63,6 +67,7 @@ try {
             PathRejected=$pathRejected
             DockerCapability='sql2025-vector-core' -in @($providerCapabilities|Where-Object Provider -eq docker|ForEach-Object Capabilities|ForEach-Object SourceKey)
             PodmanCapability='sql2025-vector-core' -in @($providerCapabilities|Where-Object Provider -eq podman|ForEach-Object Capabilities|ForEach-Object SourceKey)
+            HyperVTarget=$hyperVTarget
         }
     } $manifestPath $temporaryRoot
 
@@ -86,6 +91,8 @@ try {
     Add-CheckResult 'Cloudmodell mit verweigertem Egress wird fachlich abgelehnt' $result.EgressRejected
     Add-CheckResult 'Szenario-Artefakte außerhalb des Package-Roots werden abgelehnt' $result.PathRejected
     Add-CheckResult 'Docker und Podman deklarieren Vector-Core getrennt' ($result.DockerCapability -and $result.PodmanCapability)
+    Add-CheckResult 'Hyper-V-Connection-Info löst sqlVersion als KI-Zielversion auf' (
+        $result.HyperVTarget.Provider -eq 'hyperv' -and $result.HyperVTarget.Version -eq '2025' -and $result.HyperVTarget.VMName -eq 'synthetic-ai-vm')
 
     $scenario=Get-Content $scenarioPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 50
     $scenarioDirectory=Split-Path $scenarioPath -Parent
@@ -251,10 +258,10 @@ try {
         $sqlExecutor={param($query) @('AI_RAG_ROW|doc-alpha|0.0','AI_RAG_ROW|doc-beta|0.5')}
         $password=[SecureString]::new()
         $publicPlan=Invoke-SqlServerLabAiRag -RunId '11111111-2222-4333-8444-555555555555' -SaPassword $password -Question 'Was ist Alpha?' -Document $documents -TopK 2 -WhatIf
-        $result=Invoke-LabAiRag -Plan $plan -SaPassword $password -Target ([PSCustomObject]@{Version='2025';Provider='docker';HostName='127.0.0.1';Port=1433}) -Question 'Was ist Alpha?' -EmbeddingTransport $embeddingTransport -GenerationTransport $generationTransport -SqlExecutor $sqlExecutor
+        $result=Invoke-LabAiRag -Plan $plan -SaPassword $password -Target ([PSCustomObject]@{Version='2025';Provider='hyperv';HostName='192.0.2.10';Port=1433}) -Question 'Was ist Alpha?' -EmbeddingTransport $embeddingTransport -GenerationTransport $generationTransport -SqlExecutor $sqlExecutor
         [PSCustomObject]@{Plan=$plan;PublicPlan=$publicPlan;Result=$result}
     }
-    Add-CheckResult 'Lokales RAG bindet Ollama-Embeddings an exakte SQL-2025-Vektorsuche' (
+    Add-CheckResult 'Providerneutraler Controller bindet Hyper-V-SQL an lokales Ollama-RAG' (
         $rag.Plan.Status -eq 'READY' -and $rag.Result.Status -eq 'SUCCEEDED' -and
         @($rag.Result.Citations) -join ',' -eq 'doc-alpha,doc-beta' -and $rag.Result.ToolExecutions[0].RowCount -eq 2)
     Add-CheckResult 'RAG-Ergebnis erfüllt den geheimnisfreien Query-Result-Vertrag' (
@@ -268,11 +275,11 @@ try {
         $script:calls=[Collections.Generic.List[object]]::new()
         $sqlExecutor={param($credential,$sql,$nonQuery)$script:calls.Add([PSCustomObject]@{User=$credential.UserName;Sql=$sql;NonQuery=$nonQuery});if($sql-match'dm_os_sys_info'){return [PSCustomObject]@{ProductVersion='17.0';CpuCount=4;PhysicalMemoryKb=8192}};if($sql-match'dm_os_wait_stats'){return [PSCustomObject]@{WaitType='TEST_WAIT';WaitingTasks=1;WaitTimeMs=2}};@()}
         $transport={param($request)[PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{response='Keine kritische synthetische Auffälligkeit.'}}}
-        $password=[SecureString]::new();$result=Invoke-LabAiDiagnosticAgent -Plan $plan -SaPassword $password -Target ([PSCustomObject]@{Version='2025';Provider='docker';HostName='127.0.0.1';Port=1433}) -Question 'Wie ist der Zustand?' -StateRoot $TemporaryRoot -GenerationTransport $transport -SqlExecutor $sqlExecutor
+        $password=[SecureString]::new();$result=Invoke-LabAiDiagnosticAgent -Plan $plan -SaPassword $password -Target ([PSCustomObject]@{Version='2025';Provider='hyperv';HostName='192.0.2.10';Port=1433}) -Question 'Wie ist der Zustand?' -StateRoot $TemporaryRoot -GenerationTransport $transport -SqlExecutor $sqlExecutor
         $journal=Get-Content (Get-ChildItem (Join-Path $runDirectory 'ai-agent') -File|Select-Object -First 1).FullName -Raw|ConvertFrom-Json
         [PSCustomObject]@{Plan=$plan;Result=$result;Calls=@($script:calls);Journal=$journal}
     } $temporaryRoot
-    Add-CheckResult 'Diagnose-Agent nutzt ausschließlich katalogisierte SELECT-Werkzeuge unter kurzlebigem Login' (
+    Add-CheckResult 'Providerneutraler Diagnose-Agent nutzt unter Hyper-V nur katalogisierte SELECT-Werkzeuge' (
         $agent.Result.Status -eq 'SUCCEEDED' -and $agent.Result.ToolExecutions.Count -eq 2 -and
         @($agent.Calls|Where-Object Sql -match '^CREATE LOGIN').Count -eq 1 -and @($agent.Calls|Where-Object Sql -match '^DROP LOGIN').Count -eq 1 -and
         @($agent.Calls|Where-Object {-not $_.NonQuery -and $_.Sql -notmatch '^SELECT '}).Count -eq 0)

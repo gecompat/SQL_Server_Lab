@@ -194,6 +194,11 @@ kurzlebigem Login, lokalem Modell, Login-Cleanup und Restart getrennt geprüft:
 .\Tests\Integration\Invoke-AiDiagnosticAgentContainerAcceptance.ps1 -Provider podman
 ```
 
+`Invoke-AiHyperVAcceptance.ps1` bindet einen vorhandenen verwalteten Hyper-V-
+SQL-2025-Run an lokales Ollama und prüft RAG, read-only Agent, Login-Cleanup
+sowie VM-/Modell-Restart. Der Runner benötigt das flüchtige SA-Credential und
+entfernt den übergebenen Hyper-V-Run nicht.
+
 Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kontrollieren unter anderem:
 
 - JSON-Syntax der Kataloge, Schemas und Beispiele;

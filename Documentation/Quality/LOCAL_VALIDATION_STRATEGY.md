@@ -646,6 +646,25 @@ Geprüft werden feste SELECT-Werkzeuge, echte Least-Privilege-Sichtrechte,
 lokale Generierung, inhaltsfreies Journal, vollständiger Login-Cleanup und ein
 erneuter Lauf nach Ollama-Restart.
 
+Der vorbereitete Hyper-V-Paritätsnachweis bindet einen bereits verwalteten
+SQL-2025-Run an einen scopegebundenen lokalen Ollama-Container:
+
+```powershell
+.\Tests\Integration\Invoke-AiHyperVAcceptance.ps1 `
+    -RunId '<laufender-verwalteter-hyperv-sql-2025-run>' `
+    -SaPassword $password `
+    -OllamaProvider docker
+```
+
+Er prüft RAG, den read-only Agenten, Login-Cleanup und einen erneuten Lauf nach
+VM- und Ollama-Neustart, entfernt aber niemals den übergebenen Hyper-V-Run.
+Am 2026-09-07 wurden RAG, Agent, Login-Cleanup und Ollama-Restart gegen einen
+echten verwalteten Hyper-V-SQL-2025-Run erfolgreich ausgeführt. Der Run gehört
+zur geschützten automatischen Testgruppe; deren Einzelneustart wurde daher
+korrekt abgelehnt und nicht umgangen. Das Ergebnis bleibt `PARTIAL`, bis ein
+isolierter Hyper-V-Run auch den VM-Neustart belegt; vorher wird keine
+vollständige Provider-Capability deklariert.
+
 Der ausführbare native Windows-SQL-Nachweis ist:
 
 ```powershell

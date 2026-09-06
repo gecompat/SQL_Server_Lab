@@ -131,6 +131,15 @@ SQL noch weitere Werkzeuge auslösen. Die getrennten nativen Docker- und
 Podman-Läufe waren am 2026-09-06 einschließlich echter Sichtrechte,
 Login-Cleanup, Ollama-Restart und vollständigem Lab-Cleanup erfolgreich.
 
+Der providerneutrale Controllerpfad ist außerdem für verwaltete Hyper-V-SQL-
+2025-Ziele implementiert. `Invoke-AiHyperVAcceptance.ps1` kombiniert RAG und
+Diagnose-Agent mit einem scopegebundenen lokalen Ollama-Container und prüft
+Login-Cleanup sowie VM-/Ollama-Restart. Am 2026-09-07 waren RAG, Agent,
+Login-Cleanup und Ollama-Restart gegen den echten verwalteten SQL-2025-
+Hyper-V-Run erfolgreich. Der einzelne VM-Neustart wurde durch den Schutz der
+automatischen Testgruppe korrekt abgelehnt und nicht umgangen. Der Nachweis
+bleibt daher `PARTIAL`, und Hyper-V erhält noch keine AI-Provider-Capability.
+
 ## Sicherheits- und Betriebsvertrag
 
 - `fallback` ist standardmäßig `disabled`; ein Modellwechsel erfolgt nie still.
