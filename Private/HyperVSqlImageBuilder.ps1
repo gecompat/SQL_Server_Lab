@@ -385,9 +385,9 @@ function Get-HyperVSqlOfflineImageState {
                 & reg.exe load "HKLM\$hiveName" $softwareHive | Out-Null
                 if ($LASTEXITCODE -ne 0) { throw 'HYPERV_SQL_OFFLINE_SOFTWARE_HIVE_LOAD_FAILED' }
                 $hiveLoaded = $true
-                $imageState = [string](Get-ItemPropertyValue `
+                $imageState = [string](Get-ItemProperty `
                     -LiteralPath "Registry::HKEY_LOCAL_MACHINE\$hiveName\Microsoft\Windows\CurrentVersion\Setup\State" `
-                    -Name ImageState -ErrorAction Stop)
+                    -Name ImageState -ErrorAction Stop).ImageState
                 $sysprepErrorPath = Join-Path $candidateRoot 'Windows/System32/Sysprep/Panther/setuperr.log'
                 $sysprepActionPath = Join-Path $candidateRoot 'Windows/System32/Sysprep/Panther/setupact.log'
                 $logLines = @()
@@ -507,8 +507,15 @@ function New-HyperVSqlImageBuildPlan {
     New-Item -Path $buildDirectory -ItemType Directory -Force | Out-Null
     $null = New-CleanupPlan -RunDir $buildDirectory -RunId $buildId -ScopeId $scopeId `
         -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv' })
+    $verifiedMedia = Get-Item -LiteralPath $resolvedIso -ErrorAction Stop
     Write-LabArtifactJsonAtomic -Path (Join-Path $buildDirectory 'build-local.json') -InputObject ([PSCustomObject]@{
         sqlIsoPath = $resolvedIso
+        mediaVerification = [PSCustomObject]@{
+            sha256 = $sha256
+            lengthBytes = [long]$verifiedMedia.Length
+            lastWriteTimeUtc = $verifiedMedia.LastWriteTimeUtc.ToString('o')
+            verifiedAt = Get-LabTimestamp
+        }
     })
     $timestamp = Get-LabTimestamp
     $state = [PSCustomObject]@{
@@ -519,7 +526,8 @@ function New-HyperVSqlImageBuildPlan {
         })
         parentArtifact = [PSCustomObject]@{
             artifactId = [string]$artifact.artifactId; sha256 = [string]$artifact.sha256
-            operatingSystem = $artifact.operatingSystem; license = $artifact.license
+            operatingSystem = $artifact.operatingSystem; platform = $artifact.platform
+            license = $artifact.license
         }
         sql = [PSCustomObject]@{
             version = $SqlVersion
@@ -688,12 +696,18 @@ function Initialize-HyperVSqlPreparedImageBuild {
             -InstanceId "sql-image-$SqlVersion" -MemoryStartupBytes $MemoryStartupBytes -ProcessorCount $ProcessorCount `
             -SwitchName $labNetwork.Name -ResourceClass Build
         $managed = Get-HyperVManagedVM -VMName $instance.VMName -ExpectedRunId $plan.buildId -ExpectedScopeId $plan.scopeId
+        if ([string]$plan.parentArtifact.platform.guestControl -eq 'legacy-wmi') {
+            $null = Set-HyperVManagedVMIdentityProperty -ManagedVM $managed -PropertyName guestTransport `
+                -Value 'lab-winrm' -ContractVersion '0.8'
+        }
         $null = Add-VMDvdDrive -VM $managed.VM -Path $media.IsoPath -ErrorAction Stop
         $plan.builder = [PSCustomObject]@{
             vmName = [string]$instance.VMName
             osDiskRelativePath = "resources/hyperv/$([IO.Path]::GetFileName($instance.ChildVhdxPath))"
             resourceRelativePath = [IO.Path]::GetFileName($instance.ChildVhdxPath)
-            generation = 2; secureBoot = $true; networkAttached = $true
+            generation = [int]$instance.VMGeneration
+            secureBoot = [bool]$instance.SecureBoot
+            networkAttached = $true
         }
         $plan | Add-Member -NotePropertyName labNetwork -NotePropertyValue $labNetwork -Force
         $plan.manualAction = [PSCustomObject]@{
@@ -917,7 +931,7 @@ function Wait-HyperVSqlImageBuildGuestRestart {
                 -Credential $Credential -FallbackAddress $fallbackAddress -ScriptBlock {
                     [PSCustomObject]@{
                         bootTime = (Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')
-                        imageState = [string](Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState -ErrorAction Stop)
+                        imageState = [string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState -ErrorAction Stop).ImageState
                     }
                 }
             $probe = @($probe)[-1]
@@ -953,6 +967,9 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
     $vmName = [string]$build.builder.vmName
     $managed = Get-HyperVManagedVM -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_SQL_IMAGE_BUILD_VM_MUST_BE_RUNNING' }
+    $fallbackAddress = if ($build.labNetwork) {
+        Get-LabNetworkGuestAddress -Network $build.labNetwork -Identity ([string]$build.buildId)
+    }
     $build = Confirm-HyperVSqlFreshWindowsInstallation -Build $build -Credential $Credential -StateRoot $StateRoot
     $setupVersionPattern = Get-HyperVSqlSetupVersionPattern -SqlVersion $build.sql.version
 
@@ -967,7 +984,7 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
             $productKey = Get-LabLicenseProfileSecret -Id ([string]$build.sql.license.profileId) -StateRoot $StateRoot
         }
         $receipt = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
-            -ExpectedScopeId $build.scopeId -Credential $Credential `
+            -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
             -ArgumentList @($build.buildId, $build.scopeId, $build.manualAction.challenge, $build.sql.version, $setupVersionPattern, ($build.sql.features -join ','), $SetupTimeoutSeconds, $productKey, $build.sql.license.type, $build.sql.edition) `
             -ScriptBlock {
                 param($ExpectedBuildId, $ExpectedScopeId, $Challenge, $ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $TimeoutSeconds, [SecureString]$ProductKey, $ExpectedLicenseType, $ExpectedEdition)
@@ -1085,7 +1102,7 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
         throw 'HYPERV_SQL_PREPARE_EVIDENCE_MISSING'
     }
     $sysprep = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
-        -ExpectedScopeId $build.scopeId -Credential $Credential `
+        -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
         -ArgumentList @($build.buildId, $build.scopeId, $build.manualAction.challenge) `
         -ScriptBlock {
             param($ExpectedBuildId, $ExpectedScopeId, $Challenge)
@@ -1140,7 +1157,7 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
     if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_SQL_IMAGE_BUILD_SHUTDOWN_TIMEOUT' }
 
     $build.generalizationEvidence = [PSCustomObject]@{
-        source = 'powershell-direct'; challenge = [string]$sysprep.challenge
+        source = 'powershell-direct-or-lab-winrm'; challenge = [string]$sysprep.challenge
         imageState = [string]$sysprep.imageState; sysprepExitCode = 0
         shutdownObserved = $true; completedAt = [string]$sysprep.completedAt; acceptedAt = Get-LabTimestamp
     }

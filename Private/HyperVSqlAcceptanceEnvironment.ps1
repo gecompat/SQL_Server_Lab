@@ -287,6 +287,15 @@ function Invoke-HyperVSqlUnattendedOobe {
     $credential = [PSCredential]::new('Administrator', $AdministratorPassword)
     $vmName = [string]$build.builder.vmName
 
+    if ([string]$build.parentArtifact.platform.guestControl -eq 'legacy-wmi') {
+        $managed = Get-HyperVManagedVM -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
+        if (-not $managed) { throw 'HYPERV_SQL_OOBE_VM_NOT_FOUND' }
+        if ([string]$managed.Identity.guestTransport -ne 'lab-winrm') {
+            $null = Set-HyperVManagedVMIdentityProperty -ManagedVM $managed -PropertyName guestTransport `
+                -Value 'lab-winrm' -ContractVersion '0.8'
+        }
+    }
+
     $fallbackAddress = if ($build.labNetwork) {
         Get-LabNetworkGuestAddress -Network $build.labNetwork -Identity $build.buildId
     }
@@ -333,14 +342,16 @@ function Invoke-HyperVSqlUnattendedOobe {
             Set-Culture -CultureInfo 'de-DE'
             Set-WinUILanguageOverride -Language 'en-US'
             Set-WinDefaultInputMethodOverride -InputTip '0407:00000407'
-            Set-TimeZone -Id 'W. Europe Standard Time'
+            $null = & "$env:WINDIR\System32\tzutil.exe" /s 'W. Europe Standard Time'
+            if ($LASTEXITCODE -ne 0) { throw "WINDOWS_TIME_ZONE_SET_FAILED: $LASTEXITCODE" }
             Remove-Item -LiteralPath "$env:WINDIR\Panther\Unattend.xml" -Force -ErrorAction SilentlyContinue
             Remove-Item -LiteralPath "$env:WINDIR\Panther\Unattend\Unattend.xml" -Force -ErrorAction SilentlyContinue
             [PSCustomObject]@{
-                contractVersion = '1'; imageState = [string](Get-ItemPropertyValue `
-                    -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState)
+                contractVersion = '1'; imageState = [string](Get-ItemProperty `
+                    -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState).ImageState
                 systemLocale = [string](Get-WinSystemLocale); uiLanguage = [string](Get-WinUILanguageOverride)
-                inputLocale = [string](Get-WinDefaultInputMethodOverride); timeZone = [string](Get-TimeZone).Id
+                inputLocale = [string](Get-WinDefaultInputMethodOverride).InputMethodTip
+                timeZone = [string](& "$env:WINDIR\System32\tzutil.exe" /g)
                 observedAt = [datetime]::UtcNow.ToString('o')
             }
         }
@@ -439,55 +450,143 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
                 -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
                 -ArgumentList @(
                     $build.buildId, $build.scopeId, $build.manualAction.challenge, $build.sql.version,
-                    $setupVersionPattern, ($build.sql.features -join ','), $SaPassword, $SetupTimeoutSeconds
+                    $setupVersionPattern, ($build.sql.features -join ','), $SaPassword, $Credential.Password, $SetupTimeoutSeconds
                 ) `
                 -ScriptBlock {
-                    param($ExpectedBuildId, $ExpectedScopeId, $Challenge, $ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $SqlSaPassword, $TimeoutSeconds)
+                    param($ExpectedBuildId, $ExpectedScopeId, $Challenge, $ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $SqlSaPassword, $AdministratorPassword, $TimeoutSeconds)
                     $ErrorActionPreference = 'Stop'
-                    $setup = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
+                    $allSetup = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
                         $candidate = Join-Path ([string]$_.DeviceID + '\') 'setup.exe'
                         if (Test-Path -LiteralPath $candidate -PathType Leaf) { Get-Item -LiteralPath $candidate }
                     })
-                    if ($setup.Count -ne 1) { throw "SQL_SETUP_MEDIA_NOT_UNIQUE: $($setup.Count)" }
                     $expectedMajor = if ($ExpectedSqlVersion -match '^major-(\d+)$') { [int]$Matches[1] } else { @{ '2012' = 11; '2014' = 12; '2016' = 13; '2017' = 14; '2019' = 15; '2022' = 16; '2025' = 17 }[$ExpectedSqlVersion] }
+                    $setup = @($allSetup | Where-Object {
+                        $candidateVersion = [string]$_.VersionInfo.ProductVersion
+                        if (-not $candidateVersion) { $candidateVersion = [string]$_.VersionInfo.FileVersion }
+                        $candidateVersion -match $ExpectedSetupVersionPattern
+                    })
+                    if ($setup.Count -ne 1) { throw "SQL_SETUP_MEDIA_NOT_UNIQUE: passendeSQLSetups=$($setup.Count); gefunden=$($allSetup.Count)" }
                     $setupVersion = [string]$setup[0].VersionInfo.ProductVersion
                     if (-not $setupVersion) { $setupVersion = [string]$setup[0].VersionInfo.FileVersion }
                     if ([string]::IsNullOrWhiteSpace($setupVersion) -or $setupVersion -notmatch $ExpectedSetupVersionPattern) {
                         throw "SQL_SETUP_VERSION_MISMATCH: erwartet $ExpectedSqlVersion, erkannt $setupVersion"
                     }
-                    $features = @([string]$FeaturesCsv -split ',' | Where-Object { $_ })
-                    $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SqlSaPassword)
-                    $plainPassword = $null
-                    try {
-                        $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-                        if ($plainPassword -match '[\s"]') { throw 'SQL_SA_PASSWORD_COMMAND_LINE_UNSAFE' }
-                        $arguments = @(
-                            '/Q', '/ACTION=Install', "/FEATURES=$($features -join ',')",
-                            '/INSTANCENAME=MSSQLSERVER', '/INSTANCEID=MSSQLSERVER',
-                            '/SQLSVCACCOUNT="NT Service\MSSQLSERVER"',
-                            '/AGTSVCACCOUNT="NT Service\SQLSERVERAGENT"', '/AGTSVCSTARTUPTYPE=Automatic',
-                            '/SQLSYSADMINACCOUNTS="BUILTIN\Administrators"', '/SECURITYMODE=SQL',
-                            "/SAPWD=$plainPassword", '/TCPENABLED=0', '/SQLSVCINSTANTFILEINIT=True',
-                            '/ENU=True', '/IACCEPTSQLSERVERLICENSETERMS', '/INDICATEPROGRESS'
-                        )
-                        $process = Start-Process -FilePath $setup[0].FullName -ArgumentList $arguments -PassThru -NoNewWindow
-                        if (-not $process.WaitForExit([int]$TimeoutSeconds * 1000)) {
-                            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-                            throw "SQL_SETUP_INSTALL_TIMEOUT: $TimeoutSeconds"
+                    $netFx3Installed = $true
+                    if ($expectedMajor -le 12) {
+                        $feature = Get-WindowsFeature -Name NET-Framework-Core -ErrorAction Stop
+                        if (-not $feature.Installed) {
+                            $sources = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
+                                $candidate = Join-Path ([string]$_.DeviceID + '\') 'sources\sxs'
+                                if (Test-Path -LiteralPath $candidate -PathType Container) { $candidate }
+                            })
+                            if ($sources.Count -ne 1) { throw "SQL_SETUP_NETFX3_SOURCE_NOT_UNIQUE: $($sources.Count)" }
+                            $featureResult = Install-WindowsFeature -Name NET-Framework-Core -Source $sources[0] -ErrorAction Stop
+                            $netFx3Installed = [bool]$featureResult.Success -and [bool](Get-WindowsFeature -Name NET-Framework-Core).Installed
+                            if (-not $netFx3Installed) { throw 'SQL_SETUP_NETFX3_INSTALL_FAILED' }
                         }
-                        if ($process.ExitCode -notin @(0, 3010)) { throw "SQL_SETUP_INSTALL_FAILED: $($process.ExitCode)" }
-                        if ($process.ExitCode -eq 3010) { $null = & shutdown.exe /r /t 15 /f /d p:4:1 }
+                    }
+                    $features = @([string]$FeaturesCsv -split ',' | Where-Object { $_ })
+                    $saBstr = [IntPtr]::Zero; $administratorBstr = [IntPtr]::Zero
+                    $plainPassword = $null; $plainAdministratorPassword = $null
+                    $saBytes = $null; $taskName = "SQL_Server_Lab_Setup_$($ExpectedBuildId.Replace('-', '').Substring(0, 12))"
+                    $workRoot = Join-Path $env:ProgramData "SQL_Server_Lab\$ExpectedBuildId"
+                    $runnerPath = Join-Path $workRoot 'Invoke-SqlSetup.ps1'
+                    $configPath = Join-Path $workRoot 'setup.json'
+                    $secretPath = Join-Path $workRoot 'sa-password.bin'
+                    $resultPath = Join-Path $workRoot 'result.json'
+                    try {
+                        New-Item -Path $workRoot -ItemType Directory -Force | Out-Null
+                        $saBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SqlSaPassword)
+                        $plainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($saBstr)
+                        if ($plainPassword -match '[\s"]') { throw 'SQL_SA_PASSWORD_COMMAND_LINE_UNSAFE' }
+                        Add-Type -AssemblyName System.Security -ErrorAction Stop
+                        $saBytes = [Text.Encoding]::Unicode.GetBytes($plainPassword)
+                        $entropy = [Text.Encoding]::UTF8.GetBytes($ExpectedBuildId)
+                        $protected = [Security.Cryptography.ProtectedData]::Protect(
+                            $saBytes, $entropy, [Security.Cryptography.DataProtectionScope]::LocalMachine)
+                        [IO.File]::WriteAllBytes($secretPath, $protected)
+                        $configuration = [pscustomobject]@{
+                            setupPath = $setup[0].FullName; secretPath = $secretPath; resultPath = $resultPath
+                            entropy = $ExpectedBuildId; features = @($features); expectedMajor = $expectedMajor
+                            timeoutSeconds = [int]$TimeoutSeconds
+                        }
+                        $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList (,$false)
+                        [IO.File]::WriteAllText($configPath, ($configuration | ConvertTo-Json -Depth 5), $utf8NoBom)
+                        $runner = @'
+param([Parameter(Mandatory)][string]$ConfigPath)
+$ErrorActionPreference='Stop'
+$config=Get-Content -LiteralPath $ConfigPath -Raw -Encoding utf8|ConvertFrom-Json
+$plain=$null;$plainBytes=$null;$process=$null
+try{
+  Add-Type -AssemblyName System.Security -ErrorAction Stop
+  $protected=[IO.File]::ReadAllBytes([string]$config.secretPath)
+  $entropy=[Text.Encoding]::UTF8.GetBytes([string]$config.entropy)
+  $plainBytes=[Security.Cryptography.ProtectedData]::Unprotect($protected,$entropy,[Security.Cryptography.DataProtectionScope]::LocalMachine)
+  $plain=[Text.Encoding]::Unicode.GetString($plainBytes)
+  $arguments=@('/Q','/ACTION=Install',("/FEATURES="+(@($config.features)-join ',')),'/INSTANCENAME=MSSQLSERVER','/INSTANCEID=MSSQLSERVER','/SQLSVCACCOUNT="NT Service\MSSQLSERVER"','/AGTSVCACCOUNT="NT Service\SQLSERVERAGENT"','/AGTSVCSTARTUPTYPE=Automatic','/SQLSYSADMINACCOUNTS="BUILTIN\Administrators"','/SECURITYMODE=SQL',("/SAPWD="+$plain),'/TCPENABLED=0','/ENU=True','/IACCEPTSQLSERVERLICENSETERMS','/INDICATEPROGRESS')
+  if([int]$config.expectedMajor-ge 13){$arguments+='/SQLSVCINSTANTFILEINIT=True'}
+  $process=Start-Process -FilePath ([string]$config.setupPath) -ArgumentList $arguments -PassThru -WindowStyle Hidden
+  $completed=$process.WaitForExit([int]$config.timeoutSeconds*1000)
+  if(-not $completed){Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue;$receipt=[pscustomobject]@{status='TIMEOUT';exitCode=$null}}
+  else{$code=$null;try{$code=[int]$process.ExitCode}catch{};$receipt=[pscustomobject]@{status='COMPLETED';exitCode=$code}}
+}catch{$receipt=[pscustomobject]@{status='FAILED';exitCode=$null;errorType=$_.Exception.GetType().FullName}}
+finally{
+  $plain=$null
+  if($plainBytes){[Array]::Clear($plainBytes,0,$plainBytes.Length)}
+  $utf8NoBom=New-Object System.Text.UTF8Encoding -ArgumentList (,$false)
+  [IO.File]::WriteAllText([string]$config.resultPath,($receipt|ConvertTo-Json -Compress),$utf8NoBom)
+}
+'@
+                        [IO.File]::WriteAllText($runnerPath, $runner, $utf8NoBom)
+                        $administratorBstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($AdministratorPassword)
+                        $plainAdministratorPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($administratorBstr)
+                        $taskArguments = "-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$runnerPath`" -ConfigPath `"$configPath`""
+                        $action = New-ScheduledTaskAction -Execute "$env:WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument $taskArguments
+                        Register-ScheduledTask -TaskName $taskName -Action $action -User 'Administrator' `
+                            -Password $plainAdministratorPassword -RunLevel Highest -Force | Out-Null
+                        Start-ScheduledTask -TaskName $taskName
+                        $deadline = [datetime]::UtcNow.AddSeconds([int]$TimeoutSeconds + 60)
+                        do { Start-Sleep -Seconds 2 } while (-not (Test-Path -LiteralPath $resultPath -PathType Leaf) -and [datetime]::UtcNow -lt $deadline)
+                        if (-not (Test-Path -LiteralPath $resultPath -PathType Leaf)) { throw "SQL_SETUP_INSTALL_TIMEOUT: $TimeoutSeconds" }
+                        $runnerReceipt = Get-Content -LiteralPath $resultPath -Raw -Encoding utf8 | ConvertFrom-Json
+                        if ([string]$runnerReceipt.status -eq 'TIMEOUT') { throw "SQL_SETUP_INSTALL_TIMEOUT: $TimeoutSeconds" }
+                        if ([string]$runnerReceipt.status -ne 'COMPLETED') { throw "SQL_SETUP_SCHEDULED_RUNNER_FAILED: $($runnerReceipt.errorType)" }
+                        $exitCode = $null
+                        if ($null -ne $runnerReceipt.exitCode) { $exitCode = [int]$runnerReceipt.exitCode }
+                        if ($exitCode -notin @(0, 3010)) {
+                            $logRoot = Join-Path $env:ProgramFiles 'Microsoft SQL Server'
+                            $summary = @(Get-ChildItem -LiteralPath $logRoot -Filter 'Summary.txt' -File -Recurse -ErrorAction SilentlyContinue |
+                                Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1)[0]
+                            $detail = 'Summary.txt nicht gefunden'
+                            if ($summary) {
+                                $lines = @(Get-Content -LiteralPath $summary.FullName -Tail 80 -ErrorAction SilentlyContinue)
+                                $relevant = @($lines | Where-Object { $_ -match '(?i)error|failed|failure|exit code|result|exception|access is denied' } | Select-Object -Last 10)
+                                if ($relevant.Count -eq 0) { $relevant = @($lines | Select-Object -Last 8) }
+                                $detail = (($relevant -join ' ') -replace '\s+', ' ').Trim()
+                                $detail = $detail -replace '(?i)(/PID=|PID\s*[:=]\s*)[A-Z0-9-]+', '$1<redacted>'
+                                if ($detail.Length -gt 1200) { $detail = $detail.Substring(0, 1200) }
+                                $detail = "Summary=$($summary.FullName); Detail=$detail"
+                            }
+                            $reportedExitCode = if ($null -eq $exitCode) { 'unbekannt' } else { [string]$exitCode }
+                            throw "SQL_SETUP_INSTALL_FAILED: ExitCode=$reportedExitCode; $detail"
+                        }
+                        if ($exitCode -eq 3010) { $null = & shutdown.exe /r /t 15 /f /d p:4:1 }
                         [PSCustomObject]@{
                             contractVersion = '1'; buildId = $ExpectedBuildId; scopeId = $ExpectedScopeId
                             challenge = $Challenge; action = 'Install'; sqlVersion = $ExpectedSqlVersion
                             expectedMajorVersion = $expectedMajor; setupVersion = $setupVersion
-                            features = @($features); exitCode = [int]$process.ExitCode
-                            rebootScheduled = ($process.ExitCode -eq 3010); completedAt = [datetime]::UtcNow.ToString('o')
+                            features = @($features); netFx3Installed = $netFx3Installed; exitCode = [int]$exitCode
+                            rebootScheduled = ($exitCode -eq 3010); completedAt = [datetime]::UtcNow.ToString('o')
                         }
                     }
                     finally {
-                        $plainPassword = $null
-                        [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+                        $plainPassword = $null; $plainAdministratorPassword = $null
+                        if ($saBytes) { [Array]::Clear($saBytes, 0, $saBytes.Length) }
+                        if ($saBstr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($saBstr) }
+                        if ($administratorBstr -ne [IntPtr]::Zero) { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($administratorBstr) }
+                        Stop-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue
+                        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false -ErrorAction SilentlyContinue
+                        Remove-Item -LiteralPath $workRoot -Recurse -Force -ErrorAction SilentlyContinue
                     }
                 }
             $receipt = @($receipt)[-1]
@@ -594,11 +693,11 @@ function Test-HyperVSqlAcceptanceEnvironment {
             $databaseName = 'SQLLAB_ACCEPTANCE'
             try {
                 $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-                $builder = [System.Data.SqlClient.SqlConnectionStringBuilder]::new()
+                $builder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder
                 $builder['Data Source'] = 'localhost'; $builder['Initial Catalog'] = 'master'; $builder['User ID'] = 'sa'
                 $builder['Password'] = $plainPassword; $builder['Encrypt'] = $true; $builder['TrustServerCertificate'] = $true
                 $builder['Connect Timeout'] = [Math]::Min(15, [int]$Timeout)
-                $connection = [System.Data.SqlClient.SqlConnection]::new($builder.ConnectionString); $connection.Open()
+                $connection = New-Object System.Data.SqlClient.SqlConnection -ArgumentList (,$builder.ConnectionString); $connection.Open()
                 $command = $connection.CreateCommand(); $command.CommandTimeout = [int]$Timeout
                 $command.CommandText = @"
 IF DB_ID(N'$databaseName') IS NOT NULL BEGIN
@@ -614,11 +713,22 @@ CREATE DATABASE [$databaseName];
                 $connection.ChangeDatabase('master')
                 $command.CommandText = "SELECT CAST(SERVERPROPERTY('InstanceDefaultBackupPath') AS nvarchar(4000));"
                 $backupRoot = [string]$command.ExecuteScalar()
-                if (-not $backupRoot) { $backupRoot = Join-Path $env:ProgramFiles 'Microsoft SQL Server\MSSQL\Backup' }
-                New-Item -Path $backupRoot -ItemType Directory -Force | Out-Null
+                if (-not $backupRoot) {
+                    $instanceNames = Get-ItemProperty `
+                        -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL' `
+                        -Name MSSQLSERVER -ErrorAction Stop
+                    $instanceId = [string]$instanceNames.MSSQLSERVER
+                    $instanceSettings = Get-ItemProperty `
+                        -LiteralPath "HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\$instanceId\MSSQLServer" `
+                        -Name BackupDirectory -ErrorAction Stop
+                    $backupRoot = [string]$instanceSettings.BackupDirectory
+                }
+                if (-not $backupRoot -or -not (Test-Path -LiteralPath $backupRoot -PathType Container)) {
+                    throw 'SQL_ACCEPTANCE_BACKUP_DIRECTORY_NOT_FOUND'
+                }
                 $backupPath = Join-Path $backupRoot "$databaseName.bak"
                 $escapedBackup = $backupPath.Replace("'", "''")
-                $command.CommandText = "SET NOCOUNT ON; BACKUP DATABASE [$databaseName] TO DISK=N'$escapedBackup' WITH INIT,CHECKSUM; RESTORE VERIFYONLY FROM DISK=N'$escapedBackup' WITH CHECKSUM; SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS int);"
+                $command.CommandText = "SET NOCOUNT ON; BACKUP DATABASE [$databaseName] TO DISK=N'$escapedBackup' WITH INIT,CHECKSUM; RESTORE VERIFYONLY FROM DISK=N'$escapedBackup' WITH CHECKSUM; SELECT CONVERT(int,PARSENAME(CONVERT(varchar(128),SERVERPROPERTY('ProductVersion')),4));"
                 $observedMajor = [int]$command.ExecuteScalar()
                 $command.CommandText = "ALTER DATABASE [$databaseName] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [$databaseName];"
                 $null = $command.ExecuteNonQuery()
@@ -661,7 +771,7 @@ function Get-HyperVSqlAcceptanceMatrix {
     param([string]$StateRoot)
     return @(
         Get-HyperVSqlImageBuildPlans -StateRoot $StateRoot |
-            Where-Object { $_.sql.version -in @('2019', '2022', '2025') } |
+            Where-Object { $_.sql.version -in @('2012', '2014', '2016', '2017', '2019', '2022', '2025') } |
             Sort-Object { [int]$_.sql.version } |
             ForEach-Object {
                 [PSCustomObject]@{

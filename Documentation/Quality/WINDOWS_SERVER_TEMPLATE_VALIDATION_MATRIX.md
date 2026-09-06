@@ -90,10 +90,10 @@ Pack-Stände. Quelle:
 
 Die OS-Vorlagen 2008 R2 bis 2025 sind auf diesem Host real bis zum Child-Boot
 geprüft. Der allgemeine Slot- und SQL-Installationspfad verwendet außerhalb
-dieser Template-Abnahme teilweise noch PowerShell Direct. Für 2008 R2 und
-2012 R2 muss deshalb vor einer allgemeinen Freigabe derselbe Legacy-WMI-Kanal
-in die reguläre Child-Provisionierung und die jeweils kompatiblen SQL-Setup-
-Pfade integriert und separat real abgenommen werden.
+dieser Template-Abnahme teilweise noch PowerShell Direct. Für 2012 R2 ist der
+Lab-WinRM-Fallback inzwischen bis zu einem realen SQL-Server-2012-Setup samt
+SQL-Abnahme belegt. 2008 R2 und die allgemeinen Slotpfade benötigen weiterhin
+ihren getrennten versionsgerechten Gastkanal.
 
 Microsoft dokumentiert für Windows Server 2008 R2 SP1 Evaluation keinen
 einzugebenden Product Key, aber eine Aktivierung innerhalb von zehn Tagen und
@@ -114,11 +114,25 @@ gewertet.
 | 2005 | Eval-ISO und Express-SP4-EXE; Eval bleibt `COMMUNITY_UNVERIFIED` | Windows Server 2003 SP2 x86 | fehlt |
 | 2008 | hashgebundene frühere Microsoft-Eval-ISO und Express-EXE | Windows Server 2008 R2 SP1, aktuell nur kurzlebiges `OOB_GRACE` | fehlt |
 | 2008 R2 | Microsoft-signiertes Eval-SFX und Express-EXE | Windows Server 2008 R2 SP1 | SFX-Staging und Installation fehlen |
-| 2012 | hashgebundene Eval-ISO und Express-EXE | Windows Server 2012 R2, child- und aktivierungsgeprüft | SQL-Setup läuft noch nicht über Legacy-WMI |
+| 2012 | hashgebundene Eval-ISO und Express-EXE | Windows Server 2012 R2, child- und aktivierungsgeprüft | real bestanden: unbeaufsichtigtes Eval-Setup, SQL 11.0.2100.60, Dienst-/Versionsprüfung, Create/Insert/Backup CHECKSUM/RESTORE VERIFYONLY/Drop |
 | 2014 | Express-RTM-/SP3-SFX, kein Eval-ISO | Windows Server 2012 R2 | SFX-/Express-Adapter und Installation fehlen |
 
-Die nächste Implementierungswelle beginnt deshalb mit SQL Server 2012 auf
-der validierten 2012-R2-Baseline. Erst danach wird derselbe Legacy-Gastkanal
-für 2014, 2008/2008 R2 und zuletzt der getrennte NT5/x86-Pfad für 2005/2000
-erweitert. Keine dieser SQL-Versionen wird vor einem echten Setup-, Dienst-,
-Versions- und Verbindungsnachweis als `READY` ausgewiesen.
+SQL Server 2012 ist am 6. September 2026 mit Build
+`f5ebb3d1-3989-4415-8d77-65e151619172` real bis `TESTS_PASSED` abgenommen.
+Der wiederaufnehmbare Operatorpfad lautet:
+
+```powershell
+.\Tools\New-LegacySqlServerAcceptanceEnvironment.ps1 `
+    -SqlVersion 2012 `
+    -MediaRoot 'D:\Lab1_Base' `
+    -ResultPath 'D:\Lab1_Base\Evidence\sql-server-2012-acceptance.json' `
+    -Confirm:$false
+```
+
+Die 4,5-GB-Medien werden beim erstmaligen Build vollständig gehasht. Ein
+unveränderter Resume verwendet anschließend den buildlokalen SHA-256-Beleg
+zusammen mit Dateigröße, Änderungszeit und unverändertem Sidecar. Nur eine
+Abweichung erzwingt die erneute Medienverifikation. Die nächste Welle erweitert
+den belegten Gastkanal auf 2014, danach 2008/2008 R2 und zuletzt den getrennten
+NT5/x86-Pfad für 2005/2000. Keine weitere SQL-Version wird vor einem echten
+Setup-, Dienst-, Versions- und Verbindungsnachweis als `READY` ausgewiesen.

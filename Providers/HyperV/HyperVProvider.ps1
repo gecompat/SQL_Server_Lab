@@ -853,23 +853,23 @@ function Initialize-HyperVLabWinRmClient {
     .DESCRIPTION
         Der Host wird dabei nicht als Remote-Server konfiguriert: Es wird weder
         ein Listener erstellt noch eine Host-Firewallregel geoeffnet. Der
-        laufende WinRM-Dienst stellt lediglich den WSMan-Clientkonfigurations-
-        pfad fuer den kurzzeitigen, IP-genauen TrustedHost bereit.
+        laufende WinRM-Dienst stellt lediglich den Client bereit. Die lokale
+        Clientkonfiguration wird direkt über ihren Registrywert gelesen, weil
+        der WSMan-PSDrive ohne Host-Listener nicht zuverlässig verfügbar ist.
     #>
     [CmdletBinding()]
     param()
 
-    Import-Module Microsoft.WSMan.Management -ErrorAction Stop
     $service = Get-Service -Name WinRM -ErrorAction Stop
     if ($service.Status -ne 'Running') {
         try { Start-Service -Name WinRM -ErrorAction Stop }
         catch { throw "HYPERV_LAB_WINRM_CLIENT_START_FAILED: $($_.Exception.Message)" }
     }
-    $trustedHostsPath = 'WSMan:\localhost\Client\TrustedHosts'
-    if (-not (Test-Path -LiteralPath $trustedHostsPath)) {
+    $clientConfigurationPath = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WSMAN\Client'
+    if (-not (Test-Path -LiteralPath $clientConfigurationPath -PathType Container)) {
         throw 'HYPERV_LAB_WINRM_CLIENT_CONFIGURATION_UNAVAILABLE'
     }
-    return $trustedHostsPath
+    return $clientConfigurationPath
 }
 
 function Invoke-HyperVWinRmFallback {
@@ -891,15 +891,17 @@ function Invoke-HyperVWinRmFallback {
         [object[]]$ArgumentList = @()
     )
 
-    $trustedHostsPath = Initialize-HyperVLabWinRmClient
-    $originalTrustedHosts = [string](Get-Item -Path $trustedHostsPath -ErrorAction Stop).Value
+    $clientConfigurationPath = Initialize-HyperVLabWinRmClient
+    $originalTrustedHosts = [string](Get-ItemPropertyValue -LiteralPath $clientConfigurationPath `
+        -Name trusted_hosts -ErrorAction SilentlyContinue)
     $trustedHosts = @($originalTrustedHosts -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
     $alreadyTrusted = $trustedHosts -contains '*' -or $trustedHosts -contains $Address
     $trustedHostsChanged = $false
     try {
         if (-not $alreadyTrusted) {
             try {
-                Set-Item -Path $trustedHostsPath -Value (@($trustedHosts + $Address) -join ',') -Force -ErrorAction Stop
+                Set-ItemProperty -LiteralPath $clientConfigurationPath -Name trusted_hosts `
+                    -Value (@($trustedHosts + $Address) -join ',') -Type String -Force -ErrorAction Stop
                 $trustedHostsChanged = $true
             }
             catch {
@@ -911,7 +913,8 @@ function Invoke-HyperVWinRmFallback {
     }
     finally {
         if ($trustedHostsChanged) {
-            Set-Item -Path $trustedHostsPath -Value $originalTrustedHosts -Force -ErrorAction SilentlyContinue
+            Set-ItemProperty -LiteralPath $clientConfigurationPath -Name trusted_hosts `
+                -Value $originalTrustedHosts -Type String -Force -ErrorAction SilentlyContinue
         }
     }
 }
@@ -934,6 +937,17 @@ function Invoke-HyperVPowerShellDirect {
     }
     if ([string]$managed.VM.State -ne 'Running') {
         throw "PowerShell Direct erfordert eine laufende VM: $VMName"
+    }
+
+    if ($FallbackAddress -and [string]$managed.Identity.guestTransport -eq 'lab-winrm') {
+        Write-LabInfo "Die VM $VMName ist explizit fuer Lab-WinRM markiert; nutze $FallbackAddress statt PowerShell Direct."
+        try {
+            return Invoke-HyperVWinRmFallback -Address $FallbackAddress -Credential $Credential `
+                -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
+        }
+        catch {
+            throw "HYPERV_LAB_GUEST_COMMAND_UNAVAILABLE: Lab-WinRM: $($_.Exception.Message)"
+        }
     }
 
     $directError = $null
@@ -1022,10 +1036,10 @@ function Wait-HyperVPowerShellDirect {
                 -Credential $Credential -FallbackAddress $FallbackAddress -ScriptBlock {
                     [PSCustomObject]@{
                         computerName = [Environment]::MachineName
-                        imageState = [string](Get-ItemPropertyValue `
+                        imageState = [string](Get-ItemProperty `
                             -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' `
                             -Name ImageState `
-                            -ErrorAction Stop)
+                            -ErrorAction Stop).ImageState
                     }
                 } `
                 -ErrorAction Stop
@@ -1098,17 +1112,17 @@ function Set-HyperVWindowsGuestSpecialization {
         -Credential $Credential `
         -FallbackAddress $FallbackAddress `
         -ScriptBlock {
-            $pendingName = [string](Get-ItemPropertyValue `
+            $pendingName = [string](Get-ItemProperty `
                 -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName' `
                 -Name ComputerName `
-                -ErrorAction Stop)
+                -ErrorAction Stop).ComputerName
             [PSCustomObject]@{
                 computerName = [Environment]::MachineName
                 pendingComputerName = $pendingName
-                imageState = [string](Get-ItemPropertyValue `
+                imageState = [string](Get-ItemProperty `
                     -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' `
                     -Name ImageState `
-                    -ErrorAction Stop)
+                    -ErrorAction Stop).ImageState
             }
         }
     $observed = @($observed)[0]
@@ -1196,10 +1210,10 @@ function Set-HyperVWindowsGuestSpecialization {
         -ScriptBlock {
             [PSCustomObject]@{
                 computerName = [Environment]::MachineName
-                imageState = [string](Get-ItemPropertyValue `
+                imageState = [string](Get-ItemProperty `
                     -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' `
                     -Name ImageState `
-                    -ErrorAction Stop)
+                    -ErrorAction Stop).ImageState
                 windowsVersion = [Environment]::OSVersion.Version.ToString()
             }
         }
@@ -1286,7 +1300,7 @@ function Wait-HyperVGuestSqlReady {
             $builder = $null
             try {
                 $plainPassword = [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-                $builder = [System.Data.SqlClient.SqlConnectionStringBuilder]::new()
+                $builder = New-Object System.Data.SqlClient.SqlConnectionStringBuilder
                 $builder['Data Source'] = $serverName
                 $builder['Initial Catalog'] = 'master'
                 $builder['User ID'] = 'sa'
@@ -1306,7 +1320,7 @@ function Wait-HyperVGuestSqlReady {
                             continue
                         }
 
-                        $connection = [System.Data.SqlClient.SqlConnection]::new($builder.ConnectionString)
+                        $connection = New-Object System.Data.SqlClient.SqlConnection -ArgumentList (,$builder.ConnectionString)
                         $command = $null
                         $reader = $null
                         try {
@@ -1316,7 +1330,7 @@ function Wait-HyperVGuestSqlReady {
                             $command.CommandText = @'
 SET NOCOUNT ON;
 SELECT
-    CAST(SERVERPROPERTY('ProductMajorVersion') AS int) AS MajorVersion,
+    CONVERT(int, PARSENAME(CONVERT(varchar(128), SERVERPROPERTY('ProductVersion')), 4)) AS MajorVersion,
     CAST(SERVERPROPERTY('ProductVersion') AS nvarchar(128)) AS ProductVersion,
     CAST(SERVERPROPERTY('Edition') AS nvarchar(128)) AS Edition,
     CAST(SERVERPROPERTY('MachineName') AS nvarchar(128)) AS MachineName,
