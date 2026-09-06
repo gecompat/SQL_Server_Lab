@@ -90,6 +90,78 @@ try {
             $_.BootInteraction.InitialMediaKey -ne 'space'
         }).Count -eq 0
     )
+    $windowsServer2003Sp2ToolsMedia = @($mediaCatalog | Where-Object {
+        $_.Id -eq 'windows-server-2003-sp2-x86-tools-iso'
+    })
+    Add-CheckResult -Name 'Windows-Server-2003-SP2-Deployment-Tools sind direkt und hashgebunden verfügbar' -Success (
+        $windowsServer2003Sp2ToolsMedia.Count -eq 1 -and
+        $windowsServer2003Sp2ToolsMedia[0].Category -eq 'Windows Server' -and
+        $windowsServer2003Sp2ToolsMedia[0].Acquisition -eq 'DIRECT_MICROSOFT_DOWNLOAD' -and
+        $windowsServer2003Sp2ToolsMedia[0].SourceStatus -eq 'ACTIVE' -and
+        $windowsServer2003Sp2ToolsMedia[0].DownloadUrl -eq 'https://download.microsoft.com/download/7/3/7/737d5061-be37-4d02-a67c-70569e75584b/w2k3sp2_3959_usa_x86fre_spcd.iso' -and
+        $windowsServer2003Sp2ToolsMedia[0].ExpectedBytes -eq 548630528 -and
+        $windowsServer2003Sp2ToolsMedia[0].ExpectedSha256 -eq '30cbd649cfd879bc35a94c41366380d64b5c1745393bcf5604390d3ce566529c' -and
+        $windowsServer2003Sp2ToolsMedia[0].ExpectedSha1 -eq 'aeae93def8b8f5885bcea9a24f4979e51637254b' -and
+        -not $windowsServer2003Sp2ToolsMedia[0].RequiresExplicitTrust
+    )
+    $legacySysprepToolPath = Join-Path $repoRoot 'Tools/New-WindowsServer2003SysprepMedia.ps1'
+    $legacyChildToolPath = Join-Path $repoRoot 'Tools/New-WindowsServer2003LegacyChild.ps1'
+    $legacyIntegrationMediaToolPath = Join-Path $repoRoot 'Tools/Test-WindowsServer2003HyperVIntegrationMedia.ps1'
+    $legacyTemplateRunbookPath = Join-Path $repoRoot 'Documentation/HowTo/WINDOWS_SERVER_2003_LEGACY_TEMPLATE.md'
+    $legacySysprepToolText = Get-Content -LiteralPath $legacySysprepToolPath -Raw -Encoding utf8
+    $legacyChildToolText = Get-Content -LiteralPath $legacyChildToolPath -Raw -Encoding utf8
+    $legacyIntegrationMediaToolText = Get-Content -LiteralPath $legacyIntegrationMediaToolPath -Raw -Encoding utf8
+    $legacyTemplateRunbookText = Get-Content -LiteralPath $legacyTemplateRunbookPath -Raw -Encoding utf8
+    Add-CheckResult -Name 'Windows-Server-2003-Legacy-Reseal bleibt schlüsselfrei und Generation 1 getrennt' -Success (
+        $legacySysprepToolText -match 'SysprepVersion\s*=\s*\$sysprepVersion' -and
+        $legacySysprepToolText -match "sysprep -reseal -mini -quiet -forceshutdown" -and
+        $legacySysprepToolText -match 'ContainsSecrets\s*=\s*\$false' -and
+        $legacySysprepToolText -notmatch '(?i)ProductKey\s*=' -and
+        $legacySysprepToolText -notmatch '(?i)AdminPassword\s*=' -and
+        $legacyTemplateRunbookText -match '`LEGACY_TEMPLATE_SEALED`' -and
+        $legacyTemplateRunbookText -match 'Generation[- ]1' -and
+        $legacyTemplateRunbookText -match 'Differencing-VHDX' -and
+        $legacyTemplateRunbookText -match 'Parent wird niemals direkt gebootet'
+    )
+    Add-CheckResult -Name 'Windows-Server-2003-Child übernimmt Evaluation-Key lokal ohne Offenlegung oder Aktivierung' -Success (
+        $legacyChildToolText -match [regex]::Escape('I386\UNATTEND.TXT') -and
+        $legacyChildToolText -match 'ExpectedEvaluationIsoSha256' -and
+        $legacyChildToolText -match "LEGACY_TEMPLATE_SEALED" -and
+        $legacyChildToolText -match 'New-VHD\s+-Path\s+\$childVhdPath\s+-ParentPath\s+\$resolvedParentVhd\s+-Differencing' -and
+        $legacyChildToolText -match "-Generation 1" -and
+        $legacyChildToolText -match '-IsLegacy\s+\$true' -and
+        $legacyChildToolText -match '\[Microsoft\.HyperV\.PowerShell\.BootDevice\]::IDE' -and
+        $legacyChildToolText -match 'WS2003_CHILD_ROOT_SCOPE_INVALID' -and
+        $legacyChildToolText -match 'EvaluationProductKeyInjected\s*=\s*\$true' -and
+        $legacyChildToolText -match 'EvaluationProductKeyDisclosed\s*=\s*\$false' -and
+        $legacyChildToolText -match 'ActivationPerformed\s*=\s*\$false' -and
+        $legacyChildToolText -match '\[LicenseFilePrintData\]' -and
+        $legacyChildToolText -match 'AutoMode=PerServer' -and
+        $legacyChildToolText -match 'IntegrationServicesIsoPath' -and
+        $legacyChildToolText -match 'Test-WindowsServer2003HyperVIntegrationMedia\.ps1' -and
+        $legacyChildToolText -match 'WS2003_CHILD_REQUIRES_ELEVATED_RUNNER' -and
+        $legacyChildToolText -notmatch '(?i)(?<![A-Z0-9])[A-Z0-9]{5}(?:-[A-Z0-9]{5}){4}(?![A-Z0-9])' -and
+        $legacyTemplateRunbookText -match 'SP2-Slipstream-ISO' -and
+        $legacyTemplateRunbookText -match 'führt keine Aktivierung aus'
+    )
+    $windowsServer2003IntegrationMedia = @($mediaCatalog | Where-Object {
+        $_.Id -eq 'windows-server-2003-hyper-v-integration-services-iso'
+    })
+    Add-CheckResult -Name 'Windows-Server-2003-Integrations-DVD ist hash- und signaturgebunden katalogisiert' -Success (
+        $windowsServer2003IntegrationMedia.Count -eq 1 -and
+        $windowsServer2003IntegrationMedia[0].Acquisition -eq 'ARCHIVE_FALLBACK_VERIFIED' -and
+        $windowsServer2003IntegrationMedia[0].ExpectedBytes -eq 27590656 -and
+        $windowsServer2003IntegrationMedia[0].ExpectedSha256 -eq 'd1037fd8e788ce8ed0df16ec21f057e74512d5b3d551cc9396c7ae95dccba10f' -and
+        $windowsServer2003IntegrationMedia[0].ExpectedSha1 -eq '415d62038cf28c39af2ca63076a7df91a4524314' -and
+        -not $windowsServer2003IntegrationMedia[0].RequiresExplicitTrust -and
+        $legacyIntegrationMediaToolText -match 'd1037fd8e788ce8ed0df16ec21f057e74512d5b3d551cc9396c7ae95dccba10f' -and
+        $legacyIntegrationMediaToolText -match "FileSystemLabel -ne 'VMGUEST'" -and
+        $legacyIntegrationMediaToolText -match [regex]::Escape('Windows5.x-HyperVIntegrationServices-x86.msi') -and
+        $legacyIntegrationMediaToolText -match 'Get-AuthenticodeSignature' -and
+        $legacyIntegrationMediaToolText -match '6.3.9600.16384' -and
+        $legacyTemplateRunbookText -match [regex]::Escape('support\x86\setup.exe') -and
+        $legacyTemplateRunbookText -match 'normal ausgerichteter VMConnect-Mauszeiger'
+    )
     $directWindowsMedia = @($mediaCatalog | Where-Object { $_.Id -in @(
         'windows-server-2016-evaluation-iso',
         'windows-server-2019-evaluation-iso',
@@ -114,6 +186,13 @@ try {
         $plannedDirectWindowsMedia.Status -eq 'PLANNED' -and
         $plannedDirectWindowsMedia.Bytes -eq 5044094976 -and
         $plannedDirectWindowsMedia.Sha256 -eq '3e4fa6d8507b554856fc9ca6079cc402df11a8b79344871669f0251535255325'
+    )
+    $plannedWindowsServer2003Sp2Tools = Save-SqlServerLabMediaSource -Id 'windows-server-2003-sp2-x86-tools-iso' -MediaRoot $temporaryRoot -WhatIf
+    Add-CheckResult -Name 'Windows-Server-2003-SP2-Deployment-Medium besitzt einen reproduzierbaren WhatIf-Plan' -Success (
+        $plannedWindowsServer2003Sp2Tools.Status -eq 'PLANNED' -and
+        $plannedWindowsServer2003Sp2Tools.TargetPath -like "$(Join-Path $temporaryRoot 'WindowsServer\2003\Eval\Updates')*" -and
+        $plannedWindowsServer2003Sp2Tools.Bytes -eq 548630528 -and
+        $plannedWindowsServer2003Sp2Tools.Sha256 -eq '30cbd649cfd879bc35a94c41366380d64b5c1745393bcf5604390d3ce566529c'
     )
     $plannedWindowsMedia = Save-SqlServerLabMediaSource -Id 'windows-server-2008r2-sp1-evaluation-iso' -MediaRoot $temporaryRoot -WhatIf
     Add-CheckResult -Name 'Archiviertes Windows-Basismedium besitzt einen mutationsfreien WhatIf-Plan' -Success (
