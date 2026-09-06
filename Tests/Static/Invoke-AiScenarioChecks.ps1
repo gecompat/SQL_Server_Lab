@@ -260,6 +260,33 @@ try {
     Add-CheckResult 'RAG-Ergebnis erfüllt den geheimnisfreien Query-Result-Vertrag' (
         (($rag.Result|ConvertTo-Json -Depth 20)|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-query-result.schema.json') -ErrorAction SilentlyContinue) -and
         (($rag.PublicPlan|ConvertTo-Json -Depth 20) -notmatch 'Alpha ist|Beta ist|Was ist'))
+
+    $agent=& $module {
+        param($TemporaryRoot)
+        $runId='11111111-2222-4333-8444-555555555555';$runDirectory=Join-Path (Join-Path $TemporaryRoot 'runs') $runId;New-Item $runDirectory -ItemType Directory -Force|Out-Null
+        $plan=New-LabAiDiagnosticAgentPlan -RunId $runId -InstanceId primary -Question 'Wie ist der Zustand?' -ToolId server-summary,wait-statistics -GenerationModelKey ollama-gemma3-1b-local -LocalPort 11434
+        $script:calls=[Collections.Generic.List[object]]::new()
+        $sqlExecutor={param($credential,$sql,$nonQuery)$script:calls.Add([PSCustomObject]@{User=$credential.UserName;Sql=$sql;NonQuery=$nonQuery});if($sql-match'dm_os_sys_info'){return [PSCustomObject]@{ProductVersion='17.0';CpuCount=4;PhysicalMemoryKb=8192}};if($sql-match'dm_os_wait_stats'){return [PSCustomObject]@{WaitType='TEST_WAIT';WaitingTasks=1;WaitTimeMs=2}};@()}
+        $transport={param($request)[PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{response='Keine kritische synthetische Auffälligkeit.'}}}
+        $password=[SecureString]::new();$result=Invoke-LabAiDiagnosticAgent -Plan $plan -SaPassword $password -Target ([PSCustomObject]@{Version='2025';Provider='docker';HostName='127.0.0.1';Port=1433}) -Question 'Wie ist der Zustand?' -StateRoot $TemporaryRoot -GenerationTransport $transport -SqlExecutor $sqlExecutor
+        $journal=Get-Content (Get-ChildItem (Join-Path $runDirectory 'ai-agent') -File|Select-Object -First 1).FullName -Raw|ConvertFrom-Json
+        [PSCustomObject]@{Plan=$plan;Result=$result;Calls=@($script:calls);Journal=$journal}
+    } $temporaryRoot
+    Add-CheckResult 'Diagnose-Agent nutzt ausschließlich katalogisierte SELECT-Werkzeuge unter kurzlebigem Login' (
+        $agent.Result.Status -eq 'SUCCEEDED' -and $agent.Result.ToolExecutions.Count -eq 2 -and
+        @($agent.Calls|Where-Object Sql -match '^CREATE LOGIN').Count -eq 1 -and @($agent.Calls|Where-Object Sql -match '^DROP LOGIN').Count -eq 1 -and
+        @($agent.Calls|Where-Object {-not $_.NonQuery -and $_.Sql -notmatch '^SELECT '}).Count -eq 0)
+    Add-CheckResult 'Agentjournal bleibt inhaltsfrei und dokumentiert erfolgreichen Cleanup' (
+        $agent.Journal.status -eq 'SUCCEEDED' -and $agent.Journal.cleanupStatus -eq 'SUCCEEDED' -and
+        (($agent.Journal|ConvertTo-Json -Depth 10) -notmatch 'TEST_WAIT|ProductVersion|Keine kritische') -and
+        (($agent.Journal|ConvertTo-Json -Depth 10)|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-runtime-journal.schema.json') -ErrorAction SilentlyContinue))
+    $unknownToolRejected=$false
+    try { & $module { New-LabAiDiagnosticAgentPlan -RunId '11111111-2222-4333-8444-555555555555' -InstanceId primary -Question test -ToolId arbitrary-sql -GenerationModelKey ollama-gemma3-1b-local -LocalPort 11434 } }
+    catch { $unknownToolRejected=$_.Exception.Message -match 'AI_AGENT_TOOL_NOT_ALLOWED' }
+    Add-CheckResult 'Unbekannte und damit freie SQL-Werkzeuge werden fail-closed abgelehnt' $unknownToolRejected
+    $capabilities=@(& $module { Get-LabProviderCapabilityContract });$dockerAgent=@(($capabilities|Where-Object Provider -eq docker).Capabilities.SourceKey);$podmanAgent=@(($capabilities|Where-Object Provider -eq podman).Capabilities.SourceKey);$hyperVAgent=@(($capabilities|Where-Object Provider -eq hyperv).Capabilities.SourceKey)
+    Add-CheckResult 'Docker und Podman deklarieren native Agent-Evidence getrennt von Hyper-V' (
+        'sql2025-ai-diagnostic-agent' -in $dockerAgent -and 'sql2025-ai-diagnostic-agent' -in $podmanAgent -and 'sql2025-ai-diagnostic-agent' -notin $hyperVAgent)
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue

@@ -4,7 +4,7 @@
 
 `AI-00 IMPLEMENTED`, `AI-05 IMPLEMENTED`, `AI-10A SUPPORTED`,
 `AI-10B IN_PROGRESS`, `AI-20A SUPPORTED`, `AI-20B BACKLOG`, `AI-30A SUPPORTED`,
-`AI-40A IMPLEMENTED`, `AI-40B` bis `AI-50 BACKLOG`, `AI-60A SUPPORTED`,
+`AI-40A IMPLEMENTED`, `AI-40B BACKLOG`, `AI-50A SUPPORTED`, `AI-60A SUPPORTED`,
 `AI-60B BACKLOG`, `AI-70` bis `AI-90 BACKLOG`.
 
 Dieser Backlog ist der übergeordnete SQL-zentrierte KI-Plan. Der
@@ -121,6 +121,15 @@ dauerhafte SQL-Objekte noch Inhaltsjournale. Die getrennten nativen Docker- und
 Podman-Läufe waren am 2026-09-06 einschließlich SQL-/Ollama-Restart, erwarteter
 Top-Quelle und vollständigem Cleanup erfolgreich. Hybride Volltextsuche,
 Aktualisierung/Löschung und Re-Embedding bleiben offen.
+
+`AI-50A` implementiert den read-only Diagnose-Agenten mit vier festen
+SELECT-Werkzeugen, maximal vier Aufrufen, Zeilen- und Kontextgrenzen sowie
+lokaler Ollama-Zusammenfassung. Jeder Lauf erzeugt vor der ersten SQL-Mutation
+ein inhaltsfreies Journal, legt eine zufällig benannte Least-Privilege-
+SQL-Identität an und entfernt sie im `finally`. Modellantworten können weder
+SQL noch weitere Werkzeuge auslösen. Die getrennten nativen Docker- und
+Podman-Läufe waren am 2026-09-06 einschließlich echter Sichtrechte,
+Login-Cleanup, Ollama-Restart und vollständigem Lab-Cleanup erfolgreich.
 
 ## Sicherheits- und Betriebsvertrag
 

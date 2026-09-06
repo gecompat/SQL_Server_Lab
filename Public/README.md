@@ -61,6 +61,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Invoke-SqlServerLabAiModel` | `Invoke-SqlServerLabAiModel.ps1` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress, Datenklasse und begrenztem Budget aufrufen |
 | `Measure-SqlServerLabAiRetrieval` | `Measure-SqlServerLabAiRetrieval.ps1` | Geordnete Retrieval-IDs deterministisch über Recall@k, Precision@k, MRR und nDCG gegen blockierende Schwellen prüfen |
 | `Invoke-SqlServerLabAiRag` | `Invoke-SqlServerLabAiRag.ps1` | Lokales Ollama-RAG über flüchtige Dokumente und exakte SQL-2025-Vektorsuche ausführen |
+| `Invoke-SqlServerLabAiDiagnosticAgent` | `Invoke-SqlServerLabAiDiagnosticAgent.ps1` | Katalogisierte read-only SQL-Diagnosen unter kurzlebiger Identität lokal zusammenfassen |
 | `Test-SqlServerLabContainerTool` | `Test-SqlServerLabContainerTool.ps1` | Kataloggebundenes SqlPackage per Run-/Scope-gebundenem read-only Versionsprobe prüfen |
 | `Restore-SqlServerLabDatabase` | `Restore-SqlServerLabDatabase.ps1` | Verifiziertes Lab_Data-Backup per stabiler `BackupSetId` oder direkte `.bak`-Datei wiederherstellen; URL-Acquisition mit SHA-256, lokalem Trust Store und inhaltsadressiertem Cache; Ziel bevorzugt per RunId aufloesen |
 | `Get-SqlServerLabGeneratedSqlAccess` | `Get-SqlServerLabGeneratedSqlAccess.ps1` | Hyper-V-SQL-Laufzeit passwortgesicherte SA-Zugriffsdaten mit ConnectionString als kopierfertiges Objekt zurückgeben |

@@ -186,6 +186,14 @@ Restart und Cleanup geprüft:
 .\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider podman
 ```
 
+Der read-only Diagnose-Agent wird mit echten katalogisierten SQL-Abfragen,
+kurzlebigem Login, lokalem Modell, Login-Cleanup und Restart getrennt geprüft:
+
+```powershell
+.\Tests\Integration\Invoke-AiDiagnosticAgentContainerAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-AiDiagnosticAgentContainerAcceptance.ps1 -Provider podman
+```
+
 Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kontrollieren unter anderem:
 
 - JSON-Syntax der Kataloge, Schemas und Beispiele;

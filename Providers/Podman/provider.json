@@ -19,7 +19,8 @@
     "sql-external-runtime",
     "sql2025-vector-core",
     "ollama-local",
-    "sql2025-rag-local"
+    "sql2025-rag-local",
+    "sql2025-ai-diagnostic-agent"
   ],
   "limitations": [
     "no-gui",

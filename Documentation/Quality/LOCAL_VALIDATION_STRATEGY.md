@@ -635,6 +635,17 @@ Jeder Lauf verbindet katalogisierte Ollama-Embeddings und -Generierung mit
 echter exakter SQL-2025-Cosine-Suche, prüft die erwartete Top-Quelle, startet
 SQL und Ollama neu und entfernt Run, Container und Volumes vollständig.
 
+Der read-only Agent besitzt einen eigenen nativen Provider-Nachweis:
+
+```powershell
+.\Tests\Integration\Invoke-AiDiagnosticAgentContainerAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-AiDiagnosticAgentContainerAcceptance.ps1 -Provider podman
+```
+
+Geprüft werden feste SELECT-Werkzeuge, echte Least-Privilege-Sichtrechte,
+lokale Generierung, inhaltsfreies Journal, vollständiger Login-Cleanup und ein
+erneuter Lauf nach Ollama-Restart.
+
 Der ausführbare native Windows-SQL-Nachweis ist:
 
 ```powershell

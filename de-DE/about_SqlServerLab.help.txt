@@ -242,6 +242,9 @@ Sync-SqlServerLabRunScopedContainerStore
     Invoke-SqlServerLabAiRag
         Führt lokales Ollama-RAG mit exakter SQL-2025-Vektorsuche aus.
 
+    Invoke-SqlServerLabAiDiagnosticAgent
+        Führt katalogisierte read-only SQL-Diagnosen aus und fasst sie lokal zusammen.
+
     Get-SqlServerLabGeneratedSqlAccess
         Liefert den Laufzeitzugriff auf ein automatisch generiertes SQL Server
         SA-Konto inklusive ConnectionString.
