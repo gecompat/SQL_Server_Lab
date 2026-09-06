@@ -541,6 +541,8 @@ $coreFiles = @(
     'Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md'
     'Documentation/Project_Planning/README.md'
     'Documentation/Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md'
+    'Documentation/Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md'
+    'Documentation/Project_Planning/CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md'
     'Documentation/Project_Planning/FUTURE_UI_WORKFLOW_PLAN_2026-08-08.md'
     'Documentation/Project_Planning/MASTER_IMPLEMENTATION_PLAN.md'
     'Documentation/Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md'
@@ -684,6 +686,9 @@ $developmentExecutionPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Docum
 $projectPlanningIndex = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\README.md') -Raw -Encoding utf8
 $hyperVResourceRootBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md') -Raw -Encoding utf8
 $persistentStorageBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md') -Raw -Encoding utf8
+$fullInstanceEvaluationRefreshBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md') -Raw -Encoding utf8
+$crossCuttingPlatformCapabilitiesBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md') -Raw -Encoding utf8
+$evaluationRefreshRunbook = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\PERSISTENT_DATA_AND_EVALUATION_REFRESH.md') -Raw -Encoding utf8
 $labDataResidencyDecision = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md') -Raw -Encoding utf8
 $batchWorkflowPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md') -Raw -Encoding utf8
 $futureUseCases = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md') -Raw -Encoding utf8
@@ -1282,6 +1287,44 @@ Add-ValidationResult `
         $repoMap -match 'database_migration_dependency_inventory_schema: Schemas/database-migration-dependency-inventory\.schema\.json' -and
         $repoMap -match 'validation_database_migration_dependency: Tests/Static/Invoke-DatabaseMigrationDependencyChecks\.ps1' -and
         $repoMap -match 'public_sanitized_migration_boundary_projection')
+
+Add-ValidationResult `
+    -Name 'Evaluation-Refresh bleibt geplanter Neuaufbau mit vollständiger Klassifikation und ohne implizite Mutationsautorität' `
+    -Success ($fullInstanceEvaluationRefreshBacklog -match '(?m)^\| Status \| `BACKLOG` \|' -and
+        $fullInstanceEvaluationRefreshBacklog -match [regex]::Escape('funktionale Gleichwertigkeit') -and
+        $fullInstanceEvaluationRefreshBacklog -match [regex]::Escape('FULLY_EQUIVALENT') -and
+        $fullInstanceEvaluationRefreshBacklog -match [regex]::Escape('EXACT_TRANSFER') -and
+        $fullInstanceEvaluationRefreshBacklog -match [regex]::Escape('RECONSTRUCT_EQUIVALENT') -and
+        $fullInstanceEvaluationRefreshBacklog -match [regex]::Escape('MANUAL_REQUIRED') -and
+        $fullInstanceEvaluationRefreshBacklog -match [regex]::Escape('EXCLUDED_EXPLICITLY') -and
+        $fullInstanceEvaluationRefreshBacklog -match [regex]::Escape('BLOCKED') -and
+        $fullInstanceEvaluationRefreshBacklog -match 'keine Export-, Import-, Cutover-, Lizenz- oder\s*Löschmutation' -and
+        $fullInstanceEvaluationRefreshBacklog -match 'Windows- und SQL-Lizenzstatus bleiben getrennte Gates' -and
+        $evaluationRefreshRunbook -match 'FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG\.md' -and
+        $knownLimitations -match 'vollständiger Evaluation-Refresh ist deshalb noch nicht ausführbar' -and
+        $projectPlanningIndex -match 'FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG\.md' -and
+        $developmentExecutionPlan -match 'FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG\.md' -and
+        $repoMap -match 'full_instance_evaluation_refresh_backlog: Documentation/Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG\.md')
+
+Add-ValidationResult `
+    -Name 'Nicht eigenständig geplante Plattformfähigkeiten besitzen einen abgegrenzten Sammelbacklog' `
+    -Success ($crossCuttingPlatformCapabilitiesBacklog -match '(?m)^\| Status \| `BACKLOG_CANDIDATES` \|' -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'Evaluation-Watchdog und Benachrichtigung' -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'Portabler Gesamt-Lab-Export/-Import' -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'Externe Secret-Store-Anbindung' -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'Zentrale Observability und Evidence' -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'Verwaltete Recovery Points' -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'Framework- und State-Upgrade-Lifecycle' -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'Offline-/Air-Gap-Distributionspaket' -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'Erweiterte Kapazitäts-, Reservierungs- und Quotensteuerung' -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'Mehrbenutzer-, Rollen- und Ownership-Modell' -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'Stabile Automation-API und IaC-Adapter' -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'Kubernetes- oder allgemeine Cloud-Orchestrierung bleibt außerhalb' -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'autorisiert keine neue öffentliche API, keinen zentralen\s+Dienst, keine externe Verbindung und keine Mutation' -and
+        $knownLimitations -match 'CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG\.md' -and
+        $projectPlanningIndex -match 'CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG\.md' -and
+        $developmentExecutionPlan -match 'CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG\.md' -and
+        $repoMap -match 'cross_cutting_platform_capabilities_backlog: Documentation/Project_Planning/CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG\.md')
 
 Add-ValidationResult `
     -Name 'PSR-012 trennt Retention, Residuen, Recovery und unverifizierbare Evidence read-only' `
