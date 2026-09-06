@@ -109,9 +109,10 @@ function Get-LabMediaSourceCatalog {
         }
 
         $effectiveUrl = if ($entry.downloadUrl) { [string]$entry.downloadUrl } else { [string]$entry.referenceUrl }
+        $category = if ([string]$entry.targetRelativePath -like 'WindowsServer/*') { 'Windows Server' } else { 'SQL Server' }
         $sources += [PSCustomObject]@{
             Id = [string]$entry.id
-            Category = 'SQL Server'
+            Category = $category
             DisplayName = [string]$entry.displayName
             Url = $effectiveUrl
             DownloadUrl = if ($entry.downloadUrl) { [string]$entry.downloadUrl } else { $null }
@@ -133,7 +134,14 @@ function Get-LabMediaSourceCatalog {
             ExpectedSha1 = if ($entry.expectedSha1) { [string]$entry.expectedSha1 } else { $null }
             ProductVersion = if ($entry.productVersion) { [string]$entry.productVersion } else { $null }
             Automatable = [bool]$entry.automatable
-            BootInteraction = [PSCustomObject]@{ InitialMediaKey = 'none' }
+            ArchiveIdentifier = if ($entry.PSObject.Properties['archiveIdentifier'] -and $entry.archiveIdentifier) { [string]$entry.archiveIdentifier } else { $null }
+            ArchiveMetadataUrl = if ($entry.PSObject.Properties['archiveMetadataUrl'] -and $entry.archiveMetadataUrl) { [string]$entry.archiveMetadataUrl } else { $null }
+            RequiresExplicitTrust = [bool]($entry.PSObject.Properties['requiresExplicitTrust'] -and $entry.requiresExplicitTrust)
+            DerivedTargetRelativePath = if ($entry.PSObject.Properties['derivedTargetRelativePath'] -and $entry.derivedTargetRelativePath) { [string]$entry.derivedTargetRelativePath } else { $null }
+            DerivedExpectedBytes = if ($entry.PSObject.Properties['derivedExpectedBytes'] -and $entry.derivedExpectedBytes) { [long]$entry.derivedExpectedBytes } else { $null }
+            DerivedExpectedSha256 = if ($entry.PSObject.Properties['derivedExpectedSha256'] -and $entry.derivedExpectedSha256) { [string]$entry.derivedExpectedSha256 } else { $null }
+            Conversion = if ($entry.PSObject.Properties['conversion'] -and $entry.conversion) { [string]$entry.conversion } else { $null }
+            BootInteraction = [PSCustomObject]@{ InitialMediaKey = if ($category -eq 'Windows Server') { 'space' } else { 'none' } }
             Note = [string]$entry.note
         }
     }

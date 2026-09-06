@@ -188,10 +188,10 @@ geladen. `-WhatIf` schreibt weder Media-, Testdaten- noch State-Dateien.
 `-TrustUnknownArtifact` ist nur für Samples ohne Katalog-SHA-256 erforderlich
 und vertraut ausschließlich den während dieses Laufs gehashten Bytes.
 
-### 4c. SQL-Basismedium vorab bereitstellen
+### 4c. Server-Basismedium vorab bereitstellen
 
 Direkte Microsoft-Downloads und verifizierte Archiv-Fallbacks für historische
-Versionen sind in einem eigenen Katalog gebunden:
+SQL- und Windows-Server-Versionen sind in einem eigenen Katalog gebunden:
 
 ```powershell
 Save-SqlServerLabMediaSource `
@@ -203,6 +203,26 @@ Der Befehl prüft Größe und SHA-256, bei EXE-Dateien zusätzlich die Microsoft
 Signatur. Mit `-WhatIf` lässt sich der Zielpfad ohne Download anzeigen. Die IDs
 `sql-server-7.0-licensed-media` und `sql-server-6.5-licensed-media` erklären
 bewusst den manuellen Bedarf und starten keinen Download.
+
+Die Evaluation-ISOs für Windows Server 2016, 2019, 2022 und 2025 können genauso
+über ihre `windows-server-<Version>-evaluation-iso`-ID geladen werden. Der
+Katalog verwendet das öffentlich erreichbare Microsoft-Binärziel der jeweiligen
+Evaluation-Center-Seite und prüft exakt Größe und SHA-256. Er füllt kein
+Anmeldeformular aus und übermittelt keine Personen- oder Firmendaten.
+
+Archive.org wird nicht pauschal vertraut. Ein archiviertes Originalmedium ist
+nur dann automatisch downloadbar, wenn Identifier, frühere Microsoft-URL,
+exakte Größe, SHA-1 und SHA-256 im Katalog gebunden sind. Beispiel:
+
+```powershell
+Save-SqlServerLabMediaSource `
+    -Id windows-server-2012r2-evaluation-iso `
+    -MediaRoot 'D:\Lab_Base'
+```
+
+Nicht bestätigte Community-Scans werden ausschließlich mit dem zusätzlichen
+Schalter `-AllowCommunityScan` nach `Incoming\CommunityScan` geladen. Diese
+Freigabe erklärt weder Originalität noch Produktiveignung.
 
 ### Aktuellen CU-Stand bei Microsoft prüfen
 

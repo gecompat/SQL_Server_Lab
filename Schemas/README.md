@@ -10,7 +10,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `ai-scenario.schema.json` | Versioniertes, hashgebundenes SQL-KI-Szenariopaket mit Dataset, Schritten, Assertions, Evaluation und Cleanup |
 | `lab-batch.schema.json` | Mengenfähiger Vertrag `SqlServerLab.BatchManifest/1.0` mit Defaults, Positionen, Anzahl, Intent und Overrides |
 | `version-catalog.schema.json` | Struktur von `Catalogs/sql-server-versions.json` |
-| `sql-server-media-sources.schema.json` | Direkte, archivierte oder manuelle Beschaffungsverträge für `Catalogs/sql-server-media-sources.json` |
+| `sql-server-media-sources.schema.json` | Direkte, archivierte, quarantänisierte oder manuelle Beschaffungsverträge für SQL- und Windows-Server-Basismedien in `Catalogs/sql-server-media-sources.json` |
 | `sample-databases.schema.json` | Struktur von `Catalogs/sample-databases.json` |
 | `software-catalog.schema.json` | Versionierter Katalogvertrag für SQL-bezogene Python-, R- und Java-Runtimes |
 | `sample-baseline-registry.schema.json` | Portables Register verifizierter, inhaltsadressierter Single-Backup- und Multi-Database-ZIP-`LAB_GENERATED`-Objekte |
