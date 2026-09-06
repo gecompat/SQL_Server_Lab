@@ -714,6 +714,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Invoke-SqlServerLabAiScenario` | Deklariertes, hashgebundenes SQL-KI-Szenario journalisiert ausführen |
 | `Invoke-SqlServerLabAiModel` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress und lokalem `.env`-Secret aufrufen |
 | `Measure-SqlServerLabAiRetrieval` | Retrieval-Rangfolgen deterministisch mit Recall@k, Precision@k, MRR und nDCG bewerten |
+| `Invoke-SqlServerLabAiRag` | Lokales RAG mit Ollama-Embeddings und exakter SQL-Server-2025-Vektorsuche ausführen |
 | `Test-SqlServerLabContainerTool` | Kataloggebundenes SqlPackage read-only per Run-/Scope-gebundener Versionsprobe prüfen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |
 | `Get-SqlServerLabGeneratedWindowsAccess` | Das automatisch generierte Windows-Administratorpasswort eines ausgewählten Hyper-V-Slots gezielt abrufen |

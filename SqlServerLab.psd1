@@ -72,6 +72,7 @@
         'Invoke-SqlServerLabAiScenario'
         'Invoke-SqlServerLabAiModel'
         'Measure-SqlServerLabAiRetrieval'
+        'Invoke-SqlServerLabAiRag'
         'Test-SqlServerLabContainerTool'
         'Restore-SqlServerLabDatabase'
         'Test-SqlServerLabPrerequisite'

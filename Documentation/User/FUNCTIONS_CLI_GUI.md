@@ -4,7 +4,7 @@
 |---|---|
 | Stand | 2026-09-05 |
 | Autoritative Funktionsliste | [`SqlServerLab.psd1`](../../SqlServerLab.psd1) |
-| Öffentliche Funktionen | 78 exportierte Cmdlets |
+| Öffentliche Funktionen | 79 exportierte Cmdlets |
 | Konsolenoberfläche | `Invoke-SqlServerLab` |
 | Browseroberfläche | `Tools/Start-SqlServerLabUi.ps1` und `Ui/` |
 
@@ -143,6 +143,7 @@ Legende:
 | [`Invoke-SqlServerLabAiScenario`](../../Public/Invoke-SqlServerLabAiScenario.ps1) | Führt ein deklariertes, hashgebundenes SQL-KI-Szenario journalisiert mit No-op-, `WhatIf`- und Cleanup-Pfad aus. | – | – |
 | [`Invoke-SqlServerLabAiModel`](../../Public/Invoke-SqlServerLabAiModel.ps1) | Ruft ein katalogisiertes lokales oder Cloud-Ollama-Modell mit explizitem Egress, Datenklasse und begrenztem Budget auf. | – | – |
 | [`Measure-SqlServerLabAiRetrieval`](../../Public/Measure-SqlServerLabAiRetrieval.ps1) | Bewertet geordnete Retrieval-IDs deterministisch mit Recall@k, Precision@k, MRR und nDCG. | – | – |
+| [`Invoke-SqlServerLabAiRag`](../../Public/Invoke-SqlServerLabAiRag.ps1) | Führt lokale Ollama-Embeddings, exakte SQL-2025-Vektorsuche und quellgebundene Generierung ohne dauerhafte SQL-Objekte aus. | – | – |
 | [`Test-SqlServerLabContainerTool`](../../Public/Test-SqlServerLabContainerTool.ps1) | Prüft kataloggebundenes SqlPackage per run- und scopegebundener read-only Versionsprobe. | – | – |
 
 ## Voraussetzungen, Adapter und Hilfswerkzeuge
