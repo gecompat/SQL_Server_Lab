@@ -7,6 +7,21 @@
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
+## KI und Ollama
+
+Der Ollama-Modellkatalog sowie die Verträge für Endpointplan, Runtimejournal
+und sanitisierte Abfrageergebnisse sind vorhanden. Ollama-Cloud-Generation ist
+mit `gpt-oss:120b` für synthetische oder öffentlich/weiterverteilbare Inhalte
+opt-in unterstützt und am 2026-09-06 real nachgewiesen. Lokale Modelle und
+Ollama-Cloud-Embeddings bleiben `PLANNED`; es gibt dafür noch keinen Docker-,
+Podman- oder Hyper-V-Nachweis.
+Der implementierte Offline-Transport prüft Request-, Retry-, Dimensions- und
+Fehlerverträge, stellt aber selbst keinen Netzwerkdienst bereit.
+Interne Inhalte werden vom Cloud-Command fail-closed abgelehnt. Eine breit
+lesbare `.env` erzeugt nur eine Warnung, weil dieser Repositorylauf ausdrücklich
+auf Warn-only festgelegt wurde. Secretwerte bleiben aus Plan, State,
+Prozessargumenten, Logs und Ergebnissen ausgeschlossen.
+
 ## Provider
 
 ### Docker und Podman

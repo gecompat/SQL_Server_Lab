@@ -18,15 +18,14 @@ $manifestSchema=Join-Path $repoRoot 'Schemas/lab-manifest.schema.json'
 
 Add-CheckResult 'KI-Szenario erfüllt den versionierten Packagevertrag' (
     (Get-Content $scenarioPath -Raw -Encoding utf8) | Test-Json -SchemaFile $scenarioSchema -ErrorAction SilentlyContinue)
-Add-CheckResult 'KI-Beispiel erfüllt den erweiterten Manifestvertrag' (
-    (Get-Content $manifestPath -Raw -Encoding utf8) | Test-Json -SchemaFile $manifestSchema -ErrorAction SilentlyContinue)
-
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 $temporaryRoot=Join-Path ([IO.Path]::GetTempPath()) "sql-lab-ai-static-$([guid]::NewGuid().ToString('N'))"
 try {
     $result=& $module {
         param($ManifestPath,$TemporaryRoot)
+        $manifestJson=Get-Content -LiteralPath $ManifestPath -Raw -Encoding utf8
+        $manifestSchemaResult=Test-LabManifestSchema -Json $manifestJson
         $resolved=Read-LabManifest -Path $ManifestPath
         $desired=New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData $false
         $runId='11111111-2222-4333-8444-555555555555'
@@ -58,7 +57,7 @@ try {
 
         $providerCapabilities=@(Get-LabProviderCapabilityContract)
         [PSCustomObject]@{
-            Resolved=$resolved;Desired=$desired;CatalogPlan=$catalogPlan;RunPlan=$runPlan;WhatIf=$whatIf
+            ManifestSchemaResult=$manifestSchemaResult;Resolved=$resolved;Desired=$desired;CatalogPlan=$catalogPlan;RunPlan=$runPlan;WhatIf=$whatIf
             JournalAbsent=-not (Test-Path -LiteralPath $journalPath)
             EgressRejected=(-not $egressValidation.IsValid -and @($egressValidation.Errors) -match "Cloud-Modell.*benötigt 'explicit'")
             PathRejected=$pathRejected
@@ -67,6 +66,7 @@ try {
         }
     } $manifestPath $temporaryRoot
 
+    Add-CheckResult 'KI-Beispiel erfüllt den lokalen erweiterten Manifestvertrag ohne Netzwerkauflösung' $result.ManifestSchemaResult.IsValid
     Add-CheckResult 'Manifestauflösung persistiert nur portablen KI-Intent und stabile PlanKeys' (
         $result.Resolved.ai.Contract.Name -eq 'SqlServerLab.AiIntent' -and
         $result.Resolved.ai.PlanKey -match '^[a-f0-9]{64}$' -and
@@ -97,6 +97,113 @@ try {
     $datasetHash=& $module { param($Path) Get-LabAiArtifactSha256 -Path $Path } (Join-Path $scenarioDirectory $scenario.dataset.artifact)
     Add-CheckResult 'Dataset und alle T-SQL-Schritte stimmen mit den gebundenen SHA-256-Werten überein' (
         $allHashesMatch -and $datasetHash -ceq [string]$scenario.dataset.contentDigest)
+
+    $contractFiles=@(
+        @{Data='Catalogs/ai-models.json';Schema='Schemas/ai-model-catalog.schema.json'},
+        @{Data=$null;Schema='Schemas/ai-endpoint-plan.schema.json'},
+        @{Data=$null;Schema='Schemas/ai-runtime-journal.schema.json'},
+        @{Data=$null;Schema='Schemas/ai-query-result.schema.json'}
+    )
+    $contractsValid=$true
+    foreach($contractFile in $contractFiles){
+        $schemaFile=Join-Path $repoRoot $contractFile.Schema
+        try{$null=Get-Content -LiteralPath $schemaFile -Raw -Encoding utf8|ConvertFrom-Json -Depth 100}
+        catch{$contractsValid=$false;continue}
+        if($contractFile.Data){
+            $dataFile=Join-Path $repoRoot $contractFile.Data
+            if(-not ((Get-Content -LiteralPath $dataFile -Raw -Encoding utf8)|Test-Json -SchemaFile $schemaFile -ErrorAction SilentlyContinue)){$contractsValid=$false}
+        }
+    }
+    Add-CheckResult 'KI-Modell-, Endpoint-, Journal- und Ergebnisverträge sind lokal parse- und schema-valide' $contractsValid
+
+    $stubPlan=& $module { New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-300m-q4 -EndpointRef deterministic-stub -Lane stub -RetryCount 1 }
+    $vector=@(1..768 | ForEach-Object { [double]$_ / 768 })
+    $retryResult=& $module {
+        param($Plan,$Vector)
+        $transport={
+            param($Request)
+            if ($Request.Attempt -eq 1) { return [PSCustomObject]@{StatusCode=429;Body=$null} }
+            return [PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{embeddings=[object[]]@(,[double[]]$Vector)}}
+        }.GetNewClosure()
+        Invoke-LabAiEndpointRequest -Plan $Plan -InputText 'synthetisch' -Transport $transport
+    } $stubPlan $vector
+    Add-CheckResult 'Deterministischer Ollama-Stub verwendet /api/embed und begrenzten Retry ohne Fallback' (
+        $retryResult.Status -eq 'SUCCEEDED' -and $retryResult.Attempts -eq 2 -and $retryResult.Vector.Count -eq 768)
+
+    $dimensionRejected=$false
+    try {
+        & $module {
+            param($Plan)
+            Invoke-LabAiEndpointRequest -Plan $Plan -InputText 'synthetisch' -Transport {
+                [PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{embeddings=[object[]]@(,[double[]]@(0.1,0.2,0.3))}}
+            }
+        } $stubPlan
+    } catch { $dimensionRejected=$_.Exception.Message -eq 'AI_ENDPOINT_DIMENSION_MISMATCH' }
+    Add-CheckResult 'Dimensionskonflikt wird vor Nutzung der Vektoren fail-closed abgelehnt' $dimensionRejected
+
+    $timeoutRejected=$false
+    try {
+        & $module {
+            param($Plan)
+            Invoke-LabAiEndpointRequest -Plan $Plan -InputText 'synthetisch' -Transport {
+                throw [System.Threading.Tasks.TaskCanceledException]::new('payload darf nicht erscheinen')
+            }
+        } $stubPlan
+    } catch { $timeoutRejected=$_.Exception.Message -eq 'AI_ENDPOINT_TIMEOUT' }
+    Add-CheckResult 'Timeout wird begrenzt wiederholt und ohne Payloadtext ausgegeben' $timeoutRejected
+
+    foreach($case in @(
+        @{Name='Rate Limit nach Retry';Status=429;Reason='AI_ENDPOINT_HTTP_429'},
+        @{Name='Ungültige Antwort';Status=200;Reason='AI_ENDPOINT_EMBEDDING_RESPONSE_INVALID'}
+    )) {
+        $rejected=$false
+        try {
+            & $module {
+                param($Plan,$Case)
+                Invoke-LabAiEndpointRequest -Plan $Plan -InputText 'synthetisch' -Transport {
+                    if ($Case.Status -eq 200) { return [PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{embeddings=@()}} }
+                    return [PSCustomObject]@{StatusCode=$Case.Status;Body=[PSCustomObject]@{secret='nicht-ausgeben'}}
+                }
+            } $stubPlan $case
+        } catch { $rejected=$_.Exception.Message -eq $case.Reason }
+        Add-CheckResult "Stubfehler bleibt sanitisiert und fail-closed: $($case.Name)" $rejected
+    }
+
+    $cloudBlocked=& $module { New-LabAiEndpointPlan -ModelKey ollama-gpt-oss-120b-cloud -EndpointRef ollama-cloud }
+    $cloudReady=& $module { New-LabAiEndpointPlan -ModelKey ollama-gpt-oss-120b-cloud -EndpointRef ollama-cloud -AllowCloudEgress }
+    Add-CheckResult 'Cloudplan verlangt expliziten Egress und projiziert nur CredentialRef und Zielhost' (
+        $cloudBlocked.Status -eq 'BLOCKED' -and $cloudBlocked.Blockers -contains 'AI_ENDPOINT_CLOUD_EGRESS_NOT_ALLOWED' -and
+        $cloudReady.Status -eq 'NOT_PROBED' -and $cloudReady.CredentialRef -eq 'SQL_SERVER_LAB_SECRET_OLLAMA' -and
+        $cloudReady.TargetHost -eq 'ollama.com' -and ($cloudReady | ConvertTo-Json -Depth 10) -notmatch 'Bearer|api_key')
+
+    $missingSecretPath=Join-Path $temporaryRoot 'does-not-exist.env'
+    $publicCloudPlan=& $module {
+        param($MissingSecretPath)
+        Invoke-SqlServerLabAiModel -ModelKey ollama-gpt-oss-120b-cloud -InputText 'synthetisch' `
+            -DataClassification synthetic-only -AllowCloudEgress -SecretFilePath $MissingSecretPath -WhatIf
+    } $missingSecretPath
+    $endpointSchema=Join-Path $repoRoot 'Schemas/ai-endpoint-plan.schema.json'
+    Add-CheckResult 'Cloud-WhatIf liest kein Secret und erfüllt den geheimnisfreien Endpointvertrag' (
+        (($publicCloudPlan | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile $endpointSchema -ErrorAction SilentlyContinue) -and
+        $publicCloudPlan.Status -eq 'NOT_PROBED')
+
+    $secretFixture=Join-Path $temporaryRoot 'synthetic.env'
+    [IO.File]::WriteAllLines($secretFixture,@(('OLLA'+'MA=')+'synthetic-value'),[Text.Encoding]::UTF8)
+    $secretRead=& $module {
+        param($SecretFixture)
+        $resolved=Get-LabAiDotEnvSecret -Path $SecretFixture
+        $plain=ConvertFrom-LabSecureString -SecureString $resolved.Secret
+        try { [PSCustomObject]@{Matches=$plain -eq 'synthetic-value';Warnings=@($resolved.Warnings)} }
+        finally { $plain=$null }
+    } $secretFixture
+    Add-CheckResult 'Dotenv-Resolver liest ausschließlich den festen OLLAMA-Schlüssel als SecureString' $secretRead.Matches
+
+    $duplicateLines=@((('OLLA'+'MA=')+'first'),(('OLLA'+'MA=')+'second'))
+    [IO.File]::WriteAllLines($secretFixture,$duplicateLines,[Text.Encoding]::UTF8)
+    $duplicateSecretRejected=$false
+    try { & $module { param($SecretFixture) Get-LabAiDotEnvSecret -Path $SecretFixture } $secretFixture }
+    catch { $duplicateSecretRejected=$_.Exception.Message -eq 'AI_SECRET_OLLAMA_MISSING_OR_DUPLICATE' }
+    Add-CheckResult 'Fehlender oder doppelter OLLAMA-Schlüssel wird fail-closed abgelehnt' $duplicateSecretRejected
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue

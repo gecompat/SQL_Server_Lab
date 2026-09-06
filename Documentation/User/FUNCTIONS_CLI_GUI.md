@@ -4,7 +4,7 @@
 |---|---|
 | Stand | 2026-09-05 |
 | Autoritative Funktionsliste | [`SqlServerLab.psd1`](../../SqlServerLab.psd1) |
-| Öffentliche Funktionen | 76 exportierte Cmdlets |
+| Öffentliche Funktionen | 77 exportierte Cmdlets |
 | Konsolenoberfläche | `Invoke-SqlServerLab` |
 | Browseroberfläche | `Tools/Start-SqlServerLabUi.ps1` und `Ui/` |
 
@@ -141,6 +141,7 @@ Legende:
 | [`Restore-SqlServerLabDatabase`](../../Public/Restore-SqlServerLabDatabase.ps1) | Stellt ein verifiziertes Bibliotheksbackup oder eine direkte `.bak`-Datei mit Trust- und Cache-Schutz wieder her. | über Sample-/Restore-Flows | über Adapter: `RestoreContainerLibraryBackup` |
 | [`Invoke-SqlServerLabScript`](../../Public/Invoke-SqlServerLabScript.ps1) | Führt ein T-SQL-Skript mit `GO`-Batchtrennung aus. | Datenbanken und Verbindungen → SQL-Skript ausführen | über Adapter: `ExecuteContainerScript`; Hyper-V-Schaltfläche siehe Abweichungen |
 | [`Invoke-SqlServerLabAiScenario`](../../Public/Invoke-SqlServerLabAiScenario.ps1) | Führt ein deklariertes, hashgebundenes SQL-KI-Szenario journalisiert mit No-op-, `WhatIf`- und Cleanup-Pfad aus. | – | – |
+| [`Invoke-SqlServerLabAiModel`](../../Public/Invoke-SqlServerLabAiModel.ps1) | Ruft ein katalogisiertes Ollama-Cloud-Modell mit explizitem Egress, Datenklasse, lokalem Secret und begrenztem Budget auf. | – | – |
 | [`Test-SqlServerLabContainerTool`](../../Public/Test-SqlServerLabContainerTool.ps1) | Prüft kataloggebundenes SqlPackage per run- und scopegebundener read-only Versionsprobe. | – | – |
 
 ## Voraussetzungen, Adapter und Hilfswerkzeuge
