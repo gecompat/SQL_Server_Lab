@@ -106,10 +106,12 @@ try {
     )
     $legacySysprepToolPath = Join-Path $repoRoot 'Tools/New-WindowsServer2003SysprepMedia.ps1'
     $legacyChildToolPath = Join-Path $repoRoot 'Tools/New-WindowsServer2003LegacyChild.ps1'
+    $legacyActivationToolPath = Join-Path $repoRoot 'Tools/Invoke-WindowsServer2003LegacyActivation.ps1'
     $legacyIntegrationMediaToolPath = Join-Path $repoRoot 'Tools/Test-WindowsServer2003HyperVIntegrationMedia.ps1'
     $legacyTemplateRunbookPath = Join-Path $repoRoot 'Documentation/HowTo/WINDOWS_SERVER_2003_LEGACY_TEMPLATE.md'
     $legacySysprepToolText = Get-Content -LiteralPath $legacySysprepToolPath -Raw -Encoding utf8
     $legacyChildToolText = Get-Content -LiteralPath $legacyChildToolPath -Raw -Encoding utf8
+    $legacyActivationToolText = Get-Content -LiteralPath $legacyActivationToolPath -Raw -Encoding utf8
     $legacyIntegrationMediaToolText = Get-Content -LiteralPath $legacyIntegrationMediaToolPath -Raw -Encoding utf8
     $legacyTemplateRunbookText = Get-Content -LiteralPath $legacyTemplateRunbookPath -Raw -Encoding utf8
     Add-CheckResult -Name 'Windows-Server-2003-Legacy-Reseal bleibt schlüsselfrei und Generation 1 getrennt' -Success (
@@ -123,7 +125,7 @@ try {
         $legacyTemplateRunbookText -match 'Differencing-VHDX' -and
         $legacyTemplateRunbookText -match 'Parent wird niemals direkt gebootet'
     )
-    Add-CheckResult -Name 'Windows-Server-2003-Child übernimmt Evaluation-Key lokal ohne Offenlegung oder Aktivierung' -Success (
+    Add-CheckResult -Name 'Windows-Server-2003-Child übernimmt Evaluation-Key lokal ohne Offenlegung' -Success (
         $legacyChildToolText -match [regex]::Escape('I386\UNATTEND.TXT') -and
         $legacyChildToolText -match 'ExpectedEvaluationIsoSha256' -and
         $legacyChildToolText -match "LEGACY_TEMPLATE_SEALED" -and
@@ -134,15 +136,45 @@ try {
         $legacyChildToolText -match 'WS2003_CHILD_ROOT_SCOPE_INVALID' -and
         $legacyChildToolText -match 'EvaluationProductKeyInjected\s*=\s*\$true' -and
         $legacyChildToolText -match 'EvaluationProductKeyDisclosed\s*=\s*\$false' -and
-        $legacyChildToolText -match 'ActivationPerformed\s*=\s*\$false' -and
+        $legacyChildToolText -match 'ActivationPerformed\s*=\s*\$ActivateOnline\.IsPresent' -and
         $legacyChildToolText -match '\[LicenseFilePrintData\]' -and
         $legacyChildToolText -match 'AutoMode=PerServer' -and
         $legacyChildToolText -match 'IntegrationServicesIsoPath' -and
         $legacyChildToolText -match 'Test-WindowsServer2003HyperVIntegrationMedia\.ps1' -and
         $legacyChildToolText -match 'WS2003_CHILD_REQUIRES_ELEVATED_RUNNER' -and
         $legacyChildToolText -notmatch '(?i)(?<![A-Z0-9])[A-Z0-9]{5}(?:-[A-Z0-9]{5}){4}(?![A-Z0-9])' -and
-        $legacyTemplateRunbookText -match 'SP2-Slipstream-ISO' -and
-        $legacyTemplateRunbookText -match 'führt keine Aktivierung aus'
+        $legacyTemplateRunbookText -match 'SP2-Slipstream-ISO'
+    )
+    Add-CheckResult -Name 'Windows-Server-2003-Child setzt deutsche Tastatur in Sysprep und per Gast-WMI am Login' -Success (
+        $legacyChildToolText -match '\[RegionalSettings\]' -and
+        $legacyChildToolText -match 'InputLocale=0407:00000407' -and
+        $legacyChildToolText -match "InputLocale\s*=\s*'0407:00000407'" -and
+        $legacyChildToolText -match 'LogonKeyboardLayout\s*=\s*if \(\$ActivateOnline\)' -and
+        $legacyActivationToolText -match [regex]::Escape('.DEFAULT\Keyboard Layout\Preload')
+    )
+    Add-CheckResult -Name 'Windows-Server-2003-Evaluation-Aktivierung ist temporär, verifiziert und geheimnisfrei' -Success (
+        $legacyActivationToolText -match 'SupportsShouldProcess' -and
+        $legacyActivationToolText -match "SQL_SERVER_LAB_ACTIVATION_TEMP" -and
+        $legacyActivationToolText -match 'Add-VMNetworkAdapter[\s\S]+-IsLegacy\s+\$true' -and
+        $legacyActivationToolText -match 'System\.Management\.ManagementScope' -and
+        $legacyActivationToolText -match 'StdRegProv' -and
+        $legacyActivationToolText -match [regex]::Escape('.DEFAULT\Keyboard Layout\Preload') -and
+        $legacyActivationToolText -match 'Remove-VMNetworkAdapter' -and
+        $legacyActivationToolText -match 'ProductKeyDisclosed\s*=\s*\$false' -and
+        $legacyActivationToolText -match 'CredentialDisclosed\s*=\s*\$false' -and
+        $legacyActivationToolText -notmatch '(?i)(?<![A-Z0-9])[A-Z0-9]{5}(?:-[A-Z0-9]{5}){4}(?![A-Z0-9])' -and
+        $legacyActivationToolText -match 'Win32_WindowsProductActivation' -and
+        $legacyActivationToolText -match 'ActivateOnline' -and
+        $legacyActivationToolText -match 'ActivationRequired' -and
+        $legacyActivationToolText -match 'shutdown\.exe -s -t 0 -f'
+    )
+    Add-CheckResult -Name 'Windows-Server-2003-Child automatisiert Mini-Setup und verifiziert den Aktivierungsversuch fail-closed' -Success (
+        $legacyChildToolText -match '\[switch\]\s*\$ActivateOnline' -and
+        $legacyChildToolText -match 'AdminPassword=' -and
+        $legacyChildToolText -match 'EncryptedAdminPassword=No' -and
+        $legacyChildToolText -match 'Invoke-WindowsServer2003LegacyActivation\.ps1' -and
+        $legacyChildToolText -match 'ZeroFreeBSTR' -and
+        $legacyActivationToolText -match 'Connect-WindowsServer2003WmiScope'
     )
     $windowsServer2003IntegrationMedia = @($mediaCatalog | Where-Object {
         $_.Id -eq 'windows-server-2003-hyper-v-integration-services-iso'
