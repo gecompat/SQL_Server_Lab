@@ -34,8 +34,22 @@ Fragt das Credential interaktiv und geschützt ab.
 .PARAMETER ActivationSwitchName
 Vorhandener Switch mit DHCP und Internet-Egress, standardmäßig `Default Switch`.
 
+.PARAMETER ActivationMode
+`Online` versucht die direkte Aktivierung, `PrepareOffline` liest die für das
+Microsoft-Portal erforderliche Installations-ID, `CompleteOffline` übernimmt
+eine dort erzeugte Bestätigungs-ID, und `KeyboardOnly` setzt nur das deutsche
+Login-Layout.
+
+.PARAMETER OfflineConfirmationId
+Vom Microsoft Product Activation Portal gelieferte Bestätigungs-ID als
+SecureString. Nur zusammen mit `ActivationMode CompleteOffline` zulässig.
+
+.PARAMETER PromptForOfflineConfirmationId
+Fragt die Bestätigungs-ID geschützt ab, ohne sie in Befehlszeile oder History
+zu übernehmen.
+
 .PARAMETER KeyboardLayoutOnly
-Setzt nur das deutsche Login-Layout; die Aktivierung wird nicht aufgerufen.
+Kompatibler Alias für `ActivationMode KeyboardOnly`.
 
 .PARAMETER TimeoutSeconds
 Maximale Gesamtdauer für Boot, WMI-Verbindung und Online-Aktivierung.
@@ -63,6 +77,13 @@ param(
 
     [ValidateSet('0407:00000407')]
     [string] $InputLocale = '0407:00000407',
+
+    [ValidateSet('Online', 'PrepareOffline', 'CompleteOffline', 'KeyboardOnly')]
+    [string] $ActivationMode = 'Online',
+
+    [SecureString] $OfflineConfirmationId,
+
+    [switch] $PromptForOfflineConfirmationId,
 
     [switch] $KeyboardLayoutOnly,
 
@@ -94,6 +115,20 @@ $missingArguments = @($requiredArguments.GetEnumerator() | Where-Object {
 } | ForEach-Object Key)
 if ($missingArguments.Count -gt 0) {
     throw "WS2003_ACTIVATION_ARGUMENT_REQUIRED: $($missingArguments -join ', ')"
+}
+if ($KeyboardLayoutOnly) {
+    if ($PSBoundParameters.ContainsKey('ActivationMode') -and $ActivationMode -ne 'KeyboardOnly') {
+        throw 'WS2003_ACTIVATION_MODE_CONFLICT'
+    }
+    $ActivationMode = 'KeyboardOnly'
+}
+if ($ActivationMode -eq 'CompleteOffline' -and
+    -not $OfflineConfirmationId -and -not $PromptForOfflineConfirmationId) {
+    throw 'WS2003_OFFLINE_CONFIRMATION_ID_REQUIRED'
+}
+if ($ActivationMode -ne 'CompleteOffline' -and
+    ($OfflineConfirmationId -or $PromptForOfflineConfirmationId)) {
+    throw 'WS2003_OFFLINE_CONFIRMATION_ID_NOT_APPLICABLE'
 }
 
 $ErrorActionPreference = 'Stop'
@@ -131,11 +166,19 @@ if (Get-VMNetworkAdapter -VM $vm -Name $temporaryAdapterName -ErrorAction Silent
     throw 'WS2003_ACTIVATION_TEMP_ADAPTER_EXISTS: Vorhandene gleichnamige NIC wird nicht übernommen.'
 }
 
-$action = if ($KeyboardLayoutOnly) {
-    "deutsches Login-Layout über temporären Switch '$ActivationSwitchName' setzen"
-}
-else {
-    "Evaluation über temporären Switch '$ActivationSwitchName' online aktivieren und deutsches Login-Layout setzen"
+$action = switch ($ActivationMode) {
+    'KeyboardOnly' {
+        "deutsches Login-Layout über temporären Switch '$ActivationSwitchName' setzen"
+    }
+    'PrepareOffline' {
+        "Installations-ID für die Offline-Aktivierung über temporären Switch '$ActivationSwitchName' lesen"
+    }
+    'CompleteOffline' {
+        "Evaluation mit einer geschützten Bestätigungs-ID offline aktivieren"
+    }
+    default {
+        "Evaluation über temporären Switch '$ActivationSwitchName' online aktivieren und deutsches Login-Layout setzen"
+    }
 }
 if (-not $PSCmdlet.ShouldProcess($VmName, $action)) {
     return [pscustomobject]@{
@@ -144,8 +187,12 @@ if (-not $PSCmdlet.ShouldProcess($VmName, $action)) {
         ChildVhdPath = $resolvedChildVhd
         ActivationSwitchName = $ActivationSwitchName
         TemporaryAdapterName = $temporaryAdapterName
-        ActivationMethod = if ($KeyboardLayoutOnly) { 'NONE' } else {
-            'Win32_WindowsProductActivation.ActivateOnline'
+        ActivationMode = $ActivationMode
+        ActivationMethod = switch ($ActivationMode) {
+            'KeyboardOnly' { 'NONE' }
+            'PrepareOffline' { 'Win32_WindowsProductActivation.GetInstallationID' }
+            'CompleteOffline' { 'Win32_WindowsProductActivation.ActivateOffline' }
+            default { 'Win32_WindowsProductActivation.ActivateOnline' }
         }
         InputLocale = $InputLocale
         LogonKeyboardLayout = '00000407'
@@ -168,6 +215,14 @@ if ($PromptForAdministratorCredential) {
 }
 if ([string] $AdministratorCredential.GetNetworkCredential().UserName -ne 'Administrator') {
     throw 'WS2003_ACTIVATION_ADMINISTRATOR_REQUIRED: Erwartet wird das lokale Administrator-Credential.'
+}
+if ($PromptForOfflineConfirmationId) {
+    $OfflineConfirmationId = Read-Host `
+        -Prompt 'Bestätigungs-ID des Microsoft Product Activation Portals' `
+        -AsSecureString
+    if (-not $OfflineConfirmationId) {
+        throw 'WS2003_OFFLINE_CONFIRMATION_ID_PROMPT_CANCELLED'
+    }
 }
 
 function Connect-WindowsServer2003WmiScope {
@@ -247,6 +302,33 @@ function Get-WindowsServer2003ActivationState {
     }
 }
 
+function Invoke-WindowsServer2003ActivationMethod {
+    param(
+        [Parameter(Mandatory)][System.Management.ManagementScope] $Scope,
+        [Parameter(Mandatory)]
+        [ValidateSet('GetInstallationID', 'ActivateOffline')]
+        [string] $Method,
+        [string] $ConfirmationId
+    )
+
+    $query = [System.Management.ObjectQuery]::new(
+        'SELECT * FROM Win32_WindowsProductActivation')
+    $searcher = [System.Management.ManagementObjectSearcher]::new($Scope, $query)
+    $products = @($searcher.Get())
+    if ($products.Count -ne 1) {
+        throw "WS2003_ACTIVATION_PRODUCT_COUNT_INVALID: $($products.Count)"
+    }
+    $methodInput = $products[0].GetMethodParameters($Method)
+    if ($Method -eq 'ActivateOffline') {
+        $methodInput['ConfirmationID'] = $ConfirmationId
+    }
+    $methodOutput = $products[0].InvokeMethod($Method, $methodInput, $null)
+    if ([uint32] $methodOutput['ReturnValue'] -ne 0) {
+        throw "WS2003_ACTIVATION_METHOD_FAILED: Method=$Method; ReturnValue=$($methodOutput['ReturnValue'])"
+    }
+    return $methodOutput
+}
+
 function Invoke-WindowsServer2003ProcessThroughWmi {
     param(
         [Parameter(Mandatory)][System.Management.ManagementScope] $Scope,
@@ -268,6 +350,9 @@ $adapterCreated = $false
 $guestStarted = $false
 $primaryError = $null
 $activationState = $null
+$installationId = $null
+$confirmationIdPointer = [IntPtr]::Zero
+$confirmationIdPlain = $null
 try {
     Add-VMNetworkAdapter -VMName $VmName -Name $temporaryAdapterName `
         -SwitchName $ActivationSwitchName -IsLegacy $true -ErrorAction Stop | Out-Null
@@ -305,7 +390,31 @@ try {
         -SubKey '.DEFAULT\Control Panel\International' -Name 'Locale' -Value '00000407'
 
     $activationState = Get-WindowsServer2003ActivationState -Scope $scope
-    if (-not $KeyboardLayoutOnly -and $activationState.ActivationRequired -eq 1) {
+    if ($ActivationMode -eq 'PrepareOffline' -and $activationState.ActivationRequired -eq 1) {
+        $installationResult = Invoke-WindowsServer2003ActivationMethod `
+            -Scope $scope -Method GetInstallationID
+        $installationId = [string] $installationResult['InstallationID']
+        if ($installationId -notmatch '^\d{50}$') {
+            throw 'WS2003_OFFLINE_INSTALLATION_ID_INVALID'
+        }
+    }
+    if ($ActivationMode -eq 'CompleteOffline' -and $activationState.ActivationRequired -eq 1) {
+        $confirmationIdPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR(
+            $OfflineConfirmationId)
+        $confirmationIdPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR(
+            $confirmationIdPointer)
+        $confirmationIdPlain = $confirmationIdPlain -replace '[\s-]', ''
+        if ($confirmationIdPlain -notmatch '^\d{6,100}$') {
+            throw 'WS2003_OFFLINE_CONFIRMATION_ID_INVALID'
+        }
+        $null = Invoke-WindowsServer2003ActivationMethod -Scope $scope `
+            -Method ActivateOffline -ConfirmationId $confirmationIdPlain
+        $confirmationIdPlain = $null
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($confirmationIdPointer)
+        $confirmationIdPointer = [IntPtr]::Zero
+        $activationState = Get-WindowsServer2003ActivationState -Scope $scope
+    }
+    if ($ActivationMode -eq 'Online' -and $activationState.ActivationRequired -eq 1) {
         $null = Invoke-WindowsServer2003ProcessThroughWmi -Scope $scope -CommandLine `
             'C:\Windows\System32\wbem\wmic.exe path Win32_WindowsProductActivation call ActivateOnline'
         $activationDeadline = [datetime]::UtcNow.AddSeconds(180)
@@ -316,10 +425,12 @@ try {
         } while ($activationState.ActivationRequired -eq 1 -and
             [datetime]::UtcNow -lt $activationDeadline)
     }
-    if (-not $KeyboardLayoutOnly -and $activationState.ActivationRequired -ne 0) {
+    if ($ActivationMode -in @('Online', 'CompleteOffline') -and
+        $activationState.ActivationRequired -ne 0) {
         throw "WS2003_ACTIVATION_NOT_COMPLETED: ActivationRequired=$($activationState.ActivationRequired)"
     }
-    if (-not $KeyboardLayoutOnly -and $activationState.EvaluationDaysRemaining -le 0) {
+    if ($ActivationMode -in @('Online', 'CompleteOffline') -and
+        $activationState.EvaluationDaysRemaining -le 0) {
         throw "WS2003_ACTIVATION_EVALUATION_EXPIRED: EvaluationDaysRemaining=$($activationState.EvaluationDaysRemaining)"
     }
 
@@ -337,6 +448,10 @@ catch {
     $primaryError = $_
 }
 finally {
+    $confirmationIdPlain = $null
+    if ($confirmationIdPointer -ne [IntPtr]::Zero) {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($confirmationIdPointer)
+    }
     $vm = Get-VM -Name $VmName -ErrorAction SilentlyContinue
     if ($vm -and [string] $vm.State -ne 'Off' -and $guestStarted) {
         Stop-VM -VM $vm -TurnOff -Force -ErrorAction SilentlyContinue
@@ -350,12 +465,25 @@ finally {
 if ($primaryError) { throw $primaryError }
 
 [pscustomobject]@{
-    Status = if ($KeyboardLayoutOnly) { 'KEYBOARD_LAYOUT_CONFIGURED' } else { 'EVALUATION_ACTIVE' }
+    Status = switch ($ActivationMode) {
+        'KeyboardOnly' { 'KEYBOARD_LAYOUT_CONFIGURED' }
+        'PrepareOffline' {
+            if ($activationState.ActivationRequired -eq 0) { 'EVALUATION_ACTIVE' }
+            else { 'OFFLINE_ACTIVATION_PREPARED' }
+        }
+        default { 'EVALUATION_ACTIVE' }
+    }
     VmName = $VmName
     ChildVhdPath = $resolvedChildVhd
-    ActivationMethod = if ($KeyboardLayoutOnly) { 'NONE' } else {
-        'Win32_WindowsProductActivation.ActivateOnline'
+    ActivationMode = $ActivationMode
+    ActivationMethod = switch ($ActivationMode) {
+        'KeyboardOnly' { 'NONE' }
+        'PrepareOffline' { 'Win32_WindowsProductActivation.GetInstallationID' }
+        'CompleteOffline' { 'Win32_WindowsProductActivation.ActivateOffline' }
+        default { 'Win32_WindowsProductActivation.ActivateOnline' }
     }
+    InstallationId = $installationId
+    InstallationIdDisclosed = $ActivationMode -eq 'PrepareOffline' -and $null -ne $installationId
     ActivationRequired = if ($activationState) { [int] $activationState.ActivationRequired } else { $null }
     EvaluationDaysRemaining = if ($activationState) { [int] $activationState.EvaluationDaysRemaining } else { $null }
     GraceDaysRemaining = if ($activationState) { [int] $activationState.GraceDaysRemaining } else { $null }
@@ -365,5 +493,6 @@ if ($primaryError) { throw $primaryError }
         -Name $temporaryAdapterName -ErrorAction SilentlyContinue)
     VmStopped = [string](Get-VM -Name $VmName -ErrorAction Stop).State -eq 'Off'
     ProductKeyDisclosed = $false
+    ConfirmationIdDisclosed = $false
     CredentialDisclosed = $false
 }

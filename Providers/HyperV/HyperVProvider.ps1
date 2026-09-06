@@ -476,6 +476,8 @@ function New-HyperVInstance {
         [long]$MemoryMinimumBytes = 0,
         [long]$MemoryMaximumBytes = 0,
         [ValidateRange(1, 64)][int]$ProcessorCount = 2,
+        [ValidateSet(1, 2)][int]$VmGeneration = 2,
+        [Nullable[bool]]$SecureBoot,
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [string]$SwitchName,
         [object[]]$AdditionalDrives = @(),
@@ -543,7 +545,25 @@ function New-HyperVInstance {
         }
         $ParentVhdxPath = [string]$imageArtifact.Path
         $ParentSha256 = [string]$imageArtifact.sha256
+        $artifactVmGeneration = if ($imageArtifact.platform -and $imageArtifact.platform.vmGeneration) {
+            [int]$imageArtifact.platform.vmGeneration
+        } else { 2 }
+        $artifactSecureBoot = if ($imageArtifact.platform -and $null -ne $imageArtifact.platform.secureBoot) {
+            [bool]$imageArtifact.platform.secureBoot
+        } else { $true }
+        if ($PSBoundParameters.ContainsKey('VmGeneration') -and $VmGeneration -ne $artifactVmGeneration) {
+            throw 'HYPERV_ARTIFACT_VM_GENERATION_OVERRIDE_INVALID'
+        }
+        if ($PSBoundParameters.ContainsKey('SecureBoot') -and [bool]$SecureBoot -ne $artifactSecureBoot) {
+            throw 'HYPERV_ARTIFACT_SECURE_BOOT_OVERRIDE_INVALID'
+        }
+        $VmGeneration = $artifactVmGeneration
+        $SecureBoot = $artifactSecureBoot
         $null = Add-HyperVImageManifestLockEntry -RunDirectory $resolvedRunDirectory -Artifact $imageArtifact
+    }
+    $effectiveSecureBoot = if ($null -ne $SecureBoot) { [bool]$SecureBoot } else { $VmGeneration -eq 2 }
+    if ($VmGeneration -eq 1 -and $effectiveSecureBoot) {
+        throw 'HYPERV_GENERATION1_SECURE_BOOT_INVALID'
     }
 
     $resolvedParent = (Resolve-Path -LiteralPath $ParentVhdxPath -ErrorAction Stop).Path
@@ -659,7 +679,7 @@ function New-HyperVInstance {
 
     $newVmParameters = @{
         Name               = $vmName
-        Generation         = 2
+        Generation         = $VmGeneration
         MemoryStartupBytes = $MemoryStartupBytes
         VHDPath            = $childVhdxPath
         Path               = $resourceRoot
@@ -710,15 +730,19 @@ function New-HyperVInstance {
         }
     }
     $null = Set-VMProcessor -VM $vm -Count $ProcessorCount -ErrorAction Stop
-    $null = Set-VMFirmware `
-        -VM $vm `
-        -EnableSecureBoot On `
-        -SecureBootTemplate MicrosoftWindows `
-        -ErrorAction Stop
+    if ($VmGeneration -eq 2) {
+        $null = Set-VMFirmware `
+            -VM $vm `
+            -EnableSecureBoot $(if ($effectiveSecureBoot) { 'On' } else { 'Off' }) `
+            -SecureBootTemplate MicrosoftWindows `
+            -ErrorAction Stop
+    }
     return [PSCustomObject]@{
         Provider      = 'hyperv'
         VMId          = [string]$vm.Id
         VMName        = $vmName
+        VMGeneration  = $VmGeneration
+        SecureBoot    = $effectiveSecureBoot
         InstanceId    = $InstanceId
         RunId         = $RunId
         ScopeId       = $ScopeId
