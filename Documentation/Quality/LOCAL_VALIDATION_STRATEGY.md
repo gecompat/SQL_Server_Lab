@@ -624,6 +624,17 @@ Der ausführbare, run-eigene Nachweis dafür ist
 Er prüft Vector-Distanz, Chunking, sanitisierte Evidence und Szenario-Cleanup
 und entfernt danach den zugehörigen Provider-Run.
 
+Der vollständige lokale RAG-Nachweis wird ebenfalls providergetrennt ausgeführt:
+
+```powershell
+.\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider podman
+```
+
+Jeder Lauf verbindet katalogisierte Ollama-Embeddings und -Generierung mit
+echter exakter SQL-2025-Cosine-Suche, prüft die erwartete Top-Quelle, startet
+SQL und Ollama neu und entfernt Run, Container und Volumes vollständig.
+
 Der ausführbare native Windows-SQL-Nachweis ist:
 
 ```powershell

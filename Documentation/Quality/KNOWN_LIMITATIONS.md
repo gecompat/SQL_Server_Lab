@@ -29,11 +29,14 @@ Integration: SQL Server benötigt dafür einen HTTPS-Endpunkt samt gebundenem
 Trust- und Credential-Lifecycle. Der derzeitige Container-Smoke hält bewusst
 keinen Modellcache zurück und lädt Modelle daher bei jedem Lauf erneut.
 
-Das Retrieval-Gate berechnet Recall@k, Precision@k, MRR und nDCG bereits
-deterministisch und blockierend. Es bewertet ausschließlich geordnete IDs;
-Golden-Dataset-Bindung, SQL-Retrieval und RAG-Antworttreue sind noch nicht Teil
-dieses Nachweises. Ein Modell-Judge wird bewusst nicht als blockierendes Gate
-verwendet.
+Das Retrieval-Gate berechnet Recall@k, Precision@k, MRR und nDCG deterministisch
+und blockierend. Die lokale RAG-Orchestrierung erzeugt Embeddings über Ollama,
+führt exakte Cosine-Suche in einer flüchtigen SQL-Server-2025-Tabellenvariable
+aus und bindet die Rangfolge als Quellenkontext an die Generierung. Docker und
+Podman wurden dafür am 2026-09-06 getrennt einschließlich SQL-/Ollama-Restart
+und Cleanup nativ geprüft. Golden-Dataset-Bindung, hybride Suche und automatische
+Antworttreueprüfung bleiben offen. Ein Modell-Judge wird bewusst nicht als
+blockierendes Gate verwendet.
 
 ## Provider
 

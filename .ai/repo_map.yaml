@@ -40,9 +40,11 @@ sources_of_truth:
   ai_query_result_schema: Schemas/ai-query-result.schema.json
   ai_retrieval_evaluation: Public/Measure-SqlServerLabAiRetrieval.ps1
   ai_retrieval_evaluation_schema: Schemas/ai-retrieval-evaluation.schema.json
+  ai_rag_orchestration: Public/Invoke-SqlServerLabAiRag.ps1
   validation_ai_scenario: Tests/Static/Invoke-AiScenarioChecks.ps1
   validation_ai_ollama_cloud: Tests/Integration/Invoke-AiOllamaCloudAcceptance.ps1
   validation_ai_ollama_container: Tests/Integration/Invoke-AiOllamaContainerAcceptance.ps1
+  validation_ai_rag_container: Tests/Integration/Invoke-AiRagContainerAcceptance.ps1
   license_profile_contract: Private/LicenseProfile.ps1
   license_profile_schema: Schemas/license-profile.schema.json
   validation_license_profile: Tests/Static/Invoke-LicenseProfileChecks.ps1
