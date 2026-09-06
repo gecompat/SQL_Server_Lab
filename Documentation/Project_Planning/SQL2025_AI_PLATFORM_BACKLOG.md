@@ -2,7 +2,7 @@
 
 ## Status
 
-`AI-00 IMPLEMENTED`, `AI-10A SUPPORTED`, `AI-10B BACKLOG`, `AI-20` bis
+`AI-00 IMPLEMENTED`, `AI-05 IMPLEMENTED`, `AI-10A SUPPORTED`, `AI-10B BACKLOG`, `AI-20` bis
 `AI-90 BACKLOG`.
 
 Dieser Backlog ist der übergeordnete SQL-zentrierte KI-Plan. Der
@@ -50,6 +50,19 @@ Die nativen Läufe über
 beide Provider erfolgreich, einschließlich Szenario- und Provider-Cleanup.
 Damit ist `AI-10A` `SUPPORTED`. Ein Endpoint-Stub, Dimensionswechsel und
 Re-Embedding bleiben als `AI-10B` offen.
+
+### AI-05 – Ollama-Vertragsgrundlage
+
+- `Catalogs/ai-models.json` katalogisiert getrennte lokale Embedding-, lokale
+  Generierungs- und Ollama-Cloud-Modelle mit Zweck, Dimension, Lizenz,
+  Mindestversion und verpflichtender Live-Identitätsprüfung. Alle Einträge
+  bleiben bis zum jeweiligen nativen Nachweis bewusst `PLANNED`.
+- Versionierte Verträge definieren den geheimnisfreien Endpointplan, das
+  payloadfreie Runtimejournal und sanitisierte RAG-/Agentenergebnisse.
+- Die CI-Auswahl koppelt Änderungen dieser Verträge an KI-Szenario-,
+  Manifest- und Provider-Capability-Prüfungen. Diese Grundlage führt noch
+  keinen Modellaufruf aus und ist kein Cloud-, Docker-, Podman- oder
+  Hyper-V-Runtimenachweis.
 
 ## Priorisierte Lieferwellen
 

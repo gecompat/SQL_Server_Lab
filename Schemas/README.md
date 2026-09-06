@@ -8,6 +8,10 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 |---|---|
 | `lab-manifest.schema.json` | Struktur deklarativer Labdefinitionen |
 | `ai-scenario.schema.json` | Versioniertes, hashgebundenes SQL-KI-Szenariopaket mit Dataset, Schritten, Assertions, Evaluation und Cleanup |
+| `ai-model-catalog.schema.json` | Providerneutraler Modellkatalog für Ollama-Lane, Zweck, Dimension, Lizenz, Größe und verpflichtende Runtimeidentität |
+| `ai-endpoint-plan.schema.json` | Geheimnisfreier read-only Endpointplan mit Lane, Modell, Egress, Budget, Blockern und Warnungen |
+| `ai-runtime-journal.schema.json` | Run- und PlanKey-gebundenes Journal für Modell-, Endpoint- und Cleanup-Schritte ohne Payload oder Secretwert |
+| `ai-query-result.schema.json` | Sanitisiertes RAG-/Agentenergebnis mit Chunk-Referenzen, begrenzten Tool-Metadaten und Metriken |
 | `lab-batch.schema.json` | Mengenfähiger Vertrag `SqlServerLab.BatchManifest/1.0` mit Defaults, Positionen, Anzahl, Intent und Overrides |
 | `version-catalog.schema.json` | Struktur von `Catalogs/sql-server-versions.json` |
 | `sql-server-media-sources.schema.json` | Direkte, archivierte, quarantänisierte oder manuelle Beschaffungsverträge für SQL- und Windows-Server-Basismedien in `Catalogs/sql-server-media-sources.json` |

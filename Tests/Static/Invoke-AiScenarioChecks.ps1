@@ -18,15 +18,14 @@ $manifestSchema=Join-Path $repoRoot 'Schemas/lab-manifest.schema.json'
 
 Add-CheckResult 'KI-Szenario erfüllt den versionierten Packagevertrag' (
     (Get-Content $scenarioPath -Raw -Encoding utf8) | Test-Json -SchemaFile $scenarioSchema -ErrorAction SilentlyContinue)
-Add-CheckResult 'KI-Beispiel erfüllt den erweiterten Manifestvertrag' (
-    (Get-Content $manifestPath -Raw -Encoding utf8) | Test-Json -SchemaFile $manifestSchema -ErrorAction SilentlyContinue)
-
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 $temporaryRoot=Join-Path ([IO.Path]::GetTempPath()) "sql-lab-ai-static-$([guid]::NewGuid().ToString('N'))"
 try {
     $result=& $module {
         param($ManifestPath,$TemporaryRoot)
+        $manifestJson=Get-Content -LiteralPath $ManifestPath -Raw -Encoding utf8
+        $manifestSchemaResult=Test-LabManifestSchema -Json $manifestJson
         $resolved=Read-LabManifest -Path $ManifestPath
         $desired=New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData $false
         $runId='11111111-2222-4333-8444-555555555555'
@@ -58,7 +57,7 @@ try {
 
         $providerCapabilities=@(Get-LabProviderCapabilityContract)
         [PSCustomObject]@{
-            Resolved=$resolved;Desired=$desired;CatalogPlan=$catalogPlan;RunPlan=$runPlan;WhatIf=$whatIf
+            ManifestSchemaResult=$manifestSchemaResult;Resolved=$resolved;Desired=$desired;CatalogPlan=$catalogPlan;RunPlan=$runPlan;WhatIf=$whatIf
             JournalAbsent=-not (Test-Path -LiteralPath $journalPath)
             EgressRejected=(-not $egressValidation.IsValid -and @($egressValidation.Errors) -match "Cloud-Modell.*benötigt 'explicit'")
             PathRejected=$pathRejected
@@ -67,6 +66,7 @@ try {
         }
     } $manifestPath $temporaryRoot
 
+    Add-CheckResult 'KI-Beispiel erfüllt den lokalen erweiterten Manifestvertrag ohne Netzwerkauflösung' $result.ManifestSchemaResult.IsValid
     Add-CheckResult 'Manifestauflösung persistiert nur portablen KI-Intent und stabile PlanKeys' (
         $result.Resolved.ai.Contract.Name -eq 'SqlServerLab.AiIntent' -and
         $result.Resolved.ai.PlanKey -match '^[a-f0-9]{64}$' -and
@@ -97,6 +97,24 @@ try {
     $datasetHash=& $module { param($Path) Get-LabAiArtifactSha256 -Path $Path } (Join-Path $scenarioDirectory $scenario.dataset.artifact)
     Add-CheckResult 'Dataset und alle T-SQL-Schritte stimmen mit den gebundenen SHA-256-Werten überein' (
         $allHashesMatch -and $datasetHash -ceq [string]$scenario.dataset.contentDigest)
+
+    $contractFiles=@(
+        @{Data='Catalogs/ai-models.json';Schema='Schemas/ai-model-catalog.schema.json'},
+        @{Data=$null;Schema='Schemas/ai-endpoint-plan.schema.json'},
+        @{Data=$null;Schema='Schemas/ai-runtime-journal.schema.json'},
+        @{Data=$null;Schema='Schemas/ai-query-result.schema.json'}
+    )
+    $contractsValid=$true
+    foreach($contractFile in $contractFiles){
+        $schemaFile=Join-Path $repoRoot $contractFile.Schema
+        try{$null=Get-Content -LiteralPath $schemaFile -Raw -Encoding utf8|ConvertFrom-Json -Depth 100}
+        catch{$contractsValid=$false;continue}
+        if($contractFile.Data){
+            $dataFile=Join-Path $repoRoot $contractFile.Data
+            if(-not ((Get-Content -LiteralPath $dataFile -Raw -Encoding utf8)|Test-Json -SchemaFile $schemaFile -ErrorAction SilentlyContinue)){$contractsValid=$false}
+        }
+    }
+    Add-CheckResult 'KI-Modell-, Endpoint-, Journal- und Ergebnisverträge sind lokal parse- und schema-valide' $contractsValid
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue

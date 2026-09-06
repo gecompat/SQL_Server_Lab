@@ -7,7 +7,9 @@
 `vector-core-ci/1.0` führt feste synthetische Vektoren, exakte Suche und
 Chunking aus. Die getrennten nativen Docker-/Podman-Nachweise waren am
 2026-09-05 erfolgreich; jede echte lokale oder externe Embedding-Erzeugung
-steht noch aus. Reihenfolge und Priorität folgen
+steht noch aus. Der versionierte Ollama-Modellkatalog sowie Endpoint-,
+Journal- und Ergebnisverträge sind implementiert; ihre Einträge bleiben bis
+zu getrennten Live-Nachweisen `PLANNED`. Reihenfolge und Priorität folgen
 dem übergeordneten
 [KI-Plattform-Backlog](SQL2025_AI_PLATFORM_BACKLOG.md) und dem kanonischen
 Entwicklungs- und Ausführungsplan.
