@@ -154,6 +154,16 @@ Integration Services kann VMConnect-Mauseingabe gespiegelt sein. Die Vorlage
 bleibt auf einen isolierten internen Switch und wegwerfbare Differencing-Klone
 beschränkt; Aktivierung und Mini-Setup erfolgen pro Klon.
 
+Das deutsche Layout der Windows-Server-2003-Anmeldemaske kann über
+authentifiziertes Gast-WMI reproduzierbar gesetzt werden. Voraussetzung für
+den hostgesteuerten Ablauf sind bereits im versiegelten Parent installierte
+Hyper-V Integration Services, weil die Gastadresse über deren
+Datenaustauschdienst ermittelt wird. Ein realer Online-Aktivierungsversuch am
+6. September 2026 rief die offizielle WMI-Methode auf, ließ
+`ActivationRequired` jedoch unverändert auf `1`. Der Ablauf meldet dies
+fail-closed, entfernt die temporäre Internet-NIC und bietet keinen
+Aktivierungs-Bypass.
+
 Ein realer Windows-Server-2025-Standard-Evaluation-Core-Gast wurde aus ISO
 installiert, per PowerShell Direct verifiziert und erfolgreich generalisiert.
 Die dabei entdeckten Fehler in kulturabhängigen Evidenz-Zeitstempeln,
