@@ -141,6 +141,19 @@ Microsoft signiertes x64-Evaluation-SFX. Die frühere 2008-R2-x86-Datei und die
 auf der weiterhin sichtbaren SQL-2008-Produktseite verlinkten x86/x64-SFX-Ziele
 sind nicht mehr abrufbar. Die vollständige SQL-2008-ISO deckt x86 und x64 ab.
 
+Windows Server 2003 SP2 besitzt einen getrennten experimentellen Legacy-Pfad.
+Das direkte Microsoft-x86-SP2-ISO ist samt Größe, SHA-1 und SHA-256 katalogisiert
+und liefert Sysprep `5.2.3790.3959`. Das schlüsselfreie Hilfsmedium und der
+manuelle Reseal-/Flatten-/Differencing-Ablauf sind unter
+[Windows Server 2003 als Legacy-Vorlage](../HowTo/WINDOWS_SERVER_2003_LEGACY_TEMPLATE.md)
+dokumentiert. Diese x86-/Generation-1-VHDX ist ausdrücklich
+`LEGACY_TEMPLATE_SEALED`, nicht `OS_SEALED`: die normale Image-Registry, der
+Generation-2-Builder, Windows-Slot-Pool, PowerShell Direct und die aktuelle
+Integration-Services-Automation unterstützen sie nicht. Ohne historische
+Integration Services kann VMConnect-Mauseingabe gespiegelt sein. Die Vorlage
+bleibt auf einen isolierten internen Switch und wegwerfbare Differencing-Klone
+beschränkt; Aktivierung und Mini-Setup erfolgen pro Klon.
+
 Ein realer Windows-Server-2025-Standard-Evaluation-Core-Gast wurde aus ISO
 installiert, per PowerShell Direct verifiziert und erfolgreich generalisiert.
 Die dabei entdeckten Fehler in kulturabhängigen Evidenz-Zeitstempeln,

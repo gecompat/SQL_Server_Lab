@@ -1,7 +1,7 @@
 {
   "$schema": "../Schemas/sql-server-media-sources.schema.json",
   "catalogMetadata": {
-    "lastVerified": "2026-09-05",
+    "lastVerified": "2026-09-06",
     "maintainedBy": "SQL Server Lab",
     "scope": "Nicht-Azure SQL-Server-Basismedien, historische Windows-Server-Evaluationen und offizielle Bootstrapper; CUs werden getrennt im Versionskatalog verwaltet.",
     "sources": [
@@ -11,6 +11,7 @@
       "https://archive.org/metadata/wserver2008r2",
       "https://archive.org/metadata/wserver2012r2eval",
       "https://archive.org/metadata/windows-server-system-evaluation-kit",
+      "https://www.microsoft.com/en-us/download/details.aspx?id=21700",
       "https://www.microsoft.com/en-us/evalcenter/download-windows-server-2016",
       "https://www.microsoft.com/en-us/evalcenter/download-windows-server-2019",
       "https://www.microsoft.com/en-us/evalcenter/download-windows-server-2022",
@@ -52,6 +53,27 @@
       "derivedExpectedSha256": "42c32c7f21609865c61d4b1e34f3fccf28e6f6d76fb3902bea7f50f98d25eed4",
       "conversion": "BIN_2352_MODE1_TO_ISO_2048_OFFSET16",
       "note": "Nicht als Originaldownload bestätigter Scan aus dem Windows Server System Evaluation Kit. ZIP, BIN/CUE-Struktur, ISO9660 und das CDFS-Volume NRMEEVL_EN mit Windows-Setup wurden geprüft. Nur isoliert als Legacy-Testmedium verwenden."
+    },
+    {
+      "id": "windows-server-2003-sp2-x86-tools-iso",
+      "displayName": "Windows Server 2003 Service Pack 2 x86 ISO with deployment tools",
+      "version": "2003",
+      "edition": "Service Pack 2",
+      "mediaKind": "ISO",
+      "architecture": "x86",
+      "language": "en-US",
+      "acquisition": "DIRECT_MICROSOFT_DOWNLOAD",
+      "sourceStatus": "ACTIVE",
+      "downloadUrl": "https://download.microsoft.com/download/7/3/7/737d5061-be37-4d02-a67c-70569e75584b/w2k3sp2_3959_usa_x86fre_spcd.iso",
+      "referenceUrl": "https://www.microsoft.com/en-us/download/details.aspx?id=21700",
+      "originalMicrosoftUrl": "https://download.microsoft.com/download/7/3/7/737d5061-be37-4d02-a67c-70569e75584b/w2k3sp2_3959_usa_x86fre_spcd.iso",
+      "targetRelativePath": "WindowsServer/2003/Eval/Updates/w2k3sp2_3959_usa_x86fre_spcd.iso",
+      "expectedBytes": 548630528,
+      "expectedSha256": "30cbd649cfd879bc35a94c41366380d64b5c1745393bcf5604390d3ce566529c",
+      "expectedSha1": "aeae93def8b8f5885bcea9a24f4979e51637254b",
+      "productVersion": "5.2.3790.3959",
+      "automatable": true,
+      "note": "Öffentliches originales Microsoft-SP2-ISO für x86. Das Volume CR0SP2_EN enthält SUPPORT/TOOLS/DEPLOY.CAB mit Sysprep 5.2.3790.3959 und dient dem reproduzierbaren Reseal der isolierten Windows-Server-2003-Vorlage; es ist kein bootfähiges Evaluierungs-Basismedium."
     },
     {
       "id": "windows-server-2008r2-sp1-evaluation-iso",
