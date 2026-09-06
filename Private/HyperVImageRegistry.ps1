@@ -204,7 +204,7 @@ function Import-HyperVImageArtifact {
         [string]$SqlEdition,
         [string]$SqlBuild,
         [string[]]$SqlFeatures = @(),
-        [ValidateSet('licensed', 'evaluation', 'developer')][string]$SqlLicenseType,
+        [ValidateSet('licensed', 'evaluation', 'developer', 'express')][string]$SqlLicenseType,
         [Nullable[datetime]]$SqlEvaluationExpiresAt,
         [Nullable[datetime]]$EvaluationExpiresAt,
         [ValidateLength(1, 80)][string]$DisplayName,

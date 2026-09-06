@@ -629,8 +629,10 @@
       "expectedSha256": "e8d8330e3e7d6f9242e658315b99aace4aabb71ed14f3ec465e4450d66d255b6",
       "expectedSha1": null,
       "productVersion": "12.3.6024.0",
+      "derivedTargetRelativePath": "SQL/2014/Express/ISO/SQLServer2014SP3Express-x64-ENU.iso",
+      "conversion": "IMAPI2FS_DATA_ISO",
       "automatable": true,
-      "note": "Direktes Microsoft-SP3-Vollpaket; die Dateieigenschaft meldet 12.3.6024.0."
+      "note": "Direktes Microsoft-SP3-Vollpaket; die Dateieigenschaft meldet 12.3.6024.0. Der Hyper-V-Legacy-Runner verpackt es nach der Verifikation als offline einbindbares Daten-ISO."
     },
     {
       "id": "sql-server-2012-express-sp4-full",

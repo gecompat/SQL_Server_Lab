@@ -52,12 +52,16 @@ try {
             [PSCustomObject]@{
                 Evaluation = Resolve-LabSqlLicenseSelection -SqlVersion 2016 -MediaEdition Eval -StateRoot $Root
                 Developer = Resolve-LabSqlLicenseSelection -SqlVersion 2016 -MediaEdition Enterprise -StateRoot $Root
+                Express = Resolve-LabSqlLicenseSelection -SqlVersion 2014 -MediaEdition Express -StateRoot $Root
                 Licensed = Resolve-LabSqlLicenseSelection -SqlVersion 2016 -MediaEdition Standard -LicenseProfileId 'sql2016-standard-test' -StateRoot $Root
             }
         } $testRoot
         Add-Result 'Keyloser Evaluation- und Developer-Vertrag bleibt erhalten' (
             $selection.Evaluation.LicenseType -eq 'evaluation' -and -not $selection.Evaluation.ProfileId -and
             $selection.Developer.LicenseType -eq 'developer' -and -not $selection.Developer.ProfileId)
+        Add-Result 'SQL Express ist ein keyloser, editionsgebundener Lizenzvertrag' (
+            $selection.Express.LicenseType -eq 'express' -and $selection.Express.Edition -eq 'Express' -and
+            -not $selection.Express.ProfileId -and -not $selection.Express.ProductKey)
         Add-Result 'Explizites Profil aktiviert nur die lizenzierte SQL-Auswahl' (
             $selection.Licensed.LicenseType -eq 'licensed' -and $selection.Licensed.Edition -eq 'Standard' -and
             $selection.Licensed.ProfileId -eq 'sql2016-standard-test')
