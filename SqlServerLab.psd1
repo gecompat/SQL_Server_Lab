@@ -70,6 +70,7 @@
         'Backup-SqlServerLabDatabase'
         'Invoke-SqlServerLabScript'
         'Invoke-SqlServerLabAiScenario'
+        'Invoke-SqlServerLabAiModel'
         'Test-SqlServerLabContainerTool'
         'Restore-SqlServerLabDatabase'
         'Test-SqlServerLabPrerequisite'

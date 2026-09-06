@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-query-result.schema.json",
+  "title": "SQL Server Lab AI Query Result",
+  "type": "object",
+  "required": ["Contract", "Status", "Mode", "RunId", "InstanceId", "ScenarioId", "PlanKey", "ModelKey", "Answer", "Citations", "ToolExecutions", "Metrics"],
+  "properties": {
+    "Contract": {
+      "type": "object",
+      "required": ["Name", "Version"],
+      "properties": { "Name": { "const": "SqlServerLab.AiQueryResult" }, "Version": { "const": "1.0" } },
+      "additionalProperties": false
+    },
+    "Status": { "enum": ["SUCCEEDED", "INSUFFICIENT_EVIDENCE", "BLOCKED", "FAILED"] },
+    "Mode": { "enum": ["Rag", "DiagnosticAgent"] },
+    "RunId": { "type": "string", "format": "uuid" },
+    "InstanceId": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_-]*$" },
+    "ScenarioId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+    "PlanKey": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "ModelKey": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,95}$" },
+    "Answer": { "type": ["string", "null"], "maxLength": 32768 },
+    "Citations": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,95}$" } },
+    "ToolExecutions": {
+      "type": "array",
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "required": ["ToolId", "Status", "RowCount"],
+        "properties": {
+          "ToolId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+          "Status": { "enum": ["SUCCEEDED", "BLOCKED", "FAILED"] },
+          "RowCount": { "type": "integer", "minimum": 0 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "Metrics": {
+      "type": "object",
+      "required": ["RequestCount", "LatencyMilliseconds"],
+      "properties": {
+        "RequestCount": { "type": "integer", "minimum": 0, "maximum": 100 },
+        "LatencyMilliseconds": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
