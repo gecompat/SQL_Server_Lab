@@ -11,7 +11,11 @@ zur Laufzeit aus `I386\UNATTEND.TXT` der hashgebundenen originalen
 Evaluation-ISO gelesen und in `C:\Sysprep\sysprep.inf` des Childs geschrieben.
 
 Der Key wird weder ausgegeben noch in das Repository, das Parent oder ein
-Manifest übernommen. Eine Windows-Aktivierung führt das Skript nicht aus.
+Manifest übernommen. Deutsch (`0407:00000407`) wird in Sysprep festgelegt.
+Mit `ActivateOnline` führt das Skript Mini-Setup aus, versucht die offizielle
+Evaluation-Aktivierung über eine temporäre Legacy-NIC und akzeptiert nur ein
+verifiziert aktives Ergebnis. Zusätzlich setzt es das deutsche Layout der
+Anmeldemaske per Gast-WMI.
 
 .PARAMETER VmName
 Eindeutiger Name der neuen Hyper-V-VM.
@@ -34,6 +38,19 @@ am neuen Child eingelegt, aber nicht automatisch installiert.
 
 .PARAMETER ExpectedEvaluationIsoSha256
 Erwarteter SHA-256 der originalen Evaluation-ISO.
+
+.PARAMETER AdministratorCredential
+Lokales Administrator-Credential für ein vollständig unbeaufsichtigtes
+Mini-Setup. Es ist zusammen mit `ActivateOnline` erforderlich und wird nur
+vorübergehend im Child verwendet.
+
+.PARAMETER ActivateOnline
+Führt Mini-Setup aus, versucht die Evaluation-Aktivierung über einen temporären
+Internetadapter und verifiziert das Ergebnis fail-closed.
+
+.PARAMETER ActivationSwitchName
+Vorhandener nicht-privater Switch mit DHCP und Internet-Egress. Er wird nur
+während der Aktivierung an eine temporäre Legacy-NIC gebunden.
 
 .PARAMETER Start
 Startet die VM nach erfolgreicher Erstellung.
@@ -72,6 +89,13 @@ param(
     [ValidateRange(536870912, 4294967296)]
     [UInt64] $MemoryStartupBytes = 2GB,
 
+    [PSCredential] $AdministratorCredential,
+
+    [switch] $ActivateOnline,
+
+    [ValidateNotNullOrEmpty()]
+    [string] $ActivationSwitchName = 'Default Switch',
+
     [switch] $Start,
 
     [Parameter(ValueFromRemainingArguments)]
@@ -99,6 +123,13 @@ $missingArguments = @($requiredArguments.GetEnumerator() | Where-Object {
 if ($missingArguments.Count -gt 0) {
     throw "WS2003_CHILD_ARGUMENT_REQUIRED: $($missingArguments -join ', ')"
 }
+if ($ActivateOnline -and -not $AdministratorCredential) {
+    throw 'WS2003_CHILD_ADMINISTRATOR_CREDENTIAL_REQUIRED'
+}
+if ($ActivateOnline -and
+    [string] $AdministratorCredential.GetNetworkCredential().UserName -ne 'Administrator') {
+    throw 'WS2003_CHILD_ADMINISTRATOR_REQUIRED: Erwartet wird das lokale Administrator-Credential.'
+}
 
 $ErrorActionPreference = 'Stop'
 Import-Module Hyper-V -ErrorAction Stop
@@ -124,6 +155,15 @@ if (Get-VM -Name $VmName -ErrorAction SilentlyContinue) {
 }
 if (-not (Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue)) {
     throw "WS2003_CHILD_SWITCH_NOT_FOUND: $SwitchName"
+}
+if ($ActivateOnline) {
+    $activationSwitch = Get-VMSwitch -Name $ActivationSwitchName -ErrorAction SilentlyContinue
+    if (-not $activationSwitch) {
+        throw "WS2003_CHILD_ACTIVATION_SWITCH_NOT_FOUND: $ActivationSwitchName"
+    }
+    if ([string] $activationSwitch.SwitchType -eq 'Private') {
+        throw 'WS2003_CHILD_ACTIVATION_SWITCH_PRIVATE: Aktivierung benötigt DHCP und Internet-Egress.'
+    }
 }
 if (Test-Path -LiteralPath $resolvedVmRoot) {
     if (-not (Test-Path -LiteralPath $resolvedVmRoot -PathType Container)) {
@@ -175,7 +215,10 @@ if (-not $PSCmdlet.ShouldProcess($VmName, "Windows-Server-2003-Legacy-Child unte
         ParentVhdPath = $resolvedParentVhd
         EvaluationProductKeyWillBeInjected = $true
         IntegrationServicesIsoPath = $resolvedIntegrationServicesIso
-        ActivationWillBePerformed = $false
+        InputLocale = '0407:00000407'
+        LogonKeyboardLayout = if ($ActivateOnline) { '00000407' } else { $null }
+        ActivationWillBePerformed = $ActivateOnline.IsPresent
+        ActivationSwitchName = if ($ActivateOnline) { $ActivationSwitchName } else { $null }
     }
 }
 
@@ -194,6 +237,9 @@ $childPartitionNumber = $null
 $temporaryDriveLetter = $null
 $vmCreated = $false
 $rootCreatedByThisRun = $false
+$administratorPasswordPointer = [IntPtr]::Zero
+$administratorPlainPassword = $null
+$activationResult = $null
 try {
     $evaluationDiskImage = Get-DiskImage -ImagePath $resolvedEvaluationIso -ErrorAction SilentlyContinue
     if (-not $evaluationDiskImage -or -not $evaluationDiskImage.Attached) {
@@ -218,6 +264,19 @@ try {
     $evaluationProductKey = $keyMatches[0].Groups[1].Value
     $unattendText = $null
     $keyMatches = $null
+
+    if ($ActivateOnline) {
+        $administratorPasswordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR(
+            $AdministratorCredential.Password)
+        $administratorPlainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR(
+            $administratorPasswordPointer)
+        if ([string]::IsNullOrEmpty($administratorPlainPassword)) {
+            throw 'WS2003_CHILD_ADMINISTRATOR_PASSWORD_EMPTY'
+        }
+        if ($administratorPlainPassword.IndexOfAny([char[]]@('"', "`r", "`n")) -ge 0) {
+            throw 'WS2003_CHILD_ADMINISTRATOR_PASSWORD_UNATTEND_UNSAFE: Anführungszeichen und Zeilenumbrüche werden nicht unterstützt.'
+        }
+    }
 
     if (-not (Test-Path -LiteralPath $resolvedVmRoot -PathType Container)) {
         New-Item -Path $resolvedVmRoot -ItemType Directory -Force | Out-Null
@@ -267,15 +326,32 @@ try {
     if (-not (Test-Path -LiteralPath $childSysprepDirectory -PathType Container)) {
         New-Item -Path $childSysprepDirectory -ItemType Directory -Force | Out-Null
     }
-    $sysprepInf = @(
+    $guiUnattended = @(
+        'OEMSkipRegional=1'
+        'OemSkipWelcome=1'
+        'TimeZone=110'
+    )
+    if ($ActivateOnline) {
+        $guiUnattended += @(
+            "AdminPassword=`"$administratorPlainPassword`""
+            'EncryptedAdminPassword=No'
+        )
+    }
+    $sysprepLines = @(
         '[Unattended]'
         'OemSkipEula=Yes'
         ''
         '[GuiUnattended]'
-        'OEMSkipRegional=1'
-        'OemSkipWelcome=1'
-        'TimeZone=110'
+    ) + $guiUnattended + @(
         ''
+        '[RegionalSettings]'
+        'LanguageGroup=1'
+        'InputLocale=0407:00000407'
+        'SystemLocale=00000407'
+        'UserLocale=00000407'
+        ''
+    )
+    $sysprepLines += @(
         '[LicenseFilePrintData]'
         'AutoMode=PerServer'
         'AutoUsers=5'
@@ -291,13 +367,21 @@ try {
         ''
         '[Networking]'
         'InstallDefaultComponents=Yes'
-    ) -join "`r`n"
+    )
+    $sysprepInf = $sysprepLines -join "`r`n"
     Set-Content `
         -LiteralPath (Join-Path $childSysprepDirectory 'sysprep.inf') `
         -Value $sysprepInf `
         -Encoding ascii `
         -NoNewline
     $sysprepInf = $null
+    $sysprepLines = $null
+    $guiUnattended = $null
+    $administratorPlainPassword = $null
+    if ($administratorPasswordPointer -ne [IntPtr]::Zero) {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($administratorPasswordPointer)
+        $administratorPasswordPointer = [IntPtr]::Zero
+    }
 
     if ($temporaryDriveLetter) {
         Remove-PartitionAccessPath `
@@ -337,6 +421,18 @@ try {
         [Microsoft.HyperV.PowerShell.BootDevice]::Floppy
     )
 
+    if ($ActivateOnline) {
+        $activationTool = Join-Path $PSScriptRoot 'Invoke-WindowsServer2003LegacyActivation.ps1'
+        $activationResult = & $activationTool `
+            -VmName $VmName `
+            -ChildVhdPath $childVhdPath `
+            -AdministratorCredential $AdministratorCredential `
+            -ActivationSwitchName $ActivationSwitchName
+        if ([string] $activationResult.Status -ne 'EVALUATION_ACTIVE') {
+            throw 'WS2003_CHILD_ACTIVATION_POSTCONDITION_FAILED'
+        }
+    }
+
     if ($Start) {
         Start-VM -Name $VmName | Out-Null
     }
@@ -357,7 +453,14 @@ try {
         EvaluationProductKeyInjected = $true
         EvaluationProductKeyDisclosed = $false
         IntegrationServicesIsoPath = $resolvedIntegrationServicesIso
-        ActivationPerformed = $false
+        InputLocale = '0407:00000407'
+        LogonKeyboardLayout = if ($ActivateOnline) { '00000407' } else { $null }
+        ActivationPerformed = $ActivateOnline.IsPresent
+        EvaluationDaysRemaining = if ($activationResult) {
+            [int] $activationResult.EvaluationDaysRemaining
+        }
+        else { $null }
+        ActivationSwitchName = if ($ActivateOnline) { $ActivationSwitchName } else { $null }
         Generation = 1
         ProcessorCount = $ProcessorCount
         MemoryStartupBytes = $MemoryStartupBytes
@@ -398,4 +501,8 @@ finally {
         Dismount-DiskImage -ImagePath $resolvedEvaluationIso -ErrorAction SilentlyContinue | Out-Null
     }
     $evaluationProductKey = $null
+    $administratorPlainPassword = $null
+    if ($administratorPasswordPointer -ne [IntPtr]::Zero) {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($administratorPasswordPointer)
+    }
 }

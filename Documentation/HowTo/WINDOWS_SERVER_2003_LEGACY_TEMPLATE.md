@@ -51,7 +51,7 @@ Arbeitsspeicher:             2 GiB, statisch
 Netzwerk:                    Legacy Network Adapter, interner Lab-Switch
 Automatische Checkpoints:    aus
 Startreihenfolge nach Setup: IDE vor CD
-Tastaturlayout während Setup: en-US
+Tastaturlayout ab Mini-Setup:    Deutsch (`0407:00000407`)
 ```
 
 Die Ein-Prozessor-Konfiguration vermeidet die beobachtete Bootschleife. Die
@@ -164,13 +164,19 @@ Differencing-VHDX. Der reproduzierbare Standardpfad erzeugt Child und
 Generation-1-VM gemeinsam:
 
 ```powershell
-\.\Tools\New-WindowsServer2003LegacyChild.ps1 `
+$administrator = Get-Credential -UserName Administrator `
+    -Message 'Neues lokales Kennwort des Windows-Server-2003-Childs'
+
+.\Tools\New-WindowsServer2003LegacyChild.ps1 `
     -VmName '<Slot>' `
     -VmRoot '<Lab1_Data>\HyperV\Slots\<Slot>' `
     -ParentVhdPath '<Lab1_Base>\WindowsServer\2003\Eval\VHDX\WindowsServer2003Enterprise-Eval-SP2-x86-Gen1-Sysprep.vhdx' `
     -EvaluationIsoPath '<Lab1_Base>\WindowsServer\2003\Eval\ISO\WindowsServer2003Enterprise-Evaluation.iso' `
     -IntegrationServicesIsoPath '<Lab1_Base>\WindowsServer\2003\Eval\IntegrationServices\Hyper-V-Integration-Services-6.3.9600.16384-vmguest.iso' `
     -SwitchName 'SQL_LAB_HYPERV_intern' `
+    -AdministratorCredential $administrator `
+    -ActivateOnline `
+    -ActivationSwitchName 'Default Switch' `
     -Start
 ```
 
@@ -190,9 +196,16 @@ Evaluationsmedium ungültig. Nach Mini-Setup entfernt Windows den Sysprep-Ordner
 Für den Klon gelten dieselben Generation-1-, Ein-Prozessor-, statischen
 Speicher- und Legacy-Netzwerk-Eigenschaften. Beim ersten Start läuft Mini-Setup
 und erzeugt die klonspezifische Identität. Nicht geheime Standardwerte wie
-Arbeitsgruppe, Zeitzone und Netzwerk werden aus der lokalen `sysprep.inf`
-übernommen. Kennwort und eine gegebenenfalls gewünschte Aktivierung bleiben
-Child-spezifisch. Das Skript führt keine Aktivierung aus.
+Arbeitsgruppe, Zeitzone, Netzwerk und deutsches Tastaturlayout werden aus der
+lokalen `sysprep.inf` übernommen. Weil die Windows-2003-Deployment-Tools
+`InputLocale_DefaultUser` in `sysprep.inf` ausdrücklich nicht unterstützen,
+setzt der Aktivierungsschritt zusätzlich `00000407` per authentifiziertem
+Gast-WMI in den Hive der Anmeldemaske. Damit gilt das deutsche Layout nach dem
+automatisierten Abschluss auch vor der Anmeldung. Kennwort und Aktivierung
+bleiben Child-spezifisch. Mit `-ActivateOnline` verwendet der Child-Befehl das
+Credential für Mini-Setup und den nachfolgend beschriebenen, fail-closed
+verifizierten Online-Aktivierungsversuch. Ohne den Schalter erzeugt er wie
+bisher nur den noch nicht aktivierten Child.
 
 Mit `-IntegrationServicesIsoPath` prüft der Child-Befehl das ISO erneut und
 legt es ein. Die Installation startet weiterhin erst nach Mini-Setup. Der
@@ -209,6 +222,57 @@ Der erste Cold-Boot-Test erfolgt auf einem wegwerfbaren Child. Erwartet werden:
 
 Erst nach diesem Test wird ein Child für SQL Server 2000 oder SQL Server 2005
 weiterverwendet.
+
+## Evaluation online aktivieren
+
+Wie bei neueren Evaluation-Betriebssystemen erhält nur der konkrete Child für
+die Aktivierung vorübergehend Internetzugang. Windows Server 2003 besitzt kein
+PowerShell Direct; der Gast verwendet deshalb lokal die offizielle WMI-Methode
+`Win32_WindowsProductActivation.ActivateOnline()`. Das Hostskript prüft den
+exakten Generation-1-VM-/Child-VHDX-Verbund, verbietet Checkpoints, fügt eine
+eindeutig benannte temporäre Legacy-NIC hinzu und entfernt sie anschließend
+wieder.
+
+Das Credential wird in einer lokalen geschützten Abfrage eingegeben und nie in
+die Befehlszeile, Ausgabe oder das Repository geschrieben:
+
+```powershell
+$administrator = Get-Credential -UserName Administrator `
+    -Message 'Lokales Kennwort des Windows-Server-2003-Childs'
+
+.\Tools\Invoke-WindowsServer2003LegacyActivation.ps1 `
+    -VmName '<Slot>' `
+    -ChildVhdPath '<Lab1_Data>\HyperV\Slots\<Slot>\os.vhdx' `
+    -AdministratorCredential $administrator `
+    -ActivationSwitchName 'Default Switch'
+```
+
+Der Befehl akzeptiert nur eine ausgeschaltete VM. Er startet sie mit der
+temporären NIC, wartet über den Hyper-V-Datenaustausch auf eine nicht-APIPA-
+Adresse und verbindet sich authentifiziert über das in Windows Server 2003
+vorhandene WMI/DCOM. Das Kennwort bleibt dabei ausschließlich im Speicher. Im
+Gast werden das deutsche Anmeldelayout und anschließend die Aktivierung gesetzt
+und unmittelbar verifiziert. Danach fährt der Gast herunter und der Host
+entfernt die temporäre NIC. Der normale Child-Befehl startet die isolierte VM
+mit `-Start` anschließend wieder.
+
+Der automatisierte Lauf setzt funktionierende Hyper-V Integration Services im
+versiegelten Parent voraus: Nur damit meldet der Datenaustauschdienst die
+Gastadresse an den Host. Das bloße Einlegen der Integrations-DVD in einen neuen
+Child genügt dafür nicht. Nach der einmaligen Installation der verifizierten
+Integrationsdienste muss deshalb ein neuer Parent versiegelt werden; dessen
+Children benötigen für Tastatur und Aktivierungsversuch keine manuelle
+VMConnect-Eingabe mehr.
+
+Erfolg ist nur `EVALUATION_ACTIVE` mit `ActivationRequired=0` und einer
+positiven verbleibenden Evaluationsdauer. Ein veralteter oder nicht mehr
+erreichbarer Microsoft-Aktivierungsdienst bleibt ein sauberer Fehler; der
+Ablauf umgeht die Aktivierung nicht und hinterlässt keinen Internetadapter.
+Der reale Versuch am 6. September 2026 erreichte den Dienst nicht erfolgreich:
+Das deutsche Anmeldelayout wurde gesetzt, aber `ActivationRequired` blieb `1`.
+Der aktuelle lokale Child ist daher nicht als aktiviert nachgewiesen. Für
+diesen historischen Stand bleiben nur die von Microsoft vorgesehenen
+Lizenz-/Telefonwege; das Lab implementiert keinen Aktivierungs-Bypass.
 
 ## Recovery
 
