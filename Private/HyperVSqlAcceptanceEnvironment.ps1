@@ -76,7 +76,9 @@ if (`$observed.Count -ne 1) { throw 'SQL_LAB_OOBE_DHCP_ADDRESS_NOT_READY' }
 `$dnsServers = @(Get-DnsClientServerAddress -InterfaceIndex `$adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue).ServerAddresses
 Set-NetConnectionProfile -InterfaceIndex `$adapter.ifIndex -NetworkCategory Private -ErrorAction SilentlyContinue
 Set-Service -Name WinRM -StartupType Automatic -ErrorAction Stop
-Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction Stop
+`$winRmReady = (Get-Service -Name WinRM -ErrorAction SilentlyContinue).Status -eq 'Running' -and
+    @(Get-ChildItem -LiteralPath WSMan:\localhost\Listener -ErrorAction SilentlyContinue).Count -gt 0
+if (-not `$winRmReady) { Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction Stop }
 `$ruleName = 'SQL_Server_Lab WinRM LAN'
 if (-not (Get-NetFirewallRule -DisplayName `$ruleName -ErrorAction SilentlyContinue)) {
     New-NetFirewallRule -DisplayName `$ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5985 -RemoteAddress LocalSubnet | Out-Null
@@ -118,7 +120,9 @@ if ('$gateway') {
 if (`$dnsServers.Count -gt 0) { Set-DnsClientServerAddress -InterfaceIndex `$adapter.ifIndex -ServerAddresses `$dnsServers -ErrorAction Stop }
 Set-NetConnectionProfile -InterfaceIndex `$adapter.ifIndex -NetworkCategory Private -ErrorAction SilentlyContinue
 Set-Service -Name WinRM -StartupType Automatic -ErrorAction Stop
-Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction Stop
+`$winRmReady = (Get-Service -Name WinRM -ErrorAction SilentlyContinue).Status -eq 'Running' -and
+    @(Get-ChildItem -LiteralPath WSMan:\localhost\Listener -ErrorAction SilentlyContinue).Count -gt 0
+if (-not `$winRmReady) { Enable-PSRemoting -Force -SkipNetworkProfileCheck -ErrorAction Stop }
 `$ruleName = 'SQL_Server_Lab WinRM Host'
 if (-not (Get-NetFirewallRule -DisplayName `$ruleName -ErrorAction SilentlyContinue)) {
     New-NetFirewallRule -DisplayName `$ruleName -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5985 -RemoteAddress '$hostAddress' | Out-Null
@@ -450,14 +454,17 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
                 -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
                 -ArgumentList @(
                     $build.buildId, $build.scopeId, $build.manualAction.challenge, $build.sql.version,
-                    $setupVersionPattern, ($build.sql.features -join ','), $SaPassword, $Credential.Password, $SetupTimeoutSeconds
+                    $setupVersionPattern, ($build.sql.features -join ','), $build.sql.mediaEdition,
+                    $SaPassword, $Credential.Password, $SetupTimeoutSeconds
                 ) `
                 -ScriptBlock {
-                    param($ExpectedBuildId, $ExpectedScopeId, $Challenge, $ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $SqlSaPassword, $AdministratorPassword, $TimeoutSeconds)
+                    param($ExpectedBuildId, $ExpectedScopeId, $Challenge, $ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $MediaEdition, $SqlSaPassword, $AdministratorPassword, $TimeoutSeconds)
                     $ErrorActionPreference = 'Stop'
                     $allSetup = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
-                        $candidate = Join-Path ([string]$_.DeviceID + '\') 'setup.exe'
+                        $volumeRoot = [string]$_.DeviceID + '\'
+                        $candidate = Join-Path $volumeRoot 'setup.exe'
                         if (Test-Path -LiteralPath $candidate -PathType Leaf) { Get-Item -LiteralPath $candidate }
+                        @(Get-ChildItem -LiteralPath $volumeRoot -File -Filter 'SQLEXPR*_ENU.exe' -ErrorAction SilentlyContinue)
                     })
                     $expectedMajor = if ($ExpectedSqlVersion -match '^major-(\d+)$') { [int]$Matches[1] } else { @{ '2012' = 11; '2014' = 12; '2016' = 13; '2017' = 14; '2019' = 15; '2022' = 16; '2025' = 17 }[$ExpectedSqlVersion] }
                     $setup = @($allSetup | Where-Object {
@@ -508,7 +515,7 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
                         $configuration = [pscustomobject]@{
                             setupPath = $setup[0].FullName; secretPath = $secretPath; resultPath = $resultPath
                             entropy = $ExpectedBuildId; features = @($features); expectedMajor = $expectedMajor
-                            timeoutSeconds = [int]$TimeoutSeconds
+                            mediaEdition = [string]$MediaEdition; timeoutSeconds = [int]$TimeoutSeconds
                         }
                         $utf8NoBom = New-Object System.Text.UTF8Encoding -ArgumentList (,$false)
                         [IO.File]::WriteAllText($configPath, ($configuration | ConvertTo-Json -Depth 5), $utf8NoBom)
@@ -523,7 +530,8 @@ try{
   $entropy=[Text.Encoding]::UTF8.GetBytes([string]$config.entropy)
   $plainBytes=[Security.Cryptography.ProtectedData]::Unprotect($protected,$entropy,[Security.Cryptography.DataProtectionScope]::LocalMachine)
   $plain=[Text.Encoding]::Unicode.GetString($plainBytes)
-  $arguments=@('/Q','/ACTION=Install',("/FEATURES="+(@($config.features)-join ',')),'/INSTANCENAME=MSSQLSERVER','/INSTANCEID=MSSQLSERVER','/SQLSVCACCOUNT="NT Service\MSSQLSERVER"','/AGTSVCACCOUNT="NT Service\SQLSERVERAGENT"','/AGTSVCSTARTUPTYPE=Automatic','/SQLSYSADMINACCOUNTS="BUILTIN\Administrators"','/SECURITYMODE=SQL',("/SAPWD="+$plain),'/TCPENABLED=0','/ENU=True','/IACCEPTSQLSERVERLICENSETERMS','/INDICATEPROGRESS')
+  $arguments=@('/Q','/ACTION=Install',("/FEATURES="+(@($config.features)-join ',')),'/INSTANCENAME=MSSQLSERVER','/INSTANCEID=MSSQLSERVER','/SQLSVCACCOUNT="NT Service\MSSQLSERVER"','/SQLSYSADMINACCOUNTS="BUILTIN\Administrators"','/SECURITYMODE=SQL',("/SAPWD="+$plain),'/TCPENABLED=0','/ENU=True','/IACCEPTSQLSERVERLICENSETERMS','/INDICATEPROGRESS')
+  if([string]$config.mediaEdition-ne 'Express'){$arguments+=@('/AGTSVCACCOUNT="NT Service\SQLSERVERAGENT"','/AGTSVCSTARTUPTYPE=Automatic')}
   if([int]$config.expectedMajor-ge 13){$arguments+='/SQLSVCINSTANTFILEINIT=True'}
   $process=Start-Process -FilePath ([string]$config.setupPath) -ArgumentList $arguments -PassThru -WindowStyle Hidden
   $completed=$process.WaitForExit([int]$config.timeoutSeconds*1000)
@@ -575,7 +583,8 @@ finally{
                             contractVersion = '1'; buildId = $ExpectedBuildId; scopeId = $ExpectedScopeId
                             challenge = $Challenge; action = 'Install'; sqlVersion = $ExpectedSqlVersion
                             expectedMajorVersion = $expectedMajor; setupVersion = $setupVersion
-                            features = @($features); netFx3Installed = $netFx3Installed; exitCode = [int]$exitCode
+                            mediaEdition = [string]$MediaEdition; features = @($features)
+                            netFx3Installed = $netFx3Installed; exitCode = [int]$exitCode
                             rebootScheduled = ($exitCode -eq 3010); completedAt = [datetime]::UtcNow.ToString('o')
                         }
                     }
@@ -594,11 +603,13 @@ finally{
                 [string]$receipt.buildId -ne [string]$build.buildId -or [string]$receipt.scopeId -ne [string]$build.scopeId -or
                 [string]$receipt.challenge -ne [string]$build.manualAction.challenge -or [string]$receipt.action -ne 'Install' -or
                 [string]$receipt.sqlVersion -ne [string]$build.sql.version -or
+                [string]$receipt.mediaEdition -ne [string]$build.sql.mediaEdition -or
                 [int]$receipt.expectedMajorVersion -ne (Get-HyperVSqlMajorVersion -SqlVersion $build.sql.version) -or
                 [int]$receipt.exitCode -notin @(0, 3010)) { throw 'HYPERV_SQL_INSTALL_RECEIPT_INVALID' }
             $build | Add-Member -NotePropertyName installationEvidence -NotePropertyValue ([PSCustomObject]@{
                 action = 'Install'; sqlVersion = [string]$receipt.sqlVersion
                 expectedMajorVersion = [int]$receipt.expectedMajorVersion; setupVersion = [string]$receipt.setupVersion
+                mediaEdition = [string]$receipt.mediaEdition
                 features = @($receipt.features | ForEach-Object { [string]$_ } | Sort-Object -Unique)
                 exitCode = [int]$receipt.exitCode; completedAt = [string]$receipt.completedAt; acceptedAt = Get-LabTimestamp
             }) -Force

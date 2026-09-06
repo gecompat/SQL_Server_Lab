@@ -176,8 +176,13 @@ Windows-ISO, führt SQL Setup mit geladenem lokalem Administratorprofil aus und
 prüft SQL 11.0.2100.60 über Create, Insert, Backup mit CHECKSUM, RESTORE
 VERIFYONLY und Cleanup. Beim Resume wird der beim ersten vollständigen Hashing
 gespeicherte Medienbeleg verwendet; Größe, Änderungszeit oder Sidecar-Drift
-sperren die Wiederverwendung. SQL Server 2014 und älter bleiben bis zu einem
-entsprechenden realen Lauf nicht freigegeben.
+sperren die Wiederverwendung. SQL Server 2014 Express SP3 ist auf derselben
+OS-Baseline ebenfalls real bis `TESTS_PASSED` belegt. Der Adapter lädt bei
+Bedarf das katalogisierte Microsoft-SFX, verifiziert Größe, SHA-256 und
+Microsoft-Signatur, erstellt ein hashgebundenes Offline-Daten-ISO und prüft die
+installierte Engine 12.0.6024.0 über denselben Create-/Backup-/Restore-Vertrag.
+Andere SQL-2014-Editionen sowie SQL Server 2008 R2 und älter bleiben bis zu
+einem entsprechenden realen Lauf nicht freigegeben.
 
 Windows Server 2003 SP2 besitzt einen getrennten experimentellen Legacy-Pfad.
 Das direkte Microsoft-x86-SP2-ISO ist samt Größe, SHA-1 und SHA-256 katalogisiert
