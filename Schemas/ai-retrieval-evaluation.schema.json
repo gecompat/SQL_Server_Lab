@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-retrieval-evaluation.schema.json",
+  "title": "SQL Server Lab AI Retrieval Evaluation",
+  "type": "object",
+  "required": ["Contract", "Status", "K", "ExpectedCount", "ReturnedCount", "RelevantCount", "RecallAtK", "PrecisionAtK", "Mrr", "NdcgAtK", "Thresholds", "Blockers"],
+  "properties": {
+    "Contract": { "type": "object", "required": ["Name", "Version"], "properties": { "Name": { "const": "SqlServerLab.AiRetrievalEvaluation" }, "Version": { "const": "1.0" } }, "additionalProperties": false },
+    "Status": { "enum": ["PASSED", "BLOCKED"] },
+    "K": { "type": "integer", "minimum": 1, "maximum": 100 },
+    "ExpectedCount": { "type": "integer", "minimum": 1 },
+    "ReturnedCount": { "type": "integer", "minimum": 0 },
+    "RelevantCount": { "type": "integer", "minimum": 0 },
+    "RecallAtK": { "type": "number", "minimum": 0, "maximum": 1 },
+    "PrecisionAtK": { "type": "number", "minimum": 0, "maximum": 1 },
+    "Mrr": { "type": "number", "minimum": 0, "maximum": 1 },
+    "NdcgAtK": { "type": "number", "minimum": 0, "maximum": 1 },
+    "Thresholds": { "type": "object", "required": ["MinimumRecall", "MinimumMrr", "MinimumNdcg"], "properties": { "MinimumRecall": { "type": "number" }, "MinimumMrr": { "type": "number" }, "MinimumNdcg": { "type": "number" } }, "additionalProperties": false },
+    "Blockers": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^AI_EVALUATION_[A-Z_]+$" } }
+  },
+  "additionalProperties": false
+}

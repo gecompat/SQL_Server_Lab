@@ -38,6 +38,8 @@ sources_of_truth:
   ai_endpoint_plan_schema: Schemas/ai-endpoint-plan.schema.json
   ai_runtime_journal_schema: Schemas/ai-runtime-journal.schema.json
   ai_query_result_schema: Schemas/ai-query-result.schema.json
+  ai_retrieval_evaluation: Public/Measure-SqlServerLabAiRetrieval.ps1
+  ai_retrieval_evaluation_schema: Schemas/ai-retrieval-evaluation.schema.json
   validation_ai_scenario: Tests/Static/Invoke-AiScenarioChecks.ps1
   validation_ai_ollama_cloud: Tests/Integration/Invoke-AiOllamaCloudAcceptance.ps1
   validation_ai_ollama_container: Tests/Integration/Invoke-AiOllamaContainerAcceptance.ps1

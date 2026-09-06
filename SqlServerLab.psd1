@@ -71,6 +71,7 @@
         'Invoke-SqlServerLabScript'
         'Invoke-SqlServerLabAiScenario'
         'Invoke-SqlServerLabAiModel'
+        'Measure-SqlServerLabAiRetrieval'
         'Test-SqlServerLabContainerTool'
         'Restore-SqlServerLabDatabase'
         'Test-SqlServerLabPrerequisite'
