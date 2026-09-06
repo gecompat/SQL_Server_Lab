@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-09-04 |
+| Stand | 2026-09-06 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -588,6 +588,26 @@ diese bekannte Vertragsprojektion zusätzlich strukturiert aus demselben
 Live-Log-Kanal. Noch offen sind
 Export-/Import-Executor für Serverobjekte, Keymaterialtransfer
 und externe Serviceprüfung.
+
+Ein vollständiger Evaluation-Refresh ist deshalb noch nicht ausführbar. Der
+fachlich akzeptierte
+[Zielvertrag](../Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md)
+verlangt einen parallelen Neuaufbau sowie die vollständig klassifizierte
+Übernahme von Datenbanken, Serverobjekten, Konfiguration, Keymaterial und
+SQL-nahen Diensten mit Gleichwertigkeitsnachweis, Cutover und Rollback. Ein
+VM-/VHDX-Clone oder ein Datenbank-Restore allein darf nicht als vollständige
+Instanzmigration beziehungsweise Evaluation-Refresh ausgegeben werden.
+
+Für weitere querschnittliche Plattformlücken existiert jetzt ein eigener
+[Sammelbacklog](../Project_Planning/CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md).
+Nicht implementiert sind insbesondere ein zeitgesteuerter Evaluation-Watchdog,
+ein portabler Gesamt-Lab-Export/-Import, externe Secret-Store-Adapter, ein
+gemeinsamer Observability-/Evidence-Vertrag, verwaltete Recovery Points, ein
+Framework-/State-Upgrade-Lifecycle und ein Air-Gap-Paket. Erweiterte
+Kapazitätsquoten, Mehrbenutzerbetrieb sowie eine stabile Automation-API mit
+IaC-Adaptern bleiben zusätzlich `DECISION_REQUIRED`. Die Backlogaufnahme
+erteilt keine Runtime-, Remote-, Secret-, Export-, Import- oder
+Löschautorität.
 
 Jeder aktuelle Inventur-Receipt enthält außerdem einen versionierten
 `SqlServerLab.DatabaseMigrationExecutionPlan/1.0`. Dieser leitet ausschließlich
