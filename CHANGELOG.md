@@ -4,6 +4,23 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-09-06
+
+### Hinzugefügt
+
+- Ein fachlich akzeptierter Backlog definiert den vollständigen
+  Evaluation-Refresh als parallelen Neuaufbau mit klassifizierter Übernahme von
+  Datenbanken, Serverobjekten, Konfiguration, Keymaterial und SQL-nahen
+  Diensten, maschinellem Gleichwertigkeitsnachweis, Cutover und Rollback. Der
+  Vertrag bleibt geplant und erweitert die bestehenden read-only
+  Datenbank-Migrationspläne nicht um Mutationsautorität.
+- Ein ergänzender Sammelbacklog hält erstmals die bisher nicht eigenständig
+  geplanten Querschnittsfähigkeiten fest: Evaluation-Watchdog, portabler
+  Gesamt-Lab-Transfer, externe Secret Stores, Observability/Evidence,
+  Recovery Points, Framework-/State-Upgrades, Air-Gap-Verteilung,
+  Kapazitätssteuerung, Mehrbenutzerbetrieb und Automation-API/IaC. Die letzten
+  drei Architekturthemen bleiben vor einer Umsetzung entscheidungspflichtig.
+
 ## 2026-09-05
 
 ### Hinzugefügt
