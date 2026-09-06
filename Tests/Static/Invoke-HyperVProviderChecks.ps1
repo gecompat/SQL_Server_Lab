@@ -3,8 +3,9 @@
 .SYNOPSIS
     Prueft den statischen Vertrag der Hyper-V-Lifecycle-Grundlage.
 .DESCRIPTION
-    Validiert Metadaten, Funktionsoberflaeche, Parent-Integritaet, Generation 2,
-    Secure Boot, zusätzliche VHDX, scopegebundenen Cleanup und die ausdrueckliche
+    Validiert Metadaten, Funktionsoberflaeche, Parent-Integritaet,
+    artifactgebundene VM-Generation und Secure Boot, zusätzliche VHDX,
+    scopegebundenen Cleanup und die ausdrueckliche
     Grenze zur noch nicht implementierten SQL-Provisionierung ohne Hyper-V-
     Ressourcen zu aendern.
 #>
@@ -108,13 +109,13 @@ try {
         -Text $provider `
         -Pattern 'Get-FileHash[\s\S]+SHA256[\s\S]+PARENT_VHDX_INTEGRITY_MISMATCH'
     Add-TextContract `
-        -Name 'Generation 2 ist verbindlich' `
+        -Name 'VM-Generation wird unveränderlich aus dem Artifact übernommen' `
         -Text $provider `
-        -Pattern 'Generation\s*=\s*2'
+        -Pattern 'artifactVmGeneration[\s\S]+HYPERV_ARTIFACT_VM_GENERATION_OVERRIDE_INVALID[\s\S]+Generation\s*=\s*\$VmGeneration'
     Add-TextContract `
-        -Name 'Secure Boot verwendet das Windows-Template' `
+        -Name 'Secure Boot wird nur für Generation 2 mit Windows-Template gesetzt' `
         -Text $provider `
-        -Pattern 'EnableSecureBoot\s+On[\s\S]+SecureBootTemplate\s+MicrosoftWindows'
+        -Pattern 'if \(\$VmGeneration -eq 2\)[\s\S]+EnableSecureBoot[\s\S]+SecureBootTemplate\s+MicrosoftWindows'
     Add-TextContract `
         -Name 'Normale Lab-VMs deaktivieren automatische Hyper-V-Checkpoints' `
         -Text $provider `

@@ -5,7 +5,7 @@
 | Einstieg | `Invoke-SqlServerLab.ps1 -Action Image` |
 | Quelle | kanonischer externer Media Root |
 | Referenz | Windows Server 2025 Evaluation, English (United States), x64 |
-| Build | Generation 2, Secure Boot, isoliert ohne Netzwerkadapter |
+| Build | versionsgerecht Generation 1 oder 2, isoliert ohne Netzwerkadapter |
 | Fortsetzung | persistenter Build-State und PowerShell Direct |
 
 Der anschließende Aufbau von drei Windows-SQL-Slots, drei Linux-Zielen und
@@ -14,11 +14,11 @@ einem separaten CMS steht im
 
 ## 1. Voraussetzungen
 
-- Windows-Host mit aktivem Hyper-V und lokalen Administratorrechten;
+- Windows-Host mit aktivem Hyper-V und den erforderlichen Hyper-V-Rechten;
 - PowerShell 7.2 oder neuer;
 - Repository-Checkout;
 - initialisierter externer Media Root;
-- genau eine Windows-Server-ISO im Zielordner.
+- ein eindeutiger, englischer und hashgebundener Katalogeintrag für die Zielversion.
 
 Die Medienstruktur wird unter
 [Externer Media Root](MEDIA_ROOT_LAYOUT.md) beschrieben. Offizielle Quelle für
@@ -114,11 +114,70 @@ Der aktuelle Operatorpfad erzeugt:
 - 80 GB dynamische OS-VHDX;
 - 4 GB Startup-RAM;
 - 4 virtuelle Prozessoren;
-- Generation-2-VM;
-- Secure Boot mit Microsoft-Windows-Template;
+- Windows Server 2008 R2 als Generation-1-VM ohne Secure Boot;
+- Windows Server 2012 R2 als Generation-2-VM mit Secure Boot aus, weil der
+  aktuelle Hyper-V-DBX-Stand den Bootmanager des archivierten Mediums ablehnt;
+- Windows Server 2016 und neuer als Generation-2-VM mit
+  Microsoft-Windows-Secure-Boot-Template;
 - deaktivierte automatische Hyper-V-Checkpoints;
 - ISO als erstes Bootgerät;
 - keinen Netzwerkadapter.
+
+### Unbeaufsichtigter Build für 2008 R2 bis 2025
+
+Für Windows Server 2008 R2, 2012 R2, 2016, 2019, 2022 und 2025 steht ein
+versionsgerechter Ablauf ohne manuelle Setup-Eingaben zur Verfügung. Der
+Aufruf erfolgt in einer
+PowerShell-7-Sitzung mit bestätigtem Hyper-V-Capability-Probe, zum Beispiel:
+
+```powershell
+.\Tools\New-WindowsServerEvaluationTemplate.ps1 `
+    -Version 2008R2,2012R2,2016,2019,2022 `
+    -MediaRoot 'D:\Lab1_Base' `
+    -ExternalSwitchName 'SQL_LAB_HYPERV_extern_wifi' `
+    -Confirm:$false
+```
+
+Der Ablauf bindet die englische x64-Evaluation eindeutig an den Katalogpfad,
+das SHA-256-Sidecar und die zuvor erzeugte WIM-Evidenz, erzeugt ein
+zufälliges nur laufzeitlokales Administratorpasswort, installiert Windows,
+prüft Edition und tatsächlichen Evaluationszeitraum, entfernt Antwort-ISO und
+Autologon-Daten, aktiviert die Evaluation über einen nur dafür temporär
+angehängten externen Netzwerkadapter, entfernt diesen in jedem Fehler- und
+Erfolgsfall, führt Sysprep aus und veröffentlicht erst danach `OS_SEALED`.
+Anschließend erzeugt er einen neuen isolierten Differencing-Child, schließt
+dessen OOBE ab, prüft einen Cold Start sowie die Abwesenheit von SQL Server und
+entfernt den Prüflauf wieder. Schlägt dieser Nachweis fehl, wird auch das neu
+veröffentlichte, noch unreferenzierte Artifact entfernt. Ein erfolgreicher
+Lauf persistiert zusätzlich eine maschinenlesbare
+`SqlServerLab.HyperVWindowsTemplateValidation/1.0`-Evidenz unter dem lokalen
+StateRoot.
+Das Artifact bleibt dabei zunächst als `TemplateValidation=PENDING` für normale
+Labs gesperrt. Erst die erfolgreiche Child-Abnahme bindet den SHA-256-Wert der
+Evidenz an die Registry-Metadaten und setzt `CHILD_BOOT_VERIFIED`; Fehler
+bleiben dadurch auch dann fail-closed, wenn ein Cleanup nicht vollständig
+ausgeführt werden konnte.
+Ohne `-KeepOnFailure` werden fehlgeschlagene Builder scopegebunden aufgeräumt.
+Das Passwort wird weder ausgegeben noch in Build-State oder Artifact-Metadaten
+gespeichert; spätere Children erhalten jeweils eigene Credentials.
+
+Windows Server 2008 R2 und 2012 R2 verwenden statt PowerShell Direct einen
+temporären externen Adapter und authentifiziertes WMI/DCOM. 2008 R2 erhält
+dafür einen emulierten Generation-1-NIC; seine IP-Adresse wird wegen der alten
+KVP-Protokollversion direkt und VM-ID-gebunden aus
+`Msvm_KvpExchangeComponent/NetworkAddressIPv4` gelesen. Antwortmedien werden
+bei Generation 1 ausgeworfen, weil ein laufendes IDE-DVD-Laufwerk nicht
+hot-entfernt werden kann.
+
+Das 2008-R2-Evaluationsmedium besitzt laut Microsoft keinen einzugebenden
+Product Key. Es verlangt Online-Aktivierung innerhalb von zehn Tagen, bevor
+die 180-Tage-Evaluation beginnt. Ist diese historische Aktivierung nicht mehr
+erreichbar, veröffentlicht der Builder nur den tatsächlich gemessenen
+`OOB_GRACE`-Zeitraum. Ein solches Artifact bleibt bei der standardmäßigen
+Mindestrestlaufzeit von 30 Tagen aus der automatischen Auswahl ausgeschlossen;
+eine explizite kurzlebige Nutzung muss `MinimumEvaluationDaysRemaining`
+entsprechend reduzieren. Es wird weder ein fremder Key eingesetzt noch der
+Lizenzzustand als aktiviert ausgegeben.
 
 Cleanup-Plan und Build-State existieren vor der ersten Hyper-V-Mutation. Die
 VM wird über BuildId, ScopeId und VHDX-Pfad eindeutig an den Build gebunden.
@@ -284,6 +343,14 @@ Baseline-Erstellung sind:
 - der allgemeine deklarative Hyper-V-SQL-Runtimepfad über alle
   Manifestkombinationen;
 - automatische Artifact-Refresh-/Rebuild-Aktionen.
+
+PowerShell Direct setzt in diesem Vertrag einen Windows-Server-2016-oder-neuer-
+Gast voraus. Windows Server 2008 R2 und 2012 R2 verwenden den getrennten,
+nativ bestandenen Legacy-WMI-Sysprep- und Child-Nachweis. Der
+Gaststeuerungstyp bleibt als `platform.guestControl` im Registry-Artifact
+erhalten. Der überprüfte Stand jeder
+Version steht in der
+[Windows-Server-Vorlagenmatrix](../Quality/WINDOWS_SERVER_TEMPLATE_VALIDATION_MATRIX.md).
 
 ## 11. Reale Validierung vom 3. August 2026
 

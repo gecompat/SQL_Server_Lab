@@ -307,8 +307,11 @@ Lab-VMs bestimmt. Sie ist nicht der Parent des empfohlenen Prepared-Image-Pfads.
 
 Default für Hyper-V:
 
-- Generation 2;
-- Secure Boot aktiv;
+- Generation 2 mit Secure Boot aus für Windows Server 2012 R2, weil aktuelle
+  Hyper-V-Hosts den Bootmanager des archivierten Evaluationsmediums über ihre
+  DBX-Sperrliste ablehnen können;
+- Generation 2 und Secure Boot aktiv für Windows Server 2016 und neuer;
+- Generation 1 ohne Secure Boot für Windows Server 2008 R2;
 - Windows-Template für Windows;
 - passende UEFI-CA-Vorlage für unterstützte Linux-Distributionen;
 - Abweichung nur nach Capability-Nachweis und sichtbarer Begründung.
@@ -757,8 +760,9 @@ Herstellerquellen, Referenzzählung, Refresh und Retire bleiben offen.
 - Manual Fallback;
 - `OS_SEALED`.
 
-Stand 2026-08-03: Medienintegrität, persistenter Build-/Resume-State,
-Generation-2-Builder, Secure Boot, DVD-Boot, Cleanup sowie Challenge-gebundene
+Stand 2026-09-06: Medienintegrität, persistenter Build-/Resume-State,
+versionsgerechter Generation-1-/Generation-2-Builder, Secure Boot für
+Generation 2, BIOS-DVD-Boot für Generation 1, Cleanup sowie Challenge-gebundene
 Generalisierungsevidenz sind implementiert. Die Resume-Publikation prüft
 VM-Auszustand, Identität, fehlende Checkpoints und VHDX-Pfadgrenze, bevor ein
 reales Image immutable als `OS_SEALED` registriert wird; synthetische Medien
@@ -767,7 +771,10 @@ Sysprep ueber PowerShell Direct aus, validiert
 `IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE`, persistiert `REBOOT_REQUIRED`,
 beobachtet den Gast-Shutdown und erzeugt die buildgebundene Evidenz automatisch.
 Unattended Setup und Reboot-Orchestrierung waehrend der Installation bleiben
-offen und führen zunächst zu `MANUAL_ACTION_REQUIRED`.
+offen und führen zunächst zu `MANUAL_ACTION_REQUIRED`. Der automatische
+PowerShell-Direct-Nachweis ist auf Windows Server 2016 und neuer begrenzt;
+2008 R2 und 2012 R2 benötigen vor einer Veröffentlichung den separaten realen
+Legacy-WMI-Nachweis.
 
 ### Welle 4 – Hyper-V Vertical Slice
 

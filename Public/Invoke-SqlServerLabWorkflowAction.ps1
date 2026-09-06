@@ -211,7 +211,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateSet('CONTINUE','CLONE')][string]$PersistentStorageAction = 'CONTINUE',
         [object[]]$PersistentStorageSelection,
         [ValidateRange(32, 4096)][int]$PersistentDataDiskGB = 128,
-        [ValidatePattern('^windows-(server-)?[0-9]+$')][string]$OperatingSystemId = 'windows-server-2025',
+        [ValidatePattern('^windows-(server-)?[0-9]+(?:-r2)?$')][string]$OperatingSystemId = 'windows-server-2025',
         [string]$WindowsMediaPath,
         [ValidatePattern('^[a-z0-9-]+$')][string]$WindowsEdition = 'standard-evaluation',
         [ValidateSet('core', 'desktop-experience')][string]$InstallationType = 'desktop-experience',
