@@ -106,7 +106,7 @@ try {
     $state = [PSCustomObject]@{
         contractVersion = '1'; buildKind = 'hyperv-sql-prepare-image'; buildId = $buildId; scopeId = $scopeId
         state = 'MANUAL_ACTION_REQUIRED'; stateHistory = @(); parentArtifact = [PSCustomObject]@{}
-        sql = [PSCustomObject]@{ version = '2022'; edition = 'Evaluation'; features = @('SQLENGINE') }
+        sql = [PSCustomObject]@{ version = '2022'; edition = 'Evaluation'; mediaEdition = 'Eval'; features = @('SQLENGINE') }
         builder = [PSCustomObject]@{ vmName = 'mock-sql-2022'; osDiskRelativePath = 'resources/hyperv/mock.vhdx'; networkAttached = $false }
         manualAction = [PSCustomObject]@{ challenge = [guid]::NewGuid().ToString() }
         createdAt = [datetime]::UtcNow.ToString('o'); updatedAt = [datetime]::UtcNow.ToString('o')
@@ -155,7 +155,7 @@ try {
             [PSCustomObject]@{
                 contractVersion = '1'; buildId = $ArgumentList[0]; scopeId = $ArgumentList[1]; challenge = $ArgumentList[2]
                 action = 'Install'; sqlVersion = '2022'; expectedMajorVersion = 16; setupVersion = '16.0.1000.6'
-                features = @('SQLENGINE'); exitCode = 0; rebootScheduled = $false; completedAt = [datetime]::UtcNow.ToString('o')
+                mediaEdition = 'Eval'; features = @('SQLENGINE'); exitCode = 0; rebootScheduled = $false; completedAt = [datetime]::UtcNow.ToString('o')
             }
         }
         function Set-HyperVWindowsGuestSpecialization { [PSCustomObject]@{ status = 'WINDOWS_SPECIALIZED' } }
@@ -211,6 +211,12 @@ try {
         $acceptanceText -match 'if\s*\((?:\[int\]\$config\.expectedMajor|\$expectedMajor)\s*-ge\s*13\).*SQLSVCINSTANTFILEINIT=True' -and
         $acceptanceText -match "'2012'.*'2014'.*'2016'.*'2017'.*'2019'.*'2022'.*'2025'"
     )
+    Add-CheckResult -Name 'SQL Express nutzt das SFX-Vollpaket und keine nicht vorhandene Agent-Konfiguration' -Success (
+        $acceptanceText -match "SQLEXPR\*_ENU\.exe" -and
+        $acceptanceText -match "mediaEdition-ne 'Express'" -and
+        $acceptanceText -match '\$receipt\.mediaEdition -ne \[string\]\$build\.sql\.mediaEdition' -and
+        $acceptanceText -match 'mediaEdition = \[string\]\$receipt\.mediaEdition'
+    )
     Add-CheckResult -Name 'Legacy-SQL-Setup läuft mit geladenem Administratorprofil und ohne Klartextpasswort im Task' -Success (
         $acceptanceText -match 'ProtectedData\]::Protect' -and
         $acceptanceText -match 'Register-ScheduledTask[\s\S]+-User ''Administrator''[\s\S]+-RunLevel Highest' -and
@@ -229,8 +235,8 @@ try {
         $acceptanceText -match 'BackupDirectory'
     )
     $legacyAcceptanceToolText = Get-Content -LiteralPath $legacyAcceptanceToolPath -Raw -Encoding utf8
-    Add-CheckResult -Name 'SQL-2012-Abnahmetool ist hash-, OS-, Elevation- und Postcondition-gebunden' -Success (
-        $legacyAcceptanceToolText -match "ValidateSet\('2012'\)" -and
+    Add-CheckResult -Name 'SQL-2012/2014-Abnahmetool ist hash-, OS-, Elevation- und Postcondition-gebunden' -Success (
+        $legacyAcceptanceToolText -match "ValidateSet\('2012','2014'\)" -and
         $legacyAcceptanceToolText -match 'ShowHelp' -and
         $legacyAcceptanceToolText -match 'Resolve-HyperVImageArtifact' -and
         $legacyAcceptanceToolText -match 'Confirm-HyperVSqlInstallationMediaVersion' -and
@@ -240,6 +246,13 @@ try {
         $legacyAcceptanceToolText -match 'Test-HyperVSqlAcceptanceEnvironment' -and
         $legacyAcceptanceToolText -match "state -ne 'TESTS_PASSED'" -and
         $legacyAcceptanceToolText -match 'CredentialDisclosed=\$false;PasswordDisclosed=\$false'
+    )
+    Add-CheckResult -Name 'SQL-2014-Abnahmetool lädt das verifizierte SP3-Paket und erzeugt ein Offline-ISO' -Success (
+        $legacyAcceptanceToolText -match 'sql-server-2014-express-sp3-full' -and
+        $legacyAcceptanceToolText -match 'SQLServer2014SP3Express-x64-ENU\.iso' -and
+        $legacyAcceptanceToolText -match 'Save-SqlServerLabMediaSource' -and
+        $legacyAcceptanceToolText -match 'New-HyperVSqlPackageMediaIso' -and
+        $legacyAcceptanceToolText -match "SqlFeatures=@\('SQLENGINE'\)"
     )
     $resumeStart = $legacyAcceptanceToolText.IndexOf('$resolved=if($existingBuilds.Count -eq 1)')
     $newBuildStart = $legacyAcceptanceToolText.IndexOf('}else{& $module {', $resumeStart)

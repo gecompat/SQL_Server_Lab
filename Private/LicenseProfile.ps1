@@ -179,7 +179,7 @@ function Resolve-LabSqlLicenseSelection {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$SqlVersion,
-        [Parameter(Mandatory)][ValidateSet('Eval', 'Enterprise', 'EnterpriseCore', 'Standard', 'Web')][string]$MediaEdition,
+        [Parameter(Mandatory)][ValidateSet('Eval', 'Express', 'Enterprise', 'EnterpriseCore', 'Standard', 'Web')][string]$MediaEdition,
         [ValidatePattern('^[a-z][a-z0-9.-]{2,63}$')][string]$LicenseProfileId,
         [string]$StateRoot
     )
@@ -187,6 +187,7 @@ function Resolve-LabSqlLicenseSelection {
     if ([string]::IsNullOrWhiteSpace($LicenseProfileId)) {
         switch ($MediaEdition) {
             'Eval' { $edition = 'Evaluation'; $type = 'evaluation' }
+            'Express' { $edition = 'Express'; $type = 'express' }
             'Enterprise' { $edition = 'EnterpriseDeveloper'; $type = 'developer' }
             'Standard' { $edition = 'StandardDeveloper'; $type = 'developer' }
             default { throw "HYPERV_SQL_LICENSE_PROFILE_REQUIRED: $MediaEdition" }

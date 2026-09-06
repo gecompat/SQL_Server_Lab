@@ -11,12 +11,14 @@ laufen unbeaufsichtigt. Passwörter werden zufällig erzeugt, DPAPI-geschützt i
 buildlokalen Secret Store gehalten und weder ausgegeben noch in den portablen
 Build-State geschrieben.
 
-Der erste ausführbare Vertrag ist SQL Server 2012 Evaluation auf Windows Server
-2012 R2 Standard Evaluation. Erfolgreiche Runs bleiben als TESTS_PASSED-
-Abnahmeumgebung erhalten und werden bei einem erneuten Aufruf wiederverwendet.
+Freigegeben sind SQL Server 2012 Evaluation und SQL Server 2014 Express SP3
+auf Windows Server 2012 R2 Standard Evaluation. Das offizielle SQL-2014-
+Vollpaket wird bei Bedarf geladen, verifiziert und als offline einbindbares
+Daten-ISO verpackt. Erfolgreiche Runs bleiben als TESTS_PASSED-Abnahmeumgebung
+erhalten und werden bei einem erneuten Aufruf wiederverwendet.
 
 .PARAMETER SqlVersion
-Legacy-SQL-Hauptversion. Aktuell ist SQL Server 2012 freigegeben.
+Legacy-SQL-Hauptversion. SQL Server 2012 und 2014 sind freigegeben.
 
 .PARAMETER ArtifactId
 Optionales exaktes OS_SEALED-Artefakt. Ohne Angabe wird die kompatible,
@@ -30,7 +32,7 @@ Zeigt die vollständige Hilfe und beendet das Skript ohne Prüfung oder Mutation
 #>
 [CmdletBinding(SupportsShouldProcess, ConfirmImpact='High')]
 param(
-    [ValidateSet('2012')]
+    [ValidateSet('2012','2014')]
     [string]$SqlVersion,
     [string]$ArtifactId,
     [string]$MediaRoot='D:\Lab1_Base',
@@ -59,6 +61,13 @@ $mapping=@{
     '2012'=[pscustomobject]@{
         OperatingSystemId='windows-server-2012-r2';OperatingSystemVersion='2012-r2'
         Edition='standard-evaluation';InstallationType='desktop-experience';MediaEdition='Eval'
+        SqlFeatures=@('SQLENGINE','FULLTEXT','REPLICATION');PackageSourceId=$null;PackageIsoRelativePath=$null
+    }
+    '2014'=[pscustomobject]@{
+        OperatingSystemId='windows-server-2012-r2';OperatingSystemVersion='2012-r2'
+        Edition='standard-evaluation';InstallationType='desktop-experience';MediaEdition='Express'
+        SqlFeatures=@('SQLENGINE');PackageSourceId='sql-server-2014-express-sp3-full'
+        PackageIsoRelativePath='SQL/2014/Express/ISO/SQLServer2014SP3Express-x64-ENU.iso'
     }
 }
 $target=$mapping[$SqlVersion]
@@ -145,12 +154,33 @@ $resolved=if($existingBuilds.Count -eq 1){
         [string]$artifact.operatingSystem.installationType -ne [string]$Target.InstallationType){
         throw 'LEGACY_SQL_ACCEPTANCE_OS_BASELINE_MISMATCH'
     }
+    $packageSource=$null;$media=$null;$detected=$null
     $mediaArgs=@{MediaRoot=$MediaRoot;SqlVersion=$SqlVersion;MediaEdition=$Target.MediaEdition}
     if($SqlMediaPath){$mediaArgs.SqlMediaPath=$SqlMediaPath}
-    $media=Resolve-HyperVSqlInstallationMedia @mediaArgs
-    if([string]$media.HashStatus -ne 'SIDECAR_READY'){throw "LEGACY_SQL_ACCEPTANCE_MEDIA_HASH_REQUIRED: $($media.HashPath)"}
-    $detected=Confirm-HyperVSqlInstallationMediaVersion -IsoPath $media.IsoPath -SqlVersion $SqlVersion
-    [pscustomobject]@{Artifact=$artifact;Media=$media;Detected=@($detected)[0];ExistingBuildId=$null}
+    $packageTarget=if($Target.PackageIsoRelativePath){Join-Path $MediaRoot ($Target.PackageIsoRelativePath.Replace('/','\'))}else{$null}
+    if(-not $SqlMediaPath -and $Target.PackageSourceId -and -not(Test-Path -LiteralPath $packageTarget -PathType Leaf)){
+        $entries=@(Get-LabMediaSourceCatalog -MediaRoot $MediaRoot|Where-Object Id -eq $Target.PackageSourceId)
+        if($entries.Count -ne 1){throw "LEGACY_SQL_ACCEPTANCE_PACKAGE_SOURCE_NOT_FOUND: $($Target.PackageSourceId)"}
+        $entry=$entries[0]
+        if(-not $entry.Automatable -or -not $entry.ExpectedSha256 -or -not $entry.ExpectedBytes -or
+            [string]$entry.SourceStatus -ne 'ACTIVE' -or [string]$entry.MediaKind -ne 'SELF_EXTRACTING_EXE' -or
+            [string]$entry.Version -ne $SqlVersion -or [string]$entry.Edition -ne [string]$Target.MediaEdition -or
+            [string]$entry.DerivedTargetRelativePath -ne [string]$Target.PackageIsoRelativePath -or
+            [string]$entry.Conversion -ne 'IMAPI2FS_DATA_ISO'){
+            throw 'LEGACY_SQL_ACCEPTANCE_PACKAGE_SOURCE_NOT_ELIGIBLE'
+        }
+        $packageSource=[pscustomobject]@{
+            Id=[string]$entry.Id;RelativePath=[string]$entry.TargetRelativePath
+            ExpectedSha256=[string]$entry.ExpectedSha256;ExpectedBytes=[long]$entry.ExpectedBytes
+            TargetRelativePath=[string]$Target.PackageIsoRelativePath
+        }
+    }else{
+        if(-not $SqlMediaPath -and $Target.PackageIsoRelativePath){$mediaArgs.SqlMediaPath=[string]$Target.PackageIsoRelativePath}
+        $media=Resolve-HyperVSqlInstallationMedia @mediaArgs
+        if([string]$media.HashStatus -ne 'SIDECAR_READY'){throw "LEGACY_SQL_ACCEPTANCE_MEDIA_HASH_REQUIRED: $($media.HashPath)"}
+        $detected=Confirm-HyperVSqlInstallationMediaVersion -IsoPath $media.IsoPath -SqlVersion $SqlVersion
+    }
+    [pscustomobject]@{Artifact=$artifact;Media=$media;Detected=@($detected)[0];PackageSource=$packageSource;ExistingBuildId=$null}
 } $target $ArtifactId $MediaRoot $SqlVersion $SqlMediaPath $StateRoot}
 
 if($SqlVersion -in @('2012','2014')){
@@ -179,8 +209,12 @@ if($SqlVersion -in @('2012','2014')){
 
 $plan=[pscustomobject]@{
     Status='PLANNED';SqlVersion=$SqlVersion;OperatingSystemId=[string]$resolved.Artifact.operatingSystem.id
-    ArtifactId=[string]$resolved.Artifact.artifactId;MediaRelativePath=[string]$resolved.Media.RelativePath
-    MediaSha256=[string]$resolved.Media.ExpectedSha256;GuestControl=[string]$resolved.Artifact.platform.guestControl
+    ArtifactId=[string]$resolved.Artifact.artifactId
+    MediaRelativePath=if($resolved.Media){[string]$resolved.Media.RelativePath}else{[string]$resolved.PackageSource.TargetRelativePath}
+    MediaSha256=if($resolved.Media){[string]$resolved.Media.ExpectedSha256}else{$null}
+    PackageSourceId=if($resolved.PackageSource){[string]$resolved.PackageSource.Id}else{$null}
+    PackageSourceSha256=if($resolved.PackageSource){[string]$resolved.PackageSource.ExpectedSha256}else{$null}
+    GuestControl=[string]$resolved.Artifact.platform.guestControl
     ExistingBuildId=[string]$resolved.ExistingBuildId
     WindowsFeatureSourceSha256=if($resolved.WindowsFeatureSource){[string]$resolved.WindowsFeatureSource.Sha256}else{$null}
     CredentialDisclosed=$false;PasswordDisclosed=$false
@@ -196,8 +230,24 @@ if(-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrat
 }
 
 try{
+if($resolved.PackageSource){
+    $packageMedia=& $module {
+        param($Package,$MediaRoot,$SqlVersion,$MediaEdition)
+        $saved=Save-SqlServerLabMediaSource -Id ([string]$Package.Id) -MediaRoot $MediaRoot -Confirm:$false
+        if([string]$saved.Status -ne 'READY' -or [string]$saved.Sha256 -ne [string]$Package.ExpectedSha256 -or
+            [long]$saved.Bytes -ne [long]$Package.ExpectedBytes){throw 'LEGACY_SQL_ACCEPTANCE_PACKAGE_DOWNLOAD_INVALID'}
+        New-HyperVSqlPackageMediaIso -MediaRoot $MediaRoot -SourceRelativePath ([string]$Package.RelativePath) `
+            -ExpectedSourceSha256 ([string]$Package.ExpectedSha256) -TargetRelativePath ([string]$Package.TargetRelativePath) `
+            -SqlVersion $SqlVersion -MediaEdition $MediaEdition
+    } $resolved.PackageSource $MediaRoot $SqlVersion $target.MediaEdition
+    $detected=& $module {param($IsoPath,$SqlVersion) Confirm-HyperVSqlInstallationMediaVersion -IsoPath $IsoPath -SqlVersion $SqlVersion} $packageMedia.IsoPath $SqlVersion
+    $resolved.Media=$packageMedia
+    $resolved.Detected=@($detected)[0]
+    $resolved.PackageSource=$null
+}
+
     $result=& $module {
-        param($Resolved,$SqlVersion,$MediaRoot,$StateRoot,$MemoryStartupMB,$ProcessorCount,$OobeTimeoutSeconds,$SetupTimeoutSeconds,$ReadinessTimeoutSeconds)
+        param($Resolved,$Target,$SqlVersion,$MediaRoot,$StateRoot,$MemoryStartupMB,$ProcessorCount,$OobeTimeoutSeconds,$SetupTimeoutSeconds,$ReadinessTimeoutSeconds)
         $active=if($Resolved.ExistingBuildId){
             @(Get-HyperVSqlImageBuildPlan -BuildId ([string]$Resolved.ExistingBuildId) -StateRoot $StateRoot)
         }else{@(Get-HyperVSqlImageBuildPlans -StateRoot $StateRoot | Where-Object {
@@ -211,8 +261,8 @@ try{
         else{
             $init=@{
                 MediaRoot=$MediaRoot;ImageArtifactId=[string]$Resolved.Artifact.artifactId
-                SqlVersion=$SqlVersion;MediaEdition='Eval';SqlMediaPath=[string]$Resolved.Media.RelativePath
-                SqlFeatures=@('SQLENGINE','FULLTEXT','REPLICATION')
+                SqlVersion=$SqlVersion;MediaEdition=[string]$Target.MediaEdition;SqlMediaPath=[string]$Resolved.Media.RelativePath
+                SqlFeatures=@($Target.SqlFeatures)
                 ImageName="SQL Server $SqlVersion Acceptance"
                 MemoryStartupBytes=([long]$MemoryStartupMB*1MB);ProcessorCount=$ProcessorCount;StateRoot=$StateRoot
             }
@@ -265,7 +315,7 @@ try{
             }
             CredentialDisclosed=$false;PasswordDisclosed=$false;CompletedAt=[datetime]::UtcNow.ToString('o')
         }
-    } $resolved $SqlVersion $MediaRoot $StateRoot $MemoryStartupMB $ProcessorCount $OobeTimeoutSeconds $SetupTimeoutSeconds $ReadinessTimeoutSeconds
+    } $resolved $target $SqlVersion $MediaRoot $StateRoot $MemoryStartupMB $ProcessorCount $OobeTimeoutSeconds $SetupTimeoutSeconds $ReadinessTimeoutSeconds
 }
 catch{
     if($ResultPath){
