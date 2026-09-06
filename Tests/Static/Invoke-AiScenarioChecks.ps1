@@ -115,6 +115,66 @@ try {
         }
     }
     Add-CheckResult 'KI-Modell-, Endpoint-, Journal- und Ergebnisverträge sind lokal parse- und schema-valide' $contractsValid
+
+    $stubPlan=& $module { New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-300m-q4 -EndpointRef deterministic-stub -Lane stub -RetryCount 1 }
+    $vector=@(1..768 | ForEach-Object { [double]$_ / 768 })
+    $retryResult=& $module {
+        param($Plan,$Vector)
+        $transport={
+            param($Request)
+            if ($Request.Attempt -eq 1) { return [PSCustomObject]@{StatusCode=429;Body=$null} }
+            return [PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{embeddings=[object[]]@(,[double[]]$Vector)}}
+        }.GetNewClosure()
+        Invoke-LabAiEndpointRequest -Plan $Plan -InputText 'synthetisch' -Transport $transport
+    } $stubPlan $vector
+    Add-CheckResult 'Deterministischer Ollama-Stub verwendet /api/embed und begrenzten Retry ohne Fallback' (
+        $retryResult.Status -eq 'SUCCEEDED' -and $retryResult.Attempts -eq 2 -and $retryResult.Vector.Count -eq 768)
+
+    $dimensionRejected=$false
+    try {
+        & $module {
+            param($Plan)
+            Invoke-LabAiEndpointRequest -Plan $Plan -InputText 'synthetisch' -Transport {
+                [PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{embeddings=[object[]]@(,[double[]]@(0.1,0.2,0.3))}}
+            }
+        } $stubPlan
+    } catch { $dimensionRejected=$_.Exception.Message -eq 'AI_ENDPOINT_DIMENSION_MISMATCH' }
+    Add-CheckResult 'Dimensionskonflikt wird vor Nutzung der Vektoren fail-closed abgelehnt' $dimensionRejected
+
+    $timeoutRejected=$false
+    try {
+        & $module {
+            param($Plan)
+            Invoke-LabAiEndpointRequest -Plan $Plan -InputText 'synthetisch' -Transport {
+                throw [System.Threading.Tasks.TaskCanceledException]::new('payload darf nicht erscheinen')
+            }
+        } $stubPlan
+    } catch { $timeoutRejected=$_.Exception.Message -eq 'AI_ENDPOINT_TIMEOUT' }
+    Add-CheckResult 'Timeout wird begrenzt wiederholt und ohne Payloadtext ausgegeben' $timeoutRejected
+
+    foreach($case in @(
+        @{Name='Rate Limit nach Retry';Status=429;Reason='AI_ENDPOINT_HTTP_429'},
+        @{Name='Ungültige Antwort';Status=200;Reason='AI_ENDPOINT_EMBEDDING_RESPONSE_INVALID'}
+    )) {
+        $rejected=$false
+        try {
+            & $module {
+                param($Plan,$Case)
+                Invoke-LabAiEndpointRequest -Plan $Plan -InputText 'synthetisch' -Transport {
+                    if ($Case.Status -eq 200) { return [PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{embeddings=@()}} }
+                    return [PSCustomObject]@{StatusCode=$Case.Status;Body=[PSCustomObject]@{secret='nicht-ausgeben'}}
+                }
+            } $stubPlan $case
+        } catch { $rejected=$_.Exception.Message -eq $case.Reason }
+        Add-CheckResult "Stubfehler bleibt sanitisiert und fail-closed: $($case.Name)" $rejected
+    }
+
+    $cloudBlocked=& $module { New-LabAiEndpointPlan -ModelKey ollama-gpt-oss-120b-cloud -EndpointRef ollama-cloud }
+    $cloudReady=& $module { New-LabAiEndpointPlan -ModelKey ollama-gpt-oss-120b-cloud -EndpointRef ollama-cloud -AllowCloudEgress }
+    Add-CheckResult 'Cloudplan verlangt expliziten Egress und projiziert nur CredentialRef und Zielhost' (
+        $cloudBlocked.Status -eq 'BLOCKED' -and $cloudBlocked.Blockers -contains 'AI_ENDPOINT_CLOUD_EGRESS_NOT_ALLOWED' -and
+        $cloudReady.Status -eq 'NOT_PROBED' -and $cloudReady.CredentialRef -eq 'SQL_SERVER_LAB_SECRET_OLLAMA' -and
+        $cloudReady.TargetHost -eq 'ollama.com' -and ($cloudReady | ConvertTo-Json -Depth 10) -notmatch 'Bearer|api_key')
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
