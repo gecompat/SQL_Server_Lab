@@ -173,11 +173,15 @@ try {
     Add-TextContract `
         -Name 'Gastremoting faellt nur auf eine temporaere Lab-WinRM-Vertrauensbeziehung zurueck' `
         -Text $provider `
-        -Pattern 'TrustedHosts[\s\S]+trustedHostsChanged[\s\S]+Invoke-Command\s+-ComputerName[\s\S]+finally[\s\S]+originalTrustedHosts'
+        -Pattern 'trusted_hosts[\s\S]+trustedHostsChanged[\s\S]+Invoke-Command\s+-ComputerName[\s\S]+finally[\s\S]+originalTrustedHosts'
     Add-TextContract `
         -Name 'PowerShell Direct wird vor dem privilegierten WinRM-Fallback mehrfach versucht' `
         -Text $provider `
         -Pattern 'foreach\s*\(\$attempt in 1\.\.10\)[\s\S]+Invoke-Command[\s\S]+Start-Sleep -Seconds 3[\s\S]+nach 10 Versuchen'
+    Add-TextContract `
+        -Name 'Explizit markierte Legacy-Gaeste umgehen den nicht unterstuetzten PowerShell-Direct-Kanal' `
+        -Text $provider `
+        -Pattern "guestTransport\s+-eq\s+'lab-winrm'[\s\S]+Invoke-HyperVWinRmFallback[\s\S]+HYPERV_LAB_GUEST_COMMAND_UNAVAILABLE"
     Add-TextContract `
         -Name 'Fachliche Gastfehler werden weder wiederholt noch auf WinRM umgeleitet' `
         -Text $provider `
@@ -185,11 +189,11 @@ try {
     Add-TextContract `
         -Name 'WinRM-Fallback startet nur den Host-Client und erstellt keinen Host-Listener' `
         -Text $provider `
-        -Pattern 'Start-Service\s+-Name\s+WinRM[\s\S]+HYPERV_LAB_WINRM_CLIENT_CONFIGURATION_UNAVAILABLE'
+        -Pattern 'Start-Service\s+-Name\s+WinRM[\s\S]+clientConfigurationPath[\s\S]+HYPERV_LAB_WINRM_CLIENT_CONFIGURATION_UNAVAILABLE'
     Add-TextContract `
         -Name 'SQL-Readiness prueft Dienst, Version und alle Systemdatenbanken im Gast' `
         -Text $provider `
-        -Pattern 'System\.Data\.SqlClient[\s\S]+Get-Service[\s\S]+ProductMajorVersion[\s\S]+OnlineSystemDatabases[\s\S]+SQL_READY_RUN'
+        -Pattern 'System\.Data\.SqlClient[\s\S]+Get-Service[\s\S]+PARSENAME[\s\S]+ProductVersion[\s\S]+OnlineSystemDatabases[\s\S]+SQL_READY_RUN'
     Add-TextContract `
         -Name 'Status trennt historische SQL-Evidenz von aktueller Live-Bereitschaft' `
         -Text $provider `

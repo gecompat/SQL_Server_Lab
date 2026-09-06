@@ -13,6 +13,7 @@
 | [New-WindowsServer2003LegacyChild.ps1](New-WindowsServer2003LegacyChild.ps1) | Erzeugt einen Generation-1-Child mit deutschem Login-Layout, automatisiert Mini-Setup und verifiziert den Aktivierungsversuch über eine temporäre NIC fail-closed |
 | [Invoke-WindowsServer2003LegacyActivation.ps1](Invoke-WindowsServer2003LegacyActivation.ps1) | Setzt das deutsche Login-Layout eines Server-2003-Childs und versucht optional die offizielle Gast-WMI-Aktivierung; die temporäre Internet-NIC wird stets entfernt |
 | [Test-WindowsServer2003HyperVIntegrationMedia.ps1](Test-WindowsServer2003HyperVIntegrationMedia.ps1) | Prüft Hash, VMGUEST-Volume, Version und Microsoft-Signaturen der archivierten Hyper-V-Integrations-DVD für Server 2003 SP2 |
+| [New-LegacySqlServerAcceptanceEnvironment.ps1](New-LegacySqlServerAcceptanceEnvironment.ps1) | Erstellt oder übernimmt die reale SQL-Server-2012-Abnahmeumgebung auf der verifizierten Windows-Server-2012-R2-Vorlage und prüft Setup, Dienst, Version, Create, Backup und Restore |
 | [Invoke-SqlServerLabMaintenance.ps1](Invoke-SqlServerLabMaintenance.ps1) | Plant oder korrigiert State-/Runtime-Drift und bereinigt eng gebundene Lab-Artefakte deterministisch; geeignet für manuelle Aufrufe und Windows Task Scheduler |
 | [CheckLargeGitFilesPush.ps1](../CheckLargeGitFilesPush.ps1) | Prüft staged/untracked Dateien auf Größe, schreibt optional Log und kann Commit+Push nach Prüfung ausführen |
 
@@ -45,6 +46,7 @@ Projektweit häufig zusätzlich genutzt:
 - `.\Tools\New-WindowsServer2003LegacyChild.ps1 -ShowHelp`
 - `.\Tools\Invoke-WindowsServer2003LegacyActivation.ps1 -ShowHelp`
 - `.\Tools\Test-WindowsServer2003HyperVIntegrationMedia.ps1 -ShowHelp`
+- `.\Tools\New-LegacySqlServerAcceptanceEnvironment.ps1 -ShowHelp`
 - `.\Tools\Start-SqlServerLabUi.ps1 -ShowHelp`
 - `.\Tools\Prepare-LocalRelease.ps1 -ShowHelp`
 - `.\Tools\Invoke-SqlServerLabMaintenance.ps1 -ShowHelp`
