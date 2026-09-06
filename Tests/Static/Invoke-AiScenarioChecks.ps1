@@ -225,6 +225,21 @@ try {
     $hyperVAi=@(($capabilities | Where-Object Provider -eq hyperv).Capabilities.SourceKey)
     Add-CheckResult 'Docker und Podman deklarieren lokale Ollama-Evidence getrennt von Hyper-V' (
         $dockerAi -contains 'ollama-local' -and $podmanAi -contains 'ollama-local' -and $hyperVAi -notcontains 'ollama-local')
+
+    $perfect=Measure-SqlServerLabAiRetrieval -ExpectedDocumentId doc-1,doc-2 -RankedDocumentId doc-1,doc-2,doc-3 -K 2
+    $degraded=Measure-SqlServerLabAiRetrieval -ExpectedDocumentId doc-1,doc-2 -RankedDocumentId doc-3,doc-1,doc-4 -K 3 `
+        -MinimumRecall 1 -MinimumMrr 0.75 -MinimumNdcg 0.9
+    $evaluationSchema=Join-Path $repoRoot 'Schemas/ai-retrieval-evaluation.schema.json'
+    Add-CheckResult 'Perfektes Retrieval erfüllt blockierende Recall-, MRR- und nDCG-Schwellen' (
+        $perfect.Status -eq 'PASSED' -and $perfect.RecallAtK -eq 1 -and $perfect.Mrr -eq 1 -and $perfect.NdcgAtK -eq 1 -and
+        (($perfect|ConvertTo-Json -Depth 10)|Test-Json -SchemaFile $evaluationSchema -ErrorAction SilentlyContinue))
+    Add-CheckResult 'Degradiertes Retrieval liefert deterministische blockierende Reason-Codes' (
+        $degraded.Status -eq 'BLOCKED' -and $degraded.Blockers -contains 'AI_EVALUATION_RECALL_BELOW_THRESHOLD' -and
+        $degraded.Blockers -contains 'AI_EVALUATION_MRR_BELOW_THRESHOLD' -and $degraded.Blockers -contains 'AI_EVALUATION_NDCG_BELOW_THRESHOLD')
+    $duplicateRankingRejected=$false
+    try { Measure-SqlServerLabAiRetrieval -ExpectedDocumentId doc-1 -RankedDocumentId doc-1,doc-1 }
+    catch { $duplicateRankingRejected=$_.Exception.Message -eq 'AI_EVALUATION_RANKED_ID_DUPLICATE' }
+    Add-CheckResult 'Doppelte Ranking-IDs werden vor einer irreführenden Metrik abgelehnt' $duplicateRankingRejected
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue

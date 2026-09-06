@@ -235,6 +235,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Ruft ein katalogisiertes lokales oder Cloud-Ollama-Modell mit
         Datenklasse und begrenztem Requestbudget auf.
 
+    Measure-SqlServerLabAiRetrieval
+        Bewertet eine Retrieval-Rangfolge deterministisch mit Recall@k,
+        Precision@k, MRR und nDCG gegen blockierende Schwellwerte.
+
     Get-SqlServerLabGeneratedSqlAccess
         Liefert den Laufzeitzugriff auf ein automatisch generiertes SQL Server
         SA-Konto inklusive ConnectionString.
