@@ -70,6 +70,84 @@ function New-LabAiEndpointPlan {
         RequestBudget=[PSCustomObject]$planIdentity.RequestBudget
         Blockers=@($blockers);Warnings=@();PlanKey=Get-LabAiPlanKey -InputObject $planIdentity
         InternalModel=[string]$model.model
+        InternalBaseUri=switch ($Lane) { 'stub' { $null }; 'local' { 'http://127.0.0.1:11434' }; 'cloud' { 'https://ollama.com' } }
+    }
+}
+
+function Get-LabAiDotEnvSecret {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw 'AI_SECRET_FILE_MISSING' }
+    $warnings = [Collections.Generic.List[string]]::new()
+    if ($IsWindows) {
+        try {
+            $broad = @(Get-Acl -LiteralPath $Path -ErrorAction Stop).Access | Where-Object {
+                [string]$_.IdentityReference -match '(?i)(Everyone|Authenticated Users|BUILTIN\\Users|Jeder|Authentifizierte Benutzer|Benutzer)$' -and
+                [string]$_.AccessControlType -eq 'Allow' -and
+                ([int64]$_.FileSystemRights -band [int64][Security.AccessControl.FileSystemRights]::ReadData)
+            }
+            if (@($broad).Count -gt 0) { $warnings.Add('AI_SECRET_FILE_ACL_BROAD_READ') }
+        }
+        catch { $warnings.Add('AI_SECRET_FILE_ACL_NOT_VERIFIED') }
+    }
+
+    try { $lines = [IO.File]::ReadAllLines((Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path, [Text.Encoding]::UTF8) }
+    catch { throw 'AI_SECRET_FILE_READ_FAILED' }
+    $matches = @($lines | Where-Object { $_ -match '^\s*OLLAMA\s*=' })
+    if ($matches.Count -ne 1) { throw 'AI_SECRET_OLLAMA_MISSING_OR_DUPLICATE' }
+    $value = [string]($matches[0] -replace '^\s*OLLAMA\s*=\s*', '')
+    if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+        $value = $value.Substring(1, $value.Length - 2)
+    }
+    if ([string]::IsNullOrWhiteSpace($value)) { throw 'AI_SECRET_OLLAMA_EMPTY' }
+    try {
+        $secureValue = [SecureString]::new()
+        foreach ($character in $value.ToCharArray()) { $secureValue.AppendChar($character) }
+        $secureValue.MakeReadOnly()
+        return [PSCustomObject]@{Secret=$secureValue;Warnings=@($warnings)}
+    }
+    finally { $value = $null; $lines = $null; $matches = $null }
+}
+
+function Invoke-LabOllamaHttpTransport {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Request,
+        [Parameter(Mandatory)][ValidatePattern('^https?://')][string]$BaseUri,
+        [SecureString]$Credential
+    )
+
+    $client = [Net.Http.HttpClient]::new()
+    $message = $null
+    $plainCredential = $null
+    try {
+        $client.Timeout = [TimeSpan]::FromSeconds([int]$Request.TimeoutSeconds)
+        $uri = [Uri]::new(([Uri]$BaseUri), [string]$Request.Path)
+        $message = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Post, $uri)
+        $message.Content = [Net.Http.StringContent]::new(($Request.Body | ConvertTo-Json -Depth 10 -Compress), [Text.Encoding]::UTF8, 'application/json')
+        if ($Credential) {
+            $plainCredential = ConvertFrom-LabSecureString -SecureString $Credential
+            $message.Headers.Authorization = [Net.Http.Headers.AuthenticationHeaderValue]::new('Bearer', $plainCredential)
+        }
+        $httpResponse = $client.SendAsync($message).GetAwaiter().GetResult()
+        try {
+            $statusCode = [int]$httpResponse.StatusCode
+            $body = $null
+            if ($statusCode -ge 200 -and $statusCode -lt 300) {
+                $json = $httpResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+                try { $body = $json | ConvertFrom-Json -Depth 30 -ErrorAction Stop }
+                catch { throw 'AI_ENDPOINT_RESPONSE_INVALID' }
+                finally { $json = $null }
+            }
+            return [PSCustomObject]@{StatusCode=$statusCode;Body=$body}
+        }
+        finally { $httpResponse.Dispose() }
+    }
+    finally {
+        $plainCredential = $null
+        if ($message) { $message.Dispose() }
+        $client.Dispose()
     }
 }
 
@@ -100,12 +178,17 @@ function Invoke-LabAiEndpointRequest {
             if ($Transport) {
                 $response = & $Transport ([PSCustomObject]@{Path=$path;Body=$body;TimeoutSeconds=[int]$Plan.RequestBudget.TimeoutSeconds;Attempt=$attempt})
             } else {
-                throw 'AI_ENDPOINT_TRANSPORT_NOT_CONFIGURED'
+                $response = Invoke-LabOllamaHttpTransport -Request ([PSCustomObject]@{Path=$path;Body=$body;TimeoutSeconds=[int]$Plan.RequestBudget.TimeoutSeconds;Attempt=$attempt}) `
+                    -BaseUri ([string]$Plan.InternalBaseUri) -Credential $Credential
             }
         }
         catch [System.Threading.Tasks.TaskCanceledException] {
             if ($attempt -lt $maximumAttempts) { continue }
             throw 'AI_ENDPOINT_TIMEOUT'
+        }
+        catch [System.Net.Http.HttpRequestException] {
+            if ($attempt -lt $maximumAttempts) { continue }
+            throw 'AI_ENDPOINT_NETWORK_FAILURE'
         }
         if ($null -eq $response -or $null -eq $response.StatusCode) { throw 'AI_ENDPOINT_RESPONSE_INVALID' }
         $statusCode = [int]$response.StatusCode

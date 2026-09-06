@@ -3,7 +3,7 @@
   "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-endpoint-plan.schema.json",
   "title": "SQL Server Lab AI Endpoint Plan",
   "type": "object",
-  "required": ["Contract", "Status", "Lane", "EndpointRef", "ModelKey", "Purpose", "Egress", "RequestBudget", "Blockers", "Warnings"],
+  "required": ["Contract", "Status", "Lane", "EndpointRef", "ModelKey", "Purpose", "Egress", "RequestBudget", "Blockers", "Warnings", "PlanKey"],
   "properties": {
     "Contract": {
       "type": "object",
@@ -33,6 +33,7 @@
     },
     "Blockers": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Z0-9_:.-]+$" } },
     "Warnings": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Z0-9_:.-]+$" } }
+    ,"PlanKey": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
   },
   "additionalProperties": false
 }

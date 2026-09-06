@@ -161,6 +161,13 @@ weder Modell-Download noch Internetzugriff:
 .\Tests\Integration\Invoke-AiVectorCoreAcceptance.ps1 -Provider podman
 ```
 
+Der optionale Ollama-Cloud-Smoke sendet genau einen synthetischen Prompt und
+benötigt eine lokale `.env`-Datei mit dem Schlüssel `OLLAMA`:
+
+```powershell
+.\Tests\Integration\Invoke-AiOllamaCloudAcceptance.ps1 -SecretFilePath 'D:\Lab1_Base\.env'
+```
+
 Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kontrollieren unter anderem:
 
 - JSON-Syntax der Kataloge, Schemas und Beispiele;

@@ -231,6 +231,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Fuehrt ein deklariertes SQL-KI-Szenario nach Hash-, Intent- und
         Capability-Pruefung journalisiert mit Cleanup aus.
 
+    Invoke-SqlServerLabAiModel
+        Ruft ein katalogisiertes Ollama-Cloud-Modell mit explizitem Egress,
+        Datenklasse, lokalem Secret und begrenztem Requestbudget auf.
+
     Get-SqlServerLabGeneratedSqlAccess
         Liefert den Laufzeitzugriff auf ein automatisch generiertes SQL Server
         SA-Konto inklusive ConnectionString.

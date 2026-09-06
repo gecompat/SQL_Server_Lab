@@ -2,8 +2,9 @@
 
 ## Status
 
-`AI-00 IMPLEMENTED`, `AI-05 IMPLEMENTED`, `AI-10A SUPPORTED`, `AI-10B IN_PROGRESS`, `AI-20` bis
-`AI-90 BACKLOG`.
+`AI-00 IMPLEMENTED`, `AI-05 IMPLEMENTED`, `AI-10A SUPPORTED`,
+`AI-10B IN_PROGRESS`, `AI-20` bis `AI-50 BACKLOG`, `AI-60A SUPPORTED`,
+`AI-60B BACKLOG`, `AI-70` bis `AI-90 BACKLOG`.
 
 Dieser Backlog ist der übergeordnete SQL-zentrierte KI-Plan. Der
 [Vector- und Embedding-Backlog](SQL2025_VECTOR_EMBEDDING_BACKLOG.md) bleibt
@@ -55,8 +56,8 @@ Re-Embedding bleiben als `AI-10B` offen.
 
 - `Catalogs/ai-models.json` katalogisiert getrennte lokale Embedding-, lokale
   Generierungs- und Ollama-Cloud-Modelle mit Zweck, Dimension, Lizenz,
-  Mindestversion und verpflichtender Live-Identitätsprüfung. Alle Einträge
-  bleiben bis zum jeweiligen nativen Nachweis bewusst `PLANNED`.
+  Mindestversion und verpflichtender Live-Identitätsprüfung. Einträge bleiben
+  bis zum jeweiligen nativen Nachweis bewusst `PLANNED`.
 - Versionierte Verträge definieren den geheimnisfreien Endpointplan, das
   payloadfreie Runtimejournal und sanitisierte RAG-/Agentenergebnisse.
 - Die CI-Auswahl koppelt Änderungen dieser Verträge an KI-Szenario-,
@@ -85,6 +86,16 @@ Embedding-Dimensionen sowie Generate-Antworten, begrenzt Retries und gibt bei
 Timeout, Rate Limit oder ungültigen Antworten ausschließlich sanitisierte
 Reason-Codes aus. Ein deterministischer Offline-Transport deckt diese Fälle ab;
 ein realer HTTPS-Stub und native Modellruntimes bleiben offen.
+
+`AI-60A` stellt kataloggebundene Ollama-Cloud-Generation bereit. Der öffentliche
+Aufruf verlangt eine nicht-interne Datenklasse und expliziten Cloud-Egress,
+liest den festen Schlüssel `OLLAMA` erst nach `ShouldProcess` aus der lokalen
+`.env` im Media Root, begrenzt Timeout, Tokens und Retries und verwendet keinen
+Fallback. Der native Smoke am 2026-09-06 war mit `gpt-oss:120b`, einer
+synthetischen Eingabe, einem Request und der exakten Antwort `OK` erfolgreich.
+Eine breit lesbare Secret-Datei erzeugt vereinbarungsgemäß nur den sanitisierten
+Warncode `AI_SECRET_FILE_ACL_BROAD_READ`. Ollama-Cloud-Embeddings sowie OpenAI
+und Azure OpenAI sind als `AI-60B` weiterhin nicht implementiert.
 
 ## Sicherheits- und Betriebsvertrag
 

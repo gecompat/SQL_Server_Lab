@@ -10,14 +10,17 @@ Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimep
 ## KI und Ollama
 
 Der Ollama-Modellkatalog sowie die Verträge für Endpointplan, Runtimejournal
-und sanitisierte Abfrageergebnisse sind vorhanden. Die katalogisierten lokalen
-und Cloudmodelle sind noch `PLANNED`: Es gibt derzeit weder einen ausgeführten
-Ollama-Modellaufruf noch einen Docker-, Podman-, Hyper-V- oder Cloud-Nachweis.
+und sanitisierte Abfrageergebnisse sind vorhanden. Ollama-Cloud-Generation ist
+mit `gpt-oss:120b` für synthetische oder öffentlich/weiterverteilbare Inhalte
+opt-in unterstützt und am 2026-09-06 real nachgewiesen. Lokale Modelle und
+Ollama-Cloud-Embeddings bleiben `PLANNED`; es gibt dafür noch keinen Docker-,
+Podman- oder Hyper-V-Nachweis.
 Der implementierte Offline-Transport prüft Request-, Retry-, Dimensions- und
 Fehlerverträge, stellt aber selbst keinen Netzwerkdienst bereit.
-Ein lokaler `.env`-Verweis und ein vorhandener API-Key ändern diesen Status
-nicht. Die Laufzeitintegration muss Secretwerte weiterhin vollständig aus
-Plan, State, Prozessargumenten, Logs und Ergebnissen fernhalten.
+Interne Inhalte werden vom Cloud-Command fail-closed abgelehnt. Eine breit
+lesbare `.env` erzeugt nur eine Warnung, weil dieser Repositorylauf ausdrücklich
+auf Warn-only festgelegt wurde. Secretwerte bleiben aus Plan, State,
+Prozessargumenten, Logs und Ergebnissen ausgeschlossen.
 
 ## Provider
 
