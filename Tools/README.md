@@ -9,6 +9,9 @@
 | [Get-CiTestSelection.ps1](Get-CiTestSelection.ps1) | Klassifiziert geänderte Pfade für schnelle, betroffene PR-Checks und gezielte Runtime-Smokes |
 | [Get-SqlServerCuStatus.ps1](Get-SqlServerCuStatus.ps1) | Zeigt den read-only CU-Abgleich mit den wartbar katalogisierten Microsoft-Learn-Buildtabellen an |
 | [Initialize-SqlServerLabHostTools.ps1](Initialize-SqlServerLabHostTools.ps1) | Löst Docker, Podman und Python zentral auf und ergänzt fehlende Installationsverzeichnisse ausschließlich im aktuellen Prozess-PATH |
+| [New-WindowsServer2003SysprepMedia.ps1](New-WindowsServer2003SysprepMedia.ps1) | Erzeugt aus dem hashgebundenen offiziellen SP2-x86-ISO ein schlüsselfreies AutoRun-Hilfsmedium für den Legacy-Sysprep-Reseal |
+| [New-WindowsServer2003LegacyChild.ps1](New-WindowsServer2003LegacyChild.ps1) | Erzeugt einen isolierten Generation-1-Child und übernimmt den Evaluation-Key ausschließlich lokal aus der hashgebundenen Original-ISO |
+| [Test-WindowsServer2003HyperVIntegrationMedia.ps1](Test-WindowsServer2003HyperVIntegrationMedia.ps1) | Prüft Hash, VMGUEST-Volume, Version und Microsoft-Signaturen der archivierten Hyper-V-Integrations-DVD für Server 2003 SP2 |
 | [Invoke-SqlServerLabMaintenance.ps1](Invoke-SqlServerLabMaintenance.ps1) | Plant oder korrigiert State-/Runtime-Drift und bereinigt eng gebundene Lab-Artefakte deterministisch; geeignet für manuelle Aufrufe und Windows Task Scheduler |
 | [CheckLargeGitFilesPush.ps1](../CheckLargeGitFilesPush.ps1) | Prüft staged/untracked Dateien auf Größe, schreibt optional Log und kann Commit+Push nach Prüfung ausführen |
 
@@ -37,6 +40,9 @@ Projektweit häufig zusätzlich genutzt:
 - `.\Invoke-SqlServerLab.ps1 -ShowHelp`
 - `.\Tools\Initialize-SqlServerLabDataRoot.ps1 -ShowHelp`
 - `.\Tools\Initialize-SqlServerLabMediaRoot.ps1 -ShowHelp`
+- `.\Tools\New-WindowsServer2003SysprepMedia.ps1 -ShowHelp`
+- `.\Tools\New-WindowsServer2003LegacyChild.ps1 -ShowHelp`
+- `.\Tools\Test-WindowsServer2003HyperVIntegrationMedia.ps1 -ShowHelp`
 - `.\Tools\Start-SqlServerLabUi.ps1 -ShowHelp`
 - `.\Tools\Prepare-LocalRelease.ps1 -ShowHelp`
 - `.\Tools\Invoke-SqlServerLabMaintenance.ps1 -ShowHelp`
