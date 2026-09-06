@@ -232,8 +232,8 @@ Sync-SqlServerLabRunScopedContainerStore
         Capability-Pruefung journalisiert mit Cleanup aus.
 
     Invoke-SqlServerLabAiModel
-        Ruft ein katalogisiertes Ollama-Cloud-Modell mit explizitem Egress,
-        Datenklasse, lokalem Secret und begrenztem Requestbudget auf.
+        Ruft ein katalogisiertes lokales oder Cloud-Ollama-Modell mit
+        Datenklasse und begrenztem Requestbudget auf.
 
     Get-SqlServerLabGeneratedSqlAccess
         Liefert den Laufzeitzugriff auf ein automatisch generiertes SQL Server

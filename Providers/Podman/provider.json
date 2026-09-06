@@ -17,7 +17,8 @@
     "derived-image-build",
     "container-tool-image",
     "sql-external-runtime",
-    "sql2025-vector-core"
+    "sql2025-vector-core",
+    "ollama-local"
   ],
   "limitations": [
     "no-gui",
