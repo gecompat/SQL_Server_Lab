@@ -2,7 +2,8 @@
 
 Diese Anleitung beschreibt den isolierten x86-/Generation-1-Pfad für SQL
 Server 2000 und SQL Server 2005. Er ist bewusst nicht Teil der normalen
-`OS_SEALED`-Registry: deren aktueller Vertrag setzt x64 und Hyper-V Generation 2
+`OS_SEALED`-Registry: deren aktueller regulärer Gastvertrag setzt x64 und moderne
+Gaststeuerung
 voraus.
 
 Windows Server 2003 ist außer Support. Die Vorlage darf nur am internen
@@ -270,9 +271,46 @@ erreichbarer Microsoft-Aktivierungsdienst bleibt ein sauberer Fehler; der
 Ablauf umgeht die Aktivierung nicht und hinterlässt keinen Internetadapter.
 Der reale Versuch am 6. September 2026 erreichte den Dienst nicht erfolgreich:
 Das deutsche Anmeldelayout wurde gesetzt, aber `ActivationRequired` blieb `1`.
-Der aktuelle lokale Child ist daher nicht als aktiviert nachgewiesen. Für
-diesen historischen Stand bleiben nur die von Microsoft vorgesehenen
-Lizenz-/Telefonwege; das Lab implementiert keinen Aktivierungs-Bypass.
+Der aktuelle lokale Child ist daher nicht als aktiviert nachgewiesen. Als
+regelkonformer nächster Versuch stellt das Lab den von Windows Server 2003
+dokumentierten Offline-WMI-Aktivierungsweg bereit. Microsoft hat die frühere automatische
+Telefonaktivierung am 3. Dezember 2025 in das
+[Product Activation Portal](https://support.microsoft.com/en-us/windows/activation/activate-microsoft-perpetual-products-using-the-product-activation-portal)
+verlegt. Anmeldung und CAPTCHA bleiben bewusst ein manueller Operatorschritt.
+
+Phase 1 liest die 50-stellige, an genau diesen Child gebundene Installations-ID:
+
+```powershell
+.\Tools\Invoke-WindowsServer2003LegacyActivation.ps1 `
+    -VmName '<Slot>' `
+    -ChildVhdPath '<Lab1_Data>\HyperV\Slots\<Slot>\os.vhdx' `
+    -PromptForAdministratorCredential `
+    -ActivationMode PrepareOffline
+```
+
+Die ausgegebene `InstallationId` wird im Portal eingegeben. Installation-ID,
+Portal-Bestätigung und Child müssen aus demselben Aktivierungsvorgang stammen.
+Die erhaltene Bestätigungs-ID wird in
+Phase 2 geschützt abgefragt und weder protokolliert noch persistiert:
+
+```powershell
+.\Tools\Invoke-WindowsServer2003LegacyActivation.ps1 `
+    -VmName '<Slot>' `
+    -ChildVhdPath '<Lab1_Data>\HyperV\Slots\<Slot>\os.vhdx' `
+    -PromptForAdministratorCredential `
+    -ActivationMode CompleteOffline `
+    -PromptForOfflineConfirmationId
+```
+
+Phase 2 ruft `Win32_WindowsProductActivation.ActivateOffline()` auf und gilt
+nur bei `ActivationRequired=0` als erfolgreich. Microsoft beschreibt das
+aktuelle Portal allgemein für permanente Retail-, OEM- und Volume-Lizenzen;
+die Annahme dieser historischen Evaluation ist noch nicht nativ nachgewiesen.
+Lehnt Microsoft die Evaluation im Portal ab, ist ein zum Lizenzkanal passendes, rechtmäßig
+bezogenes Volume-License-Medium die reproduzierbare Alternative. Ein VLK wird
+nicht in die Evaluation-ISO eingesetzt: Medium, Edition, Sprache und Kanal
+müssen übereinstimmen. Das Lab implementiert weder Grace-Period-Reset noch
+Zeit-, Snapshot- oder WPA-Manipulation.
 
 ## Recovery
 

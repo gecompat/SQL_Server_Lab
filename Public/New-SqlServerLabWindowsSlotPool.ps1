@@ -10,7 +10,7 @@ function Resolve-LabWindowsSlotPoolArtifact {
     $candidates = @(Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck | Where-Object {
         [string]$_.artifactState -eq 'OS_SEALED' -and
         [bool]$_.generalized -and
-        [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+$' -and
+        [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+(?:-r2)?$' -and
         (Test-HyperVImageArtifactEvaluationEligibility -Artifact $_ `
             -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining).Eligible
     })

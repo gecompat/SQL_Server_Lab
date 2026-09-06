@@ -23,6 +23,8 @@ $stateRoot = Join-Path $temporaryRoot 'state'
 $dataRoot = Join-Path $temporaryRoot 'Lab_Data'
 $runDirectory = Join-Path $temporaryRoot 'run'
 $sourcePath = Join-Path $temporaryRoot 'synthetic.vhdx'
+$generation1SourcePath = Join-Path $temporaryRoot 'synthetic-generation1.vhdx'
+$validationSourcePath = Join-Path $temporaryRoot 'synthetic-child-validation.vhdx'
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $previousDataRoot = $env:SQL_SERVER_LAB_DATA_ROOT
@@ -38,6 +40,16 @@ try {
     [System.IO.File]::WriteAllBytes($sourcePath, $payload)
     (Get-Item -LiteralPath $sourcePath).IsReadOnly = $true
     $sha256 = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash
+    $generation1Payload = [byte[]]::new(4096)
+    [System.Text.Encoding]::ASCII.GetBytes('vhdxfile-generation1').CopyTo($generation1Payload, 0)
+    [System.IO.File]::WriteAllBytes($generation1SourcePath, $generation1Payload)
+    (Get-Item -LiteralPath $generation1SourcePath).IsReadOnly = $true
+    $generation1Sha256 = (Get-FileHash -LiteralPath $generation1SourcePath -Algorithm SHA256).Hash
+    $validationPayload = [byte[]]::new(4096)
+    [System.Text.Encoding]::ASCII.GetBytes('vhdxfile-child-validation').CopyTo($validationPayload, 0)
+    [System.IO.File]::WriteAllBytes($validationSourcePath, $validationPayload)
+    (Get-Item -LiteralPath $validationSourcePath).IsReadOnly = $true
+    $validationSha256 = (Get-FileHash -LiteralPath $validationSourcePath -Algorithm SHA256).Hash
 
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module = Import-Module $modulePath -Force -PassThru
@@ -214,7 +226,62 @@ try {
     } $sourcePath $sha256 (Join-Path $temporaryRoot 'evaluation-state') $evaluationExpiry
     Add-CheckResult -Name 'Evaluation-Ablaufdatum wird ohne Nullable-Laufzeitfehler registriert' -Success (
         $evaluationArtifact.artifactId -and
-        $evaluationArtifact.license.evaluationExpiresAt.ToUniversalTime().ToString('o') -eq '2027-01-30T00:00:00.0000000Z'
+        $evaluationArtifact.license.evaluationExpiresAt.ToUniversalTime().ToString('o') -eq '2027-01-30T00:00:00.0000000Z' -and
+        $evaluationArtifact.platform.vmGeneration -eq 2 -and
+        $evaluationArtifact.platform.secureBoot
+    )
+    $generation1Artifact = & $module {
+        param($SourcePath, $Sha256, $StateRoot, $Expiry)
+        Import-HyperVImageArtifact -VhdxPath $SourcePath -ExpectedSha256 $Sha256 `
+            -ArtifactState OS_SEALED -OperatingSystemId windows-server-2008-r2 `
+            -OperatingSystemVersion 2008-r2 -Edition standard-evaluation -InstallationType desktop-experience `
+            -VmGeneration 1 -SecureBoot:$false -LicenseType evaluation `
+            -IntegrityOrigin generated-by-runtime -Generalized -EvaluationExpiresAt $Expiry -StateRoot $StateRoot
+    } $generation1SourcePath $generation1Sha256 (Join-Path $temporaryRoot 'generation1-state') $evaluationExpiry
+    Add-CheckResult -Name 'Generation-1-Artifact persistiert Plattformvertrag ohne Secure Boot' -Success (
+        $generation1Artifact.platform.vmGeneration -eq 1 -and
+        -not $generation1Artifact.platform.secureBoot -and
+        $generation1Artifact.platform.guestControl -eq 'legacy-wmi'
+    )
+    $generation1Inventory = @(Get-SqlServerLabHyperVImageArtifact -ArtifactId $generation1Artifact.artifactId `
+        -StateRoot (Join-Path $temporaryRoot 'generation1-state'))[0]
+    Add-CheckResult -Name 'Oeffentliche Inventur erhaelt den Legacy-Gaststeuerungsvertrag' -Success (
+        $generation1Inventory.Platform.GuestControl -eq 'legacy-wmi'
+    )
+    $validationStateRoot = Join-Path $temporaryRoot 'child-validation-state'
+    $childValidation = & $module {
+        param($SourcePath, $Sha256, $StateRoot, $Expiry)
+        $artifact = Import-HyperVImageArtifact -VhdxPath $SourcePath -ExpectedSha256 $Sha256 `
+            -ArtifactState OS_SEALED -OperatingSystemId windows-server-2022 `
+            -OperatingSystemVersion 2022 -Edition standard-evaluation -InstallationType desktop-experience `
+            -LicenseType evaluation -IntegrityOrigin generated-by-runtime -Generalized `
+            -RequireChildBootValidation -EvaluationExpiresAt $Expiry -StateRoot $StateRoot
+        $pending = Resolve-HyperVImageArtifact -OperatingSystemId windows-server-2022 `
+            -OperatingSystemVersion 2022 -Edition standard-evaluation -InstallationType desktop-experience `
+            -StateRoot $StateRoot
+        $verified = Set-HyperVImageArtifactChildValidation -ArtifactId $artifact.artifactId `
+            -State CHILD_BOOT_VERIFIED -EvidenceSha256 ('a' * 64) -StateRoot $StateRoot
+        $selected = Resolve-HyperVImageArtifact -OperatingSystemId windows-server-2022 `
+            -OperatingSystemVersion 2022 -Edition standard-evaluation -InstallationType desktop-experience `
+            -StateRoot $StateRoot
+        [PSCustomObject]@{ Artifact=$artifact; Pending=$pending; Verified=$verified; Selected=$selected }
+    } $validationSourcePath $validationSha256 $validationStateRoot $evaluationExpiry
+    $childValidationSuccess = (
+        $childValidation.Artifact.validation.state -eq 'PENDING' -and
+        $childValidation.Pending.Status -eq 'BASELINE_NOT_COMPATIBLE' -and
+        @($childValidation.Pending.Rejected.Reasons | ForEach-Object { $_ }) -contains 'child-validation-pending' -and
+        $childValidation.Verified.validation.state -eq 'CHILD_BOOT_VERIFIED' -and
+        $childValidation.Selected.Selected.artifactId -eq $childValidation.Artifact.artifactId
+    )
+    Add-CheckResult -Name 'Automatische Vorlage bleibt bis zum echten Child-Boot fail-closed' `
+        -Success $childValidationSuccess -Message ($childValidation | ConvertTo-Json -Depth 12 -Compress)
+    $validationInventory = @(Get-SqlServerLabHyperVImageArtifact -ArtifactId $childValidation.Artifact.artifactId `
+        -StateRoot $validationStateRoot)[0]
+    Add-CheckResult -Name 'Oeffentliche Inventur zeigt den Child-Boot-Nachweis ohne Evidenzpfad' -Success (
+        $validationInventory.TemplateValidation.Required -and
+        $validationInventory.TemplateValidation.Status -eq 'CHILD_BOOT_VERIFIED' -and
+        $validationInventory.TemplateValidation.EvidenceContract -eq 'SqlServerLab.HyperVWindowsTemplateValidation/1.0' -and
+        ($validationInventory | ConvertTo-Json -Depth 20) -notmatch [regex]::Escape($temporaryRoot)
     )
     $evaluationRefresh = @(Get-SqlServerLabHyperVImageArtifact -ArtifactId $evaluationArtifact.artifactId -StateRoot (Join-Path $temporaryRoot 'evaluation-state') -MinimumEvaluationDaysRemaining 365)[0]
     Add-CheckResult -Name 'Evaluation-Inventur plant einen manuellen Parallel-Rebuild ohne Mutation' -Success (

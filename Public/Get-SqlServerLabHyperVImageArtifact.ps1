@@ -114,6 +114,17 @@ function Get-SqlServerLabHyperVImageArtifact {
                 Language = [string]$artifact.operatingSystem.language
                 Architecture = [string]$artifact.operatingSystem.architecture
             }
+            Platform = [PSCustomObject]@{
+                VmGeneration = if ($artifact.platform -and $artifact.platform.vmGeneration) { [int]$artifact.platform.vmGeneration } else { 2 }
+                SecureBoot = if ($artifact.platform -and $null -ne $artifact.platform.secureBoot) { [bool]$artifact.platform.secureBoot } else { $true }
+                GuestControl = if ($artifact.platform -and $artifact.platform.guestControl) { [string]$artifact.platform.guestControl } else { 'powershell-direct' }
+            }
+            TemplateValidation = [PSCustomObject]@{
+                Required = [bool]($artifact.validation -and $artifact.validation.required)
+                Status = if ($artifact.validation -and $artifact.validation.state) { [string]$artifact.validation.state } else { 'LEGACY_NOT_RECORDED' }
+                EvidenceContract = [string]$artifact.validation.evidenceContract
+                ValidatedAt = [string]$artifact.validation.validatedAt
+            }
             Sql = [PSCustomObject]@{
                 Prepared = [bool]$artifact.sqlPrepared
                 Version = [string]$artifact.sql.version

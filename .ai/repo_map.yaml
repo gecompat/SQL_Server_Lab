@@ -201,6 +201,7 @@ sources_of_truth:
   legacy_windows_server_2003_activation: Tools/Invoke-WindowsServer2003LegacyActivation.ps1
   legacy_windows_server_2003_integration_media: Tools/Test-WindowsServer2003HyperVIntegrationMedia.ps1
   hyperv_windows_image_build: Documentation/HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md
+  windows_server_template_validation_matrix: Documentation/Quality/WINDOWS_SERVER_TEMPLATE_VALIDATION_MATRIX.md
   workflow_ui: Documentation/HowTo/WORKFLOW_UI.md
   remote_hyperv_host_backlog: Documentation/Project_Planning/HYPERV_REMOTE_HOST_BACKLOG.md
   windows_locale_configuration_backlog: Documentation/Project_Planning/WINDOWS_LOCALE_CONFIGURATION_BACKLOG.md
@@ -777,7 +778,7 @@ providers:
     physical_resource_root: "registered Lab_Data/HyperV; StateRoot contains control state only; persisted builder disks resolve through their Build binding"
     image_registry: Private/HyperVImageRegistry.ps1
     image_artifact_inventory: "Public/Get-SqlServerLabHyperVImageArtifact.ps1 und Get-SqlServerLabWorkflow.ps1; pfadfreie read-only Registry-, Workflow-, Evaluierungs-, manueller Refresh- und Referenzsicht, optionale Parent-Hash-Pruefung ohne Refresh- oder Loeschautoritaet"
-    image_builder: Private/HyperVImageBuilder.ps1
+    image_builder: "Private/HyperVImageBuilder.ps1 plus Private/HyperVWindowsEvaluationTemplate.ps1 und Private/HyperVLegacyWindowsEvaluationTemplate.ps1; katalog- und hashgebundener Windows-Evaluation-Build, versionsgerechte Hyper-V-Plattform, temporäre Aktivierungs-NIC, Sysprep, fail-closed CHILD_BOOT_VERIFIED-Gate und PowerShell-Direct- beziehungsweise Legacy-WMI-Gaststeuerung"
     windows_slot_pool: "Public/New-SqlServerLabWindowsSlotPool.ps1; geeignete OS_SEALED-Baseline, N resumierbare Child-VMs, RAM-/Locale-Vertrag, generierte oder gemeinsame Passwoerter und unbeaufsichtigte OOBE"
     metadata: Providers/HyperV/provider.json
     documentation: Providers/HyperV/README.md

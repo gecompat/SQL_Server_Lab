@@ -111,13 +111,17 @@ keine abgelaufene Evaluation. Die statischen Verträge sind abgedeckt; ein
 eigener positiver nativer 20-Slot-Poollauf ist noch nicht ausgeführt.
 
 Die Windows-Image-Builder-Grundlage verifiziert ein lokales ISO, erstellt einen
-persistenten Build-Plan und kann den isolierten Generation-2-Builder samt
+persistenten Build-Plan und kann den isolierten, versionsgerechten
+Generation-1-/Generation-2-Builder samt
 Cleanup erzeugen. Der Operatorpfad ist über die Image-Aktion des
 `Invoke-SqlServerLab`-Menüs erreichbar, löst die ISO aus dem kanonischen Media
-Root auf und bindet sie an ein einzelnes SHA-256-Sidecar. Die OS-Installation
-bleibt manuell und wird als
-`MANUAL_ACTION_REQUIRED` ausgewiesen. Danach kann die Runtime Sysprep ueber
-PowerShell Direct ausfuehren, den erfolgreichen Microsoft-ImageState pruefen,
+Root auf und bindet sie an ein einzelnes SHA-256-Sidecar. Der interaktive
+Menüpfad weist die OS-Installation weiterhin als `MANUAL_ACTION_REQUIRED` aus;
+für Windows Server 2008 R2 bis 2025 kann
+`Tools/New-WindowsServerEvaluationTemplate.ps1` Setup, OOBE und den folgenden
+Publish-Pfad unbeaufsichtigt ausführen. Windows Server 2016 und neuer nutzt
+PowerShell Direct; Windows Server 2008 R2 und 2012 R2 nutzt einen getrennten
+Legacy-WMI-Kanal. Danach kann die Runtime den erfolgreichen Microsoft-ImageState pruefen,
 einen resumierbaren `REBOOT_REQUIRED`-State persistieren, den Gast-Shutdown
 beobachten und die buildgebundene Evidenz automatisch erzeugen. Gast-
 Credentials werden dabei nicht gespeichert. VM-Auszustand, SQL_Server_Lab-
@@ -129,8 +133,10 @@ duerfen den automatischen Sysprep-Pfad nicht ausfuehren.
 
 Der Medienkatalog enthält zusätzlich hashgebundene Windows-Server-2008-R2- und
 2012-R2-Evaluation-ISOs sowie historische SQL-Medien. Das erweitert den
-Runtimenachweis nicht: Der Windows-Builder bleibt Generation 2 und der reale
-SQL-Prepared-Image-Vertrag ist weiterhin nur für die ausdrücklich
+Runtimenachweis allein noch nicht: Der Builder und Artifact-/Child-Vertrag
+bewahren inzwischen VM-Generation, Secure-Boot-Zustand und den
+Gaststeuerungstyp (`powershell-direct` oder `legacy-wmi`), der reale
+SQL-Prepared-Image-Vertrag ist aber weiterhin nur für die ausdrücklich
 dokumentierten neueren SQL-Versionen belegt. Für SQL Server 2000/2005 gefundene
 Community-Scans werden nur nach `-AllowCommunityScan` unter `Incoming`
 geladen. Auch nach erfolgreicher Struktur- und Lizenzprüfung bleiben sie als
@@ -147,8 +153,8 @@ und liefert Sysprep `5.2.3790.3959`. Das schlüsselfreie Hilfsmedium und der
 manuelle Reseal-/Flatten-/Differencing-Ablauf sind unter
 [Windows Server 2003 als Legacy-Vorlage](../HowTo/WINDOWS_SERVER_2003_LEGACY_TEMPLATE.md)
 dokumentiert. Diese x86-/Generation-1-VHDX ist ausdrücklich
-`LEGACY_TEMPLATE_SEALED`, nicht `OS_SEALED`: die normale Image-Registry, der
-Generation-2-Builder, Windows-Slot-Pool, PowerShell Direct und die aktuelle
+`LEGACY_TEMPLATE_SEALED`, nicht `OS_SEALED`: die normale x64-Image-Registry,
+der Windows-Slot-Pool, PowerShell Direct und die aktuelle
 Integration-Services-Automation unterstützen sie nicht. Ohne historische
 Integration Services kann VMConnect-Mauseingabe gespiegelt sein. Die Vorlage
 bleibt auf einen isolierten internen Switch und wegwerfbare Differencing-Klone
@@ -162,10 +168,28 @@ Datenaustauschdienst ermittelt wird. Ein realer Online-Aktivierungsversuch am
 6. September 2026 rief die offizielle WMI-Methode auf, ließ
 `ActivationRequired` jedoch unverändert auf `1`. Der Ablauf meldet dies
 fail-closed, entfernt die temporäre Internet-NIC und bietet keinen
-Aktivierungs-Bypass.
+Aktivierungs-Bypass. Der implementierte Offline-Fallback liest die
+childgebundene Installations-ID und übernimmt eine Bestätigungs-ID nur als
+SecureString über Microsofts Product Activation Portal; Portal-Anmeldung und
+CAPTCHA bleiben manuell. Ob das Portal die historische Evaluation tatsächlich
+akzeptiert, benötigt noch den realen Portalnachweis.
 
 Ein realer Windows-Server-2025-Standard-Evaluation-Core-Gast wurde aus ISO
 installiert, per PowerShell Direct verifiziert und erfolgreich generalisiert.
+
+Dedizierte OS-Vorlagen für Windows Server 2008 R2, 2012 R2, 2016, 2019, 2022
+und 2025 sind auf dem aktuellen Host als `OS_SEALED` bis zum unabhängigen
+Child-Kaltstart real belegt. 2008 R2 erreichte dabei nur den eingebauten
+zehn-Tage-`OOB_GRACE`-Zustand; das Artifact ist kurzlebig explizit nutzbar,
+aber wegen der standardmäßigen 30-Tage-Mindestrestlaufzeit nicht automatisch
+auswählbar. Der reguläre Slot- und SQL-Provisionierungspfad ist für 2008 R2 und
+2012 R2 noch nicht vollständig auf Legacy-WMI umgestellt. Der versionierte Ist-Stand steht in
+[Windows-Server-Vorlagenmatrix](WINDOWS_SERVER_TEMPLATE_VALIDATION_MATRIX.md).
+Die lokalen ISOs dieser fünf Versionen sowie Windows Server 2025 sind dagegen
+inzwischen vollständig in Größe, SHA-256 und WIM-Metadaten geprüft. Dieser
+`INSTALL_IMAGE_VERIFIED`-Nachweis verwendet ohne Elevation die hashgebundene
+wimlib-1.14.5-Distribution und ersetzt ausdrücklich keinen Hyper-V-Boot- oder
+Sysprep-Nachweis.
 Die dabei entdeckten Fehler in kulturabhängigen Evidenz-Zeitstempeln,
 automatischen Checkpoints und Evaluation-Metadaten sind korrigiert und durch
 Regressionstests gebunden. Der konkrete ISO-Build endete wegen des damals noch

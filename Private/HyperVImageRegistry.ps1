@@ -159,6 +159,13 @@ function Get-HyperVImageArtifact {
             -not (Test-Path -LiteralPath $vhdxPath -PathType Leaf)) { continue }
 
         $metadata = Get-Content -LiteralPath $metadataPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+        if ($metadata.platform -and -not $metadata.platform.PSObject.Properties['guestControl']) {
+            $derivedGuestControl = if ([string]$metadata.operatingSystem.id -match '^windows-server-(2008|2012)(-r2)?$') {
+                'legacy-wmi'
+            }
+            else { 'powershell-direct' }
+            $metadata.platform | Add-Member -NotePropertyName guestControl -NotePropertyValue $derivedGuestControl
+        }
         if (-not $SkipIntegrityCheck) {
             $observed = (Get-FileHash -LiteralPath $vhdxPath -Algorithm SHA256).Hash.ToLowerInvariant()
             if ($observed -ne [string]$metadata.sha256 -or -not (Get-Item -LiteralPath $vhdxPath).IsReadOnly) {
@@ -184,9 +191,13 @@ function Import-HyperVImageArtifact {
         [ValidateSet('core', 'desktop-experience', 'synthetic')][string]$InstallationType = 'core',
         [string]$Language = 'en-US',
         [ValidateSet('x64')][string]$Architecture = 'x64',
+        [ValidateSet(1, 2)][int]$VmGeneration = 2,
+        [Nullable[bool]]$SecureBoot,
+        [ValidateSet('powershell-direct', 'legacy-wmi')][string]$GuestControl,
         [Parameter(Mandatory)][ValidateSet('licensed', 'evaluation', 'test-only')][string]$LicenseType,
         [Parameter(Mandatory)][ValidateSet('catalog-verified', 'user-verified-local', 'generated-by-runtime', 'synthetic-test')][string]$IntegrityOrigin,
         [ValidateSet('none', 'space')][string]$InitialMediaKey = 'none',
+        [switch]$RequireChildBootValidation,
         [switch]$Generalized,
         [switch]$SqlPrepared,
         [string]$SqlVersion,
@@ -220,6 +231,14 @@ function Import-HyperVImageArtifact {
         ($LicenseType -ne 'test-only' -or $IntegrityOrigin -ne 'synthetic-test')) {
         throw 'HYPERV_TEST_ARTIFACT_METADATA_INVALID'
     }
+    $effectiveSecureBoot = if ($null -ne $SecureBoot) { [bool]$SecureBoot } else { $VmGeneration -eq 2 }
+    if ($VmGeneration -eq 1 -and $effectiveSecureBoot) {
+        throw 'HYPERV_ARTIFACT_GENERATION1_SECURE_BOOT_INVALID'
+    }
+    $effectiveGuestControl = if ($GuestControl) { $GuestControl } elseif ($OperatingSystemId -match '^windows-server-(2008|2012)(-r2)?$') {
+        'legacy-wmi'
+    }
+    else { 'powershell-direct' }
     $evaluationExpiresAtUtc = if ($EvaluationExpiresAt) {
         ([datetime]$EvaluationExpiresAt).ToUniversalTime().ToString('o')
     }
@@ -246,6 +265,9 @@ function Import-HyperVImageArtifact {
                 [string]$existing.operatingSystem.installationType -eq $InstallationType -and
                 [string]$existing.operatingSystem.language -eq $Language -and
                 [string]$existing.operatingSystem.architecture -eq $Architecture -and
+                [int]$(if ($existing.platform -and $existing.platform.vmGeneration) { $existing.platform.vmGeneration } else { 2 }) -eq $VmGeneration -and
+                [bool]$(if ($existing.platform -and $null -ne $existing.platform.secureBoot) { $existing.platform.secureBoot } else { $true }) -eq $effectiveSecureBoot -and
+                [string]$(if ($existing.platform -and $existing.platform.guestControl) { $existing.platform.guestControl } else { 'powershell-direct' }) -eq $effectiveGuestControl -and
                 [string]$existing.license.type -eq $LicenseType -and
                 [string]$existing.license.evaluationExpiresAt -eq [string]$evaluationExpiresAtUtc -and
                 [bool]$existing.generalized -eq [bool]$Generalized -and
@@ -256,6 +278,16 @@ function Import-HyperVImageArtifact {
                 [string]$existing.sql.license.evaluationExpiresAt -eq [string]$sqlEvaluationExpiresAtUtc -and
                 (@($existing.sql.features | Sort-Object -Unique) -join '|') -eq (@($SqlFeatures | Sort-Object -Unique) -join '|')
             if (-not $metadataCompatible) { throw 'HYPERV_ARTIFACT_METADATA_CONFLICT' }
+            if ($RequireChildBootValidation -and
+                (-not $existing.validation -or [string]$existing.validation.state -ne 'CHILD_BOOT_VERIFIED')) {
+                $existing | Add-Member -NotePropertyName validation -NotePropertyValue ([PSCustomObject]@{
+                    required = $true; state = 'PENDING'; evidenceContract = 'SqlServerLab.HyperVWindowsTemplateValidation/1.0'
+                    evidenceSha256 = $null; validatedAt = $null
+                }) -Force
+                $existingMetadata = $existing | Select-Object * -ExcludeProperty Path
+                Write-LabArtifactJsonAtomic -Path (Join-Path (Split-Path -Parent $existing.Path) 'metadata.json') `
+                    -InputObject $existingMetadata
+            }
             return $existing
         }
 
@@ -296,9 +328,21 @@ function Import-HyperVImageArtifact {
                 registeredAt          = Get-LabTimestamp
                 generalized           = [bool]$Generalized
                 sqlPrepared           = [bool]$SqlPrepared
+                validation            = [PSCustomObject]@{
+                    required = [bool]$RequireChildBootValidation
+                    state = if ($RequireChildBootValidation) { 'PENDING' } else { 'NOT_REQUIRED' }
+                    evidenceContract = if ($RequireChildBootValidation) { 'SqlServerLab.HyperVWindowsTemplateValidation/1.0' } else { $null }
+                    evidenceSha256 = $null
+                    validatedAt = $null
+                }
                 operatingSystem       = [PSCustomObject]@{
                     id = $OperatingSystemId; version = $OperatingSystemVersion; edition = $Edition
                     installationType = $InstallationType; language = $Language; architecture = $Architecture
+                }
+                platform              = [PSCustomObject]@{
+                    vmGeneration = $VmGeneration
+                    secureBoot = $effectiveSecureBoot
+                    guestControl = $effectiveGuestControl
                 }
                 sql                   = if ($SqlVersion) { [PSCustomObject]@{
                     version = $SqlVersion; edition = $SqlEdition; build = $SqlBuild; features = @($SqlFeatures | Sort-Object -Unique)
@@ -324,6 +368,34 @@ function Import-HyperVImageArtifact {
             if (Test-Path -LiteralPath $stagingDirectory) { Remove-Item -LiteralPath $stagingDirectory -Recurse -Force }
         }
         return Get-HyperVImageArtifact -ArtifactId $artifactId -StateRoot $StateRoot
+    }
+}
+
+function Set-HyperVImageArtifactChildValidation {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^hyperv-[a-z0-9-]+-[a-f0-9]{64}$')][string]$ArtifactId,
+        [Parameter(Mandatory)][ValidateSet('PENDING', 'CHILD_BOOT_VERIFIED', 'FAILED')][string]$State,
+        [ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$EvidenceSha256,
+        [string]$StateRoot
+    )
+
+    if ($State -eq 'CHILD_BOOT_VERIFIED' -and -not $EvidenceSha256) {
+        throw 'HYPERV_ARTIFACT_CHILD_VALIDATION_EVIDENCE_REQUIRED'
+    }
+    return Invoke-LabArtifactStoreLock -StateRoot $StateRoot -ScriptBlock {
+        $artifact = Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck
+        if (-not $artifact) { throw 'HYPERV_ARTIFACT_NOT_FOUND' }
+        $artifact | Add-Member -NotePropertyName validation -NotePropertyValue ([PSCustomObject]@{
+            required = $true
+            state = $State
+            evidenceContract = 'SqlServerLab.HyperVWindowsTemplateValidation/1.0'
+            evidenceSha256 = if ($EvidenceSha256) { $EvidenceSha256.ToLowerInvariant() } else { $null }
+            validatedAt = if ($State -eq 'CHILD_BOOT_VERIFIED') { Get-LabTimestamp } else { $null }
+        }) -Force
+        $metadata = $artifact | Select-Object * -ExcludeProperty Path
+        Write-LabArtifactJsonAtomic -Path (Join-Path (Split-Path -Parent $artifact.Path) 'metadata.json') -InputObject $metadata
+        return Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck
     }
 }
 
@@ -450,6 +522,8 @@ function Resolve-HyperVImageArtifact {
         $evaluationEligibility = Test-HyperVImageArtifactEvaluationEligibility -Artifact $artifact `
             -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining
         if (-not $evaluationEligibility.Eligible) { $reasons += $evaluationEligibility.Reason }
+        $childValidationEligibility = Test-HyperVImageArtifactChildValidationEligibility -Artifact $artifact
+        if (-not $childValidationEligibility.Eligible) { $reasons += $childValidationEligibility.Reason }
         if ($SqlVersion) {
             if ($artifact.artifactState -ne 'SQL_PREPARED_SEALED') { $reasons += 'sql-not-prepared' }
             if ([string]$artifact.sql.version -ne $SqlVersion -or [string]$artifact.sql.edition -ne $SqlEdition) { $reasons += 'sql-version-edition' }
@@ -470,6 +544,23 @@ function Resolve-HyperVImageArtifact {
         Selected = $selected
         Rejected = @($rejected)
     }
+}
+
+function Test-HyperVImageArtifactChildValidationEligibility {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Artifact)
+
+    if (-not $Artifact.validation -or -not [bool]$Artifact.validation.required) {
+        return [PSCustomObject]@{ Eligible=$true; Reason=$null }
+    }
+    $state = [string]$Artifact.validation.state
+    if ($state -eq 'CHILD_BOOT_VERIFIED' -and
+        [string]$Artifact.validation.evidenceContract -eq 'SqlServerLab.HyperVWindowsTemplateValidation/1.0' -and
+        [string]$Artifact.validation.evidenceSha256 -match '^[a-f0-9]{64}$') {
+        return [PSCustomObject]@{ Eligible=$true; Reason=$null }
+    }
+    $reasonState = if ($state) { $state.ToLowerInvariant().Replace('_', '-') } else { 'missing' }
+    return [PSCustomObject]@{ Eligible=$false; Reason="child-validation-$reasonState" }
 }
 
 function Test-HyperVImageArtifactEvaluationEligibility {
@@ -517,6 +608,8 @@ function Get-HyperVManifestFallbackArtifactRejectionReasons {
     $evaluationEligibility = Test-HyperVImageArtifactEvaluationEligibility -Artifact $Artifact `
         -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining
     if (-not $evaluationEligibility.Eligible) { $reasons += $evaluationEligibility.Reason }
+    $childValidationEligibility = Test-HyperVImageArtifactChildValidationEligibility -Artifact $Artifact
+    if (-not $childValidationEligibility.Eligible) { $reasons += $childValidationEligibility.Reason }
     return @($reasons | Sort-Object -Unique)
 }
 

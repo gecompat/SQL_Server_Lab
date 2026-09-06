@@ -3,7 +3,8 @@
     Resumierbare Windows-Image-Builder-Grundlage fuer Hyper-V.
 .DESCRIPTION
     Plant einen Build aus einem lokal verifizierten ISO und erzeugt einen
-    isolierten Generation-2-Builder. OS-Installation und Generalisierung sind
+    isolierten, versionsgerecht als Generation 1 oder 2 angelegten Builder.
+    OS-Installation und Generalisierung sind
     noch manuelle, explizit persistierte Schritte. Die Fortsetzung akzeptiert
     buildgebundene Evidenz und veroeffentlicht erst nach Host-Postconditions ein
     immutable OS_SEALED- beziehungsweise test-only-Artifact.
@@ -113,6 +114,15 @@ function New-HyperVWindowsImageBuildPlan {
     if ($OperatingSystemId -eq 'synthetic-ci' -and $LicenseType -ne 'test-only') { throw 'HYPERV_TEST_MEDIA_METADATA_INVALID' }
     if ($OperatingSystemId -ne 'synthetic-ci' -and $LicenseType -eq 'test-only') { throw 'HYPERV_TEST_MEDIA_METADATA_INVALID' }
 
+    $vmGeneration = if ($OperatingSystemId -in @('windows-server-2008', 'windows-server-2008-r2')) { 1 } else { 2 }
+    # Current Hyper-V DBX updates reject the boot manager on the archived
+    # Windows Server 2012 R2 evaluation ISO. Keep Generation 2, but bind this
+    # exact legacy platform contract to Secure Boot off.
+    $secureBoot = $vmGeneration -eq 2 -and $OperatingSystemId -ne 'windows-server-2012-r2'
+    $guestControl = if ($OperatingSystemId -match '^windows-server-(2008|2012)(-r2)?$') {
+        'legacy-wmi'
+    } else { 'powershell-direct' }
+
     $buildId = New-LabGuid
     $buildRoot = Join-Path $StateRoot 'image-builds/hyperv'
     $buildDirectory = Join-Path $buildRoot $buildId
@@ -132,6 +142,11 @@ function New-HyperVWindowsImageBuildPlan {
             bootInteraction = [PSCustomObject]@{ initialMediaKey = $InitialMediaKey }
         }
         operatingSystem = [PSCustomObject]@{ id = $OperatingSystemId; edition = $Edition; installationType = $InstallationType; language = $Language; architecture = 'x64' }
+        platform = [PSCustomObject]@{
+            vmGeneration = $vmGeneration
+            secureBoot = $secureBoot
+            guestControl = $guestControl
+        }
         license = [PSCustomObject]@{ type = $LicenseType }
         resources = [PSCustomObject]@{ osDiskSizeBytes = $OsDiskSizeBytes }
         builder = $null; manualAction = $null; generalizationRequest = $null; generalizationEvidence = $null
@@ -167,7 +182,13 @@ function New-HyperVWindowsImageBuilder {
     $null = Assert-LabHyperVBoundPath -Binding $resourceBinding -Path $diskPath
     $null = New-VHD -Path $diskPath -Dynamic -SizeBytes ([long]$build.resources.osDiskSizeBytes) -ErrorAction Stop
     if (-not (Test-Path -LiteralPath $diskPath -PathType Leaf)) { throw 'HYPERV_IMAGE_BUILD_DISK_POSTCONDITION_FAILED' }
-    $vm = New-VM -Name $vmName -Generation 2 -MemoryStartupBytes $MemoryStartupBytes `
+    $vmGeneration = if ($build.platform -and $build.platform.vmGeneration) {
+        [int]$build.platform.vmGeneration
+    } else { 2 }
+    $secureBoot = if ($build.platform -and $null -ne $build.platform.secureBoot) {
+        [bool]$build.platform.secureBoot
+    } else { $vmGeneration -eq 2 }
+    $vm = New-VM -Name $vmName -Generation $vmGeneration -MemoryStartupBytes $MemoryStartupBytes `
         -VHDPath $diskPath -Path $resourceRoot -ErrorAction Stop
     $null = Set-VM -VM $vm -SmartPagingFilePath $resourceRoot -SnapshotFileLocation $resourceRoot -ErrorAction Stop
     $null = Assert-HyperVVMResourceBinding -VMName $vmName -ResourceBinding $resourceBinding
@@ -181,13 +202,27 @@ function New-HyperVWindowsImageBuilder {
     $null = Set-VM -VM $vm -Notes $notes -AutomaticCheckpointsEnabled $false -ErrorAction Stop
     @($vm | Get-VMNetworkAdapter -ErrorAction Stop) | Remove-VMNetworkAdapter -ErrorAction Stop
     $null = Set-VMProcessor -VM $vm -Count $ProcessorCount -ErrorAction Stop
-    $null = Set-VMFirmware -VM $vm -EnableSecureBoot On -SecureBootTemplate MicrosoftWindows -ErrorAction Stop
     $dvd = Add-VMDvdDrive -VM $vm -Path ([string]$local.isoPath) -Passthru -ErrorAction Stop
-    $null = Set-VMFirmware -VM $vm -FirstBootDevice $dvd -ErrorAction Stop
+    if ($vmGeneration -eq 2) {
+        if ($secureBoot) {
+            $null = Set-VMFirmware -VM $vm -EnableSecureBoot On -SecureBootTemplate MicrosoftWindows -ErrorAction Stop
+        }
+        else {
+            $null = Set-VMFirmware -VM $vm -EnableSecureBoot Off -ErrorAction Stop
+        }
+        $null = Set-VMFirmware -VM $vm -FirstBootDevice $dvd -ErrorAction Stop
+    }
+    else {
+        $null = Set-VMBios -VM $vm -StartupOrder @(
+            [Microsoft.HyperV.PowerShell.BootDevice]::CD,
+            [Microsoft.HyperV.PowerShell.BootDevice]::IDE,
+            [Microsoft.HyperV.PowerShell.BootDevice]::LegacyNetworkAdapter,
+            [Microsoft.HyperV.PowerShell.BootDevice]::Floppy) -ErrorAction Stop
+    }
 
-    $build.builder = [PSCustomObject]@{ vmName = $vmName; osDiskRelativePath = "resources/hyperv/$vmName.vhdx"; resourceRelativePath = "$vmName.vhdx"; generation = 2; secureBoot = $true }
+    $build.builder = [PSCustomObject]@{ vmName = $vmName; osDiskRelativePath = "resources/hyperv/$vmName.vhdx"; resourceRelativePath = "$vmName.vhdx"; generation = $vmGeneration; secureBoot = $secureBoot }
     Write-HyperVImageBuildState -BuildDirectory $build.BuildDirectory -State $build
-    return Set-HyperVImageBuildState -BuildId $BuildId -State BUILDER_READY -Reason 'Generation-2-Builder mit verifiziertem Installationsmedium erstellt' -StateRoot $StateRoot
+    return Set-HyperVImageBuildState -BuildId $BuildId -State BUILDER_READY -Reason "Generation-$vmGeneration-Builder mit verifiziertem Installationsmedium erstellt" -StateRoot $StateRoot
 }
 
 function Set-HyperVImageBuildManualAction {
@@ -243,7 +278,7 @@ function Submit-HyperVImageGeneralizationEvidence {
 
     $synthetic = [string]$build.operatingSystem.id -eq 'synthetic-ci'
     $expectedKind = if ($synthetic) { 'synthetic-ci-generalize' } else { 'windows-sysprep-generalize' }
-    $allowedSources = if ($synthetic) { @('synthetic-test') } else { @('powershell-direct', 'offline-inspection') }
+    $allowedSources = if ($synthetic) { @('synthetic-test') } else { @('powershell-direct', 'offline-inspection', 'legacy-wmi') }
     if ([string]$evidence.contractVersion -ne '1' -or
         [string]$evidence.buildId -ne [string]$build.buildId -or
         [string]$evidence.scopeId -ne [string]$build.scopeId -or
@@ -469,6 +504,7 @@ function Publish-HyperVWindowsImageBuild {
     param(
         [Parameter(Mandatory)][string]$BuildId,
         [Nullable[datetime]]$EvaluationExpiresAt,
+        [switch]$RequireChildBootValidation,
         [string]$StateRoot
     )
 
@@ -543,10 +579,14 @@ function Publish-HyperVWindowsImageBuild {
         OperatingSystemId = [string]$build.operatingSystem.id; OperatingSystemVersion = $osVersion
         Edition = [string]$build.operatingSystem.edition; InstallationType = [string]$build.operatingSystem.installationType
         Language = [string]$build.operatingSystem.language; LicenseType = [string]$build.license.type
+        VmGeneration = if ($build.platform -and $build.platform.vmGeneration) { [int]$build.platform.vmGeneration } else { 2 }
+        SecureBoot = if ($build.platform -and $null -ne $build.platform.secureBoot) { [bool]$build.platform.secureBoot } else { $true }
+        GuestControl = if ($build.platform -and $build.platform.guestControl) { [string]$build.platform.guestControl } else { 'powershell-direct' }
         IntegrityOrigin = if ($synthetic) { 'synthetic-test' } else { 'generated-by-runtime' }
         InitialMediaKey = [string]$build.media.bootInteraction.initialMediaKey
         EvaluationExpiresAt = $EvaluationExpiresAt; StateRoot = $StateRoot
     }
+    if ($RequireChildBootValidation) { $importParameters.RequireChildBootValidation = $true }
     if (-not $synthetic) { $importParameters.Generalized = $true }
     $artifact = Import-HyperVImageArtifact @importParameters
     if (-not $artifact -or

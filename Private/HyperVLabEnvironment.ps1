@@ -546,6 +546,7 @@ function New-HyperVLabEnvironment {
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [string]$SwitchName,
         [switch]$Isolated,
+        [switch]$TemplateValidationRun,
         [ValidateSet('hostOnly', 'nat', 'lan')][string]$NetworkIntent = 'hostOnly',
         [object[]]$AdditionalDrives = @(),
         $StorageIntent,
@@ -562,6 +563,10 @@ function New-HyperVLabEnvironment {
     $artifactState = [string]$artifact.artifactState
     if ($artifactState -notin @('SQL_PREPARED_SEALED', 'OS_SEALED')) {
         throw 'HYPERV_LAB_WINDOWS_OR_SQL_PREPARED_IMAGE_REQUIRED'
+    }
+    $childValidation = Test-HyperVImageArtifactChildValidationEligibility -Artifact $artifact
+    if (-not $childValidation.Eligible -and -not ($TemplateValidationRun -and $childValidation.Reason -eq 'child-validation-pending')) {
+        throw "HYPERV_LAB_IMAGE_CHILD_VALIDATION_REQUIRED: $($childValidation.Reason)"
     }
     $workload = if ($artifactState -eq 'SQL_PREPARED_SEALED') { 'sql' } else { 'windows' }
     $baseKind = if ($workload -eq 'sql') { 'sql-prepared' } else { 'windows-baseline' }
