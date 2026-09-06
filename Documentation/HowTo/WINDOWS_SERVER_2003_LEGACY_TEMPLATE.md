@@ -63,6 +63,36 @@ reagieren. Die Installation und Mini-Setup bleiben vollständig per Tastatur
 bedienbar. Dieser Zustand ist eine dokumentierte Einschränkung, kein Nachweis
 einer fehlerhaften OS-Installation.
 
+## Hyper-V Integration Services und Maus
+
+Der aktuelle Hyper-V-Host liefert `vmguest.iso` nicht mehr mit. Eine archivierte
+Kopie der früheren Microsoft-Integrations-DVD ist maschinenlesbar katalogisiert.
+Microsofts historische Hyper-V-Gastmatrix verlangt für Windows Server 2003 SP2
+die Installation dieser Komponenten nach dem OS-Setup. Der konkrete Bericht
+zum unter Windows 11 24H2 vertikal invertierten Mauszeiger und dessen Behebung
+durch `vmguest.iso` ist als ergänzende Community-Evidence im Medienkatalog
+verzeichnet.
+Der Container besitzt keine unabhängig belegte originale Microsoft-Prüfsumme;
+deshalb werden zusätzlich Volume, Setup-Version und die Microsoft-Signaturen
+des x86-Setups und Windows-5.x-MSI geprüft:
+
+```powershell
+Save-SqlServerLabMediaSource `
+    -Id windows-server-2003-hyper-v-integration-services-iso `
+    -MediaRoot '<Lab1_Base>'
+
+.\Tools\Test-WindowsServer2003HyperVIntegrationMedia.ps1 `
+    -IsoPath '<Lab1_Base>\WindowsServer\2003\Eval\IntegrationServices\Hyper-V-Integration-Services-6.3.9600.16384-vmguest.iso'
+```
+
+Die Datei ist 27.590.656 Bytes groß; SHA-256 ist
+`d1037fd8e788ce8ed0df16ec21f057e74512d5b3d551cc9396c7ae95dccba10f`.
+Sie wird zuerst nur am wegwerfbaren Child getestet: Mini-Setup per Tastatur
+abschließen, DVD einlegen, `support\x86\setup.exe` ausführen und neu starten.
+Als positive Evidence gelten ein normal ausgerichteter VMConnect-Mauszeiger
+sowie Integrationsdienste mit Hostkontakt. Erst danach darf die Referenz-VM um
+diese Komponenten ergänzt und erneut versiegelt werden.
+
 ## Vor dem Versiegeln
 
 1. Windows Server 2003 Enterprise Evaluation SP2 muss vollständig gestartet
@@ -127,24 +157,47 @@ wird zusammen mit einem SHA-256-Sidecar und einem lokalen Manifest unter
 `WindowsServer/2003/Eval/VHDX` abgelegt. Das Manifest verwendet den getrennten
 Zustand `LEGACY_TEMPLATE_SEALED`.
 
-## Klone
+## Klone mit Evaluation-Key
 
 Das Parent wird niemals direkt gebootet. Jeder SQL-Lab-Slot erhält eine
-Differencing-VHDX:
+Differencing-VHDX. Der reproduzierbare Standardpfad erzeugt Child und
+Generation-1-VM gemeinsam:
 
 ```powershell
-New-VHD `
-    -Path '<Lab1_Data>\HyperV\Slots\<Slot>\os.vhdx' `
-    -ParentPath '<Lab1_Base>\WindowsServer\2003\Eval\VHDX\WindowsServer2003Enterprise-Eval-SP2-x86-Gen1-Sysprep.vhdx' `
-    -Differencing
+\.\Tools\New-WindowsServer2003LegacyChild.ps1 `
+    -VmName '<Slot>' `
+    -VmRoot '<Lab1_Data>\HyperV\Slots\<Slot>' `
+    -ParentVhdPath '<Lab1_Base>\WindowsServer\2003\Eval\VHDX\WindowsServer2003Enterprise-Eval-SP2-x86-Gen1-Sysprep.vhdx' `
+    -EvaluationIsoPath '<Lab1_Base>\WindowsServer\2003\Eval\ISO\WindowsServer2003Enterprise-Evaluation.iso' `
+    -IntegrationServicesIsoPath '<Lab1_Base>\WindowsServer\2003\Eval\IntegrationServices\Hyper-V-Integration-Services-6.3.9600.16384-vmguest.iso' `
+    -SwitchName 'SQL_LAB_HYPERV_intern' `
+    -Start
 ```
+
+Das Parent-Manifest und sein SHA-256, der Read-only-Status sowie der SHA-256
+und Volume-Name der Evaluation-ISO werden vor jeder Mutation geprüft.
+Der Befehl muss erhöht ausgeführt werden, weil Windows für das Offline-Mounten
+der Child-VHDX das Volume-Verwaltungsrecht verlangt. `-WhatIf` funktioniert
+auch in einer nicht erhöhten PowerShell und zeigt den geplanten Scope.
+
+Der Evaluation-Key wird zur Laufzeit aus `I386\UNATTEND.TXT` der originalen,
+hashgebundenen Evaluation-ISO gelesen. Er wird nur in
+`C:\Sysprep\sysprep.inf` der neuen Child-VHDX geschrieben und weder ausgegeben
+noch in Repository, Parent oder Manifest gespeichert. Das SP2-Slipstream-ISO
+darf nicht als Key-Quelle dienen: dessen Beispiel-Key ist für dieses
+Evaluationsmedium ungültig. Nach Mini-Setup entfernt Windows den Sysprep-Ordner.
 
 Für den Klon gelten dieselben Generation-1-, Ein-Prozessor-, statischen
 Speicher- und Legacy-Netzwerk-Eigenschaften. Beim ersten Start läuft Mini-Setup
-und erzeugt die klonspezifische Identität. Erst dort werden Computername,
-Kennwort und gegebenenfalls die Aktivierung behandelt. Product Keys und
-Kennwörter werden weder in das Repository noch in das Parent-Manifest
-geschrieben.
+und erzeugt die klonspezifische Identität. Nicht geheime Standardwerte wie
+Arbeitsgruppe, Zeitzone und Netzwerk werden aus der lokalen `sysprep.inf`
+übernommen. Kennwort und eine gegebenenfalls gewünschte Aktivierung bleiben
+Child-spezifisch. Das Skript führt keine Aktivierung aus.
+
+Mit `-IntegrationServicesIsoPath` prüft der Child-Befehl das ISO erneut und
+legt es ein. Die Installation startet weiterhin erst nach Mini-Setup. Der
+Evaluation-Lizenzmodus `PerServer` mit fünf Verbindungen wird nicht interaktiv
+abgefragt.
 
 Der erste Cold-Boot-Test erfolgt auf einem wegwerfbaren Child. Erwartet werden:
 
