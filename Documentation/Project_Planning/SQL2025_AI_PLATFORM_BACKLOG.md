@@ -3,7 +3,7 @@
 ## Status
 
 `AI-00 IMPLEMENTED`, `AI-05 IMPLEMENTED`, `AI-10A SUPPORTED`,
-`AI-10B IN_PROGRESS`, `AI-20` bis `AI-50 BACKLOG`, `AI-60A SUPPORTED`,
+`AI-10B IN_PROGRESS`, `AI-20A SUPPORTED`, `AI-20B` bis `AI-50 BACKLOG`, `AI-60A SUPPORTED`,
 `AI-60B BACKLOG`, `AI-70` bis `AI-90 BACKLOG`.
 
 Dieser Backlog ist der übergeordnete SQL-zentrierte KI-Plan. Der
@@ -96,6 +96,14 @@ synthetischen Eingabe, einem Request und der exakten Antwort `OK` erfolgreich.
 Eine breit lesbare Secret-Datei erzeugt vereinbarungsgemäß nur den sanitisierten
 Warncode `AI_SECRET_FILE_ACL_BROAD_READ`. Ollama-Cloud-Embeddings sowie OpenAI
 und Azure OpenAI sind als `AI-60B` weiterhin nicht implementiert.
+
+`AI-20A` stellt denselben kataloggebundenen Aufruf für lokale Ollama-Endpunkte
+bereit. Die getrennten nativen Docker- und Podman-Läufe waren am 2026-09-06
+mit `ollama/ollama:0.11.10`, dynamischem Loopback-Port, live gebundenem Image-
+und Modelldigest, `embeddinggemma:300m-qat-q4_0` mit 768 Dimensionen,
+`gemma3:1b`, Container-Restart und vollständigem Cleanup erfolgreich. Diese
+Controller-Lane verwendet ausschließlich Loopback-HTTP. Ein TLS-Gateway für
+SQL Servers `CREATE EXTERNAL MODEL` und die Hyper-V-Lane bleiben `AI-20B`.
 
 ## Sicherheits- und Betriebsvertrag
 
