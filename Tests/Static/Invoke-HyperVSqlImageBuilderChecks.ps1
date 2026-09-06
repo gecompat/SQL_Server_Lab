@@ -272,7 +272,8 @@ try {
         (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2025/Standard_Developer/ISO/sql.iso') -eq 'Standard' -and
         (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2022/Developer/ISO/sql.iso') -eq 'Enterprise' -and
         (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2016/Enterprise_Core/ISO/sql.iso') -eq 'EnterpriseCore' -and
-        (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2016/Web/ISO/sql.iso') -eq 'Web'
+        (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2016/Web/ISO/sql.iso') -eq 'Web' -and
+        (Get-HyperVSqlMediaEditionFromPath -Path 'SQL/2014/Express/ISO/sql.iso') -eq 'Express'
     }
     Add-CheckResult -Name 'Automatische Medienedition bevorzugt Standard vor dem Developer-Zusatz' -Success $dynamicEditionMapping
     $artifactEditionMapping = & $module {
@@ -280,7 +281,8 @@ try {
         (ConvertTo-HyperVSqlMediaEdition -SqlEdition EnterpriseCore) -eq 'EnterpriseCore' -and
         (ConvertTo-HyperVSqlMediaEdition -SqlEdition StandardDeveloper) -eq 'Standard' -and
         (ConvertTo-HyperVSqlMediaEdition -SqlEdition Web) -eq 'Web' -and
-        (ConvertTo-HyperVSqlMediaEdition -SqlEdition Evaluation) -eq 'Eval'
+        (ConvertTo-HyperVSqlMediaEdition -SqlEdition Evaluation) -eq 'Eval' -and
+        (ConvertTo-HyperVSqlMediaEdition -SqlEdition Express) -eq 'Express'
     }
     Add-CheckResult -Name 'Artifact-Produkteditionen werden für die ISO-Suche rückwärtskompatibel abgebildet' -Success $artifactEditionMapping
     Add-CheckResult -Name 'SQL-ISO wird vor der VM-Erstellung gegen die gewaehlte SQL-Version geprueft' -Success (
@@ -288,6 +290,14 @@ try {
         $builderText -match 'HYPERV_SQL_MEDIA_VERSION_MISMATCH' -and
         $builderText -match 'Confirm-HyperVSqlInstallationMediaVersion -IsoPath \$sqlMedia\.IsoPath -SqlVersion \$SqlVersion' -and
         $builderText.IndexOf('Confirm-HyperVSqlInstallationMediaVersion -IsoPath $sqlMedia.IsoPath') -lt $builderText.IndexOf('New-VHD -Path $diskPath')
+    )
+    Add-CheckResult -Name 'SQL-SFX-Pakete werden hashgebunden, isoliert und nachkontrolliert als Daten-ISO veröffentlicht' -Success (
+        $builderText -match 'function New-HyperVSqlPackageMediaIso' -and
+        $builderText -match 'HYPERV_SQL_PACKAGE_SOURCE_INTEGRITY_MISMATCH' -and
+        $builderText -match 'HYPERV_SQL_PACKAGE_SOURCE_DIRECTORY_NOT_ISOLATED' -and
+        $builderText -match 'IMAPI2FS\.MsftFileSystemImage' -and
+        $builderText -match "MediaKind -ne 'PACKAGE_ISO'" -and
+        $builderText -match 'sql-server-\$SqlVersion-package-iso\.json'
     )
     Add-CheckResult -Name 'SQL-Prepared-Publikation flacht Differencing-Kette ab' -Success ($builderText -match 'Convert-VHD[\s\S]+-VHDType Dynamic')
     Add-CheckResult -Name 'Standardpfad für frische ISOs erstellt Windows-VHDX und bindet beide ISOs ein' -Success (
