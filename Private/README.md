@@ -13,6 +13,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `PathSafety.ps1` | geschützte Pfade, Scope-Prüfung und Scope-Marker |
 | `SecretProvider.ps1` | lokales Speichern, Lesen und Entfernen von Secrets |
 | `AiEndpoint.ps1` | Kataloggebundene, fail-closed Ollama-Endpointplanung und sanitisiertes Embed-/Generate-Requestverhalten |
+| `AiRetrievalEvaluation.ps1` | Inhaltsfreie Retrieval-Metriken und blockierende Recall-/MRR-/nDCG-Schwellen |
 | `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile, sichere Windows-CU-Acquisition und Linux-Image-Prefetch |
 | `SoftwareCatalog.ps1` | Providerneutrale External-Runtime-Anforderungen, kataloggebundene Planauflösung und sanitisiertes Installation Receipt |
 | `StateMachine.ps1` | State-Root, Run-State, ProviderSubRuns, Übergänge, Historie und aktive Runs |

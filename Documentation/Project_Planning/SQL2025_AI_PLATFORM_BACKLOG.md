@@ -3,7 +3,8 @@
 ## Status
 
 `AI-00 IMPLEMENTED`, `AI-05 IMPLEMENTED`, `AI-10A SUPPORTED`,
-`AI-10B IN_PROGRESS`, `AI-20A SUPPORTED`, `AI-20B` bis `AI-50 BACKLOG`, `AI-60A SUPPORTED`,
+`AI-10B IN_PROGRESS`, `AI-20A SUPPORTED`, `AI-20B` bis `AI-30 BACKLOG`,
+`AI-40A IMPLEMENTED`, `AI-40B` bis `AI-50 BACKLOG`, `AI-60A SUPPORTED`,
 `AI-60B BACKLOG`, `AI-70` bis `AI-90 BACKLOG`.
 
 Dieser Backlog ist der übergeordnete SQL-zentrierte KI-Plan. Der
@@ -104,6 +105,12 @@ und Modelldigest, `embeddinggemma:300m-qat-q4_0` mit 768 Dimensionen,
 `gemma3:1b`, Container-Restart und vollständigem Cleanup erfolgreich. Diese
 Controller-Lane verwendet ausschließlich Loopback-HTTP. Ein TLS-Gateway für
 SQL Servers `CREATE EXTERNAL MODEL` und die Hyper-V-Lane bleiben `AI-20B`.
+
+`AI-40A` implementiert das deterministische, modellunabhängige Retrieval-Gate.
+Es berechnet Recall@k, Precision@k, MRR und nDCG aus eindeutigen Dokument-IDs,
+weist doppelte beziehungsweise ungültige IDs ab und liefert bei unterschrittenen
+Schwellen maschinenlesbare Blocker. Die Bindung an ein Golden Dataset und einen
+ausgeführten SQL-RAG-Lauf bleibt `AI-40B`.
 
 ## Sicherheits- und Betriebsvertrag
 

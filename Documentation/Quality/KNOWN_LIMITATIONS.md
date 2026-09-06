@@ -29,6 +29,12 @@ Integration: SQL Server benötigt dafür einen HTTPS-Endpunkt samt gebundenem
 Trust- und Credential-Lifecycle. Der derzeitige Container-Smoke hält bewusst
 keinen Modellcache zurück und lädt Modelle daher bei jedem Lauf erneut.
 
+Das Retrieval-Gate berechnet Recall@k, Precision@k, MRR und nDCG bereits
+deterministisch und blockierend. Es bewertet ausschließlich geordnete IDs;
+Golden-Dataset-Bindung, SQL-Retrieval und RAG-Antworttreue sind noch nicht Teil
+dieses Nachweises. Ein Modell-Judge wird bewusst nicht als blockierendes Gate
+verwendet.
+
 ## Provider
 
 ### Docker und Podman
