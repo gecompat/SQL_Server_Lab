@@ -467,10 +467,11 @@ public_commands:
       - docker_or_podman_for_linux
   - name: Save-SqlServerLabMediaSource
     source: Public/Save-SqlServerLabMediaSource.ps1
-    purpose: "Katalogisiertes SQL-Basismedium oder Bootstrapper nach Größen-, SHA-256- und bei EXE-Dateien Microsoft-Authenticode-Prüfung atomar in den Media Root laden"
+    purpose: "Katalogisiertes SQL-/Windows-Server-Basismedium nach Größen-, SHA-256- und bei EXE-Dateien Microsoft-Authenticode-Prüfung atomar in den Media Root laden; Community-Scans nur nach ausdrücklicher Quarantänefreigabe"
     mutates_host: true
     external_dependencies:
       - Microsoft Download Center
+      - Internet Archive metadata and fixed file downloads
       - verified archive fallback for retired Microsoft files
   - name: Set-SqlServerLabLicenseProfile
     source: Public/LicenseProfile.ps1
@@ -547,8 +548,9 @@ internal_components:
     catalog: Catalogs/sql-server-media-sources.json
     schema: Schemas/sql-server-media-sources.schema.json
     responsibilities:
-      - "direkte Microsoft-URLs, verifizierte Archiv-Fallbacks und manuelle Lizenzmedien getrennt auflösen"
-      - "SQL-Basismedien an portable Zielpfade, Dateigröße und SHA-256 binden"
+      - "direkte Microsoft-URLs, verifizierte Archiv-Fallbacks, quarantänisierte Community-Scans und manuelle Lizenzmedien getrennt auflösen"
+      - "SQL- und Windows-Server-Basismedien an portable Zielpfade, Dateigröße und SHA-256 binden"
+      - "Archive.org-Quellen an feste Identifier, maschinenlesbare Metadata-URLs und exakte Dateien binden"
       - "Bootstrapper niemals als ISO oder bereits verwendbares Vollmedium darstellen"
     validation: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
   - name: SoftwareCatalog

@@ -168,7 +168,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Save-SqlServerLabCuResource` | Katalogisierten Windows-CU mit SHA-256 und Microsoft-Authenticode in den Media Root oder exakten Linux-MCR-Tag in Docker/Podman laden |
 | `Get-SqlServerLabResourcePlan` | Katalogisierte Sample- und Windows-/Hyper-V-External-Runtime-Ressourcen read-only planen |
 | `Save-SqlServerLabResourceSet` | Ressourcen aus Cache, hashgeprüftem Altbestand oder katalogisierter HTTP(S)-Quelle vorab bereitstellen |
-| `Save-SqlServerLabMediaSource` | Katalogisiertes SQL-Basismedium oder Bootstrapper nach Größen-, SHA-256- und Microsoft-Signaturprüfung in den Media Root laden |
+| `Save-SqlServerLabMediaSource` | Katalogisiertes SQL-/Windows-Server-Basismedium nach Größen-, SHA-256- und ggf. Microsoft-Signaturprüfung laden; Community-Scans nur mit Quarantänefreigabe |
 | `Set-SqlServerLabLicenseProfile` | Optionalen Product Key versions- und editionsgebunden außerhalb des Repositorys DPAPI-geschützt speichern |
 | `Get-SqlServerLabLicenseProfile` | Lokale Lizenzprofile ohne geheime Werte auflisten |
 | `Test-SqlServerLabLicenseProfile` | Lokale Struktur und Keyformat ohne Onlineaktivierung prüfen |

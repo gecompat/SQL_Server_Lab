@@ -214,14 +214,24 @@ weiterhin die ausdrückliche einmalige Freigabe `-TrustUnknownArtifact`.
 Der gleiche Ablauf ist ohne Kommandozeilenkenntnisse unter **Medien,
 Testdaten und Speicher → SQL Server CU herunterladen oder prüfen** verfügbar.
 
-Ein katalogisiertes SQL-Basismedium oder einen Bootstrapper herunterladen:
+Ein katalogisiertes SQL- oder Windows-Server-Basismedium herunterladen:
 
 ```powershell
-Save-SqlServerLabMediaSource -Id sql-server-2016-developer-sp3-iso -MediaRoot 'D:\Lab_Base'
+Save-SqlServerLabMediaSource -Id sql-server-2016-evaluation-sp2-iso -MediaRoot 'D:\Lab_Base'
 ```
 
 Die direkten Microsoft-URLs und verifizierten historischen Fallbacks sind mit
 Dateigröße und SHA-256 in `Catalogs/sql-server-media-sources.json` gebunden.
+Das SQL-Server-2016-SP2-Evaluation-ISO ist zusätzlich an SHA-1 gebunden und
+über Volume, Slipstream-Manifest, KB4052908 und Setup-Build 13.0.5026.0 geprüft.
+Für Windows Server 2016, 2019, 2022 und 2025 sind die öffentlich erreichbaren
+Microsoft-Binärziele der Evaluation-Center-Weiterleitungen direkt
+katalogisiert; dabei werden weder Formulare ausgefüllt noch Identitätsdaten
+übermittelt.
+Bei Archive.org-Einträgen werden zusätzlich der feste Identifier, die
+maschinenlesbare Metadata-URL, der frühere Microsoft-Pfad und SHA-1 geführt.
+Die Freigabe gilt ausschließlich für die konkret katalogisierte Datei;
+Community-Scans benötigen `-AllowCommunityScan` und landen in Quarantäne.
 SQL Server 7.0 und 6.5 benötigen weiterhin manuell bereitgestellte lizenzierte
 Originalmedien; Azure-Varianten gehören nicht zum Katalog.
 
@@ -720,7 +730,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Save-SqlServerLabCuResource` | Beliebigen katalogisierten Windows-CU hash- und Authenticode-geprüft in den Media Root oder den exakten Linux-MCR-Tag in Docker/Podman laden |
 | `Get-SqlServerLabResourcePlan` | Sample- und Windows-/Hyper-V-External-Runtime-Ressourcen read-only planen |
 | `Save-SqlServerLabResourceSet` | Katalogisierte Ressourcen aus Cache, lokalem Altbestand oder HTTP(S) hashverifiziert vorab bereitstellen |
-| `Save-SqlServerLabMediaSource` | Katalogisiertes SQL-Basismedium oder Bootstrapper nach Größen-, SHA-256- und Microsoft-Signaturprüfung in den Media Root laden |
+| `Save-SqlServerLabMediaSource` | Katalogisiertes SQL-/Windows-Server-Basismedium nach Größen-, SHA-256- und ggf. Microsoft-Signaturprüfung laden; Community-Scans nur mit Quarantänefreigabe |
 | `Set-SqlServerLabLicenseProfile` | Editions- und versionsgebundenen Product Key lokal DPAPI-geschützt speichern |
 | `Get-SqlServerLabLicenseProfile` | Geheimnisfreie Metadaten lokaler Lizenzprofile auflisten |
 | `Test-SqlServerLabLicenseProfile` | Lokale Struktur und Keyformat prüfen, ohne eine Onlineaktivierung auszuführen |

@@ -92,8 +92,9 @@ MCR-Tagliste die autoritativen Quellen.
 
 ## Medienquellenkatalog
 
-`sql-server-media-sources.json` hält aufgelöste Download-URLs dauerhaft fest,
-statt nur auf wechselnde Produktseiten zu verweisen. Jeder automatisierbare
+`sql-server-media-sources.json` hält aufgelöste Download-URLs für SQL- und
+Windows-Server-Basismedien dauerhaft fest, statt nur auf wechselnde
+Produktseiten zu verweisen. Jeder automatisierbare
 Eintrag bindet Zielpfad, Dateigröße und SHA-256. EXE-Dateien müssen beim
 Download zusätzlich eine gültige Microsoft-Authenticode-Signatur besitzen.
 
@@ -101,16 +102,43 @@ Die Herkunft ist ausdrücklich typisiert:
 
 - `DIRECT_MICROSOFT_DOWNLOAD`: aktive Datei auf `download.microsoft.com`;
 - `ARCHIVE_FALLBACK_VERIFIED`: archivierte frühere Microsoft-Datei, deren
-  Original-URL zurückgezogen wurde und deren Hash und Signatur geprüft wurden;
+  Original-URL zurückgezogen wurde und deren Größe sowie Hashes geprüft wurden;
+- `COMMUNITY_SCAN_QUARANTINED`: nicht als Microsoft-Original bestätigter Scan;
+  Download nur nach ausdrücklicher Freigabe und ausschließlich nach `Incoming`;
 - `MANUAL_LICENSED_MEDIA`: kein legaler öffentlicher Vollmedium-Download;
 - `BOOTSTRAPPER` bezeichnet nur das kleine Downloadprogramm, nicht das von ihm
   später interaktiv erzeugte ISO.
 
 `Save-SqlServerLabMediaSource -Id <id> -MediaRoot <root>` lädt nur Einträge mit
 vollständigen Integritätsmetadaten. Abweichende vorhandene Dateien werden nicht
-überschrieben. MSSQLTips dient als Discovery-Quelle, aber nie allein als
+überschrieben. Für Windows Server 2016, 2019, 2022 und 2025 sind die öffentlich
+erreichbaren Binärziele der englischen Microsoft-Evaluation-Center-
+Weiterleitungen direkt, größen- und SHA-256-gebunden katalogisiert. Dabei werden
+weder Formulare ausgefüllt noch Identitätsdaten übermittelt. Archive.org-
+Sammlungen werden nur über feste Identifier,
+maschinenlesbare Metadata-URLs und die exakt freigegebene Datei verwendet;
+andere Dateien derselben Sammlung erben diese Freigabe nicht. Community-Scans
+benötigen zusätzlich `-AllowCommunityScan`. MSSQLTips dient als Discovery-Quelle, aber nie allein als
 Integritäts- oder Herkunftsnachweis. SQL Server 2019 CU7 gehört nicht in diesen
 Basismedienkatalog und bleibt im separaten CU-Katalog zurückgezogen.
+
+Für SQL Server 2016 ist das englische SP2-Evaluation-Full-Slipstream-ISO als
+weiterhin aktiver Microsoft-Direktdownload katalogisiert. Das lokale Medium
+wurde read-only anhand von CDFS-Volume, Slipstream-Markierung, KB4052908,
+SP2-Build 13.0.5026.0, Dateigröße, SHA-1 und SHA-256 bestätigt.
+
+Für SQL Server 2008 R2 ist das frühere x64-Evaluation-SFX als exakte
+Wayback-Kopie katalogisiert. Neben Größe, SHA-1 und SHA-256 wurden die gültige
+Microsoft-Authenticode-Signatur, Produktversion 10.50.1600.1 und die
+SFX-CAB-Struktur statisch geprüft. Die Datei wurde nicht ausgeführt; für den
+x86-Gegenpart wurde keine entsprechende Wayback-Kopie gefunden.
+
+Der Archive.org-Kandidat `sql08` ist nach Inhaltsprüfung ausdrücklich **keine**
+SQL-Server-2008-RTM-Quelle: `setup.exe` meldet Build `10.0.1442.32` (RC0). Er
+bleibt daher außerhalb des freigegebenen Katalogs in lokaler Quarantäne. Die
+stattdessen freigegebene Wayback-Aufnahme der früheren Microsoft-Datei
+`SQLFULL_ENU.iso` stimmt exakt mit ihrem CDX-SHA-1 überein und wurde read-only
+als Enterprise-Evaluation-RTM-Build 10.0.1600.22 mit x86/x64/IA64 geprüft.
 
 ## Softwarekatalog
 

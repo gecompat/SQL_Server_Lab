@@ -144,7 +144,7 @@ Get-SqlServerLabCuStatus              # Microsoft-Learn-CU-Stand read-only gegen
 Save-SqlServerLabCuResource           # Katalogisierten Windows-CU oder exakten Linux-MCR-Tag sicher bereitstellen
 Get-SqlServerLabResourcePlan          # Sample- und Windows-/Hyper-V-Ressourcen read-only vorplanen
 Save-SqlServerLabResourceSet          # Katalogisierte Ressourcen hashverifiziert vorab bereitstellen
-Save-SqlServerLabMediaSource          # Katalogisiertes SQL-Basismedium hash- und signaturgeprüft bereitstellen
+Save-SqlServerLabMediaSource          # Katalogisiertes SQL-/Windows-Server-Basismedium hash- und ggf. signaturgeprüft bereitstellen
 Set-SqlServerLabLicenseProfile        # Optionalen Product Key lokal DPAPI-geschützt hinter einer Profil-ID speichern
 Get-SqlServerLabLicenseProfile        # Geheimnisfreie Lizenzprofil-Metadaten lesen
 Test-SqlServerLabLicenseProfile       # Lokale Struktur prüfen, ohne Onlineaktivierung

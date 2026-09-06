@@ -174,6 +174,13 @@ $relativeDirectories = @(
     'SQL/Installers/2022',
     'SQL/Installers/2025',
     'SQL/2019/Eval/ISO',
+    'SQL/2012/Eval/ISO',
+    'SQL/2000/Evaluation/ISO',
+    'SQL/2005/Evaluation/ISO',
+    'SQL/2008/Evaluation/ISO',
+    'SQL/2008R2/Evaluation/EXE',
+    'SQL/2014/Eval/ISO',
+    'SQL/2016/Eval/ISO',
     'SQL/2022/Eval/ISO',
     'SQL/2025/Eval/ISO',
     'SQL/2025/Enterprise/ISO',
@@ -182,6 +189,12 @@ $relativeDirectories = @(
     'WindowsServer/2022/Eval/VHDX',
     'WindowsServer/2025/Eval/ISO',
     'WindowsServer/2025/Eval/VHDX',
+    'WindowsServer/2016/Eval/ISO',
+    'WindowsServer/2019/Eval/ISO',
+    'WindowsServer/2019/Eval/VHDX',
+    'WindowsServer/2008R2/Eval/ISO',
+    'WindowsServer/2012R2/Eval/ISO',
+    'WindowsServer/2003/Eval/ISO',
     'WindowsClient/11/Eval/ISO',
     'Testdaten',
     'Hashes',
@@ -361,14 +374,166 @@ Dieses Medium wird lokal bereitgehalten. Der öffentliche Hyper-V-Pfad installie
     }
 }
 
+Add-MediaReadmeDefinition -RelativePath 'SQL/2012/Eval/ISO/README.md' -Content @'
+# SQL Server 2012 Evaluation ISO
+
+Verifizierter Archiv-Fallback: [Microsoft SQL Server 2012 Evaluation im Legacy-Update-Katalog](https://legacyupdate.net/download-center/download/29066/microsoft-sql-server-2012-evaluation).
+
+Das Repository bindet die frühere Microsoft-Datei `SQLFULL_ENU.iso` an die originale Download-URL, exakte Größe, den archivierten SHA-1 und einen lokal gegengeprüften SHA-256. Der sichere Download erfolgt mit:
+
+```powershell
+Save-SqlServerLabMediaSource -Id sql-server-2012-evaluation-iso-archive -MediaRoot '<MediaRoot>'
+```
+
+Das Medium ist eine zeitlich begrenzte Evaluation und darf nur im Rahmen der Microsoft-Lizenzbedingungen verwendet werden. Alte SQL-Versionen nach der Installation isolieren und vollständig aktualisieren.
+'@
+
+Add-MediaReadmeDefinition -RelativePath 'SQL/2016/Eval/ISO/README.md' -Content @'
+# SQL Server 2016 SP2 Evaluation ISO
+
+Produkt- und Lizenzseite: [Microsoft Evaluation Center – SQL Server 2016](https://www.microsoft.com/en-us/evalcenter/download-sql-server-2016)
+
+Reproduzierbarer, größen-, SHA-1- und SHA-256-geprüfter Direktdownload:
+
+```powershell
+Save-SqlServerLabMediaSource -Id sql-server-2016-evaluation-sp2-iso -MediaRoot '<MediaRoot>'
+```
+
+Der Katalog lädt nur das öffentliche, exakt hashgebundene Microsoft-Binärziel. Er übermittelt keine Formular- oder Identitätsdaten. Das ISO wurde read-only als englisches x64-Full-Slipstream-Medium mit SQL Server 2016 SP2, KB4052908 und Build 13.0.5026.0 geprüft.
+
+Die Evaluation ist zeitlich begrenzt und darf nur im Rahmen der Microsoft-Lizenzbedingungen verwendet werden.
+'@
+
+Add-MediaReadmeDefinition -RelativePath 'SQL/2008R2/Evaluation/EXE/README.md' -Content @'
+# SQL Server 2008 R2 Evaluation x64
+
+Archivierte Produktseite: [Microsoft SQL Server 2008 R2 Evaluation Trial Experience](https://web.archive.org/web/20131006175554id_/http://www.microsoft.com/en-us/download/details.aspx?id=6362)
+
+Reproduzierbarer, größen-, SHA-1-, SHA-256- und Authenticode-geprüfter Download:
+
+```powershell
+Save-SqlServerLabMediaSource -Id sql-server-2008r2-evaluation-x64-sfx-archive -MediaRoot '<MediaRoot>'
+```
+
+Der Katalog bindet die exakte Wayback-Kopie der früheren Microsoft-Datei. Die Datei ist ein gültig von Microsoft signiertes x64-SFX-CAB mit Produktversion 10.50.1600.1. Sie wurde nur statisch geprüft und nicht ausgeführt. Für die frühere x86-Datei wurde keine entsprechende Wayback-Kopie gefunden.
+
+Das Medium ist eine zeitlich begrenzte Evaluation. Alte SQL-Versionen nur isoliert und innerhalb der Microsoft-Lizenzbedingungen verwenden.
+'@
+
+Add-MediaReadmeDefinition -RelativePath 'SQL/2008/Evaluation/ISO/README.md' -Content @'
+# SQL Server 2008 Enterprise Evaluation RTM ISO
+
+Produktseite: [Microsoft SQL Server 2008 Enterprise Evaluation](https://www.microsoft.com/en-gb/download/details.aspx?id=1279)
+
+Reproduzierbarer, größen-, SHA-1- und SHA-256-geprüfter Wayback-Download der früheren Microsoft-Datei:
+
+```powershell
+Save-SqlServerLabMediaSource -Id sql-server-2008-evaluation-iso-archive -MediaRoot '<MediaRoot>'
+```
+
+Das ISO wurde read-only als CDFS-Volume `SQLServer2008` geprüft. Es enthält x86, x64 und IA64 samt Evaluation-Lizenzen; das Microsoft-Setup meldet RTM-Build 10.0.1600.22. Der Katalogeintrag verwendet nicht den separat verworfenen RC0-Scan mit Build 10.0.1442.32.
+
+Das Medium ist eine zeitlich begrenzte Evaluation. Alte SQL-Versionen nur isoliert, vollständig aktualisiert und innerhalb der Microsoft-Lizenzbedingungen verwenden.
+'@
+
+$legacySqlEvaluationSources = @(
+    [PSCustomObject]@{
+        Version = '2000'
+        CatalogId = 'sql-server-2000-evaluation-community-scan'
+        ArchiveUrl = 'https://archive.org/details/microsoft-technet-plus-evaluations-sql-server-2000-eval-edition-release-a-may-2003-cd'
+        FinalName = 'SQL2000_EVAL.iso'
+        Detail = 'Der katalogisierte 7z-Container enthält ein MDF/MDS-Abbild, das nach der Quarantäneprüfung sektorgenau in ISO-2048 konvertiert wird.'
+    },
+    [PSCustomObject]@{
+        Version = '2005'
+        CatalogId = 'sql-server-2005-evaluation-community-scan'
+        ArchiveUrl = 'https://archive.org/details/microsoft-sql-server-2005-enterprise-edition-180-day-evaluation-2005-microsoft-dvd'
+        FinalName = 'SQL2005_Evaluation.iso'
+        Detail = 'Der katalogisierte 7z-Container enthält das unveränderte ISO als Archivmitglied.'
+    }
+)
+
+foreach ($source in $legacySqlEvaluationSources) {
+    $content = @'
+# SQL Server {{VERSION}} Evaluation ISO
+
+Quarantänisierte Quelle: [Internet Archive]({{ARCHIVE_URL}})
+
+```powershell
+Save-SqlServerLabMediaSource -Id {{CATALOG_ID}} -MediaRoot '<MediaRoot>' -AllowCommunityScan
+```
+
+Der Befehl lädt ausschließlich den an Größe und SHA-256 gebundenen Container
+nach `Incoming\CommunityScan`. {{DETAIL}} Erst die zusätzlich geprüfte,
+abgeleitete Datei `{{FINAL_NAME}}` gehört in diesen Ordner.
+
+Die Quelle ist nicht als unverändertes Microsoft-Original bestätigt. Das Medium
+nur isoliert, nicht produktiv und innerhalb der Evaluationslizenz verwenden.
+'@.
+        Replace('{{VERSION}}', $source.Version).
+        Replace('{{ARCHIVE_URL}}', $source.ArchiveUrl).
+        Replace('{{CATALOG_ID}}', $source.CatalogId).
+        Replace('{{DETAIL}}', $source.Detail).
+        Replace('{{FINAL_NAME}}', $source.FinalName)
+    Add-MediaReadmeDefinition -RelativePath "SQL/$($source.Version)/Evaluation/ISO/README.md" -Content $content
+}
+
 $windowsSources = @(
+    [PSCustomObject]@{
+        Version = '2003'
+        Link = 'https://archive.org/details/windows-server-system-evaluation-kit'
+        SourceLabel = 'Internet Archive – Community-Scan des Microsoft Evaluation Kit'
+        Archived = $true
+        IncludeVhdx = $false
+        DownloadCommand = "Save-SqlServerLabMediaSource -Id windows-server-2003-enterprise-evaluation-community-scan -MediaRoot '<MediaRoot>' -AllowCommunityScan"
+    },
+    [PSCustomObject]@{
+        Version = '2008R2'
+        Link = 'https://archive.org/details/wserver2008r2'
+        SourceLabel = 'Internet Archive – archivierte Microsoft-Evaluation-ISOs'
+        Archived = $true
+        IncludeVhdx = $false
+        DownloadCommand = "Save-SqlServerLabMediaSource -Id windows-server-2008r2-sp1-evaluation-iso -MediaRoot '<MediaRoot>'"
+    },
+    [PSCustomObject]@{
+        Version = '2012R2'
+        Link = 'https://archive.org/details/wserver2012r2eval'
+        SourceLabel = 'Internet Archive – archivierte Microsoft-Evaluation-ISOs'
+        Archived = $true
+        IncludeVhdx = $false
+        DownloadCommand = "Save-SqlServerLabMediaSource -Id windows-server-2012r2-evaluation-iso -MediaRoot '<MediaRoot>'"
+    },
+    [PSCustomObject]@{
+        Version = '2016'
+        Link = 'https://www.microsoft.com/en-us/evalcenter/download-windows-server-2016'
+        SourceLabel = 'Microsoft Evaluation Center – Windows Server 2016'
+        Archived = $false
+        IncludeVhdx = $false
+        DownloadCommand = "Save-SqlServerLabMediaSource -Id windows-server-2016-evaluation-iso -MediaRoot '<MediaRoot>'"
+    },
+    [PSCustomObject]@{
+        Version = '2019'
+        Link = 'https://www.microsoft.com/en-us/evalcenter/download-windows-server-2019'
+        SourceLabel = 'Microsoft Evaluation Center – Windows Server 2019'
+        Archived = $false
+        IncludeVhdx = $true
+        DownloadCommand = "Save-SqlServerLabMediaSource -Id windows-server-2019-evaluation-iso -MediaRoot '<MediaRoot>'"
+    },
     [PSCustomObject]@{
         Version = '2022'
         Link = 'https://www.microsoft.com/en-us/evalcenter/download-windows-server-2022'
+        SourceLabel = 'Microsoft Evaluation Center – Windows Server 2022'
+        Archived = $false
+        IncludeVhdx = $true
+        DownloadCommand = "Save-SqlServerLabMediaSource -Id windows-server-2022-evaluation-iso -MediaRoot '<MediaRoot>'"
     },
     [PSCustomObject]@{
         Version = '2025'
         Link = 'https://www.microsoft.com/en-us/evalcenter/download-windows-server-2025'
+        SourceLabel = 'Microsoft Evaluation Center – Windows Server 2025'
+        Archived = $false
+        IncludeVhdx = $true
+        DownloadCommand = "Save-SqlServerLabMediaSource -Id windows-server-2025-evaluation-iso -MediaRoot '<MediaRoot>'"
     }
 )
 
@@ -376,20 +541,34 @@ foreach ($source in $windowsSources) {
     $isoTemplate = @'
 # Windows Server {{VERSION}} Evaluation ISO
 
-Offizieller Download: [Microsoft Evaluation Center – Windows Server {{VERSION}}]({{LINK}})
+Produkt- und Lizenzseite: [{{SOURCE_LABEL}}]({{LINK}})
 
-1. Registrierungsangaben auf der Microsoft-Seite ausfüllen.
-2. **ISO**, **64-bit** und für den Referenzpfad **English (United States)** wählen.
-3. Die ISO mit Originaldateinamen direkt in diesen Ordner speichern.
-4. Optional mit `-GenerateSha256` einen lokalen SHA-256-Nachweis erzeugen.
+Reproduzierbarer, größen- und SHA-256-geprüfter Download:
 
-Für den einfacheren ersten Diagnose-Build wird im Windows-Setup die Evaluation-Ausgabe mit Desktop Experience bevorzugt. Evaluationen sind zeitlich begrenzt und müssen gemäß Microsoft-Hinweisen aktiviert und aktualisiert werden.
+```powershell
+{{DOWNLOAD_COMMAND}}
+```
+
+Der Katalog lädt nur die exakt definierte und hashgebundene Binärdatei. Er übermittelt keine Formular- oder Identitätsdaten. Bei manueller Beschaffung Architektur, Sprache und Ausgabe gemäß Katalog prüfen.
+
+{{ARCHIVE_NOTE}}Für einen Diagnose-Build wird – soweit diese Auswahl existiert – die Evaluation-Ausgabe mit grafischer Oberfläche bevorzugt. Evaluationen sind zeitlich begrenzt und müssen gemäß Microsoft-Hinweisen aktiviert und aktualisiert werden.
 '@
+    $archiveNote = if ($source.Version -eq '2003') {
+        "Die Quelle ist ein nicht als Microsoft-Original bestätigter Community-Scan. Der Download bleibt in Quarantäne; erst das konvertierte und separat geprüfte x86-ISO gehört in diesen Ordner.`n`n"
+    }
+    elseif ($source.Archived) {
+        "Der Repository-Katalog erlaubt ausschließlich die dort exakt gebundene frühere Microsoft-Datei nach Größen-, SHA-1- und SHA-256-Prüfung. Beliebige Reuploads aus derselben Sammlung sind nicht freigegeben.`n`n"
+    }
+    else { '' }
     $isoContent = $isoTemplate.
         Replace('{{VERSION}}', $source.Version).
-        Replace('{{LINK}}', $source.Link)
+        Replace('{{LINK}}', $source.Link).
+        Replace('{{SOURCE_LABEL}}', $source.SourceLabel).
+        Replace('{{DOWNLOAD_COMMAND}}', $source.DownloadCommand).
+        Replace('{{ARCHIVE_NOTE}}', $archiveNote)
     Add-MediaReadmeDefinition -RelativePath "WindowsServer/$($source.Version)/Eval/ISO/README.md" -Content $isoContent
 
+    if (-not $source.IncludeVhdx) { continue }
     $vhdxTemplate = @'
 # Windows Server {{VERSION}} Evaluation VHDX
 
