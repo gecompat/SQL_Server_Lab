@@ -71,6 +71,8 @@ try {
     Add-CheckResult -Name 'SetupComplete bootstrappt eine feste Lab-IP und Host-beschraenktes WinRM' -Success (
         $bootstrap -match "IPAddress='172\.28\.0\.42'" -and
         $bootstrap -match 'Enable-PSRemoting' -and
+        $bootstrap -match 'Get-ChildItem -LiteralPath WSMan:\\localhost\\Listener' -and
+        $bootstrap -match 'if \(-not \$winRmReady\) \{ Enable-PSRemoting' -and
         $bootstrap -match "RemoteAddress '172\.28\.0\.1'" -and
         $bootstrap -match 'Set-Content[\s\S]+-Encoding UTF8' -and
         $bootstrap -notmatch 'utf8NoBOM' -and
