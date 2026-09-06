@@ -122,6 +122,7 @@ Backup-SqlServerLabDatabase           # Verifiziertes Backup in Lab_Data veröff
 Restore-SqlServerLabDatabase          # Datenbank aus .bak wiederherstellen
 Invoke-SqlServerLabScript             # T-SQL-Skript ausfuehren
 Invoke-SqlServerLabAiScenario          # Deklariertes hashgebundenes SQL-KI-Szenario journalisiert ausfuehren
+Invoke-SqlServerLabAiModel             # Katalogisiertes Ollama-Cloud-Modell kontrolliert aufrufen
 Test-SqlServerLabContainerTool         # Kataloggebundenes SqlPackage read-only pruefen
 Get-SqlServerLabGeneratedSqlAccess      # Hyper-V-Generierte SQL-Accessdaten (ConnectionString/Passwort) abrufen
 New-SqlServerLabWindowsSlotPool         # N Windows-Slots mit unbeaufsichtigter OOBE erstellen/fortsetzen

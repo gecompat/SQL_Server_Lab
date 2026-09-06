@@ -39,6 +39,7 @@ sources_of_truth:
   ai_runtime_journal_schema: Schemas/ai-runtime-journal.schema.json
   ai_query_result_schema: Schemas/ai-query-result.schema.json
   validation_ai_scenario: Tests/Static/Invoke-AiScenarioChecks.ps1
+  validation_ai_ollama_cloud: Tests/Integration/Invoke-AiOllamaCloudAcceptance.ps1
   license_profile_contract: Private/LicenseProfile.ps1
   license_profile_schema: Schemas/license-profile.schema.json
   validation_license_profile: Tests/Static/Invoke-LicenseProfileChecks.ps1
