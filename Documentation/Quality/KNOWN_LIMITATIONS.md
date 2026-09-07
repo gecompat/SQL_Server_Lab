@@ -181,6 +181,9 @@ dokumentierten SQL-Versionen belegt. Für SQL Server 2000/2005 gefundene
 Community-Scans werden nur nach `-AllowCommunityScan` unter `Incoming`
 geladen. Auch nach erfolgreicher Struktur- und Lizenzprüfung bleiben sie als
 `COMMUNITY_UNVERIFIED` gekennzeichnet und dürfen nur isoliert getestet werden.
+SQL Server 2005 ist mit dem ausdrücklich vom Benutzer freigegebenen Medium
+inzwischen auf einem Windows-Server-2003-Child real bis `TESTS_PASSED`
+abgenommen; SQL Server 2000 besitzt noch keinen entsprechenden Lauf.
 SQL Server 2008 RTM ist als exakt CDX- und hashgebundene Wayback-Aufnahme des
 früheren Microsoft-Evaluation-ISOs verfügbar; SQL Server 2008 R2 als gültig von
 Microsoft signiertes x64-Evaluation-SFX. Die frühere 2008-R2-x86-Datei und die
@@ -202,7 +205,11 @@ installierte Engine 12.0.6024.0 über denselben Create-/Backup-/Restore-Vertrag.
 SQL Server 2008 R2 Express SP2 und SQL Server 2008 Express SP3 sind auf Windows
 Server 2008 R2 über den getrennten PowerShell-2-kompatiblen WMI-/SMB-Kanal
 ebenfalls real bis `TESTS_PASSED` belegt (Engines 10.50.4000.0 und
-10.0.5500.0). Andere SQL-2014-Editionen sowie SQL Server 2005 und älter bleiben
+10.0.5500.0). SQL Server 2005 Enterprise Evaluation ist auf Windows Server
+2003 SP2 ebenfalls real belegt (Engine 9.00.1399.06). Der NT5-Pfad staged den
+lokalen Setup-/Acceptance-Job offline ohne Host-Laufwerksbuchstaben, startet
+ihn authentifiziert über Legacy-WMI und verwendet für Setup-Neustarts einen
+lokalen ONSTART-Task. Andere SQL-2014-Editionen sowie SQL Server 2000 bleiben
 bis zu einem entsprechenden realen Lauf nicht freigegeben.
 
 Windows Server 2003 SP2 besitzt einen getrennten experimentellen Legacy-Pfad.
@@ -217,6 +224,11 @@ Integration-Services-Automation unterstützen sie nicht. Ohne historische
 Integration Services kann VMConnect-Mauseingabe gespiegelt sein. Die Vorlage
 bleibt auf einen isolierten internen Switch und wegwerfbare Differencing-Klone
 beschränkt; Aktivierung und Mini-Setup erfolgen pro Klon.
+
+Der reale SQL-2005-Nachweis ändert diese Lizenzgrenze nicht: Der verwendete
+Child meldete weiterhin `OOB_GRACE`, `ActivationRequired=1` und war damit nur
+innerhalb seiner positiven Restlaufzeit verwendbar. Der SQL-Test ist kein
+Nachweis einer erfolgreichen Windows-Aktivierung.
 
 Das deutsche Layout der Windows-Server-2003-Anmeldemaske kann über
 authentifiziertes Gast-WMI reproduzierbar gesetzt werden. Voraussetzung für

@@ -18,6 +18,9 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $acceptancePath = Join-Path $repoRoot 'Private/HyperVSqlAcceptanceEnvironment.ps1'
 $legacyAcceptanceToolPath = Join-Path $repoRoot 'Tools/New-LegacySqlServerAcceptanceEnvironment.ps1'
+$nt5AcceptanceToolPath = Join-Path $repoRoot 'Tools/New-WindowsServer2003SqlAcceptanceEnvironment.ps1'
+$nt5ActivationToolPath = Join-Path $repoRoot 'Tools/Invoke-WindowsServer2003LegacyActivation.ps1'
+$nt5ChildToolPath = Join-Path $repoRoot 'Tools/New-WindowsServer2003LegacyChild.ps1'
 $menuPath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-sql-acceptance-$([guid]::NewGuid().ToString('N'))"
 $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
@@ -297,6 +300,53 @@ try {
         $legacyAcceptanceToolText -match 'windows-server-evaluation-media-validation\.json' -and
         $legacyAcceptanceToolText -match 'WINDOWS_FEATURE_SOURCE_CHANGED_REVERIFY_REQUIRED' -and
         $legacyAcceptanceToolText -match 'Add-VMDvdDrive[\s\S]+WindowsFeatureSource\.IsoPath'
+    )
+    $nt5AcceptanceToolText = Get-Content -LiteralPath $nt5AcceptanceToolPath -Raw -Encoding utf8
+    $nt5ActivationToolText = Get-Content -LiteralPath $nt5ActivationToolPath -Raw -Encoding utf8
+    $nt5ChildToolText = Get-Content -LiteralPath $nt5ChildToolPath -Raw -Encoding utf8
+    Add-CheckResult -Name 'SQL-2005-Abnahme staged offline und startet den lokalen Job gezielt über Legacy-WMI' -Success (
+        $nt5AcceptanceToolText -match 'function Set-Ws2003SqlOfflineJob' -and
+        $nt5AcceptanceToolText -match 'function Get-Ws2003SqlOfflineReceipt' -and
+        $nt5AcceptanceToolText -match 'SQL Server x86\\Servers\\setup\.exe' -and
+        $nt5AcceptanceToolText -match 'SQL Server\\90\\Tools\\Binn\\sqlcmd\.exe' -and
+        $nt5AcceptanceToolText -match 'SQLBROWSERACCOUNT="NT AUTHORITY\\SYSTEM"' -and
+        $nt5AcceptanceToolText -match "sqlCompletionServiceName='SqlLabCompleteV\d+'" -and
+        $nt5AcceptanceToolText -match "sqlResumeTaskName='SqlLabSql2005V\d+'" -and
+        $nt5AcceptanceToolText -match 'schtasks\.exe /Create /TN \$sqlResumeTaskName[\s\S]+/SC ONSTART /RU SYSTEM' -and
+        $nt5AcceptanceToolText -match 'sqlcmd\.exe" goto RUN_SQL_SETUP[\s\S]+sc\.exe query MSSQLSERVER' -and
+        $nt5AcceptanceToolText -match 'schtasks\.exe /Delete /TN \$sqlResumeTaskName' -and
+        $nt5AcceptanceToolText -match 'function Start-Ws2003SqlStagedJob' -and
+        $nt5AcceptanceToolText -match "ManagementPath\]::new\('Win32_Process'\)" -and
+        $nt5AcceptanceToolText -match 'Sql2005Acceptance\.cmd' -and
+        $nt5AcceptanceToolText -match 'Connect-HyperVLegacyWindowsWmiScope' -and
+        $nt5AcceptanceToolText -notmatch 'New-PSDrive' -and
+        $nt5AcceptanceToolText -notmatch 'Invoke-HyperVPowerShellDirect'
+    )
+    Add-CheckResult -Name 'Windows-Server-2003-Offlinezugriffe erzeugen keine Host-Laufwerksbuchstaben' -Success (
+        $nt5AcceptanceToolText -match 'Mount-VHD -Path \$Path -NoDriveLetter' -and
+        $nt5ActivationToolText -match 'Mount-VHD -Path \$Path -NoDriveLetter' -and
+        $nt5ChildToolText -match 'Mount-VHD -Path \$childVhdPath -NoDriveLetter' -and
+        $nt5AcceptanceToolText -match 'SqlServerLab-VhdMount-' -and
+        $nt5ActivationToolText -match 'SqlServerLab-VhdMount-' -and
+        $nt5ChildToolText -match 'SqlServerLab-VhdMount-' -and
+        $nt5AcceptanceToolText -match 'Remove-PartitionAccessPath[\s\S]+Dismount-VHD[\s\S]+Remove-Item' -and
+        $nt5ActivationToolText -match 'Remove-PartitionAccessPath[\s\S]+Dismount-VHD[\s\S]+Remove-Item' -and
+        $nt5ChildToolText -notmatch 'temporaryDriveLetter'
+    )
+    Add-CheckResult -Name 'Server-2003-/SQL-2005-Orchestrator ist hash-, Resume-, Grace- und Geheimnis-gebunden' -Success (
+        $nt5AcceptanceToolText -match "ValidateSet\('2005'\)" -and
+        $nt5AcceptanceToolText -match 'Start-Process -FilePath \$pwsh -Verb RunAs' -and
+        $nt5AcceptanceToolText -match 'COMMUNITY_UNVERIFIED_USER_APPROVED_FOR_LAB' -and
+        $nt5AcceptanceToolText -match 'Get-FileHash[\s\S]+MEDIA_INTEGRITY_MISMATCH' -and
+        $nt5AcceptanceToolText -match 'Test-Ws2003SqlFileBinding' -and
+        $nt5AcceptanceToolText -match "state='OOB_GRACE'" -and
+        $nt5AcceptanceToolText -match 'ActivationRequired' -and
+        $nt5AcceptanceToolText -match 'Activated=\$false' -and
+        $nt5AcceptanceToolText -match 'Reserve-LabHyperVNetworkAddress' -and
+        $nt5AcceptanceToolText -match 'Set-Ws2003SqlOfflineJob' -and
+        $nt5AcceptanceToolText -match 'Get-Ws2003SqlOfflineReceipt' -and
+        $nt5AcceptanceToolText -match 'setupContractVersion' -and
+        $nt5AcceptanceToolText -match 'CredentialDisclosed=\$false;PasswordDisclosed=\$false'
     )
     $menuText = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     Add-CheckResult -Name 'InvokeLab-Menue bietet Installation, Abnahmetest und Matrix' -Success (

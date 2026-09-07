@@ -211,7 +211,7 @@ try {
         $legacyChildToolText -match '\[RegionalSettings\]' -and
         $legacyChildToolText -match 'InputLocale=0407:00000407' -and
         $legacyChildToolText -match "InputLocale\s*=\s*'0407:00000407'" -and
-        $legacyChildToolText -match 'LogonKeyboardLayout\s*=\s*if \(\$ActivateOnline\)' -and
+        $legacyChildToolText -match "LogonKeyboardLayout\s*=\s*'00000407'" -and
         $legacyActivationToolText -match [regex]::Escape('.DEFAULT\Keyboard Layout\Preload')
     )
     Add-CheckResult -Name 'Windows-Server-2003-Evaluation-Aktivierung ist temporär, verifiziert und geheimnisfrei' -Success (
@@ -239,9 +239,19 @@ try {
         $legacyChildToolText -match '\[switch\]\s*\$ActivateOnline' -and
         $legacyChildToolText -match 'AdminPassword=' -and
         $legacyChildToolText -match 'EncryptedAdminPassword=No' -and
+        $legacyChildToolText -match 'AutoLogon=Yes' -and
+        $legacyChildToolText -match 'AutoLogonCount=1' -and
+        $legacyChildToolText -match '\[GuiRunOnce\]' -and
+        $legacyChildToolText -match 'FirstBoot\.cmd' -and
+        $legacyChildToolText -match 'Windows5\.x-HyperVIntegrationServices-x86\.msi' -and
+        $legacyChildToolText -match 'MiniSetupUnattended\s*=\s*\[bool\]\s*\$AdministratorCredential' -and
         $legacyChildToolText -match 'Invoke-WindowsServer2003LegacyActivation\.ps1' -and
         $legacyChildToolText -match 'ZeroFreeBSTR' -and
-        $legacyActivationToolText -match 'Connect-WindowsServer2003WmiScope'
+        $legacyActivationToolText -match 'Connect-WindowsServer2003WmiScope' -and
+        $legacyActivationToolText -match 'Msvm_Keyboard' -and
+        $legacyActivationToolText -match 'keyCode\s*=\s*\[uint32\]\s*0x0D' -and
+        $legacyActivationToolText -match 'MiniSetupEvaluationNoticeEnterCount' -and
+        $legacyActivationToolText -match 'Get-NetNeighbor'
     )
     $windowsServer2003IntegrationMedia = @($mediaCatalog | Where-Object {
         $_.Id -eq 'windows-server-2003-hyper-v-integration-services-iso'

@@ -12,6 +12,7 @@
 | [New-WindowsServer2003SysprepMedia.ps1](New-WindowsServer2003SysprepMedia.ps1) | Erzeugt aus dem hashgebundenen offiziellen SP2-x86-ISO ein schlüsselfreies AutoRun-Hilfsmedium für den Legacy-Sysprep-Reseal |
 | [New-WindowsServer2003LegacyChild.ps1](New-WindowsServer2003LegacyChild.ps1) | Erzeugt einen Generation-1-Child mit deutschem Login-Layout, automatisiert Mini-Setup und verifiziert den Aktivierungsversuch über eine temporäre NIC fail-closed |
 | [Invoke-WindowsServer2003LegacyActivation.ps1](Invoke-WindowsServer2003LegacyActivation.ps1) | Setzt das deutsche Login-Layout eines Server-2003-Childs und versucht optional die offizielle Gast-WMI-Aktivierung; die temporäre Internet-NIC wird stets entfernt |
+| [New-WindowsServer2003SqlAcceptanceEnvironment.ps1](New-WindowsServer2003SqlAcceptanceEnvironment.ps1) | Erstellt einen frischen Windows-Server-2003-Evaluation-Child innerhalb der Aktivierungs-Gnadenfrist, staged den lokalen SQL-2005-Job offline und startet bzw. beobachtet ihn über Legacy-WMI |
 | [Test-WindowsServer2003HyperVIntegrationMedia.ps1](Test-WindowsServer2003HyperVIntegrationMedia.ps1) | Prüft Hash, VMGUEST-Volume, Version und Microsoft-Signaturen der archivierten Hyper-V-Integrations-DVD für Server 2003 SP2 |
 | [New-LegacySqlServerAcceptanceEnvironment.ps1](New-LegacySqlServerAcceptanceEnvironment.ps1) | Erstellt oder übernimmt reale SQL-Server-2012-Evaluation- und SQL-Server-2014-Express-SP3-Abnahmeumgebungen auf der verifizierten Windows-Server-2012-R2-Vorlage und prüft Setup, Dienst, Version, Create, Backup und Restore |
 | [Invoke-SqlServerLabMaintenance.ps1](Invoke-SqlServerLabMaintenance.ps1) | Plant oder korrigiert State-/Runtime-Drift und bereinigt eng gebundene Lab-Artefakte deterministisch; geeignet für manuelle Aufrufe und Windows Task Scheduler |
@@ -45,6 +46,7 @@ Projektweit häufig zusätzlich genutzt:
 - `.\Tools\New-WindowsServer2003SysprepMedia.ps1 -ShowHelp`
 - `.\Tools\New-WindowsServer2003LegacyChild.ps1 -ShowHelp`
 - `.\Tools\Invoke-WindowsServer2003LegacyActivation.ps1 -ShowHelp`
+- `.\Tools\New-WindowsServer2003SqlAcceptanceEnvironment.ps1 -ShowHelp`
 - `.\Tools\Test-WindowsServer2003HyperVIntegrationMedia.ps1 -ShowHelp`
 - `.\Tools\New-LegacySqlServerAcceptanceEnvironment.ps1 -ShowHelp`
 - `.\Tools\Start-SqlServerLabUi.ps1 -ShowHelp`
