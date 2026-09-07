@@ -304,6 +304,45 @@ Add-ConsoleUiCheck 'Haupt- und Umgebungsmenue begruenden jeden deaktivierten Ein
     $mainMenuSource -match "ScreenId 'main-menu'[^\n]+F1/\?: Hilfe"
 )
 
+# CUI-022: Das Vorgangsmenue nutzt den reservierten Statusbereich fuer echten Fortschritt.
+$batchConsoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/BatchConsole.ps1') -Raw
+Add-ConsoleUiCheck 'Vorgangsmenue reserviert das Statusband und liefert laufenden Fortschritt' (
+    $batchConsoleSource -match "ScreenId 'queue-menu'[^\n]+-StatusHeight 5 -StatusProvider \`$statusProvider" -and
+    $batchConsoleSource -match '\$statusProvider = New-LabQueueStatusProvider -Height 5'
+)
+Add-ConsoleUiCheck 'Vorgangsmenue begruendet jeden deaktivierten Eintrag' (
+    ([regex]::Matches($batchConsoleSource, "New-LabConsoleItem -Id '(?:overview|gates|bulk-confirm|priority|move|pause|stop|batch-stop|run)'[^\n]+-DisabledReason ")).Count -eq 9 -and
+    $batchConsoleSource -match 'Ein Batch im Status Draft erscheint hier nicht'
+)
+
+$statusClock = [datetime]'2026-09-07T12:00:00Z'
+$statusReads = 0
+$runningOperation = [PSCustomObject]@{
+    itemId='SQL2025latest'; status='Running'; progress=50; currentStep=1
+    startedAt=([datetime]'2026-09-07T11:58:00Z'); updatedAt=([datetime]'2026-09-07T11:59:50Z')
+    steps=@(
+        [PSCustomObject]@{ id='create-runtime'; title='Container erstellen'; status='Completed' }
+        [PSCustomObject]@{ id='complete'; title='Abschluss'; status='Running' }
+    )
+}
+$queueStatus = New-LabQueueStatusProvider -Height 5 -RefreshMilliseconds 1000 `
+    -OperationReader { $script:statusReads++; @($runningOperation, [PSCustomObject]@{ itemId='fertig'; status='Completed' }) } `
+    -Clock { $script:statusClock }
+$firstBand = & $queueStatus 0
+$null = & $queueStatus 1
+$null = & $queueStatus 2
+$readsBeforeAdvance = $script:statusReads
+$statusClock = $statusClock.AddSeconds(5)
+$null = & $queueStatus 3
+Add-ConsoleUiCheck 'Statuslieferant drosselt den State-Zugriff und liest erst nach Ablauf erneut' (
+    $readsBeforeAdvance -eq 1 -and $script:statusReads -eq 2
+)
+Add-ConsoleUiCheck 'Statusband der Queue zeigt nur laufende Vorgaenge in fester Zeilenzahl' (
+    $firstBand.Count -eq 5 -and $firstBand[0] -match 'SQL2025latest' -and
+    @($firstBand | Where-Object { $_ -match 'fertig' }).Count -eq 0 -and
+    $firstBand[0] -match '50%' -and $firstBand[1] -match 'Schritt 2/2'
+)
+
 $items = @(
     New-LabConsoleItem -Id 'one' -Label 'One' -Shortcut '1'
     New-LabConsoleItem -Id 'two' -Label 'Two' -Shortcut '2'
