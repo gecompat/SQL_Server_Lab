@@ -1515,13 +1515,23 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Konsolen-Statusbereich und Meldungen
 
-Der reservierte Statusbereich (`CUI-022`) hält Menüzeilen stabil, solange die
-Ausgabe über den gemeinsamen Renderer läuft. Docker- und Podman-Ausgaben werden
-derzeit noch direkt auf die Konsole geschrieben und nicht in ein Run-Log
-umgeleitet (`CUI-025` ist offen). Während eines Image-Pulls oder eines langen
-Providerlaufs kann diese Fremdausgabe den Rahmen daher weiterhin verschieben.
-Bis zur Umsetzung von `CUI-025` ist der Statusbereich nur für Bildschirme
-verlässlich, die keine unmittelbare Provider-Fremdausgabe erzeugen.
+Der reservierte Statusbereich (`CUI-022`) hält Menüzeilen stabil. Eine Prüfung
+aller Docker-, Podman- und Hyper-V-Aufrufe am 2026-09-07 hat ergeben, dass
+**keine** Provider-Ausgabe direkt auf die Konsole geschrieben wird: jeder
+externe Aufruf wird entweder in eine Variable gefangen (`2>&1` mit Zuweisung)
+oder unterdrückt (`| Out-Null`, `1>$null 2>$null`). Es gibt insbesondere keinen
+`docker pull`- oder `podman pull`-Aufruf, der Fortschritt streamt. Der
+Rahmenaufbau ist dadurch nicht durch Fremdausgabe gefährdet.
+
+Die tatsächliche offene Lücke (`CUI-025`) ist eine andere: Provider-Ausgabe
+wird **nicht persistiert**. Bei Erfolg wird sie verworfen, bei Fehlschlag
+erscheint sie nur in der Ausnahmemeldung. Unter `runs/<RunId>/` liegt keine
+Logdatei, und es existiert kein gemeinsamer Wrapper für externe Aufrufe. Eine
+nachträgliche Diagnose eines erfolgreichen, aber auffälligen Laufs ist damit
+nicht möglich.
+
+Das Statusband ist bisher nur im Vorgangsmenü (`queue-menu`) aktiviert. Alle
+übrigen Bildschirme deklarieren keine Bandhöhe und verhalten sich unverändert.
 
 Das Meldungsjournal (`CUI-023`) hält die letzten 2000 Meldungen im Speicher und
 schreibt zusätzlich `<StateRoot>/session/<SessionId>/messages.jsonl`. Ist kein

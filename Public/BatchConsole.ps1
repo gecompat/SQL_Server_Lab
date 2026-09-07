@@ -363,26 +363,66 @@ function Get-LabQueueMenuAvailability {
     }
 }
 
+function New-LabQueueStatusProvider {
+    <#
+    .SYNOPSIS Liefert den gedrosselten Fortschrittslieferanten fuer das Statusband der Queue.
+    .DESCRIPTION Die Queue-Projektion fuehrt keine Schritt- und Laufzeitfelder,
+    deshalb werden die laufenden Operationen direkt gelesen. Der Lesevorgang ist
+    gedrosselt, damit der Heartbeat den State-Store nicht bei jedem Tick belastet.
+    #>
+    [CmdletBinding()]
+    param(
+        [ValidateRange(1, 50)][int]$Height = 5,
+        [ValidateRange(200, 10000)][int]$RefreshMilliseconds = 1000,
+        [ValidateRange(0, 1000)][int]$Width = 0,
+        [AllowNull()][scriptblock]$OperationReader,
+        [AllowNull()][scriptblock]$Clock
+    )
+
+    $reader = if ($OperationReader) { $OperationReader } else { { @(Get-SqlServerLabOperation) } }
+    $now = if ($Clock) { $Clock } else { { [datetime]::UtcNow } }
+    $fixedWidth = $Width
+    $cache = [PSCustomObject]@{ Running = @(); LastRead = [datetime]::MinValue; Reads = 0 }
+    return {
+        param($Tick)
+        $current = & $now
+        if (($current - $cache.LastRead).TotalMilliseconds -ge $RefreshMilliseconds) {
+            try {
+                $cache.Running = @((& $reader) | Where-Object { [string]$_.status -eq 'Running' })
+                $cache.Reads++
+            }
+            catch { }
+            $cache.LastRead = $current
+        }
+        # Ein Host ohne echte Fenstergroesse meldet 0; dann gilt eine tragfaehige Vorgabe.
+        $bandWidth = 78
+        if ($fixedWidth -gt 20) { $bandWidth = $fixedWidth }
+        else { try { $detected = [int][Console]::WindowWidth; if ($detected -gt 20) { $bandWidth = $detected - 1 } } catch { } }
+        Get-LabConsoleStatusBand -Operation @($cache.Running) -Tick $Tick -Width $bandWidth -Height $Height -Now $current
+    }.GetNewClosure()
+}
+
 function Invoke-LabQueueInteractive {
     [CmdletBinding()]
     param()
 
+    $statusProvider = New-LabQueueStatusProvider -Height 5
     while ($true) {
         $queue = Get-SqlServerLabQueue
         $batches = @(Get-SqlServerLabBatch)
         $availability = Get-LabQueueMenuAvailability -Queue $queue -Batches $batches
         $subtitle = "$($queue.runningWorkers)/$($queue.maxWorkers) Worker · $($queue.waitingUserGates) User-Gates · Queue $($queue.length)"
-        $choice = Invoke-LabConsoleMenu -ScreenId 'queue-menu' -Title 'Vorgaenge, Queue und Benutzeraktionen' -Subtitle $subtitle -Items @(
-            New-LabConsoleItem -Id 'overview' -Label 'Queue-Uebersicht und Details' -Value $subtitle -Shortcut '1' -Disabled:(-not $availability.HasOverview)
-            New-LabConsoleItem -Id 'gates' -Label 'Benutzeraktionen oeffnen' -Value 'Schritte werden immer vollstaendig angezeigt' -Shortcut '2' -Disabled:(-not $availability.HasUserGates)
-            New-LabConsoleItem -Id 'bulk-confirm' -Label 'Vermutlich erledigte Positionen auswaehlen, pruefen und fortsetzen' -Shortcut '3' -Disabled:(-not $availability.HasCandidates)
-            New-LabConsoleItem -Id 'priority' -Label 'Prioritaet aendern' -Value 'Mindestens zwei noch nicht laufende Vorgaenge' -Shortcut '4' -Disabled:(-not $availability.CanChangePriority)
-            New-LabConsoleItem -Id 'move' -Label 'Wartenden Vorgang umreihen' -Value 'Mindestens zwei Vorgaenge derselben Prioritaet' -Shortcut '5' -Disabled:(-not $availability.CanMove)
-            New-LabConsoleItem -Id 'pause' -Label 'Vorgang pausieren oder freigeben' -Shortcut '6' -Disabled:(-not $availability.CanPauseOrResume)
-            New-LabConsoleItem -Id 'stop' -Label 'Vorgang endgueltig stoppen und aufraeumen' -Shortcut '7' -Disabled:(-not $availability.CanStopOperation)
-            New-LabConsoleItem -Id 'batch-stop' -Label 'Batch stoppen oder vollstaendig zurueckbauen' -Shortcut '8' -Disabled:(-not $availability.CanStopBatch)
+        $choice = Invoke-LabConsoleMenu -ScreenId 'queue-menu' -Title 'Vorgaenge, Queue und Benutzeraktionen' -Subtitle $subtitle -StatusHeight 5 -StatusProvider $statusProvider -Items @(
+            New-LabConsoleItem -Id 'overview' -Label 'Queue-Uebersicht und Details' -Value $subtitle -Shortcut '1' -Disabled:(-not $availability.HasOverview) -DisabledReason 'Die Queue enthaelt derzeit keinen Vorgang.'
+            New-LabConsoleItem -Id 'gates' -Label 'Benutzeraktionen oeffnen' -Value 'Schritte werden immer vollstaendig angezeigt' -Shortcut '2' -Disabled:(-not $availability.HasUserGates) -DisabledReason 'Kein Vorgang wartet auf eine Benutzerbestaetigung.'
+            New-LabConsoleItem -Id 'bulk-confirm' -Label 'Vermutlich erledigte Positionen auswaehlen, pruefen und fortsetzen' -Shortcut '3' -Disabled:(-not $availability.HasCandidates) -DisabledReason 'Kein Vorgang steht im Status CandidateSatisfied.'
+            New-LabConsoleItem -Id 'priority' -Label 'Prioritaet aendern' -Value 'Mindestens zwei noch nicht laufende Vorgaenge' -Shortcut '4' -Disabled:(-not $availability.CanChangePriority) -DisabledReason 'Eine Priorisierung wirkt erst ab zwei noch nicht laufenden Vorgaengen.'
+            New-LabConsoleItem -Id 'move' -Label 'Wartenden Vorgang umreihen' -Value 'Mindestens zwei Vorgaenge derselben Prioritaet' -Shortcut '5' -Disabled:(-not $availability.CanMove) -DisabledReason 'Umreihen wirkt erst ab zwei wartenden Vorgaengen derselben Prioritaet.'
+            New-LabConsoleItem -Id 'pause' -Label 'Vorgang pausieren oder freigeben' -Shortcut '6' -Disabled:(-not $availability.CanPauseOrResume) -DisabledReason 'Kein Vorgang ist wartend, blockiert oder pausiert.'
+            New-LabConsoleItem -Id 'stop' -Label 'Vorgang endgueltig stoppen und aufraeumen' -Shortcut '7' -Disabled:(-not $availability.CanStopOperation) -DisabledReason 'Die Queue enthaelt derzeit keinen Vorgang, der gestoppt werden koennte.'
+            New-LabConsoleItem -Id 'batch-stop' -Label 'Batch stoppen oder vollstaendig zurueckbauen' -Shortcut '8' -Disabled:(-not $availability.CanStopBatch) -DisabledReason 'Es existiert kein aktiver Batch.'
             New-LabConsoleItem -Id 'quiet' -Label 'Ton und Ruhemodus' -Value 'Globale Einstellung, auch fuer kuenftige Vorgaenge' -Shortcut '9'
-            New-LabConsoleItem -Id 'run' -Label 'Scheduler jetzt ausfuehren' -Value '2 Worker · 1 HyperVHeavy' -Shortcut 'r' -Disabled:(-not $availability.CanRunScheduler)
+            New-LabConsoleItem -Id 'run' -Label 'Scheduler jetzt ausfuehren' -Value '2 Worker · 1 HyperVHeavy' -Shortcut 'r' -Disabled:(-not $availability.CanRunScheduler) -DisabledReason 'Die Queue enthaelt keinen Vorgang. Ein Batch im Status Draft erscheint hier nicht; er muss zuvor uebergeben werden.'
             New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
         )
         if ($choice.Status -ne 'Selected' -or $choice.SelectedItem.Id -eq 'back') { return }

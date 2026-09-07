@@ -246,7 +246,7 @@ automatische Medienbeschaffung, Slot-Erzeugung oder sonstige Mutation auslösen.
 | `CUI-022` | reservierter Statusbereich mit Fortschritt und Heartbeat | `IMPLEMENTED` - feste Bandhöhe, Live-Aktualisierung ausschließlich der reservierten Zeilen, Stillstandserkennung, ASCII-Fallback ohne UTF-8-Konsole |
 | `CUI-023` | Meldungen überleben Neuzeichnen und bleiben kopierbar | `IMPLEMENTED` - Journal `SqlServerLab.Message/1.0`, stabile MessageId, Secret-Scrubbing, Persistenzblock mit Neuverankerung des Rahmens |
 | `CUI-024` | Kontexthilfe je `ScreenId` und Begründung deaktivierter Einträge | `IMPLEMENTED_VERTICAL_SLICE` - Hilfekatalog mit live geprüften Voraussetzungen, `F1`/`?`-Overlay, Begründungen im Haupt- und Umgebungsmenü |
-| `CUI-025` | Provider-Ausgabe in Run-Logs statt auf die Konsole | `PLANNED` - noch nicht umgesetzt |
+| `CUI-025` | Provider-Ausgabe für die Diagnose in Run-Logs persistieren | `PLANNED` - Ausgabe wird heute gefangen, aber bei Erfolg verworfen; kein Run-Log, kein gemeinsamer Aufruf-Wrapper |
 
 Die Migration erfolgt vertikal. Ein migriertes Menü verwendet vollständig die
 gemeinsame Schicht; neue parallele Cursorimplementierungen sind nicht zulässig.
@@ -262,6 +262,11 @@ Bestimmbarer Fortschritt entsteht aus `steps`, `currentStep` und `progress`
 einer Operation. Fehlt er, belegt ein Heartbeat mit Laufzeit und
 Versuchszähler die Lebendigkeit; bleibt `updatedAt` unverändert, wird der
 Stillstand benannt statt weiter gedreht.
+
+Aktiviert ist das Band bisher im Vorgangsmenü (`queue-menu`). Weil die
+Queue-Projektion keine Schritt- und Laufzeitfelder führt, liest
+`New-LabQueueStatusProvider` die laufenden Operationen direkt und drosselt den
+Zugriff auf den State-Store auf einen Lesevorgang je Sekunde.
 
 Meldungen (`CUI-023`) sind Daten und keine Bildschirmausgabe. `Write-LabInfo`,
 `Write-LabSuccess`, `Write-LabWarning` und `Write-LabError` journalisieren
