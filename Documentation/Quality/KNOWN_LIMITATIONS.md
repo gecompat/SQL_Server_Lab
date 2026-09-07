@@ -1532,6 +1532,15 @@ Das Secret-Scrubbing entfernt Werte aus `SQL_SERVER_LAB_SECRET_*` sowie
 `SA_PASSWORD`-, `MSSQL_SA_PASSWORD`-, `PASSWORD`- und `PWD`-Zuweisungen; es ist
 keine allgemeine Erkennung beliebiger Geheimnisse.
 
+Die Kontexthilfe (`CUI-024`) ist kuratiert für den kritischen Pfad: Hauptmenü,
+Queue, Umgebungsverwaltung, Zielkonfiguration, Batch-Composer, Speicher,
+Datenbanken, Verbindungszentrale, Hyper-V und System. Alle übrigen Bildschirme
+liefern eine generische Auskunft mit Bildschirm-ID und Eintragsbezeichnung.
+Begründungen für deaktivierte Einträge sind bisher im Haupt- und im
+Umgebungsmenü hinterlegt; an den übrigen Bildschirmen weist die Hilfe die
+fehlende Begründung ausdrücklich als Lücke aus. Eine statische Pflicht zur
+Begründung aller deaktivierten Einträge besteht noch nicht.
+
 ## Priorisierte nächste technische Schritte
 
 1. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die

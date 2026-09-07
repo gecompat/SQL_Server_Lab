@@ -245,7 +245,7 @@ automatische Medienbeschaffung, Slot-Erzeugung oder sonstige Mutation auslösen.
 | `CUI-011` | Zustands-, Render-, Resize-, Fallback- und Recovery-Tests | `IMPLEMENTED` - deterministische Viewport-, Write-Plan-, Fallback-, Session-Recovery-, Formular- und Secret-Verträge |
 | `CUI-022` | reservierter Statusbereich mit Fortschritt und Heartbeat | `IMPLEMENTED` - feste Bandhöhe, Live-Aktualisierung ausschließlich der reservierten Zeilen, Stillstandserkennung, ASCII-Fallback ohne UTF-8-Konsole |
 | `CUI-023` | Meldungen überleben Neuzeichnen und bleiben kopierbar | `IMPLEMENTED` - Journal `SqlServerLab.Message/1.0`, stabile MessageId, Secret-Scrubbing, Persistenzblock mit Neuverankerung des Rahmens |
-| `CUI-024` | Kontexthilfe je `ScreenId` und Begründung deaktivierter Einträge | `PLANNED` - noch nicht umgesetzt |
+| `CUI-024` | Kontexthilfe je `ScreenId` und Begründung deaktivierter Einträge | `IMPLEMENTED_VERTICAL_SLICE` - Hilfekatalog mit live geprüften Voraussetzungen, `F1`/`?`-Overlay, Begründungen im Haupt- und Umgebungsmenü |
 | `CUI-025` | Provider-Ausgabe in Run-Logs statt auf die Konsole | `PLANNED` - noch nicht umgesetzt |
 
 Die Migration erfolgt vertikal. Ein migriertes Menü verwendet vollständig die
@@ -272,8 +272,24 @@ und Anzeige entfernt. `Write-LabConsoleMessageBlock` schreibt eine Meldung in
 den normalen Scrollback und verankert den Rahmen darunter neu, sodass der Text
 terminaleigen markierbar und kopierbar bleibt.
 
-### 12.1 Nachaudit der manuellen Konsolenabnahme
+### 12.3 Kontexthilfe
 
+Die Hilfe (`CUI-024`) ist ein Datenkatalog je `ScreenId` in
+`Private/ConsoleHelp.ps1` und kein verstreuter Text im Ablaufcode. `F1` öffnet
+die Hilfe zum Bildschirm samt markiertem Eintrag, `?` tut dasselbe. Ein Topic
+nennt Zweck, Voraussetzungen, Folgewirkung, zu beachtende Randbedingungen und
+den äquivalenten Cmdlet-Aufruf.
+
+Voraussetzungen werden bei jedem Aufruf ausgewertet, damit die Hilfe zugleich
+Diagnose ist. Eine fehlerhafte Prüfung wird als nicht erfüllt mit Detailtext
+ausgewiesen und bricht die Hilfe nicht ab. Bildschirme ohne Katalogeintrag
+liefern eine ehrliche generische Auskunft statt eines Fehlers.
+
+Ein deaktivierter Eintrag nennt über `-DisabledReason` immer den konkreten
+Grund. Fehlt die Begründung, weist die Hilfe diese Lücke ausdrücklich aus,
+statt sie zu verschweigen.
+
+### 12.1 Nachaudit der manuellen Konsolenabnahme
 Die Nachaudit-Punkte `CUI-012` bis `CUI-020` sind seit 2026-08-29 umgesetzt.
 Storage, Connection Center/CMS, Ziel-, Patch-, CU-, Profil-, Build-, Medien-,
 Vorlagen-, Switch-, Quell-VM- und Fortsetzungslisten verwenden die gemeinsame

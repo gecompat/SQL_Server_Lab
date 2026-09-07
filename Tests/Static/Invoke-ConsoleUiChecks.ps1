@@ -6,6 +6,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'Private/Common.ps1')
 . (Join-Path $repoRoot 'Private/ConsoleUi.ps1')
+. (Join-Path $repoRoot 'Private/ConsoleHelp.ps1')
 . (Join-Path $repoRoot 'Public/BatchConsole.ps1')
 . (Join-Path $repoRoot 'Public/Sync-SqlServerLabConnectionCenter.ps1')
 
@@ -195,6 +196,112 @@ $blockingMenu = Invoke-LabConsoleMenu -ScreenId 'blocking' -Title 'Blockierend' 
     -SessionCompleter { }
 Add-ConsoleUiCheck 'Bildschirme ohne Statusband warten unveraendert blockierend ohne Polling' (
     $blockingMenu.Status -eq 'Selected' -and $blockingKeyReads -eq 1
+)
+
+# CUI-024: Kontexthilfe je ScreenId, live geprueft, mit Begruendung deaktivierter Eintraege.
+$helpCatalog = Get-LabConsoleHelpCatalog
+$criticalScreens = @('main-menu', 'queue-menu', 'environment-menu', 'environment-actions',
+    'sql-target-configuration', 'batch-composer', 'storage-menu', 'database-menu',
+    'connection-center', 'hyperv-menu', 'system-menu')
+Add-ConsoleUiCheck 'Alle Bildschirme des kritischen Pfads besitzen einen kuratierten Hilfeeintrag' (
+    @($criticalScreens | Where-Object { -not $helpCatalog.ContainsKey($_) }).Count -eq 0 -and
+    @($criticalScreens | Where-Object { -not $helpCatalog[$_].Purpose -or -not $helpCatalog[$_].Title }).Count -eq 0
+)
+
+$testCatalog = @{
+    'demo' = @{
+        Title = 'Demo'
+        Purpose = 'Bildschirmzweck.'
+        Effects = 'Folgewirkung.'
+        Command = 'New-SqlServerLab'
+        Related = @('Hinweis eins.')
+        Preconditions = @(
+            @{ Label = 'Erfuellt'; Test = { $true }; Fix = 'nichts zu tun' }
+            @{ Label = 'Offen'; Test = { $false }; Fix = 'Konkrete Abhilfe.' }
+            @{ Label = 'Fehlerhaft'; Test = { throw 'kaputt' }; Fix = 'Trotzdem sichtbar.' }
+        )
+        Items = @{ 'a' = @{ Purpose = 'Eintragszweck.'; Command = 'Get-SqlServerLabQueue' } }
+    }
+}
+$screenTopic = Get-LabConsoleHelpTopic -ScreenId 'demo' -Catalog $testCatalog
+$itemTopic = Get-LabConsoleHelpTopic -ScreenId 'demo' -Item (New-LabConsoleItem -Id 'a' -Label 'Alpha') -Catalog $testCatalog
+Add-ConsoleUiCheck 'Hilfe unterscheidet Bildschirm- und Eintragszweck' (
+    $screenTopic.Purpose -eq 'Bildschirmzweck.' -and $itemTopic.Purpose -eq 'Eintragszweck.' -and
+    $itemTopic.Command -eq 'Get-SqlServerLabQueue' -and $itemTopic.Effects -eq 'Folgewirkung.'
+)
+Add-ConsoleUiCheck 'Voraussetzungen werden live ausgewertet und scheitern nicht an einer defekten Pruefung' (
+    @($screenTopic.Preconditions).Count -eq 3 -and
+    $screenTopic.Preconditions[0].Ok -and -not $screenTopic.Preconditions[1].Ok -and
+    -not $screenTopic.Preconditions[2].Ok -and $screenTopic.Preconditions[2].Detail -match 'kaputt'
+)
+
+$disabledWithReason = Get-LabConsoleHelpTopic -ScreenId 'demo' -Catalog $testCatalog `
+    -Item (New-LabConsoleItem -Id 'x' -Label 'Hyper-V' -Disabled -DisabledReason 'Hyper-V ist auf diesem Host nicht aktiviert.')
+$disabledWithoutReason = Get-LabConsoleHelpTopic -ScreenId 'demo' -Catalog $testCatalog `
+    -Item (New-LabConsoleItem -Id 'y' -Label 'Ohne Grund' -Disabled)
+Add-ConsoleUiCheck 'Deaktivierte Eintraege nennen immer einen Grund oder weisen die Luecke aus' (
+    $disabledWithReason.DisabledReason -eq 'Hyper-V ist auf diesem Host nicht aktiviert.' -and
+    $disabledWithoutReason.DisabledReason -match 'noch nicht hinterlegt'
+)
+
+$unknownTopic = Get-LabConsoleHelpTopic -ScreenId 'gibt-es-nicht' -Catalog $testCatalog
+Add-ConsoleUiCheck 'Unbekannte Bildschirme liefern eine ehrliche generische Auskunft statt eines Fehlers' (
+    -not $unknownTopic.Curated -and $unknownTopic.ScreenId -eq 'gibt-es-nicht' -and
+    $unknownTopic.Purpose -match 'noch keine Hilfe'
+)
+
+$helpText = Format-LabConsoleHelp -Topic $disabledWithReason -Width 70
+Add-ConsoleUiCheck 'Hilfetext nennt Grund, Zweck, offene Voraussetzung samt Abhilfe und Befehl' (
+    @($helpText | Where-Object { $_ -match 'Nicht verfuegbar, weil' }).Count -eq 1 -and
+    @($helpText | Where-Object { $_ -match 'Hyper-V ist auf diesem Host nicht aktiviert' }).Count -eq 1 -and
+    @($helpText | Where-Object { $_ -match '^\s+\[!\]\s+Offen' }).Count -eq 1 -and
+    @($helpText | Where-Object { $_ -match 'Abhilfe: Konkrete Abhilfe' }).Count -eq 1 -and
+    @($helpText | Where-Object { $_ -match 'New-SqlServerLab' }).Count -eq 1 -and
+    @($helpText | Where-Object { $_.Length -gt 70 }).Count -eq 0
+)
+
+$longTopic = Get-LabConsoleHelpTopic -ScreenId 'queue-menu' -Item (New-LabConsoleItem -Id 'run' -Label 'Scheduler')
+$wrappedHelp = Format-LabConsoleHelp -Topic $longTopic -Width 60
+Add-ConsoleUiCheck 'Lange Hilfetexte werden umgebrochen statt abgeschnitten' (
+    @($wrappedHelp | Where-Object { $_ -match '\.\.\.$' }).Count -eq 0 -and
+    @($wrappedHelp | Where-Object { $_.Length -gt 60 }).Count -eq 0 -and
+    ($wrappedHelp -join ' ') -match 'SQL_SERVER_LAB_SECRET_\*-Prozessvariable'
+)
+
+$helpFrames = [System.Collections.Generic.List[object]]::new()
+$helpMenuKeys = [System.Collections.Generic.Queue[object]]::new()
+@(
+    [PSCustomObject]@{ Key='F1'; KeyChar=[char]0; Modifiers=0 }
+    [PSCustomObject]@{ Key='Spacebar'; KeyChar=' '; Modifiers=0 }
+    [PSCustomObject]@{ Key='Enter'; KeyChar=[char]13; Modifiers=0 }
+) | ForEach-Object { $helpMenuKeys.Enqueue($_) }
+$helpMenu = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'Hauptmenue' -Items @(
+    New-LabConsoleItem -Id 'plan' -Label 'Mehrere Umgebungen planen' -Shortcut '1'
+) -Snapshot $null -Capability ([PSCustomObject]@{ Supported=$true; Mode='CURSOR'; Reasons=@() }) `
+    -ReadKey { $helpMenuKeys.Dequeue() } `
+    -FrameWriter { param($s, $f) $helpFrames.Add($f) } `
+    -GetViewport { [PSCustomObject]@{ Width=80; Height=24 } } `
+    -SessionFactory { [PSCustomObject]@{ OriginTop=0; PreviousLineCount=0; ForegroundColor='Gray' } } `
+    -SessionCompleter { }
+$helpOverlay = @($helpFrames | Where-Object { @($_.Lines | Where-Object { $_ -match '^Hilfe: ' }).Count -eq 1 })
+Add-ConsoleUiCheck 'F1 oeffnet die Kontexthilfe zum markierten Eintrag und kehrt danach ins Menue zurueck' (
+    $helpOverlay.Count -eq 1 -and
+    @($helpOverlay[0].Lines | Where-Object { $_ -match 'Eintrag Mehrere Umgebungen planen' }).Count -eq 1 -and
+    @($helpOverlay[0].Lines | Where-Object { $_ -match 'New-SqlServerLabBatch' }).Count -eq 1 -and
+    $helpMenu.Status -eq 'Selected' -and $helpMenu.SelectedItem.Id -eq 'plan'
+)
+Add-ConsoleUiCheck 'Hilfeoverlay behaelt die Rahmenhoehe und verschiebt das Menue nicht' (
+    $helpOverlay[0].Lines.Count -eq 24 -and $helpFrames[-1].Lines.Count -eq 24
+)
+Add-ConsoleUiCheck 'Fusszeile weist die Kontexthilfe aus' (
+    ([regex]::Matches($consoleUiSource, 'F1/\?: Hilfe')).Count -eq 2
+)
+$mainMenuSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw
+Add-ConsoleUiCheck 'Haupt- und Umgebungsmenue begruenden jeden deaktivierten Eintrag' (
+    $mainMenuSource -match "Id 'hyperv'[^\n]+-DisabledReason \`$hyperVDisabledReason" -and
+    $mainMenuSource -match 'Windows-Feature Hyper-V aktivieren' -and
+    ([regex]::Matches($mainMenuSource, "New-LabConsoleItem -Id '(?:Manage|Status|SyncRuntime|Stop|Start|Restart|Rename|Resources|Remove|ClearAutomatedTestEnvironment)'[^\n]+-DisabledReason ")).Count -eq 10 -and
+    $mainMenuSource -match "ScreenId 'main-menu'[^\n]+F1/\?: Hilfe"
 )
 
 $items = @(
@@ -474,6 +581,7 @@ Add-ConsoleUiCheck 'Verbindungszentrale durchläuft jede Ausgabeaktion mit einer
 )
 
 $consoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ConsoleUi.ps1') -Raw
+$consoleHelpSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ConsoleHelp.ps1') -Raw
 $containerSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Update-SqlServerLabContainer.ps1') -Raw
 $entryScriptPath = Join-Path $repoRoot 'Invoke-SqlServerLab.ps1'
 $publicEntryPath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
@@ -498,6 +606,7 @@ Add-ConsoleUiCheck 'Alle Console-Key-Loops reichen Ctrl+C als PipelineStoppedExc
     ([regex]::Matches($consoleSource, 'Assert-LabConsoleKeyNotInterrupted -Key \$key')).Count -eq 4 -and
     ([regex]::Matches($consoleSource, '\$key = (?:Read-LabConsoleKey -ReadKey \$ReadKey|Wait-LabConsoleKey )')).Count -eq 4 -and
     $consoleSource -match 'function Wait-LabConsoleKey[\s\S]+?Read-LabConsoleKey -ReadKey \$ReadKey' -and
+    $consoleHelpSource -match 'Read-LabConsoleKey -ReadKey \$ReadKey[\s\S]{0,120}Assert-LabConsoleKeyNotInterrupted -Key \$key' -and
     $consoleSource -match '\[Console\]::TreatControlCAsInput = \$true' -and
     $consoleSource -match '\[Console\]::TreatControlCAsInput = \$previousTreatControlCAsInput' -and
     $consoleSource -match 'throw \[Management\.Automation\.PipelineStoppedException\]::new\(\)' -and
