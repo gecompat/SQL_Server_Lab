@@ -183,6 +183,8 @@ function New-LabConsoleItem {
         [AllowEmptyString()][string]$Shortcut = '',
         [string[]]$Aliases = @(),
         [switch]$Disabled,
+        [AllowEmptyString()][string]$DisabledReason = '',
+        [AllowEmptyString()][string]$Help = '',
         [AllowNull()][object]$Data
     )
 
@@ -193,6 +195,8 @@ function New-LabConsoleItem {
         Shortcut = $Shortcut
         Aliases = @($Aliases)
         Disabled = $Disabled.IsPresent
+        DisabledReason = $DisabledReason
+        Help = $Help
         Data = $Data
     }
 }
@@ -394,7 +398,7 @@ function Get-LabConsoleFrame {
         [Parameter(Mandatory)][object]$State,
         [Parameter(Mandatory)][string]$Title,
         [string]$Subtitle = '',
-        [string]$Footer = 'Pfeile: Navigation  Enter: Auswahl  Esc: Zurueck  F5: Aktualisieren',
+        [string]$Footer = 'Pfeile: Navigation  Enter: Auswahl  F1/?: Hilfe  Esc: Zurueck  F5: Aktualisieren',
         [AllowEmptyCollection()][string[]]$Status = @(),
         [ValidateRange(0, 50)][int]$StatusHeight = -1,
         [ValidateRange(20, 1000)][int]$Width = 80,
@@ -836,7 +840,7 @@ function Invoke-LabConsoleMenu {
         [Parameter(Mandatory)][string]$Title,
         [Parameter(Mandatory)][object[]]$Items,
         [string]$Subtitle = '',
-        [string]$Footer = 'Pfeile: Navigation  Enter: Auswahl  Esc: Zurueck  F5: Aktualisieren',
+        [string]$Footer = 'Pfeile: Navigation  Enter: Auswahl  F1/?: Hilfe  Esc: Zurueck  F5: Aktualisieren',
         [string]$SelectedId,
         [AllowNull()][object]$Snapshot,
         [string]$FallbackPrompt = '  Auswahl',
@@ -943,7 +947,21 @@ function Invoke-LabConsoleMenu {
                     return [PSCustomObject]@{ Status='Refresh'; SelectedItem=$null; State=$state }
                 }
                 'F10' { return [PSCustomObject]@{ Status='Review'; SelectedItem=$null; State=$state } }
+                'F1' {
+                    $numericShortcutBuffer = ''
+                    $helpItem = if ($state.SelectedIndex -ge 0) { $state.Items[$state.SelectedIndex] } else { $null }
+                    $null = Show-LabConsoleHelp -Session $session -Topic (Get-LabConsoleHelpTopic -ScreenId $ScreenId -Item $helpItem) `
+                        -Width $width -Height $height -ReadKey $ReadKey -FrameWriter $FrameWriter
+                    continue
+                }
                 default {
+                    if ($keyCharacter -eq '?') {
+                        $numericShortcutBuffer = ''
+                        $helpItem = if ($state.SelectedIndex -ge 0) { $state.Items[$state.SelectedIndex] } else { $null }
+                        $null = Show-LabConsoleHelp -Session $session -Topic (Get-LabConsoleHelpTopic -ScreenId $ScreenId -Item $helpItem) `
+                            -Width $width -Height $height -ReadKey $ReadKey -FrameWriter $FrameWriter
+                        continue
+                    }
                     if ($keyCharacter -match '^\d$') {
                         $numericShortcutBuffer += $keyCharacter
                         $numericResolution = Resolve-LabConsoleNumericShortcut -Items $state.Items -Buffer $numericShortcutBuffer
