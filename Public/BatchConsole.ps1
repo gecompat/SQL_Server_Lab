@@ -458,7 +458,22 @@ function Invoke-LabQueueInteractive {
             'stop' { $operation = Select-LabQueueOperationInteractive; if ($null -ne $operation) { Stop-SqlServerLabOperation -OperationId $operation.operationId -Cleanup -Confirm | Out-Null } }
             'batch-stop' { Invoke-LabBatchStopInteractive }
             'quiet' { $q = Invoke-LabConsoleMenu -ScreenId 'queue-quiet' -Title 'Ruhemodus' -Items @(New-LabConsoleItem -Id Off -Label 'Ruhemodus aufheben' -Shortcut 1; New-LabConsoleItem -Id OneHour -Label 'Eine Stunde Ruhe' -Shortcut 2; New-LabConsoleItem -Id EightHours -Label 'Acht Stunden Ruhe' -Shortcut 3; New-LabConsoleItem -Id Indefinite -Label 'Bis zur Aufhebung stummschalten' -Shortcut 4); if ($q.Status -eq 'Selected') { Set-SqlServerLabAttention -QuietMode $q.SelectedItem.Id | Out-Null } }
-            'run' { Invoke-SqlServerLabScheduler -UntilIdle | Out-Null }
+            'run' {
+                $started = @(Invoke-SqlServerLabScheduler -UntilIdle)
+                if ($started.Count -gt 0) {
+                    Write-LabSuccess "Scheduler hat $($started.Count) Vorgang/Vorgaenge ausgefuehrt."
+                }
+                else {
+                    # Ohne diesen Hinweis kehrt der Menuepunkt wortlos zurueck und der Grund bleibt unsichtbar.
+                    $blocked = @((Get-SqlServerLabQueue).items | Where-Object { $_.blockedReason })
+                    if ($blocked.Count -eq 0) { Write-LabInfo 'Kein Vorgang war startbereit.' }
+                    else {
+                        Write-LabWarning "Kein Vorgang wurde gestartet. $($blocked.Count) Vorgang/Vorgaenge sind blockiert:"
+                        foreach ($item in $blocked | Select-Object -First 5) { Write-LabStatus -Label $item.itemId -Value $item.blockedReason }
+                    }
+                }
+                Wait-LabConsoleAcknowledgement
+            }
         }
     }
 }
