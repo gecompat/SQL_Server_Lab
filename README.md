@@ -170,7 +170,7 @@ Invoke-SqlServerLab -Action Setup
 ```
 
 Anzugeben sind die vollständigen, frei wählbaren gemeinsamen Root-Pfade, etwa
-`D:\Lab1_Base` und `D:\Lab1_Data`. Bei mehreren Daten-Volumes wird der globale
+`D:\Lab_Base` und `D:\Lab_Data`. Bei mehreren Daten-Volumes wird der globale
 Standard ausdrücklich gewählt. Bereits gültige Einstellungen werden nicht
 erneut abgefragt, vorhandene Roots und Dateien nicht überschrieben.
 
