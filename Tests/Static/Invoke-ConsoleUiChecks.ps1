@@ -33,6 +33,170 @@ Add-ConsoleUiCheck 'Diagnostischer ConsoleMode erzwingt Fallback ohne Host-Raten
 $ctrlCKey = [PSCustomObject]@{ Key='C'; KeyChar=[char]3; Modifiers=[ConsoleModifiers]::Control }
 Add-ConsoleUiCheck 'Ctrl+C wird als globaler Pipeline-Interrupt erkannt' (Test-LabConsoleInterruptKey -Key $ctrlCKey)
 
+# CUI-023: Meldungen sind Daten. Ein Neuzeichnen darf keine Warnung oder Fehlermeldung vernichten.
+$previousSecret = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_SECRET_CUI_TEST', 'Process')
+try {
+    [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_SECRET_CUI_TEST', 'Geheim_Kennwort_42', 'Process')
+    $errorOutput = @(& { Write-LabError 'LAB_MESSAGE_JOURNAL_TEST_CODE: Fehler mit Geheim_Kennwort_42 im Text.' } 6>&1) -join ''
+    $warningOutput = @(& { Write-LabWarning 'Verbindung nutzt SA_PASSWORD: hunter2' } 6>&1) -join ''
+    $errorRecord = @(Get-LabMessage -Severity Error)[-1]
+    $warningRecord = @(Get-LabMessage -Severity Warning)[-1]
+
+    Add-ConsoleUiCheck 'Fehler und Warnung landen mit stabiler MessageId im Meldungsjournal' (
+        $errorRecord.contract -eq 'SqlServerLab.Message/1.0' -and
+        $errorRecord.messageId -match '^E-[0-9a-f]{4}$' -and
+        $warningRecord.messageId -match '^W-[0-9a-f]{4}$' -and
+        $errorOutput -match [regex]::Escape($errorRecord.messageId) -and
+        $warningOutput -match [regex]::Escape($warningRecord.messageId)
+    )
+    Add-ConsoleUiCheck 'Fehlercode wird ohne Zusatzangabe aus der Meldung uebernommen' (
+        $errorRecord.code -eq 'LAB_MESSAGE_JOURNAL_TEST_CODE'
+    )
+    Add-ConsoleUiCheck 'Secrets werden vor Journal und Anzeige entfernt' (
+        $errorRecord.message -notmatch 'Geheim_Kennwort_42' -and $errorOutput -notmatch 'Geheim_Kennwort_42' -and
+        $warningRecord.message -notmatch 'hunter2' -and $warningOutput -notmatch 'hunter2' -and
+        $errorRecord.message -match '\*\*\*'
+    )
+    $report = Format-LabMessageReport -Message @($errorRecord)
+    Add-ConsoleUiCheck 'Meldungsbericht bleibt als Klartext kopierbar und nennt Code und Modulstand' (
+        $report -match [regex]::Escape($errorRecord.messageId) -and
+        $report -match 'LAB_MESSAGE_JOURNAL_TEST_CODE' -and
+        $report -match '(?m)^Modul\s' -and $report -notmatch 'Geheim_Kennwort_42'
+    )
+    Add-ConsoleUiCheck 'Meldung bleibt nach dem Rendern ueber die MessageId auffindbar' (
+        @(Get-LabMessage -MessageId $errorRecord.messageId).Count -eq 1
+    )
+
+    $blockSession = [PSCustomObject]@{ OriginTop=4; PreviousLineCount=7; ForegroundColor='Gray' }
+    $blockPlan = Get-LabConsolePersistentBlockPlan -Session $blockSession -Line @('kurz', 'zweite Zeile') -Width 20 -Height 25
+    Add-ConsoleUiCheck 'Persistenzblock loescht den Rahmen vollstaendig und bleibt in der Breite' (
+        $blockPlan.ClearRows -eq 7 -and $blockPlan.ClearText.Length -eq 19 -and
+        $blockPlan.Lines.Count -eq 2 -and @($blockPlan.Lines | Where-Object { $_.Length -gt 19 }).Count -eq 0
+    )
+    $shortSession = [PSCustomObject]@{ OriginTop=0; PreviousLineCount=40; ForegroundColor='Gray' }
+    $shortPlan = Get-LabConsolePersistentBlockPlan -Session $shortSession -Line @('x') -Width 20 -Height 10
+    Add-ConsoleUiCheck 'Persistenzblock loescht nie ueber den sichtbaren Bereich hinaus' ($shortPlan.ClearRows -eq 10)
+}
+finally { [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_SECRET_CUI_TEST', $previousSecret, 'Process') }
+
+$consoleUiSource = Get-Content (Join-Path $repoRoot 'Private/ConsoleUi.ps1') -Raw
+Add-ConsoleUiCheck 'Persistenzblock verankert den Rahmen unter der Ausgabe statt sie zu ueberschreiben' (
+    $consoleUiSource -match '\$Session\.OriginTop = \[Console\]::CursorTop' -and
+    $consoleUiSource -match 'Write-LabConsoleMessageBlock' -and
+    $consoleUiSource -match 'Format-LabMessageReport'
+)
+
+# CUI-022: Der Statusbereich hat feste Hoehe und darf das Menue nie verschieben.
+$bandState = New-LabConsoleState -ScreenId 'status-band' -Items @(
+    New-LabConsoleItem -Id 'a' -Label 'Alpha' -Shortcut '1'
+    New-LabConsoleItem -Id 'b' -Label 'Beta' -Shortcut '2'
+) -SelectedId 'a'
+$idleFrame = Get-LabConsoleFrame -State $bandState -Title 'Band' -Status @() -StatusHeight 3 -Width 60 -Height 14
+$busyFrame = Get-LabConsoleFrame -State $bandState -Title 'Band' -Status @('erste', 'zweite') -StatusHeight 3 -Width 60 -Height 14
+Add-ConsoleUiCheck 'Statusband bleibt auch leer reserviert und haelt den Viewport konstant' (
+    $idleFrame.StatusHeight -eq 3 -and $busyFrame.StatusHeight -eq 3 -and
+    $idleFrame.Lines.Count -eq $busyFrame.Lines.Count -and
+    $idleFrame.ViewportHeight -eq $busyFrame.ViewportHeight
+)
+$idleMenuRows = @(0..($idleFrame.Lines.Count - 1) | Where-Object { $idleFrame.Lines[$_] -match 'Alpha' })
+$busyMenuRows = @(0..($busyFrame.Lines.Count - 1) | Where-Object { $busyFrame.Lines[$_] -match 'Alpha' })
+Add-ConsoleUiCheck 'Fortschrittsausgabe verschiebt keine Menuezeile und ueberschreibt keinen Eintrag' (
+    $idleMenuRows.Count -eq 1 -and $busyMenuRows.Count -eq 1 -and $idleMenuRows[0] -eq $busyMenuRows[0] -and
+    @($busyFrame.Lines | Where-Object { $_ -match '^erste' }).Count -eq 1
+)
+$noBandFrame = Get-LabConsoleFrame -State $bandState -Title 'Band' -Width 60 -Height 14
+Add-ConsoleUiCheck 'Bildschirme ohne Statusband behalten ihr bisheriges Layout' (
+    $noBandFrame.StatusHeight -eq 0 -and $noBandFrame.ViewportHeight -eq ($idleFrame.ViewportHeight + 3)
+)
+
+$determinateOperation = [PSCustomObject]@{
+    itemId='SQL2025latest'; progress=48; currentStep=1; startedAt=([datetime]'2026-09-07T12:00:00Z')
+    updatedAt=([datetime]'2026-09-07T12:01:10Z')
+    steps=@(
+        [PSCustomObject]@{ id='create-runtime'; title='Container erstellen'; status='Completed' }
+        [PSCustomObject]@{ id='wait'; title='Image laden'; status='Running' }
+        [PSCustomObject]@{ id='complete'; title='Abschluss'; status='Pending' }
+    )
+}
+$determinateStatus = Format-LabProgressStatus -Operation $determinateOperation -Width 78 -Now ([datetime]'2026-09-07T12:01:14Z')
+Add-ConsoleUiCheck 'Bestimmbarer Fortschritt zeigt Balken, Prozent und Schrittzaehler' (
+    $determinateStatus.Determinate -and -not $determinateStatus.Stalled -and
+    $determinateStatus.Lines[0] -match '\[.+\]\s+48%' -and $determinateStatus.Lines[0] -match 'Image laden' -and
+    $determinateStatus.Lines[1] -match 'Schritt 2/3' -and $determinateStatus.Lines[1] -match '01:14'
+)
+
+$indeterminateOperation = [PSCustomObject]@{
+    itemId='win2025-slot-1'; progress=[double]::NaN; currentStep=0
+    startedAt=([datetime]'2026-09-07T12:00:00Z'); updatedAt=([datetime]'2026-09-07T12:04:00Z')
+    steps=@([PSCustomObject]@{ id='setup'; title='Windows-Setup'; status='Running' })
+    probe=[PSCustomObject]@{ failures=5 }
+}
+$firstTick = Format-LabProgressStatus -Operation $indeterminateOperation -Tick 0 -Width 78 -Now ([datetime]'2026-09-07T12:04:52Z')
+$secondTick = Format-LabProgressStatus -Operation $indeterminateOperation -Tick 1 -Width 78 -Now ([datetime]'2026-09-07T12:04:52Z')
+Add-ConsoleUiCheck 'Unbestimmter Vorgang beweist Lebendigkeit ueber Heartbeat, Laufzeit und Versuchszaehler' (
+    -not $firstTick.Determinate -and $firstTick.Lines[0] -match '04:52' -and
+    $firstTick.Lines[0] -ne $secondTick.Lines[0] -and $firstTick.Lines[1] -match 'Versuch 6'
+)
+$stalledStatus = Format-LabProgressStatus -Operation $indeterminateOperation -Width 78 -Now ([datetime]'2026-09-07T12:12:00Z') -StalledAfterSeconds 300
+Add-ConsoleUiCheck 'Stillstand wird benannt statt endlos gedreht' (
+    $stalledStatus.Stalled -and $stalledStatus.Lines[1] -match 'keine Aenderung seit 08:00'
+)
+
+$emptyBand = Get-LabConsoleStatusBand -Operation @() -Width 78 -Height 3
+$filledBand = Get-LabConsoleStatusBand -Operation @($determinateOperation, $indeterminateOperation) -Width 78 -Height 3 -Now ([datetime]'2026-09-07T12:01:14Z')
+Add-ConsoleUiCheck 'Statusband liefert immer exakt die reservierte Zeilenzahl' (
+    $emptyBand.Count -eq 3 -and $filledBand.Count -eq 3 -and
+    $emptyBand[0] -match 'Bereit' -and $filledBand[0] -match 'SQL2025latest'
+)
+Add-ConsoleUiCheck 'Fortschrittsbalken und Heartbeat bleiben ohne UTF-8-Konsole darstellbar' (
+    $consoleUiSource -match 'Test-LabConsoleUnicodeSupport' -and
+    $consoleUiSource -match "CodePage -eq 65001" -and
+    (Get-LabProgressBar -Percent 50 -Width 10).Length -eq 10
+)
+
+$statusWritePlan = Get-LabConsoleStatusWritePlan -Frame $busyFrame -Status @('nur eine Zeile')
+Add-ConsoleUiCheck 'Statusaktualisierung schreibt ausschliesslich in die reservierten Zeilen' (
+    $statusWritePlan.Count -eq 3 -and
+    $statusWritePlan[0].Row -eq $busyFrame.StatusOffset -and
+    $statusWritePlan[-1].Row -eq ($busyFrame.StatusOffset + 2) -and
+    $busyFrame.Lines[$busyFrame.StatusOffset] -match '^erste' -and
+    @($statusWritePlan | Where-Object { $_.Text.Length -ne $busyFrame.Width }).Count -eq 0
+)
+
+$heartbeatTicks = [System.Collections.Generic.List[int]]::new()
+$statusWrites = [System.Collections.Generic.List[string]]::new()
+$keyProbeCalls = 0
+$liveMenu = Invoke-LabConsoleMenu -ScreenId 'live-status' -Title 'Live' -Items @(
+    New-LabConsoleItem -Id 'go' -Label 'Weiter' -Shortcut '1'
+) -StatusHeight 2 -StatusIntervalMilliseconds 50 -Snapshot $null `
+    -Capability ([PSCustomObject]@{ Supported=$true; Mode='CURSOR'; Reasons=@() }) `
+    -StatusProvider { param($tick) $heartbeatTicks.Add([int]$tick); @("heartbeat $tick", '') } `
+    -KeyAvailable { $script:keyProbeCalls++; $script:keyProbeCalls -gt 3 } `
+    -StatusWriter { param($s, $f, $t) $statusWrites.Add([string]$t[0]) } `
+    -ReadKey { [PSCustomObject]@{ Key='Enter'; KeyChar=[char]13; Modifiers=0 } } `
+    -FrameWriter { param($s, $f) } -GetViewport { [PSCustomObject]@{ Width=60; Height=14 } } `
+    -SessionFactory { [PSCustomObject]@{ OriginTop=0; PreviousLineCount=0; ForegroundColor='Gray' } } `
+    -SessionCompleter { }
+Add-ConsoleUiCheck 'Menue haelt den Heartbeat lebendig und reagiert danach sofort auf die Taste' (
+    $liveMenu.Status -eq 'Selected' -and $liveMenu.SelectedItem.Id -eq 'go' -and
+    $heartbeatTicks[0] -eq 0 -and $heartbeatTicks[-1] -eq ($heartbeatTicks.Count - 1) -and
+    $statusWrites.Count -eq ($heartbeatTicks.Count - 1) -and $statusWrites[0] -eq 'heartbeat 1'
+)
+
+$blockingKeyReads = 0
+$blockingMenu = Invoke-LabConsoleMenu -ScreenId 'blocking' -Title 'Blockierend' -Items @(
+    New-LabConsoleItem -Id 'go' -Label 'Weiter' -Shortcut '1'
+) -Snapshot $null `
+    -Capability ([PSCustomObject]@{ Supported=$true; Mode='CURSOR'; Reasons=@() }) `
+    -KeyAvailable { throw 'darf ohne StatusProvider nicht abgefragt werden' } `
+    -ReadKey { $script:blockingKeyReads++; [PSCustomObject]@{ Key='Enter'; KeyChar=[char]13; Modifiers=0 } } `
+    -FrameWriter { param($s, $f) } -GetViewport { [PSCustomObject]@{ Width=60; Height=14 } } `
+    -SessionFactory { [PSCustomObject]@{ OriginTop=0; PreviousLineCount=0; ForegroundColor='Gray' } } `
+    -SessionCompleter { }
+Add-ConsoleUiCheck 'Bildschirme ohne Statusband warten unveraendert blockierend ohne Polling' (
+    $blockingMenu.Status -eq 'Selected' -and $blockingKeyReads -eq 1
+)
+
 $items = @(
     New-LabConsoleItem -Id 'one' -Label 'One' -Shortcut '1'
     New-LabConsoleItem -Id 'two' -Label 'Two' -Shortcut '2'
@@ -332,7 +496,8 @@ Add-ConsoleUiCheck 'Standalone-Einstieg und Modul bieten dieselben Direktaktione
 Add-ConsoleUiCheck 'Key-Loops verwenden kein Clear-Host' ($consoleSource -notmatch 'Clear-Host' -and $containerSource -notmatch 'Clear-Host')
 Add-ConsoleUiCheck 'Alle Console-Key-Loops reichen Ctrl+C als PipelineStoppedException durch' (
     ([regex]::Matches($consoleSource, 'Assert-LabConsoleKeyNotInterrupted -Key \$key')).Count -eq 4 -and
-    ([regex]::Matches($consoleSource, 'Read-LabConsoleKey -ReadKey \$ReadKey')).Count -eq 4 -and
+    ([regex]::Matches($consoleSource, '\$key = (?:Read-LabConsoleKey -ReadKey \$ReadKey|Wait-LabConsoleKey )')).Count -eq 4 -and
+    $consoleSource -match 'function Wait-LabConsoleKey[\s\S]+?Read-LabConsoleKey -ReadKey \$ReadKey' -and
     $consoleSource -match '\[Console\]::TreatControlCAsInput = \$true' -and
     $consoleSource -match '\[Console\]::TreatControlCAsInput = \$previousTreatControlCAsInput' -and
     $consoleSource -match 'throw \[Management\.Automation\.PipelineStoppedException\]::new\(\)' -and
