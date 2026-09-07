@@ -60,6 +60,7 @@ function Invoke-SqlServerLab {
                 'database' { Invoke-LabAreaMenuInteractive -Area Database }
                 'maintenance' { Invoke-LabAreaMenuInteractive -Area Maintenance }
                 'settings' { Invoke-LabAreaMenuInteractive -Area Settings }
+                'messages' { Show-LabMessagesInteractive }
                 '0' { $exit = $true }
                 'q' { $exit = $true }
                 default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
@@ -611,6 +612,7 @@ function Show-LabMenu {
             New-LabConsoleItem -Id 'infrastructure' -Label 'Infrastruktur und Medien' -Value $infrastructureMenuValue -Shortcut '6'
             New-LabConsoleItem -Id 'maintenance' -Label 'Wartung und Diagnose' -Value 'Providerstatus · Cleanup-Audit · Katalog' -Shortcut '7'
             New-LabConsoleItem -Id 'settings' -Label 'Einstellungen' -Value 'Scheduler · Parallelitaet · Ton · Ruhemodus · Ersteinrichtung' -Shortcut '8'
+            New-LabConsoleItem -Id 'messages' -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 'm'
             New-LabConsoleItem -Id 'exit' -Label 'Beenden' -Shortcut '0' -Aliases @('q')
         )
         $result = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'SQL Server Lab' -Subtitle 'Providerneutraler Batch-, Queue- und Resume-Workflow' -Items $items -Snapshot $snapshot -StatusHeight 3 -StatusProvider $mainMenuStatusProvider -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  F1/?: Hilfe  F5: Status aktualisieren  Esc: Beenden' -FallbackPrompt '  Auswahl'

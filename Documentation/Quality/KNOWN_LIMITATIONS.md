@@ -1541,6 +1541,15 @@ Das Statusband ist im Vorgangsmenü (`queue-menu`) und im Hauptmenü
 (`main-menu`) aktiviert. Alle übrigen Bildschirme deklarieren keine Bandhöhe
 und verhalten sich unverändert.
 
+Nach jeder Menüaktion werden neue Meldungen ab Severity `Warning` erzwungen
+angezeigt: als Klartextblock im Scrollback und als Ergebnisansicht mit `[c]`
+für die Zwischenablage und `[m]` für das Sitzungsjournal. Das Journal ist
+zusätzlich über das Hauptmenü (`m`) und über „Wartung und Diagnose" erreichbar.
+Die Ansicht zeigt die letzten 200 Meldungen und davon höchstens zwölf
+Warnungen oder Fehler als auswählbare Einträge; das vollständige Journal bleibt
+über die Datei zugänglich. Ein Host ohne Zwischenablage verweist auf den
+Journalpfad, statt zu scheitern.
+
 Die Menüstruktur (`CUI-026`) gliedert nach Arbeitsabsicht in acht Gruppen. Der
 Eintrag „Umgebung erstellen“ führt weiterhin über den Composer und die Queue;
 ein rein synchroner Weg für genau eine Umgebung ohne Queue-Übergabe besteht in
