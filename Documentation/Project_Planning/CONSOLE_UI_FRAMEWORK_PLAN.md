@@ -246,7 +246,7 @@ automatische Medienbeschaffung, Slot-Erzeugung oder sonstige Mutation auslösen.
 | `CUI-022` | reservierter Statusbereich mit Fortschritt und Heartbeat | `IMPLEMENTED` - feste Bandhöhe, Live-Aktualisierung ausschließlich der reservierten Zeilen, Stillstandserkennung, ASCII-Fallback ohne UTF-8-Konsole |
 | `CUI-023` | Meldungen überleben Neuzeichnen und bleiben kopierbar | `IMPLEMENTED` - Journal `SqlServerLab.Message/1.0`, stabile MessageId, Secret-Scrubbing, Persistenzblock mit Neuverankerung des Rahmens |
 | `CUI-024` | Kontexthilfe je `ScreenId` und Begründung deaktivierter Einträge | `IMPLEMENTED_VERTICAL_SLICE` - Hilfekatalog mit live geprüften Voraussetzungen, `F1`/`?`-Overlay, Begründungen im Haupt- und Umgebungsmenü |
-| `CUI-025` | Provider-Ausgabe für die Diagnose in Run-Logs persistieren | `PLANNED` - Ausgabe wird heute gefangen, aber bei Erfolg verworfen; kein Run-Log, kein gemeinsamer Aufruf-Wrapper |
+| `CUI-025` | Provider-Ausgabe für die Diagnose persistieren | `IMPLEMENTED_VERTICAL_SLICE` - Containererstellung schreibt `runs/<RunId>/log/provider.log` secretfrei; Fehlermeldung nennt den Logpfad |
 
 Die Migration erfolgt vertikal. Ein migriertes Menü verwendet vollständig die
 gemeinsame Schicht; neue parallele Cursorimplementierungen sind nicht zulässig.

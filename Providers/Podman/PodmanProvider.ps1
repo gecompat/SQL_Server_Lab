@@ -311,6 +311,8 @@ function New-PodmanInstance {
                 Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Podman]"
                 $output = & $podmanInvocation @podmanArguments 2>&1
                 $exitCode = $LASTEXITCODE
+                $providerLogPath = Write-LabProviderLog -Provider podman -Phase 'container-create' `
+                    -Command "podman $(@($podmanArguments | ForEach-Object { $_ }) -join ' ')" -Output $output -ExitCode $exitCode -RunId $RunId
                 if ($exitCode -eq 0) {
                     break
                 }
@@ -318,7 +320,8 @@ function New-PodmanInstance {
                 $outputText = ($output | Out-String).Trim()
                 $bindConflict = $outputText -match '(?i)(address already in use|port is already allocated|cannot bind tcp port)'
                 if (-not $automaticPort -or -not $bindConflict -or $selectedPort -ge 14399) {
-                    throw "Podman-Container konnte nicht erstellt werden: $outputText"
+                    $logHint = if ($providerLogPath) { " Diagnoselog: $providerLogPath" } else { '' }
+                    throw "Podman-Container konnte nicht erstellt werden: $outputText$logHint"
                 }
 
                 & $podmanInvocation rm -f $containerName 1>$null 2>$null
