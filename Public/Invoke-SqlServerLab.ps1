@@ -1563,18 +1563,125 @@ function New-LabContainerDrivesFromIntent {
     return @($Intent.Drives | ForEach-Object { $path=switch($_.Role){'sqlData'{'/sqldata'}'sqlLog'{'/sqllog'}'backup'{'/sqlbackup'}'tempdb'{"/sqltemp$(([string]$_.Id -replace '^tempdb',''))"}}; if($path -eq '/sqltemp'){$path='/sqltemp1'}; [PSCustomObject]@{id=[string]$_.Id;containerPath=$path;type='ssd';sizeLimitGB=[int]$_.SizeGB;readOnly=$false} })
 }
 
-function Invoke-LabNewEnvironmentInteractive {
+function Show-LabSqlProviderDecision {
+    <# .SYNOPSIS Zeigt Zielkonfiguration und Providerentscheidung vor jeder Mutation. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Intent,
+        [Parameter(Mandatory)]$Decision,
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$AvailableProviders
+    )
+
+    Write-LabHeader 'Zielkonfiguration und Providerentscheidung'
+    Write-LabStatus -Label 'Labname' -Value ([string]$Intent.LabName)
+    Write-LabStatus -Label 'SQL Server' -Value ([string]$Intent.VersionId)
+    Write-LabStatus -Label 'Plattform' -Value ([string]$Intent.Platform)
+    Write-LabStatus -Label 'Ressourcen' -Value ('{0} vCPU · {1} MB RAM' -f @([string]$Intent.Cpu, [string]$Intent.MemoryMB))
+    Write-LabStatus -Label 'Netzwerkmodus' -Value ([string]$Intent.NetworkMode)
+    Write-LabStatus -Label 'Verfuegbare Provider' -Value $(if ($AvailableProviders.Count -gt 0) { $AvailableProviders -join ', ' } else { 'keiner' })
+    if ($Decision.Supported) { Write-LabStatus -Label 'Gewaehlter Provider' -Value ([string]$Decision.Provider) -Color 'Green' }
+    else { Write-LabStatus -Label 'Gewaehlter Provider' -Value 'keiner' -Color 'Red' }
+    foreach ($reason in @($Decision.Reasons)) { Write-Host "    - $reason" -ForegroundColor DarkGray }
+}
+
+function Resolve-LabDirectSaPasswordInteractive {
     <#
-    .SYNOPSIS
-        Zentraler Interaktionspfad für "Neue Umgebung erstellen".
-    .DESCRIPTION
-        Ermittelt anhand der Ziel-Spezifikation automatisch den passenden Anbieter
-        und startet direkt den SQL-Umgebungs-Workflow.
+    .SYNOPSIS Bestimmt das SA-Kennwort der sofort erstellten Containerumgebung.
+    .DESCRIPTION Das Kennwort bleibt ein SecureString und wird weder als
+    Prozessvariable noch als Klartext abgelegt.
     #>
     [CmdletBinding()]
     param()
 
-    Invoke-LabBatchComposerInteractive
+    $cancelled = [pscustomobject]@{ Cancelled = $true; Generate = $false; Password = $null }
+    $choice = Invoke-LabConsoleMenu -ScreenId 'create-sa-password' -Title 'SA-Kennwort der neuen Umgebung' `
+        -Subtitle 'Gilt nur fuer diese eine Instanz' -Items @(
+        New-LabConsoleItem -Id 'generated' -Label 'Automatisch erzeugen' -Value 'Zufallskennwort · verschluesselt run-lokal hinterlegt' -Shortcut '1'
+        New-LabConsoleItem -Id 'manual' -Label 'Selbst eingeben' -Value 'Zweifache Eingabe · bleibt SecureString' -Shortcut '2'
+    )
+    if ($choice.Status -ne 'Selected') { return $cancelled }
+    if ([string]$choice.SelectedItem.Id -eq 'generated') {
+        return [pscustomobject]@{ Cancelled = $false; Generate = $true; Password = $null }
+    }
+
+    $first = Read-Host '  SA-Kennwort' -AsSecureString
+    $second = Read-Host '  SA-Kennwort bestaetigen' -AsSecureString
+    $firstPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($first)
+    $secondPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($second)
+    try {
+        $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($firstPointer)
+        if ($plain -ne [Runtime.InteropServices.Marshal]::PtrToStringBSTR($secondPointer)) {
+            Write-LabWarning 'Die Kennwoerter stimmen nicht ueberein.'
+            return $cancelled
+        }
+        if ([string]::IsNullOrWhiteSpace($plain)) {
+            Write-LabWarning 'Ein leeres Kennwort ist nicht zulaessig.'
+            return $cancelled
+        }
+    }
+    finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($firstPointer)
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($secondPointer)
+    }
+    return [pscustomobject]@{ Cancelled = $false; Generate = $false; Password = $first }
+}
+
+function Invoke-LabNewEnvironmentInteractive {
+    <#
+    .SYNOPSIS
+        Erstellt genau eine SQL-Umgebung synchron, ohne Umweg ueber Batch und Queue.
+    .DESCRIPTION
+        Liest die Zielkonfiguration, ermittelt die tatsaechlich verfuegbaren
+        Provider, zeigt die Entscheidung samt Begruendung und fuehrt die
+        Erstellung nach einer Rueckfrage sofort aus. Scheitert die Aufloesung,
+        wird der Batch-Weg als Alternative angeboten.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $intent = Read-LabSqlEnvironmentIntentInteractive
+    if ($null -eq $intent) { return }
+
+    $availabilityMap = Get-LabProviderAvailabilityMap
+    $availableProviders = @($availabilityMap.Keys | Where-Object { $availabilityMap[$_] })
+    $decision = Resolve-LabSqlIntentProvider -Intent $intent -AvailableProviders $availableProviders
+    Show-LabSqlProviderDecision -Intent $intent -Decision $decision -AvailableProviders $availableProviders
+
+    if (-not $decision.Supported) {
+        Write-LabError 'Kein verfuegbarer Provider kann diese Zielkonfiguration reproduzieren.'
+        if (Read-LabConfirm -Prompt '  Stattdessen als Batchposition zusammenstellen?' -Default $false) {
+            Invoke-LabBatchComposerInteractive
+        }
+        return
+    }
+
+    if (-not (Read-LabConfirm -Prompt "  Umgebung jetzt auf $($decision.Provider) erstellen?" -Default $true)) {
+        Write-LabInfo 'Abgebrochen. Es wurde keine Ressource angelegt.'
+        return
+    }
+
+    # Alle Rueckfragen vor der Mutation klaeren, damit der Lauf danach durchlaeuft.
+    $containerArguments = $null
+    if ([string]$decision.Provider -eq 'hyperv') {
+        if (-not (Confirm-LabSqlWindowsPatchMediaInteractive -Intent $intent)) { return }
+    }
+    else {
+        $secret = Resolve-LabDirectSaPasswordInteractive
+        if ($secret.Cancelled) { Write-LabInfo 'Abgebrochen. Es wurde keine Ressource angelegt.'; return }
+        $containerArguments = @{ Provider = [string]$decision.Provider; Intent = $intent }
+        if (-not $secret.Generate) { $containerArguments['SaPassword'] = $secret.Password }
+    }
+
+    Write-LabHeader "Umgebung wird erstellt ($($decision.Provider))"
+    Write-LabInfo 'Die Schritte erscheinen fortlaufend. Der Vorgang laeuft ohne Queue durch.'
+    $started = [datetime]::UtcNow
+    try {
+        if ($containerArguments) { Invoke-LabNewContainerEnvironmentInteractive @containerArguments }
+        else { Invoke-LabNewHyperVEnvironmentInteractive -Intent $intent }
+    }
+    finally {
+        Write-LabInfo "Dauer: $(Format-LabElapsedTime -Elapsed ([datetime]::UtcNow - $started))"
+    }
 }
 
 function Invoke-LabClearAutomatedTestEnvironmentInteractive {
@@ -1752,7 +1859,7 @@ function Invoke-LabNewContainerEnvironmentInteractive {
         Interaktiver Hyper-V-unabhängiger Container-Erstellungsfluss.
     #>
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$Provider, $Intent)
+    param([Parameter(Mandatory)][string]$Provider, $Intent, [SecureString]$SaPassword)
 
     if ($Intent) {
         $version = [string]$Intent.VersionId
@@ -1766,8 +1873,9 @@ function Invoke-LabNewContainerEnvironmentInteractive {
                 AutoStart=if ($Intent.PSObject.Properties['AutoStart']) { [string]$Intent.AutoStart } else { 'off' }
                 ServerConfig=(New-LabIntentServerConfig -Intent $Intent -Target container -ErrorAction Stop)
                 Drives=@(New-LabContainerDrivesFromIntent -Intent $Intent -ErrorAction Stop)
-                GenerateSaPassword=$true
             }
+            # Beides zugleich lehnt New-SqlServerLab mit SA_PASSWORD_GENERATION_CONFLICT ab.
+            if ($SaPassword) { $arguments['SaPassword'] = $SaPassword } else { $arguments['GenerateSaPassword'] = $true }
             if ($selectedSamples.Count -gt 0) { $arguments.Sample = $selectedSamples }
             $lab = New-SqlServerLab @arguments -ErrorAction Stop
             if (-not $lab -or [string]::IsNullOrWhiteSpace([string]$lab.RunId)) {
