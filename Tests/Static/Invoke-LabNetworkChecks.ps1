@@ -357,7 +357,7 @@ try {
         $preferencesSource -match 'Write-LabArtifactJsonAtomic -Path \$preferencePath' -and
         $preferencesSource -match 'SetEnvironmentVariable\(''SQL_SERVER_LAB_MEDIA_ROOT''.+''User''' -and
         $menuSource -match 'Get-LabMediaRootDefault' -and $menuSource -match 'Set-LabMediaRootDefault' -and
-        $menuSource -match "New-LabConsoleItem -Id 'storage' -Label 'Medien, Testdaten und Speicher'.+-Shortcut '5'" -and
+        $menuSource -match "New-LabConsoleItem -Id 'infrastructure' -Label 'Infrastruktur und Medien'.+-Shortcut '6'" -and
         $menuSource -match "New-LabConsoleItem -Id 'MediaRoot' -Label 'Lab_Base / Media-Root konfigurieren'.+-Shortcut 'p'" -and
         $menuSource -match "'MediaRoot'\s*\{"
     )
