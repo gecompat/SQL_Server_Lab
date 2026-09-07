@@ -653,12 +653,14 @@ function Get-LabConsoleStatusBand {
         [int]$Tick = 0,
         [ValidateRange(20, 1000)][int]$Width = 78,
         [ValidateRange(1, 50)][int]$Height = 3,
-        [AllowNull()][object]$Now
+        [AllowNull()][object]$Now,
+        [string]$Headline = ''
     )
 
     $lines = [System.Collections.Generic.List[string]]::new()
+    if (-not [string]::IsNullOrWhiteSpace($Headline)) { $lines.Add((Format-LabConsoleText -Text $Headline -Width $Width)) }
     if (@($Operation).Count -eq 0) {
-        $lines.Add('Bereit - keine laufenden Vorgaenge')
+        if ($lines.Count -lt $Height) { $lines.Add('Bereit - keine laufenden Vorgaenge') }
     }
     else {
         foreach ($item in $Operation) {
@@ -712,6 +714,36 @@ function Update-LabConsoleStatusBand {
     }
 }
 
+function Get-LabConsoleStatusSafely {
+    <#
+    .SYNOPSIS Holt den Statusinhalt, ohne dass ein Ausfall die Cursoransicht kostet.
+    .DESCRIPTION Ein Fehler im Statuslieferanten hat den gesamten Bildschirm in den
+    nummerierten Fallback gezwungen. Der Ausfall bleibt sichtbar und wird
+    journalisiert, die Navigation bleibt erhalten.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowNull()][scriptblock]$StatusProvider,
+        [int]$Tick = 0,
+        [ValidateRange(0, 50)][int]$Height = 3
+    )
+
+    if (-not $StatusProvider) { return @() }
+    try { return @(& $StatusProvider $Tick) }
+    catch {
+        $reason = [string]$_.Exception.Message
+        if ($script:LabConsoleStatusFailureReason -ne $reason) {
+            $script:LabConsoleStatusFailureReason = $reason
+            try { $null = Add-LabMessage -Severity Warning -Message "CONSOLE_STATUS_PROVIDER_FAILED: Statusband ausgefallen: $reason" } catch { }
+        }
+        $lines = [System.Collections.Generic.List[string]]::new()
+        $lines.Add("Statusband nicht verfuegbar: $reason")
+        while ($lines.Count -lt $Height) { $lines.Add('') }
+        if ($Height -le 0) { return @($lines[0]) }
+        return @($lines[0..($Height - 1)])
+    }
+}
+
 function Wait-LabConsoleKey {
     <#
     .SYNOPSIS Wartet auf eine Taste und haelt dabei den Statusbereich lebendig.
@@ -741,7 +773,9 @@ function Wait-LabConsoleKey {
         try { $ready = [bool](& $probe) } catch { return Read-LabConsoleKey -ReadKey $ReadKey }
         if ($ready) { break }
         $tick++
-        try { & $writer $Session $Frame @(& $StatusProvider $tick) } catch { return Read-LabConsoleKey -ReadKey $ReadKey }
+        # Nur ein Schreibfehler rechtfertigt den Rueckfall; ein defektes Statusband nicht.
+        $statusLines = Get-LabConsoleStatusSafely -StatusProvider $StatusProvider -Tick $tick -Height ([int]$Frame.StatusHeight)
+        try { & $writer $Session $Frame @($statusLines) } catch { return Read-LabConsoleKey -ReadKey $ReadKey }
         Start-Sleep -Milliseconds $IntervalMilliseconds
     }
     return Read-LabConsoleKey -ReadKey $ReadKey
@@ -905,7 +939,7 @@ function Invoke-LabConsoleMenu {
             $viewport = if ($GetViewport) { & $GetViewport } else { $null }
             $width = if ($viewport) { [Math]::Max(20, [int]$viewport.Width) } elseif ($FrameWriter) { 80 } else { [Console]::WindowWidth }
             $height = if ($viewport) { [Math]::Max(6, [int]$viewport.Height) } elseif ($FrameWriter) { 25 } else { [Console]::WindowHeight }
-            $status = if ($StatusProvider) { @(& $StatusProvider 0) } else { @() }
+            $status = Get-LabConsoleStatusSafely -StatusProvider $StatusProvider -Tick 0 -Height $StatusHeight
             $frame = Get-LabConsoleFrame -State $state -Title $Title -Subtitle $Subtitle -Footer $Footer -Status $status -StatusHeight $StatusHeight -Width $width -Height $height
             if ($FrameWriter) { & $FrameWriter $session $frame } else { Write-LabConsoleFrame -Session $session -Frame $frame }
             $key = Wait-LabConsoleKey -Session $session -Frame $frame -StatusProvider $StatusProvider `

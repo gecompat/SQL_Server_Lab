@@ -463,6 +463,22 @@ function Get-LabQueueMenuAvailability {
     }
 }
 
+function Get-LabQueueHeadline {
+    <#
+    .SYNOPSIS Verdichtet die Queue-Projektion zu einer Kopfzeile des Statusbands.
+    .DESCRIPTION Zaehlt ausschliesslich Felder des Queue-Vertrags, damit die
+    Blockierungsregeln nicht ein zweites Mal formuliert werden.
+    #>
+    [CmdletBinding()]
+    param([AllowNull()][object]$Queue)
+
+    if ($null -eq $Queue) { return 'Queue nicht lesbar' }
+    $items = @($Queue.items)
+    $blocked = @($items | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.blockedReason) }).Count
+    return 'Queue {0} · Worker {1}/{2} · Blockiert {3}' -f @(
+        $items.Count, [int]$Queue.runningWorkers, [int]$Queue.maxWorkers, $blocked)
+}
+
 function New-LabQueueStatusProvider {
     <#
     .SYNOPSIS Liefert den gedrosselten Fortschrittslieferanten fuer das Statusband der Queue.
@@ -476,13 +492,18 @@ function New-LabQueueStatusProvider {
         [ValidateRange(200, 10000)][int]$RefreshMilliseconds = 1000,
         [ValidateRange(0, 1000)][int]$Width = 0,
         [AllowNull()][scriptblock]$OperationReader,
+        [AllowNull()][scriptblock]$QueueReader,
         [AllowNull()][scriptblock]$Clock
     )
 
     $reader = if ($OperationReader) { $OperationReader } else { { @(Get-SqlServerLabOperation) } }
+    $queueReader = if ($QueueReader) { $QueueReader } else { { Get-SqlServerLabQueue } }
     $now = if ($Clock) { $Clock } else { { [datetime]::UtcNow } }
+    # GetNewClosure loest modulprivate Funktionen spaeter nicht mehr auf; sie werden hier als Wert gebunden.
+    $buildBand = ${function:Get-LabConsoleStatusBand}
+    $buildHeadline = ${function:Get-LabQueueHeadline}
     $fixedWidth = $Width
-    $cache = [PSCustomObject]@{ Running = @(); LastRead = [datetime]::MinValue; Reads = 0 }
+    $cache = [PSCustomObject]@{ Running = @(); Headline = ''; LastRead = [datetime]::MinValue; Reads = 0 }
     return {
         param($Tick)
         $current = & $now
@@ -492,13 +513,15 @@ function New-LabQueueStatusProvider {
                 $cache.Reads++
             }
             catch { }
+            try { $cache.Headline = & $buildHeadline -Queue (& $queueReader) }
+            catch { $cache.Headline = 'Queue nicht lesbar' }
             $cache.LastRead = $current
         }
         # Ein Host ohne echte Fenstergroesse meldet 0; dann gilt eine tragfaehige Vorgabe.
         $bandWidth = 78
         if ($fixedWidth -gt 20) { $bandWidth = $fixedWidth }
         else { try { $detected = [int][Console]::WindowWidth; if ($detected -gt 20) { $bandWidth = $detected - 1 } } catch { } }
-        Get-LabConsoleStatusBand -Operation @($cache.Running) -Tick $Tick -Width $bandWidth -Height $Height -Now $current
+        & $buildBand -Operation @($cache.Running) -Tick $Tick -Width $bandWidth -Height $Height -Now $current -Headline $cache.Headline
     }.GetNewClosure()
 }
 

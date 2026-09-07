@@ -149,6 +149,16 @@ Add-ConsoleUiCheck 'Statusband liefert immer exakt die reservierte Zeilenzahl' (
     $emptyBand.Count -eq 3 -and $filledBand.Count -eq 3 -and
     $emptyBand[0] -match 'Bereit' -and $filledBand[0] -match 'SQL2025latest'
 )
+$headlineBand = Get-LabConsoleStatusBand -Operation @($determinateOperation) -Width 78 -Height 3 `
+    -Now ([datetime]'2026-09-07T12:01:14Z') -Headline 'Queue 4 · Worker 1/2 · Blockiert 2'
+$headlineIdleBand = Get-LabConsoleStatusBand -Operation @() -Width 78 -Height 3 -Headline 'Queue 0 · Worker 0/2 · Blockiert 0'
+Add-ConsoleUiCheck 'Statusband fuehrt die Kopfzeile ueber Laufzeit und Leerlauf hinweg in fester Hoehe' (
+    $headlineBand.Count -eq 3 -and $headlineIdleBand.Count -eq 3 -and
+    $headlineBand[0] -match 'Queue 4 · Worker 1/2 · Blockiert 2' -and
+    $headlineBand[1] -match 'SQL2025latest' -and
+    $headlineIdleBand[0] -match 'Queue 0 · Worker 0/2 · Blockiert 0' -and
+    $headlineIdleBand[1] -match 'Bereit'
+)
 Add-ConsoleUiCheck 'Fortschrittsbalken und Heartbeat bleiben ohne UTF-8-Konsole darstellbar' (
     $consoleUiSource -match 'Test-LabConsoleUnicodeSupport' -and
     $consoleUiSource -match "CodePage -eq 65001" -and
@@ -356,8 +366,21 @@ $runningOperation = [PSCustomObject]@{
         [PSCustomObject]@{ id='complete'; title='Abschluss'; status='Running' }
     )
 }
+$queueProjection = [PSCustomObject]@{
+    maxWorkers = 2; runningWorkers = 1
+    items = @(
+        [PSCustomObject]@{ operationId = 'a'; status = 'Running'; blockedReason = $null }
+        [PSCustomObject]@{ operationId = 'b'; status = 'Queued'; blockedReason = 'Batch ist noch nicht uebergeben.' }
+        [PSCustomObject]@{ operationId = 'c'; status = 'Queued'; blockedReason = '   ' }
+    )
+}
+Add-ConsoleUiCheck 'Kopfzeile verdichtet Laenge, Worker und Blockierungen aus dem Queue-Vertrag' (
+    (Get-LabQueueHeadline -Queue $queueProjection) -eq 'Queue 3 · Worker 1/2 · Blockiert 1' -and
+    (Get-LabQueueHeadline -Queue $null) -match 'nicht lesbar'
+)
 $queueStatus = New-LabQueueStatusProvider -Height 5 -RefreshMilliseconds 1000 -Width 78 `
     -OperationReader { $script:statusReads++; @($runningOperation, [PSCustomObject]@{ itemId='fertig'; status='Completed' }) } `
+    -QueueReader { $queueProjection } `
     -Clock { $script:statusClock }
 $firstBand = & $queueStatus 0
 $null = & $queueStatus 1
@@ -368,17 +391,23 @@ $null = & $queueStatus 3
 Add-ConsoleUiCheck 'Statuslieferant drosselt den State-Zugriff und liest erst nach Ablauf erneut' (
     $readsBeforeAdvance -eq 1 -and $script:statusReads -eq 2
 )
-Add-ConsoleUiCheck 'Statusband der Queue zeigt nur laufende Vorgaenge in fester Zeilenzahl' (
-    $firstBand.Count -eq 5 -and $firstBand[0] -match 'SQL2025latest' -and
+Add-ConsoleUiCheck 'Statusband der Queue fuehrt die Kopfzeile und zeigt darunter nur laufende Vorgaenge' (
+    $firstBand.Count -eq 5 -and
+    $firstBand[0] -match 'Queue 3 · Worker 1/2 · Blockiert 1' -and
+    $firstBand[1] -match 'SQL2025latest' -and
     @($firstBand | Where-Object { $_ -match 'fertig' }).Count -eq 0 -and
-    $firstBand[0] -match '50%' -and $firstBand[1] -match 'Schritt 2/2'
+    $firstBand[1] -match '50%' -and $firstBand[2] -match 'Schritt 2/2'
+)
+Add-ConsoleUiCheck 'Eine nicht lesbare Queue benennt das statt die Kopfzeile leer zu lassen' (
+    (& (New-LabQueueStatusProvider -Height 3 -Width 78 -OperationReader { @() } `
+                -QueueReader { throw 'State-Store nicht erreichbar' } -Clock { $statusClock }) 0)[0] -match 'nicht lesbar'
 )
 $narrowStatus = New-LabQueueStatusProvider -Height 3 -Width 0 `
-    -OperationReader { @($runningOperation) } -Clock { $statusClock }
+    -OperationReader { @($runningOperation) } -QueueReader { $queueProjection } -Clock { $statusClock }
 $narrowBand = & $narrowStatus 0
 Add-ConsoleUiCheck 'Statusband bleibt auch ohne ermittelbare Fensterbreite lesbar' (
-    $narrowBand.Count -eq 3 -and $narrowBand[0] -match '^SQL2025latest' -and
-    @($narrowBand | Where-Object { $_.Length -gt 0 }).Count -ge 1
+    $narrowBand.Count -eq 3 -and $narrowBand[0] -match '^Queue 3' -and $narrowBand[1] -match '^SQL2025latest' -and
+    @($narrowBand | Where-Object { $_.Length -gt 0 }).Count -ge 2
 )
 
 # CUI-025: Provider-Ausgabe wird fuer die Diagnose persistiert, ohne Secrets zu schreiben.
@@ -907,6 +936,69 @@ function Read-LabConsoleTextInput { [PSCustomObject]@{ Status='Cancelled'; Value
 $composerCancelled = $true
 try { Invoke-LabBatchComposerInteractive } catch { $composerCancelled = $false }
 Add-ConsoleUiCheck 'Batch-Composer kehrt nach Escape am Namen ohne weitere Aktion zurueck' $composerCancelled
+
+# CUI-028: Das Statusband muss im importierten Modul funktionieren, nicht nur im flachen Testscope.
+# Diese Datei dot-sourced die Konsolenquellen und macht sie damit global sichtbar. Eine Closure im
+# Modul findet sie dann selbst dann, wenn sie modulprivat waeren. Der Nachweis muss deshalb in einem
+# eigenen Prozess ohne dot-sourced Funktionen laufen; genau daran ist die Cursoransicht von Haupt-
+# und Vorgangsmenue unbemerkt in den nummerierten Fallback gekippt.
+$moduleProbePath = Join-Path ([IO.Path]::GetTempPath()) ("console-ui-module-probe-$([guid]::NewGuid().ToString('N')).ps1")
+$moduleProbe = @'
+$ErrorActionPreference = 'Stop'
+$module = Import-Module '__MODULE__' -Force -PassThru
+$result = & $module {
+    function Test-LabStatusProviderInModule {
+        $provider = New-LabQueueStatusProvider -Height 3 -Width 78 `
+            -OperationReader { @() } `
+            -QueueReader { [PSCustomObject]@{ maxWorkers = 2; runningWorkers = 0; items = @() } } `
+            -Clock { [datetime]'2026-09-07T12:00:00Z' }
+        & $provider 0
+    }
+    $band = @()
+    $bandError = ''
+    try { $band = @(Test-LabStatusProviderInModule) } catch { $bandError = [string]$_.Exception.Message }
+
+    $frames = [Collections.Generic.List[object]]::new()
+    $menu = Invoke-LabConsoleMenu -ScreenId 'status-resilience' -Title 'Resilienz' -Items @(
+        New-LabConsoleItem -Id 'go' -Label 'Weiter' -Shortcut '1'
+    ) -StatusHeight 3 -StatusProvider { throw 'Statusquelle kaputt' } -Snapshot $null `
+        -Capability ([PSCustomObject]@{ Supported = $true; Mode = 'CURSOR'; Reasons = @() }) `
+        -ReadKey { [PSCustomObject]@{ Key = 'Enter'; KeyChar = [char]13; Modifiers = 0 } } `
+        -FrameWriter { param($s, $f) $frames.Add($f) } `
+        -GetViewport { [PSCustomObject]@{ Width = 80; Height = 20 } } `
+        -SessionFactory { [PSCustomObject]@{ OriginTop = 0; PreviousLineCount = 0; ForegroundColor = 'Gray' } } `
+        -SessionCompleter { }
+
+    [PSCustomObject]@{
+        BandLines    = $band.Count
+        BandHeadline = if ($band.Count -gt 0) { [string]$band[0] } else { '' }
+        BandError    = $bandError
+        MenuStatus   = [string]$menu.Status
+        MenuFrames   = $frames.Count
+        Degraded     = @($frames[0].Lines | Where-Object { $_ -match 'Statusband nicht verfuegbar: Statusquelle kaputt' }).Count
+        Journal      = @(Get-LabMessage | Where-Object { $_.message -match 'CONSOLE_STATUS_PROVIDER_FAILED' }).Count
+    }
+}
+Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+$result | ConvertTo-Json -Compress
+'@
+$moduleProbe = $moduleProbe.Replace('__MODULE__', (Join-Path $repoRoot 'SqlServerLab.psd1'))
+Set-Content -LiteralPath $moduleProbePath -Value $moduleProbe -Encoding utf8
+try {
+    $probeRaw = & pwsh -NoProfile -File $moduleProbePath 2>&1
+    $probeJson = @($probeRaw | Where-Object { "$_" -match '^\{' } | Select-Object -Last 1)
+    $probe = if ($probeJson.Count -eq 1) { "$($probeJson[0])" | ConvertFrom-Json } else { $null }
+
+    Add-ConsoleUiCheck 'Statuslieferant loest seine Funktionen auch ohne dot-sourced Scope im Modul auf' (
+        $null -ne $probe -and [string]::IsNullOrEmpty($probe.BandError) -and
+        $probe.BandLines -eq 3 -and $probe.BandHeadline -match 'Queue 0 · Worker 0/2 · Blockiert 0'
+    )
+    Add-ConsoleUiCheck 'Ein defektes Statusband benennt den Ausfall und kostet weder Cursoransicht noch Auswahl' (
+        $null -ne $probe -and $probe.MenuStatus -eq 'Selected' -and $probe.MenuFrames -ge 1 -and
+        $probe.Degraded -eq 1 -and $probe.Journal -ge 1
+    )
+}
+finally { Remove-Item -LiteralPath $moduleProbePath -Force -ErrorAction SilentlyContinue }
 
 Write-Host "`nErgebnis: $passed PASS, $failed FAIL"
 if ($failed -gt 0) { exit 1 }
