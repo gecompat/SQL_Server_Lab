@@ -96,6 +96,16 @@ function Get-LabConsoleHelpCatalog {
             Command = 'New-SqlServerLabBatch'
             Preconditions = @($stateRootPrecondition)
         }
+        'batch-sa-secret' = @{
+            Title   = 'SA-Kennwort der Containerposition'
+            Purpose = 'Bindet die Position an eine SQL_SERVER_LAB_SECRET_*-Prozessvariable. Der Batch speichert nur den Namen, niemals das Kennwort.'
+            Effects = 'Beim Anlegen wird die Prozessvariable fuer diese Sitzung gesetzt. Sie wird nicht dauerhaft gespeichert und nicht in den State geschrieben.'
+            Related = @(
+                'Ohne Referenz lehnt der Preflight die Uebergabe des Batches ab.',
+                'Die Variable gilt nur im aktuellen Prozess; ein neues Fenster benoetigt sie erneut.'
+            )
+            Command = '$env:SQL_SERVER_LAB_SECRET_<NAME> = <Kennwort>'
+        }
         'storage-menu' = @{
             Title   = 'Medien, Testdaten und Speicher'
             Purpose = 'Verwaltet Lab_Base, Medienquellen, CU-Pakete, Beispieldatenbanken und Speicherorte.'

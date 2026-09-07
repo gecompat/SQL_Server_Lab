@@ -73,6 +73,93 @@ function Read-LabComposerInteger {
     return $number
 }
 
+function Get-LabBatchSecretVariableName {
+    <#
+    .SYNOPSIS Leitet den eng benannten Variablennamen aus einem Positionsnamen ab.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$ItemName)
+
+    $slug = (([string]$ItemName).ToUpperInvariant() -replace '[^A-Z0-9]+', '_').Trim('_')
+    if (-not $slug) { $slug = 'BATCH' }
+    return "SQL_SERVER_LAB_SECRET_$slug"
+}
+
+function Get-LabAvailableSecretVariableName {
+    <#
+    .SYNOPSIS Listet die in dieser Sitzung gesetzten Secret-Prozessvariablen.
+    #>
+    [CmdletBinding()]
+    param()
+
+    return @([Environment]::GetEnvironmentVariables('Process').GetEnumerator() |
+        Where-Object { [string]$_.Key -match '^SQL_SERVER_LAB_SECRET_[A-Z0-9_]+$' -and -not [string]::IsNullOrWhiteSpace([string]$_.Value) } |
+        ForEach-Object { [string]$_.Key } |
+        Sort-Object)
+}
+
+function Set-LabBatchSaSecretInteractive {
+    <#
+    .SYNOPSIS Setzt die Secret-Prozessvariable und liefert nur den Erfolg zurueck.
+    .DESCRIPTION Das Kennwort verlaesst diese Funktion nicht. Der Batch haelt
+    ausschliesslich den Variablennamen.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$VariableName)
+
+    $first = Read-Host "  SA-Kennwort fuer $VariableName" -AsSecureString
+    $second = Read-Host '  SA-Kennwort bestaetigen' -AsSecureString
+    $firstPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($first)
+    $secondPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($second)
+    try {
+        $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($firstPointer)
+        if ($plain -ne [Runtime.InteropServices.Marshal]::PtrToStringBSTR($secondPointer)) {
+            Write-LabWarning 'Die Kennwoerter stimmen nicht ueberein.'
+            return $false
+        }
+        if ([string]::IsNullOrWhiteSpace($plain)) {
+            Write-LabWarning 'Ein leeres Kennwort ist nicht zulaessig.'
+            return $false
+        }
+        [Environment]::SetEnvironmentVariable($VariableName, $plain, 'Process')
+        Write-LabSuccess "Prozessvariable '$VariableName' ist fuer diese Sitzung gesetzt."
+        return $true
+    }
+    finally {
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($firstPointer)
+        [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($secondPointer)
+    }
+}
+
+function Resolve-LabBatchSaSecretInteractive {
+    <#
+    .SYNOPSIS Bestimmt die Secret-Referenz einer Containerposition.
+    .DESCRIPTION Ohne diesen Schritt scheitert die Uebergabe im Preflight, ohne
+    dass die Oberflaeche einen Weg zur Behebung anbietet.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$ItemName)
+
+    $suggested = Get-LabBatchSecretVariableName -ItemName $ItemName
+    $items = [Collections.Generic.List[object]]::new()
+    $shortcut = 0
+    foreach ($existing in (Get-LabAvailableSecretVariableName)) {
+        $shortcut++
+        $items.Add((New-LabConsoleItem -Id $existing -Label $existing -Value 'in dieser Sitzung gesetzt' -Shortcut ([string]$shortcut)))
+    }
+    $items.Add((New-LabConsoleItem -Id '__new' -Label "Neue Referenz anlegen: $suggested" -Value 'Kennwort wird nur als Prozessvariable gehalten' -Shortcut 'n'))
+    $items.Add((New-LabConsoleItem -Id '__none' -Label 'Ohne Referenz fortfahren' -Value 'Position bleibt bis zur Nachpflege nicht uebergebbar' -Shortcut '0'))
+
+    $choice = Invoke-LabConsoleMenu -ScreenId 'batch-sa-secret' -Title 'SA-Kennwort der Containerposition' `
+        -Subtitle 'Der Batch speichert nur den Variablennamen, niemals das Kennwort' -Items @($items)
+    if ($choice.Status -ne 'Selected') { return '' }
+    switch ([string]$choice.SelectedItem.Id) {
+        '__none' { return '' }
+        '__new' { if (Set-LabBatchSaSecretInteractive -VariableName $suggested) { return $suggested } else { return '' } }
+        default { return [string]$choice.SelectedItem.Id }
+    }
+}
+
 function Add-LabSqlComposerItemInteractive {
     [CmdletBinding()]
     param([Parameter(Mandatory)][AllowEmptyCollection()][Collections.Generic.List[object]]$Basket)
@@ -93,6 +180,11 @@ function Add-LabSqlComposerItemInteractive {
     $table['ProviderPreference'] = 'Auto'
     $platform = [string](Get-LabWorkflowValue -InputObject $intent -Name 'Platform' -Default (Get-LabWorkflowValue -InputObject $intent -Name 'OperatingSystem' -Default ''))
     $kind = if ($platform -match 'Windows') { 'SqlWindowsEnvironment' } else { 'SqlEnvironment' }
+    if ($kind -eq 'SqlEnvironment') {
+        $secretVariable = Resolve-LabBatchSaSecretInteractive -ItemName $name
+        if ($secretVariable) { $table['SaPasswordEnvironmentVariable'] = $secretVariable }
+        else { Write-LabWarning "Position '$name' hat keine Secret-Referenz und kann so nicht uebergeben werden." }
+    }
     $Basket.Add((New-LabComposerItem -Kind $kind -Name $name -Count $count -Intent ([pscustomobject]$table)))
 }
 
@@ -143,13 +235,21 @@ function Add-LabMatrixComposerItemsInteractive {
     $platformValues = @(& $parse (Read-Host '  Plattformen, kommagetrennt [Auto]') 'Auto')
     $total = $osValues.Count * $sqlValues.Count * $cuValues.Count * $platformValues.Count
     if ($total -gt 100) { Write-LabWarning "Die Matrix wuerde $total Positionen erzeugen; maximal 100 sind zulaessig."; return }
+    # Eine Matrix erzeugt viele gleichartige Containerpositionen; eine gemeinsame Referenz genuegt.
+    $matrixSecretVariable = ''
+    if (@($osValues | Where-Object { $_ -notmatch 'Windows' }).Count -gt 0) {
+        $matrixSecretVariable = Resolve-LabBatchSaSecretInteractive -ItemName 'matrix'
+        if (-not $matrixSecretVariable) { Write-LabWarning 'Die Container-Positionen der Matrix haben keine Secret-Referenz und koennen so nicht uebergeben werden.' }
+    }
     foreach ($os in $osValues) { foreach ($sql in $sqlValues) { foreach ($cu in $cuValues) { foreach ($platform in $platformValues) {
         $name = ConvertTo-LabWorkflowSlug -Text "sql-$sql-$cu-$os-$platform"
         $kind = if ($os -match 'Windows') { 'SqlWindowsEnvironment' } else { 'SqlEnvironment' }
-        $Basket.Add((New-LabComposerItem -Kind $kind -Name $name -Intent ([pscustomobject][ordered]@{
+        $matrixIntent = [ordered]@{
             OperatingSystem = $os; SqlVersion = $sql; Version = $sql; Patch = $cu; Platform = $platform
             ProviderPreference = 'Auto'; RequiresUserSetup = $os -match 'Windows'
-        })))
+        }
+        if ($kind -eq 'SqlEnvironment' -and $matrixSecretVariable) { $matrixIntent['SaPasswordEnvironmentVariable'] = $matrixSecretVariable }
+        $Basket.Add((New-LabComposerItem -Kind $kind -Name $name -Intent ([pscustomobject]$matrixIntent)))
     } } } }
 }
 
