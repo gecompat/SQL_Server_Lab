@@ -374,6 +374,8 @@ function New-DockerInstance {
                 Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Docker]"
                 $output = & $dockerInvocation @dockerArguments 2>&1
                 $exitCode = $LASTEXITCODE
+                $providerLogPath = Write-LabProviderLog -Provider docker -Phase 'container-create' `
+                    -Command "docker $(@($dockerArguments | ForEach-Object { $_ }) -join ' ')" -Output $output -ExitCode $exitCode -RunId $RunId
                 if ($exitCode -eq 0) {
                     $containerId = $output |
                         ForEach-Object { ([string]$_).Trim() } |
@@ -381,7 +383,8 @@ function New-DockerInstance {
                         Select-Object -Last 1
                     if (-not $containerId) {
                         & $dockerInvocation rm -f $containerName 1>$null 2>$null
-                        throw "Docker lieferte keine gueltige Container-ID: $(($output | Out-String).Trim())"
+                        $logHint = if ($providerLogPath) { " Diagnoselog: $providerLogPath" } else { '' }
+                        throw "Docker lieferte keine gueltige Container-ID: $(($output | Out-String).Trim())$logHint"
                     }
 
                     $inspect = $null
