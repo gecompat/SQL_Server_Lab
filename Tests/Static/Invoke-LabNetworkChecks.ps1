@@ -332,7 +332,6 @@ try {
         $networkSource -match 'receipt\.addressState[\s\S]+Preferred'
     )
     $hypervLab = Get-Content (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw
-    $hypervProvider = Get-Content (Join-Path $repoRoot 'Providers/HyperV/HyperVProvider.ps1') -Raw
     Add-CheckResult -Name 'Regulärer Prepared-Image-Klon injiziert Labnetz-Bootstrap und akzeptiert leeren Fallback ohne Validierungsfehler' -Success (
         $hypervLab -match 'New-HyperVSqlGuestNetworkBootstrapScript' -and
         $hypervLab -match 'Get-LabNetworkGuestAddress[\s\S]*lab\.Run\.runId' -and
