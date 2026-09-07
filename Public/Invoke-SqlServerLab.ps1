@@ -303,6 +303,7 @@ function Show-LabAiMenu {
         New-LabConsoleItem -Id 'AiRag' -Label 'Lokales SQL-RAG ausführen' -Value 'EmbeddingGemma 300M + Gemma 3 1B · exakte Vektorsuche' -Shortcut '4'
         New-LabConsoleItem -Id 'AiDiagnostic' -Label 'Read-only SQL-Diagnose' -Value 'katalogisierte SELECT-Werkzeuge · kurzlebiger Login' -Shortcut '5'
         New-LabConsoleItem -Id 'AiRetrievalEvaluation' -Label 'Retrieval-Ergebnis bewerten' -Value 'deterministisch · ohne Modell- oder Netzwerkkosten' -Shortcut '6'
+        New-LabConsoleItem -Id 'AiGoldenRagEvaluation' -Label 'Golden-RAG ausführen und bewerten' -Value 'versionierter Datensatz · echter SQL-Lauf · blockierende Metriken' -Shortcut '7'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 }
@@ -802,6 +803,28 @@ function Invoke-LabAiRetrievalEvaluationInteractive {
     Write-LabStatus -Label 'nDCG@k' -Value $result.NdcgAtK
 }
 
+function Invoke-LabAiGoldenRagEvaluationInteractive {
+    [CmdletBinding()]
+    param()
+
+    $selection = Select-LabAiTargetInteractive -Prompt 'Golden-RAG ausführen und bewerten auf'
+    if (-not $selection) { return }
+    $caseId = Read-Host '  Golden-Fall [backup-frequency]'
+    if ([string]::IsNullOrWhiteSpace($caseId)) { $caseId = 'backup-frequency' }
+    $port = Read-Host '  Lokaler Ollama-Port [11434]'
+    if ([string]::IsNullOrWhiteSpace($port)) { $port = 11434 }
+    if ([string]$port -notmatch '^\d+$' -or [int]$port -lt 1024 -or [int]$port -gt 65535) { Write-LabError 'Ungültiger Port.'; return }
+    $password = Read-Host '  SA-Passwort' -AsSecureString
+    $rag = Invoke-SqlServerLabAiRag -RunId $selection.RunId -InstanceId $selection.InstanceId `
+        -SaPassword $password -CaseId $caseId -LocalPort ([int]$port) -Confirm
+    $result = Measure-SqlServerLabAiRetrieval -QueryResult $rag -CaseId $caseId
+    Write-LabStatus -Label 'Golden-RAG' -Value $result.Status -Color $(if ($result.Status -eq 'PASSED') { 'Green' } else { 'Yellow' })
+    Write-LabStatus -Label 'Recall@k' -Value $result.RecallAtK
+    Write-LabStatus -Label 'MRR' -Value $result.Mrr
+    Write-LabStatus -Label 'nDCG@k' -Value $result.NdcgAtK
+    Write-LabInfo "Dataset: $($result.Binding.DatasetId)/$($result.Binding.DatasetVersion) · Fall $($result.Binding.CaseId)"
+}
+
 function Invoke-LabAction {
     param([Parameter(Mandatory)][string]$ActionName)
 
@@ -882,6 +905,7 @@ function Invoke-LabAction {
         'AiRag' { Invoke-LabAiRagInteractive }
         'AiDiagnostic' { Invoke-LabAiDiagnosticInteractive }
         'AiRetrievalEvaluation' { Invoke-LabAiRetrievalEvaluationInteractive }
+        'AiGoldenRagEvaluation' { Invoke-LabAiGoldenRagEvaluationInteractive }
         'Manifest' {
             $manifestPath = Read-Host '  Manifest-Zielpfad [.\lab-manifest.json]'
             if (-not $manifestPath) {

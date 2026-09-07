@@ -4,7 +4,7 @@
 
 `AI-00 IMPLEMENTED`, `AI-05 IMPLEMENTED`, `AI-10A SUPPORTED`,
 `AI-10B IN_PROGRESS`, `AI-20A SUPPORTED`, `AI-20B BACKLOG`, `AI-30A SUPPORTED`,
-`AI-40A IMPLEMENTED`, `AI-40B BACKLOG`, `AI-50A SUPPORTED`, `AI-60A SUPPORTED`,
+`AI-40A IMPLEMENTED`, `AI-40B IMPLEMENTED`, `AI-50A SUPPORTED`, `AI-60A SUPPORTED`,
 `AI-60B BACKLOG`, `AI-70` bis `AI-90 BACKLOG`.
 
 Dieser Backlog ist der übergeordnete SQL-zentrierte KI-Plan. Der
@@ -112,8 +112,15 @@ korrekt geschützten Einzelneustarts einer Testgruppen-VM noch `PARTIAL`.
 `AI-40A` implementiert das deterministische, modellunabhängige Retrieval-Gate.
 Es berechnet Recall@k, Precision@k, MRR und nDCG aus eindeutigen Dokument-IDs,
 weist doppelte beziehungsweise ungültige IDs ab und liefert bei unterschrittenen
-Schwellen maschinenlesbare Blocker. Die Bindung an ein Golden Dataset und einen
-ausgeführten SQL-RAG-Lauf bleibt `AI-40B`.
+Schwellen maschinenlesbare Blocker. `AI-40B` ergänzt ein versioniertes,
+synthetisches Golden Dataset. Frage, Dokumente, lokale Modellschlüssel, Top-k,
+Schwellen, Dataset-Hash und Fall-ID werden vor Ausführung an den RAG-PlanKey
+gebunden. Nur ein erfolgreiches `SqlServerLab.AiQueryResult/1.0` mit exakt
+passender Bindung wird bewertet; Hash- oder Fallabweichungen scheitern vor der
+Metrik. Der native Docker-Lauf war am 2026-09-07 einschließlich SQL-Suche,
+Golden-Gate, Restart und Cleanup erfolgreich. Der getrennte Podman-Lauf erreichte
+die RAG-Ausführung nicht, weil der einmalige lokale Modell-Pull nach 900 Sekunden
+ablief; dessen Golden-Runtime-Nachweis bleibt deshalb offen.
 
 `AI-30A` implementiert die lokale Controller-Orchestrierung für RAG. Dokumente
 werden flüchtig mit dem katalogisierten 768-dimensionalen Ollama-Modell

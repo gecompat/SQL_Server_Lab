@@ -28,7 +28,8 @@ function New-LabAiRagPlan {
         [Parameter(Mandatory)][string]$EmbeddingModelKey,
         [Parameter(Mandatory)][string]$GenerationModelKey,
         [Parameter(Mandatory)][int]$LocalPort,
-        [Parameter(Mandatory)][int]$TopK
+        [Parameter(Mandatory)][int]$TopK,
+        [AllowNull()]$EvaluationBinding
     )
 
     if ($Document.Count -lt 1 -or $Document.Count -gt 20) { throw 'AI_RAG_DOCUMENT_COUNT_INVALID' }
@@ -47,8 +48,24 @@ function New-LabAiRagPlan {
     $generationPlan=New-LabAiEndpointPlan -ModelKey $GenerationModelKey -EndpointRef ollama-local -Lane local -LocalPort $LocalPort -MaximumRequests 2 -RetryCount 1
     if ($embeddingPlan.Purpose -ne 'embedding' -or $generationPlan.Purpose -ne 'generation') { throw 'AI_RAG_MODEL_PURPOSE_INVALID' }
     if ($embeddingPlan.Status -eq 'BLOCKED' -or $generationPlan.Status -eq 'BLOCKED') { throw 'AI_RAG_ENDPOINT_PLAN_BLOCKED' }
+    $normalizedBinding = $null
+    if ($null -ne $EvaluationBinding) {
+        if ([string]$EvaluationBinding.DatasetId -notmatch '^[a-z][a-z0-9-]{2,63}$' -or
+            [string]$EvaluationBinding.DatasetVersion -notmatch '^[1-9][0-9]*\.[0-9]+$' -or
+            [string]$EvaluationBinding.DatasetHash -notmatch '^[a-f0-9]{64}$' -or
+            [string]$EvaluationBinding.CaseId -notmatch '^[a-z][a-z0-9-]{2,63}$') {
+            throw 'AI_RAG_EVALUATION_BINDING_INVALID'
+        }
+        $normalizedBinding = [PSCustomObject]@{
+            DatasetId = [string]$EvaluationBinding.DatasetId
+            DatasetVersion = [string]$EvaluationBinding.DatasetVersion
+            DatasetHash = [string]$EvaluationBinding.DatasetHash
+            CaseId = [string]$EvaluationBinding.CaseId
+        }
+    }
     $identity=[ordered]@{Contract='SqlServerLab.AiRagPlan/1.0';RunId=$RunId;InstanceId=$InstanceId;QuestionHash=Get-LabAiSha256Text -Text $Question;Documents=@($normalized|ForEach-Object{[ordered]@{Id=$_.Id;ContentHash=$_.ContentHash}});EmbeddingPlanKey=$embeddingPlan.PlanKey;GenerationPlanKey=$generationPlan.PlanKey;TopK=$TopK}
-    [PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiRagPlan';Version='1.0'};Status='READY';RunId=$RunId;InstanceId=$InstanceId;ScenarioId='rag-local-vector';TopK=$TopK;DocumentCount=$normalized.Count;EmbeddingModelKey=$EmbeddingModelKey;GenerationModelKey=$GenerationModelKey;PlanKey=Get-LabAiPlanKey -InputObject $identity;Documents=@($normalized);EmbeddingPlan=$embeddingPlan;GenerationPlan=$generationPlan}
+    if ($null -ne $normalizedBinding) { $identity.EvaluationBinding = $normalizedBinding }
+    [PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiRagPlan';Version='1.0'};Status='READY';RunId=$RunId;InstanceId=$InstanceId;ScenarioId='rag-local-vector';TopK=$TopK;DocumentCount=$normalized.Count;EmbeddingModelKey=$EmbeddingModelKey;GenerationModelKey=$GenerationModelKey;PlanKey=Get-LabAiPlanKey -InputObject $identity;EvaluationBinding=$normalizedBinding;Documents=@($normalized);EmbeddingPlan=$embeddingPlan;GenerationPlan=$generationPlan}
 }
 
 function Invoke-LabAiRag {
@@ -81,5 +98,9 @@ function Invoke-LabAiRag {
     $prompt="Beantworte die Frage ausschließlich anhand des Kontexts. Zitiere verwendete Quellen als [document-id]. Wenn der Kontext nicht genügt, sage das ausdrücklich.`nFrage: $Question`nKontext:`n$context"
     $answer=Invoke-LabAiEndpointRequest -Plan $Plan.GenerationPlan -InputText $prompt -Transport $GenerationTransport
     $requests += $answer.Attempts;$timer.Stop()
-    [PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiQueryResult';Version='1.0'};Status='SUCCEEDED';Mode='Rag';RunId=$Plan.RunId;InstanceId=$Plan.InstanceId;ScenarioId=$Plan.ScenarioId;PlanKey=$Plan.PlanKey;ModelKey=$Plan.GenerationModelKey;Answer=$answer.Text;Citations=@($ranked.Id);ToolExecutions=@([PSCustomObject]@{ToolId='sql-vector-search';Status='SUCCEEDED';RowCount=$ranked.Count});Metrics=[PSCustomObject]@{RequestCount=$requests;LatencyMilliseconds=[int]$timer.ElapsedMilliseconds}}
+    $queryResult = [PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiQueryResult';Version='1.0'};Status='SUCCEEDED';Mode='Rag';RunId=$Plan.RunId;InstanceId=$Plan.InstanceId;ScenarioId=$Plan.ScenarioId;PlanKey=$Plan.PlanKey;ModelKey=$Plan.GenerationModelKey;Answer=$answer.Text;Citations=@($ranked.Id);ToolExecutions=@([PSCustomObject]@{ToolId='sql-vector-search';Status='SUCCEEDED';RowCount=$ranked.Count});Metrics=[PSCustomObject]@{RequestCount=$requests;LatencyMilliseconds=[int]$timer.ElapsedMilliseconds}}
+    if ($null -ne $Plan.EvaluationBinding) {
+        $queryResult | Add-Member -NotePropertyName EvaluationBinding -NotePropertyValue $Plan.EvaluationBinding
+    }
+    return $queryResult
 }

@@ -4,7 +4,7 @@
 |---|---|
 | Status | `BINDING` |
 | Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED` |
-| Stand | 2026-09-02 |
+| Stand | 2026-09-07 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
@@ -65,9 +65,15 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   `SqlServerLab.AiScenario/1.0`-Packagevertrag mit portablen Modell-, Dataset-,
   Evaluations- und Szenario-PlanKeys; das synthetische SQL-2025-Szenario
   `vector-core-ci/1.0` prüft feste `VECTOR(3)`-Werte, exakte Cosine-Suche,
-  Chunking, Identitätsbindung, Journal und Cleanup. Der Codepfad ist
-  implementiert, die getrennten nativen Docker-/Podman-Nachweise sowie
-  Endpoint-Stub, Ollama, Cloud, ONNX, RAG und Agenten bleiben offen;
+  Chunking, Identitätsbindung, Journal und Cleanup. Docker und Podman sind für
+  Vector-Core, lokale Ollama-Modelle, exaktes SQL-RAG und den read-only
+  Diagnose-Agenten getrennt nativ belegt. Ollama-Cloud-Generation ist opt-in
+  belegt; der Offline-Endpoint-Stub deckt Fehler- und Retryverträge ab. Das
+  versionierte Golden Dataset bindet synthetische Fragen, Dokumente, Modelle,
+  Top-k und Schwellen an den RAG-Plan sowie dessen deterministische Auswertung;
+  Docker ist dafür nativ belegt, während der getrennte Podman-Nachweis vor der
+  RAG-Ausführung an einem zeitlich begrenzten Modell-Pull endete.
+  Cloud-Embeddings, TLS-Gateway, ONNX und ANN bleiben offen;
 - Start, Stop, Restart, Status, Remove und Clear;
 - read-only Desired/Actual/Diff-Reconcile, kontrollierte START-/STOP-Aktionen
   sowie journalisierter Container-Reconcile für CPU, RAM, SQL `max server

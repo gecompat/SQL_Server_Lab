@@ -13,7 +13,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `PathSafety.ps1` | geschützte Pfade, Scope-Prüfung und Scope-Marker |
 | `SecretProvider.ps1` | lokales Speichern, Lesen und Entfernen von Secrets |
 | `AiEndpoint.ps1` | Kataloggebundene, fail-closed Ollama-Endpointplanung und sanitisiertes Embed-/Generate-Requestverhalten |
-| `AiRetrievalEvaluation.ps1` | Inhaltsfreie Retrieval-Metriken und blockierende Recall-/MRR-/nDCG-Schwellen |
+| `AiRetrievalEvaluation.ps1` | Inhaltsfreie Retrieval-Metriken sowie hash- und laufgebundene Golden-Dataset-Auswertung mit blockierenden Recall-/MRR-/nDCG-Schwellen |
 | `AiRag.ps1` | Flüchtige Ollama-Embedding-, SQL-Vector-Retrieval- und Generierungsorchestrierung |
 | `AiDiagnosticAgent.ps1` | Allowlist-Diagnosewerkzeuge, kurzlebige SQL-Identität und lokale Zusammenfassung |
 | `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile, sichere Windows-CU-Acquisition und Linux-Image-Prefetch |
