@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-09-06 |
+| Stand | 2026-09-07 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -1148,6 +1148,24 @@ Softwarepfad außerhalb der drei SQL-External-Runtimes, Hyper-V-Artifact-Refresh
 und automatische Gastumschaltung.
 
 ## Tests
+
+### Nächtliche Regression ist auf `main` dauerhaft rot
+
+Der Workflow `Nightly Regression` schlägt seit mindestens 2026-09-03 durchgehend
+fehl. Betroffen sind ausschließlich zwei Runtime-Jobs:
+`docker-runtime` bricht im Schritt `Docker SQL Server lifecycle / CLI acceptance`
+mit `Process completed with exit code -1` ohne verwertbare Meldung ab;
+`hyperv-runtime` schlägt ebenfalls fehl. Alle statischen Suiten sowie
+`podman-runtime`, `mixed-runtime` und `adapter-runtime` sind im selben Lauf grün.
+
+Der PR-Gate umfasst diese beiden Runtime-Jobs nicht. Ein grüner Pull Request ist
+deshalb kein Nachweis dafür, dass die nächtliche Regression grün wäre. Umgekehrt
+verdeckt der dauerhaft rote Lauf jede neue Regression in denselben Jobs.
+
+Ob die Ursache im Runner oder im Skript liegt, ist offen. Der zuletzt
+ausgewertete Lauf lag auf einem Commit vor den Änderungen vom 2026-09-07; für den
+aktuellen Stand liegt kein Ergebnis vor. Die Aufarbeitung ist in
+`Documentation/Project_Planning/CONSOLE_UX_FOLLOW_UP_BACKLOG.md` festgehalten.
 
 ### Hyper-V-Netzwerk-Reconcile
 
