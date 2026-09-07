@@ -1027,5 +1027,36 @@ try {
 }
 finally { Remove-Item -LiteralPath $moduleProbePath -Force -ErrorAction SilentlyContinue }
 
+# CUI-030: Jede angebotene Aktion muss aus der Oberflaeche erreichbar sein.
+# Eine Aktion, die nur ueber -Action existiert, ist fuer die Konsole eine tote Funktion.
+$connectionCenterMenuSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Sync-SqlServerLabConnectionCenter.ps1') -Raw
+$containerUpdateSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Update-SqlServerLabContainer.ps1') -Raw
+$menuSourceAll = $mainMenuSource + "`n" + $batchConsoleSource + "`n" + $connectionCenterMenuSource + "`n" + $containerUpdateSource
+$actionValidateSet = [regex]::Match($mainMenuSource, "ValidateSet\('New',[^)]+\)").Value
+$declaredActions = @([regex]::Matches($actionValidateSet, "'([^']+)'") | ForEach-Object { $_.Groups[1].Value })
+$reachableIds = @([regex]::Matches($menuSourceAll, "New-LabConsoleItem -Id '?([A-Za-z][A-Za-z0-9]*)'?") |
+        ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+# Diese beiden werden vor dem Aktionsschalter abgefangen und tragen eigene Menue-Ids.
+$dispatchedBeforeSwitch = @('BatchPlan', 'Queue')
+$unreachableActions = @($declaredActions | Where-Object { $_ -notin $reachableIds -and $_ -notin $dispatchedBeforeSwitch })
+Add-ConsoleUiCheck 'Jede Aktion der ValidateSet ist ueber einen Menueeintrag erreichbar' (
+    $declaredActions.Count -ge 30 -and $unreachableActions.Count -eq 0
+)
+if ($unreachableActions.Count -gt 0) {
+    Write-Host ('        Nicht erreichbar: ' + ($unreachableActions -join ', ')) -ForegroundColor Red
+}
+
+$rootEntrySource = Get-Content -LiteralPath (Join-Path $repoRoot 'Invoke-SqlServerLab.ps1') -Raw
+$rootValidateSet = [regex]::Match($rootEntrySource, "ValidateSet\('New',[^)]+\)").Value
+Add-ConsoleUiCheck 'Wurzeleinstieg und Modulfunktion bieten dieselbe Aktionsliste an' (
+    $rootValidateSet -eq $actionValidateSet
+)
+
+Add-ConsoleUiCheck 'Flache Bereichsmenues bieten mehr als eine Handlungsmoeglichkeit' (
+    ([regex]::Matches([regex]::Match($batchConsoleSource, "function Show-LabCmsMenu \{[\s\S]+?(?=\r?\nfunction )").Value, 'New-LabConsoleItem')).Count -ge 3 -and
+    ([regex]::Matches([regex]::Match($batchConsoleSource, "function Show-LabCreateMenu \{[\s\S]+?(?=\r?\nfunction )").Value, 'New-LabConsoleItem')).Count -ge 5 -and
+    ([regex]::Matches([regex]::Match($batchConsoleSource, "function Show-LabMaintenanceMenu \{[\s\S]+?(?=\r?\nfunction )").Value, 'New-LabConsoleItem')).Count -ge 7
+)
+
 Write-Host "`nErgebnis: $passed PASS, $failed FAIL"
 if ($failed -gt 0) { exit 1 }

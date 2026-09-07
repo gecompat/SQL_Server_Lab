@@ -743,6 +743,8 @@ function Show-LabCreateMenu {
         New-LabConsoleItem -Id BatchPlan -Label 'SQL- oder Windows-Umgebung zusammenstellen' -Value 'Einzelposition oder mehrere · Provider Auto · Pruefung vor der Uebergabe' -Shortcut 2 `
             -Help 'Sammelt mehrere Positionen in einem Batch und uebergibt sie nach einer Pruefung an die Warteschlange.'
         New-LabConsoleItem -Id BulkSlots -Label 'Mehrere Windows-Slots gemeinsam bereitstellen' -Value 'Mengenfaehiger Composer · gemeinsame Vorlagenabhaengigkeiten' -Shortcut 3
+        New-LabConsoleItem -Id AutomatedTestEnvironment -Label 'Umgebung fuer automatisierte Tests anlegen' -Value 'Mehrere Ziele · TestUmgebung.env im Lab_Data-Export' -Shortcut 4 `
+            -Help 'Erfasst mehrere Linux- oder Windows-SQL-Testziele und schreibt den Lab_Data-Vertrag. Start und Stopp der Gruppe erfolgen spaeter unter Umgebungen verwalten.'
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
     )
 }
@@ -753,6 +755,8 @@ function Show-LabCmsMenu {
 
     return Show-LabSubMenu -ScreenId 'cms-menu' -Title 'Zentrale Verwaltung (CMS)' -Subtitle 'Registrierte Server, Endpunkte und SSMS-Export' -Items @(
         New-LabConsoleItem -Id ConnectionCenter -Label 'Verbindungszentrale und CMS' -Value 'Endpunkte · registrierte Server · SSMS-Export' -Shortcut 1
+        New-LabConsoleItem -Id Cms -Label 'CMS bereitstellen, uebernehmen und synchronisieren' -Value 'direkter Weg ohne Umweg ueber die Verbindungszentrale' -Shortcut 2 `
+            -Help 'Erstellt einen kompakten persistenten CMS, uebernimmt eine bestehende SQL-Umgebung als CMS oder exportiert nur das kennwortfreie Synchronisationsskript.'
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
     )
 }
@@ -785,11 +789,14 @@ function Show-LabMaintenanceMenu {
     [CmdletBinding()]
     param()
 
-    return Show-LabSubMenu -ScreenId 'maintenance-menu' -Title 'Wartung und Diagnose' -Subtitle 'Read-only Pruefungen und Aufraeumbefunde' -Items @(
+    return Show-LabSubMenu -ScreenId 'maintenance-menu' -Title 'Wartung und Diagnose' -Subtitle 'Read-only Pruefungen, Abgleich und Aufraeumbefunde' -Items @(
         New-LabConsoleItem -Id Status -Label 'System- und Providerstatus' -Value 'read-only' -Shortcut 1
         New-LabConsoleItem -Id CleanupAudit -Label 'Cleanup-Audit anzeigen' -Value 'read-only · verbliebene Ressourcen und Recovery' -Shortcut 2
         New-LabConsoleItem -Id Catalog -Label 'Katalogstatus pruefen' -Value 'Katalogdatei validieren' -Shortcut 3
-        New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 4
+        New-LabConsoleItem -Id SyncRuntime -Label 'State mit Docker, Podman und Hyper-V abgleichen' -Value 'fehlende Objekte -> Recovery · loescht nichts' -Shortcut 4 `
+            -Help 'Vergleicht den gespeicherten State mit der tatsaechlichen Runtime. Fehlende Objekte werden als Recovery ausgewiesen; es wird nichts geloescht.'
+        New-LabConsoleItem -Id CuStatus -Label 'Aktuelle SQL-Server-CUs bei Microsoft pruefen' -Value 'read-only · Netzzugriff auf die katalogisierten Quellen' -Shortcut 5
+        New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 6
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
     )
 }

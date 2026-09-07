@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -222,6 +222,10 @@ function Show-LabEnvironmentMenu {
     $hasStopped = @($states | Where-Object { $_ -eq 'STOPPED' }).Count -gt 0
     $testEnvironmentLifecycle = Get-LabAutomatedTestEnvironmentMenuState
     $hasAutomatedTestEnvironments = [bool]$testEnvironmentLifecycle.Available
+    # Nur Container koennen neu erzeugt werden; der Provider steht am Sub-Run.
+    $hasContainerRun = @($runs | Where-Object {
+            @($_.providerSubRuns | Where-Object { [string]$_.provider -in @('docker', 'podman') }).Count -gt 0
+        }).Count -gt 0
     $items = @(
         New-LabConsoleItem -Id 'Manage' -Label 'Umgebung auswaehlen und verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut '1' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung. Zuerst im Hauptmenue unter "Umgebungen planen und erstellen" eine anlegen.'
         New-LabConsoleItem -Id 'Status' -Label 'Status aller Umgebungen anzeigen' -Shortcut '2' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, deren Status angezeigt werden koennte.'
@@ -231,6 +235,8 @@ function Show-LabEnvironmentMenu {
         New-LabConsoleItem -Id 'Restart' -Label 'Umgebung neustarten' -Shortcut '5' -Disabled:(-not ($hasRunning -or $hasStopped)) -DisabledReason 'Es gibt keine Umgebung im Zustand RUNNING oder STOPPED.'
         New-LabConsoleItem -Id 'Rename' -Label 'Umgebung umbenennen' -Shortcut 'n' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, die umbenannt werden koennte.'
         New-LabConsoleItem -Id 'Resources' -Label 'CPU und Speicher aendern' -Shortcut 'r' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, deren Ressourcen geaendert werden koennten.'
+        New-LabConsoleItem -Id 'UpdateContainer' -Label 'Container neu erstellen mit Port, CPU und Speicher' -Value 'Docker/Podman · Container wird ersetzt, Daten bleiben' -Shortcut 'u' `
+            -Disabled:(-not $hasContainerRun) -DisabledReason 'Es existiert keine Docker- oder Podman-Umgebung. Hyper-V-Umgebungen werden ueber die Hyper-V-Verwaltung geaendert.'
         if ($testEnvironmentLifecycle.Available) {
             New-LabConsoleItem -Id 'AutomatedTestEnvironmentLifecycle' -Label $testEnvironmentLifecycle.Label `
                 -Value $testEnvironmentLifecycle.Value -Shortcut 't'
@@ -711,6 +717,7 @@ function Invoke-LabAction {
             }
         }
         'UpdateContainer' { Update-LabContainerEnvironmentInteractive }
+        'Cms' { Invoke-LabCmsInteractive }
         'Manage' { Manage-LabEnvironmentInteractive }
         'Resources' { Set-LabResourcesInteractive }
         'Rename' { Rename-LabEnvironmentInteractive }
