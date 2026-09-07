@@ -6,6 +6,9 @@ function Backup-SqlServerLabDatabase {
         Sichert eine Datenbank providerneutral mit CHECKSUM, prueft das erzeugte
         Medium per RESTORE VERIFYONLY WITH CHECKSUM, hasht den Export und
         veroeffentlicht erst danach ein sanitiertes REUSABLE-Receipt.
+        SupportsShouldProcess stellt fuer direkte Aufrufe WhatIf und Confirm
+        bereit; vor dessen Freigabe wird keine Runtime- oder Bibliotheksmutation
+        gestartet.
     .PARAMETER HostName
         Hostname oder IP-Adresse der SQL-Quelle im direkten Modus.
     .PARAMETER Port
@@ -34,7 +37,7 @@ function Backup-SqlServerLabDatabase {
     .EXAMPLE
         Backup-SqlServerLabDatabase -RunId $lab.RunId -DatabaseName AppDb -SaPassword $pw -DataRoot D:\Lab_Data
     #>
-    [CmdletBinding(DefaultParameterSetName='Direct')]
+    [CmdletBinding(DefaultParameterSetName='Direct',SupportsShouldProcess,ConfirmImpact='Medium')]
     param(
         [Parameter(ParameterSetName='Direct')][string]$HostName='127.0.0.1',
         [Parameter(ParameterSetName='Direct',Mandatory)][int]$Port,
@@ -56,6 +59,10 @@ function Backup-SqlServerLabDatabase {
     }
     if (-not $DataRoot) { $DataRoot=Get-LabDataRootDefault }
     $DataRoot=Resolve-LabDataRootForUse -DataRoot $DataRoot
+    $sourceIdentity=if($RunId){"Run $RunId / Instanz $InstanceId"}else{"$Provider SQL auf Port $Port"}
+    if(-not $PSCmdlet.ShouldProcess("$sourceIdentity / Datenbank $DatabaseName",'verifiziertes Backup in der registrierten Lab_Data-Bibliothek veröffentlichen')){
+        return [PSCustomObject]@{Status='CANCELLED';RunId=$RunId;InstanceId=$InstanceId;DatabaseName=$DatabaseName;MutationPerformed=$false}
+    }
     $arguments=@{
         HostName=$HostName; Port=$Port; SaPassword=$SaPassword; DatabaseName=$DatabaseName
         ContainerName=$ContainerName; RunId=$RunId; InstanceId=$InstanceId

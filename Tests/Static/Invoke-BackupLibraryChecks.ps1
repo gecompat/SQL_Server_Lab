@@ -41,6 +41,15 @@ try {
             [PSCustomObject]@{Provider='docker';ContainerName='not-persisted';RunId=$null;InstanceId=$null}
         }.GetNewClosure()
 
+        $originalPublicBackupCore=(Get-Command New-LabDatabaseLibraryBackup -CommandType Function).ScriptBlock
+        $script:publicBackupWhatIfCalls=0
+        try {
+            Set-Item Function:script:New-LabDatabaseLibraryBackup -Value { $script:publicBackupWhatIfCalls++ }
+            $publicBackupPreview=Backup-SqlServerLabDatabase -Port 14333 -SaPassword $Password -Provider docker `
+                -ContainerName 'runtime-only' -DatabaseName 'BackupEvidence' -DataRoot $Root -WhatIf
+        }
+        finally { Set-Item Function:script:New-LabDatabaseLibraryBackup -Value $originalPublicBackupCore }
+
         $created=New-LabDatabaseLibraryBackup -Port 14333 -SaPassword $Password -Provider docker `
             -ContainerName 'runtime-only' -DatabaseName 'BackupEvidence' -DataRoot $Root
         $storageConfiguration=Get-LabStorageConfiguration -DataRoot $Root
@@ -102,6 +111,8 @@ try {
         $catalogFailureQuarantined=@($afterCatalogFailure.Backups | Where-Object { $_.DatabaseName -eq 'CatalogFailure' -and $_.Status -eq 'QUARANTINED' }).Count -eq 1
         [PSCustomObject]@{
             Created=$created.Status -eq 'BACKUP_REUSABLE' -and (Test-Path -LiteralPath $created.Path -PathType Leaf)
+            PublicBackupPreview=$publicBackupPreview
+            PublicBackupWhatIfCalls=$script:publicBackupWhatIfCalls
             PersistentStorageId=[string]$created.PersistentStorageId
             PublicSyncPreview=$publicSyncPreview;PublicSync=$publicSync;PublicSyncAgain=$publicSyncAgain
             PreviewDidNotMutate=$previewHashBefore -eq $previewHashAfter
@@ -122,6 +133,12 @@ try {
     } $dataRoot $fixture $password
 
     Add-CheckResult 'Backup wird erst nach CHECKSUM und RESTORE VERIFYONLY veröffentlicht' ($result.Sql -match 'BACKUP DATABASE.+CHECKSUM' -and $result.Sql -match 'RESTORE VERIFYONLY.+WITH CHECKSUM')
+    Add-CheckResult 'Oeffentliches Backup-WhatIf bleibt vor Runtime- und Bibliotheksmutation' (
+        $result.PublicBackupPreview.Status -eq 'CANCELLED' -and
+        -not $result.PublicBackupPreview.MutationPerformed -and $result.PublicBackupWhatIfCalls -eq 0)
+    $removalText=Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLabPersistentStorageRemoval.ps1') -Raw
+    Add-CheckResult 'Bereits bestaetigte Retention unterdrueckt einen verschachtelten zweiten Backup-Prompt' (
+        $removalText -match 'Backup-SqlServerLabDatabase[\s\S]{0,300}?-Confirm:\$false')
     Add-CheckResult 'Inhaltsadressiertes Backup ist als REUSABLE selektierbar' ($result.Created -and $result.Selected)
     Add-CheckResult 'Öffentlicher Bestands-Sync plant ohne Mutation und registriert genau ein BackupSetId idempotent' (
         $result.PublicSyncPreview.ContractVersion -eq 'SqlServerLab.PersistentStorageArtifactSyncResult/1.0' -and

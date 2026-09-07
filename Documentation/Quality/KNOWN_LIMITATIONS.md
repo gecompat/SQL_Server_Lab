@@ -715,6 +715,12 @@ Konsolenmenü unter „Datenbanken und Verbindungen“ erreichbar. Die
 Paketinventur verzichtet standardmäßig auf erneutes Voll-Hashing großer
 Objekte; die Migrationsinventur benötigt ein flüchtiges SA-Kennwort und führt
 ausschließlich den bestehenden SELECT-basierten Core aus.
+Der interaktive Backup-Pfad ist ebenfalls unter „Datenbanken und Verbindungen“
+gebunden. Er zeigt Quelle, Datenbank und die registrierte Lab_Data-Bibliothek
+vor der Mutation, verlangt eine ausdrückliche Bestätigung und gibt danach nur
+stabile Backup-/Storage-IDs und die Größe aus. Das öffentliche Backup-Cmdlet
+unterstützt `ShouldProcess` und `WhatIf`; TDE, Katalog-Quarantäne und temporäres
+Cleanup behalten ihre bestehenden fail-closed Verträge.
 Die Browseraktion für eine laufende Containerinstanz übergibt nur Run-ID,
 Instanz-ID, validierten Datenbanknamen und ein flüchtiges SA-Passwort; ihr
 Live-Log enthält ausschließlich die sanitisierte Inventarprojektion mit

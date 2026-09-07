@@ -1018,6 +1018,7 @@ $result = & $module {
 
     $script:databasePackageInventoryCalls = 0
     $script:databaseMigrationDependencyCalls = 0
+    $script:databaseBackupCalls = 0
     Set-Item Function:script:Get-SqlServerLabDatabasePackage -Value {
         $script:databasePackageInventoryCalls++
         [PSCustomObject]@{
@@ -1034,10 +1035,25 @@ $result = & $module {
             MigrationBoundary=[PSCustomObject]@{PortableRestoreStatus='MANUAL_REVIEW';Blockers=@()}
         }
     }
+    Set-Item Function:script:Resolve-LabRunInstance -Value {
+        [PSCustomObject]@{HostName='127.0.0.1';Port=14330;Provider='docker';ContainerName='synthetic-runtime';Version='2025'}
+    }
+    Set-Item Function:script:Resolve-LabDataRootForUse -Value { param($DataRoot) [string]$DataRoot }
+    Set-Item Function:script:Read-LabConfirm -Value { $true }
+    Set-Item Function:script:Backup-SqlServerLabDatabase -Value {
+        $script:databaseBackupCalls++
+        [PSCustomObject]@{
+            Status='BACKUP_REUSABLE';DatabaseName='Evidence';Bytes=1048576
+            BackupSetId='11111111-2222-4333-8444-555555555555'
+            PersistentStorageId='22222222-3333-4444-8555-666666666666'
+        }
+    }
     $probePassword = ConvertTo-SecureString 'synthetic-only' -AsPlainText -Force
     & { Invoke-LabDatabasePackageInventoryInteractive -DataRoot 'synthetic-root' } 6>$null
     & { Invoke-LabDatabaseMigrationDependencyInteractive -RunId '11111111-2222-4333-8444-555555555555' `
         -InstanceId primary -DatabaseName Evidence -SaPassword $probePassword -TdeRecoveryEvidenceVerified } 6>$null
+    & { Invoke-LabDatabaseBackupInteractive -RunId '11111111-2222-4333-8444-555555555555' `
+        -InstanceId primary -DatabaseName Evidence -SaPassword $probePassword -DataRoot 'synthetic-root' } 6>$null
 
     [PSCustomObject]@{
         BandLines    = $band.Count
@@ -1050,6 +1066,7 @@ $result = & $module {
         PasswordFact = $passwordFact
         PackageInventoryCalls = $script:databasePackageInventoryCalls
         MigrationDependencyCalls = $script:databaseMigrationDependencyCalls
+        DatabaseBackupCalls = $script:databaseBackupCalls
     }
 }
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
@@ -1076,6 +1093,9 @@ try {
     )
     Add-ConsoleUiCheck 'Datenbankmenue ruft Paketbestand und Migrationsinventur im echten Modulscope auf' (
         $null -ne $probe -and $probe.PackageInventoryCalls -eq 1 -and $probe.MigrationDependencyCalls -eq 1
+    )
+    Add-ConsoleUiCheck 'Datenbankmenue ruft den bestätigten Backup-Pfad im echten Modulscope auf' (
+        $null -ne $probe -and $probe.DatabaseBackupCalls -eq 1
     )
 }
 finally { Remove-Item -LiteralPath $moduleProbePath -Force -ErrorAction SilentlyContinue }
@@ -1135,15 +1155,17 @@ Add-ConsoleUiCheck 'SQL-2025-KI bleibt innerhalb der achtteiligen Menuestruktur 
 )
 $databaseMenuSource = [regex]::Match($mainMenuSource, "function Show-LabDatabaseMenu \{[\s\S]+?(?=\r?\nfunction )").Value
 $databaseReadOnlyActions = @('DatabasePackageInventory', 'DatabaseMigrationDependency')
-$missingDatabaseReadOnlyHandlers = @($databaseReadOnlyActions | Where-Object {
+$databaseMutationActions = @('DatabaseBackup')
+$databaseRequiredActions = @($databaseReadOnlyActions + $databaseMutationActions)
+$missingDatabaseReadOnlyHandlers = @($databaseRequiredActions | Where-Object {
         $databaseMenuSource -notmatch "New-LabConsoleItem -Id '$_'" -or
         $mainMenuSource -notmatch "'$_' \{ [A-Za-z0-9-]+ \}"
     })
-Add-ConsoleUiCheck 'Datenbankmenue bietet Paketbestand und Migrationsinventur mit echten Handlern an' (
+Add-ConsoleUiCheck 'Datenbankmenue bietet Backup, Paketbestand und Migrationsinventur mit echten Handlern an' (
     $missingDatabaseReadOnlyHandlers.Count -eq 0 -and
-    @($databaseReadOnlyActions | Where-Object { $_ -in $declaredActions }).Count -eq 2
+    @($databaseRequiredActions | Where-Object { $_ -in $declaredActions }).Count -eq 3
 )
-$missingDatabaseHandlerCounterexample = @(@($databaseReadOnlyActions) + 'DatabaseMissingHandler' | Where-Object {
+$missingDatabaseHandlerCounterexample = @(@($databaseRequiredActions) + 'DatabaseMissingHandler' | Where-Object {
         $databaseMenuSource -notmatch "New-LabConsoleItem -Id '$_'" -or
         $mainMenuSource -notmatch "'$_' \{ [A-Za-z0-9-]+ \}"
     })
@@ -1152,6 +1174,27 @@ Add-ConsoleUiCheck 'Datenbank-Anti-Waisen-Vertrag erkennt einen fehlenden Handle
 )
 Add-ConsoleUiCheck 'Read-only Datenbankaktionen halten ihre Ausgabe bis zur Rueckkehr sichtbar' (
     $mainMenuSource -match "@\('Status', 'CleanupAudit', 'Catalog', 'DatabasePackageInventory', 'DatabaseMigrationDependency'\)"
+)
+$backupCommandSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Backup-SqlServerLabDatabase.ps1') -Raw
+$backupUiSource = [regex]::Match($mainMenuSource, "function Invoke-LabDatabaseBackupInteractive \{[\s\S]+?(?=\r?\nfunction )").Value
+Add-ConsoleUiCheck 'Backup-Menue bindet Ziel, fluechtige Credentials, Lab_Data und explizite Bestaetigung vor Mutation' (
+    $backupUiSource -match 'Resolve-LabRunInstance -RunId \$RunId -InstanceId \$InstanceId' -and
+    $backupUiSource -match 'Resolve-LabDataRootForUse -DataRoot \$DataRoot' -and
+    $backupUiSource -match "Read-Host '  SA-Passwort' -AsSecureString" -and
+    $backupUiSource -match "Provider -eq 'hyperv'.+GuestCredential" -and
+    $backupUiSource -match "Read-LabConfirm -Prompt '  Verifiziertes Backup jetzt erstellen" -and
+    $backupUiSource -match 'Backup-SqlServerLabDatabase @arguments'
+)
+Add-ConsoleUiCheck 'Oeffentliches Backup besitzt WhatIf und UI unterdrueckt erst nach eigener Bestaetigung den zweiten Prompt' (
+    $backupCommandSource -match "CmdletBinding\(DefaultParameterSetName='Direct',SupportsShouldProcess,ConfirmImpact='Medium'\)" -and
+    $backupCommandSource -match '\$PSCmdlet\.ShouldProcess\(' -and
+    $backupCommandSource.IndexOf('$PSCmdlet.ShouldProcess') -lt $backupCommandSource.IndexOf('New-LabDatabaseLibraryBackup @arguments') -and
+    $backupUiSource -match 'DataRoot=\$DataRoot;Confirm=\$false'
+)
+Add-ConsoleUiCheck 'Backup-Ergebnis bleibt sichtbar und gibt weder Pfad noch Hash aus' (
+    $mainMenuSource -match 'if \(\$ActionName -eq ''DatabaseBackup''\) \{ Wait-LabConsoleAcknowledgement \}' -and
+    $backupUiSource -match 'BackupSetId' -and $backupUiSource -match 'PersistentStorageId' -and
+    $backupUiSource -notmatch '\$result\.(Path|Sha256)'
 )
 $aiMenuSource = [regex]::Match($mainMenuSource, "function Show-LabAiMenu \{[\s\S]+?(?=\r?\nfunction )").Value
 $offeredAiActions = @([regex]::Matches($aiMenuSource, "New-LabConsoleItem -Id '([^']+)'") |

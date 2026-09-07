@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'DatabaseBackup', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -142,6 +142,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -in @('Status', 'CleanupAudit', 'Catalog', 'DatabasePackageInventory', 'DatabaseMigrationDependency')) {
         Wait-LabConsoleAcknowledgement
     }
+    if ($ActionName -eq 'DatabaseBackup') { Wait-LabConsoleAcknowledgement }
 
 }
 
@@ -283,6 +284,7 @@ function Show-LabDatabaseMenu {
         New-LabConsoleItem -Id 'Manifest' -Label 'Container-Manifest erstellen und pruefen' -Shortcut 'm'
         New-LabConsoleItem -Id 'Database' -Label 'Datenbank anlegen' -Shortcut '8'
         New-LabConsoleItem -Id 'Script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
+        New-LabConsoleItem -Id 'DatabaseBackup' -Label 'Datenbank sichern' -Value 'CHECKSUM · VERIFYONLY · Lab_Data-Bibliothek' -Shortcut 'b'
         New-LabConsoleItem -Id 'DatabasePackageInventory' -Label 'Datenbankpakete anzeigen' -Value 'read-only · stabile Paket-ID · pfadfrei' -Shortcut 'p'
         New-LabConsoleItem -Id 'DatabaseMigrationDependency' -Label 'Migrationsabhängigkeiten prüfen' -Value 'read-only · Counts · keine Exportmutation' -Shortcut 'g'
         New-LabConsoleItem -Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte' -Shortcut 'c'
@@ -715,6 +717,69 @@ function Invoke-LabDatabasePackageInventoryInteractive {
     }
 }
 
+function Invoke-LabDatabaseBackupInteractive {
+    [CmdletBinding()]
+    param(
+        [string]$RunId,
+        [string]$InstanceId = 'primary',
+        [string]$DatabaseName,
+        [SecureString]$SaPassword,
+        [PSCredential]$GuestCredential,
+        [string]$DataRoot
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RunId)) {
+        $runs = @(Get-LabRunsByRuntimeState -State 'RUNNING')
+        if ($runs.Count -eq 0) { Write-LabInfo 'Keine laufende SQL-Umgebung vorhanden.'; return }
+        $RunId = Select-LabRun -Runs $runs -Prompt 'Quelle für Datenbankbackup' -DisableSystemServices
+        if (-not $RunId) { return }
+        $InstanceId = Read-Host '  Instanz-ID [primary]'
+        if ([string]::IsNullOrWhiteSpace($InstanceId)) { $InstanceId = 'primary' }
+    }
+    try { $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId }
+    catch { Write-LabError "Backupziel konnte nicht gebunden werden: $($_.Exception.Message)"; return }
+
+    if ([string]::IsNullOrWhiteSpace($DatabaseName)) { $DatabaseName = Read-Host '  Zu sichernde Datenbank' }
+    if ($DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        Write-LabError 'Der Datenbankname muss mit einem Buchstaben beginnen und darf nur Buchstaben, Ziffern und Unterstriche enthalten.'
+        return
+    }
+    if (-not $SaPassword) { $SaPassword = Read-Host '  SA-Passwort' -AsSecureString }
+    if ([string]$target.Provider -eq 'hyperv' -and -not $GuestCredential) {
+        $guestUserName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+        if ([string]::IsNullOrWhiteSpace($guestUserName)) { $guestUserName = 'Administrator' }
+        $GuestCredential = [PSCredential]::new($guestUserName, (Read-Host '  Gastpasswort für den gebundenen Backup-Transfer' -AsSecureString))
+    }
+    try {
+        if ([string]::IsNullOrWhiteSpace($DataRoot)) { $DataRoot = Get-LabDataRootDefault }
+        $DataRoot = Resolve-LabDataRootForUse -DataRoot $DataRoot
+    }
+    catch { Write-LabError "Registriertes Lab_Data-Ziel ist nicht verwendbar: $($_.Exception.Message)"; return }
+
+    Write-LabStatus -Label 'Quelle' -Value "$RunId / $InstanceId · $($target.Provider)"
+    Write-LabStatus -Label 'Datenbank' -Value $DatabaseName
+    Write-LabStatus -Label 'Ziel' -Value 'registrierte Lab_Data-Backup-Bibliothek'
+    Write-LabInfo 'Vor Veröffentlichung werden BACKUP CHECKSUM, RESTORE VERIFYONLY WITH CHECKSUM und SHA-256 geprüft.'
+    Write-LabInfo 'Temporäre Exportdateien werden auch bei Fehlern bereinigt; ein fehlgeschlagener Katalogcommit quarantänisiert das Artefakt.'
+    if (-not (Read-LabConfirm -Prompt '  Verifiziertes Backup jetzt erstellen und in Lab_Data veröffentlichen?' -Default $false)) { return }
+
+    $arguments = @{
+        RunId=$RunId;InstanceId=$InstanceId;DatabaseName=$DatabaseName;SaPassword=$SaPassword
+        DataRoot=$DataRoot;Confirm=$false
+    }
+    if ($GuestCredential) { $arguments.GuestCredential = $GuestCredential }
+    try { $result = Backup-SqlServerLabDatabase @arguments }
+    catch { Write-LabError "Datenbankbackup fehlgeschlagen: $($_.Exception.Message)"; return }
+    if ([string]$result.Status -ne 'BACKUP_REUSABLE') {
+        Write-LabWarning "Backup wurde nicht veröffentlicht: $($result.Status)"
+        return
+    }
+    Write-LabSuccess "Backup veröffentlicht: $($result.DatabaseName) · $([Math]::Round(([long]$result.Bytes / 1MB),1)) MiB"
+    Write-LabStatus -Label 'BackupSetId' -Value $result.BackupSetId
+    Write-LabStatus -Label 'PersistentStorageId' -Value $result.PersistentStorageId
+    Write-LabInfo 'Lokale Pfade, SHA-256 und Zugangsdaten werden in dieser Menüansicht nicht ausgegeben.'
+}
+
 function Invoke-LabDatabaseMigrationDependencyInteractive {
     [CmdletBinding()]
     param(
@@ -1045,6 +1110,7 @@ function Invoke-LabAction {
         'AiRetrievalEvaluation' { Invoke-LabAiRetrievalEvaluationInteractive }
         'AiGoldenRagEvaluation' { Invoke-LabAiGoldenRagEvaluationInteractive }
         'AiGuidedDemo' { Invoke-LabAiGuidedDemoInteractive }
+        'DatabaseBackup' { Invoke-LabDatabaseBackupInteractive }
         'DatabasePackageInventory' { Invoke-LabDatabasePackageInventoryInteractive }
         'DatabaseMigrationDependency' { Invoke-LabDatabaseMigrationDependencyInteractive }
         'Manifest' {
