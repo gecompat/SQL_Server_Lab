@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Stand | 2026-09-05 |
+| Stand | 2026-09-07 |
 | Autoritative Funktionsliste | [`SqlServerLab.psd1`](../../SqlServerLab.psd1) |
 | Öffentliche Funktionen | 80 exportierte Cmdlets |
 | Konsolenoberfläche | `Invoke-SqlServerLab` |
@@ -58,7 +58,7 @@ Legende:
 |---|---|---|---|
 | [`Invoke-SqlServerLab`](../../Public/Invoke-SqlServerLab.ps1) | Startet die interaktive PowerShell-Konsolenoberfläche. | ist das Hauptmenü | – |
 | [`Get-SqlServerLabWorkflow`](../../Public/Get-SqlServerLabWorkflow.ps1) | Liefert eine verdichtete, geheimnisfreie Workflow-, Image- und Kombinationsübersicht. | – | direkt: zentrale Dashboard-Inventur und Refresh |
-| [`Get-SqlServerLabAiScenario`](../../Public/Get-SqlServerLabAiScenario.ps1) | Löst ein hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen Run auf. | – | – |
+| [`Get-SqlServerLabAiScenario`](../../Public/Get-SqlServerLabAiScenario.ps1) | Löst ein hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen Run auf. | Datenbanken und Verbindungen → SQL Server 2025 KI → Szenarioplan | – |
 | [`Get-SqlServerLabHyperVImageArtifact`](../../Public/Get-SqlServerLabHyperVImageArtifact.ps1) | Inventarisiert Hyper-V-Images pfadfrei mit Evaluation, Referenzen und optionaler Integritätsprüfung. | Hyper-V-Infrastruktur → Images/Slots | direkt über die Workflow-Inventur: Image-Karten und Vorlagenpool |
 | [`Get-SqlServerLabHyperVResourcePreview`](../../Public/Get-SqlServerLabHyperVResourcePreview.ps1) | Zeigt registrierte Hyper-V-Location, freien Speicher und physische Klassenroots ohne Mutation. | Hyper-V-Aktionen vor UAC | über Core: Hyper-V-User-Gate und erhöhter Handoff |
 | [`Get-SqlServerLabCatalog`](../../Public/Get-SqlServerLabCatalog.ps1) | Schreibt den Workflow-Katalog als persistentes, maschinenlesbares JSON-Artefakt. | Datenbanken und Verbindungen → Lab-Katalog prüfen | – |
@@ -140,11 +140,11 @@ Legende:
 | [`Backup-SqlServerLabDatabase`](../../Public/Backup-SqlServerLabDatabase.ps1) | Veröffentlicht ein providerneutrales Backup erst nach `CHECKSUM`, `RESTORE VERIFYONLY` und Host-Hash. | – | – |
 | [`Restore-SqlServerLabDatabase`](../../Public/Restore-SqlServerLabDatabase.ps1) | Stellt ein verifiziertes Bibliotheksbackup oder eine direkte `.bak`-Datei mit Trust- und Cache-Schutz wieder her. | über Sample-/Restore-Flows | über Adapter: `RestoreContainerLibraryBackup` |
 | [`Invoke-SqlServerLabScript`](../../Public/Invoke-SqlServerLabScript.ps1) | Führt ein T-SQL-Skript mit `GO`-Batchtrennung aus. | Datenbanken und Verbindungen → SQL-Skript ausführen | über Adapter: `ExecuteContainerScript`; Hyper-V-Schaltfläche siehe Abweichungen |
-| [`Invoke-SqlServerLabAiScenario`](../../Public/Invoke-SqlServerLabAiScenario.ps1) | Führt ein deklariertes, hashgebundenes SQL-KI-Szenario journalisiert mit No-op-, `WhatIf`- und Cleanup-Pfad aus. | – | – |
-| [`Invoke-SqlServerLabAiModel`](../../Public/Invoke-SqlServerLabAiModel.ps1) | Ruft ein katalogisiertes lokales oder Cloud-Ollama-Modell mit explizitem Egress, Datenklasse und begrenztem Budget auf. | – | – |
-| [`Measure-SqlServerLabAiRetrieval`](../../Public/Measure-SqlServerLabAiRetrieval.ps1) | Bewertet geordnete Retrieval-IDs deterministisch mit Recall@k, Precision@k, MRR und nDCG. | – | – |
-| [`Invoke-SqlServerLabAiRag`](../../Public/Invoke-SqlServerLabAiRag.ps1) | Führt lokale Ollama-Embeddings, exakte SQL-2025-Vektorsuche und quellgebundene Generierung ohne dauerhafte SQL-Objekte aus. | – | – |
-| [`Invoke-SqlServerLabAiDiagnosticAgent`](../../Public/Invoke-SqlServerLabAiDiagnosticAgent.ps1) | Führt maximal vier katalogisierte SELECT-Diagnosen unter einer kurzlebigen Least-Privilege-Identität aus und fasst sie lokal zusammen. | – | – |
+| [`Invoke-SqlServerLabAiScenario`](../../Public/Invoke-SqlServerLabAiScenario.ps1) | Führt ein deklariertes, hashgebundenes SQL-KI-Szenario journalisiert mit No-op-, `WhatIf`- und Cleanup-Pfad aus. | Datenbanken und Verbindungen → SQL Server 2025 KI → Szenario ausführen | – |
+| [`Invoke-SqlServerLabAiModel`](../../Public/Invoke-SqlServerLabAiModel.ps1) | Ruft ein katalogisiertes lokales oder Cloud-Ollama-Modell mit explizitem Egress, Datenklasse und begrenztem Budget auf. | Datenbanken und Verbindungen → SQL Server 2025 KI → Ollama-Modell | – |
+| [`Measure-SqlServerLabAiRetrieval`](../../Public/Measure-SqlServerLabAiRetrieval.ps1) | Bewertet geordnete Retrieval-IDs deterministisch mit Recall@k, Precision@k, MRR und nDCG. | Datenbanken und Verbindungen → SQL Server 2025 KI → Retrieval bewerten | – |
+| [`Invoke-SqlServerLabAiRag`](../../Public/Invoke-SqlServerLabAiRag.ps1) | Führt lokale Ollama-Embeddings, exakte SQL-2025-Vektorsuche und quellgebundene Generierung ohne dauerhafte SQL-Objekte aus. | Datenbanken und Verbindungen → SQL Server 2025 KI → lokales SQL-RAG | – |
+| [`Invoke-SqlServerLabAiDiagnosticAgent`](../../Public/Invoke-SqlServerLabAiDiagnosticAgent.ps1) | Führt maximal vier katalogisierte SELECT-Diagnosen unter einer kurzlebigen Least-Privilege-Identität aus und fasst sie lokal zusammen. | Datenbanken und Verbindungen → SQL Server 2025 KI → read-only Diagnose | – |
 | [`Test-SqlServerLabContainerTool`](../../Public/Test-SqlServerLabContainerTool.ps1) | Prüft kataloggebundenes SqlPackage per run- und scopegebundener read-only Versionsprobe. | – | – |
 
 ## Voraussetzungen, Adapter und Hilfswerkzeuge

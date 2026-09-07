@@ -1096,5 +1096,25 @@ Add-ConsoleUiCheck 'Flache Bereichsmenues bieten mehr als eine Handlungsmoeglich
     ([regex]::Matches([regex]::Match($batchConsoleSource, "function Show-LabMaintenanceMenu \{[\s\S]+?(?=\r?\nfunction )").Value, 'New-LabConsoleItem')).Count -ge 7
 )
 
+Add-ConsoleUiCheck 'SQL-2025-KI bleibt innerhalb der achtteiligen Menuestruktur erreichbar' (
+    $mainMenuSource -match "function Show-LabDatabaseMenu[\s\S]{0,1200}?New-LabConsoleItem -Id 'AiArea'" -and
+    $batchConsoleSource -match "'Ai' \{ Show-LabAiMenu \}" -and
+    $batchConsoleSource -match "\`$action -eq 'AiArea'.+Invoke-LabAreaMenuInteractive -Area Ai" -and
+    $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,2500}?New-LabConsoleItem -Id 'AiScenarioPlan'" -and
+    $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,2500}?New-LabConsoleItem -Id 'AiRetrievalEvaluation'"
+)
+$aiMenuSource = [regex]::Match($mainMenuSource, "function Show-LabAiMenu \{[\s\S]+?(?=\r?\nfunction )").Value
+$offeredAiActions = @([regex]::Matches($aiMenuSource, "New-LabConsoleItem -Id '([^']+)'") |
+        ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -ne 'back' })
+$unhandledAiActions = @($offeredAiActions | Where-Object { $mainMenuSource -notmatch "'$_' \{ [A-Za-z0-9-]+ \}" })
+Add-ConsoleUiCheck 'Alle angebotenen KI-Menueaktionen besitzen einen Handler' (
+    $offeredAiActions.Count -ge 6 -and $unhandledAiActions.Count -eq 0
+)
+$missingAiHandlerCounterexample = @(@($offeredAiActions) + 'AiMissingHandler' |
+        Where-Object { $mainMenuSource -notmatch "'$_' \{ [A-Za-z0-9-]+ \}" })
+Add-ConsoleUiCheck 'KI-Anti-Waisen-Vertrag erkennt einen fehlenden Handler als Gegenbeweis' (
+    $missingAiHandlerCounterexample.Count -eq 1 -and $missingAiHandlerCounterexample[0] -eq 'AiMissingHandler'
+)
+
 Write-Host "`nErgebnis: $passed PASS, $failed FAIL"
 if ($failed -gt 0) { exit 1 }

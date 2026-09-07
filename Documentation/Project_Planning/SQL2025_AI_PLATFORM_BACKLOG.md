@@ -104,7 +104,10 @@ mit `ollama/ollama:0.11.10`, dynamischem Loopback-Port, live gebundenem Image-
 und Modelldigest, `embeddinggemma:300m-qat-q4_0` mit 768 Dimensionen,
 `gemma3:1b`, Container-Restart und vollständigem Cleanup erfolgreich. Diese
 Controller-Lane verwendet ausschließlich Loopback-HTTP. Ein TLS-Gateway für
-SQL Servers `CREATE EXTERNAL MODEL` und die Hyper-V-Lane bleiben `AI-20B`.
+SQL Servers `CREATE EXTERNAL MODEL` und ein TLS-Gateway bleiben `AI-20B`. Der
+providerneutrale Controller akzeptiert inzwischen verwaltete Hyper-V-SQL-2025-
+Ziele für lokales RAG und read-only Diagnose; der native Nachweis ist wegen des
+korrekt geschützten Einzelneustarts einer Testgruppen-VM noch `PARTIAL`.
 
 `AI-40A` implementiert das deterministische, modellunabhängige Retrieval-Gate.
 Es berechnet Recall@k, Precision@k, MRR und nDCG aus eindeutigen Dokument-IDs,
@@ -130,6 +133,9 @@ SQL-Identität an und entfernt sie im `finally`. Modellantworten können weder
 SQL noch weitere Werkzeuge auslösen. Die getrennten nativen Docker- und
 Podman-Läufe waren am 2026-09-06 einschließlich echter Sichtrechte,
 Login-Cleanup, Ollama-Restart und vollständigem Lab-Cleanup erfolgreich.
+Ein echter Hyper-V-Controllerlauf belegte am 2026-09-07 RAG, Agent,
+Login-Cleanup und Ollama-Restart; vollständige Provider-Capability folgt erst
+nach dem noch offenen isolierten VM-Neustartnachweis.
 
 ## Sicherheits- und Betriebsvertrag
 
