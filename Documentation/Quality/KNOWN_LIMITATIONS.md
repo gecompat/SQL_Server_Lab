@@ -1575,9 +1575,18 @@ Blockierungsgrund, weil der Scheduler solche Vorgänge überspringt. Der
 Menüpunkt `Scheduler jetzt ausführen` benennt bei leerem Ergebnis die
 blockierten Vorgänge samt Grund, statt wortlos zurückzukehren.
 
-Es besteht weiterhin **kein** interaktiver Weg, die Secret-Referenz im
-Batch-Composer zu setzen; sie muss vor der Übergabe an der Position hinterlegt
-und die Prozessvariable in derselben Sitzung gesetzt werden.
+Der Batch-Composer bietet die Secret-Referenz seit 2026-09-07 interaktiv an:
+beim Anlegen einer Containerposition wird eine vorhandene
+`SQL_SERVER_LAB_SECRET_*`-Prozessvariable gewählt oder eine neue angelegt. Das
+Kennwort wird ausschließlich als Prozessvariable gehalten, niemals im Batch,
+im State oder dauerhaft im Benutzer- oder Maschinenprofil. Der Matrixpfad
+verwendet eine gemeinsame Referenz für alle Containerpositionen.
+
+Nicht abgedeckt: eine Nachpflege der Referenz an bereits angelegten Positionen
+über die gemeinsame Mehrfachbearbeitung, sowie Windows- und Hyper-V-Positionen,
+die diesen Secret-Vertrag nicht verwenden. Die Prozessvariable gilt nur im
+aktuellen Fenster; nach einem Neustart der Sitzung muss sie erneut gesetzt
+werden.
 
 ## Priorisierte nächste technische Schritte
 
