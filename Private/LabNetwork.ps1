@@ -256,6 +256,42 @@ function Assert-LabRuntimeNetworkAvailable {
     }
 }
 
+function Resolve-LabAvailableContainerNetwork {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider, [Parameter(Mandatory)]$Network)
+
+    $knownSubnets = @(Get-LabKnownIpv4Subnets -Provider $Provider)
+    try {
+        Assert-LabRuntimeNetworkAvailable -Network $Network -KnownSubnets $knownSubnets
+        return $Network
+    }
+    catch {
+        $environmentPrefix = if ($Provider -eq 'docker') { 'DOCKER' } else { 'PODMAN' }
+        $configuredSubnet = [string][Environment]::GetEnvironmentVariable("SQL_SERVER_LAB_${environmentPrefix}_SUBNET")
+        if (-not [string]::IsNullOrWhiteSpace($configuredSubnet)) { throw }
+    }
+
+    $providerOffset = if ($Provider -eq 'docker') { 0 } else { 256 }
+    foreach ($index in 0..255) {
+        $candidateSubnet = "198.$([int](18 + [math]::Floor(($providerOffset + $index) / 256))).$([int](($providerOffset + $index) % 256)).0/24"
+        $candidate = [PSCustomObject]@{
+            Provider=$Network.Provider; Name=$Network.Name; Subnet=$candidateSubnet; PrefixLength=24
+            HostAddress=(ConvertFrom-LabIpv4UInt32 -Value ([uint32]((ConvertTo-LabIpv4Subnet -Subnet $candidateSubnet).Network + 1))).ToString()
+            Intent=$Network.Intent; NatName=$Network.NatName
+        }
+        try {
+            Assert-LabRuntimeNetworkAvailable -Network $candidate -KnownSubnets $knownSubnets
+            $environmentVariableName = "SQL_SERVER_LAB_${environmentPrefix}_SUBNET"
+            [Environment]::SetEnvironmentVariable($environmentVariableName, $candidateSubnet, 'User')
+            [Environment]::SetEnvironmentVariable($environmentVariableName, $candidateSubnet, 'Process')
+            Write-LabWarning "LAB_NETWORK_DEFAULT_SUBNET_CONFLICT: $($Network.Name) verwendet automatisch $candidateSubnet statt $($Network.Subnet)."
+            return $candidate
+        }
+        catch { }
+    }
+    throw "LAB_NETWORK_NO_AVAILABLE_SUBNET: $($Network.Name)"
+}
+
 function Ensure-LabDockerNetwork {
     [CmdletBinding()]
     param([string]$Name, [string]$Subnet)
@@ -267,9 +303,18 @@ function Ensure-LabDockerNetwork {
     if ($existing) {
         $actualSubnet = [string]@($existing.IPAM.Config)[0].Subnet
         if ($actualSubnet -ne $network.Subnet -or [bool]$existing.Internal) { throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)" }
+        try {
+            Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets (Get-LabKnownIpv4Subnets -Provider docker)
+        }
+        catch {
+            if ($_.Exception.Message -match '^LAB_NETWORK_SUBNET_CONFLICT:') {
+                throw "LAB_NETWORK_EXISTING_SUBNET_CONFLICT_MIGRATION_REQUIRED: $($_.Exception.Message)"
+            }
+            throw
+        }
         return $network
     }
-    Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets (Get-LabKnownIpv4Subnets -Provider docker)
+    $network = Resolve-LabAvailableContainerNetwork -Provider docker -Network $network
     $null = & $dockerInvocation network create --driver bridge --subnet $network.Subnet --label sql-server-lab.network=managed $network.Name
     if ($LASTEXITCODE -ne 0) { throw "LAB_NETWORK_CREATE_FAILED: Docker $($network.Name)" }
     return $network
@@ -357,6 +402,15 @@ function Ensure-LabPodmanNetwork {
     if ($existing) {
         $existingContract = Get-LabPodmanNetworkContractFromInspect -Inspect $existing
         if ($existingContract.Subnet -ne $network.Subnet -or $existingContract.Internal) { throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)" }
+        try {
+            Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets (Get-LabKnownIpv4Subnets -Provider podman)
+        }
+        catch {
+            if ($_.Exception.Message -match '^LAB_NETWORK_SUBNET_CONFLICT:') {
+                throw "LAB_NETWORK_EXISTING_SUBNET_CONFLICT_MIGRATION_REQUIRED: $($_.Exception.Message)"
+            }
+            throw
+        }
         $podmanVersion = [string](& $podmanInvocation version --format '{{.Version}}' 2>$null)
         $configPath = Get-LabPodmanCniNetworkConfigPath -Name $network.Name
         if ($configPath -and (Repair-LabPodmanCniVersionCompatibility -NetworkConfigPath $configPath -NetworkName $network.Name -PodmanVersion $podmanVersion.Trim())) {
@@ -364,7 +418,7 @@ function Ensure-LabPodmanNetwork {
         }
         return $network
     }
-    Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets (Get-LabKnownIpv4Subnets -Provider podman)
+    $network = Resolve-LabAvailableContainerNetwork -Provider podman -Network $network
     $createOutput = @(& $podmanInvocation network create --subnet $network.Subnet --label sql-server-lab.network=managed $network.Name)
     if ($LASTEXITCODE -ne 0) { throw "LAB_NETWORK_CREATE_FAILED: Podman $($network.Name)" }
     $podmanVersion = [string](& $podmanInvocation version --format '{{.Version}}' 2>$null)

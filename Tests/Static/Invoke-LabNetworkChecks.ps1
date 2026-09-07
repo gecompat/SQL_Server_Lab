@@ -43,6 +43,38 @@ try {
     )
     $overlap = & $module { [PSCustomObject]@{ Overlap = Test-LabIpv4SubnetOverlap -Left '172.26.0.0/16' -Right '172.26.12.0/24'; Separate = Test-LabIpv4SubnetOverlap -Left '172.26.0.0/16' -Right '172.27.0.0/16' } }
     Add-CheckResult -Name 'CIDR-Pruefung erkennt Ueberlappungen' -Success ($overlap.Overlap -and -not $overlap.Separate)
+    $containerNetworkFallback = & $module {
+        $originalKnownSubnets = (Get-Command Get-LabKnownIpv4Subnets).ScriptBlock
+        $originalWarning = (Get-Command Write-LabWarning).ScriptBlock
+        $previousPodmanSubnet = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_PODMAN_SUBNET', 'User')
+        try {
+            Set-Item Function:Get-LabKnownIpv4Subnets -Value { param($Provider) @('172.27.0.0/16') }
+            $script:networkWarning = $null
+            Set-Item Function:Write-LabWarning -Value { param($Message) $script:networkWarning = $Message }
+            $network = Get-LabRuntimeNetwork -Provider podman
+            $fallback = Resolve-LabAvailableContainerNetwork -Provider podman -Network $network
+            [PSCustomObject]@{ Subnet=$fallback.Subnet; Warning=$script:networkWarning }
+        }
+        finally {
+            [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_PODMAN_SUBNET', $previousPodmanSubnet, 'User')
+            Set-Item Function:Get-LabKnownIpv4Subnets -Value $originalKnownSubnets
+            Set-Item Function:Write-LabWarning -Value $originalWarning
+            Remove-Variable networkWarning -Scope Script -ErrorAction SilentlyContinue
+        }
+    }
+    Add-CheckResult -Name 'Konfligierende Containerdefaults verwenden automatisch ein getrenntes Benchmark-Testnetz' -Success (
+        $containerNetworkFallback.Subnet -eq '198.19.0.0/24' -and
+        $containerNetworkFallback.Warning -match 'LAB_NETWORK_DEFAULT_SUBNET_CONFLICT')
+    $networkSource = Get-Content (Join-Path $repoRoot 'Private/LabNetwork.ps1') -Raw
+    Add-CheckResult -Name 'Bestehende Docker- und Podman-Labnetze melden spätere Subnetzkonflikte als Migrationsbedarf' -Success (
+        @([regex]::Matches($networkSource, 'LAB_NETWORK_EXISTING_SUBNET_CONFLICT_MIGRATION_REQUIRED')).Count -eq 2)
+    $migrationSource = Get-Content (Join-Path $repoRoot 'Private/ContainerNetworkMigration.ps1') -Raw
+    $migrationCommand = Get-Command Move-SqlServerLabContainerNetwork -Module SqlServerLab
+    Add-CheckResult -Name 'Container-Netzmigration ist explizit, providergebunden und auf gelabelte Labcontainer begrenzt' -Success (
+        $migrationCommand.Parameters.ContainsKey('Provider') -and $migrationCommand.Parameters.ContainsKey('WhatIf') -and
+        $migrationSource -match "label=sql-server-lab.run-id" -and $migrationSource -match "sql-server-lab.scope-id" -and
+        $migrationSource -match 'LAB_NETWORK_MIGRATION_OLD_NETWORK_REMOVE_FAILED' -and
+        $migrationSource -match "Status='RECOVERY_REQUIRED'")
     $intentPlans = & $module {
         [PSCustomObject]@{
             DockerDefault = Resolve-LabNetworkIntentPlan -Provider docker
@@ -268,7 +300,6 @@ try {
     $podman = Get-Content (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1') -Raw
     $hyperv = Get-Content (Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1') -Raw
     $acceptance = Get-Content (Join-Path $repoRoot 'Private/HyperVSqlAcceptanceEnvironment.ps1') -Raw
-    $networkSource = Get-Content (Join-Path $repoRoot 'Private/LabNetwork.ps1') -Raw
     $elevationSource = Get-Content (Join-Path $repoRoot 'Private/Elevation.ps1') -Raw
     $preferencesSource = Get-Content (Join-Path $repoRoot 'Private/LabPreferences.ps1') -Raw
     $menuSource = Get-Content (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw

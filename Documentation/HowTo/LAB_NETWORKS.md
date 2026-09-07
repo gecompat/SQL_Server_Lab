@@ -52,6 +52,13 @@ Die zugehörigen Namen lassen sich mit `_NETWORK` überschreiben, zum Beispiel
 wird nie stillschweigend umkonfiguriert; dafür muss zuerst bewusst ein neues,
 kollisionsfreies Netz gewählt werden.
 
+Kollidiert ein nicht explizit konfigurierter Docker- oder Podman-Default, wählt
+das Framework vor der ersten Netzmutation automatisch einen freien
+providergetrennten `/24`-Bereich aus `198.18.0.0/15`. Es speichert diese Wahl
+als benutzerspezifische `_SUBNET`-Variable, damit nachfolgende Prozesse das
+bereits angelegte Labnetz vertragsgleich wiederverwenden. Eine ausdrücklich
+gesetzte `_SUBNET`-Variable bleibt bindend und wird bei Konflikt nicht ersetzt.
+
 Aktive VPN-Routen werden automatisch erkannt. Für VPN-Präfixe, die nur bei
 einer getrennten Verbindung existieren, kann der Betreiber sie dauerhaft als
 lokale Reservierung hinterlegen. Die durch Komma oder Semikolon getrennten
