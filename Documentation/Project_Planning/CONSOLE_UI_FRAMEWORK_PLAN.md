@@ -243,9 +243,34 @@ automatische Medienbeschaffung, Slot-Erzeugung oder sonstige Mutation auslösen.
 | `CUI-009` | Container-Änderungsdialog auf gemeinsamen Renderer umstellen | `IMPLEMENTED_VERTICAL_SLICE` - Sonder-Key-Loop und `Clear-Host` entfernt |
 | `CUI-010` | Attention-Footer an gemeinsamen read-only Status anbinden | `IMPLEMENTED` - lokaler Snapshot zeigt CU-/Media-Lücken, Slot- und Vorlagenkapazität, offene Builder sowie Recovery ohne Mutation; F5 lädt bewusst neu |
 | `CUI-011` | Zustands-, Render-, Resize-, Fallback- und Recovery-Tests | `IMPLEMENTED` - deterministische Viewport-, Write-Plan-, Fallback-, Session-Recovery-, Formular- und Secret-Verträge |
+| `CUI-022` | reservierter Statusbereich mit Fortschritt und Heartbeat | `IMPLEMENTED` - feste Bandhöhe, Live-Aktualisierung ausschließlich der reservierten Zeilen, Stillstandserkennung, ASCII-Fallback ohne UTF-8-Konsole |
+| `CUI-023` | Meldungen überleben Neuzeichnen und bleiben kopierbar | `IMPLEMENTED` - Journal `SqlServerLab.Message/1.0`, stabile MessageId, Secret-Scrubbing, Persistenzblock mit Neuverankerung des Rahmens |
+| `CUI-024` | Kontexthilfe je `ScreenId` und Begründung deaktivierter Einträge | `PLANNED` - noch nicht umgesetzt |
+| `CUI-025` | Provider-Ausgabe in Run-Logs statt auf die Konsole | `PLANNED` - noch nicht umgesetzt |
 
 Die Migration erfolgt vertikal. Ein migriertes Menü verwendet vollständig die
 gemeinsame Schicht; neue parallele Cursorimplementierungen sind nicht zulässig.
+
+### 12.2 Statusbereich und Meldungspersistenz
+
+Der Statusbereich (`CUI-022`) liegt zwischen Viewport und Fußzeile und behält
+seine über `-StatusHeight` deklarierte Höhe auch dann, wenn kein Vorgang läuft.
+Dadurch verschiebt eine startende oder endende Operation keine Menüzeile.
+`Wait-LabConsoleKey` aktualisiert während des Wartens ausschließlich diese
+Zeilen; Bildschirme ohne `-StatusProvider` warten unverändert blockierend.
+Bestimmbarer Fortschritt entsteht aus `steps`, `currentStep` und `progress`
+einer Operation. Fehlt er, belegt ein Heartbeat mit Laufzeit und
+Versuchszähler die Lebendigkeit; bleibt `updatedAt` unverändert, wird der
+Stillstand benannt statt weiter gedreht.
+
+Meldungen (`CUI-023`) sind Daten und keine Bildschirmausgabe. `Write-LabInfo`,
+`Write-LabSuccess`, `Write-LabWarning` und `Write-LabError` journalisieren
+zuerst und rendern danach. Warnungen und Fehler tragen eine zitierbare
+`MessageId`; das Journal liegt zusätzlich als JSON Lines unter
+`<StateRoot>/session/<SessionId>/messages.jsonl`. Secrets werden vor Journal
+und Anzeige entfernt. `Write-LabConsoleMessageBlock` schreibt eine Meldung in
+den normalen Scrollback und verankert den Rahmen darunter neu, sodass der Text
+terminaleigen markierbar und kopierbar bleibt.
 
 ### 12.1 Nachaudit der manuellen Konsolenabnahme
 
