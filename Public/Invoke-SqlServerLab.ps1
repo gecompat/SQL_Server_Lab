@@ -284,11 +284,27 @@ function Show-LabDatabaseMenu {
         New-LabConsoleItem -Id 'Database' -Label 'Datenbank anlegen' -Shortcut '8'
         New-LabConsoleItem -Id 'Script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
         New-LabConsoleItem -Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte' -Shortcut 'c'
+        New-LabConsoleItem -Id 'AiArea' -Label 'SQL Server 2025 KI' -Value 'Szenarien · Ollama lokal/Cloud · RAG · read-only Diagnose' -Shortcut 'a'
         New-LabConsoleItem -Id 'Catalog' -Label 'Lab-Katalog prüfen' -Value 'Katalogdatei validieren; kein CMS-Zugang' -Shortcut 'k'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 
     return Show-LabSubMenu -ScreenId 'database-menu' -Title 'Datenbank & Skripte' -Subtitle 'Artefakte, Datenbanken und SQL-Ausfuehrung' -Items $items
+}
+
+function Show-LabAiMenu {
+    [CmdletBinding()]
+    param()
+
+    return Show-LabSubMenu -ScreenId 'ai-menu' -Title 'SQL Server 2025 KI' -Subtitle 'Kostenbewusste, kataloggebundene Ollama- und SQL-Workflows' -Items @(
+        New-LabConsoleItem -Id 'AiScenarioPlan' -Label 'KI-Szenarioplan anzeigen' -Value 'read-only · hashgebundener Katalogvertrag' -Shortcut '1'
+        New-LabConsoleItem -Id 'AiScenarioRun' -Label 'KI-Szenario ausführen' -Value 'SQL 2025 · journalisiert · Cleanup immer' -Shortcut '2'
+        New-LabConsoleItem -Id 'AiModel' -Label 'Ollama-Modell aufrufen' -Value 'lokal oder explizit freigegebene Cloud-Lane' -Shortcut '3'
+        New-LabConsoleItem -Id 'AiRag' -Label 'Lokales SQL-RAG ausführen' -Value 'EmbeddingGemma 300M + Gemma 3 1B · exakte Vektorsuche' -Shortcut '4'
+        New-LabConsoleItem -Id 'AiDiagnostic' -Label 'Read-only SQL-Diagnose' -Value 'katalogisierte SELECT-Werkzeuge · kurzlebiger Login' -Shortcut '5'
+        New-LabConsoleItem -Id 'AiRetrievalEvaluation' -Label 'Retrieval-Ergebnis bewerten' -Value 'deterministisch · ohne Modell- oder Netzwerkkosten' -Shortcut '6'
+        New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
+    )
 }
 
 function Show-LabToolsMenu {
@@ -641,6 +657,151 @@ function Show-LabMenu {
     }
 }
 
+function Select-LabAiTargetInteractive {
+    [CmdletBinding()]
+    param([string]$Prompt = 'SQL-2025-KI-Ziel auswählen')
+
+    $runs = @(Get-LabRunsByRuntimeState -State 'RUNNING')
+    if ($runs.Count -eq 0) { Write-LabInfo 'Keine laufende SQL-Umgebung vorhanden.'; return $null }
+    $runId = Select-LabRun -Runs $runs -Prompt $Prompt -DisableSystemServices
+    if (-not $runId) { return $null }
+    $instanceId = Read-Host '  Instanz-ID [primary]'
+    if ([string]::IsNullOrWhiteSpace($instanceId)) { $instanceId = 'primary' }
+    try {
+        $target = Resolve-LabRunInstance -RunId $runId -InstanceId $instanceId
+        if (($target.Version -split '-', 2)[0] -ne '2025') {
+            Write-LabWarning 'Die aktuellen KI-Workflows unterstützen ausschließlich SQL Server 2025.'
+            return $null
+        }
+        return [PSCustomObject]@{ RunId=$runId; InstanceId=$instanceId; Target=$target }
+    }
+    catch { Write-LabError $_.Exception.Message; return $null }
+}
+
+function Invoke-LabAiScenarioPlanInteractive {
+    [CmdletBinding()]
+    param()
+
+    $scenarioId = Read-Host '  Szenario-ID [vector-core-ci]'
+    if ([string]::IsNullOrWhiteSpace($scenarioId)) { $scenarioId = 'vector-core-ci' }
+    $bindToRun = Read-LabConfirm -Prompt '  Gegen eine laufende SQL-2025-Umgebung auflösen?' -Default $true
+    $arguments = @{ ScenarioId=$scenarioId }
+    if ($bindToRun) {
+        $selection = Select-LabAiTargetInteractive -Prompt 'KI-Szenarioplan für'
+        if (-not $selection) { return }
+        $arguments.RunId = $selection.RunId
+        $arguments.InstanceId = $selection.InstanceId
+    }
+    $plan = Get-SqlServerLabAiScenario @arguments
+    Write-LabStatus -Label 'Szenario' -Value "$($plan.ScenarioId)/$($plan.Version)"
+    Write-LabStatus -Label 'Status' -Value $plan.Status -Color $(if ($plan.Status -eq 'READY') { 'Green' } else { 'Yellow' })
+    if ($plan.Provider) { Write-LabStatus -Label 'Ziel' -Value "$($plan.Provider) · SQL $($plan.SqlVersion)" }
+    if (@($plan.Blockers).Count -gt 0) { Write-LabWarning ('Blocker: ' + (@($plan.Blockers) -join ', ')) }
+}
+
+function Invoke-LabAiScenarioRunInteractive {
+    [CmdletBinding()]
+    param()
+
+    $selection = Select-LabAiTargetInteractive -Prompt 'KI-Szenario ausführen auf'
+    if (-not $selection) { return }
+    $scenarioId = Read-Host '  Szenario-ID [vector-core-ci]'
+    if ([string]::IsNullOrWhiteSpace($scenarioId)) { $scenarioId = 'vector-core-ci' }
+    $plan = Get-SqlServerLabAiScenario -ScenarioId $scenarioId -RunId $selection.RunId -InstanceId $selection.InstanceId
+    if ($plan.Status -ne 'READY') { Write-LabWarning ('Szenario blockiert: ' + (@($plan.Blockers) -join ', ')); return }
+    $password = Read-Host '  SA-Passwort' -AsSecureString
+    $result = Invoke-SqlServerLabAiScenario -RunId $selection.RunId -InstanceId $selection.InstanceId -ScenarioId $scenarioId -SaPassword $password -Confirm
+    Write-LabStatus -Label 'Szenario' -Value $result.Status -Color $(if ($result.Status -in @('SUCCEEDED','NO_CHANGE')) { 'Green' } else { 'Yellow' })
+    Write-LabStatus -Label 'Cleanup' -Value $result.CleanupStatus -Color $(if ($result.CleanupStatus -eq 'SUCCEEDED') { 'Green' } else { 'Yellow' })
+}
+
+function Invoke-LabAiModelInteractive {
+    [CmdletBinding()]
+    param()
+
+    $lane = Read-Host '  Lane lokal/cloud [lokal]'
+    $lane = if ($lane -match '^(cloud|c)$') { 'cloud' } else { 'local' }
+    $prompt = Read-Host '  Prompt (wird nicht protokolliert)'
+    if ([string]::IsNullOrWhiteSpace($prompt)) { return }
+    if ($lane -eq 'cloud') {
+        Write-LabWarning 'Cloud-Lane sendet den Prompt an ollama.com. Interne oder geheime Inhalte sind hier nicht zulässig.'
+        if (-not (Read-LabConfirm -Prompt '  Cloud-Egress für synthetische oder öffentliche Daten freigeben?' -Default $false)) { return }
+        $classification = Read-Host '  Datenklasse synthetic-only/public-or-redistributable [synthetic-only]'
+        if ($classification -ne 'public-or-redistributable') { $classification = 'synthetic-only' }
+        $result = Invoke-SqlServerLabAiModel -ModelKey 'ollama-gpt-oss-120b-cloud' -InputText $prompt -DataClassification $classification -Lane cloud -AllowCloudEgress -Confirm
+    }
+    else {
+        $port = Read-Host '  Lokaler Ollama-Port [11434]'
+        if ([string]::IsNullOrWhiteSpace($port)) { $port = 11434 }
+        if ([string]$port -notmatch '^\d+$' -or [int]$port -lt 1024 -or [int]$port -gt 65535) { Write-LabError 'Ungültiger Port.'; return }
+        $result = Invoke-SqlServerLabAiModel -ModelKey 'ollama-gemma3-1b-local' -InputText $prompt -DataClassification synthetic-only -Lane local -LocalPort ([int]$port) -Confirm
+    }
+    Write-LabStatus -Label 'Modell' -Value "$($result.ModelKey) · $($result.Status)" -Color $(if ($result.Status -eq 'SUCCEEDED') { 'Green' } else { 'Yellow' })
+    Write-Host "  $($result.Text)" -ForegroundColor White
+    foreach ($warning in @($result.Warnings)) { Write-LabWarning $warning }
+}
+
+function Invoke-LabAiRagInteractive {
+    [CmdletBinding()]
+    param()
+
+    $selection = Select-LabAiTargetInteractive -Prompt 'Lokales SQL-RAG ausführen auf'
+    if (-not $selection) { return }
+    $documentPath = Read-Host '  JSON-Datei mit [{"Id":"...","Content":"..."}]'
+    if (-not (Test-Path -LiteralPath $documentPath -PathType Leaf)) { Write-LabError 'Dokumentdatei nicht gefunden.'; return }
+    try { $documents = @(Get-Content -LiteralPath $documentPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 10) }
+    catch { Write-LabError "Dokumentdatei ist kein gültiges JSON: $($_.Exception.Message)"; return }
+    $question = Read-Host '  Frage (bleibt flüchtig)'
+    if ([string]::IsNullOrWhiteSpace($question)) { return }
+    $port = Read-Host '  Lokaler Ollama-Port [11434]'
+    if ([string]::IsNullOrWhiteSpace($port)) { $port = 11434 }
+    if ([string]$port -notmatch '^\d+$' -or [int]$port -lt 1024 -or [int]$port -gt 65535) { Write-LabError 'Ungültiger Port.'; return }
+    $topK = [Math]::Min(3, $documents.Count)
+    $password = Read-Host '  SA-Passwort' -AsSecureString
+    $result = Invoke-SqlServerLabAiRag -RunId $selection.RunId -InstanceId $selection.InstanceId -SaPassword $password -Question $question -Document $documents -LocalPort ([int]$port) -TopK $topK -Confirm
+    Write-LabStatus -Label 'RAG' -Value $result.Status -Color $(if ($result.Status -eq 'SUCCEEDED') { 'Green' } else { 'Yellow' })
+    Write-Host "  $($result.Answer)" -ForegroundColor White
+    Write-LabInfo ('Quellen: ' + (@($result.Citations) -join ', '))
+}
+
+function Invoke-LabAiDiagnosticInteractive {
+    [CmdletBinding()]
+    param()
+
+    $selection = Select-LabAiTargetInteractive -Prompt 'Read-only Diagnose ausführen auf'
+    if (-not $selection) { return }
+    $question = Read-Host '  Diagnosefrage (bleibt flüchtig)'
+    if ([string]::IsNullOrWhiteSpace($question)) { return }
+    $tools = Read-Host '  Werkzeuge, kommagetrennt [server-summary,wait-statistics]'
+    if ([string]::IsNullOrWhiteSpace($tools)) { $toolIds = @('server-summary','wait-statistics') }
+    else { $toolIds = @($tools.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+    $port = Read-Host '  Lokaler Ollama-Port [11434]'
+    if ([string]::IsNullOrWhiteSpace($port)) { $port = 11434 }
+    if ([string]$port -notmatch '^\d+$' -or [int]$port -lt 1024 -or [int]$port -gt 65535) { Write-LabError 'Ungültiger Port.'; return }
+    $password = Read-Host '  SA-Passwort' -AsSecureString
+    $result = Invoke-SqlServerLabAiDiagnosticAgent -RunId $selection.RunId -InstanceId $selection.InstanceId -SaPassword $password -Question $question -ToolId $toolIds -LocalPort ([int]$port) -Confirm
+    Write-LabStatus -Label 'Diagnose' -Value $result.Status -Color $(if ($result.Status -eq 'SUCCEEDED') { 'Green' } else { 'Yellow' })
+    Write-Host "  $($result.Answer)" -ForegroundColor White
+}
+
+function Invoke-LabAiRetrievalEvaluationInteractive {
+    [CmdletBinding()]
+    param()
+
+    $expectedText = Read-Host '  Erwartete Dokument-IDs, kommagetrennt'
+    if ([string]::IsNullOrWhiteSpace($expectedText)) { Write-LabError 'Mindestens eine erwartete Dokument-ID ist erforderlich.'; return }
+    $rankedText = Read-Host '  Gelieferte Rangfolge, kommagetrennt'
+    $expected = @($expectedText.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $ranked = if ([string]::IsNullOrWhiteSpace($rankedText)) { @() } else { @($rankedText.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+    if ($expected.Count -eq 0) { Write-LabError 'Mindestens eine erwartete Dokument-ID ist erforderlich.'; return }
+    $k = [Math]::Max(1, $ranked.Count)
+    $result = Measure-SqlServerLabAiRetrieval -ExpectedDocumentId $expected -RankedDocumentId $ranked -K $k
+    Write-LabStatus -Label 'Evaluation' -Value $result.Status -Color $(if ($result.Status -eq 'PASSED') { 'Green' } else { 'Yellow' })
+    Write-LabStatus -Label 'Recall@k' -Value $result.RecallAtK
+    Write-LabStatus -Label 'MRR' -Value $result.Mrr
+    Write-LabStatus -Label 'nDCG@k' -Value $result.NdcgAtK
+}
+
 function Invoke-LabAction {
     param([Parameter(Mandatory)][string]$ActionName)
 
@@ -715,6 +876,12 @@ function Invoke-LabAction {
             }
             catch { Write-LabError $_.Exception.Message }
         }
+        'AiScenarioPlan' { Invoke-LabAiScenarioPlanInteractive }
+        'AiScenarioRun' { Invoke-LabAiScenarioRunInteractive }
+        'AiModel' { Invoke-LabAiModelInteractive }
+        'AiRag' { Invoke-LabAiRagInteractive }
+        'AiDiagnostic' { Invoke-LabAiDiagnosticInteractive }
+        'AiRetrievalEvaluation' { Invoke-LabAiRetrievalEvaluationInteractive }
         'Manifest' {
             $manifestPath = Read-Host '  Manifest-Zielpfad [.\lab-manifest.json]'
             if (-not $manifestPath) {

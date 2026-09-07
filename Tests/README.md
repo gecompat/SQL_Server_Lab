@@ -194,6 +194,17 @@ kurzlebigem Login, lokalem Modell, Login-Cleanup und Restart getrennt geprüft:
 .\Tests\Integration\Invoke-AiDiagnosticAgentContainerAcceptance.ps1 -Provider podman
 ```
 
+Für einen vorhandenen verwalteten Hyper-V-SQL-2025-Run verbindet der
+Controller-Nachweis RAG und read-only Diagnose mit einem scopegebundenen
+Ollama-Container. Er entfernt den übergebenen Run nie:
+
+```powershell
+.\Tests\Integration\Invoke-AiHyperVAcceptance.ps1 `
+    -RunId '<laufender-verwalteter-hyperv-sql-2025-run>' `
+    -SaPassword $password `
+    -OllamaProvider docker
+```
+
 Die statischen Prüfungen benötigen keine laufende SQL-Server-Instanz. Sie kontrollieren unter anderem:
 
 - JSON-Syntax der Kataloge, Schemas und Beispiele;

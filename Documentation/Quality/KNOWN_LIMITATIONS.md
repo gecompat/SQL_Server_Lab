@@ -45,7 +45,14 @@ reinen Sichtrechten und entfernt sie anschließend. Freie SQL-Ausführung,
 Modell-gesteuerte Toolauswahl, DDL/DML-Werkzeuge und automatische Reparaturen
 sind nicht implementiert. Docker und Podman wurden am 2026-09-06 getrennt mit
 echter Login-/Sichtrechteausführung, Login-Cleanup, Ollama-Restart und Lab-
-Cleanup geprüft. Der Hyper-V-Nachweis steht noch aus.
+Cleanup geprüft. Der Controller akzeptiert zusätzlich verwaltete Hyper-V-SQL-
+2025-Ziele und löst deren `sqlVersion` aus der Connection-Info auf. Der
+kombinierte RAG-/Agent-Nachweis wurde am 2026-09-07 gegen einen echten
+verwalteten Hyper-V-SQL-2025-Run ausgeführt: RAG, Agent, Login-Cleanup und
+Ollama-Restart waren erfolgreich. Der gezielte VM-Neustart blieb durch den
+Schutz der automatischen Testgruppe korrekt blockiert und wurde nicht
+umgangen; der Gesamtstatus ist deshalb `PARTIAL`, und Hyper-V deklariert die
+Fähigkeiten weiterhin nicht als vollständig belegt.
 
 ## Provider
 

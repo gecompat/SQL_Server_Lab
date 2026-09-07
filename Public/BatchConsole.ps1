@@ -832,7 +832,7 @@ function Invoke-LabAreaMenuInteractive {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [ValidateSet('Create', 'Environment', 'HyperV', 'Storage', 'Database', 'Cms', 'Infrastructure', 'Maintenance', 'Settings', 'System')]
+        [ValidateSet('Create', 'Environment', 'HyperV', 'Storage', 'Database', 'Ai', 'Cms', 'Infrastructure', 'Maintenance', 'Settings', 'System')]
         [string]$Area
     )
 
@@ -843,6 +843,7 @@ function Invoke-LabAreaMenuInteractive {
             'HyperV' { Show-LabHyperVMenu }
             'Storage' { Show-LabStorageMenu }
             'Database' { Show-LabDatabaseMenu }
+            'Ai' { Show-LabAiMenu }
             'Cms' { Show-LabCmsMenu }
             'Infrastructure' { Show-LabInfrastructureMenu }
             'Maintenance' { Show-LabMaintenanceMenu }
@@ -853,6 +854,7 @@ function Invoke-LabAreaMenuInteractive {
         # Gruppen delegieren an den jeweiligen Bereich, statt Aktionen zu duplizieren.
         if ($action -eq 'HyperVArea') { Invoke-LabAreaMenuInteractive -Area HyperV; continue }
         if ($action -eq 'StorageArea') { Invoke-LabAreaMenuInteractive -Area Storage; continue }
+        if ($action -eq 'AiArea') { Invoke-LabAreaMenuInteractive -Area Ai; continue }
         if ($action -eq 'Messages') { Show-LabMessagesInteractive; continue }
         $marker = Get-LabMessageJournalMarker
         try { Invoke-LabMenuAction -ActionName $action }

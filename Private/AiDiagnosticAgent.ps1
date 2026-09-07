@@ -43,7 +43,7 @@ function Invoke-LabAiDiagnosticAgent {
     [CmdletBinding()]
     param($Plan,[SecureString]$SaPassword,$Target,[string]$Question,[string]$StateRoot,[scriptblock]$GenerationTransport,[scriptblock]$SqlExecutor)
     if(($Target.Version-split'-',2)[0]-ne'2025'){throw 'AI_AGENT_SQL_VERSION_UNSUPPORTED'}
-    if($Target.Provider-notin@('docker','podman')){throw 'AI_AGENT_PROVIDER_UNSUPPORTED'}
+    if($Target.Provider-notin@('docker','podman','hyperv')){throw 'AI_AGENT_PROVIDER_UNSUPPORTED'}
     if(-not$StateRoot){$StateRoot=Get-LabStateRoot}
     $journalDirectory=Join-Path (Join-Path (Join-Path $StateRoot 'runs') $Plan.RunId) 'ai-agent';$journalPath=Join-Path $journalDirectory "diagnostic-$($Plan.InstanceId)-$($Plan.PlanKey.Substring(0,12)).json"
     $journal=[PSCustomObject]@{contract=[PSCustomObject]@{name='SqlServerLab.AiRuntimeJournal';version='1.0'};operationId=[Guid]::NewGuid().ToString();runId=$Plan.RunId;instanceId=$Plan.InstanceId;planKey=$Plan.PlanKey;status='PENDING';lane='local';modelKeys=@($Plan.GenerationModelKey);steps=@($Plan.ToolIds|ForEach-Object{[PSCustomObject]@{id=$_;status='PENDING';reasonCode=$null}});cleanupStatus='NOT_STARTED';startedAt=Get-LabTimestamp;completedAt=$null}

@@ -56,7 +56,7 @@ function Invoke-LabAiRag {
     param($Plan,[SecureString]$SaPassword,$Target,[string]$Question,[scriptblock]$EmbeddingTransport,[scriptblock]$GenerationTransport,[scriptblock]$SqlExecutor)
 
     if (($Target.Version -split '-',2)[0] -ne '2025') { throw 'AI_RAG_SQL_VERSION_UNSUPPORTED' }
-    if ([string]$Target.Provider -notin @('docker','podman')) { throw 'AI_RAG_PROVIDER_UNSUPPORTED' }
+    if ([string]$Target.Provider -notin @('docker','podman','hyperv')) { throw 'AI_RAG_PROVIDER_UNSUPPORTED' }
     $timer=[Diagnostics.Stopwatch]::StartNew();$requests=0
     $rows=[Collections.Generic.List[string]]::new()
     foreach($document in $Plan.Documents) {
