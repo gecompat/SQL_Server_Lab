@@ -178,45 +178,66 @@ try {
     }
     Assert-Check ($availability.docker -and -not $availability.podman) 'Resource-Assessment-Status wird nicht korrekt in Batch-Providerverfuegbarkeit uebersetzt.'
 
-    $preflightSecret = 'SQL_SERVER_LAB_SECRET_BATCH_PREFLIGHT_CHECK'
-    [Environment]::SetEnvironmentVariable($preflightSecret, $null, 'Process')
-    $containerBatch = New-SqlServerLabBatch -Name 'Preflight' -StateRoot $testRoot -Queue:$false -Items @(
-        [pscustomobject]@{ id = 'sql-a'; kind = 'SqlEnvironment'; provider = 'podman'; overrides = [pscustomobject]@{ LabName = 'preflight-a'; Version = '2022' } }
-    )
-    $submitRejected = $false
-    $submitRejectionMessage = ''
-    try { $null = & $module { param($Id, $Root) Submit-SqlServerLabBatch -BatchId $Id -StateRoot $Root } $containerBatch.batchId $testRoot }
-    catch { $submitRejected = $true; $submitRejectionMessage = [string]$_.Exception.Message }
-    $storedBatch = & $module { param($Id, $Root) Read-LabWorkflowJson -Path (Get-LabBatchStatePath -BatchId $Id -StateRoot $Root) } $containerBatch.batchId $testRoot
-    Assert-Check ($submitRejected -and $submitRejectionMessage -match 'BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_REQUIRED') 'Container-Batch wird ohne Secret-Referenz eingereiht statt im Preflight abgelehnt.'
-    Assert-Check ($submitRejectionMessage -match 'sql-a') 'Die Preflight-Ablehnung benennt die betroffene Position nicht.'
-    Assert-Check ($storedBatch.status -in @('Draft', 'Validated')) 'Ein abgelehnter Submit veraendert den Batchstatus.'
-
-    $blockedQueue = Get-SqlServerLabQueue -StateRoot $testRoot
-    $blockedRow = @($blockedQueue.items | Where-Object batchId -eq $containerBatch.batchId)[0]
-    Assert-Check ($null -ne $blockedRow -and $blockedRow.batchStatus -in @('Draft', 'Validated')) 'Die Queue weist den Batchstatus einer Position nicht aus.'
-    Assert-Check ($blockedRow.blockedReason -match 'noch nicht uebergeben') 'Ein nicht uebergebener Batch nennt in der Queue keinen Blockierungsgrund.'
-    Assert-Check (-not $blockedRow.startable) 'Ein nicht uebergebener Vorgang wird faelschlich als startbereit ausgewiesen.'
-
-    $missingReferenceRejected = $false
-    & $module {
-        param($Id, $Root, $Name)
-        $operation = Read-LabWorkflowJson -Path (Get-LabOperationStatePath -OperationId $Id -StateRoot $Root)
-        $operation.executor.effective | Add-Member -NotePropertyName 'SaPasswordEnvironmentVariable' -NotePropertyValue $Name -Force
-        Write-LabOperationState -Operation $operation -StateRoot $Root | Out-Null
-    } (@($containerBatch.operationIds)[0]) $testRoot $preflightSecret
-    try { $null = & $module { param($Id, $Root) Submit-SqlServerLabBatch -BatchId $Id -StateRoot $Root } $containerBatch.batchId $testRoot }
-    catch { $missingReferenceRejected = [string]$_.Exception.Message -match 'BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_MISSING' }
-    Assert-Check $missingReferenceRejected 'Eine Referenz auf eine nicht gesetzte Prozessvariable wird nicht als eigener Fehlerfall erkannt.'
-
-    [Environment]::SetEnvironmentVariable($preflightSecret, 'Str3ng-Test-Kennwort!', 'Process')
-    try {
-        $submittedBatch = & $module { param($Id, $Root) Submit-SqlServerLabBatch -BatchId $Id -StateRoot $Root } $containerBatch.batchId $testRoot
-        Assert-Check ($submittedBatch.status -eq 'Queued') 'Ein vollstaendig referenzierter Container-Batch wird nicht eingereiht.'
-        $releasedRow = @((Get-SqlServerLabQueue -StateRoot $testRoot).items | Where-Object batchId -eq $containerBatch.batchId)[0]
-        Assert-Check ([string]::IsNullOrEmpty([string]$releasedRow.blockedReason)) 'Nach dem Einreihen bleibt der Blockierungsgrund stehen.'
+    # Dieser Abschnitt sagt die Secret-Referenz zu, nicht die Containerausstattung des Laufzeit-Hosts.
+    # Ohne festen Providerstub entscheidet der Preflight je nach Runner unterschiedlich.
+    $realProviderProbe = & $module {
+        $original = ${function:Test-ProviderAvailability}
+        Set-Item -Path function:script:Test-ProviderAvailability -Value {
+            param([string]$Provider)
+            [pscustomobject]@{ Status = if ($Provider -eq 'hyperv') { 'RESOURCE_HARD_BLOCK' } else { 'RESOURCE_OK' } }
+        }
+        $original
     }
-    finally { [Environment]::SetEnvironmentVariable($preflightSecret, $null, 'Process') }
+    try {
+        $stubbed = & $module { Get-LabProviderAvailabilityMap }
+        Assert-Check ($stubbed.docker -and $stubbed.podman) 'Der Providerstub des Preflight-Abschnitts greift nicht.'
+
+        $preflightSecret = 'SQL_SERVER_LAB_SECRET_BATCH_PREFLIGHT_CHECK'
+        [Environment]::SetEnvironmentVariable($preflightSecret, $null, 'Process')
+        $containerBatch = New-SqlServerLabBatch -Name 'Preflight' -StateRoot $testRoot -Queue:$false -Items @(
+            [pscustomobject]@{ id = 'sql-a'; kind = 'SqlEnvironment'; provider = 'podman'; overrides = [pscustomobject]@{ LabName = 'preflight-a'; Version = '2022' } }
+        )
+        $submitRejected = $false
+        $submitRejectionMessage = ''
+        try { $null = & $module { param($Id, $Root) Submit-SqlServerLabBatch -BatchId $Id -StateRoot $Root } $containerBatch.batchId $testRoot }
+        catch { $submitRejected = $true; $submitRejectionMessage = [string]$_.Exception.Message }
+        $storedBatch = & $module { param($Id, $Root) Read-LabWorkflowJson -Path (Get-LabBatchStatePath -BatchId $Id -StateRoot $Root) } $containerBatch.batchId $testRoot
+        Assert-Check ($submitRejected -and $submitRejectionMessage -match 'BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_REQUIRED') 'Container-Batch wird ohne Secret-Referenz eingereiht statt im Preflight abgelehnt.'
+        Assert-Check ($submitRejectionMessage -match 'sql-a') 'Die Preflight-Ablehnung benennt die betroffene Position nicht.'
+        Assert-Check ($storedBatch.status -in @('Draft', 'Validated')) 'Ein abgelehnter Submit veraendert den Batchstatus.'
+
+        $blockedQueue = Get-SqlServerLabQueue -StateRoot $testRoot
+        $blockedRow = @($blockedQueue.items | Where-Object batchId -eq $containerBatch.batchId)[0]
+        Assert-Check ($null -ne $blockedRow -and $blockedRow.batchStatus -in @('Draft', 'Validated')) 'Die Queue weist den Batchstatus einer Position nicht aus.'
+        Assert-Check ($blockedRow.blockedReason -match 'noch nicht uebergeben') 'Ein nicht uebergebener Batch nennt in der Queue keinen Blockierungsgrund.'
+        Assert-Check (-not $blockedRow.startable) 'Ein nicht uebergebener Vorgang wird faelschlich als startbereit ausgewiesen.'
+
+        $missingReferenceRejected = $false
+        & $module {
+            param($Id, $Root, $Name)
+            $operation = Read-LabWorkflowJson -Path (Get-LabOperationStatePath -OperationId $Id -StateRoot $Root)
+            $operation.executor.effective | Add-Member -NotePropertyName 'SaPasswordEnvironmentVariable' -NotePropertyValue $Name -Force
+            Write-LabOperationState -Operation $operation -StateRoot $Root | Out-Null
+        } (@($containerBatch.operationIds)[0]) $testRoot $preflightSecret
+        try { $null = & $module { param($Id, $Root) Submit-SqlServerLabBatch -BatchId $Id -StateRoot $Root } $containerBatch.batchId $testRoot }
+        catch { $missingReferenceRejected = [string]$_.Exception.Message -match 'BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_MISSING' }
+        Assert-Check $missingReferenceRejected 'Eine Referenz auf eine nicht gesetzte Prozessvariable wird nicht als eigener Fehlerfall erkannt.'
+
+        [Environment]::SetEnvironmentVariable($preflightSecret, 'Str3ng-Test-Kennwort!', 'Process')
+        try {
+            $submittedBatch = & $module { param($Id, $Root) Submit-SqlServerLabBatch -BatchId $Id -StateRoot $Root } $containerBatch.batchId $testRoot
+            Assert-Check ($submittedBatch.status -eq 'Queued') 'Ein vollstaendig referenzierter Container-Batch wird nicht eingereiht.'
+            $releasedRow = @((Get-SqlServerLabQueue -StateRoot $testRoot).items | Where-Object batchId -eq $containerBatch.batchId)[0]
+            Assert-Check ([string]::IsNullOrEmpty([string]$releasedRow.blockedReason)) 'Nach dem Einreihen bleibt der Blockierungsgrund stehen.'
+        }
+        finally { [Environment]::SetEnvironmentVariable($preflightSecret, $null, 'Process') }
+    }
+    finally {
+        & $module {
+            param($Original)
+            if ($Original) { Set-Item -Path function:script:Test-ProviderAvailability -Value $Original }
+        } $realProviderProbe
+    }
 
     $queueConsoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\BatchConsole.ps1') -Raw -Encoding utf8
     Assert-Check ($queueConsoleSource -notmatch [regex]::Escape('Invoke-SqlServerLabScheduler -UntilIdle | Out-Null')) 'Der Scheduler-Menuepunkt verwirft sein Ergebnis weiterhin.'
