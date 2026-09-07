@@ -23,30 +23,31 @@ gebunden. Sie sind hier nur als Ausgangspunkt genannt, nicht als offene Arbeit.
 | Jede Aktion der `ValidateSet` ist über ein Menü erreichbar | Anti-Waisen-Prüfung |
 | SA-Kennwort bleibt dem Eigentümer zugänglich | funktionaler Vertrag über einen temporären Run |
 
+## Erledigter Punkt
+
+### 1. Nächtliche Regression auf `main` – `RESOLVED`
+
+Die ursprüngliche Bestandsaufnahme war zu pauschal. Der Workflow war vom
+2026-09-03 bis 2026-09-07 rot, aber nicht in jedem Lauf ausschließlich wegen
+Docker und Hyper-V. Zuvor waren die Nightly-Läufe bis einschließlich
+2026-09-02 grün. Der Docker-Fehler vom 2026-09-07 war ein einzelner Abbruch
+während des SQL-Bereitschaftswartens; der aktuelle Docker-Lifecycle
+reproduziert ihn nicht.
+
+Der Hyper-V-Smoke meldete im alten Lauf Erfolg und vererbte danach dennoch den
+von einem nativen Hilfsprogramm gesetzten Exitcode. Commit `5261bc9` setzt nach
+allen bereits ausnahmebasierten Fehlerpfaden den erfolgreichen
+`$global:LASTEXITCODE` ausdrücklich auf `0`. Es war weder fehlendes Nested-
+Hyper-V noch ein nicht ausführbarer Job.
+
+Der manuell auf dem aktuellen `main`-Commit `0aba5e9` gestartete Lauf
+[`Nightly Regression` 34159244948](https://github.com/gecompat/SQL_Server_Lab/actions/runs/34159244948)
+bestätigt die Korrektur: alle Jobs einschließlich Docker, Podman, Hyper-V,
+Mixed-Provider, Adapter, gemeinsamer SQL-Umgebungen und beider statischer
+Plattformen sind erfolgreich. Damit ist der dauerhaft rote Zustand behoben;
+neue Nightly-Fehler sind wieder als eigenständige Regressionen zu behandeln.
+
 ## Offene Punkte
-
-### 1. Nächtliche Regression auf `main`
-
-Der Workflow `Nightly Regression` schlägt seit mindestens 2026-09-03 durchgehend
-fehl. Betroffen sind ausschließlich zwei Runtime-Jobs; alle statischen Suiten
-sind grün.
-
-| Job | Ergebnis |
-|---|---|
-| `docker-runtime / Docker provider runtime / CLI acceptance` | `failure`, Schritt `Docker SQL Server lifecycle / CLI acceptance`, Abbruch mit `Process completed with exit code -1` ohne verwertbare Meldung |
-| `hyperv-runtime / Hyper-V lifecycle, isolated OS-slot batch, or shared environments` | `failure` |
-
-Der zuletzt ausgewertete Lauf lag auf einem Commit vor den Änderungen vom
-2026-09-07. Ob der aktuelle Stand daran etwas ändert, ist unbelegt.
-
-Zu klären:
-
-- War `docker-runtime` jemals grün, oder bricht der Job seit seiner Einführung?
-- Ist `exit code -1` ein Infrastrukturabbruch des Runners oder ein Fehler im Skript?
-- Erwartet `hyperv-runtime` verschachteltes Hyper-V, das ein GitHub-Runner nicht bietet? Dann gehört der Job als nicht ausführbar gekennzeichnet statt dauerhaft rot.
-
-Der PR-Gate umfasst diese Runtime-Jobs nicht. Ein dauerhaft roter Nightly-Lauf
-entwertet das Signal für alle folgenden Änderungen.
 
 ### 2. Datenbankmenü ist unvollständig
 
@@ -138,10 +139,9 @@ verursacht oder verdeckt. Sie gelten unabhängig vom einzelnen Backlog-Punkt.
 
 ## Wiederaufnahme
 
-Die Reihenfolge ist nicht festgelegt. Punkt 1 hat den höchsten Wert, weil ein
-dauerhaft roter Nightly-Lauf jede spätere Regression verdeckt. Punkt 2 ist der
-größte fachliche Zugewinn, erfordert aber neue interaktive Pfade und damit einen
-eigenen Änderungssatz je Funktion.
+Die Reihenfolge ist nicht festgelegt. Nach Erledigung von Punkt 1 ist Punkt 2
+der größte fachliche Zugewinn, erfordert aber neue interaktive Pfade und damit
+einen eigenen Änderungssatz je Funktion.
 
 Für Reihenfolge und Priorität gegenüber anderen Vorhaben bleibt
 `DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md` maßgeblich.
