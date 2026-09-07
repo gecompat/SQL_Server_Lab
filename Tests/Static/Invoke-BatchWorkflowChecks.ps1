@@ -224,6 +224,32 @@ try {
         $queueConsoleSource -match 'Kein Vorgang wurde gestartet' -and
         $queueConsoleSource -match [regex]::Escape('$item.blockedReason')) 'Der Scheduler-Menuepunkt nennt bei leerem Ergebnis keinen Grund.'
 
+    Assert-Check ((& $module { Get-LabBatchSecretVariableName -ItemName 'SQL2025 latest' }) -eq 'SQL_SERVER_LAB_SECRET_SQL2025_LATEST') 'Der Variablenname wird nicht eng benannt aus dem Positionsnamen abgeleitet.'
+    Assert-Check ((& $module { Get-LabBatchSecretVariableName -ItemName '--x--' }) -eq 'SQL_SERVER_LAB_SECRET_X') 'Sonderzeichen werden beim Variablennamen nicht normalisiert.'
+    Assert-Check ((& $module { Get-LabBatchSecretVariableName -ItemName '' }) -eq 'SQL_SERVER_LAB_SECRET_BATCH') 'Ein leerer Positionsname erzeugt keinen gueltigen Variablennamen.'
+    Assert-Check ((& $module { Get-LabBatchSecretVariableName -ItemName 'a b' }) -match '^SQL_SERVER_LAB_SECRET_[A-Z0-9_]+$') 'Der abgeleitete Name erfuellt das Secret-Namensmuster nicht.'
+
+    $secretListing = & $module {
+        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_SECRET_COMPOSER_SET', 'wert', 'Process')
+        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_SECRET_COMPOSER_EMPTY', '', 'Process')
+        try { @(Get-LabAvailableSecretVariableName) }
+        finally {
+            [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_SECRET_COMPOSER_SET', $null, 'Process')
+            [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_SECRET_COMPOSER_EMPTY', $null, 'Process')
+        }
+    }
+    Assert-Check ($secretListing -contains 'SQL_SERVER_LAB_SECRET_COMPOSER_SET') 'Gesetzte Secret-Variablen werden im Composer nicht angeboten.'
+    Assert-Check (-not ($secretListing -contains 'SQL_SERVER_LAB_SECRET_COMPOSER_EMPTY')) 'Eine leere Secret-Variable wird faelschlich als verwendbar angeboten.'
+
+    Assert-Check ($queueConsoleSource -match [regex]::Escape("ScreenId 'batch-sa-secret'")) 'Der Composer bietet keinen Bildschirm zur Secret-Referenz an.'
+    Assert-Check ($queueConsoleSource -match [regex]::Escape("`$table['SaPasswordEnvironmentVariable'] = `$secretVariable")) 'Die Containerposition uebernimmt die gewaehlte Secret-Referenz nicht.'
+    Assert-Check ($queueConsoleSource -match [regex]::Escape("`$matrixIntent['SaPasswordEnvironmentVariable'] = `$matrixSecretVariable")) 'Der Matrixpfad bindet keine Secret-Referenz.'
+    Assert-Check ($queueConsoleSource -notmatch 'SaPassword\s*=\s*\$plain' -and
+        $queueConsoleSource -match [regex]::Escape('[Runtime.InteropServices.Marshal]::ZeroFreeBSTR')) 'Das Kennwort wird nicht kontrolliert wieder freigegeben.'
+    Assert-Check ($queueConsoleSource -match [regex]::Escape("SetEnvironmentVariable(`$VariableName, `$plain, 'Process')")) 'Das Kennwort wird nicht ausschliesslich als Prozessvariable gehalten.'
+    Assert-Check ($queueConsoleSource -notmatch [regex]::Escape("SetEnvironmentVariable(`$VariableName, `$plain, 'User')") -and
+        $queueConsoleSource -notmatch [regex]::Escape("SetEnvironmentVariable(`$VariableName, `$plain, 'Machine')")) 'Das Kennwort wird dauerhaft persistiert.'
+
     $schemaPath = Join-Path $repoRoot 'Schemas\lab-batch.schema.json'
     Assert-Check (Test-Path -LiteralPath $schemaPath -PathType Leaf) 'Batch-Manifest-Schema fehlt.'
     $schema = Get-Content -LiteralPath $schemaPath -Raw -Encoding utf8 | ConvertFrom-Json
