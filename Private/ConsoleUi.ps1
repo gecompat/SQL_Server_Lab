@@ -395,11 +395,15 @@ function Get-LabConsoleFrame {
         [Parameter(Mandatory)][string]$Title,
         [string]$Subtitle = '',
         [string]$Footer = 'Pfeile: Navigation  Enter: Auswahl  Esc: Zurueck  F5: Aktualisieren',
+        [AllowEmptyCollection()][string[]]$Status = @(),
+        [ValidateRange(0, 50)][int]$StatusHeight = -1,
         [ValidateRange(20, 1000)][int]$Width = 80,
         [ValidateRange(6, 500)][int]$Height = 25
     )
 
     $usableWidth = [Math]::Max(20, $Width - 1)
+    # Feste Bandhoehe: der Bereich bleibt auch leer reserviert, damit Fortschritt das Menue nie verschiebt.
+    $bandHeight = if ($StatusHeight -ge 0) { $StatusHeight } else { @($Status).Count }
     $header = [System.Collections.Generic.List[string]]::new()
     $header.Add($Title)
     if ($Subtitle) { $header.Add($Subtitle) }
@@ -407,7 +411,7 @@ function Get-LabConsoleFrame {
     $attentionItems = if ($State.Snapshot -and $State.Snapshot.PSObject.Properties['AttentionItems']) { @($State.Snapshot.AttentionItems) } else { @() }
     $footerLines = [System.Collections.Generic.List[string]]::new()
     $baseFooterLineCount = 1 + $(if ($State.Message) { 1 } else { 0 })
-    $availableAttentionLines = [Math]::Max(0, $Height - $header.Count - 1 - $baseFooterLineCount)
+    $availableAttentionLines = [Math]::Max(0, $Height - $header.Count - 1 - $bandHeight - $baseFooterLineCount)
     $attentionShown = 0
     for ($index = 0; $index -lt [Math]::Min(2, $attentionItems.Count); $index++) {
         $attention = $attentionItems[$index]
@@ -421,7 +425,7 @@ function Get-LabConsoleFrame {
     if ($attentionItems.Count -gt $attentionShown -and $footerLines.Count -lt $availableAttentionLines) { $footerLines.Add("Weitere offene Punkte: $($attentionItems.Count - $attentionShown)") }
     if ($State.Message) { $footerLines.Add("Hinweis: $($State.Message)") }
     $footerLines.Add($Footer)
-    $viewportHeight = [Math]::Max(1, $Height - $header.Count - $footerLines.Count)
+    $viewportHeight = [Math]::Max(1, $Height - $header.Count - $footerLines.Count - $bandHeight)
     $null = Set-LabConsoleViewport -State $State -ViewportHeight $viewportHeight
 
     $lines = [System.Collections.Generic.List[string]]::new()
@@ -438,9 +442,14 @@ function Get-LabConsoleFrame {
         $lines.Add((Format-LabConsoleText -Text ("{0} {1}{2}{3}{4}" -f $focus, $shortcut, $item.Label, $value, $disabled) -Width $usableWidth))
         $lineColors.Add($(if ([bool]$item.Disabled) { 'DarkGray' } else { '' }))
     }
+    for ($row = 0; $row -lt $bandHeight; $row++) {
+        $bandText = if ($row -lt @($Status).Count) { [string]$Status[$row] } else { '' }
+        $lines.Add((Format-LabConsoleText -Text $bandText -Width $usableWidth))
+        $lineColors.Add('')
+    }
     foreach ($line in $footerLines) { $lines.Add((Format-LabConsoleText -Text $line -Width $usableWidth)); $lineColors.Add('') }
 
-    [PSCustomObject]@{ Lines=@($lines); LineColors=@($lineColors); Width=$usableWidth; Height=$Height; ViewportHeight=$viewportHeight }
+    [PSCustomObject]@{ Lines=@($lines); LineColors=@($lineColors); Width=$usableWidth; Height=$Height; ViewportHeight=$viewportHeight; StatusHeight=$bandHeight; StatusOffset=($header.Count + $viewportHeight) }
 }
 
 function New-LabConsoleSession {
@@ -504,6 +513,305 @@ function Write-LabConsoleFrame {
     [Console]::SetCursorPosition(0, [Math]::Min($Session.OriginTop + [Math]::Max(0, [int]$plan.LineCount - 1), [Console]::BufferHeight - 1))
 }
 
+function Test-LabConsoleUnicodeSupport {
+    <#
+    .SYNOPSIS Prueft einmalig, ob Blockgrafik gefahrlos ausgegeben werden kann.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if ($null -ne $script:LabConsoleUnicodeSupport) { return $script:LabConsoleUnicodeSupport }
+    $script:LabConsoleUnicodeSupport = $false
+    try { $script:LabConsoleUnicodeSupport = ([Console]::OutputEncoding.CodePage -eq 65001) } catch { }
+    return $script:LabConsoleUnicodeSupport
+}
+
+function Get-LabProgressBar {
+    <#
+    .SYNOPSIS Rendert einen Fortschrittsbalken fester Breite.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateRange(0, 100)][int]$Percent,
+        [ValidateRange(4, 200)][int]$Width = 16
+    )
+
+    $unicode = Test-LabConsoleUnicodeSupport
+    $filledChar = if ($unicode) { [char]0x2588 } else { '=' }
+    $emptyChar = if ($unicode) { [char]0x2591 } else { '-' }
+    $inner = $Width - 2
+    $filled = [int][Math]::Round($inner * $Percent / 100.0)
+    $filled = [Math]::Max(0, [Math]::Min($inner, $filled))
+    return '[' + ([string]$filledChar * $filled) + ([string]$emptyChar * ($inner - $filled)) + ']'
+}
+
+function Get-LabHeartbeatMarker {
+    <#
+    .SYNOPSIS Liefert das rotierende Lebenszeichen fuer unbestimmte Vorgaenge.
+    #>
+    [CmdletBinding()]
+    param([int]$Tick = 0)
+
+    $frames = if (Test-LabConsoleUnicodeSupport) { @([char]0x25D0, [char]0x25D3, [char]0x25D1, [char]0x25D2) } else { @('|', '/', '-', '\') }
+    return [string]$frames[[Math]::Abs($Tick) % $frames.Count]
+}
+
+function Format-LabElapsedTime {
+    [CmdletBinding()]
+    param([timespan]$Elapsed)
+
+    if ($Elapsed.Ticks -lt 0) { $Elapsed = [timespan]::Zero }
+    # [int] rundet in PowerShell; fuer Laufzeiten muss abgeschnitten werden.
+    if ($Elapsed.TotalHours -ge 1) { return '{0}:{1:00}:{2:00}' -f @([int][Math]::Floor($Elapsed.TotalHours), $Elapsed.Minutes, $Elapsed.Seconds) }
+    return '{0:00}:{1:00}' -f @([int][Math]::Floor($Elapsed.TotalMinutes), $Elapsed.Seconds)
+}
+
+function Format-LabProgressStatus {
+    <#
+    .SYNOPSIS Projiziert eine Operation auf zwei Statuszeilen.
+    .DESCRIPTION Bestimmbarer Fortschritt kommt aus steps/progress. Fehlt er,
+    beweist ein Heartbeat mit Laufzeit und Versuchszaehler die Lebendigkeit.
+    Bleibt die Operation unveraendert, wird der Stillstand benannt statt gedreht.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Operation,
+        [int]$Tick = 0,
+        [ValidateRange(20, 1000)][int]$Width = 78,
+        [AllowNull()][object]$Now,
+        [ValidateRange(5, 86400)][int]$StalledAfterSeconds = 300
+    )
+
+    $reference = if ($Now -is [datetime]) { ([datetime]$Now).ToUniversalTime() } else { [datetime]::UtcNow }
+    $properties = $Operation.PSObject.Properties
+    $label = [string]$(if ($properties['itemId'] -and $Operation.itemId) { $Operation.itemId } elseif ($properties['title']) { $Operation.title } else { 'Vorgang' })
+
+    $percent = $null
+    if ($properties['progress'] -and $null -ne $Operation.progress) {
+        try {
+            $value = [double]$Operation.progress
+            if (-not [double]::IsNaN($value)) { $percent = [int][Math]::Round([Math]::Max(0, [Math]::Min(100, $value))) }
+        }
+        catch { }
+    }
+    $steps = if ($properties['steps']) { @($Operation.steps) } else { @() }
+    $stepIndex = if ($properties['currentStep']) { [int]$Operation.currentStep } else { 0 }
+    $phase = ''
+    if ($steps.Count -gt 0 -and $stepIndex -ge 0 -and $stepIndex -lt $steps.Count) { $phase = [string]$steps[$stepIndex].title }
+
+    $elapsed = [timespan]::Zero
+    if ($properties['startedAt'] -and $Operation.startedAt) {
+        try { $elapsed = $reference - ([datetime]$Operation.startedAt).ToUniversalTime() } catch { }
+    }
+    $elapsedText = Format-LabElapsedTime -Elapsed $elapsed
+
+    $idleFor = [timespan]::Zero
+    if ($properties['updatedAt'] -and $Operation.updatedAt) {
+        try { $idleFor = $reference - ([datetime]$Operation.updatedAt).ToUniversalTime() } catch { }
+    }
+    $stalled = $idleFor.TotalSeconds -ge $StalledAfterSeconds
+
+    $determinate = ($null -ne $percent) -and $steps.Count -gt 0
+    $first = if ($determinate) {
+        '{0}  {1} {2,3}%  {3}' -f @($label, (Get-LabProgressBar -Percent $percent), $percent, $phase)
+    }
+    else {
+        '{0}  {1} {2}  {3}' -f @($label, (Get-LabHeartbeatMarker -Tick $Tick), $elapsedText, $phase)
+    }
+
+    $details = [System.Collections.Generic.List[string]]::new()
+    if ($steps.Count -gt 0) { $details.Add('Schritt {0}/{1}' -f @([Math]::Min($stepIndex + 1, $steps.Count), $steps.Count)) }
+    $details.Add($elapsedText)
+    if ($Operation.probe -and $Operation.probe.PSObject.Properties['failures'] -and [int]$Operation.probe.failures -gt 0) {
+        $details.Add('Versuch {0}' -f ([int]$Operation.probe.failures + 1))
+    }
+    if ($stalled) { $details.Add('keine Aenderung seit {0}' -f (Format-LabElapsedTime -Elapsed $idleFor)) }
+
+    [PSCustomObject]@{
+        Lines       = @(
+            (Format-LabConsoleText -Text $first -Width $Width)
+            (Format-LabConsoleText -Text ('    ' + ($details -join ' - ')) -Width $Width)
+        )
+        Determinate = $determinate
+        Stalled     = $stalled
+        Percent     = $percent
+        Label       = $label
+    }
+}
+
+function Get-LabConsoleStatusBand {
+    <#
+    .SYNOPSIS Erzeugt den Inhalt des reservierten Statusbereichs mit exakter Hoehe.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowEmptyCollection()][object[]]$Operation = @(),
+        [int]$Tick = 0,
+        [ValidateRange(20, 1000)][int]$Width = 78,
+        [ValidateRange(1, 50)][int]$Height = 3,
+        [AllowNull()][object]$Now
+    )
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    if (@($Operation).Count -eq 0) {
+        $lines.Add('Bereit - keine laufenden Vorgaenge')
+    }
+    else {
+        foreach ($item in $Operation) {
+            $status = Format-LabProgressStatus -Operation $item -Tick $Tick -Width $Width -Now $Now
+            foreach ($line in $status.Lines) {
+                if ($lines.Count -ge $Height) { break }
+                $lines.Add($line)
+            }
+            if ($lines.Count -ge $Height) { break }
+        }
+    }
+    while ($lines.Count -lt $Height) { $lines.Add('') }
+    return @($lines[0..($Height - 1)])
+}
+
+function Get-LabConsoleStatusWritePlan {
+    <#
+    .SYNOPSIS Plant das Neuzeichnen ausschliesslich der reservierten Statuszeilen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Frame,
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Status
+    )
+
+    $rows = [System.Collections.Generic.List[object]]::new()
+    for ($index = 0; $index -lt [int]$Frame.StatusHeight; $index++) {
+        $text = if ($index -lt @($Status).Count) { [string]$Status[$index] } else { '' }
+        $rows.Add([PSCustomObject]@{
+            Row  = [int]$Frame.StatusOffset + $index
+            Text = (Format-LabConsoleText -Text $text -Width $Frame.Width).PadRight($Frame.Width)
+        })
+    }
+    return @($rows)
+}
+
+function Update-LabConsoleStatusBand {
+    <#
+    .SYNOPSIS Schreibt den Statusbereich neu, ohne Menue oder Fusszeile zu beruehren.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Session,
+        [Parameter(Mandatory)][object]$Frame,
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Status
+    )
+
+    foreach ($row in (Get-LabConsoleStatusWritePlan -Frame $Frame -Status $Status)) {
+        [Console]::SetCursorPosition(0, $Session.OriginTop + [int]$row.Row)
+        [Console]::Write([string]$row.Text)
+    }
+}
+
+function Wait-LabConsoleKey {
+    <#
+    .SYNOPSIS Wartet auf eine Taste und haelt dabei den Statusbereich lebendig.
+    .DESCRIPTION Ohne StatusProvider bleibt das Verhalten exakt blockierend wie
+    bisher. Mit StatusProvider wird ausschliesslich das Statusband neu gezeichnet.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowNull()][object]$Session,
+        [AllowNull()][object]$Frame,
+        [AllowNull()][scriptblock]$StatusProvider,
+        [ValidateRange(50, 5000)][int]$IntervalMilliseconds = 400,
+        [AllowNull()][scriptblock]$ReadKey,
+        [AllowNull()][scriptblock]$KeyAvailable,
+        [AllowNull()][scriptblock]$StatusWriter
+    )
+
+    if (-not $StatusProvider -or -not $Frame -or [int]$Frame.StatusHeight -le 0) {
+        return Read-LabConsoleKey -ReadKey $ReadKey
+    }
+    $probe = if ($KeyAvailable) { $KeyAvailable } else { { [Console]::KeyAvailable } }
+    $writer = if ($StatusWriter) { $StatusWriter } else { { param($s, $f, $t) Update-LabConsoleStatusBand -Session $s -Frame $f -Status $t } }
+    $tick = 0
+    while ($true) {
+        $ready = $true
+        # Ein Host ohne Tastaturabfrage darf nicht in eine Endlosschleife laufen.
+        try { $ready = [bool](& $probe) } catch { return Read-LabConsoleKey -ReadKey $ReadKey }
+        if ($ready) { break }
+        $tick++
+        try { & $writer $Session $Frame @(& $StatusProvider $tick) } catch { return Read-LabConsoleKey -ReadKey $ReadKey }
+        Start-Sleep -Milliseconds $IntervalMilliseconds
+    }
+    return Read-LabConsoleKey -ReadKey $ReadKey
+}
+
+function Get-LabConsolePersistentBlockPlan {
+    <#
+    .SYNOPSIS Plant einen dauerhaften Ausgabeblock oberhalb des Menuerahmens.
+    .DESCRIPTION Der Rahmen wird geloescht, der Block in den normalen Scrollback
+    geschrieben und der Rahmen darunter neu verankert. Dadurch bleibt die Meldung
+    terminaleigen markierbar und kopierbar, waehrend das Menue stabil bleibt.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Session,
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Line,
+        [ValidateRange(2, 1000)][int]$Width,
+        [ValidateRange(1, 500)][int]$Height
+    )
+
+    $usableWidth = [Math]::Max(1, $Width - 1)
+    $clearRows = [Math]::Min([Math]::Max(0, [int]$Session.PreviousLineCount), $Height)
+    $blockLines = [System.Collections.Generic.List[string]]::new()
+    foreach ($text in $Line) { $blockLines.Add((Format-LabConsoleText -Text $text -Width $usableWidth)) }
+    [PSCustomObject]@{
+        ClearRows = $clearRows
+        ClearText = ''.PadRight($usableWidth)
+        Lines     = @($blockLines)
+        Width     = $usableWidth
+    }
+}
+
+function Write-LabConsolePersistentBlock {
+    <#
+    .SYNOPSIS Schreibt einen Block dauerhaft in den Scrollback und verankert den Rahmen neu.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Session,
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Line,
+        [string]$Color = ''
+    )
+
+    $plan = Get-LabConsolePersistentBlockPlan -Session $Session -Line $Line -Width ([Console]::WindowWidth) -Height ([Console]::WindowHeight)
+    for ($row = 0; $row -lt $plan.ClearRows; $row++) {
+        [Console]::SetCursorPosition(0, $Session.OriginTop + $row)
+        [Console]::Write($plan.ClearText)
+    }
+    [Console]::SetCursorPosition(0, $Session.OriginTop)
+    if ($Color) { [Console]::ForegroundColor = [ConsoleColor]$Color }
+    foreach ($text in $plan.Lines) { [Console]::WriteLine($text) }
+    [Console]::ForegroundColor = [ConsoleColor]$Session.ForegroundColor
+    $Session.OriginTop = [Console]::CursorTop
+    $Session.PreviousLineCount = 0
+    $plan
+}
+
+function Write-LabConsoleMessageBlock {
+    <#
+    .SYNOPSIS Gibt journalisierte Meldungen dauerhaft und kopierbar aus.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Session,
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Message
+    )
+
+    if (@($Message).Count -eq 0) { return }
+    $severities = @($Message | ForEach-Object { [string]$_.severity })
+    $color = if ($severities -contains 'Error') { 'Red' } elseif ($severities -contains 'Warning') { 'Yellow' } else { '' }
+    $lines = @('') + @((Format-LabMessageReport -Message $Message) -split "`r?`n") + @('')
+    Write-LabConsolePersistentBlock -Session $Session -Line $lines -Color $color
+}
+
 function Complete-LabConsoleSession {
     [CmdletBinding()]
     param([Parameter(Mandatory)][object]$Session)
@@ -534,8 +842,13 @@ function Invoke-LabConsoleMenu {
         [string]$FallbackPrompt = '  Auswahl',
         [switch]$ForceFallback,
         [AllowNull()][object]$Capability,
+        [ValidateRange(0, 50)][int]$StatusHeight = 0,
+        [AllowNull()][scriptblock]$StatusProvider,
+        [ValidateRange(50, 5000)][int]$StatusIntervalMilliseconds = 400,
         [scriptblock]$ReadInput,
         [scriptblock]$ReadKey,
+        [scriptblock]$KeyAvailable,
+        [scriptblock]$StatusWriter,
         [scriptblock]$FrameWriter,
         [scriptblock]$GetViewport,
         [scriptblock]$SessionFactory,
@@ -588,9 +901,11 @@ function Invoke-LabConsoleMenu {
             $viewport = if ($GetViewport) { & $GetViewport } else { $null }
             $width = if ($viewport) { [Math]::Max(20, [int]$viewport.Width) } elseif ($FrameWriter) { 80 } else { [Console]::WindowWidth }
             $height = if ($viewport) { [Math]::Max(6, [int]$viewport.Height) } elseif ($FrameWriter) { 25 } else { [Console]::WindowHeight }
-            $frame = Get-LabConsoleFrame -State $state -Title $Title -Subtitle $Subtitle -Footer $Footer -Width $width -Height $height
+            $status = if ($StatusProvider) { @(& $StatusProvider 0) } else { @() }
+            $frame = Get-LabConsoleFrame -State $state -Title $Title -Subtitle $Subtitle -Footer $Footer -Status $status -StatusHeight $StatusHeight -Width $width -Height $height
             if ($FrameWriter) { & $FrameWriter $session $frame } else { Write-LabConsoleFrame -Session $session -Frame $frame }
-            $key = Read-LabConsoleKey -ReadKey $ReadKey
+            $key = Wait-LabConsoleKey -Session $session -Frame $frame -StatusProvider $StatusProvider `
+                -IntervalMilliseconds $StatusIntervalMilliseconds -ReadKey $ReadKey -KeyAvailable $KeyAvailable -StatusWriter $StatusWriter
             Assert-LabConsoleKeyNotInterrupted -Key $key
             $keyName = [string]$key.Key
             $keyCharacter = [string]$key.KeyChar

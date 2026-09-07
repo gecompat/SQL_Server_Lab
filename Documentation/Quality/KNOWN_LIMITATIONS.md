@@ -1513,6 +1513,25 @@ bleibt unzulässig.
 
 State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien liegen außerhalb des Git-Checkouts. Sie dürfen nicht in Issues, Pull Requests oder versionierte Diagnoseartefakte kopiert werden.
 
+## Konsolen-Statusbereich und Meldungen
+
+Der reservierte Statusbereich (`CUI-022`) hält Menüzeilen stabil, solange die
+Ausgabe über den gemeinsamen Renderer läuft. Docker- und Podman-Ausgaben werden
+derzeit noch direkt auf die Konsole geschrieben und nicht in ein Run-Log
+umgeleitet (`CUI-025` ist offen). Während eines Image-Pulls oder eines langen
+Providerlaufs kann diese Fremdausgabe den Rahmen daher weiterhin verschieben.
+Bis zur Umsetzung von `CUI-025` ist der Statusbereich nur für Bildschirme
+verlässlich, die keine unmittelbare Provider-Fremdausgabe erzeugen.
+
+Das Meldungsjournal (`CUI-023`) hält die letzten 2000 Meldungen im Speicher und
+schreibt zusätzlich `<StateRoot>/session/<SessionId>/messages.jsonl`. Ist kein
+absoluter State-Root auflösbar oder die Datei nicht schreibbar, bleibt das
+Journal rein speicherbasiert; Logging scheitert in diesem Fall bewusst nicht.
+Eine Rotation oder Aufräumlogik für alte Sitzungsjournale besteht noch nicht.
+Das Secret-Scrubbing entfernt Werte aus `SQL_SERVER_LAB_SECRET_*` sowie
+`SA_PASSWORD`-, `MSSQL_SA_PASSWORD`-, `PASSWORD`- und `PWD`-Zuweisungen; es ist
+keine allgemeine Erkennung beliebiger Geheimnisse.
+
 ## Priorisierte nächste technische Schritte
 
 1. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die

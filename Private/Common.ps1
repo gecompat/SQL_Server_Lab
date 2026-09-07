@@ -98,6 +98,175 @@ $script:Colors = @{
 }
 
 # =============================================================================
+# Meldungsjournal
+# =============================================================================
+
+# Meldungen sind Daten, nicht Bildschirmausgabe: ein neu gezeichneter Rahmen darf
+# keine Warnung oder Fehlermeldung vernichten.
+$script:LabMessageJournal = [System.Collections.Generic.List[object]]::new()
+$script:LabMessageJournalLimit = 2000
+$script:LabMessageSequence = 0
+$script:LabMessageSessionId = $null
+$script:LabMessageJournalPath = $null
+$script:LabMessageJournalDisabled = $false
+
+function Get-LabMessageSessionId {
+    <#
+    .SYNOPSIS Stabile Kennung der laufenden Modulsitzung fuer das Meldungsjournal.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if (-not $script:LabMessageSessionId) {
+        $script:LabMessageSessionId = '{0:yyyyMMdd-HHmmss}-{1}' -f [datetime]::UtcNow, [guid]::NewGuid().ToString('N').Substring(0, 8)
+    }
+    return $script:LabMessageSessionId
+}
+
+function Get-LabMessageJournalPath {
+    <#
+    .SYNOPSIS Pfad der Append-only-Journaldatei der aktuellen Sitzung.
+    .DESCRIPTION Liefert $null, solange kein State-Root aufloesbar ist. Das
+    Journal bleibt dann rein speicherbasiert; Logging darf nie scheitern.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if ($script:LabMessageJournalPath) { return $script:LabMessageJournalPath }
+    if (-not (Get-Command -Name Get-LabStateRoot -ErrorAction SilentlyContinue)) { return $null }
+    try {
+        $stateRoot = Get-LabStateRoot
+        # Ein relativer State-Root wuerde Journale in das jeweilige Arbeitsverzeichnis streuen.
+        if (-not $stateRoot -or -not [IO.Path]::IsPathRooted($stateRoot)) { return $null }
+        $sessionDir = Join-Path (Join-Path $stateRoot 'session') (Get-LabMessageSessionId)
+        $script:LabMessageJournalPath = Join-Path $sessionDir 'messages.jsonl'
+        return $script:LabMessageJournalPath
+    }
+    catch { return $null }
+}
+
+function Protect-LabMessageText {
+    <#
+    .SYNOPSIS Entfernt Secrets aus Text, bevor er journalisiert oder kopiert wird.
+    #>
+    [CmdletBinding()]
+    param([AllowNull()][AllowEmptyString()][string]$Text)
+
+    if ([string]::IsNullOrEmpty($Text)) { return $Text }
+    $result = $Text
+    foreach ($entry in [Environment]::GetEnvironmentVariables('Process').GetEnumerator()) {
+        if ([string]$entry.Key -notlike 'SQL_SERVER_LAB_SECRET_*') { continue }
+        $secret = [string]$entry.Value
+        if ($secret.Length -lt 4) { continue }
+        $result = $result.Replace($secret, '***')
+    }
+    return [regex]::Replace(
+        $result,
+        '(?i)\b(SA_PASSWORD|MSSQL_SA_PASSWORD|PASSWORD|PWD)\s*[=:]\s*("[^"]*"|''[^'']*''|\S+)',
+        '$1=***')
+}
+
+function Write-LabMessageJournalRecord {
+    <#
+    .SYNOPSIS Haengt einen Meldungssatz an die Journaldatei an.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][object]$Record)
+
+    if ($script:LabMessageJournalDisabled) { return }
+    $path = Get-LabMessageJournalPath
+    if (-not $path) { return }
+    try {
+        $directory = Split-Path -Parent $path
+        if (-not (Test-Path -LiteralPath $directory)) { New-Item -Path $directory -ItemType Directory -Force | Out-Null }
+        $line = ($Record | ConvertTo-Json -Depth 6 -Compress) + [Environment]::NewLine
+        [IO.File]::AppendAllText($path, $line, [Text.UTF8Encoding]::new($false))
+    }
+    catch {
+        # Ein nicht schreibbares Journal darf die Bedienung nie unterbrechen.
+        $script:LabMessageJournalDisabled = $true
+    }
+}
+
+function Add-LabMessage {
+    <#
+    .SYNOPSIS Journalisiert eine Meldung und liefert den Satz mit stabiler MessageId.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('Info', 'Success', 'Warning', 'Error')][string]$Severity,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Message,
+        [string]$Code = '',
+        [string]$Detail = '',
+        [string]$ScreenId = '',
+        [string]$OperationId = '',
+        [string]$RunId = ''
+    )
+
+    $script:LabMessageSequence++
+    $prefix = switch ($Severity) { 'Error' { 'E' } 'Warning' { 'W' } 'Success' { 'S' } default { 'I' } }
+    $safeMessage = Protect-LabMessageText -Text $Message
+    if (-not $Code -and $safeMessage -match '^([A-Z][A-Z0-9]*(?:_[A-Z0-9]+){2,})\b') { $Code = $Matches[1] }
+    $record = [PSCustomObject]@{
+        contract    = 'SqlServerLab.Message/1.0'
+        sequence    = $script:LabMessageSequence
+        messageId   = '{0}-{1:x4}' -f $prefix, $script:LabMessageSequence
+        timestamp   = [datetime]::UtcNow.ToString('o')
+        severity    = $Severity
+        code        = [string]$Code
+        message     = $safeMessage
+        detail      = [string](Protect-LabMessageText -Text $Detail)
+        screenId    = $ScreenId
+        operationId = $OperationId
+        runId       = $RunId
+    }
+    $script:LabMessageJournal.Add($record)
+    while ($script:LabMessageJournal.Count -gt $script:LabMessageJournalLimit) { $script:LabMessageJournal.RemoveAt(0) }
+    Write-LabMessageJournalRecord -Record $record
+    return $record
+}
+
+function Get-LabMessage {
+    <#
+    .SYNOPSIS Liest das Meldungsjournal der laufenden Sitzung.
+    #>
+    [CmdletBinding()]
+    param(
+        [ValidateSet('Info', 'Success', 'Warning', 'Error')][string[]]$Severity,
+        [string]$MessageId
+    )
+
+    $items = @($script:LabMessageJournal)
+    if ($MessageId) { $items = @($items | Where-Object { $_.messageId -eq $MessageId }) }
+    if ($Severity) { $items = @($items | Where-Object { $_.severity -in $Severity }) }
+    return $items
+}
+
+function Format-LabMessageReport {
+    <#
+    .SYNOPSIS Erzeugt einen kopierbaren Klartextbericht zu Meldungen.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory, Position = 0)][AllowEmptyCollection()][object[]]$Message)
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    foreach ($item in $Message) {
+        $severityLabel = ([string]$item.severity).ToUpperInvariant()
+        $lines.Add('--- {0}  {1}  {2}' -f @($item.messageId, $severityLabel, $item.timestamp))
+        if ($item.code) { $lines.Add('Code        {0}' -f $item.code) }
+        $lines.Add('Meldung     {0}' -f $item.message)
+        if ($item.detail) { $lines.Add('Detail      {0}' -f $item.detail) }
+        if ($item.screenId) { $lines.Add('Bildschirm  {0}' -f $item.screenId) }
+        if ($item.operationId) { $lines.Add('Operation   {0}' -f $item.operationId) }
+        if ($item.runId) { $lines.Add('Run         {0}' -f $item.runId) }
+    }
+    $lines.Add('Modul       {0}' -f (Get-LabBuildInfo).Display)
+    $journalPath = Get-LabMessageJournalPath
+    if ($journalPath) { $lines.Add('Journal     {0}' -f $journalPath) }
+    return ($lines -join [Environment]::NewLine)
+}
+
+# =============================================================================
 # Logging
 # =============================================================================
 
@@ -107,15 +276,16 @@ function Write-LabInfo {
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
+    $record = Add-LabMessage -Severity Info -Message $Message
     if ($global:SqlServerLabUiCaptureOutput) {
         # Information-Records bleiben auch dann sofort sichtbar, wenn der
         # aufrufende Fachbefehl sein Erfolgsobjekt intern zwischenspeichert.
         # Das ist fuer die UI wichtig: Write-Output wuerde erst am Ende eines
         # langen Aufrufs im Live-Log ankommen.
-        Write-Information "[INFO]    $Message" -Tags 'SqlServerLabUi' -InformationAction Continue
+        Write-Information "[INFO]    $($record.message)" -Tags 'SqlServerLabUi' -InformationAction Continue
         return
     }
-    Write-Host "[INFO]    $Message" -ForegroundColor $script:Colors.Info
+    Write-Host "[INFO]    $($record.message)" -ForegroundColor $script:Colors.Info
 }
 
 function Write-LabSuccess {
@@ -124,11 +294,12 @@ function Write-LabSuccess {
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
+    $record = Add-LabMessage -Severity Success -Message $Message
     if ($global:SqlServerLabUiCaptureOutput) {
-        Write-Information "[OK]      $Message" -Tags 'SqlServerLabUi' -InformationAction Continue
+        Write-Information "[OK]      $($record.message)" -Tags 'SqlServerLabUi' -InformationAction Continue
         return
     }
-    Write-Host "[OK]      $Message" -ForegroundColor $script:Colors.Success
+    Write-Host "[OK]      $($record.message)" -ForegroundColor $script:Colors.Success
 }
 
 function Write-LabWarning {
@@ -138,11 +309,12 @@ function Write-LabWarning {
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
     if (Test-LabConsoleInputCancellation -InputObject $Message) { throw (New-LabConsoleInputCancellationException) }
+    $record = Add-LabMessage -Severity Warning -Message $Message
     if ($global:SqlServerLabUiCaptureOutput) {
-        Write-Information "[WARNUNG] $Message" -Tags 'SqlServerLabUi' -InformationAction Continue
+        Write-Information "[WARNUNG] $($record.messageId)  $($record.message)" -Tags 'SqlServerLabUi' -InformationAction Continue
         return
     }
-    Write-Host "[WARNUNG] $Message" -ForegroundColor $script:Colors.Warning
+    Write-Host "[WARNUNG] $($record.messageId)  $($record.message)" -ForegroundColor $script:Colors.Warning
 }
 
 function Write-LabError {
@@ -152,11 +324,12 @@ function Write-LabError {
     [CmdletBinding()]
     param([Parameter(Mandatory, Position = 0)][string]$Message)
     if (Test-LabConsoleInputCancellation -InputObject $Message) { throw (New-LabConsoleInputCancellationException) }
+    $record = Add-LabMessage -Severity Error -Message $Message
     if ($global:SqlServerLabUiCaptureOutput) {
-        Write-Information "[FEHLER]  $Message" -Tags 'SqlServerLabUi' -InformationAction Continue
+        Write-Information "[FEHLER]  $($record.messageId)  $($record.message)" -Tags 'SqlServerLabUi' -InformationAction Continue
         return
     }
-    Write-Host "[FEHLER]  $Message" -ForegroundColor $script:Colors.Error
+    Write-Host "[FEHLER]  $($record.messageId)  $($record.message)" -ForegroundColor $script:Colors.Error
 }
 
 function Write-LabHeader {
