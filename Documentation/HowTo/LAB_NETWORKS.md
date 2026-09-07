@@ -52,6 +52,32 @@ Die zugehörigen Namen lassen sich mit `_NETWORK` überschreiben, zum Beispiel
 wird nie stillschweigend umkonfiguriert; dafür muss zuerst bewusst ein neues,
 kollisionsfreies Netz gewählt werden.
 
+Kollidiert ein nicht explizit konfigurierter Docker- oder Podman-Default, wählt
+das Framework vor der ersten Netzmutation automatisch einen freien
+providergetrennten `/24`-Bereich aus `198.18.0.0/15`. Es speichert diese Wahl
+als benutzerspezifische `_SUBNET`-Variable, damit nachfolgende Prozesse das
+bereits angelegte Labnetz vertragsgleich wiederverwenden. Eine ausdrücklich
+gesetzte `_SUBNET`-Variable bleibt bindend und wird bei Konflikt nicht ersetzt.
+
+Aktive VPN-Routen werden automatisch erkannt. Für VPN-Präfixe, die nur bei
+einer getrennten Verbindung existieren, kann der Betreiber sie dauerhaft als
+lokale Reservierung hinterlegen. Die durch Komma oder Semikolon getrennten
+IPv4-CIDR-Präfixe werden wie aktive Hostrouten geprüft und blockieren eine
+überlappende Labnetz-Anlage vor jeder Mutation:
+
+```powershell
+[Environment]::SetEnvironmentVariable(
+    'SQL_SERVER_LAB_RESERVED_SUBNETS',
+    '10.0.0.0/8;172.16.0.0/12;192.168.0.0/16',
+    'User'
+)
+```
+
+Die Werte müssen vom Netzwerk- oder VPN-Betreiber stammen. Nach dem Setzen ist
+eine neue PowerShell-Sitzung erforderlich. Ungültige Präfixe oder eine
+Überlappung führen fail-closed zu `LAB_NETWORK_RESERVED_SUBNET_INVALID` oder
+`LAB_NETWORK_SUBNET_CONFLICT`; bestehende Netze werden nicht verändert.
+
 Runtime-übergreifende Kommunikation und kontrollierter Internet-Egress sind
 absichtlich nicht Bestandteil dieses ersten Netzwerkvertrags.
 

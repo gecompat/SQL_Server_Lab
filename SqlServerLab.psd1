@@ -35,6 +35,7 @@
         'Sync-SqlServerLabCms'
         'Get-SqlServerLabReconcilePlan'
         'Invoke-SqlServerLabReconcileAction'
+        'Move-SqlServerLabContainerNetwork'
         'Invoke-SqlServerLabWorkflowAction'
         'New-SqlServerLabManifest'
         'Test-SqlServerLabManifest'
