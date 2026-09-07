@@ -404,3 +404,9 @@ if (-not $KeepOnFailure -and $runtimeCleanupFailures.Count -gt 0) {
 }
 
 Write-Host 'Hyper-V-Lifecycle-Smoke-Test erfolgreich.' -ForegroundColor Green
+
+# GitHub Actions wertet nach einem erfolgreichen PowerShell-Skript auch den
+# zuletzt von einem nativen Hilfsprogramm gesetzten Exitcode aus. Alle
+# relevanten Fehlerpfade dieses Smokes werfen bereits eine Exception; daher
+# darf ein erfolgreich abgeschlossener Lauf keinen veralteten Exitcode erben.
+$global:LASTEXITCODE = 0

@@ -1,7 +1,9 @@
 # Windows Server 2003 SP2 als Legacy-Hyper-V-Vorlage
 
 Diese Anleitung beschreibt den isolierten x86-/Generation-1-Pfad für SQL
-Server 2000 und SQL Server 2005. Er ist bewusst nicht Teil der normalen
+Server 2000 und SQL Server 2005. SQL Server 2005 ist darauf real automatisiert
+abgenommen; SQL Server 2000 bleibt eine spätere getrennte Ausbaustufe. Der Pfad
+ist bewusst nicht Teil der normalen
 `OS_SEALED`-Registry: deren aktueller regulärer Gastvertrag setzt x64 und moderne
 Gaststeuerung
 voraus.
@@ -223,6 +225,44 @@ Der erste Cold-Boot-Test erfolgt auf einem wegwerfbaren Child. Erwartet werden:
 
 Erst nach diesem Test wird ein Child für SQL Server 2000 oder SQL Server 2005
 weiterverwendet.
+
+## SQL Server 2005 automatisiert abnehmen
+
+Der dedizierte Operatorpfad erzeugt einen frischen Child, übernimmt Mini-Setup,
+deutsches Anmeldelayout und isolierte statische Labadresse und installiert SQL
+Server 2005 ohne Gast-PowerShell:
+
+```powershell
+.\Tools\New-WindowsServer2003SqlAcceptanceEnvironment.ps1 `
+    -SqlVersion 2005 `
+    -MediaRoot 'D:\Lab1_Base' `
+    -ResultPath 'D:\Lab1_Base\Evidence\sql-server-2005-acceptance.json' `
+    -Confirm:$false
+```
+
+Die Evaluation-ISO bleibt als
+`COMMUNITY_UNVERIFIED_USER_APPROVED_FOR_LAB` gekennzeichnet und ist nur für das
+isolierte Lab zugelassen. Beim ersten Build wird ihr vollständiger SHA-256
+geprüft. Ein unveränderter Resume prüft anschließend nur noch die gebundene
+Größe, UTC-Änderungszeit und den gespeicherten Hashbeleg.
+
+Das Skript staged .NET 2.0, SQL Setup und den Acceptance-Batch bei
+ausgeschalteter VM in der Child-VHDX. Offlinezugriffe verwenden
+`Mount-VHD -NoDriveLetter` und einen temporären Verzeichnis-Mount, der im
+`finally` wieder entfernt wird; dadurch entstehen weder AutoPlay-Meldungen noch
+liegenbleibende Host-Laufwerksbuchstaben. Nach dem Gaststart stößt ein
+authentifizierter Legacy-WMI-Aufruf ausschließlich den lokal vorbereiteten
+Batch an. Dessen ONSTART-Task übersteht den von .NET oder SQL Setup verlangten
+Neustart. Kennwörter stehen weder in der Befehlszeile noch im portablen
+Build-State oder Receipt.
+
+Der reale Lauf am 7. September 2026 erreichte mit Build
+`8d1f92c6-4f10-402b-b130-aa4b5d5dce87` den Zustand `TESTS_PASSED`. Geprüft
+wurden SQL Server `9.00.1399.06`, `Enterprise Evaluation Edition`, die vier
+Systemdatenbanken sowie Create, Insert/Select, Backup mit `CHECKSUM`, `RESTORE
+VERIFYONLY`, Drop und Entfernen des Testbackups. Windows blieb dabei sichtbar
+im Zustand `OOB_GRACE` mit `ActivationRequired=1`; dieser Nachweis ist keine
+Windows-Aktivierung und kein Aktivierungs-Bypass.
 
 ## Evaluation online aktivieren
 

@@ -94,7 +94,7 @@ function Get-HyperVSqlVersionFromMajor {
         if ($SetupVersion -match '^10\.0\.') { return '2008' }
         return 'major-10'
     }
-    $known = @{ 11 = '2012'; 12 = '2014'; 13 = '2016'; 14 = '2017'; 15 = '2019'; 16 = '2022'; 17 = '2025' }
+    $known = @{ 8 = '2000'; 9 = '2005'; 11 = '2012'; 12 = '2014'; 13 = '2016'; 14 = '2017'; 15 = '2019'; 16 = '2022'; 17 = '2025' }
     if ($known.ContainsKey($MajorVersion)) { return $known[$MajorVersion] }
     return "major-$MajorVersion"
 }
@@ -104,7 +104,7 @@ function Get-HyperVSqlMajorVersionFromVersion {
     param([Parameter(Mandatory)][string]$SqlVersion)
 
     if ($SqlVersion -match '^major-(?<major>\d+)$') { return [int]$Matches.major }
-    $known = @{ '2008' = 10; '2008R2' = 10; '2012' = 11; '2014' = 12; '2016' = 13; '2017' = 14; '2019' = 15; '2022' = 16; '2025' = 17 }
+    $known = @{ '2000' = 8; '2005' = 9; '2008' = 10; '2008R2' = 10; '2012' = 11; '2014' = 12; '2016' = 13; '2017' = 14; '2019' = 15; '2022' = 16; '2025' = 17 }
     if ($known.ContainsKey($SqlVersion)) { return [int]$known[$SqlVersion] }
     throw "HYPERV_SQL_MEDIA_VERSION_UNKNOWN: $SqlVersion"
 }
