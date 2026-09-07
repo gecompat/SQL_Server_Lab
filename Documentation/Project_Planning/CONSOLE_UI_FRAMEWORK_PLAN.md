@@ -247,9 +247,32 @@ automatische Medienbeschaffung, Slot-Erzeugung oder sonstige Mutation auslösen.
 | `CUI-023` | Meldungen überleben Neuzeichnen und bleiben kopierbar | `IMPLEMENTED` - Journal `SqlServerLab.Message/1.0`, stabile MessageId, Secret-Scrubbing, Persistenzblock mit Neuverankerung des Rahmens |
 | `CUI-024` | Kontexthilfe je `ScreenId` und Begründung deaktivierter Einträge | `IMPLEMENTED_VERTICAL_SLICE` - Hilfekatalog mit live geprüften Voraussetzungen, `F1`/`?`-Overlay, Begründungen im Haupt- und Umgebungsmenü |
 | `CUI-025` | Provider-Ausgabe für die Diagnose persistieren | `IMPLEMENTED_VERTICAL_SLICE` - Containererstellung schreibt `runs/<RunId>/log/provider.log` secretfrei; Fehlermeldung nennt den Logpfad |
+| `CUI-026` | Hauptmenü nach Arbeitsabsicht in acht Gruppen gliedern | `IMPLEMENTED` - Erstellen, Verwalten, Vorgänge, Datenbanken, CMS, Infrastruktur und Medien, Wartung, Einstellungen |
 
 Die Migration erfolgt vertikal. Ein migriertes Menü verwendet vollständig die
 gemeinsame Schicht; neue parallele Cursorimplementierungen sind nicht zulässig.
+
+### 12.4 Menüstruktur
+
+Das Hauptmenü (`CUI-026`) ist nach Arbeitsabsicht gegliedert, nicht nach
+technischer Herkunft:
+
+| Kurzbefehl | Gruppe | Inhalt |
+|---|---|---|
+| `1` | Umgebung erstellen | Zusammenstellen, Prüfen, Übergeben; Windows-Slots |
+| `2` | Umgebungen verwalten | Status, Start, Stopp, Name, CPU/RAM, Entfernen |
+| `3` | Vorgänge und Queue | Fortschritt, Priorität, Resume, Benutzeraktionen |
+| `4` | Datenbanken und Verbindungen | Samples, Restore, Skripte, Endpunkte |
+| `5` | Zentrale Verwaltung (CMS) | Registrierte Server, SSMS-Export |
+| `6` | Infrastruktur und Medien | Hyper-V-Bestand sowie Lab_Base, Lab_Data, Testdaten |
+| `7` | Wartung und Diagnose | Providerstatus, Cleanup-Audit, Katalog |
+| `8` | Einstellungen | Scheduler, Parallelität, Ton, Ruhemodus, Ersteinrichtung |
+
+Hyper-V und Speicher liegen gemeinsam unter `6`; die Hyper-V-Gruppe wird dort
+begründet deaktiviert, wenn der Provider nicht verwendbar ist. Der
+Statusbereich aus `CUI-022` ist zusätzlich im Hauptmenü reserviert, damit ein
+laufender Vorgang von jedem Einstieg aus sichtbar bleibt, ohne die
+Menüeinträge zu verschieben.
 
 ### 12.2 Statusbereich und Meldungspersistenz
 

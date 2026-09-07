@@ -201,7 +201,8 @@ Add-ConsoleUiCheck 'Bildschirme ohne Statusband warten unveraendert blockierend 
 # CUI-024: Kontexthilfe je ScreenId, live geprueft, mit Begruendung deaktivierter Eintraege.
 $helpCatalog = Get-LabConsoleHelpCatalog
 $criticalScreens = @('main-menu', 'queue-menu', 'environment-menu', 'environment-actions',
-    'sql-target-configuration', 'batch-composer', 'storage-menu', 'database-menu',
+    'sql-target-configuration', 'batch-composer', 'create-menu', 'cms-menu',
+    'infrastructure-menu', 'maintenance-menu', 'settings-menu', 'storage-menu', 'database-menu',
     'connection-center', 'hyperv-menu', 'system-menu')
 Add-ConsoleUiCheck 'Alle Bildschirme des kritischen Pfads besitzen einen kuratierten Hilfeeintrag' (
     @($criticalScreens | Where-Object { -not $helpCatalog.ContainsKey($_) }).Count -eq 0 -and
@@ -276,7 +277,7 @@ $helpMenuKeys = [System.Collections.Generic.Queue[object]]::new()
     [PSCustomObject]@{ Key='Enter'; KeyChar=[char]13; Modifiers=0 }
 ) | ForEach-Object { $helpMenuKeys.Enqueue($_) }
 $helpMenu = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'Hauptmenue' -Items @(
-    New-LabConsoleItem -Id 'plan' -Label 'Mehrere Umgebungen planen' -Shortcut '1'
+    New-LabConsoleItem -Id 'create' -Label 'Umgebung erstellen' -Shortcut '1'
 ) -Snapshot $null -Capability ([PSCustomObject]@{ Supported=$true; Mode='CURSOR'; Reasons=@() }) `
     -ReadKey { $helpMenuKeys.Dequeue() } `
     -FrameWriter { param($s, $f) $helpFrames.Add($f) } `
@@ -286,9 +287,9 @@ $helpMenu = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'Hauptmenue' -Ite
 $helpOverlay = @($helpFrames | Where-Object { @($_.Lines | Where-Object { $_ -match '^Hilfe: ' }).Count -eq 1 })
 Add-ConsoleUiCheck 'F1 oeffnet die Kontexthilfe zum markierten Eintrag und kehrt danach ins Menue zurueck' (
     $helpOverlay.Count -eq 1 -and
-    @($helpOverlay[0].Lines | Where-Object { $_ -match 'Eintrag Mehrere Umgebungen planen' }).Count -eq 1 -and
+    @($helpOverlay[0].Lines | Where-Object { $_ -match 'Eintrag Umgebung erstellen' }).Count -eq 1 -and
     @($helpOverlay[0].Lines | Where-Object { $_ -match 'New-SqlServerLabBatch' }).Count -eq 1 -and
-    $helpMenu.Status -eq 'Selected' -and $helpMenu.SelectedItem.Id -eq 'plan'
+    $helpMenu.Status -eq 'Selected' -and $helpMenu.SelectedItem.Id -eq 'create'
 )
 Add-ConsoleUiCheck 'Hilfeoverlay behaelt die Rahmenhoehe und verschiebt das Menue nicht' (
     $helpOverlay[0].Lines.Count -eq 24 -and $helpFrames[-1].Lines.Count -eq 24
@@ -297,18 +298,28 @@ Add-ConsoleUiCheck 'Fusszeile weist die Kontexthilfe aus' (
     ([regex]::Matches($consoleUiSource, 'F1/\?: Hilfe')).Count -eq 2
 )
 $mainMenuSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw
+$batchConsoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/BatchConsole.ps1') -Raw
 Add-ConsoleUiCheck 'Haupt- und Umgebungsmenue begruenden jeden deaktivierten Eintrag' (
-    $mainMenuSource -match "Id 'hyperv'[^\n]+-DisabledReason \`$hyperVDisabledReason" -and
-    $mainMenuSource -match 'Windows-Feature Hyper-V aktivieren' -and
+    $batchConsoleSource -match "Id HyperVArea[\s\S]{0,300}?-DisabledReason \`$disabledReason" -and
+    $batchConsoleSource -match 'Windows-Feature Hyper-V aktivieren' -and
     ([regex]::Matches($mainMenuSource, "New-LabConsoleItem -Id '(?:Manage|Status|SyncRuntime|Stop|Start|Restart|Rename|Resources|Remove|ClearAutomatedTestEnvironment)'[^\n]+-DisabledReason ")).Count -eq 10 -and
     $mainMenuSource -match "ScreenId 'main-menu'[^\n]+F1/\?: Hilfe"
 )
 
-# CUI-022: Das Vorgangsmenue nutzt den reservierten Statusbereich fuer echten Fortschritt.
-$batchConsoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/BatchConsole.ps1') -Raw
+# CUI-022: Vorgangs- und Hauptmenue nutzen den reservierten Statusbereich fuer echten Fortschritt.
 Add-ConsoleUiCheck 'Vorgangsmenue reserviert das Statusband und liefert laufenden Fortschritt' (
     $batchConsoleSource -match "ScreenId 'queue-menu'[^\n]+-StatusHeight 5 -StatusProvider \`$statusProvider" -and
     $batchConsoleSource -match '\$statusProvider = New-LabQueueStatusProvider -Height 5'
+)
+Add-ConsoleUiCheck 'Hauptmenue zeigt laufenden Fortschritt im reservierten Statusband' (
+    $mainMenuSource -match "ScreenId 'main-menu'[^\n]+-StatusHeight 3 -StatusProvider \`$mainMenuStatusProvider" -and
+    $mainMenuSource -match '\$mainMenuStatusProvider = New-LabQueueStatusProvider -Height 3'
+)
+Add-ConsoleUiCheck 'Hauptmenue folgt der acht Gruppen umfassenden Struktur' (
+    ([regex]::Matches($mainMenuSource, "New-LabConsoleItem -Id '(?:create|environment|queue|database|cms|infrastructure|maintenance|settings)' -Label ")).Count -eq 8 -and
+    ([regex]::Matches($mainMenuSource, "'(?:create|cms|infrastructure|maintenance|settings)' \{ Invoke-LabAreaMenuInteractive -Area ")).Count -eq 5 -and
+    $mainMenuSource -notmatch "New-LabConsoleItem -Id 'plan' -Label" -and
+    $mainMenuSource -notmatch "New-LabConsoleItem -Id 'system' -Label"
 )
 Add-ConsoleUiCheck 'Vorgangsmenue begruendet jeden deaktivierten Eintrag' (
     ([regex]::Matches($batchConsoleSource, "New-LabConsoleItem -Id '(?:overview|gates|bulk-confirm|priority|move|pause|stop|batch-stop|run)'[^\n]+-DisabledReason ")).Count -eq 9 -and
@@ -795,7 +806,7 @@ Add-ConsoleUiCheck 'Hyper-V zeigt die derzeit nicht atomare External-Languages-N
 )
 Add-ConsoleUiCheck 'Hauptmenue startet ohne vorab ausgegebene und sofort ueberschriebene Umgebungsuebersicht' ([regex]::Match($entrySource, 'function Invoke-SqlServerLab \{[\s\S]+?(?=\r?\n# =+)').Value -notmatch 'Show-LabBanner')
 Add-ConsoleUiCheck 'Interaktiver Status zeigt Connection String und gespeichertes generiertes SA-Passwort' ($entrySource -match 'function Show-LabEnvironmentStatusInteractive' -and $entrySource -match "'SA-Passwort \(automatisch erzeugt\)'" -and $entrySource -match 'Show-LabEnvironmentStatusInteractive -RunId')
-Add-ConsoleUiCheck 'Hauptmenue deaktiviert Hyper-V-Infrastruktur wenn der Provider nicht verwendbar ist' ($entrySource -match '-Id ''hyperv''.*-Disabled:\(-not \$hyperVAvailable\)' -and $entrySource -match 'Test-HyperVAvailable')
+Add-ConsoleUiCheck 'Infrastrukturmenue deaktiviert Hyper-V begruendet wenn der Provider nicht verwendbar ist' ($batchConsoleSource -match '-Id HyperVArea[\s\S]{0,300}?-Disabled:\(-not \$hyperVAvailable\)' -and $batchConsoleSource -match 'Test-HyperVAvailable')
 Add-ConsoleUiCheck 'Statusauswahl bietet Alle und einzelne Umgebungen an' ($entrySource -match "-Id '__all' -Label 'Alle Umgebungen'" -and $entrySource -match "-ScreenId 'environment-status-select'" -and $entrySource -match '\$selectedRuns = if')
 Add-ConsoleUiCheck 'Datenbankmenue trennt Verbindungszentrale und reinen Lab-Katalog klar' ($entrySource -match "-Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte'.*-Shortcut 'c'" -and $entrySource -match "-Id 'Catalog' -Label 'Lab-Katalog prüfen'.*-Shortcut 'k'" -and $entrySource -match "Katalogdatei validieren; kein CMS-Zugang")
 Add-ConsoleUiCheck 'CU-Status ist im Medienmenü sichtbar und seine Ergebnisansicht wartet auf eine Rückkehrbestätigung' ($entrySource -match "-Id 'CuStatus' -Label 'Aktuelle CUs bei Microsoft prüfen'.*-Shortcut 'w'" -and $entrySource -match "function Show-LabCuStatusInteractive \{[\s\S]+?Get-SqlServerLabCuStatus[\s\S]+?Wait-LabConsoleAcknowledgement -Prompt ' Enter oder Escape: Zurück zu Storage & Medien'")

@@ -1537,8 +1537,16 @@ Diagnoselog. Ein gemeinsamer Wrapper für externe Aufrufe existiert weiterhin
 nicht; die Aufrufstellen binden `Write-LabProviderLog` einzeln ein. Eine
 Rotation alter Diagnoselogs besteht nicht.
 
-Das Statusband ist bisher nur im Vorgangsmenü (`queue-menu`) aktiviert. Alle
-übrigen Bildschirme deklarieren keine Bandhöhe und verhalten sich unverändert.
+Das Statusband ist im Vorgangsmenü (`queue-menu`) und im Hauptmenü
+(`main-menu`) aktiviert. Alle übrigen Bildschirme deklarieren keine Bandhöhe
+und verhalten sich unverändert.
+
+Die Menüstruktur (`CUI-026`) gliedert nach Arbeitsabsicht in acht Gruppen. Der
+Eintrag „Umgebung erstellen“ führt weiterhin über den Composer und die Queue;
+ein rein synchroner Weg für genau eine Umgebung ohne Queue-Übergabe besteht in
+der Oberfläche noch nicht. Die Verbindungszentrale ist bewusst doppelt
+erreichbar: über „Datenbanken und Verbindungen“ und über die eigene
+CMS-Gruppe.
 
 Das Meldungsjournal (`CUI-023`) hält die letzten 2000 Meldungen im Speicher und
 schreibt zusätzlich `<StateRoot>/session/<SessionId>/messages.jsonl`. Ist kein

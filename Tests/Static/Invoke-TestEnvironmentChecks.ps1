@@ -232,7 +232,7 @@ try {
         'Start-SqlServerLab.ps1','Stop-SqlServerLab.ps1','Restart-SqlServerLab.ps1','Remove-SqlServerLab.ps1','Update-SqlServerLabContainer.ps1'
     ) | ForEach-Object { Get-Content -LiteralPath (Join-Path $repoRoot "Public/$_") -Raw -Encoding utf8 }
     Add-CheckResult -Name 'Providerneutraler Hauptpfad bietet Batch-Erfassung für Linux und Windows an' -Success (
-        $menuText -match "-Id 'plan' -Label 'Umgebungen planen und erstellen'" -and
+        $menuText -match "-Id 'create' -Label 'Umgebung erstellen'" -and
         $batchConsoleText -match "-Id 'add-sql' -Label 'SQL-Umgebung hinzufuegen'" -and
         $batchConsoleText -match "-Id 'add-windows'" -and
         $batchConsoleText -match "'Reine Windows-Umgebung hinzufuegen'" -and
