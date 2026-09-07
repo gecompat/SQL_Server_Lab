@@ -20,6 +20,18 @@ $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 
 Write-Host ''; Write-Host 'SQL_Server_Lab - Lab Network Checks' -ForegroundColor Cyan
+$networkOverrideNames = @(
+    'SQL_SERVER_LAB_DOCKER_NETWORK', 'SQL_SERVER_LAB_DOCKER_SUBNET',
+    'SQL_SERVER_LAB_PODMAN_NETWORK', 'SQL_SERVER_LAB_PODMAN_SUBNET',
+    'SQL_SERVER_LAB_HYPERV_NETWORK', 'SQL_SERVER_LAB_HYPERV_SUBNET',
+    'SQL_SERVER_LAB_HYPERV_NAT_NETWORK', 'SQL_SERVER_LAB_HYPERV_NAT_SUBNET',
+    'SQL_SERVER_LAB_RESERVED_SUBNETS'
+)
+$networkOverrideValues = @{}
+foreach ($networkOverrideName in $networkOverrideNames) {
+    $networkOverrideValues[$networkOverrideName] = [Environment]::GetEnvironmentVariable($networkOverrideName, 'Process')
+    [Environment]::SetEnvironmentVariable($networkOverrideName, $null, 'Process')
+}
 try {
     $module = Import-Module $modulePath -Force -PassThru
     $defaults = & $module { @('docker', 'podman', 'hyperv') | ForEach-Object { Get-LabRuntimeNetwork -Provider $_ } }
@@ -244,6 +256,14 @@ try {
         Add-CheckResult -Name 'Docker-Subnetz ist pro Prozess konfigurierbar' -Success ($configured.Subnet -eq '172.29.0.0/16')
     }
     finally { [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DOCKER_SUBNET', $previous, 'Process') }
+    $previousReservedSubnets = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_RESERVED_SUBNETS')
+    try {
+        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_RESERVED_SUBNETS', '10.200.0.0/16; 192.0.2.0/24', 'Process')
+        $reservedSubnets = & $module { @(Get-LabKnownIpv4Subnets -Provider podman) }
+        Add-CheckResult -Name 'Dauerhafte VPN-Subnetzreservierungen werden in die Kollisionspruefung aufgenommen' -Success (
+            '10.200.0.0/16' -in $reservedSubnets -and '192.0.2.0/24' -in $reservedSubnets)
+    }
+    finally { [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_RESERVED_SUBNETS', $previousReservedSubnets, 'Process') }
     $docker = Get-Content (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1') -Raw
     $podman = Get-Content (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1') -Raw
     $hyperv = Get-Content (Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1') -Raw
@@ -310,7 +330,12 @@ try {
     )
 }
 catch { Add-CheckResult -Name 'Labnetz-Testausfuehrung' -Success $false -Message $_.Exception.Message }
-finally { Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue }
+finally {
+    foreach ($networkOverrideName in $networkOverrideNames) {
+        [Environment]::SetEnvironmentVariable($networkOverrideName, $networkOverrideValues[$networkOverrideName], 'Process')
+    }
+    Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+}
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0
 

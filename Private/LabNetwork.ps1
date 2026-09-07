@@ -194,6 +194,17 @@ function Get-LabKnownIpv4Subnets {
     param([ValidateSet('docker', 'podman', 'hyperv')][string]$Provider)
 
     $subnets = [System.Collections.Generic.List[string]]::new()
+    $reservedSubnets = [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_RESERVED_SUBNETS')
+    if (-not [string]::IsNullOrWhiteSpace($reservedSubnets)) {
+        foreach ($reservedSubnet in @($reservedSubnets -split '[,;]' | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
+            try {
+                $subnets.Add((ConvertTo-LabIpv4Subnet -Subnet $reservedSubnet).Cidr)
+            }
+            catch {
+                throw "LAB_NETWORK_RESERVED_SUBNET_INVALID: $reservedSubnet"
+            }
+        }
+    }
     if ($IsWindows -and (Get-Command Get-NetRoute -ErrorAction SilentlyContinue)) {
         Get-NetRoute -AddressFamily IPv4 -ErrorAction SilentlyContinue |
             ForEach-Object {

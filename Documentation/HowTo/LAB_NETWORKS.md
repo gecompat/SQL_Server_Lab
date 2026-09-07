@@ -52,6 +52,25 @@ Die zugehörigen Namen lassen sich mit `_NETWORK` überschreiben, zum Beispiel
 wird nie stillschweigend umkonfiguriert; dafür muss zuerst bewusst ein neues,
 kollisionsfreies Netz gewählt werden.
 
+Aktive VPN-Routen werden automatisch erkannt. Für VPN-Präfixe, die nur bei
+einer getrennten Verbindung existieren, kann der Betreiber sie dauerhaft als
+lokale Reservierung hinterlegen. Die durch Komma oder Semikolon getrennten
+IPv4-CIDR-Präfixe werden wie aktive Hostrouten geprüft und blockieren eine
+überlappende Labnetz-Anlage vor jeder Mutation:
+
+```powershell
+[Environment]::SetEnvironmentVariable(
+    'SQL_SERVER_LAB_RESERVED_SUBNETS',
+    '10.0.0.0/8;172.16.0.0/12;192.168.0.0/16',
+    'User'
+)
+```
+
+Die Werte müssen vom Netzwerk- oder VPN-Betreiber stammen. Nach dem Setzen ist
+eine neue PowerShell-Sitzung erforderlich. Ungültige Präfixe oder eine
+Überlappung führen fail-closed zu `LAB_NETWORK_RESERVED_SUBNET_INVALID` oder
+`LAB_NETWORK_SUBNET_CONFLICT`; bestehende Netze werden nicht verändert.
+
 Runtime-übergreifende Kommunikation und kontrollierter Internet-Egress sind
 absichtlich nicht Bestandteil dieses ersten Netzwerkvertrags.
 
