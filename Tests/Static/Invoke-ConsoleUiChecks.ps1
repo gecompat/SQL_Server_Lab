@@ -325,7 +325,7 @@ $runningOperation = [PSCustomObject]@{
         [PSCustomObject]@{ id='complete'; title='Abschluss'; status='Running' }
     )
 }
-$queueStatus = New-LabQueueStatusProvider -Height 5 -RefreshMilliseconds 1000 `
+$queueStatus = New-LabQueueStatusProvider -Height 5 -RefreshMilliseconds 1000 -Width 78 `
     -OperationReader { $script:statusReads++; @($runningOperation, [PSCustomObject]@{ itemId='fertig'; status='Completed' }) } `
     -Clock { $script:statusClock }
 $firstBand = & $queueStatus 0
@@ -341,6 +341,13 @@ Add-ConsoleUiCheck 'Statusband der Queue zeigt nur laufende Vorgaenge in fester 
     $firstBand.Count -eq 5 -and $firstBand[0] -match 'SQL2025latest' -and
     @($firstBand | Where-Object { $_ -match 'fertig' }).Count -eq 0 -and
     $firstBand[0] -match '50%' -and $firstBand[1] -match 'Schritt 2/2'
+)
+$narrowStatus = New-LabQueueStatusProvider -Height 3 -Width 0 `
+    -OperationReader { @($runningOperation) } -Clock { $statusClock }
+$narrowBand = & $narrowStatus 0
+Add-ConsoleUiCheck 'Statusband bleibt auch ohne ermittelbare Fensterbreite lesbar' (
+    $narrowBand.Count -eq 3 -and $narrowBand[0] -match '^SQL2025latest' -and
+    @($narrowBand | Where-Object { $_.Length -gt 0 }).Count -ge 1
 )
 
 $items = @(

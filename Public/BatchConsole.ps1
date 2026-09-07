@@ -374,12 +374,14 @@ function New-LabQueueStatusProvider {
     param(
         [ValidateRange(1, 50)][int]$Height = 5,
         [ValidateRange(200, 10000)][int]$RefreshMilliseconds = 1000,
+        [ValidateRange(0, 1000)][int]$Width = 0,
         [AllowNull()][scriptblock]$OperationReader,
         [AllowNull()][scriptblock]$Clock
     )
 
     $reader = if ($OperationReader) { $OperationReader } else { { @(Get-SqlServerLabOperation) } }
     $now = if ($Clock) { $Clock } else { { [datetime]::UtcNow } }
+    $fixedWidth = $Width
     $cache = [PSCustomObject]@{ Running = @(); LastRead = [datetime]::MinValue; Reads = 0 }
     return {
         param($Tick)
@@ -392,8 +394,11 @@ function New-LabQueueStatusProvider {
             catch { }
             $cache.LastRead = $current
         }
-        $width = try { [Math]::Max(20, [Console]::WindowWidth - 1) } catch { 78 }
-        Get-LabConsoleStatusBand -Operation @($cache.Running) -Tick $Tick -Width $width -Height $Height -Now $current
+        # Ein Host ohne echte Fenstergroesse meldet 0; dann gilt eine tragfaehige Vorgabe.
+        $bandWidth = 78
+        if ($fixedWidth -gt 20) { $bandWidth = $fixedWidth }
+        else { try { $detected = [int][Console]::WindowWidth; if ($detected -gt 20) { $bandWidth = $detected - 1 } } catch { } }
+        Get-LabConsoleStatusBand -Operation @($cache.Running) -Tick $Tick -Width $bandWidth -Height $Height -Now $current
     }.GetNewClosure()
 }
 
