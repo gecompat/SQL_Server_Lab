@@ -5,7 +5,7 @@
 `AI-00 IMPLEMENTED`, `AI-05 IMPLEMENTED`, `AI-10A SUPPORTED`,
 `AI-10B IN_PROGRESS`, `AI-20A SUPPORTED`, `AI-20B BACKLOG`, `AI-30A SUPPORTED`,
 `AI-40A IMPLEMENTED`, `AI-40B IMPLEMENTED`, `AI-50A SUPPORTED`, `AI-60A SUPPORTED`,
-`AI-60B BACKLOG`, `AI-70` bis `AI-90 BACKLOG`.
+`AI-60B BACKLOG`, `AI-70` bis `AI-80 BACKLOG`, `AI-90 IMPLEMENTED`.
 
 Dieser Backlog ist der übergeordnete SQL-zentrierte KI-Plan. Der
 [Vector- und Embedding-Backlog](SQL2025_VECTOR_EMBEDDING_BACKLOG.md) bleibt
@@ -79,6 +79,14 @@ Re-Embedding bleiben als `AI-10B` offen.
 | AI-70 | Lokales ONNX unter Windows/Hyper-V und spätere Python-External-Language-Brücke | Jede OS-/Provider-/Runtimekombination besitzt eigenen Restart- und SQL-Nachweis |
 | AI-80 | Preview-ANN, Skalierung, Ausfall, Backup/Restore, Observability und Kosten | Exakte Suche bleibt Referenz; Preview-Ergebnisse werden separat ausgewiesen |
 | AI-90 | Geführte Vector-, Retrieval-, RAG- und Agent-Demos | Gleiche Szenariopakete und Assertions wie Entwicklung/CI |
+
+`AI-90` ist in der bestehenden achtteiligen CLI-Struktur unter
+„Datenbanken und Verbindungen → SQL Server 2025 KI → Geführte KI-Demos“
+implementiert. Die vier Lernpfade delegieren an `vector-core-ci/1.0`, das
+versionierte Golden Dataset, Golden-RAG beziehungsweise den read-only
+Diagnose-Agenten. Retrieval-Metriken laufen ohne Modell- oder Netzwerkkosten;
+RAG und Agent verwenden die kleinsten katalogisierten lokalen Modelle. Es
+entstand weder ein separater Demo-Runtimekern noch eine Cloud-Abhängigkeit.
 
 Der erste Slice von `AI-10B` ist implementiert: Die interne Endpointplanung
 bindet ausschließlich katalogisierte Modelle, blockiert Cloud ohne expliziten

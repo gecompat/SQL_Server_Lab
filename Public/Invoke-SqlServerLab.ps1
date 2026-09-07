@@ -304,6 +304,7 @@ function Show-LabAiMenu {
         New-LabConsoleItem -Id 'AiDiagnostic' -Label 'Read-only SQL-Diagnose' -Value 'katalogisierte SELECT-Werkzeuge · kurzlebiger Login' -Shortcut '5'
         New-LabConsoleItem -Id 'AiRetrievalEvaluation' -Label 'Retrieval-Ergebnis bewerten' -Value 'deterministisch · ohne Modell- oder Netzwerkkosten' -Shortcut '6'
         New-LabConsoleItem -Id 'AiGoldenRagEvaluation' -Label 'Golden-RAG ausführen und bewerten' -Value 'versionierter Datensatz · echter SQL-Lauf · blockierende Metriken' -Shortcut '7'
+        New-LabConsoleItem -Id 'AiGuidedDemo' -Label 'Geführte KI-Demos' -Value 'Vector · Retrieval · Golden-RAG · read-only Agent' -Shortcut '8'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 }
@@ -702,16 +703,19 @@ function Invoke-LabAiScenarioPlanInteractive {
 
 function Invoke-LabAiScenarioRunInteractive {
     [CmdletBinding()]
-    param()
+    param([string]$ScenarioId)
 
     $selection = Select-LabAiTargetInteractive -Prompt 'KI-Szenario ausführen auf'
     if (-not $selection) { return }
-    $scenarioId = Read-Host '  Szenario-ID [vector-core-ci]'
-    if ([string]::IsNullOrWhiteSpace($scenarioId)) { $scenarioId = 'vector-core-ci' }
-    $plan = Get-SqlServerLabAiScenario -ScenarioId $scenarioId -RunId $selection.RunId -InstanceId $selection.InstanceId
+    if ([string]::IsNullOrWhiteSpace($ScenarioId)) {
+        $ScenarioId = Read-Host '  Szenario-ID [vector-core-ci]'
+        if ([string]::IsNullOrWhiteSpace($ScenarioId)) { $ScenarioId = 'vector-core-ci' }
+    }
+    $plan = Get-SqlServerLabAiScenario -ScenarioId $ScenarioId -RunId $selection.RunId -InstanceId $selection.InstanceId
     if ($plan.Status -ne 'READY') { Write-LabWarning ('Szenario blockiert: ' + (@($plan.Blockers) -join ', ')); return }
+    foreach ($assertion in @($plan.Assertions)) { Write-LabInfo "Prüfung: $($assertion.Description)" }
     $password = Read-Host '  SA-Passwort' -AsSecureString
-    $result = Invoke-SqlServerLabAiScenario -RunId $selection.RunId -InstanceId $selection.InstanceId -ScenarioId $scenarioId -SaPassword $password -Confirm
+    $result = Invoke-SqlServerLabAiScenario -RunId $selection.RunId -InstanceId $selection.InstanceId -ScenarioId $ScenarioId -SaPassword $password -Confirm
     Write-LabStatus -Label 'Szenario' -Value $result.Status -Color $(if ($result.Status -in @('SUCCEEDED','NO_CHANGE')) { 'Green' } else { 'Yellow' })
     Write-LabStatus -Label 'Cleanup' -Value $result.CleanupStatus -Color $(if ($result.CleanupStatus -eq 'SUCCEEDED') { 'Green' } else { 'Yellow' })
 }
@@ -767,15 +771,22 @@ function Invoke-LabAiRagInteractive {
 
 function Invoke-LabAiDiagnosticInteractive {
     [CmdletBinding()]
-    param()
+    param([switch]$Guided)
 
     $selection = Select-LabAiTargetInteractive -Prompt 'Read-only Diagnose ausführen auf'
     if (-not $selection) { return }
-    $question = Read-Host '  Diagnosefrage (bleibt flüchtig)'
-    if ([string]::IsNullOrWhiteSpace($question)) { return }
-    $tools = Read-Host '  Werkzeuge, kommagetrennt [server-summary,wait-statistics]'
-    if ([string]::IsNullOrWhiteSpace($tools)) { $toolIds = @('server-summary','wait-statistics') }
-    else { $toolIds = @($tools.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+    if ($Guided) {
+        $question = 'Fasse Serverzustand und dominante Wait-Statistiken kurz zusammen.'
+        $toolIds = @('server-summary','wait-statistics')
+        Write-LabInfo 'Demo verwendet ausschließlich server-summary und wait-statistics; freie SQL-Ausführung ist ausgeschlossen.'
+    }
+    else {
+        $question = Read-Host '  Diagnosefrage (bleibt flüchtig)'
+        if ([string]::IsNullOrWhiteSpace($question)) { return }
+        $tools = Read-Host '  Werkzeuge, kommagetrennt [server-summary,wait-statistics]'
+        if ([string]::IsNullOrWhiteSpace($tools)) { $toolIds = @('server-summary','wait-statistics') }
+        else { $toolIds = @($tools.Split(',') | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
+    }
     $port = Read-Host '  Lokaler Ollama-Port [11434]'
     if ([string]::IsNullOrWhiteSpace($port)) { $port = 11434 }
     if ([string]$port -notmatch '^\d+$' -or [int]$port -lt 1024 -or [int]$port -gt 65535) { Write-LabError 'Ungültiger Port.'; return }
@@ -805,24 +816,66 @@ function Invoke-LabAiRetrievalEvaluationInteractive {
 
 function Invoke-LabAiGoldenRagEvaluationInteractive {
     [CmdletBinding()]
-    param()
+    param([string]$CaseId)
 
     $selection = Select-LabAiTargetInteractive -Prompt 'Golden-RAG ausführen und bewerten auf'
     if (-not $selection) { return }
-    $caseId = Read-Host '  Golden-Fall [backup-frequency]'
-    if ([string]::IsNullOrWhiteSpace($caseId)) { $caseId = 'backup-frequency' }
+    if ([string]::IsNullOrWhiteSpace($CaseId)) {
+        $CaseId = Read-Host '  Golden-Fall [backup-frequency]'
+        if ([string]::IsNullOrWhiteSpace($CaseId)) { $CaseId = 'backup-frequency' }
+    }
     $port = Read-Host '  Lokaler Ollama-Port [11434]'
     if ([string]::IsNullOrWhiteSpace($port)) { $port = 11434 }
     if ([string]$port -notmatch '^\d+$' -or [int]$port -lt 1024 -or [int]$port -gt 65535) { Write-LabError 'Ungültiger Port.'; return }
     $password = Read-Host '  SA-Passwort' -AsSecureString
     $rag = Invoke-SqlServerLabAiRag -RunId $selection.RunId -InstanceId $selection.InstanceId `
-        -SaPassword $password -CaseId $caseId -LocalPort ([int]$port) -Confirm
-    $result = Measure-SqlServerLabAiRetrieval -QueryResult $rag -CaseId $caseId
+        -SaPassword $password -CaseId $CaseId -LocalPort ([int]$port) -Confirm
+    $result = Measure-SqlServerLabAiRetrieval -QueryResult $rag -CaseId $CaseId
     Write-LabStatus -Label 'Golden-RAG' -Value $result.Status -Color $(if ($result.Status -eq 'PASSED') { 'Green' } else { 'Yellow' })
     Write-LabStatus -Label 'Recall@k' -Value $result.RecallAtK
     Write-LabStatus -Label 'MRR' -Value $result.Mrr
     Write-LabStatus -Label 'nDCG@k' -Value $result.NdcgAtK
     Write-LabInfo "Dataset: $($result.Binding.DatasetId)/$($result.Binding.DatasetVersion) · Fall $($result.Binding.CaseId)"
+}
+
+function Invoke-LabAiGuidedDemoInteractive {
+    [CmdletBinding()]
+    param()
+
+    $choice = Show-LabSubMenu -ScreenId 'ai-guided-demo-menu' -Title 'Geführte SQL Server 2025 KI-Demos' `
+        -Subtitle 'Dieselben versionierten Verträge und Assertions wie Entwicklung und CI' -Items @(
+            New-LabConsoleItem -Id 'vector' -Label 'Vector-Core' -Value 'offline · SQL 2025 · feste VECTOR(3)-Assertions' -Shortcut '1'
+            New-LabConsoleItem -Id 'retrieval' -Label 'Retrieval-Metriken' -Value 'offline · Golden Dataset · keine Modellkosten' -Shortcut '2'
+            New-LabConsoleItem -Id 'rag' -Label 'Golden-RAG' -Value 'EmbeddingGemma 300M Q4 + Gemma 3 1B · echter SQL-Lauf' -Shortcut '3'
+            New-LabConsoleItem -Id 'agent' -Label 'Read-only Diagnose-Agent' -Value 'Gemma 3 1B · zwei feste SELECT-Werkzeuge' -Shortcut '4'
+            New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
+        )
+    switch ($choice) {
+        'vector' {
+            Write-LabInfo 'Führt vector-core-ci/1.0 mit Setup, Assertions und garantiertem Cleanup aus.'
+            Invoke-LabAiScenarioRunInteractive -ScenarioId 'vector-core-ci'
+        }
+        'retrieval' {
+            $golden = Read-LabAiRetrievalGoldenDataset -DatasetId 'sql-lab-rag-de' -Version '1.0'
+            $case = Get-LabAiRetrievalGoldenCase -GoldenDataset $golden -CaseId 'backup-frequency'
+            $expected = @($case.expectedDocumentIds)
+            $remaining = @($golden.Dataset.documents.id | Where-Object { $expected -cnotcontains [string]$_ })
+            $ranked = @(@($expected + $remaining) | Select-Object -First ([int]$case.topK))
+            $result = Measure-SqlServerLabAiRetrieval -ExpectedDocumentId $expected -RankedDocumentId $ranked `
+                -K ([int]$case.topK) -MinimumRecall ([double]$case.thresholds.minimumRecall) `
+                -MinimumMrr ([double]$case.thresholds.minimumMrr) -MinimumNdcg ([double]$case.thresholds.minimumNdcg)
+            Write-LabStatus -Label 'Retrieval-Demo' -Value $result.Status -Color $(if ($result.Status -eq 'PASSED') { 'Green' } else { 'Yellow' })
+            Write-LabInfo "Golden Dataset sql-lab-rag-de/1.0 · Recall $($result.RecallAtK) · MRR $($result.Mrr) · nDCG $($result.NdcgAtK)"
+        }
+        'rag' {
+            Write-LabInfo 'Führt den hashgebundenen Fall backup-frequency aus und bewertet das echte SQL-Ranking blockierend.'
+            Invoke-LabAiGoldenRagEvaluationInteractive -CaseId 'backup-frequency'
+        }
+        'agent' {
+            Write-LabInfo 'Verwendet einen kurzlebigen Least-Privilege-Login; DDL, DML und freie SQL-Ausführung bleiben gesperrt.'
+            Invoke-LabAiDiagnosticInteractive -Guided
+        }
+    }
 }
 
 function Invoke-LabAction {
@@ -906,6 +959,7 @@ function Invoke-LabAction {
         'AiDiagnostic' { Invoke-LabAiDiagnosticInteractive }
         'AiRetrievalEvaluation' { Invoke-LabAiRetrievalEvaluationInteractive }
         'AiGoldenRagEvaluation' { Invoke-LabAiGoldenRagEvaluationInteractive }
+        'AiGuidedDemo' { Invoke-LabAiGuidedDemoInteractive }
         'Manifest' {
             $manifestPath = Read-Host '  Manifest-Zielpfad [.\lab-manifest.json]'
             if (-not $manifestPath) {

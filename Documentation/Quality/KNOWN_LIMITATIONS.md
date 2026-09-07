@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
-| Stand | 2026-09-07 |
+| Stand | 2026-09-08 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
@@ -63,6 +63,15 @@ Ollama-Restart waren erfolgreich. Der gezielte VM-Neustart blieb durch den
 Schutz der automatischen Testgruppe korrekt blockiert und wurde nicht
 umgangen; der Gesamtstatus ist deshalb `PARTIAL`, und Hyper-V deklariert die
 Fähigkeiten weiterhin nicht als vollständig belegt.
+
+Die geführten Vector-, Retrieval-, Golden-RAG- und Agent-Demos sind im
+bestehenden KI-Untermenü der achtteiligen Konsole verfügbar. Sie verwenden
+dieselben Szenariopakete, Golden-Dataset-Bindungen, Metriken und
+Tool-Allowlists wie die Produkt- und CI-Pfade. Die Retrieval-Demo ist bewusst
+modell- und netzwerkfrei; Golden-RAG und Diagnose verwenden die kleinsten
+katalogisierten lokalen Modelle. Die Menüführung ist statisch belegt, ersetzt
+aber keinen providerbezogenen Runtime-Nachweis. Ein Modell-Judge bleibt
+informativ und ist nicht Bestandteil eines blockierenden Gates.
 
 ## Provider
 

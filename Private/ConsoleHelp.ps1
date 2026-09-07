@@ -169,6 +169,23 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Anzeigen veraendert nichts. Restore und Attach wirken auf die Zielinstanz.'
             Command = 'Get-SqlServerLabConnectionCenter'
         }
+        'ai-guided-demo-menu' = @{
+            Title   = 'Gefuehrte SQL Server 2025 KI-Demos'
+            Purpose = 'Fuehrt vier kuratierte Lernpfade ueber dieselben versionierten Szenarien, Datensaetze und Sicherheitsvertraege wie Entwicklung und CI.'
+            Effects = 'Retrieval-Metriken laufen offline. Vector, Golden-RAG und Diagnose fragen Ziel und Kennwort ab und fuehren den jeweiligen bestehenden Produktpfad aus.'
+            Related = @(
+                'Vector-Core verwendet vector-core-ci/1.0 und dessen Assertions samt Cleanup.',
+                'Golden-RAG und Diagnose verwenden die kleinsten katalogisierten lokalen Modelle; Cloud-Egress ist nicht Bestandteil der Demos.'
+            )
+            Command = 'Invoke-SqlServerLab'
+            Preconditions = @($stateRootPrecondition)
+            Items   = @{
+                'vector'    = @{ Purpose = 'Fuehrt den deterministischen SQL-2025-Vector-Core mit festen Assertions aus.'; Command = 'Invoke-SqlServerLabAiScenario' }
+                'retrieval' = @{ Purpose = 'Erklaert Recall, MRR und nDCG am versionierten Golden Dataset ohne Modell- oder Netzaufruf.'; Command = 'Measure-SqlServerLabAiRetrieval' }
+                'rag'       = @{ Purpose = 'Fuehrt den hashgebundenen Golden-RAG-Fall mit echter SQL-Vektorsuche aus.'; Command = 'Invoke-SqlServerLabAiRag / Measure-SqlServerLabAiRetrieval' }
+                'agent'     = @{ Purpose = 'Fuehrt eine feste read-only Diagnose ueber zwei katalogisierte SELECT-Werkzeuge aus.'; Command = 'Invoke-SqlServerLabAiDiagnosticAgent' }
+            }
+        }
         'connection-center' = @{
             Title   = 'Verbindungszentrale'
             Purpose = 'Zeigt alle erreichbaren Endpunkte mit Servernamen, Port und hinterlegtem Zugang.'
