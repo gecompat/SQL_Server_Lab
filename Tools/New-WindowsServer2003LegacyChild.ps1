@@ -11,11 +11,13 @@ zur Laufzeit aus `I386\UNATTEND.TXT` der hashgebundenen originalen
 Evaluation-ISO gelesen und in `C:\Sysprep\sysprep.inf` des Childs geschrieben.
 
 Der Key wird weder ausgegeben noch in das Repository, das Parent oder ein
-Manifest übernommen. Deutsch (`0407:00000407`) wird in Sysprep festgelegt.
-Mit `ActivateOnline` führt das Skript Mini-Setup aus, versucht die offizielle
+Manifest übernommen. Deutsch (`0407:00000407`) wird in Sysprep festgelegt und
+vom nachfolgenden Gast-WMI-Schritt für die Anmeldemaske verifiziert. Ein
+angegebenes Administrator-Credential führt Mini-Setup auch ohne
+Aktivierungsversuch vollständig unbeaufsichtigt aus.
+Mit `ActivateOnline` versucht das Skript zusätzlich die offizielle
 Evaluation-Aktivierung über eine temporäre Legacy-NIC und akzeptiert nur ein
-verifiziert aktives Ergebnis. Zusätzlich setzt es das deutsche Layout der
-Anmeldemaske per Gast-WMI.
+verifiziert aktives Ergebnis.
 
 .PARAMETER VmName
 Eindeutiger Name der neuen Hyper-V-VM.
@@ -34,15 +36,17 @@ Name des bereits vorhandenen isolierten internen Hyper-V-Switches.
 
 .PARAMETER IntegrationServicesIsoPath
 Optionaler Pfad zur vorher verifizierten Hyper-V-Integrations-DVD. Sie wird
-am neuen Child eingelegt, aber nicht automatisch installiert.
+am neuen Child eingelegt und nach dem unbeaufsichtigten Mini-Setup über
+`GuiRunOnce` installiert.
 
 .PARAMETER ExpectedEvaluationIsoSha256
 Erwarteter SHA-256 der originalen Evaluation-ISO.
 
 .PARAMETER AdministratorCredential
-Lokales Administrator-Credential für ein vollständig unbeaufsichtigtes
-Mini-Setup. Es ist zusammen mit `ActivateOnline` erforderlich und wird nur
-vorübergehend im Child verwendet.
+Das bereits im versiegelten Parent gesetzte lokale Administrator-Credential.
+Windows Server 2003 kann ein nicht leeres Parent-Kennwort über Sysprep nicht
+ändern. Das Credential ermöglicht AutoLogon und wird nur vorübergehend im
+Child-Antwortsatz verwendet.
 
 .PARAMETER ActivateOnline
 Führt Mini-Setup aus, versucht die Evaluation-Aktivierung über einen temporären
@@ -126,7 +130,7 @@ if ($missingArguments.Count -gt 0) {
 if ($ActivateOnline -and -not $AdministratorCredential) {
     throw 'WS2003_CHILD_ADMINISTRATOR_CREDENTIAL_REQUIRED'
 }
-if ($ActivateOnline -and
+if ($AdministratorCredential -and
     [string] $AdministratorCredential.GetNetworkCredential().UserName -ne 'Administrator') {
     throw 'WS2003_CHILD_ADMINISTRATOR_REQUIRED: Erwartet wird das lokale Administrator-Credential.'
 }
@@ -216,7 +220,8 @@ if (-not $PSCmdlet.ShouldProcess($VmName, "Windows-Server-2003-Legacy-Child unte
         EvaluationProductKeyWillBeInjected = $true
         IntegrationServicesIsoPath = $resolvedIntegrationServicesIso
         InputLocale = '0407:00000407'
-        LogonKeyboardLayout = if ($ActivateOnline) { '00000407' } else { $null }
+        LogonKeyboardLayout = '00000407'
+        MiniSetupUnattended = [bool] $AdministratorCredential
         ActivationWillBePerformed = $ActivateOnline.IsPresent
         ActivationSwitchName = if ($ActivateOnline) { $ActivationSwitchName } else { $null }
     }
@@ -234,7 +239,7 @@ $evaluationDiskImage = $null
 $childVhdMounted = $false
 $childDiskNumber = $null
 $childPartitionNumber = $null
-$temporaryDriveLetter = $null
+$temporaryMountPath = $null
 $vmCreated = $false
 $rootCreatedByThisRun = $false
 $administratorPasswordPointer = [IntPtr]::Zero
@@ -265,7 +270,7 @@ try {
     $unattendText = $null
     $keyMatches = $null
 
-    if ($ActivateOnline) {
+    if ($AdministratorCredential) {
         $administratorPasswordPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR(
             $AdministratorCredential.Password)
         $administratorPlainPassword = [Runtime.InteropServices.Marshal]::PtrToStringBSTR(
@@ -284,7 +289,7 @@ try {
     }
     New-VHD -Path $childVhdPath -ParentPath $resolvedParentVhd -Differencing | Out-Null
 
-    $mountedChild = Mount-VHD -Path $childVhdPath -Passthru
+    $mountedChild = Mount-VHD -Path $childVhdPath -NoDriveLetter -Passthru
     $childVhdMounted = $true
     $childDisk = $mountedChild | Get-Disk
     $childDiskNumber = $childDisk.Number
@@ -296,45 +301,55 @@ try {
         throw 'WS2003_CHILD_SYSTEM_PARTITION_NOT_FOUND: Keine beschreibbare Systempartition im Child gefunden.'
     }
     $childPartitionNumber = $childPartition.PartitionNumber
-    if ($childPartition.DriveLetter) {
-        $childDriveLetter = [string] $childPartition.DriveLetter
-    }
-    else {
-        $usedDriveLetters = @(Get-Volume | Where-Object DriveLetter | ForEach-Object { [string] $_.DriveLetter })
-        foreach ($driveLetterCode in 90..68) {
-            $candidateDriveLetter = [string] [char] $driveLetterCode
-            if ($candidateDriveLetter -notin $usedDriveLetters) {
-                $temporaryDriveLetter = $candidateDriveLetter
-                break
-            }
-        }
-        if (-not $temporaryDriveLetter) {
-            throw 'WS2003_CHILD_DRIVE_LETTER_UNAVAILABLE: Kein freier temporärer Laufwerksbuchstabe gefunden.'
-        }
-        Add-PartitionAccessPath `
-            -DiskNumber $childDiskNumber `
-            -PartitionNumber $childPartitionNumber `
-            -DriveLetter $temporaryDriveLetter | Out-Null
-        $childDriveLetter = $temporaryDriveLetter
-    }
+    $temporaryMountPath = Join-Path ([IO.Path]::GetTempPath()) `
+        ('SqlServerLab-VhdMount-' + [guid]::NewGuid().ToString('N'))
+    New-Item -Path $temporaryMountPath -ItemType Directory -Force | Out-Null
+    $temporaryMountPath = $temporaryMountPath.TrimEnd('\') + '\'
+    Add-PartitionAccessPath `
+        -DiskNumber $childDiskNumber `
+        -PartitionNumber $childPartitionNumber `
+        -AccessPath $temporaryMountPath | Out-Null
 
-    $childWindowsDirectory = "$childDriveLetter`:\Windows"
+    $childWindowsDirectory = Join-Path $temporaryMountPath 'Windows'
     if (-not (Test-Path -LiteralPath $childWindowsDirectory -PathType Container)) {
         throw 'WS2003_CHILD_WINDOWS_DIRECTORY_MISSING: Windows-Verzeichnis wurde im Child nicht gefunden.'
     }
-    $childSysprepDirectory = "$childDriveLetter`:\Sysprep"
+    $childSysprepDirectory = Join-Path $temporaryMountPath 'Sysprep'
     if (-not (Test-Path -LiteralPath $childSysprepDirectory -PathType Container)) {
         New-Item -Path $childSysprepDirectory -ItemType Directory -Force | Out-Null
     }
+    $firstBootDirectory = Join-Path $temporaryMountPath 'SQLServerLab'
+    if (-not (Test-Path -LiteralPath $firstBootDirectory -PathType Container)) {
+        New-Item -Path $firstBootDirectory -ItemType Directory -Force | Out-Null
+    }
+    $firstBootCommand = @'
+@echo off
+setlocal EnableExtensions
+netsh.exe firewall set opmode disable >nul 2>&1
+set HOTFIX_EXIT=0
+set MSI_EXIT=0
+if exist D:\support\x86\WindowsServer2003-KB943295-x86-ENU.exe D:\support\x86\WindowsServer2003-KB943295-x86-ENU.exe /quiet /norestart
+if exist D:\support\x86\WindowsServer2003-KB943295-x86-ENU.exe set HOTFIX_EXIT=%ERRORLEVEL%
+if exist D:\support\x86\Windows5.x-HyperVIntegrationServices-x86.msi msiexec.exe /i D:\support\x86\Windows5.x-HyperVIntegrationServices-x86.msi /qn /norestart
+if exist D:\support\x86\Windows5.x-HyperVIntegrationServices-x86.msi set MSI_EXIT=%ERRORLEVEL%
+>C:\SQLServerLab\first-boot.ini echo status=COMPLETED
+>>C:\SQLServerLab\first-boot.ini echo hotfixExitCode=%HOTFIX_EXIT%
+>>C:\SQLServerLab\first-boot.ini echo integrationServicesExitCode=%MSI_EXIT%
+exit /b 0
+'@
+    Set-Content -LiteralPath (Join-Path $firstBootDirectory 'FirstBoot.cmd') `
+        -Value $firstBootCommand -Encoding ascii -NoNewline
     $guiUnattended = @(
         'OEMSkipRegional=1'
         'OemSkipWelcome=1'
         'TimeZone=110'
     )
-    if ($ActivateOnline) {
+    if ($AdministratorCredential) {
         $guiUnattended += @(
             "AdminPassword=`"$administratorPlainPassword`""
             'EncryptedAdminPassword=No'
+            'AutoLogon=Yes'
+            'AutoLogonCount=1'
         )
     }
     $sysprepLines = @(
@@ -367,6 +382,9 @@ try {
         ''
         '[Networking]'
         'InstallDefaultComponents=Yes'
+        ''
+        '[GuiRunOnce]'
+        'Command0="C:\SQLServerLab\FirstBoot.cmd"'
     )
     $sysprepInf = $sysprepLines -join "`r`n"
     Set-Content `
@@ -383,12 +401,13 @@ try {
         $administratorPasswordPointer = [IntPtr]::Zero
     }
 
-    if ($temporaryDriveLetter) {
+    if ($temporaryMountPath) {
         Remove-PartitionAccessPath `
             -DiskNumber $childDiskNumber `
             -PartitionNumber $childPartitionNumber `
-            -AccessPath "$temporaryDriveLetter`:" | Out-Null
-        $temporaryDriveLetter = $null
+            -AccessPath $temporaryMountPath | Out-Null
+        Remove-Item -LiteralPath $temporaryMountPath.TrimEnd('\') -Force -ErrorAction SilentlyContinue
+        $temporaryMountPath = $null
     }
     Dismount-VHD -Path $childVhdPath
     $childVhdMounted = $false
@@ -454,7 +473,9 @@ try {
         EvaluationProductKeyDisclosed = $false
         IntegrationServicesIsoPath = $resolvedIntegrationServicesIso
         InputLocale = '0407:00000407'
-        LogonKeyboardLayout = if ($ActivateOnline) { '00000407' } else { $null }
+        LogonKeyboardLayout = '00000407'
+        MiniSetupUnattended = [bool] $AdministratorCredential
+        FirstBootBootstrap = [bool] $AdministratorCredential
         ActivationPerformed = $ActivateOnline.IsPresent
         EvaluationDaysRemaining = if ($activationResult) {
             [int] $activationResult.EvaluationDaysRemaining
@@ -474,6 +495,15 @@ catch {
         Remove-VM -Name $VmName -Force -ErrorAction SilentlyContinue
     }
     if ($childVhdMounted) {
+        if ($temporaryMountPath -and $null -ne $childDiskNumber -and $null -ne $childPartitionNumber) {
+            Remove-PartitionAccessPath `
+                -DiskNumber $childDiskNumber `
+                -PartitionNumber $childPartitionNumber `
+                -AccessPath $temporaryMountPath `
+                -ErrorAction SilentlyContinue | Out-Null
+            Remove-Item -LiteralPath $temporaryMountPath.TrimEnd('\') -Force -ErrorAction SilentlyContinue
+            $temporaryMountPath = $null
+        }
         Dismount-VHD -Path $childVhdPath -ErrorAction SilentlyContinue
         $childVhdMounted = $false
     }
@@ -487,12 +517,13 @@ catch {
     throw
 }
 finally {
-    if ($temporaryDriveLetter -and $null -ne $childDiskNumber -and $null -ne $childPartitionNumber) {
+    if ($temporaryMountPath -and $null -ne $childDiskNumber -and $null -ne $childPartitionNumber) {
         Remove-PartitionAccessPath `
             -DiskNumber $childDiskNumber `
             -PartitionNumber $childPartitionNumber `
-            -AccessPath "$temporaryDriveLetter`:" `
+            -AccessPath $temporaryMountPath `
             -ErrorAction SilentlyContinue | Out-Null
+        Remove-Item -LiteralPath $temporaryMountPath.TrimEnd('\') -Force -ErrorAction SilentlyContinue
     }
     if ($childVhdMounted) {
         Dismount-VHD -Path $childVhdPath -ErrorAction SilentlyContinue

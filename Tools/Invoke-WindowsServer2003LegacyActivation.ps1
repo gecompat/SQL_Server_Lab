@@ -34,6 +34,13 @@ Fragt das Credential interaktiv und geschützt ab.
 .PARAMETER ActivationSwitchName
 Vorhandener Switch mit DHCP und Internet-Egress, standardmäßig `Default Switch`.
 
+.PARAMETER StaticAddress
+Optionale feste IPv4-Adresse für die bereits vorhandene primäre Legacy-NIC.
+Sie wird über die temporäre DHCP-NIC gesetzt, bevor diese wieder entfernt wird.
+
+.PARAMETER StaticSubnetMask
+Subnetzmaske zur festen IPv4-Adresse, standardmäßig `255.255.255.0`.
+
 .PARAMETER ActivationMode
 `Online` versucht die direkte Aktivierung, `PrepareOffline` liest die für das
 Microsoft-Portal erforderliche Installations-ID, `CompleteOffline` übernimmt
@@ -53,6 +60,9 @@ Kompatibler Alias für `ActivationMode KeyboardOnly`.
 
 .PARAMETER TimeoutSeconds
 Maximale Gesamtdauer für Boot, WMI-Verbindung und Online-Aktivierung.
+
+Während des Mini-Setups bestätigt der Host den bei Evaluation-Medien
+reproduzierbar eingeblendeten Hinweis begrenzt per virtueller Enter-Taste.
 
 .PARAMETER ShowHelp
 Zeigt diese Hilfe ohne Mutation.
@@ -74,6 +84,10 @@ param(
 
     [ValidateNotNullOrEmpty()]
     [string] $ActivationSwitchName = 'Default Switch',
+
+    [string] $StaticAddress,
+
+    [string] $StaticSubnetMask = '255.255.255.0',
 
     [ValidateSet('0407:00000407')]
     [string] $InputLocale = '0407:00000407',
@@ -129,6 +143,18 @@ if ($ActivationMode -eq 'CompleteOffline' -and
 if ($ActivationMode -ne 'CompleteOffline' -and
     ($OfflineConfirmationId -or $PromptForOfflineConfirmationId)) {
     throw 'WS2003_OFFLINE_CONFIRMATION_ID_NOT_APPLICABLE'
+}
+$parsedAddress = [Net.IPAddress]::None
+$parsedMask = [Net.IPAddress]::None
+if ($StaticAddress -and
+    (-not [Net.IPAddress]::TryParse($StaticAddress, [ref] $parsedAddress) -or
+     $parsedAddress.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork)) {
+    throw 'WS2003_STATIC_ADDRESS_INVALID'
+}
+if ($StaticAddress -and
+    (-not [Net.IPAddress]::TryParse($StaticSubnetMask, [ref] $parsedMask) -or
+     $parsedMask.AddressFamily -ne [Net.Sockets.AddressFamily]::InterNetwork)) {
+    throw 'WS2003_STATIC_SUBNET_MASK_INVALID'
 }
 
 $ErrorActionPreference = 'Stop'
@@ -241,7 +267,10 @@ function Connect-WindowsServer2003WmiScope {
         $options.Username = [string] $Credential.GetNetworkCredential().UserName
         $options.Password = $plainPassword
         $options.Impersonation = [System.Management.ImpersonationLevel]::Impersonate
-        $options.Authentication = [System.Management.AuthenticationLevel]::Packet
+        # NT5 accepts read-only queries at Packet level, but remote provider
+        # method calls (StdRegProv, Win32_Process and EnableStatic) require the
+        # stronger DCOM authentication level on this evaluation image.
+        $options.Authentication = [System.Management.AuthenticationLevel]::PacketPrivacy
         $options.EnablePrivileges = $true
         $options.Timeout = [timespan]::FromSeconds(20)
         $scope = [System.Management.ManagementScope]::new("\\$Address\$Namespace", $options)
@@ -346,6 +375,213 @@ function Invoke-WindowsServer2003ProcessThroughWmi {
     return [uint32] $output['ProcessId']
 }
 
+function Set-WindowsServer2003StaticAddress {
+    param(
+        [Parameter(Mandatory)][System.Management.ManagementScope] $Scope,
+        [Parameter(Mandatory)][string] $MacAddress,
+        [Parameter(Mandatory)][string] $Address,
+        [Parameter(Mandatory)][string] $SubnetMask
+    )
+
+    $hex = ($MacAddress -replace '[^A-Fa-f0-9]', '').ToUpperInvariant()
+    if ($hex.Length -ne 12) { throw 'WS2003_STATIC_ADAPTER_MAC_INVALID' }
+    $normalizedMac = @(
+        for ($index = 0; $index -lt 12; $index += 2) { $hex.Substring($index, 2) }
+    ) -join ':'
+    $query = [System.Management.ObjectQuery]::new(
+        "SELECT * FROM Win32_NetworkAdapterConfiguration WHERE MACAddress='$normalizedMac'")
+    $configurations = @([System.Management.ManagementObjectSearcher]::new($Scope, $query).Get())
+    if ($configurations.Count -ne 1) {
+        throw "WS2003_STATIC_ADAPTER_COUNT_INVALID: $($configurations.Count)"
+    }
+    $input = $configurations[0].GetMethodParameters('EnableStatic')
+    $input['IPAddress'] = [string[]] @($Address)
+    $input['SubnetMask'] = [string[]] @($SubnetMask)
+    $output = $configurations[0].InvokeMethod('EnableStatic', $input, $null)
+    if ([uint32] $output['ReturnValue'] -notin @(0, 1)) {
+        throw "WS2003_STATIC_ADDRESS_FAILED: ReturnValue=$($output['ReturnValue'])"
+    }
+}
+
+function Send-WindowsServer2003EvaluationNoticeEnter {
+    param([Parameter(Mandatory)][string] $TargetVmName)
+
+    $escapedVmName = $TargetVmName.Replace("'", "''")
+    $computerSystem = @(Get-CimInstance -Namespace 'root/virtualization/v2' `
+        -ClassName Msvm_ComputerSystem -Filter "ElementName='$escapedVmName'" `
+        -ErrorAction Stop)[0]
+    if (-not $computerSystem) { throw 'WS2003_MINISETUP_VM_CIM_NOT_FOUND' }
+    $keyboard = @(Get-CimAssociatedInstance -InputObject $computerSystem `
+        -Association Msvm_SystemDevice -ResultClassName Msvm_Keyboard `
+        -ErrorAction Stop)[0]
+    if (-not $keyboard) { throw 'WS2003_MINISETUP_KEYBOARD_NOT_FOUND' }
+    $result = Invoke-CimMethod -InputObject $keyboard -MethodName TypeKey `
+        -Arguments @{ keyCode = [uint32] 0x0D } -ErrorAction Stop
+    if ([uint32] $result.ReturnValue -ne 0) {
+        throw "WS2003_MINISETUP_ENTER_FAILED: $($result.ReturnValue)"
+    }
+}
+
+function Mount-WindowsServer2003ChildVolume {
+    param([Parameter(Mandatory)][string] $Path)
+    $mounted = Mount-VHD -Path $Path -NoDriveLetter -Passthru -ErrorAction Stop
+    $mountRoot = Join-Path ([IO.Path]::GetTempPath()) `
+        ('SqlServerLab-VhdMount-' + [guid]::NewGuid().ToString('N'))
+    $accessPath = $null
+    try {
+        $disk = $mounted | Get-Disk -ErrorAction Stop
+        $partition = Get-Partition -DiskNumber $disk.Number -ErrorAction Stop |
+            Where-Object { $_.Size -ge 1GB -and $_.Type -ne 'Reserved' } |
+            Sort-Object Size -Descending | Select-Object -First 1
+        if (-not $partition) { throw 'WS2003_BOOTSTRAP_SYSTEM_PARTITION_NOT_FOUND' }
+        New-Item -Path $mountRoot -ItemType Directory -Force | Out-Null
+        $accessPath = $mountRoot.TrimEnd('\') + '\'
+        Add-PartitionAccessPath -DiskNumber $disk.Number -PartitionNumber $partition.PartitionNumber `
+            -AccessPath $accessPath -ErrorAction Stop | Out-Null
+        return [pscustomobject]@{
+            Path = $Path; DiskNumber = $disk.Number; PartitionNumber = $partition.PartitionNumber
+            RootPath = $accessPath; AccessPath = $accessPath
+        }
+    }
+    catch {
+        if ($accessPath) {
+            Remove-PartitionAccessPath -DiskNumber $disk.Number -PartitionNumber $partition.PartitionNumber `
+                -AccessPath $accessPath -ErrorAction SilentlyContinue
+        }
+        Dismount-VHD -Path $Path -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $mountRoot -Force -ErrorAction SilentlyContinue
+        throw
+    }
+}
+
+function Dismount-WindowsServer2003ChildVolume {
+    param([Parameter(Mandatory)] $Mount)
+    try {
+        if ($Mount.AccessPath) {
+            Remove-PartitionAccessPath -DiskNumber $Mount.DiskNumber `
+                -PartitionNumber $Mount.PartitionNumber -AccessPath $Mount.AccessPath `
+                -ErrorAction Stop
+        }
+    }
+    finally {
+        Dismount-VHD -Path $Mount.Path -ErrorAction Stop
+        if ($Mount.AccessPath) {
+            Remove-Item -LiteralPath ([string] $Mount.AccessPath).TrimEnd('\') `
+                -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Set-WindowsServer2003OfflineBootstrap {
+    param(
+        [Parameter(Mandatory)][string] $Path,
+        [Parameter(Mandatory)][string] $PrimaryAdapterMac,
+        [string] $StaticAddress,
+        [string] $StaticSubnetMask
+    )
+    $mount = $null
+    try {
+        $mount = Mount-WindowsServer2003ChildVolume -Path $Path
+        $root = $mount.RootPath
+        $bootstrapRoot = Join-Path $root 'SQLServerLab'
+        [IO.Directory]::CreateDirectory($bootstrapRoot) | Out-Null
+        $normalizedMac = (@(for ($index = 0; $index -lt 12; $index += 2) {
+            $PrimaryAdapterMac.Substring($index, 2)
+        }) -join ':')
+        $staticCommands = if ($StaticAddress) {
+@"
+set PRIMARY_INTERFACE=
+for /f "tokens=2 delims==" %%I in ('wmic nic where "MACAddress='$normalizedMac'" get NetConnectionID /value ^| find "="') do set PRIMARY_INTERFACE=%%I
+if not defined PRIMARY_INTERFACE goto STATIC_FAILED
+netsh interface ip set address name="%PRIMARY_INTERFACE%" static $StaticAddress $StaticSubnetMask none
+if errorlevel 1 goto STATIC_FAILED
+set STATIC_CONFIGURED=True
+"@
+        } else { 'set STATIC_CONFIGURED=False' }
+        $command = @"
+@echo off
+setlocal EnableExtensions
+:CONFIGURE
+netsh.exe firewall set opmode disable >nul 2>&1
+if exist D:\support\x86\WindowsServer2003-KB943295-x86-ENU.exe D:\support\x86\WindowsServer2003-KB943295-x86-ENU.exe /quiet /norestart
+if exist D:\support\x86\Windows5.x-HyperVIntegrationServices-x86.msi msiexec.exe /i D:\support\x86\Windows5.x-HyperVIntegrationServices-x86.msi /qn /norestart
+reg.exe add "HKU\.DEFAULT\Keyboard Layout\Preload" /v 1 /t REG_SZ /d 00000407 /f >nul
+if errorlevel 1 goto KEYBOARD_FAILED
+reg.exe add "HKU\.DEFAULT\Control Panel\International" /v Locale /t REG_SZ /d 00000407 /f >nul
+if errorlevel 1 goto KEYBOARD_FAILED
+reg.exe add "HKLM\SYSTEM\CurrentControlSet\Services\lanmanserver\parameters" /v AutoShareServer /t REG_DWORD /d 1 /f >nul
+net.exe start lanmanserver >nul 2>&1
+netsh.exe firewall set service type=FILEANDPRINT mode=ENABLE >nul 2>&1
+$staticCommands
+for /f "tokens=2 delims==" %%I in ('wmic path Win32_WindowsProductActivation get ActivationRequired /value ^| find "="') do set ACTIVATION_REQUIRED=%%I
+for /f "tokens=2 delims==" %%I in ('wmic path Win32_WindowsProductActivation get RemainingEvaluationPeriod /value ^| find "="') do set EVALUATION_DAYS=%%I
+for /f "tokens=2 delims==" %%I in ('wmic path Win32_WindowsProductActivation get RemainingGracePeriod /value ^| find "="') do set GRACE_DAYS=%%I
+if not defined ACTIVATION_REQUIRED goto LICENSE_FAILED
+>C:\SQLServerLab\activation-bootstrap.tmp echo status=COMPLETED
+>>C:\SQLServerLab\activation-bootstrap.tmp echo activationRequired=%ACTIVATION_REQUIRED%
+>>C:\SQLServerLab\activation-bootstrap.tmp echo evaluationDaysRemaining=%EVALUATION_DAYS%
+>>C:\SQLServerLab\activation-bootstrap.tmp echo graceDaysRemaining=%GRACE_DAYS%
+>>C:\SQLServerLab\activation-bootstrap.tmp echo staticAddressConfigured=%STATIC_CONFIGURED%
+move /y C:\SQLServerLab\activation-bootstrap.tmp C:\SQLServerLab\activation-bootstrap.ini >nul
+goto FINISH
+:KEYBOARD_FAILED
+set BOOTSTRAP_ERROR=KEYBOARD_CONFIGURATION_FAILED
+goto WRITE_FAILURE
+:STATIC_FAILED
+set BOOTSTRAP_ERROR=STATIC_ADDRESS_CONFIGURATION_FAILED
+goto WRITE_FAILURE
+:LICENSE_FAILED
+set BOOTSTRAP_ERROR=LICENSE_QUERY_FAILED
+:WRITE_FAILURE
+>C:\SQLServerLab\activation-bootstrap.tmp echo status=FAILED
+>>C:\SQLServerLab\activation-bootstrap.tmp echo errorCode=%BOOTSTRAP_ERROR%
+move /y C:\SQLServerLab\activation-bootstrap.tmp C:\SQLServerLab\activation-bootstrap.ini >nul
+:FINISH
+del /f /q C:\Windows\System32\GroupPolicy\Machine\Scripts\scripts.ini >nul 2>&1
+shutdown.exe -s -t 5 -f
+exit /b 0
+"@
+        Set-Content -LiteralPath (Join-Path $bootstrapRoot 'ActivationBootstrap.cmd') `
+            -Value $command -Encoding ascii -NoNewline
+        Remove-Item -LiteralPath (Join-Path $bootstrapRoot 'activation-bootstrap.ini') `
+            -Force -ErrorAction SilentlyContinue
+        $scriptPolicyRoot = Join-Path $root 'Windows\System32\GroupPolicy\Machine\Scripts'
+        [IO.Directory]::CreateDirectory((Join-Path $scriptPolicyRoot 'Startup')) | Out-Null
+        $scriptsIni = @"
+[Startup]
+0CmdLine=C:\SQLServerLab\ActivationBootstrap.cmd
+0Parameters=
+"@
+        Set-Content -LiteralPath (Join-Path $scriptPolicyRoot 'scripts.ini') `
+            -Value $scriptsIni -Encoding unicode -NoNewline
+        $groupPolicyRoot = Split-Path -Parent (Split-Path -Parent $scriptPolicyRoot)
+        $gptIni = @"
+[General]
+gPCMachineExtensionNames=[{42B5FAAE-6536-11D2-AE5A-0000F87571E3}{40B6664F-4972-11D1-A7CA-0000F87571E3}]
+Version=1
+"@
+        Set-Content -LiteralPath (Join-Path $groupPolicyRoot 'gpt.ini') `
+            -Value $gptIni -Encoding ascii -NoNewline
+    }
+    finally {
+        if ($mount) { Dismount-WindowsServer2003ChildVolume -Mount $mount }
+    }
+}
+
+function Get-WindowsServer2003OfflineBootstrapReceipt {
+    param([Parameter(Mandatory)][string] $Path)
+    $mount = $null
+    try {
+        $mount = Mount-WindowsServer2003ChildVolume -Path $Path
+        $receiptPath = Join-Path $mount.RootPath 'SQLServerLab\activation-bootstrap.ini'
+        if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)) {
+            throw 'WS2003_BOOTSTRAP_RECEIPT_MISSING'
+        }
+        return ConvertFrom-StringData -StringData (Get-Content -LiteralPath $receiptPath -Raw -Encoding ascii)
+    }
+    finally { if ($mount) { Dismount-WindowsServer2003ChildVolume -Mount $mount } }
+}
+
 $adapterCreated = $false
 $guestStarted = $false
 $primaryError = $null
@@ -354,6 +590,16 @@ $installationId = $null
 $confirmationIdPointer = [IntPtr]::Zero
 $confirmationIdPlain = $null
 try {
+    $primaryAdapters = @(Get-VMNetworkAdapter -VMName $VmName -ErrorAction Stop)
+    if ($primaryAdapters.Count -ne 1) {
+        throw "WS2003_PRIMARY_ADAPTER_COUNT_INVALID: $($primaryAdapters.Count)"
+    }
+    $primaryAdapterMac = [string] $primaryAdapters[0].MacAddress
+    if ($ActivationMode -eq 'KeyboardOnly') {
+        Set-WindowsServer2003OfflineBootstrap -Path $resolvedChildVhd `
+            -PrimaryAdapterMac $primaryAdapterMac -StaticAddress $StaticAddress `
+            -StaticSubnetMask $StaticSubnetMask
+    }
     Add-VMNetworkAdapter -VMName $VmName -Name $temporaryAdapterName `
         -SwitchName $ActivationSwitchName -IsLegacy $true -ErrorAction Stop | Out-Null
     $adapterCreated = $true
@@ -361,35 +607,98 @@ try {
     $guestStarted = $true
 
     $deadline = [datetime]::UtcNow.AddSeconds($TimeoutSeconds)
+    $nextEvaluationNoticeEnter = [datetime]::UtcNow.AddSeconds(180)
+    $evaluationNoticeEnterCount = 0
     $scope = $null
+    $bootstrapComplete = $false
     do {
         Start-Sleep -Seconds 3
-        $adapter = Get-VMNetworkAdapter -VMName $VmName -Name $temporaryAdapterName `
-            -ErrorAction SilentlyContinue
-        $guestAddress = @($adapter.IPAddresses | Where-Object {
-            $_ -match '^\d{1,3}(?:\.\d{1,3}){3}$' -and $_ -notlike '169.254.*'
-        } | Select-Object -First 1)
-        if ($guestAddress) {
-            try {
-                $scope = Connect-WindowsServer2003WmiScope -Address $guestAddress[0] `
-                    -Namespace 'root\cimv2' -Credential $AdministratorCredential
-            }
-            catch { $scope = $null }
+        if ($ActivationMode -eq 'KeyboardOnly') {
+            $bootstrapComplete = [string](Get-VM -Name $VmName -ErrorAction Stop).State -eq 'Off'
         }
-    } while (-not $scope -and [datetime]::UtcNow -lt $deadline)
-    if (-not $scope) {
+        else {
+            $adapter = Get-VMNetworkAdapter -VMName $VmName -Name $temporaryAdapterName `
+                -ErrorAction SilentlyContinue
+            $guestAddress = @($adapter.IPAddresses | Where-Object {
+                $_ -match '^\d{1,3}(?:\.\d{1,3}){3}$' -and $_ -notlike '169.254.*'
+            } | Select-Object -First 1)
+            if (-not $guestAddress -and $adapter.MacAddress) {
+                $normalizedMac = ($adapter.MacAddress -replace '(.{2})(?!$)', '$1-').ToUpperInvariant()
+                $guestAddress = @(Get-NetNeighbor -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+                    Where-Object { $_.LinkLayerAddress.ToUpperInvariant() -eq $normalizedMac -and
+                        $_.IPAddress -notlike '169.254.*' } |
+                    Select-Object -ExpandProperty IPAddress -First 1)
+            }
+            if ($guestAddress) {
+                try {
+                    $scope = Connect-WindowsServer2003WmiScope -Address $guestAddress[0] `
+                        -Namespace 'root\cimv2' -Credential $AdministratorCredential
+                }
+                catch { $scope = $null }
+            }
+        }
+        $waiting = if ($ActivationMode -eq 'KeyboardOnly') { -not $bootstrapComplete } else { -not $scope }
+        if ($waiting -and [datetime]::UtcNow -ge $nextEvaluationNoticeEnter -and
+            $evaluationNoticeEnterCount -lt 5) {
+            Send-WindowsServer2003EvaluationNoticeEnter -TargetVmName $VmName
+            $evaluationNoticeEnterCount++
+            $nextEvaluationNoticeEnter = [datetime]::UtcNow.AddSeconds(60)
+        }
+    } while ($waiting -and [datetime]::UtcNow -lt $deadline)
+    if ($ActivationMode -ne 'KeyboardOnly' -and -not $scope) {
         throw 'WS2003_ACTIVATION_WMI_CONNECTION_TIMEOUT'
     }
 
-    $registryScope = Connect-WindowsServer2003WmiScope -Address $guestAddress[0] `
-        -Namespace 'root\default' -Credential $AdministratorCredential
-    $hkeyUsers = [uint32] 2147483651
-    Invoke-WindowsServer2003RegistryString -Scope $registryScope -RootKey $hkeyUsers `
-        -SubKey '.DEFAULT\Keyboard Layout\Preload' -Name '1' -Value '00000407'
-    Invoke-WindowsServer2003RegistryString -Scope $registryScope -RootKey $hkeyUsers `
-        -SubKey '.DEFAULT\Control Panel\International' -Name 'Locale' -Value '00000407'
+    if ($ActivationMode -eq 'KeyboardOnly') {
+        if (-not $bootstrapComplete) { throw 'WS2003_BOOTSTRAP_TIMEOUT' }
+        $bridgeReceipt = Get-WindowsServer2003OfflineBootstrapReceipt -Path $resolvedChildVhd
+        if ([string] $bridgeReceipt.status -ne 'COMPLETED') {
+            throw "WS2003_BOOTSTRAP_FAILED: $($bridgeReceipt.errorCode)"
+        }
+        $activationState = [pscustomobject]@{
+            ActivationRequired = [int] $bridgeReceipt.activationRequired
+            EvaluationDaysRemaining = [int] $bridgeReceipt.evaluationDaysRemaining
+            GraceDaysRemaining = [int] $bridgeReceipt.graceDaysRemaining
+        }
+    }
+    else {
+    try {
+        $registryScope = Connect-WindowsServer2003WmiScope -Address $guestAddress[0] `
+            -Namespace 'root\default' -Credential $AdministratorCredential
+        $hkeyUsers = [uint32] 2147483651
+        Invoke-WindowsServer2003RegistryString -Scope $registryScope -RootKey $hkeyUsers `
+            -SubKey '.DEFAULT\Keyboard Layout\Preload' -Name '1' -Value '00000407'
+        Invoke-WindowsServer2003RegistryString -Scope $registryScope -RootKey $hkeyUsers `
+            -SubKey '.DEFAULT\Control Panel\International' -Name 'Locale' -Value '00000407'
+    }
+    catch {
+        # StdRegProv on the Windows Server 2003 evaluation image can return the
+        # provider-level WBEM_E_CRITICAL_ERROR even though remote process creation
+        # is healthy.  reg.exe is the supported NT5 fallback and writes the same
+        # logon-desktop values without loading an offline hive on the host.
+        try {
+            $null = Invoke-WindowsServer2003ProcessThroughWmi -Scope $scope -CommandLine `
+                'reg.exe add "HKU\.DEFAULT\Keyboard Layout\Preload" /v 1 /t REG_SZ /d 00000407 /f'
+            $null = Invoke-WindowsServer2003ProcessThroughWmi -Scope $scope -CommandLine `
+                'reg.exe add "HKU\.DEFAULT\Control Panel\International" /v Locale /t REG_SZ /d 00000407 /f'
+        }
+        catch {
+            throw "WS2003_KEYBOARD_CONFIGURATION_FAILED: $($_.Exception.Message)"
+        }
+    }
 
-    $activationState = Get-WindowsServer2003ActivationState -Scope $scope
+    if ($StaticAddress) {
+        try {
+            Set-WindowsServer2003StaticAddress -Scope $scope -MacAddress $primaryAdapterMac `
+                -Address $StaticAddress -SubnetMask $StaticSubnetMask
+        }
+        catch {
+            throw "WS2003_STATIC_ADDRESS_CONFIGURATION_FAILED: $($_.Exception.Message)"
+        }
+    }
+
+    try { $activationState = Get-WindowsServer2003ActivationState -Scope $scope }
+    catch { throw "WS2003_LICENSE_QUERY_FAILED: $($_.Exception.Message)" }
     if ($ActivationMode -eq 'PrepareOffline' -and $activationState.ActivationRequired -eq 1) {
         $installationResult = Invoke-WindowsServer2003ActivationMethod `
             -Scope $scope -Method GetInstallationID
@@ -436,6 +745,7 @@ try {
 
     $null = Invoke-WindowsServer2003ProcessThroughWmi -Scope $scope -CommandLine `
         'C:\Windows\System32\shutdown.exe -s -t 0 -f'
+    }
     do {
         Start-Sleep -Seconds 2
         $vm = Get-VM -Name $VmName -ErrorAction Stop
@@ -489,6 +799,10 @@ if ($primaryError) { throw $primaryError }
     GraceDaysRemaining = if ($activationState) { [int] $activationState.GraceDaysRemaining } else { $null }
     InputLocale = $InputLocale
     LogonKeyboardLayout = '00000407'
+    StaticAddress = $StaticAddress
+    StaticSubnetMask = if ($StaticAddress) { $StaticSubnetMask } else { $null }
+    StaticAddressConfigured = [bool] $StaticAddress
+    MiniSetupEvaluationNoticeEnterCount = $evaluationNoticeEnterCount
     TemporaryAdapterRemoved = -not [bool](Get-VMNetworkAdapter -VMName $VmName `
         -Name $temporaryAdapterName -ErrorAction SilentlyContinue)
     VmStopped = [string](Get-VM -Name $VmName -ErrorAction Stop).State -eq 'Off'

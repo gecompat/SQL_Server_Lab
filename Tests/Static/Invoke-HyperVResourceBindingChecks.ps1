@@ -289,6 +289,11 @@ try {
         $hyperVSmokeText -match 'Remove-HyperVImageArtifact' -and
         $hyperVSmokeText -match 'Hyper-V-Smoke hinterliess Registry-Artefakte'
     )
+    Add-CheckResult -Name 'Nativer Hyper-V-Smoke liefert nach erfolgreichem Abschluss keinen veralteten nativen Exitcode' -Success (
+        $hyperVSmokeText.Contains('$global:LASTEXITCODE = 0') -and
+        $hyperVSmokeText.LastIndexOf('$global:LASTEXITCODE = 0', [System.StringComparison]::Ordinal) -gt
+            $hyperVSmokeText.LastIndexOf('Hyper-V-Lifecycle-Smoke-Test erfolgreich.', [System.StringComparison]::Ordinal)
+    )
     Add-CheckResult -Name 'Image-Registry trennt Control-State von gebundenem Image- und Staging-Store' -Success (
         $registryText -match "ResourceId\s+'hyperv-image-store'[\s\S]+ResourceClass\s+Image" -and
         $registryText -match "ResourceId\s+'hyperv-staging-store'[\s\S]+ResourceClass\s+Staging" -and

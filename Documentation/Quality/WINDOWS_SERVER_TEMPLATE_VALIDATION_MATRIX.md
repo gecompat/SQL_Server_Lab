@@ -1,6 +1,6 @@
 # Windows-Server-Vorlagen: reale Validierungsmatrix
 
-Stand: 6. September 2026. Diese Matrix trennt vorhandene Medien, angelegte
+Stand: 7. September 2026. Diese Matrix trennt vorhandene Medien, angelegte
 VM-Hüllen und tatsächlich verwendbare Vorlagen. Ein ISO, eine leere VHDX oder
 ein erfolgreicher Hashvergleich gelten ausdrücklich nicht als fertige
 OS-Vorlage.
@@ -112,7 +112,7 @@ gewertet.
 | SQL Server | Lokales Medium | Geeignete OS-Baseline | Automatisierter SQL-Nachweis |
 |---|---|---|---|
 | 2000 | Eval-ISO und MSDE-EXE; Eval bleibt `COMMUNITY_UNVERIFIED` | Windows Server 2003 SP2 x86, getrenntes `LEGACY_TEMPLATE_SEALED` | fehlt |
-| 2005 | Eval-ISO und Express-SP4-EXE; Eval bleibt `COMMUNITY_UNVERIFIED` | Windows Server 2003 SP2 x86 | fehlt |
+| 2005 | Eval-ISO und Express-SP4-EXE; Eval bleibt `COMMUNITY_UNVERIFIED_USER_APPROVED_FOR_LAB` | Windows Server 2003 SP2 x86, `CHILD_BOOT_VERIFIED`, aber nur `OOB_GRACE` | real bestanden: unbeaufsichtigtes Evaluation-Setup, SQL 9.00.1399.06 Enterprise Evaluation, lokaler offline gestagter Job mit Legacy-WMI-Start, Create/Insert/Backup CHECKSUM/RESTORE VERIFYONLY/Drop |
 | 2008 | hashgebundene frühere Microsoft-Eval-ISO und Express-SP3-EXE, daraus hashgebundenes Offline-Daten-ISO | Windows Server 2008 R2 SP1, child-geprüft im `OOB_GRACE` | real bestanden: unbeaufsichtigtes Express-SP3-Setup, SQL 10.0.5500.0, Legacy-WMI-Dienst-/Versionsprüfung, Create/Insert/Backup CHECKSUM/RESTORE VERIFYONLY/Drop |
 | 2008 R2 | Microsoft-signiertes Eval-SFX und Express-SP2-EXE, daraus hashgebundenes Offline-Daten-ISO | Windows Server 2008 R2 SP1, child-geprüft im `OOB_GRACE` | real bestanden: unbeaufsichtigtes Express-SP2-Setup, SQL 10.50.4000.0, Legacy-WMI-Dienst-/Versionsprüfung, Create/Insert/Backup CHECKSUM/RESTORE VERIFYONLY/Drop |
 | 2012 | hashgebundene Eval-ISO und Express-EXE | Windows Server 2012 R2, child- und aktivierungsgeprüft | real bestanden: unbeaufsichtigtes Eval-Setup, SQL 11.0.2100.60, Dienst-/Versionsprüfung, Create/Insert/Backup CHECKSUM/RESTORE VERIFYONLY/Drop |
@@ -161,7 +161,17 @@ SQL Server 2008 Express SP3 ist anschließend mit Build
 diesen historischen Parametersatz ausdrücklich an Version 2008 und prüft den
 asynchronen SFX-Start über den tatsächlichen `MSSQLSERVER`-Dienst.
 
-Die nächste Welle erweitert den getrennten NT5/x86-Pfad für 2005/2000. Keine
-weitere SQL-Version wird vor
+SQL Server 2005 Enterprise Evaluation ist am 7. September 2026 mit Build
+`8d1f92c6-4f10-402b-b130-aa4b5d5dce87` auf dem getrennten
+Windows-Server-2003-SP2-x86-Child bis `TESTS_PASSED` gelaufen. Der Runner
+staged den lokalen Batch ohne Host-Laufwerksbuchstaben, startet ihn über
+authentifiziertes Legacy-WMI und verwendet WMI danach nur für begrenzte
+Statusabfragen. Die installierte Engine `9.00.1399.06` wurde als `Enterprise
+Evaluation Edition` erkannt. Windows selbst blieb mit
+`ActivationRequired=1` im positiven `OOB_GRACE`; eine Aktivierung wird nicht
+behauptet.
+
+Die nächste Welle betrifft ausschließlich den getrennten NT5/x86-Pfad für SQL
+Server 2000. Keine weitere SQL-Version wird vor
 einem echten Setup-, Dienst-, Versions- und Verbindungsnachweis als `READY`
 ausgewiesen.
