@@ -49,11 +49,12 @@ neue Nightly-Fehler sind wieder als eigenständige Regressionen zu behandeln.
 
 ## Offene Punkte
 
-### 2. Datenbankmenü ist unvollständig
+### 2. Datenbankmenü ist teilweise ergänzt – `IN_PROGRESS`
 
-`database-menu` bietet fünf Einträge. Mehrere vorhandene öffentliche Funktionen
-sind aus der Oberfläche nicht erreichbar, weil kein `Invoke-LabAction`-Fall
-existiert. Das ist echte Neuarbeit, kein Verdrahten von Vorhandenem.
+`database-menu` bietet nach dem ersten read-only Slice acht Einträge. Vier
+vorhandene mutierende öffentliche Funktionen sind weiterhin aus der Oberfläche
+nicht erreichbar, weil noch kein sicherer interaktiver `Invoke-LabAction`-Fall
+existiert. Das ist echte Neuarbeit, kein bloßes Verdrahten von Vorhandenem.
 
 | Funktion | Zweck |
 |---|---|
@@ -61,12 +62,21 @@ existiert. Das ist echte Neuarbeit, kein Verdrahten von Vorhandenem.
 | `Restore-SqlServerLabDatabase` | Datenbank wiederherstellen |
 | `Export-SqlServerLabDatabasePackage` | Paket exportieren |
 | `Invoke-SqlServerLabDatabasePackageAttach` | Paket anhängen |
-| `Get-SqlServerLabDatabasePackage` | Pakete auflisten |
-| `Get-SqlServerLabDatabaseMigrationDependency` | Migrationsabhängigkeiten prüfen |
 
-Der Anti-Waisen-Vertrag greift hier nicht, weil diese Funktionen nicht in der
-`ValidateSet` stehen. Er verhindert nur, dass eine angebotene Aktion unerreichbar
-wird, nicht dass eine Fähigkeit gar nicht erst angeboten wird.
+Der erste read-only Slice ist am 2026-09-08 umgesetzt: Paketbestand und
+Migrationsabhängigkeiten besitzen echte Produkt-Aufrufstellen im bestehenden
+Menü „Datenbanken und Verbindungen“, passende Direktaktionen und kuratierte
+Hilfe. Ein prozessgetrennter Modulnachweis ruft beide Handler gegen kontrollierte
+Cmdlet-Doubles auf; der statische Vertrag prüft Menü, Handler, Direktaktion,
+sichtbare Rückkehrbestätigung und einen fehlenden Handler als Gegenbeweis.
+Offen bleiben Backup, Restore, Paketexport und Paket-Attach; jeder mutierende
+Pfad erhält wegen Scope-, Recovery- und Credentialgrenzen einen eigenen
+Änderungssatz.
+
+Für die vier verbleibenden Funktionen greift der Anti-Waisen-Vertrag noch
+nicht, weil sie nicht in der `ValidateSet` stehen. Er verhindert nur, dass eine
+angebotene Aktion unerreichbar wird, nicht dass eine Fähigkeit gar nicht erst
+angeboten wird.
 
 ### 3. Provider-Diagnoselog deckt nur die Containererstellung ab
 

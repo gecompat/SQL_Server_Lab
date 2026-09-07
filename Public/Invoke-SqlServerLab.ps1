@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -139,7 +139,7 @@ function Invoke-LabMenuAction {
         $null = Invoke-LabActionWithResult -ActionName $ActionName
     }
 
-    if ($ActionName -in @('Status', 'CleanupAudit', 'Catalog')) {
+    if ($ActionName -in @('Status', 'CleanupAudit', 'Catalog', 'DatabasePackageInventory', 'DatabaseMigrationDependency')) {
         Wait-LabConsoleAcknowledgement
     }
 
@@ -283,6 +283,8 @@ function Show-LabDatabaseMenu {
         New-LabConsoleItem -Id 'Manifest' -Label 'Container-Manifest erstellen und pruefen' -Shortcut 'm'
         New-LabConsoleItem -Id 'Database' -Label 'Datenbank anlegen' -Shortcut '8'
         New-LabConsoleItem -Id 'Script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
+        New-LabConsoleItem -Id 'DatabasePackageInventory' -Label 'Datenbankpakete anzeigen' -Value 'read-only · stabile Paket-ID · pfadfrei' -Shortcut 'p'
+        New-LabConsoleItem -Id 'DatabaseMigrationDependency' -Label 'Migrationsabhängigkeiten prüfen' -Value 'read-only · Counts · keine Exportmutation' -Shortcut 'g'
         New-LabConsoleItem -Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte' -Shortcut 'c'
         New-LabConsoleItem -Id 'AiArea' -Label 'SQL Server 2025 KI' -Value 'Szenarien · Ollama lokal/Cloud · RAG · read-only Diagnose' -Shortcut 'a'
         New-LabConsoleItem -Id 'Catalog' -Label 'Lab-Katalog prüfen' -Value 'Katalogdatei validieren; kein CMS-Zugang' -Shortcut 'k'
@@ -680,6 +682,89 @@ function Select-LabAiTargetInteractive {
     catch { Write-LabError $_.Exception.Message; return $null }
 }
 
+function Invoke-LabDatabasePackageInventoryInteractive {
+    [CmdletBinding()]
+    param(
+        [string]$DataRoot,
+        [switch]$VerifyIntegrity
+    )
+
+    $arguments = @{}
+    if (-not [string]::IsNullOrWhiteSpace($DataRoot)) { $arguments.DataRoot = $DataRoot }
+    if ($VerifyIntegrity) { $arguments.VerifyIntegrity = $true }
+    try { $packages = @(Get-SqlServerLabDatabasePackage @arguments) }
+    catch { Write-LabError "Datenbankpakete konnten nicht gelesen werden: $($_.Exception.Message)"; return }
+    if ($packages.Count -eq 0) {
+        Write-LabInfo 'Keine katalogisierten Datenbankpakete vorhanden.'
+        return
+    }
+
+    Write-LabStatus -Label 'Datenbankpakete' -Value $packages.Count
+    foreach ($package in $packages) {
+        $sizeMiB = [Math]::Round(([long]$package.Bytes / 1MB), 1)
+        $color = if ([string]$package.Availability -eq 'SELECTABLE') { 'Green' } else { 'Yellow' }
+        Write-LabStatus -Label ([string]$package.DatabaseName) `
+            -Value "$($package.Availability) · SQL $($package.SourceSqlMajorVersion) · $($package.ObjectCount) Objekt(e) · $sizeMiB MiB" -Color $color
+        Write-LabInfo "Paket-ID: $($package.DatabasePackageId) · Integrität: $($package.IntegrityValidation) · Attach: $($package.AttachStatus)"
+        if (@($package.DependencyCategories).Count -gt 0) {
+            Write-LabWarning ('Separate Migrationsbehandlung: ' + (@($package.DependencyCategories) -join ', '))
+        }
+    }
+    if (-not $VerifyIntegrity) {
+        Write-LabInfo 'Die Inventur hasht große Paketobjekte bewusst erst bei expliziter Integritätsprüfung oder unmittelbar vor Verwendung.'
+    }
+}
+
+function Invoke-LabDatabaseMigrationDependencyInteractive {
+    [CmdletBinding()]
+    param(
+        [string]$RunId,
+        [string]$InstanceId = 'primary',
+        [string]$DatabaseName,
+        [SecureString]$SaPassword,
+        [switch]$TdeRecoveryEvidenceVerified
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RunId)) {
+        $runs = @(Get-LabRunsByRuntimeState -State 'RUNNING')
+        if ($runs.Count -eq 0) { Write-LabInfo 'Keine laufende SQL-Umgebung vorhanden.'; return }
+        $RunId = Select-LabRun -Runs $runs -Prompt 'Quelle für Migrationsabhängigkeiten' -DisableSystemServices
+        if (-not $RunId) { return }
+        $InstanceId = Read-Host '  Instanz-ID [primary]'
+        if ([string]::IsNullOrWhiteSpace($InstanceId)) { $InstanceId = 'primary' }
+    }
+    if ([string]::IsNullOrWhiteSpace($DatabaseName)) {
+        $DatabaseName = Read-Host '  Datenbankname'
+        if ([string]::IsNullOrWhiteSpace($DatabaseName)) { return }
+    }
+    if ($DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        Write-LabError 'Der Datenbankname muss mit einem Buchstaben beginnen und darf nur Buchstaben, Ziffern und Unterstriche enthalten.'
+        return
+    }
+    if (-not $SaPassword) { $SaPassword = Read-Host '  SA-Passwort' -AsSecureString }
+    if (-not $PSBoundParameters.ContainsKey('TdeRecoveryEvidenceVerified')) {
+        $TdeRecoveryEvidenceVerified = Read-LabConfirm `
+            -Prompt '  Bereits getrennt verifizierte TDE-Recovery-Evidence berücksichtigen?' -Default $false
+    }
+
+    try {
+        $inventory = Get-SqlServerLabDatabaseMigrationDependency -RunId $RunId -InstanceId $InstanceId `
+            -DatabaseName $DatabaseName -SaPassword $SaPassword `
+            -TdeRecoveryEvidenceVerified:$TdeRecoveryEvidenceVerified
+    }
+    catch { Write-LabError "Migrationsabhängigkeiten konnten nicht inventarisiert werden: $($_.Exception.Message)"; return }
+    Write-LabStatus -Label 'Datenbank' -Value $inventory.DatabaseName
+    Write-LabStatus -Label 'Beobachtung' -Value $inventory.ObservationStatus
+    Write-LabStatus -Label 'Portabler Restore' -Value $inventory.MigrationBoundary.PortableRestoreStatus `
+        -Color $(if ($inventory.MigrationBoundary.PortableRestoreStatus -eq 'BLOCKED') { 'Yellow' } else { 'Green' })
+    foreach ($dependency in @($inventory.Dependencies)) {
+        $count = if ($null -eq $dependency.Count) { 'nicht SQL-seitig beobachtbar' } else { [string]$dependency.Count }
+        Write-LabInfo "$($dependency.Category): $($dependency.Status) · Anzahl $count · $($dependency.RequiredAction)"
+    }
+    foreach ($blocker in @($inventory.MigrationBoundary.Blockers)) { Write-LabWarning "Blocker: $blocker" }
+    Write-LabInfo 'Diese Inventur ist strikt read-only: Sie exportiert keine Datenbank, Serverobjekte, Secrets oder TDE-Schlüssel.'
+}
+
 function Invoke-LabAiScenarioPlanInteractive {
     [CmdletBinding()]
     param()
@@ -960,6 +1045,8 @@ function Invoke-LabAction {
         'AiRetrievalEvaluation' { Invoke-LabAiRetrievalEvaluationInteractive }
         'AiGoldenRagEvaluation' { Invoke-LabAiGoldenRagEvaluationInteractive }
         'AiGuidedDemo' { Invoke-LabAiGuidedDemoInteractive }
+        'DatabasePackageInventory' { Invoke-LabDatabasePackageInventoryInteractive }
+        'DatabaseMigrationDependency' { Invoke-LabDatabaseMigrationDependencyInteractive }
         'Manifest' {
             $manifestPath = Read-Host '  Manifest-Zielpfad [.\lab-manifest.json]'
             if (-not $manifestPath) {

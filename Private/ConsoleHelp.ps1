@@ -168,6 +168,10 @@ function Get-LabConsoleHelpCatalog {
             Purpose = 'Zugriff auf Verbindungszentrale, CMS, Datenbankpakete, Backup und Restore.'
             Effects = 'Anzeigen veraendert nichts. Restore und Attach wirken auf die Zielinstanz.'
             Command = 'Get-SqlServerLabConnectionCenter'
+            Items   = @{
+                'DatabasePackageInventory' = @{ Purpose = 'Listet katalogisierte Datenbankpakete mit stabiler ID, Verfuegbarkeit und Migrationsgrenzen pfadfrei auf.'; Effects = 'Read-only; grosse Paketobjekte werden ohne ausdrueckliche Integritaetspruefung nicht erneut gehasht.'; Command = 'Get-SqlServerLabDatabasePackage' }
+                'DatabaseMigrationDependency' = @{ Purpose = 'Inventarisiert SQL-seitig beobachtbare Migrationsabhaengigkeiten als sanitisierte Kategorien und Counts.'; Effects = 'Read-only; exportiert weder Datenbank noch Serverobjekte, Secrets oder TDE-Schluessel.'; Command = 'Get-SqlServerLabDatabaseMigrationDependency' }
+            }
         }
         'ai-guided-demo-menu' = @{
             Title   = 'Gefuehrte SQL Server 2025 KI-Demos'
