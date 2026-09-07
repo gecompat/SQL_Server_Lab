@@ -86,13 +86,24 @@ try {
     $manualName = Get-LabCmsRegisteredServerDisplayName -Entry $aliasEntry -StateRoot 'unused' `
         -IncludeGeneratedPassword -GeneratedPasswordResolver { param($RunId, $StateRoot) $null }
     Add-CheckResult -Name 'Nur aufgeloeste generierte Passwoerter werden in den CMS-Namen aufgenommen' -Success (
-        $generatedAlias -eq 'Demo_Generated!234 (primary)' -and $manualName -eq 'Demo (primary)')
+        $generatedAlias -eq 'PW=Generated!234 · Demo (primary)' -and $manualName -eq 'Demo (primary)')
 
     $longEntry = [PSCustomObject]@{ RunId='generated-run'; DisplayName=(('x' * 160) + ' (primary)') }
     $boundedAlias = Get-LabCmsRegisteredServerDisplayName -Entry $longEntry -StateRoot 'unused' `
         -IncludeGeneratedPassword -GeneratedPasswordResolver { param($RunId, $StateRoot) 'Generated!234' }
     Add-CheckResult -Name 'CMS-Kennwortalias bleibt innerhalb der sysname-Grenze' -Success (
-        $boundedAlias.Length -eq 128 -and $boundedAlias.EndsWith('_Generated!234 (primary)'))
+        $boundedAlias.Length -eq 128 -and $boundedAlias.StartsWith('PW=Generated!234 · ') -and
+        $boundedAlias.EndsWith(' (primary)'))
+
+    $newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\New-SqlServerLab.ps1') -Raw -Encoding utf8
+    $testEnvironmentSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\TestEnvironment.ps1') -Raw -Encoding utf8
+    $consoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
+    Add-CheckResult -Name 'Generierte Containerkennwoerter besitzen einen expliziten verschluesselten Herkunftsnachweis' -Success (
+        $newLabSource -match '\[switch\]\$GenerateSaPassword' -and
+        $newLabSource -match "-Name 'generated-sql-sa-password'" -and
+        $newLabSource -match 'SA_PASSWORD_GENERATION_CONTAINER_PROVIDER_REQUIRED' -and
+        $testEnvironmentSource -match '-GenerateSaPassword -NonInteractive' -and
+        $consoleSource -match "-Name 'generated-sql-sa-password'")
 
     Add-CheckResult -Name 'Kennworthaltige Sync-Plaene sind fluechtig und Exporte bleiben kennwortfrei' -Success (
         $source -match 'PASSWORD_ALIAS_REQUIRES_IN_MEMORY_SCRIPT' -and

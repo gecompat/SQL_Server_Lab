@@ -244,6 +244,10 @@ function New-SqlServerLab {
         oder eng benannte externe Prozess-Umgebungsvariablen bereitgestellt.
     .PARAMETER SaPassword
         SA-Passwort als SecureString. Ohne Angabe wird es interaktiv abgefragt.
+    .PARAMETER GenerateSaPassword
+        Erzeugt fuer eine Ad-hoc-Containerumgebung ein eigenes zufaelliges
+        SA-Passwort und kennzeichnet dessen verschluesselte run-lokale Ablage
+        explizit als lab-generiert. Nicht mit SaPassword kombinierbar.
     .PARAMETER StateRoot
         Optionales State-Stammverzeichnis. Ohne Angabe wird der Framework-Default
         fuer das aktuelle Betriebssystem verwendet.
@@ -363,6 +367,7 @@ function New-SqlServerLab {
         [string]$Manifest,
 
         [SecureString]$SaPassword,
+        [Parameter(ParameterSetName = 'AdHoc')][switch]$GenerateSaPassword,
         [string]$StateRoot,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$LabName,
         [string]$DataRoot,
@@ -384,6 +389,13 @@ function New-SqlServerLab {
 
     $ErrorActionPreference = 'Stop'
     Write-LabHeader 'SQL Server Lab - Neue Umgebung'
+
+    if ($GenerateSaPassword -and $SaPassword) {
+        throw 'SA_PASSWORD_GENERATION_CONFLICT: GenerateSaPassword und SaPassword koennen nicht kombiniert werden.'
+    }
+    if ($GenerateSaPassword -and $Provider -notin @('docker', 'podman')) {
+        throw 'SA_PASSWORD_GENERATION_CONTAINER_PROVIDER_REQUIRED: GenerateSaPassword gilt nur fuer Docker- oder Podman-Container.'
+    }
 
     if ($PSCmdlet.ParameterSetName -eq 'Manifest') {
         Write-LabInfo "Manifest: $Manifest"
@@ -821,6 +833,11 @@ function New-SqlServerLab {
         }
     }
 
+    $generatedContainerSaPassword = $false
+    if ($GenerateSaPassword) {
+        $SaPassword = New-HyperVSqlUnattendedPassword
+        $generatedContainerSaPassword = $true
+    }
     if (-not $SaPassword) {
         if ($effectiveNonInteractive) { throw 'SA_PASSWORD_REQUIRED_NONINTERACTIVE' }
         Write-LabInfo 'SA-Passwort wird benoetigt.'
@@ -969,6 +986,15 @@ function New-SqlServerLab {
             -Path $runState.RunDir `
             -Name 'sa-password' `
             -Secret $SaPassword
+        if ($generatedContainerSaPassword) {
+            # Der getrennte DPAPI-geschuetzte Alias ist zugleich der belastbare
+            # Herkunftsnachweis. Ein bloss vorhandenes sa-password darf nie als
+            # Beleg fuer automatische Generierung interpretiert werden.
+            $null = Save-LabSecret `
+                -Path $runState.RunDir `
+                -Name 'generated-sql-sa-password' `
+                -Secret $SaPassword
+        }
 
         $null = Set-LabRunState `
             -RunId $runState.RunId `

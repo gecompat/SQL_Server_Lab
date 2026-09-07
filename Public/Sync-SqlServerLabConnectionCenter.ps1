@@ -599,22 +599,23 @@ function Get-LabCmsRegisteredServerDisplayName {
     $password = & $GeneratedPasswordResolver ([string]$Entry.RunId) $StateRoot
     if ([string]::IsNullOrWhiteSpace([string]$password)) { return $displayName }
 
-    # Der Instanzzusatz bleibt am Ende lesbar: Umgebung_Passwort (primary).
+    # Das Kennwort steht vollstaendig vorne, damit SSMS es in schmalen
+    # Registered-Servers- und Connect-Ansichten nicht rechts abschneidet.
     $environmentName = $displayName
     $instanceSuffix = ''
     if ($displayName -match '^(?<Environment>.+) (?<Instance>\([^()]+\))$') {
         $environmentName = [string]$Matches.Environment
         $instanceSuffix = ' ' + [string]$Matches.Instance
     }
-    $passwordSuffix = '_{0}{1}' -f [string]$password, $instanceSuffix
-    if ($passwordSuffix.Length -ge 128) {
+    $passwordPrefix = 'PW={0} · ' -f [string]$password
+    if (($passwordPrefix.Length + $instanceSuffix.Length) -ge 128) {
         throw 'CONNECTION_CENTER_CMS_GENERATED_PASSWORD_NAME_TOO_LONG: Das generierte Kennwort passt nicht in einen CMS-Anzeigenamen.'
     }
-    $maximumEnvironmentLength = 128 - $passwordSuffix.Length
+    $maximumEnvironmentLength = 128 - $passwordPrefix.Length - $instanceSuffix.Length
     if ($environmentName.Length -gt $maximumEnvironmentLength) {
         $environmentName = $environmentName.Substring(0, $maximumEnvironmentLength)
     }
-    return $environmentName + $passwordSuffix
+    return $passwordPrefix + $environmentName + $instanceSuffix
 }
 
 function Invoke-LabCmsSqlInMemory {

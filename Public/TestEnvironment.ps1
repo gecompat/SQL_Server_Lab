@@ -907,7 +907,6 @@ function New-SqlServerLabAutomatedTestEnvironment {
         $name = Get-LabAutomatedTestEnvironmentDisplayName -Key $request.Key
         try {
             if ($selectedProvider -notin @('docker','podman')) { throw 'TEST_ENVIRONMENT_LINUX_PROVIDER_UNAVAILABLE' }
-            $password = New-HyperVSqlUnattendedPassword
             $serverConfig = [PSCustomObject]@{
                 memory = [PSCustomObject]@{ minMB = 0; maxMB = 3072 }
                 maxDop = 4
@@ -917,7 +916,7 @@ function New-SqlServerLabAutomatedTestEnvironment {
             }
             $lab = New-SqlServerLab -Version $versionId -Provider $selectedProvider -Profile standard -LabName $name `
                 -InstanceId $request.InstanceId -Cpu 4 -MemoryMB 4096 -ServerConfig $serverConfig `
-                -SaPassword $password -NonInteractive -AutoStart on -StateRoot $StateRoot
+                -GenerateSaPassword -NonInteractive -AutoStart on -StateRoot $StateRoot
             $null = Rename-LabAutomatedTestEnvironmentRuntime -RunId $lab.RunId -InstanceId $request.InstanceId `
                 -Key $request.Key -StateRoot $StateRoot
             $null = Register-LabTestEnvironmentRun -RunId $lab.RunId -Platform linux -SqlVersion $version -Patch $patch `

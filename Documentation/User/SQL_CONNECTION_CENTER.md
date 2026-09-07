@@ -122,12 +122,22 @@ selbst auf dem Host öffnet.
 Das CMS-Menü bietet zusätzlich **Generiertes Passwort im CMS-Namen anzeigen**.
 Der sichere Standard ist **Aus**. Nach ausdrücklicher Klartextwarnung kann die
 Option aktiviert werden; dann lautet ein Mitglied beispielsweise
-`Demo_GeneriertesPasswort (primary)`. Ausschließlich Kennwörter, deren Herkunft
+`PW=GeneriertesPasswort · Demo (primary)`. Das Kennwort steht absichtlich vorne,
+damit SSMS es auch in schmalen Baum- und Dialogansichten vollständig zeigt.
+Ausschließlich Kennwörter, deren Herkunft
 das Framework als selbst erzeugt nachweist, werden ergänzt. Manuell eingegebene,
 manifestbasierte und über Lizenzprofile bereitgestellte Geheimnisse erscheinen
 niemals im Namen. Die Option erleichtert den bewussten Zugriff auf kurzlebige
 Testumgebungen, macht das jeweilige Kennwort aber auch in SSMS, CMS-Backups,
 Screenshots und für alle CMS-Leser sichtbar.
+
+Bei automatisch erzeugten Containerumgebungen wird dieser Herkunftsnachweis als
+getrennter, DPAPI-geschützter run-lokaler Secret-Alias gespeichert. Die
+automatisierte Testgruppe und der interaktive Containerdialog verwenden diesen
+Pfad. Wird im Containerdialog **Manuell eingeben** gewählt oder ein Kennwort über
+ein Manifest beziehungsweise `-SaPassword` geliefert, entsteht dieser Nachweis
+nicht und das Kennwort bleibt unabhängig von der Klartextoption aus dem CMS-Namen
+ausgeschlossen.
 
 Bei der einmaligen CMS-Registrierung in SSMS ist SQL-Authentifizierung mit
 Login `sa` und dem gesicherten CMS-Passwort zulässig. Microsoft dokumentiert
@@ -146,6 +156,15 @@ Das CMS-SA-Passwort öffnet nur den Knoten `CMS-Docker` oder `CMS-Podman`. Für 
 Mitglied wird dessen eigenes, beim jeweiligen Neuaufbau neu erzeugtes SA-Passwort
 benötigt. Ist die Klartextoption aktiviert, steht genau dieses Mitgliedspasswort im
 Anzeigenamen und kann in den von SSMS geöffneten Verbindungsdialog übernommen werden.
+
+Ein Doppelklick auf ein CMS-Mitglied öffnet den SSMS-Verbindungsdialog zunächst mit
+**Windows Authentication**, weil die zentrale Mitgliedsregistrierung weder
+Authentifizierungsart noch SQL-Anmeldedaten speichert. Bei einem Linux-Container
+führt der unmittelbare Verbindungsversuch deshalb typischerweise zu SQL-Fehler 18452.
+Danach **SQL Server Authentication** und Login `sa` wählen. Als Passwort darf nur der
+Wert zwischen `PW=` und ` · ` eingefügt werden. Der Präfix `PW=`, das Trennzeichen,
+der Umgebungsname und `(primary)` gehören nicht zum Kennwort. Das Einfügen des
+vollständigen Anzeigenamens führt zu SQL-Fehler 18456.
 
 Erscheint direkt nach einem SSMS-Neustart beim Öffnen des CMS-Knotens
 `Object reference not set to an instance of an object
