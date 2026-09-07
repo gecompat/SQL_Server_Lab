@@ -127,10 +127,10 @@ Legende:
 
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
-| [`Get-SqlServerLabDatabasePackage`](../../Public/Get-SqlServerLabDatabasePackage.ps1) | Inventarisiert Datenbankpakete pfadfrei und kann deren Integrität vollständig revalidieren. | – | über Core: Paketbibliothek und Migrationsplan-Projektion in der Workflow-Inventur |
+| [`Get-SqlServerLabDatabasePackage`](../../Public/Get-SqlServerLabDatabasePackage.ps1) | Inventarisiert Datenbankpakete pfadfrei und kann deren Integrität vollständig revalidieren. | Datenbanken und Verbindungen → Datenbankpakete anzeigen | über Core: Paketbibliothek und Migrationsplan-Projektion in der Workflow-Inventur |
 | [`Export-SqlServerLabDatabasePackage`](../../Public/Export-SqlServerLabDatabasePackage.ps1) | Veröffentlicht eine gebundene Docker-/Podman-Datenbank nach exklusivem Offline-Commit als hashgebundenes Paket. | – | über Adapter: `ExportContainerDatabasePackage` |
 | [`Invoke-SqlServerLabDatabasePackageAttach`](../../Public/Invoke-SqlServerLabDatabasePackageAttach.ps1) | Kopiert und hasht ein Paket im gebundenen Hyper-V-Gast und attached es im live ermittelten SQL-Default-Data-Ziel. | direkter CLI-Aufruf | über Adapter: `AttachHyperVDatabasePackage`, `RecoverHyperVDatabasePackageAttach` |
-| [`Get-SqlServerLabDatabaseMigrationDependency`](../../Public/Get-SqlServerLabDatabaseMigrationDependency.ps1) | Inventarisiert beobachtbare Login-, Job-, Proxy-, Linked-Server- und TDE-Abhängigkeiten read-only als sanitisierte Counts. | direkter CLI-Aufruf | über Adapter: `InspectContainerDatabaseMigrationDependencies` |
+| [`Get-SqlServerLabDatabaseMigrationDependency`](../../Public/Get-SqlServerLabDatabaseMigrationDependency.ps1) | Inventarisiert beobachtbare Login-, Job-, Proxy-, Linked-Server- und TDE-Abhängigkeiten read-only als sanitisierte Counts. | Datenbanken und Verbindungen → Migrationsabhängigkeiten prüfen | über Adapter: `InspectContainerDatabaseMigrationDependencies` |
 
 ## Datenbanken, Skripte und SQL-KI-Szenarien
 

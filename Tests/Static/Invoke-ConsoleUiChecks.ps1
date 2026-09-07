@@ -909,7 +909,7 @@ Add-ConsoleUiCheck 'Umgebungsmenue bietet genau einen zustandsabhaengigen Testgr
     $entrySource -match 'Start-SqlServerLabAutomatedTestEnvironment -Force -Confirm:\$false' -and
     $entrySource -match 'Stop-SqlServerLabAutomatedTestEnvironment -Force -Confirm:\$false'
 )
-Add-ConsoleUiCheck 'Read-only Menueaktionen warten zentral auf genau eine Rueckkehrbestaetigung' ($entrySource -match '\$ActionName -in @\(''Status'', ''CleanupAudit'', ''Catalog''\)[\s\S]+?Wait-LabConsoleAcknowledgement')
+Add-ConsoleUiCheck 'Read-only Menueaktionen warten zentral auf genau eine Rueckkehrbestaetigung' ($entrySource -match '\$ActionName -in @\(''Status'', ''CleanupAudit'', ''Catalog'', ''DatabasePackageInventory'', ''DatabaseMigrationDependency''\)[\s\S]+?Wait-LabConsoleAcknowledgement')
 Add-ConsoleUiCheck 'Cleanup-Audit-Menue bleibt read-only und zeigt Befunde mit Loesungsweg' (
     $entrySource -match "'CleanupAudit' \{[\s\S]+?Get-SqlServerLabCleanupAudit -NoWrite" -and
     $entrySource -match 'Show-LabCleanupAuditFindings -Findings \$result\.Audit\.Findings' -and
@@ -1016,6 +1016,29 @@ $result = & $module {
         -SessionFactory { [PSCustomObject]@{ OriginTop = 0; PreviousLineCount = 0; ForegroundColor = 'Gray' } } `
         -SessionCompleter { }
 
+    $script:databasePackageInventoryCalls = 0
+    $script:databaseMigrationDependencyCalls = 0
+    Set-Item Function:script:Get-SqlServerLabDatabasePackage -Value {
+        $script:databasePackageInventoryCalls++
+        [PSCustomObject]@{
+            DatabasePackageId='11111111-2222-4333-8444-555555555555';Availability='SELECTABLE'
+            IntegrityValidation='DEFERRED_UNTIL_USE';DatabaseName='Evidence';SourceSqlMajorVersion='17'
+            ObjectCount=2;Bytes=1048576;AttachStatus='TARGET_BINDING_REQUIRED';DependencyCategories=@()
+        }
+    }
+    Set-Item Function:script:Get-SqlServerLabDatabaseMigrationDependency -Value {
+        $script:databaseMigrationDependencyCalls++
+        [PSCustomObject]@{
+            DatabaseName='Evidence';ObservationStatus='SQL_ENGINE_COMPLETE_EXTERNAL_REVIEW_REQUIRED'
+            Dependencies=@([PSCustomObject]@{Category='SERVER_LOGIN_MAPPING';Status='NOT_DETECTED';Count=0;RequiredAction='SCRIPT_AND_REMAP'})
+            MigrationBoundary=[PSCustomObject]@{PortableRestoreStatus='MANUAL_REVIEW';Blockers=@()}
+        }
+    }
+    $probePassword = ConvertTo-SecureString 'synthetic-only' -AsPlainText -Force
+    & { Invoke-LabDatabasePackageInventoryInteractive -DataRoot 'synthetic-root' } 6>$null
+    & { Invoke-LabDatabaseMigrationDependencyInteractive -RunId '11111111-2222-4333-8444-555555555555' `
+        -InstanceId primary -DatabaseName Evidence -SaPassword $probePassword -TdeRecoveryEvidenceVerified } 6>$null
+
     [PSCustomObject]@{
         BandLines    = $band.Count
         BandHeadline = if ($band.Count -gt 0) { [string]$band[0] } else { '' }
@@ -1025,6 +1048,8 @@ $result = & $module {
         Degraded     = @($frames[0].Lines | Where-Object { $_ -match 'Statusband nicht verfuegbar: Statusquelle kaputt' }).Count
         Journal      = @(Get-LabMessage | Where-Object { $_.message -match 'CONSOLE_STATUS_PROVIDER_FAILED' }).Count
         PasswordFact = $passwordFact
+        PackageInventoryCalls = $script:databasePackageInventoryCalls
+        MigrationDependencyCalls = $script:databaseMigrationDependencyCalls
     }
 }
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
@@ -1048,6 +1073,9 @@ try {
     Add-ConsoleUiCheck 'Ein selbst vergebenes SA-Kennwort bleibt dem Eigentuemer zugaenglich und wird als solches ausgewiesen' (
         $null -ne $probe -and $probe.PasswordFact.Available -and
         $probe.PasswordFact.Origin -eq 'UserSupplied' -and $probe.PasswordFact.Length -eq 23
+    )
+    Add-ConsoleUiCheck 'Datenbankmenue ruft Paketbestand und Migrationsinventur im echten Modulscope auf' (
+        $null -ne $probe -and $probe.PackageInventoryCalls -eq 1 -and $probe.MigrationDependencyCalls -eq 1
     )
 }
 finally { Remove-Item -LiteralPath $moduleProbePath -Force -ErrorAction SilentlyContinue }
@@ -1104,6 +1132,26 @@ Add-ConsoleUiCheck 'SQL-2025-KI bleibt innerhalb der achtteiligen Menuestruktur 
     $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,3000}?New-LabConsoleItem -Id 'AiRetrievalEvaluation'" -and
     $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,3000}?New-LabConsoleItem -Id 'AiGoldenRagEvaluation'" -and
     $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,3000}?New-LabConsoleItem -Id 'AiGuidedDemo'"
+)
+$databaseMenuSource = [regex]::Match($mainMenuSource, "function Show-LabDatabaseMenu \{[\s\S]+?(?=\r?\nfunction )").Value
+$databaseReadOnlyActions = @('DatabasePackageInventory', 'DatabaseMigrationDependency')
+$missingDatabaseReadOnlyHandlers = @($databaseReadOnlyActions | Where-Object {
+        $databaseMenuSource -notmatch "New-LabConsoleItem -Id '$_'" -or
+        $mainMenuSource -notmatch "'$_' \{ [A-Za-z0-9-]+ \}"
+    })
+Add-ConsoleUiCheck 'Datenbankmenue bietet Paketbestand und Migrationsinventur mit echten Handlern an' (
+    $missingDatabaseReadOnlyHandlers.Count -eq 0 -and
+    @($databaseReadOnlyActions | Where-Object { $_ -in $declaredActions }).Count -eq 2
+)
+$missingDatabaseHandlerCounterexample = @(@($databaseReadOnlyActions) + 'DatabaseMissingHandler' | Where-Object {
+        $databaseMenuSource -notmatch "New-LabConsoleItem -Id '$_'" -or
+        $mainMenuSource -notmatch "'$_' \{ [A-Za-z0-9-]+ \}"
+    })
+Add-ConsoleUiCheck 'Datenbank-Anti-Waisen-Vertrag erkennt einen fehlenden Handler als Gegenbeweis' (
+    $missingDatabaseHandlerCounterexample.Count -eq 1 -and $missingDatabaseHandlerCounterexample[0] -eq 'DatabaseMissingHandler'
+)
+Add-ConsoleUiCheck 'Read-only Datenbankaktionen halten ihre Ausgabe bis zur Rueckkehr sichtbar' (
+    $mainMenuSource -match "@\('Status', 'CleanupAudit', 'Catalog', 'DatabasePackageInventory', 'DatabaseMigrationDependency'\)"
 )
 $aiMenuSource = [regex]::Match($mainMenuSource, "function Show-LabAiMenu \{[\s\S]+?(?=\r?\nfunction )").Value
 $offeredAiActions = @([regex]::Matches($aiMenuSource, "New-LabConsoleItem -Id '([^']+)'") |
