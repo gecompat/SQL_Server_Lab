@@ -359,3 +359,4 @@ function Show-LabConsoleHelp {
     Assert-LabConsoleKeyNotInterrupted -Key $key
     return $key
 }
+

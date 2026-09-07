@@ -828,3 +828,4 @@ function Invoke-LabAreaMenuInteractive {
         Show-LabActionMessagesInteractive -Marker $marker
     }
 }
+
