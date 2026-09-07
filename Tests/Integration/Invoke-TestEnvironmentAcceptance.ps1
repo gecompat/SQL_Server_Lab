@@ -103,9 +103,9 @@ $cmsAccess = & $module {
     [pscustomobject]@{
         Target = $target
         Password = Get-LabSecret -Path $runDirectory -Name 'sa-password'
-        ExpectedTargets = @($ExpectedTargets | ForEach-Object {
-            ConvertTo-LabCmsServerTarget -Server ([string]$_) -CmsProvider ([string]$configuration.Provider)
-        })
+        # SSMS öffnet CMS-Mitglieder vom Clienthost. Deshalb müssen die im
+        # Testvertrag erreichbaren Ziele unverändert im CMS stehen.
+        ExpectedTargets = @($ExpectedTargets | ForEach-Object { [string]$_ })
     }
 } $StateRoot @($expectedTargets)
 

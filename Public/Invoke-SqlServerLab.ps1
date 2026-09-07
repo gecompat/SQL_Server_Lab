@@ -1022,6 +1022,18 @@ function Get-LabAutomaticallyGeneratedRunSaPassword {
     catch { }
 
     try {
+        # Ein expliziter DPAPI-geschuetzter Alias ist der provideruebergreifende
+        # Herkunftsnachweis fuer vom Lab selbst erzeugte SQL-Kennwoerter.
+        $secret = Get-LabSecret -Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) -Name 'generated-sql-sa-password'
+        if ($secret) {
+            $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
+            try { return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+            finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+        }
+    }
+    catch { }
+
+    try {
         if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) {
             $secret = Get-LabSecret -Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) -Name 'sa-password'
             if (-not $secret) { $secret = Get-LabSecret -Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) -Name 'generated-sql-sa-password' }
@@ -1746,6 +1758,7 @@ function Invoke-LabNewContainerEnvironmentInteractive {
                 AutoStart=if ($Intent.PSObject.Properties['AutoStart']) { [string]$Intent.AutoStart } else { 'off' }
                 ServerConfig=(New-LabIntentServerConfig -Intent $Intent -Target container -ErrorAction Stop)
                 Drives=@(New-LabContainerDrivesFromIntent -Intent $Intent -ErrorAction Stop)
+                GenerateSaPassword=$true
             }
             if ($selectedSamples.Count -gt 0) { $arguments.Sample = $selectedSamples }
             $lab = New-SqlServerLab @arguments -ErrorAction Stop
@@ -1816,6 +1829,12 @@ function Invoke-LabNewContainerEnvironmentInteractive {
     $instanceId = Read-Host '  Instanzname [primary]'
     if (-not $instanceId) { $instanceId = 'primary' }
 
+    $passwordMode = Show-LabSubMenu -ScreenId "container-password-$Provider" -Title 'SA-Passwort' -Items @(
+        New-LabConsoleItem -Id 'generated' -Label 'Automatisch erzeugen' -Value 'Neues zufaelliges Kennwort; verschluesselt run-lokal gespeichert' -Shortcut '1'
+        New-LabConsoleItem -Id 'manual' -Label 'Manuell eingeben' -Value 'Wird nicht als lab-generiert ausgewiesen' -Shortcut '2'
+    )
+    if (-not $passwordMode) { return }
+
     # Testdatenbanken (optional, Mehrfachauswahl)
     $selectedSamples = @(Select-LabSampleSelection -SqlVersion $version)
 
@@ -1827,6 +1846,7 @@ function Invoke-LabNewContainerEnvironmentInteractive {
         InstanceId   = $instanceId
         AutoStart    = if (Read-LabConfirm -Prompt '  Instanz nach einem Host-Neustart automatisch starten?' -Default $false) { 'on' } else { 'off' }
     }
+    if ($passwordMode -eq 'generated') { $newLabArguments.GenerateSaPassword = $true }
     if($Intent){$newLabArguments.Cpu=[decimal]$Intent.Cpu;$newLabArguments.MemoryMB=[int]$Intent.MemoryMB;$newLabArguments.Collation=[string]$Intent.Collation;$newLabArguments.ServerConfig=New-LabIntentServerConfig -Intent $Intent;$newLabArguments.Drives=@(New-LabContainerDrivesFromIntent -Intent $Intent)}
     $defaultDataRoot = Get-LabDataRootDefault
     if ($defaultDataRoot) {
