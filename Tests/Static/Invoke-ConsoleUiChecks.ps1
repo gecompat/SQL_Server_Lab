@@ -1102,19 +1102,40 @@ Add-ConsoleUiCheck 'SQL-2025-KI bleibt innerhalb der achtteiligen Menuestruktur 
     $batchConsoleSource -match "\`$action -eq 'AiArea'.+Invoke-LabAreaMenuInteractive -Area Ai" -and
     $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,2500}?New-LabConsoleItem -Id 'AiScenarioPlan'" -and
     $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,3000}?New-LabConsoleItem -Id 'AiRetrievalEvaluation'" -and
-    $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,3000}?New-LabConsoleItem -Id 'AiGoldenRagEvaluation'"
+    $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,3000}?New-LabConsoleItem -Id 'AiGoldenRagEvaluation'" -and
+    $mainMenuSource -match "function Show-LabAiMenu[\s\S]{0,3000}?New-LabConsoleItem -Id 'AiGuidedDemo'"
 )
 $aiMenuSource = [regex]::Match($mainMenuSource, "function Show-LabAiMenu \{[\s\S]+?(?=\r?\nfunction )").Value
 $offeredAiActions = @([regex]::Matches($aiMenuSource, "New-LabConsoleItem -Id '([^']+)'") |
         ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -ne 'back' })
 $unhandledAiActions = @($offeredAiActions | Where-Object { $mainMenuSource -notmatch "'$_' \{ [A-Za-z0-9-]+ \}" })
 Add-ConsoleUiCheck 'Alle angebotenen KI-Menueaktionen besitzen einen Handler' (
-    $offeredAiActions.Count -ge 7 -and $unhandledAiActions.Count -eq 0
+    $offeredAiActions.Count -ge 8 -and $unhandledAiActions.Count -eq 0
 )
 $missingAiHandlerCounterexample = @(@($offeredAiActions) + 'AiMissingHandler' |
         Where-Object { $mainMenuSource -notmatch "'$_' \{ [A-Za-z0-9-]+ \}" })
 Add-ConsoleUiCheck 'KI-Anti-Waisen-Vertrag erkennt einen fehlenden Handler als Gegenbeweis' (
     $missingAiHandlerCounterexample.Count -eq 1 -and $missingAiHandlerCounterexample[0] -eq 'AiMissingHandler'
+)
+
+$guidedDemoSource = [regex]::Match($mainMenuSource, "function Invoke-LabAiGuidedDemoInteractive \{[\s\S]+?(?=\r?\nfunction )").Value
+$guidedDemoIds = @([regex]::Matches($guidedDemoSource, "New-LabConsoleItem -Id '([^']+)'") |
+        ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -ne 'back' })
+$unhandledGuidedDemoIds = @($guidedDemoIds | Where-Object { $guidedDemoSource -notmatch "'$_' \{" })
+Add-ConsoleUiCheck 'Gefuehrte KI-Demos bieten Vector, Retrieval, Golden-RAG und read-only Agent ohne Waisen an' (
+    $guidedDemoIds.Count -eq 4 -and
+    @($guidedDemoIds | Where-Object { $_ -in @('vector','retrieval','rag','agent') }).Count -eq 4 -and
+    $unhandledGuidedDemoIds.Count -eq 0
+)
+Add-ConsoleUiCheck 'Gefuehrte KI-Demos verwenden die bestehenden Szenario-, Metrik-, RAG- und Agent-Vertraege' (
+    $guidedDemoSource -match "Invoke-LabAiScenarioRunInteractive -ScenarioId 'vector-core-ci'" -and
+    $guidedDemoSource -match "Read-LabAiRetrievalGoldenDataset -DatasetId 'sql-lab-rag-de' -Version '1.0'" -and
+    $guidedDemoSource -match 'Measure-SqlServerLabAiRetrieval' -and
+    $guidedDemoSource -match "Invoke-LabAiGoldenRagEvaluationInteractive -CaseId 'backup-frequency'" -and
+    $guidedDemoSource -match 'Invoke-LabAiDiagnosticInteractive -Guided'
+)
+Add-ConsoleUiCheck 'Gefuehrte KI-Demos fuehren weder Cloudmodell noch teures gpt-oss ein' (
+    $guidedDemoSource -notmatch 'ollama-gpt-oss|gpt-oss:120b|AiCloud'
 )
 
 Write-Host "`nErgebnis: $passed PASS, $failed FAIL"

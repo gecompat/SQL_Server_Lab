@@ -72,7 +72,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   versionierte Golden Dataset bindet synthetische Fragen, Dokumente, Modelle,
   Top-k und Schwellen an den RAG-Plan sowie dessen deterministische Auswertung;
   Docker ist dafür nativ belegt, während der getrennte Podman-Nachweis vor der
-  RAG-Ausführung an einem zeitlich begrenzten Modell-Pull endete.
+  RAG-Ausführung an einem zeitlich begrenzten Modell-Pull endete. Das bestehende
+  KI-Untermenü bietet geführte Vector-, Retrieval-, Golden-RAG- und read-only
+  Agent-Demos über exakt diese Produkt- und CI-Verträge; die Retrieval-Demo ist
+  modell- und netzwerkfrei.
   Cloud-Embeddings, TLS-Gateway, ONNX und ANN bleiben offen;
 - Start, Stop, Restart, Status, Remove und Clear;
 - read-only Desired/Actual/Diff-Reconcile, kontrollierte START-/STOP-Aktionen
