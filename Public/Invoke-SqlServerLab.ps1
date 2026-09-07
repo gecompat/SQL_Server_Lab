@@ -492,9 +492,21 @@ function Show-LabEnvironmentStatusInteractive {
     if ($generatedPassword) {
         Write-LabStatus -Label 'SA-Passwort (automatisch erzeugt)' -Value $generatedPassword -Color Yellow
         Write-Host '  Das Passwort wird nur in dieser ausdrücklich geöffneten Statusansicht entschlüsselt angezeigt.' -ForegroundColor DarkGray
+        return
+    }
+
+    $passwordFact = Get-LabRunSaPasswordFact -RunId $RunId -StateRoot $StateRoot
+    if ($passwordFact.Available) {
+        Write-LabStatus -Label 'SA-Passwort (selbst vergeben)' -Value ([string]$passwordFact.Password) -Color Yellow
+        Write-Host '  Das Passwort wird nur in dieser ausdrücklich geöffneten Statusansicht entschlüsselt angezeigt.' -ForegroundColor DarkGray
+        if ($passwordFact.EnvironmentVariable) {
+            $variableState = if ($passwordFact.EnvironmentVariableSet) { 'in dieser Sitzung gesetzt' } else { 'in dieser Sitzung nicht gesetzt' }
+            Write-Host ("  Bei der Erstellung verwendete Prozessvariable: {0} ({1})." -f @($passwordFact.EnvironmentVariable, $variableState)) -ForegroundColor DarkGray
+        }
     }
     else {
-        Write-LabStatus -Label 'SA-Passwort' -Value 'nicht automatisch gespeichert oder für diese Umgebung nicht abrufbar' -Color DarkGray
+        Write-LabStatus -Label 'SA-Passwort' -Value 'im Run kein Kennwort hinterlegt' -Color DarkGray
+        Write-Host '  Ohne hinterlegtes Kennwort kann nur ueber "Container neu erstellen mit Port, CPU und Speicher" ein neues gesetzt werden.' -ForegroundColor DarkGray
     }
 }
 
@@ -1069,6 +1081,70 @@ function Get-LabAutomaticallyGeneratedRunSaPassword {
     }
     catch { }
     return $null
+}
+
+function Get-LabRunSaPasswordFact {
+    <#
+    .SYNOPSIS Beschreibt Verfuegbarkeit und Herkunft des SA-Kennworts eines Runs.
+    .DESCRIPTION Das Kennwort liegt DPAPI-geschuetzt im Run und wird vom Modul
+    fuer Start, Abgleich und Datenbankoperationen ohnehin entschluesselt. Wer den
+    Secret Store lesen kann, kann das Modul ohnehin ausfuehren; ein Zurueckhalten
+    gegenueber dem Eigentuemer schuetzt nichts und sperrt ihn aus seiner eigenen
+    Umgebung aus. Diese Funktion ist bewusst getrennt von
+    Get-LabAutomaticallyGeneratedRunSaPassword, damit Connection-Center-Exporte
+    weiterhin ausschliesslich selbst erzeugte Kennwoerter einbetten.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
+    $fact = [pscustomobject]@{
+        Available              = $false
+        Origin                 = 'None'
+        Password               = $null
+        EnvironmentVariable    = ''
+        EnvironmentVariableSet = $false
+    }
+
+    $generated = Get-LabAutomaticallyGeneratedRunSaPassword -RunId $RunId -StateRoot $StateRoot
+    if ($generated) {
+        $fact.Available = $true
+        $fact.Origin = 'Generated'
+        $fact.Password = $generated
+        return $fact
+    }
+
+    try {
+        $secret = Get-LabSecret -Path $runDirectory -Name 'sa-password'
+        if ($secret) {
+            $pointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
+            try {
+                $fact.Password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
+                $fact.Available = $true
+                $fact.Origin = 'UserSupplied'
+            }
+            finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer) }
+        }
+    }
+    catch { }
+
+    # Der Batch-Weg haelt nur den Variablennamen; er hilft beim Wiederherstellen der Sitzung.
+    try {
+        $run = @(Get-LabActiveRuns) | Where-Object { [string]$_.runId -eq $RunId } | Select-Object -First 1
+        $operationId = [string]$run.metadata.workflowOperationId
+        if ($operationId) {
+            $operation = Read-LabWorkflowJson -Path (Get-LabOperationStatePath -OperationId $operationId -StateRoot $StateRoot)
+            $variable = [string]$operation.executor.effective.SaPasswordEnvironmentVariable
+            if ($variable) {
+                $fact.EnvironmentVariable = $variable
+                $fact.EnvironmentVariableSet = -not [string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($variable, 'Process'))
+            }
+        }
+    }
+    catch { }
+
+    return $fact
 }
 
 function Get-LabHostPhysicalMemoryMB {
