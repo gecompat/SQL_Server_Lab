@@ -224,6 +224,7 @@ sources_of_truth:
   polybase_s3_object_storage_backlog: Documentation/Project_Planning/POLYBASE_S3_OBJECT_STORAGE_BACKLOG.md
   sql2025_ai_platform_backlog: Documentation/Project_Planning/SQL2025_AI_PLATFORM_BACKLOG.md
   sql2025_vector_embedding_backlog: Documentation/Project_Planning/SQL2025_VECTOR_EMBEDDING_BACKLOG.md
+  console_ux_follow_up_backlog: Documentation/Project_Planning/CONSOLE_UX_FOLLOW_UP_BACKLOG.md
   manual_acceptance_consolidation_plan: Documentation/Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
