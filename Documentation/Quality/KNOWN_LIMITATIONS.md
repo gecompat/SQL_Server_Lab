@@ -1156,23 +1156,21 @@ und automatische Gastumschaltung.
 
 ## Tests
 
-### Nächtliche Regression ist auf `main` dauerhaft rot
+### Nächtliche Regression auf `main`
 
-Der Workflow `Nightly Regression` schlägt seit mindestens 2026-09-03 durchgehend
-fehl. Betroffen sind ausschließlich zwei Runtime-Jobs:
-`docker-runtime` bricht im Schritt `Docker SQL Server lifecycle / CLI acceptance`
-mit `Process completed with exit code -1` ohne verwertbare Meldung ab;
-`hyperv-runtime` schlägt ebenfalls fehl. Alle statischen Suiten sowie
-`podman-runtime`, `mixed-runtime` und `adapter-runtime` sind im selben Lauf grün.
+Die vom 2026-09-03 bis 2026-09-07 rote Nightly-Serie ist auf dem aktuellen
+Stand behoben. Der Hyper-V-Smoke hatte trotz erfolgreichem Abschluss einen
+veralteten nativen Exitcode vererbt; Commit `5261bc9` setzt ihn nach den bereits
+ausnahmebasierten Fehlerpfaden auf `0`. Der Docker-Abbruch vom 2026-09-07 ließ
+sich auf dem aktuellen Stand nicht reproduzieren.
 
-Der PR-Gate umfasst diese beiden Runtime-Jobs nicht. Ein grüner Pull Request ist
-deshalb kein Nachweis dafür, dass die nächtliche Regression grün wäre. Umgekehrt
-verdeckt der dauerhaft rote Lauf jede neue Regression in denselben Jobs.
-
-Ob die Ursache im Runner oder im Skript liegt, ist offen. Der zuletzt
-ausgewertete Lauf lag auf einem Commit vor den Änderungen vom 2026-09-07; für den
-aktuellen Stand liegt kein Ergebnis vor. Die Aufarbeitung ist in
-`Documentation/Project_Planning/CONSOLE_UX_FOLLOW_UP_BACKLOG.md` festgehalten.
+Der manuell gestartete
+[`Nightly Regression`-Lauf 34159244948](https://github.com/gecompat/SQL_Server_Lab/actions/runs/34159244948)
+auf `main`-Commit `0aba5e9` ist vollständig grün; dies umfasst Docker, Podman,
+Hyper-V, Mixed-Provider, Adapter, gemeinsame SQL-Umgebungen und beide statischen
+Plattformen. Das ist ein datierter Nachweis und keine Zusicherung für künftige
+Läufe. Die historische Aufarbeitung steht in
+`Documentation/Project_Planning/CONSOLE_UX_FOLLOW_UP_BACKLOG.md`.
 
 ### Hyper-V-Netzwerk-Reconcile
 

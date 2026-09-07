@@ -18,7 +18,7 @@
 | EXTERNAL_LANGUAGES_IMPLEMENTATION_PLAN.md | Providerneutraler Umsetzungsplan für Python, R und Java auf Hyper-V/Windows sowie Docker/Podman unter Linux; konkretisiert `SFT-711` und `SFT-712` |
 | REPOSITORY_AGENT_SKILLS_BACKLOG.md | Fachlich akzeptierter Backlog für repository-lokale KI-Skills; trennt den eigenständig ausführbaren Client-Readiness-Check vom Skill-Loader und priorisiert `Readiness` vor `Validation` und `Operate` |
 | CU_MONITORING_BACKLOG.md | Backlog zur Katalogaktualität der SQL-Server-Builds |
-| CONSOLE_UX_FOLLOW_UP_BACKLOG.md | Offene Punkte der Konsolen-UX-Arbeit: dauerhaft rote Nightly-Runtime-Jobs, fehlende Datenbankaktionen, Diagnoselog-Abdeckung, Begründung deaktivierter Einträge, Hilfeabdeckung sowie bindende Erkenntnisse zu Vertragsgestaltung und Scope-Fehlern |
+| CONSOLE_UX_FOLLOW_UP_BACKLOG.md | Offene Punkte der Konsolen-UX-Arbeit: aufgelöste Nightly-Regression, fehlende Datenbankaktionen, Diagnoselog-Abdeckung, Begründung deaktivierter Einträge, Hilfeabdeckung sowie bindende Erkenntnisse zu Vertragsgestaltung und Scope-Fehlern |
 | HYPERV_REMOTE_HOST_BACKLOG.md | Spätere Steuerung eines entfernten Windows-Hyper-V-Hosts aus der lokalen Workflow-Oberfläche |
 | WINDOWS_LOCALE_CONFIGURATION_BACKLOG.md | Deklarative, pro Windows-Instanz konfigurierbare Sprache, Region, Tastatur und Zeitzone für Manifest- und Batch-Pfade |
 | WINDOWS_SLOT_ACTIVATION_BACKLOG.md | Allgemeines Lizenz-Reconcile für Windows-Child-Slots mit sicherer Unterscheidung persistenter und temporärer External-NICs |
