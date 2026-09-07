@@ -40,6 +40,8 @@ sources_of_truth:
   ai_query_result_schema: Schemas/ai-query-result.schema.json
   ai_retrieval_evaluation: Public/Measure-SqlServerLabAiRetrieval.ps1
   ai_retrieval_evaluation_schema: Schemas/ai-retrieval-evaluation.schema.json
+  ai_retrieval_golden_dataset_schema: Schemas/ai-retrieval-golden-dataset.schema.json
+  ai_retrieval_golden_dataset: Scenarios/Ai/rag-local-vector/1.0/golden-dataset.json
   ai_rag_orchestration: Public/Invoke-SqlServerLabAiRag.ps1
   ai_diagnostic_agent: Public/Invoke-SqlServerLabAiDiagnosticAgent.ps1
   validation_ai_diagnostic_agent_container: Tests/Integration/Invoke-AiDiagnosticAgentContainerAcceptance.ps1

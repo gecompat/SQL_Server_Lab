@@ -178,8 +178,8 @@ abgenommen:
 ```
 
 Der vollständige lokale RAG-Pfad verbindet dieselben Modelle mit einer echten,
-flüchtigen SQL-Server-2025-Vektorsuche. Docker und Podman werden getrennt samt
-Restart und Cleanup geprüft:
+flüchtigen SQL-Server-2025-Vektorsuche und bewertet den gebundenen Golden-Fall
+blockierend. Docker und Podman werden getrennt samt Restart und Cleanup geprüft:
 
 ```powershell
 .\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider docker

@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-retrieval-golden-dataset.schema.json",
+  "title": "SQL Server Lab AI Retrieval Golden Dataset",
+  "type": "object",
+  "required": ["contract", "id", "version", "classification", "scenarioId", "models", "documents", "cases"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "contract": {
+      "type": "object",
+      "required": ["name", "version"],
+      "properties": {
+        "name": { "const": "SqlServerLab.AiRetrievalGoldenDataset" },
+        "version": { "const": "1.0" }
+      },
+      "additionalProperties": false
+    },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+    "version": { "type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+$" },
+    "classification": { "const": "SYNTHETIC_OR_REDISTRIBUTABLE" },
+    "scenarioId": { "const": "rag-local-vector" },
+    "models": {
+      "type": "object",
+      "required": ["embedding", "generation"],
+      "properties": {
+        "embedding": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,95}$" },
+        "generation": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,95}$" }
+      },
+      "additionalProperties": false
+    },
+    "documents": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["id", "content"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,95}$" },
+          "content": { "type": "string", "minLength": 1, "maxLength": 8192 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": ["id", "question", "expectedDocumentIds", "topK", "thresholds"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+          "question": { "type": "string", "minLength": 1, "maxLength": 8192 },
+          "expectedDocumentIds": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,95}$" }
+          },
+          "topK": { "type": "integer", "minimum": 1, "maximum": 20 },
+          "thresholds": {
+            "type": "object",
+            "required": ["minimumRecall", "minimumMrr", "minimumNdcg"],
+            "properties": {
+              "minimumRecall": { "type": "number", "minimum": 0, "maximum": 1 },
+              "minimumMrr": { "type": "number", "minimum": 0, "maximum": 1 },
+              "minimumNdcg": { "type": "number", "minimum": 0, "maximum": 1 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

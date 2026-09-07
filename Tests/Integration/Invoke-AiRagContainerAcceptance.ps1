@@ -46,16 +46,17 @@ try {
     $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
     $lab=New-SqlServerLab -Manifest $manifestPath -SaPassword $password -StateRoot $stateRoot -NonInteractive -SkipAssessment
     if($lab.State-ne'Running'){throw 'AI_RAG_SQL_PROVISION_FAILED'}
-    $documents=@(@{Id='backup-policy';Content='SQL Server Lab überprüft synthetische Sicherungen täglich.'},@{Id='network-policy';Content='Das synthetische Labnetz verwendet ausschließlich isolierte Testadressen.'},@{Id='cleanup-policy';Content='Run-eigene Testressourcen werden nach der Abnahme vollständig entfernt.'})
-    $invoke=@{RunId=$lab.RunId;InstanceId='primary';SaPassword=$password;Question='Wie oft werden Sicherungen überprüft?';Document=$documents;LocalPort=$ollamaPort;TopK=2;StateRoot=$stateRoot;Confirm=$false}
+    $invoke=@{RunId=$lab.RunId;InstanceId='primary';SaPassword=$password;CaseId='backup-frequency';LocalPort=$ollamaPort;StateRoot=$stateRoot;Confirm=$false}
     $first=Invoke-SqlServerLabAiRag @invoke
     if($first.Status-ne'SUCCEEDED'-or $first.Citations[0]-ne'backup-policy'-or [string]::IsNullOrWhiteSpace($first.Answer)){throw 'AI_RAG_RESULT_FAILED'}
+    $evaluation=Measure-SqlServerLabAiRetrieval -QueryResult $first -CaseId backup-frequency
+    if($evaluation.Status-ne'PASSED'-or $evaluation.Binding.PlanKey-ne$first.PlanKey){throw 'AI_RAG_GOLDEN_EVALUATION_FAILED'}
     & $tool restart ([string]$lab.Instances[0].ContainerName) *> $null;if($LASTEXITCODE-ne 0){throw 'AI_RAG_SQL_RESTART_FAILED'}
     & $module { param($hostName,$port,$secret,$provider,$containerName) Wait-SqlReady -HostName $hostName -Port $port -SaPassword $secret -TimeoutSeconds 180 -ExpectedMajorVersion 17 -Provider $provider -ContainerIdOrName $containerName | Out-Null } ([string]$lab.Instances[0].Host) ([int]$lab.Instances[0].Port) $password $Provider ([string]$lab.Instances[0].ContainerName)
     & $tool restart $runtimeName *> $null;if($LASTEXITCODE-ne 0){throw 'AI_RAG_OLLAMA_RESTART_FAILED'}
     $portText=[string](& $tool port $runtimeName '11434/tcp'|Select-Object -First 1);if($portText-notmatch':(?<port>[0-9]+)$'){throw 'AI_RAG_RESTART_PORT_MISSING'};$ollamaPort=[int]$Matches.port;Wait-RagOllama -Port $ollamaPort;$invoke.LocalPort=$ollamaPort
     $second=Invoke-SqlServerLabAiRag @invoke;if($second.Status-ne'SUCCEEDED'-or $second.Citations[0]-ne'backup-policy'){throw 'AI_RAG_RESTART_RESULT_FAILED'}
-    $succeeded=$true;[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiRagContainerAcceptance';Version='1.0'};Status='PASSED';Provider=$Provider;SqlRetrieval='EXACT_COSINE';TopCitation='backup-policy';Restart='PASSED'}
+    $succeeded=$true;[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiRagContainerAcceptance';Version='1.0'};Status='PASSED';Provider=$Provider;SqlRetrieval='EXACT_COSINE';TopCitation='backup-policy';GoldenEvaluation='PASSED';Restart='PASSED'}
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue

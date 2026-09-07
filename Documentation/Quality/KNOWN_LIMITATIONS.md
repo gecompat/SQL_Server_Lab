@@ -15,7 +15,11 @@ mit `gpt-oss:120b` für synthetische oder öffentlich/weiterverteilbare Inhalte
 opt-in unterstützt und am 2026-09-06 real nachgewiesen. Lokale Embedding- und
 Generierungsmodelle sind am selben Tag unter Docker und Podman getrennt mit
 Live-Digests, Restart und Cleanup nachgewiesen. Ollama-Cloud-Embeddings und
-die Hyper-V-Ollama-Lane bleiben `PLANNED`.
+die Hyper-V-Ollama-Lane bleiben `PLANNED`. Ein kostenbegrenzter Live-Probe am
+2026-09-07 erreichte die authentifizierte Ollama-Cloud-Generation, während
+`embeddinggemma` und `embeddinggemma:cloud` am Embed-Endpunkt jeweils mit HTTP
+401 abgewiesen wurden; daraus wird bewusst kein Cloud-Embedding-Support
+abgeleitet.
 Der implementierte Offline-Transport prüft Request-, Retry-, Dimensions- und
 Fehlerverträge, stellt aber selbst keinen Netzwerkdienst bereit.
 Interne Inhalte werden vom Cloud-Command fail-closed abgelehnt. Eine breit
@@ -34,9 +38,15 @@ und blockierend. Die lokale RAG-Orchestrierung erzeugt Embeddings über Ollama,
 führt exakte Cosine-Suche in einer flüchtigen SQL-Server-2025-Tabellenvariable
 aus und bindet die Rangfolge als Quellenkontext an die Generierung. Docker und
 Podman wurden dafür am 2026-09-06 getrennt einschließlich SQL-/Ollama-Restart
-und Cleanup nativ geprüft. Golden-Dataset-Bindung, hybride Suche und automatische
-Antworttreueprüfung bleiben offen. Ein Modell-Judge wird bewusst nicht als
-blockierendes Gate verwendet.
+und Cleanup nativ geprüft. Das versionierte synthetische Golden Dataset bindet
+Frage, Dokumente, lokale Modelle, Top-k, Schwellen, Dataset-Hash und Fall-ID an
+den RAG-PlanKey; nur das passend gebundene Ergebnis eines tatsächlich
+ausgeführten SQL-RAG-Laufs darf bewertet werden. Docker hat diesen Pfad am
+2026-09-07 einschließlich Restart und Cleanup nativ bestanden. Der getrennte
+Podman-Nachweis erreichte wegen eines nach 900 Sekunden abgelaufenen lokalen
+Modell-Pulls die RAG-Ausführung nicht; Cleanup war erfolgreich. Hybride Suche
+und automatische Antworttreueprüfung bleiben offen. Ein Modell-Judge wird
+bewusst nicht als blockierendes Gate verwendet.
 
 Der read-only Diagnose-Agent besitzt ausschließlich die katalogisierten
 Werkzeuge `server-summary`, `database-capacity`, `wait-statistics` und

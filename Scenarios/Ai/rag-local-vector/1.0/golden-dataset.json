@@ -1,0 +1,53 @@
+{
+  "$schema": "../../../../Schemas/ai-retrieval-golden-dataset.schema.json",
+  "contract": {
+    "name": "SqlServerLab.AiRetrievalGoldenDataset",
+    "version": "1.0"
+  },
+  "id": "sql-lab-rag-de",
+  "version": "1.0",
+  "classification": "SYNTHETIC_OR_REDISTRIBUTABLE",
+  "scenarioId": "rag-local-vector",
+  "models": {
+    "embedding": "ollama-embeddinggemma-300m-q4",
+    "generation": "ollama-gemma3-1b-local"
+  },
+  "documents": [
+    {
+      "id": "backup-policy",
+      "content": "SQL Server Lab überprüft synthetische Sicherungen täglich."
+    },
+    {
+      "id": "network-policy",
+      "content": "Das synthetische Labnetz verwendet ausschließlich isolierte Testadressen."
+    },
+    {
+      "id": "cleanup-policy",
+      "content": "Run-eigene Testressourcen werden nach der Abnahme vollständig entfernt."
+    }
+  ],
+  "cases": [
+    {
+      "id": "backup-frequency",
+      "question": "Wie oft werden synthetische Sicherungen überprüft?",
+      "expectedDocumentIds": ["backup-policy"],
+      "topK": 2,
+      "thresholds": {
+        "minimumRecall": 1,
+        "minimumMrr": 1,
+        "minimumNdcg": 1
+      }
+    },
+    {
+      "id": "resource-cleanup",
+      "question": "Was geschieht nach der Abnahme mit run-eigenen Testressourcen?",
+      "expectedDocumentIds": ["cleanup-policy"],
+      "topK": 2,
+      "thresholds": {
+        "minimumRecall": 1,
+        "minimumMrr": 1,
+        "minimumNdcg": 1
+      }
+    }
+  ]
+}

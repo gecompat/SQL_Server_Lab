@@ -60,7 +60,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | Sample-Datenbanken (Backup) | implementiert | `Private/SampleArtifactHandlers.ps1`; direkte `.bak`-Varianten über Trust-/Hash-Pfad, Mehrfachauswahl im Menü und `New-SqlServerLab -Sample` |
 | Project Adapter (v0.1) | implementiert | `Schemas/project-adapter.schema.json`, `Test-SqlServerLabAdapter`, `Install-SqlServerLabAdapter`; T-SQL-Entrypoints ohne Lifecycle-Seiteneffekt |
 | T-SQL-Skriptausführung | implementiert | `Invoke-SqlServerLabScript` |
-| SQL-2025-KI-Szenarien | Manifest-/Szenariovertrag, deterministischer Vector-Core, lokale Ollama-Embedding-/Generation-Lanes für Docker und Podman, opt-in Cloud-Generation sowie ein providerneutraler Hyper-V-Controller mit dokumentiertem `PARTIAL`-Restartnachweis; im achtteiligen Konsolenmenü unter Datenbanken eingebunden | `Get-SqlServerLabAiScenario`, `Invoke-SqlServerLabAiScenario`, `Invoke-SqlServerLabAiModel`, `Invoke-SqlServerLabAiRag`, `Invoke-SqlServerLabAiDiagnosticAgent` |
+| SQL-2025-KI-Szenarien | Manifest-/Szenariovertrag, deterministischer Vector-Core, lokale Ollama-Embedding-/Generation-Lanes für Docker und Podman, hashgebundene Golden-RAG-Auswertung, opt-in Cloud-Generation sowie ein providerneutraler Hyper-V-Controller mit dokumentiertem `PARTIAL`-Restartnachweis; im achtteiligen Konsolenmenü unter Datenbanken eingebunden | `Get-SqlServerLabAiScenario`, `Invoke-SqlServerLabAiScenario`, `Invoke-SqlServerLabAiModel`, `Invoke-SqlServerLabAiRag`, `Measure-SqlServerLabAiRetrieval`, `Invoke-SqlServerLabAiDiagnosticAgent` |
 | Provider-/Versions-/Parallel-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeMatrix.ps1` |
 | Einzelprovider-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
 | Statische Konsistenzprüfung | implementiert | `Tests/Static/Invoke-DocumentationChecks.ps1` |
@@ -722,8 +722,8 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabAiScenario` | Katalogisierten KI-Szenarioplan und optionale sanitisierte Run-Evidence anzeigen |
 | `Invoke-SqlServerLabAiScenario` | Deklariertes, hashgebundenes SQL-KI-Szenario journalisiert ausführen |
 | `Invoke-SqlServerLabAiModel` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress und lokalem `.env`-Secret aufrufen |
-| `Measure-SqlServerLabAiRetrieval` | Retrieval-Rangfolgen deterministisch mit Recall@k, Precision@k, MRR und nDCG bewerten |
-| `Invoke-SqlServerLabAiRag` | Lokales RAG mit Ollama-Embeddings und exakter SQL-Server-2025-Vektorsuche ausführen |
+| `Measure-SqlServerLabAiRetrieval` | Manuelle Rangfolgen oder gebundene Golden-RAG-Ergebnisse deterministisch mit Recall@k, Precision@k, MRR und nDCG bewerten |
+| `Invoke-SqlServerLabAiRag` | Lokales RAG ad hoc oder aus einem versionierten Golden-Fall mit Ollama-Embeddings und exakter SQL-Server-2025-Vektorsuche ausführen |
 | `Invoke-SqlServerLabAiDiagnosticAgent` | Read-only SQL-Diagnose-Agent mit festen Werkzeugen und lokaler Ollama-Zusammenfassung |
 | `Test-SqlServerLabContainerTool` | Kataloggebundenes SqlPackage read-only per Run-/Scope-gebundener Versionsprobe prüfen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |

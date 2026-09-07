@@ -107,6 +107,7 @@ try {
 
     $contractFiles=@(
         @{Data='Catalogs/ai-models.json';Schema='Schemas/ai-model-catalog.schema.json'},
+        @{Data='Scenarios/Ai/rag-local-vector/1.0/golden-dataset.json';Schema='Schemas/ai-retrieval-golden-dataset.schema.json'},
         @{Data=$null;Schema='Schemas/ai-endpoint-plan.schema.json'},
         @{Data=$null;Schema='Schemas/ai-runtime-journal.schema.json'},
         @{Data=$null;Schema='Schemas/ai-query-result.schema.json'}
@@ -267,6 +268,46 @@ try {
     Add-CheckResult 'RAG-Ergebnis erfüllt den geheimnisfreien Query-Result-Vertrag' (
         (($rag.Result|ConvertTo-Json -Depth 20)|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-query-result.schema.json') -ErrorAction SilentlyContinue) -and
         (($rag.PublicPlan|ConvertTo-Json -Depth 20) -notmatch 'Alpha ist|Beta ist|Was ist'))
+
+    $goldenRag=& $module {
+        $golden=Read-LabAiRetrievalGoldenDataset -DatasetId sql-lab-rag-de -Version 1.0
+        $case=Get-LabAiRetrievalGoldenCase -GoldenDataset $golden -CaseId backup-frequency
+        $binding=[PSCustomObject]@{DatasetId='sql-lab-rag-de';DatasetVersion='1.0';DatasetHash=$golden.DatasetHash;CaseId='backup-frequency'}
+        $plan=New-LabAiRagPlan -RunId '11111111-2222-4333-8444-555555555555' -InstanceId primary `
+            -Question $case.question -Document @($golden.Dataset.documents) `
+            -EmbeddingModelKey $golden.Dataset.models.embedding -GenerationModelKey $golden.Dataset.models.generation `
+            -LocalPort 11434 -TopK $case.topK -EvaluationBinding $binding
+        $embeddingTransport={param($request)[PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{embeddings=@(,@(1..768|ForEach-Object{if($_ -eq 1){1.0}else{0.0}}))}}}
+        $generationTransport={param($request)[PSCustomObject]@{StatusCode=200;Body=[PSCustomObject]@{response='Sicherungen werden täglich geprüft [backup-policy].'}}}
+        $sqlExecutor={param($query) @('AI_RAG_ROW|backup-policy|0.0','AI_RAG_ROW|network-policy|0.5')}
+        $password=[SecureString]::new()
+        $result=Invoke-LabAiRag -Plan $plan -SaPassword $password -Target ([PSCustomObject]@{Version='2025';Provider='docker';HostName='127.0.0.1';Port=1433}) -Question $case.question -EmbeddingTransport $embeddingTransport -GenerationTransport $generationTransport -SqlExecutor $sqlExecutor
+        [PSCustomObject]@{Golden=$golden;Plan=$plan;Result=$result}
+    }
+    $goldenEvaluation=Measure-SqlServerLabAiRetrieval -QueryResult $goldenRag.Result -CaseId backup-frequency
+    $goldenWhatIf=Invoke-SqlServerLabAiRag -RunId '11111111-2222-4333-8444-555555555555' `
+        -SaPassword ([SecureString]::new()) -CaseId backup-frequency -WhatIf
+    Add-CheckResult 'Golden Dataset bindet Frage, Dokumente, Modelle und Plan vor dem SQL-RAG-Lauf' (
+        $goldenWhatIf.EvaluationBinding.DatasetId -eq 'sql-lab-rag-de' -and
+        $goldenWhatIf.EvaluationBinding.CaseId -eq 'backup-frequency' -and
+        $goldenWhatIf.EvaluationBinding.DatasetHash -match '^[a-f0-9]{64}$' -and
+        $goldenWhatIf.DocumentCount -eq 3 -and $goldenWhatIf.TopK -eq 2 -and
+        (($goldenWhatIf|ConvertTo-Json -Depth 20) -notmatch 'Sicherungen|Testressourcen|Frage'))
+    Add-CheckResult 'Ausgeführtes SQL-RAG wird gegen den gebundenen Golden-Fall blockierend bewertet' (
+        $goldenEvaluation.Status -eq 'PASSED' -and $goldenEvaluation.RecallAtK -eq 1 -and
+        $goldenEvaluation.Mrr -eq 1 -and $goldenEvaluation.NdcgAtK -eq 1 -and
+        $goldenEvaluation.Binding.RunId -eq $goldenRag.Result.RunId -and
+        $goldenEvaluation.Binding.PlanKey -eq $goldenRag.Result.PlanKey -and
+        (($goldenRag.Result|ConvertTo-Json -Depth 20)|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-query-result.schema.json') -ErrorAction SilentlyContinue) -and
+        (($goldenEvaluation|ConvertTo-Json -Depth 20)|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-retrieval-evaluation.schema.json') -ErrorAction SilentlyContinue))
+    $goldenMismatchRejected=$false
+    try {
+        $tampered=$goldenRag.Result|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20
+        $tampered.EvaluationBinding.DatasetHash='0000000000000000000000000000000000000000000000000000000000000000'
+        Measure-SqlServerLabAiRetrieval -QueryResult $tampered -CaseId backup-frequency | Out-Null
+    }
+    catch { $goldenMismatchRejected=$_.Exception.Message -eq 'AI_EVALUATION_GOLDEN_BINDING_MISMATCH' }
+    Add-CheckResult 'Manipulierte oder fallfremde Golden-Bindung wird vor der Metrik abgelehnt' $goldenMismatchRejected
 
     $agent=& $module {
         param($TemporaryRoot)

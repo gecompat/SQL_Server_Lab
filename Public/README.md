@@ -60,8 +60,8 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Invoke-SqlServerLabScript` | `Invoke-SqlServerLabScript.ps1` | T-SQL-Skript mit `GO`-Batchtrennung ausführen |
 | `Invoke-SqlServerLabAiScenario` | `Invoke-SqlServerLabAiScenario.ps1` | Deklariertes SQL-KI-Szenario nach Revalidierung journalisiert ausführen; unterstützt `WhatIf`, No-op, Force und automatisches Cleanup |
 | `Invoke-SqlServerLabAiModel` | `Invoke-SqlServerLabAiModel.ps1` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress, Datenklasse und begrenztem Budget aufrufen |
-| `Measure-SqlServerLabAiRetrieval` | `Measure-SqlServerLabAiRetrieval.ps1` | Geordnete Retrieval-IDs deterministisch über Recall@k, Precision@k, MRR und nDCG gegen blockierende Schwellen prüfen |
-| `Invoke-SqlServerLabAiRag` | `Invoke-SqlServerLabAiRag.ps1` | Lokales Ollama-RAG über flüchtige Dokumente und exakte SQL-2025-Vektorsuche ausführen |
+| `Measure-SqlServerLabAiRetrieval` | `Measure-SqlServerLabAiRetrieval.ps1` | Manuelle Rangfolgen oder ein hashgebundenes, tatsächlich ausgeführtes Golden-RAG deterministisch über Recall@k, Precision@k, MRR und nDCG prüfen |
+| `Invoke-SqlServerLabAiRag` | `Invoke-SqlServerLabAiRag.ps1` | Lokales Ollama-RAG ad hoc oder mit versioniert gebundener Golden-Dataset-/Fallidentität über exakte SQL-2025-Vektorsuche ausführen |
 | `Invoke-SqlServerLabAiDiagnosticAgent` | `Invoke-SqlServerLabAiDiagnosticAgent.ps1` | Katalogisierte read-only SQL-Diagnosen unter kurzlebiger Identität lokal zusammenfassen |
 | `Test-SqlServerLabContainerTool` | `Test-SqlServerLabContainerTool.ps1` | Kataloggebundenes SqlPackage per Run-/Scope-gebundenem read-only Versionsprobe prüfen |
 | `Restore-SqlServerLabDatabase` | `Restore-SqlServerLabDatabase.ps1` | Verifiziertes Lab_Data-Backup per stabiler `BackupSetId` oder direkte `.bak`-Datei wiederherstellen; URL-Acquisition mit SHA-256, lokalem Trust Store und inhaltsadressiertem Cache; Ziel bevorzugt per RunId aufloesen |

@@ -18,6 +18,17 @@
     "ScenarioId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
     "PlanKey": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
     "ModelKey": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,95}$" },
+    "EvaluationBinding": {
+      "type": ["object", "null"],
+      "required": ["DatasetId", "DatasetVersion", "DatasetHash", "CaseId"],
+      "properties": {
+        "DatasetId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+        "DatasetVersion": { "type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+$" },
+        "DatasetHash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "CaseId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" }
+      },
+      "additionalProperties": false
+    },
     "Answer": { "type": ["string", "null"], "maxLength": 32768 },
     "Citations": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,95}$" } },
     "ToolExecutions": {
