@@ -100,6 +100,7 @@ Initialize-SqlServerLabCms             # Kompakten persistenten lokalen CMS erst
 Sync-SqlServerLabCms                   # CMS abgleichen; optionale generierte Kennwortaliase nur In-Memory
 Get-SqlServerLabReconcilePlan          # Read-only Lifecycle- oder External-Runtime-Reconcile-Plan
 Invoke-SqlServerLabReconcileAction     # Start/Stop oder validierten Container-Runtime-Refresh ausfuehren
+Move-SqlServerLabContainerNetwork      # Verwaltetes konfliktbehaftetes Docker-/Podman-Labnetz explizit migrieren
 Invoke-SqlServerLabWorkflowAction      # UI-tauglicher, nicht interaktiver Hyper-V-Schritt oder gebundener Container-Paketexport
 New-SqlServerLab                       # Neue Umgebung
 Get-SqlServerLab                       # Status

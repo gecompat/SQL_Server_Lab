@@ -696,6 +696,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Sync-SqlServerLabCms` | Verwalteten lokalen CMS mit dem aktuellen Endpunktkatalog abgleichen |
 | `Get-SqlServerLabReconcilePlan` | Read-only Plan für Lifecycle, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Reconcile, Containerressourcen/Autostart oder resolvergebundenen External-Runtime-Reconcile einschließlich additiver Hyper-V-Gastinstallation |
 | `Invoke-SqlServerLabReconcileAction` | `START`/`STOP`, eigentumsgebundene Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Aktionen, Container-Replacement oder additive Hyper-V-External-Runtime-Installation ausführen |
+| `Move-SqlServerLabContainerNetwork` | Konfligierendes verwaltetes Docker- oder Podman-Labnetz nach expliziter Bestätigung auf ein geprüftes Subnetz verschieben |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Hyper-V-Workflow-Aktion für die lokale Oberfläche |
 | `New-SqlServerLabManifest` | Schema-gesteuertes Manifest in der Konsole erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung strukturell und fachlich prüfen |

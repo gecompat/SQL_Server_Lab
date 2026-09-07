@@ -20,6 +20,18 @@ $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 
 Write-Host ''; Write-Host 'SQL_Server_Lab - Lab Network Checks' -ForegroundColor Cyan
+$networkOverrideNames = @(
+    'SQL_SERVER_LAB_DOCKER_NETWORK', 'SQL_SERVER_LAB_DOCKER_SUBNET',
+    'SQL_SERVER_LAB_PODMAN_NETWORK', 'SQL_SERVER_LAB_PODMAN_SUBNET',
+    'SQL_SERVER_LAB_HYPERV_NETWORK', 'SQL_SERVER_LAB_HYPERV_SUBNET',
+    'SQL_SERVER_LAB_HYPERV_NAT_NETWORK', 'SQL_SERVER_LAB_HYPERV_NAT_SUBNET',
+    'SQL_SERVER_LAB_RESERVED_SUBNETS'
+)
+$networkOverrideValues = @{}
+foreach ($networkOverrideName in $networkOverrideNames) {
+    $networkOverrideValues[$networkOverrideName] = [Environment]::GetEnvironmentVariable($networkOverrideName, 'Process')
+    [Environment]::SetEnvironmentVariable($networkOverrideName, $null, 'Process')
+}
 try {
     $module = Import-Module $modulePath -Force -PassThru
     $defaults = & $module { @('docker', 'podman', 'hyperv') | ForEach-Object { Get-LabRuntimeNetwork -Provider $_ } }
@@ -31,6 +43,41 @@ try {
     )
     $overlap = & $module { [PSCustomObject]@{ Overlap = Test-LabIpv4SubnetOverlap -Left '172.26.0.0/16' -Right '172.26.12.0/24'; Separate = Test-LabIpv4SubnetOverlap -Left '172.26.0.0/16' -Right '172.27.0.0/16' } }
     Add-CheckResult -Name 'CIDR-Pruefung erkennt Ueberlappungen' -Success ($overlap.Overlap -and -not $overlap.Separate)
+    $containerNetworkFallback = & $module {
+        $originalKnownSubnets = (Get-Command Get-LabKnownIpv4Subnets).ScriptBlock
+        $originalWarning = (Get-Command Write-LabWarning).ScriptBlock
+        $previousPodmanSubnet = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_PODMAN_SUBNET', 'User')
+        try {
+            Set-Item Function:Get-LabKnownIpv4Subnets -Value { param($Provider) @('172.27.0.0/16') }
+            $script:networkWarning = $null
+            Set-Item Function:Write-LabWarning -Value { param($Message) $script:networkWarning = $Message }
+            $network = Get-LabRuntimeNetwork -Provider podman
+            $fallback = Resolve-LabAvailableContainerNetwork -Provider podman -Network $network
+            [PSCustomObject]@{ Subnet=$fallback.Subnet; Warning=$script:networkWarning }
+        }
+        finally {
+            [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_PODMAN_SUBNET', $previousPodmanSubnet, 'User')
+            Set-Item Function:Get-LabKnownIpv4Subnets -Value $originalKnownSubnets
+            Set-Item Function:Write-LabWarning -Value $originalWarning
+            Remove-Variable networkWarning -Scope Script -ErrorAction SilentlyContinue
+        }
+    }
+    Add-CheckResult -Name 'Konfligierende Containerdefaults verwenden automatisch ein getrenntes Benchmark-Testnetz' -Success (
+        $containerNetworkFallback.Subnet -eq '198.19.0.0/24' -and
+        $containerNetworkFallback.Warning -match 'LAB_NETWORK_DEFAULT_SUBNET_CONFLICT')
+    $networkSource = Get-Content (Join-Path $repoRoot 'Private/LabNetwork.ps1') -Raw
+    Add-CheckResult -Name 'Bestehende Docker- und Podman-Labnetze melden spätere Subnetzkonflikte als Migrationsbedarf' -Success (
+        @([regex]::Matches($networkSource, 'LAB_NETWORK_EXISTING_SUBNET_CONFLICT_MIGRATION_REQUIRED')).Count -eq 2)
+    Add-CheckResult -Name 'Bestehende Container-Labnetze schließen ausschließlich ihr eigenes Runtime-Subnetz aus der Kollisionsprüfung aus' -Success (
+        $networkSource -match 'Where-Object \{ \$_ -ne \$actualSubnet \}' -and
+        $networkSource -match 'Where-Object \{ \$_ -ne \$existingContract\.Subnet \}')
+    $migrationSource = Get-Content (Join-Path $repoRoot 'Private/ContainerNetworkMigration.ps1') -Raw
+    $migrationCommand = Get-Command Move-SqlServerLabContainerNetwork -Module SqlServerLab
+    Add-CheckResult -Name 'Container-Netzmigration ist explizit, providergebunden und auf gelabelte Labcontainer begrenzt' -Success (
+        $migrationCommand.Parameters.ContainsKey('Provider') -and $migrationCommand.Parameters.ContainsKey('WhatIf') -and
+        $migrationSource -match "label=sql-server-lab.run-id" -and $migrationSource -match "sql-server-lab.scope-id" -and
+        $migrationSource -match 'LAB_NETWORK_MIGRATION_OLD_NETWORK_REMOVE_FAILED' -and
+        $migrationSource -match "Status='RECOVERY_REQUIRED'")
     $intentPlans = & $module {
         [PSCustomObject]@{
             DockerDefault = Resolve-LabNetworkIntentPlan -Provider docker
@@ -244,11 +291,18 @@ try {
         Add-CheckResult -Name 'Docker-Subnetz ist pro Prozess konfigurierbar' -Success ($configured.Subnet -eq '172.29.0.0/16')
     }
     finally { [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_DOCKER_SUBNET', $previous, 'Process') }
+    $previousReservedSubnets = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_RESERVED_SUBNETS')
+    try {
+        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_RESERVED_SUBNETS', '10.200.0.0/16; 192.0.2.0/24', 'Process')
+        $reservedSubnets = & $module { @(Get-LabKnownIpv4Subnets -Provider podman) }
+        Add-CheckResult -Name 'Dauerhafte VPN-Subnetzreservierungen werden in die Kollisionspruefung aufgenommen' -Success (
+            '10.200.0.0/16' -in $reservedSubnets -and '192.0.2.0/24' -in $reservedSubnets)
+    }
+    finally { [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_RESERVED_SUBNETS', $previousReservedSubnets, 'Process') }
     $docker = Get-Content (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1') -Raw
     $podman = Get-Content (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1') -Raw
     $hyperv = Get-Content (Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1') -Raw
     $acceptance = Get-Content (Join-Path $repoRoot 'Private/HyperVSqlAcceptanceEnvironment.ps1') -Raw
-    $networkSource = Get-Content (Join-Path $repoRoot 'Private/LabNetwork.ps1') -Raw
     $elevationSource = Get-Content (Join-Path $repoRoot 'Private/Elevation.ps1') -Raw
     $preferencesSource = Get-Content (Join-Path $repoRoot 'Private/LabPreferences.ps1') -Raw
     $menuSource = Get-Content (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw
@@ -310,7 +364,12 @@ try {
     )
 }
 catch { Add-CheckResult -Name 'Labnetz-Testausfuehrung' -Success $false -Message $_.Exception.Message }
-finally { Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue }
+finally {
+    foreach ($networkOverrideName in $networkOverrideNames) {
+        [Environment]::SetEnvironmentVariable($networkOverrideName, $networkOverrideValues[$networkOverrideName], 'Process')
+    }
+    Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+}
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0
 

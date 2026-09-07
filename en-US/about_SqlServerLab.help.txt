@@ -169,6 +169,10 @@ Sync-SqlServerLabRunScopedContainerStore
         journaled Hyper-V vCPU/RAM repair, a container resource/autostart
         reconcile, or a validated external-runtime refresh.
 
+    Move-SqlServerLabContainerNetwork
+        Moves a conflicting managed Docker or Podman lab network to a validated
+        subnet after explicit confirmation.
+
     Invoke-SqlServerLabWorkflowAction
         Runs one explicit non-interactive Hyper-V workflow action for the
         local browser user interface.

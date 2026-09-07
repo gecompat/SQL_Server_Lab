@@ -62,7 +62,8 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 14. [Master-Umsetzungsplan](Project_Planning/MASTER_IMPLEMENTATION_PLAN.md)
 15. [Masterplan-Ergänzung](Project_Planning/MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md)
 16. [Project-Adapter-Priorisierung](Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md)
-17. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
+17. [Container-Netzwerkverschiebung bei IP-Konflikt](Project_Planning/CONTAINER_NETWORK_RENUMBERING_BACKLOG.md)
+18. [Zukünftige Anwendungsfälle](Architecture/FUTURE_USE_CASES_AND_EXTENSION_GUARDRAILS.md)
 
 Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ein Feature bereits ausgeführt werden kann.
 
@@ -71,7 +72,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 80 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 81 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -135,6 +136,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Sync-SqlServerLabCms` | Verwalteten lokalen CMS mit dem Endpunktkatalog abgleichen |
 | `Get-SqlServerLabReconcilePlan` | Read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-, Containerressourcen-/Autostart- oder External-Runtime-Reconcile-Plan |
 | `Invoke-SqlServerLabReconcileAction` | Start/Stop, eigentumsgebundene Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Aktionen, Containerressourcen-/Autostart-Reconcile oder validierter additiver Container-Runtime-Refresh (mit `-WhatIf`) |
+| `Move-SqlServerLabContainerNetwork` | Konfligierendes verwaltetes Docker- oder Podman-Labnetz nach expliziter Bestätigung auf ein geprüftes Subnetz verschieben |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive UI-Aktion für einen Hyper-V-Workflow-Schritt |
 | `New-SqlServerLabManifest` | Manifest schema-gesteuert erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung prüfen |
