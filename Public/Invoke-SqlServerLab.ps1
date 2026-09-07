@@ -221,21 +221,21 @@ function Show-LabEnvironmentMenu {
     $testEnvironmentLifecycle = Get-LabAutomatedTestEnvironmentMenuState
     $hasAutomatedTestEnvironments = [bool]$testEnvironmentLifecycle.Available
     $items = @(
-        New-LabConsoleItem -Id 'Manage' -Label 'Umgebung auswaehlen und verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut '1' -Disabled:(-not $hasRuns)
-        New-LabConsoleItem -Id 'Status' -Label 'Status aller Umgebungen anzeigen' -Shortcut '2' -Disabled:(-not $hasRuns)
-        New-LabConsoleItem -Id 'SyncRuntime' -Label 'Mit Docker, Podman und Hyper-V abgleichen' -Value 'fehlende Objekte -> Recovery; keine Löschung' -Shortcut 's' -Disabled:(-not $hasRuns)
-        New-LabConsoleItem -Id 'Stop' -Label 'Umgebung stoppen' -Shortcut '3' -Disabled:(-not $hasRunning)
-        New-LabConsoleItem -Id 'Start' -Label 'Umgebung starten' -Shortcut '4' -Disabled:(-not $hasStopped)
-        New-LabConsoleItem -Id 'Restart' -Label 'Umgebung neustarten' -Shortcut '5' -Disabled:(-not ($hasRunning -or $hasStopped))
-        New-LabConsoleItem -Id 'Rename' -Label 'Umgebung umbenennen' -Shortcut 'n' -Disabled:(-not $hasRuns)
-        New-LabConsoleItem -Id 'Resources' -Label 'CPU und Speicher aendern' -Shortcut 'r' -Disabled:(-not $hasRuns)
+        New-LabConsoleItem -Id 'Manage' -Label 'Umgebung auswaehlen und verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut '1' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung. Zuerst im Hauptmenue unter "Umgebungen planen und erstellen" eine anlegen.'
+        New-LabConsoleItem -Id 'Status' -Label 'Status aller Umgebungen anzeigen' -Shortcut '2' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, deren Status angezeigt werden koennte.'
+        New-LabConsoleItem -Id 'SyncRuntime' -Label 'Mit Docker, Podman und Hyper-V abgleichen' -Value 'fehlende Objekte -> Recovery; keine Löschung' -Shortcut 's' -Disabled:(-not $hasRuns) -DisabledReason 'Ohne bekannte Umgebung gibt es keinen State, der mit der Runtime abgeglichen werden koennte.'
+        New-LabConsoleItem -Id 'Stop' -Label 'Umgebung stoppen' -Shortcut '3' -Disabled:(-not $hasRunning) -DisabledReason 'Derzeit laeuft keine Umgebung.'
+        New-LabConsoleItem -Id 'Start' -Label 'Umgebung starten' -Shortcut '4' -Disabled:(-not $hasStopped) -DisabledReason 'Derzeit ist keine Umgebung gestoppt.'
+        New-LabConsoleItem -Id 'Restart' -Label 'Umgebung neustarten' -Shortcut '5' -Disabled:(-not ($hasRunning -or $hasStopped)) -DisabledReason 'Es gibt keine Umgebung im Zustand RUNNING oder STOPPED.'
+        New-LabConsoleItem -Id 'Rename' -Label 'Umgebung umbenennen' -Shortcut 'n' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, die umbenannt werden koennte.'
+        New-LabConsoleItem -Id 'Resources' -Label 'CPU und Speicher aendern' -Shortcut 'r' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, deren Ressourcen geaendert werden koennten.'
         if ($testEnvironmentLifecycle.Available) {
             New-LabConsoleItem -Id 'AutomatedTestEnvironmentLifecycle' -Label $testEnvironmentLifecycle.Label `
                 -Value $testEnvironmentLifecycle.Value -Shortcut 't'
         }
         New-LabConsoleItem -Id 'CleanupAudit' -Label 'Cleanup-Audit anzeigen (read-only)' -Shortcut 'a'
-        New-LabConsoleItem -Id 'Remove' -Label 'Umgebung entfernen' -Shortcut '6' -Disabled:(-not $hasRuns)
-        New-LabConsoleItem -Id 'ClearAutomatedTestEnvironment' -Label 'Alle automatisierten Testumgebungen loeschen' -Value 'geschuetzte Gruppe' -Shortcut 'x' -Disabled:(-not $hasAutomatedTestEnvironments)
+        New-LabConsoleItem -Id 'Remove' -Label 'Umgebung entfernen' -Shortcut '6' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, die entfernt werden koennte.'
+        New-LabConsoleItem -Id 'ClearAutomatedTestEnvironment' -Label 'Alle automatisierten Testumgebungen loeschen' -Value 'geschuetzte Gruppe' -Shortcut 'x' -Disabled:(-not $hasAutomatedTestEnvironments) -DisabledReason 'Es ist keine automatisierte Testumgebung vorhanden.'
         New-LabConsoleItem -Id 'Clear' -Label 'Alle Lab-Ressourcen aufraeumen' -Value 'Recovery und verwaiste Ressourcen' -Shortcut '7'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
@@ -589,25 +589,27 @@ function Show-LabMenu {
         }
         catch { [pscustomobject]@{ Available = $false; Message = $_.Exception.Message } }
         $hyperVAvailable = $null -ne $hyperVAvailability -and [bool]$hyperVAvailability.Available
+        $hyperVDisabledReason = ''
         $hyperVMenuValue = if ($hyperVAvailable) {
             'Vorlagen · ISOs · Slots · Bulk-Bereitstellung · Recovery'
         }
         else {
             $reason = [string]$hyperVAvailability.Message
             if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'Hyper-V ist nicht installiert oder in dieser Sitzung nicht verwendbar.' }
+            $hyperVDisabledReason = "$reason Abhilfe: Windows-Feature Hyper-V aktivieren und den Host neu starten."
             "Nicht verfuegbar: $reason"
         }
         $items = @(
             New-LabConsoleItem -Id 'plan' -Label 'Umgebungen planen und erstellen' -Value 'SQL/Windows · Einzelposition oder Batch · Provider Auto' -Shortcut '1'
             New-LabConsoleItem -Id 'queue' -Label 'Vorgaenge, Queue und Benutzeraktionen' -Value 'Fortschritt · Prioritaet · Resume · User-Gates' -Shortcut '2'
             New-LabConsoleItem -Id 'environment' -Label 'Umgebungen verwalten' -Value 'Status · Start · Stopp · Name · CPU/RAM · Entfernen' -Shortcut '3'
-            New-LabConsoleItem -Id 'hyperv' -Label 'Hyper-V-Infrastruktur' -Value $hyperVMenuValue -Shortcut '4' -Disabled:(-not $hyperVAvailable)
+            New-LabConsoleItem -Id 'hyperv' -Label 'Hyper-V-Infrastruktur' -Value $hyperVMenuValue -Shortcut '4' -Disabled:(-not $hyperVAvailable) -DisabledReason $hyperVDisabledReason
             New-LabConsoleItem -Id 'storage' -Label 'Medien, Testdaten und Speicher' -Value 'Lab_Base · Lab_Data · Testdatenbibliothek · Storage' -Shortcut '5'
             New-LabConsoleItem -Id 'database' -Label 'Datenbanken und Verbindungen' -Value 'Samples · Restore · Skripte · Endpunkte · SSMS · CMS' -Shortcut '6'
             New-LabConsoleItem -Id 'system' -Label 'Systemstatus und Einstellungen' -Value 'Provider · Scheduler · Ton · Ruhemodus · Audit' -Shortcut '7'
             New-LabConsoleItem -Id 'exit' -Label 'Beenden' -Shortcut '0' -Aliases @('q')
         )
-        $result = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'SQL Server Lab' -Subtitle 'Providerneutraler Batch-, Queue- und Resume-Workflow' -Items $items -Snapshot $snapshot -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  F5: Status aktualisieren  Esc: Beenden' -FallbackPrompt '  Auswahl'
+        $result = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'SQL Server Lab' -Subtitle 'Providerneutraler Batch-, Queue- und Resume-Workflow' -Items $items -Snapshot $snapshot -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  F1/?: Hilfe  F5: Status aktualisieren  Esc: Beenden' -FallbackPrompt '  Auswahl'
         if ($result.Status -eq 'Refresh') { $snapshot = Get-LabConsoleAttentionSnapshot; continue }
         if ($result.Status -eq 'Cancelled') { return '0' }
         if ($result.Status -eq 'Selected') { return [string]$result.SelectedItem.Id }
