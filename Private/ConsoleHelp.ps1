@@ -36,14 +36,53 @@ function Get-LabConsoleHelpCatalog {
             Command = 'Invoke-SqlServerLab'
             Preconditions = @($dataRootPrecondition, $stateRootPrecondition)
             Items   = @{
-                'plan'        = @{ Purpose = 'Mehrere Umgebungen als Batch zusammenstellen und in die Queue uebergeben.'; Command = 'New-SqlServerLabBatch' }
-                'queue'       = @{ Purpose = 'Laufende, wartende und fehlgeschlagene Vorgaenge einsehen und steuern.'; Command = 'Get-SqlServerLabQueue' }
-                'environment' = @{ Purpose = 'Vorhandene Umgebungen starten, stoppen, aendern und entfernen.'; Command = 'Get-SqlServerLab' }
-                'hyperv'      = @{ Purpose = 'Hyper-V-Images, Slots und Windows-Vorlagen verwalten.'; Command = 'Get-SqlServerLabHyperVImageArtifact' }
-                'storage'     = @{ Purpose = 'Medien, Testdaten, CU-Pakete und Speicherorte verwalten.'; Command = 'Get-SqlServerLabResourcePlan' }
-                'database'    = @{ Purpose = 'Datenbanken, Verbindungen und die zentrale Verwaltung (CMS) erreichen.'; Command = 'Get-SqlServerLabConnectionCenter' }
-                'system'      = @{ Purpose = 'Voraussetzungen pruefen, Wartung ausfuehren und Diagnose sammeln.'; Command = 'Test-SqlServerLabPrerequisite' }
+                'create'         = @{ Purpose = 'Neue SQL- oder Windows-Umgebungen zusammenstellen, pruefen und uebergeben.'; Command = 'New-SqlServerLabBatch' }
+                'environment'    = @{ Purpose = 'Vorhandene Umgebungen starten, stoppen, aendern und entfernen.'; Command = 'Get-SqlServerLab' }
+                'queue'          = @{ Purpose = 'Laufende, wartende und fehlgeschlagene Vorgaenge einsehen und steuern.'; Command = 'Get-SqlServerLabQueue' }
+                'database'       = @{ Purpose = 'Datenbanken, Pakete, Skripte und Endpunkte erreichen.'; Command = 'Get-SqlServerLabConnectionCenter' }
+                'cms'            = @{ Purpose = 'Registrierte Server der zentralen Verwaltung und den SSMS-Export erreichen.'; Command = 'Sync-SqlServerLabCms' }
+                'infrastructure' = @{ Purpose = 'Hyper-V-Bestand sowie Lab_Base, Lab_Data, CU-Pakete und Testdaten verwalten.'; Command = 'Get-SqlServerLabResourcePlan' }
+                'maintenance'    = @{ Purpose = 'Providerstatus, Cleanup-Audit und Katalog read-only pruefen.'; Command = 'Test-SqlServerLabPrerequisite' }
+                'settings'       = @{ Purpose = 'Scheduler, Parallelitaet, Ton, Ruhemodus und Ersteinrichtung.'; Command = 'Invoke-SqlServerLabScheduler' }
             }
+        }
+        'create-menu' = @{
+            Title   = 'Umgebung erstellen'
+            Purpose = 'Stellt eine oder mehrere Umgebungen zusammen und uebergibt sie nach einer Pruefung an die Queue.'
+            Effects = 'Bis zur Uebergabe entsteht keine Runtime-Ressource. Die Uebergabe wird vorab auf fehlende Voraussetzungen geprueft.'
+            Related = @(
+                'Container-Positionen benoetigen eine Referenz auf eine SQL_SERVER_LAB_SECRET_*-Prozessvariable.',
+                'Ein nur gespeicherter Batch bleibt Draft und wird vom Scheduler nicht gestartet.'
+            )
+            Command = 'New-SqlServerLabBatch'
+            Preconditions = @($dataRootPrecondition, $stateRootPrecondition)
+        }
+        'cms-menu' = @{
+            Title   = 'Zentrale Verwaltung (CMS)'
+            Purpose = 'Zugang zu registrierten Servern, Endpunkten und dem SSMS-Export.'
+            Effects = 'Anzeigen veraendert nichts. Der Export erzeugt eine Registrierungsdatei fuer SSMS.'
+            Command = 'Get-SqlServerLabConnectionCenter'
+        }
+        'infrastructure-menu' = @{
+            Title   = 'Infrastruktur und Medien'
+            Purpose = 'Buendelt den Hyper-V-Bestand und die Medien-, Speicher- und Testdatenverwaltung.'
+            Effects = 'Die Auswahl oeffnet nur einen Unterbereich. Downloads, Builds und Verschiebungen werden dort einzeln bestaetigt.'
+            Related = @('Hyper-V-Aktionen fordern bei Bedarf automatisch eine UAC-Erhoehung an.')
+            Command = 'Get-SqlServerLabResourcePlan'
+            Preconditions = @($dataRootPrecondition)
+        }
+        'maintenance-menu' = @{
+            Title   = 'Wartung und Diagnose'
+            Purpose = 'Read-only Pruefungen zu Providerstatus, verbliebenen Ressourcen und Katalog.'
+            Effects = 'Keine Mutation. Ergebnisse werden bis zur Rueckkehrbestaetigung angezeigt.'
+            Command = 'Test-SqlServerLabPrerequisite / Get-SqlServerLabCleanupAudit'
+        }
+        'settings-menu' = @{
+            Title   = 'Einstellungen'
+            Purpose = 'Scheduler und Parallelitaet, Ton und Ruhemodus sowie die Ersteinrichtung von Lab_Base und Lab_Data.'
+            Effects = 'Aenderungen gelten global, auch fuer kuenftige Vorgaenge.'
+            Command = 'Invoke-SqlServerLabScheduler'
+            Preconditions = @($dataRootPrecondition, $stateRootPrecondition)
         }
         'queue-menu' = @{
             Title   = 'Vorgaenge und Queue'

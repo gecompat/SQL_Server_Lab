@@ -52,13 +52,14 @@ function Invoke-SqlServerLab {
 
         try {
             switch ($choice) {
-                'plan' { Invoke-LabBatchComposerInteractive }
+                'create' { Invoke-LabAreaMenuInteractive -Area Create }
                 'queue' { Invoke-LabQueueInteractive }
                 'environment' { Invoke-LabAreaMenuInteractive -Area Environment }
-                'hyperv' { Invoke-LabAreaMenuInteractive -Area HyperV }
-                'storage' { Invoke-LabAreaMenuInteractive -Area Storage }
+                'cms' { Invoke-LabAreaMenuInteractive -Area Cms }
+                'infrastructure' { Invoke-LabAreaMenuInteractive -Area Infrastructure }
                 'database' { Invoke-LabAreaMenuInteractive -Area Database }
-                'system' { Invoke-LabAreaMenuInteractive -Area System }
+                'maintenance' { Invoke-LabAreaMenuInteractive -Area Maintenance }
+                'settings' { Invoke-LabAreaMenuInteractive -Area Settings }
                 '0' { $exit = $true }
                 'q' { $exit = $true }
                 default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
@@ -582,6 +583,8 @@ function Get-LabRunsByRuntimeState {
 
 function Show-LabMenu {
     try { $snapshot = Update-LabConsoleAttentionSnapshot } catch { $snapshot = $null }
+    # Laufende Vorgaenge bleiben im Hauptmenue sichtbar, ohne die Eintraege zu verschieben.
+    $mainMenuStatusProvider = New-LabQueueStatusProvider -Height 3
     while ($true) {
         $hyperVAvailability = try {
             if ($IsWindows) { Test-HyperVAvailable }
@@ -590,26 +593,27 @@ function Show-LabMenu {
         catch { [pscustomobject]@{ Available = $false; Message = $_.Exception.Message } }
         $hyperVAvailable = $null -ne $hyperVAvailability -and [bool]$hyperVAvailability.Available
         $hyperVDisabledReason = ''
-        $hyperVMenuValue = if ($hyperVAvailable) {
-            'Vorlagen · ISOs · Slots · Bulk-Bereitstellung · Recovery'
+        $infrastructureMenuValue = if ($hyperVAvailable) {
+            'Hyper-V-Vorlagen · ISOs · Slots · Lab_Base · Lab_Data · Testdaten'
         }
         else {
             $reason = [string]$hyperVAvailability.Message
             if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'Hyper-V ist nicht installiert oder in dieser Sitzung nicht verwendbar.' }
             $hyperVDisabledReason = "$reason Abhilfe: Windows-Feature Hyper-V aktivieren und den Host neu starten."
-            "Nicht verfuegbar: $reason"
+            'Medien und Speicher verfuegbar; Hyper-V-Bestand nicht verwendbar'
         }
         $items = @(
-            New-LabConsoleItem -Id 'plan' -Label 'Umgebungen planen und erstellen' -Value 'SQL/Windows · Einzelposition oder Batch · Provider Auto' -Shortcut '1'
-            New-LabConsoleItem -Id 'queue' -Label 'Vorgaenge, Queue und Benutzeraktionen' -Value 'Fortschritt · Prioritaet · Resume · User-Gates' -Shortcut '2'
-            New-LabConsoleItem -Id 'environment' -Label 'Umgebungen verwalten' -Value 'Status · Start · Stopp · Name · CPU/RAM · Entfernen' -Shortcut '3'
-            New-LabConsoleItem -Id 'hyperv' -Label 'Hyper-V-Infrastruktur' -Value $hyperVMenuValue -Shortcut '4' -Disabled:(-not $hyperVAvailable) -DisabledReason $hyperVDisabledReason
-            New-LabConsoleItem -Id 'storage' -Label 'Medien, Testdaten und Speicher' -Value 'Lab_Base · Lab_Data · Testdatenbibliothek · Storage' -Shortcut '5'
-            New-LabConsoleItem -Id 'database' -Label 'Datenbanken und Verbindungen' -Value 'Samples · Restore · Skripte · Endpunkte · SSMS · CMS' -Shortcut '6'
-            New-LabConsoleItem -Id 'system' -Label 'Systemstatus und Einstellungen' -Value 'Provider · Scheduler · Ton · Ruhemodus · Audit' -Shortcut '7'
+            New-LabConsoleItem -Id 'create' -Label 'Umgebung erstellen' -Value 'SQL/Windows · Einzelposition oder mehrere · Provider Auto' -Shortcut '1'
+            New-LabConsoleItem -Id 'environment' -Label 'Umgebungen verwalten' -Value 'Status · Start · Stopp · Name · CPU/RAM · Entfernen' -Shortcut '2'
+            New-LabConsoleItem -Id 'queue' -Label 'Vorgaenge und Queue' -Value 'Fortschritt · Prioritaet · Resume · Benutzeraktionen' -Shortcut '3'
+            New-LabConsoleItem -Id 'database' -Label 'Datenbanken und Verbindungen' -Value 'Samples · Restore · Skripte · Endpunkte · SSMS' -Shortcut '4'
+            New-LabConsoleItem -Id 'cms' -Label 'Zentrale Verwaltung (CMS)' -Value 'Registrierte Server · Endpunkte · SSMS-Export' -Shortcut '5'
+            New-LabConsoleItem -Id 'infrastructure' -Label 'Infrastruktur und Medien' -Value $infrastructureMenuValue -Shortcut '6'
+            New-LabConsoleItem -Id 'maintenance' -Label 'Wartung und Diagnose' -Value 'Providerstatus · Cleanup-Audit · Katalog' -Shortcut '7'
+            New-LabConsoleItem -Id 'settings' -Label 'Einstellungen' -Value 'Scheduler · Parallelitaet · Ton · Ruhemodus · Ersteinrichtung' -Shortcut '8'
             New-LabConsoleItem -Id 'exit' -Label 'Beenden' -Shortcut '0' -Aliases @('q')
         )
-        $result = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'SQL Server Lab' -Subtitle 'Providerneutraler Batch-, Queue- und Resume-Workflow' -Items $items -Snapshot $snapshot -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  F1/?: Hilfe  F5: Status aktualisieren  Esc: Beenden' -FallbackPrompt '  Auswahl'
+        $result = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'SQL Server Lab' -Subtitle 'Providerneutraler Batch-, Queue- und Resume-Workflow' -Items $items -Snapshot $snapshot -StatusHeight 3 -StatusProvider $mainMenuStatusProvider -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  F1/?: Hilfe  F5: Status aktualisieren  Esc: Beenden' -FallbackPrompt '  Auswahl'
         if ($result.Status -eq 'Refresh') { $snapshot = Get-LabConsoleAttentionSnapshot; continue }
         if ($result.Status -eq 'Cancelled') { return '0' }
         if ($result.Status -eq 'Selected') { return [string]$result.SelectedItem.Id }

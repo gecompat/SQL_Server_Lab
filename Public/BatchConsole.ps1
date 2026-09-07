@@ -601,6 +601,76 @@ function Invoke-LabBatchStopInteractive {
     else { Stop-SqlServerLabBatch -BatchId $selection.SelectedItem.Id -Cleanup -Confirm | Out-Null }
 }
 
+function Show-LabCreateMenu {
+    [CmdletBinding()]
+    param()
+
+    return Show-LabSubMenu -ScreenId 'create-menu' -Title 'Umgebung erstellen' -Subtitle 'Zusammenstellen, pruefen und uebergeben' -Items @(
+        New-LabConsoleItem -Id BatchPlan -Label 'SQL- oder Windows-Umgebung zusammenstellen' -Value 'Einzelposition oder mehrere · Provider Auto · Pruefung vor der Uebergabe' -Shortcut 1
+        New-LabConsoleItem -Id BulkSlots -Label 'Mehrere Windows-Slots gemeinsam bereitstellen' -Value 'Mengenfaehiger Composer · gemeinsame Vorlagenabhaengigkeiten' -Shortcut 2
+        New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
+    )
+}
+
+function Show-LabCmsMenu {
+    [CmdletBinding()]
+    param()
+
+    return Show-LabSubMenu -ScreenId 'cms-menu' -Title 'Zentrale Verwaltung (CMS)' -Subtitle 'Registrierte Server, Endpunkte und SSMS-Export' -Items @(
+        New-LabConsoleItem -Id ConnectionCenter -Label 'Verbindungszentrale und CMS' -Value 'Endpunkte · registrierte Server · SSMS-Export' -Shortcut 1
+        New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
+    )
+}
+
+function Show-LabInfrastructureMenu {
+    [CmdletBinding()]
+    param()
+
+    $availability = try {
+        if ($IsWindows) { Test-HyperVAvailable }
+        else { [pscustomobject]@{ Available = $false; Message = 'Hyper-V ist nur unter Windows verfuegbar.' } }
+    }
+    catch { [pscustomobject]@{ Available = $false; Message = $_.Exception.Message } }
+    $hyperVAvailable = $null -ne $availability -and [bool]$availability.Available
+    $disabledReason = ''
+    if (-not $hyperVAvailable) {
+        $reason = [string]$availability.Message
+        if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'Hyper-V ist nicht installiert oder in dieser Sitzung nicht verwendbar.' }
+        $disabledReason = "$reason Abhilfe: Windows-Feature Hyper-V aktivieren und den Host neu starten."
+    }
+    return Show-LabSubMenu -ScreenId 'infrastructure-menu' -Title 'Infrastruktur und Medien' -Subtitle 'Hyper-V-Bestand sowie Lab_Base, Lab_Data und Testdaten' -Items @(
+        New-LabConsoleItem -Id HyperVArea -Label 'Hyper-V-Infrastruktur' -Value 'OS-Vorlagen · Slots · Builds · ISO-Quellen' -Shortcut 1 `
+            -Disabled:(-not $hyperVAvailable) -DisabledReason $disabledReason
+        New-LabConsoleItem -Id StorageArea -Label 'Medien, Testdaten und Speicher' -Value 'Lab_Base · Lab_Data · CU-Pakete · Testdatenbibliothek' -Shortcut 2
+        New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
+    )
+}
+
+function Show-LabMaintenanceMenu {
+    [CmdletBinding()]
+    param()
+
+    return Show-LabSubMenu -ScreenId 'maintenance-menu' -Title 'Wartung und Diagnose' -Subtitle 'Read-only Pruefungen und Aufraeumbefunde' -Items @(
+        New-LabConsoleItem -Id Status -Label 'System- und Providerstatus' -Value 'read-only' -Shortcut 1
+        New-LabConsoleItem -Id CleanupAudit -Label 'Cleanup-Audit anzeigen' -Value 'read-only · verbliebene Ressourcen und Recovery' -Shortcut 2
+        New-LabConsoleItem -Id Catalog -Label 'Katalogstatus pruefen' -Value 'Katalogdatei validieren' -Shortcut 3
+        New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
+    )
+}
+
+function Show-LabSettingsMenu {
+    [CmdletBinding()]
+    param()
+
+    $sevenZip = Get-Lab7ZipExecutable
+    return Show-LabSubMenu -ScreenId 'settings-menu' -Title 'Einstellungen' -Subtitle 'Scheduler, Benachrichtigung und Ersteinrichtung' -Items @(
+        New-LabConsoleItem -Id queue -Label 'Scheduler, Parallelitaet, Ton und Ruhemodus' -Shortcut 1
+        New-LabConsoleItem -Id Setup -Label 'Ersteinrichtung fuer Lab_Base und Lab_Data' -Value 'fragt nur fehlende oder ungueltige Angaben ab' -Shortcut 2
+        New-LabConsoleItem -Id Install7Zip -Label $(if ($sevenZip) { '7-Zip fuer .7z-Backups verfuegbar' } else { '7-Zip fuer .7z-Backups optional installieren' }) -Shortcut 3
+        New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
+    )
+}
+
 function Show-LabSystemMenu {
     [CmdletBinding()]
     param()
@@ -619,19 +689,27 @@ function Invoke-LabAreaMenuInteractive {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [ValidateSet('Environment', 'HyperV', 'Storage', 'Database', 'System')]
+        [ValidateSet('Create', 'Environment', 'HyperV', 'Storage', 'Database', 'Cms', 'Infrastructure', 'Maintenance', 'Settings', 'System')]
         [string]$Area
     )
 
     while ($true) {
         $action = switch ($Area) {
+            'Create' { Show-LabCreateMenu }
             'Environment' { Show-LabEnvironmentMenu }
             'HyperV' { Show-LabHyperVMenu }
             'Storage' { Show-LabStorageMenu }
             'Database' { Show-LabDatabaseMenu }
+            'Cms' { Show-LabCmsMenu }
+            'Infrastructure' { Show-LabInfrastructureMenu }
+            'Maintenance' { Show-LabMaintenanceMenu }
+            'Settings' { Show-LabSettingsMenu }
             'System' { Show-LabSystemMenu }
         }
         if ([string]::IsNullOrWhiteSpace([string]$action) -or $action -eq 'back') { return }
+        # Gruppen delegieren an den jeweiligen Bereich, statt Aktionen zu duplizieren.
+        if ($action -eq 'HyperVArea') { Invoke-LabAreaMenuInteractive -Area HyperV; continue }
+        if ($action -eq 'StorageArea') { Invoke-LabAreaMenuInteractive -Area Storage; continue }
         try { Invoke-LabMenuAction -ActionName $action }
         catch { if (-not (Test-LabConsoleInputCancellation -InputObject $_)) { throw } }
     }
