@@ -321,6 +321,26 @@ Add-ConsoleUiCheck 'Hauptmenue folgt der acht Gruppen umfassenden Struktur' (
     $mainMenuSource -notmatch "New-LabConsoleItem -Id 'plan' -Label" -and
     $mainMenuSource -notmatch "New-LabConsoleItem -Id 'system' -Label"
 )
+
+# CUI-023: Eine Warnung oder ein Fehler darf nicht vom naechsten Menueaufbau verdeckt werden.
+Add-ConsoleUiCheck 'Jede Menueaktion zeigt neue Warnungen und Fehler erzwungen an' (
+    $batchConsoleSource -match '\$marker = Get-LabMessageJournalMarker' -and
+    $batchConsoleSource -match 'Show-LabActionMessagesInteractive -Marker \$marker' -and
+    $batchConsoleSource -match "function Show-LabActionMessagesInteractive[\s\S]{0,900}?severity -in @\('Warning', 'Error'\)" -and
+    $batchConsoleSource -match "function Show-LabActionMessagesInteractive[\s\S]{0,900}?Format-LabMessageReport -Message \`$new"
+)
+Add-ConsoleUiCheck 'Meldungen sind aus Hauptmenue und Wartung erreichbar und kopierbar' (
+    $mainMenuSource -match "New-LabConsoleItem -Id 'messages' -Label 'Meldungen dieser Sitzung'" -and
+    $mainMenuSource -match "'messages' \{ Show-LabMessagesInteractive \}" -and
+    $batchConsoleSource -match "New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung'" -and
+    $batchConsoleSource -match "ScreenId 'messages'" -and
+    $batchConsoleSource -match 'Copy-LabMessageReportToClipboard' -and
+    $batchConsoleSource -match 'Set-Clipboard -Value \$report'
+)
+Add-ConsoleUiCheck 'Ein Host ohne Zwischenablage verweist auf das Journal statt zu scheitern' (
+    $batchConsoleSource -match "Get-Command -Name Set-Clipboard -ErrorAction SilentlyContinue[\s\S]{0,200}?return \`$false" -and
+    $batchConsoleSource -match 'Der Bericht steht im Meldungsjournal'
+)
 Add-ConsoleUiCheck 'Vorgangsmenue begruendet jeden deaktivierten Eintrag' (
     ([regex]::Matches($batchConsoleSource, "New-LabConsoleItem -Id '(?:overview|gates|bulk-confirm|priority|move|pause|stop|batch-stop|run)'[^\n]+-DisabledReason ")).Count -eq 9 -and
     $batchConsoleSource -match 'Ein Batch im Status Draft erscheint hier nicht'

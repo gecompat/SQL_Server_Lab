@@ -601,6 +601,115 @@ function Invoke-LabBatchStopInteractive {
     else { Stop-SqlServerLabBatch -BatchId $selection.SelectedItem.Id -Cleanup -Confirm | Out-Null }
 }
 
+function Get-LabMessageJournalMarker {
+    <#
+    .SYNOPSIS Merkt sich den Journalstand vor einer Aktion.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $entries = @(Get-LabMessage)
+    if ($entries.Count -eq 0) { return 0 }
+    return [int]$entries[-1].sequence
+}
+
+function Copy-LabMessageReportToClipboard {
+    <#
+    .SYNOPSIS Legt den Klartextbericht in die Zwischenablage, sofern der Host das unterstuetzt.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Message)
+
+    if (@($Message).Count -eq 0) { Write-LabInfo 'Keine Meldung zum Kopieren vorhanden.'; return $false }
+    $report = Format-LabMessageReport -Message $Message
+    if (-not (Get-Command -Name Set-Clipboard -ErrorAction SilentlyContinue)) {
+        Write-LabWarning 'Dieser Host bietet keine Zwischenablage. Der Bericht steht im Meldungsjournal.'
+        return $false
+    }
+    try {
+        Set-Clipboard -Value $report
+        Write-LabSuccess "$(@($Message).Count) Meldung(en) in die Zwischenablage kopiert."
+        return $true
+    }
+    catch {
+        Write-LabWarning "Zwischenablage nicht beschreibbar: $($_.Exception.Message)"
+        return $false
+    }
+}
+
+function Show-LabMessagesInteractive {
+    <#
+    .SYNOPSIS Zeigt das Meldungsjournal und macht es kopierbar.
+    .DESCRIPTION Ohne diese Ansicht bleibt eine journalisierte Meldung fuer den
+    Bediener unerreichbar, sobald der Bildschirm neu gezeichnet wurde.
+    #>
+    [CmdletBinding()]
+    param([AllowEmptyCollection()][object[]]$Message)
+
+    $explicit = @($Message).Count -gt 0
+    while ($true) {
+        $entries = if ($explicit) { @($Message) } else { @(Get-LabMessage) }
+        $recent = @($entries | Select-Object -Last 200)
+        $problems = @($recent | Where-Object { $_.severity -in @('Warning', 'Error') })
+        $journalPath = Get-LabMessageJournalPath
+
+        $items = [System.Collections.Generic.List[object]]::new()
+        foreach ($entry in ($problems | Select-Object -Last 12)) {
+            $items.Add((New-LabConsoleItem -Id $entry.messageId -Label ('{0}  {1}' -f $entry.messageId, $entry.message) `
+                -Value ([string]$entry.code) -Data $entry))
+        }
+        $items.Add((New-LabConsoleItem -Id '__copyProblems' -Label 'Warnungen und Fehler in die Zwischenablage' -Shortcut 'c' `
+            -Disabled:($problems.Count -eq 0) -DisabledReason 'Es liegt keine Warnung und kein Fehler vor.'))
+        $items.Add((New-LabConsoleItem -Id '__copyAll' -Label 'Gesamtes Sitzungsjournal in die Zwischenablage' -Shortcut 'a' `
+            -Disabled:($recent.Count -eq 0) -DisabledReason 'Das Journal ist leer.'))
+        $items.Add((New-LabConsoleItem -Id '__path' -Label 'Pfad des Journals anzeigen' -Value ([string]$journalPath) -Shortcut 'd' `
+            -Disabled:(-not $journalPath) -DisabledReason 'Ohne absoluten State-Root bleibt das Journal rein speicherbasiert.'))
+        $items.Add((New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'))
+
+        $subtitle = '{0} Meldung(en) · {1} Warnung/Fehler' -f $recent.Count, $problems.Count
+        $choice = Invoke-LabConsoleMenu -ScreenId 'messages' -Title 'Meldungen dieser Sitzung' -Subtitle $subtitle -Items @($items)
+        if ($choice.Status -ne 'Selected' -or [string]$choice.SelectedItem.Id -eq 'back') { return }
+        switch ([string]$choice.SelectedItem.Id) {
+            '__copyProblems' { $null = Copy-LabMessageReportToClipboard -Message $problems; Wait-LabConsoleAcknowledgement }
+            '__copyAll' { $null = Copy-LabMessageReportToClipboard -Message $recent; Wait-LabConsoleAcknowledgement }
+            '__path' { Write-LabStatus -Label 'Journal' -Value ([string]$journalPath); Wait-LabConsoleAcknowledgement }
+            default {
+                # Der volle Satz bleibt markierbar im Scrollback stehen, nicht nur in der Liste.
+                Write-Host ''
+                Write-Host (Format-LabMessageReport -Message @($choice.SelectedItem.Data))
+                Write-Host ''
+                Wait-LabConsoleAcknowledgement
+            }
+        }
+    }
+}
+
+function Show-LabActionMessagesInteractive {
+    <#
+    .SYNOPSIS Erzwingt nach einer Aktion die Sichtbarkeit neuer Warnungen und Fehler.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][int]$Marker)
+
+    $new = @(Get-LabMessage | Where-Object { [int]$_.sequence -gt $Marker -and $_.severity -in @('Warning', 'Error') })
+    if ($new.Count -eq 0) { return }
+    Write-Host ''
+    Write-Host (Format-LabMessageReport -Message $new)
+    Write-Host ''
+    Write-LabInfo "[c] kopiert diese Meldungen, [m] oeffnet das Sitzungsjournal."
+    $choice = Invoke-LabConsoleMenu -ScreenId 'action-messages' -Title 'Offene Meldungen der letzten Aktion' `
+        -Subtitle ('{0} Warnung(en) oder Fehler' -f $new.Count) -Items @(
+        New-LabConsoleItem -Id 'copy' -Label 'In die Zwischenablage kopieren' -Shortcut 'c'
+        New-LabConsoleItem -Id 'journal' -Label 'Sitzungsjournal oeffnen' -Shortcut 'm'
+        New-LabConsoleItem -Id 'back' -Label 'Weiter' -Shortcut '0'
+    )
+    if ($choice.Status -ne 'Selected') { return }
+    switch ([string]$choice.SelectedItem.Id) {
+        'copy' { $null = Copy-LabMessageReportToClipboard -Message $new; Wait-LabConsoleAcknowledgement }
+        'journal' { Show-LabMessagesInteractive }
+    }
+}
+
 function Show-LabCreateMenu {
     [CmdletBinding()]
     param()
@@ -654,6 +763,7 @@ function Show-LabMaintenanceMenu {
         New-LabConsoleItem -Id Status -Label 'System- und Providerstatus' -Value 'read-only' -Shortcut 1
         New-LabConsoleItem -Id CleanupAudit -Label 'Cleanup-Audit anzeigen' -Value 'read-only · verbliebene Ressourcen und Recovery' -Shortcut 2
         New-LabConsoleItem -Id Catalog -Label 'Katalogstatus pruefen' -Value 'Katalogdatei validieren' -Shortcut 3
+        New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 4
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
     )
 }
@@ -710,7 +820,11 @@ function Invoke-LabAreaMenuInteractive {
         # Gruppen delegieren an den jeweiligen Bereich, statt Aktionen zu duplizieren.
         if ($action -eq 'HyperVArea') { Invoke-LabAreaMenuInteractive -Area HyperV; continue }
         if ($action -eq 'StorageArea') { Invoke-LabAreaMenuInteractive -Area Storage; continue }
+        if ($action -eq 'Messages') { Show-LabMessagesInteractive; continue }
+        $marker = Get-LabMessageJournalMarker
         try { Invoke-LabMenuAction -ActionName $action }
         catch { if (-not (Test-LabConsoleInputCancellation -InputObject $_)) { throw } }
+        # Eine Warnung oder ein Fehler darf nicht vom naechsten Menueaufbau verdeckt werden.
+        Show-LabActionMessagesInteractive -Marker $marker
     }
 }
