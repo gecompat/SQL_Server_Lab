@@ -906,6 +906,51 @@ function Update-LabDependencyStates {
     }
 }
 
+function Get-LabBatchSubmissionBlocker {
+    <#
+    .SYNOPSIS Prueft vor dem Einreihen, ob ein Batch ueberhaupt lauffaehig ist.
+    .DESCRIPTION Container-Positionen benoetigen eine Referenz auf eine
+    SQL_SERVER_LAB_SECRET_*-Prozessvariable. Ohne diese Pruefung scheitert der
+    Batch erst im Worker am Schritt create-runtime, also nach dem Einreihen und
+    ohne erkennbaren Bezug zur getroffenen Auswahl.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Batch,
+        [string]$StateRoot
+    )
+
+    $blockers = [System.Collections.Generic.List[object]]::new()
+    foreach ($operationId in @($Batch.operationIds)) {
+        $operation = Read-LabWorkflowJson -Path (Get-LabOperationStatePath -OperationId $operationId -StateRoot $StateRoot)
+        if ($null -eq $operation) { continue }
+        if (@($operation.steps | Where-Object { [string]$_.action -eq 'CreateContainerEnvironment' }).Count -eq 0) { continue }
+
+        $effective = Get-LabWorkflowValue -InputObject $operation.executor -Name 'effective' -Default $null
+        $variableName = [string](Get-LabWorkflowValue -InputObject $effective -Name 'SaPasswordEnvironmentVariable' -Default '')
+        if ([string]::IsNullOrWhiteSpace($variableName)) {
+            $blockers.Add([pscustomobject][ordered]@{
+                code = 'BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_REQUIRED'
+                operationId = [string]$operation.operationId
+                itemId = [string]$operation.itemId
+                message = "Position '$($operation.itemId)' benoetigt eine Referenz auf eine SQL_SERVER_LAB_SECRET_*-Prozessvariable."
+                remedy = 'Vor dem Einreihen SaPasswordEnvironmentVariable auf den Namen einer gesetzten SQL_SERVER_LAB_SECRET_*-Prozessvariable setzen.'
+            })
+            continue
+        }
+        if ([string]::IsNullOrEmpty([Environment]::GetEnvironmentVariable($variableName, 'Process'))) {
+            $blockers.Add([pscustomobject][ordered]@{
+                code = 'BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_MISSING'
+                operationId = [string]$operation.operationId
+                itemId = [string]$operation.itemId
+                message = "Position '$($operation.itemId)' verweist auf '$variableName'; diese Prozessvariable ist nicht gesetzt."
+                remedy = "In dieser Sitzung `$env:$variableName setzen und den Batch erneut uebergeben."
+            })
+        }
+    }
+    return @($blockers)
+}
+
 function Get-LabStartableOperations {
     [CmdletBinding()]
     param(

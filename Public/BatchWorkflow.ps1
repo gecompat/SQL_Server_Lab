@@ -337,7 +337,12 @@ function Get-SqlServerLabQueue {
     $startable = @(Get-LabStartableOperations -MaxWorkers ([int]$settings.maxWorkers) -StateRoot $StateRoot)
     $rows = foreach ($operation in $operations | Where-Object { -not (Test-LabOperationTerminal -Status $_.status) }) {
         $blockedReason = $null
-        if ($operation.status -eq 'WaitingForDependency') { $blockedReason = 'Wartet auf gemeinsame Abhängigkeit.' }
+        $operationBatch = Read-LabWorkflowJson -Path (Get-LabBatchStatePath -BatchId $operation.batchId -StateRoot $StateRoot)
+        $operationBatchStatus = if ($null -ne $operationBatch) { [string]$operationBatch.status } else { 'Unbekannt' }
+        # Ein nicht uebergebener Batch dominiert jeden anderen Grund: der Scheduler ueberspringt ihn.
+        if ($operationBatchStatus -in @('Draft', 'Validated')) { $blockedReason = "Batch '$($operation.batchId)' ist noch nicht uebergeben (Status $operationBatchStatus). Der Scheduler startet ihn deshalb nicht." }
+        elseif ($operationBatchStatus -eq 'Cancelled') { $blockedReason = "Batch '$($operation.batchId)' wurde abgebrochen." }
+        elseif ($operation.status -eq 'WaitingForDependency') { $blockedReason = 'Wartet auf gemeinsame Abhängigkeit.' }
         elseif ($operation.status -in @('WaitingForUser', 'CandidateSatisfied')) { $blockedReason = 'Wartet auf ausdrückliche Benutzerbestätigung.' }
         elseif ($operation.status -eq 'Paused') { $blockedReason = 'Vom Benutzer pausiert.' }
         elseif ($operation.resourceClass -eq 'HyperVHeavy' -and @($running | Where-Object resourceClass -eq 'HyperVHeavy').Count -gt 0) { $blockedReason = 'HyperVHeavy-Slot ist belegt.' }
@@ -345,6 +350,7 @@ function Get-SqlServerLabQueue {
         [pscustomobject][ordered]@{
             operationId = $operation.operationId
             batchId = $operation.batchId
+            batchStatus = $operationBatchStatus
             itemId = $operation.itemId
             title = $operation.title
             status = $operation.status

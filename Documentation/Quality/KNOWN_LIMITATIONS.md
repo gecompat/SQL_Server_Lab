@@ -1558,6 +1558,27 @@ Umgebungsmenü hinterlegt; an den übrigen Bildschirmen weist die Hilfe die
 fehlende Begründung ausdrücklich als Lücke aus. Eine statische Pflicht zur
 Begründung aller deaktivierten Einträge besteht noch nicht.
 
+## Batch-Preflight und Blockierungsgruende
+
+Container-Batchpositionen benötigen eine Referenz auf eine
+`SQL_SERVER_LAB_SECRET_*`-Prozessvariable. Diese Bedingung wird seit
+2026-09-07 in `Submit-SqlServerLabBatch` geprüft, bevor der Batch eingereiht
+wird. Es werden zwei Fälle unterschieden:
+`BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_REQUIRED` (keine Referenz hinterlegt)
+und `BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_MISSING` (Referenz vorhanden, die
+Prozessvariable jedoch nicht gesetzt). Eine abgelehnte Übergabe lässt den
+Batchstatus unverändert.
+
+`Get-SqlServerLabQueue` weist zusätzlich `batchStatus` aus. Ein Batch im Status
+`Draft` oder `Validated` erzeugt für seine Positionen einen ausdrücklichen
+Blockierungsgrund, weil der Scheduler solche Vorgänge überspringt. Der
+Menüpunkt `Scheduler jetzt ausführen` benennt bei leerem Ergebnis die
+blockierten Vorgänge samt Grund, statt wortlos zurückzukehren.
+
+Es besteht weiterhin **kein** interaktiver Weg, die Secret-Referenz im
+Batch-Composer zu setzen; sie muss vor der Übergabe an der Position hinterlegt
+und die Prozessvariable in derselben Sitzung gesetzt werden.
+
 ## Priorisierte nächste technische Schritte
 
 1. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die
