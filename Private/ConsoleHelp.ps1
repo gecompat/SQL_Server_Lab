@@ -48,14 +48,25 @@ function Get-LabConsoleHelpCatalog {
         }
         'create-menu' = @{
             Title   = 'Umgebung erstellen'
-            Purpose = 'Stellt eine oder mehrere Umgebungen zusammen und uebergibt sie nach einer Pruefung an die Queue.'
-            Effects = 'Bis zur Uebergabe entsteht keine Runtime-Ressource. Die Uebergabe wird vorab auf fehlende Voraussetzungen geprueft.'
+            Purpose = 'Erstellt eine einzelne Umgebung sofort oder stellt mehrere zusammen und uebergibt sie an die Queue.'
+            Effects = 'Der Sofortweg legt nach einer ausdruecklichen Rueckfrage unmittelbar Runtime-Ressourcen an. Beim Zusammenstellen entsteht bis zur Uebergabe keine Ressource.'
             Related = @(
-                'Container-Positionen benoetigen eine Referenz auf eine SQL_SERVER_LAB_SECRET_*-Prozessvariable.',
+                'Sofort erstellen entscheidet den Provider automatisch und zeigt die Begruendung vor der Rueckfrage.',
+                'Container-Positionen im Batch benoetigen eine Referenz auf eine SQL_SERVER_LAB_SECRET_*-Prozessvariable.',
                 'Ein nur gespeicherter Batch bleibt Draft und wird vom Scheduler nicht gestartet.'
             )
-            Command = 'New-SqlServerLabBatch'
+            Command = 'New-SqlServerLab'
             Preconditions = @($dataRootPrecondition, $stateRootPrecondition)
+        }
+        'create-sa-password' = @{
+            Title   = 'SA-Kennwort der neuen Umgebung'
+            Purpose = 'Legt fest, ob das SA-Kennwort erzeugt oder selbst vergeben wird.'
+            Effects = 'Ein erzeugtes Kennwort wird verschluesselt run-lokal hinterlegt. Ein selbst vergebenes Kennwort bleibt ein SecureString und wird nicht gespeichert.'
+            Related = @(
+                'Ein selbst vergebenes Kennwort wird nicht als lab-generiert ausgewiesen und ist spaeter nicht abrufbar.',
+                'Die Eingabe erfolgt zweifach; bei Abweichung bricht der Schritt ohne Mutation ab.'
+            )
+            Command = 'New-SqlServerLab -SaPassword'
         }
         'cms-menu' = @{
             Title   = 'Zentrale Verwaltung (CMS)'

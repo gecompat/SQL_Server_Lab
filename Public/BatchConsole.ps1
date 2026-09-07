@@ -714,9 +714,12 @@ function Show-LabCreateMenu {
     [CmdletBinding()]
     param()
 
-    return Show-LabSubMenu -ScreenId 'create-menu' -Title 'Umgebung erstellen' -Subtitle 'Zusammenstellen, pruefen und uebergeben' -Items @(
-        New-LabConsoleItem -Id BatchPlan -Label 'SQL- oder Windows-Umgebung zusammenstellen' -Value 'Einzelposition oder mehrere · Provider Auto · Pruefung vor der Uebergabe' -Shortcut 1
-        New-LabConsoleItem -Id BulkSlots -Label 'Mehrere Windows-Slots gemeinsam bereitstellen' -Value 'Mengenfaehiger Composer · gemeinsame Vorlagenabhaengigkeiten' -Shortcut 2
+    return Show-LabSubMenu -ScreenId 'create-menu' -Title 'Umgebung erstellen' -Subtitle 'Sofort erstellen oder zusammenstellen und uebergeben' -Items @(
+        New-LabConsoleItem -Id New -Label 'SQL-Umgebung jetzt erstellen' -Value 'Ein Ziel · Provider automatisch · laeuft sofort durch, ohne Queue' -Shortcut 1 `
+            -Help 'Fragt die Zielkonfiguration ab, entscheidet den Provider, zeigt die Begruendung und erstellt nach einer Rueckfrage sofort. Die Schritte erscheinen fortlaufend.'
+        New-LabConsoleItem -Id BatchPlan -Label 'SQL- oder Windows-Umgebung zusammenstellen' -Value 'Einzelposition oder mehrere · Provider Auto · Pruefung vor der Uebergabe' -Shortcut 2 `
+            -Help 'Sammelt mehrere Positionen in einem Batch und uebergibt sie nach einer Pruefung an die Warteschlange.'
+        New-LabConsoleItem -Id BulkSlots -Label 'Mehrere Windows-Slots gemeinsam bereitstellen' -Value 'Mengenfaehiger Composer · gemeinsame Vorlagenabhaengigkeiten' -Shortcut 3
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
     )
 }

@@ -201,7 +201,7 @@ Add-ConsoleUiCheck 'Bildschirme ohne Statusband warten unveraendert blockierend 
 # CUI-024: Kontexthilfe je ScreenId, live geprueft, mit Begruendung deaktivierter Eintraege.
 $helpCatalog = Get-LabConsoleHelpCatalog
 $criticalScreens = @('main-menu', 'queue-menu', 'environment-menu', 'environment-actions',
-    'sql-target-configuration', 'batch-composer', 'create-menu', 'cms-menu',
+    'sql-target-configuration', 'batch-composer', 'create-menu', 'create-sa-password', 'cms-menu',
     'infrastructure-menu', 'maintenance-menu', 'settings-menu', 'storage-menu', 'database-menu',
     'connection-center', 'hyperv-menu', 'system-menu')
 Add-ConsoleUiCheck 'Alle Bildschirme des kritischen Pfads besitzen einen kuratierten Hilfeeintrag' (
@@ -738,6 +738,55 @@ Add-ConsoleUiCheck 'Providerentscheidung bleibt ausserhalb der Formularnavigatio
 $batchConsoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/BatchConsole.ps1') -Raw
 Add-ConsoleUiCheck 'Testmatrix nennt die unterstützten Betriebssysteme direkt im Eingabeprompt' (
     $batchConsoleSource -match 'Betriebssysteme, kommagetrennt \(Linux, Windows\) \[Linux\]'
+)
+
+# CUI-027: Der synchrone Einzelweg ist im Produktivcode verdrahtet und bleibt es.
+$createMenuMatch = [regex]::Match($batchConsoleSource, 'function Show-LabCreateMenu \{[\s\S]+?(?=\r?\nfunction )')
+Add-ConsoleUiCheck 'Erstellen-Menue bietet den synchronen Einzelweg als erste Wahl' (
+    $createMenuMatch.Success -and
+    $createMenuMatch.Value -match 'New-LabConsoleItem -Id New\b' -and
+    $createMenuMatch.Value -match '-Shortcut 1\b' -and
+    $createMenuMatch.Value -match 'ohne Queue'
+)
+
+$newEnvironmentMatch = [regex]::Match($entrySource, 'function Invoke-LabNewEnvironmentInteractive \{[\s\S]+?(?=\r?\nfunction Invoke-LabClearAutomatedTestEnvironmentInteractive)')
+Add-ConsoleUiCheck 'Sofortweg entscheidet den Provider und erstellt selbst statt an den Composer zu delegieren' (
+    $newEnvironmentMatch.Success -and
+    $newEnvironmentMatch.Value -match 'Read-LabSqlEnvironmentIntentInteractive' -and
+    $newEnvironmentMatch.Value -match 'Get-LabProviderAvailabilityMap' -and
+    $newEnvironmentMatch.Value -match 'Resolve-LabSqlIntentProvider' -and
+    $newEnvironmentMatch.Value -match 'Invoke-LabNewContainerEnvironmentInteractive' -and
+    $newEnvironmentMatch.Value -match 'Invoke-LabNewHyperVEnvironmentInteractive'
+)
+Add-ConsoleUiCheck 'Sofortweg fragt vor der Mutation ausdruecklich zurueck und zeigt die Dauer' (
+    $newEnvironmentMatch.Success -and
+    $newEnvironmentMatch.Value -match 'Read-LabConfirm[^\r\n]+jetzt auf' -and
+    $newEnvironmentMatch.Value -match 'Format-LabElapsedTime'
+)
+
+# Ein Baustein ohne Aufrufstelle im Produktivcode ist eine tote Funktion und keine Funktion der Oberflaeche.
+$synchronousWiring = @(
+    'Invoke-LabNewContainerEnvironmentInteractive'
+    'Invoke-LabNewHyperVEnvironmentInteractive'
+    'Resolve-LabSqlIntentProvider'
+    'Resolve-LabDirectSaPasswordInteractive'
+    'Show-LabSqlProviderDecision'
+)
+$productionSource = $entrySource + "`n" + $batchConsoleSource
+$unwiredBuildingBlocks = @($synchronousWiring | Where-Object {
+        ([regex]::Matches($productionSource, [regex]::Escape($_))).Count -lt 2
+    })
+Add-ConsoleUiCheck 'Bausteine des Sofortwegs werden aus Produktivcode aufgerufen und bleiben keine tote Funktion' (
+    $unwiredBuildingBlocks.Count -eq 0
+)
+
+$containerCreationMatch = [regex]::Match($entrySource, 'function Invoke-LabNewContainerEnvironmentInteractive \{[\s\S]+?(?=\r?\nfunction Invoke-LabNewHyperVEnvironmentInteractive)')
+Add-ConsoleUiCheck 'Containerpfad setzt entweder das uebergebene SA-Kennwort oder die Erzeugung, niemals beides' (
+    $containerCreationMatch.Success -and
+    $containerCreationMatch.Value -match '\[SecureString\]\$SaPassword' -and
+    $containerCreationMatch.Value -match 'if \(\$SaPassword\)' -and
+    $containerCreationMatch.Value -match 'GenerateSaPassword' -and
+    $containerCreationMatch.Value -notmatch 'GenerateSaPassword=\$true'
 )
 
 $cui008Functions = @('Invoke-LabHyperVImageAction','Invoke-LabHyperVPreparedImageWorkflowMenu','Invoke-LabHyperVPublishedImageMenu','Invoke-LabHyperVAdvancedMenu','Invoke-LabHyperVWindowsBaselineMenu','Invoke-LabHyperVSqlAcceptanceMenu','Select-LabReusableHyperVWindowsSlotInteractive','Manage-LabHyperVEnvironmentInteractive')
