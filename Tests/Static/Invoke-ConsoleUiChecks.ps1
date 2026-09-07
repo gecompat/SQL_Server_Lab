@@ -350,6 +350,40 @@ Add-ConsoleUiCheck 'Statusband bleibt auch ohne ermittelbare Fensterbreite lesba
     @($narrowBand | Where-Object { $_.Length -gt 0 }).Count -ge 1
 )
 
+# CUI-025: Provider-Ausgabe wird fuer die Diagnose persistiert, ohne Secrets zu schreiben.
+$providerLogRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-provider-log-$([guid]::NewGuid().ToString('N'))"
+try {
+    $runLogPath = Write-LabProviderLog -Provider podman -Phase 'container-create' `
+        -Command 'podman run -d --name lab-x -e MSSQL_SA_PASSWORD=Str3ng-Geheim! -e ACCEPT_EULA=Y image:tag' `
+        -Output @('abc123def456', 'Error: port is already allocated') -ExitCode 125 `
+        -RunId 'run-demo' -StateRoot $providerLogRoot
+    $logText = if ($runLogPath) { Get-Content -LiteralPath $runLogPath -Raw } else { '' }
+    Add-ConsoleUiCheck 'Provider-Ausgabe wird runbezogen persistiert und bleibt secretfrei' (
+        $runLogPath -and (Split-Path -Leaf $runLogPath) -eq 'provider.log' -and
+        $runLogPath -match 'runs[\\/]run-demo[\\/]log' -and
+        $logText -match 'podman container-create exit=125' -and
+        $logText -match 'Error: port is already allocated' -and
+        $logText -notmatch 'Str3ng-Geheim' -and $logText -match 'MSSQL_SA_PASSWORD=\*\*\*'
+    )
+    $sessionLogPath = Get-LabProviderLogPath -RunId '' -StateRoot $providerLogRoot
+    Add-ConsoleUiCheck 'Ohne Run-Bezug landet Provider-Ausgabe im Sitzungslog' (
+        $sessionLogPath -match 'session' -and (Split-Path -Leaf $sessionLogPath) -eq 'provider.log'
+    )
+    Add-ConsoleUiCheck 'Ein relativer State-Root erzeugt kein Provider-Log im Arbeitsverzeichnis' (
+        $null -eq (Get-LabProviderLogPath -RunId 'run-demo' -StateRoot 'relativer-pfad')
+    )
+}
+finally { Remove-Item -LiteralPath $providerLogRoot -Recurse -Force -ErrorAction SilentlyContinue }
+
+$dockerProviderSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1') -Raw
+$podmanProviderSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1') -Raw
+Add-ConsoleUiCheck 'Beide Container-Provider persistieren die Erstellungsausgabe und nennen den Logpfad im Fehler' (
+    $dockerProviderSource -match "Write-LabProviderLog -Provider docker -Phase 'container-create'" -and
+    $podmanProviderSource -match "Write-LabProviderLog -Provider podman -Phase 'container-create'" -and
+    $dockerProviderSource -match 'Diagnoselog: \$providerLogPath' -and
+    $podmanProviderSource -match 'Diagnoselog: \$providerLogPath'
+)
+
 $items = @(
     New-LabConsoleItem -Id 'one' -Label 'One' -Shortcut '1'
     New-LabConsoleItem -Id 'two' -Label 'Two' -Shortcut '2'

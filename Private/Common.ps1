@@ -109,6 +109,7 @@ $script:LabMessageSequence = 0
 $script:LabMessageSessionId = $null
 $script:LabMessageJournalPath = $null
 $script:LabMessageJournalDisabled = $false
+$script:LabProviderLogDisabled = $false
 
 function Get-LabMessageSessionId {
     <#
@@ -242,8 +243,65 @@ function Get-LabMessage {
     return $items
 }
 
-function Format-LabMessageReport {
+function Get-LabProviderLogPath {
     <#
+    .SYNOPSIS Pfad des Provider-Diagnoselogs eines Runs oder der Sitzung.
+    #>
+    [CmdletBinding()]
+    param([AllowEmptyString()][string]$RunId = '', [AllowEmptyString()][string]$StateRoot = '')
+
+    $root = $StateRoot
+    if (-not $root) {
+        if (-not (Get-Command -Name Get-LabStateRoot -ErrorAction SilentlyContinue)) { return $null }
+        try { $root = Get-LabStateRoot } catch { return $null }
+    }
+    if (-not $root -or -not [IO.Path]::IsPathRooted($root)) { return $null }
+    if ($RunId) { return Join-Path (Join-Path (Join-Path (Join-Path $root 'runs') $RunId) 'log') 'provider.log' }
+    return Join-Path (Join-Path (Join-Path $root 'session') (Get-LabMessageSessionId)) 'provider.log'
+}
+
+function Write-LabProviderLog {
+    <#
+    .SYNOPSIS Persistiert Provider-Ausgabe fuer die spaetere Diagnose.
+    .DESCRIPTION Ohne diese Persistenz ist die Ausgabe eines erfolgreichen Laufs
+    verloren und nur ein Fehlschlag hinterlaesst Text in der Ausnahme. Kommando
+    und Ausgabe werden vor dem Schreiben von Secrets bereinigt.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Provider,
+        [Parameter(Mandatory)][string]$Phase,
+        [AllowEmptyString()][string]$Command = '',
+        [AllowNull()][object]$Output,
+        [int]$ExitCode = 0,
+        [AllowEmptyString()][string]$RunId = '',
+        [AllowEmptyString()][string]$StateRoot = ''
+    )
+
+    if ($script:LabProviderLogDisabled) { return $null }
+    $path = Get-LabProviderLogPath -RunId $RunId -StateRoot $StateRoot
+    if (-not $path) { return $null }
+    try {
+        $directory = Split-Path -Parent $path
+        if (-not (Test-Path -LiteralPath $directory)) { New-Item -Path $directory -ItemType Directory -Force | Out-Null }
+        $builder = [System.Text.StringBuilder]::new()
+        $null = $builder.AppendLine(('=== {0} {1} {2} exit={3}' -f @([datetime]::UtcNow.ToString('o'), $Provider, $Phase, $ExitCode)))
+        if ($Command) { $null = $builder.AppendLine('$ ' + (Protect-LabMessageText -Text $Command)) }
+        foreach ($line in @($Output)) {
+            if ($null -eq $line) { continue }
+            $null = $builder.AppendLine((Protect-LabMessageText -Text ([string]$line)))
+        }
+        [IO.File]::AppendAllText($path, $builder.ToString(), [Text.UTF8Encoding]::new($false))
+        return $path
+    }
+    catch {
+        # Ein nicht schreibbares Diagnoselog darf keinen Providerlauf abbrechen.
+        $script:LabProviderLogDisabled = $true
+        return $null
+    }
+}
+
+function Format-LabMessageReport {    <#
     .SYNOPSIS Erzeugt einen kopierbaren Klartextbericht zu Meldungen.
     #>
     [CmdletBinding()]

@@ -1523,12 +1523,19 @@ oder unterdrückt (`| Out-Null`, `1>$null 2>$null`). Es gibt insbesondere keinen
 `docker pull`- oder `podman pull`-Aufruf, der Fortschritt streamt. Der
 Rahmenaufbau ist dadurch nicht durch Fremdausgabe gefährdet.
 
-Die tatsächliche offene Lücke (`CUI-025`) ist eine andere: Provider-Ausgabe
-wird **nicht persistiert**. Bei Erfolg wird sie verworfen, bei Fehlschlag
-erscheint sie nur in der Ausnahmemeldung. Unter `runs/<RunId>/` liegt keine
-Logdatei, und es existiert kein gemeinsamer Wrapper für externe Aufrufe. Eine
-nachträgliche Diagnose eines erfolgreichen, aber auffälligen Laufs ist damit
-nicht möglich.
+Die tatsächliche Lücke (`CUI-025`) war eine andere: Provider-Ausgabe wurde
+**nicht persistiert**. Bei Erfolg wurde sie verworfen, bei Fehlschlag erschien
+sie nur in der Ausnahmemeldung. Seit 2026-09-07 schreibt die Containererstellung
+beider Container-Provider Kommando und Ausgabe nach
+`<StateRoot>/runs/<RunId>/log/provider.log`; ohne Run-Bezug wird das
+Sitzungslog verwendet. Secrets werden vorher entfernt, und die Fehlermeldung
+nennt den Logpfad.
+
+Die Persistenz umfasst bisher nur den Schritt `container-create`. Start, Stopp,
+Volume-Anlage, Image-Build und die Hyper-V-Pfade schreiben noch kein
+Diagnoselog. Ein gemeinsamer Wrapper für externe Aufrufe existiert weiterhin
+nicht; die Aufrufstellen binden `Write-LabProviderLog` einzeln ein. Eine
+Rotation alter Diagnoselogs besteht nicht.
 
 Das Statusband ist bisher nur im Vorgangsmenü (`queue-menu`) aktiviert. Alle
 übrigen Bildschirme deklarieren keine Bandhöhe und verhalten sich unverändert.
