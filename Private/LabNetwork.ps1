@@ -304,7 +304,9 @@ function Ensure-LabDockerNetwork {
         $actualSubnet = [string]@($existing.IPAM.Config)[0].Subnet
         if ($actualSubnet -ne $network.Subnet -or [bool]$existing.Internal) { throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)" }
         try {
-            Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets (Get-LabKnownIpv4Subnets -Provider docker)
+            Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets @(
+                Get-LabKnownIpv4Subnets -Provider docker | Where-Object { $_ -ne $actualSubnet }
+            )
         }
         catch {
             if ($_.Exception.Message -match '^LAB_NETWORK_SUBNET_CONFLICT:') {
@@ -403,7 +405,9 @@ function Ensure-LabPodmanNetwork {
         $existingContract = Get-LabPodmanNetworkContractFromInspect -Inspect $existing
         if ($existingContract.Subnet -ne $network.Subnet -or $existingContract.Internal) { throw "LAB_NETWORK_CONTRACT_MISMATCH: $($network.Name)" }
         try {
-            Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets (Get-LabKnownIpv4Subnets -Provider podman)
+            Assert-LabRuntimeNetworkAvailable -Network $network -KnownSubnets @(
+                Get-LabKnownIpv4Subnets -Provider podman | Where-Object { $_ -ne $existingContract.Subnet }
+            )
         }
         catch {
             if ($_.Exception.Message -match '^LAB_NETWORK_SUBNET_CONFLICT:') {

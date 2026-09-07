@@ -68,6 +68,9 @@ try {
     $networkSource = Get-Content (Join-Path $repoRoot 'Private/LabNetwork.ps1') -Raw
     Add-CheckResult -Name 'Bestehende Docker- und Podman-Labnetze melden spätere Subnetzkonflikte als Migrationsbedarf' -Success (
         @([regex]::Matches($networkSource, 'LAB_NETWORK_EXISTING_SUBNET_CONFLICT_MIGRATION_REQUIRED')).Count -eq 2)
+    Add-CheckResult -Name 'Bestehende Container-Labnetze schließen ausschließlich ihr eigenes Runtime-Subnetz aus der Kollisionsprüfung aus' -Success (
+        $networkSource -match 'Where-Object \{ \$_ -ne \$actualSubnet \}' -and
+        $networkSource -match 'Where-Object \{ \$_ -ne \$existingContract\.Subnet \}')
     $migrationSource = Get-Content (Join-Path $repoRoot 'Private/ContainerNetworkMigration.ps1') -Raw
     $migrationCommand = Get-Command Move-SqlServerLabContainerNetwork -Module SqlServerLab
     Add-CheckResult -Name 'Container-Netzmigration ist explizit, providergebunden und auf gelabelte Labcontainer begrenzt' -Success (
