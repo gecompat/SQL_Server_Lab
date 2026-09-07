@@ -235,15 +235,11 @@ function ConvertTo-LabCmsServerTarget {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Server, [string]$CmsProvider)
 
-    if ([string]::IsNullOrWhiteSpace($CmsProvider)) { return $Server }
-    $hostAlias = switch ($CmsProvider) {
-        'docker' { 'host.docker.internal' }
-        'podman' { 'host.containers.internal' }
-        default { return $Server }
-    }
-    if ($Server -match '^(127\.0\.0\.1|localhost)(?<port>,[0-9]+)?$') {
-        return ('{0}{1}' -f $hostAlias, $Matches.port)
-    }
+    # Registered-server targets are consumed by SSMS on the client host. The
+    # CMS stores only their metadata and does not open the member connection.
+    # Keep the provider parameter for compatibility with existing callers, but
+    # never translate a host-side loopback endpoint into a container-only alias.
+    $null = $CmsProvider
     return $Server
 }
 
@@ -579,10 +575,11 @@ function Get-LabCmsRegisteredServerDisplayName {
     .SYNOPSIS
         Erzeugt den optionalen CMS-Anzeigenamen fuer genau ein Lab-Ziel.
     .DESCRIPTION
-        Haengt nur dann ein Kennwort an, wenn der zentrale Generatornachweis
-        `Get-LabAutomaticallyGeneratedRunSaPassword` es als vom Lab erzeugt
-        freigibt. Manuelle und manifestbasierte Kennwoerter liefern dort `$null`
-        und bleiben damit immer aus dem Anzeigenamen ausgeschlossen.
+        Liefert bei aktivierter Kennwortanzeige fuer ein nachweislich vom Lab
+        erzeugtes Kennwort ausschließlich dessen exakten Wert. Dadurch kopiert
+        SSMS mit Strg+C genau den in den Verbindungsdialog einzufuegenden Wert.
+        Manuelle und manifestbasierte Kennwoerter werden nie offengelegt und
+        erhalten stattdessen einen eindeutigen Eingabehinweis.
     #>
     [CmdletBinding()]
     param(
@@ -601,24 +598,33 @@ function Get-LabCmsRegisteredServerDisplayName {
         }
     }
     $password = & $GeneratedPasswordResolver ([string]$Entry.RunId) $StateRoot
-    if ([string]::IsNullOrWhiteSpace([string]$password)) { return $displayName }
+    if ([string]::IsNullOrWhiteSpace([string]$password)) {
+        return 'MANUELLES PASSWORT EINGEBEN'
+    }
+    if (([string]$password).Length -gt 128) {
+        throw 'CONNECTION_CENTER_CMS_GENERATED_PASSWORD_NAME_TOO_LONG: Das generierte Kennwort passt nicht in einen CMS-Anzeigenamen.'
+    }
+    return [string]$password
+}
 
-    # Der Instanzzusatz bleibt am Ende lesbar: Umgebung_Passwort (primary).
+function Get-LabCmsEnvironmentGroupDisplayName {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Entry)
+
+    $displayName = [string]$Entry.DisplayName
+    if ($displayName.Length -le 128) { return $displayName }
+
     $environmentName = $displayName
     $instanceSuffix = ''
     if ($displayName -match '^(?<Environment>.+) (?<Instance>\([^()]+\))$') {
         $environmentName = [string]$Matches.Environment
         $instanceSuffix = ' ' + [string]$Matches.Instance
     }
-    $passwordSuffix = '_{0}{1}' -f [string]$password, $instanceSuffix
-    if ($passwordSuffix.Length -ge 128) {
-        throw 'CONNECTION_CENTER_CMS_GENERATED_PASSWORD_NAME_TOO_LONG: Das generierte Kennwort passt nicht in einen CMS-Anzeigenamen.'
-    }
-    $maximumEnvironmentLength = 128 - $passwordSuffix.Length
+    $maximumEnvironmentLength = 128 - $instanceSuffix.Length
     if ($environmentName.Length -gt $maximumEnvironmentLength) {
         $environmentName = $environmentName.Substring(0, $maximumEnvironmentLength)
     }
-    return $environmentName + $passwordSuffix
+    return $environmentName + $instanceSuffix
 }
 
 function Invoke-LabCmsSqlInMemory {
@@ -701,8 +707,9 @@ function Export-SqlServerLabCmsSyncScript {
     .PARAMETER StateRoot
         Optionaler State Root. Ohne Angabe wird der konfigurierte Standard verwendet.
     .PARAMETER CmsProvider
-        Optionaler Provider eines verwalteten lokalen CMS. Lokale Containerziele
-        erhalten dafür den passenden Host-Alias.
+        Optionaler Provider eines verwalteten lokalen CMS. Der Parameter bleibt
+        aus Kompatibilitätsgründen erhalten; Mitgliedsziele bleiben unverändert,
+        weil SSMS sie vom Clienthost und nicht aus dem CMS-Container öffnet.
     .PARAMETER IncludeGeneratedPasswordAliases
         Interner Schalter fuer den direkten CMS-Abgleich. Erfordert `InMemory`
         und darf nicht fuer einen dauerhaften Export verwendet werden.
@@ -827,9 +834,14 @@ function Export-SqlServerLabCmsSyncScript {
         }
         else {
             $reconciledProviders += $provider
-            $lines.Add("DECLARE CmsServerCursor_$suffix CURSOR LOCAL FAST_FORWARD FOR SELECT server_id FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id IN (@RunningProvider_$suffix, @StoppedProvider_$suffix, @LegacyProvider_$suffix, @OldRunningProvider_$suffix, @OldStoppedProvider_$suffix) OR (server_group_id IN (@RunningId, @StoppedId, @OldManagedRunning_$suffix, @OldManagedStopped_$suffix) AND description LIKE N'ManagedBy=SQL_Server_Lab;%;Provider=$provider;%');")
+            $lines.Add("DECLARE @ManagedEnvironmentGroups_$suffix TABLE (server_group_id int NOT NULL PRIMARY KEY);")
+            $lines.Add("INSERT INTO @ManagedEnvironmentGroups_$suffix (server_group_id) SELECT g.server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups g WHERE (g.parent_id IN (@RunningProvider_$suffix, @StoppedProvider_$suffix, @LegacyProvider_$suffix, @OldRunningProvider_$suffix, @OldStoppedProvider_$suffix) OR g.parent_id IN (@RunningId, @StoppedId, @OldManagedRunning_$suffix, @OldManagedStopped_$suffix)) AND g.description LIKE N'ManagedBy=SQL_Server_Lab;%;Role=Environment;%;Provider=$provider;%';")
+            $lines.Add("DECLARE CmsServerCursor_$suffix CURSOR LOCAL FAST_FORWARD FOR SELECT server_id FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id IN (@RunningProvider_$suffix, @StoppedProvider_$suffix, @LegacyProvider_$suffix, @OldRunningProvider_$suffix, @OldStoppedProvider_$suffix) OR server_group_id IN (SELECT server_group_id FROM @ManagedEnvironmentGroups_$suffix) OR (server_group_id IN (@RunningId, @StoppedId, @OldManagedRunning_$suffix, @OldManagedStopped_$suffix) AND description LIKE N'ManagedBy=SQL_Server_Lab;%;Provider=$provider;%');")
             $lines.Add("DECLARE @DeleteServerId_$suffix int; OPEN CmsServerCursor_$suffix; FETCH NEXT FROM CmsServerCursor_$suffix INTO @DeleteServerId_$suffix;")
             $lines.Add("WHILE @@FETCH_STATUS = 0 BEGIN EXEC msdb.dbo.sp_sysmanagement_delete_shared_registered_server @server_id = @DeleteServerId_$suffix; FETCH NEXT FROM CmsServerCursor_$suffix INTO @DeleteServerId_$suffix; END; CLOSE CmsServerCursor_$suffix; DEALLOCATE CmsServerCursor_$suffix;")
+            $lines.Add("DECLARE CmsEnvironmentGroupCursor_$suffix CURSOR LOCAL FAST_FORWARD FOR SELECT server_group_id FROM @ManagedEnvironmentGroups_$suffix;")
+            $lines.Add("DECLARE @DeleteEnvironmentGroupId_$suffix int; OPEN CmsEnvironmentGroupCursor_$suffix; FETCH NEXT FROM CmsEnvironmentGroupCursor_$suffix INTO @DeleteEnvironmentGroupId_$suffix;")
+            $lines.Add("WHILE @@FETCH_STATUS = 0 BEGIN EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @DeleteEnvironmentGroupId_$suffix; FETCH NEXT FROM CmsEnvironmentGroupCursor_$suffix INTO @DeleteEnvironmentGroupId_$suffix; END; CLOSE CmsEnvironmentGroupCursor_$suffix; DEALLOCATE CmsEnvironmentGroupCursor_$suffix;")
 
             foreach ($entry in @($providerEntries | Sort-Object RuntimeState, DisplayName, Server)) {
                 $server = & $escape (ConvertTo-LabCmsServerTarget -Server $entry.Server -CmsProvider $CmsProvider)
@@ -845,6 +857,13 @@ function Export-SqlServerLabCmsSyncScript {
                 $identity = & $escape ([string]$entry.Id)
                 $description = & $escape ("ManagedBy=SQL_Server_Lab;Contract=1.0;Identity={0};Provider={1};RuntimeState={2}" -f $entry.Id, $provider, $runtimeState)
                 $variableSuffix = [Guid]::NewGuid().ToString('N').Substring(0, 8)
+                if ($IncludeGeneratedPasswordAliases) {
+                    $environmentGroupName = & $escape (Get-LabCmsEnvironmentGroupDisplayName -Entry $entry)
+                    $environmentGroupDescription = & $escape ("ManagedBy=SQL_Server_Lab;Contract=1.2;Role=Environment;Identity={0};Provider={1};RuntimeState={2}" -f $entry.Id, $provider, $runtimeState)
+                    $lines.Add("DECLARE @EnvironmentGroup_$variableSuffix int;")
+                    $lines.Add("EXEC msdb.dbo.sp_sysmanagement_add_shared_server_group @name = N'$environmentGroupName', @description = N'$environmentGroupDescription', @server_type = 0, @parent_id = $targetGroup, @server_group_id = @EnvironmentGroup_$variableSuffix OUTPUT;")
+                    $targetGroup = "@EnvironmentGroup_$variableSuffix"
+                }
                 $lines.Add("DECLARE @ServerId_$variableSuffix int;")
                 $lines.Add("EXEC msdb.dbo.sp_sysmanagement_add_shared_registered_server @name = N'$displayName', @server_group_id = $targetGroup, @server_name = N'$server', @description = N'$description', @server_type = 0, @server_id = @ServerId_$variableSuffix OUTPUT;")
             }
@@ -852,8 +871,8 @@ function Export-SqlServerLabCmsSyncScript {
             $lines.Add("IF @LegacyProvider_$suffix IS NOT NULL AND NOT EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id = @LegacyProvider_$suffix) EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @LegacyProvider_$suffix;")
         }
 
-        $lines.Add("IF @RunningProvider_$suffix IS NOT NULL BEGIN DECLARE @RunningProviderCount_$suffix int = (SELECT COUNT(*) FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id = @RunningProvider_$suffix); IF @RunningProviderCount_$suffix = 0 BEGIN EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @RunningProvider_$suffix; SET @RunningProvider_$suffix = NULL; END ELSE BEGIN EXEC msdb.dbo.sp_sysmanagement_update_shared_server_group @server_group_id = @RunningProvider_$suffix, @description = N'$runningProviderDescription'; DECLARE @RunningProviderName_$suffix sysname = CONCAT(N'$safeProviderName (', @RunningProviderCount_$suffix, N')'); IF EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @RunningId AND name = @RunningProviderName_$suffix AND server_group_id <> @RunningProvider_$suffix) THROW 51001, 'CMS running provider group name collision.', 1; IF (SELECT name FROM msdb.dbo.sysmanagement_shared_server_groups WHERE server_group_id = @RunningProvider_$suffix) <> @RunningProviderName_$suffix EXEC msdb.dbo.sp_sysmanagement_rename_shared_server_group @server_group_id = @RunningProvider_$suffix, @new_name = @RunningProviderName_$suffix; END; END;")
-        $lines.Add("IF @StoppedProvider_$suffix IS NOT NULL BEGIN DECLARE @StoppedProviderCount_$suffix int = (SELECT COUNT(*) FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id = @StoppedProvider_$suffix); IF @StoppedProviderCount_$suffix = 0 BEGIN EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @StoppedProvider_$suffix; SET @StoppedProvider_$suffix = NULL; END ELSE BEGIN EXEC msdb.dbo.sp_sysmanagement_update_shared_server_group @server_group_id = @StoppedProvider_$suffix, @description = N'$stoppedProviderDescription'; DECLARE @StoppedProviderName_$suffix sysname = CONCAT(N'$safeProviderName (', @StoppedProviderCount_$suffix, N')'); IF EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @StoppedId AND name = @StoppedProviderName_$suffix AND server_group_id <> @StoppedProvider_$suffix) THROW 51002, 'CMS stopped provider group name collision.', 1; IF (SELECT name FROM msdb.dbo.sysmanagement_shared_server_groups WHERE server_group_id = @StoppedProvider_$suffix) <> @StoppedProviderName_$suffix EXEC msdb.dbo.sp_sysmanagement_rename_shared_server_group @server_group_id = @StoppedProvider_$suffix, @new_name = @StoppedProviderName_$suffix; END; END;")
+        $lines.Add("IF @RunningProvider_$suffix IS NOT NULL BEGIN DECLARE @RunningProviderCount_$suffix int; WITH RunningProviderTree_$suffix AS (SELECT @RunningProvider_$suffix AS server_group_id UNION ALL SELECT g.server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups g INNER JOIN RunningProviderTree_$suffix p ON g.parent_id = p.server_group_id) SELECT @RunningProviderCount_$suffix = COUNT(*) FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id IN (SELECT server_group_id FROM RunningProviderTree_$suffix); IF @RunningProviderCount_$suffix = 0 BEGIN EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @RunningProvider_$suffix; SET @RunningProvider_$suffix = NULL; END ELSE BEGIN EXEC msdb.dbo.sp_sysmanagement_update_shared_server_group @server_group_id = @RunningProvider_$suffix, @description = N'$runningProviderDescription'; DECLARE @RunningProviderName_$suffix sysname = CONCAT(N'$safeProviderName (', @RunningProviderCount_$suffix, N')'); IF EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @RunningId AND name = @RunningProviderName_$suffix AND server_group_id <> @RunningProvider_$suffix) THROW 51001, 'CMS running provider group name collision.', 1; IF (SELECT name FROM msdb.dbo.sysmanagement_shared_server_groups WHERE server_group_id = @RunningProvider_$suffix) <> @RunningProviderName_$suffix EXEC msdb.dbo.sp_sysmanagement_rename_shared_server_group @server_group_id = @RunningProvider_$suffix, @new_name = @RunningProviderName_$suffix; END; END;")
+        $lines.Add("IF @StoppedProvider_$suffix IS NOT NULL BEGIN DECLARE @StoppedProviderCount_$suffix int; WITH StoppedProviderTree_$suffix AS (SELECT @StoppedProvider_$suffix AS server_group_id UNION ALL SELECT g.server_group_id FROM msdb.dbo.sysmanagement_shared_server_groups g INNER JOIN StoppedProviderTree_$suffix p ON g.parent_id = p.server_group_id) SELECT @StoppedProviderCount_$suffix = COUNT(*) FROM msdb.dbo.sysmanagement_shared_registered_servers WHERE server_group_id IN (SELECT server_group_id FROM StoppedProviderTree_$suffix); IF @StoppedProviderCount_$suffix = 0 BEGIN EXEC msdb.dbo.sp_sysmanagement_delete_shared_server_group @server_group_id = @StoppedProvider_$suffix; SET @StoppedProvider_$suffix = NULL; END ELSE BEGIN EXEC msdb.dbo.sp_sysmanagement_update_shared_server_group @server_group_id = @StoppedProvider_$suffix, @description = N'$stoppedProviderDescription'; DECLARE @StoppedProviderName_$suffix sysname = CONCAT(N'$safeProviderName (', @StoppedProviderCount_$suffix, N')'); IF EXISTS (SELECT 1 FROM msdb.dbo.sysmanagement_shared_server_groups WHERE parent_id = @StoppedId AND name = @StoppedProviderName_$suffix AND server_group_id <> @StoppedProvider_$suffix) THROW 51002, 'CMS stopped provider group name collision.', 1; IF (SELECT name FROM msdb.dbo.sysmanagement_shared_server_groups WHERE server_group_id = @StoppedProvider_$suffix) <> @StoppedProviderName_$suffix EXEC msdb.dbo.sp_sysmanagement_rename_shared_server_group @server_group_id = @StoppedProvider_$suffix, @new_name = @StoppedProviderName_$suffix; END; END;")
     }
     foreach ($group in @($center.Entries | Group-Object Provider | Where-Object { $_.Name -notin $providerAvailability.Keys })) {
         $skippedProviders += [string]$group.Name

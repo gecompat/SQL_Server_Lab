@@ -4,6 +4,20 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-09-07
+
+### Korrigiert
+
+- CMS-Mitglieder behalten das vom SSMS-Client erreichbare Serverziel. Ein Docker-
+  oder Podman-CMS schreibt hostseitige Loopback-Endpunkte nicht mehr in
+  containerinterne `host.*.internal`-Aliasse um.
+- Die CMS-Anleitung trennt das lokal speicherbare CMS-SA-Passwort vom je Umgebung
+  erzeugten Mitgliedspasswort und beschreibt die dauerhafte SSMS-22-Registrierung mit
+  `Encrypt=Mandatory`, `Trust Server Certificate` und `Remember password`.
+- Die dokumentierte CMS-Zählregel unterscheidet verwaltete Runs von registrierbaren
+  SQL-Endpunkten und nennt die Ausschlussgründe für unvollständige Slots,
+  Provisionierungsläufe und den CMS selbst.
+
 ## 2026-09-06
 
 ### Hinzugefügt
