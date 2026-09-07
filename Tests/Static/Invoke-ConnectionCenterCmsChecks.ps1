@@ -1,7 +1,7 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Prueft CMS-Gruppenzaehler, sichere Migration und optionale Kennwort-Aliasse.
+    Prueft CMS-Gruppenzaehler, sichere Migration und kopierbare Kennwortknoten.
 #>
 [CmdletBinding()]
 param()
@@ -68,6 +68,7 @@ try {
         $source -match 'Role=Provider')
     Add-CheckResult -Name 'Zaehler werden aus dem CMS-Istbaum rekursiv erneuert' -Success (
         $source -match 'RunningGroupTree' -and $source -match 'StoppedGroupTree' -and
+        $source -match 'RunningProviderTree_' -and $source -match 'StoppedProviderTree_' -and
         $source -match 'ManagedRootTree' -and $source -match 'SELECT @RunningCount = COUNT\(\*\)' -and
         $source -match 'SELECT @StoppedCount = COUNT\(\*\)' -and
         $source -match 'SELECT @ManagedRootCount = COUNT\(\*\)')
@@ -81,19 +82,30 @@ try {
         $source -match 'sp_sysmanagement_delete_shared_server_group')
 
     $aliasEntry = [PSCustomObject]@{ RunId='generated-run'; DisplayName='Demo (primary)' }
-    $generatedAlias = Get-LabCmsRegisteredServerDisplayName -Entry $aliasEntry -StateRoot 'unused' `
+    $generatedNodeName = Get-LabCmsRegisteredServerDisplayName -Entry $aliasEntry -StateRoot 'unused' `
         -IncludeGeneratedPassword -GeneratedPasswordResolver { param($RunId, $StateRoot) 'Generated!234' }
-    $manualName = Get-LabCmsRegisteredServerDisplayName -Entry $aliasEntry -StateRoot 'unused' `
+    $manualNodeName = Get-LabCmsRegisteredServerDisplayName -Entry $aliasEntry -StateRoot 'unused' `
         -IncludeGeneratedPassword -GeneratedPasswordResolver { param($RunId, $StateRoot) $null }
-    Add-CheckResult -Name 'Nur aufgeloeste generierte Passwoerter werden in den CMS-Namen aufgenommen' -Success (
-        $generatedAlias -eq 'PW=Generated!234 · Demo (primary)' -and $manualName -eq 'Demo (primary)')
+    $passwordDisplayDisabled = Get-LabCmsRegisteredServerDisplayName -Entry $aliasEntry -StateRoot 'unused' `
+        -GeneratedPasswordResolver { param($RunId, $StateRoot) 'Generated!234' }
+    Add-CheckResult -Name 'Kennwortknoten sind direkt kopierbar und manuelle Passwoerter bleiben verborgen' -Success (
+        $generatedNodeName -eq 'Generated!234' -and
+        $manualNodeName -eq 'MANUELLES PASSWORT EINGEBEN' -and
+        $passwordDisplayDisabled -eq 'Demo (primary)')
 
     $longEntry = [PSCustomObject]@{ RunId='generated-run'; DisplayName=(('x' * 160) + ' (primary)') }
-    $boundedAlias = Get-LabCmsRegisteredServerDisplayName -Entry $longEntry -StateRoot 'unused' `
-        -IncludeGeneratedPassword -GeneratedPasswordResolver { param($RunId, $StateRoot) 'Generated!234' }
-    Add-CheckResult -Name 'CMS-Kennwortalias bleibt innerhalb der sysname-Grenze' -Success (
-        $boundedAlias.Length -eq 128 -and $boundedAlias.StartsWith('PW=Generated!234 · ') -and
-        $boundedAlias.EndsWith(' (primary)'))
+    $boundedEnvironmentGroup = Get-LabCmsEnvironmentGroupDisplayName -Entry $longEntry
+    Add-CheckResult -Name 'CMS-Umgebungsordner bleibt innerhalb der sysname-Grenze' -Success (
+        $boundedEnvironmentGroup.Length -eq 128 -and
+        $boundedEnvironmentGroup.EndsWith(' (primary)'))
+
+    Add-CheckResult -Name 'Kennwortmodus verschachtelt genau einen Server unter seinem Umgebungsordner' -Success (
+        $source -match 'Role=Environment' -and
+        $source -match 'DECLARE @EnvironmentGroup_' -and
+        $source -match 'Get-LabCmsEnvironmentGroupDisplayName' -and
+        $source -match '\$targetGroup = "@EnvironmentGroup_\$variableSuffix"' -and
+        $source -match 'ManagedEnvironmentGroups_' -and
+        $source -match 'CmsEnvironmentGroupCursor_')
 
     $newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\New-SqlServerLab.ps1') -Raw -Encoding utf8
     $testEnvironmentSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\TestEnvironment.ps1') -Raw -Encoding utf8

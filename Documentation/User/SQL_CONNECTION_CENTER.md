@@ -121,13 +121,25 @@ selbst auf dem Host öffnet.
 
 Das CMS-Menü bietet zusätzlich **Generiertes Passwort im CMS-Namen anzeigen**.
 Der sichere Standard ist **Aus**. Nach ausdrücklicher Klartextwarnung kann die
-Option aktiviert werden; dann lautet ein Mitglied beispielsweise
-`PW=GeneriertesPasswort · Demo (primary)`. Das Kennwort steht absichtlich vorne,
-damit SSMS es auch in schmalen Baum- und Dialogansichten vollständig zeigt.
+Option aktiviert werden; dann erhält jede Umgebung einen eigenen Unterordner.
+Der darin liegende Serverknoten heißt ausschließlich wie das generierte Kennwort:
+
+```text
+DOCKER (1)
+└─ Demo (primary)
+   └─ GeneriertesPasswort
+```
+
+SSMS kopiert mit **Strg+C** stets den vollständigen Namen eines Baumknotens und
+ignoriert eine optisch markierte Teilzeichenfolge. Weil der Serverknoten nur aus
+dem Kennwort besteht, ist sein vollständig kopierter Wert unmittelbar im
+Verbindungsdialog einsetzbar.
 Ausschließlich Kennwörter, deren Herkunft
 das Framework als selbst erzeugt nachweist, werden ergänzt. Manuell eingegebene,
 manifestbasierte und über Lizenzprofile bereitgestellte Geheimnisse erscheinen
-niemals im Namen. Die Option erleichtert den bewussten Zugriff auf kurzlebige
+niemals im Namen. Für diese Einträge heißt der Serverknoten stattdessen
+`MANUELLES PASSWORT EINGEBEN`; das selbst vergebene Kennwort muss der Benutzer
+kennen und manuell eingeben. Die Option erleichtert den bewussten Zugriff auf kurzlebige
 Testumgebungen, macht das jeweilige Kennwort aber auch in SSMS, CMS-Backups,
 Screenshots und für alle CMS-Leser sichtbar.
 
@@ -154,17 +166,18 @@ Für SSMS 22 wird der lokale Eintrag wie folgt gespeichert:
 
 Das CMS-SA-Passwort öffnet nur den Knoten `CMS-Docker` oder `CMS-Podman`. Für ein
 Mitglied wird dessen eigenes, beim jeweiligen Neuaufbau neu erzeugtes SA-Passwort
-benötigt. Ist die Klartextoption aktiviert, steht genau dieses Mitgliedspasswort im
-Anzeigenamen und kann in den von SSMS geöffneten Verbindungsdialog übernommen werden.
+benötigt. Ist die Klartextoption aktiviert, den Serverknoten unter dem betreffenden
+Umgebungsordner markieren, mit **Strg+C** vollständig kopieren und den Wert in den
+von SSMS geöffneten Verbindungsdialog übernehmen.
 
 Ein Doppelklick auf ein CMS-Mitglied öffnet den SSMS-Verbindungsdialog zunächst mit
 **Windows Authentication**, weil die zentrale Mitgliedsregistrierung weder
 Authentifizierungsart noch SQL-Anmeldedaten speichert. Bei einem Linux-Container
 führt der unmittelbare Verbindungsversuch deshalb typischerweise zu SQL-Fehler 18452.
 Danach **SQL Server Authentication** und Login `sa` wählen. Als Passwort darf nur der
-Wert zwischen `PW=` und ` · ` eingefügt werden. Der Präfix `PW=`, das Trennzeichen,
-der Umgebungsname und `(primary)` gehören nicht zum Kennwort. Das Einfügen des
-vollständigen Anzeigenamens führt zu SQL-Fehler 18456.
+vollständige Name des untergeordneten Kennwort-Serverknotens eingefügt werden. Nicht
+den übergeordneten Umgebungsordner kopieren. Bei einem Eintrag namens
+`MANUELLES PASSWORT EINGEBEN` muss das selbst vergebene Kennwort verwendet werden.
 
 Erscheint direkt nach einem SSMS-Neustart beim Öffnen des CMS-Knotens
 `Object reference not set to an instance of an object
@@ -208,5 +221,7 @@ ein oder aus sowie Provider-Ordner unter `Running` und `Stopped` ein oder aus. D
 vier Layouts möglich, einschließlich der flachsten Variante mit Umgebungen direkt unter
 `Running` und `Stopped`. Sichtbare Gruppennamen erhalten automatisch einen aktuellen
 Anzahlzusatz; der gespeicherte logische Root-Name bleibt davon unberührt. Leere
-Providergruppen werden nicht angezeigt. Der Name des CMS-Knotens selbst bleibt eine
-lokale SSMS-Eigenschaft.
+Providergruppen werden nicht angezeigt. Bei aktivierter Klartextoption kommt unabhängig
+vom gewählten Layout je Ziel genau ein Umgebungsordner hinzu, unter dem der direkt
+kopierbare Kennwort- beziehungsweise manuelle Eingabe-Serverknoten liegt. Der Name des
+CMS-Knotens selbst bleibt eine lokale SSMS-Eigenschaft.

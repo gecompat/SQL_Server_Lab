@@ -187,8 +187,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - passwortfreier providerübergreifender Connection-Center-Katalog und
   dauerhafte SSMS-/CMS-Exporte; der direkte CMS-Abgleich kann nach expliziter
   Klartextwarnung ausschließlich nachweislich vom Lab erzeugte SA-Passwörter
-  im Anzeigenamen ergänzen und führt den sensiblen Plan nur im Arbeitsspeicher
-  aus; manuelle und manifestbasierte Passwörter bleiben ausgeschlossen;
+  als direkt kopierbaren Serverknoten unter einem eigenen Umgebungsordner
+  anzeigen und führt den sensiblen Plan nur im Arbeitsspeicher aus; manuelle
+  und manifestbasierte Passwörter bleiben ausgeschlossen und erhalten nur
+  einen Eingabehinweis;
 - Hyper-V-Lifecycle-Grundlage mit Generation 2, Secure Boot, verifizierter
   Parent-/Child-VHDX, Status, Start, Stop, deklarativem VM-Autostart und
   scopegebundenem Cleanup;

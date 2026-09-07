@@ -97,7 +97,7 @@ Sync-SqlServerLabConnectionCenter      # Endpunktkatalog atomar aktualisieren
 Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erzeugen
 Export-SqlServerLabCmsSyncScript       # Kennwortfreies CMS-Synchronisationsskript erzeugen
 Initialize-SqlServerLabCms             # Kompakten persistenten lokalen CMS erstellen
-Sync-SqlServerLabCms                   # CMS abgleichen; optionale generierte Kennwortaliase nur In-Memory
+Sync-SqlServerLabCms                   # CMS abgleichen; optionale kopierbare Kennwortknoten nur In-Memory
 Get-SqlServerLabReconcilePlan          # Read-only Lifecycle- oder External-Runtime-Reconcile-Plan
 Invoke-SqlServerLabReconcileAction     # Start/Stop oder validierten Container-Runtime-Refresh ausfuehren
 Move-SqlServerLabContainerNetwork      # Verwaltetes konfliktbehaftetes Docker-/Podman-Labnetz explizit migrieren
