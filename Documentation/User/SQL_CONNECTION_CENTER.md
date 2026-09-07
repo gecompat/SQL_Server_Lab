@@ -73,6 +73,30 @@ Sobald ein CMS eingerichtet ist, führt jede erfolgreiche Konsolen-Lifecycle-Akt
 CMS-Synchronisation automatisch aus, einschließlich des Hyper-V-Unterworkflows. `[6]`
 dient nur zum manuellen Nachholen oder zur Diagnose. Schlägt die automatische
 Synchronisation fehl, zeigt die Konsole eine sichtbare Warnung mit dem Wiederholungsweg an.
+Wer Lifecycle-Cmdlets außerhalb der Konsole direkt aufruft oder State aus einem älteren
+Lauf übernimmt, führt anschließend `Sync-SqlServerLabCms` aus. Die CMS-Anzahl ist der
+Stand des letzten erfolgreichen Abgleichs und kein Live-Zähler des Lab-Menüs.
+
+### Welche Umgebungen in den CMS gehören
+
+Das Lab-Menü zählt verwaltete Runs und Workflows. Der CMS zählt dagegen nutzbare
+SQL-Endpunkte. Registriert werden aktive, nicht entfernte Runs, für die eine lesbare
+`connection-info.json` und ein vollständiges Serverziel vorhanden sind. Dabei gilt:
+
+- Ein laufender Endpunkt erscheint unter `Running`.
+- Ein gestoppter Endpunkt mit weiterhin gültigem Serverziel erscheint unter `Stopped`.
+- Provisionierungs- und Slot-Platzhalter ohne fertigen SQL-Endpunkt erscheinen nicht.
+- Entfernte oder bereinigte Runs, unlesbare Verbindungsdaten und Einträge ohne Hostziel
+  erscheinen nicht.
+- Der CMS selbst erscheint nie als Mitglied seines eigenen Unterbaums.
+- Die geschützte automatisierte Testgruppe wird nur vollständig veröffentlicht: Solange
+  nicht alle registrierten Ziele `READY` sind, erscheint keines ihrer Mitglieder als
+  vermeintlich vollständige Testgruppe.
+
+Darum kann ein Lab-Menü beispielsweise 27 verwaltete Umgebungen kennen, während der CMS
+nur die tatsächlich verbindbaren SQL-Endpunkte zeigt. Ein nachträglich fertiggestellter
+Endpunkt wird beim nächsten erfolgreichen Abgleich ergänzt; reine Hyper-V-Slots oder
+Legacy-Provisionierungsläufe ohne Verbindung bleiben absichtlich ausgeschlossen.
 
 Die CMS-Einträge erscheinen in SSMS nicht im normalen **Objekt-Explorer** und auch
 nicht unter **Lokale Servergruppen**. Der verwaltete CMS muss einmal unter
@@ -88,6 +112,13 @@ auf Servername, sichtbaren Namen und Beschreibung. Nur die einmalige lokale
 Verbindung von SSMS zum CMS kann ein von SSMS verschlüsselt gespeichertes Kennwort
 verwenden.
 
+Das Serverziel eines Mitglieds wird immer aus Sicht des SSMS-Clients gespeichert.
+Läuft SSMS auf demselben Windows-Host wie Docker oder Podman, bleibt ein veröffentlichter
+Loopback-Endpunkt daher beispielsweise `127.0.0.1,15433`. Der Provider des CMS ändert
+dieses Ziel nicht in `host.docker.internal` oder `host.containers.internal`: Diese Namen
+sind für Zugriffe *aus* einem Container gedacht, während SSMS die Mitgliedsverbindung
+selbst auf dem Host öffnet.
+
 Das CMS-Menü bietet zusätzlich **Generiertes Passwort im CMS-Namen anzeigen**.
 Der sichere Standard ist **Aus**. Nach ausdrücklicher Klartextwarnung kann die
 Option aktiviert werden; dann lautet ein Mitglied beispielsweise
@@ -102,6 +133,29 @@ Bei der einmaligen CMS-Registrierung in SSMS ist SQL-Authentifizierung mit
 Login `sa` und dem gesicherten CMS-Passwort zulässig. Microsoft dokumentiert
 diesen Weg unter
 [Create a central management server and server group](https://learn.microsoft.com/en-us/ssms/register-servers/create-a-central-management-server-and-server-group).
+Für SSMS 22 wird der lokale Eintrag wie folgt gespeichert:
+
+1. Das im CMS-Menü angezeigte **CMS-Serverziel** eintragen.
+2. **SQL Server Authentication**, Login `sa` und das dort angezeigte
+   **CMS-SA-Passwort** verwenden.
+3. **Encrypt = Mandatory** und **Trust Server Certificate** aktivieren.
+4. **Remember password** aktivieren, **Test Connection** ausführen und den Eintrag
+   anschließend mit **Save** beziehungsweise **OK** speichern.
+
+Das CMS-SA-Passwort öffnet nur den Knoten `CMS-Docker` oder `CMS-Podman`. Für ein
+Mitglied wird dessen eigenes, beim jeweiligen Neuaufbau neu erzeugtes SA-Passwort
+benötigt. Ist die Klartextoption aktiviert, steht genau dieses Mitgliedspasswort im
+Anzeigenamen und kann in den von SSMS geöffneten Verbindungsdialog übernommen werden.
+
+Erscheint direkt nach einem SSMS-Neustart beim Öffnen des CMS-Knotens
+`Object reference not set to an instance of an object
+(Microsoft.SqlServer.Management.UnifiedConnectionDialog)`, ist der lokale SSMS-Eintrag
+unvollständig oder widersprüchlich gespeichert. Ein erfolgreicher **Test Connection**
+kann die Verbindung nur für die laufende Sitzung zwischenspeichern. Deshalb die
+Eigenschaften erneut öffnen und die vier obigen Schritte einschließlich **Remember
+password** und abschließendem Speichern ausführen. Bleibt der Fehler bestehen, nur den
+lokalen CMS-Eintrag löschen und mit denselben Werten neu anlegen; der CMS-Server und
+seine Gruppen werden dadurch nicht gelöscht.
 
 Der CMS selbst wird nicht als verwaltetes Ziel in seinen eigenen Unterbaum
 eingetragen. Bei sechs fertigen Testumgebungen meldet der CMS-Abgleich daher sechs

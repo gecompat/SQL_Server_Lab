@@ -350,6 +350,14 @@ Trust server certificate: aktiviert
 
 Der konkrete Port wird dynamisch im Bereich `14330` bis `14399` vergeben, sofern kein Port vorgegeben wurde.
 
+Für einen verwalteten CMS sind zwei Kennwörter zu unterscheiden: SSMS darf das
+CMS-SA-Passwort lokal verschlüsselt speichern; ein CMS-Mitglied verwendet dagegen sein
+eigenes SA-Passwort. Mitgliedsziele werden aus Sicht des SSMS-Hosts registriert, sodass
+ein veröffentlichter Loopback-Endpunkt nicht in einen containerinternen Host-Alias
+umgeschrieben wird. Einrichtung, Kennwortanzeige, Zählregeln und die Reparatur eines
+fehlerhaften SSMS-22-Eintrags beschreibt die
+[SQL-Verbindungszentrale](Documentation/User/SQL_CONNECTION_CENTER.md).
+
 ## Datenbank erstellen
 
 ```powershell

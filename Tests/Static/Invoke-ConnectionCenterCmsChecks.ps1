@@ -49,6 +49,17 @@ try {
     Add-CheckResult -Name 'Leere Providergruppen werden nicht projiziert' -Success (
         'PODMAN (0)' -notin $runningProviders)
 
+    $dockerClientTarget = ConvertTo-LabCmsServerTarget -Server '127.0.0.1,15433' -CmsProvider docker
+    $podmanClientTarget = ConvertTo-LabCmsServerTarget -Server 'localhost,15434' -CmsProvider podman
+    $hyperVClientTarget = ConvertTo-LabCmsServerTarget -Server '192.0.2.25,1433' -CmsProvider docker
+    Add-CheckResult -Name 'CMS bewahrt die aus Sicht des SSMS-Clients erreichbaren Serverziele' -Success (
+        $dockerClientTarget -eq '127.0.0.1,15433' -and
+        $podmanClientTarget -eq 'localhost,15434' -and
+        $hyperVClientTarget -eq '192.0.2.25,1433')
+    Add-CheckResult -Name 'CMS erzeugt keine nur containerintern gueltigen Host-Aliasse' -Success (
+        $dockerClientTarget -notmatch '^host\.docker\.internal' -and
+        $podmanClientTarget -notmatch '^host\.containers\.internal')
+
     $source = Get-Content -LiteralPath $sourcePath -Raw -Encoding utf8
     Add-CheckResult -Name 'Bestehende CMS-Gruppen werden ID-stabil umbenannt' -Success (
         $source -match 'sp_sysmanagement_rename_shared_server_group' -and

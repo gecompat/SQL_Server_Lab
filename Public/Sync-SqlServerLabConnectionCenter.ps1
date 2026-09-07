@@ -235,15 +235,11 @@ function ConvertTo-LabCmsServerTarget {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Server, [string]$CmsProvider)
 
-    if ([string]::IsNullOrWhiteSpace($CmsProvider)) { return $Server }
-    $hostAlias = switch ($CmsProvider) {
-        'docker' { 'host.docker.internal' }
-        'podman' { 'host.containers.internal' }
-        default { return $Server }
-    }
-    if ($Server -match '^(127\.0\.0\.1|localhost)(?<port>,[0-9]+)?$') {
-        return ('{0}{1}' -f $hostAlias, $Matches.port)
-    }
+    # Registered-server targets are consumed by SSMS on the client host. The
+    # CMS stores only their metadata and does not open the member connection.
+    # Keep the provider parameter for compatibility with existing callers, but
+    # never translate a host-side loopback endpoint into a container-only alias.
+    $null = $CmsProvider
     return $Server
 }
 
@@ -701,8 +697,9 @@ function Export-SqlServerLabCmsSyncScript {
     .PARAMETER StateRoot
         Optionaler State Root. Ohne Angabe wird der konfigurierte Standard verwendet.
     .PARAMETER CmsProvider
-        Optionaler Provider eines verwalteten lokalen CMS. Lokale Containerziele
-        erhalten dafür den passenden Host-Alias.
+        Optionaler Provider eines verwalteten lokalen CMS. Der Parameter bleibt
+        aus Kompatibilitätsgründen erhalten; Mitgliedsziele bleiben unverändert,
+        weil SSMS sie vom Clienthost und nicht aus dem CMS-Container öffnet.
     .PARAMETER IncludeGeneratedPasswordAliases
         Interner Schalter fuer den direkten CMS-Abgleich. Erfordert `InMemory`
         und darf nicht fuer einen dauerhaften Export verwendet werden.
