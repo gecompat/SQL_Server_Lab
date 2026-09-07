@@ -76,7 +76,7 @@ function Invoke-SqlServerLabPersistentStorageRemoval {
     $backupAction={
         param($RemovalRunId,$RemovalInstanceId,$RemovalDatabaseName,$RemovalDataRoot,$RemovalStateRoot,$RemovalSaPassword)
         Backup-SqlServerLabDatabase -RunId $RemovalRunId -InstanceId $RemovalInstanceId -DatabaseName $RemovalDatabaseName `
-            -SaPassword $RemovalSaPassword -DataRoot $RemovalDataRoot -StateRoot $RemovalStateRoot
+            -SaPassword $RemovalSaPassword -DataRoot $RemovalDataRoot -StateRoot $RemovalStateRoot -Confirm:$false
     }
     $backupVerificationAction={ param($BackupSetId,$RemovalDataRoot) Get-LabDatabaseBackup -BackupSetId $BackupSetId -DataRoot $RemovalDataRoot }
     $packageAction={ param($RemovalRunId,$RemovalInstanceId,$RemovalDatabaseName,$RemovalDataRoot,$RemovalStateRoot) Export-LabContainerDatabasePackage -RunId $RemovalRunId -InstanceId $RemovalInstanceId -DatabaseName $RemovalDatabaseName -DataRoot $RemovalDataRoot -StateRoot $RemovalStateRoot }

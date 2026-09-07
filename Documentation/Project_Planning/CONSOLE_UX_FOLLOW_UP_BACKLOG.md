@@ -51,14 +51,13 @@ neue Nightly-Fehler sind wieder als eigenständige Regressionen zu behandeln.
 
 ### 2. Datenbankmenü ist teilweise ergänzt – `IN_PROGRESS`
 
-`database-menu` bietet nach dem ersten read-only Slice acht Einträge. Vier
+`database-menu` bietet nach dem Backup-Slice neun Einträge. Drei
 vorhandene mutierende öffentliche Funktionen sind weiterhin aus der Oberfläche
 nicht erreichbar, weil noch kein sicherer interaktiver `Invoke-LabAction`-Fall
 existiert. Das ist echte Neuarbeit, kein bloßes Verdrahten von Vorhandenem.
 
 | Funktion | Zweck |
 |---|---|
-| `Backup-SqlServerLabDatabase` | Datenbank sichern |
 | `Restore-SqlServerLabDatabase` | Datenbank wiederherstellen |
 | `Export-SqlServerLabDatabasePackage` | Paket exportieren |
 | `Invoke-SqlServerLabDatabasePackageAttach` | Paket anhängen |
@@ -69,11 +68,20 @@ Menü „Datenbanken und Verbindungen“, passende Direktaktionen und kuratierte
 Hilfe. Ein prozessgetrennter Modulnachweis ruft beide Handler gegen kontrollierte
 Cmdlet-Doubles auf; der statische Vertrag prüft Menü, Handler, Direktaktion,
 sichtbare Rückkehrbestätigung und einen fehlenden Handler als Gegenbeweis.
-Offen bleiben Backup, Restore, Paketexport und Paket-Attach; jeder mutierende
+Der Backup-Slice ist am 2026-09-08 ergänzt. Er bindet Run, Instanz, Datenbank,
+flüchtiges SA- und bei Hyper-V Gast-Credential sowie den registrierten
+`Lab_Data`-Root vor einer ausdrücklichen Bestätigung. Das öffentliche Cmdlet
+besitzt nun einen `ShouldProcess`-/`WhatIf`-Vertrag; der bestehende Core
+veröffentlicht weiterhin erst nach `CHECKSUM`, `RESTORE VERIFYONLY`, SHA-256 und
+atomarer Katalogregistrierung. Temporäre Dateien werden garantiert bereinigt,
+TDE bleibt ohne Recovery-Vertrag fail-closed und die Menüausgabe enthält weder
+Pfad noch Hash oder Credential.
+
+Offen bleiben Restore, Paketexport und Paket-Attach; jeder mutierende
 Pfad erhält wegen Scope-, Recovery- und Credentialgrenzen einen eigenen
 Änderungssatz.
 
-Für die vier verbleibenden Funktionen greift der Anti-Waisen-Vertrag noch
+Für die drei verbleibenden Funktionen greift der Anti-Waisen-Vertrag noch
 nicht, weil sie nicht in der `ValidateSet` stehen. Er verhindert nur, dass eine
 angebotene Aktion unerreichbar wird, nicht dass eine Fähigkeit gar nicht erst
 angeboten wird.

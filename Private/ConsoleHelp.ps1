@@ -169,6 +169,7 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Anzeigen veraendert nichts. Restore und Attach wirken auf die Zielinstanz.'
             Command = 'Get-SqlServerLabConnectionCenter'
             Items   = @{
+                'DatabaseBackup' = @{ Purpose = 'Sichert eine gebundene Datenbank als wiederverwendbares BackupSet in der registrierten Lab_Data-Bibliothek.'; Effects = 'Mutiert SQL durch COPY_ONLY BACKUP und veröffentlicht erst nach CHECKSUM, VERIFYONLY und SHA-256; temporäre Dateien werden bereinigt, TDE bleibt ohne Recovery-Vertrag gesperrt.'; Command = 'Backup-SqlServerLabDatabase' }
                 'DatabasePackageInventory' = @{ Purpose = 'Listet katalogisierte Datenbankpakete mit stabiler ID, Verfuegbarkeit und Migrationsgrenzen pfadfrei auf.'; Effects = 'Read-only; grosse Paketobjekte werden ohne ausdrueckliche Integritaetspruefung nicht erneut gehasht.'; Command = 'Get-SqlServerLabDatabasePackage' }
                 'DatabaseMigrationDependency' = @{ Purpose = 'Inventarisiert SQL-seitig beobachtbare Migrationsabhaengigkeiten als sanitisierte Kategorien und Counts.'; Effects = 'Read-only; exportiert weder Datenbank noch Serverobjekte, Secrets oder TDE-Schluessel.'; Command = 'Get-SqlServerLabDatabaseMigrationDependency' }
             }
