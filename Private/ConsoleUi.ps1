@@ -441,9 +441,7 @@ function Get-LabConsoleFrame {
         $item = $State.Items[$itemIndex]
         $focus = if ($itemIndex -eq $State.SelectedIndex) { '>' } else { ' ' }
         $shortcut = if ([string]$item.Shortcut) { "[$($item.Shortcut)] " } else { '' }
-        $value = if ($null -ne $item.Value -and [string]$item.Value) { ": $($item.Value)" } else { '' }
-        $disabled = if ([bool]$item.Disabled) { ' (nicht verfuegbar)' } else { '' }
-        $lines.Add((Format-LabConsoleText -Text ("{0} {1}{2}{3}{4}" -f $focus, $shortcut, $item.Label, $value, $disabled) -Width $usableWidth))
+        $lines.Add((Format-LabConsoleText -Text (Get-LabConsoleItemText -Item $item -Focus $focus -Shortcut $shortcut -Width $usableWidth) -Width $usableWidth))
         $lineColors.Add($(if ([bool]$item.Disabled) { 'DarkGray' } else { '' }))
     }
     for ($row = 0; $row -lt $bandHeight; $row++) {
@@ -454,6 +452,43 @@ function Get-LabConsoleFrame {
     foreach ($line in $footerLines) { $lines.Add((Format-LabConsoleText -Text $line -Width $usableWidth)); $lineColors.Add('') }
 
     [PSCustomObject]@{ Lines=@($lines); LineColors=@($lineColors); Width=$usableWidth; Height=$Height; ViewportHeight=$viewportHeight; StatusHeight=$bandHeight; StatusOffset=($header.Count + $viewportHeight) }
+}
+
+function Get-LabConsoleItemText {
+    <#
+    .SYNOPSIS Setzt die Zeile eines Menueeintrags zusammen.
+    .DESCRIPTION Bei einem deaktivierten Eintrag weicht der Grund der Marke und
+    nicht umgekehrt. Frueher hat der Value die Zeile ueberlaufen lassen, sodass
+    ausgerechnet "(nicht verfuegbar)" und die Begruendung abgeschnitten wurden.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][object]$Item,
+        [string]$Focus = ' ',
+        [string]$Shortcut = '',
+        [ValidateRange(20, 1000)][int]$Width = 80
+    )
+
+    $head = '{0} {1}{2}' -f @($Focus, $Shortcut, [string]$Item.Label)
+    if (-not [bool]$Item.Disabled) {
+        $value = if ($null -ne $Item.Value -and [string]$Item.Value) { ": $([string]$Item.Value)" } else { '' }
+        return $head + $value
+    }
+
+    $marker = ' (nicht verfuegbar)'
+    $reason = if ($Item.PSObject.Properties['DisabledReason']) { [string]$Item.DisabledReason } else { '' }
+    $marked = $head + $marker
+    if ($marked.Length -gt $Width) {
+        # Auf schmalen Fenstern weicht das Label; die Marke entscheidet ueber die Bedienbarkeit.
+        $allowance = $Width - $marker.Length
+        if ($allowance -lt 8) { return $head }
+        return $head.Substring(0, $allowance - 3) + '...' + $marker
+    }
+    if ([string]::IsNullOrWhiteSpace($reason)) { return $marked }
+    $remaining = $Width - $marked.Length - 3
+    if ($remaining -lt 12) { return $marked }
+    $trimmed = if ($reason.Length -le $remaining) { $reason } else { $reason.Substring(0, [Math]::Max(1, $remaining - 3)) + '...' }
+    return $marked + ' - ' + $trimmed
 }
 
 function New-LabConsoleSession {
@@ -495,6 +530,19 @@ function Get-LabConsoleWritePlan {
     [PSCustomObject]@{ Rows=@($rows); LineCount=$lineCount; Width=$usableWidth; Height=$Height }
 }
 
+function Test-LabConsoleVirtualTerminal {
+    <#
+    .SYNOPSIS Prueft einmalig, ob Steuersequenzen gefahrlos ausgegeben werden koennen.
+    #>
+    [CmdletBinding()]
+    param()
+
+    if ($null -ne $script:LabConsoleVirtualTerminal) { return $script:LabConsoleVirtualTerminal }
+    $script:LabConsoleVirtualTerminal = $false
+    try { $script:LabConsoleVirtualTerminal = [bool]$Host.UI.SupportsVirtualTerminal } catch { }
+    return $script:LabConsoleVirtualTerminal
+}
+
 function Write-LabConsoleFrame {
     [CmdletBinding()]
     param([Parameter(Mandatory)][object]$Session, [Parameter(Mandatory)][object]$Frame)
@@ -506,11 +554,14 @@ function Write-LabConsoleFrame {
         $Session.Width = $width
         $Session.Height = $height
     }
+    # Die letzte Spalte wird bewusst nicht beschrieben, sonst scrollt die Konsole.
+    # Ohne Loeschsequenz bliebe dort jedes Fremdzeichen dauerhaft stehen.
+    $eraseToEnd = if (Test-LabConsoleVirtualTerminal) { "$([char]27)[K" } else { '' }
     $plan = Get-LabConsoleWritePlan -Session $Session -Frame $Frame -Width $width -Height $height
     foreach ($row in $plan.Rows) {
         [Console]::SetCursorPosition(0, $Session.OriginTop + [int]$row.Row)
         [Console]::ForegroundColor = if ([string]$row.Color) { [ConsoleColor]$row.Color } else { [ConsoleColor]$Session.ForegroundColor }
-        [Console]::Write([string]$row.Text)
+        [Console]::Write([string]$row.Text + $eraseToEnd)
     }
     [Console]::ForegroundColor = [ConsoleColor]$Session.ForegroundColor
     $Session.PreviousLineCount = [int]$plan.LineCount
@@ -708,9 +759,10 @@ function Update-LabConsoleStatusBand {
         [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Status
     )
 
+    $eraseToEnd = if (Test-LabConsoleVirtualTerminal) { "$([char]27)[K" } else { '' }
     foreach ($row in (Get-LabConsoleStatusWritePlan -Frame $Frame -Status $Status)) {
         [Console]::SetCursorPosition(0, $Session.OriginTop + [int]$row.Row)
-        [Console]::Write([string]$row.Text)
+        [Console]::Write([string]$row.Text + $eraseToEnd)
     }
 }
 

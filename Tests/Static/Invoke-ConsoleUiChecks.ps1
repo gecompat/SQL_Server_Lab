@@ -174,6 +174,33 @@ Add-ConsoleUiCheck 'Statusaktualisierung schreibt ausschliesslich in die reservi
     @($statusWritePlan | Where-Object { $_.Text.Length -ne $busyFrame.Width }).Count -eq 0
 )
 
+# CUI-029: Ein deaktivierter Eintrag muss als solcher erkennbar bleiben, auch wenn der Grund lang ist.
+$longReason = 'Schritte werden immer vollstaendig angezeigt; es wartet gerade kein Vorgang auf eine ausdrueckliche Benutzerbestaetigung.'
+$disabledItemText = Get-LabConsoleItemText -Width 92 -Focus ' ' -Shortcut '[2] ' `
+    -Item (New-LabConsoleItem -Id 'gates' -Label 'Benutzeraktionen oeffnen' -Value 'Schritte werden immer vollstaendig angezeigt' -Disabled -DisabledReason $longReason)
+$narrowItemText = Get-LabConsoleItemText -Width 40 -Focus ' ' -Shortcut '[2] ' `
+    -Item (New-LabConsoleItem -Id 'gates' -Label 'Benutzeraktionen oeffnen' -Disabled -DisabledReason $longReason)
+$enabledItemText = Get-LabConsoleItemText -Width 92 -Focus '>' -Shortcut '[r] ' `
+    -Item (New-LabConsoleItem -Id 'run' -Label 'Scheduler jetzt ausfuehren' -Value '2 Worker')
+Add-ConsoleUiCheck 'Deaktivierter Eintrag behaelt die Marke und zeigt den Grund statt eines abgeschnittenen Value' (
+    $disabledItemText -match '\(nicht verfuegbar\)' -and
+    $disabledItemText -match '\(nicht verfuegbar\) - Schritte werden' -and
+    $disabledItemText.Length -le 92 -and
+    $disabledItemText -notmatch 'Value'
+)
+Add-ConsoleUiCheck 'Auf schmalen Fenstern weicht der Grund, niemals die Marke' (
+    $narrowItemText -match '\(nicht verfuegbar\)$' -and $narrowItemText.Length -le 40
+)
+Add-ConsoleUiCheck 'Aktiver Eintrag zeigt unveraendert Fokus, Shortcut und Value' (
+    $enabledItemText -eq '> [r] Scheduler jetzt ausfuehren: 2 Worker'
+)
+Add-ConsoleUiCheck 'Rahmen und Statusband bereinigen die nicht beschreibbare letzte Spalte' (
+    $consoleUiSource -match 'function Test-LabConsoleVirtualTerminal' -and
+    $consoleUiSource -match 'SupportsVirtualTerminal' -and
+    ([regex]::Matches($consoleUiSource, '\$eraseToEnd = if \(Test-LabConsoleVirtualTerminal\)')).Count -eq 2 -and
+    ([regex]::Matches($consoleUiSource, '\[Console\]::Write\(\[string\]\$row\.Text \+ \$eraseToEnd\)')).Count -eq 2
+)
+
 $heartbeatTicks = [System.Collections.Generic.List[int]]::new()
 $statusWrites = [System.Collections.Generic.List[string]]::new()
 $keyProbeCalls = 0
