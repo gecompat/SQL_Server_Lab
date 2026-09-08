@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'DatabaseBackup', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -142,7 +142,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -in @('Status', 'CleanupAudit', 'Catalog', 'DatabasePackageInventory', 'DatabaseMigrationDependency')) {
         Wait-LabConsoleAcknowledgement
     }
-    if ($ActionName -eq 'DatabaseBackup') { Wait-LabConsoleAcknowledgement }
+    if ($ActionName -in @('DatabaseBackup', 'DatabaseRestore')) { Wait-LabConsoleAcknowledgement }
 
 }
 
@@ -285,6 +285,7 @@ function Show-LabDatabaseMenu {
         New-LabConsoleItem -Id 'Database' -Label 'Datenbank anlegen' -Shortcut '8'
         New-LabConsoleItem -Id 'Script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
         New-LabConsoleItem -Id 'DatabaseBackup' -Label 'Datenbank sichern' -Value 'CHECKSUM · VERIFYONLY · Lab_Data-Bibliothek' -Shortcut 'b'
+        New-LabConsoleItem -Id 'DatabaseRestore' -Label 'Datenbank wiederherstellen' -Value 'verifiziertes BackupSet · Konfliktprüfung · Cleanup' -Shortcut 'r'
         New-LabConsoleItem -Id 'DatabasePackageInventory' -Label 'Datenbankpakete anzeigen' -Value 'read-only · stabile Paket-ID · pfadfrei' -Shortcut 'p'
         New-LabConsoleItem -Id 'DatabaseMigrationDependency' -Label 'Migrationsabhängigkeiten prüfen' -Value 'read-only · Counts · keine Exportmutation' -Shortcut 'g'
         New-LabConsoleItem -Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte' -Shortcut 'c'
@@ -780,6 +781,105 @@ function Invoke-LabDatabaseBackupInteractive {
     Write-LabInfo 'Lokale Pfade, SHA-256 und Zugangsdaten werden in dieser Menüansicht nicht ausgegeben.'
 }
 
+function Invoke-LabDatabaseRestoreInteractive {
+    [CmdletBinding()]
+    param(
+        [string]$RunId,
+        [string]$InstanceId = 'primary',
+        [string]$BackupSetId,
+        [string]$DatabaseName,
+        [SecureString]$SaPassword,
+        [PSCredential]$GuestCredential,
+        [string]$DataRoot,
+        [switch]$Replace
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RunId)) {
+        $runs = @(Get-LabRunsByRuntimeState -State 'RUNNING')
+        if ($runs.Count -eq 0) { Write-LabInfo 'Keine laufende SQL-Umgebung vorhanden.'; return }
+        $RunId = Select-LabRun -Runs $runs -Prompt 'Ziel für Datenbank-Restore' -DisableSystemServices
+        if (-not $RunId) { return }
+        $InstanceId = Read-Host '  Instanz-ID [primary]'
+        if ([string]::IsNullOrWhiteSpace($InstanceId)) { $InstanceId = 'primary' }
+    }
+    try { $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId }
+    catch { Write-LabError "Restoreziel konnte nicht gebunden werden: $($_.Exception.Message)"; return }
+
+    if (-not $SaPassword) { $SaPassword = Read-Host '  SA-Passwort' -AsSecureString }
+    if ([string]$target.Provider -eq 'hyperv' -and -not $GuestCredential) {
+        $guestUserName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+        if ([string]::IsNullOrWhiteSpace($guestUserName)) { $guestUserName = 'Administrator' }
+        $GuestCredential = [PSCredential]::new($guestUserName, (Read-Host '  Gastpasswort für den gebundenen Restore-Transfer' -AsSecureString))
+    }
+    try {
+        if ([string]::IsNullOrWhiteSpace($DataRoot)) { $DataRoot = Get-LabDataRootDefault }
+        $DataRoot = Resolve-LabDataRootForUse -DataRoot $DataRoot
+        $backups = @(Get-LabDatabaseBackupSelection -DataRoot $DataRoot | Where-Object Availability -eq 'SELECTABLE')
+    }
+    catch { Write-LabError "Registrierte Backup-Bibliothek ist nicht verwendbar: $($_.Exception.Message)"; return }
+    if ($backups.Count -eq 0) { Write-LabInfo 'Kein auswählbares, verifiziertes BackupSet vorhanden.'; return }
+
+    $selectedBackup = if ($BackupSetId) {
+        @($backups | Where-Object BackupSetId -eq $BackupSetId | Select-Object -First 1)
+    }
+    else {
+        $items = @($backups | ForEach-Object {
+            New-LabConsoleItem -Id ([string]$_.BackupSetId) -Label ([string]$_.DatabaseName) `
+                -Value ("SQL {0} · {1} MiB · {2}" -f $_.SourceSqlMajorVersion, [Math]::Round(([long]$_.Bytes / 1MB), 1), $_.CreatedAt) `
+                -Data $_
+        })
+        $choice = Select-LabConsoleDataItem -ScreenId 'database-restore-backup-select' -Title 'Verifiziertes Backup auswählen' `
+            -Subtitle 'Nur wiederverwendbare BackupSets aus registriertem Lab_Data' -Items $items
+        if ($choice) { @($choice) } else { @() }
+    }
+    if ($selectedBackup.Count -ne 1) { Write-LabError 'BackupSetId ist nicht eindeutig auswählbar.'; return }
+    $selectedBackup = $selectedBackup[0]
+    $BackupSetId = [string]$selectedBackup.BackupSetId
+    try { $null = Get-LabDatabaseBackup -BackupSetId $BackupSetId -DataRoot $DataRoot }
+    catch { Write-LabError "BackupSet konnte nicht vollständig revalidiert werden: $($_.Exception.Message)"; return }
+
+    if ([string]::IsNullOrWhiteSpace($DatabaseName)) {
+        $DatabaseName = Read-Host "  Zieldatenbank [$($selectedBackup.DatabaseName)]"
+        if ([string]::IsNullOrWhiteSpace($DatabaseName)) { $DatabaseName = [string]$selectedBackup.DatabaseName }
+    }
+    if ($DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        Write-LabError 'Der Datenbankname muss mit einem Buchstaben beginnen und darf nur Buchstaben, Ziffern und Unterstriche enthalten.'
+        return
+    }
+    try { $databaseExists = Test-LabDatabaseExists -HostName $target.HostName -Port $target.Port -SaPassword $SaPassword -Database $DatabaseName }
+    catch { Write-LabError "Zieldatenbank-Konfliktprüfung fehlgeschlagen: $($_.Exception.Message)"; return }
+    if ($databaseExists -and -not $Replace) {
+        Write-LabWarning "Die Zieldatenbank '$DatabaseName' existiert bereits. WITH REPLACE kann Daten unwiderruflich überschreiben."
+        if (-not (Read-LabConfirm -Prompt '  Vorhandene Zieldatenbank ausdrücklich mit WITH REPLACE überschreiben?' -Default $false)) { return }
+        $Replace = $true
+    }
+
+    Write-LabStatus -Label 'Ziel' -Value "$RunId / $InstanceId · $($target.Provider)"
+    Write-LabStatus -Label 'BackupSetId' -Value $BackupSetId
+    Write-LabStatus -Label 'Zieldatenbank' -Value $DatabaseName
+    Write-LabStatus -Label 'Konfliktmodus' -Value $(if ($Replace) { 'WITH REPLACE · vorhandene Daten werden überschrieben' } else { 'nur neue Datenbank · kein Überschreiben' }) -Color $(if ($Replace) { 'Yellow' } else { 'Green' })
+    Write-LabInfo 'Vor der SQL-Mutation werden SHA-256, RESTORE VERIFYONLY WITH CHECKSUM und FILELISTONLY erneut geprüft.'
+    Write-LabInfo 'Temporäre Gast- oder Containerkopien werden im finally-Cleanup entfernt. Nach SQL-Teilfehlern muss die Zieldatenbank geprüft oder entfernt werden.'
+    if (-not (Read-LabConfirm -Prompt '  Gebundenes BackupSet jetzt auf diesem Ziel wiederherstellen?' -Default $false)) { return }
+
+    $arguments = @{
+        RunId=$RunId;InstanceId=$InstanceId;BackupSetId=$BackupSetId;DatabaseName=$DatabaseName
+        SaPassword=$SaPassword;DataRoot=$DataRoot;Replace=$Replace;NonInteractive=$true;Confirm=$false
+    }
+    if ($GuestCredential) { $arguments.GuestCredential = $GuestCredential }
+    try { $result = Restore-SqlServerLabDatabase @arguments }
+    catch { Write-LabError "Datenbank-Restore fehlgeschlagen: $($_.Exception.Message)"; return }
+    if (-not $result.Success) {
+        Write-LabError $result.Message
+        Write-LabWarning 'Recovery: Zielzustand prüfen und eine unvollständige Datenbank bei Bedarf gezielt entfernen.'
+        return
+    }
+    Write-LabSuccess "Datenbank wiederhergestellt: $($result.DatabaseName) · $($result.Files) Datei(en) · $([Math]::Round($result.Duration.TotalSeconds,1)) s"
+    Write-LabStatus -Label 'Provider' -Value $result.Provider
+    Write-LabStatus -Label 'BackupSetId' -Value $result.BackupSetId
+    Write-LabInfo 'Der Cleanup-Pfad für temporäre Kopien wurde ausgeführt; eine etwaige Cleanup-Warnung bleibt maßgeblich. Lokale Pfade, Hashwerte und Zugangsdaten werden nicht ausgegeben.'
+}
+
 function Invoke-LabDatabaseMigrationDependencyInteractive {
     [CmdletBinding()]
     param(
@@ -1111,6 +1211,7 @@ function Invoke-LabAction {
         'AiGoldenRagEvaluation' { Invoke-LabAiGoldenRagEvaluationInteractive }
         'AiGuidedDemo' { Invoke-LabAiGuidedDemoInteractive }
         'DatabaseBackup' { Invoke-LabDatabaseBackupInteractive }
+        'DatabaseRestore' { Invoke-LabDatabaseRestoreInteractive }
         'DatabasePackageInventory' { Invoke-LabDatabasePackageInventoryInteractive }
         'DatabaseMigrationDependency' { Invoke-LabDatabaseMigrationDependencyInteractive }
         'Manifest' {

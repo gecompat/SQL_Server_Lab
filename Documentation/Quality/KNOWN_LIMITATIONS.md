@@ -644,6 +644,15 @@ sanitisierte UI-Inventur hasht große Objekte nicht bei jedem Refresh, während
 die konkrete Auswahl Status, Verification-Evidence, Datei und SHA-256 erneut
 fail-closed prüft. TDE endet ohne separaten Zertifikat- und
 Recovery-Vertrag fail-closed; ein TDE-Schlüsseltransfer findet nicht statt.
+Das Konsolenmenü kann ein solches `REUSABLE`-BackupSet inzwischen auf eine
+exakt gebundene laufende Run-/Instanz-Kombination wiederherstellen. Vorhandene
+Zieldatenbanken erfordern eine getrennte `WITH REPLACE`-Bestätigung; ohne sie
+wird nicht mutiert. Der öffentliche Restore unterstützt `-WhatIf` und
+`-Confirm`, versucht temporäre Gast- und Containerkopien im `finally`-Pfad
+garantiert zu entfernen und weist bei einem SQL-Teilfehler auf die notwendige
+Prüfung beziehungsweise
+gezielte Entfernung des Zielzustands hin. Eine automatische Rückabwicklung
+eines teilweise ausgeführten SQL-Restores wird nicht behauptet.
 Der Hyper-V-Persistent-Data-Lifecycle kann eine katalogisierte Daten-VHDX per
 stabiler Storage-ID in CLI und Browser klonen, reattachen und freigeben. Release
 prüft im laufenden Gast alle registrierten SQL-Instanzen und ihre
