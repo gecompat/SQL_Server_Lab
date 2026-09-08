@@ -1096,6 +1096,12 @@ Add-ConsoleUiCheck 'Nicht verfuegbares Hyper-V erzeugt keine unbrauchbaren Befun
     }).Count -eq 0
 )
 Add-ConsoleUiCheck 'Hauptmenü bindet Attention-Snapshot an gemeinsamen Renderer' ($entrySource -match 'Update-LabConsoleAttentionSnapshot' -and $entrySource -match 'Invoke-LabConsoleMenu[^\r\n]+-Snapshot \$snapshot')
+Add-ConsoleUiCheck 'Befundliste erzeugt Hyper-V-gebundene Befunde nur bei tatsaechlich verfuegbarem Hyper-V' (
+    $attentionSource -match 'Get-LabProviderAvailabilityMap' -and
+    $attentionSource.Contains("`$hyperVAvailable = [bool]`$providerAvailability['hyperv']") -and
+    $attentionSource.Contains('if (-not $hyperVAvailable) { continue }') -and
+    $attentionSource.Contains('if ($hyperVAvailable) {')
+)
 $environmentMenuMatch = [regex]::Match($entrySource, 'function Show-LabEnvironmentMenu \{[\s\S]+?(?=\r?\nfunction Show-LabHyperVMenu)')
 Add-ConsoleUiCheck 'Umgebungsmenue beginnt mit Verwaltung und gruppiert destruktive Sammelaktionen am Ende' ($environmentMenuMatch.Success -and $environmentMenuMatch.Value.IndexOf("-Id 'Manage'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'ClearAutomatedTestEnvironment'") -and $environmentMenuMatch.Value.IndexOf("-Id 'ClearAutomatedTestEnvironment'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'Clear'") -and $environmentMenuMatch.Value.IndexOf("-Id 'Clear'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'back'"))
 Add-ConsoleUiCheck 'Umgebungsmenue bietet genau einen zustandsabhaengigen Testgruppen-Lifecyclepunkt' (
@@ -1128,6 +1134,23 @@ Add-ConsoleUiCheck 'Hyper-V zeigt die derzeit nicht atomare External-Languages-N
 Add-ConsoleUiCheck 'Hauptmenue startet ohne vorab ausgegebene und sofort ueberschriebene Umgebungsuebersicht' ([regex]::Match($entrySource, 'function Invoke-SqlServerLab \{[\s\S]+?(?=\r?\n# =+)').Value -notmatch 'Show-LabBanner')
 Add-ConsoleUiCheck 'Interaktiver Status zeigt Connection String und gespeichertes generiertes SA-Passwort' ($entrySource -match 'function Show-LabEnvironmentStatusInteractive' -and $entrySource -match "'SA-Passwort \(automatisch erzeugt\)'" -and $entrySource -match 'Show-LabEnvironmentStatusInteractive -RunId')
 Add-ConsoleUiCheck 'Infrastrukturmenue deaktiviert Hyper-V begruendet wenn der Provider nicht verwendbar ist' ($batchConsoleSource -match '-Id HyperVArea[\s\S]{0,300}?-Disabled:\(-not \$hyperVAvailable\)' -and $batchConsoleSource -match 'Test-HyperVAvailable')
+Add-ConsoleUiCheck 'Hyper-V-Menue deaktiviert alle Hyper-V-Handlungen begruendet wenn der Provider nicht verwendbar ist' (
+    ([regex]::Matches([regex]::Match($entrySource, 'function Show-LabHyperVMenu \{[\s\S]+?(?=\r?\nfunction )').Value, '-Disabled:\(-not \$hyperVAvailable\)')).Count -ge 4 -and
+    [regex]::Match($entrySource, 'function Show-LabHyperVMenu \{[\s\S]+?(?=\r?\nfunction )').Value -match 'Test-HyperVAvailable'
+)
+Add-ConsoleUiCheck 'Erstellungsmenue deaktiviert den mengenfaehigen Windows-Slot-Composer begruendet ohne Hyper-V' (
+    [regex]::Match($batchConsoleSource, 'function Show-LabCreateMenu \{[\s\S]+?(?=\r?\nfunction )').Value -match "-Id BulkSlots[\s\S]{0,400}?-Disabled:\(-not \`$hyperVAvailable\)"
+)
+Add-ConsoleUiCheck 'CU-Download deaktiviert das Windows-Paket begruendet ohne Hyper-V' (
+    [regex]::Match($entrySource, 'function Invoke-LabCuResourceInteractive \{[\s\S]+?(?=\r?\nfunction )').Value -match "-Id 'Windows'[\s\S]{0,400}?-Disabled:\(-not \`$windowsCuAvailable\)"
+)
+Add-ConsoleUiCheck 'Schnellkonfiguration deaktiviert den erzwungenen Netzwerkmodus begruendet statt ihn fokussierbar zu zeigen' (
+    $entrySource -match "-Id 'networkMode' -Label 'Netzwerkmodus' -Value 'host-access'[\s\S]{0,200}?-Disabled -DisabledReason" -and
+    $consoleSource.Contains('function New-LabConsoleField') -and
+    $consoleSource.Contains('[switch]$Disabled') -and
+    $consoleSource.Contains('DisabledReason = $DisabledReason') -and
+    $consoleSource.Contains('-Disabled:([bool]$field.Disabled)')
+)
 Add-ConsoleUiCheck 'Infrastrukturmenue bietet neben Delegation eine direkte read-only Handlung' (
     $batchConsoleSource -match "New-LabConsoleItem -Id Status -Label 'Infrastrukturstatus anzeigen'" -and
     $batchConsoleSource -match "'Infrastructure' \{ Show-LabInfrastructureMenu \}" -and
