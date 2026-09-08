@@ -1593,11 +1593,14 @@ beider Container-Provider Kommando und Ausgabe nach
 Sitzungslog verwendet. Secrets werden vorher entfernt, und die Fehlermeldung
 nennt den Logpfad.
 
-Die Persistenz umfasst bisher nur den Schritt `container-create`. Start, Stopp,
-Volume-Anlage, Image-Build und die Hyper-V-Pfade schreiben noch kein
-Diagnoselog. Ein gemeinsamer Wrapper für externe Aufrufe existiert weiterhin
-nicht; die Aufrufstellen binden `Write-LabProviderLog` einzeln ein. Eine
-Rotation alter Diagnoselogs besteht nicht.
+Seit 2026-09-08 umfasst die Persistenz über den gemeinsamen Wrapper
+`Invoke-LabProviderOperation` auch Start, Stopp und Entfernung von Containern,
+Volume-Anlage und -Initialisierung, Container-Tool-Image-Builds sowie Erstellen,
+Start, Stopp und Entfernung von Hyper-V-VMs. Providerfehler werden nach dem
+secretbereinigten Logeintrag unverändert weitergereicht. Das aktuelle Log ist
+auf 4 MiB begrenzt und rotiert in höchstens drei Archive. Read-only-Probes und
+einzelne interne Kompensationsaufrufe bleiben bewusst außerhalb dieses
+Mutationslogs.
 
 Das Statusband ist im Vorgangsmenü (`queue-menu`) und im Hauptmenü
 (`main-menu`) aktiviert. Alle übrigen Bildschirme deklarieren keine Bandhöhe

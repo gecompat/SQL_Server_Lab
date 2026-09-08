@@ -459,16 +459,80 @@ try {
     Add-ConsoleUiCheck 'Ein relativer State-Root erzeugt kein Provider-Log im Arbeitsverzeichnis' (
         $null -eq (Get-LabProviderLogPath -RunId 'run-demo' -StateRoot 'relativer-pfad')
     )
+
+    $wrapped = Invoke-LabProviderOperation -Provider docker -Phase 'container-start' `
+        -Command 'docker start lab-x' -RunId 'run-wrapper' -StateRoot $providerLogRoot `
+        -Action { 'container-output' }
+    $wrappedText = Get-Content -LiteralPath $wrapped.LogPath -Raw
+    Add-ConsoleUiCheck 'Gemeinsamer Provider-Wrapper bewahrt Ausgabe und protokolliert Erfolg' (
+        $wrapped.Succeeded -and $wrapped.ExitCode -eq 0 -and
+        @($wrapped.Output).Count -eq 1 -and $wrapped.Output[0] -eq 'container-output' -and
+        $wrappedText -match 'docker container-start exit=0'
+    )
+
+    $nativeWrapped = Invoke-LabProviderOperation -Provider docker -Phase 'native-counterexample' -Native `
+        -RunId 'run-native-wrapper' -StateRoot $providerLogRoot `
+        -Action { pwsh -NoLogo -NoProfile -Command 'Write-Output native-output; exit 7' 2>&1 }
+    Add-ConsoleUiCheck 'Gemeinsamer Provider-Wrapper uebernimmt Exitcode und Ausgabe nativer Prozesse' (
+        -not $nativeWrapped.Succeeded -and $nativeWrapped.ExitCode -eq 7 -and
+        @($nativeWrapped.Output) -contains 'native-output'
+    )
+
+    $wrapperFailed = $false
+    try {
+        $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-start' `
+            -Command 'Start-VM -Name lab-x' -RunId 'run-wrapper-failure' -StateRoot $providerLogRoot `
+            -Action { throw 'controlled-provider-failure' }
+    }
+    catch { $wrapperFailed = $_.Exception.Message -eq 'controlled-provider-failure' }
+    $failureLog = Get-LabProviderLogPath -RunId 'run-wrapper-failure' -StateRoot $providerLogRoot
+    Add-ConsoleUiCheck 'Gemeinsamer Provider-Wrapper protokolliert Fehler und reicht sie weiter' (
+        $wrapperFailed -and (Get-Content -LiteralPath $failureLog -Raw) -match 'hyperv vm-start exit=1'
+    )
+
+    $rotationPath = $null
+    1..6 | ForEach-Object {
+        $rotationPath = Write-LabProviderLog -Provider podman -Phase 'image-build' `
+            -Output ("rotation-entry-{0}-{1}" -f $_, ('x' * 90)) -RunId 'run-rotation' `
+            -StateRoot $providerLogRoot -MaximumBytes 180 -ArchiveCount 3
+    }
+    Add-ConsoleUiCheck 'Provider-Logs rotieren begrenzt und behalten das aktuelle Log' (
+        (Test-Path -LiteralPath $rotationPath -PathType Leaf) -and
+        (Test-Path -LiteralPath "$rotationPath.1" -PathType Leaf) -and
+        (Test-Path -LiteralPath "$rotationPath.3" -PathType Leaf) -and
+        -not (Test-Path -LiteralPath "$rotationPath.4") -and
+        (Get-Content -LiteralPath $rotationPath -Raw) -match 'rotation-entry-6'
+    )
+    $boundedPath = Write-LabProviderLog -Provider docker -Phase 'oversized-entry' `
+        -Output ('x' * 2000) -RunId 'run-bounded-entry' -StateRoot $providerLogRoot `
+        -MaximumBytes 180 -ArchiveCount 1
+    Add-ConsoleUiCheck 'Ein einzelner grosser Provider-Eintrag bleibt innerhalb der Loggrenze' (
+        (Get-Item -LiteralPath $boundedPath).Length -le 180 -and
+        (Get-Content -LiteralPath $boundedPath -Raw) -match 'provider log entry truncated'
+    )
 }
 finally { Remove-Item -LiteralPath $providerLogRoot -Recurse -Force -ErrorAction SilentlyContinue }
 
 $dockerProviderSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1') -Raw
 $podmanProviderSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1') -Raw
-Add-ConsoleUiCheck 'Beide Container-Provider persistieren die Erstellungsausgabe und nennen den Logpfad im Fehler' (
-    $dockerProviderSource -match "Write-LabProviderLog -Provider docker -Phase 'container-create'" -and
-    $podmanProviderSource -match "Write-LabProviderLog -Provider podman -Phase 'container-create'" -and
+$containerToolImageSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ContainerToolImage.ps1') -Raw
+$hyperVProviderSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/HyperV/HyperVProvider.ps1') -Raw
+Add-ConsoleUiCheck 'Beide Container-Provider persistieren Erstellung, Lifecycle und Volumes ueber den gemeinsamen Wrapper' (
+    $dockerProviderSource -match "Invoke-LabProviderOperation -Provider docker -Phase 'container-create'" -and
+    $podmanProviderSource -match "Invoke-LabProviderOperation -Provider podman -Phase 'container-create'" -and
+    $dockerProviderSource -match "-Phase 'volume-create'" -and $podmanProviderSource -match "-Phase 'volume-create'" -and
+    $dockerProviderSource -match "-Phase 'volume-initialize'" -and $podmanProviderSource -match "-Phase 'volume-initialize'" -and
+    $dockerProviderSource -match "-Phase 'container-start'" -and $podmanProviderSource -match "-Phase 'container-start'" -and
+    $dockerProviderSource -match "-Phase 'container-stop'" -and $podmanProviderSource -match "-Phase 'container-stop'" -and
     $dockerProviderSource -match 'Diagnoselog: \$providerLogPath' -and
     $podmanProviderSource -match 'Diagnoselog: \$providerLogPath'
+)
+Add-ConsoleUiCheck 'Image-Builds und Hyper-V-Lifecycle verwenden den gemeinsamen Provider-Wrapper' (
+    $containerToolImageSource -match 'Invoke-LabProviderOperation -Provider \$provider -Phase ''image-build''' -and
+    $hyperVProviderSource -match "-Provider hyperv -Phase 'vm-create'" -and
+    $hyperVProviderSource -match "-Provider hyperv -Phase 'vm-start'" -and
+    $hyperVProviderSource -match "-Provider hyperv -Phase 'vm-stop'" -and
+    $hyperVProviderSource -match "-Provider hyperv -Phase 'vm-remove'"
 )
 
 $items = @(
