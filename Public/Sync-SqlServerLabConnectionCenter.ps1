@@ -992,8 +992,8 @@ function Invoke-LabCmsInteractive {
         }
         else { 'keine geeignete bestehende SQL-Umgebung' }
         $menu = Invoke-LabConsoleMenu -ScreenId 'cms-create-menu' -Title 'CMS bereitstellen' -Subtitle 'Docker/Podman primaer; vorhandene SQL-Umgebung providerneutral uebernehmen' -Items @(
-            New-LabConsoleItem -Id create -Label 'Kompakten persistenten CMS automatisch erstellen' -Value 'Docker bevorzugt · Podman als Fallback' -Shortcut 1 -Disabled:($containerProviders.Count -eq 0)
-            New-LabConsoleItem -Id adopt -Label 'Bestehende SQL-Umgebung als CMS verwenden' -Value $candidateSummary -Shortcut 2 -Disabled:($candidates.Count -eq 0)
+            New-LabConsoleItem -Id create -Label 'Kompakten persistenten CMS automatisch erstellen' -Value 'Docker bevorzugt · Podman als Fallback' -Shortcut 1 -Disabled:($containerProviders.Count -eq 0) -DisabledReason 'Weder Docker noch Podman ist für die CMS-Erstellung verfügbar.'
+            New-LabConsoleItem -Id adopt -Label 'Bestehende SQL-Umgebung als CMS verwenden' -Value $candidateSummary -Shortcut 2 -Disabled:($candidates.Count -eq 0) -DisabledReason 'Es existiert keine geeignete laufende SQL-Umgebung zur Übernahme.'
             New-LabConsoleItem -Id export -Label 'Nur kennwortfreies CMS-Synchronisationsskript exportieren' -Shortcut 3
             New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
         ) -Footer 'Pfeile: Navigation  Enter/Shortcut: Auswahl  Esc: Zurueck'
