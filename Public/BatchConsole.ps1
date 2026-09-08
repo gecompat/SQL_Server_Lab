@@ -829,6 +829,7 @@ function Show-LabInfrastructureMenu {
         New-LabConsoleItem -Id HyperVArea -Label 'Hyper-V-Infrastruktur' -Value 'OS-Vorlagen · Slots · Builds · ISO-Quellen' -Shortcut 1 `
             -Disabled:(-not $hyperVAvailable) -DisabledReason $disabledReason
         New-LabConsoleItem -Id StorageArea -Label 'Medien, Testdaten und Speicher' -Value 'Lab_Base · Lab_Data · CU-Pakete · Testdatenbibliothek' -Shortcut 2
+        New-LabConsoleItem -Id Status -Label 'Infrastrukturstatus anzeigen' -Value 'Provider, Laufzeiten und Voraussetzungen · read-only' -Shortcut s
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
     )
 }
