@@ -194,9 +194,12 @@ verifizierte Media-Root-Bibliothek und der pro Lab getrennte Data Root vorgesehe
 ## Unbeaufsichtigte Ausführung
 
 Manifeste verwenden standardmäßig `automation.mode: "unattended"`. Geheimnisse
-werden ausschließlich als Namen von Prozess-Umgebungsvariablen mit dem Präfix
-`SQL_SERVER_LAB_SECRET_` referenziert, beispielsweise
+werden ausschließlich als eng benannte Referenzen mit dem Präfix
+`SQL_SERVER_LAB_SECRET_` gespeichert, beispielsweise
 `SQL_SERVER_LAB_SECRET_SA_PASSWORD`; Klartextwerte sind nicht schemagültig.
+Der Resolver bevorzugt eine gleichnamige Prozess-Umgebungsvariable und verwendet
+optional PowerShell SecretManagement, wenn die Referenz dort als `SecureString`
+vorliegt. Der Wert bleibt außerhalb von Manifest, State und Log.
 Remote-Restores brauchen für automatisierte Läufe `restore.sha256`. Ohne
 bekannte Prüfsumme endet der Artifact Resolver sicher mit `TRUST_REQUIRED`.
 

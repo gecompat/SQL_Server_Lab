@@ -1651,7 +1651,10 @@ Meldungsausgabe bleibt maßgeblich.
 Bestehende Containerpositionen im offenen Batch-Composer koennen ueber die
 gemeinsame Bearbeitung mit einer fehlenden SA-Secret-Referenz nachgepflegt
 werden. Persistiert wird nur der Name einer `SQL_SERVER_LAB_SECRET_*`-
-Prozessvariable; ihr Wert muss in der ausfuehrenden Sitzung gesetzt sein.
+Referenz. Der Resolver bevorzugt die gleichnamige Prozessvariable und kann
+optional einen `SecureString` derselben Referenz über PowerShell
+SecretManagement beziehen; weder der Wert noch ein Vault-Detail werden in
+Batch, State oder Log übernommen.
 Seit 2026-09-08 besitzen alle deaktivierbaren Produkt-Menüeinträge konkrete
 Begründungen. Ein AST-basierter statischer Vertrag verhindert neue
 `New-LabConsoleItem -Disabled`-Aufrufe ohne `-DisabledReason`. Die Hilfe weist

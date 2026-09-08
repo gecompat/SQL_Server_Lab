@@ -59,13 +59,14 @@ function Read-SaPassword {
 function Get-LabManifestEnvironmentSecret {
     <#
     .SYNOPSIS
-        Liest ein Manifest-Secret ausschließlich aus dem aufrufenden Prozess.
+        Loest eine Manifest-Secret-Referenz ohne Persistierung auf.
     .DESCRIPTION
         Manifestdateien dürfen niemals Kennwörter enthalten. Für CI/CD und
         automatisierte Setups darf ein Manifest deshalb nur eine eng benannte
-        Prozess-Umgebungsvariable referenzieren. Der Name wird vor dem Zugriff
-        validiert; der Wert wird nicht protokolliert oder in State-Dateien
-        übernommen.
+        Secret-Referenz enthalten. Der Resolver bevorzugt die Prozess-
+        Umgebungsvariable und verwendet PowerShell SecretManagement nur dann
+        als optionalen Fallback. Der Wert wird nicht protokolliert oder in
+        State-Dateien übernommen.
     #>
     [CmdletBinding()]
     param(
@@ -75,15 +76,34 @@ function Get-LabManifestEnvironmentSecret {
     )
 
     $value = [Environment]::GetEnvironmentVariable($Name)
-    if ([string]::IsNullOrWhiteSpace($value)) {
+    if (-not [string]::IsNullOrWhiteSpace($value)) {
+        try {
+            return ConvertTo-SecureString -String $value -AsPlainText -Force
+        }
+        finally {
+            $value = $null
+        }
+    }
+
+    $secretCommand = Get-Command -Name Get-Secret -ErrorAction SilentlyContinue
+    if (-not $secretCommand) {
         throw "LAB_MANIFEST_SECRET_ENVIRONMENT_MISSING: Die Prozess-Umgebungsvariable '$Name' ist nicht gesetzt."
     }
 
+    $secret = $null
     try {
-        return ConvertTo-SecureString -String $value -AsPlainText -Force
+        $secret = & $secretCommand -Name $Name -ErrorAction Stop
+        if ($secret -isnot [Security.SecureString]) {
+            throw "LAB_MANIFEST_SECRET_STORE_TYPE_UNSUPPORTED: Die SecretManagement-Referenz '$Name' liefert keinen SecureString."
+        }
+        return $secret
+    }
+    catch {
+        if ($_.Exception.Message -like 'LAB_MANIFEST_SECRET_STORE_TYPE_UNSUPPORTED:*') { throw }
+        throw "LAB_MANIFEST_SECRET_STORE_RESOLUTION_FAILED: Die SecretManagement-Referenz '$Name' konnte nicht aufgeloest werden."
     }
     finally {
-        $value = $null
+        $secret = $null
     }
 }
 

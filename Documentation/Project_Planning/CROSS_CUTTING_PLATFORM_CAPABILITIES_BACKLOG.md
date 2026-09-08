@@ -52,7 +52,7 @@ Jede spätere Umsetzung muss:
 |---|---|---|---|
 | P0 | Evaluation-Watchdog und Benachrichtigung | `IMPLEMENTED_READ_ONLY` | read-only Prüfung aller registrierten Windows-/SQL-Evaluationsfristen mit lokalem fälligen Ereignis und sanitisierter Ausgabe |
 | P0 | Portabler Gesamt-Lab-Export/-Import | `ACCEPTED_NEED` | ein gestopptes, rein synthetisches Container-Lab samt Manifest, katalogisierten State-Referenzen und Hashmanifest auf einem zweiten Controller rekonstruieren |
-| P0 | Externe Secret-Store-Anbindung | `ACCEPTED_NEED` | providerneutrale `SecretRef` über PowerShell SecretManagement auflösen, ohne Wert in State, Plan oder Log zu persistieren |
+| P0 | Externe Secret-Store-Anbindung | `IMPLEMENTED_STATIC_CONTRACT` | providerneutrale `SecretRef` über PowerShell SecretManagement auflösen, ohne Wert in State, Plan oder Log zu persistieren |
 | P1 | Zentrale Observability und Evidence | `ACCEPTED_NEED` | SQL-Readiness, Query Store und ausgewählte Extended-Events-Metadaten eines synthetischen Runs als sanitiertes Evidence-Paket erfassen |
 | P1 | Verwaltete Recovery Points | `ACCEPTED_NEED` | applikationskonsistenter Recovery Point eines Hyper-V-SQL-Runs mit Restore-Probe und expliziter Retention |
 | P1 | Framework- und State-Upgrade-Lifecycle | `ACCEPTED_NEED` | eine versionierte, reversible Migration eines synthetischen alten Run-State in ein neues Schema |
@@ -113,11 +113,15 @@ erfolgreicher Import.
 
 ## Externe Secret-Store-Anbindung
 
-Die aktuelle lokale DPAPI- und Prozessvariablen-Grenze bleibt gültig. Ergänzend
-wird ein providerneutraler Resolververtrag benötigt, der mindestens
-PowerShell SecretManagement als ersten lokalen Adapter bewerten kann.
-Credential Manager, Vault und Key Vault sind optionale spätere Adapter und
-dürfen keine Core-Abhängigkeit werden.
+Die aktuelle lokale DPAPI- und Prozessvariablen-Grenze bleibt gültig.
+`Get-LabManifestEnvironmentSecret` löst die bestehende, eng benannte
+`SQL_SERVER_LAB_SECRET_*`-Referenz zuerst über die Prozessvariable und danach
+optional über PowerShell SecretManagement auf. Der externe Rückgabewert muss
+ein `SecureString` sein; fehlende, fehlerhafte oder anders typisierte
+Referenzen enden vor einer Mutation fail-closed. Der statische Vertrag belegt
+Umgebungsvariablenvorrang, erfolgreiche SecretManagement-Auflösung und den
+Gegenbeweis. Credential Manager, konkrete Vaults und Key Vault bleiben
+optionale spätere Adapter und dürfen keine Core-Abhängigkeit werden.
 
 Erforderlich sind:
 
