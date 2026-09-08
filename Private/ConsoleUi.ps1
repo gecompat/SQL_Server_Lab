@@ -945,6 +945,17 @@ function Invoke-LabConsoleMenu {
         [scriptblock]$SessionCompleter
     )
 
+    # Eine interaktive Produktsitzung kann einen gemeinsamen Statuslieferanten
+    # bereitstellen. Explizite Parameter bleiben autoritativ, damit einzelne
+    # Bildschirme ein groesseres Band nutzen oder es bewusst abschalten koennen.
+    if (-not $PSBoundParameters.ContainsKey('StatusProvider')) {
+        $defaultStatusProvider = Get-Variable -Name LabConsoleDefaultStatusProvider -Scope Script -ErrorAction SilentlyContinue
+        if ($defaultStatusProvider -and $defaultStatusProvider.Value) {
+            $StatusProvider = [scriptblock]$defaultStatusProvider.Value
+            if (-not $PSBoundParameters.ContainsKey('StatusHeight')) { $StatusHeight = 3 }
+        }
+    }
+
     if (-not $PSBoundParameters.ContainsKey('Snapshot') -and (Get-Command Get-LabConsoleAttentionSnapshot -ErrorAction SilentlyContinue)) {
         try { $Snapshot = Get-LabConsoleAttentionSnapshot } catch { $Snapshot = $null }
     }

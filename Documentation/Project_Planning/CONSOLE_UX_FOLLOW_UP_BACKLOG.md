@@ -136,10 +136,14 @@ relevante Gruppen zusätzlich Voraussetzungen, Hinweise und Cmdlet-Einstiege.
 Ein statischer Vollständigkeitsvertrag blockiert neue unkuratierte `ScreenId`s
 und beweist den generischen Fallback weiterhin mit einem Gegenbeispiel.
 
-### 6. Statusband nur auf zwei Bildschirmen
+### 6. Statusband nur auf zwei Bildschirmen — RESOLVED
 
-`main-menu` und `queue-menu` reservieren ein Statusband. Für langlaufende
-Vorgänge, die aus anderen Bildschirmen gestartet werden, fehlt die Rückmeldung.
+Seit 2026-09-08 stellt `Invoke-SqlServerLab` für die gesamte interaktive Sitzung
+einen gemeinsamen Queue- und Fortschrittslieferanten bereit. Jeder untergeordnete
+Menü- und Formularbildschirm erbt automatisch ein fest reserviertes dreizeiliges
+Statusband. Hauptmenü und Queue behalten ihre expliziten Größen von drei und
+fünf Zeilen. Explizite Bildschirmparameter bleiben autoritativ; Aufrufe außerhalb
+der Produktsitzung warten weiterhin ohne Polling blockierend.
 
 ### 7. Secret-Referenz bestehender Composer-Positionen
 
