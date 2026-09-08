@@ -68,7 +68,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Chunking, Identitätsbindung, Journal und Cleanup. Docker und Podman sind für
   Vector-Core, lokale Ollama-Modelle, exaktes SQL-RAG und den read-only
   Diagnose-Agenten getrennt nativ belegt. Ollama-Cloud-Generation ist opt-in
-  belegt; der Offline-Endpoint-Stub deckt Fehler- und Retryverträge ab. Das
+  belegt; der Offline-Endpoint-Stub deckt Fehler- und Retryverträge ab, und ein
+  echter flüchtiger Loopback-HTTPS-Stub belegt Embed-/Generate-Payloads,
+  Zertifikat-Pinning sowie den realen `HttpClient`-Retrypfad ohne globale
+  Trust-Store-Mutation. Das
   versionierte Golden Dataset bindet synthetische Fragen, Dokumente, Modelle,
   Top-k und Schwellen an den RAG-Plan sowie dessen deterministische Auswertung;
   Docker ist dafür nativ belegt, während der getrennte Podman-Nachweis vor der

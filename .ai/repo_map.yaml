@@ -47,6 +47,7 @@ sources_of_truth:
   validation_ai_diagnostic_agent_container: Tests/Integration/Invoke-AiDiagnosticAgentContainerAcceptance.ps1
   validation_ai_hyperv: Tests/Integration/Invoke-AiHyperVAcceptance.ps1
   validation_ai_scenario: Tests/Static/Invoke-AiScenarioChecks.ps1
+  validation_ai_https_endpoint_stub: Tests/Integration/Invoke-AiHttpsEndpointStubAcceptance.ps1
   validation_ai_ollama_cloud: Tests/Integration/Invoke-AiOllamaCloudAcceptance.ps1
   validation_ai_ollama_container: Tests/Integration/Invoke-AiOllamaContainerAcceptance.ps1
   validation_ai_rag_container: Tests/Integration/Invoke-AiRagContainerAcceptance.ps1

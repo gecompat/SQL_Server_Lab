@@ -125,6 +125,41 @@ try {
     Add-CheckResult 'KI-Modell-, Endpoint-, Journal- und Ergebnisverträge sind lokal parse- und schema-valide' $contractsValid
 
     $stubPlan=& $module { New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-300m-q4 -EndpointRef deterministic-stub -Lane stub -RetryCount 1 }
+    $httpsStubPlan=& $module {
+        New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-300m-q4 -EndpointRef deterministic-https-stub -Lane stub `
+            -StubBaseUri 'https://localhost:18443' `
+            -StubServerCertificateSha256 '1111111111111111111111111111111111111111111111111111111111111111'
+    }
+    $httpStubPlan=& $module {
+        New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-300m-q4 -EndpointRef deterministic-https-stub -Lane stub `
+            -StubBaseUri 'http://localhost:18443' `
+            -StubServerCertificateSha256 '1111111111111111111111111111111111111111111111111111111111111111'
+    }
+    $remoteStubPlan=& $module {
+        New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-300m-q4 -EndpointRef deterministic-https-stub -Lane stub `
+            -StubBaseUri 'https://example.invalid:18443' `
+            -StubServerCertificateSha256 '1111111111111111111111111111111111111111111111111111111111111111'
+    }
+    $httpsStubProjection=[ordered]@{
+        Contract=$httpsStubPlan.Contract;Status=$httpsStubPlan.Status;Lane=$httpsStubPlan.Lane
+        EndpointRef=$httpsStubPlan.EndpointRef;TargetHost=$httpsStubPlan.TargetHost;ModelKey=$httpsStubPlan.ModelKey
+        Purpose=$httpsStubPlan.Purpose;Dimension=$httpsStubPlan.Dimension;Port=$httpsStubPlan.Port
+        ServerCertificateSha256=$httpsStubPlan.ServerCertificateSha256;CredentialRef=$httpsStubPlan.CredentialRef
+        Egress=$httpsStubPlan.Egress;RequestBudget=$httpsStubPlan.RequestBudget;Blockers=@($httpsStubPlan.Blockers)
+        Warnings=@($httpsStubPlan.Warnings);PlanKey=$httpsStubPlan.PlanKey
+    }
+    Add-CheckResult 'Echter HTTPS-Stub bindet Loopback-Port und Zertifikat-Pin an den Plan' (
+        $httpsStubPlan.Status -eq 'NOT_PROBED' -and $httpsStubPlan.TargetHost -eq 'localhost' -and
+        $httpsStubPlan.Port -eq 18443 -and $httpsStubPlan.ServerCertificateSha256 -match '^[a-f0-9]{64}$' -and
+        $httpsStubPlan.PlanKey -ne $stubPlan.PlanKey -and
+        (($httpsStubProjection | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-endpoint-plan.schema.json') -ErrorAction SilentlyContinue))
+    Add-CheckResult 'Klartext- und Nicht-Loopback-Stubs bleiben fail-closed blockiert' (
+        $httpStubPlan.Status -eq 'BLOCKED' -and $httpStubPlan.Blockers -contains 'AI_ENDPOINT_STUB_TLS_REQUIRED' -and
+        $remoteStubPlan.Status -eq 'BLOCKED' -and $remoteStubPlan.Blockers -contains 'AI_ENDPOINT_STUB_LOOPBACK_REQUIRED')
+    $missingTrustRejected=$false
+    try { & $module { param($Plan) Invoke-LabAiEndpointRequest -Plan $Plan -InputText 'nicht senden' } $httpsStubPlan }
+    catch { $missingTrustRejected=$_.Exception.Message -eq 'AI_ENDPOINT_TLS_TRUST_REQUIRED' }
+    Add-CheckResult 'HTTPS-Stub ohne das exakt gebundene Zertifikat scheitert vor dem Netzwerkzugriff' $missingTrustRejected
     $vector=@(1..768 | ForEach-Object { [double]$_ / 768 })
     $retryResult=& $module {
         param($Plan,$Vector)

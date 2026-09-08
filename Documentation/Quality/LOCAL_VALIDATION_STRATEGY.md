@@ -624,6 +624,19 @@ Der ausführbare, run-eigene Nachweis dafür ist
 Er prüft Vector-Distanz, Chunking, sanitisierte Evidence und Szenario-Cleanup
 und entfernt danach den zugehörigen Provider-Run.
 
+Der modell- und SQL-freie HTTPS-Nachweis des Endpointvertrags läuft separat:
+
+```powershell
+.\Tests\Integration\Invoke-AiHttpsEndpointStubAcceptance.ps1
+```
+
+Er bindet einen flüchtigen IPv4-Loopback-TLS-Server mit exakt gepinntem
+öffentlichem Zertifikat über Custom-Root-Trust an den normalen `HttpClient`.
+Geprüft werden Embed- und Generate-Payload, ein echter HTTP-429-Retry sowie die
+Ablehnung eines abweichenden Pins. Der Test verändert keinen globalen
+Zertifikatspeicher, benötigt keine Modellruntime und räumt Prozess,
+Zertifikatobjekte und temporäre Dateien vollständig auf.
+
 Der vollständige lokale RAG-Nachweis wird ebenfalls providergetrennt ausgeführt:
 
 ```powershell

@@ -50,8 +50,9 @@ Docker und Podman deklarieren die Capability `sql2025-vector-core` getrennt.
 Die nativen Läufe über
 `Tests/Integration/Invoke-AiVectorCoreAcceptance.ps1` waren am 2026-09-05 für
 beide Provider erfolgreich, einschließlich Szenario- und Provider-Cleanup.
-Damit ist `AI-10A` `SUPPORTED`. Ein Endpoint-Stub, Dimensionswechsel und
-Re-Embedding bleiben als `AI-10B` offen.
+Damit ist `AI-10A` `SUPPORTED`. Der echte HTTPS-Endpoint-Stub und die
+Fehlerverträge sind umgesetzt; Dimensionswechsel und Re-Embedding bleiben als
+`AI-10B` offen.
 
 ### AI-05 – Ollama-Vertragsgrundlage
 
@@ -88,13 +89,17 @@ Diagnose-Agenten. Retrieval-Metriken laufen ohne Modell- oder Netzwerkkosten;
 RAG und Agent verwenden die kleinsten katalogisierten lokalen Modelle. Es
 entstand weder ein separater Demo-Runtimekern noch eine Cloud-Abhängigkeit.
 
-Der erste Slice von `AI-10B` ist implementiert: Die interne Endpointplanung
+Der Endpoint-Slice von `AI-10B` ist implementiert: Die interne Endpointplanung
 bindet ausschließlich katalogisierte Modelle, blockiert Cloud ohne expliziten
 Egress und erzeugt stabile PlanKeys. Der gemeinsame Requestvertrag prüft
 Embedding-Dimensionen sowie Generate-Antworten, begrenzt Retries und gibt bei
 Timeout, Rate Limit oder ungültigen Antworten ausschließlich sanitisierte
-Reason-Codes aus. Ein deterministischer Offline-Transport deckt diese Fälle ab;
-ein realer HTTPS-Stub und native Modellruntimes bleiben offen.
+Reason-Codes aus. Neben dem deterministischen Offline-Transport startet
+`Invoke-AiHttpsEndpointStubAcceptance.ps1` einen echten flüchtigen
+Loopback-TLS-Server. Dessen öffentliches Zertifikat und SHA-256-Pin sind an den
+Endpointplan gebunden; Embed, Generate und ein echter HTTP-429-Retry laufen
+über den normalen `HttpClient`, ohne den globalen Trust Store zu verändern.
+Dimensionswechsel und ein kontrollierter Re-Embedding-Plan bleiben offen.
 
 `AI-60A` stellt kataloggebundene Ollama-Cloud-Generation bereit. Der öffentliche
 Aufruf verlangt eine nicht-interne Datenklasse und expliziten Cloud-Egress,
