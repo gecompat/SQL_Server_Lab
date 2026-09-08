@@ -131,6 +131,13 @@ function Get-SqlServerLabHyperVImageArtifact {
                 Edition = [string]$artifact.sql.edition
                 Build = [string]$artifact.sql.build
                 LicenseType = [string]$artifact.sql.license.type
+                Evaluation = [PSCustomObject]@{
+                    LicenseType = [string]$artifact.sql.license.type
+                    ExpiresAt = if ($artifact.sql.license.evaluationExpiresAt) {
+                        ([datetime]$artifact.sql.license.evaluationExpiresAt).ToUniversalTime().ToString('o')
+                    }
+                    else { $null }
+                }
             }
             Evaluation = [PSCustomObject]@{
                 LicenseType = [string]$artifact.license.type

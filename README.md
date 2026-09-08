@@ -683,6 +683,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Invoke-SqlServerLabOperationProbe` | Fällige User-Gates ausschließlich lesend prüfen, ohne sie selbstständig fortzusetzen |
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
 | `Get-SqlServerLabHyperVImageArtifact` | Pfadfreie, read-only Hyper-V-Image-Registry mit Evaluierungs-, Refresh- und Referenzstatus; `-VerifyIntegrity` prüft ausgewählte Parent-VHDX erneut |
+| `Get-SqlServerLabEvaluationWatch` | Registrierte Windows- und SQL-Evaluationsfristen read-only bewerten und fällige Ereignisse optional lokal deduplizieren |
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, freien Speicher und physische Run-/Build-/Image-/Staging-Roots ohne Mutation anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
 | `Get-SqlServerLabCleanupAudit` | `Lab_Data`, Runtime-Scopes und Persistent Storage read-only prüfen sowie jedes auffällige Objekt mit Typ, Grund, Löschungs-/Bewahrungsempfehlung und Warnung ausgeben |

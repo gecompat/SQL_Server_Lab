@@ -50,7 +50,7 @@ Jede spätere Umsetzung muss:
 
 | Priorität | Fähigkeit | Planungsstatus | Erster sinnvoller Vertical Slice |
 |---|---|---|---|
-| P0 | Evaluation-Watchdog und Benachrichtigung | `ACCEPTED_NEED` | read-only Prüfung aller registrierten Windows-/SQL-Evaluationsfristen mit lokalem fälligen Ereignis und sanitisierter Ausgabe |
+| P0 | Evaluation-Watchdog und Benachrichtigung | `IMPLEMENTED_READ_ONLY` | read-only Prüfung aller registrierten Windows-/SQL-Evaluationsfristen mit lokalem fälligen Ereignis und sanitisierter Ausgabe |
 | P0 | Portabler Gesamt-Lab-Export/-Import | `ACCEPTED_NEED` | ein gestopptes, rein synthetisches Container-Lab samt Manifest, katalogisierten State-Referenzen und Hashmanifest auf einem zweiten Controller rekonstruieren |
 | P0 | Externe Secret-Store-Anbindung | `ACCEPTED_NEED` | providerneutrale `SecretRef` über PowerShell SecretManagement auflösen, ohne Wert in State, Plan oder Log zu persistieren |
 | P1 | Zentrale Observability und Evidence | `ACCEPTED_NEED` | SQL-Readiness, Query Store und ausgewählte Extended-Events-Metadaten eines synthetischen Runs als sanitiertes Evidence-Paket erfassen |
@@ -67,8 +67,13 @@ Ausführungsreihenfolge des Development Execution Plans.
 ## Evaluation-Watchdog und Benachrichtigung
 
 Der vorhandene Workflow kann Evaluationsmetadaten anzeigen und eine zu kurze
-Restlaufzeit beim Aufbau blockieren. Es fehlt ein eigenständiger,
-zeitgesteuerter Betriebsvertrag.
+Restlaufzeit beim Aufbau blockieren. `Get-SqlServerLabEvaluationWatch` bewertet
+die registrierten Windows- und SQL-Evaluationen getrennt, erzeugt stabile,
+sanitisierte Fälligkeitsereignisse und kann neue Ereignisse mit
+`-RecordEvents` lokal idempotent deduplizieren. Der Standardaufruf bleibt
+vollständig read-only; auch die optionale Ereignisaufzeichnung verändert weder
+Images, Lizenzen noch Runs. Ein zeitgesteuerter Trigger und optionale
+Benachrichtigungskanäle bleiben offen.
 
 Der Zielvertrag muss mindestens definieren:
 
