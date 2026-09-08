@@ -154,17 +154,21 @@ Seit 2026-09-08 bietet die gemeinsame Bearbeitung die Aktion
 den Variablennamen. Gemischt ausgewaehlte Windows-/Hyper-V-Positionen bleiben
 unveraendert; eine reine Nicht-Containerauswahl deaktiviert die Aktion begruendet.
 
-### 8. Weitere flache Bereichsmenüs
+### 8. Weitere flache Bereichsmenüs — RESOLVED
 
-| Menü | Einträge ohne `Zurueck` |
-|---|---|
-| `infrastructure-menu` | 2 |
-| `settings-menu` | 3 |
-| `hyperv-menu` | 4 |
-| `database-menu` | 5 |
+| Menü | Einträge ohne `Zurueck` am 2026-09-08 | Bewertung |
+|---|---:|---|
+| `infrastructure-menu` | 3 | zwei fachliche Unterbereiche plus direkter read-only Infrastrukturstatus |
+| `settings-menu` | 3 | drei eigenständige Einstellungen; keine reine Delegation |
+| `hyperv-menu` | 4 | vier unterschiedliche Image-, Slot- und Verwaltungsabsichten |
+| `database-menu` | 12 | durch Backup, Restore, Pakete, Inventur, Verbindung und KI fachlich ausgebaut |
 
-`infrastructure-menu` delegiert ausschließlich an zwei Unterbereiche und trägt
-keine eigene Handlung.
+Der einzige rein delegierende Bereich war `infrastructure-menu`. Er bietet nun
+zusätzlich einen direkten, read-only Provider-, Laufzeit- und
+Voraussetzungsstatus, ohne bestehende Shortcuts umzubelegen. Die anderen drei
+Bereiche sind nach aktuellem Produktstand nicht mehr flach oder besitzen bereits
+mehrere eigenständige Handlungen. Der statische Menüvertrag verhindert weiterhin
+Bereiche mit weniger als zwei Handlungsoptionen.
 
 ## Bindende Erkenntnisse für die Wiederaufnahme
 

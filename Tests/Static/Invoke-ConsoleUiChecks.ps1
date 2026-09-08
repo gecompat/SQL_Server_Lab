@@ -1077,6 +1077,11 @@ Add-ConsoleUiCheck 'Hyper-V zeigt die derzeit nicht atomare External-Languages-N
 Add-ConsoleUiCheck 'Hauptmenue startet ohne vorab ausgegebene und sofort ueberschriebene Umgebungsuebersicht' ([regex]::Match($entrySource, 'function Invoke-SqlServerLab \{[\s\S]+?(?=\r?\n# =+)').Value -notmatch 'Show-LabBanner')
 Add-ConsoleUiCheck 'Interaktiver Status zeigt Connection String und gespeichertes generiertes SA-Passwort' ($entrySource -match 'function Show-LabEnvironmentStatusInteractive' -and $entrySource -match "'SA-Passwort \(automatisch erzeugt\)'" -and $entrySource -match 'Show-LabEnvironmentStatusInteractive -RunId')
 Add-ConsoleUiCheck 'Infrastrukturmenue deaktiviert Hyper-V begruendet wenn der Provider nicht verwendbar ist' ($batchConsoleSource -match '-Id HyperVArea[\s\S]{0,300}?-Disabled:\(-not \$hyperVAvailable\)' -and $batchConsoleSource -match 'Test-HyperVAvailable')
+Add-ConsoleUiCheck 'Infrastrukturmenue bietet neben Delegation eine direkte read-only Handlung' (
+    $batchConsoleSource -match "New-LabConsoleItem -Id Status -Label 'Infrastrukturstatus anzeigen'" -and
+    $batchConsoleSource -match "'Infrastructure' \{ Show-LabInfrastructureMenu \}" -and
+    $batchConsoleSource -match 'try \{ Invoke-LabMenuAction -ActionName \$action \}'
+)
 Add-ConsoleUiCheck 'Statusauswahl bietet Alle und einzelne Umgebungen an' ($entrySource -match "-Id '__all' -Label 'Alle Umgebungen'" -and $entrySource -match "-ScreenId 'environment-status-select'" -and $entrySource -match '\$selectedRuns = if')
 Add-ConsoleUiCheck 'Datenbankmenue trennt Verbindungszentrale und reinen Lab-Katalog klar' ($entrySource -match "-Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte'.*-Shortcut 'c'" -and $entrySource -match "-Id 'Catalog' -Label 'Lab-Katalog prüfen'.*-Shortcut 'k'" -and $entrySource -match "Katalogdatei validieren; kein CMS-Zugang")
 Add-ConsoleUiCheck 'CU-Status ist im Medienmenü sichtbar und seine Ergebnisansicht wartet auf eine Rückkehrbestätigung' ($entrySource -match "-Id 'CuStatus' -Label 'Aktuelle CUs bei Microsoft prüfen'.*-Shortcut 'w'" -and $entrySource -match "function Show-LabCuStatusInteractive \{[\s\S]+?Get-SqlServerLabCuStatus[\s\S]+?Wait-LabConsoleAcknowledgement -Prompt ' Enter oder Escape: Zurück zu Storage & Medien'")
