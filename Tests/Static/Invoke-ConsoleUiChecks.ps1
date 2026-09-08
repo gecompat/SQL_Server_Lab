@@ -408,6 +408,31 @@ Add-ConsoleUiCheck 'Hauptmenue zeigt laufenden Fortschritt im reservierten Statu
     $mainMenuSource -match "ScreenId 'main-menu'[^\n]+-StatusHeight 3 -StatusProvider \`$mainMenuStatusProvider" -and
     $mainMenuSource -match '\$mainMenuStatusProvider = New-LabQueueStatusProvider -Height 3'
 )
+Add-ConsoleUiCheck 'Interaktive Sitzung verankert einen Statuslieferanten fuer alle untergeordneten Bildschirme' (
+    $mainMenuSource -match '\$script:LabConsoleDefaultStatusProvider = New-LabQueueStatusProvider -Height 3' -and
+    $mainMenuSource -match 'Remove-Variable -Name LabConsoleDefaultStatusProvider -Scope Script'
+)
+$ambientStatusTicks = [Collections.Generic.List[int]]::new()
+$ambientFrames = [Collections.Generic.List[object]]::new()
+$script:LabConsoleDefaultStatusProvider = { param($tick) $ambientStatusTicks.Add([int]$tick); @('Sitzungsstatus', '', '') }
+try {
+    $ambientMenu = Invoke-LabConsoleMenu -ScreenId 'ambient-status' -Title 'Untermenue' -Items @(
+        New-LabConsoleItem -Id 'go' -Label 'Weiter' -Shortcut '1'
+    ) -Capability ([PSCustomObject]@{ Supported=$true; Mode='CURSOR'; Reasons=@() }) `
+        -ReadKey { [PSCustomObject]@{ Key='Enter'; KeyChar=[char]13; Modifiers=0 } } `
+        -FrameWriter { param($s, $f) $ambientFrames.Add($f) } `
+        -GetViewport { [PSCustomObject]@{ Width=60; Height=14 } } `
+        -SessionFactory { [PSCustomObject]@{ OriginTop=0; PreviousLineCount=0; ForegroundColor='Gray' } } `
+        -SessionCompleter { }
+}
+finally {
+    Remove-Variable -Name LabConsoleDefaultStatusProvider -Scope Script -ErrorAction SilentlyContinue
+}
+Add-ConsoleUiCheck 'Untergeordnete Menues erben Statusband und echten Sitzungsstatus ohne Einzelverdrahtung' (
+    $ambientMenu.Status -eq 'Selected' -and $ambientStatusTicks.Count -eq 1 -and
+    $ambientFrames.Count -eq 1 -and $ambientFrames[0].StatusHeight -eq 3 -and
+    @($ambientFrames[0].Lines | Where-Object { $_ -match '^Sitzungsstatus' }).Count -eq 1
+)
 Add-ConsoleUiCheck 'Hauptmenue folgt der acht Gruppen umfassenden Struktur' (
     ([regex]::Matches($mainMenuSource, "New-LabConsoleItem -Id '(?:create|environment|queue|database|cms|infrastructure|maintenance|settings)' -Label ")).Count -eq 8 -and
     ([regex]::Matches($mainMenuSource, "'(?:create|cms|infrastructure|maintenance|settings)' \{ Invoke-LabAreaMenuInteractive -Area ")).Count -eq 5 -and

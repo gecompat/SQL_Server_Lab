@@ -1638,6 +1638,11 @@ und Review-IDs werden über begrenzte Muster aufgelöst. Ein statischer Vertrag
 verhindert neue unkuratierte Produktbildschirme. Nur dynamische IDs externer
 Aufrufer außerhalb der Produktquellen fallen weiterhin auf die ehrliche
 generische Auskunft zurück.
+Das Statusband (`CUI-022`) wird innerhalb von `Invoke-SqlServerLab` an alle
+untergeordneten Menü- und Formularbildschirme vererbt. Es visualisiert Queue- und
+Operationsstate, kann aber keine zusätzliche Zwischenmeldung aus einem gerade
+synchron und exklusiv laufenden Cmdlet erzeugen; dessen eigene Fortschritts- und
+Meldungsausgabe bleibt maßgeblich.
 Seit 2026-09-08 besitzen alle deaktivierbaren Produkt-Menüeinträge konkrete
 Begründungen. Ein AST-basierter statischer Vertrag verhindert neue
 `New-LabConsoleItem -Disabled`-Aufrufe ohne `-DisabledReason`. Die Hilfe weist

@@ -28,7 +28,9 @@ function Invoke-SqlServerLab {
     )
 
     $previousConsoleMode = $script:LabConsoleMode
+    $previousStatusProviderVariable = Get-Variable -Name LabConsoleDefaultStatusProvider -Scope Script -ErrorAction SilentlyContinue
     $script:LabConsoleMode = $ConsoleMode
+    $script:LabConsoleDefaultStatusProvider = New-LabQueueStatusProvider -Height 3
     try {
     # Das Modul darf sich waehrend einer laufenden Modul-Funktion nicht selbst
     # mit -Force neu laden. Dabei werden die aktuelle Funktion und ihre
@@ -75,6 +77,12 @@ function Invoke-SqlServerLab {
     }
     finally {
         $script:LabConsoleMode = $previousConsoleMode
+        if ($previousStatusProviderVariable) {
+            $script:LabConsoleDefaultStatusProvider = $previousStatusProviderVariable.Value
+        }
+        else {
+            Remove-Variable -Name LabConsoleDefaultStatusProvider -Scope Script -ErrorAction SilentlyContinue
+        }
     }
 }
 
