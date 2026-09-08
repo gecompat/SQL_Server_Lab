@@ -217,7 +217,7 @@ Hyper-V-Befunde und den CU-Medienbefund hinter einer
 Verfügbarkeitsprüfung verlangt, plus funktionaler Test mit gemockter
 Verfügbarkeit inklusive Gegenbeweis.
 
-### 10. Adhoc-Containererstellung mit Sample-Datenbank scheitert an später Connection-Info und verwirft die fertige Umgebung — OPEN
+### 10. Adhoc-Containererstellung mit Sample-Datenbank scheitert an später Connection-Info und verwirft die fertige Umgebung — RESOLVED
 
 Geprüfter Ist-Zustand vom 2026-09-08 anhand des lokalen Sitzungsjournals
 und Run-States: Die synchrone Einzelerstellung (ProvisioningMode `adhoc`,
@@ -227,40 +227,33 @@ Provider podman) erstellte den Container erfolgreich; SQL Server war nach
 Connection-Info nicht gefunden fuer Run '<RunId>'.“. Der automatische
 Cleanup entfernte danach Container und Volume (`CLEANUP_SUCCEEDED`); die
 eigentlich fertige Umgebung war damit verloren. Ein Queue-Lauf vom Vortag
-ohne Sample (`databases: []`) lief erfolgreich durch — der Fehler tritt nur
+ohne Sample (`databases: []`) lief erfolgreich durch — der Fehler trat nur
 in der Kombination Container-Provider plus Sample-Datenbank plus synchrone
 Einzelerstellung auf.
 
-Ursache: Der Sample-Schritt in `Public/New-SqlServerLab.ps1` ruft
+Ursache: Der Sample-Schritt in `Public/New-SqlServerLab.ps1` rief
 `Install-LabSampleDatabase` mit `-RunId` auf, obwohl Host, Port und
-Containername explizit übergeben werden. `Install-LabSampleDatabase`
-(`Private/SampleArtifactHandlers.ps1`) löst bei gesetztem `-RunId` das Ziel
-unbedingt über `Resolve-LabRunInstance` (`Private/RunResolution.ps1`) auf;
-das wirft, solange `runs/<RunId>/connection-info.json` fehlt. Diese Datei
-wird im Containerpfad erst am Ende von `New-SqlServerLab` geschrieben —
-nach dem Sample-Schritt. Der Hyper-V-Pfad ist nicht betroffen (frühe,
-mehrfache Schreibzugriffe in `Private/HyperVLabEnvironment.ps1`); der
-Queue-Pfad mappt bislang keine Samples (`CreateContainerEnvironment` in
-`Private/BatchWorkflow.ps1`).
+Containername explizit übergeben wurden. Der Handler löste bei gesetztem
+`-RunId` das Ziel unbedingt über `Resolve-LabRunInstance`
+(`Private/RunResolution.ps1`) auf; das warf, solange
+`runs/<RunId>/connection-info.json` fehlte. Diese Datei wird im
+Containerpfad erst am Ende von `New-SqlServerLab` geschrieben — nach dem
+Sample-Schritt.
 
-Zielvertrag: Die Sample-Installation darf in der Adhoc-Reihenfolge keine
-noch nicht persistierte `connection-info.json` voraussetzen. Bevorzugte
-Richtung: `Install-LabSampleDatabase` löst nur dann über den Run auf, wenn
-das Ziel nicht explizit übergeben wurde; `-RunId` bleibt für RunDirectory
-und Journal nutzbar. Alternativen: `connection-info.json` direkt nach der
-SQL-Bereitschaft schreiben und am Ende aktualisieren, oder `-RunId` am
-Aufruf entfernen (verliert den Run-Bezug in Trust und Journal).
+Umsetzung am 2026-09-08 (bevorzugte Richtung): `Install-LabSampleDatabase`
+in `Private/SampleArtifactHandlers.ps1` löst nur noch dann über den Run
+auf, wenn das Ziel nicht explizit übergeben wurde; `-RunId` bleibt für
+RunDirectory und Journal nutzbar. Der `Resolve-LabRunInstance`-Vertrag für
+Laufzeit-Cmdlets ist unverändert.
 
-Nachweis bei der Umsetzung: funktionaler Test in der Adhoc-Reihenfolge
-(RunId ohne vorhandene `connection-info.json`) inklusive Gegenbeweis;
-betroffene Suites `Tests/Static/Invoke-SampleHandlerChecks.ps1` und
-`Tests/Static/Invoke-SampleBaselineRuntimeChecks.ps1`; eine reale
-Adhoc-Erstellung mit Sample endet in `RUNNING`. Lokale Runtime- und
-Diagnosedaten werden nur als beschriebener Ist-Zustand referenziert und
-nicht versioniert.
-
-Nicht-Ziele: kein geänderter `Resolve-LabRunInstance`-Vertrag für
-Laufzeit-Cmdlets und kein Redesign des Provisioning-Kerns.
+Nachweis: `Tests/Static/Invoke-SampleHandlerChecks.ps1` belegt die
+Adhoc-Reihenfolge funktional — bei explizitem Ziel und gesetzter RunId
+ohne `connection-info.json` wird der Resolver nicht aufgerufen und die
+Installation endet mit `DATASET_READY`; der Gegenbeweis ohne explizites
+Ziel ruft den Resolver auf und scheitert fail-closed mit derselben
+Fehlersignatur wie im Realbefund. Lokale Runtime- und Diagnosedaten
+wurden nur als beschriebener Ist-Zustand referenziert und nicht
+versioniert.
 
 ## Bindende Erkenntnisse für die Wiederaufnahme
 

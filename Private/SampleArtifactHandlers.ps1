@@ -871,14 +871,19 @@ function Install-LabSampleDatabase {
     )
 
     if ($RunId) {
-        $runTarget = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
-        if ($Provider -and [string]$runTarget.Provider -ne $Provider) {
-            throw 'SAMPLE_HANDLER_RUN_PROVIDER_MISMATCH'
+        $explicitTarget = -not [string]::IsNullOrWhiteSpace([string]$ContainerName) -and
+            -not [string]::IsNullOrWhiteSpace([string]$HostName) -and
+            $Port -gt 0
+        if (-not $explicitTarget) {
+            $runTarget = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+            if ($Provider -and [string]$runTarget.Provider -ne $Provider) {
+                throw 'SAMPLE_HANDLER_RUN_PROVIDER_MISMATCH'
+            }
+            $Provider = [string]$runTarget.Provider
+            $HostName = [string]$runTarget.HostName
+            $Port = [int]$runTarget.Port
+            $ContainerName = [string]$runTarget.ContainerName
         }
-        $Provider = [string]$runTarget.Provider
-        $HostName = [string]$runTarget.HostName
-        $Port = [int]$runTarget.Port
-        $ContainerName = [string]$runTarget.ContainerName
         if (-not $RunDirectory) {
             $effectiveStateRoot = if ($StateRoot) { $StateRoot } else { Get-LabStateRoot }
             $RunDirectory = Join-Path (Join-Path $effectiveStateRoot 'runs') $RunId
