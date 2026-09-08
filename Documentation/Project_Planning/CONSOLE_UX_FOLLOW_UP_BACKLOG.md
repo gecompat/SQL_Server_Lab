@@ -170,6 +170,98 @@ Bereiche sind nach aktuellem Produktstand nicht mehr flach oder besitzen bereits
 mehrere eigenständige Handlungen. Der statische Menüvertrag verhindert weiterhin
 Bereiche mit weniger als zwei Handlungsoptionen.
 
+### 9. Menüs und Befundliste berücksichtigen die tatsächliche Providerverfügbarkeit nicht — OPEN
+
+Geprüfter Ist-Zustand vom 2026-09-08: Die Befundliste entsteht zentral in
+`Get-LabAttentionSnapshot` (`Private/AttentionStatus.ps1`). Die drei
+Hyper-V-Befunde `template-pool-capacity-low`, `sql-slot-pool-low` und
+`image-builds-pending` sind nur über `if ($IsWindows)` abgegrenzt, nicht über
+`Test-HyperVAvailable`. Auf einem Windows-Host ohne verfügbares Hyper-V
+erscheinen daher Hinweise wie „Nur 0 fertige SQL-Pool-Slots; Mindestbestand
+ist 2. Loesung: Bei Bedarf neue Slots über den Hyper-V-Pfad erzeugen.“,
+obwohl der genannte Lösungsweg dort nicht ausführbar ist. Der
+CU-Medienbefund `cu-media-*` („SQL … ist katalogisiert; Windows-Paket
+fehlt.“) wird ohne Providerbezug gemeldet; sein Lösungsweg über das
+Windows-Paket setzt den Hyper-V-Pfad voraus.
+
+In den Menüs ist das Hyper-V-Gating bereits teilweise umgesetzt
+(`Show-LabMenu` und `Show-LabInfrastructureMenu` mit `-Disabled` und
+`-DisabledReason` aus `New-LabConsoleItem`); die Docker-/Podman-
+Verfügbarkeit wird dagegen in keinem Menü ausgewertet. Die kanonischen
+Prüfungen sind vorhanden: `Test-HyperVAvailable`
+(`Providers/HyperV/HyperVProvider.ps1`), `Resolve-LabHostTool`
+(`Private/HostToolResolution.ps1`) und `Get-AvailableLabProviders`
+(`Public/Invoke-SqlServerLab.ps1`).
+
+Zielvertrag: Befunde, deren Lösungsweg einen nicht verfügbaren Provider
+erfordert, werden gar nicht erzeugt. Menüeinträge, die einen nicht
+verfügbaren Provider voraussetzen, werden mit begründetem `-Disabled`
+deaktiviert; das Erstellungsmenü bietet nur verfügbare Provider an, und
+„Provider Auto“ wählt ausschließlich aus verfügbaren. Die Verfügbarkeit
+wird einmal je Snapshot- beziehungsweise Menüaufbau ermittelt und
+weitergereicht; ein Mehrfach-Probe von `Get-VMHost` oder
+`docker info` je Eintrag ist ausgeschlossen. Prüfliste der Befunde für die
+Umsetzung:
+
+| Befund | Providerbindung |
+|---|---|
+| `media-root-missing`, `cu-catalog-date-missing`, `cu-catalog-stale`, `cu-media-unverified-*`, `cu-status-*-unavailable`, `run-recovery-required` | providerneutral, bleiben unverändert |
+| `cu-media-*` („Windows-Paket fehlt“) | nur melden, wenn der Hyper-V-Pfad verfügbar ist |
+| `template-pool-capacity-low`, `sql-slot-pool-low`, `image-builds-pending` | nur bei verfügbarem Hyper-V |
+
+Nicht-Ziele: keine Änderung an der Provider-Erkennung selbst, an der
+Batch-/Queue-Auswahl oder an nicht-interaktiven Pfaden.
+
+Nachweis bei der Umsetzung: statischer AST-Vertrag, der die drei
+Hyper-V-Befunde und den CU-Medienbefund hinter einer
+Verfügbarkeitsprüfung verlangt, plus funktionaler Test mit gemockter
+Verfügbarkeit inklusive Gegenbeweis.
+
+### 10. Adhoc-Containererstellung mit Sample-Datenbank scheitert an später Connection-Info und verwirft die fertige Umgebung — OPEN
+
+Geprüfter Ist-Zustand vom 2026-09-08 anhand des lokalen Sitzungsjournals
+und Run-States: Die synchrone Einzelerstellung (ProvisioningMode `adhoc`,
+Provider podman) erstellte den Container erfolgreich; SQL Server war nach
+11,3 Sekunden bereit. Die Installation des Samples
+`adventureworks-2025:full` scheiterte mit „Provisionierung fehlgeschlagen:
+Connection-Info nicht gefunden fuer Run '<RunId>'.“. Der automatische
+Cleanup entfernte danach Container und Volume (`CLEANUP_SUCCEEDED`); die
+eigentlich fertige Umgebung war damit verloren. Ein Queue-Lauf vom Vortag
+ohne Sample (`databases: []`) lief erfolgreich durch — der Fehler tritt nur
+in der Kombination Container-Provider plus Sample-Datenbank plus synchrone
+Einzelerstellung auf.
+
+Ursache: Der Sample-Schritt in `Public/New-SqlServerLab.ps1` ruft
+`Install-LabSampleDatabase` mit `-RunId` auf, obwohl Host, Port und
+Containername explizit übergeben werden. `Install-LabSampleDatabase`
+(`Private/SampleArtifactHandlers.ps1`) löst bei gesetztem `-RunId` das Ziel
+unbedingt über `Resolve-LabRunInstance` (`Private/RunResolution.ps1`) auf;
+das wirft, solange `runs/<RunId>/connection-info.json` fehlt. Diese Datei
+wird im Containerpfad erst am Ende von `New-SqlServerLab` geschrieben —
+nach dem Sample-Schritt. Der Hyper-V-Pfad ist nicht betroffen (frühe,
+mehrfache Schreibzugriffe in `Private/HyperVLabEnvironment.ps1`); der
+Queue-Pfad mappt bislang keine Samples (`CreateContainerEnvironment` in
+`Private/BatchWorkflow.ps1`).
+
+Zielvertrag: Die Sample-Installation darf in der Adhoc-Reihenfolge keine
+noch nicht persistierte `connection-info.json` voraussetzen. Bevorzugte
+Richtung: `Install-LabSampleDatabase` löst nur dann über den Run auf, wenn
+das Ziel nicht explizit übergeben wurde; `-RunId` bleibt für RunDirectory
+und Journal nutzbar. Alternativen: `connection-info.json` direkt nach der
+SQL-Bereitschaft schreiben und am Ende aktualisieren, oder `-RunId` am
+Aufruf entfernen (verliert den Run-Bezug in Trust und Journal).
+
+Nachweis bei der Umsetzung: funktionaler Test in der Adhoc-Reihenfolge
+(RunId ohne vorhandene `connection-info.json`) inklusive Gegenbeweis;
+betroffene Suites `Tests/Static/Invoke-SampleHandlerChecks.ps1` und
+`Tests/Static/Invoke-SampleBaselineRuntimeChecks.ps1`; eine reale
+Adhoc-Erstellung mit Sample endet in `RUNNING`. Lokale Runtime- und
+Diagnosedaten werden nur als beschriebener Ist-Zustand referenziert und
+nicht versioniert.
+
+Nicht-Ziele: kein geänderter `Resolve-LabRunInstance`-Vertrag für
+Laufzeit-Cmdlets und kein Redesign des Provisioning-Kerns.
+
 ## Bindende Erkenntnisse für die Wiederaufnahme
 
 Diese Punkte haben in der Arbeit vom 2026-09-07 jeweils einen realen Defekt
