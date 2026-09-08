@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -142,7 +142,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -in @('Status', 'CleanupAudit', 'Catalog', 'DatabasePackageInventory', 'DatabaseMigrationDependency')) {
         Wait-LabConsoleAcknowledgement
     }
-    if ($ActionName -in @('DatabaseBackup', 'DatabaseRestore')) { Wait-LabConsoleAcknowledgement }
+    if ($ActionName -in @('DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport')) { Wait-LabConsoleAcknowledgement }
 
 }
 
@@ -286,6 +286,7 @@ function Show-LabDatabaseMenu {
         New-LabConsoleItem -Id 'Script' -Label 'SQL-Skript ausfuehren' -Shortcut '9'
         New-LabConsoleItem -Id 'DatabaseBackup' -Label 'Datenbank sichern' -Value 'CHECKSUM · VERIFYONLY · Lab_Data-Bibliothek' -Shortcut 'b'
         New-LabConsoleItem -Id 'DatabaseRestore' -Label 'Datenbank wiederherstellen' -Value 'verifiziertes BackupSet · Konfliktprüfung · Cleanup' -Shortcut 'r'
+        New-LabConsoleItem -Id 'DatabasePackageExport' -Label 'Datenbankpaket exportieren' -Value 'Docker/Podman · exklusiv offline · verifiziert' -Shortcut 'x'
         New-LabConsoleItem -Id 'DatabasePackageInventory' -Label 'Datenbankpakete anzeigen' -Value 'read-only · stabile Paket-ID · pfadfrei' -Shortcut 'p'
         New-LabConsoleItem -Id 'DatabaseMigrationDependency' -Label 'Migrationsabhängigkeiten prüfen' -Value 'read-only · Counts · keine Exportmutation' -Shortcut 'g'
         New-LabConsoleItem -Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte' -Shortcut 'c'
@@ -716,6 +717,69 @@ function Invoke-LabDatabasePackageInventoryInteractive {
     if (-not $VerifyIntegrity) {
         Write-LabInfo 'Die Inventur hasht große Paketobjekte bewusst erst bei expliziter Integritätsprüfung oder unmittelbar vor Verwendung.'
     }
+}
+
+function Invoke-LabDatabasePackageExportInteractive {
+    [CmdletBinding()]
+    param(
+        [string]$RunId,
+        [string]$InstanceId = 'primary',
+        [string]$DatabaseName,
+        [string]$DataRoot
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RunId)) {
+        $runs = @(Get-LabRunsByRuntimeState -State 'RUNNING')
+        if ($runs.Count -eq 0) { Write-LabInfo 'Keine laufende SQL-Umgebung vorhanden.'; return }
+        $RunId = Select-LabRun -Runs $runs -Prompt 'Quelle für Datenbankpaket' -DisableSystemServices
+        if (-not $RunId) { return }
+        $InstanceId = Read-Host '  Instanz-ID [primary]'
+        if ([string]::IsNullOrWhiteSpace($InstanceId)) { $InstanceId = 'primary' }
+    }
+    try { $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId }
+    catch { Write-LabError "Paketquelle konnte nicht gebunden werden: $($_.Exception.Message)"; return }
+    if ([string]$target.Provider -notin @('docker', 'podman')) {
+        Write-LabError 'Datenbankpaket-Export unterstützt ausschließlich gebundene Docker- und Podman-Instanzen.'
+        return
+    }
+
+    if ([string]::IsNullOrWhiteSpace($DatabaseName)) { $DatabaseName = Read-Host '  Zu exportierende Datenbank' }
+    if ($DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
+        Write-LabError 'Der Datenbankname muss mit einem Buchstaben beginnen und darf nur Buchstaben, Ziffern und Unterstriche enthalten.'
+        return
+    }
+    try {
+        if ([string]::IsNullOrWhiteSpace($DataRoot)) { $DataRoot = Get-LabDataRootDefault }
+        $DataRoot = Resolve-LabDataRootForUse -DataRoot $DataRoot
+    }
+    catch { Write-LabError "Registrierte Datenbankpaket-Bibliothek ist nicht verwendbar: $($_.Exception.Message)"; return }
+
+    Write-LabStatus -Label 'Quelle' -Value "$RunId / $InstanceId · $($target.Provider)"
+    Write-LabStatus -Label 'Datenbank' -Value $DatabaseName
+    Write-LabStatus -Label 'Ziel' -Value 'registrierte Lab_Data-Datenbankpaket-Bibliothek'
+    Write-LabWarning 'Die Datenbank wird mit SINGLE_USER exklusiv OFFLINE geschaltet und bleibt nach erfolgreichem Export offline.'
+    Write-LabInfo 'Der Export verwendet ausschließlich das zum Run gehörende SA-Secret; es wird nur kurzzeitig entschlüsselt und nie angezeigt.'
+    Write-LabInfo 'FILESTREAM und TDE ohne Recovery-Nachweis werden vor der Offline-Mutation abgelehnt. Temporäre Kopien werden auch bei Fehlern bereinigt.'
+    Write-LabWarning 'Recovery bei einem Fehler nach dem Offline-Commit: Datenbankzustand gezielt prüfen und erst nach Ursachenklärung wieder ONLINE schalten.'
+    if (-not (Read-LabConfirm -Prompt '  Datenbank jetzt exklusiv offline schalten und als verifiziertes Paket veröffentlichen?' -Default $false)) { return }
+
+    try {
+        $result = Export-SqlServerLabDatabasePackage -RunId $RunId -InstanceId $InstanceId `
+            -DatabaseName $DatabaseName -DataRoot $DataRoot -Confirm:$false
+    }
+    catch {
+        Write-LabError "Datenbankpaket-Export fehlgeschlagen: $($_.Exception.Message)"
+        Write-LabWarning 'Recovery: Quellzustand prüfen; nach einem Offline-Commit bleibt die Datenbank absichtlich offline.'
+        return
+    }
+    if ([string]$result.Status -ne 'REUSABLE') {
+        Write-LabWarning "Datenbankpaket wurde nicht veröffentlicht: $($result.Status)"
+        return
+    }
+    Write-LabSuccess "Datenbankpaket veröffentlicht: $($result.DatabaseName) · Quelle bleibt OFFLINE"
+    Write-LabStatus -Label 'DatabasePackageId' -Value $result.DatabasePackageId
+    Write-LabStatus -Label 'PersistentStorageId' -Value $result.PersistentStorageId
+    Write-LabInfo 'Lokale Pfade, Hashwerte und Zugangsdaten werden in dieser Menüansicht nicht ausgegeben.'
 }
 
 function Invoke-LabDatabaseBackupInteractive {
@@ -1212,6 +1276,7 @@ function Invoke-LabAction {
         'AiGuidedDemo' { Invoke-LabAiGuidedDemoInteractive }
         'DatabaseBackup' { Invoke-LabDatabaseBackupInteractive }
         'DatabaseRestore' { Invoke-LabDatabaseRestoreInteractive }
+        'DatabasePackageExport' { Invoke-LabDatabasePackageExportInteractive }
         'DatabasePackageInventory' { Invoke-LabDatabasePackageInventoryInteractive }
         'DatabaseMigrationDependency' { Invoke-LabDatabaseMigrationDependencyInteractive }
         'Manifest' {

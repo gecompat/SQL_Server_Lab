@@ -51,14 +51,13 @@ neue Nightly-Fehler sind wieder als eigenständige Regressionen zu behandeln.
 
 ### 2. Datenbankmenü ist teilweise ergänzt – `IN_PROGRESS`
 
-`database-menu` bietet nach dem Restore-Slice zehn Einträge. Zwei
-vorhandene mutierende öffentliche Funktionen sind weiterhin aus der Oberfläche
+`database-menu` bietet nach dem Paketexport-Slice elf Einträge. Eine
+vorhandene mutierende öffentliche Funktion ist weiterhin aus der Oberfläche
 nicht erreichbar, weil noch kein sicherer interaktiver `Invoke-LabAction`-Fall
 existiert. Das ist echte Neuarbeit, kein bloßes Verdrahten von Vorhandenem.
 
 | Funktion | Zweck |
 |---|---|
-| `Export-SqlServerLabDatabasePackage` | Paket exportieren |
 | `Invoke-SqlServerLabDatabasePackageAttach` | Paket anhängen |
 
 Der erste read-only Slice ist am 2026-09-08 umgesetzt: Paketbestand und
@@ -86,11 +85,21 @@ Gast- und Containerkopien im `finally`-Pfad garantiert zu entfernen und benennt
 bei einem SQL-Teilfehler die notwendige Zielprüfung. Die Menüausgabe bleibt
 pfad-, hash- und credentialfrei.
 
-Offen bleiben Paketexport und Paket-Attach; jeder mutierende
+Der Paketexport-Slice ist am 2026-09-08 ergänzt. Er bindet ausschließlich eine
+laufende Docker-/Podman-Quelle über Run- und Instanz-ID sowie den registrierten
+`Lab_Data`-Root. Vor der ausdrücklichen Bestätigung werden der exklusive
+`SINGLE_USER`-/`OFFLINE`-Übergang, der dauerhaft offline bleibende Quellzustand
+und der Recovery-Weg ausgewiesen. Das SA-Secret stammt ausschließlich aus dem
+gebundenen Run und wird weder erneut abgefragt noch ausgegeben. FILESTREAM und
+TDE ohne Recovery-Nachweis scheitern vor der Offline-Mutation; temporäre
+Kopien werden im `finally`-Pfad bereinigt. Die Ergebnisausgabe enthält nur
+stabile Paket- und Storage-IDs, keine Pfade, Hashwerte oder Credentials.
+
+Offen bleibt Paket-Attach; jeder mutierende
 Pfad erhält wegen Scope-, Recovery- und Credentialgrenzen einen eigenen
 Änderungssatz.
 
-Für die zwei verbleibenden Funktionen greift der Anti-Waisen-Vertrag noch
+Für die verbleibende Funktion greift der Anti-Waisen-Vertrag noch
 nicht, weil sie nicht in der `ValidateSet` stehen. Er verhindert nur, dass eine
 angebotene Aktion unerreichbar wird, nicht dass eine Fähigkeit gar nicht erst
 angeboten wird.
