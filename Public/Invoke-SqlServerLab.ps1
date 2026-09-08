@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -142,7 +142,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -in @('Status', 'CleanupAudit', 'Catalog', 'DatabasePackageInventory', 'DatabaseMigrationDependency')) {
         Wait-LabConsoleAcknowledgement
     }
-    if ($ActionName -in @('DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport')) { Wait-LabConsoleAcknowledgement }
+    if ($ActionName -in @('DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach')) { Wait-LabConsoleAcknowledgement }
 
 }
 
@@ -287,6 +287,7 @@ function Show-LabDatabaseMenu {
         New-LabConsoleItem -Id 'DatabaseBackup' -Label 'Datenbank sichern' -Value 'CHECKSUM · VERIFYONLY · Lab_Data-Bibliothek' -Shortcut 'b'
         New-LabConsoleItem -Id 'DatabaseRestore' -Label 'Datenbank wiederherstellen' -Value 'verifiziertes BackupSet · Konfliktprüfung · Cleanup' -Shortcut 'r'
         New-LabConsoleItem -Id 'DatabasePackageExport' -Label 'Datenbankpaket exportieren' -Value 'Docker/Podman · exklusiv offline · verifiziert' -Shortcut 'x'
+        New-LabConsoleItem -Id 'DatabasePackageAttach' -Label 'Datenbankpaket anhängen' -Value 'Hyper-V · COPY_THEN_ATTACH · Recovery' -Shortcut 'h'
         New-LabConsoleItem -Id 'DatabasePackageInventory' -Label 'Datenbankpakete anzeigen' -Value 'read-only · stabile Paket-ID · pfadfrei' -Shortcut 'p'
         New-LabConsoleItem -Id 'DatabaseMigrationDependency' -Label 'Migrationsabhängigkeiten prüfen' -Value 'read-only · Counts · keine Exportmutation' -Shortcut 'g'
         New-LabConsoleItem -Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte' -Shortcut 'c'
@@ -780,6 +781,118 @@ function Invoke-LabDatabasePackageExportInteractive {
     Write-LabStatus -Label 'DatabasePackageId' -Value $result.DatabasePackageId
     Write-LabStatus -Label 'PersistentStorageId' -Value $result.PersistentStorageId
     Write-LabInfo 'Lokale Pfade, Hashwerte und Zugangsdaten werden in dieser Menüansicht nicht ausgegeben.'
+}
+
+function Invoke-LabDatabasePackageAttachInteractive {
+    [CmdletBinding()]
+    param(
+        [string]$RunId,
+        [string]$InstanceId = 'primary',
+        [string]$DatabasePackageId,
+        [PSCredential]$GuestCredential,
+        [string]$DataRoot,
+        [switch]$Recover
+    )
+
+    if ([string]::IsNullOrWhiteSpace($RunId)) {
+        $runs = @(Get-LabRunsByRuntimeState -State 'RUNNING')
+        if ($runs.Count -eq 0) { Write-LabInfo 'Keine laufende SQL-Umgebung vorhanden.'; return }
+        $RunId = Select-LabRun -Runs $runs -Prompt 'Hyper-V-Ziel für Datenbankpaket' -DisableSystemServices
+        if (-not $RunId) { return }
+        $InstanceId = Read-Host '  Instanz-ID [primary]'
+        if ([string]::IsNullOrWhiteSpace($InstanceId)) { $InstanceId = 'primary' }
+    }
+    try { $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId }
+    catch { Write-LabError "Attach-Ziel konnte nicht gebunden werden: $($_.Exception.Message)"; return }
+    if ([string]$target.Provider -ne 'hyperv') {
+        Write-LabError 'Datenbankpaket-Attach unterstützt ausschließlich gebundene Hyper-V-SQL-Instanzen.'
+        return
+    }
+
+    try {
+        if ([string]::IsNullOrWhiteSpace($DataRoot)) { $DataRoot = Get-LabDataRootDefault }
+        $DataRoot = Resolve-LabDataRootForUse -DataRoot $DataRoot
+        $packages = @(Get-SqlServerLabDatabasePackage -DataRoot $DataRoot | Where-Object Availability -eq 'SELECTABLE')
+    }
+    catch { Write-LabError "Registrierte Datenbankpaket-Bibliothek ist nicht verwendbar: $($_.Exception.Message)"; return }
+    if ($packages.Count -eq 0) { Write-LabInfo 'Kein auswählbares Datenbankpaket in Lab_Data vorhanden.'; return }
+
+    $selectedPackage = if ($DatabasePackageId) {
+        @($packages | Where-Object DatabasePackageId -eq $DatabasePackageId | Select-Object -First 1)
+    }
+    else {
+        $items = @($packages | ForEach-Object {
+            New-LabConsoleItem -Id ([string]$_.DatabasePackageId) -Label ([string]$_.DatabaseName) `
+                -Value ("SQL {0} · {1} Objekt(e) · {2} MiB" -f $_.SourceSqlMajorVersion, $_.ObjectCount, [Math]::Round(([long]$_.Bytes / 1MB), 1)) `
+                -Data $_
+        })
+        $choice = Select-LabConsoleDataItem -ScreenId 'database-package-attach-select' -Title 'Datenbankpaket auswählen' `
+            -Subtitle 'Nur katalogisierte Pakete aus registriertem Lab_Data' -Items $items
+        if ($choice) { @($choice) } else { @() }
+    }
+    if ($selectedPackage.Count -ne 1) { Write-LabError 'DatabasePackageId ist nicht eindeutig auswählbar.'; return }
+    $selectedPackage = $selectedPackage[0]
+    $DatabasePackageId = [string]$selectedPackage.DatabasePackageId
+
+    if (-not $PSBoundParameters.ContainsKey('Recover')) {
+        $mode = Select-LabConsoleDataItem -ScreenId 'database-package-attach-mode' -Title 'Attach-Modus' `
+            -Subtitle 'Recovery nur für einen vorhandenen RECOVERY_REQUIRED-Journalstand' -Items @(
+                New-LabConsoleItem -Id 'attach' -Label 'Neues Attach planen' -Value 'Paket kopieren, im Gast hashen, dann SQL-Attach' -Shortcut '1' -Data 'attach'
+                New-LabConsoleItem -Id 'recover' -Label 'Fehlgeschlagenes Attach recovern' -Value 'zielgebundenes Journal · Detach und Gast-Cleanup' -Shortcut '2' -Data 'recover'
+                New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
+            )
+        if (-not $mode) { return }
+        $Recover = [string]$mode -eq 'recover'
+    }
+    if (-not $GuestCredential) {
+        $guestUserName = Read-Host '  Lokaler Gast-Administrator [Administrator]'
+        if ([string]::IsNullOrWhiteSpace($guestUserName)) { $guestUserName = 'Administrator' }
+        $GuestCredential = [PSCredential]::new($guestUserName, (Read-Host '  Gastpasswort für PowerShell Direct' -AsSecureString))
+    }
+
+    $arguments = @{
+        DatabasePackageId=$DatabasePackageId;RunId=$RunId;InstanceId=$InstanceId
+        GuestCredential=$GuestCredential;DataRoot=$DataRoot
+    }
+    if ($Recover) { $arguments.Recover = $true }
+    try { $preview = Invoke-SqlServerLabDatabasePackageAttach @arguments -WhatIf }
+    catch {
+        Write-LabError "Attach-Vorprüfung fehlgeschlagen: $($_.Exception.Message)"
+        if ($Recover) { Write-LabWarning 'Recovery ist nur mit einem exakt passenden RECOVERY_REQUIRED-Journal möglich.' }
+        return
+    }
+    if ([string]$preview.Status -eq 'BLOCKED') {
+        Write-LabError ('Attach ist blockiert: ' + (@($preview.Blockers) -join ', '))
+        return
+    }
+
+    Write-LabStatus -Label 'Paket' -Value "$($preview.DatabaseName) · $DatabasePackageId"
+    Write-LabStatus -Label 'Ziel' -Value "$RunId / $InstanceId · Hyper-V · SQL $($preview.TargetSqlMajorVersion)"
+    Write-LabStatus -Label 'Modus' -Value $(if ($Recover) { 'RECOVERY · Detach und Cleanup' } else { 'COPY_THEN_ATTACH · unabhängige Gastkopie' }) -Color $(if ($Recover) { 'Yellow' } else { 'Green' })
+    Write-LabInfo 'Das Zielverzeichnis stammt live aus SQL Server. Paket und Gastkopie werden vollständig per SHA-256 geprüft; freie Pfade sind ausgeschlossen.'
+    Write-LabWarning 'Das Paket enthält nur Datenbankdateien. Logins, Jobs, TDE-Keymaterial, Secrets und externe Dienste werden nicht migriert.'
+    if ($Recover) {
+        Write-LabWarning 'Recovery detacht ausschließlich eine erneut als zielgebunden nachgewiesene Teildatenbank und entfernt die Paketkopie im Gast.'
+    }
+    else {
+        Write-LabInfo 'Ein bereits vorhandener Datenbankname, eine nicht leere Zielablage, eine ältere SQL-Version oder fehlende FILESTREAM-Capability blockieren vor der Mutation.'
+    }
+    if (-not (Read-LabConfirm -Prompt $(if ($Recover) { '  Gebundenes Attach-Journal jetzt recovern?' } else { '  Verifiziertes Paket jetzt kopieren und an SQL Server anhängen?' }) -Default $false)) { return }
+
+    try { $result = Invoke-SqlServerLabDatabasePackageAttach @arguments -Confirm:$false }
+    catch {
+        Write-LabError "Datenbankpaket-Attach fehlgeschlagen: $($_.Exception.Message)"
+        Write-LabWarning 'Recovery: dieselbe Menüaktion erneut wählen, exakt dasselbe Paket und Ziel binden und den Recovery-Modus verwenden.'
+        return
+    }
+    if ([string]$result.Status -notin @('ATTACHED', 'RECOVERED')) {
+        Write-LabWarning "Datenbankpaket-Aktion nicht abgeschlossen: $($result.Status)"
+        return
+    }
+    Write-LabSuccess $(if ($Recover) { "Attach-Recovery abgeschlossen: $($result.DatabaseName)" } else { "Datenbankpaket angehängt und ONLINE verifiziert: $($result.DatabaseName)" })
+    Write-LabStatus -Label 'DatabasePackageId' -Value $result.DatabasePackageId
+    Write-LabStatus -Label 'Postcondition' -Value $(if ($result.PostconditionVerified) { 'ONLINE · Pfade und Attachment verifiziert' } elseif ($Recover) { 'RECOVERED · keine weitere Recovery erforderlich' } else { 'nicht verifiziert' })
+    Write-LabInfo 'Host-/Gastpfade, Hashwerte und Credentials werden in dieser Menüansicht nicht ausgegeben.'
 }
 
 function Invoke-LabDatabaseBackupInteractive {
@@ -1277,6 +1390,7 @@ function Invoke-LabAction {
         'DatabaseBackup' { Invoke-LabDatabaseBackupInteractive }
         'DatabaseRestore' { Invoke-LabDatabaseRestoreInteractive }
         'DatabasePackageExport' { Invoke-LabDatabasePackageExportInteractive }
+        'DatabasePackageAttach' { Invoke-LabDatabasePackageAttachInteractive }
         'DatabasePackageInventory' { Invoke-LabDatabasePackageInventoryInteractive }
         'DatabaseMigrationDependency' { Invoke-LabDatabaseMigrationDependencyInteractive }
         'Manifest' {

@@ -49,16 +49,11 @@ neue Nightly-Fehler sind wieder als eigenständige Regressionen zu behandeln.
 
 ## Offene Punkte
 
-### 2. Datenbankmenü ist teilweise ergänzt – `IN_PROGRESS`
+### 2. Datenbankmenü vollständig ergänzt – `RESOLVED`
 
-`database-menu` bietet nach dem Paketexport-Slice elf Einträge. Eine
-vorhandene mutierende öffentliche Funktion ist weiterhin aus der Oberfläche
-nicht erreichbar, weil noch kein sicherer interaktiver `Invoke-LabAction`-Fall
-existiert. Das ist echte Neuarbeit, kein bloßes Verdrahten von Vorhandenem.
-
-| Funktion | Zweck |
-|---|---|
-| `Invoke-SqlServerLabDatabasePackageAttach` | Paket anhängen |
+`database-menu` bietet nach dem Paket-Attach-Slice zwölf Einträge. Alle zuvor
+fehlenden öffentlichen Backup-, Restore- und Paketfunktionen besitzen nun einen
+sicheren interaktiven `Invoke-LabAction`-Fall.
 
 Der erste read-only Slice ist am 2026-09-08 umgesetzt: Paketbestand und
 Migrationsabhängigkeiten besitzen echte Produkt-Aufrufstellen im bestehenden
@@ -95,14 +90,19 @@ TDE ohne Recovery-Nachweis scheitern vor der Offline-Mutation; temporäre
 Kopien werden im `finally`-Pfad bereinigt. Die Ergebnisausgabe enthält nur
 stabile Paket- und Storage-IDs, keine Pfade, Hashwerte oder Credentials.
 
-Offen bleibt Paket-Attach; jeder mutierende
-Pfad erhält wegen Scope-, Recovery- und Credentialgrenzen einen eigenen
-Änderungssatz.
+Der Paket-Attach-Slice ist am 2026-09-08 ergänzt. Er wählt ausschließlich ein
+katalogisiertes Paket per stabiler `DatabasePackageId`, bindet eine laufende
+Hyper-V-SQL-Instanz per Run-/Instanz-ID und hält das Gast-Credential flüchtig.
+Eine öffentliche `WhatIf`-Vorprüfung validiert Vollintegrität, SQL-Version,
+FILESTREAM-Capability, leeren Zielzustand und das live von SQL gemeldete
+Default-Data-Verzeichnis. Erst danach folgt die standardmäßig abgelehnte
+Bestätigung für `COPY_THEN_ATTACH`. Ein getrennter Modus führt ausschließlich
+ein exakt passendes `RECOVERY_REQUIRED`-Journal aus. Ergebnis und Menü bleiben
+pfad-, hash- und credentialfrei.
 
-Für die verbleibende Funktion greift der Anti-Waisen-Vertrag noch
-nicht, weil sie nicht in der `ValidateSet` stehen. Er verhindert nur, dass eine
-angebotene Aktion unerreichbar wird, nicht dass eine Fähigkeit gar nicht erst
-angeboten wird.
+Damit ist Punkt 2 abgeschlossen. Der Anti-Waisen-Vertrag umfasst alle sechs
+ergänzten Datenbankaktionen und einen funktionalen Provider-Gegenbeweis je
+mutierender Paketaktion.
 
 ### 3. Provider-Diagnoselog deckt nur die Containererstellung ab
 
