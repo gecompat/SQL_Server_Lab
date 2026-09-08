@@ -696,7 +696,10 @@ function New-HyperVInstance {
     if ($SwitchName) {
         $newVmParameters.SwitchName = $SwitchName
     }
-    $vm = New-VM @newVmParameters
+    $vmCreate = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-create' -RunId $RunId -StateRoot $StateRoot `
+        -Command "New-VM -Name $vmName" -Action { New-VM @newVmParameters }
+    $vm = @($vmCreate.Output)[0]
+    if (-not $vm) { throw 'HYPERV_VM_CREATE_NO_RESULT' }
     $null = Set-VM -VM $vm -SmartPagingFilePath $resourceRoot -SnapshotFileLocation $resourceRoot -ErrorAction Stop
     $null = Assert-HyperVVMResourceBinding -VMName $vmName -ResourceBinding $resourceBinding -DataRoot $DataRoot
     if ($DynamicMemoryEnabled) {
@@ -831,7 +834,8 @@ function Start-HyperVInstance {
         throw "Hyper-V-VM nicht gefunden: $VMName"
     }
     if ([string]$managed.VM.State -ne 'Running') {
-        $null = Start-VM -VM $managed.VM -ErrorAction Stop
+        $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-start' -RunId $ExpectedRunId `
+            -Command "Start-VM -Name $VMName" -Action { Start-VM -VM $managed.VM -ErrorAction Stop }
     }
     return Get-HyperVInstanceStatus -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
 }
@@ -849,7 +853,8 @@ function Stop-HyperVInstance {
         throw "Hyper-V-VM nicht gefunden: $VMName"
     }
     if ([string]$managed.VM.State -ne 'Off') {
-        $null = Stop-VM -VM $managed.VM -Force -ErrorAction Stop
+        $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-stop' -RunId $ExpectedRunId `
+            -Command "Stop-VM -Name $VMName -Force" -Action { Stop-VM -VM $managed.VM -Force -ErrorAction Stop }
     }
     return Get-HyperVInstanceStatus -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
 }
@@ -1710,9 +1715,12 @@ function Remove-HyperVInstance {
 
     if ([string]$managed.VM.State -ne 'Off') {
         if ($RequireOff) { throw 'HYPERV_VM_MUST_BE_OFF' }
-        $null = Stop-VM -VM $managed.VM -TurnOff -Force -ErrorAction Stop
+        $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-stop' -RunId ([string]$managed.Identity.runId) `
+            -Command "Stop-VM -Name $VMName -TurnOff -Force" `
+            -Action { Stop-VM -VM $managed.VM -TurnOff -Force -ErrorAction Stop }
     }
-    $null = Remove-VM -VM $managed.VM -Force -ErrorAction Stop
+    $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-remove' -RunId ([string]$managed.Identity.runId) `
+        -Command "Remove-VM -Name $VMName -Force" -Action { Remove-VM -VM $managed.VM -Force -ErrorAction Stop }
 
     if (-not $PreserveVhdx) {
         foreach ($vhdxPath in @($childVhdxPath) + @($additionalVhdxPaths | Where-Object {

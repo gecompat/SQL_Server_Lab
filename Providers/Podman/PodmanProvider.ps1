@@ -108,9 +108,11 @@ function Initialize-PodmanSqlNamedVolume {
         if ($Persistence) { $labelArguments += @('--label', "sql-server-lab.persistence=$Persistence") }
         if ($PersistentStorageId) { $labelArguments += @('--label', "sql-server-lab.persistent-storage-id=$PersistentStorageId") }
         if ($PersistentStorageRole) { $labelArguments += @('--label', "sql-server-lab.storage-role=$PersistentStorageRole") }
-        $created = & $podmanInvocation volume create @labelArguments $VolumeName 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw "PODMAN_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
+        $volumeCreate = Invoke-LabProviderOperation -Provider podman -Phase 'volume-create' -RunId $RunId -Native `
+            -Command "podman volume create $(@($labelArguments) -join ' ') $VolumeName" `
+            -Action { & $podmanInvocation volume create @labelArguments $VolumeName 2>&1 }
+        if (-not $volumeCreate.Succeeded) {
+            throw "PODMAN_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($volumeCreate.Output) -join ' ')"
         }
     }
     if ($volumeExists -and -not $SyncImageContent) { return $false }
@@ -121,11 +123,11 @@ function Initialize-PodmanSqlNamedVolume {
     else {
         'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init'
     }
-    $initialized = & $podmanInvocation run --rm --user 0:0 --entrypoint /bin/sh `
-        -v "${VolumeName}:/sql-lab-volume-init" $Image `
-        -c $initializationCommand 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "PODMAN_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($initialized) -join ' ')"
+    $volumeInitialize = Invoke-LabProviderOperation -Provider podman -Phase 'volume-initialize' -RunId $RunId -Native `
+        -Command "podman run --rm --user 0:0 --entrypoint /bin/sh -v ${VolumeName}:/sql-lab-volume-init $Image -c <volume-initialization>" `
+        -Action { & $podmanInvocation run --rm --user 0:0 --entrypoint /bin/sh -v "${VolumeName}:/sql-lab-volume-init" $Image -c $initializationCommand 2>&1 }
+    if (-not $volumeInitialize.Succeeded) {
+        throw "PODMAN_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($volumeInitialize.Output) -join ' ')"
     }
     return (-not $volumeExists)
 }
@@ -309,10 +311,12 @@ function New-PodmanInstance {
                 )
 
                 Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Podman]"
-                $output = & $podmanInvocation @podmanArguments 2>&1
-                $exitCode = $LASTEXITCODE
-                $providerLogPath = Write-LabProviderLog -Provider podman -Phase 'container-create' `
-                    -Command "podman $(@($podmanArguments | ForEach-Object { $_ }) -join ' ')" -Output $output -ExitCode $exitCode -RunId $RunId
+                $providerOperation = Invoke-LabProviderOperation -Provider podman -Phase 'container-create' -RunId $RunId -Native `
+                    -Command "podman $(@($podmanArguments | ForEach-Object { $_ }) -join ' ')" `
+                    -Action { & $podmanInvocation @podmanArguments 2>&1 }
+                $output = @($providerOperation.Output)
+                $exitCode = $providerOperation.ExitCode
+                $providerLogPath = $providerOperation.LogPath
                 if ($exitCode -eq 0) {
                     break
                 }
@@ -408,15 +412,18 @@ function Start-PodmanInstance {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$ContainerIdOrName,
-        [ValidateRange(1, 300)][int]$TimeoutSeconds = 30
+        [ValidateRange(1, 300)][int]$TimeoutSeconds = 30,
+        [string]$RunId
     )
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $lastOutput = @()
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
     do {
-        $lastOutput = @(& $podmanInvocation start $ContainerIdOrName 2>&1)
-        $exitCode = $LASTEXITCODE
+        $operation = Invoke-LabProviderOperation -Provider podman -Phase 'container-start' -RunId $RunId -Native `
+            -Command "podman start $ContainerIdOrName" -Action { & $podmanInvocation start $ContainerIdOrName 2>&1 }
+        $lastOutput = @($operation.Output)
+        $exitCode = $operation.ExitCode
         if ($exitCode -eq 0) {
             return
         }
@@ -449,13 +456,16 @@ function Stop-PodmanInstance {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$ContainerIdOrName,
-        [int]$TimeoutSeconds = 30
+        [int]$TimeoutSeconds = 30,
+        [string]$RunId
     )
 
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
-    $output = @(& $podmanInvocation stop -t $TimeoutSeconds $ContainerIdOrName 2>&1)
-    if ($LASTEXITCODE -ne 0) {
-        throw "PODMAN_CONTAINER_STOP_FAILED: $ContainerIdOrName - $(@($output) -join ' ')"
+    $operation = Invoke-LabProviderOperation -Provider podman -Phase 'container-stop' -RunId $RunId -Native `
+        -Command "podman stop -t $TimeoutSeconds $ContainerIdOrName" `
+        -Action { & $podmanInvocation stop -t $TimeoutSeconds $ContainerIdOrName 2>&1 }
+    if (-not $operation.Succeeded) {
+        throw "PODMAN_CONTAINER_STOP_FAILED: $ContainerIdOrName - $(@($operation.Output) -join ' ')"
     }
 }
 
@@ -479,8 +489,10 @@ function Remove-PodmanInstance {
         throw "SCOPE_MISMATCH: Container gehoert zu Scope '$scopeId', erwartet '$ExpectedScopeId'. Entfernung verweigert."
     }
 
-    & $podmanInvocation rm -f $ContainerIdOrName | Out-Null
-    if ($LASTEXITCODE -ne 0) {
+    $runId = [string]$item.Config.Labels.'sql-server-lab.run-id'
+    $operation = Invoke-LabProviderOperation -Provider podman -Phase 'container-remove' -RunId $runId -Native `
+        -Command "podman rm -f $ContainerIdOrName" -Action { & $podmanInvocation rm -f $ContainerIdOrName 2>&1 }
+    if (-not $operation.Succeeded) {
         throw "Podman-Container konnte nicht entfernt werden: $ContainerIdOrName"
     }
 

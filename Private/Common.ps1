@@ -275,7 +275,9 @@ function Write-LabProviderLog {
         [AllowNull()][object]$Output,
         [int]$ExitCode = 0,
         [AllowEmptyString()][string]$RunId = '',
-        [AllowEmptyString()][string]$StateRoot = ''
+        [AllowEmptyString()][string]$StateRoot = '',
+        [ValidateRange(1, 1073741824)][long]$MaximumBytes = 4194304,
+        [ValidateRange(1, 20)][int]$ArchiveCount = 3
     )
 
     if ($script:LabProviderLogDisabled) { return $null }
@@ -291,13 +293,92 @@ function Write-LabProviderLog {
             if ($null -eq $line) { continue }
             $null = $builder.AppendLine((Protect-LabMessageText -Text ([string]$line)))
         }
-        [IO.File]::AppendAllText($path, $builder.ToString(), [Text.UTF8Encoding]::new($false))
+        $encoding = [Text.UTF8Encoding]::new($false)
+        $entry = $builder.ToString()
+        $entryBytes = $encoding.GetByteCount($entry)
+        if ($entryBytes -gt $MaximumBytes) {
+            $truncationMarker = "`n... [provider log entry truncated] ...`n"
+            $markerBytes = $encoding.GetByteCount($truncationMarker)
+            if ($MaximumBytes -le $markerBytes) {
+                $entry = $truncationMarker.Substring(0, [int]$MaximumBytes)
+            }
+            else {
+                # Vier Bytes pro UTF-16-Zeichen sind eine konservative
+                # Obergrenze fuer UTF-8 und verhindern ein Auftrennen der Bytes.
+                $retainedCharacters = [int][Math]::Floor(($MaximumBytes - $markerBytes) / 4)
+                $headCharacters = [int][Math]::Floor($retainedCharacters / 2)
+                $tailCharacters = $retainedCharacters - $headCharacters
+                $entry = $entry.Substring(0, $headCharacters) + $truncationMarker +
+                    $entry.Substring($entry.Length - $tailCharacters, $tailCharacters)
+            }
+            $entryBytes = $encoding.GetByteCount($entry)
+        }
+        if ((Test-Path -LiteralPath $path -PathType Leaf) -and
+            ((Get-Item -LiteralPath $path).Length + $entryBytes) -gt $MaximumBytes) {
+            for ($index = $ArchiveCount; $index -ge 1; $index--) {
+                $archivePath = "$path.$index"
+                if ($index -eq $ArchiveCount) {
+                    if (Test-Path -LiteralPath $archivePath) {
+                        Remove-Item -LiteralPath $archivePath -Force -ErrorAction Stop
+                    }
+                    continue
+                }
+                $nextArchivePath = "$path.$($index + 1)"
+                if (Test-Path -LiteralPath $archivePath) {
+                    Move-Item -LiteralPath $archivePath -Destination $nextArchivePath -Force -ErrorAction Stop
+                }
+            }
+            Move-Item -LiteralPath $path -Destination "$path.1" -Force -ErrorAction Stop
+        }
+        [IO.File]::AppendAllText($path, $entry, $encoding)
         return $path
     }
     catch {
         # Ein nicht schreibbares Diagnoselog darf keinen Providerlauf abbrechen.
         $script:LabProviderLogDisabled = $true
         return $null
+    }
+}
+
+function Invoke-LabProviderOperation {
+    <#
+    .SYNOPSIS Fuehrt eine Provider-Operation aus und persistiert ihre Ausgabe.
+    .DESCRIPTION Der Wrapper bewahrt die originale Ausgabe fuer den Aufrufer,
+    protokolliert Erfolg und Fehler secretbereinigt und veraendert die fachliche
+    Fehlerbehandlung des Providers nicht.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Provider,
+        [Parameter(Mandatory)][string]$Phase,
+        [Parameter(Mandatory)][scriptblock]$Action,
+        [AllowEmptyString()][string]$Command = '',
+        [AllowEmptyString()][string]$RunId = '',
+        [AllowEmptyString()][string]$StateRoot = '',
+        [switch]$Native
+    )
+
+    $output = @()
+    $exitCode = 0
+    try {
+        $output = @(& $Action)
+        if ($Native) { $exitCode = $LASTEXITCODE }
+    }
+    catch {
+        $exitCode = 1
+        $output = @($_.Exception.Message)
+        $null = Write-LabProviderLog -Provider $Provider -Phase $Phase -Command $Command `
+            -Output $output -ExitCode $exitCode -RunId $RunId -StateRoot $StateRoot
+        throw
+    }
+
+    $logPath = Write-LabProviderLog -Provider $Provider -Phase $Phase -Command $Command `
+        -Output $output -ExitCode $exitCode -RunId $RunId -StateRoot $StateRoot
+    return [PSCustomObject]@{
+        Output = @($output)
+        ExitCode = $exitCode
+        LogPath = $logPath
+        Succeeded = $exitCode -eq 0
     }
 }
 

@@ -170,9 +170,11 @@ function Initialize-DockerSqlNamedVolume {
         if ($Persistence) { $labelArguments += @('--label', "sql-server-lab.persistence=$Persistence") }
         if ($PersistentStorageId) { $labelArguments += @('--label', "sql-server-lab.persistent-storage-id=$PersistentStorageId") }
         if ($PersistentStorageRole) { $labelArguments += @('--label', "sql-server-lab.storage-role=$PersistentStorageRole") }
-        $created = & $dockerInvocation volume create @labelArguments $VolumeName 2>&1
-        if ($LASTEXITCODE -ne 0) {
-            throw "DOCKER_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($created) -join ' ')"
+        $volumeCreate = Invoke-LabProviderOperation -Provider docker -Phase 'volume-create' -RunId $RunId -Native `
+            -Command "docker volume create $(@($labelArguments) -join ' ') $VolumeName" `
+            -Action { & $dockerInvocation volume create @labelArguments $VolumeName 2>&1 }
+        if (-not $volumeCreate.Succeeded) {
+            throw "DOCKER_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($volumeCreate.Output) -join ' ')"
         }
     }
     if ($volumeExists -and -not $SyncImageContent) { return $false }
@@ -183,11 +185,11 @@ function Initialize-DockerSqlNamedVolume {
     else {
         'chown -R 10001:0 /sql-lab-volume-init && chmod 0770 /sql-lab-volume-init'
     }
-    $initialized = & $dockerInvocation run --rm --user 0:0 --entrypoint /bin/sh `
-        -v "${VolumeName}:/sql-lab-volume-init" $Image `
-        -c $initializationCommand 2>&1
-    if ($LASTEXITCODE -ne 0) {
-        throw "DOCKER_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($initialized) -join ' ')"
+    $volumeInitialize = Invoke-LabProviderOperation -Provider docker -Phase 'volume-initialize' -RunId $RunId -Native `
+        -Command "docker run --rm --user 0:0 --entrypoint /bin/sh -v ${VolumeName}:/sql-lab-volume-init $Image -c <volume-initialization>" `
+        -Action { & $dockerInvocation run --rm --user 0:0 --entrypoint /bin/sh -v "${VolumeName}:/sql-lab-volume-init" $Image -c $initializationCommand 2>&1 }
+    if (-not $volumeInitialize.Succeeded) {
+        throw "DOCKER_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($volumeInitialize.Output) -join ' ')"
     }
     return (-not $volumeExists)
 }
@@ -372,10 +374,12 @@ function New-DockerInstance {
                 )
 
                 Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Docker]"
-                $output = & $dockerInvocation @dockerArguments 2>&1
-                $exitCode = $LASTEXITCODE
-                $providerLogPath = Write-LabProviderLog -Provider docker -Phase 'container-create' `
-                    -Command "docker $(@($dockerArguments | ForEach-Object { $_ }) -join ' ')" -Output $output -ExitCode $exitCode -RunId $RunId
+                $providerOperation = Invoke-LabProviderOperation -Provider docker -Phase 'container-create' -RunId $RunId -Native `
+                    -Command "docker $(@($dockerArguments | ForEach-Object { $_ }) -join ' ')" `
+                    -Action { & $dockerInvocation @dockerArguments 2>&1 }
+                $output = @($providerOperation.Output)
+                $exitCode = $providerOperation.ExitCode
+                $providerLogPath = $providerOperation.LogPath
                 if ($exitCode -eq 0) {
                     $containerId = $output |
                         ForEach-Object { ([string]$_).Trim() } |
@@ -491,12 +495,14 @@ function Get-DockerInstanceStatus {
 function Start-DockerInstance {
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory)][string]$ContainerIdOrName
+        [Parameter(Mandatory)][string]$ContainerIdOrName,
+        [string]$RunId
     )
 
     $dockerInvocation = Get-LabHostToolInvocation -Name docker
-    & $dockerInvocation start $ContainerIdOrName | Out-Null
-    if ($LASTEXITCODE -ne 0) {
+    $operation = Invoke-LabProviderOperation -Provider docker -Phase 'container-start' -RunId $RunId -Native `
+        -Command "docker start $ContainerIdOrName" -Action { & $dockerInvocation start $ContainerIdOrName 2>&1 }
+    if (-not $operation.Succeeded) {
         throw "Docker-Container konnte nicht gestartet werden: $ContainerIdOrName"
     }
 }
@@ -505,12 +511,15 @@ function Stop-DockerInstance {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$ContainerIdOrName,
-        [int]$TimeoutSeconds = 30
+        [int]$TimeoutSeconds = 30,
+        [string]$RunId
     )
 
     $dockerInvocation = Get-LabHostToolInvocation -Name docker
-    & $dockerInvocation stop -t $TimeoutSeconds $ContainerIdOrName | Out-Null
-    if ($LASTEXITCODE -ne 0) {
+    $operation = Invoke-LabProviderOperation -Provider docker -Phase 'container-stop' -RunId $RunId -Native `
+        -Command "docker stop -t $TimeoutSeconds $ContainerIdOrName" `
+        -Action { & $dockerInvocation stop -t $TimeoutSeconds $ContainerIdOrName 2>&1 }
+    if (-not $operation.Succeeded) {
         throw "Docker-Container konnte nicht gestoppt werden: $ContainerIdOrName"
     }
 }
@@ -535,8 +544,10 @@ function Remove-DockerInstance {
         throw "SCOPE_MISMATCH: Container gehoert zu Scope '$scopeId', erwartet '$ExpectedScopeId'. Entfernung verweigert."
     }
 
-    & $dockerInvocation rm -f $ContainerIdOrName | Out-Null
-    if ($LASTEXITCODE -ne 0) {
+    $runId = [string]$item.Config.Labels.'sql-server-lab.run-id'
+    $operation = Invoke-LabProviderOperation -Provider docker -Phase 'container-remove' -RunId $runId -Native `
+        -Command "docker rm -f $ContainerIdOrName" -Action { & $dockerInvocation rm -f $ContainerIdOrName 2>&1 }
+    if (-not $operation.Succeeded) {
         throw "Docker-Container konnte nicht entfernt werden: $ContainerIdOrName"
     }
 

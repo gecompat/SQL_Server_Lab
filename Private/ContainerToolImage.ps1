@@ -173,8 +173,10 @@ function Invoke-LabContainerToolImageBuild {
                 '--build-arg',"SQLPACKAGE_VERSION=$($ImagePlan.RuntimeVersion)",'--build-arg',"LIBUNWIND_DEB_URL=$($ImagePlan.LibunwindDebUrl)",
                 '--build-arg',"LIBUNWIND_DEB_SHA256=$($ImagePlan.LibunwindDebSha256)",'--build-arg',"LIBUNWIND_DEB_VERSION=$($ImagePlan.LibunwindDebVersion)",
                 '--build-arg',"CONTENT_ID=$($ImagePlan.ImageKey)",[string]$ImagePlan.RecipeRoot)
-            $output = & $runtimeInvocation @buildArguments 2>&1
-            if ($LASTEXITCODE -ne 0) { throw "CONTAINER_TOOL_IMAGE_BUILD_FAILED: $(@($output | Select-Object -Last 30) -join ' ')" }
+            $buildOperation = Invoke-LabProviderOperation -Provider $provider -Phase 'image-build' -StateRoot $StateRoot -Native `
+                -Command "$provider $(@($buildArguments) -join ' ')" -Action { & $runtimeInvocation @buildArguments 2>&1 }
+            $output = @($buildOperation.Output)
+            if (-not $buildOperation.Succeeded) { throw "CONTAINER_TOOL_IMAGE_BUILD_FAILED: $(@($output | Select-Object -Last 30) -join ' ')" }
             $evidence = Get-LabContainerToolLocalImageEvidence -Provider $provider -Image $temporaryTag
             if (-not $evidence -or [string]$evidence.ImageKey -ne [string]$ImagePlan.ImageKey -or [string]$evidence.ToolIds -ne 'sqlpackage') {
                 throw 'CONTAINER_TOOL_IMAGE_POSTCONDITION_FAILED'
@@ -310,8 +312,10 @@ function Invoke-LabContainerToolExternalRuntimeImageBuild {
                 '--build-arg',"SQLPACKAGE_VERSION=$($ImagePlan.RuntimeVersion)",'--build-arg',"LIBUNWIND_DEB_URL=$($ImagePlan.LibunwindDebUrl)",
                 '--build-arg',"LIBUNWIND_DEB_SHA256=$($ImagePlan.LibunwindDebSha256)",'--build-arg',"LIBUNWIND_DEB_VERSION=$($ImagePlan.LibunwindDebVersion)",
                 '--build-arg',"CONTENT_ID=$($ImagePlan.ImageKey)",[string]$ImagePlan.RecipeRoot)
-            $output = & $runtimeInvocation @buildArguments 2>&1
-            if ($LASTEXITCODE -ne 0) { throw "CONTAINER_TOOL_EXTERNAL_RUNTIME_IMAGE_BUILD_FAILED: $(@($output | Select-Object -Last 30) -join ' ')" }
+            $buildOperation = Invoke-LabProviderOperation -Provider $provider -Phase 'image-build' -StateRoot $StateRoot -Native `
+                -Command "$provider $(@($buildArguments) -join ' ')" -Action { & $runtimeInvocation @buildArguments 2>&1 }
+            $output = @($buildOperation.Output)
+            if (-not $buildOperation.Succeeded) { throw "CONTAINER_TOOL_EXTERNAL_RUNTIME_IMAGE_BUILD_FAILED: $(@($output | Select-Object -Last 30) -join ' ')" }
             $toolEvidence = Get-LabContainerToolLocalImageEvidence -Provider $provider -Image $temporaryTag
             $runtimeEvidence = Get-LabExternalRuntimeLocalImageEvidence -Provider $provider -Image $temporaryTag
             if (-not $toolEvidence -or -not $runtimeEvidence -or [string]$toolEvidence.User -ne 'root' -or

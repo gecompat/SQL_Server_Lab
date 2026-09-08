@@ -104,12 +104,16 @@ Damit ist Punkt 2 abgeschlossen. Der Anti-Waisen-Vertrag umfasst alle sechs
 ergänzten Datenbankaktionen und einen funktionalen Provider-Gegenbeweis je
 mutierender Paketaktion.
 
-### 3. Provider-Diagnoselog deckt nur die Containererstellung ab
+### 3. Provider-Diagnoselog deckt nur die Containererstellung ab — RESOLVED
 
-`Write-LabProviderLog` wird ausschließlich im Schritt `container-create` von
-Docker und Podman aufgerufen. Nicht abgedeckt sind Start, Stopp, Volume-,
-Image-Build- und Hyper-V-Operationen. Es fehlen ein gemeinsamer Aufrufwrapper und
-eine Rotation, damit der Logpfad nicht unbegrenzt wächst.
+Seit 2026-09-08 führt `Invoke-LabProviderOperation` die relevanten mutierenden
+Provideraufrufe aus und persistiert ihre Ausgabe einheitlich secretbereinigt.
+Docker und Podman decken Containererstellung, Start, Stopp, Entfernung sowie
+Volume-Anlage und -Initialisierung ab. Container-Tool-Image-Builds und der
+Hyper-V-VM-Lifecycle verwenden denselben Vertrag. `provider.log` rotiert vor
+dem Überschreiten von 4 MiB in höchstens drei Archive; funktionale Tests
+beweisen Ausgabeerhalt, Fehlerweitergabe, Secretbereinigung und die
+Rotationsgrenze.
 
 ### 4. Begründung deaktivierter Einträge ist unvollständig
 
