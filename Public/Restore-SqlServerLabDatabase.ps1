@@ -167,7 +167,8 @@ function Restore-SqlServerLabDatabase {
         lokale Backup-Datei oder eine HTTP(S)-URL. Das Backup
         wird in den eindeutig bestimmten Docker- oder Podman-Labcontainer kopiert
         und mit RESTORE FILELISTONLY sowie RESTORE DATABASE WITH MOVE
-        wiederhergestellt.
+        wiederhergestellt. SupportsShouldProcess schützt Artifact-Auflösung,
+        Transfer und SQL-Mutation; -WhatIf verändert weder Cache noch Ziel.
     .PARAMETER HostName
         Hostname oder IP-Adresse des SQL Servers. Standard ist 127.0.0.1.
     .PARAMETER Port
@@ -244,7 +245,7 @@ function Restore-SqlServerLabDatabase {
         Wählt ein verifiziertes Backup ausschließlich über seine stabile ID aus
         der konfigurierten Lab_Data-Bibliothek aus.
     #>
-    [CmdletBinding(DefaultParameterSetName = 'Direct')]
+    [CmdletBinding(DefaultParameterSetName = 'Direct', SupportsShouldProcess, ConfirmImpact = 'Medium')]
     param(
         [Parameter(ParameterSetName = 'Direct')][string]$HostName = '127.0.0.1',
         [Parameter(ParameterSetName = 'Direct', Mandatory)][int]$Port,
@@ -301,6 +302,19 @@ function Restore-SqlServerLabDatabase {
         throw "DataPath '$DataPath' muss ein absoluter Linux-Containerpfad sein."
     }
 
+    $sourceIdentity = if ($hasBackupSetId) { "BackupSetId $BackupSetId" } else { 'direkte Backup-Quelle' }
+    $replaceIdentity = if ($Replace) { ' mit WITH REPLACE' } else { '' }
+    $targetIdentity = if ($RunId) { "Run $RunId / Instanz $InstanceId" } else { "$Provider SQL auf Port $Port" }
+    if (-not $PSCmdlet.ShouldProcess(
+            "$targetIdentity / Datenbank $DatabaseName",
+            "$sourceIdentity verifiziert wiederherstellen$replaceIdentity")) {
+        return [PSCustomObject]@{
+            Success = $false; Status = 'CANCELLED'; MutationPerformed = $false
+            RunId = $RunId; InstanceId = $InstanceId; DatabaseName = $DatabaseName
+            BackupSetId = if ($hasBackupSetId) { $BackupSetId } else { $null }
+        }
+    }
+
     $artifactResolution = $null
     $librarySelection = $null
     $backupSourceKind = if ($hasBackupSetId) { 'LIBRARY' } elseif ($BackupSource -match '^https?://') { 'URL' } else { 'FILE' }
@@ -348,6 +362,8 @@ function Restore-SqlServerLabDatabase {
     $storageContext = $null
     $storageOperationId = $null
     $guestBackupPath = $null
+    $runtimeInvocation = $null
+    $runtimeBackupCopied = $false
     if ($Provider -eq 'hyperv') {
         if (-not $RunId -or -not $GuestCredential) { throw 'HYPERV_STORAGE_RESTORE_RUN_AND_GUEST_CREDENTIAL_REQUIRED' }
         $storageContext = Get-LabVerifiedStorageRuntimeContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
@@ -378,10 +394,11 @@ function Restore-SqlServerLabDatabase {
             $runtime = $restoreTarget.Provider
             $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
             $ContainerName = $restoreTarget.ContainerName
-            $runtimeBackupPath = "/var/opt/mssql/backup/${DatabaseName}.bak"
+            $runtimeBackupPath = "/var/opt/mssql/backup/${DatabaseName}-$([guid]::NewGuid().ToString('N')).bak"
             Write-LabInfo "Kopiere Backup nach $runtime/${ContainerName}:${runtimeBackupPath}"
             & $runtimeInvocation exec $ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
             if ($LASTEXITCODE -ne 0) { throw "Backup-Verzeichnis konnte im $runtime-Container nicht erstellt werden." }
+            $runtimeBackupCopied = $true
             & $runtimeInvocation cp $backupPath "${ContainerName}:${runtimeBackupPath}" 1>$null 2>$null
             if ($LASTEXITCODE -ne 0) { throw "Backup-Kopie in den $runtime-Container ist fehlgeschlagen." }
         }
@@ -478,6 +495,7 @@ RESTORE DATABASE [$escapedDatabaseName]
                 BackupSetId  = if ($librarySelection) { [string]$librarySelection.Record.BackupSetId } else { $null }
                 BackupSourceKind = $backupSourceKind
                 Message      = "RESTORE fehlgeschlagen: $restoreText"
+                Recovery     = 'VERIFY_OR_REMOVE_PARTIAL_TARGET'
                 Duration     = $stopwatch.Elapsed
                 Files        = $moveStatements.Count
             }
@@ -497,6 +515,7 @@ RESTORE DATABASE [$escapedDatabaseName]
             Provider      = $runtime
             ContainerName = $ContainerName
             Message       = 'RESTORE erfolgreich'
+            Recovery      = 'NOT_REQUIRED'
             Duration      = $stopwatch.Elapsed
             Files         = $moveStatements.Count
             Artifact      = $artifactResolution
@@ -516,6 +535,12 @@ RESTORE DATABASE [$escapedDatabaseName]
         if ($guestBackupPath) {
             try { Remove-LabHyperVGuestFile -RunId $RunId -Path $guestBackupPath -Credential $GuestCredential -StateRoot $StateRoot }
             catch { Write-LabWarning 'Temporäre Hyper-V-Backupkopie konnte nicht automatisch entfernt werden; Cleanup/Recovery bleibt erforderlich.' }
+        }
+        elseif ($runtimeBackupCopied -and $runtimeInvocation -and $ContainerName -and $runtimeBackupPath) {
+            & $runtimeInvocation exec $ContainerName rm -f -- $runtimeBackupPath 1>$null 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                Write-LabWarning 'Temporäre Container-Backupkopie konnte nicht automatisch entfernt werden; Cleanup bleibt erforderlich.'
+            }
         }
     }
 }

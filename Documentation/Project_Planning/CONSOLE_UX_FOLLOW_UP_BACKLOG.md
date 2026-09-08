@@ -51,14 +51,13 @@ neue Nightly-Fehler sind wieder als eigenständige Regressionen zu behandeln.
 
 ### 2. Datenbankmenü ist teilweise ergänzt – `IN_PROGRESS`
 
-`database-menu` bietet nach dem Backup-Slice neun Einträge. Drei
+`database-menu` bietet nach dem Restore-Slice zehn Einträge. Zwei
 vorhandene mutierende öffentliche Funktionen sind weiterhin aus der Oberfläche
 nicht erreichbar, weil noch kein sicherer interaktiver `Invoke-LabAction`-Fall
 existiert. Das ist echte Neuarbeit, kein bloßes Verdrahten von Vorhandenem.
 
 | Funktion | Zweck |
 |---|---|
-| `Restore-SqlServerLabDatabase` | Datenbank wiederherstellen |
 | `Export-SqlServerLabDatabasePackage` | Paket exportieren |
 | `Invoke-SqlServerLabDatabasePackageAttach` | Paket anhängen |
 
@@ -77,11 +76,21 @@ atomarer Katalogregistrierung. Temporäre Dateien werden garantiert bereinigt,
 TDE bleibt ohne Recovery-Vertrag fail-closed und die Menüausgabe enthält weder
 Pfad noch Hash oder Credential.
 
-Offen bleiben Restore, Paketexport und Paket-Attach; jeder mutierende
+Der Restore-Slice ist am 2026-09-08 ergänzt. Er bietet ausschließlich
+vollständig revalidierte `REUSABLE`-BackupSets aus dem registrierten
+`Lab_Data`, bindet Run und Instanz sowie flüchtige SQL-/Gast-Credentials und
+prüft den Namen der Zieldatenbank vor der Mutation. Eine vorhandene Datenbank
+erzwingt eine getrennte, standardmäßig abgelehnte `WITH REPLACE`-Bestätigung.
+Der öffentliche Restore besitzt `ShouldProcess`/`WhatIf`, versucht temporäre
+Gast- und Containerkopien im `finally`-Pfad garantiert zu entfernen und benennt
+bei einem SQL-Teilfehler die notwendige Zielprüfung. Die Menüausgabe bleibt
+pfad-, hash- und credentialfrei.
+
+Offen bleiben Paketexport und Paket-Attach; jeder mutierende
 Pfad erhält wegen Scope-, Recovery- und Credentialgrenzen einen eigenen
 Änderungssatz.
 
-Für die drei verbleibenden Funktionen greift der Anti-Waisen-Vertrag noch
+Für die zwei verbleibenden Funktionen greift der Anti-Waisen-Vertrag noch
 nicht, weil sie nicht in der `ValidateSet` stehen. Er verhindert nur, dass eine
 angebotene Aktion unerreichbar wird, nicht dass eine Fähigkeit gar nicht erst
 angeboten wird.
