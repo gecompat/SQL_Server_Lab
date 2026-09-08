@@ -433,6 +433,11 @@ Add-ConsoleUiCheck 'Untergeordnete Menues erben Statusband und echten Sitzungsst
     $ambientFrames.Count -eq 1 -and $ambientFrames[0].StatusHeight -eq 3 -and
     @($ambientFrames[0].Lines | Where-Object { $_ -match '^Sitzungsstatus' }).Count -eq 1
 )
+$subMenuSource = [regex]::Match($mainMenuSource, 'function Show-LabSubMenu \{[\s\S]+?(?=\r?\nfunction Select-LabConsoleDataItem)')
+Add-ConsoleUiCheck 'Untermenue-Wrapper erbt Statusanbieter ohne abgeschlossene Session oder Leerband' (
+    $subMenuSource.Success -and $subMenuSource.Value -match 'Invoke-LabConsoleMenu' -and
+    $subMenuSource.Value -notmatch 'ParentSession' -and $subMenuSource.Value -notmatch 'StatusHeight'
+)
 Add-ConsoleUiCheck 'Hauptmenue folgt der acht Gruppen umfassenden Struktur' (
     ([regex]::Matches($mainMenuSource, "New-LabConsoleItem -Id '(?:create|environment|queue|database|cms|infrastructure|maintenance|settings)' -Label ")).Count -eq 8 -and
     ([regex]::Matches($mainMenuSource, "'(?:create|cms|infrastructure|maintenance|settings)' \{ Invoke-LabAreaMenuInteractive -Area ")).Count -eq 5 -and
@@ -1044,6 +1049,47 @@ Add-ConsoleUiCheck 'CUI-017 verwendet nur explizite Ergebnisansichten statt rohe
 
 $attentionSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/AttentionStatus.ps1') -Raw
 Add-ConsoleUiCheck 'CUI-010 besitzt gemeinsamen read-only Attention-Snapshot' ($attentionSource -match 'function Get-LabAttentionSnapshot' -and $attentionSource -match 'Get-SqlServerPatchOptions' -and $attentionSource -match 'SQL_SLOT_READY' -and $attentionSource -match 'RECOVERY_REQUIRED')
+$unavailableHyperVAttention = & {
+    . (Join-Path $repoRoot 'Private/AttentionStatus.ps1')
+    $previousVersionCatalog = Get-Variable -Name VersionCatalog -Scope Script -ErrorAction SilentlyContinue
+    $script:VersionCatalog = [PSCustomObject]@{
+        catalogMetadata = [PSCustomObject]@{ lastVerified = '2026-09-08' }
+        versions = @([PSCustomObject]@{ id = '2025'; status = 'SUPPORTED'; docker = $true })
+    }
+    $hyperVProbeCalls = [System.Collections.Generic.List[string]]::new()
+    $hyperVReaderCalls = [System.Collections.Generic.List[string]]::new()
+    try {
+        function Test-HyperVAvailable { $hyperVProbeCalls.Add('probe'); [PSCustomObject]@{ Available = $false } }
+        function Get-LabMediaRootDefault { 'test-media' }
+        function Get-LabActiveRuns { @() }
+        function Get-SqlServerPatchOptions { [PSCustomObject]@{ Cu = 'CU1'; WindowsStatus = 'MISSING'; WindowsRelativePath = 'test.cab' } }
+        function Get-HyperVImageArtifact { $hyperVReaderCalls.Add('artifacts'); @() }
+        function Get-HyperVTemplatePoolStatus { $hyperVReaderCalls.Add('templates'); [PSCustomObject]@{ AvailableTemplates = 0; MaximumTemplates = 2 } }
+        function Get-HyperVImageBuildPlans { $hyperVReaderCalls.Add('windows-builds'); @() }
+        function Get-HyperVSqlImageBuildPlans { $hyperVReaderCalls.Add('sql-builds'); @() }
+
+        $snapshot = Get-LabAttentionSnapshot
+        [PSCustomObject]@{
+            ProbeCount = $hyperVProbeCalls.Count
+            ReaderCount = $hyperVReaderCalls.Count
+            FindingIds = @($snapshot.AttentionItems | ForEach-Object { [string]$_.Id })
+        }
+    }
+    finally {
+        if ($previousVersionCatalog) {
+            Set-Variable -Name VersionCatalog -Scope Script -Value $previousVersionCatalog.Value
+        }
+        else {
+            Remove-Variable -Name VersionCatalog -Scope Script -ErrorAction SilentlyContinue
+        }
+    }
+}
+Add-ConsoleUiCheck 'Nicht verfuegbares Hyper-V erzeugt keine unbrauchbaren Befunde' (
+    $unavailableHyperVAttention.ProbeCount -eq 1 -and $unavailableHyperVAttention.ReaderCount -eq 0 -and
+    @($unavailableHyperVAttention.FindingIds | Where-Object {
+        $_ -in @('template-pool-capacity-low', 'sql-slot-pool-low', 'image-builds-pending') -or $_ -like 'cu-media-*-*'
+    }).Count -eq 0
+)
 Add-ConsoleUiCheck 'Hauptmenü bindet Attention-Snapshot an gemeinsamen Renderer' ($entrySource -match 'Update-LabConsoleAttentionSnapshot' -and $entrySource -match 'Invoke-LabConsoleMenu[^\r\n]+-Snapshot \$snapshot')
 $environmentMenuMatch = [regex]::Match($entrySource, 'function Show-LabEnvironmentMenu \{[\s\S]+?(?=\r?\nfunction Show-LabHyperVMenu)')
 Add-ConsoleUiCheck 'Umgebungsmenue beginnt mit Verwaltung und gruppiert destruktive Sammelaktionen am Ende' ($environmentMenuMatch.Success -and $environmentMenuMatch.Value.IndexOf("-Id 'Manage'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'ClearAutomatedTestEnvironment'") -and $environmentMenuMatch.Value.IndexOf("-Id 'ClearAutomatedTestEnvironment'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'Clear'") -and $environmentMenuMatch.Value.IndexOf("-Id 'Clear'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'back'"))
