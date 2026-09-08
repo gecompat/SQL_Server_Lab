@@ -816,6 +816,9 @@ function Wait-LabConsoleKey {
     if (-not $StatusProvider -or -not $Frame -or [int]$Frame.StatusHeight -le 0) {
         return Read-LabConsoleKey -ReadKey $ReadKey
     }
+    if ($ReadKey -and -not $KeyAvailable) {
+        return Read-LabConsoleKey -ReadKey $ReadKey
+    }
     $probe = if ($KeyAvailable) { $KeyAvailable } else { { [Console]::KeyAvailable } }
     $writer = if ($StatusWriter) { $StatusWriter } else { { param($s, $f, $t) Update-LabConsoleStatusBand -Session $s -Frame $f -Status $t } }
     $tick = 0

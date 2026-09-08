@@ -35,6 +35,8 @@ function Get-LabAttentionSnapshot {
     )
 
     $items = [System.Collections.Generic.List[object]]::new()
+    $hyperVAvailable = $false
+    try { $hyperVAvailable = [bool](Test-HyperVAvailable).Available } catch { }
     $mediaRoot = Get-LabMediaRootDefault
     if (-not $mediaRoot) {
         $items.Add((New-LabAttentionItem -Id 'media-root-missing' -Severity Warning -Category 'Media' `
@@ -61,7 +63,7 @@ function Get-LabAttentionSnapshot {
         try {
             $latestPatch = @(Get-SqlServerPatchOptions -VersionId ([string]$version.id) -MediaRoot $mediaRoot) | Select-Object -First 1
             if (-not $latestPatch) { continue }
-            if ([string]$latestPatch.WindowsStatus -eq 'MISSING') {
+            if ($hyperVAvailable -and [string]$latestPatch.WindowsStatus -eq 'MISSING') {
                 $items.Add((New-LabAttentionItem -Id "cu-media-$($version.id)-$($latestPatch.Cu)" -Severity Warning -Category 'CU-Media' `
                     -Message "SQL $($version.id) $($latestPatch.Cu) ist katalogisiert; Windows-Paket fehlt." `
                     -ActionHint ([string]$latestPatch.WindowsRelativePath)))
@@ -87,7 +89,7 @@ function Get-LabAttentionSnapshot {
             -ActionHint 'Cleanup-Audit im Hauptmenü öffnen.'))
     }
 
-    if ($IsWindows) {
+    if ($hyperVAvailable) {
         $artifacts = @()
         try { $artifacts = @(Get-HyperVImageArtifact -SkipIntegrityCheck) } catch { }
         try {
