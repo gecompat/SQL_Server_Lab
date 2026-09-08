@@ -253,22 +253,70 @@ function Add-LabMatrixComposerItemsInteractive {
     } } } }
 }
 
+function Set-LabComposerItemSecretReference {
+    <#
+    .SYNOPSIS Pflegt eine Secret-Referenz an bestehenden Containerpositionen nach.
+    .DESCRIPTION Schreibt ausschliesslich den Namen einer gesetzten
+    SQL_SERVER_LAB_SECRET_*-Prozessvariable in den Intent. Kennwortwerte werden
+    weder gelesen noch in den Composer-State uebernommen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Item,
+        [Parameter(Mandatory)][ValidatePattern('^SQL_SERVER_LAB_SECRET_[A-Z0-9_]+$')][string]$VariableName
+    )
+
+    $updated = 0
+    $skipped = 0
+    foreach ($entry in @($Item)) {
+        if ([string]$entry.kind -ne 'SqlEnvironment') { $skipped++; continue }
+        $intent = [ordered]@{}
+        if ($entry.intent -is [Collections.IDictionary]) {
+            foreach ($key in $entry.intent.Keys) { $intent[[string]$key] = $entry.intent[$key] }
+        }
+        elseif ($entry.intent) {
+            foreach ($property in $entry.intent.PSObject.Properties) { $intent[$property.Name] = $property.Value }
+        }
+        $intent['SaPasswordEnvironmentVariable'] = $VariableName
+        $entry.intent = [pscustomobject]$intent
+        $updated++
+    }
+    return [PSCustomObject]@{ Updated=$updated; Skipped=$skipped; VariableName=$VariableName }
+}
+
 function Edit-LabComposerItemsInteractive {
     [CmdletBinding()]
     param([Parameter(Mandatory)][AllowEmptyCollection()][Collections.Generic.List[object]]$Basket)
 
     $selected = Select-LabWorkflowItems -ScreenId 'batch-bulk-edit' -Title 'Positionen fuer gemeinsame Aenderung auswaehlen' -Source @($Basket) -Label { param($x) "$($x.id) · $($x.kind)" } -Value { param($x) "Anzahl $($x.count)" }
     if ($selected.Count -eq 0) { return }
+    $selectedContainers = @($selected | Where-Object { [string]$_.kind -eq 'SqlEnvironment' })
+    $selectedContainerCount = $selectedContainers.Count
     $choice = Invoke-LabConsoleMenu -ScreenId 'batch-bulk-property' -Title 'Gemeinsame Eigenschaft' -Items @(
         New-LabConsoleItem -Id 'Cpu' -Label 'CPU' -Shortcut '1'
         New-LabConsoleItem -Id 'MemoryMB' -Label 'RAM in MB' -Shortcut '2'
         New-LabConsoleItem -Id 'Priority' -Label 'Prioritaet' -Shortcut '3'
         New-LabConsoleItem -Id 'ProviderPreference' -Label 'Providerpraeferenz (Erweitert)' -Value 'Auto bleibt Standard' -Shortcut '4'
         New-LabConsoleItem -Id 'AutoStart' -Label 'Autostart' -Shortcut '5'
+        New-LabConsoleItem -Id 'SaSecretReference' -Label 'SA-Secret-Referenz nachpflegen' `
+            -Value 'nur Containerpositionen · kein Kennwort im Batch' -Shortcut '6' `
+            -Disabled:($selectedContainerCount -eq 0) -DisabledReason 'Die Auswahl enthaelt keine Linux-Containerposition.'
     )
     if ($choice.Status -ne 'Selected') { return }
     $property = [string]$choice.SelectedItem.Id
-    if ($property -eq 'ProviderPreference') {
+    if ($property -eq 'SaSecretReference') {
+        $referenceName = if ($selectedContainerCount -eq 1) {
+            [string]$selectedContainers[0].id
+        }
+        else { 'batch-selection' }
+        $secretVariable = Resolve-LabBatchSaSecretInteractive -ItemName $referenceName
+        if (-not $secretVariable) { Write-LabWarning 'Secret-Referenz wurde nicht geaendert.'; return }
+        $result = Set-LabComposerItemSecretReference -Item @($selected) -VariableName $secretVariable
+        Write-LabSuccess "$($result.Updated) Containerposition(en) verwenden jetzt die Referenz $($result.VariableName)."
+        if ($result.Skipped -gt 0) { Write-LabInfo "$($result.Skipped) Nicht-Containerposition(en) blieben unveraendert." }
+        return
+    }
+    elseif ($property -eq 'ProviderPreference') {
         $provider = Invoke-LabConsoleMenu -ScreenId 'batch-provider-advanced' -Title 'Erweiterte Providerpraeferenz' -Items @(
             New-LabConsoleItem -Id 'Auto' -Label 'Auto (Standard)' -Shortcut '1'
             New-LabConsoleItem -Id 'docker' -Label 'Docker explizit' -Shortcut '2'

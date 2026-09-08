@@ -1109,6 +1109,21 @@ $composerCancelled = $true
 try { Invoke-LabBatchComposerInteractive } catch { $composerCancelled = $false }
 Add-ConsoleUiCheck 'Batch-Composer kehrt nach Escape am Namen ohne weitere Aktion zurueck' $composerCancelled
 
+$secretRepairContainer = [PSCustomObject]@{ id='legacy-container'; kind='SqlEnvironment'; intent=[PSCustomObject]@{ Platform='Linux' } }
+$secretRepairWindows = [PSCustomObject]@{ id='windows-slot'; kind='SqlWindowsEnvironment'; intent=[PSCustomObject]@{ Platform='Windows' } }
+$secretRepairResult = Set-LabComposerItemSecretReference -Item @($secretRepairContainer, $secretRepairWindows) `
+    -VariableName 'SQL_SERVER_LAB_SECRET_REPAIRED'
+Add-ConsoleUiCheck 'Composer pflegt Secret-Referenzen nur an bestehenden Containerpositionen nach' (
+    $secretRepairResult.Updated -eq 1 -and $secretRepairResult.Skipped -eq 1 -and
+    [string]$secretRepairContainer.intent.SaPasswordEnvironmentVariable -eq 'SQL_SERVER_LAB_SECRET_REPAIRED' -and
+    $null -eq $secretRepairWindows.intent.PSObject.Properties['SaPasswordEnvironmentVariable']
+)
+Add-ConsoleUiCheck 'Mehrfachbearbeitung bietet die Secret-Nachpflege ohne Kennwortpersistenz an' (
+    $batchConsoleSource -match "New-LabConsoleItem -Id 'SaSecretReference' -Label 'SA-Secret-Referenz nachpflegen'" -and
+    $batchConsoleSource -match "\$property -eq 'SaSecretReference'" -and
+    $batchConsoleSource -match 'Set-LabComposerItemSecretReference -Item @\(\$selected\) -VariableName \$secretVariable'
+)
+
 # CUI-028: Das Statusband muss im importierten Modul funktionieren, nicht nur im flachen Testscope.
 # Diese Datei dot-sourced die Konsolenquellen und macht sie damit global sichtbar. Eine Closure im
 # Modul findet sie dann selbst dann, wenn sie modulprivat waeren. Der Nachweis muss deshalb in einem

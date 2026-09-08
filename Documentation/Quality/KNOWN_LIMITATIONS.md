@@ -1643,6 +1643,10 @@ untergeordneten Menü- und Formularbildschirme vererbt. Es visualisiert Queue- u
 Operationsstate, kann aber keine zusätzliche Zwischenmeldung aus einem gerade
 synchron und exklusiv laufenden Cmdlet erzeugen; dessen eigene Fortschritts- und
 Meldungsausgabe bleibt maßgeblich.
+Bestehende Containerpositionen im offenen Batch-Composer koennen ueber die
+gemeinsame Bearbeitung mit einer fehlenden SA-Secret-Referenz nachgepflegt
+werden. Persistiert wird nur der Name einer `SQL_SERVER_LAB_SECRET_*`-
+Prozessvariable; ihr Wert muss in der ausfuehrenden Sitzung gesetzt sein.
 Seit 2026-09-08 besitzen alle deaktivierbaren Produkt-Menüeinträge konkrete
 Begründungen. Ein AST-basierter statischer Vertrag verhindert neue
 `New-LabConsoleItem -Disabled`-Aufrufe ohne `-DisabledReason`. Die Hilfe weist
