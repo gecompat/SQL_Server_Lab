@@ -19,6 +19,7 @@
     "Purpose": { "enum": ["embedding", "generation"] },
     "Dimension": { "type": ["integer", "null"], "minimum": 1, "maximum": 1998 },
     "Port": { "type": ["integer", "null"], "minimum": 1024, "maximum": 65535 },
+    "ServerCertificateSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
     "CredentialRef": { "type": ["string", "null"], "pattern": "^SQL_SERVER_LAB_SECRET_[A-Z0-9_]+$" },
     "Egress": { "enum": ["denied", "explicit"] },
     "RequestBudget": {

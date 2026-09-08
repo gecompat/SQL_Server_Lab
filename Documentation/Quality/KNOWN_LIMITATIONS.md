@@ -1011,12 +1011,17 @@ ein Modell und verwendet weder Netzwerk noch Cloud.
 Die getrennten nativen Docker- und Podman-Läufe über
 `Tests/Integration/Invoke-AiVectorCoreAcceptance.ps1` waren am 2026-09-05
 erfolgreich; der deterministische Vector-Core gilt damit als `SUPPORTED`.
-Ollama, TLS-Gateway, Endpoint-Stub,
-OpenAI, Azure OpenAI, Ollama Cloud, lokales Windows-ONNX, RAG, Agenten und
-Preview-ANN besitzen noch keinen ausführbaren Produktpfad. Ein Manifest darf
-diese Modellprovider strukturell beschreiben; `Invoke-SqlServerLabAiScenario`
-blockiert sie derzeit mit `AI_SCENARIO_MODEL_PROVIDER_NOT_IMPLEMENTED` und
-führt keinen stillen Fallback aus.
+Lokales Ollama, exaktes SQL-RAG und der read-only Diagnose-Agent besitzen
+ausführbare, getrennt für Docker und Podman belegte Produktpfade.
+Ollama-Cloud-Generation ist explizit egress- und secretgebunden belegt. Der
+gemeinsame Endpointvertrag deckt Fehlerfälle offline ab; zusätzlich belegt ein
+echter flüchtiger Loopback-HTTPS-Stub Embed-/Generate-Payloads, exakten
+Zertifikat-Pin und HTTP-Retry ohne globale Trust-Store-Mutation. Das ist kein
+TLS-Gateway für SQL Servers `CREATE EXTERNAL MODEL`. Dieser Gateway,
+Dimensionswechsel/Re-Embedding, Ollama-Cloud-Embeddings, OpenAI, Azure OpenAI,
+lokales Windows-ONNX und Preview-ANN bleiben offen. Hyper-V-RAG und Agent sind
+bis zum isolierten VM-Neustartnachweis nur `PARTIAL`. Es gibt keinen stillen
+Provider- oder Cloud-Fallback.
 
 `CREATE VECTOR INDEX` und `VECTOR_SEARCH` bleiben Preview und sind nicht Teil
 des Vector-Core-Pflichtszenarios. External Languages und KI-Modellfähigkeit

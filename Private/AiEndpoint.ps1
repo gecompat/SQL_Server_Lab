@@ -39,7 +39,9 @@ function New-LabAiEndpointPlan {
         [int]$MaximumOutputTokens = 512,
         [int]$TimeoutSeconds = 60,
         [int]$RetryCount = 1,
-        [ValidateRange(1024,65535)][int]$LocalPort = 11434
+        [ValidateRange(1024,65535)][int]$LocalPort = 11434,
+        [string]$StubBaseUri,
+        [ValidatePattern('^[a-fA-F0-9]{64}$')][string]$StubServerCertificateSha256
     )
 
     $model = Get-LabAiModelCatalogEntry -ModelKey $ModelKey
@@ -48,6 +50,30 @@ function New-LabAiEndpointPlan {
     if ($Lane -ne 'stub' -and $Lane -cne [string]$model.lane) { $blockers.Add('AI_ENDPOINT_MODEL_LANE_MISMATCH') }
     if ([string]$model.status -notin @('PLANNED','SUPPORTED')) { $blockers.Add('AI_ENDPOINT_MODEL_BLOCKED') }
     if ($Lane -eq 'cloud' -and -not $AllowCloudEgress) { $blockers.Add('AI_ENDPOINT_CLOUD_EGRESS_NOT_ALLOWED') }
+
+    $stubUri = $null
+    if ($Lane -eq 'stub' -and ($StubBaseUri -or $StubServerCertificateSha256)) {
+        if (-not $StubBaseUri) { $blockers.Add('AI_ENDPOINT_STUB_URI_REQUIRED') }
+        if (-not $StubServerCertificateSha256) { $blockers.Add('AI_ENDPOINT_STUB_CERTIFICATE_PIN_REQUIRED') }
+        if ($StubBaseUri) {
+            try { $stubUri = [Uri]::new($StubBaseUri, [UriKind]::Absolute) }
+            catch { $blockers.Add('AI_ENDPOINT_STUB_URI_INVALID') }
+            if ($stubUri) {
+                if ($stubUri.Scheme -cne 'https') { $blockers.Add('AI_ENDPOINT_STUB_TLS_REQUIRED') }
+                if ($stubUri.Host -cne 'localhost') { $blockers.Add('AI_ENDPOINT_STUB_LOOPBACK_REQUIRED') }
+                if (-not [string]::IsNullOrEmpty($stubUri.UserInfo) -or
+                    -not [string]::IsNullOrEmpty($stubUri.Query) -or
+                    -not [string]::IsNullOrEmpty($stubUri.Fragment) -or
+                    $stubUri.AbsolutePath -cne '/') {
+                    $blockers.Add('AI_ENDPOINT_STUB_URI_INVALID')
+                }
+                if ($stubUri.Port -lt 1024 -or $stubUri.Port -gt 65535) { $blockers.Add('AI_ENDPOINT_STUB_PORT_INVALID') }
+            }
+        }
+    }
+    elseif ($Lane -ne 'stub' -and ($StubBaseUri -or $StubServerCertificateSha256)) {
+        $blockers.Add('AI_ENDPOINT_STUB_TRUST_UNEXPECTED')
+    }
 
     $hostName = switch ($Lane) {
         'stub' { 'stub.invalid' }
@@ -59,22 +85,31 @@ function New-LabAiEndpointPlan {
         Contract='SqlServerLab.AiEndpointPlan/1.0';Lane=$Lane;EndpointRef=$EndpointRef
         ModelKey=$ModelKey;Model=[string]$model.model;IdentityPolicy=[string]$model.identityPolicy
         Purpose=[string]$model.purpose;Dimension=if ($model.dimension) { [int]$model.dimension } else { $null }
-        Port=if ($Lane -eq 'local') { $LocalPort } else { $null }
+        Port=if ($Lane -eq 'local') { $LocalPort } elseif ($stubUri) { $stubUri.Port } else { $null }
+        ServerCertificateSha256=if ($StubServerCertificateSha256) { $StubServerCertificateSha256.ToLowerInvariant() } else { $null }
         CredentialRef=$credentialRef;Egress=if ($AllowCloudEgress) { 'explicit' } else { 'denied' }
         RequestBudget=[ordered]@{MaximumRequests=$MaximumRequests;MaximumOutputTokens=$MaximumOutputTokens;TimeoutSeconds=$TimeoutSeconds;RetryCount=$RetryCount}
     }
     return [PSCustomObject]@{
         Contract=[PSCustomObject]@{Name='SqlServerLab.AiEndpointPlan';Version='1.0'}
         Status=if ($blockers.Count) { 'BLOCKED' } else { 'NOT_PROBED' }
-        Lane=$Lane;EndpointRef=$EndpointRef;TargetHost=$hostName;ModelKey=$ModelKey
+        Lane=$Lane;EndpointRef=$EndpointRef;TargetHost=if ($stubUri) { $stubUri.Host } else { $hostName };ModelKey=$ModelKey
         Purpose=[string]$model.purpose;Dimension=if ($model.dimension) { [int]$model.dimension } else { $null }
-        Port=if ($Lane -eq 'local') { $LocalPort } else { $null }
+        Port=if ($Lane -eq 'local') { $LocalPort } elseif ($stubUri) { $stubUri.Port } else { $null }
+        ServerCertificateSha256=if ($StubServerCertificateSha256) { $StubServerCertificateSha256.ToLowerInvariant() } else { $null }
         CredentialRef=$credentialRef;Egress=if ($AllowCloudEgress) { 'explicit' } else { 'denied' }
         RequestBudget=[PSCustomObject]$planIdentity.RequestBudget
         Blockers=@($blockers);Warnings=@();PlanKey=Get-LabAiPlanKey -InputObject $planIdentity
         InternalModel=[string]$model.model
-        InternalBaseUri=switch ($Lane) { 'stub' { $null }; 'local' { "http://127.0.0.1:$LocalPort" }; 'cloud' { 'https://ollama.com' } }
+        InternalBaseUri=switch ($Lane) { 'stub' { if ($stubUri) { $stubUri.AbsoluteUri.TrimEnd('/') } else { $null } }; 'local' { "http://127.0.0.1:$LocalPort" }; 'cloud' { 'https://ollama.com' } }
     }
+}
+
+function Get-LabAiCertificateSha256 {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][Security.Cryptography.X509Certificates.X509Certificate2]$Certificate)
+
+    return $Certificate.GetCertHashString([Security.Cryptography.HashAlgorithmName]::SHA256).ToLowerInvariant()
 }
 
 function Get-LabAiDotEnvSecret {
@@ -118,10 +153,31 @@ function Invoke-LabOllamaHttpTransport {
     param(
         [Parameter(Mandatory)]$Request,
         [Parameter(Mandatory)][ValidatePattern('^https?://')][string]$BaseUri,
-        [SecureString]$Credential
+        [SecureString]$Credential,
+        [Security.Cryptography.X509Certificates.X509Certificate2]$TrustedServerCertificate,
+        [ValidatePattern('^[a-fA-F0-9]{64}$')][string]$ExpectedServerCertificateSha256
     )
 
-    $client = [Net.Http.HttpClient]::new()
+    $base = [Uri]::new($BaseUri, [UriKind]::Absolute)
+    if ($TrustedServerCertificate -or $ExpectedServerCertificateSha256) {
+        if ($base.Scheme -cne 'https') { throw 'AI_ENDPOINT_TLS_TRUST_REQUIRES_HTTPS' }
+        if (-not $TrustedServerCertificate -or -not $ExpectedServerCertificateSha256) { throw 'AI_ENDPOINT_TLS_TRUST_INCOMPLETE' }
+        if ((Get-LabAiCertificateSha256 -Certificate $TrustedServerCertificate) -cne $ExpectedServerCertificateSha256.ToLowerInvariant()) {
+            throw 'AI_ENDPOINT_TLS_CERTIFICATE_MISMATCH'
+        }
+        $chainPolicy = [Security.Cryptography.X509Certificates.X509ChainPolicy]::new()
+        $chainPolicy.TrustMode = [Security.Cryptography.X509Certificates.X509ChainTrustMode]::CustomRootTrust
+        $chainPolicy.RevocationMode = [Security.Cryptography.X509Certificates.X509RevocationMode]::NoCheck
+        $chainPolicy.CustomTrustStore.Add($TrustedServerCertificate)
+        $sslOptions = [Net.Security.SslClientAuthenticationOptions]::new()
+        $sslOptions.CertificateChainPolicy = $chainPolicy
+        $handler = [Net.Http.SocketsHttpHandler]::new()
+        $handler.SslOptions = $sslOptions
+        $client = [Net.Http.HttpClient]::new($handler, $true)
+    }
+    else {
+        $client = [Net.Http.HttpClient]::new()
+    }
     $message = $null
     $plainCredential = $null
     try {
@@ -161,11 +217,15 @@ function Invoke-LabAiEndpointRequest {
         [Parameter(Mandatory)][AllowEmptyString()][string]$InputText,
         [scriptblock]$Transport,
         [SecureString]$Credential,
+        [Security.Cryptography.X509Certificates.X509Certificate2]$TrustedServerCertificate,
         [int]$RetryDelayMilliseconds = 0
     )
 
     if ([string]$Plan.Status -eq 'BLOCKED') { throw "AI_ENDPOINT_PLAN_BLOCKED: $(@($Plan.Blockers) -join ', ')" }
     if ([string]$Plan.Lane -eq 'cloud' -and $null -eq $Credential) { throw 'AI_ENDPOINT_CREDENTIAL_MISSING' }
+    if ($TrustedServerCertificate -and -not $Plan.ServerCertificateSha256) { throw 'AI_ENDPOINT_TLS_TRUST_UNEXPECTED' }
+    if (-not $Transport -and [string]$Plan.Lane -eq 'stub' -and -not $Plan.InternalBaseUri) { throw 'AI_ENDPOINT_STUB_TRANSPORT_REQUIRED' }
+    if (-not $Transport -and $Plan.ServerCertificateSha256 -and -not $TrustedServerCertificate) { throw 'AI_ENDPOINT_TLS_TRUST_REQUIRED' }
     $path = if ([string]$Plan.Purpose -eq 'embedding') { '/api/embed' } else { '/api/generate' }
     $body = if ([string]$Plan.Purpose -eq 'embedding') {
         [ordered]@{model=[string]$Plan.InternalModel;input=@($InputText)}
@@ -181,8 +241,16 @@ function Invoke-LabAiEndpointRequest {
             if ($Transport) {
                 $response = & $Transport ([PSCustomObject]@{Path=$path;Body=$body;TimeoutSeconds=[int]$Plan.RequestBudget.TimeoutSeconds;Attempt=$attempt})
             } else {
-                $response = Invoke-LabOllamaHttpTransport -Request ([PSCustomObject]@{Path=$path;Body=$body;TimeoutSeconds=[int]$Plan.RequestBudget.TimeoutSeconds;Attempt=$attempt}) `
-                    -BaseUri ([string]$Plan.InternalBaseUri) -Credential $Credential
+                $transportArguments = @{
+                    Request = [PSCustomObject]@{Path=$path;Body=$body;TimeoutSeconds=[int]$Plan.RequestBudget.TimeoutSeconds;Attempt=$attempt}
+                    BaseUri = [string]$Plan.InternalBaseUri
+                    Credential = $Credential
+                }
+                if ($Plan.ServerCertificateSha256) {
+                    $transportArguments.TrustedServerCertificate = $TrustedServerCertificate
+                    $transportArguments.ExpectedServerCertificateSha256 = [string]$Plan.ServerCertificateSha256
+                }
+                $response = Invoke-LabOllamaHttpTransport @transportArguments
             }
         }
         catch [System.Threading.Tasks.TaskCanceledException] {
