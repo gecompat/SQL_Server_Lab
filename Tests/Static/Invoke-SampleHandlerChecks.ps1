@@ -465,6 +465,58 @@ CREATE DATABASE [$(SecondDatabase)];
                 -RunDirectory $StateRoot `
                 -StateRoot $StateRoot
             $bundleWorkingDirectoryRemoved = -not (Test-Path -LiteralPath $script:BundleWorkingDirectory)
+
+            $adhocRunId = [guid]::NewGuid().ToString()
+            $adhocRunDirectory = Join-Path (Join-Path $StateRoot 'runs') $adhocRunId
+            New-Item -Path $adhocRunDirectory -ItemType Directory -Force | Out-Null
+            if (Test-Path -LiteralPath (Join-Path $adhocRunDirectory 'connection-info.json')) {
+                throw 'Vorbedingung verletzt: connection-info.json darf im Adhoc-Reihenfolge-Test nicht existieren.'
+            }
+            $originalResolverRunInstance = (Get-Command Resolve-LabRunInstance).ScriptBlock
+            $script:AdhocResolverCalled = $false
+            try {
+                Set-Item Function:Resolve-LabRunInstance -Value {
+                    $script:AdhocResolverCalled = $true
+                    throw "Connection-Info nicht gefunden fuer Run '$RunId'."
+                }
+                $script:SampleHandlerQueryCalls = 0
+                $script:SampleHandlerExpectedDatabases = 1
+                $script:UseBundleArtifact = $false
+                $adhocOrderResult = Install-LabSampleDatabase `
+                    -HostName '127.0.0.1' `
+                    -Port 14330 `
+                    -SaPassword $dummyPassword `
+                    -ContainerName 'static-check-adhoc' `
+                    -Provider docker `
+                    -RunId $adhocRunId `
+                    -InstanceId primary `
+                    -RestoreDefinition $scriptContract `
+                    -NonInteractive `
+                    -StateRoot $StateRoot
+                $adhocResolutionSkipped = -not $script:AdhocResolverCalled -and
+                    $adhocOrderResult.Success -and $adhocOrderResult.Status -eq 'DATASET_READY'
+                $adhocGegenbeweisFired = $false
+                try {
+                    $null = Install-LabSampleDatabase `
+                        -HostName '' `
+                        -Port 0 `
+                        -ContainerName '' `
+                        -SaPassword $dummyPassword `
+                        -RunId $adhocRunId `
+                        -InstanceId primary `
+                        -RestoreDefinition $scriptContract `
+                        -NonInteractive `
+                        -StateRoot $StateRoot
+                }
+                catch {
+                    $adhocGegenbeweisFired = $script:AdhocResolverCalled -and
+                        $_.Exception.Message -match 'Connection-Info nicht gefunden'
+                }
+            }
+            finally {
+                Set-Item Function:Resolve-LabRunInstance -Value $originalResolverRunInstance
+            }
+            $adhocRunDirectoryBound = Test-Path -LiteralPath $adhocRunDirectory -PathType Container
         }
         finally {
             Set-Item Function:Resolve-LabArtifact -Value $originalResolver
@@ -474,6 +526,7 @@ CREATE DATABASE [$(SecondDatabase)];
             Remove-Variable SampleHandlerQueryCalls -Scope Script -ErrorAction SilentlyContinue
             Remove-Variable SampleHandlerExpectedDatabases -Scope Script -ErrorAction SilentlyContinue
             Remove-Variable UseBundleArtifact -Scope Script -ErrorAction SilentlyContinue
+            Remove-Variable AdhocResolverCalled -Scope Script -ErrorAction SilentlyContinue
         }
 
         $status = Get-LabSampleArtifactLocalStatus `
@@ -536,6 +589,8 @@ CREATE DATABASE [$(SecondDatabase)];
                 $script:BundleFlattenedContent -match 'CREATE DATABASE \[BundleTwo\]' -and
                 $script:BundleFlattenedContent -notmatch '(?im)^\s*:(?:r|setvar)' -and
                 $bundleWorkingDirectoryRemoved
+            AdhocSampleOrderWorks = $adhocResolutionSkipped -and $adhocRunDirectoryBound
+            AdhocSampleOrderGegenbeweis = $adhocGegenbeweisFired
             ArchivePayloadWorks   = $archivePayloadWorks
             AttachArchivePayloadWorks = $attachArchivePayloadWorks
             AttachSevenZipPayloadWorks = $attachSevenZipPayloadWorks
@@ -582,6 +637,8 @@ CREATE DATABASE [$(SecondDatabase)];
     Add-CheckResult -Name 'SQL-Skript-Handler erstellt Ziel und verifiziert die Datenbank' -Success $result.ScriptHandlerWorks
     Add-CheckResult -Name 'Script-Bundle-Aufloesung liefert mehrere typisierte Datenbankoutputs' -Success $result.BundleContractWorks
     Add-CheckResult -Name 'Script-Bundle-Handler expandiert sichere sqlcmd-Includes und verifiziert alle Outputs' -Success $result.BundleHandlerWorks
+    Add-CheckResult -Name 'Adhoc-Reihenfolge: Sample-Handler nutzt explizites Ziel ohne Connection-Info und bindet das Run-Verzeichnis' -Success $result.AdhocSampleOrderWorks
+    Add-CheckResult -Name 'Adhoc-Reihenfolge Gegenbeweis: ohne explizites Ziel loest der Handler ueber den Run auf und scheitert fail-closed' -Success $result.AdhocSampleOrderGegenbeweis
     Add-CheckResult -Name 'Architektur und Getting Started weisen sichere Script-Bundles als ausführbar aus und halten Attach gesperrt' -Success (
         $sampleArchitectureText -match 'Script-Bundles verwenden dagegen ihren eigenen sicheren ZIP-Handler' -and
         $sampleArchitectureText -match 'Erfüllt ein Bundle diesen\s+Vertrag, ist es `executable`' -and
