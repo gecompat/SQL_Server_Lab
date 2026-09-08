@@ -245,7 +245,7 @@ automatische Medienbeschaffung, Slot-Erzeugung oder sonstige Mutation auslösen.
 | `CUI-011` | Zustands-, Render-, Resize-, Fallback- und Recovery-Tests | `IMPLEMENTED` - deterministische Viewport-, Write-Plan-, Fallback-, Session-Recovery-, Formular- und Secret-Verträge |
 | `CUI-022` | reservierter Statusbereich mit Fortschritt und Heartbeat | `IMPLEMENTED` - feste Bandhöhe, Live-Aktualisierung ausschließlich der reservierten Zeilen, Stillstandserkennung, ASCII-Fallback ohne UTF-8-Konsole |
 | `CUI-023` | Meldungen überleben Neuzeichnen und bleiben kopierbar | `IMPLEMENTED` - Journal `SqlServerLab.Message/1.0`, stabile MessageId, Secret-Scrubbing, Persistenzblock mit Neuverankerung des Rahmens |
-| `CUI-024` | Kontexthilfe je `ScreenId` und Begründung deaktivierter Einträge | `IMPLEMENTED_VERTICAL_SLICE` - Hilfekatalog mit live geprüften Voraussetzungen und `F1`/`?`-Overlay; alle deaktivierbaren Produkt-Menüeinträge besitzen statisch erzwungene Begründungen |
+| `CUI-024` | Kontexthilfe je `ScreenId` und Begründung deaktivierter Einträge | `IMPLEMENTED` - alle 108 statisch verwendeten Bildschirme besitzen kuratierte Hilfe; dynamische IDs sind begrenzt gemustert und neue Lücken werden statisch blockiert |
 | `CUI-025` | Provider-Ausgabe für die Diagnose persistieren | `IMPLEMENTED` - gemeinsamer Wrapper protokolliert Container-Lifecycle, Volumes, Image-Builds und Hyper-V-Lifecycle secretfrei; 4-MiB-Log rotiert in drei Archive |
 | `CUI-026` | Hauptmenü nach Arbeitsabsicht in acht Gruppen gliedern | `IMPLEMENTED` - Erstellen, Verwalten, Vorgänge, Datenbanken, CMS, Infrastruktur und Medien, Wartung, Einstellungen |
 

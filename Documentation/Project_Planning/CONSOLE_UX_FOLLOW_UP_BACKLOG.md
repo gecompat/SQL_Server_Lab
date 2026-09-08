@@ -125,11 +125,16 @@ Vertrag inventarisiert Root-, Public-, Private-, Provider- und Tool-Skripte und
 schlägt bei jedem neuen `New-LabConsoleItem -Disabled` ohne `-DisabledReason`
 fehl; ein synthetischer Gegenbeweis belegt die Wirksamkeit.
 
-### 5. Kuratierte Kontexthilfe deckt nur den kritischen Pfad ab
+### 5. Kuratierte Kontexthilfe deckt nur den kritischen Pfad ab — RESOLVED
 
-Der Hilfekatalog führt 19 Bildschirme. Die Oberfläche verwendet deutlich mehr
-`ScreenId`-Werte. Nicht kuratierte Bildschirme liefern eine ehrliche generische
-Auskunft; sie nennen aber weder Zweck noch Folgewirkung noch Voraussetzungen.
+Seit 2026-09-08 löst der zentrale Hilfekatalog alle 108 statisch verwendeten
+`ScreenId`-Werte auf. Semantisch gleiche Auswahl-, Konfigurations-, Queue- und
+Hyper-V-Schritte teilen bewusst kuratierte Definitionen; dynamische IDs wie
+Provider-, Versions- und Review-Bildschirme werden über begrenzte Muster
+aufgelöst. Jeder verwendete Bildschirm nennt Titel, Zweck und Folgewirkung,
+relevante Gruppen zusätzlich Voraussetzungen, Hinweise und Cmdlet-Einstiege.
+Ein statischer Vollständigkeitsvertrag blockiert neue unkuratierte `ScreenId`s
+und beweist den generischen Fallback weiterhin mit einem Gegenbeispiel.
 
 ### 6. Statusband nur auf zwei Bildschirmen
 
