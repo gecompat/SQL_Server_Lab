@@ -1018,6 +1018,7 @@ $result = & $module {
 
     $script:databasePackageInventoryCalls = 0
     $script:databasePackageExportCalls = 0
+    $script:databasePackageAttachCalls = 0
     $script:databaseMigrationDependencyCalls = 0
     $script:databaseBackupCalls = 0
     $script:databaseRestoreCalls = 0
@@ -1072,6 +1073,18 @@ $result = & $module {
             PersistentStorageId='44444444-5555-4666-8777-888888888888'
         }
     }
+    Set-Item Function:script:Invoke-SqlServerLabDatabasePackageAttach -Value {
+        [CmdletBinding(SupportsShouldProcess)]
+        param($DatabasePackageId,$RunId,$InstanceId,$GuestCredential,$DataRoot,[switch]$Recover)
+        $script:databasePackageAttachCalls++
+        [PSCustomObject]@{
+            Status=if($WhatIfPreference){'PLANNED'}else{'ATTACHED'};DatabaseName='Evidence'
+            DatabasePackageId=$DatabasePackageId;TargetRunId=$RunId;TargetInstanceId=$InstanceId
+            Provider='hyperv';TargetSqlMajorVersion=17;TargetFileStreamCapable=$true
+            TargetCopyVerified=(-not $WhatIfPreference);AttachInvoked=(-not $WhatIfPreference)
+            PostconditionVerified=(-not $WhatIfPreference);Blockers=@();Recovery='NOT_REQUIRED'
+        }
+    }
     Set-Item Function:script:Restore-SqlServerLabDatabase -Value {
         $script:databaseRestoreCalls++
         [PSCustomObject]@{
@@ -1090,7 +1103,14 @@ $result = & $module {
     $script:databaseTargetProvider = 'hyperv'
     & { Invoke-LabDatabasePackageExportInteractive -RunId '11111111-2222-4333-8444-555555555555' `
         -InstanceId primary -DatabaseName Evidence -DataRoot 'synthetic-root' } 6>$null
+    $probeGuestCredential = [PSCredential]::new('Administrator', $probePassword)
+    & { Invoke-LabDatabasePackageAttachInteractive -RunId '11111111-2222-4333-8444-555555555555' `
+        -InstanceId primary -DatabasePackageId '11111111-2222-4333-8444-555555555555' `
+        -GuestCredential $probeGuestCredential -DataRoot 'synthetic-root' -Recover:$false } 6>$null
     $script:databaseTargetProvider = 'docker'
+    & { Invoke-LabDatabasePackageAttachInteractive -RunId '11111111-2222-4333-8444-555555555555' `
+        -InstanceId primary -DatabasePackageId '11111111-2222-4333-8444-555555555555' `
+        -GuestCredential $probeGuestCredential -DataRoot 'synthetic-root' -Recover:$false } 6>$null
     & { Invoke-LabDatabaseRestoreInteractive -RunId '11111111-2222-4333-4444-555555555555' `
         -InstanceId primary -BackupSetId '11111111-2222-4333-8444-555555555555' `
         -DatabaseName Evidence -SaPassword $probePassword -DataRoot 'synthetic-root' } 6>$null
@@ -1114,6 +1134,8 @@ $result = & $module {
         DatabaseBackupCalls = $script:databaseBackupCalls
         DatabasePackageExportCalls = $script:databasePackageExportCalls
         DatabasePackageExportHyperVRejected = $script:databasePackageExportCalls -eq 1
+        DatabasePackageAttachCalls = $script:databasePackageAttachCalls
+        DatabasePackageAttachDockerRejected = $script:databasePackageAttachCalls -eq 2
         DatabaseRestoreCalls = $script:databaseRestoreCalls
         DatabaseRestoreReplaceRejected = $script:databaseRestoreCalls -eq 1
     }
@@ -1141,7 +1163,7 @@ try {
         $probe.PasswordFact.Origin -eq 'UserSupplied' -and $probe.PasswordFact.Length -eq 23
     )
     Add-ConsoleUiCheck 'Datenbankmenue ruft Paketbestand und Migrationsinventur im echten Modulscope auf' (
-        $null -ne $probe -and $probe.PackageInventoryCalls -eq 1 -and $probe.MigrationDependencyCalls -eq 1
+        $null -ne $probe -and $probe.PackageInventoryCalls -eq 2 -and $probe.MigrationDependencyCalls -eq 1
     )
     Add-ConsoleUiCheck 'Datenbankmenue ruft den bestätigten Backup-Pfad im echten Modulscope auf' (
         $null -ne $probe -and $probe.DatabaseBackupCalls -eq 1
@@ -1151,6 +1173,12 @@ try {
     )
     Add-ConsoleUiCheck 'Paketexport-Gegenbeweis verweigert Hyper-V vor dem mutierenden Core-Aufruf' (
         $null -ne $probe -and $probe.DatabasePackageExportHyperVRejected
+    )
+    Add-ConsoleUiCheck 'Datenbankmenue ruft Attach-Vorprüfung und bestätigten Attach im echten Modulscope auf' (
+        $null -ne $probe -and $probe.DatabasePackageAttachCalls -eq 2
+    )
+    Add-ConsoleUiCheck 'Paket-Attach-Gegenbeweis verweigert Docker vor dem Core-Aufruf' (
+        $null -ne $probe -and $probe.DatabasePackageAttachDockerRejected
     )
     Add-ConsoleUiCheck 'Datenbankmenue ruft den bestätigten Restore-Pfad im echten Modulscope auf' (
         $null -ne $probe -and $probe.DatabaseRestoreCalls -eq 1
@@ -1216,15 +1244,15 @@ Add-ConsoleUiCheck 'SQL-2025-KI bleibt innerhalb der achtteiligen Menuestruktur 
 )
 $databaseMenuSource = [regex]::Match($mainMenuSource, "function Show-LabDatabaseMenu \{[\s\S]+?(?=\r?\nfunction )").Value
 $databaseReadOnlyActions = @('DatabasePackageInventory', 'DatabaseMigrationDependency')
-$databaseMutationActions = @('DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport')
+$databaseMutationActions = @('DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach')
 $databaseRequiredActions = @($databaseReadOnlyActions + $databaseMutationActions)
 $missingDatabaseReadOnlyHandlers = @($databaseRequiredActions | Where-Object {
         $databaseMenuSource -notmatch "New-LabConsoleItem -Id '$_'" -or
         $mainMenuSource -notmatch "'$_' \{ [A-Za-z0-9-]+ \}"
     })
-Add-ConsoleUiCheck 'Datenbankmenue bietet Backup, Restore, Paketexport, Paketbestand und Migrationsinventur mit echten Handlern an' (
+Add-ConsoleUiCheck 'Datenbankmenue bietet Backup, Restore, beide Paketmutationen und beide Inventuren mit echten Handlern an' (
     $missingDatabaseReadOnlyHandlers.Count -eq 0 -and
-    @($databaseRequiredActions | Where-Object { $_ -in $declaredActions }).Count -eq 5
+    @($databaseRequiredActions | Where-Object { $_ -in $declaredActions }).Count -eq 6
 )
 $missingDatabaseHandlerCounterexample = @(@($databaseRequiredActions) + 'DatabaseMissingHandler' | Where-Object {
         $databaseMenuSource -notmatch "New-LabConsoleItem -Id '$_'" -or
@@ -1253,7 +1281,7 @@ Add-ConsoleUiCheck 'Oeffentliches Backup besitzt WhatIf und UI unterdrueckt erst
     $backupUiSource -match 'DataRoot=\$DataRoot;Confirm=\$false'
 )
 Add-ConsoleUiCheck 'Backup-Ergebnis bleibt sichtbar und gibt weder Pfad noch Hash aus' (
-    $mainMenuSource -match 'if \(\$ActionName -in @\(''DatabaseBackup'', ''DatabaseRestore'', ''DatabasePackageExport''\)\) \{ Wait-LabConsoleAcknowledgement \}' -and
+    $mainMenuSource -match 'if \(\$ActionName -in @\(''DatabaseBackup'', ''DatabaseRestore'', ''DatabasePackageExport'', ''DatabasePackageAttach''\)\) \{ Wait-LabConsoleAcknowledgement \}' -and
     $backupUiSource -match 'BackupSetId' -and $backupUiSource -match 'PersistentStorageId' -and
     $backupUiSource -notmatch '\$result\.(Path|Sha256)'
 )
@@ -1277,6 +1305,36 @@ Add-ConsoleUiCheck 'Oeffentlicher Paketexport besitzt WhatIf und UI unterdrueckt
 Add-ConsoleUiCheck 'Paketexport-Ergebnis bleibt sichtbar und gibt weder Pfad, Hash noch Secret aus' (
     $packageExportUiSource -match 'DatabasePackageId' -and $packageExportUiSource -match 'PersistentStorageId' -and
     $packageExportUiSource -notmatch '\$result\.(Path|Sha256|Password|Credential|Secret)'
+)
+$packageAttachCommandSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLabDatabasePackageAttach.ps1') -Raw
+$packageAttachUiSource = [regex]::Match($mainMenuSource, "function Invoke-LabDatabasePackageAttachInteractive \{[\s\S]+?(?=\r?\nfunction )").Value
+Add-ConsoleUiCheck 'Paket-Attach-Menue bindet Paket, Hyper-V-Ziel, fluechtiges Gastcredential und SQL-Default-Data vor Mutation' (
+    $packageAttachUiSource -match 'Resolve-LabRunInstance -RunId \$RunId -InstanceId \$InstanceId' -and
+    $packageAttachUiSource -match "Provider -ne 'hyperv'" -and
+    $packageAttachUiSource -match 'Get-SqlServerLabDatabasePackage -DataRoot \$DataRoot' -and
+    $packageAttachUiSource -match "Read-Host '  Gastpasswort für PowerShell Direct' -AsSecureString" -and
+    $packageAttachUiSource -match 'Invoke-SqlServerLabDatabasePackageAttach @arguments -WhatIf' -and
+    $packageAttachUiSource -match 'live aus SQL Server' -and
+    $packageAttachUiSource -match 'Invoke-SqlServerLabDatabasePackageAttach @arguments -Confirm:\$false'
+)
+Add-ConsoleUiCheck 'Paket-Attach trennt Recovery, bestätigt standardmäßig ablehnend und benennt Cleanup' (
+    $packageAttachUiSource -match "Recovery nur für einen vorhandenen RECOVERY_REQUIRED-Journalstand" -and
+    $packageAttachUiSource -match '\$arguments\.Recover = \$true' -and
+    $packageAttachUiSource -match 'Detach und Cleanup' -and
+    $packageAttachUiSource -match 'Gebundenes Attach-Journal jetzt recovern' -and
+    $packageAttachUiSource -match 'Verifiziertes Paket jetzt kopieren und an SQL Server anhängen' -and
+    $packageAttachUiSource -match '-Default \$false'
+)
+Add-ConsoleUiCheck 'Oeffentliches Paket-Attach besitzt WhatIf vor Kopie und getrennte journalgebundene Recovery' (
+    $packageAttachCommandSource -match "CmdletBinding\(SupportsShouldProcess, ConfirmImpact = 'High'\)" -and
+    $packageAttachCommandSource -match 'Get-LabDatabasePackage -DatabasePackageId \$DatabasePackageId' -and
+    $packageAttachCommandSource -match 'Test-LabDatabasePackageAttachJournal -Journal \$journal' -and
+    $packageAttachCommandSource -match 'Invoke-LabHyperVDatabasePackageAttachRecovery' -and
+    $packageAttachCommandSource.IndexOf('$PSCmdlet.ShouldProcess') -lt $packageAttachCommandSource.IndexOf('Invoke-LabHyperVDatabasePackageAttachPlan')
+)
+Add-ConsoleUiCheck 'Paket-Attach-Ergebnis bleibt sichtbar und gibt weder Pfad, Hash noch Credential aus' (
+    $packageAttachUiSource -match 'DatabasePackageId' -and $packageAttachUiSource -match 'Postcondition' -and
+    $packageAttachUiSource -notmatch '\$result\.(Path|Sha256|Password|Credential|Secret|Journal)'
 )
 $restoreCommandSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Restore-SqlServerLabDatabase.ps1') -Raw
 $restoreUiSource = [regex]::Match($mainMenuSource, "function Invoke-LabDatabaseRestoreInteractive \{[\s\S]+?(?=\r?\nfunction )").Value
