@@ -1407,12 +1407,12 @@ function Invoke-LabStorageInteractive {
         $menu = Invoke-LabConsoleMenu -ScreenId 'storage-management' -Title 'Storage verwalten' -Subtitle $subtitle -Items @(
             New-LabConsoleItem -Id 'add' -Label 'Lab-Datenroot hinzufügen' -Value 'vollständiger Pfad; ändert einen vorhandenen Standard nicht' -Shortcut '1'
             New-LabConsoleItem -Id 'show' -Label 'Locations und Topologie aktualisieren' -Shortcut '2'
-            New-LabConsoleItem -Id 'metadata' -Label 'Anzeigename und portable Selektoren ändern' -Shortcut '3' -Disabled:(@($configuration.LabDataLocations).Count -eq 0)
-            New-LabConsoleItem -Id 'default' -Label 'Globalen Fallback explizit festlegen' -Shortcut '4' -Disabled:(@($configuration.LabDataLocations).Count -lt 2)
-            New-LabConsoleItem -Id 'remove' -Label 'Unbenutzte Location deregistrieren' -Value 'Default und Referenzen sind geschützt' -Shortcut '5' -Disabled:(@($configuration.LabDataLocations).Count -lt 2)
-            New-LabConsoleItem -Id 'plan' -Label 'Parent-Migration planen' -Shortcut '6' -Disabled:(@($configuration.LabDataLocations).Count -eq 0)
+            New-LabConsoleItem -Id 'metadata' -Label 'Anzeigename und portable Selektoren ändern' -Shortcut '3' -Disabled:(@($configuration.LabDataLocations).Count -eq 0) -DisabledReason 'Es ist noch keine Lab_Data-Location registriert.'
+            New-LabConsoleItem -Id 'default' -Label 'Globalen Fallback explizit festlegen' -Shortcut '4' -Disabled:(@($configuration.LabDataLocations).Count -lt 2) -DisabledReason 'Ein anderer Fallback ist erst ab zwei registrierten Locations wählbar.'
+            New-LabConsoleItem -Id 'remove' -Label 'Unbenutzte Location deregistrieren' -Value 'Default und Referenzen sind geschützt' -Shortcut '5' -Disabled:(@($configuration.LabDataLocations).Count -lt 2) -DisabledReason 'Die einzige oder fehlende Location kann hier nicht deregistriert werden.'
+            New-LabConsoleItem -Id 'plan' -Label 'Parent-Migration planen' -Shortcut '6' -Disabled:(@($configuration.LabDataLocations).Count -eq 0) -DisabledReason 'Für eine Migration muss mindestens eine Lab_Data-Location registriert sein.'
             New-LabConsoleItem -Id 'execute' -Label 'Freigegebenen Migrationsplan ausführen' -Shortcut '7'
-            New-LabConsoleItem -Id 'file-plan' -Label 'SQL-Dateiplatzierung lokal binden und prüfen' -Shortcut '8' -Disabled:(@($configuration.LabDataLocations).Count -eq 0)
+            New-LabConsoleItem -Id 'file-plan' -Label 'SQL-Dateiplatzierung lokal binden und prüfen' -Shortcut '8' -Disabled:(@($configuration.LabDataLocations).Count -eq 0) -DisabledReason 'Für die SQL-Dateiplatzierung muss mindestens eine Lab_Data-Location registriert sein.'
             New-LabConsoleItem -Id 'back' -Label 'Zurück' -Shortcut '0'
         )
         if ($menu.Status -ne 'Selected' -or [string]$menu.SelectedItem.Id -eq 'back') { return }

@@ -343,6 +343,46 @@ Add-ConsoleUiCheck 'Haupt- und Umgebungsmenue begruenden jeden deaktivierten Ein
     $mainMenuSource -match "ScreenId 'main-menu'[^\n]+F1/\?: Hilfe"
 )
 
+function Get-ConsoleItemDisabledReasonViolation {
+    param([Parameter(Mandatory)][System.Management.Automation.Language.Ast]$Ast)
+
+    return @($Ast.FindAll({
+        param($node)
+        if ($node -isnot [System.Management.Automation.Language.CommandAst] -or
+            $node.GetCommandName() -ne 'New-LabConsoleItem') { return $false }
+        $parameterNames = @($node.CommandElements |
+            Where-Object { $_ -is [System.Management.Automation.Language.CommandParameterAst] } |
+            ForEach-Object { $_.ParameterName })
+        return 'Disabled' -in $parameterNames -and 'DisabledReason' -notin $parameterNames
+    }, $true))
+}
+
+$disabledReasonViolations = @()
+$consoleSourceFiles = @(
+    Get-ChildItem -LiteralPath $repoRoot -Filter '*.ps1' -File
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Public') -Filter '*.ps1' -File -Recurse
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Private') -Filter '*.ps1' -File -Recurse
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Providers') -Filter '*.ps1' -File -Recurse
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Tools') -Filter '*.ps1' -File -Recurse
+)
+foreach ($sourceFile in $consoleSourceFiles) {
+    $sourceTokens = $null
+    $sourceErrors = $null
+    $sourceAst = [System.Management.Automation.Language.Parser]::ParseFile(
+        $sourceFile.FullName, [ref]$sourceTokens, [ref]$sourceErrors)
+    foreach ($violation in @(Get-ConsoleItemDisabledReasonViolation -Ast $sourceAst)) {
+        $disabledReasonViolations += '{0}:{1}' -f $sourceFile.FullName, $violation.Extent.StartLineNumber
+    }
+}
+$counterexampleTokens = $null
+$counterexampleErrors = $null
+$counterexampleAst = [System.Management.Automation.Language.Parser]::ParseInput(
+    "New-LabConsoleItem -Id 'x' -Label 'X' -Disabled", [ref]$counterexampleTokens, [ref]$counterexampleErrors)
+Add-ConsoleUiCheck 'Jeder deaktivierbare Produkt-Menueeintrag besitzt explizit einen DisabledReason' (
+    $disabledReasonViolations.Count -eq 0 -and
+    @(Get-ConsoleItemDisabledReasonViolation -Ast $counterexampleAst).Count -eq 1
+)
+
 # CUI-022: Vorgangs- und Hauptmenue nutzen den reservierten Statusbereich fuer echten Fortschritt.
 Add-ConsoleUiCheck 'Vorgangsmenue reserviert das Statusband und liefert laufenden Fortschritt' (
     $batchConsoleSource -match "ScreenId 'queue-menu'[^\n]+-StatusHeight 5 -StatusProvider \`$statusProvider" -and

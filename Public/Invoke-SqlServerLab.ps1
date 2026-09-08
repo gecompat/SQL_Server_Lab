@@ -2081,8 +2081,10 @@ function Invoke-LabCuResourceInteractive {
         $dockerReady = try { (Resolve-SqlServerContainerImageProvider -Provider docker) -eq 'docker' } catch { $false }
         $podmanReady = try { (Resolve-SqlServerContainerImageProvider -Provider podman) -eq 'podman' } catch { $false }
         $providerResult = Invoke-LabConsoleMenu -ScreenId 'cu-resource-provider' -Title 'Container-Runtime' -Items @(
-            New-LabConsoleItem -Id 'Docker' -Label 'Docker' -Shortcut '1' -Disabled:(-not $dockerReady)
-            New-LabConsoleItem -Id 'Podman' -Label 'Podman' -Shortcut '2' -Disabled:(-not $podmanReady)
+            New-LabConsoleItem -Id 'Docker' -Label 'Docker' -Shortcut '1' -Disabled:(-not $dockerReady) `
+                -DisabledReason 'Docker ist auf diesem Host nicht erreichbar oder nicht einsatzbereit.'
+            New-LabConsoleItem -Id 'Podman' -Label 'Podman' -Shortcut '2' -Disabled:(-not $podmanReady) `
+                -DisabledReason 'Podman ist auf diesem Host nicht erreichbar oder nicht einsatzbereit.'
         )
         if ($providerResult.Status -ne 'Selected') { return }
         $provider = [string]$providerResult.SelectedItem.Id
@@ -2503,10 +2505,10 @@ function Invoke-LabAutomatedTestEnvironmentInteractive {
             -Subtitle "$($queue.Count) neue Umgebung(en) vorgemerkt" -Items @(
                 New-LabConsoleItem -Id 'l' -Label 'Linux hinzufügen' -Shortcut 'l'
                 New-LabConsoleItem -Id 'w' -Label 'Windows hinzufügen' -Shortcut 'w'
-                New-LabConsoleItem -Id 'd' -Label 'Letzten Eintrag entfernen' -Shortcut 'd' -Disabled:($queue.Count -eq 0)
-                New-LabConsoleItem -Id 'a' -Label 'Alle vorgemerkten Umgebungen erstellen' -Shortcut 'a' -Disabled:($queue.Count -eq 0)
+                New-LabConsoleItem -Id 'd' -Label 'Letzten Eintrag entfernen' -Shortcut 'd' -Disabled:($queue.Count -eq 0) -DisabledReason 'Der Auftrag enthält noch keinen neuen Eintrag.'
+                New-LabConsoleItem -Id 'a' -Label 'Alle vorgemerkten Umgebungen erstellen' -Shortcut 'a' -Disabled:($queue.Count -eq 0) -DisabledReason 'Der Auftrag enthält noch keine vorgemerkte Umgebung.'
                 New-LabConsoleItem -Id 'r' -Label 'Export aktualisieren' -Shortcut 'r'
-                New-LabConsoleItem -Id 'x' -Label 'Alle Testumgebungen löschen' -Shortcut 'x' -Disabled:($existingStatus.Total -eq 0)
+                New-LabConsoleItem -Id 'x' -Label 'Alle Testumgebungen löschen' -Shortcut 'x' -Disabled:($existingStatus.Total -eq 0) -DisabledReason 'Es existiert keine automatisierte Testumgebung.'
                 New-LabConsoleItem -Id '0' -Label 'Zurück' -Shortcut '0'
             )
         if (-not $choice -or $choice -eq '0') { return }
@@ -5195,9 +5197,10 @@ function Manage-LabHyperVEnvironmentInteractive {
                     $status = Get-HyperVInstanceStatus -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
                     $value = "Live: $($status.State) | Workflow: $($run.state) | VM: $($lab.Instance.vmName)"
                     if ($protected) { $value += ' | geschützte Testgruppe' }
-                    New-LabConsoleItem -Id ([string]$run.runId) -Label ([string]$run.metadata.name) -Value $value -Shortcut ([string]($index + 1)) -Data $run -Disabled:$protected
+                    New-LabConsoleItem -Id ([string]$run.runId) -Label ([string]$run.metadata.name) -Value $value -Shortcut ([string]($index + 1)) -Data $run -Disabled:$protected `
+                        -DisabledReason 'Diese Umgebung gehört zur geschützten Testgruppe und ist hier nicht einzeln verwaltbar.'
                 }
-                catch { New-LabConsoleItem -Id ([string]$run.runId) -Label ([string]$run.metadata.name) -Value ([string]$run.state) -Shortcut ([string]($index + 1)) -Data $run -Disabled:$protected }
+                catch { New-LabConsoleItem -Id ([string]$run.runId) -Label ([string]$run.metadata.name) -Value ([string]$run.state) -Shortcut ([string]($index + 1)) -Data $run -Disabled:$protected -DisabledReason 'Diese Umgebung gehört zur geschützten Testgruppe und ist hier nicht einzeln verwaltbar.' }
             }
         )
         $runSelection = Invoke-LabConsoleMenu -ScreenId 'hyperv-environment-selection' -Title 'Hyper-V-Umgebung verwalten' -Items $runItems
@@ -5303,7 +5306,8 @@ function Manage-LabHyperVEnvironmentInteractive {
             New-LabConsoleItem -Id 'q' -Label 'SQL-Instanzen prüfen' -Shortcut 'q'
             New-LabConsoleItem -Id 'w' -Label 'SQL-WMI reparieren' -Shortcut 'w'
             New-LabConsoleItem -Id 'external-runtime' -Label 'External Languages nachinstallieren' -Shortcut 'l' `
-                -Value 'Hyper-V-Gastinstallation derzeit nicht atomar unterstützt' -Disabled
+                -Value 'Hyper-V-Gastinstallation derzeit nicht atomar unterstützt' -Disabled `
+                -DisabledReason 'Die nachträgliche Hyper-V-Gastinstallation besitzt noch keinen atomaren, recovery-sicheren Ablauf.'
         }
         else {
             if (-not $windowsSlotReady) { New-LabConsoleItem -Id 'o' -Label 'Windows-Grundinstallation übernehmen' -Shortcut 'o' }
@@ -5657,7 +5661,15 @@ function Select-LabRun {
             $protected = [string]$Runs[$i].runId -in $protectedRunIds
             $systemService = -not [string]::IsNullOrWhiteSpace($cmsRunId) -and [string]$Runs[$i].runId -eq $cmsRunId
             $presentation = Get-LabRunSelectorPresentation -Run $Runs[$i] -RuntimeState ([string]$synced.Runtime.State) -Protected:$protected -SystemService:$systemService
-            New-LabConsoleItem -Id ([string]$Runs[$i].runId) -Label $presentation.Label -Value $presentation.Value -Shortcut ([string]($i + 1)) -Data $Runs[$i] -Disabled:($protected -or ($DisableSystemServices -and $systemService))
+            $disabledReason = if ($protected) {
+                'Diese Umgebung gehört zur geschützten Testgruppe und ist für diese Einzelaktion gesperrt.'
+            }
+            elseif ($DisableSystemServices -and $systemService) {
+                'Diese Umgebung ist ein verwalteter Systemdienst und für diese Aktion gesperrt.'
+            }
+            else { '' }
+            New-LabConsoleItem -Id ([string]$Runs[$i].runId) -Label $presentation.Label -Value $presentation.Value -Shortcut ([string]($i + 1)) -Data $Runs[$i] `
+                -Disabled:($protected -or ($DisableSystemServices -and $systemService)) -DisabledReason $disabledReason
         }
         $result = Invoke-LabConsoleMenu -ScreenId 'active-run-selection' -Title $Prompt -Subtitle 'Aktive SQL_Server_Lab-Umgebungen' -Items $items -Footer 'Pfeile: Navigation  Enter: Auswahl  F5: Runtime-Status aktualisieren  Esc: Zurueck' -FallbackPrompt "  $Prompt (Nummer)"
         if ($result.Status -eq 'Refresh') { continue }
@@ -5847,7 +5859,8 @@ function Manage-LabEnvironmentInteractive {
         New-LabConsoleItem -Id 'lifecycle' -Label 'Starten oder stoppen' -Value 'abhängig vom aktuellen Zustand' -Shortcut 's'
         New-LabConsoleItem -Id 'resources' -Label 'CPU und Speicher aendern' -Value 'Docker-/Podman-Limits' -Shortcut 'r'
         New-LabConsoleItem -Id 'external-runtime' -Label 'External Languages installieren oder aendern' `
-            -Value $externalRuntimeValue -Shortcut 'x' -Disabled:(-not $externalRuntimeEligible)
+            -Value $externalRuntimeValue -Shortcut 'x' -Disabled:(-not $externalRuntimeEligible) `
+            -DisabledReason 'External Languages sind hier nur für eine Docker-/Podman-SQL-2019-, SQL-2022- oder SQL-2025-Instanz verfügbar.'
         New-LabConsoleItem -Id 'rename' -Label 'Anzeigename aendern' -Shortcut 'n'
         New-LabConsoleItem -Id 'remove' -Label 'Umgebung entfernen' -Value 'erfordert Bestaetigung' -Shortcut 'e'
     )

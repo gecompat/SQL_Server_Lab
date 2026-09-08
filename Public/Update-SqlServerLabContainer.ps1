@@ -276,7 +276,8 @@ function Update-LabContainerEnvironmentInteractive {
         $instance = @($choices[$i].Connection.instances)[0]
         $protected = [string]$choices[$i].Run.runId -in $protectedRunIds
         $value = if ($protected) { "{0} - Port {1} · geschützte Testgruppe" -f $instance.provider, $instance.port } else { "{0} - Port {1}" -f $instance.provider, $instance.port }
-        New-LabConsoleItem -Id ([string]$choices[$i].Run.runId) -Label ([string]$choices[$i].Run.metadata.name) -Value $value -Shortcut ([string]($i + 1)) -Data $choices[$i] -Disabled:$protected
+        New-LabConsoleItem -Id ([string]$choices[$i].Run.runId) -Label ([string]$choices[$i].Run.metadata.name) -Value $value -Shortcut ([string]($i + 1)) -Data $choices[$i] -Disabled:$protected `
+            -DisabledReason 'Diese Umgebung gehört zur geschützten Testgruppe und darf nicht einzeln aktualisiert werden.'
     }
     $environmentResult = Invoke-LabConsoleMenu -ScreenId 'container-update-environment' -Title 'Docker-/Podman-Umgebung auswaehlen' -Items $environmentItems -FallbackPrompt '  Umgebung auswaehlen'
     if ($environmentResult.Status -ne 'Selected') {

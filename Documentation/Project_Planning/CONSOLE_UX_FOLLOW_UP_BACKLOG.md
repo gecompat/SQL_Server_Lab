@@ -115,14 +115,15 @@ dem Überschreiten von 4 MiB in höchstens drei Archive; funktionale Tests
 beweisen Ausgabeerhalt, Fehlerweitergabe, Secretbereinigung und die
 Rotationsgrenze.
 
-### 4. Begründung deaktivierter Einträge ist unvollständig
+### 4. Begründung deaktivierter Einträge ist unvollständig — RESOLVED
 
-`environment-menu` und `queue-menu` begründen jeden deaktivierten Eintrag. Für die
-übrigen Bildschirme fehlt `-DisabledReason` überwiegend. Ohne statische Pflicht
-entstehen jederzeit neue Einträge ohne Begründung.
-
-Vorschlag: Eine Prüfung, die jeden `-Disabled`-Eintrag ohne `-DisabledReason`
-meldet, analog zur bestehenden Anti-Waisen-Prüfung.
+Seit 2026-09-08 besitzt jeder deaktivierbare Produkt-Menüeintrag einen expliziten
+`-DisabledReason`, einschließlich Composer, Providerauswahl, Storage, CMS,
+geschützter Umgebungen und Queue-Untermenüs. Die Mehrfachauswahl reicht den
+Grund beim Erzeugen ihrer Anzeigeelemente weiter. Ein AST-basierter statischer
+Vertrag inventarisiert Root-, Public-, Private-, Provider- und Tool-Skripte und
+schlägt bei jedem neuen `New-LabConsoleItem -Disabled` ohne `-DisabledReason`
+fehl; ein synthetischer Gegenbeweis belegt die Wirksamkeit.
 
 ### 5. Kuratierte Kontexthilfe deckt nur den kritischen Pfad ab
 

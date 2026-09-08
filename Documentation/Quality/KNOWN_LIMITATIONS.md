@@ -1635,10 +1635,11 @@ Die Kontexthilfe (`CUI-024`) ist kuratiert für den kritischen Pfad: Hauptmenü,
 Queue, Umgebungsverwaltung, Zielkonfiguration, Batch-Composer, Speicher,
 Datenbanken, Verbindungszentrale, Hyper-V und System. Alle übrigen Bildschirme
 liefern eine generische Auskunft mit Bildschirm-ID und Eintragsbezeichnung.
-Begründungen für deaktivierte Einträge sind bisher im Haupt- und im
-Umgebungsmenü hinterlegt; an den übrigen Bildschirmen weist die Hilfe die
-fehlende Begründung ausdrücklich als Lücke aus. Eine statische Pflicht zur
-Begründung aller deaktivierten Einträge besteht noch nicht.
+Seit 2026-09-08 besitzen alle deaktivierbaren Produkt-Menüeinträge konkrete
+Begründungen. Ein AST-basierter statischer Vertrag verhindert neue
+`New-LabConsoleItem -Disabled`-Aufrufe ohne `-DisabledReason`. Die Hilfe weist
+bei unvollständigen Elementen externer Aufrufer weiterhin defensiv auf die
+fehlende Begründung hin.
 
 ## Batch-Preflight und Blockierungsgruende
 

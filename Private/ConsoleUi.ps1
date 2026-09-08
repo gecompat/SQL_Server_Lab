@@ -1126,7 +1126,8 @@ function Invoke-LabConsoleMultiSelect {
         @($Items | ForEach-Object {
             $marker = if ($selected.Contains([string]$_.Id)) { '[x]' } else { '[ ]' }
             New-LabConsoleItem -Id ([string]$_.Id) -Label "$marker $($_.Label)" -Value $_.Value `
-                -Shortcut ([string]$_.Shortcut) -Aliases @($_.Aliases) -Disabled:([bool]$_.Disabled) -Data $_
+                -Shortcut ([string]$_.Shortcut) -Aliases @($_.Aliases) -Disabled:([bool]$_.Disabled) `
+                -DisabledReason ([string]$_.DisabledReason) -Data $_
         })
     }
     $toggle = {
