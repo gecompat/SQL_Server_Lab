@@ -1631,10 +1631,13 @@ Das Secret-Scrubbing entfernt Werte aus `SQL_SERVER_LAB_SECRET_*` sowie
 `SA_PASSWORD`-, `MSSQL_SA_PASSWORD`-, `PASSWORD`- und `PWD`-Zuweisungen; es ist
 keine allgemeine Erkennung beliebiger Geheimnisse.
 
-Die Kontexthilfe (`CUI-024`) ist kuratiert für den kritischen Pfad: Hauptmenü,
-Queue, Umgebungsverwaltung, Zielkonfiguration, Batch-Composer, Speicher,
-Datenbanken, Verbindungszentrale, Hyper-V und System. Alle übrigen Bildschirme
-liefern eine generische Auskunft mit Bildschirm-ID und Eintragsbezeichnung.
+Die Kontexthilfe (`CUI-024`) deckt seit 2026-09-08 alle 108 statisch verwendeten
+`ScreenId`-Werte ab. Semantisch gleiche Auswahl-, Konfigurations-, Queue- und
+Hyper-V-Schritte teilen kuratierte Definitionen; dynamische Provider-, Versions-
+und Review-IDs werden über begrenzte Muster aufgelöst. Ein statischer Vertrag
+verhindert neue unkuratierte Produktbildschirme. Nur dynamische IDs externer
+Aufrufer außerhalb der Produktquellen fallen weiterhin auf die ehrliche
+generische Auskunft zurück.
 Seit 2026-09-08 besitzen alle deaktivierbaren Produkt-Menüeinträge konkrete
 Begründungen. Ein AST-basierter statischer Vertrag verhindert neue
 `New-LabConsoleItem -Disabled`-Aufrufe ohne `-DisabledReason`. Die Hilfe weist

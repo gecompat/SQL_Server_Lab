@@ -246,6 +246,22 @@ Add-ConsoleUiCheck 'Alle Bildschirme des kritischen Pfads besitzen einen kuratie
     @($criticalScreens | Where-Object { -not $helpCatalog[$_].Purpose -or -not $helpCatalog[$_].Title }).Count -eq 0
 )
 
+$screenIdPattern = '-ScreenId\s+[''"]([^''"]+)[''"]'
+$usedScreenIds = @(
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Public') -Filter '*.ps1' -File -Recurse
+    Get-ChildItem -LiteralPath (Join-Path $repoRoot 'Private') -Filter '*.ps1' -File -Recurse
+) | Select-String -Pattern $screenIdPattern -AllMatches |
+    ForEach-Object { $_.Matches.Groups[1].Value } |
+    Sort-Object -Unique
+$uncuratedScreenIds = @($usedScreenIds | Where-Object {
+    $topic = Get-LabConsoleHelpTopic -ScreenId $_
+    -not $topic.Curated -or -not $topic.Title -or -not $topic.Purpose -or -not $topic.Effects
+})
+Add-ConsoleUiCheck 'Alle statisch verwendeten ScreenIds besitzen kuratierte Hilfe mit Zweck und Folgewirkung' (
+    $usedScreenIds.Count -gt 100 -and $uncuratedScreenIds.Count -eq 0 -and
+    -not (Get-LabConsoleHelpTopic -ScreenId 'synthetic-uncurated-screen').Curated
+)
+
 $testCatalog = @{
     'demo' = @{
         Title = 'Demo'

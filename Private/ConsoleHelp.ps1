@@ -27,7 +27,7 @@ function Get-LabConsoleHelpCatalog {
         Fix   = 'SQL_SERVER_LAB_STATE auf einen absoluten Pfad setzen.'
     }
 
-    $script:LabConsoleHelpCatalog = @{
+    $catalog = @{
         'main-menu' = @{
             Title   = 'Hauptmenue'
             Purpose = 'Einstieg in alle Bereiche des Labs. Die Auswahl oeffnet nur einen Unterbereich und veraendert nichts.'
@@ -214,6 +214,129 @@ function Get-LabConsoleHelpCatalog {
             Command = 'Test-SqlServerLabPrerequisite / Get-SqlServerLabMaintenancePlan'
         }
     }
+
+    $selectionHelp = @{
+        Title   = 'Auswahl'
+        Purpose = 'Wählt ein vorhandenes, bereits inventarisiertes Objekt für den nächsten beschriebenen Schritt aus.'
+        Effects = 'Die Auswahl selbst mutiert nichts. Erst die nachfolgende Aktion zeigt ihre Wirkung und fordert bei Änderungen eine Bestätigung an.'
+        Related = @('Esc kehrt ohne Auswahl zurück.', 'Deaktivierte Einträge nennen die noch fehlende Voraussetzung.')
+        Command = 'Get-SqlServerLab'
+        Preconditions = @($stateRootPrecondition)
+    }
+    foreach ($screenId in @(
+        'active-run-selection', 'cms-adopt-select', 'container-update-environment',
+        'database-package-attach-select', 'database-restore-backup-select',
+        'environment-status-select', 'external-runtime-instance-selection',
+        'hyperv-environment-selection', 'hyperv-existing-vm-source-select',
+        'hyperv-image-remove-select', 'hyperv-image-rename-select', 'hyperv-images',
+        'hyperv-os-artifact-select', 'hyperv-prepared-artifact-select',
+        'hyperv-published-images', 'hyperv-reusable-windows-slot',
+        'hyperv-sql-build-cleanup-select', 'hyperv-sql-build-select',
+        'hyperv-sql-license-profile-select', 'hyperv-sql-media-select',
+        'hyperv-sql-media-version-select', 'hyperv-sql-prepared-artifact-select',
+        'hyperv-sql-windows-media-select', 'hyperv-switch-select',
+        'hyperv-windows-baselines', 'hyperv-windows-build-cleanup-select',
+        'hyperv-windows-build-select', 'hyperv-windows-media-select',
+        'queue-select', 'sample-selection', 'storage-location-select',
+        'storage-provider-select'
+    )) { $catalog[$screenId] = $selectionHelp }
+
+    $configurationHelp = @{
+        Title   = 'Konfiguration'
+        Purpose = 'Erfasst oder ändert einen begrenzten Teil des gewünschten Lab-Plans und zeigt die gültigen Optionen.'
+        Effects = 'Die Eingabe allein erzeugt keine Runtime-Ressource. Sie wird erst nach Review, Preflight und ausdrücklicher Bestätigung wirksam.'
+        Related = @('Esc verwirft die Eingabe dieses Schritts.', 'Secrets bleiben flüchtig und werden nicht im Menü-State gespeichert.')
+        Command = 'New-SqlServerLabManifest / New-SqlServerLabBatch'
+        Preconditions = @($dataRootPrecondition, $stateRootPrecondition)
+    }
+    foreach ($screenId in @(
+        'automated-test-environment-compose', 'batch-bulk-edit',
+        'batch-bulk-property', 'batch-count', 'batch-duplicate',
+        'batch-provider-advanced', 'batch-remove', 'batch-reorder',
+        'batch-reorder-direction', 'batch-windows-variant',
+        'container-update-form', 'cu-resource-patch', 'cu-resource-platform',
+        'cu-resource-provider', 'cu-resource-version', 'hyperv-advanced',
+        'hyperv-guest-password-mode', 'hyperv-provisioning-target',
+        'hyperv-sql-deployment-mode', 'hyperv-sql-sa-password-mode',
+        'initial-setup-default-data-root', 'sql-intent-edition',
+        'sql-intent-mode', 'sql-intent-network', 'sql-intent-purpose',
+        'sql-intent-storage', 'sql-intent-version', 'sql-intent-version-edit',
+        'sql-intent-windows', 'windows-slot-pool-password-mode'
+    )) { $catalog[$screenId] = $configurationHelp }
+
+    $hyperVWorkflowHelp = @{
+        Title   = 'Hyper-V-Ablauf'
+        Purpose = 'Führt durch einen zustandsgebundenen Hyper-V-Schritt für Windows-, Image- oder SQL-Bereitstellung.'
+        Effects = 'Je nach Auswahl werden VM-, VHDX-, Medien- oder Gastressourcen verändert. Der Ablauf prüft Scope und Recovery-Grenzen vor der Mutation.'
+        Related = @('Lange Builds können mehrere Neustarts enthalten.', 'Cleanup gilt nur für exakt gebundene Lab-Ressourcen.')
+        Command = 'Get-SqlServerLabHyperVImageArtifact / New-SqlServerLab'
+        Preconditions = @($dataRootPrecondition, $stateRootPrecondition)
+    }
+    foreach ($screenId in @(
+        'hyperv-environment-actions', 'hyperv-managed-windows-completion',
+        'hyperv-manual-windows-completion', 'hyperv-prepared-workflow',
+        'hyperv-sql-acceptance'
+    )) { $catalog[$screenId] = $hyperVWorkflowHelp }
+
+    $queueActionHelp = @{
+        Title   = 'Queue-Aktion'
+        Purpose = 'Steuert einen bereits bekannten Queue-Vorgang innerhalb seiner aktuellen Zustandsgrenzen.'
+        Effects = 'Priorität, Position, Bestätigung, Ruhemodus oder Stopp wirken unmittelbar auf Queue- beziehungsweise Vorgangsstate.'
+        Related = @('Nicht verfügbare Aktionen sind mit dem konkreten Grund deaktiviert.', 'Stoppen mit Cleanup kann erzeugte Ressourcen entfernen.')
+        Command = 'Get-SqlServerLabQueue'
+        Preconditions = @($stateRootPrecondition)
+    }
+    foreach ($screenId in @(
+        'batch-stop-mode', 'batch-stop-select', 'queue-confirm-bulk',
+        'queue-move', 'queue-priority', 'queue-quiet', 'user-gate-actions'
+    )) { $catalog[$screenId] = $queueActionHelp }
+
+    $catalog['action-messages'] = @{
+        Title = 'Meldungen der letzten Aktion'; Purpose = 'Zeigt neue Warnungen und Fehler vollständig und kopierbar an.'
+        Effects = 'Read-only; Journal und Runtime bleiben unverändert.'; Command = 'Get-LabMessage'
+    }
+    $catalog['messages'] = @{
+        Title = 'Sitzungsmeldungen'; Purpose = 'Zeigt das sanitisierte Meldungsjournal dieser Sitzung.'
+        Effects = 'Read-only; Kopieren verändert den Journalinhalt nicht.'; Command = 'Get-LabMessage'
+    }
+    $catalog['ai-menu'] = @{
+        Title = 'SQL Server 2025 KI'; Purpose = 'Bündelt Szenarien, Modellaufrufe, RAG, Retrieval-Evaluierung und read-only Diagnose.'
+        Effects = 'Offline-Auswertungen mutieren nichts; SQL- und Modellpfade verwenden die jeweils angezeigten Sicherheits- und Egress-Verträge.'
+        Command = 'Get-SqlServerLabAiScenario / Invoke-SqlServerLabAiModel'; Preconditions = @($stateRootPrecondition)
+    }
+    $catalog['connection-center-cms'] = @{
+        Title = 'CMS-Verwaltung'; Purpose = 'Erstellt, übernimmt oder synchronisiert den zentralen Verwaltungsserver.'
+        Effects = 'Erstellen legt eine persistente SQL-Umgebung an; Übernehmen bindet eine vorhandene Umgebung; Export bleibt kennwortfrei.'
+        Command = 'Sync-SqlServerLabCms'; Preconditions = @($stateRootPrecondition)
+    }
+    $catalog['cms-create-menu'] = $catalog['connection-center-cms']
+    $catalog['database-package-attach-mode'] = @{
+        Title = 'Datenbankpaket-Attach'; Purpose = 'Wählt zwischen neuer Attach-Ausführung und einer exakt journalgebundenen Recovery.'
+        Effects = 'Attach kopiert Dateien und mutiert SQL; Recovery arbeitet ausschließlich das passende RECOVERY_REQUIRED-Journal ab.'
+        Command = 'Invoke-SqlServerLabDatabasePackageAttach'; Preconditions = @($dataRootPrecondition, $stateRootPrecondition)
+    }
+    $catalog['hyperv-prepared-workflow'] = $hyperVWorkflowHelp
+    $catalog['storage-management'] = @{
+        Title = 'Storage verwalten'; Purpose = 'Registriert und verwaltet Lab_Data-Locations sowie sichere Migrations- und Dateiplatzierungspläne.'
+        Effects = 'Anzeigen ist read-only. Registrierung, Deregistrierung und freigegebene Migration ändern den Storage-Katalog beziehungsweise gebundene Dateien.'
+        Command = 'Get-SqlServerLabResourcePlan'; Preconditions = @($dataRootPrecondition)
+    }
+    $catalog['tools-menu'] = @{
+        Title = 'Werkzeuge'; Purpose = 'Bündelt geprüfte Hilfswerkzeuge für Medien, Hostauflösung und Wartung.'
+        Effects = 'Die Auswahl allein mutiert nichts; jedes Werkzeug beschreibt und bestätigt seine eigene Wirkung.'
+        Command = 'Invoke-SqlServerLab'
+    }
+
+    $script:LabConsoleHelpPatternCatalog = [ordered]@{
+        '*-review' = $configurationHelp
+        'container-cu-*' = $configurationHelp
+        'container-password-*' = $configurationHelp
+        'container-profile-*' = $configurationHelp
+        'container-version-*' = $configurationHelp
+        'sql-patch-*' = $configurationHelp
+        'test-environment-version-*' = $configurationHelp
+    }
+    $script:LabConsoleHelpCatalog = $catalog
     return $script:LabConsoleHelpCatalog
 }
 
@@ -233,6 +356,12 @@ function Get-LabConsoleHelpTopic {
 
     $source = if ($null -ne $Catalog) { $Catalog } else { Get-LabConsoleHelpCatalog }
     $screen = $source[$ScreenId]
+    if (-not $screen -and $null -eq $Catalog) {
+        $null = Get-LabConsoleHelpCatalog
+        foreach ($pattern in @($script:LabConsoleHelpPatternCatalog.Keys)) {
+            if ($ScreenId -like $pattern) { $screen = $script:LabConsoleHelpPatternCatalog[$pattern]; break }
+        }
+    }
     $itemHelp = $null
     if ($Item -and $screen -and $screen.Items) { $itemHelp = $screen.Items[[string]$Item.Id] }
     if ($Item -and -not $itemHelp -and $Item.PSObject.Properties['Help'] -and $Item.Help) { $itemHelp = @{ Purpose = [string]$Item.Help } }
