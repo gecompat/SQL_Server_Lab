@@ -306,6 +306,37 @@ simuliertem Sample-Download prüfen die sichtbare Bedienwirkung. Große
 VHDX-/Hyper-V-Transfers erhalten getrennte Tests ohne echte mehrgigabytegroße
 Dateien.
 
+### 12. Eine harmlose Warning kapert den Erstellungsfluss über den modalen Meldungsdialog — RESOLVED
+
+Geprüfter Ist-Zustand vom 2026-09-08: Nach jeder Menüaktion rief
+`Invoke-LabAreaMenuInteractive` (`Public/BatchConsole.ps1`) unterschiedslos
+`Show-LabActionMessagesInteractive` auf, sobald mindestens eine neue
+Meldung mit `Warning` **oder** `Error` vorlag. Die Auswahl des
+Patchstandes `latest` erzeugt genau eine solche harmlose Hinweis-Warning
+(„latest ist ein gleitender Microsoft-Tag …“). Daraufhin erzwang der
+Dialog „Offene Meldungen der letzten Aktion“ den Fokus; dessen Taste `[m]`
+führte in das Sitzungsjournal (Pfad-Ansicht). Der Bediener verließ damit
+ungewollt den Erstellungsfluss, ohne dass eine Erstellung blockiert oder
+ein Fehler vorgelegen hätte.
+
+Umsetzung am 2026-09-08: `Show-LabActionMessagesInteractive` gibt reine
+Warnungen nur noch als sichtbaren, markierbaren Text im Scrollback aus und
+verweist auf das Meldungsjournal im Hauptmenü; der modale Dialog erscheint
+ausschließlich bei mindestens einer Meldung mit `severity = 'Error'`. Der
+Dialog heißt folgerichtig „Fehler der letzten Aktion“. Die Warning bleibt
+damit unmittelbar sichtbar, unterbricht aber den Fluss nicht mehr. Der
+Hilfekatalog-Eintrag `action-messages` (`Private/ConsoleHelp.ps1`) wurde
+entsprechend angepasst. Zusätzlich erhielt `New-LabConsoleField` ein
+`Disabled`/`DisabledReason`-Konzept analog zu `New-LabConsoleItem`, damit
+ein erzwungener, nicht editierbarer Formularwert (Netzwerkmodus in der
+Schnellkonfiguration) begründet und nicht fokussierbar statt als scheinbar
+auswählbarer Eintrag erscheint.
+
+Nachweis: statischer Vertrag in `Tests/Static/Invoke-ConsoleUiChecks.ps1`
+verlangt, dass der Dialog nur bei Fehlern aufgerufen wird und dass das
+Schnellkonfigurations-Netzwerkmodus-Feld begründet deaktiviert ist;
+Gegenbeweis durch Rücknahme der Änderung belegt den Fehlschlag.
+
 ## Bindende Erkenntnisse für die Wiederaufnahme
 
 Diese Punkte haben in der Arbeit vom 2026-09-07 jeweils einen realen Defekt

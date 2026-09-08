@@ -446,11 +446,16 @@ Add-ConsoleUiCheck 'Hauptmenue folgt der acht Gruppen umfassenden Struktur' (
 )
 
 # CUI-023: Eine Warnung oder ein Fehler darf nicht vom naechsten Menueaufbau verdeckt werden.
-Add-ConsoleUiCheck 'Jede Menueaktion zeigt neue Warnungen und Fehler erzwungen an' (
-    $batchConsoleSource -match '\$marker = Get-LabMessageJournalMarker' -and
-    $batchConsoleSource -match 'Show-LabActionMessagesInteractive -Marker \$marker' -and
-    $batchConsoleSource -match "function Show-LabActionMessagesInteractive[\s\S]{0,900}?severity -in @\('Warning', 'Error'\)" -and
-    $batchConsoleSource -match "function Show-LabActionMessagesInteractive[\s\S]{0,900}?Format-LabMessageReport -Message \`$new"
+Add-ConsoleUiCheck 'Jede Menueaktion zeigt neue Warnungen und Fehler als sichtbaren Scrollback-Text' (
+    $batchConsoleSource.Contains('$marker = Get-LabMessageJournalMarker') -and
+    $batchConsoleSource.Contains('Show-LabActionMessagesInteractive -Marker $marker') -and
+    $batchConsoleSource -match "function Show-LabActionMessagesInteractive[\s\S]{0,1200}?severity -in @\('Warning', 'Error'\)" -and
+    $batchConsoleSource -match "function Show-LabActionMessagesInteractive[\s\S]{0,1200}?Format-LabMessageReport -Message \`$new"
+)
+Add-ConsoleUiCheck 'Nur Fehler erzwingen den modalen Meldungsdialog; reine Warnungen bleiben im Scrollback' (
+    [regex]::Match($batchConsoleSource, 'function Show-LabActionMessagesInteractive \{[\s\S]+?(?=\r?\nfunction )').Value.Contains("if (`$errors.Count -eq 0)") -and
+    [regex]::Match($batchConsoleSource, 'function Show-LabActionMessagesInteractive \{[\s\S]+?(?=\r?\nfunction )').Value.Contains("`$errors = @(`$new | Where-Object { `$_.severity -eq 'Error' })") -and
+    [regex]::Match($batchConsoleSource, 'function Show-LabActionMessagesInteractive \{[\s\S]+?(?=\r?\nfunction )').Value.Contains("Title 'Fehler der letzten Aktion'")
 )
 Add-ConsoleUiCheck 'Meldungen sind aus Hauptmenue und Wartung erreichbar und kopierbar' (
     $mainMenuSource -match "New-LabConsoleItem -Id 'messages' -Label 'Meldungen dieser Sitzung'" -and

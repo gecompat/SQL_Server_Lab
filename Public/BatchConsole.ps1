@@ -757,7 +757,11 @@ function Show-LabMessagesInteractive {
 
 function Show-LabActionMessagesInteractive {
     <#
-    .SYNOPSIS Erzwingt nach einer Aktion die Sichtbarkeit neuer Warnungen und Fehler.
+    .SYNOPSIS Zeigt nach einer Aktion neue Meldungen; nur Fehler erzwingen einen Dialog.
+    .DESCRIPTION Warnungen werden als sichtbarer Text im Scrollback ausgegeben
+    und bleiben im Meldungsjournal erreichbar. Sie unterbrechen den laufenden
+    Menuefluss nicht. Nur bei mindestens einem Fehler wird ein Dialog gezeigt,
+    damit ein Fehler nicht vom naechsten Menueaufbau verdeckt wird.
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory)][int]$Marker)
@@ -767,9 +771,16 @@ function Show-LabActionMessagesInteractive {
     Write-Host ''
     Write-Host (Format-LabMessageReport -Message $new)
     Write-Host ''
+
+    $errors = @($new | Where-Object { $_.severity -eq 'Error' })
+    if ($errors.Count -eq 0) {
+        Write-LabInfo 'Hinweis: obige Warnung(en) sind im Meldungsjournal (Hauptmenue [m]) einsehbar.'
+        return
+    }
+
     Write-LabInfo "[c] kopiert diese Meldungen, [m] oeffnet das Sitzungsjournal."
-    $choice = Invoke-LabConsoleMenu -ScreenId 'action-messages' -Title 'Offene Meldungen der letzten Aktion' `
-        -Subtitle ('{0} Warnung(en) oder Fehler' -f $new.Count) -Items @(
+    $choice = Invoke-LabConsoleMenu -ScreenId 'action-messages' -Title 'Fehler der letzten Aktion' `
+        -Subtitle ('{0} Fehler' -f $errors.Count) -Items @(
         New-LabConsoleItem -Id 'copy' -Label 'In die Zwischenablage kopieren' -Shortcut 'c'
         New-LabConsoleItem -Id 'journal' -Label 'Sitzungsjournal oeffnen' -Shortcut 'm'
         New-LabConsoleItem -Id 'back' -Label 'Weiter' -Shortcut '0'
