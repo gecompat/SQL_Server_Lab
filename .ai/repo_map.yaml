@@ -797,6 +797,8 @@ providers:
     physical_resource_root: "registered Lab_Data/HyperV; StateRoot contains control state only; persisted builder disks resolve through their Build binding"
     image_registry: Private/HyperVImageRegistry.ps1
     image_artifact_inventory: "Public/Get-SqlServerLabHyperVImageArtifact.ps1 und Get-SqlServerLabWorkflow.ps1; pfadfreie read-only Registry-, Workflow-, Evaluierungs-, manueller Refresh- und Referenzsicht, optionale Parent-Hash-Pruefung ohne Refresh- oder Loeschautoritaet"
+    evaluation_watch: "Public/Get-SqlServerLabEvaluationWatch.ps1; read-only Windows-/SQL-Evaluationsbewertung mit optionaler lokaler Ereignis-Deduplizierung ohne Lizenz-, Image- oder Run-Mutation"
+    validation_evaluation_watch: Tests/Static/Invoke-EvaluationWatchChecks.ps1
     image_builder: "Private/HyperVImageBuilder.ps1 plus Private/HyperVWindowsEvaluationTemplate.ps1, Private/HyperVLegacyWindowsEvaluationTemplate.ps1 und Private/HyperVSqlImageBuilder.ps1; katalog- und hashgebundener Windows-/SQL-Evaluation-Build, versionsgerechte Hyper-V-Plattform, einmaliger buildlokaler Medienprüfbeleg für unveränderte Resumes, temporäre Aktivierungs-NIC, Sysprep, fail-closed CHILD_BOOT_VERIFIED-Gate und PowerShell-Direct- beziehungsweise Legacy-WMI-/Lab-WinRM-Gaststeuerung"
     windows_slot_pool: "Public/New-SqlServerLabWindowsSlotPool.ps1; geeignete OS_SEALED-Baseline, N resumierbare Child-VMs, RAM-/Locale-Vertrag, generierte oder gemeinsame Passwoerter und unbeaufsichtigte OOBE"
     metadata: Providers/HyperV/provider.json

@@ -90,6 +90,10 @@ COMMANDS
         Listet Hyper-V-Image-Artefakte read-only mit Evaluation, Integritaets-
         und Referenzstatus ohne lokale Pfade.
 
+    Get-SqlServerLabEvaluationWatch
+        Bewertet registrierte Windows- und SQL-Evaluationsfristen read-only und
+        dedupliziert fällige Ereignisse mit -RecordEvents lokal.
+
     Get-SqlServerLabHyperVResourcePreview
         Zeigt die registrierte Hyper-V-Location, freien Speicher und die
         physischen Klassenroots read-only vor einer Hostmutation an.
