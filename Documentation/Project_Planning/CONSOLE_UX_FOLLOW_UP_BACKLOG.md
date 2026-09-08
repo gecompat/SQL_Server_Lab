@@ -145,11 +145,14 @@ Statusband. Hauptmenü und Queue behalten ihre expliziten Größen von drei und
 fünf Zeilen. Explizite Bildschirmparameter bleiben autoritativ; Aufrufe außerhalb
 der Produktsitzung warten weiterhin ohne Polling blockierend.
 
-### 7. Secret-Referenz bestehender Composer-Positionen
+### 7. Secret-Referenz bestehender Composer-Positionen — RESOLVED
 
-Der Composer setzt die Referenz auf eine `SQL_SERVER_LAB_SECRET_*`-Variable beim
-Anlegen einer Position. Für bereits gespeicherte Positionen ohne Referenz fehlt
-ein Nachpflegeweg; sie bleiben im Preflight blockiert.
+Seit 2026-09-08 bietet die gemeinsame Bearbeitung die Aktion
+`SA-Secret-Referenz nachpflegen`. Sie bindet ausgewaehlte bestehende
+`SqlEnvironment`-Positionen an eine vorhandene oder neu angelegte
+`SQL_SERVER_LAB_SECRET_*`-Prozessvariable. Der Composer speichert ausschliesslich
+den Variablennamen. Gemischt ausgewaehlte Windows-/Hyper-V-Positionen bleiben
+unveraendert; eine reine Nicht-Containerauswahl deaktiviert die Aktion begruendet.
 
 ### 8. Weitere flache Bereichsmenüs
 
