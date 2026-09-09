@@ -121,7 +121,7 @@ try {
 
         $firstTrustSource = 'https://example.invalid/samples/first-trust.bak'
         $script:ArtifactDownloadCalls = 0
-        Set-Item Function:script:Invoke-WebRequest -Value {
+        Set-Item Function:script:Save-LabProgressDownload -Value {
             param([string]$Uri, [string]$OutFile)
             $script:ArtifactDownloadCalls++
             Copy-Item -LiteralPath $payloadPath -Destination $OutFile -Force

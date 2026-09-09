@@ -355,14 +355,26 @@ function Invoke-LabProviderOperation {
         [AllowEmptyString()][string]$Command = '',
         [AllowEmptyString()][string]$RunId = '',
         [AllowEmptyString()][string]$StateRoot = '',
-        [switch]$Native
+        [switch]$Native,
+        [switch]$NativeResult
     )
 
     $output = @()
     $exitCode = 0
     try {
-        $output = @(& $Action)
-        if ($Native) { $exitCode = $LASTEXITCODE }
+        if ($NativeResult) {
+            $result = & $Action
+            if ($null -eq $result -or $result -is [array] -or
+                -not $result.PSObject.Properties['ExitCode'] -or -not $result.PSObject.Properties['Output']) {
+                throw 'LAB_NATIVE_RESULT_INVALID'
+            }
+            $output = @($result.Output)
+            $exitCode = [int]$result.ExitCode
+        }
+        else {
+            $output = @(& $Action)
+            if ($Native) { $exitCode = $LASTEXITCODE }
+        }
     }
     catch {
         $exitCode = 1

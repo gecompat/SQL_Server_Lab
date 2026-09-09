@@ -541,8 +541,9 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
     $built = $false
     $runtimeInvocation = Get-LabHostToolInvocation -Name $provider
     try {
-        $output = & $runtimeInvocation @buildArguments 2>&1
-        if ($LASTEXITCODE -ne 0) {
+        $buildResult = Invoke-LabProgressNativeCommand -FilePath $runtimeInvocation -ArgumentList $buildArguments -Phase ImageBuild
+        $output = @($buildResult.Output)
+        if ($buildResult.ExitCode -ne 0) {
             $tail = @($output | Select-Object -Last 30) -join ' '
             throw "EXTERNAL_RUNTIME_CONTAINER_IMAGE_BUILD_FAILED: $tail"
         }

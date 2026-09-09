@@ -506,10 +506,8 @@ function Resolve-LabArtifact {
     $stagingDirectory = Join-Path $paths.StagingRoot (New-LabGuid)
     $stagingPath = Join-Path $stagingDirectory 'artifact.download'
     New-Item -Path $stagingDirectory -ItemType Directory -Force | Out-Null
-    $previousProgressPreference = $ProgressPreference
     try {
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $canonicalSource -OutFile $stagingPath
+        Save-LabProgressDownload -Uri $canonicalSource -OutFile $stagingPath
     }
     catch {
         if (Test-Path -LiteralPath $stagingDirectory) { Remove-Item -LiteralPath $stagingDirectory -Recurse -Force }
@@ -518,9 +516,6 @@ function Resolve-LabArtifact {
             Message = "Download fehlgeschlagen: $($_.Exception.Message)"
             Source  = $canonicalSource
         }
-    }
-    finally {
-        $ProgressPreference = $previousProgressPreference
     }
 
     $observed = (Get-FileHash -LiteralPath $stagingPath -Algorithm SHA256).Hash.ToLowerInvariant()

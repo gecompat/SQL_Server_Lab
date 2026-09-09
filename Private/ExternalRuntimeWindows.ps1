@@ -108,7 +108,7 @@ function Resolve-LabExternalRuntimeWindowsMedia {
             New-Item -Path $directory -ItemType Directory -Force | Out-Null
             $temporaryPath = Join-Path $directory ('.partial-' + [guid]::NewGuid().ToString('N'))
             try {
-                Invoke-WebRequest -Uri ([string]$artifact.Source) -OutFile $temporaryPath -UseBasicParsing `
+                Save-LabProgressDownload -Uri ([string]$artifact.Source) -OutFile $temporaryPath `
                     -TimeoutSec 600 -MaximumRetryCount 2 -RetryIntervalSec 2
                 $observed = (Get-FileHash -LiteralPath $temporaryPath -Algorithm SHA256).Hash.ToLowerInvariant()
                 if ($observed -ne [string]$artifact.Sha256) {

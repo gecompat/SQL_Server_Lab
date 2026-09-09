@@ -339,7 +339,7 @@ function Save-SqlServerWindowsPatchPackage {
     if (-not $DownloadAction) {
         $DownloadAction = {
             param($Uri, $OutFile)
-            Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing -MaximumRedirection 0 -ErrorAction Stop
+            Save-LabProgressDownload -Uri $Uri -OutFile $OutFile -MaximumRedirection 0 -ErrorAction Stop
         }
     }
     try {
