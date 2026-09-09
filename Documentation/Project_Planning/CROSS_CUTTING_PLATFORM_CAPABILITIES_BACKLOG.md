@@ -51,7 +51,7 @@ Jede spätere Umsetzung muss:
 | Priorität | Fähigkeit | Planungsstatus | Erster sinnvoller Vertical Slice |
 |---|---|---|---|
 | P0 | Evaluation-Watchdog und Benachrichtigung | `IMPLEMENTED_READ_ONLY` | read-only Prüfung aller registrierten Windows-/SQL-Evaluationsfristen mit lokalem fälligen Ereignis und sanitisierter Ausgabe |
-| P0 | Portabler Gesamt-Lab-Export/-Import | `ACCEPTED_NEED` | ein gestopptes, rein synthetisches Container-Lab samt Manifest, katalogisierten State-Referenzen und Hashmanifest auf einem zweiten Controller rekonstruieren |
+| P0 | Portabler Gesamt-Lab-Export/-Import | `IMPLEMENTED_STATIC_CONTRACT` | einen pfad- und secretfreien Paketvertrag auf Datenbankpaket-Verfügbarkeit und Secret-Rebind-Grenzen prüfen; Export, Rekonstruktion und Import folgen getrennt |
 | P0 | Externe Secret-Store-Anbindung | `IMPLEMENTED_STATIC_CONTRACT` | providerneutrale `SecretRef` über PowerShell SecretManagement auflösen, ohne Wert in State, Plan oder Log zu persistieren |
 | P1 | Zentrale Observability und Evidence | `IMPLEMENTED_STATIC_CONTRACT` | Aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken eines gebundenen Runs read-only und sanitisiert erfassen; Extended Events, Retention und Native-Abnahme folgen getrennt |
 | P1 | Verwaltete Recovery Points | `ACCEPTED_NEED` | applikationskonsistenter Recovery Point eines Hyper-V-SQL-Runs mit Restore-Probe und expliziter Retention |
@@ -92,6 +92,14 @@ Der Zielvertrag muss mindestens definieren:
 Vorhandene Backup-, Datenbankpaket- und Testumgebungsexporte übertragen nicht
 den vollständigen Controller- und Labzustand. Benötigt wird ein eigener
 Transportvertrag für den Wechsel auf einen neuen Host oder Controller.
+
+`Get-SqlServerLabPortableLabImportPlan` implementiert den ersten read-only
+Preflight für `SqlServerLab.PortableLabPackage/1.0`. Er prüft stabile
+Datenbankpaket-Referenzen gegen explizit verfügbare IDs und weist vorhandene
+Secret-Referenzen ausschließlich als anonymisierten Rebind-Blocker aus. Der
+Plan schreibt nichts und setzt immer `ExecutionImplemented=false`; weder ein
+Paketexport noch eine Zielrun-Erzeugung oder ein Datenbankimport ist damit
+implementiert oder validiert.
 
 Das portable Paket umfasst ausschließlich explizit ausgewählte und
 klassifizierte Bestandteile:

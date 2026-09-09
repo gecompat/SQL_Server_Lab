@@ -99,6 +99,11 @@ sources_of_truth:
   run_state_upgrade_plan_contract: Private/StateUpgrade.ps1
   run_state_upgrade_plan_public: Public/Get-SqlServerLabRunStateUpgradePlan.ps1
   validation_run_state_upgrade_plan: Tests/Static/Invoke-RunStateUpgradeChecks.ps1
+  portable_lab_import_preflight_contract: Private/PortableLabImport.ps1
+  portable_lab_import_preflight_public: Public/Get-SqlServerLabPortableLabImportPlan.ps1
+  portable_lab_package_schema: Schemas/portable-lab-package.schema.json
+  portable_lab_import_plan_schema: Schemas/portable-lab-import-plan.schema.json
+  validation_portable_lab_import_preflight: Tests/Static/Invoke-PortableLabImportChecks.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   validation_cleanup_volume_ownership: Tests/Static/Invoke-CleanupVolumeOwnershipChecks.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1

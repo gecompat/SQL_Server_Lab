@@ -58,6 +58,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | Standalone Ressourcen-Prefetch | implementiert | `Get-SqlServerLabResourcePlan`, `Save-SqlServerLabResourceSet`; Samples und Windows-/Hyper-V-External-Runtime-Medien ohne SQL-/Provider-Mutation |
 | Datenbank-Migrationsgrenzen | öffentliche read-only Live-Inventur per direktem Ziel oder stabiler Run-/Instanzbindung; Backup-/Package-Receipts trennen Datenbankinhalt von Serverobjekten, TDE-Keymaterial, Secrets und externen Services | `Get-SqlServerLabDatabaseMigrationDependency`, `Private/DatabaseMigrationDependency.ps1`, `Schemas/database-migration-dependency-inventory.schema.json` |
 | SQL-Observability-Evidence | aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken direkt oder per Run-/Instanzbindung read-only; keine SQL-Texte, Namen, Hostwerte oder Secrets im Ergebnis | `Get-SqlServerLabSqlObservabilityEvidence`, `Private/SqlObservabilityEvidence.ps1`, `Schemas/sql-observability-evidence.schema.json` |
+| Portabler Lab-Import-Preflight | prüft einen pfad- und secretfreien Container-Lab-Paketvertrag auf explizit verfügbare Datenbankpaket-IDs und anonyme Secret-Rebind-Blocker; führt keinen Import aus | `Get-SqlServerLabPortableLabImportPlan`, `Private/PortableLabImport.ps1`, `Schemas/portable-lab-import-plan.schema.json` |
 | Sample-Datenbanken (Backup) | implementiert | `Private/SampleArtifactHandlers.ps1`; direkte `.bak`-Varianten über Trust-/Hash-Pfad, Mehrfachauswahl im Menü und `New-SqlServerLab -Sample` |
 | Project Adapter (v0.1) | implementiert | `Schemas/project-adapter.schema.json`, `Test-SqlServerLabAdapter`, `Install-SqlServerLabAdapter`; T-SQL-Entrypoints ohne Lifecycle-Seiteneffekt |
 | T-SQL-Skriptausführung | implementiert | `Invoke-SqlServerLabScript` |
@@ -688,6 +689,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabHyperVImageArtifact` | Pfadfreie, read-only Hyper-V-Image-Registry mit Evaluierungs-, Refresh- und Referenzstatus; `-VerifyIntegrity` prüft ausgewählte Parent-VHDX erneut |
 | `Get-SqlServerLabEvaluationWatch` | Registrierte Windows- und SQL-Evaluationsfristen read-only bewerten und fällige Ereignisse optional lokal deduplizieren |
 | `Get-SqlServerLabRunStateUpgradePlan` | Einen lokalen Run-State gegen den aktuellen Zielvertrag read-only klassifizieren; die erste Fassung führt keine Migration aus |
+| `Get-SqlServerLabPortableLabImportPlan` | Ein portables Container-Lab-Paket read-only auf Datenbankpaket-Verfügbarkeit und anonymisierte Secret-Rebind-Blocker prüfen; die Ausführung bleibt nicht implementiert |
 | `Get-SqlServerLabSqlObservabilityEvidence` | Aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken direkt oder per Run-/Instanzbindung read-only ohne Endpunkt-, SQL-Text-, Namens- oder Secretprojektion erfassen |
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, freien Speicher und physische Run-/Build-/Image-/Staging-Roots ohne Mutation anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
