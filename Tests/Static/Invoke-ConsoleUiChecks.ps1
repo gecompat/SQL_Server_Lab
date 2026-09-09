@@ -1196,26 +1196,6 @@ $result = & $module {
     $bandError = ''
     try { $band = @(Test-LabStatusProviderInModule) } catch { $bandError = [string]$_.Exception.Message }
 
-    # Ein selbst vergebenes Kennwort liegt DPAPI-geschuetzt im Run und muss dem Eigentuemer
-    # zugaenglich bleiben, sonst ist die Umgebung nicht mehr benutzbar.
-    $passwordRoot = Join-Path ([IO.Path]::GetTempPath()) ("sa-fact-$([guid]::NewGuid().ToString('N'))")
-    $passwordFact = [PSCustomObject]@{ Available = $false; Origin = 'None'; Length = 0 }
-    try {
-        $runId = '11111111-2222-3333-4444-555555555555'
-        $runDirectory = Join-Path (Join-Path $passwordRoot 'runs') $runId
-        New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
-        $secret = ConvertTo-SecureString 'Str3ng-Selbst-Vergeben!' -AsPlainText -Force
-        $null = Save-LabSecret -Path $runDirectory -Name 'sa-password' -Secret $secret
-        $fact = Get-LabRunSaPasswordFact -RunId $runId -StateRoot $passwordRoot
-        $passwordFact = [PSCustomObject]@{
-            Available = [bool]$fact.Available
-            Origin    = [string]$fact.Origin
-            Length    = if ($fact.Password) { ([string]$fact.Password).Length } else { 0 }
-        }
-    }
-    catch { $passwordFact = [PSCustomObject]@{ Available = $false; Origin = "FEHLER: $($_.Exception.Message)"; Length = 0 } }
-    finally { Remove-Item -LiteralPath $passwordRoot -Recurse -Force -ErrorAction SilentlyContinue }
-
     $frames = [Collections.Generic.List[object]]::new()
     $menu = Invoke-LabConsoleMenu -ScreenId 'status-resilience' -Title 'Resilienz' -Items @(
         New-LabConsoleItem -Id 'go' -Label 'Weiter' -Shortcut '1'
@@ -1339,7 +1319,6 @@ $result = & $module {
         MenuFrames   = $frames.Count
         Degraded     = @($frames[0].Lines | Where-Object { $_ -match 'Statusband nicht verfuegbar: Statusquelle kaputt' }).Count
         Journal      = @(Get-LabMessage | Where-Object { $_.message -match 'CONSOLE_STATUS_PROVIDER_FAILED' }).Count
-        PasswordFact = $passwordFact
         PackageInventoryCalls = $script:databasePackageInventoryCalls
         MigrationDependencyCalls = $script:databaseMigrationDependencyCalls
         DatabaseBackupCalls = $script:databaseBackupCalls
@@ -1369,10 +1348,6 @@ try {
         $null -ne $probe -and $probe.MenuStatus -eq 'Selected' -and $probe.MenuFrames -ge 1 -and
         $probe.Degraded -eq 1 -and $probe.Journal -ge 1
     )
-    Add-ConsoleUiCheck 'Ein selbst vergebenes SA-Kennwort bleibt dem Eigentuemer zugaenglich und wird als solches ausgewiesen' (
-        $null -ne $probe -and $probe.PasswordFact.Available -and
-        $probe.PasswordFact.Origin -eq 'UserSupplied' -and $probe.PasswordFact.Length -eq 23
-    )
     Add-ConsoleUiCheck 'Datenbankmenue ruft Paketbestand und Migrationsinventur im echten Modulscope auf' (
         $null -ne $probe -and $probe.PackageInventoryCalls -eq 2 -and $probe.MigrationDependencyCalls -eq 1
     )
@@ -1400,13 +1375,16 @@ try {
 }
 finally { Remove-Item -LiteralPath $moduleProbePath -Force -ErrorAction SilentlyContinue }
 
-# CUI-031: Die Statusansicht darf ein hinterlegtes Kennwort nicht als fehlend ausgeben.
-Add-ConsoleUiCheck 'Statusansicht nennt Verfuegbarkeit und Herkunft des SA-Kennworts wahrheitsgemaess' (
-    $mainMenuSource -match 'function Get-LabRunSaPasswordFact' -and
-    $mainMenuSource -match '\$passwordFact = Get-LabRunSaPasswordFact -RunId \$RunId -StateRoot \$StateRoot' -and
-    $mainMenuSource -match "SA-Passwort \(selbst vergeben\)" -and
-    $mainMenuSource -match 'im Run kein Kennwort hinterlegt' -and
-    $mainMenuSource -notmatch 'nicht automatisch gespeichert oder f'
+# CUI-031: Selbst vergebene Kennwörter dürfen weder entschlüsselt noch angezeigt werden.
+$statusRendererSource = [regex]::Match($mainMenuSource, 'function Show-LabEnvironmentStatusInteractive \{[\s\S]+?(?=\r?\nfunction )').Value
+Add-ConsoleUiCheck 'Statusansicht maskiert selbst vergebene SA-Kennwoerter ohne Secret-Resolver oder Prozessvariablenpreisgabe' (
+    $statusRendererSource.Contains("'secrets\sa-password.secret'") -and
+    $statusRendererSource.Contains("'selbst vergeben (nicht angezeigt)'") -and
+    $statusRendererSource -match 'nie entschlüsselt oder angezeigt' -and
+    $statusRendererSource -notmatch 'Get-LabRunSaPasswordFact' -and
+    $statusRendererSource -notmatch 'Get-LabSecret' -and
+    $statusRendererSource -notmatch 'EnvironmentVariable' -and
+    $mainMenuSource -notmatch 'function Get-LabRunSaPasswordFact'
 )
 Add-ConsoleUiCheck 'Connection-Center-Exporte betten weiterhin ausschliesslich selbst erzeugte Kennwoerter ein' (
     $connectionCenterSource -match 'Get-LabAutomaticallyGeneratedRunSaPassword' -and
