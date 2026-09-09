@@ -102,6 +102,10 @@ COMMANDS
         Prüft ein portables Container-Lab-Paket read-only auf Paketverfügbarkeit
         und anonyme Secret-Rebind-Blocker; ein Import ist nicht implementiert.
 
+    Get-SqlServerLabHyperVRecoveryPointPlan
+        Inventarisiert bestehende, eindeutig an einen Hyper-V-Run gebundene
+        Checkpoints ohne VM-Namen oder Hostpfade; keine Erstellung oder Restore.
+
     Get-SqlServerLabHyperVResourcePreview
         Zeigt die registrierte Hyper-V-Location, freien Speicher und die
         physischen Klassenroots read-only vor einer Hostmutation an.

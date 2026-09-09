@@ -63,6 +63,7 @@ Legende:
 | [`Get-SqlServerLabEvaluationWatch`](../../Public/Get-SqlServerLabEvaluationWatch.ps1) | Bewertet Windows- und SQL-Evaluationsfristen; `-RecordEvents` dedupliziert fällige Ereignisse lokal ohne Images, Lizenzen oder Runs zu verändern. | – | – |
 | [`Get-SqlServerLabRunStateUpgradePlan`](../../Public/Get-SqlServerLabRunStateUpgradePlan.ps1) | Klassifiziert einen lokalen Run-State gegen den Zielvertrag ohne State- oder Runtime-Mutation; die erste Fassung ist nicht ausführbar. | – | – |
 | [`Get-SqlServerLabPortableLabImportPlan`](../../Public/Get-SqlServerLabPortableLabImportPlan.ps1) | Prüft ein portables Container-Lab-Paket auf Datenbankpaket-Verfügbarkeit und anonyme Secret-Rebind-Blocker; die Ausführung ist nicht implementiert. | – | – |
+| [`Get-SqlServerLabHyperVRecoveryPointPlan`](../../Public/Get-SqlServerLabHyperVRecoveryPointPlan.ps1) | Inventarisiert bestehende, eindeutig an einen Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade; Erstellung, Quiesce und Restore bleiben nicht implementiert. | – | – |
 | [`Get-SqlServerLabHyperVResourcePreview`](../../Public/Get-SqlServerLabHyperVResourcePreview.ps1) | Zeigt registrierte Hyper-V-Location, freien Speicher und physische Klassenroots ohne Mutation. | Hyper-V-Aktionen vor UAC | über Core: Hyper-V-User-Gate und erhöhter Handoff |
 | [`Get-SqlServerLabCatalog`](../../Public/Get-SqlServerLabCatalog.ps1) | Schreibt den Workflow-Katalog als persistentes, maschinenlesbares JSON-Artefakt. | Datenbanken und Verbindungen → Lab-Katalog prüfen | – |
 

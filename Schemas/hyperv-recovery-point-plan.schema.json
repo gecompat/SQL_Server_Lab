@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.HyperVRecoveryPointPlan/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "PlanId", "RunId", "InstanceId", "Provider", "Status", "Action", "ExecutionImplemented", "RecoveryPoints", "Blockers", "PlannedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.HyperVRecoveryPointPlan/1.0" },
+    "PlanId": { "type": "string", "pattern": "^hyperv-recovery-point-[a-f0-9]{64}$" },
+    "RunId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "InstanceId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "Provider": { "const": "hyperv" },
+    "Status": { "enum": ["READY", "BLOCKED", "NO_ACTION"] },
+    "Action": { "enum": ["REVIEW_RECOVERY_POINTS", "NO_RECOVERY_POINTS", "MANUAL_REVIEW_REQUIRED"] },
+    "ExecutionImplemented": { "const": false },
+    "RecoveryPoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["RecoveryPointId", "Kind", "CreatedAt"],
+        "properties": {
+          "RecoveryPointId": { "type": "string", "format": "uuid" },
+          "Kind": { "enum": ["PRODUCTION", "STANDARD", "UNKNOWN"] },
+          "CreatedAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    },
+    "Blockers": {
+      "type": "array",
+      "items": { "enum": ["HYPERV_RECOVERY_POINT_HYPERV_RUN_REQUIRED", "HYPERV_RECOVERY_POINT_CONNECTION_MISSING", "HYPERV_RECOVERY_POINT_CONNECTION_INSTANCE_NOT_UNIQUE", "HYPERV_RECOVERY_POINT_VM_NOT_FOUND", "HYPERV_RECOVERY_POINT_VM_IDENTITY_MISMATCH", "HYPERV_RECOVERY_POINT_SNAPSHOT_QUERY_FAILED", "HYPERV_RECOVERY_POINT_CONTEXT_UNAVAILABLE"] },
+      "uniqueItems": true
+    },
+    "PlannedAt": { "type": "string", "format": "date-time" }
+  }
+}

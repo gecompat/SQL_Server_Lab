@@ -28,6 +28,7 @@
         'Get-SqlServerLabEvaluationWatch'
         'Get-SqlServerLabRunStateUpgradePlan'
         'Get-SqlServerLabPortableLabImportPlan'
+        'Get-SqlServerLabHyperVRecoveryPointPlan'
         'Get-SqlServerLabSqlObservabilityEvidence'
         'Get-SqlServerLabHyperVResourcePreview'
         'Get-SqlServerLabCatalog'

@@ -169,6 +169,12 @@ Hyper-V-Checkpoints und Exporte sind derzeit enge run-lokale Recovery Points;
 automatische Checkpoints bleiben deaktiviert. Es fehlt ein öffentlicher,
 providerbewusster Lifecycle mit SQL-Konsistenz und Restore-Nachweis.
 
+`Get-SqlServerLabHyperVRecoveryPointPlan` ist als `IMPLEMENTED_READ_ONLY`
+erster Inventarvertrag verfügbar. Er projiziert vorhandene, eindeutig an einen
+Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade und blockiert
+unklare Bindungen fail-closed. Er ersetzt weder Checkpoint-Erstellung noch
+SQL-Quiesce, Retention oder eine Restore-Probe.
+
 Ein Recovery Point benötigt:
 
 - exakte Run-/Instanz-/VM-/Storage- und Parentbindung;
