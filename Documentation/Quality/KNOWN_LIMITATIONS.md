@@ -1597,6 +1597,17 @@ State, Secrets, Connection Information, konkrete Hostpfade und Cache-Dateien lie
 
 ## Konsolen-Statusbereich und Meldungen
 
+Direkte Artifact-, Medien-, CU- und External-Runtime-Downloads sowie SQL-
+Bereitschaft und abgeleitete Container-Image-Builds besitzen seit 2026-09-10
+einen gemeinsamen internen Fortschrittsreporter. Bei interaktiver Ausgabe
+zeigen lange Transfers Bytewerte und bekannte Gesamtgroessen; stille Builds
+melden hostseitig Aktivitaet und Laufzeit. Nur feste Phasen und numerische
+Messwerte gelangen in die Anzeige. Die Offline-Pruefung verwendet einen
+langsamen Loopback-Download, synthetische SQL-Probes und einen nativen
+Kindprozess. Getrennte Docker-/Podman-Buildtests und SQL-2025-Smokes mit jeweils
+34/34 Pruefungen sind am 2026-09-10 bestanden. Weitere Datei-/VHDX-,
+SQL-Transfer- und Hyper-V-Gastwartepfade bleiben im UX-Punkt 11 offen.
+
 Der reservierte Statusbereich (`CUI-022`) hält Menüzeilen stabil. Eine Prüfung
 aller Docker-, Podman- und Hyper-V-Aufrufe am 2026-09-07 hat ergeben, dass
 **keine** Provider-Ausgabe direkt auf die Konsole geschrieben wird: jeder

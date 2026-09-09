@@ -4,6 +4,16 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-09-10
+
+### Ergaenzt
+
+- Direkte Downloads, SQL-Bereitschaft und abgeleitete Container-Image-Builds
+  verwenden einen gemeinsamen internen Fortschrittsreporter. Lange Downloads
+  zeigen uebertragene Bytes, native Builds einen hostseitigen Heartbeat.
+  Die Anzeige enthaelt nur feste Phasen und Messwerte und wird auch bei
+  Fehler oder Abbruch beendet. Oeffentliche Cmdlet-Signaturen bleiben gleich.
+
 ## 2026-09-07
 
 ### Korrigiert

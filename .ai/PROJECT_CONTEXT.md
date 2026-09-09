@@ -27,6 +27,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- gemeinsamer interner Fortschrittsreporter fuer direkte Downloads,
+  SQL-Bereitschaft und abgeleitete Container-Image-Builds; Loopback-Transfer,
+  Readiness-Polls, stille native Prozesse und getrennte Docker-/Podman-Builds
+  sind geprueft, beide SQL-2025-Smokes bestanden 34/34 Pruefungen;
+  weitere Transfer- und Gastwartepfade bleiben UX-Folgearbeit;
+
 - PowerShell-Modul und öffentliche Cmdlets;
 - Docker-Provider;
 - Podman-Provider;

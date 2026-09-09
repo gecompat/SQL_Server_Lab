@@ -247,6 +247,13 @@ versioniert.
 
 ### 11. Direkte Konsolenaktionen zeigen bei langen Phasen keinen Fortschritt — OPEN
 
+Teilstand 2026-09-10: Der gemeinsame direkte Reporter, die vier Downloadpfade,
+SQL-Readiness und die abgeleiteten Container-Image-Builds sind angebunden.
+Feste Phasen und Messwerte vermeiden die Ausgabe von Pfaden, Argumenten und
+nativen Rohdaten. Datei-/VHDX-Transfers, weitere SQL-/Containertransfers und
+Gastwartepfade bleiben Teil dieses offenen Punkts; der folgende Ausgangsbefund
+beschreibt den Stand vor dieser Erweiterung.
+
 Geprüfter Ist-Zustand vom 2026-09-09: Das feste Statusband (`CUI-022`) zeigt
 Queue-Operationen mit Prozentbalken, Heartbeat, Laufzeit und
 Stillstandserkennung. Direkte interaktive Aktionen verlassen jedoch den

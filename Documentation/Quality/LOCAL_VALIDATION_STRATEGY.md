@@ -80,6 +80,23 @@ Projektstatus und dürfen nicht als `validated` dargestellt werden.
 
 ## 2. Aktuelle Einstiegspunkte
 
+Der direkte Fortschrittskern wird mit
+`Tests/Static/Invoke-ActionProgressChecks.ps1` geprueft. Synthetische Uhrzeiten
+belegen die Fuenf-Sekunden-Schwelle, Drosselung, Phasenwechsel und sanitisierten
+Messwerte. Ein verzoegerter Loopback-HTTP-Transfer und ein stiller nativer
+Kindprozess belegen Zwischenmeldungen vor dem Ende; Redirect-Verweigerung,
+Retry, Fehler, Timeout und Reporter-Cleanup werden funktional geprueft.
+Die echte Readiness-Poll-Schleife verwendet dabei einen synthetischen sqlcmd-
+Ersatz. Diese Tests sind kein SQL- oder Provider-Runtime-Nachweis.
+
+`Tests/Integration/Invoke-ActionProgressAcceptance.ps1 -Provider docker|podman`
+baut ohne Download ein synthetisches Scratch-Image ueber denselben nativen
+Wrapper. Label- und Image-ID-Bindung schuetzen den abschliessenden Cleanup;
+vorhandene Images werden weder ersetzt noch entfernt. Docker und Podman
+bestanden diesen Test am 2026-09-10 getrennt. Die separaten SQL-2025-Smokes
+bestanden jeweils 34/34 Pruefungen samt Run-Cleanup. Native Runtime-Build-Caches
+bleiben unter der bestehenden Providerverwaltung; der Test fuehrt kein Prune aus.
+
 ### Statische Prüfung
 
 ```powershell

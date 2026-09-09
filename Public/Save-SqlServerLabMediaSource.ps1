@@ -128,7 +128,7 @@ function Save-SqlServerLabMediaSource {
     [System.IO.Directory]::CreateDirectory($targetDirectory) | Out-Null
     $partialPath = Join-Path $targetDirectory ('.' + [System.IO.Path]::GetFileName($targetPath) + '.partial.' + [guid]::NewGuid().ToString('N'))
     try {
-        Invoke-WebRequest -Uri ([string]$source.DownloadUrl) -OutFile $partialPath -UseBasicParsing
+        Save-LabProgressDownload -Uri ([string]$source.DownloadUrl) -OutFile $partialPath
         $verification = & $verifyFile $partialPath $source
         Move-Item -LiteralPath $partialPath -Destination $targetPath -ErrorAction Stop
 

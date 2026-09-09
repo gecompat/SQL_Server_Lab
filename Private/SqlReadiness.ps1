@@ -201,11 +201,14 @@ function Wait-SqlReady {
     $nextTransientLoginCheckSeconds = 15
     $consecutiveSuccesses = 0
     $readySinceSeconds = $null
+    $progress = Start-LabActionProgress -Phase SqlReadiness
+    $probeCount = 0
 
     try {
         Write-LabInfo "Warte auf SQL-Bereitschaft (${HostName}:$Port, Timeout: ${TimeoutSeconds}s)..."
 
         while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+            Update-LabActionProgress -Progress $progress -ProbeCount (++$probeCount)
             $query = "SET NOCOUNT ON; SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS varchar(10));"
             $output = sqlcmd `
                 -S "${HostName},${Port}" `
@@ -316,6 +319,7 @@ function Wait-SqlReady {
     }
     finally {
         $saPlain = $null
+        Stop-LabActionProgress -Progress $progress
     }
 }
 
@@ -349,6 +353,8 @@ function Wait-LabDatabaseReady {
     $lastError = ''
 
     try {
+        $progress = Start-LabActionProgress -Phase SqlReadiness
+        $probeCount = 0
         Write-LabInfo "Warte auf Datenbank-Bereitschaft (${HostName}:$Port/$Database, Timeout: ${TimeoutSeconds}s)..."
 
         while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
@@ -378,6 +384,7 @@ function Wait-LabDatabaseReady {
             }
 
             $lastError = if ($outputText) { $outputText } else { "sqlcmd Exitcode $exitCode" }
+            Update-LabActionProgress -Progress $progress -ProbeCount (++$probeCount)
             Start-Sleep -Milliseconds $PollIntervalMilliseconds
         }
 
@@ -391,6 +398,7 @@ function Wait-LabDatabaseReady {
     }
     finally {
         $saPlain = $null
+        if ($progress) { Stop-LabActionProgress -Progress $progress }
     }
 }
 
