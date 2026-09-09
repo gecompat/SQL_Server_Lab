@@ -241,7 +241,20 @@ function Get-SqlServerLabCleanupAudit {
                     $isManagedVmConfiguration = @($managedVmConfigurationRoots | Where-Object {
                         $fullFilePath.StartsWith($_ + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
                     }).Count -gt 0
-                    if (-not $protectedPaths.Contains($fullFilePath) -and -not $isManagedVmConfiguration) {
+                    # Live inventarisierte VM-, VHDX- und Checkpoint-Pfade eines
+                    # scope-validierten Runs sind nicht "untracked", auch wenn
+                    # historische Cleanup-Plaene sie noch nicht einzeln nennen.
+                    $isManagedRuntimeBinding = @($hyperVResources | Where-Object {
+                        -not $_.Orphan -and $_.StorageStatus -eq 'VERIFIED' -and
+                        [string]$_.RunId -eq $(if ($runState) { [string]$runState.runId } else { $runDirectory.Name }) -and
+                        @($_.StorageBindings | Where-Object {
+                            if (-not $_.Path) { return $false }
+                            $bindingPath = [IO.Path]::GetFullPath([string]$_.Path).TrimEnd('\', '/')
+                            [string]::Equals($bindingPath, $fullFilePath, [StringComparison]::OrdinalIgnoreCase) -or
+                                $fullFilePath.StartsWith($bindingPath + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)
+                        }).Count -gt 0
+                    }).Count -gt 0
+                    if (-not $protectedPaths.Contains($fullFilePath) -and -not $isManagedVmConfiguration -and -not $isManagedRuntimeBinding) {
                         $entry = [PSCustomObject]@{
                             RunId=if ($runState) { [string]$runState.runId } else { $runDirectory.Name }
                             RootKind=[string]$resourceRoot.Kind; Path=$file.FullName

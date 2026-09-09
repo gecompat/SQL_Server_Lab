@@ -39,6 +39,7 @@ function Test-HyperVAvailable {
         'New-VM',
         'New-VHD',
         'Remove-VMNetworkAdapter',
+        'Remove-VMSnapshot',
         'Set-VMFirmware',
         'Start-VM',
         'Stop-VM',
@@ -408,6 +409,42 @@ function Test-HyperVVhdxCleanupScope {
         }
     }
     catch { return & $failure $_.Exception.Message }
+}
+
+function Test-HyperVVhdxCleanupDependencyChain {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+
+    $failure = {
+        param([string]$Code, [string]$Reason)
+        [PSCustomObject]@{ Valid=$false; Code=$Code; Reason=$Reason; Path=$Path }
+    }
+    try {
+        $resolvedPath = [IO.Path]::GetFullPath($Path)
+        $vhdxDirectory = Split-Path -Parent $resolvedPath
+        $chainCandidates = @(
+            Get-ChildItem -LiteralPath $vhdxDirectory -File -Force -ErrorAction Stop |
+                Where-Object {
+                    $_.Extension -in @('.vhdx', '.avhdx') -and
+                    -not [string]::Equals($_.FullName, $resolvedPath, [StringComparison]::OrdinalIgnoreCase)
+                }
+        )
+    }
+    catch {
+        return & $failure 'HYPERV_VHDX_DEPENDENT_CHAIN_UNVERIFIABLE' $_.Exception.Message
+    }
+    foreach ($candidate in $chainCandidates) {
+        try { $candidateVhd = Get-VHD -Path $candidate.FullName -ErrorAction Stop }
+        catch { return & $failure 'HYPERV_VHDX_DEPENDENT_CHAIN_UNVERIFIABLE' $candidate.Name }
+        if ($candidateVhd.ParentPath -and [string]::Equals(
+                [IO.Path]::GetFullPath([string]$candidateVhd.ParentPath),
+                $resolvedPath,
+                [StringComparison]::OrdinalIgnoreCase
+            )) {
+            return & $failure 'HYPERV_VHDX_DEPENDENT_CHAIN_PRESENT' $candidate.Name
+        }
+    }
+    return [PSCustomObject]@{ Valid=$true; Code='HYPERV_VHDX_DEPENDENT_CHAIN_CLEAR'; Reason=''; Path=$resolvedPath }
 }
 
 function Get-HyperVManagedVM {
@@ -1719,6 +1756,23 @@ function Remove-HyperVInstance {
             -Command "Stop-VM -Name $VMName -TurnOff -Force" `
             -Action { Stop-VM -VM $managed.VM -TurnOff -Force -ErrorAction Stop }
     }
+    $checkpoints = @(Get-VMSnapshot -VM $managed.VM -ErrorAction Stop)
+    foreach ($checkpoint in $checkpoints) {
+        # Checkpoints sind an die bereits revalidierte VM-Identity gebunden.
+        # Sie müssen vor dem Entfernen der VM zusammengeführt werden, damit
+        # keine AVHDX-Kette die anschließende VHDX-Löschung blockiert.
+        $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'checkpoint-remove' -RunId ([string]$managed.Identity.runId) `
+            -Command "Remove-VMSnapshot -Id $([string]$checkpoint.Id)" `
+            -Action { Remove-VMSnapshot -VMSnapshot $checkpoint -ErrorAction Stop }
+    }
+    if ($checkpoints.Count -gt 0) {
+        $deadline = [datetime]::UtcNow.AddMinutes(10)
+        do {
+            Start-Sleep -Seconds 2
+            $remainingCheckpoints = @(Get-VMSnapshot -VM $managed.VM -ErrorAction Stop)
+        } while ($remainingCheckpoints.Count -gt 0 -and [datetime]::UtcNow -lt $deadline)
+        if ($remainingCheckpoints.Count -gt 0) { throw 'HYPERV_CHECKPOINT_MERGE_TIMEOUT' }
+    }
     $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-remove' -RunId ([string]$managed.Identity.runId) `
         -Command "Remove-VM -Name $VMName -Force" -Action { Remove-VM -VM $managed.VM -Force -ErrorAction Stop }
 
@@ -1761,6 +1815,11 @@ function Remove-HyperVVhdxForCleanup {
     if ($attached.Count -gt 0) {
         throw "Run-lokale VHDX ist noch an eine VM gebunden: $resolvedPath"
     }
+
+    # Ein bereits entfernter VM-Eintrag ist kein Nachweis dafuer, dass die
+    # Basis-VHDX frei ist: Checkpoints haengen als AVHDX weiter an ihr.
+    $dependencyChain = Test-HyperVVhdxCleanupDependencyChain -Path $resolvedPath
+    if (-not $dependencyChain.Valid) { throw "$($dependencyChain.Code): $($dependencyChain.Reason)" }
 
     Remove-Item -LiteralPath $resolvedPath -Force
     return [PSCustomObject]@{ Removed = $true; AlreadyAbsent = $false; Path = $resolvedPath }

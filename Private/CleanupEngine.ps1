@@ -313,6 +313,21 @@ function Test-LabHyperVCleanupPlanProtection {
         if (-not $scope.Valid) {
             $issues.Add("$($scope.Code): order=$([int]$step.order); $([string]$scope.Reason)")
         }
+        else {
+            $dependencyChain = Test-HyperVVhdxCleanupDependencyChain -Path ([string]$step.resourceId)
+            if (-not $dependencyChain.Valid) {
+                # Ein höher priorisierter VM-Schritt führt scope-validierte
+                # Checkpoints vor dem VM-Remove zusammen. Nur diese explizite
+                # Reihenfolge darf eine erkannte AVHDX-Kette weiterreichen;
+                # ohne sie blockiert der Plan vor jeder Mutation.
+                $checkpointMergeStep = @($hyperVSteps | Where-Object {
+                    [string]$_.resourceType -eq 'vm' -and [int]$_.order -gt [int]$step.order
+                })
+                if ($dependencyChain.Code -ne 'HYPERV_VHDX_DEPENDENT_CHAIN_PRESENT' -or $checkpointMergeStep.Count -ne 1) {
+                    $issues.Add("$($dependencyChain.Code): order=$([int]$step.order); $([string]$dependencyChain.Reason)")
+                }
+            }
+        }
     }
 
     return [PSCustomObject]@{
