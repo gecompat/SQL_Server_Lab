@@ -80,7 +80,10 @@ function Wait-LabProgressTask {
     )
     while (-not $Task.IsCompleted) {
         Update-LabActionProgress -Progress $Progress -CompletedBytes $CompletedBytes -TotalBytes $TotalBytes
-        Start-Sleep -Milliseconds 200
+        # Sofort fortsetzen, sobald I/O fertig ist. Ein festes Sleep pro Block
+        # wuerde grosse Downloads und VHDX-Kopien kuenstlich ausbremsen.
+        try { $null = $Task.Wait(200) }
+        catch [System.AggregateException] { }
     }
     # GetResult preserves the original failure, unlike Task.Wait's AggregateException.
     $Task.GetAwaiter().GetResult()
