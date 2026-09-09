@@ -23,6 +23,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `backup-library.schema.json` | Strikter `SqlServerLab.BackupLibrary/1.0`-Vertrag für inhaltsadressierte, per SQL-Checksum, `RESTORE VERIFYONLY`, Host-Hash und Metadatenreceipt veröffentlichte Backups, getrennte Restore-Evidence sowie eine an die automatisch berechnete Backup-SHA-256 gebundene, nicht ausführbare Migrationsplan-Evidence |
 | `database-migration-dependency-inventory.schema.json` | Read-only Vertrag `SqlServerLab.DatabaseMigrationDependencyInventory/1.0` für sanitisierte Serverobjekt-/TDE-Kategorien, Counts und die ausdrückliche Datenbank-statt-Instanz-Migrationsgrenze |
 | `database-migration-execution-plan.schema.json` | Strikt nicht ausführbarer Vertrag `SqlServerLab.DatabaseMigrationExecutionPlan/1.0` für kategoriebasierte Review- und TDE-Blocker-Schritte ohne Objekt-, Schlüssel- oder Credentialdaten |
+| `sql-observability-evidence.schema.json` | Read-only Vertrag `SqlServerLab.SqlObservabilityEvidence/1.0` für aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken ohne SQL-Texte, Namen, Hostwerte oder Secrets |
 | `project-adapter.schema.json` | Adaptervertrag konsumierender Projekte (`Adapters/`), Version `0.1-draft` |
 | `test-environment.schema.json` | Vertrag `SqlServerLab.TestEnvironment/1.0` für den lokalen Export automatisierter Testumgebungen |
 | `license-profile.schema.json` | Geheimnisfreier lokaler Metadatenvertrag `SqlServerLab.LicenseProfile/1.0`; Product Keys liegen ausschließlich im separaten Secret Store |

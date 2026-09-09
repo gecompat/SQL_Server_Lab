@@ -88,6 +88,10 @@ sources_of_truth:
   database_migration_dependency_inventory_schema: Schemas/database-migration-dependency-inventory.schema.json
   database_migration_execution_plan_schema: Schemas/database-migration-execution-plan.schema.json
   validation_database_migration_dependency: Tests/Static/Invoke-DatabaseMigrationDependencyChecks.ps1
+  sql_observability_evidence_contract: Private/SqlObservabilityEvidence.ps1
+  sql_observability_evidence_public: Public/Get-SqlServerLabSqlObservabilityEvidence.ps1
+  sql_observability_evidence_schema: Schemas/sql-observability-evidence.schema.json
+  validation_sql_observability_evidence: Tests/Static/Invoke-SqlObservabilityEvidenceChecks.ps1
   host_tool_resolution: Private/HostToolResolution.ps1
   host_tool_initializer: Tools/Initialize-SqlServerLabHostTools.ps1
   validation_host_tool_resolution: Tests/Static/Invoke-HostToolResolutionChecks.ps1

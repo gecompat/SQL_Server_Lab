@@ -27,6 +27,7 @@
         'Get-SqlServerLabHyperVImageArtifact'
         'Get-SqlServerLabEvaluationWatch'
         'Get-SqlServerLabRunStateUpgradePlan'
+        'Get-SqlServerLabSqlObservabilityEvidence'
         'Get-SqlServerLabHyperVResourcePreview'
         'Get-SqlServerLabCatalog'
         'Get-SqlServerLabConnectionCenter'

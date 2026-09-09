@@ -53,7 +53,7 @@ Jede spätere Umsetzung muss:
 | P0 | Evaluation-Watchdog und Benachrichtigung | `IMPLEMENTED_READ_ONLY` | read-only Prüfung aller registrierten Windows-/SQL-Evaluationsfristen mit lokalem fälligen Ereignis und sanitisierter Ausgabe |
 | P0 | Portabler Gesamt-Lab-Export/-Import | `ACCEPTED_NEED` | ein gestopptes, rein synthetisches Container-Lab samt Manifest, katalogisierten State-Referenzen und Hashmanifest auf einem zweiten Controller rekonstruieren |
 | P0 | Externe Secret-Store-Anbindung | `IMPLEMENTED_STATIC_CONTRACT` | providerneutrale `SecretRef` über PowerShell SecretManagement auflösen, ohne Wert in State, Plan oder Log zu persistieren |
-| P1 | Zentrale Observability und Evidence | `ACCEPTED_NEED` | SQL-Readiness, Query Store und ausgewählte Extended-Events-Metadaten eines synthetischen Runs als sanitiertes Evidence-Paket erfassen |
+| P1 | Zentrale Observability und Evidence | `IMPLEMENTED_STATIC_CONTRACT` | Aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken eines gebundenen Runs read-only und sanitisiert erfassen; Extended Events, Retention und Native-Abnahme folgen getrennt |
 | P1 | Verwaltete Recovery Points | `ACCEPTED_NEED` | applikationskonsistenter Recovery Point eines Hyper-V-SQL-Runs mit Restore-Probe und expliziter Retention |
 | P1 | Framework- und State-Upgrade-Lifecycle | `IMPLEMENTED_READ_ONLY` | eine versionierte, reversible Migration eines synthetischen alten Run-State in ein neues Schema |
 | P2 | Offline-/Air-Gap-Distributionspaket | `ACCEPTED_NEED` | hash- und lizenzgebundener Export bereits freigegebener Medien, Kataloge und Samples ohne Secrets oder Runtime-State |
@@ -135,14 +135,18 @@ Erforderlich sind:
 
 ## Zentrale Observability und Evidence
 
-Szenarien besitzen einzelne Readiness-, Query-Store-, Performance- oder
-Fault-Probes. Es fehlt ein gemeinsamer, versionsgebundener Evidence-Vertrag für
-Diagnose, Vergleich und Aufbewahrung.
+`Get-SqlServerLabSqlObservabilityEvidence` implementiert einen ersten
+versionierten `SqlServerLab.SqlObservabilityEvidence/1.0`-Vertrag. Er bindet
+eine direkte Quelle oder einen bestehenden Run an aggregierte Server-,
+Datenbank-, Query-Store- und Wait-Metriken. SQL-Texte, Datenbank-, Login- und
+Hostnamen sowie Secretwerte werden nicht projiziert oder gespeichert. Der
+aktuelle Nachweis ist ein statischer Mock-Vertrag; eine providerbezogene
+Native-Abnahme wurde für diesen neuen Pfad noch nicht ausgeführt.
 
-Der Backlog umfasst:
+Weiterhin offen bleiben:
 
-- Basismetriken für SQL-Instanz, Datenbanken, Waits, Storage und Hostressourcen;
-- Query Store, ausgewählte Extended Events und SQL-Agent-/Backupzustände;
+- Storage- und Hostressourcenmetriken sowie SQL-Readiness-Receipts;
+- ausgewählte Extended Events und SQL-Agent-/Backupzustände;
 - providerneutrale Zeit-, Run-, Instanz- und Szenariobindung;
 - Datenminimierung, Redaction und Größen-/Aufbewahrungsgrenzen;
 - reproduzierbare Exportpakete ohne Abfragetexte, Objekt-, Host- oder

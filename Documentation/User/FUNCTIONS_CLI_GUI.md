@@ -4,7 +4,7 @@
 |---|---|
 | Stand | 2026-09-07 |
 | Autoritative Funktionsliste | [`SqlServerLab.psd1`](../../SqlServerLab.psd1) |
-| Öffentliche Funktionen | 80 exportierte Cmdlets |
+| Öffentliche Funktionen | 84 exportierte Cmdlets |
 | Konsolenoberfläche | `Invoke-SqlServerLab` |
 | Browseroberfläche | `Tools/Start-SqlServerLabUi.ps1` und `Ui/` |
 
@@ -133,6 +133,7 @@ Legende:
 | [`Export-SqlServerLabDatabasePackage`](../../Public/Export-SqlServerLabDatabasePackage.ps1) | Veröffentlicht eine gebundene Docker-/Podman-Datenbank nach exklusivem Offline-Commit als hashgebundenes Paket. | Datenbanken und Verbindungen → Datenbankpaket exportieren | über Adapter: `ExportContainerDatabasePackage` |
 | [`Invoke-SqlServerLabDatabasePackageAttach`](../../Public/Invoke-SqlServerLabDatabasePackageAttach.ps1) | Kopiert und hasht ein Paket im gebundenen Hyper-V-Gast, attached es im live ermittelten SQL-Default-Data-Ziel und bietet journalgebundene Recovery. | Datenbanken und Verbindungen → Datenbankpaket anhängen | über Adapter: `AttachHyperVDatabasePackage`, `RecoverHyperVDatabasePackageAttach` |
 | [`Get-SqlServerLabDatabaseMigrationDependency`](../../Public/Get-SqlServerLabDatabaseMigrationDependency.ps1) | Inventarisiert beobachtbare Login-, Job-, Proxy-, Linked-Server- und TDE-Abhängigkeiten read-only als sanitisierte Counts. | Datenbanken und Verbindungen → Migrationsabhängigkeiten prüfen | über Adapter: `InspectContainerDatabaseMigrationDependencies` |
+| [`Get-SqlServerLabSqlObservabilityEvidence`](../../Public/Get-SqlServerLabSqlObservabilityEvidence.ps1) | Erfasst aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken read-only ohne Endpunkt-, SQL-Text-, Namens- oder Secretprojektion. | – | – |
 
 ## Datenbanken, Skripte und SQL-KI-Szenarien
 
