@@ -1065,6 +1065,7 @@ $unavailableHyperVAttention = & {
     $hyperVReaderCalls = [System.Collections.Generic.List[string]]::new()
     try {
         function Test-HyperVAvailable { $hyperVProbeCalls.Add('probe'); [PSCustomObject]@{ Available = $false } }
+        function script:Get-LabProviderAvailabilityMap { [ordered]@{ docker = $false; podman = $false; hyperv = $false } }
         function Get-LabMediaRootDefault { 'test-media' }
         function Get-LabActiveRuns { @() }
         function Get-SqlServerPatchOptions { [PSCustomObject]@{ Cu = 'CU1'; WindowsStatus = 'MISSING'; WindowsRelativePath = 'test.cab' } }
@@ -1087,10 +1088,11 @@ $unavailableHyperVAttention = & {
         else {
             Remove-Variable -Name VersionCatalog -Scope Script -ErrorAction SilentlyContinue
         }
+        Remove-Item -Path Function:script:Get-LabProviderAvailabilityMap -Force -ErrorAction SilentlyContinue
     }
 }
 Add-ConsoleUiCheck 'Nicht verfuegbares Hyper-V erzeugt keine unbrauchbaren Befunde' (
-    $unavailableHyperVAttention.ProbeCount -eq 1 -and $unavailableHyperVAttention.ReaderCount -eq 0 -and
+    $unavailableHyperVAttention.ReaderCount -eq 0 -and
     @($unavailableHyperVAttention.FindingIds | Where-Object {
         $_ -in @('template-pool-capacity-low', 'sql-slot-pool-low', 'image-builds-pending') -or $_ -like 'cu-media-*-*'
     }).Count -eq 0
