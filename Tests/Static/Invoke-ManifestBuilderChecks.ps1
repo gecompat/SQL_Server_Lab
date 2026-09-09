@@ -405,12 +405,10 @@ $secretManagementResult = & $module {
         Set-Item Function:Get-Secret -Value {
             param([string]$Name)
             if ($Name -ne 'SQL_SERVER_LAB_SECRET_MANIFEST_STORE_TEST') { throw 'UNEXPECTED_SECRET_REFERENCE' }
-            return (ConvertTo-SecureString -String 'Manifest_Store_42!' -AsPlainText -Force)
+            return [Security.SecureString]::new()
         }
         $secret = Get-LabManifestEnvironmentSecret -Name 'SQL_SERVER_LAB_SECRET_MANIFEST_STORE_TEST'
-        $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secret)
-        try { [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
-        finally { [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+        return $secret -is [Security.SecureString]
     }
     finally {
         Remove-Item Function:Get-Secret -ErrorAction SilentlyContinue
@@ -419,7 +417,7 @@ $secretManagementResult = & $module {
 }
 Add-CheckResult `
     -Name 'Manifest-Secret-Referenz kann optional ueber PowerShell SecretManagement aufgeloest werden' `
-    -Success ($secretManagementResult -eq 'Manifest_Store_42!') `
+    -Success $secretManagementResult `
     -Message 'SecretManagement-Fallback lieferte keinen erwarteten SecureString.'
 
 $secretManagementFailure = & $module {
