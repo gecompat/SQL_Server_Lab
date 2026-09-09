@@ -205,6 +205,15 @@ function Get-LabStorageResidencyInventory {
 
     $objects = [Collections.Generic.List[object]]::new()
     $knownRoots = @($Configuration.LabDataLocations | ForEach-Object { [string]$_.LabDataRoot } | Where-Object { $_ })
+    # Aktuelle Run-States halten die Providerzuordnung in providerSubRuns; die
+    # materialisierten Instanzen liegen nicht mehr zwingend im Rootfeld
+    # `instances`. Volumes bleiben trotzdem eindeutig über ihr Runtime-Label an
+    # einen aktiven Run gebunden. Dieses Set ist nur ein read-only Fallback für
+    # die Residency-Projektion, nie eine Mutationsautorität.
+    $activeRunIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($run in @($ActiveRuns)) {
+        if ([string]$run.runId) { $null = $activeRunIds.Add([string]$run.runId) }
+    }
     $volumeReferences = @{}
     $hostBindings = [Collections.Generic.List[object]]::new()
 
@@ -418,6 +427,9 @@ function Get-LabStorageResidencyInventory {
         $provider = ([string]$volume.Provider).ToLowerInvariant(); $name = [string]$volume.Name
         $inspection = Get-LabRuntimeVolumeInspection -Provider $provider -Name $name
         $referenceKey = "$provider|$name"; $runIds = if ($volumeReferences.ContainsKey($referenceKey)) { @($volumeReferences[$referenceKey]) } else { @() }
+        if ($runIds.Count -eq 0 -and $inspection -and [string]$inspection.RunId -and $activeRunIds.Contains([string]$inspection.RunId)) {
+            $runIds = @([string]$inspection.RunId)
+        }
         $persistent = $name -match '^sql-lab-persistent-'
         $relation = if ($inspection) { Get-LabStoragePathRelation -Path ([string]$inspection.Mountpoint) -KnownRoots $knownRoots -RuntimeNamespace } else { 'UNKNOWN' }
         $referenceState = if ($runIds.Count -gt 0) { 'ACTIVE_REFERENCE' } elseif ($persistent) { 'RETAINED_UNBOUND' } else { 'ORPHAN_CANDIDATE' }

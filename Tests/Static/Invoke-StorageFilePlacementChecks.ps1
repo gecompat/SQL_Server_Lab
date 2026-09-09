@@ -408,6 +408,7 @@ try {
         param($path,$runDirectory,$root)
         function Get-VM { @() }
         function Get-VMHardDiskDrive { @() }
+        function Get-VHD { [CmdletBinding()] param([string]$Path) [PSCustomObject]@{ ParentPath=$null } }
         Remove-HyperVVhdxForCleanup -Path $path -ExpectedRunDirectory $runDirectory -SafetyRoot $root
     } $ownedVhdxPath $cleanupRunDirectory $ownedRoot
     $foreignRunCleanupRejected = try {
@@ -415,6 +416,7 @@ try {
             param($path,$runDirectory,$root)
             function Get-VM { @() }
             function Get-VMHardDiskDrive { @() }
+            function Get-VHD { [CmdletBinding()] param([string]$Path) [PSCustomObject]@{ ParentPath=$null } }
             Remove-HyperVVhdxForCleanup -Path $path -ExpectedRunDirectory $runDirectory -SafetyRoot $root
         } $foreignRunVhdxPath $cleanupRunDirectory $ownedRoot
         $false

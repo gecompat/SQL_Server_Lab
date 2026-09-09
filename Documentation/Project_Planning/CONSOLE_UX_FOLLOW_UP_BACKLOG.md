@@ -296,6 +296,64 @@ simuliertem Sample-Download prüfen die sichtbare Bedienwirkung. Große
 VHDX-/Hyper-V-Transfers erhalten getrennte Tests ohne echte mehrgigabytegroße
 Dateien.
 
+### 14. Hyper-V-Cleanup konnte eine Basis-VHDX trotz abhängiger Checkpoint-Disk entfernen — RESOLVED
+
+Der reale Abgleich vom 2026-09-09 fand einen ausgeschalteten historischen
+Run mit einer aktiven Checkpoint-AVHDX. Nach dem VM-Schritt war die Basis-VHDX
+nicht mehr als VM-Anhang sichtbar, obwohl die Differenzdisk weiterhin von ihr
+abhängt. Ein Löschversuch der Basisdatei hätte die Kette beschädigen können.
+
+`Remove-HyperVVhdxForCleanup` inventarisiert deshalb vor jeder VHDX-Löschung
+die lokalen VHDX-/AVHDX-Kandidaten und prüft ihre Parent-Beziehung. Eine
+abhängige oder nicht lesbare Kette blockiert den Schritt mit einem stabilen
+fail-closed Fehler. Ein verifizierter, höher priorisierter VM-Cleanup-Schritt
+führt eine zugehörige Checkpoint-Kette scopegebunden zusammen, bevor er die VM
+entfernt; ohne diesen Schritt bleibt der Run für eine explizite Bereinigung
+und einen anschließenden Wiederholungs-Cleanup erhalten.
+
+Nachweis: `Tests/Static/Invoke-CleanupAuditChecks.ps1` erzeugt eine
+synthetische Basis-/AVHDX-Beziehung und verlangt, dass beide Dateien bei
+`CLEANUP_BLOCKED` erhalten bleiben.
+
+### 15. Cleanup-Audit meldete Hyper-V-Bindungen als untracked oder orphan — RESOLVED
+
+Der reale read-only Audit vom 2026-09-09 bewertete live gebundene
+VM-Konfigurationen, VHDX-Dateien und Checkpoints eines gültigen Hyper-V-Runs
+zusätzlich als `UNTRACKED_HYPERV_RESOURCE`. Die gesonderte Run-Ordner-Prüfung
+kannte zwar den Run, korrelierte ihn aber nicht mit der bereits verifizierten
+Runtime-Bindung. Dadurch wirkte ein aktives Lab wie ein Löschkandidat.
+
+`Get-SqlServerLabCleanupAudit` korreliert die Datei nun vor der
+Untracked-Klassifikation mit einer nicht verwaisten `VERIFIED`-Storage-Bindung
+derselben RunId. Die Korrelation ist read-only; ungebundene Dateien bleiben
+weiterhin ausdrücklich als Preserve-Befund sichtbar.
+
+Nachweis: `Tests/Static/Invoke-CleanupAuditChecks.ps1` verlangt die
+Runtime-Bindungsprüfung im Auditvertrag. Der reale Abschlussaudit nach
+scopegebundenem Reclaim der verwaisten VM-/Child-VHDX-Paare und nach Cleanup
+des `REMOVED`-Run-Nachzüglers enthält 0 `ORPHAN`, 0
+`UNTRACKED_HYPERV_RESOURCE`, 0 Recovery- und 0 Unverifiable-Befunde.
+
+### 13. Cleanup-Audit klassifiziert aktive Container-Instanzstores fälschlich als verwaist — RESOLVED
+
+Der reale read-only Audit vom 2026-09-09 meldete Instanzstores laufender
+Docker-Umgebungen als `ORPHAN_CANDIDATE`. Ursache: Die Residency-Projektion
+las Volume-Referenzen ausschließlich aus dem historischen Rootfeld
+`run.instances`. Der aktuelle Statevertrag hält die Providerbindung jedoch in
+`providerSubRuns`; nach dem Lifecycle kann das Rootfeld leer sein, obwohl das
+Volume sein revalidiertes `sql-server-lab.run-id`-Label unverändert trägt.
+
+`Get-LabStorageResidencyInventory` verwendet deshalb jetzt ausschließlich
+für die read-only Projektion das revalidierte Volume-Run-Label als Fallback,
+wenn es einen aktiven Run desselben Controllerzustands referenziert. Dies
+verändert weder Runtime, State noch Cleanup-Autorität. Ein echter
+unreferenzierter Store bleibt weiterhin `ORPHAN_CANDIDATE`.
+
+Nachweis: `Tests/Static/Invoke-CleanupAuditChecks.ps1` entfernt im Fixture
+gezielt die Root-Volume-Referenz und verlangt weiterhin eine aktive
+Residency-Bindung über das Runtime-Label; derselbe Lauf belegt den
+unreferenzierten Gegenfall.
+
 ### 12. Eine harmlose Warning kapert den Erstellungsfluss über den modalen Meldungsdialog — RESOLVED
 
 Geprüfter Ist-Zustand vom 2026-09-08: Nach jeder Menüaktion rief

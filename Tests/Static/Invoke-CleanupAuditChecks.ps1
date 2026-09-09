@@ -129,6 +129,12 @@ try {
                 backupHostPath=(Join-Path $root 'Labs/storage-audit/backups')
             }
         })
+        # Der aktuelle State-Vertrag kann die Runtime-Volume-Information nach
+        # dem Lifecycle aus dem Root-Instance-Snapshot verlieren, während die
+        # ProviderSubRun-Bindung erhalten bleibt. Der Audit muss das Volume dann
+        # über das revalidierte Runtime-Label dem aktiven Run zuordnen; andere
+        # deklarierte Hostbindungen bleiben davon unabhängig erhalten.
+        $storageRunState.instances[0].drives[0].volumeName = $null
         Write-LabArtifactJsonAtomic -Path $storageRunPath -InputObject $storageRunState
 
         $run = New-LabRunState -StateRoot $stateRoot -Metadata @{ name='cleanup-audit-hyperv'; workflowKind='hyperv-lab' } `
@@ -220,6 +226,29 @@ try {
             -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv -SafetyRoot $cleanBinding.LabDataRoot
         $validCleanup = Invoke-CleanupPlan -RunDir $cleanRun.RunDir -ScopeId $cleanRun.ScopeId
 
+        $chainRun = New-LabRunState -StateRoot $stateRoot -Metadata @{ name='cleanup-audit-vhdx-chain'; workflowKind='hyperv-lab' } `
+            -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv'; provider='hyperv'; instanceIds=@('primary') })
+        $chainBinding = Initialize-LabHyperVResourceBinding -ResourceId $chainRun.RunId -ResourceClass Run -StateDirectory $chainRun.RunDir
+        $null = New-Item -Path $chainBinding.HyperVResourceRoot -ItemType Directory -Force
+        $chainBase = Join-Path $chainBinding.HyperVResourceRoot 'checkpoint-base.vhdx'
+        $chainChild = Join-Path $chainBinding.HyperVResourceRoot 'checkpoint-child.avhdx'
+        $null = New-Item -Path $chainBase -ItemType File -Force
+        $null = New-Item -Path $chainChild -ItemType File -Force
+        $null = New-CleanupPlan -RunDir $chainRun.RunDir -RunId $chainRun.RunId -ScopeId $chainRun.ScopeId `
+            -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv'; provider='hyperv' })
+        $null = Add-CleanupStep -RunDir $chainRun.RunDir -ResourceType vhdx -ResourceId $chainBase `
+            -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv
+        $chainBlocked = & {
+            function Get-VM { @() }
+            function Get-VMHardDiskDrive { @() }
+            function Get-VHD {
+                [CmdletBinding()]
+                param([string]$Path)
+                [PSCustomObject]@{ ParentPath = if ($Path -like '*.avhdx') { $chainBase } else { $null } }
+            }
+            Invoke-CleanupPlan -RunDir $chainRun.RunDir -ScopeId $chainRun.ScopeId
+        }
+
         $buildId = New-LabGuid
         $buildScopeId = New-LabGuid
         $buildDirectory = Join-Path (Join-Path $stateRoot 'image-builds/hyperv') $buildId
@@ -261,6 +290,7 @@ try {
             ValidCleanup=$validCleanup
             ValidChildRemoved=(-not (Test-Path -LiteralPath $cleanChild -PathType Leaf))
             ValidExternalRemoved=(-not (Test-Path -LiteralPath $cleanExternal -PathType Leaf))
+            ChainBlocked=$chainBlocked; ChainBase=$chainBase; ChainChild=$chainChild
             BuildCleanup=$buildCleanup
             BuildVhdxRemoved=(-not (Test-Path -LiteralPath $buildVhdx -PathType Leaf))
             RecoveryStorageId=$recoveryStorageId; CatalogRecoveryFindings=$catalogRecoveryFindings
@@ -412,10 +442,12 @@ try {
         @($result.Audit.HyperV.UntrackedFiles | Where-Object { $_.Path -eq $result.UntrackedFile -and $_.Preservation -eq 'PRESERVE_UNTRACKED' }).Count -eq 1 -and
         (Test-Path -LiteralPath $result.UntrackedFile -PathType Leaf))
     $auditSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLabCleanupAudit.ps1') -Raw -Encoding utf8
-    Add-CheckResult -Name 'Verifizierte Hyper-V-VM-Konfigurationsdateien gelten nicht als ungetrackte Residuen' -Success (
+    Add-CheckResult -Name 'Verifizierte aktive Hyper-V-Ressourcen gelten nicht als ungetrackte Residuen' -Success (
         $auditSource -match 'managedVmConfigurationRoots' -and
         $auditSource -match "ResourceKind -eq 'VM_CONFIGURATION'" -and
-        $auditSource -match 'isManagedVmConfiguration'
+        $auditSource -match 'isManagedVmConfiguration' -and
+        $auditSource -match 'isManagedRuntimeBinding' -and
+        $auditSource -match "StorageStatus -eq 'VERIFIED'"
     )
     Add-CheckResult -Name 'Nichtterminales Migrationsjournal blockiert Cleanup vor jeder Mutation' -Success (
         $result.MigrationBlocked.Status -eq 'CLEANUP_BLOCKED' -and $result.ProtectedAfterMigrationBlock)
@@ -429,6 +461,10 @@ try {
     Add-CheckResult -Name 'Gültiger Plan entfernt Run-Root und registrierte Zusatzlaufwerks-VHDX' -Success (
         $result.ValidCleanup.Status -eq 'CLEANUP_SUCCEEDED' -and $result.ValidCleanup.Steps -eq 2 -and
         $result.ValidChildRemoved -and $result.ValidExternalRemoved)
+    Add-CheckResult -Name 'Abhängige Checkpoint-VHDX blockiert die Entfernung ihrer Basisdatei fail-closed' -Success (
+        $result.ChainBlocked.Status -eq 'CLEANUP_BLOCKED' -and
+        (Test-Path -LiteralPath $result.ChainBase -PathType Leaf) -and
+        (Test-Path -LiteralPath $result.ChainChild -PathType Leaf))
     Add-CheckResult -Name 'Image-Builder-Cleanup validiert Build-State und Build-Binding gemeinsam' -Success (
         $result.BuildCleanup.Status -eq 'CLEANUP_SUCCEEDED' -and $result.BuildVhdxRemoved)
 }

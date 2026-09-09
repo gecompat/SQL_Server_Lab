@@ -209,6 +209,10 @@ try {
             $provider -match 'function\s+Remove-HyperVVhdxForCleanup[\s\S]+Test-HyperVVhdxCleanupScope'
         )
     Add-TextContract `
+        -Name 'Scope-gebundener VM-Cleanup führt Checkpoints vor dem VM- und VHDX-Cleanup zusammen' `
+        -Text $provider `
+        -Pattern 'Get-VMSnapshot[\s\S]+checkpoint-remove[\s\S]+Remove-VMSnapshot[\s\S]+HYPERV_CHECKPOINT_MERGE_TIMEOUT[\s\S]+Remove-VM'
+    Add-TextContract `
         -Name 'Cleanup-Engine behandelt Hyper-V-VM und Child-VHDX getrennt' `
         -Text $cleanup `
         -Pattern "'vm'[\s\S]+Remove-LabHyperVResourceForCleanup[\s\S]+'vhdx'[\s\S]+Remove-LabHyperVResourceForCleanup"
