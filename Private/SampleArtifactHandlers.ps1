@@ -202,6 +202,7 @@ function Get-LabArchiveBackupPayload {
     $workingDirectory = Join-Path $temporaryBase ([guid]::NewGuid().ToString('N'))
     New-Item -Path $workingDirectory -ItemType Directory -Force | Out-Null
 
+    $archiveProgress = Start-LabActionProgress -Phase Extract
     try {
         if ($ArchiveFormat -eq 'zip') {
             Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
@@ -223,7 +224,7 @@ function Get-LabArchiveBackupPayload {
 
                 $targetDirectory = Split-Path -Parent $fullTargetPath
                 New-Item -Path $targetDirectory -ItemType Directory -Force | Out-Null
-                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($matches[0], $fullTargetPath, $false)
+                Expand-LabProgressZipEntry -Entry $matches[0] -Destination $fullTargetPath -Progress $archiveProgress
                 return [PSCustomObject]@{
                     Path             = $fullTargetPath
                     WorkingDirectory = $workingDirectory
@@ -240,9 +241,10 @@ function Get-LabArchiveBackupPayload {
         }
         $sevenZipPath = [string]$sevenZip.Path
 
-        $listing = @(& $sevenZipPath l -slt $ArchivePath $normalizedPayload 2>&1)
-        if ($LASTEXITCODE -ne 0) {
-            throw "SAMPLE_ARCHIVE_INSPECTION_FAILED: 7-Zip konnte '$normalizedPayload' nicht prüfen (ExitCode $LASTEXITCODE): $($listing -join ' ')"
+        $inspection = Invoke-LabProgressNativeCommand -FilePath $sevenZipPath -ArgumentList @('l','-slt',$ArchivePath,$normalizedPayload) -Phase Extract -Progress $archiveProgress
+        $listing = @($inspection.Output)
+        if ($inspection.ExitCode -ne 0) {
+            throw "SAMPLE_ARCHIVE_INSPECTION_FAILED: 7-Zip konnte '$normalizedPayload' nicht prüfen (ExitCode $($inspection.ExitCode)): $($listing -join ' ')"
         }
         $payloadMatches = @($listing | Where-Object {
             $line = ([string]$_).Trim()
@@ -257,9 +259,10 @@ function Get-LabArchiveBackupPayload {
         # dem Arbeitsverzeichnis ausbrechen; der sichere Katalogpfad wählt die
         # einzige erlaubte Payload eindeutig aus.
         $targetFileName = [System.IO.Path]::GetFileName($normalizedPayload)
-        $output = @(& $sevenZipPath e $ArchivePath ("-o{0}" -f $workingDirectory) '-y' $normalizedPayload 2>&1)
-        if ($LASTEXITCODE -ne 0) {
-            throw "SAMPLE_ARCHIVE_EXTRACTION_FAILED: 7-Zip konnte '$normalizedPayload' nicht extrahieren (ExitCode $LASTEXITCODE): $($output -join ' ')"
+        $extraction = Invoke-LabProgressNativeCommand -FilePath $sevenZipPath -ArgumentList @('e',$ArchivePath,("-o{0}" -f $workingDirectory),'-y',$normalizedPayload) -Phase Extract -Progress $archiveProgress
+        $output = @($extraction.Output)
+        if ($extraction.ExitCode -ne 0) {
+            throw "SAMPLE_ARCHIVE_EXTRACTION_FAILED: 7-Zip konnte '$normalizedPayload' nicht extrahieren (ExitCode $($extraction.ExitCode)): $($output -join ' ')"
         }
         $fullTargetPath = Join-Path $workingDirectory $targetFileName
         if (-not (Test-Path -LiteralPath $fullTargetPath -PathType Leaf) -or (Get-Item -LiteralPath $fullTargetPath).Length -le 0) {
@@ -276,6 +279,7 @@ function Get-LabArchiveBackupPayload {
         }
         throw
     }
+    finally { Stop-LabActionProgress -Progress $archiveProgress }
 }
 
 function Get-LabAttachPayloadLayout {
@@ -369,6 +373,7 @@ function Get-LabArchiveAttachPayloads {
     $workingDirectory = Join-Path $temporaryBase ([guid]::NewGuid().ToString('N'))
     New-Item -Path $workingDirectory -ItemType Directory -Force | Out-Null
 
+    $archiveProgress = Start-LabActionProgress -Phase Extract
     try {
         if ($ArchiveFormat -eq 'zip') {
             Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
@@ -386,7 +391,7 @@ function Get-LabArchiveAttachPayloads {
                         throw "SAMPLE_ATTACH_PAYLOAD_INVALID: '$($item.Path)' verlaesst das temporaere Arbeitsverzeichnis."
                     }
                     New-Item -Path (Split-Path -Parent $targetPath) -ItemType Directory -Force | Out-Null
-                    [System.IO.Compression.ZipFileExtensions]::ExtractToFile($matches[0], $targetPath, $false)
+                    Expand-LabProgressZipEntry -Entry $matches[0] -Destination $targetPath -Progress $archiveProgress
                     $payloads.Add([PSCustomObject]@{ Path = $targetPath; Role = $item.Role; ArchivePath = $item.Path })
                 }
                 return [PSCustomObject]@{ Payloads = @($payloads); WorkingDirectory = $workingDirectory }
@@ -402,9 +407,10 @@ function Get-LabArchiveAttachPayloads {
         $targetRoot = [System.IO.Path]::GetFullPath($workingDirectory + [System.IO.Path]::DirectorySeparatorChar)
         $payloads = [System.Collections.Generic.List[object]]::new()
         foreach ($item in $layout) {
-            $listing = @(& $sevenZipPath l -slt $ArchivePath $item.Path 2>&1)
-            if ($LASTEXITCODE -ne 0) {
-                throw "SAMPLE_ATTACH_INSPECTION_FAILED: 7-Zip konnte '$($item.Path)' nicht prüfen (ExitCode $LASTEXITCODE): $($listing -join ' ')"
+            $inspection = Invoke-LabProgressNativeCommand -FilePath $sevenZipPath -ArgumentList @('l','-slt',$ArchivePath,$item.Path) -Phase Extract -Progress $archiveProgress
+            $listing = @($inspection.Output)
+            if ($inspection.ExitCode -ne 0) {
+                throw "SAMPLE_ATTACH_INSPECTION_FAILED: 7-Zip konnte '$($item.Path)' nicht prüfen (ExitCode $($inspection.ExitCode)): $($listing -join ' ')"
             }
             $matches = @($listing | Where-Object {
                 $line = ([string]$_).Trim()
@@ -417,9 +423,10 @@ function Get-LabArchiveAttachPayloads {
             if (-not $targetPath.StartsWith($targetRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
                 throw "SAMPLE_ATTACH_PAYLOAD_INVALID: '$($item.Path)' verlaesst das temporaere Arbeitsverzeichnis."
             }
-            $output = @(& $sevenZipPath x $ArchivePath ("-o{0}" -f $workingDirectory) '-y' $item.Path 2>&1)
-            if ($LASTEXITCODE -ne 0) {
-                throw "SAMPLE_ATTACH_EXTRACTION_FAILED: 7-Zip konnte '$($item.Path)' nicht extrahieren (ExitCode $LASTEXITCODE): $($output -join ' ')"
+            $extraction = Invoke-LabProgressNativeCommand -FilePath $sevenZipPath -ArgumentList @('x',$ArchivePath,("-o{0}" -f $workingDirectory),'-y',$item.Path) -Phase Extract -Progress $archiveProgress
+            $output = @($extraction.Output)
+            if ($extraction.ExitCode -ne 0) {
+                throw "SAMPLE_ATTACH_EXTRACTION_FAILED: 7-Zip konnte '$($item.Path)' nicht extrahieren (ExitCode $($extraction.ExitCode)): $($output -join ' ')"
             }
             if (-not (Test-Path -LiteralPath $targetPath -PathType Leaf) -or (Get-Item -LiteralPath $targetPath).Length -le 0) {
                 throw "SAMPLE_ATTACH_PAYLOAD_NOT_FOUND: 7z muss genau die katalogisierte Payload '$($item.Path)' enthalten."
@@ -432,6 +439,7 @@ function Get-LabArchiveAttachPayloads {
         if (Test-Path -LiteralPath $workingDirectory) { Remove-Item -LiteralPath $workingDirectory -Recurse -Force -ErrorAction SilentlyContinue }
         throw
     }
+    finally { Stop-LabActionProgress -Progress $archiveProgress }
 }
 
 function Expand-LabScriptBundlePayload {
@@ -488,6 +496,7 @@ function Expand-LabScriptBundlePayload {
     $extractionRoot = Join-Path $temporaryBase ([guid]::NewGuid().ToString('N'))
     New-Item -Path $extractionRoot -ItemType Directory -Force | Out-Null
 
+    $archiveProgress = Start-LabActionProgress -Phase Extract
     try {
         Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
         $archive = [System.IO.Compression.ZipFile]::OpenRead($BundlePath)
@@ -519,7 +528,7 @@ function Expand-LabScriptBundlePayload {
 
                 $targetDirectory = Split-Path -Parent $fullTargetPath
                 New-Item -Path $targetDirectory -ItemType Directory -Force | Out-Null
-                [System.IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $fullTargetPath, $false)
+                Expand-LabProgressZipEntry -Entry $entry -Destination $fullTargetPath -Progress $archiveProgress
 
                 if ($archivePath -ieq $entrypointArchivePath) {
                     $entrypointMatches.Add($fullTargetPath)
@@ -546,6 +555,7 @@ function Expand-LabScriptBundlePayload {
         }
         throw
     }
+    finally { Stop-LabActionProgress -Progress $archiveProgress }
 }
 
 function Convert-LabScriptBundleToSql {

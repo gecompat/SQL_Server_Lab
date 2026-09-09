@@ -99,6 +99,15 @@ bleiben unter der bestehenden Providerverwaltung; der Test fuehrt kein Prune aus
 
 ### Statische Prüfung
 
+`Tests/Static/Invoke-ArchiveProgressChecks.ps1` prueft ZIP-Byteintegritaet,
+Zeitstempel, Zwischenmeldungen, bestehende Ziele, Teilfehler-Cleanup sowie
+einen gemeinsamen Reporter fuer Datei- und native Archivschritte.
+`Invoke-SampleHandlerChecks.ps1` deckt weiterhin Katalog- und Pfadgrenzen ab.
+`Tests/Integration/Invoke-ArchiveProgressAcceptance.ps1` verwendet eine bereits
+installierte 7-Zip-Kommandozeile und ein eigenes synthetisches Archiv. Der
+Lauf am 2026-09-10 bestaetigte Backup- und Attach-Bytes sowie Fehler-Cleanup;
+er benoetigt weder SQL noch Container oder VM und installiert kein Werkzeug.
+
 `Tests/Static/Invoke-TransferProgressChecks.ps1` prueft Kopieren und SHA-256
 mit synthetischen Dateien: mehrere Bloecke und Restbytes, Zeitstempel,
 gemessene Zwischenwerte, leere Datei, Teilfehler mit erhaltenem Altziel,

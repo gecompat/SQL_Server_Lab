@@ -155,10 +155,12 @@ function Invoke-LabProgressNativeCommand {
     param(
         [Parameter(Mandatory)][string]$FilePath,
         [Parameter(Mandatory)][string[]]$ArgumentList,
-        [ValidateSet('ImageBuild','Transfer','Restore','Import','GuestWait')][string]$Phase = 'ImageBuild',
-        [ValidateRange(1,86400)][int]$TimeoutSeconds = 3600
+        [ValidateSet('ImageBuild','Transfer','Restore','Import','GuestWait','Extract')][string]$Phase = 'ImageBuild',
+        [ValidateRange(1,86400)][int]$TimeoutSeconds = 3600,
+        [object]$Progress
     )
-    $progress = Start-LabActionProgress -Phase $Phase
+    $ownsProgress = $null -eq $Progress
+    if ($ownsProgress) { $Progress = Start-LabActionProgress -Phase $Phase }
     $process = [System.Diagnostics.Process]::new()
     $process.StartInfo.FileName = $FilePath
     $process.StartInfo.UseShellExecute = $false
@@ -190,6 +192,6 @@ function Invoke-LabProgressNativeCommand {
         try {
             if ($started -and -not $process.HasExited) { $process.Kill($true); $null = $process.WaitForExit(5000) }
         }
-        finally { $process.Dispose(); Stop-LabActionProgress -Progress $progress }
+        finally { $process.Dispose(); if ($ownsProgress) { Stop-LabActionProgress -Progress $Progress } }
     }
 }

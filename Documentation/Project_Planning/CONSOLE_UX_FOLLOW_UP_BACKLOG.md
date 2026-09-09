@@ -254,6 +254,9 @@ nativen Rohdaten. Datei-/VHDX-Kopien in Registry und beiden Migrationspfaden
 sowie die dortige und die Download-/Restore-Hashpruefung melden echte Bytewerte.
 Offline-Tests decken Integritaet, Teilfehler und atomare Zielersetzung ab;
 dies ist kein Nachweis fuer VM-Lifecycle oder produktive VHDX-Groessen.
+ZIP-Backup-, Attach- und Script-Bundle-Payloads melden entpackte Bytewerte;
+7-Zip-Pruefung und -Extraktion besitzen hostseitigen Heartbeat. Mehrteilige
+Archive teilen sich einen Reporter bis zum Abschluss oder Fehler.
 Weitere SQL-/Containertransfers und Gastwartepfade bleiben Teil dieses offenen Punkts; der folgende Ausgangsbefund
 beschreibt den Stand vor dieser Erweiterung.
 
