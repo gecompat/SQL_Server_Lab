@@ -239,7 +239,9 @@ function New-LabConsoleField {
         [scriptblock]$Validator,
         [scriptblock]$Formatter,
         [switch]$Sensitive,
-        [switch]$Required
+        [switch]$Required,
+        [switch]$Disabled,
+        [AllowEmptyString()][string]$DisabledReason = ''
     )
 
     if ($Sensitive -and $null -ne $Value) {
@@ -255,6 +257,8 @@ function New-LabConsoleField {
         Formatter = $Formatter
         Sensitive = $Sensitive.IsPresent
         Required = $Required.IsPresent
+        Disabled = $Disabled.IsPresent
+        DisabledReason = $DisabledReason
     }
 }
 
@@ -1363,7 +1367,8 @@ function Invoke-LabConsoleForm {
             }
             elseif ($field.Formatter) { [string](& $field.Formatter $values[$id]) }
             else { [string]$values[$id] }
-            New-LabConsoleItem -Id $id -Label ([string]$field.Label) -Value $displayValue -Shortcut ([string]$field.Shortcut) -Data $field
+            New-LabConsoleItem -Id $id -Label ([string]$field.Label) -Value $displayValue -Shortcut ([string]$field.Shortcut) -Data $field `
+                -Disabled:([bool]$field.Disabled) -DisabledReason ([string]$field.DisabledReason)
         }
         $items = @($items) + @(New-LabConsoleItem -Id '__review' -Label 'Eingaben pruefen und anwenden' -Shortcut 'f')
         $formResult = Invoke-LabConsoleMenu -ScreenId $ScreenId -Title $Title -Subtitle $(if ($message) { "$Subtitle - $message" } else { $Subtitle }) -Items $items -SelectedId $SelectedId -Footer 'Pfeile: Navigation  Enter: Bearbeiten  F10/f: Pruefen  Esc: Abbruch' -ForceFallback:$ForceFallback -Capability $Capability -ReadInput $ReadInput -ReadKey $ReadKey -FrameWriter $FrameWriter -GetViewport $GetViewport -SessionFactory $SessionFactory -SessionCompleter $SessionCompleter

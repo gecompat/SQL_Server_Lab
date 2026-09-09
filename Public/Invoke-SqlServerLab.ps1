@@ -261,11 +261,27 @@ function Show-LabEnvironmentMenu {
 }
 
 function Show-LabHyperVMenu {
+    $availability = try {
+        if ($IsWindows) { Test-HyperVAvailable }
+        else { [pscustomobject]@{ Available = $false; Message = 'Hyper-V ist nur unter Windows verfuegbar.' } }
+    }
+    catch { [pscustomobject]@{ Available = $false; Message = $_.Exception.Message } }
+    $hyperVAvailable = $null -ne $availability -and [bool]$availability.Available
+    $disabledReason = ''
+    if (-not $hyperVAvailable) {
+        $reason = [string]$availability.Message
+        if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'Hyper-V ist nicht installiert oder in dieser Sitzung nicht verwendbar.' }
+        $disabledReason = "$reason Abhilfe: Windows-Feature Hyper-V aktivieren und den Host neu starten."
+    }
     $items = @(
-        New-LabConsoleItem -Id 'Image' -Label 'Hyper-V Infrastruktur: OS-Images und ISOs verwalten' -Value 'Windows-/SQL-Basen, ISO-Download und Baseline-Builds' -Shortcut '1'
-        New-LabConsoleItem -Id 'WindowsSlotPool' -Label 'Windows-OS-Slot-Pool automatisch erstellen' -Value 'Baseline prüfen · RAM/Locale · Unattended OOBE' -Shortcut 'p'
-        New-LabConsoleItem -Id 'HyperVManage' -Label 'Hyper-V Slots und Infrastrukturverwaltung' -Value 'OS-/SQL-Slots übernehmen, freigeben, fortsetzen' -Shortcut '2'
-        New-LabConsoleItem -Id 'BulkSlots' -Label 'Mehrere Slots gemeinsam bereitstellen' -Value 'Mengenfaehiger Composer · gemeinsame Vorlagenabhaengigkeiten' -Shortcut '3'
+        New-LabConsoleItem -Id 'Image' -Label 'Hyper-V Infrastruktur: OS-Images und ISOs verwalten' -Value 'Windows-/SQL-Basen, ISO-Download und Baseline-Builds' -Shortcut '1' `
+            -Disabled:(-not $hyperVAvailable) -DisabledReason $disabledReason
+        New-LabConsoleItem -Id 'WindowsSlotPool' -Label 'Windows-OS-Slot-Pool automatisch erstellen' -Value 'Baseline prüfen · RAM/Locale · Unattended OOBE' -Shortcut 'p' `
+            -Disabled:(-not $hyperVAvailable) -DisabledReason $disabledReason
+        New-LabConsoleItem -Id 'HyperVManage' -Label 'Hyper-V Slots und Infrastrukturverwaltung' -Value 'OS-/SQL-Slots übernehmen, freigeben, fortsetzen' -Shortcut '2' `
+            -Disabled:(-not $hyperVAvailable) -DisabledReason $disabledReason
+        New-LabConsoleItem -Id 'BulkSlots' -Label 'Mehrere Slots gemeinsam bereitstellen' -Value 'Mengenfaehiger Composer · gemeinsame Vorlagenabhaengigkeiten' -Shortcut '3' `
+            -Disabled:(-not $hyperVAvailable) -DisabledReason $disabledReason
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 
@@ -1978,9 +1994,22 @@ function Invoke-LabCuResourceInteractive {
     [CmdletBinding()]
     param()
 
+    $platformAvailability = try {
+        if ($IsWindows) { Test-HyperVAvailable }
+        else { [pscustomobject]@{ Available = $false; Message = 'Hyper-V ist nur unter Windows verfuegbar.' } }
+    }
+    catch { [pscustomobject]@{ Available = $false; Message = $_.Exception.Message } }
+    $windowsCuAvailable = $null -ne $platformAvailability -and [bool]$platformAvailability.Available
+    $windowsCuDisabledReason = ''
+    if (-not $windowsCuAvailable) {
+        $windowsCuReason = [string]$platformAvailability.Message
+        if ([string]::IsNullOrWhiteSpace($windowsCuReason)) { $windowsCuReason = 'Hyper-V ist nicht installiert oder in dieser Sitzung nicht verwendbar.' }
+        $windowsCuDisabledReason = "Das Windows-CU-Paket setzt den Hyper-V-Pfad voraus. $windowsCuReason"
+    }
     $platformResult = Invoke-LabConsoleMenu -ScreenId 'cu-resource-platform' -Title 'CU-Ressource' `
         -Subtitle 'Windows-Paket in Lab_Base oder Linux-Image im Runtimecache' -Items @(
-            New-LabConsoleItem -Id 'Windows' -Label 'Windows-CU-Paket' -Value 'SHA-256 und Microsoft-Authenticode' -Shortcut '1'
+            New-LabConsoleItem -Id 'Windows' -Label 'Windows-CU-Paket' -Value 'SHA-256 und Microsoft-Authenticode' -Shortcut '1' `
+                -Disabled:(-not $windowsCuAvailable) -DisabledReason $windowsCuDisabledReason
             New-LabConsoleItem -Id 'Linux' -Label 'Linux-Containerimage' -Value 'exakter MCR-Tag für Docker oder Podman' -Shortcut '2'
         )
     if ($platformResult.Status -ne 'Selected') { return }
@@ -2140,11 +2169,14 @@ function Read-LabSqlEnvironmentIntentInteractive {
         )
     }
     if (-not $custom) {
-        $fields += New-LabConsoleField -Id 'networkMode' -Label 'Netzwerkmodus' -Value 'host-access' -Editor { param($current,$values) $current }
+        $fields += New-LabConsoleField -Id 'networkMode' -Label 'Netzwerkmodus' -Value 'host-access' -Editor { param($current,$values) $current } `
+            -Disabled -DisabledReason 'In der Schnellkonfiguration ist nur Hostzugriff zulaessig; andere Modi erfordern die benutzerdefinierte Konfiguration.'
     }
     $formResult = Invoke-LabConsoleForm -ScreenId 'sql-target-configuration' -Title 'SQL-Zielkonfiguration bearbeiten' -Subtitle $(if($custom){'Benutzerdefiniert - alle Werte vor Providerentscheidung'}else{'Schnellkonfiguration - sichtbare Standardwerte'}) -Fields $fields
     if ($formResult.Status -ne 'Confirmed') { Write-LabInfo 'SQL-Zielkonfiguration abgebrochen.'; return $null }
     $values = $formResult.Values
+    # Die Schnellkonfiguration erzwingt host-access; das Feld wird dort nicht angezeigt.
+    if (-not $custom) { $values['networkMode'] = 'host-access' }
     $cpu = [decimal]$values['cpu']; $memoryMB = [int]$values['memoryMB']; $patch = $values['patch']
     if ($physicalMemoryMB -gt 0 -and $memoryMB -gt $physicalMemoryMB) { Write-LabWarning "RAM-Overcommit: $memoryMB MB angefordert, physisch $physicalMemoryMB MB. Auslagerung ist nicht garantiert; Runtime kann OOM oder Startfehler liefern." }
     $storage = if($custom){$values['storage']}else{$defaultStorage}

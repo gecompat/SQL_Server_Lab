@@ -796,12 +796,26 @@ function Show-LabCreateMenu {
     [CmdletBinding()]
     param()
 
+    $availability = try {
+        if ($IsWindows) { Test-HyperVAvailable }
+        else { [pscustomobject]@{ Available = $false; Message = 'Hyper-V ist nur unter Windows verfuegbar.' } }
+    }
+    catch { [pscustomobject]@{ Available = $false; Message = $_.Exception.Message } }
+    $hyperVAvailable = $null -ne $availability -and [bool]$availability.Available
+    $hyperVDisabledReason = ''
+    if (-not $hyperVAvailable) {
+        $reason = [string]$availability.Message
+        if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'Hyper-V ist nicht installiert oder in dieser Sitzung nicht verwendbar.' }
+        $hyperVDisabledReason = "$reason Abhilfe: Windows-Feature Hyper-V aktivieren und den Host neu starten."
+    }
+
     return Show-LabSubMenu -ScreenId 'create-menu' -Title 'Umgebung erstellen' -Subtitle 'Sofort erstellen oder zusammenstellen und uebergeben' -Items @(
         New-LabConsoleItem -Id New -Label 'SQL-Umgebung jetzt erstellen' -Value 'Ein Ziel · Provider automatisch · laeuft sofort durch, ohne Queue' -Shortcut 1 `
             -Help 'Fragt die Zielkonfiguration ab, entscheidet den Provider, zeigt die Begruendung und erstellt nach einer Rueckfrage sofort. Die Schritte erscheinen fortlaufend.'
         New-LabConsoleItem -Id BatchPlan -Label 'SQL- oder Windows-Umgebung zusammenstellen' -Value 'Einzelposition oder mehrere · Provider Auto · Pruefung vor der Uebergabe' -Shortcut 2 `
             -Help 'Sammelt mehrere Positionen in einem Batch und uebergibt sie nach einer Pruefung an die Warteschlange.'
-        New-LabConsoleItem -Id BulkSlots -Label 'Mehrere Windows-Slots gemeinsam bereitstellen' -Value 'Mengenfaehiger Composer · gemeinsame Vorlagenabhaengigkeiten' -Shortcut 3
+        New-LabConsoleItem -Id BulkSlots -Label 'Mehrere Windows-Slots gemeinsam bereitstellen' -Value 'Mengenfaehiger Composer · gemeinsame Vorlagenabhaengigkeiten' -Shortcut 3 `
+            -Disabled:(-not $hyperVAvailable) -DisabledReason $hyperVDisabledReason
         New-LabConsoleItem -Id AutomatedTestEnvironment -Label 'Umgebung fuer automatisierte Tests anlegen' -Value 'Mehrere Ziele · TestUmgebung.env im Lab_Data-Export' -Shortcut 4 `
             -Help 'Erfasst mehrere Linux- oder Windows-SQL-Testziele und schreibt den Lab_Data-Vertrag. Start und Stopp der Gruppe erfolgen spaeter unter Umgebungen verwalten.'
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0

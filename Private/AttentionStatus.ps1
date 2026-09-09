@@ -34,6 +34,9 @@ function Get-LabAttentionSnapshot {
         [ValidateRange(0, 100)][int]$LowTemplateCapacity = 2
     )
 
+    $providerAvailability = Get-LabProviderAvailabilityMap
+    $hyperVAvailable = [bool]$providerAvailability['hyperv']
+
     $items = [System.Collections.Generic.List[object]]::new()
     $hyperVAvailable = $false
     try { $hyperVAvailable = [bool](Test-HyperVAvailable).Available } catch { }
@@ -60,6 +63,7 @@ function Get-LabAttentionSnapshot {
     }
 
     foreach ($version in @($script:VersionCatalog.versions | Where-Object { [string]$_.status -eq 'SUPPORTED' -and $_.docker })) {
+        if (-not $hyperVAvailable) { continue }
         try {
             $latestPatch = @(Get-SqlServerPatchOptions -VersionId ([string]$version.id) -MediaRoot $mediaRoot) | Select-Object -First 1
             if (-not $latestPatch) { continue }

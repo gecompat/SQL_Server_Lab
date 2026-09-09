@@ -170,52 +170,42 @@ Bereiche sind nach aktuellem Produktstand nicht mehr flach oder besitzen bereits
 mehrere eigenständige Handlungen. Der statische Menüvertrag verhindert weiterhin
 Bereiche mit weniger als zwei Handlungsoptionen.
 
-### 9. Menüs und Befundliste berücksichtigen die tatsächliche Providerverfügbarkeit nicht — OPEN
+### 9. Menüs und Befundliste berücksichtigen die tatsächliche Providerverfügbarkeit nicht — RESOLVED
 
-Geprüfter Ist-Zustand vom 2026-09-08: Die Befundliste entsteht zentral in
+Geprüfter Ist-Zustand vom 2026-09-08: Die Befundliste entstand zentral in
 `Get-LabAttentionSnapshot` (`Private/AttentionStatus.ps1`). Die drei
 Hyper-V-Befunde `template-pool-capacity-low`, `sql-slot-pool-low` und
-`image-builds-pending` sind nur über `if ($IsWindows)` abgegrenzt, nicht über
-`Test-HyperVAvailable`. Auf einem Windows-Host ohne verfügbares Hyper-V
-erscheinen daher Hinweise wie „Nur 0 fertige SQL-Pool-Slots; Mindestbestand
-ist 2. Loesung: Bei Bedarf neue Slots über den Hyper-V-Pfad erzeugen.“,
-obwohl der genannte Lösungsweg dort nicht ausführbar ist. Der
-CU-Medienbefund `cu-media-*` („SQL … ist katalogisiert; Windows-Paket
-fehlt.“) wird ohne Providerbezug gemeldet; sein Lösungsweg über das
-Windows-Paket setzt den Hyper-V-Pfad voraus.
+`image-builds-pending` waren nur über `if ($IsWindows)` abgegrenzt, nicht
+über die tatsächliche Verfügbarkeit. Auf einem Windows-Host ohne
+verfügbares Hyper-V erschienen daher Hinweise wie „Nur 0 fertige
+SQL-Pool-Slots; Mindestbestand ist 2. Loesung: Bei Bedarf neue Slots über
+den Hyper-V-Pfad erzeugen.“, obwohl der genannte Lösungsweg dort nicht
+ausführbar war. Der CU-Medienbefund `cu-media-*` („SQL … ist katalogisiert;
+Windows-Paket fehlt.“) wurde ohne Providerbezug gemeldet; sein Lösungsweg
+über das Windows-Paket setzt den Hyper-V-Pfad voraus.
 
-In den Menüs ist das Hyper-V-Gating bereits teilweise umgesetzt
-(`Show-LabMenu` und `Show-LabInfrastructureMenu` mit `-Disabled` und
-`-DisabledReason` aus `New-LabConsoleItem`); die Docker-/Podman-
-Verfügbarkeit wird dagegen in keinem Menü ausgewertet. Die kanonischen
-Prüfungen sind vorhanden: `Test-HyperVAvailable`
-(`Providers/HyperV/HyperVProvider.ps1`), `Resolve-LabHostTool`
-(`Private/HostToolResolution.ps1`) und `Get-AvailableLabProviders`
-(`Public/Invoke-SqlServerLab.ps1`).
+Umsetzung am 2026-09-08: `Get-LabAttentionSnapshot` ermittelt die
+Verfügbarkeit einmal je Snapshot über die kanonische
+`Get-LabProviderAvailabilityMap` (bindet `Test-HyperVAvailable` für Hyper-V)
+und erzeugt die drei Hyper-V-Befunde sowie den CU-Medienbefund
+`cu-media-*` nur noch bei tatsächlich verfügbarem Hyper-V. Providerneutrale
+Befunde (`media-root-missing`, `cu-catalog-*`, `cu-media-unverified-*`,
+`cu-status-*-unavailable`, `run-recovery-required`) bleiben unverändert.
+In den Menüs werden das Hyper-V-Bereichsmenü (`Show-LabHyperVMenu`, vier
+Einträge), der mengenfähige Windows-Slot-Composer (`BulkSlots` in
+`Show-LabCreateMenu`) und das Windows-CU-Paket im CU-Download
+(`Invoke-LabCuResourceInteractive`) bei fehlendem Hyper-V begründet
+über `-Disabled`/`-DisabledReason` deaktiviert; das bereits bestehende
+Gating in `Show-LabMenu` und `Show-LabInfrastructureMenu` bleibt. Die
+Erstellungsentscheidung selbst nutzte die Verfügbarkeit bereits über
+`Get-LabProviderAvailabilityMap` und `Resolve-LabSqlIntentProvider`.
 
-Zielvertrag: Befunde, deren Lösungsweg einen nicht verfügbaren Provider
-erfordert, werden gar nicht erzeugt. Menüeinträge, die einen nicht
-verfügbaren Provider voraussetzen, werden mit begründetem `-Disabled`
-deaktiviert; das Erstellungsmenü bietet nur verfügbare Provider an, und
-„Provider Auto“ wählt ausschließlich aus verfügbaren. Die Verfügbarkeit
-wird einmal je Snapshot- beziehungsweise Menüaufbau ermittelt und
-weitergereicht; ein Mehrfach-Probe von `Get-VMHost` oder
-`docker info` je Eintrag ist ausgeschlossen. Prüfliste der Befunde für die
-Umsetzung:
-
-| Befund | Providerbindung |
-|---|---|
-| `media-root-missing`, `cu-catalog-date-missing`, `cu-catalog-stale`, `cu-media-unverified-*`, `cu-status-*-unavailable`, `run-recovery-required` | providerneutral, bleiben unverändert |
-| `cu-media-*` („Windows-Paket fehlt“) | nur melden, wenn der Hyper-V-Pfad verfügbar ist |
-| `template-pool-capacity-low`, `sql-slot-pool-low`, `image-builds-pending` | nur bei verfügbarem Hyper-V |
-
-Nicht-Ziele: keine Änderung an der Provider-Erkennung selbst, an der
-Batch-/Queue-Auswahl oder an nicht-interaktiven Pfaden.
-
-Nachweis bei der Umsetzung: statischer AST-Vertrag, der die drei
-Hyper-V-Befunde und den CU-Medienbefund hinter einer
-Verfügbarkeitsprüfung verlangt, plus funktionaler Test mit gemockter
-Verfügbarkeit inklusive Gegenbeweis.
+Nachweis: statischer Vertrag in `Tests/Static/Invoke-ConsoleUiChecks.ps1`
+verlangt die Verfügbarkeitsbindung in der Befundliste sowie die begründete
+Deaktivierung im Hyper-V-Menü, im Erstellungsmenü und im CU-Download.
+Die Container-Providerauswahl im CU-Download (`cu-resource-provider`) und
+die Erstellungsentscheidung werteten die Docker-/Podman-Verfügbarkeit
+bereits aus; eine Änderung daran war nicht erforderlich.
 
 ### 10. Adhoc-Containererstellung mit Sample-Datenbank scheitert an später Connection-Info und verwirft die fertige Umgebung — RESOLVED
 
