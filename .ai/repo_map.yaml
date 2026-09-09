@@ -92,6 +92,9 @@ sources_of_truth:
   host_tool_initializer: Tools/Initialize-SqlServerLabHostTools.ps1
   validation_host_tool_resolution: Tests/Static/Invoke-HostToolResolutionChecks.ps1
   state_contract: Private/StateMachine.ps1
+  run_state_upgrade_plan_contract: Private/StateUpgrade.ps1
+  run_state_upgrade_plan_public: Public/Get-SqlServerLabRunStateUpgradePlan.ps1
+  validation_run_state_upgrade_plan: Tests/Static/Invoke-RunStateUpgradeChecks.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   validation_cleanup_volume_ownership: Tests/Static/Invoke-CleanupVolumeOwnershipChecks.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1

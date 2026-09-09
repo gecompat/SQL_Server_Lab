@@ -26,6 +26,7 @@
         'Get-SqlServerLabAiScenario'
         'Get-SqlServerLabHyperVImageArtifact'
         'Get-SqlServerLabEvaluationWatch'
+        'Get-SqlServerLabRunStateUpgradePlan'
         'Get-SqlServerLabHyperVResourcePreview'
         'Get-SqlServerLabCatalog'
         'Get-SqlServerLabConnectionCenter'
