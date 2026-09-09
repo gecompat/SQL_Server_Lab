@@ -99,6 +99,13 @@ bleiben unter der bestehenden Providerverwaltung; der Test fuehrt kein Prune aus
 
 ### Statische Prüfung
 
+`Tests/Static/Invoke-TransferProgressChecks.ps1` prueft Kopieren und SHA-256
+mit synthetischen Dateien: mehrere Bloecke und Restbytes, Zeitstempel,
+gemessene Zwischenwerte, leere Datei, Teilfehler mit erhaltenem Altziel,
+Wiederholung und Hardlink-Schutz. Die drei betroffenen Hyper-V-Dateisuites
+pruefen die Registry- und Migrationsvertraege ohne VM-Mutation. Diese
+Pruefungen ersetzen keinen VHDX- oder Hyper-V-Lifecycle-Nachweis.
+
 ```powershell
 .\Tests\Static\Invoke-AllChecks.ps1
 ```

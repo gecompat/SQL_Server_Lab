@@ -249,6 +249,8 @@ sources_of_truth:
   validation_documentation: Tests/Static/Invoke-DocumentationChecks.ps1
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
   direct_action_progress: Private/ActionProgress.ps1
+  direct_transfer_progress: Private/TransferProgress.ps1
+  validation_direct_transfer_progress: Tests/Static/Invoke-TransferProgressChecks.ps1
   validation_direct_action_progress: Tests/Static/Invoke-ActionProgressChecks.ps1
   acceptance_direct_action_progress: Tests/Integration/Invoke-ActionProgressAcceptance.ps1
   automated_test_environment_contract: Public/TestEnvironment.ps1

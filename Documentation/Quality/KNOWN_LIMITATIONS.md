@@ -1605,8 +1605,14 @@ melden hostseitig Aktivitaet und Laufzeit. Nur feste Phasen und numerische
 Messwerte gelangen in die Anzeige. Die Offline-Pruefung verwendet einen
 langsamen Loopback-Download, synthetische SQL-Probes und einen nativen
 Kindprozess. Getrennte Docker-/Podman-Buildtests und SQL-2025-Smokes mit jeweils
-34/34 Pruefungen sind am 2026-09-10 bestanden. Weitere Datei-/VHDX-,
-SQL-Transfer- und Hyper-V-Gastwartepfade bleiben im UX-Punkt 11 offen.
+34/34 Pruefungen sind am 2026-09-10 bestanden. Datei-/VHDX-Kopien in Registry,
+Image- und Ressourcenmigration sowie Hashpruefungen dieser Pfade, Downloads
+und Restore melden Bytewerte. Der Kopierpfad ersetzt das Ziel erst nach
+vollstaendigem Transfer; synthetische Offline-Pruefungen belegen Integritaet,
+Teilfehler-Cleanup und Hardlink-Schutz. Kopieren und Hashing besitzen ein
+Zeitlimit von einer Stunde. Ein Nachweis mit grossen VHDX-Dateien und
+Hyper-V-Lifecycle steht aus. SQL-/Containertransfers und Hyper-V-Gastwartepfade
+bleiben im UX-Punkt 11 offen.
 
 Der reservierte Statusbereich (`CUI-022`) hält Menüzeilen stabil. Eine Prüfung
 aller Docker-, Podman- und Hyper-V-Aufrufe am 2026-09-07 hat ergeben, dass

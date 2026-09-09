@@ -181,7 +181,7 @@ function Get-HyperVImageArtifact {
                 [long]$cache.lastWriteTimeUtcTicks -eq [long]$item.LastWriteTimeUtc.Ticks -and
                 $item.IsReadOnly
             if (-not $cacheValid) {
-                $observed = (Get-FileHash -LiteralPath $vhdxPath -Algorithm SHA256).Hash.ToLowerInvariant()
+                $observed = (Get-LabProgressFileHash -LiteralPath $vhdxPath -Algorithm SHA256).Hash.ToLowerInvariant()
                 if ($observed -ne [string]$metadata.sha256 -or -not $item.IsReadOnly) {
                     throw "HYPERV_ARTIFACT_INTEGRITY_MISMATCH: $($metadata.artifactId)"
                 }
@@ -247,7 +247,7 @@ function Import-HyperVImageArtifact {
     if (-not (Get-Item -LiteralPath $source -Force).IsReadOnly) {
         throw 'HYPERV_ARTIFACT_SOURCE_NOT_READ_ONLY'
     }
-    $sha256 = (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
+    $sha256 = (Get-LabProgressFileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($sha256 -ne $ExpectedSha256.ToLowerInvariant()) { throw 'HYPERV_ARTIFACT_INTEGRITY_MISMATCH' }
     if ($ArtifactState -in @('OS_SEALED', 'SQL_PREPARED_SEALED') -and -not $Generalized) {
         throw 'HYPERV_ARTIFACT_NOT_GENERALIZED'
@@ -334,10 +334,10 @@ function Import-HyperVImageArtifact {
         New-Item -Path $stagingDirectory -ItemType Directory -Force | Out-Null
         try {
             $stagedVhdx = Join-Path $stagingDirectory 'parent.vhdx'
-            Copy-Item -LiteralPath $source -Destination $stagedVhdx -Force
+            Copy-LabProgressFile -LiteralPath $source -Destination $stagedVhdx -Force
             if (-not (Test-Path -LiteralPath $stagedVhdx -PathType Leaf)) { throw 'HYPERV_ARTIFACT_STAGE_POSTCONDITION_FAILED' }
             (Get-Item -LiteralPath $stagedVhdx).IsReadOnly = $true
-            $copiedSha = (Get-FileHash -LiteralPath $stagedVhdx -Algorithm SHA256).Hash.ToLowerInvariant()
+            $copiedSha = (Get-LabProgressFileHash -LiteralPath $stagedVhdx -Algorithm SHA256).Hash.ToLowerInvariant()
             if ($copiedSha -ne $sha256) { throw 'HYPERV_ARTIFACT_COPY_INTEGRITY_MISMATCH' }
 
             $metadata = [PSCustomObject]@{

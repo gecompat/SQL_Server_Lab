@@ -97,7 +97,7 @@ function Resolve-LabExternalRuntimeWindowsMedia {
     Invoke-LabArtifactStoreLock -StateRoot $resolvedRoot -ScriptBlock {
         foreach ($artifact in @($selected)) {
             if (Test-Path -LiteralPath $artifact.Path -PathType Leaf) {
-                $observed = (Get-FileHash -LiteralPath $artifact.Path -Algorithm SHA256).Hash.ToLowerInvariant()
+                $observed = (Get-LabProgressFileHash -LiteralPath $artifact.Path -Algorithm SHA256).Hash.ToLowerInvariant()
                 if ($observed -ne [string]$artifact.Sha256) {
                     throw "EXTERNAL_RUNTIME_WINDOWS_MEDIA_DRIFT: $($artifact.Id)"
                 }
@@ -110,7 +110,7 @@ function Resolve-LabExternalRuntimeWindowsMedia {
             try {
                 Save-LabProgressDownload -Uri ([string]$artifact.Source) -OutFile $temporaryPath `
                     -TimeoutSec 600 -MaximumRetryCount 2 -RetryIntervalSec 2
-                $observed = (Get-FileHash -LiteralPath $temporaryPath -Algorithm SHA256).Hash.ToLowerInvariant()
+                $observed = (Get-LabProgressFileHash -LiteralPath $temporaryPath -Algorithm SHA256).Hash.ToLowerInvariant()
                 if ($observed -ne [string]$artifact.Sha256) {
                     throw "EXTERNAL_RUNTIME_WINDOWS_MEDIA_HASH_MISMATCH: $($artifact.Id)"
                 }
@@ -212,7 +212,7 @@ function Copy-LabExternalRuntimeWindowsPayload {
         $recipe = Get-LabExternalRuntimeWindowsRecipe
         $probeSourcePath = Join-Path $script:ModuleRoot ([string]$recipe.languages.Java.probeSource)
         if (-not (Test-Path -LiteralPath $probeSourcePath -PathType Leaf) -or
-            (Get-FileHash -LiteralPath $probeSourcePath -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$plan.java.probeSourceSha256) {
+            (Get-LabProgressFileHash -LiteralPath $probeSourcePath -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$plan.java.probeSourceSha256) {
             throw 'EXTERNAL_RUNTIME_WINDOWS_JAVA_PROBE_SOURCE_DRIFT'
         }
         $files += [PSCustomObject]@{ Source=$probeSourcePath; Name=[string]$plan.java.probeSourceFileName }
@@ -226,7 +226,7 @@ function Copy-LabExternalRuntimeWindowsPayload {
         GuestRoot = $guestRoot
         GuestPlanPath = Join-Path $guestRoot 'guest-plan.json'
         GuestScriptPath = Join-Path $guestRoot 'Install-ExternalRuntimes.ps1'
-        ScriptSha256 = (Get-FileHash -LiteralPath $scriptPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        ScriptSha256 = (Get-LabProgressFileHash -LiteralPath $scriptPath -Algorithm SHA256).Hash.ToLowerInvariant()
     }
 }
 
