@@ -380,6 +380,21 @@ Schritt. `REVIEW_FOR_SCOPED_REMOVAL` empfiehlt eine eigentumsgebundene
 Entfernungsprüfung; `PRESERVE_DO_NOT_DELETE`, `RECOVER_BEFORE_REMOVAL` und
 `DO_NOT_DELETE_UNTIL_VERIFIED` warnen ausdrücklich vor einer Löschung.
 
+### Aggregierte SQL-Evidence erfassen
+
+Für einen laufenden SQL-Run können aggregierte Server-, Datenbank-, Query-Store-
+und Wait-Metriken ohne SQL-Texte, Datenbank-, Login- oder Hostnamen gelesen
+werden:
+
+```powershell
+$password = Read-Host 'SA-Kennwort' -AsSecureString
+Get-SqlServerLabSqlObservabilityEvidence -RunId $lab.RunId -SaPassword $password
+```
+
+Das Cmdlet führt ausschließlich feste `SELECT`-Abfragen aus und speichert kein
+Evidence-Paket. Extended Events, SQL-Agent-/Backupzustände, Aufbewahrung und
+providerbezogene Native-Abnahmen bleiben separate Folgearbeit.
+
 Für eine geführte Übersicht mit OS-Baselines, SQL-Prepared-Images,
 Hintergrundaktionen und Live-Log kann die
 [lokale Workflow-Oberfläche](../HowTo/WORKFLOW_UI.md) gestartet werden.

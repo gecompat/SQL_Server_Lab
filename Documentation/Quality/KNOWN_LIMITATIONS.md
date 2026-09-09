@@ -750,10 +750,17 @@ Instanzmigration beziehungsweise Evaluation-Refresh ausgegeben werden.
 
 Für weitere querschnittliche Plattformlücken existiert jetzt ein eigener
 [Sammelbacklog](../Project_Planning/CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md).
-Nicht implementiert sind insbesondere ein zeitgesteuerter Evaluation-Watchdog,
-ein portabler Gesamt-Lab-Export/-Import, externe Secret-Store-Adapter, ein
-gemeinsamer Observability-/Evidence-Vertrag, verwaltete Recovery Points, ein
-Framework-/State-Upgrade-Lifecycle und ein Air-Gap-Paket. Erweiterte
+`Get-SqlServerLabEvaluationWatch`, die optionale SecretManagement-Auflösung,
+`Get-SqlServerLabRunStateUpgradePlan` und
+`Get-SqlServerLabSqlObservabilityEvidence` decken jeweils nur ihren
+ausdrücklich read-only beziehungsweise statischen Teilvertrag ab. Die
+Observability-Evidence enthält aggregierte Server-, Datenbank-, Query-Store-
+und Wait-Metriken ohne SQL-Texte, Namen, Endpunkte oder Secrets; Extended
+Events, SQL-Agent-/Backupzustände, Retention, Evidenzpakete und eine
+providerbezogene Native-Abnahme bleiben offen. Nicht implementiert sind
+insbesondere ein zeitgesteuerter Watchdog, ein portabler Gesamt-Lab-
+Export/-Import, konkrete externe Vault-Adapter, verwaltete Recovery Points und
+ein ausführbarer Framework-/State-Upgrade-Lifecycle. Erweiterte
 Kapazitätsquoten, Mehrbenutzerbetrieb sowie eine stabile Automation-API mit
 IaC-Adaptern bleiben zusätzlich `DECISION_REQUIRED`. Die Backlogaufnahme
 erteilt keine Runtime-, Remote-, Secret-, Export-, Import- oder

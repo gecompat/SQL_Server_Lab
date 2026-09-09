@@ -149,6 +149,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Inventarisiert SQL-seitig beobachtbare Migrationsabhaengigkeiten direkt
         oder per Run-/Instanzbindung read-only als sanitisierte Counts.
 
+    Get-SqlServerLabSqlObservabilityEvidence
+        Erfasst aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken
+        read-only ohne Endpunkt-, SQL-Text-, Namens- oder Secretprojektion.
+
     Get-SqlServerLabAiScenario
         Loest ein hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen
         Run auf und zeigt nur sanitisierte Plan- und Evidence-Metadaten.
