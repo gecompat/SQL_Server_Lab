@@ -255,6 +255,57 @@ Fehlersignatur wie im Realbefund. Lokale Runtime- und Diagnosedaten
 wurden nur als beschriebener Ist-Zustand referenziert und nicht
 versioniert.
 
+### 11. Direkte Konsolenaktionen zeigen bei langen Phasen keinen Fortschritt — OPEN
+
+Geprüfter Ist-Zustand vom 2026-09-09: Das feste Statusband (`CUI-022`) zeigt
+Queue-Operationen mit Prozentbalken, Heartbeat, Laufzeit und
+Stillstandserkennung. Direkte interaktive Aktionen verlassen jedoch den
+Menürahmen und führen die Produktfunktion synchron aus. Sie erhalten damit
+keinen Queue-Statuslieferanten. Bei SQL-Readiness, Server-Konfiguration,
+Sample-Installation oder dem Aufbau einer automatisierten Testumgebung bleibt
+zwischen der Start- und Erfolgsmeldung kein sichtbares Lebenszeichen.
+
+Die Untersuchung fand außerdem konkrete lange Pfade ohne gleichwertige
+Fortschrittsanzeige:
+
+| Priorität | Produktpfad | Fehlende Rückmeldung | Verfügbare Fortschrittsdaten |
+|---|---|---|---|
+| `P0` | `Private/ArtifactResolver.ps1` | Der Sample-Download setzt `$ProgressPreference` ausdrücklich auf `SilentlyContinue`. | Native Web-Request-Fortschrittswerte |
+| `P0` | `Public/Save-SqlServerLabMediaSource.ps1`, `Private/VersionCatalog.ps1` und `Private/ExternalRuntimeWindows.ps1` | Medien-, CU- und Runtime-Downloads besitzen keinen gemeinsamen sichtbaren Fortschrittsvertrag. | erwartete Bytes, übertragene Bytes, Verifikationsphase |
+| `P0` | `Private/SqlReadiness.ps1` | Die Poll-Schleife meldet nur Start und Ende. | Timeout, Laufzeit, erfolgreiche Probes, Stabilisierung |
+| `P0` | `Private/ContainerImageArtifact.ps1` und `Private/ContainerToolImage.ps1` | Abgeleitete Container-Image-Builds sammeln die native Ausgabe und zeigen währenddessen keinen Heartbeat. | Startzeit, aktive Build-Phase, native Ausgabezeilen |
+| `P1` | `Private/HyperVImageMigration.ps1`, `Private/HyperVImageRegistry.ps1`, `Private/HyperVResourceMigration.ps1` | Große VHDX-Dateien werden kopiert und gehasht ohne pro Datei sichtbaren Fortschritt. | Dateianzahl, Dateigröße, Kopier-/Hashphase |
+| `P1` | `Private/SampleArtifactHandlers.ps1`, `Public/Restore-SqlServerLabDatabase.ps1` und Container-Paketpfade | Archivextraktion, Containerkopien, `VERIFYONLY`, BACPAC-Import und Restore zeigen nur Phasenbeginn. | Payloadanzahl, Dateigröße, SQL-Phase, Timeout |
+| `P2` | `Private/HyperVLabEnvironment.ps1` und weitere Gastwartepfade | Mehrminütige VM-, Netzwerk- und Aktivierungspolls haben teils keine hostseitige laufende Anzeige. | Deadline, Laufzeit, Poll-Status |
+
+Zielvertrag: Jede interaktiv direkt gestartete Aktion mit einer erwartbaren
+Wartezeit über fünf Sekunden zeigt sichtbar mindestens Aktivität, aktuelle
+Phase und Laufzeit. Bei verfügbaren Messdaten zeigt sie zusätzlich einen
+Prozent- oder Byte-Fortschrittsbalken. Meldungen im Gast oder erst nach Ende
+eines nativen Prozesses gelten nicht als Heartbeat. Der Fortschrittswert darf
+keine Secrets, lokalen Pfade, Hashwerte, Containerargumente oder unbereinigte
+native Ausgaben enthalten.
+
+Umsetzungsreihenfolge:
+
+1. Einen gemeinsamen Reporter für synchrone Konsolenaktionen einführen, der
+  Abschluss und Fehler garantiert beendet und für unbestimmte Phasen einen
+  gedrosselten Heartbeat ausgibt.
+2. Den explizit unterdrückten Artifact-Download freigeben und die drei
+  Downloadpfade sowie SQL-Readiness auf den Reporter umstellen.
+3. Große Datei-, Container- und SQL-Transfers mit Phasen-/Dateizählern
+  anbinden; Byte-Fortschritt ist für Downloads und VHDX-Kopien erforderlich.
+4. Die Hyper-V-Gastwartepfade hostseitig mit Deadline und Heartbeat ergänzen.
+
+Nachweis bei der Umsetzung: Ein deterministischer Console-UI-Test prüft
+Heartbeat, Laufzeit, Abschlussbereinigung und die Secretbereinigung des
+Reporters. Je ein funktionaler Gegenbeweis belegt die Aktualisierung aus der
+Readiness-Poll-Schleife und dem Artifact-Download. Die betroffenen statischen
+Suites sowie ein direkter Podman-Lauf mit nicht gecachtem oder kontrolliert
+simuliertem Sample-Download prüfen die sichtbare Bedienwirkung. Große
+VHDX-/Hyper-V-Transfers erhalten getrennte Tests ohne echte mehrgigabytegroße
+Dateien.
+
 ## Bindende Erkenntnisse für die Wiederaufnahme
 
 Diese Punkte haben in der Arbeit vom 2026-09-07 jeweils einen realen Defekt
