@@ -82,6 +82,7 @@ Get-SqlServerLabWorkflow               # Verdichtete, geheimnisfreie Workflow-Si
 Get-SqlServerLabHyperVImageArtifact    # Hyper-V-Image-Registry, Evaluation und Referenzen read-only
 Get-SqlServerLabEvaluationWatch         # Windows-/SQL-Evaluationen read-only bewerten und Ereignisse optional deduplizieren
 Get-SqlServerLabRunStateUpgradePlan     # Lokalen Run-State read-only gegen Zielvertrag klassifizieren
+Get-SqlServerLabPortableLabImportPlan   # Portables Container-Lab-Paket ohne Import read-only vorprüfen
 Get-SqlServerLabSqlObservabilityEvidence # Aggregierte SQL-Metriken ohne Namen, Endpunkte oder Secrets read-only erfassen
 Get-SqlServerLabHyperVResourcePreview  # Physische Hyper-V-Klassenroots und Kapazitaet read-only vor UAC
 Get-SqlServerLabCatalog                # Laufzeit-Workflow-Katalog als JSON-Artefakt schreiben

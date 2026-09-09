@@ -4,7 +4,7 @@
 |---|---|
 | Stand | 2026-09-07 |
 | Autoritative Funktionsliste | [`SqlServerLab.psd1`](../../SqlServerLab.psd1) |
-| Öffentliche Funktionen | 84 exportierte Cmdlets |
+| Öffentliche Funktionen | 85 exportierte Cmdlets |
 | Konsolenoberfläche | `Invoke-SqlServerLab` |
 | Browseroberfläche | `Tools/Start-SqlServerLabUi.ps1` und `Ui/` |
 
@@ -62,6 +62,7 @@ Legende:
 | [`Get-SqlServerLabHyperVImageArtifact`](../../Public/Get-SqlServerLabHyperVImageArtifact.ps1) | Inventarisiert Hyper-V-Images pfadfrei mit Evaluation, Referenzen und optionaler Integritätsprüfung. | Hyper-V-Infrastruktur → Images/Slots | direkt über die Workflow-Inventur: Image-Karten und Vorlagenpool |
 | [`Get-SqlServerLabEvaluationWatch`](../../Public/Get-SqlServerLabEvaluationWatch.ps1) | Bewertet Windows- und SQL-Evaluationsfristen; `-RecordEvents` dedupliziert fällige Ereignisse lokal ohne Images, Lizenzen oder Runs zu verändern. | – | – |
 | [`Get-SqlServerLabRunStateUpgradePlan`](../../Public/Get-SqlServerLabRunStateUpgradePlan.ps1) | Klassifiziert einen lokalen Run-State gegen den Zielvertrag ohne State- oder Runtime-Mutation; die erste Fassung ist nicht ausführbar. | – | – |
+| [`Get-SqlServerLabPortableLabImportPlan`](../../Public/Get-SqlServerLabPortableLabImportPlan.ps1) | Prüft ein portables Container-Lab-Paket auf Datenbankpaket-Verfügbarkeit und anonyme Secret-Rebind-Blocker; die Ausführung ist nicht implementiert. | – | – |
 | [`Get-SqlServerLabHyperVResourcePreview`](../../Public/Get-SqlServerLabHyperVResourcePreview.ps1) | Zeigt registrierte Hyper-V-Location, freien Speicher und physische Klassenroots ohne Mutation. | Hyper-V-Aktionen vor UAC | über Core: Hyper-V-User-Gate und erhöhter Handoff |
 | [`Get-SqlServerLabCatalog`](../../Public/Get-SqlServerLabCatalog.ps1) | Schreibt den Workflow-Katalog als persistentes, maschinenlesbares JSON-Artefakt. | Datenbanken und Verbindungen → Lab-Katalog prüfen | – |
 

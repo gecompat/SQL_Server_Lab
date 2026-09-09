@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.PortableLabImportPlan/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "PackageContractVersion", "PackageId", "TargetProvider", "Status", "ExecutionImplemented", "DatabasePackages", "SecretReferenceCount", "ArtifactReferences", "Blockers", "Steps", "PlannedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.PortableLabImportPlan/1.0" },
+    "PackageContractVersion": { "const": "SqlServerLab.PortableLabPackage/1.0" },
+    "PackageId": { "type": "string", "format": "uuid" },
+    "TargetProvider": { "enum": ["docker", "podman"] },
+    "Status": { "enum": ["READY", "BLOCKED"] },
+    "ExecutionImplemented": { "const": false },
+    "DatabasePackages": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["DatabasePackageId", "Status"], "properties": { "DatabasePackageId": { "type": "string", "format": "uuid" }, "Status": { "enum": ["AVAILABLE", "MISSING"] } } } },
+    "SecretReferenceCount": { "type": "integer", "minimum": 0 },
+    "ArtifactReferences": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" }, "uniqueItems": true },
+    "Blockers": { "type": "array", "items": { "enum": ["DATABASE_PACKAGE_MISSING", "SECRET_REBINDING_REQUIRED"] }, "uniqueItems": true },
+    "Steps": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "object", "additionalProperties": false, "required": ["Order", "Action", "Mutation"], "properties": { "Order": { "type": "integer", "minimum": 1, "maximum": 2 }, "Action": { "enum": ["VERIFY_DATABASE_PACKAGES", "REQUIRE_SECRET_REBINDING"] }, "Mutation": { "const": "NONE" } } } },
+    "PlannedAt": { "type": "string", "format": "date-time" }
+  }
+}

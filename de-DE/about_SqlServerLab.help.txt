@@ -98,6 +98,10 @@ COMMANDS
         Klassifiziert einen lokalen Run-State read-only gegen den Zielvertrag;
         die erste Fassung führt keine Migration aus.
 
+    Get-SqlServerLabPortableLabImportPlan
+        Prüft ein portables Container-Lab-Paket read-only auf Paketverfügbarkeit
+        und anonyme Secret-Rebind-Blocker; ein Import ist nicht implementiert.
+
     Get-SqlServerLabHyperVResourcePreview
         Zeigt die registrierte Hyper-V-Location, freien Speicher und die
         physischen Klassenroots read-only vor einer Hostmutation an.
