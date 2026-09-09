@@ -752,6 +752,7 @@ Für weitere querschnittliche Plattformlücken existiert jetzt ein eigener
 [Sammelbacklog](../Project_Planning/CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md).
 `Get-SqlServerLabEvaluationWatch`, die optionale SecretManagement-Auflösung,
 `Get-SqlServerLabRunStateUpgradePlan` und
+`Get-SqlServerLabHyperVRecoveryPointPlan` sowie
 `Get-SqlServerLabSqlObservabilityEvidence` decken jeweils nur ihren
 ausdrücklich read-only beziehungsweise statischen Teilvertrag ab. Die
 Observability-Evidence enthält aggregierte Server-, Datenbank-, Query-Store-
@@ -761,9 +762,12 @@ providerbezogene Native-Abnahme bleiben offen. Der portable Lab-Preflight
 prüft ausschließlich `PortableLabPackage`-Metadaten sowie Paketverfügbarkeit
 und weist Secret-Rebinding anonymisiert als Blocker aus; er exportiert,
 erzeugt oder importiert keine Runs, Datenbanken, Medien oder Runtimeobjekte.
+Der Hyper-V-Recovery-Point-Plan inventarisiert ausschließlich bereits
+vorhandene, eindeutig gebundene Checkpoints ohne VM-Namen oder Hostpfade; er
+führt keine Checkpoint-Erstellung, SQL-Quiesce, Retention oder Restore-Probe aus.
 Nicht implementiert sind insbesondere ein zeitgesteuerter Watchdog, ein
 portabler Gesamt-Lab-Exporter/-Importexecutor, konkrete externe Vault-Adapter,
-verwaltete Recovery Points und ein ausführbarer Framework-/State-Upgrade-
+ein vollständiger Lifecycle verwalteter Recovery Points und ein ausführbarer Framework-/State-Upgrade-
 Lifecycle. Erweiterte
 Kapazitätsquoten, Mehrbenutzerbetrieb sowie eine stabile Automation-API mit
 IaC-Adaptern bleiben zusätzlich `DECISION_REQUIRED`. Die Backlogaufnahme

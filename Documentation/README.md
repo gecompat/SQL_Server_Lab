@@ -72,7 +72,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 85 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 86 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -116,6 +116,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabEvaluationWatch` | Windows- und SQL-Evaluationsfristen read-only bewerten und fällige Ereignisse optional lokal deduplizieren |
 | `Get-SqlServerLabRunStateUpgradePlan` | Einen lokalen Run-State gegen den Zielvertrag read-only klassifizieren; die erste Fassung führt keine Migration aus |
 | `Get-SqlServerLabPortableLabImportPlan` | Ein portables Container-Lab-Paket read-only auf Datenbankpaket-Verfügbarkeit und anonymisierte Secret-Rebind-Blocker prüfen; die Ausführung bleibt nicht implementiert |
+| `Get-SqlServerLabHyperVRecoveryPointPlan` | Bestehende, eindeutig an einen Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade read-only inventarisieren; Erstellung, Quiesce und Restore bleiben nicht implementiert |
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, Kapazität und physische Klassenroots read-only anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |
 | `Get-SqlServerLabCleanupAudit` | `Lab_Data`, Runtime-Scopes und Persistent Storage read-only prüfen sowie jedes auffällige Objekt mit Löschungs-/Bewahrungsempfehlung ausgeben |

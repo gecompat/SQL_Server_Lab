@@ -104,6 +104,10 @@ sources_of_truth:
   portable_lab_package_schema: Schemas/portable-lab-package.schema.json
   portable_lab_import_plan_schema: Schemas/portable-lab-import-plan.schema.json
   validation_portable_lab_import_preflight: Tests/Static/Invoke-PortableLabImportChecks.ps1
+  hyperv_recovery_point_plan_contract: Private/RecoveryPointPlan.ps1
+  hyperv_recovery_point_plan_public: Public/Get-SqlServerLabHyperVRecoveryPointPlan.ps1
+  hyperv_recovery_point_plan_schema: Schemas/hyperv-recovery-point-plan.schema.json
+  validation_hyperv_recovery_point_plan: Tests/Static/Invoke-HyperVRecoveryPointPlanChecks.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   validation_cleanup_volume_ownership: Tests/Static/Invoke-CleanupVolumeOwnershipChecks.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1

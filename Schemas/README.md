@@ -26,6 +26,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `sql-observability-evidence.schema.json` | Read-only Vertrag `SqlServerLab.SqlObservabilityEvidence/1.0` für aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken ohne SQL-Texte, Namen, Hostwerte oder Secrets |
 | `portable-lab-package.schema.json` | Pfad- und secretfreier Eingabevertrag `SqlServerLab.PortableLabPackage/1.0` für portable Container-Lab-Metadaten, Datenbankpaket- und Artefaktreferenzen |
 | `portable-lab-import-plan.schema.json` | Read-only Vertrag `SqlServerLab.PortableLabImportPlan/1.0` für Paketverfügbarkeit und anonyme Secret-Rebind-Blocker; keine Ausführungsautorität |
+| `hyperv-recovery-point-plan.schema.json` | Read-only Vertrag `SqlServerLab.HyperVRecoveryPointPlan/1.0` für bestehende rungebundene Hyper-V-Checkpoints ohne VM-Namen oder Hostpfade; keine Ausführungsautorität |
 | `project-adapter.schema.json` | Adaptervertrag konsumierender Projekte (`Adapters/`), Version `0.1-draft` |
 | `test-environment.schema.json` | Vertrag `SqlServerLab.TestEnvironment/1.0` für den lokalen Export automatisierter Testumgebungen |
 | `license-profile.schema.json` | Geheimnisfreier lokaler Metadatenvertrag `SqlServerLab.LicenseProfile/1.0`; Product Keys liegen ausschließlich im separaten Secret Store |
