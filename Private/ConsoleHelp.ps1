@@ -292,7 +292,7 @@ function Get-LabConsoleHelpCatalog {
     )) { $catalog[$screenId] = $queueActionHelp }
 
     $catalog['action-messages'] = @{
-        Title = 'Meldungen der letzten Aktion'; Purpose = 'Zeigt neue Warnungen und Fehler vollständig und kopierbar an.'
+        Title = 'Fehler der letzten Aktion'; Purpose = 'Zeigt neue Fehler vollständig und kopierbar an; reine Warnungen erscheinen nur als Text im Scrollback.'
         Effects = 'Read-only; Journal und Runtime bleiben unverändert.'; Command = 'Get-LabMessage'
     }
     $catalog['messages'] = @{
