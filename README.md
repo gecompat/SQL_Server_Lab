@@ -527,9 +527,11 @@ $lab = New-SqlServerLab -Manifest '.\mein-lab.json'
 Remove-Item Env:SQL_SERVER_LAB_SECRET_SA_PASSWORD
 ```
 
-Das Manifest enthält damit nur den Namen der Prozessvariablen, nie den
-Passwortwert. Remote-Backups benötigen für automatisierte Läufe eine
-`restore.sha256`; ohne bekannte Prüfsumme endet der Lauf mit `TRUST_REQUIRED`.
+Das Manifest enthält damit nur die Secret-Referenz, nie den Passwortwert. Der
+Resolver bevorzugt eine gleichnamige Prozessvariable und kann optional einen
+`SecureString` derselben Referenz über PowerShell SecretManagement beziehen.
+Remote-Backups benötigen für automatisierte Läufe eine `restore.sha256`; ohne
+bekannte Prüfsumme endet der Lauf mit `TRUST_REQUIRED`.
 Für zentrale Testdatenbibliothek, Data Root, die maximal 20 immutable Vorlagen
 und den ausdrücklich doppelten Opt-in für schreibende Host-Mounts siehe den
 [Vorlagen- und Manifestvertrag](Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md).

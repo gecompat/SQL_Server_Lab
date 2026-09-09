@@ -398,6 +398,49 @@ Add-CheckResult `
     -Success ($environmentSecretResult -and $environmentSecretResult.Valid) `
     -Message $(if ($environmentSecretResult) { $environmentSecretResult.Reasons -join '; ' } else { 'Secret konnte nicht aufgelöst werden.' })
 
+$secretManagementResult = & $module {
+    $previousSecret = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_SECRET_MANIFEST_STORE_TEST', 'Process')
+    try {
+        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_SECRET_MANIFEST_STORE_TEST', $null, 'Process')
+        Set-Item Function:Get-Secret -Value {
+            param([string]$Name)
+            if ($Name -ne 'SQL_SERVER_LAB_SECRET_MANIFEST_STORE_TEST') { throw 'UNEXPECTED_SECRET_REFERENCE' }
+            return [Security.SecureString]::new()
+        }
+        $secret = Get-LabManifestEnvironmentSecret -Name 'SQL_SERVER_LAB_SECRET_MANIFEST_STORE_TEST'
+        return $secret -is [Security.SecureString]
+    }
+    finally {
+        Remove-Item Function:Get-Secret -ErrorAction SilentlyContinue
+        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_SECRET_MANIFEST_STORE_TEST', $previousSecret, 'Process')
+    }
+}
+Add-CheckResult `
+    -Name 'Manifest-Secret-Referenz kann optional ueber PowerShell SecretManagement aufgeloest werden' `
+    -Success $secretManagementResult `
+    -Message 'SecretManagement-Fallback lieferte keinen erwarteten SecureString.'
+
+$secretManagementFailure = & $module {
+    $previousSecret = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_SECRET_MANIFEST_STORE_FAILURE', 'Process')
+    try {
+        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_SECRET_MANIFEST_STORE_FAILURE', $null, 'Process')
+        Set-Item Function:Get-Secret -Value { throw 'SIMULATED_SECRET_STORE_FAILURE' }
+        try {
+            Get-LabManifestEnvironmentSecret -Name 'SQL_SERVER_LAB_SECRET_MANIFEST_STORE_FAILURE'
+            return $null
+        }
+        catch { return $_.Exception.Message }
+    }
+    finally {
+        Remove-Item Function:Get-Secret -ErrorAction SilentlyContinue
+        [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_SECRET_MANIFEST_STORE_FAILURE', $previousSecret, 'Process')
+    }
+}
+Add-CheckResult `
+    -Name 'Fehlende SecretManagement-Aufloesung bleibt vor der Mutation fail-closed' `
+    -Success ($secretManagementFailure -eq 'LAB_MANIFEST_SECRET_STORE_RESOLUTION_FAILED: Die SecretManagement-Referenz ''SQL_SERVER_LAB_SECRET_MANIFEST_STORE_FAILURE'' konnte nicht aufgeloest werden.') `
+    -Message $secretManagementFailure
+
 $unknownField = [ordered]@{
     name      = 'unknown-field'
     instances = @(
