@@ -10,6 +10,13 @@ $repoRoot=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'Private/ActionProgress.ps1')
 . (Join-Path $repoRoot 'Private/TransferProgress.ps1')
 $reports=[Collections.Generic.List[object]]::new()
+$updateProgress=${function:Update-LabActionProgress}
+$testClock=[pscustomobject]@{Now=[datetime]::UtcNow}
+function Update-LabActionProgress {
+    param($Progress,[long]$CompletedBytes=0,[long]$TotalBytes=0)
+    $testClock.Now=$testClock.Now.AddSeconds(1)
+    & $updateProgress -Progress $Progress -CompletedBytes $CompletedBytes -TotalBytes $TotalBytes -Now $testClock.Now
+}
 function Write-Progress {
     param($Id,$Activity,$Status,$CurrentOperation,$PercentComplete,[switch]$Completed)
     $reports.Add([pscustomobject]@{Status=$Status;Detail=$CurrentOperation;Percent=$PercentComplete;Completed=[bool]$Completed})
