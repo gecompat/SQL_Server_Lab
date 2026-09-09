@@ -55,7 +55,7 @@ Jede spätere Umsetzung muss:
 | P0 | Externe Secret-Store-Anbindung | `IMPLEMENTED_STATIC_CONTRACT` | providerneutrale `SecretRef` über PowerShell SecretManagement auflösen, ohne Wert in State, Plan oder Log zu persistieren |
 | P1 | Zentrale Observability und Evidence | `ACCEPTED_NEED` | SQL-Readiness, Query Store und ausgewählte Extended-Events-Metadaten eines synthetischen Runs als sanitiertes Evidence-Paket erfassen |
 | P1 | Verwaltete Recovery Points | `ACCEPTED_NEED` | applikationskonsistenter Recovery Point eines Hyper-V-SQL-Runs mit Restore-Probe und expliziter Retention |
-| P1 | Framework- und State-Upgrade-Lifecycle | `ACCEPTED_NEED` | eine versionierte, reversible Migration eines synthetischen alten Run-State in ein neues Schema |
+| P1 | Framework- und State-Upgrade-Lifecycle | `IMPLEMENTED_READ_ONLY` | eine versionierte, reversible Migration eines synthetischen alten Run-State in ein neues Schema |
 | P2 | Offline-/Air-Gap-Distributionspaket | `ACCEPTED_NEED` | hash- und lizenzgebundener Export bereits freigegebener Medien, Kataloge und Samples ohne Secrets oder Runtime-State |
 | P2 | Erweiterte Kapazitäts-, Reservierungs- und Quotensteuerung | `DECISION_REQUIRED` | read-only Hostbudget für parallele SQL-Runs mit CPU-, RAM-, Storage- und `HyperVHeavy`-Reservierungen |
 | P3 | Mehrbenutzer-, Rollen- und Ownership-Modell | `DECISION_REQUIRED` | gemeinsame read-only Inventur mit getrennten Operatoridentitäten und unveränderlichem Audit, noch ohne Remote-Mutation |
@@ -169,8 +169,14 @@ Ein Recovery Point benötigt:
 ## Framework- und State-Upgrade-Lifecycle
 
 `Update-SqlServerLabContainer` beziehungsweise Reconcile aktualisiert eine
-Lab-Runtime, aber nicht das Framework selbst. Benötigt wird ein kontrollierter
-Vertrag für neue Modulversionen und veränderte lokale Schemas.
+Lab-Runtime, aber nicht das Framework selbst. `Get-SqlServerLabRunStateUpgradePlan`
+klassifiziert bereits einen einzelnen lokalen Run-State gegen
+`SqlServerLab.RunState/1.0`: unversionierte Legacy-States und fehlende
+`providerSubRuns` werden als manuell zu aktualisierende Änderungen ausgewiesen,
+unvollständige oder unbekannte States bleiben blockiert. Der Plan ist pfad- und
+secretfrei sowie vollständig read-only; er führt keine Migration aus.
+Ein kontrollierter Vertrag für neue Modulversionen und veränderte lokale Schemas
+bleibt erforderlich.
 
 Der Vertrag muss beinhalten:
 

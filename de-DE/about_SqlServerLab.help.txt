@@ -94,6 +94,10 @@ COMMANDS
         Bewertet registrierte Windows- und SQL-Evaluationsfristen read-only und
         dedupliziert fällige Ereignisse mit -RecordEvents lokal.
 
+    Get-SqlServerLabRunStateUpgradePlan
+        Klassifiziert einen lokalen Run-State read-only gegen den Zielvertrag;
+        die erste Fassung führt keine Migration aus.
+
     Get-SqlServerLabHyperVResourcePreview
         Zeigt die registrierte Hyper-V-Location, freien Speicher und die
         physischen Klassenroots read-only vor einer Hostmutation an.
