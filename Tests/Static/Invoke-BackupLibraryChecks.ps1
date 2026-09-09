@@ -183,6 +183,10 @@ try {
     Add-CheckResult 'Öffentlicher Artefakt-Bestandssync ist exportiert' ([bool](Get-Command Sync-SqlServerLabPersistentStorageArtifact -ErrorAction SilentlyContinue))
     $restoreText=Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Restore-SqlServerLabDatabase.ps1') -Raw
     Add-CheckResult 'Jeder öffentliche Restore führt VERIFYONLY WITH CHECKSUM vor FILELISTONLY aus' ($restoreText -match '(?s)Pruefe Backup.+RESTORE VERIFYONLY.+WITH CHECKSUM.+Lese Backup-Metadaten.+RESTORE FILELISTONLY')
+    Add-CheckResult 'Externe Backups ohne SQL-Backup-CHECKSUM fallen nur bei SQL-Fehler 3187 auf VERIFYONLY zurück' (
+        $restoreText -match 'function Test-LabBackupChecksumUnavailableError[\s\S]+?3187' -and
+        $restoreText -match '\$backupSourceKind -eq ''LIBRARY'' -or -not \(Test-LabBackupChecksumUnavailableError -ErrorRecord \$_\)' -and
+        $restoreText -match 'RESTORE VERIFYONLY FROM DISK = N''\$escapedContainerBackupPath'';')
     Add-CheckResult 'Öffentlicher Restore wählt Bibliotheksbackups ausschließlich über BackupSetId im gemeinsamen Core' ($restoreText -match '\[string\]\$BackupSetId' -and $restoreText -match '\[string\]\$DataRoot' -and $restoreText -match 'RESTORE_BACKUP_SOURCE_EXACTLY_ONE_REQUIRED' -and $restoreText -match 'Get-LabDatabaseBackup -BackupSetId \$BackupSetId -DataRoot \$DataRoot')
     $restorePreview=Restore-SqlServerLabDatabase -Port 14333 -SaPassword $password -Provider docker `
         -ContainerName 'runtime-only' -BackupSource 'synthetic-not-resolved.bak' -DatabaseName 'RestoreEvidence' -WhatIf

@@ -157,6 +157,13 @@ function New-LabRestoreMoveStatements {
     return @($moveStatements)
 }
 
+function Test-LabBackupChecksumUnavailableError {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][System.Management.Automation.ErrorRecord]$ErrorRecord)
+
+    return $ErrorRecord.Exception.Message -match '(?i)\bMsg\s+3187\b'
+}
+
 function Restore-SqlServerLabDatabase {
     <#
     .SYNOPSIS
@@ -413,8 +420,19 @@ function Restore-SqlServerLabDatabase {
 
         $escapedContainerBackupPath = $runtimeBackupPath.Replace("'", "''")
         Write-LabInfo 'Pruefe Backup mit RESTORE VERIFYONLY und CHECKSUM...'
-        $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -TimeoutSeconds 600 `
-            -Query "RESTORE VERIFYONLY FROM DISK = N'$escapedContainerBackupPath' WITH CHECKSUM;"
+        try {
+            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -TimeoutSeconds 600 `
+                -Query "RESTORE VERIFYONLY FROM DISK = N'$escapedContainerBackupPath' WITH CHECKSUM;"
+        }
+        catch {
+            if ($backupSourceKind -eq 'LIBRARY' -or -not (Test-LabBackupChecksumUnavailableError -ErrorRecord $_)) {
+                throw
+            }
+
+            Write-LabWarning 'Backup enthaelt keine SQL-Backup-CHECKSUM; pruefe mit RESTORE VERIFYONLY ohne CHECKSUM.'
+            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -TimeoutSeconds 600 `
+                -Query "RESTORE VERIFYONLY FROM DISK = N'$escapedContainerBackupPath';"
+        }
 
         Write-LabInfo 'Lese Backup-Metadaten mit RESTORE FILELISTONLY...'
         $fileListQuery = "RESTORE FILELISTONLY FROM DISK = N'$escapedContainerBackupPath';"
