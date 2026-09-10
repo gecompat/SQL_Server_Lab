@@ -9,6 +9,11 @@
 
 ## 1. Grundsatz
 
+Der regulaere Container-Lease-Erwerb und -Release verwenden ebenfalls den
+gemeinsamen Katalogkern. Die Katalogsuite prueft deren Previews, erwartete
+Revisionen und den fehlerhaften Release: `RECOVERY_REQUIRED` wird im Apply
+vor dem Fehler committed, waehrend derselbe Preview keinerlei State schreibt.
+
 `Tools/Get-SqlServerLabCapabilityInventory.ps1` liefert den aktuellen
 maschinellen Produktquellen-, Export-, Provider-, Test- und Planungsindex.
 `Tests/Static/Invoke-CapabilityInventoryChecks.ps1` prueft Exportparitaet,
