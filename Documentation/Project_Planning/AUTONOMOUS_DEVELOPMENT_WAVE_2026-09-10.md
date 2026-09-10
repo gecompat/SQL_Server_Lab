@@ -151,8 +151,8 @@ werden nicht allein durch Aufnahme in diese Liste freigegeben.
 
 | Gegenstand | Status | Bewertungsziel und bestehender Vertrag |
 |---|---|---|
-| Vollständiger Evaluation-Refresh | `planned` | Datenbank-, Login/SID-, Agent-Job-, Konfigurations- und Key-/Service-Grenzen, parallelen Aufbau, Gleichwertigkeit, Cutover und Rollback anhand des [Refresh-Backlogs](FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md) entscheiden. |
-| Recovery Points | `planned` | SQL-Konsistenz, Restore auf unabhängiges Ziel, Retention und Referenzschutz statt pauschaler Checkpoint-Parität bewerten. |
+| Vollständiger Evaluation-Refresh | `validated` (Bewertung) | [Bewertung](REFRESH_AND_RECOVERY_ASSESSMENT_2026-09-10.md) bestätigt den begrenzten Hyper-V-Evaluationsfall und konkretisiert Inventar, Datenbank-/Login-/Job-/Konfigurationsübernahme, Schlüssel-/Service-Blocker sowie parallelen Aufbau. Cutover erlaubt genau eine Schreibseite; Rückfall nach Zielschreibzugriffen benötigt einen eigenen Rücksynchronisierungsnachweis. Nutzen, Abhängigkeiten, Risiken, Aufwand und nächste Abnahme je Teilvertrag sind dokumentiert; kein Executor freigeschaltet. |
+| Recovery Points | `validated` (Bewertung) | [Bewertung](REFRESH_AND_RECOVERY_ASSESSMENT_2026-09-10.md) fordert nachgewiesene SQL-Konsistenz, vollständige Disk-/Parentbindung, Restore in ein unabhängiges Ziel und Lease-/Referenzschutz vor Entfernung. Erster vollständiger Slice bleibt ein eigener Hyper-V-SQL-2025-Run; keine pauschale Container-/Checkpoint-Parität und kein Evaluation-Refresh durch Rücksetzen. Erstellung und Restore sind weiterhin nicht implementiert. |
 | Air-Gap-Pakete | `planned` | Lizenz-/Hash-gebundenes Medienpaket, Offline-Auflösung, Aktualisierung und Exit anhand des Plattformbacklogs bewerten. |
 | PolyBase/S3 | `planned` | Konkreten SQL-Nutzen, verfügbare Integrationsverträge und minimalen Object-Store-Slice im [S3-Backlog](POLYBASE_S3_OBJECT_STORAGE_BACKLOG.md) beurteilen. |
 | SSIS | `planned` | Kleinen synthetischen ETL-/Warehouse-Slice und SSISDB-/Package-/Resume-Grenzen im [SSIS-Backlog](SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md) beurteilen. |
