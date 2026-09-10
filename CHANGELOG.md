@@ -8,6 +8,8 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Korrigiert
 
+- Client-Readiness erkennt Linux ueber das Plattformmerkmal von PowerShell;
+  Distributionsnamen wie Ubuntu muessen das Wort Linux nicht enthalten.
 - Hyper-V-SQL-Slotinstallation behandelt fehlende optionale Trace Flags als
   leere Besitzliste. Die typisierte Parameterbindung erzeugt daraus kein
   ungueltiges Flag 0 mehr; explizit angegebenes Flag 0 bleibt abgewiesen.
@@ -18,6 +20,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Eigenstaendiger read-only Client-Readiness-Check ohne KI-Skill: getrennte
+  Bootstrap-, Installations-, Berechtigungs-, Runtime- und Storagebefunde mit
+  konkreten naechsten Schritten; kein Runtime-Start oder Konfigurationsschreiben.
 - PowerShell-Session-Dateikopien fuer SQL-Storage und Hyper-V-Datenbankpakete
   melden hostseitigen Fortschritt aus einer eigenen asynchronen Pipeline.
   Fehlerkategorien bleiben erhalten; die Session bleibt im Besitz des Aufrufers.

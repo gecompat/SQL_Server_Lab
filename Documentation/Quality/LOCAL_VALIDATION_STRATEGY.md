@@ -9,6 +9,15 @@
 
 ## 1. Grundsatz
 
+`Tools/Test-SqlServerLabClientReadiness.ps1 -Provider docker -Operation Inspect`
+prueft den Client ohne Skill, Setup oder Runtime-Start. Der strukturierte
+Vertrag `SqlServerLab.ClientReadiness/1.0` nennt fehlende Voraussetzungen,
+Warnungen und naechste Schritte ohne Hostpfade oder native Rohfehler. READY
+belegt den Bootstrap; `MutationAllowed` und `SkillLoaderVerified` bleiben false.
+`Tests/Static/Invoke-ClientReadinessChecks.ps1` prueft fehlende Installation,
+ungültige Aufloesung, Ausfuehrungs-/Runtimeberechtigung, Nichterreichbarkeit,
+Timeout, ungueltige Antworten und unvollstaendigen Checkout getrennt.
+
 `Tests/Static/Invoke-HyperVSqlOwnershipInitializationChecks.ps1` fuehrt den
 echten Initialisierungsaufruf aus dem SQL-Slotworkflow mit fehlenden, null,
 leeren, positiven und ungueltigen Trace Flags gegen synthetische Receipts aus.
