@@ -3,7 +3,7 @@
 function Start-LabActionProgress {
     [CmdletBinding()]
     param(
-        [ValidateSet('Download','SqlReadiness','ImageBuild','Copy','Hash','Extract','Transfer','Restore','Import','GuestWait')]
+        [ValidateSet('Download','SqlReadiness','SqlQuery','ImageBuild','Copy','Hash','Extract','Transfer','Restore','Import','GuestWait')]
         [string]$Phase,
         [datetime]$Now = [datetime]::UtcNow
     )
@@ -20,7 +20,7 @@ function Update-LabActionProgress {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][object]$Progress,
-        [ValidateSet('Download','SqlReadiness','ImageBuild','Copy','Hash','Extract','Transfer','Restore','Import','GuestWait')]
+        [ValidateSet('Download','SqlReadiness','SqlQuery','ImageBuild','Copy','Hash','Extract','Transfer','Restore','Import','GuestWait')]
         [string]$Phase,
         [ValidateRange(0, [long]::MaxValue)][long]$CompletedBytes = 0,
         [ValidateRange(0, [long]::MaxValue)][long]$TotalBytes = 0,
@@ -33,7 +33,7 @@ function Update-LabActionProgress {
     if ($null -ne $Progress.LastShownAt -and ($Now - $Progress.LastShownAt).TotalSeconds -lt 1 -and
         $Progress.LastPhase -eq $Progress.Phase) { return }
     $labels = @{
-        Download='Download'; SqlReadiness='SQL-Bereitschaft'; ImageBuild='Container-Image bauen'
+        Download='Download'; SqlReadiness='SQL-Bereitschaft'; SqlQuery='SQL ausfuehren'; ImageBuild='Container-Image bauen'
         Copy='Dateien kopieren'; Hash='Integritaet pruefen'; Extract='Archiv entpacken'
         Transfer='Daten uebertragen'; Restore='Datenbank wiederherstellen'
         Import='Datenbank importieren'; GuestWait='Auf Gast warten'
@@ -154,8 +154,8 @@ function Invoke-LabProgressNativeCommand {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$FilePath,
-        [Parameter(Mandatory)][string[]]$ArgumentList,
-        [ValidateSet('ImageBuild','Transfer','Restore','Import','GuestWait','Extract')][string]$Phase = 'ImageBuild',
+        [Parameter(Mandatory)][AllowEmptyString()][string[]]$ArgumentList,
+        [ValidateSet('ImageBuild','Transfer','Restore','Import','GuestWait','Extract','SqlReadiness','SqlQuery')][string]$Phase = 'ImageBuild',
         [ValidateRange(1,86400)][int]$TimeoutSeconds = 3600,
         [object]$Progress
     )
@@ -192,6 +192,11 @@ function Invoke-LabProgressNativeCommand {
         try {
             if ($started -and -not $process.HasExited) { $process.Kill($true); $null = $process.WaitForExit(5000) }
         }
-        finally { $process.Dispose(); if ($ownsProgress) { Stop-LabActionProgress -Progress $Progress } }
+        finally {
+            $process.StartInfo.ArgumentList.Clear()
+            $ArgumentList = $null
+            $process.Dispose()
+            if ($ownsProgress) { Stop-LabActionProgress -Progress $Progress }
+        }
     }
 }

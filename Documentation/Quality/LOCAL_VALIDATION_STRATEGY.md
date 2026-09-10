@@ -99,6 +99,27 @@ bleiben unter der bestehenden Providerverwaltung; der Test fuehrt kein Prune aus
 
 ### Statische Prüfung
 
+`Tests/Static/Invoke-SqlActionProgressChecks.ps1` prueft Query- und Skript-
+Argumente, gemeinsame GO-Verbindung, Statement-/Prozessdeadline, SQL-Exitcode,
+Fehlerschwere sowie Cleanup temporaerer Ein- und Ergebnisdateien. Die Ausgabe
+verwendet den Unicode-Dateivertrag von
+[sqlcmd](https://learn.microsoft.com/en-us/sql/tools/sqlcmd/sqlcmd-utility).
+`Tests/Integration/Invoke-SqlActionProgressAcceptance.ps1 -Provider docker|podman`
+prueft getrennt an einem eigenen SQL-2025-Run einen langsamen Query-Heartbeat,
+geheimnisfreie Anzeige, Unicode, SQL-Fehler, GO-Sessionbindung, Statement-Timeout
+und vollstaendigen Run-Cleanup. Ein Lauf ist kein Nachweis fuer den anderen
+Provider oder fuer Hyper-V.
+Am 2026-09-10 bestanden Docker und Podman jeweils alle acht SQL-Progress-
+Assertions samt Run-Cleanup. Der Timeout-Gegenbeweis verwendet eine zwanzig-
+sekündige synthetische Wartephase mit einem einsekündigen Statement-Timeout.
+Der lokale ODBC-Client lieferte dabei `Timeout expired` bei Exitcode null;
+die gemeinsame Fehlererkennung behandelt diesen Fall jetzt als Fehler.
+Die anschliessenden SQL-2025-Lifecycle-Smokes bestanden auf beiden Providern
+34/34 Pruefungen. Auch `Invoke-RestoreSmokeTest.ps1` bestand getrennt fuer Docker
+und Podman mit identischen synthetischen Daten und vollstaendigem Cleanup.
+Der Restore-Test validiert seinen temporaeren Cleanup-Root und bewahrt bei
+fehlgeschlagenem Provider-Cleanup den State fuer Recovery.
+
 `Tests/Static/Invoke-ArchiveProgressChecks.ps1` prueft ZIP-Byteintegritaet,
 Zeitstempel, Zwischenmeldungen, bestehende Ziele, Teilfehler-Cleanup sowie
 einen gemeinsamen Reporter fuer Datei- und native Archivschritte.

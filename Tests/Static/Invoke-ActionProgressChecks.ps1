@@ -60,6 +60,8 @@ function Start-LabActionProgress {
 function Write-LabInfo { param($Message) }
 function Write-LabSuccess { param($Message) }
 function sqlcmd { $global:LASTEXITCODE = 0; '17' }
+$originalSqlcmdProgress=${function:Invoke-LabSqlcmdProgress}
+function Invoke-LabSqlcmdProgress { [pscustomobject]@{ExitCode=0;Output=@('17')} }
 $readyContexts = [System.Collections.Generic.List[object]]::new()
 function Start-LabActionProgress {
     param($Phase, [datetime]$Now = [datetime]::UtcNow)
@@ -72,11 +74,12 @@ $records.Clear()
 $syntheticCredential = [securestring]::new()
 $ready = Wait-SqlReady -Port 1433 -SaPassword $syntheticCredential -ExpectedMajorVersion 17 -StabilitySeconds 1 -PollIntervalMilliseconds 100 -TimeoutSeconds 3
 Assert-Progress ($ready.Ready -and $ready.MajorVersion -eq 17 -and $records.Count -ge 2 -and $readyContexts[-1].Completed) 'SQL-Readiness meldet aus ihrer echten Poll-Schleife und bewahrt das Resultat'
-function sqlcmd { throw 'SYNTHETIC_SQL_FAILURE' }
+function Invoke-LabSqlcmdProgress { throw 'SYNTHETIC_SQL_FAILURE' }
 try { Wait-SqlReady -Port 1433 -SaPassword $syntheticCredential | Out-Null } catch { }
 Assert-Progress ($readyContexts[-1].Completed) 'SQL-Fehler beendet den Reporter im finally'
 $syntheticCredential.Dispose()
 Remove-Item Function:sqlcmd
+Set-Item Function:Invoke-LabSqlcmdProgress -Value $originalSqlcmdProgress
 function Start-LabActionProgress {
     param($Phase, [datetime]$Now = [datetime]::UtcNow)
     $context = & $originalStart -Phase $Phase -Now $Now

@@ -34,7 +34,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Datei-/VHDX-Kopien und Hashing in Registry, Migration und Download-/Restore-
   Verifikation melden Bytewerte; Integritaet und Teilfehler sind offline
   geprueft. Sample-ZIP-Payloads melden entpackte Bytes, native 7-Zip-Schritte
-  nutzen denselben Reporter. SQL-/Containertransfers und Gastwartepfade bleiben UX-Folgearbeit;
+  nutzen denselben Reporter. Native SQL-Probes, Abfragen, Skripte und Restore
+  sind an den Hostreporter angebunden. Containertransfers und Gastwartepfade bleiben UX-Folgearbeit;
 
 - PowerShell-Modul und öffentliche Cmdlets;
 - Docker-Provider;

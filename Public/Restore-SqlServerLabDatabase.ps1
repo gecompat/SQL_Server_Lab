@@ -421,7 +421,7 @@ function Restore-SqlServerLabDatabase {
         $escapedContainerBackupPath = $runtimeBackupPath.Replace("'", "''")
         Write-LabInfo 'Pruefe Backup mit RESTORE VERIFYONLY und CHECKSUM...'
         try {
-            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -TimeoutSeconds 600 `
+            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -TimeoutSeconds 600 -ProgressPhase Restore `
                 -Query "RESTORE VERIFYONLY FROM DISK = N'$escapedContainerBackupPath' WITH CHECKSUM;"
         }
         catch {
@@ -430,26 +430,19 @@ function Restore-SqlServerLabDatabase {
             }
 
             Write-LabWarning 'Backup enthaelt keine SQL-Backup-CHECKSUM; pruefe mit RESTORE VERIFYONLY ohne CHECKSUM.'
-            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -TimeoutSeconds 600 `
+            $null = Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $saPlain -TimeoutSeconds 600 -ProgressPhase Restore `
                 -Query "RESTORE VERIFYONLY FROM DISK = N'$escapedContainerBackupPath';"
         }
 
         Write-LabInfo 'Lese Backup-Metadaten mit RESTORE FILELISTONLY...'
         $fileListQuery = "RESTORE FILELISTONLY FROM DISK = N'$escapedContainerBackupPath';"
-        $fileListOutput = sqlcmd `
-            -S "$HostName,$Port" `
-            -U sa `
-            -P $saPlain `
-            -C `
-            -b `
-            -Q $fileListQuery `
-            -s '|' `
-            -W `
-            -h -1 2>&1
-        $fileListExitCode = $LASTEXITCODE
+        $fileListNative = Invoke-LabSqlcmdProgress -Phase Restore -ArgumentList @(
+            '-S',"$HostName,$Port",'-U','sa','-P',$saPlain,'-C','-b','-Q',$fileListQuery,'-s','|','-W','-h','-1')
+        $fileListOutput = @($fileListNative.Output)
+        $fileListExitCode = $fileListNative.ExitCode
         $fileListText = ($fileListOutput | ForEach-Object { [string]$_ }) -join "`n"
 
-        if ($fileListExitCode -ne 0 -or $fileListText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+        if (Test-LabSqlcmdFailure -ExitCode $fileListExitCode -OutputText $fileListText) {
             throw "FILELISTONLY fehlgeschlagen: $fileListText"
         }
 
@@ -490,18 +483,14 @@ RESTORE DATABASE [$escapedDatabaseName]
 
         Write-LabInfo "RESTORE DATABASE [$DatabaseName]..."
         $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-        $restoreOutput = sqlcmd `
-            -S "$HostName,$Port" `
-            -U sa `
-            -P $saPlain `
-            -C `
-            -b `
-            -Q $restoreQuery 2>&1
-        $restoreExitCode = $LASTEXITCODE
+        $restoreNative = Invoke-LabSqlcmdProgress -Phase Restore -ArgumentList @(
+            '-S',"$HostName,$Port",'-U','sa','-P',$saPlain,'-C','-b','-Q',$restoreQuery)
+        $restoreOutput = @($restoreNative.Output)
+        $restoreExitCode = $restoreNative.ExitCode
         $stopwatch.Stop()
         $restoreText = ($restoreOutput | ForEach-Object { [string]$_ }) -join "`n"
 
-        if ($restoreExitCode -ne 0 -or $restoreText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
+        if (Test-LabSqlcmdFailure -ExitCode $restoreExitCode -OutputText $restoreText) {
             if ($storageContext) {
                 $null = Fail-LabStorageSqlOperation -Context $storageContext -OperationId $storageOperationId -ErrorMessage 'SQL_STORAGE_RESTORE_EXECUTION_FAILED'
             }

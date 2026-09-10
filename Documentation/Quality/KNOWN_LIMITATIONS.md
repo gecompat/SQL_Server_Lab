@@ -1611,8 +1611,18 @@ und Restore melden Bytewerte. Der Kopierpfad ersetzt das Ziel erst nach
 vollstaendigem Transfer; synthetische Offline-Pruefungen belegen Integritaet,
 Teilfehler-Cleanup und Hardlink-Schutz. Kopieren und Hashing besitzen ein
 Zeitlimit von einer Stunde. Ein Nachweis mit grossen VHDX-Dateien und
-Hyper-V-Lifecycle steht aus. SQL-/Containertransfers und Hyper-V-Gastwartepfade
-bleiben im UX-Punkt 11 offen. ZIP-Payloads fuer Backup, Attach und Script
+Hyper-V-Lifecycle steht aus. Containertransfers und Hyper-V-Gastwartepfade
+bleiben im UX-Punkt 11 offen. Native SQL-Probes, Query, Skript und Restore
+verwenden den Hostreporter. Das sqlcmd-Statement-Timeout bleibt unveraendert;
+zusaetzlich gilt eine Prozessdeadline von 24 Stunden, fuer Readiness die
+verbleibende Poll-Deadline. Ergebnisdateien entstehen kurzzeitig unter dem
+lokalen Temp-Root, damit ODBC-sqlcmd seine Unicode-Ausgabe eindeutig bindet;
+sie werden bei jedem Ausgang entfernt und nicht als Evidence veroeffentlicht.
+Die gemeinsame Fehlererkennung wertet auch sqlcmd-Treiberdiagnosen aus, da ein
+ODBC-Query-Timeout trotz Exitcode null beobachtet wurde. Er bleibt ein Fehler.
+Getrennte SQL-2025-Läufe auf Docker und Podman bestanden am 2026-09-10 die acht
+Progress-, Unicode-, Fehler-, Session- und Timeout-Assertions samt Cleanup.
+ZIP-Payloads fuer Backup, Attach und Script
 Bundles melden entpackte Bytes; native 7-Zip-Pruefung und -Extraktion verwenden
 einen gemeinsamen Archivreporter. ZIP-Integritaet und Teilfehler-Cleanup sind
 mit synthetischen Dateien geprueft. Der getrennte native 7-Zip-Lauf am

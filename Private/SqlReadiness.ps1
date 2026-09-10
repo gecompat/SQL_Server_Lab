@@ -210,17 +210,11 @@ function Wait-SqlReady {
         while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
             Update-LabActionProgress -Progress $progress -ProbeCount (++$probeCount)
             $query = "SET NOCOUNT ON; SELECT CAST(SERVERPROPERTY('ProductMajorVersion') AS varchar(10));"
-            $output = sqlcmd `
-                -S "${HostName},${Port}" `
-                -U sa `
-                -P $saPlain `
-                -C `
-                -b `
-                -l 2 `
-                -Q $query `
-                -h -1 `
-                -W 2>&1
-            $exitCode = $LASTEXITCODE
+            $remainingSeconds = [int][Math]::Max(1,[Math]::Ceiling($TimeoutSeconds - $stopwatch.Elapsed.TotalSeconds))
+            $native = Invoke-LabSqlcmdProgress -Phase SqlReadiness -Progress $progress -ProcessTimeoutSeconds $remainingSeconds -ArgumentList @(
+                '-S',"${HostName},${Port}",'-U','sa','-P',$saPlain,'-C','-b','-l','2','-Q',$query,'-h','-1','-W')
+            $output = @($native.Output)
+            $exitCode = $native.ExitCode
             $outputText = ($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }) -join "`n"
 
             if ($exitCode -eq 0 -and $outputText -match '^\d+$') {
@@ -358,18 +352,12 @@ function Wait-LabDatabaseReady {
         Write-LabInfo "Warte auf Datenbank-Bereitschaft (${HostName}:$Port/$Database, Timeout: ${TimeoutSeconds}s)..."
 
         while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
-            $output = sqlcmd `
-                -S "${HostName},${Port}" `
-                -U sa `
-                -P $saPlain `
-                -C `
-                -b `
-                -l 2 `
-                -d $Database `
-                -Q 'SET NOCOUNT ON; SELECT 1;' `
-                -h -1 `
-                -W 2>&1
-            $exitCode = $LASTEXITCODE
+            $remainingSeconds = [int][Math]::Max(1,[Math]::Ceiling($TimeoutSeconds - $stopwatch.Elapsed.TotalSeconds))
+            $native = Invoke-LabSqlcmdProgress -Phase SqlReadiness -Progress $progress -ProcessTimeoutSeconds $remainingSeconds -ArgumentList @(
+                '-S',"${HostName},${Port}",'-U','sa','-P',$saPlain,'-C','-b','-l','2','-d',$Database,
+                '-Q','SET NOCOUNT ON; SELECT 1;','-h','-1','-W')
+            $output = @($native.Output)
+            $exitCode = $native.ExitCode
             $outputText = ($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ }) -join "`n"
 
             if ($exitCode -eq 0 -and $outputText -eq '1') {
@@ -409,7 +397,9 @@ function Test-LabSqlcmdFailure {
     .DESCRIPTION
         Ein Aufruf gilt als fehlgeschlagen, wenn der Exitcode ungleich 0 ist
         (durch -b bei Fehlerschwere > 10) oder die Ausgabe eine Fehlerschwere
-        >= 11 meldet. Beide sqlcmd-Pfade (Query und Single-Connection-Skript)
+        >= 11 meldet. ODBC-Treiberfehler wie Query-Timeout werden auch erkannt,
+        wenn sqlcmd dazu den Exitcode 0 liefert.
+        Beide sqlcmd-Pfade (Query und Single-Connection-Skript)
         verwenden dieselbe Regel, damit sie nicht auseinanderlaufen.
     #>
     [CmdletBinding()]
@@ -418,7 +408,35 @@ function Test-LabSqlcmdFailure {
         [string]$OutputText
     )
 
-    return ($ExitCode -ne 0 -or $OutputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)')
+    return ($ExitCode -ne 0 -or $OutputText -match 'Msg \d+, Level (1[1-9]|[2-9]\d)' -or
+        $OutputText -match '(?im)^\s*(?:Sqlcmd:\s*Error:|Timeout expired\s*$)')
+}
+
+function Invoke-LabSqlcmdProgress {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string[]]$ArgumentList,
+        [ValidateRange(1,86400)][int]$ProcessTimeoutSeconds = 86400,
+        [ValidateSet('SqlReadiness','SqlQuery','Restore','Import')][string]$Phase = 'SqlQuery',
+        [object]$Progress
+    )
+    $command = Get-Command sqlcmd -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $command) { throw 'sqlcmd wurde nicht gefunden.' }
+    $outputPath = [IO.Path]::GetTempFileName()
+    try {
+        # ODBC-sqlcmd kann bei stdout trotz -u/-f die OEM-Codepage verwenden.
+        # -u mit eigener -o-Datei liefert dagegen BOM-gebundenes UTF-16LE.
+        # Die kurzlebige Ergebnisdatei wird nach jedem Ausgang entfernt.
+        $ArgumentList = @($ArgumentList) + @('-u','-o',$outputPath)
+        $native = Invoke-LabProgressNativeCommand -FilePath $command.Source -ArgumentList $ArgumentList -Phase $Phase -Progress $Progress -TimeoutSeconds $ProcessTimeoutSeconds
+        $output = @([IO.File]::ReadAllLines($outputPath)) + @($native.Output)
+        [pscustomobject]@{ ExitCode=$native.ExitCode; Output=$output }
+    }
+    catch {
+        if ($_.Exception.Message -ne 'LAB_NATIVE_OPERATION_TIMEOUT') { throw }
+        [pscustomobject]@{ ExitCode=1; Output=@('SQLCMD_OPERATION_TIMEOUT') }
+    }
+    finally { $ArgumentList = $null; [IO.File]::Delete($outputPath) }
 }
 
 function Invoke-SqlQuery {
@@ -429,7 +447,9 @@ function Invoke-SqlQuery {
         [Parameter(Mandatory)][string]$SaPlain,
         [Parameter(Mandatory)][string]$Query,
         [string]$Database = 'master',
-        [int]$TimeoutSeconds = 30
+        [int]$TimeoutSeconds = 30,
+        [ValidateSet('SqlQuery','Restore','Import')][string]$ProgressPhase = 'SqlQuery',
+        [object]$Progress
     )
 
     if (-not (Get-Command sqlcmd -ErrorAction SilentlyContinue)) {
@@ -450,16 +470,17 @@ function Invoke-SqlQuery {
             # Single-Connection-Pfad vollstaendig deaktiviert.
             $tempQueryPath = [System.IO.Path]::GetTempFileName()
             [System.IO.File]::WriteAllText($tempQueryPath, $Query, [System.Text.UTF8Encoding]::new($true))
-            $output = sqlcmd `
-                -S "${HostName},${Port}" -U sa -P $SaPlain -C -d $Database `
-                -i $tempQueryPath -b -X1 -x -l $loginTimeoutSeconds -t $TimeoutSeconds -W 2>&1
+            $native = Invoke-LabSqlcmdProgress -Phase $ProgressPhase -Progress $Progress -ArgumentList @(
+                '-S',"${HostName},${Port}",'-U','sa','-P',$SaPlain,'-C','-d',$Database,
+                '-i',$tempQueryPath,'-b','-X1','-x','-l',"$loginTimeoutSeconds",'-t',"$TimeoutSeconds",'-W')
         }
         else {
-            $output = sqlcmd `
-                -S "${HostName},${Port}" -U sa -P $SaPlain -C -d $Database `
-                -Q $Query -b -l $loginTimeoutSeconds -t $TimeoutSeconds -W 2>&1
+            $native = Invoke-LabSqlcmdProgress -Phase $ProgressPhase -Progress $Progress -ArgumentList @(
+                '-S',"${HostName},${Port}",'-U','sa','-P',$SaPlain,'-C','-d',$Database,
+                '-Q',$Query,'-b','-l',"$loginTimeoutSeconds",'-t',"$TimeoutSeconds",'-W')
         }
-        $exitCode = $LASTEXITCODE
+        $output = @($native.Output)
+        $exitCode = $native.ExitCode
         $outputText = ($output | ForEach-Object { [string]$_ }) -join "`n"
     }
     finally {
@@ -582,6 +603,7 @@ function Invoke-LabSqlScript {
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $executedBatches = 0
     $tempScriptPath = $null
+    $scriptProgress = Start-LabActionProgress -Phase SqlQuery
 
     try {
         if ($KeepConnection) {
@@ -604,19 +626,13 @@ function Invoke-LabSqlScript {
             $tempScriptPath = [System.IO.Path]::GetTempFileName()
             [System.IO.File]::WriteAllText($tempScriptPath, $scriptContent, [System.Text.UTF8Encoding]::new($true))
 
-            $output = sqlcmd `
-                -S "${HostName},${Port}" `
-                -U sa `
-                -P $saPlain `
-                -C `
-                -d $Database `
-                -i $tempScriptPath `
-                -b `
-                -X1 `
-                -x `
-                -t $TimeoutSeconds `
-                -W 2>&1
-            $exitCode = $LASTEXITCODE
+            # Das sqlcmd-Statement-Timeout bleibt erhalten; die unabhaengige
+            # Prozessdeadline begrenzt nur einen insgesamt haengenden Prozess.
+            $native = Invoke-LabSqlcmdProgress -Progress $scriptProgress -ArgumentList @(
+                '-S',"${HostName},${Port}",'-U','sa','-P',$saPlain,'-C','-d',$Database,
+                '-i',$tempScriptPath,'-b','-X1','-x','-t',"$TimeoutSeconds",'-W')
+            $output = @($native.Output)
+            $exitCode = $native.ExitCode
             $outputText = ($output | ForEach-Object { [string]$_ }) -join "`n"
             $stopwatch.Stop()
 
@@ -644,7 +660,7 @@ function Invoke-LabSqlScript {
                 -SaPlain $saPlain `
                 -Query $batch `
                 -Database $Database `
-                -TimeoutSeconds $TimeoutSeconds
+                -TimeoutSeconds $TimeoutSeconds -Progress $scriptProgress
             $executedBatches++
         }
 
@@ -676,6 +692,7 @@ function Invoke-LabSqlScript {
         if ($tempScriptPath -and (Test-Path -LiteralPath $tempScriptPath)) {
             Remove-Item -LiteralPath $tempScriptPath -Force -ErrorAction SilentlyContinue
         }
+        Stop-LabActionProgress -Progress $scriptProgress
     }
 }
 
