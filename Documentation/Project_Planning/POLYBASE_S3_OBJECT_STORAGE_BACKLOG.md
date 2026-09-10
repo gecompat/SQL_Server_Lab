@@ -72,11 +72,17 @@ wählt ausschließlich katalogisierte Varianten mit:
 - nachgewiesener Kompatibilität mit den tatsächlich verwendeten SQL-Server-
   Versionen und Operationen.
 
-MinIO ist ein geeigneter Kandidat für den ersten kleinen Container-Vertical-
-Slice, sofern Lizenz-, Bezugs- und Integritätsprüfung erfüllt sind. Andere
-Implementierungen wie Garage, SeaweedFS oder Ceph RGW benötigen denselben
-Vertrag und eigene Evidence; die Bezeichnung „S3-kompatibel“ allein ist kein
-Kompatibilitätsnachweis.
+Die frühere positive Vorauswahl von MinIO ist zurückgenommen. Das öffentliche
+[Community-Repository](https://github.com/minio/minio) ist seit 2026-04-25
+archiviert und bezeichnet sich als nicht mehr gepflegt (Abgleich 2026-09-10).
+Vor einer neuen Standardabhängigkeit ist daher eine aktuelle Wartungs-,
+Bezugs-, Lizenz- und Exit-Entscheidung erforderlich. Ein älteres Image mit
+bekanntem Hash ersetzt diese Entscheidung nicht; ein kommerzieller Nachfolger
+wird nicht automatisch ausgewählt. Kandidaten wie Garage, SeaweedFS oder Ceph
+RGW benötigen denselben Vertrag und eigene Evidence. Die Bezeichnung
+„S3-kompatibel“ allein ist kein Kompatibilitätsnachweis. Der konkrete kleine
+Folgeschritt ist in der [Bewertung](DISTRIBUTION_AND_OBJECT_STORAGE_ASSESSMENT_2026-09-10.md)
+festgelegt.
 
 ## Netzwerk-, TLS- und Secret-Vertrag
 
