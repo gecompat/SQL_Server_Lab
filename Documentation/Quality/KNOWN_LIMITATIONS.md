@@ -1623,7 +1623,11 @@ binden Gastjobs an ihre Restdeadline. Sonstige Gastjobs haben eine Deadline
 von 24 Stunden, Integrationstransfers von einer Stunde. Copy-VMFile fuer
 CU-/External-Runtime-Payloads sowie die Prepared-Shutdown-Pause sind angebunden.
 Offline-Job- und Transportvertraege sind geprueft; native Evidence dieser
-Erweiterung, Session-Dateikopien und Legacy-WMI-Wartepfade bleiben offen.
+Erweiterung und Legacy-WMI-Wartepfade bleiben offen. Session-Dateikopien fuer
+SQL-Storage und Hyper-V-Datenbankpakete verwenden jetzt eine eigene asynchrone
+Pipeline mit Hostreporter und einer Stunde Deadline; deren Heartbeat, Ausgaben,
+Fehlerkategorien und Cleanup sind offline geprueft. Der echte Sessiontransfer
+zwischen Host und Gast ist fuer diese Erweiterung noch nicht nativ belegt.
 Native SQL-Probes, Query, Skript und Restore
 verwenden den Hostreporter. Das sqlcmd-Statement-Timeout bleibt unveraendert;
 zusaetzlich gilt eine Prozessdeadline von 24 Stunden, fuer Readiness die

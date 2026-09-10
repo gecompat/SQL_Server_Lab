@@ -266,7 +266,10 @@ Der BACPAC-Fehlerpfad erfasst auch Teilkopien; Attach bewahrt weiterhin sein
 Recovery-Journal. PowerShell Direct, Lab-WinRM, deren Readiness-/Restart-Probes,
 Integrationstransfers und Prepared-Shutdown verwenden jetzt Hostreporter;
 Offline-Jobs belegen Ausgabe, Fehlerkategorie, Timeout und eigenes Cleanup.
-Native Gast-Evidence, Session-Dateikopien und Legacy-WMI-Wartepfade bleiben
+Session-Dateikopien fuer SQL-Storage und Datenbankpakete verwenden eine eigene
+asynchrone Kopierpipeline; Offline-Nachweise decken Heartbeat, Ergebnisobjekte,
+Fehlerkategorie, Timeout und Reporter-Cleanup ab.
+Native Gast-/Session-Evidence und Legacy-WMI-Wartepfade bleiben
 Teil dieses offenen Punkts; der folgende Ausgangsbefund
 beschreibt den Stand vor dieser Erweiterung.
 

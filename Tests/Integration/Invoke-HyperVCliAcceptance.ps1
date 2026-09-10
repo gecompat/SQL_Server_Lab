@@ -207,6 +207,29 @@ try {
     $script:sqlAddress = [string]$install.HostSqlAccess.Network.Address
     $saPlain = ConvertFrom-AcceptanceSecureString $saPassword
 
+    # Beide Sessionrichtungen auf genau der eigenen VM; keine Nutzdaten.
+    $transferSource=Join-Path $testRoot 'synthetic-session-source.bin'
+    $transferReturn=Join-Path $testRoot 'synthetic-session-return.bin'
+    $transferGuest='R:\SQLBackup\session-' + [guid]::NewGuid().ToString('N') + '.bin'
+    $transferBytes=[byte[]]::new(2MB)
+    [Random]::new(17).NextBytes($transferBytes)
+    [IO.File]::WriteAllBytes($transferSource,$transferBytes)
+    $transferCredential=[PSCredential]::new('Administrator',$guestPassword)
+    try {
+        Invoke-Private {
+            param($RunId,$Root,$Credential,$Source,$Guest,$Target)
+            $null=Copy-LabFileToHyperVGuest -RunId $RunId -StateRoot $Root -Credential $Credential -SourcePath $Source -DestinationPath $Guest
+            $null=Copy-LabFileFromHyperVGuest -RunId $RunId -StateRoot $Root -Credential $Credential -SourcePath $Guest -DestinationPath $Target
+        } @($lab.RunId,$StateRoot,$transferCredential,$transferSource,$transferGuest,$transferReturn)
+        Assert-HyperVCli ((Get-FileHash -LiteralPath $transferSource).Hash -eq (Get-FileHash -LiteralPath $transferReturn).Hash) 'Session-Dateitransfer in beide Richtungen bewahrt synthetische Bytes'
+    }
+    finally {
+        Invoke-Private {
+            param($RunId,$Root,$Credential,$Guest)
+            $null=Remove-LabHyperVGuestFile -RunId $RunId -StateRoot $Root -Credential $Credential -Path $Guest
+        } @($lab.RunId,$StateRoot,$transferCredential,$transferGuest)
+    }
+
     $expectedMajor = @{ '2019'='15'; '2022'='16'; '2025'='17' }[$SqlVersion]
     Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 1200 -Force -Confirm:$false | Out-Null
     $restartReadiness = Wait-WindowsAcceptanceSqlReady -ExpectedMajorVersion $expectedMajor

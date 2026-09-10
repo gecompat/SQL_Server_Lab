@@ -15,6 +15,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- PowerShell-Session-Dateikopien fuer SQL-Storage und Hyper-V-Datenbankpakete
+  melden hostseitigen Fortschritt aus einer eigenen asynchronen Pipeline.
+  Fehlerkategorien bleiben erhalten; die Session bleibt im Besitz des Aufrufers.
 - PowerShell Direct, Lab-WinRM und Hyper-V-Integrationstransfers melden
   hostseitigen Jobfortschritt. Readiness-Probes und CompleteImage-Neustart
   teilen ihre Anzeige über die Wartephasen; Deadline, Ergebnis und Fehler

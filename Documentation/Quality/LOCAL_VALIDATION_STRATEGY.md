@@ -135,6 +135,11 @@ Podman mit vollstaendigem Run-Cleanup.
 Beide Acceptance-Skripte koordinieren sich mit der Runtime-Sperre, pruefen
 Ressourcen und bewahren bei fehlgeschlagenem Cleanup den Recovery-State.
 
+`Tests/Static/Invoke-SessionTransferProgressChecks.ps1` prueft echte asynchrone
+PowerShell-Pipelines mit langsamer synthetischer Arbeit, Ausgabeobjekten,
+Fehlerkategorien, Deadline und Reporter-Cleanup. Rohe ProgressRecords werden
+unterdrueckt. Dieser Offline-Lauf belegt noch keinen echten PSSession-Transfer.
+
 `Tests/Static/Invoke-SqlActionProgressChecks.ps1` prueft Query- und Skript-
 Argumente, gemeinsame GO-Verbindung, Statement-/Prozessdeadline, SQL-Exitcode,
 Fehlerschwere sowie Cleanup temporaerer Ein- und Ergebnisdateien. Die Ausgabe
