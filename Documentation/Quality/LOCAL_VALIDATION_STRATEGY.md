@@ -9,6 +9,13 @@
 
 ## 1. Grundsatz
 
+`Invoke-HyperVPersistentDataDriveChecks.ps1` prueft Operations-Lease,
+Recovery-Markierung und Reattach-/Release-Abschluss mit schreibfreier Preview,
+Revisionskonflikten und bestehenden Clone-/Resume-Fehlerpfaden.
+`Invoke-HyperVPersistentDataDriveAcceptance.ps1` serialisiert den kleinen
+nativen VHDX-Nachweis am Runtime-Mutex; Cleanup bindet die erzeugte VM-ID
+und den eigenen Temp-Pfad und erhaelt Dateien bei VM-Cleanupfehlern.
+
 `Invoke-ContainerInstanceStoreChecks.ps1` prueft auch Preview und veraltete
 Revisionen fuer Clone-Lease und Zielregistrierung. Die synthetischen Spiegel
 bleiben bei Preview unveraendert; Apply registriert das Ziel und loest die

@@ -546,6 +546,17 @@ try {
     $hyperVEnvironmentText=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw -Encoding utf8
     $hyperVProviderText=Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/HyperV/HyperVProvider.ps1') -Raw -Encoding utf8
     $catalogWriterText=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/PersistentStorageCatalog.ps1') -Raw -Encoding utf8
+    $writerAst=[Management.Automation.Language.Parser]::ParseInput($catalogWriterText,[ref]$null,[ref]$null)
+    $directWrites=@($writerAst.FindAll({param($node)
+        $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq 'Write-LabPersistentStorageCatalogDocument'
+    },$true))
+    $writeOwners=@(foreach($write in $directWrites){
+        $parent=$write.Parent
+        while($parent -and $parent -isnot [Management.Automation.Language.FunctionDefinitionAst]){$parent=$parent.Parent}
+        if($parent){$parent.Name}
+    })
+    Add-CheckResult -Name 'Alle produktiven Katalog-Writer committen ausschliesslich im gemeinsamen Transaktionskern' -Success (
+        $directWrites.Count -eq 1 -and $writeOwners.Count -eq 1 -and $writeOwners[0] -eq 'Invoke-LabPersistentStorageCatalogMutation')
     $hyperVReservationWriterStart=$catalogWriterText.IndexOf('function Register-LabHyperVInstanceStoreReservation')
     $hyperVReservationWriterEnd=$catalogWriterText.IndexOf('function Set-LabHyperVPersistentDataOperationLease')
     $hyperVReservationWriterText=$catalogWriterText.Substring(
