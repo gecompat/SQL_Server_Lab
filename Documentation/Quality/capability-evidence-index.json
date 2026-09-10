@@ -41,6 +41,22 @@
       "Test": "Tests/Static/Invoke-ReleaseArtifactChecks.ps1",
       "Result": "PASS", "Cleanup": "PASS", "Date": "2026-09-10",
       "Reference": "https://github.com/gecompat/SQL_Server_Lab/actions/runs/34498372908"
+    },
+    {
+      "Capability": "sql2025-preview-vector-index-acceptance", "Provider": "docker", "SqlVersion": "2025",
+      "Platform": "windows", "Scope": "NATIVE_SQL",
+      "SourceRevision": "6fc518847eaefb021c31666ca8386da5b53e1908",
+      "Test": "Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1",
+      "Result": "PASS", "Cleanup": "PASS", "Date": "2026-09-10",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/commit/5392fc97e96d208418f5ef501933c1ae920bb012"
+    },
+    {
+      "Capability": "sql2025-preview-vector-index-acceptance", "Provider": "podman", "SqlVersion": "2025",
+      "Platform": "windows", "Scope": "NATIVE_SQL",
+      "SourceRevision": "6fc518847eaefb021c31666ca8386da5b53e1908",
+      "Test": "Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1",
+      "Result": "PASS", "Cleanup": "PASS", "Date": "2026-09-10",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/commit/5392fc97e96d208418f5ef501933c1ae920bb012"
     }
   ]
 }
