@@ -1060,6 +1060,17 @@ Vor Datei-, Git-, Package- oder Exportoperationen sind zu prüfen:
 
 Die statische Vertragsprüfung ist kein vollständiger Data-Loss-Prevention-Scanner. Verantwortliche Inhaltsprüfung bleibt erforderlich.
 
+Der Privacy-Scanner grenzt die lokalen Runtimewurzeln `.runtime`, `.state`,
+`.secrets`, `.artifacts`, `.cache` und `.local` mit korrekt maskierten
+Pfadsegmenten ab. Flüchtige Dateien eines gleichzeitig laufenden eigenen
+Lab-Tests verändern dadurch nicht den Quellscan. In den Git-Index aufgenommene
+Dateien dieser Wurzeln werden dennoch geprüft; ohne lesbaren Git-Index bricht
+der Scanner ab. Versteckte Dateien im aktiven Umfang werden auch unter Linux
+erfasst. Isolierte synthetische Pester-Fixtures prüfen Runtime-Isolation,
+aktive Secret-/Env-Dateien, erzwungene Indexaufnahme und ähnliche
+Verzeichnisnamen. Diese Abgrenzung ersetzt weder den Cleanup des Runtime-Tests
+noch die Prüfung vor Commit, Package oder Export.
+
 ## 12. Ergebnisbegriffe
 
 ```text

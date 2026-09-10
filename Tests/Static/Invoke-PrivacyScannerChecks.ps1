@@ -15,16 +15,28 @@ $passed = 0
 Write-Host ''
 Write-Host 'SQL_Server_Lab - Privacy Scanner Checks' -ForegroundColor Cyan
 
-$excludePathPattern = [regex]'(?:[\\/]\.git[\\/]|[\\/]_QuellRepo[\\/]|[\\/]private_Note[\\/]|[\\/]\\.runtime[\\/]|[\\/]\\.state[\\/]|[\\/]\\.secrets[\\/]|[\\/]\\.artifacts[\\/]|[\\/]\\.cache[\\/]|[\\/]\\.local[\\/])'
+$excludePathPattern = [regex]'(?:[\\/]\.git[\\/]|[\\/]_QuellRepo[\\/]|[\\/]private_Note[\\/]|[\\/]\.runtime[\\/]|[\\/]\.state[\\/]|[\\/]\.secrets[\\/]|[\\/]\.artifacts[\\/]|[\\/]\.cache[\\/]|[\\/]\.local[\\/])'
+
+# Ignorierter Runtime-State bleibt ausserhalb des Scans. Ein dennoch in den
+# Git-Index aufgenommenes Artefakt muss weiterhin geprueft werden.
+$trackedRuntimeFiles = [Collections.Generic.HashSet[string]]::new(
+    $(if ($IsWindows) { [StringComparer]::OrdinalIgnoreCase } else { [StringComparer]::Ordinal })
+)
+$git = Get-Command git -ErrorAction Stop
+$trackedOutput = @(& $git.Source -C $repoRoot -c core.quotepath=false ls-files -z -- .runtime .state .secrets .artifacts .cache .local 2>$null)
+if ($LASTEXITCODE -ne 0) { throw 'PRIVACY_GIT_INDEX_UNAVAILABLE' }
+foreach ($relativePath in ([string]::Join("`n", $trackedOutput)).Split([char]0, [StringSplitOptions]::RemoveEmptyEntries)) {
+    $null = $trackedRuntimeFiles.Add([IO.Path]::GetFullPath((Join-Path $repoRoot $relativePath)))
+}
 
 function Get-FilteredFiles {
     param(
         [Parameter(Mandatory)][scriptblock]$Filter
     )
 
-    Get-ChildItem -LiteralPath $repoRoot -Recurse -File |
+    Get-ChildItem -LiteralPath $repoRoot -Recurse -File -Force |
         Where-Object {
-            -not $excludePathPattern.IsMatch($_.FullName) -and (& $Filter $_)
+            (-not $excludePathPattern.IsMatch($_.FullName) -or $trackedRuntimeFiles.Contains($_.FullName)) -and (& $Filter $_)
         }
 }
 
@@ -102,7 +114,7 @@ Add-CheckResult `
 $reparsePoints = @()
 try {
     $reparsePoints = Get-ChildItem -LiteralPath $repoRoot -Recurse -Force -ErrorAction SilentlyContinue |
-        Where-Object { -not $excludePathPattern.IsMatch($_.FullName) -and ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) }
+        Where-Object { (-not $excludePathPattern.IsMatch($_.FullName) -or $trackedRuntimeFiles.Contains($_.FullName)) -and ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) }
 }
 catch {
     # Get-ChildItem with -Recurse auf ReparsePoints kann in seltenen Umgebungen flackern.
