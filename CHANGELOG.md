@@ -20,6 +20,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Regulaerer Container-Lease-Erwerb und -Release nutzen denselben
+  revisionsgeschuetzten Katalogkern. Preview bleibt mutationsfrei; ein
+  fehlgeschlagener Release bewahrt seine Recovery-Markierung vor der Fehlermeldung.
 - Read-only Capability-Inventar fuer Produktquellen, Exporte, deklarierte
   Providerfaehigkeiten und Test-/Planungsreferenzen. Vorhandene Tests werden
   nicht als bestanden gewertet; lokale Betriebsroots bleiben ausgeschlossen.

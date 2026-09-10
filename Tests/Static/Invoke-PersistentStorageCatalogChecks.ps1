@@ -197,9 +197,13 @@ try {
         try {
             $preRelease=Unregister-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
                 -RunId $leaseRun -ScopeId $leaseScope -DataRoot $root -Configuration $config
+            $acquirePreview=Register-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
+                -RunId $leaseRun -ScopeId $leaseScope -SqlVersion '2025-latest' -DisplayName 'Lease test' `
+                -DataRoot $root -Configuration $config -ExpectedRevision $preRelease.CatalogRevision -Preview
+            $afterAcquirePreview=Get-LabPersistentStorageCatalog -Configuration $config
             $acquired=Register-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
                 -RunId $leaseRun -ScopeId $leaseScope -SqlVersion '2025-latest' -DisplayName 'Lease test' `
-                -DataRoot $root -Configuration $config
+                -DataRoot $root -Configuration $config -ExpectedRevision $acquirePreview.CatalogRevision
             $script:leaseTestRuntimeStorageId=[string]$acquired.Store.PersistentStorageId; $script:leaseTestRuntimeStatus='AVAILABLE'
             $referencePreview=Sync-LabContainerInstanceStoreDatabaseReference `
                 -PersistentStorageId ([string]$acquired.Store.PersistentStorageId) -RunId $leaseRun -ScopeId $leaseScope `
@@ -225,8 +229,17 @@ try {
             $databaseReferencesAgain=Sync-LabContainerInstanceStoreDatabaseReference `
                 -PersistentStorageId ([string]$acquired.Store.PersistentStorageId) -RunId $leaseRun -ScopeId $leaseScope `
                 -DatabaseName @('ApplicationTwo','ApplicationOne') -Configuration $config
+            $releasePreview=Unregister-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
+                -RunId $leaseRun -ScopeId $leaseScope -DataRoot $root -Configuration $config -ExpectedRevision $databaseReferencesAgain.CatalogRevision -Preview
+            $afterReleasePreview=Get-LabPersistentStorageCatalog -Configuration $config
             $released=Unregister-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
-                -RunId $leaseRun -ScopeId $leaseScope -DataRoot $root -Configuration $config
+                -RunId $leaseRun -ScopeId $leaseScope -DataRoot $root -Configuration $config -ExpectedRevision $releasePreview.CatalogRevision
+            $staleReleaseBlocked=$false
+            try {
+                $null=Unregister-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
+                    -RunId $leaseRun -ScopeId $leaseScope -DataRoot $root -Configuration $config -ExpectedRevision $releasePreview.CatalogRevision
+            }
+            catch {$staleReleaseBlocked=$_.Exception.Message -match 'PERSISTENT_STORAGE_CATALOG_REVISION_CONFLICT'}
             $reacquired=Register-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
                 -RunId $leaseRun -ScopeId $leaseScope -SqlVersion '2025-latest' -DisplayName 'Lease test' `
                 -DataRoot $root -Configuration $config
@@ -238,9 +251,16 @@ try {
             }
             catch { $foreignBlocked=$_.Exception.Message -match 'CONTAINER_INSTANCE_STORE_LEASE_CONFLICT' }
             $script:leaseTestRuntimeStatus='MISSING'; $recoveryBlocked=$false
+            $recoveryPreviewBlocked=$false
+            try {
+                $null=Unregister-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
+                    -RunId $leaseRun -ScopeId $leaseScope -DataRoot $root -Configuration $config -ExpectedRevision $reacquired.CatalogRevision -Preview
+            }
+            catch {$recoveryPreviewBlocked=$_.Exception.Message -match 'CONTAINER_INSTANCE_STORE_RELEASE_RUNTIME_VERIFICATION_FAILED'}
+            $afterRecoveryPreview=Get-LabPersistentStorageCatalog -Configuration $config
             try {
                 Unregister-LabContainerInstanceStoreLease -Provider docker -VolumeName 'sql-lab-persistent-lease-test' `
-                    -RunId $leaseRun -ScopeId $leaseScope -DataRoot $root -Configuration $config | Out-Null
+                    -RunId $leaseRun -ScopeId $leaseScope -DataRoot $root -Configuration $config -ExpectedRevision $reacquired.CatalogRevision | Out-Null
             }
             catch { $recoveryBlocked=$_.Exception.Message -match 'CONTAINER_INSTANCE_STORE_RELEASE_RUNTIME_VERIFICATION_FAILED' }
             $after=Get-LabPersistentStorageCatalog -Configuration $config
@@ -248,6 +268,9 @@ try {
                 PreRelease=$preRelease; Acquired=$acquired; Released=$released; Reacquired=$reacquired; ForeignBlocked=$foreignBlocked
                 DatabaseReferences=$databaseReferences; DatabaseReferencesAgain=$databaseReferencesAgain
                 ReferencePreview=$referencePreview; AfterReferencePreview=$afterReferencePreview
+                AcquirePreview=$acquirePreview; AfterAcquirePreview=$afterAcquirePreview
+                ReleasePreview=$releasePreview; AfterReleasePreview=$afterReleasePreview; StaleReleaseBlocked=$staleReleaseBlocked
+                RecoveryPreviewBlocked=$recoveryPreviewBlocked; AfterRecoveryPreview=$afterRecoveryPreview
                 StaleReferenceBlocked=$staleReferenceBlocked; ForeignReferenceBlocked=$foreignReferenceBlocked
                 RecoveryBlocked=$recoveryBlocked; Catalog=$after
             }
@@ -289,6 +312,17 @@ try {
         $leaseEvidence.Reacquired.Reused -and
         [string]$leaseEvidence.Reacquired.Store.PersistentStorageId -eq [string]$leaseEvidence.Acquired.Store.PersistentStorageId)
     Add-CheckResult -Name 'Exklusive Instanzstore-Lease blockiert einen konkurrierenden Run' -Success $leaseEvidence.ForeignBlocked
+    Add-CheckResult -Name 'Lease-Erwerb und Freigabe besitzen mutationsfreie Previews und revisionsgebundenen Apply' -Success (
+        $leaseEvidence.AcquirePreview.Preview -and $leaseEvidence.ReleasePreview.Preview -and
+        @($leaseEvidence.AfterAcquirePreview.Document.Stores).Count -eq 0 -and
+        $leaseEvidence.AfterAcquirePreview.Document.Revision -eq $leaseEvidence.PreRelease.CatalogRevision -and
+        $leaseEvidence.Acquired.CatalogRevision -eq ($leaseEvidence.AcquirePreview.CatalogRevision+1) -and
+        $leaseEvidence.AfterReleasePreview.Document.Stores[0].State -eq 'IN_USE' -and
+        $leaseEvidence.Released.CatalogRevision -eq ($leaseEvidence.ReleasePreview.CatalogRevision+1) -and $leaseEvidence.StaleReleaseBlocked)
+    Add-CheckResult -Name 'Release-Recovery wird beim Apply vor dem Fehler committed und durch Preview nicht vorweggenommen' -Success (
+        $leaseEvidence.RecoveryPreviewBlocked -and $leaseEvidence.AfterRecoveryPreview.Document.Stores[0].State -eq 'IN_USE' -and
+        $leaseEvidence.AfterRecoveryPreview.Document.Revision -eq $leaseEvidence.Reacquired.CatalogRevision -and
+        $leaseEvidence.Catalog.Document.Revision -eq ($leaseEvidence.Reacquired.CatalogRevision+1))
     Add-CheckResult -Name 'Fehlendes oder abweichendes Runtime-Volume bleibt mit Lease als Recovery-Fall sichtbar' -Success (
         $leaseEvidence.RecoveryBlocked -and $leaseStore.State -eq 'RECOVERY_REQUIRED' -and
         [string]$leaseStore.Lease.RunId -eq $leaseRunId -and @($leaseEvidence.Catalog.Sources).Count -eq 2)
