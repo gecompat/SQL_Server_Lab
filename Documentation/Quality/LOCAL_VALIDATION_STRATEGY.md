@@ -1161,6 +1161,14 @@ Testskript `Tests/Static/Invoke-AllChecks.ps1`.
 
 ## 15. CI/CD-Abgrenzung
 
+Die Regressionstests für den leeren Hyper-V-Fallback verwenden seit der
+Reparatur vom 2026-09-10 einen tatsächlichen PowerShell-Job und prüfen dessen
+Ergebnis und Entfernung sowie die Ablehnung ungültiger IPs vor dem Gastaufruf.
+Die Sample-Baseline-Suite führt die produktive Gastexportfunktion mit
+synthetischen Session-/Transfergrenzen aus. Sie prüft VM-Zustand, Datei- und
+Längenpostconditions, Transferfehler und Session-Cleanup. Diese Offlineprüfungen
+ersetzen keine native Hyper-V-Sample-Abnahme.
+
 Lokale Produktfunktion und Native-Tests dürfen nicht von GitHub-hosted Runnern abhängen.
 
 Der Workflow `PR Gate` klassifiziert geänderte Pfade, führt auf Windows und
