@@ -58,8 +58,7 @@ try {
     if ($Provider -eq 'podman') { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') | Out-Host }
     & $runtimeInvocation info 1>$null 2>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) "Runtime '$Provider' ist erreichbar"
-    $existingToolImages=@(& $runtimeInvocation images --format '{{.Repository}}:{{.Tag}}' --filter 'reference=sql-server-lab/container-tool:*')
-    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and $existingToolImages.Count -eq 0) 'Isolierter Image-Test ersetzt keine vorhandenen Tool-Images'
+
 
     New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
     $env:SQL_SERVER_LAB_STATE = $stateRoot
@@ -80,6 +79,13 @@ try {
 
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module = Import-Module $modulePath -Force -PassThru
+    $plannedToolImage=& $module {
+        param($Instance)
+        $plans=@(Resolve-LabSoftwarePlansForInstance -Instance $Instance)
+        (New-LabContainerToolImagePlan -Provider ([string]$Instance.provider) -SqlVersion ([string]$Instance.version) -SoftwarePlans $plans).Image
+    } ([pscustomobject]$manifest.instances[0])
+    $existingToolImages=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*')
+    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and @($existingToolImages | Where-Object {$_ -like "$plannedToolImage=*"}).Count -eq 0) 'Isolierter Image-Test ersetzt kein vorhandenes Zielimage'
     $assessment=Test-SqlServerLabPrerequisite -Provider $Provider
     Assert-ContainerToolAcceptance ($assessment.Status -eq 'RESOURCE_OK') 'Ressourcenpruefung erlaubt den isolierten Test-Run'
     $lab = New-SqlServerLab -Manifest $manifestPath -SaPassword $saPassword -StateRoot $stateRoot -SkipAssessment -NonInteractive
@@ -268,6 +274,8 @@ try {
     & $runtimeInvocation image rm $imageName 1>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Test-eigenes Derived Image wurde explizit entfernt'
     $imageName = $null
+    $preservedToolImages=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*')
+    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and @($existingToolImages | Where-Object {$_ -notin $preservedToolImages}).Count -eq 0) 'Vorhandene Tool-Images bleiben mit derselben Tag- und Image-ID-Bindung erhalten'
 
     if ($EvidencePath) {
         $evidenceDirectory = Split-Path -Parent $EvidencePath
