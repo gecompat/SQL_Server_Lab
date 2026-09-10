@@ -10,6 +10,11 @@
 
 ## Abgrenzung
 
+`New-SqlServerLab`, `New-SqlServerLabBatch`,
+`New-SqlServerLabWindowsSlotPool` und die Hyper-V-Erstellung über
+`Invoke-SqlServerLabWorkflowAction` verwenden den gemeinsamen
+[Windows-Locale-Vertrag](../HowTo/WINDOWS_LOCALE.md).
+
 Diese Übersicht erfasst alle Funktionen, die über `FunctionsToExport` im
 Modulmanifest zur öffentlichen PowerShell-CLI gehören. Jede aufgeführte
 Funktion kann nach dem Modulimport direkt in PowerShell aufgerufen werden. Die

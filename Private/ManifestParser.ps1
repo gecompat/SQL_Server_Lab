@@ -32,6 +32,10 @@ function Test-LabManifestSchema {
     $storageIntentSchema.PSObject.Properties.Remove('$id')
     $schema.definitions | Add-Member -MemberType NoteProperty -Name storageIntent -Value $storageIntentSchema -Force
     $schema.definitions.instance.properties.storageIntent.PSObject.Properties['$ref'].Value = '#/definitions/storageIntent'
+    $localeSchema=Get-Content -LiteralPath (Join-Path $script:SchemasPath 'windows-locale-intent.schema.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
+    $localeSchema.PSObject.Properties.Remove('$schema')
+    $schema.definitions | Add-Member -NotePropertyName windowsLocale -NotePropertyValue $localeSchema -Force
+    $schema.definitions.instance.properties.windowsLocale.PSObject.Properties['$ref'].Value='#/definitions/windowsLocale'
     $validationSchema = $schema | ConvertTo-Json -Depth 100
 
     $schemaErrors = @()
@@ -323,6 +327,8 @@ function Resolve-ManifestDefaults {
             databases     = @()
             drives        = @()
             storageIntent = $null
+            windowsLocale = $null
+            windowsLocaleSource = $null
             network       = $null
             serverConfig  = $null
             software      = @()
@@ -333,6 +339,11 @@ function Resolve-ManifestDefaults {
         if (-not $instance.provider) {
             $resolved.provider = Resolve-ProviderAutoSelect -Instance $instance
         }
+        if($resolved.provider -eq 'hyperv'){
+            $resolved.windowsLocale=Resolve-LabWindowsLocaleIntent -Intent $instance.windowsLocale
+            $resolved.windowsLocaleSource=if($instance.windowsLocale){'manifest'}else{'compatibility-defaults'}
+        }
+        elseif($instance.windowsLocale){throw 'WINDOWS_LOCALE_WINDOWS_PROVIDER_REQUIRED'}
 
         $resolved.network = Resolve-LabNetworkIntentPlan `
             -Provider ([string]$resolved.provider) `

@@ -439,7 +439,8 @@ function Invoke-SqlServerLabWorkflowAction {
         }
         'SetLabResources' { Set-LabEnvironmentResources -RunId $BuildId -MemoryMB $MemoryMB -ProcessorCount $ProcessorCount }
         'NewHyperVLab' {
-            $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $SwitchName
+            $windowsLocale=if($ProvisionUnattended){Resolve-LabWindowsLocaleIntent -Overrides @{Region=$Region;SystemLocale=$SystemLocale;UiLanguage=$UiLanguage;InputLocale=$InputLocale;TimeZone=$TimeZone}}else{$null}
+            $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $SwitchName -WindowsLocale $windowsLocale
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
             if ($ProvisionUnattended) {
                 $provisioning = Invoke-HyperVLabUnattendedProvision `

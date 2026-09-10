@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SQL Server Lab Windows Locale Intent",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "Region", "SystemLocale", "UiLanguage", "InputLocale", "TimeZone"],
+  "properties": {
+    "ContractVersion": { "type": "string", "const": "SqlServerLab.WindowsLocaleIntent/1.0", "default": "SqlServerLab.WindowsLocaleIntent/1.0" },
+    "Region": { "type": "string", "pattern": "^[A-Za-z]{2}$", "description": "Portable Windows-Heimatregion, unabhaengig von Sprache und Tastatur." },
+    "SystemLocale": { "type": "string", "minLength": 4, "maxLength": 35 },
+    "UiLanguage": { "type": "string", "minLength": 4, "maxLength": 35, "description": "Muss durch das ausgewaehlte Image belegt sein." },
+    "InputLocale": { "type": "string", "pattern": "^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$" },
+    "TimeZone": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Windows-Zeitzonenbezeichner; keine IANA-ID oder Hostableitung." }
+  }
+}

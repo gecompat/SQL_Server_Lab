@@ -287,7 +287,7 @@ try {
         param($Root)
         function Test-HyperVAvailable { [PSCustomObject]@{ Available = $true; Message = 'mock' } }
         function Get-HyperVImageArtifact {
-            [PSCustomObject]@{ artifactId = 'windows-baseline-test'; artifactState = 'OS_SEALED'; sql = $null }
+            [PSCustomObject]@{ artifactId = 'windows-baseline-test'; artifactState = 'OS_SEALED'; sql = $null; operatingSystem=[pscustomobject]@{language='en-US'} }
         }
         function Resolve-LabHyperVNetworkBoundPlan { [PSCustomObject]@{ Contract=[PSCustomObject]@{Name='SqlServerLab.HyperVNetworkBoundPlan'}; Status='READY'; Intent='hostOnly'; Name='SQL_LAB_HYPERV'; Subnet='172.28.0.0/24'; PrefixLength=24; HostAddress='172.28.0.1'; Gateway=$null; DnsServers=@() } }
         function Invoke-LabHyperVNetworkBoundPlan { param($Plan) $Plan }
@@ -325,6 +325,7 @@ try {
     )
     $unattended = & $module {
         param($RunId, $Root)
+        function Get-HyperVImageArtifact { [PSCustomObject]@{ artifactId = 'prepared-locale-test'; artifactState = 'SQL_PREPARED_SEALED'; operatingSystem = @{ language = 'de-DE' } } }
         $child = Join-Path $Root 'unattended-child.vhdx'
         $null = New-Item -Path $child -ItemType File -Force
         function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Off' } }
@@ -358,12 +359,19 @@ try {
     } $created.RunId $temporaryRoot
     $unattendedConnection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
     $unattendedSecret = Join-Path (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'secrets') 'guest-administrator-password.secret'
+    $localeReceipt=Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'windows-locale-receipt.json') -Raw | ConvertFrom-Json -Depth 20
+    Add-CheckResult -Name 'Locale-Receipt bindet normalisierten Intent und beobachtete OOBE-Werte an den Run' -Success (
+        $localeReceipt.ContractVersion -eq 'SqlServerLab.WindowsLocaleReceipt/1.0' -and
+        $localeReceipt.RunId -eq $created.RunId -and $localeReceipt.Status -eq 'POST_OOBE_VERIFIED' -and
+        $localeReceipt.Intent.Region -eq 'AT' -and $localeReceipt.Intent.UiLanguage -eq 'de-DE' -and
+        $localeReceipt.Observed.GeoId -eq 14 -and $localeReceipt.Observed.InputLocale -eq '0C07:00000407'
+    )
     Add-CheckResult -Name 'Prepared-Image-Klon injiziert OOBE nur in die Child-VHDX und speichert das Gastpasswort DPAPI-geschützt' -Success (
         $unattended.Result.OobeState -eq 'COMPLETED' -and
         $unattended.SqlSaPasswordLength -eq $unattended.ExpectedSaPasswordLength -and
         $unattended.Result.HostSqlAccess.ConnectionString -match '172\.28\.0\.58,1433' -and
         $unattendedConnection.instances[0].oobeAutomation.passwordSource -eq 'generated' -and
-        $unattendedConnection.instances[0].oobeAutomation.region -eq 'de-AT' -and
+        $unattendedConnection.instances[0].oobeAutomation.region -eq 'AT' -and
         $unattendedConnection.instances[0].oobeAutomation.systemLocale -eq 'de-AT' -and
         $unattendedConnection.instances[0].oobeAutomation.uiLanguage -eq 'de-DE' -and
         $unattendedConnection.instances[0].oobeAutomation.inputLocale -eq '0C07:00000407' -and

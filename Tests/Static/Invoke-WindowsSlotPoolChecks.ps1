@@ -41,10 +41,13 @@ try {
                 operatingSystem = [PSCustomObject]@{ id='windows-server-2025'; version='2025'; language='en-US' }
             }
         }
-        function Assert-LabWindowsSlotPoolLocale { param($Region,$SystemLocale,$UiLanguage,$InputLocale,$TimeZone,$Artifact) }
+        function Assert-LabWindowsSlotPoolLocale {
+            param($Region,$SystemLocale,$UiLanguage,$InputLocale,$TimeZone,$Artifact)
+            Resolve-LabWindowsLocaleIntent -Overrides @{Region=$Region;SystemLocale=$SystemLocale;UiLanguage=$UiLanguage;InputLocale=$InputLocale;TimeZone=$TimeZone}
+        }
         function Get-LabActiveRuns { @() }
         function New-HyperVLabEnvironment {
-            param($ArtifactId,$LabName,$InstanceId,$DynamicMemoryEnabled,$MemoryMinimumMB,$MemoryStartupMB,$MemoryMaximumMB,$ProcessorCount,$AutoStart,$NetworkIntent,$StateRoot)
+            param($ArtifactId,$LabName,$InstanceId,$DynamicMemoryEnabled,$MemoryMinimumMB,$MemoryStartupMB,$MemoryMaximumMB,$ProcessorCount,$AutoStart,$NetworkIntent,$StateRoot,$WindowsLocale)
             $script:slotNumber++
             $runId = "run-$($script:slotNumber)"
             $scopeId = "scope-$($script:slotNumber)"
@@ -67,6 +70,7 @@ try {
             $script:createCalls.Add([PSCustomObject]@{
                 Name=$LabName; Minimum=$MemoryMinimumMB; Startup=$MemoryStartupMB
                 Maximum=$MemoryMaximumMB; ProcessorCount=$ProcessorCount
+                WindowsLocale=$WindowsLocale
             })
             [PSCustomObject]@{ RunId=$runId; VMName=$vmName }
         }
@@ -110,6 +114,8 @@ try {
     Add-CheckResult -Name 'Pool erstellt zwei Slots mit den gebundenen Standardressourcen' -Success (
         $behavior.Result.Status -eq 'COMPLETE' -and @($behavior.Result.Slots).Count -eq 2 -and
         @($behavior.Creates | Where-Object { $_.Minimum -eq 1024 -and $_.Startup -eq 2048 -and $_.Maximum -eq 4096 -and $_.ProcessorCount -eq 4 }).Count -eq 2)
+    Add-CheckResult -Name 'Pool bindet den normalisierten Locale-Intent bereits vor der Slot-Mutation' -Success (
+        @($behavior.Creates | Where-Object { $_.WindowsLocale.ContractVersion -eq 'SqlServerLab.WindowsLocaleIntent/1.0' -and $_.WindowsLocale.Region -eq 'AT' }).Count -eq 2)
     Add-CheckResult -Name 'OOBE verwendet pro Slot den generierten Passwortmodus und Locale-Vertrag' -Success (
         @($behavior.Provisions).Count -eq 2 -and
         @($behavior.Provisions | Where-Object {

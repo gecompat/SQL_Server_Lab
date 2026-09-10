@@ -42,23 +42,9 @@ function Assert-LabWindowsSlotPoolLocale {
         [Parameter(Mandatory)][string]$TimeZone,
         [Parameter(Mandatory)]$Artifact
     )
-
-    $null = Resolve-HyperVLocaleGeoId -Region $Region
-    foreach ($locale in @($SystemLocale, $UiLanguage)) {
-        try { $null = [Globalization.CultureInfo]::GetCultureInfo($locale) }
-        catch { throw "HYPERV_WINDOWS_SLOT_POOL_LOCALE_UNSUPPORTED: $locale" }
-    }
-    if ($InputLocale -notmatch '^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$') {
-        throw "HYPERV_WINDOWS_SLOT_POOL_INPUT_LOCALE_INVALID: $InputLocale"
-    }
-    try { $null = [TimeZoneInfo]::FindSystemTimeZoneById($TimeZone) }
-    catch { throw "HYPERV_WINDOWS_SLOT_POOL_TIME_ZONE_UNSUPPORTED: $TimeZone" }
-
-    $artifactLanguage = [string]$Artifact.operatingSystem.language
-    if (-not [string]::IsNullOrWhiteSpace($artifactLanguage) -and
-        -not $artifactLanguage.Equals($UiLanguage, [StringComparison]::OrdinalIgnoreCase)) {
-        throw "HYPERV_WINDOWS_SLOT_POOL_UI_LANGUAGE_NOT_IN_BASELINE: requested=$UiLanguage, baseline=$artifactLanguage"
-    }
+    $normalized=Resolve-LabWindowsLocaleIntent -Overrides @{Region=$Region;SystemLocale=$SystemLocale;UiLanguage=$UiLanguage;InputLocale=$InputLocale;TimeZone=$TimeZone}
+    Assert-LabWindowsLocaleImageCapability -Intent $normalized -Artifact $Artifact
+    return $normalized
 }
 
 function New-SqlServerLabWindowsSlotPool {
@@ -164,7 +150,7 @@ function New-SqlServerLabWindowsSlotPool {
     if (-not $artifact) {
         throw 'HYPERV_WINDOWS_SLOT_POOL_BASELINE_REQUIRED: Keine geeignete OS_SEALED-Baseline mit ausreichender Evaluation-Restlaufzeit vorhanden.'
     }
-    Assert-LabWindowsSlotPoolLocale -Region $Region -SystemLocale $SystemLocale `
+    $poolLocale=Assert-LabWindowsSlotPoolLocale -Region $Region -SystemLocale $SystemLocale `
         -UiLanguage $UiLanguage -InputLocale $InputLocale -TimeZone $TimeZone -Artifact $artifact
 
     $lastIndex = $StartIndex + $Count - 1
@@ -214,7 +200,7 @@ function New-SqlServerLabWindowsSlotPool {
             -LabName ([string]$specification.Name) -InstanceId primary `
             -DynamicMemoryEnabled $true -MemoryMinimumMB $MemoryMinimumMB `
             -MemoryStartupMB $MemoryStartupMB -MemoryMaximumMB $MemoryMaximumMB `
-            -ProcessorCount $ProcessorCount -AutoStart off -NetworkIntent hostOnly -StateRoot $StateRoot
+            -ProcessorCount $ProcessorCount -AutoStart off -NetworkIntent hostOnly -WindowsLocale $poolLocale -StateRoot $StateRoot
         $specification.Lab = Get-HyperVLabWorkflowRun -RunId ([string]$created.RunId) -StateRoot $StateRoot
         $results.Add([PSCustomObject]@{
             Index=$specification.Index; Name=$specification.Name; RunId=[string]$created.RunId

@@ -6,6 +6,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ## 2026-09-10
 
+### Ergaenzt
+
+- Versionierter Windows-Locale-Intent fuer Manifest, Wizard und Batch mit
+  gemeinsamem Image-Sprachpreflight, OOBE-Bindung, Manifest-Lock und Receipt.
+  Explizite Batch-Locale fuehrt die vorhandene OOBE unbeaufsichtigt aus.
+  [Defaults und aktuelle Grenzen](Documentation/HowTo/WINDOWS_LOCALE.md).
+
 ### Korrigiert
 
 - Direkter Fortschritt zeigt die fertige Konsolenzeile statt der

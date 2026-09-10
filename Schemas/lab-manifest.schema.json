@@ -286,6 +286,10 @@
           "$ref": "lab-storage-intent.schema.json",
           "description": "Portabler SQL-Dateiplatzierungsintent. Er enthält nur Selektoren; konkrete LocationIds, Hostgeräte und Pfade werden lokal gebunden."
         },
+        "windowsLocale": {
+          "$ref": "windows-locale-intent.schema.json",
+          "description": "Portabler Sprach-/Regionsintent fuer Windows; gilt nur fuer Hyper-V."
+        },
         "network": {
           "$ref": "#/definitions/networkIntent",
           "description": "Providerneutraler Network Intent. Der lokale Provider bindet ihn erst nach mutationsfreier Validierung."

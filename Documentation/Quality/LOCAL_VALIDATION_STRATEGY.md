@@ -9,6 +9,12 @@
 
 ## 1. Grundsatz
 
+`Invoke-WindowsLocaleChecks.ps1` prueft portable Normalisierung, Schema,
+Wizard-/Batch-Bindung, Image-Sprachgrenze, Lock-Idempotenz und widerspruechliche
+Receipts. Die Hyper-V-Umgebungssuite prueft den nach OOBE geschriebenen Receipt.
+Der gesonderte `Invoke-HyperVWindowsLocaleAcceptance.ps1` prueft einen eigenen
+Batch mit US-Profil nach Kaltstart; ein erfolgreicher Lauf ist noch offen.
+
 `Invoke-BlockingActionProgressChecks.ps1` prueft einen mit `Thread.Sleep`
 blockierten Hauptthread: Heartbeat ab fuenf Sekunden, Drosselung,
 Phasenwechsel, Secretfreiheit, verschachtelte Aufrufe und Cleanup ohne

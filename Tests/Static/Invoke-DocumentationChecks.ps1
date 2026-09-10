@@ -234,6 +234,10 @@ if (Test-Path -LiteralPath $manifestSchemaPath -PathType Leaf) {
         $storageIntentSchema.PSObject.Properties.Remove('$id')
         $manifestValidationSchemaObject.definitions | Add-Member -MemberType NoteProperty -Name storageIntent -Value $storageIntentSchema -Force
         $manifestValidationSchemaObject.definitions.instance.properties.storageIntent.PSObject.Properties['$ref'].Value = '#/definitions/storageIntent'
+        $localeSchema=Get-Content -LiteralPath (Join-Path $repoRoot 'Schemas/windows-locale-intent.schema.json') -Raw -Encoding utf8 | ConvertFrom-Json -Depth 100
+        $localeSchema.PSObject.Properties.Remove('$schema')
+        $manifestValidationSchemaObject.definitions | Add-Member -MemberType NoteProperty -Name windowsLocale -Value $localeSchema -Force
+        $manifestValidationSchemaObject.definitions.instance.properties.windowsLocale.PSObject.Properties['$ref'].Value = '#/definitions/windowsLocale'
         $manifestValidationSchema = $manifestValidationSchemaObject | ConvertTo-Json -Depth 100
     }
 }

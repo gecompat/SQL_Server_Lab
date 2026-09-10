@@ -339,6 +339,7 @@ function New-LabInstanceIntentSnapshot {
         Databases = New-LabDatabaseIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
         Software = $software
         Storage = $storage
+        WindowsLocale = $Instance.windowsLocale
     }
 }
 

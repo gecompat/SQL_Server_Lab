@@ -34,6 +34,7 @@ on:
           - slot-batch
           - shared-environments
           - cli-acceptance
+          - locale-acceptance
       image_artifact_id:
         description: Optionales OS_SEALED-Artifact; leer waehlt das neueste passende Artifact
         required: false
@@ -94,6 +95,11 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
+
+      - name: Hyper-V Windows locale and cold start
+        if: inputs.mode == 'locale-acceptance'
+        run: |
+          .\Tests\Integration\Invoke-HyperVWindowsLocaleAcceptance.ps1
 
       - name: Hyper-V OS-slot batch with scoped cleanup
         if: inputs.mode == 'slot-batch'

@@ -12,6 +12,9 @@
     Gemeinsame Standardwerte fuer alle Positionen.
 .PARAMETER Items
     Eine oder mehrere Positionen mit id, kind, count, intent und overrides.
+    intent.WindowsLocale bindet den vollstaendigen WindowsLocaleIntent/1.0
+    und aktiviert die vorhandene unbeaufsichtigte OOBE mit einem generierten,
+    im eigenen Run geschuetzten Gastkennwort vor dem Startabschluss.
 .PARAMETER Manifest
     Pfad zu einem SqlServerLab.BatchManifest/1.0; ein eindeutiger offener Lauf wird fortgesetzt.
 .PARAMETER Queue
@@ -119,6 +122,12 @@ function New-SqlServerLabBatch {
             }
             $seenNames[$resolvedName] = $true
             $decision = Resolve-LabBatchProvider -Kind $kind -Effective $effective -Availability $availability
+            $localeValue=Get-LabWorkflowValue -InputObject $effective -Name 'WindowsLocale' -Default $null
+            if($localeValue){
+                if([string]$decision.provider -ne 'hyperv'){$blocking+='WINDOWS_LOCALE_WINDOWS_PROVIDER_REQUIRED'}
+                try{$effective['WindowsLocale']=Resolve-LabWindowsLocaleIntent -Intent $localeValue}
+                catch{$blocking+=[string]$_.Exception.Message}
+            }
             if (-not [string]::IsNullOrWhiteSpace([string]$decision.blockingError)) {
                 $blocking += "[$itemId] $($decision.blockingError)"
             }
