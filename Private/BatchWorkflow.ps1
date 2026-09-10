@@ -1244,12 +1244,13 @@ function Invoke-LabOperationStepAction {
                 AutoStart = [string]$autoStartValue
                 StateRoot = $StateRoot
             }
-            foreach ($name in @('SwitchName', 'Isolated', 'AdditionalDrives', 'DesiredState', 'WindowsLocale')) {
+            foreach ($name in @('SwitchName', 'Isolated', 'AdditionalDrives', 'DesiredState', 'WindowsLocale', 'WindowsActivation')) {
                 $value = Get-LabWorkflowValue -InputObject $effective -Name $name -Default $null
                 if ($null -ne $value) {
                     $parameters[$name] = $value
                 }
             }
+            if($parameters.ContainsKey('WindowsActivation')){$parameters.WindowsActivationSource='batch'}
             $created = Invoke-WithLabWorkflowOperationContext -OperationId ([string]$Operation.operationId) -ScriptBlock {
                 param($CreateParameters)
                 New-HyperVLabEnvironment @CreateParameters

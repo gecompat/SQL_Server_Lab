@@ -285,6 +285,8 @@ try {
     )
     $windowsOnly = & $module {
         param($Root)
+        $script:windowsActivationChecked=$false
+        function Invoke-LabWindowsSlotActivationReconcile {$script:windowsActivationChecked=$true;[pscustomobject]@{State='LICENSED'}}
         function Test-HyperVAvailable { [PSCustomObject]@{ Available = $true; Message = 'mock' } }
         function Get-HyperVImageArtifact {
             [PSCustomObject]@{ artifactId = 'windows-baseline-test'; artifactState = 'OS_SEALED'; sql = $null; operatingSystem=[pscustomobject]@{language='en-US'} }
@@ -314,17 +316,22 @@ try {
         $password = ConvertTo-SecureString 'Windows_Administrator_42!' -AsPlainText -Force
         $result = Invoke-HyperVLabUnattendedProvision -RunId $created.RunId -AdministratorPassword $password -PasswordSource generated -StateRoot $Root
         $connection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $Root 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
-        [PSCustomObject]@{ Created = $created; Result = $result; Connection = $connection }
+        [PSCustomObject]@{ Created = $created; Result = $result; Connection = $connection; ActivationChecked=$script:windowsActivationChecked }
     } $temporaryRoot
     Add-CheckResult -Name 'Windows-OS-Baseline erzeugt eine automatische reine Windows-VM ohne SQL-Aktionen' -Success (
         $windowsOnly.Created.Workload -eq 'windows' -and
         $windowsOnly.Connection.instances[0].workload -eq 'windows' -and
         $windowsOnly.Result.WindowsOnly -and
+        $windowsOnly.ActivationChecked -and
         $windowsOnly.Connection.instances[0].windowsProvisioning.state -eq 'COMPLETE' -and
         -not $windowsOnly.Connection.instances[0].sqlCompletion
     )
     $unattended = & $module {
         param($RunId, $Root)
+        $script:sqlActivationChecked=$false
+        $script:denySqlActivation=$true
+        $script:sqlCompletionCalls=0
+        function Invoke-LabWindowsSlotActivationReconcile {if($script:denySqlActivation){throw 'ACTIVATION_DENIED_FIXTURE'};$script:sqlActivationChecked=$true;[pscustomobject]@{State='LICENSED'}}
         function Get-HyperVImageArtifact { [PSCustomObject]@{ artifactId = 'prepared-locale-test'; artifactState = 'SQL_PREPARED_SEALED'; operatingSystem = @{ language = 'de-DE' } } }
         $child = Join-Path $Root 'unattended-child.vhdx'
         $null = New-Item -Path $child -ItemType File -Force
@@ -345,6 +352,8 @@ try {
         }
         function Complete-HyperVLabSqlImage {
             param($RunId, $Credential, $SqlSaPassword)
+            $script:sqlCompletionCalls++
+            if(-not $script:sqlActivationChecked){throw 'SQL_SETUP_BEFORE_WINDOWS_ACTIVATION'}
             $script:capturedSqlSaPasswordLength = $SqlSaPassword.Length
             [PSCustomObject]@{
                 state = 'COMPLETE'; serviceStatus = 'Running'
@@ -353,10 +362,22 @@ try {
         }
         $password = ConvertTo-SecureString 'Generated_Administrator_42!' -AsPlainText -Force
         $saPassword = ConvertTo-SecureString 'Separate_SA_51!' -AsPlainText -Force
+        $activationBlockedSql=$false
+        try {
+            $null=Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -SqlSaPassword $saPassword -PasswordSource generated `
+                -Region 'de-AT' -SystemLocale 'de-AT' -UiLanguage 'de-DE' -InputLocale '0C07:00000407' -TimeZone 'Central Europe Standard Time' -StateRoot $Root
+        } catch {if($_.Exception.Message -notmatch 'ACTIVATION_DENIED_FIXTURE'){throw};$activationBlockedSql=($script:sqlCompletionCalls -eq 0)}
+        # Reset only this synthetic fixture so the successful path can run independently.
+        $fixtureConnectionPath=Join-Path (Join-Path (Join-Path $Root 'runs') $RunId) 'connection-info.json'
+        $fixtureConnection=Get-Content -LiteralPath $fixtureConnectionPath -Raw | ConvertFrom-Json -Depth 100
+        $fixtureConnection.instances[0].oobeAutomation.status='PENDING'
+        $fixtureConnection | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $fixtureConnectionPath -Encoding utf8
+        $script:denySqlActivation=$false
         $result = Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -SqlSaPassword $saPassword -PasswordSource generated `
             -Region 'de-AT' -SystemLocale 'de-AT' -UiLanguage 'de-DE' -InputLocale '0C07:00000407' -TimeZone 'Central Europe Standard Time' -StateRoot $Root
-        [PSCustomObject]@{ Result = $result; SqlSaPasswordLength = $script:capturedSqlSaPasswordLength; ExpectedSaPasswordLength = $saPassword.Length }
+        [PSCustomObject]@{ Result = $result; ActivationBlockedSql=$activationBlockedSql; SqlCompletionCalls=$script:sqlCompletionCalls; SqlSaPasswordLength = $script:capturedSqlSaPasswordLength; ExpectedSaPasswordLength = $saPassword.Length }
     } $created.RunId $temporaryRoot
+    Add-CheckResult -Name 'Aktivierungsblocker verhindert SQL Setup; erlaubter Folgelauf startet es genau einmal' -Success ($unattended.ActivationBlockedSql -and $unattended.SqlCompletionCalls -eq 1)
     $unattendedConnection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
     $unattendedSecret = Join-Path (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'secrets') 'guest-administrator-password.secret'
     $localeReceipt=Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'windows-locale-receipt.json') -Raw | ConvertFrom-Json -Depth 20
@@ -533,14 +554,22 @@ try {
 
     $started = & $module {
         param($RunId, $Root)
+        $script:startActivationChecked=$false
+        function Invoke-LabWindowsSlotActivationReconcile {
+            param($RunId,$StateRoot)
+            if((Get-LabRunState -RunId $RunId -StateRoot $StateRoot).state -ne 'RUNNING'){throw 'ACTIVATION_BEFORE_START_STATE'}
+            $script:startActivationChecked=$true
+        }
         # Der Test verifiziert nur die Delegation. Er darf auf Linux nicht
         # durch die echte Hyper-V-Discovery (Get-VM) vom Host abhängen.
         function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Off' } }
         function Start-HyperVInstance { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; State = 'Running'; Exists = $true } }
-        Start-HyperVLabEnvironment -RunId $RunId -StateRoot $Root
+        $result=Start-HyperVLabEnvironment -RunId $RunId -StateRoot $Root
+        $result | Add-Member -NotePropertyName ActivationChecked -NotePropertyValue $script:startActivationChecked
+        $result
     } $created.RunId $temporaryRoot
     $runningState = & $module { param($RunId, $Root) Get-LabRunState -RunId $RunId -StateRoot $Root } $created.RunId $temporaryRoot
-    Add-CheckResult -Name 'Hyper-V-Lab-Start setzt VM- und Run-State zustandsgeführt' -Success ($started.State -eq 'Running' -and $runningState.state -eq 'RUNNING')
+    Add-CheckResult -Name 'Hyper-V-Lab-Start setzt VM- und Run-State und prueft anschliessend die Windows-Aktivierung' -Success ($started.State -eq 'Running' -and $runningState.state -eq 'RUNNING' -and $started.ActivationChecked)
 
     $stopped = & $module {
         param($RunId, $Root)
@@ -553,10 +582,14 @@ try {
 
     $genericStart = & $module {
         param($RunId, $Root)
+        $script:genericActivationChecked=$false
+        function Invoke-LabWindowsSlotActivationReconcile {$script:genericActivationChecked=$true}
         function Get-LabStateRoot { $Root }
         function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Off' } }
         function Start-HyperVInstance { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; State = 'Running'; Exists = $true } }
-        Start-SqlServerLab -RunId $RunId
+        $result=Start-SqlServerLab -RunId $RunId
+        $result | Add-Member -NotePropertyName ActivationChecked -NotePropertyValue $script:genericActivationChecked
+        $result
     } $created.RunId $temporaryRoot
     $genericStop = & $module {
         param($RunId, $Root)
@@ -566,7 +599,7 @@ try {
         Stop-SqlServerLab -RunId $RunId -Force
     } $created.RunId $temporaryRoot
     Add-CheckResult -Name 'Generische Start- und Stoppaktionen delegieren Hyper-V-Labs niemals an Docker oder Podman' -Success (
-        $genericStart.State -eq 'Running' -and $genericStop.State -eq 'Off'
+        $genericStart.State -eq 'Running' -and $genericStop.State -eq 'Off' -and $genericStart.ActivationChecked
     )
 
     $reconciledRuntimeState = & $module {
@@ -680,7 +713,7 @@ try {
         $script:reuseRemoteCalls = 0
         $script:reuseAdapterAdds = 0
         function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Running' } }
-        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Running' } } }
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ Id='mock-vm-id'; State = 'Running' } } }
         function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
         function Get-VMNetworkAdapter { throw 'NETWORK_MUST_NOT_BE_READ_FOR_ACTIVE_SLOT' }
         function Remove-VMNetworkAdapter { process { throw 'NETWORK_MUST_NOT_CHANGE_FOR_ACTIVE_SLOT' } }

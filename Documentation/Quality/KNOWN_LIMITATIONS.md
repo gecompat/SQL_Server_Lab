@@ -1033,8 +1033,11 @@ gemeinsame Endpointvertrag deckt Fehlerfälle offline ab; zusätzlich belegt ein
 echter flüchtiger Loopback-HTTPS-Stub Embed-/Generate-Payloads, exakten
 Zertifikat-Pin und HTTP-Retry ohne globale Trust-Store-Mutation. Das ist kein
 TLS-Gateway für SQL Servers `CREATE EXTERNAL MODEL`. Dieser Gateway,
-Dimensionswechsel/Re-Embedding, Ollama-Cloud-Embeddings, OpenAI, Azure OpenAI,
-lokales Windows-ONNX und Preview-ANN bleiben offen. Hyper-V-RAG und Agent sind
+Dimensionswechsel/Re-Embedding-Ausführung bleiben offen. Ein rein lesender
+Re-Embedding-Plan- und Journalvertrag bindet zwar Modell-,
+Dimensions-, Dataset-, Chunk- und Vectoridentitäten und sperrt Mischbetrieb;
+Ollama-Cloud-Embeddings, OpenAI, Azure OpenAI, lokales Windows-ONNX und
+Preview-ANN bleiben offen. Hyper-V-RAG und Agent sind
 bis zum isolierten VM-Neustartnachweis nur `PARTIAL`. Es gibt keinen stillen
 Provider- oder Cloud-Fallback.
 
@@ -1805,6 +1808,11 @@ Der spezielle Evaluationspfad entfernt nur journalgebundene temporaere
 Adapter. Fremde gleichnamige Adapter bleiben bestehen. Unvollstaendige
 Journale oder nachtraeglich geaenderte Switch-Bindungen erfordern konkrete
 Recovery statt einer Entfernung nach Namen. Der allgemeine Aktivierungsintent
-mit persistenter NIC und Egress-Policy bleibt offen. Der native Adaptertest hat
+mit persistenter NIC und Egress-Policy ist implementiert und statisch geprueft;
+der temporaere Evaluationspfad ist seit 2026-09-10 nativ einschliesslich
+Aktivierung, Kaltstart und Cleanup bestaetigt. Permanente NIC und
+KMS-/ADBA-/MAK-Ausfuehrung bleiben offen.
+Die Live-Gates vor SQL Setup, bei Start und Pool-Wiederaufnahme ersetzen keinen
+positiven Aktivierungsnachweis auf einem konkreten Gast. Der native Adaptertest hat
 am 2026-09-10 Erfolg, kontrollierten Fehler, Resume und Cleanup auf einem
 privaten Switch bestaetigt; er fuehrt keine Windows-Lizenzaktivierung aus.

@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Gemeinsamer Windows-Aktivierungsintent fuer Manifest, Batch, Pool und
+  Workflow-Adapter: Live-Gate vor SQL Setup, bei Start und Wiederaufnahme,
+  unveraenderte permanente NIC und explizit erlaubter temporaerer Egress.
+  Temporaere Evaluation, Adapterentfernung und Kaltstart sind nativ belegt;
+  permanente NIC und Vollversionsstrategien bleiben offen.
+
 - Versionierter Windows-Locale-Intent fuer Manifest, Wizard und Batch mit
   gemeinsamem Image-Sprachpreflight, OOBE-Bindung, Manifest-Lock und Receipt.
   Explizite Batch-Locale fuehrt die vorhandene OOBE unbeaufsichtigt aus.

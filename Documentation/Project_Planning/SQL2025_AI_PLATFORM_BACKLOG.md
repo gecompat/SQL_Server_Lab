@@ -51,8 +51,9 @@ Die nativen Läufe über
 `Tests/Integration/Invoke-AiVectorCoreAcceptance.ps1` waren am 2026-09-05 für
 beide Provider erfolgreich, einschließlich Szenario- und Provider-Cleanup.
 Damit ist `AI-10A` `SUPPORTED`. Der echte HTTPS-Endpoint-Stub und die
-Fehlerverträge sind umgesetzt; Dimensionswechsel und Re-Embedding bleiben als
-`AI-10B` offen.
+Fehlerverträge sind umgesetzt. `AI-10B` enthält nun einen rein lesenden,
+deterministischen Re-Embedding-Plan- und Journalvertrag für Modell- und
+Dimensionswechsel; ein Executor, Live-Probes und Runtime-Evidence bleiben offen.
 
 ### AI-05 – Ollama-Vertragsgrundlage
 
@@ -99,7 +100,10 @@ Reason-Codes aus. Neben dem deterministischen Offline-Transport startet
 Loopback-TLS-Server. Dessen öffentliches Zertifikat und SHA-256-Pin sind an den
 Endpointplan gebunden; Embed, Generate und ein echter HTTP-429-Retry laufen
 über den normalen `HttpClient`, ohne den globalen Trust Store zu verändern.
-Dimensionswechsel und ein kontrollierter Re-Embedding-Plan bleiben offen.
+Der kontrollierte Re-Embedding-Plan bindet alte und neue Modell-, Dimensions-,
+Dataset-, Chunk- und Vectoridentitäten und blockiert Mischbetrieb. Er führt
+keine Runtimeaktion aus; Dimensionswechsel, Re-Embedding-Ausführung und
+Rebuild-Evidence bleiben offen.
 
 `AI-60A` stellt kataloggebundene Ollama-Cloud-Generation bereit. Der öffentliche
 Aufruf verlangt eine nicht-interne Datenklasse und expliziten Cloud-Egress,

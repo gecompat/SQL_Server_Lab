@@ -1076,6 +1076,10 @@ function Get-LabManifestValidationResult {
             if($effectiveProvider -ne 'hyperv' -or [string]$instance.os -eq 'linux'){$errors.Add('WINDOWS_LOCALE_WINDOWS_PROVIDER_REQUIRED')}
             try{$null=Resolve-LabWindowsLocaleIntent -Intent $instance.windowsLocale}catch{$errors.Add([string]$_.Exception.Message)}
         }
+        if($instance.windowsActivation){
+            if($effectiveProvider -ne 'hyperv' -or [string]$instance.os -eq 'linux'){$errors.Add('WINDOWS_ACTIVATION_WINDOWS_PROVIDER_REQUIRED')}
+            try{$null=Resolve-LabWindowsActivationIntent -Intent $instance.windowsActivation}catch{$errors.Add([string]$_.Exception.Message)}
+        }
 
         foreach ($runtimeContractError in @(Get-LabManifestRuntimeContractErrors `
                 -ServerConfig $instance.serverConfig `

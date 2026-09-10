@@ -41,6 +41,9 @@ sources_of_truth:
   ai_model_catalog_schema: Schemas/ai-model-catalog.schema.json
   ai_endpoint_plan_schema: Schemas/ai-endpoint-plan.schema.json
   ai_runtime_journal_schema: Schemas/ai-runtime-journal.schema.json
+  ai_reembedding_plan_contract: Private/AiReembedding.ps1
+  ai_reembedding_plan_schema: Schemas/ai-reembedding-plan.schema.json
+  ai_reembedding_journal_schema: Schemas/ai-reembedding-journal.schema.json
   ai_query_result_schema: Schemas/ai-query-result.schema.json
   ai_retrieval_evaluation: Public/Measure-SqlServerLabAiRetrieval.ps1
   ai_retrieval_evaluation_schema: Schemas/ai-retrieval-evaluation.schema.json
@@ -862,6 +865,8 @@ providers:
     windows_slot_pool_static_checks: Tests/Static/Invoke-WindowsSlotPoolChecks.ps1
     windows_locale_contract: "Private/WindowsLocale.ps1; Schemas/windows-locale-intent.schema.json; ManifestParser, ManifestBuilder, DesiredState, HyperVImageRegistry, HyperVLabEnvironment und BatchWorkflow gemeinsam pruefen"
     windows_locale_static_checks: Tests/Static/Invoke-WindowsLocaleChecks.ps1
+    windows_activation_contract: "Private/WindowsActivationIntent.ps1; Private/WindowsActivationNetwork.ps1; Schemas/lab-manifest.schema.json; ManifestParser, ManifestBuilder, DesiredState, HyperVProvider, HyperVLabEnvironment, BatchWorkflow und WindowsSlotPool gemeinsam pruefen"
+    windows_activation_static_checks: Tests/Static/Invoke-WindowsActivationIntentChecks.ps1
     resource_binding_static_checks: Tests/Static/Invoke-HyperVResourceBindingChecks.ps1
     resource_migration_static_checks: Tests/Static/Invoke-HyperVResourceMigrationChecks.ps1
     resource_reconcile_static_checks: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1

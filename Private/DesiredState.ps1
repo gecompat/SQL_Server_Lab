@@ -340,6 +340,7 @@ function New-LabInstanceIntentSnapshot {
         Software = $software
         Storage = $storage
         WindowsLocale = $Instance.windowsLocale
+        WindowsActivation = $Instance.windowsActivation
     }
 }
 

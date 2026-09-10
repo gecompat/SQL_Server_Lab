@@ -86,17 +86,23 @@ function Set-HyperVWindowsSlotActivationEvidence {
         [Nullable[int]]$LicenseStatus,
         [Nullable[int]]$EvaluationMinutesRemaining,
         [string]$EvaluationExpiresAt,
+        [string]$EvaluationEndDate,
+        [ValidateSet('None','Permanent','Temporary')][string]$NetworkMode='None',
         [string]$StateRoot
     )
 
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $evidence = [ordered]@{
-        contractVersion = 'SqlServerLab.WindowsActivation/1.1'
+        contractVersion = 'SqlServerLab.WindowsActivation/1.2'
         state = $State
         edition = $Edition
         licenseStatus = $LicenseStatus
         evaluationMinutesRemaining = $EvaluationMinutesRemaining
         evaluationExpiresAt = $EvaluationExpiresAt
+        evaluationEndDate = $EvaluationEndDate
+        intent = $lab.Instance.windowsActivationIntent
+        networkMode = $NetworkMode
+        appliedStrategy = if($NetworkMode -eq 'None'){'LiveVerification'}else{'EvaluationOnline'}
         observedAt = Get-LabTimestamp
     }
     if ($State -in @('EVALUATION_ACTIVE','LICENSED')) { $evidence.completedAt = Get-LabTimestamp }
@@ -144,8 +150,14 @@ function Get-HyperVWindowsSlotLicenseStatus {
                 Sort-Object LicenseStatus, GracePeriodRemaining -Descending)
             $product = @($products | Select-Object -First 1)[0]
             $observedAt = [datetime]::UtcNow
+            $evaluationEndDate=$null
+            if($product -and $product.EvaluationEndDate){
+                $endDate=if($product.EvaluationEndDate -is [datetime]){$product.EvaluationEndDate}else{[Management.ManagementDateTimeConverter]::ToDateTime([string]$product.EvaluationEndDate)}
+                if($endDate.Year -ge 1970){$evaluationEndDate=$endDate.ToUniversalTime().ToString('o')}
+            }
             [PSCustomObject]@{
                 edition = $edition
+                evaluationEndDate = $evaluationEndDate
                 productName = if ($product) { [string]$product.Name } else { $null }
                 licenseStatus = if ($product) { [int]$product.LicenseStatus } else { 0 }
                 evaluationMinutesRemaining = if ($product) { [int]$product.GracePeriodRemaining } else { 0 }
@@ -158,7 +170,15 @@ function Get-HyperVWindowsSlotLicenseStatus {
     $receipt = @($receipt)[-1]
     if (-not $receipt -or -not [string]$receipt.edition) { throw 'HYPERV_WINDOWS_LICENSE_RECEIPT_INVALID' }
     $isEvaluation = [string]$receipt.edition -match '(?i)eval' -or [string]$receipt.productName -match '(?i)evaluation'
-    $state = if ($isEvaluation -and [int]$receipt.licenseStatus -eq 1 -and [int]$receipt.evaluationMinutesRemaining -gt 0) {
+    $evaluationEnd=[datetime]::MinValue
+    $hasEvaluationEnd=[datetime]::TryParse([string]$receipt.evaluationEndDate,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$evaluationEnd)
+    $licenseObserved=[datetime]::MinValue
+    if(-not [datetime]::TryParse([string]$receipt.observedAt,[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$licenseObserved) -or
+        ($receipt.evaluationEndDate -and -not $hasEvaluationEnd)){throw 'HYPERV_WINDOWS_LICENSE_RECEIPT_INVALID'}
+    $state = if($isEvaluation -and $hasEvaluationEnd -and $evaluationEnd.ToUniversalTime() -le $licenseObserved.ToUniversalTime()){
+        'EVALUATION_EXPIRED'
+    }
+    elseif ($isEvaluation -and [int]$receipt.licenseStatus -eq 1 -and [int]$receipt.evaluationMinutesRemaining -gt 0) {
         'EVALUATION_ACTIVE'
     }
     elseif ($isEvaluation) { 'ACTIVATION_REQUIRED' }
@@ -168,13 +188,14 @@ function Get-HyperVWindowsSlotLicenseStatus {
         $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State $state `
             -Edition ([string]$receipt.edition) -LicenseStatus ([int]$receipt.licenseStatus) `
             -EvaluationMinutesRemaining ([int]$receipt.evaluationMinutesRemaining) `
-            -EvaluationExpiresAt ([string]$receipt.evaluationExpiresAt) -StateRoot $lab.StateRoot
+            -EvaluationExpiresAt ([string]$receipt.evaluationExpiresAt) -EvaluationEndDate ([string]$receipt.evaluationEndDate) -StateRoot $lab.StateRoot
     }
     return [PSCustomObject]@{
         RunId=$RunId; VMName=[string]$lab.Instance.vmName; State=$state
         Edition=[string]$receipt.edition; LicenseStatus=[int]$receipt.licenseStatus
         EvaluationMinutesRemaining=[int]$receipt.evaluationMinutesRemaining
         EvaluationExpiresAt=[string]$receipt.evaluationExpiresAt; ObservedAt=[string]$receipt.observedAt
+        EvaluationEndDate=[string]$receipt.evaluationEndDate
     }
 }
 
@@ -204,18 +225,19 @@ function Resolve-HyperVWindowsActivationExternalSwitch {
 function Invoke-HyperVWindowsSlotActivation {
     <#
     .SYNOPSIS
-        Aktiviert einen Windows-Evaluierungs-Slot über eine temporäre externe NIC.
+        Prueft Windows live und aktiviert eine gueltige Evaluation nach gespeichertem Intent.
     .DESCRIPTION
-        Die interne Lab-NIC bleibt unverändert. Nur wenn die Live-Prüfung noch
-        keine aktive Lizenz bestätigt, wird ein optional vorgegebener oder
-        automatisch aufgelöster External-Switch als zweite NIC angebunden und
-        im finally-Block wieder entfernt. Die Edition wird nicht konvertiert
-        und es wird kein Product Key benötigt.
+        Eine aktive Lizenz ist ein No-Op. Eine nachgewiesene permanente NIC
+        wird ohne DHCP-, DNS- oder Switch-Aenderung verwendet. Nur ausdruecklich
+        erlaubter temporaerer Egress darf eine eigene externe NIC anlegen;
+        diese wird im finally-Block identitaetsgebunden entfernt. Abgelaufene
+        Evaluationen und unlizenzierte Vollversionen bleiben blockiert.
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$RunId,
         [string]$ExternalSwitchName,
+        $WindowsActivation,
         [PSCredential]$Credential,
         [ValidateRange(60, 3600)][int]$TimeoutSeconds = 300,
         [string]$StateRoot
@@ -232,34 +254,63 @@ function Invoke-HyperVWindowsSlotActivation {
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') {
         throw 'HYPERV_WINDOWS_ACTIVATION_VM_MUST_BE_RUNNING'
     }
+    # A previous successful activation can still have an interrupted NIC cleanup.
+    # Recover the owned journal before the already-active No-Op decision.
+    if(Test-Path -LiteralPath (Join-Path $lab.RunDirectory 'windows-activation-network.json') -PathType Leaf){
+        Remove-LabWindowsActivationAdapter -Lab $lab
+    }
+    $savedIntent=$lab.Instance.windowsActivationIntent
+    if($WindowsActivation){$intent=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation}
+    elseif($savedIntent -and ($lab.Instance.windowsActivationIntentSource -ne 'compatibility-defaults' -or $savedIntent.EgressPolicy -eq 'Denied')){
+        $intent=Resolve-LabWindowsActivationIntent -Intent $savedIntent
+    }
+    else {
+        $intent=Resolve-LabWindowsActivationIntent -LegacyRequired -Isolated:($null -eq $lab.Instance.labNetwork)
+        $lab.Instance | Add-Member -NotePropertyName windowsActivationIntentSource -NotePropertyValue 'legacy-test-environment' -Force
+    }
+    $lab.Instance | Add-Member -NotePropertyName windowsActivationIntent -NotePropertyValue $intent -Force
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
     $current = Get-HyperVWindowsSlotLicenseStatus -RunId $RunId -Credential $Credential `
         -TimeoutSeconds $TimeoutSeconds -Persist -StateRoot $lab.StateRoot
-    if ([string]$current.State -in @('EVALUATION_ACTIVE','LICENSED')) { return $current }
-    if ([string]$current.Edition -notmatch '(?i)eval') { throw 'HYPERV_WINDOWS_EVALUATION_EDITION_REQUIRED' }
+    $decision=Get-LabWindowsActivationDecision -License $current -Intent $intent
+    if($decision.Action -eq 'NoOp'){return $current}
+    if($decision.Action -eq 'Block'){throw $decision.Code}
 
-    $externalSwitch = Resolve-HyperVWindowsActivationExternalSwitch -ExternalSwitchName $ExternalSwitchName
-    $ExternalSwitchName = [string]$externalSwitch.Name
+    $permanent=Get-LabWindowsActivationPermanentAdapter -Lab $lab -Managed $managed
+    if($permanent -and -not (Test-LabWindowsActivationAdapterConnectivity -Lab $lab -Adapter $permanent -Credential $Credential -TimeoutSeconds ([math]::Min(60,$TimeoutSeconds)))){$permanent=$null}
+    $usesTemporary=$null -eq $permanent
+    $externalSwitch=$null
+    if($usesTemporary){
+        if($intent.EgressPolicy -ne 'AllowTemporary'){throw 'WINDOWS_ACTIVATION_EXISTING_EGRESS_UNAVAILABLE'}
+        $externalSwitch = Resolve-HyperVWindowsActivationExternalSwitch -ExternalSwitchName $ExternalSwitchName
+        $ExternalSwitchName = [string]$externalSwitch.Name
+    }
 
     $operationFailed = $false
     $cleanupFailed = $false
     $failureCode = $null
     $finalReceipt = $null
+    $activationNetworkMode=if($usesTemporary){'Temporary'}else{'Permanent'}
     try {
         $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State ACTIVATING `
             -Edition ([string]$current.Edition) -LicenseStatus ([int]$current.LicenseStatus) `
             -EvaluationMinutesRemaining ([int]$current.EvaluationMinutesRemaining) `
-            -EvaluationExpiresAt ([string]$current.EvaluationExpiresAt) -StateRoot $lab.StateRoot
+            -EvaluationExpiresAt ([string]$current.EvaluationExpiresAt) -EvaluationEndDate ([string]$current.EvaluationEndDate) -NetworkMode $activationNetworkMode -StateRoot $lab.StateRoot
 
-        Write-LabInfo "Windows-Aktivierung: temporäre zweite NIC wird an External-Switch '$ExternalSwitchName' angebunden."
-        $activationAdapter = New-LabWindowsActivationAdapter -Lab $lab -ExternalSwitch $externalSwitch
+        $activationAdapter=$permanent
+        if($usesTemporary){
+            Write-LabInfo 'Windows-Aktivierung: erlaubte temporaere NIC wird angebunden.'
+            $activationAdapter = New-LabWindowsActivationAdapter -Lab $lab -ExternalSwitch $externalSwitch
+        }
+        else {Write-LabInfo 'Windows-Aktivierung: vorhandene permanente NIC wird unveraendert verwendet.'}
         $macAddress = ([string]$activationAdapter.MacAddress -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
         if (-not $macAddress) { throw 'HYPERV_WINDOWS_ACTIVATION_ADAPTER_IDENTITY_MISSING' }
 
         $activation = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential `
-            -ArgumentList @($macAddress) `
+            -TimeoutSeconds $TimeoutSeconds -ArgumentList @($macAddress,$usesTemporary) `
             -ScriptBlock {
-                param($MacAddress)
+                param($MacAddress,$ConfigureTemporaryAdapter)
                 $ErrorActionPreference = 'Stop'
                 $adapterDeadline = [datetime]::UtcNow.AddSeconds(30)
                 do {
@@ -269,9 +320,11 @@ function Invoke-HyperVWindowsSlotActivation {
                     if (-not $adapter) { Start-Sleep -Seconds 1 }
                 } while (-not $adapter -and [datetime]::UtcNow -lt $adapterDeadline)
                 if (-not $adapter) { throw 'WINDOWS_ACTIVATION_GUEST_ADAPTER_NOT_FOUND' }
-                Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Dhcp Enabled -ErrorAction Stop
-                Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ResetServerAddresses -ErrorAction Stop
-                $null = & ipconfig.exe /renew $adapter.Name
+                if($ConfigureTemporaryAdapter){
+                    Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Dhcp Enabled -ErrorAction Stop
+                    Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ResetServerAddresses -ErrorAction Stop
+                    $null = & ipconfig.exe /renew $adapter.Name
+                }
                 $networkDeadline = [datetime]::UtcNow.AddSeconds(60)
                 do {
                     $address = @(Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
@@ -281,6 +334,8 @@ function Invoke-HyperVWindowsSlotActivation {
                     Start-Sleep -Seconds 2
                 } while ([datetime]::UtcNow -lt $networkDeadline)
                 if ($address.Count -eq 0 -or $defaultRoute.Count -eq 0) { throw 'WINDOWS_ACTIVATION_NETWORK_NOT_READY' }
+                $currentEdition=[string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name EditionID -ErrorAction Stop).EditionID
+                if($currentEdition -notmatch '(?i)eval'){throw 'WINDOWS_EVALUATION_EDITION_REQUIRED'}
                 $products = @(Get-CimInstance -ClassName SoftwareLicensingProduct -Filter `
                     "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f'" -ErrorAction Stop |
                     Where-Object { $_.PartialProductKey -and -not [bool]$_.LicenseIsAddon } |
@@ -316,7 +371,7 @@ function Invoke-HyperVWindowsSlotActivation {
         $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State EVALUATION_ACTIVE `
             -Edition ([string]$activation.edition) -LicenseStatus ([int]$activation.licenseStatus) `
             -EvaluationMinutesRemaining ([int]$activation.evaluationMinutesRemaining) `
-            -EvaluationExpiresAt ([string]$activation.evaluationExpiresAt) -StateRoot $lab.StateRoot
+            -EvaluationExpiresAt ([string]$activation.evaluationExpiresAt) -EvaluationEndDate ([string]$current.EvaluationEndDate) -NetworkMode $activationNetworkMode -StateRoot $lab.StateRoot
         $finalReceipt = [PSCustomObject]@{
             RunId=$RunId; VMName=[string]$lab.Instance.vmName; State='EVALUATION_ACTIVE'
             Edition=[string]$activation.edition; LicenseStatus=[int]$activation.licenseStatus
@@ -331,19 +386,24 @@ function Invoke-HyperVWindowsSlotActivation {
         $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State ACTIVATION_REQUIRED `
             -Edition ([string]$current.Edition) -LicenseStatus ([int]$current.LicenseStatus) `
             -EvaluationMinutesRemaining ([int]$current.EvaluationMinutesRemaining) `
-            -EvaluationExpiresAt ([string]$current.EvaluationExpiresAt) -StateRoot $lab.StateRoot
+            -EvaluationExpiresAt ([string]$current.EvaluationExpiresAt) -EvaluationEndDate ([string]$current.EvaluationEndDate) -NetworkMode $activationNetworkMode -StateRoot $lab.StateRoot
     }
     finally {
         try {
-            Remove-LabWindowsActivationAdapter -Lab $lab
-            Write-LabInfo 'Windows-Aktivierung: temporäre externe NIC wurde wieder entfernt; die interne Lab-NIC bleibt erhalten.'
+            if($usesTemporary){
+                Remove-LabWindowsActivationAdapter -Lab $lab
+                Write-LabInfo 'Windows-Aktivierung: eigene temporaere NIC wurde entfernt.'
+            }
+            elseif(-not (Get-LabWindowsActivationPermanentAdapter -Lab $lab -Managed $managed)){
+                throw 'WINDOWS_ACTIVATION_PERMANENT_BINDING_DRIFT'
+            }
         }
         catch {
             $cleanupFailed = $true
             $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State RECOVERY_REQUIRED `
                 -Edition ([string]$current.Edition) -LicenseStatus ([int]$current.LicenseStatus) `
                 -EvaluationMinutesRemaining ([int]$current.EvaluationMinutesRemaining) `
-                -EvaluationExpiresAt ([string]$current.EvaluationExpiresAt) -StateRoot $lab.StateRoot
+                -EvaluationExpiresAt ([string]$current.EvaluationExpiresAt) -EvaluationEndDate ([string]$current.EvaluationEndDate) -NetworkMode $activationNetworkMode -StateRoot $lab.StateRoot
         }
     }
     if ($cleanupFailed) { throw 'HYPERV_WINDOWS_ACTIVATION_NETWORK_CLEANUP_FAILED' }
@@ -419,10 +479,12 @@ function New-HyperVLabEnvironmentFromExistingVm {
         [switch]$Isolated,
         [ValidateSet('hostOnly', 'nat', 'lan')][string]$NetworkIntent = 'hostOnly',
         [switch]$ConfirmSourceLicense,
+        $WindowsActivation,
         [string]$StateRoot
     )
 
     if (-not $ConfirmSourceLicense) { throw 'HYPERV_EXISTING_VM_LICENSE_CONFIRMATION_REQUIRED' }
+    $activationIntent=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation -Isolated:$Isolated
     Write-LabInfo 'Schritt 1/6: Sichere, ausgeschaltete Quell-VM wird geprueft.'
     $availability = Test-HyperVAvailable
     if (-not $availability.Available) { throw "HYPERV_WORKFLOW_UNAVAILABLE: $($availability.Message)" }
@@ -441,6 +503,8 @@ function New-HyperVLabEnvironmentFromExistingVm {
         name = $LabName; workflowKind = 'hyperv-lab'; baseKind = 'existing-vm'; workload = 'windows'; autostart = $AutoStart
         sourceVMName = $source.VMName; sourceVhdxPath = $source.SourceVhdxPath
         sourceLicenseNotice = $source.LicenseNotice
+        windowsActivationIntent=$activationIntent
+        windowsActivationIntentSource=$(if($WindowsActivation){'parameters'}else{'compatibility-defaults'})
         network = if ($networkPlan) { $networkPlan.Name } else { $null }
         networkIntent = if ($Isolated) { 'isolated' } else { $NetworkIntent }
     } -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
@@ -483,12 +547,15 @@ function New-HyperVLabEnvironmentFromExistingVm {
                 id = $InstanceId; provider = 'hyperv'; vmName = $vm.VMName; vmId = $vm.VMId; autostart = $AutoStart
                 sqlVersion = $null; sqlEdition = $null; imageArtifactId = $null; host = $null; port = $null
                 labNetwork = if ($labNetwork) { [PSCustomObject]@{
+                    adapterBinding = $vm.NetworkBinding
                     name = $labNetwork.Name; intent = $labNetwork.Intent; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength
                     hostAddress = $labNetwork.HostAddress; address = $labNetwork.address; gateway = $labNetwork.Gateway; dnsServers = @($labNetwork.DnsServers)
                     addressMode = if ($labNetwork.AddressMode) { [string]$labNetwork.AddressMode } else { 'static' }
                 } } else { $null }
                 baseKind = 'existing-vm'; workload = 'windows'; sourceVMName = $source.VMName; sourceVhdxPath = $source.SourceVhdxPath
                 sourceParentCopyPath = $parentCopyPath; sourceParentSha256 = $parentHash
+                windowsActivationIntent=$activationIntent
+                windowsActivationIntentSource=$(if($WindowsActivation){'parameters'}else{'compatibility-defaults'})
             })
         }
         Write-LabInfo 'Schritt 5/6: Verbindungsdaten und sichere Ressourcenbindung werden gespeichert.'
@@ -538,6 +605,8 @@ function New-HyperVLabEnvironment {
         [object[]]$AdditionalDrives = @(),
         $StorageIntent,
         $WindowsLocale,
+        $WindowsActivation,
+        [ValidateSet('compatibility-defaults','manifest','parameters','batch','legacy-test-environment')][string]$WindowsActivationSource='compatibility-defaults',
         $DesiredState,
         [string]$StateRoot
     )
@@ -552,6 +621,8 @@ function New-HyperVLabEnvironment {
         $WindowsLocale=Resolve-LabWindowsLocaleIntent -Intent $WindowsLocale
         Assert-LabWindowsLocaleImageCapability -Intent $WindowsLocale -Artifact $artifact
     }
+    if($WindowsActivation -and -not $PSBoundParameters.ContainsKey('WindowsActivationSource')){$WindowsActivationSource='parameters'}
+    $WindowsActivation=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation -Isolated:$Isolated
     $artifactState = [string]$artifact.artifactState
     if ($artifactState -notin @('SQL_PREPARED_SEALED', 'OS_SEALED')) {
         throw 'HYPERV_LAB_WINDOWS_OR_SQL_PREPARED_IMAGE_REQUIRED'
@@ -590,6 +661,8 @@ function New-HyperVLabEnvironment {
         networkIntent = if ($Isolated) { 'isolated' } else { $NetworkIntent }
         desiredState = $DesiredState
         windowsLocale = $WindowsLocale
+        windowsActivationIntent = $WindowsActivation
+        windowsActivationIntentSource = $WindowsActivationSource
     }
     $workflowOperationId = Get-LabWorkflowOperationContext
     if (-not [string]::IsNullOrWhiteSpace($workflowOperationId)) {
@@ -640,6 +713,8 @@ function New-HyperVLabEnvironment {
                 sqlEdition = if ($workload -eq 'sql') { [string]$artifact.sql.edition } else { $null }
                 workload = $workload; baseKind = $baseKind; imageArtifactId = $ArtifactId; host = $null; port = $null
                 windowsLocale = $WindowsLocale
+                windowsActivationIntent = $WindowsActivation
+                windowsActivationIntentSource = $WindowsActivationSource
                 resourceSettings = [PSCustomObject]@{
                     contractVersion='SqlServerLab.HyperVResourceIntent/1.0'; processorCount=$ProcessorCount
                     dynamicMemoryEnabled=$DynamicMemoryEnabled
@@ -648,6 +723,7 @@ function New-HyperVLabEnvironment {
                     memoryMaximumMB=$effectiveMemoryMaximumMB
                 }
                 labNetwork = if ($labNetwork) { [PSCustomObject]@{
+                    adapterBinding = $vm.NetworkBinding
                     name = $labNetwork.Name; intent = $labNetwork.Intent; subnet = $labNetwork.Subnet; prefixLength = $labNetwork.PrefixLength
                     hostAddress = $labNetwork.HostAddress; address = $labNetwork.address; gateway = $labNetwork.Gateway; dnsServers = @($labNetwork.DnsServers)
                     addressMode = if ($labNetwork.AddressMode) { [string]$labNetwork.AddressMode } else { 'static' }
@@ -998,6 +1074,8 @@ function Invoke-HyperVLabUnattendedProvision {
     }) -Force
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
 
+    $null=Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $credential -StateRoot $lab.StateRoot
+    $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     $driveReceipt = $null
     if ($lab.Instance.persistentStorage -and [string]$lab.Instance.persistentStorage.state -eq 'ATTACHED_PENDING_INITIALIZATION') {
         Write-LabInfo 'Schritt 6/6a: Eigene Data-Root-VHDX wird im Gast initialisiert.'
@@ -1120,6 +1198,9 @@ function Complete-HyperVLabManualWindowsSlot {
             $lab.Instance.labNetwork | Add-Member -NotePropertyName $field.Key -NotePropertyValue $field.Value -Force
         }
     }
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
+    $null=Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot
+    $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     $lab.Instance | Add-Member -NotePropertyName windowsProvisioning -NotePropertyValue ([PSCustomObject]@{
         state = 'COMPLETE'; mode = 'manual-handoff'; computerName = [string]$ready.ComputerName
         imageState = [string]$ready.ImageState; network = $networkReceipt; completedAt = Get-LabTimestamp
@@ -1243,16 +1324,18 @@ function Invoke-HyperVLabSqlSlotInstall {
         $setupVersionPattern = Get-HyperVSqlSetupVersionPattern -SqlVersion ([string]$plan.sqlVersion)
         $existingDvd = @(Get-VMDvdDrive -VM $managed.VM -ErrorAction Stop | Where-Object { [string]$_.Path -eq [string]$media.IsoPath }) | Select-Object -First 1
         if (-not $existingDvd) { $null = Add-VMDvdDrive -VM $managed.VM -Path $media.IsoPath -ErrorAction Stop }
-        $plan.state = 'INSTALLING'
-        $plan | Add-Member -NotePropertyName mediaRelativePath -NotePropertyValue ([string]$media.RelativePath) -Force
-        $plan | Add-Member -NotePropertyName startedAt -NotePropertyValue (Get-LabTimestamp) -Force
-        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
-
         $null = Start-HyperVInstance -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
         $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $ReadinessTimeoutSeconds
         if (-not $ready.Ready) { throw "HYPERV_LAB_SQL_INSTALL_GUEST_TIMEOUT: $($ready.Message)" }
+        $null=Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $credential -StateRoot $lab.StateRoot
+        $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
+        $plan=$lab.Instance.sqlDeploymentPlan
+        $plan.state = 'INSTALLING'
+        $plan | Add-Member -NotePropertyName mediaRelativePath -NotePropertyValue ([string]$media.RelativePath) -Force
+        $plan | Add-Member -NotePropertyName startedAt -NotePropertyValue (Get-LabTimestamp) -Force
+        Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
 
         $pendingAdditionalDrives = @($lab.Instance.additionalDrives | Where-Object { [string]$_.state -eq 'ATTACHED_PENDING_INITIALIZATION' })
         if ($pendingAdditionalDrives.Count -gt 0) {
@@ -1827,6 +1910,9 @@ function Start-HyperVLabEnvironment {
     $status = Start-HyperVInstance -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if ([string]$lab.Run.state -eq 'STOPPED') { $null = Set-LabRunState -RunId $RunId -NewState RUNNING -Reason 'Hyper-V-VM gestartet.' -StateRoot $lab.StateRoot }
     Set-LabProviderSubRunState -RunId $RunId -Provider hyperv -NewState RUNNING -Reason 'Hyper-V-VM gestartet.' -StateRoot $lab.StateRoot
+    if([string]$lab.Instance.oobeAutomation.status -eq 'COMPLETED' -or [string]$lab.Instance.windowsProvisioning.state -eq 'COMPLETE'){
+        $null=Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -StateRoot $lab.StateRoot
+    }
     return $status
 }
 
@@ -2365,6 +2451,8 @@ function Complete-HyperVLabSqlImage {
     if ($media.HashStatus -ne 'SIDECAR_READY') { throw "HYPERV_LAB_SQL_MEDIA_HASH_REQUIRED: $($media.HashPath)" }
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_COMPLETE_VM_MUST_BE_RUNNING' }
+    $null=Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot
+    $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     if (-not $SqlSaPassword) { $SqlSaPassword = $Credential.Password }
     $fallbackAddress = if ($lab.Instance.labNetwork) {
         if ($lab.Instance.labNetwork.address) { [string]$lab.Instance.labNetwork.address }

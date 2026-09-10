@@ -796,6 +796,7 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
                         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
                     if (-not $runtime.Exists) { throw 'TEST_ENVIRONMENT_HYPERV_VM_NOT_FOUND' }
                     if ([string]$runtime.State -ne 'Running') {
+                        Set-LabWindowsTestEnvironmentActivationIntent -RunId $runId -StateRoot $StateRoot
                         $null = Start-HyperVLabEnvironment -RunId $runId -StateRoot $StateRoot
                     }
                     $license = Get-HyperVWindowsSlotLicenseStatus -RunId $runId -Persist `
