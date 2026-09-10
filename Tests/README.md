@@ -173,8 +173,11 @@ SQL-Build und die Indexversion, vergleicht vier synthetische Suchfälle mit
 exakter Suche (Recall@10 mindestens 0,8), prüft Distanz und Filter sowie
 Persistenz nach Stop/Start. Laufzeiten sind Messwerte dieses kleinen Tests,
 keine Performancezusage. Neuere inkompatible Indexsemantik benötigt eine
-angepasste beziehungsweise eigene Testversion. Neue native Evidence steht bis
-zum erfolgreichen Lauf mit Cleanup aus.
+angepasste beziehungsweise eigene Testversion. Die getrennten nativen Läufe
+vom 2026-09-10 bestanden unter Docker und Podman auf SQL-Build `17.0.4075.5`,
+jeweils einschließlich Cleanup. Dieser Build meldet Indexparameter ohne
+numerisches Versionsfeld; das Ergebnis kennzeichnet diese tatsächlich
+beobachtete Form als `sql2025-unversioned` und erfindet keine Versionsnummer.
 
 ```powershell
 .\Tests\Integration\Invoke-AiVectorIndexAcceptance.ps1 -Provider docker
