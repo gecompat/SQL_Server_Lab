@@ -9,8 +9,8 @@ CREATE TABLE dbo.AnnDocuments
 );
 INSERT dbo.AnnDocuments(DocumentId, BucketId, Embedding)
 SELECT n.value, n.value % 3,
-    CAST('[' + STRING_AGG(CONVERT(varchar(max), CONVERT(real,
-        SIN(n.value * d.value * 0.137) + COS(n.value * 0.071 + d.value * 0.19)), 3), ',')
+    CAST('[' + STRING_AGG(CAST(CONVERT(varchar(12), CONVERT(int, 1000000 *
+        (SIN(n.value * d.value * 0.137) + COS(n.value * 0.071 + d.value * 0.19)))) AS varchar(max)), ',')
         WITHIN GROUP (ORDER BY d.value) + ']' AS vector(32))
 FROM GENERATE_SERIES(1, 4096) AS n
 CROSS JOIN GENERATE_SERIES(1, 32) AS d
