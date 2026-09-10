@@ -68,7 +68,8 @@ function Start-InstanceStoreSqlContainer {
     param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][string]$Volume, [Parameter(Mandatory)][int]$Port)
     $mount = if ($Provider -eq 'podman') { "${Volume}:/var/opt/mssql:U" } else { "${Volume}:/var/opt/mssql" }
     $null = Invoke-InstanceStoreRuntime -Arguments @(
-        'run','-d','--name',$Name,'-p',"127.0.0.1:${Port}:1433",
+        'run','-d','--name',$Name,'--memory','4g','--cpus','2','-p',"127.0.0.1:${Port}:1433",
+        '-e','MSSQL_MEMORY_LIMIT_MB=2048',
         '-e','ACCEPT_EULA=Y','-e',"MSSQL_SA_PASSWORD=$saPlain",'-e','MSSQL_PID=Developer','-e','MSSQL_AGENT_ENABLED=true',
         '--label',"sql-server-lab.run-id=$runId",'--label',"sql-server-lab.scope-id=$scopeId",'-v',$mount,$Image
     )
@@ -297,7 +298,13 @@ finally {
         foreach ($volume in @($sourceVolume,$targetVolume,$leaseVolume) + $sourceSidecarVolumes + $targetSidecarVolumes) {
             $null=Invoke-InstanceStoreRuntime -Arguments @('volume','rm','-f',$volume) -AllowFailure
         }
-        Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
+        $resolvedTestRoot=[IO.Path]::GetFullPath($testRoot)
+        $temporaryBoundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
+        if(-not $resolvedTestRoot.StartsWith($temporaryBoundary,[StringComparison]::OrdinalIgnoreCase) -or
+            [IO.Path]::GetFileName($resolvedTestRoot) -notmatch '^sql-lab-psr005-(docker|podman)-[0-9a-f]{32}$'){
+            throw 'CONTAINER_INSTANCE_STORE_CLEANUP_SCOPE_INVALID'
+        }
+        if(Test-Path -LiteralPath $resolvedTestRoot){Remove-Item -LiteralPath $resolvedTestRoot -Recurse -Force -ErrorAction Stop}
     }
     $saPlain=$null
     if ($mutexAcquired) { $runtimeMutex.ReleaseMutex(); $mutexAcquired=$false }
