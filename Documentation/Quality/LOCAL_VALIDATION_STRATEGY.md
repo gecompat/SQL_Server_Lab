@@ -509,6 +509,23 @@ vom frischen Build bis zum bereinigten Manifestklon. Weitere Windows-/SQL-
 Kombinationen und die breite Datenbank-, Software-, Post-Provisioning- und
 Network-Manifestbindung benötigen weiterhin eigene Nachweise.
 
+Der Lauf vom 2026-09-10 auf `63e272d` erreichte die Publikation, scheiterte dort
+aber an fehlenden Plattformmetadaten des Fresh-Plans (`VmGeneration=0`).
+VM und beide Testdatentraeger wurden entfernt und ihre Abwesenheit geprueft.
+`Invoke-HyperVSqlImageBuilderChecks.ps1` reproduziert diesen Vertragsfehler
+mit einem echten Fresh-Plan und Registry-Import einer synthetischen VHDX.
+Nach der Korrektur bestehen 50 fokussierte Pruefungen einschliesslich
+fruehem Blockieren eines alten States ohne Plattform. Der erhöhte Lauf auf
+`d07d3f02` erreichte danach frische Windows-2025-OOBE, PowerShell Direct,
+SQL-2025-PrepareImage, Generalize, immutable Publish und den differenzierenden
+Manifestklon. Die nachgelagerte Aktivierung brach mit
+`WINDOWS_ACTIVATION_EXISTING_EGRESS_UNAVAILABLE` ab; ihre VM, Child-VHDX und
+IPAM-Lease wurden vollständig entfernt. Der fehlgeschlagene Test hatte einen
+erfolgreichen SQL-Build-State als Artifact-Referenz hinterlassen; dessen
+bereinigter Fehlerpfad entfernt zuerst genau diesen Build und danach nur das
+eigene Artifact. Die eigentliche SQL-Konfigurations-Reconcile-Evidence bleibt
+bis zu verfügbarem Aktivierungs-Egress offen.
+
 ### Reale Legacy-Run-/Parent-Child-Migration
 
 Der erhöhte HVR-008-Runner verlangt eine exakte Run-ID, den erwarteten VM-Namen,
