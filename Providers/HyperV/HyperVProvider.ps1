@@ -1747,6 +1747,8 @@ function Remove-HyperVInstance {
         [switch]$PreserveVhdx,
         [switch]$RequireOff
     )
+    $blockingProgress=Start-LabBlockingActionProgress -Phase Cleanup
+    try {
 
     $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedScopeId $ExpectedScopeId
     if (-not $managed) {
@@ -1807,6 +1809,8 @@ function Remove-HyperVInstance {
     }
 
     return [PSCustomObject]@{ Removed = $true; AlreadyAbsent = $false; VMName = $VMName }
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Remove-HyperVVhdxForCleanup {

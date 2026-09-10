@@ -49,14 +49,14 @@ function Update-LabActionProgress {
         progress=$(if ($percent -ge 0) { $percent } else { $null })
         steps=@([pscustomobject]@{title=$label}); currentStep=0; probe=$null
     }
-    $rendered = @(Format-LabProgressStatus -Operation $operation -Tick $Progress.Tick -Now $Now)
+    $rendered = Format-LabProgressStatus -Operation $operation -Tick $Progress.Tick -Now $Now
     $detail = Format-LabElapsedTime -Elapsed ($Now - $Progress.StartedAt)
     if ($CompletedBytes -gt 0 -or $TotalBytes -gt 0) {
         $detail += " | $CompletedBytes Bytes"
         if ($TotalBytes -gt 0) { $detail += " / $TotalBytes Bytes" }
     }
     if ($ProbeCount -gt 0) { $detail += " | Probes: $ProbeCount" }
-    Write-Progress -Id $Progress.Id -Activity 'SQL Server Lab' -Status ([string]$rendered[0]) `
+    Write-Progress -Id $Progress.Id -Activity 'SQL Server Lab' -Status ([string]$rendered.Lines[0]) `
         -CurrentOperation $detail -PercentComplete $percent
     $Progress.LastShownAt = $Now; $Progress.LastPhase = $Progress.Phase
     $Progress.Tick++; $Progress.Shown = $true

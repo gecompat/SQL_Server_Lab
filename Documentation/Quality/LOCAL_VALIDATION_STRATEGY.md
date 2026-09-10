@@ -9,6 +9,18 @@
 
 ## 1. Grundsatz
 
+`Invoke-BlockingActionProgressChecks.ps1` prueft einen mit `Thread.Sleep`
+blockierten Hauptthread: Heartbeat ab fuenf Sekunden, Drosselung,
+Phasenwechsel, Secretfreiheit, verschachtelte Aufrufe und Cleanup ohne
+Beenden eines geliehenen Reporters. Ein echter PowerShell-Terminaltest vom
+2026-09-10 zeigte die formatierten Zeilen bei 00:05 und 00:06 und entfernte
+die Anzeige anschliessend. Ein weiterer Terminaltest bestaetigte den
+Finally-Cleanup; er wird nicht als gezielt nachgewiesener Ctrl-C-Abbruch
+gewertet. Die statische Suite stoppt zusaetzlich eine echte Pipeline waehrend
+eines synchronen .NET-Aufrufs und bestaetigt den Reporter-Cleanup nach dessen
+Rueckkehr. Der WMI-Transport bleibt unveraendert; ein vollstaendiger neuer
+Legacy-Gastlauf ist damit nicht behauptet.
+
 `Invoke-HyperVPersistentDataDriveChecks.ps1` prueft Operations-Lease,
 Recovery-Markierung und Reattach-/Release-Abschluss mit schreibfreier Preview,
 Revisionskonflikten und bestehenden Clone-/Resume-Fehlerpfaden.

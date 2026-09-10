@@ -117,6 +117,7 @@ end {
         @{ Pattern = '(?i)(HyperVProvider|Providers/HyperV)'; Checks = @('Invoke-HyperVProviderChecks.ps1') },
         @{ Pattern = '(?i)(JobProgress|HyperVGuestProgress|HyperVProvider|HyperVLabEnvironment|ExternalRuntimeWindows)'; Checks = @('Invoke-JobProgressChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1') },
         @{ Pattern = '(?i)(SessionTransferProgress|SqlStorageOperations|HyperVDatabasePackage)'; Checks = @('Invoke-SessionTransferProgressChecks.ps1') },
+        @{ Pattern = '(?i)(BlockingActionProgress|ActionProgress|HyperVLegacyWindowsEvaluationTemplate)'; Checks = @('Invoke-BlockingActionProgressChecks.ps1','Invoke-HyperVImageBuilderChecks.ps1') },
         @{ Pattern = '(?i)(HyperVLabEnvironment)'; Checks = @('Invoke-HyperVLabEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(HyperVImageRegistry)'; Checks = @('Invoke-HyperVImageRegistryChecks.ps1') },
         @{ Pattern = '(?i)(HyperVImageBuilder)'; Checks = @('Invoke-HyperVImageBuilderChecks.ps1') },

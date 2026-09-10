@@ -51,6 +51,8 @@ function Connect-HyperVLegacyWindowsWmiScope {
         [Parameter(Mandatory)][string]$Namespace,
         [Parameter(Mandatory)][PSCredential]$Credential
     )
+    $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+    try {
     Add-Type -AssemblyName System.Management -ErrorAction Stop
     $pointer=[IntPtr]::Zero; $plain=$null
     try {
@@ -69,6 +71,8 @@ function Connect-HyperVLegacyWindowsWmiScope {
         $plain=$null
         if($pointer -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)}
     }
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Get-HyperVLegacyWindowsGuestIPv4 {
@@ -77,6 +81,8 @@ function Get-HyperVLegacyWindowsGuestIPv4 {
         [Parameter(Mandatory)][string]$VMName,
         [Parameter(Mandatory)][string]$AdapterName
     )
+    $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+    try {
     $adapter=Get-VMNetworkAdapter -VMName $VMName -Name $AdapterName -ErrorAction SilentlyContinue
     $addresses=@($adapter.IPAddresses | Where-Object {
         $_ -match '^\d{1,3}(?:\.\d{1,3}){3}$' -and $_ -notlike '169.254.*' -and $_ -notlike '127.*'
@@ -101,6 +107,8 @@ function Get-HyperVLegacyWindowsGuestIPv4 {
         } catch { }
     }
     return @($addresses|Sort-Object -Unique)
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Wait-HyperVLegacyWindowsWmi {
@@ -111,6 +119,8 @@ function Wait-HyperVLegacyWindowsWmi {
         [Parameter(Mandatory)][PSCredential]$Credential,
         [ValidateRange(60,3600)][int]$TimeoutSeconds=1800
     )
+    $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+    try {
     $deadline=[datetime]::UtcNow.AddSeconds($TimeoutSeconds); $lastError=$null
     do {
         $addresses=@(Get-HyperVLegacyWindowsGuestIPv4 -VMName $VMName -AdapterName $AdapterName)
@@ -123,6 +133,8 @@ function Wait-HyperVLegacyWindowsWmi {
         Start-Sleep -Seconds 3
     } while([datetime]::UtcNow -lt $deadline)
     return [pscustomobject]@{Ready=$false;Address=$null;Scope=$null;LastError=$lastError}
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Get-HyperVLegacyWindowsRegistryValue {
@@ -134,6 +146,8 @@ function Get-HyperVLegacyWindowsRegistryValue {
         [ValidateSet('HKLM','HKU')][string]$Hive='HKLM',
         [ValidateSet('String','DWORD')][string]$Type='String'
     )
+    $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+    try {
     $registry=[Management.ManagementClass]::new($Scope,[Management.ManagementPath]::new('StdRegProv'),$null)
     $method=if($Type -eq 'DWORD'){'GetDWORDValue'}else{'GetStringValue'}
     $input=$registry.GetMethodParameters($method)
@@ -142,6 +156,8 @@ function Get-HyperVLegacyWindowsRegistryValue {
     $output=$registry.InvokeMethod($method,$input,$null)
     if([uint32]$output['ReturnValue'] -ne 0){return $null}
     return $(if($Type -eq 'DWORD'){[uint32]$output['uValue']}else{[string]$output['sValue']})
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Set-HyperVLegacyWindowsRegistryDWORD {
@@ -152,12 +168,16 @@ function Set-HyperVLegacyWindowsRegistryDWORD {
         [Parameter(Mandatory)][string]$Name,
         [Parameter(Mandatory)][uint32]$Value
     )
+    $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+    try {
     $registry=[Management.ManagementClass]::new($Scope,[Management.ManagementPath]::new('StdRegProv'),$null)
     $create=$registry.GetMethodParameters('CreateKey');$create['hDefKey']=[uint32]2147483650;$create['sSubKeyName']=$SubKey
     if([uint32]$registry.InvokeMethod('CreateKey',$create,$null)['ReturnValue'] -ne 0){throw 'HYPERV_LEGACY_REGISTRY_CREATE_FAILED'}
     $input=$registry.GetMethodParameters('SetDWORDValue');$input['hDefKey']=[uint32]2147483650
     $input['sSubKeyName']=$SubKey;$input['sValueName']=$Name;$input['uValue']=$Value
     if([uint32]$registry.InvokeMethod('SetDWORDValue',$input,$null)['ReturnValue'] -ne 0){throw 'HYPERV_LEGACY_REGISTRY_SET_FAILED'}
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Invoke-HyperVLegacyWindowsProcess {
@@ -166,16 +186,22 @@ function Invoke-HyperVLegacyWindowsProcess {
         [Parameter(Mandatory)][Management.ManagementScope]$Scope,
         [Parameter(Mandatory)][string]$CommandLine
     )
+    $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+    try {
     $process=[Management.ManagementClass]::new($Scope,[Management.ManagementPath]::new('Win32_Process'),$null)
     $input=$process.GetMethodParameters('Create');$input['CommandLine']=$CommandLine
     $output=$process.InvokeMethod('Create',$input,$null)
     if([uint32]$output['ReturnValue'] -ne 0){throw "HYPERV_LEGACY_PROCESS_CREATE_FAILED: $($output['ReturnValue'])"}
     return [uint32]$output['ProcessId']
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Get-HyperVLegacyWindowsGuestReceipt {
     [CmdletBinding()]
     param([Parameter(Mandatory)][Management.ManagementScope]$Scope)
+    $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+    try {
     $current='SOFTWARE\Microsoft\Windows NT\CurrentVersion'
     $state='SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State'
     $sql='SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL'
@@ -189,6 +215,8 @@ function Get-HyperVLegacyWindowsGuestReceipt {
         imageState=Get-HyperVLegacyWindowsRegistryValue -Scope $Scope -SubKey $state -Name ImageState
         sqlInstalled=([uint32]$sqlResult['ReturnValue'] -eq 0 -and @($sqlResult['sNames']).Count -gt 0)
     }
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Wait-HyperVLegacyWindowsGuestComplete {
@@ -197,6 +225,8 @@ function Wait-HyperVLegacyWindowsGuestComplete {
         [Parameter(Mandatory)][Management.ManagementScope]$Scope,
         [ValidateRange(30,600)][int]$TimeoutSeconds=300
     )
+    $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+    try {
     $deadline=[datetime]::UtcNow.AddSeconds($TimeoutSeconds);$receipt=$null
     do {
         $receipt=Get-HyperVLegacyWindowsGuestReceipt -Scope $Scope
@@ -204,11 +234,15 @@ function Wait-HyperVLegacyWindowsGuestComplete {
         Start-Sleep -Seconds 3
     } while([datetime]::UtcNow -lt $deadline)
     return $receipt
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Get-HyperVLegacyWindowsEvaluationLicenseReceipt {
     [CmdletBinding()]
     param([Parameter(Mandatory)][Management.ManagementScope]$Scope)
+    $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+    try {
     $query=[Management.ObjectQuery]::new("SELECT * FROM SoftwareLicensingProduct WHERE ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f'")
     $items=@([Management.ManagementObjectSearcher]::new($Scope,$query).Get() | Where-Object {
         $_['PartialProductKey'] -and -not [bool]$_['LicenseIsAddon']
@@ -223,6 +257,8 @@ function Get-HyperVLegacyWindowsEvaluationLicenseReceipt {
         }else{$null}
         observedAt=$observed.ToString('o')
     }
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Invoke-HyperVLegacyWindowsEvaluationActivation {
@@ -231,6 +267,8 @@ function Invoke-HyperVLegacyWindowsEvaluationActivation {
         [Parameter(Mandatory)][Management.ManagementScope]$Scope,
         [switch]$AllowActivationGrace
     )
+    $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+    try {
     $deadline=[datetime]::UtcNow.AddMinutes(5);$receipt=$null;$activationAttempted=$false
     do {
         try {
@@ -257,14 +295,20 @@ function Invoke-HyperVLegacyWindowsEvaluationActivation {
     $receipt|Add-Member -NotePropertyName activated -NotePropertyValue $activated -Force
     $receipt|Add-Member -NotePropertyName state -NotePropertyValue $(if($activated){'ACTIVATED'}else{'OOB_GRACE'}) -Force
     return $receipt
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Remove-HyperVLegacyWindowsGuestSecretTraces {
     [CmdletBinding()]
     param([Parameter(Mandatory)][Management.ManagementScope]$Scope)
+    $blockingProgress=Start-LabBlockingActionProgress -Phase Cleanup
+    try {
     $command='cmd.exe /c del /f /q "%WINDIR%\Panther\Unattend.xml" 2>nul & del /f /q "%WINDIR%\Panther\Unattend\Unattend.xml" 2>nul & reg.exe delete "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultPassword /f 2>nul & reg.exe add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v AutoAdminLogon /t REG_SZ /d 0 /f'
     $null=Invoke-HyperVLegacyWindowsProcess -Scope $Scope -CommandLine $command
     Start-Sleep -Seconds 3
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Invoke-HyperVLegacyWindowsSysprep {
@@ -274,6 +318,8 @@ function Invoke-HyperVLegacyWindowsSysprep {
         [Parameter(Mandatory)][string]$VMName,
         [ValidateRange(120,1800)][int]$TimeoutSeconds=900
     )
+    $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+    try {
     $processId=Invoke-HyperVLegacyWindowsProcess -Scope $Scope -CommandLine `
         'C:\Windows\System32\Sysprep\Sysprep.exe /generalize /oobe /quit /quiet'
     $deadline=[datetime]::UtcNow.AddSeconds($TimeoutSeconds);$imageState=$null
@@ -298,6 +344,8 @@ function Invoke-HyperVLegacyWindowsSysprep {
         throw "HYPERV_LEGACY_SYSPREP_SHUTDOWN_FAILED: $($vm.State)"
     }
     return [pscustomobject]@{ProcessId=$processId;ImageState=$imageState;ShutdownObserved=$true}
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Submit-HyperVLegacyWindowsGeneralizationEvidence {
@@ -396,7 +444,11 @@ function Invoke-HyperVLegacyWindowsEvaluationTemplateBuild {
                 throw "HYPERV_LEGACY_TEMPLATE_CHILD_OOBE_INCOMPLETE: $($initialChildReceipt.imageState)"
             }
             $null=Invoke-HyperVLegacyWindowsProcess -Scope $childReady.Scope -CommandLine 'shutdown.exe /s /t 0 /f'
-            $deadline=[datetime]::UtcNow.AddSeconds(300);do{Start-Sleep 2;$childVm=Get-VM -Name $child.Instance.vmName}while([string]$childVm.State -ne 'Off' -and [datetime]::UtcNow -lt $deadline)
+            $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+            try {
+                $deadline=[datetime]::UtcNow.AddSeconds(300);do{Start-Sleep 2;$childVm=Get-VM -Name $child.Instance.vmName}while([string]$childVm.State -ne 'Off' -and [datetime]::UtcNow -lt $deadline)
+            }
+            finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
             if([string]$childVm.State -ne 'Off'){throw 'HYPERV_LEGACY_TEMPLATE_CHILD_SHUTDOWN_FAILED'}
             $null=Start-HyperVInstance -VMName $child.Instance.vmName -ExpectedRunId $child.Run.runId -ExpectedScopeId $child.Run.scopeId
             $coldReady=Wait-HyperVLegacyWindowsWmi -VMName $child.Instance.vmName -AdapterName $adapterName -Credential $childCredential -TimeoutSeconds $TimeoutSeconds

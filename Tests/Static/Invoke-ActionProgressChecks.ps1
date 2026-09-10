@@ -35,6 +35,7 @@ Update-LabActionProgress -Progress $progress -Now $origin.AddSeconds(4)
 Assert-Progress ($records.Count -eq 0) 'Kurze Aktionen bleiben still'
 Update-LabActionProgress -Progress $progress -Now $origin.AddSeconds(5) -CompletedBytes 256 -TotalBytes 1024
 Assert-Progress ($records.Count -eq 1 -and $records[0].Percent -eq 25 -and $records[0].Detail -match '256 Bytes / 1024 Bytes') 'Messbarer Bytefortschritt ab fuenf Sekunden'
+Assert-Progress ($records[0].Status -match 'SQL Server Lab.*25%.*Download' -and $records[0].Status -notmatch '@\{|System\.Object|Lines=') 'Status verwendet die formatierte Zeile statt der Objektbeschreibung'
 Update-LabActionProgress -Progress $progress -Now $origin.AddMilliseconds(5500)
 Assert-Progress ($records.Count -eq 1) 'Updates sind gedrosselt'
 Update-LabActionProgress -Progress $progress -Phase Hash -Now $origin.AddMilliseconds(5500)

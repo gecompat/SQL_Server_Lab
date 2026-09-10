@@ -269,8 +269,12 @@ Offline-Jobs belegen Ausgabe, Fehlerkategorie, Timeout und eigenes Cleanup.
 Session-Dateikopien fuer SQL-Storage und Datenbankpakete verwenden eine eigene
 asynchrone Kopierpipeline; Offline-Nachweise decken Heartbeat, Ergebnisobjekte,
 Fehlerkategorie, Timeout und Reporter-Cleanup ab.
-Native Gast-/Session-Evidence und Legacy-WMI-Wartepfade bleiben
-Teil dieses offenen Punkts; der folgende Ausgangsbefund
+Legacy-WMI und Hyper-V-Checkpoint-Cleanup sind ueber einen lokalen
+Reporter-Runspace angebunden; er verwendet dieselbe Formatierung und
+Allowlist und aktualisiert auch bei blockiertem Hauptthread. Verschachtelte
+Schritte teilen einen Worker. Offline- und Terminalnachweis liegen vor;
+vollstaendige neue Legacy-Gast-Evidence bleibt separat.
+Der folgende Ausgangsbefund
 beschreibt den Stand vor dieser Erweiterung.
 
 Geprüfter Ist-Zustand vom 2026-09-09: Das feste Statusband (`CUI-022`) zeigt
