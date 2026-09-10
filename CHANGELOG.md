@@ -20,6 +20,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Repository-Skills fuer Readiness, Validierung und Lab-Lifecycle verwenden
+  die vorhandenen oeffentlichen Fachvertraege; ihre Metadaten, Dateiverweise
+  und exportierten Befehle werden lokal und impact-basiert geprueft.
 - Eigenstaendiger read-only Client-Readiness-Check ohne KI-Skill: getrennte
   Bootstrap-, Installations-, Berechtigungs-, Runtime- und Storagebefunde mit
   konkreten naechsten Schritten; kein Runtime-Start oder Konfigurationsschreiben.

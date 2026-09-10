@@ -9,6 +9,13 @@
 
 ## 1. Grundsatz
 
+`Tests/Static/Invoke-SkillChecks.ps1` validiert die drei Repository-Skills unter
+`.agents/skills`: eindeutige Namen, einfache YAML-String-Metadaten, vorhandene
+repositorygebundene Verweise und tatsaechlich exportierte Fachbefehle.
+Negative Header-Faelle pruefen den Validator selbst. Zusaetzlich bestand der
+Skill-Creator-YAML-Validator fuer jede Datei. Diese Nachweise pruefen die
+versionierten Dateien und nicht die Skill-Erkennung eines beliebigen Clients.
+
 `Tools/Test-SqlServerLabClientReadiness.ps1 -Provider docker -Operation Inspect`
 prueft den Client ohne Skill, Setup oder Runtime-Start. Der strukturierte
 Vertrag `SqlServerLab.ClientReadiness/1.0` nennt fehlende Voraussetzungen,
