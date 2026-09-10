@@ -164,7 +164,7 @@ werden nicht allein durch Aufnahme in diese Liste freigegeben.
 | Automation-API/IaC | `validated` (Bewertung) | [Bewertung](HOST_AND_AUTOMATION_ASSESSMENT_2026-09-10.md): vorhandene PowerShell-API bleibt Standard; lokaler versionierter read-only Plan-/Result-Vertrag als nächster Schritt, Aufwand M. Kein neuer Netzwerkdienst; genau ein späterer IaC-Pilot erst bei konkretem Konsumenten. |
 | KI-TLS-Gateway | `planned` | SQL-seitiges External Model, Endpointvertrauen, Zertifikate, Credential-Lifecycle und getrennte Native-Evidence bewerten. |
 | ONNX | `planned` | Unterstützte Windows-/SQL-Kombination, reproduzierbares Modellartefakt und Native-Testkosten beurteilen. |
-| ANN | `planned` | Nutzen gegenüber exakter Suche, Qualitäts-/Performance-Metriken und versionsabhängige Freigabe beurteilen. |
+| ANN | `in_progress` (native Abnahme beauftragt) | Auf Benutzerauftrag vom 2026-09-10 wird die Preview-Funktion konkret unter SQL Server 2025 getestet. Eigene Abnahmeversion 1.0 für DiskANN, Vergleich gegen exakte Suche, SQL-/Indexversion, Filter, Stop/Start und Cleanup vorbereitet. Spätere Inkompatibilität verlangt angepasste oder eigene Funktionsversion. Native Evidence bleibt bis zur Ausführung offen. |
 | Zusätzliche Cloudanbieter | `planned` | Bedarf, expliziten Egress, synthetische Daten, Credential-/Kostenlimit und austauschbaren Adapter entscheiden. Ohne freigegebenen Bedarf keine bezahlten API-Läufe. |
 
 ## Tests, Veröffentlichung und Arbeitsjournal

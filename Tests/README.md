@@ -167,6 +167,20 @@ weder Modell-Download noch Internetzugriff:
 .\Tests\Integration\Invoke-AiVectorCoreAcceptance.ps1 -Provider podman
 ```
 
+Die separate Abnahmeversion 1.0 testet SQL-2025-Preview-Vektorindizes mit
+`CREATE VECTOR INDEX` und `VECTOR_SEARCH`/`TOP_N`. Sie bindet den tatsächlichen
+SQL-Build und die Indexversion, vergleicht vier synthetische Suchfälle mit
+exakter Suche (Recall@10 mindestens 0,8), prüft Distanz und Filter sowie
+Persistenz nach Stop/Start. Laufzeiten sind Messwerte dieses kleinen Tests,
+keine Performancezusage. Neuere inkompatible Indexsemantik benötigt eine
+angepasste beziehungsweise eigene Testversion. Neue native Evidence steht bis
+zum erfolgreichen Lauf mit Cleanup aus.
+
+```powershell
+.\Tests\Integration\Invoke-AiVectorIndexAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-AiVectorIndexAcceptance.ps1 -Provider podman
+```
+
 Der optionale Ollama-Cloud-Smoke sendet genau einen synthetischen Prompt und
 benötigt eine lokale `.env`-Datei mit dem Schlüssel `OLLAMA`:
 
