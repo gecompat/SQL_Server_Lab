@@ -4,7 +4,7 @@
 |---|---|
 | Projekt | `gecompat/SQL_Server_Lab` |
 | Status | `ACTIVE_EXECUTION_BACKLOG` |
-| Stand | 2026-09-02 |
+| Stand | 2026-09-10 |
 | Ausgangsstand | Planungsabgleich gegen `origin/main`, Known Limitations, offene Regressionen und den lokalen sowie CI-gestützten Validierungsbericht vom 2026-08-20; Commit-IDs sind kein Planungsvertrag |
 | Ziel | eine einzige ausführbare Lieferreihenfolge für Core, UI, Adapter, Hyper-V, Datenartefakte, Qualität und spätere Erweiterungen |
 | Runtime-Nachweis | ausschließlich Code, passende Tests, [KNOWN_LIMITATIONS.md](../Quality/KNOWN_LIMITATIONS.md) und datierte Validierungsnachweise |
@@ -128,7 +128,7 @@ normalen Manifest-Klon bis `SQL_READY_RUN` positiv ausgeführt.
 | der positive reale Hyper-V-Cold-Path ist nur für Windows Server 2025 und SQL Server 2025 belegt | weitere freigegebene Windows-/SQL-Kombinationen benötigen getrennte Runtime-Evidence |
 | Hyper-V-Manifestbindung für allgemeine Software und Post-Provisioning ist unvollständig; Testdatenbanken und additive SQL-2022-External-Runtimes besitzen getrennte Reconcile-Verträge | vollständige UI-/Manifestparität fehlt weiterhin |
 | Reconcile-Executor und Actual-State-Collector decken Lifecycle, mehrere Hyper-V-Ressourcen-/SQL-Klassen, Testdatenbanken sowie additive und vollständige Container-External-Runtime-Entfernung ab | Hyper-V-Removal/Rebinding, weitere Hardware-/SQL-Klassen und native Repair-Evidence fehlen |
-| drei reale Adapterpiloten fehlen | der Vertrag ist noch nicht an den drei Konsumenten und ihren unterschiedlichen Rollen bewiesen |
+| die drei Adapterpiloten sind als SQL-2025-Linux-Referenz unter Docker und Podman belegt (N3); weitere Windows-/SQL-Matrixnachweise bleiben getrennt | weitere Konsumentenmatrix erfordert den jeweiligen externen Repositoryscope |
 | `LAB_GENERATED`-Erzeugung und -Präferenz sind für Single- und Multi-Output-Container-Samples sowie run-gebundene Hyper-V-Samples einschließlich automatischer Manifestbindung implementiert; Script Bundles mit mehreren festen Datenbankoutputs sind implementiert | reale Hyper-V-Sample-/Baseline-Evidence bleibt offen |
 | Fault-/Scenario-Engine und breite Abbruch-/Recovery-Injektion fehlen | Release-Härtung und komplexe SQL-Szenarien bleiben unvollständig |
 
@@ -206,13 +206,13 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 
 ### 5.1 Aktueller Meilensteinstatus
 
-| Meilenstein | Status am 2026-09-01 | Nächster belastbarer Schritt |
+| Meilenstein | Status am 2026-09-10 | Nächster belastbarer Schritt |
 |---|---|---|
-| M0 Statuswahrheit | `validated` | Drift weiter statisch verhindern |
+| M0 Statuswahrheit | `implemented_partial` | erkannte Drift korrigieren und den vollständigen Abgleich aller offenen Backlogs abschließen |
 | Providerneutraler Instanz-Autostart | `implemented_runtime_partial` | Docker-/SQL-2025-Runtime ist grün; Podman-Self-hosted-Gate und nativen Hyper-V-Lifecycle fortlaufend grün halten |
 | M1 Desired State und Planner | `implemented_partial` | Container-Journal, Repair und Recovery sind real verifiziert; weitere Provider- und Änderungsklassen bleiben offen |
 | M2 UI und Container-Reconcile | `implemented_partial` | Batch/Queue sowie Container-`no-op`, `live`, `recreate`, Rollback und Persistenz sind für Docker und Podman real verifiziert; beliebige Mount-/Environment-Änderungen aus `CNT-214` bleiben offen |
-| M3 Adapterpiloten | `planned_external_scope` | je ein Pilot in den drei Konsumenten-Repositories |
+| M3 Adapterpiloten | `validated_reference` | N3 ist vollständig; weitere Windows-/SQL-Matrix der Konsumenten bleibt im jeweiligen Repositoryscope |
 | M4 Hyper-V OS Cold Path | `validated_reference` | weitere freigegebene Windows-Varianten getrennt belegen |
 | M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Testdatenbank- und additive SQL-2022-External-Runtime-Bindung sind implementiert; allgemeine Software-, Post-Provisioning- und weitere native Evidence bleiben offen; Network-Intents sind gebunden |
 | M6 Reconcile-Breite | `implemented_partial` | Netzwerk, vCPU/statisches-dynamisches RAM, Zusatz-VHDX/Grow-only sowie SQL-Default-/TempDB-Dateiplatzierung besitzen No-op und journalisierte beziehungsweise receiptgebundene Reparatur; Removal/Rebinding, User-/Systemdatenbankbewegung, weitere Hardware-/SQL-Klassen und native Repair-Evidence bleiben offen |
@@ -267,11 +267,11 @@ Arbeiten in den Schwester-Repositories verfügbar sind.
 vereinbarte Kernvorhaben. `P2` optimiert oder erweitert nach erfolgreichem
 Cold Path. `P3` bleibt entkoppelter Backlog.
 
-Der bestätigte Fehler aus
+Die historische P0-Priorität des bestätigten Fehlers aus
 [HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md](HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md)
-ist ein sofortiger `P0`-Einschub in N5. `HVR-001` bis `HVR-008` werden vor dem
-noch offenen realen Hyper-V-Mehrgeräte-Nachweis umgesetzt. Bis der Sofortschutz
-grün ist, sind neue Hyper-V-Slots, Image-Builds und Rebuilds außerhalb eines
+war ein Einschub in N5. `HVR-001` bis `HVR-008` und der reale Hyper-V-
+Mehrgeräte-Nachweis sind inzwischen vollständig (siehe N5). Weiterhin sind
+neue Hyper-V-Slots, Image-Builds und Rebuilds außerhalb eines
 registrierten `Lab_Data`-Ressourcenroots blockiert; Betrieb und sicherer Cleanup
 vorhandener Legacy-Slots bleiben zulässig.
 
@@ -400,7 +400,7 @@ ungefragten externen Repositoryänderungen.
 - Statuscodes und Capability-Gates sind konsumierbar;
 - fachliche SQL-Inhalte, Assertions und Evidence bleiben im jeweiligen Projekt;
 - keine Entfernung alter Pfade vor dokumentierter Parität und Übergangsfrist;
-- noch keine Vertragsversion `1.0` ohne beide produktiven Piloten.
+- noch keine Vertragsversion `1.0` ohne die drei produktiven Piloten.
 
 ### M4 – Hyper-V Zero-Touch OS Cold Path
 
@@ -1063,9 +1063,14 @@ Der [SQL-2025-KI-Plattform-Backlog](SQL2025_AI_PLATFORM_BACKLOG.md) ordnet die
 KI-Integration local-first ein. `AI-00` ist als Manifest-, Szenario-, PlanKey-
 und Public-API-Vertrag implementiert. Der deterministische `AI-10A`-Vector-Core
 ist seit den getrennten nativen Docker-/Podman-Läufen vom 2026-09-05
-runtime-validiert. Endpoint-Stub, Ollama, Retrieval/RAG, Evaluation,
-Read-only Agent, Cloud, Windows-ONNX, ANN und Schulung bleiben in den dort
-definierten Folgewellen. Diese KI-Wellen verdrängen keine offenen P0-/Recovery-
+runtime-validiert. Lokales Ollama (`AI-20A`), exaktes SQL-RAG (`AI-30A`)
+und der read-only Diagnose-Agent (`AI-50A`) sind ebenfalls getrennt auf
+Docker und Podman belegt. Endpoint-Verträge (`AI-05`), Evaluation
+(`AI-40A`/`AI-40B`) und geführte Demos (`AI-90`) sind implementiert;
+Ollama-Cloud-Generation (`AI-60A`) besitzt einen eigenen opt-in Nachweis.
+TLS-Gateway, Retrieval-/Re-Embedding-Restarbeiten, weitere Provider-Evidence,
+OpenAI/Azure, Windows-ONNX und ANN bleiben in den dort definierten Folgewellen.
+Diese KI-Wellen verdrängen keine offenen P0-/Recovery-
 Arbeiten des Kernplans.
 
 Die physische Bestandsanalyse und Architekturentscheidung für persistente
@@ -1075,18 +1080,22 @@ beginnt als Voraussetzung vor der breiten Implementierung. Der erste
 `PSR-001`-Slice liefert bereits ein versioniertes read-only
 Storage-Residency-Inventar für `Lab_Data`, native Runtime-Volumes, externe
 Pfade, Hyper-V-Ressourcen und Retention. Physisches Docker-Desktop-/Podman-
-Machine-Backing bleibt bis zur weiteren Provideranalyse ausdrücklich
-unverifizierbar. `PSR-002` ist mit dem bindenden
+Machine-Backing unterstützter lokaler Installationen wird über tatsächliche
+VHDX- und Konfigurationsdateien read-only verifiziert; unbekannte Bindungen
+bleiben ausdrücklich unverifizierbar. `PSR-002` ist mit dem bindenden
 [`SqlServerLab.LabDataResidencyDecision/1.0`](../Architecture/LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md)
 abgeschlossen: `Lab_Data` ist der hostseitige Katalog-, Austausch- und
 Recovery-Einstieg, native katalogisierte Container-Instanzstores sind eine
 begrenzte Ausnahme, und globale Runtime-/Machine-Ablagen bleiben ohne eigenen
 Ownership-Vertrag außerhalb des Mutationsscopes. Der zugehörige
-read-only `PSR-003`-Slice ergänzt stabile Persistent-Storage-IDs, Klassen,
+mutierende `PSR-003`-Slice ergänzt stabile Persistent-Storage-IDs, Klassen,
 Zustände, Referenzen, exklusive Leases, Spiegelprüfung und eine
 Residency-gebundene Planung. Nicht katalogisierte retained Objekte bleiben
-ID-lose Registrierungskandidaten; Schreiben, Lease-Akquisition,
-Wiederverwendung und Löschung folgen erst in getrennten Mutationsverträgen.
+ID-lose Registrierungskandidaten. Der Katalogwriter bindet Preview und
+Compare-and-Swap an die erwartete Revision und schreibt die Spiegel unter
+einem exklusiven Lock mit Rollback. Operationsgebundene Leases, Registrierung,
+Continue/Clone und Recovery verwenden diesen Kern; dies autorisiert keine
+beliebige Registrierung oder Löschung außerhalb der implementierten Verträge.
 Der `PSR-004`-Vertrag plant alle sechs Retention-/Removal-Policies,
 Backup-`CHECKSUM`/`RESTORE VERIFYONLY`, Offline-/Hash-/Package-Evidence,
 Fremdreferenzschutz und `RECOVERY_REQUIRED`. Der erste journalisierte Executor
