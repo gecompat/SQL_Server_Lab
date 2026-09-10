@@ -290,6 +290,17 @@
           "$ref": "windows-locale-intent.schema.json",
           "description": "Portabler Sprach-/Regionsintent fuer Windows; gilt nur fuer Hyper-V."
         },
+        "windowsActivation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["ContractVersion", "Strategy", "EgressPolicy"],
+          "description": "Aktivierungsstrategie und ausdrueckliche Egress-Grenze des Windows-Child-Slots; keine Keys oder privaten Endpunkte.",
+          "properties": {
+            "ContractVersion": { "const": "SqlServerLab.WindowsActivationIntent/1.0", "type": "string", "default": "SqlServerLab.WindowsActivationIntent/1.0" },
+            "Strategy": { "type": "string", "enum": ["EvaluationOnline", "VerifyOnly"], "default": "EvaluationOnline" },
+            "EgressPolicy": { "type": "string", "enum": ["Denied", "ExistingOnly", "AllowTemporary"], "default": "ExistingOnly" }
+          }
+        },
         "network": {
           "$ref": "#/definitions/networkIntent",
           "description": "Providerneutraler Network Intent. Der lokale Provider bindet ihn erst nach mutationsfreier Validierung."

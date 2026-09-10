@@ -121,6 +121,7 @@ end {
         @{ Pattern = '(?i)(BlockingActionProgress|ActionProgress|HyperVLegacyWindowsEvaluationTemplate)'; Checks = @('Invoke-BlockingActionProgressChecks.ps1','Invoke-HyperVImageBuilderChecks.ps1') },
         @{ Pattern = '(?i)(HyperVLabEnvironment)'; Checks = @('Invoke-HyperVLabEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(WindowsActivationNetwork|HyperVLabEnvironment)'; Checks = @('Invoke-WindowsActivationNetworkChecks.ps1') },
+        @{ Pattern = '(?i)(WindowsActivation|HyperVLabEnvironment|HyperVProvider|ManifestParser|ManifestBuilder|DesiredState|lab-manifest|BatchWorkflow|WindowsSlotPool|TestEnvironment|Invoke-SqlServerLab)'; Checks = @('Invoke-WindowsActivationIntentChecks.ps1') },
         @{ Pattern = '(?i)(WindowsLocale|windows-locale|lab-manifest|ManifestParser|ManifestBuilder|DesiredState|HyperVImageRegistry|HyperVLabEnvironment|BatchWorkflow|New-SqlServerLab|Invoke-SqlServerLabWorkflowAction)'; Checks = @('Invoke-WindowsLocaleChecks.ps1') },
         @{ Pattern = '(?i)(HyperVImageRegistry)'; Checks = @('Invoke-HyperVImageRegistryChecks.ps1') },
         @{ Pattern = '(?i)(HyperVImageBuilder)'; Checks = @('Invoke-HyperVImageBuilderChecks.ps1') },

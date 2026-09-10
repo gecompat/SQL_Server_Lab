@@ -703,7 +703,8 @@ function New-SqlServerLab {
             -MemoryMinimumMB $hyperVMemoryMinimumMB -MemoryMaximumMB $hyperVMemoryMaximumMB `
             -ProcessorCount $hyperVProcessorCount -AutoStart $hyperVAutoStart `
             -SwitchName $hyperVSwitchName -Isolated:$hyperVIsolated -NetworkIntent $hyperVNetworkIntent -AdditionalDrives $hyperVAdditionalDrives -StorageIntent $instance.storageIntent `
-            -DesiredState $hyperVDesiredState -WindowsLocale $effectiveWindowsLocale -StateRoot $StateRoot
+            -DesiredState $hyperVDesiredState -WindowsLocale $effectiveWindowsLocale -WindowsActivation $instance.windowsActivation `
+            -WindowsActivationSource $instance.windowsActivationSource -StateRoot $StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $StateRoot
         if ($PersistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB ([int]$resolved.persistentData.dataDiskGB) -StateRoot $hyperVLab.StateRoot
