@@ -120,6 +120,14 @@ Umfang und die Recovery-Regeln stehen im
 Nicht enthalten sind ein gemeinsames providerübergreifendes Containernetzwerk,
 Cluster- oder Failoversemantik sowie Hyper-V-SubRuns.
 
+Der allgemeine Run-Cleanup verlangt für ein im Cleanup-Plan benanntes
+Containernetzwerk dieselben exakten Run-/Scope-Labels wie für ein Volume.
+Ein gemeinsam verwaltetes Netz mit ausschließlich `sql-server-lab.network`
+wird dadurch nicht zum run-eigenen Löschziel. Fehlende oder abweichende
+Ownership blockiert den Löschaufruf. Diese Grenze ist für simulierte Docker-
+und Podman-Aufrufe geprüft; ein neuer nativer Netzwerk-Nachweis steht noch aus.
+Die bestehenden gemeinsamen Labnetze behalten ihren eigenen Lifecycle.
+
 `Get-SqlServerLab` liest den gebundenen Runtimezustand live und kennzeichnet
 manuell gelöschte Container oder VMs als `MISSING`. Mit
 `Sync-SqlServerLabRuntimeState` kann dieser eindeutige Befund für Docker,
