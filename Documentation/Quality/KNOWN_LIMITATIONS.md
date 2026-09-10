@@ -1788,7 +1788,9 @@ werden.
 ## Windows-Locale-Erweiterung (2026-09-10)
 
 Der portable Locale-Intent ist an Manifest, Batch und OOBE gebunden.
-Der native US-Kaltstartnachweis ist noch offen. UI-Sprache ist derzeit nur
+Der native US-Kaltstartnachweis fuer einen Windows-Server-2025-Batch ist am
+2026-09-10 bestanden (Run `34435602810`, Commit `bbd29e7`), einschliesslich
+Cleanup. Der direkte SQL-Prepared-Manifestlauf bleibt separat offen. UI-Sprache ist derzeit nur
 über die registrierte Image-Sprache belegt; Offline-Language-Packs und
 Tastaturlayouts außerhalb der sechs dokumentierten eingebauten IDs sind
 nicht freigegeben. [Vertrag und Nachweisgrenzen](../HowTo/WINDOWS_LOCALE.md).

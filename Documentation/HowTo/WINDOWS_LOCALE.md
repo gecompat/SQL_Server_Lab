@@ -59,3 +59,8 @@ und 20 GB freien Platz. Er serialisiert sich mit anderen Runtime-Smokes,
 führt nur seinen eigenen Batch aus und entfernt dessen Run. Bei fehlgeschlagenem
 Cleanup bleibt der State für Recovery erhalten. Seine bloße Existenz ist kein
 Nachweis eines erfolgreichen Laufs.
+
+Am 2026-09-10 hat [Run 34435602810](https://github.com/gecompat/SQL_Server_Lab/actions/runs/34435602810)
+auf Commit `bbd29e7` den Windows-Server-2025-Batch mit dem geparsten US-Manifest,
+OOBE, Kaltstart, allen fuenf Locale-Werten und vollstaendigem Cleanup bestaetigt.
+Der direkte SQL-Prepared-Manifestlauf ist damit nicht separat nativ belegt.
