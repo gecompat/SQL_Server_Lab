@@ -1,35 +1,26 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Bereitet eine lokal reproduzierbare Release-Artefaktkopie vor.
-
+    Erstellt ein geprüftes Release-Paket aus einem festen Git-Commit.
 .DESCRIPTION
-    Das Skript erstellt einen versionierten Release-Ordner mit einem
-    projektspezifischen Release-Manifest und optionaler Archiv-/Hash-Option.
-    Es nutzt ausschließlich versionierte Repository-Dateien, damit keine
-    lokalen States, Caches, Secrets oder Runtime-Evidence in den Release-Kandidaten
-    gelangen.
-
+    Verlangt einen sauberen Quellstand einschließlich nicht ignorierter neuer
+    Dateien. Exportiert ausschließlich den ausgewählten HEAD-Snapshot, filtert
+    lokale Daten und blockiert Symlinks. Erst das vollständige Paket wird aus
+    einem eigenen Staging-Verzeichnis veröffentlicht. WhatIf schreibt nichts.
 .PARAMETER Version
-    Release-Version (Fallback: Modulversion aus SqlServerLab.psd1).
-
+    Release-Version; standardmäßig die ModuleVersion.
 .PARAMETER OutputRoot
-    Zielordner für die Release-Kopie (Standard: .artifacts\release).
-
+    Lokales Zielverzeichnis; relativ zum Repository oder absolut.
 .PARAMETER CreateArchive
-    Erstellt ein zusätzliches ZIP-Archiv im OutputRoot.
-
+    Erstellt zusätzlich eine ZIP-Datei einschließlich versteckter Nutzdateien.
 .PARAMETER IncludeHashManifest
-    Erstellt eine SHA-256-Manifestdatei für Dateien im Release (und optional im Archive).
-
+    Erstellt SHA-256-Listen für das Paket und gegebenenfalls das fertige Archiv.
 .PARAMETER SkipReadinessChecks
-    Überspringt die lokale Release-Readiness-Prüfung. Standard ist die Prüfung.
-
+    Überspringt die lokale Release-Readiness-Prüfung; Status bleibt SKIPPED.
 .EXAMPLE
-    .\Tools\Prepare-LocalRelease.ps1
-
+    ./Tools/Prepare-LocalRelease.ps1 -CreateArchive -IncludeHashManifest
 .EXAMPLE
-    .\Tools\Prepare-LocalRelease.ps1 -Version 0.1.0 -CreateArchive -IncludeHashManifest
+    ./Tools/Prepare-LocalRelease.ps1 -WhatIf
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
@@ -42,192 +33,203 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
-$manifestPath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$moduleManifest = Import-PowerShellDataFile $manifestPath
-$manifestVersion = $moduleManifest.ModuleVersion
-if ([string]::IsNullOrWhiteSpace($Version)) {
-    $Version = $manifestVersion
+
+function Invoke-ReleaseGit {
+    param([string[]]$Arguments)
+    $result = & git -C $repoRoot @Arguments 2>&1
+    if ($LASTEXITCODE -ne 0) { throw 'RELEASE_GIT_FAILED' }
+    return $result
 }
 
-$outputRoot = Join-Path $repoRoot $OutputRoot
-if (-not (Test-Path -LiteralPath $outputRoot)) {
-    New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
-}
-
-if (-not $SkipReadinessChecks) {
-    Write-Host 'Pruefe Release-Readiness vor Packaging...' -ForegroundColor Cyan
-    & (Join-Path $repoRoot 'Tests\Static\Invoke-ReleaseReadinessChecks.ps1')
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Release-Readiness-Pruefung fehlgeschlagen.'
+function Assert-ReleasePath {
+    param([string]$Path, [string]$Parent)
+    $full = [IO.Path]::GetFullPath($Path)
+    if ($Parent) {
+        $prefix = [IO.Path]::GetFullPath($Parent).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+        if (-not $full.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) { throw 'RELEASE_PATH_OUTSIDE_SCOPE' }
+    }
+    $ancestor = $full
+    while ($ancestor) {
+        if (Test-Path -LiteralPath $ancestor) {
+            $item = Get-Item -LiteralPath $ancestor -Force
+            if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'RELEASE_REPARSE_PATH_BLOCKED' }
+        }
+        $ancestor = [IO.Path]::GetDirectoryName($ancestor)
     }
 }
 
-$releaseDate = Get-Date -Format 'yyyyMMdd'
-$releaseTime = Get-Date -Format 'HHmmss'
-$releaseId = "sqlserverlab-v{0}-{1}-{2}" -f $Version, $releaseDate, $releaseTime
-$releaseRoot = Join-Path $outputRoot $releaseId
-
-if (Test-Path -LiteralPath $releaseRoot) {
-    throw "Release-Ziel {0} existiert bereits. Bitte Zeitstempel anpassen oder Ordner entfernen." -f $releaseRoot
+function Test-ReleaseExcludedPath {
+    param([string]$Path)
+    if ($Path -match '(?i)(?:^|/)\.(?:state|runtime|secrets|artifacts|cache|local|vscode|git|idea|vs|venv)(?:/|$)') { return $true }
+    if ($Path -match '(?i)(?:^|/)(?:PackageRegistry|Media|Images)/local(?:/|$)') { return $true }
+    if ($Path -match '(?i)(?:^|/)\.env(?:\..+)?$' -and $Path -notmatch '(?i)(?:^|/)\.env\.example$') { return $true }
+    if ($Path -match '(?i)\.(?:secret|secrets|key|pem|pfx|p12|cer|crt|kdbx|bak|trn|mdf|ndf|ldf|xel|sqlaudit|sqlplan|showplan|dmp|mdmp|vhd|vhdx|avhd|avhdx|iso|qcow2?|img|ova|ovf|log|trace|etl|zip|7z|rar|tar|tar\.gz|tgz|oci)$') { return $true }
+    return $false
 }
 
-if ($PSCmdlet.ShouldProcess($releaseRoot, 'Create release artifact root')) {
-    New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
-}
-
-function Get-TrackedFiles {
-    $files = & git -C $repoRoot -c core.quotepath=false ls-files --cached --others --exclude-standard -z
-    if ($LASTEXITCODE -ne 0) {
-        throw 'git ls-files konnte nicht ausgefuehrt werden.'
-    }
-
-    $pattern = '(?:^|/)\\.(?:state|runtime|secrets|artifacts|cache|local)(?:/|$)|(?:^|/)\\.vscode(?:/|$)'
-    $normalized = [Text.RegularExpressions.Regex]::new($pattern, [Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    if ($files -is [byte[]]) {
-        $raw = [System.Text.Encoding]::UTF8.GetString($files)
-    }
-    else {
-        $raw = [string]$files
-    }
-    $items = $raw -split [char]0
-    $items = $items | Where-Object { $_ -and -not $normalized.IsMatch($_) }
-    return $items
-}
-
-$trackedFiles = Get-TrackedFiles
-if (-not $trackedFiles -or $trackedFiles.Count -eq 0) {
-    throw 'Es wurden keine versionierten Dateien für den Release-Export gefunden.'
-}
-
-foreach ($relativeFile in $trackedFiles) {
-    $from = Join-Path $repoRoot $relativeFile
-    $to = Join-Path $releaseRoot $relativeFile
-
-    if (Test-Path -LiteralPath $from -PathType Container) {
-        New-Item -ItemType Directory -Path $to -Force | Out-Null
-        continue
-    }
-
-    $parentDir = Split-Path -Path $to -Parent
-    New-Item -ItemType Directory -Path $parentDir -Force | Out-Null
-    Copy-Item -LiteralPath $from -Destination $to -Force
-}
-
-$releaseNotesPath = Join-Path $releaseRoot 'ReleaseNotes.md'
-$changelogPath = Join-Path $repoRoot 'CHANGELOG.md'
-$changelogText = if (Test-Path -LiteralPath $changelogPath) { Get-Content -LiteralPath $changelogPath -Raw -Encoding utf8 } else { '' }
-$releaseNotesSection = [regex]::Match(
-    $changelogText,
-    '(?ms)^##\s+{0}\s*$.*?(?=^##\s+\d{{4}}-\d{{2}}-\d{{2}}|\z)' -f [regex]::Escape($releaseDate)
-)
-
-$changelogDate = 'Nicht gefunden'
-if ($releaseNotesSection.Success) {
-    $changelogDate = $releaseDate
-}
-
-$releaseCommit = (& git -C $repoRoot rev-parse HEAD).Trim()
-$releaseBranch = (& git -C $repoRoot rev-parse --abbrev-ref HEAD).Trim()
-$isDirty = ((git -C $repoRoot status --short).Trim().Length -gt 0)
-
-$releaseText = @(
-    '# Release Notes',
-    '',
-    "Version: $Version",
-    "Release-ID: $releaseId",
-    "Erstellungszeit (UTC): $((Get-Date).ToUniversalTime().ToString('u'))",
-    "Source Commit: $releaseCommit",
-    "Branch: $releaseBranch",
-    "Repository-dirty: $isDirty",
-    "Changelog-Datum: $changelogDate",
-    '',
-    '## Release-Inhalt',
-    '',
-    '```text',
-    "ModuleVersion: $manifestVersion",
-    "ModuleManifest: $manifestPath",
-    "Release-Root: $releaseRoot",
-    '```',
-    '',
-    '```text',
-    $(if ($releaseNotesSection.Success) { $releaseNotesSection.Value } else { 'Kein passender Changelog-Eintrag gefunden.' }),
-    '```'
-) -join [Environment]::NewLine
-
-$releaseText | Out-File -LiteralPath $releaseNotesPath -Encoding utf8
-
-function Get-FileArtifactRows {
-param(
-    [string]$Root
-)
-    Get-ChildItem -Path $Root -Recurse -File | ForEach-Object {
-        $hash = Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256
+function Get-ReleaseFileRows {
+    param([string]$Root)
+    Get-ChildItem -LiteralPath $Root -Recurse -File -Force | ForEach-Object {
         [PSCustomObject]@{
-            Path = [System.IO.Path]::GetRelativePath($Root, $_.FullName).Replace('\', '/')
+            Path = [IO.Path]::GetRelativePath($Root, $_.FullName).Replace('\', '/')
             Size = $_.Length
             HashAlgorithm = 'SHA256'
-            Hash = $hash.Hash.ToLowerInvariant()
-            ModifiedUtc = $_.LastWriteTimeUtc.ToString('o')
+            Hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         }
     } | Sort-Object Path
 }
 
-$artifacts = Get-FileArtifactRows -Root $releaseRoot
-$manifest = [ordered]@{
-    Name = 'SqlServerLab'
-    ReleaseVersion = $Version
-    ModuleVersion = $manifestVersion
-    CreatedUtc = (Get-Date).ToUniversalTime().ToString('u')
-    SourceCommit = $releaseCommit
-    SourceBranch = $releaseBranch
-    RepositoryDirty = $isDirty
-    ReleaseReadinessCheck = $SkipReadinessChecks.ToString()
-    ChangelogDate = $changelogDate
-    ArtifactCount = $artifacts.Count
-    IncludedFiles = $artifacts
+$releaseCommit = ([string](Invoke-ReleaseGit @('rev-parse','--verify','HEAD'))).Trim()
+$sourceStatus = @(Invoke-ReleaseGit @('status','--porcelain=v1','--untracked-files=all'))
+if ($sourceStatus.Count -gt 0) { throw 'RELEASE_SOURCE_NOT_CLEAN' }
+$releaseBranch = ([string](Invoke-ReleaseGit @('rev-parse','--abbrev-ref','HEAD'))).Trim()
+$moduleManifest = Import-PowerShellDataFile (Join-Path $repoRoot 'SqlServerLab.psd1')
+$manifestVersion = [string]$moduleManifest.ModuleVersion
+if ([string]::IsNullOrWhiteSpace($Version)) { $Version = $manifestVersion }
+if ($Version -notmatch '^\d+(?:\.\d+){1,3}(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?$') { throw 'RELEASE_VERSION_INVALID' }
+if ([string]::IsNullOrWhiteSpace($OutputRoot)) { throw 'RELEASE_OUTPUT_REQUIRED' }
+$outputDirectory = [IO.Path]::GetFullPath($OutputRoot, $repoRoot)
+Assert-ReleasePath $outputDirectory
+if ((Test-Path -LiteralPath $outputDirectory) -and -not (Test-Path -LiteralPath $outputDirectory -PathType Container)) { throw 'RELEASE_OUTPUT_NOT_DIRECTORY' }
+$createdAt = Get-Date
+$releaseId = 'sqlserverlab-v{0}-{1}-{2}' -f $Version, $createdAt.ToString('yyyyMMdd-HHmmss'), [guid]::NewGuid().ToString('N').Substring(0,8)
+$releaseRoot = Join-Path $outputDirectory $releaseId
+$archivePath = Join-Path $outputDirectory ($releaseId + '.zip')
+$stageRoot = Join-Path $outputDirectory ('.release-stage-' + [guid]::NewGuid().ToString('N'))
+foreach ($target in @($releaseRoot, $archivePath, ($archivePath + '.sha256'), $stageRoot)) {
+    Assert-ReleasePath $target $outputDirectory
+    if (Test-Path -LiteralPath $target) { throw 'RELEASE_TARGET_EXISTS' }
 }
 
-$releaseManifestPath = Join-Path $releaseRoot 'ReleaseManifest.json'
-$manifest | ConvertTo-Json -Depth 20 | Out-File -LiteralPath $releaseManifestPath -Encoding utf8
-
-$hashPath = Join-Path $releaseRoot 'ReleaseHashes.txt'
-if ($IncludeHashManifest) {
-    $hashLines = foreach ($entry in $artifacts) {
-        ('{0}  {1}' -f $entry.Hash, $entry.Path)
-    }
-    $hashLines | Out-File -LiteralPath $hashPath -Encoding utf8
+# Eine Entscheidung umfasst die komplette Transaktion; vor ihr wird nichts angelegt.
+if (-not $PSCmdlet.ShouldProcess($releaseRoot, 'Create and publish verified release artifacts')) { return }
+if (-not $SkipReadinessChecks) {
+    & pwsh -NoProfile -File (Join-Path $repoRoot 'Tests/Static/Invoke-ReleaseReadinessChecks.ps1') | Out-Host
+    if ($LASTEXITCODE -ne 0) { throw 'RELEASE_READINESS_FAILED' }
 }
 
-$archivePath = ''
-if ($CreateArchive) {
-    $archivePath = Join-Path $outputRoot ($releaseId + '.zip')
-    if ($PSCmdlet.ShouldProcess($archivePath, 'Create release archive')) {
-        Compress-Archive -Path (Join-Path $releaseRoot '*') -DestinationPath $archivePath -CompressionLevel Optimal -Force
+$outputCreated = -not (Test-Path -LiteralPath $outputDirectory)
+$publishedPaths = [Collections.Generic.List[string]]::new()
+$completed = $false
+$operationFailure = $null
+try {
+    Assert-ReleasePath $outputDirectory
+    Assert-ReleasePath $stageRoot $outputDirectory
+    [IO.Directory]::CreateDirectory($outputDirectory) | Out-Null
+    [IO.Directory]::CreateDirectory($stageRoot) | Out-Null
+    $packageRoot = Join-Path $stageRoot 'package'
+    [IO.Directory]::CreateDirectory($packageRoot) | Out-Null
+    $sourceArchive = Join-Path $stageRoot 'source.zip'
+    Invoke-ReleaseGit @('archive','--format=zip',('--output=' + $sourceArchive),$releaseCommit) | Out-Null
+    $snapshot = [IO.Compression.ZipFile]::OpenRead($sourceArchive)
+    try {
+        $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+        foreach ($entry in $snapshot.Entries) {
+            $name = $entry.FullName
+            if ($name.EndsWith('/')) { continue }
+            if ($name -match '(^/|\\|:|(^|/)\.\.?(/|$))' -or -not $seen.Add($name)) { throw 'RELEASE_ARCHIVE_PATH_INVALID' }
+            if (Test-ReleaseExcludedPath $name) { continue }
+            $unixType = ($entry.ExternalAttributes -shr 16) -band 0xF000
+            if ($unixType -eq 0xA000) { throw 'RELEASE_SOURCE_SYMLINK_BLOCKED' }
+            $destination = Join-Path $packageRoot $name
+            Assert-ReleasePath $destination $packageRoot
+            [IO.Directory]::CreateDirectory([IO.Path]::GetDirectoryName($destination)) | Out-Null
+            [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destination, $false)
+        }
     }
+    finally { $snapshot.Dispose() }
 
+    $snapshotManifest = Import-PowerShellDataFile (Join-Path $packageRoot 'SqlServerLab.psd1')
+    if ([string]$snapshotManifest.ModuleVersion -ne $manifestVersion) { throw 'RELEASE_SOURCE_CHANGED' }
+    $changelogPath = Join-Path $packageRoot 'CHANGELOG.md'
+    $changelog = if (Test-Path -LiteralPath $changelogPath) { Get-Content -LiteralPath $changelogPath -Raw -Encoding utf8 } else { '' }
+    $changelogDay = $createdAt.ToString('yyyy-MM-dd')
+    $section = [regex]::Match($changelog, ('(?ms)^##\s+{0}\s*$.*?(?=^##\s+\d{{4}}-\d{{2}}-\d{{2}}|\z)' -f [regex]::Escape($changelogDay)))
+    $changelogDate = if ($section.Success) { $changelogDay } else { 'Nicht gefunden' }
+    $releaseText = @(
+        '# Release Notes', '',
+        "Version: $Version", "Release-ID: $releaseId",
+        "Erstellungszeit (UTC): $($createdAt.ToUniversalTime().ToString('u'))",
+        "Source Commit: $releaseCommit", "Branch: $releaseBranch",
+        'Repository-dirty: False', "Changelog-Datum: $changelogDate", '',
+        'ModuleManifest: SqlServerLab.psd1', "ModuleVersion: $manifestVersion", '',
+        $(if ($section.Success) { $section.Value } else { 'Kein passender Changelog-Eintrag gefunden.' })
+    ) -join [Environment]::NewLine
+    [IO.File]::WriteAllText((Join-Path $packageRoot 'ReleaseNotes.md'), $releaseText)
+    $artifacts = @(Get-ReleaseFileRows $packageRoot)
+    $manifest = [ordered]@{
+        Name = 'SqlServerLab'
+        ReleaseVersion = $Version
+        ModuleVersion = $manifestVersion
+        CreatedUtc = $createdAt.ToUniversalTime().ToString('u')
+        SourceCommit = $releaseCommit
+        SourceBranch = $releaseBranch
+        RepositoryDirty = $false
+        ReleaseReadinessCheck = $(if ($SkipReadinessChecks) { 'SKIPPED' } else { 'PASSED' })
+        ChangelogDate = $changelogDate
+        ArtifactCount = $artifacts.Count
+        IncludedFiles = $artifacts
+    }
+    [IO.File]::WriteAllText((Join-Path $packageRoot 'ReleaseManifest.json'), ($manifest | ConvertTo-Json -Depth 20))
     if ($IncludeHashManifest) {
-        $archiveHash = Get-FileHash -LiteralPath $archivePath -Algorithm SHA256
-        "$($archiveHash.Hash.ToLowerInvariant())  $($releaseId).zip" | Out-File -LiteralPath "$archivePath.sha256" -Encoding utf8
-        $hashLines = @(
-            (Get-Content -LiteralPath $hashPath -ErrorAction SilentlyContinue)
-            "$($archiveHash.Hash.ToLowerInvariant())  $($releaseId).zip"
-        ) | Where-Object { $_ }
-        $hashLines | Out-File -LiteralPath $hashPath -Encoding utf8
+        $hashLines = @(Get-ReleaseFileRows $packageRoot | ForEach-Object { '{0}  {1}' -f $_.Hash, $_.Path })
+        [IO.File]::WriteAllLines((Join-Path $packageRoot 'ReleaseHashes.txt'), [string[]]$hashLines)
+    }
+    $stagedArchive = Join-Path $stageRoot ($releaseId + '.zip')
+    if ($CreateArchive) {
+        [IO.Compression.ZipFile]::CreateFromDirectory($packageRoot, $stagedArchive, [IO.Compression.CompressionLevel]::Optimal, $false)
+        if ($IncludeHashManifest) {
+            $archiveHash = (Get-FileHash -LiteralPath $stagedArchive -Algorithm SHA256).Hash.ToLowerInvariant()
+            [IO.File]::WriteAllText(($stagedArchive + '.sha256'), "$archiveHash  $releaseId.zip")
+        }
+    }
+
+    # Nach fertigem Inhalt erneut gegen Pfadwechsel pruefen; niemals ueberschreiben.
+    Assert-ReleasePath $packageRoot $stageRoot
+    Assert-ReleasePath $releaseRoot $outputDirectory
+    if ($CreateArchive) {
+        Assert-ReleasePath $archivePath $outputDirectory
+        [IO.File]::Move($stagedArchive, $archivePath)
+        $publishedPaths.Add($archivePath)
+        if ($IncludeHashManifest) {
+            Assert-ReleasePath ($archivePath + '.sha256') $outputDirectory
+            [IO.File]::Move(($stagedArchive + '.sha256'), ($archivePath + '.sha256'))
+            $publishedPaths.Add($archivePath + '.sha256')
+        }
+    }
+    [IO.Directory]::Move($packageRoot, $releaseRoot)
+    $publishedPaths.Add($releaseRoot)
+    $completed = $true
+}
+catch { $operationFailure = $_.Exception; throw }
+finally {
+    $cleanupFailures = [Collections.Generic.List[string]]::new()
+    $cleanupTargets = @($stageRoot)
+    if (-not $completed) { $cleanupTargets += @($publishedPaths) }
+    foreach ($target in $cleanupTargets) {
+        try {
+            Assert-ReleasePath $target $outputDirectory
+            if (Test-Path -LiteralPath $target) { Remove-Item -LiteralPath $target -Recurse -Force -Confirm:$false }
+        }
+        catch { $cleanupFailures.Add('RELEASE_ARTIFACT_CLEANUP_FAILED') }
+    }
+    if (-not $completed -and $outputCreated -and (Test-Path -LiteralPath $outputDirectory)) {
+        try {
+            Assert-ReleasePath $outputDirectory
+            if (@(Get-ChildItem -LiteralPath $outputDirectory -Force).Count -eq 0) { [IO.Directory]::Delete($outputDirectory) }
+        }
+        catch { $cleanupFailures.Add('RELEASE_OUTPUT_CLEANUP_FAILED') }
+    }
+    if ($cleanupFailures.Count -gt 0) {
+        throw [InvalidOperationException]::new(('RELEASE_RECOVERY_REQUIRED: ' + ($cleanupFailures -join ', ')), $operationFailure)
     }
 }
 
 Write-Host "Release-Artefakt erstellt: $releaseRoot" -ForegroundColor Green
-if ($CreateArchive) {
-    Write-Host "Archive erstellt: $archivePath" -ForegroundColor Green
-}
-if ($IncludeHashManifest) {
-    Write-Host "Hash-Manifest: $hashPath" -ForegroundColor Green
-}
-
 [PSCustomObject]@{
     ReleaseVersion = $Version
     ReleaseId = $releaseId
     ReleaseRoot = $releaseRoot
-    Archive = $archivePath
-    HashManifest = if ($IncludeHashManifest) { $hashPath } else { '' }
+    Archive = $(if ($CreateArchive) { $archivePath } else { '' })
+    HashManifest = $(if ($IncludeHashManifest) { Join-Path $releaseRoot 'ReleaseHashes.txt' } else { '' })
 }

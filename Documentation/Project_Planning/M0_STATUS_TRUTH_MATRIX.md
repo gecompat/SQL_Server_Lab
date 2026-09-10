@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `implemented` |
+| Status | `validated` (lokale M0-Abnahme) |
 | Stand | 2026-09-10 |
 | Geltungsbereich | Planungsindex, Master-Plan-Zuordnung, Console-UX-Einstieg und Validierungsbereitschaft |
 | Runtime-Evidence dieser Welle | `NOT_EXECUTED`: keine Runtimefunktion oder Providerimplementierung geändert |
@@ -88,3 +88,14 @@ Ergebnis zusammen mit Runtime-Evidence zu bewerten ist.
 | `Invoke-ImpactedChecks.ps1` | `PASS` am 2026-09-10 | Durch die tatsächlich geänderten Pfade ausgewählte statische Suites. |
 | `Invoke-AllChecks.ps1` | `FAIL` am 2026-09-10 | Einmal ausgeführt; außerhalb des Änderungsscopes schlugen `Invoke-LabNetworkChecks.ps1` (`Leerer Hyper-V-Fallback wird nicht als ungültige IP validiert`) und `Invoke-SampleBaselineRuntimeChecks.ps1` (`Hyper-V-Gastexport prüft VM-Zustand, Quelldatei und Hostkopie`) fehl. Das M0-Abschluss-Gate bleibt deshalb offen. |
 | Provider-/Runtime-Smokes | `NOT_EXECUTED` | Der Selektor forderte für diese Dokumentations- und Console-Navigationsänderung keinen Provider-Smoke; keine Runtime-Mutation ausgeführt. |
+
+## Nachtrag zur Behebung des offenen Abschluss-Gates
+
+Der oben dokumentierte fehlgeschlagene Lauf bleibt historische Evidence. Die
+beiden Testregressionen wurden über [PR #405](https://github.com/gecompat/SQL_Server_Lab/pull/405)
+behoben. Am 2026-09-10 bestand `Invoke-AllChecks.ps1` auf Windows im Release-Slice
+auf Basis von `ec63009` alle 97 ausgeführten Suiten, einschließlich Netzwerk
+(36 PASS), Sample-Baseline (19 PASS) und Release-Artefakten (20 PASS).
+Damit ist das damalige lokale M0-Abschluss-Gate erfüllt. Dies bestätigt weder
+eine vollständige fachliche Hyper-V-Abnahme noch die noch offenen Meilensteine
+des [autonomen Arbeitsplans](AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md).
