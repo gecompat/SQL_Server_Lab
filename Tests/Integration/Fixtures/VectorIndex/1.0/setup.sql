@@ -1,8 +1,6 @@
 SET NOCOUNT ON;
 IF CONVERT(int, SERVERPROPERTY('ProductMajorVersion')) <> 17
     THROW 51000, 'ANN_SQL2025_REQUIRED', 1;
-ALTER DATABASE CURRENT SET COMPATIBILITY_LEVEL = 170;
-ALTER DATABASE SCOPED CONFIGURATION SET PREVIEW_FEATURES = ON;
 CREATE TABLE dbo.AnnDocuments
 (
     DocumentId int NOT NULL PRIMARY KEY CLUSTERED,
@@ -27,5 +25,5 @@ SELECT CONVERT(varchar(30), SERVERPROPERTY('ProductVersion')) AS SqlBuild,
     (SELECT JSON_VALUE(build_parameters, '$.Version') FROM sys.vector_indexes
         WHERE object_id = OBJECT_ID('dbo.AnnDocuments')) AS IndexVersion,
     DATEDIFF_BIG(microsecond, @started, SYSDATETIME()) AS BuildMicroseconds,
-    (SELECT COUNT(*) FROM dbo.AnnDocuments) AS RowCount
+    (SELECT COUNT(*) FROM dbo.AnnDocuments) AS [RowCount]
 FOR JSON PATH, WITHOUT_ARRAY_WRAPPER;
