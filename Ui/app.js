@@ -1559,6 +1559,11 @@ $('#hyperv-lab-form').addEventListener('submit', async (event) => {
     AutoStart: $('#hyperv-autostart').checked ? 'on' : 'off',
     SwitchName: $('#hyperv-switch').value.trim(),
     Region: region,
+    WindowsActivation: {
+      ContractVersion: 'SqlServerLab.WindowsActivationIntent/1.0',
+      Strategy: $('#hyperv-activation-strategy').value,
+      EgressPolicy: $('#hyperv-activation-egress').value
+    },
     SystemLocale: systemLocale,
     UiLanguage: uiLanguage,
     InputLocale: inputLocale,

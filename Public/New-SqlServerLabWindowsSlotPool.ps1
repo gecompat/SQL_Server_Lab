@@ -91,6 +91,9 @@ function New-SqlServerLabWindowsSlotPool {
         Get-SqlServerLabGeneratedWindowsAccess abgerufen werden.
     .PARAMETER Region
         Windows-Region, zum Beispiel AT oder DE.
+    .PARAMETER WindowsActivation
+        Vollstaendiger WindowsActivationIntent/1.0 mit Strategy und EgressPolicy.
+        Ohne Angabe wird ausschliesslich vorhandener Egress verwendet.
     .PARAMETER SystemLocale
         Windows-System-Locale, zum Beispiel de-AT.
     .PARAMETER UiLanguage
@@ -128,6 +131,7 @@ function New-SqlServerLabWindowsSlotPool {
         [Parameter(Mandatory, ParameterSetName = 'UserPassword')][SecureString]$AdministratorPassword,
         [Parameter(Mandatory, ParameterSetName = 'GeneratedPassword')][switch]$GenerateAdministratorPasswords,
         [ValidatePattern('^[A-Za-z]{2}(-[A-Za-z]{2})?$')][string]$Region = 'AT',
+        $WindowsActivation,
         [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$SystemLocale = 'de-AT',
         [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$UiLanguage = 'en-US',
         [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale = '0407:00000407',
@@ -144,6 +148,7 @@ function New-SqlServerLabWindowsSlotPool {
         throw 'HYPERV_WINDOWS_SLOT_POOL_MEMORY_RANGE_INVALID'
     }
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $poolActivation=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation
 
     $artifact = Resolve-LabWindowsSlotPoolArtifact -ArtifactId $ArtifactId `
         -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining -VerifyIntegrity -StateRoot $StateRoot
@@ -182,6 +187,8 @@ function New-SqlServerLabWindowsSlotPool {
             [int]$resource.memoryMaximumMB -ne $MemoryMaximumMB -or
             [int]$resource.processorCount -ne $ProcessorCount) { $issues.Add('resources') }
         if ([string]$lab.Run.metadata.networkIntent -ne 'hostOnly') { $issues.Add('network') }
+        $existingActivation=Resolve-LabWindowsActivationIntent -Intent $lab.Instance.windowsActivationIntent
+        if($existingActivation.Strategy -ne $poolActivation.Strategy -or $existingActivation.EgressPolicy -ne $poolActivation.EgressPolicy){$issues.Add('windowsActivation')}
         $runtime = Get-HyperVInstanceStatus -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId)
         if (-not $runtime.Exists) { $issues.Add('runtime-missing') }
@@ -200,7 +207,7 @@ function New-SqlServerLabWindowsSlotPool {
             -LabName ([string]$specification.Name) -InstanceId primary `
             -DynamicMemoryEnabled $true -MemoryMinimumMB $MemoryMinimumMB `
             -MemoryStartupMB $MemoryStartupMB -MemoryMaximumMB $MemoryMaximumMB `
-            -ProcessorCount $ProcessorCount -AutoStart off -NetworkIntent hostOnly -WindowsLocale $poolLocale -StateRoot $StateRoot
+            -ProcessorCount $ProcessorCount -AutoStart off -NetworkIntent hostOnly -WindowsLocale $poolLocale -WindowsActivation $poolActivation -StateRoot $StateRoot
         $specification.Lab = Get-HyperVLabWorkflowRun -RunId ([string]$created.RunId) -StateRoot $StateRoot
         $results.Add([PSCustomObject]@{
             Index=$specification.Index; Name=$specification.Name; RunId=[string]$created.RunId
@@ -216,14 +223,12 @@ function New-SqlServerLabWindowsSlotPool {
         if ($complete) {
             $runtime = Get-HyperVInstanceStatus -VMName ([string]$lab.Instance.vmName) `
                 -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId)
-            if ($LeaveRunning -and [string]$runtime.State -ne 'Running') {
-                if ($PSCmdlet.ShouldProcess($specification.Name, 'Fertigen Windows-OS-Slot starten')) {
+            if ($PSCmdlet.ShouldProcess($specification.Name, 'Windows-Aktivierung des vorhandenen Slots live pruefen')) {
+                try {
                     $null = Start-HyperVLabEnvironment -RunId ([string]$lab.Run.runId) -StateRoot $StateRoot
                 }
-            }
-            elseif (-not $LeaveRunning -and [string]$runtime.State -ne 'Off') {
-                if ($PSCmdlet.ShouldProcess($specification.Name, 'Fertigen Windows-OS-Slot stoppen')) {
-                    $null = Stop-HyperVLabEnvironment -RunId ([string]$lab.Run.runId) -StateRoot $StateRoot
+                finally {
+                    if(-not $LeaveRunning){$null = Stop-HyperVLabEnvironment -RunId ([string]$lab.Run.runId) -StateRoot $StateRoot}
                 }
             }
             $results.Add([PSCustomObject]@{

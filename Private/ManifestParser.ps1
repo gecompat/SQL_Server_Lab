@@ -329,6 +329,8 @@ function Resolve-ManifestDefaults {
             storageIntent = $null
             windowsLocale = $null
             windowsLocaleSource = $null
+            windowsActivation = $null
+            windowsActivationSource = $null
             network       = $null
             serverConfig  = $null
             software      = @()
@@ -349,6 +351,12 @@ function Resolve-ManifestDefaults {
             -Provider ([string]$resolved.provider) `
             -Network $instance.network `
             -HasLegacyHyperVSwitch:([bool]($instance.hyperv -and $instance.hyperv.switchName))
+
+        if($resolved.provider -eq 'hyperv'){
+            $resolved.windowsActivation=Resolve-LabWindowsActivationIntent -Intent $instance.windowsActivation -Isolated:([string]$resolved.network.Intent -eq 'isolated')
+            $resolved.windowsActivationSource=if($instance.windowsActivation){'manifest'}else{'compatibility-defaults'}
+        }
+        elseif($instance.windowsActivation){throw 'WINDOWS_ACTIVATION_WINDOWS_PROVIDER_REQUIRED'}
 
         if ($instance.databases) {
             foreach ($database in $instance.databases) {

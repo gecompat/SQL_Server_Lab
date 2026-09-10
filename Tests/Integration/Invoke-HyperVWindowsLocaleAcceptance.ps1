@@ -42,6 +42,7 @@ try {
     $name='locale-us-'+[guid]::NewGuid().ToString('N').Substring(0,12)
     $batch=New-SqlServerLabBatch -Name $name -Items @(@{id=$name;kind='WindowsSlot';intent=@{
         ArtifactId=$artifact.artifactId;WindowsLocale=$intent;MemoryStartupMB=4096;ProcessorCount=2;AutoStart='off'
+        WindowsActivation=@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='EvaluationOnline';EgressPolicy='AllowTemporary'}
     }}) -Queue:$false -StateRoot $StateRoot
     $operations=@(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $StateRoot)
     Assert-LocaleAcceptance ($operations.Count -eq 1 -and $operations[0].kind -eq 'WindowsSlot') 'Nur eine eigene Operation ohne fremde Queue-Arbeit'
@@ -49,6 +50,21 @@ try {
     $operation=& $module {param($Id,$Root);Invoke-LabOperationExecution -OperationId $Id -StateRoot $Root} $operation.operationId $StateRoot
     $runId=[string]$operation.runId
     Assert-LocaleAcceptance ($operation.status -eq 'Completed' -and -not [string]::IsNullOrWhiteSpace($runId)) 'Batch hat OOBE mit dem Manifest-Intent abgeschlossen'
+    $activationEvidence=& $module {
+        param($Id,$Root)
+        $lab=Get-HyperVLabWorkflowRun -RunId $Id -StateRoot $Root
+        $license=Get-HyperVWindowsSlotLicenseStatus -RunId $Id -StateRoot $Root
+        $journalPath=Join-Path $lab.RunDirectory 'windows-activation-network.json'
+        if(Test-Path -LiteralPath $journalPath){
+            $journal=Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json -Depth 20
+            if($journal.Status -ne 'CLEANED'){throw 'WINDOWS_ACTIVATION_NATIVE_ADAPTER_NOT_CLEANED'}
+            $managed=Get-HyperVManagedVM -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+            if(@(Get-VMNetworkAdapter -VM $managed.VM | Where-Object Id -eq $journal.AdapterId).Count){throw 'WINDOWS_ACTIVATION_NATIVE_ADAPTER_REMAINS'}
+        }
+        [pscustomobject]@{State=$license.State;TemporaryActivationExecuted=(Test-Path -LiteralPath $journalPath)}
+    } $runId $StateRoot
+    Assert-LocaleAcceptance ($activationEvidence.State -in @('LICENSED','EVALUATION_ACTIVE')) 'Gemeinsamer Aktivierungs-Gate ist vor dem Bereitstatus live bestaetigt'
+    Write-Host ('ACTIVATION_NETWORK_EVIDENCE: '+$(if($activationEvidence.TemporaryActivationExecuted){'TEMPORARY_ADAPTER_CLEANED'}else{'ALREADY_ACTIVE_NO_OP'}))
     $null=Stop-SqlServerLab -RunId $runId -StateRoot $StateRoot -Force -Confirm:$false
     $context=& $module {param($Id,$Root);Get-HyperVLabWorkflowRun -RunId $Id -StateRoot $Root} $runId $StateRoot
     $runtime=& $module {param($Context);Get-HyperVInstanceStatus -VMName $Context.Instance.vmName -ExpectedRunId $Context.Run.runId -ExpectedScopeId $Context.Run.scopeId} $context

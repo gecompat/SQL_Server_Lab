@@ -7,6 +7,8 @@
     und werden weder in Build-State noch Log-Ausgabe gespeichert.
 .PARAMETER Action
     Eindeutige, zulässige Workflow-Aktion.
+    RepairHyperVWindowsActivation prueft den laufenden Slot erneut und aktiviert
+    eine gueltige Evaluation nur gemaess seinem gespeicherten Egress-Intent.
 .PARAMETER BuildId
 Build-ID des vorhandenen Windows- oder SQL-Image-Builds.
 .PARAMETER ArtifactId
@@ -143,6 +145,9 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
     Windows-System-Locale im Format de-DE (Standard: de-DE).
 .PARAMETER UiLanguage
     Windows-UI-Language im Format en-US (Standard: en-US).
+.PARAMETER WindowsActivation
+    Vollstaendiger WindowsActivationIntent/1.0 fuer neue Windows-Slots;
+    Strategy und EgressPolicy enthalten keine Secrets oder privaten Endpunkte.
 .PARAMETER InputLocale
     Keyboard Input Locale (z. B. 0407:00000407).
 .PARAMETER TimeZone
@@ -183,6 +188,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [Parameter(Mandatory)]
         [ValidateSet(
             'Refresh',
+            'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
             'ExecutePersistentStorageRemoval',
@@ -245,6 +251,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidatePattern('^[A-Za-z]{2}(-[A-Za-z]{2})?$')][string]$Region = 'DE',
         [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$SystemLocale = 'de-DE',
         [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$UiLanguage = 'en-US',
+        $WindowsActivation,
         [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale = '0407:00000407',
         [string]$TimeZone = 'W. Europe Standard Time',
         [switch]$ProvisionUnattended,
@@ -440,7 +447,7 @@ function Invoke-SqlServerLabWorkflowAction {
         'SetLabResources' { Set-LabEnvironmentResources -RunId $BuildId -MemoryMB $MemoryMB -ProcessorCount $ProcessorCount }
         'NewHyperVLab' {
             $windowsLocale=if($ProvisionUnattended){Resolve-LabWindowsLocaleIntent -Overrides @{Region=$Region;SystemLocale=$SystemLocale;UiLanguage=$UiLanguage;InputLocale=$InputLocale;TimeZone=$TimeZone}}else{$null}
-            $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $SwitchName -WindowsLocale $windowsLocale
+            $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $SwitchName -WindowsLocale $windowsLocale -WindowsActivation $WindowsActivation
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
             if ($ProvisionUnattended) {
                 $provisioning = Invoke-HyperVLabUnattendedProvision `
@@ -459,11 +466,12 @@ function Invoke-SqlServerLabWorkflowAction {
             $lab
         }
         'NewHyperVLabFromExistingVm' {
-            $lab = New-HyperVLabEnvironmentFromExistingVm -SourceVMName $SourceVMName -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $SwitchName -ConfirmSourceLicense:$ConfirmSourceLicense
+            $lab = New-HyperVLabEnvironmentFromExistingVm -SourceVMName $SourceVMName -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $SwitchName -WindowsActivation $WindowsActivation -ConfirmSourceLicense:$ConfirmSourceLicense
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
             $lab
         }
         'StartHyperVLab' { Start-HyperVLabEnvironment -RunId $BuildId }
+        'RepairHyperVWindowsActivation' { Invoke-LabWindowsSlotActivationReconcile -RunId $BuildId -Credential $credential }
         'StopHyperVLab' { Stop-HyperVLabEnvironment -RunId $BuildId }
         'StartLabReconcile' { Invoke-SqlServerLabReconcileAction -RunId $BuildId -TargetState RUNNING }
         'EnableHyperVLabPersistentData' { Enable-HyperVLabPersistentData -RunId $BuildId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }

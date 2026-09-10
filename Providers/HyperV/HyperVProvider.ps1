@@ -765,6 +765,13 @@ function New-HyperVInstance {
         @($vm | Get-VMNetworkAdapter -ErrorAction Stop) |
             Remove-VMNetworkAdapter -ErrorAction Stop
     }
+    $networkBinding=$null
+    if($SwitchName){
+        $boundSwitch=Get-VMSwitch -Name $SwitchName -ErrorAction Stop
+        $networkBinding=New-LabWindowsPermanentAdapterBinding -VM $vm -Adapters @(Get-VMNetworkAdapter -VM $vm -ErrorAction Stop) -SwitchId ([string]$boundSwitch.Id)
+        $managedNetwork=[pscustomobject]@{VM=$vm;Identity=(ConvertFrom-HyperVLabNotes -Notes $notes)}
+        $null=Set-HyperVManagedVMIdentityProperty -ManagedVM $managedNetwork -PropertyName networkBinding -Value $networkBinding -ContractVersion '0.7'
+    }
     foreach ($drive in $additionalDrivePlan) {
         $attachedDrive = Add-VMHardDiskDrive `
             -VM $vm `
@@ -806,6 +813,7 @@ function New-HyperVInstance {
         State         = [string]$vm.State
         SqlReady      = $false
         ResourceBinding = $resourceBinding
+        NetworkBinding = $networkBinding
     }
 }
 

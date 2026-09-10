@@ -296,18 +296,18 @@ try {
         $menuText -notmatch 'WindowsProductKey=\$windowsActivation.ProductKey' -and
         $menuText -notmatch 'RequiresFreshSqlInstall=\$true; ForceNewWindowsSlot=\$true'
     )
-    Add-CheckResult -Name 'Windows-Testslots aktivieren die Child-VM sicher über eine temporäre External-NIC' -Success (
+    Add-CheckResult -Name 'Windows-Testslots verwenden den gemeinsamen Aktivierungsentscheid und identitaetsgebundene NIC-Bereinigung' -Success (
         $hyperVLabText -match 'function Get-HyperVWindowsSlotLicenseStatus' -and
         $hyperVLabText -match 'function Resolve-HyperVWindowsActivationExternalSwitch' -and
         $hyperVLabText -match 'function Invoke-HyperVWindowsSlotActivation' -and
-        $hyperVLabText -match "if \(\[string\]\`$current.State -in @\('EVALUATION_ACTIVE','LICENSED'\)\) \{ return \`$current \}" -and
+        $hyperVLabText -match 'Get-LabWindowsActivationDecision -License' -and
         $hyperVLabText -notmatch "\[Parameter\(Mandatory\)\]\[SecureString\]\`$ProductKey" -and
         $hyperVLabText -match 'Get-VMSwitch -SwitchType External' -and
-        $hyperVLabText -match 'SQL_SERVER_LAB_ACTIVATION_TEMP' -and
+        $hyperVLabText -match 'New-LabWindowsActivationAdapter' -and
         $hyperVLabText -match "MethodName Activate" -and
         $hyperVLabText -match 'evaluationMinutesRemaining' -and
         $hyperVLabText -match "State EVALUATION_ACTIVE" -and
-        $hyperVLabText -match 'finally\s*\{[\s\S]+Remove-VMNetworkAdapter' -and
+        $hyperVLabText -match 'finally\s*\{[\s\S]+Remove-LabWindowsActivationAdapter' -and
         $hyperVLabText -notmatch "Save-LabSecret[^\r\n]+ProductKey|Write-LabArtifactJsonAtomic[^\r\n]+ProductKey"
     )
     Add-CheckResult -Name 'Batch-Linux-Erfolg hängt nicht vom noch unvollständigen Gruppenstatus ab' -Success (
