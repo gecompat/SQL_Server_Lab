@@ -9,6 +9,12 @@
 
 ## 1. Grundsatz
 
+`Invoke-ContainerInstanceStoreChecks.ps1` prueft auch Preview und veraltete
+Revisionen fuer Clone-Lease und Zielregistrierung. Die synthetischen Spiegel
+bleiben bei Preview unveraendert; Apply registriert das Ziel und loest die
+Quell-Lease in derselben Revision. Copy-/Katalogfehler und Resume bleiben
+Bestandteil der Suite; diese Pruefung startet keine Container-Runtime.
+
 Der regulaere Container-Lease-Erwerb und -Release verwenden ebenfalls den
 gemeinsamen Katalogkern. Die Katalogsuite prueft deren Previews, erwartete
 Revisionen und den fehlerhaften Release: `RECOVERY_REQUIRED` wird im Apply
