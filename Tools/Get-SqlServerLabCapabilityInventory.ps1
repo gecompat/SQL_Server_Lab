@@ -7,6 +7,8 @@
     vorhandene Tests und Planungsreferenzen. Vorhandene Tests sind kein PASS.
     Liest nur Produktquellen; lokale State-, Secret- und Artifact-Roots werden
     nicht inventarisiert. Symlinks/Junctions werden nicht als Quelldaten gelesen.
+    Ein optional vorhandener versionierter Nachweisindex wird separat als
+    aufgezeichnete Historie ausgegeben. Er bestaetigt keine aktuelle Ausfuehrung.
 .PARAMETER RepositoryRoot
     Zu inventarisierender Checkout, standardmaessig der Parent dieses Tools.
 .EXAMPLE
@@ -64,8 +66,50 @@ foreach($file in @($files | Sort-Object FullName -Unique)){
         }
     }
 }
+$evidenceSource='Documentation/Quality/capability-evidence-index.json'
+$evidencePath=Join-Path $root $evidenceSource
+$evidenceStatus='NOT_PRESENT';$evidenceRecords=@()
+try {
+    $evidenceSchema=Join-Path $root 'Schemas/capability-evidence-index.schema.json'
+    foreach($candidate in @($evidencePath,$evidenceSchema)){
+        $ancestor=$candidate
+        while($ancestor){
+            if(Test-Path -LiteralPath $ancestor){
+                if((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'EVIDENCE_INDEX_REPARSE_POINT_NOT_READ'}
+            }
+            if($ancestor -eq $root){break}
+            $ancestor=[IO.Path]::GetDirectoryName($ancestor)
+        }
+    }
+    if(Test-Path -LiteralPath $evidencePath){
+        $evidenceStatus='INVALID'
+        $evidenceFile=Get-Item -LiteralPath $evidencePath -Force
+        if($evidenceFile.PSIsContainer -or $evidenceFile.Length -gt 262144){throw 'EVIDENCE_INDEX_INVALID'}
+        $evidenceText=Get-Content -LiteralPath $evidencePath -Raw -Encoding utf8
+        if(-not (Test-Json -Json $evidenceText -SchemaFile $evidenceSchema -ErrorAction Stop)){throw 'EVIDENCE_INDEX_INVALID'}
+        $evidenceDocument=$evidenceText | ConvertFrom-Json -Depth 20 -ErrorAction Stop
+        foreach($record in $evidenceDocument.Records){
+            $null=[DateTime]::ParseExact([string]$record.Date,'yyyy-MM-dd',[Globalization.CultureInfo]::InvariantCulture)
+        }
+        $evidenceRecords=@($evidenceDocument.Records | ForEach-Object {
+            [pscustomobject]@{
+                Capability=$_.Capability;Provider=$_.Provider;SqlVersion=$_.SqlVersion
+                Platform=$_.Platform;Scope=$_.Scope;SourceRevision=$_.SourceRevision;Test=$_.Test
+                Result=$_.Result;Cleanup=$_.Cleanup;Date=$_.Date;Reference=$_.Reference
+                CurrentTestPresence=$(if(@($sources.Source) -ccontains $_.Test){'PRESENT'}else{'ABSENT'})
+                CurrentExecutionStatus='NOT_EXECUTED';EvidenceBoundary='RECORDED_HISTORY_ONLY'
+            }
+        })
+        $evidenceStatus='RECORDED'
+    }
+}
+catch {
+    $evidenceStatus='INVALID';$evidenceRecords=@()
+    $code=if($_.Exception.Message -eq 'EVIDENCE_INDEX_REPARSE_POINT_NOT_READ'){'EVIDENCE_INDEX_REPARSE_POINT_NOT_READ'}else{'EVIDENCE_INDEX_INVALID'}
+    $issues.Add([pscustomobject]@{Source=$evidenceSource;Code=$code})
+}
 $exports=@();$providers=@();$module=$null
-if(@($issues | Where-Object Code -in @('REPARSE_POINT_NOT_READ','POWERSHELL_PARSE_ERROR')).Count){
+if(@($issues | Where-Object Code -in @('REPARSE_POINT_NOT_READ','POWERSHELL_PARSE_ERROR','EVIDENCE_INDEX_REPARSE_POINT_NOT_READ')).Count){
     $issues.Add([pscustomobject]@{Source='SqlServerLab.psd1';Code='MODULE_INVENTORY_NOT_EXECUTED'})
 }
 else {
@@ -93,6 +137,7 @@ catch {$issues.Add([pscustomobject]@{Source='SqlServerLab.psd1';Code='MODULE_INV
     Status=$(if($issues.Count){'PARTIAL'}else{'INVENTORIED'})
     SourceScope='WORKING_TREE';MutationAllowed=$false
     RuntimeEvidence=[pscustomobject]@{Status='NOT_EXECUTED';Assessed=$false}
+    RecordedEvidence=[pscustomobject]@{Source=$evidenceSource;Status=$evidenceStatus;EvidenceBoundary='RECORDED_HISTORY_ONLY';ReferenceVerificationStatus='NOT_VERIFIED';Records=$evidenceRecords}
     Sources=@($sources);Functions=@($functions);Exports=$exports;Providers=$providers
     Tests=@($sources | Where-Object Kind -in @('STATIC_TEST','RUNTIME_TEST') | ForEach-Object {[pscustomobject]@{Source=$_.Source;Kind=$_.Kind;ExecutionStatus='NOT_EXECUTED'}})
     PlanningReferences=@($tasks);Issues=@($issues)

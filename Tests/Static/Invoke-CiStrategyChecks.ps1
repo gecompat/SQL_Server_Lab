@@ -148,6 +148,8 @@ $dependencyCases = @(
     @{ Path = 'Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1'); Runtime = @('Docker','Podman') },
     @{ Path = 'Tests/Integration/Fixtures/VectorIndex/1.0/setup.sql'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1'); Runtime = @('Docker','Podman') },
     @{ Path = 'Tests/Integration/Fixtures/VectorIndex/1.0/assert.sql'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1'); Runtime = @('Docker','Podman') },
+    @{ Path = 'Documentation/Quality/capability-evidence-index.json'; Checks = @('Invoke-CapabilityInventoryChecks.ps1'); Runtime = @() },
+    @{ Path = 'Schemas/capability-evidence-index.schema.json'; Checks = @('Invoke-CapabilityInventoryChecks.ps1'); Runtime = @() },
     @{ Path = 'Tools/Prepare-LocalRelease.ps1'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1'); Runtime = @() },
     @{ Path = 'Providers/HyperV/HyperVProvider.ps1'; Checks = @('Invoke-LabNetworkChecks.ps1'); Runtime = @('HyperV') },
     @{ Path = 'Private/SqlStorageOperations.ps1'; Checks = @('Invoke-SampleBaselineRuntimeChecks.ps1','Invoke-StorageFilePlacementChecks.ps1','Invoke-SessionTransferProgressChecks.ps1'); Runtime = @('HyperV') },
