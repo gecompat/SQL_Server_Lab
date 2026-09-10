@@ -523,8 +523,15 @@ Manifestklon. Die nachgelagerte Aktivierung brach mit
 IPAM-Lease wurden vollständig entfernt. Der fehlgeschlagene Test hatte einen
 erfolgreichen SQL-Build-State als Artifact-Referenz hinterlassen; dessen
 bereinigter Fehlerpfad entfernt zuerst genau diesen Build und danach nur das
-eigene Artifact. Die eigentliche SQL-Konfigurations-Reconcile-Evidence bleibt
-bis zu verfügbarem Aktivierungs-Egress offen.
+eigene Artifact. Der Folgelauf auf `386d9159` deklariert für den bewusst
+isolierten Klon explizit `EvaluationOnline`/`AllowTemporary`: Er bestand vom
+frischen Windows-Server-2025-/SQL-Server-2025-Build über `PrepareImage`,
+Generalize, immutable Publish, Manifestklon, echte Evaluationsaktivierung und
+`SQL_READY_RUN` bis zum Parent-Hash-/Schreibschutz- und vollständigen Cleanup-
+Nachweis. Der temporäre Adapter wurde nach der Aktivierung entfernt; State- und
+Builder-Root, VM, Child-VHDX sowie IPAM-Lease waren anschließend abwesend.
+Die übrigen SQL-Konfigurations-, Port-, Testdatenbank- und External-Runtime-
+Reconcile-Slices bleiben getrennt offen.
 
 ### Reale Legacy-Run-/Parent-Child-Migration
 
