@@ -859,6 +859,34 @@ Der ausführbare, run-eigene Nachweis dafür ist
 Er prüft Vector-Distanz, Chunking, sanitisierte Evidence und Szenario-Cleanup
 und entfernt danach den zugehörigen Provider-Run.
 
+Der separate Preview-Vektorindex-Nachweis verwendet SQL Server 2025 und
+aktiviert `PREVIEW_FEATURES` vor dem Kompilieren der Index-Fixture:
+
+```powershell
+.\Tests\Integration\Invoke-AiVectorIndexAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-AiVectorIndexAcceptance.ps1 -Provider podman
+```
+
+Abnahmeversion 1.0 erstellt 4.096 synthetische Vektoren mit 32 Dimensionen und
+einen echten DiskANN-Index. Vier Suchfälle prüfen Top-10, Selbsttreffer,
+Distanzgleichheit, Recall@10 mindestens 0,8 und Postfilter. Nach öffentlichem
+Stop/Start werden dieselben Assertions wiederholt. Jeder Lauf besitzt einen
+eigenen State-/Datenbank-/Provider-Scope; Cleanup läuft auch nach Fehlern.
+Nur erfolgreiches Cleanup erlaubt `PASS`. Ergebnisse enthalten SQL-Build,
+Indexformat, rohe SHA-256 der tatsächlich ausgeführten Fixturedateien und
+Messwerte. Die SQL-Uhr kann bei kurzen Abfragen 0 Mikrosekunden Differenz
+liefern; daraus folgt keine Performancezusage.
+
+Am 2026-09-10 bestanden Docker und Podman auf Revision
+`6fc518847eaefb021c31666ca8386da5b53e1908`, SQL-Build `17.0.4075.5`,
+jeweils mit Recall@10 1,0 vor und nach Neustart und Cleanup `PASS`.
+Die beobachteten Indexmetadaten enthalten kein numerisches Versionsfeld:
+`sql2025-unversioned` benennt diese Form ohne erfundene Hersteller-Version.
+Abweichende spätere Metadaten oder Suchsemantik verlangen eine angepasste
+beziehungsweise eigene Abnahmeversion. Preview allein blockiert keine Abnahme.
+Hyper-V, DML-Aktualisierung, Backup/Restore und größere Lasttests sind dadurch
+nicht abgenommen; der exakte Vector-Core bleibt ein eigener Nachweis.
+
 Der modell- und SQL-freie HTTPS-Nachweis des Endpointvertrags läuft separat:
 
 ```powershell

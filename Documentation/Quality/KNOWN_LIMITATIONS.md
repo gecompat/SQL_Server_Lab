@@ -1049,13 +1049,25 @@ TLS-Gateway für SQL Servers `CREATE EXTERNAL MODEL`. Dieser Gateway,
 Dimensionswechsel/Re-Embedding-Ausführung bleiben offen. Ein rein lesender
 Re-Embedding-Plan- und Journalvertrag bindet zwar Modell-,
 Dimensions-, Dataset-, Chunk- und Vectoridentitäten und sperrt Mischbetrieb;
-Ollama-Cloud-Embeddings, OpenAI, Azure OpenAI, lokales Windows-ONNX und
-Preview-ANN bleiben offen. Hyper-V-RAG und Agent sind
+Ollama-Cloud-Embeddings, OpenAI, Azure OpenAI und lokales Windows-ONNX
+bleiben offen. Hyper-V-RAG und Agent sind
 bis zum isolierten VM-Neustartnachweis nur `PARTIAL`. Es gibt keinen stillen
 Provider- oder Cloud-Fallback.
 
 `CREATE VECTOR INDEX` und `VECTOR_SEARCH` bleiben Preview und sind nicht Teil
-des Vector-Core-Pflichtszenarios. External Languages und KI-Modellfähigkeit
+des Vector-Core-Pflichtszenarios. Preview ist kein Ausschlussgrund für Tests.
+Die separate Abnahme `SqlServerLab.AiVectorIndexAcceptance/1.0` bestand am
+2026-09-10 auf Quellrevision `6fc518847eaefb021c31666ca8386da5b53e1908`
+getrennt unter Docker und Podman: SQL Server 2025 Build `17.0.4075.5`,
+Compatibility Level 170, 4.096 synthetische Vektoren mit 32 Dimensionen,
+Indexaufbau, vier Suchfälle mit Recall@10 jeweils 1,0, Distanz-/Filterprüfung,
+Stop/Start und vollständiger Cleanup. Der Build meldet `StartId`/`L`/`M`/`R`
+ohne numerisches Indexversionsfeld; das Ergebnis bindet diese beobachtete Form
+als `sql2025-unversioned` an den SQL-Build und die Abnahmeversion.
+Unbekannte beziehungsweise inkompatible spätere Formate verlangen eine
+angepasste oder eigene Funktions-/Abnahmeversion. Diese kleine Fixture belegt
+weder allgemeine Performance noch Hyper-V, Backup/Restore oder einen
+produktiven ANN-Szenarioexecutor. External Languages und KI-Modellfähigkeit
 sind getrennte Capabilities; eine vorhandene Python-, R- oder Java-Runtime
 beweist keine Embedding- oder Generationsfähigkeit.
 

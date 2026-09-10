@@ -36,6 +36,9 @@ sources_of_truth:
   ai_scenario_inventory: Public/Get-SqlServerLabAiScenario.ps1
   ai_scenario_execution: Public/Invoke-SqlServerLabAiScenario.ps1
   ai_vector_core_scenario: Scenarios/Ai/vector-core-ci/1.0/scenario.json
+  validation_ai_vector_index: Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1
+  ai_vector_index_fixture: Tests/Integration/Fixtures/VectorIndex/1.0/setup.sql
+  ai_vector_index_assertions: Tests/Integration/Fixtures/VectorIndex/1.0/assert.sql
   ai_endpoint_contract: Private/AiEndpoint.ps1
   ai_model_catalog: Catalogs/ai-models.json
   ai_model_catalog_schema: Schemas/ai-model-catalog.schema.json
