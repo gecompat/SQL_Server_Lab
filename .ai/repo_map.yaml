@@ -94,6 +94,8 @@ sources_of_truth:
   validation_sql_observability_evidence: Tests/Static/Invoke-SqlObservabilityEvidenceChecks.ps1
   host_tool_resolution: Private/HostToolResolution.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
+  repository_capability_inventory: Tools/Get-SqlServerLabCapabilityInventory.ps1
+  validation_repository_capability_inventory: Tests/Static/Invoke-CapabilityInventoryChecks.ps1
   client_readiness_core: Private/ClientReadiness.ps1
   validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1
   host_tool_initializer: Tools/Initialize-SqlServerLabHostTools.ps1
