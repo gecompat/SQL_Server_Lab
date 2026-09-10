@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-reembedding-journal.schema.json",
+  "title": "SQL Server Lab AI Re-embedding Journal",
+  "type": "object",
+  "required": ["contract", "planKey", "status", "dataset", "sourceModel", "targetModel", "chunks"],
+  "properties": {
+    "contract": { "type": "object", "required": ["name", "version"], "properties": { "name": { "const": "SqlServerLab.AiReembeddingJournal" }, "version": { "const": "1.0" } }, "additionalProperties": false },
+    "planKey": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "status": { "enum": ["PLANNED", "PARTIAL", "COMPLETE"] },
+    "dataset": { "$ref": "#/definitions/dataset" },
+    "sourceModel": { "$ref": "#/definitions/model" },
+    "targetModel": { "$ref": "#/definitions/model" },
+    "chunks": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["chunkId", "chunkSha256", "sourceVectorSha256", "targetStatus"], "properties": { "chunkId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,95}$" }, "chunkSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "sourceVectorSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "targetVectorSha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" }, "targetStatus": { "enum": ["PENDING", "SUCCEEDED"] } }, "additionalProperties": false } }
+  },
+  "definitions": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "dataset": { "type": "object", "required": ["DatasetId", "DatasetVersion", "DatasetSha256", "ChunkingSha256"], "properties": { "DatasetId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" }, "DatasetVersion": { "type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+$" }, "DatasetSha256": { "$ref": "#/definitions/digest" }, "ChunkingSha256": { "$ref": "#/definitions/digest" } }, "additionalProperties": false },
+    "model": { "type": "object", "required": ["ModelKey", "Dimension", "ModelIdentitySha256"], "properties": { "ModelKey": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,95}$" }, "Dimension": { "type": "integer", "minimum": 1, "maximum": 1998 }, "ModelIdentitySha256": { "$ref": "#/definitions/digest" } }, "additionalProperties": false }
+  },
+  "additionalProperties": false
+}
