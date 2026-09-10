@@ -1033,8 +1033,11 @@ gemeinsame Endpointvertrag deckt Fehlerfälle offline ab; zusätzlich belegt ein
 echter flüchtiger Loopback-HTTPS-Stub Embed-/Generate-Payloads, exakten
 Zertifikat-Pin und HTTP-Retry ohne globale Trust-Store-Mutation. Das ist kein
 TLS-Gateway für SQL Servers `CREATE EXTERNAL MODEL`. Dieser Gateway,
-Dimensionswechsel/Re-Embedding, Ollama-Cloud-Embeddings, OpenAI, Azure OpenAI,
-lokales Windows-ONNX und Preview-ANN bleiben offen. Hyper-V-RAG und Agent sind
+Dimensionswechsel/Re-Embedding-Ausführung bleiben offen. Ein rein lesender
+Re-Embedding-Plan- und Journalvertrag bindet zwar Modell-,
+Dimensions-, Dataset-, Chunk- und Vectoridentitäten und sperrt Mischbetrieb;
+Ollama-Cloud-Embeddings, OpenAI, Azure OpenAI, lokales Windows-ONNX und
+Preview-ANN bleiben offen. Hyper-V-RAG und Agent sind
 bis zum isolierten VM-Neustartnachweis nur `PARTIAL`. Es gibt keinen stillen
 Provider- oder Cloud-Fallback.
 
