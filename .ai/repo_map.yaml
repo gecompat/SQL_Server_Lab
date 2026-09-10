@@ -261,6 +261,7 @@ sources_of_truth:
   repository_agent_skills_backlog: Documentation/Project_Planning/REPOSITORY_AGENT_SKILLS_BACKLOG.md
   autonomous_development_wave: Documentation/Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md
   reserved_manifest_fields_assessment: Documentation/Project_Planning/RESERVED_MANIFEST_FIELDS_ASSESSMENT_2026-09-10.md
+  refresh_and_recovery_assessment: Documentation/Project_Planning/REFRESH_AND_RECOVERY_ASSESSMENT_2026-09-10.md
   repository_readiness_skill: .agents/skills/sql-server-lab-readiness/SKILL.md
   repository_validation_skill: .agents/skills/sql-server-lab-validation/SKILL.md
   repository_operate_skill: .agents/skills/sql-server-lab-operate/SKILL.md
