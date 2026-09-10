@@ -156,6 +156,17 @@ werden weder verändert noch als Lab-Eigentum ausgegeben.
 .\Tests\Integration\Invoke-ContainerRuntimeScopeAcceptance.ps1
 ```
 
+## Invoke-ContainerVolumeCleanupAcceptance.ps1
+
+Der native Docker-/Podman-Nachweis erstellt pro Lauf ein eigenes und ein fremdes
+Runtime-Volume. Der Produkt-Cleanup muss das fremde Volume anhand von Run- und
+Scope-Labels vor dem Remove-Aufruf ablehnen, entfernt ausschließlich das eigene
+Volume und bereinigt das geschützte Testvolume anschließend explizit.
+
+```powershell
+.\Tests\Integration\Invoke-ContainerVolumeCleanupAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-ContainerVolumeCleanupAcceptance.ps1 -Provider podman
+```
 ## Invoke-MixedProviderSmokeTest.ps1
 
 Der Mixed-Provider-Smoke-Test benötigt gleichzeitig erreichbares Docker und
