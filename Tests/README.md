@@ -150,7 +150,13 @@ Interpretation:
 .\Tests\Static\Invoke-PodmanBootstrapChecks.ps1
 .\Tests\Static\Invoke-PesterChecks.ps1
 .\Tests\Static\Invoke-ReleaseReadinessChecks.ps1
+.\Tests\Static\Invoke-ReleaseArtifactChecks.ps1
 ```
+
+Die Release-Artefaktprüfung verwendet isolierte Git-Fixtures. Sie prüft
+mutationsfreies `WhatIf`, saubere Quellen, Ausschluss lokaler Daten,
+Pfadumleitungen, Teilpublikation, ZIP-/Hash-Integrität und den Import des
+tatsächlich entpackten Moduls. Sie startet keine Provider-Runtime.
 
 Die native Vector-Core-Abnahme wird für die beiden Linux-Provider getrennt
 ausgeführt. Jeder Lauf provisioniert ein eigenes SQL-2025-Lab und benötigt

@@ -145,6 +145,7 @@ Add-CheckResult -Name 'CI-Infrastruktur prueft einmalig alle Runtime-Gates' -Suc
 
 # Einzelpfade verhindern, dass ein zweiter Dateiname eine fehlende Abhaengigkeit verdeckt.
 $dependencyCases = @(
+    @{ Path = 'Tools/Prepare-LocalRelease.ps1'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1'); Runtime = @() },
     @{ Path = 'Providers/HyperV/HyperVProvider.ps1'; Checks = @('Invoke-LabNetworkChecks.ps1'); Runtime = @('HyperV') },
     @{ Path = 'Private/SqlStorageOperations.ps1'; Checks = @('Invoke-SampleBaselineRuntimeChecks.ps1','Invoke-StorageFilePlacementChecks.ps1','Invoke-SessionTransferProgressChecks.ps1'); Runtime = @('HyperV') },
     @{ Path = 'Private/SessionTransferProgress.ps1'; Checks = @('Invoke-SampleBaselineRuntimeChecks.ps1'); Runtime = @('HyperV') },

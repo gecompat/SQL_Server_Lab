@@ -100,6 +100,8 @@ sources_of_truth:
   sql_observability_evidence_schema: Schemas/sql-observability-evidence.schema.json
   validation_sql_observability_evidence: Tests/Static/Invoke-SqlObservabilityEvidenceChecks.ps1
   host_tool_resolution: Private/HostToolResolution.ps1
+  local_release_preparation: Tools/Prepare-LocalRelease.ps1
+  validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
   repository_capability_inventory: Tools/Get-SqlServerLabCapabilityInventory.ps1
   validation_repository_capability_inventory: Tests/Static/Invoke-CapabilityInventoryChecks.ps1

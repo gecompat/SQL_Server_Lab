@@ -21,6 +21,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Korrigiert
 
+- Lokale Release-Vorbereitung verwendet einen sauberen festen Git-Snapshot,
+  mutationsfreies `WhatIf`, hostfreie Paketmetadaten und überprüfbare Hashlisten.
+  Pfadumleitungen und Quell-Symlinks werden blockiert; Teilpublikationen werden
+  scopegebunden zurückgenommen. ZIP-Pakete enthalten auch versteckte Nutzdateien.
+
 - Container-Paketexport stellt bei Fehlern vor Bibliotheksübergabe den
   ursprünglichen Datenbankzustand identitätsgebunden wieder her. Ein dauerhaftes
   Quelljournal trennt Recovery und Payload-Cleanup; Wiederholungen prüfen offene
