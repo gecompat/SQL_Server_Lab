@@ -93,16 +93,47 @@ try {
         $manualNodeName -eq 'MANUELLES PASSWORT EINGEBEN' -and
         $passwordDisplayDisabled -eq 'Demo (primary)')
 
-    $longEntry = [PSCustomObject]@{ RunId='generated-run'; DisplayName=(('x' * 160) + ' (primary)') }
+    $longEntry = [PSCustomObject]@{ RunId='generated-run'; Id='generated-run/primary'; DisplayName=(('x' * 160) + ' (primary)') }
     $boundedEnvironmentGroup = Get-LabCmsEnvironmentGroupDisplayName -Entry $longEntry
     Add-CheckResult -Name 'CMS-Umgebungsordner bleibt innerhalb der sysname-Grenze' -Success (
-        $boundedEnvironmentGroup.Length -eq 128 -and
-        $boundedEnvironmentGroup.EndsWith(' (primary)'))
+        $boundedEnvironmentGroup.Length -le 128 -and
+        $boundedEnvironmentGroup -match 'Run=generated-run' -and
+        $boundedEnvironmentGroup -match 'Instance=primary' -and
+        $boundedEnvironmentGroup -match 'Identity=[0-9a-f]{12}\]$')
+
+    $collidingCmsEntries = @(
+        [PSCustomObject]@{ RunId='11111111-1111-1111-1111-111111111111'; Id='11111111-1111-1111-1111-111111111111/primary'; DisplayName='sql2022-latest (primary)' },
+        [PSCustomObject]@{ RunId='22222222-2222-2222-2222-222222222222'; Id='22222222-2222-2222-2222-222222222222/primary'; DisplayName='sql2022-latest (primary)' }
+    )
+    $resolvedCmsNames = @($collidingCmsEntries | ForEach-Object { Get-LabCmsManagedRegisteredServerDisplayName -Entry $_ -StateRoot 'unused' })
+    $repeatedCmsNames = @($collidingCmsEntries | ForEach-Object { Get-LabCmsManagedRegisteredServerDisplayName -Entry $_ -StateRoot 'unused' })
+    Add-CheckResult -Name 'Gleichnamige CMS-Server behalten beide stabile Run- und Instanzidentitaeten' -Success (
+        $resolvedCmsNames.Count -eq 2 -and
+        @($resolvedCmsNames | Select-Object -Unique).Count -eq 2 -and
+        $resolvedCmsNames[0] -match 'sql2022-latest \(primary\) \[Run=11111111-1111-1111-1111-111111111111; Instance=primary; Identity=[0-9a-f]{12}\]$' -and
+        $resolvedCmsNames[1] -match 'sql2022-latest \(primary\) \[Run=22222222-2222-2222-2222-222222222222; Instance=primary; Identity=[0-9a-f]{12}\]$' -and
+        (@($resolvedCmsNames) -join "`n") -eq (@($repeatedCmsNames) -join "`n"))
+    Add-CheckResult -Name 'CMS-Namensauflosung bleibt sysname-begrenzt und bindet die volle Identitaet stabil' -Success (
+        (Get-LabCmsManagedRegisteredServerDisplayName -Entry $longEntry -StateRoot 'unused').Length -le 128 -and
+        (Get-LabCmsManagedRegisteredServerDisplayName -Entry $longEntry -StateRoot 'unused') -eq (Get-LabCmsManagedRegisteredServerDisplayName -Entry $longEntry -StateRoot 'unused') -and
+        $source -match 'function Get-LabCmsIdentityDisplayName' -and
+        $source -match 'SHA256.*Identity' -and
+        $source -match 'Get-LabCmsManagedRegisteredServerDisplayName')
+    $resolvedAliasGroups = @($collidingCmsEntries | ForEach-Object { Get-LabCmsEnvironmentGroupDisplayName -Entry $_ })
+    Add-CheckResult -Name 'Kennwortalias-Ordner bleiben bei gleichem Namen pro Run eindeutig' -Success (
+        $resolvedAliasGroups.Count -eq 2 -and
+        @($resolvedAliasGroups | Select-Object -Unique).Count -eq 2 -and
+        @($resolvedAliasGroups | Where-Object Length -gt 128).Count -eq 0)
+    Add-CheckResult -Name 'Dieselbe Namensauflosung gilt mit und ohne Providergruppen' -Success (
+        $source -match 'Get-LabCmsManagedRegisteredServerDisplayName -Entry \$entry' -and
+        $source -match 'if \(\[bool\]\$center\.Grouping\.CmsGroupByProvider\)' -and
+        $source -match '\$targetGroup = if \(\$runtimeState -eq ''RUNNING''\) \{ ''@RunningId'' \} else \{ ''@StoppedId'' \}')
 
     Add-CheckResult -Name 'Kennwortmodus verschachtelt genau einen Server unter seinem Umgebungsordner' -Success (
         $source -match 'Role=Environment' -and
         $source -match 'DECLARE @EnvironmentGroup_' -and
         $source -match 'Get-LabCmsEnvironmentGroupDisplayName' -and
+        $source -match 'if \(\$IncludeGeneratedPassword\) \{ return \$displayName \}' -and
         $source -match '\$targetGroup = "@EnvironmentGroup_\$variableSuffix"' -and
         $source -match 'ManagedEnvironmentGroups_' -and
         $source -match 'CmsEnvironmentGroupCursor_')
