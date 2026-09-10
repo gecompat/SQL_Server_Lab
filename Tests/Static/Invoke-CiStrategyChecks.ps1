@@ -143,6 +143,46 @@ Add-CheckResult -Name 'CI-Infrastruktur prueft einmalig alle Runtime-Gates' -Suc
     $ci.Docker -and $ci.Podman -and $ci.Mixed -and $ci.HyperV -and $ci.Adapter
 )
 
+# Einzelpfade verhindern, dass ein zweiter Dateiname eine fehlende Abhaengigkeit verdeckt.
+$dependencyCases = @(
+    @{ Path = 'Providers/HyperV/HyperVProvider.ps1'; Checks = @('Invoke-LabNetworkChecks.ps1'); Runtime = @('HyperV') },
+    @{ Path = 'Private/SqlStorageOperations.ps1'; Checks = @('Invoke-SampleBaselineRuntimeChecks.ps1','Invoke-StorageFilePlacementChecks.ps1','Invoke-SessionTransferProgressChecks.ps1'); Runtime = @('HyperV') },
+    @{ Path = 'Private/SessionTransferProgress.ps1'; Checks = @('Invoke-SampleBaselineRuntimeChecks.ps1'); Runtime = @('HyperV') },
+    @{ Path = 'Private/AiEndpoint.ps1'; Checks = @('Invoke-AiScenarioChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
+    @{ Path = 'Public/Invoke-SqlServerLabAiRag.ps1'; Checks = @('Invoke-AiScenarioChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
+    @{ Path = 'Private/AiReembedding.ps1'; Checks = @('Invoke-AiScenarioChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
+    @{ Path = 'Schemas/ai-reembedding-plan.schema.json'; Checks = @('Invoke-AiScenarioChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
+    @{ Path = 'Private/StateUpgrade.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
+    @{ Path = 'Public/Get-SqlServerLabRunStateUpgradePlan.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/PortableLabImport.ps1'; Checks = @('Invoke-PortableLabImportChecks.ps1'); Runtime = @() },
+    @{ Path = 'Public/Get-SqlServerLabEvaluationWatch.ps1'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/SqlObservabilityEvidence.ps1'; Checks = @('Invoke-SqlObservabilityEvidenceChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
+    @{ Path = 'Private/RecoveryPointPlan.ps1'; Checks = @('Invoke-HyperVRecoveryPointPlanChecks.ps1'); Runtime = @() }
+)
+foreach ($case in $dependencyCases) {
+    foreach ($path in @($case.Path, $case.Path.Replace('/', '\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        $missingChecks = @($case.Checks | Where-Object { $_ -notin $selected.StaticChecks })
+        $missingRuntime = @($case.Runtime | Where-Object { -not $selected.$_ })
+        Add-CheckResult -Name "Abhaengige Vertraege werden einzeln ausgewaehlt: $path" `
+            -Success ($missingChecks.Count -eq 0 -and $missingRuntime.Count -eq 0) `
+            -Message "Fehlende Suites: $($missingChecks -join ', '); fehlende Provider: $($missingRuntime -join ', ')"
+    }
+}
+
+foreach ($companion in @('Private/ResourceSet.ps1', 'Providers/HyperV/HyperVProvider.ps1')) {
+    $combined = & $selector -ChangedPath @($companion, 'Private/Common.ps1')
+    Add-CheckResult -Name "Unbekannter Produktpfad behaelt seinen Docker-Fallback neben $companion" -Success $combined.Docker
+}
+$composed = & $selector -ChangedPath @('Private/AiEndpoint.ps1', 'Private/ResourceSet.ps1', 'Private/SqlStorageOperations.ps1')
+$individualChecks = @('Private/AiEndpoint.ps1', 'Private/ResourceSet.ps1', 'Private/SqlStorageOperations.ps1' | ForEach-Object {
+    (& $selector -ChangedPath @($_)).StaticChecks
+} | Sort-Object -Unique)
+Add-CheckResult -Name 'Mehrdateiauswahl erhaelt die Vereinigung aller Einzelvertraege' -Success (
+    @($individualChecks | Where-Object { $_ -notin $composed.StaticChecks }).Count -eq 0 -and
+    $composed.Docker -and $composed.Podman -and $composed.HyperV
+)
+
 $outputPath = Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-ci-output-$([guid]::NewGuid().ToString('N')).txt"
 try {
     $env:GITHUB_OUTPUT = $outputPath

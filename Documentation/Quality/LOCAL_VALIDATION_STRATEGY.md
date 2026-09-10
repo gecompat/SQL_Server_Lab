@@ -1176,6 +1176,17 @@ Ubuntu nur betroffene statische Suites aus und schaltet ausschließlich passende
 Runtime-Smokes zu. Änderungen am Foundation-Core, Root-Agentenvertrag,
 Upgrade-Assessment, Copilot-Adapter oder PR-Gate starten zusätzlich den Job
 `Foundation integrity`.
+Die Auswahl bindet gemeinsame Hyper-V-Job-/Storage-Helfer auch an Netzwerk-,
+Sample-Baseline- und Storage-Prüfungen. Gemeinsame KI-Implementierungen und
+KI-Schemas wählen die KI-Vertragssuite sowie Docker, Podman und Hyper-V aus;
+SQL-Observability verwendet dieselben getrennten Providernachweise. State-
+Upgrade, portabler Import, Evaluation-Watch und Recovery-Point-Plan wählen
+ihre jeweiligen statischen Vertragssuiten. Tabellenfälle prüfen diese
+Abhängigkeiten pro Einzelpfad mit beiden Pfadseparatoren, damit ein weiterer
+geänderter Dateiname keine fehlende Zuordnung verdeckt.
+Runtime-Gates werden je Datei bestimmt und anschließend vereinigt. So bleibt
+der Docker-Fallback einer unbekannten Produktdatei auch neben einem bekannten
+Hyper-V-Pfad oder einer ausschließlich statisch geprüften Datei erhalten.
 Der PR-Gate und die nativen Docker-, Podman-, Mixed- und Hyper-V-Workflows
 brechen einen bereits gestarteten Lauf bei einer neueren Revision nicht hart
 ab. Der neue Lauf wartet in derselben Concurrency-Gruppe, damit der laufende
