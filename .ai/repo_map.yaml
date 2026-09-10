@@ -853,6 +853,8 @@ providers:
     registry_static_checks: Tests/Static/Invoke-HyperVImageRegistryChecks.ps1
     builder_static_checks: Tests/Static/Invoke-HyperVImageBuilderChecks.ps1
     windows_slot_pool_static_checks: Tests/Static/Invoke-WindowsSlotPoolChecks.ps1
+    windows_locale_contract: "Private/WindowsLocale.ps1; Schemas/windows-locale-intent.schema.json; ManifestParser, ManifestBuilder, DesiredState, HyperVImageRegistry, HyperVLabEnvironment und BatchWorkflow gemeinsam pruefen"
+    windows_locale_static_checks: Tests/Static/Invoke-WindowsLocaleChecks.ps1
     resource_binding_static_checks: Tests/Static/Invoke-HyperVResourceBindingChecks.ps1
     resource_migration_static_checks: Tests/Static/Invoke-HyperVResourceMigrationChecks.ps1
     resource_reconcile_static_checks: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1

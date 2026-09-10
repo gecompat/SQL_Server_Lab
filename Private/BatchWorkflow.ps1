@@ -617,11 +617,15 @@ function Get-LabOperationStepsForPlan {
         return $steps
     }
     if ($Provider -eq 'hyperv') {
+        $localeIntent=Get-LabWorkflowValue -InputObject $Effective -Name 'WindowsLocale' -Default $null
         $steps = @(
             New-LabWorkflowStep -Id 'create-hyperv' -Action 'CreateHyperVEnvironment' -Title 'Hyper-V-Umgebung erzeugen'
-            New-LabWorkflowStep -Id 'start-hyperv' -Action 'StartHyperVEnvironment' -Title 'Hyper-V-Umgebung starten'
         )
-        $requiresUserSetup = [bool](Get-LabWorkflowValue -InputObject $Effective -Name 'RequiresUserSetup' -Default ($Kind -match '(Windows|Slot)'))
+        if($localeIntent){
+            $steps += New-LabWorkflowStep -Id 'provision-windows-locale' -Action 'ProvisionHyperVWindowsLocale' -Title 'Deklarative Windows-Einstellungen anwenden'
+        }
+        $steps += New-LabWorkflowStep -Id 'start-hyperv' -Action 'StartHyperVEnvironment' -Title 'Hyper-V-Umgebung starten'
+        $requiresUserSetup = [bool](Get-LabWorkflowValue -InputObject $Effective -Name 'RequiresUserSetup' -Default (($Kind -match '(Windows|Slot)') -and -not $localeIntent))
         if ($requiresUserSetup) {
             $steps += New-LabWorkflowStep -Id 'windows-user-action' -Action 'WaitForWindowsUserAction' -Title 'Windows-Anmeldung und Einrichtung abschließen'
         }
@@ -1240,7 +1244,7 @@ function Invoke-LabOperationStepAction {
                 AutoStart = [string]$autoStartValue
                 StateRoot = $StateRoot
             }
-            foreach ($name in @('SwitchName', 'Isolated', 'AdditionalDrives', 'DesiredState')) {
+            foreach ($name in @('SwitchName', 'Isolated', 'AdditionalDrives', 'DesiredState', 'WindowsLocale')) {
                 $value = Get-LabWorkflowValue -InputObject $effective -Name $name -Default $null
                 if ($null -ne $value) {
                     $parameters[$name] = $value
@@ -1255,6 +1259,28 @@ function Invoke-LabOperationStepAction {
                 throw 'Die Hyper-V-Erstellung lieferte keine RunId.'
             }
             return [pscustomobject]@{ state = 'Completed'; runId = $runId; receipt = [pscustomobject]@{ action = 'CreateHyperV'; runId = $runId; artifactId = $artifactId; changed = $true } }
+        }
+        'ProvisionHyperVWindowsLocale' {
+            $context=Get-HyperVLabWorkflowRun -RunId $Operation.runId -StateRoot $StateRoot
+            $intent=Resolve-LabWindowsLocaleIntent -Intent (Get-LabWorkflowValue -InputObject $effective -Name 'WindowsLocale')
+            $null=Resolve-LabWindowsLocaleIntent -Intent $context.Instance.windowsLocale -Overrides @{
+                Region=$intent.Region;SystemLocale=$intent.SystemLocale;UiLanguage=$intent.UiLanguage;InputLocale=$intent.InputLocale;TimeZone=$intent.TimeZone
+            }
+            if([string]$context.Instance.oobeAutomation.status -eq 'COMPLETED'){
+                $receiptPath=Join-Path $context.RunDirectory 'windows-locale-receipt.json'
+                if(-not (Test-Path -LiteralPath $receiptPath -PathType Leaf)){throw 'WINDOWS_LOCALE_RECEIPT_REQUIRED'}
+                $localeReceipt=Get-Content -LiteralPath $receiptPath -Raw | ConvertFrom-Json -Depth 20
+                Assert-LabWindowsLocaleReceipt -Receipt $localeReceipt -Intent $intent -RunId $Operation.runId
+                return [pscustomobject]@{state='Completed';receipt=[pscustomobject]@{action='ProvisionWindowsLocale';changed=$false;runId=$Operation.runId}}
+            }
+            $password=Get-LabSecret -Path $context.RunDirectory -Name 'guest-administrator-password'
+            if(-not $password){$password=New-HyperVSqlUnattendedPassword}
+            try {
+                $null=Stop-HyperVLabEnvironment -RunId $Operation.runId -StateRoot $StateRoot
+                $null=Invoke-HyperVLabUnattendedProvision -RunId $Operation.runId -AdministratorPassword $password -PasswordSource generated -StateRoot $StateRoot
+            }
+            finally {$password=$null}
+            return [pscustomobject]@{state='Completed';receipt=[pscustomobject]@{action='ProvisionWindowsLocale';changed=$true;runId=$Operation.runId}}
         }
         'StartHyperVEnvironment' {
             if ([string]::IsNullOrWhiteSpace([string]$Operation.runId)) {

@@ -276,11 +276,14 @@ function New-SqlServerLab {
         Bereitstellung. Es wird nie in das Manifest oder den Run-State geschrieben.
     .PARAMETER Region
         Zwei- oder vierstelliger Regions-Schlüssel für die Windows-OOBE
-        (z. B. DE, DE-DE oder AT).
+        (z. B. DE, DE-DE oder AT). Ohne expliziten Parameter gilt der
+        windowsLocale-Manifestintent, sonst der dokumentierte Default DE.
+        Explizite Parameter duerfen einem expliziten Manifestintent nicht widersprechen.
     .PARAMETER SystemLocale
         Windows-System-Locale für die OOBE-Konfiguration (z. B. de-DE).
     .PARAMETER UiLanguage
         Windows-UI-Language für die OOBE-Konfiguration (z. B. en-US).
+        Muss vor VM-Erstellung durch die registrierte Image-Sprache belegt sein.
     .PARAMETER InputLocale
         Keyboard Input Locale, z. B. 0407:00000407.
     .PARAMETER TimeZone
@@ -675,6 +678,15 @@ function New-SqlServerLab {
                 fileSystem = 'NTFS'
             }
         })
+        $localeOverrides=@{}
+        foreach($localeField in @('Region','SystemLocale','UiLanguage','InputLocale','TimeZone')){
+            if($PSBoundParameters.ContainsKey($localeField)){$localeOverrides[$localeField]=$PSBoundParameters[$localeField]}
+        }
+        $manifestLocale=if([string]$instance.windowsLocaleSource -eq 'manifest'){$instance.windowsLocale}else{$null}
+        $effectiveWindowsLocale=Resolve-LabWindowsLocaleIntent -Intent $manifestLocale -Overrides $localeOverrides
+        Assert-LabWindowsLocaleImageCapability -Intent $effectiveWindowsLocale -Artifact $artifact
+        $instance | Add-Member -NotePropertyName windowsLocale -NotePropertyValue $effectiveWindowsLocale -Force
+        if($localeOverrides.Count){$instance | Add-Member -NotePropertyName windowsLocaleSource -NotePropertyValue 'parameters' -Force}
         $hyperVDesiredState = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData ([bool]$PersistentData)
         $hyperVMemoryStartupMB = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['memoryStartupMB']) { [int]$hyperVSettings.memoryStartupMB } else { 4096 }
         $hyperVDynamicMemoryEnabled = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['dynamicMemoryEnabled']) { [bool]$hyperVSettings.dynamicMemoryEnabled } else { $true }
@@ -691,15 +703,15 @@ function New-SqlServerLab {
             -MemoryMinimumMB $hyperVMemoryMinimumMB -MemoryMaximumMB $hyperVMemoryMaximumMB `
             -ProcessorCount $hyperVProcessorCount -AutoStart $hyperVAutoStart `
             -SwitchName $hyperVSwitchName -Isolated:$hyperVIsolated -NetworkIntent $hyperVNetworkIntent -AdditionalDrives $hyperVAdditionalDrives -StorageIntent $instance.storageIntent `
-            -DesiredState $hyperVDesiredState -StateRoot $StateRoot
+            -DesiredState $hyperVDesiredState -WindowsLocale $effectiveWindowsLocale -StateRoot $StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $StateRoot
         if ($PersistentData) {
             $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB ([int]$resolved.persistentData.dataDiskGB) -StateRoot $hyperVLab.StateRoot
         }
         $effectiveHyperVSqlSaPassword = if ($SqlSaPassword) { $SqlSaPassword } else { $GuestPassword }
         $provisioning = Invoke-HyperVLabUnattendedProvision -RunId $lab.RunId -AdministratorPassword $GuestPassword -SqlSaPassword $SqlSaPassword `
-            -SqlPort $hyperVSqlPort -PasswordSource $passwordSource -Region $Region -SystemLocale $SystemLocale -UiLanguage $UiLanguage `
-            -InputLocale $InputLocale -TimeZone $TimeZone -StateRoot $hyperVLab.StateRoot
+            -SqlPort $hyperVSqlPort -PasswordSource $passwordSource -Region $effectiveWindowsLocale.Region -SystemLocale $effectiveWindowsLocale.SystemLocale -UiLanguage $effectiveWindowsLocale.UiLanguage `
+            -InputLocale $effectiveWindowsLocale.InputLocale -TimeZone $effectiveWindowsLocale.TimeZone -StateRoot $hyperVLab.StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
         $testDatabaseOwnership = Initialize-LabHyperVTestDatabaseOwnershipReceipt -Lab $hyperVLab
         if ($hyperVExternalRuntimePlans.Count -gt 0) {

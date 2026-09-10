@@ -1789,3 +1789,12 @@ werden.
    Versions-/Editionsnachweisen ausbauen.
 5. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und
    Baseline-Kompatibilität kontrolliert pflegen.
+## Windows-Locale-Erweiterung (2026-09-10)
+
+Der portable Locale-Intent ist an Manifest, Batch und OOBE gebunden.
+Der native US-Kaltstartnachweis fuer einen Windows-Server-2025-Batch ist am
+2026-09-10 bestanden (Run `34435602810`, Commit `bbd29e7`), einschliesslich
+Cleanup. Der direkte SQL-Prepared-Manifestlauf bleibt separat offen. UI-Sprache ist derzeit nur
+über die registrierte Image-Sprache belegt; Offline-Language-Packs und
+Tastaturlayouts außerhalb der sechs dokumentierten eingebauten IDs sind
+nicht freigegeben. [Vertrag und Nachweisgrenzen](../HowTo/WINDOWS_LOCALE.md).
