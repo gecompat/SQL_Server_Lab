@@ -1,0 +1,18 @@
+{
+  "$schema": "./lab-manifest.schema.json",
+  "name": "hyperv-locale-us",
+  "instances": [{
+    "id": "primary",
+    "version": "2025",
+    "provider": "hyperv",
+    "os": "windows",
+    "windowsLocale": {
+      "ContractVersion": "SqlServerLab.WindowsLocaleIntent/1.0",
+      "Region": "US",
+      "SystemLocale": "en-US",
+      "UiLanguage": "en-US",
+      "InputLocale": "0409:00000409",
+      "TimeZone": "Pacific Standard Time"
+    }
+  }]
+}

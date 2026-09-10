@@ -2,18 +2,21 @@
 
 ## Status
 
-`BACKLOG` – fachlich akzeptiert, nicht als wiederverwendbarer
-Manifest-/Batch-Vertrag implementiert. Reihenfolge und Priorität richten sich
-nach dem kanonischen Entwicklungs- und Ausführungsplan.
+`PARTIAL` – versionierter Manifest-/Batch-Intent, gemeinsamer Resolver,
+Image-Sprachpreflight, OOBE-Bindung, Manifest-Lock und beobachteter Receipt
+sind implementiert und fokussiert statisch geprüft. Der native US-Kaltstarttest
+hat am 2026-09-10 einen Windows-Server-2025-Batch mit dem geparsten
+Manifest-Intent, OOBE, Kaltstart und Cleanup bestaetigt (Run `34435602810`,
+Commit `bbd29e7`). Der direkte SQL-Prepared-Manifestlauf, Offline-Sprachmedien
+und zusätzliche Tastaturlayouts bleiben getrennt offen. Details und Grenzen:
+[Windows-Locale-Vertrag](../HowTo/WINDOWS_LOCALE.md).
 
 ## Ausgangslage
 
 Der direkte Hyper-V-Klonpfad kann Region, System-Locale, UI-Sprache,
 Eingabemethode und Zeitzone bereits über Parameter beziehungsweise die
-interaktive Workflow-Oberfläche übernehmen. Diese Werte sind jedoch nicht Teil
-des portablen Lab-Manifests. Eine gespeicherte Labkonfiguration kann deshalb
-noch nicht vollständig festlegen, mit welchen Sprach-, Regions- und
-Tastatureinstellungen ein Windows-Gast erstellt wird.
+interaktive Workflow-Oberfläche übernehmen. Diese ursprünglich nur direkt
+übergebenen Werte sind jetzt im portablen Lab-Manifest abbildbar.
 
 ## Ziel
 

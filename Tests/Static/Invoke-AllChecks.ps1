@@ -77,6 +77,7 @@ $checks = @(
     'Invoke-HyperVProviderChecks.ps1',
     'Invoke-HyperVLabEnvironmentChecks.ps1',
     'Invoke-WindowsSlotPoolChecks.ps1',
+    'Invoke-WindowsLocaleChecks.ps1',
     'Invoke-HyperVImageRegistryChecks.ps1',
     'Invoke-HyperVImageBuilderChecks.ps1',
     'Invoke-HyperVImageOperatorChecks.ps1',

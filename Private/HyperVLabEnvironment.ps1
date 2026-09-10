@@ -550,6 +550,7 @@ function New-HyperVLabEnvironment {
         [ValidateSet('hostOnly', 'nat', 'lan')][string]$NetworkIntent = 'hostOnly',
         [object[]]$AdditionalDrives = @(),
         $StorageIntent,
+        $WindowsLocale,
         $DesiredState,
         [string]$StateRoot
     )
@@ -560,6 +561,10 @@ function New-HyperVLabEnvironment {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $artifact = Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot
     if (-not $artifact) { throw 'HYPERV_LAB_ARTIFACT_NOT_FOUND' }
+    if($WindowsLocale){
+        $WindowsLocale=Resolve-LabWindowsLocaleIntent -Intent $WindowsLocale
+        Assert-LabWindowsLocaleImageCapability -Intent $WindowsLocale -Artifact $artifact
+    }
     $artifactState = [string]$artifact.artifactState
     if ($artifactState -notin @('SQL_PREPARED_SEALED', 'OS_SEALED')) {
         throw 'HYPERV_LAB_WINDOWS_OR_SQL_PREPARED_IMAGE_REQUIRED'
@@ -597,6 +602,7 @@ function New-HyperVLabEnvironment {
         network = if ($networkPlan) { $networkPlan.Name } else { $null }
         networkIntent = if ($Isolated) { 'isolated' } else { $NetworkIntent }
         desiredState = $DesiredState
+        windowsLocale = $WindowsLocale
     }
     $workflowOperationId = Get-LabWorkflowOperationContext
     if (-not [string]::IsNullOrWhiteSpace($workflowOperationId)) {
@@ -606,6 +612,7 @@ function New-HyperVLabEnvironment {
         -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
     try {
         $null = New-CleanupPlan -RunDir $run.RunDir -RunId $run.RunId -ScopeId $run.ScopeId -ProviderSubRuns @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv'; instanceIds = @($InstanceId) })
+        if($WindowsLocale){$null=Add-HyperVImageManifestLockEntry -RunDirectory $run.RunDir -Artifact $artifact -WindowsLocale $WindowsLocale}
         if ($networkPlan) {
             $labNetwork = Invoke-LabHyperVNetworkBoundPlan -Plan $networkPlan
             if ([string]$labNetwork.Intent -eq 'lan') {
@@ -645,6 +652,7 @@ function New-HyperVLabEnvironment {
                 sqlVersion = if ($workload -eq 'sql') { [string]$artifact.sql.version } else { $null }
                 sqlEdition = if ($workload -eq 'sql') { [string]$artifact.sql.edition } else { $null }
                 workload = $workload; baseKind = $baseKind; imageArtifactId = $ArtifactId; host = $null; port = $null
+                windowsLocale = $WindowsLocale
                 resourceSettings = [PSCustomObject]@{
                     contractVersion='SqlServerLab.HyperVResourceIntent/1.0'; processorCount=$ProcessorCount
                     dynamicMemoryEnabled=$DynamicMemoryEnabled
@@ -738,14 +746,9 @@ function Get-HyperVUnattendedLocaleSettings {
         [Parameter(Mandatory)][string]$TimeZone
     )
 
-    return [PSCustomObject]@{
-        Region = $Region
-        GeoId = Resolve-HyperVLocaleGeoId -Region $Region
-        SystemLocale = $SystemLocale
-        UiLanguage = $UiLanguage
-        InputLocale = $InputLocale
-        TimeZone = $TimeZone
-    }
+    $normalized=Resolve-LabWindowsLocaleIntent -Overrides @{Region=$Region;SystemLocale=$SystemLocale;UiLanguage=$UiLanguage;InputLocale=$InputLocale;TimeZone=$TimeZone}
+    $normalized | Add-Member -NotePropertyName GeoId -NotePropertyValue (Resolve-HyperVLocaleGeoId -Region $normalized.Region)
+    return $normalized
 }
 
 function Get-HyperVUnattendedPostLoginScript {
@@ -868,10 +871,22 @@ function Invoke-HyperVLabUnattendedProvision {
     if ($lab.Instance.oobeAutomation -and [string]$lab.Instance.oobeAutomation.status -eq 'COMPLETED') {
         throw 'HYPERV_LAB_UNATTENDED_ALREADY_COMPLETED'
     }
+    $localeOverrides=@{}
+    foreach($localeField in @('Region','SystemLocale','UiLanguage','InputLocale','TimeZone')){
+        if($PSBoundParameters.ContainsKey($localeField)){$localeOverrides[$localeField]=$PSBoundParameters[$localeField]}
+    }
+    $normalizedLocale=Resolve-LabWindowsLocaleIntent -Intent $lab.Instance.windowsLocale -Overrides $localeOverrides
+    $localeArtifact=Get-HyperVImageArtifact -ArtifactId ([string]$lab.Instance.imageArtifactId) -StateRoot $lab.StateRoot
+    if(-not $localeArtifact){throw 'HYPERV_LAB_ARTIFACT_NOT_FOUND'}
+    Assert-LabWindowsLocaleImageCapability -Intent $normalizedLocale -Artifact $localeArtifact
+    $Region=$normalizedLocale.Region;$SystemLocale=$normalizedLocale.SystemLocale;$UiLanguage=$normalizedLocale.UiLanguage
+    $InputLocale=$normalizedLocale.InputLocale;$TimeZone=$normalizedLocale.TimeZone
+    $lab.Instance | Add-Member -NotePropertyName windowsLocale -NotePropertyValue $normalizedLocale -Force
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Off') { throw 'HYPERV_LAB_UNATTENDED_VM_MUST_BE_OFF' }
     $vhdxPath = [string]$managed.Identity.childVhdxPath
     if (-not $vhdxPath -or -not (Test-Path -LiteralPath $vhdxPath -PathType Leaf)) { throw 'HYPERV_LAB_UNATTENDED_CHILD_VHDX_NOT_FOUND' }
+    $null=Add-HyperVImageManifestLockEntry -RunDirectory $lab.RunDirectory -Artifact $localeArtifact -WindowsLocale $normalizedLocale
 
     Write-LabInfo 'Schritt 2/6: Gastpasswort wird nur für diesen Run DPAPI-geschützt abgelegt.'
     Save-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password' -Secret $AdministratorPassword
@@ -958,6 +973,13 @@ function Invoke-HyperVLabUnattendedProvision {
     if ($receiptMismatches.Count -gt 0) {
         throw "HYPERV_LAB_UNATTENDED_OOBE_RECEIPT_INVALID: $($receiptMismatches -join '; ')"
     }
+    $localeReceipt=[pscustomobject]@{
+        ContractVersion='SqlServerLab.WindowsLocaleReceipt/1.0';RunId=[string]$lab.Run.runId
+        Status='POST_OOBE_VERIFIED';Intent=$normalizedLocale
+        Observed=[pscustomobject]@{GeoId=[int]$receipt.geoId;SystemLocale=[string]$receipt.systemLocale;UiLanguage=[string]$receipt.uiLanguage;InputLocale=[string]$receipt.inputLocale;TimeZone=[string]$receipt.timeZone}
+        ObservedAt=[string]$receipt.observedAt
+    }
+    Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'windows-locale-receipt.json') -InputObject $localeReceipt
     $managedAfterOobe = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     $null = Set-HyperVManagedVMIdentityProperty -ManagedVM $managedAfterOobe `

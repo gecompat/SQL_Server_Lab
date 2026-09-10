@@ -265,8 +265,8 @@ function Resolve-LabManifestSchemaNode {
     if (-not $reference) {
         return $Node
     }
-    if ($reference -eq 'lab-storage-intent.schema.json') {
-        $schemaPath = Join-Path $script:SchemasPath 'lab-storage-intent.schema.json'
+    if ($reference -in @('lab-storage-intent.schema.json','windows-locale-intent.schema.json')) {
+        $schemaPath = Join-Path $script:SchemasPath $reference
         return Get-Content -LiteralPath $schemaPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
     }
     if ($reference -notmatch '^#/definitions/([^/]+)$') {
@@ -1072,6 +1072,10 @@ function Get-LabManifestValidationResult {
         }
         $effectiveProviders.Add($effectiveProvider)
         $networkPlan = $null
+        if($instance.windowsLocale){
+            if($effectiveProvider -ne 'hyperv' -or [string]$instance.os -eq 'linux'){$errors.Add('WINDOWS_LOCALE_WINDOWS_PROVIDER_REQUIRED')}
+            try{$null=Resolve-LabWindowsLocaleIntent -Intent $instance.windowsLocale}catch{$errors.Add([string]$_.Exception.Message)}
+        }
 
         foreach ($runtimeContractError in @(Get-LabManifestRuntimeContractErrors `
                 -ServerConfig $instance.serverConfig `

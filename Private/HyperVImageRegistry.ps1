@@ -701,7 +701,8 @@ function Add-HyperVImageManifestLockEntry {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$RunDirectory,
-        [Parameter(Mandatory)]$Artifact
+        [Parameter(Mandatory)]$Artifact,
+        $WindowsLocale
     )
 
     if (-not (Test-Path -LiteralPath $RunDirectory -PathType Container)) { throw 'ARTIFACT_LOCK_INVALID' }
@@ -709,6 +710,18 @@ function Add-HyperVImageManifestLockEntry {
     $lock = if (Test-Path -LiteralPath $lockPath -PathType Leaf) {
         Get-Content -LiteralPath $lockPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
     } else { [PSCustomObject]@{ formatVersion = '1'; artifacts = @() } }
+    $changed=$false
+    if($WindowsLocale){
+        $normalized=Resolve-LabWindowsLocaleIntent -Intent $WindowsLocale
+        Assert-LabWindowsLocaleImageCapability -Intent $normalized -Artifact $Artifact
+        if($lock.windowsLocale){
+            $existing=Resolve-LabWindowsLocaleIntent -Intent $lock.windowsLocale
+            foreach($field in @('Region','SystemLocale','UiLanguage','InputLocale','TimeZone')){
+                if([string]$existing.$field -cne [string]$normalized.$field){throw 'WINDOWS_LOCALE_LOCK_CONFLICT'}
+            }
+        }
+        else {$lock | Add-Member -NotePropertyName windowsLocale -NotePropertyValue $normalized;$changed=$true}
+    }
     $entry = [PSCustomObject]@{
         artifactId = $Artifact.artifactId; artifactType = 'hyperv-image'; artifactState = $Artifact.artifactState
         sha256 = $Artifact.sha256; integrityOrigin = $Artifact.integrityOrigin; contractVersion = $Artifact.contractVersion
@@ -716,7 +729,8 @@ function Add-HyperVImageManifestLockEntry {
     }
     if (-not @($lock.artifacts | Where-Object { $_.artifactId -eq $entry.artifactId })) {
         $lock.artifacts = @($lock.artifacts + $entry)
-        Write-LabArtifactJsonAtomic -Path $lockPath -InputObject $lock
+        $changed=$true
     }
+    if($changed){Write-LabArtifactJsonAtomic -Path $lockPath -InputObject $lock}
     return $lockPath
 }
