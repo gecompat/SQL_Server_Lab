@@ -971,8 +971,9 @@ gespeichert.
 `Invalid class [0x80041010]` bedeutet üblicherweise, dass der SQL-WMI-Provider
 nicht registriert ist. Neue Prepared-Image-Klone prüfen ihn nach
 `CompleteImage` automatisch. Für bereits vorhandene, laufende Hyper-V-Labs
-steht unter **Hyper-V-Umgebungen verwalten** die Aktion `[w]mi reparieren` zur
-Verfügung. Sie kompiliert ausschließlich die lokale passende SQL-MOF-Datei und
+steht unter **Umgebungen verwalten** → **Hyper-V-Umgebung auswählen und
+verwalten** die Aktion `[w]mi reparieren` zur Verfügung. Sie kompiliert
+ausschließlich die lokale passende SQL-MOF-Datei und
 startet den WMI-Dienst im Gast neu.
 
 ## 12. Manifest-Restore

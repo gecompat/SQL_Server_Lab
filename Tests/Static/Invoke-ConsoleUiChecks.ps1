@@ -1106,6 +1106,11 @@ Add-ConsoleUiCheck 'Befundliste erzeugt Hyper-V-gebundene Befunde nur bei tatsae
 )
 $environmentMenuMatch = [regex]::Match($entrySource, 'function Show-LabEnvironmentMenu \{[\s\S]+?(?=\r?\nfunction Show-LabHyperVMenu)')
 Add-ConsoleUiCheck 'Umgebungsmenue beginnt mit Verwaltung und gruppiert destruktive Sammelaktionen am Ende' ($environmentMenuMatch.Success -and $environmentMenuMatch.Value.IndexOf("-Id 'Manage'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'ClearAutomatedTestEnvironment'") -and $environmentMenuMatch.Value.IndexOf("-Id 'ClearAutomatedTestEnvironment'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'Clear'") -and $environmentMenuMatch.Value.IndexOf("-Id 'Clear'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'back'"))
+Add-ConsoleUiCheck 'Hyper-V-Umgebungsverwaltung liegt nur im umgebungszentrierten Menue' (
+    $environmentMenuMatch.Value -match "-Id 'HyperVManage' -Label 'Hyper-V-Umgebung auswaehlen und verwalten'" -and
+    $environmentMenuMatch.Value -match '\$hasHyperVRun' -and
+    [regex]::Match($entrySource, 'function Show-LabHyperVMenu \{[\s\S]+?(?=\r?\nfunction )').Value -notmatch "-Id 'HyperVManage'"
+)
 Add-ConsoleUiCheck 'Umgebungsmenue bietet genau einen zustandsabhaengigen Testgruppen-Lifecyclepunkt' (
     $entrySource -match 'function Get-LabAutomatedTestEnvironmentMenuState' -and
     $entrySource -match 'Action=if \(\$allStopped\) \{ ''Start'' \} else \{ ''Stop'' \}' -and
@@ -1137,7 +1142,7 @@ Add-ConsoleUiCheck 'Hauptmenue startet ohne vorab ausgegebene und sofort uebersc
 Add-ConsoleUiCheck 'Interaktiver Status zeigt Connection String und gespeichertes generiertes SA-Passwort' ($entrySource -match 'function Show-LabEnvironmentStatusInteractive' -and $entrySource -match "'SA-Passwort \(automatisch erzeugt\)'" -and $entrySource -match 'Show-LabEnvironmentStatusInteractive -RunId')
 Add-ConsoleUiCheck 'Infrastrukturmenue deaktiviert Hyper-V begruendet wenn der Provider nicht verwendbar ist' ($batchConsoleSource -match '-Id HyperVArea[\s\S]{0,300}?-Disabled:\(-not \$hyperVAvailable\)' -and $batchConsoleSource -match 'Test-HyperVAvailable')
 Add-ConsoleUiCheck 'Hyper-V-Menue deaktiviert alle Hyper-V-Handlungen begruendet wenn der Provider nicht verwendbar ist' (
-    ([regex]::Matches([regex]::Match($entrySource, 'function Show-LabHyperVMenu \{[\s\S]+?(?=\r?\nfunction )').Value, '-Disabled:\(-not \$hyperVAvailable\)')).Count -ge 4 -and
+    ([regex]::Matches([regex]::Match($entrySource, 'function Show-LabHyperVMenu \{[\s\S]+?(?=\r?\nfunction )').Value, '-Disabled:\(-not \$hyperVAvailable\)')).Count -ge 3 -and
     [regex]::Match($entrySource, 'function Show-LabHyperVMenu \{[\s\S]+?(?=\r?\nfunction )').Value -match 'Test-HyperVAvailable'
 )
 Add-ConsoleUiCheck 'Erstellungsmenue deaktiviert den mengenfaehigen Windows-Slot-Composer begruendet ohne Hyper-V' (

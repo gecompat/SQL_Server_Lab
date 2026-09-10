@@ -114,6 +114,10 @@ mit einem bloßen Fehler:
 
 ## Hinweise zur Bedienbarkeit
 
+- Bestehende Hyper-V-Umgebungen werden unter **Umgebungen verwalten** →
+  **Hyper-V-Umgebung auswählen und verwalten** geöffnet. Das Menü
+  **Infrastruktur und Medien** bleibt für Vorlagen, freie Slots, Builds und
+  Medien zuständig.
 - Das Hauptmenü und die Auswahl aktiver Umgebungen verwenden bei geeigneter
   Konsole einen gemeinsamen cursorbasierten Viewport. Direkte Buchstaben- und
   Ziffernshortcuts bleiben erhalten; `F5` aktualisiert ausdrücklich den
