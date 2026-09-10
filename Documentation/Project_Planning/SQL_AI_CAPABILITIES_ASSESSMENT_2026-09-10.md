@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `validated` (Bewertung; keine neue Modell-/SQL-Ausführung) |
+| Status | `validated` (Bewertung; separate native ANN-Abnahme verlinkt) |
 | Stand | 2026-09-10 |
 | Quellstand | `1180457` |
 | Auftrag | TLS-Gateway, ONNX, ANN, zusätzliche Cloudanbieter und Modellcache aus dem [Arbeitsplan](AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md) |
@@ -67,28 +67,34 @@ kein ungeprüftes Modell und installiert keine DLL.
 
 ## ANN und Vektorindizes
 
-Auf ausdrücklichen Benutzerauftrag vom 2026-09-10 wird die nachfolgende
-Vergleichslane in dieser Entwicklungswelle auf SQL Server 2025 real ausgeführt.
-Preview ist kein Ausschlussgrund. Test-/Funktionsversion und tatsächlicher
-SQL-Build werden gebunden; spätere inkompatible Syntax oder Semantik erhält
-eine angepasste beziehungsweise eigene Version statt einer stillen Umdeutung
-der vorhandenen Evidence. Die native Aufgabe bleibt bis zum erfolgreichen
-Lauf einschließlich Cleanup offen.
+Der ausdrückliche Benutzerauftrag vom 2026-09-10 wurde mit der separaten
+[Abnahmeversion 1.0](../../Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1)
+unter SQL Server 2025 ausgeführt. Docker und Podman bestanden auf Revision
+`6fc518847eaefb021c31666ca8386da5b53e1908`, SQL-Build `17.0.4075.5`:
+4.096 synthetische Vektoren, echter DiskANN-Index, vier Suchfälle mit Recall@10
+jeweils 1,0, Distanz-/Filterprüfung, Stop/Start und Cleanup. Der Build meldet
+Indexparameter ohne numerisches Versionsfeld; die beobachtete Form wird als
+`sql2025-unversioned` an SQL-Build und Testversion gebunden. Preview ist kein
+Ausschlussgrund. Spätere inkompatible Syntax oder Semantik erhält eine
+angepasste beziehungsweise eigene Version; vorhandene Evidence wird nicht
+stillschweigend umgedeutet.
 
-Der Nutzen muss gegenüber der exakten Suche gemessen werden. ANN bleibt eine
-separate Preview-Lane, bis konkreter SQL-Build und Indexversion live gebunden
-sind. Cloud-Dokumentation darf nicht auf die lokale SQL-Installation übertragen
-werden. Aufwand M für eine begrenzte Vergleichslane, L mit persistenten
-Generationen, Aktualisierung und Wiederherstellung.
+Der allgemeine Nutzen bleibt gegenüber exakter Suche zu messen. Diese kleine
+funktionale Fixture ist keine Performancezusage und keine Freigabe eines
+produktiven Szenarioexecutors. Cloud-Dokumentation darf nicht auf die lokale
+SQL-Installation übertragen werden. Aufwand M für eine begrenzte
+Vergleichslane, L mit persistenten Generationen, Aktualisierung und
+Wiederherstellung.
 
-Der nächste Schritt verwendet ein festes synthetisches Dataset und identische
-Queryvektoren für exakte Suche und ANN. Recall@k, Filterkorrektheit, deterministische
-Tie-Behandlung der Referenz, Laufzeit, Aufbaukosten und Speicher werden getrennt
-berichtet. Messwiederholungen sind vorab begrenzt; ein schnellerer Einzelaufruf
-reicht nicht. Indexversionsabhängige Mindestdatenmenge und DML-/Filtergrenzen
-werden aus dem tatsächlichen Zielstand abgeleitet. Stale-Ergebnisse dürfen keine
-erfolgreiche Generationenumschaltung vortäuschen. Restart, Backup/Restore und
-Cleanup müssen für diese Lane separat bestehen. Exakte Suche bleibt die Referenz.
+Ein späterer größerer Vergleich verwendet fest gebundene synthetische Datasets
+und identische Queryvektoren für exakte Suche und ANN. Recall@k,
+Filterkorrektheit, deterministische Tie-Behandlung der Referenz, Laufzeit,
+Aufbaukosten und Speicher werden getrennt berichtet. Messwiederholungen sind
+vorab begrenzt; ein schnellerer Einzelaufruf reicht nicht. DML-/Filtergrenzen
+werden aus dem tatsächlichen Zielstand abgeleitet. Stale-Ergebnisse dürfen
+keine erfolgreiche Generationenumschaltung vortäuschen. Backup/Restore,
+größere Lastprofile und Hyper-V benötigen zusätzliche eigene Abnahmen.
+Exakte Suche bleibt die Referenz.
 
 ## Zusätzliche Cloudanbieter
 
@@ -135,7 +141,8 @@ Bewertungsaufgabe ab, nicht den separat offenen Podman-RAG-Nachweis.
 ## Quellen und Prüfgrenze
 
 Die Herstellerquellen wurden am 2026-09-10 gelesen. Die genannten nächsten
-Schritte sind Projektentscheidungen; es wurde kein neuer SQL-/Modell-/Cloudlauf
+Schritte sind Projektentscheidungen. Über die separat verlinkte ANN-Abnahme
+hinaus wurde kein neuer SQL-/Modell-/Cloudlauf
 ausgeführt und keine Laufzeitfähigkeit hochgestuft.
 
 - Microsoft beschreibt [External Models einschließlich Ollama und lokalem ONNX](https://learn.microsoft.com/en-us/sql/t-sql/statements/create-external-model-transact-sql?view=sql-server-ver17). Der lokale ONNX-Referenzpfad gilt für Windows und benötigt Machine Learning Services; Modell- und Bibliotheksvertrauen liegt beim Betreiber.

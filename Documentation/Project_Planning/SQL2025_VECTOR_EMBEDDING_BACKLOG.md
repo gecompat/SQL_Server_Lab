@@ -39,8 +39,16 @@ nicht als Linux-Container-Capability ausgewiesen werden.
 
 Approximate Vector Search über `CREATE VECTOR INDEX` und `VECTOR_SEARCH` ist
 unter SQL Server 2025 ebenfalls Preview und besitzt andere Einschränkungen als
-der reguläre Vector-Datentyp und die exakte Distanzberechnung. Der erste
-ausführbare Kern darf deshalb nicht von der Preview-Indexfunktion abhängen.
+der reguläre Vector-Datentyp und die exakte Distanzberechnung. Der exakte
+Vector-Core bleibt unabhängig davon. Preview ist kein Ausschlussgrund für
+einen Test: Die separate Abnahmeversion 1.0 bestand am 2026-09-10 unter
+Docker und Podman auf SQL-Build `17.0.4075.5`, einschließlich Indexaufbau,
+Qualitäts-/Distanz-/Filterprüfung, Neustart und Cleanup. Dieser Build liefert
+Indexparameter ohne numerisches Versionsfeld; die Abnahme benennt das
+beobachtete Format als `sql2025-unversioned`. Spätere inkompatible SQL- oder
+Indexversionen benötigen einen angepassten oder eigenen Funktions-/Teststand.
+Der genaue begrenzte Scope steht in den
+[Known Limitations](../Quality/KNOWN_LIMITATIONS.md#ki--vector--und-modellruntimes).
 
 ## Ziel
 

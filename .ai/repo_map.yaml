@@ -36,6 +36,9 @@ sources_of_truth:
   ai_scenario_inventory: Public/Get-SqlServerLabAiScenario.ps1
   ai_scenario_execution: Public/Invoke-SqlServerLabAiScenario.ps1
   ai_vector_core_scenario: Scenarios/Ai/vector-core-ci/1.0/scenario.json
+  validation_ai_vector_index: Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1
+  ai_vector_index_fixture: Tests/Integration/Fixtures/VectorIndex/1.0/setup.sql
+  ai_vector_index_assertions: Tests/Integration/Fixtures/VectorIndex/1.0/assert.sql
   ai_endpoint_contract: Private/AiEndpoint.ps1
   ai_model_catalog: Catalogs/ai-models.json
   ai_model_catalog_schema: Schemas/ai-model-catalog.schema.json
@@ -104,6 +107,8 @@ sources_of_truth:
   validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
   repository_capability_inventory: Tools/Get-SqlServerLabCapabilityInventory.ps1
+  repository_capability_evidence_index: Documentation/Quality/capability-evidence-index.json
+  repository_capability_evidence_schema: Schemas/capability-evidence-index.schema.json
   validation_repository_capability_inventory: Tests/Static/Invoke-CapabilityInventoryChecks.ps1
   client_readiness_core: Private/ClientReadiness.ps1
   validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1

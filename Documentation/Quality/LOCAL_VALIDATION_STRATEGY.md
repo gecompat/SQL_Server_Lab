@@ -92,6 +92,27 @@ von Symlinks/Junctions einschliesslich indirektem Modulimport. Das Inventar
 fuehrt keine Tests oder Runtime-Probes aus und ersetzt keinen semantischen
 Backlog-Abgleich.
 
+Der versionierte [Nachweisindex](capability-evidence-index.json) ergänzt diese
+Inventur um getrennte historische Prüfungen. Jeder Eintrag bindet Fähigkeit,
+Provider, SQL-Version beziehungsweise `null`, Plattform, Scope, vollständige
+Quellrevision, Testdatei, Ergebnis, Cleanup, Datum und öffentliche PR-/CI-/
+Commitreferenz. Er ist eine kleine Querverweistabelle, keine zweite Task- oder
+Runtime-Registry. Frühere Fehler bleiben erhalten; spätere Ergebnisse erhalten
+eine eigene Zeile. SQL-Versionen erhalten auch den kanonischen Legacywert
+`2008R2`, damit er nicht mit `2008` zusammenfällt. Native SQL-Abnahmen benötigen eine SQL-Version und einen
+Integrationstest; statische Hyper-V-Checks werden dadurch nicht nativ.
+
+Die Inventur liest den optionalen Index schema-validiert, auf 256 KiB begrenzt
+und ohne Symlinks/Junctions. Ungültige Einträge ergeben `PARTIAL` sowie einen
+sanitisierten Fehlercode; unbekannte Payloadfelder und `PASS` ohne geklärten
+Cleanup werden abgewiesen. `RecordedEvidence` bleibt stets
+`RECORDED_HISTORY_ONLY`; vorhandene Testdateien werden nur als `PRESENT`
+referenziert. `CurrentExecutionStatus` und die allgemeine Runtime-Evidence
+bleiben `NOT_EXECUTED`. Die Inventur prüft weder den Inhalt externer Referenzen
+noch die Existenz historischer Commits und bestätigt keine aktuelle
+Quellgleichheit. Neue Einträge benötigen daher eine geprüfte tatsächliche
+Ausführung mit sanitisiertem Quellenbeleg. Es werden keine Rohlogs importiert.
+
 Die Persistent-Storage-Katalogsuite prueft auch den umgestellten
 Container-Datenbankreferenz-Writer: Preview ohne Katalogschreiben, genau eine
 Revision beim Apply, stabile Referenz-IDs bei No-op sowie Abweisung einer
@@ -837,6 +858,34 @@ Der ausführbare, run-eigene Nachweis dafür ist
 `Tests/Integration/Invoke-AiVectorCoreAcceptance.ps1 -Provider docker|podman`.
 Er prüft Vector-Distanz, Chunking, sanitisierte Evidence und Szenario-Cleanup
 und entfernt danach den zugehörigen Provider-Run.
+
+Der separate Preview-Vektorindex-Nachweis verwendet SQL Server 2025 und
+aktiviert `PREVIEW_FEATURES` vor dem Kompilieren der Index-Fixture:
+
+```powershell
+.\Tests\Integration\Invoke-AiVectorIndexAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-AiVectorIndexAcceptance.ps1 -Provider podman
+```
+
+Abnahmeversion 1.0 erstellt 4.096 synthetische Vektoren mit 32 Dimensionen und
+einen echten DiskANN-Index. Vier Suchfälle prüfen Top-10, Selbsttreffer,
+Distanzgleichheit, Recall@10 mindestens 0,8 und Postfilter. Nach öffentlichem
+Stop/Start werden dieselben Assertions wiederholt. Jeder Lauf besitzt einen
+eigenen State-/Datenbank-/Provider-Scope; Cleanup läuft auch nach Fehlern.
+Nur erfolgreiches Cleanup erlaubt `PASS`. Ergebnisse enthalten SQL-Build,
+Indexformat, rohe SHA-256 der tatsächlich ausgeführten Fixturedateien und
+Messwerte. Die SQL-Uhr kann bei kurzen Abfragen 0 Mikrosekunden Differenz
+liefern; daraus folgt keine Performancezusage.
+
+Am 2026-09-10 bestanden Docker und Podman auf Revision
+`6fc518847eaefb021c31666ca8386da5b53e1908`, SQL-Build `17.0.4075.5`,
+jeweils mit Recall@10 1,0 vor und nach Neustart und Cleanup `PASS`.
+Die beobachteten Indexmetadaten enthalten kein numerisches Versionsfeld:
+`sql2025-unversioned` benennt diese Form ohne erfundene Hersteller-Version.
+Abweichende spätere Metadaten oder Suchsemantik verlangen eine angepasste
+beziehungsweise eigene Abnahmeversion. Preview allein blockiert keine Abnahme.
+Hyper-V, DML-Aktualisierung, Backup/Restore und größere Lasttests sind dadurch
+nicht abgenommen; der exakte Vector-Core bleibt ein eigener Nachweis.
 
 Der modell- und SQL-freie HTTPS-Nachweis des Endpointvertrags läuft separat:
 

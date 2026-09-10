@@ -88,6 +88,7 @@ end {
         @{ Pattern = '(?i)(DatabaseMigrationDependency|database-migration-dependency)'; Checks = @('Invoke-DatabaseMigrationDependencyChecks.ps1','Invoke-BackupLibraryChecks.ps1','Invoke-DatabasePackageChecks.ps1') },
         @{ Pattern = '(?i)(AiScenario|ai-scenario|ai-(model-catalog|endpoint-plan|runtime-journal|query-result)|Catalogs[\\/]ai-models|SQL2025_AI_PLATFORM|SQL2025_VECTOR_EMBEDDING|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioContractChecks.ps1') },
+        @{ Pattern = '(?i)(AiVectorIndexAcceptance|Fixtures[\\/]VectorIndex[\\/])'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
         @{ Pattern = '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(StateUpgrade|state-upgrade)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
         @{ Pattern = '(?i)(PortableLabImport|portable-lab-import)'; Checks = @('Invoke-PortableLabImportChecks.ps1') },
@@ -98,7 +99,7 @@ end {
         @{ Pattern = '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools|Initialize-PodmanRuntime|PodmanBootstrap)'; Checks = @('Invoke-HostToolResolutionChecks.ps1','Invoke-PodmanBootstrapChecks.ps1') },
         @{ Pattern = '(?i)(ClientReadiness|client-readiness|HostToolResolution|StorageContract|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-ClientReadinessChecks.ps1') },
         @{ Pattern = '(?i)(^\.agents/skills/|Invoke-SkillChecks|REPOSITORY_AGENT_SKILLS_BACKLOG|SqlServerLab\.psd1)'; Checks = @('Invoke-SkillChecks.ps1','Invoke-DocumentationChecks.ps1','Invoke-PrivacyScannerChecks.ps1') },
-        @{ Pattern = '(?i)(CapabilityInventory|ProviderCapability|provider\.json|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-CapabilityInventoryChecks.ps1') },
+        @{ Pattern = '(?i)(CapabilityInventory|capability-evidence-index|ProviderCapability|provider\.json|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-CapabilityInventoryChecks.ps1') },
         @{ Pattern = '(?i)(LabNetwork|PortAllocation)'; Checks = @('Invoke-LabNetworkChecks.ps1','Invoke-PortAllocationChecks.ps1') },
         @{ Pattern = '(?i)(LabPreferences|PersistentLabData|StorageContract|StorageFilePlacement|HyperVResourceBinding|HyperVResourceMigration|HyperVImageMigration|hyperv-(resource-(binding|migration)|image-migration)|lab-storage-(intent|bound-plan|runtime-receipt)|SecretProvider|TestEnvironment)'; Checks = @('Invoke-DataRootChecks.ps1','Invoke-HyperVResourceBindingChecks.ps1','Invoke-HyperVImageMigrationChecks.ps1','Invoke-HyperVResourceMigrationChecks.ps1','Invoke-StorageMigrationChecks.ps1','Invoke-StorageFilePlacementChecks.ps1','Invoke-TestEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(LicenseProfile|license-profile)'; Checks = @('Invoke-LicenseProfileChecks.ps1','Invoke-PrivacyScannerChecks.ps1','Invoke-HyperVSqlImageBuilderChecks.ps1') },
@@ -179,6 +180,7 @@ end {
             if ($runtimePath -match '(?i)(AiScenario|ai-scenario|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario|AiVectorCoreAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$|SqlObservabilityEvidence|sql-observability-evidence)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(SqlStorageOperations|SessionTransferProgress)') { $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)(AiVectorIndexAcceptance|Fixtures/VectorIndex/)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(PersistentStorageRemoval|persistent-storage-removal)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(BackupLibrary|backup-library|Backup-SqlServerLabDatabase)') { $pathRuntime.Mixed = $true }
             if ($runtimePath -match '(?i)(DatabasePackage|database-package)') { $pathRuntime.HyperV = $true }

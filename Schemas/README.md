@@ -6,6 +6,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 
 | Datei | Zweck |
 |---|---|
+| `capability-evidence-index.schema.json` | Begrenzter Index historisch aufgezeichneter Capability-Prüfungen mit Provider, SQL-Version, Quellrevision, Test, Ergebnis und Cleanup; keine aktuelle Ausführungsbestätigung |
 | `lab-manifest.schema.json` | Struktur deklarativer Labdefinitionen |
 | `ai-scenario.schema.json` | Versioniertes, hashgebundenes SQL-KI-Szenariopaket mit Dataset, Schritten, Assertions, Evaluation und Cleanup |
 | `ai-model-catalog.schema.json` | Providerneutraler Modellkatalog für Ollama-Lane, Zweck, Dimension, Lizenz, Größe und verpflichtende Runtimeidentität |

@@ -1,0 +1,62 @@
+{
+  "ContractVersion": "SqlServerLab.CapabilityEvidenceIndex/1.0",
+  "EvidenceBoundary": "RECORDED_HISTORY_ONLY",
+  "Records": [
+    {
+      "Capability": "hyperv-network-fallback", "Provider": "hyperv", "SqlVersion": null,
+      "Platform": "windows", "Scope": "STATIC_CONTRACT",
+      "SourceRevision": "f5a149365d0c92bdc90e6a92c48f7a614d371537",
+      "Test": "Tests/Static/Invoke-LabNetworkChecks.ps1",
+      "Result": "PASS", "Cleanup": "PASS", "Date": "2026-09-10",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/pull/405"
+    },
+    {
+      "Capability": "hyperv-sample-baseline-export", "Provider": "hyperv", "SqlVersion": null,
+      "Platform": "windows", "Scope": "STATIC_CONTRACT",
+      "SourceRevision": "f5a149365d0c92bdc90e6a92c48f7a614d371537",
+      "Test": "Tests/Static/Invoke-SampleBaselineRuntimeChecks.ps1",
+      "Result": "PASS", "Cleanup": "PASS", "Date": "2026-09-10",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/pull/405"
+    },
+    {
+      "Capability": "release-package-integrity", "Provider": "none", "SqlVersion": null,
+      "Platform": "linux", "Scope": "PACKAGE",
+      "SourceRevision": "72222c5dd4be4d1c2c904caa73675fb222a144db",
+      "Test": "Tests/Static/Invoke-ReleaseArtifactChecks.ps1",
+      "Result": "FAIL", "Cleanup": "NOT_RECORDED", "Date": "2026-09-10",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/actions/runs/34497334624"
+    },
+    {
+      "Capability": "release-package-integrity", "Provider": "none", "SqlVersion": null,
+      "Platform": "windows", "Scope": "PACKAGE",
+      "SourceRevision": "ac414ab7b388cfc6f021300b2937e766e6eff845",
+      "Test": "Tests/Static/Invoke-ReleaseArtifactChecks.ps1",
+      "Result": "PASS", "Cleanup": "PASS", "Date": "2026-09-10",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/pull/407"
+    },
+    {
+      "Capability": "release-package-integrity", "Provider": "none", "SqlVersion": null,
+      "Platform": "linux", "Scope": "PACKAGE",
+      "SourceRevision": "ac414ab7b388cfc6f021300b2937e766e6eff845",
+      "Test": "Tests/Static/Invoke-ReleaseArtifactChecks.ps1",
+      "Result": "PASS", "Cleanup": "PASS", "Date": "2026-09-10",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/actions/runs/34498372908"
+    },
+    {
+      "Capability": "sql2025-preview-vector-index-acceptance", "Provider": "docker", "SqlVersion": "2025",
+      "Platform": "windows", "Scope": "NATIVE_SQL",
+      "SourceRevision": "6fc518847eaefb021c31666ca8386da5b53e1908",
+      "Test": "Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1",
+      "Result": "PASS", "Cleanup": "PASS", "Date": "2026-09-10",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/commit/5392fc97e96d208418f5ef501933c1ae920bb012"
+    },
+    {
+      "Capability": "sql2025-preview-vector-index-acceptance", "Provider": "podman", "SqlVersion": "2025",
+      "Platform": "windows", "Scope": "NATIVE_SQL",
+      "SourceRevision": "6fc518847eaefb021c31666ca8386da5b53e1908",
+      "Test": "Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1",
+      "Result": "PASS", "Cleanup": "PASS", "Date": "2026-09-10",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/commit/5392fc97e96d208418f5ef501933c1ae920bb012"
+    }
+  ]
+}
