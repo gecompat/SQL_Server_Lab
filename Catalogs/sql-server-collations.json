@@ -1,0 +1,18 @@
+{
+  "$schema": "../Schemas/sql-server-collation-catalog.schema.json",
+  "catalogMetadata": {
+    "lastVerified": "2026-09-11",
+    "sources": [
+      "https://learn.microsoft.com/en-us/sql/relational-databases/system-functions/sys-fn-helpcollations-transact-sql?view=sql-server-ver17",
+      "https://learn.microsoft.com/en-us/sql/t-sql/statements/windows-collation-name-transact-sql?view=sql-server-ver17"
+    ]
+  },
+  "collations": [
+    { "name": "SQL_Latin1_General_CP1_CI_AS", "locale": "Latin1 General", "codePage": 1252, "lcid": 1033, "caseSensitivity": "CI", "accentSensitivity": "AS", "utf8": false, "status": "DEPRECATED", "supportedSqlVersions": ["2019", "2022", "2025"] },
+    { "name": "Latin1_General_100_CI_AS", "locale": "Latin1 General", "codePage": 1252, "lcid": 1033, "caseSensitivity": "CI", "accentSensitivity": "AS", "utf8": false, "status": "SUPPORTED", "supportedSqlVersions": ["2019", "2022", "2025"] },
+    { "name": "Latin1_General_100_CI_AS_SC_UTF8", "locale": "Latin1 General", "codePage": 65001, "lcid": 1033, "caseSensitivity": "CI", "accentSensitivity": "AS", "utf8": true, "status": "SUPPORTED", "supportedSqlVersions": ["2019", "2022", "2025"] },
+    { "name": "Latin1_General_100_CS_AS", "locale": "Latin1 General", "codePage": 1252, "lcid": 1033, "caseSensitivity": "CS", "accentSensitivity": "AS", "utf8": false, "status": "SUPPORTED", "supportedSqlVersions": ["2019", "2022", "2025"] },
+    { "name": "Latin1_General_100_BIN2", "locale": "Latin1 General", "codePage": 1252, "lcid": 1033, "caseSensitivity": "BIN2", "accentSensitivity": "NOT_APPLICABLE", "utf8": false, "status": "SUPPORTED", "supportedSqlVersions": ["2019", "2022", "2025"] },
+    { "name": "Japanese_Bushu_Kakusu_140_BIN2", "locale": "Japanese Bushu Kakusu", "codePage": 932, "lcid": 1041, "caseSensitivity": "BIN2", "accentSensitivity": "NOT_APPLICABLE", "utf8": false, "status": "SUPPORTED", "supportedSqlVersions": ["2019", "2022", "2025"] }
+  ]
+}

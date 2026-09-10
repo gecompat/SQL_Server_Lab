@@ -91,6 +91,7 @@ end {
         @{ Pattern = '(?i)(AiVectorIndexAcceptance|Fixtures[\\/]VectorIndex[\\/])'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
         @{ Pattern = '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(StateUpgrade|state-upgrade)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
+        @{ Pattern = '(?i)(CollationCatalog|sql-server-collations|Find-SqlServerLabCollation)'; Checks = @('Invoke-CollationCatalogChecks.ps1') },
         @{ Pattern = '(?i)(PortableLabImport|portable-lab-import)'; Checks = @('Invoke-PortableLabImportChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationWatch|evaluation-watch)'; Checks = @('Invoke-EvaluationWatchChecks.ps1') },
         @{ Pattern = '(?i)(SqlObservabilityEvidence|sql-observability-evidence)'; Checks = @('Invoke-SqlObservabilityEvidenceChecks.ps1') },

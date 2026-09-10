@@ -7,6 +7,7 @@ Die Kataloge sind maschinenlesbare Runtimeeingaben. Änderungen müssen mit Sche
 | Datei | Zweck | Schema |
 |---|---|---|
 | `sql-server-versions.json` | SQL-Server-Versionen, Major Version, Compatibility Level, Status, Images, CU-Builds und Ressourcenprofile | `../Schemas/version-catalog.schema.json` |
+| `sql-server-collations.json` | Kuratierte SQL-Server-Collations für Suche und Vorprüfung nach Major-Version | `../Schemas/sql-server-collation-catalog.schema.json` |
 | `sql-server-cu-status-sources.json` | Wartbare offizielle Microsoft-Quellen für den read-only CU-Abgleich einschließlich dokumentierter Rückzüge | `../Schemas/cu-status-sources.schema.json` |
 | `sql-server-media-sources.json` | Direkte Microsoft-Downloads, verifizierte Archiv-Fallbacks und manuelle Lizenzmedien für nicht-Azure SQL-Server-Basisversionen | `../Schemas/sql-server-media-sources.schema.json` |
 | `sample-databases.json` | Metadaten öffentlicher Testdatenbanken, Varianten, Lizenzen, URLs und Mindestversionen | `sample-databases.schema.json` → `../Schemas/sample-databases.schema.json` |

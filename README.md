@@ -687,6 +687,7 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Invoke-SqlServerLabScheduler` | Persistente Queue mit zwei Workern und maximal einem `HyperVHeavy`-Vorgang verarbeiten |
 | `Invoke-SqlServerLabOperationProbe` | Fällige User-Gates ausschließlich lesend prüfen, ohne sie selbstständig fortzusetzen |
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
+| `Find-SqlServerLabCollation` | Katalogisierte SQL-Server-Collations tokenbasiert und versionsgebunden durchsuchen |
 | `Get-SqlServerLabHyperVImageArtifact` | Pfadfreie, read-only Hyper-V-Image-Registry mit Evaluierungs-, Refresh- und Referenzstatus; `-VerifyIntegrity` prüft ausgewählte Parent-VHDX erneut |
 | `Get-SqlServerLabEvaluationWatch` | Registrierte Windows- und SQL-Evaluationsfristen read-only bewerten und fällige Ereignisse optional lokal deduplizieren |
 | `Get-SqlServerLabRunStateUpgradePlan` | Einen lokalen Run-State gegen den aktuellen Zielvertrag read-only klassifizieren |

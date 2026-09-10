@@ -79,6 +79,7 @@ Resume-SqlServerLabOperation           # Pausierten Vorgang freigeben
 Stop-SqlServerLabOperation             # Vorgang und optional seinen Scope bereinigen
 Stop-SqlServerLabBatch                 # Unfertige oder alle Batch-Ressourcen zurueckbauen
 Get-SqlServerLabWorkflow               # Verdichtete, geheimnisfreie Workflow-Sicht
+Find-SqlServerLabCollation             # Versionsgebundenen Collation-Katalog tokenbasiert durchsuchen
 Get-SqlServerLabHyperVImageArtifact    # Hyper-V-Image-Registry, Evaluation und Referenzen read-only
 Get-SqlServerLabEvaluationWatch         # Windows-/SQL-Evaluationen read-only bewerten und Ereignisse optional deduplizieren
 Get-SqlServerLabRunStateUpgradePlan     # Lokalen Run-State read-only gegen Zielvertrag klassifizieren
