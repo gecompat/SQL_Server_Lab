@@ -3,14 +3,14 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING` |
-| Stand | 2026-07-28 |
+| Stand | 2026-09-10 |
 
 ## 1. Scope
 
 - SQL Server ist Hauptzweck jeder Funktion und jedes zukünftigen Packages.
 - Supporting Components sind nur mit dokumentiertem SQL-Bezug zulässig.
 - Docker und Podman sind aktuell implementierte Kernprovider.
-- Hyper-V besitzt eine isolierte Lifecycle-Grundlage, ist aber noch kein SQL-fertiger Runtimeprovider.
+- Hyper-V besitzt eine isolierte Lifecycle-Grundlage und einen nativ belegten Windows-Server-2025-/SQL-Server-2025-Referenzpfad; weitere Kombinationen und Fähigkeiten benötigen getrennte Nachweise.
 - Keine allgemeine Nicht-SQL-Labplattform entwickeln.
 
 ## 2. Vor jeder Änderung

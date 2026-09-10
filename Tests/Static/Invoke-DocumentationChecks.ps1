@@ -1106,6 +1106,8 @@ $sqlPreparedAcceptancePath = Join-Path $repoRoot 'Tests\Integration\Invoke-Hyper
 Add-ValidationResult `
     -Name 'Roadmap und Masterplan führen N3 bis N5 vollständig und evidenzgebunden' `
     -Success ($developmentExecutionPlan -match '(?m)^\| N3 \| `COMPLETE` \|' -and
+        $developmentExecutionPlan -match '(?m)^\| M3 Adapterpiloten \| `validated_reference` \|' -and
+        $developmentExecutionPlan -notmatch 'drei reale Adapterpiloten fehlen' -and
         $developmentExecutionPlan -match '(?m)^\| N4 \| `COMPLETE` \|' -and
         $developmentExecutionPlan -match '(?m)^\| N5 \| `COMPLETE` \|' -and
         $developmentExecutionPlan -match '2/1/1-Verteilung auf drei lokalen physischen Geräten' -and
