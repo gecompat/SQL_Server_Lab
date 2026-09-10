@@ -8,6 +8,8 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Korrigiert
 
+- Direkter Fortschritt zeigt die fertige Konsolenzeile statt der
+  PowerShell-Objektbeschreibung des Formatierungsresultats.
 - Client-Readiness erkennt Linux ueber das Plattformmerkmal von PowerShell;
   Distributionsnamen wie Ubuntu muessen das Wort Linux nicht enthalten.
 - Hyper-V-SQL-Slotinstallation behandelt fehlende optionale Trace Flags als
@@ -20,6 +22,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Legacy-WMI-Aufrufe, Gastwartepfade und Hyper-V-Checkpoint-Cleanup besitzen
+  einen lokalen Reporter-Runspace fuer Heartbeat auch bei blockiertem
+  Hauptthread. Verschachtelte Schritte teilen eine Anzeige; eigene Worker
+  werden im Abschluss- und Fehlerpfad beendet.
 - Auch Hyper-V-Clone, Reattach, Release und Operations-Recovery schreiben
   ueber den gemeinsamen Katalogkern mit Preview und Revisionsschutz.
 - Container-Clone-Lease und Zielregistrierung verwenden den gemeinsamen

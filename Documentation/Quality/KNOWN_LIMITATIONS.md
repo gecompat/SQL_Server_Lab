@@ -1622,9 +1622,14 @@ unterdrueckt. Readiness und CompleteImage-Neustart teilen einen Reporter und
 binden Gastjobs an ihre Restdeadline. Sonstige Gastjobs haben eine Deadline
 von 24 Stunden, Integrationstransfers von einer Stunde. Copy-VMFile fuer
 CU-/External-Runtime-Payloads sowie die Prepared-Shutdown-Pause sind angebunden.
-Offline-Job- und Transportvertraege sind geprueft. Der native CLI-Lauf
+Offline-Job- und Transportvertraege sind geprueft. Legacy-WMI-Aufrufe und
+Wartepfade sowie Hyper-V-Checkpoint-Cleanup verwenden einen eigenen lokalen
+Reporter-Runspace, der bei blockiertem Hauptthread weiter anzeigt. Der bestehende
+WMI-Transport und seine Abbruchlatenz bleiben unveraendert. Heartbeat und Cleanup
+sind mit blockiertem Hauptthread offline und im echten Terminal belegt;
+ein erneuter vollstaendiger Legacy-Gastlauf bleibt separat. Der native CLI-Lauf
 34427219338 auf 302a37d belegt Gastaufrufe, Readiness und Neustart bis zum
-erfolgreichen Cleanup. Legacy-WMI-Wartepfade bleiben offen. Session-Dateikopien fuer
+erfolgreichen Cleanup. Session-Dateikopien fuer
 SQL-Storage und Hyper-V-Datenbankpakete verwenden jetzt eine eigene asynchrone
 Pipeline mit Hostreporter und einer Stunde Deadline; deren Heartbeat, Ausgaben,
 Fehlerkategorien und Cleanup sind offline geprueft. Derselbe native Lauf
