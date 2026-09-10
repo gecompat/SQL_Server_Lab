@@ -229,6 +229,7 @@ function Show-LabEnvironmentMenu {
     $hasRuns = $runs.Count -gt 0
     $hasRunning = @($states | Where-Object { $_ -eq 'RUNNING' }).Count -gt 0
     $hasStopped = @($states | Where-Object { $_ -eq 'STOPPED' }).Count -gt 0
+    $hasHyperVRun = @($runs | Where-Object { [string]$_.metadata.workflowKind -eq 'hyperv-lab' }).Count -gt 0
     $testEnvironmentLifecycle = Get-LabAutomatedTestEnvironmentMenuState
     $hasAutomatedTestEnvironments = [bool]$testEnvironmentLifecycle.Available
     # Nur Container koennen neu erzeugt werden; der Provider steht am Sub-Run.
@@ -237,6 +238,8 @@ function Show-LabEnvironmentMenu {
         }).Count -gt 0
     $items = @(
         New-LabConsoleItem -Id 'Manage' -Label 'Umgebung auswaehlen und verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut '1' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung. Zuerst im Hauptmenue unter "Umgebungen planen und erstellen" eine anlegen.'
+        New-LabConsoleItem -Id 'HyperVManage' -Label 'Hyper-V-Umgebung auswaehlen und verwalten' -Value 'Windows/SQL · Lifecycle · Zugriff · WMI · Recovery' -Shortcut 'h' `
+            -Disabled:(-not $hasHyperVRun) -DisabledReason 'Es existiert keine verwaltete Hyper-V-Umgebung.'
         New-LabConsoleItem -Id 'Status' -Label 'Status aller Umgebungen anzeigen' -Shortcut '2' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, deren Status angezeigt werden koennte.'
         New-LabConsoleItem -Id 'SyncRuntime' -Label 'Mit Docker, Podman und Hyper-V abgleichen' -Value 'fehlende Objekte -> Recovery; keine Löschung' -Shortcut 's' -Disabled:(-not $hasRuns) -DisabledReason 'Ohne bekannte Umgebung gibt es keinen State, der mit der Runtime abgeglichen werden koennte.'
         New-LabConsoleItem -Id 'Stop' -Label 'Umgebung stoppen' -Shortcut '3' -Disabled:(-not $hasRunning) -DisabledReason 'Derzeit laeuft keine Umgebung.'
@@ -277,8 +280,6 @@ function Show-LabHyperVMenu {
         New-LabConsoleItem -Id 'Image' -Label 'Hyper-V Infrastruktur: OS-Images und ISOs verwalten' -Value 'Windows-/SQL-Basen, ISO-Download und Baseline-Builds' -Shortcut '1' `
             -Disabled:(-not $hyperVAvailable) -DisabledReason $disabledReason
         New-LabConsoleItem -Id 'WindowsSlotPool' -Label 'Windows-OS-Slot-Pool automatisch erstellen' -Value 'Baseline prüfen · RAM/Locale · Unattended OOBE' -Shortcut 'p' `
-            -Disabled:(-not $hyperVAvailable) -DisabledReason $disabledReason
-        New-LabConsoleItem -Id 'HyperVManage' -Label 'Hyper-V Slots und Infrastrukturverwaltung' -Value 'OS-/SQL-Slots übernehmen, freigeben, fortsetzen' -Shortcut '2' `
             -Disabled:(-not $hyperVAvailable) -DisabledReason $disabledReason
         New-LabConsoleItem -Id 'BulkSlots' -Label 'Mehrere Slots gemeinsam bereitstellen' -Value 'Mengenfaehiger Composer · gemeinsame Vorlagenabhaengigkeiten' -Shortcut '3' `
             -Disabled:(-not $hyperVAvailable) -DisabledReason $disabledReason

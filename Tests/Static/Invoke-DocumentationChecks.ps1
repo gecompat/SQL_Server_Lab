@@ -688,6 +688,7 @@ $sqlCuPolicy = Get-Content -LiteralPath (Join-Path $repoRoot 'ops\sql-cu-policy.
 $masterImplementationPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\MASTER_IMPLEMENTATION_PLAN.md') -Raw -Encoding utf8
 $developmentExecutionPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md') -Raw -Encoding utf8
 $projectPlanningIndex = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\README.md') -Raw -Encoding utf8
+$m0StatusTruthMatrix = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\M0_STATUS_TRUTH_MATRIX.md') -Raw -Encoding utf8
 $hyperVResourceRootBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md') -Raw -Encoding utf8
 $persistentStorageBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md') -Raw -Encoding utf8
 $fullInstanceEvaluationRefreshBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md') -Raw -Encoding utf8
@@ -1119,6 +1120,37 @@ Add-ValidationResult `
         $masterImplementationPlan -match '(?m)^\| N3 – Drei reale Project-Adapter-Piloten \| Wellen 6, 7 und 7a \| `COMPLETE`' -and
         $masterImplementationPlan -match '(?m)^\| N4 – Hyper-V Windows-/SQL-End-to-End \| Welle 4 \| `COMPLETE` \|' -and
         $masterImplementationPlan -match '(?m)^\| N5 – Storage- und Reconcile-Vertical-Slice \| Wellen 1, 3, 4 und 5; Storage-Konsolidierungsplan \| `COMPLETE`')
+
+$m0RequiredCriteria = 1..5 | ForEach-Object { 'M0-AC-{0:D3}' -f $_ }
+$m0RequiredStatuses = @('planned', 'implemented', 'validated', 'unsupported')
+$m0OldWaves = @('Welle 0','Welle 1','Welle 2','Welle 3','Welle 4','Welle 5','Welle 6','Welle 7','Welle 7a','Welle 8','Welle 9')
+Add-ValidationResult `
+    -Name 'M0-Matrix ist dedupliziert, indexiert und verwendet das kanonische Statusvokabular' `
+    -Success (($m0RequiredCriteria | Where-Object { ([regex]::Matches($m0StatusTruthMatrix, [regex]::Escape("| ``$_`` |"))).Count -ne 1 }).Count -eq 0 -and
+        ($m0RequiredStatuses | Where-Object { $m0StatusTruthMatrix -notmatch [regex]::Escape("| ``$_`` |") }).Count -eq 0 -and
+        $projectPlanningIndex -match 'M0_STATUS_TRUTH_MATRIX\.md' -and
+        $developmentExecutionPlan -match '\[M0-Statuswahrheitsmatrix\]\(M0_STATUS_TRUTH_MATRIX\.md\)' -and
+        $masterImplementationPlan -match '\[M0-Statuswahrheitsmatrix\]\(M0_STATUS_TRUTH_MATRIX\.md\)' -and
+        $repoMap -match 'm0_status_truth_matrix: Documentation/Project_Planning/M0_STATUS_TRUTH_MATRIX\.md')
+
+Add-ValidationResult `
+    -Name 'M0-Matrix ordnet jede alte Master-Plan-Welle genau einmal zu' `
+    -Success (($m0OldWaves | Where-Object { ([regex]::Matches($m0StatusTruthMatrix, "(?m)^\| $([regex]::Escape($_)) \|")).Count -ne 1 }).Count -eq 0)
+
+Add-ValidationResult `
+    -Name 'M0-Matrix bindet Änderungsklassen an statische und Runtime-Evidence mit wahrheitsgetreuem Ergebnis' `
+    -Success ($m0StatusTruthMatrix -match '## Kanonische Readinessmatrix' -and
+        $m0StatusTruthMatrix -match '\| Änderungsklasse \| Statischer Mindestnachweis \| Runtime-Evidence \| Status und Grund \|' -and
+        $m0StatusTruthMatrix -match '`NOT_EXECUTED`' -and
+        $m0StatusTruthMatrix -match '`SKIP_OPTIONAL`, `NOT_EXECUTED` und `UNSUPPORTED` sind\s+kein bestandener Runtime-Nachweis')
+
+Add-ValidationResult `
+    -Name 'Planung und Benutzerhilfe führen Hyper-V-Umgebungsverwaltung nur im umgebungszentrierten Pfad' `
+    -Success ($developmentExecutionPlan -match 'Bestehende Hyper-V-\s*Umgebungen werden unter \*\*Umgebungen verwalten\*\* ausgewählt' -and
+        $gettingStarted -match '\*\*Umgebungen verwalten\*\* → \*\*Hyper-V-Umgebung auswählen und\s*verwalten\*\*' -and
+        $interactiveWorkflow -match '\*\*Umgebungen verwalten\*\* →\s*\*\*Hyper-V-Umgebung auswählen und verwalten\*\*' -and
+        $interactiveMenu -match "-Id 'HyperVManage' -Label 'Hyper-V-Umgebung auswaehlen und verwalten'" -and
+        [regex]::Match($interactiveMenu, 'function Show-LabHyperVMenu \{[\s\S]+?(?=\r?\nfunction )').Value -notmatch "-Id 'HyperVManage'")
 
 Add-ValidationResult `
     -Name 'PSR-001 inventarisiert lokales Runtime-Backing und Speichernutzung read-only vollständig' `
