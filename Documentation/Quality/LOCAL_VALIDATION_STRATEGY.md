@@ -9,6 +9,12 @@
 
 ## 1. Grundsatz
 
+Die Persistent-Storage-Katalogsuite prueft auch den umgestellten
+Container-Datenbankreferenz-Writer: Preview ohne Katalogschreiben, genau eine
+Revision beim Apply, stabile Referenz-IDs bei No-op sowie Abweisung einer
+veralteten Revision und eines fremden Runs. Die übrigen direkten Writer bleiben
+separate PSR-003-Folgearbeit.
+
 `Tests/Static/Invoke-SkillChecks.ps1` validiert die drei Repository-Skills unter
 `.agents/skills`: eindeutige Namen, einfache YAML-String-Metadaten, vorhandene
 repositorygebundene Verweise und tatsaechlich exportierte Fachbefehle.
