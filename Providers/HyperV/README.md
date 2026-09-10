@@ -82,8 +82,11 @@ SHA-256- und ISO-9660-verifizierten Windows-Medium, persistiert Resume-State und
 erzeugt einen isolierten, versionsgerechten Generation-1-/Generation-2-Builder
 mit BIOS- beziehungsweise UEFI-DVD-Boot. Secure Boot ist für Windows Server
 2016 und neuer aktiv, für Windows Server 2012 R2 wegen der alten, auf aktuellen
-Hosts DBX-blockierten Bootkette jedoch aus. Die OS-Installation endet zunächst bewusst in
-`MANUAL_ACTION_REQUIRED`. Nach der manuellen OS-Installation kann die Runtime
+Hosts DBX-blockierten Bootkette jedoch aus. Im interaktiven Image-Menü endet
+die OS-Installation in `MANUAL_ACTION_REQUIRED`. Der getrennte Einstieg
+`Tools/New-WindowsServerEvaluationTemplate.ps1` automatisiert Setup, OOBE und
+Publikation für die im [bekannten Umfang](../../Documentation/Quality/KNOWN_LIMITATIONS.md)
+beschriebenen Windows-Versionen. Nach erfolgreicher OS-Installation kann die Runtime
 Sysprep ueber PowerShell Direct ausfuehren, den Microsoft-ImageState pruefen,
 den Gast-Shutdown beobachten und die an BuildId, ScopeId und Challenge
 gebundene Evidenz automatisch erzeugen. Der Zwischenzustand `REBOOT_REQUIRED`
@@ -97,25 +100,30 @@ als immutable `OS_SEALED` registriert; synthetische CI-Medien bleiben zwingend
 Der Slice ist kein allgemeiner SQL-Runtime-Nachweis. `New-SqlServerLab` kann
 einen eng begrenzten `SQL_PREPARED_SEALED`-Manifest-Klon mit OOBE-,
 `CompleteImage`- und Readiness-Orchestrierung erstellen; die Provider-Metadaten
-kennzeichnen dies separat als `prepared-image-clone-only`. Allgemeines
-Manifest-Binding und echter Windows-/SQL-End-to-End-Nachweis bleiben offen.
-
-Entsprechend erscheint Hyper-V noch nicht als allgemeiner ausführbarer Provider
-im `Invoke-SqlServerLab`-Menü. Eine breite Freigabe folgt erst nach allgemeinem
-Manifest-Binding, Netzwerkzugriff und echtem Windows-/SQL-End-to-End-Test.
+kennzeichnen dies separat als `prepared-image-clone-only`. Dieser Pfad ist für
+Windows Server 2025 Standard Evaluation (Desktop Experience) und SQL Server 2025 Enterprise
+Developer bis `SQL_READY_RUN`, unverändertem Parent und vollständigem Cleanup
+real belegt. Auch der separate SQL-2025-CLI-Vertical-Slice mit Installation,
+Storage, Ressourcenwechsel und Datenpersistenz besitzt native Evidence.
+Diese Referenzen sind in den
+[Known Limitations](../../Documentation/Quality/KNOWN_LIMITATIONS.md) abgegrenzt;
+sie geben keine allgemeine Windows-/SQL-Versions- oder Manifestmatrix frei.
+`sqlProvisioning=false` bezeichnet weiterhin die fehlende allgemeine
+SQL-Provisionierung des Provideradapters. Der engere Prepared-Manifestpfad
+und die getrennten Builder-/CLI-Einstiege bleiben ausdrücklich ausgewiesen.
 
 ## Verbleibender Providerumfang
 
-- unattended OS-Build und Rebootsteuerung waehrend der Installation;
+- Einbindung des unbeaufsichtigten Template-Builds in den interaktiven
+  Image-Menüpfad;
 - Linux Guest Management über cloud-init und SSH;
-- Restart und Einbindung in die öffentlichen Run-Lifecycle-Cmdlets;
-- echter End-to-End-Nachweis der Initialisierung in einem Windows-Gast;
-- Bindung des bestehenden providerneutralen Manifest-Drive-Vertrags;
+- zusätzliche Windows-/SQL-Kombinationen jenseits der dokumentierten nativen
+  Referenzen;
 - weitergehende Management-/Lab-Netze, Adapter-Neuanlage, Rebinding und
   Gastadressreparatur;
-- resumierbare OS- und SQL-Server-Installation;
-- echter End-to-End-Sysprep-Nachweis in einem Windows-Gast; der Native-Smoke
-  verwendet weiterhin bewusst nur synthetische leere Testmedien;
+- breite Freigabe der OS-/SQL-Installationspfade; der allgemeine Native-Smoke
+  verwendet weiterhin synthetische leere Testmedien und ersetzt die getrennten
+  Gast-, Sysprep- und SQL-Akzeptanzläufe nicht;
 - breitere Software-, Post-Provisioning- und allgemeine Datenbankbindung;
 - Reconcile für direkte Create-/Restore-Datenbanken, Storage-Rebinding/-Removal,
   vollständige `sp_configure`-Entfernung sowie weitere noch nicht klassifizierte

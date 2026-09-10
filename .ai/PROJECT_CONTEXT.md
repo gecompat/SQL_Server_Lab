@@ -162,8 +162,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   und Quellfreigabe, Reattach sowie Release committen nach der physischen
   Postcondition atomar und idempotent in den controllergebundenen Katalog.
   Teilfehler bleiben `RECOVERY_REQUIRED`; der native Ablauf
-  `RELEASE -> CLONE -> REATTACH -> RELEASE` ist samt Cleanup belegt. Öffentliche
-  Bedienung und explizites SQL-Restore/Attach bleiben Folgearbeit;
+  `RELEASE -> CLONE -> REATTACH -> RELEASE` ist samt Cleanup belegt. Die
+  öffentlichen CLI-/Browser-Aktionen für Release, Reattach und Clone verwenden
+  stabile Storage-IDs, gebundene Lab-/VM-Identitäten und denselben Core. Bestehende
+  Datenbankdateien bleiben nach Reattach bis zu einer expliziten
+  Restore-/Attach-Aktion offline; Datenträgerbindung allein führt keinen
+  SQL-Attach aus;
 - read-only Serverobjekt- und TDE-Abhängigkeitsinventar
   `SqlServerLab.DatabaseMigrationDependencyInventory/1.0` mit sanitisierter
   Count-Evidence für Login-Mappings, SQL-Agent-Jobs, Proxies, Linked-Server-
