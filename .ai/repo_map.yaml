@@ -93,6 +93,9 @@ sources_of_truth:
   sql_observability_evidence_schema: Schemas/sql-observability-evidence.schema.json
   validation_sql_observability_evidence: Tests/Static/Invoke-SqlObservabilityEvidenceChecks.ps1
   host_tool_resolution: Private/HostToolResolution.ps1
+  client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
+  client_readiness_core: Private/ClientReadiness.ps1
+  validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1
   host_tool_initializer: Tools/Initialize-SqlServerLabHostTools.ps1
   validation_host_tool_resolution: Tests/Static/Invoke-HostToolResolutionChecks.ps1
   state_contract: Private/StateMachine.ps1

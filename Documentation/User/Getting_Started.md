@@ -20,7 +20,19 @@ Erforderlich:
 - mindestens 5 GB freier Speicherplatz
 - `sqlcmd` für Datenbankoperationen und den vollständigen Smoke-Test
 
-Prüfen:
+Nach dem Checkout liefert der folgende Check ein strukturiertes Ergebnis,
+ohne einen Skill vorauszusetzen oder eine Runtime zu starten:
+
+```powershell
+./Tools/Test-SqlServerLabClientReadiness.ps1 -Provider docker -Operation Create
+```
+
+Fuer Podman oder Hyper-V den Provider entsprechend waehlen. Fehlende
+Voraussetzungen und naechste Schritte stehen in `MissingPrerequisites` und
+`NextSteps`. `READY_WITH_WARNINGS` verlangt, die `Warnings` zu beachten.
+Die konkrete Operation prueft ihre Ressourcen und Ownership weiterhin selbst.
+
+Einzelne Werkzeuge lassen sich auch direkt pruefen:
 
 ```powershell
 $PSVersionTable.PSVersion

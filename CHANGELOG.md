@@ -15,6 +15,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Eigenstaendiger read-only Client-Readiness-Check ohne KI-Skill: getrennte
+  Bootstrap-, Installations-, Berechtigungs-, Runtime- und Storagebefunde mit
+  konkreten naechsten Schritten; kein Runtime-Start oder Konfigurationsschreiben.
 - PowerShell-Session-Dateikopien fuer SQL-Storage und Hyper-V-Datenbankpakete
   melden hostseitigen Fortschritt aus einer eigenen asynchronen Pipeline.
   Fehlerkategorien bleiben erhalten; die Session bleibt im Besitz des Aufrufers.

@@ -2,13 +2,24 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `BACKLOG` |
+| Status | `IMPLEMENTED_PARTIAL` |
 | Entscheidung | fachlich akzeptiert |
-| Stand | 2026-09-05 |
+| Stand | 2026-09-10 |
 | Geplanter Scope | `.agents/skills` im Repository |
 | Reihenfolge | `Readiness` vor `Validation` und `Operate` |
 
 ## Entscheidung
+
+Der eigenstaendige read-only Einstieg
+`Tools/Test-SqlServerLabClientReadiness.ps1` ist implementiert. Er prueft ohne
+geladenen Skill Betriebssystem, PowerShell, Checkout, Manifest, Modulimport,
+Exports, den ausgewaehlten Provider und Storage. Installation, Zugriff,
+Erreichbarkeit und Timeout bleiben getrennte Codes. `PrepareImage` prueft
+unter Hyper-V zusaetzlich das erhoehte Token; andere Mutationen behalten ihre
+konkreten Ownership-/Ressourcenpruefungen am oeffentlichen Einstiegspunkt.
+Docker, Podman und Hyper-V wurden lokal read-only erreicht; Windows PowerShell
+5.1 meldete die fehlende Mindestversion strukturiert. Die drei Skills und der
+optionale REST-Adapter bleiben Folgearbeit.
 
 Wiederverwendbare KI-Arbeitsabläufe für `SQL_Server_Lab` werden als
 repository-lokale Skills unter `.agents/skills` geplant. Sie werden gemeinsam
@@ -227,8 +238,9 @@ Skill-Erkennung selbst gestört ist.
 
 ## Nichtziele und aktuelle Grenze
 
-Dieses Dokument startet keine Implementierung und weist keinen Skill oder
-Readiness-Check als vorhanden oder validiert aus. Es erweitert weder die
+Dieses Dokument weist noch keinen Skill oder REST-Adapter als vorhanden aus.
+Der eigenstaendige Readiness-Stand und seine Nachweise sind oben getrennt
+ausgewiesen. Es erweitert weder die
 unterstützten SQL-Server-/Providerkombinationen noch die Autorisierung für
 Host-, Runtime-, Cleanup- oder Recovery-Mutationen.
 
