@@ -5,8 +5,10 @@
 `PARTIAL` – versionierter Manifest-/Batch-Intent, gemeinsamer Resolver,
 Image-Sprachpreflight, OOBE-Bindung, Manifest-Lock und beobachteter Receipt
 sind implementiert und fokussiert statisch geprüft. Der native US-Kaltstarttest
-ist implementiert, aber noch nicht erfolgreich ausgeführt. Offline-Sprachmedien
-und zusätzliche Tastaturlayouts bleiben offen. Details und Grenzen:
+hat am 2026-09-10 einen Windows-Server-2025-Batch mit dem geparsten
+Manifest-Intent, OOBE, Kaltstart und Cleanup bestaetigt (Run `34435602810`,
+Commit `bbd29e7`). Der direkte SQL-Prepared-Manifestlauf, Offline-Sprachmedien
+und zusätzliche Tastaturlayouts bleiben getrennt offen. Details und Grenzen:
 [Windows-Locale-Vertrag](../HowTo/WINDOWS_LOCALE.md).
 
 ## Ausgangslage

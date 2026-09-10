@@ -13,7 +13,12 @@
 Wizard-/Batch-Bindung, Image-Sprachgrenze, Lock-Idempotenz und widerspruechliche
 Receipts. Die Hyper-V-Umgebungssuite prueft den nach OOBE geschriebenen Receipt.
 Der gesonderte `Invoke-HyperVWindowsLocaleAcceptance.ps1` prueft einen eigenen
-Batch mit US-Profil nach Kaltstart; ein erfolgreicher Lauf ist noch offen.
+Batch mit US-Profil nach Kaltstart. Run `34435602810` auf `bbd29e7` hat am
+2026-09-10 OOBE, alle fuenf Werte, Lock-/Receipt-Bindung und Cleanup auf
+Windows Server 2025 bestaetigt. Der vorherige Lauf `34434505887` auf `70cf4a8`
+waehlte eine ungeeignete Legacy-Baseline und lief in den OOBE-Timeout;
+sein dreistufiger Cleanup war erfolgreich. Die Baseline-Auswahl ist jetzt
+explizit auf Windows Server 2025 begrenzt und statisch regressionsgeprueft.
 
 `Invoke-BlockingActionProgressChecks.ps1` prueft einen mit `Thread.Sleep`
 blockierten Hauptthread: Heartbeat ab fuenf Sekunden, Drosselung,
