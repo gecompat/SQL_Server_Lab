@@ -513,6 +513,35 @@ try {
     Add-CheckResult `
         -Name 'Legacy-Run-Pfadgrenze akzeptiert nur resources/hyperv' `
         -Success ($pathContract.Inside -and -not $pathContract.Outside)
+    $reparseContract = & $module {
+        $temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hyperv-reparse-' + [guid]::NewGuid().ToString('N'))
+        $runDirectory = Join-Path $temporaryRoot 'run'
+        $resourceRoot = Join-Path (Join-Path $runDirectory 'resources') 'hyperv'
+        $externalRoot = Join-Path $temporaryRoot 'external'
+        $linkPath = Join-Path $resourceRoot 'linked'
+        $sentinelPath = Join-Path $externalRoot 'sentinel.txt'
+        try {
+            New-Item -ItemType Directory -Path $resourceRoot -Force | Out-Null
+            New-Item -ItemType Directory -Path $externalRoot -Force | Out-Null
+            Set-Content -LiteralPath $sentinelPath -Value 'outside-cleanup-boundary' -Encoding utf8 -NoNewline
+            $linkType = if ($IsWindows) { 'Junction' } else { 'SymbolicLink' }
+            New-Item -ItemType $linkType -Path $linkPath -Target $externalRoot | Out-Null
+            $rejected = -not (Test-HyperVPathWithinRunDirectory `
+                -Path (Join-Path $linkPath 'external-child.vhdx') `
+                -RunDirectory $runDirectory)
+            [PSCustomObject]@{
+                Rejected = $rejected
+                ExternalSentinelPreserved = (Get-Content -LiteralPath $sentinelPath -Raw -Encoding utf8) -eq 'outside-cleanup-boundary'
+            }
+        }
+        finally {
+            if (Test-Path -LiteralPath $linkPath) { (Get-Item -LiteralPath $linkPath -Force).Delete() }
+            if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force }
+        }
+    }
+    Add-CheckResult `
+        -Name 'Hyper-V-Cleanup-Pfad verweigert Junction-/Symlink-Ausbruch und bewahrt das externe Ziel' `
+        -Success ($reparseContract.Rejected -and $reparseContract.ExternalSentinelPreserved)
 }
 catch {
     Add-CheckResult -Name 'Hyper-V-Provider-Testausfuehrung' -Success $false -Message $_.Exception.Message
@@ -529,6 +558,3 @@ if ($failures.Count -gt 0) {
 }
 
 exit 0
-
-
-
