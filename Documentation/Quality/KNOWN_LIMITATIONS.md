@@ -1696,7 +1696,12 @@ Wartepfade sowie Hyper-V-Checkpoint-Cleanup verwenden einen eigenen lokalen
 Reporter-Runspace, der bei blockiertem Hauptthread weiter anzeigt. Der bestehende
 WMI-Transport und seine Abbruchlatenz bleiben unveraendert. Heartbeat und Cleanup
 sind mit blockiertem Hauptthread offline und im echten Terminal belegt;
-ein erneuter vollstaendiger Legacy-Gastlauf bleibt separat. Der native CLI-Lauf
+ein erneuter vollstaendiger Legacy-Gastlauf bleibt separat. Die nachtraeglich
+gefundenen Luecken zwischen den WMI-Aufrufen des SQL-Receipt-Pollings sowie in
+Legacy-OOBE und direkten SQL-Setup-Abfragen teilen nun ebenfalls einen
+durchgehenden Reporter. Synthetischer Transport prueft Heartbeat waehrend der
+Receipt-Wartephase, unveraenderte Ausgabe, Fehler vor und nach Transportbeginn
+und Cleanup; dies belegt keinen neuen WMI-/SMB-Gastlauf. Der native CLI-Lauf
 34427219338 auf 302a37d belegt Gastaufrufe, Readiness und Neustart bis zum
 erfolgreichen Cleanup. Session-Dateikopien fuer
 SQL-Storage und Hyper-V-Datenbankpakete verwenden jetzt eine eigene asynchrone
