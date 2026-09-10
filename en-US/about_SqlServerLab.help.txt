@@ -82,6 +82,10 @@ COMMANDS
 
     Get-SqlServerLabWorkflow
         Returns the consolidated workflow view for local labs, Windows
+
+    Find-SqlServerLabCollation
+        Searches cataloged SQL Server collations by token and SQL major version
+        without changing state or a runtime.
         baselines, SQL prepared images, and acceptance environments.
 
     Get-SqlServerLabHyperVImageArtifact

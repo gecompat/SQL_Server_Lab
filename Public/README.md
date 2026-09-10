@@ -20,6 +20,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Stop-SqlServerLabBatch` | `BatchWorkflow.ps1` | Unfertige Positionen oder ausdrücklich den gesamten Batch zurückbauen |
 | `Invoke-SqlServerLabScheduler` | `BatchWorkflow.ps1` | Persistente Queue mit begrenzter Workerzahl bis zum Leerlauf verarbeiten |
 | `Get-SqlServerLabWorkflow` | `Get-SqlServerLabWorkflow.ps1` | Verdichtete Workflow-, Image- und Kombinationsübersicht ohne Geheimnisse |
+| `Find-SqlServerLabCollation` | `Find-SqlServerLabCollation.ps1` | Katalogisierte SQL-Server-Collations tokenbasiert und versionsgebunden durchsuchen; die Suche verändert keine Runtime |
 | `Get-SqlServerLabHyperVImageArtifact` | `Get-SqlServerLabHyperVImageArtifact.ps1` | Pfadfreie read-only Hyper-V-Image-Registry mit Evaluation, manueller Refresh-Empfehlung, Referenzen und optionaler Integritätsprüfung |
 | `Get-SqlServerLabEvaluationWatch` | `Get-SqlServerLabEvaluationWatch.ps1` | Windows- und SQL-Evaluationsfristen read-only bewerten und fällige Ereignisse optional lokal deduplizieren |
 | `Get-SqlServerLabRunStateUpgradePlan` | `Get-SqlServerLabRunStateUpgradePlan.ps1` | Einen einzelnen Run-State pfad- und secretfrei gegen den Zielvertrag klassifizieren |

@@ -24,6 +24,7 @@
         'Invoke-SqlServerLab'
         'Get-SqlServerLabWorkflow'
         'Get-SqlServerLabAiScenario'
+        'Find-SqlServerLabCollation'
         'Get-SqlServerLabHyperVImageArtifact'
         'Get-SqlServerLabEvaluationWatch'
         'Get-SqlServerLabRunStateUpgradePlan'
