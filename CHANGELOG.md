@@ -15,6 +15,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Korrigiert
 
+- Windows-Aktivierung entfernt keine Adapter mehr anhand eines festen Namens.
+  Ein Journal bindet Cleanup und Resume an VM, Scope, Adapter-ID und Vorbestand;
+  ein bereits aktiver Slot loest keine Netzwerkmutation aus.
+
 - Direkter Fortschritt zeigt die fertige Konsolenzeile statt der
   PowerShell-Objektbeschreibung des Formatierungsresultats.
 - Client-Readiness erkennt Linux ueber das Plattformmerkmal von PowerShell;

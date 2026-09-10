@@ -37,7 +37,7 @@ function Get-LabConsoleHelpCatalog {
             Preconditions = @($dataRootPrecondition, $stateRootPrecondition)
             Items   = @{
                 'create'         = @{ Purpose = 'Neue SQL- oder Windows-Umgebungen zusammenstellen, pruefen und uebergeben.'; Command = 'New-SqlServerLabBatch' }
-                'environment'    = @{ Purpose = 'Vorhandene Umgebungen starten, stoppen, aendern und entfernen.'; Command = 'Get-SqlServerLab' }
+                'environment'    = @{ Purpose = 'Vorhandene Docker-, Podman- und Hyper-V-Umgebungen starten, stoppen, aendern und entfernen.'; Command = 'Get-SqlServerLab' }
                 'queue'          = @{ Purpose = 'Laufende, wartende und fehlgeschlagene Vorgaenge einsehen und steuern.'; Command = 'Get-SqlServerLabQueue' }
                 'database'       = @{ Purpose = 'Datenbanken, Pakete, Skripte und Endpunkte erreichen.'; Command = 'Get-SqlServerLabConnectionCenter' }
                 'cms'            = @{ Purpose = 'Registrierte Server der zentralen Verwaltung und den SSMS-Export erreichen.'; Command = 'Sync-SqlServerLabCms' }
@@ -119,6 +119,9 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Die Auswahl allein veraendert nichts.'
             Command = 'Get-SqlServerLab'
             Preconditions = @($stateRootPrecondition)
+            Items   = @{
+                'HyperVManage' = @{ Purpose = 'Wählt eine vorhandene Hyper-V-Umgebung für Windows-, SQL-, Lifecycle-, Zugriffs- und Recovery-Aktionen aus.'; Command = 'Get-SqlServerLab / Invoke-SqlServerLabWorkflowAction' }
+            }
         }
         'environment-actions' = @{
             Title   = 'Aktionen fuer die gewaehlte Umgebung'
@@ -202,7 +205,7 @@ function Get-LabConsoleHelpCatalog {
         }
         'hyperv-menu' = @{
             Title   = 'Hyper-V-Infrastruktur'
-            Purpose = 'Verwaltet Windows-Baselines, vorbereitete Images, Slots und SQL-Builds.'
+            Purpose = 'Verwaltet Windows-Baselines, vorbereitete Images, freie Slots und SQL-Builds. Bestehende Umgebungen liegen im Umgebungsmenü.'
             Effects = 'Builds und Klone belegen erheblichen Speicher und erfordern erhoehte Rechte.'
             Related = @('Hyper-V-Aktionen fordern bei Bedarf automatisch eine UAC-Erhoehung an.')
             Command = 'Get-SqlServerLabHyperVImageArtifact'

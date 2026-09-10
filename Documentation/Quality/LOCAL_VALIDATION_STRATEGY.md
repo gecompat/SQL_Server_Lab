@@ -9,6 +9,14 @@
 
 ## 1. Grundsatz
 
+`Invoke-WindowsActivationNetworkChecks.ps1` prueft Adaptervorbestand,
+Identitaetsbindung, Teilfehler, idempotenten Cleanup und Recovery-Konflikte.
+`Invoke-WindowsActivationNetworkAcceptance.ps1` hat am 2026-09-10 mit einer
+ausgeschalteten eigenen VM und einem privaten Switch Erfolg, kontrollierten
+Fehler und Resume nativ bestaetigt. Der gleichnamige fremde Fixture-Adapter
+blieb unveraendert; abschliessender VM-/Switch-/Datei-Cleanup war erfolgreich.
+Es wurde weder ein Gast gestartet noch eine Windows-Lizenz aktiviert.
+
 `Invoke-WindowsLocaleChecks.ps1` prueft portable Normalisierung, Schema,
 Wizard-/Batch-Bindung, Image-Sprachgrenze, Lock-Idempotenz und widerspruechliche
 Receipts. Die Hyper-V-Umgebungssuite prueft den nach OOBE geschriebenen Receipt.
