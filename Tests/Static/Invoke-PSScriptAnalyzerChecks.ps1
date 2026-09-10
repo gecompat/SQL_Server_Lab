@@ -6,7 +6,8 @@
 .DESCRIPTION
     Der Check ist lokal reproduzierbar und mutiert keine Artefakte. Fehler blockieren
     den Lauf; Warnungen werden als gruppierte technische Schuld sichtbar ausgegeben.
-    Bei fehlendem Modul wird der Check bewusst als "skipped" bewertet.
+    Bei fehlendem Modul bleibt die Analyse als nicht ausgefuehrt sichtbar und der
+    Check beendet sich mit einem Infrastruktur-Exitcode ungleich null.
 #>
 [CmdletBinding()]
 param(
@@ -47,10 +48,10 @@ $excludedRootNames = @(
 $scriptAnalyzerCommand = Get-Command Invoke-ScriptAnalyzer -ErrorAction SilentlyContinue
 
 if (-not $scriptAnalyzerCommand) {
-    Write-Warning 'PSScriptAnalyzer nicht installiert. Check wird uebersprungen.'
+    Write-Host 'PSScriptAnalyzer: INFRASTRUCTURE_UNAVAILABLE (Modul nicht installiert).' -ForegroundColor Red
+    Write-Host 'PSScriptAnalyzer: NOT_EXECUTED (keine Analyse ausgefuehrt).' -ForegroundColor Red
     Write-Host 'Installation: Install-Module PSScriptAnalyzer -Scope CurrentUser -Force' -ForegroundColor Cyan
-    Write-Host 'Dieser Check gilt als bestanden, bis das Modul in der Umgebung verfuegbar ist.' -ForegroundColor Cyan
-    exit 0
+    exit 2
 }
 
 Import-Module $scriptAnalyzerCommand.Module.Name -ErrorAction Stop | Out-Null
