@@ -669,7 +669,7 @@ CREATE DATABASE [$(SecondDatabase)];
         $restoreText -match 'Resolve-LabRestoreContainer @restoreTargetArguments'
     )
     Add-CheckResult -Name 'FILELISTONLY verwirft sqlcmd-Leerzeilen vor der MOVE-Erzeugung' -Success (
-        $restoreText -match "-h -1" -and
+        $restoreText -match "'-h','-1'" -and
         $restoreText -match '\$fileListLines = @\(' -and
         $restoreText -match 'FILELISTONLY lieferte keine Dateizeilen' -and
         $restoreText -match 'New-LabRestoreMoveStatements -FileListOutput \$fileListLines'

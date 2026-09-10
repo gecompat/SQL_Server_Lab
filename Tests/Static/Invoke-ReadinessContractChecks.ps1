@@ -97,10 +97,10 @@ if ($failures.Count -eq 0) {
     Assert-Contains $sqlReadiness 'Start-Sleep\s+-Milliseconds' 'Readiness verwendet kein kurzes Millisekunden-Polling.'
     Assert-Contains $sqlReadiness 'function\s+Wait-LabDatabaseReady' 'Datenbank-Readiness-Funktion fehlt.'
     Assert-Contains $sqlReadiness 'Wait-LabDatabaseReady[\s\S]+Invoke-LabSqlScript' 'Skriptausfuehrung ist nicht gegen Datenbank-Readiness abgesichert.'
-    Assert-Contains $sqlReadiness 'if\s+\(\$KeepConnection\)[\s\S]+-i\s+\$tempScriptPath' 'KeepConnection fuehrt das Skript nicht in einem einzelnen sqlcmd-Prozess aus.'
+    Assert-Contains $sqlReadiness 'if\s+\(\$KeepConnection\)[\s\S]+Invoke-LabSqlcmdProgress[\s\S]+''-i'',\$tempScriptPath' 'KeepConnection fuehrt das Skript nicht in einem einzelnen sqlcmd-Prozess aus.'
     Assert-Contains $sqlReadiness 'WriteAllText\([\s\S]+UTF8Encoding\]::new\(\$true\)' 'KeepConnection erzeugt keine explizite UTF-8-BOM-Eingabedatei.'
     Assert-Contains $sqlReadiness '-X1[\s\S]+-x' 'KeepConnection deaktiviert die sqlcmd-Skriptebene nicht vollstaendig.'
-    Assert-Contains $sqlReadiness '\$IsWindows\s+-and\s+\(\$Query\.Length\s+-gt\s+7000\s+-or\s+\$Query\.Contains\(''"''\)\)[\s\S]+-i\s+\$tempQueryPath' 'Grosse oder doppelte Anfuehrungszeichen enthaltende Windows-Batches umgehen die sichere Query-Dateiuebergabe.'
+    Assert-Contains $sqlReadiness '\$IsWindows\s+-and\s+\(\$Query\.Length\s+-gt\s+7000\s+-or\s+\$Query\.Contains\(''"''\)\)[\s\S]+''-i'',\$tempQueryPath' 'Grosse oder doppelte Anfuehrungszeichen enthaltende Windows-Batches umgehen die sichere Query-Dateiuebergabe.'
     Assert-Contains $sqlReadiness 'tempQueryPath[\s\S]+finally[\s\S]+Remove-Item' 'Temporaere grosse Query-Dateien werden nicht garantiert entfernt.'
 
     Assert-Contains $portAllocation 'function\s+Get-LabReservedSqlPorts' 'Runtimeuebergreifende Portermittlung fehlt.'

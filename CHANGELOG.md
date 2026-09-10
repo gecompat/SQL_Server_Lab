@@ -6,8 +6,18 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ## 2026-09-10
 
+### Korrigiert
+
+- sqlcmd-Treiberfehler werden auch bei Exitcode null als Fehler behandelt.
+  Damit melden Query-Timeouts keinen erfolgreichen Skript- oder Restore-Lauf.
+
 ### Ergaenzt
 
+- SQL-Probes, Abfragen, Skripte und Restore melden waehrend nativer sqlcmd-
+  Aufrufe hostseitigen Fortschritt. Skriptbatches teilen sich einen Reporter;
+  Unicode-Ergebnisse werden ueber eine anschliessend entfernte temporaere
+  Ergebnisdatei eingelesen. Statement-Timeouts bleiben erhalten, eine getrennte
+  Prozessdeadline verhindert unbegrenzt haengende sqlcmd-Prozesse.
 - Sample-ZIP-Archive melden entpackte Bytewerte; 7-Zip-Schritte zeigen
   hostseitigen Fortschritt. Mehrteilige Archive behalten denselben Reporter
   bis zum Abschluss und entfernen eigene Teildateien nach Fehlern.

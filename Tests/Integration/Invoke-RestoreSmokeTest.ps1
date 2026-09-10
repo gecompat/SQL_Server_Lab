@@ -16,6 +16,7 @@
 .EXAMPLE
     .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker
 #>
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText','',Justification='Nur zufaellig erzeugte synthetische Credentials fuer den eigenen isolierten Test-Run.')]
 [CmdletBinding()]
 param(
     [Alias('h','help','?')][switch]$ShowHelp,
@@ -47,6 +48,7 @@ $containerBackupPath = '/var/opt/mssql/backup/synthetic-restore-source.bak'
 $previousStateRoot = $env:SQL_SERVER_LAB_STATE
 $lab = $null
 $testFailed = $false
+$cleanupFailed = $false
 $saPlain = $null
 
 function Assert-True {
@@ -210,16 +212,22 @@ finally {
     $saPlain = $null
     if ($lab -and -not $KeepOnFailure) {
         try {
-            Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force | Out-Null
+            $cleanupResult = Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force
+            if ($cleanupResult.Status -ne 'REMOVED') { throw 'RESTORE_SMOKE_CLEANUP_REQUIRED' }
         }
         catch {
             Write-Host "Cleanup-Fehler: $($_.Exception.Message)" -ForegroundColor Red
             $testFailed = $true
+            $cleanupFailed = $true
         }
     }
 
-    if (-not $KeepOnFailure -and (Test-Path -LiteralPath $testRoot)) {
-        Remove-Item -LiteralPath $testRoot -Recurse -Force
+    if (-not $KeepOnFailure -and -not $cleanupFailed -and (Test-Path -LiteralPath $testRoot)) {
+        $resolvedTestRoot = [IO.Path]::GetFullPath($testRoot)
+        $tempBoundary = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+        if (-not $resolvedTestRoot.StartsWith($tempBoundary,[StringComparison]::OrdinalIgnoreCase) -or
+            [IO.Path]::GetFileName($resolvedTestRoot) -notlike 'sql-server-lab-restore-*') { throw 'RESTORE_SMOKE_CLEANUP_SCOPE_INVALID' }
+        Remove-Item -LiteralPath $resolvedTestRoot -Recurse -Force
     }
     $env:SQL_SERVER_LAB_STATE = $previousStateRoot
 }

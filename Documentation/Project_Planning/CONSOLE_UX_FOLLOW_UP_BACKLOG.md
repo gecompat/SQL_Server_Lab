@@ -257,7 +257,11 @@ dies ist kein Nachweis fuer VM-Lifecycle oder produktive VHDX-Groessen.
 ZIP-Backup-, Attach- und Script-Bundle-Payloads melden entpackte Bytewerte;
 7-Zip-Pruefung und -Extraktion besitzen hostseitigen Heartbeat. Mehrteilige
 Archive teilen sich einen Reporter bis zum Abschluss oder Fehler.
-Weitere SQL-/Containertransfers und Gastwartepfade bleiben Teil dieses offenen Punkts; der folgende Ausgangsbefund
+Native sqlcmd-Probes, Query-, Skript- und Restore-Aufrufe sind hostseitig
+angebunden; mehrere Skriptbatches teilen sich eine Anzeige. SQL-Ergebnisdateien
+werden nur kurzzeitig fuer eine eindeutige Unicode-Decodierung verwendet und
+bei Erfolg, Fehler und Abbruch entfernt. Containertransfers und Gastwartepfade
+bleiben Teil dieses offenen Punkts; der folgende Ausgangsbefund
 beschreibt den Stand vor dieser Erweiterung.
 
 Geprüfter Ist-Zustand vom 2026-09-09: Das feste Statusband (`CUI-022`) zeigt
