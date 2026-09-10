@@ -248,6 +248,8 @@
         <label>Labname<input id="hyperv-lab-name" value="hyperv-sql-lab" pattern="[A-Za-z0-9][A-Za-z0-9 _-]{0,63}" required></label>
         <label>Instanzname<input id="hyperv-instance" value="primary" pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,63}" required></label>
         <label>Startspeicher (MB)<input id="hyperv-memory" type="number" min="512" value="4096" required></label>
+        <label>Windows-Aktivierung<select id="hyperv-activation-strategy"><option value="EvaluationOnline">Gültige Evaluation bei Bedarf aktivieren</option><option value="VerifyOnly">Vorhandene Aktivierung nur prüfen</option></select></label>
+        <label>Netzzugriff für Aktivierung<select id="hyperv-activation-egress"><option value="ExistingOnly">Nur vorhandene gebundene Verbindung verwenden</option><option value="AllowTemporary">Temporären externen Adapter erlauben</option><option value="Denied">Keine Online-Aktivierung erlauben</option></select></label>
         <label>vCPU<input id="hyperv-processors" type="number" min="1" max="64" value="4" required></label>
         <label>Virtueller Switch<select id="hyperv-switch"><option value="">SQL_Server_Lab-Standard (Host-SSMS möglich)</option></select></label>
         <label>Region<input id="hyperv-region" value="DE" list="hyperv-region-options" maxlength="5" required><datalist id="hyperv-region-options"><option value="DE"><option value="AT"><option value="de-DE"><option value="de-AT"><option value="US"></datalist></label>

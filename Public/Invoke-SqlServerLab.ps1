@@ -4764,6 +4764,7 @@ function Complete-LabHyperVManualWindowsWorkflowInteractive {
     if (-not $userName) { $userName = 'Administrator' }
     $credential = [PSCredential]::new($userName, (Read-Host '  Gastpasswort' -AsSecureString))
     Write-LabInfo 'Windows-Grundinstallation wird jetzt geprüft und das Labnetz eingerichtet.'
+    if($Intent -and $Intent.PSObject.Properties['WindowsActivationRequired'] -and $Intent.WindowsActivationRequired){Set-LabWindowsTestEnvironmentActivationIntent -RunId $RunId}
     $result = Complete-HyperVLabManualWindowsSlot -RunId $RunId -Credential $credential
     Write-LabSuccess "Windows-Slot übernommen: $($result.VMName) · $($result.ComputerName)"
     if ($Intent -and $Intent.PSObject.Properties['WindowsActivationRequired'] -and $Intent.WindowsActivationRequired) {
@@ -4879,6 +4880,7 @@ function Invoke-LabReusableHyperVWindowsSlotInteractive {
     }
     if ([string]$Slot.Phase -ne 'OOBE_PENDING' -and $Intent -and
         $Intent.PSObject.Properties['WindowsActivationRequired'] -and $Intent.WindowsActivationRequired) {
+        Set-LabWindowsTestEnvironmentActivationIntent -RunId ([string]$Slot.RunId)
         if ([string]$Slot.LiveState -ne 'Running') {
             $null = Start-HyperVLabEnvironment -RunId ([string]$Slot.RunId)
             $Slot.LiveState = 'Running'

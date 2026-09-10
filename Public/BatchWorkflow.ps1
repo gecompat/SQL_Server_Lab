@@ -128,6 +128,12 @@ function New-SqlServerLabBatch {
                 try{$effective['WindowsLocale']=Resolve-LabWindowsLocaleIntent -Intent $localeValue}
                 catch{$blocking+=[string]$_.Exception.Message}
             }
+            $activationValue=Get-LabWorkflowValue -InputObject $effective -Name 'WindowsActivation' -Default $null
+            if($activationValue){
+                if([string]$decision.provider -ne 'hyperv'){$blocking+='WINDOWS_ACTIVATION_WINDOWS_PROVIDER_REQUIRED'}
+                try{$effective['WindowsActivation']=Resolve-LabWindowsActivationIntent -Intent $activationValue}
+                catch{$blocking+=[string]$_.Exception.Message}
+            }
             if (-not [string]::IsNullOrWhiteSpace([string]$decision.blockingError)) {
                 $blocking += "[$itemId] $($decision.blockingError)"
             }

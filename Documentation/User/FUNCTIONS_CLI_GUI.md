@@ -14,6 +14,10 @@
 `New-SqlServerLabWindowsSlotPool` und die Hyper-V-Erstellung über
 `Invoke-SqlServerLabWorkflowAction` verwenden den gemeinsamen
 [Windows-Locale-Vertrag](../HowTo/WINDOWS_LOCALE.md).
+Manifest, Batch, Slot-Pool und Browser-Erstellung verwenden auch den
+[Windows-Aktivierungsintent](../HowTo/WINDOWS_ACTIVATION.md).
+`WindowsActivation` am Slot-Pool und Workflow-Adapter bindet Strategie und
+Egress; `RepairHyperVWindowsActivation` prueft einen laufenden Slot erneut.
 
 Diese Übersicht erfasst alle Funktionen, die über `FunctionsToExport` im
 Modulmanifest zur öffentlichen PowerShell-CLI gehören. Jede aufgeführte

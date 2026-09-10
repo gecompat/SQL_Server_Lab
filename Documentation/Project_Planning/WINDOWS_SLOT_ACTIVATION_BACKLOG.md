@@ -2,8 +2,8 @@
 
 ## Status
 
-`BACKLOG` – fachlich akzeptiert, für automatisierte Windows-Testumgebungen
-teilweise implementiert, noch kein allgemeiner Windows-Slot-Lifecycle-Vertrag.
+`PARTIAL` – gemeinsamer Intent und Aktivierungs-Gate fuer regulaere Slots
+implementiert; native allgemeine Aktivierung und Vollversionsstrategien offen.
 Reihenfolge und Priorität richten sich nach dem kanonischen Entwicklungs- und
 Ausführungsplan.
 
@@ -20,15 +20,15 @@ Switch-ID oder Null-GUID erkannt; VM-ID, Adapter-ID und Vorbestand bleiben Pflic
 SQL_Server_Lab kann den Windows-Lizenzstatus eines eindeutigen Hyper-V-Child-
 Slots bereits live prüfen, eine noch nicht aktivierte Windows-Server-Evaluation
 online aktivieren und das Ergebnis im Run-State festhalten. Dieser Ablauf wird
-derzeit nur über den speziellen Intent automatisierter Testumgebungen
-angefordert. Reguläre Windows- und SQL-Slots besitzen noch kein gemeinsames
-Aktivierungs-Reconcile vor ihrem Bereitstatus.
+ueber Manifest, Batch, Slot-Pool und Workflow-Adapter gebunden. Regulaere
+Windows- und SQL-Slots verwenden denselben Reconcile nach OOBE, vor SQL Setup
+und beim Start. Der [Bedienvertrag](../HowTo/WINDOWS_ACTIVATION.md) beschreibt
+Defaults, Wiederaufnahme und die noch offenen Nachweise.
 
-Der heutige Evaluationspfad hängt bei Aktivierungsbedarf immer eine zusätzliche
-NIC mit temporärem Eigentum an und entfernt genau diese danach wieder. Ein
-künftiger allgemeiner Vertrag muss zusätzlich berücksichtigen, dass eine
-External-NIC bereits zum gewünschten dauerhaften Netzwerkzustand des Slots
-gehören kann.
+Der Evaluationspfad verwendet eine nachgewiesene permanente NIC unveraendert.
+Eine zusaetzliche temporaere NIC ist nur bei entsprechendem Egress-Intent
+erlaubt. Statische Erfolgs- und Fehlernachweise sind vorhanden; ein nativer
+Aktivierungsnachweis fuer beide Netzwerkvarianten bleibt offen.
 
 ## Ziel
 

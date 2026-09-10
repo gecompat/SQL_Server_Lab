@@ -30,6 +30,7 @@ try {
         $script:createCalls = [Collections.Generic.List[object]]::new()
         $script:provisionCalls = [Collections.Generic.List[object]]::new()
         $script:stopCalls = [Collections.Generic.List[string]]::new()
+        $script:activationChecks = [Collections.Generic.List[string]]::new()
         $script:slotNumber = 0
 
         function Test-LabAdministrator { $true }
@@ -47,7 +48,7 @@ try {
         }
         function Get-LabActiveRuns { @() }
         function New-HyperVLabEnvironment {
-            param($ArtifactId,$LabName,$InstanceId,$DynamicMemoryEnabled,$MemoryMinimumMB,$MemoryStartupMB,$MemoryMaximumMB,$ProcessorCount,$AutoStart,$NetworkIntent,$StateRoot,$WindowsLocale)
+            param($ArtifactId,$LabName,$InstanceId,$DynamicMemoryEnabled,$MemoryMinimumMB,$MemoryStartupMB,$MemoryMaximumMB,$ProcessorCount,$AutoStart,$NetworkIntent,$StateRoot,$WindowsLocale,$WindowsActivation)
             $script:slotNumber++
             $runId = "run-$($script:slotNumber)"
             $scopeId = "scope-$($script:slotNumber)"
@@ -57,6 +58,7 @@ try {
                 Run = [PSCustomObject]@{ runId=$runId; scopeId=$scopeId; metadata=[PSCustomObject]@{ name=$LabName; networkIntent='hostOnly' } }
                 Instance = [PSCustomObject]@{
                     provider='hyperv'; workload='windows'; imageArtifactId=$ArtifactId; vmName=$vmName
+                    windowsActivationIntent=$WindowsActivation
                     resourceSettings=[PSCustomObject]@{
                         dynamicMemoryEnabled=$true; memoryMinimumMB=$MemoryMinimumMB
                         memoryStartupMB=$MemoryStartupMB; memoryMaximumMB=$MemoryMaximumMB
@@ -71,6 +73,7 @@ try {
                 Name=$LabName; Minimum=$MemoryMinimumMB; Startup=$MemoryStartupMB
                 Maximum=$MemoryMaximumMB; ProcessorCount=$ProcessorCount
                 WindowsLocale=$WindowsLocale
+                WindowsActivation=$WindowsActivation
             })
             [PSCustomObject]@{ RunId=$runId; VMName=$vmName }
         }
@@ -94,11 +97,14 @@ try {
             $script:poolLabs[$RunId].Instance.oobeAutomation.passwordSource = $PasswordSource
         }
         function Stop-HyperVLabEnvironment { param($RunId,$StateRoot) $script:stopCalls.Add($RunId) }
+        function Start-HyperVLabEnvironment {param($RunId,$StateRoot) $script:activationChecks.Add($RunId)}
 
         $result = New-SqlServerLabWindowsSlotPool -Count 2 -GenerateAdministratorPasswords `
             -StateRoot 'X:\state' -Confirm:$false
+        function Get-LabActiveRuns {@($script:poolLabs.Values | ForEach-Object {$_.Run})}
+        $reuse = New-SqlServerLabWindowsSlotPool -Count 2 -GenerateAdministratorPasswords -StateRoot 'X:\state' -Confirm:$false
         [PSCustomObject]@{
-            Result=$result; Creates=@($script:createCalls); Provisions=@($script:provisionCalls); Stops=@($script:stopCalls)
+            Result=$result; Reuse=$reuse; ActivationChecks=@($script:activationChecks); Creates=@($script:createCalls); Provisions=@($script:provisionCalls); Stops=@($script:stopCalls)
         }
         }
         finally {
@@ -111,6 +117,8 @@ try {
         }
     }
 
+    Add-CheckResult -Name 'Wiederverwendung prueft beide Aktivierungen live ohne erneute OOBE oder neue VM' -Success ($behavior.ActivationChecks.Count -eq 2 -and $behavior.Creates.Count -eq 2 -and $behavior.Provisions.Count -eq 2)
+    Add-CheckResult -Name 'Pool bindet den Aktivierungsintent vor der ersten VM' -Success (@($behavior.Creates | Where-Object {$_.WindowsActivation.ContractVersion -eq 'SqlServerLab.WindowsActivationIntent/1.0' -and $_.WindowsActivation.EgressPolicy -eq 'ExistingOnly'}).Count -eq 2)
     Add-CheckResult -Name 'Pool erstellt zwei Slots mit den gebundenen Standardressourcen' -Success (
         $behavior.Result.Status -eq 'COMPLETE' -and @($behavior.Result.Slots).Count -eq 2 -and
         @($behavior.Creates | Where-Object { $_.Minimum -eq 1024 -and $_.Startup -eq 2048 -and $_.Maximum -eq 4096 -and $_.ProcessorCount -eq 4 }).Count -eq 2)
@@ -121,7 +129,7 @@ try {
         @($behavior.Provisions | Where-Object {
             $_.PasswordSource -eq 'generated' -and $_.Region -eq 'AT' -and $_.SystemLocale -eq 'de-AT' -and
             $_.UiLanguage -eq 'en-US' -and $_.InputLocale -eq '0407:00000407'
-        }).Count -eq 2 -and @($behavior.Stops).Count -eq 2)
+        }).Count -eq 2 -and @($behavior.Stops).Count -eq 4)
 
     $poolSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\New-SqlServerLabWindowsSlotPool.ps1') -Raw -Encoding utf8
     $uiSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Invoke-SqlServerLab.ps1') -Raw -Encoding utf8

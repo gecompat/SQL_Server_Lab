@@ -9,6 +9,17 @@
 
 ## 1. Grundsatz
 
+Der allgemeine Windows-Aktivierungsintent wurde am 2026-09-10 durch 33
+betroffene statische Suites geprueft. Zusaetzliche fokussierte Nachweise
+decken den SQL-Blocker, Pool-Resume, unveraenderte permanente NIC bei Erfolg
+und Fehler sowie Cleanup vor dem Bereits-aktiviert-No-Op ab.
+`Invoke-HyperVWindowsLocaleAcceptance.ps1` verlangt im eigenen Child auch
+einen aktiven Live-Lizenzzustand und prueft ein gegebenenfalls entstandenes
+temporaeres Adapterjournal auf vollstaendiges Cleanup. Die Ausgabe trennt
+`ALREADY_ACTIVE_NO_OP` von `TEMPORARY_ADAPTER_CLEANED`; ein No-Op ist kein
+Nachweis einer neuen Online-Aktivierung. Fuer diese Erweiterung steht der
+native Lauf noch aus.
+
 `Invoke-WindowsActivationNetworkChecks.ps1` prueft Adaptervorbestand,
 Identitaetsbindung, Teilfehler, idempotenten Cleanup und Recovery-Konflikte.
 `Invoke-WindowsActivationNetworkAcceptance.ps1` hat am 2026-09-10 mit einer
