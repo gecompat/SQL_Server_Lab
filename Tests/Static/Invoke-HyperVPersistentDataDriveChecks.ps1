@@ -130,6 +130,18 @@ try {
             Set-Item Function:Get-VHD -Value { param($Path) [PSCustomObject]@{ Size=1GB; DiskIdentifier=$script:hvpTargetDiskId } }
             Set-Item Function:Get-VM -Value { @() }
             Set-Item Function:Get-VMHardDiskDrive -Value { @() }
+            $initialRevision=[int](Get-LabPersistentStorageCatalog -Configuration $configuration).Document.Revision
+            $leasePreview=Set-LabHyperVPersistentDataOperationLease -Plan $clonePlan -Configuration $configuration -ExpectedRevision $initialRevision -Preview
+            $afterLeasePreview=Get-LabPersistentStorageCatalog -Configuration $configuration
+            $staleLeaseBlocked=$false
+            try { $null=Set-LabHyperVPersistentDataOperationLease -Plan $clonePlan -Configuration $configuration -ExpectedRevision ($initialRevision - 1) }
+            catch { $staleLeaseBlocked=$_.Exception.Message -like 'PERSISTENT_STORAGE_CATALOG_REVISION_CONFLICT:*' }
+            $leaseApplied=Set-LabHyperVPersistentDataOperationLease -Plan $clonePlan -Configuration $configuration -ExpectedRevision $initialRevision
+            $recoveryPreview=Set-LabHyperVPersistentDataOperationRecoveryRequired -Plan $clonePlan -Configuration $configuration -ExpectedRevision $leaseApplied.CatalogRevision -Preview
+            $afterRecoveryPreview=Get-LabPersistentStorageCatalog -Configuration $configuration
+            $staleRecoveryBlocked=$false
+            try { $null=Set-LabHyperVPersistentDataOperationRecoveryRequired -Plan $clonePlan -Configuration $configuration -ExpectedRevision $initialRevision }
+            catch { $staleRecoveryBlocked=$_.Exception.Message -like 'PERSISTENT_STORAGE_CATALOG_REVISION_CONFLICT:*' }
             $firstFailure=$null
             try { $null=Invoke-LabHyperVPersistentDataPlan -Plan $clonePlan -OperationDirectory $OperationRoot -Configuration $configuration } catch { $firstFailure=$_.Exception.Message }
             $failedJournal=Get-Content -LiteralPath (Get-LabHyperVPersistentDataJournalPath -OperationDirectory $OperationRoot) -Raw | ConvertFrom-Json -Depth 30
@@ -150,14 +162,21 @@ try {
                 ContractVersion='SqlServerLab.HyperVPersistentDataJournal/1.0'; OperationId=[string]$lifecycleReattachPlan.OperationId
                 Action='REATTACH'; Status='ATTACHED_FILES_OFFLINE'; Source=$lifecycleReattachPlan.Source
             }
-            $reattachCommit=Complete-LabHyperVPersistentDataCatalogOperation -Plan $lifecycleReattachPlan -Journal $reattachJournal -Configuration $configuration
+            $reattachPreview=Complete-LabHyperVPersistentDataCatalogOperation -Plan $lifecycleReattachPlan -Journal $reattachJournal -Configuration $configuration -ExpectedRevision $reattachLease.CatalogRevision -Preview
+            $afterReattachPreview=Get-LabPersistentStorageCatalog -Configuration $configuration
+            $staleCompletionBlocked=$false
+            try { $null=Complete-LabHyperVPersistentDataCatalogOperation -Plan $lifecycleReattachPlan -Journal $reattachJournal -Configuration $configuration -ExpectedRevision 0 }
+            catch { $staleCompletionBlocked=$_.Exception.Message -like 'PERSISTENT_STORAGE_CATALOG_REVISION_CONFLICT:*' }
+            $reattachCommit=Complete-LabHyperVPersistentDataCatalogOperation -Plan $lifecycleReattachPlan -Journal $reattachJournal -Configuration $configuration -ExpectedRevision $reattachLease.CatalogRevision
             $lifecycleReleasePlan=$lifecycleReattachPlan | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
             $lifecycleReleasePlan.OperationId=[guid]::NewGuid().ToString('D'); $lifecycleReleasePlan.Action='RELEASE'
             $releaseJournal=[PSCustomObject]@{
                 ContractVersion='SqlServerLab.HyperVPersistentDataJournal/1.0'; OperationId=[string]$lifecycleReleasePlan.OperationId
                 Action='RELEASE'; Status='CLEAN_DETACHED'; Source=$lifecycleReleasePlan.Source
             }
-            $releaseCommit=Complete-LabHyperVPersistentDataCatalogOperation -Plan $lifecycleReleasePlan -Journal $releaseJournal -Configuration $configuration
+            $releasePreview=Complete-LabHyperVPersistentDataCatalogOperation -Plan $lifecycleReleasePlan -Journal $releaseJournal -Configuration $configuration -ExpectedRevision $reattachCommit.CatalogRevision -Preview
+            $afterReleasePreview=Get-LabPersistentStorageCatalog -Configuration $configuration
+            $releaseCommit=Complete-LabHyperVPersistentDataCatalogOperation -Plan $lifecycleReleasePlan -Journal $releaseJournal -Configuration $configuration -ExpectedRevision $reattachCommit.CatalogRevision
             $lifecycleCatalog=Get-LabPersistentStorageCatalog -Configuration $configuration
         }
         finally {
@@ -200,6 +219,10 @@ try {
             ReattachPlan=$reattachPlan; ClonePlan=$clonePlan; ReleasePlan=$releasePlan; AttachedPlan=$attachedPlan
             CheckpointPlan=$checkpointPlan; VersionPlan=$versionPlan; IntentValid=(Test-LabHyperVPersistentDataIntent -Intent $cloneIntent)
             FirstFailure=$firstFailure; FailedJournal=$failedJournal; CompletedJournal=$completedJournal
+            InitialRevision=$initialRevision; LeasePreview=$leasePreview; AfterLeasePreview=$afterLeasePreview; StaleLeaseBlocked=$staleLeaseBlocked
+            LeaseApplied=$leaseApplied; RecoveryPreview=$recoveryPreview; AfterRecoveryPreview=$afterRecoveryPreview; StaleRecoveryBlocked=$staleRecoveryBlocked
+            ReattachPreview=$reattachPreview; AfterReattachPreview=$afterReattachPreview; StaleCompletionBlocked=$staleCompletionBlocked
+            ReleasePreview=$releasePreview; AfterReleasePreview=$afterReleasePreview
             FailedCatalog=$failedCatalog; CompletedCatalog=$completedCatalog; SourceId=$sourceId; TargetId=$targetId
             ReattachLease=$reattachLease; ReattachCommit=$reattachCommit; ReleaseCommit=$releaseCommit; LifecycleCatalog=$lifecycleCatalog
             DetachedSelection=$detachedSelection; AttachedSelection=$attachedSelection; UninspectedSelection=$uninspectedSelection
@@ -207,6 +230,23 @@ try {
             WorkflowResult=$workflowResult
         }
     } $dataRoot $sourceRelativePath $temporaryRoot
+
+    Add-CheckResult -Name 'Hyper-V Operationslease hat schreibfreie Preview und blockiert veraltete Revisionen' -Success (
+        $evidence.LeasePreview.Changed -and $evidence.LeasePreview.Preview -and $evidence.StaleLeaseBlocked -and
+        $evidence.AfterLeasePreview.Document.Revision -eq $evidence.InitialRevision -and
+        $evidence.AfterLeasePreview.Document.Stores[0].State -eq 'DETACHED' -and
+        $evidence.LeaseApplied.CatalogRevision -eq ($evidence.InitialRevision + 1))
+    Add-CheckResult -Name 'Recovery-Preview erhaelt Operationslease und Revision; veraltete Writes werden blockiert' -Success (
+        $evidence.RecoveryPreview.Changed -and $evidence.RecoveryPreview.Preview -and $evidence.StaleRecoveryBlocked -and
+        $evidence.AfterRecoveryPreview.Document.Revision -eq $evidence.LeaseApplied.CatalogRevision -and
+        $evidence.AfterRecoveryPreview.Document.Stores[0].State -eq 'INCOMPLETE')
+    Add-CheckResult -Name 'Reattach und Release Preview schreiben keinen State; Abschluss erzwingt erwartete Revision' -Success (
+        $evidence.ReattachPreview.Changed -and $evidence.ReattachPreview.Preview -and $evidence.StaleCompletionBlocked -and
+        $evidence.AfterReattachPreview.Document.Revision -eq $evidence.ReattachPreview.CatalogRevision -and
+        @($evidence.AfterReattachPreview.Document.Stores | Where-Object State -eq 'INCOMPLETE').Count -eq 1 -and
+        $evidence.ReleasePreview.Changed -and $evidence.ReleasePreview.Preview -and
+        $evidence.AfterReleasePreview.Document.Revision -eq $evidence.ReleasePreview.CatalogRevision -and
+        @($evidence.AfterReleasePreview.Document.Stores | Where-Object State -eq 'IN_USE').Count -eq 1)
 
     Add-CheckResult -Name 'Stabile Storage-ID bindet exakt die katalogisierte Lab_Data-VHDX' -Success (
         $evidence.ReattachPlan.Status -eq 'READY' -and $evidence.ReattachPlan.Source.PersistentStorageId -and
@@ -284,6 +324,33 @@ try {
         $implementationText -match 'shutdown\.exe' -and
         $implementationText -match "WindowStyle\s+(?:'Hidden'|Hidden)" -and
         $implementationText -match '\[SecureString\]')
+    $acceptanceAst=[Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1'),[ref]$null,[ref]$null)
+    $cleanupDefinition=$acceptanceAst.Find({param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Remove-OwnedAcceptanceAssets'
+    },$true)
+    $cleanupEvidence=& {
+        param($Definition,$Root)
+        . ([scriptblock]::Create($Definition.Extent.Text))
+        $acceptanceParent=Join-Path $Root 'cleanup-fixture'
+        $null=New-Item -ItemType Directory -Path $acceptanceParent
+        $ownedRoot=$false; $ownedVmId=$null; $vmName='synthetic-owned-vm'
+        function Get-VM { param($Id) [PSCustomObject]@{ Id=$Id; Name='different-vm' } }
+        function Remove-VM { throw 'SYNTHETIC_VM_CLEANUP_FAILURE' }
+        Remove-OwnedAcceptanceAssets
+        $unownedPreserved=Test-Path -LiteralPath $acceptanceParent
+        $ownedRoot=$true; $ownedVmId=[guid]::NewGuid()
+        $identityBlocked=$false
+        try{Remove-OwnedAcceptanceAssets}catch{$identityBlocked=$_.Exception.Message -eq 'HYPERV_PERSISTENT_DATA_ACCEPTANCE_CLEANUP_IDENTITY_CONFLICT'}
+        function Get-VM { param($Id) [PSCustomObject]@{ Id=$Id; Name='synthetic-owned-vm' } }
+        $failedVmPreserved=$false
+        try{Remove-OwnedAcceptanceAssets}catch{$failedVmPreserved=$_.Exception.Message -eq 'SYNTHETIC_VM_CLEANUP_FAILURE' -and (Test-Path -LiteralPath $acceptanceParent)}
+        $ownedVmId=$null
+        Remove-OwnedAcceptanceAssets
+        [PSCustomObject]@{UnownedPreserved=$unownedPreserved; IdentityBlocked=$identityBlocked; FailedVmPreserved=$failedVmPreserved; OwnedRemoved=(-not (Test-Path -LiteralPath $acceptanceParent))}
+    } $cleanupDefinition $temporaryRoot
+    Add-CheckResult -Name 'Native Acceptance-Cleanup schuetzt fremde Ressourcen und erhaelt Dateien bei VM-Fehlern' -Success (
+        $cleanupEvidence.UnownedPreserved -and $cleanupEvidence.IdentityBlocked -and $cleanupEvidence.FailedVmPreserved -and $cleanupEvidence.OwnedRemoved)
 }
 catch {
     Add-CheckResult -Name 'Hyper-V Persistent Data Drive Testausfuehrung' -Success $false -Message $_.Exception.Message

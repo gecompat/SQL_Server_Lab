@@ -9,6 +9,17 @@
 
 ## 1. Grundsatz
 
+`Invoke-HyperVPersistentDataDriveChecks.ps1` prueft Operations-Lease,
+Recovery-Markierung und Reattach-/Release-Abschluss mit schreibfreier Preview,
+Revisionskonflikten und bestehenden Clone-/Resume-Fehlerpfaden.
+`Invoke-HyperVPersistentDataDriveAcceptance.ps1` serialisiert den kleinen
+nativen VHDX-Nachweis am Runtime-Mutex; Cleanup bindet die erzeugte VM-ID
+und den eigenen Temp-Pfad und erhaelt Dateien bei VM-Cleanupfehlern.
+Der lokale native Lauf auf 84ffc91 vom 2026-09-10 bestand: 64-MB-Test-VHDX,
+ausgeschaltete eigene VM, unveraenderte Quelle, unabhaengiger Clone mit neuer
+DiskIdentifier, Reattach, Release und Cleanup. SQL- und Gast-Evidence dieses
+kleinen Hosttests ist modelliert und bleibt ausdruecklich separat.
+
 Am 2026-09-10 bestaetigte die getrennte Instanzstore-Abnahme fuer Docker und
 Podman den gemeinsamen Katalogkern fuer regulaere Leases und Mehr-Volume-
 Clones: stabile IDs, atomare Datenbankreferenzfreigabe, Continue, Digest fuer

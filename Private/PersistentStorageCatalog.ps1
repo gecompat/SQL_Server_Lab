@@ -801,7 +801,9 @@ function Set-LabHyperVPersistentDataOperationLease {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Plan,
-        [Parameter(Mandatory)]$Configuration
+        [Parameter(Mandatory)]$Configuration,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision=-1,
+        [switch]$Preview
     )
 
     if ([string]$Plan.ContractVersion -ne 'SqlServerLab.HyperVPersistentDataPlan/1.0' -or
@@ -812,12 +814,11 @@ function Set-LabHyperVPersistentDataOperationLease {
         throw 'HYPERV_PERSISTENT_DATA_LEASE_CONFIGURATION_INVALID'
     }
 
-    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$Configuration.ControllerId) -ScriptBlock {
-        $catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration
-        if ([string]$catalog.Status -ne 'AVAILABLE') {
-            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
-        }
-        $sourceMatches = @($catalog.Document.Stores | Where-Object {
+    $timestamp=${function:Get-LabTimestamp}
+    $residencyId=${function:Get-LabStorageResidencyObjectId}
+    $mutation={
+        param($Document)
+        $sourceMatches = @($Document.Stores | Where-Object {
             [string]$_.PersistentStorageId -eq [string]$Plan.Source.PersistentStorageId
         })
         if ($sourceMatches.Count -ne 1) { throw 'HYPERV_PERSISTENT_DATA_LEASE_SOURCE_UNRESOLVED' }
@@ -848,14 +849,14 @@ function Set-LabHyperVPersistentDataOperationLease {
             [string]$source.Lease.Mode -eq 'EXCLUSIVE' -and $activeOperationReferences.Count -eq 1
         if ($sameLease) {
             return [PSCustomObject]@{
-                Changed=$false; Store=$source; CatalogRevision=[int]$catalog.Document.Revision
+                Changed=$false; Store=$source; CatalogRevision=[int]$Document.Revision
                 CatalogCommitted=([string]$Plan.Action -eq 'REATTACH' -and [string]$source.State -eq 'IN_USE')
             }
         }
 
         if ([string]$Plan.Action -eq 'CLONE' -and [string]$source.State -eq 'DETACHED' -and -not $source.Lease -and
             $releasedOperationReferences.Count -eq 1 -and @($source.References | Where-Object State -eq 'ACTIVE').Count -eq 0) {
-            $targetMatches = @($catalog.Document.Stores | Where-Object {
+            $targetMatches = @($Document.Stores | Where-Object {
                 [string]$_.PersistentStorageId -eq [string]$Plan.Target.PersistentStorageId
             })
             if ($targetMatches.Count -eq 1 -and [string]$targetMatches[0].Provider -eq 'hyperv' -and
@@ -864,7 +865,7 @@ function Set-LabHyperVPersistentDataOperationLease {
                 [string]$targetMatches[0].LocationBinding.RelativePath -eq [string]$Plan.Target.RelativePath) {
                 return [PSCustomObject]@{
                     Changed=$false; Store=$source; TargetStore=$targetMatches[0]
-                    CatalogRevision=[int]$catalog.Document.Revision; CatalogCommitted=$true
+                    CatalogRevision=[int]$Document.Revision; CatalogCommitted=$true
                 }
             }
             throw 'HYPERV_PERSISTENT_DATA_LEASE_COMPLETED_STATE_CONFLICT'
@@ -876,8 +877,8 @@ function Set-LabHyperVPersistentDataOperationLease {
             throw 'HYPERV_PERSISTENT_DATA_LEASE_SOURCE_CONFLICT'
         }
         if ([string]$Plan.Action -eq 'CLONE') {
-            $targetInventoryObjectId = Get-LabStorageResidencyObjectId -Key "hyperv-instance-store|$([string]$Configuration.ControllerId)|$([string]$Plan.Target.LocationId)|$([string]$Plan.Target.RelativePath)"
-            $targetMatches = @($catalog.Document.Stores | Where-Object {
+            $targetInventoryObjectId = & $residencyId -Key "hyperv-instance-store|$([string]$Configuration.ControllerId)|$([string]$Plan.Target.LocationId)|$([string]$Plan.Target.RelativePath)"
+            $targetMatches = @($Document.Stores | Where-Object {
                 [string]$_.PersistentStorageId -eq [string]$Plan.Target.PersistentStorageId -or
                 ([string]$_.Provider -eq 'hyperv' -and
                     ([string]$_.LocationBinding.InventoryObjectId -eq $targetInventoryObjectId -or
@@ -887,11 +888,11 @@ function Set-LabHyperVPersistentDataOperationLease {
             if ($targetMatches.Count -gt 0) { throw 'HYPERV_PERSISTENT_DATA_LEASE_TARGET_CONFLICT' }
         }
 
-        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+        $next = $Document
         $nextSource = @($next.Stores | Where-Object {
             [string]$_.PersistentStorageId -eq [string]$Plan.Source.PersistentStorageId
         })[0]
-        $now = Get-LabTimestamp
+        $now = & $timestamp
         $nextSource.State = 'INCOMPLETE'
         $nextSource.Lease = [PSCustomObject][ordered]@{
             LeaseId=[string]$Plan.OperationId; RunId=[string]$Plan.Target.RunId
@@ -901,13 +902,18 @@ function Set-LabHyperVPersistentDataOperationLease {
             ReferenceId=[string]$Plan.OperationId; Kind='RUN'; State='ACTIVE'; TargetId=[string]$Plan.Target.RunId
         })
         $nextSource.UpdatedAt = $now
-        $next.Revision = [int]$next.Revision + 1
-        $null = Test-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
-        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
         return [PSCustomObject]@{
             Changed=$true; Store=$nextSource; CatalogRevision=[int]$next.Revision; CatalogCommitted=$false
         }
-    }
+    }.GetNewClosure()
+    $transaction=Invoke-LabPersistentStorageCatalogMutation -Configuration $Configuration `
+        -MutationName ACQUIRE_HYPERV_OPERATION_LEASE -Mutation $mutation -ExpectedRevision $ExpectedRevision -Preview:$Preview
+    $result=$transaction.Value
+    $result.Changed=[bool]$transaction.Changed
+    $result.CatalogRevision=[int]$transaction.CatalogRevision
+    $result | Add-Member -NotePropertyName ProposedRevision -NotePropertyValue ([int]$transaction.ProposedRevision)
+    $result | Add-Member -NotePropertyName Preview -NotePropertyValue ([bool]$transaction.Preview)
+    return $result
 }
 
 function Complete-LabHyperVPersistentDataCatalogOperation {
@@ -916,7 +922,9 @@ function Complete-LabHyperVPersistentDataCatalogOperation {
     param(
         [Parameter(Mandatory)]$Plan,
         [Parameter(Mandatory)]$Journal,
-        [Parameter(Mandatory)]$Configuration
+        [Parameter(Mandatory)]$Configuration,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision=-1,
+        [switch]$Preview
     )
 
     if ([string]$Plan.ContractVersion -ne 'SqlServerLab.HyperVPersistentDataPlan/1.0' -or
@@ -939,12 +947,12 @@ function Complete-LabHyperVPersistentDataCatalogOperation {
         throw 'HYPERV_PERSISTENT_DATA_CATALOG_CONFIGURATION_INVALID'
     }
 
-    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$Configuration.ControllerId) -ScriptBlock {
-        $catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration
-        if ([string]$catalog.Status -ne 'AVAILABLE') {
-            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
-        }
-        $sourceMatches = @($catalog.Document.Stores | Where-Object {
+    $timestamp=${function:Get-LabTimestamp}
+    $residencyId=${function:Get-LabStorageResidencyObjectId}
+    $pathBoundary=${function:Test-LabPathWithinRoot}
+    $mutation={
+        param($Document)
+        $sourceMatches = @($Document.Stores | Where-Object {
             [string]$_.PersistentStorageId -eq [string]$Plan.Source.PersistentStorageId
         })
         if ($sourceMatches.Count -ne 1) { throw 'HYPERV_PERSISTENT_DATA_CATALOG_SOURCE_UNRESOLVED' }
@@ -978,13 +986,11 @@ function Complete-LabHyperVPersistentDataCatalogOperation {
                     throw 'HYPERV_PERSISTENT_DATA_CATALOG_REATTACH_LEASE_REQUIRED'
                 }
                 if ([string]$source.State -eq 'IN_USE') {
-                    return [PSCustomObject]@{ Changed=$false; Store=$source; CatalogRevision=[int]$catalog.Document.Revision }
+                    return [PSCustomObject]@{ Changed=$false; Store=$source; CatalogRevision=[int]$Document.Revision }
                 }
-                $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+                $next = $Document
                 $nextSource = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$Plan.Source.PersistentStorageId))[0]
-                $nextSource.State = 'IN_USE'; $nextSource.UpdatedAt = Get-LabTimestamp
-                $next.Revision = [int]$next.Revision + 1
-                $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
+                $nextSource.State = 'IN_USE'; $nextSource.UpdatedAt = & $timestamp
                 return [PSCustomObject]@{ Changed=$true; Store=$nextSource; CatalogRevision=[int]$next.Revision }
             }
             'RELEASE' {
@@ -994,7 +1000,7 @@ function Complete-LabHyperVPersistentDataCatalogOperation {
                 })
                 if ([string]$source.State -eq 'DETACHED' -and -not $source.Lease -and $releasedRunReferences.Count -ge 1 -and
                     @($source.References | Where-Object State -eq 'ACTIVE').Count -eq 0) {
-                    return [PSCustomObject]@{ Changed=$false; Store=$source; CatalogRevision=[int]$catalog.Document.Revision }
+                    return [PSCustomObject]@{ Changed=$false; Store=$source; CatalogRevision=[int]$Document.Revision }
                 }
                 $activeRunReferences = @($source.References | Where-Object {
                     [string]$_.Kind -eq 'RUN' -and [string]$_.State -eq 'ACTIVE' -and
@@ -1005,15 +1011,13 @@ function Complete-LabHyperVPersistentDataCatalogOperation {
                     [string]$source.Lease.ScopeId -ne [string]$Plan.Target.ScopeId -or $activeRunReferences.Count -ne 1) {
                     throw 'HYPERV_PERSISTENT_DATA_CATALOG_RELEASE_LEASE_CONFLICT'
                 }
-                $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+                $next = $Document
                 $nextSource = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$Plan.Source.PersistentStorageId))[0]
                 @($nextSource.References | Where-Object {
                     ([string]$_.Kind -eq 'RUN' -and [string]$_.TargetId -eq [string]$Plan.Target.RunId) -or
                     [string]$_.Kind -eq 'DATABASE'
                 }) | ForEach-Object { if ([string]$_.State -eq 'ACTIVE') { $_.State = 'RELEASED' } }
-                $nextSource.Lease = $null; $nextSource.State = 'DETACHED'; $nextSource.UpdatedAt = Get-LabTimestamp
-                $next.Revision = [int]$next.Revision + 1
-                $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
+                $nextSource.Lease = $null; $nextSource.State = 'DETACHED'; $nextSource.UpdatedAt = & $timestamp
                 return [PSCustomObject]@{ Changed=$true; Store=$nextSource; CatalogRevision=[int]$next.Revision }
             }
             'CLONE' {
@@ -1033,13 +1037,13 @@ function Complete-LabHyperVPersistentDataCatalogOperation {
                 }
                 $targetRoot = [IO.Path]::GetFullPath([string]$targetLocation[0].LabDataRoot).TrimEnd('\','/')
                 $targetPath = [IO.Path]::GetFullPath((Join-Path $targetRoot $targetRelativePath))
-                $boundary = Test-LabPathWithinRoot -Root $targetRoot -Path $targetPath
+                $boundary = & $pathBoundary -Root $targetRoot -Path $targetPath
                 if (-not $boundary.Valid -or
                     -not [string]::Equals($targetPath,[IO.Path]::GetFullPath([string]$Plan.Target.Path),[StringComparison]::OrdinalIgnoreCase)) {
                     throw 'HYPERV_PERSISTENT_DATA_CATALOG_TARGET_PATH_CONFLICT'
                 }
-                $targetInventoryObjectId = Get-LabStorageResidencyObjectId -Key "hyperv-instance-store|$([string]$Configuration.ControllerId)|$([string]$Plan.Target.LocationId)|$targetRelativePath"
-                $targetMatches = @($catalog.Document.Stores | Where-Object {
+                $targetInventoryObjectId = & $residencyId -Key "hyperv-instance-store|$([string]$Configuration.ControllerId)|$([string]$Plan.Target.LocationId)|$targetRelativePath"
+                $targetMatches = @($Document.Stores | Where-Object {
                     [string]$_.PersistentStorageId -eq [string]$Plan.Target.PersistentStorageId -or
                     ([string]$_.Provider -eq 'hyperv' -and
                         ([string]$_.LocationBinding.InventoryObjectId -eq $targetInventoryObjectId -or
@@ -1071,11 +1075,11 @@ function Complete-LabHyperVPersistentDataCatalogOperation {
                         }).Count -ne 1 -or @($target.References | Where-Object State -eq 'ACTIVE').Count -gt 0) {
                         throw 'HYPERV_PERSISTENT_DATA_CATALOG_TARGET_CONFLICT'
                     }
-                    return [PSCustomObject]@{ Changed=$false; Store=$target; SourceStore=$source; CatalogRevision=[int]$catalog.Document.Revision }
+                    return [PSCustomObject]@{ Changed=$false; Store=$target; SourceStore=$source; CatalogRevision=[int]$Document.Revision }
                 }
                 if (-not $operationLease) { throw 'HYPERV_PERSISTENT_DATA_CATALOG_CLONE_LEASE_REQUIRED' }
 
-                $now = Get-LabTimestamp
+                $now = & $timestamp
                 $displayName = "Clone of $([string]$source.DisplayName)"
                 if ($displayName.Length -gt 128) { $displayName = $displayName.Substring(0,128) }
                 $targetStore = [PSCustomObject][ordered]@{
@@ -1091,20 +1095,25 @@ function Complete-LabHyperVPersistentDataCatalogOperation {
                     })
                     Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt=$now; UpdatedAt=$now
                 }
-                $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+                $next = $Document
                 $nextSource = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$Plan.Source.PersistentStorageId))[0]
                 @($nextSource.References | Where-Object {
                     [string]$_.ReferenceId -eq [string]$Plan.OperationId -and [string]$_.State -eq 'ACTIVE'
                 }) | ForEach-Object { $_.State = 'RELEASED' }
                 $nextSource.Lease = $null; $nextSource.State = 'DETACHED'; $nextSource.UpdatedAt = $now
-                $next.Revision = [int]$next.Revision + 1
                 $next.Stores = @($next.Stores) + @($targetStore)
-                $null = Test-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
-                $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
                 return [PSCustomObject]@{ Changed=$true; Store=$targetStore; SourceStore=$nextSource; CatalogRevision=[int]$next.Revision }
             }
         }
-    }
+    }.GetNewClosure()
+    $transaction=Invoke-LabPersistentStorageCatalogMutation -Configuration $Configuration `
+        -MutationName COMPLETE_HYPERV_OPERATION -Mutation $mutation -ExpectedRevision $ExpectedRevision -Preview:$Preview
+    $result=$transaction.Value
+    $result.Changed=[bool]$transaction.Changed
+    $result.CatalogRevision=[int]$transaction.CatalogRevision
+    $result | Add-Member -NotePropertyName ProposedRevision -NotePropertyValue ([int]$transaction.ProposedRevision)
+    $result | Add-Member -NotePropertyName Preview -NotePropertyValue ([bool]$transaction.Preview)
+    return $result
 }
 
 function Set-LabHyperVPersistentDataOperationRecoveryRequired {
@@ -1113,19 +1122,19 @@ function Set-LabHyperVPersistentDataOperationRecoveryRequired {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Plan,
-        [Parameter(Mandatory)]$Configuration
+        [Parameter(Mandatory)]$Configuration,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision=-1,
+        [switch]$Preview
     )
 
     if ([string]$Plan.ContractVersion -ne 'SqlServerLab.HyperVPersistentDataPlan/1.0' -or
         [string]$Plan.Action -notin @('CLONE','REATTACH','RELEASE')) {
         throw 'HYPERV_PERSISTENT_DATA_RECOVERY_PLAN_INVALID'
     }
-    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$Configuration.ControllerId) -ScriptBlock {
-        $catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration
-        if ([string]$catalog.Status -ne 'AVAILABLE') {
-            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
-        }
-        $matches = @($catalog.Document.Stores | Where-Object {
+    $timestamp=${function:Get-LabTimestamp}
+    $mutation={
+        param($Document)
+        $matches = @($Document.Stores | Where-Object {
             [string]$_.PersistentStorageId -eq [string]$Plan.Source.PersistentStorageId
         })
         if ($matches.Count -ne 1) { throw 'HYPERV_PERSISTENT_DATA_RECOVERY_SOURCE_UNRESOLVED' }
@@ -1148,19 +1157,25 @@ function Set-LabHyperVPersistentDataOperationRecoveryRequired {
         }
         if (-not $leaseMatches) {
             return [PSCustomObject]@{
-                Changed=$false; Store=$source; CatalogRevision=[int]$catalog.Document.Revision; LeaseNotAcquired=$true
+                Changed=$false; Store=$source; CatalogRevision=[int]$Document.Revision; LeaseNotAcquired=$true
             }
         }
         if ([string]$source.State -eq 'RECOVERY_REQUIRED') {
-            return [PSCustomObject]@{ Changed=$false; Store=$source; CatalogRevision=[int]$catalog.Document.Revision; LeaseNotAcquired=$false }
+            return [PSCustomObject]@{ Changed=$false; Store=$source; CatalogRevision=[int]$Document.Revision; LeaseNotAcquired=$false }
         }
-        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+        $next = $Document
         $nextSource = @($next.Stores | Where-Object PersistentStorageId -eq ([string]$Plan.Source.PersistentStorageId))[0]
-        $nextSource.State = 'RECOVERY_REQUIRED'; $nextSource.UpdatedAt = Get-LabTimestamp
-        $next.Revision = [int]$next.Revision + 1
-        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
+        $nextSource.State = 'RECOVERY_REQUIRED'; $nextSource.UpdatedAt = & $timestamp
         return [PSCustomObject]@{ Changed=$true; Store=$nextSource; CatalogRevision=[int]$next.Revision; LeaseNotAcquired=$false }
-    }
+    }.GetNewClosure()
+    $transaction=Invoke-LabPersistentStorageCatalogMutation -Configuration $Configuration `
+        -MutationName MARK_HYPERV_OPERATION_RECOVERY -Mutation $mutation -ExpectedRevision $ExpectedRevision -Preview:$Preview
+    $result=$transaction.Value
+    $result.Changed=[bool]$transaction.Changed
+    $result.CatalogRevision=[int]$transaction.CatalogRevision
+    $result | Add-Member -NotePropertyName ProposedRevision -NotePropertyValue ([int]$transaction.ProposedRevision)
+    $result | Add-Member -NotePropertyName Preview -NotePropertyValue ([bool]$transaction.Preview)
+    return $result
 }
 
 function Register-LabContainerInstanceStoreLease {

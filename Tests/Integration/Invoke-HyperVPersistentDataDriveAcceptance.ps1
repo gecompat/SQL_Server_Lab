@@ -27,10 +27,42 @@ $targetPath = Join-Path $dataRoot $targetRelativePath
 $operationRoot = Join-Path $dataRoot 'Catalog\operations'
 $vmName = "SqlLab-Persistent-$token"
 $phase = 'initialize'
+$ownedVmId=$null
+$ownedRoot=$false
+$runtimeMutex=[Threading.Mutex]::new($false,'Global\SQL_Server_Lab_Runtime_Smoke')
+$runtimeMutexAcquired=$false
+
+function Remove-OwnedAcceptanceAssets {
+    if($ownedVmId){
+        $ownedVm=Get-VM -Id $ownedVmId -ErrorAction SilentlyContinue
+        if($ownedVm){
+            if([string]$ownedVm.Name -ne $vmName){throw 'HYPERV_PERSISTENT_DATA_ACCEPTANCE_CLEANUP_IDENTITY_CONFLICT'}
+            Remove-VM -VM $ownedVm -Force -ErrorAction Stop
+        }
+    }
+    if($ownedRoot -and (Test-Path -LiteralPath $acceptanceParent)){
+        $tempBoundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
+        $resolvedRoot=(Get-Item -LiteralPath $acceptanceParent -Force).FullName
+        if(-not $resolvedRoot.StartsWith($tempBoundary,[StringComparison]::OrdinalIgnoreCase) -or
+            -not [string]::Equals($resolvedRoot,[IO.Path]::GetFullPath($acceptanceParent),[StringComparison]::OrdinalIgnoreCase) -or
+            (Get-Item -LiteralPath $acceptanceParent -Force).Attributes.HasFlag([IO.FileAttributes]::ReparsePoint) -or
+            @(Get-ChildItem -LiteralPath $acceptanceParent -Recurse -Force | Where-Object { $_.Attributes.HasFlag([IO.FileAttributes]::ReparsePoint) }).Count -gt 0){
+            throw 'HYPERV_PERSISTENT_DATA_ACCEPTANCE_CLEANUP_PATH_CONFLICT'
+        }
+        Remove-Item -LiteralPath $resolvedRoot -Recurse -Force -ErrorAction Stop
+    }
+}
 
 try {
+    try{$runtimeMutexAcquired=$runtimeMutex.WaitOne(0)}catch [Threading.AbandonedMutexException]{$runtimeMutexAcquired=$true}
+    if(-not $runtimeMutexAcquired){throw 'HYPERV_PERSISTENT_DATA_ACCEPTANCE_RUNTIME_BUSY'}
+    $null=Get-VMHost -ErrorAction Stop
+    $volume=[IO.DriveInfo]::new([IO.Path]::GetPathRoot($acceptanceParent))
+    if($volume.AvailableFreeSpace -lt 512MB){throw 'HYPERV_PERSISTENT_DATA_ACCEPTANCE_FREE_SPACE_REQUIRED'}
     if (Get-VM -Name $vmName -ErrorAction SilentlyContinue) { throw 'HYPERV_PERSISTENT_DATA_ACCEPTANCE_VM_COLLISION' }
     if (Test-Path -LiteralPath $acceptanceParent) { throw 'HYPERV_PERSISTENT_DATA_ACCEPTANCE_PATH_COLLISION' }
+    New-Item -ItemType Directory -Path $acceptanceParent -ErrorAction Stop | Out-Null
+    $ownedRoot=$true
     New-Item -ItemType Directory -Path (Split-Path -Parent $sourcePath) -Force | Out-Null
     New-Item -ItemType Directory -Path $vmPath -Force | Out-Null
     New-Item -ItemType Directory -Path $operationRoot -Force | Out-Null
@@ -58,6 +90,7 @@ try {
     $sourceVhd = Get-VHD -Path $sourcePath -ErrorAction Stop
     $sourceHash = (Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
     $vm = New-VM -Name $vmName -Generation 2 -MemoryStartupBytes 256MB -NoVHD -Path $vmPath -ErrorAction Stop
+    $ownedVmId=$vm.Id
     $notes = & $module {
         param($RunId,$ScopeId,$ChildPath)
         ConvertTo-HyperVLabNotes -RunId $RunId -ScopeId $ScopeId -InstanceId primary -ChildVhdxPath $ChildPath
@@ -146,19 +179,16 @@ try {
     }
 
     $phase = 'cleanup'
-    Remove-VM -Name $vmName -Force -ErrorAction Stop
-    $vmName = $null
-    Remove-Item -LiteralPath $acceptanceParent -Recurse -Force -ErrorAction Stop
+    Remove-OwnedAcceptanceAssets
     Write-Host 'PASS: Native Hyper-V-Daten-VHDX wurde quellenunveraendert geklont, reattached und sauber freigegeben; SQL-/Gastnachweis bleibt separat.' -ForegroundColor Green
     exit 0
 }
 catch {
     Write-Host "FAIL [$phase]: $($_.Exception.Message)" -ForegroundColor Red
-    if ($vmName -and (Get-VM -Name $vmName -ErrorAction SilentlyContinue)) {
-        try { Remove-VM -Name $vmName -Force -ErrorAction Stop } catch { Write-Warning "Test-VM-Cleanup fehlgeschlagen: $($_.Exception.Message)" }
-    }
-    if (Test-Path -LiteralPath $acceptanceParent) {
-        try { Remove-Item -LiteralPath $acceptanceParent -Recurse -Force -ErrorAction Stop } catch { Write-Warning "Testpfad-Cleanup fehlgeschlagen: $($_.Exception.Message)" }
-    }
+    try { Remove-OwnedAcceptanceAssets } catch { Write-Warning "Test-Cleanup fehlgeschlagen; Recovery-Ressourcen bleiben erhalten: $($_.Exception.Message)" }
     exit 1
+}
+finally {
+    if($runtimeMutexAcquired){$runtimeMutex.ReleaseMutex()}
+    $runtimeMutex.Dispose()
 }

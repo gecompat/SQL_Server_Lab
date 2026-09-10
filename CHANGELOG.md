@@ -20,6 +20,8 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Auch Hyper-V-Clone, Reattach, Release und Operations-Recovery schreiben
+  ueber den gemeinsamen Katalogkern mit Preview und Revisionsschutz.
 - Container-Clone-Lease und Zielregistrierung verwenden den gemeinsamen
   Katalogkern mit Preview und Revisionsschutz. Zielcommit und Quellfreigabe
   bleiben atomar; vorhandene Recovery- und Resume-Vertraege bleiben erhalten.
