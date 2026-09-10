@@ -419,6 +419,14 @@ try {
             [ordered]@{
                 id = 'primary'; version = '2025'; provider = 'hyperv'; os = 'windows'
                 profile = 'standard'
+                # Der Klon besitzt absichtlich nur sein isoliertes Labnetz. Die
+                # Abnahme fordert deshalb den kontrollierten, anschliessend
+                # ownership-gebunden entfernten Aktivierungsadapter explizit an.
+                windowsActivation = [ordered]@{
+                    ContractVersion = 'SqlServerLab.WindowsActivationIntent/1.0'
+                    Strategy = 'EvaluationOnline'
+                    EgressPolicy = 'AllowTemporary'
+                }
                 hyperv = [ordered]@{
                     preparedImageId = [string]$published.Artifact.artifactId
                     memoryStartupMB = 4096; processorCount = 2

@@ -237,7 +237,7 @@ try {
         $builderText -match "source = 'powershell-direct-or-lab-winrm'"
     )
     $preparedAcceptanceText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1') -Raw -Encoding utf8
-    Add-CheckResult -Name 'Prepared-Abnahme bindet den kontrollierten Gasttransport und bereinigt nur neu erzeugte Fehlerartefakte' -Success (
+    Add-CheckResult -Name 'Prepared-Abnahme bindet kontrollierten Gasttransport, temporaeren Aktivierungsegress und nur neue Fehlerartefakte' -Success (
         $preparedAcceptanceText -match "generalizationEvidence\.source -eq 'powershell-direct-or-lab-winrm'" -and
         $preparedAcceptanceText -match '\$preExistingArtifactIds\.Add' -and
         $preparedAcceptanceText -match '\$testFailed -and \$publishedArtifactId -and -not \$preExistingArtifactIds\.Contains\(\$publishedArtifactId\)' -and
@@ -246,7 +246,10 @@ try {
         $preparedAcceptanceText -match 'SQL_PREPARED_ACCEPTANCE_RESOURCE_ROOT_NOT_EMPTY' -and
         $preparedAcceptanceText -match 'SQL_PREPARED_ACCEPTANCE_RESOURCE_ROOT_CLEANUP_POSTCONDITION_FAILED' -and
         $preparedAcceptanceText -match 'PowerShell Direct erreichbar: \$\(\[string\]\$ready\.Message\)' -and
-        $preparedAcceptanceText -match '\$currentBuild -and \[string\]\$currentBuild\.state -ne ''CLEANED_UP'''
+        $preparedAcceptanceText -match '\$currentBuild -and \[string\]\$currentBuild\.state -ne ''CLEANED_UP''' -and
+        $preparedAcceptanceText -match "ContractVersion = 'SqlServerLab\.WindowsActivationIntent/1\.0'" -and
+        $preparedAcceptanceText -match "Strategy = 'EvaluationOnline'" -and
+        $preparedAcceptanceText -match "EgressPolicy = 'AllowTemporary'"
     )
     Add-CheckResult -Name 'SQL Product Key wird nur bei explizitem Profil kurzfristig als PID an Setup uebergeben' -Success (
         $builderText.Contains('Get-LabLicenseProfileSecret') -and
