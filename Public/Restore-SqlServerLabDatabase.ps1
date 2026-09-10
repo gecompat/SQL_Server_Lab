@@ -406,8 +406,8 @@ function Restore-SqlServerLabDatabase {
             & $runtimeInvocation exec $ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
             if ($LASTEXITCODE -ne 0) { throw "Backup-Verzeichnis konnte im $runtime-Container nicht erstellt werden." }
             $runtimeBackupCopied = $true
-            & $runtimeInvocation cp $backupPath "${ContainerName}:${runtimeBackupPath}" 1>$null 2>$null
-            if ($LASTEXITCODE -ne 0) { throw "Backup-Kopie in den $runtime-Container ist fehlgeschlagen." }
+            $copyResult = Invoke-LabProgressNativeCommand -FilePath $runtimeInvocation -ArgumentList @('cp',$backupPath,"${ContainerName}:${runtimeBackupPath}") -Phase Transfer
+            if ($copyResult.ExitCode -ne 0) { throw "Backup-Kopie in den $runtime-Container ist fehlgeschlagen." }
         }
 
     $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)

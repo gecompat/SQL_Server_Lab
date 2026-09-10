@@ -1611,8 +1611,13 @@ und Restore melden Bytewerte. Der Kopierpfad ersetzt das Ziel erst nach
 vollstaendigem Transfer; synthetische Offline-Pruefungen belegen Integritaet,
 Teilfehler-Cleanup und Hardlink-Schutz. Kopieren und Hashing besitzen ein
 Zeitlimit von einer Stunde. Ein Nachweis mit grossen VHDX-Dateien und
-Hyper-V-Lifecycle steht aus. Containertransfers und Hyper-V-Gastwartepfade
-bleiben im UX-Punkt 11 offen. Native SQL-Probes, Query, Skript und Restore
+Hyper-V-Lifecycle steht aus. Containertransfers fuer Restore, Attach und
+Paketexport sowie BACPAC-Import verwenden ebenfalls den Reporter; mangels
+nativer Bytezaehler zeigen diese Phasen keine geschaetzten Prozentwerte.
+Versionstest, Kopie, Import und begrenztes BACPAC-Cleanup teilen eine Anzeige.
+Auch Teilkopien werden bereinigt; kombinierte Import-/Cleanupfehler bleiben
+erkennbar. Hyper-V-Gastwartepfade bleiben im UX-Punkt 11 offen.
+Native SQL-Probes, Query, Skript und Restore
 verwenden den Hostreporter. Das sqlcmd-Statement-Timeout bleibt unveraendert;
 zusaetzlich gilt eine Prozessdeadline von 24 Stunden, fuer Readiness die
 verbleibende Poll-Deadline. Ergebnisdateien entstehen kurzzeitig unter dem

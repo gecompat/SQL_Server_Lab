@@ -8,11 +8,16 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Korrigiert
 
+- BACPAC-Import entfernt auch nach fehlgeschlagener Uebertragung seine eigene
+  temporaere Containerdatei. Import- und Cleanupfehler bleiben unterscheidbar.
 - sqlcmd-Treiberfehler werden auch bei Exitcode null als Fehler behandelt.
   Damit melden Query-Timeouts keinen erfolgreichen Skript- oder Restore-Lauf.
 
 ### Ergaenzt
 
+- Containerkopien fuer Restore, Attach und Paketexport sowie SqlPackage-Import
+  melden hostseitigen Fortschritt. BACPAC-Versionstest, Transfer, Import und
+  begrenztes Cleanup teilen sich einen Reporter ohne sensible Felder.
 - SQL-Probes, Abfragen, Skripte und Restore melden waehrend nativer sqlcmd-
   Aufrufe hostseitigen Fortschritt. Skriptbatches teilen sich einen Reporter;
   Unicode-Ergebnisse werden ueber eine anschliessend entfernte temporaere

@@ -99,6 +99,25 @@ bleiben unter der bestehenden Providerverwaltung; der Test fuehrt kein Prune aus
 
 ### Statische Prüfung
 
+`Tests/Static/Invoke-ContainerTransferProgressChecks.ps1` prueft den BACPAC-
+Reporter und die Fehlerpfade fuer Teilkopie, Import und Cleanup einschliesslich
+nativer Ausnahmen. Eine zufaellige eigene Containerdatei bleibt das einzige
+Cleanupziel; Versions- und Ownershipfehler verhindern die Mutation.
+Die vorhandenen `Invoke-ContainerToolAcceptance.ps1`,
+`Invoke-ContainerDatabasePackageExportAcceptance.ps1` und
+`Invoke-RestoreSmokeTest.ps1` liefern die getrennten nativen Provider-Nachweise.
+Am 2026-09-10 bestanden 17 betroffene statische Suites. Der Gegenbeweis mit der
+alten BACPAC-Cleanup-Reihenfolge scheiterte gezielt bei der Teilkopie.
+Der Paketexport bestand getrennt auf Docker und Podman mit vollstaendiger
+Hashpruefung, Offline-Postcondition und Run-Cleanup. Podman bestand zusaetzlich
+SqlPackage-Version, Restart, BACPAC-Inhalt, Attach-Inhalt und Attach-Recovery
+samt Entfernung des Test-Runs und seines Images. Der entsprechende lokale
+Docker-Tooltest wurde vor Mutation wegen eines vorhandenen Tool-Images
+blockiert: ein isolierter Acceptance-Lauf darf dieses weder ersetzen noch
+loeschen. Diese Grenze ist kein fehlgeschlagener SQL-Import.
+Beide Acceptance-Skripte koordinieren sich mit der Runtime-Sperre, pruefen
+Ressourcen und bewahren bei fehlgeschlagenem Cleanup den Recovery-State.
+
 `Tests/Static/Invoke-SqlActionProgressChecks.ps1` prueft Query- und Skript-
 Argumente, gemeinsame GO-Verbindung, Statement-/Prozessdeadline, SQL-Exitcode,
 Fehlerschwere sowie Cleanup temporaerer Ein- und Ergebnisdateien. Die Ausgabe

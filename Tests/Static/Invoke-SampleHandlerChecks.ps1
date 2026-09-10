@@ -285,10 +285,16 @@ try {
         $script:AttachScopeId = $attachScopeId
         $originalGetRunState = (Get-Command Get-LabRunState).ScriptBlock
         $originalGetHostToolInvocation = (Get-Command Get-LabHostToolInvocation).ScriptBlock
+        $originalProgressNative = (Get-Command Invoke-LabProgressNativeCommand).ScriptBlock
         $originalInvokeSqlQuery = (Get-Command Invoke-SqlQuery).ScriptBlock
         try {
             Set-Item Function:Get-LabRunState -Value { param($RunId, $StateRoot) [PSCustomObject]@{ scopeId = $script:AttachScopeId } }
             Set-Item Function:Get-LabHostToolInvocation -Value { param($Name) $script:AttachRuntime }
+            Set-Item Function:Invoke-LabProgressNativeCommand -Value {
+                param($FilePath,$ArgumentList,$Phase)
+                $output=@(& $script:AttachRuntime @ArgumentList)
+                return [pscustomobject]@{ExitCode=$global:LASTEXITCODE;Output=$output}
+            }
             Set-Item Function:Invoke-SqlQuery -Value {
                 param($HostName, $Port, $SaPlain, $Database, $TimeoutSeconds, $Query)
                 [void]$script:AttachSqlQueries.Add($Query)
@@ -322,6 +328,7 @@ try {
         finally {
             Set-Item Function:Get-LabRunState -Value $originalGetRunState
             Set-Item Function:Get-LabHostToolInvocation -Value $originalGetHostToolInvocation
+            Set-Item Function:Invoke-LabProgressNativeCommand -Value $originalProgressNative
             Set-Item Function:Invoke-SqlQuery -Value $originalInvokeSqlQuery
             $global:LASTEXITCODE = $originalLastExitCode
         }
@@ -669,7 +676,7 @@ CREATE DATABASE [$(SecondDatabase)];
         $restoreText -match 'Resolve-LabRestoreContainer @restoreTargetArguments'
     )
     Add-CheckResult -Name 'FILELISTONLY verwirft sqlcmd-Leerzeilen vor der MOVE-Erzeugung' -Success (
-        $restoreText -match "-h -1" -and
+        $restoreText -match "'-h','-1'" -and
         $restoreText -match '\$fileListLines = @\(' -and
         $restoreText -match 'FILELISTONLY lieferte keine Dateizeilen' -and
         $restoreText -match 'New-LabRestoreMoveStatements -FileListOutput \$fileListLines'
@@ -679,11 +686,12 @@ CREATE DATABASE [$(SecondDatabase)];
         $sampleHandlerText -match 'sql-server-lab\.run-id' -and
         $sampleHandlerText -match 'sql-server-lab\.scope-id' -and
         $sampleHandlerText -match 'sql-server-lab\.container-tool\.ids' -and
-        $sampleHandlerText -match 'sqlpackage /Version' -and
+        $sampleHandlerText -match "sqlpackage','/Version'" -and
         $sampleHandlerText -match 'BACPAC_SQLPACKAGE_VERSION_MISMATCH' -and
         $sampleHandlerText -match 'BACPAC_CONTAINER_COPY_FAILED' -and
         $sampleHandlerText -match 'BACPAC_IMPORT_CLEANUP_FAILED' -and
-        $sampleHandlerText -match 'rm -f -- \$containerArtifactPath'
+        $sampleHandlerText -match "'rm','-f','--'," -and
+        $sampleHandlerText -match 'BACPAC_IMPORT_AND_CLEANUP_FAILED'
     )
     Add-CheckResult -Name 'Ad-hoc-BACPAC-Sample bindet SqlPackage vor jeder Container-Mutation automatisch' -Success (
         $newLabText -match "artifactType -eq 'bacpac'" -and

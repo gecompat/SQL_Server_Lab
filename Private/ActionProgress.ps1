@@ -3,7 +3,7 @@
 function Start-LabActionProgress {
     [CmdletBinding()]
     param(
-        [ValidateSet('Download','SqlReadiness','SqlQuery','ImageBuild','Copy','Hash','Extract','Transfer','Restore','Import','GuestWait')]
+        [ValidateSet('Download','SqlReadiness','SqlQuery','ImageBuild','Copy','Hash','Extract','Transfer','Restore','Import','Cleanup','GuestWait')]
         [string]$Phase,
         [datetime]$Now = [datetime]::UtcNow
     )
@@ -20,7 +20,7 @@ function Update-LabActionProgress {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][object]$Progress,
-        [ValidateSet('Download','SqlReadiness','SqlQuery','ImageBuild','Copy','Hash','Extract','Transfer','Restore','Import','GuestWait')]
+        [ValidateSet('Download','SqlReadiness','SqlQuery','ImageBuild','Copy','Hash','Extract','Transfer','Restore','Import','Cleanup','GuestWait')]
         [string]$Phase,
         [ValidateRange(0, [long]::MaxValue)][long]$CompletedBytes = 0,
         [ValidateRange(0, [long]::MaxValue)][long]$TotalBytes = 0,
@@ -36,7 +36,7 @@ function Update-LabActionProgress {
         Download='Download'; SqlReadiness='SQL-Bereitschaft'; SqlQuery='SQL ausfuehren'; ImageBuild='Container-Image bauen'
         Copy='Dateien kopieren'; Hash='Integritaet pruefen'; Extract='Archiv entpacken'
         Transfer='Daten uebertragen'; Restore='Datenbank wiederherstellen'
-        Import='Datenbank importieren'; GuestWait='Auf Gast warten'
+        Import='Datenbank importieren'; Cleanup='Aufraeumen'; GuestWait='Auf Gast warten'
     }
     # Allowlist erneut anwenden: auch ein manipuliertes Contextobjekt darf keine
     # freien Texte als Phase in den Renderer einschleusen.
@@ -155,7 +155,7 @@ function Invoke-LabProgressNativeCommand {
     param(
         [Parameter(Mandatory)][string]$FilePath,
         [Parameter(Mandatory)][AllowEmptyString()][string[]]$ArgumentList,
-        [ValidateSet('ImageBuild','Transfer','Restore','Import','GuestWait','Extract','SqlReadiness','SqlQuery')][string]$Phase = 'ImageBuild',
+        [ValidateSet('ImageBuild','Transfer','Restore','Import','Cleanup','GuestWait','Extract','SqlReadiness','SqlQuery')][string]$Phase = 'ImageBuild',
         [ValidateRange(1,86400)][int]$TimeoutSeconds = 3600,
         [object]$Progress
     )

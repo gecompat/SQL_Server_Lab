@@ -28,6 +28,7 @@ function Export-LabContainerDatabasePackage {
     $identifier = $DatabaseName.Replace(']', ']]')
     $databaseHost = if ($context.Instance.host) { [string]$context.Instance.host } else { '127.0.0.1' }
     $stage = Join-Path $context.RunDirectory (Join-Path 'database-package-export' ([Guid]::NewGuid().ToString('N')))
+    $progress = $null
     try {
         $inventoryQuery = @"
 SET NOCOUNT ON;
@@ -61,10 +62,11 @@ FROM sys.master_files mf WHERE mf.database_id=DB_ID(N'$literal') ORDER BY mf.fil
         $runtime = Get-LabHostToolInvocation -Name ([string]$context.Provider)
         $localInventory = [Collections.Generic.List[object]]::new()
         $ordinal = 0
+        $progress = Start-LabActionProgress -Phase Transfer
         foreach ($file in $parsed) {
             $target = Join-Path $stage ("file-$ordinal")
-            $null = & $runtime cp "$($context.ContainerName):$($file.ContainerPath)" $target 2>&1
-            if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $target -PathType Leaf)) { throw 'CONTAINER_DATABASE_PACKAGE_COPY_FAILED' }
+            $copyResult = Invoke-LabProgressNativeCommand -FilePath $runtime -ArgumentList @('cp',"$($context.ContainerName):$($file.ContainerPath)",$target) -Phase Transfer -Progress $progress
+            if ($copyResult.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $target -PathType Leaf)) { throw 'CONTAINER_DATABASE_PACKAGE_COPY_FAILED' }
             $localInventory.Add([PSCustomObject]@{ LogicalName=$file.LogicalName; Type=$file.Type; FullPath=$target })
             $ordinal++
         }
@@ -74,6 +76,7 @@ FROM sys.master_files mf WHERE mf.database_id=DB_ID(N'$literal') ORDER BY mf.fil
     }
     finally {
         $plain = $null
+        if ($progress) { Stop-LabActionProgress -Progress $progress }
         if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue }
     }
 }
