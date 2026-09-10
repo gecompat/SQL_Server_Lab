@@ -109,12 +109,13 @@ Die vorhandenen `Invoke-ContainerToolAcceptance.ps1`,
 Am 2026-09-10 bestanden 17 betroffene statische Suites. Der Gegenbeweis mit der
 alten BACPAC-Cleanup-Reihenfolge scheiterte gezielt bei der Teilkopie.
 Der Paketexport bestand getrennt auf Docker und Podman mit vollstaendiger
-Hashpruefung, Offline-Postcondition und Run-Cleanup. Podman bestand zusaetzlich
-SqlPackage-Version, Restart, BACPAC-Inhalt, Attach-Inhalt und Attach-Recovery
-samt Entfernung des Test-Runs und seines Images. Der entsprechende lokale
-Docker-Tooltest wurde vor Mutation wegen eines vorhandenen Tool-Images
-blockiert: ein isolierter Acceptance-Lauf darf dieses weder ersetzen noch
-loeschen. Diese Grenze ist kein fehlgeschlagener SQL-Import.
+Hashpruefung, Offline-Postcondition und Run-Cleanup. Beide Provider bestanden
+zusaetzlich SqlPackage-Version, Restart, BACPAC-Inhalt, Attach-Inhalt und
+Attach-Recovery samt Entfernung des Test-Runs und seines Images. Der Schutz
+vor vorhandenen Images bindet das exakte geplante Ziel; andere Tool-Images
+bleiben mit derselben Tag-/Image-ID-Bindung erhalten. Docker belegt diesen
+Gegenfall nativ. Auch die Restore-Smokes bestanden getrennt auf Docker und
+Podman mit vollstaendigem Run-Cleanup.
 Beide Acceptance-Skripte koordinieren sich mit der Runtime-Sperre, pruefen
 Ressourcen und bewahren bei fehlgeschlagenem Cleanup den Recovery-State.
 
