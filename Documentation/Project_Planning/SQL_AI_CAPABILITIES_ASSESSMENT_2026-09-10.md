@@ -67,6 +67,14 @@ kein ungeprüftes Modell und installiert keine DLL.
 
 ## ANN und Vektorindizes
 
+Auf ausdrücklichen Benutzerauftrag vom 2026-09-10 wird die nachfolgende
+Vergleichslane in dieser Entwicklungswelle auf SQL Server 2025 real ausgeführt.
+Preview ist kein Ausschlussgrund. Test-/Funktionsversion und tatsächlicher
+SQL-Build werden gebunden; spätere inkompatible Syntax oder Semantik erhält
+eine angepasste beziehungsweise eigene Version statt einer stillen Umdeutung
+der vorhandenen Evidence. Die native Aufgabe bleibt bis zum erfolgreichen
+Lauf einschließlich Cleanup offen.
+
 Der Nutzen muss gegenüber der exakten Suche gemessen werden. ANN bleibt eine
 separate Preview-Lane, bis konkreter SQL-Build und Indexversion live gebunden
 sind. Cloud-Dokumentation darf nicht auf die lokale SQL-Installation übertragen
