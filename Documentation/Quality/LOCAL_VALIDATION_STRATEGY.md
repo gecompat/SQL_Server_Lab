@@ -9,6 +9,15 @@
 
 ## 1. Grundsatz
 
+`Tests/Static/Invoke-HyperVSqlOwnershipInitializationChecks.ps1` fuehrt den
+echten Initialisierungsaufruf aus dem SQL-Slotworkflow mit fehlenden, null,
+leeren, positiven und ungueltigen Trace Flags gegen synthetische Receipts aus.
+Der Gegenbeweis mit dem urspruenglichen Aufruf scheiterte am fehlenden Feld.
+Der native CLI-Lauf vom 2026-09-10 erreichte OOBE, SQL-Installation und
+Hostzugriff, scheiterte dann an `HYPERV_SQL_CONFIGURATION_OWNERSHIP_TRACE_FLAG_INVALID`
+und bereinigte alle acht Run-Ressourcen. Die Wiederholung nach Korrektur bleibt
+bis zu ihrem Ergebnis ein offener nativer Nachweis.
+
 `SQL_Server_Lab` stellt seine Qualitätsprüfungen als lokal ausführbare Skripte bereit.
 
 Die lokale Validierung besteht aktuell aus drei produktiven Ebenen:

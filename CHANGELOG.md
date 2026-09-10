@@ -8,6 +8,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Korrigiert
 
+- Hyper-V-SQL-Slotinstallation behandelt fehlende optionale Trace Flags als
+  leere Besitzliste. Die typisierte Parameterbindung erzeugt daraus kein
+  ungueltiges Flag 0 mehr; explizit angegebenes Flag 0 bleibt abgewiesen.
 - BACPAC-Import entfernt auch nach fehlgeschlagener Uebertragung seine eigene
   temporaere Containerdatei. Import- und Cleanupfehler bleiben unterscheidbar.
 - sqlcmd-Treiberfehler werden auch bei Exitcode null als Fehler behandelt.
