@@ -17,8 +17,10 @@ und Fehler sowie Cleanup vor dem Bereits-aktiviert-No-Op ab.
 einen aktiven Live-Lizenzzustand und prueft ein gegebenenfalls entstandenes
 temporaeres Adapterjournal auf vollstaendiges Cleanup. Die Ausgabe trennt
 `ALREADY_ACTIVE_NO_OP` von `TEMPORARY_ADAPTER_CLEANED`; ein No-Op ist kein
-Nachweis einer neuen Online-Aktivierung. Fuer diese Erweiterung steht der
-native Lauf noch aus.
+Nachweis einer neuen Online-Aktivierung. Der Lauf `34439763621` vom 2026-09-10
+auf `0a8cb93` bestaetigte `TEMPORARY_ADAPTER_CLEANED`, aktiven Live-Zustand,
+Locale nach Kaltstart und `CLEANUP_SUCCEEDED` mit drei Schritten und null
+Fehlern. Der Nachweis der permanenten NIC bleibt separat offen.
 
 `Invoke-WindowsActivationNetworkChecks.ps1` prueft Adaptervorbestand,
 Identitaetsbindung, Teilfehler, idempotenten Cleanup und Recovery-Konflikte.

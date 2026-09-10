@@ -62,9 +62,10 @@ Statische Verhaltenstests pruefen Entscheidungsmatrix, Ablaufdatum,
 Manifestbindung, SQL-Gate, Pool-Wiederaufnahme sowie permanente NIC bei
 Erfolg und Fehler. Der native Ownership-Test bestaetigt temporaere Adapter,
 Teilfehler, Resume und Cleanup; er fuehrt keine Lizenzaktivierung aus.
-Ein nativer Gesamtnachweis des neuen allgemeinen Aktivierungspfads mit
-permanenter und temporaerer NIC steht noch aus. Die getrennten Locale- und
-SQL-Nachweise vor dieser Erweiterung ersetzen ihn nicht.
+Der native Lauf vom 2026-09-10 auf `0a8cb93` bestaetigt die tatsaechliche
+Evaluationsaktivierung mit temporaerer NIC, deren Entfernung, den Live-Gate,
+Kaltstart und Cleanup (drei Schritte, null Fehler). Es war kein
+Bereits-aktiviert-No-Op. Der getrennte Nachweis mit permanenter NIC bleibt offen.
 Die Host-Pruefung am 2026-09-10 ergab fuer die permanente Lane
 `LAB_NETWORK_HYPERV_LAN_BINDING_REQUIRED` beziehungsweise
 `LAB_NETWORK_HYPERV_NAT_PREFIX_CONFLICT`. Es fehlt eine autorisierte bestehende

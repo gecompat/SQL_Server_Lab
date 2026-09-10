@@ -3,7 +3,8 @@
 ## Status
 
 `PARTIAL` – gemeinsamer Intent und Aktivierungs-Gate fuer regulaere Slots
-implementiert; native allgemeine Aktivierung und Vollversionsstrategien offen.
+implementiert; temporaere Evaluation nativ bestaetigt, permanente NIC und
+Vollversionsstrategien offen.
 Reihenfolge und Priorität richten sich nach dem kanonischen Entwicklungs- und
 Ausführungsplan.
 
@@ -27,8 +28,11 @@ Defaults, Wiederaufnahme und die noch offenen Nachweise.
 
 Der Evaluationspfad verwendet eine nachgewiesene permanente NIC unveraendert.
 Eine zusaetzliche temporaere NIC ist nur bei entsprechendem Egress-Intent
-erlaubt. Statische Erfolgs- und Fehlernachweise sind vorhanden; ein nativer
-Aktivierungsnachweis fuer beide Netzwerkvarianten bleibt offen.
+erlaubt. Statische Erfolgs- und Fehlernachweise sind vorhanden. Der native Lauf
+`34439763621` vom 2026-09-10 bestaetigt tatsaechliche Aktivierung ueber die
+temporaere NIC, deren Entfernung, Kaltstart und vollstaendigen Cleanup. Die
+permanente Lane bleibt wegen fehlender LAN-Bindung beziehungsweise eines
+NAT-Praefixkonflikts separat offen.
 
 ## Ziel
 

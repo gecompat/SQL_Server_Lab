@@ -1802,7 +1802,9 @@ Adapter. Fremde gleichnamige Adapter bleiben bestehen. Unvollstaendige
 Journale oder nachtraeglich geaenderte Switch-Bindungen erfordern konkrete
 Recovery statt einer Entfernung nach Namen. Der allgemeine Aktivierungsintent
 mit persistenter NIC und Egress-Policy ist implementiert und statisch geprueft;
-sein nativer Gesamtnachweis und KMS-/ADBA-/MAK-Ausfuehrung bleiben offen.
+der temporaere Evaluationspfad ist seit 2026-09-10 nativ einschliesslich
+Aktivierung, Kaltstart und Cleanup bestaetigt. Permanente NIC und
+KMS-/ADBA-/MAK-Ausfuehrung bleiben offen.
 Die Live-Gates vor SQL Setup, bei Start und Pool-Wiederaufnahme ersetzen keinen
 positiven Aktivierungsnachweis auf einem konkreten Gast. Der native Adaptertest hat
 am 2026-09-10 Erfolg, kontrollierten Fehler, Resume und Cleanup auf einem
