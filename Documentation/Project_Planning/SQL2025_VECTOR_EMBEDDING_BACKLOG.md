@@ -14,6 +14,14 @@ dem übergeordneten
 [KI-Plattform-Backlog](SQL2025_AI_PLATFORM_BACKLOG.md) und dem kanonischen
 Entwicklungs- und Ausführungsplan.
 
+Der kleinste Re-Embedding-Slice ist als rein lesender, interner Plan- und
+Journalvertrag implementiert. Er bindet alte und neue ModelKey-, Dimensions-
+und Modellidentität sowie Dataset-, Chunk- und Vector-SHA-256, ordnet Chunks
+deterministisch und macht einen Teilfortschritt ausschließlich als Resume-
+Projektion sichtbar. Retrieval bleibt bis zur vollständigen, getrennten
+Zielmenge blockiert. Der Slice erzeugt keine Chunks oder Vektoren, fragt weder
+SQL Server, Modelle, Provider noch Netzwerk ab und schreibt kein Journal.
+
 ## Ausgangslage
 
 SQL Server 2025 kann Vektoren im nativen Datentyp `VECTOR(n)` speichern und
