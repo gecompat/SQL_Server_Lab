@@ -153,11 +153,15 @@ function Copy-LabDatabasePackageToHyperVGuest {
             }
         } -ErrorAction Stop
 
-        foreach ($object in @($Package.Record.Objects)) {
-            $source = Join-Path ([string]$Package.Path) ([string]$object.RelativePath)
-            $destination = Join-Path ([string]$Context.TargetDirectory) ([string]$object.RelativePath)
-            Copy-Item -LiteralPath $source -Destination $destination -ToSession $session -Force -ErrorAction Stop
+        $transferProgress=Start-LabActionProgress -Phase Transfer
+        try {
+            foreach ($object in @($Package.Record.Objects)) {
+                $source = Join-Path ([string]$Package.Path) ([string]$object.RelativePath)
+                $destination = Join-Path ([string]$Context.TargetDirectory) ([string]$object.RelativePath)
+                Copy-LabProgressSessionFile -SourcePath $source -DestinationPath $destination -Session $session -Progress $transferProgress
+            }
         }
+        finally {Stop-LabActionProgress -Progress $transferProgress}
 
         $expectedJson = @($Package.Record.Objects | ForEach-Object {
             [PSCustomObject]@{ RelativePath = [string]$_.RelativePath; Bytes = [long]$_.Bytes; Sha256 = [string]$_.Sha256 }

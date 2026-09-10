@@ -397,7 +397,7 @@ function Copy-LabFileToHyperVGuest {
         $session=New-PSSession -VMName ([string]$lab.Instance.vmName) -Credential $Credential -ErrorAction Stop
         $directory=Split-Path -Parent $DestinationPath
         Invoke-Command -Session $session -ArgumentList $directory -ScriptBlock { param($Path) if(-not(Test-Path -LiteralPath $Path)){New-Item -Path $Path -ItemType Directory -Force|Out-Null} } -ErrorAction Stop
-        Copy-Item -LiteralPath $SourcePath -Destination $DestinationPath -ToSession $session -Force -ErrorAction Stop
+        Copy-LabProgressSessionFile -SourcePath $SourcePath -DestinationPath $DestinationPath -Session $session
     }
     finally{if($session){Remove-PSSession -Session $session -ErrorAction SilentlyContinue}}
     return $DestinationPath
@@ -424,7 +424,7 @@ function Copy-LabFileFromHyperVGuest {
             [PSCustomObject]@{IsFile=(-not $item.PSIsContainer);Length=[long]$item.Length}
         } -ErrorAction Stop
         if(-not [bool]$sourceEvidence.IsFile -or [long]$sourceEvidence.Length -le 0){throw 'HYPERV_STORAGE_GUEST_EXPORT_SOURCE_INVALID'}
-        Copy-Item -LiteralPath $SourcePath -Destination $DestinationPath -FromSession $session -Force -ErrorAction Stop
+        Copy-LabProgressSessionFile -SourcePath $SourcePath -DestinationPath $DestinationPath -Session $session -Direction FromSession
         if(-not(Test-Path -LiteralPath $DestinationPath -PathType Leaf) -or (Get-Item -LiteralPath $DestinationPath).Length -le 0){
             throw 'HYPERV_STORAGE_GUEST_EXPORT_FAILED'
         }

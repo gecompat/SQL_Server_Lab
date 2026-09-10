@@ -9,6 +9,20 @@
 
 ## 1. Grundsatz
 
+`Tests/Static/Invoke-HyperVSqlOwnershipInitializationChecks.ps1` fuehrt den
+echten Initialisierungsaufruf aus dem SQL-Slotworkflow mit fehlenden, null,
+leeren, positiven und ungueltigen Trace Flags gegen synthetische Receipts aus.
+Der Gegenbeweis mit dem urspruenglichen Aufruf scheiterte am fehlenden Feld.
+Der native CLI-Lauf vom 2026-09-10 erreichte OOBE, SQL-Installation und
+Hostzugriff, scheiterte dann an `HYPERV_SQL_CONFIGURATION_OWNERSHIP_TRACE_FLAG_INVALID`
+und bereinigte alle acht Run-Ressourcen. Die Wiederholung nach Korrektur auf
+302a37d bestand im [nativen CLI-Lauf 34427219338](https://github.com/gecompat/SQL_Server_Lab/actions/runs/34427219338)
+mit 29 PASS-Meldungen und `CLEANUP_SUCCEEDED`: eigener Windows-Klon, OOBE,
+SQL-Installation und Konfiguration, Readiness, Kaltstart, Daten-/Storagepfade,
+Chinook und Ressourcenwechsel. Ein synthetischer 2-MB-Sessiontransfer in beide
+Richtungen wurde per Hashvergleich geprueft. Die interaktive Hostanzeige bleibt
+durch die separaten Offline-Vertraege abgedeckt; CI belegt deren Darstellung nicht.
+
 `SQL_Server_Lab` stellt seine Qualitätsprüfungen als lokal ausführbare Skripte bereit.
 
 Die lokale Validierung besteht aktuell aus drei produktiven Ebenen:
@@ -99,6 +113,22 @@ bleiben unter der bestehenden Providerverwaltung; der Test fuehrt kein Prune aus
 
 ### Statische Prüfung
 
+`Tests/Static/Invoke-JobProgressChecks.ps1` prueft echte lokale PowerShell-Jobs:
+stille sechssekuendige Ausfuehrung, Ergebnisreihenfolge, ErrorRecord-Kategorie,
+Deadline, Schutz fremder Jobs, gemeinsame Anzeige und unterdrueckte rohe
+Gast-ProgressRecords. `Invoke-HyperVGuestProgressChecks.ps1` prueft den
+Transportvertrag funktional ohne VM: begrenzte OpenError-Retries, kein
+Fallback bei fachlichen oder Ownershipfehlern, temporaeres WinRM-Trust sowie
+den gemeinsamen Reporter und die Restdeadline mehrerer Readiness-Probes.
+Diese Offline-Pruefungen ersetzen keinen nativen Gast- oder Transfernachweis.
+Der vorhandene `Invoke-HyperVCliAcceptance.ps1` prueft den Gastpfad mit einem
+eigenen Windows-/SQL-Run aus einer registrierten OS-Baseline. Er verwendet die
+gemeinsame Runtime-Sperre, verlangt fuer seine 6144-MB-VM mindestens 7373 MB
+freien RAM, vier logische CPUs und 40 GB am registrierten Ressourcenroot.
+SQL-Medien muessen bereits hashregistriert sein. Fehlgeschlagenes Cleanup
+bewahrt den Test-State; temporaere Testdateien werden nur innerhalb des
+validierten eigenen Temp-Roots entfernt.
+
 `Tests/Static/Invoke-ContainerTransferProgressChecks.ps1` prueft den BACPAC-
 Reporter und die Fehlerpfade fuer Teilkopie, Import und Cleanup einschliesslich
 nativer Ausnahmen. Eine zufaellige eigene Containerdatei bleibt das einzige
@@ -118,6 +148,11 @@ Gegenfall nativ. Auch die Restore-Smokes bestanden getrennt auf Docker und
 Podman mit vollstaendigem Run-Cleanup.
 Beide Acceptance-Skripte koordinieren sich mit der Runtime-Sperre, pruefen
 Ressourcen und bewahren bei fehlgeschlagenem Cleanup den Recovery-State.
+
+`Tests/Static/Invoke-SessionTransferProgressChecks.ps1` prueft echte asynchrone
+PowerShell-Pipelines mit langsamer synthetischer Arbeit, Ausgabeobjekten,
+Fehlerkategorien, Deadline und Reporter-Cleanup. Rohe ProgressRecords werden
+unterdrueckt. Dieser Offline-Lauf belegt noch keinen echten PSSession-Transfer.
 
 `Tests/Static/Invoke-SqlActionProgressChecks.ps1` prueft Query- und Skript-
 Argumente, gemeinsame GO-Verbindung, Statement-/Prozessdeadline, SQL-Exitcode,

@@ -263,7 +263,16 @@ werden nur kurzzeitig fuer eine eindeutige Unicode-Decodierung verwendet und
 bei Erfolg, Fehler und Abbruch entfernt. Containerkopien fuer Restore, Attach
 und Paketexport sowie BACPAC-Import und dessen Cleanup sind ebenfalls angebunden.
 Der BACPAC-Fehlerpfad erfasst auch Teilkopien; Attach bewahrt weiterhin sein
-Recovery-Journal. Gastwartepfade bleiben Teil dieses offenen Punkts; der folgende Ausgangsbefund
+Recovery-Journal. PowerShell Direct, Lab-WinRM, deren Readiness-/Restart-Probes,
+Integrationstransfers und Prepared-Shutdown verwenden jetzt Hostreporter;
+Offline-Jobs belegen Ausgabe, Fehlerkategorie, Timeout und eigenes Cleanup.
+Session-Dateikopien fuer SQL-Storage und Datenbankpakete verwenden eine eigene
+asynchrone Kopierpipeline; Offline-Nachweise decken Heartbeat, Ergebnisobjekte,
+Fehlerkategorie, Timeout und Reporter-Cleanup ab.
+Native Gast-/Session-Evidence liegt mit CLI-Lauf 34427219338 auf 302a37d vor:
+SQL-Lifecycle, bidirektionaler synthetischer Sessiontransfer mit Hashvergleich
+und Cleanup bestanden. Legacy-WMI-Wartepfade bleiben
+Teil dieses offenen Punkts; der folgende Ausgangsbefund
 beschreibt den Stand vor dieser Erweiterung.
 
 Geprüfter Ist-Zustand vom 2026-09-09: Das feste Statusband (`CUI-022`) zeigt

@@ -8,6 +8,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Korrigiert
 
+- Hyper-V-SQL-Slotinstallation behandelt fehlende optionale Trace Flags als
+  leere Besitzliste. Die typisierte Parameterbindung erzeugt daraus kein
+  ungueltiges Flag 0 mehr; explizit angegebenes Flag 0 bleibt abgewiesen.
 - BACPAC-Import entfernt auch nach fehlgeschlagener Uebertragung seine eigene
   temporaere Containerdatei. Import- und Cleanupfehler bleiben unterscheidbar.
 - sqlcmd-Treiberfehler werden auch bei Exitcode null als Fehler behandelt.
@@ -15,6 +18,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- PowerShell-Session-Dateikopien fuer SQL-Storage und Hyper-V-Datenbankpakete
+  melden hostseitigen Fortschritt aus einer eigenen asynchronen Pipeline.
+  Fehlerkategorien bleiben erhalten; die Session bleibt im Besitz des Aufrufers.
+- PowerShell Direct, Lab-WinRM und Hyper-V-Integrationstransfers melden
+  hostseitigen Jobfortschritt. Readiness-Probes und CompleteImage-Neustart
+  teilen ihre Anzeige über die Wartephasen; Deadline, Ergebnis und Fehler
+  bleiben unterscheidbar. Empfangene Gast-Fortschrittstexte werden unterdrueckt.
 - Containerkopien fuer Restore, Attach und Paketexport sowie SqlPackage-Import
   melden hostseitigen Fortschritt. BACPAC-Versionstest, Transfer, Import und
   begrenztes Cleanup teilen sich einen Reporter ohne sensible Felder.
