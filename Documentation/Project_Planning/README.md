@@ -3,6 +3,7 @@
 | Dokument | Inhalt |
 |---|---|
 | REFRESH_AND_RECOVERY_ASSESSMENT_2026-09-10.md | Abgeschlossene Bewertungen für vollständigen Evaluation-Refresh und Recovery Points: Inventar, Login/SID, Jobs, Schlüsselgrenzen, Cutover/Rückfall, SQL-Konsistenz, unabhängiger Restore und Referenzschutz; keine neue Runtimefreigabe |
+| BI_CAPABILITIES_ASSESSMENT_2026-09-10.md | Abgeschlossene SSIS-, SSAS- und BI-Bewertung mit begrenztem Windows-Referenzpfad, Daten-/Processing-Assertions, Rollen, Commit-/Resume-Grenzen und Herstellerabgleich; keine neue Runtimefreigabe |
 | AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md | Vollständige Aufgaben- und Abnahmeliste aus der Repository-Durchsicht: Test-/Release-Reparaturen, vorhandene Funktionen fertigstellen, native Evidence, Szenarien, KI und begründete Erweiterungsbewertungen; konkretisiert den nachgelagerten Horizont des Ausführungsplans |
 | RESERVED_MANIFEST_FIELDS_ASSESSMENT_2026-09-10.md | Abgeschlossene Bedarfsbewertung reservierter Manifest- und Adapterfelder mit Wiederverwendung bestehender Verträge, Risiken, relativem Aufwand und konkreten Freischaltungskriterien; keine neue Runtimefreigabe |
 | DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md | Kanonische Ausführungsreihenfolge; Abschnitt 12 führt den evidenzgebundenen Status der fünf Wellen für Baseline, P0-Recovery, drei Adapterpiloten, Hyper-V-End-to-End sowie Storage/Reconcile |
