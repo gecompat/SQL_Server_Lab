@@ -320,7 +320,9 @@ Add-CheckResult -Name 'Container-Tool-Image übernimmt ein vorhandenes gleiches 
     $toolImageSource -match 'existingPlannedImage\.ImageKey\s+-eq\s+\[string\]\$ImagePlan\.ImageKey' -and
     $toolImageSource -match 'existingPlannedImage\.ToolIds\s+-eq\s+''sqlpackage''' -and
     $toolImageSource -match 'Write-LabArtifactJsonAtomic\s+-Path\s+\$receiptPath' -and
-    $toolAcceptanceSource -match 'Bereits vorhandenes Derived Image blieb unveraendert'
+    $toolAcceptanceSource -match 'Bereits vorhandenes Derived Image blieb unveraendert' -and
+    $toolAcceptanceSource -match '\$plannedToolImageCanonical' -and
+    $toolAcceptanceSource -match "-replace '\^\(\?i\)localhost/'"
 )
 Add-CheckResult -Name 'Container-Tool-Akzeptanz prueft Manifest, Probe, Restart und scoped Cleanup nativ' -Success (
     $toolAcceptanceSource -match 'New-SqlServerLab -Manifest' -and

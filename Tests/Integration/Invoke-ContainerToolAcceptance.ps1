@@ -85,8 +85,16 @@ try {
         $plans=@(Resolve-LabSoftwarePlansForInstance -Instance $Instance)
         (New-LabContainerToolImagePlan -Provider ([string]$Instance.provider) -SqlVersion ([string]$Instance.version) -SoftwarePlans $plans).Image
     } ([pscustomobject]$manifest.instances[0])
+    # Podman kann lokale Images als `localhost/<repository>:<tag>` ausgeben,
+    # waehrend der portable Plan das kanonische Repository ohne Registry-Praefix
+    # verwendet. Die Ownership-Entscheidung darf diesen Darstellungsunterschied
+    # nicht als neues test-eigenes Image interpretieren.
+    $plannedToolImageCanonical = ([string]$plannedToolImage -replace '^(?i)localhost/', '')
     $existingToolImages=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*')
-    $existingPlannedToolImage=@($existingToolImages | Where-Object {$_ -like "$plannedToolImage=*"})
+    $existingPlannedToolImage=@($existingToolImages | Where-Object {
+        $candidate = (([string]$_ -split '=', 2)[0] -replace '^(?i)localhost/', '')
+        $candidate -ieq $plannedToolImageCanonical
+    })
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and $existingPlannedToolImage.Count -le 1) 'Isolierter Image-Test erkennt hoechstens ein bestehendes Zielimage'
     $removeImageAfterTest = $existingPlannedToolImage.Count -eq 0
     $assessment=Test-SqlServerLabPrerequisite -Provider $Provider
@@ -106,7 +114,11 @@ try {
     } ([string]$instance.ContainerTools.ImageKey) $Provider $stateRoot
     $receipt = Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
     $imageName = [string]$receipt.image
-    $currentPlannedToolImage=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter "reference=$plannedToolImage")
+    $currentToolImages=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*')
+    $currentPlannedToolImage=@($currentToolImages | Where-Object {
+        $candidate = (([string]$_ -split '=', 2)[0] -replace '^(?i)localhost/', '')
+        $candidate -ieq $plannedToolImageCanonical
+    })
     Assert-ContainerToolAcceptance (
         [string]$receipt.status -eq 'IMAGE_READY' -and
         [string]$receipt.retention -eq 'reusable-explicit-removal' -and
