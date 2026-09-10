@@ -1,5 +1,5 @@
 schema_version: 1
-foundation_ruleset_version: 1.8.0
+foundation_ruleset_version: 1.18.0
 canonical_entrypoint: AGENTS.md
 authority:
   required_or_baseline:
@@ -12,6 +12,7 @@ authority:
     - .ai/foundation/UPGRADE_APPLICABILITY_POLICY.md
     - .ai/foundation/REPOSITORY_CONTINUITY_POLICY.md
     - .ai/foundation/RULE_CONTEXT_CACHE_POLICY.md
+    - .ai/foundation/AI_WORK_ORCHESTRATION_POLICY.md
     - .ai/foundation/feature_catalog.json
     - .ai/foundation/WORKING_RULES.md
     - .ai/foundation/MODEL_ROUTING_POLICY.md
@@ -29,9 +30,48 @@ authority:
     - .ai/foundation/schemas/artifact-registration-request.schema.json
     - .ai/foundation/schemas/feature-catalog.schema.json
     - .ai/foundation/schemas/upgrade-assessment.schema.json
+    - .ai/foundation/schemas/installation-provenance.schema.json
     - .ai/foundation/schemas/rule-context-cache.schema.json
+    - .ai/foundation/schemas/model-routing-request.schema.json
+    - .ai/foundation/schemas/model-routing-decision.schema.json
+    - .ai/foundation/schemas/model-router-catalog.schema.json
+    - .ai/foundation/schemas/model-routing-snapshot.schema.json
+    - .ai/foundation/schemas/model-router-profiles.schema.json
+    - .ai/foundation/schemas/model-routing-request-v2.schema.json
+    - .ai/foundation/schemas/model-routing-decision-v2.schema.json
+    - .ai/foundation/schemas/model-router-catalog-fragment-v2.schema.json
+    - .ai/foundation/schemas/ai-work-request.schema.json
+    - .ai/foundation/schemas/capability-descriptor.schema.json
+    - .ai/foundation/schemas/execution-plan.schema.json
+    - .ai/foundation/schemas/execution-report.schema.json
+    - .ai/foundation/schemas/execution-checkpoint.schema.json
+    - .ai/foundation/schemas/approval-receipt.schema.json
+    - .ai/foundation/schemas/validation-evidence.schema.json
+    - .ai/foundation/schemas/gap-report.schema.json
+    - .ai/foundation/schemas/provision-plan.schema.json
+    - .ai/foundation/schemas/provision-request.schema.json
+    - .ai/foundation/schemas/provision-approval.schema.json
+    - .ai/foundation/schemas/provision-report.schema.json
+    - .ai/foundation/schemas/runtime-inventory.schema.json
+    - .ai/foundation/schemas/ai-adapter-protocol.schema.json
+    - .ai/foundation/schemas/ai-runtime-configuration.schema.json
+    - .ai/foundation/schemas/resource-cost-evidence.schema.json
+    - .ai/foundation/schemas/client-integration-plan.schema.json
+    - .ai/foundation/schemas/client-model-routing-capability.schema.json
+    - .ai/foundation/schemas/vscode-model-routing-plan.schema.json
+    - .ai/foundation/schemas/manual-handoff.schema.json
+    - .ai/foundation/schemas/dispatch-receipt.schema.json
+    - .ai/foundation/schemas/adapter-synthesis-report.schema.json
+    - .ai/foundation/schemas/model-runtime-evidence.schema.json
+    - .ai/foundation/schemas/model-evidence-sources.schema.json
+    - .ai/foundation/schemas/ai-orchestration-request.schema.json
+    - .ai/foundation/schemas/ai-orchestration-report.schema.json
 provenance:
   foundation_notice: .ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md
+  installation_receipt: .ai/foundation/installation-provenance.json
+  installation_receipt_schema: .ai/foundation/schemas/installation-provenance.schema.json
+  source_hash_normalization: UTF8_CRLF_TO_LF_ELSE_EXACT
+  drift_classifications: UNCHANGED_CURRENT_BASELINE_INTENTIONAL_OVERRIDE_PREVIOUS_FOUNDATION_VERSION_UNKNOWN_DRIFT
   target_root_license_behavior: independent_and_untouched
 integration_contract:
   root_entrypoint: AGENTS.md
@@ -111,6 +151,10 @@ continuity_contract:
   direct_push_break_glass: prohibited
   deferred_validation_after_recovery: required
   target_repository_administration: recommend_never_silently_configure
+  ci_supersession_and_queue_strategy: project_selectable
+  exact_commit_or_tested_integration_candidate_required: true
+  unsafe_mutating_runtime_cancellation: prohibited
+  github_actions_concurrency_and_merge_queue: project_selectable
 rule_context_cache_contract:
   policy: .ai/foundation/RULE_CONTEXT_CACHE_POLICY.md
   schema: .ai/foundation/schemas/rule-context-cache.schema.json
@@ -159,10 +203,98 @@ validation_contract:
     selection: impact_based
     foundation_integrity_does_not_replace_project_validation: true
 model_routing_contract:
+  request_schema: .ai/foundation/schemas/model-routing-request.schema.json
+  decision_schema: .ai/foundation/schemas/model-routing-decision.schema.json
+  catalog_schema: .ai/foundation/schemas/model-router-catalog.schema.json
+  snapshot_schema: .ai/foundation/schemas/model-routing-snapshot.schema.json
+  profiles_schema: .ai/foundation/schemas/model-router-profiles.schema.json
+  request_v2_schema: .ai/foundation/schemas/model-routing-request-v2.schema.json
+  decision_v2_schema: .ai/foundation/schemas/model-routing-decision-v2.schema.json
+  catalog_fragment_v2_schema: .ai/foundation/schemas/model-router-catalog-fragment-v2.schema.json
   foundation_tiers: LOCAL_ECONOMICAL_BALANCED_FRONTIER
   target_policy_may_be_more_detailed: true
   semantic_mapping_when_overlapping: required
   concrete_models_are_runtime_facts: true
+  profile: foundation-model-router/v2
+  compatible_profiles: foundation-model-router/v1_foundation-model-router/v2
+  constraint_order: privacy_authorization_capability_context_quality_freshness_budget_before_cost
+  objective: minimum_complete_chain_expected_cost_of_success
+  resource_money_requires_evidence: true
+  resource_pressure_without_money: tie_breaker_only
+  provider_catalog_refresh: isolated_per_provider_with_unexpired_last_known_good
+  price_epoch_and_expiry: required
+  session_affinity: conditional
+  new_model_default: UNASSESSED
+  bounded_evaluation: required
+  runtime_state: outside_version_control
+  credential_storage: prohibited
+  graceful_degradation: MCP_CLI_LAUNCHER_OR_SNAPSHOT_MANUAL_HANDOFF_PORTABLE_TIER_ONLY
+  optional_reference_capability: model-router
+ai_work_contract:
+  policy: .ai/foundation/AI_WORK_ORCHESTRATION_POLICY.md
+  profile: foundation-ai-work/v1
+  request_schema: .ai/foundation/schemas/ai-work-request.schema.json
+  capability_schema: .ai/foundation/schemas/capability-descriptor.schema.json
+  plan_schema: .ai/foundation/schemas/execution-plan.schema.json
+  report_schema: .ai/foundation/schemas/execution-report.schema.json
+  validation_evidence_schema: .ai/foundation/schemas/validation-evidence.schema.json
+  gap_report_schema: .ai/foundation/schemas/gap-report.schema.json
+  provision_plan_schema: .ai/foundation/schemas/provision-plan.schema.json
+  provision_request_schema: .ai/foundation/schemas/provision-request.schema.json
+  provision_approval_schema: .ai/foundation/schemas/provision-approval.schema.json
+  provision_report_schema: .ai/foundation/schemas/provision-report.schema.json
+  runtime_inventory_schema: .ai/foundation/schemas/runtime-inventory.schema.json
+  adapter_protocol_schema: .ai/foundation/schemas/ai-adapter-protocol.schema.json
+  runtime_configuration_schema: .ai/foundation/schemas/ai-runtime-configuration.schema.json
+  runtime_configuration_profile: foundation-ai-runtime-configuration/v1
+  runtime_configuration_lifecycle: detect_propose_edit_test_save_verify_rollback
+  missing_runtime_configuration: configuration_required_with_safe_proposals
+  runtime_credential_storage: references_only
+  runtime_model_selection: ROUTER_MANUAL_PINNED
+  resource_cost_evidence_schema: .ai/foundation/schemas/resource-cost-evidence.schema.json
+  model_runtime_evidence_schema: .ai/foundation/schemas/model-runtime-evidence.schema.json
+  model_evidence_sources_schema: .ai/foundation/schemas/model-evidence-sources.schema.json
+  orchestration_request_schema: .ai/foundation/schemas/ai-orchestration-request.schema.json
+  orchestration_report_schema: .ai/foundation/schemas/ai-orchestration-report.schema.json
+  execution_checkpoint_schema: .ai/foundation/schemas/execution-checkpoint.schema.json
+  approval_receipt_schema: .ai/foundation/schemas/approval-receipt.schema.json
+  adapter_protocol: foundation-ai-adapter-jsonl/v1
+  reference_executor: optional_capability
+  executor_capability: ai-executor
+  reference_host_preparation: optional_capability
+  host_preparation_capability: ai-provisioning
+  reference_orchestrator: optional_capability
+  orchestrator_capability: ai-orchestrator
+  orchestration_profile: foundation-ai-orchestration/v1
+  orchestration_pipeline: catalog_evidence_route_invoke_validate_fallback_report
+  orchestration_model_evidence: fresh_source_backed_external_only
+  orchestration_unattested_result: MANUAL_REQUIRED
+  cost_refresh_minimum_seconds: 86400
+  payload_transport: content_handles_outside_control_plane
+  payload_persistence_default: prohibited
+  statuses: EXECUTABLE_MANUAL_REQUIRED_UNAVAILABLE_BLOCKED
+  capability_failures: isolated
+  authority_expansion: prohibited
+  runtime_state: outside_version_control
+  python_required: false
+  optional_reference_capability: ai-work
+  optional_adapter_capability: ai-runtime-adapters
+ai_client_integration_contract:
+  profile: foundation-ai-client-integration/v1
+  plan_schema: .ai/foundation/schemas/client-integration-plan.schema.json
+  native_model_capability_schema: .ai/foundation/schemas/client-model-routing-capability.schema.json
+  vscode_model_plan_schema: .ai/foundation/schemas/vscode-model-routing-plan.schema.json
+  native_model_routing: fresh_capability_first_then_mcp_cli_launcher_manual
+  manual_handoff_schema: .ai/foundation/schemas/manual-handoff.schema.json
+  dispatch_receipt_schema: .ai/foundation/schemas/dispatch-receipt.schema.json
+  adapter_synthesis_report_schema: .ai/foundation/schemas/adapter-synthesis-report.schema.json
+  lifecycle: detect_plan_apply_verify_rollback
+  dispatch_attestation: requested_and_actual_model_from_explicitly_trusted_host_execution_or_response_metadata
+  unattested_status: REQUESTED_NOT_ATTESTED
+  manual_fallback_status: MANUAL_DISPATCH_REQUIRED
+  payload_transport: external_content_handle
+  runtime_state: outside_version_control
+  optional_reference_capability: ai-client-integration
 override_contract:
   required: minimum_floor_project_may_be_stricter
   default: project_may_override_intentionally

@@ -1,0 +1,36 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/model-router-catalog-fragment-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "adapter": {"minLength": 1, "type": "string"},
+    "contract": {"const": "foundation-model-router/v2"},
+    "execution_boundary": {"enum": ["PROCESS", "HOST", "LOCAL_NETWORK", "REMOTE", "UNKNOWN"], "type": "string"},
+    "generated_at": {"format": "date-time", "type": "string"},
+    "health": {
+      "additionalProperties": false,
+      "properties": {
+        "checked_at": {"format": "date-time", "type": "string"},
+        "expires_at": {"format": "date-time", "type": "string"},
+        "reason_code": {"minLength": 1, "type": "string"},
+        "state": {"enum": ["HEALTHY", "DEGRADED", "UNAVAILABLE", "UNKNOWN"], "type": "string"}
+      },
+      "required": ["state", "checked_at", "expires_at"],
+      "type": "object"
+    },
+    "models": {"additionalProperties": {"additionalProperties": true, "type": "object"}, "type": "object"},
+    "pricing_epoch": {"minLength": 1, "type": "string"},
+    "provider": {"minLength": 1, "type": "string"},
+    "provenance": {
+      "additionalProperties": false,
+      "properties": {"observed_at": {"format": "date-time", "type": "string"}, "source": {"minLength": 1, "type": "string"}},
+      "required": ["source", "observed_at"],
+      "type": "object"
+    },
+    "schema_version": {"const": 2},
+    "valid_until": {"format": "date-time", "type": "string"}
+  },
+  "required": ["schema_version", "contract", "provider", "adapter", "execution_boundary", "generated_at", "valid_until", "pricing_epoch", "health", "provenance", "models"],
+  "title": "Foundation model router provider catalog fragment v2",
+  "type": "object"
+}

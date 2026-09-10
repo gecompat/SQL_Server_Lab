@@ -1,0 +1,59 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/resource-cost-evidence.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "amount": {"minimum": 0, "type": "number"},
+    "content_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "contract": {"const": "foundation-resource-cost-evidence/v1"},
+    "currency": {"minLength": 3, "type": "string"},
+    "evidence_id": {"minLength": 1, "type": "string"},
+    "normalized_attempt_cost_usd": {"minimum": 0, "type": "number"},
+    "normalized_cost_provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "method": {"minLength": 1, "type": "string"},
+        "source": {"minLength": 1, "type": "string"}
+      },
+      "required": ["method", "source"],
+      "type": "object"
+    },
+    "observed_at": {"format": "date-time", "type": "string"},
+    "provenance": {"enum": ["MEASURED", "CONFIGURED", "PROVIDER_QUOTED", "RESEARCH_VERIFIED"], "type": "string"},
+    "refresh": {
+      "additionalProperties": false,
+      "properties": {
+        "last_attempt_at": {"format": "date-time", "type": "string"},
+        "maximum_frequency_seconds": {"minimum": 86400, "type": "integer"},
+        "next_allowed_at": {"format": "date-time", "type": "string"},
+        "suggested_after": {"format": "date-time", "type": "string"}
+      },
+      "required": ["last_attempt_at", "maximum_frequency_seconds", "next_allowed_at", "suggested_after"],
+      "type": "object"
+    },
+    "schema_version": {"const": 1},
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["PRIMARY_API", "PRIMARY_DOCUMENT", "LOCAL_MEASUREMENT", "PROJECT_CONFIGURATION", "VERIFIED_RESEARCH"], "type": "string"},
+        "locator": {"minLength": 1, "type": "string"}
+      },
+      "required": ["kind", "locator"],
+      "type": "object"
+    },
+    "subject": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {"enum": ["PROVIDER_PRICE", "ELECTRICITY_TARIFF", "HARDWARE_AMORTIZATION", "RESOURCE_MEASUREMENT", "OTHER"], "type": "string"},
+        "subject_id": {"minLength": 1, "type": "string"}
+      },
+      "required": ["kind", "subject_id"],
+      "type": "object"
+    },
+    "unit": {"minLength": 1, "type": "string"},
+    "valid_until": {"format": "date-time", "type": "string"}
+  },
+  "required": ["schema_version", "contract", "evidence_id", "subject", "amount", "currency", "unit", "provenance", "source", "observed_at", "valid_until", "content_sha256", "refresh"],
+  "title": "Foundation resource cost evidence",
+  "type": "object"
+}

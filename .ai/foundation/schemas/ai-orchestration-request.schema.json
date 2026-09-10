@@ -1,0 +1,26 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/ai-orchestration-request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contract": {"const": "foundation-ai-orchestration/v1"},
+    "input_handle": {"minLength": 1, "type": "string"},
+    "max_attempts": {"maximum": 10, "minimum": 1, "type": "integer"},
+    "orchestration_id": {"minLength": 1, "type": "string"},
+    "output_handle": {"minLength": 1, "type": "string"},
+    "remote_authorized": {"default": false, "type": "boolean"},
+    "router_request": {"$ref": "model-routing-request-v2.schema.json"},
+    "schema_version": {"const": 1},
+    "validation": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"enum": ["NONE", "OUTPUT_NONEMPTY", "JSON_DOCUMENT", "MANUAL_REVIEW"], "type": "string"}
+      },
+      "required": ["mode"],
+      "type": "object"
+    }
+  },
+  "required": ["schema_version", "contract", "orchestration_id", "router_request", "input_handle", "output_handle", "remote_authorized", "max_attempts", "validation"],
+  "title": "Foundation AI orchestration request",
+  "type": "object"
+}

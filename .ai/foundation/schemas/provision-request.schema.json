@@ -1,0 +1,38 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/provision-request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_id": {"minLength": 1, "type": "string"},
+    "authorization": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_network_destinations": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+        "environment_allowlist": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+        "network_authorized": {"type": "boolean"}
+      },
+      "required": ["network_authorized", "allowed_network_destinations", "environment_allowlist"],
+      "type": "object"
+    },
+    "contract": {"const": "foundation-ai-host-preparation/v1"},
+    "limits": {
+      "additionalProperties": false,
+      "properties": {
+        "max_cost_usd": {"minimum": 0, "type": "number"},
+        "max_disk_mb": {"minimum": 0, "type": "number"},
+        "max_download_mb": {"minimum": 0, "type": "number"},
+        "max_memory_mb": {"minimum": 0, "type": "number"}
+      },
+      "required": ["max_download_mb", "max_disk_mb", "max_memory_mb", "max_cost_usd"],
+      "type": "object"
+    },
+    "request_id": {"minLength": 1, "type": "string"},
+    "schema_version": {"const": 1},
+    "target_path": {"minLength": 1, "type": "string"},
+    "target_runtime": {"minLength": 1, "type": "string"},
+    "valid_for_seconds": {"maximum": 86400, "minimum": 1, "type": "integer"}
+  },
+  "required": ["schema_version", "contract", "request_id", "artifact_id", "target_runtime", "target_path", "valid_for_seconds", "limits", "authorization"],
+  "title": "Foundation bounded host provision request",
+  "type": "object"
+}

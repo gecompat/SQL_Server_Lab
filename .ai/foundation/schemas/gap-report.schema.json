@@ -1,0 +1,29 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/gap-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contract": {"const": "foundation-ai-work/v1"},
+    "gap_id": {"minLength": 1, "type": "string"},
+    "local_remedy": {
+      "additionalProperties": false,
+      "properties": {
+        "conformance_required": {"type": "boolean"},
+        "description": {"minLength": 1, "type": "string"},
+        "network_default": {"const": "DENY"},
+        "repository_write_default": {"const": "DENY"}
+      },
+      "required": ["description", "network_default", "repository_write_default", "conformance_required"],
+      "type": ["object", "null"]
+    },
+    "missing_capabilities": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "reason_codes": {"items": {"minLength": 1, "type": "string"}, "type": "array"},
+    "required_authorities": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "schema_version": {"const": 1},
+    "tested_alternatives": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "work_id": {"minLength": 1, "type": "string"}
+  },
+  "required": ["schema_version", "contract", "gap_id", "work_id", "missing_capabilities", "tested_alternatives", "local_remedy", "required_authorities", "reason_codes"],
+  "title": "Foundation AI capability gap report",
+  "type": "object"
+}

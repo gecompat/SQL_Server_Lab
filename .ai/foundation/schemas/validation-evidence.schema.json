@@ -1,0 +1,21 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/validation-evidence.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contract": {"const": "foundation-ai-work/v1"},
+    "evidence_id": {"minLength": 1, "type": "string"},
+    "independent": {"type": "boolean"},
+    "method": {"enum": ["DETERMINISTIC", "SOURCE_CHECK", "INDEPENDENT_REVIEW", "HUMAN_REVIEW"], "type": "string"},
+    "observed_at": {"format": "date-time", "type": "string"},
+    "producer_capability_id": {"minLength": 1, "type": "string"},
+    "provenance": {"items": {"minLength": 1, "type": "string"}, "type": "array"},
+    "result": {"enum": ["PASSED", "FAILED", "INCONCLUSIVE", "UNAVAILABLE"], "type": "string"},
+    "schema_version": {"const": 1},
+    "scope": {"minLength": 1, "type": "string"},
+    "subject_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"}
+  },
+  "required": ["schema_version", "contract", "evidence_id", "subject_sha256", "scope", "method", "producer_capability_id", "independent", "result", "provenance", "observed_at"],
+  "title": "Foundation AI validation evidence",
+  "type": "object"
+}

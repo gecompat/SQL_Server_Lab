@@ -1,0 +1,76 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/model-runtime-evidence.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "aliases": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_model": {"minLength": 1, "type": "string"},
+          "connection_id": {"minLength": 1, "type": "string"},
+          "evidence_kind": {"enum": ["PROVIDER_DOCUMENTATION", "PROVIDER_SIGNED_METADATA"], "type": "string"},
+          "observed_at": {"format": "date-time", "type": "string"},
+          "requested_model": {"minLength": 1, "type": "string"},
+          "source": {"$ref": "#/$defs/source"},
+          "valid_until": {"format": "date-time", "type": "string"}
+        },
+        "required": ["connection_id", "requested_model", "actual_model", "evidence_kind", "source", "observed_at", "valid_until"],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "contract": {"const": "foundation-model-runtime-evidence/v1"},
+    "records": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "connection_id": {"minLength": 1, "type": "string"},
+          "model_id": {"minLength": 1, "type": "string"},
+          "observed_at": {"format": "date-time", "type": "string"},
+          "profile": {
+            "additionalProperties": false,
+            "properties": {
+              "assessment": {"enum": ["UNASSESSED", "EVALUATING", "ASSESSED", "DISABLED"], "type": "string"},
+              "availability": {"enum": ["AVAILABLE", "UNAVAILABLE", "MISSING_PRICE"], "type": "string"},
+              "capabilities": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+              "context_window": {"minimum": 1, "type": ["integer", "null"]},
+              "latency_seconds_prior": {"minimum": 0, "type": "number"},
+              "pricing": {"type": ["object", "null"]},
+              "quality_prior": {"additionalProperties": {"maximum": 1, "minimum": 0, "type": "number"}, "type": "object"},
+              "quality_provenance": {"enum": ["MEASURED", "CONFIGURED", "UNKNOWN"], "type": "string"},
+              "reasoning_efforts": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+              "resource_cost": {"type": "object"},
+              "resource_estimate": {"additionalProperties": {"minimum": 0, "type": "number"}, "type": "object"},
+              "resource_provenance": {"enum": ["MEASURED", "CONFIGURED", "UNKNOWN"], "type": "string"},
+              "supported_tiers": {"items": {"enum": ["ECONOMICAL", "BALANCED", "FRONTIER"]}, "type": "array", "uniqueItems": true}
+            },
+            "type": "object"
+          },
+          "source": {"$ref": "#/$defs/source"},
+          "valid_until": {"format": "date-time", "type": "string"}
+        },
+        "required": ["connection_id", "model_id", "profile", "source", "observed_at", "valid_until"],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {"const": 1},
+    "updated_at": {"format": "date-time", "type": "string"}
+  },
+  "required": ["schema_version", "contract", "updated_at", "records", "aliases"],
+  "$defs": {
+    "source": {
+      "additionalProperties": false,
+      "properties": {
+        "content_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+        "kind": {"enum": ["MEASUREMENT", "PROJECT_CONFIGURATION", "PRIMARY_API", "PROVIDER_DOCUMENTATION", "VERIFIED_RESEARCH"], "type": "string"},
+        "locator": {"minLength": 1, "type": "string"}
+      },
+      "required": ["kind", "locator", "content_sha256"],
+      "type": "object"
+    }
+  },
+  "title": "External source-backed model runtime evidence",
+  "type": "object"
+}

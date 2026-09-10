@@ -1,0 +1,22 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/provision-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifact_sha256": {"anyOf": [{"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"}, {"type": "null"}]},
+    "contract": {"const": "foundation-ai-host-preparation/v1"},
+    "cost_upper_bound_usd": {"minimum": 0, "type": "number"},
+    "downloaded_bytes": {"minimum": 0, "type": "integer"},
+    "operation": {"enum": ["provision", "verify"], "type": "string"},
+    "operation_id": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "plan_hash": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "provision_id": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "reason_codes": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array"},
+    "recovery": {"items": {"minLength": 1, "type": "string"}, "type": "array"},
+    "schema_version": {"const": 1},
+    "status": {"enum": ["PREPARED", "IN_PROGRESS", "COMPLETED", "FAILED", "MANUAL_REQUIRED", "PASSED", "UNAVAILABLE"], "type": "string"}
+  },
+  "required": ["schema_version", "contract", "operation", "provision_id", "status", "reason_codes"],
+  "title": "Foundation host provision or verification report",
+  "type": "object"
+}

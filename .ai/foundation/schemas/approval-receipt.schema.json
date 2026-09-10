@@ -1,0 +1,19 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/approval-receipt.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "approval_key": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "approved_at": {"format": "date-time", "type": "string"},
+    "authority": {"minLength": 1, "type": "string"},
+    "contract": {"const": "foundation-ai-approval/v1"},
+    "expires_at": {"format": "date-time", "type": "string"},
+    "plan_id": {"minLength": 1, "type": "string"},
+    "receipt_id": {"minLength": 1, "type": "string"},
+    "schema_version": {"const": 1},
+    "scope_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"}
+  },
+  "required": ["schema_version", "contract", "receipt_id", "plan_id", "approval_key", "scope_sha256", "authority", "approved_at", "expires_at"],
+  "title": "Foundation AI grouped approval receipt",
+  "type": "object"
+}

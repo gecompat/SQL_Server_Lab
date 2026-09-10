@@ -1,0 +1,27 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/model-evidence-sources.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contract": {"const": "foundation-model-evidence-sources/v1"},
+    "schema_version": {"const": 1},
+    "sources": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "argv": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array"},
+          "environment_allowlist": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+          "minimum_refresh_seconds": {"minimum": 86400, "type": "integer"},
+          "source_id": {"minLength": 1, "type": "string"},
+          "timeout_seconds": {"maximum": 600, "minimum": 0.1, "type": "number"}
+        },
+        "required": ["source_id", "argv", "environment_allowlist", "timeout_seconds", "minimum_refresh_seconds"],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": ["schema_version", "contract", "sources"],
+  "title": "External bounded model evidence source configuration",
+  "type": "object"
+}

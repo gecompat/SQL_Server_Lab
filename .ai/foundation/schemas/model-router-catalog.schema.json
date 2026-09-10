@@ -1,0 +1,73 @@
+{
+  "$defs": {
+    "rates": {
+      "additionalProperties": false,
+      "properties": {
+        "cached_input": {"minimum": 0, "type": ["number", "null"]},
+        "input": {"minimum": 0, "type": "number"},
+        "output": {"minimum": 0, "type": "number"}
+      },
+      "required": ["input", "cached_input", "output"],
+      "type": "object"
+    }
+  },
+  "$id": "https://example.invalid/ai-repository-foundation/model-router-catalog.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "catalog_epoch": {"minLength": 1, "type": "string"},
+    "contract": {"const": "foundation-model-router/v1"},
+    "generated_at": {"format": "date-time", "type": "string"},
+    "pricing_epoch": {"minLength": 1, "type": "string"},
+    "providers": {
+      "additionalProperties": {
+        "additionalProperties": true,
+        "properties": {
+          "models": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "properties": {
+                "assessment": {"enum": ["ASSESSED", "UNASSESSED", "DISABLED"], "type": "string"},
+                "availability": {"enum": ["AVAILABLE", "PRICED_NOT_DISCOVERED", "MISSING_PRICE", "UNAVAILABLE"], "type": "string"},
+                "capabilities": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+                "context_window": {"minimum": 1, "type": ["integer", "null"]},
+                "model_id": {"minLength": 1, "type": "string"},
+                "pricing": {
+                  "oneOf": [
+                    {
+                      "additionalProperties": true,
+                      "properties": {
+                        "base": {"$ref": "#/$defs/rates"},
+                        "currency": {"const": "USD"},
+                        "schedules": {"type": "array"},
+                        "unit_tokens": {"const": 1000000}
+                      },
+                      "required": ["currency", "unit_tokens", "base", "schedules"],
+                      "type": "object"
+                    },
+                    {"type": "null"}
+                  ]
+                },
+                "quality_prior": {"additionalProperties": {"maximum": 1, "minimum": 0, "type": "number"}, "type": "object"},
+                "reasoning_efforts": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+                "supported_tiers": {"items": {"enum": ["ECONOMICAL", "BALANCED", "FRONTIER"], "type": "string"}, "type": "array", "uniqueItems": true}
+              },
+              "required": ["model_id", "availability", "assessment", "capabilities", "context_window", "quality_prior", "supported_tiers", "reasoning_efforts", "pricing"],
+              "type": "object"
+            },
+            "type": "object"
+          },
+          "remote": {"type": "boolean"}
+        },
+        "required": ["remote", "models"],
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "schema_version": {"const": 1},
+    "valid_until": {"format": "date-time", "type": "string"}
+  },
+  "required": ["schema_version", "contract", "generated_at", "valid_until", "catalog_epoch", "pricing_epoch", "providers"],
+  "title": "Foundation model router runtime catalog",
+  "type": "object"
+}

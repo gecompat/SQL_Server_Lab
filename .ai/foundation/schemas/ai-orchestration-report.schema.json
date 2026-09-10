@@ -1,0 +1,41 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/ai-orchestration-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "attempts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_model": {"type": ["string", "null"]},
+          "connection_id": {"minLength": 1, "type": "string"},
+          "dispatch_status": {"minLength": 1, "type": "string"},
+          "error_class": {"type": ["string", "null"]},
+          "model": {"minLength": 1, "type": "string"},
+          "output_bytes": {"minimum": 0, "type": "integer"},
+          "output_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": ["string", "null"]},
+          "provider": {"minLength": 1, "type": "string"},
+          "reason_code": {"type": ["string", "null"]},
+          "status": {"enum": ["SUCCEEDED", "FAILED"], "type": "string"}
+        },
+        "required": ["connection_id", "provider", "model", "actual_model", "dispatch_status", "status", "error_class", "reason_code", "output_sha256", "output_bytes"],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "catalog_status": {"items": {"additionalProperties": false, "properties": {"connection_id": {"minLength": 1, "type": "string"}, "reason_code": {"minLength": 1, "type": "string"}, "status": {"enum": ["AVAILABLE", "UNAVAILABLE", "INVALID"], "type": "string"}}, "required": ["connection_id", "status", "reason_code"], "type": "object"}, "type": "array"},
+    "contract": {"const": "foundation-ai-orchestration/v1"},
+    "finished_at": {"format": "date-time", "type": "string"},
+    "orchestration_id": {"minLength": 1, "type": "string"},
+    "reason_codes": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "remaining_actions": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "route": {"type": ["object", "null"]},
+    "router_status": {"enum": ["ROUTED", "LOCAL_ONLY", "NO_ROUTE", "UNAVAILABLE"], "type": "string"},
+    "schema_version": {"const": 1},
+    "status": {"enum": ["PLANNED", "COMPLETED", "MANUAL_REQUIRED", "UNAVAILABLE", "BLOCKED"], "type": "string"},
+    "validation_status": {"enum": ["PASSED", "FAILED", "INCONCLUSIVE", "UNAVAILABLE", "NOT_REQUIRED"], "type": "string"}
+  },
+  "required": ["schema_version", "contract", "orchestration_id", "status", "router_status", "route", "catalog_status", "attempts", "validation_status", "reason_codes", "remaining_actions", "finished_at"],
+  "title": "Content-free Foundation AI orchestration report",
+  "type": "object"
+}

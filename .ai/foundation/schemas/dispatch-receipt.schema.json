@@ -1,0 +1,22 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/dispatch-receipt.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actual_model": {"anyOf": [{"minLength": 1, "type": "string"}, {"type": "null"}]},
+    "client_id": {"minLength": 1, "type": "string"},
+    "contract": {"const": "foundation-model-dispatch-receipt/v1"},
+    "evidence_kind": {"enum": ["HOST_EXECUTION", "HOST_RESPONSE_METADATA", "USER_OBSERVATION"], "type": "string"},
+    "handoff_id": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "issuer_id": {"minLength": 1, "type": "string"},
+    "observed_at": {"format": "date-time", "type": "string"},
+    "reason_codes": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "receipt_id": {"minLength": 1, "type": "string"},
+    "requested_model": {"anyOf": [{"minLength": 1, "type": "string"}, {"type": "null"}]},
+    "schema_version": {"const": 1},
+    "status": {"enum": ["ATTESTED", "REQUESTED_NOT_ATTESTED", "FAILED"], "type": "string"}
+  },
+  "required": ["schema_version", "contract", "receipt_id", "handoff_id", "client_id", "issuer_id", "requested_model", "actual_model", "observed_at", "evidence_kind", "status", "reason_codes"],
+  "title": "Foundation requested-versus-actual model dispatch receipt",
+  "type": "object"
+}

@@ -1,0 +1,55 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/manual-handoff.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "acceptance_criteria": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "contract": {"const": "foundation-manual-dispatch/v1"},
+    "created_at": {"format": "date-time", "type": "string"},
+    "data_class": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"], "type": "string"},
+    "handoff_id": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "model_evidence_state": {"enum": ["UNAVAILABLE", "AVAILABLE_NOT_EXECUTION_ATTESTED"], "type": "string"},
+    "prompt_handle": {
+      "additionalProperties": false,
+      "properties": {
+        "content_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+        "handle_id": {"minLength": 1, "type": "string"},
+        "kind": {"const": "FILE"}
+      },
+      "required": ["handle_id", "kind", "content_sha256"],
+      "type": "object"
+    },
+    "reason_codes": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "recommended_model": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "additionalProperties": false,
+          "properties": {
+            "evidence_kind": {"enum": ["CLIENT_CATALOG", "EXECUTION_RECEIPT", "USER_CONFIGURATION"], "type": "string"},
+            "execution_boundary": {"enum": ["HOST", "LOCAL_NETWORK", "REMOTE", "UNKNOWN"], "type": "string"},
+            "expires_at": {"format": "date-time", "type": "string"},
+            "model": {"minLength": 1, "type": "string"},
+            "observed_at": {"format": "date-time", "type": "string"},
+            "provider": {"minLength": 1, "type": "string"}
+          },
+          "required": ["provider", "model", "execution_boundary", "evidence_kind", "observed_at", "expires_at"],
+          "type": "object"
+        }
+      ]
+    },
+    "recommended_tier": {"enum": ["LOCAL", "ECONOMICAL", "BALANCED", "FRONTIER"], "type": "string"},
+    "required_capabilities": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "remote_authorized": {"type": "boolean"},
+    "risk": {"enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"], "type": "string"},
+    "schema_version": {"const": 1},
+    "selection_instruction": {"minLength": 1, "type": "string"},
+    "status": {"const": "MANUAL_DISPATCH_REQUIRED"},
+    "valid_until": {"format": "date-time", "type": "string"},
+    "validation_requirements": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "work_id": {"minLength": 1, "type": "string"}
+  },
+  "required": ["schema_version", "contract", "status", "handoff_id", "work_id", "created_at", "valid_until", "data_class", "risk", "remote_authorized", "recommended_tier", "recommended_model", "model_evidence_state", "prompt_handle", "required_capabilities", "acceptance_criteria", "validation_requirements", "selection_instruction", "reason_codes"],
+  "title": "Foundation content-free manual model dispatch handoff",
+  "type": "object"
+}

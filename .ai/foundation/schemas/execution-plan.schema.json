@@ -1,0 +1,49 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/execution-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "step": {
+      "additionalProperties": false,
+      "properties": {
+        "alternatives": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+        "capability_id": {"minLength": 1, "type": "string"},
+        "depends_on": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+        "input_handles": {"items": {"minLength": 1, "type": "string"}, "type": "array"},
+        "operation": {"minLength": 1, "type": "string"},
+        "output_handles": {"items": {"minLength": 1, "type": "string"}, "type": "array"},
+        "step_id": {"minLength": 1, "type": "string"}
+      },
+      "required": ["step_id", "capability_id", "operation", "depends_on", "alternatives", "input_handles", "output_handles"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "approval_points": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "authority_required": {"minLength": 1, "type": "string"},
+          "before_steps": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+          "reasons": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array"}
+        },
+        "required": ["before_steps", "authority_required", "reasons"],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "constraints": {"additionalProperties": true, "type": "object"},
+    "contract": {"const": "foundation-ai-work/v1"},
+    "generated_at": {"format": "date-time", "type": "string"},
+    "plan_id": {"minLength": 1, "type": "string"},
+    "reason_codes": {"items": {"minLength": 1, "type": "string"}, "type": "array"},
+    "schema_version": {"const": 1},
+    "status": {"enum": ["EXECUTABLE", "MANUAL_REQUIRED", "UNAVAILABLE", "BLOCKED"], "type": "string"},
+    "steps": {"items": {"$ref": "#/$defs/step"}, "type": "array"},
+    "valid_until": {"format": "date-time", "type": "string"},
+    "work_id": {"minLength": 1, "type": "string"}
+  },
+  "required": ["schema_version", "contract", "plan_id", "work_id", "status", "generated_at", "valid_until", "steps", "approval_points", "constraints", "reason_codes"],
+  "title": "Foundation AI execution plan",
+  "type": "object"
+}

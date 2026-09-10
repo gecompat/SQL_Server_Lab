@@ -1,0 +1,36 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/ai-adapter-protocol.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "request": {
+      "additionalProperties": false,
+      "properties": {
+        "arguments": {"additionalProperties": true, "type": "object"},
+        "operation": {"enum": ["probe", "catalog", "invoke", "cancel", "provision"], "type": "string"},
+        "protocol": {"const": "foundation-ai-adapter-jsonl/v1"},
+        "request_id": {"minLength": 1, "type": "string"}
+      },
+      "required": ["protocol", "request_id", "operation", "arguments"],
+      "type": "object"
+    },
+    "response": {
+      "additionalProperties": false,
+      "properties": {
+        "error": {
+          "additionalProperties": false,
+          "properties": {"class": {"minLength": 1, "type": "string"}, "code": {"minLength": 1, "type": "string"}, "message": {"minLength": 1, "type": "string"}, "retryable": {"type": "boolean"}},
+          "required": ["class", "code", "message", "retryable"],
+          "type": "object"
+        },
+        "protocol": {"const": "foundation-ai-adapter-jsonl/v1"},
+        "request_id": {"type": ["string", "null"]},
+        "result": {"additionalProperties": true, "type": "object"},
+        "status": {"enum": ["OK", "ERROR"], "type": "string"}
+      },
+      "required": ["protocol", "request_id", "status"],
+      "type": "object"
+    }
+  },
+  "oneOf": [{"$ref": "#/$defs/request"}, {"$ref": "#/$defs/response"}],
+  "title": "Foundation language-neutral AI adapter JSONL protocol"
+}
