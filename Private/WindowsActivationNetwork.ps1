@@ -17,7 +17,7 @@ function Remove-LabWindowsActivationAdapter {
     if($adapters.Count -eq 1){
         $adapter=$adapters[0]
         $switchMatches=[string]$adapter.SwitchId -eq [string]$journal.SwitchId -or
-            ([string]$journal.SwitchId -eq [string][guid]::Empty -and $journal.TargetSwitchId -and [string]$adapter.SwitchId -eq [string]$journal.TargetSwitchId)
+            (([string]::IsNullOrWhiteSpace([string]$journal.SwitchId) -or [string]$journal.SwitchId -eq [string][guid]::Empty) -and $journal.TargetSwitchId -and [string]$adapter.SwitchId -eq [string]$journal.TargetSwitchId)
         if([string]$adapter.VMId -ne [string]$journal.VMId -or -not $switchMatches){throw 'WINDOWS_ACTIVATION_NETWORK_OWNERSHIP_MISMATCH'}
         $adapter | Remove-VMNetworkAdapter -ErrorAction Stop
         if(@(Get-VMNetworkAdapter -VM $managed.VM -ErrorAction Stop | Where-Object {[string]$_.Id -eq [string]$journal.AdapterId}).Count){throw 'WINDOWS_ACTIVATION_NETWORK_REMOVE_NOT_CONFIRMED'}
@@ -50,9 +50,10 @@ function New-LabWindowsActivationAdapter {
         # A partial Add failure may still have created exactly one own adapter.
         $created=@(Get-VMNetworkAdapter -VM $managed.VM -ErrorAction Stop | Where-Object {
             $_.Name -eq $name -and $_.Id -and [string]$_.Id -notin @($journal.BeforeAdapterIds) -and
-            [string]$_.VMId -eq $journal.VMId -and [string]$_.SwitchId -eq $journal.SwitchId
+            [string]$_.VMId -eq $journal.VMId -and
+            ([string]::IsNullOrWhiteSpace([string]$_.SwitchId) -or [string]$_.SwitchId -eq [string][guid]::Empty)
         })
-        if($created.Count -eq 1){$journal.AdapterId=[string]$created[0].Id;$journal.Status='CREATED'}
+        if($created.Count -eq 1){$journal.AdapterId=[string]$created[0].Id;$journal.SwitchId=[string]$created[0].SwitchId;$journal.Status='CREATED'}
         else {$journal.Status='RECOVERY_REQUIRED'}
         Write-LabArtifactJsonAtomic -Path $path -InputObject $journal
     }

@@ -17,7 +17,7 @@ try {
         function Get-VMNetworkAdapter {$script:adapters}
         function Add-VMNetworkAdapter {
             param($Name)
-            $script:adapters+=@([pscustomobject]@{Id='created-'+[guid]::NewGuid().ToString('N');VMId='own-vm';SwitchId=[string][guid]::Empty;Name=$Name;MacAddress='00155D010203'})
+            $script:adapters+=@([pscustomobject]@{Id='created-'+[guid]::NewGuid().ToString('N');VMId='own-vm';SwitchId=$null;Name=$Name;MacAddress='00155D010203'})
             if($script:addPartialFailure){throw 'INDUCED_ADD_PARTIAL_FAILURE'}
             $script:adapters[-1]
         }

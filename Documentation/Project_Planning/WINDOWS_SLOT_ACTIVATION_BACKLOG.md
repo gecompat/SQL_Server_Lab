@@ -10,8 +10,10 @@ Ausführungsplan.
 Die bisherige Entfernung nach festem NIC-Namen ist durch einen gemeinsamen
 Adapter-Cleanup mit Run-/Scope-/VM-/Switch-/Adapterbindung ersetzt.
 Vorbestand, Teilfehler und Resume sind statisch geprueft. Der gesonderte native
-Adaptertest verwendet nur einen privaten Switch; er ist noch nicht ausgefuehrt
-und ersetzt keinen echten Evaluations-Aktivierungsnachweis.
+Adaptertest hat am 2026-09-10 Erfolg, kontrollierten Fehler und Resume nativ
+bestaetigt; VM und privater Switch wurden bereinigt. Er ersetzt keinen echten
+Evaluations-Aktivierungsnachweis. Unverbundene Adapter werden mit leerer
+Switch-ID oder Null-GUID erkannt; VM-ID, Adapter-ID und Vorbestand bleiben Pflicht.
 
 ## Ausgangslage
 

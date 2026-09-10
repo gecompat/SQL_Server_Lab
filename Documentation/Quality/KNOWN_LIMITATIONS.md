@@ -1799,5 +1799,6 @@ Der spezielle Evaluationspfad entfernt nur journalgebundene temporaere
 Adapter. Fremde gleichnamige Adapter bleiben bestehen. Unvollstaendige
 Journale oder nachtraeglich geaenderte Switch-Bindungen erfordern konkrete
 Recovery statt einer Entfernung nach Namen. Der allgemeine Aktivierungsintent
-mit persistenter NIC und Egress-Policy bleibt offen; der native Adaptertest
-ist noch nicht ausgefuehrt.
+mit persistenter NIC und Egress-Policy bleibt offen. Der native Adaptertest hat
+am 2026-09-10 Erfolg, kontrollierten Fehler, Resume und Cleanup auf einem
+privaten Switch bestaetigt; er fuehrt keine Windows-Lizenzaktivierung aus.

@@ -50,6 +50,21 @@ try {
         Write-Host "PASS: $mode entfernt eigene Adapter und bewahrt fremde ID/Switch-Bindung"
     }
 }
+catch {
+    if($vm){
+        $diagnosticVm=Get-VM -Id $vm.Id -ErrorAction SilentlyContinue
+        @(Get-VMNetworkAdapter -VM $diagnosticVm -ErrorAction SilentlyContinue | Where-Object Name -like 'SQL_SERVER_LAB_ACTIVATION_*') | ForEach-Object {
+            [pscustomobject]@{
+                ExistingFixture=($_.Name -eq 'SQL_SERVER_LAB_ACTIVATION_TEMP')
+                AdapterIdPresent=[bool]$_.Id;VmIdMatches=([string]$_.VMId -eq [string]$vm.Id)
+                SwitchIdEmpty=[string]::IsNullOrWhiteSpace([string]$_.SwitchId)
+                SwitchIdGuidEmpty=([string]$_.SwitchId -eq [string][guid]::Empty)
+                SwitchIdPropertyPresent=($null -ne $_.PSObject.Properties['SwitchId'])
+            } | ConvertTo-Json -Compress | Write-Host
+        }
+    }
+    throw
+}
 finally {
     try {
         if($vm){
