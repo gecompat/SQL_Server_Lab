@@ -11,7 +11,6 @@ if ($ShowHelp) { Get-Help -Full -Name $PSCommandPath | Out-Host; return }
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$storageOperationsText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/SqlStorageOperations.ps1') -Raw
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
@@ -324,13 +323,78 @@ try {
     Add-CheckResult -Name 'Hyper-V-Baseline blockiert bei nicht verifiziertem Storage-Receipt' -Success (
         $result.HyperVUnverifiedReceiptMessage -match 'SAMPLE_BASELINE_HYPERV_VERIFIED_RECEIPT_REQUIRED'
     )
-    Add-CheckResult -Name 'Hyper-V-Gastexport prüft VM-Zustand, Quelldatei und Hostkopie' -Success (
-        $storageOperationsText -match 'function Copy-LabFileFromHyperVGuest' -and
-        $storageOperationsText -match 'HYPERV_STORAGE_FILE_COPY_VM_NOT_RUNNING' -and
-        $storageOperationsText -match 'Copy-Item -LiteralPath \$SourcePath -Destination \$DestinationPath -FromSession' -and
-        $storageOperationsText -match 'HYPERV_STORAGE_GUEST_EXPORT_SOURCE_INVALID' -and
-        $storageOperationsText -match 'HYPERV_STORAGE_GUEST_EXPORT_FAILED'
-    )
+    # Frischer lokaler Funktionsscope: die Baseline-Mocks im Modul duerfen den
+    # echten Exportwrapper nicht ersetzen. Nur Gasttransport und Kopie sind Stubs.
+    $guestExportCases = & {
+        param($Root, $RepositoryRoot)
+        . (Join-Path $RepositoryRoot 'Private/SqlStorageOperations.ps1')
+        $probe = @{ Mode = ''; Sessions = 0; Closed = 0; Copies = 0; Direction = '' }
+        function Get-HyperVLabWorkflowRun {
+            param($RunId, $StateRoot)
+            [PSCustomObject]@{ Run = @{ runId = $RunId; scopeId = 'synthetic-scope' }; Instance = @{ vmName = 'synthetic-vm' } }
+        }
+        function Get-HyperVManagedVM {
+            param($VMName, $ExpectedRunId, $ExpectedScopeId)
+            if ($ExpectedRunId -ne 'synthetic-run' -or $ExpectedScopeId -ne 'synthetic-scope') { throw 'SYNTHETIC_EXPORT_BINDING_MISMATCH' }
+            [PSCustomObject]@{ VM = @{ State = $(if ($probe.Mode -eq 'stopped') { 'Off' } else { 'Running' }) } }
+        }
+        function New-PSSession {
+            [CmdletBinding()] param($VMName, $Credential)
+            $probe.Sessions++
+            [PSCustomObject]@{ Marker = 'synthetic-session' }
+        }
+        function Invoke-Command {
+            [CmdletBinding()] param($Session, $ArgumentList, $ScriptBlock)
+            [PSCustomObject]@{ IsFile = $probe.Mode -ne 'directory'; Length = $(if ($probe.Mode -eq 'empty-source') { 0 } else { 17 }) }
+        }
+        function Copy-LabProgressSessionFile {
+            param($SourcePath, $DestinationPath, $Session, $Direction)
+            $probe.Copies++
+            $probe.Direction = $Direction
+            if ($Session.Marker -ne 'synthetic-session') { throw 'SYNTHETIC_EXPORT_SESSION_MISMATCH' }
+            if ($probe.Mode -eq 'copy-error') { throw 'SYNTHETIC_COPY_FAILURE' }
+            if ($probe.Mode -eq 'missing-target') { return }
+            [IO.File]::WriteAllText($DestinationPath, $(if ($probe.Mode -eq 'empty-target') { '' } else { 'synthetic-payload' }))
+        }
+        function Remove-PSSession {
+            [CmdletBinding()] param($Session)
+            if ($Session.Marker -ne 'synthetic-session') { throw 'SYNTHETIC_EXPORT_SESSION_MISMATCH' }
+            $probe.Closed++
+        }
+        $password = [Security.SecureString]::new()
+        $credential = [PSCredential]::new('synthetic-user', $password)
+        try {
+            foreach ($mode in @('success', 'stopped', 'directory', 'empty-source', 'missing-target', 'empty-target', 'copy-error')) {
+                $probe.Mode = $mode; $probe.Sessions = 0; $probe.Closed = 0; $probe.Copies = 0; $probe.Direction = ''
+                $destination = Join-Path $Root "guest-export-$mode.bak"
+                $failure = ''; $exported = $null
+                try {
+                    $exported = Copy-LabFileFromHyperVGuest -RunId 'synthetic-run' -SourcePath 'synthetic-source.bak' `
+                        -DestinationPath $destination -Credential $credential -StateRoot $Root
+                }
+                catch { $failure = $_.Exception.Message }
+                $expectedFailure = switch ($mode) {
+                    stopped { 'HYPERV_STORAGE_FILE_COPY_VM_NOT_RUNNING' }
+                    directory { 'HYPERV_STORAGE_GUEST_EXPORT_SOURCE_INVALID' }
+                    empty-source { 'HYPERV_STORAGE_GUEST_EXPORT_SOURCE_INVALID' }
+                    missing-target { 'HYPERV_STORAGE_GUEST_EXPORT_FAILED' }
+                    empty-target { 'HYPERV_STORAGE_GUEST_EXPORT_FAILED' }
+                    copy-error { 'SYNTHETIC_COPY_FAILURE' }
+                    default { '' }
+                }
+                $expectedCopies = if ($mode -in @('stopped', 'directory', 'empty-source')) { 0 } else { 1 }
+                $valid = $failure -eq $expectedFailure -and $probe.Copies -eq $expectedCopies -and
+                    $probe.Sessions -eq $probe.Closed -and $probe.Sessions -eq [int]($mode -ne 'stopped')
+                if ($expectedCopies) { $valid = $valid -and $probe.Direction -eq 'FromSession' }
+                if ($mode -eq 'success') { $valid = $valid -and $exported -eq $destination -and [IO.File]::ReadAllText($destination) -eq 'synthetic-payload' }
+                [PSCustomObject]@{ Mode = $mode; Passed = $valid; ErrorCode = $failure }
+            }
+        }
+        finally { $password.Dispose() }
+    } $temporaryRoot $repoRoot
+    foreach ($case in $guestExportCases) {
+        Add-CheckResult -Name "Hyper-V-Gastexport verifiziert Transfer und Session-Cleanup: $($case.Mode)" -Success $case.Passed -Message $case.ErrorCode
+    }
     Add-CheckResult -Name 'Baseline-Hit bindet Originalvertrag und aufgeloestes LAB_GENERATED-Artifact im Run Lock' -Success $result.BaselineLockBound
     Add-CheckResult -Name 'Baseline-Run-Lock enthaelt keine lokalen Pfade' -Success $result.BaselineLockPortable
 }

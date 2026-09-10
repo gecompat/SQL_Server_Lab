@@ -337,18 +337,48 @@ try {
         $hypervLab -match 'Get-LabNetworkGuestAddress[\s\S]*lab\.Run\.runId' -and
         $hypervLab -match 'Set-HyperVSqlOfflineUnattend[\s\S]+-BootstrapScript \$bootstrap'
     )
-    $emptyFallbackAccepted = & $module {
+    $emptyFallbackContract = & $module {
         function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Running' } } }
-        function Invoke-Command { 'ok' }
+        $probe = @{ Job = $null; AsJob = $false; Calls = 0 }
+        function Invoke-Command {
+            [CmdletBinding()]
+            param($VMName, $Credential, $ScriptBlock, $ArgumentList, [switch]$AsJob)
+            $probe.Calls++
+            $probe.AsJob = $AsJob.IsPresent
+            if (-not $AsJob) { throw 'SYNTHETIC_GUEST_JOB_REQUIRED' }
+            $probe.Job = Start-Job -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
+            return $probe.Job
+        }
         $password = ConvertTo-SecureString 'Test_Administrator_42!' -AsPlainText -Force
         try {
             $result = Invoke-HyperVPowerShellDirect -VMName 'mock' -ExpectedRunId 'run' -ExpectedScopeId 'scope' `
-                -Credential ([PSCredential]::new('Administrator', $password)) -FallbackAddress '' -ScriptBlock { 'ok' }
-            $result -eq 'ok'
+                -Credential ([PSCredential]::new('Administrator', $password)) -FallbackAddress '' -ScriptBlock { 'ok' } -TimeoutSeconds 15
+            $jobRemoved = $null -ne $probe.Job -and $null -eq (Get-Job -Id $probe.Job.Id -ErrorAction SilentlyContinue)
+            $invalidFallbackRejected = $false
+            try {
+                Invoke-HyperVPowerShellDirect -VMName 'mock' -ExpectedRunId 'run' -ExpectedScopeId 'scope' `
+                    -Credential ([PSCredential]::new('Administrator', $password)) -FallbackAddress '256.1.1.1' -ScriptBlock { 'unexpected' } | Out-Null
+            }
+            catch { $invalidFallbackRejected = $_.FullyQualifiedErrorId -like 'ParameterArgumentValidationError*' }
+            [PSCustomObject]@{
+                Accepted = $result -eq 'ok' -and $probe.AsJob
+                JobRemoved = $jobRemoved
+                InvalidFallbackRejected = $invalidFallbackRejected -and $probe.Calls -eq 1
+                ErrorId = ''
+            }
         }
-        catch { $false }
+        catch { [PSCustomObject]@{ Accepted = $false; JobRemoved = $false; InvalidFallbackRejected = $false; ErrorId = $_.FullyQualifiedErrorId } }
+        finally {
+            if ($probe.Job -and (Get-Job -Id $probe.Job.Id -ErrorAction SilentlyContinue)) {
+                Stop-Job -Job $probe.Job -ErrorAction Stop
+                Remove-Job -Job $probe.Job -ErrorAction Stop
+            }
+            $password.Dispose()
+        }
     }
-    Add-CheckResult -Name 'Leerer Hyper-V-Fallback wird nicht als ungültige IP validiert' -Success $emptyFallbackAccepted
+    Add-CheckResult -Name 'Leerer Hyper-V-Fallback wird nicht als ungültige IP validiert' -Success $emptyFallbackContract.Accepted -Message $emptyFallbackContract.ErrorId
+    Add-CheckResult -Name 'Hyper-V-Fallback-Probe entfernt ihren empfangenen Gastjob' -Success $emptyFallbackContract.JobRemoved
+    Add-CheckResult -Name 'Ungültige Hyper-V-Fallback-IP wird vor dem Gastaufruf abgelehnt' -Success $emptyFallbackContract.InvalidFallbackRejected
     Add-CheckResult -Name 'Interaktiver Hyper-V-Pfad fordert UAC automatisch an' -Success ($elevationSource -match 'Start-Process[\s\S]+-Verb RunAs' -and $menuSource -match 'Start-LabElevatedAction')
     Add-CheckResult -Name 'UAC-Prozess importiert das Modul mit gueltigem Import-Module-Aufruf' -Success ($elevationSource -match 'Import-Module\s+''\$escapedModulePath''\s+-Force' -and $elevationSource -notmatch 'Import-Module -LiteralPath')
     Add-CheckResult -Name 'Zuletzt gewaehlter Media Root wird projektlokal gespeichert und vorbelegt' -Success (

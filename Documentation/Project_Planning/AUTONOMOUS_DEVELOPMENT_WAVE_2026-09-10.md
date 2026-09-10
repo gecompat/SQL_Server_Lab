@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `planned` |
+| Status | `in_progress` |
 | Stand | 2026-09-10 |
 | Auftrag | Plan per geprüftem Pull Request nach `origin/main` übernehmen und anschließend alle Punkte autonom abarbeiten |
 | Ausgangspunkt | Durchsicht von `9cfd144`, vor Veröffentlichung gegen `ca9f09e` abgeglichen |
@@ -68,8 +68,8 @@ Reparatur, abhängige Regression vor Integration.
 
 | Arbeit | Status | Konkrete Änderung und Abnahme |
 |---|---|---|
-| Netzwerk-Testregression | `planned` | Der ältere Mock gibt `ok` statt des seit `-AsJob` verlangten Jobobjekts zurück. Den leeren Fallback mit tatsächlichem Jobvertrag testen; Resultat, Fehlertyp und Job-Cleanup prüfen. Keine produktive IP-Validierung aufgrund des fehlerhaften Mocks lockern. |
-| Sample-Baseline-Testregression | `planned` | Die veraltete Suche nach direktem `Copy-Item` durch eine Prüfung des gemeinsamen Session-Kopiervertrags und seiner VM-, Quellen- und Zielpostconditions ersetzen. |
+| Netzwerk-Testregression | `validated` (offline) | Der Mock liefert einen tatsächlichen Job; Ergebnisweitergabe, leerer Fallback, Ablehnung einer ungültigen IP vor dem Gastaufruf und Job-Cleanup sind geprüft. Die produktive IP-Validierung bleibt unverändert. |
+| Sample-Baseline-Testregression | `validated` (offline) | Die produktive Exportfunktion ist mit synthetischen Session-/Transfergrenzen für Erfolg, gestoppte VM, Verzeichnis, leere Quelle, fehlendes/leeres Ziel und Transferfehler geprüft; jede erzeugte Session wird geschlossen. Native Sample-Parität bleibt separat offen. |
 | Betroffene Testauswahl | `planned` | Hyper-V-Provider → Netzwerkcheck, SQL-Storage → Sample-Baseline und Hyper-V sowie AI-Endpoint/RAG → AI-Suite korrekt auswählen. Tabellengetriebene Auswahltests ergänzen; weitere gemeinsam verwendete Helfer auf fehlende Abhängigkeiten prüfen. |
 | Release-Sicherheit und Funktion | `planned` | Alle Schreibschritte an `ShouldProcess` binden; standardmäßig sauberen versionierten Quellstand verwenden; Ausschlussfilter korrigieren; absolute Hostpfade aus Paketmetadaten entfernen; leere Git-Ausgabe und getrennte Changelog-/Release-Datumsformate korrekt behandeln. |
 | Paketabnahme | `planned` | In isoliertem synthetischem Repository `WhatIf`, sauberen und dirty Stand, unversionierte Dateien, sensible Pfadklassen und Teilfehler prüfen. Paket erzeugen, entpacken, Hashes prüfen und das Modul aus dem Paket importieren; eigenes Testmaterial vollständig entfernen. |
@@ -197,3 +197,4 @@ Der Gesamtabschluss verlangt:
 | Zeitpunkt | Fortschritt | Evidence / nächster Schritt |
 |---|---|---|
 | 2026-09-10 | Plan gegen `ca9f09e` und integrierte PRs abgeglichen; Implementierung dieser Welle noch nicht begonnen | Planungs-PR lokal prüfen, nach `origin/main` integrieren, anschließend Testregressionen reproduzieren und beheben. |
+| 2026-09-10 | Plan über [PR #404](https://github.com/gecompat/SQL_Server_Lab/pull/404) nach grünen Windows-/Linux-Prüfungen integriert (`bce673a`) | Erste Implementierung: Beide Testfehler auf dieser Basis reproduziert. Netzwerk danach 36 PASS / 0 FAIL, Sample-Baseline 19 PASS / 0 FAIL; Job- und synthetischer Session-Cleanup erfolgreich. Kein neuer nativer Providernachweis. |
