@@ -18,7 +18,7 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $builderPath = Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1'
 $menuPath = Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1'
-$temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-sql-image-$([guid]::NewGuid().ToString('N'))"
+$temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) "hvs-$([guid]::NewGuid().ToString('N').Substring(0,8))"
 $mediaRoot = Join-Path $temporaryRoot 'media'
 $stateRoot = Join-Path $temporaryRoot 'state'
 $isoDirectory = Join-Path $mediaRoot 'SQL/2019/Eval/ISO'
@@ -90,6 +90,54 @@ try {
         $freshPlan.operatingSystem.installationType -eq 'desktop-experience' -and
         $freshPlan.displayName -eq 'Testbild SQL 2019' -and
         $freshPlan.windowsMedia.bootInteraction.initialMediaKey -eq 'space'
+    )
+    # Echter Plan-/Registry-Vertrag mit synthetischer, nicht bootfaehiger VHDX.
+    # Der Native-Fehler trat erst beim Import nach Windows-/SQL-Aufbau auf.
+    $freshDiskPath=Join-Path $temporaryRoot 'fresh-platform.vhdx'
+    $diskBytes=[byte[]]::new(4096)
+    [Text.Encoding]::ASCII.GetBytes('vhdxfile').CopyTo($diskBytes,0)
+    [IO.File]::WriteAllBytes($freshDiskPath,$diskBytes)
+    (Get-Item -LiteralPath $freshDiskPath).IsReadOnly=$true
+    $freshArtifact=& $module {
+        param($Plan,$DiskPath,$Root)
+        $previousDataRoot=$env:SQL_SERVER_LAB_DATA_ROOT
+        try {
+            $dataRoot=Join-Path $Root 'Lab_Data'
+            $null=Initialize-LabManagedDataRoot -DataRoot $dataRoot -Confirm:$false
+            $env:SQL_SERVER_LAB_DATA_ROOT=$dataRoot
+            $parent=$Plan.parentArtifact
+            Import-HyperVImageArtifact -VhdxPath $DiskPath -ExpectedSha256 (Get-FileHash -LiteralPath $DiskPath -Algorithm SHA256).Hash `
+                -ArtifactState SQL_PREPARED_SEALED -OperatingSystemId $parent.operatingSystem.id `
+                -OperatingSystemVersion $parent.operatingSystem.version -Edition $parent.operatingSystem.edition `
+                -InstallationType $parent.operatingSystem.installationType -Language $parent.operatingSystem.language `
+                -VmGeneration ([int]$parent.platform.vmGeneration) -SecureBoot:([bool]$parent.platform.secureBoot) `
+                -GuestControl ([string]$parent.platform.guestControl) -LicenseType $parent.license.type `
+                -IntegrityOrigin generated-by-runtime -Generalized -SqlPrepared -SqlVersion $Plan.sql.version `
+                -SqlEdition $Plan.sql.edition -SqlLicenseType $Plan.sql.license.type -SqlFeatures @($Plan.sql.features) `
+                -EvaluationExpiresAt ([datetime]::UtcNow.AddDays(120)) -StateRoot (Join-Path $Root 'registry-state')
+        }
+        finally {$env:SQL_SERVER_LAB_DATA_ROOT=$previousDataRoot}
+    } $freshPlan $freshDiskPath (Join-Path $temporaryRoot 'f')
+    Add-CheckResult -Name 'Fresh-Prepared-Plattform wird vom echten Registry-Import angenommen und unveraendert gespeichert' -Success (
+        $freshArtifact.artifactState -eq 'SQL_PREPARED_SEALED' -and
+        $freshArtifact.platform.vmGeneration -eq 2 -and $freshArtifact.platform.secureBoot -eq $true -and
+        $freshArtifact.platform.guestControl -eq 'powershell-direct'
+    )
+    $missingPlatform=& $module {
+        $script:platformFixtureProviderCalled=$false
+        function Get-HyperVSqlImageBuildPlan {
+            [pscustomobject]@{state='RESUME_PENDING';setupEvidence=@{action='PrepareImage'};
+                generalizationEvidence=@{shutdownObserved=$true;challenge='synthetic'};
+                manualAction=@{challenge='synthetic'};parentArtifact=@{}}
+        }
+        function Get-HyperVManagedVM {$script:platformFixtureProviderCalled=$true;throw 'UNEXPECTED_PROVIDER_CALL'}
+        $code=$null
+        try {Publish-HyperVSqlPreparedImageBuild -BuildId synthetic | Out-Null}
+        catch {$code=$_.Exception.Message}
+        [pscustomobject]@{Code=$code;ProviderCalled=$script:platformFixtureProviderCalled}
+    }
+    Add-CheckResult -Name 'Alter Fresh-State ohne Plattform blockiert vor Providerzugriff und Flattening' -Success (
+        $missingPlatform.Code -eq 'HYPERV_SQL_IMAGE_PLATFORM_METADATA_INVALID' -and -not $missingPlatform.ProviderCalled
     )
     Add-CheckResult -Name 'Fresh-SQL-Builder sendet den initialen Windows-DVD-Boot-Key' -Success (
         $builderText -match "provisioningMode\s+-eq\s+'fresh-windows-media'[\s\S]{0,300}Invoke-HyperVInitialMediaBootInteraction"
@@ -187,6 +235,21 @@ try {
         $builderText -match 'generation = \[int\]\$instance\.VMGeneration' -and
         ([regex]::Matches($builderText, '-FallbackAddress \$fallbackAddress')).Count -ge 3 -and
         $builderText -match "source = 'powershell-direct-or-lab-winrm'"
+    )
+    $preparedAcceptanceText = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1') -Raw -Encoding utf8
+    Add-CheckResult -Name 'Prepared-Abnahme bindet kontrollierten Gasttransport, temporaeren Aktivierungsegress und nur neue Fehlerartefakte' -Success (
+        $preparedAcceptanceText -match "generalizationEvidence\.source -eq 'powershell-direct-or-lab-winrm'" -and
+        $preparedAcceptanceText -match '\$preExistingArtifactIds\.Add' -and
+        $preparedAcceptanceText -match '\$testFailed -and \$publishedArtifactId -and -not \$preExistingArtifactIds\.Contains\(\$publishedArtifactId\)' -and
+        $preparedAcceptanceText -match 'Remove-HyperVImageArtifact -ArtifactId \$ArtifactId -StateRoot \$Root' -and
+        $preparedAcceptanceText -match 'SQL_PREPARED_ACCEPTANCE_ARTIFACT_CLEANUP_POSTCONDITION_FAILED' -and
+        $preparedAcceptanceText -match 'SQL_PREPARED_ACCEPTANCE_RESOURCE_ROOT_NOT_EMPTY' -and
+        $preparedAcceptanceText -match 'SQL_PREPARED_ACCEPTANCE_RESOURCE_ROOT_CLEANUP_POSTCONDITION_FAILED' -and
+        $preparedAcceptanceText -match 'PowerShell Direct erreichbar: \$\(\[string\]\$ready\.Message\)' -and
+        $preparedAcceptanceText -match '\$currentBuild -and \[string\]\$currentBuild\.state -ne ''CLEANED_UP''' -and
+        $preparedAcceptanceText -match "ContractVersion = 'SqlServerLab\.WindowsActivationIntent/1\.0'" -and
+        $preparedAcceptanceText -match "Strategy = 'EvaluationOnline'" -and
+        $preparedAcceptanceText -match "EgressPolicy = 'AllowTemporary'"
     )
     Add-CheckResult -Name 'SQL Product Key wird nur bei explizitem Profil kurzfristig als PID an Setup uebergeben' -Success (
         $builderText.Contains('Get-LabLicenseProfileSecret') -and
@@ -392,7 +455,11 @@ try {
 catch { Add-CheckResult -Name 'Hyper-V-SQL-Image-Testausfuehrung' -Success $false -Message $_.Exception.Message }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
-    if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force }
+    $resolvedRoot=[IO.Path]::GetFullPath($temporaryRoot)
+    $expectedParent=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')
+    if ([IO.Path]::GetDirectoryName($resolvedRoot) -ne $expectedParent -or
+        [IO.Path]::GetFileName($resolvedRoot) -notmatch '^hvs-[a-f0-9]{8}$') { throw 'SQL_IMAGE_TEST_CLEANUP_SCOPE_INVALID' }
+    if (Test-Path -LiteralPath $resolvedRoot) { Remove-Item -LiteralPath $resolvedRoot -Recurse -Force }
 }
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0

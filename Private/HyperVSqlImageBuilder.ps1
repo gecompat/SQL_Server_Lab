@@ -766,7 +766,11 @@ function New-HyperVSqlFreshImageBuildPlan {
             sha256 = $windowsSha256
             bootInteraction = [PSCustomObject]@{ initialMediaKey = 'space' }
         }
-        parentArtifact = [PSCustomObject]@{ artifactId = $null; source = 'fresh-windows-media'; operatingSystem = $operatingSystem; license = $license }
+        parentArtifact = [PSCustomObject]@{
+            artifactId = $null; source = 'fresh-windows-media'; operatingSystem = $operatingSystem; license = $license
+            # Matches the fixed generation-2/UEFI builder and its guest transport.
+            platform = [PSCustomObject]@{ vmGeneration = 2; secureBoot = $true; guestControl = 'powershell-direct' }
+        }
         resources = [PSCustomObject]@{ osDiskSizeBytes = $OsDiskSizeBytes }
         sql = [PSCustomObject]@{
             version = $SqlVersion; mediaEdition = $SqlEdition
@@ -1429,6 +1433,11 @@ function Publish-HyperVSqlPreparedImageBuild {
     if ($build.generalizationEvidence.shutdownObserved -ne $true -or
         [string]$build.generalizationEvidence.challenge -ne [string]$build.manualAction.challenge) {
         throw 'HYPERV_SQL_IMAGE_GENERALIZATION_EVIDENCE_INVALID'
+    }
+    $platform = $build.parentArtifact.platform
+    if (-not $platform -or [string]$platform.vmGeneration -notin @('1','2') -or
+        $platform.secureBoot -isnot [bool] -or [string]$platform.guestControl -notin @('powershell-direct','legacy-wmi')) {
+        throw 'HYPERV_SQL_IMAGE_PLATFORM_METADATA_INVALID'
     }
     $managed = Get-HyperVManagedVM -VMName $build.builder.vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
     if (-not $managed) { throw 'HYPERV_SQL_IMAGE_BUILD_VM_MISSING' }

@@ -402,6 +402,39 @@ für `Mount-VHD` benötigte Volume-Recht. In diesem Fall bleibt genau der
 dokumentierte OOBE-/Passwortschritt manuell; SQL Setup und Abnahme laufen
 danach weiter unbeaufsichtigt.
 
+Die historische native Fresh-Prepared-Abnahme vom 2026-09-10 auf `63e272d`
+scheiterte bei der Publikation: Dem Fresh-Plan fehlte der Plattformvertrag,
+weshalb die Registry den als `0` umgewandelten Generation-Wert ablehnte.
+Der Runner entfernte seine VM und beide Testdatentraeger; deren Abwesenheit
+wurde anschliessend geprueft. Neue Fresh-Plaene speichern nun den vom Builder
+verwendeten Generation-2-/Secure-Boot-/PowerShell-Direct-Vertrag. Eine
+synthetische Plan-/Registry-Fixture reproduzierte den Fehler und besteht nach
+der Korrektur. Alte unvollstaendige States blockieren vor Providerzugriff und
+Flattening; es wird keine Plattform geraten.
+
+Ein weiterer erhöhter Lauf auf `a07a3c11` bestätigte die frische VM, VHDX und
+den UEFI-DVD-Boot, erreichte jedoch innerhalb von 1.200 Sekunden keinen
+PowerShell-Direct-Receipt nach OOBE. Deshalb wurden SQL-PrepareImage,
+Generalisierung und Publikation nicht erneut ausgeführt und nicht als bestanden
+behauptet. Der eigene VM-/VHDX-Cleanup lief durch; das Build-Root wird nun nur
+nach nachgewiesener Abwesenheit seiner VM und Dateien entfernt. Die konkrete
+Host-/Guest-Readiness-Ursache bleibt vor einer erneuten nativen Abnahme offen.
+
+Der erhöhte Folgelauf auf `d07d3f02` erreichte dagegen OOBE, SQL-2025-
+PrepareImage, Generalize, immutable Publish und einen differenzierenden
+Manifestklon. Die nachgelagerte Windows-Aktivierung meldete
+`WINDOWS_ACTIVATION_EXISTING_EGRESS_UNAVAILABLE`; die eigene VM, Child-VHDX
+und IPAM-Lease wurden mit `CLEANUP_SUCCEEDED` entfernt. Der Test räumt einen
+erfolgreich veröffentlichten, aber nachgelagert fehlgeschlagenen SQL-Build nun
+zuerst aus der Build-Registry, damit nur sein eigenes Prepared-Artifact
+entfernt werden kann. Der nachfolgende erhöhte Lauf auf `386d9159` setzte im
+isolierten Manifest den expliziten Intent `EvaluationOnline` mit
+`AllowTemporary` und bestand vollständig: Eine eigene temporäre NIC ermöglichte
+die Evaluation-Aktivierung und wurde danach entfernt; der SQL-2025-Klon
+erreichte `SQL_READY_RUN`, Major 17, vier Online-Systemdatenbanken, WMI und
+Host-TCP. Parent-Hash und Schreibschutz blieben unverändert. VM, Child-VHDX,
+IPAM-Lease, Builder-Root und State-Root waren nach dem Cleanup abwesend.
+
 Freie run-lokale Manifest-Drives werden inzwischen deklarativ auf zusätzliche
 Hyper-V-VHDX und deren Disk-ID-gebundene Gastinitialisierung abgebildet. Der
 portable Netzwerkvertrag bindet Docker/Podman über Loopback an `nat`/`host`, Hyper-V an

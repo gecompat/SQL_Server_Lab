@@ -10,9 +10,10 @@
     anschliessend ueber den normalen Manifestpfad differenzierend geklont,
     per CompleteImage vervollstaendigt und bis SQL_READY_RUN verifiziert.
 
-    Produktive Artifact Registry und Medien bleiben unveraendert. VM,
-    Builder-Disk, Antwort-ISO, Credential und temporaerer State werden auch
-    bei Fehlern soweit sicher moeglich entfernt.
+    Vorbestehende produktive Registry-Artefakte und Medien bleiben unveraendert.
+    VM, Builder-Disk, Antwort-ISO, Credential, temporaerer State und ein erst
+    durch diesen Test veroeffentlichtes Artifact werden auch bei Fehlern soweit
+    sicher moeglich entfernt.
 .PARAMETER MediaRoot
     Medienwurzel mit den hashverifizierten Windows- und SQL-Installationsmedien.
     Ohne Angabe wird die konfigurierte Standard-Medienwurzel verwendet.
@@ -49,6 +50,7 @@ $stateRoot = $null
 $buildId = $null
 $builderVmName = $null
 $builderDiskPath = $null
+$builderResourceRoot = $null
 $answerDirectory = $null
 $answerIsoPath = $null
 $adminPassword = $null
@@ -60,6 +62,8 @@ $manifestVmName = $null
 $manifestChildVhdxPath = $null
 $testFailed = $false
 $cleanupFailed = $false
+$preExistingArtifactIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+$publishedArtifactId = $null
 
 function Assert-SqlPreparedAcceptance {
     param(
@@ -199,6 +203,14 @@ try {
     $module = Get-Module SqlServerLab
 
     $productionStateRoot = & $module { Get-LabStateRoot }
+    foreach ($artifact in @(& $module {
+        param($Root)
+        Get-HyperVImageArtifact -StateRoot $Root -SkipIntegrityCheck
+    } $productionStateRoot)) {
+        if ($artifact -and -not [string]::IsNullOrWhiteSpace([string]$artifact.artifactId)) {
+            [void]$preExistingArtifactIds.Add([string]$artifact.artifactId)
+        }
+    }
     $resolvedMediaRoot = if ([string]::IsNullOrWhiteSpace($MediaRoot)) {
         & $module { Get-LabMediaRootDefault }
     }
@@ -271,6 +283,7 @@ try {
         param($Build)
         Resolve-LabHyperVBuilderDiskPath -Build $Build
     } $build
+    $builderResourceRoot = Split-Path -Parent $builderDiskPath
     Assert-SqlPreparedAcceptance -Condition (
         $build.state -eq 'MANUAL_ACTION_REQUIRED' -and
         $build.provisioningMode -eq 'fresh-windows-media'
@@ -318,7 +331,7 @@ try {
             -Credential $Credential -TimeoutSeconds $Timeout
     } $builderVmName $buildId ([string]$build.scopeId) $credential $TimeoutSeconds
     Assert-SqlPreparedAcceptance -Condition ([bool]$ready.Ready) `
-        -Description 'Frisch installierter Windows-Gast ist nach OOBE ueber PowerShell Direct erreichbar'
+        -Description "Frisch installierter Windows-Gast ist nach OOBE ueber PowerShell Direct erreichbar: $([string]$ready.Message)"
 
     $answerFullPath = [IO.Path]::GetFullPath($answerIsoPath)
     $answerDrives = @($vm | Get-VMDvdDrive -ErrorAction Stop | Where-Object {
@@ -371,6 +384,7 @@ try {
         Complete-HyperVSqlPreparedImageBuild -BuildId $Id -Credential $Credential `
             -SetupTimeoutSeconds $SetupTimeout -ShutdownTimeoutSeconds $ShutdownTimeout -StateRoot $Root
     } $buildId $credential $SetupTimeoutSeconds $TimeoutSeconds $stateRoot
+    $publishedArtifactId = [string]$published.Artifact.artifactId
     Assert-SqlPreparedAcceptance -Condition (
         [string]$published.Status -eq 'SQL_PREPARED_SEALED' -and
         [string]$published.Artifact.artifactState -eq 'SQL_PREPARED_SEALED' -and
@@ -380,7 +394,7 @@ try {
         (Get-Item -LiteralPath $published.Artifact.Path -Force).IsReadOnly
     ) -Description 'PrepareImage und Sysprep erzeugten ein immutable SQL_PREPARED_SEALED-Artifact'
     Assert-SqlPreparedAcceptance -Condition (
-        [string]$published.Build.generalizationEvidence.source -eq 'powershell-direct' -and
+        [string]$published.Build.generalizationEvidence.source -eq 'powershell-direct-or-lab-winrm' -and
         [string]$published.Build.generalizationEvidence.imageState -eq 'IMAGE_STATE_GENERALIZE_RESEAL_TO_OOBE' -and
         [int]$published.Build.generalizationEvidence.sysprepExitCode -eq 0
     ) -Description 'Finales Windows-Generalize ist durch den echten Gast-Receipt gebunden'
@@ -405,6 +419,14 @@ try {
             [ordered]@{
                 id = 'primary'; version = '2025'; provider = 'hyperv'; os = 'windows'
                 profile = 'standard'
+                # Der Klon besitzt absichtlich nur sein isoliertes Labnetz. Die
+                # Abnahme fordert deshalb den kontrollierten, anschliessend
+                # ownership-gebunden entfernten Aktivierungsadapter explizit an.
+                windowsActivation = [ordered]@{
+                    ContractVersion = 'SqlServerLab.WindowsActivationIntent/1.0'
+                    Strategy = 'EvaluationOnline'
+                    EgressPolicy = 'AllowTemporary'
+                }
                 hyperv = [ordered]@{
                     preparedImageId = [string]$published.Artifact.artifactId
                     memoryStartupMB = 4096; processorCount = 2
@@ -508,9 +530,7 @@ finally {
                 param($Id, $Root)
                 Get-HyperVSqlImageBuildPlan -BuildId $Id -StateRoot $Root
             } $buildId $stateRoot
-            $vmExists = $builderVmName -and (Get-VM -Name $builderVmName -ErrorAction SilentlyContinue)
-            $diskExists = $builderDiskPath -and (Test-Path -LiteralPath $builderDiskPath -PathType Leaf)
-            if ($currentBuild -and ($vmExists -or $diskExists)) {
+            if ($currentBuild -and [string]$currentBuild.state -ne 'CLEANED_UP') {
                 $cleanup = & $module {
                     param($Id, $Root)
                     Remove-HyperVSqlImageBuild -BuildId $Id -StateRoot $Root
@@ -524,6 +544,47 @@ finally {
             $cleanupFailed = $true
             $testFailed = $true
             Write-Host "SQL-Prepared-Cleanup-Fehler: $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+
+    if ($builderResourceRoot -and (Test-Path -LiteralPath $builderResourceRoot -PathType Container)) {
+        try {
+            if (Get-VM -Name $builderVmName -ErrorAction SilentlyContinue) { throw 'SQL_PREPARED_ACCEPTANCE_RESOURCE_ROOT_VM_STILL_PRESENT' }
+            if (Test-Path -LiteralPath $builderDiskPath -PathType Leaf) { throw 'SQL_PREPARED_ACCEPTANCE_RESOURCE_ROOT_DISK_STILL_PRESENT' }
+            $remainingFiles = @(Get-ChildItem -LiteralPath $builderResourceRoot -File -Recurse -Force -ErrorAction Stop)
+            if ($remainingFiles.Count -gt 0) { throw 'SQL_PREPARED_ACCEPTANCE_RESOURCE_ROOT_NOT_EMPTY' }
+            Remove-Item -LiteralPath $builderResourceRoot -Recurse -Force -ErrorAction Stop
+            if (Test-Path -LiteralPath $builderResourceRoot) { throw 'SQL_PREPARED_ACCEPTANCE_RESOURCE_ROOT_CLEANUP_POSTCONDITION_FAILED' }
+            Write-Host 'PASS: Fehlerpfad entfernte das leere, test-eigene Builder-Resource-Root.' -ForegroundColor Green
+        }
+        catch {
+            $cleanupFailed = $true
+            $testFailed = $true
+            Write-Host "SQL-Prepared-Resource-Root-Cleanup-Fehler: $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
+
+    if ($testFailed -and $publishedArtifactId -and -not $preExistingArtifactIds.Contains($publishedArtifactId)) {
+        try {
+            $module = Get-Module SqlServerLab
+            $artifactCleanup = & $module {
+                param($ArtifactId, $Root)
+                Remove-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $Root
+            } $publishedArtifactId $stateRoot
+            if ([string]$artifactCleanup.Status -ne 'REMOVED') {
+                throw "SQL_PREPARED_ACCEPTANCE_ARTIFACT_CLEANUP_INCOMPLETE: $([string]$artifactCleanup.Status)"
+            }
+            $remainingArtifact = & $module {
+                param($ArtifactId, $Root)
+                Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $Root -SkipIntegrityCheck
+            } $publishedArtifactId $stateRoot
+            if ($remainingArtifact) { throw 'SQL_PREPARED_ACCEPTANCE_ARTIFACT_CLEANUP_POSTCONDITION_FAILED' }
+            Write-Host 'PASS: Fehlerpfad entfernte das ausschliesslich test-eigene Prepared-Artifact.' -ForegroundColor Green
+        }
+        catch {
+            $cleanupFailed = $true
+            $testFailed = $true
+            Write-Host "SQL-Prepared-Artifact-Cleanup-Fehler: $($_.Exception.Message)" -ForegroundColor Red
         }
     }
 

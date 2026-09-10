@@ -509,6 +509,30 @@ vom frischen Build bis zum bereinigten Manifestklon. Weitere Windows-/SQL-
 Kombinationen und die breite Datenbank-, Software-, Post-Provisioning- und
 Network-Manifestbindung benötigen weiterhin eigene Nachweise.
 
+Der Lauf vom 2026-09-10 auf `63e272d` erreichte die Publikation, scheiterte dort
+aber an fehlenden Plattformmetadaten des Fresh-Plans (`VmGeneration=0`).
+VM und beide Testdatentraeger wurden entfernt und ihre Abwesenheit geprueft.
+`Invoke-HyperVSqlImageBuilderChecks.ps1` reproduziert diesen Vertragsfehler
+mit einem echten Fresh-Plan und Registry-Import einer synthetischen VHDX.
+Nach der Korrektur bestehen 50 fokussierte Pruefungen einschliesslich
+fruehem Blockieren eines alten States ohne Plattform. Der erhöhte Lauf auf
+`d07d3f02` erreichte danach frische Windows-2025-OOBE, PowerShell Direct,
+SQL-2025-PrepareImage, Generalize, immutable Publish und den differenzierenden
+Manifestklon. Die nachgelagerte Aktivierung brach mit
+`WINDOWS_ACTIVATION_EXISTING_EGRESS_UNAVAILABLE` ab; ihre VM, Child-VHDX und
+IPAM-Lease wurden vollständig entfernt. Der fehlgeschlagene Test hatte einen
+erfolgreichen SQL-Build-State als Artifact-Referenz hinterlassen; dessen
+bereinigter Fehlerpfad entfernt zuerst genau diesen Build und danach nur das
+eigene Artifact. Der Folgelauf auf `386d9159` deklariert für den bewusst
+isolierten Klon explizit `EvaluationOnline`/`AllowTemporary`: Er bestand vom
+frischen Windows-Server-2025-/SQL-Server-2025-Build über `PrepareImage`,
+Generalize, immutable Publish, Manifestklon, echte Evaluationsaktivierung und
+`SQL_READY_RUN` bis zum Parent-Hash-/Schreibschutz- und vollständigen Cleanup-
+Nachweis. Der temporäre Adapter wurde nach der Aktivierung entfernt; State- und
+Builder-Root, VM, Child-VHDX sowie IPAM-Lease waren anschließend abwesend.
+Die übrigen SQL-Konfigurations-, Port-, Testdatenbank- und External-Runtime-
+Reconcile-Slices bleiben getrennt offen.
+
 ### Reale Legacy-Run-/Parent-Child-Migration
 
 Der erhöhte HVR-008-Runner verlangt eine exakte Run-ID, den erwarteten VM-Namen,
