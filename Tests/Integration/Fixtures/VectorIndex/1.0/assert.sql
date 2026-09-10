@@ -1,10 +1,22 @@
 SET NOCOUNT ON;
 IF (SELECT COUNT(*) FROM dbo.AnnDocuments) <> 4096
     THROW 51000, 'ANN_DATASET_COUNT_INVALID', 1;
-DECLARE @indexVersion int = (SELECT TRY_CONVERT(int, JSON_VALUE(build_parameters, '$.Version'))
-    FROM sys.vector_indexes WHERE object_id = OBJECT_ID('dbo.AnnDocuments'));
-IF @indexVersion IS NULL OR @indexVersion >= 3
+DECLARE @parameters nvarchar(max) = (SELECT build_parameters FROM sys.vector_indexes
+    WHERE object_id = OBJECT_ID('dbo.AnnDocuments'));
+DECLARE @reportedVersion nvarchar(40) = JSON_VALUE(@parameters, '$.Version');
+-- SQL 2025 Build 17.0.4075.5 meldet StartId/L/M/R ohne numerisches Version-Feld.
+-- Die Form bleibt explizit unversioniert; keine erfundene Indexversionsnummer.
+IF @parameters IS NULL OR
+    (@reportedVersion IS NOT NULL AND @reportedVersion NOT IN ('1','2')) OR
+    (@reportedVersion IS NULL AND (
+        CONVERT(int, SERVERPROPERTY('ProductMajorVersion')) <> 17 OR
+        ISNULL(TRY_CONVERT(int, JSON_VALUE(@parameters, '$.L')), 0) <= 0 OR
+        ISNULL(TRY_CONVERT(int, JSON_VALUE(@parameters, '$.M')), 0) <= 0 OR
+        ISNULL(TRY_CONVERT(int, JSON_VALUE(@parameters, '$.R')), 0) <= 0 OR
+        ISNULL(TRY_CONVERT(int, JSON_VALUE(@parameters, '$.StartId')), 0) <= 0 OR
+        EXISTS(SELECT 1 FROM OPENJSON(@parameters) WHERE [key] NOT IN ('StartId','L','M','R'))))
     THROW 51000, 'ANN_TEST_VERSION_UPDATE_REQUIRED', 1;
+DECLARE @indexVersion nvarchar(40) = COALESCE(@reportedVersion, 'sql2025-unversioned');
 DECLARE @results TABLE(QueryId int, RecallAt10 float, ExactMicroseconds bigint, AnnMicroseconds bigint, FilteredCount int);
 DECLARE @queries TABLE(QueryId int PRIMARY KEY);
 INSERT @queries VALUES(137),(997),(2049),(3331);

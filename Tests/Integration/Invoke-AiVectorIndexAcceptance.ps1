@@ -3,7 +3,7 @@
 .SYNOPSIS
     Prüft echte SQL-2025-Preview-Vektorindizes auf einem eigenen Container-Run.
 .DESCRIPTION
-    Abnahmeversion 1.0 bindet DiskANN mit TOP_N und Indexversion kleiner 3.
+    Abnahmeversion 1.0 bindet DiskANN mit TOP_N und SQL-2025-Indexmetadaten.
     Erstellt 4096 synthetische 32-dimensionale Vektoren, vergleicht vier
     Suchfälle mit exakter Suche und prüft Index/Daten nach Containerneustart.
     Preview ist kein Ausschlussgrund. Neue Indexsemantik verlangt eine eigene
@@ -79,7 +79,7 @@ try {
         $after.IndexVersion -ne $before.IndexVersion){throw 'ANN_RESTART_RESULT_INVALID'}
     $report=[pscustomobject]@{
         Contract='SqlServerLab.AiVectorIndexAcceptance/1.0';Provider=$Provider;SqlBuild=$build.SqlBuild
-        IndexVersion=$build.IndexVersion;CompatibilityLevel=$build.CompatibilityLevel;Preview=$true
+        IndexVersion=$build.IndexVersion;IndexMetadata=$build.IndexMetadata;CompatibilityLevel=$build.CompatibilityLevel;Preview=$true
         Rows=$build.RowCount;Dimension=32;BuildMicroseconds=$build.BuildMicroseconds
         BeforeRestart=$before;AfterRestart=$after;Cleanup='PENDING';Status='PENDING'
         FixtureHashes=@(Get-ChildItem -LiteralPath $fixtureRoot -File | Sort-Object Name | ForEach-Object {
