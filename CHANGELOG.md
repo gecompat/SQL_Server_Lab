@@ -20,6 +20,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Container-Clone-Lease und Zielregistrierung verwenden den gemeinsamen
+  Katalogkern mit Preview und Revisionsschutz. Zielcommit und Quellfreigabe
+  bleiben atomar; vorhandene Recovery- und Resume-Vertraege bleiben erhalten.
 - Regulaerer Container-Lease-Erwerb und -Release nutzen denselben
   revisionsgeschuetzten Katalogkern. Preview bleibt mutationsfrei; ein
   fehlgeschlagener Release bewahrt seine Recovery-Markierung vor der Fehlermeldung.

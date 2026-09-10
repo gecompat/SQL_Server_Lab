@@ -145,6 +145,11 @@ try {
             $selectionClonePlan=New-LabContainerInstanceStoreSelectionPlan -SourcePersistentStorageId $sourceId `
                 -Action CLONE -Provider docker -TargetRunId $runId -TargetScopeId $scopeId `
                 -TargetSqlVersion 2025 -Configuration $configuration
+            $leasePreview=Set-LabContainerInstanceStoreCloneLease -Plan $clonePlan -Configuration $configuration -ExpectedRevision 1 -Preview
+            $catalogAfterLeasePreview=Get-LabPersistentStorageCatalog -Configuration $configuration
+            $staleLeaseBlocked=$false
+            try { $null=Set-LabContainerInstanceStoreCloneLease -Plan $clonePlan -Configuration $configuration -ExpectedRevision 0 }
+            catch { $staleLeaseBlocked=$_.Exception.Message -like 'PERSISTENT_STORAGE_CATALOG_REVISION_CONFLICT:*' }
             $firstFailure=$null
             try { $null=Invoke-LabContainerInstanceStoreClone -Plan $clonePlan -OperationDirectory $Root -Configuration $configuration }
             catch { $firstFailure=$_.Exception.Message }
@@ -166,6 +171,14 @@ try {
             catch { $catalogFailure=$_.Exception.Message }
             $failedCatalogJournal=Get-Content -LiteralPath (Get-LabContainerInstanceStoreJournalPath -OperationDirectory $Root) -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
             $catalogAfterCatalogFailure=Get-LabPersistentStorageCatalog -Configuration $configuration
+            $verifiedJournal=$failedCatalogJournal | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
+            $verifiedJournal.Status='VERIFIED'
+            $registrationPreview=& $originalRegistration -Plan $clonePlan -Journal $verifiedJournal -Configuration $configuration `
+                -ExpectedRevision ([int]$catalogAfterCatalogFailure.Document.Revision) -Preview
+            $catalogAfterRegistrationPreview=Get-LabPersistentStorageCatalog -Configuration $configuration
+            $staleRegistrationBlocked=$false
+            try { $null=& $originalRegistration -Plan $clonePlan -Journal $verifiedJournal -Configuration $configuration -ExpectedRevision 0 }
+            catch { $staleRegistrationBlocked=$_.Exception.Message -like 'PERSISTENT_STORAGE_CATALOG_REVISION_CONFLICT:*' }
             $script:instanceStoreFailCatalog=$false
             $completedJournal=Invoke-LabContainerInstanceStoreClone -Plan $clonePlan -OperationDirectory $Root -Configuration $configuration
             $completedAgain=Invoke-LabContainerInstanceStoreClone -Plan $clonePlan -OperationDirectory $Root -Configuration $configuration
@@ -188,10 +201,23 @@ try {
             CatalogAfterCopyFailure=$catalogAfterCopyFailure; CatalogAfterCatalogFailure=$catalogAfterCatalogFailure
             ResumePlan=$resumePlan; CompetingPlan=$competingPlan
             SelectionContinuePlan=$selectionContinuePlan; SelectionClonePlan=$selectionClonePlan
+            LeasePreview=$leasePreview; CatalogAfterLeasePreview=$catalogAfterLeasePreview; StaleLeaseBlocked=$staleLeaseBlocked
+            RegistrationPreview=$registrationPreview; CatalogAfterRegistrationPreview=$catalogAfterRegistrationPreview; StaleRegistrationBlocked=$staleRegistrationBlocked
             CompletedJournal=$completedJournal; CompletedAgain=$completedAgain; CatalogAfter=$catalogAfter; Commands=$commands
             IntentValid=(Test-LabContainerInstanceStoreIntent -Intent $cloneIntent)
         }
     } $temporaryRoot
+
+    Add-CheckResult -Name 'Clone-Lease Preview schreibt weder Revision noch Quelllease; veraltete Revision wird blockiert' -Success (
+        $evidence.LeasePreview.Changed -and $evidence.LeasePreview.Preview -and $evidence.LeasePreview.CatalogRevision -eq 1 -and
+        $evidence.LeasePreview.ProposedRevision -eq 2 -and $evidence.CatalogAfterLeasePreview.Document.Revision -eq 1 -and
+        $evidence.CatalogAfterLeasePreview.Document.Stores[0].State -eq 'DETACHED' -and $evidence.StaleLeaseBlocked)
+    Add-CheckResult -Name 'Clone-Registrierung Preview laesst Quelle und Ziel unveraendert; veraltete Revision wird blockiert' -Success (
+        $evidence.RegistrationPreview.Changed -and $evidence.RegistrationPreview.Preview -and
+        $evidence.RegistrationPreview.ProposedRevision -eq ($evidence.RegistrationPreview.CatalogRevision + 1) -and
+        $evidence.CatalogAfterRegistrationPreview.Document.Revision -eq $evidence.CatalogAfterCatalogFailure.Document.Revision -and
+        @($evidence.CatalogAfterRegistrationPreview.Document.Stores).Count -eq 1 -and
+        $evidence.CatalogAfterRegistrationPreview.Document.Stores[0].State -eq 'IN_USE' -and $evidence.StaleRegistrationBlocked)
 
     Add-CheckResult -Name 'Stable Storage-ID waehlt den katalogisierten Runtime-Store eindeutig' -Success (
         $evidence.ContinuePlan.Status -eq 'READY' -and $evidence.ContinuePlan.Source.PersistentStorageId -eq $evidence.Drive.persistentStorageId -and

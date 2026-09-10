@@ -9,6 +9,21 @@
 
 ## 1. Grundsatz
 
+Am 2026-09-10 bestaetigte die getrennte Instanzstore-Abnahme fuer Docker und
+Podman den gemeinsamen Katalogkern fuer regulaere Leases und Mehr-Volume-
+Clones: stabile IDs, atomare Datenbankreferenzfreigabe, Continue, Digest fuer
+Hauptvolume und beide Sidecars, Katalogcommit sowie erhaltene Serverobjekte
+und Benutzerdaten. Nach beiden Laeufen blieben keine neuen Testcontainer,
+Testvolumes oder temporaeren Testverzeichnisse zurueck. Der Test begrenzt
+jeden SQL-Container auf 4 GB und zwei CPUs; SQL selbst auf 2048 MB. Vor der
+rekursiven Dateibereinigung wird der exakte eigene Temp-Pfad validiert.
+
+`Invoke-ContainerInstanceStoreChecks.ps1` prueft auch Preview und veraltete
+Revisionen fuer Clone-Lease und Zielregistrierung. Die synthetischen Spiegel
+bleiben bei Preview unveraendert; Apply registriert das Ziel und loest die
+Quell-Lease in derselben Revision. Copy-/Katalogfehler und Resume bleiben
+Bestandteil der Suite; diese Pruefung startet keine Container-Runtime.
+
 Der regulaere Container-Lease-Erwerb und -Release verwenden ebenfalls den
 gemeinsamen Katalogkern. Die Katalogsuite prueft deren Previews, erwartete
 Revisionen und den fehlerhaften Release: `RECOVERY_REQUIRED` wird im Apply
