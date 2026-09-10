@@ -1616,7 +1616,14 @@ Paketexport sowie BACPAC-Import verwenden ebenfalls den Reporter; mangels
 nativer Bytezaehler zeigen diese Phasen keine geschaetzten Prozentwerte.
 Versionstest, Kopie, Import und begrenztes BACPAC-Cleanup teilen eine Anzeige.
 Auch Teilkopien werden bereinigt; kombinierte Import-/Cleanupfehler bleiben
-erkennbar. Hyper-V-Gastwartepfade bleiben im UX-Punkt 11 offen.
+erkennbar. PowerShell Direct und Lab-WinRM empfangen lange Gastaufrufe jetzt
+ueber eigene Jobs mit Hostreporter; spaete rohe Gast-ProgressRecords werden
+unterdrueckt. Readiness und CompleteImage-Neustart teilen einen Reporter und
+binden Gastjobs an ihre Restdeadline. Sonstige Gastjobs haben eine Deadline
+von 24 Stunden, Integrationstransfers von einer Stunde. Copy-VMFile fuer
+CU-/External-Runtime-Payloads sowie die Prepared-Shutdown-Pause sind angebunden.
+Offline-Job- und Transportvertraege sind geprueft; native Evidence dieser
+Erweiterung, Session-Dateikopien und Legacy-WMI-Wartepfade bleiben offen.
 Native SQL-Probes, Query, Skript und Restore
 verwenden den Hostreporter. Das sqlcmd-Statement-Timeout bleibt unveraendert;
 zusaetzlich gilt eine Prozessdeadline von 24 Stunden, fuer Readiness die

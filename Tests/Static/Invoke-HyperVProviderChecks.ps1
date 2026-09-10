@@ -177,7 +177,7 @@ try {
     Add-TextContract `
         -Name 'PowerShell Direct wird vor dem privilegierten WinRM-Fallback mehrfach versucht' `
         -Text $provider `
-        -Pattern 'foreach\s*\(\$attempt in 1\.\.10\)[\s\S]+Invoke-Command[\s\S]+Start-Sleep -Seconds 3[\s\S]+nach 10 Versuchen'
+        -Pattern 'foreach\s*\(\$attempt in 1\.\.10\)[\s\S]+Invoke-Command[\s\S]+Wait-LabProgressDelay -Progress \$Progress -Milliseconds 3000[\s\S]+nach 10 Versuchen'
     Add-TextContract `
         -Name 'Explizit markierte Legacy-Gaeste umgehen den nicht unterstuetzten PowerShell-Direct-Kanal' `
         -Text $provider `

@@ -4,8 +4,9 @@
 .DESCRIPTION
     Implementiert Verfuegbarkeit, Generation-2-VM-Erstellung aus einer
     verifizierten read-only Parent-VHDX, Status, Start, Stop, PowerShell Direct,
-    zusätzliche run-lokale VHDX und scopegebundenen Cleanup. SQL- und Gast-
-    Provisionierung sind noch nicht Bestandteil dieses Vertical Slice.
+    zusätzliche run-lokale VHDX und scopegebundenen Cleanup sowie Windows-
+    Spezialisierung und SQL-Readiness im Gast. Lange Gastaufrufe melden
+    hostseitigen Fortschritt über einen eigenen Remoting-Job.
 #>
 
 $script:HyperVLabNotesPrefix = 'SQL_SERVER_LAB:'
@@ -938,7 +939,9 @@ function Invoke-HyperVWinRmFallback {
         [Parameter(Mandatory)][ValidatePattern('^(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3}$')][string]$Address,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][scriptblock]$ScriptBlock,
-        [object[]]$ArgumentList = @()
+        [object[]]$ArgumentList = @(),
+        [object]$Progress,
+        [ValidateRange(1,86400)][int]$TimeoutSeconds=86400
     )
 
     $clientConfigurationPath = Initialize-HyperVLabWinRmClient
@@ -958,8 +961,9 @@ function Invoke-HyperVWinRmFallback {
                 throw "HYPERV_LAB_WINRM_TRUSTED_HOST_REQUIRES_ELEVATION: $Address"
             }
         }
-        return Invoke-Command -ComputerName $Address -Credential $Credential -Authentication Negotiate `
-            -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList -ErrorAction Stop
+        $job=Invoke-Command -ComputerName $Address -Credential $Credential -Authentication Negotiate `
+            -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList -AsJob -ErrorAction Stop
+        return Receive-LabProgressJob -Job $job -Progress $Progress -TimeoutSeconds $TimeoutSeconds
     }
     finally {
         if ($trustedHostsChanged) {
@@ -978,7 +982,9 @@ function Invoke-HyperVPowerShellDirect {
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][scriptblock]$ScriptBlock,
         [object[]]$ArgumentList = @(),
-        [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress
+        [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress,
+        [object]$Progress,
+        [ValidateRange(1,86400)][int]$TimeoutSeconds=86400
     )
 
     $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
@@ -989,11 +995,15 @@ function Invoke-HyperVPowerShellDirect {
         throw "PowerShell Direct erfordert eine laufende VM: $VMName"
     }
 
+    $ownsProgress=$null -eq $Progress
+    if($ownsProgress){$Progress=Start-LabActionProgress -Phase GuestWait}
+    $deadline=[datetime]::UtcNow.AddSeconds($TimeoutSeconds)
+    try {
     if ($FallbackAddress -and [string]$managed.Identity.guestTransport -eq 'lab-winrm') {
         Write-LabInfo "Die VM $VMName ist explizit fuer Lab-WinRM markiert; nutze $FallbackAddress statt PowerShell Direct."
         try {
             return Invoke-HyperVWinRmFallback -Address $FallbackAddress -Credential $Credential `
-                -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
+                -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList -Progress $Progress -TimeoutSeconds $TimeoutSeconds
         }
         catch {
             throw "HYPERV_LAB_GUEST_COMMAND_UNAVAILABLE: Lab-WinRM: $($_.Exception.Message)"
@@ -1003,28 +1013,36 @@ function Invoke-HyperVPowerShellDirect {
     $directError = $null
     foreach ($attempt in 1..10) {
         try {
-            return Invoke-Command `
+            if([datetime]::UtcNow -ge $deadline){throw 'GUEST_JOB_OPERATION_TIMEOUT'}
+            Update-LabActionProgress -Progress $Progress -Phase GuestWait -ProbeCount $attempt
+            $job=Invoke-Command `
                 -VMName $VMName `
                 -Credential $Credential `
                 -ScriptBlock $ScriptBlock `
                 -ArgumentList $ArgumentList `
-                -ErrorAction Stop
+                -AsJob -ErrorAction Stop
+            return Receive-LabProgressJob -Job $job -Progress $Progress `
+                -TimeoutSeconds ([math]::Max(1,[int][math]::Ceiling(($deadline-[datetime]::UtcNow).TotalSeconds)))
         }
         catch {
             if ([string]$_.CategoryInfo.Category -ne 'OpenError') { throw }
             $directError = $_
-            if ($attempt -lt 10) { Start-Sleep -Seconds 3 }
+            if ($attempt -lt 10) { Wait-LabProgressDelay -Progress $Progress -Milliseconds 3000 }
         }
     }
     if (-not $FallbackAddress) { throw $directError }
+    if([datetime]::UtcNow -ge $deadline){throw 'GUEST_JOB_OPERATION_TIMEOUT'}
     Write-LabInfo "PowerShell Direct fuer $VMName nach 10 Versuchen nicht verfuegbar; nutze WinRM im Labnetz ($FallbackAddress)."
     try {
         return Invoke-HyperVWinRmFallback -Address $FallbackAddress -Credential $Credential `
-            -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList
+            -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList -Progress $Progress `
+            -TimeoutSeconds ([math]::Max(1,[int][math]::Ceiling(($deadline-[datetime]::UtcNow).TotalSeconds)))
     }
     catch {
         throw "HYPERV_LAB_GUEST_COMMAND_UNAVAILABLE: PowerShell Direct: $($directError.Exception.Message); WinRM: $($_.Exception.Message)"
     }
+    }
+    finally {if($ownsProgress){Stop-LabActionProgress -Progress $Progress}}
 }
 
 function Set-HyperVManagedVMIdentityProperty {
@@ -1073,17 +1091,18 @@ function Wait-HyperVPowerShellDirect {
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $lastError = ''
-    $lastProgressSeconds = -30
+    $progress=Start-LabActionProgress -Phase GuestWait
+    $probeCount=0
+    try {
     $guestInitializationComplete = [string]::IsNullOrWhiteSpace($GuestInitializationScript)
     while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
-        if (($stopwatch.Elapsed.TotalSeconds - $lastProgressSeconds) -ge 30) {
-            $lastProgressSeconds = $stopwatch.Elapsed.TotalSeconds
-            Write-LabInfo "PowerShell Direct: warte auf $VMName ($([int]$stopwatch.Elapsed.TotalSeconds)s/$TimeoutSeconds, letzter Status: $lastError)"
-        }
+        $probeCount++
+        Update-LabActionProgress -Progress $progress -Phase GuestWait -ProbeCount $probeCount
         try {
             $probe = Invoke-HyperVPowerShellDirect `
                 -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId `
-                -Credential $Credential -FallbackAddress $FallbackAddress -ScriptBlock {
+                -Credential $Credential -FallbackAddress $FallbackAddress -Progress $progress `
+                -TimeoutSeconds ([math]::Max(1,[int][math]::Ceiling($TimeoutSeconds-$stopwatch.Elapsed.TotalSeconds))) -ScriptBlock {
                     New-Object PSObject -Property @{
                         computerName = [Environment]::MachineName
                         imageState = [string](Get-ItemProperty `
@@ -1097,7 +1116,8 @@ function Wait-HyperVPowerShellDirect {
             if (-not $guestInitializationComplete) {
                 $null = Invoke-HyperVPowerShellDirect `
                     -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId `
-                    -Credential $Credential -FallbackAddress $FallbackAddress `
+                    -Credential $Credential -FallbackAddress $FallbackAddress -Progress $progress `
+                    -TimeoutSeconds ([math]::Max(1,[int][math]::Ceiling($TimeoutSeconds-$stopwatch.Elapsed.TotalSeconds))) `
                     -ScriptBlock ([scriptblock]::Create($GuestInitializationScript)) `
                     -ErrorAction Stop
                 $guestInitializationComplete = $true
@@ -1120,7 +1140,7 @@ function Wait-HyperVPowerShellDirect {
         catch {
             $lastError = $_.Exception.Message
         }
-        Start-Sleep -Milliseconds $PollIntervalMilliseconds
+        Wait-LabProgressDelay -Progress $progress -Milliseconds ([math]::Min($PollIntervalMilliseconds,[math]::Max(0,[int](1000*($TimeoutSeconds-$stopwatch.Elapsed.TotalSeconds)))))
     }
 
     $stopwatch.Stop()
@@ -1131,6 +1151,8 @@ function Wait-HyperVPowerShellDirect {
         Duration = $stopwatch.Elapsed
         Message = "PowerShell Direct Timeout: $lastError"
     }
+    }
+    finally {Stop-LabActionProgress -Progress $progress}
 }
 
 function Set-HyperVWindowsGuestSpecialization {

@@ -217,11 +217,16 @@ function Copy-LabExternalRuntimeWindowsPayload {
         }
         $files += [PSCustomObject]@{ Source=$probeSourcePath; Name=[string]$plan.java.probeSourceFileName }
     }
+    $transferProgress=Start-LabActionProgress -Phase Transfer
+    try {
     foreach ($file in $files) {
         if (-not (Test-Path -LiteralPath $file.Source -PathType Leaf)) { throw "EXTERNAL_RUNTIME_WINDOWS_PAYLOAD_MISSING: $($file.Name)" }
-        Copy-VMFile -VMName $VMName -SourcePath $file.Source -DestinationPath (Join-Path $guestRoot $file.Name) `
-            -FileSource Host -CreateFullPath -Force -ErrorAction Stop
+        $copyJob=Copy-VMFile -VMName $VMName -SourcePath $file.Source -DestinationPath (Join-Path $guestRoot $file.Name) `
+            -FileSource Host -CreateFullPath -Force -AsJob -ErrorAction Stop
+        $null=Receive-LabProgressJob -Job $copyJob -Phase Transfer -Progress $transferProgress -TimeoutSeconds 3600
     }
+    }
+    finally {Stop-LabActionProgress -Progress $transferProgress}
     return [PSCustomObject]@{
         GuestRoot = $guestRoot
         GuestPlanPath = Join-Path $guestRoot 'guest-plan.json'

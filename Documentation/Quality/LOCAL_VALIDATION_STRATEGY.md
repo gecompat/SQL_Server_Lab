@@ -99,6 +99,22 @@ bleiben unter der bestehenden Providerverwaltung; der Test fuehrt kein Prune aus
 
 ### Statische Prüfung
 
+`Tests/Static/Invoke-JobProgressChecks.ps1` prueft echte lokale PowerShell-Jobs:
+stille sechssekuendige Ausfuehrung, Ergebnisreihenfolge, ErrorRecord-Kategorie,
+Deadline, Schutz fremder Jobs, gemeinsame Anzeige und unterdrueckte rohe
+Gast-ProgressRecords. `Invoke-HyperVGuestProgressChecks.ps1` prueft den
+Transportvertrag funktional ohne VM: begrenzte OpenError-Retries, kein
+Fallback bei fachlichen oder Ownershipfehlern, temporaeres WinRM-Trust sowie
+den gemeinsamen Reporter und die Restdeadline mehrerer Readiness-Probes.
+Diese Offline-Pruefungen ersetzen keinen nativen Gast- oder Transfernachweis.
+Der vorhandene `Invoke-HyperVCliAcceptance.ps1` prueft den Gastpfad mit einem
+eigenen Windows-/SQL-Run aus einer registrierten OS-Baseline. Er verwendet die
+gemeinsame Runtime-Sperre, verlangt fuer seine 6144-MB-VM mindestens 7373 MB
+freien RAM, vier logische CPUs und 40 GB am registrierten Ressourcenroot.
+SQL-Medien muessen bereits hashregistriert sein. Fehlgeschlagenes Cleanup
+bewahrt den Test-State; temporaere Testdateien werden nur innerhalb des
+validierten eigenen Temp-Roots entfernt.
+
 `Tests/Static/Invoke-ContainerTransferProgressChecks.ps1` prueft den BACPAC-
 Reporter und die Fehlerpfade fuer Teilkopie, Import und Cleanup einschliesslich
 nativer Ausnahmen. Eine zufaellige eigene Containerdatei bleibt das einzige

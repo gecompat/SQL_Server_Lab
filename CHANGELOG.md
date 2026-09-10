@@ -15,6 +15,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- PowerShell Direct, Lab-WinRM und Hyper-V-Integrationstransfers melden
+  hostseitigen Jobfortschritt. Readiness-Probes und CompleteImage-Neustart
+  teilen ihre Anzeige über die Wartephasen; Deadline, Ergebnis und Fehler
+  bleiben unterscheidbar. Empfangene Gast-Fortschrittstexte werden unterdrueckt.
 - Containerkopien fuer Restore, Attach und Paketexport sowie SqlPackage-Import
   melden hostseitigen Fortschritt. BACPAC-Versionstest, Transfer, Import und
   begrenztes Cleanup teilen sich einen Reporter ohne sensible Felder.

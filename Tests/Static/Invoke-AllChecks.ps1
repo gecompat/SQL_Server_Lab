@@ -40,6 +40,8 @@ $checks = @(
     'Invoke-ArchiveProgressChecks.ps1',
     'Invoke-SqlActionProgressChecks.ps1',
     'Invoke-ContainerTransferProgressChecks.ps1',
+    'Invoke-JobProgressChecks.ps1',
+    'Invoke-HyperVGuestProgressChecks.ps1',
     'Invoke-ConnectionCenterCmsChecks.ps1',
     'Invoke-ActionResultChecks.ps1',
     'Invoke-ElevationChecks.ps1',

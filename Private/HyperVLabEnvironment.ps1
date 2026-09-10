@@ -1457,17 +1457,22 @@ function Invoke-HyperVLabSqlSlotInstall {
                 if (-not $guestService) { throw 'HYPERV_GUEST_FILE_COPY_SERVICE_NOT_FOUND' }
                 if (-not $guestService.Enabled) { $null = Enable-VMIntegrationService -VMIntegrationService $guestService -ErrorAction Stop }
                 $copied = $false
+                $transferProgress=Start-LabActionProgress -Phase Transfer
+                try {
                 for ($copyAttempt = 1; $copyAttempt -le 6 -and -not $copied; $copyAttempt++) {
                     try {
-                        Copy-VMFile -VMName ([string]$lab.Instance.vmName) -SourcePath ([string]$plan.sqlUpdatePath) `
-                            -DestinationPath $guestUpdatePath -FileSource Host -CreateFullPath -Force -ErrorAction Stop
+                        $copyJob=Copy-VMFile -VMName ([string]$lab.Instance.vmName) -SourcePath ([string]$plan.sqlUpdatePath) `
+                            -DestinationPath $guestUpdatePath -FileSource Host -CreateFullPath -Force -AsJob -ErrorAction Stop
+                        $null=Receive-LabProgressJob -Job $copyJob -Phase Transfer -Progress $transferProgress -TimeoutSeconds 3600
                         $copied = $true
                     }
                     catch {
                         if ($copyAttempt -eq 6) { throw 'HYPERV_SQL_CU_GUEST_COPY_FAILED' }
-                        Start-Sleep -Seconds 5
+                        Wait-LabProgressDelay -Progress $transferProgress -Milliseconds 5000
                     }
                 }
+                }
+                finally {Stop-LabActionProgress -Progress $transferProgress}
                 $patchReceipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
                     -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
                     -ArgumentList @($guestUpdatePath, $SetupTimeoutSeconds) -ScriptBlock {
@@ -1732,12 +1737,16 @@ function Invoke-HyperVLabSqlPreparedSlot {
         throw 'HYPERV_LAB_SQL_PREPARE_RECEIPT_INVALID'
     }
     $deadline = [datetime]::UtcNow.AddSeconds($ShutdownTimeoutSeconds)
+    $shutdownProgress=Start-LabActionProgress -Phase GuestWait
+    try {
     do {
         $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
         if ([string]$managed.VM.State -eq 'Off') { break }
-        Start-Sleep -Seconds 2
+        Wait-LabProgressDelay -Progress $shutdownProgress -Milliseconds 2000
     } while ([datetime]::UtcNow -lt $deadline)
+    }
+    finally {Stop-LabActionProgress -Progress $shutdownProgress}
     if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_LAB_SQL_PREPARE_SHUTDOWN_TIMEOUT' }
 
     $plan.state = 'GENERALIZED_READY_TO_PUBLISH'
@@ -2271,16 +2280,17 @@ function Wait-HyperVLabSqlCompletionRestart {
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $lastStatus = 'Neustart noch nicht beobachtet.'
-    $lastProgressSeconds = -30
+    $progress=Start-LabActionProgress -Phase GuestWait
+    $probeCount=0
+    try {
     while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
-        if (($stopwatch.Elapsed.TotalSeconds - $lastProgressSeconds) -ge 30) {
-            $lastProgressSeconds = $stopwatch.Elapsed.TotalSeconds
-            Write-LabInfo "SQL CompleteImage: warte auf Gast-Neustart ($([int]$stopwatch.Elapsed.TotalSeconds)s/$TimeoutSeconds, $lastStatus)"
-        }
+        $probeCount++
+        Update-LabActionProgress -Progress $progress -Phase GuestWait -ProbeCount $probeCount
         try {
             $probe = Invoke-HyperVPowerShellDirect -VMName ([string]$Lab.Instance.vmName) `
                 -ExpectedRunId ([string]$Lab.Run.runId) -ExpectedScopeId ([string]$Lab.Run.scopeId) `
-                -Credential $Credential -FallbackAddress $FallbackAddress -ScriptBlock {
+                -Credential $Credential -FallbackAddress $FallbackAddress -Progress $progress `
+                -TimeoutSeconds ([math]::Max(1,[int][math]::Ceiling($TimeoutSeconds-$stopwatch.Elapsed.TotalSeconds))) -ScriptBlock {
                     [PSCustomObject]@{
                         bootTime = (Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).LastBootUpTime.ToUniversalTime().ToString('o')
                         imageState = [string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' -Name ImageState -ErrorAction Stop).ImageState
@@ -2296,10 +2306,12 @@ function Wait-HyperVLabSqlCompletionRestart {
         catch {
             $lastStatus = $_.Exception.Message
         }
-        Start-Sleep -Seconds 2
+        Wait-LabProgressDelay -Progress $progress -Milliseconds ([math]::Min(2000,[math]::Max(0,[int](1000*($TimeoutSeconds-$stopwatch.Elapsed.TotalSeconds)))))
     }
     $stopwatch.Stop()
     return [PSCustomObject]@{ Ready = $false; BootTime = $null; Duration = $stopwatch.Elapsed; Message = "SQL CompleteImage-Neustart Timeout: $lastStatus" }
+    }
+    finally {Stop-LabActionProgress -Progress $progress}
 }
 
 function Complete-HyperVLabSqlImage {

@@ -8,6 +8,7 @@
     Daten, Log, zwei TempDB-Pfade und Backup. Der Test entfernt den Run und
     alle run-eigenen VHDX anschliessend wieder.
 #>
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText','',Justification='Nur zufaellig erzeugte synthetische Credentials fuer den eigenen isolierten Test-Run.')]
 [CmdletBinding()]
 param(
     [string]$MediaRoot = 'D:\Lab_Base',
@@ -34,6 +35,10 @@ $saPlain = $null
 $completed = $false
 $mutex = [Threading.Mutex]::new($false, 'Global\SQL_Server_Lab_HyperV_Cli_Acceptance')
 $mutexAcquired = $false
+$runtimeMutex = [Threading.Mutex]::new($false,'Global\SQL_Server_Lab_Runtime_Smoke')
+$runtimeMutexAcquired = $false
+$cleanupAttempted = $false
+$cleanupFailed = $false
 
 function Assert-HyperVCli {
     param([Parameter(Mandatory)][bool]$Condition, [Parameter(Mandatory)][string]$Description, [string]$Evidence)
@@ -89,6 +94,8 @@ function Wait-WindowsAcceptanceSqlReady {
 }
 
 try {
+    $runtimeMutexAcquired=$runtimeMutex.WaitOne([TimeSpan]::FromMinutes(10))
+    if(-not $runtimeMutexAcquired){throw 'HYPERV_CLI_ACCEPTANCE_RUNTIME_LOCK_TIMEOUT'}
     $mutexAcquired = $mutex.WaitOne([TimeSpan]::FromMinutes(15))
     if (-not $mutexAcquired) { throw 'HYPERV_CLI_ACCEPTANCE_HOST_LOCK_TIMEOUT' }
     $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -129,12 +136,14 @@ try {
     $media = Invoke-Private {
         param($Root,$Version,$Edition,$Path)
         $resolved = Resolve-HyperVSqlInstallationMedia -MediaRoot $Root -SqlVersion $Version -MediaEdition $Edition -SqlMediaPath $Path
-        if ($resolved.HashStatus -ne 'SIDECAR_READY') {
-            $resolved = New-HyperVSqlMediaHashSidecar -MediaRoot $Root -SqlVersion $Version -MediaEdition $Edition -SqlMediaPath $Path -Confirm:$false
-        }
+        if ($resolved.HashStatus -ne 'SIDECAR_READY') { throw 'HYPERV_CLI_ACCEPTANCE_REGISTERED_MEDIA_REQUIRED' }
         $resolved
     } @($MediaRoot,$SqlVersion,$MediaEdition,$SqlMediaPath)
     Assert-HyperVCli ($media.HashStatus -eq 'SIDECAR_READY') 'SQL-ISO ist per SHA-256 registriert' $media.RelativePath
+    $resourcePreview=Invoke-Private {Get-LabHyperVResourceLocationPreview -ResourceClass Run}
+    $freeMemoryMB=[math]::Floor((Get-CimInstance Win32_OperatingSystem -ErrorAction Stop).FreePhysicalMemory/1024)
+    Assert-HyperVCli ($freeMemoryMB -ge 7373 -and [Environment]::ProcessorCount -ge 4 -and $resourcePreview.ObservedFreeBytes -ge 40GB) `
+        'Isolierter CLI-Test besitzt RAM-Reserve, vier logische CPUs und Platz am registrierten Ressourcenroot'
 
     $labName = "win-cli-$([guid]::NewGuid().ToString('N').Substring(0,8))"
     $drives = @(
@@ -242,7 +251,12 @@ try {
     $persistenceEvidence = Invoke-WindowsAcceptanceQuery "SET NOCOUNT ON; SELECT COUNT_BIG(*) FROM dbo.LifecycleEvidence WHERE Id=1 AND Marker=N'persisted-after-resource-change';" -Database CliStorageEvidence
     Assert-HyperVCli ([long]$persistenceEvidence -eq 1) 'Datenzustand bleibt nach Ressourcenwechsel und Neustart erreichbar' $persistenceEvidence
 
-    Remove-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -Force -Confirm:$false | Out-Null
+    $cleanupAttempted=$true
+    try {
+        $cleanup=Remove-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -Force -Confirm:$false
+        if($cleanup.Status -notin @('REMOVED','COMPLETED')){throw 'HYPERV_CLI_ACCEPTANCE_CLEANUP_FAILED'}
+    }
+    catch {$cleanupFailed=$true;throw}
     $lab = $null
     foreach ($path in $ownedVhdx | Where-Object { $_ }) {
         Assert-HyperVCli (-not (Test-Path -LiteralPath $path)) "Run-eigene VHDX wurde freigegeben: $path"
@@ -251,16 +265,25 @@ try {
 }
 finally {
     $saPlain = $null
-    if ($lab -and -not $KeepOnFailure) {
-        try { Remove-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -Force -Confirm:$false | Out-Null }
-        catch { Write-Warning "Fehler-Cleanup des Hyper-V-Runs schlug fehl: $($_.Exception.Message)" }
+    try {
+    if ($lab -and -not $KeepOnFailure -and -not $cleanupAttempted) {
+        try {$cleanup=Remove-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -Force -Confirm:$false;if($cleanup.Status -notin @('REMOVED','COMPLETED')){throw 'HYPERV_CLI_ACCEPTANCE_CLEANUP_FAILED'}}
+        catch {$cleanupFailed=$true;Write-Warning 'Hyper-V-Cleanup fehlgeschlagen; Test-State bleibt fuer Recovery erhalten.'}
     }
-    if (($completed -or -not $KeepOnFailure) -and (Test-Path -LiteralPath $testRoot)) {
-        Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
+    if (-not $cleanupFailed -and ($completed -or -not $KeepOnFailure) -and (Test-Path -LiteralPath $testRoot)) {
+        $resolved=[IO.Path]::GetFullPath($testRoot)
+        $boundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+        if(-not $resolved.StartsWith($boundary,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolved) -notlike 'sql-server-lab-hyperv-cli-*'){throw 'HYPERV_CLI_ACCEPTANCE_CLEANUP_SCOPE_INVALID'}
+        Remove-Item -LiteralPath $resolved -Recurse -Force
     }
+    }
+    finally {
     $env:SQL_SERVER_LAB_STATE = $previousStateRoot
     if ($mutexAcquired) { $mutex.ReleaseMutex() }
     $mutex.Dispose()
+    if($runtimeMutexAcquired){$runtimeMutex.ReleaseMutex()};$runtimeMutex.Dispose()
+    }
 }
+if($cleanupFailed){throw 'HYPERV_CLI_ACCEPTANCE_CLEANUP_FAILED'}
 
 Write-Host "Hyper-V-CLI-Akzeptanz erfolgreich: SQL Server $SqlVersion" -ForegroundColor Green

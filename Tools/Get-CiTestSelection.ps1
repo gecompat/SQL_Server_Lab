@@ -112,6 +112,7 @@ end {
         @{ Pattern = '(?i)(ProjectAdapter|Adapters/|project-adapter)'; Checks = @('Invoke-ProjectAdapterChecks.ps1') },
         @{ Pattern = '(?i)(MixedProvider|ProviderSubRun|StateMachine)'; Checks = @('Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(HyperVProvider|Providers/HyperV)'; Checks = @('Invoke-HyperVProviderChecks.ps1') },
+        @{ Pattern = '(?i)(JobProgress|HyperVGuestProgress|HyperVProvider|HyperVLabEnvironment|ExternalRuntimeWindows)'; Checks = @('Invoke-JobProgressChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1') },
         @{ Pattern = '(?i)(HyperVLabEnvironment)'; Checks = @('Invoke-HyperVLabEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(HyperVImageRegistry)'; Checks = @('Invoke-HyperVImageRegistryChecks.ps1') },
         @{ Pattern = '(?i)(HyperVImageBuilder)'; Checks = @('Invoke-HyperVImageBuilderChecks.ps1') },
