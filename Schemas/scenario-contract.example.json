@@ -1,0 +1,19 @@
+{
+  "$schema": "scenario-contract.schema.json",
+  "ContractVersion": "SqlServerLab.InternalScenarioContract/0.1",
+  "InternalOnly": true,
+  "ExecutionImplemented": false,
+  "Scenario": { "Id": "synthetic-scenario-contract", "Version": "1.0", "Kind": "DIAGNOSTIC", "RequiredSqlCapabilities": ["sql-read-only-observation"] },
+  "Steps": [
+    { "Id": "collect-synthetic-observation", "Kind": "PROBE", "EvidenceIds": ["synthetic-observation"], "OutcomeIds": ["observation-collected"] },
+    { "Id": "verify-synthetic-observation", "Kind": "ASSERTION", "EvidenceIds": ["synthetic-assertion"], "OutcomeIds": ["observation-verified"] }
+  ],
+  "Evidence": [
+    { "Id": "synthetic-observation", "Kind": "OBSERVATION", "Classification": "SYNTHETIC" },
+    { "Id": "synthetic-assertion", "Kind": "ASSERTION", "Classification": "SYNTHETIC" }
+  ],
+  "Outcomes": [
+    { "Id": "observation-collected", "ExpectedStatus": "PASSED", "EvidenceIds": ["synthetic-observation"] },
+    { "Id": "observation-verified", "ExpectedStatus": "PASSED", "EvidenceIds": ["synthetic-assertion"] }
+  ]
+}

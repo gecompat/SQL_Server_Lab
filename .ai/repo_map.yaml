@@ -28,6 +28,10 @@ sources_of_truth:
   module_loading: SqlServerLab.psm1
   manifest_structure: Schemas/lab-manifest.schema.json
   ai_scenario_schema: Schemas/ai-scenario.schema.json
+  internal_scenario_contract_schema: Schemas/scenario-contract.schema.json
+  internal_scenario_contract_example: Schemas/scenario-contract.example.json
+  validation_internal_scenario_contract: Tests/Static/Invoke-ScenarioContractChecks.ps1
+  internal_scenario_contract_backlog: Documentation/Project_Planning/SCENARIO_CONTRACT_BACKLOG.md
   ai_scenario_contract: Private/AiScenario.ps1
   ai_scenario_inventory: Public/Get-SqlServerLabAiScenario.ps1
   ai_scenario_execution: Public/Invoke-SqlServerLabAiScenario.ps1
