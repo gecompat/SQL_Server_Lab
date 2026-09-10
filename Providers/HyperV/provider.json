@@ -45,8 +45,8 @@
     "hyperv-test-database-reconcile"
   ],
   "limitations": [
-    "no-unattended-os-build",
-    "manual-os-installation",
+    "interactive-image-action-requires-manual-os-installation",
+    "unattended-template-build-requires-dedicated-tool",
     "no-real-windows-guest-sysprep-ci",
     "no-general-sql-manifest-provisioning",
     "no-real-windows-guest-specialization-ci"

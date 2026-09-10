@@ -1179,14 +1179,15 @@ sowie eine Automation-API mit IaC-Adaptern bleiben vor einer Priorisierung
 entscheidungspflichtig. Dieser Sammelbacklog ändert die Ausführungsreihenfolge
 dieses Plans nicht.
 
-Repository-lokale KI-Skills sind als fachlich akzeptierter, noch nicht
-implementierter [Backlog](REPOSITORY_AGENT_SKILLS_BACKLOG.md) ebenfalls diesem
-nachgelagerten Horizont zugeordnet. Eine spätere Skill-Welle beginnt mit einem
-KI-unabhängigen, read-only Client-Readiness-Einstiegspunkt und dem darauf
-aufbauenden `sql-server-lab-readiness`-Skill; anschließend folgen
-`sql-server-lab-validation` und `sql-server-lab-operate`. Diese interne
-Reihenfolge weist dem Backlog noch keine Priorität gegenüber den übrigen
-nachgelagerten Produktvorhaben zu.
+Der [Backlog für Repository-lokale KI-Skills](REPOSITORY_AGENT_SKILLS_BACKLOG.md)
+ist teilweise umgesetzt: Der KI-unabhängige read-only Client-Readiness-
+Einstiegspunkt sowie `sql-server-lab-readiness`, `sql-server-lab-validation`
+und `sql-server-lab-operate` liegen im Repository. Metadaten, lokale Referenzen
+und öffentliche Einstiegspunkte sind geprüft. Daraus folgt keine bestätigte
+Skill-Erkennung durch jeden KI-Client. Der optionale REST-Adapter und weitere
+erst nach Nutzungsauswertung zu entscheidende Skills bleiben Folgearbeit;
+der Backlog erhält dadurch keine höhere Priorität gegenüber den übrigen
+nachgelagerten Produktvorhaben.
 
 ## 13. Gesamt-Definition-of-Done
 
