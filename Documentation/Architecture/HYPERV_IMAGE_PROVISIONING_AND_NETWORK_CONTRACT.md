@@ -443,7 +443,7 @@ angelegt oder verwendet werden. External-Switch-Tests laufen ausschließlich auf
 dafür freigegebenen Runnern.
 
 Automatisierte Windows-Testslots verwenden eine engere, implementierte
-Sonderregel: Nach OOBE und vor SQL Setup darf eine zweite, reserviert benannte
+Sonderregel: Nach OOBE und vor SQL Setup darf eine zweite, pro Versuch eindeutig benannte
 NIC ausschließlich für die Online-Aktivierung der Evaluation an einen bereits
 vorhandenen External-Switch angebunden werden. Switch und verbundene physische
 NIC werden vor der Mutation geprüft. Die interne Lab-NIC bleibt erhalten, die
@@ -455,6 +455,14 @@ aktiviert. Die Aktivierung wird in der run-lokalen Child-VHDX des Pool-Slots
 gespeichert. Bei dessen direkter Wiederverwendung beendet die positive
 Live-Prüfung den Gate ohne External-Switch; nur ein noch nicht aktivierter Slot
 löst dessen automatische Auflösung und die temporäre NIC aus.
+
+Der Cleanup verwendet ein run-lokales `WindowsActivationNetwork/1.0`-Journal
+mit Run-, Scope-, VM-, Switch- und Adapter-ID sowie dem Adaptervorbestand.
+Ein gleicher Name allein begruendet kein Eigentum. Bereits aktive Slots
+pruefen oder veraendern keine Adapter. Auch ein partiell fehlgeschlagener
+Add-Aufruf wird nur bei eindeutigem Identitaetsnachweis kompensiert.
+Unvollstaendige oder widerspruechliche Journale blockieren die Recovery;
+geaenderte Switch-Bindungen und fremde Adapter bleiben erhalten.
 
 ## 11. SQL-Installationsdialog und Automation
 

@@ -7,6 +7,12 @@ teilweise implementiert, noch kein allgemeiner Windows-Slot-Lifecycle-Vertrag.
 Reihenfolge und Priorität richten sich nach dem kanonischen Entwicklungs- und
 Ausführungsplan.
 
+Die bisherige Entfernung nach festem NIC-Namen ist durch einen gemeinsamen
+Adapter-Cleanup mit Run-/Scope-/VM-/Switch-/Adapterbindung ersetzt.
+Vorbestand, Teilfehler und Resume sind statisch geprueft. Der gesonderte native
+Adaptertest verwendet nur einen privaten Switch; er ist noch nicht ausgefuehrt
+und ersetzt keinen echten Evaluations-Aktivierungsnachweis.
+
 ## Ausgangslage
 
 SQL_Server_Lab kann den Windows-Lizenzstatus eines eindeutigen Hyper-V-Child-

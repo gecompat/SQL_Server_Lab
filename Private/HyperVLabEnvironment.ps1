@@ -232,13 +232,6 @@ function Invoke-HyperVWindowsSlotActivation {
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') {
         throw 'HYPERV_WINDOWS_ACTIVATION_VM_MUST_BE_RUNNING'
     }
-    $adapterName = 'SQL_SERVER_LAB_ACTIVATION_TEMP'
-    try {
-        @(Get-VMNetworkAdapter -VMName ([string]$lab.Instance.vmName) -Name $adapterName -ErrorAction SilentlyContinue) |
-            Remove-VMNetworkAdapter -ErrorAction Stop
-    }
-    catch { throw 'HYPERV_WINDOWS_ACTIVATION_STALE_NETWORK_CLEANUP_FAILED' }
-
     $current = Get-HyperVWindowsSlotLicenseStatus -RunId $RunId -Credential $Credential `
         -TimeoutSeconds $TimeoutSeconds -Persist -StateRoot $lab.StateRoot
     if ([string]$current.State -in @('EVALUATION_ACTIVE','LICENSED')) { return $current }
@@ -258,12 +251,7 @@ function Invoke-HyperVWindowsSlotActivation {
             -EvaluationExpiresAt ([string]$current.EvaluationExpiresAt) -StateRoot $lab.StateRoot
 
         Write-LabInfo "Windows-Aktivierung: temporäre zweite NIC wird an External-Switch '$ExternalSwitchName' angebunden."
-        $activationAdapter = Add-VMNetworkAdapter -VMName ([string]$lab.Instance.vmName) `
-            -SwitchName $ExternalSwitchName -Name $adapterName -Passthru -ErrorAction Stop
-        if (-not $activationAdapter -or -not [string]$activationAdapter.MacAddress) {
-            $activationAdapter = @(Get-VMNetworkAdapter -VMName ([string]$lab.Instance.vmName) `
-                -Name $adapterName -ErrorAction Stop | Select-Object -First 1)[0]
-        }
+        $activationAdapter = New-LabWindowsActivationAdapter -Lab $lab -ExternalSwitch $externalSwitch
         $macAddress = ([string]$activationAdapter.MacAddress -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
         if (-not $macAddress) { throw 'HYPERV_WINDOWS_ACTIVATION_ADAPTER_IDENTITY_MISSING' }
 
@@ -347,8 +335,7 @@ function Invoke-HyperVWindowsSlotActivation {
     }
     finally {
         try {
-            @(Get-VMNetworkAdapter -VMName ([string]$lab.Instance.vmName) -Name $adapterName -ErrorAction SilentlyContinue) |
-                Remove-VMNetworkAdapter -ErrorAction Stop
+            Remove-LabWindowsActivationAdapter -Lab $lab
             Write-LabInfo 'Windows-Aktivierung: temporäre externe NIC wurde wieder entfernt; die interne Lab-NIC bleibt erhalten.'
         }
         catch {

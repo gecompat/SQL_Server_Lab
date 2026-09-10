@@ -618,24 +618,33 @@ try {
         $script:activationAdapterReads = 0
         $script:activationAdapterAdds = 0
         $script:activationAdapterRemoves = 0
+        $script:activationAdapters=@([pscustomobject]@{Id='foreign-adapter';VMId='mock-vm-id';SwitchId='external-id';Name='SQL_SERVER_LAB_ACTIVATION_TEMP'})
         function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Running' } }
-        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Running' } } }
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Running';Id='mock-vm-id' } } }
         function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
         function Get-VMSwitch {
-            [PSCustomObject]@{ Name = 'External Mock'; SwitchType = 'External'; NetAdapterInterfaceDescription = 'Mock Physical NIC' }
+            [PSCustomObject]@{ Id='external-id';Name = 'External Mock'; SwitchType = 'External'; NetAdapterInterfaceDescription = 'Mock Physical NIC' }
         }
         function Get-NetAdapter { [PSCustomObject]@{ Status = 'Up'; InterfaceDescription = 'Mock Physical NIC' } }
         function Get-VMNetworkAdapter {
             $script:activationAdapterReads++
-            if ($script:activationAdapterReads -gt 1) { [PSCustomObject]@{ Name = 'SQL_SERVER_LAB_ACTIVATION_TEMP' } }
+            $script:activationAdapters
         }
         function Add-VMNetworkAdapter {
+            param($Name)
             $script:activationAdapterAdds++
-            [PSCustomObject]@{ Name = 'SQL_SERVER_LAB_ACTIVATION_TEMP'; MacAddress = '00155D010203' }
+            $adapter=[PSCustomObject]@{ Id='own-adapter';VMId='mock-vm-id';SwitchId=[string][guid]::Empty;Name=$Name;MacAddress='00155D010203' }
+            $script:activationAdapters+=@($adapter)
+            $adapter
         }
+        function Connect-VMNetworkAdapter {param($VMNetworkAdapter,$VMSwitch);$VMNetworkAdapter.SwitchId=$VMSwitch.Id}
         function Remove-VMNetworkAdapter {
             param([Parameter(ValueFromPipeline)]$VMNetworkAdapter)
-            process { $script:activationAdapterRemoves++ }
+            process {
+                if($VMNetworkAdapter.Id -ne 'own-adapter'){throw 'FOREIGN_ADAPTER_REMOVAL'}
+                $script:activationAdapterRemoves++
+                $script:activationAdapters=@($script:activationAdapters | Where-Object Id -ne $VMNetworkAdapter.Id)
+            }
         }
         function Invoke-HyperVPowerShellDirect {
             $script:activationRemoteCalls++
@@ -673,8 +682,8 @@ try {
         function Get-HyperVLabVMs { [PSCustomObject]@{ VMName = 'sql-lab-primary-mock'; VMId = 'mock-vm-id'; State = 'Running' } }
         function Get-HyperVManagedVM { [PSCustomObject]@{ VM = [PSCustomObject]@{ State = 'Running' } } }
         function Wait-HyperVPowerShellDirect { [PSCustomObject]@{ Ready = $true; Message = 'ready' } }
-        function Get-VMNetworkAdapter { @() }
-        function Remove-VMNetworkAdapter { process { } }
+        function Get-VMNetworkAdapter { throw 'NETWORK_MUST_NOT_BE_READ_FOR_ACTIVE_SLOT' }
+        function Remove-VMNetworkAdapter { process { throw 'NETWORK_MUST_NOT_CHANGE_FOR_ACTIVE_SLOT' } }
         function Get-VMSwitch { throw 'EXTERNAL_SWITCH_MUST_NOT_BE_READ_FOR_ACTIVE_SLOT' }
         function Get-NetAdapter { throw 'PHYSICAL_ADAPTER_MUST_NOT_BE_READ_FOR_ACTIVE_SLOT' }
         function Add-VMNetworkAdapter { $script:reuseAdapterAdds++ }
