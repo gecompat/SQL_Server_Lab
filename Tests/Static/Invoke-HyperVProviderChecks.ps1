@@ -6,7 +6,7 @@
     Validiert Metadaten, Funktionsoberflaeche, Parent-Integritaet,
     artifactgebundene VM-Generation und Secure Boot, zusätzliche VHDX,
     scopegebundenen Cleanup und die ausdrueckliche
-    Grenze zur noch nicht implementierten SQL-Provisionierung ohne Hyper-V-
+    Grenze zur allgemeinen SQL-Provisionierung ohne Hyper-V-
     Ressourcen zu aendern.
 #>
 [CmdletBinding()]
