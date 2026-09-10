@@ -15,7 +15,7 @@
         "properties": {
           "Capability": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,79}$" },
           "Provider": { "enum": ["none", "docker", "podman", "hyperv", "mixed"] },
-          "SqlVersion": { "type": ["string", "null"], "pattern": "^20[0-9]{2}$" },
+          "SqlVersion": { "type": ["string", "null"], "pattern": "^(20[0-9]{2}|2008R2)$" },
           "Platform": { "enum": ["windows", "linux"] },
           "Scope": { "enum": ["STATIC_CONTRACT", "PACKAGE", "NATIVE_LIFECYCLE", "NATIVE_SQL"] },
           "SourceRevision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },

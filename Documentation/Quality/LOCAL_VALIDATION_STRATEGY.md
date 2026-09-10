@@ -98,7 +98,8 @@ Provider, SQL-Version beziehungsweise `null`, Plattform, Scope, vollständige
 Quellrevision, Testdatei, Ergebnis, Cleanup, Datum und öffentliche PR-/CI-/
 Commitreferenz. Er ist eine kleine Querverweistabelle, keine zweite Task- oder
 Runtime-Registry. Frühere Fehler bleiben erhalten; spätere Ergebnisse erhalten
-eine eigene Zeile. Native SQL-Abnahmen benötigen eine SQL-Version und einen
+eine eigene Zeile. SQL-Versionen erhalten auch den kanonischen Legacywert
+`2008R2`, damit er nicht mit `2008` zusammenfällt. Native SQL-Abnahmen benötigen eine SQL-Version und einen
 Integrationstest; statische Hyper-V-Checks werden dadurch nicht nativ.
 
 Die Inventur liest den optionalen Index schema-validiert, auf 256 KiB begrenzt

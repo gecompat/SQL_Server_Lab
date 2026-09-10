@@ -56,6 +56,15 @@ try {
     $present=& $tool -RepositoryRoot $fixture
     Assert-CapabilityInventory ($present.RecordedEvidence.Records[0].CurrentTestPresence -eq 'PRESENT' -and
         -not $present.RuntimeEvidence.Assessed -and $present.Tests[0].ExecutionStatus -eq 'NOT_EXECUTED') 'Vorhandene Testquelle bestaetigt nur die Referenz und fuehrt keinen Test aus'
+    $legacyDocument=$validIndex | ConvertFrom-Json -AsHashtable
+    $legacyDocument.Records[0].SqlVersion='2008R2'
+    $legacyDocument.Records[0].Scope='NATIVE_SQL'
+    $legacyDocument.Records[0].Test='Tests/Integration/Invoke-Synthetic.ps1'
+    $legacyDocument | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $indexPath
+    $legacy=& $tool -RepositoryRoot $fixture
+    Assert-CapabilityInventory ($legacy.RecordedEvidence.Status -eq 'RECORDED' -and
+        $legacy.RecordedEvidence.Records[0].SqlVersion -ceq '2008R2' -and
+        $legacy.RecordedEvidence.Records[0].CurrentExecutionStatus -eq 'NOT_EXECUTED') 'Kanonisches SQL 2008R2 bleibt von SQL 2008 getrennt und erzeugt keine aktuelle Ausfuehrungsbehauptung'
     $invalidCases=@(
         @{Name='Unbekanntes Payloadfeld';Change={param($row) $row.Secret='synthetic-private-content'}},
         @{Name='Unbekannter Provider';Change={param($row) $row.Provider='synthetic-unknown'}},
