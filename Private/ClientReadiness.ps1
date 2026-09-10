@@ -68,7 +68,7 @@ function Test-LabClientReadiness {
         [ValidateSet('Inspect','Validate','Create','Start','Stop','Remove','PrepareImage')][string]$Operation='Inspect'
     )
     $checks=[Collections.Generic.List[object]]::new()
-    $supportedOs=([Environment]::OSVersion.Platform -eq 'Win32NT' -or $PSVersionTable.OS -match 'Linux')
+    $supportedOs=([Environment]::OSVersion.Platform -eq 'Win32NT' -or $IsLinux)
     $checks.Add((New-LabClientReadinessCheck OperatingSystem $(if($supportedOs){'OS_SUPPORTED'}else{'OS_UNSUPPORTED'}) $(if($supportedOs){'PASS'}else{'BLOCKED'}) $(if(-not $supportedOs){'Use a supported Windows or Linux host.'})))
     $supportedPs=$PSVersionTable.PSVersion -ge [version]'7.2'
     $checks.Add((New-LabClientReadinessCheck PowerShell $(if($supportedPs){'POWERSHELL_SUPPORTED'}else{'POWERSHELL_7_2_REQUIRED'}) $(if($supportedPs){'PASS'}else{'BLOCKED'}) $(if(-not $supportedPs){'Run this script with PowerShell 7.2 or later.'})))
