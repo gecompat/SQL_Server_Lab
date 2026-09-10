@@ -981,6 +981,11 @@ und den Hyper-V-Wellen im
 [Hyper-V-Zielvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md).
 Jedes Dokument führt seine eigene Wellenzählung.
 
+Die historischen Statusformulierungen dieses Abschnitts bleiben als Stand vom
+2026-08-12 erhalten. Das vollständige aktuelle Mapping jeder alten Welle auf
+die Meilensteine M0 bis M9 sowie das verbindliche Statusvokabular stehen in der
+[M0-Statuswahrheitsmatrix](M0_STATUS_TRUTH_MATRIX.md).
+
 | Master-Plan-Welle | Stand | Anmerkung |
 |---|---|---|
 | Welle 0 – Repository- und Governance-Basis | abgeschlossen | README, Lizenz, Privacy-, Sprach- und Validierungsverträge, KI-Kontext vorhanden |

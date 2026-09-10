@@ -3,6 +3,7 @@
 | Dokument | Inhalt |
 |---|---|
 | DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md | Kanonische Ausführungsreihenfolge; Abschnitt 12 führt den evidenzgebundenen Status der fünf Wellen für Baseline, P0-Recovery, drei Adapterpiloten, Hyper-V-End-to-End sowie Storage/Reconcile |
+| M0_STATUS_TRUTH_MATRIX.md | Kanonische deduplizierte M0-Abnahmekriterien, Statusvokabular, vollständiges Alt-Wellen-Mapping und Readinessmatrix je Änderungsklasse |
 | SCENARIO_CONTRACT_BACKLOG.md | Interner, nicht ausführbarer `SCN-801`-Schema-Slice für Scenario-, Step-, Evidence- und Outcome-Metadaten sowie verbleibende öffentliche Contract-Entscheidungen |
 | MASTER_IMPLEMENTATION_PLAN.md | Gesamtziel, Wellen, Abnahmekriterien und Umsetzungsstand |
 | MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md | Vorrangige Scope-Regeln |
@@ -35,5 +36,6 @@
 Für Reihenfolge und Priorität der Weiterentwicklung ist ausschließlich
 `DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md` maßgeblich. Die Wellenzählungen in
 den übrigen Dokumenten beschreiben deren jeweiligen fachlichen Teilvertrag und
-werden über den Master-Plan zugeordnet. Ein Planungsstatus ist kein
+werden über `M0_STATUS_TRUTH_MATRIX.md` den aktuellen Meilensteinen zugeordnet.
+Ein Planungsstatus ist kein
 Implementierungs- oder Runtime-Nachweis.
