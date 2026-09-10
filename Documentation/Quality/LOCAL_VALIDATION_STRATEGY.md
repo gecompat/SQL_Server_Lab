@@ -44,6 +44,20 @@ belegt den Bootstrap; `MutationAllowed` und `SkillLoaderVerified` bleiben false.
 ungültige Aufloesung, Ausfuehrungs-/Runtimeberechtigung, Nichterreichbarkeit,
 Timeout, ungueltige Antworten und unvollstaendigen Checkout getrennt.
 
+`Tests/Static/Invoke-HyperVSqlOwnershipInitializationChecks.ps1` fuehrt den
+echten Initialisierungsaufruf aus dem SQL-Slotworkflow mit fehlenden, null,
+leeren, positiven und ungueltigen Trace Flags gegen synthetische Receipts aus.
+Der Gegenbeweis mit dem urspruenglichen Aufruf scheiterte am fehlenden Feld.
+Der native CLI-Lauf vom 2026-09-10 erreichte OOBE, SQL-Installation und
+Hostzugriff, scheiterte dann an `HYPERV_SQL_CONFIGURATION_OWNERSHIP_TRACE_FLAG_INVALID`
+und bereinigte alle acht Run-Ressourcen. Die Wiederholung nach Korrektur auf
+302a37d bestand im [nativen CLI-Lauf 34427219338](https://github.com/gecompat/SQL_Server_Lab/actions/runs/34427219338)
+mit 29 PASS-Meldungen und `CLEANUP_SUCCEEDED`: eigener Windows-Klon, OOBE,
+SQL-Installation und Konfiguration, Readiness, Kaltstart, Daten-/Storagepfade,
+Chinook und Ressourcenwechsel. Ein synthetischer 2-MB-Sessiontransfer in beide
+Richtungen wurde per Hashvergleich geprueft. Die interaktive Hostanzeige bleibt
+durch die separaten Offline-Vertraege abgedeckt; CI belegt deren Darstellung nicht.
+
 `SQL_Server_Lab` stellt seine Qualitätsprüfungen als lokal ausführbare Skripte bereit.
 
 Die lokale Validierung besteht aktuell aus drei produktiven Ebenen:
