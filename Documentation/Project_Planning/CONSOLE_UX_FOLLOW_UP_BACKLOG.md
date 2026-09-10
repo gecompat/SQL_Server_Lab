@@ -269,7 +269,9 @@ Offline-Jobs belegen Ausgabe, Fehlerkategorie, Timeout und eigenes Cleanup.
 Session-Dateikopien fuer SQL-Storage und Datenbankpakete verwenden eine eigene
 asynchrone Kopierpipeline; Offline-Nachweise decken Heartbeat, Ergebnisobjekte,
 Fehlerkategorie, Timeout und Reporter-Cleanup ab.
-Native Gast-/Session-Evidence und Legacy-WMI-Wartepfade bleiben
+Native Gast-/Session-Evidence liegt mit CLI-Lauf 34427219338 auf 302a37d vor:
+SQL-Lifecycle, bidirektionaler synthetischer Sessiontransfer mit Hashvergleich
+und Cleanup bestanden. Legacy-WMI-Wartepfade bleiben
 Teil dieses offenen Punkts; der folgende Ausgangsbefund
 beschreibt den Stand vor dieser Erweiterung.
 
