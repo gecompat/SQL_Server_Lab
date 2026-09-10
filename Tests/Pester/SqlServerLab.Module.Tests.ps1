@@ -67,6 +67,7 @@ Describe 'PSScriptAnalyzer-Grundlage' {
     BeforeAll {
         $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
         $settingsPath = Join-Path $repoRoot 'Tests' 'Static' 'PSScriptAnalyzerSettings.psd1'
+        $analyzerCheckPath = Join-Path $repoRoot 'Tests' 'Static' 'Invoke-PSScriptAnalyzerChecks.ps1'
         $settings = Import-PowerShellDataFile -Path $settingsPath -ErrorAction Stop
         $severity = @($settings.Severity | ForEach-Object { [string]$_ })
     }
@@ -77,6 +78,36 @@ Describe 'PSScriptAnalyzer-Grundlage' {
         }
         if ($severity -notcontains 'Error' -or $severity -notcontains 'Warning') {
             throw 'PSScriptAnalyzer-Baseline enthaelt nicht Error und Warning.'
+        }
+    }
+
+    It 'muss ein fehlendes PSScriptAnalyzer-Modul als nicht ausgefuehrte Infrastrukturpruefung ablehnen' {
+        $pwshCommand = Get-Command pwsh -ErrorAction Stop
+        $environmentName = 'SQL_SERVER_LAB_PSSCRIPTANALYZER_CHECK'
+        $previousCheckPath = [Environment]::GetEnvironmentVariable($environmentName, 'Process')
+
+        try {
+            [Environment]::SetEnvironmentVariable($environmentName, $analyzerCheckPath, 'Process')
+            $probeOutput = @(
+                & $pwshCommand.Source -NoLogo -NoProfile -NonInteractive -Command `
+                    'Import-Module Microsoft.PowerShell.Management, Microsoft.PowerShell.Utility; $PSModuleAutoLoadingPreference = ''None''; & $env:SQL_SERVER_LAB_PSSCRIPTANALYZER_CHECK; exit $LASTEXITCODE' 2>&1
+            )
+            $probeExitCode = $LASTEXITCODE
+        }
+        finally {
+            [Environment]::SetEnvironmentVariable($environmentName, $previousCheckPath, 'Process')
+        }
+
+        $probeText = ($probeOutput | ForEach-Object { $_.ToString() }) -join "`n"
+        if ($probeExitCode -ne 2) {
+            throw "Fehlendes PSScriptAnalyzer-Modul lieferte Exitcode $probeExitCode statt 2. Ausgabe: $probeText"
+        }
+        if ($probeText -notmatch 'PSScriptAnalyzer: INFRASTRUCTURE_UNAVAILABLE' -or
+            $probeText -notmatch 'PSScriptAnalyzer: NOT_EXECUTED') {
+            throw "Fehlender Infrastrukturstatus in der PSScriptAnalyzer-Ausgabe: $probeText"
+        }
+        if ($probeText -match '(?i)\bPASS\b|gilt als bestanden') {
+            throw "Fehlender PSScriptAnalyzer wurde weiterhin als bestanden ausgegeben: $probeText"
         }
     }
 }
