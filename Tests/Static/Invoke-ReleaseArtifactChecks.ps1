@@ -86,6 +86,11 @@ try {
         $release = $clean.Result
         $unpacked = Join-Path $fixtureRoot 'unpacked'
         [IO.Compression.ZipFile]::ExtractToDirectory($release.Archive, $unpacked)
+        if ($IsWindows) {
+            # Windows bildet die implizit versteckte Unix-Dotdatei explizit nach.
+            $hiddenFixture = Join-Path $unpacked '.gitignore'
+            [IO.File]::SetAttributes($hiddenFixture, ([IO.File]::GetAttributes($hiddenFixture) -bor [IO.FileAttributes]::Hidden))
+        }
         $manifest = Get-Content -LiteralPath (Join-Path $unpacked 'ReleaseManifest.json') -Raw | ConvertFrom-Json
         $notes = Get-Content -LiteralPath (Join-Path $unpacked 'ReleaseNotes.md') -Raw
         Add-CheckResult 'Paketmetadaten binden den Quellcommit ohne lokale Hostpfade' (
@@ -98,7 +103,7 @@ try {
         $invalidRows = @($manifest.IncludedFiles | Where-Object {
             $file = Join-Path $unpacked $_.Path
             -not (Test-Path -LiteralPath $file -PathType Leaf) -or
-            (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ne $_.Hash -or (Get-Item -LiteralPath $file).Length -ne $_.Size
+            (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -ne $_.Hash -or (Get-Item -LiteralPath $file -Force).Length -ne $_.Size
         })
         Add-CheckResult 'Jeder Manifest-Eintrag besitzt passende Groesse und SHA-256' ($invalidRows.Count -eq 0 -and $manifest.ArtifactCount -eq @($manifest.IncludedFiles).Count)
         $hashLines = @(Get-Content -LiteralPath (Join-Path $unpacked 'ReleaseHashes.txt'))
