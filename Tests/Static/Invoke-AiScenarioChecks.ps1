@@ -370,6 +370,44 @@ try {
     $capabilities=@(& $module { Get-LabProviderCapabilityContract });$dockerAgent=@(($capabilities|Where-Object Provider -eq docker).Capabilities.SourceKey);$podmanAgent=@(($capabilities|Where-Object Provider -eq podman).Capabilities.SourceKey);$hyperVAgent=@(($capabilities|Where-Object Provider -eq hyperv).Capabilities.SourceKey)
     Add-CheckResult 'Docker und Podman deklarieren native Agent-Evidence getrennt von Hyper-V' (
         'sql2025-ai-diagnostic-agent' -in $dockerAgent -and 'sql2025-ai-diagnostic-agent' -in $podmanAgent -and 'sql2025-ai-diagnostic-agent' -notin $hyperVAgent)
+
+    $reembedding = & $module {
+        $hashA='aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        $hashB='bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+        $hashC='cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
+        $hashD='dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'
+        $dataset=[PSCustomObject]@{DatasetId='synthetic-rag';DatasetVersion='1.0';DatasetSha256=$hashA;ChunkingSha256=$hashB}
+        $source=[PSCustomObject]@{ModelKey='ollama-embeddinggemma-300m-q4';Dimension=768;ModelIdentitySha256=$hashC}
+        $target=[PSCustomObject]@{ModelKey='future-embedding-model';Dimension=1024;ModelIdentitySha256=$hashD}
+        $chunks=@(
+            [PSCustomObject]@{ChunkId='chunk-beta';ChunkSha256=$hashB;SourceVectorSha256=$hashC},
+            [PSCustomObject]@{ChunkId='chunk-alpha';ChunkSha256=$hashC;SourceVectorSha256=$hashD}
+        )
+        $plan=New-LabAiReembeddingPlan -DatasetBinding $dataset -SourceModelBinding $source -TargetModelBinding $target -Chunk $chunks
+        $resume=$plan.Journal|ConvertTo-Json -Depth 10|ConvertFrom-Json -Depth 10
+        $resume.chunks[0].targetStatus='SUCCEEDED';$resume.chunks[0].targetVectorSha256=$hashA
+        $resumed=New-LabAiReembeddingPlan -DatasetBinding $dataset -SourceModelBinding $source -TargetModelBinding $target -Chunk $chunks -ResumeJournal $resume
+        $replanned=New-LabAiReembeddingPlan -DatasetBinding $dataset -SourceModelBinding $source -TargetModelBinding $target -Chunk $chunks
+        $duplicateRejected=$false;$identityRejected=$false;$dimensionRejected=$false
+        try { New-LabAiReembeddingPlan -DatasetBinding $dataset -SourceModelBinding $source -TargetModelBinding $target -Chunk @($chunks[0],$chunks[0])|Out-Null } catch { $duplicateRejected=$_.Exception.Message -match 'AI_REEMBEDDING_CHUNK_DUPLICATE' }
+        try { $bad=$resume|ConvertTo-Json -Depth 10|ConvertFrom-Json -Depth 10;$bad.chunks[0].chunkSha256=$hashD;New-LabAiReembeddingPlan -DatasetBinding $dataset -SourceModelBinding $source -TargetModelBinding $target -Chunk $chunks -ResumeJournal $bad|Out-Null } catch { $identityRejected=$_.Exception.Message -match 'AI_REEMBEDDING_RESUME_CHUNK_IDENTITY_MISMATCH' }
+        try { $sameKey=[PSCustomObject]@{ModelKey=$source.ModelKey;Dimension=1024;ModelIdentitySha256=$hashD};New-LabAiReembeddingPlan -DatasetBinding $dataset -SourceModelBinding $source -TargetModelBinding $sameKey -Chunk $chunks|Out-Null } catch { $dimensionRejected=$_.Exception.Message -eq 'AI_REEMBEDDING_MODEL_DIMENSION_CONFLICT' }
+        [PSCustomObject]@{Plan=$plan;Resumed=$resumed;Replanned=$replanned;DuplicateRejected=$duplicateRejected;IdentityRejected=$identityRejected;DimensionRejected=$dimensionRejected}
+    }
+    Add-CheckResult 'Re-Embedding-Plan bindet alte und neue Modell-, Dimensions- und Datasetidentität schema-valide' (
+        $reembedding.Plan.SourceModel.Dimension -eq 768 -and $reembedding.Plan.TargetModel.Dimension -eq 1024 -and
+        (($reembedding.Plan|Select-Object Contract,Status,Operation,Dataset,SourceModel,TargetModel,ChunkCount,Resume,Retrieval,Blockers,PlanKey)|ConvertTo-Json -Depth 10 | Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-reembedding-plan.schema.json') -ErrorAction SilentlyContinue) -and
+        (($reembedding.Plan.Journal|ConvertTo-Json -Depth 10)|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-reembedding-journal.schema.json') -ErrorAction SilentlyContinue))
+    Add-CheckResult 'Re-Embedding-Resume übernimmt nur exakt gebundene Teilfortschritte ohne doppelte Chunks oder Vektoren' (
+        $reembedding.Resumed.Resume.CompletedChunks -eq 1 -and $reembedding.Resumed.Resume.PendingChunks -eq 1 -and
+        $reembedding.DuplicateRejected -and $reembedding.IdentityRejected)
+    Add-CheckResult 'Re-Embedding sperrt Mischbetrieb und bleibt bei identischem Input idempotent' (
+        $reembedding.Plan.Retrieval.State -eq 'BLOCKED_UNTIL_TARGET_COMPLETE' -and
+        $reembedding.Plan.Retrieval.ReasonCode -eq 'AI_REEMBEDDING_MIXED_OPERATION_BLOCKED' -and
+        $reembedding.Plan.PlanKey -eq $reembedding.Replanned.PlanKey -and $reembedding.DimensionRejected)
+    $reembeddingSource=Get-Content (Join-Path $repoRoot 'Private/AiReembedding.ps1') -Raw -Encoding utf8
+    Add-CheckResult 'Re-Embedding-Planer bleibt ohne Apply-, Provider-, Modell- oder Netzwerkzugriff' (
+        $reembeddingSource -notmatch 'Invoke-RestMethod|Invoke-WebRequest|Invoke-SqlQuery|Start-Process|Write-LabArtifactJsonAtomic|ShouldProcess')
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue

@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-reembedding-plan.schema.json",
+  "title": "SQL Server Lab AI Re-embedding Plan",
+  "type": "object",
+  "required": ["Contract", "Status", "Operation", "Dataset", "SourceModel", "TargetModel", "ChunkCount", "Resume", "Retrieval", "Blockers", "PlanKey"],
+  "properties": {
+    "Contract": { "type": "object", "required": ["Name", "Version"], "properties": { "Name": { "const": "SqlServerLab.AiReembeddingPlan" }, "Version": { "const": "1.0" } }, "additionalProperties": false },
+    "Status": { "enum": ["READY", "BLOCKED"] },
+    "Operation": { "const": "REBUILD_SEPARATE_TARGET" },
+    "Dataset": { "$ref": "#/definitions/dataset" },
+    "SourceModel": { "$ref": "#/definitions/model" },
+    "TargetModel": { "$ref": "#/definitions/model" },
+    "ChunkCount": { "type": "integer", "minimum": 1 },
+    "Resume": { "type": "object", "required": ["PendingChunks", "CompletedChunks"], "properties": { "PendingChunks": { "type": "integer", "minimum": 0 }, "CompletedChunks": { "type": "integer", "minimum": 0 } }, "additionalProperties": false },
+    "Retrieval": { "type": "object", "required": ["State", "ReasonCode"], "properties": { "State": { "enum": ["BLOCKED_UNTIL_TARGET_COMPLETE"] }, "ReasonCode": { "const": "AI_REEMBEDDING_MIXED_OPERATION_BLOCKED" } }, "additionalProperties": false },
+    "Blockers": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[A-Z0-9_:.-]+$" } },
+    "PlanKey": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  },
+  "definitions": {
+    "digest": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "dataset": { "type": "object", "required": ["DatasetId", "DatasetVersion", "DatasetSha256", "ChunkingSha256"], "properties": { "DatasetId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" }, "DatasetVersion": { "type": "string", "pattern": "^[1-9][0-9]*\\.[0-9]+$" }, "DatasetSha256": { "$ref": "#/definitions/digest" }, "ChunkingSha256": { "$ref": "#/definitions/digest" } }, "additionalProperties": false },
+    "model": { "type": "object", "required": ["ModelKey", "Dimension", "ModelIdentitySha256"], "properties": { "ModelKey": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,95}$" }, "Dimension": { "type": "integer", "minimum": 1, "maximum": 1998 }, "ModelIdentitySha256": { "$ref": "#/definitions/digest" } }, "additionalProperties": false }
+  },
+  "additionalProperties": false
+}
