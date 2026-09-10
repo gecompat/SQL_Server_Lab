@@ -42,6 +42,7 @@ $checks = @(
     'Invoke-SqlActionProgressChecks.ps1',
     'Invoke-ContainerTransferProgressChecks.ps1',
     'Invoke-JobProgressChecks.ps1',
+    'Invoke-HyperVSqlOwnershipInitializationChecks.ps1',
     'Invoke-SessionTransferProgressChecks.ps1',
     'Invoke-HyperVGuestProgressChecks.ps1',
     'Invoke-ConnectionCenterCmsChecks.ps1',

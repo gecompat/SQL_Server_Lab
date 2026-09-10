@@ -38,8 +38,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   sind an den Hostreporter angebunden. Containertransfers, BACPAC-Import und
   dessen Cleanup sind fuer Docker und Podman getrennt nativ belegt.
   PowerShell-Direct-/WinRM-Jobs, Gastwartephasen und Session-Dateikopien sind
-  angebunden und offline geprueft; ihr vollstaendiger nativer Abschlussnachweis
-  sowie Legacy-WMI-Wartepfade bleiben UX-Folgearbeit;
+  angebunden und offline geprueft. Die vollstaendige Hyper-V-CLI-Abnahme vom
+  2026-09-10 belegt diese Pfade einschliesslich beider Session-Kopierrichtungen
+  und Cleanup. Legacy-WMI-Wartepfade bleiben UX-Folgearbeit;
 
 - PowerShell-Modul und öffentliche Cmdlets;
 - eigenstaendiger read-only Client-Readiness-Check, Repository-Skills fuer

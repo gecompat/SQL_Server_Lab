@@ -274,7 +274,9 @@ Reporter-Runspace angebunden; er verwendet dieselbe Formatierung und
 Allowlist und aktualisiert auch bei blockiertem Hauptthread. Verschachtelte
 Schritte teilen einen Worker. Offline- und Terminalnachweis liegen vor;
 vollstaendige neue Legacy-Gast-Evidence bleibt separat.
-Der folgende Ausgangsbefund
+Native Gast-/Session-Evidence liegt mit CLI-Lauf 34427219338 auf 302a37d vor:
+SQL-Lifecycle, bidirektionaler synthetischer Sessiontransfer mit Hashvergleich
+und Cleanup bestanden. Der folgende Ausgangsbefund
 beschreibt den Stand vor dieser Erweiterung.
 
 Geprüfter Ist-Zustand vom 2026-09-09: Das feste Statusband (`CUI-022`) zeigt
