@@ -24,6 +24,7 @@ SELECT CONVERT(varchar(30), SERVERPROPERTY('ProductVersion')) AS SqlBuild,
     (SELECT compatibility_level FROM sys.databases WHERE database_id = DB_ID()) AS CompatibilityLevel,
     (SELECT JSON_VALUE(build_parameters, '$.Version') FROM sys.vector_indexes
         WHERE object_id = OBJECT_ID('dbo.AnnDocuments')) AS IndexVersion,
+    JSON_QUERY((SELECT build_parameters FROM sys.vector_indexes WHERE object_id = OBJECT_ID('dbo.AnnDocuments'))) AS IndexMetadata,
     DATEDIFF_BIG(microsecond, @started, SYSDATETIME()) AS BuildMicroseconds,
     (SELECT COUNT(*) FROM dbo.AnnDocuments) AS [RowCount]
 FOR JSON PATH, WITHOUT_ARRAY_WRAPPER;

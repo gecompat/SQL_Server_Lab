@@ -66,6 +66,7 @@ try {
     $null=Invoke-AnnQuery -Database $database -Query 'ALTER DATABASE CURRENT SET COMPATIBILITY_LEVEL = 170; ALTER DATABASE SCOPED CONFIGURATION SET PREVIEW_FEATURES = ON;'
     $setup=Invoke-AnnQuery -Database $database -Query (Get-Content -LiteralPath (Join-Path $fixtureRoot 'setup.sql') -Raw) -TimeoutSeconds 600
     $build=$setup | ConvertFrom-Json
+    Write-Host "ANN: Indexmetadaten $($build.IndexMetadata); Zeilen $($build.RowCount)."
     $query=Get-Content -LiteralPath (Join-Path $fixtureRoot 'assert.sql') -Raw
     $before=(Invoke-AnnQuery -Database $database -Query $query) | ConvertFrom-Json
     if($before.QueryCount -ne 4 -or $before.MinimumRecallAt10 -lt 0.8){throw 'ANN_RESULT_INVALID'}
