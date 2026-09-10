@@ -87,6 +87,12 @@ end {
         @{ Pattern = '(?i)(DatabaseMigrationDependency|database-migration-dependency)'; Checks = @('Invoke-DatabaseMigrationDependencyChecks.ps1','Invoke-BackupLibraryChecks.ps1','Invoke-DatabasePackageChecks.ps1') },
         @{ Pattern = '(?i)(AiScenario|ai-scenario|ai-(model-catalog|endpoint-plan|runtime-journal|query-result)|Catalogs[\\/]ai-models|SQL2025_AI_PLATFORM|SQL2025_VECTOR_EMBEDDING|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioContractChecks.ps1') },
+        @{ Pattern = '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
+        @{ Pattern = '(?i)(StateUpgrade|state-upgrade)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
+        @{ Pattern = '(?i)(PortableLabImport|portable-lab-import)'; Checks = @('Invoke-PortableLabImportChecks.ps1') },
+        @{ Pattern = '(?i)(EvaluationWatch|evaluation-watch)'; Checks = @('Invoke-EvaluationWatchChecks.ps1') },
+        @{ Pattern = '(?i)(SqlObservabilityEvidence|sql-observability-evidence)'; Checks = @('Invoke-SqlObservabilityEvidenceChecks.ps1') },
+        @{ Pattern = '(?i)(RecoveryPointPlan|recovery-point-plan)'; Checks = @('Invoke-HyperVRecoveryPointPlanChecks.ps1') },
         @{ Pattern = '(?i)(HyperVPersistentDataDrive|hyperv-persistent-data)'; Checks = @('Invoke-HyperVPersistentDataDriveChecks.ps1','Invoke-HyperVProviderChecks.ps1') },
         @{ Pattern = '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools|Initialize-PodmanRuntime|PodmanBootstrap)'; Checks = @('Invoke-HostToolResolutionChecks.ps1','Invoke-PodmanBootstrapChecks.ps1') },
         @{ Pattern = '(?i)(ClientReadiness|client-readiness|HostToolResolution|StorageContract|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-ClientReadinessChecks.ps1') },
@@ -116,10 +122,11 @@ end {
         @{ Pattern = '(?i)(ArchiveProgress|SampleArtifact|sample-databases)'; Checks = @('Invoke-ArchiveProgressChecks.ps1','Invoke-SampleHandlerChecks.ps1','Invoke-SampleBaselineRegistryChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(ProjectAdapter|Adapters/|project-adapter)'; Checks = @('Invoke-ProjectAdapterChecks.ps1') },
         @{ Pattern = '(?i)(MixedProvider|ProviderSubRun|StateMachine)'; Checks = @('Invoke-MixedProviderLifecycleChecks.ps1') },
-        @{ Pattern = '(?i)(HyperVProvider|Providers/HyperV)'; Checks = @('Invoke-HyperVProviderChecks.ps1') },
+        @{ Pattern = '(?i)(HyperVProvider|Providers/HyperV)'; Checks = @('Invoke-HyperVProviderChecks.ps1','Invoke-LabNetworkChecks.ps1') },
         @{ Pattern = '(?i)(JobProgress|HyperVGuestProgress|HyperVProvider|HyperVLabEnvironment|ExternalRuntimeWindows)'; Checks = @('Invoke-JobProgressChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSqlOwnershipInitialization|HyperVLabEnvironment|HyperVSqlConfigurationReconcile)'; Checks = @('Invoke-HyperVSqlOwnershipInitializationChecks.ps1') },
-        @{ Pattern = '(?i)(SessionTransferProgress|SqlStorageOperations|HyperVDatabasePackage)'; Checks = @('Invoke-SessionTransferProgressChecks.ps1') },
+        @{ Pattern = '(?i)(SessionTransferProgress|SqlStorageOperations|HyperVDatabasePackage)'; Checks = @('Invoke-SessionTransferProgressChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
+        @{ Pattern = '(?i)(SqlStorageOperations)'; Checks = @('Invoke-StorageFilePlacementChecks.ps1','Invoke-HyperVTestDatabaseReconcileChecks.ps1') },
         @{ Pattern = '(?i)(BlockingActionProgress|ActionProgress|HyperVLegacyWindowsEvaluationTemplate)'; Checks = @('Invoke-BlockingActionProgressChecks.ps1','Invoke-HyperVImageBuilderChecks.ps1') },
         @{ Pattern = '(?i)(HyperVLabEnvironment)'; Checks = @('Invoke-HyperVLabEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(WindowsActivationNetwork|HyperVLabEnvironment)'; Checks = @('Invoke-WindowsActivationNetworkChecks.ps1') },
@@ -155,27 +162,38 @@ end {
         Add-Check 'Invoke-CiStrategyChecks.ps1'
     }
     else {
-        if (Test-AnyPath '(?i)(^Providers/Docker/|runtime-smoke-docker\.yml|Invoke-Smoke(Matrix|Test)|Invoke-RestoreSmokeTest|BatchWorkflow|BatchConsole|lab-batch)') { $runtime.Docker = $true }
-        if (Test-AnyPath '(?i)(^Providers/Podman/|runtime-smoke-podman\.yml|PodmanBootstrap|Initialize-PodmanRuntime)') { $runtime.Podman = $true }
-        if (Test-AnyPath '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools)') { $runtime.Docker = $true; $runtime.Podman = $true }
-        if (Test-AnyPath '(?i)(^Private[\\/]ExternalRuntimeReconcile|^Tests[\\/]Static[\\/]Invoke-ExternalRuntimeReconcileChecks|Invoke-ExternalRuntimeContainerAcceptance|Public[\\/]Invoke-SqlServerLabReconcileAction)') { $runtime.Docker = $true; $runtime.Podman = $true }
-        if (Test-AnyPath '(?i)(HyperVExternalRuntimeReconcile|hyperv-external-runtime-reconcile|Public[\\/]Invoke-SqlServerLabReconcileAction)') { $runtime.HyperV = $true }
-        if (Test-AnyPath '(?i)(ContainerReconcile|Update-SqlServerLabContainer|Invoke-ContainerCliAcceptance|ContainerTool|Test-SqlServerLabContainerTool|Bacpac|SampleArtifactHandlers|sample-databases)') { $runtime.Docker = $true; $runtime.Podman = $true }
-        if (Test-AnyPath '(?i)(ContainerInstanceStore|container-instance-store)') { $runtime.Docker = $true; $runtime.Podman = $true }
-        if (Test-AnyPath '(?i)(ContainerRuntimeScope|container-runtime-scope)') { $runtime.Docker = $true; $runtime.Podman = $true }
-        if (Test-AnyPath '(?i)(AiScenario|ai-scenario|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario|AiVectorCoreAcceptance)') { $runtime.Docker = $true; $runtime.Podman = $true }
-        if (Test-AnyPath '(?i)(PersistentStorageRemoval|persistent-storage-removal)') { $runtime.Docker = $true; $runtime.Podman = $true }
-        if (Test-AnyPath '(?i)(BackupLibrary|backup-library|Backup-SqlServerLabDatabase)') { $runtime.Mixed = $true }
-        if (Test-AnyPath '(?i)(DatabasePackage|database-package)') { $runtime.HyperV = $true }
-        if (Test-AnyPath '(?i)(DatabaseMigrationDependency|database-migration-dependency)') { $runtime.Mixed = $true; $runtime.HyperV = $true }
-        if (Test-AnyPath '(?i)(runtime-smoke-mixed-providers\.yml|MixedProvider|ProviderCapability|DesiredState|ReconcileContract|ProviderSubRun)') { $runtime.Mixed = $true }
-        if (Test-AnyPath '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest|^Private/ExternalRuntimeWindows|Images/ExternalLanguages/Windows|ExternalRuntimeHyperVAcceptance)') { $runtime.HyperV = $true }
-        if (Test-AnyPath '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $runtime.Adapter = $true }
+        # Runtime-Gates sind die Vereinigung der Einzelpfade; bekannte Dateien
+        # duerfen den Fallback einer anderen Produktdatei nicht unterdruecken.
+        foreach ($runtimePath in $allPaths) {
+            $pathRuntime = [ordered]@{ Docker = $false; Podman = $false; Mixed = $false; HyperV = $false; Adapter = $false }
+            $pathHasProductCode = $runtimePath -match '^(Private|Public|Providers|Adapters|Catalogs|Schemas)/|^SqlServerLab\.(psd1|psm1)$'
+            if ($runtimePath -match '(?i)(^Providers/Docker/|runtime-smoke-docker\.yml|Invoke-Smoke(Matrix|Test)|Invoke-RestoreSmokeTest|BatchWorkflow|BatchConsole|lab-batch)') { $pathRuntime.Docker = $true }
+            if ($runtimePath -match '(?i)(^Providers/Podman/|runtime-smoke-podman\.yml|PodmanBootstrap|Initialize-PodmanRuntime)') { $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(^Private[\\/]ExternalRuntimeReconcile|^Tests[\\/]Static[\\/]Invoke-ExternalRuntimeReconcileChecks|Invoke-ExternalRuntimeContainerAcceptance|Public[\\/]Invoke-SqlServerLabReconcileAction)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(HyperVExternalRuntimeReconcile|hyperv-external-runtime-reconcile|Public[\\/]Invoke-SqlServerLabReconcileAction)') { $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)(ContainerReconcile|Update-SqlServerLabContainer|Invoke-ContainerCliAcceptance|ContainerTool|Test-SqlServerLabContainerTool|Bacpac|SampleArtifactHandlers|sample-databases)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(ContainerInstanceStore|container-instance-store)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(ContainerRuntimeScope|container-runtime-scope)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(AiScenario|ai-scenario|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario|AiVectorCoreAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$|SqlObservabilityEvidence|sql-observability-evidence)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)(SqlStorageOperations|SessionTransferProgress)') { $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)(PersistentStorageRemoval|persistent-storage-removal)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(BackupLibrary|backup-library|Backup-SqlServerLabDatabase)') { $pathRuntime.Mixed = $true }
+            if ($runtimePath -match '(?i)(DatabasePackage|database-package)') { $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)(DatabaseMigrationDependency|database-migration-dependency)') { $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)(runtime-smoke-mixed-providers\.yml|MixedProvider|ProviderCapability|DesiredState|ReconcileContract|ProviderSubRun)') { $pathRuntime.Mixed = $true }
+            if ($runtimePath -match '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest|^Private/ExternalRuntimeWindows|Images/ExternalLanguages/Windows|ExternalRuntimeHyperVAcceptance)') { $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $pathRuntime.Adapter = $true }
 
-        $knownDomainChange = $runtime.Docker -or $runtime.Podman -or $runtime.Mixed -or $runtime.HyperV -or $runtime.Adapter
-        $staticOnlyProductChange = Test-AnyPath '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact)|ResourceSet|ResourcePlan|ScenarioContract|scenario-contract)'
-        if ($hasProductCode -and -not $knownDomainChange -and -not $staticOnlyProductChange) {
-            $runtime.Docker = $true
+            $knownDomainChange = $pathRuntime.Docker -or $pathRuntime.Podman -or $pathRuntime.Mixed -or $pathRuntime.HyperV -or $pathRuntime.Adapter
+            $staticOnlyProductChange = $runtimePath -match '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact)|ResourceSet|ResourcePlan|ScenarioContract|scenario-contract)'
+            if ($pathHasProductCode -and -not $knownDomainChange -and -not $staticOnlyProductChange) {
+                $pathRuntime.Docker = $true
+            }
+            foreach ($provider in @('Docker','Podman','Mixed','HyperV','Adapter')) {
+                if ($pathRuntime[$provider]) { $runtime[$provider] = $true }
+            }
         }
     }
 
