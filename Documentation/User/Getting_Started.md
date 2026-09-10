@@ -32,6 +32,13 @@ Voraussetzungen und naechste Schritte stehen in `MissingPrerequisites` und
 `NextSteps`. `READY_WITH_WARNINGS` verlangt, die `Warnings` zu beachten.
 Die konkrete Operation prueft ihre Ressourcen und Ownership weiterhin selbst.
 
+KI-Clients mit Repository-Skill-Erkennung finden unter `.agents/skills` die
+Abläufe `sql-server-lab-readiness`, `sql-server-lab-validation` und
+`sql-server-lab-operate`. Sie nutzen dieselben Skripte und öffentlichen
+Cmdlets. Falls der Client die Skills nicht lädt, bleibt der obige manuelle
+Readiness-Aufruf verfügbar. Details und Grenzen stehen im
+[Repository-Skill-Vertrag](../Project_Planning/REPOSITORY_AGENT_SKILLS_BACKLOG.md).
+
 Einzelne Werkzeuge lassen sich auch direkt pruefen:
 
 ```powershell

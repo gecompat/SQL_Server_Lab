@@ -244,6 +244,10 @@ sources_of_truth:
   windows_locale_configuration_backlog: Documentation/Project_Planning/WINDOWS_LOCALE_CONFIGURATION_BACKLOG.md
   windows_slot_activation_backlog: Documentation/Project_Planning/WINDOWS_SLOT_ACTIVATION_BACKLOG.md
   repository_agent_skills_backlog: Documentation/Project_Planning/REPOSITORY_AGENT_SKILLS_BACKLOG.md
+  repository_readiness_skill: .agents/skills/sql-server-lab-readiness/SKILL.md
+  repository_validation_skill: .agents/skills/sql-server-lab-validation/SKILL.md
+  repository_operate_skill: .agents/skills/sql-server-lab-operate/SKILL.md
+  validation_repository_skills: Tests/Static/Invoke-SkillChecks.ps1
   polybase_s3_object_storage_backlog: Documentation/Project_Planning/POLYBASE_S3_OBJECT_STORAGE_BACKLOG.md
   sql2025_ai_platform_backlog: Documentation/Project_Planning/SQL2025_AI_PLATFORM_BACKLOG.md
   sql2025_vector_embedding_backlog: Documentation/Project_Planning/SQL2025_VECTOR_EMBEDDING_BACKLOG.md

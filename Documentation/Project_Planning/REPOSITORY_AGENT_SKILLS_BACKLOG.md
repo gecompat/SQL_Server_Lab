@@ -18,11 +18,14 @@ Erreichbarkeit und Timeout bleiben getrennte Codes. `PrepareImage` prueft
 unter Hyper-V zusaetzlich das erhoehte Token; andere Mutationen behalten ihre
 konkreten Ownership-/Ressourcenpruefungen am oeffentlichen Einstiegspunkt.
 Docker, Podman und Hyper-V wurden lokal read-only erreicht; Windows PowerShell
-5.1 meldete die fehlende Mindestversion strukturiert. Die drei Skills und der
-optionale REST-Adapter bleiben Folgearbeit.
+5.1 meldete die fehlende Mindestversion strukturiert. Die drei Skills liegen
+jetzt unter `.agents/skills`; Metadaten, lokale Referenzen und exportierte
+Befehle sind deterministisch geprueft. Der Skill-Creator-YAML-Validator bestand
+fuer alle drei Dateien. Eine erfolgreiche Erkennung durch jeden KI-Client
+wird daraus nicht abgeleitet. Der optionale REST-Adapter bleibt Folgearbeit.
 
 Wiederverwendbare KI-Arbeitsabläufe für `SQL_Server_Lab` werden als
-repository-lokale Skills unter `.agents/skills` geplant. Sie werden gemeinsam
+repository-lokale Skills unter `.agents/skills` bereitgestellt. Sie werden gemeinsam
 mit Code, Tests und Dokumentation versioniert und reviewed. Eine ausschließlich
 persönliche Installation außerhalb des Repositorys ist nicht der maßgebliche
 Projektvertrag.
@@ -33,7 +36,7 @@ nicht jeweils einen eigenen Skill. Die Skills orchestrieren die vorhandenen
 öffentlichen Einstiegspunkte und führen keine zweite Befehls-, Parameter- oder
 Governance-Wahrheit ein.
 
-## Geplante Struktur
+## Implementierte Struktur
 
 ```text
 .agents/
@@ -57,7 +60,7 @@ entschieden.
 Ein Skill kann nicht unabhängig nachweisen, dass der Client den
 repository-lokalen Skill überhaupt entdeckt und geladen hat. Wenn der
 Skill-Loader nicht arbeitet, kann auch ein Readiness-Skill nicht starten.
-Deshalb besteht der geplante Readiness-Vertrag aus zwei getrennten Ebenen:
+Deshalb besteht der Readiness-Vertrag aus zwei getrennten Ebenen:
 
 1. Ein eigenständig ausführbares, read-only PowerShell-Skript
    `Tools/Test-SqlServerLabClientReadiness.ps1` bildet die deterministische
@@ -103,7 +106,7 @@ umfangreichen Abschnitte aus den autoritativen Projektquellen. Vor einer
 Ausführung lösen sie die aktuelle Befehlsmetadaten und die für den Scope
 relevanten Quellen erneut auf.
 
-## Geplante Skills
+## Implementierte Skills
 
 ### `sql-server-lab-readiness`
 
@@ -238,9 +241,9 @@ Skill-Erkennung selbst gestört ist.
 
 ## Nichtziele und aktuelle Grenze
 
-Dieses Dokument weist noch keinen Skill oder REST-Adapter als vorhanden aus.
-Der eigenstaendige Readiness-Stand und seine Nachweise sind oben getrennt
-ausgewiesen. Es erweitert weder die
+Dieses Dokument weist keinen REST-Adapter als vorhanden aus. Readiness,
+die drei Skill-Dateien und ihre Nachweise sind oben getrennt ausgewiesen.
+Ein Dateiencheck beweist keine erfolgreiche Client-Erkennung. Es erweitert weder die
 unterstützten SQL-Server-/Providerkombinationen noch die Autorisierung für
 Host-, Runtime-, Cleanup- oder Recovery-Mutationen.
 

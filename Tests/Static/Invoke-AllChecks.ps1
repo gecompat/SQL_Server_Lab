@@ -64,6 +64,7 @@ $checks = @(
     'Invoke-HyperVPersistentDataDriveChecks.ps1',
     'Invoke-HostToolResolutionChecks.ps1',
     'Invoke-ClientReadinessChecks.ps1',
+    'Invoke-SkillChecks.ps1',
     'Invoke-PodmanBootstrapChecks.ps1',
     'Invoke-ContainerAutoStartChecks.ps1',
     'Invoke-ContainerVolumeContractChecks.ps1',
