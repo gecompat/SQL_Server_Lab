@@ -92,7 +92,7 @@ jobs:
 
               & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 `
                 -Provider podman `
-                -EvidencePath (Join-Path $env:RUNNER_TEMP 'podman-container-tool-acceptance.json') 2>&1 | Tee-Object -FilePath $logPath -Append
+                -RuntimeMutexAlreadyHeld -EvidencePath (Join-Path $env:RUNNER_TEMP 'podman-container-tool-acceptance.json') 2>&1 | Tee-Object -FilePath $logPath -Append
               $toolExitCode = $LASTEXITCODE
               if ($toolExitCode -ne 0) { throw "Podman Container-Tool-Akzeptanz endete mit Exitcode $toolExitCode." }
 

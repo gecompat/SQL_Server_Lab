@@ -706,58 +706,73 @@ function Invoke-LabContainerBacpacImport {
         throw 'BACPAC_SQLPACKAGE_TOOL_NOT_READY'
     }
 
-    $probeOutput = @(& $runtime exec --user mssql $ContainerName /opt/sql-server-lab/tools/sqlpackage/sqlpackage /Version 2>&1)
-    if ($LASTEXITCODE -ne 0 -or (@($probeOutput) -join "`n") -notmatch '(?<version>[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)') {
-        throw 'BACPAC_SQLPACKAGE_VERSION_PROBE_FAILED'
-    }
-    $runtimeVersion = [string]$Matches.version
-    if ($ExpectedRuntimeVersion -and $runtimeVersion -ne $ExpectedRuntimeVersion) {
-        throw "BACPAC_SQLPACKAGE_VERSION_MISMATCH: erwartete $ExpectedRuntimeVersion, erhielt $runtimeVersion"
-    }
-
-    $containerArtifactPath = "/tmp/sql-server-lab-bacpac-$([guid]::NewGuid().ToString('N')).bacpac"
-    $copied = $false
-    $importSucceeded = $false
-    $importFailure = $null
+    $progress = Start-LabActionProgress -Phase Import
     try {
-        $copyOutput = @(& $runtime cp $resolvedArtifactPath "${ContainerName}:$containerArtifactPath" 2>&1)
-        if ($LASTEXITCODE -ne 0) { throw 'BACPAC_CONTAINER_COPY_FAILED' }
-        $copied = $true
+        $probeResult = Invoke-LabProgressNativeCommand -FilePath $runtime -ArgumentList @('exec','--user','mssql',$ContainerName,'/opt/sql-server-lab/tools/sqlpackage/sqlpackage','/Version') -Phase Import -Progress $progress
+        $probeOutput = @($probeResult.Output)
+        if ($probeResult.ExitCode -ne 0 -or (@($probeOutput) -join "`n") -notmatch '(?<version>[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)') {
+            throw 'BACPAC_SQLPACKAGE_VERSION_PROBE_FAILED'
+        }
+        $runtimeVersion = [string]$Matches.version
+        if ($ExpectedRuntimeVersion -and $runtimeVersion -ne $ExpectedRuntimeVersion) {
+            throw "BACPAC_SQLPACKAGE_VERSION_MISMATCH: erwartete $ExpectedRuntimeVersion, erhielt $runtimeVersion"
+        }
 
-        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+        $containerArtifactPath = "/tmp/sql-server-lab-bacpac-$([guid]::NewGuid().ToString('N')).bacpac"
+        $copied = $false
+        $importSucceeded = $false
+        $importFailure = $null
         try {
-            $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-            $command = 'exec /opt/sql-server-lab/tools/sqlpackage/sqlpackage /Action:Import "/SourceFile:$1" /TargetServerName:localhost "/TargetDatabaseName:$2" /TargetUser:sa /TargetTrustServerCertificate:True "/TargetPassword:$SQLSERVERLAB_SA_PASSWORD" /p:CommandTimeout=' + $TimeoutSeconds
-            $importOutput = @(& $runtime exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $ContainerName sh -ceu $command -- $containerArtifactPath $DatabaseName 2>&1)
-            if ($LASTEXITCODE -ne 0) {
-                $safeOutput = (($importOutput -join ' ') -replace [regex]::Escape($saPlain), '***') -replace '(?i)(password\s*[=:]\s*)[^;\s]+', '$1***'
-                throw "BACPAC_IMPORT_FAILED: $safeOutput"
+            # Auch eine abgebrochene native Kopie kann bereits Bytes hinterlassen.
+            $copied = $true
+            Update-LabActionProgress -Progress $progress -Phase Transfer
+            $copyResult = Invoke-LabProgressNativeCommand -FilePath $runtime -ArgumentList @('cp',$resolvedArtifactPath,"${ContainerName}:$containerArtifactPath") -Phase Transfer -Progress $progress
+            if ($copyResult.ExitCode -ne 0) { throw 'BACPAC_CONTAINER_COPY_FAILED' }
+
+            $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+            try {
+                $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+                $command = 'exec /opt/sql-server-lab/tools/sqlpackage/sqlpackage /Action:Import "/SourceFile:$1" /TargetServerName:localhost "/TargetDatabaseName:$2" /TargetUser:sa /TargetTrustServerCertificate:True "/TargetPassword:$SQLSERVERLAB_SA_PASSWORD" /p:CommandTimeout=' + $TimeoutSeconds
+                Update-LabActionProgress -Progress $progress -Phase Import
+                $importResult = Invoke-LabProgressNativeCommand -FilePath $runtime -ArgumentList @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$ContainerName,'sh','-ceu',$command,'--',$containerArtifactPath,$DatabaseName) -Phase Import -Progress $progress
+                $importOutput = @($importResult.Output)
+                if ($importResult.ExitCode -ne 0) {
+                    $safeOutput = (($importOutput -join ' ') -replace [regex]::Escape($saPlain), '***') -replace '(?i)(password\s*[=:]\s*)[^;\s]+', '$1***'
+                    throw "BACPAC_IMPORT_FAILED: $safeOutput"
+                }
+                $importSucceeded = $true
             }
-            $importSucceeded = $true
+            finally {
+                $saPlain = $null
+                [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+            }
+        }
+        catch {
+            $importFailure = $_.Exception.Message
         }
         finally {
-            $saPlain = $null
-            [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
-        }
-    }
-    catch {
-        $importFailure = $_.Exception.Message
-    }
-    finally {
-        if ($copied) {
-            $cleanupOutput = @(& $runtime exec --user root $ContainerName rm -f -- $containerArtifactPath 2>&1)
-            if ($LASTEXITCODE -ne 0) {
-                if ($importFailure) { throw "BACPAC_IMPORT_AND_CLEANUP_FAILED: $importFailure" }
-                throw 'BACPAC_IMPORT_CLEANUP_FAILED'
+            if ($copied) {
+                Update-LabActionProgress -Progress $progress -Phase Cleanup
+                $cleanupFailed = $false
+                try {
+                    $cleanupResult = Invoke-LabProgressNativeCommand -FilePath $runtime -ArgumentList @('exec','--user','root',$ContainerName,'rm','-f','--',$containerArtifactPath) -Phase Cleanup -Progress $progress -TimeoutSeconds 60
+                    $cleanupFailed = $cleanupResult.ExitCode -ne 0
+                }
+                catch { $cleanupFailed = $true }
+                if ($cleanupFailed) {
+                    if ($importFailure) { throw "BACPAC_IMPORT_AND_CLEANUP_FAILED: $importFailure" }
+                    throw 'BACPAC_IMPORT_CLEANUP_FAILED'
+                }
             }
         }
-    }
-    if ($importFailure) { throw $importFailure }
+        if ($importFailure) { throw $importFailure }
 
-    return [PSCustomObject]@{
-        Status = 'BACPAC_IMPORTED'; Provider = $Provider; RunId = $RunId; InstanceId = $InstanceId
-        DatabaseName = $DatabaseName; RuntimeVersion = $runtimeVersion; TimeoutSeconds = $TimeoutSeconds
+        return [PSCustomObject]@{
+            Status = 'BACPAC_IMPORTED'; Provider = $Provider; RunId = $RunId; InstanceId = $InstanceId
+            DatabaseName = $DatabaseName; RuntimeVersion = $runtimeVersion; TimeoutSeconds = $TimeoutSeconds
+        }
     }
+    finally { Stop-LabActionProgress -Progress $progress }
 }
 
 function Assert-LabContainerAttachJournal {
@@ -836,17 +851,21 @@ function Invoke-LabContainerAttach {
     if($StateRoot){$journalDirectory=Join-Path $StateRoot "operations/attach/$RunId";New-Item -ItemType Directory -Path $journalDirectory -Force|Out-Null;$journalPath=Join-Path $journalDirectory "attach-$([guid]::NewGuid().ToString('N')).json"}
     $journal=[ordered]@{ContractVersion='SqlServerLab.ContainerAttachJournal/1.0';RunId=$RunId;InstanceId=$InstanceId;DatabaseName=$DatabaseName;Status='COPYING';TargetDirectory=$target;CopyVerified=$false;AttachInvoked=$false;PostconditionVerified=$false;Recovery='REMOVE_UNATTACHED_TARGET_COPY'}
     if($journalPath){Write-LabContainerAttachJournal -Path $journalPath -Journal $journal|Out-Null}
-    $null=& $runtime exec --user root $ContainerName mkdir -p -- $target;if($LASTEXITCODE -ne 0){throw 'ATTACH_CONTAINER_DIRECTORY_CREATE_FAILED'}
     $files=[Collections.Generic.List[object]]::new()
+    $progress=Start-LabActionProgress -Phase Transfer
     try{
+        $directoryResult=Invoke-LabProgressNativeCommand -FilePath $runtime -ArgumentList @('exec','--user','root',$ContainerName,'mkdir','-p','--',$target) -Phase Transfer -Progress $progress;if($directoryResult.ExitCode -ne 0){throw 'ATTACH_CONTAINER_DIRECTORY_CREATE_FAILED'}
         $names=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-        foreach($payload in $Payloads){$source=(Resolve-Path -LiteralPath ([string]$payload.Path) -ErrorAction Stop).Path;$name=[IO.Path]::GetFileName($source);if(-not $names.Add($name)){throw 'ATTACH_CONTAINER_FILE_NAME_COLLISION'};$destination="$target/$name";$null=& $runtime cp $source "${ContainerName}:$destination";if($LASTEXITCODE -ne 0){throw 'ATTACH_CONTAINER_COPY_FAILED'};$files.Add([PSCustomObject]@{Path=$destination;Role=$payload.Role})}
+        foreach($payload in $Payloads){$source=(Resolve-Path -LiteralPath ([string]$payload.Path) -ErrorAction Stop).Path;$name=[IO.Path]::GetFileName($source);if(-not $names.Add($name)){throw 'ATTACH_CONTAINER_FILE_NAME_COLLISION'};$destination="$target/$name";$copyResult=Invoke-LabProgressNativeCommand -FilePath $runtime -ArgumentList @('cp',$source,"${ContainerName}:$destination") -Phase Transfer -Progress $progress;if($copyResult.ExitCode -ne 0){throw 'ATTACH_CONTAINER_COPY_FAILED'};$files.Add([PSCustomObject]@{Path=$destination;Role=$payload.Role})}
         $journal.CopyVerified=$true;$journal.Status='ATTACHING';if($journalPath){Write-LabContainerAttachJournal -Path $journalPath -Journal $journal|Out-Null}
-        $null=& $runtime exec --user root $ContainerName chown -R mssql:root -- $target;if($LASTEXITCODE -ne 0){throw 'ATTACH_CONTAINER_OWNERSHIP_SET_FAILED'}
+        $ownershipResult=Invoke-LabProgressNativeCommand -FilePath $runtime -ArgumentList @('exec','--user','root',$ContainerName,'chown','-R','mssql:root','--',$target) -Phase Transfer -Progress $progress;if($ownershipResult.ExitCode -ne 0){throw 'ATTACH_CONTAINER_OWNERSHIP_SET_FAILED'}
         $bstr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword);try{$plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)}
-        try{$journal.AttachInvoked=$true;$journal.Recovery='DETACH_TARGET_COPY_AND_PRESERVE_TARGET';if($journalPath){Write-LabContainerAttachJournal -Path $journalPath -Journal $journal|Out-Null};$escaped=$DatabaseName.Replace(']',']]');$clauses=@($files|ForEach-Object{"(FILENAME=N'$(([string]$_.Path).Replace("'","''"))')"}) -join ',';$null=Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $plain -Database master -TimeoutSeconds 600 -Query "CREATE DATABASE [$escaped] ON $clauses FOR ATTACH;"; $state=@(Invoke-SqlQuery -HostName $HostName -Port $Port -SaPlain $plain -Database master -Query "SELECT state_desc FROM sys.databases WHERE name=N'$($DatabaseName.Replace("'","''"))';"|ForEach-Object{([string]$_).Trim()});if($state -notcontains 'ONLINE'){throw 'ATTACH_DATABASE_NOT_ONLINE'};$journal.PostconditionVerified=$true;$journal.Status='COMPLETED';$journal.Recovery='NOT_REQUIRED';if($journalPath){Write-LabContainerAttachJournal -Path $journalPath -Journal $journal|Out-Null}}finally{$plain=$null}
+        $progress=Start-LabActionProgress -Phase Transfer
+    try{
+        $directoryResult=Invoke-LabProgressNativeCommand -FilePath $runtime -ArgumentList @('exec','--user','root',$ContainerName,'mkdir','-p','--',$target) -Phase Transfer -Progress $progress;if($directoryResult.ExitCode -ne 0){throw 'ATTACH_CONTAINER_DIRECTORY_CREATE_FAILED'}$journal.AttachInvoked=$true;$journal.Recovery='DETACH_TARGET_COPY_AND_PRESERVE_TARGET';if($journalPath){Write-LabContainerAttachJournal -Path $journalPath -Journal $journal|Out-Null};$escaped=$DatabaseName.Replace(']',']]');$clauses=@($files|ForEach-Object{"(FILENAME=N'$(([string]$_.Path).Replace("'","''"))')"}) -join ',';$null=Invoke-SqlQuery -ProgressPhase Import -Progress $progress -HostName $HostName -Port $Port -SaPlain $plain -Database master -TimeoutSeconds 600 -Query "CREATE DATABASE [$escaped] ON $clauses FOR ATTACH;"; $state=@(Invoke-SqlQuery -ProgressPhase Import -Progress $progress -HostName $HostName -Port $Port -SaPlain $plain -Database master -Query "SELECT state_desc FROM sys.databases WHERE name=N'$($DatabaseName.Replace("'","''"))';"|ForEach-Object{([string]$_).Trim()});if($state -notcontains 'ONLINE'){throw 'ATTACH_DATABASE_NOT_ONLINE'};$journal.PostconditionVerified=$true;$journal.Status='COMPLETED';$journal.Recovery='NOT_REQUIRED';if($journalPath){Write-LabContainerAttachJournal -Path $journalPath -Journal $journal|Out-Null}}finally{$plain=$null}
         return [PSCustomObject]@{Status='ATTACHED';DatabaseName=$DatabaseName;TargetDirectory=$target;Files=@($files)}
     }catch{$journal.Status='RECOVERY_REQUIRED';$journal.Recovery=if($journal.AttachInvoked){'DETACH_TARGET_COPY_AND_PRESERVE_TARGET'}else{'REMOVE_UNATTACHED_TARGET_COPY'};if($journalPath){Write-LabContainerAttachJournal -Path $journalPath -Journal $journal|Out-Null};throw "ATTACH_RECOVERY_REQUIRED: $($_.Exception.Message)"}
+    finally { Stop-LabActionProgress -Progress $progress }
 }
 
 function Install-LabSampleDatabase {

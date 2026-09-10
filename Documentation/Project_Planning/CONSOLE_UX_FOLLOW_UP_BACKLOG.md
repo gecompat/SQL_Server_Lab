@@ -260,8 +260,10 @@ Archive teilen sich einen Reporter bis zum Abschluss oder Fehler.
 Native sqlcmd-Probes, Query-, Skript- und Restore-Aufrufe sind hostseitig
 angebunden; mehrere Skriptbatches teilen sich eine Anzeige. SQL-Ergebnisdateien
 werden nur kurzzeitig fuer eine eindeutige Unicode-Decodierung verwendet und
-bei Erfolg, Fehler und Abbruch entfernt. Containertransfers und Gastwartepfade
-bleiben Teil dieses offenen Punkts; der folgende Ausgangsbefund
+bei Erfolg, Fehler und Abbruch entfernt. Containerkopien fuer Restore, Attach
+und Paketexport sowie BACPAC-Import und dessen Cleanup sind ebenfalls angebunden.
+Der BACPAC-Fehlerpfad erfasst auch Teilkopien; Attach bewahrt weiterhin sein
+Recovery-Journal. Gastwartepfade bleiben Teil dieses offenen Punkts; der folgende Ausgangsbefund
 beschreibt den Stand vor dieser Erweiterung.
 
 Geprüfter Ist-Zustand vom 2026-09-09: Das feste Statusband (`CUI-022`) zeigt

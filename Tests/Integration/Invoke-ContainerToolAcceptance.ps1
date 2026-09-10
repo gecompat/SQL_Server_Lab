@@ -8,10 +8,12 @@
     vor und nach einem Restart und entfernt danach Run sowie test-eigenes
     Derived Image wieder vollstaendig.
 #>
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText','',Justification='Nur zufaellig erzeugte synthetische Credentials fuer den eigenen isolierten Test-Run.')]
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
     [string]$EvidencePath,
+    [switch]$RuntimeMutexAlreadyHeld,
     [switch]$KeepOnFailure
 )
 
@@ -29,6 +31,9 @@ $bacpacSourcePath = $null
 $bacpacContainerPath = $null
 $attachPayloadRoot = $null
 $completed = $false
+$cleanupFailed = $false
+$mutex = [Threading.Mutex]::new($false,$(if($IsWindows){'Global\SQL_Server_Lab_Runtime_Smoke'}else{'SQL_Server_Lab_Runtime_Smoke'}))
+$mutexAcquired = $false
 
 function Assert-ContainerToolAcceptance {
     param(
@@ -43,12 +48,17 @@ function Assert-ContainerToolAcceptance {
 }
 
 try {
+    if(-not $RuntimeMutexAlreadyHeld){
+        $mutexAcquired=$mutex.WaitOne([TimeSpan]::FromMinutes(10))
+        if(-not $mutexAcquired){throw 'CONTAINER_TOOL_ACCEPTANCE_LOCK_TIMEOUT'}
+    }
     $runtimeResolution = @(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
     Assert-ContainerToolAcceptance ([bool]$runtimeResolution.Available) "Runtime-CLI '$Provider' ist zentral aufloesbar"
     $runtimeInvocation = [string]$runtimeResolution.Invocation
     if ($Provider -eq 'podman') { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') | Out-Host }
     & $runtimeInvocation info 1>$null 2>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) "Runtime '$Provider' ist erreichbar"
+
 
     New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
     $env:SQL_SERVER_LAB_STATE = $stateRoot
@@ -69,6 +79,15 @@ try {
 
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module = Import-Module $modulePath -Force -PassThru
+    $plannedToolImage=& $module {
+        param($Instance)
+        $plans=@(Resolve-LabSoftwarePlansForInstance -Instance $Instance)
+        (New-LabContainerToolImagePlan -Provider ([string]$Instance.provider) -SqlVersion ([string]$Instance.version) -SoftwarePlans $plans).Image
+    } ([pscustomobject]$manifest.instances[0])
+    $existingToolImages=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*')
+    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and @($existingToolImages | Where-Object {$_ -like "$plannedToolImage=*"}).Count -eq 0) 'Isolierter Image-Test ersetzt kein vorhandenes Zielimage'
+    $assessment=Test-SqlServerLabPrerequisite -Provider $Provider
+    Assert-ContainerToolAcceptance ($assessment.Status -eq 'RESOURCE_OK') 'Ressourcenpruefung erlaubt den isolierten Test-Run'
     $lab = New-SqlServerLab -Manifest $manifestPath -SaPassword $saPassword -StateRoot $stateRoot -SkipAssessment -NonInteractive
     Assert-ContainerToolAcceptance ([string]$lab.State -eq 'Running') 'Lab wurde ueber den normalen Manifestpfad provisioniert'
     $instance = @($lab.Instances)[0]
@@ -252,9 +271,11 @@ try {
     $lab = $null
     & $runtimeInvocation image inspect $imageName 1>$null 2>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Wiederverwendbares Derived Image bleibt vom Run-Cleanup getrennt'
-    & $runtimeInvocation image rm --force $imageName 1>$null
+    & $runtimeInvocation image rm $imageName 1>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Test-eigenes Derived Image wurde explizit entfernt'
     $imageName = $null
+    $preservedToolImages=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*')
+    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and @($existingToolImages | Where-Object {$_ -notin $preservedToolImages}).Count -eq 0) 'Vorhandene Tool-Images bleiben mit derselben Tag- und Image-ID-Bindung erhalten'
 
     if ($EvidencePath) {
         $evidenceDirectory = Split-Path -Parent $EvidencePath
@@ -276,17 +297,22 @@ try {
 }
 finally {
     if ($lab -and -not $KeepOnFailure) {
-        try { Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false | Out-Null }
-        catch { Write-Warning "Fehler-Cleanup des Runs schlug fehl: $($_.Exception.Message)" }
+        try {$cleanup=Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false;if($cleanup.Status -ne 'REMOVED'){throw 'CONTAINER_TOOL_TEST_CLEANUP_FAILED'}}
+        catch {$cleanupFailed=$true;Write-Warning 'Run-Cleanup fehlgeschlagen; Test-State bleibt fuer Recovery erhalten.'}
     }
     if ($imageName -and -not $KeepOnFailure -and $runtimeInvocation) {
-        try { & $runtimeInvocation image rm --force $imageName 1>$null 2>$null } catch { }
+        try { & $runtimeInvocation image rm $imageName 1>$null 2>$null;if($LASTEXITCODE -ne 0){throw 'CONTAINER_TOOL_TEST_IMAGE_CLEANUP_FAILED'} } catch {$cleanupFailed=$true}
     }
     if ($bacpacContainerPath -and -not $KeepOnFailure -and $runtimeInvocation -and $lab) {
         try { & $runtimeInvocation exec --user root $lab.Instances[0].ContainerName rm -f -- $bacpacContainerPath 1>$null 2>$null } catch { }
     }
-    if (($completed -or -not $KeepOnFailure) -and (Test-Path -LiteralPath $testRoot)) {
-        Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
+    if (-not $cleanupFailed -and ($completed -or -not $KeepOnFailure) -and (Test-Path -LiteralPath $testRoot)) {
+        $resolved=[IO.Path]::GetFullPath($testRoot)
+        $boundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+        if(-not $resolved.StartsWith($boundary,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolved) -notlike 'sql-server-lab-container-tool-*'){throw 'CONTAINER_TOOL_TEST_CLEANUP_SCOPE_INVALID'}
+        Remove-Item -LiteralPath $resolved -Recurse -Force
     }
     $env:SQL_SERVER_LAB_STATE = $previousStateRoot
+    if($mutexAcquired){$mutex.ReleaseMutex()};$mutex.Dispose()
 }
+if($cleanupFailed){throw 'CONTAINER_TOOL_TEST_CLEANUP_FAILED'}

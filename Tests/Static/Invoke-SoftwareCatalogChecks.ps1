@@ -319,7 +319,8 @@ Add-CheckResult -Name 'Container-Tool-Akzeptanz prueft Manifest, Probe, Restart 
     $toolAcceptanceSource -match 'Test-SqlServerLabContainerTool' -and
     $toolAcceptanceSource -match 'Restart-SqlServerLab' -and
     $toolAcceptanceSource -match 'Remove-SqlServerLab' -and
-    $toolAcceptanceSource -match 'image rm --force' -and
+    $toolAcceptanceSource -match 'image rm \$imageName' -and
+    $toolAcceptanceSource -notmatch 'image rm --force' -and
     $toolAcceptanceSource -match "ValidateSet\('docker', 'podman'\)"
 )
 

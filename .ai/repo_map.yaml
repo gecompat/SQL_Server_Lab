@@ -255,6 +255,7 @@ sources_of_truth:
   acceptance_direct_archive_progress: Tests/Integration/Invoke-ArchiveProgressAcceptance.ps1
   validation_direct_sql_progress: Tests/Static/Invoke-SqlActionProgressChecks.ps1
   acceptance_direct_sql_progress: Tests/Integration/Invoke-SqlActionProgressAcceptance.ps1
+  validation_container_transfer_progress: Tests/Static/Invoke-ContainerTransferProgressChecks.ps1
   validation_direct_transfer_progress: Tests/Static/Invoke-TransferProgressChecks.ps1
   validation_direct_action_progress: Tests/Static/Invoke-ActionProgressChecks.ps1
   acceptance_direct_action_progress: Tests/Integration/Invoke-ActionProgressAcceptance.ps1
