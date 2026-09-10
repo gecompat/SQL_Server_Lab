@@ -1078,6 +1078,14 @@ Platzierung nicht verändern.
 
 ### Nachgelagerter Horizont
 
+Die beauftragte [autonome Entwicklungswelle vom 2026-09-10](AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md)
+konkretisiert nach den abgeschlossenen Wellen N1 bis N5 die nächste
+Lieferreihenfolge: Testregressionen und Testauswahl, Release-Sicherheit und
+Statuswahrheit, danach vorhandene Funktionen und Providernachweise sowie
+Szenarien und KI. Größere Erweiterungen werden zunächst vollständig bewertet.
+Die dortige Aufgabenliste und das Arbeitsjournal verfolgen jeden Punkt bis
+zur passenden Abnahme; Fachverträge und historische Evidence bleiben erhalten.
+
 Der [SQL-2025-KI-Plattform-Backlog](SQL2025_AI_PLATFORM_BACKLOG.md) ordnet die
 KI-Integration local-first ein. `AI-00` ist als Manifest-, Szenario-, PlanKey-
 und Public-API-Vertrag implementiert. Der deterministische `AI-10A`-Vector-Core
