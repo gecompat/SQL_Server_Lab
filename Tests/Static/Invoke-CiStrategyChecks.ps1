@@ -162,6 +162,7 @@ $dependencyCases = @(
     @{ Path = 'Schemas/ai-reembedding-plan.schema.json'; Checks = @('Invoke-AiScenarioChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
     @{ Path = 'Private/StateUpgrade.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
     @{ Path = 'Public/Get-SqlServerLabRunStateUpgradePlan.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
+    @{ Path = 'Public/Invoke-SqlServerLabRunStateUpgrade.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/PortableLabImport.ps1'; Checks = @('Invoke-PortableLabImportChecks.ps1'); Runtime = @() },
     @{ Path = 'Public/Get-SqlServerLabEvaluationWatch.ps1'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/SqlObservabilityEvidence.ps1'; Checks = @('Invoke-SqlObservabilityEvidenceChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },

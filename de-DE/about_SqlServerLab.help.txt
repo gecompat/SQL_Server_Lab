@@ -95,8 +95,12 @@ COMMANDS
         dedupliziert fällige Ereignisse mit -RecordEvents lokal.
 
     Get-SqlServerLabRunStateUpgradePlan
-        Klassifiziert einen lokalen Run-State read-only gegen den Zielvertrag;
-        die erste Fassung führt keine Migration aus.
+        Klassifiziert einen lokalen Run-State read-only gegen den Zielvertrag.
+
+    Invoke-SqlServerLabRunStateUpgrade
+        Migriert ausschließlich einen ausdrücklich synthetisch markierten,
+        unversionierten Legacy-State atomar; unbekannte Versionen und
+        Runtime-Ressourcen bleiben blockiert.
 
     Get-SqlServerLabPortableLabImportPlan
         Prüft ein portables Container-Lab-Paket read-only auf Paketverfügbarkeit

@@ -689,7 +689,8 @@ Invoke-SqlServerLabScheduler -UntilIdle
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
 | `Get-SqlServerLabHyperVImageArtifact` | Pfadfreie, read-only Hyper-V-Image-Registry mit Evaluierungs-, Refresh- und Referenzstatus; `-VerifyIntegrity` prüft ausgewählte Parent-VHDX erneut |
 | `Get-SqlServerLabEvaluationWatch` | Registrierte Windows- und SQL-Evaluationsfristen read-only bewerten und fällige Ereignisse optional lokal deduplizieren |
-| `Get-SqlServerLabRunStateUpgradePlan` | Einen lokalen Run-State gegen den aktuellen Zielvertrag read-only klassifizieren; die erste Fassung führt keine Migration aus |
+| `Get-SqlServerLabRunStateUpgradePlan` | Einen lokalen Run-State gegen den aktuellen Zielvertrag read-only klassifizieren |
+| `Invoke-SqlServerLabRunStateUpgrade` | Einen explizit synthetischen, unversionierten Legacy-State atomar migrieren; unbekannte Versionen bleiben blockiert |
 | `Get-SqlServerLabPortableLabImportPlan` | Ein portables Container-Lab-Paket read-only auf Datenbankpaket-Verfügbarkeit und anonymisierte Secret-Rebind-Blocker prüfen; die Ausführung bleibt nicht implementiert |
 | `Get-SqlServerLabHyperVRecoveryPointPlan` | Bestehende, eindeutig an einen Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade read-only inventarisieren; Erstellung, Quiesce und Restore bleiben nicht implementiert |
 | `Get-SqlServerLabSqlObservabilityEvidence` | Aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken direkt oder per Run-/Instanzbindung read-only ohne Endpunkt-, SQL-Text-, Namens- oder Secretprojektion erfassen |

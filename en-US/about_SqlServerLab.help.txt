@@ -93,8 +93,11 @@ COMMANDS
         read-only and deduplicates due events locally with -RecordEvents.
 
     Get-SqlServerLabRunStateUpgradePlan
-        Classifies a local run state against the target contract read-only;
-        the initial version does not execute a migration.
+        Classifies a local run state against the target contract read-only.
+
+    Invoke-SqlServerLabRunStateUpgrade
+        Atomically migrates only an explicitly marked synthetic, unversioned
+        legacy state; unknown versions and runtime resources remain blocked.
 
     Get-SqlServerLabPortableLabImportPlan
         Checks a portable container lab package read-only for package
