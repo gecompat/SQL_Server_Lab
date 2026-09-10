@@ -280,6 +280,8 @@ sources_of_truth:
   automated_test_environment_contract: Public/TestEnvironment.ps1
   automated_test_environment_windows_lifecycle: Public/TestEnvironmentLifecycle.ps1
   automated_test_environment_windows_activation: Private/HyperVLabEnvironment.ps1
+  windows_activation_network_ownership: Private/WindowsActivationNetwork.ps1
+  windows_activation_network_checks: Tests/Static/Invoke-WindowsActivationNetworkChecks.ps1
   validation_test_environment_contract: Tests/Static/Invoke-TestEnvironmentChecks.ps1
   validation_test_environment_group_lifecycle: Tests/Integration/Invoke-TestEnvironmentGroupLifecycle.ps1
   validation_manifest_builder: Tests/Static/Invoke-ManifestBuilderChecks.ps1

@@ -1798,3 +1798,13 @@ Cleanup. Der direkte SQL-Prepared-Manifestlauf bleibt separat offen. UI-Sprache 
 über die registrierte Image-Sprache belegt; Offline-Language-Packs und
 Tastaturlayouts außerhalb der sechs dokumentierten eingebauten IDs sind
 nicht freigegeben. [Vertrag und Nachweisgrenzen](../HowTo/WINDOWS_LOCALE.md).
+
+## Aktivierungsadapter-Eigentum (2026-09-10)
+
+Der spezielle Evaluationspfad entfernt nur journalgebundene temporaere
+Adapter. Fremde gleichnamige Adapter bleiben bestehen. Unvollstaendige
+Journale oder nachtraeglich geaenderte Switch-Bindungen erfordern konkrete
+Recovery statt einer Entfernung nach Namen. Der allgemeine Aktivierungsintent
+mit persistenter NIC und Egress-Policy bleibt offen. Der native Adaptertest hat
+am 2026-09-10 Erfolg, kontrollierten Fehler, Resume und Cleanup auf einem
+privaten Switch bestaetigt; er fuehrt keine Windows-Lizenzaktivierung aus.

@@ -38,6 +38,10 @@ unnötig an lokale Hyper-V-Ressourcen binden.
 
 ## Vertragsgrenzen
 
+Die folgenden Grenzen beschreiben den bisherigen Vertrag. Die geplante,
+ausdrücklich sichtbare Host-Tastaturvorgabe im Folgepunkt unten soll dessen
+Defaultregel gezielt erweitern; sie ist noch nicht implementiert.
+
 - UI-Sprache, System-Locale, Region, Benutzerkultur, Eingabemethode und Sprache
   des Installationsmediums dürfen nicht stillschweigend gleichgesetzt werden.
 - Die gewählte UI-Sprache muss durch das selektierte Image oder durch
@@ -87,3 +91,47 @@ unnötig an lokale Hyper-V-Ressourcen binden.
   bestätigt OOBE, Region, UI-Sprache, Tastatur, Zeitzone, Cold Start und
   scopegebundenen Cleanup. Erst dieser Lauf darf als Runtime-Validierung
   bezeichnet werden.
+
+## Folgepunkt: Host-Tastaturlayout als Default — OPEN
+
+Auftrag vom 2026-09-10: Bei neuen Windows-Hyper-V-Umgebungen der
+SQL-Labplattform soll nach Möglichkeit das Tastaturlayout des Hostsystems
+als Default verwendet werden.
+
+Ist-Zustand: Der gemeinsame Resolver und die Benutzerreferenz verwenden
+`0407:00000407` als Kompatibilitätsdefault. Host-Tastaturlayouts werden derzeit
+nicht übernommen; ein explizites `InputLocale` ist bereits möglich.
+
+Ziel und Abnahmekriterien:
+
+- Ohne explizite Tastatureinstellung wird das bevorzugte Standardlayout des
+  Host-Benutzerkontexts read-only ermittelt und bei unterstützter, eindeutiger
+  Abbildung als Gast-`InputLocale` vorgeschlagen beziehungsweise gebunden.
+  Die Auswahlregel bei mehreren Eingabemethoden und bei einem abweichenden
+  erhöhten oder unbeaufsichtigten Ausführungskontext ist zu dokumentieren und
+  deterministisch zu testen; ein zufällig aktives Fensterlayout genügt nicht.
+- Explizite Parameter, Manifest-/Batch-Intents und bewusste Menüauswahl haben
+  Vorrang. Die vorhandene Konfliktvalidierung expliziter Werte bleibt erhalten.
+  Region, UI-Sprache, System-Locale und Zeitzone werden nicht aus der
+  Tastaturauswahl abgeleitet.
+- Menü und Planung zeigen den effektiven Wert und seine Quelle. Bei fehlender,
+  mehrdeutiger oder nicht unterstützter Hosterkennung greift ein dokumentierter
+  Kompatibilitätsdefault mit verständlichem Hinweis; eine explizit ungültige
+  Benutzereinstellung bleibt ein Validierungsfehler.
+- Direkter Erstellungsweg, Wizard, Slot-Pool und Batch verwenden denselben
+  Resolver. Der einmal aufgelöste portable Wert wird im Intent/Lock gebunden;
+  Resume oder ein anderer Worker ermittelt ihn nicht stillschweigend neu.
+  Bestehende Runs und immutable Vorlagen bleiben unverändert.
+- Statische Tests verwenden synthetische Host-Doubles für unterstützte,
+  mehrere, fehlende und nicht unterstützte Layouts sowie explizite Overrides.
+  Ein isolierter Hyper-V-Nachweis bestätigt ein vom bisherigen Default
+  abweichendes Layout nach OOBE und Kaltstart einschließlich Cleanup.
+- Bei Umsetzung werden der bisherige Ausschluss impliziter Hostwerte oben,
+  der Windows-Locale-Vertrag, Benutzerreferenz und gekoppelte Tests gemeinsam
+  aktualisiert. Die heutige Defaultbeschreibung bleibt bis dahin Ist-Wahrheit.
+
+Betroffene Quellen: `Private/WindowsLocale.ps1`, Manifest-Wizard/-Parser,
+`Public/New-SqlServerLabWindowsSlotPool.ps1`, `Public/Invoke-SqlServerLab.ps1`,
+`Private/BatchWorkflow.ps1`, `Tests/Static/Invoke-WindowsLocaleChecks.ps1` und
+`Documentation/HowTo/WINDOWS_LOCALE.md`. Status: geplant; die Hosterkennung
+und ihre Runtime-Validierung sind noch nicht umgesetzt.
