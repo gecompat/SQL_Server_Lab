@@ -212,6 +212,7 @@ sources_of_truth:
   hyperv_image_migration_plan_schema: Schemas/hyperv-image-migration-plan.schema.json
   hyperv_image_migration_journal_schema: Schemas/hyperv-image-migration-journal.schema.json
   hyperv_lab_data_resource_root_bugfix_backlog: Documentation/Project_Planning/HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md
+  m0_status_truth_matrix: Documentation/Project_Planning/M0_STATUS_TRUTH_MATRIX.md
   persistent_storage_reuse_and_lab_data_backlog: Documentation/Project_Planning/PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md
   full_instance_evaluation_refresh_backlog: Documentation/Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md
   cross_cutting_platform_capabilities_backlog: Documentation/Project_Planning/CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md
@@ -275,6 +276,7 @@ sources_of_truth:
   validation_session_transfer_progress: Tests/Static/Invoke-SessionTransferProgressChecks.ps1
   validation_direct_job_progress: Tests/Static/Invoke-JobProgressChecks.ps1
   validation_hyperv_guest_progress: Tests/Static/Invoke-HyperVGuestProgressChecks.ps1
+  validation_hyperv_sql_ownership_initialization: Tests/Static/Invoke-HyperVSqlOwnershipInitializationChecks.ps1
   validation_direct_transfer_progress: Tests/Static/Invoke-TransferProgressChecks.ps1
   validation_direct_action_progress: Tests/Static/Invoke-ActionProgressChecks.ps1
   acceptance_direct_action_progress: Tests/Integration/Invoke-ActionProgressAcceptance.ps1

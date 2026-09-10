@@ -274,7 +274,9 @@ Reporter-Runspace angebunden; er verwendet dieselbe Formatierung und
 Allowlist und aktualisiert auch bei blockiertem Hauptthread. Verschachtelte
 Schritte teilen einen Worker. Offline- und Terminalnachweis liegen vor;
 vollstaendige neue Legacy-Gast-Evidence bleibt separat.
-Der folgende Ausgangsbefund
+Native Gast-/Session-Evidence liegt mit CLI-Lauf 34427219338 auf 302a37d vor:
+SQL-Lifecycle, bidirektionaler synthetischer Sessiontransfer mit Hashvergleich
+und Cleanup bestanden. Der folgende Ausgangsbefund
 beschreibt den Stand vor dieser Erweiterung.
 
 Geprüfter Ist-Zustand vom 2026-09-09: Das feste Statusband (`CUI-022`) zeigt
@@ -414,6 +416,45 @@ Nachweis: statischer Vertrag in `Tests/Static/Invoke-ConsoleUiChecks.ps1`
 verlangt, dass der Dialog nur bei Fehlern aufgerufen wird und dass das
 Schnellkonfigurations-Netzwerkmodus-Feld begründet deaktiviert ist;
 Gegenbeweis durch Rücknahme der Änderung belegt den Fehlschlag.
+
+### Windows-Administratorpasswort im CLI-Menü abrufen — OPEN
+
+Geprüfter Ist-Zustand vom 2026-09-10: Das öffentliche Cmdlet
+`Get-SqlServerLabGeneratedWindowsAccess -RunId <RunId>` entschlüsselt den
+automatisch generierten Windows-Administratorzugang eines Hyper-V-Runs.
+`Public/Invoke-SqlServerLab.ps1` zeigt nach der Slot-Pool-Erstellung lediglich
+einen Hinweis auf diesen Befehl. Eine eigene Menüaktion zum Abruf fehlt.
+Selbst vergebene Passwörter gibt das Cmdlet ausdrücklich nicht aus.
+
+Ziel ist eine auffindbare Aktion „Windows-Administratorzugang anzeigen“ im
+CLI-Menü für bestehende Hyper-V-Umgebungen der SQL-Labplattform, einschließlich
+Windows-Slots. Der Benutzer wählt genau einen Run; die Aktion verwendet das
+bestehende öffentliche Cmdlet und zeigt VM, Benutzername und generiertes
+Passwort ausschließlich auf ausdrücklichen Abruf an. SQL-`sa`-Zugang und
+Windows-Administratorzugang müssen eindeutig unterscheidbar bleiben.
+
+Abnahmekriterien:
+
+- Menü, Aktionshandler und Kontexthilfe sind verbunden; der Run ist über
+  einen verständlichen Anzeigenamen und seine stabile Run-ID auswählbar.
+- Nur passende Hyper-V-Runs sind auswählbar. Selbst vergebene, fehlende oder
+  im aktuellen Benutzerkontext nicht entschlüsselbare Passwörter erhalten
+  eine verständliche Erklärung; es erfolgt kein Reset und keine Neugenerierung.
+- Entschlüsselung erfolgt erst für den ausgewählten Run. Statusband,
+  Meldungsjournal, Logs, Queue und normale Listen bleiben frei von Secretwerten;
+  die gezielte Anzeige führt keine automatische Zwischenablage- oder Dateikopie aus.
+- Funktionale Menütests mit synthetischen Credentials belegen die genaue
+  Run-Bindung, Abbruch ohne Abruf, Fehlerfälle und die Rückkehr ins Menü.
+  Ein Gegenbeweis erkennt eine fehlende Produkt-Aufrufstelle.
+- Benutzerreferenz und Kontexthilfe dokumentieren den Menüpfad und die Grenze
+  für selbst vergebene Passwörter. Ein isolierter Windows-Menünachweis prüft
+  den DPAPI-Abruf, ohne Passwortwerte als Evidence zu speichern.
+
+Betroffene Quellen: `Public/BatchConsole.ps1`, `Public/Invoke-SqlServerLab.ps1`,
+`Public/Get-SqlServerLabGeneratedWindowsAccess.ps1`, `Private/ConsoleHelp.ps1`,
+`Tests/Static/Invoke-ConsoleUiChecks.ps1` und
+`Documentation/User/Getting_Started.md`. Status: geplant; keine Änderung am
+Passwortvertrag oder Runtime-Nachweis durch diesen Backlog-Eintrag.
 
 ## Bindende Erkenntnisse für die Wiederaufnahme
 

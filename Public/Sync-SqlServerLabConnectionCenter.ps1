@@ -149,6 +149,7 @@ function Get-SqlServerLabConnectionCenter {
             $entries += [PSCustomObject]@{
                 Id = ('{0}/{1}' -f $runId, $instanceId)
                 RunId = $runId
+                InstanceId = $instanceId
                 DisplayName = ('{0} ({1})' -f $labName, $instanceId)
                 Description = if ($testEnvironment) { ('SQL Server Lab · automatisierte Testumgebung · {0} · {1}' -f $provider, $runtimeState) } else { ('SQL Server Lab · {0} · {1}' -f $provider, $runtimeState) }
                 Provider = $provider
@@ -607,24 +608,74 @@ function Get-LabCmsRegisteredServerDisplayName {
     return [string]$password
 }
 
+function Get-LabCmsIdentityDisplayName {
+    <#
+    .SYNOPSIS
+        Bindet einen lesbaren CMS-Namen an die stabile Run- und Instanzidentitaet.
+    .DESCRIPTION
+        CMS verlangt innerhalb einer Servergruppe eindeutige sysname-Werte. Der
+        sichtbare Labname ist dafuer keine Identitaet: mehrere Runs duerfen
+        denselben Lab- und Instanznamen verwenden. Der Suffix zeigt deshalb
+        lesbare Teile von Run und Instanz und sichert die vollstaendige Identitaet
+        mit einem stabilen Hash ab. Es werden keine Eintraege anhand ihres Namens
+        zusammengefasst oder verworfen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Entry,
+        [Parameter(Mandatory)][string]$BaseName
+    )
+
+    $runId = [string]$Entry.RunId
+    $instanceId = if ($Entry.PSObject.Properties['InstanceId']) { [string]$Entry.InstanceId } else { '' }
+    $entryId = [string]$Entry.Id
+    if ([string]::IsNullOrWhiteSpace($instanceId) -and $entryId -match '^[^/]+/(?<Instance>.+)$') {
+        $instanceId = [string]$Matches.Instance
+    }
+    if ([string]::IsNullOrWhiteSpace($runId) -and $entryId -match '^(?<Run>[^/]+)/') {
+        $runId = [string]$Matches.Run
+    }
+    if ([string]::IsNullOrWhiteSpace($runId)) { $runId = 'unknown-run' }
+    if ([string]::IsNullOrWhiteSpace($instanceId)) { $instanceId = 'primary' }
+
+    $identityMaterial = "$runId`n$instanceId`n$entryId"
+    $identityHash = [Convert]::ToHexString(
+        [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($identityMaterial))
+    ).ToLowerInvariant().Substring(0, 12)
+    $displayRunId = ($runId -replace '[\r\n\t]', ' ').Trim()
+    $displayInstanceId = ($instanceId -replace '[\r\n\t]', ' ').Trim()
+    if ($displayRunId.Length -gt 36) { $displayRunId = $displayRunId.Substring(0, 36) }
+    if ($displayInstanceId.Length -gt 24) { $displayInstanceId = $displayInstanceId.Substring(0, 24) }
+    $suffix = " [Run=$displayRunId; Instance=$displayInstanceId; Identity=$identityHash]"
+    $maximumBaseLength = 128 - $suffix.Length
+    if ($maximumBaseLength -lt 1) { throw 'CONNECTION_CENTER_CMS_IDENTITY_SUFFIX_TOO_LONG' }
+
+    $name = ($BaseName -replace '[\r\n\t]', ' ').Trim()
+    if ([string]::IsNullOrWhiteSpace($name)) { $name = 'SQL Server Lab' }
+    if ($name.Length -gt $maximumBaseLength) { $name = $name.Substring(0, $maximumBaseLength).TrimEnd() }
+    return $name + $suffix
+}
+
+function Get-LabCmsManagedRegisteredServerDisplayName {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Entry,
+        [string]$StateRoot,
+        [switch]$IncludeGeneratedPassword
+    )
+
+    $displayName = Get-LabCmsRegisteredServerDisplayName -Entry $Entry -StateRoot $StateRoot -IncludeGeneratedPassword:$IncludeGeneratedPassword
+    # In diesem Modus ist der Servername absichtlich exakt das kopierbare
+    # Kennwort. Die eindeutige Identitaet liegt im umgebenden CMS-Ordner.
+    if ($IncludeGeneratedPassword) { return $displayName }
+    return Get-LabCmsIdentityDisplayName -Entry $Entry -BaseName $displayName
+}
+
 function Get-LabCmsEnvironmentGroupDisplayName {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Entry)
 
-    $displayName = [string]$Entry.DisplayName
-    if ($displayName.Length -le 128) { return $displayName }
-
-    $environmentName = $displayName
-    $instanceSuffix = ''
-    if ($displayName -match '^(?<Environment>.+) (?<Instance>\([^()]+\))$') {
-        $environmentName = [string]$Matches.Environment
-        $instanceSuffix = ' ' + [string]$Matches.Instance
-    }
-    $maximumEnvironmentLength = 128 - $instanceSuffix.Length
-    if ($environmentName.Length -gt $maximumEnvironmentLength) {
-        $environmentName = $environmentName.Substring(0, $maximumEnvironmentLength)
-    }
-    return $environmentName + $instanceSuffix
+    return Get-LabCmsIdentityDisplayName -Entry $Entry -BaseName ([string]$Entry.DisplayName)
 }
 
 function Invoke-LabCmsSqlInMemory {
@@ -845,7 +896,7 @@ function Export-SqlServerLabCmsSyncScript {
 
             foreach ($entry in @($providerEntries | Sort-Object RuntimeState, DisplayName, Server)) {
                 $server = & $escape (ConvertTo-LabCmsServerTarget -Server $entry.Server -CmsProvider $CmsProvider)
-                $resolvedDisplayName = Get-LabCmsRegisteredServerDisplayName -Entry $entry -StateRoot $StateRoot -IncludeGeneratedPassword:$IncludeGeneratedPasswordAliases
+                $resolvedDisplayName = Get-LabCmsManagedRegisteredServerDisplayName -Entry $entry -StateRoot $StateRoot -IncludeGeneratedPassword:$IncludeGeneratedPasswordAliases
                 $displayName = & $escape $resolvedDisplayName
                 $runtimeState = ([string]$entry.RuntimeState).ToUpperInvariant()
                 if ([bool]$center.Grouping.CmsGroupByProvider) {
