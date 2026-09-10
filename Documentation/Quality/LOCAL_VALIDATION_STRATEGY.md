@@ -9,6 +9,14 @@
 
 ## 1. Grundsatz
 
+`Tools/Get-SqlServerLabCapabilityInventory.ps1` liefert den aktuellen
+maschinellen Produktquellen-, Export-, Provider-, Test- und Planungsindex.
+`Tests/Static/Invoke-CapabilityInventoryChecks.ps1` prueft Exportparitaet,
+portable Dateiverweise, Evidenzgrenzen, fehlerhaftes JSON und das Nichtverfolgen
+von Symlinks/Junctions einschliesslich indirektem Modulimport. Das Inventar
+fuehrt keine Tests oder Runtime-Probes aus und ersetzt keinen semantischen
+Backlog-Abgleich.
+
 Die Persistent-Storage-Katalogsuite prueft auch den umgestellten
 Container-Datenbankreferenz-Writer: Preview ohne Katalogschreiben, genau eine
 Revision beim Apply, stabile Referenz-IDs bei No-op sowie Abweisung einer

@@ -280,6 +280,15 @@ vorhandener Legacy-Slots bleiben zulässig.
 **Ziel:** Alle Front-Door-, Planungs- und Qualitätsquellen beschreiben denselben
 Ist-Stand und dieselbe Priorität.
 
+**BASE-001, Inventurstand 2026-09-10:**
+`Tools/Get-SqlServerLabCapabilityInventory.ps1` liefert den maschinenlesbaren
+Quellstand mit relativen Dateiverweisen und SHA-256, Funktionsdefinitionen,
+tatsaechlichen Exporten, Providerdeklarationen sowie Schema-, Katalog-, UI-,
+Test- und Planungsindex. Es liest keine lokalen Betriebsroots und folgt keinen
+Reparse Points. Vorhandene Tests bleiben `NOT_EXECUTED`; Provider-Metadaten
+sind kein Runtime-Nachweis. Diese Inventur ersetzt nicht den noch offenen
+semantischen Abgleich jedes Backlog-Abnahmekriteriums aus BASE-002/003.
+
 | ID | Arbeitspaket | Ergebnis |
 |---|---|---|
 | `BASE-001` | Code, Exporte, Schemas, Kataloge, Tests, Menüs und Provider-Metadaten inventarisieren | maschinenlesbare Capability-/Statusmatrix |

@@ -65,6 +65,7 @@ $checks = @(
     'Invoke-HostToolResolutionChecks.ps1',
     'Invoke-ClientReadinessChecks.ps1',
     'Invoke-SkillChecks.ps1',
+    'Invoke-CapabilityInventoryChecks.ps1',
     'Invoke-PodmanBootstrapChecks.ps1',
     'Invoke-ContainerAutoStartChecks.ps1',
     'Invoke-ContainerVolumeContractChecks.ps1',

@@ -15,6 +15,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Read-only Capability-Inventar fuer Produktquellen, Exporte, deklarierte
+  Providerfaehigkeiten und Test-/Planungsreferenzen. Vorhandene Tests werden
+  nicht als bestanden gewertet; lokale Betriebsroots bleiben ausgeschlossen.
 - Der Container-Datenbankreferenz-Writer nutzt den gemeinsamen
   Persistent-Storage-Mutationskern mit Preview und erwartetem Revisionsstand.
   Stabile Referenz-IDs und der exklusive Run-/Scope-Lease-Schutz bleiben erhalten.
