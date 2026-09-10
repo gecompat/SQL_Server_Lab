@@ -27,6 +27,7 @@ $previousStateRoot = $env:SQL_SERVER_LAB_STATE
 $lab = $null
 $runtimeInvocation = $null
 $imageName = $null
+$removeImageAfterTest = $false
 $bacpacSourcePath = $null
 $bacpacContainerPath = $null
 $attachPayloadRoot = $null
@@ -85,7 +86,9 @@ try {
         (New-LabContainerToolImagePlan -Provider ([string]$Instance.provider) -SqlVersion ([string]$Instance.version) -SoftwarePlans $plans).Image
     } ([pscustomobject]$manifest.instances[0])
     $existingToolImages=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*')
-    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and @($existingToolImages | Where-Object {$_ -like "$plannedToolImage=*"}).Count -eq 0) 'Isolierter Image-Test ersetzt kein vorhandenes Zielimage'
+    $existingPlannedToolImage=@($existingToolImages | Where-Object {$_ -like "$plannedToolImage=*"})
+    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and $existingPlannedToolImage.Count -le 1) 'Isolierter Image-Test erkennt hoechstens ein bestehendes Zielimage'
+    $removeImageAfterTest = $existingPlannedToolImage.Count -eq 0
     $assessment=Test-SqlServerLabPrerequisite -Provider $Provider
     Assert-ContainerToolAcceptance ($assessment.Status -eq 'RESOURCE_OK') 'Ressourcenpruefung erlaubt den isolierten Test-Run'
     $lab = New-SqlServerLab -Manifest $manifestPath -SaPassword $saPassword -StateRoot $stateRoot -SkipAssessment -NonInteractive
@@ -103,11 +106,13 @@ try {
     } ([string]$instance.ContainerTools.ImageKey) $Provider $stateRoot
     $receipt = Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
     $imageName = [string]$receipt.image
+    $currentPlannedToolImage=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter "reference=$plannedToolImage")
     Assert-ContainerToolAcceptance (
         [string]$receipt.status -eq 'IMAGE_READY' -and
         [string]$receipt.retention -eq 'reusable-explicit-removal' -and
         [string]$receipt.runtimeVersion -eq [string]$instance.ContainerTools.RuntimeVersion -and
-        (@($receipt.toolIds) -join ',') -eq 'sqlpackage'
+        (@($receipt.toolIds) -join ',') -eq 'sqlpackage' -and
+        ($existingPlannedToolImage.Count -eq 0 -or ($currentPlannedToolImage -join ',') -eq ($existingPlannedToolImage -join ','))
     ) 'Derived Image besitzt einen scope-lokalen, kataloggebundenen Receipt'
 
     $probe = Test-SqlServerLabContainerTool -RunId $lab.RunId -InstanceId 'container-tool' -StateRoot $stateRoot
@@ -271,8 +276,13 @@ try {
     $lab = $null
     & $runtimeInvocation image inspect $imageName 1>$null 2>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Wiederverwendbares Derived Image bleibt vom Run-Cleanup getrennt'
-    & $runtimeInvocation image rm $imageName 1>$null
-    Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Test-eigenes Derived Image wurde explizit entfernt'
+    if ($removeImageAfterTest) {
+        & $runtimeInvocation image rm $imageName 1>$null
+        Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Test-eigenes Derived Image wurde explizit entfernt'
+    }
+    else {
+        Assert-ContainerToolAcceptance (($currentPlannedToolImage -join ',') -eq ($existingPlannedToolImage -join ',')) 'Bereits vorhandenes Derived Image blieb unveraendert'
+    }
     $imageName = $null
     $preservedToolImages=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*')
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and @($existingToolImages | Where-Object {$_ -notin $preservedToolImages}).Count -eq 0) 'Vorhandene Tool-Images bleiben mit derselben Tag- und Image-ID-Bindung erhalten'

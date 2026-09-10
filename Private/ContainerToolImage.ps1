@@ -165,6 +165,13 @@ function Invoke-LabContainerToolImageBuild {
                 return [PSCustomObject]@{ Contract=[PSCustomObject]@{ Name='SqlServerLab.ContainerToolImageArtifact'; Version='1.0' }; Provider=$provider; Image=[string]$receipt.image; ImageKey=[string]$ImagePlan.ImageKey; SoftwarePlanKeys=@($receipt.softwarePlanKeys); LocalImageId=[string]$existing.ImageId; Reused=$true; Receipt=$receipt }
             }
         }
+        $existingPlannedImage = Get-LabContainerToolLocalImageEvidence -Provider $provider -Image ([string]$ImagePlan.Image)
+        if ($existingPlannedImage -and [string]$existingPlannedImage.ImageKey -eq [string]$ImagePlan.ImageKey -and
+            [string]$existingPlannedImage.ToolIds -eq 'sqlpackage') {
+            $receipt = [PSCustomObject]@{ contract=[PSCustomObject]@{ name='SqlServerLab.ContainerToolImageReceipt'; version='1.0' }; imageKey=[string]$ImagePlan.ImageKey; provider=$provider; image=[string]$ImagePlan.Image; localImageId=[string]$existingPlannedImage.ImageId; baseImageDigest=[string]$ImagePlan.BaseImageDigest; recipeVersion=[string]$ImagePlan.RecipeVersion; softwarePlanKeys=@($ImagePlan.SoftwarePlanKeys); toolIds=@($ImagePlan.ToolIds); runtimeVersion=[string]$ImagePlan.RuntimeVersion; contextEvidence=@($ImagePlan.ContextEvidence); status='IMAGE_READY'; retention='reusable-explicit-removal'; builtAt=Get-LabTimestamp }
+            Write-LabArtifactJsonAtomic -Path $receiptPath -InputObject $receipt
+            return [PSCustomObject]@{ Contract=[PSCustomObject]@{ Name='SqlServerLab.ContainerToolImageArtifact'; Version='1.0' }; Provider=$provider; Image=[string]$ImagePlan.Image; ImageKey=[string]$ImagePlan.ImageKey; SoftwarePlanKeys=@($ImagePlan.SoftwarePlanKeys); LocalImageId=[string]$existingPlannedImage.ImageId; Reused=$true; Receipt=$receipt }
+        }
         $temporaryTag = "sql-server-lab/container-tool-build:$($ImagePlan.ImageKey.Substring(0,16))-$([guid]::NewGuid().ToString('N').Substring(0,8))"
         try {
             $buildArguments = @('build','--file',[string]$ImagePlan.Containerfile,'--tag',$temporaryTag,
