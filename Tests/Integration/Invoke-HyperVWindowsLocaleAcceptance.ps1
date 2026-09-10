@@ -28,7 +28,8 @@ try {
     $artifact=& $module {
         param($Root)
         $candidate=@(Get-HyperVImageArtifact -StateRoot $Root -SkipIntegrityCheck | Where-Object {
-            $_.artifactState -eq 'OS_SEALED' -and $_.licenseType -ne 'test-only' -and $_.operatingSystem.language -eq 'en-US'
+            $_.artifactState -eq 'OS_SEALED' -and $_.licenseType -ne 'test-only' -and
+            $_.operatingSystem.id -eq 'windows-server-2025' -and $_.operatingSystem.language -eq 'en-US'
         } | Sort-Object registeredAt -Descending | Select-Object -First 1)
         if($candidate.Count -ne 1){throw 'WINDOWS_LOCALE_ENGLISH_BASELINE_REQUIRED'}
         Get-HyperVImageArtifact -ArtifactId $candidate[0].artifactId -StateRoot $Root

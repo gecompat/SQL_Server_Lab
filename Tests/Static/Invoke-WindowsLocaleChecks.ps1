@@ -61,6 +61,14 @@ try {
         Assert-Locale ($resolved.instances[0].windowsLocale.Region -eq 'US' -and $resolved.instances[0].windowsLocaleSource -eq 'manifest') 'Parser bewahrt normalisierten Intent und seine Herkunft'
         Assert-Locale (($snapshot | ConvertTo-Json -Depth 30) -match 'WindowsLocale' -and ($snapshot | ConvertTo-Json -Depth 30) -match 'Pacific Standard Time') 'Sollzustand enthaelt den portablen Intent'
         Assert-Locale ((Test-LabManifestSchemaInputSupport -RootSchema (Get-LabManifestSchema)).IsSupported) 'Generischer Manifest-Wizard kann das Locale-Schema lesen'
+        $nativePath=Join-Path $script:ModuleRoot 'Tests/Integration/Invoke-HyperVWindowsLocaleAcceptance.ps1'
+        $tokens=$null;$parseErrors=$null
+        $nativeAst=[Management.Automation.Language.Parser]::ParseFile($nativePath,[ref]$tokens,[ref]$parseErrors)
+        $selection=$nativeAst.Find({param($node);$node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -eq 'Where-Object' -and $node.Extent.Text -match 'artifactState'},$true)
+        $filter=@($selection.CommandElements | Where-Object {$_ -is [Management.Automation.Language.ScriptBlockExpressionAst]})[0].ScriptBlock.GetScriptBlock()
+        $fixtures=@('windows-server-2008-r2','windows-server-2025') | ForEach-Object {[pscustomobject]@{artifactState='OS_SEALED';licenseType='evaluation';operatingSystem=@{id=$_;language='en-US'}}}
+        $selected=@($fixtures | Where-Object $filter)
+        Assert-Locale ($selected.Count -eq 1 -and $selected[0].operatingSystem.id -eq 'windows-server-2025') 'Nativer Locale-Test waehlt keine Legacy-Baseline fuer den modernen OOBE-Pfad'
         $steps=@(Get-LabOperationStepsForPlan -Kind WindowsSlot -Provider hyperv -Effective @{WindowsLocale=$us})
         Assert-Locale (($steps.action -join ',') -eq 'CreateHyperVEnvironment,ProvisionHyperVWindowsLocale,StartHyperVEnvironment,CompleteEnvironment') 'Batch wendet explizite Locale vor seinem Startabschluss unbeaufsichtigt an'
         & {
