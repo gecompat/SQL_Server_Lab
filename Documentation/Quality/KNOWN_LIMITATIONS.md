@@ -686,6 +686,19 @@ bestehenden exklusiven Offline-, Objekt- und Manifest-SHA-256-Vertrag; sein
 Ergebnis gibt nur stabile Paket- und Storage-IDs zurück. Die getrennten
 Docker- und Podman-Runner vom 2026-09-04 bestätigten `WhatIf`, Offline-
 Postcondition, vollständige Integritätsprüfung und Cleanup. Die lokale
+Quell-Recovery journalisiert inzwischen vor SQL-Mutation Run, Scope,
+Container-ID, Datenbank-GUID, SQL-Dateiidentitäten und den ursprünglichen Zustand.
+SQL Server gibt offline keine Datenbank-GUID zurück; deshalb werden auch die
+Datei-GUIDs, Katalog-Erstellungszeit, Dateitypen und SQL-Pfade als Fingerprints
+gebunden und direkt im mutierenden SQL-Batch erneut geprüft. Ein Fehler vor
+Bibliotheksübergabe stellt diesen Zustand nur bei gleicher Identität wieder her;
+eine Wiederholung beendet zuerst die ausstehende Recovery und das Payload-Cleanup.
+Nach bereits bestätigter Publikation liefert ein Cleanup-Resume dieselben IDs
+erst nach erneuter Hashprüfung und schreibfreier Katalog-Revalidierung zurück.
+Ab Bibliotheksübergabe bleibt die Quelle gemäß Bibliotheksvertrag offline;
+`CONTAINER_DATABASE_PACKAGE_LIBRARY_RECOVERY_REQUIRED` blockiert einen blinden
+erneuten Export. Eine automatische Bibliotheks-Recovery ist damit nicht implementiert.
+Die lokale
 Browseraktion `Datenbank paketieren` verwendet exakt denselben öffentlichen
 Core: Sie übergibt weder Host, Port noch Passwort oder Pfad, sondern nur die
 stabil gebundene Run-/Instanz-ID und einen strikt validierten Datenbanknamen.

@@ -1162,6 +1162,16 @@ Danach belegen dieselben getrennten Provider-Gates auch den öffentlichen
 `WhatIf`, live gebundene Quelle, exklusives Offline, stabile Paket-/Storage-ID,
 vollständige Integritätsprüfung und Cleanup. Die Acceptance akzeptiert keine
 freien Container- oder Hostpfade.
+Die Acceptance injiziert zusätzlich einen Kopierfehler nach dem echten
+SQL-Offline-Commit und verlangt `ONLINE`/`MULTI_USER` sowie ein dauerhaftes
+`ROLLED_BACK`-Journal vor dem anschließenden erfolgreichen Export.
+Ein zweiter injizierter Fehler trifft das Payload-Cleanup nach tatsächlicher
+Publikation. Resume muss nach Hash- und Katalogprüfung dieselben Paket-/Storage-IDs
+liefern; die Bibliothek darf weiterhin genau ein Paket enthalten.
+`Invoke-ContainerDatabasePackageRecoveryChecks.ps1` prüft Teilfehler beim
+Offline-Schalten, Dateiinventarwechsel, ursprüngliche Zugriffsmodi, Container-
+und Datenbank-Identitätswechsel, Resume, Fehler beim Journalschreiben und
+Payload-Cleanup sowie die gesonderte Offline-Sperre nach Bibliotheksübergabe.
 Dieser checkt den in `.ai/repo_map.yaml` gebundenen Foundation-Quellcommit aus
 und führt den Foundation-Validator mit den projektspezifisch ausgewählten
 Adaptern und Capabilities aus. Sein Ergebnis fließt in den geschützten

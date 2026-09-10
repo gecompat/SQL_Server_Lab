@@ -21,6 +21,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Korrigiert
 
+- Container-Paketexport stellt bei Fehlern vor Bibliotheksübergabe den
+  ursprünglichen Datenbankzustand identitätsgebunden wieder her. Ein dauerhaftes
+  Quelljournal trennt Recovery und Payload-Cleanup; Wiederholungen prüfen offene
+  Vorgänge vor erneuter SQL-Mutation. Bibliotheksfehler behalten den Offline-Vertrag.
+
 - Windows-Aktivierung entfernt keine Adapter mehr anhand eines festen Namens.
   Ein Journal bindet Cleanup und Resume an VM, Scope, Adapter-ID und Vorbestand;
   ein bereits aktiver Slot loest keine Netzwerkmutation aus.
