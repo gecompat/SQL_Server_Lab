@@ -1612,7 +1612,13 @@ vollstaendigem Transfer; synthetische Offline-Pruefungen belegen Integritaet,
 Teilfehler-Cleanup und Hardlink-Schutz. Kopieren und Hashing besitzen ein
 Zeitlimit von einer Stunde. Ein Nachweis mit grossen VHDX-Dateien und
 Hyper-V-Lifecycle steht aus. SQL-/Containertransfers und Hyper-V-Gastwartepfade
-bleiben im UX-Punkt 11 offen.
+bleiben im UX-Punkt 11 offen. ZIP-Payloads fuer Backup, Attach und Script
+Bundles melden entpackte Bytes; native 7-Zip-Pruefung und -Extraktion verwenden
+einen gemeinsamen Archivreporter. ZIP-Integritaet und Teilfehler-Cleanup sind
+mit synthetischen Dateien geprueft. Der getrennte native 7-Zip-Lauf am
+2026-09-10 bestaetigte Backup-, MDF-/LDF-Extraktion und Cleanup bei fehlender
+Payload. Die Archiveintraege bleiben an den bestehenden Katalog- und
+Pfadvertrag gebunden.
 
 Der reservierte Statusbereich (`CUI-022`) hält Menüzeilen stabil. Eine Prüfung
 aller Docker-, Podman- und Hyper-V-Aufrufe am 2026-09-07 hat ergeben, dass

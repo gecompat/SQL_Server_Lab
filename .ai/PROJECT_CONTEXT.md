@@ -33,7 +33,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   sind geprueft, beide SQL-2025-Smokes bestanden 34/34 Pruefungen;
   Datei-/VHDX-Kopien und Hashing in Registry, Migration und Download-/Restore-
   Verifikation melden Bytewerte; Integritaet und Teilfehler sind offline
-  geprueft. SQL-/Containertransfers und Gastwartepfade bleiben UX-Folgearbeit;
+  geprueft. Sample-ZIP-Payloads melden entpackte Bytes, native 7-Zip-Schritte
+  nutzen denselben Reporter. SQL-/Containertransfers und Gastwartepfade bleiben UX-Folgearbeit;
 
 - PowerShell-Modul und öffentliche Cmdlets;
 - Docker-Provider;

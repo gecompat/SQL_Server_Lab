@@ -8,6 +8,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Sample-ZIP-Archive melden entpackte Bytewerte; 7-Zip-Schritte zeigen
+  hostseitigen Fortschritt. Mehrteilige Archive behalten denselben Reporter
+  bis zum Abschluss und entfernen eigene Teildateien nach Fehlern.
 - Datei-/VHDX-Kopien und Hashpruefungen in Registry, Migration und Download-/
   Restore-Verifikation zeigen gemessenen Bytefortschritt. Kopien ersetzen
   vorhandene Ziele erst nach vollstaendigem Transfer und entfernen eigene
