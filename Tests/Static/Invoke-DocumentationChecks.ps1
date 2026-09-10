@@ -856,6 +856,7 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'Repo-Map dokumentiert Foundation-Quelle, Adapter und semantische Zuordnung' `
     -Success ($repoMap -match 'source_commit: 7ddc29988b23570f462e46ebf527f8dfdd05fd75' -and
+        $repoMap -match 'foundation_ref: 7ddc29988b23570f462e46ebf527f8dfdd05fd75' -and
         $repoMap -match 'ruleset_version: "1\.8\.0"' -and
         $repoMap -match 'github-copilot' -and
         $repoMap -match 'sql_cu_watch_policy: ops/sql-cu-policy\.md' -and
@@ -1048,7 +1049,7 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'Projektkontext bildet den aktuellen Runtime- und Validierungsstand ab' `
     -Success ($projectContext -match [regex]::Escape('CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED') -and
-        $projectContext -match [regex]::Escape('| Stand | 2026-09-07 |') -and
+        $projectContext -match [regex]::Escape('| Stand | 2026-09-10 |') -and
         $projectContext -match 'realer Hyper-V-N5-Mehrgerätepfad' -and
         $projectContext -match 'drei reale Project-Adapter-Piloten' -and
         $projectContext -match 'SQL_PerformanceSchulung[\s\S]{0,160}SQL_Server_Analyze[\s\S]{0,160}SQL_Server_Toolbelt[\s\S]{0,240}Docker und Podman[\s\S]{0,100}end-to-end' -and

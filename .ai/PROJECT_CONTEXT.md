@@ -4,7 +4,7 @@
 |---|---|
 | Status | `BINDING` |
 | Runtime-Status | `CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED` |
-| Stand | 2026-09-07 |
+| Stand | 2026-09-10 |
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
@@ -35,9 +35,18 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Verifikation melden Bytewerte; Integritaet und Teilfehler sind offline
   geprueft. Sample-ZIP-Payloads melden entpackte Bytes, native 7-Zip-Schritte
   nutzen denselben Reporter. Native SQL-Probes, Abfragen, Skripte und Restore
-  sind an den Hostreporter angebunden. Containertransfers und Gastwartepfade bleiben UX-Folgearbeit;
+  sind an den Hostreporter angebunden. Containertransfers, BACPAC-Import und
+  dessen Cleanup sind fuer Docker und Podman getrennt nativ belegt.
+  PowerShell-Direct-/WinRM-Jobs, Gastwartephasen und Session-Dateikopien sind
+  angebunden und offline geprueft. Die vollstaendige Hyper-V-CLI-Abnahme vom
+  2026-09-10 belegt diese Pfade einschliesslich beider Session-Kopierrichtungen
+  und Cleanup. Legacy-WMI-Wartepfade bleiben UX-Folgearbeit;
 
 - PowerShell-Modul und öffentliche Cmdlets;
+- eigenstaendiger read-only Client-Readiness-Check, Repository-Skills fuer
+  Readiness/Validierung/Betrieb sowie maschinenlesbare Capability-Inventur;
+  deklarierte Faehigkeiten, vorhandene Testdateien und tatsaechlich
+  ausgefuehrte Nachweise bleiben dabei getrennt;
 - Docker-Provider;
 - Podman-Provider;
 - zentraler Host-Tool-Resolver für Docker, Podman und Python mit sicheren
