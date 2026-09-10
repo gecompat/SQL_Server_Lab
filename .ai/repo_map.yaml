@@ -1487,7 +1487,7 @@ validation:
       job: foundation-integrity
       runner: ubuntu-latest
       foundation_repository: gecompat/AI_Repository_Foundation
-      foundation_ref: d49f978f33001fcc098998ff7c04ffb209b28033
+      foundation_ref: 7ddc29988b23570f462e46ebf527f8dfdd05fd75
       selected_adapters:
         - github-copilot
       selected_capabilities: []
