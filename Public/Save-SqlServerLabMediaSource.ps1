@@ -78,13 +78,13 @@ function Save-SqlServerLabMediaSource {
         if ($file.Length -ne [long]$Definition.ExpectedBytes) {
             throw "SQL_MEDIA_SOURCE_SIZE_MISMATCH: $($Definition.Id) / erwartet $($Definition.ExpectedBytes), erhalten $($file.Length)"
         }
-        $sha256 = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+        $sha256 = (Get-LabProgressFileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($sha256 -ne ([string]$Definition.ExpectedSha256).ToLowerInvariant()) {
             throw "SQL_MEDIA_SOURCE_HASH_MISMATCH: $($Definition.Id) / erhalten $sha256"
         }
         $sha1 = $null
         if (-not [string]::IsNullOrWhiteSpace([string]$Definition.ExpectedSha1)) {
-            $sha1 = (Get-FileHash -LiteralPath $Path -Algorithm SHA1).Hash.ToLowerInvariant()
+            $sha1 = (Get-LabProgressFileHash -LiteralPath $Path -Algorithm SHA1).Hash.ToLowerInvariant()
             if ($sha1 -ne ([string]$Definition.ExpectedSha1).ToLowerInvariant()) {
                 throw "SQL_MEDIA_SOURCE_SHA1_MISMATCH: $($Definition.Id) / erhalten $sha1"
             }

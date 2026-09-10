@@ -360,7 +360,7 @@ function Restore-SqlServerLabDatabase {
     }
 
     if ($ExpectedSha256 -and -not $artifactResolution) {
-        $actualSha256 = (Get-FileHash -LiteralPath $backupPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $actualSha256 = (Get-LabProgressFileHash -LiteralPath $backupPath -Algorithm SHA256).Hash.ToLowerInvariant()
         if ($actualSha256 -ne $ExpectedSha256.ToLowerInvariant()) {
             throw "SHA-256-Pruefung fuer Backup '$BackupSource' fehlgeschlagen."
         }
@@ -384,7 +384,7 @@ function Restore-SqlServerLabDatabase {
             $runtime = 'hyperv'
             $backupBindings = @($storageContext.Receipt.FileBindings | Where-Object { [string]$_.Role -eq 'backup' })
             if ($backupBindings.Count -ne 1) { throw 'LAB_STORAGE_BACKUP_BINDING_EXACTLY_ONE_REQUIRED' }
-            $backupHashPrefix = (Get-FileHash -LiteralPath $backupPath -Algorithm SHA256).Hash.Substring(0,12).ToLowerInvariant()
+            $backupHashPrefix = (Get-LabProgressFileHash -LiteralPath $backupPath -Algorithm SHA256).Hash.Substring(0,12).ToLowerInvariant()
             $guestBackupPath = Get-LabStorageGuestChildPath -Root ([string]$backupBindings[0].SqlPhysicalPath) `
                 -Child "${DatabaseName}-${backupHashPrefix}.bak"
             Write-LabInfo "Kopiere Backup in die verifizierte Hyper-V-Storage-Lane: $guestBackupPath"

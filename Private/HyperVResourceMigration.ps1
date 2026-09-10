@@ -262,7 +262,7 @@ function Get-LabHyperVLegacyRunInventory {
             $file = Get-Item -LiteralPath $sourcePath -Force -ErrorAction Stop
             $legacyDisks += [PSCustomObject]@{
                 SourcePath=$sourcePath; DestinationPath=$destinationPath; Length=[long]$file.Length
-                Sha256=(Get-FileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
+                Sha256=(Get-LabProgressFileHash -LiteralPath $sourcePath -Algorithm SHA256).Hash.ToLowerInvariant()
                 VhdType=[string]$vhd.VhdType; Size=[long]$vhd.Size; FileSize=[long]$vhd.FileSize
                 DiskIdentifier=[string]$vhd.DiskIdentifier; ParentPath=$parentPath
                 ParentLocationId=if ($parentLocation.Count -eq 1) { [string]$parentLocation[0].LocationId } else { $null }
@@ -294,7 +294,7 @@ function Get-LabHyperVLegacyRunInventory {
         [PSCustomObject]@{
             RelativePath=[IO.Path]::GetRelativePath($paths.LegacyRoot, $_.FullName)
             Length=[long]$_.Length
-            Sha256=(Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            Sha256=(Get-LabProgressFileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
         }
     })
     $totalBytes = [long](($legacyFileInventory | Measure-Object -Property Length -Sum).Sum)
@@ -468,7 +468,7 @@ function Invoke-LabHyperVResourceMigration {
         $boundary = Test-LabPathWithinRoot -Root $paths.LegacyRoot -Path $source
         if (-not $boundary.Valid) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_SCOPE_INVALID: $source" }
         if (Test-Path -LiteralPath $source -PathType Leaf) {
-            $currentHash=(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
+            $currentHash=(Get-LabProgressFileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
             if ($currentHash -ne [string]$file.Sha256) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_CHANGED: $source" }
         }
         elseif (-not $journalWasPresent) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_FILE_MISSING: $source" }
@@ -490,7 +490,7 @@ function Invoke-LabHyperVResourceMigration {
     if ($requiresSqlReadiness -and -not $SaPassword) { throw 'HYPERV_RESOURCE_MIGRATION_SQL_CREDENTIAL_REQUIRED' }
     if (-not $PSCmdlet.ShouldProcess("Run $($plan.RunId)", "Hyper-V-Ressourcen nach $($plan.Target.ResourceRoot) migrieren")) { return $null }
 
-    $planHash = (Get-FileHash -LiteralPath $resolvedPlanPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $planHash = (Get-LabProgressFileHash -LiteralPath $resolvedPlanPath -Algorithm SHA256).Hash.ToLowerInvariant()
     $journal = if (Test-Path -LiteralPath $paths.Journal -PathType Leaf) {
         Get-Content -LiteralPath $paths.Journal -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
     } else {
@@ -553,8 +553,8 @@ function Invoke-LabHyperVResourceMigration {
                 $pathMap[$source] = $destination
                 $destinationDirectory = Split-Path -Parent $destination
                 if (-not (Test-Path -LiteralPath $destinationDirectory -PathType Container)) { New-Item -Path $destinationDirectory -ItemType Directory -Force | Out-Null }
-                $sourceHash = if (Test-Path -LiteralPath $source -PathType Leaf) { (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null }
-                $destinationHash = if (Test-Path -LiteralPath $destination -PathType Leaf) { (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null }
+                $sourceHash = if (Test-Path -LiteralPath $source -PathType Leaf) { (Get-LabProgressFileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null }
+                $destinationHash = if (Test-Path -LiteralPath $destination -PathType Leaf) { (Get-LabProgressFileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null }
                 $copyReceipt = @($journal.CopiedDisks | Where-Object { [string]::Equals([string]$_.DestinationPath, $destination, [StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1
                 $reparentReceipt = @($journal.ParentReparents | Where-Object { [string]::Equals([string]$_.DestinationPath, $destination, [StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1
                 $reboundReceipt = @($journal.ReboundDisks | Where-Object { [string]::Equals([string]$_.DestinationPath, $destination, [StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1
@@ -574,8 +574,8 @@ function Invoke-LabHyperVResourceMigration {
                 if (-not $destinationHash) {
                     if (-not $sourceHash) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_DISK_MISSING: $source" }
                     $temporary = "$destination.sql-lab-migrating"
-                    Copy-Item -LiteralPath $source -Destination $temporary -Force -ErrorAction Stop
-                    $copiedHash = (Get-FileHash -LiteralPath $temporary -Algorithm SHA256).Hash.ToLowerInvariant()
+                    Copy-LabProgressFile -LiteralPath $source -Destination $temporary -Force -ErrorAction Stop
+                    $copiedHash = (Get-LabProgressFileHash -LiteralPath $temporary -Algorithm SHA256).Hash.ToLowerInvariant()
                     if ($copiedHash -ne $sourceHash) { throw "HYPERV_RESOURCE_MIGRATION_HASH_MISMATCH: $source" }
                     Move-Item -LiteralPath $temporary -Destination $destination -Force -ErrorAction Stop
                     $destinationHash = $copiedHash
@@ -607,7 +607,7 @@ function Invoke-LabHyperVResourceMigration {
                     if (-not [string]::Equals([IO.Path]::GetFullPath([string]$targetVhd.ParentPath), $targetParent, [StringComparison]::OrdinalIgnoreCase)) {
                         throw "HYPERV_RESOURCE_MIGRATION_VHD_REPARENT_FAILED: $destination"
                     }
-                    $destinationHash = (Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
+                    $destinationHash = (Get-LabProgressFileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant()
                     $reparentReceipt = @($journal.ParentReparents | Where-Object { [string]::Equals([string]$_.DestinationPath, $destination, [StringComparison]::OrdinalIgnoreCase) }) | Select-Object -First 1
                     if (-not $reparentReceipt) {
                         $journal.ParentReparents += [PSCustomObject]@{ VMName=[string]$vmPlan.VMName; DestinationPath=$destination; State='COMPLETED'; SourceParentPath=[string]$disk.ParentPath; TargetParentPath=$targetParent; SourceSha256=[string]$disk.Sha256; TargetSha256=$destinationHash }
@@ -726,7 +726,7 @@ function Invoke-LabHyperVResourceMigration {
         foreach ($copy in @($journal.CopiedDisks)) {
             $source=[string]$copy.SourcePath; $destination=[string]$copy.DestinationPath
             if (Test-Path -LiteralPath $source -PathType Leaf) {
-                $sourceHash=(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
+                $sourceHash=(Get-LabProgressFileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
                 $expectedSourceHash = if ($copy.SourceSha256) { [string]$copy.SourceSha256 } else { [string]$copy.Sha256 }
                 if ($sourceHash -ne $expectedSourceHash) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_CLEANUP_HASH_MISMATCH: $source" }
                 $diskPlans = @(
@@ -772,7 +772,7 @@ function Invoke-LabHyperVResourceMigration {
             if ($source -in $copiedSourcePaths -or -not (Test-Path -LiteralPath $source -PathType Leaf)) { continue }
             $boundary = Test-LabPathWithinRoot -Root $paths.LegacyRoot -Path $source
             if (-not $boundary.Valid) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_CLEANUP_SCOPE_INVALID: $source" }
-            $sourceHash=(Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
+            $sourceHash=(Get-LabProgressFileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant()
             if ($sourceHash -ne [string]$file.Sha256) { throw "HYPERV_RESOURCE_MIGRATION_SOURCE_CHANGED: $source" }
             Remove-Item -LiteralPath $source -Force -ErrorAction Stop
             if ($source -notin @($journal.SourceCleanup)) { $journal.SourceCleanup += $source }

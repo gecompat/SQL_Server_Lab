@@ -31,7 +31,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   SQL-Bereitschaft und abgeleitete Container-Image-Builds; Loopback-Transfer,
   Readiness-Polls, stille native Prozesse und getrennte Docker-/Podman-Builds
   sind geprueft, beide SQL-2025-Smokes bestanden 34/34 Pruefungen;
-  weitere Transfer- und Gastwartepfade bleiben UX-Folgearbeit;
+  Datei-/VHDX-Kopien und Hashing in Registry, Migration und Download-/Restore-
+  Verifikation melden Bytewerte; Integritaet und Teilfehler sind offline
+  geprueft. SQL-/Containertransfers und Gastwartepfade bleiben UX-Folgearbeit;
 
 - PowerShell-Modul und öffentliche Cmdlets;
 - Docker-Provider;

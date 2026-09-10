@@ -8,6 +8,10 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Datei-/VHDX-Kopien und Hashpruefungen in Registry, Migration und Download-/
+  Restore-Verifikation zeigen gemessenen Bytefortschritt. Kopien ersetzen
+  vorhandene Ziele erst nach vollstaendigem Transfer und entfernen eigene
+  temporaere Dateien bei Teilfehlern.
 - Direkte Downloads, SQL-Bereitschaft und abgeleitete Container-Image-Builds
   verwenden einen gemeinsamen internen Fortschrittsreporter. Lange Downloads
   zeigen uebertragene Bytes, native Builds einen hostseitigen Heartbeat.

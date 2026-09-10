@@ -300,7 +300,7 @@ function Get-LabArtifactCacheEntry {
         $metadataPath = $legacyMetadataPath
     }
 
-    $actualSha256 = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $actualSha256 = (Get-LabProgressFileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actualSha256 -ne $digest) {
         Move-LabArtifactToQuarantine -Path $directory -Reason 'cache-hash-mismatch' -StateRoot $StateRoot | Out-Null
         return $null
@@ -518,7 +518,7 @@ function Resolve-LabArtifact {
         }
     }
 
-    $observed = (Get-FileHash -LiteralPath $stagingPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $observed = (Get-LabProgressFileHash -LiteralPath $stagingPath -Algorithm SHA256).Hash.ToLowerInvariant()
     if (-not $expected) {
         $expected = $observed
         $trustRecord = Register-LabArtifactTrustRecord `

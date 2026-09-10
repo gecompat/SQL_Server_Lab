@@ -46,7 +46,7 @@ function Resolve-LabHyperVMigratedParentImage {
     if ([string]$plan.ContractVersion -ne 'SqlServerLab.HyperVImageMigrationPlan/1.0' -or
         [string]$journal.ContractVersion -ne 'SqlServerLab.HyperVImageMigrationJournal/1.0' -or
         -not [bool]$journal.BindingCommitted) { return $null }
-    $planHash = (Get-FileHash -LiteralPath $paths.Plan -Algorithm SHA256).Hash.ToLowerInvariant()
+    $planHash = (Get-LabProgressFileHash -LiteralPath $paths.Plan -Algorithm SHA256).Hash.ToLowerInvariant()
     if ([string]$journal.PlanId -ne [string]$plan.PlanId -or [string]$journal.PlanSha256 -ne $planHash) {
         throw 'HYPERV_IMAGE_MIGRATION_PARENT_MAPPING_PLAN_CHANGED'
     }
@@ -82,7 +82,7 @@ function Resolve-LabHyperVMigratedParentImage {
         throw "HYPERV_IMAGE_MIGRATION_PARENT_MAPPING_SCOPE_INVALID: $sourceParent"
     }
     if (-not (Test-Path -LiteralPath $targetParent -PathType Leaf) -or
-        (Get-FileHash -LiteralPath $targetParent -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$artifact.ParentSha256 -or
+        (Get-LabProgressFileHash -LiteralPath $targetParent -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$artifact.ParentSha256 -or
         -not (Get-Item -LiteralPath $targetParent -Force).IsReadOnly -or -not (Test-HyperVVhdxSignature -Path $targetParent)) {
         throw "HYPERV_IMAGE_MIGRATION_PARENT_MAPPING_TARGET_INVALID: $targetParent"
     }
@@ -160,7 +160,7 @@ function New-LabHyperVImageMigrationPlan {
             }
             try { $metadata = Get-Content -LiteralPath $metadataPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40 -ErrorAction Stop }
             catch { $blockers.Add("HYPERV_IMAGE_MIGRATION_METADATA_INVALID: $artifactId"); continue }
-            $parentHash = (Get-FileHash -LiteralPath $parentPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            $parentHash = (Get-LabProgressFileHash -LiteralPath $parentPath -Algorithm SHA256).Hash.ToLowerInvariant()
             if ([string]$metadata.artifactId -ne $artifactId -or [string]$metadata.sha256 -ne $parentHash -or
                 -not (Get-Item -LiteralPath $parentPath -Force).IsReadOnly -or -not (Test-HyperVVhdxSignature -Path $parentPath)) {
                 $blockers.Add("HYPERV_IMAGE_MIGRATION_ARTIFACT_INTEGRITY_INVALID: $artifactId")
@@ -173,7 +173,7 @@ function New-LabHyperVImageMigrationPlan {
                     $destination = Assert-LabHyperVBoundPath -Binding $binding -Path (Join-Path $destinationDirectory $relative) -DataRoot $DataRoot
                     [PSCustomObject]@{
                         RelativePath = $relative; DestinationPath = $destination; Length = [long]$_.Length
-                        Sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+                        Sha256 = (Get-LabProgressFileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
                     }
                 }
             )
@@ -184,7 +184,7 @@ function New-LabHyperVImageMigrationPlan {
                 foreach ($file in $files) {
                     $target = Join-Path $destinationDirectory ([string]$file.RelativePath)
                     if (-not (Test-Path -LiteralPath $target -PathType Leaf) -or
-                        (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$file.Sha256) { $matches = $false; break }
+                        (Get-LabProgressFileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$file.Sha256) { $matches = $false; break }
                 }
                 if ($matches -and -not (Get-Item -LiteralPath (Join-Path $destinationDirectory 'parent.vhdx') -Force).IsReadOnly) { $matches = $false }
                 if ($matches) { $targetState = 'VERIFIED_COPY_PRESENT' }
@@ -266,7 +266,7 @@ function Invoke-LabHyperVImageMigration {
             $source = [IO.Path]::GetFullPath((Join-Path $sourceDirectory ([string]$file.RelativePath)))
             if (-not (Test-LabPathWithinRoot -Root $sourceDirectory -Path $source).Valid) { throw "HYPERV_IMAGE_MIGRATION_SOURCE_SCOPE_INVALID: $source" }
             if (Test-Path -LiteralPath $source -PathType Leaf) {
-                if ((Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$file.Sha256) { throw "HYPERV_IMAGE_MIGRATION_SOURCE_CHANGED: $source" }
+                if ((Get-LabProgressFileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$file.Sha256) { throw "HYPERV_IMAGE_MIGRATION_SOURCE_CHANGED: $source" }
             }
         }
     }
@@ -277,7 +277,7 @@ function Invoke-LabHyperVImageMigration {
     try {
         try { $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds(30)) } catch [Threading.AbandonedMutexException] { $acquired = $true }
         if (-not $acquired) { throw 'HYPERV_IMAGE_MIGRATION_LOCK_TIMEOUT' }
-        $planHash = (Get-FileHash -LiteralPath $resolvedPlanPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $planHash = (Get-LabProgressFileHash -LiteralPath $resolvedPlanPath -Algorithm SHA256).Hash.ToLowerInvariant()
         $journal = if (Test-Path -LiteralPath $paths.Journal -PathType Leaf) {
             Get-Content -LiteralPath $paths.Journal -Raw -Encoding utf8 | ConvertFrom-Json -Depth 60
         } else {
@@ -306,8 +306,8 @@ function Invoke-LabHyperVImageMigration {
                             $destination=Join-Path $stagingDirectory ([string]$file.RelativePath)
                             $destinationParent=Split-Path -Parent $destination
                             if (-not (Test-Path -LiteralPath $destinationParent -PathType Container)) { New-Item -Path $destinationParent -ItemType Directory -Force | Out-Null }
-                            Copy-Item -LiteralPath $source -Destination $destination -Force -ErrorAction Stop
-                            if ((Get-FileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$file.Sha256) { throw "HYPERV_IMAGE_MIGRATION_COPY_HASH_MISMATCH: $source" }
+                            Copy-LabProgressFile -LiteralPath $source -Destination $destination -Force -ErrorAction Stop
+                            if ((Get-LabProgressFileHash -LiteralPath $destination -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$file.Sha256) { throw "HYPERV_IMAGE_MIGRATION_COPY_HASH_MISMATCH: $source" }
                         }
                         (Get-Item -LiteralPath (Join-Path $stagingDirectory 'parent.vhdx') -Force).IsReadOnly=$true
                         Move-Item -LiteralPath $stagingDirectory -Destination $targetDirectory -ErrorAction Stop
@@ -315,7 +315,7 @@ function Invoke-LabHyperVImageMigration {
                 }
                 foreach ($file in @($artifact.Files)) {
                     $target=Join-Path $targetDirectory ([string]$file.RelativePath)
-                    if (-not (Test-Path -LiteralPath $target -PathType Leaf) -or (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$file.Sha256) { throw "HYPERV_IMAGE_MIGRATION_TARGET_INTEGRITY_FAILED: $target" }
+                    if (-not (Test-Path -LiteralPath $target -PathType Leaf) -or (Get-LabProgressFileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$file.Sha256) { throw "HYPERV_IMAGE_MIGRATION_TARGET_INTEGRITY_FAILED: $target" }
                 }
                 $targetParent=Join-Path $targetDirectory 'parent.vhdx'
                 if (-not (Get-Item -LiteralPath $targetParent -Force).IsReadOnly -or -not (Test-HyperVVhdxSignature -Path $targetParent)) { throw "HYPERV_IMAGE_MIGRATION_TARGET_INTEGRITY_FAILED: $targetParent" }
@@ -340,8 +340,8 @@ function Invoke-LabHyperVImageMigration {
                         $source=Join-Path $sourceDirectory ([string]$file.RelativePath)
                         $target=Join-Path ([string]$artifact.DestinationDirectory) ([string]$file.RelativePath)
                         if (-not (Test-Path -LiteralPath $source -PathType Leaf) -or -not (Test-Path -LiteralPath $target -PathType Leaf) -or
-                            (Get-FileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$file.Sha256 -or
-                            (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$file.Sha256) { throw "HYPERV_IMAGE_MIGRATION_SOURCE_CLEANUP_INTEGRITY_FAILED: $source" }
+                            (Get-LabProgressFileHash -LiteralPath $source -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$file.Sha256 -or
+                            (Get-LabProgressFileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() -ne [string]$file.Sha256) { throw "HYPERV_IMAGE_MIGRATION_SOURCE_CLEANUP_INTEGRITY_FAILED: $source" }
                     }
                     (Get-Item -LiteralPath ([string]$artifact.SourceParentPath) -Force).IsReadOnly=$false
                     Remove-Item -LiteralPath $sourceDirectory -Recurse -Force -ErrorAction Stop

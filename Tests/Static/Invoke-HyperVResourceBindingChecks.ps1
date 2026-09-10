@@ -297,7 +297,7 @@ try {
     Add-CheckResult -Name 'Image-Registry trennt Control-State von gebundenem Image- und Staging-Store' -Success (
         $registryText -match "ResourceId\s+'hyperv-image-store'[\s\S]+ResourceClass\s+Image" -and
         $registryText -match "ResourceId\s+'hyperv-staging-store'[\s\S]+ResourceClass\s+Staging" -and
-        $registryText -match 'Assert-LabHyperVBoundPath[\s\S]+Copy-Item[\s\S]+Move-Item'
+        $registryText -match 'Assert-LabHyperVBoundPath[\s\S]+Copy-LabProgressFile[\s\S]+Move-Item'
     )
     Add-CheckResult -Name 'Existing-VM-Konvertierung bindet Ziel und prueft die erzeugte Parent-Kopie' -Success (
         $environmentText -match 'Initialize-LabHyperVResourceBinding[\s\S]+Convert-VHD[\s\S]+HYPERV_SOURCE_PARENT_COPY_POSTCONDITION_FAILED'

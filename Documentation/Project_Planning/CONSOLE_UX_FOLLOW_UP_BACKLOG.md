@@ -250,8 +250,11 @@ versioniert.
 Teilstand 2026-09-10: Der gemeinsame direkte Reporter, die vier Downloadpfade,
 SQL-Readiness und die abgeleiteten Container-Image-Builds sind angebunden.
 Feste Phasen und Messwerte vermeiden die Ausgabe von Pfaden, Argumenten und
-nativen Rohdaten. Datei-/VHDX-Transfers, weitere SQL-/Containertransfers und
-Gastwartepfade bleiben Teil dieses offenen Punkts; der folgende Ausgangsbefund
+nativen Rohdaten. Datei-/VHDX-Kopien in Registry und beiden Migrationspfaden
+sowie die dortige und die Download-/Restore-Hashpruefung melden echte Bytewerte.
+Offline-Tests decken Integritaet, Teilfehler und atomare Zielersetzung ab;
+dies ist kein Nachweis fuer VM-Lifecycle oder produktive VHDX-Groessen.
+Weitere SQL-/Containertransfers und Gastwartepfade bleiben Teil dieses offenen Punkts; der folgende Ausgangsbefund
 beschreibt den Stand vor dieser Erweiterung.
 
 Geprüfter Ist-Zustand vom 2026-09-09: Das feste Statusband (`CUI-022`) zeigt

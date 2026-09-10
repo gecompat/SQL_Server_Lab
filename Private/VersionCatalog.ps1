@@ -277,7 +277,7 @@ function Confirm-SqlServerWindowsPatchPackage {
     if (-not $Patch.Sha256) {
         throw "SQL_WINDOWS_CU_HASH_NOT_CATALOGUED: $($Patch.Cu) · $($Patch.ArticleUrl)"
     }
-    $actual = (Get-FileHash -LiteralPath $Patch.WindowsPath -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+    $actual = (Get-LabProgressFileHash -LiteralPath $Patch.WindowsPath -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
     if ($actual -ne [string]$Patch.Sha256) {
         throw "SQL_WINDOWS_CU_HASH_MISMATCH: $($Patch.WindowsRelativePath)"
     }
@@ -347,7 +347,7 @@ function Save-SqlServerWindowsPatchPackage {
         if (-not (Test-Path -LiteralPath $temporary -PathType Leaf)) {
             throw "SQL_WINDOWS_CU_DOWNLOAD_MISSING: $($Patch.Cu)"
         }
-        $actual = (Get-FileHash -LiteralPath $temporary -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
+        $actual = (Get-LabProgressFileHash -LiteralPath $temporary -Algorithm SHA256 -ErrorAction Stop).Hash.ToLowerInvariant()
         if ($actual -ne [string]$Patch.Sha256) { throw "SQL_WINDOWS_CU_DOWNLOAD_HASH_MISMATCH: $($Patch.Cu)" }
         $null = Test-SqlServerWindowsPatchAuthenticode -Path $temporary -SignatureAction $SignatureAction
         Move-Item -LiteralPath $temporary -Destination $target -ErrorAction Stop
