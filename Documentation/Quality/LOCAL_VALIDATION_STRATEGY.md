@@ -1037,6 +1037,14 @@ Noch nicht vollständig automatisiert sind unter anderem:
 
 Diese Punkte bleiben Roadmap und dürfen nicht als validiert bezeichnet werden.
 
+`Invoke-CleanupVolumeOwnershipChecks.ps1` prüft zusätzlich den Netzwerkzweig
+des allgemeinen Cleanup-Kerns mit simulierten Docker-/Podman-Aufrufen:
+genau passende Run-/Scope-Labels erlauben die Entfernung; gemeinsame,
+fremde und nicht vollständig gebundene Netzwerke bleiben unverändert.
+Änderungen an `Private/CleanupEngine.ps1` wählen diese Ownership-Suite sowie
+alle fünf allgemeinen Runtime-Gates aus. Die Simulation ersetzt keinen
+nativen Lauf und keinen Prozessabbruch-/Wiederaufnahmenachweis.
+
 ## 11. Privacy-Validierung
 
 Vor Datei-, Git-, Package- oder Exportoperationen sind zu prüfen:

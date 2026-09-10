@@ -177,20 +177,21 @@ function Remove-LabRuntimeResourceForCleanup {
         return
     }
 
-    # Run-gebundene Volumes dürfen niemals allein wegen ihres im Journal
+    # Run-gebundene Volumes und Netzwerke dürfen niemals allein wegen ihres im Journal
     # gespeicherten Namens entfernt werden. Die Runtime-Labels sind die zweite,
     # unmittelbare Ownership-Evidence für genau diesen Run und Scope.
-    if ($ResourceType -eq 'volume') {
+    if ($ResourceType -in @('volume','network')) {
+        $errorPrefix = 'RUNTIME_' + $ResourceType.ToUpperInvariant()
         if ([string]::IsNullOrWhiteSpace($ExpectedRunId) -or [string]::IsNullOrWhiteSpace($ExpectedScopeId)) {
-            throw 'RUNTIME_VOLUME_OWNERSHIP_EXPECTATION_REQUIRED'
+            throw "${errorPrefix}_OWNERSHIP_EXPECTATION_REQUIRED"
         }
         try { $inspection = @($inspectionOutput | ConvertFrom-Json -Depth 20 -ErrorAction Stop)[0] }
-        catch { throw "RUNTIME_VOLUME_INSPECTION_INVALID: $ResourceId" }
+        catch { throw "${errorPrefix}_INSPECTION_INVALID: $ResourceId" }
         $labels = if ($inspection.Labels) { $inspection.Labels } elseif ($inspection.labels) { $inspection.labels } else { $null }
         if (-not $labels -or
             [string]$labels.'sql-server-lab.run-id' -ne $ExpectedRunId -or
             [string]$labels.'sql-server-lab.scope-id' -ne $ExpectedScopeId) {
-            throw "RUNTIME_VOLUME_OWNERSHIP_MISMATCH: $ResourceId"
+            throw "${errorPrefix}_OWNERSHIP_MISMATCH: $ResourceId"
         }
     }
 
@@ -500,7 +501,9 @@ function Invoke-CleanupPlan {
                     Remove-LabRuntimeResourceForCleanup `
                         -Provider $provider `
                         -ResourceType 'network' `
-                        -ResourceId $step.resourceId
+                        -ResourceId $step.resourceId `
+                        -ExpectedRunId ([string]$plan.runId) `
+                        -ExpectedScopeId $ScopeId
                 }
                 'persistent-storage-lease' {
                     if ($provider -notin @('docker','podman')) {

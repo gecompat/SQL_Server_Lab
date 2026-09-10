@@ -145,6 +145,7 @@ Add-CheckResult -Name 'CI-Infrastruktur prueft einmalig alle Runtime-Gates' -Suc
 
 # Einzelpfade verhindern, dass ein zweiter Dateiname eine fehlende Abhaengigkeit verdeckt.
 $dependencyCases = @(
+    @{ Path = 'Private/CleanupEngine.ps1'; Checks = @('Invoke-CleanupRecoveryChecks.ps1','Invoke-CleanupAuditChecks.ps1','Invoke-CleanupVolumeOwnershipChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
     @{ Path = 'Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1'); Runtime = @('Docker','Podman') },
     @{ Path = 'Tests/Integration/Fixtures/VectorIndex/1.0/setup.sql'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1'); Runtime = @('Docker','Podman') },
     @{ Path = 'Tests/Integration/Fixtures/VectorIndex/1.0/assert.sql'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1'); Runtime = @('Docker','Podman') },
