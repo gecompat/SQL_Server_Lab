@@ -27,6 +27,11 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 - Direkter Fortschritt zeigt die fertige Konsolenzeile statt der
   PowerShell-Objektbeschreibung des Formatierungsresultats.
+- Client-Readiness erkennt Linux ueber das Plattformmerkmal von PowerShell;
+  Distributionsnamen wie Ubuntu muessen das Wort Linux nicht enthalten.
+- Hyper-V-SQL-Slotinstallation behandelt fehlende optionale Trace Flags als
+  leere Besitzliste. Die typisierte Parameterbindung erzeugt daraus kein
+  ungueltiges Flag 0 mehr; explizit angegebenes Flag 0 bleibt abgewiesen.
 - BACPAC-Import entfernt auch nach fehlgeschlagener Uebertragung seine eigene
   temporaere Containerdatei. Import- und Cleanupfehler bleiben unterscheidbar.
 - sqlcmd-Treiberfehler werden auch bei Exitcode null als Fehler behandelt.

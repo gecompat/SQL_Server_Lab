@@ -64,6 +64,15 @@ ausgeschaltete eigene VM, unveraenderte Quelle, unabhaengiger Clone mit neuer
 DiskIdentifier, Reattach, Release und Cleanup. SQL- und Gast-Evidence dieses
 kleinen Hosttests ist modelliert und bleibt ausdruecklich separat.
 
+Am 2026-09-10 bestaetigte die getrennte Instanzstore-Abnahme fuer Docker und
+Podman den gemeinsamen Katalogkern fuer regulaere Leases und Mehr-Volume-
+Clones: stabile IDs, atomare Datenbankreferenzfreigabe, Continue, Digest fuer
+Hauptvolume und beide Sidecars, Katalogcommit sowie erhaltene Serverobjekte
+und Benutzerdaten. Nach beiden Laeufen blieben keine neuen Testcontainer,
+Testvolumes oder temporaeren Testverzeichnisse zurueck. Der Test begrenzt
+jeden SQL-Container auf 4 GB und zwei CPUs; SQL selbst auf 2048 MB. Vor der
+rekursiven Dateibereinigung wird der exakte eigene Temp-Pfad validiert.
+
 `Invoke-ContainerInstanceStoreChecks.ps1` prueft auch Preview und veraltete
 Revisionen fuer Clone-Lease und Zielregistrierung. Die synthetischen Spiegel
 bleiben bei Preview unveraendert; Apply registriert das Ziel und loest die
@@ -104,6 +113,20 @@ belegt den Bootstrap; `MutationAllowed` und `SkillLoaderVerified` bleiben false.
 `Tests/Static/Invoke-ClientReadinessChecks.ps1` prueft fehlende Installation,
 ungültige Aufloesung, Ausfuehrungs-/Runtimeberechtigung, Nichterreichbarkeit,
 Timeout, ungueltige Antworten und unvollstaendigen Checkout getrennt.
+
+`Tests/Static/Invoke-HyperVSqlOwnershipInitializationChecks.ps1` fuehrt den
+echten Initialisierungsaufruf aus dem SQL-Slotworkflow mit fehlenden, null,
+leeren, positiven und ungueltigen Trace Flags gegen synthetische Receipts aus.
+Der Gegenbeweis mit dem urspruenglichen Aufruf scheiterte am fehlenden Feld.
+Der native CLI-Lauf vom 2026-09-10 erreichte OOBE, SQL-Installation und
+Hostzugriff, scheiterte dann an `HYPERV_SQL_CONFIGURATION_OWNERSHIP_TRACE_FLAG_INVALID`
+und bereinigte alle acht Run-Ressourcen. Die Wiederholung nach Korrektur auf
+302a37d bestand im [nativen CLI-Lauf 34427219338](https://github.com/gecompat/SQL_Server_Lab/actions/runs/34427219338)
+mit 29 PASS-Meldungen und `CLEANUP_SUCCEEDED`: eigener Windows-Klon, OOBE,
+SQL-Installation und Konfiguration, Readiness, Kaltstart, Daten-/Storagepfade,
+Chinook und Ressourcenwechsel. Ein synthetischer 2-MB-Sessiontransfer in beide
+Richtungen wurde per Hashvergleich geprueft. Die interaktive Hostanzeige bleibt
+durch die separaten Offline-Vertraege abgedeckt; CI belegt deren Darstellung nicht.
 
 `SQL_Server_Lab` stellt seine Qualitätsprüfungen als lokal ausführbare Skripte bereit.
 
