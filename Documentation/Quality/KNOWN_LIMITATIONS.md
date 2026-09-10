@@ -805,7 +805,8 @@ Instanzmigration beziehungsweise Evaluation-Refresh ausgegeben werden.
 Für weitere querschnittliche Plattformlücken existiert jetzt ein eigener
 [Sammelbacklog](../Project_Planning/CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md).
 `Get-SqlServerLabEvaluationWatch`, die optionale SecretManagement-Auflösung,
-`Get-SqlServerLabRunStateUpgradePlan` und
+`Get-SqlServerLabRunStateUpgradePlan`,
+`Invoke-SqlServerLabRunStateUpgrade` und
 `Get-SqlServerLabHyperVRecoveryPointPlan` sowie
 `Get-SqlServerLabSqlObservabilityEvidence` decken jeweils nur ihren
 ausdrücklich read-only beziehungsweise statischen Teilvertrag ab. Die
@@ -822,7 +823,11 @@ führt keine Checkpoint-Erstellung, SQL-Quiesce, Retention oder Restore-Probe au
 Nicht implementiert sind insbesondere ein zeitgesteuerter Watchdog, ein
 portabler Gesamt-Lab-Exporter/-Importexecutor, konkrete externe Vault-Adapter,
 ein vollständiger Lifecycle verwalteter Recovery Points und ein ausführbarer Framework-/State-Upgrade-
-Lifecycle. Erweiterte
+Lifecycle für produktive oder unbekannte historische States. Der neue
+State-Upgrade-Executor migriert ausschließlich einen ausdrücklich mit
+`metadata.syntheticStateFixture=true` markierten, unversionierten synthetischen
+State atomar, sichert die Ausgangsrevision und journalisiert Commit oder
+Rollback; er verändert keine Provider- oder Runtime-Ressourcen. Erweiterte
 Kapazitätsquoten, Mehrbenutzerbetrieb sowie eine stabile Automation-API mit
 IaC-Adaptern bleiben zusätzlich `DECISION_REQUIRED`. Die Backlogaufnahme
 erteilt keine Runtime-, Remote-, Secret-, Export-, Import- oder
