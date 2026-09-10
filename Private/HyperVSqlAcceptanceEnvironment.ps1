@@ -388,6 +388,8 @@ function Invoke-HyperVSqlUnattendedOobe {
     }
 
     if ($legacyGuest) {
+        $blockingProgress = Start-LabBlockingActionProgress -Phase GuestWait
+        try {
         Write-LabInfo "OOBE: pruefe Windows-Readiness per Legacy-WMI"
         $adapterName = [string]@(Get-VMNetworkAdapter -VMName $vmName -ErrorAction Stop |
             Where-Object { $_.IsLegacy } | Select-Object -First 1).Name
@@ -435,6 +437,8 @@ function Invoke-HyperVSqlUnattendedOobe {
         Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
         return Set-HyperVSqlImageBuildState -BuildId $BuildId -State OOBE_COMPLETED `
             -Reason 'Windows-OOBE, Region Deutschland, UI en-US und deutsche Logon-Tastatur per WMI verifiziert' -StateRoot $StateRoot
+        }
+        finally { Stop-LabBlockingActionProgress -Handle $blockingProgress }
     }
 
     Write-LabInfo "OOBE: pruefe Windows-Readiness per PowerShell Direct oder Lab-WinRM"
@@ -554,6 +558,8 @@ function Invoke-HyperVLegacyGuestSystemScript {
         [ValidateRange(30, 10800)][int]$TimeoutSeconds = 600
     )
 
+    $blockingProgress = Start-LabBlockingActionProgress -Phase GuestWait
+    try {
     $scope = Connect-HyperVLegacyWindowsWmiScope -Address $Address -Namespace 'root\cimv2' -Credential $Credential
     $taskName = "SQL_Server_Lab_${Action}_$($BuildId.Replace('-', '').Substring(0, 8))"
     $guestRoot = "C:\ProgramData\SQL_Server_Lab\$BuildId\$Action"
@@ -596,6 +602,8 @@ function Invoke-HyperVLegacyGuestSystemScript {
         try { $null = Invoke-HyperVLegacyWindowsProcess -Scope $scope -CommandLine "cmd.exe /c schtasks.exe /Delete /TN $taskName /F" } catch { }
         if ($drive) { Remove-PSDrive -Name $driveName -Force -ErrorAction SilentlyContinue }
     }
+    }
+    finally { Stop-LabBlockingActionProgress -Handle $blockingProgress }
 }
 
 function Invoke-HyperVLegacySqlSetup {
@@ -901,6 +909,8 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
     Save-LabSecret -Path $build.BuildDirectory -Name 'sa-password' -Secret $SaPassword
     $setupVersionPattern = Get-HyperVSqlSetupVersionPattern -SqlVersion $build.sql.version
     $legacyGuest = [string]$build.parentArtifact.platform.guestControl -eq 'legacy-wmi'
+    $blockingProgress = if ($legacyGuest) { Start-LabBlockingActionProgress -Phase GuestWait }
+    try {
 
     if ($build.state -in @('MANUAL_ACTION_REQUIRED', 'OOBE_COMPLETED')) {
         Write-LabInfo "SQL Setup: starte SQL Server $($build.sql.version) im Gast $vmName"
@@ -1188,6 +1198,8 @@ finally{
     Write-HyperVSqlImageBuildState -BuildDirectory $build.BuildDirectory -State $build
     return Set-HyperVSqlImageBuildState -BuildId $BuildId -State SQL_READY_RUN `
         -Reason 'Windows spezialisiert und SQL-Dienst, Version sowie Systemdatenbanken verifiziert' -StateRoot $StateRoot
+    }
+    finally { if ($blockingProgress) { Stop-LabBlockingActionProgress -Handle $blockingProgress } }
 }
 
 function Test-HyperVSqlAcceptanceEnvironment {

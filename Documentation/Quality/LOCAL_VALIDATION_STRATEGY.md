@@ -53,6 +53,15 @@ eines synchronen .NET-Aufrufs und bestaetigt den Reporter-Cleanup nach dessen
 Rueckkehr. Der WMI-Transport bleibt unveraendert; ein vollstaendiger neuer
 Legacy-Gastlauf ist damit nicht behauptet.
 
+Die zusaetzliche Legacy-SQL-Fixture in derselben Suite verwendet den echten
+Host-Receipt-Wartepfad mit synthetischem WMI-/SMB-Transport. Sie reproduzierte
+die fehlende Anzeige zwischen den WMI-Aufrufen. Nach Einbindung des gesamten
+Wartepfads sind Heartbeat, Receipt-Ausgabe, Verbindungs-/Receipt-Fehler,
+Transport-Cleanup und geliehener Reporter geprueft. Legacy-OOBE und direkte
+Setup-Abfragen verwenden denselben bereits vorhandenen Reporter. Der
+Produkttransport und dessen Abbruchlatenz bleiben unveraendert; ein neuer
+Legacy-Gastlauf steht weiterhin aus.
+
 `Invoke-HyperVPersistentDataDriveChecks.ps1` prueft Operations-Lease,
 Recovery-Markierung und Reattach-/Release-Abschluss mit schreibfreier Preview,
 Revisionskonflikten und bestehenden Clone-/Resume-Fehlerpfaden.

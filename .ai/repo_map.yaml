@@ -283,6 +283,7 @@ sources_of_truth:
   validation_runtime_contracts: Tests/Static/Invoke-ReadinessContractChecks.ps1
   direct_action_progress: Private/ActionProgress.ps1
   blocking_action_progress: Private/BlockingActionProgress.ps1
+  legacy_sql_wait_progress: Private/HyperVSqlAcceptanceEnvironment.ps1
   validation_blocking_action_progress: Tests/Static/Invoke-BlockingActionProgressChecks.ps1
   direct_transfer_progress: Private/TransferProgress.ps1
   direct_archive_progress: Private/ArchiveProgress.ps1

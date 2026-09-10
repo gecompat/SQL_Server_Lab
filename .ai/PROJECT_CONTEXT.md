@@ -40,7 +40,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   PowerShell-Direct-/WinRM-Jobs, Gastwartephasen und Session-Dateikopien sind
   angebunden und offline geprueft. Die vollstaendige Hyper-V-CLI-Abnahme vom
   2026-09-10 belegt diese Pfade einschliesslich beider Session-Kopierrichtungen
-  und Cleanup. Legacy-WMI-Wartepfade bleiben UX-Folgearbeit;
+  und Cleanup. Legacy-WMI verwendet einen lokalen Reporter-Runspace auch bei
+  blockiertem Hauptthread. Die SQL-Receipt-Wartephase, Legacy-OOBE und direkte
+  SQL-Setup-Abfragen teilen nun einen durchgehenden Reporter; dessen Ausgabe,
+  Fehler und Cleanup sind offline geprueft. Neue Legacy-Gast-Evidence bleibt
+  separat offen;
 
 - PowerShell-Modul und öffentliche Cmdlets;
 - eigenstaendiger read-only Client-Readiness-Check, Repository-Skills fuer
