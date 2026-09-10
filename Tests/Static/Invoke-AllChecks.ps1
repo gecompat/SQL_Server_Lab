@@ -59,6 +59,7 @@ $checks = @(
     'Invoke-PersistentStorageRemovalExecutorChecks.ps1',
     'Invoke-BackupLibraryChecks.ps1',
     'Invoke-DatabasePackageChecks.ps1',
+    'Invoke-ContainerDatabasePackageRecoveryChecks.ps1',
     'Invoke-DatabaseMigrationDependencyChecks.ps1',
     'Invoke-AiScenarioChecks.ps1',
     'Invoke-ContainerInstanceStoreChecks.ps1',

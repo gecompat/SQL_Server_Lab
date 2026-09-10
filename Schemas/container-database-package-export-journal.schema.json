@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Container database package source export journal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "OperationId", "RunId", "ScopeId", "InstanceId", "Provider", "ContainerId", "DatabaseName", "DatabaseGuid", "FileIdentity", "OriginalState", "OriginalAccess", "Status", "FailureCode", "SourceRecovery", "CleanupState", "PublishedResult", "UpdatedAt"],
+  "allOf": [{"if": {"properties": {"OriginalState": {"const": "ONLINE"}}}, "then": {"properties": {"DatabaseGuid": {"type": "string"}}}}],
+  "properties": {
+    "ContractVersion": {"const": "SqlServerLab.ContainerDatabasePackageExportJournal/1.0"},
+    "OperationId": {"type": "string", "format": "uuid"},
+    "RunId": {"type": "string", "format": "uuid"},
+    "ScopeId": {"type": "string", "format": "uuid"},
+    "InstanceId": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,127}$"},
+    "Provider": {"enum": ["docker", "podman"]},
+    "ContainerId": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "DatabaseName": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,127}$"},
+    "DatabaseGuid": {"type": ["string", "null"], "format": "uuid"},
+    "FileIdentity": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "object", "additionalProperties": false, "required": ["FileId", "Fingerprint"], "properties": {"FileId": {"type": "integer", "minimum": 1, "maximum": 32767}, "Fingerprint": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}}},
+    "OriginalState": {"enum": ["ONLINE", "OFFLINE"]},
+    "OriginalAccess": {"enum": ["MULTI_USER", "SINGLE_USER", "RESTRICTED_USER"]},
+    "Status": {"enum": ["PREPARED", "COPYING", "PUBLISHING", "COMPLETED", "ROLLED_BACK", "RECOVERY_REQUIRED"]},
+    "FailureCode": {"type": ["string", "null"], "pattern": "^[A-Z][A-Z0-9_]+$"},
+    "SourceRecovery": {"enum": ["NOT_REQUIRED", "RESTORE_ORIGINAL_STATE", "RESTORED", "PRESERVE_OFFLINE"]},
+    "CleanupState": {"enum": ["PENDING", "CLEANED", "FAILED"]},
+    "PublishedResult": {"type": ["object", "null"], "additionalProperties": false, "required": ["Status", "DatabasePackageId", "PersistentStorageId"], "properties": {"Status": {"const": "REUSABLE"}, "DatabasePackageId": {"type": "string", "format": "uuid"}, "PersistentStorageId": {"type": "string", "format": "uuid"}}},
+    "UpdatedAt": {"type": "string", "format": "date-time"}
+  }
+}

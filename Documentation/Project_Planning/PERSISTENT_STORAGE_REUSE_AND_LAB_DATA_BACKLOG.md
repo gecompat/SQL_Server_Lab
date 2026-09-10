@@ -583,6 +583,14 @@ controllergebundenen Katalog samt Cleanup bestätigt. Das Ergebnis bleibt
 oder Attach; diese Datenbankaktion und CLI-/GUI-Flows gehören weiterhin zu
 `PSR-009` beziehungsweise `PSR-011`.
 
+Stand 2026-09-10, `PSR-009`: Der Container-Export schreibt vor dem
+Offline-Schalten ein an Run, Scope, Container und SQL-Datenbank-/Dateiidentität gebundenes
+Quelljournal. Teilfehler vor Bibliotheksübergabe stellen den ursprünglichen
+Zustand wieder her; Resume prüft offene Recovery und Payload-Cleanup zuerst.
+Nach Bibliotheksübergabe bleibt die Quelle offline und ein offener
+Bibliotheksvorgang sperrt Wiederholungen. Die getrennte Bibliotheks-Recovery
+sowie weitere Provider- und FILESTREAM-/TDE-Exportbindungen bleiben offen.
+
 Stand 2026-09-02: `Get-SqlServerLabWorkflow`,
 `Invoke-SqlServerLabWorkflowAction` und die Browser-Oberfläche
 inventarisieren dieselben katalogisierten Hyper-V-Daten-VHDX pfadfrei anhand

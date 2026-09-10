@@ -181,6 +181,9 @@ sources_of_truth:
   persistent_storage_removal_preview: Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1
   persistent_storage_removal_executor: Private/PersistentStorageRemovalExecutor.ps1
   container_database_package: Private/ContainerDatabasePackage.ps1
+  container_database_package_recovery: Private/ContainerDatabasePackageRecovery.ps1
+  container_database_package_export_journal_schema: Schemas/container-database-package-export-journal.schema.json
+  validation_container_database_package_recovery: Tests/Static/Invoke-ContainerDatabasePackageRecoveryChecks.ps1
   persistent_storage_removal_action: Public/Invoke-SqlServerLabPersistentStorageRemoval.ps1
   persistent_storage_removal_intent_schema: Schemas/persistent-storage-removal-intent.schema.json
   persistent_storage_removal_plan_schema: Schemas/persistent-storage-removal-plan.schema.json

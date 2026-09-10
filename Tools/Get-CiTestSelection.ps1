@@ -83,6 +83,7 @@ end {
         @{ Pattern = '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact))'; Checks = @('Invoke-PersistentStorageCatalogChecks.ps1','Invoke-BackupLibraryChecks.ps1','Invoke-DatabasePackageChecks.ps1') },
         @{ Pattern = '(?i)(BackupLibrary|backup-library|Backup-SqlServerLabDatabase|Restore-SqlServerLabDatabase)'; Checks = @('Invoke-BackupLibraryChecks.ps1','Invoke-DatabaseMigrationDependencyChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(DatabasePackage|database-package)'; Checks = @('Invoke-DatabasePackageChecks.ps1','Invoke-DatabaseMigrationDependencyChecks.ps1') },
+        @{ Pattern = '(?i)(ContainerDatabasePackage|container-database-package)'; Checks = @('Invoke-ContainerDatabasePackageRecoveryChecks.ps1') },
         @{ Pattern = '(?i)(DatabaseMigrationDependency|database-migration-dependency)'; Checks = @('Invoke-DatabaseMigrationDependencyChecks.ps1','Invoke-BackupLibraryChecks.ps1','Invoke-DatabasePackageChecks.ps1') },
         @{ Pattern = '(?i)(AiScenario|ai-scenario|ai-(model-catalog|endpoint-plan|runtime-journal|query-result)|Catalogs[\\/]ai-models|SQL2025_AI_PLATFORM|SQL2025_VECTOR_EMBEDDING|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioContractChecks.ps1') },
