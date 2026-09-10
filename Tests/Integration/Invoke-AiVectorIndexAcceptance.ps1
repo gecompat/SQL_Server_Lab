@@ -28,9 +28,9 @@ $credential=$null; $report=$null; $mutex=$null; $acquired=$false
 function Invoke-AnnQuery {
     param([Parameter(Mandatory)][string]$Query,[string]$Database='master',[int]$TimeoutSeconds=300)
     $builder=[Data.SqlClient.SqlConnectionStringBuilder]::new()
-    $builder.DataSource="127.0.0.1,$($lab.Instances[0].Port)"
-    $builder.InitialCatalog=$Database; $builder.Encrypt=$true; $builder.TrustServerCertificate=$true
-    $builder.ConnectTimeout=15; $builder.Pooling=$false
+    $builder['Data Source']="127.0.0.1,$($lab.Instances[0].Port)"
+    $builder['Initial Catalog']=$Database; $builder['Encrypt']=$true; $builder['TrustServerCertificate']=$true
+    $builder['Connect Timeout']=15; $builder['Pooling']=$false
     $connection=[Data.SqlClient.SqlConnection]::new($builder.ConnectionString,$credential)
     $command=$null
     try {
