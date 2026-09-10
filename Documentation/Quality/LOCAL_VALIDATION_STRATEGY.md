@@ -92,6 +92,26 @@ von Symlinks/Junctions einschliesslich indirektem Modulimport. Das Inventar
 fuehrt keine Tests oder Runtime-Probes aus und ersetzt keinen semantischen
 Backlog-Abgleich.
 
+Der versionierte [Nachweisindex](capability-evidence-index.json) ergänzt diese
+Inventur um getrennte historische Prüfungen. Jeder Eintrag bindet Fähigkeit,
+Provider, SQL-Version beziehungsweise `null`, Plattform, Scope, vollständige
+Quellrevision, Testdatei, Ergebnis, Cleanup, Datum und öffentliche PR-/CI-/
+Commitreferenz. Er ist eine kleine Querverweistabelle, keine zweite Task- oder
+Runtime-Registry. Frühere Fehler bleiben erhalten; spätere Ergebnisse erhalten
+eine eigene Zeile. Native SQL-Abnahmen benötigen eine SQL-Version und einen
+Integrationstest; statische Hyper-V-Checks werden dadurch nicht nativ.
+
+Die Inventur liest den optionalen Index schema-validiert, auf 256 KiB begrenzt
+und ohne Symlinks/Junctions. Ungültige Einträge ergeben `PARTIAL` sowie einen
+sanitisierten Fehlercode; unbekannte Payloadfelder und `PASS` ohne geklärten
+Cleanup werden abgewiesen. `RecordedEvidence` bleibt stets
+`RECORDED_HISTORY_ONLY`; vorhandene Testdateien werden nur als `PRESENT`
+referenziert. `CurrentExecutionStatus` und die allgemeine Runtime-Evidence
+bleiben `NOT_EXECUTED`. Die Inventur prüft weder den Inhalt externer Referenzen
+noch die Existenz historischer Commits und bestätigt keine aktuelle
+Quellgleichheit. Neue Einträge benötigen daher eine geprüfte tatsächliche
+Ausführung mit sanitisiertem Quellenbeleg. Es werden keine Rohlogs importiert.
+
 Die Persistent-Storage-Katalogsuite prueft auch den umgestellten
 Container-Datenbankreferenz-Writer: Preview ohne Katalogschreiben, genau eine
 Revision beim Apply, stabile Referenz-IDs bei No-op sowie Abweisung einer

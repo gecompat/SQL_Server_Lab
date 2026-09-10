@@ -104,6 +104,8 @@ sources_of_truth:
   validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
   repository_capability_inventory: Tools/Get-SqlServerLabCapabilityInventory.ps1
+  repository_capability_evidence_index: Documentation/Quality/capability-evidence-index.json
+  repository_capability_evidence_schema: Schemas/capability-evidence-index.schema.json
   validation_repository_capability_inventory: Tests/Static/Invoke-CapabilityInventoryChecks.ps1
   client_readiness_core: Private/ClientReadiness.ps1
   validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1
