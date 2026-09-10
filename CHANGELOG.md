@@ -8,6 +8,8 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Korrigiert
 
+- Client-Readiness erkennt Linux ueber das Plattformmerkmal von PowerShell;
+  Distributionsnamen wie Ubuntu muessen das Wort Linux nicht enthalten.
 - Hyper-V-SQL-Slotinstallation behandelt fehlende optionale Trace Flags als
   leere Besitzliste. Die typisierte Parameterbindung erzeugt daraus kein
   ungueltiges Flag 0 mehr; explizit angegebenes Flag 0 bleibt abgewiesen.
