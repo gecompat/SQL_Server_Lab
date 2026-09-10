@@ -201,9 +201,27 @@ try {
                 -RunId $leaseRun -ScopeId $leaseScope -SqlVersion '2025-latest' -DisplayName 'Lease test' `
                 -DataRoot $root -Configuration $config
             $script:leaseTestRuntimeStorageId=[string]$acquired.Store.PersistentStorageId; $script:leaseTestRuntimeStatus='AVAILABLE'
+            $referencePreview=Sync-LabContainerInstanceStoreDatabaseReference `
+                -PersistentStorageId ([string]$acquired.Store.PersistentStorageId) -RunId $leaseRun -ScopeId $leaseScope `
+                -DatabaseName @('ApplicationOne','ApplicationTwo') -Configuration $config -ExpectedRevision $acquired.CatalogRevision -Preview
+            $afterReferencePreview=Get-LabPersistentStorageCatalog -Configuration $config
             $databaseReferences=Sync-LabContainerInstanceStoreDatabaseReference `
                 -PersistentStorageId ([string]$acquired.Store.PersistentStorageId) -RunId $leaseRun -ScopeId $leaseScope `
-                -DatabaseName @('ApplicationOne','ApplicationTwo') -Configuration $config
+                -DatabaseName @('ApplicationOne','ApplicationTwo') -Configuration $config -ExpectedRevision $referencePreview.CatalogRevision
+            $staleReferenceBlocked=$false
+            try {
+                $null=Sync-LabContainerInstanceStoreDatabaseReference `
+                    -PersistentStorageId ([string]$acquired.Store.PersistentStorageId) -RunId $leaseRun -ScopeId $leaseScope `
+                    -DatabaseName @('UnexpectedDatabase') -Configuration $config -ExpectedRevision $referencePreview.CatalogRevision
+            }
+            catch {$staleReferenceBlocked=$_.Exception.Message -match 'PERSISTENT_STORAGE_CATALOG_REVISION_CONFLICT'}
+            $foreignReferenceBlocked=$false
+            try {
+                $null=Sync-LabContainerInstanceStoreDatabaseReference `
+                    -PersistentStorageId ([string]$acquired.Store.PersistentStorageId) -RunId ([guid]::NewGuid().ToString()) -ScopeId $leaseScope `
+                    -DatabaseName @('UnexpectedDatabase') -Configuration $config
+            }
+            catch {$foreignReferenceBlocked=$_.Exception.Message -match 'CONTAINER_INSTANCE_STORE_DATABASE_REFERENCE_LEASE_CONFLICT'}
             $databaseReferencesAgain=Sync-LabContainerInstanceStoreDatabaseReference `
                 -PersistentStorageId ([string]$acquired.Store.PersistentStorageId) -RunId $leaseRun -ScopeId $leaseScope `
                 -DatabaseName @('ApplicationTwo','ApplicationOne') -Configuration $config
@@ -229,6 +247,8 @@ try {
             return [PSCustomObject]@{
                 PreRelease=$preRelease; Acquired=$acquired; Released=$released; Reacquired=$reacquired; ForeignBlocked=$foreignBlocked
                 DatabaseReferences=$databaseReferences; DatabaseReferencesAgain=$databaseReferencesAgain
+                ReferencePreview=$referencePreview; AfterReferencePreview=$afterReferencePreview
+                StaleReferenceBlocked=$staleReferenceBlocked; ForeignReferenceBlocked=$foreignReferenceBlocked
                 RecoveryBlocked=$recoveryBlocked; Catalog=$after
             }
         }
@@ -248,9 +268,20 @@ try {
         @($leaseEvidence.Acquired.Store.References | Where-Object State -eq 'ACTIVE').Count -eq 1)
     Add-CheckResult -Name 'Verifizierte Datenbanken erhalten stabile idempotente Katalogreferenzen unter derselben Run-Lease' -Success (
         $leaseEvidence.DatabaseReferences.Changed -and -not $leaseEvidence.DatabaseReferencesAgain.Changed -and
+        (@($leaseEvidence.DatabaseReferences.Store.References.ReferenceId | Sort-Object) -join '|') -eq
+            (@($leaseEvidence.DatabaseReferencesAgain.Store.References.ReferenceId | Sort-Object) -join '|') -and
         @($leaseEvidence.DatabaseReferences.Store.References | Where-Object {
             $_.Kind -eq 'DATABASE' -and $_.State -eq 'ACTIVE' -and $_.TargetId -in @('ApplicationOne','ApplicationTwo')
         }).Count -eq 2)
+    Add-CheckResult -Name 'Datenbankreferenz-Preview schreibt nichts und Apply erhoeht die Revision genau einmal' -Success (
+        $leaseEvidence.ReferencePreview.Preview -and $leaseEvidence.ReferencePreview.Changed -and
+        $leaseEvidence.AfterReferencePreview.Document.Revision -eq $leaseEvidence.Acquired.CatalogRevision -and
+        @($leaseEvidence.AfterReferencePreview.Document.Stores[0].References | Where-Object Kind -eq 'DATABASE').Count -eq 0 -and
+        $leaseEvidence.DatabaseReferences.CatalogRevision -eq ($leaseEvidence.Acquired.CatalogRevision+1) -and
+        $leaseEvidence.DatabaseReferencesAgain.CatalogRevision -eq $leaseEvidence.DatabaseReferences.CatalogRevision)
+    Add-CheckResult -Name 'Veraltete Revision und fremder Run koennen Datenbankreferenzen nicht ueberschreiben' -Success (
+        $leaseEvidence.StaleReferenceBlocked -and $leaseEvidence.ForeignReferenceBlocked -and
+        @($leaseEvidence.DatabaseReferencesAgain.Store.References | Where-Object TargetId -eq 'UnexpectedDatabase').Count -eq 0)
     Add-CheckResult -Name 'Release bewahrt den Runtime-Store, löst Lease sowie Run-/Datenbankreferenzen und erlaubt dieselbe stabile ID erneut' -Success (
         $leaseEvidence.Released.Store.State -eq 'DETACHED' -and -not $leaseEvidence.Released.Store.Lease -and
         @($leaseEvidence.Released.Store.References | Where-Object State -eq 'RELEASED').Count -eq 3 -and

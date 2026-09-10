@@ -92,7 +92,10 @@ Clone registriert das unabhängige Ziel und gibt die Quelle atomar frei,
 Reattach committed `IN_USE`, und Release löst Run-/Datenbankreferenzen mit der
 Lease. Teilfehler bleiben katalogisiert `RECOVERY_REQUIRED`, alle drei Commits
 sind journalisiert und idempotent. Die Umstellung der übrigen Instanzstore-
-Writer, Bestandsmigration weiterer Storage-Klassen,
+Writer bleibt offen; der Writer fuer verifizierte Container-Datenbankreferenzen
+nutzt jetzt denselben Mutationskern mit read-only Preview und optionaler
+erwarteter Revision. Stabile Referenz-IDs, exklusiver Run-/Scope-Lease-Schutz,
+genau ein Revisionsschritt und No-op bleiben erhalten. Bestandsmigration weiterer Storage-Klassen,
 providerübergreifende Wiederverwendung und Löschung bleiben getrennte
 Folgearbeit.
 

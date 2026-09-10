@@ -15,6 +15,9 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Der Container-Datenbankreferenz-Writer nutzt den gemeinsamen
+  Persistent-Storage-Mutationskern mit Preview und erwartetem Revisionsstand.
+  Stabile Referenz-IDs und der exklusive Run-/Scope-Lease-Schutz bleiben erhalten.
 - Repository-Skills fuer Readiness, Validierung und Lab-Lifecycle verwenden
   die vorhandenen oeffentlichen Fachvertraege; ihre Metadaten, Dateiverweise
   und exportierten Befehle werden lokal und impact-basiert geprueft.

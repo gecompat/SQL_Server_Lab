@@ -1426,7 +1426,9 @@ function Sync-LabContainerInstanceStoreDatabaseReference {
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$RunId,
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$ScopeId,
         [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$DatabaseName,
-        [Parameter(Mandatory)]$Configuration
+        [Parameter(Mandatory)]$Configuration,
+        [ValidateRange(-1,2147483647)][int]$ExpectedRevision=-1,
+        [switch]$Preview
     )
 
     $databaseNames = @($DatabaseName | ForEach-Object {
@@ -1440,12 +1442,11 @@ function Sync-LabContainerInstanceStoreDatabaseReference {
         throw 'CONTAINER_INSTANCE_STORE_DATABASE_REFERENCE_CONFIGURATION_INVALID'
     }
 
-    return Invoke-LabPersistentStorageCatalogLock -ControllerId ([string]$Configuration.ControllerId) -ScriptBlock {
-        $catalog = Get-LabPersistentStorageCatalog -Configuration $Configuration
-        if ([string]$catalog.Status -ne 'AVAILABLE') {
-            throw "PERSISTENT_STORAGE_CATALOG_MUTATION_BLOCKED: $([string]$catalog.Status)"
-        }
-        $storeMatches = @($catalog.Document.Stores | Where-Object {
+    $newReferenceId=${function:New-LabPersistentStorageId}
+    $referenceTimestamp=Get-LabTimestamp
+    $mutation = {
+        param($Document)
+        $storeMatches = @($Document.Stores | Where-Object {
             [string]$_.PersistentStorageId -eq $PersistentStorageId
         })
         if ($storeMatches.Count -ne 1) { throw 'CONTAINER_INSTANCE_STORE_DATABASE_REFERENCE_STORE_UNRESOLVED' }
@@ -1463,8 +1464,7 @@ function Sync-LabContainerInstanceStoreDatabaseReference {
             Group-Object { ([string]$_.TargetId).ToUpperInvariant() } | Where-Object Count -gt 1)
         if ($duplicateTargets.Count -gt 0) { throw 'CONTAINER_INSTANCE_STORE_DATABASE_REFERENCE_DUPLICATE' }
 
-        $next = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
-        $nextStore = @($next.Stores | Where-Object { [string]$_.PersistentStorageId -eq $PersistentStorageId })[0]
+        $nextStore = $store
         $changed = $false
         foreach ($reference in @($nextStore.References | Where-Object { [string]$_.Kind -eq 'DATABASE' })) {
             $shouldBeActive = [string]$reference.TargetId -iin $databaseNames
@@ -1476,19 +1476,20 @@ function Sync-LabContainerInstanceStoreDatabaseReference {
                 [string]$_.Kind -eq 'DATABASE' -and [string]$_.TargetId -ieq $database
             }).Count -eq 0) {
                 $nextStore.References = @($nextStore.References) + @([PSCustomObject][ordered]@{
-                    ReferenceId=(New-LabPersistentStorageId); Kind='DATABASE'; State='ACTIVE'; TargetId=$database
+                    ReferenceId=(& $newReferenceId); Kind='DATABASE'; State='ACTIVE'; TargetId=$database
                 })
                 $changed = $true
             }
         }
-        if (-not $changed) {
-            return [PSCustomObject]@{ Changed=$false; Store=$store; CatalogRevision=[int]$catalog.Document.Revision }
-        }
-        $nextStore.UpdatedAt = Get-LabTimestamp
-        $next.Revision = [int]$next.Revision + 1
-        $null = Test-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
-        $null = Write-LabPersistentStorageCatalogDocument -Document $next -Configuration $Configuration
-        return [PSCustomObject]@{ Changed=$true; Store=$nextStore; CatalogRevision=[int]$next.Revision }
+        if ($changed) { $nextStore.UpdatedAt = $referenceTimestamp }
+        return [string]$nextStore.PersistentStorageId
+    }.GetNewClosure()
+    $transaction=Invoke-LabPersistentStorageCatalogMutation -Configuration $Configuration `
+        -MutationName SYNC_CONTAINER_DATABASE_REFERENCES -Mutation $mutation -ExpectedRevision $ExpectedRevision -Preview:$Preview
+    $store=@($transaction.Document.Stores | Where-Object PersistentStorageId -eq ([string]$transaction.Value))[0]
+    return [PSCustomObject]@{
+        Changed=[bool]$transaction.Changed; Store=$store; CatalogRevision=[int]$transaction.CatalogRevision
+        ProposedRevision=[int]$transaction.ProposedRevision; Preview=[bool]$transaction.Preview
     }
 }
 
