@@ -267,6 +267,7 @@ $newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/New-SqlSer
 $getLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Get-SqlServerLab.ps1') -Raw -Encoding utf8
 $toolProbeSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Test-SqlServerLabContainerTool.ps1') -Raw -Encoding utf8
 $toolAcceptanceSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-ContainerToolAcceptance.ps1') -Raw -Encoding utf8
+$toolImageSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ContainerToolImage.ps1') -Raw -Encoding utf8
 $legacyInstallerSource = [regex]::Match(
     $serverConfigSource,
     '(?s)function Install-LabExternalLanguages\s*\{.*?(?=\r?\nfunction\s|\z)'
@@ -313,6 +314,13 @@ Add-CheckResult -Name 'Container-Tool-Probe bindet Run und Scope und akzeptiert 
     $toolProbeSource -match 'sql-server-lab\.scope-id' -and
     $toolProbeSource -match '/opt/sql-server-lab/tools/sqlpackage/sqlpackage /Version' -and
     $toolProbeSource -notmatch '\[string\[\]\]\$Arguments|\[string\]\$Command|Copy-Item|docker cp|podman cp'
+)
+Add-CheckResult -Name 'Container-Tool-Image übernimmt ein vorhandenes gleiches Image nur bei passender Schlüssel- und Toolbindung' -Success (
+    $toolImageSource -match 'existingPlannedImage\s*=\s*Get-LabContainerToolLocalImageEvidence' -and
+    $toolImageSource -match 'existingPlannedImage\.ImageKey\s+-eq\s+\[string\]\$ImagePlan\.ImageKey' -and
+    $toolImageSource -match 'existingPlannedImage\.ToolIds\s+-eq\s+''sqlpackage''' -and
+    $toolImageSource -match 'Write-LabArtifactJsonAtomic\s+-Path\s+\$receiptPath' -and
+    $toolAcceptanceSource -match 'Bereits vorhandenes Derived Image blieb unveraendert'
 )
 Add-CheckResult -Name 'Container-Tool-Akzeptanz prueft Manifest, Probe, Restart und scoped Cleanup nativ' -Success (
     $toolAcceptanceSource -match 'New-SqlServerLab -Manifest' -and

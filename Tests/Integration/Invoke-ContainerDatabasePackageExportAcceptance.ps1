@@ -5,7 +5,8 @@
 .DESCRIPTION
     Erstellt einen isolierten Docker- oder Podman-Run, veröffentlicht eine
     Benutzerdatenbank ausschließlich über Run-, Instanz- und Datenbank-ID und
-    prüft WhatIf, Offline-Postcondition, stabile Paket-/Storage-IDs, vollständige
+    prüft WhatIf, Quell-Recovery nach injiziertem Kopierfehler,
+    Offline-Postcondition, stabile Paket-/Storage-IDs, vollständige
     Integritätsprüfung und Cleanup. Es werden keine Hostpfade oder Secrets als
     Acceptance-Evidence persistiert.
 #>
@@ -61,7 +62,41 @@ try {
 
     $preview=Export-SqlServerLabDatabasePackage -RunId $lab.RunId -InstanceId primary -DatabaseName $databaseName -DataRoot $dataRoot -StateRoot $stateRoot -WhatIf
     Assert-ContainerPackageExport ($preview.Status -eq 'PLANNED' -and -not $preview.DatabasePackageId -and $preview.Provider -eq $Provider) 'WhatIf plant ohne Paket- oder Storage-ID-Mutation'
+    $recovery=& $module {
+        param($Run,$State,$Root,$Name)
+        $originalNative=(Get-Command Invoke-LabProgressNativeCommand -CommandType Function).ScriptBlock
+        $script:packageNativeCopyFault=$false
+        function Invoke-LabProgressNativeCommand {
+            [CmdletBinding()]
+            param([string]$FilePath,[string[]]$ArgumentList,[string]$Phase='ImageBuild',[int]$TimeoutSeconds=3600,$Progress)
+            if($ArgumentList[0] -eq 'cp'){$script:packageNativeCopyFault=$true;return [pscustomobject]@{ExitCode=1;Output=@()}}
+            & $originalNative @PSBoundParameters
+        }
+        $failed=$false
+        try{$null=Export-SqlServerLabDatabasePackage -RunId $Run -InstanceId primary -DatabaseName $Name -DataRoot $Root -StateRoot $State -Confirm:$false}
+        catch{$failed=$_.Exception.Message -match 'CONTAINER_DATABASE_PACKAGE_COPY_FAILED'}
+        $context=Get-LabContainerReconcileContext -RunId $Run -InstanceId primary -StateRoot $State
+        $secret=Get-LabSecret -Path $context.RunDirectory -Name 'sa-password'
+        $plain=ConvertFrom-LabSecureString -SecureString $secret
+        try{$observed=Get-LabContainerPackageDatabaseState -Context $context -DatabaseName $Name -SaPlain $plain}
+        finally{$plain=$null}
+        $journals=@(Get-ChildItem -LiteralPath (Join-Path $context.RunDirectory 'database-package-export') -Recurse -Filter source-journal.json | ForEach-Object {Get-Content $_.FullName -Raw | ConvertFrom-Json})
+        [pscustomobject]@{FaultInjected=$script:packageNativeCopyFault;Failed=$failed;State=$observed.State;Access=$observed.Access;RolledBack=(@($journals | Where-Object {$_.Status -eq 'ROLLED_BACK' -and $_.SourceRecovery -eq 'RESTORED'}).Count -eq 1)}
+    } $lab.RunId $stateRoot $dataRoot $databaseName
+    Assert-ContainerPackageExport ($recovery.FaultInjected -and $recovery.Failed -and $recovery.State -eq 'ONLINE' -and $recovery.Access -eq 'MULTI_USER' -and $recovery.RolledBack) 'Kontrollierter Kopierfehler stellt den echten SQL-Zustand wieder her und journalisiert den Rollback'
+    $cleanupRecovery=& $module {
+        param($Run,$State,$Root,$Name)
+        function Remove-LabContainerPackageExportPayload {throw 'SYNTHETIC_PAYLOAD_CLEANUP_FAILURE'}
+        $failed=$false
+        try{$null=Export-SqlServerLabDatabasePackage -RunId $Run -InstanceId primary -DatabaseName $Name -DataRoot $Root -StateRoot $State -Confirm:$false}
+        catch{$failed=$_.Exception.Message -eq 'CONTAINER_DATABASE_PACKAGE_PAYLOAD_CLEANUP_FAILED'}
+        $context=Get-LabContainerReconcileContext -RunId $Run -InstanceId primary -StateRoot $State
+        $journals=@(Get-ChildItem -LiteralPath (Join-Path $context.RunDirectory 'database-package-export') -Recurse -Filter source-journal.json | ForEach-Object {Get-Content $_.FullName -Raw | ConvertFrom-Json} | Where-Object {$_.PublishedResult})
+        [pscustomobject]@{Failed=$failed;JournalCount=$journals.Count;Result=if($journals.Count -eq 1){$journals[0].PublishedResult}else{$null}}
+    } $lab.RunId $stateRoot $dataRoot $databaseName
+    Assert-ContainerPackageExport ($cleanupRecovery.Failed -and $cleanupRecovery.JournalCount -eq 1 -and $cleanupRecovery.Result.DatabasePackageId) 'Cleanup-Fehler nach echter Publikation bewahrt die stabilen Ergebnis-IDs'
     $published=Export-SqlServerLabDatabasePackage -RunId $lab.RunId -InstanceId primary -DatabaseName $databaseName -DataRoot $dataRoot -StateRoot $stateRoot -Confirm:$false
+    Assert-ContainerPackageExport ($published.DatabasePackageId -eq $cleanupRecovery.Result.DatabasePackageId -and $published.PersistentStorageId -eq $cleanupRecovery.Result.PersistentStorageId -and @(Get-SqlServerLabDatabasePackage -DataRoot $dataRoot).Count -eq 1) 'Cleanup-Resume revalidiert das vorhandene Paket ohne doppelte Publikation'
     Assert-ContainerPackageExport ($published.Status -eq 'REUSABLE' -and $published.DatabasePackageId -match '^[0-9a-f-]{36}$' -and $published.PersistentStorageId -match '^[0-9a-f-]{36}$') 'Öffentlicher Export liefert stabile Paket- und Storage-ID'
     $selection=@(Get-SqlServerLabDatabasePackage -DatabasePackageId $published.DatabasePackageId -DataRoot $dataRoot -VerifyIntegrity)
     Assert-ContainerPackageExport ($selection.Count -eq 1 -and $selection[0].Availability -eq 'SELECTABLE' -and $selection[0].IntegrityValidation -eq 'VERIFIED') 'Veröffentlichtes Paket ist vollständig hashverifiziert selektierbar'

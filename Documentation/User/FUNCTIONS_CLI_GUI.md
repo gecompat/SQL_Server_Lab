@@ -138,6 +138,12 @@ Legende:
 
 ## Datenbankpakete und Migrationsinventur
 
+Ein fehlgeschlagener Container-Paketexport stellt vor Bibliotheksübergabe den
+ursprünglichen SQL-Zustand bei unveränderter Quellidentität wieder her. Derselbe
+Exportaufruf beendet zuerst eine ausstehende Quell-Recovery und Payload-Bereinigung.
+Nach Bibliotheksübergabe bleibt die Quelle offline; eine ungeklärte
+Bibliotheks-Recovery blockiert den erneuten Export ausdrücklich.
+
 | Cmdlet | Kurzbeschreibung | Konsolenmenü | Browser-GUI |
 |---|---|---|---|
 | [`Get-SqlServerLabDatabasePackage`](../../Public/Get-SqlServerLabDatabasePackage.ps1) | Inventarisiert Datenbankpakete pfadfrei und kann deren Integrität vollständig revalidieren. | Datenbanken und Verbindungen → Datenbankpakete anzeigen | über Core: Paketbibliothek und Migrationsplan-Projektion in der Workflow-Inventur |

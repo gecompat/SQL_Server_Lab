@@ -115,9 +115,49 @@ if ($failures.Count -eq 0) {
     Assert-Contains $dockerProvider 'Find-LabAvailablePort' 'Docker verwendet nicht die gemeinsame Portermittlung.'
     Assert-Contains $dockerProvider 'address already in use[\s\S]+\$nextPort\s*=\s*\$selectedPort\s*\+\s*1' 'Docker wiederholt automatische Portbindungskonflikte nicht mit dem naechsten Port.'
     Assert-Contains $dockerProvider "NetworkSettings\.Ports\.'1433/tcp'" 'Docker verifiziert die tatsächlich veröffentlichte SQL-Portbindung nach dem Containerstart nicht.'
+    Assert-Contains $dockerProvider 'function\s+Wait-DockerSqlPortBinding' 'Docker wartet nicht begrenzt auf eine nach dem Start verzögert sichtbare SQL-Portbindung.'
+    Assert-Contains $dockerProvider 'Start-Sleep\s+-Milliseconds\s+200' 'Docker pollt die verzögert sichtbare Portbindung nicht mit begrenzter kurzer Wartezeit.'
+    Assert-Contains $dockerProvider 'Wait-DockerSqlPortBinding\s+-DockerInvocation\s+\$dockerInvocation\s+-ContainerId\s+\$containerId\s+-Port\s+\$selectedPort[\s\S]{0,300}?\n\s*break' 'Docker entfernt einen frisch gestarteten Container vor der begrenzten Portbindungsabfrage.'
     Assert-Contains $dockerProvider 'DOCKER_PORT_BINDING_NOT_PUBLISHED' 'Docker besitzt keinen klaren Fehlercode für einen erfolgreich gemeldeten Start ohne Portbindung.'
     Assert-Contains $dockerProvider 'rm -f \$containerName[\s\S]+bindingVerificationRetries' 'Docker entfernt einen Container ohne veröffentlichte Portbindung nicht vor dem begrenzten Wiederholungsversuch.'
     Assert-Contains $dockerProvider '&\s+\$dockerInvocation\s+rm\s+-f\s+\$containerName' 'Docker entfernt einen bei Bindungsfehler teilweise angelegten Container nicht vor dem Retry.'
+
+    $portBindingProbeRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-port-binding-probe-$([guid]::NewGuid().ToString('N'))"
+    $portBindingProbeScript = Join-Path $portBindingProbeRoot 'fake-docker.ps1'
+    $portBindingProbeCounter = Join-Path $portBindingProbeRoot 'calls.txt'
+    try {
+        New-Item -ItemType Directory -Path $portBindingProbeRoot -Force | Out-Null
+        @'
+param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
+$countPath = $env:SQL_SERVER_LAB_PORT_BINDING_PROBE_COUNTER
+$count = if (Test-Path -LiteralPath $countPath) { [int](Get-Content -LiteralPath $countPath -Raw) } else { 0 }
+$count++
+Set-Content -LiteralPath $countPath -Value $count -NoNewline -Encoding ascii
+if ($count -lt 3) {
+    '{"NetworkSettings":{"Ports":{}}}'
+}
+else {
+    '{"NetworkSettings":{"Ports":{"1433/tcp":[{"HostIp":"127.0.0.1","HostPort":"14335"}]}}}'
+}
+'@ | Set-Content -LiteralPath $portBindingProbeScript -Encoding utf8
+        $env:SQL_SERVER_LAB_PORT_BINDING_PROBE_COUNTER = $portBindingProbeCounter
+        . $dockerProviderPath
+        $settled = Wait-DockerSqlPortBinding -DockerInvocation $portBindingProbeScript -ContainerId ('a' * 64) -Port 14335 -TimeoutSeconds 2
+        $probeCalls = [int](Get-Content -LiteralPath $portBindingProbeCounter -Raw)
+        if (-not $settled -or $probeCalls -ne 3) {
+            $failures.Add('Docker wartet nicht bis eine verzögert veröffentlichte Portbindung tatsächlich sichtbar ist.')
+        }
+    }
+    catch {
+        $failures.Add("Docker-Portbindungs-Polling konnte nicht charakterisiert werden: $($_.Exception.Message)")
+    }
+    finally {
+        Remove-Item Env:SQL_SERVER_LAB_PORT_BINDING_PROBE_COUNTER -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $portBindingProbeRoot) {
+            Remove-Item -LiteralPath $portBindingProbeRoot -Recurse -Force
+        }
+    }
+
     Assert-Contains $dockerProvider 'MSSQL_MEMORY_LIMIT_MB=\$sqlMemoryLimitMB' 'Docker setzt kein SQL-internes Memory-Limit mit Headroom unterhalb des cgroup-Limits.'
     Assert-Contains $dockerProvider '\$effectiveMemoryMB\s*\*\s*0\.8' 'Docker reserviert keinen 20-Prozent-Headroom unterhalb des Containerlimits.'
     Assert-Contains $dockerProvider '--health-cmd[^\r\n]+\s-C\s' 'Docker-Healthcheck vertraut dem gebundenen selbstsignierten Containerzertifikat nicht explizit.'

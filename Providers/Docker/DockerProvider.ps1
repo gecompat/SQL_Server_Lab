@@ -194,6 +194,56 @@ function Initialize-DockerSqlNamedVolume {
     return (-not $volumeExists)
 }
 
+function Wait-DockerSqlPortBinding {
+    <#
+    .SYNOPSIS
+        Wartet begrenzt auf die nach einem erfolgreichen Docker-Start sichtbare SQL-Portbindung.
+    .DESCRIPTION
+        Docker Desktop kann die Container-ID bereits zurückgeben, bevor der
+        Inspect-Endpoint die NAT-Bindung enthält. Der Container bleibt während
+        dieser kurzen Abfrage bestehen: ein sofortiges Entfernen würde bei
+        gemountetem SQL-Datenvolume eine unvollständige Systemdatenbank
+        hinterlassen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$DockerInvocation,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{12,64}$')][string]$ContainerId,
+        [Parameter(Mandatory)][ValidateRange(1,65535)][int]$Port,
+        [ValidateRange(1,15)][int]$TimeoutSeconds = 5
+    )
+
+    $stopwatch = [Diagnostics.Stopwatch]::StartNew()
+    do {
+        $inspect = $null
+        try {
+            $raw = @(& $DockerInvocation inspect $ContainerId 2>$null)
+            if ($raw) {
+                $inspect = @($raw | ConvertFrom-Json -Depth 30 -ErrorAction Stop)[0]
+            }
+        }
+        catch {
+            $inspect = $null
+        }
+
+        $publishedBindings = if ($inspect -and $inspect.NetworkSettings -and $inspect.NetworkSettings.Ports) {
+            @($inspect.NetworkSettings.Ports.'1433/tcp')
+        }
+        else { @() }
+        $expectedBinding = @($publishedBindings | Where-Object {
+            [string]$_.HostPort -eq [string]$Port -and [string]$_.HostIp -eq '127.0.0.1'
+        })
+        if ($publishedBindings.Count -eq 1 -and $expectedBinding.Count -eq 1) {
+            return $true
+        }
+        if ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds) {
+            Start-Sleep -Milliseconds 200
+        }
+    } while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds)
+
+    return $false
+}
+
 function New-DockerInstance {
     [CmdletBinding()]
     param(
@@ -391,16 +441,7 @@ function New-DockerInstance {
                         throw "Docker lieferte keine gueltige Container-ID: $(($output | Out-String).Trim())$logHint"
                     }
 
-                    $inspect = $null
-                    try { $inspect = @(& $dockerInvocation inspect $containerId 2>$null | ConvertFrom-Json -Depth 30)[0] } catch { $inspect = $null }
-                    $publishedBindings = if ($inspect -and $inspect.NetworkSettings -and $inspect.NetworkSettings.Ports) {
-                        @($inspect.NetworkSettings.Ports.'1433/tcp')
-                    }
-                    else { @() }
-                    $expectedBinding = @($publishedBindings | Where-Object {
-                        [string]$_.HostPort -eq [string]$selectedPort -and [string]$_.HostIp -eq '127.0.0.1'
-                    })
-                    if ($LASTEXITCODE -eq 0 -and $publishedBindings.Count -eq 1 -and $expectedBinding.Count -eq 1) {
+                    if (Wait-DockerSqlPortBinding -DockerInvocation $dockerInvocation -ContainerId $containerId -Port $selectedPort) {
                         break
                     }
 

@@ -12,6 +12,15 @@
     FILESTREAM und TDE ohne eigenständigen Recovery-Key-Vertrag bleiben vor der
     Offline-Mutation gesperrt. Freie Container-, Host- oder Zielpfade sind kein
     Teil dieses Befehls.
+
+    Vor dem Offline-Schalten wird der Originalzustand mit Run-, Container- und
+    Datenbank-GUID sowie SQL-Dateiidentitaeten journalisiert. SQL Server liefert
+    offline keine Datenbank-GUID; dann sichern unveraenderte Datei-GUIDs und
+    Fingerprints der Katalogbindung die Identitaetspruefung. Fehler vor der Bibliotheksuebergabe stellen
+    diesen Zustand nur bei unveraenderter Identitaet wieder her; eine Wiederholung
+    beendet zuerst eine ausstehende Quell-Recovery. Nach Bibliotheksuebergabe
+    bleibt die Quelle offline und eine ungeklärte Bibliotheks-Recovery sperrt
+    weitere Exporte. Payload-Cleanup wird getrennt vom Quellzustand journalisiert.
 .PARAMETER RunId
     Stabile ID des laufenden verwalteten Container-Runs.
 .PARAMETER InstanceId
