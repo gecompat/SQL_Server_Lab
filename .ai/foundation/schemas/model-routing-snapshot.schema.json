@@ -1,0 +1,28 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/model-routing-snapshot.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "catalog_epoch": {"minLength": 1, "type": "string"},
+    "contract": {"const": "foundation-model-router/v1"},
+    "generated_at": {"format": "date-time", "type": "string"},
+    "pricing_epochs": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "routes": {
+      "additionalProperties": false,
+      "properties": {
+        "BALANCED": {"type": "object"},
+        "ECONOMICAL": {"type": "object"},
+        "FRONTIER": {"type": "object"},
+        "LOCAL": {"type": "object"}
+      },
+      "required": ["LOCAL", "ECONOMICAL", "BALANCED", "FRONTIER"],
+      "type": "object"
+    },
+    "runtime_only": {"const": true},
+    "schema_version": {"const": 1},
+    "valid_until": {"format": "date-time", "type": "string"}
+  },
+  "required": ["schema_version", "contract", "generated_at", "valid_until", "catalog_epoch", "pricing_epochs", "runtime_only", "routes"],
+  "title": "Foundation model routing runtime snapshot",
+  "type": "object"
+}

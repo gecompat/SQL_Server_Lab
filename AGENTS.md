@@ -21,6 +21,12 @@ Tool-specific adapters must lead back to this repository entry point and may not
 
 Foundation validation covers Foundation integration integrity only. Preserve and use the target repository's existing semantic validators, static contracts, tests, reviews, and manual validation when their contracts are affected. A green Foundation validator is not evidence that the entire project is validated.
 
+When the optional `model-router` capability is present and the task requires a concrete model choice, follow `.ai/foundation/MODEL_ROUTING_POLICY.md` and use the router's local MCP, CLI, launcher, or unexpired snapshot interface in that order. Do not infer remote authorization or invent a model/price when the router returns no eligible route.
+
+For AI-assisted development, research, documentation, data, media, or project-defined work that may use interchangeable tools or services, follow `.ai/foundation/AI_WORK_ORCHESTRATION_POLICY.md`. Treat every runtime as optional, keep payloads separate from the control plane, apply privacy/authority/health/validation/resource constraints before ranking, and report manual, unavailable, or blocked work truthfully. Optional planners, routers, adapters, executors, provisioners, client integrations, and orchestrators may assist only when explicitly selected; none is required or grants execution authority.
+
+Do not claim that a requested model or subagent actually ran unless an explicitly trusted host/adapter issuer provides execution or response metadata attesting the actual model; an evidence label or model self-report alone is insufficient. If automatic dispatch is unavailable or cannot be attested, use an expiring privacy-safe manual handoff when available: recommend the portable tier/capabilities and, only from fresh eligible runtime evidence, a concrete model for the user to select. Keep prompt content outside control-plane records and mark the result `MANUAL_DISPATCH_REQUIRED` until execution evidence exists.
+
 Chat history, memory, prior scratchpads, and vendor-specific project prompts are not durable project truth.
 <!-- AI_REPOSITORY_FOUNDATION:END -->
 

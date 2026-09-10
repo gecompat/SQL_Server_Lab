@@ -1,0 +1,42 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/execution-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "attempts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "capability_id": {"minLength": 1, "type": "string"},
+          "actual_cost_usd": {"minimum": 0, "type": "number"},
+          "ended_at": {"format": "date-time", "type": "string"},
+          "error_class": {"type": ["string", "null"]},
+          "operation_key": {"minLength": 1, "type": "string"},
+          "output_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": ["string", "null"]},
+          "resource_usage": {"additionalProperties": {"minimum": 0, "type": "number"}, "type": "object"},
+          "started_at": {"format": "date-time", "type": "string"},
+          "status": {"enum": ["SUCCEEDED", "FAILED", "CANCELLED", "UNKNOWN"], "type": "string"},
+          "step_id": {"minLength": 1, "type": "string"}
+        },
+        "required": ["step_id", "capability_id", "operation_key", "status", "started_at", "ended_at", "error_class"],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "contract": {"const": "foundation-ai-work/v1"},
+    "finished_at": {"format": "date-time", "type": "string"},
+    "plan_id": {"minLength": 1, "type": "string"},
+    "reason_codes": {"items": {"minLength": 1, "type": "string"}, "type": "array"},
+    "remaining_actions": {"items": {"minLength": 1, "type": "string"}, "type": "array"},
+    "report_id": {"minLength": 1, "type": "string"},
+    "resource_usage": {"additionalProperties": {"minimum": 0, "type": "number"}, "type": "object"},
+    "schema_version": {"const": 1},
+    "status": {"enum": ["COMPLETED", "FAILED", "CANCELLED", "MANUAL_REQUIRED", "UNAVAILABLE", "BLOCKED"], "type": "string"},
+    "validation_evidence_ids": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "validation_status": {"enum": ["PASSED", "FAILED", "INCONCLUSIVE", "UNAVAILABLE", "NOT_REQUIRED"], "type": "string"},
+    "work_id": {"minLength": 1, "type": "string"}
+  },
+  "required": ["schema_version", "contract", "report_id", "plan_id", "work_id", "status", "finished_at", "attempts", "validation_evidence_ids", "resource_usage", "reason_codes", "remaining_actions"],
+  "title": "Foundation AI execution report",
+  "type": "object"
+}

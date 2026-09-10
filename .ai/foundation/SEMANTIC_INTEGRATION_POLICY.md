@@ -100,6 +100,7 @@ When an existing adapter contains substantive project rules:
 More detailed target policies remain valid. The Foundation provides stable cross-project semantics, not a requirement to discard richer project policy.
 
 - Existing validation statuses may extend Foundation reserved meanings as defined by `VALIDATION_POLICY.md`.
+- Existing CI supersession, queue, cancellation, resource-cleanup, and integration-candidate controls remain project-owned. A project that selects a different compatible mechanism is `PROJECT_SELECTABLE_OVERRIDE` when it retains the required commit binding and fail-safe treatment of mutating runtime validation.
 - Existing model/cost policies may remain more detailed and map semantically to Foundation routing tiers.
 - Existing privacy scanners may be stricter; legally required Foundation provenance uses the narrow exception described by `DATA_PRIVACY_AND_CONFIDENTIALITY.md`, not a global weakening.
 - Existing identifier conventions remain valid when they preserve stable meaning and no-reuse.
@@ -119,4 +120,5 @@ Semantic integration is complete only when:
 - any identifier adoption mode is explicit and historical references remain resolvable;
 - the Registration Authority is discoverable when final project references are created or allocated;
 - optional Foundation reference clients have not displaced a compatible project allocator without an explicit decision;
+- installed provenance records every selected baseline or intentional override with portable source/installed hashes and a specific reason for each override; missing or stale provenance remains `UNKNOWN_DRIFT` rather than implied approval;
 - `FOUNDATION_INTEGRITY` validation remains separated from `PROJECT_SEMANTIC` and `RUNTIME_EMPIRICAL` validation.

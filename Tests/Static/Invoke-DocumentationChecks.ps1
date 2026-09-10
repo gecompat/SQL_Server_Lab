@@ -562,6 +562,7 @@ $coreFiles = @(
     '.ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md'
     '.ai/foundation-upgrade-assessments/1.4.0-to-1.7.0.json'
     '.ai/foundation-upgrade-assessments/1.7.0-to-1.8.0.json'
+    '.ai/foundation-upgrade-assessments/1.8.0-to-1.18.0.json'
     '.ai/foundation/FOUNDATION_RULESET.md'
     '.ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md'
     '.ai/foundation/PROJECT_RULES.md'
@@ -675,7 +676,7 @@ $foundationUpgradeAssessmentPath = Join-Path $repoRoot '.ai\foundation-upgrade-a
 $foundationUpgradeAssessmentSchemaPath = Join-Path $repoRoot '.ai\foundation\schemas\upgrade-assessment.schema.json'
 $foundationUpgradeAssessmentJson = Get-Content -LiteralPath $foundationUpgradeAssessmentPath -Raw -Encoding utf8
 $foundationUpgradeAssessment = $foundationUpgradeAssessmentJson | ConvertFrom-Json -Depth 100
-$currentFoundationUpgradeAssessmentPath = Join-Path $repoRoot '.ai\foundation-upgrade-assessments\1.7.0-to-1.8.0.json'
+$currentFoundationUpgradeAssessmentPath = Join-Path $repoRoot '.ai\foundation-upgrade-assessments\1.8.0-to-1.18.0.json'
 $currentFoundationUpgradeAssessmentJson = Get-Content -LiteralPath $currentFoundationUpgradeAssessmentPath -Raw -Encoding utf8
 $currentFoundationUpgradeAssessment = $currentFoundationUpgradeAssessmentJson | ConvertFrom-Json -Depth 100
 $foundationRuleset = Get-Content -LiteralPath (Join-Path $repoRoot '.ai\foundation\FOUNDATION_RULESET.md') -Raw -Encoding utf8
@@ -844,13 +845,15 @@ Add-ValidationResult `
     -Message "BEGIN=$foundationBridgeBeginCount; END=$foundationBridgeEndCount"
 
 Add-ValidationResult `
-    -Name 'Foundation-Ruleset, Index und Feature-Katalog sind auf Version 1.8.0 gebunden' `
-    -Success ($foundationRuleset -match 'Ruleset version: 1\.8\.0' -and
-        $foundationRepoMap -match 'foundation_ruleset_version: 1\.8\.0' -and
-        $foundationFeatureCatalog -match '"ruleset_version"\s*:\s*"1\.8\.0"' -and
+    -Name 'Foundation-Ruleset, Index und Feature-Katalog sind auf Version 1.18.0 gebunden' `
+    -Success ($foundationRuleset -match 'Ruleset version: 1\.18\.0' -and
+        $foundationRepoMap -match 'foundation_ruleset_version: 1\.18\.0' -and
+        $foundationFeatureCatalog -match '"ruleset_version"\s*:\s*"1\.18\.0"' -and
         $foundationRuleset -match [regex]::Escape('UPGRADE_APPLICABILITY_POLICY.md') -and
         $foundationRuleset -match [regex]::Escape('REPOSITORY_CONTINUITY_POLICY.md') -and
-        $foundationRuleset -match [regex]::Escape('RULE_CONTEXT_CACHE_POLICY.md'))
+        $foundationRuleset -match [regex]::Escape('RULE_CONTEXT_CACHE_POLICY.md') -and
+        $foundationRuleset -match [regex]::Escape('AI_WORK_ORCHESTRATION_POLICY.md') -and
+        $foundationRuleset -match [regex]::Escape('installation-provenance.schema.json'))
 
 Add-ValidationResult `
     -Name 'Foundation-Provenienz enthaelt den vollstaendigen MIT-Hinweis' `
@@ -860,13 +863,14 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'Repo-Map dokumentiert Foundation-Quelle, Adapter und semantische Zuordnung' `
-    -Success ($repoMap -match 'source_commit: 7ddc29988b23570f462e46ebf527f8dfdd05fd75' -and
-        $repoMap -match 'foundation_ref: 7ddc29988b23570f462e46ebf527f8dfdd05fd75' -and
-        $repoMap -match 'ruleset_version: "1\.8\.0"' -and
+    -Success ($repoMap -match 'source_commit: 8e27de7eb20926f340fbfb856eacd96d3099e5c8' -and
+        $repoMap -match 'foundation_ref: 8e27de7eb20926f340fbfb856eacd96d3099e5c8' -and
+        $repoMap -match 'ruleset_version: "1\.18\.0"' -and
         $repoMap -match 'github-copilot' -and
         $repoMap -match 'sql_cu_watch_policy: ops/sql-cu-policy\.md' -and
-        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.7\.0-to-1\.8\.0\.json' -and
+        $repoMap -match 'current_record: \.ai/foundation-upgrade-assessments/1\.8\.0-to-1\.18\.0\.json' -and
         $repoMap -match 'rule-context-cache' -and
+        $repoMap -match 'ci-supersession-and-integration-queue' -and
         $repoMap -match 'unresolved_conflicts: \[\]')
 
 $foundationUpgradeAssessmentSchemaValid = $false
@@ -959,19 +963,24 @@ Add-ValidationResult `
     -Success (-not $missingCandidateResult.Success)
 
 $expectedCurrentFoundationUpgradeCandidates = [ordered]@{
-    'rule-context-cache' = @{
-        Reasons = @('introduced_in:1.8.0')
-        Classification = 'RECOMMENDED'
-    }
+    'ai-client-integration' = @{ Reasons = @('introduced_in:1.14.0','material_change:1.16.0'); Classification = 'RECOMMENDED' }
+    'ai-host-preparation' = @{ Reasons = @('introduced_in:1.13.0'); Classification = 'PROJECT_STRONGER' }
+    'ai-runtime-adapters' = @{ Reasons = @('introduced_in:1.11.0','material_change:1.16.0'); Classification = 'RECOMMENDED' }
+    'ai-work-execution' = @{ Reasons = @('introduced_in:1.12.0'); Classification = 'RECOMMENDED' }
+    'ai-work-orchestration' = @{ Reasons = @('introduced_in:1.10.0','material_change:1.12.0','material_change:1.13.0','material_change:1.14.0','material_change:1.17.0'); Classification = 'RECOMMENDED' }
+    'central-artifact-registry' = @{ Reasons = @('material_change:1.17.1'); Classification = 'NOT_APPLICABLE' }
+    'ci-supersession-and-integration-queue' = @{ Reasons = @('introduced_in:1.18.0'); Classification = 'RECOMMENDED' }
+    'installed-foundation-provenance' = @{ Reasons = @('introduced_in:1.15.0'); Classification = 'APPLY_DEFAULT' }
+    'model-routing-interoperability' = @{ Reasons = @('material_change:1.9.0','material_change:1.11.0','material_change:1.14.0','material_change:1.17.0'); Classification = 'PROJECT_STRONGER' }
 }
 $currentFoundationUpgradeContract = Test-FoundationUpgradeAssessmentContract `
     -Assessment $currentFoundationUpgradeAssessment `
     -ExpectedCandidates $expectedCurrentFoundationUpgradeCandidates `
-    -InstalledVersion '1.7.0' `
-    -SourceVersion '1.8.0' `
-    -SourceRef '7ddc29988b23570f462e46ebf527f8dfdd05fd75'
+    -InstalledVersion '1.8.0' `
+    -SourceVersion '1.18.0' `
+    -SourceRef '8e27de7eb20926f340fbfb856eacd96d3099e5c8'
 Add-ValidationResult `
-    -Name 'Aktuelles Foundation-Upgrade bewertet rule-context-cache mit Evidence und ohne voreilige Capability-Auswahl' `
+    -Name 'Aktuelles Foundation-Upgrade bewertet den vollstaendigen Neuner-Delta mit Evidence und ohne voreilige Capability-Auswahl' `
     -Success $currentFoundationUpgradeContract.Success `
     -Message $currentFoundationUpgradeContract.Message
 

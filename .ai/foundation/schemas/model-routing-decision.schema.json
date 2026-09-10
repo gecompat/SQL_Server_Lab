@@ -1,0 +1,54 @@
+{
+  "$defs": {
+    "candidate": {
+      "additionalProperties": true,
+      "properties": {
+        "assessment": {"enum": ["ASSESSED", "UNASSESSED"], "type": "string"},
+        "estimated_cost_usd": {"minimum": 0, "type": "number"},
+        "resource_cost_usd": {"minimum": 0, "type": "number"},
+        "resource_pressure": {"minimum": 0, "type": "number"},
+        "model": {"minLength": 1, "type": "string"},
+        "observations": {"minimum": 0, "type": "integer"},
+        "predicted_success": {"maximum": 1, "minimum": 0, "type": "number"},
+        "pricing_epoch": {"minLength": 1, "type": "string"},
+        "provider": {"minLength": 1, "type": "string"},
+        "reasoning_effort": {"type": ["string", "null"]},
+        "standalone_cost_of_success_usd": {"minimum": 0, "type": "number"},
+        "switching_cost_usd": {"minimum": 0, "type": "number"},
+        "usage_cost_usd": {"minimum": 0, "type": "number"}
+      },
+      "required": ["provider", "model", "assessment", "predicted_success", "estimated_cost_usd", "pricing_epoch"],
+      "type": "object"
+    }
+  },
+  "$id": "https://example.invalid/ai-repository-foundation/model-routing-decision.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "contract": {"const": "foundation-model-router/v1"},
+    "decision_id": {"minLength": 1, "type": "string"},
+    "execution": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_strategy": {"minLength": 1, "type": "string"},
+        "context_budget_tokens": {"minimum": 0, "type": "integer"},
+        "output_budget_tokens": {"minimum": 0, "type": "integer"},
+        "reasoning_effort": {"type": ["string", "null"]},
+        "validation_strategy": {"minLength": 1, "type": "string"}
+      },
+      "required": ["reasoning_effort", "context_budget_tokens", "output_budget_tokens", "cache_strategy", "validation_strategy"],
+      "type": "object"
+    },
+    "fallbacks": {"items": {"$ref": "#/$defs/candidate"}, "type": "array"},
+    "generated_at": {"format": "date-time", "type": "string"},
+    "pricing_epoch": {"type": ["string", "null"]},
+    "reason_codes": {"items": {"minLength": 1, "type": "string"}, "type": "array"},
+    "route": {"oneOf": [{"$ref": "#/$defs/candidate"}, {"type": "null"}]},
+    "schema_version": {"const": 1},
+    "status": {"enum": ["ROUTED", "LOCAL_ONLY", "NO_ROUTE"], "type": "string"},
+    "valid_until": {"format": "date-time", "type": "string"}
+  },
+  "required": ["schema_version", "contract", "status", "decision_id", "generated_at", "valid_until", "pricing_epoch", "route", "fallbacks", "execution", "reason_codes"],
+  "title": "Foundation model routing decision",
+  "type": "object"
+}

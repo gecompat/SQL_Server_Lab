@@ -1,0 +1,689 @@
+{
+  "schema_version": 1,
+  "contract": "foundation-installation-provenance/v1",
+  "ruleset_version": "1.18.0",
+  "source_repository": "https://github.com/gecompat/AI_Repository_Foundation",
+  "source_commit": "8e27de7eb20926f340fbfb856eacd96d3099e5c8",
+  "source_manifest_sha256": "2cc95ac592396fbe663cd15c73a80ea0f130db78eaafbfb5aaae2638cf1a68a2",
+  "recorded_at": "2026-09-10T09:32:30Z",
+  "selection": {
+    "adapters": [
+      "github-copilot"
+    ],
+    "capabilities": [
+      "rule-context-cache"
+    ]
+  },
+  "files": [
+    {
+      "source": "foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md",
+      "target": ".ai/foundation/AI_REPOSITORY_FOUNDATION_NOTICE.md",
+      "kind": "attribution",
+      "merge": "review_if_exists",
+      "source_sha256": "9c4ba8b69893eb2d079e9c1daf076ec3622d5290d4ce89970f8456c2ef1c80e1",
+      "installed_sha256": "9c4ba8b69893eb2d079e9c1daf076ec3622d5290d4ce89970f8456c2ef1c80e1",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/AI_WORK_ORCHESTRATION_POLICY.md",
+      "target": ".ai/foundation/AI_WORK_ORCHESTRATION_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "07e7969484eeb2accda19277b9eb9fc0f23de4f4f8b01b9b550b9325f4e4fea0",
+      "installed_sha256": "07e7969484eeb2accda19277b9eb9fc0f23de4f4f8b01b9b550b9325f4e4fea0",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/ARTIFACT_REGISTRATION_POLICY.md",
+      "target": ".ai/foundation/ARTIFACT_REGISTRATION_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "9aca604d473d12d45666d0654b3b34349bfe59a0fb9821b8e25cef540a297a7c",
+      "installed_sha256": "9aca604d473d12d45666d0654b3b34349bfe59a0fb9821b8e25cef540a297a7c",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/CENTRAL_ARTIFACT_REGISTRY_POLICY.md",
+      "target": ".ai/foundation/CENTRAL_ARTIFACT_REGISTRY_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "5484592c76cd7edb7a2756bb20fd9646148e7e35b1c8362e0abfd8b005690cd2",
+      "installed_sha256": "5484592c76cd7edb7a2756bb20fd9646148e7e35b1c8362e0abfd8b005690cd2",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/DATA_PRIVACY_AND_CONFIDENTIALITY.md",
+      "target": ".ai/foundation/DATA_PRIVACY_AND_CONFIDENTIALITY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "474dca7cdca78977c841c13324b6beea4e2a5a459a36bd88efc0635be7678757",
+      "installed_sha256": "474dca7cdca78977c841c13324b6beea4e2a5a459a36bd88efc0635be7678757",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/DEPENDENCY_POLICY.md",
+      "target": ".ai/foundation/DEPENDENCY_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "c42696b3d0b12e5bfbfc92251f05fcb5820db61d49a2ee96de578289ae02f256",
+      "installed_sha256": "c42696b3d0b12e5bfbfc92251f05fcb5820db61d49a2ee96de578289ae02f256",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/DOCUMENTATION_POLICY.md",
+      "target": ".ai/foundation/DOCUMENTATION_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "3540672bd4370e2077f5d8b24ac936c951d493994ae44c7818f12171325c8f9e",
+      "installed_sha256": "3540672bd4370e2077f5d8b24ac936c951d493994ae44c7818f12171325c8f9e",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/FOUNDATION_RULESET.template.md",
+      "target": ".ai/foundation/FOUNDATION_RULESET.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "e8b7d15f617f4aa853255fa6c0bc41ad06724b7fd1d523549863e317f3570f32",
+      "installed_sha256": "e8b7d15f617f4aa853255fa6c0bc41ad06724b7fd1d523549863e317f3570f32",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": ".ai/MODEL_ROUTING_POLICY.md",
+      "target": ".ai/foundation/MODEL_ROUTING_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "2f388c59898aed4e9bb2d525cb387d5ee2a0e8ea19459cc4f7c478b210f0dfdb",
+      "installed_sha256": "5684795b64b08f444700e3b8055e6d1bdda5d65595b11ccee42cfbbb73e5eae6",
+      "integration_state": "INTENTIONAL_OVERRIDE",
+      "reason": "Retained the compatible, more detailed project model-routing contract."
+    },
+    {
+      "source": "Documentation/Standards/PERSISTENT_IDENTITY_POLICY.md",
+      "target": ".ai/foundation/PERSISTENT_IDENTITY_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "e7721a5bc83bebe2b7b1f2d328534c9cff457b39476eea6915bf672fcd5406c9",
+      "installed_sha256": "e7721a5bc83bebe2b7b1f2d328534c9cff457b39476eea6915bf672fcd5406c9",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": ".ai/PROJECT_RULES.md",
+      "target": ".ai/foundation/PROJECT_RULES.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "545b98dc937ef18ea4530ac49c7ad8d273e2ad6b80c7c39595481d55f8c4f85c",
+      "installed_sha256": "545b98dc937ef18ea4530ac49c7ad8d273e2ad6b80c7c39595481d55f8c4f85c",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/REPOSITORY_CONTINUITY_POLICY.md",
+      "target": ".ai/foundation/REPOSITORY_CONTINUITY_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "e1526c6339f4383c24c80c181a3d46efecf53b6ba1da2890ca1fdc477772c6f1",
+      "installed_sha256": "e1526c6339f4383c24c80c181a3d46efecf53b6ba1da2890ca1fdc477772c6f1",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/RULE_CONTEXT_CACHE_POLICY.md",
+      "target": ".ai/foundation/RULE_CONTEXT_CACHE_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "8e0a0dbe5141a7eb43ce0050508c6a2af7532ca221d30c785fd70c3ea4208346",
+      "installed_sha256": "8e0a0dbe5141a7eb43ce0050508c6a2af7532ca221d30c785fd70c3ea4208346",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/SECURITY_AND_SAFE_OPERATIONS.md",
+      "target": ".ai/foundation/SECURITY_AND_SAFE_OPERATIONS.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "fc64f4be6efdbb152324a97a72f41371f4d99aa3c5908e7ef6f7a6faa24cbaa4",
+      "installed_sha256": "fc64f4be6efdbb152324a97a72f41371f4d99aa3c5908e7ef6f7a6faa24cbaa4",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/SEMANTIC_INTEGRATION_POLICY.md",
+      "target": ".ai/foundation/SEMANTIC_INTEGRATION_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "9f563131f16bf390528a49a114dc2b31b7ec580a4a78f29a3c484abe85fdcc3c",
+      "installed_sha256": "9f563131f16bf390528a49a114dc2b31b7ec580a4a78f29a3c484abe85fdcc3c",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/SOURCE_AND_EVIDENCE_POLICY.md",
+      "target": ".ai/foundation/SOURCE_AND_EVIDENCE_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "3823e497489b286adb78c00c8403354837d7f8d030e48b1ee2e81b105c2ce459",
+      "installed_sha256": "3823e497489b286adb78c00c8403354837d7f8d030e48b1ee2e81b105c2ce459",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/THIRD_PARTY_AND_LICENSING.md",
+      "target": ".ai/foundation/THIRD_PARTY_AND_LICENSING.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "0ec5bd1bcc2c7137c4e18d5df7d4f392541d715a401bf987160d96306baefc92",
+      "installed_sha256": "0ec5bd1bcc2c7137c4e18d5df7d4f392541d715a401bf987160d96306baefc92",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "Documentation/Standards/UPGRADE_APPLICABILITY_POLICY.md",
+      "target": ".ai/foundation/UPGRADE_APPLICABILITY_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "faa206ca11da978d2050070bf5ae734b3b3e474c9d12b89f076f83b2f5f4d686",
+      "installed_sha256": "faa206ca11da978d2050070bf5ae734b3b3e474c9d12b89f076f83b2f5f4d686",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": ".ai/VALIDATION_POLICY.md",
+      "target": ".ai/foundation/VALIDATION_POLICY.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "974d0a24f6a7b509bf46eab355739d22bd2fd8b3439f08d9ad6c936a4b058f8f",
+      "installed_sha256": "32a20230f37f1578c3ce32b4810322128424ab3f3bda96a172638148bf8f9d7f",
+      "integration_state": "INTENTIONAL_OVERRIDE",
+      "reason": "Retained the compatible, more detailed project validation and provenance contract."
+    },
+    {
+      "source": ".ai/WORKING_RULES.md",
+      "target": ".ai/foundation/WORKING_RULES.md",
+      "kind": "rule",
+      "merge": "review_if_exists",
+      "source_sha256": "dc78bc84b0e8e51c27ba237d3d2ba77c5988fbaa3110cddf90589d9f19386329",
+      "installed_sha256": "dc78bc84b0e8e51c27ba237d3d2ba77c5988fbaa3110cddf90589d9f19386329",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/feature_catalog.json",
+      "target": ".ai/foundation/feature_catalog.json",
+      "kind": "feature-catalog",
+      "merge": "review_if_exists",
+      "source_sha256": "384b888f496c202bffc5518654547342733c96cc8ba5314bc7de17187a21b57f",
+      "installed_sha256": "384b888f496c202bffc5518654547342733c96cc8ba5314bc7de17187a21b57f",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/repo_map.template.yaml",
+      "target": ".ai/foundation/repo_map.yaml",
+      "kind": "rule-index",
+      "merge": "review_if_exists",
+      "source_sha256": "fb8ab906186f4d73549d37ef7fb9f4508148ef6b2b05480e29528ffdc14855f4",
+      "installed_sha256": "fb8ab906186f4d73549d37ef7fb9f4508148ef6b2b05480e29528ffdc14855f4",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/capabilities/rule-context-cache/rule_context_cache.py",
+      "target": ".ai/foundation/rule_context_cache/rule_context_cache.py",
+      "kind": "rule-context-cache-planner",
+      "merge": "review_if_exists",
+      "source_sha256": "77ace825963862fd387ef37ac3b105abc95c652049fbf72855e205ab0455295b",
+      "installed_sha256": "77ace825963862fd387ef37ac3b105abc95c652049fbf72855e205ab0455295b",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/adapter-synthesis-report.schema.json",
+      "target": ".ai/foundation/schemas/adapter-synthesis-report.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "ba50471c893302ba6d2c25fa962b89d5e115aa161cf84e816b34f0dd4d065cd3",
+      "installed_sha256": "ba50471c893302ba6d2c25fa962b89d5e115aa161cf84e816b34f0dd4d065cd3",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/ai-adapter-protocol.schema.json",
+      "target": ".ai/foundation/schemas/ai-adapter-protocol.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "4fea9a847b54263e8f0c15c002ed5915cb50a4db0b41c4d7f15662b61a182ed1",
+      "installed_sha256": "4fea9a847b54263e8f0c15c002ed5915cb50a4db0b41c4d7f15662b61a182ed1",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/ai-orchestration-report.schema.json",
+      "target": ".ai/foundation/schemas/ai-orchestration-report.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "0329aa34c38223639437ea5fa557320f4f663ec243e3bd9620fa06cd61ebe435",
+      "installed_sha256": "0329aa34c38223639437ea5fa557320f4f663ec243e3bd9620fa06cd61ebe435",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/ai-orchestration-request.schema.json",
+      "target": ".ai/foundation/schemas/ai-orchestration-request.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "8b7846f7dceabf8d53f4cb7b9473bcf227afc4c4dd07ff34a261d36c35c51866",
+      "installed_sha256": "8b7846f7dceabf8d53f4cb7b9473bcf227afc4c4dd07ff34a261d36c35c51866",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/ai-runtime-configuration.schema.json",
+      "target": ".ai/foundation/schemas/ai-runtime-configuration.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "81624de508708a4c2e480b95b0219873514162dc37fcf6e26749723f6689d8b8",
+      "installed_sha256": "81624de508708a4c2e480b95b0219873514162dc37fcf6e26749723f6689d8b8",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/ai-work-request.schema.json",
+      "target": ".ai/foundation/schemas/ai-work-request.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "a513cacb843ca895b8345b87ca7b57d5ceafbf6d3114b12aa6edc1ebad71c337",
+      "installed_sha256": "a513cacb843ca895b8345b87ca7b57d5ceafbf6d3114b12aa6edc1ebad71c337",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/approval-receipt.schema.json",
+      "target": ".ai/foundation/schemas/approval-receipt.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "335074107d90d5ccb24a9c4ad7a37d70457259e659ed4ac0bad9e8c432ef2db2",
+      "installed_sha256": "335074107d90d5ccb24a9c4ad7a37d70457259e659ed4ac0bad9e8c432ef2db2",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/artifact-record.schema.json",
+      "target": ".ai/foundation/schemas/artifact-record.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "6c9c158f8be3514dc9e8ac95e3daf8fb383ce89de102f0174f1bf967659476e5",
+      "installed_sha256": "6c9c158f8be3514dc9e8ac95e3daf8fb383ce89de102f0174f1bf967659476e5",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/artifact-registration-request.schema.json",
+      "target": ".ai/foundation/schemas/artifact-registration-request.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "891702acab0fe0fa03ac704241ed1654ca778be0c7feb2534e9a2e67477cafa1",
+      "installed_sha256": "891702acab0fe0fa03ac704241ed1654ca778be0c7feb2534e9a2e67477cafa1",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/artifact-registry-v2.schema.json",
+      "target": ".ai/foundation/schemas/artifact-registry-v2.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "8b8083ca367ebee5fb69090bb643fec7fbd7fcc62881dadd08ffdfcc0e8086bf",
+      "installed_sha256": "8b8083ca367ebee5fb69090bb643fec7fbd7fcc62881dadd08ffdfcc0e8086bf",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/artifact-registry.schema.json",
+      "target": ".ai/foundation/schemas/artifact-registry.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "2671d68b967886803dc1c2b05889ab62890e51c2c3b985a1c43e643dba4a0ee2",
+      "installed_sha256": "2671d68b967886803dc1c2b05889ab62890e51c2c3b985a1c43e643dba4a0ee2",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/capability-descriptor.schema.json",
+      "target": ".ai/foundation/schemas/capability-descriptor.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "d64dceda6d762ca92fd8e74198a89f1ec46e250109a81755dced26b7c61e3b36",
+      "installed_sha256": "d64dceda6d762ca92fd8e74198a89f1ec46e250109a81755dced26b7c61e3b36",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/client-integration-plan.schema.json",
+      "target": ".ai/foundation/schemas/client-integration-plan.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "91c48e1d8a29039762a9070fe968e6864701f79df978652f147cbcd12becdd24",
+      "installed_sha256": "91c48e1d8a29039762a9070fe968e6864701f79df978652f147cbcd12becdd24",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/client-model-routing-capability.schema.json",
+      "target": ".ai/foundation/schemas/client-model-routing-capability.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "f00b9e90095aca7fbff65bcdfd8e3c690f819bd6318a67ed7be949d4ad5f0cd6",
+      "installed_sha256": "f00b9e90095aca7fbff65bcdfd8e3c690f819bd6318a67ed7be949d4ad5f0cd6",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/dispatch-receipt.schema.json",
+      "target": ".ai/foundation/schemas/dispatch-receipt.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "fff67fd6e276e0d808a3f5bfb25b3258666d036b3089448e2cf994cd4b4db369",
+      "installed_sha256": "fff67fd6e276e0d808a3f5bfb25b3258666d036b3089448e2cf994cd4b4db369",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/execution-checkpoint.schema.json",
+      "target": ".ai/foundation/schemas/execution-checkpoint.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "ec7e344d0f4836b4b6f50323e985a9aa9d5ea5d0a872303d1ec04bc9de90ef63",
+      "installed_sha256": "ec7e344d0f4836b4b6f50323e985a9aa9d5ea5d0a872303d1ec04bc9de90ef63",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/execution-plan.schema.json",
+      "target": ".ai/foundation/schemas/execution-plan.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "c1983d7e6a25628c8a0fbbd603cd1ca040e1a19c7df0f7c0f857b07256358969",
+      "installed_sha256": "c1983d7e6a25628c8a0fbbd603cd1ca040e1a19c7df0f7c0f857b07256358969",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/execution-report.schema.json",
+      "target": ".ai/foundation/schemas/execution-report.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "e7b556c8a737e4cf1cd7babab727b89c828d38bb13a7cbfcce57c9104c2e79ec",
+      "installed_sha256": "e7b556c8a737e4cf1cd7babab727b89c828d38bb13a7cbfcce57c9104c2e79ec",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/feature-catalog.schema.json",
+      "target": ".ai/foundation/schemas/feature-catalog.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "26e18c6c4919883d13cbe8b6df3c8b2d035035de0d7e286993bdf71d41020734",
+      "installed_sha256": "26e18c6c4919883d13cbe8b6df3c8b2d035035de0d7e286993bdf71d41020734",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/gap-report.schema.json",
+      "target": ".ai/foundation/schemas/gap-report.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "5e7cf6342188ab610da1b4bc366b611300d3ec2ced360489be6769ec663cf44e",
+      "installed_sha256": "5e7cf6342188ab610da1b4bc366b611300d3ec2ced360489be6769ec663cf44e",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/installation-provenance.schema.json",
+      "target": ".ai/foundation/schemas/installation-provenance.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "557f4e623c5efcc605725bc1959dfdee7624ded360a2b613325d0b58bf124821",
+      "installed_sha256": "557f4e623c5efcc605725bc1959dfdee7624ded360a2b613325d0b58bf124821",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/manual-handoff.schema.json",
+      "target": ".ai/foundation/schemas/manual-handoff.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "45a04d418b7936c3a07983bd494089b256d3f8684ab1e67057802ca1dec2bc80",
+      "installed_sha256": "45a04d418b7936c3a07983bd494089b256d3f8684ab1e67057802ca1dec2bc80",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/model-evidence-sources.schema.json",
+      "target": ".ai/foundation/schemas/model-evidence-sources.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "11ca7bf5ac4c46f662eeda5cdfad7953d75430875aaa12d2cab8234edfcb0cb7",
+      "installed_sha256": "11ca7bf5ac4c46f662eeda5cdfad7953d75430875aaa12d2cab8234edfcb0cb7",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/model-router-catalog-fragment-v2.schema.json",
+      "target": ".ai/foundation/schemas/model-router-catalog-fragment-v2.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "8d84fc215c134f1018b09e6522544f08335c60ccd44f4ec065c47ec5f0adbc39",
+      "installed_sha256": "8d84fc215c134f1018b09e6522544f08335c60ccd44f4ec065c47ec5f0adbc39",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/model-router-catalog.schema.json",
+      "target": ".ai/foundation/schemas/model-router-catalog.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "225b136e05b1fd2478d310b63b42d5533df2ae01937c86dcca0799271672d75a",
+      "installed_sha256": "225b136e05b1fd2478d310b63b42d5533df2ae01937c86dcca0799271672d75a",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/model-router-profiles.schema.json",
+      "target": ".ai/foundation/schemas/model-router-profiles.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "94b8f13f2292113592839db5b27ebea071cba0d1c044762f223271dcd2481b0c",
+      "installed_sha256": "94b8f13f2292113592839db5b27ebea071cba0d1c044762f223271dcd2481b0c",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/model-routing-decision-v2.schema.json",
+      "target": ".ai/foundation/schemas/model-routing-decision-v2.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "681ebc9ed1bd2bccf9ce4586877b38091076d5d7f85b0c7cc10e1b4e22dcef29",
+      "installed_sha256": "681ebc9ed1bd2bccf9ce4586877b38091076d5d7f85b0c7cc10e1b4e22dcef29",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/model-routing-decision.schema.json",
+      "target": ".ai/foundation/schemas/model-routing-decision.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "d46cfccf989900aaa16500b6bea93054ec1fcad3adbc32ed9a443f45469b7358",
+      "installed_sha256": "d46cfccf989900aaa16500b6bea93054ec1fcad3adbc32ed9a443f45469b7358",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/model-routing-request-v2.schema.json",
+      "target": ".ai/foundation/schemas/model-routing-request-v2.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "dd673d81b974b3e00836038a802a79aff111131bf8e76174e9f8d39dead49482",
+      "installed_sha256": "dd673d81b974b3e00836038a802a79aff111131bf8e76174e9f8d39dead49482",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/model-routing-request.schema.json",
+      "target": ".ai/foundation/schemas/model-routing-request.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "416e1b38cf64705adb41fcf3535cbf0092875a5e3ddf3403916c5150e20dadb8",
+      "installed_sha256": "416e1b38cf64705adb41fcf3535cbf0092875a5e3ddf3403916c5150e20dadb8",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/model-routing-snapshot.schema.json",
+      "target": ".ai/foundation/schemas/model-routing-snapshot.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "73324b1d69bec781cd2d83bcef4d1e53c009a36c8392b5d27ee91be0a7fe08ee",
+      "installed_sha256": "73324b1d69bec781cd2d83bcef4d1e53c009a36c8392b5d27ee91be0a7fe08ee",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/model-runtime-evidence.schema.json",
+      "target": ".ai/foundation/schemas/model-runtime-evidence.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "7ce480e60402be288ab871faf645d0cfe9b693876ebed5fbed588721d2b0fcc3",
+      "installed_sha256": "7ce480e60402be288ab871faf645d0cfe9b693876ebed5fbed588721d2b0fcc3",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/provision-approval.schema.json",
+      "target": ".ai/foundation/schemas/provision-approval.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "3a503788dd46f22ee8e2e7293cf7f4f443c5e6489ca3f69bfae647fa2d0f4939",
+      "installed_sha256": "3a503788dd46f22ee8e2e7293cf7f4f443c5e6489ca3f69bfae647fa2d0f4939",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/provision-plan.schema.json",
+      "target": ".ai/foundation/schemas/provision-plan.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "f5de6767ce36731032e9d3954c8f8489762581596f1db80fde123e351150ef0d",
+      "installed_sha256": "f5de6767ce36731032e9d3954c8f8489762581596f1db80fde123e351150ef0d",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/provision-report.schema.json",
+      "target": ".ai/foundation/schemas/provision-report.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "9c03f928119411d7829a90a9a2593404438e680afd0c1fdcca753c138566b49b",
+      "installed_sha256": "9c03f928119411d7829a90a9a2593404438e680afd0c1fdcca753c138566b49b",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/provision-request.schema.json",
+      "target": ".ai/foundation/schemas/provision-request.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "1b9bf518a5323367c9017f6ad8ff18930d9f56c9ca6a66c04e20f3f2dd64ebf2",
+      "installed_sha256": "1b9bf518a5323367c9017f6ad8ff18930d9f56c9ca6a66c04e20f3f2dd64ebf2",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/resource-cost-evidence.schema.json",
+      "target": ".ai/foundation/schemas/resource-cost-evidence.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "8ebcaa5789f90ba5e21d14a11ca43275f60d969d581976f06cd5c597e0828969",
+      "installed_sha256": "8ebcaa5789f90ba5e21d14a11ca43275f60d969d581976f06cd5c597e0828969",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/rule-context-cache.schema.json",
+      "target": ".ai/foundation/schemas/rule-context-cache.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "04f29a78767c6b4e1c40079a1c204729726d9aed1c041db973a7217aea525b91",
+      "installed_sha256": "04f29a78767c6b4e1c40079a1c204729726d9aed1c041db973a7217aea525b91",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/runtime-inventory.schema.json",
+      "target": ".ai/foundation/schemas/runtime-inventory.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "5d6f6877e4ff689d47b752bc1e6a9e4e239ae3ade863203f07904a0736c974b8",
+      "installed_sha256": "5d6f6877e4ff689d47b752bc1e6a9e4e239ae3ade863203f07904a0736c974b8",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/upgrade-assessment.schema.json",
+      "target": ".ai/foundation/schemas/upgrade-assessment.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "0d50a1643e3f68bb52eae6f6c5fb89cc0c96d95ede7a755c7c914a3b2c6f5873",
+      "installed_sha256": "0d50a1643e3f68bb52eae6f6c5fb89cc0c96d95ede7a755c7c914a3b2c6f5873",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/validation-evidence.schema.json",
+      "target": ".ai/foundation/schemas/validation-evidence.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "b4de8fcd274c305a12b9f4b744e332a94edcea94e49debced2b059b458956c76",
+      "installed_sha256": "b4de8fcd274c305a12b9f4b744e332a94edcea94e49debced2b059b458956c76",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/schemas/vscode-model-routing-plan.schema.json",
+      "target": ".ai/foundation/schemas/vscode-model-routing-plan.schema.json",
+      "kind": "schema",
+      "merge": "review_if_exists",
+      "source_sha256": "ad0f9e04d2e818fff142968c9ab3061754c15142d72f14d40555bda86b2f4146",
+      "installed_sha256": "ad0f9e04d2e818fff142968c9ab3061754c15142d72f14d40555bda86b2f4146",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": ".github/copilot-instructions.md",
+      "target": ".github/copilot-instructions.md",
+      "kind": "adapter",
+      "merge": "ai_merge_if_exists",
+      "source_sha256": "5d7beb368a2eacd4fe50fafdb4ea30982fd9f03d77a3b34e3fe0f4da4cb40f63",
+      "installed_sha256": "5d7beb368a2eacd4fe50fafdb4ea30982fd9f03d77a3b34e3fe0f4da4cb40f63",
+      "integration_state": "FOUNDATION_BASELINE",
+      "reason": null
+    },
+    {
+      "source": "foundation/AGENTS.template.md",
+      "target": "AGENTS.md",
+      "kind": "entrypoint",
+      "merge": "ai_merge_if_exists",
+      "source_sha256": "c0ca57c32ad6d69f69b802caf96e5c75e19a17dbd0f5f7671066cb3d51792b22",
+      "installed_sha256": "d7dd5029563f1f0a1e5a3aad3af4000888bc0d6905e7256d8be814c142402616",
+      "integration_state": "INTENTIONAL_OVERRIDE",
+      "reason": "Preserved project-owned governance outside the managed Foundation bridge."
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "installed_version": "1.8.0",
+  "source_version": "1.18.0",
+  "source_ref": "8e27de7eb20926f340fbfb856eacd96d3099e5c8",
+  "assessments": [
+    {
+      "feature_id": "ai-client-integration",
+      "candidate_reasons": ["introduced_in:1.14.0", "material_change:1.16.0"],
+      "classification": "RECOMMENDED",
+      "evidence": ["AGENTS.md", ".ai/MODEL_ROUTING_POLICY.md", "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md"],
+      "rationale": "Das Projekt nutzt Codex und eine differenzierte Modellauswahl. Eine portable, attestierte Client-Integration ist sinnvoll, aber die optionalen Referenzmodule und lokale Client-Konfiguration werden nicht durch dieses Regeln-Upgrade aktiviert.",
+      "recommendation": "Bei Bedarf einen getrennten, evidenzbasierten Plan für Client-Integration und tatsächliche Modellattestierung erstellen.",
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "ai-host-preparation",
+      "candidate_reasons": ["introduced_in:1.13.0"],
+      "classification": "PROJECT_STRONGER",
+      "evidence": ["AGENTS.md#Host-Werkzeuge-in-neuen-Prozessen", "Tools/Initialize-SqlServerLabHostTools.ps1", "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md"],
+      "rationale": "Der bestehende Host-Tool-Resolver erzwingt pro Prozess Auflösung, absolute Aufrufpfade sowie getrennte Fehlerklassen und ist für die Produkt-Runtimes konkreter als die optionale generische Referenz.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "ai-runtime-adapters",
+      "candidate_reasons": ["introduced_in:1.11.0", "material_change:1.16.0"],
+      "classification": "RECOMMENDED",
+      "evidence": ["Private/AiEndpoint.ps1", "Catalogs/ai-models.json", "Documentation/Project_Planning/SQL2025_AI_PLATFORM_BACKLOG.md"],
+      "rationale": "Es gibt konkrete AI-Endpunkt- und Providerverträge. Die optionale portable JSONL-Adapterreferenz kann künftig Interoperabilität verbessern, darf aber weder externe Endpunkte noch Credentials oder Modellzugriffe aktivieren.",
+      "recommendation": "Optionalen Adapter nur in einer separaten, autorisierten Wave gegen die bestehenden Endpoint-, Secret- und TLS-Verträge bewerten.",
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "ai-work-execution",
+      "candidate_reasons": ["introduced_in:1.12.0"],
+      "classification": "RECOMMENDED",
+      "evidence": ["Private/BatchWorkflow.ps1", ".ai/WORKING_RULES.md", "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md"],
+      "rationale": "Das Projekt besitzt wiederaufnehmbare Produkt-Workflows, aber keinen ausgewählten generischen AI-Executor. Der optionale Executor bleibt von Produkt- und Runtime-Mutationen getrennt.",
+      "recommendation": "Nur bei einem konkreten AI-Ausführungsbedarf einen externen State-Ort, Idempotenzbelege und Freigabegrenzen entscheiden.",
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "ai-work-orchestration",
+      "candidate_reasons": ["introduced_in:1.10.0", "material_change:1.12.0", "material_change:1.13.0", "material_change:1.14.0", "material_change:1.17.0"],
+      "classification": "RECOMMENDED",
+      "evidence": ["AGENTS.md", ".ai/MODEL_ROUTING_POLICY.md", "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md"],
+      "rationale": "Die portable Steuerungsebene ergänzt die bestehende Kosten-, Autorisierungs- und Validierungspolitik. Ihre optionalen Planer und Orchestratoren bleiben unselektiert; Regeln und Schemas werden als Baseline übernommen.",
+      "recommendation": "Die optionalen AI-Work-Referenzen erst mit einem konkreten, content-getrennten Ausführungsfall auswählen.",
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "central-artifact-registry",
+      "candidate_reasons": ["material_change:1.17.1"],
+      "classification": "NOT_APPLICABLE",
+      "evidence": [".ai/IDENTITY_AND_ARTIFACT_REGISTRATION.md", ".ai/repo_map.yaml#foundation_integration"],
+      "rationale": "SQL_Server_Lab verwendet keine repository-native JSON-Registrierungsautorität für finale menschliche Referenzen. Eine Einführung oder Migration wird durch das Foundation-Upgrade nicht ausgelöst.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "ci-supersession-and-integration-queue",
+      "candidate_reasons": ["introduced_in:1.18.0"],
+      "classification": "RECOMMENDED",
+      "evidence": [".github/workflows/static-contracts.yml", ".github/workflows/runtime-smoke-docker.yml", "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md"],
+      "rationale": "Die Self-hosted Runtime-Smokes mutieren testweise persistente Ressourcen und serialisieren deshalb mit Cleanup-Vorrang. Der neue Foundation-Vertrag ist kompatibel und hält eine spätere sichere Supersession oder Integrationsqueue offen, ohne sie auszuwählen.",
+      "recommendation": "Eine getrennte CI-Wave soll nur noch nicht gestartete, durch einen neueren Commit desselben PR ersetzte Prüfungen verwerfen und eine Merge-Queue erst nach einem getesteten Integrationskandidatenvertrag auswählen.",
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "installed-foundation-provenance",
+      "candidate_reasons": ["introduced_in:1.15.0"],
+      "classification": "APPLY_DEFAULT",
+      "evidence": ["AI_Repository_Foundation@8e27de7eb20926f340fbfb856eacd96d3099e5c8", ".ai/foundation/installation-provenance.json"],
+      "rationale": "Die portable Manifest- und Installationsprovenienz wird für diese vollständige Regelübernahme erstellt und durch den Foundation-Validator geprüft.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    },
+    {
+      "feature_id": "model-routing-interoperability",
+      "candidate_reasons": ["material_change:1.9.0", "material_change:1.11.0", "material_change:1.14.0", "material_change:1.17.0"],
+      "classification": "PROJECT_STRONGER",
+      "evidence": [".ai/MODEL_ROUTING_POLICY.md", "Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md", "AGENTS.md#Kontext-und-kosteneffiziente-Arbeit"],
+      "rationale": "Die bestehende Projektrichtlinie definiert eine ausführlichere, anbieterneutrale Auswahl, Kosten- und Eskalationslogik. Die portable Tier-Zuordnung bleibt kompatibel; der optionale Foundation-Router wird nicht ohne Runtime- und Remote-Autorisierung ausgewählt.",
+      "recommendation": null,
+      "decision_required": null,
+      "selected_capabilities": []
+    }
+  ]
+}

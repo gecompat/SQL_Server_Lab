@@ -1,0 +1,52 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/execution-checkpoint.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "attempts": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_cost_usd": {"minimum": 0, "type": "number"},
+          "capability_id": {"minLength": 1, "type": "string"},
+          "ended_at": {"format": "date-time", "type": ["string", "null"]},
+          "error_class": {"type": ["string", "null"]},
+          "operation_key": {"minLength": 1, "type": "string"},
+          "output_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": ["string", "null"]},
+          "resource_usage": {
+            "additionalProperties": false,
+            "properties": {
+              "cpu_seconds": {"minimum": 0, "type": "number"},
+              "disk_mb": {"minimum": 0, "type": "number"},
+              "energy_wh": {"minimum": 0, "type": "number"},
+              "gpu_seconds": {"minimum": 0, "type": "number"},
+              "network_mb": {"minimum": 0, "type": "number"},
+              "ram_mb": {"minimum": 0, "type": "number"},
+              "vram_mb": {"minimum": 0, "type": "number"}
+            },
+            "type": "object"
+          },
+          "started_at": {"format": "date-time", "type": "string"},
+          "status": {"enum": ["PREPARED", "IN_PROGRESS", "SUCCEEDED", "FAILED", "CANCELLED", "UNKNOWN"], "type": "string"},
+          "step_id": {"minLength": 1, "type": "string"}
+        },
+        "required": ["step_id", "capability_id", "operation_key", "status", "started_at", "ended_at", "error_class", "actual_cost_usd", "resource_usage", "output_sha256"],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "contract": {"const": "foundation-ai-executor-checkpoint/v1"},
+    "created_at": {"format": "date-time", "type": "string"},
+    "evidence": {"items": {"$ref": "validation-evidence.schema.json"}, "type": "array"},
+    "integrity_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "plan_id": {"minLength": 1, "type": "string"},
+    "request_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "schema_version": {"const": 1},
+    "state": {"enum": ["ACTIVE", "COMPLETED", "FAILED", "CANCELLED", "MANUAL_REQUIRED", "UNAVAILABLE", "BLOCKED"], "type": "string"},
+    "updated_at": {"format": "date-time", "type": "string"},
+    "work_id": {"minLength": 1, "type": "string"}
+  },
+  "required": ["schema_version", "contract", "plan_id", "work_id", "request_sha256", "state", "created_at", "updated_at", "attempts", "evidence", "integrity_sha256"],
+  "title": "Foundation AI executor checkpoint",
+  "type": "object"
+}

@@ -1,0 +1,81 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/capability-descriptor.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "capability_id": {"minLength": 1, "type": "string"},
+    "contract": {"const": "foundation-ai-work/v1"},
+    "cost_model": {
+      "additionalProperties": false,
+      "properties": {
+        "currency": {"const": "USD"},
+        "estimated_cost": {"minimum": 0, "type": "number"},
+        "provenance": {"enum": ["MEASURED", "CONFIGURED", "PROVIDER_QUOTED", "UNKNOWN"], "type": "string"}
+      },
+      "required": ["provenance"],
+      "type": "object"
+    },
+    "data_classes_allowed": {"items": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"]}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "deterministic": {"type": "boolean"},
+    "execution_boundary": {"enum": ["PROCESS", "HOST", "LOCAL_NETWORK", "REMOTE", "UNKNOWN", "HUMAN"], "type": "string"},
+    "execution": {
+      "additionalProperties": false,
+      "properties": {
+        "idempotency": {"default": "NONE", "enum": ["NONE", "IDEMPOTENT_REPLAY"], "type": "string"},
+        "resume": {"default": "RESTART", "enum": ["RESTART", "QUERY", "UNSUPPORTED"], "type": "string"}
+      },
+      "type": "object"
+    },
+    "functions": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "health": {
+      "additionalProperties": false,
+      "properties": {
+        "checked_at": {"format": "date-time", "type": "string"},
+        "expires_at": {"format": "date-time", "type": "string"},
+        "reason_code": {"minLength": 1, "type": "string"},
+        "state": {"enum": ["HEALTHY", "DEGRADED", "UNAVAILABLE", "UNKNOWN"], "type": "string"}
+      },
+      "required": ["state", "checked_at", "expires_at"],
+      "type": "object"
+    },
+    "kind": {"enum": ["DETERMINISTIC_TOOL", "MODEL", "RETRIEVAL", "RENDERER", "VALIDATOR", "EXTERNAL_SERVICE", "HUMAN"], "type": "string"},
+    "protocol": {"minLength": 1, "type": "string"},
+    "provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "observed_at": {"format": "date-time", "type": "string"},
+        "source": {"minLength": 1, "type": "string"}
+      },
+      "required": ["source", "observed_at"],
+      "type": "object"
+    },
+    "quality": {
+      "additionalProperties": false,
+      "properties": {
+        "observations": {"minimum": 0, "type": "integer"},
+        "predicted_success": {"maximum": 1, "minimum": 0, "type": "number"},
+        "provenance": {"enum": ["MEASURED", "CONFIGURED", "UNKNOWN"], "type": "string"}
+      },
+      "required": ["provenance", "observations"],
+      "type": "object"
+    },
+    "required_authorities": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "resources": {
+      "additionalProperties": false,
+      "properties": {
+        "cpu_seconds": {"minimum": 0, "type": "number"},
+        "disk_mb": {"minimum": 0, "type": "number"},
+        "energy_wh": {"minimum": 0, "type": "number"},
+        "gpu_seconds": {"minimum": 0, "type": "number"},
+        "network_mb": {"minimum": 0, "type": "number"},
+        "ram_mb": {"minimum": 0, "type": "number"},
+        "vram_mb": {"minimum": 0, "type": "number"}
+      },
+      "type": "object"
+    },
+    "schema_version": {"const": 1}
+  },
+  "required": ["schema_version", "contract", "capability_id", "kind", "protocol", "execution_boundary", "required_authorities", "health", "functions", "data_classes_allowed", "deterministic", "provenance", "quality", "resources", "cost_model"],
+  "title": "Foundation AI capability descriptor",
+  "type": "object"
+}

@@ -58,6 +58,18 @@ After the validation infrastructure recovers:
 3. if a substantive failure is found, open an incident/correction work item and restore a known-good state or merge a corrective change according to project policy;
 4. close the break-glass event only when deferred validation has a truthful outcome.
 
+## CI supersession and integration-queue strategy
+
+Rule class: `PROJECT_SELECTABLE` with REQUIRED safety boundaries.
+
+A project MAY replace or discard an obsolete validation that has not started when a newer commit of the same logical change completely supersedes it. A project MAY use an integration queue, automatic cancellation, or neither; Foundation does not prescribe a CI platform, workflow setting, provider, runner, concurrency group, or branch-specific implementation.
+
+An in-progress validation that mutates persistent, external, or otherwise recoverable resources MUST NOT be cancelled merely because a newer commit exists. Cancellation is permitted only when the project contract provides a demonstrable idempotent cleanup and recovery path that remains effective after a hard interruption. If that guarantee is absent or uncertain, retain the validation. Efficiency never justifies bypassing missing runtime evidence.
+
+Cancelled, superseded, or never-started runs are not successful validation. Final integration requires evidence bound to the exact commit being integrated, or to one explicitly defined and tested integration candidate. A shared integration run may supersede several changes only if its candidate contains their exact contents and the resulting integration is bound to that exact tested candidate.
+
+Projects that select supersession or queue behavior document its scope, resource classes, safety boundaries, commit/integration-candidate binding, evidence status, and handling of cleanup or infrastructure failures. Project CI, runtime resources, cleanup contracts, branch protection, provider choice, GitHub Actions concurrency, merge-queue activation, and branch-specific selection remain project-owned choices.
+
 ## GitHub recommendation
 
 For GitHub projects that want both hard normal-mode enforcement and availability, prefer layered repository Rulesets:

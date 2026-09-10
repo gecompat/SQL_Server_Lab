@@ -1,0 +1,47 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/runtime-inventory.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contract": {"const": "foundation-ai-host-preparation/v1"},
+    "expires_at": {"format": "date-time", "type": "string"},
+    "observed_at": {"format": "date-time", "type": "string"},
+    "operation": {"enum": ["doctor", "inventory"], "type": "string"},
+    "runtimes": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "artifact_id": {"minLength": 1, "type": "string"},
+                "boundary_reason": {"enum": ["CLOUD_TAG_REQUIRES_REMOTE", "MODEL_EXECUTION_NOT_ATTESTED"], "type": "string"},
+                "execution_boundary": {"enum": ["REMOTE", "UNKNOWN"], "type": "string"}
+              },
+              "required": ["artifact_id", "execution_boundary", "boundary_reason"],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "discovery": {"enum": ["PATH", "SEARCH_PATH", "NOT_FOUND"], "type": "string"},
+          "executable_path": {"type": ["string", "null"]},
+          "executable_sha256": {"anyOf": [{"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"}, {"type": "null"}]},
+          "execution_boundary": {"enum": ["PROCESS", "HOST", "LOCAL_NETWORK", "REMOTE", "UNKNOWN"], "type": "string"},
+          "reason_code": {"minLength": 1, "type": "string"},
+          "runtime_id": {"minLength": 1, "type": "string"},
+          "state": {"enum": ["HEALTHY", "DEGRADED", "UNAVAILABLE"], "type": "string"},
+          "version": {"type": ["string", "null"]}
+        },
+        "required": ["runtime_id", "state", "reason_code"],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "schema_version": {"const": 1},
+    "status": {"enum": ["COMPLETE", "PARTIAL", "UNAVAILABLE"], "type": "string"}
+  },
+  "required": ["schema_version", "contract", "operation", "observed_at", "expires_at", "status", "runtimes"],
+  "title": "Foundation optional runtime diagnosis and inventory report",
+  "type": "object"
+}

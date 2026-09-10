@@ -1,0 +1,51 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/model-routing-request-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "allow_evaluation": {"default": false, "type": "boolean"},
+    "allow_remote": {"default": false, "type": "boolean"},
+    "allow_unknown_context": {"default": false, "type": "boolean"},
+    "allowed_execution_boundaries": {"items": {"enum": ["PROCESS", "HOST", "LOCAL_NETWORK", "REMOTE", "UNKNOWN"]}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "allowed_providers": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "at": {"format": "date-time", "type": "string"},
+    "cached_input_tokens": {"default": 0, "minimum": 0, "type": "integer"},
+    "context_tokens": {"default": 0, "minimum": 0, "type": "integer"},
+    "contract": {"const": "foundation-model-router/v2"},
+    "current_model": {"minLength": 1, "type": "string"},
+    "current_provider": {"minLength": 1, "type": "string"},
+    "data_class": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"], "type": "string"},
+    "expected_output_tokens": {"default": 0, "minimum": 0, "type": "integer"},
+    "failed_models": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "failure_cost_usd": {"minimum": 0, "type": "number"},
+    "latency_value_usd_per_second": {"minimum": 0, "type": "number"},
+    "max_cost_usd": {"minimum": 0, "type": "number"},
+    "max_fallbacks": {"default": 1, "minimum": 0, "type": "integer"},
+    "max_latency_seconds": {"minimum": 0, "type": "number"},
+    "preferred_reasoning_effort": {"minLength": 1, "type": "string"},
+    "quality_floor": {"maximum": 1, "minimum": 0, "type": "number"},
+    "remote_data_classes": {"items": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"]}, "type": "array", "uniqueItems": true},
+    "required_capabilities": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "resource_limits": {
+      "additionalProperties": false,
+      "properties": {
+        "max_cpu_seconds": {"minimum": 0, "type": "number"},
+        "max_disk_mb": {"minimum": 0, "type": "number"},
+        "max_energy_wh": {"minimum": 0, "type": "number"},
+        "max_gpu_seconds": {"minimum": 0, "type": "number"},
+        "max_network_mb": {"minimum": 0, "type": "number"},
+        "max_ram_mb": {"minimum": 0, "type": "number"},
+        "max_vram_mb": {"minimum": 0, "type": "number"}
+      },
+      "type": "object"
+    },
+    "schema_version": {"const": 2},
+    "session_id": {"minLength": 1, "type": "string"},
+    "switching_cost_usd": {"minimum": 0, "type": "number"},
+    "task_class": {"minLength": 1, "type": "string"},
+    "tier": {"enum": ["LOCAL", "ECONOMICAL", "BALANCED", "FRONTIER"], "type": "string"}
+  },
+  "required": ["schema_version", "contract", "tier", "task_class", "data_class", "allowed_execution_boundaries", "remote_data_classes", "resource_limits"],
+  "title": "Foundation model routing request v2",
+  "type": "object"
+}

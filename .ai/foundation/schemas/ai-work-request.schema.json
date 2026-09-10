@@ -1,0 +1,82 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/ai-work-request.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "handle": {
+      "additionalProperties": false,
+      "properties": {
+        "content_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+        "handle_id": {"minLength": 1, "type": "string"},
+        "kind": {"enum": ["STDIN", "FILE", "EPHEMERAL", "OPAQUE"], "type": "string"},
+        "media_type": {"minLength": 1, "type": "string"}
+      },
+      "required": ["handle_id", "kind"],
+      "type": "object"
+    },
+    "limits": {
+      "additionalProperties": false,
+      "properties": {
+        "deadline": {"format": "date-time", "type": "string"},
+        "max_cost_usd": {"minimum": 0, "type": "number"},
+        "max_cpu_seconds": {"minimum": 0, "type": "number"},
+        "max_disk_mb": {"minimum": 0, "type": "number"},
+        "max_energy_wh": {"minimum": 0, "type": "number"},
+        "max_gpu_seconds": {"minimum": 0, "type": "number"},
+        "max_attempts": {"minimum": 1, "type": "integer"},
+        "max_network_mb": {"minimum": 0, "type": "number"},
+        "max_ram_mb": {"minimum": 0, "type": "number"},
+        "max_vram_mb": {"minimum": 0, "type": "number"},
+        "timeout_seconds": {"exclusiveMinimum": 0, "type": "number"}
+      },
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "allowed_execution_boundaries": {"items": {"enum": ["PROCESS", "HOST", "LOCAL_NETWORK", "REMOTE", "UNKNOWN", "HUMAN"]}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "authorization": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_local_adapter_synthesis": {"default": false, "type": "boolean"},
+        "granted_authorities": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+        "remote_data_classes": {"items": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"]}, "type": "array", "uniqueItems": true}
+      },
+      "required": ["granted_authorities", "remote_data_classes", "allow_local_adapter_synthesis"],
+      "type": "object"
+    },
+    "contract": {"const": "foundation-ai-work/v1"},
+    "data_class": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"], "type": "string"},
+    "effects": {"items": {"enum": ["LOCAL_READ", "LOCAL_WRITE", "EXTERNAL_WRITE", "PUBLISH", "DATA_TRANSFER", "SPEND"]}, "type": "array", "uniqueItems": true},
+    "input_handles": {"items": {"$ref": "#/$defs/handle"}, "type": "array"},
+    "limits": {"$ref": "#/$defs/limits"},
+    "output": {
+      "additionalProperties": false,
+      "properties": {"format": {"minLength": 1, "type": "string"}, "handle": {"$ref": "#/$defs/handle"}},
+      "required": ["format"],
+      "type": "object"
+    },
+    "quality": {
+      "additionalProperties": false,
+      "properties": {"minimum_success_probability": {"maximum": 1, "minimum": 0, "type": "number"}},
+      "type": "object"
+    },
+    "required_capabilities": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "risk": {"enum": ["LOW", "MODERATE", "HIGH", "CRITICAL"], "type": "string"},
+    "schema_version": {"const": 1},
+    "task_class": {"minLength": 1, "type": "string"},
+    "validation": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_human": {"default": true, "type": "boolean"},
+        "independent_required": {"default": false, "type": "boolean"},
+        "required_capabilities": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true}
+      },
+      "required": ["required_capabilities", "independent_required", "allow_human"],
+      "type": "object"
+    },
+    "work_id": {"minLength": 1, "type": "string"}
+  },
+  "required": ["schema_version", "contract", "work_id", "task_class", "data_class", "risk", "effects", "input_handles", "output", "required_capabilities", "allowed_execution_boundaries", "authorization", "quality", "limits", "validation"],
+  "title": "Foundation AI work request",
+  "type": "object"
+}

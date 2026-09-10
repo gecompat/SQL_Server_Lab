@@ -1,0 +1,47 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/provision-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actions": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_id": {"minLength": 1, "type": "string"},
+          "download_mb": {"minimum": 0, "type": "number"},
+          "expected_disk_mb": {"minimum": 0, "type": "number"},
+          "expected_memory_mb": {"minimum": 0, "type": "number"},
+          "environment_names": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+          "idempotent_install": {"type": "boolean"},
+          "install_argv": {"items": {"minLength": 1, "type": "string"}, "type": "array"},
+          "install_network_access": {"const": "DENY"},
+          "license_notice": {"minLength": 1, "type": "string"},
+          "license_source": {"format": "uri", "type": "string"},
+          "max_cost_usd": {"minimum": 0, "type": "number"},
+          "network_destination": {"minLength": 1, "type": "string"},
+          "recipe_id": {"minLength": 1, "type": "string"},
+          "source": {"format": "uri", "type": "string"},
+          "target_path": {"minLength": 1, "type": "string"},
+          "target_runtime": {"minLength": 1, "type": "string"},
+          "verify_argv": {"items": {"minLength": 1, "type": "string"}, "type": "array"},
+          "verification_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"}
+        },
+        "required": ["source", "artifact_id", "license_notice", "download_mb", "expected_disk_mb", "expected_memory_mb", "target_runtime", "network_destination", "max_cost_usd", "verification_sha256"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "contract": {"const": "foundation-ai-work/v1"},
+    "created_at": {"format": "date-time", "type": "string"},
+    "expires_at": {"format": "date-time", "type": "string"},
+    "plan_hash": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "provision_id": {"minLength": 1, "type": "string"},
+    "recovery": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array"},
+    "rollback": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array"},
+    "schema_version": {"const": 1}
+  },
+  "required": ["schema_version", "contract", "provision_id", "created_at", "expires_at", "actions", "rollback", "recovery", "plan_hash"],
+  "title": "Foundation AI bounded provision plan",
+  "type": "object"
+}

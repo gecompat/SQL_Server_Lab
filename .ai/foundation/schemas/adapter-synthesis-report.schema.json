@@ -1,0 +1,47 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/adapter-synthesis-report.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "configuration_sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "conformance": {
+      "additionalProperties": false,
+      "properties": {
+        "evidence_sha256": {"anyOf": [{"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"}, {"type": "null"}]},
+        "status": {"enum": ["NOT_EXECUTED", "PASSED", "FAILED"], "type": "string"}
+      },
+      "required": ["status", "evidence_sha256"],
+      "type": "object"
+    },
+    "constraints": {
+      "additionalProperties": false,
+      "properties": {
+        "credential_environment_names": {"maxItems": 0, "type": "array"},
+        "network_access": {"const": "DENY"},
+        "repository_write": {"const": "DENY"}
+      },
+      "required": ["network_access", "credential_environment_names", "repository_write"],
+      "type": "object"
+    },
+    "contract": {"const": "foundation-local-adapter-synthesis/v1"},
+    "generated_at": {"format": "date-time", "type": "string"},
+    "reason_codes": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+    "report_hash": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "schema_version": {"const": 1},
+    "source_files": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {"name": {"minLength": 1, "type": "string"}, "sha256": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"}},
+        "required": ["name", "sha256"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "status": {"enum": ["QUARANTINED", "VERIFIED"], "type": "string"},
+    "synthesis_id": {"minLength": 1, "type": "string"}
+  },
+  "required": ["schema_version", "contract", "synthesis_id", "status", "generated_at", "source_files", "configuration_sha256", "constraints", "conformance", "reason_codes", "report_hash"],
+  "title": "Foundation local adapter synthesis and quarantine report",
+  "type": "object"
+}

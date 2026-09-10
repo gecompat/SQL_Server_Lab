@@ -1,0 +1,90 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/ai-runtime-configuration.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "credential": {
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "properties": {"source": {"const": "NONE"}},
+          "required": ["source"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "export_as": {"pattern": "^[A-Z_][A-Z0-9_]*$", "type": "string"},
+            "source": {"const": "ENVIRONMENT"},
+            "source_name": {"pattern": "^[A-Z_][A-Z0-9_]*$", "type": "string"}
+          },
+          "required": ["source", "source_name", "export_as"],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "properties": {
+            "export_as": {"pattern": "^[A-Z_][A-Z0-9_]*$", "type": "string"},
+            "key": {"pattern": "^[A-Za-z_][A-Za-z0-9_]*$", "type": "string"},
+            "path": {"minLength": 1, "type": "string"},
+            "source": {"const": "DOTENV_REFERENCE"}
+          },
+          "required": ["source", "path", "key", "export_as"],
+          "type": "object"
+        }
+      ]
+    },
+    "connection": {
+      "additionalProperties": false,
+      "properties": {
+        "adapter": {"enum": ["ollama", "openai-compatible"], "type": "string"},
+        "allow_remote_models": {"type": "boolean"},
+        "allowed_data_classes": {
+          "items": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"], "type": "string"},
+          "type": "array",
+          "uniqueItems": true
+        },
+        "catalog_ttl_seconds": {"maximum": 86400, "minimum": 1, "type": "integer"},
+        "credential": {"$ref": "#/$defs/credential"},
+        "endpoint": {"pattern": "^https?://", "type": "string"},
+        "execution_boundary": {"enum": ["HOST", "LOCAL_NETWORK", "REMOTE", "UNKNOWN"], "type": "string"},
+        "health_ttl_seconds": {"maximum": 3600, "minimum": 1, "type": "integer"},
+        "label": {"minLength": 1, "type": "string"},
+        "model_selection": {
+          "additionalProperties": false,
+          "properties": {
+            "default_model": {"type": ["string", "null"]},
+            "mode": {"enum": ["MANUAL", "PINNED", "ROUTER"], "type": "string"}
+          },
+          "required": ["mode", "default_model"],
+          "type": "object"
+        },
+        "network_authorized": {"type": "boolean"},
+        "read_roots": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+        "remote_data_classes": {
+          "items": {"enum": ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "RESTRICTED"], "type": "string"},
+          "type": "array",
+          "uniqueItems": true
+        },
+        "timeout_seconds": {"maximum": 600, "minimum": 0.1, "type": "number"},
+        "trust_loopback_host": {"type": "boolean"},
+        "write_roots": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true}
+      },
+      "required": ["label", "adapter", "endpoint", "execution_boundary", "trust_loopback_host", "network_authorized", "allowed_data_classes", "remote_data_classes", "allow_remote_models", "credential", "read_roots", "write_roots", "timeout_seconds", "health_ttl_seconds", "catalog_ttl_seconds", "model_selection"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "connections": {
+      "additionalProperties": {"$ref": "#/$defs/connection"},
+      "propertyNames": {"pattern": "^[a-z0-9][a-z0-9._-]{0,63}$"},
+      "type": "object"
+    },
+    "contract": {"const": "foundation-ai-runtime-configuration/v1"},
+    "schema_version": {"const": 1},
+    "updated_at": {"format": "date-time", "type": "string"}
+  },
+  "required": ["schema_version", "contract", "updated_at", "connections"],
+  "title": "Foundation external AI runtime connection configuration",
+  "type": "object"
+}

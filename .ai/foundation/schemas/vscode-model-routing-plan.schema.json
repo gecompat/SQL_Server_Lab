@@ -1,0 +1,86 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/vscode-model-routing-plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "client": {"const": "VISUAL_STUDIO_CODE"},
+    "client_capability_hash": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "contract": {"const": "foundation-vscode-model-routing-plan/v1"},
+    "created_at": {"format": "date-time", "type": "string"},
+    "expires_at": {"format": "date-time", "type": "string"},
+    "host_constraints": {
+      "additionalProperties": false,
+      "properties": {
+        "actual_model_attestation_required": {"const": true},
+        "main_model_cost_ceiling_remains_authoritative": {"const": true},
+        "model_names_are_runtime_facts": {"const": true}
+      },
+      "required": ["model_names_are_runtime_facts", "main_model_cost_ceiling_remains_authoritative", "actual_model_attestation_required"],
+      "type": "object"
+    },
+    "native_changes": {
+      "additionalProperties": false,
+      "properties": {
+        "custom_agents": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "file_name": {"pattern": "^foundation-[a-z0-9][a-z0-9._-]*\\.agent\\.md$", "type": "string"},
+              "frontmatter": {
+                "additionalProperties": false,
+                "properties": {
+                  "description": {"minLength": 1, "type": "string"},
+                  "model": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+                  "name": {"minLength": 1, "type": "string"},
+                  "tools": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true}
+                },
+                "required": ["name", "description", "model", "tools"],
+                "type": "object"
+              },
+              "role_id": {"minLength": 1, "type": "string"},
+              "task_class": {"minLength": 1, "type": "string"}
+            },
+            "required": ["role_id", "task_class", "file_name", "frontmatter"],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "settings_patch": {
+          "additionalProperties": false,
+          "properties": {
+            "chat.planAgent.defaultModel": {"minLength": 1, "type": "string"},
+            "chat.utilityModel": {"minLength": 1, "type": "string"},
+            "chat.utilitySmallModel": {"minLength": 1, "type": "string"},
+            "github.copilot.chat.implementAgent.model": {"minLength": 1, "type": "string"}
+          },
+          "type": "object"
+        },
+        "subagent_parameters": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "models": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true},
+              "role_id": {"minLength": 1, "type": "string"},
+              "task_class": {"minLength": 1, "type": "string"}
+            },
+            "required": ["role_id", "task_class", "models"],
+            "type": "object"
+          },
+          "type": "array"
+        }
+      },
+      "required": ["settings_patch", "custom_agents", "subagent_parameters"],
+      "type": "object"
+    },
+    "plan_hash": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "plan_id": {"pattern": "^sha256:[0-9a-f]{64}$", "type": "string"},
+    "reason_codes": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+    "request_id": {"minLength": 1, "type": "string"},
+    "schema_version": {"const": 1},
+    "status": {"enum": ["EXECUTABLE", "MANUAL_REQUIRED"], "type": "string"},
+    "unavailable_bindings": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true}
+  },
+  "required": ["schema_version", "contract", "client", "client_capability_hash", "plan_id", "request_id", "created_at", "expires_at", "status", "native_changes", "unavailable_bindings", "host_constraints", "reason_codes", "plan_hash"],
+  "title": "Foundation runtime-derived native VS Code model-role plan",
+  "type": "object"
+}

@@ -1,0 +1,33 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/model-routing-decision-v2.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "catalog_fragments": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "execution_boundary": {"enum": ["PROCESS", "HOST", "LOCAL_NETWORK", "REMOTE", "UNKNOWN"], "type": "string"},
+          "provider": {"minLength": 1, "type": "string"},
+          "reason_code": {"minLength": 1, "type": "string"},
+          "source": {"enum": ["CURRENT", "LAST_KNOWN_GOOD", "EXCLUDED"], "type": "string"}
+        },
+        "required": ["provider", "source", "execution_boundary", "reason_code"],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "contract": {"const": "foundation-model-router/v2"},
+    "execution_boundary": {"enum": ["PROCESS", "HOST", "LOCAL_NETWORK", "REMOTE", "UNKNOWN", "NONE"], "type": "string"},
+    "generated_at": {"format": "date-time", "type": "string"},
+    "reason_codes": {"items": {"minLength": 1, "type": "string"}, "type": "array"},
+    "resource_evidence": {"additionalProperties": true, "type": ["object", "null"]},
+    "schema_version": {"const": 2},
+    "status": {"enum": ["ROUTED", "LOCAL_ONLY", "NO_ROUTE"], "type": "string"},
+    "v1_decision": {"additionalProperties": true, "type": "object"},
+    "valid_until": {"format": "date-time", "type": "string"}
+  },
+  "required": ["schema_version", "contract", "status", "generated_at", "valid_until", "execution_boundary", "resource_evidence", "catalog_fragments", "reason_codes", "v1_decision"],
+  "title": "Foundation model routing decision v2",
+  "type": "object"
+}

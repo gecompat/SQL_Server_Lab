@@ -1,0 +1,51 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/model-router-profiles.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "profiles": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "additionalProperties": false,
+          "properties": {
+            "assessment": {"enum": ["ASSESSED", "UNASSESSED", "DISABLED"], "type": "string"},
+            "capabilities": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+            "context_window": {"minimum": 1, "type": ["integer", "null"]},
+            "latency_seconds_prior": {"minimum": 0, "type": "number"},
+            "quality_prior": {"additionalProperties": {"maximum": 1, "minimum": 0, "type": "number"}, "type": "object"},
+            "reasoning_efforts": {"items": {"minLength": 1, "type": "string"}, "type": "array", "uniqueItems": true},
+            "supported_tiers": {"items": {"enum": ["ECONOMICAL", "BALANCED", "FRONTIER"], "type": "string"}, "type": "array", "uniqueItems": true}
+          },
+          "type": "object"
+        },
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "router_defaults": {
+      "additionalProperties": false,
+      "properties": {
+        "daily_evaluation_budget_usd": {"minimum": 0, "type": "number"},
+        "failure_cost_usd": {"minimum": 0, "type": "number"},
+        "latency_value_usd_per_second": {"minimum": 0, "type": "number"},
+        "minimum_evaluation_trials": {"minimum": 1, "type": "integer"},
+        "quality_prior_strength": {"exclusiveMinimum": 0, "type": "number"},
+        "switching_cost_usd": {"minimum": 0, "type": "number"},
+        "tier_quality_floors": {
+          "additionalProperties": false,
+          "properties": {
+            "BALANCED": {"maximum": 1, "minimum": 0, "type": "number"},
+            "ECONOMICAL": {"maximum": 1, "minimum": 0, "type": "number"},
+            "FRONTIER": {"maximum": 1, "minimum": 0, "type": "number"}
+          },
+          "type": "object"
+        }
+      },
+      "type": "object"
+    },
+    "schema_version": {"const": 1}
+  },
+  "required": ["schema_version", "profiles"],
+  "title": "Foundation model router operator profiles",
+  "type": "object"
+}

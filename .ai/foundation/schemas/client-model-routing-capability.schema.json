@@ -1,0 +1,65 @@
+{
+  "$id": "https://example.invalid/ai-repository-foundation/client-model-routing-capability.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "client_id": {"minLength": 1, "type": "string"},
+    "client_kind": {"minLength": 1, "type": "string"},
+    "contract": {"const": "foundation-client-model-routing-capability/v1"},
+    "expires_at": {"format": "date-time", "type": "string"},
+    "fallback_order": {
+      "items": {
+        "enum": ["NATIVE_ROLE", "NATIVE_SUBAGENT", "NATIVE_INVOCATION", "MCP", "CLI", "LAUNCHER", "MANUAL"]
+      },
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "observed_at": {"format": "date-time", "type": "string"},
+    "schema_version": {"const": 1},
+    "sources": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "evidence_kind": {"enum": ["OFFICIAL_DOCUMENTATION", "CLIENT_SCHEMA", "LIVE_PROBE", "CLIENT_OUTPUT"], "type": "string"},
+          "locator": {"minLength": 1, "type": "string"},
+          "observed_at": {"format": "date-time", "type": "string"}
+        },
+        "required": ["evidence_kind", "locator", "observed_at"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "surfaces": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "actual_model_evidence": {
+            "items": {"enum": ["HOST_EXECUTION", "HOST_RESPONSE_METADATA", "TELEMETRY", "CLIENT_OUTPUT", "NOT_AVAILABLE"]},
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
+          "automatic_dispatch": {"type": "boolean"},
+          "binding_target": {"minLength": 1, "type": "string"},
+          "configuration_authority": {"enum": ["NONE", "USER_CONFIGURATION", "PROJECT_CONFIGURATION", "REPOSITORY_WRITE", "HOST_MANAGED"], "type": "string"},
+          "dispatch_mode": {"enum": ["ROLE_SETTING", "AGENT_PROFILE", "SUBAGENT_PARAMETER", "INVOCATION_ARGUMENT", "SESSION_SELECTION", "MANUAL_SELECTION"], "type": "string"},
+          "fallback_behavior": {"enum": ["FAIL", "INHERIT_PARENT", "FALLBACK_SESSION", "SERVER_AUTO", "UNKNOWN"], "type": "string"},
+          "model_binding": {"enum": ["NONE", "SINGLE", "PRIORITY_LIST"], "type": "string"},
+          "repository_managed": {"type": "boolean"},
+          "selection_scope": {"enum": ["PER_TASK_CLASS", "PER_AGENT", "PER_INVOCATION", "PER_SESSION", "MANUAL"], "type": "string"},
+          "surface_id": {"minLength": 1, "type": "string"},
+          "task_classes": {"items": {"minLength": 1, "type": "string"}, "minItems": 1, "type": "array", "uniqueItems": true}
+        },
+        "required": ["surface_id", "task_classes", "dispatch_mode", "selection_scope", "binding_target", "model_binding", "automatic_dispatch", "fallback_behavior", "actual_model_evidence", "configuration_authority", "repository_managed"],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": ["schema_version", "contract", "client_id", "client_kind", "observed_at", "expires_at", "sources", "surfaces", "fallback_order"],
+  "title": "Foundation runtime-observed client model-routing capability",
+  "type": "object"
+}
