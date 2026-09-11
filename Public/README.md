@@ -30,7 +30,7 @@ Die SQL-seitige Verifikation bleibt offen.
 | `Get-SqlServerLabWorkflow` | `Get-SqlServerLabWorkflow.ps1` | Verdichtete Workflow-, Image- und Kombinationsübersicht ohne Geheimnisse |
 | `Find-SqlServerLabCollation` | `Find-SqlServerLabCollation.ps1` | Katalogisierte SQL-Server-Collations tokenbasiert und versionsgebunden durchsuchen; die Suche verändert keine Runtime |
 | `Get-SqlServerLabHyperVImageArtifact` | `Get-SqlServerLabHyperVImageArtifact.ps1` | Pfadfreie read-only Hyper-V-Image-Registry mit Evaluation, manueller Refresh-Empfehlung, Referenzen und optionaler Integritätsprüfung |
-| `Get-SqlServerLabEvaluationWatch` | `Get-SqlServerLabEvaluationWatch.ps1` | Windows- und SQL-Evaluationsfristen read-only bewerten und fällige Ereignisse optional lokal deduplizieren |
+| `Get-SqlServerLabEvaluationWatch` | `Get-SqlServerLabEvaluationWatch.ps1` | Windows- und SQL-Artefaktfristen read-only bewerten; SQL-Gastfristen nur aus frischer, gebundener Evidence für registrierte Hyper-V-SQL-Runs projizieren und fällige Ereignisse optional lokal deduplizieren |
 | `Invoke-SqlServerLabEvaluationWatchTrigger` | `Invoke-SqlServerLabEvaluationWatchTrigger.ps1` | Evaluation-Watch in einem explizit begrenzten lokalen Zeitintervall ausführen; keine Windows-Aufgabe, Runtime- oder Netzwerkmutation |
 | `Get-SqlServerLabRunStateUpgradePlan` | `Get-SqlServerLabRunStateUpgradePlan.ps1` | Einen einzelnen Run-State pfad- und secretfrei gegen den Zielvertrag klassifizieren |
 | `Invoke-SqlServerLabRunStateUpgrade` | `Invoke-SqlServerLabRunStateUpgrade.ps1` | Nur einen ausdrücklich synthetisch markierten, unversionierten Legacy-State atomar migrieren; unbekannte Versionen und Runtime-Ressourcen bleiben blockiert |

@@ -175,6 +175,8 @@ $dependencyCases = @(
     @{ Path = 'Private/ConsoleHelp.ps1'; Checks = @('Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/PortableLabImport.ps1'; Checks = @('Invoke-PortableLabImportChecks.ps1'); Runtime = @() },
     @{ Path = 'Public/Get-SqlServerLabEvaluationWatch.ps1'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/SqlGuestEvaluationEvidence.ps1'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },
+    @{ Path = 'Schemas/sql-guest-evaluation-evidence.schema.json'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/SqlObservabilityEvidence.ps1'; Checks = @('Invoke-SqlObservabilityEvidenceChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
     @{ Path = 'Private/RecoveryPointPlan.ps1'; Checks = @('Invoke-HyperVRecoveryPointPlanChecks.ps1'); Runtime = @() }
 )

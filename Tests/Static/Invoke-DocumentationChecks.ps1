@@ -1356,8 +1356,8 @@ Add-ValidationResult `
         $repoMap -match 'full_instance_evaluation_refresh_backlog: Documentation/Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG\.md')
 
 Add-ValidationResult `
-    -Name 'SQL-Gast-Evaluationsfrist bleibt bis zu gebundener Evidence ein provider- und secretfreier Hyper-V-Backlog' `
-    -Success ($sqlGuestEvaluationEvidenceBacklog -match '(?m)^\| Status \| `BACKLOG` \|' -and
+    -Name 'SQL-Gast-Evidence-Reader bleibt provider- und secretfrei; Capture und Native-Evidence bleiben Backlog' `
+    -Success ($sqlGuestEvaluationEvidenceBacklog -match '(?m)^\| Status \| `PARTIALLY_IMPLEMENTED`:' -and
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('SqlServerLab.SqlGuestEvaluationEvidence/1.0') -and
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('runs/<RunId>/sql-guest-evaluation-evidence.json') -and
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('RunId') -and
@@ -1373,6 +1373,9 @@ Add-ValidationResult `
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('keine neue Gastabfrage') -and
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('keine synthetische Produktionsfrist') -and
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('Erforderliche native Evidence') -and
+        (Test-Path -LiteralPath (Join-Path $repoRoot 'Private\SqlGuestEvaluationEvidence.ps1') -PathType Leaf) -and
+        (Test-Path -LiteralPath (Join-Path $repoRoot 'Schemas\sql-guest-evaluation-evidence.schema.json') -PathType Leaf) -and
+        $knownLimitations -match 'Reader und die fail-closed\s*Watch-Projektion sind statisch geprüft; Capture und die erforderliche native\s*Evidence bleiben offen' -and
         $crossCuttingPlatformCapabilitiesBacklog -match 'SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG\.md' -and
         $fullInstanceEvaluationRefreshBacklog -match 'SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG\.md' -and
         $knownLimitations -match 'SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG\.md' -and

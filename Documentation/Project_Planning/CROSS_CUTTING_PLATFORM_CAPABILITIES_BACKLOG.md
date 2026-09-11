@@ -70,7 +70,9 @@ Der vorhandene Workflow kann Evaluationsmetadaten anzeigen und eine zu kurze
 Restlaufzeit beim Aufbau blockieren. `Get-SqlServerLabEvaluationWatch` bewertet
 die registrierten Windows- und SQL-Evaluationen getrennt. Für als RUNNING
 registrierte Hyper-V-Instanzen projiziert er zusätzlich ausschließlich die
-bereits persistierte Windows-Aktivierungsevidenz mit ihrer eigenen Frist;
+bereits persistierte Windows-Aktivierungsevidenz mit ihrer eigenen Frist.
+Für registrierte RUNNING-/STOPPED-Hyper-V-SQL-Runs liest er eine SQL-Gastfrist
+nur aus einem separaten schema- und bindungsvalidierten Receipt;
 eine Live-VM- oder Gastabfrage findet dafür nicht statt. Der Befehl erzeugt
 stabile, sanitisierte Fälligkeitsereignisse und kann neue Ereignisse mit
 `-RecordEvents` lokal idempotent deduplizieren. Der Standardaufruf bleibt
@@ -78,9 +80,9 @@ vollständig read-only; auch die optionale Ereignisaufzeichnung verändert weder
 Images, Lizenzen noch Runs. `Invoke-SqlServerLabEvaluationWatchTrigger` führt
 denselben Watch sofort und anschließend in einem explizit begrenzten
 foreground-Intervall aus. Er registriert keine Windows-Aufgabe, startet keine
-Runtime und führt keinen Netzwerk- oder Gastzugriff aus. Persistierte
-SQL-Gastfristen und optionale Benachrichtigungskanäle bleiben offen. Der
-minimale, noch nicht implementierte SQL-Gast-Slice ist im
+Runtime und führt keinen Netzwerk- oder Gastzugriff aus. SQL-Gast-Capture,
+Native-Abnahme und optionale Benachrichtigungskanäle bleiben offen. Der
+minimale, teilweise implementierte SQL-Gast-Slice ist im
 [eigenen Evidence-Backlog](SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG.md)
 festgelegt: Er trennt rungebundenen SQL-Gast-Receipt, Aktualität,
 Read-only-Projektion und Native-Evidence von Image- und Windows-Metadaten.

@@ -5,8 +5,11 @@
     Liest die pfadfreie Hyper-V-Image-Inventur sowie registrierte, im
     Workflow-State als RUNNING geführte Hyper-V-Instanzen. Für solche Instanzen
     wird ausschließlich eine bereits persistierte Windows-Aktivierungsevidenz
-    ausgewertet; es findet weder eine Runtime-Abfrage noch ein Gastzugriff
-    statt. Für fällige Evaluationen erzeugt die Ausgabe stabile, sanitisierte
+    ausgewertet. Registrierte RUNNING- oder STOPPED-Hyper-V-SQL-Runs erhalten
+    zusätzlich nur aus einem eigenen, schema- und bindungsvalidierten Receipt
+    eine SQL-Gastprojektion; Image- und Windows-Metadaten sind dafür kein
+    Fallback. Es findet weder eine Runtime-Abfrage noch ein Gastzugriff statt.
+    Für fällige Evaluationen erzeugt die Ausgabe stabile, sanitisierte
     Ereignisse. Mit -RecordEvents werden bislang unbekannte Ereignisse
     idempotent im lokalen State erfasst; Images, Lizenzen und Runs bleiben
     unverändert.
@@ -20,9 +23,9 @@
 .PARAMETER StateRoot
     Optionaler lokaler State-Root.
 .OUTPUTS
-    SqlServerLab.EvaluationWatch/1.1 mit stabilen IDs, Artefakt- und
-    Instanzfristen, Status und optional neu erfassten Ereignissen ohne lokale
-    Pfade, Secrets oder Lizenzschlüssel.
+    SqlServerLab.EvaluationWatch/1.2 mit stabilen IDs, Artefakt-, Windows- und
+    ausschließlich receiptgebundenen SQL-Gastfristen, Status und optional neu
+    erfassten Ereignissen ohne lokale Pfade, Secrets oder Lizenzschlüssel.
 .EXAMPLE
     Get-SqlServerLabEvaluationWatch
 
@@ -174,9 +177,23 @@ function Get-SqlServerLabEvaluationWatch {
         }
     }
 
+    # SQL-Gast-Evaluationsfristen werden ausschließlich aus dem eigenständigen,
+    # runlokalen Receipt gelesen. Sie verwenden weder das Image noch die
+    # Windows-Aktivierung als Fallback und fragen keine VM oder SQL-Instanz ab.
+    foreach ($run in @(Get-LabActiveRuns -StateRoot $StateRoot | Where-Object {
+        [string]$_.state -in @('RUNNING', 'STOPPED') -and
+        [string]$_.metadata.workflowKind -eq 'hyperv-lab' -and
+        [string]$_.metadata.workload -eq 'sql'
+    })) {
+        $readerResult = Get-LabSqlGuestEvaluationEvidence -RunId ([string]$run.runId) -StateRoot $StateRoot
+        $instanceItems.Add((ConvertTo-LabSqlGuestEvaluationWatchItem `
+            -ReaderResult $readerResult -RegistrationState ([string]$run.state) -Now $now `
+            -WarningDaysRemaining $WarningDaysRemaining -CriticalDaysRemaining $CriticalDaysRemaining))
+    }
+
     $orderedItems = @($items | Sort-Object Status, Component, ArtifactId)
     $orderedInstanceItems = @($instanceItems | Sort-Object Status, RunId, InstanceId, Component)
-    $dueEvents = @($orderedItems + $orderedInstanceItems | Where-Object { $_.Status -ne 'OK' })
+    $dueEvents = @($orderedItems + $orderedInstanceItems | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.EventId) })
     $newEvents = @()
     if ($RecordEvents -and $dueEvents.Count -gt 0 -and $PSCmdlet.ShouldProcess('lokaler Evaluation-Watch-State', 'Neue Fälligkeitsereignisse erfassen')) {
         $eventStatePath = Join-Path $StateRoot 'evaluation-watch-events.json'
@@ -199,6 +216,7 @@ function Get-SqlServerLabEvaluationWatch {
                         EventId = [string]$_.EventId; ArtifactId = [string]$_.ArtifactId
                         Component = [string]$_.Component; Status = [string]$_.Status
                         RunId = [string]$_.RunId; InstanceId = [string]$_.InstanceId
+                        EvidenceStatus = [string]$_.EvidenceStatus
                         EvaluationExpiresAt = [string]$_.EvaluationExpiresAt; RecordedAt = $now.ToString('o')
                     }
                 })
@@ -212,7 +230,7 @@ function Get-SqlServerLabEvaluationWatch {
     }
 
     [PSCustomObject]@{
-        ContractVersion = 'SqlServerLab.EvaluationWatch/1.1'
+        ContractVersion = 'SqlServerLab.EvaluationWatch/1.2'
         GeneratedAt = $now.ToString('o')
         WarningDaysRemaining = $WarningDaysRemaining
         CriticalDaysRemaining = $CriticalDaysRemaining
@@ -224,6 +242,7 @@ function Get-SqlServerLabEvaluationWatch {
             EventId = [string]$_.EventId; ArtifactId = [string]$_.ArtifactId
             RunId = [string]$_.RunId; InstanceId = [string]$_.InstanceId
             Component = [string]$_.Component; Status = [string]$_.Status
+            EvidenceStatus = [string]$_.EvidenceStatus
         }})
     }
 }

@@ -93,7 +93,7 @@ end {
         @{ Pattern = '(?i)(StateUpgrade|state-upgrade)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
         @{ Pattern = '(?i)(CollationCatalog|sql-server-collation|Find-SqlServerLabCollation|ManifestParser|ManifestBuilder|lab-manifest|Public[\\/]New-SqlServerLab\.ps1|Public[\\/]Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-VersionCatalogChecks.ps1') },
         @{ Pattern = '(?i)(PortableLabImport|portable-lab-import)'; Checks = @('Invoke-PortableLabImportChecks.ps1') },
-        @{ Pattern = '(?i)(EvaluationWatch|evaluation-watch)'; Checks = @('Invoke-EvaluationWatchChecks.ps1') },
+        @{ Pattern = '(?i)(EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence)'; Checks = @('Invoke-EvaluationWatchChecks.ps1') },
         @{ Pattern = '(?i)(SqlObservabilityEvidence|sql-observability-evidence)'; Checks = @('Invoke-SqlObservabilityEvidenceChecks.ps1') },
         @{ Pattern = '(?i)(RecoveryPointPlan|recovery-point-plan)'; Checks = @('Invoke-HyperVRecoveryPointPlanChecks.ps1') },
         @{ Pattern = '(?i)(HyperVPersistentDataDrive|hyperv-persistent-data)'; Checks = @('Invoke-HyperVPersistentDataDriveChecks.ps1','Invoke-HyperVProviderChecks.ps1') },
@@ -193,7 +193,7 @@ end {
             if ($runtimePath -match '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $pathRuntime.Adapter = $true }
 
             $knownDomainChange = $pathRuntime.Docker -or $pathRuntime.Podman -or $pathRuntime.Mixed -or $pathRuntime.HyperV -or $pathRuntime.Adapter
-            $staticOnlyProductChange = $runtimePath -match '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact)|ResourceSet|ResourcePlan|ScenarioContract|scenario-contract)'
+            $staticOnlyProductChange = $runtimePath -match '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact)|ResourceSet|ResourcePlan|ScenarioContract|scenario-contract|EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence)'
             if ($pathHasProductCode -and -not $knownDomainChange -and -not $staticOnlyProductChange) {
                 $pathRuntime.Docker = $true
             }

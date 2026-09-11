@@ -375,6 +375,14 @@ VM-Notizen oder Evidence gespeichert. Der credentialfreie allgemeine Status
 zeigt nur die letzte Readiness-Evidenz und setzt `SqlReady` bewusst nicht aus
 einem möglicherweise veralteten Receipt auf `true`.
 
+Der private Reader für
+[`SqlServerLab.SqlGuestEvaluationEvidence/1.0`](../Project_Planning/SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG.md)
+liest ausschließlich einen rungebundenen SQL-Gast-Receipt und bindet ihn an
+Run, Scope, Instanz, VM, Image und die bereits vorhandene SQL-Readiness. Der
+Reader und die fail-closed Watch-Projektion sind statisch geprüft; Capture und
+die erforderliche native Evidence bleiben offen. Es erfolgt keine neue
+Gastabfrage und es wird keine synthetische Produktionsfrist abgeleitet.
+
 Der Prepared-Image-Klonpfad aus `SQL_PREPARED_SEALED` ist für Windows Server
 2025 Standard Evaluation (Desktop Experience) und SQL Server 2025 Enterprise
 Developer real belegt: ein normaler Manifestlauf verwendete eine
@@ -831,11 +839,12 @@ Für weitere querschnittliche Plattformlücken existiert jetzt ein eigener
 `Get-SqlServerLabHyperVRecoveryPointPlan` sowie
 `Get-SqlServerLabSqlObservabilityEvidence` decken jeweils nur ihren
 ausdrücklich read-only beziehungsweise statischen Teilvertrag ab. Die
-persistierte SQL-Gast-Evaluationsfrist eines Hyper-V-Runs ist weiterhin nicht
-implementiert; der verbindliche, provider- und secretfreie Zielvertrag liegt
-im [SQL-Gast-Evidence-Backlog](../Project_Planning/SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG.md).
-Bis zu einer gebundenen und frischen Evidence kann der Watch keine aktuelle
-SQL-Gastfrist aus Image- oder Windows-Metadaten ableiten. Die
+SQL-Gast-Evaluationsfrist eines Hyper-V-Runs wird ausschließlich aus einem
+schema-validierten, an Run, Scope, Instanz, VM, Image und vorhandene
+SQL-Readiness gebundenen Receipt gelesen. Der Reader und die fail-closed
+Watch-Projektion sind statisch geprüft; Capture und die erforderliche native
+Evidence bleiben offen. Bis zu einer gebundenen und frischen Evidence kann der
+Watch keine aktuelle SQL-Gastfrist aus Image- oder Windows-Metadaten ableiten. Die
 Observability-Evidence enthält aggregierte Server-, Datenbank-, Query-Store-
 und Wait-Metriken ohne SQL-Texte, Namen, Endpunkte oder Secrets; Extended
 Events, SQL-Agent-/Backupzustände, Retention, Evidenzpakete und eine

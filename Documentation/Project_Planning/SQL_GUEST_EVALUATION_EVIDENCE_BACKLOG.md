@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `BACKLOG` |
+| Status | `PARTIALLY_IMPLEMENTED`: schema-validierender Reader und Watch-Projektion sind statisch geprüft; Capture und Native-Evidence bleiben offen |
 | Stand | 2026-09-11 |
 | Scope | Hyper-V-Run mit SQL-Gast; nur Evaluationsermittlung und read-only Projektion |
 | Ziel | Versionsgebundene, frische und geheimnisfreie SQL-Gast-Frist für Watch und Refresh |
