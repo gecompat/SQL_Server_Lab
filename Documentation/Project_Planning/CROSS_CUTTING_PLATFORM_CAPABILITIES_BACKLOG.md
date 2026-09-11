@@ -68,12 +68,15 @@ Ausführungsreihenfolge des Development Execution Plans.
 
 Der vorhandene Workflow kann Evaluationsmetadaten anzeigen und eine zu kurze
 Restlaufzeit beim Aufbau blockieren. `Get-SqlServerLabEvaluationWatch` bewertet
-die registrierten Windows- und SQL-Evaluationen getrennt, erzeugt stabile,
-sanitisierte Fälligkeitsereignisse und kann neue Ereignisse mit
+die registrierten Windows- und SQL-Evaluationen getrennt. Für als RUNNING
+registrierte Hyper-V-Instanzen projiziert er zusätzlich ausschließlich die
+bereits persistierte Windows-Aktivierungsevidenz mit ihrer eigenen Frist;
+eine Live-VM- oder Gastabfrage findet dafür nicht statt. Der Befehl erzeugt
+stabile, sanitisierte Fälligkeitsereignisse und kann neue Ereignisse mit
 `-RecordEvents` lokal idempotent deduplizieren. Der Standardaufruf bleibt
 vollständig read-only; auch die optionale Ereignisaufzeichnung verändert weder
-Images, Lizenzen noch Runs. Ein zeitgesteuerter Trigger und optionale
-Benachrichtigungskanäle bleiben offen.
+Images, Lizenzen noch Runs. Persistierte SQL-Gastfristen, ein zeitgesteuerter
+Trigger und optionale Benachrichtigungskanäle bleiben offen.
 
 Der Zielvertrag muss mindestens definieren:
 
