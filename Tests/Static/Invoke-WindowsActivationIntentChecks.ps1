@@ -69,7 +69,7 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
     $binding=New-LabWindowsPermanentAdapterBinding -VM @{Id='own-vm'} -Adapters @($script:permanentAdapter) -SwitchId own-switch
     $script:activationLab=[pscustomobject]@{RunDirectory='synthetic';StateRoot='synthetic';Run=@{runId='own-run';scopeId='own-scope'};Connection=@{};Instance=[pscustomobject]@{vmName='synthetic';windowsActivationIntent=(Resolve-LabWindowsActivationIntent);windowsActivationIntentSource='manifest';labNetwork=@{intent='lan';adapterBinding=$binding};oobeAutomation=@{labAddress='192.0.2.1'}}}
     $script:activationManaged=[pscustomobject]@{VM=@{Id='own-vm';State='Running'};Identity=@{networkBinding=$binding}}
-    $script:activationMode=$null;$script:configureTemporary=$null;$script:activationFailure=$false
+    $script:activationMode=$null;$script:configureTemporary=$null;$script:activationFailure=$false;$script:guestReportedFailure=$false
     function Get-HyperVLabWorkflowRun {$script:activationLab}
     function Get-HyperVManagedVM {$script:activationManaged}
     function Get-VMNetworkAdapter {$script:permanentAdapter}
@@ -84,6 +84,7 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
         if($ArgumentList.Count -eq 1){return [pscustomobject]@{Available=$true}}
         $script:configureTemporary=$ArgumentList[1]
         if($script:activationFailure){throw 'WINDOWS_ACTIVATION_SYNTHETIC_FAILURE'}
+        if($script:guestReportedFailure){return [pscustomobject]@{contractVersion='SqlServerLab.WindowsActivationGuestReceipt/1.0';status='FAILED';failureCode='WINDOWS_ACTIVATION_NETWORK_NOT_READY'}}
         [pscustomobject]@{edition='ServerStandardEval';licenseStatus=1;evaluationMinutesRemaining=100;observedAt='2026-09-10T00:00:00Z'}
     }
     $credential=[pscredential]::new('synthetic',[SecureString]::new())
@@ -92,6 +93,9 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
     $script:activationFailure=$true;$failed=$false
     try{$null=Invoke-LabWindowsSlotActivationReconcile -RunId own-run -Credential $credential}catch{$failed=$_.Exception.Message -match 'WINDOWS_ACTIVATION_SYNTHETIC_FAILURE'}
     Assert-Path ($failed -and $script:permanentAdapter.Id -eq 'own-adapter' -and $script:permanentAdapter.SwitchId -eq 'own-switch') 'Aktivierungsfehler erhaelt die permanente NIC unveraendert'
+    $script:activationFailure=$false;$script:guestReportedFailure=$true;$failed=$false
+    try{$null=Invoke-LabWindowsSlotActivationReconcile -RunId own-run -Credential $credential}catch{$failed=$_.Exception.Message -match 'WINDOWS_ACTIVATION_NETWORK_NOT_READY'}
+    Assert-Path ($failed -and $script:permanentAdapter.Id -eq 'own-adapter' -and $script:permanentAdapter.SwitchId -eq 'own-switch') 'Sanitisierter Gast-Fehlercode bleibt bis zum Aktivierungsaufrufer erhalten'
     & {
         $fixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-activation-resume-'+[guid]::NewGuid().ToString('N'))
         try {

@@ -230,11 +230,20 @@ function Resolve-HyperVAdditionalDrivePlan {
             })
             $boundary = Test-LabPathWithinRoot -Root $hostRoot -Path $hostPath
             $relativeHostPath = if ($boundary.Valid) { [IO.Path]::GetRelativePath($hostRoot, $hostPath) } else { '' }
+            $selectorOwned = $false
+            if ($registered.Count -eq 1) {
+                $selectorOwned = if ([string]$drive.selector -eq 'default') {
+                    [string]$registered[0].LocationId -eq [string]$configuration.DefaultLocationId
+                }
+                else {
+                    [string]$drive.selector -in @($registered[0].Selectors)
+                }
+            }
             if ($registered.Count -ne 1 -or
                 -not (Test-LabDataRootOwnership -DataRoot $hostRoot -ControllerId ([string]$configuration.ControllerId)) -or
                 -not $boundary.Valid -or
                 -not $drive.locationId -or [string]$drive.locationId -ne [string]$registered[0].LocationId -or
-                -not $drive.selector -or [string]$drive.selector -notin @($registered[0].Selectors) -or
+                -not $drive.selector -or -not $selectorOwned -or
                 $relativeHostPath -notmatch '^Labs[\\/][^\\/]+[\\/]Instances[\\/]hyperv[\\/][^\\/]+[\\/]Storage[\\/]([^\\/]+)$' -or
                 [string]$Matches[1] -ne [string]$drive.selector) {
                 throw "HYPERV_ADDITIONAL_DRIVE_HOST_BINDING_NOT_OWNED: $id"

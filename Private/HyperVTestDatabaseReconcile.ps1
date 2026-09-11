@@ -159,7 +159,7 @@ function Get-LabHyperVTestDatabaseInstanceFingerprint {
 
 function Get-LabHyperVTestDatabaseTargetHash {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][object[]]$Samples)
+    param([Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Samples)
     $canonical = [ordered]@{
         Contract='SqlServerLab.HyperVTestDatabaseTarget/1.0'
         Samples=@($Samples | Sort-Object PlanKey | ForEach-Object {

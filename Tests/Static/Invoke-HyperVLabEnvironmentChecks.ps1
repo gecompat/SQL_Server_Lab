@@ -162,7 +162,8 @@ try {
         $script:storagePreflightStateCalls = 0
         function Test-HyperVAvailable { [PSCustomObject]@{ Available=$true; Message='mock' } }
         function Get-HyperVImageArtifact { [PSCustomObject]@{ artifactId='storage-preflight'; artifactState='SQL_PREPARED_SEALED'; sql=[PSCustomObject]@{ version='2025'; edition='Enterprise' } } }
-        function New-LabStorageBoundPlan { [PSCustomObject]@{ Status='BLOCKED'; Blockers=@('SELECTOR_UNRESOLVED:test') } }
+        function Get-HyperVArtifactStorageConfiguration { [PSCustomObject]@{ ControllerId='storage-controller'; DefaultLocationId='default-location'; DefaultDataRoot='X:\LabData'; LabDataLocations=@() } }
+        function New-LabStorageBoundPlan { param($StorageConfiguration) $script:storagePreflightConfiguration = $StorageConfiguration; [PSCustomObject]@{ Status='BLOCKED'; Blockers=@('SELECTOR_UNRESOLVED:test') } }
         function New-LabRunState { $script:storagePreflightStateCalls++; throw 'STATE_MUST_NOT_BE_CREATED' }
         $blocked = try {
             $null = New-HyperVLabEnvironment -ArtifactId storage-preflight -LabName 'Storage Preflight' -InstanceId primary `
@@ -170,10 +171,11 @@ try {
             $false
         }
         catch { $_.Exception.Message -match 'HYPERV_STORAGE_INTENT_BINDING_BLOCKED' }
-        [PSCustomObject]@{ Blocked=$blocked; StateCalls=$script:storagePreflightStateCalls }
+        [PSCustomObject]@{ Blocked=$blocked; StateCalls=$script:storagePreflightStateCalls; Configuration=$script:storagePreflightConfiguration }
     }
     Add-CheckResult -Name 'Blockierter Storage-Intent scheitert vor Run-State und Provider-Mutation' -Success (
-        $storagePreflight.Blocked -and $storagePreflight.StateCalls -eq 0)
+        $storagePreflight.Blocked -and $storagePreflight.StateCalls -eq 0 -and
+        $storagePreflight.Configuration.DefaultLocationId -eq 'default-location')
     $created = & $module {
         param($Root)
         function Test-HyperVAvailable { [PSCustomObject]@{ Available = $true; Message = 'mock' } }

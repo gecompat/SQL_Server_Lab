@@ -72,6 +72,10 @@ try {
             $provider -match 'Get-VMHost\s+-ErrorAction\s+Stop' -and
             $provider -notmatch 'if\s*\(\s*-not\s*\(Test-LabAdministrator\)\s*\)'
         )
+    Add-TextContract `
+        -Name 'Default-Storage-Selector bindet ausschließlich die konfigurierte Default-Location' `
+        -Text $provider `
+        -Pattern '\[string\]\$drive\.selector\s+-eq\s+''default''[\s\S]+LocationId\s+-eq\s+\[string\]\$configuration\.DefaultLocationId'
 
     foreach ($functionName in @(
         'Test-HyperVAvailable',
