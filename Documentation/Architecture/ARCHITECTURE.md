@@ -82,6 +82,7 @@ Get-SqlServerLabWorkflow               # Verdichtete, geheimnisfreie Workflow-Si
 Find-SqlServerLabCollation             # Versionsgebundenen Collation-Katalog tokenbasiert durchsuchen
 Get-SqlServerLabHyperVImageArtifact    # Hyper-V-Image-Registry, Evaluation und Referenzen read-only
 Get-SqlServerLabEvaluationWatch         # Windows-/SQL-Evaluationen read-only bewerten und Ereignisse optional deduplizieren
+Invoke-SqlServerLabEvaluationWatchTrigger # Evaluation-Watch lokal und begrenzt zeitgesteuert ausführen
 Get-SqlServerLabRunStateUpgradePlan     # Lokalen Run-State read-only gegen Zielvertrag klassifizieren
 Invoke-SqlServerLabRunStateUpgrade       # Ausdrücklich synthetischen Legacy-State atomar migrieren
 Get-SqlServerLabPortableLabImportPlan   # Portables Container-Lab-Paket ohne Import read-only vorprüfen

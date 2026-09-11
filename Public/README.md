@@ -23,6 +23,7 @@ Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. 
 | `Find-SqlServerLabCollation` | `Find-SqlServerLabCollation.ps1` | Katalogisierte SQL-Server-Collations tokenbasiert und versionsgebunden durchsuchen; die Suche verändert keine Runtime |
 | `Get-SqlServerLabHyperVImageArtifact` | `Get-SqlServerLabHyperVImageArtifact.ps1` | Pfadfreie read-only Hyper-V-Image-Registry mit Evaluation, manueller Refresh-Empfehlung, Referenzen und optionaler Integritätsprüfung |
 | `Get-SqlServerLabEvaluationWatch` | `Get-SqlServerLabEvaluationWatch.ps1` | Windows- und SQL-Evaluationsfristen read-only bewerten und fällige Ereignisse optional lokal deduplizieren |
+| `Invoke-SqlServerLabEvaluationWatchTrigger` | `Invoke-SqlServerLabEvaluationWatchTrigger.ps1` | Evaluation-Watch in einem explizit begrenzten lokalen Zeitintervall ausführen; keine Windows-Aufgabe, Runtime- oder Netzwerkmutation |
 | `Get-SqlServerLabRunStateUpgradePlan` | `Get-SqlServerLabRunStateUpgradePlan.ps1` | Einen einzelnen Run-State pfad- und secretfrei gegen den Zielvertrag klassifizieren |
 | `Invoke-SqlServerLabRunStateUpgrade` | `Invoke-SqlServerLabRunStateUpgrade.ps1` | Nur einen ausdrücklich synthetisch markierten, unversionierten Legacy-State atomar migrieren; unbekannte Versionen und Runtime-Ressourcen bleiben blockiert |
 | `Get-SqlServerLabPortableLabImportPlan` | `Get-SqlServerLabPortableLabImportPlan.ps1` | Ein portables Container-Lab-Paket read-only auf verfügbare Datenbankpaket-IDs und anonyme Secret-Rebind-Blocker prüfen; die Ausführung ist nicht implementiert |
