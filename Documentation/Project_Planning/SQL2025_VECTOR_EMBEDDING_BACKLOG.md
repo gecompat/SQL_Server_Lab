@@ -2,7 +2,7 @@
 
 ## Status
 
-`VECTOR_CORE SUPPORTED`, `LOCAL_ONNX BACKLOG`,
+`VECTOR_CORE SUPPORTED`, `VECTOR_INDEX PREVIEW ACCEPTANCE`, `LOCAL_ONNX BACKLOG`,
 `EXTERNAL_EMBEDDINGS BACKLOG`. Das hashgebundene Szenario
 `vector-core-ci/1.0` führt feste synthetische Vektoren, exakte Suche und
 Chunking aus. Die getrennten nativen Docker-/Podman-Nachweise waren am
@@ -286,8 +286,9 @@ Trust-Artefakte, Modellbindungen, Container, Volumes und Gastinstallationen.
 - verpflichtende GPU-, CUDA- oder Hyper-V-GPU-Passthrough-Unterstützung;
 - automatischer Providerwechsel oder Kostenoptimierung durch stillen
   Cloud-Fallback;
-- Behauptung von Linux-ONNX- oder stabiler Vector-Index-Capability ohne aktuelle
-  Herstellerfreigabe und reale Projektnachweise;
+- Behauptung von Linux-ONNX-Capability oder stabiler Vector-Index-Capability ohne
+  aktuelle Herstellerfreigabe und reale Projektnachweise; preview-basierte ANN-Sätze
+  werden explizit als Preview-Vector-Index-Fähigkeit dokumentiert.
 - Modelltraining oder Fine-Tuning.
 
 ## Bei der Umsetzung erneut zu prüfende Herstellerquellen

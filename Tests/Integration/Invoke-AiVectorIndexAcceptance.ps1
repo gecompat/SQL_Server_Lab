@@ -64,6 +64,10 @@ try {
     $sqlBuild=Invoke-AnnQuery -Query "SELECT CONVERT(varchar(30),SERVERPROPERTY('ProductVersion'));"
     Write-Host "ANN: SQL $sqlBuild; Preview-Aktivierung vor Kompilierung der Index-Fixture."
     $null=Invoke-AnnQuery -Database $database -Query 'ALTER DATABASE CURRENT SET COMPATIBILITY_LEVEL = 170; ALTER DATABASE SCOPED CONFIGURATION SET PREVIEW_FEATURES = ON;'
+    $vectorCapability=[int](Invoke-AnnQuery -Database $database -Query "SELECT IIF(OBJECT_ID('sys.vector_indexes') IS NOT NULL, 1, 0);")
+    if ($vectorCapability -ne 1) {
+        throw 'ANN_VECTOR_INDEX_CATALOG_MISSING'
+    }
     $setup=Invoke-AnnQuery -Database $database -Query (Get-Content -LiteralPath (Join-Path $fixtureRoot 'setup.sql') -Raw) -TimeoutSeconds 600
     $build=$setup | ConvertFrom-Json
     Write-Host "ANN: Indexmetadaten $($build.IndexMetadata); Zeilen $($build.RowCount)."
