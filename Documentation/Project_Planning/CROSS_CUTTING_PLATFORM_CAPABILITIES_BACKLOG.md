@@ -75,8 +75,11 @@ eine Live-VM- oder Gastabfrage findet dafür nicht statt. Der Befehl erzeugt
 stabile, sanitisierte Fälligkeitsereignisse und kann neue Ereignisse mit
 `-RecordEvents` lokal idempotent deduplizieren. Der Standardaufruf bleibt
 vollständig read-only; auch die optionale Ereignisaufzeichnung verändert weder
-Images, Lizenzen noch Runs. Persistierte SQL-Gastfristen, ein zeitgesteuerter
-Trigger und optionale Benachrichtigungskanäle bleiben offen.
+Images, Lizenzen noch Runs. `Invoke-SqlServerLabEvaluationWatchTrigger` führt
+denselben Watch sofort und anschließend in einem explizit begrenzten
+foreground-Intervall aus. Er registriert keine Windows-Aufgabe, startet keine
+Runtime und führt keinen Netzwerk- oder Gastzugriff aus. Persistierte
+SQL-Gastfristen und optionale Benachrichtigungskanäle bleiben offen.
 
 Der Zielvertrag muss mindestens definieren:
 

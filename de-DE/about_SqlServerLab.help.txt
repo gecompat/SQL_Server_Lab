@@ -98,6 +98,10 @@ COMMANDS
         Bewertet registrierte Windows- und SQL-Evaluationsfristen read-only und
         dedupliziert fällige Ereignisse mit -RecordEvents lokal.
 
+    Invoke-SqlServerLabEvaluationWatchTrigger
+        Führt den Evaluation-Watch in einem explizit begrenzten lokalen Intervall
+        aus, ohne eine Windows-Aufgabe, Runtime oder Netzwerk zu verändern.
+
     Get-SqlServerLabRunStateUpgradePlan
         Klassifiziert einen lokalen Run-State read-only gegen den Zielvertrag.
 

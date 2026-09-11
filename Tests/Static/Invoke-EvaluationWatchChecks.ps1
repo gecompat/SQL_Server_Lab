@@ -70,9 +70,17 @@ try {
         $eventStateExistsAfterReadOnly = Test-Path -LiteralPath (Join-Path $StateRoot 'evaluation-watch-events.json')
         $firstRecorded = Get-SqlServerLabEvaluationWatch -StateRoot $StateRoot -WarningDaysRemaining 30 -CriticalDaysRemaining 7 -RecordEvents
         $secondRecorded = Get-SqlServerLabEvaluationWatch -StateRoot $StateRoot -WarningDaysRemaining 30 -CriticalDaysRemaining 7 -RecordEvents
+        $triggerStateRoot = Join-Path $StateRoot 'trigger'
+        New-Item -ItemType Directory -Path $triggerStateRoot -Force | Out-Null
+        $trigger = Invoke-SqlServerLabEvaluationWatchTrigger -StateRoot $triggerStateRoot -WarningDaysRemaining 30 -CriticalDaysRemaining 7 -IntervalSeconds 1 -MaximumChecks 2 -RecordEvents
+        $invalidTriggerThresholdRejected = $false
+        try {
+            Invoke-SqlServerLabEvaluationWatchTrigger -StateRoot $triggerStateRoot -WarningDaysRemaining 7 -CriticalDaysRemaining 30 -IntervalSeconds 1 -MaximumChecks 1 | Out-Null
+        }
+        catch { $invalidTriggerThresholdRejected = $_.Exception.Message -eq 'EVALUATION_WATCH_TRIGGER_CRITICAL_THRESHOLD_INVALID' }
         function Test-LabPathWithinRoot { [PSCustomObject]@{ Valid = $false; Reason = 'synthetic reparse point' } }
         $unsafeConnection = Get-SqlServerLabEvaluationWatch -StateRoot $StateRoot -WarningDaysRemaining 30 -CriticalDaysRemaining 7
-        [PSCustomObject]@{ ReadOnly = $readOnly; EventStateExistsAfterReadOnly = $eventStateExistsAfterReadOnly; FirstRecorded = $firstRecorded; SecondRecorded = $secondRecorded; UnsafeConnection = $unsafeConnection }
+        [PSCustomObject]@{ ReadOnly = $readOnly; EventStateExistsAfterReadOnly = $eventStateExistsAfterReadOnly; FirstRecorded = $firstRecorded; SecondRecorded = $secondRecorded; Trigger = $trigger; InvalidTriggerThresholdRejected = $invalidTriggerThresholdRejected; UnsafeConnection = $unsafeConnection }
     } $temporaryRoot
 
     $items = @($result.ReadOnly.Items)
@@ -104,6 +112,17 @@ try {
         $result.FirstRecorded.NewEventCount -eq 3 -and $result.SecondRecorded.NewEventCount -eq 0 -and
         @($result.FirstRecorded.NewEvents.EventId | Select-Object -Unique).Count -eq 3 -and
         @($result.FirstRecorded.NewEvents | Where-Object { $_.RunId -eq '11111111-1111-1111-1111-111111111111' -and $_.InstanceId -eq 'windows-primary' }).Count -eq 1
+    )
+    $triggerSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLabEvaluationWatchTrigger.ps1') -Raw -Encoding utf8
+    Add-CheckResult -Name 'Begrenzter Evaluation-Watch-Zeittrigger führt nur die explizite Anzahl lokaler Prüfungen aus und dedupliziert Ereignisse' -Success (
+        $result.Trigger.ContractVersion -eq 'SqlServerLab.EvaluationWatchTrigger/1.0' -and
+        $result.Trigger.CheckCount -eq 2 -and $result.Trigger.WaitCount -eq 1 -and
+        $result.Trigger.TotalDueEventCount -eq 4 -and $result.Trigger.TotalNewEventCount -eq 2 -and
+        (@($result.Trigger.Checks | ForEach-Object NewEventCount) -join '|') -eq '2|0' -and
+        $result.InvalidTriggerThresholdRejected
+    )
+    Add-CheckResult -Name 'Evaluation-Watch-Zeittrigger registriert keine Windows-Aufgabe und greift nicht auf Runtime oder Netzwerk zu' -Success (
+        $triggerSource -notmatch 'Register-ScheduledTask|New-ScheduledTask|schtasks(?:\.exe)?|Invoke-WebRequest|Invoke-RestMethod|Start-Process|Get-VM|docker|podman'
     )
     Add-CheckResult -Name 'Evaluation-Watch gibt weder lokale Pfade noch Event-State-Pfade aus' -Success (
         ($result | ConvertTo-Json -Depth 20) -notmatch [regex]::Escape($temporaryRoot) -and
