@@ -282,8 +282,9 @@ function Resolve-LabAvailableContainerNetwork {
         try {
             Assert-LabRuntimeNetworkAvailable -Network $candidate -KnownSubnets $knownSubnets
             $environmentVariableName = "SQL_SERVER_LAB_${environmentPrefix}_SUBNET"
-            [Environment]::SetEnvironmentVariable($environmentVariableName, $candidateSubnet, 'User')
             [Environment]::SetEnvironmentVariable($environmentVariableName, $candidateSubnet, 'Process')
+            try { [Environment]::SetEnvironmentVariable($environmentVariableName, $candidateSubnet, 'User') }
+            catch { Write-Verbose "LAB_NETWORK_DEFAULT_SUBNET_PERSISTENCE_UNAVAILABLE: $environmentVariableName" }
             Write-LabWarning "LAB_NETWORK_DEFAULT_SUBNET_CONFLICT: $($Network.Name) verwendet automatisch $candidateSubnet statt $($Network.Subnet)."
             return $candidate
         }
