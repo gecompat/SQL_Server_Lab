@@ -42,8 +42,10 @@ unter SQL Server 2025 ebenfalls Preview und besitzt andere Einschränkungen als
 der reguläre Vector-Datentyp und die exakte Distanzberechnung. Der exakte
 Vector-Core bleibt unabhängig davon. Preview ist kein Ausschlussgrund für
 einen Test: Die separate Abnahmeversion 1.0 bestand am 2026-09-10 unter
-Docker und Podman auf SQL-Build `17.0.4075.5`, einschließlich Indexaufbau,
-Qualitäts-/Distanz-/Filterprüfung, Neustart und Cleanup. Dieser Build liefert
+Docker und Podman auf SQL-Build `17.0.4075.5` (`Compatibility Level 170`,
+`Preview=true`), einschließlich Indexaufbau, Qualitäts-/Distanz-/Filterprüfung,
+`MinimumRecallAt10=1,0` in allen vier Fällen, Neustartprüfung und Cleanup
+`CLEANUP_SUCCEEDED`. Dieser Build liefert
 Indexparameter ohne numerisches Versionsfeld; die Abnahme benennt das
 beobachtete Format als `sql2025-unversioned`. Spätere inkompatible SQL- oder
 Indexversionen benötigen einen angepassten oder eigenen Funktions-/Teststand.

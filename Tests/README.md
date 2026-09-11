@@ -170,14 +170,17 @@ weder Modell-Download noch Internetzugriff:
 Die separate Abnahmeversion 1.0 testet SQL-2025-Preview-Vektorindizes mit
 `CREATE VECTOR INDEX` und `VECTOR_SEARCH`/`TOP_N`. Sie bindet den tatsächlichen
 SQL-Build und die Indexversion, vergleicht vier synthetische Suchfälle mit
-exakter Suche (Recall@10 mindestens 0,8), prüft Distanz und Filter sowie
+exakter Suche (Recall@10 mindestens 0,8; der aktuelle Lauf liefert in allen
+vier Fällen `MinimumRecallAt10=1,0`), prüft Distanz und Filter sowie
 Persistenz nach Stop/Start. Laufzeiten sind Messwerte dieses kleinen Tests,
 keine Performancezusage. Neuere inkompatible Indexsemantik benötigt eine
 angepasste beziehungsweise eigene Testversion. Die getrennten nativen Läufe
 vom 2026-09-10 bestanden unter Docker und Podman auf SQL-Build `17.0.4075.5`,
-jeweils einschließlich Cleanup. Dieser Build meldet Indexparameter ohne
-numerisches Versionsfeld; das Ergebnis kennzeichnet diese tatsächlich
-beobachtete Form als `sql2025-unversioned` und erfindet keine Versionsnummer.
+jeweils mit `Preview=true`, `Compatibility Level 170`, `4096` Vektoren, je 32
+Dimensionen, `MinimumRecallAt10=1,0` vor/nach Restart und Cleanup `CLEANUP_SUCCEEDED`.
+Dieser Build meldet Indexparameter ohne numerisches Versionsfeld; das Ergebnis
+kennzeichnet diese tatsächlich beobachtete Form als `sql2025-unversioned` und
+erfindet keine Versionsnummer.
 
 ```powershell
 .\Tests\Integration\Invoke-AiVectorIndexAcceptance.ps1 -Provider docker
