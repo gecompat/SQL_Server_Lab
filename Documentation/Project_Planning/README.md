@@ -2,6 +2,7 @@
 
 | Dokument | Inhalt |
 |---|---|
+| [SECURITY_TOOL_ACQUISITION_BACKLOG.md](SECURITY_TOOL_ACQUISITION_BACKLOG.md) | Geplanter Beschaffungsvertrag für autorisierte Penetrationstest-Werkzeuge: Manifest UND direkte API, getrennte Windows-/Linux-Varianten, Allowlist, Hash/Signatur, lokale Freigabe, sichere Aufbewahrung und Abnahmegrenzen; keine ausführbare Funktion |
 | REFRESH_AND_RECOVERY_ASSESSMENT_2026-09-10.md | Abgeschlossene Bewertungen für vollständigen Evaluation-Refresh und Recovery Points: Inventar, Login/SID, Jobs, Schlüsselgrenzen, Cutover/Rückfall, SQL-Konsistenz, unabhängiger Restore und Referenzschutz; keine neue Runtimefreigabe |
 | BI_CAPABILITIES_ASSESSMENT_2026-09-10.md | Abgeschlossene SSIS-, SSAS- und BI-Bewertung mit begrenztem Windows-Referenzpfad, Daten-/Processing-Assertions, Rollen, Commit-/Resume-Grenzen und Herstellerabgleich; keine neue Runtimefreigabe |
 | HOST_AND_AUTOMATION_ASSESSMENT_2026-09-10.md | Abgeschlossene Remote-Host-, Mehrbenutzer-, API-/IaC- und Clusterbewertung mit Identitäts-/Autorisierungsgrenzen, Nutzen, Aufwand, Eintrittskriterien und getrennten Abnahmen |

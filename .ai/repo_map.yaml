@@ -32,6 +32,7 @@ sources_of_truth:
   internal_scenario_contract_example: Schemas/scenario-contract.example.json
   validation_internal_scenario_contract: Tests/Static/Invoke-ScenarioContractChecks.ps1
   internal_scenario_contract_backlog: Documentation/Project_Planning/SCENARIO_CONTRACT_BACKLOG.md
+  security_tool_acquisition_backlog: Documentation/Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md
   ai_scenario_contract: Private/AiScenario.ps1
   ai_scenario_inventory: Public/Get-SqlServerLabAiScenario.ps1
   ai_scenario_execution: Public/Invoke-SqlServerLabAiScenario.ps1
@@ -935,6 +936,22 @@ project_adapters:
   prioritization: Documentation/Project_Planning/PROJECT_ADAPTER_PRIORITIZATION.md
 
 planning_contracts:
+  security_tool_acquisition:
+    source: Documentation/Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md
+    status: PLANNED
+    runtime_status: NOT_IMPLEMENTED
+    covers:
+      - manifest_and_direct_api_acquisition_parity
+      - windows_linux_artifact_and_provider_binding
+      - explicit_allowlist_provenance_hash_and_signature
+      - plan_bound_local_approval_and_unattended_execution
+      - private_storage_quarantine_cleanup_and_recovery
+      - separate_platform_acceptance_boundaries
+    excludes:
+      - approved_real_tool_catalog_entries
+      - installation_extraction_and_guest_transfer
+      - tool_execution_scanning_and_exploitation
+      - network_or_security_configuration_mutation
   console_lifecycle_storage_consolidation:
     source: Documentation/Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md
     status: IMPLEMENTED_WITH_EXTERNAL_RUNTIME_GATES
