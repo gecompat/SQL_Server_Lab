@@ -831,6 +831,11 @@ Für weitere querschnittliche Plattformlücken existiert jetzt ein eigener
 `Get-SqlServerLabHyperVRecoveryPointPlan` sowie
 `Get-SqlServerLabSqlObservabilityEvidence` decken jeweils nur ihren
 ausdrücklich read-only beziehungsweise statischen Teilvertrag ab. Die
+persistierte SQL-Gast-Evaluationsfrist eines Hyper-V-Runs ist weiterhin nicht
+implementiert; der verbindliche, provider- und secretfreie Zielvertrag liegt
+im [SQL-Gast-Evidence-Backlog](../Project_Planning/SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG.md).
+Bis zu einer gebundenen und frischen Evidence kann der Watch keine aktuelle
+SQL-Gastfrist aus Image- oder Windows-Metadaten ableiten. Die
 Observability-Evidence enthält aggregierte Server-, Datenbank-, Query-Store-
 und Wait-Metriken ohne SQL-Texte, Namen, Endpunkte oder Secrets; Extended
 Events, SQL-Agent-/Backupzustände, Retention, Evidenzpakete und eine

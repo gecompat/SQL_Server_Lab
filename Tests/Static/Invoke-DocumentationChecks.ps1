@@ -693,6 +693,7 @@ $m0StatusTruthMatrix = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentat
 $hyperVResourceRootBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md') -Raw -Encoding utf8
 $persistentStorageBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md') -Raw -Encoding utf8
 $fullInstanceEvaluationRefreshBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md') -Raw -Encoding utf8
+$sqlGuestEvaluationEvidenceBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG.md') -Raw -Encoding utf8
 $crossCuttingPlatformCapabilitiesBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md') -Raw -Encoding utf8
 $evaluationRefreshRunbook = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\PERSISTENT_DATA_AND_EVALUATION_REFRESH.md') -Raw -Encoding utf8
 $labDataResidencyDecision = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md') -Raw -Encoding utf8
@@ -1353,6 +1354,30 @@ Add-ValidationResult `
         $projectPlanningIndex -match 'FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG\.md' -and
         $developmentExecutionPlan -match 'FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG\.md' -and
         $repoMap -match 'full_instance_evaluation_refresh_backlog: Documentation/Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG\.md')
+
+Add-ValidationResult `
+    -Name 'SQL-Gast-Evaluationsfrist bleibt bis zu gebundener Evidence ein provider- und secretfreier Hyper-V-Backlog' `
+    -Success ($sqlGuestEvaluationEvidenceBacklog -match '(?m)^\| Status \| `BACKLOG` \|' -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('SqlServerLab.SqlGuestEvaluationEvidence/1.0') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('runs/<RunId>/sql-guest-evaluation-evidence.json') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('RunId') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('ScopeId') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('InstanceId') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('VmId') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('ImageArtifactId') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('EvidenceFreshUntil') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('EVIDENCE_MISSING') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('EVIDENCE_INVALID') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('EVIDENCE_STALE') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('REFRESH_BLOCKED') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('keine neue Gastabfrage') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('keine synthetische Produktionsfrist') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('Erforderliche native Evidence') -and
+        $crossCuttingPlatformCapabilitiesBacklog -match 'SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG\.md' -and
+        $fullInstanceEvaluationRefreshBacklog -match 'SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG\.md' -and
+        $knownLimitations -match 'SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG\.md' -and
+        $projectPlanningIndex -match 'SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG\.md' -and
+        $repoMap -match 'sql_guest_evaluation_evidence_backlog: Documentation/Project_Planning/SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG\.md')
 
 Add-ValidationResult `
     -Name 'Nicht eigenständig geplante Plattformfähigkeiten besitzen einen abgegrenzten Sammelbacklog' `

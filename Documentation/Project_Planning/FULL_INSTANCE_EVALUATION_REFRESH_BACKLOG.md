@@ -85,6 +85,10 @@ ordnet jedes Element genau einer der folgenden Klassen zu:
 ### Vorwarnung und Preflight
 
 - Windows- und SQL-Evaluationsstatus getrennt live prüfen.
+- Für einen Hyper-V-SQL-Gast ist die SQL-Frist erst nach einer frischen,
+  versionsgebundenen und an Run/Scope/Instanz/VM/Image gebundenen
+  [SQL-Gast-Evidence](SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG.md) verwendbar;
+  fehlende, ungültige oder veraltete Evidence blockiert den Refresh-Preflight.
 - Standardmäßig mindestens 30 Tage vor dem frühesten relevanten Ablaufdatum
   planen.
 - Zielversion, Edition, Provider, Host-Capabilities, Medien, Speicher und
@@ -189,6 +193,8 @@ Der Gesamtvertrag ist erst abgeschlossen, wenn:
 
 - Windows- und SQL-Evaluation getrennt erkannt und im Refreshplan gebunden
   werden;
+- für SQL-Gäste keine Image- oder Windows-Frist als Ersatz für die gebundene
+  SQL-Gast-Evidence verwendet wird;
 - kein inventarisiertes Element ohne Klassifikation bleibt;
 - Export, Import, Cutover, Resume, Rollback und Cleanup journalisiert sind;
 - ein Prozessabbruch nach jedem mutierenden Schritt deterministisch fortgesetzt
@@ -207,6 +213,7 @@ Der Gesamtvertrag ist erst abgeschlossen, wenn:
 - [Persistente Daten und Evaluation-Refresh](../HowTo/PERSISTENT_DATA_AND_EVALUATION_REFRESH.md)
 - [Persistente Speicherwiederverwendung und Lab_Data](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md)
 - [Automatische Windows-Slot-Aktivierung](WINDOWS_SLOT_ACTIVATION_BACKLOG.md)
+- [Persistierte SQL-Gast-Evaluations-Evidence](SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG.md)
 - [Hyper-V-, Image-, Provisionierungs- und Netzwerkvertrag](../Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md)
 - [Bekannte Grenzen](../Quality/KNOWN_LIMITATIONS.md)
 
