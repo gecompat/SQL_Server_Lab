@@ -204,7 +204,10 @@ Der Vertrag muss beinhalten:
 - Kompatibilitätsmatrix für Modul-, Manifest-, State-, Catalog- und
   Receipt-Versionen;
 - read-only Upgrade-Plan vor jeder Änderung;
-- gesicherte Ausgangsrevision, atomare Migration, Rollback und Resume;
+- gesicherte Ausgangsrevision, atomare Migration, Rollback und Resume. Der
+  vorhandene Resume-Slice finalisiert nur ein hashgebundenes `PENDING`-Journal
+  nach vollständig beobachtetem atomarem Zielcommit; fehlende Mutation,
+  geänderte Source oder unvollständiger Zielstate blockieren fail-closed;
 - Weiterverwendung alter Runs oder eine klare `MANUAL_REQUIRED`-/
   `UNSUPPORTED`-Grenze;
 - keine automatische Repository-, Modul- oder Abhängigkeitsaktualisierung ohne

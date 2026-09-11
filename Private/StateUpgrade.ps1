@@ -97,7 +97,7 @@ function Write-LabRunStateUpgradeRawAtomic {
     }
 }
 
-function Invoke-LabRunStateUpgrade {
+function Resume-LabRunStateUpgrade {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$RunId,
@@ -105,6 +105,54 @@ function Invoke-LabRunStateUpgrade {
     )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
+    $journals = @(
+        Get-ChildItem -LiteralPath $runDirectory -Filter 'run-state-upgrade-*.journal.json' -File |
+            ForEach-Object {
+                try { [PSCustomObject]@{ Path = $_.FullName; Journal = Get-Content -LiteralPath $_.FullName -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20 } }
+                catch { $null }
+            } | Where-Object { $_ -and [string]$_.Journal.Status -eq 'PENDING' }
+    )
+    if ($journals.Count -ne 1) { throw 'RUN_STATE_UPGRADE_RESUME_JOURNAL_AMBIGUOUS_OR_MISSING' }
+    $entry = $journals[0]
+    $journal = $entry.Journal
+    if ([string]$journal.ContractVersion -ne 'SqlServerLab.RunStateUpgradeJournal/1.0' -or
+        [string]$journal.RunId -ne $RunId -or [string]::IsNullOrWhiteSpace([string]$journal.PlanId) -or
+        [string]::IsNullOrWhiteSpace([string]$journal.SourceStateSha256) -or
+        [string]::IsNullOrWhiteSpace([string]$journal.TargetContractVersion)) {
+        throw 'RUN_STATE_UPGRADE_RESUME_JOURNAL_INVALID'
+    }
+    $sourcePath = Join-Path $runDirectory "run-state-upgrade-$($journal.PlanId).source.json"
+    if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) { throw 'RUN_STATE_UPGRADE_RESUME_SOURCE_MISSING' }
+    $sourceJson = Get-Content -LiteralPath $sourcePath -Raw -Encoding utf8
+    $sourceHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($sourceJson))).ToLowerInvariant()
+    if ($sourceHash -ne [string]$journal.SourceStateSha256) { throw 'RUN_STATE_UPGRADE_RESUME_SOURCE_CHANGED' }
+    $statePath = Join-Path $runDirectory 'run-state.json'
+    $currentJson = Get-Content -LiteralPath $statePath -Raw -Encoding utf8
+    $currentHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($currentJson))).ToLowerInvariant()
+    if ($currentHash -eq $sourceHash) { throw 'RUN_STATE_UPGRADE_RESUME_MUTATION_NOT_OBSERVED' }
+    try { $current = $currentJson | ConvertFrom-Json -Depth 20 } catch { throw 'RUN_STATE_UPGRADE_RESUME_STATE_INVALID' }
+    if ([string]$current.runId -ne $RunId -or [string]$current.contractVersion -ne [string]$journal.TargetContractVersion -or
+        -not $current.PSObject.Properties['providerSubRuns']) { throw 'RUN_STATE_UPGRADE_RESUME_POSTCONDITION_FAILED' }
+    $journal.Status = 'COMPLETED'; $journal.RollbackStatus = 'NOT_REQUIRED'; $journal.CompletedAt = Get-LabTimestamp
+    Write-LabArtifactJsonAtomic -Path $entry.Path -InputObject $journal
+    return [PSCustomObject]@{
+        ContractVersion = 'SqlServerLab.RunStateUpgradeResult/1.0'; RunId = $RunId; PlanId = [string]$journal.PlanId
+        Status = 'RESUMED'; SourceStateSha256 = [string]$journal.SourceStateSha256; TargetContractVersion = [string]$journal.TargetContractVersion
+        RollbackStatus = 'NOT_REQUIRED'; Blockers = @()
+    }
+}
+
+function Invoke-LabRunStateUpgrade {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [switch]$Resume,
+        [string]$StateRoot
+    )
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    if ($Resume) { return Resume-LabRunStateUpgrade -RunId $RunId -StateRoot $StateRoot }
     $plan = Get-LabRunStateUpgradePlan -RunId $RunId -StateRoot $StateRoot
     if ($plan.Status -eq 'BLOCKED') {
         return [PSCustomObject]@{
