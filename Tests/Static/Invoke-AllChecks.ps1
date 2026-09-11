@@ -53,6 +53,7 @@ $checks = @(
     'Invoke-ArtifactResolverChecks.ps1',
     'Invoke-ResourceSetChecks.ps1',
     'Invoke-CleanupRecoveryChecks.ps1',
+    'Invoke-MixedCleanupRecoveryChecks.ps1',
     'Invoke-CleanupAuditChecks.ps1',
     'Invoke-PersistentStorageCatalogChecks.ps1',
     'Invoke-PersistentStorageRemovalPlanChecks.ps1',
@@ -146,6 +147,3 @@ if ($failedChecks.Count -gt 0) {
 }
 
 Write-Host "`nALLE STATISCHEN VERTRAGSPRUEFUNGEN: PASS" -ForegroundColor Green
-
-
-

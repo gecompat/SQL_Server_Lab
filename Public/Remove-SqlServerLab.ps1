@@ -302,7 +302,7 @@ function Remove-SqlServerLab {
             -Reason $message `
             -StateRoot $StateRoot
         foreach ($providerSubRun in @(Get-LabProviderSubRuns -RunId $RunId -StateRoot $StateRoot)) {
-            if ($providerSubRun.state -in @('CLEANUP_RUNNING', 'CLEANED_UP')) {
+            if ($providerSubRun.state -eq 'CLEANUP_RUNNING') {
                 Set-LabProviderSubRunState `
                     -RunId $RunId `
                     -Provider $providerSubRun.provider `
