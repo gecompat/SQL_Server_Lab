@@ -12,6 +12,9 @@
     Stabile ID des zu migrierenden lokalen Run-States.
 .PARAMETER StateRoot
     Optionaler lokaler State-Root.
+.PARAMETER Resume
+    Finalisiert ausschließlich ein exakt gebundenes PENDING-Journal, wenn der
+    atomare Zielstate bereits vollständig geschrieben wurde.
 .OUTPUTS
     SqlServerLab.RunStateUpgradeResult/1.0 ohne lokale Pfade oder Secrets.
 .EXAMPLE
@@ -21,11 +24,18 @@ function Invoke-SqlServerLabRunStateUpgrade {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact='High')]
     param(
         [Parameter(Mandatory)][string]$RunId,
+        [switch]$Resume,
         [string]$StateRoot
     )
 
     $arguments = @{ RunId = $RunId }
     if ($StateRoot) { $arguments.StateRoot = $StateRoot }
+    if ($Resume) {
+        if (-not $PSCmdlet.ShouldProcess("Run-State $RunId", 'gebundenes Upgrade-Journal nach atomarem Commit finalisieren')) {
+            return [PSCustomObject]@{ ContractVersion = 'SqlServerLab.RunStateUpgradeResult/1.0'; RunId = $RunId; PlanId = $null; Status = 'PLAN_ONLY'; SourceStateSha256 = $null; TargetContractVersion = $null; RollbackStatus = 'NOT_STARTED'; Blockers = @() }
+        }
+        return Invoke-LabRunStateUpgrade @arguments -Resume
+    }
     $plan = Get-LabRunStateUpgradePlan @arguments
     if ($plan.Status -ne 'READY') { return Invoke-LabRunStateUpgrade @arguments }
     if (-not $PSCmdlet.ShouldProcess("Run-State $RunId", 'synthetischen Legacy-State atomar migrieren')) {

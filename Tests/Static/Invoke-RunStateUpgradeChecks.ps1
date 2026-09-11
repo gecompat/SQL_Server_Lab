@@ -37,13 +37,26 @@ try {
         $legacyWhatIf = Invoke-SqlServerLabRunStateUpgrade -RunId $LegacyRunId -StateRoot $StateRoot -WhatIf
         $legacyExecution = Invoke-SqlServerLabRunStateUpgrade -RunId $LegacyRunId -StateRoot $StateRoot -Confirm:$false
         $legacyAfter = Get-SqlServerLabRunStateUpgradePlan -RunId $LegacyRunId -StateRoot $StateRoot
-        $legacyJournal = Get-ChildItem -LiteralPath (Join-Path (Join-Path $StateRoot 'runs') $LegacyRunId) -Filter 'run-state-upgrade-*.journal.json' | Select-Object -First 1 | Get-Content -Raw | ConvertFrom-Json
+        $legacyRunDirectory = Join-Path (Join-Path $StateRoot 'runs') $LegacyRunId
+        $legacyJournalPath = Get-ChildItem -LiteralPath $legacyRunDirectory -Filter 'run-state-upgrade-*.journal.json' | Select-Object -First 1 -ExpandProperty FullName
+        $legacyJournal = Get-Content -LiteralPath $legacyJournalPath -Raw | ConvertFrom-Json
+        $legacyCompletedJournal = $legacyJournal | ConvertTo-Json -Depth 20 | ConvertFrom-Json
+        $legacyJournal.Status = 'PENDING'; $legacyJournal.RollbackStatus = 'NOT_STARTED'; $legacyJournal.CompletedAt = $null
+        $legacyJournal | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $legacyJournalPath -Encoding utf8
+        $legacyResume = Invoke-SqlServerLabRunStateUpgrade -RunId $LegacyRunId -StateRoot $StateRoot -Resume -Confirm:$false
+        $legacyResumedJournal = Get-Content -LiteralPath $legacyJournalPath -Raw | ConvertFrom-Json
+        $legacyCompletedResumeJournal = $legacyResumedJournal | ConvertTo-Json -Depth 20 | ConvertFrom-Json
+        $legacySourcePath = Join-Path $legacyRunDirectory "run-state-upgrade-$($legacyJournal.PlanId).source.json"
+        Set-Content -LiteralPath $legacySourcePath -Value '{"tampered":true}' -Encoding utf8
+        $legacyResumedJournal.Status = 'PENDING'; $legacyResumedJournal.RollbackStatus = 'NOT_STARTED'; $legacyResumedJournal.CompletedAt = $null
+        $legacyResumedJournal | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $legacyJournalPath -Encoding utf8
+        $resumeSourceChanged = try { Invoke-SqlServerLabRunStateUpgrade -RunId $LegacyRunId -StateRoot $StateRoot -Resume -Confirm:$false; $false } catch { $_.Exception.Message -eq 'RUN_STATE_UPGRADE_RESUME_SOURCE_CHANGED' }
         $unsupportedPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') $CurrentRunId) 'run-state.json'
         $unsupported = Get-Content -LiteralPath $unsupportedPath -Raw | ConvertFrom-Json
         $unsupported.contractVersion = 'SqlServerLab.RunState/9.9'
         $unsupported | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $unsupportedPath -Encoding utf8
         $unsupportedPlan = Get-SqlServerLabRunStateUpgradePlan -RunId $CurrentRunId -StateRoot $StateRoot
-        [PSCustomObject]@{ Legacy=$legacy;Current=$current;Blocked=$blocked;Unmarked=$unmarked;LegacyWhatIf=$legacyWhatIf;LegacyExecution=$legacyExecution;LegacyAfter=$legacyAfter;LegacyJournal=$legacyJournal;Unsupported=$unsupportedPlan }
+        [PSCustomObject]@{ Legacy=$legacy;Current=$current;Blocked=$blocked;Unmarked=$unmarked;LegacyWhatIf=$legacyWhatIf;LegacyExecution=$legacyExecution;LegacyAfter=$legacyAfter;LegacyJournal=$legacyCompletedJournal;LegacyResume=$legacyResume;LegacyResumedJournal=$legacyCompletedResumeJournal;ResumeSourceChanged=$resumeSourceChanged;Unsupported=$unsupportedPlan }
     } $temporaryRoot $legacyRunId $currentRunId $blockedRunId $unmarkedRunId
 
     Add-CheckResult -Name 'Legacy-Run-State erhält einen stabilen read-only Upgrade-Plan' -Success (
@@ -64,6 +77,10 @@ try {
     Add-CheckResult -Name 'Synthetischer Legacy-State wird atomar migriert und anschließend No-op' -Success (
         $results.LegacyExecution.Status -eq 'UPGRADED' -and $results.LegacyExecution.RollbackStatus -eq 'NOT_REQUIRED' -and
         $results.LegacyAfter.Status -eq 'NO_ACTION' -and $results.LegacyJournal.Status -eq 'COMPLETED')
+    Add-CheckResult -Name 'PENDING-Upgrade-Journal wird nach atomarem Zielcommit ohne zweite Mutation finalisiert' -Success (
+        $results.LegacyResume.Status -eq 'RESUMED' -and $results.LegacyResume.RollbackStatus -eq 'NOT_REQUIRED' -and
+        $results.LegacyResumedJournal.Status -eq 'COMPLETED')
+    Add-CheckResult -Name 'Resume blockiert eine geänderte gesicherte Source-Revision fail-closed' -Success $results.ResumeSourceChanged
     Add-CheckResult -Name 'Unbekannte Vertragsversion bleibt vor Ausführung fail-closed blockiert' -Success (
         $results.Unsupported.Status -eq 'BLOCKED' -and @($results.Unsupported.Blockers) -contains 'RUN_STATE_CONTRACT_UNSUPPORTED:SqlServerLab.RunState/9.9')
     Add-CheckResult -Name 'Unmarkierter Legacy-State bleibt vor automatischer Migration blockiert' -Success (
