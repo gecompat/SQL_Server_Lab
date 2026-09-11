@@ -1126,6 +1126,19 @@ produktiven ANN-Szenarioexecutor. External Languages und KI-Modellfähigkeit
 sind getrennte Capabilities; eine vorhandene Python-, R- oder Java-Runtime
 beweist keine Embedding- oder Generationsfähigkeit.
 
+## Beschaffung von Penetrationstest-Werkzeugen
+
+Die manifestgestützte und direkt aufrufbare Beschaffung autorisierter
+Penetrationstest-Werkzeuge ist `PLANNED`, nicht implementiert. Der
+[Beschaffungsbacklog](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md)
+definiert getrennte Windows-/Linux-Varianten, Providerbindung, eine explizite
+Allowlist, Herkunft/Hash/Signatur, lokale Planfreigaben, geschützte Aufbewahrung
+und getrennte Abnahmegrenzen. Es gibt keine freigegebenen Pentest-Katalogeinträge
+oder ausführbaren neuen Manifestfelder/Cmdlets. Bestehender Ressourcen-Prefetch
+und Sample-Trust erteilen keine solche Freigabe. Download, Installation,
+Toolausführung und Netzwerkänderungen wurden in diesem Planungsslice nicht
+ausgeführt; sämtliche Beschaffungs-Runtime-Nachweise sind `NOT_EXECUTED`.
+
 ## External Languages
 
 Die Installation von R, Python, Java oder C# ist von SQL-Version, Betriebssystem,
