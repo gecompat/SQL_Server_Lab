@@ -114,7 +114,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow- und Imageübersicht ohne Geheimnisse |
 | `Find-SqlServerLabCollation` | Katalogisierte SQL-Server-Collations tokenbasiert und versionsgebunden durchsuchen |
 | `Get-SqlServerLabHyperVImageArtifact` | Pfadfreie Read-only-Sicht auf Hyper-V-Images, Evaluation, Integrität und Referenzen |
-| `Get-SqlServerLabEvaluationWatch` | Windows- und SQL-Evaluationsfristen read-only bewerten und fällige Ereignisse optional lokal deduplizieren |
+| `Get-SqlServerLabEvaluationWatch` | Windows- und SQL-Artefaktfristen read-only bewerten; SQL-Gastfristen nur aus frischer, gebundener Evidence für registrierte Hyper-V-SQL-Runs projizieren und fällige Ereignisse optional lokal deduplizieren |
 | `Invoke-SqlServerLabEvaluationWatchTrigger` | Evaluation-Watch in einem explizit begrenzten lokalen Zeitintervall ausführen; registriert keine Windows-Aufgabe und verändert weder Runtime noch Netzwerk |
 | `Get-SqlServerLabRunStateUpgradePlan` | Einen lokalen Run-State gegen den Zielvertrag read-only klassifizieren |
 | `Invoke-SqlServerLabRunStateUpgrade` | Einen explizit synthetischen, unversionierten Legacy-State atomar migrieren; unbekannte Versionen bleiben blockiert |

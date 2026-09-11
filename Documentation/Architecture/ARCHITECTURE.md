@@ -81,7 +81,7 @@ Stop-SqlServerLabBatch                 # Unfertige oder alle Batch-Ressourcen zu
 Get-SqlServerLabWorkflow               # Verdichtete, geheimnisfreie Workflow-Sicht
 Find-SqlServerLabCollation             # Versionsgebundenen Collation-Katalog tokenbasiert durchsuchen
 Get-SqlServerLabHyperVImageArtifact    # Hyper-V-Image-Registry, Evaluation und Referenzen read-only
-Get-SqlServerLabEvaluationWatch         # Windows-/SQL-Evaluationen read-only bewerten und Ereignisse optional deduplizieren
+Get-SqlServerLabEvaluationWatch         # Windows-/SQL-Artefakte und nur receiptgebundene SQL-Gastfristen read-only bewerten und Ereignisse optional deduplizieren
 Invoke-SqlServerLabEvaluationWatchTrigger # Evaluation-Watch lokal und begrenzt zeitgesteuert ausführen
 Get-SqlServerLabRunStateUpgradePlan     # Lokalen Run-State read-only gegen Zielvertrag klassifizieren
 Invoke-SqlServerLabRunStateUpgrade       # Ausdrücklich synthetischen Legacy-State atomar migrieren

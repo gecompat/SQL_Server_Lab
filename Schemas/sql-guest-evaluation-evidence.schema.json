@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.SqlGuestEvaluationEvidence/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["Contract", "EvidenceId", "ObservedAt", "RunId", "ScopeId", "InstanceId", "Provider", "VmId", "ImageArtifactId", "SqlInstanceName", "SqlMajorVersion", "SqlEdition", "LicenseClassification", "EvaluationExpiresAt", "DeadlineSource", "ObservationStatus", "EvidenceFreshUntil", "PreviousEvidenceId"],
+  "properties": {
+    "Contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["Name", "Version"],
+      "properties": {
+        "Name": { "const": "SqlServerLab.SqlGuestEvaluationEvidence" },
+        "Version": { "const": "1.0" }
+      }
+    },
+    "EvidenceId": { "type": "string", "pattern": "^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$" },
+    "ObservedAt": { "type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?Z$" },
+    "RunId": { "type": "string", "minLength": 1 },
+    "ScopeId": { "type": "string", "minLength": 1 },
+    "InstanceId": { "type": "string", "minLength": 1 },
+    "Provider": { "const": "hyperv" },
+    "VmId": { "type": "string", "minLength": 1 },
+    "ImageArtifactId": { "type": "string", "minLength": 1 },
+    "SqlInstanceName": { "type": "string", "minLength": 1 },
+    "SqlMajorVersion": { "type": "integer", "minimum": 1 },
+    "SqlEdition": { "type": "string", "minLength": 1 },
+    "LicenseClassification": { "enum": ["EVALUATION", "NOT_EVALUATION", "UNKNOWN"] },
+    "EvaluationExpiresAt": { "type": ["string", "null"], "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?Z$" },
+    "DeadlineSource": { "enum": ["SQL_GUEST_OBSERVED", "SQL_GUEST_NO_DEADLINE", "SQL_GUEST_UNAVAILABLE"] },
+    "ObservationStatus": { "enum": ["CAPTURED", "NO_DEADLINE", "UNAVAILABLE", "FAILED"] },
+    "EvidenceFreshUntil": { "type": "string", "format": "date-time", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,7})?Z$" },
+    "PreviousEvidenceId": { "type": ["string", "null"], "pattern": "^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}$" }
+  }
+}
