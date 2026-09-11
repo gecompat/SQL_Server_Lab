@@ -421,8 +421,10 @@ entfernt nur nachgewiesen run-eigene Outputs nach CHECKSUM-Backup und
 ohne Ownership-Receipt und breiter Restore-/Create-Reconcile bleiben offen. Ein
 erhöhter nativer Runner samt isoliertem `SQL_PREPARED_SEALED`-Bootstrap bindet
 Plan, `WhatIf`, Add, No-op, eigentumsgebundene Entfernung, Fremddatenbankschutz,
-VM-Restart und Cleanup ausführbar; seine positive Ausführung ist noch
-`NOT_EXECUTED`.
+VM-Restart und Cleanup ausführbar. Drei isolierte native Versuche am 2026-09-11
+erreichten den Windows-Aktivierungsgate, scheiterten dort reproduzierbar und
+bereinigten ihre eigenen Ressourcen vollständig; der positive
+Testdatenbank-Reconcile-Nachweis bleibt deshalb `NOT_EXECUTED`.
 
 Der verbindliche Implementierungsvertrag steht in
 `Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md`.

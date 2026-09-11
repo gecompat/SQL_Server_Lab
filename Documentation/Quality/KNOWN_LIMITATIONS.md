@@ -653,7 +653,11 @@ direkte Restore-/Create-Datenbanken und positive native Evidence bleiben
 `Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1` und sein
 isolierter Prepared-Artifact-Bootstrap decken Plan, `WhatIf`, Add, No-op,
 Removal, Fremddatenbankschutz, VM-Restart und Cleanup ab; eine grüne statische
-Prüfung dieses Runners ist noch kein nativer Laufnachweis.
+Prüfung dieses Runners ist noch kein positiver nativer Laufnachweis. Drei
+isolierte native Versuche am 2026-09-11 erreichten den getrennten Windows-
+Aktivierungsgate, scheiterten dort reproduzierbar und entfernten ihre eigenen
+Ressourcen vollständig. Damit ist der Blocker nachgewiesen, der positive
+Testdatenbank-Reconcile-Nachweis bleibt aber weiterhin `NOT_EXECUTED`.
 
 Das Feld `sizeLimitGB` bei Drives ist fuer Docker- oder Podman-Volumes weiterhin
 nur Metadatum. Hyper-V verwendet es dagegen als VHDX-Sollgroesse bei Erstellung
