@@ -2,6 +2,14 @@
 
 Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. Die autoritative Exportliste steht in `SqlServerLab.psd1`.
 
+`Find-SqlServerLabCollation` liefert die kuratierte Auswahl für die
+Instanzcollation in `New-SqlServerLab -Collation` und `instances[].collation`.
+Manifest-Wizard und Konsolenformular prüfen denselben versionsgebundenen
+Vertrag für SQL 2019/2022/2025. Ein vollständiger Name wird ohne Beachtung der
+Groß-/Kleinschreibung gebunden und kanonisch übernommen. Unbekannte Namen
+werden vor Provisionierung beziehungsweise Manifest-Speicherung abgewiesen.
+Die SQL-seitige Verifikation bleibt offen.
+
 ## Cmdlet-Übersicht
 
 | Cmdlet | Datei oder Definition | Zweck |

@@ -3,9 +3,9 @@
     Durchsucht den versionsgebundenen SQL-Server-Collation-Katalog.
 .DESCRIPTION
     Filtert alle Suchwörter gegen Collation-Namen und Locale ohne Runtime- oder
-    State-Mutation. Die Ausgabe ist eine kuratierte Auswahl; eine spätere
-    Installation prüft ihre tatsächlich verfügbaren Collations zusätzlich in
-    SQL Server.
+    State-Mutation. Die Ausgabe ist eine kuratierte Auswahl für die
+    Instanzcollation im Manifest- und Ad-hoc-Pfad. Die zusätzliche SQL-seitige
+    Verifikation ist noch nicht implementiert.
 .PARAMETER Query
     Leer oder ein oder mehrere Suchwörter, etwa `Latin1 UTF8`.
 .PARAMETER SqlVersion

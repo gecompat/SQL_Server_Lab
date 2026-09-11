@@ -670,6 +670,14 @@ Invoke-SqlServerLabScheduler -UntilIdle
 
 ## Öffentliche Cmdlets
 
+Instanzcollations im Manifest und bei `New-SqlServerLab -Collation` werden
+für SQL 2019/2022/2025 vor der Provisionierung an den kuratierten Katalog
+gebunden. `Find-SqlServerLabCollation -Query 'Latin1 UTF8' -SqlVersion 2022`
+liefert passende vollständige Namen; die Konsole bietet dieselbe Suche als
+Auswahl. Unbekannte Namen oder nicht katalogisierte Major-Versionen werden
+abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
+[offen](Documentation/Quality/KNOWN_LIMITATIONS.md#collation).
+
 | Cmdlet | Zweck |
 |---|---|
 | `Invoke-SqlServerLab` | Interaktives Menü |

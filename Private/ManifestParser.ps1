@@ -323,7 +323,7 @@ function Resolve-ManifestDefaults {
             os            = if ($instance.os) { $instance.os } else { 'linux' }
             profile       = if ($instance.profile) { $instance.profile } else { 'standard' }
             autostart     = if ($instance.autostart) { [string]$instance.autostart } elseif ($instance.hyperv -and $instance.hyperv.autostart) { [string]$instance.hyperv.autostart } else { 'off' }
-            collation     = if ($instance.collation) { $instance.collation } else { 'SQL_Latin1_General_CP1_CI_AS' }
+            collation     = Resolve-LabSqlServerCollation -Name ([string]$instance.collation) -SqlVersion ([string]$instance.version)
             databases     = @()
             drives        = @()
             storageIntent = $null

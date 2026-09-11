@@ -220,6 +220,9 @@ function New-SqlServerLab {
         Expliziter Arbeitsspeicher in MB fuer die Ad-hoc-Instanz. Der Wert 0
         verwendet die Vorgabe des gewaehlten Ressourcenprofils.
     .PARAMETER Collation
+        Vollstaendiger Katalogname fuer SQL 2019/2022/2025; die Suche erfolgt
+        mit Find-SqlServerLabCollation. Unbekannte Namen werden vor der
+        Provisionierung abgewiesen. SQL-seitige Verifikation bleibt offen.
         SQL-Server-Collation der neuen Ad-hoc-Instanz. Standard ist
         SQL_Latin1_General_CP1_CI_AS.
     .PARAMETER ServerConfig
@@ -414,6 +417,7 @@ function New-SqlServerLab {
         }
     }
     else {
+        $Collation = Resolve-LabSqlServerCollation -Name $Collation -SqlVersion $Version
         $sampleDatabases = @()
         $sampleSoftware = @()
         $selectedSampleOutputs = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)

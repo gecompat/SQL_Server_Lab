@@ -9,6 +9,14 @@
 
 ## 1. Grundsatz
 
+`Invoke-CollationCatalogChecks.ps1` prüft Katalogsuche, exakte versionsgebundene
+Instanzbindung, kanonische Schreibweise, ungültige und doppelte Namen,
+Manifest-/Ad-hoc-Abweisung vor Provisionierung, verweigerte Wizard-Speicherung
+und die Konsolensuche mit null Treffern und Abbruch. Die Tests verwenden
+synthetische Katalogfixtures und ersetzen die Konsoleneingabe; sie starten
+keine Provider. SQL-seitige Collation-Verifikation und neue native
+Docker-/Podman-/Hyper-V-Nachweise bleiben separat offen.
+
 Der allgemeine Windows-Aktivierungsintent wurde am 2026-09-10 durch 33
 betroffene statische Suites geprueft. Zusaetzliche fokussierte Nachweise
 decken den SQL-Blocker, Pool-Resume, unveraenderte permanente NIC bei Erfolg

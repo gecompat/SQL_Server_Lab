@@ -516,14 +516,26 @@ gespeichert noch über den Manifestpfad provisioniert werden.
 
 ## Collation
 
-Die Instanzdefinition enthält eine Collation, die bei neuen Umgebungen sowohl als SQL-Server-Instanzcollation als auch als Default für neu angelegte Datenbanken verwendet wird. Ohne explizite Angabe gilt der native SQL-Containerstandard `SQL_Latin1_General_CP1_CI_AS`. Eine abweichende Collation wie `SQL_Latin1_General_CP1_CS_AS` löst beim ersten Containerstart einen Systemdatenbankumbau aus und kann deshalb deutlich länger benötigen.
+Die Instanzdefinition enthält eine Collation, die bei neuen Umgebungen sowohl als SQL-Server-Instanzcollation als auch als Default für neu angelegte Datenbanken verwendet wird. Ohne explizite Angabe gilt der native SQL-Containerstandard `SQL_Latin1_General_CP1_CI_AS`. Eine abweichende Collation wie `Latin1_General_100_CS_AS` löst beim ersten Containerstart einen Systemdatenbankumbau aus und kann deshalb deutlich länger benötigen.
 
-Die Konsolenanwendung besitzt noch keinen versionsgebundenen Collation-Katalog
-mit Filter- oder Suchauswahl. Das aktuelle freie Eingabefeld validiert nur den
-technischen Namen. Katalog, tokenbasierte Suche und SQL-seitige Verifikation
-sind in `COL-001` des
+`Find-SqlServerLabCollation` und die Konsolenauswahl durchsuchen einen
+kuratierten Katalog für SQL 2019/2022/2025 tokenbasiert. Manifestprüfung,
+Wizard-Speicherung, Manifestauflösung und `New-SqlServerLab -Collation` binden
+die Instanzcollation vor der Provisionierung an genau einen Namen für die
+SQL-Major-Version; CU-Angaben verwenden deren Major-Version. Die Auflösung
+ignoriert Groß-/Kleinschreibung und übernimmt den kanonischen Katalognamen.
+Der als `DEPRECATED` katalogisierte native Default bleibt zulässig.
+
+Andere Namen und Major-Versionen werden in diesen Pfaden abgewiesen, auch
+wenn SQL Server sie grundsätzlich unterstützen könnte. Ein Advanced-Pfad
+für freie Instanzcollations ist noch nicht implementiert. Explizite
+Datenbankcollations und die gesonderten Legacy-Installationswerkzeuge sind
+nicht Teil dieser Instanzbindung. Der Katalog ist kein vollständiges
+SQL-Collation-Inventar. Die SQL-seitige Vorprüfung über `sys.fn_helpcollations()`
+und Postcondition über `SERVERPROPERTY('collation')` sowie neue getrennte
+Provider-Nachweise bleiben in `COL-001` des
 [Konsolidierungsplans](../Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
-vorgesehen.
+offen.
 
 ## Datenbankdateien und Volumes
 

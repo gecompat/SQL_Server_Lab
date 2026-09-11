@@ -218,13 +218,14 @@
         },
         "collation": {
           "type": "string",
-          "description": "Default-Collation fuer Instanz und Datenbanken",
+          "description": "Kataloggebundene Instanzcollation fuer SQL 2019/2022/2025 und Default fuer neue Datenbanken. Vollstaendigen Namen mit Find-SqlServerLabCollation auswaehlen; SQL-seitige Verifikation bleibt offen.",
+          "pattern": "^[A-Za-z0-9_]{1,128}$",
           "default": "SQL_Latin1_General_CP1_CI_AS",
           "examples": [
             "SQL_Latin1_General_CP1_CI_AS",
-            "SQL_Latin1_General_CP1_CS_AS",
-            "Latin1_General_CI_AS",
-            "German_PhoneBook_CI_AI"
+            "Latin1_General_100_CS_AS",
+            "Latin1_General_100_CI_AS",
+            "Latin1_General_100_CI_AS_SC_UTF8"
           ]
         },
         "databases": {

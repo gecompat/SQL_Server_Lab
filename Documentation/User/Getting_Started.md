@@ -790,6 +790,27 @@ Provisionierung und Smoke-Test zuständig.
 
 #### Defaults und Normalisierung
 
+Die Instanzcollation wird für SQL 2019/2022/2025 gegen den kuratierten Katalog
+geprüft. Mit `Find-SqlServerLabCollation -Query 'Latin1 UTF8' -SqlVersion 2022`
+lassen sich vollständige Namen auswählen. Beispielsweise ist dieser Entwurf
+ohne Runtime-Mutation prüfbar:
+
+```powershell
+Test-SqlServerLabManifest -InputObject @{
+    name = 'collation-demo'
+    instances = @(@{
+        id = 'primary'; version = '2022'; provider = 'docker'
+        collation = 'Latin1_General_100_CI_AS_SC_UTF8'
+    })
+}
+```
+
+Der Wizard speichert unbekannte Namen nicht. Die Provisionierung übernimmt
+die kanonische Katalogschreibweise. Ein nicht katalogisierter Name oder eine
+andere Major-Version wird abgewiesen; freie Advanced-Eingaben und SQL-seitige
+Verifikation bleiben offen. Explizite `databases[].collation`-Overrides sind
+nicht Teil dieser Instanzbindung.
+
 `Test-SqlServerLabManifest` ergänzt **keine** fehlenden Manifestwerte. Ein `default` im
 JSON-Schema ist zunächst Schema- und Wizard-Metadatum; die JSON-Schema-Prüfung
 materialisiert diesen Wert nicht. Auch das Ergebnisobjekt enthält kein
@@ -804,7 +825,7 @@ aktuell implementierten Runtime-Defaults auf. Zu den wichtigsten gehören:
 | `artifacts.minimumEvaluationDaysRemaining` | 30 Tage; schließt Windows-Evaluationen mit zu kurzer, fehlender oder ungültiger Restlaufzeit vor der Hyper-V-Imageauswahl aus |
 | `instances[].os` | `linux` |
 | `instances[].profile` | `standard` |
-| `instances[].collation` | `SQL_Latin1_General_CP1_CI_AS` (nativer Containerstandard) |
+| `instances[].collation` | `SQL_Latin1_General_CP1_CI_AS` (kataloggebundener nativer Containerstandard für SQL 2019/2022/2025) |
 | `databases[].collation` | Collation der Instanz |
 | gesamtes `databases[].options` fehlt | `{ "queryStore": true }` |
 | gesamte Dateidefinition fehlt | eine Data-Datei mit 64/64 MB und eine Log-Datei mit 32/32 MB für Größe/Wachstum |

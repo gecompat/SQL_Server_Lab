@@ -916,6 +916,13 @@ providers:
     template_pool: "Maximal 20 immutable OS_SEALED-/SQL_PREPARED_SEALED-Images; aktive Builder und Lab-Klone blockieren Parent-Löschung"
 
 catalogs:
+  sql_collations:
+    data: Catalogs/sql-server-collations.json
+    schema: Schemas/sql-server-collation-catalog.schema.json
+    resolver: Private/CollationCatalog.ps1
+    search: Public/Find-SqlServerLabCollation.ps1
+    validation: Tests/Static/Invoke-CollationCatalogChecks.ps1
+    binding_contract: "Instanzcollation fuer SQL 2019/2022/2025 exakt und versionsgebunden vor Provisionierung; ManifestParser, ManifestBuilder, New-SqlServerLab und Konsolenformular gemeinsam pruefen; Datenbank-Overrides, Advanced-Eingabe und SQL-Live-Verifikation bleiben separat"
   sql_versions:
     data: Catalogs/sql-server-versions.json
     schema: Schemas/version-catalog.schema.json

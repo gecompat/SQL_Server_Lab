@@ -321,7 +321,7 @@ Add-CheckResult -Name 'Reguläre Runtime-, Mixed-, Restore-, Adapter- und Hyper-
 )
 
 $defaultCollationFiles = @(
-    (Join-Path $repoRoot 'Private/ManifestParser.ps1'),
+    (Join-Path $repoRoot 'Private/CollationCatalog.ps1'),
     (Join-Path $repoRoot 'Providers/Docker/DockerProvider.ps1'),
     (Join-Path $repoRoot 'Providers/Podman/PodmanProvider.ps1'),
     (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1'),
@@ -332,8 +332,15 @@ $invalidDefaultCollationFiles = @($defaultCollationFiles | Where-Object {
     (Get-Content -LiteralPath $_ -Raw -Encoding utf8) -notmatch 'SQL_Latin1_General_CP1_CI_AS'
 })
 $manifestSchemaText = Get-Content -LiteralPath (Join-Path $repoRoot 'Schemas/lab-manifest.schema.json') -Raw -Encoding utf8
+$resolvedDefaultCollation = & $module {
+    $manifest = [PSCustomObject]@{ name='default-collation-check'; instances=@(
+        [PSCustomObject]@{ id='primary'; version='2025'; provider='docker' }
+    ) }
+    (Resolve-ManifestDefaults -Manifest $manifest).instances[0].collation
+}
 Add-CheckResult -Name 'Standardpfade verwenden die native SQL-Containercollation CI_AS' -Success (
     $invalidDefaultCollationFiles.Count -eq 0 -and
+    $resolvedDefaultCollation -ceq 'SQL_Latin1_General_CP1_CI_AS' -and
     $manifestSchemaText -match '"default"\s*:\s*"SQL_Latin1_General_CP1_CI_AS"'
 )
 
