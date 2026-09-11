@@ -37,6 +37,8 @@ $baseManifestPath = Join-Path $testRoot 'base.json'
 $addManifestPath = Join-Path $testRoot 'add-chinook.json'
 $previousStateRoot = $env:SQL_SERVER_LAB_STATE
 $previousTestDataRoot = $env:SQL_SERVER_LAB_TEST_DATA_ROOT
+$previousDataRoot = $env:SQL_SERVER_LAB_DATA_ROOT
+$previousControllerId = $env:SQL_SERVER_LAB_CONTROLLER_ID
 $module = $null
 $lab = $null
 $ownedPaths = @()
@@ -72,6 +74,11 @@ function Write-TestDatabaseManifest {
     $instance = [ordered]@{
         id='primary';version='2025';provider='hyperv';os='windows';profile='standard';autostart='off'
         network=[ordered]@{intent='hostOnly';exposure='host'}
+        windowsActivation=[ordered]@{
+            ContractVersion='SqlServerLab.WindowsActivationIntent/1.0'
+            Strategy='EvaluationOnline'
+            EgressPolicy='AllowTemporary'
+        }
         hyperv=[ordered]@{
             preparedImageId=$PreparedArtifactId;memoryStartupMB=6144;processorCount=4
             sqlPort=1433;guestPasswordMode='prompt'
@@ -146,6 +153,8 @@ try {
     $module = Import-Module $modulePath -Force -PassThru
     $null = Invoke-Private {
         param($Root)
+        # Die Sample-Bibliothek ist kein Runtime-Storage: Das Prepared Artifact bleibt
+        # an seinen bereits verifizierten Lab_Data-Root gebunden.
         Initialize-LabManagedDataRoot -DataRoot $Root -Confirm:$false
     } @($testDataRoot)
     if (-not $StateRoot) { $StateRoot = Invoke-Private { Get-LabStateRoot } }
@@ -169,6 +178,10 @@ try {
     Assert-HyperVTestDatabaseAcceptance (
         [string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED' -and [string]$artifact.sql.version -eq '2025'
     ) 'Verifiziertes SQL-2025-Prepared-Artifact ist verfuegbar' $ArtifactId
+    $artifactStorage = Invoke-Private {
+        param($Artifact)
+        Get-HyperVArtifactStorageConfiguration -Artifact $Artifact
+    } @($artifact)
 
     $labName = 'hv-db-reconcile-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
     Write-TestDatabaseManifest -Path $baseManifestPath -LabName $labName -PreparedArtifactId $ArtifactId
@@ -177,6 +190,15 @@ try {
     $addValidation = Test-SqlServerLabManifest -Path $addManifestPath
     Assert-HyperVTestDatabaseAcceptance ($baseValidation.IsValid -and $addValidation.IsValid) `
         'Basis- und Sample-Zielmanifest sind vor Mutation gueltig' (($baseValidation.Errors + $addValidation.Errors) -join '; ')
+    $artifactStorageIntent = (Get-Content -LiteralPath $baseManifestPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30).instances[0].storageIntent
+    $artifactStoragePlan = Invoke-Private {
+        param($Intent,$Name,$StorageConfiguration)
+        New-LabStorageBoundPlan -StorageIntent $Intent -RunId ([Guid]::NewGuid().ToString('D')) `
+            -LabName $Name -InstanceId primary -Provider hyperv -StorageConfiguration $StorageConfiguration
+    } @($artifactStorageIntent, $labName, $artifactStorage)
+    Assert-HyperVTestDatabaseAcceptance ([string]$artifactStoragePlan.Status -eq 'READY') `
+        'Artifact-gebundener Storage-Default ist vor der Provisionierung aufloesbar' `
+        (@($artifactStoragePlan.Blockers) -join '; ')
     $chinookRestoreDefinition = Invoke-Private {
         Resolve-LabSampleRestore `
             -SampleDefinition ([PSCustomObject]@{ id='chinook'; variant='sql-server' }) `
@@ -186,6 +208,7 @@ try {
 
     $guestPassword = Invoke-Private { New-HyperVSqlUnattendedPassword }
     $script:saPassword = Invoke-Private { New-HyperVSqlUnattendedPassword }
+    $script:saPassword.MakeReadOnly()
     $lab = New-SqlServerLab -Manifest $baseManifestPath -GuestPassword $guestPassword `
         -SqlSaPassword $script:saPassword -NonInteractive -StateRoot $StateRoot `
         -Region AT -SystemLocale de-AT -UiLanguage en-US -InputLocale '0407:00000407' `
@@ -285,12 +308,18 @@ try {
     ) 'Entfernung loescht nur das eigene Sample und bewahrt die fremde Datenbank'
 
     $finalOwnership = Get-Content -LiteralPath $ownershipPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
-    $journal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+    $completedJournal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+    $journalSchemaPath = Join-Path $repoRoot 'Schemas/hyperv-test-database-reconcile-journal.schema.json'
+    $completedJournalSchemaValid = (($completedJournal | ConvertTo-Json -Depth 30) | Test-Json `
+        -SchemaFile $journalSchemaPath -ErrorAction SilentlyContinue)
     $removeNoOp = Get-SqlServerLabReconcilePlan -RunId $runId -HyperVTestDatabases `
         -ManifestPath $baseManifestPath -InstanceId primary -StateRoot $StateRoot
     Assert-HyperVTestDatabaseAcceptance (
-        @($finalOwnership.Entries).Count -eq 0 -and [string]$journal.Status -eq 'COMPLETED' -and $removeNoOp.IsNoOp
-    ) 'Ownership, Journal und zweiter Remove-Lauf sind konvergiert'
+        @($finalOwnership.Entries).Count -eq 0 -and
+        [string]$removeResult.ExecutionPlan[0].Result.JournalStatus -eq 'COMPLETED' -and
+        (Test-Path -LiteralPath $journalPath) -and [string]$completedJournal.Status -eq 'COMPLETED' -and
+        $completedJournalSchemaValid -and $removeNoOp.IsNoOp
+    ) 'Ownership, abgeschlossenes Journal und zweiter Remove-Lauf sind konvergiert'
 
     $baselineAddResult = Invoke-SqlServerLabReconcileAction -RunId $runId -RepairHyperVTestDatabases `
         -ManifestPath $addManifestPath -InstanceId primary -SqlSaPassword $script:saPassword `
@@ -356,6 +385,10 @@ finally {
     else { Remove-Item Env:SQL_SERVER_LAB_STATE -ErrorAction SilentlyContinue }
     if ($previousTestDataRoot) { $env:SQL_SERVER_LAB_TEST_DATA_ROOT = $previousTestDataRoot }
     else { Remove-Item Env:SQL_SERVER_LAB_TEST_DATA_ROOT -ErrorAction SilentlyContinue }
+    if ($previousDataRoot) { $env:SQL_SERVER_LAB_DATA_ROOT = $previousDataRoot }
+    else { Remove-Item Env:SQL_SERVER_LAB_DATA_ROOT -ErrorAction SilentlyContinue }
+    if ($previousControllerId) { $env:SQL_SERVER_LAB_CONTROLLER_ID = $previousControllerId }
+    else { Remove-Item Env:SQL_SERVER_LAB_CONTROLLER_ID -ErrorAction SilentlyContinue }
     if ($mutexAcquired) { $mutex.ReleaseMutex() }
     $mutex.Dispose()
 }

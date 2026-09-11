@@ -312,6 +312,8 @@ function Invoke-HyperVWindowsSlotActivation {
             -ScriptBlock {
                 param($MacAddress,$ConfigureTemporaryAdapter)
                 $ErrorActionPreference = 'Stop'
+                $activationStage = 'guest-operation'
+                try {
                 $adapterDeadline = [datetime]::UtcNow.AddSeconds(30)
                 do {
                     $adapter = @(Get-NetAdapter -Physical -ErrorAction SilentlyContinue | Where-Object {
@@ -321,6 +323,7 @@ function Invoke-HyperVWindowsSlotActivation {
                 } while (-not $adapter -and [datetime]::UtcNow -lt $adapterDeadline)
                 if (-not $adapter) { throw 'WINDOWS_ACTIVATION_GUEST_ADAPTER_NOT_FOUND' }
                 if($ConfigureTemporaryAdapter){
+                    $activationStage = 'network-configuration'
                     Set-NetIPInterface -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -Dhcp Enabled -ErrorAction Stop
                     Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ResetServerAddresses -ErrorAction Stop
                     $null = & ipconfig.exe /renew $adapter.Name
@@ -334,6 +337,7 @@ function Invoke-HyperVWindowsSlotActivation {
                     Start-Sleep -Seconds 2
                 } while ([datetime]::UtcNow -lt $networkDeadline)
                 if ($address.Count -eq 0 -or $defaultRoute.Count -eq 0) { throw 'WINDOWS_ACTIVATION_NETWORK_NOT_READY' }
+                $activationStage = 'license-discovery'
                 $currentEdition=[string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name EditionID -ErrorAction Stop).EditionID
                 if($currentEdition -notmatch '(?i)eval'){throw 'WINDOWS_EVALUATION_EDITION_REQUIRED'}
                 $products = @(Get-CimInstance -ClassName SoftwareLicensingProduct -Filter `
@@ -342,10 +346,12 @@ function Invoke-HyperVWindowsSlotActivation {
                     Sort-Object LicenseStatus, GracePeriodRemaining -Descending)
                 $product = @($products | Select-Object -First 1)[0]
                 if (-not $product) { throw 'WINDOWS_ACTIVATION_PRODUCT_NOT_FOUND' }
+                $activationStage = 'activation-request'
                 $activate = Invoke-CimMethod -InputObject $product -MethodName Activate -ErrorAction Stop
                 if ([int]$activate.ReturnValue -ne 0) { throw "WINDOWS_ACTIVATION_FAILED: $([int]$activate.ReturnValue)" }
                 $service = Get-CimInstance -ClassName SoftwareLicensingService -ErrorAction Stop
                 $null = Invoke-CimMethod -InputObject $service -MethodName RefreshLicenseStatus -ErrorAction Stop
+                $activationStage = 'activation-verification'
                 $deadline = [datetime]::UtcNow.AddMinutes(2)
                 do {
                     Start-Sleep -Seconds 3
@@ -354,16 +360,39 @@ function Invoke-HyperVWindowsSlotActivation {
                 $edition = [string](Get-ItemProperty `
                     -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name EditionID -ErrorAction Stop).EditionID
                 $observedAt = [datetime]::UtcNow
-                [PSCustomObject]@{
-                    edition=$edition; licenseStatus=[int]$product.LicenseStatus
-                    evaluationMinutesRemaining=[int]$product.GracePeriodRemaining
-                    evaluationExpiresAt=if ([int]$product.GracePeriodRemaining -gt 0) {
-                        $observedAt.AddMinutes([int]$product.GracePeriodRemaining).ToString('o')
-                    } else { $null }
-                    observedAt=$observedAt.ToString('o')
+                    [PSCustomObject]@{
+                        contractVersion='SqlServerLab.WindowsActivationGuestReceipt/1.0'; status='SUCCEEDED'
+                        edition=$edition; licenseStatus=[int]$product.LicenseStatus
+                        evaluationMinutesRemaining=[int]$product.GracePeriodRemaining
+                        evaluationExpiresAt=if ([int]$product.GracePeriodRemaining -gt 0) {
+                            $observedAt.AddMinutes([int]$product.GracePeriodRemaining).ToString('o')
+                        } else { $null }
+                        observedAt=$observedAt.ToString('o')
+                    }
+                }
+                catch {
+                    $message=[string]$_.Exception.Message
+                    $code=if($message -match 'WINDOWS_[A-Z0-9_]+'){$Matches[0]}else{
+                        switch($activationStage){
+                            'network-configuration' {'WINDOWS_ACTIVATION_NETWORK_CONFIGURATION_FAILED'}
+                            'license-discovery' {'WINDOWS_ACTIVATION_LICENSE_DISCOVERY_FAILED'}
+                            'activation-request' {'WINDOWS_ACTIVATION_REQUEST_FAILED'}
+                            'activation-verification' {'WINDOWS_ACTIVATION_VERIFICATION_FAILED'}
+                            default {'WINDOWS_ACTIVATION_GUEST_OPERATION_FAILED'}
+                        }
+                    }
+                    [PSCustomObject]@{
+                        contractVersion='SqlServerLab.WindowsActivationGuestReceipt/1.0'; status='FAILED'; failureCode=$code
+                    }
                 }
             }
         $activation = @($activation)[-1]
+        if ([string]$activation.contractVersion -eq 'SqlServerLab.WindowsActivationGuestReceipt/1.0' -and
+            [string]$activation.status -eq 'FAILED') {
+            $failureCode=[string]$activation.failureCode
+            if($failureCode -notmatch '^WINDOWS_[A-Z0-9_]+$'){throw 'HYPERV_WINDOWS_ACTIVATION_GUEST_RECEIPT_INVALID'}
+            throw $failureCode
+        }
         if (-not $activation -or [string]$activation.edition -notmatch '(?i)eval' -or
             [int]$activation.licenseStatus -ne 1 -or [int]$activation.evaluationMinutesRemaining -le 0) {
             throw 'HYPERV_WINDOWS_ACTIVATION_VERIFICATION_FAILED'
@@ -586,6 +615,28 @@ function New-HyperVLabEnvironmentFromExistingVm {
     }
 }
 
+function Get-HyperVArtifactStorageConfiguration {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Artifact)
+
+    $artifactPath = [IO.Path]::GetFullPath([string]$Artifact.Path)
+    $separator = [IO.Path]::DirectorySeparatorChar
+    $marker = "$separator`HyperV$separator"
+    $markerIndex = $artifactPath.IndexOf($marker, [StringComparison]::OrdinalIgnoreCase)
+    if ($markerIndex -le 0) { throw 'HYPERV_ARTIFACT_STORAGE_ROOT_INVALID' }
+
+    $dataRoot = $artifactPath.Substring(0, $markerIndex)
+    if (-not (Test-LabDataRootOwnership -DataRoot $dataRoot)) {
+        throw 'HYPERV_ARTIFACT_STORAGE_ROOT_UNMANAGED'
+    }
+
+    $storageConfiguration = Get-LabStorageConfiguration -DataRoot $dataRoot
+    if (-not $storageConfiguration.ControllerId -or -not $storageConfiguration.DefaultLocationId -or -not $storageConfiguration.DefaultDataRoot) {
+        throw 'HYPERV_ARTIFACT_STORAGE_DEFAULT_REQUIRED'
+    }
+    return $storageConfiguration
+}
+
 function New-HyperVLabEnvironment {
     [CmdletBinding()]
     param(
@@ -604,6 +655,7 @@ function New-HyperVLabEnvironment {
         [ValidateSet('hostOnly', 'nat', 'lan')][string]$NetworkIntent = 'hostOnly',
         [object[]]$AdditionalDrives = @(),
         $StorageIntent,
+        $StorageConfiguration,
         $WindowsLocale,
         $WindowsActivation,
         [ValidateSet('compatibility-defaults','manifest','parameters','batch','legacy-test-environment')][string]$WindowsActivationSource='compatibility-defaults',
@@ -641,8 +693,9 @@ function New-HyperVLabEnvironment {
     if ($StorageIntent) {
         if ($workload -ne 'sql') { throw 'HYPERV_STORAGE_INTENT_SQL_PREPARED_IMAGE_REQUIRED' }
         if (@($AdditionalDrives).Count -gt 0) { throw 'HYPERV_STORAGE_INTENT_ADDITIONAL_DRIVE_CONFLICT' }
+        if (-not $StorageConfiguration) { $StorageConfiguration = Get-HyperVArtifactStorageConfiguration -Artifact $artifact }
         $storagePreflight = New-LabStorageBoundPlan -StorageIntent $StorageIntent -RunId ([Guid]::NewGuid().ToString('D')) `
-            -LabName $LabName -InstanceId $InstanceId -Provider hyperv
+            -LabName $LabName -InstanceId $InstanceId -Provider hyperv -StorageConfiguration $StorageConfiguration
         if ([string]$storagePreflight.Status -ne 'READY') {
             throw "HYPERV_STORAGE_INTENT_BINDING_BLOCKED: $(@($storagePreflight.Blockers) -join ', ')"
         }
@@ -689,7 +742,7 @@ function New-HyperVLabEnvironment {
         $storageBoundPlan = $null
         if ($StorageIntent) {
             $storageBoundPlan = New-LabStorageBoundPlan -StorageIntent $StorageIntent -RunId $run.RunId `
-                -LabName $LabName -InstanceId $InstanceId -Provider hyperv
+                -LabName $LabName -InstanceId $InstanceId -Provider hyperv -StorageConfiguration $StorageConfiguration
             if ([string]$storageBoundPlan.Status -ne 'READY') {
                 throw "HYPERV_STORAGE_INTENT_BINDING_BLOCKED: $(@($storageBoundPlan.Blockers) -join ', ')"
             }

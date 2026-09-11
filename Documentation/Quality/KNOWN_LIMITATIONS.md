@@ -653,7 +653,16 @@ direkte Restore-/Create-Datenbanken und positive native Evidence bleiben
 `Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1` und sein
 isolierter Prepared-Artifact-Bootstrap decken Plan, `WhatIf`, Add, No-op,
 Removal, Fremddatenbankschutz, VM-Restart und Cleanup ab; eine grüne statische
-Prüfung dieses Runners ist noch kein nativer Laufnachweis.
+Prüfung dieses Runners ist noch kein positiver nativer Laufnachweis. Der
+jüngste native Lauf am 2026-09-11 passierte die Windows-Aktivierung und führte
+Addition sowie eigentumsgebundene Entfernung aus, scheiterte aber an einer
+veralteten Abschlussassertion für Rückgabewert und abgeschlossenes Journal.
+Diese Assertion und ihr statischer Vertrag sind korrigiert. Eine vollständige
+Wiederholung nach der Korrektur wurde nicht gestartet: Der Runner forderte
+korrekt Erhöhung, während der versuchte UAC-Start bereits vor dem Windows-
+Dialog durch den lokalen Ausführungsfilter abgewiesen wurde. Der positive
+vollständige Testdatenbank-Reconcile-Nachweis bleibt damit `PENDING`; der
+Post-Fix-End-to-End-Lauf ist `NOT_EXECUTED`.
 
 Das Feld `sizeLimitGB` bei Drives ist fuer Docker- oder Podman-Volumes weiterhin
 nur Metadatum. Hyper-V verwendet es dagegen als VHDX-Sollgroesse bei Erstellung

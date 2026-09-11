@@ -130,7 +130,7 @@ function New-LabStorageBoundPlan {
     $locationsBySelector = @{}
     foreach ($selector in @($selectorNames | Sort-Object)) {
         $matches = if ($selector -eq 'default') {
-            @($StorageConfiguration.LabDataLocations | Where-Object LocationId -eq [string]$StorageConfiguration.DefaultLocationId)
+            @($StorageConfiguration.LabDataLocations | Where-Object { [string]$_.LocationId -eq [string]$StorageConfiguration.DefaultLocationId })
         }
         else {
             @($StorageConfiguration.LabDataLocations | Where-Object { @($_.Selectors) -contains $selector })
