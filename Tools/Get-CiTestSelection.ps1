@@ -64,7 +64,7 @@ end {
     $staticGroups = @(
         @{ Pattern = '(?i)(Prepare-LocalRelease|ReleaseArtifact)'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1') },
         @{ Pattern = '(?i)(TransferProgress|HyperVImageMigration|HyperVImageRegistry|HyperVResourceMigration|ArtifactResolver|Save-SqlServerLabMediaSource|VersionCatalog|ExternalRuntimeWindows|Restore-SqlServerLabDatabase)'; Checks = @('Invoke-TransferProgressChecks.ps1') },
-        @{ Pattern = '(?i)(Cleanup|Remove-SqlServerLab|Clear-SqlServerLab)'; Checks = @('Invoke-CleanupRecoveryChecks.ps1','Invoke-CleanupAuditChecks.ps1','Invoke-CleanupVolumeOwnershipChecks.ps1') },
+        @{ Pattern = '(?i)(Cleanup|Remove-SqlServerLab|Clear-SqlServerLab)'; Checks = @('Invoke-CleanupRecoveryChecks.ps1','Invoke-MixedCleanupRecoveryChecks.ps1','Invoke-CleanupAuditChecks.ps1','Invoke-CleanupVolumeOwnershipChecks.ps1') },
         @{ Pattern = '(?i)(PersistentStorageRemoval|persistent-storage-removal)'; Checks = @('Invoke-PersistentStorageRemovalPlanChecks.ps1','Invoke-PersistentStorageRemovalExecutorChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(BatchWorkflow|BatchConsole|lab-batch)'; Checks = @('Invoke-BatchWorkflowChecks.ps1') },
         @{ Pattern = '(?i)(ConsoleUi|Invoke-SqlServerLab\.ps1|Workflow)'; Checks = @('Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
