@@ -230,6 +230,7 @@ sources_of_truth:
   m0_status_truth_matrix: Documentation/Project_Planning/M0_STATUS_TRUTH_MATRIX.md
   persistent_storage_reuse_and_lab_data_backlog: Documentation/Project_Planning/PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md
   full_instance_evaluation_refresh_backlog: Documentation/Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md
+  sql_guest_evaluation_evidence_backlog: Documentation/Project_Planning/SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG.md
   cross_cutting_platform_capabilities_backlog: Documentation/Project_Planning/CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md
   validation_storage_contract: Tests/Static/Invoke-DataRootChecks.ps1
   validation_initial_setup: Tests/Static/Invoke-InitialSetupChecks.ps1
@@ -880,7 +881,7 @@ providers:
     physical_resource_root: "registered Lab_Data/HyperV; StateRoot contains control state only; persisted builder disks resolve through their Build binding"
     image_registry: Private/HyperVImageRegistry.ps1
     image_artifact_inventory: "Public/Get-SqlServerLabHyperVImageArtifact.ps1 und Get-SqlServerLabWorkflow.ps1; pfadfreie read-only Registry-, Workflow-, Evaluierungs-, manueller Refresh- und Referenzsicht, optionale Parent-Hash-Pruefung ohne Refresh- oder Loeschautoritaet"
-    evaluation_watch: "Public/Get-SqlServerLabEvaluationWatch.ps1 und Public/Invoke-SqlServerLabEvaluationWatchTrigger.ps1; read-only Windows-/SQL-Evaluationsbewertung mit optionaler lokaler Ereignis-Deduplizierung sowie explizit begrenztem foreground-Zeittrigger ohne Windows-Aufgabe, Lizenz-, Image-, Run-, Runtime- oder Netzwerkmutation"
+    evaluation_watch: "Public/Get-SqlServerLabEvaluationWatch.ps1 und Public/Invoke-SqlServerLabEvaluationWatchTrigger.ps1; read-only Windows-/SQL-Imagebewertung und persistierte Windows-Instanzfrist mit optionaler lokaler Ereignis-Deduplizierung sowie explizit begrenztem foreground-Zeittrigger ohne Windows-Aufgabe, Lizenz-, Image-, Run-, Runtime- oder Netzwerkmutation; persistierte SQL-Gastfrist ist ausschließlich als BACKLOG in Documentation/Project_Planning/SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG.md definiert"
     validation_evaluation_watch: Tests/Static/Invoke-EvaluationWatchChecks.ps1
     image_builder: "Private/HyperVImageBuilder.ps1 plus Private/HyperVWindowsEvaluationTemplate.ps1, Private/HyperVLegacyWindowsEvaluationTemplate.ps1 und Private/HyperVSqlImageBuilder.ps1; katalog- und hashgebundener Windows-/SQL-Evaluation-Build, versionsgerechte Hyper-V-Plattform, einmaliger buildlokaler Medienprüfbeleg für unveränderte Resumes, temporäre Aktivierungs-NIC, Sysprep, fail-closed CHILD_BOOT_VERIFIED-Gate und PowerShell-Direct- beziehungsweise Legacy-WMI-/Lab-WinRM-Gaststeuerung"
     windows_slot_pool: "Public/New-SqlServerLabWindowsSlotPool.ps1; geeignete OS_SEALED-Baseline, N resumierbare Child-VMs, RAM-/Locale-Vertrag, generierte oder gemeinsame Passwoerter und unbeaufsichtigte OOBE"

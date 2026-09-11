@@ -79,11 +79,17 @@ Images, Lizenzen noch Runs. `Invoke-SqlServerLabEvaluationWatchTrigger` führt
 denselben Watch sofort und anschließend in einem explizit begrenzten
 foreground-Intervall aus. Er registriert keine Windows-Aufgabe, startet keine
 Runtime und führt keinen Netzwerk- oder Gastzugriff aus. Persistierte
-SQL-Gastfristen und optionale Benachrichtigungskanäle bleiben offen.
+SQL-Gastfristen und optionale Benachrichtigungskanäle bleiben offen. Der
+minimale, noch nicht implementierte SQL-Gast-Slice ist im
+[eigenen Evidence-Backlog](SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG.md)
+festgelegt: Er trennt rungebundenen SQL-Gast-Receipt, Aktualität,
+Read-only-Projektion und Native-Evidence von Image- und Windows-Metadaten.
 
 Der Zielvertrag muss mindestens definieren:
 
 - getrennte Fristen für Windows, SQL Server und verwendete Images;
+- für SQL-Gäste eine versionsgebundene, an Run/Scope/Instanz/VM/Image und
+  SQL-Readiness gebundene Evidence statt einer abgeleiteten Imagefrist;
 - konfigurierbare Warnschwellen mit 30 Tagen als Standard;
 - idempotente lokale Ausführung und persistierte, geheimnisfreie
   Deduplizierung;
