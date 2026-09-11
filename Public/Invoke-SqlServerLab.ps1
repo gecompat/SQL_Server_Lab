@@ -2080,6 +2080,38 @@ function Invoke-LabCuResourceInteractive {
     }
 }
 
+function Select-LabSqlServerCollationInteractive {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$SqlVersion,
+        [Parameter(Mandatory)][string]$Current
+    )
+
+    $query = ''
+    while ($true) {
+        $matches = @(Find-LabSqlServerCollation -Query $query -SqlVersion $SqlVersion)
+        $items = @(
+            New-LabConsoleItem -Id 'search' -Label 'Collation suchen' -Value 'Suchwoerter, z. B. Latin1 UTF8; leer: alle' -Shortcut 's'
+            for ($index = 0; $index -lt $matches.Count; $index++) {
+                $entry = $matches[$index]
+                New-LabConsoleItem -Id $entry.Name -Label $entry.Name -Shortcut ([string]($index + 1)) `
+                    -Value "$($entry.Locale); CP $($entry.CodePage); LCID $($entry.Lcid); $($entry.CaseSensitivity)/$($entry.AccentSensitivity); UTF8=$($entry.Utf8); $($entry.Status)"
+            }
+        )
+        $result = Invoke-LabConsoleMenu -ScreenId 'sql-intent-collation' -Title "Collation fuer SQL Server $SqlVersion" `
+            -Subtitle "$($matches.Count) Treffer; Filter: $query" -Items $items -SelectedId $Current `
+            -Footer 'S: Suche  Enter: Auswahl  Esc: bisherigen Wert behalten' -FallbackPrompt '  Collation (s: Suche)'
+        if ($result.Status -eq 'Cancelled') { return $Current }
+        if ($result.Status -ne 'Selected') { continue }
+        if ($result.SelectedItem.Id -eq 'search') {
+            $query = Read-Host '  Suchwoerter (leer: alle Collations)'
+            continue
+        }
+        if ([string]$result.SelectedItem.Id -notin @($matches.Name)) { throw 'SQL_COLLATION_SELECTION_INVALID' }
+        return Resolve-LabSqlServerCollation -Name ([string]$result.SelectedItem.Id) -SqlVersion $SqlVersion
+    }
+}
+
 function Read-LabSqlEnvironmentIntentInteractive {
     [CmdletBinding()]
     param()
@@ -2159,7 +2191,7 @@ function Read-LabSqlEnvironmentIntentInteractive {
             New-LabConsoleField -Id 'requiresWindows' -Label 'Windows-Gast erforderlich' -Value $false -Shortcut '8' -Editor $selectWindows -Formatter { param($value) if([bool]$value){'Ja'}else{'Nein'} }
             New-LabConsoleField -Id 'edition' -Label 'SQL-Edition' -Value 'Developer' -Shortcut '9' -Editor $selectEdition
             New-LabConsoleField -Id 'networkMode' -Label 'Netzwerkmodus' -Value 'host-access' -Shortcut 'n' -Editor $selectNetwork
-            New-LabConsoleField -Id 'collation' -Label 'Server-Collation' -Value 'SQL_Latin1_General_CP1_CI_AS' -Shortcut 'c' -Editor { param($current,$values) $candidate=Read-Host "  Server-Collation [$current]";if($candidate){$candidate}else{$current} } -Validator { param($value,$values) if([string]$value -notmatch '^[A-Za-z0-9_]{1,128}$'){'Collation darf nur Buchstaben, Zahlen und Unterstriche enthalten.'} }
+            New-LabConsoleField -Id 'collation' -Label 'Server-Collation' -Value 'SQL_Latin1_General_CP1_CI_AS' -Shortcut 'c' -Editor { param($current,$values) Select-LabSqlServerCollationInteractive -SqlVersion ([string]$values['baseVersion']) -Current ([string]$current) } -Validator { param($value,$values) try { $null=Resolve-LabSqlServerCollation -Name ([string]$value) -SqlVersion ([string]$values['baseVersion']) } catch { $_.Exception.Message } }
             New-LabConsoleField -Id 'sqlMaxMemoryMB' -Label 'SQL max server memory MB' -Value ([Math]::Max(1024,$defaultMemoryMB-1024)) -Shortcut 's' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'SQL max server memory MB' -Default ([int]$current) -Minimum 512 -Maximum ([Math]::Max(512,[int]$values['memoryMB']-256)) } -Validator { param($value,$values) if([int]$value -gt ([Math]::Max(512,[int]$values['memoryMB']-256))){'SQL max memory muss mindestens 256 MB unter dem Lab-RAM bleiben.'} }
             New-LabConsoleField -Id 'maxDop' -Label 'MAXDOP (0..64)' -Value $defaultMaxDop -Shortcut 'm' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'MAXDOP (0..64)' -Default ([int]$current) -Minimum 0 -Maximum 64 }
             New-LabConsoleField -Id 'costThreshold' -Label 'Cost Threshold for Parallelism' -Value 50 -Shortcut 'o' -Editor { param($current,$values) Read-LabIntegerIntentValue -Prompt 'Cost Threshold for Parallelism (0..32767)' -Default ([int]$current) -Minimum 0 -Maximum 32767 }
@@ -2194,7 +2226,7 @@ function Read-LabSqlEnvironmentIntentInteractive {
         Platform=if($requiresWindowsPlatform){'Windows'}else{'Linux'}; OperatingSystem=if($requiresWindowsPlatform){'Windows'}else{'Linux'}
         Purpose=if($custom){[string]$values['purpose']}else{'adhoc'}; RequiresWindows=if($custom){[bool]$values['requiresWindows']}else{$false}; Edition=if($custom){[string]$values['edition']}else{'Developer'}
         Cpu=$cpu; MemoryMB=$memoryMB; Profile=$profile; NetworkMode=[string]$values['networkMode']; HostPort=[int]$values['hostPort']
-        Collation=if($custom){[string]$values['collation']}else{'SQL_Latin1_General_CP1_CI_AS'}
+        Collation=Resolve-LabSqlServerCollation -Name $(if($custom){[string]$values['collation']}else{'SQL_Latin1_General_CP1_CI_AS'}) -SqlVersion ([string]$values['baseVersion'])
         SqlMaxMemoryMB=if($custom){[int]$values['sqlMaxMemoryMB']}else{[Math]::Max(1024,$memoryMB-1024)}
         MaxDop=if($custom){[int]$values['maxDop']}else{[Math]::Min(8,[int][Math]::Ceiling([double]$cpu))}; CostThreshold=if($custom){[int]$values['costThreshold']}else{50}
         StorageMode=[string]$storage.Mode; Drives=@($storage.Drives)

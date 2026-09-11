@@ -1062,6 +1062,10 @@ function Get-LabManifestValidationResult {
     $effectiveProviders = [System.Collections.Generic.List[string]]::new()
     foreach ($instance in @($Manifest.instances)) {
         $instancePath = "instances[$($instance.id)]"
+        try {
+            $null = Resolve-LabSqlServerCollation -Name ([string]$instance.collation) -SqlVersion ([string]$instance.version)
+        }
+        catch { $errors.Add("${instancePath}.collation: $($_.Exception.Message)") }
         $runtimePlans = [System.Collections.Generic.List[object]]::new()
         $samplePlans = [System.Collections.Generic.List[object]]::new()
         $effectiveProvider = if ($instance.provider) {

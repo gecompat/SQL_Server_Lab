@@ -14,6 +14,18 @@ Die Kataloge sind maschinenlesbare Runtimeeingaben. Änderungen müssen mit Sche
 | `software.json` | Providerneutrale SQL-bezogene Software- und External-Runtime-Varianten mit Support-, Integrity- und Verification-Metadaten | `../Schemas/software-catalog.schema.json` |
 | `ai-models.json` | Ollama-Modellidentitäten für Embedding, lokale Generierung und optionale Cloud-Generierung; Status bleibt bis zum jeweiligen nativen Nachweis `PLANNED` | `../Schemas/ai-model-catalog.schema.json` |
 
+## Collation-Katalog
+
+Der Collation-Katalog ist eine kuratierte Auswahl für SQL 2019/2022/2025.
+`Find-SqlServerLabCollation -Query 'Latin1 UTF8' -SqlVersion 2022` sucht nach
+allen angegebenen Tokens. Die Instanzbindung im Manifest- und Ad-hoc-Pfad
+akzeptiert dagegen ausschließlich einen vollständigen, für die Zielversion
+katalogisierten Namen und liefert dessen kanonische Schreibweise. Doppelte
+Namen und Schemafehler sperren den Katalog. `DEPRECATED` kennzeichnet weiterhin
+wählbare Einträge einschließlich des bisherigen nativen Defaults.
+SQL-seitige Verifikation und ein Advanced-Pfad für freie Instanzcollations bleiben
+offen; explizite Datenbankcollations sind von dieser Bindung ausgenommen.
+
 ## Versionskatalog
 
 Vereinfachte Struktur:

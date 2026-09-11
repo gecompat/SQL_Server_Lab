@@ -27,6 +27,14 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- versionsgebundene Instanzcollation für SQL 2019/2022/2025: kuratierter
+  Katalog, öffentliche tokenbasierte Suche und Konsolenauswahl mit Metadaten;
+  Manifestprüfung, Wizard-Speicherung, Manifestauflösung und Ad-hoc-Erstellung
+  binden vollständige Namen kanonisch vor Provisionierung. Unbekannte Namen
+  und nicht katalogisierte Major-Versionen werden abgewiesen. Die Bindung ist
+  offline geprüft; SQL-seitige Verifikation, freie Advanced-Eingaben und neue
+  getrennte Providernachweise bleiben offen;
+
 - gemeinsamer interner Fortschrittsreporter fuer direkte Downloads,
   SQL-Bereitschaft und abgeleitete Container-Image-Builds; Loopback-Transfer,
   Readiness-Polls, stille native Prozesse und getrennte Docker-/Podman-Builds

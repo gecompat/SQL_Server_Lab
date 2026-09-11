@@ -8,7 +8,35 @@ function Get-LabSqlServerCollationCatalog {
     if (-not ($json | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue)) {
         throw 'SQL_COLLATION_CATALOG_INVALID'
     }
-    return $json | ConvertFrom-Json -Depth 20
+    $catalog = $json | ConvertFrom-Json -Depth 20
+    $names = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach ($entry in $catalog.collations) {
+        if (-not $names.Add([string]$entry.name)) { throw 'SQL_COLLATION_CATALOG_DUPLICATE_NAME' }
+    }
+    return $catalog
+}
+
+function Resolve-LabSqlServerCollation {
+    [CmdletBinding()]
+    param(
+        [AllowNull()][AllowEmptyString()][string]$Name,
+        [Parameter(Mandatory)][string]$SqlVersion
+    )
+
+    if ([string]::IsNullOrEmpty($Name)) { $Name = 'SQL_Latin1_General_CP1_CI_AS' }
+    if ($Name -cnotmatch '^[A-Za-z0-9_]{1,128}$') { throw 'SQL_COLLATION_NAME_INVALID' }
+    $version = Get-SqlServerVersion -VersionId $SqlVersion
+    if (-not $version -or [string]$version.id -notin @('2019', '2022', '2025')) {
+        throw 'SQL_COLLATION_VERSION_NOT_CATALOGED'
+    }
+    $entries = @(Get-LabSqlServerCollationCatalog | Select-Object -ExpandProperty collations | Where-Object {
+        [string]::Equals([string]$_.name, $Name, [StringComparison]::OrdinalIgnoreCase) -and
+        [string]$version.id -in @($_.supportedSqlVersions)
+    })
+    if ($entries.Count -ne 1) {
+        throw 'SQL_COLLATION_NOT_CATALOGED: Vollstaendigen Namen mit Find-SqlServerLabCollation fuer die SQL-Version auswaehlen.'
+    }
+    return [string]$entries[0].name
 }
 
 function Find-LabSqlServerCollation {

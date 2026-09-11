@@ -46,6 +46,15 @@ Windows-Anforderung, Zweck, vCPU, RAM, Netzwerk, Port, Collation, SQL-Memory,
 MAXDOP, Cost Threshold, TempDB-Dateien sowie getrennte Data-, Log-, TempDB- und
 Backup-Datenträger einschließlich optionaler IOPS-Limits.
 
+Das Feld Server-Collation öffnet die versionsgebundene Katalogauswahl.
+`S` startet eine tokenbasierte Suche, etwa `Latin1 UTF8`; eine leere Suche
+zeigt alle Einträge. Die Treffer zeigen Codepage, LCID, Case-/Accent-Sensitivity,
+UTF-8 und Status. Auch nach null Treffern ist eine neue Suche möglich.
+`Esc` beziehungsweise `0` im nummerierten Fallback behält den bisherigen Wert.
+Eine geänderte SQL-Version wird bei der Formularprüfung erneut berücksichtigt.
+Freie Instanzcollations werden nicht übernommen. Die Auswahl belegt noch
+keine SQL-seitige Verifikation.
+
 Quick und Custom werden anschließend als cursorbasiertes, editierbares Formular
 angezeigt. `Enter` bearbeitet das fokussierte Feld, `F10` wechselt zur
 vollständigen Review-Ansicht. Fehler wie ein unzulässiger Hostport, eine

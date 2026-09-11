@@ -130,6 +130,13 @@ function Get-LabConsoleHelpCatalog {
             Related = @('Persistente Daten werden nur nach ausdruecklicher Bestaetigung entfernt.')
             Command = 'Start-SqlServerLab / Stop-SqlServerLab / Remove-SqlServerLab'
         }
+        'sql-intent-collation' = @{
+            Title = 'Server-Collation auswaehlen'
+            Purpose = 'Sucht katalogisierte Instanzcollations fuer die gewaehlte SQL-Version nach allen eingegebenen Suchwoertern.'
+            Effects = 'Auswahl und Abbruch veraendern keine Runtime. Erst die spaetere Provisionierung verwendet den gebundenen Namen.'
+            Related = @('S startet die Suche; leer zeigt alle Eintraege. Esc beziehungsweise 0 behaelt den bisherigen Wert.', 'DEPRECATED bleibt waehlbar. Der Katalog ersetzt keine SQL-seitige Verifikation.')
+            Command = 'Find-SqlServerLabCollation / New-SqlServerLab'
+        }
         'sql-target-configuration' = @{
             Title   = 'SQL-Zielkonfiguration'
             Purpose = 'Legt Version, Ressourcen, Port, Collation und Speicher der neuen Umgebung fest.'
