@@ -46,7 +46,6 @@ try {
     $containerNetworkFallback = & $module {
         $originalKnownSubnets = (Get-Command Get-LabKnownIpv4Subnets).ScriptBlock
         $originalWarning = (Get-Command Write-LabWarning).ScriptBlock
-        $previousPodmanSubnet = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_PODMAN_SUBNET', 'User')
         try {
             Set-Item Function:Get-LabKnownIpv4Subnets -Value { param($Provider) @('172.27.0.0/16') }
             $script:networkWarning = $null
@@ -56,7 +55,6 @@ try {
             [PSCustomObject]@{ Subnet=$fallback.Subnet; Warning=$script:networkWarning }
         }
         finally {
-            [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_PODMAN_SUBNET', $previousPodmanSubnet, 'User')
             Set-Item Function:Get-LabKnownIpv4Subnets -Value $originalKnownSubnets
             Set-Item Function:Write-LabWarning -Value $originalWarning
             Remove-Variable networkWarning -Scope Script -ErrorAction SilentlyContinue
@@ -294,7 +292,10 @@ try {
     $previousReservedSubnets = [Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_RESERVED_SUBNETS')
     try {
         [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_RESERVED_SUBNETS', '10.200.0.0/16; 192.0.2.0/24', 'Process')
-        $reservedSubnets = & $module { @(Get-LabKnownIpv4Subnets -Provider podman) }
+        $reservedSubnets = & $module {
+            function Resolve-LabHostTool { param($Name) [PSCustomObject]@{ Available = $false; Invocation = $null } }
+            @(Get-LabKnownIpv4Subnets -Provider podman)
+        }
         Add-CheckResult -Name 'Dauerhafte VPN-Subnetzreservierungen werden in die Kollisionspruefung aufgenommen' -Success (
             '10.200.0.0/16' -in $reservedSubnets -and '192.0.2.0/24' -in $reservedSubnets)
     }
@@ -401,6 +402,3 @@ finally {
 }
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0
-
-
-
