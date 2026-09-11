@@ -308,12 +308,18 @@ try {
     ) 'Entfernung loescht nur das eigene Sample und bewahrt die fremde Datenbank'
 
     $finalOwnership = Get-Content -LiteralPath $ownershipPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+    $completedJournal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+    $journalSchemaPath = Join-Path $repoRoot 'Schemas/hyperv-test-database-reconcile-journal.schema.json'
+    $completedJournalSchemaValid = (($completedJournal | ConvertTo-Json -Depth 30) | Test-Json `
+        -SchemaFile $journalSchemaPath -ErrorAction SilentlyContinue)
     $removeNoOp = Get-SqlServerLabReconcilePlan -RunId $runId -HyperVTestDatabases `
         -ManifestPath $baseManifestPath -InstanceId primary -StateRoot $StateRoot
     Assert-HyperVTestDatabaseAcceptance (
-        @($finalOwnership.Entries).Count -eq 0 -and [string]$removeResult.JournalStatus -eq 'COMPLETED' -and
-        -not (Test-Path -LiteralPath $journalPath) -and $removeNoOp.IsNoOp
-    ) 'Ownership, bereinigtes Journal und zweiter Remove-Lauf sind konvergiert'
+        @($finalOwnership.Entries).Count -eq 0 -and
+        [string]$removeResult.ExecutionPlan[0].Result.JournalStatus -eq 'COMPLETED' -and
+        (Test-Path -LiteralPath $journalPath) -and [string]$completedJournal.Status -eq 'COMPLETED' -and
+        $completedJournalSchemaValid -and $removeNoOp.IsNoOp
+    ) 'Ownership, abgeschlossenes Journal und zweiter Remove-Lauf sind konvergiert'
 
     $baselineAddResult = Invoke-SqlServerLabReconcileAction -RunId $runId -RepairHyperVTestDatabases `
         -ManifestPath $addManifestPath -InstanceId primary -SqlSaPassword $script:saPassword `
