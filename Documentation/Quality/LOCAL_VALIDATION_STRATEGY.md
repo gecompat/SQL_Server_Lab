@@ -910,7 +910,9 @@ aktiviert `PREVIEW_FEATURES` vor dem Kompilieren der Index-Fixture:
 
 Abnahmeversion 1.0 erstellt 4.096 synthetische Vektoren mit 32 Dimensionen und
 einen echten DiskANN-Index. Vier Suchfälle prüfen Top-10, Selbsttreffer,
-Distanzgleichheit, Recall@10 mindestens 0,8 und Postfilter. Nach öffentlichem
+Distanzgleichheit, Recall@10 mindestens 0,8 und Postfilter; der aktuell
+nachgezogene Lauf liefert `MinimumRecallAt10=1,0` vor und nach Restart auf
+`Compatibility Level 170` sowie `CLEANUP_SUCCEEDED`. Nach öffentlichem
 Stop/Start werden dieselben Assertions wiederholt. Jeder Lauf besitzt einen
 eigenen State-/Datenbank-/Provider-Scope; Cleanup läuft auch nach Fehlern.
 Nur erfolgreiches Cleanup erlaubt `PASS`. Ergebnisse enthalten SQL-Build,

@@ -1141,8 +1141,9 @@ Die separate Abnahme `SqlServerLab.AiVectorIndexAcceptance/1.0` bestand am
 2026-09-10 auf Quellrevision `6fc518847eaefb021c31666ca8386da5b53e1908`
 getrennt unter Docker und Podman: SQL Server 2025 Build `17.0.4075.5`,
 Compatibility Level 170, 4.096 synthetische Vektoren mit 32 Dimensionen,
-Indexaufbau, vier Suchfälle mit Recall@10 jeweils 1,0, Distanz-/Filterprüfung,
-Stop/Start und vollständiger Cleanup. Der Build meldet `StartId`/`L`/`M`/`R`
+Indexaufbau, vier Suchfälle mit Recall@10 jeweils 1,0 (`MinimumRecallAt10=1,0`),
+Distanz-/Filterprüfung, Stop/Start-Prüfung und Cleanup `CLEANUP_SUCCEEDED`.
+Der Build meldet `StartId`/`L`/`M`/`R`
 ohne numerisches Indexversionsfeld; das Ergebnis bindet diese beobachtete Form
 als `sql2025-unversioned` an den SQL-Build und die Abnahmeversion.
 Unbekannte beziehungsweise inkompatible spätere Formate verlangen eine
