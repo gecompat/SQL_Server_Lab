@@ -144,6 +144,10 @@ try {
     $null = New-Item -Path $testRoot -ItemType Directory -Force
     $env:SQL_SERVER_LAB_TEST_DATA_ROOT = $testDataRoot
     $module = Import-Module $modulePath -Force -PassThru
+    $null = Invoke-Private {
+        param($Root)
+        Initialize-LabManagedDataRoot -DataRoot $Root -Confirm:$false
+    } @($testDataRoot)
     if (-not $StateRoot) { $StateRoot = Invoke-Private { Get-LabStateRoot } }
     $env:SQL_SERVER_LAB_STATE = $StateRoot
 
