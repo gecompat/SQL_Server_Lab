@@ -130,6 +130,16 @@ function Invoke-AcceptanceQuery {
     finally { $connection.Dispose() }
 }
 
+function Wait-AcceptanceSqlReady {
+    param([Parameter(Mandatory)][int]$TimeoutSeconds)
+    $readiness = Invoke-Private {
+        param($HostName,$Port,$SaPassword,$Timeout)
+        Wait-SqlReady -HostName $HostName -Port $Port -SaPassword $SaPassword -TimeoutSeconds $Timeout
+    } @($script:sqlAddress,$script:sqlPort,$script:saPassword,$TimeoutSeconds)
+    Assert-HyperVTestDatabaseAcceptance ([bool]$readiness.Ready) `
+        'Host-SQL-Zugriff ist nach VM-Neustart stabil bereit' ([string]$readiness.Message)
+}
+
 function Test-ScopedTemporaryRoot {
     param([Parameter(Mandatory)][string]$Path)
     $resolved = [IO.Path]::GetFullPath($Path).TrimEnd('\')
@@ -244,7 +254,7 @@ try {
     $whatIf = Invoke-SqlServerLabReconcileAction -RunId $runId -RepairHyperVTestDatabases `
         -ManifestPath $addManifestPath -InstanceId primary -SqlSaPassword $script:saPassword `
         -StateRoot $StateRoot -WhatIf
-    $journalPath = Join-Path $context.RunDirectory 'hyperv-test-database-reconcile-journal.local.json'
+    $journalPath = Join-Path $context.RunDirectory 'hyperv-test-database-reconcile.local.journal.json'
     Assert-HyperVTestDatabaseAcceptance (
         [string]$whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and
         -not (Test-Path -LiteralPath $journalPath) -and
@@ -351,6 +361,7 @@ try {
     ) 'Auch der Baseline-Wiederverwendungslauf endet eigentumsgebunden und konvergiert'
 
     Restart-SqlServerLab -RunId $runId -TimeoutSeconds $OobeTimeoutSeconds -Force -Confirm:$false | Out-Null
+    Wait-AcceptanceSqlReady -TimeoutSeconds $OobeTimeoutSeconds
     $foreignMarkerAfterRestart = @(Invoke-AcceptanceQuery -Database NativeForeignEvidence -Query "SET NOCOUNT ON; SELECT Value FROM dbo.Marker WHERE Id=1;")[0]
     Assert-HyperVTestDatabaseAcceptance ($foreignMarkerAfterRestart -eq 'foreign-preserved') `
         'Fremde Datenbank bleibt nach vollstaendigem VM-Restart erhalten'
