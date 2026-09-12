@@ -112,8 +112,8 @@ COMMANDS
         legacy state; unknown versions and runtime resources remain blocked.
 
     Get-SqlServerLabPortableLabImportPlan
-        Checks a portable container lab package read-only for package
-        availability and anonymous secret-rebinding blockers; import is unimplemented.
+        Binds BackupSetId and integrity evidence from a portable container lab
+        package read-only to an existing target run; import is unimplemented.
 
     Get-SqlServerLabHyperVRecoveryPointPlan
         Inventories existing checkpoints bound to a Hyper-V run without VM names

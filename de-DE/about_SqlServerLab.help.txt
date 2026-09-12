@@ -116,8 +116,8 @@ COMMANDS
         Runtime-Ressourcen bleiben blockiert.
 
     Get-SqlServerLabPortableLabImportPlan
-        Prüft ein portables Container-Lab-Paket read-only auf Paketverfügbarkeit
-        und anonyme Secret-Rebind-Blocker; ein Import ist nicht implementiert.
+        Bindet BackupSetId- und Integritäts-Evidence eines portablen Container-
+        Lab-Pakets read-only an einen bestehenden Ziel-Run; ein Import ist nicht implementiert.
 
     Get-SqlServerLabHyperVRecoveryPointPlan
         Inventarisiert bestehende, eindeutig an einen Hyper-V-Run gebundene

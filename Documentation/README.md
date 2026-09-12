@@ -119,7 +119,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Invoke-SqlServerLabEvaluationWatchTrigger` | Evaluation-Watch in einem explizit begrenzten lokalen Zeitintervall ausführen; registriert keine Windows-Aufgabe und verändert weder Runtime noch Netzwerk |
 | `Get-SqlServerLabRunStateUpgradePlan` | Einen lokalen Run-State gegen den Zielvertrag read-only klassifizieren |
 | `Invoke-SqlServerLabRunStateUpgrade` | Einen explizit synthetischen, unversionierten Legacy-State atomar migrieren; unbekannte Versionen bleiben blockiert |
-| `Get-SqlServerLabPortableLabImportPlan` | Ein portables Container-Lab-Paket read-only auf Datenbankpaket-Verfügbarkeit und anonymisierte Secret-Rebind-Blocker prüfen; die Ausführung bleibt nicht implementiert |
+| `Get-SqlServerLabPortableLabImportPlan` | Ein portables Container-Lab-Paket read-only an einen bestehenden Docker-/Podman-Ziel-Run binden und ausschließlich BackupSetId- sowie CHECKSUM-, VERIFYONLY-, SHA-256- und Größen-Evidence prüfen; Transfer und Import bleiben nicht implementiert |
 | `Get-SqlServerLabHyperVRecoveryPointPlan` | Bestehende, eindeutig an einen Hyper-V-Run gebundene Checkpoints ohne VM-Namen oder Hostpfade read-only inventarisieren; Erstellung, Quiesce und Restore bleiben nicht implementiert |
 | `Get-SqlServerLabHyperVResourcePreview` | Registrierte Hyper-V-Location, Kapazität und physische Klassenroots read-only anzeigen |
 | `Get-SqlServerLabCatalog` | Konsolidierten Lab-Katalog als JSON-Artefakt erzeugen |

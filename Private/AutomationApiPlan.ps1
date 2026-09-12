@@ -40,8 +40,8 @@ function Get-LabAutomationApiPlan {
             ActionCommand = 'Invoke-SqlServerLabRunStateUpgrade'; RequiredParameters = @('RunId')
         }
         PortableLabImport = [ordered]@{
-            PlanCommand = 'Get-SqlServerLabPortableLabImportPlan'; PlanContract = 'SqlServerLab.PortableLabImportPlan/1.0'
-            ActionCommand = $null; RequiredParameters = @('PackagePath','TargetProvider')
+            PlanCommand = 'Get-SqlServerLabPortableLabImportPlan'; PlanContract = 'SqlServerLab.PortableContainerTransferPlan/1.0'
+            ActionCommand = $null; RequiredParameters = @('PackagePath','TargetProvider','TargetRunId')
         }
         HyperVRecoveryPoint = [ordered]@{
             PlanCommand = 'Get-SqlServerLabHyperVRecoveryPointPlan'; PlanContract = 'SqlServerLab.HyperVRecoveryPointPlan/1.0'
