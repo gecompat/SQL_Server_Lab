@@ -60,6 +60,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | SQL-Observability-Evidence | aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken direkt oder per Run-/Instanzbindung read-only; keine SQL-Texte, Namen, Hostwerte oder Secrets im Ergebnis | `Get-SqlServerLabSqlObservabilityEvidence`, `Private/SqlObservabilityEvidence.ps1`, `Schemas/sql-observability-evidence.schema.json` |
 | Portabler Lab-Import-Preflight | prüft einen pfad- und secretfreien Container-Lab-Paketvertrag auf explizit verfügbare Datenbankpaket-IDs und anonyme Secret-Rebind-Blocker; führt keinen Import aus | `Get-SqlServerLabPortableLabImportPlan`, `Private/PortableLabImport.ps1`, `Schemas/portable-lab-import-plan.schema.json` |
 | Hyper-V-Recovery-Point-Inventar | inventarisiert bestehende, eindeutig an einen Run gebundene Hyper-V-Checkpoints ohne VM-Namen oder Hostpfade; erzeugt keinen Checkpoint und führt keinen Restore aus | `Get-SqlServerLabHyperVRecoveryPointPlan`, `Private/RecoveryPointPlan.ps1`, `Schemas/hyperv-recovery-point-plan.schema.json` |
+| Lokaler Automation-API-Plan | projiziert ausschließlich ausgewählte bestehende öffentliche Plan-/Action-Grenzen als versionierten, sanitisierten und nicht ausführbaren Vertrag; keine Runtime, Netzwerkverbindung, State-Mutation oder IaC-Adapter | `Get-SqlServerLabAutomationPlan`, `Private/AutomationApiPlan.ps1`, `Schemas/automation-api-plan.schema.json` |
 | Sample-Datenbanken (Backup) | implementiert | `Private/SampleArtifactHandlers.ps1`; direkte `.bak`-Varianten über Trust-/Hash-Pfad, Mehrfachauswahl im Menü und `New-SqlServerLab -Sample` |
 | Project Adapter (v0.1) | implementiert | `Schemas/project-adapter.schema.json`, `Test-SqlServerLabAdapter`, `Install-SqlServerLabAdapter`; T-SQL-Entrypoints ohne Lifecycle-Seiteneffekt |
 | T-SQL-Skriptausführung | implementiert | `Invoke-SqlServerLabScript` |
@@ -695,6 +696,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Invoke-SqlServerLabScheduler` | Persistente Queue mit zwei Workern und maximal einem `HyperVHeavy`-Vorgang verarbeiten |
 | `Invoke-SqlServerLabOperationProbe` | Fällige User-Gates ausschließlich lesend prüfen, ohne sie selbstständig fortzusetzen |
 | `Get-SqlServerLabWorkflow` | Konsolidierte Workflow-, Image-, Vorlagenpool- und Kombinationsübersicht ohne Geheimnisse |
+| `Get-SqlServerLabAutomationPlan` | Versionierten lokalen Plan-/Result-Vertrag für ausgewählte bestehende öffentliche Plan-/Action-Grenzen ohne Ausführung projizieren |
 | `Find-SqlServerLabCollation` | Katalogisierte SQL-Server-Collations tokenbasiert und versionsgebunden durchsuchen |
 | `Get-SqlServerLabHyperVImageArtifact` | Pfadfreie, read-only Hyper-V-Image-Registry mit Evaluierungs-, Refresh- und Referenzstatus; `-VerifyIntegrity` prüft ausgewählte Parent-VHDX erneut |
 | `Get-SqlServerLabEvaluationWatch` | Registrierte Windows-/SQL-Artefaktfristen und persistierte Windows-Fristen registrierter RUNNING-Hyper-V-Instanzen read-only bewerten; für RUNNING-/STOPPED-Hyper-V-SQL-Runs ausschließlich frische, gebundene SQL-Gast-Evidence projizieren und fällige Ereignisse optional lokal deduplizieren |

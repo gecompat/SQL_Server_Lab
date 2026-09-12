@@ -59,7 +59,7 @@ Jede spätere Umsetzung muss:
 | P2 | Offline-/Air-Gap-Distributionspaket | `ACCEPTED_NEED` | hash- und lizenzgebundener Export bereits freigegebener Medien, Kataloge und Samples ohne Secrets oder Runtime-State |
 | P2 | Erweiterte Kapazitäts-, Reservierungs- und Quotensteuerung | `DECISION_REQUIRED` | read-only Hostbudget für parallele SQL-Runs mit CPU-, RAM-, Storage- und `HyperVHeavy`-Reservierungen |
 | P3 | Mehrbenutzer-, Rollen- und Ownership-Modell | `DECISION_REQUIRED` | gemeinsame read-only Inventur mit getrennten Operatoridentitäten und unveränderlichem Audit, noch ohne Remote-Mutation |
-| P3 | Stabile Automation-API und IaC-Adapter | `DECISION_REQUIRED` | versionierter lokaler read-only Plan-Endpunkt; Terraform, Ansible, DSC oder Pulumi erst danach als austauschbare Adapter bewerten |
+| P3 | Stabile Automation-API und IaC-Adapter | `IMPLEMENTED_READ_ONLY` | versionierter lokaler read-only Plan-Endpunkt; Terraform, Ansible, DSC oder Pulumi erst danach als austauschbare Adapter bewerten |
 
 Die Prioritäten ordnen nur die Untersuchung. Sie ändern nicht die kanonische
 Ausführungsreihenfolge des Development Execution Plans.
@@ -273,6 +273,16 @@ Zu entscheiden sind:
 - Erhalt der vollständig lokalen Einzelplatznutzung.
 
 ## Stabile Automation-API und IaC-Adapter
+
+`Get-SqlServerLabAutomationPlan` implementiert den ersten lokalen
+`SqlServerLab.AutomationApiPlan/1.0`-Slice. Er projiziert ausschließlich eine
+feste, sanitierte Auswahl bereits öffentlicher Plan-/Action-Grenzen und liefert
+immer einen `NOT_EXECUTED`-Resultvertrag. Er liest keinen Lab-State, verbindet
+keine Runtime und schreibt nichts. PlanId und PlanKey sind je gültigem Action-
+Wert deterministisch. Fehlende oder ungültige Eingaben werden ohne
+Wertreflexion als `BLOCKED` ausgewiesen. Der Slice erteilt keine Autorisierung,
+ersetzt keine Revalidierung, Locks, Idempotenz- oder Resume-Verträge und führt
+keine Terraform-, Ansible-, DSC- oder Pulumi-Adapter ein.
 
 Die öffentliche PowerShell-API bleibt der aktuelle Produktvertrag. Eine
 zusätzliche Service- oder IaC-Schnittstelle darf erst nach einem eigenen

@@ -839,6 +839,11 @@ Für weitere querschnittliche Plattformlücken existiert jetzt ein eigener
 `Get-SqlServerLabHyperVRecoveryPointPlan` sowie
 `Get-SqlServerLabSqlObservabilityEvidence` decken jeweils nur ihren
 ausdrücklich read-only beziehungsweise statischen Teilvertrag ab. Die
+lokale `Get-SqlServerLabAutomationPlan`-Projektion beschreibt ausschließlich
+eine feste Auswahl bestehender öffentlicher Plan-/Action-Grenzen; sie führt
+keine Action aus, liest keinen Lab-State und ersetzt keine Autorisierung,
+Revalidierung, Locks, Idempotenz oder Resume. Terraform, Ansible, DSC und
+Pulumi bleiben nicht implementiert.
 SQL-Gast-Evaluationsfrist eines Hyper-V-Runs wird ausschließlich aus einem
 schema-validierten, an Run, Scope, Instanz, VM, Image und vorhandene
 SQL-Readiness gebundenen Receipt gelesen. Der Reader und die fail-closed

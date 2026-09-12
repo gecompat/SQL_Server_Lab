@@ -103,6 +103,10 @@ COMMANDS
     Get-SqlServerLabRunStateUpgradePlan
         Classifies a local run state against the target contract read-only.
 
+    Get-SqlServerLabAutomationPlan
+        Projects a versioned local, sanitized, and non-executable plan/result
+        contract for selected existing public plan/action boundaries.
+
     Invoke-SqlServerLabRunStateUpgrade
         Atomically migrates only an explicitly marked synthetic, unversioned
         legacy state; unknown versions and runtime resources remain blocked.

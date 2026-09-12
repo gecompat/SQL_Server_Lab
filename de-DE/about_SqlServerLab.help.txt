@@ -105,6 +105,11 @@ COMMANDS
     Get-SqlServerLabRunStateUpgradePlan
         Klassifiziert einen lokalen Run-State read-only gegen den Zielvertrag.
 
+    Get-SqlServerLabAutomationPlan
+        Projiziert einen versionierten lokalen, sanitisierten und nicht
+        ausführbaren Plan-/Result-Vertrag für ausgewählte bestehende öffentliche
+        Plan-/Action-Grenzen.
+
     Invoke-SqlServerLabRunStateUpgrade
         Migriert ausschließlich einen ausdrücklich synthetisch markierten,
         unversionierten Legacy-State atomar; unbekannte Versionen und
