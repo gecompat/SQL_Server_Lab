@@ -3,7 +3,11 @@
 $ErrorActionPreference='Stop';$repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $results=[Collections.Generic.List[object]]::new();function Add-CheckResult{param([string]$Name,[bool]$Success)$results.Add([pscustomobject]@{Name=$Name;Success=$Success});Write-Host "$(if($Success){'PASS'}else{'FAIL'}): $Name"}
 $private=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/PortableContainerTransferPreflight.ps1') -Raw -Encoding utf8;$public=Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLabPortableContainerTransferPreflight.ps1') -Raw -Encoding utf8
-$schemas=@('portable-container-transfer-preflight-request.schema.json','portable-container-transfer-preflight-result.schema.json','portable-container-transfer-preflight-journal.schema.json');foreach($schema in $schemas){Add-CheckResult "Schema ist valide: $schema" ((Get-Content -LiteralPath (Join-Path $repoRoot "Schemas/$schema") -Raw -Encoding utf8|Test-Json))}
+$preflightPath=Join-Path $repoRoot 'Private/PortableContainerTransferPreflight.ps1'
+$tokens=$null;$parseErrors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($preflightPath,[ref]$tokens,[ref]$parseErrors)
+$functionDefinitions=@($ast.FindAll({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst]},$true))
+$duplicateDefinitions=@($functionDefinitions|Group-Object Name|Where-Object Count -gt 1)
+Add-CheckResult 'Preflight-Datei hat eindeutige Funktionsdefinitionen und einen fehlerfreien AST' ($parseErrors.Count -eq 0 -and $duplicateDefinitions.Count -eq 0)$schemas=@('portable-container-transfer-preflight-request.schema.json','portable-container-transfer-preflight-result.schema.json','portable-container-transfer-preflight-journal.schema.json');foreach($schema in $schemas){Add-CheckResult "Schema ist valide: $schema" ((Get-Content -LiteralPath (Join-Path $repoRoot "Schemas/$schema") -Raw -Encoding utf8|Test-Json))}
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue;$module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 try{
  $sourceRun='11111111-1111-1111-1111-111111111111';$targetRun='22222222-2222-2222-2222-222222222222';$backupId='33333333-3333-3333-3333-333333333333';$root=Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-transfer-preflight-$([guid]::NewGuid().ToString('N'))";New-Item -ItemType Directory -Path $root -Force|Out-Null
