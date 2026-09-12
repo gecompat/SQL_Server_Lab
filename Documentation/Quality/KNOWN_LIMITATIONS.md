@@ -7,7 +7,7 @@
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
-`RELATIONAL_CORE/1.0` vergleicht ausschließlich zulässige Tabelleninhalte read-only zwischen live gebundenen Docker-/Podman-Runs. Die Unterstützung ist bewusst auf diskbasierte Benutzertabellen mit ungefiltertem aktivem PK und die dokumentierte Typ-Allowlist begrenzt; RLS, Sondertabellen und alle übrigen Typen werden nicht angenähert, sondern fail-closed blockiert. Ergebnisse enthalten keine Datenwerte. Restore, Backup-Staging, Zielerzeugung und jeder Transfer-Executor sind nicht implementiert und bleiben `BLOCKED`.
+`RELATIONAL_CORE/1.0` vergleicht ausschließlich zulässige Tabelleninhalte read-only zwischen live gebundenen Docker-/Podman-Runs. Die Unterstützung ist bewusst auf diskbasierte Benutzertabellen mit ungefiltertem aktivem PK und die dokumentierte Typ-Allowlist begrenzt; RLS, Sondertabellen und alle übrigen Typen werden nicht angenähert, sondern fail-closed blockiert. `decimal`, `numeric`, `money`, `smallmoney`, `datetime` und `smalldatetime` gehören derzeit ausdrücklich nicht zur Allowlist. Quelle und Ziel müssen SQL-seitig als exakt ausgewählte `ONLINE`- und `READ_ONLY`-Datenbanken bestätigt sein. Ergebnisse enthalten keine Datenwerte. Restore, Backup-Staging, Zielerzeugung und jeder Transfer-Executor sind nicht implementiert und bleiben `BLOCKED`.
 
 ## KI und Ollama
 

@@ -61,6 +61,25 @@ function Invoke-LabRelationalCoreReader {
     catch { $command.Dispose(); throw 'RELATIONAL_CORE_SQL_READ_FAILED' }
 }
 
+function Test-LabRelationalCoreDatabaseObservation {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Observation,[Parameter(Mandatory)][string]$RequestedDatabaseName)
+    if(-not $Observation.PSObject.Properties['ActualName'] -or -not $Observation.PSObject.Properties['DatabaseId'] -or -not $Observation.PSObject.Properties['State'] -or -not $Observation.PSObject.Properties['IsReadOnly']) { throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE' }
+    if([string]$Observation.ActualName -cne $RequestedDatabaseName -or [int]$Observation.DatabaseId -lt 1 -or [string]$Observation.State -cne 'ONLINE' -or -not [bool]$Observation.IsReadOnly) { throw 'RELATIONAL_CORE_DATABASE_NOT_ONLINE_READ_ONLY' }
+    return $true
+}
+
+function Assert-LabRelationalCoreDatabaseBinding {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][System.Data.SqlClient.SqlConnection]$Connection,[Parameter(Mandatory)][string]$RequestedDatabaseName)
+    $command=$null;$reader=$null
+    try {
+        $readerPair=@(Invoke-LabRelationalCoreReader -Connection $Connection -Query "SELECT DB_NAME(), DB_ID(), state_desc, is_read_only FROM sys.databases WHERE database_id=DB_ID();");$command=$readerPair[0];$reader=$readerPair[1]
+        if(-not $reader.Read() -or $reader.FieldCount -ne 4 -or $reader.IsDBNull(0) -or $reader.IsDBNull(1) -or $reader.IsDBNull(2) -or $reader.IsDBNull(3) -or $reader.Read()) { throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE' }
+        $null=Test-LabRelationalCoreDatabaseObservation -RequestedDatabaseName $RequestedDatabaseName -Observation ([PSCustomObject]@{ActualName=$reader.GetString(0);DatabaseId=$reader.GetInt32(1);State=$reader.GetString(2);IsReadOnly=$reader.GetBoolean(3)})
+    } finally { if($reader){$reader.Dispose()};if($command){$command.Dispose()} }
+}
+
 function Get-LabRelationalCoreTableInventory {
     [CmdletBinding()]
     param([Parameter(Mandatory)][System.Data.SqlClient.SqlConnection]$Connection)
@@ -70,8 +89,9 @@ SELECT t.object_id, s.name, t.name,
        CASE WHEN EXISTS (SELECT 1 FROM sys.security_predicates p WHERE p.target_object_id=t.object_id) THEN 1 ELSE 0 END AS HasRls,
        CASE WHEN EXISTS (SELECT 1 FROM sys.indexes i WHERE i.object_id=t.object_id AND i.is_primary_key=1 AND i.has_filter=0 AND i.is_disabled=0) THEN 1 ELSE 0 END AS HasPrimaryKey,
        STUFF((SELECT N',' + QUOTENAME(c.name) FROM sys.index_columns ic JOIN sys.columns c ON c.object_id=ic.object_id AND c.column_id=ic.column_id JOIN sys.indexes i ON i.object_id=ic.object_id AND i.index_id=ic.index_id WHERE ic.object_id=t.object_id AND i.is_primary_key=1 AND i.has_filter=0 AND i.is_disabled=0 AND ic.key_ordinal>0 ORDER BY ic.key_ordinal FOR XML PATH(''), TYPE).value('.','nvarchar(max)'),1,1,N'') AS PrimaryKeyOrder,
-       STUFF((SELECT N'|' + c.name + N':' + ty.name + N':' + CONVERT(nvarchar(12),c.max_length) + N':' + CONVERT(nvarchar(12),c.precision) + N':' + CONVERT(nvarchar(12),c.scale) + N':' + CONVERT(nvarchar(1),c.is_nullable) FROM sys.columns c JOIN sys.types ty ON ty.user_type_id=c.user_type_id WHERE c.object_id=t.object_id ORDER BY c.column_id FOR XML PATH(''), TYPE).value('.','nvarchar(max)'),1,1,N'') AS Signature,
-       STUFF((SELECT N'|' + ty.name FROM sys.columns c JOIN sys.types ty ON ty.user_type_id=c.user_type_id WHERE c.object_id=t.object_id AND ty.name NOT IN (N'bit',N'tinyint',N'smallint',N'int',N'bigint',N'decimal',N'numeric',N'money',N'smallmoney',N'uniqueidentifier',N'date',N'datetime',N'datetime2',N'datetimeoffset',N'time',N'char',N'varchar',N'nchar',N'nvarchar',N'binary',N'varbinary') ORDER BY c.column_id FOR XML PATH(''), TYPE).value('.','nvarchar(max)'),1,1,N'') AS UnsupportedTypes
+       STUFF((SELECT N',' + QUOTENAME(c.name) FROM sys.columns c WHERE c.object_id=t.object_id ORDER BY c.column_id FOR XML PATH(''), TYPE).value('.','nvarchar(max)'),1,1,N'') AS SelectProjection,
+       STUFF((SELECT N'|' + c.name + N':' + ty.name + N':' + CONVERT(nvarchar(12),c.max_length) + N':' + CONVERT(nvarchar(12),c.precision) + N':' + CONVERT(nvarchar(12),c.scale) + N':' + CONVERT(nvarchar(1),c.is_nullable) + N':' + CONVERT(nvarchar(1),c.is_identity) + N':' + CONVERT(nvarchar(1),c.is_rowguidcol) FROM sys.columns c JOIN sys.types ty ON ty.user_type_id=c.user_type_id WHERE c.object_id=t.object_id ORDER BY c.column_id FOR XML PATH(''), TYPE).value('.','nvarchar(max)'),1,1,N'') AS Signature,
+       STUFF((SELECT N'|UNSUPPORTED' FROM sys.columns c JOIN sys.types ty ON ty.user_type_id=c.user_type_id WHERE c.object_id=t.object_id AND (ty.name NOT IN (N'bit',N'tinyint',N'smallint',N'int',N'bigint',N'uniqueidentifier',N'date',N'datetime2',N'datetimeoffset',N'time',N'char',N'varchar',N'nchar',N'nvarchar',N'binary',N'varbinary') OR c.is_computed=1 OR c.is_filestream=1 OR c.is_sparse=1 OR c.is_column_set=1 OR c.generated_always_type<>0 OR c.encryption_type IS NOT NULL OR c.is_masked=1) ORDER BY c.column_id FOR XML PATH(''), TYPE).value('.','nvarchar(max)'),1,1,N'') AS UnsupportedReasons
 FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id
 WHERE t.is_ms_shipped=0 AND t.temporal_type=0 AND t.is_filetable=0 AND t.is_external=0
   AND t.is_memory_optimized=0 AND t.is_node=0 AND t.is_edge=0 AND t.ledger_type=0
@@ -80,7 +100,7 @@ ORDER BY s.name,t.name;
     $command=$null;$reader=$null;$tables=[Collections.Generic.List[object]]::new()
     try {
         $readerPair=@(Invoke-LabRelationalCoreReader -Connection $Connection -Query $query);$command=$readerPair[0];$reader=$readerPair[1]
-        while($reader.Read()) { $tables.Add([PSCustomObject]@{ ObjectId=$reader.GetInt32(0); Schema=$reader.GetString(1); Name=$reader.GetString(2); HasRls=$reader.GetInt32(3)-eq 1; HasPrimaryKey=$reader.GetInt32(4)-eq 1; PrimaryKeyOrder=if($reader.IsDBNull(5)){$null}else{$reader.GetString(5)}; Signature=if($reader.IsDBNull(6)){$null}else{$reader.GetString(6)}; UnsupportedTypes=if($reader.IsDBNull(7)){$null}else{$reader.GetString(7)} }) }
+        while($reader.Read()) { $tables.Add([PSCustomObject]@{ ObjectId=$reader.GetInt32(0); Schema=$reader.GetString(1); Name=$reader.GetString(2); HasRls=$reader.GetInt32(3)-eq 1; HasPrimaryKey=$reader.GetInt32(4)-eq 1; PrimaryKeyOrder=if($reader.IsDBNull(5)){$null}else{$reader.GetString(5)}; SelectProjection=if($reader.IsDBNull(6)){$null}else{$reader.GetString(6)}; Signature=if($reader.IsDBNull(7)){$null}else{$reader.GetString(7)}; UnsupportedReasons=if($reader.IsDBNull(8)){$null}else{$reader.GetString(8)} }) }
     } finally { if($reader){$reader.Dispose()};if($command){$command.Dispose()} }
     return @($tables)
 }
@@ -88,7 +108,7 @@ ORDER BY s.name,t.name;
 function Test-LabRelationalCoreTableSupported {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Table)
-    return -not $Table.HasRls -and $Table.HasPrimaryKey -and $Table.PrimaryKeyOrder -and -not $Table.UnsupportedTypes
+    return -not $Table.HasRls -and $Table.HasPrimaryKey -and $Table.PrimaryKeyOrder -and $Table.SelectProjection -and -not $Table.UnsupportedReasons
 }
 
 function ConvertTo-LabRelationalCoreSelect {
@@ -96,7 +116,7 @@ function ConvertTo-LabRelationalCoreSelect {
     param([Parameter(Mandatory)]$Table)
     $schema=[string]$Table.Schema;$name=[string]$Table.Name
     if($schema -match "[\x00-\x1f]" -or $name -match "[\x00-\x1f]") { throw 'RELATIONAL_CORE_IDENTIFIER_INVALID' }
-    return "SELECT * FROM ["+$schema.Replace(']',']]')+"] .["+$name.Replace(']',']]')+"] ORDER BY "+[string]$Table.PrimaryKeyOrder
+    return "SELECT "+[string]$Table.SelectProjection+" FROM ["+$schema.Replace(']',']]')+"] .["+$name.Replace(']',']]')+"] ORDER BY "+[string]$Table.PrimaryKeyOrder
 }
 
 function ConvertTo-LabRelationalCoreFieldBytes {
@@ -112,7 +132,6 @@ function ConvertTo-LabRelationalCoreFieldBytes {
         'System.Int16' { [BitConverter]::GetBytes([int16]$Value); break }
         'System.Int32' { [BitConverter]::GetBytes([int]$Value); break }
         'System.Int64' { [BitConverter]::GetBytes([long]$Value); break }
-        'System.Decimal' { $bits=[decimal]::GetBits([decimal]$Value); [byte[]]($bits|ForEach-Object{[BitConverter]::GetBytes([int]$_)}|ForEach-Object{$_}); break }
         'System.Guid' { ([guid]$Value).ToByteArray(); break }
         'System.DateTime' { [BitConverter]::GetBytes(([datetime]$Value).Ticks); break }
         'System.DateTimeOffset' { $candidate=[datetimeoffset]$Value; [byte[]]([BitConverter]::GetBytes($candidate.Ticks)+[BitConverter]::GetBytes([int]$candidate.Offset.TotalMinutes)); break }
@@ -168,7 +187,7 @@ function Invoke-LabRelationalCoreComparison {
             if($sourceBinding.ContainerId -eq $targetBinding.ContainerId){throw 'RELATIONAL_CORE_SOURCE_TARGET_MUST_DIFFER'}
             $sourceSecret=Get-LabRelationalCoreSecret -RunId ([string]$pair.SourceRunId) -StateRoot $StateRoot;$targetSecret=Get-LabRelationalCoreSecret -RunId ([string]$pair.TargetRunId) -StateRoot $StateRoot
             $sourceConnection=New-LabRelationalCoreConnection -Binding $sourceBinding -DatabaseName ([string]$pair.SourceDatabaseName) -Secret $sourceSecret;$targetConnection=New-LabRelationalCoreConnection -Binding $targetBinding -DatabaseName ([string]$pair.TargetDatabaseName) -Secret $targetSecret
-            $sourceConnection.Open();$targetConnection.Open();$sourceTables=Get-LabRelationalCoreTableInventory -Connection $sourceConnection;$targetTables=Get-LabRelationalCoreTableInventory -Connection $targetConnection
+            $sourceConnection.Open();$targetConnection.Open();Assert-LabRelationalCoreDatabaseBinding -Connection $sourceConnection -RequestedDatabaseName ([string]$pair.SourceDatabaseName);Assert-LabRelationalCoreDatabaseBinding -Connection $targetConnection -RequestedDatabaseName ([string]$pair.TargetDatabaseName);$sourceTables=Get-LabRelationalCoreTableInventory -Connection $sourceConnection;$targetTables=Get-LabRelationalCoreTableInventory -Connection $targetConnection
             $sourceMap=@{};foreach($table in $sourceTables){$sourceMap[($table.Schema+'|'+$table.Name)]=$table};$targetMap=@{};foreach($table in $targetTables){$targetMap[($table.Schema+'|'+$table.Name)]=$table}
             if($sourceMap.Count -ne $targetMap.Count -or @($sourceMap.Keys|Where-Object{$_ -notin $targetMap.Keys}).Count){$pairIssues.Add((New-LabRelationalCoreIssue -Code 'TABLE_SET_MISMATCH'));$supported=$false}
             $ordinal=0;foreach($key in @($sourceMap.Keys|Sort-Object)){$ordinal++;if(-not $targetMap.ContainsKey($key)){continue};if(-not (Test-LabRelationalCoreTableSupported -Table $sourceMap[$key]) -or -not (Test-LabRelationalCoreTableSupported -Table $targetMap[$key])){$pairIssues.Add((New-LabRelationalCoreIssue -Code 'TABLE_UNSUPPORTED_OR_POLICY_BLOCKED' -TableOrdinal $ordinal));$supported=$false;continue};$tableResult=Compare-LabRelationalCoreTable -Source $sourceConnection -Target $targetConnection -SourceTable $sourceMap[$key] -TargetTable $targetMap[$key] -TableOrdinal $ordinal;$tablesCompared++;$rowsCompared+=[long]$tableResult.RowsCompared;foreach($issue in @($tableResult.Issues)){$pairIssues.Add($issue)} }
