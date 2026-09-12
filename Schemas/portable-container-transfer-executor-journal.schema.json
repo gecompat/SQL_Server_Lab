@@ -1,0 +1,7 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.PortableContainerTransferExecutorJournal/1.0",
+  "type": "object", "additionalProperties": false,
+  "required": ["ContractVersion","OperationId","Status","Plan","Recovery","UpdatedAt"],
+  "properties": {"ContractVersion":{"const":"SqlServerLab.PortableContainerTransferExecutorJournal/1.0"},"OperationId":{"type":"string","format":"uuid"},"Status":{"const":"BLOCKED"},"Plan":{"$ref":"portable-container-transfer-executor-plan.schema.json"},"Recovery":{"const":"NO_MUTATION_PERFORMED"},"UpdatedAt":{"type":"string","format":"date-time"}}
+}

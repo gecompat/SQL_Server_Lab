@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.PortableContainerTransferExecutorPlan/1.0",
+  "type": "object", "additionalProperties": false,
+  "required": ["ContractVersion","OperationId","Status","ExecutionImplemented","Source","Target","Backup","ContentComparison","Blockers","Steps","PlannedAt"],
+  "properties": {
+    "ContractVersion": {"const":"SqlServerLab.PortableContainerTransferExecutorPlan/1.0"},
+    "OperationId": {"type":"string","format":"uuid"},
+    "Status": {"enum":["BLOCKED"]}, "ExecutionImplemented": {"const":false},
+    "Source": {"$ref":"#/$defs/binding"}, "Target": {"$ref":"#/$defs/binding"},
+    "Backup": {"type":"object","additionalProperties":false,"required":["BackupSetId","Sha256","Bytes","LocalOwnership","BackupChecksum","RestoreVerifyOnly","HeaderOnly"],"properties":{"BackupSetId":{"type":"string","format":"uuid"},"Sha256":{"type":["string","null"],"pattern":"^[a-f0-9]{64}$"},"Bytes":{"type":"integer","minimum":0},"LocalOwnership":{"const":"LAB_DATA_LIBRARY"},"BackupChecksum":{"type":"boolean"},"RestoreVerifyOnly":{"type":"boolean"},"HeaderOnly":{"enum":["NOT_EXECUTED","BLOCKED"]}}},
+    "ContentComparison": {"type":"object","additionalProperties":false,"required":["Profile","Status"],"properties":{"Profile":{"const":"RELATIONAL_CORE/1.0"},"Status":{"const":"UNAVAILABLE"}}},
+    "Blockers": {"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^[A-Z0-9_]+$"}},
+    "Steps": {"type":"array","minItems":6,"items":{"type":"object","additionalProperties":false,"required":["Order","Action","Mutation"],"properties":{"Order":{"type":"integer","minimum":1},"Action":{"type":"string","pattern":"^[A-Z0-9_]+$"},"Mutation":{"const":"NONE"}}}},
+    "PlannedAt":{"type":"string","format":"date-time"}
+  },
+  "$defs":{"binding":{"type":"object","additionalProperties":false,"required":["Provider","RunId","InstanceId","SqlMajorVersion","RuntimeScopeId","ContainerId","RunState","ContainerState"],"properties":{"Provider":{"type":["string","null"],"enum":["docker","podman",null]},"RunId":{"type":"string","format":"uuid"},"InstanceId":{"type":"string","minLength":1},"SqlMajorVersion":{"const":"17"},"RuntimeScopeId":{"type":["string","null"]},"ContainerId":{"type":["string","null"]},"RunState":{"type":"string","minLength":1},"ContainerState":{"enum":["RUNNING","UNVERIFIABLE"]}}}}
+}

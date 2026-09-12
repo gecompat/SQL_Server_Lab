@@ -32,6 +32,7 @@
         'Get-SqlServerLabRunStateUpgradePlan'
         'Invoke-SqlServerLabRunStateUpgrade'
         'Get-SqlServerLabPortableLabImportPlan'
+        'Get-SqlServerLabPortableContainerTransferExecutorPlan'
         'Get-SqlServerLabHyperVRecoveryPointPlan'
         'Get-SqlServerLabSqlObservabilityEvidence'
         'Get-SqlServerLabHyperVResourcePreview'

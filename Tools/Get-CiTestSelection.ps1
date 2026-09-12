@@ -95,6 +95,7 @@ end {
         @{ Pattern = '(?i)(AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'; Checks = @('Invoke-AutomationApiPlanChecks.ps1') },
         @{ Pattern = '(?i)(CollationCatalog|sql-server-collation|Find-SqlServerLabCollation|ManifestParser|ManifestBuilder|lab-manifest|Public[\\/]New-SqlServerLab\.ps1|Public[\\/]Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-VersionCatalogChecks.ps1') },
         @{ Pattern = '(?i)(PortableLabImport|portable-lab-import)'; Checks = @('Invoke-PortableLabImportChecks.ps1') },
+        @{ Pattern = '(?i)(PortableContainerTransferExecutor|portable-container-transfer-executor)'; Checks = @('Invoke-PortableContainerTransferExecutorChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence)'; Checks = @('Invoke-EvaluationWatchChecks.ps1') },
         @{ Pattern = '(?i)(SqlObservabilityEvidence|sql-observability-evidence)'; Checks = @('Invoke-SqlObservabilityEvidenceChecks.ps1') },
         @{ Pattern = '(?i)(RecoveryPointPlan|recovery-point-plan)'; Checks = @('Invoke-HyperVRecoveryPointPlanChecks.ps1') },
