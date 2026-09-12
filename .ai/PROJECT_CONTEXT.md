@@ -27,6 +27,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- dedizierter Security-Tool-/Trust-Metadatenkatalog mit leerer produktiver
+  Allowlist und `Get-SqlServerLabSecurityToolPlan` für exakte IDs und Zieltuple;
+  ausschließlich lokale, nicht ausführbare Planung. Downloads, Approvals,
+  Receipts, Manifestbindung und Toolausführung bleiben offen;
+
 - versionsgebundene Instanzcollation für SQL 2019/2022/2025: kuratierter
   Katalog, öffentliche tokenbasierte Suche und Konsolenauswahl mit Metadaten;
   Manifestprüfung, Wizard-Speicherung, Manifestauflösung und Ad-hoc-Erstellung

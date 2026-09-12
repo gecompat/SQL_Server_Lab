@@ -8,6 +8,29 @@ Für Architektur und Entwicklungsregeln siehe [Dokumentationsübersicht](../READ
 
 ## 1. Voraussetzungen
 
+Für eine ausschließlich lokale Security-Tool-Metadatenprüfung ist nach dem
+Modulimport kein laufender Provider nötig:
+
+```powershell
+Get-SqlServerLabSecurityToolPlan -ToolId synthetic-tool `
+    -VariantId synthetic-linux -PurposeId sql-tls -Target @{
+        sqlVersion='2025'; os='linux'; distribution='synthetic-linux'
+        osVersion='1.0'; architecture='x64'; provider='docker'
+    }
+```
+
+Das synthetische Beispiel liefert `BLOCKED` / `UNKNOWN_TOOL`: Die produktive
+Allowlist ist leer. `Target` akzeptiert ausschließlich die sechs gezeigten
+Felder, keine Hostnamen, IPs, Pfade oder automatische Providerwahl. Der Befehl
+liest lokale Katalog-/Schemadateien und erzeugt nur ein Ergebnis im Speicher.
+Auch `PLANNED` wäre ausschließlich eine Metadatenübereinstimmung mit
+`Executable=false` und `AuthenticityVerified=false`. Der reproduzierbare
+PlanHash bindet den normalisierten Request und den gesamten Kataloginhalt;
+er ist keine gespeicherte Plan-ID und keine Beschaffungsfreigabe.
+Downloads, Runbindung, Manifestintegration und Konsolenaktion sind offen.
+
+Die folgenden Voraussetzungen gelten für die Laberstellung.
+
 Die schrittweise Installation mit offiziellen Downloadlinks und getrennter
 Abgrenzung zur Entwicklungsumgebung steht in
 [Installation für AnwenderInnen unter Windows](INSTALLATION_WINDOWS.md).

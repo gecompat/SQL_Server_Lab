@@ -33,6 +33,12 @@ sources_of_truth:
   validation_internal_scenario_contract: Tests/Static/Invoke-ScenarioContractChecks.ps1
   internal_scenario_contract_backlog: Documentation/Project_Planning/SCENARIO_CONTRACT_BACKLOG.md
   security_tool_acquisition_backlog: Documentation/Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md
+  security_tool_catalog: Catalogs/security-tools.json
+  security_tool_resolver: Private/SecurityToolCatalog.ps1
+  security_tool_catalog_schema: Schemas/security-tool-catalog.schema.json
+  security_tool_request_schema: Schemas/security-tool-request.schema.json
+  security_tool_plan_schema: Schemas/security-tool-plan.schema.json
+  validation_security_tool_catalog: Tests/Static/Invoke-SecurityToolCatalogChecks.ps1
   ai_scenario_contract: Private/AiScenario.ps1
   ai_scenario_inventory: Public/Get-SqlServerLabAiScenario.ps1
   ai_scenario_execution: Public/Invoke-SqlServerLabAiScenario.ps1
@@ -615,6 +621,10 @@ public_commands:
     source: Public/Get-SqlServerLabResourcePlan.ps1
     purpose: "Katalogisierte Sample- und Windows-/Hyper-V-External-Runtime-Ressourcen samt lokalem Importkandidaten read-only planen"
     mutates_host: false
+  - name: Get-SqlServerLabSecurityToolPlan
+    source: Public/Get-SqlServerLabSecurityToolPlan.ps1
+    purpose: "Exakte Security-Tool-Metadaten gegen leere produktive Allowlist pruefen; keine Beschaffungsautoritaet"
+    mutates_host: false
   - name: Save-SqlServerLabResourceSet
     source: Public/Save-SqlServerLabResourceSet.ps1
     purpose: "Ausgewaehlte Ressourcen aus Cache, hashverifiziertem Altbestand oder katalogisierter HTTP(S)-Quelle atomar vorab bereitstellen"
@@ -924,6 +934,12 @@ providers:
     template_pool: "Maximal 20 immutable OS_SEALED-/SQL_PREPARED_SEALED-Images; aktive Builder und Lab-Klone blockieren Parent-Löschung"
 
 catalogs:
+  security_tools:
+    data: Catalogs/security-tools.json
+    schema: Schemas/security-tool-catalog.schema.json
+    resolver: Private/SecurityToolCatalog.ps1
+    validation: Tests/Static/Invoke-SecurityToolCatalogChecks.ps1
+    binding_contract: "Geschlossene IDs und exaktes SQL-/OS-/Distributions-/Versions-/Architektur-/Providertuple; synthetische Trust-Metadatenpruefung; produktive Allowlist leer"
   sql_collations:
     data: Catalogs/sql-server-collations.json
     schema: Schemas/sql-server-collation-catalog.schema.json
@@ -953,8 +969,8 @@ project_adapters:
 planning_contracts:
   security_tool_acquisition:
     source: Documentation/Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md
-    status: PLANNED
-    runtime_status: NOT_IMPLEMENTED
+    status: PARTIAL_METADATA_PLAN_IMPLEMENTED
+    runtime_status: ACQUISITION_NOT_IMPLEMENTED
     covers:
       - manifest_and_direct_api_acquisition_parity
       - windows_linux_artifact_and_provider_binding
@@ -1077,6 +1093,14 @@ provisioning_flow:
   - "State RUNNING"
 
 validation:
+  static_security_tool_catalog:
+    command: '.\Tests\Static\Invoke-SecurityToolCatalogChecks.ps1'
+    source: Tests/Static/Invoke-SecurityToolCatalogChecks.ps1
+    covers:
+      - closed_catalog_request_plan_and_trust_metadata
+      - empty_production_allowlist_and_unknown_ids
+      - exact_target_tuple_and_provider_binding
+      - deterministic_plan_hash_and_no_side_effects
   static_manifest_builder:
     command: '.\Tests\Static\Invoke-ManifestBuilderChecks.ps1'
     source: Tests/Static/Invoke-ManifestBuilderChecks.ps1

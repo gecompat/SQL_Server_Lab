@@ -2,10 +2,10 @@
 
 | Merkmal | Stand |
 |---|---|
-| Status | `PLANNED` – konkretisierter Implementierungszielvertrag |
-| Stand | 2026-09-11 |
+| Status | `PARTIAL` – lokaler Katalog-/Metadatenplan implementiert; Beschaffung geplant |
+| Stand | 2026-09-12 |
 | Umfang | Automatisierbare Beschaffung per Manifest UND direkt aufrufbarer öffentlicher API; getrennte Windows-/Linux-Artefakte |
-| Implementierung / Runtime-Abnahme | `NOT_IMPLEMENTED` / `NOT_EXECUTED` |
+| Implementierung / Runtime-Abnahme | Katalog und direkter read-only Metadatenplan implementiert / Beschaffung `NOT_EXECUTED` |
 | Freigegebene Werkzeuge | Keine; dieser Slice enthält weder reale Katalogeinträge noch Beschaffungsfreigaben |
 
 ## Zweck und Grenze
@@ -25,12 +25,33 @@ Hostinstallation, keinen Autostart und keine Schutzsoftware-Ausnahme. Fachliche
 Szenarien verbleiben entsprechend dem [Projektkontext](../../.ai/PROJECT_CONTEXT.md)
 beim jeweiligen Consumer; Lab verantwortet den generischen Beschaffungsvertrag.
 
-Die nachfolgend genannten neuen Felder, Verträge und Cmdlets sind
-**Entwurfsnamen, keine verfügbare API**. Bestehende Schemas, Kataloge, Exports
-und Handler werden durch dieses Dokument nicht erweitert. Die Arbeitspakete
+Verfügbar ist ausschließlich `Get-SqlServerLabSecurityToolPlan` mit explizitem
+Zieltuple sowie den geschlossenen Request-/Plan-/Katalogschemas. Alle weiteren
+nachfolgend genannten neuen Felder, Verträge und Cmdlets sind
+**Entwurfsnamen, keine verfügbare API**. Die Arbeitspakete
 verwenden beschreibende Namen, keine neu zugeteilten fortlaufenden Projekt-IDs.
 
 ## Geprüfter Ist-Stand und Wiederverwendung
+
+Der erste lokale Slice verwendet [security-tools.json](../../Catalogs/security-tools.json),
+das [Trust-Metadatenschema](../../Schemas/security-tool-catalog.schema.json) und
+den [Resolver](../../Private/SecurityToolCatalog.ps1). Die Allowlist ist leer;
+sämtliche produktiven Anfragen bleiben blockiert. Exakte synthetische
+Windows-/Hyper-V- und Linux-/Docker-/Podman-Tuple sind offline prüfbar.
+`SqlServerLab.SecurityToolPlan/1.0` bindet Request und vollständigen Kataloghash
+über ordinale Feldsortierung, kompakte JSON-Serialisierung und UTF-8/SHA-256;
+Arrayreihenfolgen bleiben erhalten. Unterschiedliche Feldreihenfolgen und
+Whitespace ändern den Hash nicht. Die aktuelle Zeit prüft ausschließlich
+Reviewgültigkeit; ein Statuswechsel ändert den PlanHash.
+`PLANNED` bestätigt nur Metadatenübereinstimmung, niemals Authentizität oder
+Beschaffungsautorität (`Executable=false`, `AuthenticityVerified=false`).
+Die Ausgabe projiziert keine Quell-URLs, Schlüssel, lokalen Pfade oder Rohfehler.
+Der Kataloghash bindet diese Metadaten trotzdem vollständig.
+Redirects sind in diesem Slice geschlossen leer. Trust-on-first-use,
+Schema-/Katalogpfadparameter und freie Quellen existieren in der API nicht.
+Die unten beschriebenen vollständigen Beschaffungspläne mit Store-, Zeit-,
+Retry-, Operations- und Freigabebindung bleiben spätere Verträge; Manifest-
+parität und Runbindung sind noch nicht implementiert.
 
 | Quelle | Vorhandener Vertrag und verbleibende Lücke |
 |---|---|
@@ -227,7 +248,9 @@ Freigaben und Receipt-Rohdaten bleiben in geschütztem lokalem State.
 
 ## Umsetzungsreihenfolge und Abnahmekriterien
 
-Alle folgenden Arbeitspakete sind `PLANNED`. Die Reihenfolge beschreibt
+Katalog-/Trust-Metadaten und die direkte Metadatenplanung sind implementiert;
+vollständige Beschaffungsplanung und alle weiteren Arbeitspakete sind `PLANNED`.
+Die Reihenfolge beschreibt
 Abhängigkeiten; keine Tabellenzeile ist eine Implementierungsfreigabe für
 Downloads, Installationen oder Ausführung in dieser Dokumentationswelle.
 
@@ -278,8 +301,9 @@ Dokumentations-/betroffenen statischen Prüfungen bestanden haben. Das gibt
 keinen ausführbaren Pentest-Workflow frei.
 
 Noch offen sind konkrete Werkzeug-/Versionsauswahl, Primärquellen- und
-Lizenzreview, reale Trust Anchors, produktive Katalogeinträge, Implementierung
-aller Entwurfsverträge sowie sämtliche Windows-/Linux-Beschaffungsnachweise.
+Lizenzreview, reale Trust Anchors, produktive Katalogeinträge, vollständige
+Beschaffungsplanung, alle mutierenden Entwurfsverträge sowie sämtliche
+Windows-/Linux-Beschaffungsnachweise.
 Installation, Ausführung und fachliche Security-Szenarien benötigen später
 eigene autorisierte Ziel-, Isolations-, Secret-, Cleanup- und Abnahmeverträge.
 Es wird kein anderer Provider, keine Source-Fallback-Funktion und keine

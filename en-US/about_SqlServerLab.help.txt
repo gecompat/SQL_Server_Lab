@@ -351,6 +351,9 @@ Sync-SqlServerLabRunScopedContainerStore
         catalogued SHA-256 and a valid Microsoft Authenticode signature; Linux
         pulls the exact MCR tag into Docker or Podman.
 
+    Get-SqlServerLabSecurityToolPlan
+        Checks security tool IDs and target tuples locally; empty allowlist, no acquisition.
+
     Get-SqlServerLabResourcePlan
         Plans catalogued sample and Windows/Hyper-V external-runtime resources
         read-only, including an optional existing media root.

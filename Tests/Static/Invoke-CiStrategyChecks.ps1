@@ -34,6 +34,18 @@ Add-CheckResult -Name 'Windows-External-Runtime-Aenderung aktiviert Katalog-, Ga
 )
 
 $shared = & $selector -ChangedPath @('Private/Common.ps1')
+foreach ($securityPath in @('Private/SecurityToolCatalog.ps1','Public/Get-SqlServerLabSecurityToolPlan.ps1',
+    'Catalogs/security-tools.json','Schemas/security-tool-catalog.schema.json','Schemas/security-tool-request.schema.json',
+    'Schemas/security-tool-plan.schema.json','Tests/Fixtures/SecurityTools/catalog.json')) {
+    foreach ($path in @($securityPath,$securityPath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "Security-Tool-Metadatenpfad bleibt statisch: $path" -Success (
+            'Invoke-SecurityToolCatalogChecks.ps1' -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+    }
+}
+$securityMixed = & $selector -ChangedPath @('Private/SecurityToolCatalog.ps1','Private/UnknownSecurityToolExecutor.ps1')
+Add-CheckResult -Name 'Metadatenpfad unterdrueckt keinen unbekannten produktiven Runtime-Fallback' -Success $securityMixed.Docker
 Add-CheckResult -Name 'Unbekannte produktive Aenderung faellt sicher auf Docker zurueck' -Success $shared.Docker
 
 $crossProvider = & $selector -ChangedPath @('Private/ProviderCapability.ps1')

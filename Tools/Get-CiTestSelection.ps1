@@ -62,6 +62,7 @@ end {
     }
 
     $staticGroups = @(
+        @{ Pattern = '(?i)(SecurityTool|security-tool|Fixtures/SecurityTools/)'; Checks = @('Invoke-SecurityToolCatalogChecks.ps1') },
         @{ Pattern = '(?i)(Prepare-LocalRelease|ReleaseArtifact)'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1') },
         @{ Pattern = '(?i)(TransferProgress|HyperVImageMigration|HyperVImageRegistry|HyperVResourceMigration|ArtifactResolver|Save-SqlServerLabMediaSource|VersionCatalog|ExternalRuntimeWindows|Restore-SqlServerLabDatabase)'; Checks = @('Invoke-TransferProgressChecks.ps1') },
         @{ Pattern = '(?i)(Cleanup|Remove-SqlServerLab|Clear-SqlServerLab)'; Checks = @('Invoke-CleanupRecoveryChecks.ps1','Invoke-MixedCleanupRecoveryChecks.ps1','Invoke-CleanupAuditChecks.ps1','Invoke-CleanupVolumeOwnershipChecks.ps1') },
@@ -195,6 +196,7 @@ end {
 
             $knownDomainChange = $pathRuntime.Docker -or $pathRuntime.Podman -or $pathRuntime.Mixed -or $pathRuntime.HyperV -or $pathRuntime.Adapter
             $staticOnlyProductChange = $runtimePath -match '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact)|ResourceSet|ResourcePlan|ScenarioContract|scenario-contract|EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence|AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/SecurityToolCatalog\.ps1|Public/Get-SqlServerLabSecurityToolPlan\.ps1|Catalogs/security-tools\.json|Schemas/security-tool-(catalog|request|plan)\.schema\.json)$'
             if ($pathHasProductCode -and -not $knownDomainChange -and -not $staticOnlyProductChange) {
                 $pathRuntime.Docker = $true
             }

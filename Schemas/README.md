@@ -6,6 +6,9 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 
 | Datei | Zweck |
 |---|---|
+| `security-tool-catalog.schema.json` | Geschlossener Security-Tool-/Trust-Metadatenvertrag mit leerer produktiver Allowlist |
+| `security-tool-request.schema.json` | Exakte Tool-/Varianten-/Purpose-IDs und vollständiges Zieltuple ohne lokale Bindings oder freie Quellen |
+| `security-tool-plan.schema.json` | Nicht ausführbarer read-only Metadatenplan mit Kataloghash, PlanHash und stabilen Blockercodes |
 | `capability-evidence-index.schema.json` | Begrenzter Index historisch aufgezeichneter Capability-Prüfungen mit Provider, SQL-Version, Quellrevision, Test, Ergebnis und Cleanup; keine aktuelle Ausführungsbestätigung |
 | `lab-manifest.schema.json` | Struktur deklarativer Labdefinitionen |
 | `ai-scenario.schema.json` | Versioniertes, hashgebundenes SQL-KI-Szenariopaket mit Dataset, Schritten, Assertions, Evaluation und Cleanup |
