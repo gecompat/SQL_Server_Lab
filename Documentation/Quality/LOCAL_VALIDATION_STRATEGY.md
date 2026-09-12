@@ -843,6 +843,15 @@ und die aktuelle Provider-Matrix besitzt daher kein zweites FILESTREAM-fähiges
 Cross-Provider-Ziel. Das Kriterium ist `NOT_APPLICABLE` und wird erst bei einer
 künftigen Capability-Erweiterung wieder zum verpflichtenden nativen Gate.
 
+`Invoke-PortableContainerTransferPreflightAcceptance.ps1` ist der getrennte
+Docker-/Podman-Nachweis für die operationseigene Container-Backup-Staging- und
+Medienvorprüfung. Er verwendet zwei isolierte SQL-2025-Runs desselben Providers
+und ein synthetisches, zuvor `CHECKSUM`-/`VERIFYONLY`-verifiziertes Backup. Der
+Preflight muss `HEADERONLY` und `VERIFYONLY WITH CHECKSUM, STOP_ON_ERROR`
+erfolgreich ausführen, die eigene Stage und das Journal vollständig entfernen
+und den Transferexecutor weiterhin als `BLOCKED` ausweisen. Ein Restore oder
+Transfer ist nicht Bestandteil der Acceptance.
+
 `Invoke-DatabasePackageChecks.ps1` prüft den PSR-009-Core deterministisch mit
 einer synthetischen MDF-/NDF-/LDF-Dateimenge und einem verschachtelten
 FILESTREAM-Container. Der Test beweist rekursive Hashes, Manipulationsschutz,

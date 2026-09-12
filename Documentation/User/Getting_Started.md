@@ -662,6 +662,17 @@ Invoke-SqlServerLabPortableContainerTransferPreflight `
     -DatabaseTransfers $transfers -DataRoot '<LabDataRoot>'
 ```
 
+Der Preflight akzeptiert ein Medium nur mit dem von `RESTORE HEADERONLY`
+dokumentierten `BindingID`-Wert und einer eindeutigen unverschlüsselten
+Headerform: `KeyAlgorithm = NO_Encryption` mit leeren Encryptor-Feldern oder
+die SQL-2025-Kombination `KeyAlgorithm`, `EncryptorType` und
+`EncryptorThumbprint` jeweils `NULL`. Jede gemischte, verschlüsselte oder nicht
+eindeutig klassifizierbare Form bleibt blockiert.
+Nach `HEADERONLY` und `VERIFYONLY WITH CHECKSUM, STOP_ON_ERROR` entfernt der
+Vorgang ausschließlich seine eigene temporäre Stage und sein Journal. Ein
+vorhandenes gleichnamiges Journal oder Stagingverzeichnis blockiert ohne
+Überschreiben oder Bereinigen. Restore und Transfer bleiben blockiert.
+
 Fehlt die live überprüfbare SQL-sichtbare Bindung, endet die Vorprüfung mit
 `SQL_VISIBLE_STAGING_BINDING_UNAVAILABLE`, ohne Container, Mounts oder
 Runtimeobjekte zu verändern. Der Transferexecutor bleibt in jedem Ergebnis

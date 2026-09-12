@@ -64,6 +64,19 @@ function Get-LabPortableContainerTransferPreflightBackups {
     [PSCustomObject]@{Records=@($records);Blockers=@($blockers|Sort-Object -Unique)}
 }
 
+function Test-LabPortableContainerTransferPreflightBoundBackupMount {
+    [CmdletBinding()]param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,[Parameter(Mandatory)][string]$MountSource,[Parameter(Mandatory)][string]$HostRoot)
+    $expected=(Resolve-Path -LiteralPath $HostRoot -ErrorAction Stop).Path.TrimEnd('\','/')
+    if($Provider -eq 'podman' -and $IsWindows){
+        $drive=[IO.Path]::GetPathRoot($expected).TrimEnd('\','/')
+        if($drive -notmatch '^([A-Za-z]):$'){return $false}
+        $expectedVmPath=('/mnt/'+$Matches[1].ToLowerInvariant()+'/'+$expected.Substring(3).Replace('\','/')).TrimEnd('/')
+        return [string]::Equals($MountSource.TrimEnd('/'),$expectedVmPath,[StringComparison]::Ordinal)
+    }
+    $actual=(Resolve-Path -LiteralPath $MountSource -ErrorAction Stop).Path.TrimEnd('\','/')
+    return [string]::Equals($actual,$expected,$(if($IsWindows){[StringComparison]::OrdinalIgnoreCase}else{[StringComparison]::Ordinal}))
+}
+
 function Get-LabPortableContainerTransferPreflightTargetBinding {
     [CmdletBinding()]param([Parameter(Mandatory)]$Request,[string]$StateRoot)
     $public=[ordered]@{Provider=$null;RunId=[string]$Request.TargetRunId;InstanceId=[string]$Request.TargetInstanceId;RuntimeScopeId=$null;BindingStatus='UNAVAILABLE'}
@@ -86,8 +99,11 @@ function Get-LabPortableContainerTransferPreflightTargetBinding {
         if([string]$labels.'sql-server-lab.run-id' -cne [string]$Request.TargetRunId -or [string]$labels.'sql-server-lab.scope-id' -cne [string]$run.scopeId -or [string]$labels.'sql-server-lab.instance-id' -cne [string]$Request.TargetInstanceId){throw 'binding'}
         $mount=@($container.Mounts|Where-Object{$_ -and [string]$_.Type -eq 'bind' -and [string]$_.Destination -eq '/var/opt/mssql/backup' -and $_.RW -eq $true})
         if($mount.Count -ne 1 -or [string]::IsNullOrWhiteSpace([string]$mount[0].Source)){throw 'binding'}
-        $hostRoot=(Resolve-Path -LiteralPath ([string]$mount[0].Source) -ErrorAction Stop).Path
+        if(-not [bool]$run.metadata.persistentData -or [string]::IsNullOrWhiteSpace([string]$run.metadata.dataRoot) -or [string]::IsNullOrWhiteSpace([string]$run.metadata.name)){throw 'binding'}
+        $storage=Get-LabPersistentInstanceStorage -DataRoot ([string]$run.metadata.dataRoot) -LabName ([string]$run.metadata.name) -Provider ([string]$target.Provider) -InstanceId ([string]$Request.TargetInstanceId) -SqlVersion ([string]$target.Version)
+        $hostRoot=(Resolve-Path -LiteralPath ([string]$storage.BackupRoot) -ErrorAction Stop).Path
         Assert-LabPortableContainerTransferPreflightNoReparsePath -Root (Split-Path -Parent $hostRoot) -Path $hostRoot
+        if(-not(Test-LabPortableContainerTransferPreflightBoundBackupMount -Provider ([string]$target.Provider) -MountSource ([string]$mount[0].Source) -HostRoot $hostRoot)){throw 'binding'}
         if([string]::IsNullOrWhiteSpace([string]$target.HostName) -or [int]$target.Port -lt 1){throw 'binding'}
         $ports=@($container.NetworkSettings.Ports.'1433/tcp')
         if($ports.Count -ne 1 -or [int]$ports[0].HostPort -ne [int]$target.Port -or [string]$ports[0].HostIp -notin @('127.0.0.1','::1')){throw 'binding'}
@@ -102,7 +118,7 @@ function Write-LabPortableContainerTransferPreflightJournal {
 
 function New-LabPortableContainerTransferPreflightSqlConnection {
     [CmdletBinding()]param([Parameter(Mandatory)]$Binding,[Parameter(Mandatory)][SecureString]$Secret)
-    if(-not $Secret.IsReadOnly()){$Secret.MakeReadOnly()};$credential=[System.Data.SqlClient.SqlCredential]::new('sa',$Secret);$builder=[System.Data.SqlClient.SqlConnectionStringBuilder]::new();$builder.DataSource=[string]::Concat([string]$Binding.HostName,',',[string]$Binding.Port);$builder.InitialCatalog='master';$builder.Encrypt=$true;$builder.TrustServerCertificate=$true;$builder.ConnectTimeout=15;$builder.ApplicationName='SqlServerLab.PortableContainerTransferPreflight';$builder.Pooling=$false;$builder.PersistSecurityInfo=$false;$connection=[System.Data.SqlClient.SqlConnection]::new();$connection.ConnectionString=$builder.ConnectionString;$connection.Credential=$credential;return $connection
+    if(-not $Secret.IsReadOnly()){$Secret.MakeReadOnly()};$credential=[System.Data.SqlClient.SqlCredential]::new('sa',$Secret);$connection=[System.Data.SqlClient.SqlConnection]::new();$connection.ConnectionString="Data Source=$([string]$Binding.HostName),$([int]$Binding.Port);Initial Catalog=master;Encrypt=True;TrustServerCertificate=True;Connect Timeout=15;Application Name=SqlServerLab.PortableContainerTransferPreflight;Pooling=False;Persist Security Info=False";$connection.Credential=$credential;return $connection
 }
 function Test-LabPortableContainerTransferPreflightSqlConnection {[CmdletBinding()]param([Parameter(Mandatory)]$Binding,[Parameter(Mandatory)][SecureString]$Secret)$connection=New-LabPortableContainerTransferPreflightSqlConnection -Binding $Binding -Secret $Secret;try{$connection.Open()}finally{$connection.Dispose()}}
 
@@ -111,17 +127,23 @@ function Test-LabPortableContainerTransferPreflightHeaderObservation {
     foreach($name in @('Position','BackupType','SoftwareVersionMajor')){if($Header.$name -isnot [byte] -and $Header.$name -isnot [int16] -and $Header.$name -isnot [int32] -and $Header.$name -isnot [int64]){throw 'SQL_MEDIA_HEADERONLY_TYPE_OR_VERSION_INVALID'}}
     if([int]$Header.Position -ne 1 -or [int]$Header.BackupType -ne 1 -or [int]$Header.SoftwareVersionMajor -ne 17){throw 'SQL_MEDIA_HEADERONLY_TYPE_OR_VERSION_INVALID'}
     if([string]$Header.DatabaseName -cne $ExpectedDatabaseName){throw 'SQL_MEDIA_HEADERONLY_DATABASE_NAME_MISMATCH'}
-    foreach($name in @('DatabaseGuid','FamilyGUID')){if($Header.$name -isnot [guid] -or $Header.$name -eq [guid]::Empty){throw 'SQL_MEDIA_HEADERONLY_GUID_INVALID'}}
+    foreach($name in @('BindingID','FamilyGUID')){if($Header.$name -isnot [guid] -or $Header.$name -eq [guid]::Empty){throw 'SQL_MEDIA_HEADERONLY_GUID_INVALID'}}
     foreach($name in @('HasBackupChecksums','IsDamaged','IsSnapshot')){if($Header.$name -isnot [bool]){throw 'SQL_MEDIA_HEADERONLY_UNKNOWN_VALUE'}}
     if($Header.HasBackupChecksums -ne $true -or $Header.IsDamaged -ne $false -or $Header.IsSnapshot -ne $false){throw 'SQL_MEDIA_HEADERONLY_SAFETY_FLAG_INVALID'}
-    if([string]$Header.EncryptorType -cne 'NO_Encryption'){throw 'SQL_MEDIA_HEADERONLY_ENCRYPTION_UNKNOWN_OR_UNSUPPORTED'}
+    # HEADERONLY has two documented unencrypted representations.  Older media
+    # reports NO_Encryption; current SQL Server can report all three encryption
+    # fields as NULL.  Mixed, encrypted, and otherwise unknown representations
+    # are intentionally fail-closed.
+    $noEncryptionLabel=([string]$Header.KeyAlgorithm -ceq 'NO_Encryption' -and $Header.EncryptorType -is [DBNull] -and $Header.EncryptorThumbprint -is [DBNull])
+    $documentedNullTriplet=($Header.KeyAlgorithm -is [DBNull] -and $Header.EncryptorType -is [DBNull] -and $Header.EncryptorThumbprint -is [DBNull])
+    if(-not($noEncryptionLabel -or $documentedNullTriplet)){throw 'SQL_MEDIA_HEADERONLY_ENCRYPTION_UNKNOWN_OR_UNSUPPORTED'}
     $true
 }
 function Get-LabPortableContainerTransferPreflightHeaderObservation {[CmdletBinding()]param([Parameter(Mandatory)]$Reader)
-    $required=@('Position','BackupType','DatabaseName','SoftwareVersionMajor','DatabaseGuid','FamilyGUID','HasBackupChecksums','IsDamaged','IsSnapshot','EncryptorType');$ordinals=@{}
+    $required=@('Position','BackupType','DatabaseName','SoftwareVersionMajor','BindingID','FamilyGUID','HasBackupChecksums','IsDamaged','IsSnapshot','KeyAlgorithm','EncryptorType','EncryptorThumbprint');$nullable=@('KeyAlgorithm','EncryptorType','EncryptorThumbprint');$ordinals=@{}
     for($i=0;$i -lt $Reader.FieldCount;$i++){$name=[string]$Reader.GetName($i);if($required -contains $name){$ordinals[$name]=$i}}
     foreach($name in $required){if(-not $ordinals.ContainsKey($name)){throw 'SQL_MEDIA_HEADERONLY_REQUIRED_COLUMN_MISSING'}}
-    if(-not $Reader.Read()){throw 'SQL_MEDIA_HEADERONLY_EMPTY'};$row=[ordered]@{};foreach($name in $required){$value=$Reader.GetValue([int]$ordinals[$name]);if($value -is [DBNull]){throw 'SQL_MEDIA_HEADERONLY_UNKNOWN_VALUE'};$row[$name]=$value};if($Reader.Read()){throw 'SQL_MEDIA_HEADERONLY_MULTIPLE_ROWS'};[PSCustomObject]$row
+    if(-not $Reader.Read()){throw 'SQL_MEDIA_HEADERONLY_EMPTY'};$row=[ordered]@{};foreach($name in $required){$value=$Reader.GetValue([int]$ordinals[$name]);if($value -is [DBNull] -and $name -notin $nullable){throw "SQL_MEDIA_HEADERONLY_UNKNOWN_VALUE: $name"};$row[$name]=$value};if($Reader.Read()){throw 'SQL_MEDIA_HEADERONLY_MULTIPLE_ROWS'};[PSCustomObject]$row
 }
 function Invoke-LabPortableContainerTransferPreflightSql {[CmdletBinding()]param([Parameter(Mandatory)]$Binding,[Parameter(Mandatory)][SecureString]$Secret,[Parameter(Mandatory)][string]$SqlBackupPath,[Parameter(Mandatory)][string]$ExpectedDatabaseName)
     $connection=New-LabPortableContainerTransferPreflightSqlConnection -Binding $Binding -Secret $Secret
@@ -135,7 +157,7 @@ function New-LabPortableContainerTransferPreflightResult {[CmdletBinding()]param
 
 function Invoke-LabPortableContainerTransferPreflightCleanup {[CmdletBinding()]param([Parameter(Mandatory)][string]$HostRoot,[Parameter(Mandatory)][string]$JournalPath,[Parameter(Mandatory)][string]$OperationDirectory,[Parameter(Mandatory)][object[]]$StageFiles)
     try{Assert-LabPortableContainerTransferPreflightNoReparsePath -Root $HostRoot -Path $JournalPath;Assert-LabPortableContainerTransferPreflightNoReparsePath -Root $HostRoot -Path $OperationDirectory;$expected=@($StageFiles|ForEach-Object{[IO.Path]::GetFileName([string]$_)});$children=@(Get-ChildItem -LiteralPath $OperationDirectory -Force -ErrorAction Stop);if(@($children|Where-Object{$_.Name -notin $expected -or $_.PSIsContainer -or ($_.Attributes -band [IO.FileAttributes]::ReparsePoint)}).Count){throw 'foreign'}
-        foreach($stage in $StageFiles){Assert-LabPortableContainerTransferPreflightNoReparsePath -Root $HostRoot -Path $stage;if(Test-Path -LiteralPath $stage){Remove-Item -LiteralPath $stage -Force -ErrorAction Stop;if(Test-Path -LiteralPath $stage){throw 'stage remains'}}}
+        foreach($stage in $StageFiles){if(Test-Path -LiteralPath $stage){Assert-LabPortableContainerTransferPreflightNoReparsePath -Root $HostRoot -Path $stage;Remove-Item -LiteralPath $stage -Force -ErrorAction Stop;if(Test-Path -LiteralPath $stage){throw 'stage remains'}}}
         if(@(Get-ChildItem -LiteralPath $OperationDirectory -Force -ErrorAction Stop).Count){throw 'contents remain'};Remove-Item -LiteralPath $OperationDirectory -Force -ErrorAction Stop;if(Test-Path -LiteralPath $OperationDirectory){throw 'directory remains'}
         if(Test-Path -LiteralPath $JournalPath){Remove-Item -LiteralPath $JournalPath -Force -ErrorAction Stop;if(Test-Path -LiteralPath $JournalPath){throw 'journal remains'}};'CLEANED'
     }catch{'RECOVERY_REQUIRED'}
@@ -148,10 +170,11 @@ function Invoke-LabPortableContainerTransferPreflight {
     if(-not $MutationAuthorized){return New-LabPortableContainerTransferPreflightResult -Request $Request -Target $target.Public -Transfers $transfers -Blockers @('WHATIF_NO_MUTATION_PERFORMED') -Status 'BLOCKED' -CleanupStatus 'NO_MUTATION_PERFORMED'}
     $targetSecret=$null;try{$targetSecret=Get-LabRelationalCoreSecret -RunId ([string]$Request.TargetRunId) -StateRoot $StateRoot;Test-LabPortableContainerTransferPreflightSqlConnection -Binding $target -Secret $targetSecret}catch{[void]$blockers.Add('SQL_MEDIA_PREFLIGHT_MANAGED_SECRET_OR_CONNECTION_UNAVAILABLE')};if($blockers.Count){return New-LabPortableContainerTransferPreflightResult -Request $Request -Target $target.Public -Transfers $transfers -Blockers @($blockers) -Status 'BLOCKED' -CleanupStatus 'NO_MUTATION_PERFORMED'}
     $directoryLeaf="transfer-preflight-$($Request.OperationId)";$operationDirectory=Join-Path $target.HostRoot $directoryLeaf;$journalPath=Join-Path $target.HostRoot "$directoryLeaf.journal.json";$stageFiles=@($backupPreflight.Records|ForEach-Object{Join-Path $operationDirectory $_.StageFileName});$journal=[PSCustomObject][ordered]@{ContractVersion='SqlServerLab.PortableContainerTransferPreflightJournal/1.0';OperationId=[string]$Request.OperationId;SelectionDigest=[string]$Request.SelectionDigest;Status='INTENT_PERSISTED';Intent='STAGE_AND_SQL_MEDIA_PRECHECK_ONLY';StageDirectoryRelativePath=$directoryLeaf;JournalRelativePath="$directoryLeaf.journal.json";Transfers=@($transfers|ForEach-Object{[PSCustomObject][ordered]@{BackupSetId=$_.BackupSetId;StageFileName="$($_.BackupSetId).bak";Status='PLANNED'}});UpdatedAt=Get-LabTimestamp};$cleanupStatus='NOT_STARTED';$runtimeFailure=$null
-    try{if(Test-Path -LiteralPath $operationDirectory -or Test-Path -LiteralPath $journalPath){throw 'SQL_MEDIA_PREFLIGHT_OPERATION_COLLISION'};Write-LabPortableContainerTransferPreflightJournal -Journal $journal -Path $journalPath;New-Item -ItemType Directory -Path $operationDirectory -ErrorAction Stop|Out-Null;$journal.Status='STAGING';Write-LabPortableContainerTransferPreflightJournal -Journal $journal -Path $journalPath
+    if((Test-Path -LiteralPath $operationDirectory) -or (Test-Path -LiteralPath $journalPath)){return New-LabPortableContainerTransferPreflightResult -Request $Request -Target $target.Public -Transfers $transfers -Blockers @('SQL_MEDIA_PREFLIGHT_OPERATION_COLLISION') -Status 'BLOCKED' -CleanupStatus 'NO_MUTATION_PERFORMED'}
+    try{Write-LabPortableContainerTransferPreflightJournal -Journal $journal -Path $journalPath;New-Item -ItemType Directory -Path $operationDirectory -ErrorAction Stop|Out-Null;$journal.Status='STAGING';Write-LabPortableContainerTransferPreflightJournal -Journal $journal -Path $journalPath
         for($i=0;$i -lt $backupPreflight.Records.Count;$i++){$record=$backupPreflight.Records[$i];$stage=$stageFiles[$i];Copy-Item -LiteralPath $record.SourcePath -Destination $stage -ErrorAction Stop;$item=Get-Item -LiteralPath $stage -Force -ErrorAction Stop;$hash=(Get-LabProgressFileHash -LiteralPath $stage -Algorithm SHA256).Hash.ToLowerInvariant();if($item.Length -ne [long]$record.Public.Bytes -or $hash -ne [string]$record.Public.Sha256){throw 'SQL_MEDIA_PREFLIGHT_STAGING_HASH_OR_SIZE_MISMATCH'};$journal.Transfers[$i].Status='STAGED';Write-LabPortableContainerTransferPreflightJournal -Journal $journal -Path $journalPath}
         $journal.Status='SQL_MEDIA_PRECHECK';Write-LabPortableContainerTransferPreflightJournal -Journal $journal -Path $journalPath;for($i=0;$i -lt $transfers.Count;$i++){$transfer=$transfers[$i];$sqlPath='/var/opt/mssql/backup/'+$directoryLeaf+'/'+$transfer.BackupSetId+'.bak';Invoke-LabPortableContainerTransferPreflightSql -Binding $target -Secret $targetSecret -SqlBackupPath $sqlPath -ExpectedDatabaseName $transfer.SourceDatabaseName;$transfer.HeaderOnly='PASSED';$transfer.VerifyOnly='PASSED';$journal.Transfers[$i].Status='SQL_MEDIA_PASSED';Write-LabPortableContainerTransferPreflightJournal -Journal $journal -Path $journalPath}
         $journal.Status='POST_SQL_REVALIDATING';Write-LabPortableContainerTransferPreflightJournal -Journal $journal -Path $journalPath;$fresh=Get-LabPortableContainerTransferPreflightTargetBinding -Request $Request -StateRoot $StateRoot;if(-not $fresh.Available -or $fresh.ContainerId -cne $target.ContainerId -or -not [string]::Equals([string]$fresh.HostRoot,[string]$target.HostRoot,[StringComparison]::OrdinalIgnoreCase) -or -not [string]::Equals([string]$fresh.HostName,[string]$target.HostName,[StringComparison]::OrdinalIgnoreCase) -or $fresh.Port -ne $target.Port){throw 'SQL_MEDIA_PREFLIGHT_TARGET_BINDING_DRIFT'};for($i=0;$i -lt $stageFiles.Count;$i++){$item=Get-Item -LiteralPath $stageFiles[$i] -Force -ErrorAction Stop;$hash=(Get-LabProgressFileHash -LiteralPath $stageFiles[$i] -Algorithm SHA256).Hash.ToLowerInvariant();if($item.Length -ne [long]$transfers[$i].Bytes -or $hash -ne [string]$transfers[$i].Sha256){throw 'SQL_MEDIA_PREFLIGHT_STAGE_FILE_DRIFT'}};$journal.Status='PRECHECKED';Write-LabPortableContainerTransferPreflightJournal -Journal $journal -Path $journalPath
-    }catch{$runtimeFailure=if($_.Exception.Message -match '^SQL_MEDIA_PREFLIGHT_TARGET_BINDING_DRIFT'){'SQL_MEDIA_PREFLIGHT_TARGET_BINDING_DRIFT'}else{'SQL_MEDIA_PREFLIGHT_FAILED'};$journal.Status='RECOVERY_REQUIRED';try{Write-LabPortableContainerTransferPreflightJournal -Journal $journal -Path $journalPath}catch{}}
+    }catch{$runtimeFailure=if($_.Exception.Message -match '^SQL_MEDIA_PREFLIGHT_TARGET_BINDING_DRIFT'){'SQL_MEDIA_PREFLIGHT_TARGET_BINDING_DRIFT'}elseif($_.Exception.Message -match '^SQL_MEDIA_HEADERONLY_UNKNOWN_VALUE'){'SQL_MEDIA_HEADERONLY_UNKNOWN_VALUE'}elseif($_.Exception.Message -match '^SQL_MEDIA_HEADERONLY_'){$_.Exception.Message}else{'SQL_MEDIA_PREFLIGHT_FAILED'};$journal.Status='RECOVERY_REQUIRED';try{Write-LabPortableContainerTransferPreflightJournal -Journal $journal -Path $journalPath}catch{}}
     $cleanupStatus=Invoke-LabPortableContainerTransferPreflightCleanup -HostRoot $target.HostRoot -JournalPath $journalPath -OperationDirectory $operationDirectory -StageFiles $stageFiles;if($cleanupStatus -eq 'RECOVERY_REQUIRED'){$runtimeFailure='SQL_MEDIA_PREFLIGHT_CLEANUP_REQUIRED'};if($runtimeFailure){[void]$blockers.Add($runtimeFailure)};$status=if($cleanupStatus -eq 'RECOVERY_REQUIRED'){'RECOVERY_REQUIRED'}elseif($runtimeFailure){'BLOCKED'}else{'PRECHECKED'};New-LabPortableContainerTransferPreflightResult -Request $Request -Target $target.Public -Transfers $transfers -Blockers @($blockers) -Status $status -CleanupStatus $cleanupStatus
 }
