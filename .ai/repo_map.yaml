@@ -1574,6 +1574,12 @@ validation:
       - physical_host_backing_vhdx_and_configuration
       - runtime_image_container_volume_build_cache_inventory
       - before_after_resource_fingerprint_unchanged
+  relational_core_comparison:
+    source: Private/RelationalCoreComparison.ps1
+    public_command: Public/Test-SqlServerLabRelationalCoreComparison.ps1
+    schema: Schemas/relational-core-comparison.schema.json
+    validation: Tests/Static/Invoke-RelationalCoreComparisonChecks.ps1
+    contract: "RELATIONAL_CORE/1.0, read-only, live managed container and RuntimeScope binding, no secrets or raw values, transfer executor BLOCKED"
   hyperv_persistent_data_drive_acceptance:
     source: Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1
     command: '.\Tests\Integration\Invoke-HyperVPersistentDataDriveAcceptance.ps1'

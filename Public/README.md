@@ -84,6 +84,7 @@ Die SQL-seitige Verifikation bleibt offen.
 | `Test-SqlServerLabContainerTool` | `Test-SqlServerLabContainerTool.ps1` | Kataloggebundenes SqlPackage per Run-/Scope-gebundenem read-only Versionsprobe prüfen |
 | `Restore-SqlServerLabDatabase` | `Restore-SqlServerLabDatabase.ps1` | Verifiziertes Lab_Data-Backup per stabiler `BackupSetId` oder direkte `.bak`-Datei wiederherstellen; URL-Acquisition mit SHA-256, lokalem Trust Store und inhaltsadressiertem Cache; Ziel bevorzugt per RunId aufloesen |
 | `Get-SqlServerLabGeneratedSqlAccess` | `Get-SqlServerLabGeneratedSqlAccess.ps1` | Hyper-V-SQL-Laufzeit passwortgesicherte SA-Zugriffsdaten mit ConnectionString als kopierfertiges Objekt zurückgeben |
+| `Test-SqlServerLabRelationalCoreComparison` | `Test-SqlServerLabRelationalCoreComparison.ps1` | Mehrere verwaltete Docker-/Podman-Datenbankpaare nach `RELATIONAL_CORE/1.0` rein lesend und ohne Datenwerte vergleichen; ein Transfer bleibt `BLOCKED` |
 | `Get-SqlServerLabGeneratedWindowsAccess` | `Get-SqlServerLabGeneratedWindowsAccess.ps1` | Das automatisch erzeugte, run-lokal DPAPI-geschützte Windows-Administratorpasswort eines ausgewählten Hyper-V-Slots gezielt ausgeben |
 | `New-SqlServerLabWindowsSlotPool` | `New-SqlServerLabWindowsSlotPool.ps1` | Aus einer gültigen `OS_SEALED`-Baseline N resumierbare Windows-Slots mit abgefragtem RAM, Locale und vollständig unbeaufsichtigter OOBE erzeugen |
 | `New-SqlServerLabAutomatedTestEnvironment` | `TestEnvironment.ps1` | Linux-Testumgebungen mit getrennten Zufallskennwörtern erstellen und nach Lab_Data exportieren |

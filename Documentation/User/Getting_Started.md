@@ -1,5 +1,9 @@
 # SQL_Server_Lab – Getting Started
 
+## Read-only Mehrdatenbankvergleich
+
+`Test-SqlServerLabRelationalCoreComparison` vergleicht explizit benannte, bereits laufende verwaltete Docker-/Podman-Datenbankpaare. Der Befehl nimmt keine Endpunkte, Connection Strings, SQL-Texte oder Kennwörter an. Ein Paar enthält nur die stabile Paar-ID sowie Quell- und Ziel-RunId, InstanceId und Datenbankname. Der Vergleich kann `MATCH`, `DIFFERENT` oder `UNSUPPORTED` feststellen; er ändert keine Datenbank und führt keinen Transfer aus.
+
 ## Ziel
 
 Diese Anleitung führt vom leeren Arbeitsverzeichnis bis zu einer erreichbaren SQL-Server-Testinstanz und anschließend durch Datenbankerstellung, Restore, Skriptausführung und Cleanup.

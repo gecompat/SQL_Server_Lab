@@ -60,6 +60,13 @@ Jede spätere Umsetzung muss:
 | P2 | Erweiterte Kapazitäts-, Reservierungs- und Quotensteuerung | `DECISION_REQUIRED` | read-only Hostbudget für parallele SQL-Runs mit CPU-, RAM-, Storage- und `HyperVHeavy`-Reservierungen |
 | P3 | Mehrbenutzer-, Rollen- und Ownership-Modell | `DECISION_REQUIRED` | gemeinsame read-only Inventur mit getrennten Operatoridentitäten und unveränderlichem Audit, noch ohne Remote-Mutation |
 | P3 | Stabile Automation-API und IaC-Adapter | `IMPLEMENTED_READ_ONLY` | versionierter lokaler read-only Plan-Endpunkt; Terraform, Ansible, DSC oder Pulumi erst danach als austauschbare Adapter bewerten |
+| P1 | Relationaler Mehrdatenbank-Vergleich | `IMPLEMENTED_READ_ONLY_CORE` | `RELATIONAL_CORE/1.0`: verwaltete Containerpaare nur lesend, PK-sortiert und wertfrei vergleichen; jeder Transfer-Executor bleibt getrennt `BLOCKED` |
+
+## Relationaler Mehrdatenbank-Vergleich
+
+`Test-SqlServerLabRelationalCoreComparison` implementiert ausschließlich den read-only Vergleichskern. Er nimmt mehrere feste Run-/Instanz-/Datenbankpaare entgegen, akzeptiert weder Connection Strings noch Hosts, SQL-Texte oder Secrets und bindet jede Seite vor der SQL-Verbindung an einen live verwalteten Docker-/Podman-Container und dessen aktuellen RuntimeScope. Zugangsdaten werden nur aus dem lokalen Run-Secret-Store als `SecureString` entnommen und für jede Seite getrennt in einem in-process `SqlCredential` verwendet.
+
+`RELATIONAL_CORE/1.0` lässt nur normale diskbasierte Benutzertabellen mit aktivem, ungefiltertem Primärschlüssel und einer kleinen expliziten Typmenge zu. RLS, System-, Temporal-, FileTable- und externe Tabellen sowie alle nicht zugelassenen Typen blockieren den betreffenden Vergleich fail-closed. Der Reader vergleicht Zeilen in Primärschlüsselreihenfolge streamingbasiert und prüft jeden zugelassenen Feldwert vollständig; ein Hash allein genügt nicht. Findings enthalten nur Codes, Paar-ID und Tabellenordinal, niemals Rohwerte, Objektnamen, Endpunkte oder Credentials. Restore, Backup-Staging, Zielanlage, Schreiben und jede weitere Transferaktion bleiben ausdrücklich `BLOCKED`.
 
 Die Prioritäten ordnen nur die Untersuchung. Sie ändern nicht die kanonische
 Ausführungsreihenfolge des Development Execution Plans.
