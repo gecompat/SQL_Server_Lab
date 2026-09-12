@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BACKLOG_CANDIDATES` |
-| Stand | 2026-09-06 |
+| Stand | 2026-09-12 |
 | Zweck | bisher nicht eigenständig geplante, SQL-zentrierte Plattformlücken dauerhaft erfassen |
 | Autorität | Planung und Priorisierung; keine Runtime-, Secret-, Export-, Import-, Update- oder Löschautorität |
 
