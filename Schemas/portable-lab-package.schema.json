@@ -1,11 +1,11 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "SqlServerLab.PortableLabPackage/1.0",
+  "title": "SqlServerLab.PortableLabPackage/1.1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["ContractVersion", "PackageId", "Source", "DatabasePackages", "SecretReferences", "ArtifactReferences"],
+  "required": ["ContractVersion", "PackageId", "Source", "BackupReferences"],
   "properties": {
-    "ContractVersion": { "const": "SqlServerLab.PortableLabPackage/1.0" },
+    "ContractVersion": { "const": "SqlServerLab.PortableLabPackage/1.1" },
     "PackageId": { "type": "string", "format": "uuid" },
     "Source": {
       "type": "object", "additionalProperties": false,
@@ -15,14 +15,18 @@
         "SqlMajorVersion": { "type": "string", "pattern": "^[0-9]{2,4}$" }
       }
     },
-    "DatabasePackages": {
+    "BackupReferences": {
       "type": "array", "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["DatabasePackageId"],
-        "properties": { "DatabasePackageId": { "type": "string", "format": "uuid" } }
+        "required": ["BackupSetId", "Sha256", "Bytes", "BackupChecksum", "RestoreVerifyOnly"],
+        "properties": {
+          "BackupSetId": { "type": "string", "format": "uuid" },
+          "Sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" },
+          "Bytes": { "type": "integer", "minimum": 1 },
+          "BackupChecksum": { "type": "boolean" },
+          "RestoreVerifyOnly": { "type": "boolean" }
+        }
       }
-    },
-    "SecretReferences": { "type": "array", "items": { "type": "string", "pattern": "^SQL_SERVER_LAB_SECRET_[A-Z0-9_]{1,96}$" }, "uniqueItems": true },
-    "ArtifactReferences": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" }, "uniqueItems": true }
+    }
   }
 }

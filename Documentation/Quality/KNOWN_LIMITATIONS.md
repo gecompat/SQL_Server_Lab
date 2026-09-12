@@ -855,10 +855,12 @@ Watch keine aktuelle SQL-Gastfrist aus Image- oder Windows-Metadaten ableiten. D
 Observability-Evidence enthält aggregierte Server-, Datenbank-, Query-Store-
 und Wait-Metriken ohne SQL-Texte, Namen, Endpunkte oder Secrets; Extended
 Events, SQL-Agent-/Backupzustände, Retention, Evidenzpakete und eine
-providerbezogene Native-Abnahme bleiben offen. Der portable Lab-Preflight
-prüft ausschließlich `PortableLabPackage`-Metadaten sowie Paketverfügbarkeit
-und weist Secret-Rebinding anonymisiert als Blocker aus; er exportiert,
-erzeugt oder importiert keine Runs, Datenbanken, Medien oder Runtimeobjekte.
+providerbezogene Native-Abnahme bleiben offen. Der portable Container-
+Transfer-Preflight prüft ausschließlich `PortableLabPackage/1.1`-
+BackupSetId-Referenzen samt CHECKSUM-, VERIFYONLY-, SHA-256- und Größen-Evidence
+gegen einen bestehenden Docker-/Podman-Ziel-Run; er akzeptiert keine Secrets und
+exportiert, erzeugt oder importiert keine Runs, Datenbanken, Medien oder
+Runtimeobjekte.
 Der Hyper-V-Recovery-Point-Plan inventarisiert ausschließlich bereits
 vorhandene, eindeutig gebundene Checkpoints ohne VM-Namen oder Hostpfade; er
 führt keine Checkpoint-Erstellung, SQL-Quiesce, Retention oder Restore-Probe aus.

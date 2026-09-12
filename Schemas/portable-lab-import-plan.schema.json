@@ -1,21 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "SqlServerLab.PortableLabImportPlan/1.0",
+  "title": "SqlServerLab.PortableContainerTransferPlan/1.0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["ContractVersion", "PackageContractVersion", "PackageId", "TargetProvider", "Status", "ExecutionImplemented", "DatabasePackages", "SecretReferenceCount", "ArtifactReferences", "Blockers", "Steps", "PlannedAt"],
+  "required": ["ContractVersion", "PackageContractVersion", "PackageId", "SourceProvider", "TargetProvider", "TargetRunId", "TargetRunState", "Status", "ExecutionImplemented", "BackupReferences", "Blockers", "Steps", "PlannedAt"],
   "properties": {
-    "ContractVersion": { "const": "SqlServerLab.PortableLabImportPlan/1.0" },
-    "PackageContractVersion": { "const": "SqlServerLab.PortableLabPackage/1.0" },
+    "ContractVersion": { "const": "SqlServerLab.PortableContainerTransferPlan/1.0" },
+    "PackageContractVersion": { "const": "SqlServerLab.PortableLabPackage/1.1" },
     "PackageId": { "type": "string", "format": "uuid" },
+    "SourceProvider": { "enum": ["docker", "podman"] },
     "TargetProvider": { "enum": ["docker", "podman"] },
+    "TargetRunId": { "type": "string", "format": "uuid" },
+    "TargetRunState": { "type": "string", "minLength": 1 },
     "Status": { "enum": ["READY", "BLOCKED"] },
     "ExecutionImplemented": { "const": false },
-    "DatabasePackages": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["DatabasePackageId", "Status"], "properties": { "DatabasePackageId": { "type": "string", "format": "uuid" }, "Status": { "enum": ["AVAILABLE", "MISSING"] } } } },
-    "SecretReferenceCount": { "type": "integer", "minimum": 0 },
-    "ArtifactReferences": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._:-]{0,127}$" }, "uniqueItems": true },
-    "Blockers": { "type": "array", "items": { "enum": ["DATABASE_PACKAGE_MISSING", "SECRET_REBINDING_REQUIRED"] }, "uniqueItems": true },
-    "Steps": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "object", "additionalProperties": false, "required": ["Order", "Action", "Mutation"], "properties": { "Order": { "type": "integer", "minimum": 1, "maximum": 2 }, "Action": { "enum": ["VERIFY_DATABASE_PACKAGES", "REQUIRE_SECRET_REBINDING"] }, "Mutation": { "const": "NONE" } } } },
+    "BackupReferences": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["BackupSetId", "Sha256", "Bytes", "BackupChecksum", "RestoreVerifyOnly", "IntegrityStatus"], "properties": { "BackupSetId": { "type": "string", "format": "uuid" }, "Sha256": { "type": "string", "pattern": "^[a-fA-F0-9]{64}$" }, "Bytes": { "type": "integer", "minimum": 1 }, "BackupChecksum": { "type": "boolean" }, "RestoreVerifyOnly": { "type": "boolean" }, "IntegrityStatus": { "enum": ["VERIFIED", "BLOCKED"] } } } },
+    "Blockers": { "type": "array", "items": { "enum": ["TARGET_RUN_NOT_ACTIVE", "TARGET_PROVIDER_MISMATCH", "BACKUP_INTEGRITY_UNVERIFIED"] }, "uniqueItems": true },
+    "Steps": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "object", "additionalProperties": false, "required": ["Order", "Action", "Mutation"], "properties": { "Order": { "type": "integer", "minimum": 1, "maximum": 3 }, "Action": { "enum": ["VERIFY_TARGET_RUN", "VERIFY_BACKUP_INTEGRITY", "REQUIRE_TARGET_INSTANCE_BINDING"] }, "Mutation": { "const": "NONE" } } } },
     "PlannedAt": { "type": "string", "format": "date-time" }
   }
 }
