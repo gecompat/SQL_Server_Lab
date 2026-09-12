@@ -75,8 +75,11 @@ function Assert-LabRelationalCoreDatabaseBinding {
     $command=$null;$reader=$null
     try {
         $readerPair=@(Invoke-LabRelationalCoreReader -Connection $Connection -Query "SELECT DB_NAME(), DB_ID(), state_desc, is_read_only FROM sys.databases WHERE database_id=DB_ID();");$command=$readerPair[0];$reader=$readerPair[1]
-        if(-not $reader.Read() -or $reader.FieldCount -ne 4 -or $reader.IsDBNull(0) -or $reader.IsDBNull(1) -or $reader.IsDBNull(2) -or $reader.IsDBNull(3) -or $reader.Read()) { throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE' }
-        $null=Test-LabRelationalCoreDatabaseObservation -RequestedDatabaseName $RequestedDatabaseName -Observation ([PSCustomObject]@{ActualName=$reader.GetString(0);DatabaseId=$reader.GetInt32(1);State=$reader.GetString(2);IsReadOnly=$reader.GetBoolean(3)})
+        if(-not $reader.Read()) { throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE' }
+        if($reader.FieldCount -ne 4 -or $reader.IsDBNull(0) -or $reader.IsDBNull(1) -or $reader.IsDBNull(2) -or $reader.IsDBNull(3)) { throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE' }
+        $observation=[PSCustomObject]@{ActualName=$reader.GetString(0);DatabaseId=$reader.GetInt32(1);State=$reader.GetString(2);IsReadOnly=$reader.GetBoolean(3)}
+        if($reader.Read()) { throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE' }
+        $null=Test-LabRelationalCoreDatabaseObservation -RequestedDatabaseName $RequestedDatabaseName -Observation $observation
     } finally { if($reader){$reader.Dispose()};if($command){$command.Dispose()} }
 }
 
@@ -93,10 +96,9 @@ SELECT t.object_id, s.name, t.name,
        STUFF((SELECT N'|UNSUPPORTED' FROM sys.index_columns ic JOIN sys.columns c ON c.object_id=ic.object_id AND c.column_id=ic.column_id JOIN sys.types ty ON ty.user_type_id=c.user_type_id JOIN sys.indexes i ON i.object_id=ic.object_id AND i.index_id=ic.index_id WHERE ic.object_id=t.object_id AND i.is_primary_key=1 AND i.has_filter=0 AND i.is_disabled=0 AND ic.key_ordinal>0 AND ty.name NOT IN (N'tinyint',N'smallint',N'int',N'bigint',N'uniqueidentifier') ORDER BY ic.key_ordinal FOR XML PATH(''), TYPE).value('.','nvarchar(max)'),1,1,N'') AS PrimaryKeyUnsupportedReasons,
        STUFF((SELECT N',' + QUOTENAME(c.name) FROM sys.columns c WHERE c.object_id=t.object_id ORDER BY c.column_id FOR XML PATH(''), TYPE).value('.','nvarchar(max)'),1,1,N'') AS SelectProjection,
        STUFF((SELECT N'|' + c.name + N':' + ty.name + N':' + CONVERT(nvarchar(12),c.max_length) + N':' + CONVERT(nvarchar(12),c.precision) + N':' + CONVERT(nvarchar(12),c.scale) + N':' + CONVERT(nvarchar(1),c.is_nullable) + N':' + CONVERT(nvarchar(1),c.is_identity) + N':' + CONVERT(nvarchar(1),c.is_rowguidcol) + N':' + CONVERT(nvarchar(1),c.is_hidden) FROM sys.columns c JOIN sys.types ty ON ty.user_type_id=c.user_type_id WHERE c.object_id=t.object_id ORDER BY c.column_id FOR XML PATH(''), TYPE).value('.','nvarchar(max)'),1,1,N'') AS Signature,
-       STUFF((SELECT N'|UNSUPPORTED' FROM sys.columns c JOIN sys.types ty ON ty.user_type_id=c.user_type_id WHERE c.object_id=t.object_id AND (ty.name NOT IN (N'bit',N'tinyint',N'smallint',N'int',N'bigint',N'uniqueidentifier',N'date',N'datetime2',N'datetimeoffset',N'time',N'char',N'varchar',N'nchar',N'nvarchar',N'binary',N'varbinary') OR c.max_length=-1 OR c.is_hidden=1 OR c.is_computed=1 OR c.is_filestream=1 OR c.is_sparse=1 OR c.is_column_set=1 OR c.generated_always_type<>0 OR c.encryption_type IS NOT NULL OR c.is_masked=1) ORDER BY c.column_id FOR XML PATH(''), TYPE).value('.','nvarchar(max)'),1,1,N'') AS UnsupportedReasons
+       CONCAT(CASE WHEN t.temporal_type<>0 THEN N'|TEMPORAL_TABLE' ELSE N'' END, CASE WHEN t.is_filetable=1 THEN N'|FILETABLE' ELSE N'' END, CASE WHEN t.is_external=1 THEN N'|EXTERNAL_TABLE' ELSE N'' END, CASE WHEN t.is_memory_optimized=1 THEN N'|MEMORY_OPTIMIZED_TABLE' ELSE N'' END, CASE WHEN t.is_node=1 THEN N'|NODE_TABLE' ELSE N'' END, CASE WHEN t.is_edge=1 THEN N'|EDGE_TABLE' ELSE N'' END, CASE WHEN t.ledger_type<>0 THEN N'|LEDGER_TABLE' ELSE N'' END, STUFF((SELECT N'|UNSUPPORTED' FROM sys.columns c JOIN sys.types ty ON ty.user_type_id=c.user_type_id WHERE c.object_id=t.object_id AND (ty.name NOT IN (N'bit',N'tinyint',N'smallint',N'int',N'bigint',N'uniqueidentifier',N'date',N'datetime2',N'datetimeoffset',N'time',N'char',N'varchar',N'nchar',N'nvarchar',N'binary',N'varbinary') OR c.max_length=-1 OR c.is_hidden=1 OR c.is_computed=1 OR c.is_filestream=1 OR c.is_sparse=1 OR c.is_column_set=1 OR c.generated_always_type<>0 OR c.encryption_type IS NOT NULL OR c.is_masked=1) ORDER BY c.column_id FOR XML PATH(''), TYPE).value('.','nvarchar(max)'),1,1,N'')) AS UnsupportedReasons
 FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id
-WHERE t.is_ms_shipped=0 AND t.temporal_type=0 AND t.is_filetable=0 AND t.is_external=0
-  AND t.is_memory_optimized=0 AND t.is_node=0 AND t.is_edge=0 AND t.ledger_type=0
+WHERE t.is_ms_shipped=0
 ORDER BY s.name,t.name;
 '@
     $command=$null;$reader=$null;$tables=[Collections.Generic.List[object]]::new()
