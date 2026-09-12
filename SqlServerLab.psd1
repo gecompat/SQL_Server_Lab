@@ -23,6 +23,7 @@
         'Invoke-SqlServerLabScheduler'
         'Invoke-SqlServerLab'
         'Get-SqlServerLabWorkflow'
+        'Get-SqlServerLabAutomationPlan'
         'Get-SqlServerLabAiScenario'
         'Find-SqlServerLabCollation'
         'Get-SqlServerLabHyperVImageArtifact'

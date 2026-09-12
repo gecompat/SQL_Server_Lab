@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.AutomationApiPlan/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "PlanId", "PlanKey", "Status", "Request", "Plan", "Result", "Blockers", "ExecutionImplemented", "PlannedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.AutomationApiPlan/1.0" },
+    "PlanId": { "type": "string", "pattern": "^automation-api-[a-f0-9]{64}$" },
+    "PlanKey": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "Status": { "enum": ["READY", "BLOCKED"] },
+    "Request": {
+      "type": "object", "additionalProperties": false, "required": ["Action", "LocalOnly"],
+      "properties": {
+        "Action": { "type": ["string", "null"], "enum": ["Reconcile", "Maintenance", "PersistentStorageRemoval", "RunStateUpgrade", "PortableLabImport", "HyperVRecoveryPoint", null] },
+        "LocalOnly": { "const": true }
+      }
+    },
+    "Plan": {
+      "type": ["object", "null"],
+      "properties": {
+        "Command": { "type": "string", "enum": ["Get-SqlServerLabReconcilePlan", "Get-SqlServerLabMaintenancePlan", "Get-SqlServerLabPersistentStorageRemovalPlan", "Get-SqlServerLabRunStateUpgradePlan", "Get-SqlServerLabPortableLabImportPlan", "Get-SqlServerLabHyperVRecoveryPointPlan"] },
+        "ContractVersion": { "type": "string", "pattern": "^SqlServerLab\\.[A-Za-z]+Plan/1\\.0$" },
+        "RequiredParameters": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9]*$" }, "uniqueItems": true },
+        "Mutation": { "const": "NONE" }
+      },
+      "additionalProperties": false,
+      "required": ["Command", "ContractVersion", "RequiredParameters", "Mutation"]
+    },
+    "Result": {
+      "type": "object", "additionalProperties": false, "required": ["ContractVersion", "Status", "ActionCommand", "ExecutionImplemented"],
+      "properties": {
+        "ContractVersion": { "const": "SqlServerLab.AutomationApiResult/1.0" },
+        "Status": { "const": "NOT_EXECUTED" },
+        "ActionCommand": { "type": ["string", "null"], "enum": ["Invoke-SqlServerLabReconcileAction", "Invoke-SqlServerLabMaintenance", "Invoke-SqlServerLabPersistentStorageRemoval", "Invoke-SqlServerLabRunStateUpgrade", null] },
+        "ExecutionImplemented": { "const": false }
+      }
+    },
+    "Blockers": { "type": "array", "items": { "enum": ["AUTOMATION_ACTION_REQUIRED", "AUTOMATION_ACTION_UNSUPPORTED"] }, "uniqueItems": true },
+    "ExecutionImplemented": { "const": false },
+    "PlannedAt": { "type": "string", "format": "date-time" }
+  }
+}

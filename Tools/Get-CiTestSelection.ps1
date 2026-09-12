@@ -91,6 +91,7 @@ end {
         @{ Pattern = '(?i)(AiVectorIndexAcceptance|Fixtures[\\/]VectorIndex[\\/])'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
         @{ Pattern = '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(StateUpgrade|state-upgrade)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
+        @{ Pattern = '(?i)(AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'; Checks = @('Invoke-AutomationApiPlanChecks.ps1') },
         @{ Pattern = '(?i)(CollationCatalog|sql-server-collation|Find-SqlServerLabCollation|ManifestParser|ManifestBuilder|lab-manifest|Public[\\/]New-SqlServerLab\.ps1|Public[\\/]Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-VersionCatalogChecks.ps1') },
         @{ Pattern = '(?i)(PortableLabImport|portable-lab-import)'; Checks = @('Invoke-PortableLabImportChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence)'; Checks = @('Invoke-EvaluationWatchChecks.ps1') },
@@ -193,7 +194,7 @@ end {
             if ($runtimePath -match '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $pathRuntime.Adapter = $true }
 
             $knownDomainChange = $pathRuntime.Docker -or $pathRuntime.Podman -or $pathRuntime.Mixed -or $pathRuntime.HyperV -or $pathRuntime.Adapter
-            $staticOnlyProductChange = $runtimePath -match '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact)|ResourceSet|ResourcePlan|ScenarioContract|scenario-contract|EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence)'
+            $staticOnlyProductChange = $runtimePath -match '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact)|ResourceSet|ResourcePlan|ScenarioContract|scenario-contract|EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence|AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'
             if ($pathHasProductCode -and -not $knownDomainChange -and -not $staticOnlyProductChange) {
                 $pathRuntime.Docker = $true
             }

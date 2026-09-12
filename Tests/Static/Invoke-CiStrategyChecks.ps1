@@ -178,7 +178,10 @@ $dependencyCases = @(
     @{ Path = 'Private/SqlGuestEvaluationEvidence.ps1'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/sql-guest-evaluation-evidence.schema.json'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/SqlObservabilityEvidence.ps1'; Checks = @('Invoke-SqlObservabilityEvidenceChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
-    @{ Path = 'Private/RecoveryPointPlan.ps1'; Checks = @('Invoke-HyperVRecoveryPointPlanChecks.ps1'); Runtime = @() }
+    @{ Path = 'Private/RecoveryPointPlan.ps1'; Checks = @('Invoke-HyperVRecoveryPointPlanChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/AutomationApiPlan.ps1'; Checks = @('Invoke-AutomationApiPlanChecks.ps1'); Runtime = @() },
+    @{ Path = 'Public/Get-SqlServerLabAutomationPlan.ps1'; Checks = @('Invoke-AutomationApiPlanChecks.ps1'); Runtime = @() },
+    @{ Path = 'Schemas/automation-api-plan.schema.json'; Checks = @('Invoke-AutomationApiPlanChecks.ps1'); Runtime = @() }
 )
 foreach ($case in $dependencyCases) {
     foreach ($path in @($case.Path, $case.Path.Replace('/', '\'))) {

@@ -131,6 +131,10 @@ sources_of_truth:
   hyperv_recovery_point_plan_public: Public/Get-SqlServerLabHyperVRecoveryPointPlan.ps1
   hyperv_recovery_point_plan_schema: Schemas/hyperv-recovery-point-plan.schema.json
   validation_hyperv_recovery_point_plan: Tests/Static/Invoke-HyperVRecoveryPointPlanChecks.ps1
+  automation_api_plan_contract: Private/AutomationApiPlan.ps1
+  automation_api_plan_public: Public/Get-SqlServerLabAutomationPlan.ps1
+  automation_api_plan_schema: Schemas/automation-api-plan.schema.json
+  validation_automation_api_plan: Tests/Static/Invoke-AutomationApiPlanChecks.ps1
   cleanup_contract: Private/CleanupEngine.ps1
   validation_cleanup_volume_ownership: Tests/Static/Invoke-CleanupVolumeOwnershipChecks.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1
