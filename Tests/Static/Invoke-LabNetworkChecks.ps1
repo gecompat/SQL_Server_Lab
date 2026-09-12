@@ -76,6 +76,22 @@ try {
         $migrationSource -match "label=sql-server-lab.run-id" -and $migrationSource -match "sql-server-lab.scope-id" -and
         $migrationSource -match 'LAB_NETWORK_MIGRATION_OLD_NETWORK_REMOVE_FAILED' -and
         $migrationSource -match "Status='RECOVERY_REQUIRED'")
+    $temporaryNetwork = & $module {
+        $originalKnownSubnets = (Get-Command Get-LabKnownIpv4Subnets).ScriptBlock
+        try {
+            Set-Item Function:Get-LabKnownIpv4Subnets -Value { param($Provider) @('172.26.0.0/16', '198.18.0.0/24') }
+            Resolve-LabTemporaryContainerNetwork -Provider docker -Name 'SQL_LAB_DOCKER-migration-test' -DesiredNetwork ([PSCustomObject]@{ Name='SQL_LAB_DOCKER'; Subnet='198.18.0.0/24' })
+        }
+        finally {
+            Set-Item Function:Get-LabKnownIpv4Subnets -Value $originalKnownSubnets
+        }
+    }
+    Add-CheckResult -Name 'Container-Netzmigration verwendet für das Übergangsnetz ein separates konfliktfreies Subnetz und journalisiert es' -Success (
+        $temporaryNetwork.Name -eq 'SQL_LAB_DOCKER-migration-test' -and
+        $temporaryNetwork.Subnet -eq '198.18.1.0/24' -and
+        $temporaryNetwork.Subnet -ne '198.18.0.0/24' -and
+        $migrationSource -match 'TemporaryNetwork=\$temporaryNetwork' -and
+        $migrationSource -match 'network create --subnet \$temporaryNetwork\.Subnet')
     $intentPlans = & $module {
         [PSCustomObject]@{
             DockerDefault = Resolve-LabNetworkIntentPlan -Provider docker

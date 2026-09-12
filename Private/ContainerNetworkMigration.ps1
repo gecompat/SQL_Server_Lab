@@ -56,6 +56,32 @@ function New-LabContainerNetworkMigrationPlan {
     }
 }
 
+function Resolve-LabTemporaryContainerNetwork {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)]$DesiredNetwork
+    )
+
+    $knownSubnets = @((Get-LabKnownIpv4Subnets -Provider $Provider) + @($DesiredNetwork.Subnet))
+    $providerOffset = if ($Provider -eq 'docker') { 0 } else { 256 }
+    foreach ($index in 0..255) {
+        $candidateSubnet = "198.$([int](18 + [math]::Floor(($providerOffset + $index) / 256))).$([int](($providerOffset + $index) % 256)).0/24"
+        $candidate = [PSCustomObject]@{
+            Provider=$Provider; Name=$Name; Subnet=$candidateSubnet; PrefixLength=24
+            HostAddress=(ConvertFrom-LabIpv4UInt32 -Value ([uint32]((ConvertTo-LabIpv4Subnet -Subnet $candidateSubnet).Network + 1))).ToString()
+            Intent='nat'; NatName=$null
+        }
+        try {
+            Assert-LabRuntimeNetworkAvailable -Network $candidate -KnownSubnets $knownSubnets
+            return $candidate
+        }
+        catch { }
+    }
+    throw "LAB_NETWORK_MIGRATION_NO_TEMPORARY_SUBNET: $Provider"
+}
+
 function Invoke-LabContainerNetworkMigration {
     [CmdletBinding()]
     param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider, [string]$StateRoot)
@@ -66,15 +92,16 @@ function Invoke-LabContainerNetworkMigration {
     $runtime = Get-LabHostToolInvocation -Name $Provider
     $journalPath = Get-LabContainerNetworkMigrationJournalPath -StateRoot $StateRoot -Provider $Provider
     $temporaryName = "$($plan.Actual.Name)-migration-$([guid]::NewGuid().ToString('N').Substring(0,8))"
-    $journal = [PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerNetworkMigrationJournal/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Provider=$Provider; Status='PREPARED'; OldNetwork=$plan.Actual; NewNetwork=$plan.Desired; TemporaryNetwork=$temporaryName; Containers=$plan.ManagedContainers; UpdatedAt=Get-LabTimestamp; Error=$null }
+    $temporaryNetwork = Resolve-LabTemporaryContainerNetwork -Provider $Provider -Name $temporaryName -DesiredNetwork $plan.Desired
+    $journal = [PSCustomObject]@{ ContractVersion='SqlServerLab.ContainerNetworkMigrationJournal/1.0'; OperationId=[guid]::NewGuid().ToString('D'); Provider=$Provider; Status='PREPARED'; OldNetwork=$plan.Actual; NewNetwork=$plan.Desired; TemporaryNetwork=$temporaryNetwork; Containers=$plan.ManagedContainers; UpdatedAt=Get-LabTimestamp; Error=$null }
     Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal
     try {
-        $null = & $runtime network create --subnet $plan.Desired.Subnet --label sql-server-lab.network=managed $temporaryName
+        $null = & $runtime network create --subnet $temporaryNetwork.Subnet --label sql-server-lab.network=managed $temporaryNetwork.Name
         if ($LASTEXITCODE -ne 0) { throw "LAB_NETWORK_MIGRATION_TEMPORARY_NETWORK_CREATE_FAILED: $Provider" }
         $journal.Status='TEMPORARY_NETWORK_READY';$journal.UpdatedAt=Get-LabTimestamp;Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal
         foreach ($container in @($plan.ManagedContainers)) {
             if ($container.WasRunning) { $null=& $runtime stop $container.Name; if($LASTEXITCODE -ne 0){throw "LAB_NETWORK_MIGRATION_STOP_FAILED: $($container.Name)"} }
-            $null=& $runtime network connect $temporaryName $container.Name; if($LASTEXITCODE -ne 0){throw "LAB_NETWORK_MIGRATION_CONNECT_FAILED: $($container.Name)"}
+            $null=& $runtime network connect $temporaryNetwork.Name $container.Name; if($LASTEXITCODE -ne 0){throw "LAB_NETWORK_MIGRATION_CONNECT_FAILED: $($container.Name)"}
             $null=& $runtime network disconnect $plan.Actual.Name $container.Name; if($LASTEXITCODE -ne 0){throw "LAB_NETWORK_MIGRATION_DISCONNECT_FAILED: $($container.Name)"}
         }
         $journal.Status='MANAGED_CONTAINERS_DETACHED';$journal.UpdatedAt=Get-LabTimestamp;Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal
@@ -84,10 +111,10 @@ function Invoke-LabContainerNetworkMigration {
         if ($LASTEXITCODE -ne 0) { throw "LAB_NETWORK_MIGRATION_CANONICAL_NETWORK_CREATE_FAILED: $Provider" }
         foreach ($container in @($plan.ManagedContainers)) {
             $null=& $runtime network connect $plan.Desired.Name $container.Name; if($LASTEXITCODE -ne 0){throw "LAB_NETWORK_MIGRATION_RECONNECT_FAILED: $($container.Name)"}
-            $null=& $runtime network disconnect $temporaryName $container.Name; if($LASTEXITCODE -ne 0){throw "LAB_NETWORK_MIGRATION_TEMPORARY_DISCONNECT_FAILED: $($container.Name)"}
+            $null=& $runtime network disconnect $temporaryNetwork.Name $container.Name; if($LASTEXITCODE -ne 0){throw "LAB_NETWORK_MIGRATION_TEMPORARY_DISCONNECT_FAILED: $($container.Name)"}
             if ($container.WasRunning) { $null=& $runtime start $container.Name; if($LASTEXITCODE -ne 0){throw "LAB_NETWORK_MIGRATION_START_FAILED: $($container.Name)"} }
         }
-        $null=& $runtime network rm $temporaryName
+        $null=& $runtime network rm $temporaryNetwork.Name
         if ($LASTEXITCODE -ne 0) { throw "LAB_NETWORK_MIGRATION_TEMPORARY_NETWORK_REMOVE_FAILED: $Provider" }
         $journal.Status='COMPLETED';$journal.UpdatedAt=Get-LabTimestamp;Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal
         return [PSCustomObject]@{Status='SUCCEEDED';Provider=$Provider;Changed=$true;MigratedContainers=@($plan.ManagedContainers).Count;Plan=$plan}
