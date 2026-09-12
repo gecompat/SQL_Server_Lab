@@ -182,6 +182,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabCuStatus` | Offizielle Microsoft-Buildtabellen read-only gegen den lokalen CU-Katalog vergleichen |
 | `Save-SqlServerLabCuResource` | Katalogisierten Windows-CU mit SHA-256 und Microsoft-Authenticode in den Media Root oder exakten Linux-MCR-Tag in Docker/Podman laden |
 | `Get-SqlServerLabResourcePlan` | Katalogisierte Sample- und Windows-/Hyper-V-External-Runtime-Ressourcen read-only planen |
+| `Get-SqlServerLabSecurityToolPlan` | Security-Tool-IDs und Zieltuple gegen den lokalen, produktiv leeren Katalog prüfen; ausschließlich nicht ausführbare Metadaten |
 | `Save-SqlServerLabResourceSet` | Ressourcen aus Cache, hashgeprüftem Altbestand oder katalogisierter HTTP(S)-Quelle vorab bereitstellen |
 | `Save-SqlServerLabMediaSource` | Katalogisiertes SQL-/Windows-Server-Basismedium nach Größen-, SHA-256- und ggf. Microsoft-Signaturprüfung laden; Community-Scans nur mit Quarantänefreigabe |
 | `Set-SqlServerLabLicenseProfile` | Optionalen Product Key versions- und editionsgebunden außerhalb des Repositorys DPAPI-geschützt speichern |

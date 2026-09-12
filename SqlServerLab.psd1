@@ -93,6 +93,7 @@
         'Get-SqlServerLabCuStatus'
         'Save-SqlServerLabCuResource'
         'Get-SqlServerLabResourcePlan'
+        'Get-SqlServerLabSecurityToolPlan'
         'Save-SqlServerLabResourceSet'
         'Save-SqlServerLabMediaSource'
         'Set-SqlServerLabLicenseProfile'

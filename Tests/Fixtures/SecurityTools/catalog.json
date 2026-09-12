@@ -1,0 +1,162 @@
+{
+  "$schema": "../Schemas/security-tool-catalog.schema.json",
+  "contract": "SqlServerLab.SecurityToolCatalog/1.0",
+  "revision": "synthetic-v1",
+  "policy": {
+    "revision": "synthetic-policy-v1",
+    "review": {
+      "status": "APPROVED",
+      "roleId": "synthetic-review",
+      "reviewedAt": "2026-01-01T00:00:00Z",
+      "validUntil": "2027-01-01T00:00:00Z",
+      "revoked": false
+    },
+    "requirePublisherAuthenticity": true,
+    "allowExecution": false
+  },
+  "tools": [
+    {
+      "toolId": "synthetic-tool",
+      "variants": [
+        {
+          "variantId": "synthetic-linux",
+          "version": "1.0.0",
+          "purposes": [
+            {
+              "purposeId": "sql-tls",
+              "sqlLabPurpose": "Synthetische Metadaten fuer eine SQL-TLS-Pruefung; keine Ausfuehrung."
+            }
+          ],
+          "targets": [
+            {
+              "sqlVersion": "2025",
+              "os": "linux",
+              "distribution": "synthetic-linux",
+              "osVersion": "1.0",
+              "architecture": "x64",
+              "provider": "docker"
+            },
+            {
+              "sqlVersion": "2025",
+              "os": "linux",
+              "distribution": "synthetic-linux",
+              "osVersion": "1.0",
+              "architecture": "x64",
+              "provider": "podman"
+            }
+          ],
+          "review": {
+            "status": "APPROVED",
+            "roleId": "synthetic-review",
+            "reviewedAt": "2026-01-01T00:00:00Z",
+            "validUntil": "2027-01-01T00:00:00Z",
+            "revoked": false
+          },
+          "license": {
+            "sourceUri": "https://releases.test/license",
+            "reviewedVersion": "1.0.0",
+            "reviewedAt": "2026-01-01T00:00:00Z",
+            "localUseAllowed": true,
+            "redistributionAllowed": false,
+            "noticeIds": [
+              "synthetic-notice"
+            ]
+          },
+          "artifacts": [
+            {
+              "artifactId": "synthetic-payload",
+              "source": {
+                "sourceId": "synthetic-release",
+                "kind": "official-release",
+                "uri": "https://releases.test/tool-1.0.0.bin",
+                "redirectUris": []
+              },
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expectedBytes": 16,
+              "maxBytes": 32,
+              "trust": {
+                "policyRevision": "synthetic-policy-v1",
+                "signatureMethod": "signed-release-inventory",
+                "publisherId": "synthetic-publisher",
+                "anchorSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "hashEvidenceUri": "https://releases.test/hashes",
+                "authenticityEvidenceUri": "https://releases.test/signature",
+                "timestampPolicy": "current-validity-only",
+                "revocation": {
+                  "checkedAt": "2026-01-01T00:00:00Z",
+                  "validUntil": "2027-01-01T00:00:00Z",
+                  "revoked": false
+                }
+              }
+            }
+          ]
+        },
+        {
+          "variantId": "synthetic-windows",
+          "version": "1.0.0",
+          "purposes": [
+            {
+              "purposeId": "sql-tls",
+              "sqlLabPurpose": "Synthetische Metadaten fuer eine SQL-TLS-Pruefung; keine Ausfuehrung."
+            }
+          ],
+          "targets": [
+            {
+              "sqlVersion": "2025",
+              "os": "windows",
+              "distribution": "windows-server",
+              "osVersion": "2025",
+              "architecture": "x64",
+              "provider": "hyperv"
+            }
+          ],
+          "review": {
+            "status": "APPROVED",
+            "roleId": "synthetic-review",
+            "reviewedAt": "2026-01-01T00:00:00Z",
+            "validUntil": "2027-01-01T00:00:00Z",
+            "revoked": false
+          },
+          "license": {
+            "sourceUri": "https://releases.test/license",
+            "reviewedVersion": "1.0.0",
+            "reviewedAt": "2026-01-01T00:00:00Z",
+            "localUseAllowed": true,
+            "redistributionAllowed": false,
+            "noticeIds": [
+              "synthetic-notice"
+            ]
+          },
+          "artifacts": [
+            {
+              "artifactId": "synthetic-payload",
+              "source": {
+                "sourceId": "synthetic-release",
+                "kind": "official-release",
+                "uri": "https://releases.test/tool-1.0.0.bin",
+                "redirectUris": []
+              },
+              "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+              "expectedBytes": 16,
+              "maxBytes": 32,
+              "trust": {
+                "policyRevision": "synthetic-policy-v1",
+                "signatureMethod": "authenticode",
+                "publisherId": "synthetic-publisher",
+                "anchorSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "hashEvidenceUri": "https://releases.test/hashes",
+                "authenticityEvidenceUri": "https://releases.test/signature",
+                "timestampPolicy": "current-validity-only",
+                "revocation": {
+                  "checkedAt": "2026-01-01T00:00:00Z",
+                  "validUntil": "2027-01-01T00:00:00Z",
+                  "revoked": false
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

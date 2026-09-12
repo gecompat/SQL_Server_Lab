@@ -9,6 +9,16 @@
 
 ## 1. Grundsatz
 
+`Tests/Static/Invoke-SecurityToolCatalogChecks.ps1` prüft den geschlossenen
+Security-Tool-/Trust-Metadatenkatalog, die leere produktive Allowlist und den
+direkten read-only Plan. Ausschließlich synthetische Katalogdaten prüfen
+IDs, vollständige Zieltuple, Windows-/Hyper-V- und Linux-/Docker-/Podman-Bindung,
+Review-/Widerrufsfristen, Hashbindung und Nebenwirkungsfreiheit. Die Prüfung
+erzeugt keine Providerressourcen und ersetzt weder Signaturprüfung noch
+Windows-/Linux-Beschaffungsabnahme. Beide produktiven Dateien werden gemeinsam
+über eine geschlossene AST-Aufruf-Allowlist geprüft; Quelldateien, Request und
+Prozessumgebung bleiben unverändert.
+
 `Invoke-CollationCatalogChecks.ps1` prüft Katalogsuche, exakte versionsgebundene
 Instanzbindung, kanonische Schreibweise, ungültige und doppelte Namen,
 Manifest-/Ad-hoc-Abweisung vor Provisionierung, verweigerte Wizard-Speicherung

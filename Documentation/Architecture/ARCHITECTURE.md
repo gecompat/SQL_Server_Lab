@@ -157,6 +157,7 @@ Install-SqlServerLab7Zip              # 7-Zip optional via winget für sichere .
 Get-SqlServerLabCuStatus              # Microsoft-Learn-CU-Stand read-only gegen den lokalen Katalog prüfen
 Save-SqlServerLabCuResource           # Katalogisierten Windows-CU oder exakten Linux-MCR-Tag sicher bereitstellen
 Get-SqlServerLabResourcePlan          # Sample- und Windows-/Hyper-V-Ressourcen read-only vorplanen
+Get-SqlServerLabSecurityToolPlan      # Security-Tool-Metadaten gegen leere Allowlist pruefen
 Save-SqlServerLabResourceSet          # Katalogisierte Ressourcen hashverifiziert vorab bereitstellen
 Save-SqlServerLabMediaSource          # Katalogisiertes SQL-/Windows-Server-Basismedium hash- und ggf. signaturgeprüft bereitstellen
 Set-SqlServerLabLicenseProfile        # Optionalen Product Key lokal DPAPI-geschützt hinter einer Profil-ID speichern

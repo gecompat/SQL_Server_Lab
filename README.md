@@ -765,6 +765,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Get-SqlServerLabCuStatus` | Offizielle Microsoft-Buildtabellen read-only gegen den lokalen CU-Katalog vergleichen |
 | `Save-SqlServerLabCuResource` | Beliebigen katalogisierten Windows-CU hash- und Authenticode-geprüft in den Media Root oder den exakten Linux-MCR-Tag in Docker/Podman laden |
 | `Get-SqlServerLabResourcePlan` | Sample- und Windows-/Hyper-V-External-Runtime-Ressourcen read-only planen |
+| `Get-SqlServerLabSecurityToolPlan` | Security-Tool-Metadaten read-only prüfen; die produktive Allowlist ist leer, jede Anfrage bleibt blockiert |
 | `Save-SqlServerLabResourceSet` | Katalogisierte Ressourcen aus Cache, lokalem Altbestand oder HTTP(S) hashverifiziert vorab bereitstellen |
 | `Save-SqlServerLabMediaSource` | Katalogisiertes SQL-/Windows-Server-Basismedium nach Größen-, SHA-256- und ggf. Microsoft-Signaturprüfung laden; Community-Scans nur mit Quarantänefreigabe |
 | `Set-SqlServerLabLicenseProfile` | Editions- und versionsgebundenen Product Key lokal DPAPI-geschützt speichern |

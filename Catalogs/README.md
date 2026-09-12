@@ -14,6 +14,19 @@ Die Kataloge sind maschinenlesbare Runtimeeingaben. Änderungen müssen mit Sche
 | `software.json` | Providerneutrale SQL-bezogene Software- und External-Runtime-Varianten mit Support-, Integrity- und Verification-Metadaten | `../Schemas/software-catalog.schema.json` |
 | `ai-models.json` | Ollama-Modellidentitäten für Embedding, lokale Generierung und optionale Cloud-Generierung; Status bleibt bis zum jeweiligen nativen Nachweis `PLANNED` | `../Schemas/ai-model-catalog.schema.json` |
 
+## Security-Tool-Katalog
+
+`security-tools.json` verwendet das geschlossene
+[`security-tool-catalog.schema.json`](../Schemas/security-tool-catalog.schema.json).
+Die produktive Tool-Allowlist ist leer; die initiale Policy ist `BLOCKED`.
+Der dedizierte Resolver in `Private/SecurityToolCatalog.ps1` verarbeitet
+ausschließlich exakte Varianten, SQL-Labzwecke und vollständige Zieltuple.
+Reviewgültigkeit, Widerruf, Lizenzversion, Trust-Policy, Signaturverfahren,
+Publisher-/Anchorbindung und frische Revocation-Metadaten sind Pflichtangaben.
+Reale Aufnahme und kryptographische Prüfung bleiben spätere Arbeitspakete.
+Die synthetischen Fixtures sind keine Trust Anchors und nicht produktiv ladbar
+über die öffentliche API. Bestehende Software-/Samplekataloge bleiben getrennt.
+
 ## Collation-Katalog
 
 Der Collation-Katalog ist eine kuratierte Auswahl für SQL 2019/2022/2025.

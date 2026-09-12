@@ -1,0 +1,78 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract",
+    "toolId",
+    "variantId",
+    "purposeId",
+    "target"
+  ],
+  "properties": {
+    "contract": {
+      "const": "SqlServerLab.SecurityToolRequest/1.0"
+    },
+    "toolId": {
+      "type": "string",
+      "pattern": "^(?!latest$|auto$)[a-z][a-z0-9-]{0,63}(?![\\s\\S])"
+    },
+    "variantId": {
+      "type": "string",
+      "pattern": "^(?!latest$|auto$)[a-z][a-z0-9-]{0,63}(?![\\s\\S])"
+    },
+    "purposeId": {
+      "type": "string",
+      "pattern": "^(?!latest$|auto$)[a-z][a-z0-9-]{0,63}(?![\\s\\S])"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sqlVersion",
+        "os",
+        "distribution",
+        "osVersion",
+        "architecture",
+        "provider"
+      ],
+      "properties": {
+        "sqlVersion": {
+          "type": "string",
+          "enum": [
+            "2019",
+            "2022",
+            "2025"
+          ]
+        },
+        "os": {
+          "enum": [
+            "windows",
+            "linux"
+          ]
+        },
+        "distribution": {
+          "type": "string",
+          "pattern": "^(?!latest$|auto$)[a-z][a-z0-9-]{0,63}(?![\\s\\S])"
+        },
+        "osVersion": {
+          "type": "string",
+          "pattern": "^[0-9]+(?:\\.[0-9]+){0,3}(?![\\s\\S])"
+        },
+        "architecture": {
+          "enum": [
+            "x64",
+            "arm64"
+          ]
+        },
+        "provider": {
+          "enum": [
+            "docker",
+            "podman",
+            "hyperv"
+          ]
+        }
+      }
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}

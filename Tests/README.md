@@ -9,6 +9,11 @@
 
 ## Kurz-Readiness vor einem Pull Request
 
+Der lokale Security-Tool-Katalog-/Planvertrag wird mit
+`Tests/Static/Invoke-SecurityToolCatalogChecks.ps1` ausschließlich anhand
+synthetischer Katalogdaten geprüft. Die produktive Allowlist bleibt leer;
+Provider-Runtime und kryptographische Beschaffung sind kein Teil dieses Tests.
+
 Die CI ermittelt die betroffenen Suites aus den geänderten Pfaden. Lokal kann
 dieselbe Auswahl verwendet werden:
 

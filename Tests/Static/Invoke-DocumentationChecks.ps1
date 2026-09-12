@@ -212,6 +212,7 @@ foreach ($file in $jsonFiles) {
 }
 
 $schemaValidationTargets = @(
+    @{ Data = 'Catalogs/security-tools.json'; Schema = 'Schemas/security-tool-catalog.schema.json' }
     @{ Data = 'Catalogs/sql-server-versions.json'; Schema = 'Schemas/version-catalog.schema.json' }
     @{ Data = 'Catalogs/sql-server-media-sources.json'; Schema = 'Schemas/sql-server-media-sources.schema.json' }
     @{ Data = 'Catalogs/sample-databases.json'; Schema = 'Schemas/sample-databases.schema.json' }

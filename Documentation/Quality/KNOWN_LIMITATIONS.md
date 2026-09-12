@@ -1161,15 +1161,22 @@ beweist keine Embedding- oder Generationsfähigkeit.
 ## Beschaffung von Penetrationstest-Werkzeugen
 
 Die manifestgestützte und direkt aufrufbare Beschaffung autorisierter
-Penetrationstest-Werkzeuge ist `PLANNED`, nicht implementiert. Der
+Penetrationstest-Werkzeuge ist weiterhin `PLANNED`, nicht implementiert. Der
 [Beschaffungsbacklog](../Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md)
 definiert getrennte Windows-/Linux-Varianten, Providerbindung, eine explizite
 Allowlist, Herkunft/Hash/Signatur, lokale Planfreigaben, geschützte Aufbewahrung
-und getrennte Abnahmegrenzen. Es gibt keine freigegebenen Pentest-Katalogeinträge
-oder ausführbaren neuen Manifestfelder/Cmdlets. Bestehender Ressourcen-Prefetch
-und Sample-Trust erteilen keine solche Freigabe. Download, Installation,
-Toolausführung und Netzwerkänderungen wurden in diesem Planungsslice nicht
-ausgeführt; sämtliche Beschaffungs-Runtime-Nachweise sind `NOT_EXECUTED`.
+und getrennte Abnahmegrenzen. Implementiert sind der dedizierte geschlossene
+Security-Tool-/Trust-Metadatenkatalog mit leerer produktiver Allowlist sowie
+`Get-SqlServerLabSecurityToolPlan` für die lokale Direktprüfung exakter IDs und
+Zieltuple. Synthetische Tests prüfen Windows-/Hyper-V- und Linux-/Docker-/
+Podman-Bindungen ohne Runtime. Der Plan bleibt `Executable=false` und
+`AuthenticityVerified=false`; `PLANNED` bedeutet nur Metadatenübereinstimmung.
+Es gibt keine reale Katalogaufnahme, kryptographische Verifikation, Freigabe,
+Receipts, Runbindung, Manifestfelder, Konsolenaktion oder Beschaffung.
+Transport-/DNS-Prüfungen, lokale Speicherrechte und vollständige
+Beschaffungspläne samt Grenzen und Recovery bleiben offen. Bestehender
+Ressourcen-Prefetch und Sample-Trust erteilen keine Freigabe.
+Sämtliche Beschaffungs-Runtime-Nachweise sind `NOT_EXECUTED`.
 
 ## External Languages
 
