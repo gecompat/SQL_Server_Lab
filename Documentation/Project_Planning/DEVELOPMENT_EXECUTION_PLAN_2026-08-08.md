@@ -208,7 +208,7 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 
 | Meilenstein | Status am 2026-09-10 | Nächster belastbarer Schritt |
 |---|---|---|
-| M0 Statuswahrheit | `validated` (lokale M0-Abnahme) | Statusmatrix bei neuen Planungs- oder Qualitätsänderungen mit ausgeführter Evidence fortschreiben |
+| M0 Statuswahrheit | `validated` (gemäß M0-Statuswahrheitsmatrix) | Statusmatrix bei neuen Planungs- oder Qualitätsänderungen mit ausgeführter Evidence fortschreiben |
 | Providerneutraler Instanz-Autostart | `implemented_runtime_partial` | Docker-/SQL-2025-Runtime ist grün; Podman-Self-hosted-Gate und nativen Hyper-V-Lifecycle fortlaufend grün halten |
 | M1 Desired State und Planner | `implemented_partial` | Container-Journal, Repair und Recovery sind real verifiziert; weitere Provider- und Änderungsklassen bleiben offen |
 | M2 UI und Container-Reconcile | `implemented_partial` | Batch/Queue sowie Container-`no-op`, `live`, `recreate`, Rollback und Persistenz sind für Docker und Podman real verifiziert; beliebige Mount-/Environment-Änderungen aus `CNT-214` bleiben offen |
@@ -307,8 +307,9 @@ Statusvokabular und die Readinessmatrix stehen in der
 - jeder aktuelle Status ist `planned`, `implemented`, `validated` oder `unsupported`;
 - keine Runtimefähigkeit wird nur aus einem Schema oder Mock abgeleitet.
 
-**Stand 2026-09-11:** `validated` für den lokalen M0-Scope. Dokumentations-,
-Console-UI- und impacted Checks sind ausgeführt und grün. Der frühere rote
+**Stand 2026-09-11:** `validated` für den lokalen M0-Scope nach der
+kanonischen M0-Statuswahrheitsmatrix. Dokumentations-, Console-UI- und
+impacted Checks sind ausgeführt und grün. Der frühere rote
 `Invoke-AllChecks.ps1`-Lauf mit zwei scopefremden Baselinefehlern bleibt
 historische Evidence; nach deren Korrektur bestand das vollständige lokale Gate
 am 2026-09-11. Provider-/Runtime-Smokes bleiben für den M0-Scope
