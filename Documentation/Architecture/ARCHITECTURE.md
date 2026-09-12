@@ -88,6 +88,7 @@ Get-SqlServerLabRunStateUpgradePlan     # Lokalen Run-State read-only gegen Ziel
 Invoke-SqlServerLabRunStateUpgrade       # Ausdrücklich synthetischen Legacy-State atomar migrieren
 Get-SqlServerLabPortableLabImportPlan   # Portables Container-Lab-Paket mit Backup-Integritäts-Evidence an vorhandenen Ziel-Run read-only vorprüfen
 Get-SqlServerLabPortableContainerTransferExecutorPlan # Mehrdatenbank-Transfervertrag vorprüfen; Ausführung bleibt blockiert
+Test-SqlServerLabRelationalCoreComparison # Verwaltete Container-Datenbankpaare PK-sortiert ohne Rohwerte read-only vergleichen
 Get-SqlServerLabHyperVRecoveryPointPlan # Bestehende rungebundene Hyper-V-Checkpoints read-only inventarisieren
 Get-SqlServerLabSqlObservabilityEvidence # Aggregierte SQL-Metriken ohne Namen, Endpunkte oder Secrets read-only erfassen
 Get-SqlServerLabHyperVResourcePreview  # Physische Hyper-V-Klassenroots und Kapazitaet read-only vor UAC

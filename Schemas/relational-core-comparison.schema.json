@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.RelationalCoreComparison/1.0",
+  "type": "object",
+  "required": ["ContractVersion","Profile","ExecutionImplemented","MutationAllowed","TransferExecutorStatus","Status","Pairs","Findings","ComparedAt"],
+  "properties": {
+    "ContractVersion": {"const":"SqlServerLab.RelationalCoreComparison/1.0"},
+    "Profile": {"const":"RELATIONAL_CORE/1.0"},
+    "ExecutionImplemented": {"const":false}, "MutationAllowed": {"const":false}, "TransferExecutorStatus": {"const":"BLOCKED"},
+    "Status": {"enum":["MATCH","DIFFERENT_OR_UNSUPPORTED"]}, "Pairs": {"type":"array","minItems":1}, "Findings":{"type":"array"}, "ComparedAt":{"type":"string"}
+  }, "additionalProperties": false
+}

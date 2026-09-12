@@ -119,6 +119,10 @@ COMMANDS
         Plans explicit multi-database selection or an AllEligible request;
         it remains blocked without safe inventory, SQL revalidation, and rollback.
 
+    Test-SqlServerLabRelationalCoreComparison
+        Compares explicitly paired managed Docker or Podman databases read-only
+        with RELATIONAL_CORE/1.0; values and every transfer action remain blocked.
+
     Get-SqlServerLabHyperVRecoveryPointPlan
         Inventories existing checkpoints bound to a Hyper-V run without VM names
         or host paths; it does not create checkpoints or perform a restore.

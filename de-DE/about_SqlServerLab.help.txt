@@ -123,6 +123,10 @@ COMMANDS
         Prüft eine explizite Mehrdatenbankauswahl oder AllEligible-Anforderung;
         ohne sichere Inventur, SQL-Revalidierung und Gesamtrollback bleibt sie blockiert.
 
+    Test-SqlServerLabRelationalCoreComparison
+        Vergleicht explizit gepaarte verwaltete Docker-/Podman-Datenbanken nach
+        RELATIONAL_CORE/1.0 read-only; Werte und jede Transferaktion bleiben blockiert.
+
     Get-SqlServerLabHyperVRecoveryPointPlan
         Inventarisiert bestehende, eindeutig an einen Hyper-V-Run gebundene
         Checkpoints ohne VM-Namen oder Hostpfade; keine Erstellung oder Restore.
