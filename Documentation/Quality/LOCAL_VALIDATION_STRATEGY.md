@@ -469,9 +469,11 @@ isolierten N4-Stand und entfernt ihn nur nach vollständig grünem Ergebnis:
     -MediaRoot D:\Lab_Base
 ```
 
-Der erweiterte Runner ist implementiert und statisch gebunden; ein positiver
-nativer Baseline-Lauf bleibt bis zur tatsächlichen erhöhten Ausführung
-`NOT_EXECUTED`.
+Der erweiterte Runner ist implementiert und statisch gebunden. Der erhöhte
+Native-Wiederholungslauf vom 2026-09-12 bestätigte Addition, Journal,
+Baseline-Wiederverwendung, VM-Neustart, stabile Host-SQL-Readiness und den
+vollständigen scopegebundenen Cleanup. Die Readiness nach dem Neustart wurde
+nach 94,2 Sekunden stabil bestätigt.
 
 Es werden bewusst nicht alle CUs getestet. Docker und Podman verwenden je
 einen repraesentativen katalogisierten CU; Windows prueft die frische
