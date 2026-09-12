@@ -95,6 +95,13 @@ Add-CheckResult -Name 'Container-Runtime-Scope aktiviert read-only Vertrag sowie
     'Invoke-ContainerRuntimeScopeChecks.ps1' -in $containerRuntimeScope.StaticChecks
 )
 
+$transferPreflight = & $selector -ChangedPath @('Private/PortableContainerTransferPreflight.ps1')
+Add-CheckResult -Name 'Transfer-Staging-Preflight aktiviert seinen Vertrag und getrennte Container-Nachweise' -Success (
+    $transferPreflight.Docker -and $transferPreflight.Podman -and
+    'Invoke-PortableContainerTransferPreflightChecks.ps1' -in $transferPreflight.StaticChecks -and
+    'Invoke-PortableContainerTransferExecutorChecks.ps1' -in $transferPreflight.StaticChecks
+)
+
 $persistentStorageArtifact = & $selector -ChangedPath @('Public/Sync-SqlServerLabPersistentStorageArtifact.ps1')
 Add-CheckResult -Name 'Reiner Persistent-Storage-Artefakt-Sync aktiviert nur die betroffenen statischen Verträge' -Success (
     -not $persistentStorageArtifact.Docker -and -not $persistentStorageArtifact.Podman -and
@@ -190,6 +197,11 @@ $dependencyCases = @(
     @{ Path = 'Public/Get-SqlServerLabPortableContainerTransferExecutorPlan.ps1'; Checks = @('Invoke-PortableContainerTransferExecutorChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/portable-container-transfer-executor-plan.schema.json'; Checks = @('Invoke-PortableContainerTransferExecutorChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/portable-container-transfer-executor-journal.schema.json'; Checks = @('Invoke-PortableContainerTransferExecutorChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/PortableContainerTransferPreflight.ps1'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1','Invoke-PortableContainerTransferExecutorChecks.ps1'); Runtime = @('Docker','Podman') },
+    @{ Path = 'Public/Invoke-SqlServerLabPortableContainerTransferPreflight.ps1'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1','Invoke-PortableContainerTransferExecutorChecks.ps1'); Runtime = @('Docker','Podman') },
+    @{ Path = 'Schemas/portable-container-transfer-preflight-request.schema.json'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1'); Runtime = @('Docker','Podman') },
+    @{ Path = 'Schemas/portable-container-transfer-preflight-result.schema.json'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1'); Runtime = @('Docker','Podman') },
+    @{ Path = 'Schemas/portable-container-transfer-preflight-journal.schema.json'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1'); Runtime = @('Docker','Podman') },
     @{ Path = 'Public/Get-SqlServerLabEvaluationWatch.ps1'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/SqlGuestEvaluationEvidence.ps1'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/sql-guest-evaluation-evidence.schema.json'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },

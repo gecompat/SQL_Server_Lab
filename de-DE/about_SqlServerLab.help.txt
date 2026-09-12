@@ -120,8 +120,13 @@ COMMANDS
         Lab-Pakets read-only an einen bestehenden Ziel-Run; ein Import ist nicht implementiert.
 
     Get-SqlServerLabPortableContainerTransferExecutorPlan
-        Prüft eine explizite Mehrdatenbankauswahl oder AllEligible-Anforderung;
+        Prüft eine explizite Mehrdatenbankauswahl;
         ohne sichere Inventur, SQL-Revalidierung und Gesamtrollback bleibt sie blockiert.
+
+    Invoke-SqlServerLabPortableContainerTransferPreflight
+        Staget nur explizit ausgewählte Backupsets im live verifizierten
+        persistent-backups Bind-Mount und prüft sie SQL-seitig; Restore und
+        Transfer bleiben blockiert.
 
     Test-SqlServerLabRelationalCoreComparison
         Vergleicht explizit gepaarte verwaltete Docker-/Podman-Datenbanken nach

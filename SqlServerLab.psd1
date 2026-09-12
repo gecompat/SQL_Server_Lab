@@ -33,6 +33,7 @@
         'Invoke-SqlServerLabRunStateUpgrade'
         'Get-SqlServerLabPortableLabImportPlan'
         'Get-SqlServerLabPortableContainerTransferExecutorPlan'
+        'Invoke-SqlServerLabPortableContainerTransferPreflight'
         'Test-SqlServerLabRelationalCoreComparison'
         'Get-SqlServerLabHyperVRecoveryPointPlan'
         'Get-SqlServerLabSqlObservabilityEvidence'

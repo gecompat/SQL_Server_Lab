@@ -138,6 +138,12 @@ sources_of_truth:
   portable_container_transfer_executor_plan_schema: Schemas/portable-container-transfer-executor-plan.schema.json
   portable_container_transfer_executor_journal_schema: Schemas/portable-container-transfer-executor-journal.schema.json
   validation_portable_container_transfer_executor: Tests/Static/Invoke-PortableContainerTransferExecutorChecks.ps1
+  portable_container_transfer_preflight_contract: Private/PortableContainerTransferPreflight.ps1 # operation-bound backup staging and SQL media preflight; transfer remains blocked
+  portable_container_transfer_preflight_public: Public/Invoke-SqlServerLabPortableContainerTransferPreflight.ps1
+  portable_container_transfer_preflight_request_schema: Schemas/portable-container-transfer-preflight-request.schema.json
+  portable_container_transfer_preflight_result_schema: Schemas/portable-container-transfer-preflight-result.schema.json
+  portable_container_transfer_preflight_journal_schema: Schemas/portable-container-transfer-preflight-journal.schema.json
+  validation_portable_container_transfer_preflight: Tests/Static/Invoke-PortableContainerTransferPreflightChecks.ps1
   hyperv_recovery_point_plan_contract: Private/RecoveryPointPlan.ps1
   hyperv_recovery_point_plan_public: Public/Get-SqlServerLabHyperVRecoveryPointPlan.ps1
   hyperv_recovery_point_plan_schema: Schemas/hyperv-recovery-point-plan.schema.json
