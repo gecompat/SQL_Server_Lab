@@ -244,7 +244,7 @@ try {
     $whatIf = Invoke-SqlServerLabReconcileAction -RunId $runId -RepairHyperVTestDatabases `
         -ManifestPath $addManifestPath -InstanceId primary -SqlSaPassword $script:saPassword `
         -StateRoot $StateRoot -WhatIf
-    $journalPath = Join-Path $context.RunDirectory 'hyperv-test-database-reconcile-journal.local.json'
+    $journalPath = Join-Path $context.RunDirectory 'hyperv-test-database-reconcile.local.journal.json'
     Assert-HyperVTestDatabaseAcceptance (
         [string]$whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and
         -not (Test-Path -LiteralPath $journalPath) -and
