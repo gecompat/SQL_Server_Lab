@@ -115,6 +115,10 @@ COMMANDS
         Binds BackupSetId and integrity evidence from a portable container lab
         package read-only to an existing target run; import is unimplemented.
 
+    Get-SqlServerLabPortableContainerTransferExecutorPlan
+        Plans explicit multi-database selection or an AllEligible request;
+        it remains blocked without safe inventory, SQL revalidation, and rollback.
+
     Get-SqlServerLabHyperVRecoveryPointPlan
         Inventories existing checkpoints bound to a Hyper-V run without VM names
         or host paths; it does not create checkpoints or perform a restore.
