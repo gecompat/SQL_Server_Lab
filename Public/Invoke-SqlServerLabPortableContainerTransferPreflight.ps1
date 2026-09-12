@@ -1,14 +1,12 @@
 <#
 .SYNOPSIS
-    Fuehrt die eng begrenzte Backup-Staging- und SQL-Medienvorpruefung aus.
+    Fuehrt die operationgebundene Backup-Staging- und SQL-Medienvorpruefung aus.
 .DESCRIPTION
-    Die Funktion akzeptiert nur eine explizite DatabaseTransfers-Auswahl. Sie
-    verwendet ausschliesslich einen bestehenden laufenden verwalteten Docker-
-    oder Podman-Zielcontainer mit live verifiziertem persistent-backups
-    Bind-Mount nach /var/opt/mssql/backup. Die Vorpruefung kopiert Backups nur
-    in einen operationseigenen temporaeren Bereich und fuehrt HEADERONLY sowie
-    VERIFYONLY WITH CHECKSUM, STOP_ON_ERROR aus. Sie erstellt keine Datenbank,
-    fuehrt keinen Restore aus und gibt keinen Transfer frei.
+    Akzeptiert nur explizite DatabaseTransfers. Vor jeder Staging-Mutation
+    validiert der Vertrag die komplette Auswahl und die bestehende, laufende
+    verwaltete Docker- oder Podman-Zielbindung. HEADERONLY und VERIFYONLY
+    pruefen ausschliesslich die temporär im bestehenden Bind-Mount sichtbaren
+    Medien; Restore, Datenbankerzeugung und Transferfreigabe erfolgen nicht.
 .PARAMETER SourceRunId
     Lauf-ID der bereits verifizierten Backupquelle.
 .PARAMETER SourceInstanceId
@@ -16,7 +14,7 @@
 .PARAMETER TargetRunId
     Lauf-ID der bestehenden laufenden Docker- oder Podman-Zielinstanz.
 .PARAMETER TargetInstanceId
-    Instanz-ID des Ziels.
+    Instanz-ID der bestehenden laufenden Zielinstanz.
 .PARAMETER DatabaseTransfers
     Ausschließlich explizite Objekte mit SourceDatabaseName, TargetDatabaseName und BackupSetId.
 .PARAMETER DataRoot
@@ -24,11 +22,10 @@
 .PARAMETER StateRoot
     Optionaler lokaler State-Root für die gebundenen Runs und kurzlebigen Secrets.
 .OUTPUTS
-    SqlServerLab.PortableContainerTransferPreflightResult/1.0. Das Ergebnis
-    projiziert keine Pfade, Credentials oder Rohheader und gibt keinen Transfer frei.
+    SqlServerLab.PortableContainerTransferPreflightResult/1.0 ohne Pfade, Endpoints, Container-ID, Secrets oder Rohheader.
 #>
 function Invoke-SqlServerLabPortableContainerTransferPreflight {
-    [CmdletBinding()]
+    [CmdletBinding(SupportsShouldProcess,ConfirmImpact='Medium')]
     param(
         [Parameter(Mandatory)][ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$SourceRunId,
         [Parameter(Mandatory)][ValidateNotNullOrEmpty()][string]$SourceInstanceId,
@@ -39,8 +36,7 @@ function Invoke-SqlServerLabPortableContainerTransferPreflight {
         [string]$StateRoot
     )
     $request=New-LabPortableContainerTransferPreflightRequest -SourceRunId $SourceRunId -SourceInstanceId $SourceInstanceId -TargetRunId $TargetRunId -TargetInstanceId $TargetInstanceId -DatabaseTransfers $DatabaseTransfers
-    $result=Invoke-LabPortableContainerTransferPreflight -Request $request -DataRoot $DataRoot -StateRoot $StateRoot
-    $schema=Join-Path $script:SchemasPath 'portable-container-transfer-preflight-result.schema.json'
-    if(-not ($result|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $schema -ErrorAction Stop)) { throw 'PORTABLE_CONTAINER_TRANSFER_PREFLIGHT_RESULT_INVALID' }
-    return $result
+    $allowed=$PSCmdlet.ShouldProcess(('operation '+$request.OperationId),'Stage backup media and run SQL media preflight')
+    $result=Invoke-LabPortableContainerTransferPreflight -Request $request -DataRoot $DataRoot -StateRoot $StateRoot -MutationAuthorized:$allowed
+    $schema=Join-Path $script:SchemasPath 'portable-container-transfer-preflight-result.schema.json';if(-not($result|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $schema -ErrorAction Stop)){throw 'PORTABLE_CONTAINER_TRANSFER_PREFLIGHT_RESULT_INVALID'};return $result
 }
