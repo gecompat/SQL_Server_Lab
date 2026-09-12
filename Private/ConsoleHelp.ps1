@@ -278,7 +278,7 @@ function Get-LabConsoleHelpCatalog {
         Title   = 'Hyper-V-Ablauf'
         Purpose = 'Führt durch einen zustandsgebundenen Hyper-V-Schritt für Windows-, Image- oder SQL-Bereitstellung.'
         Effects = 'Je nach Auswahl werden VM-, VHDX-, Medien- oder Gastressourcen verändert. Der Ablauf prüft Scope und Recovery-Grenzen vor der Mutation.'
-        Related = @('Lange Builds können mehrere Neustarts enthalten.', 'Cleanup gilt nur für exakt gebundene Lab-Ressourcen.')
+        Related = @('Lange Builds können mehrere Neustarts enthalten.', 'Cleanup gilt nur für exakt gebundene Lab-Ressourcen.', 'Windows-Administratorzugang anzeigen entschlüsselt nur nach ausdrücklicher Run-Auswahl ein automatisch erzeugtes Kennwort. Selbst vergebene Kennwörter bleiben verborgen; es erfolgt keine Kopie oder Speicherung.')
         Command = 'Get-SqlServerLabHyperVImageArtifact / New-SqlServerLab'
         Preconditions = @($dataRootPrecondition, $stateRootPrecondition)
     }

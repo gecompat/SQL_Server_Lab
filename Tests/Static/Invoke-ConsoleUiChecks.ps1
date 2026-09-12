@@ -1175,6 +1175,57 @@ Add-ConsoleUiCheck 'CMS bevorzugt Container, kann vorhandene Hyper-V-SQL-Umgebun
 Add-ConsoleUiCheck 'CMS-Menue steuert generierte Passwoerter im Anzeigenamen mit Klartextwarnung' ($connectionCenterSource -match "-Id '4' -Label 'Generiertes Passwort im CMS-Namen anzeigen'" -and $connectionCenterSource -match 'CmsShowGeneratedPasswordInName' -and $connectionCenterSource -match 'Screenshots und CMS-Backups')
 Add-ConsoleUiCheck 'Manuell bereitgestelltes CMS-Passwort wird nicht als generiert markiert' ($connectionCenterSource -match 'PasswordOrigin = \$passwordOrigin' -and $connectionCenterSource -match '\$passwordOrigin = ''ProvidedForCms''' -and $entrySource -match 'IsNullOrWhiteSpace\(\[string\]\$cms.PasswordOrigin\)')
 Add-ConsoleUiCheck 'Generierter Passwortabruf umfasst Hyper-V- und automatisierte Testumgebungen' ($entrySource -match 'Get-SqlServerLabGeneratedSqlAccess -RunId \$RunId' -and $entrySource -match 'Test-LabAutomatedTestEnvironmentRun -RunId \$RunId')
+
+# CUI-032: Windows-Administratorzugang bleibt eine gezielte, rungebundene Anzeige.
+$windowsAccessUiSource = [regex]::Match($entrySource, 'function Show-LabGeneratedWindowsAccessInteractive \{[\s\S]+?(?=\r?\nfunction )').Value
+$hyperVManageSource = [regex]::Match($entrySource, 'function Manage-LabHyperVEnvironmentInteractive \{[\s\S]+?(?=\r?\nfunction Get-LabAutomatedTestEnvironmentMenuState)').Value
+Add-ConsoleUiCheck 'Windows-Administratorzugang ist nur im Hyper-V-Run-Menü erreichbar und verwendet ausschließlich das öffentliche Abruf-Cmdlet' (
+    $windowsAccessUiSource -match 'Get-SqlServerLabGeneratedWindowsAccess -RunId \$RunId' -and
+    $windowsAccessUiSource -notmatch '(?i)(Set-Clipboard|Set-Content|Out-File|Add-Content|Save-LabSecret|Get-LabSecret)' -and
+    $hyperVManageSource -match "New-LabConsoleItem -Id 'windows-access' -Label 'Windows-Administratorzugang anzeigen'" -and
+    $hyperVManageSource -match 'windows-access'' \{ Show-LabGeneratedWindowsAccessInteractive -RunId \$runId \}' -and
+    $hyperVManageSource -match 'Get-LabActiveRuns \| Where-Object \{ \[string\]\$_.metadata.workflowKind -eq ''hyperv-lab'' \}'
+)
+
+$windowsAccessMenuProbe = & {
+    $module = Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
+    & $module {
+        $script:windowsAccessCalls = [Collections.Generic.List[string]]::new()
+        $script:windowsAccessLines = [Collections.Generic.List[string]]::new()
+        $script:windowsAccessWarnings = [Collections.Generic.List[string]]::new()
+        $script:windowsAccessAcknowledgements = 0
+        $script:windowsAccessFailure = ''
+        function Get-SqlServerLabGeneratedWindowsAccess {
+            [CmdletBinding()]
+            param([string]$RunId)
+            $script:windowsAccessCalls.Add($RunId)
+            if ($script:windowsAccessFailure) { throw $script:windowsAccessFailure }
+            [pscustomobject]@{ RunId=$RunId; VMName='synthetic-win-vm'; UserName='Administrator'; Password='Synthetic_Windows_Secret_42'; Generated=$true; Persisted=$true }
+        }
+        function Write-LabStatus { param($Label, $Value) $script:windowsAccessLines.Add("$Label=$Value") }
+        function Write-LabWarning { param($Message) $script:windowsAccessWarnings.Add($Message) }
+        function Wait-LabConsoleAcknowledgement { param($Prompt) $script:windowsAccessAcknowledgements++ }
+
+        Show-LabGeneratedWindowsAccessInteractive -RunId '11111111-1111-1111-1111-111111111111'
+        $selected = [pscustomobject]@{ Calls=@($script:windowsAccessCalls); Lines=@($script:windowsAccessLines); Acknowledgements=$script:windowsAccessAcknowledgements }
+        $script:windowsAccessFailure = 'HYPERV_LAB_GENERATED_WINDOWS_ACCESS_NOT_APPLICABLE'
+        Show-LabGeneratedWindowsAccessInteractive -RunId '11111111-1111-1111-1111-111111111111'
+        [pscustomobject]@{ Selected=$selected; FailureCalls=$script:windowsAccessCalls.Count; FailureWarning=@($script:windowsAccessWarnings | Select-Object -Last 1)[0]; FailureAcknowledgements=$script:windowsAccessAcknowledgements }
+    }
+    Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+}
+Add-ConsoleUiCheck 'Windows-Zugangsmenü bindet das synthetische Credential an genau den gewählten Hyper-V-Run und zeigt es nur gezielt an' (
+    $windowsAccessMenuProbe.Selected.Calls.Count -eq 1 -and
+    $windowsAccessMenuProbe.Selected.Calls[0] -eq '11111111-1111-1111-1111-111111111111' -and
+    @($windowsAccessMenuProbe.Selected.Lines | Where-Object { $_ -eq 'VM=synthetic-win-vm' -or $_ -eq 'Benutzername=Administrator' -or $_ -eq 'Passwort (automatisch erzeugt)=Synthetic_Windows_Secret_42' }).Count -eq 3 -and
+    $windowsAccessMenuProbe.Selected.Acknowledgements -eq 1
+)
+Add-ConsoleUiCheck 'Windows-Zugangsmenü bricht vor dem Abruf ab und bleibt bei selbst vergebenem Kennwort fail-closed' (
+    $hyperVManageSource -match 'if \(\$actionResult.Status -ne ''Selected''\) \{ return \}' -and
+    $windowsAccessMenuProbe.FailureCalls -eq 2 -and
+    $windowsAccessMenuProbe.FailureWarning -match 'Selbst vergebene Kennwörter werden nicht angezeigt' -and
+    $windowsAccessMenuProbe.FailureAcknowledgements -eq 2
+)
 Add-ConsoleUiCheck 'CUI-011 besitzt Resize-, Write-Plan- und Recovery-Injektionspunkte' ($consoleSource -match 'function Get-LabConsoleWritePlan' -and $consoleSource -match '\[scriptblock\]\$GetViewport' -and $consoleSource -match '\[scriptblock\]\$SessionCompleter' -and $consoleSource -match 'Cursoransicht nicht verfügbar')
 Add-ConsoleUiCheck 'Session stellt urspruengliche Cursorsichtbarkeit wieder her' ($consoleSource -match '\[Console\]::CursorVisible = \[bool\]\$Session\.CursorVisible')
 
