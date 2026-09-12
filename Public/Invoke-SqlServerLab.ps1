@@ -556,6 +556,45 @@ function Show-LabEnvironmentStatusInteractive {
     }
 }
 
+function Show-LabGeneratedWindowsAccessInteractive {
+    <#
+    .SYNOPSIS Zeigt den automatisch erzeugten Windows-Administratorzugang genau eines Hyper-V-Runs.
+    .DESCRIPTION Die Entschlüsselung erfolgt erst nach der expliziten Auswahl
+    im Hyper-V-Verwaltungsmenü. Es werden weder Zwischenablage noch Datei oder
+    Meldungsjournal verwendet. Selbst vergebene Kennwörter bleiben verborgen.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RunId)
+
+    try {
+        $access = Get-SqlServerLabGeneratedWindowsAccess -RunId $RunId -ErrorAction Stop
+    }
+    catch {
+        $reason = [string]$_.Exception.Message
+        switch ($reason) {
+            'HYPERV_LAB_GENERATED_WINDOWS_ACCESS_NOT_APPLICABLE' {
+                Write-LabWarning 'Für diese Umgebung ist kein automatisch erzeugter Windows-Administratorzugang hinterlegt. Selbst vergebene Kennwörter werden nicht angezeigt.'
+            }
+            'HYPERV_LAB_GENERATED_WINDOWS_ACCESS_NOT_FOUND' {
+                Write-LabWarning 'Der automatisch erzeugte Windows-Administratorzugang ist für diesen Run nicht mehr vorhanden. Es wurde kein Kennwort geändert oder neu erzeugt.'
+            }
+            default {
+                Write-LabWarning 'Der Windows-Administratorzugang konnte im aktuellen Benutzerkontext nicht entschlüsselt werden. Es wurde kein Kennwort geändert oder neu erzeugt.'
+            }
+        }
+        Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zur Hyper-V-Verwaltung'
+        return
+    }
+
+    Write-Host ''
+    Write-Host '  Windows-Administratorzugang' -ForegroundColor Cyan
+    Write-LabStatus -Label 'VM' -Value ([string]$access.VMName)
+    Write-LabStatus -Label 'Benutzername' -Value ([string]$access.UserName)
+    Write-LabStatus -Label 'Passwort (automatisch erzeugt)' -Value ([string]$access.Password) -Color Yellow
+    Write-Host '  Diese Anzeige wurde ausdrücklich für den ausgewählten Run geöffnet. Das Kennwort wird weder kopiert noch gespeichert.' -ForegroundColor DarkGray
+    Wait-LabConsoleAcknowledgement -Prompt '  Enter oder Escape: Zurück zur Hyper-V-Verwaltung'
+}
+
 function Get-LabWindowsMediaOperatingSystemLabel {
     <# .SYNOPSIS Erzeugt eine lesbare, versionsdynamische Windows-Gruppenüberschrift. #>
     [CmdletBinding()]
@@ -5236,6 +5275,8 @@ function Manage-LabHyperVEnvironmentInteractive {
     Write-Host '        Fährt die Lab-VM sauber herunter; Image und Daten bleiben erhalten.' -ForegroundColor DarkGray
     Write-Host '    [r] CPU und Speicher ändern' -ForegroundColor White
     Write-Host '        Setzt vCPU und einen sinnvollen dynamischen Speicherbereich; VM muss ausgeschaltet sein.' -ForegroundColor DarkGray
+    Write-Host '    [g] Windows-Administratorzugang anzeigen' -ForegroundColor White
+    Write-Host '        Zeigt ausschließlich ein automatisch erzeugtes Kennwort für diese ausgewählte VM; kopiert oder speichert nichts.' -ForegroundColor DarkGray
     if (-not $persistentStorage) {
         Write-Host '    [d] Daten-VHDX anhängen' -ForegroundColor White
         Write-Host '        Optional: Erstellt eine eigene langlebige Datenplatte im Data Root und hängt sie an.' -ForegroundColor DarkGray
@@ -5305,6 +5346,8 @@ function Manage-LabHyperVEnvironmentInteractive {
         New-LabConsoleItem -Id 'v' -Label 'VMConnect öffnen' -Shortcut 'v' -Value 'lokale VM-Konsole öffnen'
         New-LabConsoleItem -Id 'p' -Label 'VM stoppen' -Shortcut 'p' -Value 'sauber herunterfahren'
         New-LabConsoleItem -Id 'resources' -Label 'CPU und Speicher ändern' -Shortcut 'r' -Value 'VM muss ausgeschaltet sein'
+        New-LabConsoleItem -Id 'windows-access' -Label 'Windows-Administratorzugang anzeigen' -Shortcut 'g' `
+            -Value 'nur automatisch erzeugtes Kennwort · keine Kopie oder Speicherung'
         if (-not $persistentStorage) { New-LabConsoleItem -Id 'd' -Label 'Daten-VHDX anhängen' -Shortcut 'd' }
         elseif ($persistentStoragePending) { New-LabConsoleItem -Id 'i' -Label 'Daten-VHDX initialisieren' -Shortcut 'i' }
         if ($isSqlLab) {
@@ -5357,6 +5400,7 @@ function Manage-LabHyperVEnvironmentInteractive {
             'v' { $result = Open-HyperVLabEnvironmentConsole -RunId $runId; Write-LabInfo "VMConnect geöffnet: $($result.VMName)" }
             'p' { $result = Stop-HyperVLabEnvironment -RunId $runId; Write-LabSuccess "VM gestoppt: $($result.VMName)" }
             'resources' { Set-LabResourcesInteractive -RunId $runId }
+            'windows-access' { Show-LabGeneratedWindowsAccessInteractive -RunId $runId }
             'd' {
                 if ($persistentStorage) { Write-LabWarning 'Für diese Umgebung ist bereits eine Daten-VHDX angehängt.'; return }
                 $dataRoot = Get-LabDataRootDefault

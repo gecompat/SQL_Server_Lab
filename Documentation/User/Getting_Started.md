@@ -338,7 +338,17 @@ entschlüsselt:
 Get-SqlServerLabGeneratedWindowsAccess -RunId $runId
 ```
 
-Ein eigener Passwortwert wird nicht durch das Modul wieder ausgegeben.
+Im Menü lautet der gleichwertige Pfad **Umgebungen** → **Hyper-V-Umgebung
+auswählen und verwalten** → Run auswählen → **Windows-Administratorzugang
+anzeigen**. Die Auswahl zeigt VM, Benutzername und Passwort nur für diesen Run
+und nur nach der ausdrücklichen Aktion. Sie legt weder eine Datei noch einen
+Zwischenablageeintrag an und schreibt den Wert nicht in Status, Meldungsjournal
+oder normale Listen.
+
+Ein eigener Passwortwert wird nicht durch das Modul wieder ausgegeben. Ist kein
+automatisch erzeugter Zugang hinterlegt, fehlt er oder kann er im aktuellen
+Benutzerkontext nicht entschlüsselt werden, erklärt das Menü die Grenze; es
+setzt kein Kennwort zurück und erzeugt keines neu.
 
 ### Runtime-State nach manuellen Löschungen abgleichen
 
