@@ -116,8 +116,12 @@ COMMANDS
         package read-only to an existing target run; import is unimplemented.
 
     Get-SqlServerLabPortableContainerTransferExecutorPlan
-        Plans explicit multi-database selection or an AllEligible request;
+        Plans explicit multi-database selection;
         it remains blocked without safe inventory, SQL revalidation, and rollback.
+
+    Invoke-SqlServerLabPortableContainerTransferPreflight
+        Stages only explicit backup sets in a live-verified persistent-backups
+        bind mount and validates SQL media; restore and transfer stay blocked.
 
     Test-SqlServerLabRelationalCoreComparison
         Compares explicitly paired managed Docker or Podman databases read-only

@@ -863,6 +863,20 @@ BackupSetId-Referenzen samt CHECKSUM-, VERIFYONLY-, SHA-256- und Größen-Eviden
 gegen einen bestehenden Docker-/Podman-Ziel-Run; er akzeptiert keine Secrets und
 exportiert, erzeugt oder importiert keine Runs, Datenbanken, Medien oder
 Runtimeobjekte.
+Die getrennte operationgebundene Container-Backup-Staging- und
+SQL-Medienvorprüfung akzeptiert ausschließlich explizite `DatabaseTransfers`.
+Sie revalidiert vor der ersten Payloadkopie alle Bibliotheksreceipts, Hashes,
+Quellbindungen und den laufenden verwalteten Docker-/Podman-Zielcontainer mit
+eindeutigem `persistent-backups` Bind-Mount nach
+`/var/opt/mssql/backup`. Fehlt diese Live-Bindung, endet sie mit
+`SQL_VISIBLE_STAGING_BINDING_UNAVAILABLE`; sie erzeugt oder verändert weder
+Container noch Mounts noch Runtime-Lifecycleobjekte. Nach dem temporären
+operationseigenen Staging führt sie ausschließlich `HEADERONLY` und
+`VERIFYONLY WITH CHECKSUM, STOP_ON_ERROR` per `SqlCredential` aus und räumt
+die eigenen Dateien wieder auf. Ein erfolgreicher Medienpreflight setzt den
+Transferexecutor weiterhin auf `BLOCKED`; Restore, Datenbankerzeugung und
+AllEligible bleiben nicht implementiert. Die erforderliche native Docker- und
+Podman-Evidence für diesen neuen Pfad ist `NOT_EXECUTED`.
 Der Hyper-V-Recovery-Point-Plan inventarisiert ausschließlich bereits
 vorhandene, eindeutig gebundene Checkpoints ohne VM-Namen oder Hostpfade; er
 führt keine Checkpoint-Erstellung, SQL-Quiesce, Retention oder Restore-Probe aus.

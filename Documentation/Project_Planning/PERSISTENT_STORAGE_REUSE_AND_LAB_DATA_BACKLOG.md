@@ -549,6 +549,16 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-013` | P2 | journalisierte Migration vorhandener Volumes/VHDX und Metadaten bereitstellen | `COMPLETE`: unveränderlicher `SqlServerLab.StorageMigrationPlan/1.0` mit stabiler Location-/Volume-ID, Kapazitäts-, Run-, Binding-, VM-Konfigurations- und VHDX-Inventar; Copy/Hash/Referenzumschaltung, exaktes Hyper-V-Rebind, spätes Quell-Cleanup, Resume und `RECOVERY_REQUIRED`-Journal sind schema-validiert und fail-closed. Der erhöhte Parent-Migrationsrunner belegt Hin- und Rückmigration einer nicht-default Location mit VM-Konfiguration, Snapshot, Smart Paging und VHDX sowie vollständigem Cleanup; Container-Bind-Mounts bleiben ein expliziter Plan-Blocker. |
 | `PSR-014` | P1 (hoch) | Interaktiven Ersteinrichtungsassistenten für `Lab_Base` und mehrere `Lab_Data`-Locations bereitstellen | `COMPLETE`: `Invoke-SqlServerLab -Action Setup` und das Storage-Menü verwenden denselben read-only Plan und Apply-Core, fragen nur fehlende oder ungültige Werte über den gemeinsamen abbrechbaren Eingabeadapter ab, leiten `Lab_Base` und je Parent `Lab_Data` ab, registrieren mehrere unterschiedliche Volumes und verlangen die ausdrückliche globale Default-Auswahl; gültige Konfigurationen sind No-op, vorhandene Dateien bleiben unverändert und fremde nichtleere Datenroots werden vor jeder Mutation fail-closed abgelehnt |
 
+Die `PSR-010`-Grenze enthält zusätzlich den getrennten Vertrag
+`SqlServerLab.PortableContainerTransferPreflight/1.0`: Er akzeptiert nur eine
+explizite `DatabaseTransfers`-Auswahl, bindet die gesamte Auswahl per Digest,
+revalidiert den vorhandenen `persistent-backups` Bind-Mount live und führt
+erst danach operationseigenes Staging sowie SQL-`HEADERONLY` und
+`VERIFYONLY WITH CHECKSUM, STOP_ON_ERROR` aus. Das öffentliche Resultat bleibt
+pfad-, secret- und rohheaderfrei; `TransferExecutionImplemented=false` und
+`TransferExecutorStatus=BLOCKED` gelten auch nach erfolgreicher Medienprüfung.
+Eine native Docker-/Podman-Abnahme ist noch `NOT_EXECUTED`.
+
 `P0-Analyse` bedeutet hier, dass die Entscheidung vor jeder breiten
 Implementierung benötigt wird. Sie ersetzt oder relativiert nicht den bereits
 priorisierten P0-Hyper-V-Ressourcenroot-Bugfix.

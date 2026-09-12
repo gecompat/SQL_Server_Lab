@@ -637,6 +637,37 @@ SQL-Version, FILESTREAM-Capability, Datenbankname und Default-Data-Ziel werden
 live im scopegebundenen Gast geprüft. TDE-Pakete bleiben ohne eigenen
 Ziel-Key-Vertrag blockiert.
 
+### Container-Backup-Staging und SQL-Medien prüfen
+
+Der folgende Vertrag nimmt nur eine explizite Auswahl bereits registrierter
+Backupsets an. Er verlangt einen laufenden verwalteten Docker- oder
+Podman-Zielcontainer mit bereits gebundenem `persistent-backups`-Mount. Vor
+der ersten Kopie prüft er die gesamte Auswahl; danach führt er nur
+`HEADERONLY` und `VERIFYONLY WITH CHECKSUM, STOP_ON_ERROR` aus. Das Resultat
+gibt keinen Transfer frei und enthält keine lokalen Pfade, Kennwörter oder
+Backup-Rohheader.
+
+```powershell
+$transfers = @(
+    [pscustomobject]@{
+        SourceDatabaseName = 'SourceDb'
+        TargetDatabaseName = 'TargetDb'
+        BackupSetId        = '<BackupSetId>'
+    }
+)
+
+Invoke-SqlServerLabPortableContainerTransferPreflight `
+    -SourceRunId '<SourceRunId>' -SourceInstanceId '<SourceInstanceId>' `
+    -TargetRunId '<TargetRunId>' -TargetInstanceId '<TargetInstanceId>' `
+    -DatabaseTransfers $transfers -DataRoot '<LabDataRoot>'
+```
+
+Fehlt die live überprüfbare SQL-sichtbare Bindung, endet die Vorprüfung mit
+`SQL_VISIBLE_STAGING_BINDING_UNAVAILABLE`, ohne Container, Mounts oder
+Runtimeobjekte zu verändern. Der Transferexecutor bleibt in jedem Ergebnis
+`BLOCKED`; ein Restore oder eine Datenbankerzeugung ist nicht Teil dieses
+Cmdlets.
+
 ## 11. Manifest-Modus
 
 ### Manifest interaktiv erstellen
