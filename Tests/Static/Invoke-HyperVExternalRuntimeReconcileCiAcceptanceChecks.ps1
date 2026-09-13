@@ -2,6 +2,7 @@
 $ErrorActionPreference='Stop'
 $repoRoot=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $runnerPath=Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVExternalRuntimeReconcileCiAcceptance.ps1'
+$diagnosticsPath=Join-Path $repoRoot 'Tests/Common/HyperVExternalRuntimeReconcileCiDiagnostics.ps1'
 $workflowPath=Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml'
 $runner=Get-Content -LiteralPath $runnerPath -Raw -Encoding utf8
 $workflow=Get-Content -LiteralPath $workflowPath -Raw -Encoding utf8
@@ -9,6 +10,9 @@ $manifestHelper=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Common/Hype
 $externalRuntimeRunner=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1') -Raw -Encoding utf8
 $tokens=$null;$errors=$null
 [Management.Automation.Language.Parser]::ParseFile($runnerPath,[ref]$tokens,[ref]$errors)|Out-Null
+$diagnosticTokens=$null;$diagnosticErrors=$null
+[Management.Automation.Language.Parser]::ParseFile($diagnosticsPath,[ref]$diagnosticTokens,[ref]$diagnosticErrors)|Out-Null
+. $diagnosticsPath
 
 function Add-CiAcceptanceCheck {
     param([string]$Name,[bool]$Success)
@@ -19,6 +23,18 @@ function Add-CiAcceptanceCheck {
 
 $checks=@(
     Add-CiAcceptanceCheck 'CI-Runner ist syntaktisch gueltig' ($errors.Count -eq 0)
+    Add-CiAcceptanceCheck 'Diagnosehelfer ist syntaktisch gueltig und klassifiziert nur den letzten groben Fehlercode' (
+        $diagnosticErrors.Count -eq 0 -and
+        (Get-HyperVExternalRuntimeCiFailureCode -InputObject @('untrusted C:\\runner\\local.txt', 'HYPERV_EXTERNAL_RUNTIME_SQL_SLOT_NOT_READY: C:\\secret.txt', 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED: host=internal')) -eq 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED' -and
+        (Get-HyperVExternalRuntimeCiFailureCode -InputObject @('untrusted C:\\runner\\local.txt')) -eq 'UNCLASSIFIED'
+    )
+    Add-CiAcceptanceCheck 'Fehlerdiagnosen geben ausschliesslich grobe Codes aus und nie den erfassten Runnertext' (
+        (Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind PRIMARY -FailureCode 'HYPERV_EXTERNAL_RUNTIME_SQL_SLOT_NOT_READY') -eq 'HYPERV_EXTERNAL_RUNTIME_CI_PRIMARY_FAILURE_CODE=HYPERV_EXTERNAL_RUNTIME_SQL_SLOT_NOT_READY' -and
+        (Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind CLEANUP -FailureCode 'C:\\runner\\local.txt') -eq 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_FAILURE_CODE=UNCLASSIFIED' -and
+        $runner -match 'Get-HyperVExternalRuntimeCiFailureCode -InputObject \$runnerOutput' -and
+        $runner -match 'Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind .PRIMARY.' -and
+        $runner -notmatch 'Write-(Host|Output|Error).*\$runnerOutput'
+    )
     Add-CiAcceptanceCheck 'Workflow bietet den Modus nur manuell auf main an und weist jeden anderen Aufruf sichtbar ab' (
         $workflow -match '(?s)workflow_dispatch:.*external-runtime-reconcile-acceptance' -and
         $workflow -match "github\.event_name == 'workflow_dispatch' && github\.ref == 'refs/heads/main' && inputs\.mode == 'external-runtime-reconcile-acceptance'" -and
@@ -55,7 +71,16 @@ $checks=@(
     )
     Add-CiAcceptanceCheck 'Primar- und Cleanup-Fehler bleiben getrennt klassifiziert' (
         $runner -match '\$primaryFailure' -and $runner -match '\$cleanupFailure' -and
+        $runner -match '\$primaryFailureCode' -and $runner -match '\$cleanupFailureCode' -and
+        $runner -match '-FailureKind ''PRIMARY'' -FailureCode \$primaryFailureCode' -and
+        $runner -match '-FailureKind ''CLEANUP'' -FailureCode \$cleanupFailureCode' -and
         $runner -match 'HYPERV_EXTERNAL_RUNTIME_CI_EXECUTION_AND_CLEANUP_FAILED' -and $runner -match 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_FAILED'
+    )
+    Add-CiAcceptanceCheck 'Erfolgreicher Runnerlauf gibt keine Fehlerdiagnose aus und behaelt seinen PASS-Vertrag' (
+        $runner -match '\$runnerSucceeded = \$\?' -and $runner -match 'if \(-not \$runnerSucceeded\)' -and
+        $runner -match "Write-Host 'PASS: Isolierter Hyper-V External-Runtime-Reconcile wurde ausgefuehrt\.'" -and
+        $runner.IndexOf("Write-Host 'PASS: Isolierter Hyper-V External-Runtime-Reconcile wurde ausgefuehrt.'") -lt $runner.IndexOf("if (`$primaryFailure) { Write-Host") -and
+        $runner -match "Write-Host 'Native Hyper-V External-Runtime-Reconcile-CI-Akzeptanz erfolgreich\.'"
     )
     Add-CiAcceptanceCheck 'Workflow interpoliert keine untrusted Inputs direkt in PowerShell und publiziert keine Roh-Evidence' (
         $workflow -match 'SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID: \$\{\{ inputs\.image_artifact_id \}\}' -and
