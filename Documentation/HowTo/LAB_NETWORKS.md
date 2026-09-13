@@ -39,7 +39,8 @@ abweichendem Subnetz oder einem abweichenden Netzwerkmodus endet mit
 ## Konfiguration
 
 Die Defaults lassen sich vor der ersten Anlage pro Prozess oder dauerhaft als
-Umgebungsvariable überschreiben:
+Umgebungsvariable überschreiben. Nichtleere Werte werden rein lesend in der
+Reihenfolge Prozess, Benutzer, Maschine und anschließend Default ausgewertet:
 
 ```powershell
 $env:SQL_SERVER_LAB_DOCKER_SUBNET = '172.26.0.0/16'
@@ -54,10 +55,12 @@ kollisionsfreies Netz gewählt werden.
 
 Kollidiert ein nicht explizit konfigurierter Docker- oder Podman-Default, wählt
 das Framework vor der ersten Netzmutation automatisch einen freien
-providergetrennten `/24`-Bereich aus `198.18.0.0/15`. Es speichert diese Wahl
-als benutzerspezifische `_SUBNET`-Variable, damit nachfolgende Prozesse das
-bereits angelegte Labnetz vertragsgleich wiederverwenden. Eine ausdrücklich
-gesetzte `_SUBNET`-Variable bleibt bindend und wird bei Konflikt nicht ersetzt.
+providergetrennten `/24`-Bereich aus `198.18.0.0/15` für den aktuellen Prozess.
+Es schreibt weder Benutzer- noch Maschinenumgebungswerte. Soll die Wahl über
+neue Prozesse erhalten bleiben, hinterlegt der Betreiber sie selbst als
+`_SUBNET`-Variable. Eine ausdrücklich gesetzte `_SUBNET`-Variable bleibt
+bindend und wird bei Konflikt nicht ersetzt. Ungültige ausdrücklich gesetzte
+Werte werden vor jeder Netzmutation abgewiesen.
 
 Aktive VPN-Routen werden automatisch erkannt. Für VPN-Präfixe, die nur bei
 einer getrennten Verbindung existieren, kann der Betreiber sie dauerhaft als
