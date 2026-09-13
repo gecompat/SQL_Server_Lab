@@ -94,7 +94,7 @@ function Invoke-HyperVSampleManifestCiSupervisor {
         [Parameter(Mandatory)][string]$Run1OperationId,
         [Parameter(Mandatory)][string]$Run2OperationId,
         [ValidateRange(1,7200)][int]$TimeoutSeconds=5400,
-        [string]$PowerShellPath=(Join-Path $PSHOME 'pwsh.exe')
+        [string]$PowerShellPath=([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)
     )
     $root=$null;$child=$null;$terminationConfirmed=$true;$timedOut=$false
     try {

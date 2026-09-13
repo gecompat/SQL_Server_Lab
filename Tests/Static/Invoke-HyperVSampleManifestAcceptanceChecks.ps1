@@ -83,8 +83,8 @@ try {
     [IO.File]::WriteAllText($successRunner,"param([string]`$ArtifactId,[string]`$StateRoot,[string]`$Run1OperationId,[string]`$Run2OperationId)`r`nexit 0`r`n",[Text.UTF8Encoding]::new($false))
     [IO.File]::WriteAllText($failureRunner,"param([string]`$ArtifactId,[string]`$StateRoot,[string]`$Run1OperationId,[string]`$Run2OperationId)`r`nthrow 'HYPERV_SAMPLE_MANIFEST_SYNTHETIC_FAILURE: private-value'`r`n",[Text.UTF8Encoding]::new($false))
     [IO.File]::WriteAllText($hangRunner,"param([string]`$ArtifactId,[string]`$StateRoot,[string]`$Run1OperationId,[string]`$Run2OperationId)`r`nStart-Sleep -Seconds 30`r`n",[Text.UTF8Encoding]::new($false))
-    [IO.File]::WriteAllText($grandchildRunner,"param([string]`$ArtifactId,[string]`$StateRoot,[string]`$Run1OperationId,[string]`$Run2OperationId)`r`n`$child=Start-Process -FilePath (Join-Path `$PSHOME 'pwsh.exe') -ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 30') -PassThru`r`n[IO.File]::WriteAllText((Join-Path `$StateRoot 'grandchild.pid'),[string]`$child.Id,[Text.UTF8Encoding]::new(`$false))`r`nStart-Sleep -Seconds 30`r`n",[Text.UTF8Encoding]::new($false))
-    $supervisorArguments=@{ArtifactId='synthetic-artifact';StateRoot=$supervisorFixtureRoot;Run1OperationId='synthetic-r1';Run2OperationId='synthetic-r2';PowerShellPath=(Join-Path $PSHOME 'pwsh.exe')}
+    [IO.File]::WriteAllText($grandchildRunner,"param([string]`$ArtifactId,[string]`$StateRoot,[string]`$Run1OperationId,[string]`$Run2OperationId)`r`n`$child=Start-Process -FilePath ([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName) -ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 30') -PassThru`r`n[IO.File]::WriteAllText((Join-Path `$StateRoot 'grandchild.pid'),[string]`$child.Id,[Text.UTF8Encoding]::new(`$false))`r`nStart-Sleep -Seconds 30`r`n",[Text.UTF8Encoding]::new($false))
+    $supervisorArguments=@{ArtifactId='synthetic-artifact';StateRoot=$supervisorFixtureRoot;Run1OperationId='synthetic-r1';Run2OperationId='synthetic-r2';PowerShellPath=([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)}
     $success=Invoke-HyperVSampleManifestCiSupervisor -AcceptanceRunner $successRunner -TimeoutSeconds 10 @supervisorArguments
     Add-LocalCheck 'Supervisor akzeptiert einen erfolgreichen nichtinteraktiven Kindlauf nur mit gueltiger Abschlussquittung' ($success.Status -eq 'COMPLETED' -and $success.Stage -eq 'RUNNER_COMPLETED' -and $success.TerminationConfirmed)
     $failure=Invoke-HyperVSampleManifestCiSupervisor -AcceptanceRunner $failureRunner -TimeoutSeconds 10 @supervisorArguments
@@ -94,7 +94,7 @@ try {
     Add-LocalCheck 'Supervisor verwirft Quittungen mit nicht erlaubter Nutzlast' (-not (Test-HyperVSampleManifestCiStageReceipt -ReceiptPath $invalidReceipt))
     $hang=Invoke-HyperVSampleManifestCiSupervisor -AcceptanceRunner $hangRunner -TimeoutSeconds 1 @supervisorArguments
     Add-LocalCheck 'Supervisor meldet einen haengenden Kindlauf nach der festen Deadline als Timeout' ($hang.Status -eq 'FAILED' -and $hang.ReasonCode -eq 'HYPERV_SAMPLE_MANIFEST_CI_RUNNER_TIMEOUT' -and $hang.TimedOut -and $hang.TerminationConfirmed)
-    $foreignProcess=Start-Process -FilePath (Join-Path $PSHOME 'pwsh.exe') -ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 30') -PassThru
+    $foreignProcess=Start-Process -FilePath ([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName) -ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 30') -PassThru
     $timeout=Invoke-HyperVSampleManifestCiSupervisor -AcceptanceRunner $grandchildRunner -TimeoutSeconds 1 @supervisorArguments
     $grandchildId=[int](Get-Content -LiteralPath (Join-Path $supervisorFixtureRoot 'grandchild.pid') -Raw -Encoding utf8)
     $grandchildExited=$false;try{(Get-Process -Id $grandchildId -ErrorAction Stop).Refresh()}catch{$grandchildExited=$true}
