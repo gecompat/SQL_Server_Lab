@@ -185,6 +185,9 @@ sources_of_truth:
   validation_hyperv_test_database_reconcile: Tests/Static/Invoke-HyperVTestDatabaseReconcileChecks.ps1
   validation_hyperv_test_database_reconcile_acceptance: Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1
   validation_hyperv_test_database_reconcile_bootstrap: Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1
+  validation_hyperv_sample_manifest_acceptance: Tests/Integration/Invoke-HyperVSampleManifestAcceptance.ps1
+  validation_hyperv_sample_manifest_ci_acceptance: Tests/Integration/Invoke-HyperVSampleManifestCiAcceptance.ps1
+  validation_hyperv_sample_manifest_acceptance_static: Tests/Static/Invoke-HyperVSampleManifestAcceptanceChecks.ps1
   hyperv_external_runtime_reconcile_contract: Private/HyperVExternalRuntimeReconcile.ps1
   hyperv_external_runtime_reconcile_journal_schema: Schemas/hyperv-external-runtime-reconcile-journal.schema.json
   validation_hyperv_external_runtime_reconcile: Tests/Static/Invoke-HyperVExternalRuntimeReconcileChecks.ps1
@@ -941,6 +944,7 @@ providers:
     image_migration_static_checks: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
     sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1
     test_database_reconcile_acceptance: "Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 plus isolierter Prepared-Artifact-Bootstrap; ausfuehrbarer Plan/WhatIf/Add/No-op/Remove-/Restart-/Cleanup-Vertrag mit prozesslokal isolierter LAB_GENERATED-Erzeugung, Hashprüfung, bevorzugter Wiederverwendung, stabiler Host-SQL-Readiness nach VM-Neustart und zweitem eigentumsgebundenem Cleanup; nativer positiver Nachweis am 2026-09-12"
+    sample_manifest_acceptance: "Tests/Integration/Invoke-HyperVSampleManifestAcceptance.ps1 und sein manueller main-gebundener CI-Wrapper; zwei frische sequenzielle SQL-2025-Prepared-Manifest-Runs mit einem isolierten Testdatenroot, Chinook und Northwind, katalog-/hashgebundenen Quellen, LAB_GENERATED-Baseline-ID/Key/Hash- und manifest.lock-Gleichheit im zweiten Run sowie scopegebundenem Cleanup; native Ausfuehrung noch NOT_EXECUTED"
     external_runtime_reconcile_static_checks: "Tests/Static/Invoke-HyperVExternalRuntimeReconcileChecks.ps1; Plan/WhatIf/Add/No-op/Recovery/Resume/Removal-Blockade und PlanKey-gebundener Connection-State"
     external_runtime_reconcile_acceptance: "Tests/Integration/Invoke-HyperVExternalRuntimeReconcileAcceptance.ps1; isolierter SQL-2022-Hyper-V-Aufbau mit öffentlichem Plan/WhatIf/Apply/No-op/Removal-Blockade, VM-Neustartgrenze, echten Python-/R-/Java-Postconditions, Cold Start und optionalem scopegebundenem Cleanup; native Ausfuehrung noch NOT_EXECUTED"
     storage_acceptance_bootstrap: "Tests/Integration/Invoke-HyperVStorageAcceptanceBootstrap.ps1; real three-device N4/N5 rerun validates bound builder/image placement and registry-safe isolated artifact cleanup"
@@ -1735,7 +1739,7 @@ known_limitations:
     - "Artifact Refresh und Rebuild für Medien, VHDX und Derived Images nicht implementiert"
     - "kein provideruebergreifendes Docker-/Podman-Netzwerk oder Hyper-V-SubRun"
     - "Sample-Handler mit Trust-Pfad, Mehrfachauswahl, ZIP-/7z-Backup-Payloads, gepinnten Einzelskripten und sicheren Multi-Output-ZIP-Script-Bundles sind implementiert; nicht freigegebene Archive und Attach-Handler bleiben offen"
-    - "Containerbasierte und run-gebundene Hyper-V-LAB_GENERATED-Baselines samt automatischer Sample-Manifestbindung und kompatibler Aufsetzpunkte sind synthetisch validiert; reale Hyper-V-Runtime-Evidence bleibt offen"
+    - "Containerbasierte und run-gebundene Hyper-V-LAB_GENERATED-Baselines samt automatischer Sample-Manifestbindung und kompatibler Aufsetzpunkte sind synthetisch validiert. Der neue zwei-Run-Chinook-/Northwind-Manifest-Runner mit katalog-/hashgebundenen Quellen, identischen Baseline-ID/Key/Hash-/Lock-Bindungen und scopegebundenem Cleanup wartet noch auf seinen ersten manuellen main-gebundenen nativen Erfolg (NOT_EXECUTED)."
     - "mehrere reservierte serverConfig-Felder noch ohne stabilen Runtimepfad; explizite Nutzung wird vor Auflösung und Mutation fail-closed abgelehnt"
     - "Versionskatalog wird nicht automatisch als aktuell garantiert"
     - "alle katalogisierten CUs sind ohne KI ueber Cmdlet oder Konsole beschaffbar; Windows wird per SHA-256 und Microsoft-Authenticode, Linux per exaktem MCR-Tag gebunden"

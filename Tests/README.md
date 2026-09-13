@@ -67,6 +67,8 @@ dokumentiert. Ihre ausfuehrbaren Einstiege sind:
 .\Tests\Integration\Invoke-HyperVSqlPortReconcileAcceptanceBootstrap.ps1
 .\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 `
     -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+.\Tests\Integration\Invoke-HyperVSampleManifestAcceptance.ps1 `
+    -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
 .\Tests\Integration\Invoke-HyperVDatabasePackageAttachAcceptance.ps1 `
     -RunId '<laufender-verwalteter-sql-2025-run>'
 .\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptanceBootstrap.ps1 `
@@ -85,6 +87,12 @@ prozesslokalen temporären Root. Er belegt im selben isolierten Hyper-V-Lauf die
 Erzeugung, Hashprüfung, bevorzugte Wiederverwendung und abschließende
 eigentumsgebundene Entfernung einer `LAB_GENERATED`-Chinook-Baseline; globale
 Testdaten-Bibliotheken bleiben unverändert.
+
+Der Mehrfach-Sample-Manifest-Runner führt zwei frische sequenzielle
+SQL-2025-Prepared-Runs mit Chinook und Northwind aus, teilt nur seinen
+isolierten Testdaten-Root und verlangt im zweiten Run identische
+`LAB_GENERATED`-Baseline-IDs, Keys, Hashes sowie Manifest-Locks. Bis zum ersten
+nativen erfolgreichen Lauf bleibt seine Evidence `NOT_EXECUTED`.
 
 Der Datenbankpaket-Attach-Runner verwendet ressourcenschonend einen expliziten
 laufenden, verwalteten SQL-2025-Run oder erzeugt ohne `-RunId` genau einen

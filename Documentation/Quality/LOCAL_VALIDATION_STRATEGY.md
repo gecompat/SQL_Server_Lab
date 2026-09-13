@@ -425,6 +425,8 @@ Der Auto-Modus wählt für den mutierenden Lifecycle genau eine Runtime: Docker 
     -MediaRoot D:\Lab_Base
 .\Tests\Integration\Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 `
     -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+.\Tests\Integration\Invoke-HyperVSampleManifestAcceptance.ps1 `
+    -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
 .\Tests\Integration\Invoke-HyperVPersistentDataDriveAcceptance.ps1
 ```
 
@@ -1078,7 +1080,7 @@ Für den automatischen Hyper-V-Manifestpfad belegt sie den Preflight auf
 vollständige Default-Data-/Default-Log-/Backup-Lanes und die Ablehnung
 widersprüchlicher Einzelplatzierung; die Hyper-V-Lab-Suite bindet den
 run-basierten Sample-Handler statisch an Run, Instanz und Gastcredential.
-Eine reale Hyper-V-Ausführung bleibt `NOT_EXECUTED`.
+Die bereits erfolgreiche Hyper-V-Testdatenbank-Reconcile-Abnahme belegt Add/Remove und eine Chinook-Baseline innerhalb eines Runs. Der getrennte Mehrfach-Sample-Manifest-Runner erstellt zwei frische sequenzielle SQL-2025-Prepared-Runs mit Chinook und Northwind, vergleicht `LAB_GENERATED`-Baseline-ID/Key/Hash und beide Manifest-Locks und bereinigt jeden Run scopegebunden. Seine native Ausfuehrung bleibt `NOT_EXECUTED`, bis der manuelle Main-Workflow vollstaendig erfolgreich beendet ist.
 
 Ein vollständiger automatischer Download-/Restore-Test pro Sample ist derzeit nicht vorhanden.
 

@@ -375,6 +375,15 @@ einer erhöhten Sitzung automatisch aus:
     -MediaRoot D:\Lab_Base
 ```
 
+## Invoke-HyperVSampleManifestAcceptance.ps1
+
+Der erhöhte Runner erstellt zwei frische SQL-2025-Prepared-Manifest-Runs in Folge. Beide verwenden nur einen testlokalen Sample-Root; Run 1 installiert Chinook und Northwind aus den katalogisierten SHA-256-gebundenen Quellen und erzeugt deren `LAB_GENERATED`-Baselines. Nach vollständigem Run-1-Cleanup muss Run 2 identische Baseline-ID, Key, Hash und `manifest.lock.json`-Bindungen verwenden und beide SQL-Inhalte nachweisen. Der native Nachweis ist bis zum ersten erfolgreichen manuellen Main-Workflow `NOT_EXECUTED`.
+
+```powershell
+.\Tests\Integration\Invoke-HyperVSampleManifestAcceptance.ps1 `
+    -ArtifactId 'hyperv-sql-prepared-sealed-<sha256>'
+```
+
 ## Invoke-HyperVWindowsGeneralizeAcceptance.ps1
 
 Dieser reale positive Image-Factory-Nachweis verwendet die Betriebssystem- und
