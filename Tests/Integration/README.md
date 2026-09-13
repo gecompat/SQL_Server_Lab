@@ -30,6 +30,13 @@ End-to-End-Test des gesamten Lab-Lifecycles.
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider hyperv
 ```
 
+Wenn ein nativer Hyper-V-Runner vor seinem eigenen Cleanup abbricht, ist der
+manuelle Workflow `Hyper-V Scoped Test-Run Cleanup` der einzige separate
+Recovery-Einstieg. Er wird ausschließlich von `main` gestartet und entfernt
+nur einen durch RunId, ScopeId, Cleanup-Plan und Live-VM-Identität als
+`lifecycle=test` gebundenen Run. Er ist keine Integrationstest-Suite und
+erzeugt keine neue Testumgebung.
+
 ## Persistenter Storage-Removal-Executor
 
 `Invoke-PersistentStorageRemovalExecutorAcceptance.ps1` prüft den öffentlichen

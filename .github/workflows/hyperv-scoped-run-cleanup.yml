@@ -1,0 +1,79 @@
+name: Hyper-V Scoped Test-Run Cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: Exact RunId of the failed Hyper-V lifecycle test run
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sql-server-lab-hyperv-scoped-test-cleanup
+  cancel-in-progress: false
+
+jobs:
+  scoped-test-run-cleanup:
+    name: Remove one verified Hyper-V test run
+    runs-on: [self-hosted, SQL_Lab, Hyper-V]
+    timeout-minutes: 45
+    env:
+      INPUT_RUN_ID: ${{ inputs.run_id }}
+      SQL_SERVER_LAB_RESOURCE_LIFECYCLE: test
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Reject dispatch outside main
+        if: github.ref != 'refs/heads/main'
+        run: throw 'HYPERV_SCOPED_CLEANUP_MAIN_REF_REQUIRED'
+
+      - name: Checkout trusted main
+        if: github.ref == 'refs/heads/main'
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Verify and remove the owned Hyper-V test run
+        if: github.ref == 'refs/heads/main'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $runId = $null
+          if (-not [Guid]::TryParseExact($env:INPUT_RUN_ID, 'D', [ref]$runId)) { throw 'HYPERV_SCOPED_CLEANUP_RUN_ID_INVALID' }
+          $runId = $runId.ToString('D')
+
+          # This fixed runner-local root deliberately accepts neither workflow input nor environment override.
+          $stateRoot = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) 'SqlServerLab'
+          $runDirectory = Join-Path (Join-Path $stateRoot 'runs') $runId
+          $statePath = Join-Path $runDirectory 'run-state.json'
+          $planPath = Join-Path $runDirectory 'cleanup-plan.json'
+          $connectionPath = Join-Path $runDirectory 'connection-info.json'
+          foreach ($requiredPath in @($statePath, $planPath, $connectionPath)) {
+            if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) { throw 'HYPERV_SCOPED_CLEANUP_REQUIRED_STATE_MISSING' }
+          }
+
+          $state = Get-Content -LiteralPath $statePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+          $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+          $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+          $scopeId = $null
+          if (-not [Guid]::TryParseExact([string]$state.scopeId, 'D', [ref]$scopeId) -or [string]$state.runId -cne $runId -or [string]$plan.runId -cne $runId -or [string]$plan.scopeId -cne $scopeId.ToString('D') -or [string]$state.metadata.workflowKind -cne 'hyperv-lab') { throw 'HYPERV_SCOPED_CLEANUP_STATE_SCOPE_INVALID' }
+
+          $steps = @($plan.steps)
+          if ($steps.Count -eq 0 -or @($plan.providerSubRuns | Where-Object { [string]$_.provider -cne 'hyperv' }).Count -ne 0 -or @($steps | Where-Object { [string]$_.provider -cne 'hyperv' -or [string]$_.resourceType -notin @('vm', 'vhdx', 'ipam-lease') }).Count -ne 0) { throw 'HYPERV_SCOPED_CLEANUP_PLAN_NOT_HYPERV_ONLY' }
+
+          $instances = @($connection.instances | Where-Object { [string]$_.provider -ceq 'hyperv' })
+          if ($instances.Count -ne 1 -or [string]::IsNullOrWhiteSpace([string]$instances[0].vmName) -or @($steps | Where-Object { [string]$_.resourceType -ceq 'vm' -and [string]$_.resourceId -ceq [string]$instances[0].vmName }).Count -ne 1) { throw 'HYPERV_SCOPED_CLEANUP_VM_BINDING_INVALID' }
+
+          Import-Module .\SqlServerLab.psd1 -Force
+          $module = Get-Module SqlServerLab
+          $managedVm = & $module { param($VmName, $ExpectedRunId, $ExpectedScopeId) Get-HyperVManagedVM -VMName $VmName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId } ([string]$instances[0].vmName) $runId $scopeId.ToString('D')
+          if (-not $managedVm -or [string]$managedVm.Identity.provider -cne 'hyperv' -or [string]$managedVm.Identity.lifecycle -cne 'test' -or [string]$managedVm.Identity.runId -cne $runId -or [string]$managedVm.Identity.scopeId -cne $scopeId.ToString('D')) { throw 'HYPERV_SCOPED_CLEANUP_LIVE_OWNERSHIP_INVALID' }
+
+          try { $result = Remove-SqlServerLab -RunId $runId -StateRoot $stateRoot -Force -Confirm:$false }
+          catch { throw 'HYPERV_SCOPED_CLEANUP_EXECUTION_FAILED' }
+          if ([string]$result.Status -notin @('REMOVED', 'COMPLETED') -or [int]$result.Errors -ne 0 -or (Get-VM -Name ([string]$instances[0].vmName) -ErrorAction SilentlyContinue)) { throw 'HYPERV_SCOPED_CLEANUP_POSTCONDITION_FAILED' }
+          Write-Host "HYPERV_SCOPED_CLEANUP_STATUS=$([string]$result.Status)"

@@ -133,6 +133,7 @@ end {
         @{ Pattern = '(?i)(HyperVProvider|Providers/HyperV)'; Checks = @('Invoke-HyperVProviderChecks.ps1','Invoke-LabNetworkChecks.ps1') },
         @{ Pattern = '(?i)(JobProgress|HyperVGuestProgress|HyperVProvider|HyperVLabEnvironment|ExternalRuntimeWindows)'; Checks = @('Invoke-JobProgressChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSqlOwnershipInitialization|HyperVLabEnvironment|HyperVSqlConfigurationReconcile)'; Checks = @('Invoke-HyperVSqlOwnershipInitializationChecks.ps1') },
+        @{ Pattern = '(?i)(HyperVScopedRunCleanup|hyperv-scoped-run-cleanup)'; Checks = @('Invoke-HyperVScopedRunCleanupWorkflowChecks.ps1','Invoke-CiStrategyChecks.ps1') },
         @{ Pattern = '(?i)(SessionTransferProgress|SqlStorageOperations|HyperVDatabasePackage)'; Checks = @('Invoke-SessionTransferProgressChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(SqlStorageOperations)'; Checks = @('Invoke-StorageFilePlacementChecks.ps1','Invoke-HyperVTestDatabaseReconcileChecks.ps1') },
         @{ Pattern = '(?i)(BlockingActionProgress|ActionProgress|HyperVLegacyWindowsEvaluationTemplate)'; Checks = @('Invoke-BlockingActionProgressChecks.ps1','Invoke-HyperVImageBuilderChecks.ps1') },

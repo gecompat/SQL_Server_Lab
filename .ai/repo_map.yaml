@@ -1081,6 +1081,16 @@ state_files:
     - autostart/windows-podman-desktop-autostart.json
   repository_policy: "State, Secrets, Connection Information und konkrete Hostpfade nie versionieren"
 
+hyperv_scoped_test_run_cleanup:
+  source: .github/workflows/hyperv-scoped-run-cleanup.yml
+  status: IMPLEMENTED_MANUAL_RECOVERY
+  scope: "Exactly one local lifecycle=test Hyper-V run, bound by RunId, ScopeId, persisted cleanup plan and live VM identity"
+  excludes:
+    - production_or_shared_environments
+    - workflow_dispatch_from_untrusted_checkout
+    - arbitrary_state_roots
+    - direct_hyperv_deletion
+
 provisioning_flow:
   - "Read-LabManifest oder Ad-hoc-Normalisierung"
   - "Test-SqlServerVersionSupported"
