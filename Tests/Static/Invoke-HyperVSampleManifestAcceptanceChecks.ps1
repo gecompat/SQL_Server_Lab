@@ -84,7 +84,7 @@ try {
     [IO.File]::WriteAllText($failureRunner,"param([string]`$ArtifactId,[string]`$StateRoot,[string]`$Run1OperationId,[string]`$Run2OperationId)`r`nthrow 'HYPERV_SAMPLE_MANIFEST_SYNTHETIC_FAILURE: private-value'`r`n",[Text.UTF8Encoding]::new($false))
     [IO.File]::WriteAllText($hangRunner,"param([string]`$ArtifactId,[string]`$StateRoot,[string]`$Run1OperationId,[string]`$Run2OperationId)`r`nStart-Sleep -Seconds 30`r`n",[Text.UTF8Encoding]::new($false))
     [IO.File]::WriteAllText($grandchildRunner,"param([string]`$ArtifactId,[string]`$StateRoot,[string]`$Run1OperationId,[string]`$Run2OperationId)`r`n`$child=Start-Process -FilePath ([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName) -ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 30') -PassThru`r`n[IO.File]::WriteAllText((Join-Path `$StateRoot 'grandchild.pid'),[string]`$child.Id,[Text.UTF8Encoding]::new(`$false))`r`nStart-Sleep -Seconds 30`r`n",[Text.UTF8Encoding]::new($false))
-    $supervisorArguments=@{ArtifactId='synthetic-artifact';StateRoot=$supervisorFixtureRoot;Run1OperationId='synthetic-r1';Run2OperationId='synthetic-r2';PowerShellPath=([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)}
+    $supervisorArguments=@{ArtifactId='synthetic-artifact';StateRoot=$supervisorFixtureRoot;Run1OperationId='synthetic-r1';Run2OperationId='synthetic-r2';PowerShellPath=([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName);Synthetic=$true}
     $success=Invoke-HyperVSampleManifestCiSupervisor -AcceptanceRunner $successRunner -TimeoutSeconds 10 @supervisorArguments
     Add-LocalCheck 'Supervisor akzeptiert einen erfolgreichen nichtinteraktiven Kindlauf nur mit gueltiger Abschlussquittung' ($success.Status -eq 'COMPLETED' -and $success.Stage -eq 'RUNNER_COMPLETED' -and $success.TerminationConfirmed)
     $failure=Invoke-HyperVSampleManifestCiSupervisor -AcceptanceRunner $failureRunner -TimeoutSeconds 10 @supervisorArguments
@@ -102,7 +102,7 @@ try {
     Add-LocalCheck 'Supervisor beendet beim Timeout ausschliesslich den eigenen Kindprozessbaum und bestaetigt dessen Ende' ($timeout.Status -eq 'FAILED' -and $timeout.ReasonCode -eq 'HYPERV_SAMPLE_MANIFEST_CI_RUNNER_TIMEOUT' -and $timeout.TimedOut -and $timeout.TerminationConfirmed -and $grandchildExited -and -not $foreignProcess.HasExited)
     $cleanupIndex=$ciRunner.LastIndexOf('Invoke-HyperVSampleManifestCiCleanup -Module')
     $supervisionIndex=$ciRunner.IndexOf('Invoke-HyperVSampleManifestCiSupervisor -AcceptanceRunner')
-    $cleanupOrderingPass=[bool]($supervisionIndex -ge 0 -and $cleanupIndex -gt $supervisionIndex -and ($ciRunner -match '\$module -and -not \$childTerminationUnconfirmed') -and ($ciRunner -match 'RUNNER_TERMINATION_UNCONFIRMED_RECOVERY_REQUIRED'))
+    $cleanupOrderingPass=[bool]($supervisionIndex -ge 0 -and $cleanupIndex -gt $supervisionIndex -and ($ciRunner -match '\$module -and -not \$childTerminationUnconfirmed') -and ($ciRunner -match 'RUNNER_TERMINATION_UNCONFIRMED_RECOVERY_REQUIRED') -and ($ciRunner -match 'New-HyperVSampleManifestCiSupervisorRoot -Synthetic:\$Synthetic') -and ($ciRunner -match 'HYPERV_SAMPLE_MANIFEST_CI_RUNNER_NOT_ELEVATED'))
     Add-LocalCheck 'CI-Wrapper blockiert operationgebundenen Cleanup bis zum bestaetigten Supervisorabschluss und bewahrt State bei unbestaetigter Terminierung' $cleanupOrderingPass
 } catch {
     Add-LocalCheck 'Synthetische Supervisor-Vertragspruefung ist ausfuehrbar' $false ('synthetic-supervisor-failed: '+$_.Exception.Message)

@@ -40,10 +40,11 @@ function Get-HyperVSampleManifestCiRunnerReasonCode {
 }
 function New-HyperVSampleManifestCiSupervisorRoot {
     [OutputType([string])]
-    param()
+    param([switch]$Synthetic)
     $root=Join-Path ([IO.Path]::GetTempPath()) ("sql-server-lab-hyperv-sample-ci-"+[guid]::NewGuid().ToString('N'))
     $created=New-Item -ItemType Directory -Path $root -ErrorAction Stop
     if($created.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'HYPERV_SAMPLE_MANIFEST_CI_SUPERVISOR_ROOT_INVALID'}
+    if($Synthetic){return $root}
     $identity=[Security.Principal.WindowsIdentity]::GetCurrent().User
     if(-not $identity){throw 'HYPERV_SAMPLE_MANIFEST_CI_SUPERVISOR_ROOT_INVALID'}
     $acl=Get-Acl -LiteralPath $root
@@ -72,6 +73,9 @@ function Stop-HyperVSampleManifestCiChildProcessTree {
     [OutputType([bool])]
     param([Parameter(Mandatory)][Diagnostics.Process]$Process)
     try{if($Process.HasExited){return $true}}catch{return $false}
+    if(-not $IsWindows){
+        try{$Process.Kill($true);if(-not $Process.WaitForExit(15000)){return $false};$Process.Refresh();return $Process.HasExited}catch{return $false}
+    }
     $taskKillPath=Join-Path $env:SystemRoot 'System32\taskkill.exe'
     if(-not (Test-Path -LiteralPath $taskKillPath -PathType Leaf)){return $false}
     try {
@@ -94,12 +98,13 @@ function Invoke-HyperVSampleManifestCiSupervisor {
         [Parameter(Mandatory)][string]$Run1OperationId,
         [Parameter(Mandatory)][string]$Run2OperationId,
         [ValidateRange(1,7200)][int]$TimeoutSeconds=5400,
-        [string]$PowerShellPath=([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName)
+        [string]$PowerShellPath=([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName),
+        [switch]$Synthetic
     )
     $root=$null;$child=$null;$terminationConfirmed=$true;$timedOut=$false
     try {
         if(-not (Test-Path -LiteralPath $AcceptanceRunner -PathType Leaf) -or -not (Test-Path -LiteralPath $PowerShellPath -PathType Leaf)){throw 'HYPERV_SAMPLE_MANIFEST_CI_SUPERVISOR_INPUT_INVALID'}
-        $root=New-HyperVSampleManifestCiSupervisorRoot
+        $root=New-HyperVSampleManifestCiSupervisorRoot -Synthetic:$Synthetic
         $childScript=Join-Path $root 'runner.ps1';$receiptPath=Join-Path $root 'stage-receipt.json'
         $childContent=@'
 [CmdletBinding()]
