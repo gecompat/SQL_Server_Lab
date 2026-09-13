@@ -320,7 +320,7 @@ function Test-HyperVPathWithinRunDirectory {
         if (-not (Test-Path -LiteralPath $identityStatePath -PathType Leaf)) { return $false }
         try {
             $identityState = Get-Content -LiteralPath $identityStatePath -Raw -Encoding utf8 |
-                ConvertFrom-Json -Depth 10 -ErrorAction Stop
+                ConvertFrom-Json -Depth 20 -ErrorAction Stop
         }
         catch { return $false }
         if (-not [string]::Equals(
@@ -401,7 +401,7 @@ function Test-HyperVVhdxCleanupScope {
         $runPrefix = $null
         if (Test-Path -LiteralPath $runStatePath -PathType Leaf) {
             $runState = Get-Content -LiteralPath $runStatePath -Raw -Encoding utf8 |
-                ConvertFrom-Json -Depth 10 -ErrorAction Stop
+                ConvertFrom-Json -Depth 20 -ErrorAction Stop
             if ([string]$runState.runId -match '^[0-9a-fA-F-]{36}$') {
                 $runPrefix = ([string]$runState.runId).Replace('-', '').Substring(0, 8).ToLowerInvariant()
             }

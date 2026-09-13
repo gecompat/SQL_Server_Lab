@@ -94,6 +94,15 @@ try {
         }
         function Get-VM { @() }
         function Get-VMHardDiskDrive { @() }
+        function Get-DeepExternalSoftwareArtifactReference {
+            $artifactReference = [PSCustomObject]@{
+                Id = 'sql-python'; Sha256 = ('a' * 64); Source = 'catalog'
+            }
+            foreach ($level in 1..12) {
+                $artifactReference = [PSCustomObject]@{ ("catalogLayer$level") = $artifactReference }
+            }
+            return $artifactReference
+        }
 
         $stateRoot = Get-LabStateRoot
         $root = [string](Get-LabStorageConfiguration).DefaultDataRoot
@@ -140,6 +149,12 @@ try {
         $run = New-LabRunState -StateRoot $stateRoot -Metadata @{ name='cleanup-audit-hyperv'; workflowKind='hyperv-lab' } `
             -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv'; provider='hyperv'; instanceIds=@('primary') })
         $binding = Initialize-LabHyperVResourceBinding -ResourceId $run.RunId -ResourceClass Run -StateDirectory $run.RunDir
+        $runStatePath = Join-Path $run.RunDir 'run-state.json'
+        $runState = Get-Content -LiteralPath $runStatePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+        $runState | Add-Member -NotePropertyName externalSoftware -NotePropertyValue ([PSCustomObject]@{
+            ArtifactRefs = Get-DeepExternalSoftwareArtifactReference
+        }) -Force
+        Write-LabArtifactJsonAtomic -Path $runStatePath -InputObject $runState
         $null = New-Item -Path $binding.HyperVResourceRoot -ItemType Directory -Force
         $protectedVhdx = Join-Path $binding.HyperVResourceRoot 'protected-child.vhdx'
         $untrackedFile = Join-Path $binding.HyperVResourceRoot 'foreign-note.txt'
@@ -210,6 +225,12 @@ try {
         $cleanRun = New-LabRunState -StateRoot $stateRoot -Metadata @{ name='cleanup-audit-valid-hyperv'; workflowKind='hyperv-lab' } `
             -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv'; provider='hyperv'; instanceIds=@('primary') })
         $cleanBinding = Initialize-LabHyperVResourceBinding -ResourceId $cleanRun.RunId -ResourceClass Run -StateDirectory $cleanRun.RunDir
+        $cleanRunStatePath = Join-Path $cleanRun.RunDir 'run-state.json'
+        $cleanRunState = Get-Content -LiteralPath $cleanRunStatePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+        $cleanRunState | Add-Member -NotePropertyName externalSoftware -NotePropertyValue ([PSCustomObject]@{
+            ArtifactRefs = Get-DeepExternalSoftwareArtifactReference
+        }) -Force
+        Write-LabArtifactJsonAtomic -Path $cleanRunStatePath -InputObject $cleanRunState
         $null = New-Item -Path $cleanBinding.HyperVResourceRoot -ItemType Directory -Force
         $cleanChild = Join-Path $cleanBinding.HyperVResourceRoot 'owned-child.vhdx'
         $null = New-Item -Path $cleanChild -ItemType File -Force
@@ -224,6 +245,21 @@ try {
             -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv
         $null = Add-CleanupStep -RunDir $cleanRun.RunDir -ResourceType vhdx -ResourceId $cleanExternal `
             -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv -SafetyRoot $cleanBinding.LabDataRoot
+        $foreignRun = New-LabRunState -StateRoot $stateRoot -Metadata @{ name='cleanup-audit-foreign-run'; workflowKind='hyperv-lab' } `
+            -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv'; provider='hyperv'; instanceIds=@('primary') })
+        $foreignBinding = Initialize-LabHyperVResourceBinding -ResourceId $foreignRun.RunId -ResourceClass Run -StateDirectory $foreignRun.RunDir
+        $null = New-Item -Path $foreignBinding.HyperVResourceRoot -ItemType Directory -Force
+        $foreignRunRejected = -not (Test-HyperVVhdxCleanupScope -Path $cleanChild -ExpectedRunDirectory $foreignRun.RunDir).Valid
+        $malformedRun = New-LabRunState -StateRoot $stateRoot -Metadata @{ name='cleanup-audit-malformed-run'; workflowKind='hyperv-lab' } `
+            -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv'; provider='hyperv'; instanceIds=@('primary') })
+        $malformedBinding = Initialize-LabHyperVResourceBinding -ResourceId $malformedRun.RunId -ResourceClass Run -StateDirectory $malformedRun.RunDir
+        $null = New-Item -Path $malformedBinding.HyperVResourceRoot -ItemType Directory -Force
+        $malformedChild = Join-Path $malformedBinding.HyperVResourceRoot 'malformed-child.vhdx'
+        $null = New-Item -Path $malformedChild -ItemType File -Force
+        Set-Content -LiteralPath (Join-Path $malformedRun.RunDir 'run-state.json') -Value '{ malformed json' -Encoding utf8 -NoNewline
+        $malformedRunRejected = -not (Test-HyperVVhdxCleanupScope -Path $malformedChild -ExpectedRunDirectory $malformedRun.RunDir).Valid
+        $foreignRootRejected = -not (Test-HyperVVhdxCleanupScope -Path $cleanExternal `
+            -ExpectedRunDirectory $cleanRun.RunDir -SafetyRoot (Join-Path $temporaryParent 'foreign-root')).Valid
         $validCleanup = Invoke-CleanupPlan -RunDir $cleanRun.RunDir -ScopeId $cleanRun.ScopeId
 
         $chainRun = New-LabRunState -StateRoot $stateRoot -Metadata @{ name='cleanup-audit-vhdx-chain'; workflowKind='hyperv-lab' } `
@@ -290,6 +326,8 @@ try {
             ValidCleanup=$validCleanup
             ValidChildRemoved=(-not (Test-Path -LiteralPath $cleanChild -PathType Leaf))
             ValidExternalRemoved=(-not (Test-Path -LiteralPath $cleanExternal -PathType Leaf))
+            ForeignRunRejected=$foreignRunRejected; MalformedRunRejected=$malformedRunRejected
+            ForeignRootRejected=$foreignRootRejected
             ChainBlocked=$chainBlocked; ChainBase=$chainBase; ChainChild=$chainChild
             BuildCleanup=$buildCleanup
             BuildVhdxRemoved=(-not (Test-Path -LiteralPath $buildVhdx -PathType Leaf))
@@ -436,6 +474,8 @@ try {
     Add-CheckResult -Name 'Hyper-V-Run-Binding und Recovery-Journal werden gemeinsam auditiert' -Success (
         $runScope.BindingStatus -eq 'VALID' -and $runScope.MigrationStatus -eq 'RECOVERY_REQUIRED' -and
         $result.Audit.Summary.HyperVProtectionIssues -ge 1)
+    Add-CheckResult -Name 'Cleanup-Audit akzeptiert tiefen externen Software-State nur mit gültiger Run-Bindung' -Success (
+        $runScope.BindingStatus -eq 'VALID' -and $runScope.RunStateStatus -eq 'VALID')
     Add-CheckResult -Name 'Cleanup-Schritt ist am revalidierten Run-Root geschützt' -Success (
         @($runScope.CleanupResources | Where-Object { $_.ProtectionStatus -eq 'PROTECTED' -and $_.Path -eq $result.ProtectedVhdx }).Count -eq 1)
     Add-CheckResult -Name 'Ungetrackte Run-Datei wird nur als Preserve-Befund gemeldet' -Success (
@@ -461,6 +501,8 @@ try {
     Add-CheckResult -Name 'Gültiger Plan entfernt Run-Root und registrierte Zusatzlaufwerks-VHDX' -Success (
         $result.ValidCleanup.Status -eq 'CLEANUP_SUCCEEDED' -and $result.ValidCleanup.Steps -eq 2 -and
         $result.ValidChildRemoved -and $result.ValidExternalRemoved)
+    Add-CheckResult -Name 'Tiefer Run-State erweitert keine Hyper-V-Cleanup-Autorität über Run, JSON und SafetyRoot hinaus' -Success (
+        $result.ForeignRunRejected -and $result.MalformedRunRejected -and $result.ForeignRootRejected)
     Add-CheckResult -Name 'Abhängige Checkpoint-VHDX blockiert die Entfernung ihrer Basisdatei fail-closed' -Success (
         $result.ChainBlocked.Status -eq 'CLEANUP_BLOCKED' -and
         (Test-Path -LiteralPath $result.ChainBase -PathType Leaf) -and
