@@ -326,6 +326,26 @@ bleiben bis zur Inhaltsprüfung unter `Incoming\CommunityScan`.
 | 2000 | MSDE Release A sowie geprüftes 120-Tage-Evaluation-ISO | MSDE als verifizierte Archivkopie; Evaluation als ausdrücklich quarantänisierter Community-Scan |
 | 7.0 und 6.5 | kein freies Vollmedium ermittelt | originales lizenziertes Medium manuell unter `SQL\<Version>\<Edition>\ISO` bereitstellen |
 
+### SQL Server 2022 Evaluation für den External-Runtime-Nachweis
+
+Der native Hyper-V-External-Runtime-CI-Nachweis benötigt zusätzlich genau die
+vollständige SQL-Server-2022-Evaluation-ISO unter dem relativen Media-Root-Pfad
+`SQL/2022/Eval/ISO/SQLServer2022-x64-ENU.iso`. Der katalogisierte
+Evaluation-Bootstrapper darf automatisiert beschafft werden, die Wahl und
+Erzeugung des Vollmediums im Bootstrapper ist jedoch bewusst interaktiv. Den
+Bootstrapper daher lokal mit den geltenden Microsoft-Lizenzbedingungen ausführen,
+das erzeugte Originalmedium unter diesem Pfad ablegen und anschließend den
+Sidecar erzeugen:
+
+```powershell
+.\Tools\Initialize-SqlServerLabMediaRoot.ps1 `
+    -RootPath '<MediaRoot>' `
+    -GenerateSha256
+```
+
+Der Workflow akzeptiert weder einen Bootstrapper noch eine abweichende Edition,
+einen freien Dateinamen oder eine ISO ohne passenden SHA-256-Sidecar als Ersatz.
+Der Media Root, das Medium und der Sidecar bleiben lokal außerhalb von Git.
 Der Bestand deckt damit jede Hauptversion ab SQL Server 2000 mit mindestens
 einer technisch prüfbaren Engine-Variante ab. Nutzungsrechte folgen weiterhin
 den jeweiligen Microsoft-Lizenzbedingungen. Der Bestand ist nicht editionsvollständig:
