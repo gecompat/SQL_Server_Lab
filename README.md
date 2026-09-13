@@ -801,6 +801,13 @@ Pro Run entstehen unter anderem:
 
 Diese Dateien enthalten konkrete Laufzeitinformationen und gehören nicht in Git.
 
+Ein nach einem abgebrochenen nativen Hyper-V-Test zurückgebliebener Run kann
+ausschließlich über den manuellen Workflow `Hyper-V Scoped Test-Run Cleanup`
+bereinigt werden. Er akzeptiert nur eine kanonische RunId, prüft den lokalen
+Test-State, Cleanup-Plan und die Live-VM-Identität und verwendet anschließend
+den öffentlichen, scopegebundenen Cleanup. Gemeinsame und produktive
+Umgebungen sind ausgeschlossen.
+
 ## Architekturüberblick
 
 ```mermaid
