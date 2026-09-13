@@ -18,13 +18,36 @@ if (-not $IsWindows -or -not (Get-Command Get-VM -ErrorAction SilentlyContinue))
 }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $acceptanceManifestHelper = Join-Path $repoRoot 'Tests/Common/HyperVExternalRuntimeReconcileAcceptanceManifest.ps1'
+$stageDiagnosticsHelper = Join-Path $repoRoot 'Tests/Common/HyperVExternalRuntimeAcceptanceStageDiagnostics.ps1'
 Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force
 $module = Get-Module SqlServerLab
 
 & $module {
-    param($RequestedRunId,$CloneSourceRunId,$MediaRoot,$ArtifactId,$ReconcileAcceptance,$CleanupOnSuccess,$ManifestHelperPath)
+    param($RequestedRunId,$CloneSourceRunId,$MediaRoot,$ArtifactId,$ReconcileAcceptance,$CleanupOnSuccess,$ManifestHelperPath,$StageDiagnosticsPath)
 
     . $ManifestHelperPath
+    . $StageDiagnosticsPath
+
+    $script:externalRuntimeAcceptanceStage = 'SQL_MEDIA_PREFLIGHT'
+
+    function Set-ExternalRuntimeAcceptanceStage {
+        [CmdletBinding()]
+        param([Parameter(Mandatory)][string]$Stage)
+
+        if (-not (Test-HyperVExternalRuntimeAcceptanceStage -Stage $Stage)) {
+            throw 'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_STAGE_INVALID'
+        }
+        $script:externalRuntimeAcceptanceStage = $Stage
+    }
+
+    function Throw-ExternalRuntimeAcceptanceStageFailure {
+        [CmdletBinding()]
+        param([Parameter(Mandatory)][System.Management.Automation.ErrorRecord]$ErrorRecord)
+
+        $failure = New-HyperVExternalRuntimeAcceptanceStageFailure `
+            -Stage ([string]$script:externalRuntimeAcceptanceStage) -ErrorRecord $ErrorRecord
+        throw $failure
+    }
 
     function New-ExternalRuntimeAcceptanceClone {
         [CmdletBinding()]
@@ -173,6 +196,8 @@ $module = Get-Module SqlServerLab
         }
     }
 
+    try {
+    Set-ExternalRuntimeAcceptanceStage -Stage 'SQL_MEDIA_PREFLIGHT'
     $stateRoot = Get-LabStateRoot
     $sqlMedia = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion 2022 `
         -MediaEdition Eval -SqlMediaPath 'SQL/2022/Eval/ISO/SQLServer2022-x64-ENU.iso'
@@ -185,6 +210,7 @@ $module = Get-Module SqlServerLab
     }
     $null = Confirm-HyperVSqlInstallationMediaVersion -IsoPath $sqlMedia.IsoPath -SqlVersion 2022
 
+    Set-ExternalRuntimeAcceptanceStage -Stage 'RUNTIME_MEDIA_PREFLIGHT'
     $plans = @()
     foreach ($softwareId in @('sql-python','sql-r','sql-java')) {
         $request = [PSCustomObject]@{
@@ -202,6 +228,7 @@ $module = Get-Module SqlServerLab
     if ($runtimeMedia.Count -lt 1) { throw 'HYPERV_EXTERNAL_RUNTIME_MEDIA_PREFLIGHT_EMPTY' }
     Write-Host "NATIVE_MEDIA_PREFLIGHT_COUNT=$($runtimeMedia.Count)"
 
+    Set-ExternalRuntimeAcceptanceStage -Stage 'LAB_RESOLUTION'
     if ($RequestedRunId) {
         $lab = Get-HyperVLabWorkflowRun -RunId $RequestedRunId -StateRoot $stateRoot
     }
@@ -220,6 +247,7 @@ $module = Get-Module SqlServerLab
     $transcriptPath = Join-Path $lab.RunDirectory 'external-runtime-hyperv-acceptance.log'
     Start-Transcript -LiteralPath $transcriptPath -Append | Out-Null
     try {
+        Set-ExternalRuntimeAcceptanceStage -Stage 'WINDOWS_PROVISIONING'
         Write-Host "NATIVE_RUN_ID=$runId"
         $guestPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password'
         if (-not $guestPassword) {
@@ -238,6 +266,7 @@ $module = Get-Module SqlServerLab
             $lab = Get-HyperVLabWorkflowRun -RunId $runId -StateRoot $lab.StateRoot
         }
 
+        Set-ExternalRuntimeAcceptanceStage -Stage 'SQL_SLOT_INSTALL'
         if ([string]$lab.Instance.workload -eq 'windows') {
             $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
                 -ExpectedRunId $runId -ExpectedScopeId ([string]$lab.Run.scopeId)
@@ -255,10 +284,12 @@ $module = Get-Module SqlServerLab
             $lab = Get-HyperVLabWorkflowRun -RunId $runId -StateRoot $lab.StateRoot
         }
 
+        Set-ExternalRuntimeAcceptanceStage -Stage 'SQL_CREDENTIAL'
         $sqlPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'sa-password'
         if (-not $sqlPassword) { throw 'HYPERV_EXTERNAL_RUNTIME_SQL_PASSWORD_NOT_STORED' }
         $reconcileEvidence = $null
         if ($ReconcileAcceptance) {
+            Set-ExternalRuntimeAcceptanceStage -Stage 'RECONCILE_BASELINE'
             $existingReceipts = @(Get-LabHyperVExternalRuntimeInstallationReceipts `
                 -RunDirectory $lab.RunDirectory -InstanceId 'sql2022-ext')
             if ($existingReceipts.Count -gt 0 -or
@@ -266,6 +297,7 @@ $module = Get-Module SqlServerLab
                 throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_BASELINE_NOT_EMPTY'
             }
 
+            Set-ExternalRuntimeAcceptanceStage -Stage 'RECONCILE_MANIFEST'
             $baseManifestPath = Join-Path $lab.RunDirectory 'external-runtime-reconcile-base.json'
             $targetManifestPath = Join-Path $lab.RunDirectory 'external-runtime-reconcile-target.json'
             $baseManifest = Get-HyperVExternalRuntimeReconcileAcceptanceManifest
@@ -285,6 +317,7 @@ $module = Get-Module SqlServerLab
                 (New-LabDesiredStateSnapshot -ResolvedLab $resolvedBase -ProvisioningMode adhoc -PersistentData:$false) -Force
             Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'run-state.json') -InputObject $runState
 
+            Set-ExternalRuntimeAcceptanceStage -Stage 'RECONCILE_PLAN'
             $journalPath = Get-LabHyperVExternalRuntimeReconcileJournalPath -RunDirectory $lab.RunDirectory
             if (Test-Path -LiteralPath $journalPath) {
                 throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_JOURNAL_PREEXISTS'
@@ -301,6 +334,7 @@ $module = Get-Module SqlServerLab
                 @($reconcilePlan.Desired.PlanKeys).Count -ne 3) {
                 throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_PLAN_INVALID'
             }
+            Set-ExternalRuntimeAcceptanceStage -Stage 'RECONCILE_WHATIF'
             $whatIf = Invoke-SqlServerLabReconcileAction -RunId $runId -ManifestPath $targetManifestPath `
                 -InstanceId 'sql2022-ext' -SqlSaPassword $sqlPassword -MediaRoot $MediaRoot `
                 -StateRoot $lab.StateRoot -WhatIf
@@ -308,12 +342,14 @@ $module = Get-Module SqlServerLab
                 (Test-Path -LiteralPath $journalPath)) {
                 throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_WHATIF_MUTATED'
             }
+            Set-ExternalRuntimeAcceptanceStage -Stage 'RECONCILE_APPLY'
             $applied = Invoke-SqlServerLabReconcileAction -RunId $runId -ManifestPath $targetManifestPath `
                 -InstanceId 'sql2022-ext' -SqlSaPassword $sqlPassword -MediaRoot $MediaRoot `
                 -StateRoot $lab.StateRoot -Confirm:$false
             if ([string]$applied.ExecutionSummary.Status -ne 'SUCCEEDED' -or -not $applied.MutationAllowed) {
                 throw "HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED: $($applied.ExecutionSummary.Errors -join '; ')"
             }
+            Set-ExternalRuntimeAcceptanceStage -Stage 'RECONCILE_POSTCONDITION'
             $receipts = @(Get-LabHyperVExternalRuntimeInstallationReceipts `
                 -RunDirectory $lab.RunDirectory -InstanceId 'sql2022-ext')
             $journal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
@@ -345,25 +381,31 @@ $module = Get-Module SqlServerLab
             }
         }
         else {
+            Set-ExternalRuntimeAcceptanceStage -Stage 'DIRECT_RUNTIME_INSTALL'
             $receipts = @(Install-LabHyperVExternalRuntimes -SoftwarePlans $plans -RunId $runId `
                 -Credential $credential -SqlSaPassword $sqlPassword -MediaRoot $MediaRoot `
                 -ResourceGovernorConfig ([PSCustomObject]@{ maxMemoryPercent=40; maxProcesses=32 }) `
                 -StateRoot $lab.StateRoot)
         }
+        Set-ExternalRuntimeAcceptanceStage -Stage 'RECEIPT_VALIDATION'
         if (@($receipts | Where-Object Status -ne 'EXTENSIONS_READY_RUN').Count -gt 0 -or $receipts.Count -ne 3) {
             throw 'HYPERV_EXTERNAL_RUNTIME_RECEIPTS_INVALID'
         }
 
+        Set-ExternalRuntimeAcceptanceStage -Stage 'COLD_START_RESTART'
         $null = Stop-HyperVLabEnvironment -RunId $runId -StateRoot $lab.StateRoot
         $null = Start-HyperVLabEnvironment -RunId $runId -StateRoot $lab.StateRoot
         $lab = Get-HyperVLabWorkflowRun -RunId $runId -StateRoot $lab.StateRoot
+        Set-ExternalRuntimeAcceptanceStage -Stage 'COLD_START_GUEST_READY'
         $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $runId `
             -ExpectedScopeId ([string]$lab.Run.scopeId) -Credential $credential -TimeoutSeconds 600
         if (-not $ready.Ready) { throw "HYPERV_EXTERNAL_RUNTIME_COLD_START_GUEST_NOT_READY: $($ready.Message)" }
+        Set-ExternalRuntimeAcceptanceStage -Stage 'COLD_START_SQL_READY'
         $versionDefinition = Get-SqlServerVersion -VersionId 2022
         $sqlReady = Wait-SqlReady -HostName ([string]$lab.Instance.host) -Port ([int]$lab.Instance.port) `
             -SaPassword $sqlPassword -ExpectedMajorVersion ([int]$versionDefinition.major) -TimeoutSeconds 600
         if (-not $sqlReady.Ready) { throw "HYPERV_EXTERNAL_RUNTIME_COLD_START_SQL_NOT_READY: $($sqlReady.Message)" }
+        Set-ExternalRuntimeAcceptanceStage -Stage 'COLD_START_PROBES'
         $pythonPlan = @($plans | Where-Object Language -eq 'Python')[0]
         $rPlan = @($plans | Where-Object Language -eq 'R')[0]
         $javaPlan = @($plans | Where-Object Language -eq 'Java')[0]
@@ -376,6 +418,7 @@ $module = Get-Module SqlServerLab
                 -Port ([int]$lab.Instance.port) -SaPassword $sqlPassword -Database master
         )
 
+        Set-ExternalRuntimeAcceptanceStage -Stage 'EVIDENCE_WRITE'
         $evidence = [PSCustomObject]@{
             contract = [PSCustomObject]@{ name='SqlServerLab.ExternalRuntimeHyperVAcceptance'; version='1.0' }
             runId = $runId
@@ -402,6 +445,7 @@ $module = Get-Module SqlServerLab
         Write-Host "NATIVE_EVIDENCE_PATH=$evidencePath"
 
         if ($CleanupOnSuccess) {
+            Set-ExternalRuntimeAcceptanceStage -Stage 'DIRECT_CLEANUP'
             $cleanup = Remove-SqlServerLab -RunId $runId -StateRoot $lab.StateRoot -Force -Confirm:$false
             if ([string]$cleanup.Status -ne 'REMOVED') {
                 throw "HYPERV_EXTERNAL_RUNTIME_CLEANUP_FAILED: $($cleanup.Status)"
@@ -410,4 +454,8 @@ $module = Get-Module SqlServerLab
         return $evidence
     }
     finally { Stop-Transcript -ErrorAction SilentlyContinue | Out-Null }
-} $RunId $CloneSourceRunId $MediaRoot $ArtifactId $ReconcileAcceptance $CleanupOnSuccess $acceptanceManifestHelper
+    }
+    catch {
+        Throw-ExternalRuntimeAcceptanceStageFailure -ErrorRecord $_
+    }
+} $RunId $CloneSourceRunId $MediaRoot $ArtifactId $ReconcileAcceptance $CleanupOnSuccess $acceptanceManifestHelper $stageDiagnosticsHelper

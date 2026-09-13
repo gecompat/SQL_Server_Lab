@@ -3,22 +3,57 @@ $ErrorActionPreference='Stop'
 $repoRoot=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $runnerPath=Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVExternalRuntimeReconcileCiAcceptance.ps1'
 $diagnosticsPath=Join-Path $repoRoot 'Tests/Common/HyperVExternalRuntimeReconcileCiDiagnostics.ps1'
+$stageDiagnosticsPath=Join-Path $repoRoot 'Tests/Common/HyperVExternalRuntimeAcceptanceStageDiagnostics.ps1'
 $workflowPath=Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml'
 $runner=Get-Content -LiteralPath $runnerPath -Raw -Encoding utf8
 $workflow=Get-Content -LiteralPath $workflowPath -Raw -Encoding utf8
 $manifestHelper=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Common/HyperVExternalRuntimeReconcileAcceptanceManifest.ps1') -Raw -Encoding utf8
 $externalRuntimeRunner=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1') -Raw -Encoding utf8
+$stageDiagnostics=Get-Content -LiteralPath $stageDiagnosticsPath -Raw -Encoding utf8
 $tokens=$null;$errors=$null
 [Management.Automation.Language.Parser]::ParseFile($runnerPath,[ref]$tokens,[ref]$errors)|Out-Null
 $diagnosticTokens=$null;$diagnosticErrors=$null
 [Management.Automation.Language.Parser]::ParseFile($diagnosticsPath,[ref]$diagnosticTokens,[ref]$diagnosticErrors)|Out-Null
+$stageDiagnosticTokens=$null;$stageDiagnosticErrors=$null
+[Management.Automation.Language.Parser]::ParseFile($stageDiagnosticsPath,[ref]$stageDiagnosticTokens,[ref]$stageDiagnosticErrors)|Out-Null
 . $diagnosticsPath
+. $stageDiagnosticsPath
 $runnerErrorRecord = [System.Management.Automation.ErrorRecord]::new(
     [System.InvalidOperationException]::new('C:\\runner\\private.txt'),
     'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED',
     [System.Management.Automation.ErrorCategory]::InvalidOperation,
     $null
 )
+$stagedException = [System.InvalidOperationException]::new('HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_STAGE_FAILURE')
+$stagedException.Data['SqlServerLab.ExternalRuntimeAcceptanceStage'] = 'RECONCILE_APPLY'
+$stagedException.Data['SqlServerLab.ExternalRuntimeAcceptanceOriginalErrorRecord'] = $runnerErrorRecord
+$stagedErrorRecord = [System.Management.Automation.ErrorRecord]::new(
+    $stagedException,
+    'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_STAGE_FAILURE',
+    [System.Management.Automation.ErrorCategory]::InvalidOperation,
+    $null
+)
+$malformedStageException = [System.InvalidOperationException]::new('HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_STAGE_FAILURE')
+$malformedStageException.Data['SqlServerLab.ExternalRuntimeAcceptanceStage'] = 'RECONCILE_APPLY: C:\\runner\\private.txt'
+$malformedStageErrorRecord = [System.Management.Automation.ErrorRecord]::new(
+    $malformedStageException,
+    'HYPERV_EXTERNAL_RUNTIME_ACCEPTANCE_STAGE_FAILURE',
+    [System.Management.Automation.ErrorCategory]::InvalidOperation,
+    $null
+)
+$allowedCleanupErrorRecord = [System.Management.Automation.ErrorRecord]::new(
+    [System.InvalidOperationException]::new('HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_VM_POSTCONDITION_FAILED'),
+    'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_VM_POSTCONDITION_FAILED',
+    [System.Management.Automation.ErrorCategory]::InvalidOperation,
+    $null
+)
+$earlyMediaErrorRecord = [System.Management.Automation.ErrorRecord]::new(
+    [System.InvalidOperationException]::new('D:\\Lab_Base\\SQL\\private.iso'),
+    'HYPERV_EXTERNAL_RUNTIME_SQL_MEDIA_HASH_REQUIRED',
+    [System.Management.Automation.ErrorCategory]::InvalidData,
+    $null
+)
+$earlyMediaStageErrorRecord = New-HyperVExternalRuntimeAcceptanceStageFailure -Stage 'SQL_MEDIA_PREFLIGHT' -ErrorRecord $earlyMediaErrorRecord
 
 function Add-CiAcceptanceCheck {
     param([string]$Name,[bool]$Success)
@@ -29,21 +64,35 @@ function Add-CiAcceptanceCheck {
 
 $checks=@(
     Add-CiAcceptanceCheck 'CI-Runner ist syntaktisch gueltig' ($errors.Count -eq 0)
-    Add-CiAcceptanceCheck 'Diagnosehelfer ist syntaktisch gueltig und klassifiziert auch erfasste ErrorRecords nur ueber ihren groben Fehlercode' (
-        $diagnosticErrors.Count -eq 0 -and
-        (Get-HyperVExternalRuntimeCiFailureCode -InputObject @('untrusted C:\\runner\\local.txt', 'HYPERV_EXTERNAL_RUNTIME_SQL_SLOT_NOT_READY: C:\\secret.txt', 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED: host=internal')) -eq 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED' -and
-        (Get-HyperVExternalRuntimeCiFailureCode -InputObject @($runnerErrorRecord)) -eq 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED' -and
-        (Test-HyperVExternalRuntimeCiRunnerOutputFailure -InputObject @($runnerErrorRecord)) -and
+    Add-CiAcceptanceCheck 'Diagnosehelfer ist syntaktisch gueltig und leitet nur feste private Stages oder erlaubte exakte CI-Codes ab' (
+        $diagnosticErrors.Count -eq 0 -and $stageDiagnosticErrors.Count -eq 0 -and
+        (Get-HyperVExternalRuntimeCiFailureCode -InputObject @($stagedErrorRecord)) -eq 'HYPERV_EXTERNAL_RUNTIME_STAGE_RECONCILE_APPLY_FAILED' -and
+        (Get-HyperVExternalRuntimeCiFailureCode -InputObject @($earlyMediaStageErrorRecord)) -eq 'HYPERV_EXTERNAL_RUNTIME_STAGE_SQL_MEDIA_PREFLIGHT_FAILED' -and
+        (Get-HyperVExternalRuntimeCiFailureCode -InputObject @($allowedCleanupErrorRecord)) -eq 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_VM_POSTCONDITION_FAILED' -and
+        (Get-HyperVExternalRuntimeCiFailureCode -InputObject @($runnerErrorRecord)) -eq 'UNCLASSIFIED' -and
+        (Get-HyperVExternalRuntimeCiFailureCode -InputObject @($malformedStageErrorRecord)) -eq 'UNCLASSIFIED' -and
+        (Test-HyperVExternalRuntimeCiRunnerOutputFailure -InputObject @($stagedErrorRecord)) -and
         -not (Test-HyperVExternalRuntimeCiRunnerOutputFailure -InputObject @('untrusted C:\\runner\\local.txt')) -and
-        (Get-HyperVExternalRuntimeCiFailureCode -InputObject @('untrusted C:\\runner\\local.txt')) -eq 'UNCLASSIFIED'
+        (Get-HyperVExternalRuntimeCiFailureCode -InputObject @('untrusted C:\\runner\\local.txt', 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED: host=internal')) -eq 'UNCLASSIFIED'
     )
-    Add-CiAcceptanceCheck 'Fehlerdiagnosen geben ausschliesslich grobe Codes aus und nie den erfassten Runnertext' (
-        (Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind PRIMARY -FailureCode 'HYPERV_EXTERNAL_RUNTIME_SQL_SLOT_NOT_READY') -eq 'HYPERV_EXTERNAL_RUNTIME_CI_PRIMARY_FAILURE_CODE=HYPERV_EXTERNAL_RUNTIME_SQL_SLOT_NOT_READY' -and
+    Add-CiAcceptanceCheck 'Fehlerdiagnosen geben ausschliesslich feste Stage- oder Allowlist-Codes aus und nie den erfassten Runnertext' (
+        (Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind PRIMARY -FailureCode 'HYPERV_EXTERNAL_RUNTIME_STAGE_RECONCILE_APPLY_FAILED') -eq 'HYPERV_EXTERNAL_RUNTIME_CI_PRIMARY_FAILURE_CODE=HYPERV_EXTERNAL_RUNTIME_STAGE_RECONCILE_APPLY_FAILED' -and
+        (Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind PRIMARY -FailureCode 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED') -eq 'HYPERV_EXTERNAL_RUNTIME_CI_PRIMARY_FAILURE_CODE=UNCLASSIFIED' -and
         (Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind CLEANUP -FailureCode 'C:\\runner\\local.txt') -eq 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_FAILURE_CODE=UNCLASSIFIED' -and
         $runner -match 'Test-HyperVExternalRuntimeCiRunnerOutputFailure -InputObject \$runnerOutput' -and
         $runner -match 'Get-HyperVExternalRuntimeCiFailureCode -InputObject \$runnerOutput' -and
         $runner -match 'Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind .PRIMARY.' -and
-        $runner -notmatch 'Write-(Host|Output|Error).*\$runnerOutput'
+        $runner -notmatch 'Write-(Host|Output|Error).*\$runnerOutput' -and
+        $externalRuntimeRunner -match 'HyperVExternalRuntimeAcceptanceStageDiagnostics\.ps1' -and
+        $externalRuntimeRunner -match 'Throw-ExternalRuntimeAcceptanceStageFailure' -and
+        $externalRuntimeRunner -match "Set-ExternalRuntimeAcceptanceStage -Stage 'SQL_MEDIA_PREFLIGHT'" -and
+        $externalRuntimeRunner -match "Set-ExternalRuntimeAcceptanceStage -Stage 'DIRECT_CLEANUP'" -and
+        $stageDiagnostics -match 'SqlServerLab\.ExternalRuntimeAcceptanceStage' -and
+        $stageDiagnostics -match 'SqlServerLab\.ExternalRuntimeAcceptanceOriginalErrorRecord' -and
+        $stageDiagnostics -notmatch 'Write-(Host|Output|Error)' -and
+        ($earlyMediaStageErrorRecord.Exception.Data['SqlServerLab.ExternalRuntimeAcceptanceStage'] -ceq 'SQL_MEDIA_PREFLIGHT') -and
+        ($earlyMediaStageErrorRecord.Exception.Data['SqlServerLab.ExternalRuntimeAcceptanceOriginalErrorRecord'] -eq $earlyMediaErrorRecord) -and
+        (Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind PRIMARY -FailureCode (Get-HyperVExternalRuntimeCiFailureCode -InputObject @($earlyMediaStageErrorRecord))) -notmatch 'Lab_Base|private\.iso'
     )
     Add-CiAcceptanceCheck 'Workflow bietet den Modus nur manuell auf main an und weist jeden anderen Aufruf sichtbar ab' (
         $workflow -match '(?s)workflow_dispatch:.*external-runtime-reconcile-acceptance' -and

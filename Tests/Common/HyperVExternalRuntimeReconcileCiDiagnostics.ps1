@@ -1,7 +1,54 @@
+$script:HyperVExternalRuntimeCiAcceptanceStages = @(
+    'SQL_MEDIA_PREFLIGHT',
+    'RUNTIME_MEDIA_PREFLIGHT',
+    'LAB_RESOLUTION',
+    'WINDOWS_PROVISIONING',
+    'SQL_SLOT_INSTALL',
+    'SQL_CREDENTIAL',
+    'RECONCILE_BASELINE',
+    'RECONCILE_MANIFEST',
+    'RECONCILE_PLAN',
+    'RECONCILE_WHATIF',
+    'RECONCILE_APPLY',
+    'RECONCILE_POSTCONDITION',
+    'DIRECT_RUNTIME_INSTALL',
+    'RECEIPT_VALIDATION',
+    'COLD_START_RESTART',
+    'COLD_START_GUEST_READY',
+    'COLD_START_SQL_READY',
+    'COLD_START_PROBES',
+    'EVIDENCE_WRITE',
+    'DIRECT_CLEANUP'
+)
+
+$script:HyperVExternalRuntimeCiExactFailureCodes = @(
+    'HYPERV_EXTERNAL_RUNTIME_CI_OPERATION_CONTEXT_INVALID',
+    'HYPERV_EXTERNAL_RUNTIME_CI_MEDIA_ROOT_INVALID',
+    'HYPERV_EXTERNAL_RUNTIME_CI_HOST_LOCK_TIMEOUT',
+    'HYPERV_EXTERNAL_RUNTIME_CI_RUNNER_NOT_ELEVATED',
+    'HYPERV_EXTERNAL_RUNTIME_CI_OS_SEALED_ARTIFACT_INVALID',
+    'HYPERV_EXTERNAL_RUNTIME_CI_MANIFEST_INVALID',
+    'HYPERV_EXTERNAL_RUNTIME_CI_CREATED_RUN_OWNERSHIP_INVALID',
+    'HYPERV_EXTERNAL_RUNTIME_CI_OWNED_RUN_STATE_INVALID',
+    'HYPERV_EXTERNAL_RUNTIME_CI_OWNED_RUN_PROVIDER_INVALID',
+    'HYPERV_EXTERNAL_RUNTIME_CI_OWNED_RUN_CLEANUP_PLAN_INVALID',
+    'HYPERV_EXTERNAL_RUNTIME_CI_OWNED_RUN_CONNECTION_INVALID',
+    'HYPERV_EXTERNAL_RUNTIME_CI_OWNED_VM_OWNERSHIP_INVALID',
+    'HYPERV_EXTERNAL_RUNTIME_CI_OWNED_RUN_CLEANUP_FAILED',
+    'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_VM_POSTCONDITION_FAILED',
+    'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_VHDX_POSTCONDITION_FAILED',
+    'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_IPAM_POSTCONDITION_FAILED'
+)
+
 function Get-HyperVExternalRuntimeCiFailureCode {
     <#
     .SYNOPSIS
-        Classifies a captured external-runtime acceptance failure without returning its raw output.
+        Classifies a captured acceptance failure without returning raw output.
+    .DESCRIPTION
+        A stage may originate only from the private ErrorRecord metadata created
+        by the native runner. Free text, partial matches and unknown metadata
+        never become public diagnostics. The finite exact-code fallback is for
+        CI boundary and cleanup failures that do not execute the native runner.
     #>
     [CmdletBinding()]
     [OutputType([string])]
@@ -10,23 +57,26 @@ function Get-HyperVExternalRuntimeCiFailureCode {
         [object[]]$InputObject
     )
 
-    $matches = [System.Collections.Generic.List[string]]::new()
     foreach ($item in @($InputObject)) {
-        if ($null -eq $item) { continue }
-        $candidates = if ($item -is [System.Management.Automation.ErrorRecord]) {
-            @([string]$item.FullyQualifiedErrorId, [string]$item)
+        if ($item -isnot [System.Management.Automation.ErrorRecord]) { continue }
+        $exception = $item.Exception
+        if (-not $exception) { continue }
+        $data = $exception.Data
+        if ($data -and $data.Contains('SqlServerLab.ExternalRuntimeAcceptanceStage')) {
+            $stage = $data['SqlServerLab.ExternalRuntimeAcceptanceStage']
+            if ($stage -isnot [string] -or $stage -cnotin $script:HyperVExternalRuntimeCiAcceptanceStages) {
+                return 'UNCLASSIFIED'
+            }
+            return "HYPERV_EXTERNAL_RUNTIME_STAGE_${stage}_FAILED"
         }
-        else {
-            @([string]$item)
-        }
-        foreach ($candidate in $candidates) {
-            foreach ($match in [regex]::Matches($candidate, '(?<![A-Z0-9_])(HYPERV_EXTERNAL_RUNTIME(?:_CI)?_[A-Z0-9_]+)(?![A-Z0-9_])')) {
-                $matches.Add($match.Groups[1].Value)
+
+        foreach ($candidate in @([string]$item.FullyQualifiedErrorId, [string]$exception.Message)) {
+            if ($candidate -cin $script:HyperVExternalRuntimeCiExactFailureCodes) {
+                return $candidate
             }
         }
     }
-    if ($matches.Count -eq 0) { return 'UNCLASSIFIED' }
-    return $matches[$matches.Count - 1]
+    return 'UNCLASSIFIED'
 }
 
 function Test-HyperVExternalRuntimeCiRunnerOutputFailure {
@@ -60,7 +110,9 @@ function Get-HyperVExternalRuntimeCiFailureDiagnosticLine {
         [string]$FailureCode
     )
 
-    $safeCode = if ($FailureCode -match '^(?:HYPERV_EXTERNAL_RUNTIME(?:_CI)?_[A-Z0-9_]+|UNCLASSIFIED)$') {
+    $safeCode = if ($FailureCode -in @('UNCLASSIFIED') -or
+        $FailureCode -cin $script:HyperVExternalRuntimeCiExactFailureCodes -or
+        $FailureCode -cmatch '^HYPERV_EXTERNAL_RUNTIME_STAGE_(?:SQL_MEDIA_PREFLIGHT|RUNTIME_MEDIA_PREFLIGHT|LAB_RESOLUTION|WINDOWS_PROVISIONING|SQL_SLOT_INSTALL|SQL_CREDENTIAL|RECONCILE_BASELINE|RECONCILE_MANIFEST|RECONCILE_PLAN|RECONCILE_WHATIF|RECONCILE_APPLY|RECONCILE_POSTCONDITION|DIRECT_RUNTIME_INSTALL|RECEIPT_VALIDATION|COLD_START_RESTART|COLD_START_GUEST_READY|COLD_START_SQL_READY|COLD_START_PROBES|EVIDENCE_WRITE|DIRECT_CLEANUP)_FAILED$') {
         $FailureCode
     }
     else {
