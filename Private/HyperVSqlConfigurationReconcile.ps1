@@ -220,9 +220,8 @@ function Get-LabHyperVSqlConfigurationReconcileContext {
     })
     if($removedConfigurations.Count){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_CONFIGURATION_REMOVAL_UNSUPPORTED'}
     foreach ($item in @($desired.Configurations)) {
-        if ([string]::IsNullOrWhiteSpace([string]$item.Name) -or [string]$item.Name -notmatch '^[A-Za-z0-9 ()_-]+$') {
-            throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_TARGET_INVALID'
-        }
+        try { Assert-LabSqlConfigurationIntentName -Name ([string]$item.Name) }
+        catch { throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_TARGET_INVALID' }
         $null = [long]$item.Value
     }
     if (@($desired.TraceFlags | Where-Object { [int]$_ -le 0 }).Count -gt 0) {
@@ -540,7 +539,7 @@ function Set-LabHyperVSqlConfigurationValues {
                 }
                 foreach($item in $(if($ApplyConfigurations){@($Configurations)}else{@()})){
                     $name=[string]$item.Name;$value=[long]$item.Value
-                    if($name -notmatch '^[A-Za-z0-9 ()_-]+$'){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_TARGET_INVALID'}
+                    if($name.Length -gt 128 -or $name -notmatch '^[A-Za-z0-9](?:[A-Za-z0-9_-]| [A-Za-z0-9_-]+)*(?: \((?:B|KB|MB|ms|min|s|%)\))?$'){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_TARGET_INVALID'}
                     $probe=$connection.CreateCommand();$probe.CommandText='SELECT COUNT_BIG(*) FROM sys.configurations WHERE name=@name;'
                     $null=$probe.Parameters.Add('@name',[Data.SqlDbType]::NVarChar,128);$probe.Parameters['@name'].Value=$name
                     $count=$probe.ExecuteScalar();if($null -eq $count -or $count -is [DBNull] -or [long]$count -ne 1){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_TARGET_NOT_UNIQUE'}

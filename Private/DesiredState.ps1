@@ -27,6 +27,33 @@ function Get-LabDriveIntentRole {
     }
 }
 
+function Test-LabSqlConfigurationIntentName {
+    <#
+    .SYNOPSIS
+        Prueft die kanonische Schreibweise eines SQL-Systemkonfigurationsnamens.
+    .DESCRIPTION
+        Die Grammatik umfasst nur durch Leerzeichen getrennte ASCII-Woerter,
+        Unterstriche oder Bindestriche innerhalb eines Worts sowie die von
+        `sys.configurations` verwendeten Einheitssuffixe. Die abschliessende
+        Zielbindung erfolgt vor einer Mutation gegen den exakten Namen in
+        `sys.configurations`; diese Vorpruefung ist keine freie SQL-Eingabe.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Name)
+
+    return $Name.Length -le 128 -and
+        $Name -match '^[A-Za-z0-9](?:[A-Za-z0-9_-]| [A-Za-z0-9_-]+)*(?: \((?:B|KB|MB|ms|min|s|%)\))?$'
+}
+
+function Assert-LabSqlConfigurationIntentName {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Name)
+
+    if (-not (Test-LabSqlConfigurationIntentName -Name $Name)) {
+        throw "SQL_CONFIGURATION_INTENT_NAME_INVALID: $Name"
+    }
+}
+
 function New-LabHyperVResourceIntentSnapshot {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Instance)
@@ -95,9 +122,7 @@ function New-LabSqlConfigurationIntentSnapshot {
     if ($config.spConfigure) {
         foreach ($property in @($config.spConfigure.PSObject.Properties | Sort-Object Name)) {
             $name = [string]$property.Name
-            if ($name -notmatch '^[A-Za-z0-9 ()_-]+$') {
-                throw "SQL_CONFIGURATION_INTENT_NAME_INVALID: $name"
-            }
+            Assert-LabSqlConfigurationIntentName -Name $name
             $configurationValues.Add([PSCustomObject]@{ Name=$name; Value=[int]$property.Value })
         }
     }

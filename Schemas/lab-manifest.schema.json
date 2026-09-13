@@ -826,7 +826,11 @@
         },
         "spConfigure": {
           "type": "object",
-          "description": "Beliebige sp_configure-Einstellungen (Key = Optionsname, Value = Wert)",
+          "description": "SQL-Server-Systemkonfigurationen via sp_configure (Key = kanonischer Optionsname, Value = Wert; die Zielinstanz muss den Namen in sys.configurations exakt fuehren)",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9_-]| [A-Za-z0-9_-]+)*(?: \\((?:B|KB|MB|ms|min|s|%)\\))?$"
+          },
           "additionalProperties": {
             "type": "integer"
           },

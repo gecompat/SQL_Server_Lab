@@ -688,9 +688,16 @@ New-SqlServerLabManifest -Path '.\mein-lab.json'
 ```
 
 Der Konsolen-Wizard basiert direkt auf `Schemas/lab-manifest.schema.json`. Er
-ermöglicht damit auch verschachtelte Optionen, Arrays, freie
-`spConfigure`-Schlüssel und die detaillierte Query-Store-Konfiguration. Typen,
+ermöglicht damit auch verschachtelte Optionen, Arrays,
+`spConfigure`-Schlüssel für SQL-Server-Systemkonfigurationen und die detaillierte Query-Store-Konfiguration. Typen,
 Enums, Muster und Wertebereiche werden bereits bei der Eingabe geprüft.
+
+Ein `spConfigure`-Schlüssel ist keine freie SQL-Eingabe: Er folgt der
+kanonischen Schreibweise eines SQL-Systemkonfigurationsnamens. Vor einer
+Hyper-V-Reconcile-Mutation wird er zusätzlich exakt gegen
+`sys.configurations` der gebundenen Zielinstanz geprüft. Damit ist etwa
+`fill factor (%)` gültig, ein unbekannter oder nicht zum Zielkatalog passender
+Name bleibt blockiert.
 
 Bei Pfadfeldern zeigt der Wizard zusätzlich die fachliche Bedeutung,
 Host-/Gast-/SQL-Server-Scope, die Bezugsbasis relativer Werte, Default und

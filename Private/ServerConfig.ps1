@@ -246,9 +246,7 @@ function Set-LabServerConfig {
     if ($Config.spConfigure) {
         foreach ($property in $Config.spConfigure.PSObject.Properties) {
             $configurationName = [string]$property.Name
-            if ($configurationName -notmatch '^[A-Za-z0-9 ()_-]+$') {
-                throw "sp_configure-Name '$configurationName' enthaelt unzulaessige Zeichen."
-            }
+            Assert-LabSqlConfigurationIntentName -Name $configurationName
             $configurationValue = [int]$property.Value
             $escapedConfigurationName = $configurationName.Replace("'", "''")
             $configurationStatements += "EXEC sp_configure N'$escapedConfigurationName', $configurationValue;"

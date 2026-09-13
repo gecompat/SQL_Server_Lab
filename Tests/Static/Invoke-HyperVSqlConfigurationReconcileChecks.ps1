@@ -1,6 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $source = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlConfigurationReconcile.ps1') -Raw -Encoding utf8
+$serverConfigSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ServerConfig.ps1') -Raw -Encoding utf8
 $acceptanceSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1') -Raw -Encoding utf8
 $bootstrapSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlConfigurationReconcileAcceptanceBootstrap.ps1') -Raw -Encoding utf8
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hv-sql-configuration-reconcile-' + [Guid]::NewGuid().ToString('N'))
@@ -18,9 +19,44 @@ try {
             provider='hyperv'
             serverConfig=[PSCustomObject]@{
                 memory=[PSCustomObject]@{minMB=512;maxMB=4096};maxDop=4;costThreshold=25;traceFlags=@(3226,3226)
-                spConfigure=[PSCustomObject]@{'optimize for ad hoc workloads'=1}
+                spConfigure=[PSCustomObject]@{'optimize for ad hoc workloads'=1;'fill factor (%)'=80}
             }
         }) -ProviderCapability $providerCapability
+        $invalidIntentBlocked=$false
+        try {
+            $null=New-LabSqlConfigurationIntentSnapshot -Instance ([PSCustomObject]@{
+                provider='hyperv'
+                serverConfig=[PSCustomObject]@{spConfigure=[PSCustomObject]@{'fill factor (%); EXEC xp_cmdshell'=80}}
+            }) -ProviderCapability $providerCapability
+        }
+        catch {$invalidIntentBlocked=$_.Exception.Message -match 'SQL_CONFIGURATION_INTENT_NAME_INVALID'}
+        $serverConfigQuery=$null
+        $serverConfigInvoker=(Get-Command Invoke-LabConfigurationQuery -CommandType Function).ScriptBlock
+        try {
+            Set-Item Function:Invoke-LabConfigurationQuery -Value {
+                param($HostName,$Port,$SaPassword,$Query,$Database,$TimeoutSeconds)
+                $null=$HostName,$Port,$SaPassword,$Database,$TimeoutSeconds
+                $script:serverConfigQuery=$Query
+            }
+            $serverConfigSecret=[Security.SecureString]::new()
+            foreach($character in 'synthetic-test-secret'.ToCharArray()){
+                $serverConfigSecret.AppendChar($character)
+            }
+            $serverConfigSecret.MakeReadOnly()
+            $serverConfigResult=Set-LabServerConfig -Config ([PSCustomObject]@{
+                spConfigure=[PSCustomObject]@{'fill factor (%)'=80}
+            }) -Port 1433 -SaPassword $serverConfigSecret
+            $serverConfigInvalidBlocked=$false
+            try {
+                Set-LabServerConfig -Config ([PSCustomObject]@{
+                    spConfigure=[PSCustomObject]@{'fill factor (%); EXEC xp_cmdshell'=80}
+                }) -Port 1433 -SaPassword $serverConfigSecret | Out-Null
+            }
+            catch {$serverConfigInvalidBlocked=$_.Exception.Message -match 'SQL_CONFIGURATION_INTENT_NAME_INVALID'}
+            $serverConfigContract=$serverConfigResult.Success -and
+                $script:serverConfigQuery -match "sp_configure N'fill factor \(%\)'" -and $serverConfigInvalidBlocked
+        }
+        finally { Set-Item Function:Invoke-LabConfigurationQuery -Value $serverConfigInvoker }
 
         $script:configurationDesired=$intent
         $script:configurationCurrentDesired=$intent
@@ -220,7 +256,9 @@ try {
 
         [PSCustomObject]@{
             Intent=$intent.Contract.Name -eq 'SqlServerLab.SqlConfigurationIntent' -and $intent.CapabilityStatus -eq 'DECLARED_SUPPORTED' -and
-                @($intent.Configurations).Count -eq 5 -and @($intent.TraceFlags).Count -eq 1
+                @($intent.Configurations).Count -eq 6 -and @($intent.TraceFlags).Count -eq 1 -and
+                @($intent.Configurations|Where-Object Name -eq 'fill factor (%)').Count -eq 1 -and $invalidIntentBlocked
+            ServerConfig=$serverConfigContract
             NoOp=$noOp.IsNoOp -and $noOp.HighestChangeClass -eq 'no-op';Sanitized=$sanitized
             Live=$live.HighestChangeClass -eq 'live' -and @($live.Actions).Count -eq 1 -and -not $live.Actions[0].RequiresRestart
             WhatIf=$whatIfSafe -and $whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE';Apply=$applied;RepeatJournal=$repeatJournal
@@ -241,7 +279,8 @@ try {
     } $testRoot $runId $scopeId
 
     $checks=[ordered]@{
-        'Persistierter SQL-Konfigurationsintent ist dedupliziert und capability-gebunden'=$result.Intent
+        'Persistierter SQL-Konfigurationsintent akzeptiert den realen Prozent-Suffix, blockiert freie SQL-Eingabe und bleibt capability-gebunden'=$result.Intent
+        'Initiale Serverkonfiguration akzeptiert den Prozent-Suffix und blockiert freie SQL-Eingabe'=$result.ServerConfig
         'Semantisch passende SQL-Konfiguration bleibt No-op'=$result.NoOp
         'Oeffentlicher SQL-Konfigurationsplan enthaelt keine VM-Namen oder IDs'=$result.Sanitized
         'Dynamische Konfigurations- und additive Trace-Flag-Drift ist live'=$result.Live
@@ -262,7 +301,8 @@ try {
         'Zielmanifest-Fingerprint erlaubt nur SQL-Konfiguration und blockiert Netzwerkdrift'=$result.TargetIsolation
         'Ownership-Receipt ist fail-closed an die konkrete VM-Identitaet gebunden'=$result.OwnershipIdentity
         'Fehlende oder mehrdeutige Konfiguration bleibt fail-closed'=$result.Unsupported
-        'Gastmutation parametrisiert sp_configure, schuetzt Startup-Flags und startet ausschliesslich MSSQLSERVER neu'=($source -match "Parameters\.Add\('@name'" -and $source -match "Parameters\.Add\('@value'" -and $source -match 'DBCC TRACEOFF' -and $source -match 'SQLArg\*' -and $source -match "Restart-Service -Name 'MSSQLSERVER'" -and $source -notmatch 'Restart-VM|Stop-VM|Start-VM')
+        'Gastmutation parametrisiert und bindet sp_configure an den Zielkatalog, schuetzt Startup-Flags und startet ausschliesslich MSSQLSERVER neu'=($source -match "Parameters\.Add\('@name'" -and $source -match "Parameters\.Add\('@value'" -and $source -match 'FROM sys\.configurations WHERE name=@name' -and $source -match 'HYPERV_SQL_CONFIGURATION_RECONCILE_TARGET_NOT_UNIQUE' -and $source -match 'DBCC TRACEOFF' -and $source -match 'SQLArg\*' -and $source -match "Restart-Service -Name 'MSSQLSERVER'" -and $source -notmatch 'Restart-VM|Stop-VM|Start-VM')
+        'Initiale Serverkonfiguration verwendet dieselbe eng begrenzte Namensgrenze'=($serverConfigSource -match 'Assert-LabSqlConfigurationIntentName -Name \$configurationName')
         'Initiale SQL-Konfiguration initialisiert den Trace-Flag-Besitznachweis'=((Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw) -match 'Initialize-LabHyperVSqlConfigurationOwnershipReceipt')
         'Nativer Runner bindet Plan, WhatIf, Live, Remove, SQL-Restart, No-op und Desired-State-Rueckkehr'=($acceptanceSource -match 'Get-SqlServerLabReconcilePlan' -and $acceptanceSource -match 'Invoke-SqlServerLabReconcileAction' -and $acceptanceSource -match 'trace-flag-add' -and $acceptanceSource -match 'trace-flag-remove' -and $acceptanceSource -match 'RequiresServiceRestart' -and $acceptanceSource -match 'finalPlan\.IsNoOp')
         'Nativer Runner schuetzt Fremdflag und beweist SQL-Restart ohne VM-Neustart'=($acceptanceSource -match 'DBCC TRACEON \(3604' -and $acceptanceSource -match 'DBCC TRACEOFF \(3604' -and $acceptanceSource -match 'Get-AcceptanceGuestBootTime' -and $acceptanceSource -match 'sqlStartAfter -ne \$sqlStartBefore' -and $acceptanceSource -notmatch 'Restart-VM|Stop-VM|Start-VM')
