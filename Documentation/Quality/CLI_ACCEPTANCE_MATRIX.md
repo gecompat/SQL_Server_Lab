@@ -213,21 +213,27 @@ Hash-/Cache-Evidence geprüft; nach dem öffentlichen Cleanup müssen die exakte
 VM, alle gebundenen VHDX und die Run-/Scope-gebundene IPAM-Lease nachweislich
 fehlen.
 
-Der Lauf `34772015168` erreichte Windows-OOBE und endete anschließend bewusst
-vor der SQL-Slot-Installation mit der sicheren Stage
-`SQL_MEDIA_PREFLIGHT`. VM, VHDX und IPAM-Lease wurden vollständig entfernt. Als
-konkrete Voraussetzung fehlt dem Runner die vollständige SQL-Server-2022-
-Evaluation-ISO unter
-`SQL/2022/Eval/ISO/SQLServer2022-x64-ENU.iso` einschließlich ihres SHA-256-
-Sidecars. Der katalogisierte Evaluation-Bootstrapper kann heruntergeladen
-werden; dessen Wahl und Erzeugung der ISO erfolgt interaktiv. Nach der lokalen
-Ablage erzeugt
-`Initialize-SqlServerLabMediaRoot.ps1 -RootPath '<MediaRoot>' -GenerateSha256`
-den erforderlichen Sidecar. Bis der Lauf mit diesem lokalen Medium einschließlich
-Cleanup erfolgreich endet, bleibt der Nachweis `NOT_EXECUTED`.
+Der frühe Lauf `34772015168` erreichte Windows-OOBE und endete anschließend bewusst
+vor der SQL-Slot-Installation mit der sicheren Stage `SQL_MEDIA_PREFLIGHT`; VM,
+VHDX und IPAM-Lease wurden vollständig entfernt. Nach lokaler Bereitstellung des
+vollständigen SQL-Server-2022-Evaluation-Originalmediums unter
+`SQL/2022/Eval/ISO/SQLServer2022-x64-ENU.iso` einschließlich SHA-256-Sidecar
+bestand der fachliche Reconcile in Lauf `34776120704`. Dessen Cleanup wurde
+ausschließlich durch ein zu geringes JSON-Leselimit im SafetyRoot-Reader blockiert;
+die gültige Ownership blieb erhalten und der exakt gebundene Recovery-Lauf
+`34780328388` bereinigte ihn erfolgreich.
 
-Der Modus ist statisch geprüft, aber noch `NOT_EXECUTED`; erst ein erfolgreicher
-nativer Workflowlauf mit vollständigem Cleanup liefert Runtime-Evidence.
+Der vollständige manuelle `main`-Lauf `34780626984` vom 2026-09-13 ist die
+positive Runtime-Evidence: Er erzeugte aus einem Windows-2025-Evaluation-
+`OS_SEALED`-Artifact einen isolierten SQL-2022-Run, führte den öffentlichen
+Plan-, `WhatIf`-, Apply-, No-op- und Removal-Blockade-Vertrag aus und bestätigte
+den Python-, R- und Java-External-Runtime- sowie Resource-Governor-Intent über
+den gebundenen Runnervertrag. Nach vollständigem VM-Kaltstart prüfte der Runner
+Gast- und SQL-Readiness und führte die drei Runtime-Probes erneut aus. Der
+scopegebundene Produkt-Cleanup endete mit `CLEANUP_SUCCEEDED (3 Steps, 0 Fehler)`
+für exakt VM, VHDX und IPAM-Lease. Diese Evidence gilt nur für SQL-2022
+Evaluation auf Windows Server 2025 und diesen isolierten Reconcile-Vertrag;
+weitere SQL-/OS-/Providerkombinationen bleiben getrennte Nachweise.
 
 Der initiale SQL-Konfigurations-Reconcile läuft ausschließlich für einen
 verifizierten `SQL_PREPARED_SEALED`-Run mit `serverConfig`. Ein `OS_SEALED`-
