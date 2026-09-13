@@ -911,6 +911,29 @@ function Get-HyperVUnattendedPostLoginScript {
     }.GetNewClosure()
 }
 
+function Save-LabHyperVSqlSaPassword {
+    <#
+    .SYNOPSIS Persistiert das effektive SQL-SA-Passwort ausschließlich run-gebunden.
+    .DESCRIPTION Der kanonische Name sa-password steht für jeden vollständigen
+    Hyper-V-SQL-Run bereit. Der generated-Alias bleibt ausschließlich für ein
+    tatsächlich in diesem Workflow generiertes Passwort bestehen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunDirectory,
+        [Parameter(Mandatory)][SecureString]$SqlSaPassword,
+        [switch]$Generated
+    )
+
+    Save-LabSecret -Path $RunDirectory -Name 'sa-password' -Secret $SqlSaPassword
+    $generatedAliasPath = Join-Path (Join-Path $RunDirectory 'secrets') 'generated-sql-sa-password.secret'
+    if ($Generated) {
+        Save-LabSecret -Path $RunDirectory -Name 'generated-sql-sa-password' -Secret $SqlSaPassword
+    }
+    elseif (Test-Path -LiteralPath $generatedAliasPath -PathType Leaf) {
+        Remove-Item -LiteralPath $generatedAliasPath -Force -ErrorAction Stop
+    }
+}
 function New-HyperVTransientGeneratedSqlAccess {
     [CmdletBinding()]
     param(
@@ -1167,12 +1190,10 @@ function Invoke-HyperVLabUnattendedProvision {
     $sqlSaPasswordWasProvided = $null -ne $SqlSaPassword
     if (-not $SqlSaPassword) { $SqlSaPassword = $AdministratorPassword }
     $generatedSqlPassword = $PasswordSource -eq 'generated' -and -not $sqlSaPasswordWasProvided
-    if ($generatedSqlPassword) {
-        Save-LabSecret -Path $lab.RunDirectory -Name 'generated-sql-sa-password' -Secret $SqlSaPassword
-    }
+    Save-LabHyperVSqlSaPassword -RunDirectory $lab.RunDirectory -SqlSaPassword $SqlSaPassword -Generated:$generatedSqlPassword
     Write-LabInfo 'Schritt 6/6b: SQL CompleteImage, WMI-Prüfung sowie TCP/IP-Hostzugriff werden in der laufenden Klon-VM automatisch ausgeführt.'
     $sqlCompletion = Complete-HyperVLabSqlImage -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword `
-        -SqlPort $SqlPort -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
+        -GeneratedSqlSaPassword:$generatedSqlPassword -SqlPort $SqlPort -MediaRoot $MediaRoot -StateRoot $lab.StateRoot
     $storageRuntime = $null
     $storagePlanPath = Join-Path $lab.RunDirectory 'storage-bound-plan.json'
     if (Test-Path -LiteralPath $storagePlanPath -PathType Leaf) {
@@ -1354,15 +1375,20 @@ function Invoke-HyperVLabSqlSlotInstall {
     if (-not $guestPassword) { throw 'HYPERV_LAB_GUEST_PASSWORD_NOT_STORED' }
     $credential = [PSCredential]::new('Administrator', $guestPassword)
     $generatedSaPassword = $false
-    if (-not $SqlSaPassword) { $SqlSaPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'sa-password' }
-    if ($SqlSaPassword -and [string]$plan.passwordSource -eq 'generated') { $generatedSaPassword = $true }
+    if (-not $SqlSaPassword) {
+        $SqlSaPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'sa-password'
+        if ($SqlSaPassword -and [string]$plan.passwordSource -eq 'generated') { $generatedSaPassword = $true }
+        if (-not $SqlSaPassword) {
+            $SqlSaPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'generated-sql-sa-password'
+            if ($SqlSaPassword) { $generatedSaPassword = $true }
+        }
+    }
     if (-not $SqlSaPassword) {
         $SqlSaPassword = New-HyperVSqlUnattendedPassword
         $generatedSaPassword = $true
-        Save-LabSecret -Path $lab.RunDirectory -Name 'sa-password' -Secret $SqlSaPassword
-        Save-LabSecret -Path $lab.RunDirectory -Name 'generated-sql-sa-password' -Secret $SqlSaPassword
         $plan | Add-Member -NotePropertyName passwordSource -NotePropertyValue 'generated' -Force
     }
+    Save-LabHyperVSqlSaPassword -RunDirectory $lab.RunDirectory -SqlSaPassword $SqlSaPassword -Generated:$generatedSaPassword
 
     if ([string]$plan.state -in @('PLANNED', 'INSTALL_RETRY_PENDING')) {
         $media = Resolve-HyperVSqlInstallationMedia -MediaRoot $MediaRoot -SqlVersion ([string]$plan.sqlVersion) `
@@ -2475,6 +2501,7 @@ function Complete-HyperVLabSqlImage {
         [Parameter(Mandatory)][string]$RunId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [SecureString]$SqlSaPassword,
+        [switch]$GeneratedSqlSaPassword,
         [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [string]$MediaRoot,
         [string]$StateRoot
@@ -2506,7 +2533,16 @@ function Complete-HyperVLabSqlImage {
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_SQL_COMPLETE_VM_MUST_BE_RUNNING' }
     $null=Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot
     $lab=Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
-    if (-not $SqlSaPassword) { $SqlSaPassword = $Credential.Password }
+    $generatedSqlPassword = $GeneratedSqlSaPassword.IsPresent
+    if (-not $SqlSaPassword) {
+        $SqlSaPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'sa-password'
+        if (-not $SqlSaPassword) {
+            $SqlSaPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'generated-sql-sa-password'
+            $generatedSqlPassword = $null -ne $SqlSaPassword
+        }
+        if (-not $SqlSaPassword) { $SqlSaPassword = $Credential.Password }
+    }
+    Save-LabHyperVSqlSaPassword -RunDirectory $lab.RunDirectory -SqlSaPassword $SqlSaPassword -Generated:$generatedSqlPassword
     $fallbackAddress = if ($lab.Instance.labNetwork) {
         if ($lab.Instance.labNetwork.address) { [string]$lab.Instance.labNetwork.address }
         else { Get-LabNetworkGuestAddress -Network $lab.Instance.labNetwork -Identity ([string]$lab.Run.runId) }

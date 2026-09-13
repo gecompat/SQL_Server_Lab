@@ -275,6 +275,21 @@ try {
         $script:configurationActual.Configurations=@($script:configurationActual.Configurations|Where-Object Name -ne 'cost threshold for parallelism')
         $unsupported=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -InstanceId primary -StateRoot $Root
 
+        $credentialMutationCount = $script:configurationApplyCount + $script:configurationTraceFlagApplyCount + $script:configurationRestartCount
+        $script:configurationContext.CredentialAvailable = $false
+        $credentialBlockedPlan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVSqlConfiguration -InstanceId primary -StateRoot $Root
+        $credentialBlockedAction = Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVSqlConfiguration -InstanceId primary -StateRoot $Root -Confirm:$false
+        $script:configurationContext.CredentialAvailable = $true
+        $credentialRequiredFailClosed =
+            $credentialBlockedPlan.HighestChangeClass -eq 'unsupported' -and
+            @($credentialBlockedPlan.ReasonCodes) -contains 'HYPERV_SQL_CONFIGURATION_RECONCILE_CREDENTIAL_REQUIRED' -and
+            $credentialBlockedAction.ExecutionSummary.Status -eq 'UNSUPPORTED' -and
+            -not $credentialBlockedAction.MutationAllowed -and
+            -not $credentialBlockedAction.ExecutionPlan[0].Executed -and
+            $credentialBlockedAction.ExecutionPlan[0].Reason -eq 'HYPERV_SQL_CONFIGURATION_RECONCILE_CREDENTIAL_REQUIRED' -and
+            @($credentialBlockedAction.ExecutionSummary.Errors) -eq @('HYPERV_SQL_CONFIGURATION_RECONCILE_CREDENTIAL_REQUIRED') -and
+            $credentialMutationCount -eq ($script:configurationApplyCount + $script:configurationTraceFlagApplyCount + $script:configurationRestartCount)
+
         $fingerprintInstance=[PSCustomObject]@{
             Id='primary';Provider='hyperv';Version='2025';Profile='standard';AutoStart='off';DatabaseNames=@('db')
             Intents=[PSCustomObject]@{Drives=@();Network=[PSCustomObject]@{Mode='hostOnly'};Resources=$null;SqlEndpoint=$null;Databases=$null;Software=$null;Storage=$null;SqlConfiguration=[PSCustomObject]@{TraceFlags=@(1117)}}
@@ -315,6 +330,7 @@ try {
             RemovalWhatIf=$removalWhatIfSafe;OwnedRemoval=$ownedRemoval;StartupBlocked=$startupFailClosed;ForeignBlocked=$foreignFailClosed
             AdditionOwnership=$additionOwned;RemovalRecovery=$removalRecovery;TargetIsolation=$targetIsolation;OwnershipIdentity=$ownershipIdentityBlocked
             Unsupported=$unsupported.HighestChangeClass -eq 'unsupported' -and @($unsupported.Actions).Count -eq 0 -and @($unsupported.Diff.Kind) -contains 'configuration-missing'
+            MissingCredential=$credentialRequiredFailClosed
         }
     } $testRoot $runId $scopeId
 
@@ -343,6 +359,7 @@ try {
         'Zielmanifest-Fingerprint erlaubt nur SQL-Konfiguration und blockiert Netzwerkdrift'=$result.TargetIsolation
         'Ownership-Receipt ist fail-closed an die konkrete VM-Identitaet gebunden'=$result.OwnershipIdentity
         'Fehlende oder mehrdeutige Konfiguration bleibt fail-closed'=$result.Unsupported
+        'Fehlende run-gebundene Credentials blockieren vor SQL-Mutation und bleiben als sanitierter öffentlicher ReasonCode sichtbar'=$result.MissingCredential
         'Gastmutation parametrisiert und bindet sp_configure an den Zielkatalog, schuetzt Startup-Flags und startet ausschliesslich MSSQLSERVER neu'=($source -match "Parameters\.Add\('@name'" -and $source -match "Parameters\.Add\('@value'" -and $source -match 'FROM sys\.configurations WHERE name=@name' -and $source -match 'HYPERV_SQL_CONFIGURATION_RECONCILE_TARGET_NOT_UNIQUE' -and $source -match 'DBCC TRACEOFF' -and $source -match 'SQLArg\*' -and $source -match "Restart-Service -Name 'MSSQLSERVER'" -and $source -notmatch 'Restart-VM|Stop-VM|Start-VM')
         'Initiale Serverkonfiguration verwendet dieselbe eng begrenzte Namensgrenze'=($serverConfigSource -match 'Assert-LabSqlConfigurationIntentName -Name \$configurationName')
         'Oeffentlicher Hyper-V-Manifestpfad reconciliert vorhandenen ServerConfig-Intent erst nach SQL/OOBE mit exakter Run-, Instanz- und StateRoot-Bindung'=($publicProvisioningSource -match '(?s)Invoke-HyperVLabUnattendedProvision.+?Get-HyperVLabWorkflowRun.+?if \(\$instance\.serverConfig\) \{.+?Invoke-LabHyperVSqlConfigurationReconcileRepair\s+`\s*-RunId \$lab\.RunId -InstanceId \(\[string\]\$instance\.id\) -StateRoot \$hyperVLab\.StateRoot' -and ([regex]::Matches($publicProvisioningSource,'Invoke-LabHyperVSqlConfigurationReconcileRepair')).Count -eq 1)
