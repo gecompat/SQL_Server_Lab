@@ -113,7 +113,7 @@ try{
     Assert-HyperVSqlPortAcceptance ([string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED' -and [string]$artifact.sql.version -eq '2025') 'Verifiziertes SQL-2025-Prepared-Artifact ist verfuegbar' $ArtifactId
     $manifest=[ordered]@{
         '$schema'=(Join-Path $repoRoot 'Schemas/lab-manifest.schema.json');name=('hv-sql-port-'+[Guid]::NewGuid().ToString('N').Substring(0,8));automation=[ordered]@{mode='unattended'}
-        instances=@([ordered]@{id='primary';version='2025';provider='hyperv';os='windows';profile='standard';autostart='off';network=[ordered]@{intent='hostOnly';exposure='host'};hyperv=[ordered]@{preparedImageId=$ArtifactId;memoryStartupMB=6144;processorCount=4;sqlPort=$desiredPort;guestPasswordMode='prompt'}})
+        instances=@([ordered]@{id='primary';version='2025';provider='hyperv';os='windows';profile='standard';autostart='off';network=[ordered]@{intent='hostOnly';exposure='host'};windowsActivation=[ordered]@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='EvaluationOnline';EgressPolicy='AllowTemporary'};hyperv=[ordered]@{preparedImageId=$ArtifactId;memoryStartupMB=6144;processorCount=4;sqlPort=$desiredPort;guestPasswordMode='prompt'}})
     }
     $manifest|ConvertTo-Json -Depth 30|Set-Content -LiteralPath $manifestPath -Encoding utf8
     $validation=Test-SqlServerLabManifest -Path $manifestPath
