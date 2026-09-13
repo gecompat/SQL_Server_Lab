@@ -149,9 +149,16 @@ Journal und scopegebundenen Cleanup. Der getrennte Bootstrap erzeugt und
 entfernt auch das Prepared-Artifact isoliert und gibt bei Fehlern exakte
 Recovery-IDs aus.
 
-Beide Runner sind implementiert und statisch gebunden. Ein positiver nativer
-Lauf wurde noch nicht ausgeführt (`NOT_EXECUTED`); dieser Abschnitt ist daher
-keine Runtime-PASS-Evidence.
+Der native GitHub-Actions-Lauf `34754976310` vom 2026-09-13 war auf dem
+erhöhten Runner erfolgreich. Er bestätigte das verifizierte Prepared-Artifact,
+das gültige Manifest, den isolierten Run und Host-SQL-Zugriff sowie die
+initiale dynamische und restartpflichtige Zielkonfiguration. `WhatIf` ließ
+bestehendes Journal und Konfiguration unverändert; Live-Änderung,
+eigentumsgebundenes Trace-Flag-Add/-Remove bei erhaltenem fremdem Flag,
+Live-No-op, der ausschließliche `MSSQLSERVER`-Restart ohne VM-Neustart,
+Basis-Desired-State-Konvergenz und Cleanup von VM, VHDX und IPAM-Lease
+bestanden. Das ist Runtime-PASS-Evidence für diesen SQL-Konfigurationsvertrag;
+der getrennte SQL-Port-Vertrag bleibt `NOT_EXECUTED`.
 
 ## Ausführbarer Hyper-V-SQL-Port-Reconcile-Vertrag
 
