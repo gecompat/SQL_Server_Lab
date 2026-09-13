@@ -45,6 +45,19 @@ try {
     Add-CheckResult 'SQL-Erhebung enthält ausschließlich aggregierte read-only SELECT-Metadatenzugriffe' (
         $result.Query -match 'sys\.dm_os_sys_info' -and $result.Query -match 'sys\.dm_os_wait_stats' -and $result.Query -match 'is_query_store_on' -and
         $result.Query -notmatch '(?im)^\s*(INSERT|UPDATE|DELETE|MERGE|BACKUP|RESTORE|CREATE|ALTER|DROP|EXEC(?:UTE)?)\b')
+    $databaseMetrics=[regex]::Match($result.Query,'(?is)DatabaseMetrics\s+AS\s*\((?<body>.*?)\)\s*,\s*FileMetrics\s+AS')
+    $fileMetrics=[regex]::Match($result.Query,'(?is)FileMetrics\s+AS\s*\((?<body>.*?)\)\s*SELECT\s+CONCAT\(N''OBS100_DATABASE')
+    Add-CheckResult 'Produktquery zählt Online- und Query-Store-Datenbanken getrennt von Dateizeilen' (
+        $databaseMetrics.Success -and
+        $databaseMetrics.Groups['body'].Value -match '(?is)COUNT_BIG\(\*\)\s+AS\s+OnlineDatabaseCount' -and
+        $databaseMetrics.Groups['body'].Value -match '(?is)SUM\(CASE\s+WHEN\s+is_query_store_on=1\s+THEN\s+1\s+ELSE\s+0\s+END\)' -and
+        $databaseMetrics.Groups['body'].Value -match '(?is)FROM\s+OnlineDatabases' -and
+        $databaseMetrics.Groups['body'].Value -notmatch '(?is)sys\.master_files')
+    Add-CheckResult 'Produktquery summiert Dateiseiten nur einmal über sys.master_files der Online-Datenbanken' (
+        $fileMetrics.Success -and
+        $fileMetrics.Groups['body'].Value -match '(?is)SUM\(CONVERT\(bigint,mf\.size\)\)' -and
+        $fileMetrics.Groups['body'].Value -match '(?is)FROM\s+sys\.master_files\s+AS\s+mf\s+INNER\s+JOIN\s+OnlineDatabases\s+AS\s+od\s+ON\s+od\.database_id=mf\.database_id' -and
+        $fileMetrics.Groups['body'].Value -notmatch '(?is)sys\.databases')
 }
 finally { Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue }
 
