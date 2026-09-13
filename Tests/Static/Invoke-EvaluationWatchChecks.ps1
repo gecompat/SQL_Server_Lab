@@ -54,9 +54,9 @@ try {
                 schemaVersion = 1
                 instances = @([PSCustomObject]@{
                     id = 'sql-primary'; provider = 'hyperv'; workload = 'sql'; vmName = 'secret-sql-vm'; vmId = $sqlVmId
-                    imageArtifactId = $sqlArtifactId; sqlEdition = 'Enterprise Developer'
+                    imageArtifactId = $sqlArtifactId; sqlEdition = 'Enterprise Evaluation Edition'
                     sqlReadiness = [PSCustomObject]@{
-                        status = 'SQL_READY_RUN'; instanceName = 'MSSQLSERVER'; majorVersion = 17; edition = 'Enterprise Developer'
+                        status = 'SQL_READY_RUN'; instanceName = 'MSSQLSERVER'; majorVersion = 17; edition = 'Enterprise Evaluation Edition'
                     }
                 })
             } | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $directory 'connection-info.json') -Encoding utf8
@@ -66,12 +66,33 @@ try {
             EvidenceId = '77777777-7777-7777-7777-777777777777'
             ObservedAt = [datetime]::UtcNow.AddMinutes(-5).ToString('o')
             RunId = $sqlRunId; ScopeId = '66666666-6666-6666-6666-666666666666'; InstanceId = 'sql-primary'; Provider = 'hyperv'
-            VmId = $sqlVmId; ImageArtifactId = $sqlArtifactId; SqlInstanceName = 'MSSQLSERVER'; SqlMajorVersion = 17; SqlEdition = 'Enterprise Developer'
+            VmId = $sqlVmId; ImageArtifactId = $sqlArtifactId; SqlInstanceName = 'MSSQLSERVER'; SqlMajorVersion = 17; SqlEdition = 'Enterprise Evaluation Edition'
             LicenseClassification = 'EVALUATION'; EvaluationExpiresAt = [datetime]::UtcNow.AddDays(3).ToString('o')
             DeadlineSource = 'SQL_GUEST_OBSERVED'; ObservationStatus = 'CAPTURED'; EvidenceFreshUntil = [datetime]::UtcNow.AddHours(12).ToString('o')
             PreviousEvidenceId = $null
         }
         $validEvidence | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path (Join-Path (Join-Path $StateRoot 'runs') $sqlRunId) 'sql-guest-evaluation-evidence.json') -Encoding utf8
+        $sqlRunDirectory = Join-Path (Join-Path $StateRoot 'runs') $sqlRunId
+        $sqlEvidencePath = Join-Path $sqlRunDirectory 'sql-guest-evaluation-evidence.json'
+        $sqlConnectionPath = Join-Path $sqlRunDirectory 'connection-info.json'
+        $validEvidenceJson = Get-Content -LiteralPath $sqlEvidencePath -Raw -Encoding utf8
+        $validConnectionJson = Get-Content -LiteralPath $sqlConnectionPath -Raw -Encoding utf8
+        function Invoke-SqlGuestEvidenceReaderCase {
+            param([scriptblock]$EvidenceMutation, [scriptblock]$ConnectionMutation)
+            $candidateEvidence = $validEvidenceJson | ConvertFrom-Json -Depth 20
+            $candidateConnection = $validConnectionJson | ConvertFrom-Json -Depth 20
+            if ($EvidenceMutation) { & $EvidenceMutation $candidateEvidence }
+            if ($ConnectionMutation) { & $ConnectionMutation $candidateConnection }
+            try {
+                $candidateEvidence | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $sqlEvidencePath -Encoding utf8
+                $candidateConnection | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $sqlConnectionPath -Encoding utf8
+                return Get-LabSqlGuestEvaluationEvidence -RunId $sqlRunId -StateRoot $StateRoot
+            }
+            finally {
+                Set-Content -LiteralPath $sqlEvidencePath -Value $validEvidenceJson -Encoding utf8
+                Set-Content -LiteralPath $sqlConnectionPath -Value $validConnectionJson -Encoding utf8
+            }
+        }
         function Get-SqlServerLabHyperVImageArtifact {
             @(
                 [PSCustomObject]@{
@@ -119,16 +140,72 @@ try {
         $staleEvidence.EvidenceFreshUntil = [datetime]::UtcNow.AddMinutes(-1).ToString('o')
         $staleEvidence | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path (Join-Path (Join-Path $StateRoot 'runs') $sqlRunId) 'sql-guest-evaluation-evidence.json') -Encoding utf8
         $stale = Get-SqlServerLabEvaluationWatch -StateRoot $StateRoot -WarningDaysRemaining 30 -CriticalDaysRemaining 7
-        $wrongBinding = $validEvidence | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20; $wrongBinding.VmId = '88888888-8888-8888-8888-888888888888'
-        $wrongBinding | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path (Join-Path (Join-Path $StateRoot 'runs') $sqlRunId) 'sql-guest-evaluation-evidence.json') -Encoding utf8
-        $wrongBindingResult = Get-LabSqlGuestEvaluationEvidence -RunId $sqlRunId -StateRoot $StateRoot
-        $invalidDeadline = $validEvidence | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20; $invalidDeadline.DeadlineSource = 'SQL_GUEST_NO_DEADLINE'
-        $invalidDeadline | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path (Join-Path (Join-Path $StateRoot 'runs') $sqlRunId) 'sql-guest-evaluation-evidence.json') -Encoding utf8
-        $invalidDeadlineResult = Get-LabSqlGuestEvaluationEvidence -RunId $sqlRunId -StateRoot $StateRoot
-        $duplicateEvidence = $validEvidence | ConvertTo-Json -Depth 20
+        Set-Content -LiteralPath $sqlEvidencePath -Value $validEvidenceJson -Encoding utf8
+        $wrongBindingResult = Invoke-SqlGuestEvidenceReaderCase -EvidenceMutation { param($evidence) $evidence.VmId = '88888888-8888-8888-8888-888888888888' }
+        $invalidDeadlineResult = Invoke-SqlGuestEvidenceReaderCase -EvidenceMutation { param($evidence) $evidence.DeadlineSource = 'SQL_GUEST_NO_DEADLINE' }
+        $futureObservedResult = Invoke-SqlGuestEvidenceReaderCase -EvidenceMutation {
+            param($evidence)
+            $evidence.ObservedAt = [datetime]::UtcNow.AddMinutes(5).ToString('o')
+            $evidence.EvidenceFreshUntil = [datetime]::UtcNow.AddHours(6).ToString('o')
+        }
+        $overlongTtlResult = Invoke-SqlGuestEvidenceReaderCase -EvidenceMutation {
+            param($evidence)
+            $observedAt = [datetime]::UtcNow.AddMinutes(-1)
+            $evidence.ObservedAt = $observedAt.ToString('o')
+            $evidence.EvidenceFreshUntil = $observedAt.AddHours(169).ToString('o')
+        }
+        $evaluationClassificationMismatchResult = Invoke-SqlGuestEvidenceReaderCase -EvidenceMutation {
+            param($evidence)
+            $evidence.SqlEdition = 'Enterprise Developer'
+        } -ConnectionMutation {
+            param($connection)
+            $connection.instances[0].sqlEdition = 'Enterprise Developer'
+            $connection.instances[0].sqlReadiness.edition = 'Enterprise Developer'
+        }
+        $notEvaluationClassificationMismatchResult = Invoke-SqlGuestEvidenceReaderCase -EvidenceMutation {
+            param($evidence)
+            $evidence.LicenseClassification = 'NOT_EVALUATION'
+            $evidence.EvaluationExpiresAt = $null
+            $evidence.DeadlineSource = 'SQL_GUEST_NO_DEADLINE'
+            $evidence.ObservationStatus = 'NO_DEADLINE'
+        }
+        $missingReadinessResult = Invoke-SqlGuestEvidenceReaderCase -ConnectionMutation {
+            param($connection)
+            $connection.instances[0].PSObject.Properties.Remove('sqlReadiness')
+        }
+        $wrongReadinessStatusResult = Invoke-SqlGuestEvidenceReaderCase -ConnectionMutation {
+            param($connection)
+            $connection.instances[0].sqlReadiness.status = 'UNKNOWN'
+        }
+        $wrongReadinessVersionResult = Invoke-SqlGuestEvidenceReaderCase -ConnectionMutation {
+            param($connection)
+            $connection.instances[0].sqlReadiness.majorVersion = 16
+        }
+        $wrongReadinessEditionResult = Invoke-SqlGuestEvidenceReaderCase -ConnectionMutation {
+            param($connection)
+            $connection.instances[0].sqlReadiness.edition = 'Enterprise Developer'
+        }
+        $staleNotEvaluationEvidence = $validEvidence | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+        $staleNotEvaluationEvidence.SqlEdition = 'Enterprise Developer'
+        $staleNotEvaluationEvidence.LicenseClassification = 'NOT_EVALUATION'
+        $staleNotEvaluationEvidence.EvaluationExpiresAt = $null
+        $staleNotEvaluationEvidence.DeadlineSource = 'SQL_GUEST_NO_DEADLINE'
+        $staleNotEvaluationEvidence.ObservationStatus = 'NO_DEADLINE'
+        $staleNotEvaluationEvidence.ObservedAt = [datetime]::UtcNow.AddDays(-7).ToString('o')
+        $staleNotEvaluationEvidence.EvidenceFreshUntil = [datetime]::UtcNow.AddMinutes(-1).ToString('o')
+        $staleNotEvaluationConnection = $validConnectionJson | ConvertFrom-Json -Depth 20
+        $staleNotEvaluationConnection.instances[0].sqlEdition = 'Enterprise Developer'
+        $staleNotEvaluationConnection.instances[0].sqlReadiness.edition = 'Enterprise Developer'
+        $staleNotEvaluationEvidence | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $sqlEvidencePath -Encoding utf8
+        $staleNotEvaluationConnection | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $sqlConnectionPath -Encoding utf8
+        $staleNotEvaluation = Get-SqlServerLabEvaluationWatch -StateRoot $StateRoot -WarningDaysRemaining 30 -CriticalDaysRemaining 7
+        Set-Content -LiteralPath $sqlEvidencePath -Value $validEvidenceJson -Encoding utf8
+        Set-Content -LiteralPath $sqlConnectionPath -Value $validConnectionJson -Encoding utf8
+        $duplicateEvidence = $validEvidenceJson
         $duplicateEvidence = $duplicateEvidence -replace '"EvidenceId": "([^"]+)"', '"EvidenceId": "$1", "EvidenceId": "$1"'
-        Set-Content -LiteralPath (Join-Path (Join-Path (Join-Path $StateRoot 'runs') $sqlRunId) 'sql-guest-evaluation-evidence.json') -Value $duplicateEvidence -Encoding utf8
+        Set-Content -LiteralPath $sqlEvidencePath -Value $duplicateEvidence -Encoding utf8
         $duplicateEvidenceResult = Get-LabSqlGuestEvaluationEvidence -RunId $sqlRunId -StateRoot $StateRoot
+        Set-Content -LiteralPath $sqlEvidencePath -Value $validEvidenceJson -Encoding utf8
         $triggerStateRoot = Join-Path $StateRoot 'trigger'
         New-Item -ItemType Directory -Path $triggerStateRoot -Force | Out-Null
         $trigger = Invoke-SqlServerLabEvaluationWatchTrigger -StateRoot $triggerStateRoot -WarningDaysRemaining 30 -CriticalDaysRemaining 7 -IntervalSeconds 1 -MaximumChecks 2 -RecordEvents
@@ -139,7 +216,7 @@ try {
         catch { $invalidTriggerThresholdRejected = $_.Exception.Message -eq 'EVALUATION_WATCH_TRIGGER_CRITICAL_THRESHOLD_INVALID' }
         function Test-LabPathWithinRoot { [PSCustomObject]@{ Valid = $false; Reason = 'synthetic reparse point' } }
         $unsafeConnection = Get-SqlServerLabEvaluationWatch -StateRoot $StateRoot -WarningDaysRemaining 30 -CriticalDaysRemaining 7
-        [PSCustomObject]@{ ReadOnly = $readOnly; EventStateExistsAfterReadOnly = $eventStateExistsAfterReadOnly; FirstRecorded = $firstRecorded; SecondRecorded = $secondRecorded; Stale = $stale; WrongBindingResult = $wrongBindingResult; InvalidDeadlineResult = $invalidDeadlineResult; DuplicateEvidenceResult = $duplicateEvidenceResult; Trigger = $trigger; InvalidTriggerThresholdRejected = $invalidTriggerThresholdRejected; UnsafeConnection = $unsafeConnection }
+        [PSCustomObject]@{ ReadOnly = $readOnly; EventStateExistsAfterReadOnly = $eventStateExistsAfterReadOnly; FirstRecorded = $firstRecorded; SecondRecorded = $secondRecorded; Stale = $stale; WrongBindingResult = $wrongBindingResult; InvalidDeadlineResult = $invalidDeadlineResult; FutureObservedResult = $futureObservedResult; OverlongTtlResult = $overlongTtlResult; EvaluationClassificationMismatchResult = $evaluationClassificationMismatchResult; NotEvaluationClassificationMismatchResult = $notEvaluationClassificationMismatchResult; MissingReadinessResult = $missingReadinessResult; WrongReadinessStatusResult = $wrongReadinessStatusResult; WrongReadinessVersionResult = $wrongReadinessVersionResult; WrongReadinessEditionResult = $wrongReadinessEditionResult; StaleNotEvaluation = $staleNotEvaluation; DuplicateEvidenceResult = $duplicateEvidenceResult; Trigger = $trigger; InvalidTriggerThresholdRejected = $invalidTriggerThresholdRejected; UnsafeConnection = $unsafeConnection }
     } $temporaryRoot
 
     $items = @($result.ReadOnly.Items)
@@ -176,8 +253,25 @@ try {
         $result.InvalidDeadlineResult.Status -eq 'EVIDENCE_INVALID' -and
         $result.DuplicateEvidenceResult.Status -eq 'EVIDENCE_INVALID'
     )
+    Add-CheckResult -Name 'SQL-Gast-Evidence weist zukünftige Beobachtungen und überlange Freshness-TTLs fail-closed ab' -Success (
+        $result.FutureObservedResult.Status -eq 'EVIDENCE_INVALID' -and
+        $result.OverlongTtlResult.Status -eq 'EVIDENCE_INVALID'
+    )
+    Add-CheckResult -Name 'SQL-Gast-Evidence bindet Evaluation-Klassifikation konsistent an die beobachtete Edition' -Success (
+        $result.EvaluationClassificationMismatchResult.Status -eq 'EVIDENCE_INVALID' -and
+        $result.NotEvaluationClassificationMismatchResult.Status -eq 'EVIDENCE_INVALID'
+    )
+    Add-CheckResult -Name 'SQL-Gast-Evidence verlangt vollständige, passende SQL_READY_RUN-Readiness für Instanz, Major-Version und Edition' -Success (
+        $result.MissingReadinessResult.Status -eq 'EVIDENCE_INVALID' -and
+        $result.WrongReadinessStatusResult.Status -eq 'EVIDENCE_INVALID' -and
+        $result.WrongReadinessVersionResult.Status -eq 'EVIDENCE_INVALID' -and
+        $result.WrongReadinessEditionResult.Status -eq 'EVIDENCE_INVALID'
+    )
     Add-CheckResult -Name 'Veraltete SQL-Gast-Evidence erzeugt keine aktuelle Frist und blockiert den Refresh' -Success (
         @($result.Stale.InstanceItems | Where-Object { $_.Component -eq 'SqlServer' -and $_.RunId -eq '33333333-3333-3333-3333-333333333333' -and $_.EvidenceStatus -eq 'EVIDENCE_STALE' -and $_.Status -eq 'UNKNOWN' -and $_.EvaluationExpiresAt -eq $null -and $_.RefreshStatus -eq 'REFRESH_BLOCKED' }).Count -eq 1
+    )
+    Add-CheckResult -Name 'Freshness wird auch bei NOT_EVALUATION vor der Klassifikation ausgewertet' -Success (
+        @($result.StaleNotEvaluation.InstanceItems | Where-Object { $_.Component -eq 'SqlServer' -and $_.RunId -eq '33333333-3333-3333-3333-333333333333' -and $_.EvidenceStatus -eq 'EVIDENCE_STALE' -and $_.Status -eq 'UNKNOWN' -and $_.RefreshStatus -eq 'REFRESH_BLOCKED' }).Count -eq 1
     )
     Add-CheckResult -Name 'Evaluation-Watch folgt keiner unsicheren Connection-Info-Pfadbindung' -Success (
         @($result.UnsafeConnection.InstanceItems | Where-Object Component -eq 'Windows').Count -eq 0

@@ -380,10 +380,13 @@ einem möglicherweise veralteten Receipt auf `true`.
 Der private Reader für
 [`SqlServerLab.SqlGuestEvaluationEvidence/1.0`](../Project_Planning/SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG.md)
 liest ausschließlich einen rungebundenen SQL-Gast-Receipt und bindet ihn an
-Run, Scope, Instanz, VM, Image und die bereits vorhandene SQL-Readiness. Der
-Reader und die fail-closed Watch-Projektion sind statisch geprüft; Capture und
-die erforderliche native Evidence bleiben offen. Es erfolgt keine neue
-Gastabfrage und es wird keine synthetische Produktionsfrist abgeleitet.
+Run, Scope, Instanz, VM, Image sowie eine vollständige passende
+`SQL_READY_RUN`-Readiness. Zukünftige Beobachtungen, überlange Freshness-TTLs
+und widersprüchliche Evaluation-Klassifikation/Edition bleiben fail-closed.
+Der Reader und die Watch-Projektion sind statisch geprüft; Capture und die
+erforderliche native Evidence bleiben offen. Es erfolgt keine neue Gastabfrage,
+keine reale Deadline-Capture und es wird keine synthetische Produktionsfrist
+abgeleitet.
 
 Der Prepared-Image-Klonpfad aus `SQL_PREPARED_SEALED` ist für Windows Server
 2025 Standard Evaluation (Desktop Experience) und SQL Server 2025 Enterprise

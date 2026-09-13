@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `PARTIALLY_IMPLEMENTED`: schema-validierender Reader und Watch-Projektion sind statisch geprüft; Capture und Native-Evidence bleiben offen |
-| Stand | 2026-09-11 |
+| Stand | 2026-09-13 |
 | Scope | Hyper-V-Run mit SQL-Gast; nur Evaluationsermittlung und read-only Projektion |
 | Ziel | Versionsgebundene, frische und geheimnisfreie SQL-Gast-Frist für Watch und Refresh |
 | Autorität | Vertrag und Abnahmeplan; keine neue Gastabfrage, Lizenz-, Refresh-, Netzwerk- oder Runtime-Mutation |
@@ -56,10 +56,14 @@ Hyper-V-Instanz in `connection-info.json` übereinstimmen. Fehlt eine Quelle,
 gibt es mehrere Instanzen oder ändert sich eine Bindung, ist der Receipt
 ungültig; ein älterer Receipt darf nicht weiterverwendet werden.
 
-`SqlInstanceName`, `SqlMajorVersion` und `SqlEdition` werden gegen den
-persistierten SQL-Readiness-Receipt geprüft, soweit er für denselben Run/VM
-vorliegt. Fehlende Readiness-Evidence ist ein Capture-Blocker, keine Erlaubnis
-für eine anhand von Image-Metadaten geschätzte Frist.
+`SqlInstanceName`, `SqlMajorVersion` und `SqlEdition` werden zwingend gegen
+eine vollständige `SQL_READY_RUN`-Readiness desselben Runs und derselben VM
+geprüft. Die Edition muss zusätzlich mit der persistierten Instanzedition
+übereinstimmen. Für `EVALUATION` muss die beobachtete Edition ausdrücklich als
+Evaluation erkennbar sein; `NOT_EVALUATION` darf keine Evaluation-Edition
+behaupten. Fehlende oder abweichende Readiness-Evidence macht einen vorhandenen
+Receipt beim Reader ungültig und erlaubt weder Capture noch eine anhand von
+Image-Metadaten geschätzte Frist.
 
 Die erste Version akzeptiert nur:
 
@@ -70,8 +74,10 @@ Die erste Version akzeptiert nur:
 `EvaluationExpiresAt` ist für `EVALUATION` mit `SQL_GUEST_OBSERVED` ein
 UTC-RFC-3339-Zeitpunkt. Ein leeres Datum bei `EVALUATION` ist nur mit
 `SQL_GUEST_NO_DEADLINE` zulässig und wird als `UNKNOWN`, nie als `OK`,
-projiziert. `EvidenceFreshUntil` ist UTC-RFC-3339 und darf höchstens 168
-Stunden nach `ObservedAt` liegen. Die Capture-Implementierung muss die
+projiziert. `ObservedAt` muss UTC-RFC-3339 sein und darf nicht in der Zukunft
+liegen. `EvidenceFreshUntil` ist UTC-RFC-3339 und darf höchstens 168 Stunden
+nach `ObservedAt` liegen. Der Watch prüft diese Freshness vor jeder
+Lizenzklassifikation, auch für `NOT_EVALUATION`. Die Capture-Implementierung muss die
 konkrete, hersteller- und versionsgerechte Gastabfrage mit eigener Native-
 Evidence belegen; dieser Backlog erfindet keine Abfrage und keine Fristwerte.
 
@@ -80,8 +86,9 @@ Evidence belegen; dieser Backlog erfindet keine Abfrage und keine Fristwerte.
 `1.0` erlaubt nur additive optionale Felder. Eine Änderung von Bedeutung,
 Bindungsregeln, Statuswerten oder Zeitsemantik erfordert eine neue
 Major-Version mit Reader-Migrationspfad. Reader akzeptieren nur unterstützte
-Major-Versionen und melden unbekannte, malformed oder doppelte `EvidenceId`
-als `EVIDENCE_INVALID`.
+Major-Versionen und melden unbekannte, malformed oder doppelte `EvidenceId`,
+zukünftige Beobachtungen, überlange TTL und unvollständige oder widersprüchliche
+SQL-Readiness als `EVIDENCE_INVALID`.
 
 Ein neuer Receipt ersetzt den alten atomar erst nach vollständiger Validierung.
 `PreviousEvidenceId` verweist nur auf dieselbe vollständige Bindung; bei der
@@ -148,6 +155,8 @@ behaupten.
 ## Abgrenzung und Folgearbeit
 
 Dieser Slice implementiert weder Capture noch neue SQL- oder Hyper-V-Abfragen.
+Insbesondere liegt keine reale SQL-Gastfrist-Capture und keine positive native
+Deadline-Evidence vor.
 Er schafft keine Lizenzverlängerung, keinen automatischen Refresh, Cutover,
 Export, Import, Notification-Service oder Windows-Aufgabe. Der vollständige
 Evaluation-Refresh darf erst eine frische, gültig gebundene SQL-Gast-Evidence

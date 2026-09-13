@@ -50,7 +50,7 @@ function Test-LabSqlGuestEvaluationEvidenceSemantics {
 
     $observedAt = ConvertFrom-LabSqlGuestEvaluationEvidenceUtcTimestamp -Value $Evidence.ObservedAt
     $freshUntil = ConvertFrom-LabSqlGuestEvaluationEvidenceUtcTimestamp -Value $Evidence.EvidenceFreshUntil
-    if ($null -eq $observedAt -or $null -eq $freshUntil -or $freshUntil -lt $observedAt -or
+    if ($null -eq $observedAt -or $null -eq $freshUntil -or $observedAt -gt [datetime]::UtcNow -or $freshUntil -lt $observedAt -or
         ($freshUntil - $observedAt).TotalHours -gt 168) {
         return $false
     }
@@ -73,20 +73,25 @@ function Test-LabSqlGuestEvaluationEvidenceSemantics {
     }
 
     $readiness = $Instance.sqlReadiness
-    if ($readiness) {
-        if ([string]$readiness.status -ne 'SQL_READY_RUN' -or
-            [string]$Evidence.SqlInstanceName -ne [string]$readiness.instanceName -or
-            [int]$Evidence.SqlMajorVersion -ne [int]$readiness.majorVersion -or
-            [string]$Evidence.SqlEdition -ne [string]$readiness.edition) {
-            return $false
-        }
-    }
-    if (-not [string]::IsNullOrWhiteSpace([string]$Instance.sqlEdition) -and
+    if (-not $readiness -or
+        [string]$readiness.status -ne 'SQL_READY_RUN' -or
+        [string]::IsNullOrWhiteSpace([string]$readiness.instanceName) -or
+        [int]$readiness.majorVersion -lt 1 -or
+        [string]::IsNullOrWhiteSpace([string]$readiness.edition) -or
+        [string]::IsNullOrWhiteSpace([string]$Instance.sqlEdition) -or
+        [string]$Evidence.SqlInstanceName -ne [string]$readiness.instanceName -or
+        [int]$Evidence.SqlMajorVersion -ne [int]$readiness.majorVersion -or
+        [string]$Evidence.SqlEdition -ne [string]$readiness.edition -or
         [string]$Evidence.SqlEdition -ne [string]$Instance.sqlEdition) {
         return $false
     }
 
     $classification = [string]$Evidence.LicenseClassification
+    $editionIsEvaluation = [string]$Evidence.SqlEdition -match '(?i)\b(?:evaluation|eval)\b'
+    if (($classification -eq 'EVALUATION' -and -not $editionIsEvaluation) -or
+        ($classification -eq 'NOT_EVALUATION' -and $editionIsEvaluation)) {
+        return $false
+    }
     $source = [string]$Evidence.DeadlineSource
     $observation = [string]$Evidence.ObservationStatus
     if ($classification -eq 'EVALUATION' -and $source -eq 'SQL_GUEST_OBSERVED' -and $observation -eq 'CAPTURED') {
@@ -205,19 +210,19 @@ function ConvertTo-LabSqlGuestEvaluationWatchItem {
     if ($ReaderResult.Status -eq 'VALID') {
         $evidence = $ReaderResult.Evidence
         $deadlineSource = [string]$evidence.DeadlineSource
-        if ([string]$evidence.LicenseClassification -eq 'NOT_EVALUATION') {
+        $freshUntil = ConvertFrom-LabSqlGuestEvaluationEvidenceUtcTimestamp -Value $evidence.EvidenceFreshUntil
+        if ($null -eq $freshUntil -or $freshUntil -lt $Now) {
+            $evidenceStatus = 'EVIDENCE_STALE'
+            $refreshAction = 'CAPTURE_REQUIRED'
+        }
+        elseif ([string]$evidence.LicenseClassification -eq 'NOT_EVALUATION') {
             $evidenceStatus = 'NOT_EVALUATION'
             $status = 'NOT_APPLICABLE'
             $refreshAction = 'NO_ACTION'
             $refreshStatus = 'NOT_APPLICABLE'
         }
         else {
-            $freshUntil = ConvertFrom-LabSqlGuestEvaluationEvidenceUtcTimestamp -Value $evidence.EvidenceFreshUntil
-            if ($freshUntil -lt $Now) {
-                $evidenceStatus = 'EVIDENCE_STALE'
-                $refreshAction = 'CAPTURE_REQUIRED'
-            }
-            elseif ([string]$evidence.LicenseClassification -ne 'EVALUATION' -or
+            if ([string]$evidence.LicenseClassification -ne 'EVALUATION' -or
                 [string]$evidence.DeadlineSource -ne 'SQL_GUEST_OBSERVED') {
                 $evidenceStatus = 'DEADLINE_UNKNOWN'
                 $refreshAction = 'CAPTURE_REQUIRED'
