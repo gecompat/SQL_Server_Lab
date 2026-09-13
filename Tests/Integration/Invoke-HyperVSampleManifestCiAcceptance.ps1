@@ -5,12 +5,17 @@
     Fuehrt die manuelle, operationsgebundene CI-Akzeptanz fuer Hyper-V-Sample-Manifeste aus.
 .DESCRIPTION
     Der CI-Einstieg akzeptiert keine Run-ID, keine Clone-Quelle und keinen freien
-    Testdatenpfad. Er bindet die zwei sequenziellen frischen Runs an abgeleitete
-    Workflow-Operations-IDs. Auf Erfolg und Fehlern werden nur exakt dazu passende
-    Hyper-V-Runs mit valide gebundenem Cleanup-Plan entfernt.
+    Testdatenpfad. Die innere Acceptance laeuft in einem eigenen,
+    nichtinteraktiven PowerShell-Kindprozess mit begrenzter Laufzeit. Der Parent
+    verarbeitet ausschliesslich eine kleine, validierte Statusquittung und fuehrt
+    erst nach bestaetigtem Kindprozess-Ende den operationsgebundenen Cleanup aus.
 #>
 [CmdletBinding()]
-param([string]$ArtifactId,[string]$StateRoot)
+param(
+    [string]$ArtifactId,
+    [string]$StateRoot,
+    [ValidateRange(60,7200)][int]$RunnerTimeoutSeconds=5400
+)
 
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
@@ -19,6 +24,7 @@ $acceptanceRunner=Join-Path $PSScriptRoot 'Invoke-HyperVSampleManifestAcceptance
 $operationId=[string]$env:SQL_SERVER_LAB_TEST_OPERATION_ID
 $module=$null;$primaryFailure=$null;$cleanupFailure=$null;$previousStateRoot=$env:SQL_SERVER_LAB_STATE
 $mutex=[Threading.Mutex]::new($false,'Global\SQL_Server_Lab_HyperV_Sample_Manifest_CI_Acceptance');$mutexAcquired=$false
+$childTerminationUnconfirmed=$false
 
 function Assert-HyperVSampleManifestCiAcceptance {
     param([Parameter(Mandatory)][bool]$Condition,[Parameter(Mandatory)][string]$ReasonCode)
@@ -31,6 +37,103 @@ function Get-HyperVSampleManifestCiRunnerReasonCode {
         foreach($match in [regex]::Matches($text,'(?<![A-Z0-9_])HYPERV_SAMPLE_MANIFEST_[A-Z0-9]+(?:_[A-Z0-9]+)*(?![A-Z0-9_])')){$match.Value}
     }
     return @($reasonCodes|Sort-Object -Unique|Select-Object -First 1)
+}
+function New-HyperVSampleManifestCiSupervisorRoot {
+    [OutputType([string])]
+    param([switch]$Synthetic)
+    $root=Join-Path ([IO.Path]::GetTempPath()) ("sql-server-lab-hyperv-sample-ci-"+[guid]::NewGuid().ToString('N'))
+    $created=New-Item -ItemType Directory -Path $root -ErrorAction Stop
+    if($created.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'HYPERV_SAMPLE_MANIFEST_CI_SUPERVISOR_ROOT_INVALID'}
+    if($Synthetic){return $root}
+    $identity=[Security.Principal.WindowsIdentity]::GetCurrent().User
+    if(-not $identity){throw 'HYPERV_SAMPLE_MANIFEST_CI_SUPERVISOR_ROOT_INVALID'}
+    $acl=Get-Acl -LiteralPath $root
+    $acl.SetAccessRuleProtection($true,$false)
+    $acl.SetOwner($identity)
+    $acl.SetAccessRule((New-Object Security.AccessControl.FileSystemAccessRule($identity,'FullControl','ContainerInherit,ObjectInherit','None','Allow')))
+    Set-Acl -LiteralPath $root -AclObject $acl
+    return $root
+}
+function Test-HyperVSampleManifestCiStageReceipt {
+    [OutputType([pscustomobject])]
+    param([Parameter(Mandatory)][string]$ReceiptPath)
+    if(-not (Test-Path -LiteralPath $ReceiptPath -PathType Leaf)){return $null}
+    $item=Get-Item -LiteralPath $ReceiptPath -Force
+    if($item.Length -gt 1024 -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){return $null}
+    try{$receipt=Get-Content -LiteralPath $ReceiptPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 3}catch{return $null}
+    $properties=@($receipt.PSObject.Properties.Name)
+    if(@($properties|Where-Object{$_ -notin @('status','stage','reasonCode')}).Count -ne 0 -or $properties.Count -ne 3){return $null}
+    $status=[string]$receipt.status;$stage=[string]$receipt.stage;$reasonCode=[string]$receipt.reasonCode
+    if($status -notin @('COMPLETED','FAILED') -or $stage -notin @('RUNNER_COMPLETED','RUNNER_FAILED')){return $null}
+    if(($status -eq 'COMPLETED' -and ($stage -ne 'RUNNER_COMPLETED' -or -not [string]::IsNullOrEmpty($reasonCode))) -or ($status -eq 'FAILED' -and $stage -ne 'RUNNER_FAILED')){return $null}
+    if($reasonCode.Length -gt 160 -or ($reasonCode -and $reasonCode -notmatch '^HYPERV_SAMPLE_MANIFEST_[A-Z0-9]+(?:_[A-Z0-9]+)*$')){return $null}
+    return [pscustomobject]@{Status=$status;Stage=$stage;ReasonCode=$reasonCode}
+}
+function Stop-HyperVSampleManifestCiChildProcessTree {
+    [OutputType([bool])]
+    param([Parameter(Mandatory)][Diagnostics.Process]$Process)
+    try{if($Process.HasExited){return $true}}catch{return $false}
+    if(-not $IsWindows){
+        try{$Process.Kill($true);if(-not $Process.WaitForExit(15000)){return $false};$Process.Refresh();return $Process.HasExited}catch{return $false}
+    }
+    $taskKillPath=Join-Path $env:SystemRoot 'System32\taskkill.exe'
+    if(-not (Test-Path -LiteralPath $taskKillPath -PathType Leaf)){return $false}
+    try {
+        $startInfo=[Diagnostics.ProcessStartInfo]::new()
+        $startInfo.FileName=$taskKillPath;$startInfo.UseShellExecute=$false;$startInfo.CreateNoWindow=$true
+        foreach($argument in @('/PID',[string]$Process.Id,'/T','/F')){[void]$startInfo.ArgumentList.Add($argument)}
+        $terminator=[Diagnostics.Process]::Start($startInfo)
+        if(-not $terminator.WaitForExit(15000)){try{$terminator.Kill($true)}catch{};return $false}
+        if(-not $Process.WaitForExit(15000)){return $false}
+        $Process.Refresh()
+        return $Process.HasExited
+    } catch { return $false }
+}
+function Invoke-HyperVSampleManifestCiSupervisor {
+    [OutputType([pscustomobject])]
+    param(
+        [Parameter(Mandatory)][string]$AcceptanceRunner,
+        [Parameter(Mandatory)][string]$ArtifactId,
+        [Parameter(Mandatory)][string]$StateRoot,
+        [Parameter(Mandatory)][string]$Run1OperationId,
+        [Parameter(Mandatory)][string]$Run2OperationId,
+        [ValidateRange(1,7200)][int]$TimeoutSeconds=5400,
+        [string]$PowerShellPath=([Diagnostics.Process]::GetCurrentProcess().MainModule.FileName),
+        [switch]$Synthetic
+    )
+    $root=$null;$child=$null;$terminationConfirmed=$true;$timedOut=$false
+    try {
+        if(-not (Test-Path -LiteralPath $AcceptanceRunner -PathType Leaf) -or -not (Test-Path -LiteralPath $PowerShellPath -PathType Leaf)){throw 'HYPERV_SAMPLE_MANIFEST_CI_SUPERVISOR_INPUT_INVALID'}
+        $root=New-HyperVSampleManifestCiSupervisorRoot -Synthetic:$Synthetic
+        $childScript=Join-Path $root 'runner.ps1';$receiptPath=Join-Path $root 'stage-receipt.json'
+        $childContent=@'
+[CmdletBinding()]
+param([string]$AcceptanceRunner,[string]$ArtifactId,[string]$StateRoot,[string]$Run1OperationId,[string]$Run2OperationId,[string]$ReceiptPath)
+$ErrorActionPreference='Stop'
+function Get-ReasonCode { param([object[]]$RunnerOutput) $codes=foreach($entry in $RunnerOutput){$text=if($entry -is [Management.Automation.ErrorRecord]){[string]$entry.Exception.Message}else{[string]$entry};foreach($match in [regex]::Matches($text,'(?<![A-Z0-9_])HYPERV_SAMPLE_MANIFEST_[A-Z0-9]+(?:_[A-Z0-9]+)*(?![A-Z0-9_])')){$match.Value}};return @($codes|Sort-Object -Unique|Select-Object -First 1) }
+$receipt=[ordered]@{status='FAILED';stage='RUNNER_FAILED';reasonCode=$null};$exitCode=1
+try {$runnerOutput=@(& $AcceptanceRunner -ArtifactId $ArtifactId -StateRoot $StateRoot -Run1OperationId $Run1OperationId -Run2OperationId $Run2OperationId *>&1);if($LASTEXITCODE -ne 0 -or @($runnerOutput|Where-Object{$_ -is [Management.Automation.ErrorRecord]}).Count -gt 0){$receipt.reasonCode=Get-ReasonCode -RunnerOutput $runnerOutput}else{$receipt.status='COMPLETED';$receipt.stage='RUNNER_COMPLETED';$exitCode=0}}catch{$receipt.reasonCode=Get-ReasonCode -RunnerOutput @($_)}finally{[IO.File]::WriteAllText($ReceiptPath,($receipt|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))}
+exit $exitCode
+'@
+        [IO.File]::WriteAllText($childScript,$childContent,[Text.UTF8Encoding]::new($false))
+        $startInfo=[Diagnostics.ProcessStartInfo]::new()
+        $startInfo.FileName=$PowerShellPath;$startInfo.UseShellExecute=$false;$startInfo.CreateNoWindow=$true
+        foreach($argument in @('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$childScript,'-AcceptanceRunner',$AcceptanceRunner,'-ArtifactId',$ArtifactId,'-StateRoot',$StateRoot,'-Run1OperationId',$Run1OperationId,'-Run2OperationId',$Run2OperationId,'-ReceiptPath',$receiptPath)){[void]$startInfo.ArgumentList.Add($argument)}
+        $child=[Diagnostics.Process]::Start($startInfo)
+        $deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+        while(-not $child.WaitForExit(250)){
+            if([DateTime]::UtcNow -ge $deadline){$timedOut=$true;$terminationConfirmed=Stop-HyperVSampleManifestCiChildProcessTree -Process $child;break}
+        }
+        if(-not $terminationConfirmed){return [pscustomobject]@{Status='RECOVERY_REQUIRED';Stage='RUNNER_TIMEOUT';ReasonCode='HYPERV_SAMPLE_MANIFEST_CI_RUNNER_TERMINATION_UNCONFIRMED';TimedOut=$true;TerminationConfirmed=$false}}
+        if($timedOut){return [pscustomobject]@{Status='FAILED';Stage='RUNNER_TIMEOUT';ReasonCode='HYPERV_SAMPLE_MANIFEST_CI_RUNNER_TIMEOUT';TimedOut=$true;TerminationConfirmed=$true}}
+        $receipt=Test-HyperVSampleManifestCiStageReceipt -ReceiptPath $receiptPath
+        if(-not $receipt){return [pscustomobject]@{Status='FAILED';Stage='RUNNER_RECEIPT';ReasonCode='HYPERV_SAMPLE_MANIFEST_CI_RUNNER_RECEIPT_INVALID';TimedOut=$false;TerminationConfirmed=$true}}
+        if($child.ExitCode -eq 0 -and $receipt.Status -eq 'COMPLETED'){return [pscustomobject]@{Status='COMPLETED';Stage=$receipt.Stage;ReasonCode=$null;TimedOut=$false;TerminationConfirmed=$true}}
+        return [pscustomobject]@{Status='FAILED';Stage=$receipt.Stage;ReasonCode=$receipt.ReasonCode;TimedOut=$false;TerminationConfirmed=$true}
+    } finally {
+        if($child){$child.Dispose()}
+        if($root -and $terminationConfirmed -and (Test-Path -LiteralPath $root)){Remove-Item -LiteralPath $root -Recurse -Force}
+    }
 }
 function Get-HyperVSampleManifestCiOwnedRun {
     param([Parameter(Mandatory)]$Module,[Parameter(Mandatory)][string]$OperationId,[Parameter(Mandatory)][string]$StateRoot)
@@ -78,7 +181,8 @@ function Invoke-HyperVSampleManifestCiCleanup {
 try {
     Assert-HyperVSampleManifestCiAcceptance ($operationId -match '^github-[0-9]+-[0-9]+$') 'HYPERV_SAMPLE_MANIFEST_CI_OPERATION_CONTEXT_INVALID'
     $run1OperationId="$operationId-sample-r1";$run2OperationId="$operationId-sample-r2"
-    $mutexAcquired=$mutex.WaitOne([TimeSpan]::FromMinutes(15));Assert-HyperVSampleManifestCiAcceptance $mutexAcquired 'HYPERV_SAMPLE_MANIFEST_CI_HOST_LOCK_TIMEOUT'
+    try{$mutexAcquired=$mutex.WaitOne([TimeSpan]::FromMinutes(15))}catch [Threading.AbandonedMutexException]{$mutexAcquired=$true;Write-Host 'HYPERV_SAMPLE_MANIFEST_CI_HOST_LOCK_ABANDONED_RECOVERED' -ForegroundColor Yellow}
+    Assert-HyperVSampleManifestCiAcceptance $mutexAcquired 'HYPERV_SAMPLE_MANIFEST_CI_HOST_LOCK_TIMEOUT'
     $principal=[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent());Assert-HyperVSampleManifestCiAcceptance $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) 'HYPERV_SAMPLE_MANIFEST_CI_RUNNER_NOT_ELEVATED'
     Get-Command Get-VM -ErrorAction Stop|Out-Null
     $module=Import-Module $modulePath -Force -PassThru
@@ -88,18 +192,18 @@ try {
     Assert-HyperVSampleManifestCiAcceptance ([bool]$artifact) 'HYPERV_SAMPLE_MANIFEST_CI_SQL_PREPARED_ARTIFACT_INVALID'
     $eligibility=& $module {param($Candidate)[pscustomobject]@{Evaluation=Test-HyperVImageArtifactEvaluationEligibility -Artifact $Candidate;Child=Test-HyperVImageArtifactChildValidationEligibility -Artifact $Candidate}} $artifact
     Assert-HyperVSampleManifestCiAcceptance ([string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED' -and [string]$artifact.sql.version -eq '2025' -and [string]$artifact.integrityVerification.status -in @('VERIFIED_CACHE','VERIFIED_HASH') -and [bool]$eligibility.Evaluation.Eligible -and [bool]$eligibility.Child.Eligible) 'HYPERV_SAMPLE_MANIFEST_CI_SQL_PREPARED_ARTIFACT_INVALID'
-    $arguments=@{ArtifactId=[string]$artifact.artifactId;StateRoot=$StateRoot;Run1OperationId=$run1OperationId;Run2OperationId=$run2OperationId}
-    $runnerOutput=@(& $acceptanceRunner @arguments *>&1)
-    if($LASTEXITCODE -ne 0 -or @($runnerOutput|Where-Object{$_ -is [Management.Automation.ErrorRecord]}).Count -gt 0){
-        $runnerReasonCode=Get-HyperVSampleManifestCiRunnerReasonCode -RunnerOutput $runnerOutput
-        if($runnerReasonCode){Write-Host "HYPERV_SAMPLE_MANIFEST_CI_RUNNER_REASON_CODE=$runnerReasonCode" -ForegroundColor Red}
+    $supervision=Invoke-HyperVSampleManifestCiSupervisor -AcceptanceRunner $acceptanceRunner -ArtifactId ([string]$artifact.artifactId) -StateRoot $StateRoot -Run1OperationId $run1OperationId -Run2OperationId $run2OperationId -TimeoutSeconds $RunnerTimeoutSeconds
+    if(-not $supervision.TerminationConfirmed){$childTerminationUnconfirmed=$true;throw 'HYPERV_SAMPLE_MANIFEST_CI_RUNNER_TERMINATION_UNCONFIRMED_RECOVERY_REQUIRED'}
+    if($supervision.TimedOut){throw 'HYPERV_SAMPLE_MANIFEST_CI_RUNNER_TIMEOUT'}
+    if($supervision.Status -ne 'COMPLETED'){
+        if($supervision.ReasonCode){Write-Host "HYPERV_SAMPLE_MANIFEST_CI_RUNNER_REASON_CODE=$($supervision.ReasonCode)" -ForegroundColor Red}
         throw 'HYPERV_SAMPLE_MANIFEST_CI_RUNNER_FAILED'
     }
     Write-Host 'PASS: Isolierte Hyper-V-Mehrfach-Sample-Manifest-Akzeptanz wurde ausgefuehrt.' -ForegroundColor Green
 }
 catch{$primaryFailure=$_}
 finally {
-    if($module){
+    if($module -and -not $childTerminationUnconfirmed){
         foreach($childOperationId in @("$operationId-sample-r1","$operationId-sample-r2")){
             try{$null=Invoke-HyperVSampleManifestCiCleanup -Module $module -OperationId $childOperationId -StateRoot $StateRoot}
             catch{$cleanupFailure=$_;break}
