@@ -18,6 +18,15 @@ $tokens=$null;$parseErrors=$null;[void][Management.Automation.Language.Parser]::
 Add-LocalCheck 'Nativer Mehrfach-Sample-Runner ist syntaktisch gueltig' ($parseErrors.Count -eq 0) (($parseErrors|ForEach-Object Message)-join '; ')
 $tokens=$null;$parseErrors=$null;[void][Management.Automation.Language.Parser]::ParseFile($ciRunnerPath,[ref]$tokens,[ref]$parseErrors)
 Add-LocalCheck 'CI-Mehrfach-Sample-Runner ist syntaktisch gueltig' ($parseErrors.Count -eq 0) (($parseErrors|ForEach-Object Message)-join '; ')
+$tokens=$null;$parseErrors=$null;$ciRunnerAst=[Management.Automation.Language.Parser]::ParseFile($ciRunnerPath,[ref]$tokens,[ref]$parseErrors)
+$reasonCodeFunction=$ciRunnerAst.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-HyperVSampleManifestCiRunnerReasonCode'},$true)
+if($reasonCodeFunction){. ([scriptblock]::Create($reasonCodeFunction.Extent.Text))}
+$selectedReasonCodes=if($reasonCodeFunction){@(Get-HyperVSampleManifestCiRunnerReasonCode -RunnerOutput @('untrusted HYPERV_SAMPLE_MANIFEST_INNER_FAILURE: sensitive-demo-value','HYPERV_SAMPLE_MANIFEST_INNER_FAILURE'))}else{@()}
+$rejectedReasonCodes=if($reasonCodeFunction){@(Get-HyperVSampleManifestCiRunnerReasonCode -RunnerOutput @('sensitive-demo-value HYPERV_SAMPLE_manifest_bad'))}else{@('missing-function')}
+$reasonSelectorPass=$false
+if(($selectedReasonCodes.Count -eq 1) -and ($selectedReasonCodes -ceq 'HYPERV_SAMPLE_MANIFEST_INNER_FAILURE')){
+    if($rejectedReasonCodes.Count -eq 0){$reasonSelectorPass=$true}
+}
 Add-LocalCheck 'Native Abnahme bindet zwei sequenzielle frische New-SqlServerLab-Manifestruns an denselben isolierten Testdatenroot' (
     $runner -match 'SQL_SERVER_LAB_TEST_DATA_ROOT' -and $runner -match 'Initialize-LabManagedDataRoot' -and
     $runner -match 'New-SampleManifestRun -OperationId \$Run1OperationId' -and $runner -match 'Remove-AcceptanceRun -Lab \$run1\.Lab' -and
@@ -46,6 +55,16 @@ Add-LocalCheck 'CI-Wrapper akzeptiert keine bestehende Run-ID und bereinigt nur 
 Add-LocalCheck 'CI-Wrapper haelt die innere Ausgabe privat und publiziert nur grobe Fehlerarten' (
     $ciRunner -match '\$runnerOutput=@\(& \$acceptanceRunner' -and $ciRunner -notmatch 'Write-Host \$runnerOutput' -and
     $ciRunner -match 'HYPERV_SAMPLE_MANIFEST_CI_FAILURE_KIND=PRIMARY' -and $ciRunner -match 'HYPERV_SAMPLE_MANIFEST_CI_FAILURE_KIND=CLEANUP'
+)
+Add-LocalCheck 'CI-Wrapper publiziert bei einem inneren Fehler hoechstens einen regex-validierten Sample-Reason-Code' (
+    $ciRunner -match 'function Get-HyperVSampleManifestCiRunnerReasonCode' -and
+    $ciRunner -match "'\(\?<\!\[A-Z0-9_\]\)HYPERV_SAMPLE_MANIFEST_\[A-Z0-9\]\+\(\?:_\[A-Z0-9\]\+\)\*\(\?\!\[A-Z0-9_\]\)'" -and
+    $ciRunner -match '\$runnerReasonCode=Get-HyperVSampleManifestCiRunnerReasonCode -RunnerOutput \$runnerOutput' -and
+    $ciRunner -match 'HYPERV_SAMPLE_MANIFEST_CI_RUNNER_REASON_CODE=\$runnerReasonCode' -and
+    $ciRunner -notmatch 'Write-Host \$primaryFailure' -and $ciRunner -notmatch 'Write-Host \$cleanupFailure'
+)
+Add-LocalCheck 'Reason-Code-Selektor gibt nur einen kanonischen Code aus und verwirft nicht passende Payloads' (
+    $reasonSelectorPass
 )
 Add-LocalCheck 'Hyper-V-Workflow bietet den manuellen main-gebundenen Sample-Manifest-Modus mit kontrolliertem Artifact-Input' (
     $workflow -match '(?m)^\s*- sample-manifest-acceptance\s*$' -and $workflow -match "inputs\.mode == 'sample-manifest-acceptance'" -and
