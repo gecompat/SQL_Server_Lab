@@ -75,6 +75,7 @@ try {
 
     $result=Invoke-SqlServerLabPortableContainerTransferPreflight -SourceRunId $sourceLab.RunId -SourceInstanceId primary -TargetRunId $targetLab.RunId -TargetInstanceId primary -DatabaseTransfers @([pscustomobject]@{SourceDatabaseName=$sourceDatabase;TargetDatabaseName=$targetDatabase;BackupSetId=$backup.BackupSetId}) -DataRoot $dataRoot -StateRoot $stateRoot -Confirm:$false
     Assert-TransferPreflightAcceptance ($result.Status -eq 'PRECHECKED' -and $result.CleanupStatus -eq 'CLEANED' -and $result.TransferExecutorStatus -eq 'BLOCKED' -and -not $result.TransferExecutionImplemented) "Öffentlicher Preflight bleibt nach erfolgreichem Mediencheck transfer-blockiert (Status=$($result.Status); Cleanup=$($result.CleanupStatus); Blockers=$(@($result.Blockers) -join ','))"
+    Assert-TransferPreflightAcceptance (@($result.Blockers).Count -eq 0) "Erfolgsweg meldet keine Preflight-Blocker (Status=$($result.Status); Cleanup=$($result.CleanupStatus); Blockers=$(@($result.Blockers) -join ','))"
     Assert-TransferPreflightAcceptance (@($result.Transfers).Count -eq 1 -and $result.Transfers[0].HeaderOnly -eq 'PASSED' -and $result.Transfers[0].VerifyOnly -eq 'PASSED') 'Echtes SQL-2025 HEADERONLY und VERIFYONLY WITH CHECKSUM bestehen'
     $postcondition=& $module {
         param($RunId,$State,$ExpectedDatabase)

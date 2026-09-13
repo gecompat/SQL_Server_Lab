@@ -32,10 +32,11 @@ function New-LabPortableContainerTransferPreflightRequest {
 
 function Assert-LabPortableContainerTransferPreflightNoReparsePath {
     [CmdletBinding()]param([Parameter(Mandatory)][string]$Root,[Parameter(Mandatory)][string]$Path)
-    $rootFull=[IO.Path]::GetFullPath($Root).TrimEnd('\','/');$pathFull=[IO.Path]::GetFullPath($Path);$comparison=if($IsWindows){[StringComparison]::OrdinalIgnoreCase}else{[StringComparison]::Ordinal}
-    if(-not $pathFull.StartsWith($rootFull+[IO.Path]::DirectorySeparatorChar,$comparison)){throw 'BACKUP_LIBRARY_OBJECT_PATH_OUTSIDE_ALLOWED_ROOT'}
+    $rootFull=[IO.Path]::GetFullPath($Root);$rootAnchor=[IO.Path]::GetPathRoot($rootFull);if([string]::IsNullOrWhiteSpace($rootAnchor)){throw 'BACKUP_LIBRARY_OBJECT_PATH_ROOT_INVALID'};if($rootFull.Length -gt $rootAnchor.Length){$rootFull=$rootFull.TrimEnd('\','/')};$pathFull=[IO.Path]::GetFullPath($Path);$comparison=if($IsWindows){[StringComparison]::OrdinalIgnoreCase}else{[StringComparison]::Ordinal}
+    $rootPrefix=if($rootFull.EndsWith([IO.Path]::DirectorySeparatorChar) -or $rootFull.EndsWith([IO.Path]::AltDirectorySeparatorChar)){$rootFull}else{$rootFull+[IO.Path]::DirectorySeparatorChar}
+    if(-not ([string]::Equals($pathFull,$rootFull,$comparison) -or $pathFull.StartsWith($rootPrefix,$comparison))){throw 'BACKUP_LIBRARY_OBJECT_PATH_OUTSIDE_ALLOWED_ROOT'}
     $cursor=$rootFull
-    while($true){if(-not(Test-Path -LiteralPath $cursor)){throw 'BACKUP_LIBRARY_OBJECT_PATH_COMPONENT_MISSING'};$item=Get-Item -LiteralPath $cursor -Force -ErrorAction Stop;if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'BACKUP_LIBRARY_OBJECT_REPARSE_POINT_BLOCKED'};if($cursor -eq $pathFull){break};$relative=$pathFull.Substring($cursor.Length).TrimStart('\','/');$part=($relative -split '[\\/]')[0];$cursor=Join-Path $cursor $part}
+    while($true){if(-not(Test-Path -LiteralPath $cursor)){throw 'BACKUP_LIBRARY_OBJECT_PATH_COMPONENT_MISSING'};$item=Get-Item -LiteralPath $cursor -Force -ErrorAction Stop;if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'BACKUP_LIBRARY_OBJECT_REPARSE_POINT_BLOCKED'};if([string]::Equals($cursor,$pathFull,$comparison)){break};$relative=$pathFull.Substring($cursor.Length).TrimStart('\','/');$part=($relative -split '[\\/]')[0];if([string]::IsNullOrWhiteSpace($part)){throw 'BACKUP_LIBRARY_OBJECT_PATH_COMPONENT_MISSING'};$cursor=[IO.Path]::GetFullPath((Join-Path $cursor $part))}
 }
 
 function Get-LabPortableContainerTransferPreflightBackups {
@@ -67,11 +68,18 @@ function Get-LabPortableContainerTransferPreflightBackups {
 function Test-LabPortableContainerTransferPreflightBoundBackupMount {
     [CmdletBinding()]param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,[Parameter(Mandatory)][string]$MountSource,[Parameter(Mandatory)][string]$HostRoot)
     $expected=(Resolve-Path -LiteralPath $HostRoot -ErrorAction Stop).Path.TrimEnd('\','/')
-    if($Provider -eq 'podman' -and $IsWindows){
+    if($IsWindows){
         $drive=[IO.Path]::GetPathRoot($expected).TrimEnd('\','/')
         if($drive -notmatch '^([A-Za-z]):$'){return $false}
-        $expectedVmPath=('/mnt/'+$Matches[1].ToLowerInvariant()+'/'+$expected.Substring(3).Replace('\','/')).TrimEnd('/')
-        return [string]::Equals($MountSource.TrimEnd('/'),$expectedVmPath,[StringComparison]::Ordinal)
+        $driveLetter=$Matches[1].ToLowerInvariant();$relative=$expected.Substring(3).Replace('\','/');$podmanVmPath=('/mnt/'+$driveLetter+'/'+$relative).TrimEnd('/')
+        if($Provider -eq 'podman'){return [string]::Equals($MountSource.TrimEnd('/'),$podmanVmPath,[StringComparison]::Ordinal)}
+        try{$actual=(Resolve-Path -LiteralPath $MountSource -ErrorAction Stop).Path.TrimEnd('\','/');return [string]::Equals($actual,$expected,[StringComparison]::OrdinalIgnoreCase)}catch{
+            # Docker Desktop may report its VM-internal bind source.  These
+            # spellings are accepted only when they map exactly to the root
+            # independently reconstructed from the persistent run state.
+            $dockerVmPaths=@(('/run/desktop/mnt/host/'+$driveLetter+'/'+$relative).TrimEnd('/'),('/host_mnt/'+$driveLetter+'/'+$relative).TrimEnd('/'))
+            return $dockerVmPaths -contains $MountSource.TrimEnd('/')
+        }
     }
     $actual=(Resolve-Path -LiteralPath $MountSource -ErrorAction Stop).Path.TrimEnd('\','/')
     return [string]::Equals($actual,$expected,$(if($IsWindows){[StringComparison]::OrdinalIgnoreCase}else{[StringComparison]::Ordinal}))
