@@ -212,6 +212,12 @@ try {
             $provider -match 'function\s+Test-HyperVVhdxCleanupScope[\s\S]+Test-HyperVPathWithinRunDirectory' -and
             $provider -match 'function\s+Remove-HyperVVhdxForCleanup[\s\S]+Test-HyperVVhdxCleanupScope'
         )
+    Add-CheckResult `
+        -Name 'Run-Identitätsreads verwenden dieselbe kanonische JSON-Tiefe wie der Cleanup-Preflight' `
+        -Success (
+            $provider -match 'function\s+Test-HyperVPathWithinRunDirectory[\s\S]+?identityState[\s\S]+?ConvertFrom-Json\s+-Depth\s+20' -and
+            $provider -match 'function\s+Test-HyperVVhdxCleanupScope[\s\S]+?runState[\s\S]+?ConvertFrom-Json\s+-Depth\s+20'
+        )
     Add-TextContract `
         -Name 'Scope-gebundener VM-Cleanup führt Checkpoints vor dem VM- und VHDX-Cleanup zusammen' `
         -Text $provider `
