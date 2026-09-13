@@ -718,13 +718,10 @@ function New-SqlServerLab {
             -SqlPort $hyperVSqlPort -PasswordSource $passwordSource -Region $effectiveWindowsLocale.Region -SystemLocale $effectiveWindowsLocale.SystemLocale -UiLanguage $effectiveWindowsLocale.UiLanguage `
             -InputLocale $effectiveWindowsLocale.InputLocale -TimeZone $effectiveWindowsLocale.TimeZone -StateRoot $hyperVLab.StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
-        if ($instance.serverConfig) {
+        $initialSqlConfigurationReconcile = Invoke-LabHyperVInitialSqlConfigurationReconcile `
+            -ArtifactState $artifactState -Instance $instance -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
+        if ($null -ne $initialSqlConfigurationReconcile) {
             Write-LabInfo "Deklarierte SQL-Serverkonfiguration auf '$($instance.id)' prüfen und anwenden..."
-            $initialSqlConfigurationReconcile = Invoke-LabHyperVSqlConfigurationReconcileRepair `
-                -RunId $lab.RunId -InstanceId ([string]$instance.id) -StateRoot $hyperVLab.StateRoot
-            if ([string]$initialSqlConfigurationReconcile.Status -notin @('SUCCEEDED', 'NO_OP')) {
-                throw "HYPERV_MANIFEST_SQL_CONFIGURATION_RECONCILE_STATUS_INVALID: $([string]$initialSqlConfigurationReconcile.Status)"
-            }
             $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $hyperVLab.StateRoot
         }
         $testDatabaseOwnership = Initialize-LabHyperVTestDatabaseOwnershipReceipt -Lab $hyperVLab

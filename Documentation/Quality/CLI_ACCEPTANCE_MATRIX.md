@@ -200,3 +200,12 @@ Transkripte und Evidence werden nicht in GitHub-Ausgaben veröffentlicht. Der Wo
 
 Der Modus ist statisch geprüft, aber noch `NOT_EXECUTED`; erst ein erfolgreicher
 nativer Workflowlauf mit vollständigem Cleanup liefert Runtime-Evidence.
+
+Der initiale SQL-Konfigurations-Reconcile läuft ausschließlich für einen
+verifizierten `SQL_PREPARED_SEALED`-Run mit `serverConfig`. Ein `OS_SEALED`-
+Run bewahrt den Intent nur im Desired State, bis der External-Runtime-Runner
+den SQL-2022-Slot installiert hat. Erst danach plant und repariert der
+öffentliche External-Runtime-Pfad; der `ResourceGovernor`-Intent bleibt im
+Zielmanifest gebunden. Diese Reihenfolge ist statisch geprüft und ersetzt
+keinen erfolgreichen nativen Lauf mit Cleanup: External Runtimes bleiben
+`NOT_EXECUTED`.

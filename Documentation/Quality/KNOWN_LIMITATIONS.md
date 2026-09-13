@@ -655,6 +655,17 @@ nativ belegt; External Runtimes bleiben davon getrennte `NOT_EXECUTED`-
 Nachweise.
 Der manuelle main-Workflowmodus `external-runtime-reconcile-acceptance` erzeugt dafür nun ausschließlich einen neuen operationsgebundenen SQL-2022-/Windows-2025-Run aus einem Evaluation-`OS_SEALED`-Artifact. Er fordert `EvaluationOnline`/`AllowTemporary`, hält den permanenten `hostOnly`-Switch unverändert, validiert Run-/Scope-/VM-Ownership vor jedem öffentlichen Cleanup und gibt keine Roh-Evidence aus. Der native Lauf bleibt bis zu seinem ersten erfolgreichen Abschluss einschließlich Cleanup `NOT_EXECUTED`.
 
+Ein `OS_SEALED`-Create bewahrt einen vorhandenen `serverConfig`-Intent im
+Desired State, startet aber keinen initialen SQL-Konfigurations-Reconcile:
+eine reine Windows-Basis enthält noch keine SQL-Instanz. Nur ein bereits
+verifiziertes `SQL_PREPARED_SEALED`-Artifact darf diesen initialen Schritt
+auslösen. Der External-Runtime-Runner installiert deshalb zuerst den
+SQL-2022-Slot und erstellt erst danach den öffentlichen Runtime-Plan bzw.
+Apply; der `ResourceGovernor`-Intent bleibt dabei im Runtime-Zielmanifest
+gebunden. Auch mit dieser Reihenfolge bleibt die vollständige native
+External-Runtime-Evidence bis zum erfolgreichen Lauf einschließlich Cleanup
+`NOT_EXECUTED`.
+
 Der getrennte Hyper-V-SQL-Port-Reconcile persistiert `hyperv.sqlPort`, prüft
 TCP-Registry und die bestehende run-eigene Gastfirewall read-only und repariert
 Drift journalisiert mit ausschließlich einem `MSSQLSERVER`-Dienstrestart. SQL-

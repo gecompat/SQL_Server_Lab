@@ -12,6 +12,50 @@
     Datenbanken sind absichtlich nicht Teil dieses Vertrags.
 #>
 
+function Test-LabHyperVInitialSqlConfigurationReconcileEligibility {
+    <#
+    .SYNOPSIS
+        Entscheidet, ob die initiale SQL-Konfigurationsreparatur zulässig ist.
+    .DESCRIPTION
+        Ein Manifest kann den ServerConfig-Intent auch für einen reinen
+        Windows-OS_SEALED-Run persistieren. SQL ist dort aber noch nicht
+        vorhanden. Nur das vor der Provisionierung bereits validierte
+        SQL_PREPARED_SEALED-Artifact darf den initialen SQL-Reconcile auslösen.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ArtifactState,
+        [Parameter(Mandatory)]$Instance
+    )
+
+    return ([string]$ArtifactState -ceq 'SQL_PREPARED_SEALED' -and [bool]$Instance.serverConfig)
+}
+
+function Invoke-LabHyperVInitialSqlConfigurationReconcile {
+    <#
+    .SYNOPSIS
+        Führt den initialen SQL-Konfigurationsreconcile nur für Prepared-SQL aus.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$ArtifactState,
+        [Parameter(Mandatory)]$Instance,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$StateRoot
+    )
+
+    if (-not (Test-LabHyperVInitialSqlConfigurationReconcileEligibility -ArtifactState $ArtifactState -Instance $Instance)) {
+        return $null
+    }
+
+    $result = Invoke-LabHyperVSqlConfigurationReconcileRepair `
+        -RunId $RunId -InstanceId ([string]$Instance.id) -StateRoot $StateRoot
+    if ([string]$result.Status -notin @('SUCCEEDED', 'NO_OP')) {
+        throw "HYPERV_MANIFEST_SQL_CONFIGURATION_RECONCILE_STATUS_INVALID: $([string]$result.Status)"
+    }
+    return $result
+}
+
 function Get-LabHyperVSqlConfigurationReconcileJournalPath {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunDirectory)
