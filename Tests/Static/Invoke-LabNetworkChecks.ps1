@@ -32,9 +32,79 @@ foreach ($networkOverrideName in $networkOverrideNames) {
     $networkOverrideValues[$networkOverrideName] = [Environment]::GetEnvironmentVariable($networkOverrideName, 'Process')
     [Environment]::SetEnvironmentVariable($networkOverrideName, $null, 'Process')
 }
+$persistentNetworkOverrideValues = @{}
+foreach ($target in @('User', 'Machine')) {
+    foreach ($networkOverrideName in $networkOverrideNames) {
+        $persistentNetworkOverrideValues["$target/$networkOverrideName"] = [Environment]::GetEnvironmentVariable($networkOverrideName, $target)
+    }
+}
 try {
     $module = Import-Module $modulePath -Force -PassThru
-    $defaults = & $module { @('docker', 'podman', 'hyperv') | ForEach-Object { Get-LabRuntimeNetwork -Provider $_ } }
+    $resolverContracts = & $module {
+        $values = @{}
+        $reader = {
+            param($Name, $Target)
+            $values["$Target/$Name"]
+        }
+        $name = 'SQL_SERVER_LAB_DOCKER_SUBNET'
+        $values["Process/$name"] = '10.10.0.0/24'
+        $process = Resolve-LabNetworkConfigurationValue -Name $name -Default '172.26.0.0/16' -EnvironmentReader $reader
+        $values.Remove("Process/$name")
+        $values["User/$name"] = '10.11.0.0/24'
+        $user = Resolve-LabNetworkConfigurationValue -Name $name -Default '172.26.0.0/16' -EnvironmentReader $reader
+        $values.Remove("User/$name")
+        $values["Machine/$name"] = '10.12.0.0/24'
+        $machine = Resolve-LabNetworkConfigurationValue -Name $name -Default '172.26.0.0/16' -EnvironmentReader $reader
+        $values.Remove("Machine/$name")
+        $default = Resolve-LabNetworkConfigurationValue -Name $name -Default '172.26.0.0/16' -EnvironmentReader $reader
+        $values["User/$name"] = '198.18.0.0/24'
+        $persisted = Resolve-LabNetworkConfigurationValue -Name $name -Default '172.26.0.0/16' -EnvironmentReader $reader
+        $values["Process/$name"] = 'invalid-subnet'
+        $invalid = $null
+        try {
+            $resolved = Resolve-LabNetworkConfigurationValue -Name $name -Default '172.26.0.0/16' -EnvironmentReader $reader
+            $null = ConvertTo-LabIpv4Subnet -Subnet $resolved.Value
+        }
+        catch { $invalid = $_.Exception.Message }
+        [PSCustomObject]@{ Process=$process; User=$user; Machine=$machine; Default=$default; Persisted=$persisted; Invalid=$invalid }
+    }
+    Add-CheckResult -Name 'Netzwerkresolver verwendet Process, User, Machine und Default in fester Reihenfolge' -Success (
+        $resolverContracts.Process.Value -eq '10.10.0.0/24' -and $resolverContracts.Process.Source -eq 'Process' -and
+        $resolverContracts.User.Value -eq '10.11.0.0/24' -and $resolverContracts.User.Source -eq 'User' -and
+        $resolverContracts.Machine.Value -eq '10.12.0.0/24' -and $resolverContracts.Machine.Source -eq 'Machine' -and
+        $resolverContracts.Default.Value -eq '172.26.0.0/16' -and $resolverContracts.Default.Source -eq 'Default')
+    Add-CheckResult -Name 'Persistierter Subnetz-Override bleibt bindend und ungültiger expliziter Wert endet fail-closed' -Success (
+        $resolverContracts.Persisted.Value -eq '198.18.0.0/24' -and $resolverContracts.Persisted.Source -eq 'User' -and
+        $resolverContracts.Invalid -match '^LAB_NETWORK_CIDR_INVALID: invalid-subnet')
+    $invalidDesiredNetwork = & $module {
+        $originalResolver = (Get-Command Resolve-LabNetworkConfigurationValue).ScriptBlock
+        try {
+            Set-Item Function:Resolve-LabNetworkConfigurationValue -Value {
+                param($Name, $Default)
+                if ($Name -eq 'SQL_SERVER_LAB_DOCKER_SUBNET') {
+                    return [PSCustomObject]@{ Name=$Name; Value='invalid-subnet'; Source='User'; IsExplicit=$true }
+                }
+                [PSCustomObject]@{ Name=$Name; Value=$Default; Source='Default'; IsExplicit=$false }
+            }
+            Get-LabRuntimeNetwork -Provider docker | Out-Null
+            $null
+        }
+        catch { $_.Exception.Message }
+        finally { Set-Item Function:Resolve-LabNetworkConfigurationValue -Value $originalResolver }
+    }
+    Add-CheckResult -Name 'Ungültiger expliziter Subnetz-Override blockiert das Sollnetz fail-closed' -Success (
+        $invalidDesiredNetwork -match '^LAB_NETWORK_CIDR_INVALID: invalid-subnet')
+    $defaults = & $module {
+        $originalResolver = (Get-Command Resolve-LabNetworkConfigurationValue).ScriptBlock
+        try {
+            Set-Item Function:Resolve-LabNetworkConfigurationValue -Value {
+                param($Name, $Default)
+                [PSCustomObject]@{ Name=$Name; Value=$Default; Source='Default'; IsExplicit=$false }
+            }
+            @('docker', 'podman', 'hyperv') | ForEach-Object { Get-LabRuntimeNetwork -Provider $_ }
+        }
+        finally { Set-Item Function:Resolve-LabNetworkConfigurationValue -Value $originalResolver }
+    }
     Add-CheckResult -Name 'Feste Docker-, Podman- und Hyper-V-Netzdefaults sind getrennt' -Success (
         @($defaults.Name | Sort-Object -Unique).Count -eq 3 -and @($defaults.Subnet | Sort-Object -Unique).Count -eq 3 -and
         ($defaults | Where-Object Provider -eq docker).Subnet -eq '172.26.0.0/16' -and
@@ -46,10 +116,15 @@ try {
     $containerNetworkFallback = & $module {
         $originalKnownSubnets = (Get-Command Get-LabKnownIpv4Subnets).ScriptBlock
         $originalWarning = (Get-Command Write-LabWarning).ScriptBlock
+        $originalResolver = (Get-Command Resolve-LabNetworkConfigurationValue).ScriptBlock
         try {
             Set-Item Function:Get-LabKnownIpv4Subnets -Value { param($Provider) @('172.27.0.0/16') }
             $script:networkWarning = $null
             Set-Item Function:Write-LabWarning -Value { param($Message) $script:networkWarning = $Message }
+            Set-Item Function:Resolve-LabNetworkConfigurationValue -Value {
+                param($Name, $Default)
+                [PSCustomObject]@{ Name=$Name; Value=$Default; Source='Default'; IsExplicit=$false }
+            }
             $network = Get-LabRuntimeNetwork -Provider podman
             $fallback = Resolve-LabAvailableContainerNetwork -Provider podman -Network $network
             [PSCustomObject]@{ Subnet=$fallback.Subnet; Warning=$script:networkWarning }
@@ -57,6 +132,7 @@ try {
         finally {
             Set-Item Function:Get-LabKnownIpv4Subnets -Value $originalKnownSubnets
             Set-Item Function:Write-LabWarning -Value $originalWarning
+            Set-Item Function:Resolve-LabNetworkConfigurationValue -Value $originalResolver
             Remove-Variable networkWarning -Scope Script -ErrorAction SilentlyContinue
         }
     }
@@ -414,6 +490,15 @@ finally {
     foreach ($networkOverrideName in $networkOverrideNames) {
         [Environment]::SetEnvironmentVariable($networkOverrideName, $networkOverrideValues[$networkOverrideName], 'Process')
     }
+    $persistentValuesUnchanged = $true
+    foreach ($target in @('User', 'Machine')) {
+        foreach ($networkOverrideName in $networkOverrideNames) {
+            if ([Environment]::GetEnvironmentVariable($networkOverrideName, $target) -cne $persistentNetworkOverrideValues["$target/$networkOverrideName"]) {
+                $persistentValuesUnchanged = $false
+            }
+        }
+    }
+    Add-CheckResult -Name 'Netzwerktests verändern keine Benutzer- oder Maschinenumgebungswerte' -Success $persistentValuesUnchanged
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
 }
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan

@@ -59,6 +59,56 @@ function Test-LabIpv4SubnetOverlap {
         (($rightSubnet.Network -band $leftSubnet.Mask) -eq $leftSubnet.Network)
 }
 
+$script:LabNetworkConfigurationAllowlist = @(
+    'SQL_SERVER_LAB_DOCKER_NETWORK', 'SQL_SERVER_LAB_DOCKER_SUBNET',
+    'SQL_SERVER_LAB_PODMAN_NETWORK', 'SQL_SERVER_LAB_PODMAN_SUBNET',
+    'SQL_SERVER_LAB_HYPERV_NETWORK', 'SQL_SERVER_LAB_HYPERV_SUBNET',
+    'SQL_SERVER_LAB_HYPERV_NAT_NETWORK', 'SQL_SERVER_LAB_HYPERV_NAT_SUBNET',
+    'SQL_SERVER_LAB_HYPERV_NAT_NAME', 'SQL_SERVER_LAB_HYPERV_LAN_SWITCH',
+    'SQL_SERVER_LAB_HYPERV_LAN_ADAPTER_ID', 'SQL_SERVER_LAB_RESERVED_SUBNETS'
+)
+
+function Resolve-LabNetworkConfigurationValue {
+    <#
+    .SYNOPSIS
+        Liest eine freigegebene lokale Netzwerkvariable ohne Hostmutation.
+    .DESCRIPTION
+        Nur die fest definierte Allowlist darf aus den Prozess-, Benutzer- und
+        Maschinenumgebungen gelesen werden. Nichtleere Werte haben die feste
+        Prioritaet Process, User, Machine, Default. Der Rueckgabewert enthaelt
+        seine Quelle, damit ein persistierter Override ebenso bindend bleibt wie
+        ein Prozesswert.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [AllowEmptyString()][string]$Default = '',
+        [scriptblock]$EnvironmentReader
+    )
+
+    if ($Name -notin $script:LabNetworkConfigurationAllowlist) {
+        throw "LAB_NETWORK_CONFIGURATION_VARIABLE_UNSUPPORTED: $Name"
+    }
+    if (-not $EnvironmentReader) {
+        $EnvironmentReader = {
+            param([string]$VariableName, [System.EnvironmentVariableTarget]$Target)
+            [Environment]::GetEnvironmentVariable($VariableName, $Target)
+        }
+    }
+    foreach ($target in @(
+        [System.EnvironmentVariableTarget]::Process,
+        [System.EnvironmentVariableTarget]::User,
+        [System.EnvironmentVariableTarget]::Machine
+    )) {
+        try { $value = [string](& $EnvironmentReader $Name $target) }
+        catch { throw "LAB_NETWORK_CONFIGURATION_READ_FAILED: $Name $target" }
+        if (-not [string]::IsNullOrWhiteSpace($value)) {
+            return [PSCustomObject]@{ Name=$Name; Value=$value; Source=$target.ToString(); IsExplicit=$true }
+        }
+    }
+    return [PSCustomObject]@{ Name=$Name; Value=$Default; Source='Default'; IsExplicit=$false }
+}
+
 function Resolve-LabNetworkIntentPlan {
     <#
     .SYNOPSIS
@@ -152,8 +202,8 @@ function Get-LabRuntimeNetwork {
     )
 
     if ($Provider -eq 'hyperv' -and $Intent -eq 'lan') {
-        $name = [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_HYPERV_LAN_SWITCH')
-        $adapterId = [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_HYPERV_LAN_ADAPTER_ID')
+        $name = [string](Resolve-LabNetworkConfigurationValue -Name 'SQL_SERVER_LAB_HYPERV_LAN_SWITCH').Value
+        $adapterId = [string](Resolve-LabNetworkConfigurationValue -Name 'SQL_SERVER_LAB_HYPERV_LAN_ADAPTER_ID').Value
         return [PSCustomObject]@{
             Provider='hyperv'; Name=$name; Subnet=$null; PrefixLength=$null; HostAddress=$null
             Intent='lan'; Exposure='lan'; NatName=$null; AdapterId=$adapterId; AddressMode='dhcp'
@@ -170,15 +220,16 @@ function Get-LabRuntimeNetwork {
     }
     $definition = $defaults[$Provider]
     $prefix = "SQL_SERVER_LAB_$($definition.EnvironmentPrefix)"
-    $name = [string][Environment]::GetEnvironmentVariable("${prefix}_NETWORK")
+    $nameConfiguration = Resolve-LabNetworkConfigurationValue -Name "${prefix}_NETWORK"
+    $name = [string]$nameConfiguration.Value
     if ($Provider -eq 'hyperv' -and $Intent -eq 'hostOnly' -and [string]::IsNullOrWhiteSpace($name)) { $name = Get-LabHyperVSwitchDefault }
-    $subnet = [string][Environment]::GetEnvironmentVariable("${prefix}_SUBNET")
+    $subnetConfiguration = Resolve-LabNetworkConfigurationValue -Name "${prefix}_SUBNET" -Default ([string]$definition.Subnet)
+    $subnet = [string]$subnetConfiguration.Value
     if ([string]::IsNullOrWhiteSpace($name)) { $name = [string]$definition.Name }
-    if ([string]::IsNullOrWhiteSpace($subnet)) { $subnet = [string]$definition.Subnet }
     if ($name -notmatch '^[A-Za-z][A-Za-z0-9_.-]{0,62}$') { throw "LAB_NETWORK_NAME_INVALID: $name" }
     $parsed = ConvertTo-LabIpv4Subnet -Subnet $subnet
     $natName = if ($Provider -eq 'hyperv' -and $Intent -eq 'nat') {
-        [string][Environment]::GetEnvironmentVariable("${prefix}_NAME")
+        [string](Resolve-LabNetworkConfigurationValue -Name "${prefix}_NAME").Value
     }
     if ($Provider -eq 'hyperv' -and $Intent -eq 'nat' -and [string]::IsNullOrWhiteSpace($natName)) { $natName = [string]$definition.NatName }
     return [PSCustomObject]@{
@@ -194,7 +245,7 @@ function Get-LabKnownIpv4Subnets {
     param([ValidateSet('docker', 'podman', 'hyperv')][string]$Provider)
 
     $subnets = [System.Collections.Generic.List[string]]::new()
-    $reservedSubnets = [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_RESERVED_SUBNETS')
+    $reservedSubnets = [string](Resolve-LabNetworkConfigurationValue -Name 'SQL_SERVER_LAB_RESERVED_SUBNETS').Value
     if (-not [string]::IsNullOrWhiteSpace($reservedSubnets)) {
         foreach ($reservedSubnet in @($reservedSubnets -split '[,;]' | ForEach-Object { $_.Trim() } | Where-Object { $_ })) {
             try {
@@ -267,8 +318,13 @@ function Resolve-LabAvailableContainerNetwork {
     }
     catch {
         $environmentPrefix = if ($Provider -eq 'docker') { 'DOCKER' } else { 'PODMAN' }
-        $configuredSubnet = [string][Environment]::GetEnvironmentVariable("SQL_SERVER_LAB_${environmentPrefix}_SUBNET")
-        if (-not [string]::IsNullOrWhiteSpace($configuredSubnet)) { throw }
+        $configuredSubnet = Resolve-LabNetworkConfigurationValue -Name "SQL_SERVER_LAB_${environmentPrefix}_SUBNET"
+        if ($configuredSubnet.IsExplicit) {
+            # Validate an explicit value before retaining the original conflict:
+            # malformed values must never silently trigger automatic migration.
+            $null = ConvertTo-LabIpv4Subnet -Subnet ([string]$configuredSubnet.Value)
+            throw
+        }
     }
 
     $providerOffset = if ($Provider -eq 'docker') { 0 } else { 256 }
@@ -283,8 +339,6 @@ function Resolve-LabAvailableContainerNetwork {
             Assert-LabRuntimeNetworkAvailable -Network $candidate -KnownSubnets $knownSubnets
             $environmentVariableName = "SQL_SERVER_LAB_${environmentPrefix}_SUBNET"
             [Environment]::SetEnvironmentVariable($environmentVariableName, $candidateSubnet, 'Process')
-            try { [Environment]::SetEnvironmentVariable($environmentVariableName, $candidateSubnet, 'User') }
-            catch { Write-Verbose "LAB_NETWORK_DEFAULT_SUBNET_PERSISTENCE_UNAVAILABLE: $environmentVariableName" }
             Write-LabWarning "LAB_NETWORK_DEFAULT_SUBNET_CONFLICT: $($Network.Name) verwendet automatisch $candidateSubnet statt $($Network.Subnet)."
             return $candidate
         }
