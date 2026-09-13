@@ -54,6 +54,93 @@ try {
             $declaredPortIntent.Contract.Name -eq 'SqlServerLab.SqlEndpointIntent' -and $declaredPortIntent.CapabilityStatus -eq 'DECLARED_SUPPORTED' -and
             [int]$declaredPortResolved.instances[0].hyperv.sqlPort -eq 14333 -and [int]$declaredPortIntent.Port -eq 14333 -and
             [int]$defaultPortResolved.instances[0].hyperv.sqlPort -eq 1433 -and [int]$defaultPortIntent.Port -eq 1433
+
+        # Exercise the real persisted-snapshot path. Only the Hyper-V ownership
+        # lookup and guest read are substituted; manifest resolution, state
+        # persistence, context selection, and the public plan remain real.
+        $persistedSnapshot=New-LabDesiredStateSnapshot -ResolvedLab $declaredPortResolved -ProvisioningMode manifest -PersistentData $false
+        $persistedRun=New-LabRunState -StateRoot $Root -ScopeId $ScopeId -Metadata @{
+            name='persisted-sql-port-contract';workflowKind='hyperv-lab';desiredState=$persistedSnapshot
+        } -ProviderSubRuns @([PSCustomObject]@{id='provider-hyperv';provider='hyperv';instanceIds=@('primary')})
+        foreach($state in @('PROVISIONING','SQL_READY','DATABASES_CREATED','RUNNING')){
+            Set-LabRunState -RunId $persistedRun.RunId -NewState $state -Reason 'Static persisted SQL port fixture' -StateRoot $Root
+        }
+        $persistedConnection=[PSCustomObject]@{instances=@([PSCustomObject]@{
+            id='primary';provider='hyperv';vmName='private-persisted-port-vm';vmId='private-persisted-port-vm-id';port=15433
+            hostSqlAccess=[PSCustomObject]@{state='READY'}
+            labNetwork=[PSCustomObject]@{intent='hostOnly';hostAddress='private-persisted-host-address'}
+        })}
+        Write-LabArtifactJsonAtomic -Path (Join-Path $persistedRun.RunDir 'connection-info.json') -InputObject $persistedConnection
+        $secretDirectory=Join-Path $persistedRun.RunDir 'secrets';New-Item -Path $secretDirectory -ItemType Directory -Force|Out-Null
+        New-Item -Path (Join-Path $secretDirectory 'guest-administrator-password.secret') -ItemType File -Force|Out-Null
+        $script:persistedPortActual=[PSCustomObject]@{
+            Status='AVAILABLE';SqlInstanceId='MSSQL16.MSSQLSERVER';ServiceName='MSSQLSERVER';ServiceStatus='Running'
+            TcpEnabled=$true;StaticPort=$true;Port=15433;SqlReachable=$true;FirewallRuleCount=1;FirewallPorts=@('15433');FirewallProtocols=@('TCP')
+            FirewallRemoteAddresses=@('private-persisted-host-address');FirewallEnabled=$true;FirewallInbound=$true;FirewallAllow=$true
+        }
+        function Get-HyperVManagedVM {
+            param([string]$VMName,[string]$ExpectedRunId,[string]$ExpectedScopeId)
+            if($VMName -ne 'private-persisted-port-vm' -or $ExpectedRunId -ne [string]$persistedRun.RunId -or $ExpectedScopeId -ne [string]$persistedRun.ScopeId){
+                throw 'SYNTHETIC_PERSISTED_PORT_VM_IDENTITY_MISMATCH'
+            }
+            [PSCustomObject]@{VM=[PSCustomObject]@{Id='private-persisted-port-vm-id';State='Running'}}
+        }
+        function Get-LabHyperVSqlPortReconcileCredential { param([string]$RunDirectory) $null }
+        function Get-LabHyperVSqlPortActualState { param($Context,$Credential) $script:persistedPortActual }
+        $persistedJournalPath=Get-LabHyperVSqlPortReconcileJournalPath -RunDirectory $persistedRun.RunDir
+        $persistedStatePath=Join-Path $persistedRun.RunDir 'run-state.json'
+        $persistedStateBefore=Get-Content -LiteralPath $persistedStatePath -Raw -Encoding utf8
+        $persistedContext=Get-LabHyperVSqlPortReconcileContext -RunId ([string]$persistedRun.RunId) -InstanceId primary -StateRoot $Root
+        $persistedPlan=Get-SqlServerLabReconcilePlan -RunId ([string]$persistedRun.RunId) -HyperVSqlPort -InstanceId primary -StateRoot $Root
+        $persistedStateAfter=Get-Content -LiteralPath $persistedStatePath -Raw -Encoding utf8
+
+        function Set-StaticPersistedPortSnapshot {
+            param($Snapshot)
+            $state=Get-LabRunState -RunId ([string]$persistedRun.RunId) -StateRoot $Root
+            $state.metadata.desiredState=$Snapshot
+            Write-LabArtifactJsonAtomic -Path $persistedStatePath -InputObject $state
+        }
+        function Get-StaticPersistedPortReason {
+            try {
+                $null=Get-LabHyperVSqlPortReconcileContext -RunId ([string]$persistedRun.RunId) -InstanceId primary -StateRoot $Root
+                return 'NO_ERROR'
+            }
+            catch { return [string]$_.Exception.Message }
+        }
+        $missingIntentSnapshot=$persistedSnapshot|ConvertTo-Json -Depth 50|ConvertFrom-Json -Depth 50
+        $missingIntentSnapshot.Instances[0].Intents.PSObject.Properties.Remove('SqlEndpoint')
+        Set-StaticPersistedPortSnapshot -Snapshot $missingIntentSnapshot
+        $missingIntentReason=Get-StaticPersistedPortReason
+        $duplicateSnapshot=$persistedSnapshot|ConvertTo-Json -Depth 50|ConvertFrom-Json -Depth 50
+        $duplicateSnapshot.Instances=@($duplicateSnapshot.Instances)+@($duplicateSnapshot.Instances[0])
+        Set-StaticPersistedPortSnapshot -Snapshot $duplicateSnapshot
+        $duplicateReason=Get-StaticPersistedPortReason
+        $wrongProviderSnapshot=$persistedSnapshot|ConvertTo-Json -Depth 50|ConvertFrom-Json -Depth 50
+        $wrongProviderSnapshot.Instances[0].Provider='docker'
+        Set-StaticPersistedPortSnapshot -Snapshot $wrongProviderSnapshot
+        $wrongProviderReason=Get-StaticPersistedPortReason
+        $unsupportedSnapshot=$persistedSnapshot|ConvertTo-Json -Depth 50|ConvertFrom-Json -Depth 50
+        $unsupportedSnapshot.Instances[0].Intents.SqlEndpoint.CapabilityStatus='DECLARED_UNSUPPORTED'
+        Set-StaticPersistedPortSnapshot -Snapshot $unsupportedSnapshot
+        $unsupportedIntentReason=Get-StaticPersistedPortReason
+        $invalidSnapshot=$persistedSnapshot|ConvertTo-Json -Depth 50|ConvertFrom-Json -Depth 50
+        $invalidSnapshot.Contract.Version='invalid'
+        Set-StaticPersistedPortSnapshot -Snapshot $invalidSnapshot
+        $invalidDesiredStateReason=Get-StaticPersistedPortReason
+        Set-StaticPersistedPortSnapshot -Snapshot $persistedSnapshot
+        $persistedPathContract=([int]$persistedSnapshot.Instances[0].Intents.SqlEndpoint.Port -eq 14333 -and
+            [int]$persistedContext.Desired.Port -eq 14333 -and [int]$persistedContext.ConnectionInstance.port -eq 15433 -and
+            [int]$persistedContext.Desired.Port -ne [int]$persistedContext.ConnectionInstance.port)
+        $persistedPlanContract=($persistedPlan.HighestChangeClass -eq 'restart' -and @($persistedPlan.Diff.Kind) -contains 'tcp-binding' -and
+            @($persistedPlan.Diff.Kind) -contains 'firewall-binding' -and @($persistedPlan.Actions).Count -eq 1 -and
+            $persistedPlan.Actions[0].RequiresServiceRestart -and -not $persistedPlan.Actions[0].RequiresVmRestart -and -not $persistedPlan.MutationAllowed)
+        $persistedReadOnlyContract=($persistedStateBefore -ceq $persistedStateAfter -and -not(Test-Path -LiteralPath $persistedJournalPath))
+        $persistedFailClosedContract=($missingIntentReason -eq 'HYPERV_SQL_PORT_RECONCILE_INTENT_MISSING' -and
+            $duplicateReason -eq 'HYPERV_SQL_PORT_RECONCILE_INSTANCE_NOT_UNIQUE' -and
+            $wrongProviderReason -eq 'HYPERV_SQL_PORT_RECONCILE_HYPERV_INSTANCE_REQUIRED' -and
+            $unsupportedIntentReason -eq 'HYPERV_SQL_PORT_RECONCILE_INTENT_UNSUPPORTED' -and
+            $invalidDesiredStateReason -eq 'HYPERV_SQL_PORT_RECONCILE_DESIRED_STATE_INVALID')
+
         $script:portDesired=$defaultPortIntent
         $script:portContext=[PSCustomObject]@{
             RunId=$RunId;ScopeId=$ScopeId;InstanceId='primary';StateRoot=$Root
@@ -113,6 +200,7 @@ try {
 
         [PSCustomObject]@{
             Intent=$intentContractValid
+            PersistedPath=$persistedPathContract;PersistedPlan=$persistedPlanContract;PersistedReadOnly=$persistedReadOnlyContract;PersistedFailClosed=$persistedFailClosedContract
             NoOp=$noOp.IsNoOp -and $noOp.HighestChangeClass -eq 'no-op';Sanitized=$sanitized
             FirewallScope=$firewallScopeDrift.HighestChangeClass -eq 'restart' -and @($firewallScopeDrift.Diff.Kind) -contains 'firewall-binding'
             Restart=$restart.HighestChangeClass -eq 'restart' -and @($restart.Actions).Count -eq 1 -and
@@ -128,6 +216,10 @@ try {
     $checks=[ordered]@{
         'Manifest-Schema begrenzt hyperv.sqlPort auf einen statischen TCP-Port'=($sqlPortSchema.type -eq 'integer' -and [int]$sqlPortSchema.minimum -eq 1 -and [int]$sqlPortSchema.maximum -eq 65535 -and [int]$sqlPortSchema.default -eq 1433)
         'Persistierter Hyper-V-SQL-Portintent ist capability-gebunden und defaultstabil'=$result.Intent
+        'SQL-Port-Reconcile liest den exakt persistierten Intents.SqlEndpoint statt eines Connection-Portwerts'=$result.PersistedPath
+        'Persistierter TCP- und Firewall-Drift ergibt oeffentlich exakt einen restart-only SQL-Plan'=$result.PersistedPlan
+        'Persistierter SQL-Port-Plan bleibt ohne State- oder Journalmutation read-only'=$result.PersistedReadOnly
+        'Fehlender, ungueltiger, doppelter, fremder oder nicht faehiger Persistenzintent bleibt fail-closed'=$result.PersistedFailClosed
         'Semantisch passende TCP- und Firewallbindung bleibt No-op'=$result.NoOp
         'Oeffentlicher SQL-Portplan enthaelt keine Port-, VM-, SQL- oder Hostwerte'=$result.Sanitized
         'Abweichende Firewall-RemoteAddress wird als sicherheitsrelevante Portbindung erkannt'=$result.FirewallScope
@@ -137,6 +229,7 @@ try {
         'Fehler nach Gastmutation bleibt als Recovery sichtbar'=$result.Recovery
         'Recovery finalisiert den bereits erreichten Sollzustand ohne zweiten Dienstrestart'=$result.Resume
         'Mehrdeutige Firewallidentitaet bleibt fail-closed'=$result.Unsupported
+        'Produktpfad verwendet nur den validen Persistenzsnapshot und keinen generischen Desired-State-Projektor'=($source -match 'Get-LabPersistedDesiredState' -and $source -match '\$persisted\.Snapshot\.Instances' -and $source -match '\.Intents\.SqlEndpoint' -and $source -notmatch 'New-LabDesiredState')
         'Gastmutation setzt statischen TCP-Port, bindet die Lab-Firewall eng und startet nur SQL neu'=($source -match 'Set-ItemProperty.+TcpDynamicPorts' -and $source -match 'Set-NetFirewallPortFilter' -and $source -match 'Set-NetFirewallAddressFilter' -and $source -match 'Set-NetFirewallRule -Enabled True -Direction Inbound -Action Allow' -and $source -match "Restart-Service -Name 'MSSQLSERVER'" -and $source -notmatch 'Restart-VM|Stop-VM|Start-VM')
         'Plan und Postcondition pruefen SQL tatsaechlich ueber den statischen Port'=([regex]::Matches($source,"Server=localhost,\$").Count -ge 2 -and $source -match "CommandText='SELECT DB_NAME\(\);'")
         'Manifest-Erstbereitstellung reicht den deklarativen SQL-Port bis CompleteImage und Isolation durch'=($publicProvisioningSource -match '-SqlPort \$hyperVSqlPort' -and $provisioningSource -match '(?s)Complete-HyperVLabSqlImage.+?-SqlPort \$SqlPort' -and $provisioningSource -match '(?s)Enable-HyperVLabHostSqlAccess.+?-SqlPort \$SqlPort' -and $provisioningSource -match 'Set-LabHyperVSqlPortBinding -Context \$isolatedPortContext')
