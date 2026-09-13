@@ -93,7 +93,8 @@ end {
         @{ Pattern = '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(StateUpgrade|state-upgrade)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
         @{ Pattern = '(?i)(AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'; Checks = @('Invoke-AutomationApiPlanChecks.ps1') },
-        @{ Pattern = '(?i)(CollationCatalog|sql-server-collation|Find-SqlServerLabCollation|ManifestParser|ManifestBuilder|lab-manifest|Public[\\/]New-SqlServerLab\.ps1|Public[\\/]Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-VersionCatalogChecks.ps1') },
+        @{ Pattern = '(?i)(CollationRuntimeEvidence|collation-runtime-evidence|ContainerCollationAcceptance)'; Checks = @('Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-CollationCatalogChecks.ps1','Invoke-VersionCatalogChecks.ps1') },
+        @{ Pattern = '(?i)(CollationCatalog|sql-server-collation|Find-SqlServerLabCollation|ManifestParser|ManifestBuilder|lab-manifest|Public[\\/]New-SqlServerLab\.ps1|Public[\\/]Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-VersionCatalogChecks.ps1') },
         @{ Pattern = '(?i)(PortableLabImport|portable-lab-import)'; Checks = @('Invoke-PortableLabImportChecks.ps1') },
         @{ Pattern = '(?i)(PortableContainerTransferExecutor|portable-container-transfer-executor)'; Checks = @('Invoke-PortableContainerTransferExecutorChecks.ps1') },
         @{ Pattern = '(?i)(PortableContainerTransferPreflight|portable-container-transfer-preflight)'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1','Invoke-PortableContainerTransferExecutorChecks.ps1') },
@@ -187,6 +188,7 @@ end {
             if ($runtimePath -match '(?i)(HyperVExternalRuntimeReconcile|hyperv-external-runtime-reconcile|Public[\\/]Invoke-SqlServerLabReconcileAction)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(HyperVSampleManifest|hyperv-sample-manifest)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(ContainerReconcile|Update-SqlServerLabContainer|Invoke-ContainerCliAcceptance|ContainerTool|Test-SqlServerLabContainerTool|Bacpac|SampleArtifactHandlers|sample-databases)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(CollationRuntimeEvidence|collation-runtime-evidence|Invoke-ContainerCollationAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerInstanceStore|container-instance-store)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerRuntimeScope|container-runtime-scope)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(RelationalCoreComparison|relational-core-comparison)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
@@ -201,7 +203,7 @@ end {
             if ($runtimePath -match '(?i)(DatabaseMigrationDependency|database-migration-dependency)') { $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(runtime-smoke-mixed-providers\.yml|MixedProvider|ProviderCapability|DesiredState|ReconcileContract|ProviderSubRun)') { $pathRuntime.Mixed = $true }
             if ($runtimePath -match '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest|^Private/ExternalRuntimeWindows|Images/ExternalLanguages/Windows|ExternalRuntimeHyperVAcceptance)') { $pathRuntime.HyperV = $true }
-            if ($runtimePath -match '(?i)^Public/New-SqlServerLab\.ps1$') { $pathRuntime.Docker = $true; $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)^Public/New-SqlServerLab\.ps1$') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $pathRuntime.Adapter = $true }
 
             $knownDomainChange = $pathRuntime.Docker -or $pathRuntime.Podman -or $pathRuntime.Mixed -or $pathRuntime.HyperV -or $pathRuntime.Adapter

@@ -102,6 +102,7 @@ $checks = @(
     'Invoke-StorageFilePlacementChecks.ps1',
     'Invoke-VersionCatalogChecks.ps1',
     'Invoke-CollationCatalogChecks.ps1',
+    'Invoke-CollationRuntimeEvidenceChecks.ps1',
     'Invoke-SoftwareCatalogChecks.ps1',
     'Invoke-ExternalRuntimeContainerImageChecks.ps1',
     'Invoke-ExternalRuntimeReconcileChecks.ps1',

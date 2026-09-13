@@ -893,9 +893,13 @@ Test-SqlServerLabManifest -InputObject @{
 
 Der Wizard speichert unbekannte Namen nicht. Die Provisionierung übernimmt
 die kanonische Katalogschreibweise. Ein nicht katalogisierter Name oder eine
-andere Major-Version wird abgewiesen; freie Advanced-Eingaben und SQL-seitige
-Verifikation bleiben offen. Explizite `databases[].collation`-Overrides sind
-nicht Teil dieser Instanzbindung.
+andere Major-Version wird abgewiesen. Docker und Podman pruefen nach
+SQL-Readiness vor Konfiguration, Datenbanken und Samples den katalogisierten
+Wert per `sys.fn_helpcollations()` und `SERVERPROPERTY('Collation')`; der
+native Nachweis ist bis zu seiner tatsaechlichen Ausfuehrung `NOT_EXECUTED`.
+Freie Advanced-Eingaben und der getrennte Hyper-V-/Windows-Nachweis bleiben
+offen. Explizite `databases[].collation`-Overrides sind nicht Teil dieser
+Instanzbindung.
 
 `Test-SqlServerLabManifest` ergänzt **keine** fehlenden Manifestwerte. Ein `default` im
 JSON-Schema ist zunächst Schema- und Wizard-Metadatum; die JSON-Schema-Prüfung

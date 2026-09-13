@@ -963,8 +963,9 @@ catalogs:
     schema: Schemas/sql-server-collation-catalog.schema.json
     resolver: Private/CollationCatalog.ps1
     search: Public/Find-SqlServerLabCollation.ps1
-    validation: Tests/Static/Invoke-CollationCatalogChecks.ps1
-    binding_contract: "Instanzcollation fuer SQL 2019/2022/2025 exakt und versionsgebunden vor Provisionierung; ManifestParser, ManifestBuilder, New-SqlServerLab und Konsolenformular gemeinsam pruefen; Datenbank-Overrides, Advanced-Eingabe und SQL-Live-Verifikation bleiben separat"
+    validation: Tests/Static/Invoke-CollationCatalogChecks.ps1 und Tests/Static/Invoke-CollationRuntimeEvidenceChecks.ps1
+    runtime_evidence: Tests/Integration/Invoke-ContainerCollationAcceptance.ps1 fuer Docker und Podman; native Ausfuehrung noch NOT_EXECUTED
+    binding_contract: "Instanzcollation fuer SQL 2019/2022/2025 exakt und versionsgebunden vor Provisionierung; ManifestParser, ManifestBuilder, New-SqlServerLab und Konsolenformular gemeinsam pruefen. Docker/Podman pruefen nach SQL-Readiness kataloggebunden sys.fn_helpcollations() und SERVERPROPERTY('Collation') mit einer parametrisierten SqlClient-Abfrage vor Konfiguration, Datenbanken und Samples. Datenbank-Overrides, Advanced-Eingabe und der getrennte Hyper-V-/Windows-Nachweis bleiben separat"
   sql_versions:
     data: Catalogs/sql-server-versions.json
     schema: Schemas/version-catalog.schema.json

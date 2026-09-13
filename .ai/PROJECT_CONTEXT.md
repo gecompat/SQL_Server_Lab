@@ -37,8 +37,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Manifestprüfung, Wizard-Speicherung, Manifestauflösung und Ad-hoc-Erstellung
   binden vollständige Namen kanonisch vor Provisionierung. Unbekannte Namen
   und nicht katalogisierte Major-Versionen werden abgewiesen. Die Bindung ist
-  offline geprüft; SQL-seitige Verifikation, freie Advanced-Eingaben und neue
-  getrennte Providernachweise bleiben offen;
+  offline geprüft. Docker und Podman verifizieren nach SQL-Readiness vor
+  Konfiguration, Datenbanken und Samples den katalogisierten Wert per
+  `sys.fn_helpcollations()` und `SERVERPROPERTY('Collation')`; die getrennte
+  native Acceptance ist implementiert, aber noch `NOT_EXECUTED`. Freie
+  Advanced-Eingaben sowie der getrennte Hyper-V-/Windows-Nachweis bleiben offen;
 
 - gemeinsamer interner Fortschrittsreporter fuer direkte Downloads,
   SQL-Bereitschaft und abgeleitete Container-Image-Builds; Loopback-Transfer,

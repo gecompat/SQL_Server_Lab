@@ -1111,6 +1111,20 @@ function New-SqlServerLab {
                 Start-Sleep -Seconds 2
             }
 
+            # Die Collation wird vor allen konfigurierenden oder datenbezogenen
+            # Folgeaktionen gegen den vorhandenen Katalog und die laufende
+            # SQL-Instanz verifiziert. Ein abweichender oder nicht verfuegbarer
+            # SQL-Wert beendet den Run ueber den bestehenden scopegebundenen
+            # Cleanup-Pfad fail-closed.
+            Write-LabInfo "Instanzcollation auf '$($instance.id)' nach SQL-Bereitschaft verifizieren..."
+            $collationEvidence = Test-LabContainerSqlCollationRuntimeEvidence `
+                -Provider ([string]$container.Provider) `
+                -SqlVersion ([string]$instance.version) `
+                -Collation ([string]$instance.collation) `
+                -HostName $containerHost `
+                -Port ([int]$container.Port) `
+                -SaPassword $SaPassword
+
             $labInstances += [PSCustomObject]@{
                 Id               = $instance.id
                 Version          = $instance.version
@@ -1121,6 +1135,7 @@ function New-SqlServerLab {
                 ContainerId      = $container.ContainerId
                 ContainerName    = $container.ContainerName
                 ConnectionString = New-SqlConnectionString -HostName $containerHost -Port $container.Port
+                Collation        = $collationEvidence
                 Databases        = @()
                 PersistentStorage = $instance.persistentStorage
                 ExternalRuntime  = if ($externalRuntimeImagePlansByInstance.ContainsKey([string]$instance.id)) {
@@ -1405,6 +1420,7 @@ function New-SqlServerLab {
                     containerId      = $_.ContainerId
                     containerName    = $_.ContainerName
                     connectionString = $_.ConnectionString
+                    collation        = $_.Collation
                     databases        = @($_.Databases)
                     persistentStorage = $_.PersistentStorage
                     externalRuntime  = $_.ExternalRuntime

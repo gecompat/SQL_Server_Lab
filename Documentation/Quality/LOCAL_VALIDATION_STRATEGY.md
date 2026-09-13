@@ -24,8 +24,13 @@ Instanzbindung, kanonische Schreibweise, ungültige und doppelte Namen,
 Manifest-/Ad-hoc-Abweisung vor Provisionierung, verweigerte Wizard-Speicherung
 und die Konsolensuche mit null Treffern und Abbruch. Die Tests verwenden
 synthetische Katalogfixtures und ersetzen die Konsoleneingabe; sie starten
-keine Provider. SQL-seitige Collation-Verifikation und neue native
-Docker-/Podman-/Hyper-V-Nachweise bleiben separat offen.
+keine Provider. `Invoke-CollationRuntimeEvidenceChecks.ps1` prueft den
+Containerpfad mit gefakten SqlClient-Objekten: erneute Katalogbindung, genau
+eine parametrisierte read-only Abfrage von `sys.fn_helpcollations()` und
+`SERVERPROPERTY('Collation')`, fehlende Katalogverfuegbarkeit, abweichende
+Postcondition, sichere Credentials und die Reihenfolge vor Konfiguration,
+Datenbanken und Samples. Die native Docker-/Podman-Acceptance ist implementiert,
+aber bis zur tatsaechlichen Ausfuehrung `NOT_EXECUTED`; Hyper-V bleibt separat.
 
 Der allgemeine Windows-Aktivierungsintent wurde am 2026-09-10 durch 33
 betroffene statische Suites geprueft. Zusaetzliche fokussierte Nachweise

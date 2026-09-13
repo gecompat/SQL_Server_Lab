@@ -184,13 +184,15 @@ $dependencyCases = @(
     @{ Path = 'Public/Get-SqlServerLabRunStateUpgradePlan.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
     @{ Path = 'Public/Invoke-SqlServerLabRunStateUpgrade.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/CollationCatalog.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-VersionCatalogChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/CollationRuntimeEvidence.ps1'; Checks = @('Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-CollationCatalogChecks.ps1','Invoke-VersionCatalogChecks.ps1'); Runtime = @('Docker','Podman') },
+    @{ Path = 'Tests/Integration/Invoke-ContainerCollationAcceptance.ps1'; Checks = @('Invoke-CollationRuntimeEvidenceChecks.ps1'); Runtime = @('Docker','Podman') },
     @{ Path = 'Public/Find-SqlServerLabCollation.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
     @{ Path = 'Catalogs/sql-server-collations.json'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/sql-server-collation-catalog.schema.json'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/ManifestParser.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/ManifestBuilder.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/lab-manifest.schema.json'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
-    @{ Path = 'Public/New-SqlServerLab.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-HyperVSqlConfigurationReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-InstanceIntentChecks.ps1'); Runtime = @('Docker','HyperV') },
+    @{ Path = 'Public/New-SqlServerLab.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-HyperVSqlConfigurationReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-InstanceIntentChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
     @{ Path = 'Public/Invoke-SqlServerLab.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/ConsoleHelp.ps1'; Checks = @('Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/PortableLabImport.ps1'; Checks = @('Invoke-PortableLabImportChecks.ps1'); Runtime = @() },
@@ -279,6 +281,10 @@ Add-CheckResult -Name 'Docker- und Podman-Gates enthalten den realen Batch-Smoke
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die getrennte AI-Vector-Core-Abnahme' -Success (
     $dockerWorkflow -match 'Invoke-AiVectorCoreAcceptance\.ps1\s+`?\s*-Provider docker' -and
     $podmanWorkflow -match 'Invoke-AiVectorCoreAcceptance\.ps1\s+`?\s*-Provider podman'
+)
+Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die getrennte Collation-Akzeptanz' -Success (
+    $dockerWorkflow -match 'Invoke-ContainerCollationAcceptance\.ps1\s+`?\s*-Provider docker' -and
+    $podmanWorkflow -match 'Invoke-ContainerCollationAcceptance\.ps1\s+`?\s*-Provider podman'
 )
 Add-CheckResult -Name 'Hyper-V-Workflow bietet gezielten OS-Slot-Batch mit scopegebundenem Cleanup' -Success (
     $hyperVWorkflow -match '(?m)^\s*- slot-batch\s*$' -and
