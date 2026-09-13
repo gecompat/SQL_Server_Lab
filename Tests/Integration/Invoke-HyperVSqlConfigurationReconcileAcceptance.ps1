@@ -77,6 +77,7 @@ function Write-SqlConfigurationManifest {
 }
 
 function New-AcceptanceSqlConnection {
+    if(-not $script:saPassword.IsReadOnly()){$script:saPassword.MakeReadOnly()}
     $connection=[Data.SqlClient.SqlConnection]::new()
     $connection.ConnectionString="Server=$script:sqlAddress,$script:sqlPort;Database=master;Encrypt=True;TrustServerCertificate=True;Connect Timeout=30;"
     $connection.Credential=[Data.SqlClient.SqlCredential]::new('sa',$script:saPassword)
