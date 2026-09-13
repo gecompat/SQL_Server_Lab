@@ -1455,16 +1455,19 @@ Add-ValidationResult `
         $repoMap -match 'sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1')
 
 Add-ValidationResult `
-    -Name 'External-Runtime-CI dokumentiert die SQL-2022-Evaluation-Voraussetzung und den sicheren Preflight-Blocker' `
+    -Name 'External-Runtime-CI dokumentiert die SQL-2022-Evaluation-Voraussetzung, den sicheren Preflight und die positive Reconcile-Evidence' `
     -Success ($mediaRootLayout -match 'SQL/2022/Eval/ISO/SQLServer2022-x64-ENU\.iso' -and
         $mediaRootLayout -match '(?s)Evaluation-Bootstrapper.*interaktiv' -and
         $mediaRootLayout -match '(?s)Initialize-SqlServerLabMediaRoot\.ps1.*-GenerateSha256' -and
         $cliAcceptanceMatrix -match '34772015168' -and
         $cliAcceptanceMatrix -match 'SQL_MEDIA_PREFLIGHT' -and
-        $cliAcceptanceMatrix -match '(?s)vollständig entfernt.*NOT_EXECUTED' -and
-        $knownLimitations -match '34772015168' -and
+        $cliAcceptanceMatrix -match '34780626984' -and
+        $cliAcceptanceMatrix -match 'CLEANUP_SUCCEEDED \(3 Steps, 0 Fehler\)' -and
+        $knownLimitations -match '34776120704' -and
+        $knownLimitations -match '34780328388' -and
+        $knownLimitations -match '34780626984' -and
         $knownLimitations -match 'SQL/2022/Eval/ISO/SQLServer2022-x64-ENU\.iso' -and
-        $knownLimitations -match '(?s)Evaluation-Bootstrapper.*interaktiv.*NOT_EXECUTED')
+        $repoMap -match 'external_runtime_reconcile_acceptance:.*34780626984')
 Add-ValidationResult `
     -Name 'Masterplan trennt lokale Produktfunktion von optionaler CI-Validierung' `
     -Success ($masterImplementationPlan -notmatch 'keine CI/CD-Artefakte vorhanden' -and $masterImplementationPlan -match 'keine Produktabhängigkeit')

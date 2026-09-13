@@ -652,35 +652,45 @@ Konfiguration, Live-Änderung, Owned-Trace-Flag-Add/-Remove bei unverändertem
 fremdem Runtime-Flag, Live-No-op, ausschließlich `MSSQLSERVER`-Restart ohne
 VM-Neustart, Desired-State-Konvergenz und scopegebundenen Cleanup von VM,
 VHDX und IPAM-Lease. Dies ist positive Runtime-Evidence für genau diesen
-SQL-Konfigurationsvertrag. Der getrennte SQL-Port-Vertrag wird unten
-nativ belegt; External Runtimes bleiben davon getrennte `NOT_EXECUTED`-
-Nachweise.
-Der manuelle main-Workflowmodus `external-runtime-reconcile-acceptance` erzeugt dafür nun ausschließlich einen neuen operationsgebundenen SQL-2022-/Windows-2025-Run aus einem Evaluation-`OS_SEALED`-Artifact. Er fordert `EvaluationOnline`/`AllowTemporary`, hält den permanenten `hostOnly`-Switch unverändert, validiert Run-/Scope-/VM-Ownership vor jedem öffentlichen Cleanup und gibt keine Roh-Evidence aus. Der native Lauf bleibt bis zu seinem ersten erfolgreichen Abschluss einschließlich Cleanup `NOT_EXECUTED`.
+SQL-Konfigurationsvertrag. Der getrennte SQL-Port-Vertrag ist davon unabhängig. Der manuelle
+main-Workflowmodus `external-runtime-reconcile-acceptance` erzeugt ausschließlich
+einen neuen operationsgebundenen SQL-2022-/Windows-2025-Run aus einem
+Evaluation-`OS_SEALED`-Artifact. Er fordert `EvaluationOnline`/`AllowTemporary`,
+hält den permanenten `hostOnly`-Switch unverändert, validiert
+Run-/Scope-/VM-Ownership vor jedem öffentlichen Cleanup und veröffentlicht
+keine Roh-Evidence.
 
-Der Lauf `34772015168` erreichte Windows-OOBE und wurde danach vor der
-SQL-Slot-Installation in der sicheren Stage `SQL_MEDIA_PREFLIGHT` beendet;
-der scopegebundene Cleanup entfernte VM, VHDX und IPAM-Lease vollständig. Dem
-Runner fehlte die vollständige SQL-Server-2022-Evaluation-ISO am relativen
-Media-Root-Pfad `SQL/2022/Eval/ISO/SQLServer2022-x64-ENU.iso` samt SHA-256-
-Sidecar. Der katalogisierte Evaluation-Bootstrapper ist nur die automatisierbare
-Beschaffungsvorstufe: ISO-Auswahl und Vollmedienerzeugung sind interaktiv. Der
-Operator legt das daraus erzeugte Originalmedium lokal unter dem kanonischen
-Pfad ab und erzeugt mit
+Der frühe Lauf `34772015168` erreichte Windows-OOBE und wurde vor der
+SQL-Slot-Installation in `SQL_MEDIA_PREFLIGHT` beendet, weil das vollständige
+SQL-Server-2022-Evaluation-Originalmedium einschließlich SHA-256-Sidecar am
+relativen Media-Root-Pfad `SQL/2022/Eval/ISO/SQLServer2022-x64-ENU.iso` fehlte.
+VM, VHDX und IPAM-Lease wurden dabei vollständig entfernt. Der Bootstrapper
+bleibt nur Beschaffungsvorstufe; ISO-Auswahl und Vollmedienerzeugung erfolgen
+interaktiv. Nach lokaler Ablage erzeugt
 `Initialize-SqlServerLabMediaRoot.ps1 -RootPath '<MediaRoot>' -GenerateSha256`
-den Sidecar. Ein Bootstrapper, eine andere Edition, ein anderer Dateiname oder
-ein fehlender Sidecar erfüllen den CI-Vertrag nicht. Der Nachweis bleibt bis zum
-erfolgreichen vollständigen Lauf `NOT_EXECUTED`.
+den Sidecar.
 
-Ein `OS_SEALED`-Create bewahrt einen vorhandenen `serverConfig`-Intent im
-Desired State, startet aber keinen initialen SQL-Konfigurations-Reconcile:
-eine reine Windows-Basis enthält noch keine SQL-Instanz. Nur ein bereits
-verifiziertes `SQL_PREPARED_SEALED`-Artifact darf diesen initialen Schritt
-auslösen. Der External-Runtime-Runner installiert deshalb zuerst den
-SQL-2022-Slot und erstellt erst danach den öffentlichen Runtime-Plan bzw.
-Apply; der `ResourceGovernor`-Intent bleibt dabei im Runtime-Zielmanifest
-gebunden. Auch mit dieser Reihenfolge bleibt die vollständige native
-External-Runtime-Evidence bis zum erfolgreichen Lauf einschließlich Cleanup
-`NOT_EXECUTED`.
+Ein `OS_SEALED`-Create bewahrt `serverConfig` nur im Desired State, weil eine
+reine Windows-Basis noch keine SQL-Instanz enthält. Nur ein verifiziertes
+`SQL_PREPARED_SEALED`-Artifact darf den initialen SQL-Konfigurations-Reconcile
+auslösen. Der External-Runtime-Runner installiert daher zuerst den SQL-2022-Slot
+und bindet danach den öffentlichen Runtime-Plan/Apply einschließlich des
+`ResourceGovernor`-Intents.
+
+Der fachliche Reconcile bestand in Lauf `34776120704`; dessen Cleanup wurde
+allein durch ein zu kleines JSON-Leselimit des SafetyRoot-Readers blockiert.
+Die Ownership blieb gültig und der exakt gebundene Recovery-Lauf `34780328388`
+bereinigte die Ressourcen erfolgreich. Die positive End-to-End-Evidence ist
+der erfolgreiche manuelle `main`-Lauf `34780626984` vom 2026-09-13: ein
+isolierter SQL-2022-Evaluation-/Windows-Server-2025-Run durchlief öffentlichen
+Plan, `WhatIf`, Apply, No-op und Removal-Blockade, Python/R/Java- und
+Resource-Governor-Intent sowie die vertraglichen Gast-/SQL- und drei
+Runtime-Probes nach vollständigem VM-Kaltstart. Der eigentumsgebundene
+Produkt-Cleanup endete mit `CLEANUP_SUCCEEDED (3 Steps, 0 Fehler)` für VM,
+VHDX und IPAM-Lease. Das ist Runtime-Evidence ausschließlich für diesen
+SQL-2022-/Windows-2025-Reconcile-Pfad; weitere SQL-/OS-/Providerkombinationen,
+C# sowie Hyper-V-Removal, Varianten-/Packagewechsel, allgemeine Zusatzsoftware
+und Artifact-Refresh bleiben offen.
 
 Der getrennte Hyper-V-SQL-Port-Reconcile persistiert `hyperv.sqlPort`, prüft
 TCP-Registry und die bestehende run-eigene Gastfirewall read-only und repariert
@@ -1399,11 +1409,10 @@ Der read-only Plan weist bei einer ausführbaren Addition den kontrollierten
 SQL-/Launchpad-Neustart aus; ein No-op bleibt warnungsfrei und eine blockierte
 Removal- oder Variantenänderung enthält den stabilen fail-closed Reason-Code.
 Die zugrunde liegende direkte SQL-2022-Hyper-V-Installation für Python, R und
-Java besitzt native Runtime-Evidence. Ein eigener isolierter Runner ist für den
+Java besitzt native Runtime-Evidence. Der eigene isolierte Runner für den
 öffentlichen Plan-/`WhatIf`-/Apply-/No-op-/Removal-Blockade-Pfad einschließlich
-VM-Neustartgrenze, echter SQL-Postconditions, Cold Start und Cleanup ausführbar;
-dieser Runner ist derzeit noch `NOT_EXECUTED`.
-
+VM-Neustartgrenze, SQL-Postconditions, Cold Start und Cleanup wurde am
+2026-09-13 in GitHub-Actions-Lauf `34780626984` erfolgreich ausgeführt. Seine scopegebundene Cleanup-Postcondition umfasst exakt VM, VHDX und IPAM-Lease.
 Noch nicht unterstützt sind Hyper-V-Removal, freie Varianten-/Packagewechsel,
 der allgemeine Hyper-V-
 Softwarepfad außerhalb der drei SQL-External-Runtimes, Hyper-V-Artifact-Refresh
@@ -1969,9 +1978,10 @@ werden.
 1. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die
    automatische Sample-Manifestausführung real abnehmen (Sample-Welle 6).
 2. Die verbleibenden providerneutralen Software-Intents an die Software-Runtime
-   binden; additive SQL-2022-Hyper-V-External-Runtimes sind journalisiert und
-   synthetisch belegt, Removal, Varianten-/Packagewechsel, allgemeine
-   Zusatzsoftware und native Reconcile-Evidence bleiben offen. Container-`nat`,
+   binden; additive SQL-2022-Hyper-V-External-Runtimes sind für Python/R/Java
+   auf Windows Server 2025 mit SQL-2022 Evaluation nativ reconcile- und
+   cleanup-belegt. Removal, Varianten-/Packagewechsel, allgemeine Zusatzsoftware
+   und weitere SQL-/OS-/Providerkombinationen bleiben offen. Container-`nat`,
    Hyper-V-`hostOnly`/`isolated`/`nat`/`lan` sowie
    Hyper-V-vCPU, statisches/dynamisches RAM und Zusatz-VHDX sind bereits
    manifestgebunden. Netzwerk-, Ressourcen-, Grow-only-Storage-, Default-/
