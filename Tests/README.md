@@ -35,6 +35,14 @@ Bei Hyper-V-relevanten Änderungen zusätzlich:
 .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
 ```
 
+Für einen nach einem fehlgeschlagenen nativen Hyper-V-Test eindeutig
+zurückgebliebenen `lifecycle=test`-Run gibt es den manuellen GitHub-Workflow
+`Hyper-V Scoped Test-Run Cleanup`. Er läuft nur bei Dispatch von `main`,
+akzeptiert ausschließlich die kanonische RunId und prüft lokalen State,
+Cleanup-Plan sowie die Live-VM-Identität vor dem öffentlichen Cleanup. Er ist
+kein regulärer Smoke-Test und darf weder gemeinsame noch produktive
+Umgebungen entfernen.
+
 Die vertiefte Matrix fuer reale Samples, Ressourcen- und Storageaenderungen ist
 in [CLI_ACCEPTANCE_MATRIX.md](../Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md)
 dokumentiert. Ihre ausfuehrbaren Einstiege sind:

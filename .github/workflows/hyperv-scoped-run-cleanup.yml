@@ -27,13 +27,19 @@ jobs:
       run:
         shell: pwsh
     steps:
+      - name: Reject dispatch outside main
+        if: github.ref != 'refs/heads/main'
+        run: throw 'HYPERV_SCOPED_CLEANUP_MAIN_REF_REQUIRED'
+
       - name: Checkout trusted main
+        if: github.ref == 'refs/heads/main'
         uses: actions/checkout@v7
         with:
           ref: main
           persist-credentials: false
 
       - name: Verify and remove the owned Hyper-V test run
+        if: github.ref == 'refs/heads/main'
         run: |
           $ErrorActionPreference = 'Stop'
           $runId = $null
