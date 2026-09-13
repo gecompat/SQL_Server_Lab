@@ -15,9 +15,24 @@ function Get-LabSqlObservabilityEvidenceSqlObservation {
 SET NOCOUNT ON;
 SELECT CONCAT(N'OBS100_SERVER|', CONVERT(nvarchar(10),SERVERPROPERTY('ProductMajorVersion')), N'|', CONVERT(nvarchar(20),cpu_count), N'|', CONVERT(nvarchar(30),physical_memory_kb))
 FROM sys.dm_os_sys_info;
-SELECT CONCAT(N'OBS100_DATABASE|', CONVERT(nvarchar(30),COUNT_BIG(*)), N'|', CONVERT(nvarchar(30),COALESCE(SUM(CONVERT(bigint,size))*8,0)), N'|', CONVERT(nvarchar(30),COALESCE(SUM(CASE WHEN is_query_store_on=1 THEN 1 ELSE 0 END),0)))
-FROM sys.databases
-WHERE state=0;
+WITH OnlineDatabases AS (
+    SELECT database_id,is_query_store_on
+    FROM sys.databases
+    WHERE state=0
+),
+DatabaseMetrics AS (
+    SELECT COUNT_BIG(*) AS OnlineDatabaseCount,
+           COALESCE(SUM(CASE WHEN is_query_store_on=1 THEN 1 ELSE 0 END),0) AS QueryStoreEnabledCount
+    FROM OnlineDatabases
+),
+FileMetrics AS (
+    SELECT COALESCE(SUM(CONVERT(bigint,mf.size)),0)*CONVERT(bigint,8) AS TotalFileSizeKb
+    FROM sys.master_files AS mf
+    INNER JOIN OnlineDatabases AS od ON od.database_id=mf.database_id
+)
+SELECT CONCAT(N'OBS100_DATABASE|', CONVERT(nvarchar(30),dm.OnlineDatabaseCount), N'|', CONVERT(nvarchar(30),fm.TotalFileSizeKb), N'|', CONVERT(nvarchar(30),dm.QueryStoreEnabledCount))
+FROM DatabaseMetrics AS dm
+CROSS JOIN FileMetrics AS fm;
 SELECT CONCAT(N'OBS100_WAIT|', CONVERT(nvarchar(30),COUNT_BIG(*)), N'|', CONVERT(nvarchar(30),COALESCE(SUM(waiting_tasks_count),0)), N'|', CONVERT(nvarchar(30),COALESCE(SUM(wait_time_ms),0)))
 FROM sys.dm_os_wait_stats
 WHERE wait_type NOT LIKE N'SLEEP%';
