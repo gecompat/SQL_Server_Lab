@@ -13,13 +13,35 @@ function Get-HyperVExternalRuntimeCiFailureCode {
     $matches = [System.Collections.Generic.List[string]]::new()
     foreach ($item in @($InputObject)) {
         if ($null -eq $item) { continue }
-        $text = [string]$item
-        foreach ($match in [regex]::Matches($text, '(?<![A-Z0-9_])(HYPERV_EXTERNAL_RUNTIME(?:_CI)?_[A-Z0-9_]+)(?![A-Z0-9_])')) {
-            $matches.Add($match.Groups[1].Value)
+        $candidates = if ($item -is [System.Management.Automation.ErrorRecord]) {
+            @([string]$item.FullyQualifiedErrorId, [string]$item)
+        }
+        else {
+            @([string]$item)
+        }
+        foreach ($candidate in $candidates) {
+            foreach ($match in [regex]::Matches($candidate, '(?<![A-Z0-9_])(HYPERV_EXTERNAL_RUNTIME(?:_CI)?_[A-Z0-9_]+)(?![A-Z0-9_])')) {
+                $matches.Add($match.Groups[1].Value)
+            }
         }
     }
     if ($matches.Count -eq 0) { return 'UNCLASSIFIED' }
     return $matches[$matches.Count - 1]
+}
+
+function Test-HyperVExternalRuntimeCiRunnerOutputFailure {
+    <#
+    .SYNOPSIS
+        Detects an error record captured from the private acceptance runner.
+    #>
+    [CmdletBinding()]
+    [OutputType([bool])]
+    param(
+        [AllowNull()]
+        [object[]]$InputObject
+    )
+
+    return @($InputObject | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] }).Count -gt 0
 }
 
 function Get-HyperVExternalRuntimeCiFailureDiagnosticLine {

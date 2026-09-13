@@ -13,6 +13,12 @@ $tokens=$null;$errors=$null
 $diagnosticTokens=$null;$diagnosticErrors=$null
 [Management.Automation.Language.Parser]::ParseFile($diagnosticsPath,[ref]$diagnosticTokens,[ref]$diagnosticErrors)|Out-Null
 . $diagnosticsPath
+$runnerErrorRecord = [System.Management.Automation.ErrorRecord]::new(
+    [System.InvalidOperationException]::new('C:\\runner\\private.txt'),
+    'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED',
+    [System.Management.Automation.ErrorCategory]::InvalidOperation,
+    $null
+)
 
 function Add-CiAcceptanceCheck {
     param([string]$Name,[bool]$Success)
@@ -23,14 +29,18 @@ function Add-CiAcceptanceCheck {
 
 $checks=@(
     Add-CiAcceptanceCheck 'CI-Runner ist syntaktisch gueltig' ($errors.Count -eq 0)
-    Add-CiAcceptanceCheck 'Diagnosehelfer ist syntaktisch gueltig und klassifiziert nur den letzten groben Fehlercode' (
+    Add-CiAcceptanceCheck 'Diagnosehelfer ist syntaktisch gueltig und klassifiziert auch erfasste ErrorRecords nur ueber ihren groben Fehlercode' (
         $diagnosticErrors.Count -eq 0 -and
         (Get-HyperVExternalRuntimeCiFailureCode -InputObject @('untrusted C:\\runner\\local.txt', 'HYPERV_EXTERNAL_RUNTIME_SQL_SLOT_NOT_READY: C:\\secret.txt', 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED: host=internal')) -eq 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED' -and
+        (Get-HyperVExternalRuntimeCiFailureCode -InputObject @($runnerErrorRecord)) -eq 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_ACCEPTANCE_APPLY_FAILED' -and
+        (Test-HyperVExternalRuntimeCiRunnerOutputFailure -InputObject @($runnerErrorRecord)) -and
+        -not (Test-HyperVExternalRuntimeCiRunnerOutputFailure -InputObject @('untrusted C:\\runner\\local.txt')) -and
         (Get-HyperVExternalRuntimeCiFailureCode -InputObject @('untrusted C:\\runner\\local.txt')) -eq 'UNCLASSIFIED'
     )
     Add-CiAcceptanceCheck 'Fehlerdiagnosen geben ausschliesslich grobe Codes aus und nie den erfassten Runnertext' (
         (Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind PRIMARY -FailureCode 'HYPERV_EXTERNAL_RUNTIME_SQL_SLOT_NOT_READY') -eq 'HYPERV_EXTERNAL_RUNTIME_CI_PRIMARY_FAILURE_CODE=HYPERV_EXTERNAL_RUNTIME_SQL_SLOT_NOT_READY' -and
         (Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind CLEANUP -FailureCode 'C:\\runner\\local.txt') -eq 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_FAILURE_CODE=UNCLASSIFIED' -and
+        $runner -match 'Test-HyperVExternalRuntimeCiRunnerOutputFailure -InputObject \$runnerOutput' -and
         $runner -match 'Get-HyperVExternalRuntimeCiFailureCode -InputObject \$runnerOutput' -and
         $runner -match 'Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind .PRIMARY.' -and
         $runner -notmatch 'Write-(Host|Output|Error).*\$runnerOutput'
@@ -77,7 +87,7 @@ $checks=@(
         $runner -match 'HYPERV_EXTERNAL_RUNTIME_CI_EXECUTION_AND_CLEANUP_FAILED' -and $runner -match 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_FAILED'
     )
     Add-CiAcceptanceCheck 'Erfolgreicher Runnerlauf gibt keine Fehlerdiagnose aus und behaelt seinen PASS-Vertrag' (
-        $runner -match '\$runnerSucceeded = \$\?' -and $runner -match 'if \(-not \$runnerSucceeded\)' -and
+        $runner -notmatch '\$runnerSucceeded = \$\?' -and $runner -match 'if \(Test-HyperVExternalRuntimeCiRunnerOutputFailure -InputObject \$runnerOutput\)' -and
         $runner -match "Write-Host 'PASS: Isolierter Hyper-V External-Runtime-Reconcile wurde ausgefuehrt\.'" -and
         $runner.IndexOf("Write-Host 'PASS: Isolierter Hyper-V External-Runtime-Reconcile wurde ausgefuehrt.'") -lt $runner.IndexOf("if (`$primaryFailure) { Write-Host") -and
         $runner -match "Write-Host 'Native Hyper-V External-Runtime-Reconcile-CI-Akzeptanz erfolgreich\.'"

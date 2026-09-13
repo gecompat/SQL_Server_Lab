@@ -208,8 +208,7 @@ try {
         # Der bestehende Wrapper bleibt der einzige fachliche Reconcile-Runner. Seine
         # gesamte Ausgabe (inklusive lokaler Evidence-Pfade) wird nicht an GitHub ausgegeben.
         $runnerOutput = @(& $acceptanceRunner -RunId $createdRunId -MediaRoot $MediaRoot -ArtifactId $ArtifactId -CleanupOnSuccess:$false *>&1)
-        $runnerSucceeded = $?
-        if (-not $runnerSucceeded) {
+        if (Test-HyperVExternalRuntimeCiRunnerOutputFailure -InputObject $runnerOutput) {
             $primaryFailureCode = Get-HyperVExternalRuntimeCiFailureCode -InputObject $runnerOutput
             throw 'HYPERV_EXTERNAL_RUNTIME_CI_RECONCILE_FAILED'
         }
