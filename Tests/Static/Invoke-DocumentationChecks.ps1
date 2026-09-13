@@ -706,6 +706,7 @@ $removalPlanCommand = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Get-
 $workflowActionCommand = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Invoke-SqlServerLabWorkflowAction.ps1') -Raw -Encoding utf8
 $architecture = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md') -Raw -Encoding utf8
 $cliAcceptanceMatrix = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Quality\CLI_ACCEPTANCE_MATRIX.md') -Raw -Encoding utf8
+$mediaRootLayout = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\MEDIA_ROOT_LAYOUT.md') -Raw -Encoding utf8
 $endToEndTestEnvironment = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\END_TO_END_TEST_ENVIRONMENT.md') -Raw -Encoding utf8
 $hyperVSlotWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\HYPERV_SLOT_SQL_WORKFLOW.md') -Raw -Encoding utf8
 $hyperVWindowsImageBuild = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\HYPERV_WINDOWS_IMAGE_BUILD.md') -Raw -Encoding utf8
@@ -1453,6 +1454,17 @@ Add-ValidationResult `
         $knownLimitations -match '(?s)SQL_PREPARED_SEALED.*SQL_READY_RUN.*Parent-Hash' -and
         $repoMap -match 'sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1')
 
+Add-ValidationResult `
+    -Name 'External-Runtime-CI dokumentiert die SQL-2022-Evaluation-Voraussetzung und den sicheren Preflight-Blocker' `
+    -Success ($mediaRootLayout -match 'SQL/2022/Eval/ISO/SQLServer2022-x64-ENU\.iso' -and
+        $mediaRootLayout -match '(?s)Evaluation-Bootstrapper.*interaktiv' -and
+        $mediaRootLayout -match '(?s)Initialize-SqlServerLabMediaRoot\.ps1.*-GenerateSha256' -and
+        $cliAcceptanceMatrix -match '34772015168' -and
+        $cliAcceptanceMatrix -match 'SQL_MEDIA_PREFLIGHT' -and
+        $cliAcceptanceMatrix -match '(?s)vollständig entfernt.*NOT_EXECUTED' -and
+        $knownLimitations -match '34772015168' -and
+        $knownLimitations -match 'SQL/2022/Eval/ISO/SQLServer2022-x64-ENU\.iso' -and
+        $knownLimitations -match '(?s)Evaluation-Bootstrapper.*interaktiv.*NOT_EXECUTED')
 Add-ValidationResult `
     -Name 'Masterplan trennt lokale Produktfunktion von optionaler CI-Validierung' `
     -Success ($masterImplementationPlan -notmatch 'keine CI/CD-Artefakte vorhanden' -and $masterImplementationPlan -match 'keine Produktabhängigkeit')

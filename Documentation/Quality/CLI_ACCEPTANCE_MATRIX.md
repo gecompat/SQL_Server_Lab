@@ -212,6 +212,19 @@ Hash-/Cache-Evidence geprüft; nach dem öffentlichen Cleanup müssen die exakte
 VM, alle gebundenen VHDX und die Run-/Scope-gebundene IPAM-Lease nachweislich
 fehlen.
 
+Der Lauf `34772015168` erreichte Windows-OOBE und endete anschließend bewusst
+vor der SQL-Slot-Installation mit der sicheren Stage
+`SQL_MEDIA_PREFLIGHT`. VM, VHDX und IPAM-Lease wurden vollständig entfernt. Als
+konkrete Voraussetzung fehlt dem Runner die vollständige SQL-Server-2022-
+Evaluation-ISO unter
+`SQL/2022/Eval/ISO/SQLServer2022-x64-ENU.iso` einschließlich ihres SHA-256-
+Sidecars. Der katalogisierte Evaluation-Bootstrapper kann heruntergeladen
+werden; dessen Wahl und Erzeugung der ISO erfolgt interaktiv. Nach der lokalen
+Ablage erzeugt
+`Initialize-SqlServerLabMediaRoot.ps1 -RootPath '<MediaRoot>' -GenerateSha256`
+den erforderlichen Sidecar. Bis der Lauf mit diesem lokalen Medium einschließlich
+Cleanup erfolgreich endet, bleibt der Nachweis `NOT_EXECUTED`.
+
 Der Modus ist statisch geprüft, aber noch `NOT_EXECUTED`; erst ein erfolgreicher
 nativer Workflowlauf mit vollständigem Cleanup liefert Runtime-Evidence.
 

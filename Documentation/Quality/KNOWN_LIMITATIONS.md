@@ -655,6 +655,20 @@ nativ belegt; External Runtimes bleiben davon getrennte `NOT_EXECUTED`-
 Nachweise.
 Der manuelle main-Workflowmodus `external-runtime-reconcile-acceptance` erzeugt dafür nun ausschließlich einen neuen operationsgebundenen SQL-2022-/Windows-2025-Run aus einem Evaluation-`OS_SEALED`-Artifact. Er fordert `EvaluationOnline`/`AllowTemporary`, hält den permanenten `hostOnly`-Switch unverändert, validiert Run-/Scope-/VM-Ownership vor jedem öffentlichen Cleanup und gibt keine Roh-Evidence aus. Der native Lauf bleibt bis zu seinem ersten erfolgreichen Abschluss einschließlich Cleanup `NOT_EXECUTED`.
 
+Der Lauf `34772015168` erreichte Windows-OOBE und wurde danach vor der
+SQL-Slot-Installation in der sicheren Stage `SQL_MEDIA_PREFLIGHT` beendet;
+der scopegebundene Cleanup entfernte VM, VHDX und IPAM-Lease vollständig. Dem
+Runner fehlte die vollständige SQL-Server-2022-Evaluation-ISO am relativen
+Media-Root-Pfad `SQL/2022/Eval/ISO/SQLServer2022-x64-ENU.iso` samt SHA-256-
+Sidecar. Der katalogisierte Evaluation-Bootstrapper ist nur die automatisierbare
+Beschaffungsvorstufe: ISO-Auswahl und Vollmedienerzeugung sind interaktiv. Der
+Operator legt das daraus erzeugte Originalmedium lokal unter dem kanonischen
+Pfad ab und erzeugt mit
+`Initialize-SqlServerLabMediaRoot.ps1 -RootPath '<MediaRoot>' -GenerateSha256`
+den Sidecar. Ein Bootstrapper, eine andere Edition, ein anderer Dateiname oder
+ein fehlender Sidecar erfüllen den CI-Vertrag nicht. Der Nachweis bleibt bis zum
+erfolgreichen vollständigen Lauf `NOT_EXECUTED`.
+
 Ein `OS_SEALED`-Create bewahrt einen vorhandenen `serverConfig`-Intent im
 Desired State, startet aber keinen initialen SQL-Konfigurations-Reconcile:
 eine reine Windows-Basis enthält noch keine SQL-Instanz. Nur ein bereits
