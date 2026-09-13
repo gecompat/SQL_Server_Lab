@@ -293,6 +293,18 @@ Add-CheckResult -Name 'Hyper-V-Workflow kann geschuetzte Testumgebungen gezielt 
     $hyperVWorkflow -match 'Invoke-TestEnvironmentRuntimeReadiness\.ps1 -Recover' -and
     $hyperVWorkflow -match 'Invoke-TestEnvironmentAcceptance\.ps1'
 )
+Add-CheckResult -Name 'Hyper-V-Workflow fuehrt SQL-Konfigurations-Reconcile nur im exakten Akzeptanzmodus aus' -Success (
+    $hyperVWorkflow -match '(?m)^\s*- sql-configuration-reconcile-acceptance\s*$' -and
+    $hyperVWorkflow -match "inputs\.mode == 'sql-configuration-reconcile-acceptance'" -and
+    $hyperVWorkflow -match 'Invoke-HyperVSqlConfigurationReconcileAcceptance\.ps1 @arguments' -and
+    $hyperVWorkflow -match '\$arguments\.ArtifactId = \$artifactId'
+)
+Add-CheckResult -Name 'Hyper-V-Workflow fuehrt SQL-Port-Reconcile nur im exakten Akzeptanzmodus aus' -Success (
+    $hyperVWorkflow -match '(?m)^\s*- sql-port-reconcile-acceptance\s*$' -and
+    $hyperVWorkflow -match "inputs\.mode == 'sql-port-reconcile-acceptance'" -and
+    $hyperVWorkflow -match 'Invoke-HyperVSqlPortReconcileAcceptance\.ps1 @arguments' -and
+    $hyperVWorkflow -match '\$arguments\.ArtifactId = \$artifactId'
+)
 
 $prWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/static-contracts.yml') -Raw -Encoding utf8
 Add-CheckResult -Name 'PR-Gate laeuft nicht erneut bei Push auf main' -Success ($prWorkflow -notmatch '(?m)^\s*push:\s*$')
