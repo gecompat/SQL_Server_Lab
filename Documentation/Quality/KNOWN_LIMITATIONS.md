@@ -650,8 +650,9 @@ Konfiguration, Live-Änderung, Owned-Trace-Flag-Add/-Remove bei unverändertem
 fremdem Runtime-Flag, Live-No-op, ausschließlich `MSSQLSERVER`-Restart ohne
 VM-Neustart, Desired-State-Konvergenz und scopegebundenen Cleanup von VM,
 VHDX und IPAM-Lease. Dies ist positive Runtime-Evidence für genau diesen
-SQL-Konfigurationsvertrag; SQL-Port und External Runtimes bleiben davon
-getrennte `NOT_EXECUTED`-Nachweise.
+SQL-Konfigurationsvertrag. Der getrennte SQL-Port-Vertrag wird unten
+nativ belegt; External Runtimes bleiben davon getrennte `NOT_EXECUTED`-
+Nachweise.
 
 Der getrennte Hyper-V-SQL-Port-Reconcile persistiert `hyperv.sqlPort`, prüft
 TCP-Registry und die bestehende run-eigene Gastfirewall read-only und repariert
@@ -660,11 +661,18 @@ Readiness am Zielport und der aktualisierte `connection-info.json`-Stand sind
 Postconditions. No-op, Restart, `WhatIf`, Abbruch nach Gastmutation,
 Recovery-Finalisierung und mehrdeutige Firewallidentität sind synthetisch
 belegt. Der Pfad unterstützt bewusst genau eine SQL-Standardinstanz; benannte
-oder mehrere SQL-Instanzen bleiben fail-closed. Ein getrennter erhöhter Runner
-samt isoliertem `SQL_PREPARED_SEALED`-Bootstrap erzeugt ausschließlich im neuen
-Gast eine TCP-/Firewall-Drift und bindet Plan, `WhatIf`, SQL-Dienstrestart ohne
-VM-Neustart, Connection-State, No-op und Cleanup. Seine Existenz ist keine
-Runtime-Evidence; ein positiver nativer Reparaturlauf bleibt `NOT_EXECUTED`.
+oder mehrere SQL-Instanzen bleiben fail-closed. Der isolierte
+`SQL_PREPARED_SEALED`-Bootstrap wurde im erfolgreichen GitHub-Actions-Lauf
+`34761955648` am 2026-09-13 auf einem erhöhten Runner nativ ausgeführt. Er
+belegte verifiziertes Prepared-Artifact und gültiges Manifest, isolierten Run,
+initialen deklarierten Port und Connection-State sowie eine erreichbare
+isolierte Alternativport-Drift. Der read-only Plan klassifizierte TCP- und
+Firewall-Drift als SQL-Dienstrestart; `WhatIf` ließ Journal und Portbindung
+unverändert. Der Reconcile stellte Port und Connection-State mit ausschließlich
+einem `MSSQLSERVER`-Restart ohne VM-Neustart wieder her, die Wiederholungsplanung
+war No-op und der scopegebundene Cleanup von VM, VHDX und IPAM-Lease bestand.
+Dies ist positive Runtime-Evidence für genau diesen SQL-Port-Vertrag; External
+Runtimes bleiben getrennte `NOT_EXECUTED`-Nachweise.
 
 Der getrennte Hyper-V-Testdatenbank-Reconcile akzeptiert ein Zielmanifest,
 persistiert katalogisierte Sample-PlanKeys und liest den echten ONLINE-Zustand
@@ -1940,11 +1948,11 @@ werden.
    Hyper-V-`hostOnly`/`isolated`/`nat`/`lan` sowie
    Hyper-V-vCPU, statisches/dynamisches RAM und Zusatz-VHDX sind bereits
    manifestgebunden. Netzwerk-, Ressourcen-, Grow-only-Storage-, Default-/
-   TempDB-SQL-Storage-, dynamische SQL-Konfigurations-, SQL-Port- sowie
-   katalogisierte Testdatenbank-Add-/Remove-Reconcile sind synthetisch
-   implementiert; positive native Reparaturnachweise, alte Runs ohne
-   Testdatenbank-Ownership-Receipt, Storage-Removal/-Rebinding,
-   User-/Systemdatenbankbewegung und weitere Hardware-/SQL-Klassen bleiben offen.
+   TempDB-SQL-Storage- sowie weitere Reconcile-Klassen sind synthetisch
+   implementiert; SQL-Konfiguration, SQL-Port und katalogisierte Testdatenbank-
+   Add-/Remove-Reconcile besitzen ihre jeweils dokumentierte positive native
+   Evidence. Weitere native Reparaturnachweise, alte Runs ohne
+   Testdatenbank-Ownership-Receipt, Storage-Removal/-Rebinding, User-/Systemdatenbankbewegung und weitere Hardware-/SQL-Klassen bleiben offen.
 3. Die bestehende lokale, read-only Artifact Registry sowie Evaluierungs- und
    Refresh-Empfehlungen um einen explizit autorisierten Rebuild-/Retire-
    Lifecycle erweitern. Die Inventur liefert bereits stabile Artifact-IDs,

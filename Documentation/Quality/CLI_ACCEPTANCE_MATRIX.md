@@ -158,7 +158,8 @@ eigentumsgebundenes Trace-Flag-Add/-Remove bei erhaltenem fremdem Flag,
 Live-No-op, der ausschließliche `MSSQLSERVER`-Restart ohne VM-Neustart,
 Basis-Desired-State-Konvergenz und Cleanup von VM, VHDX und IPAM-Lease
 bestanden. Das ist Runtime-PASS-Evidence für diesen SQL-Konfigurationsvertrag;
-der getrennte SQL-Port-Vertrag bleibt `NOT_EXECUTED`.
+der getrennte SQL-Port-Vertrag wird unten nativ belegt; External Runtimes
+bleiben davon getrennte `NOT_EXECUTED`-Nachweise.
 
 ## Ausführbarer Hyper-V-SQL-Port-Reconcile-Vertrag
 
@@ -170,6 +171,14 @@ Connection-State, No-op, Journal und scopegebundener Cleanup sind ausführbar.
 Der getrennte Bootstrap erzeugt und entfernt auch das Prepared-Artifact
 isoliert und gibt bei Fehlern exakte Recovery-IDs aus.
 
-Beide Runner sind implementiert und statisch gebunden. Ein positiver nativer
-Lauf wurde noch nicht ausgeführt (`NOT_EXECUTED`); dieser Abschnitt ist daher
-keine Runtime-PASS-Evidence.
+Der native GitHub-Actions-Lauf `34761955648` vom 2026-09-13 war auf dem
+erhöhten Runner erfolgreich. Er bestätigte das verifizierte SQL-2025-Prepared-
+Artifact, das gültige Manifest und den isolierten Run sowie den initial
+deklarierten Port und Connection-State. Eine isolierte, erreichbare
+Alternativport-Drift wurde im read-only Plan als TCP-/Firewall-Drift mit
+`MSSQLSERVER`-Restart klassifiziert. `WhatIf` ließ Journal und Portbindung
+unverändert; der Reconcile stellte Port und Connection-State mit ausschließlich
+einem SQL-Dienstrestart ohne VM-Neustart wieder her. Wiederholte Planung war
+No-op, und der scopegebundene Cleanup von VM, VHDX und IPAM-Lease bestand.
+Das ist Runtime-PASS-Evidence für diesen SQL-Port-Vertrag; External Runtimes
+bleiben getrennte `NOT_EXECUTED`-Nachweise.
