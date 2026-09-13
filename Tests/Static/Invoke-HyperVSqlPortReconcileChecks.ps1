@@ -18,14 +18,43 @@ try {
     $result = & $module {
         param($Root,$RunId,$ScopeId)
         $providerCapability=[PSCustomObject]@{Capabilities=@([PSCustomObject]@{SourceKey='hyperv-sql-port-reconcile'})}
-        $intent=New-LabSqlEndpointIntentSnapshot -Instance ([PSCustomObject]@{
-            provider='hyperv';hyperv=[PSCustomObject]@{sqlPort=1433}
-        }) -ProviderCapability $providerCapability
-        $defaultIntent=New-LabSqlEndpointIntentSnapshot -Instance ([PSCustomObject]@{provider='hyperv';hyperv=$null}) -ProviderCapability $providerCapability
-        $intentContractValid=$intent.Contract.Name -eq 'SqlServerLab.SqlEndpointIntent' -and $intent.CapabilityStatus -eq 'DECLARED_SUPPORTED' -and
-            [int]$intent.Port -eq 1433 -and [int]$defaultIntent.Port -eq 1433
+        $declaredPortManifest=[ordered]@{
+            name='hyperv-sql-port-manifest-contract'
+            instances=@([ordered]@{
+                id='primary';version='2025';provider='hyperv';os='windows';profile='standard';autostart='off'
+                hyperv=[ordered]@{sqlPort=14333}
+            })
+        }
+        $declaredPortManifestJson=$declaredPortManifest|ConvertTo-Json -Depth 20
+        $declaredPortManifestSchema=Test-LabManifestSchema -Json $declaredPortManifestJson
+        $declaredPortResolved=Resolve-ManifestDefaults -Manifest ($declaredPortManifestJson|ConvertFrom-Json -Depth 20)
+        $declaredPortIntent=New-LabSqlEndpointIntentSnapshot -Instance $declaredPortResolved.instances[0] -ProviderCapability $providerCapability
 
-        $script:portDesired=$intent
+        $defaultPortManifest=[ordered]@{
+            name='hyperv-sql-port-default-contract'
+            instances=@([ordered]@{
+                id='primary';version='2025';provider='hyperv';os='windows';profile='standard';autostart='off'
+                hyperv=[ordered]@{}
+            })
+        }
+        $defaultPortManifestJson=$defaultPortManifest|ConvertTo-Json -Depth 20
+        $defaultPortManifestSchema=Test-LabManifestSchema -Json $defaultPortManifestJson
+        $defaultPortResolved=Resolve-ManifestDefaults -Manifest ($defaultPortManifestJson|ConvertFrom-Json -Depth 20)
+        $defaultPortIntent=New-LabSqlEndpointIntentSnapshot -Instance $defaultPortResolved.instances[0] -ProviderCapability $providerCapability
+
+        $invalidPortManifest=[ordered]@{
+            name='hyperv-sql-port-invalid-contract'
+            instances=@([ordered]@{
+                id='primary';version='2025';provider='hyperv';os='windows';profile='standard';autostart='off'
+                hyperv=[ordered]@{sqlPort=65536}
+            })
+        }
+        $invalidPortManifestSchema=Test-LabManifestSchema -Json ($invalidPortManifest|ConvertTo-Json -Depth 20)
+        $intentContractValid=$declaredPortManifestSchema.IsValid -and $defaultPortManifestSchema.IsValid -and -not $invalidPortManifestSchema.IsValid -and
+            $declaredPortIntent.Contract.Name -eq 'SqlServerLab.SqlEndpointIntent' -and $declaredPortIntent.CapabilityStatus -eq 'DECLARED_SUPPORTED' -and
+            [int]$declaredPortResolved.instances[0].hyperv.sqlPort -eq 14333 -and [int]$declaredPortIntent.Port -eq 14333 -and
+            [int]$defaultPortResolved.instances[0].hyperv.sqlPort -eq 1433 -and [int]$defaultPortIntent.Port -eq 1433
+        $script:portDesired=$defaultPortIntent
         $script:portContext=[PSCustomObject]@{
             RunId=$RunId;ScopeId=$ScopeId;InstanceId='primary';StateRoot=$Root
             RunDirectory=(Join-Path (Join-Path $Root 'runs') $RunId)

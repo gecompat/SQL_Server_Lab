@@ -518,6 +518,7 @@ function Resolve-ManifestDefaults {
                 memoryStartupMB   = $memoryStartupMB
                 memoryMaximumMB   = if (-not $dynamicMemoryEnabled) { $memoryStartupMB } elseif ($instance.hyperv.memoryMaximumMB) { [int]$instance.hyperv.memoryMaximumMB } else { [int][Math]::Min(1048576, [long]$memoryStartupMB * 2) }
                 processorCount    = if ($instance.hyperv.processorCount) { [int]$instance.hyperv.processorCount } else { 4 }
+                sqlPort           = if ($instance.hyperv.PSObject.Properties['sqlPort']) { [int]$instance.hyperv.sqlPort } else { 1433 }
                 autostart         = [string]$resolved.autostart
                 guestPasswordMode = if ($instance.hyperv.guestPasswordMode) { [string]$instance.hyperv.guestPasswordMode } else { 'generated' }
             }
