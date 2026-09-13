@@ -1092,7 +1092,9 @@ Add-ValidationResult `
         $repoMap -notmatch 'Reconcile ist auf den Lifecycle START/STOP begrenzt' -and
         $knownLimitations -match 'physische N5-Hyper-V-Mehrgeräte-\s*Nachweis wurde am 2026-08-30 abgeschlossen' -and
         $knownLimitations -match 'P0-Ressourcenroot-Bugfix ist nach der realen Legacy-SQL-Abnahme' -and
-        $knownLimitations -match '1\. Den synthetisch implementierten Hyper-V-' -and
+        $knownLimitations -match '34790092466' -and
+        $knownLimitations -match 'zwei frische sequenzielle SQL-2025-Prepared-Runs' -and
+        $repoMap -match 'sample_manifest_acceptance:.*34790092466' -and
         $knownLimitations -notmatch 'Den P0-Bugfix für Hyper-V-Ressourcenroots' -and
         $hyperVResourceRootBacklog -match '\| Status \| `COMPLETE` seit 2026-08-31 \|' -and
         $hyperVResourceRootBacklog -notmatch 'IN_PROGRESS / P0' -and

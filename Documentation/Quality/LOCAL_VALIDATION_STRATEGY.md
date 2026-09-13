@@ -1088,7 +1088,7 @@ Für den automatischen Hyper-V-Manifestpfad belegt sie den Preflight auf
 vollständige Default-Data-/Default-Log-/Backup-Lanes und die Ablehnung
 widersprüchlicher Einzelplatzierung; die Hyper-V-Lab-Suite bindet den
 run-basierten Sample-Handler statisch an Run, Instanz und Gastcredential.
-Die bereits erfolgreiche Hyper-V-Testdatenbank-Reconcile-Abnahme belegt Add/Remove und eine Chinook-Baseline innerhalb eines Runs. Der getrennte Mehrfach-Sample-Manifest-Runner erstellt zwei frische sequenzielle SQL-2025-Prepared-Runs mit Chinook und Northwind, vergleicht `LAB_GENERATED`-Baseline-ID/Key/Hash und beide Manifest-Locks und bereinigt jeden Run scopegebunden. Seine native Ausfuehrung bleibt `NOT_EXECUTED`, bis der manuelle Main-Workflow vollstaendig erfolgreich beendet ist.
+Die bereits erfolgreiche Hyper-V-Testdatenbank-Reconcile-Abnahme belegt Add/Remove und eine Chinook-Baseline innerhalb eines Runs. Der getrennte Mehrfach-Sample-Manifest-Runner wurde im manuellen Main-Lauf `34790092466` auf Commit `95c5a79c` erfolgreich ausgefuehrt: Zwei frische sequenzielle SQL-2025-Prepared-Runs mit Chinook (`sql-server`) und Northwind (`script`) verglichen `LAB_GENERATED`-Baseline-ID/Key/Hash und beide `manifest.lock.json`-Bindungen im zweiten Run und bereinigten beide Runs scopegebunden. Weitere Hyper-V-Sample-Varianten bleiben getrennt offen.
 
 Ein vollständiger automatischer Download-/Restore-Test pro Sample ist derzeit nicht vorhanden.
 
