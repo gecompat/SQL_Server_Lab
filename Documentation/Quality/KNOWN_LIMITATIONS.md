@@ -640,12 +640,18 @@ No-op, Live, Restart, `WhatIf`, wiederkehrende Drift, eigentumsgebundene
 Entfernung, Fremd-/Startup-Schutz, Abbruch/Resume ohne doppeltes `TRACEOFF`,
 Restart-Resume ohne doppelte Zielwertmutation sowie fehlende Konfiguration sind
 synthetisch belegt. Die Entfernung eines vollständigen `sp_configure`-Eintrags
-bleibt ohne Previous-Value-Receipt unsupported. Ein getrennter erhöhter Runner
-samt isoliertem `SQL_PREPARED_SEALED`-Bootstrap bindet Plan, `WhatIf`, Live-
-Änderung, Ownership-Add/-Remove, den Fortbestand eines fremden Runtime-Flags,
-ausschließlich `MSSQLSERVER`-Restart ohne VM-Neustart, Desired-State-Rückkehr,
-No-op und scopegebundenen Cleanup. Seine Existenz ist keine Runtime-Evidence;
-ein positiver nativer Reparaturlauf bleibt `NOT_EXECUTED`.
+bleibt ohne Previous-Value-Receipt unsupported. Der isolierte
+`SQL_PREPARED_SEALED`-Bootstrap wurde im erfolgreichen GitHub-Actions-Lauf
+`34754976310` am 2026-09-13 auf einem erhöhten Runner nativ ausgeführt. Er
+belegte verifiziertes Prepared-Artifact und Manifest, isolierten Run mit
+Host-SQL-Zugriff, die initial aktive dynamische und restartpflichtige
+Zielkonfiguration, ein `WhatIf` ohne Änderung an vorhandenem Journal oder
+Konfiguration, Live-Änderung, Owned-Trace-Flag-Add/-Remove bei unverändertem
+fremdem Runtime-Flag, Live-No-op, ausschließlich `MSSQLSERVER`-Restart ohne
+VM-Neustart, Desired-State-Konvergenz und scopegebundenen Cleanup von VM,
+VHDX und IPAM-Lease. Dies ist positive Runtime-Evidence für genau diesen
+SQL-Konfigurationsvertrag; SQL-Port und External Runtimes bleiben davon
+getrennte `NOT_EXECUTED`-Nachweise.
 
 Der getrennte Hyper-V-SQL-Port-Reconcile persistiert `hyperv.sqlPort`, prüft
 TCP-Registry und die bestehende run-eigene Gastfirewall read-only und repariert
