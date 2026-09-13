@@ -22,12 +22,15 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $acceptanceRunner = Join-Path $PSScriptRoot 'Invoke-HyperVExternalRuntimeReconcileAcceptance.ps1'
+. (Join-Path $repoRoot 'Tests/Common/HyperVExternalRuntimeReconcileCiDiagnostics.ps1')
 $operationId = [string]$env:SQL_SERVER_LAB_TEST_OPERATION_ID
 $module = $null
 $previousStateRoot = $env:SQL_SERVER_LAB_STATE
 $createdRunId = $null
 $primaryFailure = $null
 $cleanupFailure = $null
+$primaryFailureCode = 'UNCLASSIFIED'
+$cleanupFailureCode = 'UNCLASSIFIED'
 $mutex = [Threading.Mutex]::new($false, 'Global\SQL_Server_Lab_HyperV_External_Runtime_CI_Acceptance')
 $mutexAcquired = $false
 
@@ -205,7 +208,11 @@ try {
         # Der bestehende Wrapper bleibt der einzige fachliche Reconcile-Runner. Seine
         # gesamte Ausgabe (inklusive lokaler Evidence-Pfade) wird nicht an GitHub ausgegeben.
         $runnerOutput = @(& $acceptanceRunner -RunId $createdRunId -MediaRoot $MediaRoot -ArtifactId $ArtifactId -CleanupOnSuccess:$false *>&1)
-        if (-not $?) { throw 'HYPERV_EXTERNAL_RUNTIME_CI_RECONCILE_FAILED' }
+        $runnerSucceeded = $?
+        if (-not $runnerSucceeded) {
+            $primaryFailureCode = Get-HyperVExternalRuntimeCiFailureCode -InputObject $runnerOutput
+            throw 'HYPERV_EXTERNAL_RUNTIME_CI_RECONCILE_FAILED'
+        }
         Write-Host 'PASS: Isolierter Hyper-V External-Runtime-Reconcile wurde ausgefuehrt.' -ForegroundColor Green
     }
     finally {
@@ -214,17 +221,25 @@ try {
 }
 catch {
     $primaryFailure = $_
+    if ($primaryFailureCode -eq 'UNCLASSIFIED') {
+        $primaryFailureCode = Get-HyperVExternalRuntimeCiFailureCode -InputObject @($_)
+    }
 }
 finally {
     if ($module) {
         try { $null = Invoke-HyperVExternalRuntimeCiCleanup -Module $module -OperationId $operationId -StateRoot $StateRoot }
-        catch { $cleanupFailure = $_ }
+        catch {
+            $cleanupFailure = $_
+            $cleanupFailureCode = Get-HyperVExternalRuntimeCiFailureCode -InputObject @($_)
+        }
     }
     if ($module) { Remove-Module $module.Name -Force -ErrorAction SilentlyContinue }
     if ($previousStateRoot) { $env:SQL_SERVER_LAB_STATE = $previousStateRoot } else { Remove-Item Env:SQL_SERVER_LAB_STATE -ErrorAction SilentlyContinue }
     if ($mutexAcquired) { $mutex.ReleaseMutex() }
     $mutex.Dispose()
 }
+if ($primaryFailure) { Write-Host (Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind 'PRIMARY' -FailureCode $primaryFailureCode) -ForegroundColor Red }
+if ($cleanupFailure) { Write-Host (Get-HyperVExternalRuntimeCiFailureDiagnosticLine -FailureKind 'CLEANUP' -FailureCode $cleanupFailureCode) -ForegroundColor Red }
 if ($primaryFailure -and $cleanupFailure) { throw 'HYPERV_EXTERNAL_RUNTIME_CI_EXECUTION_AND_CLEANUP_FAILED' }
 if ($primaryFailure) { throw 'HYPERV_EXTERNAL_RUNTIME_CI_EXECUTION_FAILED' }
 if ($cleanupFailure) { throw 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_FAILED' }
