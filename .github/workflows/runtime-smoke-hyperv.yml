@@ -9,7 +9,7 @@ on:
         default: lifecycle
         type: string
       image_artifact_id:
-        description: Optionales OS_SEALED-Artifact fuer den Slot-Batch
+        description: Optionales OS_SEALED-Artifact fuer den Slot-Batch oder SQL_PREPARED_SEALED-Artifact fuer Reconcile-Acceptances
         required: false
         type: string
       media_root:
@@ -35,8 +35,10 @@ on:
           - shared-environments
           - cli-acceptance
           - locale-acceptance
+          - sql-configuration-reconcile-acceptance
+          - sql-port-reconcile-acceptance
       image_artifact_id:
-        description: Optionales OS_SEALED-Artifact; leer waehlt das neueste passende Artifact
+        description: Optionales OS_SEALED-Artifact fuer den Slot-Batch oder SQL_PREPARED_SEALED-Artifact fuer Reconcile-Acceptances; leer waehlt jeweils das neueste passende Artifact
         required: false
         type: string
       media_root:
@@ -146,3 +148,21 @@ jobs:
           $artifactId = '${{ inputs.image_artifact_id }}'
           if (-not [string]::IsNullOrWhiteSpace($artifactId)) { $arguments.ArtifactId = $artifactId }
           .\Tests\Integration\Invoke-HyperVCliAcceptance.ps1 @arguments
+
+      - name: Hyper-V SQL configuration reconcile acceptance
+        if: inputs.mode == 'sql-configuration-reconcile-acceptance'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $arguments = @{}
+          $artifactId = '${{ inputs.image_artifact_id }}'
+          if (-not [string]::IsNullOrWhiteSpace($artifactId)) { $arguments.ArtifactId = $artifactId }
+          .\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1 @arguments
+
+      - name: Hyper-V SQL port reconcile acceptance
+        if: inputs.mode == 'sql-port-reconcile-acceptance'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $arguments = @{}
+          $artifactId = '${{ inputs.image_artifact_id }}'
+          if (-not [string]::IsNullOrWhiteSpace($artifactId)) { $arguments.ArtifactId = $artifactId }
+          .\Tests\Integration\Invoke-HyperVSqlPortReconcileAcceptance.ps1 @arguments
