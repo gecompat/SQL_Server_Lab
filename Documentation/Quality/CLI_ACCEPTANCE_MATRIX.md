@@ -196,7 +196,21 @@ Artifact, bindet den GitHub-Operationskontext, verwendet für Aktivierung
 ruft anschließend den bestehenden öffentlichen Reconcile-Runner auf. Erfolg,
 Fehler nach Erstellung und frühe Teilerstellung führen nur nach Run-/Scope-/
 VM-Ownership-Prüfung zum öffentlichen `Remove-SqlServerLab`-Cleanup. Rohpfade,
-Transkripte und Evidence werden nicht in GitHub-Ausgaben veröffentlicht. Bei einem Fehler wird ausschließlich ein grober, aus einem `HYPERV_EXTERNAL_RUNTIME...`-Code abgeleiteter `PRIMARY_FAILURE_CODE` beziehungsweise `CLEANUP_FAILURE_CODE` ausgegeben; ohne solchen Code bleibt der Wert `UNCLASSIFIED`. Der erfasste Runnertext selbst wird nie publiziert. Der Workflow lehnt jeden Aufruf außerhalb von manuellem `main` sichtbar ab. Artefakte werden ohne Integritätsüberspringung auf OS-Seal, Evaluation, Child-Validierung und Hash-/Cache-Evidence geprüft; nach dem öffentlichen Cleanup müssen die exakte VM, alle gebundenen VHDX und die Run-/Scope-gebundene IPAM-Lease nachweislich fehlen.
+Transkripte und Evidence werden nicht in GitHub-Ausgaben veröffentlicht. Der
+private Runner versieht Fehler zwischen SQL-Medien-Preflight und direktem
+Cleanup mit genau einer festen Acceptance-Stage. Bei einem Fehler veröffentlicht
+die CI nur den daraus gebildeten
+`HYPERV_EXTERNAL_RUNTIME_STAGE_<STAGE>_FAILED`-`PRIMARY_FAILURE_CODE`
+beziehungsweise `CLEANUP_FAILURE_CODE`; eine kleine feste Allowlist deckt nur
+CI-Grenz- und Cleanupfehler außerhalb des Runners ab. Freitext, unbekannte,
+malformierte oder vorgetäuschte Werte werden als `UNCLASSIFIED` ausgegeben. Der
+ursprüngliche ErrorRecord bleibt ausschließlich privat am erfassten Fehler;
+der erfasste Runnertext wird nie publiziert. Der Workflow lehnt jeden Aufruf
+außerhalb von manuellem `main` sichtbar ab. Artefakte werden ohne
+Integritätsüberspringung auf OS-Seal, Evaluation, Child-Validierung und
+Hash-/Cache-Evidence geprüft; nach dem öffentlichen Cleanup müssen die exakte
+VM, alle gebundenen VHDX und die Run-/Scope-gebundene IPAM-Lease nachweislich
+fehlen.
 
 Der Modus ist statisch geprüft, aber noch `NOT_EXECUTED`; erst ein erfolgreicher
 nativer Workflowlauf mit vollständigem Cleanup liefert Runtime-Evidence.
