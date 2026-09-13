@@ -155,7 +155,7 @@ $spConfigure = & $module {
         Set-Item Function:Read-Host -Value {
             $script:ManifestBuilderReadHostCall++
             if ($script:ManifestBuilderReadHostCall -eq 1) {
-                return 'optimize for ad hoc workloads'
+                return 'fill factor (%)'
             }
             return ''
         }
@@ -175,8 +175,8 @@ $spConfigure = & $module {
     }
 }
 Add-CheckResult `
-    -Name 'Freie spConfigure-Schluessel werden erfasst' `
-    -Success ($spConfigure.'optimize for ad hoc workloads' -eq 1)
+    -Name 'Wizard erfasst einen kanonischen spConfigure-Schluessel mit Prozent-Suffix' `
+    -Success ($spConfigure.'fill factor (%)' -eq 1)
 
 $minimal = [ordered]@{
     name      = 'manifest-check'
@@ -193,6 +193,23 @@ Add-CheckResult `
     -Name 'Minimales Manifest ist gueltig' `
     -Success $minimalResult.IsValid `
     -Message ($minimalResult.Errors -join '; ')
+
+$configurationNameManifest = [ordered]@{
+    name = 'configuration-name-check'
+    instances = @(
+        [ordered]@{
+            id = 'primary'; version = '2025'; provider = 'docker'
+            serverConfig = [ordered]@{ spConfigure = [ordered]@{'fill factor (%)' = 80} }
+        }
+    )
+}
+$configurationNameResult = Test-SqlServerLabManifest -InputObject $configurationNameManifest
+$invalidConfigurationNameManifest = $configurationNameManifest | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+$invalidConfigurationNameManifest.instances[0].serverConfig.spConfigure = [PSCustomObject]@{'fill factor (%); EXEC xp_cmdshell' = 80}
+$invalidConfigurationNameResult = Test-SqlServerLabManifest -InputObject $invalidConfigurationNameManifest
+Add-CheckResult `
+    -Name 'Manifest akzeptiert den SQL-Konfigurationsnamen fill factor (%) und blockiert freie SQL-Eingabe' `
+    -Success ($configurationNameResult.IsValid -and -not $invalidConfigurationNameResult.IsValid)
 Add-CheckResult `
     -Name 'Container-Manifest plant standardmaessig NAT mit Host-Exposure' `
     -Success ($minimalResult.Plan.Contract.Version -eq '1.2' -and

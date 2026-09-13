@@ -23,7 +23,7 @@
             "type": "object",
             "required": ["Name", "Value"],
             "properties": {
-              "Name": { "type": "string", "pattern": "^[A-Za-z0-9 ()_-]+$" },
+              "Name": { "type": "string", "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9_-]| [A-Za-z0-9_-]+)*(?: \\((?:B|KB|MB|ms|min|s|%)\\))?$" },
               "Value": { "type": "integer" }
             },
             "additionalProperties": false
