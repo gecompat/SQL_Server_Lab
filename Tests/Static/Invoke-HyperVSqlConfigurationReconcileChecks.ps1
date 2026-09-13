@@ -38,7 +38,11 @@ try {
                 $null=$HostName,$Port,$SaPassword,$Database,$TimeoutSeconds
                 $script:serverConfigQuery=$Query
             }
-            $serverConfigSecret=ConvertTo-SecureString 'synthetic-test-secret' -AsPlainText -Force
+            $serverConfigSecret=[Security.SecureString]::new()
+            foreach($character in 'synthetic-test-secret'.ToCharArray()){
+                $serverConfigSecret.AppendChar($character)
+            }
+            $serverConfigSecret.MakeReadOnly()
             $serverConfigResult=Set-LabServerConfig -Config ([PSCustomObject]@{
                 spConfigure=[PSCustomObject]@{'fill factor (%)'=80}
             }) -Port 1433 -SaPassword $serverConfigSecret
