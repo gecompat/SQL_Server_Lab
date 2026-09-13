@@ -78,6 +78,12 @@ jobs:
               $matrixExitCode = $LASTEXITCODE
               if ($matrixExitCode -ne 0) { throw "Podman Smoke Matrix endete mit Exitcode $matrixExitCode." }
 
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerCollationAcceptance.ps1 `
+                -Provider podman `
+                -RuntimeMutexAlreadyHeld 2>&1 | Tee-Object -FilePath $logPath -Append
+              $collationExitCode = $LASTEXITCODE
+              if ($collationExitCode -ne 0) { throw "Podman Collation-Akzeptanz endete mit Exitcode $collationExitCode." }
+
               & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 `
                 -Provider podman `
                 -Version 2025 2>&1 | Tee-Object -FilePath $logPath -Append

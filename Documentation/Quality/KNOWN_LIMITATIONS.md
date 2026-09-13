@@ -544,11 +544,16 @@ wenn SQL Server sie grundsätzlich unterstützen könnte. Ein Advanced-Pfad
 für freie Instanzcollations ist noch nicht implementiert. Explizite
 Datenbankcollations und die gesonderten Legacy-Installationswerkzeuge sind
 nicht Teil dieser Instanzbindung. Der Katalog ist kein vollständiges
-SQL-Collation-Inventar. Die SQL-seitige Vorprüfung über `sys.fn_helpcollations()`
-und Postcondition über `SERVERPROPERTY('collation')` sowie neue getrennte
-Provider-Nachweise bleiben in `COL-001` des
-[Konsolidierungsplans](../Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md)
-offen.
+SQL-Collation-Inventar. Docker und Podman pruefen nach SQL-Readiness vor
+Serverkonfiguration, Datenbanken und Samples per einer parametrisierten,
+read-only SqlClient-Abfrage die Katalogverfuegbarkeit in
+`sys.fn_helpcollations()` sowie `SERVERPROPERTY('Collation')`. Der zugehoerige
+native Docker-/Podman-Nachweis ist als
+`Invoke-ContainerCollationAcceptance.ps1` implementiert, aber bis zu seiner
+tatsaechlichen Ausfuehrung `NOT_EXECUTED`. Hyper-V/Windows nutzt diesen
+Containerpfad nicht; dessen SQL-seitiger Collation-Nachweis bleibt ein
+getrennter `COL-001`-Folgepunkt des
+[Konsolidierungsplans](../Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md).
 
 ## Datenbankdateien und Volumes
 
