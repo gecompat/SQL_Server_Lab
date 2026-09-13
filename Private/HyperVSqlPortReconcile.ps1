@@ -73,12 +73,12 @@ function Get-LabHyperVSqlPortReconcileContext {
     if ([string]$run.metadata.workflowKind -ne 'hyperv-lab') { throw 'HYPERV_SQL_PORT_RECONCILE_HYPERV_RUN_REQUIRED' }
     $guard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $RunId -StateRoot $StateRoot
     if (-not $guard.Allowed) { throw "HYPERV_SQL_PORT_RECONCILE_MIGRATION_BLOCKED: $([string]$guard.ReasonCode)" }
-    $targetState = if ([string]$run.state -eq 'STOPPED') { 'STOPPED' } else { 'RUNNING' }
-    $desiredState = New-LabDesiredState -Run $run -TargetState $targetState -StateRoot $StateRoot
-    if (-not $desiredState.IsValid) { throw 'HYPERV_SQL_PORT_RECONCILE_DESIRED_STATE_INVALID' }
-    $desiredInstances = @($desiredState.Instances | Where-Object { [string]$_.Id -eq $InstanceId -and [string]$_.Provider -eq 'hyperv' })
+    $persisted = Get-LabPersistedDesiredState -RunId $RunId -StateRoot $StateRoot
+    if ([string]$persisted.Status -ne 'VALID') { throw 'HYPERV_SQL_PORT_RECONCILE_DESIRED_STATE_INVALID' }
+    $desiredInstances = @($persisted.Snapshot.Instances | Where-Object { [string]$_.Id -eq $InstanceId })
     if ($desiredInstances.Count -ne 1) { throw 'HYPERV_SQL_PORT_RECONCILE_INSTANCE_NOT_UNIQUE' }
-    $desired = $desiredInstances[0].SqlEndpoint
+    if ([string]$desiredInstances[0].Provider -ne 'hyperv') { throw 'HYPERV_SQL_PORT_RECONCILE_HYPERV_INSTANCE_REQUIRED' }
+    $desired = $desiredInstances[0].Intents.SqlEndpoint
     if (-not $desired -or -not $desired.Contract -or
         [string]$desired.Contract.Name -ne 'SqlServerLab.SqlEndpointIntent' -or
         [string]$desired.Contract.Version -ne '1.0' -or [string]$desired.Protocol -ne 'tcp') {
