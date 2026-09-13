@@ -895,10 +895,12 @@ Der Wizard speichert unbekannte Namen nicht. Die Provisionierung übernimmt
 die kanonische Katalogschreibweise. Ein nicht katalogisierter Name oder eine
 andere Major-Version wird abgewiesen. Docker und Podman pruefen nach
 SQL-Readiness vor Konfiguration, Datenbanken und Samples den katalogisierten
-Wert per `sys.fn_helpcollations()` und `SERVERPROPERTY('Collation')`; der
-native Nachweis ist bis zu seiner tatsaechlichen Ausfuehrung `NOT_EXECUTED`.
-Freie Advanced-Eingaben und der getrennte Hyper-V-/Windows-Nachweis bleiben
-offen. Explizite `databases[].collation`-Overrides sind nicht Teil dieser
+Wert per `sys.fn_helpcollations()` und `SERVERPROPERTY('Collation')`. Die
+native Docker-/Podman-Acceptance bestand am 2026-09-13 fuer SQL Server 2025
+mit `Latin1_General_100_CS_AS`, Katalogverfuegbarkeit, Server-Postcondition,
+sanitisierter run-gebundener Evidence und vollstaendigem Cleanup. Freie
+Advanced-Eingaben und der getrennte Hyper-V-/Windows-Nachweis bleiben offen.
+Explizite `databases[].collation`-Overrides sind nicht Teil dieser
 Instanzbindung.
 
 `Test-SqlServerLabManifest` ergänzt **keine** fehlenden Manifestwerte. Ein `default` im

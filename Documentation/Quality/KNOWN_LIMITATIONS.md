@@ -548,9 +548,12 @@ SQL-Collation-Inventar. Docker und Podman pruefen nach SQL-Readiness vor
 Serverkonfiguration, Datenbanken und Samples per einer parametrisierten,
 read-only SqlClient-Abfrage die Katalogverfuegbarkeit in
 `sys.fn_helpcollations()` sowie `SERVERPROPERTY('Collation')`. Der zugehoerige
-native Docker-/Podman-Nachweis ist als
-`Invoke-ContainerCollationAcceptance.ps1` implementiert, aber bis zu seiner
-tatsaechlichen Ausfuehrung `NOT_EXECUTED`. Hyper-V/Windows nutzt diesen
+native Docker-/Podman-Nachweis `Invoke-ContainerCollationAcceptance.ps1`
+bestand am 2026-09-13 fuer SQL Server 2025 mit der angeforderten Collation
+`Latin1_General_100_CS_AS`: Beide Provider bestaetigten die
+Katalogverfuegbarkeit und die `SERVERPROPERTY('Collation')`-Postcondition. Der
+PR-Gate-Lauf `34783317945` hielt nur run-gebundene sanitisierte Evidence fest
+und entfernte die Testressourcen vollstaendig. Hyper-V/Windows nutzt diesen
 Containerpfad nicht; dessen SQL-seitiger Collation-Nachweis bleibt ein
 getrennter `COL-001`-Folgepunkt des
 [Konsolidierungsplans](../Project_Planning/CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md).
