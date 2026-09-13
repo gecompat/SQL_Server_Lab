@@ -653,6 +653,7 @@ VHDX und IPAM-Lease. Dies ist positive Runtime-Evidence für genau diesen
 SQL-Konfigurationsvertrag. Der getrennte SQL-Port-Vertrag wird unten
 nativ belegt; External Runtimes bleiben davon getrennte `NOT_EXECUTED`-
 Nachweise.
+Der manuelle main-Workflowmodus `external-runtime-reconcile-acceptance` erzeugt dafür nun ausschließlich einen neuen operationsgebundenen SQL-2022-/Windows-2025-Run aus einem Evaluation-`OS_SEALED`-Artifact. Er fordert `EvaluationOnline`/`AllowTemporary`, hält den permanenten `hostOnly`-Switch unverändert, validiert Run-/Scope-/VM-Ownership vor jedem öffentlichen Cleanup und gibt keine Roh-Evidence aus. Der native Lauf bleibt bis zu seinem ersten erfolgreichen Abschluss einschließlich Cleanup `NOT_EXECUTED`.
 
 Der getrennte Hyper-V-SQL-Port-Reconcile persistiert `hyperv.sqlPort`, prüft
 TCP-Registry und die bestehende run-eigene Gastfirewall read-only und repariert

@@ -189,6 +189,8 @@ sources_of_truth:
   hyperv_external_runtime_reconcile_journal_schema: Schemas/hyperv-external-runtime-reconcile-journal.schema.json
   validation_hyperv_external_runtime_reconcile: Tests/Static/Invoke-HyperVExternalRuntimeReconcileChecks.ps1
   validation_hyperv_external_runtime_reconcile_acceptance: Tests/Integration/Invoke-HyperVExternalRuntimeReconcileAcceptance.ps1
+  validation_hyperv_external_runtime_reconcile_ci_acceptance: Tests/Integration/Invoke-HyperVExternalRuntimeReconcileCiAcceptance.ps1
+  validation_hyperv_external_runtime_reconcile_ci_acceptance_static: Tests/Static/Invoke-HyperVExternalRuntimeReconcileCiAcceptanceChecks.ps1
   port_allocation_contract: Private/PortAllocation.ps1
   storage_contract: Private/StorageContract.ps1
   initial_setup_contract: Private/InitialSetup.ps1
