@@ -24,6 +24,14 @@ function Assert-HyperVSampleManifestCiAcceptance {
     param([Parameter(Mandatory)][bool]$Condition,[Parameter(Mandatory)][string]$ReasonCode)
     if(-not $Condition){throw $ReasonCode}
 }
+function Get-HyperVSampleManifestCiRunnerReasonCode {
+    param([Parameter(Mandatory)][object[]]$RunnerOutput)
+    $reasonCodes=foreach($entry in $RunnerOutput){
+        $text=if($entry -is [Management.Automation.ErrorRecord]){[string]$entry.Exception.Message}else{[string]$entry}
+        foreach($match in [regex]::Matches($text,'(?<![A-Z0-9_])HYPERV_SAMPLE_MANIFEST_[A-Z0-9]+(?:_[A-Z0-9]+)*(?![A-Z0-9_])')){$match.Value}
+    }
+    return @($reasonCodes|Sort-Object -Unique|Select-Object -First 1)
+}
 function Get-HyperVSampleManifestCiOwnedRun {
     param([Parameter(Mandatory)]$Module,[Parameter(Mandatory)][string]$OperationId,[Parameter(Mandatory)][string]$StateRoot)
     & $Module {
@@ -82,7 +90,11 @@ try {
     Assert-HyperVSampleManifestCiAcceptance ([string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED' -and [string]$artifact.sql.version -eq '2025' -and [string]$artifact.integrityVerification.status -in @('VERIFIED_CACHE','VERIFIED_HASH') -and [bool]$eligibility.Evaluation.Eligible -and [bool]$eligibility.Child.Eligible) 'HYPERV_SAMPLE_MANIFEST_CI_SQL_PREPARED_ARTIFACT_INVALID'
     $arguments=@{ArtifactId=[string]$artifact.artifactId;StateRoot=$StateRoot;Run1OperationId=$run1OperationId;Run2OperationId=$run2OperationId}
     $runnerOutput=@(& $acceptanceRunner @arguments *>&1)
-    if($LASTEXITCODE -ne 0 -or @($runnerOutput|Where-Object{$_ -is [Management.Automation.ErrorRecord]}).Count -gt 0){throw 'HYPERV_SAMPLE_MANIFEST_CI_RUNNER_FAILED'}
+    if($LASTEXITCODE -ne 0 -or @($runnerOutput|Where-Object{$_ -is [Management.Automation.ErrorRecord]}).Count -gt 0){
+        $runnerReasonCode=Get-HyperVSampleManifestCiRunnerReasonCode -RunnerOutput $runnerOutput
+        if($runnerReasonCode){Write-Host "HYPERV_SAMPLE_MANIFEST_CI_RUNNER_REASON_CODE=$runnerReasonCode" -ForegroundColor Red}
+        throw 'HYPERV_SAMPLE_MANIFEST_CI_RUNNER_FAILED'
+    }
     Write-Host 'PASS: Isolierte Hyper-V-Mehrfach-Sample-Manifest-Akzeptanz wurde ausgefuehrt.' -ForegroundColor Green
 }
 catch{$primaryFailure=$_}
