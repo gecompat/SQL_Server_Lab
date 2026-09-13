@@ -6,6 +6,7 @@ $workflowPath=Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml'
 $runner=Get-Content -LiteralPath $runnerPath -Raw -Encoding utf8
 $workflow=Get-Content -LiteralPath $workflowPath -Raw -Encoding utf8
 $manifestHelper=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Common/HyperVExternalRuntimeReconcileAcceptanceManifest.ps1') -Raw -Encoding utf8
+$externalRuntimeRunner=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1') -Raw -Encoding utf8
 $tokens=$null;$errors=$null
 [Management.Automation.Language.Parser]::ParseFile($runnerPath,[ref]$tokens,[ref]$errors)|Out-Null
 
@@ -32,6 +33,13 @@ $checks=@(
         $runner -match "operatingSystem\.version -eq '2025'" -and $runner -match "artifactState -eq 'OS_SEALED'" -and
         $runner -match "Strategy='EvaluationOnline'" -and $runner -match "EgressPolicy='AllowTemporary'" -and
         $manifestHelper -match "id = 'sql2022-ext'; version = '2022'; provider = 'hyperv'; os = 'windows'"
+    )
+    Add-CiAcceptanceCheck 'External-Runtime-Runner installiert den SQL-Slot vor Runtime-Plan oder Apply und uebergibt den Resource-Governor-Intent' (
+        $externalRuntimeRunner.IndexOf('Invoke-HyperVLabSqlSlotInstall') -ge 0 -and
+        $externalRuntimeRunner.IndexOf('Invoke-HyperVLabSqlSlotInstall') -lt $externalRuntimeRunner.IndexOf('Get-SqlServerLabReconcilePlan') -and
+        $externalRuntimeRunner.IndexOf('Invoke-HyperVLabSqlSlotInstall') -lt $externalRuntimeRunner.IndexOf('Invoke-SqlServerLabReconcileAction') -and
+        $manifestHelper -match "resourceGovernor = \[ordered\]@\{ maxMemoryPercent=40; maxProcesses=32 \}" -and
+        $externalRuntimeRunner -match 'ResourceGovernorConfig \(\[PSCustomObject\]@\{ maxMemoryPercent=40; maxProcesses=32 \}\)'
     )
     Add-CiAcceptanceCheck 'Erfolg und Fehler verwenden denselben oeffentlichen scopegebundenen Cleanup' (
         $runner -match 'finally\s*\{\s*if \(\$module\)' -and $runner -match 'Invoke-HyperVExternalRuntimeCiCleanup' -and

@@ -333,6 +333,82 @@ try {
             MissingCredential=$credentialRequiredFailClosed
         }
     } $testRoot $runId $scopeId
+    $initialReconcileGuard = & $module {
+        param($RunId, $Root)
+        $originalRepair = (Get-Command Invoke-LabHyperVSqlConfigurationReconcileRepair -CommandType Function).ScriptBlock
+        $script:initialReconcileCalls = [Collections.Generic.List[object]]::new()
+        $script:initialReconcileMode = 'SUCCEEDED'
+        try {
+            Set-Item Function:Invoke-LabHyperVSqlConfigurationReconcileRepair -Value {
+                param($RunId, $InstanceId, $StateRoot)
+                $script:initialReconcileCalls.Add([PSCustomObject]@{
+                    RunId = $RunId
+                    InstanceId = $InstanceId
+                    StateRoot = $StateRoot
+                })
+                if ($script:initialReconcileMode -eq 'THROW') { throw 'SYNTHETIC_INITIAL_RECONCILE_FAILURE' }
+                if ($script:initialReconcileMode -eq 'UNKNOWN') { return [PSCustomObject]@{ Status = 'UNSUPPORTED' } }
+                return [PSCustomObject]@{ Status = $script:initialReconcileMode }
+            }
+
+            $configuredInstance = [PSCustomObject]@{
+                id = 'sql-instance'
+                provider = 'hyperv'
+                serverConfig = [PSCustomObject]@{ maxDop = 4 }
+            }
+            $noConfigInstance = [PSCustomObject]@{
+                id = 'windows-instance'
+                provider = 'hyperv'
+                serverConfig = $null
+            }
+            $capability = [PSCustomObject]@{ Capabilities = @([PSCustomObject]@{ SourceKey = 'hyperv-sql-configuration-reconcile' }) }
+            $osSealedIntent = New-LabSqlConfigurationIntentSnapshot -Instance $configuredInstance -ProviderCapability $capability
+
+            $osSealedResult = Invoke-LabHyperVInitialSqlConfigurationReconcile `
+                -ArtifactState 'OS_SEALED' -Instance $configuredInstance -RunId $RunId -StateRoot $Root
+            $osSealedNoApply = $null -eq $osSealedResult -and $script:initialReconcileCalls.Count -eq 0 -and
+                $osSealedIntent.Contract.Name -eq 'SqlServerLab.SqlConfigurationIntent' -and
+                @($osSealedIntent.Configurations | Where-Object { [string]$_.Name -eq 'max degree of parallelism' -and [long]$_.Value -eq 4 }).Count -eq 1
+
+            $sqlPreparedResult = Invoke-LabHyperVInitialSqlConfigurationReconcile `
+                -ArtifactState 'SQL_PREPARED_SEALED' -Instance $configuredInstance -RunId $RunId -StateRoot $Root
+            $sqlPreparedApply = [string]$sqlPreparedResult.Status -eq 'SUCCEEDED' -and $script:initialReconcileCalls.Count -eq 1 -and
+                [string]$script:initialReconcileCalls[0].RunId -eq $RunId -and
+                [string]$script:initialReconcileCalls[0].InstanceId -eq 'sql-instance' -and
+                [string]$script:initialReconcileCalls[0].StateRoot -eq $Root
+
+            $noConfigResult = Invoke-LabHyperVInitialSqlConfigurationReconcile `
+                -ArtifactState 'SQL_PREPARED_SEALED' -Instance $noConfigInstance -RunId $RunId -StateRoot $Root
+            $sqlPreparedNoIntentNoApply = $null -eq $noConfigResult -and $script:initialReconcileCalls.Count -eq 1
+
+            $script:initialReconcileMode = 'UNKNOWN'
+            $unknownStatusPropagates = $false
+            try {
+                $null = Invoke-LabHyperVInitialSqlConfigurationReconcile `
+                    -ArtifactState 'SQL_PREPARED_SEALED' -Instance $configuredInstance -RunId $RunId -StateRoot $Root
+            }
+            catch { $unknownStatusPropagates = $_.Exception.Message -ceq 'HYPERV_MANIFEST_SQL_CONFIGURATION_RECONCILE_STATUS_INVALID: UNSUPPORTED' }
+
+            $script:initialReconcileMode = 'THROW'
+            $exceptionPropagates = $false
+            try {
+                $null = Invoke-LabHyperVInitialSqlConfigurationReconcile `
+                    -ArtifactState 'SQL_PREPARED_SEALED' -Instance $configuredInstance -RunId $RunId -StateRoot $Root
+            }
+            catch { $exceptionPropagates = $_.Exception.Message -ceq 'SYNTHETIC_INITIAL_RECONCILE_FAILURE' }
+
+            [PSCustomObject]@{
+                OsSealedNoApply = $osSealedNoApply
+                SqlPreparedApply = $sqlPreparedApply
+                SqlPreparedNoIntentNoApply = $sqlPreparedNoIntentNoApply
+                UnknownStatusPropagates = $unknownStatusPropagates
+                ExceptionPropagates = $exceptionPropagates
+            }
+        }
+        finally {
+            Set-Item Function:Invoke-LabHyperVSqlConfigurationReconcileRepair -Value $originalRepair
+        }
+    } $runId $testRoot
 
     $checks=[ordered]@{
         'Persistierter SQL-Konfigurationsintent akzeptiert den realen Prozent-Suffix, blockiert freie SQL-Eingabe und bleibt capability-gebunden'=$result.Intent
@@ -362,8 +438,13 @@ try {
         'Fehlende run-gebundene Credentials blockieren vor SQL-Mutation und bleiben als sanitierter öffentlicher ReasonCode sichtbar'=$result.MissingCredential
         'Gastmutation parametrisiert und bindet sp_configure an den Zielkatalog, schuetzt Startup-Flags und startet ausschliesslich MSSQLSERVER neu'=($source -match "Parameters\.Add\('@name'" -and $source -match "Parameters\.Add\('@value'" -and $source -match 'FROM sys\.configurations WHERE name=@name' -and $source -match 'HYPERV_SQL_CONFIGURATION_RECONCILE_TARGET_NOT_UNIQUE' -and $source -match 'DBCC TRACEOFF' -and $source -match 'SQLArg\*' -and $source -match "Restart-Service -Name 'MSSQLSERVER'" -and $source -notmatch 'Restart-VM|Stop-VM|Start-VM')
         'Initiale Serverkonfiguration verwendet dieselbe eng begrenzte Namensgrenze'=($serverConfigSource -match 'Assert-LabSqlConfigurationIntentName -Name \$configurationName')
-        'Oeffentlicher Hyper-V-Manifestpfad reconciliert vorhandenen ServerConfig-Intent erst nach SQL/OOBE mit exakter Run-, Instanz- und StateRoot-Bindung'=($publicProvisioningSource -match '(?s)Invoke-HyperVLabUnattendedProvision.+?Get-HyperVLabWorkflowRun.+?if \(\$instance\.serverConfig\) \{.+?Invoke-LabHyperVSqlConfigurationReconcileRepair\s+`\s*-RunId \$lab\.RunId -InstanceId \(\[string\]\$instance\.id\) -StateRoot \$hyperVLab\.StateRoot' -and ([regex]::Matches($publicProvisioningSource,'Invoke-LabHyperVSqlConfigurationReconcileRepair')).Count -eq 1)
-        'Oeffentlicher Hyper-V-Manifestpfad fuehrt ohne ServerConfig keinen SQL-Konfigurations-Apply aus und blockiert Erfolg bei unbekanntem Reconcile-Status'=($publicProvisioningSource -match 'if \(\$instance\.serverConfig\) \{[\s\S]+?HYPERV_MANIFEST_SQL_CONFIGURATION_RECONCILE_STATUS_INVALID' -and $publicProvisioningSource -notmatch 'catch\s*\{[\s\S]{0,400}Invoke-LabHyperVSqlConfigurationReconcileRepair')
+        'OS_SEALED bewahrt serverConfig-Intent ohne SQL-Apply'= $initialReconcileGuard.OsSealedNoApply
+        'SQL_PREPARED_SEALED wendet vorhandenen ServerConfig-Intent exakt einmal mit Run-, Instanz- und StateRoot-Bindung an'= $initialReconcileGuard.SqlPreparedApply
+        'SQL_PREPARED_SEALED ohne ServerConfig fuehrt keinen initialen SQL-Apply aus'= $initialReconcileGuard.SqlPreparedNoIntentNoApply
+        'Unbekannter initialer Reconcile-Status bleibt exakt als Manifestfehler sichtbar'= $initialReconcileGuard.UnknownStatusPropagates
+        'Fehler des initialen Reconcile werden unveraendert weitergegeben'= $initialReconcileGuard.ExceptionPropagates
+        'Oeffentlicher Hyper-V-Manifestpfad ruft den initialen Guard erst nach SQL/OOBE exakt einmal mit validiertem ArtifactState und exakter Run-, Instanz- und StateRoot-Bindung auf'=($publicProvisioningSource -match '(?s)Invoke-HyperVLabUnattendedProvision.+?Get-HyperVLabWorkflowRun.+?Invoke-LabHyperVInitialSqlConfigurationReconcile\s+`\s*-ArtifactState \$artifactState -Instance \$instance -RunId \$lab\.RunId -StateRoot \$hyperVLab\.StateRoot' -and ([regex]::Matches($publicProvisioningSource,'Invoke-LabHyperVInitialSqlConfigurationReconcile')).Count -eq 1 -and ([regex]::Matches($publicProvisioningSource,'Invoke-LabHyperVSqlConfigurationReconcileRepair')).Count -eq 0)
+        'Initialer Guard laesst nur validiertes SQL_PREPARED_SEALED mit vorhandenem ServerConfig passieren und behaelt Statusgrenze ohne Catch'=($source -match '\[string\]\$ArtifactState -ceq ''SQL_PREPARED_SEALED'' -and \[bool\]\$Instance\.serverConfig' -and $source -match 'HYPERV_MANIFEST_SQL_CONFIGURATION_RECONCILE_STATUS_INVALID' -and $source -notmatch 'catch\s*\{[\s\S]{0,400}Invoke-LabHyperVSqlConfigurationReconcileRepair')
         'Initiale SQL-Konfiguration initialisiert den Trace-Flag-Besitznachweis'=((Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVLabEnvironment.ps1') -Raw) -match 'Initialize-LabHyperVSqlConfigurationOwnershipReceipt')
         'Nativer Runner bindet Plan, unveraenderndes WhatIf mit initialem Journal, Live, Remove, SQL-Restart, No-op und Desired-State-Rueckkehr'=($acceptanceSource -match 'Get-SqlServerLabReconcilePlan' -and $acceptanceSource -match 'Invoke-SqlServerLabReconcileAction' -and $acceptanceSource -match 'initialJournalText' -and $acceptanceSource -match 'journalTextAfterWhatIf -ceq \$initialJournalText' -and $acceptanceSource -match 'trace-flag-add' -and $acceptanceSource -match 'trace-flag-remove' -and $acceptanceSource -match 'RequiresServiceRestart' -and $acceptanceSource -match 'finalPlan\.IsNoOp')
         'Nativer Runner bindet das SA-Kennwort als schreibgeschuetztes SecureString an SqlCredential'=($acceptanceSource -match 'if\(-not \$script:saPassword\.IsReadOnly\(\)\)\{\$script:saPassword\.MakeReadOnly\(\)\}' -and $acceptanceSource -match '\[Data\.SqlClient\.SqlCredential\]::new\(''sa'',\$script:saPassword\)')
