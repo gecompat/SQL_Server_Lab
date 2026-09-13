@@ -373,6 +373,14 @@ FILESTREAM-Evidence darf daraus nicht abgeleitet werden:
 .\Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1
 ```
 
+Der native Vorprüfungsnachweis bleibt getrennt je Provider und erzeugt keine
+Wiederherstellung oder Übertragung:
+
+```powershell
+.\Tests\Integration\Invoke-PortableContainerTransferPreflightAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-PortableContainerTransferPreflightAcceptance.ps1 -Provider podman
+```
+
 ## Provider-Referenztest
 
 Der bevorzugte übergreifende Test ist:

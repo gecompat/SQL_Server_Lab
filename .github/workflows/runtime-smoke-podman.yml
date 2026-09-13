@@ -109,6 +109,12 @@ jobs:
               $packageExportExitCode = $LASTEXITCODE
               if ($packageExportExitCode -ne 0) { throw "Podman Database-Package-Export-Akzeptanz endete mit Exitcode $packageExportExitCode." }
 
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PortableContainerTransferPreflightAcceptance.ps1 `
+                -Provider podman `
+                -RuntimeMutexAlreadyHeld 2>&1 | Tee-Object -FilePath $logPath -Append
+              $preflightExitCode = $LASTEXITCODE
+              if ($preflightExitCode -ne 0) { throw "Podman Portable-Container-Transfer-Preflight-Akzeptanz endete mit Exitcode $preflightExitCode." }
+
               & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-AiVectorCoreAcceptance.ps1 `
                 -Provider podman 2>&1 | Tee-Object -FilePath $logPath -Append
               $aiVectorExitCode = $LASTEXITCODE

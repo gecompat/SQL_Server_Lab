@@ -260,6 +260,27 @@ Cross-Provider-FILESTREAM-Lauf `NOT_APPLICABLE` und kein offener Ersatztest.
 .\Tests\Integration\Invoke-BackupLibraryCrossProviderAcceptance.ps1
 ```
 
+## Invoke-PortableContainerTransferPreflightAcceptance.ps1
+
+Die Acceptance erstellt je Provider zwei isolierte SQL-2025-Runs, publiziert
+ein synthetisches checksum-/VERIFYONLY-verifiziertes Backup und prüft den
+öffentlichen Preflight am bestehenden persistenten Ziel-Backup-Bind-Mount.
+Sie verlangt `HEADERONLY`, `VERIFYONLY WITH CHECKSUM, STOP_ON_ERROR`, einen
+vollständigen Stage-/Journal-Cleanup sowie weiterhin `TransferExecutorStatus =
+BLOCKED`. Sie führt keinen Restore und keinen Transfer aus.
+
+Hat eine dauerhaft vorhandene Podman-Connection bereits `SQL_LAB_PODMAN` mit
+einem vom Default abweichenden Subnetz, setzt der externe Runner vor seinem
+PowerShell-Prozess ausschließlich `SQL_SERVER_LAB_PODMAN_SUBNET` auf genau das
+read-only mit `podman network inspect SQL_LAB_PODMAN` ermittelte Subnetz. Der
+Prozesswert genügt; die Workflow-Datei und Benutzer-/Maschinenumgebung bleiben
+unverändert.
+
+```powershell
+.\Tests\Integration\Invoke-PortableContainerTransferPreflightAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-PortableContainerTransferPreflightAcceptance.ps1 -Provider podman
+```
+
 ## Invoke-DatabasePackageSqlAcceptance.ps1
 
 Die PSR-009-Abnahme benötigt eine erhöhte Windows-PowerShell und eine lokale
