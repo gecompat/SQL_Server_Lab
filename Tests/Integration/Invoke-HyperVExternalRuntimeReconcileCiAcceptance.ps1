@@ -61,10 +61,13 @@ function Get-HyperVExternalRuntimeCiOwnedRun {
         }
         $runDirectory = Join-Path (Join-Path $Root 'runs') ([string]$owned.runId)
         $plan = Get-CleanupPlan -RunDir $runDirectory
+        $vmSteps = @($plan.steps | Where-Object { [string]$_.resourceType -eq 'vm' })
         if ([string]$plan.runId -cne [string]$owned.runId -or [string]$plan.scopeId -cne [string]$owned.scopeId -or
-            @($plan.steps | Where-Object { [string]$_.provider -ne 'hyperv' }).Count -gt 0) {
+            @($plan.steps | Where-Object { [string]$_.provider -ne 'hyperv' -or [string]$_.resourceType -notin @('vm', 'vhdx', 'ipam-lease') }).Count -gt 0 -or
+            $vmSteps.Count -ne 1 -or [string]::IsNullOrWhiteSpace([string]$vmSteps[0].resourceId)) {
             throw 'HYPERV_EXTERNAL_RUNTIME_CI_OWNED_RUN_CLEANUP_PLAN_INVALID'
         }
+        $plannedVmName = [string]$vmSteps[0].resourceId
         $connectionPath = Join-Path $runDirectory 'connection-info.json'
         if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
             $context = Get-HyperVLabWorkflowRun -RunId ([string]$owned.runId) -StateRoot $Root
@@ -74,13 +77,54 @@ function Get-HyperVExternalRuntimeCiOwnedRun {
                 [string]::IsNullOrWhiteSpace([string]$context.Instance.vmId)) {
                 throw 'HYPERV_EXTERNAL_RUNTIME_CI_OWNED_RUN_CONNECTION_INVALID'
             }
-            $managed = Get-HyperVManagedVM -VMName ([string]$context.Instance.vmName) -ExpectedRunId ([string]$owned.runId) -ExpectedScopeId ([string]$owned.scopeId)
-            if (-not $managed -or [string]$managed.VM.Id -cne [string]$context.Instance.vmId) {
+            $contextVmId = [guid]::Empty
+            if ([string]$context.Instance.vmName -cne $plannedVmName -or -not [guid]::TryParse([string]$context.Instance.vmId, [ref]$contextVmId)) {
                 throw 'HYPERV_EXTERNAL_RUNTIME_CI_OWNED_VM_OWNERSHIP_INVALID'
             }
+            $managed = Get-HyperVManagedVM -VMName $plannedVmName -ExpectedRunId ([string]$owned.runId) -ExpectedScopeId ([string]$owned.scopeId)
+            if (-not $managed -or [string]$managed.VM.Id -cne $contextVmId.ToString()) {
+                throw 'HYPERV_EXTERNAL_RUNTIME_CI_OWNED_VM_OWNERSHIP_INVALID'
+            }
+            $vmId = $contextVmId.ToString()
         }
-        return [PSCustomObject]@{ RunId=[string]$owned.runId; ScopeId=[string]$owned.scopeId }
+        else {
+            $existingVm = @(Get-VM -Name $plannedVmName -ErrorAction SilentlyContinue)
+            if ($existingVm.Count -ne 0) {
+                $managed = Get-HyperVManagedVM -VMName $plannedVmName -ExpectedRunId ([string]$owned.runId) -ExpectedScopeId ([string]$owned.scopeId)
+                if (-not $managed) { throw 'HYPERV_EXTERNAL_RUNTIME_CI_OWNED_VM_OWNERSHIP_INVALID' }
+                $vmId = [string]$managed.VM.Id
+            }
+        }
+        return [PSCustomObject]@{
+            RunId=[string]$owned.runId; ScopeId=[string]$owned.scopeId; VMName=$plannedVmName; VMId=$vmId
+            VhdxPaths=@($plan.steps | Where-Object { [string]$_.resourceType -eq 'vhdx' } | ForEach-Object { [string]$_.resourceId } | Where-Object { $_ })
+            IpamLeases=@($plan.steps | Where-Object { [string]$_.resourceType -eq 'ipam-lease' } | ForEach-Object { [string]$_.resourceId } | Where-Object { $_ })
+        }
     } $OperationId $StateRoot
+}
+
+function Test-HyperVExternalRuntimeCiCleanupPostconditions {
+    param([Parameter(Mandatory)]$Module, [Parameter(Mandatory)]$Owned, [Parameter(Mandatory)][string]$StateRoot)
+    & $Module {
+        param($CleanupOwned, $Root)
+        $remainingVm = @(Get-VM -Name ([string]$CleanupOwned.VMName) -ErrorAction SilentlyContinue)
+        if ($remainingVm.Count -ne 0) { throw 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_VM_POSTCONDITION_FAILED' }
+        foreach ($path in @($CleanupOwned.VhdxPaths | Sort-Object -Unique)) {
+            if (Test-Path -LiteralPath $path) { throw 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_VHDX_POSTCONDITION_FAILED' }
+        }
+        $ipamPath = Join-Path (Join-Path $Root 'network') 'hyperv-ipam.json'
+        if (Test-Path -LiteralPath $ipamPath -PathType Leaf) {
+            $registry = Get-Content -LiteralPath $ipamPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+            foreach ($address in @($CleanupOwned.IpamLeases | Sort-Object -Unique)) {
+                $matches = @($registry.leases | Where-Object {
+                    [string]$_.address -ceq $address -and [string]$_.runId -ceq [string]$CleanupOwned.RunId -and
+                    [string]$_.scopeId -ceq [string]$CleanupOwned.ScopeId -and [string]$_.state -ceq 'ACTIVE'
+                })
+                if ($matches.Count -ne 0) { throw 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_IPAM_POSTCONDITION_FAILED' }
+            }
+        }
+        return $true
+    } $Owned $StateRoot
 }
 
 function Invoke-HyperVExternalRuntimeCiCleanup {
@@ -88,9 +132,10 @@ function Invoke-HyperVExternalRuntimeCiCleanup {
     $owned = Get-HyperVExternalRuntimeCiOwnedRun -Module $Module -OperationId $OperationId -StateRoot $StateRoot
     if (-not $owned) { return $null }
     $result = & $Module { param($RunId, $Root) Remove-SqlServerLab -RunId $RunId -StateRoot $Root -Force -Confirm:$false } $owned.RunId $StateRoot
-    if ([string]$result.RunId -cne [string]$owned.RunId -or [string]$result.Status -notin @('REMOVED','COMPLETED')) {
+    if ([string]$result.RunId -cne [string]$owned.RunId -or [string]$result.Status -notin @('REMOVED','COMPLETED','ALREADY_REMOVED')) {
         throw 'HYPERV_EXTERNAL_RUNTIME_CI_OWNED_RUN_CLEANUP_FAILED'
     }
+    $null = Test-HyperVExternalRuntimeCiCleanupPostconditions -Module $Module -Owned $owned -StateRoot $StateRoot
     return $result
 }
 
@@ -112,7 +157,7 @@ try {
     else {
         $artifact = & $module {
             param($Root)
-            @(Get-HyperVImageArtifact -StateRoot $Root -SkipIntegrityCheck | Where-Object {
+            @(Get-HyperVImageArtifact -StateRoot $Root | Where-Object {
                 [string]$_.artifactState -eq 'OS_SEALED' -and
                 [string]$_.operatingSystem.version -eq '2025' -and
                 [string]$_.license.type -eq 'evaluation' -and
@@ -120,7 +165,15 @@ try {
             } | Sort-Object { [datetime]$_.registeredAt } -Descending | Select-Object -First 1)[0]
         } $StateRoot
     }
-    Assert-HyperVExternalRuntimeCiAcceptance ($artifact -and [string]$artifact.artifactState -eq 'OS_SEALED' -and [string]$artifact.operatingSystem.version -eq '2025' -and [string]$artifact.license.type -eq 'evaluation') 'HYPERV_EXTERNAL_RUNTIME_CI_OS_SEALED_ARTIFACT_INVALID'
+    Assert-HyperVExternalRuntimeCiAcceptance ([bool]$artifact) 'HYPERV_EXTERNAL_RUNTIME_CI_OS_SEALED_ARTIFACT_INVALID'
+    $artifactEligibility = & $module {
+        param($Candidate)
+        [PSCustomObject]@{
+            Evaluation = Test-HyperVImageArtifactEvaluationEligibility -Artifact $Candidate
+            Child = Test-HyperVImageArtifactChildValidationEligibility -Artifact $Candidate
+        }
+    } $artifact
+    Assert-HyperVExternalRuntimeCiAcceptance ($artifact -and [string]$artifact.artifactState -eq 'OS_SEALED' -and [string]$artifact.operatingSystem.version -eq '2025' -and [string]$artifact.operatingSystem.id -eq 'windows-server-2025' -and [string]$artifact.license.type -eq 'evaluation' -and [string]$artifact.integrityVerification.status -in @('VERIFIED_CACHE','VERIFIED_HASH') -and [bool]$artifactEligibility.Evaluation.Eligible -and [bool]$artifactEligibility.Child.Eligible) 'HYPERV_EXTERNAL_RUNTIME_CI_OS_SEALED_ARTIFACT_INVALID'
     $ArtifactId = [string]$artifact.artifactId
 
     $manifest = & $module {

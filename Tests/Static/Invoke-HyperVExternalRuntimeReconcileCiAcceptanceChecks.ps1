@@ -18,9 +18,11 @@ function Add-CiAcceptanceCheck {
 
 $checks=@(
     Add-CiAcceptanceCheck 'CI-Runner ist syntaktisch gueltig' ($errors.Count -eq 0)
-    Add-CiAcceptanceCheck 'Workflow bietet den Modus nur manuell auf main an' (
+    Add-CiAcceptanceCheck 'Workflow bietet den Modus nur manuell auf main an und weist jeden anderen Aufruf sichtbar ab' (
         $workflow -match '(?s)workflow_dispatch:.*external-runtime-reconcile-acceptance' -and
-        $workflow -match "github\.event_name == 'workflow_dispatch' && github\.ref == 'refs/heads/main' && inputs\.mode == 'external-runtime-reconcile-acceptance'"
+        $workflow -match "github\.event_name == 'workflow_dispatch' && github\.ref == 'refs/heads/main' && inputs\.mode == 'external-runtime-reconcile-acceptance'" -and
+        $workflow -match "inputs\.mode == 'external-runtime-reconcile-acceptance' && !\(github\.event_name == 'workflow_dispatch' && github\.ref == 'refs/heads/main'\)" -and
+        $workflow -match 'HYPERV_EXTERNAL_RUNTIME_CI_MANUAL_MAIN_REQUIRED'
     )
     Add-CiAcceptanceCheck 'CI-Grenze akzeptiert weder RunId noch CloneSourceRunId' (
         $runner -notmatch '(?m)^\s*\[string\]\$RunId\b' -and $runner -notmatch '(?m)^\s*\[string\]\$CloneSourceRunId\b' -and
@@ -53,9 +55,26 @@ $checks=@(
         $workflow -notmatch "external-runtime-reconcile-acceptance[\s\S]{0,1200}'\$\{\{ inputs\." -and
         $runner -match '\$runnerOutput = @\(& \$acceptanceRunner' -and $runner -notmatch 'NATIVE_EVIDENCE_PATH' -and $runner -notmatch 'Start-Transcript'
     )
+    Add-CiAcceptanceCheck 'Artefaktauswahl ist integritaetsgeprueft, evaluation- und child-validiert' (
+        $runner -match 'Get-HyperVImageArtifact -ArtifactId \$Id -StateRoot \$Root' -and
+        $runner -match 'Get-HyperVImageArtifact -StateRoot \$Root \|' -and $runner -notmatch 'Get-HyperVImageArtifact[^\r\n]*SkipIntegrityCheck' -and
+        $runner -match "integrityVerification\.status -in @\('VERIFIED_CACHE','VERIFIED_HASH'\)" -and
+        $runner -match 'Test-HyperVImageArtifactEvaluationEligibility' -and $runner -match 'Test-HyperVImageArtifactChildValidationEligibility'
+    )
     Add-CiAcceptanceCheck 'Artifact und Media Root bleiben katalog- beziehungsweise konstantgebunden' (
         $runner -match 'HYPERV_EXTERNAL_RUNTIME_CI_OS_SEALED_ARTIFACT_INVALID' -and $runner -match 'Test-HyperVExternalRuntimeCiMediaRoot' -and
         $runner -match 'HYPERV_EXTERNAL_RUNTIME_CI_MEDIA_ROOT_INVALID' -and $runner -notmatch 'https?://'
+    )
+    Add-CiAcceptanceCheck 'Cleanup belegt VM-, VHDX- und IPAM-Nachbedingungen auch fuer bereits entfernte Runs' (
+        $runner -match 'Test-HyperVExternalRuntimeCiCleanupPostconditions' -and
+        $runner -match 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_VM_POSTCONDITION_FAILED' -and
+        $runner -match 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_VHDX_POSTCONDITION_FAILED' -and
+        $runner -match 'HYPERV_EXTERNAL_RUNTIME_CI_CLEANUP_IPAM_POSTCONDITION_FAILED' -and
+        $runner -match "@\('REMOVED','COMPLETED','ALREADY_REMOVED'\)" -and
+        $runner -match 'resourceType -notin @\(''vm'', ''vhdx'', ''ipam-lease''\)' -and
+        $runner -match '\$vmSteps\.Count -ne 1' -and
+        $runner -match 'Get-VM -Name \(\[string\]\$CleanupOwned\.VMName\)' -and
+        $runner.IndexOf('Test-HyperVExternalRuntimeCiCleanupPostconditions') -lt $runner.LastIndexOf('return $result')
     )
 )
 $failed=@($checks|Where-Object{-not $_.Success})

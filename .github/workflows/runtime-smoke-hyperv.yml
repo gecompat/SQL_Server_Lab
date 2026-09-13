@@ -167,6 +167,11 @@ jobs:
           $artifactId = '${{ inputs.image_artifact_id }}'
           if (-not [string]::IsNullOrWhiteSpace($artifactId)) { $arguments.ArtifactId = $artifactId }
           .\Tests\Integration\Invoke-HyperVSqlPortReconcileAcceptance.ps1 @arguments
+      - name: Reject external runtime reconcile acceptance outside manual main
+        if: inputs.mode == 'external-runtime-reconcile-acceptance' && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        run: |
+          $ErrorActionPreference = 'Stop'
+          throw 'HYPERV_EXTERNAL_RUNTIME_CI_MANUAL_MAIN_REQUIRED'
       - name: Hyper-V External Runtime reconcile acceptance
         if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'external-runtime-reconcile-acceptance'
         env:

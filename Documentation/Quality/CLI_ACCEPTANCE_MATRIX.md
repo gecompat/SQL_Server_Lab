@@ -196,7 +196,7 @@ Artifact, bindet den GitHub-Operationskontext, verwendet für Aktivierung
 ruft anschließend den bestehenden öffentlichen Reconcile-Runner auf. Erfolg,
 Fehler nach Erstellung und frühe Teilerstellung führen nur nach Run-/Scope-/
 VM-Ownership-Prüfung zum öffentlichen `Remove-SqlServerLab`-Cleanup. Rohpfade,
-Transkripte und Evidence werden nicht in GitHub-Ausgaben veröffentlicht.
+Transkripte und Evidence werden nicht in GitHub-Ausgaben veröffentlicht. Der Workflow lehnt jeden Aufruf außerhalb von manuellem `main` sichtbar ab. Artefakte werden ohne Integritätsüberspringung auf OS-Seal, Evaluation, Child-Validierung und Hash-/Cache-Evidence geprüft; nach dem öffentlichen Cleanup müssen die exakte VM, alle gebundenen VHDX und die Run-/Scope-gebundene IPAM-Lease nachweislich fehlen.
 
 Der Modus ist statisch geprüft, aber noch `NOT_EXECUTED`; erst ein erfolgreicher
 nativer Workflowlauf mit vollständigem Cleanup liefert Runtime-Evidence.
