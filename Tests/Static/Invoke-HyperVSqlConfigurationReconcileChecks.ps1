@@ -4,6 +4,17 @@ $source = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlConfig
 $serverConfigSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ServerConfig.ps1') -Raw -Encoding utf8
 $acceptanceSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1') -Raw -Encoding utf8
 $bootstrapSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlConfigurationReconcileAcceptanceBootstrap.ps1') -Raw -Encoding utf8
+$manifestWriterMatch=[regex]::Match($acceptanceSource,'(?s)function Write-SqlConfigurationManifest\s*\{.*?(?=\r?\nfunction New-AcceptanceSqlConnection)')
+$manifestWriterSource=$manifestWriterMatch.Value
+$acceptanceSourceOutsideManifestWriter=if($manifestWriterMatch.Success){$acceptanceSource.Remove($manifestWriterMatch.Index,$manifestWriterMatch.Length)}else{$acceptanceSource}
+$activationManifestWriterContract=$manifestWriterMatch.Success -and
+    $manifestWriterSource -match "windowsActivation\s*=\s*\[ordered\]@\{\s*ContractVersion\s*=\s*'SqlServerLab\.WindowsActivationIntent/1\.0'\s*Strategy\s*=\s*'EvaluationOnline'\s*EgressPolicy\s*=\s*'AllowTemporary'\s*\}" -and
+    $manifestWriterSource -match "network\s*=\s*\[ordered\]@\{intent='hostOnly';exposure='host'\}"
+$activationManifestVariantsUseSharedWriter=@('base','live','restart')|ForEach-Object{
+    $acceptanceSource -match ('(?m)^\s*Write-SqlConfigurationManifest\s+-Path\s+\$' + $_ + 'ManifestPath\b')
+}
+$activationManifestServerConfigContract=($manifestWriterSource -split 'serverConfig').Count -eq 2 -and
+    $acceptanceSourceOutsideManifestWriter -notmatch '\bserverConfig\b'
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hv-sql-configuration-reconcile-' + [Guid]::NewGuid().ToString('N'))
 $runId = [Guid]::NewGuid().ToString('D')
 $scopeId = [Guid]::NewGuid().ToString('D')
@@ -30,6 +41,33 @@ try {
             }) -ProviderCapability $providerCapability
         }
         catch {$invalidIntentBlocked=$_.Exception.Message -match 'SQL_CONFIGURATION_INTENT_NAME_INVALID'}
+        $activationManifest=[ordered]@{
+            name='hyperv-sql-configuration-activation-contract'
+            instances=@([ordered]@{
+                id='primary';version='2025';provider='hyperv';os='windows';profile='standard';autostart='off'
+                network=[ordered]@{intent='hostOnly';exposure='host'}
+                windowsActivation=[ordered]@{
+                    ContractVersion='SqlServerLab.WindowsActivationIntent/1.0'
+                    Strategy='EvaluationOnline'
+                    EgressPolicy='AllowTemporary'
+                }
+                serverConfig=[ordered]@{
+                    memory=[ordered]@{minMB=512;maxMB=4096};maxDop=4;costThreshold=25
+                    traceFlags=@();spConfigure=[ordered]@{'fill factor (%)'=0}
+                }
+            })
+        }
+        $activationManifestJson=$activationManifest|ConvertTo-Json -Depth 20
+        $activationManifestSchema=Test-LabManifestSchema -Json $activationManifestJson
+        $activationManifestResolved=Resolve-ManifestDefaults -Manifest ($activationManifestJson|ConvertFrom-Json -Depth 20)
+        $activationManifestContract=$activationManifestSchema.IsValid -and
+            $activationManifestResolved.instances[0].windowsActivation.ContractVersion -eq 'SqlServerLab.WindowsActivationIntent/1.0' -and
+            $activationManifestResolved.instances[0].windowsActivation.Strategy -eq 'EvaluationOnline' -and
+            $activationManifestResolved.instances[0].windowsActivation.EgressPolicy -eq 'AllowTemporary' -and
+            $activationManifestResolved.instances[0].windowsActivationSource -eq 'manifest' -and
+            $activationManifestResolved.instances[0].network.Intent -eq 'hostOnly' -and
+            $activationManifestResolved.instances[0].network.Exposure -eq 'host' -and
+            $activationManifestResolved.instances[0].serverConfig.maxDop -eq 4
         $serverConfigQuery=$null
         $serverConfigInvoker=(Get-Command Invoke-LabConfigurationQuery -CommandType Function).ScriptBlock
         try {
@@ -258,6 +296,7 @@ try {
             Intent=$intent.Contract.Name -eq 'SqlServerLab.SqlConfigurationIntent' -and $intent.CapabilityStatus -eq 'DECLARED_SUPPORTED' -and
                 @($intent.Configurations).Count -eq 6 -and @($intent.TraceFlags).Count -eq 1 -and
                 @($intent.Configurations|Where-Object Name -eq 'fill factor (%)').Count -eq 1 -and $invalidIntentBlocked
+            ActivationManifest=$activationManifestContract
             ServerConfig=$serverConfigContract
             NoOp=$noOp.IsNoOp -and $noOp.HighestChangeClass -eq 'no-op';Sanitized=$sanitized
             Live=$live.HighestChangeClass -eq 'live' -and @($live.Actions).Count -eq 1 -and -not $live.Actions[0].RequiresRestart
@@ -280,6 +319,8 @@ try {
 
     $checks=[ordered]@{
         'Persistierter SQL-Konfigurationsintent akzeptiert den realen Prozent-Suffix, blockiert freie SQL-Eingabe und bleibt capability-gebunden'=$result.Intent
+        'SQL-Konfigurationsmanifest löst den expliziten temporären Aktivierungsintent bei unverändertem hostOnly-Host-Netz auf'=$result.ActivationManifest
+        'Basis-, Live- und Restart-Manifest verwenden denselben Aktivierungsintent ohne abweichende Serverkonfiguration'=($activationManifestWriterContract -and @($activationManifestVariantsUseSharedWriter|Where-Object{-not $_}).Count -eq 0 -and $activationManifestServerConfigContract)
         'Initiale Serverkonfiguration akzeptiert den Prozent-Suffix und blockiert freie SQL-Eingabe'=$result.ServerConfig
         'Semantisch passende SQL-Konfiguration bleibt No-op'=$result.NoOp
         'Oeffentlicher SQL-Konfigurationsplan enthaelt keine VM-Namen oder IDs'=$result.Sanitized

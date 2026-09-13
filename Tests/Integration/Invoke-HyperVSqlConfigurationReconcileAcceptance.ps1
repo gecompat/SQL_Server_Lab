@@ -61,6 +61,11 @@ function Write-SqlConfigurationManifest {
         instances=@([ordered]@{
             id='primary';version='2025';provider='hyperv';os='windows';profile='standard';autostart='off'
             network=[ordered]@{intent='hostOnly';exposure='host'}
+            windowsActivation=[ordered]@{
+                ContractVersion='SqlServerLab.WindowsActivationIntent/1.0'
+                Strategy='EvaluationOnline'
+                EgressPolicy='AllowTemporary'
+            }
             hyperv=[ordered]@{preparedImageId=$PreparedArtifactId;memoryStartupMB=6144;processorCount=4;sqlPort=1433;guestPasswordMode='prompt'}
             serverConfig=[ordered]@{
                 memory=[ordered]@{minMB=512;maxMB=4096};maxDop=4;costThreshold=$CostThreshold
