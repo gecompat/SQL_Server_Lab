@@ -31,6 +31,7 @@
 | CU_MONITORING_BACKLOG.md | Backlog zur Katalogaktualität der SQL-Server-Builds |
 | CONSOLE_UX_FOLLOW_UP_BACKLOG.md | Abgeschlossene Konsolen-UX-Nacharbeiten: Nightly-Regression, Datenbankaktionen, Diagnoselog, deaktivierte Einträge, Hilfe, Statusband, Secret-Nachpflege und Bereichsmenüs sowie bindende Erkenntnisse zu Vertragsgestaltung und Scope-Fehlern |
 | HYPERV_REMOTE_HOST_BACKLOG.md | Spätere Steuerung eines entfernten Windows-Hyper-V-Hosts aus der lokalen Workflow-Oberfläche |
+| MULTI_INSTANCE_MULTI_VERSION_ENVIRONMENTS_BACKLOG.md | Mehrinstanz- und Mehrversionsumgebungen: ausführbarer Mehrziel-Manifestlauf für Docker, Podman und Hyper-V mit Endpoint-, Lifecycle- und Cleanup-Vertrag |
 | WINDOWS_LOCALE_CONFIGURATION_BACKLOG.md | Deklarative, pro Windows-Instanz konfigurierbare Sprache, Region, Tastatur und Zeitzone für Manifest- und Batch-Pfade |
 | WINDOWS_SLOT_ACTIVATION_BACKLOG.md | Allgemeines Lizenz-Reconcile für Windows-Child-Slots mit sicherer Unterscheidung persistenter und temporärer External-NICs |
 | POLYBASE_S3_OBJECT_STORAGE_BACKLOG.md | Automatisierter S3-kompatibler Object Store als SQL-Supporting-Component für PolyBase und native SQL-2025-Dateizugriffe unter Docker, Podman und später Hyper-V/Linux |
