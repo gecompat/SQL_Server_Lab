@@ -29,8 +29,11 @@ Containerpfad mit gefakten SqlClient-Objekten: erneute Katalogbindung, genau
 eine parametrisierte read-only Abfrage von `sys.fn_helpcollations()` und
 `SERVERPROPERTY('Collation')`, fehlende Katalogverfuegbarkeit, abweichende
 Postcondition, sichere Credentials und die Reihenfolge vor Konfiguration,
-Datenbanken und Samples. Die native Docker-/Podman-Acceptance ist implementiert,
-aber bis zur tatsaechlichen Ausfuehrung `NOT_EXECUTED`; Hyper-V bleibt separat.
+Datenbanken und Samples. Die native Docker-/Podman-Acceptance bestand am
+2026-09-13 im PR-Gate-Lauf `34783317945` fuer SQL Server 2025 und
+`Latin1_General_100_CS_AS`: Beide Provider bestaetigten Katalogverfuegbarkeit,
+`SERVERPROPERTY('Collation')`, run-gebundene sanitisierte Evidence und
+vollstaendigen Cleanup. Hyper-V bleibt separat.
 
 Der allgemeine Windows-Aktivierungsintent wurde am 2026-09-10 durch 33
 betroffene statische Suites geprueft. Zusaetzliche fokussierte Nachweise
