@@ -106,6 +106,7 @@ $checks = @(
     'Invoke-ExternalRuntimeContainerImageChecks.ps1',
     'Invoke-ExternalRuntimeReconcileChecks.ps1',
     'Invoke-HyperVExternalRuntimeReconcileChecks.ps1',
+    'Invoke-HyperVExternalRuntimeReconcileCiAcceptanceChecks.ps1',
     'Invoke-DatabaseCommandChecks.ps1',
     'Invoke-ReadinessContractChecks.ps1',
     'Invoke-ReconcileContractChecks.ps1',

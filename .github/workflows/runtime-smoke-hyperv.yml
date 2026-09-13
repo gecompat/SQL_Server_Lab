@@ -37,6 +37,7 @@ on:
           - locale-acceptance
           - sql-configuration-reconcile-acceptance
           - sql-port-reconcile-acceptance
+          - external-runtime-reconcile-acceptance
       image_artifact_id:
         description: Optionales OS_SEALED-Artifact fuer den Slot-Batch oder SQL_PREPARED_SEALED-Artifact fuer Reconcile-Acceptances; leer waehlt jeweils das neueste passende Artifact
         required: false
@@ -166,3 +167,20 @@ jobs:
           $artifactId = '${{ inputs.image_artifact_id }}'
           if (-not [string]::IsNullOrWhiteSpace($artifactId)) { $arguments.ArtifactId = $artifactId }
           .\Tests\Integration\Invoke-HyperVSqlPortReconcileAcceptance.ps1 @arguments
+      - name: Reject external runtime reconcile acceptance outside manual main
+        if: inputs.mode == 'external-runtime-reconcile-acceptance' && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        run: |
+          $ErrorActionPreference = 'Stop'
+          throw 'HYPERV_EXTERNAL_RUNTIME_CI_MANUAL_MAIN_REQUIRED'
+      - name: Hyper-V External Runtime reconcile acceptance
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'external-runtime-reconcile-acceptance'
+        env:
+          SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+          SQL_SERVER_LAB_CI_MEDIA_ROOT: ${{ inputs.media_root }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $arguments = @{ MediaRoot = [string]$env:SQL_SERVER_LAB_CI_MEDIA_ROOT }
+          if (-not [string]::IsNullOrWhiteSpace([string]$env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID)) {
+            $arguments.ArtifactId = [string]$env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID
+          }
+          .\Tests\Integration\Invoke-HyperVExternalRuntimeReconcileCiAcceptance.ps1 @arguments

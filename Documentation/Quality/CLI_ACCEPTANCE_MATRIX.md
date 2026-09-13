@@ -77,6 +77,7 @@ gh workflow run runtime-smoke-podman.yml --ref <branch> -f mode=cli-acceptance
 gh workflow run runtime-smoke-hyperv.yml --ref <branch> -f mode=cli-acceptance -f media_root='D:\Lab_Base' -f media_edition=Enterprise
 gh workflow run runtime-smoke-hyperv.yml --ref <branch> -f mode=sql-configuration-reconcile-acceptance [-f image_artifact_id=<SQL_PREPARED_SEALED-ArtifactId>]
 gh workflow run runtime-smoke-hyperv.yml --ref <branch> -f mode=sql-port-reconcile-acceptance [-f image_artifact_id=<SQL_PREPARED_SEALED-ArtifactId>]
+gh workflow run runtime-smoke-hyperv.yml --ref main -f mode=external-runtime-reconcile-acceptance [-f image_artifact_id=<OS_SEALED-ArtifactId>]
 ```
 
 Docker und Podman verwenden den gemeinsamen hostweiten Runtime-Lock. Der
@@ -182,3 +183,20 @@ einem SQL-Dienstrestart ohne VM-Neustart wieder her. Wiederholte Planung war
 No-op, und der scopegebundene Cleanup von VM, VHDX und IPAM-Lease bestand.
 Das ist Runtime-PASS-Evidence für diesen SQL-Port-Vertrag; External Runtimes
 bleiben getrennte `NOT_EXECUTED`-Nachweise.
+
+## Ausführbarer Hyper-V-External-Runtime-Reconcile-CI-Vertrag
+
+`Tests/Integration/Invoke-HyperVExternalRuntimeReconcileCiAcceptance.ps1` ist
+nur über den manuellen `main`-Workflowmodus
+`external-runtime-reconcile-acceptance` vorgesehen. Er akzeptiert keinen
+bestehenden Run und keine Clone-Quelle. Stattdessen erzeugt er genau einen
+SQL-2022-/Windows-2025-Run aus einem katalogisierten Evaluation-`OS_SEALED`-
+Artifact, bindet den GitHub-Operationskontext, verwendet für Aktivierung
+`EvaluationOnline`/`AllowTemporary` bei weiterhin dauerhaftem `hostOnly` und
+ruft anschließend den bestehenden öffentlichen Reconcile-Runner auf. Erfolg,
+Fehler nach Erstellung und frühe Teilerstellung führen nur nach Run-/Scope-/
+VM-Ownership-Prüfung zum öffentlichen `Remove-SqlServerLab`-Cleanup. Rohpfade,
+Transkripte und Evidence werden nicht in GitHub-Ausgaben veröffentlicht. Der Workflow lehnt jeden Aufruf außerhalb von manuellem `main` sichtbar ab. Artefakte werden ohne Integritätsüberspringung auf OS-Seal, Evaluation, Child-Validierung und Hash-/Cache-Evidence geprüft; nach dem öffentlichen Cleanup müssen die exakte VM, alle gebundenen VHDX und die Run-/Scope-gebundene IPAM-Lease nachweislich fehlen.
+
+Der Modus ist statisch geprüft, aber noch `NOT_EXECUTED`; erst ein erfolgreicher
+nativer Workflowlauf mit vollständigem Cleanup liefert Runtime-Evidence.
