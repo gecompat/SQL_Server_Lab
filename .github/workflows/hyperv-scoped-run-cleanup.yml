@@ -42,9 +42,10 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           $ErrorActionPreference = 'Stop'
-          $runId = $null
-          if (-not [Guid]::TryParseExact($env:INPUT_RUN_ID, 'D', [ref]$runId)) { throw 'HYPERV_SCOPED_CLEANUP_RUN_ID_INVALID' }
-          $runId = $runId.ToString('D')
+          $inputRunId = [string]$env:INPUT_RUN_ID
+          $parsedRunId = [Guid]::Empty
+          if (-not [Guid]::TryParse($inputRunId, [ref]$parsedRunId) -or $parsedRunId.ToString('D') -cne $inputRunId) { throw 'HYPERV_SCOPED_CLEANUP_RUN_ID_INVALID' }
+          $runId = $parsedRunId.ToString('D')
 
           # This fixed runner-local root deliberately accepts neither workflow input nor environment override.
           $stateRoot = Join-Path ([Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)) 'SqlServerLab'
@@ -59,8 +60,9 @@ jobs:
           $state = Get-Content -LiteralPath $statePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
           $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
           $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
-          $scopeId = $null
-          if (-not [Guid]::TryParseExact([string]$state.scopeId, 'D', [ref]$scopeId) -or [string]$state.runId -cne $runId -or [string]$plan.runId -cne $runId -or [string]$plan.scopeId -cne $scopeId.ToString('D') -or [string]$state.metadata.workflowKind -cne 'hyperv-lab') { throw 'HYPERV_SCOPED_CLEANUP_STATE_SCOPE_INVALID' }
+          $persistedScopeId = [string]$state.scopeId
+          $scopeId = [Guid]::Empty
+          if (-not [Guid]::TryParse($persistedScopeId, [ref]$scopeId) -or $scopeId.ToString('D') -cne $persistedScopeId -or [string]$state.runId -cne $runId -or [string]$plan.runId -cne $runId -or [string]$plan.scopeId -cne $scopeId.ToString('D') -or [string]$state.metadata.workflowKind -cne 'hyperv-lab') { throw 'HYPERV_SCOPED_CLEANUP_STATE_SCOPE_INVALID' }
 
           $steps = @($plan.steps)
           if ($steps.Count -eq 0 -or @($plan.providerSubRuns | Where-Object { [string]$_.provider -cne 'hyperv' }).Count -ne 0 -or @($steps | Where-Object { [string]$_.provider -cne 'hyperv' -or [string]$_.resourceType -notin @('vm', 'vhdx', 'ipam-lease') }).Count -ne 0) { throw 'HYPERV_SCOPED_CLEANUP_PLAN_NOT_HYPERV_ONLY' }
