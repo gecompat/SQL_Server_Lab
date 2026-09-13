@@ -186,10 +186,16 @@ try{
     Assert-HyperVSqlConfigurationAcceptance (
         -not[string]::IsNullOrWhiteSpace($script:sqlAddress) -and $script:sqlPort -gt 0
     ) 'Host-SQL-Zugriff ist gebunden'
+    $initialCostThreshold=Get-AcceptanceConfigurationValue 'cost threshold for parallelism'
+    $initialFillFactor=Get-AcceptanceConfigurationValue 'fill factor (%)'
+    $journalPath=Join-Path $context.RunDirectory 'hyperv-sql-configuration-reconcile.local.journal.json'
+    $initialJournalText=Get-Content -LiteralPath $journalPath -Raw -Encoding utf8
+    $initialJournal=$initialJournalText|ConvertFrom-Json -Depth 30
     Assert-HyperVSqlConfigurationAcceptance (
-        (Get-AcceptanceConfigurationValue 'cost threshold for parallelism') -eq '25:25' -and
-        (Get-AcceptanceConfigurationValue 'fill factor (%)') -eq '0:0'
-    ) 'Initialer dynamischer und restartpflichtiger Sollzustand ist aktiv'
+        $initialCostThreshold -eq '25:25' -and $initialFillFactor -eq '0:0' -and
+        [string]$initialJournal.Status -eq 'COMPLETED' -and [string]$initialJournal.RunId -eq $runId -and
+        [string]$initialJournal.InstanceId -eq 'primary'
+    ) 'Initialer dynamischer und restartpflichtiger Sollzustand ist aktiv' "beobachtet: cost threshold=$initialCostThreshold; fill factor=$initialFillFactor; journal=$($initialJournal.Status)"
 
     Invoke-AcceptanceNonQuery 'DBCC TRACEON (3604,-1) WITH NO_INFOMSGS;'
     $livePlan=Get-SqlServerLabReconcilePlan -RunId $runId -HyperVSqlConfiguration -ManifestPath $liveManifestPath -InstanceId primary -StateRoot $StateRoot
@@ -197,12 +203,12 @@ try{
         [string]$livePlan.HighestChangeClass -eq 'live' -and @($livePlan.Diff.Kind) -contains 'configuration' -and
         @($livePlan.Diff.Kind) -contains 'trace-flag-add' -and -not $livePlan.MutationAllowed
     ) 'Read-only Plan erkennt dynamische Konfiguration und Trace-Flag-Addition als live'
-    $journalPath=Join-Path $context.RunDirectory 'hyperv-sql-configuration-reconcile.local.journal.json'
     $whatIf=Invoke-SqlServerLabReconcileAction -RunId $runId -RepairHyperVSqlConfiguration -ManifestPath $liveManifestPath -InstanceId primary -StateRoot $StateRoot -WhatIf
+    $journalTextAfterWhatIf=Get-Content -LiteralPath $journalPath -Raw -Encoding utf8
     Assert-HyperVSqlConfigurationAcceptance (
-        [string]$whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and -not(Test-Path -LiteralPath $journalPath) -and
+        [string]$whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and $journalTextAfterWhatIf -ceq $initialJournalText -and
         (Get-AcceptanceConfigurationValue 'cost threshold for parallelism') -eq '25:25' -and 1117 -notin @(Get-AcceptanceTraceFlags)
-    ) 'WhatIf schreibt weder Journal noch SQL-Konfiguration'
+    ) 'WhatIf verändert weder vorhandenes Journal noch SQL-Konfiguration'
 
     $liveResult=Invoke-SqlServerLabReconcileAction -RunId $runId -RepairHyperVSqlConfiguration -ManifestPath $liveManifestPath -InstanceId primary -StateRoot $StateRoot -Confirm:$false
     $ownershipPath=Join-Path $context.RunDirectory 'hyperv-sql-configuration-ownership.local.json'

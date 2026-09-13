@@ -189,7 +189,7 @@ $dependencyCases = @(
     @{ Path = 'Private/ManifestParser.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/ManifestBuilder.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/lab-manifest.schema.json'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
-    @{ Path = 'Public/New-SqlServerLab.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
+    @{ Path = 'Public/New-SqlServerLab.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-HyperVSqlConfigurationReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-InstanceIntentChecks.ps1'); Runtime = @('Docker','HyperV') },
     @{ Path = 'Public/Invoke-SqlServerLab.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/ConsoleHelp.ps1'; Checks = @('Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/PortableLabImport.ps1'; Checks = @('Invoke-PortableLabImportChecks.ps1'); Runtime = @() },

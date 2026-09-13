@@ -122,6 +122,7 @@ end {
         @{ Pattern = '(?i)(HyperVResourceReconcile|hyperv-resource-reconcile)'; Checks = @('Invoke-HyperVResourceReconcileChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-HyperVProviderChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-InstanceIntentChecks.ps1') },
         @{ Pattern = '(?i)(HyperVStorageReconcile|hyperv-storage-reconcile)'; Checks = @('Invoke-HyperVStorageReconcileChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-HyperVProviderChecks.ps1','Invoke-StorageFilePlacementChecks.ps1','Invoke-InstanceIntentChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSqlStorageReconcile|hyperv-sql-storage-reconcile)'; Checks = @('Invoke-HyperVSqlStorageReconcileChecks.ps1','Invoke-HyperVStorageReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-StorageFilePlacementChecks.ps1') },
+        @{ Pattern = '(?i)(HyperVSqlConfigurationReconcile|hyperv-sql-configuration-reconcile|Public[\\/]New-SqlServerLab\.ps1)'; Checks = @('Invoke-HyperVSqlConfigurationReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-InstanceIntentChecks.ps1') },
         @{ Pattern = '(?i)(HyperVTestDatabaseReconcile|hyperv-test-database-(ownership|reconcile)|hyperv-test-database-reconcile)'; Checks = @('Invoke-HyperVTestDatabaseReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-InstanceIntentChecks.ps1','Invoke-SampleHandlerChecks.ps1') },
         @{ Pattern = '(?i)(ContainerReconcile|Update-SqlServerLabContainer)'; Checks = @('Invoke-ContainerReconcileChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1','Invoke-ReadinessContractChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-PortAllocationChecks.ps1') },
         @{ Pattern = '(?i)(ProviderCapability|provider\.json)'; Checks = @('Invoke-ProviderCapabilityChecks.ps1') },
@@ -198,6 +199,7 @@ end {
             if ($runtimePath -match '(?i)(DatabaseMigrationDependency|database-migration-dependency)') { $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(runtime-smoke-mixed-providers\.yml|MixedProvider|ProviderCapability|DesiredState|ReconcileContract|ProviderSubRun)') { $pathRuntime.Mixed = $true }
             if ($runtimePath -match '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest|^Private/ExternalRuntimeWindows|Images/ExternalLanguages/Windows|ExternalRuntimeHyperVAcceptance)') { $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)^Public/New-SqlServerLab\.ps1$') { $pathRuntime.Docker = $true; $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $pathRuntime.Adapter = $true }
 
             $knownDomainChange = $pathRuntime.Docker -or $pathRuntime.Podman -or $pathRuntime.Mixed -or $pathRuntime.HyperV -or $pathRuntime.Adapter
