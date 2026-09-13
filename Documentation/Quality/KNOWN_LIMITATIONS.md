@@ -589,8 +589,7 @@ hinterlassen ein sanitisiertes `RECOVERY_REQUIRED`-Receipt. Katalogisierte
 Samples verwenden bei `SQL_PREPARED_SEALED`-Manifesten ausschließlich die
 verifizierten Default-Data-, Default-Log- und Backup-Rollen; fehlende Rollen
 oder widersprüchliche explizite Sample-Platzierung werden vor der Mutation
-abgelehnt. Die positive native Sample-Manifest-Evidence bleibt offen;
-physische Containertrennung bleibt ebenfalls unsupported. Der physische
+abgelehnt. Der neue Runner `Tests/Integration/Invoke-HyperVSampleManifestAcceptance.ps1` prueft bereits zwei frische sequenzielle SQL-2025-Prepared-Runs mit Chinook und Northwind, kataloggebundenen Source-Pins, `LAB_GENERATED`-Key-/Hash-/Manifest-Lock-Gleichheit und scopegebundenem Cleanup. Seine native Ausfuehrung bleibt bis zum ersten vollstaendlichen manuellen Main-Lauf `NOT_EXECUTED`; die bereits reale Testdatenbank-Reconcile-Evidence wird dadurch nicht ersetzt. Physische Containertrennung bleibt ebenfalls unsupported. Der physische
 N5-Storage-Nachweis ist damit abgeschlossen. Ein erneuter realer Lauf am
 2026-08-31 bestätigte den Vertrag nach der Ressourcenroot-Umstellung mit drei
 von drei geforderten Geräten, gebundenem Builder-/Image-Pfad und vollständigem
@@ -1072,8 +1071,7 @@ und denselben run-gebundenen Restorepfad; dieser Vertrag ist synthetisch, aber
 noch nicht real auf einem Host belegt. Die automatische Hyper-V-
 Manifestausführung für Samples ist an vollständige Default-Data-, Default-Log-
 und Backup-Lanes gebunden und blockiert widersprüchliche datenbankspezifische
-Platzierung vor der Provider-Mutation; auch dieser Pfad besitzt noch keine reale
-Host-Evidence. Der Manifest-Wizard
+Platzierung vor der Provider-Mutation. Der neue Mehrfach-Sample-Manifest-Runner ist als native Abnahme vorbereitet, besitzt aber noch keine reale Host-Evidence (`NOT_EXECUTED`). Der Manifest-Wizard
 unterstützt Hilfe, schrittweise Zurücknavigation, Zwischenzusammenfassung und
 Abbruch ohne partielle Datei. Seine mutationsfreie Planvorschau umfasst
 External Runtimes sowie Sample-/Artifact-Quelle, Lizenz, Outputs, Größen,

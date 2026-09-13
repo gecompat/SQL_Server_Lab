@@ -124,6 +124,7 @@ end {
         @{ Pattern = '(?i)(HyperVSqlStorageReconcile|hyperv-sql-storage-reconcile)'; Checks = @('Invoke-HyperVSqlStorageReconcileChecks.ps1','Invoke-HyperVStorageReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-StorageFilePlacementChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSqlConfigurationReconcile|hyperv-sql-configuration-reconcile|Public[\\/]New-SqlServerLab\.ps1)'; Checks = @('Invoke-HyperVSqlConfigurationReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-InstanceIntentChecks.ps1') },
         @{ Pattern = '(?i)(HyperVTestDatabaseReconcile|hyperv-test-database-(ownership|reconcile)|hyperv-test-database-reconcile)'; Checks = @('Invoke-HyperVTestDatabaseReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-InstanceIntentChecks.ps1','Invoke-SampleHandlerChecks.ps1') },
+        @{ Pattern = '(?i)(HyperVSampleManifest|hyperv-sample-manifest)'; Checks = @('Invoke-HyperVSampleManifestAcceptanceChecks.ps1','Invoke-SampleHandlerChecks.ps1','Invoke-SampleBaselineRegistryChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(ContainerReconcile|Update-SqlServerLabContainer)'; Checks = @('Invoke-ContainerReconcileChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1','Invoke-ReadinessContractChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-PortAllocationChecks.ps1') },
         @{ Pattern = '(?i)(ProviderCapability|provider\.json)'; Checks = @('Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(InstanceIntent|ServerConfig|ResourceAssessment)'; Checks = @('Invoke-InstanceIntentChecks.ps1') },
@@ -184,6 +185,7 @@ end {
             if ($runtimePath -match '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(^Private[\\/]ExternalRuntimeReconcile|^Tests[\\/]Static[\\/]Invoke-ExternalRuntimeReconcileChecks|Invoke-ExternalRuntimeContainerAcceptance|Public[\\/]Invoke-SqlServerLabReconcileAction)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(HyperVExternalRuntimeReconcile|hyperv-external-runtime-reconcile|Public[\\/]Invoke-SqlServerLabReconcileAction)') { $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)(HyperVSampleManifest|hyperv-sample-manifest)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(ContainerReconcile|Update-SqlServerLabContainer|Invoke-ContainerCliAcceptance|ContainerTool|Test-SqlServerLabContainerTool|Bacpac|SampleArtifactHandlers|sample-databases)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerInstanceStore|container-instance-store)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerRuntimeScope|container-runtime-scope)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }

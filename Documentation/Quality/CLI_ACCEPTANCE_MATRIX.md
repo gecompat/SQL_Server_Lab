@@ -77,6 +77,7 @@ gh workflow run runtime-smoke-podman.yml --ref <branch> -f mode=cli-acceptance
 gh workflow run runtime-smoke-hyperv.yml --ref <branch> -f mode=cli-acceptance -f media_root='D:\Lab_Base' -f media_edition=Enterprise
 gh workflow run runtime-smoke-hyperv.yml --ref <branch> -f mode=sql-configuration-reconcile-acceptance [-f image_artifact_id=<SQL_PREPARED_SEALED-ArtifactId>]
 gh workflow run runtime-smoke-hyperv.yml --ref <branch> -f mode=sql-port-reconcile-acceptance [-f image_artifact_id=<SQL_PREPARED_SEALED-ArtifactId>]
+gh workflow run runtime-smoke-hyperv.yml --ref main -f mode=sample-manifest-acceptance [-f image_artifact_id=<SQL_PREPARED_SEALED-ArtifactId>]
 gh workflow run runtime-smoke-hyperv.yml --ref main -f mode=external-runtime-reconcile-acceptance [-f image_artifact_id=<OS_SEALED-ArtifactId>]
 ```
 
@@ -84,7 +85,7 @@ Docker und Podman verwenden den gemeinsamen hostweiten Runtime-Lock. Der
 Hyper-V-Lauf besitzt einen eigenen Akzeptanz-Mutex; auf dem einzelnen
 Self-hosted Runner werden die Jobs zusaetzlich durch die Runner-Queue
 serialisiert. Hyper-V gibt seine VM und alle run-eigenen VHDX im `finally`-Pfad
-wieder frei. Die beiden Reconcile-Modi verwenden denselben Workflow- und
+wieder frei. Die Reconcile- und Sample-Manifest-Modi verwenden denselben Workflow- und
 Cleanup-Rahmen. Ohne `image_artifact_id` waehlt jeder Runner nur das neueste
 verifizierte SQL-2025-`SQL_PREPARED_SEALED`-Artifact; eine angegebene ID wird
 vom jeweiligen Runner vor jeder Mutation gegen denselben Vertrag geprueft.
