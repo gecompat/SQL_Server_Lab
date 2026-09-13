@@ -439,6 +439,16 @@ function Read-LabHyperVSqlConfigurationReconcileJournal {
     return $journal
 }
 
+function Get-LabHyperVSqlConfigurationReconcileSanitizedReasonCode {
+    [CmdletBinding()]
+    param([string[]]$ReasonCodes)
+
+    $matches = @($ReasonCodes | ForEach-Object { [string]$_ } | Where-Object {
+        $_ -cmatch '^HYPERV_SQL_CONFIGURATION_RECONCILE_[A-Z0-9_]{3,127}$'
+    } | Select-Object -Unique)
+    if ($matches.Count -eq 1) { return $matches[0] }
+    return 'HYPERV_SQL_CONFIGURATION_RECONCILE_UNSUPPORTED'
+}
 function New-LabHyperVSqlConfigurationReconcilePlan {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [Parameter(Mandatory)][string]$InstanceId, [string]$ManifestPath, [string]$StateRoot)

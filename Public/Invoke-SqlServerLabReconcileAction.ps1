@@ -241,13 +241,17 @@ function Invoke-SqlServerLabReconcileAction {
         $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -notin @('live','restart')) { $false } else {
             $PSCmdlet.ShouldProcess("Run '$RunId', Instanz '$InstanceId'", 'Hyper-V-SQL-Konfiguration journalgebunden reparieren')
         }
+        $blockedReason = if ([string]$plan.HighestChangeClass -notin @('live','restart','no-op')) {
+            Get-LabHyperVSqlConfigurationReconcileSanitizedReasonCode -ReasonCodes @($plan.ReasonCodes)
+        }
+        else { $null }
         $entry = [ordered]@{
             Operation=if($plan.IsNoOp){'None'}else{'RepairHyperVSqlConfiguration'};ChangeClass=[string]$plan.HighestChangeClass
             Planned=(@($plan.Actions).Count -eq 1);Executed=$false
             Status=if($plan.IsNoOp){'NO_OP'}elseif([string]$plan.HighestChangeClass -notin @('live','restart')){'UNSUPPORTED'}elseif($wouldExecute){'PLANNED'}else{'WOULD_EXECUTE'}
-            Reason=$null;Result=$null
+            Reason=$blockedReason;Result=$null
         }
-        $summary=[ordered]@{Status=$entry.Status;PlannedActions=@($plan.Actions).Count;ExecutedActions=0;FailedActions=0;MutationAllowed=$false;Errors=@()}
+        $summary=[ordered]@{Status=$entry.Status;PlannedActions=@($plan.Actions).Count;ExecutedActions=0;FailedActions=0;MutationAllowed=$false;Errors=@($(if($blockedReason){$blockedReason}))}
         if($wouldExecute){
             try{
                 $repairArguments=@{RunId=$RunId;InstanceId=$InstanceId;StateRoot=$StateRoot}

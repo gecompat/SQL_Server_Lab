@@ -59,8 +59,9 @@ try {
         $guestPathContract.Accepted -and $guestPathContract.RelativeRejected
     )
     Add-CheckResult -Name 'Generierte SA-Zugangsdaten bleiben DPAPI-geschützt und explizit erneut abrufbar' -Success (
-        $environmentText -match 'Save-LabSecret -Path \$lab\.RunDirectory -Name ''generated-sql-sa-password''' -and
-        $environmentText -match 'Save-LabSecret -Path \$lab\.RunDirectory -Name ''sa-password''' -and
+        $environmentText -match 'function Save-LabHyperVSqlSaPassword' -and
+        $environmentText -match 'Save-LabSecret -Path \$RunDirectory -Name ''sa-password''' -and
+        $environmentText -match 'Save-LabSecret -Path \$RunDirectory -Name ''generated-sql-sa-password''' -and
         $environmentText -match 'Get-SqlServerLabGeneratedSqlAccess -RunId \$RunId' -and
         $generatedAccessText -match 'Get-LabSecret -Path \$lab\.RunDirectory -Name ''generated-sql-sa-password''' -and
         $generatedAccessText -match 'sqlDeploymentPlan\.passwordSource -eq ''generated''' -and
@@ -366,7 +367,7 @@ try {
         $saPassword = ConvertTo-SecureString 'Separate_SA_51!' -AsPlainText -Force
         $activationBlockedSql=$false
         try {
-            $null=Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -SqlSaPassword $saPassword -PasswordSource generated `
+            $null=Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -SqlSaPassword $saPassword -PasswordSource user `
                 -Region 'de-AT' -SystemLocale 'de-AT' -UiLanguage 'de-DE' -InputLocale '0C07:00000407' -TimeZone 'Central Europe Standard Time' -StateRoot $Root
         } catch {if($_.Exception.Message -notmatch 'ACTIVATION_DENIED_FIXTURE'){throw};$activationBlockedSql=($script:sqlCompletionCalls -eq 0)}
         # Reset only this synthetic fixture so the successful path can run independently.
@@ -375,13 +376,15 @@ try {
         $fixtureConnection.instances[0].oobeAutomation.status='PENDING'
         $fixtureConnection | ConvertTo-Json -Depth 100 | Set-Content -LiteralPath $fixtureConnectionPath -Encoding utf8
         $script:denySqlActivation=$false
-        $result = Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -SqlSaPassword $saPassword -PasswordSource generated `
+        $result = Invoke-HyperVLabUnattendedProvision -RunId $RunId -AdministratorPassword $password -SqlSaPassword $saPassword -PasswordSource user `
             -Region 'de-AT' -SystemLocale 'de-AT' -UiLanguage 'de-DE' -InputLocale '0C07:00000407' -TimeZone 'Central Europe Standard Time' -StateRoot $Root
         [PSCustomObject]@{ Result = $result; ActivationBlockedSql=$activationBlockedSql; SqlCompletionCalls=$script:sqlCompletionCalls; SqlSaPasswordLength = $script:capturedSqlSaPasswordLength; ExpectedSaPasswordLength = $saPassword.Length }
     } $created.RunId $temporaryRoot
     Add-CheckResult -Name 'Aktivierungsblocker verhindert SQL Setup; erlaubter Folgelauf startet es genau einmal' -Success ($unattended.ActivationBlockedSql -and $unattended.SqlCompletionCalls -eq 1)
     $unattendedConnection = Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'connection-info.json') -Raw | ConvertFrom-Json -Depth 10
     $unattendedSecret = Join-Path (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'secrets') 'guest-administrator-password.secret'
+    $unattendedSaSecret = Join-Path (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'secrets') 'sa-password.secret'
+    $unattendedGeneratedSaAlias = Join-Path (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'secrets') 'generated-sql-sa-password.secret'
     $localeReceipt=Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $temporaryRoot 'runs') $created.RunId) 'windows-locale-receipt.json') -Raw | ConvertFrom-Json -Depth 20
     Add-CheckResult -Name 'Locale-Receipt bindet normalisierten Intent und beobachtete OOBE-Werte an den Run' -Success (
         $localeReceipt.ContractVersion -eq 'SqlServerLab.WindowsLocaleReceipt/1.0' -and
@@ -393,7 +396,7 @@ try {
         $unattended.Result.OobeState -eq 'COMPLETED' -and
         $unattended.SqlSaPasswordLength -eq $unattended.ExpectedSaPasswordLength -and
         $unattended.Result.HostSqlAccess.ConnectionString -match '172\.28\.0\.58,1433' -and
-        $unattendedConnection.instances[0].oobeAutomation.passwordSource -eq 'generated' -and
+        $unattendedConnection.instances[0].oobeAutomation.passwordSource -eq 'user' -and
         $unattendedConnection.instances[0].oobeAutomation.region -eq 'AT' -and
         $unattendedConnection.instances[0].oobeAutomation.systemLocale -eq 'de-AT' -and
         $unattendedConnection.instances[0].oobeAutomation.uiLanguage -eq 'de-DE' -and
@@ -404,6 +407,11 @@ try {
         $unattendedConnection.instances[0].oobeAutomation.labAddress -match '^172\.28\.0\.' -and
         (Test-Path -LiteralPath $unattendedSecret) -and
         (Get-Content -LiteralPath $unattendedSecret -Raw) -notmatch 'Generated_Administrator_42!'
+    )
+    Add-CheckResult -Name 'Explizites SA-Passwort im user-OOBE-Pfad bleibt nur als kanonisches run-gebundenes Secret erhalten' -Success (
+        (Test-Path -LiteralPath $unattendedSaSecret -PathType Leaf) -and
+        -not (Test-Path -LiteralPath $unattendedGeneratedSaAlias -PathType Leaf) -and
+        (Get-Content -LiteralPath $unattendedSaSecret -Raw) -notmatch 'Separate_SA_51!'
     )
     $transientSqlAccess = & $module {
         $password = [SecureString]::new()
@@ -422,6 +430,53 @@ try {
         $password.MakeReadOnly()
         New-HyperVTransientGeneratedSqlAccess -HostSqlAccess $null -SqlSaPassword $password
     }
+    $sqlCredentialPersistence = & $module {
+        param($Root)
+        $runDirectory = Join-Path $Root 'sql-sa-password-persistence'
+        $null = New-Item -Path $runDirectory -ItemType Directory -Force
+        function Test-SecureStringEqual {
+            param([SecureString]$Left, [SecureString]$Right)
+            $leftPlain = $null; $rightPlain = $null
+            try {
+                $leftPlain = ConvertFrom-LabSecureString -SecureString $Left
+                $rightPlain = ConvertFrom-LabSecureString -SecureString $Right
+                return $leftPlain -ceq $rightPlain
+            }
+            finally {
+                $leftPlain = $null; $rightPlain = $null
+            }
+        }
+        $explicit = [SecureString]::new()
+        foreach ($character in 'Synthetic_Explicit_SA_42!'.ToCharArray()) { $explicit.AppendChar($character) }
+        $explicit.MakeReadOnly()
+        $guest = [SecureString]::new()
+        foreach ($character in 'Synthetic_Guest_Fallback_42!'.ToCharArray()) { $guest.AppendChar($character) }
+        $guest.MakeReadOnly()
+        Save-LabHyperVSqlSaPassword -RunDirectory $runDirectory -SqlSaPassword $explicit
+        $explicitCanonical = Test-SecureStringEqual -Left $explicit -Right (Get-LabSecret -Path $runDirectory -Name 'sa-password')
+        $explicitAliasAbsent = -not (Test-Path -LiteralPath (Join-Path $runDirectory 'secrets/generated-sql-sa-password.secret') -PathType Leaf)
+
+        Save-LabHyperVSqlSaPassword -RunDirectory $runDirectory -SqlSaPassword $guest
+        $guestFallbackCanonical = Test-SecureStringEqual -Left $guest -Right (Get-LabSecret -Path $runDirectory -Name 'sa-password')
+        $guestFallbackAliasAbsent = -not (Test-Path -LiteralPath (Join-Path $runDirectory 'secrets/generated-sql-sa-password.secret') -PathType Leaf)
+
+        Save-LabHyperVSqlSaPassword -RunDirectory $runDirectory -SqlSaPassword $guest -Generated
+        $generatedCanonical = Test-SecureStringEqual -Left $guest -Right (Get-LabSecret -Path $runDirectory -Name 'sa-password')
+        $generatedAlias = Test-SecureStringEqual -Left $guest -Right (Get-LabSecret -Path $runDirectory -Name 'generated-sql-sa-password')
+        [PSCustomObject]@{
+            ExplicitCanonical=$explicitCanonical;ExplicitAliasAbsent=$explicitAliasAbsent
+            GuestFallbackCanonical=$guestFallbackCanonical;GuestFallbackAliasAbsent=$guestFallbackAliasAbsent
+            GeneratedCanonical=$generatedCanonical;GeneratedAlias=$generatedAlias
+        }
+    } $temporaryRoot
+    Add-CheckResult -Name 'Effektive SA-Zugangsdaten werden kanonisch run-gebunden gespeichert; der generated-Alias bleibt ausschließlich tatsächlich generierten Passwörtern vorbehalten' -Success (
+        $sqlCredentialPersistence.ExplicitCanonical -and $sqlCredentialPersistence.ExplicitAliasAbsent -and
+        $sqlCredentialPersistence.GuestFallbackCanonical -and $sqlCredentialPersistence.GuestFallbackAliasAbsent -and
+        $sqlCredentialPersistence.GeneratedCanonical -and $sqlCredentialPersistence.GeneratedAlias -and
+        $environmentText -match '\$sqlSaPasswordWasProvided = \$null -ne \$SqlSaPassword' -and
+        $environmentText -match 'if \(-not \$SqlSaPassword\) \{ \$SqlSaPassword = \$AdministratorPassword \}' -and
+        $environmentText -match 'Save-LabHyperVSqlSaPassword -RunDirectory \$lab\.RunDirectory -SqlSaPassword \$SqlSaPassword -Generated:\$generatedSqlPassword'
+    )
     Add-CheckResult -Name 'Generiertes SA-Passwort erscheint nur flüchtig als kopierfertige Connection' -Success (
         $transientSqlAccess.transient -and
         $transientSqlAccess.password -eq 'Generated_Temporary_SA_42!' -and
