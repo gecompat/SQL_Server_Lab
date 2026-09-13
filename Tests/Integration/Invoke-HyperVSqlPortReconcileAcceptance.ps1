@@ -39,6 +39,7 @@ function Invoke-Private {
 }
 function New-AcceptanceSqlConnection {
     param([Parameter(Mandatory)][int]$Port)
+    if(-not $script:saPassword.IsReadOnly()){$script:saPassword.MakeReadOnly()}
     $connection=[Data.SqlClient.SqlConnection]::new()
     $connection.ConnectionString="Server=$script:sqlAddress,$Port;Database=master;Encrypt=True;TrustServerCertificate=True;Connect Timeout=30;"
     $connection.Credential=[Data.SqlClient.SqlCredential]::new('sa',$script:saPassword)
