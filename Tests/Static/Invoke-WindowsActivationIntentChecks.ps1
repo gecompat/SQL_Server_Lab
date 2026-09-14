@@ -119,4 +119,70 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
         }
     }
 }
+& $module {
+    function Assert-Resume {param([bool]$Condition,[string]$Name);if(-not $Condition){throw "FAIL: $Name"};Write-Host "PASS: $Name"}
+    $intent = Resolve-LabWindowsActivationIntent -LegacyRequired
+    $script:resumeLab = [pscustomobject]@{
+        StateRoot='synthetic-state'; RunDirectory='synthetic-run'; Connection=@{}
+        Run=[pscustomobject]@{runId='resume-run';scopeId='resume-scope';state='STOPPED'}
+        Instance=[pscustomobject]@{vmName='resume-vm';windowsActivationIntent=$intent}
+    }
+    $script:resumeEvents = [Collections.Generic.List[string]]::new()
+    $script:resumeActivationFails = $false
+    function Get-HyperVLabWorkflowRun { $script:resumeLab }
+    function Sync-LabRunRuntimeState {
+        param($Run,$StateRoot)
+        $script:resumeEvents.Add('sync')
+        [pscustomobject]@{Run=$Run;Runtime=[pscustomobject]@{State='STOPPED'}}
+    }
+    function Start-HyperVLabEnvironment {
+        param($RunId,[switch]$SkipWindowsActivationReconcile,$StateRoot)
+        if(-not $SkipWindowsActivationReconcile){throw 'RESUME_MUST_NOT_USE_STORED_CREDENTIAL'}
+        $script:resumeEvents.Add('start')
+    }
+    function Invoke-LabWindowsSlotActivationReconcile {
+        param($RunId,$Credential,$StateRoot)
+        if(-not $Credential -or $Credential.UserName -ne 'Administrator'){throw 'RESUME_CREDENTIAL_MISSING'}
+        $script:resumeEvents.Add('activate')
+        if($script:resumeActivationFails){throw 'SYNTHETIC_ACTIVATION_FAILURE'}
+        [pscustomobject]@{State='EVALUATION_ACTIVE'}
+    }
+    function Stop-HyperVLabEnvironment { param($RunId,$StateRoot) $script:resumeEvents.Add('stop') }
+    function Get-LabSecret { throw 'RESUME_MUST_NOT_READ_STORED_SECRET' }
+    $password = [Security.SecureString]::new()
+    foreach($character in 'Synthetic-Only!123'.ToCharArray()){$password.AppendChar($character)}
+    $password.MakeReadOnly()
+    $credential = [PSCredential]::new('Administrator',$password)
+
+    $result = Resume-LabWindowsSlotActivation -RunId resume-run -Credential $credential
+    Assert-Resume (($script:resumeEvents -join ',') -eq 'sync,start,activate,stop') 'Manuelle OOBE-Wiederaufnahme synchronisiert, startet, aktiviert und stoppt einen vorher ausgeschalteten Slot'
+    Assert-Resume ($result.StartedByResume -and $result.StoppedByResume -and $result.ActivationIntent.EgressPolicy -eq 'AllowTemporary' -and $result.Activation.State -eq 'EVALUATION_ACTIVE') 'Wiederaufnahme bewahrt den gespeicherten Aktivierungsintent und gibt keine Secret-Daten aus'
+
+    $script:resumeEvents.Clear()
+    $script:resumeActivationFails = $true
+    $failed = $false
+    try { $null = Resume-LabWindowsSlotActivation -RunId resume-run -Credential $credential }
+    catch { $failed = $_.Exception.Message -eq 'SYNTHETIC_ACTIVATION_FAILURE' }
+    Assert-Resume ($failed -and ($script:resumeEvents -join ',') -eq 'sync,start,activate,stop') 'Ein Aktivierungsfehler stoppt nur den von der Wiederaufnahme gestarteten Slot und loescht keine Ressourcen'
+
+    $script:resumeEvents.Clear()
+    $script:resumeActivationFails = $false
+    $result = Resume-LabWindowsSlotActivation -RunId resume-run -Credential $credential -LeaveRunning
+    Assert-Resume (($script:resumeEvents -join ',') -eq 'sync,start,activate' -and $result.StartedByResume -and -not $result.StoppedByResume) 'LeaveRunning unterdrueckt nur den optionalen abschliessenden Stop'
+
+    $script:workflowCredential = $null
+    $script:workflowLeaveRunning = $false
+    function Test-HyperVAvailable { [pscustomobject]@{Available=$true;Message='synthetic'} }
+    function Resume-LabWindowsSlotActivation {
+        param($RunId,$Credential,[switch]$LeaveRunning)
+        $script:workflowCredential = $Credential
+        $script:workflowLeaveRunning = $LeaveRunning
+        [pscustomobject]@{State='EVALUATION_ACTIVE'}
+    }
+    $missingCredentialRejected = $false
+    try { $null = Invoke-SqlServerLabWorkflowAction -Action RepairHyperVWindowsActivation -BuildId resume-run }
+    catch { $missingCredentialRejected = $_.Exception.Message -eq 'HYPERV_WORKFLOW_GUEST_PASSWORD_REQUIRED' }
+    $workflowResult = Invoke-SqlServerLabWorkflowAction -Action RepairHyperVWindowsActivation -BuildId resume-run -GuestPassword $password -LeaveRunning
+    Assert-Resume ($missingCredentialRejected -and $workflowResult.Result.State -eq 'EVALUATION_ACTIVE' -and $script:workflowCredential.UserName -eq 'Administrator' -and $script:workflowLeaveRunning) 'Der öffentliche Wiederaufnahmeaufruf verlangt ein fluechtiges SecureString-Gastkennwort und reicht LeaveRunning weiter'
+}
 Write-Host 'WINDOWS ACTIVATION INTENT CHECKS: PASS'

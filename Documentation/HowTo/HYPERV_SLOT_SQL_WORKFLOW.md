@@ -68,6 +68,14 @@ Slots werden übersprungen; Konflikte bei Name, Baseline, Ressourcen oder
 Runtimebindung brechen vor weiteren Slotmutationen ab. Fertige Slots werden
 standardmäßig gestoppt.
 
+Wurde die OOBE manuell abgeschlossen und das frühere DPAPI-geschützte
+Gastkennwort ist auf diesem Host nicht verfügbar, kann jeder Slot einzeln
+fortgesetzt werden. Dazu wird das Kennwort nur für den Aufruf als SecureString
+eingegeben; die Aktion startet einen ausgeschalteten Slot, prüft und aktiviert
+ihn mit dem bereits gespeicherten Aktivierungsintent und stoppt ihn danach
+wieder. Bei einem einzelnen Fehler bleiben Slot und Child-VHDX erhalten, damit
+der nächste Slot unabhängig fortgesetzt werden kann.
+
 Generierte Zugangsdaten werden pro Run DPAPI-geschützt gespeichert und nur
 gezielt ausgegeben:
 
