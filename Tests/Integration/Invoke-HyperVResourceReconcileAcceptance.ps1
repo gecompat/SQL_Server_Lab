@@ -209,6 +209,10 @@ try {
     $deadline=[datetime]::UtcNow.AddMinutes(3);do{Start-Sleep -Seconds 2;$staticVm=(Get-OwnedVm $staticContext).VM}while([string]$staticVm.State -ne 'Off' -and [datetime]::UtcNow -lt $deadline);Assert-HyperVResourceAcceptance ([string]$staticVm.State -eq 'Off') 'Run-eigene VM ist fuer statische Drift gestoppt'
     Set-VMProcessor -VM $staticVm -Count 2 -ErrorAction Stop;Set-VMMemory -VM $staticVm -DynamicMemoryEnabled $true -MinimumBytes 1024MB -StartupBytes 4096MB -MaximumBytes 8192MB -ErrorAction Stop;Start-VM -VM $staticVm -ErrorAction Stop
     $deadline=[datetime]::UtcNow.AddMinutes(5);do{Start-Sleep -Seconds 3;$values=Get-ResourceValues $staticContext}while([string]$values.State -ne 'Running' -and [datetime]::UtcNow -lt $deadline);Assert-HyperVResourceAcceptance ($values.Cpu -eq 2 -and $values.Dynamic -and $values.Startup -eq 4096) 'CPU-, Startup-RAM- und Modusdrift sind rungebunden hergestellt'
+    $stage='STATIC_DRIFT_SQL_READINESS';
+    Assert-HyperVResourceAcceptance (Wait-ResourceSqlReady $staticContext $sa) 'SQL ist nach dem statischen Drift-Restart bereit'
+    $stage='STATIC_DRIFT_SHUTDOWN_READINESS';
+    Assert-HyperVResourceAcceptance (Wait-ResourceShutdownIntegrationReady $staticContext) 'Hyper-V-Shutdown-Integration ist nach dem statischen Drift-Restart bereit'
     $stage='STATIC_PLAN';
     $staticJournal=Join-Path $staticContext.RunDirectory 'hyperv-resource-reconcile.local.journal.json';$staticPlan=Get-SqlServerLabReconcilePlan -RunId $staticLab.RunId -HyperVResources -InstanceId primary -StateRoot $StateRoot
     Assert-HyperVResourceAcceptance ([string]$staticPlan.HighestChangeClass -eq 'restart' -and $staticPlan.Actions[0].RequiresRestart -and @($staticPlan.Diff.Field) -contains 'ProcessorCount' -and @($staticPlan.Diff.Field) -contains 'DynamicMemoryEnabled') 'Read-only Plan klassifiziert CPU-, RAM- und Modusdrift als Restart'
@@ -222,7 +226,7 @@ try {
     $stage='STATIC_NOOP';
     Assert-HyperVResourceAcceptance (Get-SqlServerLabReconcilePlan -RunId $staticLab.RunId -HyperVResources -InstanceId primary -StateRoot $StateRoot).IsNoOp 'Statischer Wiederholungsplan ist No-op'
     $completed=$true} catch {
-    $allowedStages=@('INITIALIZATION','DYNAMIC_MANIFEST','DYNAMIC_PROVISION','DYNAMIC_FORBIDDEN_DRIFT','DYNAMIC_FORBIDDEN_SQL_READINESS','DYNAMIC_FORBIDDEN_PLAN','DYNAMIC_FORBIDDEN_WHATIF','DYNAMIC_FORBIDDEN_APPLY','DYNAMIC_RESTART_SQL_READINESS','DYNAMIC_RESTART_SHUTDOWN_READINESS','DYNAMIC_LIVE_STOP','DYNAMIC_LIVE_CONFIGURE','DYNAMIC_LIVE_START','DYNAMIC_LIVE_VERIFY','DYNAMIC_LIVE_SQL_READINESS','DYNAMIC_LIVE_SHUTDOWN_READINESS','DYNAMIC_LIVE_PLAN','DYNAMIC_LIVE_WHATIF','DYNAMIC_LIVE_APPLY','DYNAMIC_LIVE_NOOP','STATIC_MANIFEST','STATIC_PROVISION','STATIC_SQL_READINESS','STATIC_MARKER_CREATE','STATIC_DRIFT','STATIC_PLAN','STATIC_WHATIF','STATIC_APPLY','STATIC_POST_RESTART_SQL_READINESS','STATIC_NOOP')
+    $allowedStages=@('INITIALIZATION','DYNAMIC_MANIFEST','DYNAMIC_PROVISION','DYNAMIC_FORBIDDEN_DRIFT','DYNAMIC_FORBIDDEN_SQL_READINESS','DYNAMIC_FORBIDDEN_PLAN','DYNAMIC_FORBIDDEN_WHATIF','DYNAMIC_FORBIDDEN_APPLY','DYNAMIC_RESTART_SQL_READINESS','DYNAMIC_RESTART_SHUTDOWN_READINESS','DYNAMIC_LIVE_STOP','DYNAMIC_LIVE_CONFIGURE','DYNAMIC_LIVE_START','DYNAMIC_LIVE_VERIFY','DYNAMIC_LIVE_SQL_READINESS','DYNAMIC_LIVE_SHUTDOWN_READINESS','DYNAMIC_LIVE_PLAN','DYNAMIC_LIVE_WHATIF','DYNAMIC_LIVE_APPLY','DYNAMIC_LIVE_NOOP','STATIC_MANIFEST','STATIC_PROVISION','STATIC_SQL_READINESS','STATIC_MARKER_CREATE','STATIC_DRIFT','STATIC_DRIFT_SQL_READINESS','STATIC_DRIFT_SHUTDOWN_READINESS','STATIC_PLAN','STATIC_WHATIF','STATIC_APPLY','STATIC_POST_RESTART_SQL_READINESS','STATIC_NOOP')
     $safeStage=if($stage -in $allowedStages){$stage}else{'INITIALIZATION'}
     $isProvisioningFailure=$safeStage -in @('DYNAMIC_PROVISION','STATIC_PROVISION')
     $activationReasonCode=if($isProvisioningFailure){Get-HyperVResourceReconcileAcceptanceActivationReasonCode -ErrorRecord $_}else{$null}
