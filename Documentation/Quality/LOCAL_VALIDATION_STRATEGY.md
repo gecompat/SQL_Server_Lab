@@ -1411,4 +1411,10 @@ allowlistgebundener Windows-Aktivierungsfehler wird als solcher in der kleinen
 CI-Receipt ausgewiesen.
 Bei einem Provisionierungsfehler darf die Receipt zusaetzlich ausschliesslich den allowlistgebundenen Mediengrund
 `HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND` oder einen der neun festen `HYPERV_RESOURCE_SLOT_SOURCE_*`-Vorbedingungsgründe transportieren. Pfade, Rohfehler und weitere Details bleiben ausgeschlossen.
-Die native Clone-Abnahme ist `NOT_EXECUTED`.
+Die native Clone-Abnahme bestand am 2026-09-14 mit einem expliziten gestoppten
+Windows-2025-Quellslot und SQL Server 2025 Enterprise aus dem konfigurierten
+Medienroot. Sie prüfte `VerifyOnly` mit aktiver Evaluation im Clone, dynamische
+Live-/Restart- sowie statische Restart-Reconcile-Pfade, SQL-Readiness,
+Shutdown-Integration, persistenten Datenmarker und vollständigen Cleanup der
+beiden Test-Runs. Der Nachweis gilt nur für diesen Scope; weitere SQL-/Windows-
+Versionen und Ressourcenklassen bleiben getrennt nachweispflichtig.

@@ -215,7 +215,7 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | M3 Adapterpiloten | `validated_reference` | N3 ist vollständig; weitere Windows-/SQL-Matrix der Konsumenten bleibt im jeweiligen Repositoryscope |
 | M4 Hyper-V OS Cold Path | `validated_reference` | weitere freigegebene Windows-Varianten getrennt belegen |
 | M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Testdatenbank- und additive SQL-2022-External-Runtime-Bindung sind implementiert; allgemeine Software-, Post-Provisioning- und weitere native Evidence bleiben offen; Network-Intents sind gebunden |
-| M6 Reconcile-Breite | `implemented_partial` | Netzwerk, vCPU/statisches-dynamisches RAM, Zusatz-VHDX/Grow-only sowie SQL-Default-/TempDB-Dateiplatzierung besitzen No-op und journalisierte beziehungsweise receiptgebundene Reparatur; Removal/Rebinding, User-/Systemdatenbankbewegung, weitere Hardware-/SQL-Klassen und native Repair-Evidence bleiben offen |
+| M6 Reconcile-Breite | `validated_reference_partial` | Netzwerk, vCPU/statisches-dynamisches RAM, Zusatz-VHDX/Grow-only sowie SQL-Default-/TempDB-Dateiplatzierung besitzen No-op und journalisierte beziehungsweise receiptgebundene Reparatur. Die native Windows-2025-/SQL-2025-Enterprise-Acceptance für den vCPU-/RAM-Scope bestand am 2026-09-14; Removal/Rebinding, User-/Systemdatenbankbewegung, weitere Hardware-/SQL-Klassen und weitere native Evidence bleiben offen |
 | M7 Artifacts und Baselines | `implemented_partial` | Main-Lauf `34790092466` belegt Hyper-V-Export/-Nutzung und automatische Sample-Manifestbindung für zwei frische SQL-2025-Prepared-Runs mit Chinook (`sql-server`) und Northwind (`script`), Wiederverwendung und scopegebundenem Cleanup; weitere Hyper-V-Sample-Varianten und typisierte Handler bleiben offen |
 | M8 Scenarios und Migration | `planned` | Scenario-Vertrag nach den Adapterpiloten |
 | M9 Release-Härtung | `implemented_partial` | Failure-Injection und öffentliche Version erst nach Provider-/Adapterabnahme |
@@ -517,10 +517,14 @@ additive lokal gebundene Infrastruktur und genau einen vorhandenen getrennten
 Adapter repariert. `HV-601` ist damit für den Netzwerkanteil, nicht aber für
 den vollständigen Windows-/SQL-/Hardware-Istzustand umgesetzt. `HV-602` bindet
 vCPU, statisches/dynamisches RAM und Min/Startup/Max manifestseitig und besitzt
-einen synthetisch belegten Live-/Restart-/Recovery-Executor. Die native
-Acceptance kann alternativ zwei eigene SQL-2025-Clones eines gestoppten
-Windows-2025-Slots verwenden; Clone, VerifyOnly-Lizenzpruefung und Cleanup sind
-synthetisch geprueft, der native Gesamtnachweis bleibt offen. `HV-603` besitzt
+einen synthetisch belegten Live-/Restart-/Recovery-Executor. Die native Acceptance kann alternativ zwei eigene SQL-2025-Clones eines gestoppten
+Windows-2025-Slots verwenden. Der vollständige native Gesamtnachweis für den
+vCPU-/RAM-Scope bestand am 2026-09-14 mit SQL Server 2025 Enterprise aus dem
+konfigurierten Medienroot: `VerifyOnly` mit aktiver Evaluation im Clone,
+dynamischer Live-/Restart-Pfad, statischer Restart-Pfad, SQL-Readiness,
+Shutdown-Integration, persistenter Datenmarker und Cleanup der beiden
+Test-Runs. Dies belegt nur diesen Scope; weitere Ressourcen- und
+Versionskombinationen bleiben offen. `HV-603` besitzt
 fuer manifestgebundene Zusatz-VHDX und gebundene Storage-Lanes einen
 hostwertfreien Plan sowie einen journalisierten Add-/Grow-only-Executor mit
 Gast-NTFS-Verifikation und Wiederherstellung des VM-Zustands. Rebinding,
