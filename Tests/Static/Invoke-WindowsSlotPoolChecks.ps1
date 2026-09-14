@@ -22,6 +22,25 @@ try {
         $poolCommand.Definition -match '\$MemoryStartupMB\s*=\s*2048' -and
         $poolCommand.Definition -match '\$MemoryMaximumMB\s*=\s*4096')
 
+    $explicitCoreArtifact = & $module {
+        function Get-HyperVImageArtifact {
+            param([string]$ArtifactId, [string]$StateRoot, [switch]$SkipIntegrityCheck)
+            [PSCustomObject]@{
+                artifactId = $ArtifactId; artifactState = 'OS_SEALED'; generalized = $true
+                registeredAt = '2026-09-01T00:00:00Z'
+                operatingSystem = [PSCustomObject]@{ id = 'windows-server-2025'; version = '2025'; installationType = 'core' }
+            }
+        }
+        function Test-HyperVImageArtifactEvaluationEligibility {
+            param($Artifact, $MinimumEvaluationDaysRemaining)
+            [PSCustomObject]@{ Eligible = $true; Reason = $null }
+        }
+        Resolve-LabWindowsSlotPoolArtifact -ArtifactId ('hyperv-os-sealed-' + ('c' * 64))
+    }
+    Add-CheckResult -Name 'Explizite Server-Core-Baseline wird trotz implizitem Desktop-Default akzeptiert' -Success (
+        $explicitCoreArtifact.artifactId -eq ('hyperv-os-sealed-' + ('c' * 64)) -and
+        $explicitCoreArtifact.operatingSystem.installationType -eq 'core')
+
     $behavior = & $module {
         $originalIsWindows = Get-Variable -Name IsWindows -Scope Script -ErrorAction SilentlyContinue
         Set-Variable -Name IsWindows -Scope Script -Value $true -Force
@@ -142,14 +161,18 @@ try {
     Add-CheckResult -Name 'Pool ist resumierbar und lehnt eine ungeeignete Baseline ab' -Success (
         $poolSource -match 'HYPERV_WINDOWS_SLOT_POOL_BASELINE_REQUIRED' -and
         $poolSource -match "Action='REUSED'" -and
-        $poolSource -match 'MinimumEvaluationDaysRemaining')
+        $poolSource -match 'MinimumEvaluationDaysRemaining' -and
+        $poolSource -match "InstallationType = 'desktop-experience'" -and
+        $poolSource -match 'operatingSystem.installationType -eq \$InstallationType')
     Add-CheckResult -Name 'CLI fragt RAM, Locale und generiertes oder gemeinsames Passwort ab' -Success (
         $uiSource -match 'Invoke-LabHyperVWindowsSlotPoolInteractive' -and
         $uiSource -match 'Minimaler RAM pro Slot' -and
         $uiSource -match 'Windows-Anzeigesprache' -and
         $uiSource -match 'Tastaturlayout / Input-Locale' -and
         $uiSource -match 'GenerateAdministratorPasswords' -and
-        $uiSource -match 'AdministratorPassword')
+        $uiSource -match 'AdministratorPassword' -and
+        $uiSource -match 'windows-slot-pool-installation-type' -and
+        $uiSource.Contains('-InstallationType $installationType'))
 }
 catch {
     Add-CheckResult -Name 'Windows-Slot-Pool-Testausführung' -Success $false -Message "$($_.Exception.Message) [$($_.ScriptStackTrace)]"

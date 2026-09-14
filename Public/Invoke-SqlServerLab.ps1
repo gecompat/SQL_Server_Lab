@@ -2927,7 +2927,12 @@ function Invoke-LabHyperVWindowsSlotPoolInteractive {
     param()
 
     $minimumEvaluationDays = Read-LabIntegerIntentValue -Prompt 'Mindestens verbleibende Evaluation-Tage' -Default 30 -Minimum 0 -Maximum 3650
-    $artifact = Resolve-LabWindowsSlotPoolArtifact -MinimumEvaluationDaysRemaining $minimumEvaluationDays
+    $installationType = Show-LabSubMenu -ScreenId 'windows-slot-pool-installation-type' -Title 'Windows-Installationstyp für den Slot-Pool' -Items @(
+        New-LabConsoleItem -Id 'desktop-experience' -Label 'Desktop Experience' -Value 'Windows Server mit grafischer Oberfläche' -Shortcut '1'
+        New-LabConsoleItem -Id 'core' -Label 'Server Core' -Value 'Windows Server ohne Desktop; ressourcensparender' -Shortcut '2'
+    )
+    if (-not $installationType) { return }
+    $artifact = Resolve-LabWindowsSlotPoolArtifact -MinimumEvaluationDaysRemaining $minimumEvaluationDays -InstallationType $installationType
     if (-not $artifact) {
         $inventory = @(Get-SqlServerLabHyperVImageArtifact -MinimumEvaluationDaysRemaining $minimumEvaluationDays)
         $expiring = @($inventory | Where-Object { $_.ArtifactState -eq 'OS_SEALED' -and $_.Evaluation.Status -in @('EVALUATION_EXPIRING','EVALUATION_EXPIRED','EVALUATION_EXPIRY_UNKNOWN') })
@@ -2940,7 +2945,7 @@ function Invoke-LabHyperVWindowsSlotPoolInteractive {
         Write-LabInfo 'Der Pool verwendet keine fehlende, abgelaufene oder bald ablaufende Evaluation-Baseline.'
         if (-not (Read-LabConfirm -Prompt '  Windows-OS-Vorlage jetzt erstellen oder einen offenen Build fortsetzen?' -Default $true)) { return }
         Invoke-LabHyperVWindowsBaselineMenu
-        $artifact = Resolve-LabWindowsSlotPoolArtifact -MinimumEvaluationDaysRemaining $minimumEvaluationDays
+        $artifact = Resolve-LabWindowsSlotPoolArtifact -MinimumEvaluationDaysRemaining $minimumEvaluationDays -InstallationType $installationType
         if (-not $artifact) {
             Write-LabWarning 'Noch keine geeignete OS_SEALED-Baseline veröffentlicht. Der Slot-Pool wurde nicht verändert.'
             Write-LabInfo 'Den Windows-Image-Aufbau abschließen und dieselbe Aktion danach erneut starten; sie setzt beim Pool fort.'
@@ -2998,14 +3003,14 @@ function Invoke-LabHyperVWindowsSlotPoolInteractive {
     Write-LabStatus -Label 'Namenspräfix' -Value $namePrefix
     Write-LabStatus -Label 'RAM Min/Start/Max' -Value ("{0}/{1}/{2} MB" -f $memoryMinimumMB, $memoryStartupMB, $memoryMaximumMB)
     Write-LabStatus -Label 'vCPU' -Value $processorCount
-    Write-LabStatus -Label 'Windows' -Value ("{0}, Region {1}, Format {2}, Tastatur {3}" -f $locale.UiLanguage, $locale.Region, $locale.SystemLocale, $locale.InputLocale)
+    Write-LabStatus -Label 'Windows' -Value ("{0} · {1}, Region {2}, Format {3}, Tastatur {4}" -f $installationType, $locale.UiLanguage, $locale.Region, $locale.SystemLocale, $locale.InputLocale)
     Write-LabStatus -Label 'Baseline' -Value ([string]$artifact.artifactId)
     Write-LabInfo 'Alle Slots werden zuerst als unabhängige Child-VHDX erstellt, danach sequenziell unbeaufsichtigt eingerichtet und wieder gestoppt.'
     if (-not (Read-LabConfirm -Prompt '  Diesen Windows-Slot-Pool jetzt erstellen oder fortsetzen?' -Default $false)) { return }
 
     $arguments = @{
         Count=$count; StartIndex=$startIndex; NamePrefix=$namePrefix
-        ArtifactId=[string]$artifact.artifactId; MinimumEvaluationDaysRemaining=$minimumEvaluationDays
+        ArtifactId=[string]$artifact.artifactId; MinimumEvaluationDaysRemaining=$minimumEvaluationDays; InstallationType=$installationType
         MemoryMinimumMB=$memoryMinimumMB; MemoryStartupMB=$memoryStartupMB; MemoryMaximumMB=$memoryMaximumMB
         ProcessorCount=$processorCount; Region=$locale.Region; SystemLocale=$locale.SystemLocale
         UiLanguage=$locale.UiLanguage; InputLocale=$locale.InputLocale; TimeZone=$locale.TimeZone

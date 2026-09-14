@@ -1117,7 +1117,7 @@ function Get-LabManifestValidationResult {
                 $errors.Add("${instancePath}.os: Hyper-V-Prepared-Images benötigen os 'windows'.")
             }
             if (-not $instance.hyperv -or -not $instance.hyperv.preparedImageId) {
-                $warnings.Add("${instancePath}.hyperv.preparedImageId: Nicht gesetzt; zur Laufzeit wird deterministisch die höchste lokale SQL_PREPARED_SEALED-Vorlage auf Windows Server Standard Evaluation mit Desktop Experience gewählt.")
+                $warnings.Add("${instancePath}.hyperv.preparedImageId: Nicht gesetzt; zur Laufzeit wird deterministisch die höchste lokale SQL_PREPARED_SEALED-Vorlage der gewünschten Windows-Variante gewählt.")
             }
             if ($instance.hyperv) {
                 $memoryStartupMB = if ($instance.hyperv.memoryStartupMB) { [int]$instance.hyperv.memoryStartupMB } else { 4096 }

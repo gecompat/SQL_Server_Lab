@@ -143,6 +143,26 @@ try {
     Add-CheckResult -Name 'Manifest-Fallback wählt deterministisch die höchste Standard-Evaluation mit Desktop Experience' -Success (
         $fallbackSelection.artifactId -eq 'prepared-2025'
     )
+    $coreFallbackSelection = & $module {
+        function Get-HyperVImageArtifact {
+            @(
+                [PSCustomObject]@{
+                    artifactId = 'prepared-desktop'; artifactState = 'SQL_PREPARED_SEALED'; generalized = $true; sqlPrepared = $true
+                    registeredAt = '2026-08-01T00:00:00Z'; operatingSystem = [PSCustomObject]@{ id = 'windows-server-2025'; version = '2025'; edition = 'standard-evaluation'; installationType = 'desktop-experience' }
+                    license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = [datetime]::UtcNow.AddDays(90).ToString('o') }; sql = [PSCustomObject]@{ version = '2025' }
+                },
+                [PSCustomObject]@{
+                    artifactId = 'prepared-core'; artifactState = 'SQL_PREPARED_SEALED'; generalized = $true; sqlPrepared = $true
+                    registeredAt = '2026-08-02T00:00:00Z'; operatingSystem = [PSCustomObject]@{ id = 'windows-server-2025'; version = '2025'; edition = 'standard-evaluation'; installationType = 'core' }
+                    license = [PSCustomObject]@{ type = 'evaluation'; evaluationExpiresAt = [datetime]::UtcNow.AddDays(90).ToString('o') }; sql = [PSCustomObject]@{ version = '2025' }
+                }
+            )
+        }
+        Resolve-HyperVManifestFallbackArtifact -SqlVersion 2025 -InstallationType core
+    }
+    Add-CheckResult -Name 'Manifest-Fallback wählt eine angeforderte Server-Core-Vorlage statt Desktop Experience' -Success (
+        $coreFallbackSelection.artifactId -eq 'prepared-core'
+    )
     $fallbackDiagnostics = & $module {
         function Get-HyperVImageArtifact {
             @(

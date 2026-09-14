@@ -3,17 +3,27 @@ function Resolve-LabWindowsSlotPoolArtifact {
     param(
         [ValidatePattern('^(?:hyperv-os-sealed-[a-f0-9]{64})?$')][string]$ArtifactId,
         [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30,
+        [ValidateSet('core', 'desktop-experience')][string]$InstallationType = 'desktop-experience',
         [switch]$VerifyIntegrity,
         [string]$StateRoot
     )
 
-    $candidates = @(Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck | Where-Object {
+    $eligibleCandidates = @(Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck | Where-Object {
         [string]$_.artifactState -eq 'OS_SEALED' -and
         [bool]$_.generalized -and
         [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+(?:-r2)?$' -and
         (Test-HyperVImageArtifactEvaluationEligibility -Artifact $_ `
             -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining).Eligible
     })
+    # Eine explizite, gültige Artifact-ID ist die konkrete Auswahl. Der
+    # InstallationType steuert nur die automatische Suche und darf eine
+    # vorhandene Core-Baseline nicht wegen des Desktop-Defaults verwerfen.
+    $candidates = if ($ArtifactId) {
+        $eligibleCandidates
+    }
+    else {
+        @($eligibleCandidates | Where-Object { [string]$_.operatingSystem.installationType -eq $InstallationType })
+    }
     if ($ArtifactId -and $candidates.Count -ne 1) {
         throw 'HYPERV_WINDOWS_SLOT_POOL_ARTIFACT_NOT_ELIGIBLE'
     }
@@ -75,6 +85,8 @@ function New-SqlServerLabWindowsSlotPool {
         geeignete Windows-Server-Baseline deterministisch ausgewählt.
     .PARAMETER MinimumEvaluationDaysRemaining
         Erforderliche Evaluation-Restlaufzeit. Der Standard ist 30 Tage.
+    .PARAMETER InstallationType
+        Gewünschte Windows-Variante der OS_SEALED-Baseline: `desktop-experience` oder `core`. Der Standard bewahrt bestehende Desktop-Pools.
     .PARAMETER MemoryMinimumMB
         Minimaler dynamischer Arbeitsspeicher pro Slot. Standard: 1024 MB.
     .PARAMETER MemoryStartupMB
@@ -124,6 +136,7 @@ function New-SqlServerLabWindowsSlotPool {
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,52}$')][string]$NamePrefix = 'windows-sql-slot',
         [ValidatePattern('^(?:hyperv-os-sealed-[a-f0-9]{64})?$')][string]$ArtifactId,
         [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30,
+        [ValidateSet('core', 'desktop-experience')][string]$InstallationType = 'desktop-experience',
         [ValidateRange(512, 1048576)][int]$MemoryMinimumMB = 1024,
         [ValidateRange(512, 1048576)][int]$MemoryStartupMB = 2048,
         [ValidateRange(512, 1048576)][int]$MemoryMaximumMB = 4096,
@@ -151,9 +164,9 @@ function New-SqlServerLabWindowsSlotPool {
     $poolActivation=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation
 
     $artifact = Resolve-LabWindowsSlotPoolArtifact -ArtifactId $ArtifactId `
-        -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining -VerifyIntegrity -StateRoot $StateRoot
+        -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining -InstallationType $InstallationType -VerifyIntegrity -StateRoot $StateRoot
     if (-not $artifact) {
-        throw 'HYPERV_WINDOWS_SLOT_POOL_BASELINE_REQUIRED: Keine geeignete OS_SEALED-Baseline mit ausreichender Evaluation-Restlaufzeit vorhanden.'
+        throw 'HYPERV_WINDOWS_SLOT_POOL_BASELINE_REQUIRED: Keine geeignete OS_SEALED-Baseline der gewählten Windows-Variante mit ausreichender Evaluation-Restlaufzeit vorhanden.'
     }
     $poolLocale=Assert-LabWindowsSlotPoolLocale -Region $Region -SystemLocale $SystemLocale `
         -UiLanguage $UiLanguage -InputLocale $InputLocale -TimeZone $TimeZone -Artifact $artifact

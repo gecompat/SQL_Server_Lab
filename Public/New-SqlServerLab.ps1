@@ -602,18 +602,21 @@ function New-SqlServerLab {
         $minimumEvaluationDaysRemaining = if ($resolved.artifacts -and $resolved.artifacts.PSObject.Properties['minimumEvaluationDaysRemaining']) {
             [int]$resolved.artifacts.minimumEvaluationDaysRemaining
         } else { 30 }
+        $fallbackInstallationType = if ($hyperVSettings -and $hyperVSettings.PSObject.Properties['installationType'] -and [string]$hyperVSettings.installationType) {
+            [string]$hyperVSettings.installationType
+        } else { 'desktop-experience' }
         $fallbackSelection = $null
         $artifact = if ($artifactId) {
             Get-HyperVImageArtifact -ArtifactId $artifactId -StateRoot $StateRoot
         }
         else {
-            $fallbackSelection = Get-HyperVManifestFallbackArtifactSelection -SqlVersion ([string]$instance.version) `
+            $fallbackSelection = Get-HyperVManifestFallbackArtifactSelection -SqlVersion ([string]$instance.version) -InstallationType $fallbackInstallationType `
                 -MinimumEvaluationDaysRemaining $minimumEvaluationDaysRemaining -StateRoot $StateRoot
             $fallbackSelection.Selected
         }
         if (-not $artifact -and -not $artifactId) {
             $reasonSummary = @($fallbackSelection.Reasons | Sort-Object -Unique) -join ', '
-            throw "HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND: Keine lokale SQL_PREPARED_SEALED-Vorlage für die angeforderte SQL-Version auf Windows Server Standard Evaluation mit Desktop Experience und mindestens $minimumEvaluationDaysRemaining verbleibenden Evaluationstagen gefunden. Gründe: $reasonSummary"
+            throw "HYPERV_MANIFEST_FALLBACK_IMAGE_NOT_FOUND: Keine lokale SQL_PREPARED_SEALED-Vorlage für die angeforderte SQL-Version auf Windows Server Standard Evaluation mit $fallbackInstallationType und mindestens $minimumEvaluationDaysRemaining verbleibenden Evaluationstagen gefunden. Gründe: $reasonSummary"
         }
         if ($artifact) {
             $evaluationEligibility = Test-HyperVImageArtifactEvaluationEligibility -Artifact $artifact `

@@ -80,6 +80,14 @@ try {
     Add-CheckResult -Name 'Windows Server 2008 R2 erkennt Standard Full Installation eindeutig' -Success (
         $legacyVariant.ImageIndex -eq 1 -and $legacyVariant.InstallationType -eq 'desktop-experience'
     )
+    $legacyCoreVariant = & $module {
+        param($Root,$Sha)
+        Get-HyperVWindowsEvaluationVariantEvidence -MediaRoot $Root -Version 2008R2 `
+            -OperatingSystemId windows-server-2008-r2 -ExpectedSha256 $Sha -InstallationType core
+    } $legacyVariantRoot $sha
+    Add-CheckResult -Name 'Windows Server Core wird aus derselben Evaluation-Evidence eindeutig gewählt' -Success (
+        $legacyCoreVariant.ImageIndex -eq 2 -and $legacyCoreVariant.InstallationType -eq 'core'
+    )
     $partitionAnswers = & $module {
         $root='<unattend xmlns="urn:schemas-microsoft-com:unattend"></unattend>'
         [pscustomobject]@{

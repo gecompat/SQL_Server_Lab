@@ -106,7 +106,7 @@ Empfohlene erste Auswahl:
 | Media Root | `D:\Lab_Base` |
 | Windows Server | `2025` |
 | Edition | `standard-evaluation` |
-| Installationstyp | `desktop-experience` |
+| Installationstyp | `desktop-experience` oder `core` |
 | Sprache | `en-US` |
 
 Der aktuelle Operatorpfad erzeugt:
@@ -132,11 +132,14 @@ PowerShell-7-Sitzung mit bestätigtem Hyper-V-Capability-Probe, zum Beispiel:
 
 ```powershell
 .\Tools\New-WindowsServerEvaluationTemplate.ps1 `
-    -Version 2008R2,2012R2,2016,2019,2022 `
+    -Version 2016,2019,2022,2025 `
     -MediaRoot 'D:\Lab1_Base' `
     -ExternalSwitchName 'SQL_LAB_HYPERV_extern_wifi' `
+    -InstallationType core `
     -Confirm:$false
 ```
+
+Für Windows Server 2016 und neuer wählt `-InstallationType desktop-experience` die grafische Variante und `-InstallationType core` Server Core. Beide Varianten werden als getrennte `OS_SEALED`-Artefakte registriert und nie gegeneinander ersetzt. Für die getrennten Legacy-Builder 2008 R2 und 2012 R2 bleibt nur Desktop Experience zulässig.
 
 Der Ablauf bindet die englische x64-Evaluation eindeutig an den Katalogpfad,
 das SHA-256-Sidecar und die zuvor erzeugte WIM-Evidenz, erzeugt ein
@@ -189,7 +192,7 @@ VMConnect wird dabei vor dem VM-Start geöffnet, damit der kurze Hinweis
 `Press any key to boot from CD or DVD` sichtbar bleibt. Sobald er erscheint,
 sofort eine Taste im VMConnect-Fenster drücken.
 
-1. Passende Evaluation-Ausgabe mit Desktop Experience auswählen.
+1. Die im Build ausgewählte Evaluation-Ausgabe wählen: **Desktop Experience** oder **Server Core**.
 2. Benutzerdefinierte Installation auf die einzige leere OS-Disk starten.
 3. Installation und ersten Start vollständig abschließen.
 4. Lokales Administrator-Passwort setzen und außerhalb des Lab-State sicher
@@ -219,7 +222,7 @@ und nicht persistiert.
 
 Vor Sysprep liest die Runtime Produktname, EditionID, Windows-Build und den
 tatsächlichen Installationstyp technisch aus dem Gast. Eine Abweichung zwischen
-gewähltem `desktop-experience` und installiertem `core` wird nicht still
+gewähltem Installationstyp und tatsächlich installiertem Typ wird nicht still
 veröffentlicht: Das Menü zeigt sie an und verlangt eine ausdrückliche
 Bestätigung, bevor die Build-Metadaten angepasst werden.
 

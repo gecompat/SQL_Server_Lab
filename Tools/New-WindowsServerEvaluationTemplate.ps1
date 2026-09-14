@@ -17,6 +17,9 @@ Kanonischer externer Media Root.
 .PARAMETER ExternalSwitchName
 Optionaler verbundener External-Switch für die einmalige Evaluation-Aktivierung.
 
+.PARAMETER InstallationType
+`desktop-experience` oder `core` für Windows Server 2016 und neuer.
+
 .PARAMETER KeepOnFailure
 Behält einen fehlgeschlagenen Builder ausdrücklich zur Diagnose.
 #>
@@ -29,6 +32,7 @@ param(
     [string]$StateRoot,
     [string]$ExternalSwitchName,
     [ValidateRange(300,3600)][int]$TimeoutSeconds=1800,
+    [ValidateSet('core','desktop-experience')][string]$InstallationType='desktop-experience',
     [switch]$KeepOnFailure
 )
 
@@ -37,12 +41,13 @@ $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 foreach($item in @($Version | Select-Object -Unique)) {
     if (-not $PSCmdlet.ShouldProcess("Windows Server $item", 'unbeaufsichtigt installieren, generalisieren und als OS_SEALED veröffentlichen')) {
-        [pscustomobject]@{Status='PLANNED';Version=$item;MediaRoot=$MediaRoot}
+        [pscustomobject]@{Status='PLANNED';Version=$item;InstallationType=$InstallationType;MediaRoot=$MediaRoot}
         continue
     }
     & $module {
-        param($Version,$MediaRoot,$StateRoot,$ExternalSwitchName,$TimeoutSeconds,$KeepOnFailure)
+        param($Version,$MediaRoot,$StateRoot,$ExternalSwitchName,$TimeoutSeconds,$InstallationType,$KeepOnFailure)
         if ($Version -in @('2008R2','2012R2')) {
+            if ($InstallationType -eq 'core') { throw 'HYPERV_LEGACY_TEMPLATE_SERVER_CORE_UNSUPPORTED' }
             if (-not $ExternalSwitchName) { throw 'HYPERV_LEGACY_TEMPLATE_EXTERNAL_SWITCH_REQUIRED' }
             Invoke-HyperVLegacyWindowsEvaluationTemplateBuild -Version $Version -MediaRoot $MediaRoot `
                 -StateRoot $StateRoot -ExternalSwitchName $ExternalSwitchName `
@@ -50,8 +55,8 @@ foreach($item in @($Version | Select-Object -Unique)) {
         }
         else {
             Invoke-HyperVWindowsEvaluationTemplateBuild -Version $Version -MediaRoot $MediaRoot `
-                -StateRoot $StateRoot -ExternalSwitchName $ExternalSwitchName `
+                -StateRoot $StateRoot -ExternalSwitchName $ExternalSwitchName -InstallationType $InstallationType `
                 -TimeoutSeconds $TimeoutSeconds -KeepOnFailure:$KeepOnFailure -Confirm:$false
         }
-    } $item $MediaRoot $StateRoot $ExternalSwitchName $TimeoutSeconds $KeepOnFailure.IsPresent
+    } $item $MediaRoot $StateRoot $ExternalSwitchName $TimeoutSeconds $InstallationType $KeepOnFailure.IsPresent
 }

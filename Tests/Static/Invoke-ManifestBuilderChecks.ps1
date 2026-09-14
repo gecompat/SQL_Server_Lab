@@ -513,6 +513,15 @@ $hyperVManifest = [ordered]@{
     )
 }
 $hyperVManifestResult = Test-SqlServerLabManifest -InputObject $hyperVManifest
+$coreManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
+$null = $coreManifest.instances[0].hyperv.PSObject.Properties.Remove('preparedImageId')
+$coreManifest.instances[0].hyperv | Add-Member -NotePropertyName installationType -NotePropertyValue 'core'
+$coreManifestResult = Test-SqlServerLabManifest -InputObject $coreManifest
+$coreManifestResolved = & $module { param($Manifest) Resolve-ManifestDefaults -Manifest $Manifest } $coreManifest
+Add-CheckResult `
+    -Name 'Hyper-V-Manifest akzeptiert Server Core und bewahrt die Fallback-Auswahl' `
+    -Success ($coreManifestResult.IsValid -and $coreManifestResolved.instances[0].hyperv.installationType -eq 'core') `
+    -Message ($coreManifestResult.Errors -join '; ')
 Add-CheckResult `
     -Name 'Hyper-V-Manifest referenziert ein Prepared-Image ohne Klartextpasswort' `
     -Success $hyperVManifestResult.IsValid `
@@ -675,8 +684,8 @@ $hyperVFallbackManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFr
 $hyperVFallbackManifest.instances[0].PSObject.Properties.Remove('hyperv')
 $hyperVFallbackResult = Test-SqlServerLabManifest -InputObject $hyperVFallbackManifest
 Add-CheckResult `
-    -Name 'Hyper-V-Manifest ohne explizites Image aktiviert den sicheren lokalen Standard-Desktop-Fallback' `
-    -Success ($hyperVFallbackResult.IsValid -and $hyperVFallbackResult.Warnings -match 'SQL_PREPARED_SEALED.*Standard Evaluation.*Desktop Experience') `
+    -Name 'Hyper-V-Manifest ohne explizites Image aktiviert den sicheren lokalen Standard-Variantenfallback' `
+    -Success ($hyperVFallbackResult.IsValid -and $hyperVFallbackResult.Warnings -match 'SQL_PREPARED_SEALED.*gewünschten Windows-Variante') `
     -Message (($hyperVFallbackResult.Errors + $hyperVFallbackResult.Warnings) -join '; ')
 
 $hyperVDriveManifest = $hyperVManifest | ConvertTo-Json -Depth 30 | ConvertFrom-Json -Depth 30
