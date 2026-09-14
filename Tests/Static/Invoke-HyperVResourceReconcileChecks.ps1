@@ -29,12 +29,22 @@ try {
             MemoryMinimum=[long](2048MB);MemoryStartup=[long](4096MB);MemoryMaximum=[long](8192MB)
         }
         $script:resourceSetCount=0;$script:resourceStopCount=0;$script:resourceStartCount=0;$script:resourceFailStartOnce=$false
+        $script:resourceManagedVmReadCount=0;$script:resourceFlipLiveDirectionAt=0
         function Get-LabRunState { param($RunId,$StateRoot) $script:resourceTestRun }
         function Get-LabHyperVResourceMigrationLifecycleGuard { [PSCustomObject]@{Allowed=$true;ReasonCode=$null} }
         function New-LabDesiredState {
             [PSCustomObject]@{IsValid=$true;Instances=@([PSCustomObject]@{Id='primary';Provider='hyperv';Resources=$script:resourceTestDesired})}
         }
-        function Get-HyperVManagedVM { param($VMName,$ExpectedRunId,$ExpectedScopeId) [PSCustomObject]@{VM=$script:resourceTestVm;Identity=[PSCustomObject]@{runId=$ExpectedRunId;scopeId=$ExpectedScopeId;instanceId='primary'}} }
+        function Get-HyperVManagedVM {
+            param($VMName,$ExpectedRunId,$ExpectedScopeId)
+            $script:resourceManagedVmReadCount++
+            if($script:resourceFlipLiveDirectionAt -gt 0 -and $script:resourceManagedVmReadCount -eq $script:resourceFlipLiveDirectionAt){
+                $script:resourceTestVm.MemoryMinimum=[long](1024MB)
+                $script:resourceTestVm.MemoryMaximum=[long](9216MB)
+                $script:resourceFlipLiveDirectionAt=0
+            }
+            [PSCustomObject]@{VM=$script:resourceTestVm;Identity=[PSCustomObject]@{runId=$ExpectedRunId;scopeId=$ExpectedScopeId;instanceId='primary'}}
+        }
         function Set-VMProcessor { param($VM,$Count,$ErrorAction) $script:resourceSetCount++;$VM.ProcessorCount=$Count }
         function Set-VMMemory {
             param($VM,$DynamicMemoryEnabled,$MinimumBytes,$StartupBytes,$MaximumBytes,$ErrorAction)
@@ -59,17 +69,32 @@ try {
         $sanitized=($noOp | ConvertTo-Json -Depth 30) -notmatch 'private-vm-name|private-vm-id'
 
         $script:resourceTestVm.MemoryMinimum=[long](1024MB)
+        $script:resourceTestVm.MemoryMaximum=[long](9216MB)
+        $forbiddenLive=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVResources -InstanceId primary -StateRoot $Root
+        $script:resourceTestVm.MemoryMinimum=[long](3072MB)
+        $script:resourceTestVm.MemoryMaximum=[long](7168MB)
         $live=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVResources -InstanceId primary -StateRoot $Root
         $whatIf=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVResources -InstanceId primary -StateRoot $Root -WhatIf
         $journalPath=Get-LabHyperVResourceReconcileJournalPath -RunDirectory (Join-Path (Join-Path $Root 'runs') $RunId)
         $whatIfSafe=$script:resourceSetCount -eq 0 -and -not (Test-Path -LiteralPath $journalPath)
+        # Der oeffentliche Vorplan, der Repair-Kontext und der innere Plan lesen
+        # die VM vor dem persistierten Live-Journal. Erst die anschliessende
+        # Revalidierung darf die gegenteilige Drift sehen.
+        $script:resourceManagedVmReadCount=0;$script:resourceFlipLiveDirectionAt=4
+        $setCountBeforePendingLive=$script:resourceSetCount
+        $pendingLiveApply=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVResources -InstanceId primary -StateRoot $Root -Confirm:$false
+        $pendingLiveJournal=Get-Content $journalPath -Raw | ConvertFrom-Json
+        $pendingLiveProtected=$pendingLiveApply.ExecutionSummary.Status -eq 'FAILED' -and $pendingLiveApply.ExecutionSummary.Errors -match 'HYPERV_RESOURCE_RECONCILE_LIVE_DIRECTION_PRECONDITION_FAILED' -and $script:resourceSetCount -eq $setCountBeforePendingLive -and $script:resourceStopCount -eq 0 -and $pendingLiveJournal.Status -eq 'RECOVERY_REQUIRED'
+        $script:resourceTestVm.MemoryMinimum=[long](3072MB)
+        $script:resourceTestVm.MemoryMaximum=[long](7168MB)
         $liveApply=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVResources -InstanceId primary -StateRoot $Root -Confirm:$false
-        $liveSucceeded=$liveApply.ExecutionSummary.Status -eq 'SUCCEEDED' -and $script:resourceTestVm.MemoryMinimum -eq 2048MB -and $script:resourceStopCount -eq 0
+        $liveSucceeded=$liveApply.ExecutionSummary.Status -eq 'SUCCEEDED' -and $script:resourceTestVm.MemoryMinimum -eq 2048MB -and $script:resourceTestVm.MemoryMaximum -eq 8192MB -and $script:resourceStopCount -eq 0
         if(-not $liveSucceeded){throw "Live resource reconcile failed: $($liveApply | ConvertTo-Json -Depth 20 -Compress); journal=$(Get-Content $journalPath -Raw)"}
         $liveJournalStatus=[string](Get-Content $journalPath -Raw | ConvertFrom-Json).Status
         if($liveJournalStatus -ne 'COMPLETED'){throw "Live resource journal incomplete: $liveJournalStatus; $(Get-Content $journalPath -Raw)"}
         $firstOperationId=[string](Get-Content $journalPath -Raw | ConvertFrom-Json).OperationId
-        $script:resourceTestVm.MemoryMinimum=[long](1024MB)
+        $script:resourceTestVm.MemoryMinimum=[long](3072MB)
+        $script:resourceTestVm.MemoryMaximum=[long](7168MB)
         $repeatApply=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVResources -InstanceId primary -StateRoot $Root -Confirm:$false
         $secondOperationId=[string](Get-Content $journalPath -Raw | ConvertFrom-Json).OperationId
         $repeatUsesNewJournal=$repeatApply.ExecutionSummary.Status -eq 'SUCCEEDED' -and $secondOperationId -ne $firstOperationId
@@ -91,8 +116,10 @@ try {
 
         [PSCustomObject]@{
             NoOp=$noOp.IsNoOp -and $noOp.HighestChangeClass -eq 'no-op';Sanitized=$sanitized
+            ForbiddenLive=$forbiddenLive.HighestChangeClass -eq 'restart' -and $forbiddenLive.Actions[0].RequiresRestart -and @($forbiddenLive.ReasonCodes) -contains 'HYPERV_RESOURCE_RECONCILE_LIVE_DIRECTION_RESTART_REQUIRED'
             Live=$live.HighestChangeClass -eq 'live' -and -not $live.Actions[0].RequiresRestart
             WhatIf=$whatIfSafe -and $whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE'
+            PendingLive=$pendingLiveProtected
             LiveApply=$liveSucceeded
             RepeatJournal=$repeatUsesNewJournal
             Restart=$restart.HighestChangeClass -eq 'restart' -and $restart.Actions[0].RequiresRestart
@@ -105,8 +132,10 @@ try {
         'Restart verwendet gastgesteuertes Stop-VM ohne harte Abschaltschalter'=($resourceSource -match 'Stop-VM\s+-VM\s+\$context\.VM\s+-Confirm:\$false' -and $resourceSource -notmatch 'Stop-VM[^\r\n]*-(Force|TurnOff|Save|Shutdown)')
         'Semantisch passende vCPU-/RAM-Werte bleiben No-op'=$result.NoOp
         'Oeffentlicher Ressourcenplan enthaelt keine VM-Namen oder IDs'=$result.Sanitized
-        'Reine Dynamic-Min-/Max-Drift einer laufenden VM ist live'=$result.Live
+        'Einengende Dynamic-Min-/Max-Drift einer laufenden VM erfordert restart'=$result.ForbiddenLive
+        'Nur bereichserweiternde Dynamic-Min-/Max-Drift einer laufenden VM ist live'=$result.Live
         'WhatIf mutiert weder VM noch Journal'=$result.WhatIf
+        'Pending-Live-Journal bricht bei zwischenzeitlicher Richtungsumkehr fail-closed ab'=$result.PendingLive
         'Live-Reparatur journalisiert und erfuellt die Postcondition'=$result.LiveApply
         'Wiederkehrende Drift erhaelt ein neues Operationsjournal'=$result.RepeatJournal
         'CPU-, Modus- und Startup-Drift einer laufenden VM erfordert restart'=$result.Restart

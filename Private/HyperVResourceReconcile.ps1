@@ -6,7 +6,9 @@
     revalidiert Run-, Scope-, Instanz- und VM-Identitaet, journalisiert jeden
     Zustandswechsel und fuehrt CPU-, RAM-Modus- oder Startup-Aenderungen bei
     laufenden VMs ueber Stop, Apply und Start aus. Bei dynamischem RAM duerfen
-    ausschliessliche Min-/Max-Aenderungen live erfolgen.
+    ausschliessliche dynamische Min-/Max-Aenderungen nur live erfolgen, wenn
+    sie den aktuellen Hyper-V-Bereich nicht einengen. Jede umgekehrte oder
+    gemischte Richtung verwendet den sicheren Stop-Apply-Start-Pfad.
 #>
 
 function Get-LabHyperVResourceReconcileJournalPath {
@@ -77,6 +79,21 @@ function ConvertTo-LabHyperVResourceValues {
         MemoryMinimumMB=$minimumMB; MemoryStartupMB=$startupMB; MemoryMaximumMB=$maximumMB
         RuntimeState=[string]$VM.State
     }
+}
+
+function Test-LabHyperVResourceReconcileLiveMemoryDirection {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Actual,
+        [Parameter(Mandatory)]$Desired
+    )
+
+    return (
+        [bool]$Actual.DynamicMemoryEnabled -and
+        [bool]$Desired.DynamicMemoryEnabled -and
+        [int]$Desired.MemoryMinimumMB -le [int]$Actual.MemoryMinimumMB -and
+        [int]$Desired.MemoryMaximumMB -ge [int]$Actual.MemoryMaximumMB
+    )
 }
 
 function Get-LabHyperVResourceReconcileContext {
@@ -155,7 +172,7 @@ function New-LabHyperVResourceReconcilePlan {
         elseif ($state -eq 'Off') { 'live' }
         elseif ($state -eq 'Running' -and
             @($diff | Where-Object Field -notin @('MemoryMinimumMB','MemoryMaximumMB')).Count -eq 0 -and
-            [bool]$context.Desired.DynamicMemoryEnabled -and [bool]$context.Actual.DynamicMemoryEnabled) { 'live' }
+            (Test-LabHyperVResourceReconcileLiveMemoryDirection -Actual $context.Actual -Desired $context.Desired)) { 'live' }
         elseif ($state -eq 'Running') { 'restart' }
         else { 'unsupported' }
     $changeClass = if (-not $recoveryPending) { $currentChangeClass }
@@ -181,8 +198,12 @@ function New-LabHyperVResourceReconcilePlan {
         Desired=[PSCustomObject]@{ProcessorCount=[int]$context.Desired.ProcessorCount;DynamicMemoryEnabled=[bool]$context.Desired.DynamicMemoryEnabled;MemoryMinimumMB=[int]$context.Desired.MemoryMinimumMB;MemoryStartupMB=[int]$context.Desired.MemoryStartupMB;MemoryMaximumMB=[int]$context.Desired.MemoryMaximumMB}
         Actual=[PSCustomObject]@{Status='AVAILABLE';RuntimeState=$state;ProcessorCount=[int]$context.Actual.ProcessorCount;DynamicMemoryEnabled=[bool]$context.Actual.DynamicMemoryEnabled;MemoryMinimumMB=[int]$context.Actual.MemoryMinimumMB;MemoryStartupMB=[int]$context.Actual.MemoryStartupMB;MemoryMaximumMB=[int]$context.Actual.MemoryMaximumMB}
         Diff=$diff; Actions=$actions; HighestChangeClass=$changeClass; IsNoOp=($changeClass -eq 'no-op'); MutationAllowed=$false
-        Warnings=if($changeClass -eq 'restart'){@('CPU-, RAM-Modus- oder Startup-Drift erfordert Stop, Apply und Start.')}elseif($changeClass -eq 'unsupported'){@("VM-Zustand oder zwischenzeitliche Drift erlaubt keine sichere Ressourcenreparatur: '$state'.")}else{@()}
-        ReasonCodes=@($(if($recoveryPending){'HYPERV_RESOURCE_RECONCILE_RECOVERY_PENDING'});$(if($changeClass -eq 'unsupported'){'HYPERV_RESOURCE_RECONCILE_VM_STATE_UNSUPPORTED'}))
+        Warnings=if($changeClass -eq 'restart'){@('CPU-, RAM-Modus-, Startup- oder einengende Dynamic-RAM-Drift erfordert Stop, Apply und Start.')}elseif($changeClass -eq 'unsupported'){@("VM-Zustand oder zwischenzeitliche Drift erlaubt keine sichere Ressourcenreparatur: '$state'.")}else{@()}
+        ReasonCodes=@(
+            $(if($recoveryPending){'HYPERV_RESOURCE_RECONCILE_RECOVERY_PENDING'});
+            $(if($state -eq 'Running' -and @($diff | Where-Object Field -notin @('MemoryMinimumMB','MemoryMaximumMB')).Count -eq 0 -and [bool]$context.Desired.DynamicMemoryEnabled -and [bool]$context.Actual.DynamicMemoryEnabled -and -not (Test-LabHyperVResourceReconcileLiveMemoryDirection -Actual $context.Actual -Desired $context.Desired)){'HYPERV_RESOURCE_RECONCILE_LIVE_DIRECTION_RESTART_REQUIRED'});
+            $(if($changeClass -eq 'unsupported'){'HYPERV_RESOURCE_RECONCILE_VM_STATE_UNSUPPORTED'})
+        )
     }
 }
 
@@ -285,8 +306,8 @@ function Invoke-LabHyperVResourceReconcileRepair {
         $currentDrift=@(@('ProcessorCount','DynamicMemoryEnabled','MemoryMinimumMB','MemoryStartupMB','MemoryMaximumMB') | Where-Object {$context.Actual.$_ -ne $context.Desired.$_})
         if(-not $requiresRestart -and [string]$context.Actual.RuntimeState -eq 'Running' -and
             (@($currentDrift | Where-Object {$_ -notin @('MemoryMinimumMB','MemoryMaximumMB')}).Count -gt 0 -or
-             -not [bool]$context.Desired.DynamicMemoryEnabled -or -not [bool]$context.Actual.DynamicMemoryEnabled)){
-            throw 'HYPERV_RESOURCE_RECONCILE_LIVE_PRECONDITION_FAILED'
+             -not (Test-LabHyperVResourceReconcileLiveMemoryDirection -Actual $context.Actual -Desired $context.Desired))){
+            throw 'HYPERV_RESOURCE_RECONCILE_LIVE_DIRECTION_PRECONDITION_FAILED'
         }
         if($requiresRestart -and [string]$context.Actual.RuntimeState -eq 'Running'){
             $null=Stop-VM -VM $context.VM -Confirm:$false -ErrorAction Stop
