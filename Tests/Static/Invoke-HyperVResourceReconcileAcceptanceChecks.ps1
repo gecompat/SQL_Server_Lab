@@ -96,6 +96,18 @@ function Test-DynamicRestartReadinessOrdering {
     $shutdownSlice=$acceptance.Substring($shutdownIndex,$stopIndex-$shutdownIndex)
     return $sqlSlice.IndexOf('Wait-ResourceSqlReady $dynamicContext $sa') -ge 0 -and $sqlSlice.IndexOf('Wait-ResourceShutdownIntegrationReady $dynamicContext') -lt 0 -and $shutdownSlice.IndexOf('Wait-ResourceShutdownIntegrationReady $dynamicContext') -ge 0 -and $shutdownSlice.IndexOf('Wait-ResourceSqlReady $dynamicContext $sa') -lt 0
 }
+function Test-StaticProvisionOrdering {
+    $provisionIndex=$acceptance.IndexOf("`$stage='STATIC_PROVISION'")
+    $readinessIndex=$acceptance.IndexOf("`$stage='STATIC_SQL_READINESS'",$provisionIndex)
+    $markerCreateIndex=$acceptance.IndexOf("`$stage='STATIC_MARKER_CREATE'",$readinessIndex)
+    $driftIndex=$acceptance.IndexOf("`$stage='STATIC_DRIFT'",$markerCreateIndex)
+    if($provisionIndex -lt 0 -or $readinessIndex -le $provisionIndex -or $markerCreateIndex -le $readinessIndex -or $driftIndex -le $markerCreateIndex){return $false}
+    $slice=$acceptance.Substring($readinessIndex,$driftIndex-$readinessIndex)
+    $readinessCallIndex=$slice.IndexOf('Wait-ResourceSqlReady $staticContext $sa')
+    $createDatabaseIndex=$slice.IndexOf("Invoke-NonQuery `$staticContext `$sa 'CREATE DATABASE SqlLabHvResourceMarkerDb;'")
+    $createMarkerIndex=$slice.IndexOf("Invoke-NonQuery `$staticContext `$sa 'CREATE TABLE SqlLabHvResourceMarkerDb.dbo.SqlLabHvResourceMarker")
+    return $readinessCallIndex -ge 0 -and $createDatabaseIndex -gt $readinessCallIndex -and $createMarkerIndex -gt $createDatabaseIndex
+}
 function Test-DynamicLiveOrdering {
     $stopStageIndex=$acceptance.IndexOf("`$stage='DYNAMIC_LIVE_STOP'")
     $configureStageIndex=$acceptance.IndexOf("`$stage='DYNAMIC_LIVE_CONFIGURE'")
@@ -122,7 +134,7 @@ $checks=@(
  Add-Check 'Dynamischer und statischer Ressourcenfall pruefen Plan, WhatIf, Apply und No-op' ($acceptance -match 'DynamicMemoryEnabled' -and $acceptance -match 'ProcessorCount' -and $acceptance -match 'Get-SqlServerLabReconcilePlan.*-HyperVResources' -and $acceptance -match 'Invoke-SqlServerLabReconcileAction.*-RepairHyperVResources.*-WhatIf' -and $acceptance -match 'Dynamischer Wiederholungsplan ist No-op' -and $acceptance -match 'Statischer Wiederholungsplan ist No-op')
  Add-Check 'Dynamic-Apply prueft gestoppte einengende Drift, getrennte Restart- und Live-Readiness sowie bereichserweiternde Live-Reparatur' ($acceptance -match 'einengende dynamische Drift gestoppt' -and $acceptance -match 'DYNAMIC_FORBIDDEN_PLAN' -and $acceptance -match 'HYPERV_RESOURCE_RECONCILE_LIVE_DIRECTION_RESTART_REQUIRED' -and $acceptance -match 'DYNAMIC_LIVE_PLAN' -and $acceptance -match 'tempdb-Marker ohne Restart wieder her' -and (Test-DynamicRestartReadinessOrdering) -and (Test-DynamicLiveOrdering))
  Add-Check 'Shutdown-Readiness verwendet die feste Shutdown-GUID und den lokalisierungsfreien operativen Status' (Test-ShutdownIntegrationReadinessContract)
- Add-Check 'Static-Apply prueft CPU, RAM-Modus, SQL-Readiness und persistenten Datenmarker mit normalisierten Werten' ($acceptance -match 'CREATE DATABASE SqlLabHvResourceMarkerDb' -and $acceptance -match 'Wait-ResourcePersistentSqlMarker' -and $acceptance -match 'Minimum=if\(\$dynamic\)' -and $acceptance -match 'Restart-Reconcile stellt CPU, statischen RAM, SQL-Readiness und persistenten Datenmarker wieder her')
+ Add-Check 'Static-Apply prueft CPU, RAM-Modus, getrennte SQL-Readiness und persistenten Datenmarker mit normalisierten Werten' ($acceptance -match 'CREATE DATABASE SqlLabHvResourceMarkerDb' -and $acceptance -match 'Wait-ResourcePersistentSqlMarker' -and $acceptance -match 'Minimum=if\(\$dynamic\)' -and $acceptance -match 'Restart-Reconcile stellt CPU, statischen RAM, SQL-Readiness und persistenten Datenmarker wieder her' -and (Test-StaticProvisionOrdering))
  Add-Check 'Native Runner emittiert nur allowlistgebundene Fehlerstufen ohne Rohfehler' ($acceptance -match "\`$allowedStages=@\('INITIALIZATION'" -and $acceptance -match 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_\$\{safeStage\}_FAILED' -and $acceptance -notmatch 'throw "HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_\$\{safeStage\}_FAILED: \$\(')
  Add-Check 'Native Failure-Injection wird nicht behauptet' ($acceptance -match '(?s)Runner injiziert keinen.*bleibt daher bewusst offen' -and $acceptance -notmatch 'Mock\s+Start-VM')
  Add-Check 'Supervisor extrahiert nur feste Stufencodes und ordnet Legacyfehler sicher zu' (Test-RunnerReasonCodeContract)

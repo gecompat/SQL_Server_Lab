@@ -199,7 +199,11 @@ try {
     Assert-HyperVResourceAcceptance (Test-SqlServerLabManifest -Path $staticManifest).IsValid 'Statisches Zielmanifest ist gueltig'
     $stage='STATIC_PROVISION';
     $staticLab=New-OwnedRun $staticManifest $Run2OperationId $guest $sa;$staticContext=Get-Context $staticLab.RunId
-    Invoke-NonQuery $staticContext $sa "CREATE DATABASE SqlLabHvResourceMarkerDb; CREATE TABLE SqlLabHvResourceMarkerDb.dbo.SqlLabHvResourceMarker (Marker int NOT NULL); INSERT SqlLabHvResourceMarkerDb.dbo.SqlLabHvResourceMarker VALUES (2025);"
+    $stage='STATIC_SQL_READINESS';
+    Assert-HyperVResourceAcceptance (Wait-ResourceSqlReady $staticContext $sa) 'SQL ist vor dem statischen persistenten Marker bereit'
+    $stage='STATIC_MARKER_CREATE';
+    Invoke-NonQuery $staticContext $sa 'CREATE DATABASE SqlLabHvResourceMarkerDb;'
+    Invoke-NonQuery $staticContext $sa 'CREATE TABLE SqlLabHvResourceMarkerDb.dbo.SqlLabHvResourceMarker (Marker int NOT NULL); INSERT SqlLabHvResourceMarkerDb.dbo.SqlLabHvResourceMarker VALUES (2025);'
     $stage='STATIC_DRIFT';
     $staticVm=(Get-OwnedVm $staticContext).VM;Stop-VM -VM $staticVm -Confirm:$false -ErrorAction Stop
     $deadline=[datetime]::UtcNow.AddMinutes(3);do{Start-Sleep -Seconds 2;$staticVm=(Get-OwnedVm $staticContext).VM}while([string]$staticVm.State -ne 'Off' -and [datetime]::UtcNow -lt $deadline);Assert-HyperVResourceAcceptance ([string]$staticVm.State -eq 'Off') 'Run-eigene VM ist fuer statische Drift gestoppt'
@@ -212,13 +216,13 @@ try {
     Assert-WhatIfUnchanged $staticLab.RunId $staticJournal $staticContext $sa
     $stage='STATIC_APPLY';
     $staticResult=Invoke-SqlServerLabReconcileAction -RunId $staticLab.RunId -RepairHyperVResources -InstanceId primary -StateRoot $StateRoot -Confirm:$false;$staticValues=Get-ResourceValues $staticContext;$staticReceipt=Get-Content -LiteralPath $staticJournal -Raw -Encoding utf8|ConvertFrom-Json -Depth 30
-    $stage='STATIC_SQL_READINESS';
+    $stage='STATIC_POST_RESTART_SQL_READINESS';
     $marker=Wait-ResourcePersistentSqlMarker $staticContext $sa
     Assert-HyperVResourceAcceptance ([string]$staticResult.ExecutionSummary.Status -eq 'SUCCEEDED' -and $staticValues.Cpu -eq 4 -and -not $staticValues.Dynamic -and $staticValues.Minimum -eq $staticValues.Startup -and $staticValues.Startup -eq 6144 -and $staticValues.Maximum -eq $staticValues.Startup -and [string]$staticReceipt.Status -eq 'COMPLETED' -and $marker -eq '1') 'Restart-Reconcile stellt CPU, statischen RAM, SQL-Readiness und persistenten Datenmarker wieder her'
     $stage='STATIC_NOOP';
     Assert-HyperVResourceAcceptance (Get-SqlServerLabReconcilePlan -RunId $staticLab.RunId -HyperVResources -InstanceId primary -StateRoot $StateRoot).IsNoOp 'Statischer Wiederholungsplan ist No-op'
     $completed=$true} catch {
-    $allowedStages=@('INITIALIZATION','DYNAMIC_MANIFEST','DYNAMIC_PROVISION','DYNAMIC_FORBIDDEN_DRIFT','DYNAMIC_FORBIDDEN_SQL_READINESS','DYNAMIC_FORBIDDEN_PLAN','DYNAMIC_FORBIDDEN_WHATIF','DYNAMIC_FORBIDDEN_APPLY','DYNAMIC_RESTART_SQL_READINESS','DYNAMIC_RESTART_SHUTDOWN_READINESS','DYNAMIC_LIVE_STOP','DYNAMIC_LIVE_CONFIGURE','DYNAMIC_LIVE_START','DYNAMIC_LIVE_VERIFY','DYNAMIC_LIVE_SQL_READINESS','DYNAMIC_LIVE_SHUTDOWN_READINESS','DYNAMIC_LIVE_PLAN','DYNAMIC_LIVE_WHATIF','DYNAMIC_LIVE_APPLY','DYNAMIC_LIVE_NOOP','STATIC_MANIFEST','STATIC_PROVISION','STATIC_DRIFT','STATIC_PLAN','STATIC_WHATIF','STATIC_APPLY','STATIC_SQL_READINESS','STATIC_NOOP')
+    $allowedStages=@('INITIALIZATION','DYNAMIC_MANIFEST','DYNAMIC_PROVISION','DYNAMIC_FORBIDDEN_DRIFT','DYNAMIC_FORBIDDEN_SQL_READINESS','DYNAMIC_FORBIDDEN_PLAN','DYNAMIC_FORBIDDEN_WHATIF','DYNAMIC_FORBIDDEN_APPLY','DYNAMIC_RESTART_SQL_READINESS','DYNAMIC_RESTART_SHUTDOWN_READINESS','DYNAMIC_LIVE_STOP','DYNAMIC_LIVE_CONFIGURE','DYNAMIC_LIVE_START','DYNAMIC_LIVE_VERIFY','DYNAMIC_LIVE_SQL_READINESS','DYNAMIC_LIVE_SHUTDOWN_READINESS','DYNAMIC_LIVE_PLAN','DYNAMIC_LIVE_WHATIF','DYNAMIC_LIVE_APPLY','DYNAMIC_LIVE_NOOP','STATIC_MANIFEST','STATIC_PROVISION','STATIC_SQL_READINESS','STATIC_MARKER_CREATE','STATIC_DRIFT','STATIC_PLAN','STATIC_WHATIF','STATIC_APPLY','STATIC_POST_RESTART_SQL_READINESS','STATIC_NOOP')
     $safeStage=if($stage -in $allowedStages){$stage}else{'INITIALIZATION'}
     $isProvisioningFailure=$safeStage -in @('DYNAMIC_PROVISION','STATIC_PROVISION')
     $activationReasonCode=if($isProvisioningFailure){Get-HyperVResourceReconcileAcceptanceActivationReasonCode -ErrorRecord $_}else{$null}
