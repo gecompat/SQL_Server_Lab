@@ -1409,4 +1409,6 @@ Ein abgewiesener SQL- oder anderer nicht geeigneter Quell-Run bleibt ein
 Provisionierungsfehler ohne Aktivierungscode; nur ein tatsaechlich erkannter,
 allowlistgebundener Windows-Aktivierungsfehler wird als solcher in der kleinen
 CI-Receipt ausgewiesen.
+Bei einem Provisionierungsfehler darf die Receipt zusaetzlich ausschliesslich den allowlistgebundenen Mediengrund
+`HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND` transportieren. Pfade, Rohfehler und weitere Details bleiben ausgeschlossen.
 Die native Clone-Abnahme ist `NOT_EXECUTED`.

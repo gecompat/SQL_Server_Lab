@@ -32,6 +32,13 @@ $previousStateRoot=$env:SQL_SERVER_LAB_STATE
 $module=$null;$createdRunIds=@();$completed=$false;$stage='INITIALIZATION'
 $mutex=[Threading.Mutex]::new($false,'Global\SQL_Server_Lab_HyperV_Resource_Reconcile_Acceptance');$mutexAcquired=$false
 function Assert-HyperVResourceAcceptance { param([bool]$Condition,[string]$Description) if(-not $Condition){throw "HYPERV_RESOURCE_ACCEPTANCE_FAILED: $Description"};Write-Host "PASS: $Description" -ForegroundColor Green }
+function Get-HyperVResourceReconcileAcceptanceProvisionReasonCode {
+    param([Parameter(Mandatory)]$ErrorRecord)
+    $pattern='(?<![A-Z0-9_])(?:HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND)(?![A-Z0-9_])'
+    $match=[regex]::Match([string]$ErrorRecord.Exception.Message,$pattern)
+    if($match.Success){return $match.Value}
+    return $null
+}
 function Get-HyperVResourceReconcileAcceptanceActivationReasonCode {
     param([Parameter(Mandatory)]$ErrorRecord)
     $pattern='(?<![A-Z0-9_])(?:WINDOWS_ACTIVATION_REQUIRED|WINDOWS_ACTIVATION_VERIFY_ONLY|WINDOWS_ACTIVATION_EGRESS_DENIED|WINDOWS_EVALUATION_EXPIRED|WINDOWS_ACTIVATION_(?:FAILED|REQUEST_FAILED|VERIFICATION_FAILED|LICENSE_DISCOVERY_FAILED|NETWORK_NOT_READY|NETWORK_CONFIGURATION_FAILED|PRODUCT_NOT_FOUND|EXISTING_EGRESS_UNAVAILABLE|GUEST_ADAPTER_NOT_FOUND|GUEST_OPERATION_FAILED|PERMANENT_BINDING_DRIFT)|HYPERV_WINDOWS_ACTIVATION_(?:FAILED|VERIFICATION_FAILED|OPERATION_FAILED|EXTERNAL_ADAPTER_NOT_CONNECTED|EXTERNAL_SWITCH_REQUIRED|GUEST_RECEIPT_INVALID|VM_MUST_BE_RUNNING))(?![A-Z0-9_])'
@@ -213,8 +220,11 @@ try {
     $completed=$true} catch {
     $allowedStages=@('INITIALIZATION','DYNAMIC_MANIFEST','DYNAMIC_PROVISION','DYNAMIC_FORBIDDEN_DRIFT','DYNAMIC_FORBIDDEN_SQL_READINESS','DYNAMIC_FORBIDDEN_PLAN','DYNAMIC_FORBIDDEN_WHATIF','DYNAMIC_FORBIDDEN_APPLY','DYNAMIC_RESTART_SQL_READINESS','DYNAMIC_RESTART_SHUTDOWN_READINESS','DYNAMIC_LIVE_STOP','DYNAMIC_LIVE_CONFIGURE','DYNAMIC_LIVE_START','DYNAMIC_LIVE_VERIFY','DYNAMIC_LIVE_SQL_READINESS','DYNAMIC_LIVE_SHUTDOWN_READINESS','DYNAMIC_LIVE_PLAN','DYNAMIC_LIVE_WHATIF','DYNAMIC_LIVE_APPLY','DYNAMIC_LIVE_NOOP','STATIC_MANIFEST','STATIC_PROVISION','STATIC_DRIFT','STATIC_PLAN','STATIC_WHATIF','STATIC_APPLY','STATIC_SQL_READINESS','STATIC_NOOP')
     $safeStage=if($stage -in $allowedStages){$stage}else{'INITIALIZATION'}
-    $activationReasonCode=if($safeStage -in @('DYNAMIC_PROVISION','STATIC_PROVISION')){Get-HyperVResourceReconcileAcceptanceActivationReasonCode -ErrorRecord $_}else{$null}
+    $isProvisioningFailure=$safeStage -in @('DYNAMIC_PROVISION','STATIC_PROVISION')
+    $activationReasonCode=if($isProvisioningFailure){Get-HyperVResourceReconcileAcceptanceActivationReasonCode -ErrorRecord $_}else{$null}
+    $provisionReasonCode=if($isProvisioningFailure){Get-HyperVResourceReconcileAcceptanceProvisionReasonCode -ErrorRecord $_}else{$null}
     if($activationReasonCode){throw "HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_${safeStage}_FAILED $activationReasonCode"}
+    if($provisionReasonCode){throw "HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_${safeStage}_FAILED $provisionReasonCode"}
     throw "HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_${safeStage}_FAILED"
 } finally {
     if(-not $DeferCleanup -or -not $completed){Remove-OwnRuns}

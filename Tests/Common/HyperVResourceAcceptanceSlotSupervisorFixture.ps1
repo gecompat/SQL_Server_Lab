@@ -20,7 +20,7 @@ $global:LASTEXITCODE=0
     $result=Invoke-HyperVResourceReconcileCiSupervisor -AcceptanceRunner $runner -ArtifactId '' -CloneSourceRunId '11111111-1111-1111-1111-111111111111' -MediaRoot $root -MediaEdition Eval -StateRoot $root -Run1OperationId github-1-1-resource-r1 -Run2OperationId github-1-1-resource-r2 -TimeoutSeconds 20 -Synthetic
     if($result.Status -ne 'COMPLETED' -or -not $result.TerminationConfirmed){throw 'SLOT_SUPERVISOR_SUCCESS_CONTRACT_FAILED'}
     $receipt=Join-Path $root 'receipt.json'
-    @{status='COMPLETED';stage='RUNNER_COMPLETED';reasonCode='HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_INITIALIZATION_FAILED';activationReasonCode=$null}|ConvertTo-Json|Set-Content $receipt
+    @{status='COMPLETED';stage='RUNNER_COMPLETED';reasonCode='HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_INITIALIZATION_FAILED';activationReasonCode=$null;provisionReasonCode=$null}|ConvertTo-Json|Set-Content $receipt
     if(Test-HyperVResourceReconcileCiStageReceipt $receipt){throw 'SLOT_SUPERVISOR_INCONSISTENT_SUCCESS_ACCEPTED'}
     $true
 } finally {
