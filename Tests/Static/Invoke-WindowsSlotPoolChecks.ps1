@@ -22,6 +22,25 @@ try {
         $poolCommand.Definition -match '\$MemoryStartupMB\s*=\s*2048' -and
         $poolCommand.Definition -match '\$MemoryMaximumMB\s*=\s*4096')
 
+    $explicitCoreArtifact = & $module {
+        function Get-HyperVImageArtifact {
+            param([string]$ArtifactId, [string]$StateRoot, [switch]$SkipIntegrityCheck)
+            [PSCustomObject]@{
+                artifactId = $ArtifactId; artifactState = 'OS_SEALED'; generalized = $true
+                registeredAt = '2026-09-01T00:00:00Z'
+                operatingSystem = [PSCustomObject]@{ id = 'windows-server-2025'; version = '2025'; installationType = 'core' }
+            }
+        }
+        function Test-HyperVImageArtifactEvaluationEligibility {
+            param($Artifact, $MinimumEvaluationDaysRemaining)
+            [PSCustomObject]@{ Eligible = $true; Reason = $null }
+        }
+        Resolve-LabWindowsSlotPoolArtifact -ArtifactId ('hyperv-os-sealed-' + ('c' * 64))
+    }
+    Add-CheckResult -Name 'Explizite Server-Core-Baseline wird trotz implizitem Desktop-Default akzeptiert' -Success (
+        $explicitCoreArtifact.artifactId -eq ('hyperv-os-sealed-' + ('c' * 64)) -and
+        $explicitCoreArtifact.operatingSystem.installationType -eq 'core')
+
     $behavior = & $module {
         $originalIsWindows = Get-Variable -Name IsWindows -Scope Script -ErrorAction SilentlyContinue
         Set-Variable -Name IsWindows -Scope Script -Value $true -Force

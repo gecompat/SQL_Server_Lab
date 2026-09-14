@@ -8,14 +8,22 @@ function Resolve-LabWindowsSlotPoolArtifact {
         [string]$StateRoot
     )
 
-    $candidates = @(Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck | Where-Object {
+    $eligibleCandidates = @(Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck | Where-Object {
         [string]$_.artifactState -eq 'OS_SEALED' -and
         [bool]$_.generalized -and
         [string]$_.operatingSystem.id -match '^windows-(server-)?[0-9]+(?:-r2)?$' -and
-        [string]$_.operatingSystem.installationType -eq $InstallationType -and
         (Test-HyperVImageArtifactEvaluationEligibility -Artifact $_ `
             -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining).Eligible
     })
+    # Eine explizite, gültige Artifact-ID ist die konkrete Auswahl. Der
+    # InstallationType steuert nur die automatische Suche und darf eine
+    # vorhandene Core-Baseline nicht wegen des Desktop-Defaults verwerfen.
+    $candidates = if ($ArtifactId) {
+        $eligibleCandidates
+    }
+    else {
+        @($eligibleCandidates | Where-Object { [string]$_.operatingSystem.installationType -eq $InstallationType })
+    }
     if ($ArtifactId -and $candidates.Count -ne 1) {
         throw 'HYPERV_WINDOWS_SLOT_POOL_ARTIFACT_NOT_ELIGIBLE'
     }
