@@ -40,6 +40,7 @@ on:
           - cli-acceptance
           - locale-acceptance
           - sql-configuration-reconcile-acceptance
+          - sql-storage-reconcile-acceptance
           - sql-port-reconcile-acceptance
           - resource-reconcile-acceptance
           - storage-reconcile-acceptance
@@ -165,6 +166,26 @@ jobs:
           $artifactId = '${{ inputs.image_artifact_id }}'
           if (-not [string]::IsNullOrWhiteSpace($artifactId)) { $arguments.ArtifactId = $artifactId }
           .\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1 @arguments
+
+      - name: Reject SQL storage reconcile acceptance outside manual main
+        if: inputs.mode == 'sql-storage-reconcile-acceptance' && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        run: |
+          $ErrorActionPreference = 'Stop'
+          throw 'HYPERV_SQL_STORAGE_RECONCILE_CI_MANUAL_MAIN_REQUIRED'
+      - name: Hyper-V SQL storage reconcile acceptance
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'sql-storage-reconcile-acceptance'
+        env:
+          SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID: ${{ inputs.clone_source_run_id }}
+          SQL_SERVER_LAB_CI_MEDIA_ROOT: ${{ inputs.media_root }}
+          SQL_SERVER_LAB_CI_MEDIA_EDITION: ${{ inputs.media_edition }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $arguments = @{}
+          if ([string]::IsNullOrWhiteSpace([string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID)) { throw 'HYPERV_SQL_STORAGE_RECONCILE_CI_CLONE_SOURCE_REQUIRED' }
+          $arguments.CloneSourceRunId = [string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID
+          $arguments.MediaRoot = [string]$env:SQL_SERVER_LAB_CI_MEDIA_ROOT
+          $arguments.MediaEdition = [string]$env:SQL_SERVER_LAB_CI_MEDIA_EDITION
+          .\Tests\Integration\Invoke-HyperVSqlStorageReconcileAcceptance.ps1 @arguments
 
       - name: Hyper-V SQL port reconcile acceptance
         if: inputs.mode == 'sql-port-reconcile-acceptance'

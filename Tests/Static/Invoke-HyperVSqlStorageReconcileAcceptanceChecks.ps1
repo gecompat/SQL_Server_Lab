@@ -1,0 +1,14 @@
+#Requires -Version 7.2
+[CmdletBinding()]param()
+$ErrorActionPreference='Stop';$repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
+$path=Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSqlStorageReconcileAcceptance.ps1';$workflow=Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml';$source=Get-Content $path -Raw -Encoding utf8;$errors=$null;$null=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$null,[ref]$errors)
+$checks=[ordered]@{
+ 'Native SQL storage acceptance is syntactically valid'=($errors.Count -eq 0)
+ 'Acceptance requires an operation-owned Windows 2025 clone with verified SQL media and denied egress'=($source -match 'Parameter\(Mandatory\)\]\[string\]\$CloneSourceRunId' -and $source -match 'Parameter\(Mandatory\)\]\[string\]\$MediaRoot' -and $source -match 'New-HyperVResourceAcceptanceSlotClone' -and $source -match "Strategy='VerifyOnly'" -and $source -match "EgressPolicy='Denied'")
+ 'Host storage is reconciled and no-op before SQL storage mutation'=($source -match 'RepairHyperVStorage' -and $source -match 'HV-603 ist vor SQL-Mutation No-op' -and $source -match 'RepairHyperVSqlStorage')
+ 'SQL paths are verified solely through the bound runtime receipt'=($source -match 'storage-runtime-receipt\.json' -and $source -match 'receiptAfter\.FileBindings' -and $source -match 'Get-SqlStorageObservation')
+ 'WhatIf, service-only restart, no-op and scope-bound cleanup are explicit'=($source -match 'RepairHyperVSqlStorage.*-WhatIf' -and $source -match 'SqlStartTime -ne' -and $source -match 'bootAfter -eq \$bootBefore' -and $source -match 'Wiederholter HV-603A-Plan ist No-op' -and $source -match 'Remove-SqlServerLab')
+ 'Synthetic fault resume remains separate and no production injection seam is introduced'=($source -match 'Fault/resume injection remains in the synthetic contract' -and $source -match 'does\s+not add a production fault-injection seam' -and $source -notmatch 'Resize-VHD')
+ 'Workflow exposes the acceptance only through manual main dispatch with a clone source'=((Get-Content $workflow -Raw -Encoding utf8) -match '(?m)^\s*- sql-storage-reconcile-acceptance\s*$' -and (Get-Content $workflow -Raw -Encoding utf8) -match 'HYPERV_SQL_STORAGE_RECONCILE_CI_MANUAL_MAIN_REQUIRED' -and (Get-Content $workflow -Raw -Encoding utf8) -match 'HYPERV_SQL_STORAGE_RECONCILE_CI_CLONE_SOURCE_REQUIRED' -and (Get-Content $workflow -Raw -Encoding utf8) -match 'Invoke-HyperVSqlStorageReconcileAcceptance\.ps1 @arguments')
+}
+$failed=@($checks.GetEnumerator()|Where-Object{-not $_.Value});if($failed){throw "Hyper-V SQL storage reconcile acceptance checks failed: $($failed.Key -join ', ')"};Write-Host "Hyper-V SQL Storage Reconcile Acceptance Checks: $($checks.Count) PASS, 0 FAIL" -ForegroundColor Green

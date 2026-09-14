@@ -1433,3 +1433,16 @@ Runner (HV-603A). Der native Lauf wurde noch nicht gestartet und ist daher
 `HOST_APPLIED` und Resume ohne doppelte Hostmutation werden weiterhin durch den
 vorhandenen synthetischen Storage-Reconcile-Vertrag belegt, bis ein
 produktionssicherer nativer Fault-Injection-Punkt ausdrücklich autorisiert ist.
+
+### SQL-Storage-Reconcile aus einem Windows-Slot
+
+Der manuelle Main-Modus `sql-storage-reconcile-acceptance` verlangt einen
+expliziten gestoppten Windows-2025-Clone-Source-Run. Der Runner
+`Invoke-HyperVSqlStorageReconcileAcceptance.ps1` verwendet ausschließlich
+hashregistrierte SQL-2025-Medien mit `VerifyOnly` und verweigertem Egress. Er
+stellt zuerst die zwei HV-603-SCSI-Lanes her und verlangt deren No-op, bevor er
+die receiptgebundenen SQL-Default-, Backup- und TempDB-Pfade plant. `WhatIf`
+ändert weder SQL noch Receipt; die Reparatur verifiziert Receipt und
+dateigenaue SQL-Postconditions nach einem SQL-Dienstrestart ohne VM-Neustart,
+anschließend No-op und operationseigenes Cleanup. Fault/Resume bleibt der
+synthetische HV-603A-Vertrag. Ein positiver nativer Lauf ist `NOT_EXECUTED`.

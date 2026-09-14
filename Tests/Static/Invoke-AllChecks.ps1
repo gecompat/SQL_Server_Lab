@@ -118,6 +118,7 @@ $checks = @(
     'Invoke-HyperVStorageReconcileChecks.ps1',
     'Invoke-HyperVStorageReconcileAcceptanceChecks.ps1',
     'Invoke-HyperVSqlStorageReconcileChecks.ps1',
+    'Invoke-HyperVSqlStorageReconcileAcceptanceChecks.ps1',
     'Invoke-HyperVSqlConfigurationReconcileChecks.ps1',
     'Invoke-HyperVScopedRunCleanupWorkflowChecks.ps1',
     'Invoke-HyperVSqlPortReconcileChecks.ps1',

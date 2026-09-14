@@ -637,6 +637,16 @@ positiver nativer Reparaturlauf wurde für diesen neuen Runner noch nicht
 ausgeführt und bleibt `NOT_EXECUTED`; HV-603A bleibt ein getrennter
 SQL-Dateipfad-Rebinding-Nachweis.
 
+Der getrennte HV-603A-Runner
+`Invoke-HyperVSqlStorageReconcileAcceptance.ps1` ist als manueller Main-
+Nachweis für einen operationseigenen Windows-2025-Clone registriert. Er
+verlangt zuerst den HV-603-Storage-No-op und belegt dann ausschließlich aus
+dem gebundenen Plan und dem Runtime-Receipt die SQL-Default-, Backup- und
+TempDB-Pfade, den SQL-Dienstrestart ohne VM-Neustart, No-op und
+scopegebundenes Cleanup. Der positive native Lauf ist noch `NOT_EXECUTED`.
+User- und Systemdatenbankdateien, zusätzliche TempDB-Logfiles, Rollen-/
+Pfadwechsel, Removal und Fault-Injection bleiben außerhalb dieses Nachweises.
+
 Der Hyper-V-SQL-Konfigurations-Reconcile persistiert die bereits
 ausfuehrbaren `serverConfig`-Werte fuer Memory, MAXDOP, Cost Threshold,
 explizites `spConfigure` und globale Trace Flags. Der read-only Plan vergleicht
