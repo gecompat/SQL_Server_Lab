@@ -1467,18 +1467,25 @@ journalisiert Stop, Apply, Start und Postconditions und setzt
 bewusst `unsupported`.
 
 No-op, Live, Restart, `WhatIf`, Recovery und Resume sind synthetisch belegt.
-Dieser Nachweis verändert keine reale VM und ersetzt noch keinen positiven
-nativen Hyper-V-Ressourcenlauf.
+Am 2026-09-14 bestand zusätzlich die vollständige native Ressourcen-Acceptance
+mit einem expliziten gestoppten Windows-2025-Clone-Quellslot und SQL Server 2025
+Enterprise aus dem konfigurierten Medienroot. Sie belegte `VerifyOnly` mit
+aktiver Evaluation im Clone, SQL-Readiness, Shutdown-Integration und einen
+persistenten Datenmarker für den dynamischen Live-/Restart-Pfad sowie den
+statischen Restart-Pfad; die beiden erzeugten Test-Runs wurden vollständig
+bereinigt. Dies ist ein datierter Nachweis für genau diesen Windows-2025-/
+SQL-2025-Enterprise-Scope, keine Freigabe weiterer Versionen, Images oder
+Ressourcenklassen.
 
-Die native Ressourcen-Acceptance unterstuetzt zusaetzlich zwei eigene SQL-2025-
-Clones eines expliziten, gestoppten Windows-2025-Slots. Quelle, VM-Identitaet,
+Die native Ressourcen-Acceptance unterstuetzt zwei eigene SQL-2025-Clones eines
+expliziten, gestoppten Windows-2025-Slots. Quelle, VM-Identitaet,
 Checkpointfreiheit, VHDX-Bindung und Gastsecret werden vor der Kopie geprueft.
 Der Clone besitzt eigene Ressourcen, IPAM-Lease und Desired State; SQL wird
 ueber die vorhandene Slotinstallation eingerichtet. `VerifyOnly` mit
 verweigertem Aktivierungsegress verlangt einen aktiven Lizenzzustand im Clone.
-Ein vorhandener Slot beweist diesen Zustand nicht. Dieser neue Clone-Pfad ist
-synthetisch geprueft; seine native Abnahme und die Startfehler-Injektion bleiben
-offen. Fruehe Kopierfehler bleiben operationsgebunden bereinigbar.
+Ein vorhandener Slot beweist diesen Zustand nicht. Der Clone-Pfad und seine
+Startfehler-Injektion bleiben synthetisch geprueft; fruehe Kopierfehler bleiben
+operationsgebunden bereinigbar.
 
 ### Container-Reconcile
 
