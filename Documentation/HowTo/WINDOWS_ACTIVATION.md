@@ -41,8 +41,17 @@ Aktivierungspfad; explizite Manifestvorgaben und Isolation werden erhalten.
 `Start-SqlServerLab` prueft eingerichtete Hyper-V-Slots erneut live.
 Pool-Wiederverwendung prueft jeden Slot nacheinander; ohne `LeaveRunning`
 wird er danach wieder gestoppt. Ein Aktivierungsblocker verhindert SQL Setup.
-Nach manueller OOBE kann ein Slot ueber den oeffentlichen Adapter erneut
-geprueft und aktiviert werden, auch wenn er vorher ausgeschaltet war:
+Ein bereits laufender Slot kann weiterhin ohne Kennwortparameter über den
+öffentlichen Adapter erneut geprüft werden; dafür wird das run-lokal gespeicherte
+Gastkennwort verwendet:
+
+```powershell
+Invoke-SqlServerLabWorkflowAction -Action RepairHyperVWindowsActivation -BuildId $runId
+```
+
+Nach manueller OOBE kann ein Slot auch dann erneut geprüft und aktiviert werden,
+wenn er vorher ausgeschaltet war und das frühere DPAPI-geschützte Kennwort nicht
+abrufbar ist:
 
 ```powershell
 Invoke-SqlServerLabWorkflowAction `
@@ -51,14 +60,15 @@ Invoke-SqlServerLabWorkflowAction `
     -GuestPassword (Read-Host 'Windows-Gastkennwort' -AsSecureString)
 ```
 
-Das Kennwort wird nur als SecureString dieses Aufrufs verwendet und weder
-gespeichert noch protokolliert. Der Ablauf synchronisiert zuerst den
-Runtimezustand, startet einen ausgeschalteten Slot, verwendet ausschliesslich
-dessen gespeicherten Aktivierungsintent und stoppt nur den von ihm gestarteten
-Slot nach Erfolg oder Fehler wieder. Mit `-LeaveRunning` bleibt ein zuvor
-ausgeschalteter Slot nach dem Versuch an. Keine Product Keys oder privaten
-Aktivierungsendpunkte gehoeren in den Intent. Intent, Live-Zustand und
-verwendeter Netzwerkmodus werden im lokalen Aktivierungsreceipt gefuehrt.
+Das zusätzlich angegebene Kennwort wird nur als SecureString dieses Aufrufs
+verwendet und weder gespeichert noch protokolliert. Der Wiederaufnahmeablauf
+synchronisiert zuerst den Runtimezustand, startet einen ausgeschalteten Slot,
+verwendet ausschliesslich dessen gespeicherten Aktivierungsintent und stoppt
+nur den von ihm gestarteten Slot nach Erfolg oder Fehler wieder. Mit
+`-LeaveRunning` bleibt ein zuvor ausgeschalteter Slot nach dem Versuch an.
+Keine Product Keys oder privaten Aktivierungsendpunkte gehoeren in den Intent.
+Intent, Live-Zustand und verwendeter Netzwerkmodus werden im lokalen
+Aktivierungsreceipt gefuehrt.
 Temporare Adapter werden anhand des Ownership-Journals auch nach Teilfehlern
 und bei Wiederaufnahme bereinigt. Ungeklaerte Bindungen bleiben
 `RECOVERY_REQUIRED` und werden nicht durch Namenssuche geloescht.

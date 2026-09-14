@@ -179,10 +179,15 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
         $script:workflowLeaveRunning = $LeaveRunning
         [pscustomobject]@{State='EVALUATION_ACTIVE'}
     }
-    $missingCredentialRejected = $false
-    try { $null = Invoke-SqlServerLabWorkflowAction -Action RepairHyperVWindowsActivation -BuildId resume-run }
-    catch { $missingCredentialRejected = $_.Exception.Message -eq 'HYPERV_WORKFLOW_GUEST_PASSWORD_REQUIRED' }
+    $script:legacyCredential = 'not-called'
+    function Invoke-LabWindowsSlotActivationReconcile {
+        param($RunId,$Credential)
+        $script:legacyCredential = $Credential
+        [pscustomobject]@{State='LICENSED';Receipt='legacy-shape'}
+    }
+    $legacyResult = Invoke-SqlServerLabWorkflowAction -Action RepairHyperVWindowsActivation -BuildId resume-run
     $workflowResult = Invoke-SqlServerLabWorkflowAction -Action RepairHyperVWindowsActivation -BuildId resume-run -GuestPassword $password -LeaveRunning
-    Assert-Resume ($missingCredentialRejected -and $workflowResult.Result.State -eq 'EVALUATION_ACTIVE' -and $script:workflowCredential.UserName -eq 'Administrator' -and $script:workflowLeaveRunning) 'Der öffentliche Wiederaufnahmeaufruf verlangt ein fluechtiges SecureString-Gastkennwort und reicht LeaveRunning weiter'
+    Assert-Resume ($null -eq $script:legacyCredential -and $legacyResult.Result.State -eq 'LICENSED' -and $legacyResult.Result.Receipt -eq 'legacy-shape') 'Der öffentliche Reparaturaufruf ohne Kennwort bewahrt den gespeicherten Credential-Pfad und die bisherige Receipt-Form'
+    Assert-Resume ($workflowResult.Result.State -eq 'EVALUATION_ACTIVE' -and $script:workflowCredential.UserName -eq 'Administrator' -and $script:workflowLeaveRunning) 'Der öffentliche Wiederaufnahmeaufruf nutzt ein fluechtiges SecureString-Gastkennwort nur bei expliziter Angabe und reicht LeaveRunning weiter'
 }
 Write-Host 'WINDOWS ACTIVATION INTENT CHECKS: PASS'
