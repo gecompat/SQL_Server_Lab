@@ -18,7 +18,7 @@ function Test-StageReceiptContract {
         $null=New-Item -ItemType Directory -Path $root -Force
         . ([scriptblock]::Create($functionAst.Extent.Text))
         $receiptPath=Join-Path $root 'stage-receipt.json'
-        [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":"HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_VERIFY_FAILED","activationReasonCode":null}',[Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":"HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_SHUTDOWN_READINESS_FAILED","activationReasonCode":null}',[Text.UTF8Encoding]::new($false))
         $valid=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
         [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":"HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_PROVISION_FAILED","activationReasonCode":"WINDOWS_ACTIVATION_REQUIRED"}',[Text.UTF8Encoding]::new($false))
         $activation=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
@@ -28,17 +28,17 @@ function Test-StageReceiptContract {
         $generic=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
         [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":null,"activationReasonCode":null}',[Text.UTF8Encoding]::new($false))
         $missing=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
-        return $valid -and $valid.ReasonCode -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_VERIFY_FAILED' -and -not $valid.ActivationReasonCode -and $activation -and $activation.ActivationReasonCode -ceq 'WINDOWS_ACTIVATION_REQUIRED' -and -not $unsafeActivation -and -not $generic -and -not $missing
+        return $valid -and $valid.ReasonCode -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_SHUTDOWN_READINESS_FAILED' -and -not $valid.ActivationReasonCode -and $activation -and $activation.ActivationReasonCode -ceq 'WINDOWS_ACTIVATION_REQUIRED' -and -not $unsafeActivation -and -not $generic -and -not $missing
     } catch { return $false } finally { if(Test-Path -LiteralPath $root){Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue} }
 }function Test-RunnerReasonCodeContract {
     $functionAst=@($ciAst.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-HyperVResourceReconcileCiRunnerReasonCode'},$true))[0]
     if(-not $functionAst){return $false}
     try {
         . ([scriptblock]::Create($functionAst.Extent.Text))
-        $stage=@(Get-HyperVResourceReconcileCiRunnerReasonCode -RunnerOutput @('HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_VERIFY_FAILED'))
+        $stage=@(Get-HyperVResourceReconcileCiRunnerReasonCode -RunnerOutput @('HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_SHUTDOWN_READINESS_FAILED'))
         $legacy=@(Get-HyperVResourceReconcileCiRunnerReasonCode -RunnerOutput @('HYPERV_RESOURCE_ACCEPTANCE_FAILED: local detail'))
         $unknown=@(Get-HyperVResourceReconcileCiRunnerReasonCode -RunnerOutput @('HYPERV_RESOURCE_RECONCILE_CI_EXECUTION_FAILED'))
-        return $stage.Count -eq 1 -and $stage[0] -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_VERIFY_FAILED' -and $legacy.Count -eq 1 -and $legacy[0] -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_LEGACY_UNCLASSIFIED_FAILED' -and $unknown.Count -eq 0
+        return $stage.Count -eq 1 -and $stage[0] -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_SHUTDOWN_READINESS_FAILED' -and $legacy.Count -eq 1 -and $legacy[0] -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_LEGACY_UNCLASSIFIED_FAILED' -and $unknown.Count -eq 0
     } catch { return $false }
 }
 function Test-ActivationReasonContract {
@@ -57,21 +57,32 @@ function Test-ActivationReasonContract {
         return $known -ceq 'WINDOWS_ACTIVATION_REQUIRED' -and $unknown -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_ACTIVATION_REASON_UNCLASSIFIED' -and $transport.Count -eq 1 -and $transport[0] -ceq 'WINDOWS_ACTIVATION_REQUIRED' -and $ignored.Count -eq 0
     } catch { return $false }
 }
+function Test-ShutdownIntegrationReadinessContract {
+    $acceptanceAst=[Management.Automation.Language.Parser]::ParseFile($acceptancePath,[ref]$null,[ref]$null)
+    $functionAst=@($acceptanceAst.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Wait-ResourceShutdownIntegrationReady'},$true))[0]
+    if(-not $functionAst){return $false}
+    $body=$functionAst.Extent.Text
+    return $body -match '9F8233AC-BE49-4C79-8EE3-E7E1985B2077' -and $body -match 'shutdownService\.Enabled' -and $body -match 'PrimaryOperationalStatus\s+-eq\s+2' -and $body -notmatch 'PrimaryStatusDescription'
+}
 function Test-DynamicRestartReadinessOrdering {
     $applyIndex=$acceptance.IndexOf("`$stage='DYNAMIC_FORBIDDEN_APPLY'")
-    $verifyIndex=$acceptance.IndexOf("`$stage='DYNAMIC_RESTART_VERIFY'")
+    $sqlIndex=$acceptance.IndexOf("`$stage='DYNAMIC_RESTART_SQL_READINESS'")
+    $shutdownIndex=$acceptance.IndexOf("`$stage='DYNAMIC_RESTART_SHUTDOWN_READINESS'")
     $stopIndex=$acceptance.IndexOf("`$stage='DYNAMIC_LIVE_STOP'")
-    if($applyIndex -lt 0 -or $verifyIndex -le $applyIndex -or $stopIndex -le $verifyIndex){return $false}
-    $slice=$acceptance.Substring($verifyIndex,$stopIndex-$verifyIndex)
-    return $slice.IndexOf('Wait-ResourceSqlReady $dynamicContext $sa') -ge 0 -and $slice.IndexOf('Wait-ResourceShutdownIntegrationReady $dynamicContext') -ge 0
+    if($applyIndex -lt 0 -or $sqlIndex -le $applyIndex -or $shutdownIndex -le $sqlIndex -or $stopIndex -le $shutdownIndex){return $false}
+    $sqlSlice=$acceptance.Substring($sqlIndex,$shutdownIndex-$sqlIndex)
+    $shutdownSlice=$acceptance.Substring($shutdownIndex,$stopIndex-$shutdownIndex)
+    return $sqlSlice.IndexOf('Wait-ResourceSqlReady $dynamicContext $sa') -ge 0 -and $sqlSlice.IndexOf('Wait-ResourceShutdownIntegrationReady $dynamicContext') -lt 0 -and $shutdownSlice.IndexOf('Wait-ResourceShutdownIntegrationReady $dynamicContext') -ge 0 -and $shutdownSlice.IndexOf('Wait-ResourceSqlReady $dynamicContext $sa') -lt 0
 }
 function Test-DynamicLiveOrdering {
     $stopStageIndex=$acceptance.IndexOf("`$stage='DYNAMIC_LIVE_STOP'")
     $configureStageIndex=$acceptance.IndexOf("`$stage='DYNAMIC_LIVE_CONFIGURE'")
     $startStageIndex=$acceptance.IndexOf("`$stage='DYNAMIC_LIVE_START'")
     $verifyStageIndex=$acceptance.IndexOf("`$stage='DYNAMIC_LIVE_VERIFY'")
+    $sqlStageIndex=$acceptance.IndexOf("`$stage='DYNAMIC_LIVE_SQL_READINESS'")
+    $shutdownStageIndex=$acceptance.IndexOf("`$stage='DYNAMIC_LIVE_SHUTDOWN_READINESS'")
     $planIndex=$acceptance.IndexOf("`$stage='DYNAMIC_LIVE_PLAN'")
-    if($stopStageIndex -lt 0 -or $configureStageIndex -le $stopStageIndex -or $startStageIndex -le $configureStageIndex -or $verifyStageIndex -le $startStageIndex -or $planIndex -le $verifyStageIndex){return $false}
+    if($stopStageIndex -lt 0 -or $configureStageIndex -le $stopStageIndex -or $startStageIndex -le $configureStageIndex -or $verifyStageIndex -le $startStageIndex -or $sqlStageIndex -le $verifyStageIndex -or $shutdownStageIndex -le $sqlStageIndex -or $planIndex -le $shutdownStageIndex){return $false}
     $slice=$acceptance.Substring($stopStageIndex,$planIndex-$stopStageIndex)
     $stopIndex=$slice.IndexOf('Stop-VM -VM $dynamicVm')
     $setIndex=$slice.IndexOf('MinimumBytes 2048MB')
@@ -85,7 +96,8 @@ $checks=@(
  Add-Check 'Native- und CI-Runner sind syntaktisch gueltig' ($errors.Count -eq 0 -and $ciErrors.Count -eq 0)
  Add-Check 'Native Runner erzeugt genau zwei operationgebundene SQL-2025-Prepared-Runs' ($acceptance -match '\$Run1OperationId' -and $acceptance -match '\$Run2OperationId' -and $acceptance -match 'DeferCleanup' -and $acceptance -match 'Invoke-WithLabWorkflowOperationContext' -and $acceptance -match "artifactState -eq 'SQL_PREPARED_SEALED'" -and $acceptance -match "sql.version -eq '2025'")
  Add-Check 'Dynamischer und statischer Ressourcenfall pruefen Plan, WhatIf, Apply und No-op' ($acceptance -match 'DynamicMemoryEnabled' -and $acceptance -match 'ProcessorCount' -and $acceptance -match 'Get-SqlServerLabReconcilePlan.*-HyperVResources' -and $acceptance -match 'Invoke-SqlServerLabReconcileAction.*-RepairHyperVResources.*-WhatIf' -and $acceptance -match 'Dynamischer Wiederholungsplan ist No-op' -and $acceptance -match 'Statischer Wiederholungsplan ist No-op')
- Add-Check 'Dynamic-Apply prueft gestoppte einengende Drift, Restart, SQL- und Shutdown-Readiness sowie bereichserweiternde Live-Reparatur' ($acceptance -match 'einengende dynamische Drift gestoppt' -and $acceptance -match 'DYNAMIC_FORBIDDEN_PLAN' -and $acceptance -match 'HYPERV_RESOURCE_RECONCILE_LIVE_DIRECTION_RESTART_REQUIRED' -and $acceptance -match 'DYNAMIC_LIVE_PLAN' -and $acceptance -match 'tempdb-Marker ohne Restart wieder her' -and (Test-DynamicRestartReadinessOrdering) -and (Test-DynamicLiveOrdering))
+ Add-Check 'Dynamic-Apply prueft gestoppte einengende Drift, getrennte Restart- und Live-Readiness sowie bereichserweiternde Live-Reparatur' ($acceptance -match 'einengende dynamische Drift gestoppt' -and $acceptance -match 'DYNAMIC_FORBIDDEN_PLAN' -and $acceptance -match 'HYPERV_RESOURCE_RECONCILE_LIVE_DIRECTION_RESTART_REQUIRED' -and $acceptance -match 'DYNAMIC_LIVE_PLAN' -and $acceptance -match 'tempdb-Marker ohne Restart wieder her' -and (Test-DynamicRestartReadinessOrdering) -and (Test-DynamicLiveOrdering))
+ Add-Check 'Shutdown-Readiness verwendet die feste Shutdown-GUID und den lokalisierungsfreien operativen Status' (Test-ShutdownIntegrationReadinessContract)
  Add-Check 'Static-Apply prueft CPU, RAM-Modus, SQL-Readiness und persistenten Datenmarker mit normalisierten Werten' ($acceptance -match 'CREATE DATABASE SqlLabHvResourceMarkerDb' -and $acceptance -match 'Wait-ResourcePersistentSqlMarker' -and $acceptance -match 'Minimum=if\(\$dynamic\)' -and $acceptance -match 'Restart-Reconcile stellt CPU, statischen RAM, SQL-Readiness und persistenten Datenmarker wieder her')
  Add-Check 'Native Runner emittiert nur allowlistgebundene Fehlerstufen ohne Rohfehler' ($acceptance -match "\`$allowedStages=@\('INITIALIZATION'" -and $acceptance -match 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_\$\{safeStage\}_FAILED' -and $acceptance -notmatch 'throw "HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_\$\{safeStage\}_FAILED: \$\(')
  Add-Check 'Native Failure-Injection wird nicht behauptet' ($acceptance -match '(?s)Runner injiziert keinen.*bleibt daher bewusst offen' -and $acceptance -notmatch 'Mock\s+Start-VM')
