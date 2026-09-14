@@ -99,12 +99,16 @@ try {
         function Stop-HyperVLabEnvironment { param($RunId,$StateRoot) $script:stopCalls.Add($RunId) }
         function Start-HyperVLabEnvironment {param($RunId,$StateRoot) $script:activationChecks.Add($RunId)}
 
-        $result = New-SqlServerLabWindowsSlotPool -Count 2 -GenerateAdministratorPasswords `
+        $result = New-SqlServerLabWindowsSlotPool -Count 2 -GenerateAdministratorPasswords -ArtifactId '' `
             -StateRoot 'X:\state' -Confirm:$false
         function Get-LabActiveRuns {@($script:poolLabs.Values | ForEach-Object {$_.Run})}
         $reuse = New-SqlServerLabWindowsSlotPool -Count 2 -GenerateAdministratorPasswords -StateRoot 'X:\state' -Confirm:$false
+        $invalidExplicitArtifactRejected = $false
+        try { New-SqlServerLabWindowsSlotPool -Count 1 -GenerateAdministratorPasswords -ArtifactId 'invalid-artifact' | Out-Null }
+        catch { $invalidExplicitArtifactRejected = $true }
         [PSCustomObject]@{
             Result=$result; Reuse=$reuse; ActivationChecks=@($script:activationChecks); Creates=@($script:createCalls); Provisions=@($script:provisionCalls); Stops=@($script:stopCalls)
+            InvalidExplicitArtifactRejected=$invalidExplicitArtifactRejected
         }
         }
         finally {
@@ -117,6 +121,8 @@ try {
         }
     }
 
+    Add-CheckResult -Name 'Leere optionale ArtifactId loest die automatische Baseline-Auswahl aus; eine explizit ungueltige ID bleibt abgewiesen' -Success (
+        $behavior.Result.ArtifactId -eq ("hyperv-os-sealed-" + ('a' * 64)) -and $behavior.InvalidExplicitArtifactRejected)
     Add-CheckResult -Name 'Wiederverwendung prueft beide Aktivierungen live ohne erneute OOBE oder neue VM' -Success ($behavior.ActivationChecks.Count -eq 2 -and $behavior.Creates.Count -eq 2 -and $behavior.Provisions.Count -eq 2)
     Add-CheckResult -Name 'Pool bindet den Aktivierungsintent vor der ersten VM' -Success (@($behavior.Creates | Where-Object {$_.WindowsActivation.ContractVersion -eq 'SqlServerLab.WindowsActivationIntent/1.0' -and $_.WindowsActivation.EgressPolicy -eq 'ExistingOnly'}).Count -eq 2)
     Add-CheckResult -Name 'Pool erstellt zwei Slots mit den gebundenen Standardressourcen' -Success (

@@ -1,7 +1,7 @@
 function Resolve-LabWindowsSlotPoolArtifact {
     [CmdletBinding()]
     param(
-        [ValidatePattern('^hyperv-os-sealed-[a-f0-9]{64}$')][string]$ArtifactId,
+        [ValidatePattern('^(?:hyperv-os-sealed-[a-f0-9]{64})?$')][string]$ArtifactId,
         [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30,
         [switch]$VerifyIntegrity,
         [string]$StateRoot
@@ -122,7 +122,7 @@ function New-SqlServerLabWindowsSlotPool {
         [Parameter(Mandatory)][ValidateRange(1, 100)][int]$Count,
         [ValidateRange(1, 9999)][int]$StartIndex = 1,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,52}$')][string]$NamePrefix = 'windows-sql-slot',
-        [ValidatePattern('^hyperv-os-sealed-[a-f0-9]{64}$')][string]$ArtifactId,
+        [ValidatePattern('^(?:hyperv-os-sealed-[a-f0-9]{64})?$')][string]$ArtifactId,
         [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30,
         [ValidateRange(512, 1048576)][int]$MemoryMinimumMB = 1024,
         [ValidateRange(512, 1048576)][int]$MemoryStartupMB = 2048,
