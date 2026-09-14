@@ -99,3 +99,59 @@ function Invoke-LabWindowsSlotActivationReconcile {
     $intent=Resolve-LabWindowsActivationIntent -Intent $lab.Instance.windowsActivationIntent -Isolated:([string]$lab.Run.metadata.networkIntent -eq 'isolated')
     Invoke-HyperVWindowsSlotActivation -RunId $RunId -WindowsActivation $intent -Credential $Credential -StateRoot $lab.StateRoot
 }
+
+function Resume-LabWindowsSlotActivation {
+    <#
+    .SYNOPSIS
+        Aktiviert einen nach manueller OOBE fortzusetzenden Windows-Slot.
+    .DESCRIPTION
+        Der Aufruf verwendet ausschliesslich das unmittelbar uebergebene
+        Gast-Credential. Er ersetzt kein fehlendes DPAPI-Secret und speichert
+        weder Kennwort noch Credential. War die VM vorher ausgeschaltet, wird
+        sie nach der Aktivierung auch bei einem Aktivierungsfehler wieder
+        gestoppt, ausser LeaveRunning ist angefordert.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [switch]$LeaveRunning,
+        [string]$StateRoot
+    )
+
+    $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
+    $synced = Sync-LabRunRuntimeState -Run $lab.Run -StateRoot $lab.StateRoot
+    $runtimeState = [string]$synced.Runtime.State
+    if ($runtimeState -notin @('RUNNING', 'STOPPED')) {
+        throw "HYPERV_WINDOWS_ACTIVATION_RESUME_STATE_UNSUPPORTED: $runtimeState"
+    }
+
+    $startedByResume = $runtimeState -eq 'STOPPED'
+    $stoppedByResume = $false
+    $activation = $null
+    $result = $null
+    try {
+        if ($startedByResume) {
+            $null = Start-HyperVLabEnvironment -RunId $RunId -SkipWindowsActivationReconcile -StateRoot $lab.StateRoot
+        }
+        # No intent is accepted here: the existing, normalized per-slot intent
+        # remains the activation authority for a manually resumed slot.
+        $activation = Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $Credential -StateRoot $lab.StateRoot
+        $result = [PSCustomObject]@{
+            ContractVersion = 'SqlServerLab.WindowsActivationResume/1.0'
+            RunId = [string]$lab.Run.runId
+            StartedByResume = $startedByResume
+            StoppedByResume = $false
+            ActivationIntent = Resolve-LabWindowsActivationIntent -Intent $lab.Instance.windowsActivationIntent
+            Activation = $activation
+        }
+    }
+    finally {
+        if ($startedByResume -and -not $LeaveRunning) {
+            $null = Stop-HyperVLabEnvironment -RunId $RunId -StateRoot $lab.StateRoot
+            $stoppedByResume = $true
+            if ($result) { $result.StoppedByResume = $stoppedByResume }
+        }
+    }
+    return $result
+}
