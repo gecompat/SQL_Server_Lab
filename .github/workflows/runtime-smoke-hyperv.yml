@@ -24,6 +24,10 @@ on:
         type: string
   workflow_dispatch:
     inputs:
+      clone_source_run_id:
+        description: Optionaler gestoppter Windows-2025-Slot als Clone-Quelle nur fuer Ressourcen-Acceptance
+        required: false
+        type: string
       mode:
         description: Auszufuehrender Hyper-V-Nachweis
         required: true
@@ -178,11 +182,19 @@ jobs:
         if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'resource-reconcile-acceptance'
         env:
           SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+          SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID: ${{ inputs.clone_source_run_id }}
+          SQL_SERVER_LAB_CI_MEDIA_ROOT: ${{ inputs.media_root }}
+          SQL_SERVER_LAB_CI_MEDIA_EDITION: ${{ inputs.media_edition }}
         run: |
           $ErrorActionPreference = 'Stop'
           $arguments = @{}
           if (-not [string]::IsNullOrWhiteSpace([string]$env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID)) {
             $arguments.ArtifactId = [string]$env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID
+          }
+          if (-not [string]::IsNullOrWhiteSpace([string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID)) {
+            $arguments.CloneSourceRunId = [string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID
+            $arguments.MediaRoot = [string]$env:SQL_SERVER_LAB_CI_MEDIA_ROOT
+            $arguments.MediaEdition = [string]$env:SQL_SERVER_LAB_CI_MEDIA_EDITION
           }
           .\Tests\Integration\Invoke-HyperVResourceReconcileCiAcceptance.ps1 @arguments
       - name: Reject sample manifest acceptance outside manual main

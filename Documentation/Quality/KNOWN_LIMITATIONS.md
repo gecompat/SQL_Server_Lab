@@ -1470,6 +1470,16 @@ No-op, Live, Restart, `WhatIf`, Recovery und Resume sind synthetisch belegt.
 Dieser Nachweis verändert keine reale VM und ersetzt noch keinen positiven
 nativen Hyper-V-Ressourcenlauf.
 
+Die native Ressourcen-Acceptance unterstuetzt zusaetzlich zwei eigene SQL-2025-
+Clones eines expliziten, gestoppten Windows-2025-Slots. Quelle, VM-Identitaet,
+Checkpointfreiheit, VHDX-Bindung und Gastsecret werden vor der Kopie geprueft.
+Der Clone besitzt eigene Ressourcen, IPAM-Lease und Desired State; SQL wird
+ueber die vorhandene Slotinstallation eingerichtet. `VerifyOnly` mit
+verweigertem Aktivierungsegress verlangt einen aktiven Lizenzzustand im Clone.
+Ein vorhandener Slot beweist diesen Zustand nicht. Dieser neue Clone-Pfad ist
+synthetisch geprueft; seine native Abnahme und die Startfehler-Injektion bleiben
+offen. Fruehe Kopierfehler bleiben operationsgebunden bereinigbar.
+
 ### Container-Reconcile
 
 Der öffentliche Containerplan und seine Action unterstützen derzeit CPU, RAM

@@ -166,6 +166,8 @@ sources_of_truth:
   validation_hyperv_resource_reconcile_acceptance: Tests/Integration/Invoke-HyperVResourceReconcileAcceptance.ps1
   validation_hyperv_resource_reconcile_ci_acceptance: Tests/Integration/Invoke-HyperVResourceReconcileCiAcceptance.ps1
   validation_hyperv_resource_reconcile_acceptance_static: Tests/Static/Invoke-HyperVResourceReconcileAcceptanceChecks.ps1
+  validation_hyperv_resource_slot_clone: Tests/Common/HyperVResourceAcceptanceSlotClone.ps1
+  validation_hyperv_resource_slot_clone_fixture: Tests/Common/HyperVResourceAcceptanceSlotCloneFixture.ps1
   hyperv_storage_reconcile_contract: Private/HyperVStorageReconcile.ps1
   hyperv_storage_reconcile_journal_schema: Schemas/hyperv-storage-reconcile-journal.schema.json
   validation_hyperv_storage_reconcile: Tests/Static/Invoke-HyperVStorageReconcileChecks.ps1

@@ -517,7 +517,10 @@ additive lokal gebundene Infrastruktur und genau einen vorhandenen getrennten
 Adapter repariert. `HV-601` ist damit für den Netzwerkanteil, nicht aber für
 den vollständigen Windows-/SQL-/Hardware-Istzustand umgesetzt. `HV-602` bindet
 vCPU, statisches/dynamisches RAM und Min/Startup/Max manifestseitig und besitzt
-einen synthetisch belegten Live-/Restart-/Recovery-Executor. `HV-603` besitzt
+einen synthetisch belegten Live-/Restart-/Recovery-Executor. Die native
+Acceptance kann alternativ zwei eigene SQL-2025-Clones eines gestoppten
+Windows-2025-Slots verwenden; Clone, VerifyOnly-Lizenzpruefung und Cleanup sind
+synthetisch geprueft, der native Gesamtnachweis bleibt offen. `HV-603` besitzt
 fuer manifestgebundene Zusatz-VHDX und gebundene Storage-Lanes einen
 hostwertfreien Plan sowie einen journalisierten Add-/Grow-only-Executor mit
 Gast-NTFS-Verifikation und Wiederherstellung des VM-Zustands. Rebinding,

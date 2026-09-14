@@ -93,6 +93,8 @@ function Test-DynamicLiveOrdering {
     return $stopIndex -ge 0 -and $setIndex -gt $stopIndex -and $startIndex -gt $setIndex -and $sqlReadyIndex -gt $startIndex -and $shutdownReadyIndex -gt $sqlReadyIndex -and $markerIndex -gt $shutdownReadyIndex
 }
 $checks=@(
+ Add-Check 'Echter synthetischer Childprozess transportiert Slotparameter und eine konsistente Erfolgsquittung' ([bool](& (Join-Path $repoRoot 'Tests/Common/HyperVResourceAcceptanceSlotSupervisorFixture.ps1') -CiPath $ciPath))
+ Add-Check 'Slot-Clone prueft Quelle, eigene Transaktion, VerifyOnly und Kopierfehler ohne Runtime' ([bool](& (Join-Path $repoRoot 'Tests/Common/HyperVResourceAcceptanceSlotCloneFixture.ps1') -HelperPath (Join-Path $repoRoot 'Tests/Common/HyperVResourceAcceptanceSlotClone.ps1')))
  Add-Check 'Native- und CI-Runner sind syntaktisch gueltig' ($errors.Count -eq 0 -and $ciErrors.Count -eq 0)
  Add-Check 'Native Runner erzeugt genau zwei operationgebundene SQL-2025-Prepared-Runs' ($acceptance -match '\$Run1OperationId' -and $acceptance -match '\$Run2OperationId' -and $acceptance -match 'DeferCleanup' -and $acceptance -match 'Invoke-WithLabWorkflowOperationContext' -and $acceptance -match "artifactState -eq 'SQL_PREPARED_SEALED'" -and $acceptance -match "sql.version -eq '2025'")
  Add-Check 'Dynamischer und statischer Ressourcenfall pruefen Plan, WhatIf, Apply und No-op' ($acceptance -match 'DynamicMemoryEnabled' -and $acceptance -match 'ProcessorCount' -and $acceptance -match 'Get-SqlServerLabReconcilePlan.*-HyperVResources' -and $acceptance -match 'Invoke-SqlServerLabReconcileAction.*-RepairHyperVResources.*-WhatIf' -and $acceptance -match 'Dynamischer Wiederholungsplan ist No-op' -and $acceptance -match 'Statischer Wiederholungsplan ist No-op')
