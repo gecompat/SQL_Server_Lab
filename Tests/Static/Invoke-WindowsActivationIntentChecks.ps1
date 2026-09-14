@@ -185,9 +185,17 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
         $script:legacyCredential = $Credential
         [pscustomobject]@{State='LICENSED';Receipt='legacy-shape'}
     }
-    $legacyResult = Invoke-SqlServerLabWorkflowAction -Action RepairHyperVWindowsActivation -BuildId resume-run
-    $workflowResult = Invoke-SqlServerLabWorkflowAction -Action RepairHyperVWindowsActivation -BuildId resume-run -GuestPassword $password -LeaveRunning
-    Assert-Resume ($null -eq $script:legacyCredential -and $legacyResult.Result.State -eq 'LICENSED' -and $legacyResult.Result.Receipt -eq 'legacy-shape') 'Der öffentliche Reparaturaufruf ohne Kennwort bewahrt den gespeicherten Credential-Pfad und die bisherige Receipt-Form'
-    Assert-Resume ($workflowResult.Result.State -eq 'EVALUATION_ACTIVE' -and $script:workflowCredential.UserName -eq 'Administrator' -and $script:workflowLeaveRunning) 'Der öffentliche Wiederaufnahmeaufruf nutzt ein fluechtiges SecureString-Gastkennwort nur bei expliziter Angabe und reicht LeaveRunning weiter'
+    $originalIsWindows = Get-Variable -Name IsWindows -Scope Script -ErrorAction SilentlyContinue
+    Set-Variable -Name IsWindows -Scope Script -Value $true -Force
+    try {
+        $legacyResult = Invoke-SqlServerLabWorkflowAction -Action RepairHyperVWindowsActivation -BuildId resume-run
+        $workflowResult = Invoke-SqlServerLabWorkflowAction -Action RepairHyperVWindowsActivation -BuildId resume-run -GuestPassword $password -LeaveRunning
+        Assert-Resume ($null -eq $script:legacyCredential -and $legacyResult.Result.State -eq 'LICENSED' -and $legacyResult.Result.Receipt -eq 'legacy-shape') 'Der öffentliche Reparaturaufruf ohne Kennwort bewahrt den gespeicherten Credential-Pfad und die bisherige Receipt-Form'
+        Assert-Resume ($workflowResult.Result.State -eq 'EVALUATION_ACTIVE' -and $script:workflowCredential.UserName -eq 'Administrator' -and $script:workflowLeaveRunning) 'Der öffentliche Wiederaufnahmeaufruf nutzt ein fluechtiges SecureString-Gastkennwort nur bei expliziter Angabe und reicht LeaveRunning weiter'
+    }
+    finally {
+        if ($originalIsWindows) { Set-Variable -Name IsWindows -Scope Script -Value ([bool]$originalIsWindows.Value) -Force }
+        else { Remove-Variable -Name IsWindows -Scope Script -Force -ErrorAction SilentlyContinue }
+    }
 }
 Write-Host 'WINDOWS ACTIVATION INTENT CHECKS: PASS'
