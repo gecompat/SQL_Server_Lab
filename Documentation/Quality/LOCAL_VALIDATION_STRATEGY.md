@@ -1405,4 +1405,8 @@ unbestaetigter Prozessterminierung bleibt `RECOVERY_REQUIRED`.
 Die fokussierte Ressourcen-Acceptance-Suite fuehrt eine synthetische Clone-
 Transaktion aus und prueft ungueltige Quellen, Cleanup vor Kopie, eigene Lease,
 Desired State, VerifyOnly, Abbruch bei Kopierfehler und Freigabe der Quelllocks.
+Ein abgewiesener SQL- oder anderer nicht geeigneter Quell-Run bleibt ein
+Provisionierungsfehler ohne Aktivierungscode; nur ein tatsaechlich erkannter,
+allowlistgebundener Windows-Aktivierungsfehler wird als solcher in der kleinen
+CI-Receipt ausgewiesen.
 Die native Clone-Abnahme ist `NOT_EXECUTED`.

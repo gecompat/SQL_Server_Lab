@@ -22,13 +22,15 @@ function Test-StageReceiptContract {
         $valid=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
         [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":"HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_PROVISION_FAILED","activationReasonCode":"WINDOWS_ACTIVATION_REQUIRED"}',[Text.UTF8Encoding]::new($false))
         $activation=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
+        [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":"HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_PROVISION_FAILED","activationReasonCode":null}',[Text.UTF8Encoding]::new($false))
+        $sourceEligibility=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
         [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":"HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_PROVISION_FAILED","activationReasonCode":"raw failure detail"}',[Text.UTF8Encoding]::new($false))
         $unsafeActivation=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
         [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":"HYPERV_RESOURCE_RECONCILE_CI_EXECUTION_FAILED","activationReasonCode":null}',[Text.UTF8Encoding]::new($false))
         $generic=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
         [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":null,"activationReasonCode":null}',[Text.UTF8Encoding]::new($false))
         $missing=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
-        return $valid -and $valid.ReasonCode -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_SHUTDOWN_READINESS_FAILED' -and -not $valid.ActivationReasonCode -and $activation -and $activation.ActivationReasonCode -ceq 'WINDOWS_ACTIVATION_REQUIRED' -and -not $unsafeActivation -and -not $generic -and -not $missing
+        return $valid -and $valid.ReasonCode -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_SHUTDOWN_READINESS_FAILED' -and -not $valid.ActivationReasonCode -and $activation -and $activation.ActivationReasonCode -ceq 'WINDOWS_ACTIVATION_REQUIRED' -and $sourceEligibility -and -not $sourceEligibility.ActivationReasonCode -and -not $unsafeActivation -and -not $generic -and -not $missing
     } catch { return $false } finally { if(Test-Path -LiteralPath $root){Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue} }
 }function Test-RunnerReasonCodeContract {
     $functionAst=@($ciAst.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Get-HyperVResourceReconcileCiRunnerReasonCode'},$true))[0]
@@ -54,7 +56,7 @@ function Test-ActivationReasonContract {
         try{throw 'private failure detail'}catch{$unknown=Get-HyperVResourceReconcileAcceptanceActivationReasonCode -ErrorRecord $_}
         $transport=@(Get-HyperVResourceReconcileCiActivationReasonCode -RunnerOutput @('HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_PROVISION_FAILED WINDOWS_ACTIVATION_REQUIRED'))
         $ignored=@(Get-HyperVResourceReconcileCiActivationReasonCode -RunnerOutput @('private failure detail'))
-        return $known -ceq 'WINDOWS_ACTIVATION_REQUIRED' -and $unknown -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_ACTIVATION_REASON_UNCLASSIFIED' -and $transport.Count -eq 1 -and $transport[0] -ceq 'WINDOWS_ACTIVATION_REQUIRED' -and $ignored.Count -eq 0
+        return $known -ceq 'WINDOWS_ACTIVATION_REQUIRED' -and $null -eq $unknown -and $transport.Count -eq 1 -and $transport[0] -ceq 'WINDOWS_ACTIVATION_REQUIRED' -and $ignored.Count -eq 0
     } catch { return $false }
 }
 function Test-ShutdownIntegrationReadinessContract {
@@ -105,7 +107,7 @@ $checks=@(
  Add-Check 'Native Failure-Injection wird nicht behauptet' ($acceptance -match '(?s)Runner injiziert keinen.*bleibt daher bewusst offen' -and $acceptance -notmatch 'Mock\s+Start-VM')
  Add-Check 'Supervisor extrahiert nur feste Stufencodes und ordnet Legacyfehler sicher zu' (Test-RunnerReasonCodeContract)
  Add-Check 'Receipt akzeptiert nur eine feste Fehlerstufe und weist generische Codes ab' (Test-StageReceiptContract)
- Add-Check 'Provisionierungsfehler transportieren nur allowlistgebundene Aktivierungsgründe oder den festen Fallback' (Test-ActivationReasonContract)
+ Add-Check 'Provisionierungsfehler transportieren nur nachgewiesene Aktivierungsgründe; Quellfehler bleiben ohne Aktivierungscode' (Test-ActivationReasonContract)
  Add-Check 'Child verwendet dieselbe feste Stufen-, Legacy- und Aktivierungsallowlist' ($ci -match '(?s)function Get-ReasonCode \{.*?HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_.*?LEGACY_UNCLASSIFIED.*?return @\(\)' -and $ci -match '(?s)function Get-ActivationReasonCode \{.*?WINDOWS_ACTIVATION_REQUIRED.*?ACTIVATION_REASON_UNCLASSIFIED.*?return @\(\)')
  Add-Check 'Supervisor validiert nur feste Stufen und allowlistgebundene Aktivierungsgründe in der Receipt' ($ci -match "reasonCode -notmatch '\^HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_" -and $ci -match 'activationReasonCode' -and $ci -match 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_ACTIVATION_REASON_UNCLASSIFIED' -and $ci -match 'LEGACY_UNCLASSIFIED')
  Add-Check 'Supervisor begrenzt den Childprozess, validiert eine kleine Receipt und bereinigt nur operationgebundene Runs' ($ci -match 'RunnerTimeoutSeconds' -and $ci -match 'DeferCleanup' -and $ci -match 'Test-HyperVResourceReconcileCiStageReceipt' -and $ci -match 'Stop-HyperVResourceReconcileCiChildProcessTree' -and $ci -match 'Get-LabOperationOwnedRun' -and $ci -match 'Get-HyperVManagedVM.*-ExpectedRunId.*-ExpectedScopeId' -and $ci -match 'Remove-SqlServerLab -RunId \$RunId -StateRoot \$Root -Force -Confirm:\$false')
