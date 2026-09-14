@@ -16,10 +16,27 @@
 | [Test-WindowsServer2003HyperVIntegrationMedia.ps1](Test-WindowsServer2003HyperVIntegrationMedia.ps1) | Prüft Hash, VMGUEST-Volume, Version und Microsoft-Signaturen der archivierten Hyper-V-Integrations-DVD für Server 2003 SP2 |
 | [New-LegacySqlServerAcceptanceEnvironment.ps1](New-LegacySqlServerAcceptanceEnvironment.ps1) | Erstellt oder übernimmt reale SQL-Server-2012-Evaluation- und SQL-Server-2014-Express-SP3-Abnahmeumgebungen auf der verifizierten Windows-Server-2012-R2-Vorlage und prüft Setup, Dienst, Version, Create, Backup und Restore |
 | [Invoke-SqlServerLabMaintenance.ps1](Invoke-SqlServerLabMaintenance.ps1) | Plant oder korrigiert State-/Runtime-Drift und bereinigt eng gebundene Lab-Artefakte deterministisch; geeignet für manuelle Aufrufe und Windows Task Scheduler |
+| [Remove-HyperVOrphanWithOwnedStorage.ps1](Remove-HyperVOrphanWithOwnedStorage.ps1) | Entfernt eine ausgeschaltete verwaiste Hyper-V-Test-VM einschließlich exakt gebundener eigener VHDX nach erneuter Identitäts- und Parent-Prüfung; der Shared Parent bleibt erhalten |
 | [CheckLargeGitFilesPush.ps1](../CheckLargeGitFilesPush.ps1) | Prüft staged/untracked Dateien auf Größe, schreibt optional Log und kann Commit+Push nach Prüfung ausführen |
 
 Werkzeuge unter `Tools/` sind keine exportierten Cmdlets des PowerShell-Moduls.
 Sie werden ausdrücklich über ihren Dateipfad aufgerufen.
+
+## Remove-HyperVOrphanWithOwnedStorage.ps1
+
+Dieses Ausnahme-Werkzeug ist ausschließlich für nicht mehr registrierte,
+ausgeschaltete Hyper-V-Test-VMs vorgesehen, bei denen der normale
+scopegebundene Cleanup deshalb bewusst fail-closed bleibt. Zuerst den Umfang
+ohne Mutation prüfen:
+
+```powershell
+.\Tools\Remove-HyperVOrphanWithOwnedStorage.ps1 -VMName '<vm-name>' -DeleteAdditionalVhdx -WhatIf
+```
+
+Die tatsächliche Entfernung erfordert denselben expliziten Schalter. Das Tool
+akzeptiert nur genau zwei angeschlossene VHDX-Dateien: eine Differencing-VHDX
+und eine zusätzliche Daten-VHDX. Es prüft VM-Zustand, Checkpoints,
+Fremdbindungen und Reparse-Points erneut; den Shared Parent löscht es nie.
 
 ## Start-SqlServerLabUi.ps1
 

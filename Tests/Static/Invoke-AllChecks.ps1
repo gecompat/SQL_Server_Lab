@@ -121,6 +121,7 @@ $checks = @(
     'Invoke-HyperVScopedRunCleanupWorkflowChecks.ps1',
     'Invoke-HyperVSqlPortReconcileChecks.ps1',
     'Invoke-HyperVTestDatabaseReconcileChecks.ps1',
+    'Invoke-HyperVOrphanCleanupToolChecks.ps1',
     'Invoke-HyperVSampleManifestAcceptanceChecks.ps1',
     'Invoke-ContainerReconcileChecks.ps1',
     'Invoke-ProviderCapabilityChecks.ps1',
