@@ -89,6 +89,7 @@ try {
         'Invoke-HyperVPowerShellDirect',
         'Wait-HyperVPowerShellDirect',
         'Set-HyperVWindowsGuestSpecialization',
+        'Confirm-HyperVWindowsManualOobeSpecialization',
         'Wait-HyperVGuestSqlReady',
         'Initialize-HyperVWindowsGuestDrives',
         'Remove-HyperVInstance',
@@ -454,6 +455,42 @@ try {
         -Success (
             $idempotentSpecialization.Status -eq 'WINDOWS_SPECIALIZED' -and
             -not $idempotentSpecialization.Rebooted
+        )
+
+    $manualOobeSpecialization = & $module {
+        param($Credential)
+        $identity = [PSCustomObject]@{
+            contractVersion = '0.7'; provider = 'hyperv'; runId = 'run-manual-oobe'; scopeId = 'scope-manual-oobe'
+            instanceId = 'manual-oobe'; childVhdxPath = 'C:\synthetic\os.vhdx'
+            additionalVhdxPaths = @(); additionalDrives = @()
+        }
+        $vm = [PSCustomObject]@{ State = 'Running'; Notes = '' }
+        $script:CapturedManualOobeNotes = ''
+        function Get-HyperVManagedVM { [PSCustomObject]@{ VM = $vm; Identity = $identity } }
+        function Invoke-HyperVPowerShellDirect {
+            [PSCustomObject]@{
+                computerName = 'SQLMANUAL'; pendingComputerName = 'SQLMANUAL'
+                imageState = 'IMAGE_STATE_COMPLETE'; windowsVersion = '10.0.26100.0'
+            }
+        }
+        function Set-VM { param($VM,$Notes,$AutomaticCheckpointsEnabled,$ErrorAction); $script:CapturedManualOobeNotes = $Notes }
+        $result = Confirm-HyperVWindowsManualOobeSpecialization `
+            -VMName 'sql-lab-manual-oobe' `
+            -ExpectedRunId 'run-manual-oobe' `
+            -ExpectedScopeId 'scope-manual-oobe' `
+            -Credential $Credential
+        [PSCustomObject]@{ Result = $result; Notes = $script:CapturedManualOobeNotes }
+    } $specializationCredential
+    Add-CheckResult `
+        -Name 'Manuell abgeschlossene OOBE wird erst nach Gast-Postcondition als Windows-Specialization persistiert' `
+        -Success (
+            $manualOobeSpecialization.Result.Status -eq 'WINDOWS_SPECIALIZED' -and
+            $manualOobeSpecialization.Result.ComputerName -eq 'SQLMANUAL' -and
+            -not $manualOobeSpecialization.Result.Rebooted -and
+            $manualOobeSpecialization.Result.SpecializationMode -eq 'MANUAL_OOBE_VERIFIED' -and
+            $manualOobeSpecialization.Notes -match 'MANUAL_OOBE_VERIFIED' -and
+            $manualOobeSpecialization.Notes -notmatch [regex]::Escape($specializationUser) -and
+            $manualOobeSpecialization.Notes -notmatch [regex]::Escape($specializationPassword)
         )
 
     $sqlSaPasswordText = 'NotPersisted_SqlReadiness_4!'
