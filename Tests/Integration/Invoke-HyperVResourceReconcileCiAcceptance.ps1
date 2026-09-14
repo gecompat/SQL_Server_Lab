@@ -58,6 +58,16 @@ function Get-HyperVResourceReconcileCiActivationReasonCode {
     if(@($codes).Count -gt 0){return @($codes|Sort-Object -Unique|Select-Object -First 1)}
     return @()
 }
+function Get-HyperVResourceReconcileCiProvisionReasonCode {
+    param([Parameter(Mandatory)][object[]]$RunnerOutput)
+    $provisionPattern='(?<![A-Z0-9_])(?:HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND)(?![A-Z0-9_])'
+    $codes=foreach($entry in $RunnerOutput){
+        $text=if($entry -is [Management.Automation.ErrorRecord]){[string]$entry.Exception.Message}else{[string]$entry}
+        foreach($match in [regex]::Matches($text,$provisionPattern)){$match.Value}
+    }
+    if(@($codes).Count -gt 0){return @($codes|Sort-Object -Unique|Select-Object -First 1)}
+    return @()
+}
 function New-HyperVResourceReconcileCiSupervisorRoot {
     [OutputType([string])]
     param([switch]$Synthetic)
@@ -82,16 +92,17 @@ function Test-HyperVResourceReconcileCiStageReceipt {
     if($item.Length -gt 1024 -or ($item.Attributes -band [IO.FileAttributes]::ReparsePoint)){return $null}
     try{$receipt=Get-Content -LiteralPath $ReceiptPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 3}catch{return $null}
     $properties=@($receipt.PSObject.Properties.Name)
-    if(@($properties|Where-Object{$_ -notin @('status','stage','reasonCode','activationReasonCode')}).Count -ne 0 -or $properties.Count -ne 4){return $null}
-    $status=[string]$receipt.status;$stage=[string]$receipt.stage;$reasonCode=[string]$receipt.reasonCode;$activationReasonCode=[string]$receipt.activationReasonCode
+    if(@($properties|Where-Object{$_ -notin @('status','stage','reasonCode','activationReasonCode','provisionReasonCode')}).Count -ne 0 -or $properties.Count -ne 5){return $null}
+    $status=[string]$receipt.status;$stage=[string]$receipt.stage;$reasonCode=[string]$receipt.reasonCode;$activationReasonCode=[string]$receipt.activationReasonCode;$provisionReasonCode=[string]$receipt.provisionReasonCode
     if($status -notin @('COMPLETED','FAILED') -or $stage -notin @('RUNNER_COMPLETED','RUNNER_FAILED')){return $null}
-    if(($status -eq 'COMPLETED' -and ($stage -ne 'RUNNER_COMPLETED' -or -not [string]::IsNullOrEmpty($reasonCode) -or -not [string]::IsNullOrEmpty($activationReasonCode))) -or ($status -eq 'FAILED' -and $stage -ne 'RUNNER_FAILED')){return $null}
-    if($status -eq 'COMPLETED'){return [pscustomobject]@{Status=$status;Stage=$stage;ReasonCode=$null;ActivationReasonCode=$null}}
+    if(($status -eq 'COMPLETED' -and ($stage -ne 'RUNNER_COMPLETED' -or -not [string]::IsNullOrEmpty($reasonCode) -or -not [string]::IsNullOrEmpty($activationReasonCode) -or -not [string]::IsNullOrEmpty($provisionReasonCode))) -or ($status -eq 'FAILED' -and $stage -ne 'RUNNER_FAILED')){return $null}
+    if($status -eq 'COMPLETED'){return [pscustomobject]@{Status=$status;Stage=$stage;ReasonCode=$null;ActivationReasonCode=$null;ProvisionReasonCode=$null}}
     if($reasonCode -notmatch '^HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_(?:INITIALIZATION|DYNAMIC_MANIFEST|DYNAMIC_PROVISION|DYNAMIC_FORBIDDEN_DRIFT|DYNAMIC_FORBIDDEN_SQL_READINESS|DYNAMIC_FORBIDDEN_PLAN|DYNAMIC_FORBIDDEN_WHATIF|DYNAMIC_FORBIDDEN_APPLY|DYNAMIC_RESTART_SQL_READINESS|DYNAMIC_RESTART_SHUTDOWN_READINESS|DYNAMIC_LIVE_STOP|DYNAMIC_LIVE_CONFIGURE|DYNAMIC_LIVE_START|DYNAMIC_LIVE_VERIFY|DYNAMIC_LIVE_SQL_READINESS|DYNAMIC_LIVE_SHUTDOWN_READINESS|DYNAMIC_LIVE_PLAN|DYNAMIC_LIVE_WHATIF|DYNAMIC_LIVE_APPLY|DYNAMIC_LIVE_NOOP|STATIC_MANIFEST|STATIC_PROVISION|STATIC_DRIFT|STATIC_PLAN|STATIC_WHATIF|STATIC_APPLY|STATIC_SQL_READINESS|STATIC_NOOP|LEGACY_UNCLASSIFIED)_FAILED$'){return $null}
     $isProvisioningFailure=$reasonCode -match '^HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_(?:DYNAMIC|STATIC)_PROVISION_FAILED$'
-    if($isProvisioningFailure -and -not [string]::IsNullOrEmpty($activationReasonCode) -and $activationReasonCode -notmatch '^(?:WINDOWS_ACTIVATION_REQUIRED|WINDOWS_ACTIVATION_VERIFY_ONLY|WINDOWS_ACTIVATION_EGRESS_DENIED|WINDOWS_EVALUATION_EXPIRED|WINDOWS_ACTIVATION_(?:FAILED|REQUEST_FAILED|VERIFICATION_FAILED|LICENSE_DISCOVERY_FAILED|NETWORK_NOT_READY|NETWORK_CONFIGURATION_FAILED|PRODUCT_NOT_FOUND|EXISTING_EGRESS_UNAVAILABLE|GUEST_ADAPTER_NOT_FOUND|GUEST_OPERATION_FAILED|PERMANENT_BINDING_DRIFT)|HYPERV_WINDOWS_ACTIVATION_(?:FAILED|VERIFICATION_FAILED|OPERATION_FAILED|EXTERNAL_ADAPTER_NOT_CONNECTED|EXTERNAL_SWITCH_REQUIRED|GUEST_RECEIPT_INVALID|VM_MUST_BE_RUNNING)|HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_ACTIVATION_REASON_UNCLASSIFIED)$'){return $null}
-    if(-not $isProvisioningFailure -and -not [string]::IsNullOrEmpty($activationReasonCode)){return $null}
-    return [pscustomobject]@{Status=$status;Stage=$stage;ReasonCode=$reasonCode;ActivationReasonCode=if($isProvisioningFailure -and -not [string]::IsNullOrEmpty($activationReasonCode)){$activationReasonCode}else{$null}}
+    if($isProvisioningFailure -and -not [string]::IsNullOrEmpty($activationReasonCode) -and $activationReasonCode -notmatch '^(?:WINDOWS_ACTIVATION_REQUIRED|WINDOWS_ACTIVATION_VERIFY_ONLY|WINDOWS_ACTIVATION_EGRESS_DENIED|WINDOWS_EVALUATION_EXPIRED|WINDOWS_ACTIVATION_(?:FAILED|REQUEST_FAILED|VERIFICATION_FAILED|LICENSE_DISCOVERY_FAILED|PRODUCT_NOT_FOUND|EXISTING_EGRESS_UNAVAILABLE|GUEST_ADAPTER_NOT_FOUND|GUEST_OPERATION_FAILED|PERMANENT_BINDING_DRIFT)|HYPERV_WINDOWS_ACTIVATION_(?:FAILED|VERIFICATION_FAILED|OPERATION_FAILED|EXTERNAL_ADAPTER_NOT_CONNECTED|EXTERNAL_SWITCH_REQUIRED|GUEST_RECEIPT_INVALID|VM_MUST_BE_RUNNING)|HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_ACTIVATION_REASON_UNCLASSIFIED)$'){return $null}
+    if($isProvisioningFailure -and -not [string]::IsNullOrEmpty($provisionReasonCode) -and $provisionReasonCode -notmatch '^(?:HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND)$'){return $null}
+    if(-not $isProvisioningFailure -and (-not [string]::IsNullOrEmpty($activationReasonCode) -or -not [string]::IsNullOrEmpty($provisionReasonCode))){return $null}
+    return [pscustomobject]@{Status=$status;Stage=$stage;ReasonCode=$reasonCode;ActivationReasonCode=if($isProvisioningFailure -and -not [string]::IsNullOrEmpty($activationReasonCode)){$activationReasonCode}else{$null};ProvisionReasonCode=if($isProvisioningFailure -and -not [string]::IsNullOrEmpty($provisionReasonCode)){$provisionReasonCode}else{$null}}
 }
 function Stop-HyperVResourceReconcileCiChildProcessTree {
     [OutputType([bool])]
@@ -153,8 +164,15 @@ function Get-ActivationReasonCode {
     if(@($codes).Count -gt 0){return @($codes|Sort-Object -Unique|Select-Object -First 1)}
     return @()
 }
-$receipt=[ordered]@{status='FAILED';stage='RUNNER_FAILED';reasonCode=$null;activationReasonCode=$null};$exitCode=1
-try {$runnerOutput=@(& $AcceptanceRunner -ArtifactId $ArtifactId -CloneSourceRunId $CloneSourceRunId -MediaRoot $MediaRoot -MediaEdition $MediaEdition -StateRoot $StateRoot -Run1OperationId $Run1OperationId -Run2OperationId $Run2OperationId -DeferCleanup *>&1);if($LASTEXITCODE -ne 0 -or @($runnerOutput|Where-Object{$_ -is [Management.Automation.ErrorRecord]}).Count -gt 0){$receipt.reasonCode=Get-ReasonCode -RunnerOutput $runnerOutput;if([string]$receipt.reasonCode -match '^HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_(?:DYNAMIC|STATIC)_PROVISION_FAILED$'){$receipt.activationReasonCode=Get-ActivationReasonCode -RunnerOutput $runnerOutput}}else{$receipt.status='COMPLETED';$receipt.stage='RUNNER_COMPLETED';$exitCode=0}}catch{$receipt.reasonCode=Get-ReasonCode -RunnerOutput @($_);if([string]$receipt.reasonCode -match '^HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_(?:DYNAMIC|STATIC)_PROVISION_FAILED$'){$receipt.activationReasonCode=Get-ActivationReasonCode -RunnerOutput @($_)}}finally{[IO.File]::WriteAllText($ReceiptPath,($receipt|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))}
+function Get-ProvisionReasonCode {
+    param([object[]]$RunnerOutput)
+    $provisionPattern='(?<![A-Z0-9_])(?:HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND)(?![A-Z0-9_])'
+    $codes=foreach($entry in $RunnerOutput){$text=if($entry -is [Management.Automation.ErrorRecord]){[string]$entry.Exception.Message}else{[string]$entry};foreach($match in [regex]::Matches($text,$provisionPattern)){$match.Value}}
+    if(@($codes).Count -gt 0){return @($codes|Sort-Object -Unique|Select-Object -First 1)}
+    return @()
+}
+$receipt=[ordered]@{status='FAILED';stage='RUNNER_FAILED';reasonCode=$null;activationReasonCode=$null;provisionReasonCode=$null};$exitCode=1
+try {$runnerOutput=@(& $AcceptanceRunner -ArtifactId $ArtifactId -CloneSourceRunId $CloneSourceRunId -MediaRoot $MediaRoot -MediaEdition $MediaEdition -StateRoot $StateRoot -Run1OperationId $Run1OperationId -Run2OperationId $Run2OperationId -DeferCleanup *>&1);if($LASTEXITCODE -ne 0 -or @($runnerOutput|Where-Object{$_ -is [Management.Automation.ErrorRecord]}).Count -gt 0){$receipt.reasonCode=Get-ReasonCode -RunnerOutput $runnerOutput;if([string]$receipt.reasonCode -match '^HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_(?:DYNAMIC|STATIC)_PROVISION_FAILED$'){$receipt.activationReasonCode=Get-ActivationReasonCode -RunnerOutput $runnerOutput;$receipt.provisionReasonCode=Get-ProvisionReasonCode -RunnerOutput $runnerOutput}}else{$receipt.status='COMPLETED';$receipt.stage='RUNNER_COMPLETED';$exitCode=0}}catch{$receipt.reasonCode=Get-ReasonCode -RunnerOutput @($_);if([string]$receipt.reasonCode -match '^HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_(?:DYNAMIC|STATIC)_PROVISION_FAILED$'){$receipt.activationReasonCode=Get-ActivationReasonCode -RunnerOutput @($_);$receipt.provisionReasonCode=Get-ProvisionReasonCode -RunnerOutput @($_)}}finally{[IO.File]::WriteAllText($ReceiptPath,($receipt|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))}
 exit $exitCode
 '@
         [IO.File]::WriteAllText($childScript,$childContent,[Text.UTF8Encoding]::new($false))
@@ -166,12 +184,12 @@ exit $exitCode
         while(-not $child.WaitForExit(250)){
             if([DateTime]::UtcNow -ge $deadline){$timedOut=$true;$terminationConfirmed=Stop-HyperVResourceReconcileCiChildProcessTree -Process $child;break}
         }
-        if(-not $terminationConfirmed){return [pscustomobject]@{Status='RECOVERY_REQUIRED';Stage='RUNNER_TIMEOUT';ReasonCode='HYPERV_RESOURCE_RECONCILE_CI_RUNNER_TERMINATION_UNCONFIRMED';ActivationReasonCode=$null;TimedOut=$true;TerminationConfirmed=$false}}
-        if($timedOut){return [pscustomobject]@{Status='FAILED';Stage='RUNNER_TIMEOUT';ReasonCode='HYPERV_RESOURCE_RECONCILE_CI_RUNNER_TIMEOUT';ActivationReasonCode=$null;TimedOut=$true;TerminationConfirmed=$true}}
+        if(-not $terminationConfirmed){return [pscustomobject]@{Status='RECOVERY_REQUIRED';Stage='RUNNER_TIMEOUT';ReasonCode='HYPERV_RESOURCE_RECONCILE_CI_RUNNER_TERMINATION_UNCONFIRMED';ActivationReasonCode=$null;ProvisionReasonCode=$null;TimedOut=$true;TerminationConfirmed=$false}}
+        if($timedOut){return [pscustomobject]@{Status='FAILED';Stage='RUNNER_TIMEOUT';ReasonCode='HYPERV_RESOURCE_RECONCILE_CI_RUNNER_TIMEOUT';ActivationReasonCode=$null;ProvisionReasonCode=$null;TimedOut=$true;TerminationConfirmed=$true}}
         $receipt=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
-        if(-not $receipt){return [pscustomobject]@{Status='FAILED';Stage='RUNNER_RECEIPT';ReasonCode='HYPERV_RESOURCE_RECONCILE_CI_RUNNER_RECEIPT_INVALID';ActivationReasonCode=$null;TimedOut=$false;TerminationConfirmed=$true}}
-        if($child.ExitCode -eq 0 -and $receipt.Status -eq 'COMPLETED'){return [pscustomobject]@{Status='COMPLETED';Stage=$receipt.Stage;ReasonCode=$null;ActivationReasonCode=$null;TimedOut=$false;TerminationConfirmed=$true}}
-        return [pscustomobject]@{Status='FAILED';Stage=$receipt.Stage;ReasonCode=$receipt.ReasonCode;ActivationReasonCode=$receipt.ActivationReasonCode;TimedOut=$false;TerminationConfirmed=$true}
+        if(-not $receipt){return [pscustomobject]@{Status='FAILED';Stage='RUNNER_RECEIPT';ReasonCode='HYPERV_RESOURCE_RECONCILE_CI_RUNNER_RECEIPT_INVALID';ActivationReasonCode=$null;ProvisionReasonCode=$null;TimedOut=$false;TerminationConfirmed=$true}}
+        if($child.ExitCode -eq 0 -and $receipt.Status -eq 'COMPLETED'){return [pscustomobject]@{Status='COMPLETED';Stage=$receipt.Stage;ReasonCode=$null;ActivationReasonCode=$null;ProvisionReasonCode=$null;TimedOut=$false;TerminationConfirmed=$true}}
+        return [pscustomobject]@{Status='FAILED';Stage=$receipt.Stage;ReasonCode=$receipt.ReasonCode;ActivationReasonCode=$receipt.ActivationReasonCode;ProvisionReasonCode=$receipt.ProvisionReasonCode;TimedOut=$false;TerminationConfirmed=$true}
     } finally {
         if($child){$child.Dispose()}
         if($root -and $terminationConfirmed -and (Test-Path -LiteralPath $root)){Remove-Item -LiteralPath $root -Recurse -Force}
@@ -258,6 +276,7 @@ try {
     if($supervision.Status -ne 'COMPLETED'){
         if($supervision.ReasonCode){Write-Host "HYPERV_RESOURCE_RECONCILE_CI_RUNNER_REASON_CODE=$($supervision.ReasonCode)" -ForegroundColor Red}
         if($supervision.ActivationReasonCode){Write-Host "HYPERV_RESOURCE_RECONCILE_CI_RUNNER_ACTIVATION_REASON_CODE=$($supervision.ActivationReasonCode)" -ForegroundColor Red}
+        if($supervision.ProvisionReasonCode){Write-Host "HYPERV_RESOURCE_RECONCILE_CI_RUNNER_PROVISION_REASON_CODE=$($supervision.ProvisionReasonCode)" -ForegroundColor Red}
         throw 'HYPERV_RESOURCE_RECONCILE_CI_RUNNER_FAILED'
     }
     Write-Host 'PASS: Isolierte Hyper-V-Ressourcen-Reconcile-Akzeptanz wurde ausgefuehrt.' -ForegroundColor Green
