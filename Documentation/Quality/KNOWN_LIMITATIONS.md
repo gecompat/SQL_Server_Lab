@@ -397,6 +397,7 @@ Systemdatenbanken. Hash und Schreibschutz des Prepared-Parents blieben
 unverändert; VM, Child-VHDX und rungebundene Secrets wurden anschließend
 scopegebunden entfernt. Diese Referenz-Evidence ersetzt keine positive Matrix
 für weitere Windows-/SQL-Versionen oder Editionen.
+Server Core ist im Image-Builder, Slot-Pool und Hyper-V-Manifest-Fallback als eigene Auswahl implementiert und statisch geprüft. Ein nativer End-to-End-Nachweis für Core (Windows-Build, SQL-Prepared-Image, Slot-OOBE und SQL-Readiness) steht noch aus; die bestehende Desktop-Experience-Evidence gilt dafür nicht.
 Ein resumierbarer SQL-Image-Builder erstellt inzwischen je Prepared-Image eine
 frische Windows-Server-2025-VHDX und bindet SHA-256-geprüfte Windows- sowie
 SQL-2019-, SQL-2022- oder SQL-2025-Medien ein. Er führt `PrepareImage` und

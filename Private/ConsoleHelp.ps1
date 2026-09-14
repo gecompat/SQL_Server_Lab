@@ -271,7 +271,7 @@ function Get-LabConsoleHelpCatalog {
         'initial-setup-default-data-root', 'sql-intent-edition',
         'sql-intent-mode', 'sql-intent-network', 'sql-intent-purpose',
         'sql-intent-storage', 'sql-intent-version', 'sql-intent-version-edit',
-        'sql-intent-windows', 'windows-slot-pool-password-mode'
+        'sql-intent-windows', 'windows-slot-pool-installation-type', 'windows-slot-pool-password-mode'
     )) { $catalog[$screenId] = $configurationHelp }
 
     $hyperVWorkflowHelp = @{

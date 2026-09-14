@@ -337,7 +337,7 @@ manuell geführt. Aus der fertigen Baseline erfolgen Slot-Erstellung, OOBE,
 Region-/Sprach-/Tastatureinstellungen und Erstanmeldung dagegen vollständig
 unbeaufsichtigt.
 
-Abgefragt werden Anzahl und Startindex, vCPU, minimaler RAM, Startspeicher und
+Zuerst wird die Windows-Variante **Desktop Experience** oder **Server Core** gewählt. Abgefragt werden danach Anzahl und Startindex, vCPU, minimaler RAM, Startspeicher und
 maximaler RAM. Die RAM-Standards sind `1024`, `2048` und `4096 MB`. Zusätzlich
 werden Region, System-Locale, Anzeigesprache, Tastaturlayout und Zeitzone
 abgefragt. Das Passwort kann automatisch je Slot generiert oder als eigenes
@@ -349,6 +349,7 @@ Nicht interaktiv entspricht das beispielsweise:
 New-SqlServerLabWindowsSlotPool `
     -Count 20 `
     -GenerateAdministratorPasswords `
+    -InstallationType core `
     -MemoryMinimumMB 1024 `
     -MemoryStartupMB 2048 `
     -MemoryMaximumMB 4096 `

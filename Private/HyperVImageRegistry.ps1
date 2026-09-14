@@ -629,6 +629,7 @@ function Get-HyperVManifestFallbackArtifactRejectionReasons {
     param(
         [Parameter(Mandatory)]$Artifact,
         [Parameter(Mandatory)][AllowEmptyString()][string]$SqlVersion,
+        [ValidateSet('core', 'desktop-experience')][string]$InstallationType = 'desktop-experience',
         [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30
     )
 
@@ -638,7 +639,7 @@ function Get-HyperVManifestFallbackArtifactRejectionReasons {
     if (-not [bool]$Artifact.sqlPrepared) { $reasons += 'artifact-sql-not-prepared' }
     if ([string]$Artifact.operatingSystem.id -notmatch '^windows-server') { $reasons += 'operating-system-not-windows-server' }
     if ([string]$Artifact.operatingSystem.edition -notmatch '(?i)standard') { $reasons += 'operating-system-not-standard' }
-    if (-not ([string]$Artifact.operatingSystem.installationType).Equals('desktop-experience', [System.StringComparison]::OrdinalIgnoreCase)) { $reasons += 'installation-type-not-desktop-experience' }
+    if (-not ([string]$Artifact.operatingSystem.installationType).Equals($InstallationType, [System.StringComparison]::OrdinalIgnoreCase)) { $reasons += "installation-type-not-$InstallationType" }
     if (-not ([string]$Artifact.license.type).Equals('evaluation', [System.StringComparison]::OrdinalIgnoreCase)) { $reasons += 'license-not-evaluation' }
     if ([string]::IsNullOrWhiteSpace([string]$Artifact.sql.version)) { $reasons += 'sql-version-missing' }
     elseif (-not ([string]$Artifact.sql.version).Equals($SqlVersion, [System.StringComparison]::OrdinalIgnoreCase)) { $reasons += 'sql-version-mismatch' }
@@ -654,6 +655,7 @@ function Get-HyperVManifestFallbackArtifactSelection {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$SqlVersion,
+        [ValidateSet('core', 'desktop-experience')][string]$InstallationType = 'desktop-experience',
         [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30,
         [string]$StateRoot
     )
@@ -662,7 +664,7 @@ function Get-HyperVManifestFallbackArtifactSelection {
     $reasons = @()
     foreach ($artifact in @(Get-HyperVImageArtifact -StateRoot $StateRoot)) {
         $artifactReasons = @(Get-HyperVManifestFallbackArtifactRejectionReasons -Artifact $artifact `
-            -SqlVersion $SqlVersion -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining)
+            -SqlVersion $SqlVersion -InstallationType $InstallationType -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining)
         if ($artifactReasons.Count -gt 0) {
             $reasons += $artifactReasons
             continue
@@ -689,12 +691,13 @@ function Resolve-HyperVManifestFallbackArtifact {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$SqlVersion,
+        [ValidateSet('core', 'desktop-experience')][string]$InstallationType = 'desktop-experience',
         [ValidateRange(0, 3650)][int]$MinimumEvaluationDaysRemaining = 30,
         [string]$StateRoot
     )
 
     return (Get-HyperVManifestFallbackArtifactSelection -SqlVersion $SqlVersion `
-        -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining -StateRoot $StateRoot).Selected
+        -InstallationType $InstallationType -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining -StateRoot $StateRoot).Selected
 }
 
 function Add-HyperVImageManifestLockEntry {

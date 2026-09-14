@@ -308,12 +308,18 @@
         },
         "hyperv": {
           "type": "object",
-          "description": "Hyper-V-spezifische Bereitstellung. Ohne preparedImageId wird die höchste lokale SQL_PREPARED_SEALED-Vorlage auf Windows Server Standard Evaluation mit Desktop Experience gewählt. Passwörter gehören nie in das Manifest.",
+          "description": "Hyper-V-spezifische Bereitstellung. Ohne preparedImageId wird die höchste lokale SQL_PREPARED_SEALED-Vorlage der gewünschten Windows-Variante gewählt. Passwörter gehören nie in das Manifest.",
           "properties": {
             "preparedImageId": {
               "type": "string",
               "pattern": "^hyperv-(os|sql-prepared)-sealed-[a-f0-9]{64}$",
               "description": "Artifact-ID eines lokal veröffentlichten OS_SEALED- oder SQL_PREPARED_SEALED-Images."
+            },
+            "installationType": {
+              "type": "string",
+              "enum": ["desktop-experience", "core"],
+              "default": "desktop-experience",
+              "description": "Gewünschte Windows-Variante für die Fallback-Auswahl. Bei preparedImageId wird die Variante des referenzierten Artefakts verwendet."
             },
             "switchName": {
               "type": "string",

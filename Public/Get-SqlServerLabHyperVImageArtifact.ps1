@@ -96,8 +96,11 @@ function Get-SqlServerLabHyperVImageArtifact {
         $runReferenceCount = @($activeRuns | Where-Object {
             [string]$_.metadata.imageArtifactId -eq [string]$artifact.artifactId
         }).Count
+        $fallbackInstallationType = if ([string]$artifact.operatingSystem.installationType -in @('core', 'desktop-experience')) {
+            [string]$artifact.operatingSystem.installationType
+        } else { 'desktop-experience' }
         $fallbackReasons = @(Get-HyperVManifestFallbackArtifactRejectionReasons -Artifact $artifact `
-            -SqlVersion ([string]$artifact.sql.version) -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining)
+            -SqlVersion ([string]$artifact.sql.version) -InstallationType $fallbackInstallationType -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining)
 
         [PSCustomObject]@{
             ContractVersion = 'SqlServerLab.HyperVImageArtifactInventory/1.0'

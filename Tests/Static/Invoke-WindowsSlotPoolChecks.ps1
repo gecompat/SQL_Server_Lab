@@ -142,14 +142,18 @@ try {
     Add-CheckResult -Name 'Pool ist resumierbar und lehnt eine ungeeignete Baseline ab' -Success (
         $poolSource -match 'HYPERV_WINDOWS_SLOT_POOL_BASELINE_REQUIRED' -and
         $poolSource -match "Action='REUSED'" -and
-        $poolSource -match 'MinimumEvaluationDaysRemaining')
+        $poolSource -match 'MinimumEvaluationDaysRemaining' -and
+        $poolSource -match "InstallationType = 'desktop-experience'" -and
+        $poolSource -match 'operatingSystem.installationType -eq \$InstallationType')
     Add-CheckResult -Name 'CLI fragt RAM, Locale und generiertes oder gemeinsames Passwort ab' -Success (
         $uiSource -match 'Invoke-LabHyperVWindowsSlotPoolInteractive' -and
         $uiSource -match 'Minimaler RAM pro Slot' -and
         $uiSource -match 'Windows-Anzeigesprache' -and
         $uiSource -match 'Tastaturlayout / Input-Locale' -and
         $uiSource -match 'GenerateAdministratorPasswords' -and
-        $uiSource -match 'AdministratorPassword')
+        $uiSource -match 'AdministratorPassword' -and
+        $uiSource -match 'windows-slot-pool-installation-type' -and
+        $uiSource.Contains('-InstallationType $installationType'))
 }
 catch {
     Add-CheckResult -Name 'Windows-Slot-Pool-Testausführung' -Success $false -Message "$($_.Exception.Message) [$($_.ScriptStackTrace)]"

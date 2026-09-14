@@ -124,7 +124,8 @@ function Get-HyperVWindowsEvaluationVariantEvidence {
         [Parameter(Mandatory)][string]$MediaRoot,
         [Parameter(Mandatory)][string]$Version,
         [Parameter(Mandatory)][string]$OperatingSystemId,
-        [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256
+        [Parameter(Mandatory)][ValidatePattern('^[A-Fa-f0-9]{64}$')][string]$ExpectedSha256,
+        [ValidateSet('core', 'desktop-experience')][string]$InstallationType = 'desktop-experience'
     )
 
     $evidencePath = Join-Path ([IO.Path]::GetFullPath($MediaRoot)) 'Evidence\windows-server-evaluation-media-validation.json'
@@ -141,19 +142,22 @@ function Get-HyperVWindowsEvaluationVariantEvidence {
     })
     if ($result.Count -ne 1) { throw 'HYPERV_WINDOWS_TEMPLATE_INSTALL_IMAGE_EVIDENCE_MISMATCH' }
     $expectedEditionId = if ($Version -eq '2008R2') { 'ServerStandard' } else { 'ServerStandardEval' }
-    $standardDesktop = @($result[0].Images | Where-Object {
-        [string]$_.EditionId -eq $expectedEditionId -and
-        [string]$_.Name -notmatch '(?i)Core' -and
-        ([string]$_.Name -match '(?i)(Desktop Experience|Server with a GUI)' -or
-            [string]$_.InstallationType -eq 'Server')
+    $variant = @($result[0].Images | Where-Object {
+        if ([string]$_.EditionId -ne $expectedEditionId) { return $false }
+        if ($InstallationType -eq 'core') {
+            return [string]$_.Name -match '(?i)(Core|Server Core)' -or [string]$_.InstallationType -eq 'Server Core'
+        }
+        return [string]$_.Name -notmatch '(?i)Core' -and
+            ([string]$_.Name -match '(?i)(Desktop Experience|Server with a GUI)' -or [string]$_.InstallationType -eq 'Server')
     })
-    if ($standardDesktop.Count -ne 1) {
-        throw "HYPERV_WINDOWS_TEMPLATE_STANDARD_DESKTOP_EVIDENCE_NOT_UNIQUE: $($standardDesktop.Count)"
+    if ($variant.Count -ne 1) {
+        $typeToken = $InstallationType.ToUpperInvariant().Replace('-', '_')
+        throw "HYPERV_WINDOWS_TEMPLATE_STANDARD_${typeToken}_EVIDENCE_NOT_UNIQUE: $($variant.Count)"
     }
     return [pscustomobject]@{
         OperatingSystemId=$OperatingSystemId; WindowsEdition='standard-evaluation'
-        InstallationType='desktop-experience'; ImageName=[string]$standardDesktop[0].Name
-        ImageIndex=[int]$standardDesktop[0].Index; EvidencePath=$evidencePath
+        InstallationType=$InstallationType; ImageName=[string]$variant[0].Name
+        ImageIndex=[int]$variant[0].Index; EvidencePath=$evidencePath
     }
 }
 
@@ -300,6 +304,7 @@ function Invoke-HyperVWindowsEvaluationTemplateBuild {
         [ValidateRange(2048, 32768)][int]$MemoryStartupMB = 4096,
         [ValidateRange(1, 16)][int]$ProcessorCount = 2,
         [string]$ExternalSwitchName,
+        [ValidateSet('core', 'desktop-experience')][string]$InstallationType = 'desktop-experience',
         [switch]$KeepOnFailure
     )
 
@@ -315,7 +320,7 @@ function Invoke-HyperVWindowsEvaluationTemplateBuild {
     try {
         $variant = @(Get-HyperVWindowsInstallationMediaInfo -IsoPath $media.IsoPath | Where-Object {
             $_.OperatingSystemId -eq $osId -and $_.WindowsEdition -eq 'standard-evaluation' -and
-            $_.InstallationType -eq 'desktop-experience'
+            $_.InstallationType -eq $InstallationType
         })
     }
     catch {
@@ -323,11 +328,11 @@ function Invoke-HyperVWindowsEvaluationTemplateBuild {
     }
     if ($variant.Count -ne 1) {
         $variant = @(Get-HyperVWindowsEvaluationVariantEvidence -MediaRoot $MediaRoot -Version $Version `
-            -OperatingSystemId $osId -ExpectedSha256 $media.ExpectedSha256)
+            -OperatingSystemId $osId -ExpectedSha256 $media.ExpectedSha256 -InstallationType $InstallationType)
     }
     if ($variant.Count -ne 1) { throw "HYPERV_WINDOWS_TEMPLATE_VARIANT_NOT_UNIQUE: $($variant.Count)" }
     if (-not $PSCmdlet.ShouldProcess("Windows Server $Version", 'unbeaufsichtigt installieren, generalisieren und als OS_SEALED veröffentlichen')) {
-        return [pscustomobject]@{ Status='PLANNED'; Version=$Version; IsoPath=$media.IsoPath; ImageIndex=$variant[0].ImageIndex }
+        return [pscustomobject]@{ Status='PLANNED'; Version=$Version; InstallationType=$InstallationType; IsoPath=$media.IsoPath; ImageIndex=$variant[0].ImageIndex }
     }
 
     $build = $null; $builderVmName = $null; $answerDirectory = $null; $answerIsoPath = $null
@@ -335,7 +340,7 @@ function Invoke-HyperVWindowsEvaluationTemplateBuild {
     try {
         $build = New-HyperVWindowsImageBuildPlan -IsoPath $media.IsoPath `
             -ExpectedSha256 $media.ExpectedSha256 -OperatingSystemId $osId `
-            -Edition standard-evaluation -InstallationType desktop-experience `
+            -Edition standard-evaluation -InstallationType $InstallationType `
             -Language en-US -LicenseType evaluation -InitialMediaKey space `
             -OsDiskSizeBytes ([long]$OsDiskSizeGB * 1GB) -StateRoot $StateRoot
         $null = New-HyperVWindowsImageBuilder -BuildId $build.buildId `

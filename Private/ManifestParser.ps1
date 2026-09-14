@@ -512,6 +512,7 @@ function Resolve-ManifestDefaults {
             $dynamicMemoryEnabled = if ($instance.hyperv.PSObject.Properties['dynamicMemoryEnabled']) { [bool]$instance.hyperv.dynamicMemoryEnabled } else { $true }
             $resolved.hyperv = [PSCustomObject]@{
                 preparedImageId   = [string]$instance.hyperv.preparedImageId
+                installationType = if ($instance.hyperv.installationType) { [string]$instance.hyperv.installationType } else { 'desktop-experience' }
                 switchName        = [string]$instance.hyperv.switchName
                 dynamicMemoryEnabled = $dynamicMemoryEnabled
                 memoryMinimumMB   = if (-not $dynamicMemoryEnabled) { $memoryStartupMB } elseif ($instance.hyperv.memoryMinimumMB) { [int]$instance.hyperv.memoryMinimumMB } else { [int][Math]::Max(512, [Math]::Floor([double]$memoryStartupMB / 2)) }
