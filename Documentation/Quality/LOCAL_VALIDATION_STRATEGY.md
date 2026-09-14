@@ -1384,3 +1384,25 @@ Vollmatrix.
 Die vollständige statische und native Regression läuft täglich gebündelt als
 `Nightly Regression`; eine frische Hyper-V-/SQL-Installation läuft wöchentlich
 oder manuell. Nightly-Fehler werden über ein dauerhaftes Tracking-Issue sichtbar.
+
+### Ressourcen-Reconcile aus einem Windows-Slot
+
+Der manuelle Main-Modus `resource-reconcile-acceptance` akzeptiert optional
+`clone_source_run_id` statt `image_artifact_id`. Die GUID bezeichnet einen
+explizit ausgewaehlten gestoppten, eigenen Windows-2025-Slot ohne SQL-Plan oder
+Checkpoints. Beide Ziel-Runs werden als unabhaengige Kopien erstellt; Quelle,
+Gastsecret und Quellidentitaet werden nur gelesen. SQL 2025 wird mit den
+hashregistrierten Medien aus `media_root` und `media_edition` im Clone installiert.
+Die Windows-Lizenz muss dort `VerifyOnly` bestehen; es gibt keinen Online-
+Aktivierungsfallback. Eine fehlende Aktivierung ist ein fehlgeschlagener Nachweis.
+
+`Invoke-HyperVResourceReconcileCiAcceptance.ps1` uebergibt `CloneSourceRunId`,
+`MediaRoot` und `MediaEdition` an den begrenzten Kindprozess. Der CI-Medienroot
+bleibt auf den Standardroot begrenzt. Der Parent bereinigt ausschliesslich seine
+beiden Operations-IDs, auch bei Kopierfehler vor der ersten VM. Timeout mit
+unbestaetigter Prozessterminierung bleibt `RECOVERY_REQUIRED`.
+
+Die fokussierte Ressourcen-Acceptance-Suite fuehrt eine synthetische Clone-
+Transaktion aus und prueft ungueltige Quellen, Cleanup vor Kopie, eigene Lease,
+Desired State, VerifyOnly, Abbruch bei Kopierfehler und Freigabe der Quelllocks.
+Die native Clone-Abnahme ist `NOT_EXECUTED`.

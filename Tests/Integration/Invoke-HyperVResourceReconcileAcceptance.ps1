@@ -3,7 +3,8 @@
 .SYNOPSIS
     Verifiziert die native Hyper-V-vCPU/RAM-Reconcile gegen zwei isolierte SQL-2025-Runs.
 .DESCRIPTION
-    Der Runner erzeugt ausschliesslich zwei eigene Prepared-Artifact-Runs: zuerst
+    Der Runner erzeugt zwei eigene Prepared-Artifact-Runs oder SQL-2025-Clones
+    eines explizit ausgewaehlten Windows-2025-Slots: zuerst
     dynamischen RAM mit einer gestoppt hergestellten einengenden Min/Max-Drift
     und einer anschliessenden live steuerbaren Bereichserweiterung, danach
     statischen RAM mit CPU-, Startup- und Modusdrift. Fuer beide Faelle prueft er den
@@ -15,6 +16,9 @@
 [CmdletBinding()]
 param(
     [string]$ArtifactId,
+    [string]$CloneSourceRunId,
+    [string]$MediaRoot='D:\Lab_Base',
+    [ValidateSet('Enterprise','Standard','Eval')][string]$MediaEdition='Enterprise',
     [string]$StateRoot,
     [Parameter(Mandatory)][ValidatePattern('^github-[0-9]+-[0-9]+-resource-r[12]$')][string]$Run1OperationId,
     [Parameter(Mandatory)][ValidatePattern('^github-[0-9]+-[0-9]+-resource-r[12]$')][string]$Run2OperationId,
@@ -30,7 +34,7 @@ $mutex=[Threading.Mutex]::new($false,'Global\SQL_Server_Lab_HyperV_Resource_Reco
 function Assert-HyperVResourceAcceptance { param([bool]$Condition,[string]$Description) if(-not $Condition){throw "HYPERV_RESOURCE_ACCEPTANCE_FAILED: $Description"};Write-Host "PASS: $Description" -ForegroundColor Green }
 function Get-HyperVResourceReconcileAcceptanceActivationReasonCode {
     param([Parameter(Mandatory)]$ErrorRecord)
-    $pattern='(?<![A-Z0-9_])(?:WINDOWS_ACTIVATION_REQUIRED|WINDOWS_ACTIVATION_(?:FAILED|REQUEST_FAILED|VERIFICATION_FAILED|LICENSE_DISCOVERY_FAILED|NETWORK_NOT_READY|NETWORK_CONFIGURATION_FAILED|PRODUCT_NOT_FOUND|EXISTING_EGRESS_UNAVAILABLE|GUEST_ADAPTER_NOT_FOUND|GUEST_OPERATION_FAILED|PERMANENT_BINDING_DRIFT)|HYPERV_WINDOWS_ACTIVATION_(?:FAILED|VERIFICATION_FAILED|OPERATION_FAILED|EXTERNAL_ADAPTER_NOT_CONNECTED|EXTERNAL_SWITCH_REQUIRED|GUEST_RECEIPT_INVALID|VM_MUST_BE_RUNNING))(?![A-Z0-9_])'
+    $pattern='(?<![A-Z0-9_])(?:WINDOWS_ACTIVATION_REQUIRED|WINDOWS_ACTIVATION_VERIFY_ONLY|WINDOWS_ACTIVATION_EGRESS_DENIED|WINDOWS_EVALUATION_EXPIRED|WINDOWS_ACTIVATION_(?:FAILED|REQUEST_FAILED|VERIFICATION_FAILED|LICENSE_DISCOVERY_FAILED|NETWORK_NOT_READY|NETWORK_CONFIGURATION_FAILED|PRODUCT_NOT_FOUND|EXISTING_EGRESS_UNAVAILABLE|GUEST_ADAPTER_NOT_FOUND|GUEST_OPERATION_FAILED|PERMANENT_BINDING_DRIFT)|HYPERV_WINDOWS_ACTIVATION_(?:FAILED|VERIFICATION_FAILED|OPERATION_FAILED|EXTERNAL_ADAPTER_NOT_CONNECTED|EXTERNAL_SWITCH_REQUIRED|GUEST_RECEIPT_INVALID|VM_MUST_BE_RUNNING))(?![A-Z0-9_])'
     $match=[regex]::Match([string]$ErrorRecord.Exception.Message,$pattern)
     if($match.Success){return $match.Value}
     return 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_ACTIVATION_REASON_UNCLASSIFIED'
@@ -45,6 +49,11 @@ function Write-ResourceManifest {
             windowsActivation=[ordered]@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='EvaluationOnline';EgressPolicy='AllowTemporary'}
             hyperv=[ordered]@{preparedImageId=$PreparedArtifactId;memoryStartupMB=$Startup;memoryMinimumMB=$Minimum;memoryMaximumMB=$Maximum;dynamicMemoryEnabled=$Dynamic;processorCount=$Cpu;sqlPort=1433;guestPasswordMode='prompt'}
         })
+    }
+    if($CloneSourceRunId){
+        $value.instances[0].hyperv.Remove('preparedImageId')
+        $value.instances[0].windowsActivation.Strategy='VerifyOnly'
+        $value.instances[0].windowsActivation.EgressPolicy='Denied'
     }
     $value|ConvertTo-Json -Depth 30|Set-Content -LiteralPath $Path -Encoding utf8
 }
@@ -83,6 +92,19 @@ function Wait-ResourceSqlMarker { param($Context,[securestring]$Password) $deadl
 function Wait-ResourcePersistentSqlMarker { param($Context,[securestring]$Password) $deadline=[datetime]::UtcNow.AddMinutes(5);do{try{$value=Invoke-Scalar $Context $Password 'SELECT COUNT(*) FROM SqlLabHvResourceMarkerDb.dbo.SqlLabHvResourceMarker WHERE Marker=2025;';if($value -eq '1'){return $value}}catch{};Start-Sleep -Seconds 5}while([datetime]::UtcNow -lt $deadline);throw 'HYPERV_RESOURCE_ACCEPTANCE_PERSISTENT_MARKER_TIMEOUT' }
 function New-OwnedRun {
     param([string]$ManifestPath,[string]$OperationId,[securestring]$GuestPassword,[securestring]$SqlPassword)
+    if($CloneSourceRunId){
+        $helper=Join-Path $repoRoot 'Tests/Common/HyperVResourceAcceptanceSlotClone.ps1'
+        try {$lab=Invoke-Private {
+            param($Helper,$Source,$Path,$Op,$Media,$Edition,$Sql,$Root)
+            . $Helper
+            New-HyperVResourceAcceptanceSlotClone -SourceRunId $Source -ManifestPath $Path -OperationId $Op -MediaRoot $Media -MediaEdition $Edition -SqlPassword $Sql -StateRoot $Root
+        } @($helper,$CloneSourceRunId,$ManifestPath,$OperationId,$MediaRoot,$MediaEdition,$SqlPassword,$StateRoot)
+        } finally {
+            $owned=Invoke-Private {param($Op,$Root)Get-LabOperationOwnedRun -OperationId $Op -StateRoot $Root} @($OperationId,$StateRoot)
+            if($owned){$script:createdRunIds += [string]$owned.runId}
+        }
+        return $lab
+    }
     $lab=Invoke-Private {param($Path,$Op,$Guest,$Sql,$Root)Invoke-WithLabWorkflowOperationContext -OperationId $Op -ScriptBlock { New-SqlServerLab -Manifest $Path -GuestPassword $Guest -SqlSaPassword $Sql -NonInteractive -StateRoot $Root -Region AT -SystemLocale de-AT -UiLanguage en-US -InputLocale '0407:00000407' -TimeZone 'W. Europe Standard Time' }} @($ManifestPath,$OperationId,$GuestPassword,$SqlPassword,$StateRoot)
     $script:createdRunIds += [string]$lab.RunId
     Assert-HyperVResourceAcceptance ([string]$lab.State -eq 'RUNNING') 'Isolierter SQL-2025-Prepared-Run ist bereit'
@@ -104,10 +126,13 @@ try {
     $null=New-Item -ItemType Directory -Path $testRoot -Force
     $module=Import-Module $modulePath -Force -PassThru
     if(-not $StateRoot){$StateRoot=Invoke-Private {Get-LabStateRoot}};$env:SQL_SERVER_LAB_STATE=$StateRoot
+    if($CloneSourceRunId -and $ArtifactId){throw 'HYPERV_RESOURCE_ACCEPTANCE_SOURCE_AMBIGUOUS'}
+    if(-not $CloneSourceRunId){
     if(-not $ArtifactId){$artifact=Invoke-Private {param($Root)@(Get-HyperVImageArtifact -StateRoot $Root|Where-Object{[string]$_.artifactState -eq 'SQL_PREPARED_SEALED' -and [string]$_.sql.version -eq '2025' -and [string]$_.licenseType -ne 'test-only'}|Sort-Object{[datetime]$_.registeredAt} -Descending|Select-Object -First 1)[0]} @($StateRoot);if(-not $artifact){throw 'HYPERV_RESOURCE_ACCEPTANCE_SQL_PREPARED_ARTIFACT_NOT_FOUND'};$ArtifactId=[string]$artifact.artifactId}
     $artifact=Invoke-Private {param($Id,$Root)Get-HyperVImageArtifact -ArtifactId $Id -StateRoot $Root} @($ArtifactId,$StateRoot)
     $eligibility=Invoke-Private {param($Candidate)[pscustomobject]@{Evaluation=Test-HyperVImageArtifactEvaluationEligibility -Artifact $Candidate;Child=Test-HyperVImageArtifactChildValidationEligibility -Artifact $Candidate}} @($artifact)
     Assert-HyperVResourceAcceptance ([string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED' -and [string]$artifact.sql.version -eq '2025' -and [string]$artifact.integrityVerification.status -in @('VERIFIED_CACHE','VERIFIED_HASH') -and [bool]$eligibility.Evaluation.Eligible -and [bool]$eligibility.Child.Eligible) 'Verifiziertes SQL-2025-Prepared-Artifact ist verfuegbar'
+    }
     $guest=Invoke-Private {New-HyperVSqlUnattendedPassword};$sa=Invoke-Private {New-HyperVSqlUnattendedPassword}
     # Run 1: an enclosing dynamic range is arranged while stopped, then the
     # running repair must restart. A later in-range drift is arranged while
