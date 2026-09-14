@@ -1410,5 +1410,5 @@ Provisionierungsfehler ohne Aktivierungscode; nur ein tatsaechlich erkannter,
 allowlistgebundener Windows-Aktivierungsfehler wird als solcher in der kleinen
 CI-Receipt ausgewiesen.
 Bei einem Provisionierungsfehler darf die Receipt zusaetzlich ausschliesslich den allowlistgebundenen Mediengrund
-`HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND` transportieren. Pfade, Rohfehler und weitere Details bleiben ausgeschlossen.
+`HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND` oder einen der neun festen `HYPERV_RESOURCE_SLOT_SOURCE_*`-Vorbedingungsgründe transportieren. Pfade, Rohfehler und weitere Details bleiben ausgeschlossen.
 Die native Clone-Abnahme ist `NOT_EXECUTED`.
