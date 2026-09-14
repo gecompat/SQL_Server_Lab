@@ -28,6 +28,13 @@ $previousStateRoot=$env:SQL_SERVER_LAB_STATE
 $module=$null;$createdRunIds=@();$completed=$false;$stage='INITIALIZATION'
 $mutex=[Threading.Mutex]::new($false,'Global\SQL_Server_Lab_HyperV_Resource_Reconcile_Acceptance');$mutexAcquired=$false
 function Assert-HyperVResourceAcceptance { param([bool]$Condition,[string]$Description) if(-not $Condition){throw "HYPERV_RESOURCE_ACCEPTANCE_FAILED: $Description"};Write-Host "PASS: $Description" -ForegroundColor Green }
+function Get-HyperVResourceReconcileAcceptanceActivationReasonCode {
+    param([Parameter(Mandatory)]$ErrorRecord)
+    $pattern='(?<![A-Z0-9_])(?:WINDOWS_ACTIVATION_REQUIRED|WINDOWS_ACTIVATION_(?:FAILED|REQUEST_FAILED|VERIFICATION_FAILED|LICENSE_DISCOVERY_FAILED|NETWORK_NOT_READY|NETWORK_CONFIGURATION_FAILED|PRODUCT_NOT_FOUND|EXISTING_EGRESS_UNAVAILABLE|GUEST_ADAPTER_NOT_FOUND|GUEST_OPERATION_FAILED|PERMANENT_BINDING_DRIFT)|HYPERV_WINDOWS_ACTIVATION_(?:FAILED|VERIFICATION_FAILED|OPERATION_FAILED|EXTERNAL_ADAPTER_NOT_CONNECTED|EXTERNAL_SWITCH_REQUIRED|GUEST_RECEIPT_INVALID|VM_MUST_BE_RUNNING))(?![A-Z0-9_])'
+    $match=[regex]::Match([string]$ErrorRecord.Exception.Message,$pattern)
+    if($match.Success){return $match.Value}
+    return 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_ACTIVATION_REASON_UNCLASSIFIED'
+}
 function Invoke-Private { param([scriptblock]$ScriptBlock,[object[]]$Arguments=@()) & $module $ScriptBlock @Arguments }
 function Write-ResourceManifest {
     param([string]$Path,[string]$Name,[string]$PreparedArtifactId,[int]$Cpu,[bool]$Dynamic,[int]$Minimum,[int]$Startup,[int]$Maximum)
@@ -90,7 +97,8 @@ try {
     Assert-HyperVResourceAcceptance ([string]$artifact.artifactState -eq 'SQL_PREPARED_SEALED' -and [string]$artifact.sql.version -eq '2025' -and [string]$artifact.integrityVerification.status -in @('VERIFIED_CACHE','VERIFIED_HASH') -and [bool]$eligibility.Evaluation.Eligible -and [bool]$eligibility.Child.Eligible) 'Verifiziertes SQL-2025-Prepared-Artifact ist verfuegbar'
     $guest=Invoke-Private {New-HyperVSqlUnattendedPassword};$sa=Invoke-Private {New-HyperVSqlUnattendedPassword}
     # Run 1: an enclosing dynamic range is arranged while stopped, then the
-    # running repair must restart. A later in-range drift proves the live path.
+    # running repair must restart. A later in-range drift is arranged while
+    # stopped, then proves the live path after SQL is ready again.
     $stage='DYNAMIC_MANIFEST';
     $dynamicManifest=Join-Path $testRoot 'dynamic.json';Write-ResourceManifest $dynamicManifest ('hv-resource-dynamic-'+[guid]::NewGuid().ToString('N').Substring(0,8)) $ArtifactId 4 $true 1024 6144 8192
     Assert-HyperVResourceAcceptance (Test-SqlServerLabManifest -Path $dynamicManifest).IsValid 'Dynamisches Zielmanifest ist gueltig'
@@ -111,12 +119,14 @@ try {
     $stage='DYNAMIC_FORBIDDEN_APPLY';
     $dynamicRestartResult=Invoke-SqlServerLabReconcileAction -RunId $dynamicLab.RunId -RepairHyperVResources -InstanceId primary -StateRoot $StateRoot -Confirm:$false;$dynamicValues=Get-ResourceValues $dynamicContext;$dynamicRestartReceipt=Get-Content -LiteralPath $dynamicJournal -Raw -Encoding utf8|ConvertFrom-Json -Depth 30
     Assert-HyperVResourceAcceptance ([string]$dynamicRestartResult.ExecutionSummary.Status -eq 'SUCCEEDED' -and $dynamicValues.Dynamic -and $dynamicValues.Minimum -eq 1024 -and $dynamicValues.Startup -eq 6144 -and $dynamicValues.Maximum -eq 8192 -and [string]$dynamicRestartReceipt.Status -eq 'COMPLETED') 'Restart-Reconcile stellt einengende dynamische RAM-Werte und Journal wieder her'
-    $stage='DYNAMIC_LIVE_SQL_READINESS';
-    Assert-HyperVResourceAcceptance (Wait-ResourceSqlReady $dynamicContext $sa) 'SQL ist nach dem Dynamic-Reconcile-Restart bereit'
-    Invoke-NonQuery $dynamicContext $sa "CREATE TABLE tempdb.dbo.SqlLabHvResourceMarker (Marker int NOT NULL); INSERT tempdb.dbo.SqlLabHvResourceMarker VALUES (2025);"
     $stage='DYNAMIC_LIVE_DRIFT';
-    $dynamicVm=(Get-OwnedVm $dynamicContext).VM;Set-VMMemory -VM $dynamicVm -DynamicMemoryEnabled $true -MinimumBytes 2048MB -MaximumBytes 7168MB -ErrorAction Stop
-    $dynamicValues=Get-ResourceValues $dynamicContext;Assert-HyperVResourceAcceptance ($dynamicValues.Dynamic -and $dynamicValues.Minimum -eq 2048 -and $dynamicValues.Maximum -eq 7168) 'Live steuerbare dynamische Min/Max-Drift ist hergestellt'
+    $dynamicVm=(Get-OwnedVm $dynamicContext).VM;Stop-VM -VM $dynamicVm -Confirm:$false -ErrorAction Stop
+    $deadline=[datetime]::UtcNow.AddMinutes(3);do{Start-Sleep -Seconds 2;$dynamicVm=(Get-OwnedVm $dynamicContext).VM}while([string]$dynamicVm.State -ne 'Off' -and [datetime]::UtcNow -lt $deadline);Assert-HyperVResourceAcceptance ([string]$dynamicVm.State -eq 'Off') 'Run-eigene VM ist fuer die bereichserweiternde Live-Drift gestoppt'
+    Set-VMMemory -VM $dynamicVm -DynamicMemoryEnabled $true -MinimumBytes 2048MB -StartupBytes 6144MB -MaximumBytes 7168MB -ErrorAction Stop;Start-VM -VM $dynamicVm -ErrorAction Stop
+    $deadline=[datetime]::UtcNow.AddMinutes(5);do{Start-Sleep -Seconds 3;$dynamicValues=Get-ResourceValues $dynamicContext}while([string]$dynamicValues.State -ne 'Running' -and [datetime]::UtcNow -lt $deadline);Assert-HyperVResourceAcceptance ($dynamicValues.Dynamic -and $dynamicValues.Minimum -eq 2048 -and $dynamicValues.Maximum -eq 7168) 'Bereichserweiternde dynamische Min/Max-Drift ist nur im gestoppten Zustand hergestellt'
+    $stage='DYNAMIC_LIVE_SQL_READINESS';
+    Assert-HyperVResourceAcceptance (Wait-ResourceSqlReady $dynamicContext $sa) 'SQL ist nach dem Live-Drift-Restart bereit'
+    Invoke-NonQuery $dynamicContext $sa "CREATE TABLE tempdb.dbo.SqlLabHvResourceMarker (Marker int NOT NULL); INSERT tempdb.dbo.SqlLabHvResourceMarker VALUES (2025);"
     $stage='DYNAMIC_LIVE_PLAN';
     $dynamicPlan=Get-SqlServerLabReconcilePlan -RunId $dynamicLab.RunId -HyperVResources -InstanceId primary -StateRoot $StateRoot
     Assert-HyperVResourceAcceptance ([string]$dynamicPlan.HighestChangeClass -eq 'live' -and -not $dynamicPlan.Actions[0].RequiresRestart -and @($dynamicPlan.Diff.Field) -contains 'MemoryMinimumMB' -and @($dynamicPlan.Diff.Field) -contains 'MemoryMaximumMB') 'Read-only Plan klassifiziert nur bereichserweiternde dynamische Drift als live'
@@ -155,6 +165,8 @@ try {
     $completed=$true} catch {
     $allowedStages=@('INITIALIZATION','DYNAMIC_MANIFEST','DYNAMIC_PROVISION','DYNAMIC_FORBIDDEN_DRIFT','DYNAMIC_FORBIDDEN_SQL_READINESS','DYNAMIC_FORBIDDEN_PLAN','DYNAMIC_FORBIDDEN_WHATIF','DYNAMIC_FORBIDDEN_APPLY','DYNAMIC_LIVE_SQL_READINESS','DYNAMIC_LIVE_DRIFT','DYNAMIC_LIVE_PLAN','DYNAMIC_LIVE_WHATIF','DYNAMIC_LIVE_APPLY','DYNAMIC_LIVE_NOOP','STATIC_MANIFEST','STATIC_PROVISION','STATIC_DRIFT','STATIC_PLAN','STATIC_WHATIF','STATIC_APPLY','STATIC_SQL_READINESS','STATIC_NOOP')
     $safeStage=if($stage -in $allowedStages){$stage}else{'INITIALIZATION'}
+    $activationReasonCode=if($safeStage -in @('DYNAMIC_PROVISION','STATIC_PROVISION')){Get-HyperVResourceReconcileAcceptanceActivationReasonCode -ErrorRecord $_}else{$null}
+    if($activationReasonCode){throw "HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_${safeStage}_FAILED $activationReasonCode"}
     throw "HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_${safeStage}_FAILED"
 } finally {
     if(-not $DeferCleanup -or -not $completed){Remove-OwnRuns}
