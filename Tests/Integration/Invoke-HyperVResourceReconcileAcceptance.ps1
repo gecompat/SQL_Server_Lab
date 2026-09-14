@@ -72,8 +72,8 @@ function Wait-ResourceShutdownIntegrationReady {
     do {
         try {
             $vm=(Get-OwnedVm $Context).VM
-            $shutdownService=@(Get-VMIntegrationService -VM $vm -ErrorAction Stop | Where-Object { ([string]$_.Id).EndsWith('0E0B6031-5213-4934-818B-38D90CED39DB',[StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1)[0]
-            if($shutdownService -and $shutdownService.Enabled -and [string]$shutdownService.PrimaryStatusDescription -eq 'OK'){return $true}
+            $shutdownService=@(Get-VMIntegrationService -VM $vm -ErrorAction Stop | Where-Object { ([string]$_.Id).EndsWith('9F8233AC-BE49-4C79-8EE3-E7E1985B2077',[StringComparison]::OrdinalIgnoreCase) } | Select-Object -First 1)[0]
+            if($shutdownService -and $shutdownService.Enabled -and [int]$shutdownService.PrimaryOperationalStatus -eq 2){return $true}
         } catch {}
         Start-Sleep -Seconds 5
     } while([datetime]::UtcNow -lt $deadline)
@@ -132,8 +132,9 @@ try {
     $stage='DYNAMIC_FORBIDDEN_APPLY';
     $dynamicRestartResult=Invoke-SqlServerLabReconcileAction -RunId $dynamicLab.RunId -RepairHyperVResources -InstanceId primary -StateRoot $StateRoot -Confirm:$false;$dynamicValues=Get-ResourceValues $dynamicContext;$dynamicRestartReceipt=Get-Content -LiteralPath $dynamicJournal -Raw -Encoding utf8|ConvertFrom-Json -Depth 30
     Assert-HyperVResourceAcceptance ([string]$dynamicRestartResult.ExecutionSummary.Status -eq 'SUCCEEDED' -and $dynamicValues.Dynamic -and $dynamicValues.Minimum -eq 1024 -and $dynamicValues.Startup -eq 6144 -and $dynamicValues.Maximum -eq 8192 -and [string]$dynamicRestartReceipt.Status -eq 'COMPLETED') 'Restart-Reconcile stellt einengende dynamische RAM-Werte und Journal wieder her'
-    $stage='DYNAMIC_RESTART_VERIFY';
+    $stage='DYNAMIC_RESTART_SQL_READINESS';
     Assert-HyperVResourceAcceptance (Wait-ResourceSqlReady $dynamicContext $sa) 'SQL ist nach dem Restart-Reconcile bereit'
+    $stage='DYNAMIC_RESTART_SHUTDOWN_READINESS';
     Assert-HyperVResourceAcceptance (Wait-ResourceShutdownIntegrationReady $dynamicContext) 'Hyper-V-Shutdown-Integration ist nach dem Restart-Reconcile bereit'
     $stage='DYNAMIC_LIVE_STOP';
     $dynamicVm=(Get-OwnedVm $dynamicContext).VM;Stop-VM -VM $dynamicVm -Confirm:$false -ErrorAction Stop
@@ -144,7 +145,9 @@ try {
     Start-VM -VM $dynamicVm -ErrorAction Stop
     $stage='DYNAMIC_LIVE_VERIFY';
     $deadline=[datetime]::UtcNow.AddMinutes(5);do{Start-Sleep -Seconds 3;$dynamicValues=Get-ResourceValues $dynamicContext}while([string]$dynamicValues.State -ne 'Running' -and [datetime]::UtcNow -lt $deadline);Assert-HyperVResourceAcceptance ($dynamicValues.Dynamic -and $dynamicValues.Minimum -eq 2048 -and $dynamicValues.Maximum -eq 7168) 'Bereichserweiternde dynamische Min/Max-Drift ist nur im gestoppten Zustand hergestellt'
+    $stage='DYNAMIC_LIVE_SQL_READINESS';
     Assert-HyperVResourceAcceptance (Wait-ResourceSqlReady $dynamicContext $sa) 'SQL ist nach dem Live-Drift-Restart bereit'
+    $stage='DYNAMIC_LIVE_SHUTDOWN_READINESS';
     Assert-HyperVResourceAcceptance (Wait-ResourceShutdownIntegrationReady $dynamicContext) 'Hyper-V-Shutdown-Integration ist nach dem Live-Drift-Restart bereit'
     Invoke-NonQuery $dynamicContext $sa "CREATE TABLE tempdb.dbo.SqlLabHvResourceMarker (Marker int NOT NULL); INSERT tempdb.dbo.SqlLabHvResourceMarker VALUES (2025);"
     $stage='DYNAMIC_LIVE_PLAN';
@@ -183,7 +186,7 @@ try {
     $stage='STATIC_NOOP';
     Assert-HyperVResourceAcceptance (Get-SqlServerLabReconcilePlan -RunId $staticLab.RunId -HyperVResources -InstanceId primary -StateRoot $StateRoot).IsNoOp 'Statischer Wiederholungsplan ist No-op'
     $completed=$true} catch {
-    $allowedStages=@('INITIALIZATION','DYNAMIC_MANIFEST','DYNAMIC_PROVISION','DYNAMIC_FORBIDDEN_DRIFT','DYNAMIC_FORBIDDEN_SQL_READINESS','DYNAMIC_FORBIDDEN_PLAN','DYNAMIC_FORBIDDEN_WHATIF','DYNAMIC_FORBIDDEN_APPLY','DYNAMIC_RESTART_VERIFY','DYNAMIC_LIVE_STOP','DYNAMIC_LIVE_CONFIGURE','DYNAMIC_LIVE_START','DYNAMIC_LIVE_VERIFY','DYNAMIC_LIVE_PLAN','DYNAMIC_LIVE_WHATIF','DYNAMIC_LIVE_APPLY','DYNAMIC_LIVE_NOOP','STATIC_MANIFEST','STATIC_PROVISION','STATIC_DRIFT','STATIC_PLAN','STATIC_WHATIF','STATIC_APPLY','STATIC_SQL_READINESS','STATIC_NOOP')
+    $allowedStages=@('INITIALIZATION','DYNAMIC_MANIFEST','DYNAMIC_PROVISION','DYNAMIC_FORBIDDEN_DRIFT','DYNAMIC_FORBIDDEN_SQL_READINESS','DYNAMIC_FORBIDDEN_PLAN','DYNAMIC_FORBIDDEN_WHATIF','DYNAMIC_FORBIDDEN_APPLY','DYNAMIC_RESTART_SQL_READINESS','DYNAMIC_RESTART_SHUTDOWN_READINESS','DYNAMIC_LIVE_STOP','DYNAMIC_LIVE_CONFIGURE','DYNAMIC_LIVE_START','DYNAMIC_LIVE_VERIFY','DYNAMIC_LIVE_SQL_READINESS','DYNAMIC_LIVE_SHUTDOWN_READINESS','DYNAMIC_LIVE_PLAN','DYNAMIC_LIVE_WHATIF','DYNAMIC_LIVE_APPLY','DYNAMIC_LIVE_NOOP','STATIC_MANIFEST','STATIC_PROVISION','STATIC_DRIFT','STATIC_PLAN','STATIC_WHATIF','STATIC_APPLY','STATIC_SQL_READINESS','STATIC_NOOP')
     $safeStage=if($stage -in $allowedStages){$stage}else{'INITIALIZATION'}
     $activationReasonCode=if($safeStage -in @('DYNAMIC_PROVISION','STATIC_PROVISION')){Get-HyperVResourceReconcileAcceptanceActivationReasonCode -ErrorRecord $_}else{$null}
     if($activationReasonCode){throw "HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_${safeStage}_FAILED $activationReasonCode"}
