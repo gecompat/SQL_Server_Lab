@@ -1337,6 +1337,104 @@ function Set-HyperVWindowsGuestSpecialization {
     }
 }
 
+function Confirm-HyperVWindowsManualOobeSpecialization {
+    <#
+    .SYNOPSIS
+        Bestaetigt eine bereits manuell abgeschlossene Windows-OOBE fuer einen eigenen Hyper-V-Run.
+    .DESCRIPTION
+        Dieser begrenzte Recovery-Pfad ersetzt keine Windows-Specialization.
+        Er ist ausschliesslich fuer einen explizit manuell abgeschlossenen Gast
+        gedacht, dessen verwaltete VM-Identitaet den Receipt noch nicht
+        enthaelt. Vor der Receipt-Mutation werden ImageState, aktueller
+        Computername und ein nicht ausstehender Rename direkt im Gast geprueft.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$VMName,
+        [Parameter(Mandatory)][string]$ExpectedRunId,
+        [Parameter(Mandatory)][string]$ExpectedScopeId,
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress
+    )
+
+    $managed = Get-HyperVManagedVM `
+        -VMName $VMName `
+        -ExpectedRunId $ExpectedRunId `
+        -ExpectedScopeId $ExpectedScopeId
+    if (-not $managed) { throw "Hyper-V-VM nicht gefunden: $VMName" }
+    if ([string]$managed.VM.State -ne 'Running') {
+        throw "Manuelle Windows-OOBE-Bestaetigung erfordert eine laufende VM: $VMName"
+    }
+
+    $existing = [string]$managed.Identity.windowsSpecialization.status
+    if ($existing -and $existing -ne 'WINDOWS_SPECIALIZED') {
+        throw 'HYPERV_WINDOWS_MANUAL_OOBE_SPECIALIZATION_CONFLICT'
+    }
+
+    $observed = Invoke-HyperVPowerShellDirect `
+        -VMName $VMName `
+        -ExpectedRunId $ExpectedRunId `
+        -ExpectedScopeId $ExpectedScopeId `
+        -Credential $Credential `
+        -FallbackAddress $FallbackAddress `
+        -ScriptBlock {
+            $pendingName = [string](Get-ItemProperty `
+                -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName' `
+                -Name ComputerName `
+                -ErrorAction Stop).ComputerName
+            New-Object PSObject -Property @{
+                computerName = [Environment]::MachineName
+                pendingComputerName = $pendingName
+                imageState = [string](Get-ItemProperty `
+                    -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Setup\State' `
+                    -Name ImageState `
+                    -ErrorAction Stop).ImageState
+                windowsVersion = [Environment]::OSVersion.Version.ToString()
+            }
+        }
+    $observed = @($observed)[0]
+    if ([string]$observed.imageState -ne 'IMAGE_STATE_COMPLETE') {
+        throw 'HYPERV_WINDOWS_MANUAL_OOBE_IMAGE_STATE_NOT_COMPLETE'
+    }
+    if ([string]::IsNullOrWhiteSpace([string]$observed.computerName) -or
+        [string]$observed.computerName -notmatch '^(?![0-9]+$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,13}[A-Za-z0-9])?$') {
+        throw 'HYPERV_WINDOWS_MANUAL_OOBE_COMPUTER_NAME_INVALID'
+    }
+    if ([string]$observed.pendingComputerName -ne [string]$observed.computerName) {
+        throw 'HYPERV_WINDOWS_MANUAL_OOBE_RENAME_PENDING'
+    }
+    if ($existing -eq 'WINDOWS_SPECIALIZED' -and
+        [string]$managed.Identity.windowsSpecialization.computerName -ne [string]$observed.computerName) {
+        throw 'HYPERV_WINDOWS_MANUAL_OOBE_SPECIALIZATION_CONFLICT'
+    }
+
+    $receipt = [PSCustomObject]@{
+        status = 'WINDOWS_SPECIALIZED'
+        computerName = [string]$observed.computerName
+        imageState = [string]$observed.imageState
+        windowsVersion = [string]$observed.windowsVersion
+        rebooted = $false
+        specializationMode = 'MANUAL_OOBE_VERIFIED'
+        observedAt = [datetime]::UtcNow.ToString('o')
+    }
+    $null = Set-HyperVManagedVMIdentityProperty `
+        -ManagedVM $managed `
+        -PropertyName windowsSpecialization `
+        -Value $receipt `
+        -ContractVersion '0.7'
+
+    return [PSCustomObject]@{
+        Provider = 'hyperv'
+        VMName = $VMName
+        RunId = $ExpectedRunId
+        ScopeId = $ExpectedScopeId
+        Status = 'WINDOWS_SPECIALIZED'
+        ComputerName = [string]$observed.computerName
+        Rebooted = $false
+        SpecializationMode = 'MANUAL_OOBE_VERIFIED'
+    }
+}
+
 function Wait-HyperVGuestSqlReady {
     [CmdletBinding()]
     param(
