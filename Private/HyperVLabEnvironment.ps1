@@ -1981,7 +1981,12 @@ function Rename-HyperVLabEnvironment {
 
 function Start-HyperVLabEnvironment {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [PSCredential]$ActivationCredential,
+        [switch]$SkipWindowsActivationReconcile,
+        [string]$StateRoot
+    )
     Write-LabInfo 'Schritt 1/2: Besitz und aktueller Status der Hyper-V-VM werden geprüft.'
     $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'START' -StateRoot $StateRoot
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
@@ -1989,8 +1994,8 @@ function Start-HyperVLabEnvironment {
     $status = Start-HyperVInstance -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if ([string]$lab.Run.state -eq 'STOPPED') { $null = Set-LabRunState -RunId $RunId -NewState RUNNING -Reason 'Hyper-V-VM gestartet.' -StateRoot $lab.StateRoot }
     Set-LabProviderSubRunState -RunId $RunId -Provider hyperv -NewState RUNNING -Reason 'Hyper-V-VM gestartet.' -StateRoot $lab.StateRoot
-    if([string]$lab.Instance.oobeAutomation.status -eq 'COMPLETED' -or [string]$lab.Instance.windowsProvisioning.state -eq 'COMPLETE'){
-        $null=Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -StateRoot $lab.StateRoot
+    if(-not $SkipWindowsActivationReconcile -and ([string]$lab.Instance.oobeAutomation.status -eq 'COMPLETED' -or [string]$lab.Instance.windowsProvisioning.state -eq 'COMPLETE')){
+        $null=Invoke-LabWindowsSlotActivationReconcile -RunId $RunId -Credential $ActivationCredential -StateRoot $lab.StateRoot
     }
     return $status
 }

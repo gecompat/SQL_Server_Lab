@@ -7,8 +7,13 @@
     und werden weder in Build-State noch Log-Ausgabe gespeichert.
 .PARAMETER Action
     Eindeutige, zulässige Workflow-Aktion.
-    RepairHyperVWindowsActivation prueft den laufenden Slot erneut und aktiviert
-    eine gueltige Evaluation nur gemaess seinem gespeicherten Egress-Intent.
+    RepairHyperVWindowsActivation prueft einen laufenden Slot wie bisher erneut
+    mit dem run-lokal gespeicherten Gastkennwort. Wird GuestPassword angegeben,
+    setzt die Aktion stattdessen einen nach manueller OOBE fortgesetzten Slot
+    mit diesem nur fuer den Aufruf uebergebenen Kennwort fort: Sie synchronisiert
+    den Runtimezustand, startet einen ausgeschalteten Slot, aktiviert nur gemaess
+    seinem gespeicherten Egress-Intent und stoppt ihn anschliessend wieder,
+    ausser LeaveRunning ist angefordert.
 .PARAMETER BuildId
 Build-ID des vorhandenen Windows- oder SQL-Image-Builds.
 .PARAMETER ArtifactId
@@ -139,6 +144,10 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
     einzelnen Bereitstellungsvorgang zufällig erzeugt wurde. Der Wert dient
     ausschließlich der Run-Metadatenanzeige; das Passwort selbst wird nie im
     Klartext gespeichert.
+.PARAMETER LeaveRunning
+    Laesst einen mit GuestPassword durch RepairHyperVWindowsActivation fuer die
+    Wiederaufnahme gestarteten Slot nach dem Aktivierungsversuch laufen. Bereits
+    laufende Slots werden durch diese Aktion niemals gestoppt.
 .PARAMETER Region
     Zwei- oder vierstelliger Regions-Schlüssel für die Windows-OOBE (z. B. DE oder DE-DE).
 .PARAMETER SystemLocale
@@ -248,6 +257,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$GuestUserName = 'Administrator',
         [SecureString]$GuestPassword,
         [ValidateSet('user', 'generated')][string]$GuestPasswordSource = 'user',
+        [switch]$LeaveRunning,
         [ValidatePattern('^[A-Za-z]{2}(-[A-Za-z]{2})?$')][string]$Region = 'DE',
         [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$SystemLocale = 'de-DE',
         [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$UiLanguage = 'en-US',
@@ -471,7 +481,14 @@ function Invoke-SqlServerLabWorkflowAction {
             $lab
         }
         'StartHyperVLab' { Start-HyperVLabEnvironment -RunId $BuildId }
-        'RepairHyperVWindowsActivation' { Invoke-LabWindowsSlotActivationReconcile -RunId $BuildId -Credential $credential }
+        'RepairHyperVWindowsActivation' {
+            if ($GuestPassword) {
+                Resume-LabWindowsSlotActivation -RunId $BuildId -Credential $credential -LeaveRunning:$LeaveRunning
+            }
+            else {
+                Invoke-LabWindowsSlotActivationReconcile -RunId $BuildId
+            }
+        }
         'StopHyperVLab' { Stop-HyperVLabEnvironment -RunId $BuildId }
         'StartLabReconcile' { Invoke-SqlServerLabReconcileAction -RunId $BuildId -TargetState RUNNING }
         'EnableHyperVLabPersistentData' { Enable-HyperVLabPersistentData -RunId $BuildId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
