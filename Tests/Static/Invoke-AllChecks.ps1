@@ -114,6 +114,7 @@ $checks = @(
     'Invoke-ReconcileActionContractChecks.ps1',
     'Invoke-HyperVNetworkReconcileChecks.ps1',
     'Invoke-HyperVResourceReconcileChecks.ps1',
+    'Invoke-HyperVResourceReconcileAcceptanceChecks.ps1',
     'Invoke-HyperVStorageReconcileChecks.ps1',
     'Invoke-HyperVSqlStorageReconcileChecks.ps1',
     'Invoke-HyperVSqlConfigurationReconcileChecks.ps1',
