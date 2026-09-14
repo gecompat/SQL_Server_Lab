@@ -600,7 +600,7 @@ hinterlassen ein sanitisiertes `RECOVERY_REQUIRED`-Receipt. Katalogisierte
 Samples verwenden bei `SQL_PREPARED_SEALED`-Manifesten ausschließlich die
 verifizierten Default-Data-, Default-Log- und Backup-Rollen; fehlende Rollen
 oder widersprüchliche explizite Sample-Platzierung werden vor der Mutation
-abgelehnt. Der neue Runner `Tests/Integration/Invoke-HyperVSampleManifestAcceptance.ps1` prueft bereits zwei frische sequenzielle SQL-2025-Prepared-Runs mit Chinook und Northwind, kataloggebundenen Source-Pins, `LAB_GENERATED`-Key-/Hash-/Manifest-Lock-Gleichheit und scopegebundenem Cleanup. Seine native Ausfuehrung bleibt bis zum ersten vollstaendlichen manuellen Main-Lauf `NOT_EXECUTED`; die bereits reale Testdatenbank-Reconcile-Evidence wird dadurch nicht ersetzt. Physische Containertrennung bleibt ebenfalls unsupported. Der physische
+abgelehnt. Der Runner `Tests/Integration/Invoke-HyperVSampleManifestAcceptance.ps1` wurde im manuellen Main-Lauf `34790092466` auf Commit `95c5a79c` erfolgreich ausgefuehrt: Zwei frische sequenzielle SQL-2025-Prepared-Runs mit Chinook (`sql-server`) und Northwind (`script`) bestätigten kataloggebundene Source-Pins, `LAB_GENERATED`-Baseline-ID/Key/Hash-/`manifest.lock.json`-Gleichheit im zweiten Run und scopegebundenes Cleanup. Die bereits reale Testdatenbank-Reconcile-Evidence wird dadurch nicht ersetzt; weitere Hyper-V-Sample-Varianten und physische Containertrennung bleiben getrennt. Der physische
 N5-Storage-Nachweis ist damit abgeschlossen. Ein erneuter realer Lauf am
 2026-08-31 bestätigte den Vertrag nach der Ressourcenroot-Umstellung mit drei
 von drei geforderten Geräten, gebundenem Builder-/Image-Pfad und vollständigem
@@ -1088,11 +1088,14 @@ Archiv-Backup-, BACPAC- und Attach-Handler vorgesehen. SQL-Skripte und Bundles
 bleiben bei abweichenden Namen fail-closed.
 Run-gebundene Hyper-V-`LAB_GENERATED`-Backups verwenden
 eine verifizierte Storage-Receipt-Backup-Lane, PowerShell Direct für den Export
-und denselben run-gebundenen Restorepfad; dieser Vertrag ist synthetisch, aber
-noch nicht real auf einem Host belegt. Die automatische Hyper-V-
-Manifestausführung für Samples ist an vollständige Default-Data-, Default-Log-
-und Backup-Lanes gebunden und blockiert widersprüchliche datenbankspezifische
-Platzierung vor der Provider-Mutation. Der neue Mehrfach-Sample-Manifest-Runner ist als native Abnahme vorbereitet, besitzt aber noch keine reale Host-Evidence (`NOT_EXECUTED`). Der Manifest-Wizard
+und denselben run-gebundenen Restorepfad. Der manuelle Main-Lauf `34790092466`
+belegt diesen automatischen Manifestpfad für zwei frische SQL-2025-Prepared-
+Runs mit Chinook (`sql-server`) und Northwind (`script`), Baseline-ID/Key/Hash-
+und `manifest.lock.json`-Wiederverwendung im zweiten Run sowie scopegebundenem
+Cleanup. Die automatische Hyper-V-Manifestausführung bleibt an vollständige
+Default-Data-, Default-Log- und Backup-Lanes gebunden und blockiert
+widersprüchliche datenbankspezifische Platzierung vor der Provider-Mutation.
+Weitere Hyper-V-Sample-Varianten sind damit nicht nativ abgenommen. Der Manifest-Wizard
 unterstützt Hilfe, schrittweise Zurücknavigation, Zwischenzusammenfassung und
 Abbruch ohne partielle Datei. Seine mutationsfreie Planvorschau umfasst
 External Runtimes sowie Sample-/Artifact-Quelle, Lizenz, Outputs, Größen,
@@ -1983,9 +1986,7 @@ werden.
 
 ## Priorisierte nächste technische Schritte
 
-1. Den synthetisch implementierten Hyper-V-`LAB_GENERATED`-Export und die
-   automatische Sample-Manifestausführung real abnehmen (Sample-Welle 6).
-2. Die verbleibenden providerneutralen Software-Intents an die Software-Runtime
+1. Die verbleibenden providerneutralen Software-Intents an die Software-Runtime
    binden; additive SQL-2022-Hyper-V-External-Runtimes sind für Python/R/Java
    auf Windows Server 2025 mit SQL-2022 Evaluation nativ reconcile- und
    cleanup-belegt. Removal, Varianten-/Packagewechsel, allgemeine Zusatzsoftware
@@ -1998,15 +1999,15 @@ werden.
    Add-/Remove-Reconcile besitzen ihre jeweils dokumentierte positive native
    Evidence. Weitere native Reparaturnachweise, alte Runs ohne
    Testdatenbank-Ownership-Receipt, Storage-Removal/-Rebinding, User-/Systemdatenbankbewegung und weitere Hardware-/SQL-Klassen bleiben offen.
-3. Die bestehende lokale, read-only Artifact Registry sowie Evaluierungs- und
+2. Die bestehende lokale, read-only Artifact Registry sowie Evaluierungs- und
    Refresh-Empfehlungen um einen explizit autorisierten Rebuild-/Retire-
    Lifecycle erweitern. Die Inventur liefert bereits stabile Artifact-IDs,
    Integritätsstatus, Referenzzähler und `MANUAL_REBUILD_*`-Hinweise, erteilt
    aber bewusst keine Build-, Refresh- oder Löschmutation.
-4. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
+3. Den belegten Windows-2025-/SQL-2025-Referenzpfad zur vollständigen
    allgemeinen Hyper-V-Manifestbindung und zu weiteren realen
    Versions-/Editionsnachweisen ausbauen.
-5. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und
+4. Katalogaktualität, verifizierte Prüfsummen (`catalog-verified`) und
    Baseline-Kompatibilität kontrolliert pflegen.
 ## Windows-Locale-Erweiterung (2026-09-10)
 

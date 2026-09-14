@@ -31,8 +31,11 @@ Output-Verification, die Mehrfachauswahl im Ad-hoc-Menü und per
 Einzelne gepinnte SQL-Skript-Samples und sichere ZIP-Script-Bundles mit mehreren
 fest katalogisierten Datenbankoutputs sind implementiert. Verifizierte Single-
 und Multi-Output-Container-Samples erzeugen `LAB_GENERATED`-Baselines mit
-SQL-Checksum und Wiederverwendung; der entsprechende Hyper-V-Vertrag ist
-synthetisch belegt, seine reale Runtime-Evidence bleibt offen.
+SQL-Checksum und Wiederverwendung. Der manuelle Main-Lauf `34790092466` auf
+Commit `95c5a79c` belegt den Hyper-V-Vertrag für zwei frische SQL-2025-Prepared-
+Manifest-Runs mit Chinook (`sql-server`) und Northwind (`script`), Baseline-ID/
+Key/Hash- und `manifest.lock.json`-Wiederverwendung im zweiten Run sowie
+scopegebundenem Cleanup. Weitere Hyper-V-Sample-Varianten bleiben offen.
 
 Der gemeinsame Katalogvertrag für Artifact Type, Installation, erwartete
 Outputs, Trust Policy und Größenmetadaten ist implementiert. Für die
@@ -81,7 +84,7 @@ Installation Handler aus.
 | mehrere Samples im Ad-hoc-Menü auswählen | implementiert (`Invoke-SqlServerLab`, `New-SqlServerLab -Sample`) |
 | persistenter Trust Store und Manifest Lock | implementiert; Sample-Identität wird mitgeführt |
 | inhaltsadressierter Artifact Cache und Quarantäne | implementiert |
-| `LAB_GENERATED`-Baseline-Auswahl | für verifizierte Single- und Multi-Output-Container-Samples sowie run-gebundene Hyper-V-Samples einschließlich automatischer Manifestbindung implementiert; reale Hyper-V-Evidence offen |
+| `LAB_GENERATED`-Baseline-Auswahl | für verifizierte Single- und Multi-Output-Container-Samples sowie run-gebundene Hyper-V-Samples einschließlich automatischer Manifestbindung implementiert; Main-Lauf `34790092466` belegt zwei frische SQL-2025-Prepared-Manifest-Runs mit Chinook (`sql-server`), Northwind (`script`), Wiederverwendung und scopegebundenem Cleanup; weitere Hyper-V-Sample-Varianten offen |
 | kontextbezogene Manifest-Menüführung | Pfadsemantik, Sample-Katalogauswahl, Hilfe, Zurücknavigation, Zwischenzusammenfassung, sauberer Abbruch und Sample-/Artifact-Planvorschau implementiert |
 
 ## 4. Gemeinsamer Artifact-Vertrag
@@ -716,8 +719,11 @@ Originalartefakt zurück. Multi-Output-Baselines werden als typisierte ZIPs aus
 exakt den erwarteten, einzeln verifizierten Datenbankbackups gespeichert.
 Der automatische Hyper-V-Manifestpfad verwendet denselben run-gebundenen
 Handler. Sein Preflight verlangt Default-Data-, Default-Log- und Backup-Lanes
-und lehnt widersprüchliche datenbankspezifische Platzierung ab. Reale Hyper-V-
-Runtime-Evidence ist weiterhin offen.
+und lehnt widersprüchliche datenbankspezifische Platzierung ab. Der manuelle
+Main-Lauf `34790092466` belegt diesen Pfad für zwei frische SQL-2025-Prepared-
+Manifest-Runs mit Chinook (`sql-server`) und Northwind (`script`),
+Baseline-Wiederverwendung und scopegebundenem Cleanup. Weitere Hyper-V-
+Sample-Varianten sind weiterhin offen.
 
 ### Welle 6 – Weitere Artifact Types und Hyper-V-Bindung
 

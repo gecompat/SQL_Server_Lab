@@ -96,8 +96,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - inhaltsadressierte `LAB_GENERATED`-Baselines für Single- und Multi-Output-
   Container- und run-gebundene Hyper-V-Samples einschließlich kompatibler
   Aufsetzpunktauswahl; Hyper-V exportiert nur aus der verifizierten Backup-
-  Lane und entfernt die temporäre Gastkopie; ad-hoc CREATE/RESTORE nutzt bei
-  fehlender expliziter Datenbankregel nur die verifizierten Default-Lanes;
+  Lane und entfernt die temporäre Gastkopie; der erfolgreiche manuelle Main-
+  Lauf `34790092466` belegt für zwei frische SQL-2025-Prepared-Manifest-Runs
+  mit Chinook (`sql-server`) und Northwind (`script`) die Wiederverwendung von
+  Baseline-ID/Key/Hash und `manifest.lock.json` sowie scopegebundenes Cleanup;
+  ad-hoc CREATE/RESTORE nutzt bei fehlender expliziter Datenbankregel nur die
+  verifizierten Default-Lanes;
 - Mehrfachauswahl von Testdatenbanken im Ad-hoc-Menü und über
   `New-SqlServerLab -Sample`;
 - gemischter Docker-/Podman-Lifecycle mit getrennten `ProviderSubRuns`;
@@ -332,8 +336,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   eines Runs;
 - vollständige Ausführung aller im Schema vorbereiteten `serverConfig`-Felder;
 - nicht freigegebene Archive und Attach-Szenarien;
-- reale Runtime-Evidence für automatische Hyper-V-Manifest-Sample-
-  Installationen sowie Export und Nutzung von `LAB_GENERATED`-Baselines;
+- weitere Hyper-V-Sample-Varianten außerhalb des erfolgreich abgenommenen
+  SQL-2025-Prepared-Manifestpfads;
 - weitere External-Runtime-OS-/Providerkombinationen außerhalb der belegten
   Linux-Containermatrix und des SQL-2022-Hyper-V-/Windows-Pfads; C# bleibt bis
   zu reproduzierbarem Build und nativer SQL-Evidence `PREVIEW`;
@@ -596,8 +600,10 @@ Mehrfachauswahl, Trust-/Hash-Pfad und gepinnte Einzelskripte sind implementiert;
 sichere Script Bundles, mehrere erwartete Outputs und containerbasierte sowie
 run-gebundene Hyper-V-`LAB_GENERATED`-Baselines sind ebenfalls implementiert.
 Attach-Szenarien und nicht freigegebene Archive bleiben offen. Die automatische
-Hyper-V-Manifestbindung für Samples ist synthetisch implementiert; reale
-Hyper-V-Sample- und Baseline-Evidence bleibt offen.
+Hyper-V-Manifestbindung für Samples ist für zwei frische SQL-2025-Prepared-
+Manifest-Runs mit Chinook (`sql-server`) und Northwind (`script`) im manuellen
+Main-Lauf `34790092466` nativ belegt; weitere Hyper-V-Sample-Varianten bleiben
+separat offen.
 
 ## 10. State, Secrets und Cleanup
 

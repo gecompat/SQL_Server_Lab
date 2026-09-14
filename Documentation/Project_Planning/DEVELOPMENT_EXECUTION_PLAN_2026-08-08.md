@@ -129,7 +129,7 @@ normalen Manifest-Klon bis `SQL_READY_RUN` positiv ausgeführt.
 | Hyper-V-Manifestbindung für allgemeine Software und Post-Provisioning ist unvollständig; Testdatenbanken und additive SQL-2022-External-Runtimes besitzen getrennte Reconcile-Verträge | vollständige UI-/Manifestparität fehlt weiterhin |
 | Reconcile-Executor und Actual-State-Collector decken Lifecycle, mehrere Hyper-V-Ressourcen-/SQL-Klassen, Testdatenbanken sowie additive und vollständige Container-External-Runtime-Entfernung ab | Hyper-V-Removal/Rebinding, weitere Hardware-/SQL-Klassen und native Repair-Evidence fehlen |
 | die drei Adapterpiloten sind als SQL-2025-Linux-Referenz unter Docker und Podman belegt (N3); weitere Windows-/SQL-Matrixnachweise bleiben getrennt | weitere Konsumentenmatrix erfordert den jeweiligen externen Repositoryscope |
-| `LAB_GENERATED`-Erzeugung und -Präferenz sind für Single- und Multi-Output-Container-Samples sowie run-gebundene Hyper-V-Samples einschließlich automatischer Manifestbindung implementiert; Script Bundles mit mehreren festen Datenbankoutputs sind implementiert | reale Hyper-V-Sample-/Baseline-Evidence bleibt offen |
+| `LAB_GENERATED`-Erzeugung und -Präferenz sind für Single- und Multi-Output-Container-Samples sowie run-gebundene Hyper-V-Samples einschließlich automatischer Manifestbindung implementiert; Script Bundles mit mehreren festen Datenbankoutputs sind implementiert | Main-Lauf `34790092466` belegt zwei frische SQL-2025-Prepared-Manifest-Runs mit Chinook (`sql-server`), Northwind (`script`), Baseline-Wiederverwendung und scopegebundenem Cleanup; weitere Hyper-V-Sample-Varianten bleiben offen |
 | Fault-/Scenario-Engine und breite Abbruch-/Recovery-Injektion fehlen | Release-Härtung und komplexe SQL-Szenarien bleiben unvollständig |
 
 ### 3.3 Fortlaufend zu prüfende Statusabweichungen
@@ -216,7 +216,7 @@ Container-Volumes gehören dagegen in den normalen Storage-Pfad.
 | M4 Hyper-V OS Cold Path | `validated_reference` | weitere freigegebene Windows-Varianten getrennt belegen |
 | M5 Hyper-V SQL und Resolver | `validated_reference_partial_manifest` | Testdatenbank- und additive SQL-2022-External-Runtime-Bindung sind implementiert; allgemeine Software-, Post-Provisioning- und weitere native Evidence bleiben offen; Network-Intents sind gebunden |
 | M6 Reconcile-Breite | `implemented_partial` | Netzwerk, vCPU/statisches-dynamisches RAM, Zusatz-VHDX/Grow-only sowie SQL-Default-/TempDB-Dateiplatzierung besitzen No-op und journalisierte beziehungsweise receiptgebundene Reparatur; Removal/Rebinding, User-/Systemdatenbankbewegung, weitere Hardware-/SQL-Klassen und native Repair-Evidence bleiben offen |
-| M7 Artifacts und Baselines | `implemented_partial` | Hyper-V-Export/-Nutzung und automatische Sample-Manifestbindung sind synthetisch belegt; reale Evidence und weitere typisierte Handler bleiben offen |
+| M7 Artifacts und Baselines | `implemented_partial` | Main-Lauf `34790092466` belegt Hyper-V-Export/-Nutzung und automatische Sample-Manifestbindung für zwei frische SQL-2025-Prepared-Runs mit Chinook (`sql-server`) und Northwind (`script`), Wiederverwendung und scopegebundenem Cleanup; weitere Hyper-V-Sample-Varianten und typisierte Handler bleiben offen |
 | M8 Scenarios und Migration | `planned` | Scenario-Vertrag nach den Adapterpiloten |
 | M9 Release-Härtung | `implemented_partial` | Failure-Injection und öffentliche Version erst nach Provider-/Adapterabnahme |
 
