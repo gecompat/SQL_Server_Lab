@@ -27,14 +27,14 @@ function Test-StageReceiptContract {
         [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":"HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_PROVISION_FAILED","activationReasonCode":"raw failure detail","provisionReasonCode":null}',[Text.UTF8Encoding]::new($false))
         $unsafeActivation=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
         [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":"HYPERV_RESOURCE_RECONCILE_CI_EXECUTION_FAILED","activationReasonCode":null,"provisionReasonCode":null}',[Text.UTF8Encoding]::new($false))
-        [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":"HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_PROVISION_FAILED","activationReasonCode":null,"provisionReasonCode":"HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND"}',[Text.UTF8Encoding]::new($false))
+        [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":"HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_PROVISION_FAILED","activationReasonCode":null,"provisionReasonCode":"HYPERV_RESOURCE_SLOT_SOURCE_NOT_ELIGIBLE"}',[Text.UTF8Encoding]::new($false))
         $provision=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
         [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":"HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_PROVISION_FAILED","activationReasonCode":null,"provisionReasonCode":"raw failure detail"}',[Text.UTF8Encoding]::new($false))
         $unsafeProvision=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
         $generic=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
         [IO.File]::WriteAllText($receiptPath,'{"status":"FAILED","stage":"RUNNER_FAILED","reasonCode":null,"activationReasonCode":null,"provisionReasonCode":null}',[Text.UTF8Encoding]::new($false))
         $missing=Test-HyperVResourceReconcileCiStageReceipt -ReceiptPath $receiptPath
-        return $valid -and $valid.ReasonCode -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_SHUTDOWN_READINESS_FAILED' -and -not $valid.ActivationReasonCode -and $activation -and $activation.ActivationReasonCode -ceq 'WINDOWS_ACTIVATION_REQUIRED' -and $sourceEligibility -and -not $sourceEligibility.ActivationReasonCode -and -not $unsafeActivation -and $provision -and $provision.ProvisionReasonCode -ceq 'HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND' -and -not $unsafeProvision -and -not $generic -and -not $missing
+        return $valid -and $valid.ReasonCode -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_SHUTDOWN_READINESS_FAILED' -and -not $valid.ActivationReasonCode -and $activation -and $activation.ActivationReasonCode -ceq 'WINDOWS_ACTIVATION_REQUIRED' -and $sourceEligibility -and -not $sourceEligibility.ActivationReasonCode -and -not $unsafeActivation -and $provision -and $provision.ProvisionReasonCode -ceq 'HYPERV_RESOURCE_SLOT_SOURCE_NOT_ELIGIBLE' -and -not $unsafeProvision -and -not $generic -and -not $missing
     } catch { return $false } finally { if(Test-Path -LiteralPath $root){Remove-Item -LiteralPath $root -Recurse -Force -ErrorAction SilentlyContinue} }
 }
 function Test-RunnerReasonCodeContract {
@@ -72,11 +72,11 @@ function Test-ProvisionReasonContract {
     try {
         . ([scriptblock]::Create($functionAst.Extent.Text));. ([scriptblock]::Create($transportAst.Extent.Text))
         $known=$null;$unknown=$null
-        try{throw 'HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND: private path'}catch{$known=Get-HyperVResourceReconcileAcceptanceProvisionReasonCode -ErrorRecord $_}
+        try{throw 'HYPERV_RESOURCE_SLOT_SOURCE_NOT_ELIGIBLE: private path'}catch{$known=Get-HyperVResourceReconcileAcceptanceProvisionReasonCode -ErrorRecord $_}
         try{throw 'private failure detail'}catch{$unknown=Get-HyperVResourceReconcileAcceptanceProvisionReasonCode -ErrorRecord $_}
-        $transport=@(Get-HyperVResourceReconcileCiProvisionReasonCode -RunnerOutput @('HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_PROVISION_FAILED HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND'))
+        $transport=@(Get-HyperVResourceReconcileCiProvisionReasonCode -RunnerOutput @('HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_PROVISION_FAILED HYPERV_RESOURCE_SLOT_SOURCE_NOT_ELIGIBLE'))
         $ignored=@(Get-HyperVResourceReconcileCiProvisionReasonCode -RunnerOutput @('private failure detail'))
-        return $known -ceq 'HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND' -and $null -eq $unknown -and $transport.Count -eq 1 -and $transport[0] -ceq 'HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND' -and $ignored.Count -eq 0
+        return $known -ceq 'HYPERV_RESOURCE_SLOT_SOURCE_NOT_ELIGIBLE' -and $null -eq $unknown -and $transport.Count -eq 1 -and $transport[0] -ceq 'HYPERV_RESOURCE_SLOT_SOURCE_NOT_ELIGIBLE' -and $ignored.Count -eq 0
     } catch { return $false }
 }
 function Test-ShutdownIntegrationReadinessContract {

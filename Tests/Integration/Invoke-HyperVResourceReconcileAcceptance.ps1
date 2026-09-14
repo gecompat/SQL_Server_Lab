@@ -34,7 +34,7 @@ $mutex=[Threading.Mutex]::new($false,'Global\SQL_Server_Lab_HyperV_Resource_Reco
 function Assert-HyperVResourceAcceptance { param([bool]$Condition,[string]$Description) if(-not $Condition){throw "HYPERV_RESOURCE_ACCEPTANCE_FAILED: $Description"};Write-Host "PASS: $Description" -ForegroundColor Green }
 function Get-HyperVResourceReconcileAcceptanceProvisionReasonCode {
     param([Parameter(Mandatory)]$ErrorRecord)
-    $pattern='(?<![A-Z0-9_])(?:HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND)(?![A-Z0-9_])'
+    $pattern='(?<![A-Z0-9_])(?:HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND|HYPERV_RESOURCE_SLOT_SOURCE_(?:RUN_INVALID|STATE_SCOPE_INVALID|INSTANCE_INVALID|NOT_ELIGIBLE|VM_INVALID|DISK_INVALID|DISK_SCOPE_INVALID|ARTIFACT_INVALID|SECRET_MISSING))(?![A-Z0-9_])'
     $match=[regex]::Match([string]$ErrorRecord.Exception.Message,$pattern)
     if($match.Success){return $match.Value}
     return $null
