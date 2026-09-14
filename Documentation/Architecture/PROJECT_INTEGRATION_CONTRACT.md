@@ -308,6 +308,8 @@ SQL_PERFORMANCE_DEMO_INFRASTRUCTURE
 ### 10.2 Erhaltener Demo-Vertrag
 
 - Demo-ID und Lernziel;
+- Schritt-für-Schritt-Anleitung, mit der Dritte Setup, Durchführung,
+  Beobachtung und fachliche Einordnung reproduzierbar nachvollziehen können;
 - Preflight;
 - Setup;
 - Baseline;
@@ -336,7 +338,9 @@ Dieser Adapter dient der Konstruktion reproduzierbarer Beispiele. Sein Standard
 ist die aktuelle SQL-Version auf Linux. Ein Package darf Windows oder eine
 andere katalogisierte Version anfordern, wenn die Beispielkonstellation dies
 fachlich benötigt. Das Schulungsrepository ist nicht Eigentümer der allgemeinen
-SQL-Mehrversions-Abnahmematrix.
+SQL-Mehrversions-Abnahmematrix. Jede freigegebene Demo benötigt zusätzlich eine
+zugehörige Benutzeranleitung, die das Thema für Dritte selbstständig
+nachstellbar und verständlich macht.
 
 ## 10a. Integration `SQL_Server_Toolbelt`
 
