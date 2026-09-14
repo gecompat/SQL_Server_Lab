@@ -171,6 +171,8 @@ sources_of_truth:
   hyperv_storage_reconcile_contract: Private/HyperVStorageReconcile.ps1
   hyperv_storage_reconcile_journal_schema: Schemas/hyperv-storage-reconcile-journal.schema.json
   validation_hyperv_storage_reconcile: Tests/Static/Invoke-HyperVStorageReconcileChecks.ps1
+  validation_hyperv_storage_reconcile_acceptance: Tests/Integration/Invoke-HyperVStorageReconcileAcceptance.ps1
+  validation_hyperv_storage_reconcile_acceptance_static: Tests/Static/Invoke-HyperVStorageReconcileAcceptanceChecks.ps1
   hyperv_sql_storage_reconcile_contract: Private/HyperVSqlStorageReconcile.ps1
   validation_hyperv_sql_storage_reconcile: Tests/Static/Invoke-HyperVSqlStorageReconcileChecks.ps1
   hyperv_sql_configuration_reconcile_contract: Private/HyperVSqlConfigurationReconcile.ps1
@@ -940,6 +942,7 @@ providers:
     resource_migration_static_checks: Tests/Static/Invoke-HyperVResourceMigrationChecks.ps1
     resource_reconcile_static_checks: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1
     storage_reconcile_static_checks: Tests/Static/Invoke-HyperVStorageReconcileChecks.ps1
+    storage_reconcile_acceptance: "Tests/Integration/Invoke-HyperVStorageReconcileAcceptance.ps1; manueller Main-Nachweis fuer einen operationseigenen Windows-2025-Clone, SCSI-Hostbindung, Gast-Receipt, Restart, No-op und Cleanup; Grow-only bleibt synthetisch belegt, SQL-Dateipfad-Rebinding bleibt HV-603A"
     sql_storage_reconcile_static_checks: Tests/Static/Invoke-HyperVSqlStorageReconcileChecks.ps1
     sql_configuration_reconcile_static_checks: Tests/Static/Invoke-HyperVSqlConfigurationReconcileChecks.ps1
     sql_configuration_reconcile_acceptance: "Tests/Integration/Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1 plus isolierter Prepared-Artifact-Bootstrap; nativer erfolgreicher GitHub-Actions-Lauf 34754976310 am 2026-09-13 auf erhoehtem Runner: verifiziertes SQL-2025-Prepared-Artifact, Manifest, isolierter Run und Host-SQL-Zugriff; initiale dynamische und restartpflichtige Konfiguration, unveraendertes WhatIf, Live- und Owned-Trace-Flag-Add/Remove bei erhaltenem fremdem Flag, Live-No-op, MSSQLSERVER- ohne VM-Neustart, Desired-State-Konvergenz und scopegebundener VM/VHDX/IPAM-Cleanup"

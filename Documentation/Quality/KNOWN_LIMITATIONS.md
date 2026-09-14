@@ -627,8 +627,15 @@ vor der Mutation geschriebene Storage-Runtime-Receipt anwenden. Er startet den
 SQL-Dienst kontrolliert neu und setzt `RECOVERY_REQUIRED` über denselben Bound
 Plan fort. User- und Systemdatenbankdateien sowie zusätzliche TempDB-Logfiles
 werden nicht automatisch verschoben. Beide Repair-Verträge sind synthetisch
-inklusive Abbruch/Resume belegt; ein positiver nativer Reparaturlauf bleibt
-`NOT_EXECUTED`.
+inklusive Abbruch/Resume belegt. Der manuelle Main-Runner
+`Invoke-HyperVStorageReconcileAcceptance.ps1` ist für einen isolierten
+operationseigenen Windows-2025-Clone
+registriert und prüft SCSI-Add, Gast-Receipt, Restart, No-op und
+scopegebundenes Cleanup. Grow-only und Abbruch/Resume bleiben wegen der
+fehlenden zerstörungsfreien nativen Drift-Injektion synthetisch belegt. Ein
+positiver nativer Reparaturlauf wurde für diesen neuen Runner noch nicht
+ausgeführt und bleibt `NOT_EXECUTED`; HV-603A bleibt ein getrennter
+SQL-Dateipfad-Rebinding-Nachweis.
 
 Der Hyper-V-SQL-Konfigurations-Reconcile persistiert die bereits
 ausfuehrbaren `serverConfig`-Werte fuer Memory, MAXDOP, Cost Threshold,

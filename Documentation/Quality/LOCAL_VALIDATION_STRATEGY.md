@@ -1418,3 +1418,18 @@ Live-/Restart- sowie statische Restart-Reconcile-Pfade, SQL-Readiness,
 Shutdown-Integration, persistenten Datenmarker und vollständigen Cleanup der
 beiden Test-Runs. Der Nachweis gilt nur für diesen Scope; weitere SQL-/Windows-
 Versionen und Ressourcenklassen bleiben getrennt nachweispflichtig.
+
+### Storage-Reconcile aus einem Windows-Slot
+
+Der manuelle Main-Modus `storage-reconcile-acceptance` akzeptiert dieselbe
+optionale `clone_source_run_id`-Quelle. `Invoke-HyperVStorageReconcileAcceptance.ps1`
+prüft für HV-603 ausschließlich zwei manifestgebundene Host-SCSI-Lanes,
+Add-Reconcile, das unveränderte `WhatIf`, den VHDX-/Attachment- und
+Gast-Receipt, SQL-Readiness nach VM-Neustart, No-op und operationseigenes
+Cleanup. Der Clone erhält SQL 2025 aus hashregistrierten Medien und nutzt
+`VerifyOnly`; SQL-Dateipfad-Relocation oder -Rebinding gehört nicht zu diesem
+Runner (HV-603A). Der native Lauf wurde noch nicht gestartet und ist daher
+`NOT_EXECUTED`. Grow-only sowie die kontrollierte Unterbrechung nach
+`HOST_APPLIED` und Resume ohne doppelte Hostmutation werden weiterhin durch den
+vorhandenen synthetischen Storage-Reconcile-Vertrag belegt, bis ein
+produktionssicherer nativer Fault-Injection-Punkt ausdrücklich autorisiert ist.
