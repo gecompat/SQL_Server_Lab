@@ -32,11 +32,18 @@ function Assert-HyperVResourceReconcileCiAcceptance {
 }
 function Get-HyperVResourceReconcileCiRunnerReasonCode {
     param([Parameter(Mandatory)][object[]]$RunnerOutput)
-    $reasonCodes=foreach($entry in $RunnerOutput){
+    $stagePattern='(?<![A-Z0-9_])HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_(?:INITIALIZATION|DYNAMIC_MANIFEST|DYNAMIC_PROVISION|DYNAMIC_DRIFT|DYNAMIC_PLAN|DYNAMIC_WHATIF|DYNAMIC_APPLY|DYNAMIC_NOOP|STATIC_MANIFEST|STATIC_PROVISION|STATIC_DRIFT|STATIC_PLAN|STATIC_WHATIF|STATIC_APPLY|STATIC_SQL_READINESS|STATIC_NOOP|LEGACY_UNCLASSIFIED)_FAILED(?![A-Z0-9_])'
+    $legacyPattern='(?<![A-Z0-9_])HYPERV_RESOURCE_ACCEPTANCE_[A-Z0-9]+(?:_[A-Z0-9]+)*(?![A-Z0-9_])'
+    $stageCodes=foreach($entry in $RunnerOutput){
         $text=if($entry -is [Management.Automation.ErrorRecord]){[string]$entry.Exception.Message}else{[string]$entry}
-        foreach($match in [regex]::Matches($text,'(?<![A-Z0-9_])HYPERV_RESOURCE_RECONCILE_[A-Z0-9]+(?:_[A-Z0-9]+)*(?![A-Z0-9_])')){$match.Value}
+        foreach($match in [regex]::Matches($text,$stagePattern)){$match.Value}
     }
-    return @($reasonCodes|Sort-Object -Unique|Select-Object -First 1)
+    if(@($stageCodes).Count -gt 0){return @($stageCodes|Sort-Object -Unique|Select-Object -First 1)}
+    foreach($entry in $RunnerOutput){
+        $text=if($entry -is [Management.Automation.ErrorRecord]){[string]$entry.Exception.Message}else{[string]$entry}
+        if([regex]::IsMatch($text,$legacyPattern)){return @('HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_LEGACY_UNCLASSIFIED_FAILED')}
+    }
+    return @()
 }
 function New-HyperVResourceReconcileCiSupervisorRoot {
     [OutputType([string])]
@@ -66,7 +73,7 @@ function Test-HyperVResourceReconcileCiStageReceipt {
     $status=[string]$receipt.status;$stage=[string]$receipt.stage;$reasonCode=[string]$receipt.reasonCode
     if($status -notin @('COMPLETED','FAILED') -or $stage -notin @('RUNNER_COMPLETED','RUNNER_FAILED')){return $null}
     if(($status -eq 'COMPLETED' -and ($stage -ne 'RUNNER_COMPLETED' -or -not [string]::IsNullOrEmpty($reasonCode))) -or ($status -eq 'FAILED' -and $stage -ne 'RUNNER_FAILED')){return $null}
-    if($reasonCode.Length -gt 160 -or ($reasonCode -and $reasonCode -notmatch '^HYPERV_RESOURCE_RECONCILE_[A-Z0-9]+(?:_[A-Z0-9]+)*$')){return $null}
+    if($reasonCode -notmatch '^HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_(?:INITIALIZATION|DYNAMIC_MANIFEST|DYNAMIC_PROVISION|DYNAMIC_DRIFT|DYNAMIC_PLAN|DYNAMIC_WHATIF|DYNAMIC_APPLY|DYNAMIC_NOOP|STATIC_MANIFEST|STATIC_PROVISION|STATIC_DRIFT|STATIC_PLAN|STATIC_WHATIF|STATIC_APPLY|STATIC_SQL_READINESS|STATIC_NOOP|LEGACY_UNCLASSIFIED)_FAILED$'){return $null}
     return [pscustomobject]@{Status=$status;Stage=$stage;ReasonCode=$reasonCode}
 }
 function Stop-HyperVResourceReconcileCiChildProcessTree {
@@ -110,7 +117,15 @@ function Invoke-HyperVResourceReconcileCiSupervisor {
 [CmdletBinding()]
 param([string]$AcceptanceRunner,[string]$ArtifactId,[string]$StateRoot,[string]$Run1OperationId,[string]$Run2OperationId,[string]$ReceiptPath)
 $ErrorActionPreference='Stop'
-function Get-ReasonCode { param([object[]]$RunnerOutput) $codes=foreach($entry in $RunnerOutput){$text=if($entry -is [Management.Automation.ErrorRecord]){[string]$entry.Exception.Message}else{[string]$entry};foreach($match in [regex]::Matches($text,'(?<![A-Z0-9_])HYPERV_RESOURCE_RECONCILE_[A-Z0-9]+(?:_[A-Z0-9]+)*(?![A-Z0-9_])')){$match.Value}};return @($codes|Sort-Object -Unique|Select-Object -First 1) }
+function Get-ReasonCode {
+    param([object[]]$RunnerOutput)
+    $stagePattern='(?<![A-Z0-9_])HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_(?:INITIALIZATION|DYNAMIC_MANIFEST|DYNAMIC_PROVISION|DYNAMIC_DRIFT|DYNAMIC_PLAN|DYNAMIC_WHATIF|DYNAMIC_APPLY|DYNAMIC_NOOP|STATIC_MANIFEST|STATIC_PROVISION|STATIC_DRIFT|STATIC_PLAN|STATIC_WHATIF|STATIC_APPLY|STATIC_SQL_READINESS|STATIC_NOOP|LEGACY_UNCLASSIFIED)_FAILED(?![A-Z0-9_])'
+    $legacyPattern='(?<![A-Z0-9_])HYPERV_RESOURCE_ACCEPTANCE_[A-Z0-9]+(?:_[A-Z0-9]+)*(?![A-Z0-9_])'
+    $stageCodes=foreach($entry in $RunnerOutput){$text=if($entry -is [Management.Automation.ErrorRecord]){[string]$entry.Exception.Message}else{[string]$entry};foreach($match in [regex]::Matches($text,$stagePattern)){$match.Value}}
+    if(@($stageCodes).Count -gt 0){return @($stageCodes|Sort-Object -Unique|Select-Object -First 1)}
+    foreach($entry in $RunnerOutput){$text=if($entry -is [Management.Automation.ErrorRecord]){[string]$entry.Exception.Message}else{[string]$entry};if([regex]::IsMatch($text,$legacyPattern)){return @('HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_LEGACY_UNCLASSIFIED_FAILED')}}
+    return @()
+}
 $receipt=[ordered]@{status='FAILED';stage='RUNNER_FAILED';reasonCode=$null};$exitCode=1
 try {$runnerOutput=@(& $AcceptanceRunner -ArtifactId $ArtifactId -StateRoot $StateRoot -Run1OperationId $Run1OperationId -Run2OperationId $Run2OperationId -DeferCleanup *>&1);if($LASTEXITCODE -ne 0 -or @($runnerOutput|Where-Object{$_ -is [Management.Automation.ErrorRecord]}).Count -gt 0){$receipt.reasonCode=Get-ReasonCode -RunnerOutput $runnerOutput}else{$receipt.status='COMPLETED';$receipt.stage='RUNNER_COMPLETED';$exitCode=0}}catch{$receipt.reasonCode=Get-ReasonCode -RunnerOutput @($_)}finally{[IO.File]::WriteAllText($ReceiptPath,($receipt|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))}
 exit $exitCode
