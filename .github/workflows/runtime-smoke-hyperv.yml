@@ -37,6 +37,7 @@ on:
           - locale-acceptance
           - sql-configuration-reconcile-acceptance
           - sql-port-reconcile-acceptance
+          - resource-reconcile-acceptance
           - sample-manifest-acceptance
           - external-runtime-reconcile-acceptance
       image_artifact_id:
@@ -168,6 +169,22 @@ jobs:
           $artifactId = '${{ inputs.image_artifact_id }}'
           if (-not [string]::IsNullOrWhiteSpace($artifactId)) { $arguments.ArtifactId = $artifactId }
           .\Tests\Integration\Invoke-HyperVSqlPortReconcileAcceptance.ps1 @arguments
+      - name: Reject resource reconcile acceptance outside manual main
+        if: inputs.mode == 'resource-reconcile-acceptance' && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        run: |
+          $ErrorActionPreference = 'Stop'
+          throw 'HYPERV_RESOURCE_RECONCILE_CI_MANUAL_MAIN_REQUIRED'
+      - name: Hyper-V resource reconcile acceptance
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'resource-reconcile-acceptance'
+        env:
+          SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $arguments = @{}
+          if (-not [string]::IsNullOrWhiteSpace([string]$env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID)) {
+            $arguments.ArtifactId = [string]$env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID
+          }
+          .\Tests\Integration\Invoke-HyperVResourceReconcileCiAcceptance.ps1 @arguments
       - name: Reject sample manifest acceptance outside manual main
         if: inputs.mode == 'sample-manifest-acceptance' && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         run: |

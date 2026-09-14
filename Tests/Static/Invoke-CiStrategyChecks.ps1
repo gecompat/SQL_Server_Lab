@@ -174,6 +174,8 @@ $dependencyCases = @(
     @{ Path = 'Tools/Prepare-LocalRelease.ps1'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1'); Runtime = @() },
     @{ Path = 'Providers/HyperV/HyperVProvider.ps1'; Checks = @('Invoke-LabNetworkChecks.ps1'); Runtime = @('HyperV') },
     @{ Path = 'Private/SqlStorageOperations.ps1'; Checks = @('Invoke-SampleBaselineRuntimeChecks.ps1','Invoke-StorageFilePlacementChecks.ps1','Invoke-SessionTransferProgressChecks.ps1'); Runtime = @('HyperV') },
+    @{ Path = 'Tests/Integration/Invoke-HyperVResourceReconcileAcceptance.ps1'; Checks = @('Invoke-HyperVResourceReconcileChecks.ps1','Invoke-HyperVResourceReconcileAcceptanceChecks.ps1'); Runtime = @('HyperV') },
+    @{ Path = 'Tests/Integration/Invoke-HyperVResourceReconcileCiAcceptance.ps1'; Checks = @('Invoke-HyperVResourceReconcileAcceptanceChecks.ps1'); Runtime = @('HyperV') },
     @{ Path = 'Tests/Integration/Invoke-HyperVSampleManifestAcceptance.ps1'; Checks = @('Invoke-HyperVSampleManifestAcceptanceChecks.ps1','Invoke-SampleHandlerChecks.ps1','Invoke-SampleBaselineRegistryChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1'); Runtime = @('HyperV') },
     @{ Path = 'Private/SessionTransferProgress.ps1'; Checks = @('Invoke-SampleBaselineRuntimeChecks.ps1'); Runtime = @('HyperV') },
     @{ Path = 'Private/AiEndpoint.ps1'; Checks = @('Invoke-AiScenarioChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
@@ -311,6 +313,15 @@ Add-CheckResult -Name 'Hyper-V-Workflow fuehrt SQL-Port-Reconcile nur im exakten
     $hyperVWorkflow -match "inputs\.mode == 'sql-port-reconcile-acceptance'" -and
     $hyperVWorkflow -match 'Invoke-HyperVSqlPortReconcileAcceptance\.ps1 @arguments' -and
     $hyperVWorkflow -match '\$arguments\.ArtifactId = \$artifactId'
+)
+
+Add-CheckResult -Name 'Hyper-V-Workflow fuehrt Ressourcen-Reconcile-Akzeptanz nur manuell auf main mit kontrolliertem Artifact-Input aus' -Success (
+    $hyperVWorkflow -match '(?m)^\s*- resource-reconcile-acceptance\s*$' -and
+    $hyperVWorkflow -match "inputs\.mode == 'resource-reconcile-acceptance'" -and
+    $hyperVWorkflow -match "github\.event_name == 'workflow_dispatch' && github\.ref == 'refs/heads/main'" -and
+    $hyperVWorkflow -match 'HYPERV_RESOURCE_RECONCILE_CI_MANUAL_MAIN_REQUIRED' -and
+    $hyperVWorkflow -match 'SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID' -and
+    $hyperVWorkflow -match 'Invoke-HyperVResourceReconcileCiAcceptance\.ps1 @arguments'
 )
 
 Add-CheckResult -Name 'Hyper-V-Workflow fuehrt Sample-Manifest-Akzeptanz nur manuell auf main mit kontrolliertem Artifact-Input aus' -Success (
