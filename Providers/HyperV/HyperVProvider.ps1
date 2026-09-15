@@ -1682,23 +1682,25 @@ function Initialize-HyperVWindowsGuestDrives {
                 # Frische VHDX-Dateien besitzen vor der ersten GPT-
                 # Initialisierung im Gast je nach Windows-/Hyper-V-Version
                 # keinen zu Get-VHD passenden UniqueId-Wert. Die VHDX wurden
-                # deshalb explizit auf SCSI 0:1..0:16 gebunden. In einer
-                # Generation-2-VM belegt die OS-Disk 0:0; der initiale
-                # Gast-DiskNumber entspricht dem festen ControllerLocation.
+                # deshalb explizit auf freie SCSI-Slots gebunden. Die
+                # Windows-DiskNumber ist jedoch nicht der SCSI-Location
+                # gleichzusetzen: ein DVD-Laufwerk oder weitere Controller
+                # koennen die Gastnummerierung verschieben. Der Fallback
+                # akzeptiert daher nur genau einen noch unbeanspruchten RAW-
+                # Datentraeger mit der erwarteten virtuellen Groesse.
                 if ($matches.Count -eq 0) {
                     $rawCandidates = @(
                         $allDisks | Where-Object {
                             [string]$_.PartitionStyle -eq 'RAW' -and
                             -not [bool]$_.IsBoot -and
                             -not [bool]$_.IsSystem -and
-                            [int]$_.Number -eq [int]$specification.controllerLocation -and
                             [long]$_.Size -eq [long]$specification.sizeBytes -and
                             -not $claimedDiskNumbers.Contains([int]$_.Number)
                         }
                     )
                     if ($rawCandidates.Count -eq 1) {
                         $matches = $rawCandidates
-                        $matchingMethod = 'scsi-location-raw-fallback'
+                        $matchingMethod = 'raw-size-fallback'
                     }
                 }
                 if ($matches.Count -ne 1) {

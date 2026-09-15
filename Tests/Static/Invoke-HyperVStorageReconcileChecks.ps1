@@ -10,7 +10,7 @@ New-Item -Path (Join-Path $runDirectory 'secrets') -ItemType Directory -Force|Ou
 [IO.File]::WriteAllText((Join-Path $runDirectory 'secrets/guest-administrator-password.secret'),'synthetic')
 $connection=[PSCustomObject]@{schemaVersion=1;instances=@([PSCustomObject]@{id='primary';provider='hyperv';vmName='private-storage-vm';vmId='private-storage-vm-id';additionalDrives=@()})}
 $connection|ConvertTo-Json -Depth 20|Set-Content -LiteralPath (Join-Path $runDirectory 'connection-info.json') -Encoding utf8
-$cleanup=[PSCustomObject]@{runId=$runId;scopeId=$scopeId;createdAt=[datetime]::UtcNow.ToString('o');providerSubRuns=@([PSCustomObject]@{id='provider-hyperv';provider='hyperv';stepOrders=@();state='PENDING';updatedAt=[datetime]::UtcNow.ToString('o');errors=0});steps=@();status='PENDING'}
+$cleanup=[PSCustomObject]@{runId=$runId;scopeId=$scopeId;createdAt=[datetime]::UtcNow.ToString('o');providerSubRuns=@([PSCustomObject]@{id='provider-hyperv';provider='hyperv';stepOrders=@(1);state='PENDING';updatedAt=[datetime]::UtcNow.ToString('o');errors=0});steps=@([PSCustomObject]@{order=1;resourceType='vm';resourceId='private-storage-vm';action='remove';provider='hyperv';compensation='Remove synthetic VM';dependsOn=@();softwareContract=$null;safetyRoot=$null;state='PENDING';executedAt=$null;error=$null});status='PENDING'}
 $cleanup|ConvertTo-Json -Depth 20|Set-Content -LiteralPath (Join-Path $runDirectory 'cleanup-plan.json') -Encoding utf8
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 try{
@@ -86,7 +86,9 @@ try{
         $resume=$resumed.ExecutionSummary.Status -eq 'SUCCEEDED' -and $completed.Status -eq 'COMPLETED' -and $script:resizeCount -eq 1 -and $script:newCount -eq 1
         $noOp=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVStorage -InstanceId primary -StateRoot $Root
         $cleanup=Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $Root 'runs') $RunId) 'cleanup-plan.json') -Raw|ConvertFrom-Json
-        $cleanupBound=@($cleanup.steps|Where-Object resourceType -eq 'vhdx').Count -eq 1
+        $cleanupVhdx=@($cleanup.steps|Where-Object resourceType -eq 'vhdx')
+        $cleanupVm=@($cleanup.steps|Where-Object resourceType -eq 'vm'|Select-Object -First 1)
+        $cleanupBound=$cleanupVhdx.Count -eq 1 -and [int]$cleanupVhdx[0].order -lt [int]$cleanupVm.order
         $firstOperation=[string]$completed.OperationId
         $script:vhd[$dataPath].Size=[long](8GB);$script:storageManaged.Identity.guestDriveInitialization=@($script:storageManaged.Identity.guestDriveInitialization|Where-Object id -ne 'data')
         $repeat=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVStorage -InstanceId primary -StateRoot $Root -Confirm:$false
@@ -127,7 +129,7 @@ try{
         'Resume wiederholt keine abgeschlossene Hostmutation und verifiziert den Gast'=$result.Resume
         'Erfuellter Host-/Gastvertrag ist No-op'=$result.NoOp
         'SCSI-Plan reserviert belegte DVD- und Boot-Slots vor dem neuen Loglaufwerk'=$result.SlotAware
-        'Neue VHDX wird vor Mutation genau einmal in Cleanup gebunden'=$result.Cleanup
+        'Neue VHDX wird vor Mutation registriert und vor der VM bereinigt'=$result.Cleanup
         'Wiederkehrende Drift erhaelt ein frisches Operationsjournal'=$result.FreshJournal
         'Ausgeschaltete VM wird zur Gastverifikation gestartet und wieder ausgeschaltet'=$result.Restart
         'Shrink bleibt ohne automatische Mutation unsupported'=$result.Shrink

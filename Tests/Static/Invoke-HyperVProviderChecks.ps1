@@ -346,12 +346,12 @@ try {
             $provider -match '\$specifications = @\(\$plan\.drives\)'
         )
     Add-CheckResult `
-        -Name 'Frische Daten-VHDX nutzt feste SCSI-Slots und Groesse als sicheren RAW-Fallback' `
+        -Name 'Frische Daten-VHDX nutzt einen eindeutigen RAW-Groessenfallback ohne Disknummer-Annahme' `
         -Success (
-            $provider -match '\$matchingMethod = ''scsi-location-raw-fallback''' -and
+            $provider -match '\$matchingMethod = ''raw-size-fallback''' -and
             $provider -match '\$rawCandidates\.Count -eq 1' -and
             $provider -match '\[string\]\$_.PartitionStyle -eq ''RAW''' -and
-            $provider -match '\[int\]\$_.Number -eq \[int\]\$specification.controllerLocation' -and
+            $provider -notmatch '\[int\]\$_.Number -eq \[int\]\$specification.controllerLocation' -and
             $provider -match '\[long\]\$_.Size -eq \[long\]\$specification.sizeBytes' -and
             $provider -match 'GUEST_DISK_ALREADY_CLAIMED' -and
             $provider -match 'GUEST_DISK_IDENTIFIER_MATCH_COUNT'

@@ -309,6 +309,22 @@ function Add-LabHyperVStorageReconcileCleanupStep {
     $cleanup=Get-Content -LiteralPath $cleanupPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 30
     if(@($cleanup.steps|Where-Object{[string]$_.resourceType -eq 'vhdx' -and [string]::Equals([IO.Path]::GetFullPath([string]$_.resourceId),[IO.Path]::GetFullPath([string]$Drive.Path),[StringComparison]::OrdinalIgnoreCase)}).Count -eq 0){
         $null=Add-CleanupStep -RunDir $Context.RunDirectory -ResourceType vhdx -ResourceId ([string]$Drive.Path) -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv -SafetyRoot ([string]$Drive.HostRoot) -Compensation "Remove reconciled Hyper-V $($Drive.Role) VHDX $($Drive.Id)"
+        # Cleanup verarbeitet hoehere Ordnungen zuerst. Eine nach einer bereits
+        # erstellten VM registrierte VHDX muss deshalb unmittelbar *vor* der VM
+        # einsortiert werden, damit Remove-VM ihre Bindung zuerst loest.
+        $cleanup=Get-Content -LiteralPath $cleanupPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 30
+        $vmStep=@($cleanup.steps|Where-Object{[string]$_.resourceType -eq 'vm' -and [string]$_.resourceId -eq [string]$Context.VM.Name})|Select-Object -First 1
+        if(-not $vmStep){throw 'HYPERV_STORAGE_RECONCILE_CLEANUP_VM_STEP_MISSING'}
+        $reconciled=@($cleanup.steps|Where-Object{[string]$_.resourceType -eq 'vhdx' -and [string]::Equals([IO.Path]::GetFullPath([string]$_.resourceId),[IO.Path]::GetFullPath([string]$Drive.Path),[StringComparison]::OrdinalIgnoreCase)})
+        $without=@($cleanup.steps|Where-Object{$_ -notin $reconciled -and $_ -ne $vmStep}|Sort-Object order)
+        $before=@($without|Where-Object{[int]$_.order -lt [int]$vmStep.order})
+        $after=@($without|Where-Object{[int]$_.order -gt [int]$vmStep.order})
+        $cleanup.steps=@($before+$reconciled+$vmStep+$after)
+        for($index=0;$index -lt @($cleanup.steps).Count;$index++){$cleanup.steps[$index].order=$index+1}
+        foreach($subRun in @($cleanup.providerSubRuns)){
+            $subRun.stepOrders=@($cleanup.steps|Where-Object{[string]$_.provider -eq [string]$subRun.provider}|ForEach-Object{[int]$_.order})
+        }
+        $cleanup|ConvertTo-Json -Depth 30|Set-Content -LiteralPath $cleanupPath -Encoding utf8
     }
 }
 
