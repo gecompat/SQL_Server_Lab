@@ -69,7 +69,7 @@ try {
     Assert-HyperVSqlStorageAcceptance (@($managed.Identity.additionalDrives).Count -eq 0) 'Clone beginnt ohne run-eigene Storage-Lanes'
     $hostJournal=Join-Path $context.RunDirectory 'hyperv-storage-reconcile.local.journal.json'
     $hostPlan=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVStorage -InstanceId primary -StateRoot $StateRoot
-    Assert-HyperVSqlStorageAcceptance ([string]$hostPlan.HighestChangeClass -eq 'live' -and @($hostPlan.Diff.Kind|Sort-Object -Unique) -join ',' -eq 'add') 'HV-603 plant nur die manifestgebundenen SCSI-Additionen'
+    Assert-HyperVSqlStorageAcceptance ([string]$hostPlan.HighestChangeClass -eq 'live' -and @($hostPlan.Actions).Count -eq 1 -and $hostPlan.Actions[0].Action -eq 'repair-hyperv-storage' -and @($hostPlan.Diff).Count -ge 1) 'HV-603 plant die gebundene Storage-Lane eigentumsgeprueft'
     $hostWhatIf=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVStorage -InstanceId primary -StateRoot $StateRoot -WhatIf
     Assert-HyperVSqlStorageAcceptance ([string]$hostWhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and -not(Test-Path -LiteralPath $hostJournal)) 'HV-603-WhatIf schreibt weder VHDX noch Journal'
     $hostResult=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVStorage -InstanceId primary -StateRoot $StateRoot -Confirm:$false
