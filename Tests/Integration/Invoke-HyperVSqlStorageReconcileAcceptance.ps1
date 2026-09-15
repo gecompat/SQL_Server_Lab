@@ -46,7 +46,7 @@ function Get-GuestBootTime { param($Context,$Credential) [string](Invoke-Private
 function Test-ScopedTemporaryRoot { param([string]$Path) $resolved=[IO.Path]::GetFullPath($Path).TrimEnd('\');$temp=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\');[IO.Directory]::GetParent($resolved).FullName.TrimEnd('\').Equals($temp,[StringComparison]::OrdinalIgnoreCase) -and [IO.Path]::GetFileName($resolved) -match '^sql-lab-hv-sql-storage-[a-f0-9]{32}$' }
 function New-StorageManifest {
     param([string]$Path,[string]$Name)
-    $value=[ordered]@{'$schema'=(Join-Path $repoRoot 'Schemas/lab-manifest.schema.json');name=$Name;automation=[ordered]@{mode='unattended'};instances=@([ordered]@{id='primary';version='2025';provider='hyperv';os='windows';profile='standard';autostart='off';network=[ordered]@{intent='hostOnly';exposure='host'};windowsActivation=[ordered]@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='VerifyOnly';EgressPolicy='Denied'};hyperv=[ordered]@{memoryStartupMB=6144;processorCount=4;sqlPort=1433;guestPasswordMode='prompt'};drives=@([ordered]@{id='data';role='sqlData';sizeGB=4;guestPath='E:\SQLData'},[ordered]@{id='log';role='sqlLog';sizeGB=2;guestPath='L:\SQLLog'})})}
+    $value=[ordered]@{'$schema'=(Join-Path $repoRoot 'Schemas/lab-manifest.schema.json');name=$Name;automation=[ordered]@{mode='unattended'};instances=@([ordered]@{id='primary';version='2025';provider='hyperv';os='windows';profile='standard';autostart='off';network=[ordered]@{intent='hostOnly';exposure='host'};windowsActivation=[ordered]@{ContractVersion='SqlServerLab.WindowsActivationIntent/1.0';Strategy='VerifyOnly';EgressPolicy='Denied'};hyperv=[ordered]@{memoryStartupMB=6144;processorCount=4;sqlPort=1433;guestPasswordMode='prompt'};storageIntent=[ordered]@{contractVersion='SqlServerLab.StorageIntent/1.0';placementPolicy='logical-only';physicalIsolation='not-required';roles=[ordered]@{defaultData=[ordered]@{selector='default'};defaultLog=[ordered]@{selector='default'};backup=[ordered]@{selector='default'}};tempDb=[ordered]@{distribution='single-location';dataFileCount=1;dataLocationSelectors=@('default');logPlacement=[ordered]@{selector='default';logicalName='templog';fileName='templog.ldf';sizeMB=64;growth='32MB'}};databaseFiles=@();restoreRules=@()}})}
     $value|ConvertTo-Json -Depth 30|Set-Content -LiteralPath $Path -Encoding utf8
 }
 function New-OwnedRun {
@@ -62,7 +62,7 @@ try {
     $null=New-Item -ItemType Directory -Path $testRoot -Force;$module=Import-Module $modulePath -Force -PassThru
     if(-not $StateRoot){$StateRoot=Invoke-Private {Get-LabStateRoot}};$env:SQL_SERVER_LAB_STATE=$StateRoot
     $manifestPath=Join-Path $testRoot 'sql-storage.json';New-StorageManifest $manifestPath ('hv-sql-storage-'+[guid]::NewGuid().ToString('N').Substring(0,8))
-    Assert-HyperVSqlStorageAcceptance (Test-SqlServerLabManifest -Path $manifestPath).IsValid 'VerifyOnly-Manifest mit zwei gebundenen SCSI-Lanes ist gueltig'
+    Assert-HyperVSqlStorageAcceptance (Test-SqlServerLabManifest -Path $manifestPath).IsValid 'VerifyOnly-Manifest mit gebundenem Storage-Intent ist gueltig'
     $script:saPassword=Invoke-Private {New-HyperVSqlUnattendedPassword};$lab=New-OwnedRun $manifestPath $script:saPassword
     Assert-HyperVSqlStorageAcceptance ([string]$lab.State -eq 'RUNNING') 'Operationseigener SQL-2025-Clone ist bereit'
     $context=Get-Context $lab.RunId;$managed=Get-OwnedManagedVm $context
@@ -76,7 +76,7 @@ try {
     Assert-HyperVSqlStorageAcceptance ([string]$hostResult.ExecutionSummary.Status -eq 'SUCCEEDED') 'HV-603 erstellt die operationseigenen Storage-Lanes'
     $context=Get-Context $lab.RunId;$managed=Get-OwnedManagedVm $context;$ownedPaths=@([string]$managed.Identity.childVhdxPath)+@($managed.Identity.additionalDrives|ForEach-Object{[string]$_.path})
     $hostNoOp=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVStorage -InstanceId primary -StateRoot $StateRoot
-    Assert-HyperVSqlStorageAcceptance ($hostNoOp.IsNoOp -and @($hostNoOp.Actions).Count -eq 0 -and @($managed.Identity.guestDriveInitialization).Count -eq 2) 'HV-603 ist vor SQL-Mutation No-op und besitzt Gast-Receipts'
+    Assert-HyperVSqlStorageAcceptance ($hostNoOp.IsNoOp -and @($hostNoOp.Actions).Count -eq 0 -and @($managed.Identity.guestDriveInitialization).Count -eq 1) 'HV-603 ist vor SQL-Mutation No-op und besitzt den gebundenen Gast-Receipt'
     Assert-HyperVSqlStorageAcceptance (Wait-StorageSqlReady $context) 'SQL ist nach Host-Storage-Reconcile bereit'
     $receiptPath=Join-Path $context.RunDirectory 'storage-runtime-receipt.json';$receiptBefore=Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8;$receipt=$receiptBefore|ConvertFrom-Json -Depth 40
     Assert-HyperVSqlStorageAcceptance ([string]$receipt.Status -eq 'VERIFIED' -and [string]$receipt.RunId -eq [string]$lab.RunId -and [string]$receipt.InstanceId -eq 'primary') 'Gebundener Storage-Runtime-Receipt ist verifiziert und rungebunden'
