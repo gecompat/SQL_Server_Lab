@@ -34,7 +34,10 @@ try{
             });guestDriveInitialization=@()
         }}
         $script:vhd=@{};$script:vhd[$dataPath]=[PSCustomObject]@{Path=$dataPath;Size=[long](8GB);VhdType='dynamic';DiskIdentifier=$dataDiskId}
-        $script:attachments=@([PSCustomObject]@{Path=$dataPath;ControllerNumber=0;ControllerLocation=1;MaximumIOPS=0})
+        $script:attachments=@(
+            [PSCustomObject]@{Path=(Join-Path $ResourceRoot 'private-storage-vm.vhdx');ControllerNumber=0;ControllerLocation=0;MaximumIOPS=0},
+            [PSCustomObject]@{Path=$dataPath;ControllerNumber=0;ControllerLocation=1;MaximumIOPS=0}
+        )
         $script:newCount=0;$script:resizeCount=0;$script:addCount=0;$script:guestCount=0;$script:startCount=0;$script:stopCount=0;$script:failGuestOnce=$true
         function Get-LabRunState{$script:storageRun}
         function Get-LabHyperVResourceMigrationLifecycleGuard{[PSCustomObject]@{Allowed=$true;ReasonCode=$null}}
@@ -44,6 +47,7 @@ try{
         function ConvertTo-LabHyperVStorageDrivePlan{param($Plan) @([PSCustomObject]@{id='sfp-01';role='sqlData';sizeBytes=[long](32GB);vhdType='dynamic';guestPath='T:\SQLLab';allocationUnitKB=64;fileSystem='NTFS';volumeLabel='SQLLAB_SFP_01';maximumIops=0;hostRoot=$null;hostPath=$null;locationId=$null;selector='default'})}
         function Get-HyperVManagedVM{$script:storageManaged}
         function Get-VMHardDiskDrive{param($VM,$ErrorAction) @($script:attachments)}
+        function Get-VMDvdDrive{param($VM,$ErrorAction) @([PSCustomObject]@{ControllerNumber=0;ControllerLocation=1})}
         function Get-VHD{param($Path,$ErrorAction) if(-not $script:vhd.ContainsKey([string]$Path)){throw 'SYNTHETIC_VHD_MISSING'};$script:vhd[[string]$Path]}
         function New-VHD{
             param($Path,$SizeBytes,[switch]$Dynamic,[switch]$Fixed,$ErrorAction)
@@ -109,6 +113,7 @@ try{
             WhatIf=$whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and $whatIfSafe;Recovery=$recovery;Resume=$resume
             NoOp=$noOp.IsNoOp -and $noOp.HighestChangeClass -eq 'no-op';Cleanup=$cleanupBound;FreshJournal=$freshJournal
             Restart=$restart
+            SlotAware=@($script:attachments|Where-Object{[string]$_.Path -match '-log\.vhdx$' -and [int]$_.ControllerNumber -eq 0 -and [int]$_.ControllerLocation -eq 2}).Count -eq 1
             Shrink=$shrink.HighestChangeClass -eq 'unsupported' -and @($shrink.Actions).Count -eq 0
             Removal=$remove.HighestChangeClass -eq 'unsupported' -and @($remove.Actions).Count -eq 0
             BoundIntent=$boundIntent
@@ -121,6 +126,7 @@ try{
         'Gastfehler bleibt nach hostseitiger Mutation als Recovery sichtbar'=$result.Recovery
         'Resume wiederholt keine abgeschlossene Hostmutation und verifiziert den Gast'=$result.Resume
         'Erfuellter Host-/Gastvertrag ist No-op'=$result.NoOp
+        'SCSI-Plan reserviert belegte DVD- und Boot-Slots vor dem neuen Loglaufwerk'=$result.SlotAware
         'Neue VHDX wird vor Mutation genau einmal in Cleanup gebunden'=$result.Cleanup
         'Wiederkehrende Drift erhaelt ein frisches Operationsjournal'=$result.FreshJournal
         'Ausgeschaltete VM wird zur Gastverifikation gestartet und wieder ausgeschaltet'=$result.Restart

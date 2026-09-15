@@ -141,8 +141,20 @@ function Get-LabHyperVStorageReconcileDesiredDrives {
     if ($providerPlan.Count -gt 16) { throw 'HYPERV_STORAGE_RECONCILE_DRIVE_LIMIT_EXCEEDED' }
     $vmName = [string]$Managed.VM.Name
     $resourceRoot = Split-Path -Parent ([string]$Managed.Identity.childVhdxPath)
+    # A SQL-slot clone can retain its installation DVD on SCSI controller 0.
+    # Reserve every existing hard-disk and DVD location before assigning a
+    # new managed VHDX; otherwise a fixed ordinal can collide with the DVD.
+    $occupiedScsiLocations = [Collections.Generic.HashSet[int]]::new()
+    foreach ($attachment in @(
+        Get-VMHardDiskDrive -VM $Managed.VM -ErrorAction Stop
+    ) + @(
+        Get-VMDvdDrive -VM $Managed.VM -ErrorAction Stop
+    )) {
+        if ([int]$attachment.ControllerNumber -eq 0 -and $null -ne $attachment.ControllerLocation) {
+            $null = $occupiedScsiLocations.Add([int]$attachment.ControllerLocation)
+        }
+    }
     $result = @()
-    $index = 0
     foreach ($drive in $providerPlan) {
         $id=[string]$drive.id;$role=[string]$drive.role;$size=[long]$drive.sizeBytes
         if($id -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$' -or $role -notin @('sqlData','sqlLog','tempdb','backup','general') -or
@@ -152,14 +164,23 @@ function Get-LabHyperVStorageReconcileDesiredDrives {
         $hostRoot=if($drive.hostRoot){[IO.Path]::GetFullPath([string]$drive.hostRoot).TrimEnd('\','/')}else{$null}
         $directory=if($drive.hostPath){[IO.Path]::GetFullPath([string]$drive.hostPath)}else{$resourceRoot}
         $path=Join-Path $directory "$vmName-$($id -replace '_','-').vhdx"
+        $existing = @($Managed.Identity.additionalDrives | Where-Object { [string]$_.id -eq $id }) | Select-Object -First 1
+        $controllerLocation = if ($existing -and $null -ne $existing.controllerLocation) {
+            [int]$existing.controllerLocation
+        }
+        else {
+            @((0..63) | Where-Object { -not $occupiedScsiLocations.Contains([int]$_) } | Select-Object -First 1)[0]
+        }
+        if ($null -eq $controllerLocation) { throw "HYPERV_STORAGE_RECONCILE_SCSI_SLOT_UNAVAILABLE: $id" }
+        $null = $occupiedScsiLocations.Add([int]$controllerLocation)
         $item=[PSCustomObject]@{
             Id=$id;Role=$role;SizeBytes=$size;VhdType=[string]$drive.vhdType;Path=[IO.Path]::GetFullPath($path)
-            ControllerNumber=0;ControllerLocation=($index+1);GuestPath=[string]$drive.guestPath;FileSystem='NTFS'
+            ControllerNumber=0;ControllerLocation=[int]$controllerLocation;GuestPath=[string]$drive.guestPath;FileSystem='NTFS'
             AllocationUnitKB=[int]$drive.allocationUnitKB;VolumeLabel=[string]$drive.volumeLabel;MaximumIops=[long]$drive.maximumIops
             HostRoot=$hostRoot;LocationId=if($drive.locationId){[string]$drive.locationId}else{$null};Selector=if($drive.selector){[string]$drive.selector}else{$null}
         }
         $null=Assert-LabHyperVStorageReconcileDesiredPath -Drive $item -RunDirectory $RunDirectory
-        $result += $item;$index++
+        $result += $item
     }
     if(@($result.Id|Group-Object|Where-Object Count -gt 1).Count){throw 'HYPERV_STORAGE_RECONCILE_DRIVE_ID_DUPLICATE'}
     return @($result)
