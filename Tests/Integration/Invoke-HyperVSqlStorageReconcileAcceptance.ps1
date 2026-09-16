@@ -67,6 +67,10 @@ try {
     Assert-HyperVSqlStorageAcceptance ([string]$lab.State -eq 'RUNNING') 'Operationseigener SQL-2025-Clone ist bereit'
     $context=Get-Context $lab.RunId;$managed=Get-OwnedManagedVm $context
     Assert-HyperVSqlStorageAcceptance (@($managed.Identity.additionalDrives).Count -eq 0) 'Clone beginnt ohne run-eigene Storage-Lanes'
+    $intent=(Get-Content -LiteralPath $manifestPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 30).instances[0].storageIntent
+    $bound=Invoke-Private {param($Intent,$RunId,$Name)New-LabStorageBoundPlan -StorageIntent $Intent -RunId $RunId -LabName $Name -InstanceId primary -Provider hyperv} @($intent,[string]$lab.RunId,[string]$lab.RunId)
+    Assert-HyperVSqlStorageAcceptance ([string]$bound.Status -eq 'READY') 'Storage-Intent ist für den operationseigenen Run gebunden'
+    Invoke-Private {param($Path,$Plan)Write-LabArtifactJsonAtomic -Path $Path -InputObject $Plan} @((Join-Path $context.RunDirectory 'storage-bound-plan.json'),$bound)
     $hostJournal=Join-Path $context.RunDirectory 'hyperv-storage-reconcile.local.journal.json'
     $hostPlan=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVStorage -InstanceId primary -StateRoot $StateRoot
     Assert-HyperVSqlStorageAcceptance ([string]$hostPlan.HighestChangeClass -eq 'live' -and @($hostPlan.Actions).Count -eq 1 -and $hostPlan.Actions[0].Action -eq 'repair-hyperv-storage' -and @($hostPlan.Diff).Count -ge 1) 'HV-603 plant die gebundene Storage-Lane eigentumsgeprueft'
