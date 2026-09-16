@@ -82,10 +82,15 @@ function Assert-LabHyperVStorageReconcileDesiredPath {
     $hostRoot = [IO.Path]::GetFullPath([string]$Drive.HostRoot).TrimEnd('\','/')
     $path = [IO.Path]::GetFullPath([string]$Drive.Path)
     $boundary = Test-LabPathWithinRoot -Root $hostRoot -Path $path
-    $configuration = Get-LabStorageConfiguration -DataRoot $hostRoot
+    # Die Bound-Plan-Lane kann unter einem registrierten Lab_Data-Root liegen.
+    # Ihre Unterwurzel ist kein eigenstaendiger Konfigurationsroot; deshalb
+    # wird die kanonische Gesamtkonfiguration gelesen und die Lane explizit
+    # gegen LocationId, Selector und LabDataRoot revalidiert.
+    $configuration = Get-LabStorageConfiguration
     $locations = @($configuration.LabDataLocations | Where-Object {
         [string]::Equals([string]$_.LocationId, [string]$Drive.LocationId, [StringComparison]::OrdinalIgnoreCase) -and
-        [string]$Drive.Selector -in @($_.Selectors)
+        [string]$Drive.Selector -in @($_.Selectors) -and
+        [string]::Equals(([IO.Path]::GetFullPath([string]$_.LabDataRoot).TrimEnd('\','/')), $hostRoot, [StringComparison]::OrdinalIgnoreCase)
     })
     if (-not $boundary.Valid -or $locations.Count -ne 1 -or
         -not (Test-LabDataRootOwnership -DataRoot $hostRoot -ControllerId ([string]$configuration.ControllerId))) {
