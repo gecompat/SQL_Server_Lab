@@ -92,8 +92,13 @@ function Assert-LabHyperVStorageReconcileDesiredPath {
             ([string]$Drive.Selector -ne 'default' -and [string]$Drive.Selector -in @($_.Selectors))) -and
         [string]::Equals(([IO.Path]::GetFullPath([string]$_.LabDataRoot).TrimEnd('\','/')), $hostRoot, [StringComparison]::OrdinalIgnoreCase)
     })
-    if (-not $boundary.Valid -or $locations.Count -ne 1 -or
-        -not (Test-LabDataRootOwnership -DataRoot $hostRoot -ControllerId ([string]$configuration.ControllerId))) {
+    if (-not $boundary.Valid) {
+        throw "HYPERV_STORAGE_RECONCILE_PATH_SCOPE_VIOLATION: $($Drive.Id)"
+    }
+    if ($locations.Count -ne 1) {
+        throw "HYPERV_STORAGE_RECONCILE_LOCATION_BINDING_INVALID: $($Drive.Id)"
+    }
+    if (-not (Test-LabDataRootOwnership -DataRoot $hostRoot -ControllerId ([string]$configuration.ControllerId))) {
         throw "HYPERV_STORAGE_RECONCILE_PATH_NOT_OWNED: $($Drive.Id)"
     }
     return $true

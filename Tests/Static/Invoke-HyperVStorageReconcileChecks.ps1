@@ -115,6 +115,8 @@ try{
         function Get-LabStorageConfiguration {[PSCustomObject]@{ControllerId='synthetic-controller';DefaultLocationId='synthetic-default';LabDataLocations=@([PSCustomObject]@{LocationId='synthetic-default';LabDataRoot=$boundRoot;Selectors=@()})}}
         function Test-LabDataRootOwnership {param($DataRoot,$ControllerId) $DataRoot -eq $boundRoot -and $ControllerId -eq 'synthetic-controller'}
         $defaultBoundLane=try { Assert-LabHyperVStorageReconcileDesiredPath -Drive ([PSCustomObject]@{Id='sfp-01';HostRoot=$boundRoot;Path=$boundPath;LocationId='synthetic-default';Selector='default'}) -RunDirectory (Join-Path (Join-Path $Root 'runs') $RunId);$true } catch {$false}
+        $foreignRoot=Join-Path $Root 'foreign-storage-root';New-Item -Path $foreignRoot -ItemType Directory -Force|Out-Null
+        $foreignBoundLane=try { Assert-LabHyperVStorageReconcileDesiredPath -Drive ([PSCustomObject]@{Id='foreign';HostRoot=$foreignRoot;Path=(Join-Path $foreignRoot 'outside.vhdx');LocationId='synthetic-default';Selector='default'}) -RunDirectory (Join-Path (Join-Path $Root 'runs') $RunId);$null } catch {$_.Exception.Message}
         [PSCustomObject]@{
             Live=$plan.HighestChangeClass -eq 'live' -and @($plan.Diff.Kind|Sort-Object -Unique) -join ',' -eq 'add,grow';Sanitized=$sanitized
             WhatIf=$whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and $whatIfSafe;Recovery=$recovery;Resume=$resume
@@ -125,6 +127,7 @@ try{
             Removal=$remove.HighestChangeClass -eq 'unsupported' -and @($remove.Actions).Count -eq 0
             BoundIntent=$boundIntent
             DefaultBoundLane=$defaultBoundLane
+            ForeignBoundLane=$foreignBoundLane -eq 'HYPERV_STORAGE_RECONCILE_LOCATION_BINDING_INVALID: foreign'
         }
     } $testRoot $runId $scopeId $resourceRoot
     $checks=[ordered]@{
@@ -142,6 +145,7 @@ try{
         'Entfernen zusaetzlicher Datentraeger bleibt fail-closed unsupported'=$result.Removal
         'Persistierter StorageIntent bindet ueber denselben kanonischen Intent-Hash'=$result.BoundIntent
         'Default-Selector akzeptiert die gebundene Default-Location ohne expliziten Selector'=$result.DefaultBoundLane
+        'Ungebundene Location wird vor Ownership- oder Hostmutation getrennt abgewiesen'=$result.ForeignBoundLane
         'Guest-Resize verwendet Get-PartitionSupportedSize und keinen automatischen Detach'=($providerSource -match 'Get-PartitionSupportedSize' -and $providerSource -match 'Resize-Partition' -and $source -notmatch 'Remove-VMHardDiskDrive')
     }
     $failedChecks=@($checks.GetEnumerator()|Where-Object{-not $_.Value})
