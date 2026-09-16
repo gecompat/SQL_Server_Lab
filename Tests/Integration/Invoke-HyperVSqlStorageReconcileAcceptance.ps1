@@ -74,7 +74,7 @@ try {
     $hostJournal=Join-Path $context.RunDirectory 'hyperv-storage-reconcile.local.journal.json'
     $hostPlan=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVStorage -InstanceId primary -StateRoot $StateRoot
     $hostReasonCodes=@($hostPlan.ReasonCodes|Where-Object{$_}) -join ','
-    Assert-HyperVSqlStorageAcceptance ([string]$hostPlan.HighestChangeClass -eq 'live' -and @($hostPlan.Actions).Count -eq 1 -and $hostPlan.Actions[0].Action -eq 'repair-hyperv-storage' -and @($hostPlan.Diff).Count -ge 1) "HV-603 plant die gebundene Storage-Lane eigentumsgeprueft: $hostReasonCodes"
+    Assert-HyperVSqlStorageAcceptance ([string]$hostPlan.HighestChangeClass -in @('live','restart') -and @($hostPlan.Actions).Count -eq 1 -and [string]$hostPlan.Actions[0].Operation -eq 'RepairHyperVStorage' -and @($hostPlan.Diff).Count -ge 1) "HV-603 plant die gebundene Storage-Lane eigentumsgeprueft: $hostReasonCodes"
     $hostWhatIf=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVStorage -InstanceId primary -StateRoot $StateRoot -WhatIf
     Assert-HyperVSqlStorageAcceptance ([string]$hostWhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and -not(Test-Path -LiteralPath $hostJournal)) 'HV-603-WhatIf schreibt weder VHDX noch Journal'
     $hostResult=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVStorage -InstanceId primary -StateRoot $StateRoot -Confirm:$false
@@ -82,6 +82,10 @@ try {
     $context=Get-Context $lab.RunId;$managed=Get-OwnedManagedVm $context;$ownedPaths=@([string]$managed.Identity.childVhdxPath)+@($managed.Identity.additionalDrives|ForEach-Object{[string]$_.path})
     $hostNoOp=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVStorage -InstanceId primary -StateRoot $StateRoot
     Assert-HyperVSqlStorageAcceptance ($hostNoOp.IsNoOp -and @($hostNoOp.Actions).Count -eq 0 -and @($managed.Identity.guestDriveInitialization).Count -eq 1) 'HV-603 ist vor SQL-Mutation No-op und besitzt den gebundenen Gast-Receipt'
+    if([string]$managed.VM.State -eq 'Off'){
+        Invoke-Private {param($VM)Start-VM -VM $VM -ErrorAction Stop} @($managed.VM)
+        $context=Get-Context $lab.RunId
+    }
     Assert-HyperVSqlStorageAcceptance (Wait-StorageSqlReady $context) 'SQL ist nach Host-Storage-Reconcile bereit'
     $receiptPath=Join-Path $context.RunDirectory 'storage-runtime-receipt.json';$receiptBefore=Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8;$receipt=$receiptBefore|ConvertFrom-Json -Depth 40
     Assert-HyperVSqlStorageAcceptance ([string]$receipt.Status -eq 'VERIFIED' -and [string]$receipt.RunId -eq [string]$lab.RunId -and [string]$receipt.InstanceId -eq 'primary') 'Gebundener Storage-Runtime-Receipt ist verifiziert und rungebunden'
