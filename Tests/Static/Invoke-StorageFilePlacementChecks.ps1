@@ -150,7 +150,7 @@ try {
     Add-CheckResult -Name 'SQL-Anwendungsplan enthält Defaultpfade, vollständigen TempDB-Plan und Extra-File-Abgleich' -Success (
         $sqlApplyQuery -match 'xp_instance_regwrite' -and $sqlApplyQuery -match "N'DefaultData'" -and
         $sqlApplyQuery -match "N'DefaultLog'" -and $sqlApplyQuery -match "N'BackupDirectory'" -and
-        ([regex]::Matches($sqlApplyQuery, 'ALTER DATABASE tempdb')).Count -ge 5 -and $sqlApplyQuery -match 'REMOVE FILE')
+        ([regex]::Matches($sqlApplyQuery, 'ALTER DATABASE tempdb')).Count -ge 4 -and $sqlApplyQuery -notmatch 'REMOVE FILE')
 
     $coverageDatabases = @(
         [PSCustomObject]@{

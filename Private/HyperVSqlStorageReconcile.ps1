@@ -145,7 +145,7 @@ function Get-LabHyperVSqlStorageReconcileDiff {
     $desiredNames=@($desiredTemp.LogicalName)
     foreach($extra in @($Actual.TempDb|Where-Object LogicalName -notin $desiredNames)){
         if([int]$extra.Type -eq 1){$diff.Add([PSCustomObject]@{Kind='tempdb-extra-log';Role='tempdb-log';LogicalName='extra-tempdb-log';Supported=$false})}
-        else{$diff.Add([PSCustomObject]@{Kind='tempdb-remove';Role='tempdb-data';LogicalName='extra-tempdb-data';Supported=$true})}
+        else{$diff.Add([PSCustomObject]@{Kind='tempdb-remove';Role='tempdb-data';LogicalName='extra-tempdb-data';Supported=$false})}
     }
     return @($diff)
 }

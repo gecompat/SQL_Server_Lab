@@ -66,6 +66,8 @@ try{
         $noOp=Get-SqlServerLabReconcilePlan -RunId $script:sqlStorageRunId -HyperVSqlStorage -InstanceId primary -StateRoot 'C:\private-state'
         $script:sqlStorageActual.TempDb+=@([PSCustomObject]@{LogicalName='templog2';Path='Z:\templog2.ldf';SizeMB=64;Growth='64MB';Type=1})
         $extraLog=Get-SqlServerLabReconcilePlan -RunId $script:sqlStorageRunId -HyperVSqlStorage -InstanceId primary -StateRoot 'C:\private-state'
+        $script:sqlStorageActual.TempDb=@($script:sqlStorageActual.TempDb|Where-Object LogicalName -ne 'templog2')+@([PSCustomObject]@{LogicalName='temp2';Path='Z:\temp2.ndf';SizeMB=64;Growth='64MB';Type=0})
+        $extraData=Get-SqlServerLabReconcilePlan -RunId $script:sqlStorageRunId -HyperVSqlStorage -InstanceId primary -StateRoot 'C:\private-state'
         $script:sqlStorageHostPending=$true
         $hostPending=Get-SqlServerLabReconcilePlan -RunId $script:sqlStorageRunId -HyperVSqlStorage -InstanceId primary -StateRoot 'C:\private-state'
         [PSCustomObject]@{
@@ -76,6 +78,7 @@ try{
             Resume=$resumed.ExecutionSummary.Status -eq 'SUCCEEDED' -and $script:sqlStorageApplyCount -eq 2
             NoOp=$noOp.IsNoOp -and $noOp.HighestChangeClass -eq 'no-op'
             ExtraLog=$extraLog.HighestChangeClass -eq 'unsupported' -and @($extraLog.Actions).Count -eq 0
+            ExtraData=$extraData.HighestChangeClass -eq 'unsupported' -and @($extraData.Actions).Count -eq 0
             HostPending=$hostPending.HighestChangeClass -eq 'unsupported' -and 'HYPERV_SQL_STORAGE_RECONCILE_HOST_DRIFT_PENDING' -in @($hostPending.ReasonCodes)
         }
     }
@@ -87,6 +90,7 @@ try{
         'Resume verifiziert denselben Bound Plan erfolgreich'=$result.Resume
         'Erfuellte SQL-Dateiplatzierung ist No-op'=$result.NoOp
         'Zusaetzliches TempDB-Logfile bleibt fail-closed unsupported'=$result.ExtraLog
+        'Zusaetzliches TempDB-Datenfile bleibt fail-closed unsupported'=$result.ExtraData
         'Host-/Gast-Storage-Drift blockiert SQL-Mutation'=$result.HostPending
         'Executor verschiebt weder User- noch Systemdatenbankdateien automatisch'=($source -notmatch 'ALTER\s+DATABASE\s+(master|model|msdb)' -and $source -notmatch 'database-data|database-log')
     }
