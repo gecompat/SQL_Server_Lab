@@ -87,13 +87,13 @@ try {
         $context=Get-Context $lab.RunId
     }
     Assert-HyperVSqlStorageAcceptance (Wait-StorageSqlReady $context) 'SQL ist nach Host-Storage-Reconcile bereit'
-    $receiptPath=Join-Path $context.RunDirectory 'storage-runtime-receipt.json';$receiptBefore=Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8;$receipt=$receiptBefore|ConvertFrom-Json -Depth 40
-    Assert-HyperVSqlStorageAcceptance ([string]$receipt.Status -eq 'VERIFIED' -and [string]$receipt.RunId -eq [string]$lab.RunId -and [string]$receipt.InstanceId -eq 'primary') 'Gebundener Storage-Runtime-Receipt ist verifiziert und rungebunden'
+    $receiptPath=Join-Path $context.RunDirectory 'storage-runtime-receipt.json'
+    Assert-HyperVSqlStorageAcceptance (-not(Test-Path -LiteralPath $receiptPath -PathType Leaf)) 'HV-603 persistiert noch keinen SQL-Runtime-Receipt'
     $before=Get-SqlStorageObservation $context;$sqlPlan=Get-SqlServerLabReconcilePlan -RunId $lab.RunId -HyperVSqlStorage -InstanceId primary -StateRoot $StateRoot
     Assert-HyperVSqlStorageAcceptance ([string]$sqlPlan.HighestChangeClass -eq 'restart' -and @($sqlPlan.Actions).Count -eq 1 -and $sqlPlan.Actions[0].RequiresSqlServiceRestart -and -not $sqlPlan.MutationAllowed) 'HV-603A plant receiptgebundene SQL-Pfad-Reparatur als SQL-Dienstrestart'
     Assert-HyperVSqlStorageAcceptance (($sqlPlan|ConvertTo-Json -Depth 30) -notmatch 'SQLData|SQLLog|private-|\.vhdx') 'Oeffentlicher SQL-Storage-Plan bleibt hostwertfrei'
     $sqlWhatIf=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVSqlStorage -InstanceId primary -StateRoot $StateRoot -WhatIf;$afterWhatIf=Get-SqlStorageObservation $context
-    Assert-HyperVSqlStorageAcceptance ([string]$sqlWhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and (Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8) -ceq $receiptBefore -and $afterWhatIf.Defaults.SqlStartTime -eq $before.Defaults.SqlStartTime) 'HV-603A-WhatIf veraendert weder SQL noch Runtime-Receipt'
+    Assert-HyperVSqlStorageAcceptance ([string]$sqlWhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and -not(Test-Path -LiteralPath $receiptPath -PathType Leaf) -and $afterWhatIf.Defaults.SqlStartTime -eq $before.Defaults.SqlStartTime) 'HV-603A-WhatIf veraendert weder SQL noch Runtime-Receipt'
     $guestCredential=[PSCredential]::new('Administrator',(Invoke-Private {param($RunDirectory)(Get-LabSecret -Path $RunDirectory -Name 'guest-administrator-password')} @($context.RunDirectory)))
     $bootBefore=Get-GuestBootTime $context $guestCredential;$sqlStartBefore=$before.Defaults.SqlStartTime
     $result=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVSqlStorage -InstanceId primary -StateRoot $StateRoot -Confirm:$false
