@@ -82,14 +82,14 @@ function Assert-LabHyperVStorageReconcileDesiredPath {
     $hostRoot = [IO.Path]::GetFullPath([string]$Drive.HostRoot).TrimEnd('\','/')
     $path = [IO.Path]::GetFullPath([string]$Drive.Path)
     $boundary = Test-LabPathWithinRoot -Root $hostRoot -Path $path
-    # Die Bound-Plan-Lane kann unter einem registrierten Lab_Data-Root liegen.
-    # Ihre Unterwurzel ist kein eigenstaendiger Konfigurationsroot; deshalb
-    # wird die kanonische Gesamtkonfiguration gelesen und die Lane explizit
-    # gegen LocationId, Selector und LabDataRoot revalidiert.
+    # Die Bound-Plan-Lane liegt unter einem registrierten Lab_Data-Root. Der
+    # portable Selector 'default' bezeichnet die Default-Location, er ist
+    # bewusst kein Eintrag in deren expliziter Selector-Liste.
     $configuration = Get-LabStorageConfiguration
     $locations = @($configuration.LabDataLocations | Where-Object {
         [string]::Equals([string]$_.LocationId, [string]$Drive.LocationId, [StringComparison]::OrdinalIgnoreCase) -and
-        [string]$Drive.Selector -in @($_.Selectors) -and
+        (([string]$Drive.Selector -eq 'default' -and [string]$_.LocationId -eq [string]$configuration.DefaultLocationId) -or
+            ([string]$Drive.Selector -ne 'default' -and [string]$Drive.Selector -in @($_.Selectors))) -and
         [string]::Equals(([IO.Path]::GetFullPath([string]$_.LabDataRoot).TrimEnd('\','/')), $hostRoot, [StringComparison]::OrdinalIgnoreCase)
     })
     if (-not $boundary.Valid -or $locations.Count -ne 1 -or

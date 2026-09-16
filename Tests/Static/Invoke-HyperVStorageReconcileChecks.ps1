@@ -110,6 +110,11 @@ try{
         $storageDesired=[PSCustomObject]@{Profile='standard';Drives=@();Storage=[PSCustomObject]@{ContractVersion=$portableIntent.contractVersion;PlacementPolicy=$portableIntent.placementPolicy;PhysicalIsolation=$portableIntent.physicalIsolation;Roles=$portableIntent.roles;TempDb=$portableIntent.tempDb;DatabaseFiles=@();RestoreRules=@()}}
         $boundDrives=@(Get-LabHyperVStorageReconcileDesiredDrives -DesiredInstance $storageDesired -Managed $script:storageManaged -RunDirectory (Join-Path (Join-Path $Root 'runs') $RunId) -RunId $RunId -InstanceId primary)
         $boundIntent=$boundDrives.Count -eq 1 -and $boundDrives[0].Id -eq 'sfp-01' -and $boundDrives[0].SizeBytes -eq 32GB
+        $boundRoot=Join-Path $Root 'bound-storage-root';$boundPath=Join-Path $boundRoot 'Labs/bound/default/sfp-01.vhdx'
+        New-Item -Path (Split-Path -Parent $boundPath) -ItemType Directory -Force|Out-Null
+        function Get-LabStorageConfiguration {[PSCustomObject]@{ControllerId='synthetic-controller';DefaultLocationId='synthetic-default';LabDataLocations=@([PSCustomObject]@{LocationId='synthetic-default';LabDataRoot=$boundRoot;Selectors=@()})}}
+        function Test-LabDataRootOwnership {param($DataRoot,$ControllerId) $DataRoot -eq $boundRoot -and $ControllerId -eq 'synthetic-controller'}
+        $defaultBoundLane=try { Assert-LabHyperVStorageReconcileDesiredPath -Drive ([PSCustomObject]@{Id='sfp-01';HostRoot=$boundRoot;Path=$boundPath;LocationId='synthetic-default';Selector='default'}) -RunDirectory (Join-Path (Join-Path $Root 'runs') $RunId);$true } catch {$false}
         [PSCustomObject]@{
             Live=$plan.HighestChangeClass -eq 'live' -and @($plan.Diff.Kind|Sort-Object -Unique) -join ',' -eq 'add,grow';Sanitized=$sanitized
             WhatIf=$whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and $whatIfSafe;Recovery=$recovery;Resume=$resume
@@ -119,6 +124,7 @@ try{
             Shrink=$shrink.HighestChangeClass -eq 'unsupported' -and @($shrink.Actions).Count -eq 0
             Removal=$remove.HighestChangeClass -eq 'unsupported' -and @($remove.Actions).Count -eq 0
             BoundIntent=$boundIntent
+            DefaultBoundLane=$defaultBoundLane
         }
     } $testRoot $runId $scopeId $resourceRoot
     $checks=[ordered]@{
@@ -135,6 +141,7 @@ try{
         'Shrink bleibt ohne automatische Mutation unsupported'=$result.Shrink
         'Entfernen zusaetzlicher Datentraeger bleibt fail-closed unsupported'=$result.Removal
         'Persistierter StorageIntent bindet ueber denselben kanonischen Intent-Hash'=$result.BoundIntent
+        'Default-Selector akzeptiert die gebundene Default-Location ohne expliziten Selector'=$result.DefaultBoundLane
         'Guest-Resize verwendet Get-PartitionSupportedSize und keinen automatischen Detach'=($providerSource -match 'Get-PartitionSupportedSize' -and $providerSource -match 'Resize-Partition' -and $source -notmatch 'Remove-VMHardDiskDrive')
     }
     $failedChecks=@($checks.GetEnumerator()|Where-Object{-not $_.Value})
