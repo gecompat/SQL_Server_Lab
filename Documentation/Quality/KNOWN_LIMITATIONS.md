@@ -643,7 +643,12 @@ Nachweis für einen operationseigenen Windows-2025-Clone registriert. Er
 verlangt zuerst den HV-603-Storage-No-op und belegt dann ausschließlich aus
 dem gebundenen Plan und dem Runtime-Receipt die SQL-Default-, Backup- und
 TempDB-Pfade, den SQL-Dienstrestart ohne VM-Neustart, No-op und
-scopegebundenes Cleanup. Der positive native Lauf ist noch `NOT_EXECUTED`.
+scopegebundenes Cleanup. Die lokale native Abnahme vom 2026-09-17 bestand
+für Windows Server 2025 und SQL Server 2025 Enterprise auf Runnerstand
+`43bdb819`: drei Default-/Backup-Verzeichnisse, vier TempDB-Datendateien und
+eine Logdatei konvergierten, der Gast-Bootzeitpunkt blieb beim SQL-Dienstrestart
+unverändert, der Folgeplan war No-op und Cleanup endete ohne Fehler.
+Dies ist kein GitHub-Actions-Nachweis und keine allgemeine Versionsmatrix.
 User- und Systemdatenbankdateien, zusätzliche TempDB-Logfiles, Rollen-/
 Pfadwechsel, Removal und Fault-Injection bleiben außerhalb dieses Nachweises.
 

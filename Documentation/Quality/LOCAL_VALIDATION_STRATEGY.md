@@ -1445,4 +1445,16 @@ die receiptgebundenen SQL-Default-, Backup- und TempDB-Pfade plant. `WhatIf`
 ändert weder SQL noch Receipt; die Reparatur verifiziert Receipt und
 dateigenaue SQL-Postconditions nach einem SQL-Dienstrestart ohne VM-Neustart,
 anschließend No-op und operationseigenes Cleanup. Fault/Resume bleibt der
-synthetische HV-603A-Vertrag. Ein positiver nativer Lauf ist `NOT_EXECUTED`.
+synthetische HV-603A-Vertrag. Der lokale erhöhte Lauf vom 2026-09-17 bestand
+auf Windows Server 2025 mit SQL Server 2025 Enterprise (Exitcode 0):
+verifizierter Runtime-Receipt, drei Default-/Backup-Verzeichnisse, vier
+TempDB-Datendateien und eine TempDB-Logdatei, SQL-Dienstrestart bei unverändertem
+Gast-Bootzeitpunkt, anschließender No-op und vollständiges operationseigenes
+Cleanup mit fünf Schritten ohne Fehler. Der geprüfte Runnerstand ist Commit
+`43bdb819`; die Abnahme erfolgte lokal, nicht als GitHub-Actions-Lauf.
+SQL-Verzeichniswerte werden ohne abschließenden Pfadtrenner verglichen,
+TempDB-Dateipfade weiterhin exakt und ohne Beachtung der Groß-/Kleinschreibung.
+Die ausführbare Offline-Regression prüft zusätzlich falsche und leere
+Default-Verzeichnisse sowie fehlende, doppelte und falsch platzierte
+TempDB-Dateien. Andere Versionskombinationen und natives Fault/Resume sind
+damit nicht belegt.

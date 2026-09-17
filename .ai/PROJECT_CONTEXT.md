@@ -414,8 +414,12 @@ zusätzliche VHDX/Grow-only, SQL-Storage, SQL-Konfiguration, den
 statischen SQL-TCP-Port und katalogisierte Testdatenbanken. Der SQL-Storage-Slice wird erst nach
 einem Host-/Gast-Storage-No-op ausführbar, vergleicht Default- und TempDB-Pfade
 read-only und verwendet für Restart, Postconditions und Resume das lokale
-Storage-Runtime-Receipt. User-/Systemdatenbankbewegung und positive native
-Repair-Evidence bleiben offen. Der Konfigurationsslice vergleicht
+Storage-Runtime-Receipt. Die lokale native SQL-Storage-Abnahme vom 2026-09-17
+belegt Windows Server 2025 mit SQL Server 2025 Enterprise: Default-/Backup-
+Verzeichnisse, vier TempDB-Datendateien und eine Logdatei, SQL-Dienstrestart
+ohne VM-Neustart, No-op und vollständiges Cleanup. User-/Systemdatenbankbewegung,
+weitere Versionskombinationen und natives Fault/Resume bleiben offen.
+Der Konfigurationsslice vergleicht
 persistierte Memory-, MAXDOP-, Cost-Threshold-, `sp_configure`- und Trace-Flag-
 Ziele ueber PowerShell Direct. Dynamische Werte und additive Trace Flags werden
 live repariert; ein eng begrenztes Zielmanifest darf ausschließlich diesen
