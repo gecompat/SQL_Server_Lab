@@ -98,7 +98,7 @@ try {
     $bootBefore=Get-GuestBootTime $context $guestCredential;$sqlStartBefore=$before.Defaults.SqlStartTime
     $result=Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -RepairHyperVSqlStorage -InstanceId primary -StateRoot $StateRoot -Confirm:$false
     $after=Get-SqlStorageObservation $context;$bootAfter=Get-GuestBootTime $context $guestCredential;$receiptAfter=Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8|ConvertFrom-Json -Depth 40
-    $expected=@($receiptAfter.FileBindings);$normalizePath={param([string]$Path) ([string]$Path).Trim().TrimEnd('\\','/')}
+    $expected=@($receiptAfter.FileBindings);$normalizePath={param([string]$Path) ([string]$Path).Trim().TrimEnd('\','/')}
     $defaultSource=@(
         [pscustomobject]@{Role='default-data';Expected=[string](@($expected|Where-Object Role -eq 'default-data')[0].SqlPhysicalPath);Actual=[string]$after.Defaults.DefaultData}
         [pscustomobject]@{Role='default-log';Expected=[string](@($expected|Where-Object Role -eq 'default-log')[0].SqlPhysicalPath);Actual=[string]$after.Defaults.DefaultLog}
