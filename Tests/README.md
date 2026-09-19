@@ -6,6 +6,10 @@ Der interne Container-CPU-Puls besitzt die Offline-Suite
 `-Provider podman`. Beide nativen Läufe erzeugen ausschließlich frische eigene
 SQL-2025-Runs und verlangen vollständigen Cleanup. Der Vertrag steht unter
 `Documentation/Architecture/CONTAINER_CPU_FAULT.md`.
+Mit zusätzlichem `-HardInterrupt` wartet der Parent auf den authentifizierten
+Applied-Checkpoint eines secretfreien Kindprozesses, bestätigt dessen harten
+Abbruch und prüft Restore-only-Resume mit echter SQL-Probe, exakter Baseline
+und bytegleichem terminalem Journal. Docker und Podman sind separat auszuführen.
 
 ## Verzeichnisse
 

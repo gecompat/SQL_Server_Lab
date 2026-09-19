@@ -20,7 +20,17 @@ Recovery- und Deadlinevertrag steht in
 Die getrennten lokalen SQL-2025-Läufe für Docker und Podman bestanden am
 2026-09-19 mit Applied-Postcondition, SQL-Probe, exakter Rücknahme, terminalem
 Resume und jeweils zwei erfolgreichen Cleanup-Schritten ohne Restcontainer.
-Ein echter Provider-Prozessabbruch mit Resume bleibt `NOT_EXECUTED`.
+Die zusätzlichen lokalen Läufe mit `-Provider docker -HardInterrupt` und
+`-Provider podman -HardInterrupt` bestanden am selben Tag: authentifizierter
+Applied-Checkpoint, hart beendeter eigener PowerShell-Kindprozess, bestätigtes
+Prozessende, exakte native Baseline-Rücknahme und SQL-Probe im Parent mit
+`INTERRUPTED`/`CleanupStatus=PASSED`, keine Aktivierungswiederholung und bytegleiches
+zweites Resume. Beide Runs entfernten Container und Volume mit jeweils zwei
+Cleanup-Schritten und null Fehlern; Restobjektprüfungen und temporärer Cleanup
+bestanden. Ein erster Podman-Versuch scheiterte vor Aktivierung an der
+Inspect-Template-ID und bereinigte ebenfalls vollständig; nach Korrektur des
+festen Providerfelds bestand der getrennte Wiederholungslauf. Host-/Engine-
+Abstürze und andere native Unterbrechungszeitpunkte sind damit nicht belegt.
 
 `Invoke-ScenarioExecutorChecks.ps1` prüft SCN-802 ausschließlich offline:
 Phasenreihenfolge, Cancellation vor/nach Arrange, Arbeits-/Cleanup-Timeouts,

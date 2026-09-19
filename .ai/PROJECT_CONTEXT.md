@@ -31,8 +31,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   SQL-Testcontainer mit authentifiziertem Write-ahead-Journal und Restore-only-
   Resume; Offlineprüfungen und getrennte native Acceptance-Einstiege liegen vor.
   Docker und Podman bestanden die getrennte lokale SQL-2025-Abnahme am
-  2026-09-19 einschließlich exakter CPU-Rücknahme, SQL-Probe und Cleanup;
-  natives Hard-Interrupt-/Resume bleibt `NOT_EXECUTED`. Einzelheiten unter
+  2026-09-19 einschließlich exakter CPU-Rücknahme, SQL-Probe und Cleanup.
+  Beide Provider bestanden auch den separaten nativen Hard-Interrupt nach
+  authentifiziertem Applied-Checkpoint mit Restore-only-Resume, `INTERRUPTED`,
+  bytegleichem terminalem Journal und vollständigem Cleanup. Einzelheiten unter
   `Documentation/Architecture/CONTAINER_CPU_FAULT.md`;
 
 - interner providerloser SCN-802-Executor mit fünf festen synthetischen Phasen,

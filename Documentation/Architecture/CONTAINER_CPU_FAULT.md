@@ -28,6 +28,8 @@ im exakt gebundenen Container über den festen `mssql-tools18`-Pfad und prüfen
 SQL Engine Edition sowie den ONLINE-Zustand von `master`. Das Passwort lebt
 nur im Prozesskontext, nicht in CLI-Argumenten oder Journal. SQL-Versionen
 ohne diesen Tools-Pfad sind nicht unterstützt.
+Die feste Inspect-Projektion liest nur Identität, Laufzustand, Labels und
+Hostkonfiguration; `Config.Env` mit möglichen SA-Secrets wird nicht abgefragt.
 
 Unterstützte Rohzustände sind `NanoCpus=2000000000` bei unverändertem
 Null-Period-/Quota-Paar oder `CpuPeriod=100000, CpuQuota=200000` ohne Nano-Cap.
@@ -51,9 +53,18 @@ Schlüssel ist automatisches Resume nicht zulässig. Dies ist keine Sandbox
 gegen einen Angreifer mit gleichwertigem lokalem Zugriff oder Schlüssel und
 kein Schutz gegen Replay früherer authentifizierter Journale.
 
+Unmittelbar nach erfolgreicher nativer Applied-Postcondition wird
+`AppliedVerified=true` erneut atomar und authentifiziert gespeichert, noch
+vor der SQL-Beobachtung und vor `finally`. Der Checkpoint erhält den exakten
+Ausgangszustand, `PrimaryStatus=NOT_EXECUTED` und null Cleanupversuche; Resume
+rekonstruiert daraus die Baseline und markiert den Primärlauf `INTERRUPTED`.
+
 Die Aktivierung, Applied-Postcondition und feste SQL-Beobachtung verwenden
 jeweils höchstens eine Sekunde native Wartezeit. Es gibt keine zusätzliche
-Haltephase; danach beginnt unmittelbar der `finally`-Restore. Fünf Sekunden
+Haltephase; danach beginnt unmittelbar der `finally`-Restore. Nur die privaten
+Abbruchfixtures aktivieren nach dem dauerhaften Checkpoint eine feste,
+auf 30 Sekunden begrenzte Synchronisationspause. Zielvertrag, Umgebung und
+öffentliche API bieten dafür keinen Eingabeparameter. Fünf Sekunden
 sind die Arbeitsdeadline des Pulses, keine Garantie bei Host-/Runtimeausfall,
 blockierendem Dateisystem oder hartem Prozessabbruch. Wiederherstellung hat
 eigene begrenzte native Aufrufe und maximal drei dauerhaft gezählte Versuche.
@@ -84,8 +95,30 @@ des CPU-Pulses und entfernten sämtliche eigenen Runtimeobjekte. Der danach
 explizit implementierte Providerfall bestand die native Abnahme. Docker-
 Evidence wurde nicht als Podman-Nachweis verwendet.
 
-Natives Hard-Interrupt-/Resume und weitere SQL-Versionen bleiben
-`NOT_EXECUTED`; die Unterbrechungsevidence stammt aus dem Fake-Provider-
-Kindprozess. Hyper-V, weitere Fault-Klassen und die allgemeine Scenario-
+Der optionale Acceptance-Schalter `-HardInterrupt` erzeugt ebenfalls genau
+einen frischen eigenen Run. Der Parent prüft SQL vorab; das Kind erhält nur
+Ziel, Operationsschlüssel und temporäres Journalverzeichnis sowie einen lokal
+erzeugten Dummy-`SecureString`. Ausschließlich die SQL-Vorprüfung im Kind ist
+eine Fixture; native CPU-Aufrufe, Ownership und Journal bleiben unverändert.
+Der Parent wartet auf den authentifizierten Applied-Checkpoint, beendet das
+Kind hart, bestätigt dessen Ende und prüft den weiterhin aktiven CPU-Puls.
+Erst danach führt er Resume mit dem echten SA-Secret aus. Erwartet werden
+`INTERRUPTED`, `CleanupStatus=PASSED`, alle zehn exakten CPU-Rohfelder samt
+Identität, eine native SQL-Probe und keine erneute Aktivierung. Ein zweites
+Resume muss das Journal bytegleich erhalten und darf keine weitere
+CPU-Mutation oder SQL-Probe auslösen. Cleanup verlangt den erfolgreichen
+Run-Abschluss sowie fehlende eigene Container und Volumes.
+
+Die getrennten lokalen `-HardInterrupt`-Läufe für Docker und Podman bestanden
+am 2026-09-19 sämtliche dieser Postconditions einschließlich vollständigem
+Cleanup von jeweils Container und Volume (zwei Schritte, null Fehler) und
+temporären Recovery-Dateien. Der erste Podman-Abbruchtest scheiterte bereits
+vor Aktivierung an der Inspect-Template-ID und bereinigte vollständig. Der
+feste Podman-Ausdruck `{{json .ID}}` korrigiert diese Abweichung; der anschließende
+native Lauf bestand. Die Offline-Suite prüft denselben Applied-Checkpoint
+für beide Providerformen mit einem tatsächlich hart beendeten Kindprozess.
+
+Weitere SQL-Versionen, Host-/Engine-Abstürze und Unterbrechungen an anderen
+nativen Zeitpunkten bleiben `NOT_EXECUTED`. Hyper-V, weitere Fault-Klassen und die allgemeine Scenario-
 Integration sind nicht Teil dieses Slice. Ein bestandener Puls belegt keine
 fachliche Performanceverschlechterung oder allgemeine Fault-Plattform.

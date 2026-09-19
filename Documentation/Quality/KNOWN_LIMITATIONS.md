@@ -3,8 +3,11 @@
 Der interne `container.cpu-limit`-Puls ist auf frische operationseigene
 Docker-/Podman-SQL-Testcontainer und exakt unterstützte 2→1-CPU-Rohzustände
 begrenzt. Docker und Podman bestanden am 2026-09-19 die getrennte lokale
-SQL-2025-Abnahme mit exakter CPU-Rücknahme, SQL-Probe und Cleanup. Natives
-Hard-Interrupt-/Resume sowie weitere Versionen bleiben `NOT_EXECUTED`.
+SQL-2025-Abnahme mit exakter CPU-Rücknahme, SQL-Probe und Cleanup. Die separaten
+nativen Hard-Interrupt-Läufe nach authentifiziertem Applied-Checkpoint bestanden
+ebenfalls mit `INTERRUPTED`, Restore-only-Resume, bytegleichem terminalem Journal
+und vollständigem Cleanup. Weitere SQL-Versionen sowie Host-/Engine-Abstürze
+und Unterbrechungen an anderen nativen Zeitpunkten bleiben `NOT_EXECUTED`.
 Es gibt keine öffentliche Fault-API, keine Hyper-V-Anbindung und keine
 Garantie einer fünfsekündigen Rücknahme bei Host-/Runtimeausfall. Siehe
 `Documentation/Architecture/CONTAINER_CPU_FAULT.md` für Ownership, Grenzen

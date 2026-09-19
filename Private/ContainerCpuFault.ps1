@@ -121,7 +121,11 @@ function Assert-LabCpuFaultTarget {
 
 function Get-LabCpuFaultSnapshot {
     param($Binding, $Target, [switch]$Fresh, [int]$TimeoutMilliseconds = 5000)
-    $items = @(Invoke-LabCpuFaultNative $Binding @('inspect',$Target.ContainerId) $TimeoutMilliseconds | ConvertFrom-Json -Depth 40)
+    # Never request Config.Env: a container may keep its SA secret there.
+    $format='{"Id":{{json .Id}},"State":{"Running":{{json .State.Running}}},"Config":{"Labels":{{json .Config.Labels}}},"Created":{{json .Created}},"Image":{{json .Image}},"HostConfig":{{json .HostConfig}}}'
+    # Podman's Go field is ID; its .Id compatibility rewrite does not cover json.
+    if ($Binding.Provider -eq 'podman') { $format=$format.Replace('{{json .Id}}','{{json .ID}}') }
+    $items = @(Invoke-LabCpuFaultNative $Binding @('inspect','--format',$format,$Target.ContainerId) $TimeoutMilliseconds | ConvertFrom-Json -Depth 40)
     if ($items.Count -ne 1) { throw 'CPU_FAULT_IDENTITY_MISMATCH' }
     $item = $items[0]
     $labels = $item.Config.Labels
@@ -219,6 +223,15 @@ function Write-LabCpuFaultJournal {
     $authentication
 }
 
+function Wait-LabCpuFaultTestCheckpoint {
+    # Private fixture synchronization only: no environment, target or public input.
+    # The fixed bound also lets finally restore if the test parent disappears.
+    $pause=Get-Variable -Name LabCpuFaultTestCheckpointPause -Scope Script -ValueOnly -ErrorAction SilentlyContinue
+    if ($pause -is [bool] -and $pause) {
+        [Threading.Thread]::Sleep(30000)
+    }
+}
+
 function Invoke-LabContainerCpuFault {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Target,[Parameter(Mandatory)][string]$JournalDirectory,
@@ -277,6 +290,9 @@ function Invoke-LabContainerCpuFault {
                             if ($state.Mode -eq 'PODMAN_QUOTA') { $expected.NanoCpus=1000000000 }
                             if ((ConvertTo-LabCpuFaultCanonicalJson $applied.Cpu) -cne (ConvertTo-LabCpuFaultCanonicalJson $expected)) { throw 'CPU_FAULT_APPLIED_POSTCONDITION_FAILED' }
                             $state.AppliedVerified=$true
+                            # Commit applied evidence before observation or any finally cleanup.
+                            $authentication = Write-LabCpuFaultJournal $path $OwnershipKey $state $authentication
+                            Wait-LabCpuFaultTestCheckpoint
                             if ($CancellationToken.IsCancellationRequested) { $state.PrimaryStatus='CANCELLED' }
                             else {
                                 Test-LabCpuFaultSql $binding $Target $Password -TimeoutMilliseconds 1000
