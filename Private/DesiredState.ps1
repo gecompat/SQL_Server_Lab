@@ -444,6 +444,7 @@ function Get-LabPersistedDesiredState {
     }
 
     $validationErrors = New-Object System.Collections.Generic.List[string]
+    $instanceIdsByProvider = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.HashSet[string]]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($instance in @($snapshot.Instances)) {
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['CapabilityAssessment'] -and
             -not (Test-LabInstanceCapabilityAssessment -Assessment $instance.Intents.CapabilityAssessment)) {
@@ -451,6 +452,16 @@ function Get-LabPersistedDesiredState {
         }
         if (-not $instance.Id) { $validationErrors.Add("Instance entry hat keine Id.") }
         if (-not $instance.Provider) { $validationErrors.Add("Instance '$($instance.Id)' hat keinen Provider.") }
+        if ($instance.Id -and $instance.Provider) {
+            $provider = [string]$instance.Provider
+            if (-not $instanceIdsByProvider.ContainsKey($provider)) {
+                $instanceIdsByProvider[$provider] = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+            }
+            if (-not $instanceIdsByProvider[$provider].Add([string]$instance.Id) -and
+                -not $validationErrors.Contains('DESIRED_INSTANCE_IDENTITY_DUPLICATE')) {
+                $validationErrors.Add('DESIRED_INSTANCE_IDENTITY_DUPLICATE')
+            }
+        }
         if ($instance.Intents -and
             (-not $instance.Intents.Contract -or
              [string]$instance.Intents.Contract.Name -ne 'SqlServerLab.InstanceIntent' -or

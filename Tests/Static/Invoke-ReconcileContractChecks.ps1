@@ -150,6 +150,48 @@ try {
                 [PSCustomObject]@{ provider = 'docker'; instanceIds = @('fallback') }
             )
             $invalid = Get-SqlServerLabReconcilePlan -RunId $invalidRun.RunId -TargetState RUNNING -StateRoot $Root
+
+            $identityCases = @(
+                @{ Name='identisch'; Providers=@('docker','docker'); Ids=@('primary','primary'); Duplicate=$true },
+                @{ Name='Id-Grossschreibung'; Providers=@('docker','docker'); Ids=@('primary','PRIMARY'); Duplicate=$true },
+                @{ Name='Provider-Grossschreibung'; Providers=@('docker','DOCKER'); Ids=@('primary','primary'); Duplicate=$true },
+                @{ Name='mehrfache gemischte Grossschreibung'; Providers=@('docker','DOCKER','Docker'); Ids=@('primary','PRIMARY','Primary'); Duplicate=$true },
+                @{ Name='verschiedene Provider'; Providers=@('docker','podman'); Ids=@('primary','PRIMARY'); Duplicate=$false }
+            )
+            $identities = @(foreach ($case in $identityCases) {
+                $identitySnapshot = [PSCustomObject]@{
+                    Contract = [PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
+                    Instances = @(for ($i=0; $i -lt $case.Ids.Count; $i++) {
+                        [PSCustomObject]@{
+                            Id=$case.Ids[$i]; Provider=$case.Providers[$i]; Profile='standard'
+                            Host='secret-host.invalid'; ContainerId='container-secret-id'; ConnectionString='Password=not-in-plan'
+                        }
+                    })
+                }
+                $identityRun = New-LabRunState -StateRoot $Root -Metadata @{ name='Reconcile identity'; desiredState=$identitySnapshot } -ProviderSubRuns @(
+                    [PSCustomObject]@{ provider='docker'; instanceIds=@('fallback') }
+                )
+                $identityStatePath = Join-Path $identityRun.RunDir 'run-state.json'
+                $identityConnectionPath = Join-Path $identityRun.RunDir 'connection-info.json'
+                Write-LabArtifactJsonAtomic -Path $identityConnectionPath -InputObject $connection
+                $beforeIdentityState = [Convert]::ToBase64String([IO.File]::ReadAllBytes($identityStatePath))
+                $beforeIdentityConnection = [Convert]::ToBase64String([IO.File]::ReadAllBytes($identityConnectionPath))
+                $persistedIdentity = Get-LabPersistedDesiredState -RunId $identityRun.RunId -StateRoot $Root
+                $identityPlans = @(foreach ($target in @('RUNNING','STOPPED')) {
+                    $script:reconcileRuntimeState = if ($target -eq 'RUNNING') { 'STOPPED' } else { 'RUNNING' }
+                    $script:reconcileRuntimeInstances = @(
+                        [PSCustomObject]@{ Id='primary'; Provider='docker'; State=$script:reconcileRuntimeState },
+                        [PSCustomObject]@{ Id='PRIMARY'; Provider='podman'; State=$script:reconcileRuntimeState }
+                    )
+                    Get-SqlServerLabReconcilePlan -RunId $identityRun.RunId -TargetState $target -StateRoot $Root
+                })
+                [PSCustomObject]@{
+                    Name=$case.Name; Duplicate=$case.Duplicate; Status=$persistedIdentity.Status; Reason=$persistedIdentity.Reason
+                    Plans=$identityPlans
+                    StateUnchanged=$beforeIdentityState -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($identityStatePath))
+                    ConnectionUnchanged=$beforeIdentityConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($identityConnectionPath))
+                }
+            })
         }
         finally {
             Set-Item Function:Get-LabRunRuntimeStatus -Value $originalRuntime
@@ -157,6 +199,7 @@ try {
 
         [PSCustomObject]@{
             NoOp = $noOp; Restart = $restart; Partial = $partial; Invalid = $invalid; MigrationBlocked = $migrationBlocked
+            Identities = $identities
             StateUnchanged = $beforeState -eq (Get-Content -LiteralPath $statePath -Raw -Encoding utf8)
             ConnectionUnchanged = $beforeConnection -eq (Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8)
         }
@@ -177,6 +220,33 @@ try {
     Add-CheckResult `
         -Name 'Persistierter ungültiger Sollzustand bleibt fail-closed' `
         -Success ($contract.Invalid.HighestChangeClass -eq 'unsupported' -and $contract.Invalid.Actions.Count -eq 0 -and $contract.Invalid.Desired.IsValid -eq $false -and $contract.Invalid.Warnings.Count -gt 0 -and -not $contract.Invalid.MutationAllowed)
+    foreach ($identity in $contract.Identities) {
+        if ($identity.Duplicate) {
+            Add-CheckResult -Name "Doppelte Sollidentitaet ($($identity.Name)) liefert genau einen sanitisierten Grund" `
+                -Success ($identity.Status -eq 'INVALID' -and $identity.Reason -ceq 'DESIRED_INSTANCE_IDENTITY_DUPLICATE')
+            foreach ($plan in $identity.Plans) {
+                Add-CheckResult -Name "Doppelte Sollidentitaet ($($identity.Name)) blockiert $($plan.Desired.TargetState) ohne Fallback" `
+                    -Success ($plan.HighestChangeClass -eq 'unsupported' -and $plan.Actions.Count -eq 0 -and
+                        -not $plan.MutationAllowed -and -not $plan.IsNoOp -and -not $plan.Desired.IsValid -and
+                        $plan.Desired.Source -eq 'persisted-desired-state-invalid' -and $plan.Desired.Instances.Count -eq 0 -and
+                        $plan.Desired.ValidationError -ceq 'DESIRED_INSTANCE_IDENTITY_DUPLICATE')
+            }
+        }
+        else {
+            Add-CheckResult -Name 'Gleiche Id bei verschiedenen Providern bleibt gueltig' `
+                -Success ($identity.Status -eq 'VALID' -and $null -eq $identity.Reason)
+            foreach ($plan in $identity.Plans) {
+                $expectedOperation = if ($plan.Desired.TargetState -eq 'RUNNING') { 'Start' } else { 'Stop' }
+                Add-CheckResult -Name "Providergebundene gleiche Id plant $expectedOperation getrennt" `
+                    -Success ($plan.Desired.IsValid -and $plan.Desired.Instances.Count -eq 2 -and
+                        $plan.HighestChangeClass -eq 'restart' -and $plan.Actions.Count -eq 2 -and
+                        @($plan.Actions | Where-Object Operation -eq $expectedOperation).Count -eq 2 -and
+                        (($plan.Actions.Provider | Sort-Object) -join ',') -eq 'docker,podman')
+            }
+        }
+        Add-CheckResult -Name "Identitaetspruefung ($($identity.Name)) erhaelt State- und Connection-Bytes" `
+            -Success ($identity.StateUnchanged -and $identity.ConnectionUnchanged)
+    }
     Add-CheckResult `
         -Name 'Nichtterminale Hyper-V-Ressourcenmigration blockiert Reconcile read-only' `
         -Success ($contract.MigrationBlocked.HighestChangeClass -eq 'unsupported' -and $contract.MigrationBlocked.Actions.Count -eq 0 -and
