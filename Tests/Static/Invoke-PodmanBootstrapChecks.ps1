@@ -74,13 +74,18 @@ param(
 $ErrorActionPreference = 'Stop'
 $readyMarker = Join-Path $StatePath 'ready.marker'
 $startLog = Join-Path $StatePath 'starts.log'
+$script:infoCalls = 0
 
 function global:podman {
     $verb = if ($args.Count -gt 0) { [string]$args[0] } else { '' }
     $subverb = if ($args.Count -gt 1) { [string]$args[1] } else { '' }
 
     if ($verb -eq 'info') {
+        $script:infoCalls++
         $ready = $Scenario -eq 'ready' -or (Test-Path -LiteralPath $readyMarker -PathType Leaf)
+        if ($Scenario -in @('runningDelayed', 'startingDelayed') -and $script:infoCalls -ge 3) {
+            $ready = $true
+        }
         $global:LASTEXITCODE = if ($ready) { 0 } else { 1 }
         return
     }
@@ -91,7 +96,10 @@ function global:podman {
             'noMachine' { '[]'; return }
             'ambiguous' { '[{"Name":"machine-a"},{"Name":"machine-b"}]'; return }
             'soleCustom' { '[{"Name":"custom-machine"}]'; return }
-            default { '[{"Name":"podman-machine-default"}]'; return }
+            'runningDelayed' { '[{"Name":"podman-machine-default","Running":true,"Starting":false}]'; return }
+            'startingDelayed' { '[{"Name":"podman-machine-default","Running":false,"Starting":true}]'; return }
+            'runningTimeout' { '[{"Name":"podman-machine-default","Running":true,"Starting":false}]'; return }
+            default { '[{"Name":"podman-machine-default","Running":false,"Starting":false}]'; return }
         }
     }
 
@@ -107,7 +115,7 @@ function global:podman {
         if ($Scenario -eq 'concurrent') {
             Start-Sleep -Milliseconds 400
         }
-        if ($Scenario -ne 'timeout') {
+        if ($Scenario -notin @('timeout', 'runningTimeout')) {
             Set-Content -LiteralPath $readyMarker -Value 'ready' -Encoding ascii
         }
         $global:LASTEXITCODE = 0
@@ -141,6 +149,20 @@ catch {
         -Name 'Gestoppte Default-Machine wird gestartet' `
         -Success ($default.ExitCode -eq 0 -and $defaultStarts.Count -eq 1 -and $defaultStarts[0] -eq 'podman-machine-default') `
         -Message $default.Output
+
+    foreach ($scenario in @('runningDelayed', 'startingDelayed')) {
+        $delayed = Invoke-SyntheticScenario -Scenario $scenario -TimeoutSeconds 5
+        Add-CheckResult `
+            -Name "Aktive Machine wartet ohne erneuten Start: $scenario" `
+            -Success ($delayed.ExitCode -eq 0 -and $delayed.Output -match '"StartedByScript":false' -and -not (Test-Path (Join-Path $delayed.StatePath 'starts.log'))) `
+            -Message $delayed.Output
+    }
+
+    $runningTimeout = Invoke-SyntheticScenario -Scenario runningTimeout -TimeoutSeconds 1
+    Add-CheckResult `
+        -Name 'Laufende unerreichbare Machine endet ohne Neustart am Timeout' `
+        -Success ($runningTimeout.ExitCode -ne 0 -and $runningTimeout.Output -match 'nach 1 Sekunden nicht erreichbar' -and $runningTimeout.Output -notmatch 'wurde gestartet' -and -not (Test-Path (Join-Path $runningTimeout.StatePath 'starts.log'))) `
+        -Message $runningTimeout.Output
 
     $custom = Invoke-SyntheticScenario -Scenario soleCustom
     $customStarts = @(if (Test-Path (Join-Path $custom.StatePath 'starts.log')) {

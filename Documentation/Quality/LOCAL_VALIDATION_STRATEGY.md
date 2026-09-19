@@ -1208,6 +1208,14 @@ Dateiauflösung weder Engine-Erreichbarkeit noch Ausführungsberechtigung beweis
 
 ### Podman-Runtime betroffen
 
+Der Bootstrap wartet bei einer bereits laufenden oder startenden Machine auf
+`podman info`, ohne erneut `machine start` auszufuehren. Die isolierte Suite
+`Invoke-PodmanBootstrapChecks.ps1` prueft beide verzoegerten Readiness-Pfade,
+den Timeout ohne Neustart sowie unveraenderte Startfehler und Lock-Semantik.
+Diese synthetische Evidence ersetzt keinen nativen Podman-Smoke. Der Bootstrap
+wechselt keine Connection und startet eine aktive Machine nicht neu, auch
+wenn deren API bis zum Ende der Poll-Wartezeit unerreichbar bleibt.
+
 ```powershell
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
