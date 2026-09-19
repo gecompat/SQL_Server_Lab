@@ -50,6 +50,11 @@ Resume bereinigt unterbrochene Arbeit, wiederholt sie aber nicht; nach drei
 Cleanupversuchen bleibt Recovery erforderlich. Das lokale Journal setzt einen
 vertrauenswürdigen Aufrufer mit separat erhaltenem Ownershipschlüssel voraus;
 Dateisystemzugriffe besitzen keinen präemptiven Timeout.
+SCN-804 begrenzt mit Plan `0.2` jede Primärphase zusätzlich zur globalen
+Arbeitsfrist. Cleanup hat ein unabhängiges Budget. Plan `0.1` wird ohne
+automatische Migration abgewiesen; dessen Journale benötigen zur Recovery den
+passenden bisherigen Executor. Diese Fristen belegen ausschließlich den
+synthetischen internen Ablauf, keine SQL-/Providerdeadline.
 
 `RELATIONAL_CORE/1.0` inventarisiert alle Benutzertabellen und vergleicht ausschließlich zulässige Tabelleninhalte read-only zwischen live gebundenen Docker-/Podman-Runs. Es lässt nur normale diskbasierte Benutzertabellen mit aktivem, ungefiltertem PK zu. Jeder PK muss ausschließlich aus `tinyint`, `smallint`, `int`, `bigint` oder `uniqueidentifier` bestehen. Zugelassene Nicht-PK-Spaltentypen sind `bit`, diese fünf PK-Typen, `date`, `datetime2`, `datetimeoffset`, `time`, `char`, `varchar`, `nchar`, `nvarchar`, `binary` und `varbinary`; jede `max`-Spalte und jede versteckte Spalte wird blockiert. RLS, Temporal-, FileTable-, External-, Memory-optimized-, Graph- und Ledger-Tabellen, unzulässige Spaltenattribute und alle übrigen Typen – einschließlich `decimal`, `numeric`, `money`, `smallmoney`, `datetime` und `smalldatetime` – werden nicht angenähert, sondern als inventarisierte Tabelle fail-closed mit `TABLE_UNSUPPORTED_OR_POLICY_BLOCKED` ausgewiesen. Quelle und Ziel müssen SQL-seitig als exakt ausgewählte `ONLINE`- und `READ_ONLY`-Datenbanken bestätigt sein. Ergebnisse enthalten keine Datenwerte. Restore, Backup-Staging, Zielerzeugung und jeder Transfer-Executor sind nicht implementiert und bleiben `BLOCKED`.
 

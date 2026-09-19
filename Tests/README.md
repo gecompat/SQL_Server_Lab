@@ -37,8 +37,11 @@ deterministische sanitisierte Ergebnisse. Es entstehen keine Runtime- oder
 Journaldateien; der Test ist kein SQL-/Provider-Nachweis.
 
 `Tests/Static/Invoke-ScenarioExecutorChecks.ps1` prüft den internen synthetischen
-SCN-802-Executor einschließlich Cancellation, Timeout, Fehlern, Ownership,
+SCN-802/SCN-804-Executor einschließlich Cancellation, globalen und individuellen
+Phasenfristen, unabhängigem Cleanupbudget, Fehlern, Ownership,
 Journalintegrität und Resume nach hartem Abbruch eines eigenen Kindprozesses.
+Plan `0.2` erzwingt begrenzte Primärphasencaps; alte Pläne und bei Resume
+geänderte Caps werden vor Mutation abgewiesen.
 Er erzeugt ausschließlich temporäre lokale Fixtures, keine SQL-Umgebungen.
 
 Der lokale Security-Tool-Katalog-/Planvertrag wird mit
