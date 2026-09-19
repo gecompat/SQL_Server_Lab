@@ -1210,7 +1210,22 @@ $windowsAccessMenuProbe = & {
         $selected = [pscustomobject]@{ Calls=@($script:windowsAccessCalls); Lines=@($script:windowsAccessLines); Acknowledgements=$script:windowsAccessAcknowledgements }
         $script:windowsAccessFailure = 'HYPERV_LAB_GENERATED_WINDOWS_ACCESS_NOT_APPLICABLE'
         Show-LabGeneratedWindowsAccessInteractive -RunId '11111111-1111-1111-1111-111111111111'
-        [pscustomobject]@{ Selected=$selected; FailureCalls=$script:windowsAccessCalls.Count; FailureWarning=@($script:windowsAccessWarnings | Select-Object -Last 1)[0]; FailureAcknowledgements=$script:windowsAccessAcknowledgements }
+        $providedFailure = [pscustomobject]@{ Calls=$script:windowsAccessCalls.Count; Warning=@($script:windowsAccessWarnings | Select-Object -Last 1)[0]; Acknowledgements=$script:windowsAccessAcknowledgements }
+        $failureCases = foreach ($failure in @('HYPERV_LAB_GENERATED_WINDOWS_ACCESS_NOT_FOUND', 'SYNTHETIC_DECRYPTION_FAILURE_PRIVATE_DETAIL')) {
+            $script:windowsAccessFailure = $failure
+            $script:windowsAccessLines.Clear()
+            $script:windowsAccessWarnings.Clear()
+            $beforeCalls = $script:windowsAccessCalls.Count
+            $beforeAcknowledgements = $script:windowsAccessAcknowledgements
+            Show-LabGeneratedWindowsAccessInteractive -RunId '22222222-2222-2222-2222-222222222222'
+            [pscustomobject]@{
+                Failure=$failure; Calls=$script:windowsAccessCalls.Count - $beforeCalls
+                RunId=$script:windowsAccessCalls[$script:windowsAccessCalls.Count - 1]
+                Lines=@($script:windowsAccessLines); Warnings=@($script:windowsAccessWarnings)
+                Acknowledgements=$script:windowsAccessAcknowledgements - $beforeAcknowledgements
+            }
+        }
+        [pscustomobject]@{ Selected=$selected; FailureCalls=$providedFailure.Calls; FailureWarning=$providedFailure.Warning; FailureAcknowledgements=$providedFailure.Acknowledgements; FailureCases=@($failureCases) }
     }
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
 }
@@ -1226,6 +1241,16 @@ Add-ConsoleUiCheck 'Windows-Zugangsmenü bricht vor dem Abruf ab und bleibt bei 
     $windowsAccessMenuProbe.FailureWarning -match 'Selbst vergebene Kennwörter werden nicht angezeigt' -and
     $windowsAccessMenuProbe.FailureAcknowledgements -eq 2
 )
+foreach ($failureCase in $windowsAccessMenuProbe.FailureCases) {
+    $expectedWarning = if ($failureCase.Failure -eq 'HYPERV_LAB_GENERATED_WINDOWS_ACCESS_NOT_FOUND') { 'nicht mehr vorhanden' } else { 'nicht entschlüsselt' }
+    Add-ConsoleUiCheck "Windows-Zugangsmenü kehrt ohne Secret- oder Rohfehlerausgabe zurück: $($failureCase.Failure)" (
+        $failureCase.Calls -eq 1 -and $failureCase.RunId -eq '22222222-2222-2222-2222-222222222222' -and
+        $failureCase.Lines.Count -eq 0 -and $failureCase.Warnings.Count -eq 1 -and
+        $failureCase.Warnings[0] -match $expectedWarning -and
+        $failureCase.Warnings[0] -notmatch 'SYNTHETIC_DECRYPTION_FAILURE_PRIVATE_DETAIL|Synthetic_Windows_Secret_42' -and
+        $failureCase.Acknowledgements -eq 1
+    )
+}
 Add-ConsoleUiCheck 'CUI-011 besitzt Resize-, Write-Plan- und Recovery-Injektionspunkte' ($consoleSource -match 'function Get-LabConsoleWritePlan' -and $consoleSource -match '\[scriptblock\]\$GetViewport' -and $consoleSource -match '\[scriptblock\]\$SessionCompleter' -and $consoleSource -match 'Cursoransicht nicht verfügbar')
 Add-ConsoleUiCheck 'Session stellt urspruengliche Cursorsichtbarkeit wieder her' ($consoleSource -match '\[Console\]::CursorVisible = \[bool\]\$Session\.CursorVisible')
 
