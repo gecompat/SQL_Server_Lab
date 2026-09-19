@@ -1251,6 +1251,100 @@ foreach ($failureCase in $windowsAccessMenuProbe.FailureCases) {
         $failureCase.Acknowledgements -eq 1
     )
 }
+$accessTestRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-access-menu-' + [guid]::NewGuid().ToString('N'))
+try {
+    $accessModule = Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
+    $navigationProbe = & $accessModule {
+        param($Root)
+        $script:accessCalls = [Collections.Generic.List[string]]::new()
+        $script:accessScreens = [Collections.Generic.List[string]]::new()
+        $script:accessSelectedIds = @()
+        $script:accessMode = 'cancel-run'
+        $script:accessAcknowledged = 0
+        $script:accessPasswordMatched = $false
+        $script:accessRealReader = ${function:Get-SqlServerLabGeneratedWindowsAccess}
+        $script:accessSynthetic = 'Synthetic_Menu_Only_' + [guid]::NewGuid().ToString('N')
+        $script:accessRoot = $Root
+        function Get-LabActiveRuns {
+            [pscustomobject]@{ runId='synthetic-selected'; state='READY'; metadata=[pscustomobject]@{ workflowKind='hyperv-lab'; name='Synthetisches SQL-Lab' } }
+            [pscustomobject]@{ runId='synthetic-container'; state='READY'; metadata=[pscustomobject]@{ workflowKind='container'; name='Nicht auswählbar' } }
+        }
+        function Get-LabAutomatedTestEnvironmentRunIds { @() }
+        function Get-HyperVLabWorkflowRun {
+            param($RunId)
+            if ($RunId -ne 'synthetic-selected') { throw 'UNEXPECTED_SYNTHETIC_RUN' }
+            [pscustomobject]@{
+                Run=[pscustomobject]@{ runId=$RunId; scopeId='synthetic-scope'; name='Synthetisches SQL-Lab' }
+                RunDirectory=$script:accessRoot
+                Instance=[pscustomobject]@{ vmName='synthetic-vm'; workload='sql'; oobeAutomation=[pscustomobject]@{ passwordSource='generated' } }
+            }
+        }
+        function Get-HyperVInstanceStatus { [pscustomobject]@{ State='Off' } }
+        function Get-LabWorkflowLifecycleFingerprint { 'synthetic-unchanged' }
+        function Get-SqlServerLabGeneratedWindowsAccess {
+            [CmdletBinding()]param($RunId)
+            $script:accessCalls.Add([string]$RunId)
+            & $script:accessRealReader -RunId $RunId
+        }
+        function Invoke-LabConsoleMenu {
+            param($ScreenId, $Items)
+            $script:accessScreens.Add($ScreenId)
+            if ($ScreenId -eq 'hyperv-environment-selection') {
+                $script:accessSelectedIds = @($Items | ForEach-Object { $_.Id })
+                if ($script:accessMode -eq 'cancel-run') { return [pscustomobject]@{ Status='Cancelled' } }
+                return [pscustomobject]@{ Status='Selected'; SelectedItem=@($Items | Where-Object Id -eq 'synthetic-selected')[0] }
+            }
+            if ($ScreenId -ne 'hyperv-environment-actions') { throw 'UNEXPECTED_SYNTHETIC_SCREEN' }
+            if ($script:accessMode -eq 'cancel-action') { return [pscustomobject]@{ Status='Cancelled' } }
+            [pscustomobject]@{ Status='Selected'; SelectedItem=@($Items | Where-Object Id -eq 'windows-access')[0] }
+        }
+        function Write-LabStatus {
+            param($Label, $Value)
+            if ($Label -eq 'Passwort (automatisch erzeugt)') { $script:accessPasswordMatched = $Value -ceq $script:accessSynthetic }
+        }
+        function Wait-LabConsoleAcknowledgement { $script:accessAcknowledged++ }
+        function Write-LabError { throw 'UNEXPECTED_SYNTHETIC_MENU_ERROR' }
+        $null = Manage-LabHyperVEnvironmentInteractive
+        $runCancelled = $script:accessCalls.Count -eq 0 -and $script:accessScreens.Count -eq 1
+        $script:accessMode = 'cancel-action'
+        $script:accessScreens.Clear()
+        $null = Manage-LabHyperVEnvironmentInteractive
+        $actionCancelled = $script:accessCalls.Count -eq 0 -and $script:accessScreens.Count -eq 2 -and $script:accessAcknowledged -eq 0
+        $dpapiPassed = $false
+        if ($IsWindows) {
+            $secret = [SecureString]::new()
+            foreach ($character in $script:accessSynthetic.ToCharArray()) { $secret.AppendChar($character) }
+            $secret.MakeReadOnly()
+            try {
+                Save-LabSecret -Path $Root -Name 'generated-windows-administrator-password' -Secret $secret
+                $stored = Get-Content -LiteralPath (Join-Path $Root 'secrets/generated-windows-administrator-password.secret') -Raw
+                $protected = $stored.StartsWith('dpapi-') -and -not $stored.Contains($script:accessSynthetic)
+                $script:accessMode = 'show-access'
+                $script:accessScreens.Clear()
+                $result = Manage-LabHyperVEnvironmentInteractive
+                $dpapiPassed = $protected -and $script:accessPasswordMatched -and $script:accessCalls.Count -eq 1 -and
+                    $script:accessCalls[0] -eq 'synthetic-selected' -and $script:accessAcknowledged -eq 1 -and
+                    $script:accessScreens.Count -eq 2 -and $result.Status -eq 'NoChange'
+            }
+            finally { $secret.Dispose(); $script:accessSynthetic = $null }
+        }
+        [pscustomobject]@{ RunCancelled=$runCancelled; ActionCancelled=$actionCancelled; OnlyHyperV=($script:accessSelectedIds.Count -eq 1 -and $script:accessSelectedIds[0] -eq 'synthetic-selected'); DpapiPassed=$dpapiPassed }
+    } $accessTestRoot
+    Add-ConsoleUiCheck 'Windows-Zugangsmenü: funktionaler Abbruch in Run-Auswahl ohne Abruf' $navigationProbe.RunCancelled
+    Add-ConsoleUiCheck 'Windows-Zugangsmenü: funktionaler Abbruch in Aktionsauswahl ohne Abruf' $navigationProbe.ActionCancelled
+    Add-ConsoleUiCheck 'Windows-Zugangsmenü: funktionale Auswahl enthält nur Hyper-V-Runs' $navigationProbe.OnlyHyperV
+    if ($IsWindows) { Add-ConsoleUiCheck 'Windows-Zugangsmenü: echter DPAPI-Roundtrip über öffentlichen Reader und Menühandler mit isolierter Run-Auflösung' $navigationProbe.DpapiPassed }
+    else { Write-Host '  NOT_EXECUTED  Windows-DPAPI-Menünachweis auf Nicht-Windows' }
+}
+finally {
+    Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+    if (Test-Path -LiteralPath $accessTestRoot) {
+        $resolvedAccessRoot = (Resolve-Path -LiteralPath $accessTestRoot).Path
+        if ($resolvedAccessRoot -ne [IO.Path]::GetFullPath($accessTestRoot)) { throw 'SYNTHETIC_ACCESS_CLEANUP_PATH_MISMATCH' }
+        Remove-Item -LiteralPath $resolvedAccessRoot -Recurse -Force
+    }
+}
+Add-ConsoleUiCheck 'Windows-Zugangsmenü: temporärer Secret-Scope vollständig entfernt' (-not (Test-Path -LiteralPath $accessTestRoot))
 Add-ConsoleUiCheck 'CUI-011 besitzt Resize-, Write-Plan- und Recovery-Injektionspunkte' ($consoleSource -match 'function Get-LabConsoleWritePlan' -and $consoleSource -match '\[scriptblock\]\$GetViewport' -and $consoleSource -match '\[scriptblock\]\$SessionCompleter' -and $consoleSource -match 'Cursoransicht nicht verfügbar')
 Add-ConsoleUiCheck 'Session stellt urspruengliche Cursorsichtbarkeit wieder her' ($consoleSource -match '\[Console\]::CursorVisible = \[bool\]\$Session\.CursorVisible')
 
