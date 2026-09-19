@@ -1,5 +1,15 @@
 # Tests/ – lokale und Remote-Validierung
 
+Der private Memory-Puls besitzt `Static/Invoke-ContainerMemoryFaultChecks.ps1`
+und `Integration/Invoke-ContainerMemoryFaultAcceptance.ps1 -Provider docker`
+beziehungsweise `-Provider podman`. Beide nativen Varianten unterstützen
+`-HardInterrupt` und verwenden frische eigene SQL-2025-Runs mit Cleanup.
+`-HardInterrupt -StopAfterInterrupt` prüft am gestoppten eigenen Container die
+Docker-Limit-Rücknahme beziehungsweise die unverifizierte Podman-Grenze,
+jeweils mit erwartetem Recoverybedarf und anschließendem Cleanup.
+Offline werden gestoppte Restoreziele und separate Limit-/SQL-Evidence geprüft.
+Vertrag: `../Documentation/Architecture/CONTAINER_MEMORY_FAULT.md`.
+
 Der interne Container-CPU-Puls besitzt die Offline-Suite
 `Static/Invoke-ContainerCpuFaultChecks.ps1` sowie die getrennten nativen
 `Integration/Invoke-ContainerCpuFaultAcceptance.ps1 -Provider docker` und

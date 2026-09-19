@@ -9,6 +9,18 @@
 
 ## 1. Grundsatz
 
+`Invoke-ContainerMemoryFaultChecks.ps1` prüft den privaten Memory-Puls offline,
+einschließlich gestopptem Restoreziel und separat persistierter SQL-Readiness.
+`Tests/Integration/Invoke-ContainerMemoryFaultAcceptance.ps1 -Provider docker`
+beziehungsweise `-Provider podman` prüft je einen frischen eigenen SQL-2025-Run;
+`-HardInterrupt` prüft den authentifizierten Applied-Checkpoint und
+Restore-only-Resume nach echtem Kindprozessabbruch. Provider werden sequenziell
+geprüft. `-HardInterrupt -StopAfterInterrupt` prüft zusätzlich ohne Start die
+exakte Docker-Limit-Rücknahme beziehungsweise die unverifizierte Podman-Grenze
+und die erwartete SQL-Recoverygrenze. Bestehende
+Testumgebungen sind ausgeschlossen. Der Abnahmestand steht
+in `Documentation/Architecture/CONTAINER_MEMORY_FAULT.md`.
+
 `Invoke-ContainerCpuFaultChecks.ps1` prüft den internen CPU-Puls offline mit
 Fake-Provider und hart beendetem Kindprozess. Die getrennten nativen Läufe
 `Tests/Integration/Invoke-ContainerCpuFaultAcceptance.ps1 -Provider docker`

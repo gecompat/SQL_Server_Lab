@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Internal authenticated memory pulse recovery journal",
+  "type": "object", "additionalProperties": false,
+  "required": ["ContractVersion", "Profile", "Target", "TargetHash", "Runtime", "Baseline", "RestoreIntent", "Status", "PrimaryStatus", "CleanupStatus", "CleanupAttempts", "AppliedVerified", "LimitRestoredVerified", "SqlRestoredVerified"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.InternalContainerMemoryFaultJournal/0.1" },
+    "Profile": { "const": "container.memory-limit" },
+    "Target": { "type": "object" },
+    "TargetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "Runtime": {
+      "type": "object", "additionalProperties": false, "required": ["Provider", "Invocation", "Arguments", "Identity"],
+      "properties": {
+        "Provider": { "enum": ["docker", "podman"] }, "Invocation": { "type": "string", "minLength": 1 },
+        "Arguments": { "type": "array", "maxItems": 6, "items": { "type": "string" } },
+        "Identity": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "Baseline": {
+      "type": "object", "additionalProperties": false, "required": ["Memory", "Created", "Image", "Running", "CgroupVersion"],
+      "properties": {
+        "Created": { "type": "string", "minLength": 1 }, "Image": { "type": "string", "minLength": 1 }, "Running": { "const": true },
+        "CgroupVersion": { "enum": ["1", "2", "v1", "v2"] },
+        "Memory": {
+          "type": "object", "additionalProperties": false,
+          "required": ["Memory", "MemorySwap", "MemoryReservation", "MemorySwappiness", "KernelMemory", "KernelMemoryTCP", "OomKillDisable"],
+          "properties": {
+            "Memory": { "const": 3221225472 }, "MemorySwap": { "const": 6442450944 }, "MemoryReservation": { "const": 0 },
+            "MemorySwappiness": { "enum": [null, -1, 0] }, "KernelMemory": { "enum": [null, 0] }, "KernelMemoryTCP": { "enum": [null, 0] },
+            "OomKillDisable": { "enum": [false, null] }
+          }
+        }
+      }
+    },
+    "RestoreIntent": { "const": true },
+    "Status": { "enum": ["RESTORE_REQUIRED", "RECOVERY_REQUIRED", "COMPLETED"] },
+    "PrimaryStatus": { "enum": ["NOT_EXECUTED", "PASSED", "CANCELLED", "INTERRUPTED", "TIMED_OUT", "EXECUTION_FAILED"] },
+    "CleanupStatus": { "enum": ["PENDING", "IN_PROGRESS", "PASSED", "FAILED"] },
+    "CleanupAttempts": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "AppliedVerified": { "type": "boolean" }, "LimitRestoredVerified": { "type": "boolean" }, "SqlRestoredVerified": { "type": "boolean" }
+  }
+}

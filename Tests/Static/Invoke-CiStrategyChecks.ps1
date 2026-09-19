@@ -34,6 +34,16 @@ Add-CheckResult -Name 'Windows-External-Runtime-Aenderung aktiviert Katalog-, Ga
 )
 
 $shared = & $selector -ChangedPath @('Private/Common.ps1')
+foreach ($faultPath in @('Private/ContainerMemoryFault.ps1','Schemas/container-memory-fault-target.schema.json','Schemas/container-memory-fault-journal.schema.json','Tests/Integration/Invoke-ContainerMemoryFaultAcceptance.ps1')) {
+    foreach ($path in @($faultPath,$faultPath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "Memory-Fault waehlt getrennte Containerprovider: $path" -Success (
+            'Invoke-ContainerMemoryFaultChecks.ps1' -in $selected.StaticChecks -and
+            $selected.Docker -and $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+    }
+}
+$memoryTransport = & $selector -ChangedPath @('Private/ContainerCpuFault.ps1')
+Add-CheckResult -Name 'CPU-Transportaenderung prueft auch den Memory-Consumer' -Success ('Invoke-ContainerMemoryFaultChecks.ps1' -in $memoryTransport.StaticChecks)
 foreach ($faultPath in @('Private/ContainerCpuFault.ps1','Schemas/container-cpu-fault-target.schema.json','Schemas/container-cpu-fault-journal.schema.json','Tests/Integration/Invoke-ContainerCpuFaultAcceptance.ps1')) {
     foreach ($path in @($faultPath,$faultPath.Replace('/','\'))) {
         $selected = & $selector -ChangedPath @($path)
