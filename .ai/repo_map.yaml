@@ -34,6 +34,12 @@ sources_of_truth:
   internal_scenario_contract_backlog: Documentation/Project_Planning/SCENARIO_CONTRACT_BACKLOG.md
   internal_synthetic_scenario_executor: Private/ScenarioExecutor.ps1
   internal_container_cpu_fault: Private/ContainerCpuFault.ps1
+  internal_container_memory_fault: Private/ContainerMemoryFault.ps1
+  internal_container_memory_fault_target_schema: Schemas/container-memory-fault-target.schema.json
+  internal_container_memory_fault_journal_schema: Schemas/container-memory-fault-journal.schema.json
+  internal_container_memory_fault_contract: Documentation/Architecture/CONTAINER_MEMORY_FAULT.md
+  validation_internal_container_memory_fault: Tests/Static/Invoke-ContainerMemoryFaultChecks.ps1
+  acceptance_internal_container_memory_fault: Tests/Integration/Invoke-ContainerMemoryFaultAcceptance.ps1
   internal_container_cpu_fault_target_schema: Schemas/container-cpu-fault-target.schema.json
   internal_container_cpu_fault_journal_schema: Schemas/container-cpu-fault-journal.schema.json
   internal_container_cpu_fault_contract: Documentation/Architecture/CONTAINER_CPU_FAULT.md

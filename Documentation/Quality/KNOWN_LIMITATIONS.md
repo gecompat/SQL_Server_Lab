@@ -1,5 +1,18 @@
 # Bekannte Grenzen
 
+Der private `container.memory-limit`-Puls erlaubt ausschließlich frische eigene
+Linux-SQL-2025-Testcontainer mit 3072 MiB Memory und 6144 MiB MemorySwap.
+Der Puls begrenzt Memory kurz auf 2560 MiB. Docker bestätigt die Limit-Rücknahme
+auch am gestoppten Ziel. Podman 6.0.2 zeigt dort nach Update weiterhin Applied-
+Werte; die Rücknahme bleibt unverifiziert. Beide Fälle bleiben ohne SQL-
+Readiness `RECOVERY_REQUIRED`; automatischer Start ist ausgeschlossen.
+Offlineprüfungen sind bestanden; normale native Docker-/Podman-Pulse und
+Hard-Interrupt mit laufendem Restoreziel ebenfalls (2026-09-19). Die getrennten
+gestoppten Fälle bestätigten die genannten Recoverygrenzen und jeweils
+vollständiges eigenes Cleanup. Weitere Versionen, OOM-
+Erzeugung und Performancewirkung bleiben offen. Vertrag:
+`Documentation/Architecture/CONTAINER_MEMORY_FAULT.md`.
+
 Der interne `container.cpu-limit`-Puls ist auf frische operationseigene
 Docker-/Podman-SQL-Testcontainer und exakt unterstützte 2→1-CPU-Rohzustände
 begrenzt. Docker und Podman bestanden am 2026-09-19 die getrennte lokale

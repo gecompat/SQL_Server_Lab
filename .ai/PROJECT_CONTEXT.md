@@ -27,6 +27,17 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- interner `container.memory-limit`-Puls für frische operationseigene Linux-
+  SQL-2025-Testcontainer (3072→2560→3072 MiB), mit eigenem Rohsnapshot,
+  authentifiziertem Journal und Restore-only-Resume. Limit-Rücknahme und
+  SQL-Readiness bleiben getrennt; gestoppte Ziele werden nicht gestartet.
+  Offlineprüfungen sowie getrennte native Docker-/Podman-Pulse und Hard-
+  Interrupt-Abnahmen bestanden am 2026-09-19. Docker bestätigt auch die
+  gestoppte Limit-Rücknahme; Podman 6.0.2 bleibt dort mangels exakter Inspect-
+  Postcondition mit unverifizierter Rücknahme `RECOVERY_REQUIRED`. Beide
+  gestoppten Recoveryklassifizierungen und eigenes Cleanup sind nativ belegt.
+  Vertrag: `Documentation/Architecture/CONTAINER_MEMORY_FAULT.md`;
+
 - interner FLT-811/FLT-812-CPU-Puls für frische operationseigene Docker-/Podman-
   SQL-Testcontainer mit authentifiziertem Write-ahead-Journal und Restore-only-
   Resume; Offlineprüfungen und getrennte native Acceptance-Einstiege liegen vor.
