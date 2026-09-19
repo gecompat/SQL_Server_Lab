@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Lokaler Resource-Assessment-Entscheid",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "RecordedAt", "Execution", "Status", "Allowed", "ReasonCode", "AllowResourceOvercommit", "Assessment"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.ResourceAssessmentRecord/1.0" },
+    "RecordedAt": { "type": "string", "format": "date-time" },
+    "Execution": { "enum": ["EXECUTED", "SKIPPED", "OVERRIDDEN"] },
+    "Status": { "enum": ["NOT_EXECUTED", "RESOURCE_OK", "RESOURCE_WARNING", "RESOURCE_INSUFFICIENT_OVERRIDABLE", "RESOURCE_HARD_BLOCK"] },
+    "Allowed": { "type": "boolean" },
+    "ReasonCode": { "enum": ["ASSESSMENT_SKIPPED_EXPLICITLY", "ASSESSMENT_ACCEPTED", "RESOURCE_HARD_BLOCK", "RESOURCE_OVERCOMMIT_EXPLICITLY_ALLOWED", "RESOURCE_OVERCOMMIT_REQUIRES_OPT_IN"] },
+    "AllowResourceOvercommit": { "type": "boolean" },
+    "Assessment": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["Status", "Timestamp", "Details"],
+          "properties": {
+            "Status": { "enum": ["RESOURCE_OK", "RESOURCE_WARNING", "RESOURCE_INSUFFICIENT_OVERRIDABLE", "RESOURCE_HARD_BLOCK"] },
+            "Timestamp": { "type": "string", "format": "date-time" },
+            "Details": {
+              "type": "array", "minItems": 1,
+              "items": {
+                "type": "object", "additionalProperties": false,
+                "required": ["Category", "Status", "Message", "Value"],
+                "properties": {
+                  "Category": { "type": "string", "minLength": 1 },
+                  "Status": { "enum": ["RESOURCE_OK", "RESOURCE_WARNING", "RESOURCE_INSUFFICIENT_OVERRIDABLE", "RESOURCE_HARD_BLOCK"] },
+                  "Message": { "type": "string" },
+                  "Value": {}
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -308,6 +308,9 @@ function New-SqlServerLab {
     .PARAMETER SkipAssessment
         Ueberspringt das Resource Assessment vor der Provisionierung. Die
         spaeteren Provider- und SQL-Pruefungen bleiben aktiv.
+    .PARAMETER AllowResourceOvercommit
+        Erlaubt ausschliesslich gemessene, uebersteuerbare Unterversorgung.
+        Das Assessment wird ausgefuehrt; harte Sperren bleiben blockierend.
     .OUTPUTS
         System.Management.Automation.PSCustomObject. Liefert RunId, State,
         StateRoot und die aufgeloesten Instanz- und Verbindungsinformationen.
@@ -390,7 +393,8 @@ function New-SqlServerLab {
         [switch]$NonInteractive,
         [switch]$AllowDeprecated,
         [switch]$AllowExpertHostWriteMounts,
-        [switch]$SkipAssessment
+        [switch]$SkipAssessment,
+        [switch]$AllowResourceOvercommit
     )
 
     $ErrorActionPreference = 'Stop'
@@ -579,6 +583,13 @@ function New-SqlServerLab {
         }
     }
 
+    $skipAssessmentEffective = $SkipAssessment.IsPresent -or
+        ($resolved.resourceOverrides -and $resolved.resourceOverrides.skipAssessment -eq $true)
+    $allowResourceOvercommitEffective = $AllowResourceOvercommit.IsPresent -or
+        ($resolved.resourceOverrides -and $resolved.resourceOverrides.allowResourceOvercommit -eq $true)
+    $resourceAssessmentRecord = Invoke-LabResourceAssessmentPreflight -Instances $resolved.instances -Provider $providers `
+        -SkipAssessment:$skipAssessmentEffective -AllowResourceOvercommit:$allowResourceOvercommitEffective
+
     # Ein Manifest kann eine reguläre Hyper-V-Lab-VM vollständig aus einem
     # bereits veröffentlichten OS_SEALED- oder SQL_PREPARED_SEALED-Image
     # bereitstellen. Image-Builds selbst bleiben absichtlich außerhalb des
@@ -710,7 +721,8 @@ function New-SqlServerLab {
             -MemoryMinimumMB $hyperVMemoryMinimumMB -MemoryMaximumMB $hyperVMemoryMaximumMB `
             -ProcessorCount $hyperVProcessorCount -AutoStart $hyperVAutoStart `
             -SwitchName $hyperVSwitchName -Isolated:$hyperVIsolated -NetworkIntent $hyperVNetworkIntent -AdditionalDrives $hyperVAdditionalDrives -StorageIntent $instance.storageIntent `
-            -DesiredState $hyperVDesiredState -WindowsLocale $effectiveWindowsLocale -WindowsActivation $instance.windowsActivation `
+            -DesiredState $hyperVDesiredState -ResourceAssessmentRecord $resourceAssessmentRecord `
+            -WindowsLocale $effectiveWindowsLocale -WindowsActivation $instance.windowsActivation `
             -WindowsActivationSource $instance.windowsActivationSource -StateRoot $StateRoot
         $hyperVLab = Get-HyperVLabWorkflowRun -RunId $lab.RunId -StateRoot $StateRoot
         if ($PersistentData) {
@@ -833,32 +845,6 @@ function New-SqlServerLab {
         $null = Get-SqlServerDockerImage -VersionId $instance.version
     }
 
-    $skipAssessmentEffective = $SkipAssessment.IsPresent -or
-        ($resolved.resourceOverrides -and $resolved.resourceOverrides.skipAssessment -eq $true)
-
-    if (-not $skipAssessmentEffective) {
-        Write-LabInfo 'Resource Assessment...'
-        $assessment = Test-SqlServerLabPrerequisite `
-            -Instances $resolved.instances `
-            -Provider $providers
-
-        foreach ($detail in $assessment.Details) {
-            $color = switch ($detail.Status) {
-                'RESOURCE_OK'      { 'Green' }
-                'RESOURCE_WARNING' { 'Yellow' }
-                default            { 'Red' }
-            }
-            Write-LabStatus `
-                -Label $detail.Category `
-                -Value "$($detail.Status): $($detail.Message)" `
-                -Color $color
-        }
-
-        if ($assessment.Status -eq 'RESOURCE_HARD_BLOCK') {
-            throw 'Resource Assessment HARD_BLOCK: Umgebung kann nicht erstellt werden.'
-        }
-    }
-
     $generatedContainerSaPassword = $false
     if ($GenerateSaPassword) {
         $SaPassword = New-HyperVSqlUnattendedPassword
@@ -902,6 +888,7 @@ function New-SqlServerLab {
         persistentData = [bool]$PersistentData
         dataRoot = if ($PersistentData) { $DataRoot } else { $null }
         desiredState = $desiredState
+        resourceAssessment = $resourceAssessmentRecord
     }
     $workflowOperationId = Get-LabWorkflowOperationContext
     if (-not [string]::IsNullOrWhiteSpace($workflowOperationId)) {

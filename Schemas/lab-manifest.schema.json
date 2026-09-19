@@ -48,6 +48,11 @@
         },
         "skipAssessment": {
           "type": "boolean"
+        },
+        "allowResourceOvercommit": {
+          "type": "boolean",
+          "default": false,
+          "description": "Erlaubt gemessene uebersteuerbare Unterversorgung; harte Sperren bleiben blockierend. Kein Ersatz fuer skipAssessment."
         }
       },
       "additionalProperties": false

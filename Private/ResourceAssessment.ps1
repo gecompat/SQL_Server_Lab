@@ -35,7 +35,6 @@ function Test-SqlServerLabPrerequisite {
     )
 
     $results = @()
-    $overallStatus = 'RESOURCE_OK'
 
     # --- Provider-Verfuegbarkeit ---
     $providers = @($Provider | Where-Object { $_ } | ForEach-Object { $_.ToLowerInvariant() } | Sort-Object -Unique)
@@ -54,39 +53,42 @@ function Test-SqlServerLabPrerequisite {
             }
         }
         $results += $providerCheck
-        if ($providerCheck.Status -eq 'RESOURCE_HARD_BLOCK') { $overallStatus = 'RESOURCE_HARD_BLOCK' }
     }
 
     # --- RAM ---
     $ramCheck = Test-RamAvailability -Instances $Instances
     $results += $ramCheck
-    if ($ramCheck.Status -eq 'RESOURCE_HARD_BLOCK' -and $overallStatus -ne 'RESOURCE_HARD_BLOCK') {
-        $overallStatus = 'RESOURCE_HARD_BLOCK'
-    }
-    elseif ($ramCheck.Status -eq 'RESOURCE_WARNING' -and $overallStatus -eq 'RESOURCE_OK') {
-        $overallStatus = 'RESOURCE_WARNING'
-    }
 
     # --- Storage ---
     $storageCheck = Test-StorageAvailability -Instances $Instances -TargetPath $TargetPath
     $results += $storageCheck
-    if ($storageCheck.Status -eq 'RESOURCE_WARNING' -and $overallStatus -eq 'RESOURCE_OK') {
-        $overallStatus = 'RESOURCE_WARNING'
-    }
 
     # --- Ports ---
-    $portCheck = Test-PortAvailability -Instances $Instances
+    # Nur Container veroeffentlichen SQL auf Host-Loopback-Ports. Hyper-V
+    # verwendet die eigene Gastadresse; ein belegter Hostport ist dort keine
+    # Ressourcensperre. Ohne Instanzen bleibt der Container-Basischeck erhalten.
+    $hasContainerProvider = @($providers | Where-Object { $_ -in @('docker', 'podman') }).Count -gt 0
+    $containerInstances = @($Instances | Where-Object {
+        $_.provider -in @('docker', 'podman') -or (-not $_.provider -and $hasContainerProvider)
+    })
+    $needsHostPorts = if ($Instances.Count -gt 0) { $containerInstances.Count -gt 0 }
+        else { $hasContainerProvider }
+    $portCheck = if ($needsHostPorts) {
+        Test-PortAvailability -Instances $containerInstances
+    }
+    else {
+        [PSCustomObject]@{ Category='Ports'; Status='RESOURCE_OK'; Message='Keine Container-Hostportbindung angefordert.'; Value=@{Required=0; Binding='guest-address'} }
+    }
     $results += $portCheck
 
     # --- Pfadsicherheit ---
     if ($TargetPath) {
         $pathCheck = Test-PathAvailability -TargetPath $TargetPath -RepositoryRoot $RepositoryRoot
         $results += $pathCheck
-        if ($pathCheck.Status -eq 'RESOURCE_HARD_BLOCK') { $overallStatus = 'RESOURCE_HARD_BLOCK' }
     }
 
     return [PSCustomObject]@{
-        Status    = $overallStatus
+        Status    = Get-LabResourceAssessmentStatus -Details $results
         Timestamp = Get-LabTimestamp
         Details   = $results
     }

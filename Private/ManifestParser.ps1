@@ -540,6 +540,8 @@ function Resolve-ManifestDefaults {
         name              = $Manifest.name
         description       = $Manifest.description
         instances         = $resolvedInstances
+        # Explizite Entscheidungen einschliesslich allowResourceOvercommit
+        # bleiben erhalten; erst der gemeinsame Preflight bewertet die Messung.
         resourceOverrides = $Manifest.resourceOverrides
         artifacts         = [PSCustomObject]@{
             minimumEvaluationDaysRemaining = if ($Manifest.artifacts -and $null -ne $Manifest.artifacts.minimumEvaluationDaysRemaining) { [int]$Manifest.artifacts.minimumEvaluationDaysRemaining } else { 30 }

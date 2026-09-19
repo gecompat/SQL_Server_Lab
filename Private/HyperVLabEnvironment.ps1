@@ -689,6 +689,7 @@ function New-HyperVLabEnvironment {
         $WindowsActivation,
         [ValidateSet('compatibility-defaults','manifest','parameters','batch','legacy-test-environment')][string]$WindowsActivationSource='compatibility-defaults',
         $DesiredState,
+        $ResourceAssessmentRecord,
         [string]$StateRoot
     )
 
@@ -737,6 +738,9 @@ function New-HyperVLabEnvironment {
     $labNetwork = $null
 
     Write-LabInfo 'Schritt 2/5: Workflow-Run und rückgängig ausführbarer Cleanup-Plan werden angelegt.'
+    if ($null -ne $ResourceAssessmentRecord) {
+        Assert-LabResourceAssessmentAllowed -Record $ResourceAssessmentRecord
+    }
     $runMetadata = @{
         name = $LabName; workflowKind = 'hyperv-lab'; imageArtifactId = $ArtifactId; workload = $workload; baseKind = $baseKind; autostart = $AutoStart
         network = if ($networkPlan) { $networkPlan.Name } else { $null }
@@ -745,6 +749,9 @@ function New-HyperVLabEnvironment {
         windowsLocale = $WindowsLocale
         windowsActivationIntent = $WindowsActivation
         windowsActivationIntentSource = $WindowsActivationSource
+    }
+    if ($null -ne $ResourceAssessmentRecord) {
+        $runMetadata['resourceAssessment'] = $ResourceAssessmentRecord
     }
     $workflowOperationId = Get-LabWorkflowOperationContext
     if (-not [string]::IsNullOrWhiteSpace($workflowOperationId)) {

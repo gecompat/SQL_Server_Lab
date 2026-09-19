@@ -1,5 +1,11 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Invoke-ResourceAssessmentChecks.ps1` prüft CORE-111 offline: feste
+Statuspriorität, explizites Overcommit, Skip, Persistenz vor Providermutation
+für die drei `New-SqlServerLab`-Providerpfade sowie hostwertfreie read-only
+Legacy-/Desired-Projektion. Vertrag:
+`../Documentation/Architecture/RESOURCE_ASSESSMENT_DECISION.md`.
+
 Der private Memory-Puls besitzt `Static/Invoke-ContainerMemoryFaultChecks.ps1`
 und `Integration/Invoke-ContainerMemoryFaultAcceptance.ps1 -Provider docker`
 beziehungsweise `-Provider podman`. Beide nativen Varianten unterstützen

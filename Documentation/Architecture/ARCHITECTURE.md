@@ -429,6 +429,12 @@ Ergebnis-Status:
 
 Nicht uebersteuerbar: unsichere Pfade, fehlender Provider, fehlende Rechte, Mutation fremder Ressourcen.
 
+Die Tabelle beschreibt den Zielumfang; das aktuelle Assessment implementiert
+Providerverfügbarkeit, profilbasierte RAM-Bewertung, grobe Storage-Schätzung,
+freie Lab-Portanzahl und optional Pfadsicherheit. Entscheidung, explizites
+Overcommit und lokale Persistenz sind im
+[Resource-Assessment-Vertrag](RESOURCE_ASSESSMENT_DECISION.md) abgegrenzt.
+
 ---
 
 ## 8. Cleanup und Recovery

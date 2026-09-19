@@ -54,6 +54,7 @@ function New-LabDesiredState {
             RunId = [string]$Run.runId
             TargetState = $TargetState
             Source = 'persisted-desired-state'
+            ResourceAssessment = Get-LabResourceAssessmentSummary -Run $Run
             IsValid = $true
             ValidationError = $null
             Instances = @($snapshot.Instances | ForEach-Object {
@@ -77,6 +78,7 @@ function New-LabDesiredState {
             RunId = [string]$Run.runId
             TargetState = $TargetState
             Source = 'persisted-desired-state-invalid'
+            ResourceAssessment = Get-LabResourceAssessmentSummary -Run $Run
             IsValid = $false
             ValidationError = [string]$persisted.Reason
             Instances = @()
@@ -121,6 +123,7 @@ function New-LabDesiredState {
         RunId = [string]$Run.runId
         TargetState = $TargetState
         Source = 'connection-info-or-provider-subruns'
+        ResourceAssessment = Get-LabResourceAssessmentSummary -Run $Run
         IsValid = $true
         ValidationError = $null
         Instances = $instances

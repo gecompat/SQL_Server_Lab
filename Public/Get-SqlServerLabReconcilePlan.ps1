@@ -12,6 +12,9 @@
     offenzulegen. Der eigene HyperVNetwork-Parametersatz plant nur additive
     Infrastrukturreparaturen und das Wiederverbinden eines vorhandenen,
     getrennten run-eigenen Adapters.
+    Der Lifecycle-Plan projiziert den historischen Erstellungs-Preflight unter
+    Desired.ResourceAssessment hostwertfrei. Fehlende Legacy-Records werden
+    nicht nachgeschrieben; die Projektion ist keine aktuelle Kapazitaetsmessung.
 .PARAMETER RunId
     Eindeutige ID des vorhandenen Lab-Runs.
 .PARAMETER TargetState

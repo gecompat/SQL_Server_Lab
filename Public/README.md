@@ -2,6 +2,12 @@
 
 Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. Die autoritative Exportliste steht in `SqlServerLab.psd1`.
 
+`New-SqlServerLab -AllowResourceOvercommit` erlaubt gemessene übersteuerbare
+Unterversorgung. Ausgeführtes, explizit übersteuertes und per `-SkipAssessment`
+übersprungenes Assessment werden im lokalen Run getrennt gespeichert.
+`Get-SqlServerLabReconcilePlan -TargetState` zeigt den historischen Entscheid
+hostwertfrei unter `Desired.ResourceAssessment`; harte Sperren bleiben aktiv.
+
 `Find-SqlServerLabCollation` liefert die kuratierte Auswahl für die
 Instanzcollation in `New-SqlServerLab -Collation` und `instances[].collation`.
 Manifest-Wizard und Konsolenformular prüfen denselben versionsgebundenen

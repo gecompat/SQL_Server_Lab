@@ -51,7 +51,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | Persistente Container-Instanzstores | Continue und unabhängiger Clone per stabiler `PersistentStorageId` in CLI und Browser; operationsgebundene Lease, Digest und atomarer Katalogcommit | `Private/ContainerInstanceStore.ps1`, `Tests/Static/Invoke-ContainerInstanceStoreChecks.ps1` |
 | Providerneutrale Batch-, Queue- und Resume-Provisionierung | implementiert | `Private/BatchWorkflow.ps1`, `Public/BatchWorkflow.ps1`, `Schemas/lab-batch.schema.json` |
 | Manifest-Provisionierung | primärer unbeaufsichtigter Containerpfad; externe Secret-Referenzen, SHA-256-Restores und sichere Mount-Defaults | `Schemas/lab-manifest.schema.json`, `Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md` |
-| Resource Assessment | implementiert | `Test-SqlServerLabPrerequisite` |
+| Resource Assessment | Erstellungsentscheid mit explizitem Overcommit und lokaler Persistenz; Kapazitätsmodelle teilweise | `Test-SqlServerLabPrerequisite`, [Entscheidungsvertrag](Documentation/Architecture/RESOURCE_ASSESSMENT_DECISION.md) |
 | Run-State und Cleanup-Plan | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
 | Datenbankerstellung | implementiert | `New-SqlServerLabDatabase` |
 | Backup-Restore mit Artifact Resolver | implementiert | `Restore-SqlServerLabDatabase`, `Private/ArtifactResolver.ps1` |

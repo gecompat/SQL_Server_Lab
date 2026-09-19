@@ -467,6 +467,18 @@ Das Cmdlet:
 7. führt optional Server-, Datenbank-, Restore- und Post-Provision-Schritte aus;
 8. speichert `connection-info.json` und liefert ein Ergebnisobjekt zurück.
 
+Gemessene RAM-Unterversorgung blockiert die Erstellung standardmäßig.
+Ein bewusstes `-AllowResourceOvercommit` oder im Manifest
+`resourceOverrides.allowResourceOvercommit: true` erlaubt ausschließlich
+übersteuerbare Unterversorgung. Harte Sperren bleiben aktiv. Der lokale Run
+speichert Messung und Entscheidung; der Lifecycle-Reconcile-Plan zeigt unter
+`Desired.ResourceAssessment` eine hostwertfreie Zusammenfassung.
+`-SkipAssessment` beziehungsweise `resourceOverrides.skipAssessment: true`
+überspringt die Messung und wird separat als `SKIPPED` gespeichert.
+Ein vollständiges Manifestbeispiel ist
+[`example-resource-overcommit-lab.json`](../../Schemas/example-resource-overcommit-lab.json).
+Der historische Erstellungsentscheid ersetzt keine aktuelle Ressourcenprüfung.
+
 ## 6. Ergebnisobjekt verstehen
 
 ```powershell

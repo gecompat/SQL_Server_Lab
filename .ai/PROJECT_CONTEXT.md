@@ -27,6 +27,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- CORE-111-Teilvertrag: `New-SqlServerLab` persistiert ausgeführtes,
+  übersprungenes oder explizit übersteuertes Resource Assessment vor der
+  Providermutation für Container und manifestgebundenes Hyper-V. Lifecycle-
+  Reconcile projiziert den historischen Entscheid hostwertfrei; fehlende
+  Legacy-Records werden nicht nachgeschrieben. Kapazitätsmodelle bleiben
+  unverändert. Vertrag: `Documentation/Architecture/RESOURCE_ASSESSMENT_DECISION.md`;
+
 - privater providerloser SCN-803-Capability-Entscheid vor einer möglichen
   Szenarioausführung: strikte Scenario-/Capability-/synthetische Evidence-
   Bindung, deterministische UTC-Fristen und sanitisierte Entscheidungen.
