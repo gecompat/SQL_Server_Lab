@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.InternalSyntheticScenarioPlan/0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "TimeoutMilliseconds", "CleanupTimeoutMilliseconds", "Phases"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.InternalSyntheticScenarioPlan/0.1" },
+    "TimeoutMilliseconds": { "type": "integer", "minimum": 1, "maximum": 30000 },
+    "CleanupTimeoutMilliseconds": { "type": "integer", "minimum": 1, "maximum": 30000 },
+    "Phases": {
+      "type": "array", "minItems": 5, "maxItems": 5,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["Phase", "StepId", "Handler", "DelayMilliseconds"],
+        "properties": {
+          "Phase": { "enum": ["Arrange", "Act", "Observe", "Assert", "Cleanup"] },
+          "StepId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+          "Handler": { "enum": ["Synthetic", "Fail", "FailOnce"] },
+          "DelayMilliseconds": { "type": "integer", "minimum": 0, "maximum": 30000 }
+        }
+      }
+    }
+  }
+}

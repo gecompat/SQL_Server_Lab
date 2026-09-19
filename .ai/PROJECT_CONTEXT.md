@@ -27,6 +27,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- interner providerloser SCN-802-Executor mit fünf festen synthetischen Phasen,
+  authentifiziertem atomischem Journal, Ownership, Timeouts, Cancellation und
+  Cleanup-Resume; SCN-801 bleibt ein unveränderter Metadatenvertrag. Öffentliche
+  API, SQL-/Providerbindung und fachliche Szenarien sind weiterhin offen;
+
 - dedizierter Security-Tool-/Trust-Metadatenkatalog mit leerer produktiver
   Allowlist und `Get-SqlServerLabSecurityToolPlan` für exakte IDs und Zieltuple;
   ausschließlich lokale, nicht ausführbare Planung. Downloads, Approvals,

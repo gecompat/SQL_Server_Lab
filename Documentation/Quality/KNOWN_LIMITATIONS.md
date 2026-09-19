@@ -7,6 +7,15 @@
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
 
+Der interne [SCN-802-Executor](../Project_Planning/SCENARIO_CONTRACT_BACKLOG.md)
+führt nur fest eingebaute synthetische Handler in einem lokalen Journal aus.
+SCN-801 bleibt ein nicht ausführbarer Metadatenvertrag. Öffentliche API,
+SQL-/Provideraktionen und fachliche Scenario-Outcomes sind nicht implementiert.
+Resume bereinigt unterbrochene Arbeit, wiederholt sie aber nicht; nach drei
+Cleanupversuchen bleibt Recovery erforderlich. Das lokale Journal setzt einen
+vertrauenswürdigen Aufrufer mit separat erhaltenem Ownershipschlüssel voraus;
+Dateisystemzugriffe besitzen keinen präemptiven Timeout.
+
 `RELATIONAL_CORE/1.0` inventarisiert alle Benutzertabellen und vergleicht ausschließlich zulässige Tabelleninhalte read-only zwischen live gebundenen Docker-/Podman-Runs. Es lässt nur normale diskbasierte Benutzertabellen mit aktivem, ungefiltertem PK zu. Jeder PK muss ausschließlich aus `tinyint`, `smallint`, `int`, `bigint` oder `uniqueidentifier` bestehen. Zugelassene Nicht-PK-Spaltentypen sind `bit`, diese fünf PK-Typen, `date`, `datetime2`, `datetimeoffset`, `time`, `char`, `varchar`, `nchar`, `nvarchar`, `binary` und `varbinary`; jede `max`-Spalte und jede versteckte Spalte wird blockiert. RLS, Temporal-, FileTable-, External-, Memory-optimized-, Graph- und Ledger-Tabellen, unzulässige Spaltenattribute und alle übrigen Typen – einschließlich `decimal`, `numeric`, `money`, `smallmoney`, `datetime` und `smalldatetime` – werden nicht angenähert, sondern als inventarisierte Tabelle fail-closed mit `TABLE_UNSUPPORTED_OR_POLICY_BLOCKED` ausgewiesen. Quelle und Ziel müssen SQL-seitig als exakt ausgewählte `ONLINE`- und `READ_ONLY`-Datenbanken bestätigt sein. Ergebnisse enthalten keine Datenwerte. Restore, Backup-Staging, Zielerzeugung und jeder Transfer-Executor sind nicht implementiert und bleiben `BLOCKED`.
 
 ## KI und Ollama
