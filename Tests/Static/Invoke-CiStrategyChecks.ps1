@@ -34,6 +34,14 @@ Add-CheckResult -Name 'Windows-External-Runtime-Aenderung aktiviert Katalog-, Ga
 )
 
 $shared = & $selector -ChangedPath @('Private/Common.ps1')
+foreach ($assessmentPath in @('Private/ResourceAssessment.ps1','Private/ResourceAssessmentDecision.ps1','Schemas/resource-assessment-record.schema.json')) {
+    foreach ($path in @($assessmentPath,$assessmentPath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "Assessment bindet gemeinsame Erstellung und separate Provider: $path" -Success (
+            'Invoke-ResourceAssessmentChecks.ps1' -in $selected.StaticChecks -and
+            $selected.Docker -and $selected.Podman -and $selected.HyperV -and $selected.Mixed)
+    }
+}
 foreach ($faultPath in @('Private/ContainerMemoryFault.ps1','Schemas/container-memory-fault-target.schema.json','Schemas/container-memory-fault-journal.schema.json','Tests/Integration/Invoke-ContainerMemoryFaultAcceptance.ps1')) {
     foreach ($path in @($faultPath,$faultPath.Replace('/','\'))) {
         $selected = & $selector -ChangedPath @($path)

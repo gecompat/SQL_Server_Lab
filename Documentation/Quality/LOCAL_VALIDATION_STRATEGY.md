@@ -9,6 +9,14 @@
 
 ## 1. Grundsatz
 
+`Invoke-ResourceAssessmentChecks.ps1` prüft offline die Statuspriorität,
+Overcommit-Entscheidung, Skip-Unterscheidung, lokale Messwertpersistenz und
+hostwertfreie Lifecycle-Projektion einschließlich unveränderter Legacy-Bytes.
+Die öffentlichen Docker-/Podman-/Hyper-V-Erstellungspfade werden mit
+synthetischen Preflights bis zur echten State-Persistenz ausgeführt und vor
+Providermutationen unterbrochen. Getrennte native Provider-Smokes bleiben
+für Änderungen am Erstellungsvertrag erforderlich.
+
 `Invoke-RunStateUpgradeChecks.ps1` erzeugt einen frischen Run-State über den
 internen Konstruktor und prüft `SqlServerLab.RunState/1.0`, `NO_ACTION`, stabile
 Versions-/Planbindung sowie unveränderte Dateimenge, Bytes und Schreibzeiten

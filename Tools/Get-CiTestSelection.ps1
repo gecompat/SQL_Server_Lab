@@ -62,6 +62,7 @@ end {
     }
 
     $staticGroups = @(
+        @{ Pattern = '(?i)(ResourceAssessment|resource-assessment|New-SqlServerLab\.ps1|HyperVLabEnvironment|ReconcileContract|ManifestParser|lab-manifest)'; Checks = @('Invoke-ResourceAssessmentChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(HyperVNetworkReconnect|HyperVExistingNetwork|HyperVResourceAcceptanceSlotClone|HyperVLabEnvironment)'; Checks = @('Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1') },
         @{ Pattern = '(?i)(SecurityTool|security-tool|Fixtures/SecurityTools/)'; Checks = @('Invoke-SecurityToolCatalogChecks.ps1') },
         @{ Pattern = '(?i)(Prepare-LocalRelease|ReleaseArtifact)'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1') },
@@ -213,6 +214,7 @@ end {
             if ($runtimePath -match '(?i)(runtime-smoke-mixed-providers\.yml|MixedProvider|ProviderCapability|DesiredState|ReconcileContract|ProviderSubRun)') { $pathRuntime.Mixed = $true }
             if ($runtimePath -match '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest|^Private/ExternalRuntimeWindows|Images/ExternalLanguages/Windows|ExternalRuntimeHyperVAcceptance)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)^Public/New-SqlServerLab\.ps1$') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)(ResourceAssessment|resource-assessment)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true; $pathRuntime.Mixed = $true }
             if ($runtimePath -match '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $pathRuntime.Adapter = $true }
 
             $knownDomainChange = $pathRuntime.Docker -or $pathRuntime.Podman -or $pathRuntime.Mixed -or $pathRuntime.HyperV -or $pathRuntime.Adapter

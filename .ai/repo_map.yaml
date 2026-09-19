@@ -775,9 +775,16 @@ internal_components:
       - "sanitisierte Runtime-Installation-Receipts im Run persistieren"
   - name: ResourceAssessment
     source: Private/ResourceAssessment.ps1
+    decision: Private/ResourceAssessmentDecision.ps1
+    record_schema: Schemas/resource-assessment-record.schema.json
+    contract: Documentation/Architecture/RESOURCE_ASSESSMENT_DECISION.md
+    validation: Tests/Static/Invoke-ResourceAssessmentChecks.ps1
+    example: Schemas/example-resource-overcommit-lab.json
     responsibilities:
       - "Runtime-Verfügbarkeit für alle verwendeten Provider prüfen"
       - "RAM, Storage und Ports bewerten"
+      - "Unterversorgung und harte Sperren aggregieren; Skip, Ausführung und explizites Overcommit unterscheiden"
+      - "Assessment im lokalen Erstellungs-State persistieren und hostwertfrei in Lifecycle-Desired projizieren"
   - name: StateMachine
     source: Private/StateMachine.ps1
     responsibilities:

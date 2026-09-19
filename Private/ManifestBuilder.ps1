@@ -1462,6 +1462,9 @@ function Get-LabManifestValidationResult {
     if ($Manifest.resourceOverrides.skipAssessment -eq $true) {
         $warnings.Add('resourceOverrides.skipAssessment deaktiviert die Ressourcenpruefung vor der Provisionierung.')
     }
+    if ($Manifest.resourceOverrides.allowResourceOvercommit -eq $true) {
+        $warnings.Add('resourceOverrides.allowResourceOvercommit erlaubt gemessene Unterversorgung; harte Sperren bleiben aktiv. Bei skipAssessment erfolgt keine Messung und keine Override-Bewertung.')
+    }
 
     return [PSCustomObject]@{
         IsValid  = $errors.Count -eq 0
