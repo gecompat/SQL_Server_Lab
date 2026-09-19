@@ -192,6 +192,45 @@ try {
                     ConnectionUnchanged=$beforeIdentityConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($identityConnectionPath))
                 }
             })
+            $identityGrammarCases = @(
+                @{ Name='ungueltige Id beginnt mit Ziffer'; Id='1primary'; Provider='docker'; Expected=@('DESIRED_INSTANCE_ID_INVALID') },
+                @{ Name='ungueltige Id mit Leerzeichen'; Id='primary node'; Provider='docker'; Expected=@('DESIRED_INSTANCE_ID_INVALID') },
+                @{ Name='ungueltige numerische Id bleibt nicht missing'; Id=0; Provider='docker'; Expected=@('DESIRED_INSTANCE_ID_INVALID') },
+                @{ Name='ungueltige boolesche False-Id bleibt nicht missing'; Id=$false; Provider='docker'; Expected=@('DESIRED_INSTANCE_ID_INVALID') },
+                @{ Name='ungueltige boolesche True-Id bleibt nicht missing'; Id=$true; Provider='docker'; Expected=@('DESIRED_INSTANCE_ID_INVALID') },
+                @{ Name='ungueltiger Provider'; Id='primary'; Provider='kubernetes'; Expected=@('DESIRED_INSTANCE_PROVIDER_INVALID') },
+                @{ Name='ungueltiger boolescher Provider bleibt nicht missing'; Id='primary'; Provider=$false; Expected=@('DESIRED_INSTANCE_PROVIDER_INVALID') },
+                @{ Name='kombinierte ungueltige Identitaet'; Id='1primary'; Provider='kubernetes'; Expected=@('DESIRED_INSTANCE_ID_INVALID','DESIRED_INSTANCE_PROVIDER_INVALID') },
+                @{ Name='Provider Grossschreibung bleibt gueltig'; Id='primary'; Provider='HyPeRv'; Expected=@() }
+            )
+            $identityGrammar = @(foreach ($case in $identityGrammarCases) {
+                $grammarSnapshot = [PSCustomObject]@{
+                    Contract = [PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
+                    Instances = @([PSCustomObject]@{ Id=$case.Id; Provider=$case.Provider; Profile='standard' })
+                }
+                $grammarRun = New-LabRunState -StateRoot $Root -Metadata @{ name='Reconcile identity grammar'; desiredState=$grammarSnapshot } -ProviderSubRuns @(
+                    [PSCustomObject]@{ provider='docker'; instanceIds=@('fallback') }
+                )
+                $grammarStatePath = Join-Path $grammarRun.RunDir 'run-state.json'
+                $grammarConnectionPath = Join-Path $grammarRun.RunDir 'connection-info.json'
+                Write-LabArtifactJsonAtomic -Path $grammarConnectionPath -InputObject $connection
+                $beforeGrammarState = [Convert]::ToBase64String([IO.File]::ReadAllBytes($grammarStatePath))
+                $beforeGrammarConnection = [Convert]::ToBase64String([IO.File]::ReadAllBytes($grammarConnectionPath))
+                $persistedGrammar = Get-LabPersistedDesiredState -RunId $grammarRun.RunId -StateRoot $Root
+                $grammarPlans = @(foreach ($target in @('RUNNING','STOPPED')) {
+                    $script:reconcileRuntimeState = if ($target -eq 'RUNNING') { 'STOPPED' } else { 'RUNNING' }
+                    $script:reconcileRuntimeInstances = @([PSCustomObject]@{ Id='primary'; Provider='docker'; State=$script:reconcileRuntimeState })
+                    Get-SqlServerLabReconcilePlan -RunId $grammarRun.RunId -TargetState $target -StateRoot $Root
+                })
+                [PSCustomObject]@{
+                    Name=$case.Name; Expected=@($case.Expected); Status=$persistedGrammar.Status
+                    Reason=$persistedGrammar.Reason; ReasonCodes=@($persistedGrammar.ReasonCodes)
+                    PersistedProvider=if ($persistedGrammar.Snapshot.Instances[0]) { [string]$persistedGrammar.Snapshot.Instances[0].Provider } else { $null }
+                    OriginalProvider=$case.Provider; Plans=$grammarPlans
+                    StateUnchanged=$beforeGrammarState -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($grammarStatePath))
+                    ConnectionUnchanged=$beforeGrammarConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($grammarConnectionPath))
+                }
+            })
             $sanitizationSnapshot = [PSCustomObject]@{
                 Contract = [PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
                 Instances = @(
@@ -233,7 +272,7 @@ try {
 
         [PSCustomObject]@{
             NoOp = $noOp; Restart = $restart; Partial = $partial; Invalid = $invalid; MigrationBlocked = $migrationBlocked
-            Identities = $identities
+            Identities = $identities; IdentityGrammar = $identityGrammar
             Sanitization = $sanitization
             StateUnchanged = $beforeState -eq (Get-Content -LiteralPath $statePath -Raw -Encoding utf8)
             ConnectionUnchanged = $beforeConnection -eq (Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8)
@@ -281,6 +320,33 @@ try {
         }
         Add-CheckResult -Name "Identitaetspruefung ($($identity.Name)) erhaelt State- und Connection-Bytes" `
             -Success ($identity.StateUnchanged -and $identity.ConnectionUnchanged)
+    }
+    foreach ($grammar in $contract.IdentityGrammar) {
+        if ($grammar.Expected.Count -eq 0) {
+            Add-CheckResult -Name "Persistierte Identitaetsgrammatik ($($grammar.Name)) bleibt ohne Normalisierung gueltig" `
+                -Success ($grammar.Status -eq 'VALID' -and $null -eq $grammar.Reason -and
+                    $grammar.PersistedProvider -ceq $grammar.OriginalProvider)
+            foreach ($plan in $grammar.Plans) {
+                Add-CheckResult -Name "Gueltige persistierte Identitaetsgrammatik ($($grammar.Name)) plant $($plan.Desired.TargetState)" `
+                    -Success ($plan.Desired.IsValid -and $plan.Desired.Source -eq 'persisted-desired-state' -and
+                        $plan.Desired.Instances.Count -eq 1)
+            }
+        }
+        else {
+            Add-CheckResult -Name "Persistierte Identitaetsgrammatik ($($grammar.Name)) liefert deduplizierte ordinale Gruende" `
+                -Success ($grammar.Status -eq 'INVALID' -and
+                    (($grammar.ReasonCodes -join ',') -ceq ($grammar.Expected -join ',')) -and
+                    $grammar.Reason -ceq ($grammar.Expected -join ','))
+            foreach ($plan in $grammar.Plans) {
+                Add-CheckResult -Name "Ungueltige persistierte Identitaetsgrammatik ($($grammar.Name)) blockiert $($plan.Desired.TargetState) fail-closed" `
+                    -Success ($plan.HighestChangeClass -eq 'unsupported' -and $plan.Actions.Count -eq 0 -and
+                        -not $plan.MutationAllowed -and -not $plan.IsNoOp -and -not $plan.Desired.IsValid -and
+                        $plan.Desired.Source -eq 'persisted-desired-state-invalid' -and $plan.Desired.Instances.Count -eq 0 -and
+                        (($plan.Diff[0].Reasons -join ',') -ceq (@($grammar.Expected | ForEach-Object { "Persisted desired state ist ungültig: $_" }) -join ',')))
+            }
+        }
+        Add-CheckResult -Name "Persistierte Identitaetsgrammatik ($($grammar.Name)) erhaelt State- und Connection-Bytes" `
+            -Success ($grammar.StateUnchanged -and $grammar.ConnectionUnchanged)
     }
     $expectedSanitizedCodes = @(
         'DESIRED_INSTANCE_IDENTITY_DUPLICATE',
