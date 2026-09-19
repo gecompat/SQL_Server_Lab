@@ -1,4 +1,4 @@
-# Internal SCN-802 slice. Synthetic state exists only in the owned journal.
+# Internal SCN-802/SCN-804 slice. Synthetic state exists only in the owned journal.
 # No scriptblocks, provider adapters, SQL, or externally supplied commands.
 
 function Assert-LabSyntheticScenarioInput {
@@ -30,6 +30,7 @@ function Assert-LabSyntheticScenarioInput {
         $phase = $Plan.Phases[$i]
         if ($phase.Phase -cne $phases[$i] -or $phase.StepId -cnotin @($Contract.Steps.Id) -or
             ($phase.Handler -ceq 'FailOnce' -and $phase.Phase -cne 'Cleanup')) { throw 'SCENARIO_PHASE_INVALID' }
+        if ($i -lt 4 -and $phase.PhaseTimeoutMilliseconds -gt $Plan.TimeoutMilliseconds) { throw 'SCENARIO_PHASE_TIMEOUT_INVALID' }
     }
 }
 
@@ -104,11 +105,13 @@ function Write-LabScenarioJournal {
 
 function Invoke-LabSyntheticScenarioPhase {
     param($Phase, [System.Collections.IDictionary]$State, [Diagnostics.Stopwatch]$Clock,
-        [int]$TimeoutMilliseconds, [Threading.CancellationToken]$CancellationToken)
+        [int]$TimeoutMilliseconds, [Threading.CancellationToken]$CancellationToken,
+        [Diagnostics.Stopwatch]$PhaseClock, [int]$PhaseTimeoutMilliseconds)
     $delay = [Diagnostics.Stopwatch]::StartNew()
     do {
         if ($CancellationToken.IsCancellationRequested) { return 'CANCELLED' }
         if ($Clock.ElapsedMilliseconds -ge $TimeoutMilliseconds) { return 'TIMED_OUT' }
+        if ($PhaseClock -and $PhaseClock.ElapsedMilliseconds -ge $PhaseTimeoutMilliseconds) { return 'TIMED_OUT' }
         if ($delay.ElapsedMilliseconds -ge $Phase.DelayMilliseconds) { break }
         [Threading.Thread]::Sleep(1)
     } while ($true)
@@ -182,11 +185,14 @@ function Invoke-LabSyntheticScenario {
                     for ($i = 0; $i -lt 4; $i++) {
                         if ($CancellationToken.IsCancellationRequested) { $state.PrimaryStatus = 'CANCELLED'; break }
                         if ($clock.ElapsedMilliseconds -ge $Plan.TimeoutMilliseconds) { $state.PrimaryStatus = 'TIMED_OUT'; break }
+                        # Each primary phase gets a new cap; checkpoint time also consumes it.
+                        # The global clock is never reset, so the earlier deadline always wins.
+                        $phaseClock = [Diagnostics.Stopwatch]::StartNew()
                         if ($i -eq 0) { $state.ArrangeBegun = $true; $state.CleanupStatus = 'PENDING' }
                         $state.Status = 'IN_PROGRESS'
                         $state.Phases += @{ Phase = $Plan.Phases[$i].Phase; Status = 'IN_PROGRESS' }
                         $authentication = Write-LabScenarioJournal $path $OwnershipKey $state $authentication
-                        $phaseStatus = Invoke-LabSyntheticScenarioPhase $Plan.Phases[$i] $state $clock $Plan.TimeoutMilliseconds $CancellationToken
+                        $phaseStatus = Invoke-LabSyntheticScenarioPhase $Plan.Phases[$i] $state $clock $Plan.TimeoutMilliseconds $CancellationToken $phaseClock $Plan.Phases[$i].PhaseTimeoutMilliseconds
                         $state.Phases[-1].Status = $phaseStatus
                         if ($phaseStatus -ne 'PASSED') { $state.PrimaryStatus = $phaseStatus }
                         elseif ($i -eq 3) { $state.PrimaryStatus = 'PASSED' }

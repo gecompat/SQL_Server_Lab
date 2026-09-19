@@ -53,11 +53,16 @@ Inspect-Template-ID und bereinigte ebenfalls vollständig; nach Korrektur des
 festen Providerfelds bestand der getrennte Wiederholungslauf. Host-/Engine-
 Abstürze und andere native Unterbrechungszeitpunkte sind damit nicht belegt.
 
-`Invoke-ScenarioExecutorChecks.ps1` prüft SCN-802 ausschließlich offline:
-Phasenreihenfolge, Cancellation vor/nach Arrange, Arbeits-/Cleanup-Timeouts,
+`Invoke-ScenarioExecutorChecks.ps1` prüft SCN-802/SCN-804 ausschließlich offline:
+Phasenreihenfolge, Cancellation vor/nach Arrange, Arbeits-/Phasen-/Cleanup-Timeouts,
 Handler-/Cleanupfehler, begrenztes Cleanup-Resume, Ownership-/Planbindung,
 Journalmanipulation, Lockkonflikt, Sanitierung und einen hart beendeten eigenen
 PowerShell-Kindprozess. Sämtlicher State ist synthetisch und temporär.
+Plan `0.2` wird mit fehlenden, typfalschen und außerhalb der Grenzen liegenden
+Phasencaps sowie alten Versionen negativ geprüft. Jeder Primärphasencap,
+die frühere globale Frist, ein erst beim Phaseneintritt beginnendes Budget,
+unabhängiges Cleanup und die Ablehnung geänderter Caps bei unterbrochenem
+Resume sind Bestandteil derselben Suite.
 `Invoke-ScenarioContractChecks.ps1` erhält unabhängig davon SCN-801 als
 Metadatenvertrag. Die Produktsources wählen keine Provider-Smokes; Änderungen
 am gemeinsamen CI-Selektor wählen weiterhin dessen vollständige Runtime-Matrix.

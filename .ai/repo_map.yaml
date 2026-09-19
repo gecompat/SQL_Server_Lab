@@ -51,6 +51,7 @@ sources_of_truth:
   validation_internal_container_cpu_fault: Tests/Static/Invoke-ContainerCpuFaultChecks.ps1
   acceptance_internal_container_cpu_fault: Tests/Integration/Invoke-ContainerCpuFaultAcceptance.ps1
   internal_synthetic_scenario_plan_schema: Schemas/scenario-execution-plan.schema.json
+  internal_synthetic_scenario_deadline_contract: Documentation/Project_Planning/SCENARIO_CONTRACT_BACKLOG.md
   internal_synthetic_scenario_journal_schema: Schemas/scenario-execution-journal.schema.json
   validation_internal_synthetic_scenario_executor: Tests/Static/Invoke-ScenarioExecutorChecks.ps1
   security_tool_acquisition_backlog: Documentation/Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md

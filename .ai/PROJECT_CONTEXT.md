@@ -59,6 +59,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   authentifiziertem atomischem Journal, Ownership, Timeouts, Cancellation und
   Cleanup-Resume; SCN-801 bleibt ein unveränderter Metadatenvertrag. Öffentliche
   API, SQL-/Providerbindung und fachliche Szenarien sind weiterhin offen;
+  SCN-804 ergänzt im privaten Plan `0.2` zwingende individuelle Primärphasenfristen
+  innerhalb des globalen Budgets; Cleanup behält sein unabhängiges Budget,
+  alte Pläne werden ohne automatische Journalmigration abgewiesen;
 
 - dedizierter Security-Tool-/Trust-Metadatenkatalog mit leerer produktiver
   Allowlist und `Get-SqlServerLabSecurityToolPlan` für exakte IDs und Zieltuple;

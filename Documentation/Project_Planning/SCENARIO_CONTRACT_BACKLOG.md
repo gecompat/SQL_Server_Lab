@@ -7,6 +7,7 @@
 | Vertrag | `SqlServerLab.InternalScenarioContract/0.1` |
 | Metadatenvertrag | weiterhin `ExecutionImplemented=false` |
 | Separater Executor | `SCN-802`: interner synthetischer Teilscope implementiert |
+| Phasenfristen | `SCN-804`: privater Planvertrag `0.2` mit individuellen Primärphasenfristen |
 
 Der Slice liefert ausschließlich einen versionierten, providerneutralen internen Datenvertrag für `Scenario`, `Step`, `Evidence` und `Outcome`. `Schemas/scenario-contract.schema.json` verbietet Providerbindung und Ausführungsfelder. Das Beispiel verwendet nur synthetische Identitäten und Evidence-Metadaten. `Tests/Static/Invoke-ScenarioContractChecks.ps1` prüft Schema, Referenzintegrität sowie diese Grenzen ohne SQL-Server- oder Provideraktion.
 
@@ -17,7 +18,7 @@ SCN-802-Teilscope verändert diesen Metadatenvertrag nicht.
 ## SCN-802: interner synthetischer Executor
 
 `Private/ScenarioExecutor.ps1` führt ausschließlich fest eingebaute synthetische
-Handler aus. Der separate `SqlServerLab.InternalSyntheticScenarioPlan/0.1`
+Handler aus. Der separate `SqlServerLab.InternalSyntheticScenarioPlan/0.2`
 bindet genau fünf Phasen an vorhandene Step-IDs: `Arrange`, `Act`, `Observe`,
 `Assert`, `Cleanup`. Die Reihenfolge ist verpflichtend. `Synthetic` erzeugt
 einen journalinternen Wert, setzt ihn auf eins, beobachtet und prüft ihn und
@@ -42,12 +43,31 @@ Journale und falsche Ownership werden fail-closed abgewiesen. Die atomare
 Publikation verwendet eine eigene temporäre Datei im selben Verzeichnis mit
 Flush und Rename. Lockdateien bleiben als stabile, leere Lockidentität bestehen.
 
-Der monotone Arbeitsdeadline und die gesonderte Cleanupfrist sind jeweils auf
-höchstens 30 Sekunden begrenzt. Die eingebauten Wartehandler prüfen Deadline
+Die monotone Arbeitsfrist und die gesonderte Cleanupfrist sind jeweils auf
+höchstens 30 Sekunden begrenzt. SCN-804 verlangt zusätzlich für `Arrange`,
+`Act`, `Observe` und `Assert` jeweils `PhaseTimeoutMilliseconds` zwischen 1 und
+30000 Millisekunden und höchstens `TimeoutMilliseconds`. Die Schemaform und
+die globale Obergrenze werden vor jeder Journalmutation geprüft. Jede Phase
+startet ihre eigene monotone Uhr beim Eintritt, vor ihrem Journalcheckpoint;
+die globale Uhr läuft über alle Primärphasen und deren Journalzugriffe weiter.
+Es gilt die frühere der beiden Fristen. Das Ergebnis bleibt das feste
+`TIMED_OUT`; Cleanup beginnt mit einer unabhängigen Uhr und ausschließlich
+`CleanupTimeoutMilliseconds`. Ein Phasencap ist für Cleanup unzulässig.
+
+Plan `0.1` wird ausdrücklich abgewiesen: Es gibt keinen stillen Default und
+keine automatische Migration bestehender Journale. Der vollständige Planhash
+bindet alle Phasencaps; ein geänderter Cap darf auch bei Cleanup-Resume kein
+bestehendes Journal übernehmen. Die Journal- und Ergebnisform bleiben bei
+`0.1`, da ihre Felder und Statuswerte unverändert sind. Bestehende Journale
+aus einem früheren Plan benötigen dessen passenden bisherigen Executor und
+unveränderten Aufruferkontext zur Recovery.
+
+Die eingebauten Wartehandler prüfen beide Fristen
 und Cancellation vor Mutation und in Millisekundenschritten. Cancellation vor
 einer frischen Ausführung schreibt keine Dateien. Nach begonnenem Arrange
 läuft Cleanup im `finally`, unabhängig vom fachlichen Ergebnis und vom
-Cancellation-Signal. Cleanupfehler oder dessen Timeout ergeben
+Cancellation-Signal. Liegen Cancellation und Timeout bei derselben Prüfung vor,
+bleibt Cancellation vorrangig. Cleanupfehler oder dessen Timeout ergeben
 `RECOVERY_REQUIRED`; Primärfehler und Cleanupstatus bleiben getrennt.
 Dateisystemzugriffe selbst besitzen keinen präemptiven Timeout. Ein harter
 Prozessabbruch kann `finally` verhindern und wird über Resume behandelt.

@@ -19,10 +19,12 @@ function Assert-Check {
 }
 function New-TestPlan {
     return [pscustomobject]@{
-        ContractVersion = 'SqlServerLab.InternalSyntheticScenarioPlan/0.1'
+        ContractVersion = 'SqlServerLab.InternalSyntheticScenarioPlan/0.2'
         TimeoutMilliseconds = 10000; CleanupTimeoutMilliseconds = 10000
         Phases = @(@('Arrange','Act','Observe','Assert','Cleanup') | ForEach-Object {
-            [pscustomobject]@{ Phase = $_; StepId = 'collect-synthetic-observation'; Handler = 'Synthetic'; DelayMilliseconds = 0 }
+            $phase = [ordered]@{ Phase = $_; StepId = 'collect-synthetic-observation'; Handler = 'Synthetic'; DelayMilliseconds = 0 }
+            if ($_ -cne 'Cleanup') { $phase.PhaseTimeoutMilliseconds = 10000 }
+            [pscustomobject]$phase
         })
     }
 }
@@ -55,6 +57,9 @@ try {
     $changedPlan = New-TestPlan
     $changedPlan.TimeoutMilliseconds++
     Assert-Rejected { Invoke-TestScenario $changedPlan $id -Resume } 'SCENARIO_JOURNAL_UNTRUSTED'
+    $changedPlan = New-TestPlan
+    $changedPlan.Phases[1].PhaseTimeoutMilliseconds--
+    Assert-Rejected { Invoke-TestScenario $changedPlan $id -Resume } 'SCENARIO_JOURNAL_UNTRUSTED'
     Assert-Check ([Convert]::ToBase64String($before) -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($path))) 'rejected ownership leaves journal unchanged'
 
     $cancellation = [Threading.CancellationTokenSource]::new()
@@ -69,10 +74,44 @@ try {
 
     $timeoutPlan = New-TestPlan
     $timeoutPlan.TimeoutMilliseconds = 200
+    foreach ($phase in $timeoutPlan.Phases[0..3]) { $phase.PhaseTimeoutMilliseconds = 200 }
     $timeoutPlan.Phases[1].DelayMilliseconds = 1000
     $timer = [Diagnostics.Stopwatch]::StartNew()
     $timedOut = Invoke-TestScenario $timeoutPlan
     Assert-Check ($timedOut.Status -eq 'TIMED_OUT' -and $timedOut.CleanupStatus -eq 'PASSED' -and $timer.ElapsedMilliseconds -lt 4000) 'bounded timeout and independent cleanup'
+    foreach ($index in 0..3) {
+        $phasePlan = New-TestPlan
+        $phasePlan.Phases[$index].PhaseTimeoutMilliseconds = 100
+        $phasePlan.Phases[$index].DelayMilliseconds = 1000
+        $phasePlan.Phases[4].DelayMilliseconds = 150
+        $timer.Restart()
+        $phaseTimeout = Invoke-TestScenario $phasePlan
+        Assert-Check ($phaseTimeout.Status -eq 'TIMED_OUT' -and $phaseTimeout.CleanupStatus -eq 'PASSED' -and
+            $phaseTimeout.Phases[$index].Status -eq 'TIMED_OUT' -and $phaseTimeout.Phases.Count -eq ($index + 2) -and
+            $timer.ElapsedMilliseconds -lt 4000) "phase $index cap beats long global budget and cleanup has independent budget"
+    }
+    $globalPlan = New-TestPlan
+    $globalPlan.TimeoutMilliseconds = 1500
+    foreach ($phase in $globalPlan.Phases[0..3]) { $phase.PhaseTimeoutMilliseconds = 1500 }
+    $globalPlan.Phases[0].DelayMilliseconds = 700
+    $globalPlan.Phases[1].DelayMilliseconds = 1200
+    $globalTimeout = Invoke-TestScenario $globalPlan
+    Assert-Check ($globalTimeout.Status -eq 'TIMED_OUT' -and $globalTimeout.Phases[0].Status -eq 'PASSED' -and
+        $globalTimeout.Phases[1].Status -eq 'TIMED_OUT' -and $globalTimeout.CleanupStatus -eq 'PASSED') 'remaining global budget wins over fresh phase budget'
+    $laterPlan = New-TestPlan
+    $laterPlan.Phases[0].DelayMilliseconds = 400
+    $laterPlan.Phases[1].PhaseTimeoutMilliseconds = 200
+    $laterPlan.Phases[1].DelayMilliseconds = 30
+    $later = Invoke-TestScenario $laterPlan
+    Assert-Check ($later.Status -eq 'PASSED') 'later phase cap starts on phase entry rather than operation entry'
+
+    # Expired phase checkpoint cannot authorize even a zero-delay synthetic mutation.
+    $expiredClock = [Diagnostics.Stopwatch]::StartNew()
+    [Threading.Thread]::Sleep(5)
+    $unmodified = @{ SyntheticValue = 0 }
+    $currentClock = [Diagnostics.Stopwatch]::StartNew()
+    $expired = Invoke-LabSyntheticScenarioPhase $plan.Phases[1] $unmodified $currentClock 10000 ([Threading.CancellationToken]::None) $expiredClock 1
+    Assert-Check ($expired -eq 'TIMED_OUT' -and $unmodified.SyntheticValue -eq 0) 'expired phase deadline prevents handler mutation'
     $cancelPlan = New-TestPlan
     $cancelPlan.Phases[1].DelayMilliseconds = 2000
     $cancellation = [Threading.CancellationTokenSource]::new()
@@ -80,6 +119,13 @@ try {
         $cancellation.CancelAfter(500)
         $cancelled = Invoke-TestScenario $cancelPlan -Token $cancellation.Token
         Assert-Check ($cancelled.Status -eq 'CANCELLED' -and $cancelled.CleanupStatus -eq 'PASSED' -and 'Act' -in $cancelled.Phases.Phase) 'cancel after arrange cleans up'
+    }
+    finally { $cancellation.Dispose() }
+    $cancellation = [Threading.CancellationTokenSource]::new()
+    try {
+        $cancellation.Cancel()
+        $cancelled = Invoke-LabSyntheticScenarioPhase $plan.Phases[1] $unmodified $expiredClock 1 $cancellation.Token $expiredClock 1
+        Assert-Check ($cancelled -eq 'CANCELLED' -and $unmodified.SyntheticValue -eq 0) 'cancellation retains precedence over expired deadlines'
     }
     finally { $cancellation.Dispose() }
 
@@ -144,6 +190,11 @@ try {
         Assert-Check $checkpointSeen 'real child committed in-progress checkpoint'
         $child.Kill($true)
         Assert-Check ($child.WaitForExit(5000)) 'real child termination confirmed'
+        $interruptedBefore = [IO.File]::ReadAllText($childPath)
+        $changedChildPlan = $childPlan | ConvertTo-Json -Depth 20 | ConvertFrom-Json
+        $changedChildPlan.Phases[1].PhaseTimeoutMilliseconds--
+        Assert-Rejected { Invoke-TestScenario $changedChildPlan $childId -Resume } 'SCENARIO_JOURNAL_UNTRUSTED'
+        Assert-Check ([IO.File]::ReadAllText($childPath) -ceq $interruptedBefore) 'changed phase cap cannot authorize interrupted cleanup'
         $restarted = Invoke-TestScenario $childPlan $childId -Resume
         Assert-Check ($restarted.Status -eq 'INTERRUPTED' -and $restarted.CleanupStatus -eq 'PASSED' -and $restarted.Phases.Count -eq 3) 'real process interruption resumes cleanup only'
     }
@@ -189,6 +240,34 @@ try {
     $invalid = New-TestPlan
     $invalid.Phases[0].Phase = 'Act'
     Assert-Rejected { Invoke-TestScenario $invalid } 'SCENARIO_PHASE_INVALID'
+    foreach ($phaseIndex in 0..3) {
+        foreach ($invalidCap in @(0, -1, 30001, 1.5, '200', $null)) {
+            $invalid = New-TestPlan
+            $invalid.Phases[$phaseIndex].PhaseTimeoutMilliseconds = $invalidCap
+            Assert-Rejected { Invoke-TestScenario $invalid } 'SCENARIO_INPUT_INVALID'
+        }
+        $invalid = New-TestPlan
+        $invalid.Phases[$phaseIndex].PSObject.Properties.Remove('PhaseTimeoutMilliseconds')
+        Assert-Rejected { Invoke-TestScenario $invalid } 'SCENARIO_INPUT_INVALID'
+        $invalid = New-TestPlan
+        $invalid.Phases[$phaseIndex].PhaseTimeoutMilliseconds = 10001
+        Assert-Rejected { Invoke-TestScenario $invalid } 'SCENARIO_PHASE_TIMEOUT_INVALID'
+    }
+    $invalid = New-TestPlan
+    $invalid.Phases[4] | Add-Member -NotePropertyName PhaseTimeoutMilliseconds -NotePropertyValue 100
+    Assert-Rejected { Invoke-TestScenario $invalid } 'SCENARIO_INPUT_INVALID'
+    $invalid = New-TestPlan
+    $invalid.ContractVersion = 'SqlServerLab.InternalSyntheticScenarioPlan/0.1'
+    Assert-Rejected { Invoke-TestScenario $invalid } 'SCENARIO_INPUT_INVALID'
+    foreach ($phase in $invalid.Phases[0..3]) { $phase.PSObject.Properties.Remove('PhaseTimeoutMilliseconds') }
+    Assert-Rejected { Invoke-TestScenario $invalid } 'SCENARIO_INPUT_INVALID'
+    foreach ($validCap in @(1, 30000)) {
+        $valid = New-TestPlan
+        $valid.TimeoutMilliseconds = 30000
+        foreach ($phase in $valid.Phases[0..3]) { $phase.PhaseTimeoutMilliseconds = $validCap }
+        Assert-LabSyntheticScenarioInput $contract $valid
+        Assert-Check $true "phase cap boundary accepted: $validCap"
+    }
     $invalid = New-TestPlan
     $invalid.Phases[0].StepId = 'missing-step'
     Assert-Rejected { Invoke-TestScenario $invalid } 'SCENARIO_PHASE_INVALID'
