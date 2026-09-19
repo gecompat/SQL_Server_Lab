@@ -627,8 +627,45 @@ vor der Mutation geschriebene Storage-Runtime-Receipt anwenden. Er startet den
 SQL-Dienst kontrolliert neu und setzt `RECOVERY_REQUIRED` über denselben Bound
 Plan fort. User- und Systemdatenbankdateien sowie zusätzliche TempDB-Logfiles
 werden nicht automatisch verschoben. Beide Repair-Verträge sind synthetisch
-inklusive Abbruch/Resume belegt; ein positiver nativer Reparaturlauf bleibt
-`NOT_EXECUTED`.
+inklusive Abbruch/Resume belegt. Der manuelle Main-Runner
+`Invoke-HyperVStorageReconcileAcceptance.ps1` ist für einen isolierten
+operationseigenen Windows-2025-Clone
+registriert und prüft SCSI-Add, Gast-Receipt, Restart, No-op und
+scopegebundenes Cleanup. Grow-only und Abbruch/Resume bleiben wegen der
+fehlenden zerstörungsfreien nativen Drift-Injektion synthetisch belegt. Ein
+positiver lokaler nativer Reparaturlauf bestand am 2026-09-19; der genaue
+Nachweisumfang steht unten. HV-603A bleibt ein getrennter
+SQL-Dateipfad-Rebinding-Nachweis.
+
+Der getrennte HV-603A-Runner
+`Invoke-HyperVSqlStorageReconcileAcceptance.ps1` ist als manueller Main-
+Nachweis für einen operationseigenen Windows-2025-Clone registriert. Er
+verlangt zuerst den HV-603-Storage-No-op und belegt dann ausschließlich aus
+dem gebundenen Plan und dem Runtime-Receipt die SQL-Default-, Backup- und
+TempDB-Pfade, den SQL-Dienstrestart ohne VM-Neustart, No-op und
+scopegebundenes Cleanup. Die lokale native Abnahme vom 2026-09-17 bestand
+für Windows Server 2025 und SQL Server 2025 Enterprise auf Runnerstand
+`43bdb819`: drei Default-/Backup-Verzeichnisse, vier TempDB-Datendateien und
+eine Logdatei konvergierten, der Gast-Bootzeitpunkt blieb beim SQL-Dienstrestart
+unverändert, der Folgeplan war No-op und Cleanup endete ohne Fehler.
+Dies ist kein GitHub-Actions-Nachweis und keine allgemeine Versionsmatrix.
+Nach diesem Lauf wurde der unsichere RAW-Größenfallback im Gast entfernt.
+Die vollständige GUID aus dem binären Microsoft-T10-Identifier wird mit dem
+gebundenen VHDX-DiskIdentifier verglichen. Die bevorzugte Gast-`UniqueId` kann
+verkürzt sein und dient nicht zur Auswahl. Ungültige Deskriptoren, Boot-/
+Systemplatten sowie fehlende oder mehrdeutige Bindungen stoppen die vollständige
+Zuordnungsvorprüfung vor der ersten Diskmutation.
+Fremde gleich große RAW-Disks, fehlende oder mehrdeutige IDs und doppelte
+Beanspruchung sind offline negativ geprüft; gleich große Disks mit jeweils
+passender ID bleiben unterscheidbar. Die frühere Abnahme auf `43bdb819`
+belegt nicht den gehärteten Stand. Die vollständige GUID konnte an einer
+bestehenden Windows-2025-Systemplatte rein lesend mit der Host-GUID abgeglichen
+werden. Zusätzlich bestand am 2026-09-19 der lokale native Storage-Abnahmelauf
+mit dem integrierten Stand: zwei neue Datenplatten, verifizierte Gast-Receipts,
+SQL-Bereitschaft nach VM-Neustart, No-op sowie sechs Cleanup-Schritte ohne Fehler.
+Dieser Nachweis umfasst keine zusätzliche Versionsmatrix oder native Fault-Injection.
+User- und Systemdatenbankdateien, zusätzliche TempDB-Logfiles, Rollen-/
+Pfadwechsel, Removal und Fault-Injection bleiben außerhalb dieses Nachweises.
 
 Der Hyper-V-SQL-Konfigurations-Reconcile persistiert die bereits
 ausfuehrbaren `serverConfig`-Werte fuer Memory, MAXDOP, Cost Threshold,

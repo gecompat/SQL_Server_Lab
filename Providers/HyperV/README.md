@@ -114,6 +114,15 @@ und die getrennten Builder-/CLI-Einstiege bleiben ausdrücklich ausgewiesen.
 
 ## Verbleibender Providerumfang
 
+- Gast-Datenträger werden über die vollständige GUID im binären Microsoft-
+  T10-Geräteidentifikator an den VHDX-DiskIdentifier gebunden. Die bevorzugte
+  `Get-Disk.UniqueId` kann eine verkürzte NAA-Kennung sein und wird nicht zur
+  Auswahl verwendet. Ein RAW-Größenfallback ist nicht zulässig. Der lokale
+  native Storage-Abnahmelauf vom 2026-09-19 bestätigte zwei neue Datenplatten,
+  Gast-Receipts, SQL-Bereitschaft nach VM-Neustart, No-op und fehlerfreien Cleanup.
+  Boot- und Systemdatenträger werden auch bei passender Kennung vor einem
+  Disk-Schreibzugriff abgewiesen. Alle Laufwerkszuordnungen werden vor der
+  ersten Diskmutation auf fehlende, mehrdeutige oder doppelte Bindungen geprüft.
 - Einbindung des unbeaufsichtigten Template-Builds in den interaktiven
   Image-Menüpfad;
 - Linux Guest Management über cloud-init und SSH;

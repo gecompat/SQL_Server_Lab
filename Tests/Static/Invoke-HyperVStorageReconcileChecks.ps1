@@ -10,7 +10,7 @@ New-Item -Path (Join-Path $runDirectory 'secrets') -ItemType Directory -Force|Ou
 [IO.File]::WriteAllText((Join-Path $runDirectory 'secrets/guest-administrator-password.secret'),'synthetic')
 $connection=[PSCustomObject]@{schemaVersion=1;instances=@([PSCustomObject]@{id='primary';provider='hyperv';vmName='private-storage-vm';vmId='private-storage-vm-id';additionalDrives=@()})}
 $connection|ConvertTo-Json -Depth 20|Set-Content -LiteralPath (Join-Path $runDirectory 'connection-info.json') -Encoding utf8
-$cleanup=[PSCustomObject]@{runId=$runId;scopeId=$scopeId;createdAt=[datetime]::UtcNow.ToString('o');providerSubRuns=@([PSCustomObject]@{id='provider-hyperv';provider='hyperv';stepOrders=@();state='PENDING';updatedAt=[datetime]::UtcNow.ToString('o');errors=0});steps=@();status='PENDING'}
+$cleanup=[PSCustomObject]@{runId=$runId;scopeId=$scopeId;createdAt=[datetime]::UtcNow.ToString('o');providerSubRuns=@([PSCustomObject]@{id='provider-hyperv';provider='hyperv';stepOrders=@(1);state='PENDING';updatedAt=[datetime]::UtcNow.ToString('o');errors=0});steps=@([PSCustomObject]@{order=1;resourceType='vm';resourceId='private-storage-vm';action='remove';provider='hyperv';compensation='Remove synthetic VM';dependsOn=@();softwareContract=$null;safetyRoot=$null;state='PENDING';executedAt=$null;error=$null});status='PENDING'}
 $cleanup|ConvertTo-Json -Depth 20|Set-Content -LiteralPath (Join-Path $runDirectory 'cleanup-plan.json') -Encoding utf8
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 try{
@@ -34,7 +34,10 @@ try{
             });guestDriveInitialization=@()
         }}
         $script:vhd=@{};$script:vhd[$dataPath]=[PSCustomObject]@{Path=$dataPath;Size=[long](8GB);VhdType='dynamic';DiskIdentifier=$dataDiskId}
-        $script:attachments=@([PSCustomObject]@{Path=$dataPath;ControllerNumber=0;ControllerLocation=1;MaximumIOPS=0})
+        $script:attachments=@(
+            [PSCustomObject]@{Path=(Join-Path $ResourceRoot 'private-storage-vm.vhdx');ControllerNumber=0;ControllerLocation=0;MaximumIOPS=0},
+            [PSCustomObject]@{Path=$dataPath;ControllerNumber=0;ControllerLocation=1;MaximumIOPS=0}
+        )
         $script:newCount=0;$script:resizeCount=0;$script:addCount=0;$script:guestCount=0;$script:startCount=0;$script:stopCount=0;$script:failGuestOnce=$true
         function Get-LabRunState{$script:storageRun}
         function Get-LabHyperVResourceMigrationLifecycleGuard{[PSCustomObject]@{Allowed=$true;ReasonCode=$null}}
@@ -44,6 +47,7 @@ try{
         function ConvertTo-LabHyperVStorageDrivePlan{param($Plan) @([PSCustomObject]@{id='sfp-01';role='sqlData';sizeBytes=[long](32GB);vhdType='dynamic';guestPath='T:\SQLLab';allocationUnitKB=64;fileSystem='NTFS';volumeLabel='SQLLAB_SFP_01';maximumIops=0;hostRoot=$null;hostPath=$null;locationId=$null;selector='default'})}
         function Get-HyperVManagedVM{$script:storageManaged}
         function Get-VMHardDiskDrive{param($VM,$ErrorAction) @($script:attachments)}
+        function Get-VMDvdDrive{param($VM,$ErrorAction) @([PSCustomObject]@{ControllerNumber=0;ControllerLocation=1})}
         function Get-VHD{param($Path,$ErrorAction) if(-not $script:vhd.ContainsKey([string]$Path)){throw 'SYNTHETIC_VHD_MISSING'};$script:vhd[[string]$Path]}
         function New-VHD{
             param($Path,$SizeBytes,[switch]$Dynamic,[switch]$Fixed,$ErrorAction)
@@ -82,7 +86,9 @@ try{
         $resume=$resumed.ExecutionSummary.Status -eq 'SUCCEEDED' -and $completed.Status -eq 'COMPLETED' -and $script:resizeCount -eq 1 -and $script:newCount -eq 1
         $noOp=Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVStorage -InstanceId primary -StateRoot $Root
         $cleanup=Get-Content -LiteralPath (Join-Path (Join-Path (Join-Path $Root 'runs') $RunId) 'cleanup-plan.json') -Raw|ConvertFrom-Json
-        $cleanupBound=@($cleanup.steps|Where-Object resourceType -eq 'vhdx').Count -eq 1
+        $cleanupVhdx=@($cleanup.steps|Where-Object resourceType -eq 'vhdx')
+        $cleanupVm=@($cleanup.steps|Where-Object resourceType -eq 'vm'|Select-Object -First 1)
+        $cleanupBound=$cleanupVhdx.Count -eq 1 -and [int]$cleanupVhdx[0].order -lt [int]$cleanupVm.order
         $firstOperation=[string]$completed.OperationId
         $script:vhd[$dataPath].Size=[long](8GB);$script:storageManaged.Identity.guestDriveInitialization=@($script:storageManaged.Identity.guestDriveInitialization|Where-Object id -ne 'data')
         $repeat=Invoke-SqlServerLabReconcileAction -RunId $RunId -RepairHyperVStorage -InstanceId primary -StateRoot $Root -Confirm:$false
@@ -104,14 +110,24 @@ try{
         $storageDesired=[PSCustomObject]@{Profile='standard';Drives=@();Storage=[PSCustomObject]@{ContractVersion=$portableIntent.contractVersion;PlacementPolicy=$portableIntent.placementPolicy;PhysicalIsolation=$portableIntent.physicalIsolation;Roles=$portableIntent.roles;TempDb=$portableIntent.tempDb;DatabaseFiles=@();RestoreRules=@()}}
         $boundDrives=@(Get-LabHyperVStorageReconcileDesiredDrives -DesiredInstance $storageDesired -Managed $script:storageManaged -RunDirectory (Join-Path (Join-Path $Root 'runs') $RunId) -RunId $RunId -InstanceId primary)
         $boundIntent=$boundDrives.Count -eq 1 -and $boundDrives[0].Id -eq 'sfp-01' -and $boundDrives[0].SizeBytes -eq 32GB
+        $boundRoot=Join-Path $Root 'bound-storage-root';$boundPath=Join-Path $boundRoot 'Labs/bound/default/sfp-01.vhdx'
+        New-Item -Path (Split-Path -Parent $boundPath) -ItemType Directory -Force|Out-Null
+        function Get-LabStorageConfiguration {[PSCustomObject]@{ControllerId='synthetic-controller';DefaultLocationId='synthetic-default';LabDataLocations=@([PSCustomObject]@{LocationId='synthetic-default';LabDataRoot=$boundRoot;Selectors=@()})}}
+        function Test-LabDataRootOwnership {param($DataRoot,$ControllerId) $DataRoot -eq $boundRoot -and $ControllerId -eq 'synthetic-controller'}
+        $defaultBoundLane=try { Assert-LabHyperVStorageReconcileDesiredPath -Drive ([PSCustomObject]@{Id='sfp-01';HostRoot=$boundRoot;Path=$boundPath;LocationId='synthetic-default';Selector='default'}) -RunDirectory (Join-Path (Join-Path $Root 'runs') $RunId);$true } catch {$false}
+        $foreignRoot=Join-Path $Root 'foreign-storage-root';New-Item -Path $foreignRoot -ItemType Directory -Force|Out-Null
+        $foreignBoundLane=try { Assert-LabHyperVStorageReconcileDesiredPath -Drive ([PSCustomObject]@{Id='foreign';HostRoot=$foreignRoot;Path=(Join-Path $foreignRoot 'outside.vhdx');LocationId='synthetic-default';Selector='default'}) -RunDirectory (Join-Path (Join-Path $Root 'runs') $RunId);$null } catch {$_.Exception.Message}
         [PSCustomObject]@{
             Live=$plan.HighestChangeClass -eq 'live' -and @($plan.Diff.Kind|Sort-Object -Unique) -join ',' -eq 'add,grow';Sanitized=$sanitized
             WhatIf=$whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and $whatIfSafe;Recovery=$recovery;Resume=$resume
             NoOp=$noOp.IsNoOp -and $noOp.HighestChangeClass -eq 'no-op';Cleanup=$cleanupBound;FreshJournal=$freshJournal
             Restart=$restart
+            SlotAware=@($script:attachments|Where-Object{[string]$_.Path -match '-log\.vhdx$' -and [int]$_.ControllerNumber -eq 0 -and [int]$_.ControllerLocation -eq 2}).Count -eq 1
             Shrink=$shrink.HighestChangeClass -eq 'unsupported' -and @($shrink.Actions).Count -eq 0
             Removal=$remove.HighestChangeClass -eq 'unsupported' -and @($remove.Actions).Count -eq 0
             BoundIntent=$boundIntent
+            DefaultBoundLane=$defaultBoundLane
+            ForeignBoundLane=$foreignBoundLane -eq 'HYPERV_STORAGE_RECONCILE_LOCATION_BINDING_INVALID: foreign'
         }
     } $testRoot $runId $scopeId $resourceRoot
     $checks=[ordered]@{
@@ -121,12 +137,15 @@ try{
         'Gastfehler bleibt nach hostseitiger Mutation als Recovery sichtbar'=$result.Recovery
         'Resume wiederholt keine abgeschlossene Hostmutation und verifiziert den Gast'=$result.Resume
         'Erfuellter Host-/Gastvertrag ist No-op'=$result.NoOp
-        'Neue VHDX wird vor Mutation genau einmal in Cleanup gebunden'=$result.Cleanup
+        'SCSI-Plan reserviert belegte DVD- und Boot-Slots vor dem neuen Loglaufwerk'=$result.SlotAware
+        'Neue VHDX wird vor Mutation registriert und vor der VM bereinigt'=$result.Cleanup
         'Wiederkehrende Drift erhaelt ein frisches Operationsjournal'=$result.FreshJournal
         'Ausgeschaltete VM wird zur Gastverifikation gestartet und wieder ausgeschaltet'=$result.Restart
         'Shrink bleibt ohne automatische Mutation unsupported'=$result.Shrink
         'Entfernen zusaetzlicher Datentraeger bleibt fail-closed unsupported'=$result.Removal
         'Persistierter StorageIntent bindet ueber denselben kanonischen Intent-Hash'=$result.BoundIntent
+        'Default-Selector akzeptiert die gebundene Default-Location ohne expliziten Selector'=$result.DefaultBoundLane
+        'Ungebundene Location wird vor Ownership- oder Hostmutation getrennt abgewiesen'=$result.ForeignBoundLane
         'Guest-Resize verwendet Get-PartitionSupportedSize und keinen automatischen Detach'=($providerSource -match 'Get-PartitionSupportedSize' -and $providerSource -match 'Resize-Partition' -and $source -notmatch 'Remove-VMHardDiskDrive')
     }
     $failedChecks=@($checks.GetEnumerator()|Where-Object{-not $_.Value})

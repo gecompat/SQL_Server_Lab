@@ -1667,48 +1667,119 @@ function Initialize-HyperVWindowsGuestDrives {
                 return ($Value -replace '[^A-Fa-f0-9]', '').ToUpperInvariant()
             }
 
+            function ConvertFrom-HyperVStorageIdentifierDescriptor {
+                param([byte[]]$Buffer)
+                if (-not $Buffer -or $Buffer.Length -lt 12) { throw 'GUEST_DISK_DESCRIPTOR_HEADER_INVALID' }
+                $size = [BitConverter]::ToUInt32($Buffer, 4)
+                $count = [BitConverter]::ToUInt32($Buffer, 8)
+                if ($size -lt 12 -or $size -gt $Buffer.Length -or $count -gt 256) { throw 'GUEST_DISK_DESCRIPTOR_BOUNDS_INVALID' }
+                $offset = 12
+                $identifiers = @()
+                for ($index = 0; $index -lt $count; $index++) {
+                    if ($offset + 16 -gt $size) { throw 'GUEST_DISK_DESCRIPTOR_ENTRY_INVALID' }
+                    $codeSet = [BitConverter]::ToUInt32($Buffer, $offset)
+                    $type = [BitConverter]::ToUInt32($Buffer, $offset + 4)
+                    $length = [BitConverter]::ToUInt16($Buffer, $offset + 8)
+                    $next = [BitConverter]::ToUInt16($Buffer, $offset + 10)
+                    $association = [BitConverter]::ToUInt32($Buffer, $offset + 12)
+                    if ($offset + 16 + $length -gt $size) { throw 'GUEST_DISK_DESCRIPTOR_LENGTH_INVALID' }
+                    # Binaerer T10-Vendor-Identifier: acht Vendorbytes und die
+                    # vollstaendige GUID. Die bevorzugte NAA-ID ist verkuerzt.
+                    if ($codeSet -eq 1 -and $type -eq 1 -and $association -eq 0 -and $length -eq 24 -and
+                        [Text.Encoding]::ASCII.GetString($Buffer, $offset + 16, 8) -eq 'MSFT    ') {
+                        $identifier = [guid]::new([byte[]]$Buffer[($offset + 24)..($offset + 39)])
+                        if ($identifier -eq [guid]::Empty) { throw 'GUEST_DISK_DESCRIPTOR_EMPTY_GUID' }
+                        $identifiers += $identifier.ToString('N').ToUpperInvariant()
+                    }
+                    if ($index + 1 -lt $count) {
+                        if ($next -lt 16 + $length -or $offset + $next -ge $size) { throw 'GUEST_DISK_DESCRIPTOR_OFFSET_INVALID' }
+                        $offset += $next
+                    }
+                }
+                if ($identifiers.Count -gt 1) { throw 'GUEST_DISK_DESCRIPTOR_AMBIGUOUS' }
+                return $identifiers
+            }
+
+            if (-not ('SqlServerLab.GuestDiskIdentityReader' -as [type])) {
+                Add-Type -TypeDefinition @'
+using System;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+namespace SqlServerLab {
+    public static class GuestDiskIdentityReader {
+        [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern SafeFileHandle CreateFileW(string path, uint access, uint share, IntPtr security, uint disposition, uint flags, IntPtr template);
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool DeviceIoControl(SafeFileHandle handle, uint code, byte[] input, uint inputSize, byte[] output, uint outputSize, out uint returned, IntPtr overlapped);
+        public static byte[] Read(int number) {
+            if (number < 0) throw new ArgumentOutOfRangeException("number");
+            // Kein Daten-Lese-/Schreibrecht: nur die Geraeteeigenschaft abfragen.
+            using (var handle = CreateFileW(@"\\.\PhysicalDrive" + number, 0, 3, IntPtr.Zero, 3, 0, IntPtr.Zero)) {
+                if (handle.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error());
+                var query = new byte[12];
+                query[0] = 2; // StorageDeviceIdProperty, PropertyStandardQuery.
+                var output = new byte[65536];
+                uint returned;
+                if (!DeviceIoControl(handle, 0x002D1400, query, (uint)query.Length, output, (uint)output.Length, out returned, IntPtr.Zero))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                if (returned < 12 || returned > output.Length) throw new InvalidOperationException("GUEST_DISK_DESCRIPTOR_READ_LENGTH_INVALID");
+                Array.Resize(ref output, (int)returned);
+                return output;
+            }
+        }
+    }
+}
+'@
+            }
             $null = Update-HostStorageCache
             $allDisks = @(Get-Disk)
+            $diskIdentifiers = @{}
+            foreach ($candidateDisk in $allDisks) {
+                $diskIdentifiers[[int]$candidateDisk.Number] = @(
+                    ConvertFrom-HyperVStorageIdentifierDescriptor -Buffer (
+                        [SqlServerLab.GuestDiskIdentityReader]::Read([int]$candidateDisk.Number))
+                )
+            }
             $claimedDiskNumbers = [Collections.Generic.HashSet[int]]::new()
-            $results = @()
+            $resolvedDrives = [Collections.Generic.List[object]]::new()
+            # Alle Identitaeten vor dem ersten Disk-Schreibzugriff aufloesen.
             foreach ($specification in $specifications) {
                 $expectedIdentifier = ConvertTo-NormalizedDiskIdentifier $specification.diskIdentifier
                 $matches = @(
                     $allDisks | Where-Object {
-                        (ConvertTo-NormalizedDiskIdentifier ([string]$_.UniqueId)) -eq $expectedIdentifier
+                        $diskIdentifiers[[int]$_.Number] -contains $expectedIdentifier
                     }
                 )
                 $matchingMethod = 'disk-identifier'
-                # Frische VHDX-Dateien besitzen vor der ersten GPT-
-                # Initialisierung im Gast je nach Windows-/Hyper-V-Version
-                # keinen zu Get-VHD passenden UniqueId-Wert. Die VHDX wurden
-                # deshalb explizit auf SCSI 0:1..0:16 gebunden. In einer
-                # Generation-2-VM belegt die OS-Disk 0:0; der initiale
-                # Gast-DiskNumber entspricht dem festen ControllerLocation.
-                if ($matches.Count -eq 0) {
-                    $rawCandidates = @(
-                        $allDisks | Where-Object {
-                            [string]$_.PartitionStyle -eq 'RAW' -and
-                            -not [bool]$_.IsBoot -and
-                            -not [bool]$_.IsSystem -and
-                            [int]$_.Number -eq [int]$specification.controllerLocation -and
-                            [long]$_.Size -eq [long]$specification.sizeBytes -and
-                            -not $claimedDiskNumbers.Contains([int]$_.Number)
-                        }
-                    )
-                    if ($rawCandidates.Count -eq 1) {
-                        $matches = $rawCandidates
-                        $matchingMethod = 'scsi-location-raw-fallback'
-                    }
-                }
+                # Groesse, RAW-Status und Gast-Disknummer sind kein Nachweis
+                # fuer die gebundene VHDX. Auch ein einzelner gleich grosser
+                # Kandidat darf ohne passende Identitaet nicht initialisiert
+                # werden. Fehlende oder mehrdeutige IDs bleiben fail-closed.
                 if ($matches.Count -ne 1) {
                     throw "GUEST_DISK_IDENTIFIER_MATCH_COUNT_$($specification.id)_$($matches.Count)"
                 }
 
                 $disk = $matches[0]
+                if ($disk.IsBoot -or $disk.IsSystem) {
+                    throw "GUEST_DISK_SYSTEM_DISK_FORBIDDEN_$($specification.id)"
+                }
                 if (-not $claimedDiskNumbers.Add([int]$disk.Number)) {
                     throw "GUEST_DISK_ALREADY_CLAIMED_$($specification.id)_$($disk.Number)"
                 }
+                $resolvedDrives.Add([PSCustomObject]@{
+                    Specification = $specification
+                    Disk = $disk
+                    MatchingMethod = $matchingMethod
+                })
+            }
+
+            $results = @()
+            foreach ($resolvedDrive in $resolvedDrives) {
+                $specification = $resolvedDrive.Specification
+                $disk = $resolvedDrive.Disk
+                $matchingMethod = $resolvedDrive.MatchingMethod
                 if ($disk.IsOffline) {
                     Set-Disk -Number $disk.Number -IsOffline $false -ErrorAction Stop
                 }

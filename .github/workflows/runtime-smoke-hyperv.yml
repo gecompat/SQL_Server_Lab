@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
     inputs:
       clone_source_run_id:
-        description: Optionaler gestoppter Windows-2025-Slot als Clone-Quelle nur fuer Ressourcen-Acceptance
+        description: Optionaler gestoppter Windows-2025-Slot als Clone-Quelle fuer Ressourcen- oder Storage-Acceptance
         required: false
         type: string
       mode:
@@ -40,8 +40,10 @@ on:
           - cli-acceptance
           - locale-acceptance
           - sql-configuration-reconcile-acceptance
+          - sql-storage-reconcile-acceptance
           - sql-port-reconcile-acceptance
           - resource-reconcile-acceptance
+          - storage-reconcile-acceptance
           - sample-manifest-acceptance
           - external-runtime-reconcile-acceptance
       image_artifact_id:
@@ -165,6 +167,26 @@ jobs:
           if (-not [string]::IsNullOrWhiteSpace($artifactId)) { $arguments.ArtifactId = $artifactId }
           .\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1 @arguments
 
+      - name: Reject SQL storage reconcile acceptance outside manual main
+        if: inputs.mode == 'sql-storage-reconcile-acceptance' && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        run: |
+          $ErrorActionPreference = 'Stop'
+          throw 'HYPERV_SQL_STORAGE_RECONCILE_CI_MANUAL_MAIN_REQUIRED'
+      - name: Hyper-V SQL storage reconcile acceptance
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'sql-storage-reconcile-acceptance'
+        env:
+          SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID: ${{ inputs.clone_source_run_id }}
+          SQL_SERVER_LAB_CI_MEDIA_ROOT: ${{ inputs.media_root }}
+          SQL_SERVER_LAB_CI_MEDIA_EDITION: ${{ inputs.media_edition }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $arguments = @{}
+          if ([string]::IsNullOrWhiteSpace([string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID)) { throw 'HYPERV_SQL_STORAGE_RECONCILE_CI_CLONE_SOURCE_REQUIRED' }
+          $arguments.CloneSourceRunId = [string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID
+          $arguments.MediaRoot = [string]$env:SQL_SERVER_LAB_CI_MEDIA_ROOT
+          $arguments.MediaEdition = [string]$env:SQL_SERVER_LAB_CI_MEDIA_EDITION
+          .\Tests\Integration\Invoke-HyperVSqlStorageReconcileAcceptance.ps1 @arguments
+
       - name: Hyper-V SQL port reconcile acceptance
         if: inputs.mode == 'sql-port-reconcile-acceptance'
         run: |
@@ -197,6 +219,25 @@ jobs:
             $arguments.MediaEdition = [string]$env:SQL_SERVER_LAB_CI_MEDIA_EDITION
           }
           .\Tests\Integration\Invoke-HyperVResourceReconcileCiAcceptance.ps1 @arguments
+      - name: Reject storage reconcile acceptance outside manual main
+        if: inputs.mode == 'storage-reconcile-acceptance' && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+        run: |
+          $ErrorActionPreference = 'Stop'
+          throw 'HYPERV_STORAGE_RECONCILE_CI_MANUAL_MAIN_REQUIRED'
+      - name: Hyper-V storage reconcile acceptance
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'storage-reconcile-acceptance'
+        env:
+          SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID: ${{ inputs.clone_source_run_id }}
+          SQL_SERVER_LAB_CI_MEDIA_ROOT: ${{ inputs.media_root }}
+          SQL_SERVER_LAB_CI_MEDIA_EDITION: ${{ inputs.media_edition }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $arguments = @{}
+          if ([string]::IsNullOrWhiteSpace([string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID)) { throw 'HYPERV_STORAGE_RECONCILE_CI_CLONE_SOURCE_REQUIRED' }
+          $arguments.CloneSourceRunId = [string]$env:SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID
+          $arguments.MediaRoot = [string]$env:SQL_SERVER_LAB_CI_MEDIA_ROOT
+          $arguments.MediaEdition = [string]$env:SQL_SERVER_LAB_CI_MEDIA_EDITION
+          .\Tests\Integration\Invoke-HyperVStorageReconcileAcceptance.ps1 @arguments
       - name: Reject sample manifest acceptance outside manual main
         if: inputs.mode == 'sample-manifest-acceptance' && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
         run: |

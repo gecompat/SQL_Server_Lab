@@ -468,10 +468,6 @@ function New-LabStorageSqlApplyQuery {
             $statements.Add("ALTER DATABASE tempdb MODIFY FILE (NAME=N'$logical', FILENAME=N'$path', SIZE=${size}MB, FILEGROWTH=$growth);")
         }
     }
-    $desiredDataNames = @($tempFiles | Where-Object Role -eq 'tempdb-data' | ForEach-Object { "N'$(([string]$_.LogicalName).Replace("'", "''"))'" })
-    if ($desiredDataNames.Count -gt 0) {
-        $statements.Add("DECLARE @n sysname,@s nvarchar(max); DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT name FROM tempdb.sys.database_files WHERE type=0 AND name NOT IN ($($desiredDataNames -join ',')); OPEN c; FETCH NEXT FROM c INTO @n; WHILE @@FETCH_STATUS=0 BEGIN SET @s=N'USE tempdb; DBCC SHRINKFILE ('+QUOTENAME(@n,'''')+N', EMPTYFILE) WITH NO_INFOMSGS; ALTER DATABASE tempdb REMOVE FILE '+QUOTENAME(@n)+N';'; EXEC sys.sp_executesql @s; FETCH NEXT FROM c INTO @n; END; CLOSE c; DEALLOCATE c;")
-    }
     return $statements -join "`n"
 }
 

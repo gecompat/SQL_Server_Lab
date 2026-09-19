@@ -414,8 +414,21 @@ zusätzliche VHDX/Grow-only, SQL-Storage, SQL-Konfiguration, den
 statischen SQL-TCP-Port und katalogisierte Testdatenbanken. Der SQL-Storage-Slice wird erst nach
 einem Host-/Gast-Storage-No-op ausführbar, vergleicht Default- und TempDB-Pfade
 read-only und verwendet für Restart, Postconditions und Resume das lokale
-Storage-Runtime-Receipt. User-/Systemdatenbankbewegung und positive native
-Repair-Evidence bleiben offen. Der Konfigurationsslice vergleicht
+Storage-Runtime-Receipt. Die lokale native SQL-Storage-Abnahme vom 2026-09-17
+belegt Windows Server 2025 mit SQL Server 2025 Enterprise: Default-/Backup-
+Verzeichnisse, vier TempDB-Datendateien und eine Logdatei, SQL-Dienstrestart
+ohne VM-Neustart, No-op und vollständiges Cleanup. User-/Systemdatenbankbewegung,
+weitere Versionskombinationen und natives Fault/Resume bleiben offen.
+Dieser native Nachweis gilt für Runnerstand `43bdb819`. Die anschließende
+Entfernung des unsicheren RAW-Größenfallbacks ist offline geprüft. Die Zuordnung
+verwendet jetzt die vollständige GUID im binären Microsoft-T10-Identifier statt
+der verkürzten Gast-NAA-Kennung. Boot-/Systemplatten und ungültige Zuordnungen
+werden in einer vollständigen Vorprüfung vor Diskmutation abgewiesen. Der
+GUID-Leseweg wurde an einer bestehenden Windows-2025-Systemplatte rein lesend
+belegt. Der lokale native Storage-Abnahmelauf vom 2026-09-19 bestätigte den
+integrierten Stand mit zwei neuen Datenplatten, Gast-Receipts, SQL-Bereitschaft
+nach VM-Neustart, No-op und sechs erfolgreichen Cleanup-Schritten ohne Fehler.
+Der Konfigurationsslice vergleicht
 persistierte Memory-, MAXDOP-, Cost-Threshold-, `sp_configure`- und Trace-Flag-
 Ziele ueber PowerShell Direct. Dynamische Werte und additive Trace Flags werden
 live repariert; ein eng begrenztes Zielmanifest darf ausschließlich diesen
