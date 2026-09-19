@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.InternalSyntheticScenarioJournal/0.1",
+  "type": "object", "additionalProperties": false,
+  "required": ["ContractVersion", "OwnerId", "OperationId", "PlanHash", "Status", "PrimaryStatus", "CleanupStatus", "ArrangeBegun", "ResourcePresent", "SyntheticValue", "ObservedValue", "CleanupAttempts", "Phases"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.InternalSyntheticScenarioJournal/0.1" },
+    "OwnerId": { "type": "string", "pattern": "^[0-9a-f-]{36}$" },
+    "OperationId": { "type": "string", "pattern": "^[0-9a-f-]{36}$" },
+    "PlanHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "Status": { "enum": ["PREPARED", "IN_PROGRESS", "COMPLETED", "RECOVERY_REQUIRED"] },
+    "PrimaryStatus": { "enum": ["NOT_EXECUTED", "PASSED", "CANCELLED", "TIMED_OUT", "HANDLER_FAILED", "ASSERTION_FAILED", "INTERRUPTED", "EXECUTION_FAILED"] },
+    "CleanupStatus": { "enum": ["NOT_REQUIRED", "PENDING", "IN_PROGRESS", "PASSED", "TIMED_OUT", "HANDLER_FAILED"] },
+    "ArrangeBegun": { "type": "boolean" },
+    "ResourcePresent": { "type": "boolean" },
+    "SyntheticValue": { "enum": [null, 0, 1] },
+    "ObservedValue": { "enum": [null, 0, 1] },
+    "CleanupAttempts": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "Phases": {
+      "type": "array", "maxItems": 7,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["Phase", "Status"],
+        "properties": {
+          "Phase": { "enum": ["Arrange", "Act", "Observe", "Assert", "Cleanup"] },
+          "Status": { "enum": ["IN_PROGRESS", "PASSED", "CANCELLED", "TIMED_OUT", "HANDLER_FAILED", "ASSERTION_FAILED"] }
+        }
+      }
+    }
+  }
+}

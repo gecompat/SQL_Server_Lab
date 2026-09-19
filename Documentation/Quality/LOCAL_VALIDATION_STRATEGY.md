@@ -9,6 +9,15 @@
 
 ## 1. Grundsatz
 
+`Invoke-ScenarioExecutorChecks.ps1` prüft SCN-802 ausschließlich offline:
+Phasenreihenfolge, Cancellation vor/nach Arrange, Arbeits-/Cleanup-Timeouts,
+Handler-/Cleanupfehler, begrenztes Cleanup-Resume, Ownership-/Planbindung,
+Journalmanipulation, Lockkonflikt, Sanitierung und einen hart beendeten eigenen
+PowerShell-Kindprozess. Sämtlicher State ist synthetisch und temporär.
+`Invoke-ScenarioContractChecks.ps1` erhält unabhängig davon SCN-801 als
+Metadatenvertrag. Die Produktsources wählen keine Provider-Smokes; Änderungen
+am gemeinsamen CI-Selektor wählen weiterhin dessen vollständige Runtime-Matrix.
+
 `Tests/Static/Invoke-SecurityToolCatalogChecks.ps1` prüft den geschlossenen
 Security-Tool-/Trust-Metadatenkatalog, die leere produktive Allowlist und den
 direkten read-only Plan. Ausschließlich synthetische Katalogdaten prüfen

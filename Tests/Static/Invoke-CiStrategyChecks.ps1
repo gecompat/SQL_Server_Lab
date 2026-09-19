@@ -34,6 +34,15 @@ Add-CheckResult -Name 'Windows-External-Runtime-Aenderung aktiviert Katalog-, Ga
 )
 
 $shared = & $selector -ChangedPath @('Private/Common.ps1')
+foreach ($scenarioPath in @('Private/ScenarioExecutor.ps1','Schemas/scenario-execution-plan.schema.json','Schemas/scenario-execution-journal.schema.json','Tests/Fixtures/ScenarioExecutor/Invoke-InterruptedFixture.ps1')) {
+    $selected = & $selector -ChangedPath @($scenarioPath)
+    Add-CheckResult -Name "Synthetischer interner Executor bleibt providerlos: $scenarioPath" -Success (
+        'Invoke-ScenarioExecutorChecks.ps1' -in $selected.StaticChecks -and
+        'Invoke-ScenarioContractChecks.ps1' -in $selected.StaticChecks -and
+        -not $selected.Docker -and -not $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+}
+$scenarioMixed = & $selector -ChangedPath @('Private/ScenarioExecutor.ps1','Private/UnknownScenarioExecutor.ps1')
+Add-CheckResult -Name 'Synthetischer Executor unterdrueckt keinen unbekannten produktiven Runtime-Fallback' -Success $scenarioMixed.Docker
 foreach ($securityPath in @('Private/SecurityToolCatalog.ps1','Public/Get-SqlServerLabSecurityToolPlan.ps1',
     'Catalogs/security-tools.json','Schemas/security-tool-catalog.schema.json','Schemas/security-tool-request.schema.json',
     'Schemas/security-tool-plan.schema.json','Tests/Fixtures/SecurityTools/catalog.json')) {

@@ -9,6 +9,11 @@
 
 ## Kurz-Readiness vor einem Pull Request
 
+`Tests/Static/Invoke-ScenarioExecutorChecks.ps1` prüft den internen synthetischen
+SCN-802-Executor einschließlich Cancellation, Timeout, Fehlern, Ownership,
+Journalintegrität und Resume nach hartem Abbruch eines eigenen Kindprozesses.
+Er erzeugt ausschließlich temporäre lokale Fixtures, keine SQL-Umgebungen.
+
 Der lokale Security-Tool-Katalog-/Planvertrag wird mit
 `Tests/Static/Invoke-SecurityToolCatalogChecks.ps1` ausschließlich anhand
 synthetischer Katalogdaten geprüft. Die produktive Allowlist bleibt leer;

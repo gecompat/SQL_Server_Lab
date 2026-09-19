@@ -32,6 +32,10 @@ sources_of_truth:
   internal_scenario_contract_example: Schemas/scenario-contract.example.json
   validation_internal_scenario_contract: Tests/Static/Invoke-ScenarioContractChecks.ps1
   internal_scenario_contract_backlog: Documentation/Project_Planning/SCENARIO_CONTRACT_BACKLOG.md
+  internal_synthetic_scenario_executor: Private/ScenarioExecutor.ps1
+  internal_synthetic_scenario_plan_schema: Schemas/scenario-execution-plan.schema.json
+  internal_synthetic_scenario_journal_schema: Schemas/scenario-execution-journal.schema.json
+  validation_internal_synthetic_scenario_executor: Tests/Static/Invoke-ScenarioExecutorChecks.ps1
   security_tool_acquisition_backlog: Documentation/Project_Planning/SECURITY_TOOL_ACQUISITION_BACKLOG.md
   security_tool_catalog: Catalogs/security-tools.json
   security_tool_resolver: Private/SecurityToolCatalog.ps1
