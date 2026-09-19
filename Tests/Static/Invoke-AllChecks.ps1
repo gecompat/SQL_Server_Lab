@@ -67,6 +67,7 @@ $checks = @(
     'Invoke-AiScenarioChecks.ps1',
     'Invoke-ScenarioContractChecks.ps1',
     'Invoke-ScenarioExecutorChecks.ps1',
+    'Invoke-ContainerCpuFaultChecks.ps1',
     'Invoke-ContainerInstanceStoreChecks.ps1',
     'Invoke-ContainerRuntimeScopeChecks.ps1',
     'Invoke-HyperVPersistentDataDriveChecks.ps1',

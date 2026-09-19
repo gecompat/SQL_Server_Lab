@@ -34,6 +34,14 @@ Add-CheckResult -Name 'Windows-External-Runtime-Aenderung aktiviert Katalog-, Ga
 )
 
 $shared = & $selector -ChangedPath @('Private/Common.ps1')
+foreach ($faultPath in @('Private/ContainerCpuFault.ps1','Schemas/container-cpu-fault-target.schema.json','Schemas/container-cpu-fault-journal.schema.json','Tests/Integration/Invoke-ContainerCpuFaultAcceptance.ps1')) {
+    foreach ($path in @($faultPath,$faultPath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "CPU-Fault waehlt getrennte Containerprovider: $path" -Success (
+            'Invoke-ContainerCpuFaultChecks.ps1' -in $selected.StaticChecks -and
+            $selected.Docker -and $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+    }
+}
 foreach ($scenarioPath in @('Private/ScenarioExecutor.ps1','Schemas/scenario-execution-plan.schema.json','Schemas/scenario-execution-journal.schema.json','Tests/Fixtures/ScenarioExecutor/Invoke-InterruptedFixture.ps1')) {
     $selected = & $selector -ChangedPath @($scenarioPath)
     Add-CheckResult -Name "Synthetischer interner Executor bleibt providerlos: $scenarioPath" -Success (

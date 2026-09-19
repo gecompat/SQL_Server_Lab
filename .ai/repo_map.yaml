@@ -33,6 +33,12 @@ sources_of_truth:
   validation_internal_scenario_contract: Tests/Static/Invoke-ScenarioContractChecks.ps1
   internal_scenario_contract_backlog: Documentation/Project_Planning/SCENARIO_CONTRACT_BACKLOG.md
   internal_synthetic_scenario_executor: Private/ScenarioExecutor.ps1
+  internal_container_cpu_fault: Private/ContainerCpuFault.ps1
+  internal_container_cpu_fault_target_schema: Schemas/container-cpu-fault-target.schema.json
+  internal_container_cpu_fault_journal_schema: Schemas/container-cpu-fault-journal.schema.json
+  internal_container_cpu_fault_contract: Documentation/Architecture/CONTAINER_CPU_FAULT.md
+  validation_internal_container_cpu_fault: Tests/Static/Invoke-ContainerCpuFaultChecks.ps1
+  acceptance_internal_container_cpu_fault: Tests/Integration/Invoke-ContainerCpuFaultAcceptance.ps1
   internal_synthetic_scenario_plan_schema: Schemas/scenario-execution-plan.schema.json
   internal_synthetic_scenario_journal_schema: Schemas/scenario-execution-journal.schema.json
   validation_internal_synthetic_scenario_executor: Tests/Static/Invoke-ScenarioExecutorChecks.ps1
