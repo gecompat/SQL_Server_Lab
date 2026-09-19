@@ -9,6 +9,13 @@
 
 ## 1. Grundsatz
 
+`Invoke-ReconcileContractChecks.ps1` prüft persistierte Sollidentitäten offline:
+doppelte `(Provider, Id)`-Paare werden ohne Beachtung der Groß-/Kleinschreibung
+mit `DESIRED_INSTANCE_IDENTITY_DUPLICATE` abgewiesen. RUNNING- und STOPPED-Pläne
+bleiben dann `unsupported`, ohne Aktionen oder Fallback auf Connection-Info;
+State- und Connection-Dateien bleiben bytegleich. Dieselbe Id unter verschiedenen
+Providern bleibt gültig. Dies ist kein nativer Providernachweis.
+
 `Invoke-InstanceCapabilityAssessmentChecks.ps1` prüft den privaten CORE-102-
 Metadatenentscheid offline: Provider-/OS-Tuple, bestehende SQL-/Netzwerk-/
 Softwareentscheidungen, pfadfreie Drives, Determinismus, Sanitierung sowie
