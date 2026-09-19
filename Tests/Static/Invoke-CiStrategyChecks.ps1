@@ -226,6 +226,7 @@ $dependencyCases = @(
     @{ Path = 'Private/AiReembedding.ps1'; Checks = @('Invoke-AiScenarioChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
     @{ Path = 'Schemas/ai-reembedding-plan.schema.json'; Checks = @('Invoke-AiScenarioChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
     @{ Path = 'Private/StateUpgrade.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/StateMachine.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1'); Runtime = @() },
     @{ Path = 'Public/Get-SqlServerLabRunStateUpgradePlan.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
     @{ Path = 'Public/Invoke-SqlServerLabRunStateUpgrade.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/CollationCatalog.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-VersionCatalogChecks.ps1'); Runtime = @() },

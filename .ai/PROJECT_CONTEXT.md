@@ -116,6 +116,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - SQL-Version- und CU-Buildauflösung aus dem Katalog;
 - Resource Assessment;
 - lokaler Run-State und Cleanup-Plan;
+- neue Run-States tragen `contractVersion=SqlServerLab.RunState/1.0` und
+  benötigen kein State-Upgrade. Historische unversionierte States bleiben
+  ohne synthetische Fixture-Markierung für die automatische Migration blockiert;
 - SQL-Bereitschaft;
 - Server- und Datenbankkonfiguration im dokumentierten Umfang;
 - Datenbankerstellung;

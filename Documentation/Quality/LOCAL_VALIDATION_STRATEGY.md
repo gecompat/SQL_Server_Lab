@@ -9,6 +9,16 @@
 
 ## 1. Grundsatz
 
+`Invoke-RunStateUpgradeChecks.ps1` erzeugt einen frischen Run-State über den
+internen Konstruktor und prüft `SqlServerLab.RunState/1.0`, `NO_ACTION`, stabile
+Versions-/Planbindung sowie unveränderte Dateimenge, Bytes und Schreibzeiten
+nach Planung und Upgrade-Aufruf. Historische unversionierte States ohne
+Fixture-Markierung bleiben blockiert; ausschließlich synthetische Legacy-
+Migration und deren bestehendes Resume werden offline geprüft. Änderungen an
+`StateMachine.ps1` wählen diese Suite zusätzlich zur Mixed-Provider-
+Lifecycle-Suite. Providerressourcen werden für diesen lokalen Vertrag nicht
+benötigt; die Runtime-Auswahl des gemeinsamen CI-Selektors bleibt unverändert.
+
 `Invoke-ScenarioCapabilityDecisionChecks.ps1` prüft SCN-803 providerlos mit
 synthetischen JSON-Eingaben: vollständige, fehlende und teilweise Capability-
 Abdeckung, Scenario-/Version-/Evidence-Bindung, UTC-Fristen, unbekannte Felder,

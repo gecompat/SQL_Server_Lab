@@ -210,10 +210,13 @@ Ein Recovery Point benötigt:
 `Update-SqlServerLabContainer` beziehungsweise Reconcile aktualisiert eine
 Lab-Runtime, aber nicht das Framework selbst. `Get-SqlServerLabRunStateUpgradePlan`
 klassifiziert bereits einen einzelnen lokalen Run-State gegen
-`SqlServerLab.RunState/1.0`: unversionierte Legacy-States und fehlende
-`providerSubRuns` werden als manuell zu aktualisierende Änderungen ausgewiesen,
-unvollständige oder unbekannte States bleiben blockiert. Der Plan ist pfad- und
-secretfrei sowie vollständig read-only; er führt keine Migration aus.
+`SqlServerLab.RunState/1.0`. Neue Run-States erhalten diese Vertragsversion
+bereits bei der Erstellung; Planung und Upgrade-Aufruf ergeben `NO_ACTION`
+ohne Schreibzugriff. Historische unversionierte States werden nicht automatisch
+markiert und bleiben ohne `metadata.syntheticStateFixture=true` blockiert.
+Der Executor migriert nur ausdrücklich synthetische Legacy-States; unbekannte
+Versionen und unvollständige States bleiben blockiert. Der Plan ist pfad- und
+secretfrei sowie vollständig read-only; er führt selbst keine Migration aus.
 Ein kontrollierter Vertrag für neue Modulversionen und veränderte lokale Schemas
 bleibt erforderlich.
 

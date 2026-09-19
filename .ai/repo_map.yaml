@@ -146,7 +146,7 @@ sources_of_truth:
   validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1
   host_tool_initializer: Tools/Initialize-SqlServerLabHostTools.ps1
   validation_host_tool_resolution: Tests/Static/Invoke-HostToolResolutionChecks.ps1
-  state_contract: Private/StateMachine.ps1
+  state_contract: Private/StateMachine.ps1 # New-LabRunState stamps SqlServerLab.RunState/1.0; historical states are unchanged
   run_state_upgrade_plan_contract: Private/StateUpgrade.ps1
   run_state_upgrade_plan_public: Public/Get-SqlServerLabRunStateUpgradePlan.ps1
   validation_run_state_upgrade_plan: Tests/Static/Invoke-RunStateUpgradeChecks.ps1
@@ -783,6 +783,7 @@ internal_components:
     responsibilities:
       - "State-Root bestimmen"
       - "Run-State und ProviderSubRuns persistieren"
+      - "Neue Run-States als SqlServerLab.RunState/1.0 erzeugen; historische States unveraendert lassen"
       - "State-Transitions und Fehlerhistorie verwalten"
   - name: ArtifactResolver
     source: Private/ArtifactResolver.ps1
