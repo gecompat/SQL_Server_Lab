@@ -115,7 +115,11 @@ try {
     [IO.File]::WriteAllText($path,([IO.File]::ReadAllText($path).Replace('RESTORE_REQUIRED','COMPLETED').Replace('RECOVERY_REQUIRED','COMPLETED')))
     Assert-Rejected { Invoke-Fixture $target -Resume } 'CPU_FAULT_JOURNAL_UNTRUSTED'
     Assert-Check ((Read-Provider).Restores -eq 0) 'tampering cannot authorize restoration'
-    $target=New-Fixture
+    foreach ($provider in @('docker','podman')) {
+    $target=New-Fixture $provider
+    $baseline=Get-LabCpuFaultSnapshot (New-LabCpuFaultRuntimeBinding $provider) $target -Fresh
+    $targetHash=Get-LabCpuFaultHash (ConvertTo-LabCpuFaultCanonicalJson $target)
+    $path=Join-Path $testRoot ($target.OperationId+'.cpu-fault.json')
     $inputPath=Join-Path $testRoot 'child.json'
     [IO.File]::WriteAllText($inputPath,(@{Target=$target; Directory=$testRoot; ProviderPath=$script:providerPath; Key=[Convert]::ToBase64String($key)} | ConvertTo-Json -Depth 15))
     $start=[Diagnostics.ProcessStartInfo]::new((Get-Command pwsh).Source)
@@ -124,14 +128,31 @@ try {
     $child=[Diagnostics.Process]::Start($start)
     try {
         $clock=[Diagnostics.Stopwatch]::StartNew()
-        while (-not $child.HasExited -and $clock.ElapsedMilliseconds -lt 15000 -and (Read-Provider).Activations -eq 0) { [Threading.Thread]::Sleep(20) }
-        Assert-Check ((Read-Provider).Activations -eq 1) 'real child activated after durable restore intent'
+        $checkpoint=$null
+        while (-not $child.HasExited -and $clock.ElapsedMilliseconds -lt 15000) {
+            if (Test-Path -LiteralPath $path) {
+                $candidate=Read-LabCpuFaultJournal $path $key $targetHash
+                if ($candidate.AppliedVerified) { $checkpoint=$candidate; break }
+            }
+            [Threading.Thread]::Sleep(20)
+        }
+        Assert-Check ($null -ne $checkpoint -and -not $child.HasExited) "$provider child reached authenticated applied checkpoint"
+        Assert-Check ($checkpoint.Status -eq 'RESTORE_REQUIRED' -and $checkpoint.PrimaryStatus -eq 'NOT_EXECUTED' -and $checkpoint.CleanupStatus -eq 'PENDING' -and $checkpoint.CleanupAttempts -eq 0 -and -not $checkpoint.RestoredVerified) 'checkpoint precedes observation and cleanup'
+        Assert-Check ((ConvertTo-LabCpuFaultCanonicalJson $checkpoint.Baseline) -ceq (ConvertTo-LabCpuFaultCanonicalJson $baseline)) 'authenticated checkpoint reconstructs exact raw baseline'
+        Assert-Rejected { Invoke-Fixture $target -Resume } 'CPU_FAULT_LOCK_UNAVAILABLE'
         $child.Kill($true)
         Assert-Check ($child.WaitForExit(5000)) 'child hard termination confirmed'
+        Assert-Check ((Read-Provider).Activations -eq 1 -and (Read-Provider).Restores -eq 0) 'hard termination bypasses child finally'
         $script:faultMode=''
         $result=Invoke-Fixture $target -Resume
-        Assert-Check ($result.PrimaryStatus -eq 'INTERRUPTED' -and $result.CleanupStatus -eq 'PASSED' -and (Read-Provider).Activations -eq 1 -and (Read-Provider).Restores -eq 1) 'hard interruption restores without replay'
+        Assert-Check ($result.Status -eq 'INTERRUPTED' -and $result.PrimaryStatus -eq 'INTERRUPTED' -and $result.AppliedVerified -and $result.RestoredVerified -and $result.CleanupStatus -eq 'PASSED' -and (Read-Provider).Activations -eq 1 -and (Read-Provider).Restores -eq 1) 'hard interruption restores without replay'
+        $restored=Get-LabCpuFaultSnapshot (New-LabCpuFaultRuntimeBinding $provider) $target
+        Assert-Check ((ConvertTo-LabCpuFaultCanonicalJson $restored) -ceq (ConvertTo-LabCpuFaultCanonicalJson $checkpoint.Baseline)) 'resume restores exact authenticated raw CPU state and identity'
+        $journalBytes=[Convert]::ToBase64String([IO.File]::ReadAllBytes($path))
+        $again=Invoke-Fixture $target -Resume
+        Assert-Check ($journalBytes -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($path)) -and (Read-Provider).Updates -eq 2 -and ($again | ConvertTo-Json -Compress) -ceq ($result | ConvertTo-Json -Compress)) 'interrupted terminal resume preserves bytes and provider state'
     } finally { if (-not $child.HasExited) { $child.Kill($true); $null=$child.WaitForExit(5000) }; $child.Dispose() }
+    }
     $source=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ContainerCpuFault.ps1') -Raw
     Assert-Check ($source -notmatch 'Update-SqlServerLabContainer|Invoke-Expression|\[scriptblock\]') 'no arbitrary command or reconcile input'
     Write-Host "CONTAINER_CPU_FAULT_CHECKS: PASS ($script:passed checks)"
