@@ -27,6 +27,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- CORE-110-Teilvertrag: Manifest-Planvorschau `1.3` projiziert je Instanz den
+  angeforderten SQL-Bezeichner, die aufgelöste Katalogversion und den bestehenden
+  Lifecycle-Entscheid einschließlich `UNKNOWN`. Fachliche Validierungsfehler
+  bleiben unabhängig sichtbar; Schemafehler liefern eine leere Instanzliste.
+  Manifest-, Provider- und Deprecation-Policy bleiben unverändert;
+
 - CORE-111-Teilvertrag: `New-SqlServerLab` persistiert ausgeführtes,
   übersprungenes oder explizit übersteuertes Resource Assessment vor der
   Providermutation für Container und manifestgebundenes Hyper-V. Lifecycle-

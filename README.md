@@ -489,7 +489,8 @@ kennzeichnen weiterhin riskante, aber ausführbare SQL-Konfigurationen. Bei
 `software` bietet der interaktive Wizard
 nur Varianten an, die der Software-Resolver fuer die bereits gewählte
 SQL-Version, den Provider und das Betriebssystem als `RESOLVED` freigibt. Die
-mutationsfreie Planvorschau nennt Artifact-Downloads, Derived-Image-Build oder
+mutationsfreie Planvorschau nennt den SQL-Lifecycle aus dem Versionskatalog
+einschließlich unbekannter Versionen sowie Artifact-Downloads, Derived-Image-Build oder
 Gastmutation, Restarts, Downtime, Package Locks, Verification und den sicheren
 Aenderungsweg (`rebuild`, `restart`, `recreate` oder `reprovision`). Ein
 gespeichertes Manifest läuft standardmäßig

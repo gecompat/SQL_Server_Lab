@@ -831,7 +831,16 @@ Ohne `-Quiet` gibt das Cmdlet ein Ergebnisobjekt zurück:
 | `IsValid` | `Boolean` | `True`, wenn keine Validierungsfehler gefunden wurden |
 | `Errors` | `String[]` | Schema-, Katalog-, Pfad- und fachliche Fehler |
 | `Warnings` | `String[]` | Risiken oder ausführbare Konfigurationen mit Einschränkungen; reservierte Runtimeverträge sind Fehler |
-| `Plan` | `PSCustomObject` | Mutationsfreie External-Runtime- und Sample-/Artifact-Planvorschau je Instanz |
+| `Plan` | `PSCustomObject` | Mutationsfreie SQL-Lifecycle-, External-Runtime- und Sample-/Artifact-Planvorschau je Instanz |
+
+`SqlServerLab.ManifestPlanPreview/1.3` bewahrt den angeforderten Bezeichner in
+`Plan.Instances[].SqlVersion`. `SqlVersionLifecycle` ergänzt `CatalogVersionId`,
+`Status`, `Supported` und `Message` aus der bestehenden Katalogprüfung.
+Bei `UNKNOWN` ist `CatalogVersionId` null. Diese Projektion bleibt auch bei
+fachlichen Fehlern verfügbar; ein Lifecycle-Status allein bestätigt weder
+einen gültigen CU-Tag noch Providerfähigkeit oder ein gültiges Manifest.
+Schemafehler liefern dieselbe Vertragshülle mit leerer Instanzliste.
+Die Vorschau gewährt keine Ausnahme für veraltete Versionen.
 
 Der Wizard bietet unter `instances[].software` nur External-Runtime-Varianten
 an, die der Resolver fuer die bereits gewählte SQL-Version, den Provider und
@@ -846,7 +855,7 @@ Integritäts-/Trust-Status, Handler und Idempotenz.
 
 ```powershell
 $validation.Plan.Instances |
-    Select-Object InstanceId, Provider, ExternalRuntimes, Samples
+    Select-Object InstanceId, SqlVersion, SqlVersionLifecycle, Provider, ExternalRuntimes, Samples
 ```
 
 Mit `-Quiet` wird ausschließlich `True` oder `False` zurückgegeben. Der Switch

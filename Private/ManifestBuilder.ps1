@@ -527,19 +527,25 @@ function Select-LabManifestExternalRuntimeReferences {
 function Write-LabManifestPlanPreview {
     <#
     .SYNOPSIS
-        Zeigt die strukturierte, mutationsfreie Runtime- und Artifact-Planvorschau.
+        Zeigt die strukturierte, mutationsfreie Versions-, Runtime- und Artifact-Planvorschau.
     #>
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Plan)
 
-    $runtimeEntries = @($Plan.Instances | ForEach-Object { @($_.ExternalRuntimes.Entries) })
-    $sampleEntries = @($Plan.Instances | ForEach-Object { @($_.Samples) })
-    if ($runtimeEntries.Count -eq 0 -and $sampleEntries.Count -eq 0) {
+    if (@($Plan.Instances).Count -eq 0) {
         return
     }
 
     Write-LabHeader 'Manifest-Planvorschau'
     foreach ($instancePlan in @($Plan.Instances)) {
+        if ($instancePlan.SqlVersionLifecycle) {
+            $lifecycle = $instancePlan.SqlVersionLifecycle
+            Write-LabStatus -Label "$($instancePlan.InstanceId) / SQL $($instancePlan.SqlVersion)" `
+                -Value "$($lifecycle.Status); Supported=$($lifecycle.Supported); Katalogversion=$($lifecycle.CatalogVersionId)"
+            if ($lifecycle.Message) {
+                Write-LabInfo "  $($lifecycle.Message)"
+            }
+        }
         foreach ($entry in @($instancePlan.ExternalRuntimes.Entries)) {
             Write-LabStatus -Label "$($instancePlan.InstanceId) / $($entry.Language)" `
                 -Value "$($entry.Status), $($entry.ChangeClassification.Highest)"
@@ -1039,7 +1045,7 @@ function Get-LabManifestValidationResult {
             Errors   = @($errors | Select-Object -Unique)
             Warnings = @()
             Plan     = [PSCustomObject]@{
-                Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.2' }
+                Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.3' }
                 Instances = @()
             }
         }
@@ -1236,6 +1242,12 @@ function Get-LabManifestValidationResult {
         $instancePlanPreviews.Add([PSCustomObject]@{
             InstanceId = [string]$instance.id
             SqlVersion = [string]$instance.version
+            SqlVersionLifecycle = [PSCustomObject]@{
+                CatalogVersionId = if ($versionDefinition) { [string]$versionDefinition.id } else { $null }
+                Status = [string]$versionCheck.Status
+                Supported = [bool]$versionCheck.Supported
+                Message = [string]$versionCheck.Message
+            }
             Provider = $effectiveProvider
             OperatingSystem = if ($instance.os) { [string]$instance.os } elseif ($effectiveProvider -eq 'hyperv') { 'windows' } else { 'linux' }
             Network = $networkPlan
@@ -1471,7 +1483,7 @@ function Get-LabManifestValidationResult {
         Errors   = @($errors | Select-Object -Unique)
         Warnings = @($warnings | Select-Object -Unique)
         Plan     = [PSCustomObject]@{
-            Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.2' }
+            Contract = [PSCustomObject]@{ Name='SqlServerLab.ManifestPlanPreview'; Version='1.3' }
             Instances = @($instancePlanPreviews)
         }
     }

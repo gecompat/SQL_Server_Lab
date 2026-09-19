@@ -180,7 +180,12 @@ function Test-SqlServerLabManifest {
     .OUTPUTS
         System.Management.Automation.PSCustomObject. Ohne Quiet enthaelt das
         Ergebnis IsValid (Boolean), Errors (String[]), Warnings (String[]) und
-        Plan. Plan beschreibt External-Runtime-Downloads, Build- oder
+        Plan. Plan (SqlServerLab.ManifestPlanPreview/1.3) projiziert je Instanz
+        SqlVersion und SqlVersionLifecycle mit CatalogVersionId, Status,
+        Supported und Message aus der bestehenden Versionspruefung. UNKNOWN
+        besitzt keine Katalog-ID; fachliche Fehler bleiben davon unabhaengig.
+        Bei Schemafehlern bleibt die Instanzliste leer.
+        Plan beschreibt auch External-Runtime-Downloads, Build- oder
         Gastmutation, Restarts, Downtime, Package Locks und Verification sowie
         Sample-/Artifact-Quelle, Lizenz, Outputs, Größen, Integrität, Trust,
         Handler und Idempotenz ohne eine Labressource zu veraendern.

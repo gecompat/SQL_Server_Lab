@@ -194,6 +194,77 @@ Add-CheckResult `
     -Success $minimalResult.IsValid `
     -Message ($minimalResult.Errors -join '; ')
 
+$lifecyclePlans = [System.Collections.Generic.List[object]]::new()
+foreach ($case in @(
+    @{ Version = '2025'; CatalogVersionId = '2025'; Status = 'SUPPORTED'; Supported = $true },
+    @{ Version = '2017'; CatalogVersionId = '2017'; Status = 'DEPRECATED'; Supported = $false },
+    @{ Version = '2099'; CatalogVersionId = $null; Status = 'UNKNOWN'; Supported = $false },
+    @{ Version = '2022-CU16'; CatalogVersionId = '2022'; Status = 'SUPPORTED'; Supported = $true }
+)) {
+    $lifecycleManifest = $minimal | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+    $lifecycleManifest.instances[0].version = $case.Version
+    $beforeJson = $lifecycleManifest | ConvertTo-Json -Depth 20 -Compress
+    $result = Test-SqlServerLabManifest -InputObject $lifecycleManifest
+    $expected = & $module { param($Version) Test-SqlServerVersionSupported -VersionId $Version } $case.Version
+    $entry = $result.Plan.Instances[0]
+    $lifecycle = $entry.SqlVersionLifecycle
+    $lifecyclePlans.Add($result.Plan)
+    Add-CheckResult -Name "SQL-Lifecycle $($case.Version) wird katalogtreu und mutationsfrei projiziert" -Success (
+        $result.Plan.Contract.Name -eq 'SqlServerLab.ManifestPlanPreview' -and
+        $result.Plan.Contract.Version -eq '1.3' -and
+        $entry.SqlVersion -ceq $case.Version -and
+        $lifecycle.CatalogVersionId -ceq $case.CatalogVersionId -and
+        $lifecycle.Status -ceq $case.Status -and
+        $lifecycle.Supported -is [bool] -and $lifecycle.Supported -eq $case.Supported -and
+        $lifecycle.Status -ceq $expected.Status -and
+        $lifecycle.Supported -eq $expected.Supported -and
+        $lifecycle.Message -ceq $expected.Message -and
+        (@($lifecycle.PSObject.Properties.Name | Sort-Object) -join ',') -ceq 'CatalogVersionId,Message,Status,Supported' -and
+        ($lifecycleManifest | ConvertTo-Json -Depth 20 -Compress) -ceq $beforeJson
+    )
+    if (-not $case.Supported) {
+        Add-CheckResult -Name "SQL $($case.Version) bleibt trotz Lifecycle-Projektion fachlich abgewiesen" -Success (
+            -not $result.IsValid -and
+            @($result.Errors | Where-Object { $_.Contains($expected.Message) }).Count -gt 0 -and
+            @($result.Errors | Where-Object { $_ -match '\.collation:' }).Count -gt 0
+        )
+    }
+}
+
+$invalidSchemaResult = Test-SqlServerLabManifest -InputObject @{ name = 'invalid-lifecycle-check' }
+Add-CheckResult -Name 'Schemafehler liefert leere Planvorschau 1.3 ohne erfundene Instanzdaten' -Success (
+    -not $invalidSchemaResult.IsValid -and
+    $invalidSchemaResult.Plan.Contract.Name -eq 'SqlServerLab.ManifestPlanPreview' -and
+    $invalidSchemaResult.Plan.Contract.Version -eq '1.3' -and
+    @($invalidSchemaResult.Plan.Instances).Count -eq 0
+)
+
+$lifecycleDisplay = & $module {
+    param($Plans)
+    $originalStatus = (Get-Command Write-LabStatus).ScriptBlock
+    $originalInfo = (Get-Command Write-LabInfo).ScriptBlock
+    $originalHeader = (Get-Command Write-LabHeader).ScriptBlock
+    $script:LifecycleDisplayLines = [System.Collections.Generic.List[string]]::new()
+    try {
+        Set-Item Function:Write-LabStatus -Value { param($Label, $Value) $script:LifecycleDisplayLines.Add("${Label}: $Value") }
+        Set-Item Function:Write-LabInfo -Value { param($Message) $script:LifecycleDisplayLines.Add([string]$Message) }
+        Set-Item Function:Write-LabHeader -Value { param($Title) $script:LifecycleDisplayLines.Add([string]$Title) }
+        foreach ($plan in $Plans) { Write-LabManifestPlanPreview -Plan $plan }
+        @($script:LifecycleDisplayLines)
+    }
+    finally {
+        Set-Item Function:Write-LabStatus -Value $originalStatus
+        Set-Item Function:Write-LabInfo -Value $originalInfo
+        Set-Item Function:Write-LabHeader -Value $originalHeader
+        Remove-Variable LifecycleDisplayLines -Scope Script -ErrorAction SilentlyContinue
+    }
+} @($lifecyclePlans)
+Add-CheckResult -Name 'Plananzeige zeigt SQL-Lifecycle auch ohne Samples oder External Runtimes' -Success (
+    @($lifecycleDisplay | Where-Object { $_ -match 'SQL 2025: SUPPORTED; Supported=True; Katalogversion=2025' }).Count -eq 1 -and
+    @($lifecycleDisplay | Where-Object { $_ -match 'SQL 2017: DEPRECATED; Supported=False; Katalogversion=2017' }).Count -eq 1 -and
+    @($lifecycleDisplay | Where-Object { $_ -match 'SQL 2099: UNKNOWN; Supported=False; Katalogversion=$' }).Count -eq 1
+)
+
 $configurationNameManifest = [ordered]@{
     name = 'configuration-name-check'
     instances = @(
@@ -212,7 +283,7 @@ Add-CheckResult `
     -Success ($configurationNameResult.IsValid -and -not $invalidConfigurationNameResult.IsValid)
 Add-CheckResult `
     -Name 'Container-Manifest plant standardmaessig NAT mit Host-Exposure' `
-    -Success ($minimalResult.Plan.Contract.Version -eq '1.2' -and
+    -Success ($minimalResult.Plan.Contract.Version -eq '1.3' -and
         $minimalResult.Plan.Instances[0].Network.Status -eq 'RESOLVED' -and
         $minimalResult.Plan.Instances[0].Network.Intent -eq 'nat' -and
         $minimalResult.Plan.Instances[0].Network.Exposure -eq 'host')
@@ -260,7 +331,7 @@ $samplePlan = @($samplePlanResult.Plan.Instances[0].Samples)[0]
 Add-CheckResult `
     -Name 'Manifestpruefung liefert Sample- und Artifact-Planvorschau' `
     -Success ($samplePlanResult.IsValid -and
-        $samplePlanResult.Plan.Contract.Version -eq '1.2' -and
+        $samplePlanResult.Plan.Contract.Version -eq '1.3' -and
         $samplePlan.Status -eq 'RESOLVED' -and
         $samplePlan.ArtifactType -eq 'backup' -and
         $samplePlan.Source -match '^https://' -and
