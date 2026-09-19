@@ -417,13 +417,15 @@ verlangt, dass der Dialog nur bei Fehlern aufgerufen wird und dass das
 Schnellkonfigurations-Netzwerkmodus-Feld begründet deaktiviert ist;
 Gegenbeweis durch Rücknahme der Änderung belegt den Fehlschlag.
 
-### Windows-Administratorpasswort im CLI-Menü abrufen — OPEN
+### Windows-Administratorpasswort im CLI-Menü abrufen — IMPLEMENTED_WITH_GAPS
 
-Geprüfter Ist-Zustand vom 2026-09-10: Das öffentliche Cmdlet
+Geprüfter Ist-Zustand vom 2026-09-19: Das öffentliche Cmdlet
 `Get-SqlServerLabGeneratedWindowsAccess -RunId <RunId>` entschlüsselt den
 automatisch generierten Windows-Administratorzugang eines Hyper-V-Runs.
-`Public/Invoke-SqlServerLab.ps1` zeigt nach der Slot-Pool-Erstellung lediglich
-einen Hinweis auf diesen Befehl. Eine eigene Menüaktion zum Abruf fehlt.
+`Public/Invoke-SqlServerLab.ps1` verbindet die Aktion
+„Windows-Administratorzugang anzeigen“ im Hyper-V-Verwaltungsmenü mit
+`Show-LabGeneratedWindowsAccessInteractive`. Kontexthilfe und Benutzerreferenz
+beschreiben den Menüpfad bereits.
 Selbst vergebene Passwörter gibt das Cmdlet ausdrücklich nicht aus.
 
 Ziel ist eine auffindbare Aktion „Windows-Administratorzugang anzeigen“ im
@@ -453,8 +455,15 @@ Abnahmekriterien:
 Betroffene Quellen: `Public/BatchConsole.ps1`, `Public/Invoke-SqlServerLab.ps1`,
 `Public/Get-SqlServerLabGeneratedWindowsAccess.ps1`, `Private/ConsoleHelp.ps1`,
 `Tests/Static/Invoke-ConsoleUiChecks.ps1` und
-`Documentation/User/Getting_Started.md`. Status: geplant; keine Änderung am
-Passwortvertrag oder Runtime-Nachweis durch diesen Backlog-Eintrag.
+`Documentation/User/Getting_Started.md`.
+
+Die synthetischen Funktionstests decken den rungebundenen Abruf, selbst
+vergebene Kennwörter, fehlende Secrets und Entschlüsselungsfehler ab. Fehler
+kehren nach Bestätigung ohne Zugangsdaten oder rohe Entschlüsselungsdiagnose
+zurück. Die Produkt-Aufrufstelle und der Abbruch vor dem Abruf sind bislang
+quelltextgestützt geprüft; eine vollständige funktionale Menü-Navigation mit
+Abbruch und ein isolierter Windows-/DPAPI-Menünachweis bleiben offen. Die
+synthetischen Tests sind kein nativer DPAPI- oder Hyper-V-Nachweis.
 
 ## Bindende Erkenntnisse für die Wiederaufnahme
 
