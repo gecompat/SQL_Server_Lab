@@ -1,5 +1,12 @@
 # Tests/ – lokale und Remote-Validierung
 
+Der interne Container-CPU-Puls besitzt die Offline-Suite
+`Static/Invoke-ContainerCpuFaultChecks.ps1` sowie die getrennten nativen
+`Integration/Invoke-ContainerCpuFaultAcceptance.ps1 -Provider docker` und
+`-Provider podman`. Beide nativen Läufe erzeugen ausschließlich frische eigene
+SQL-2025-Runs und verlangen vollständigen Cleanup. Der Vertrag steht unter
+`Documentation/Architecture/CONTAINER_CPU_FAULT.md`.
+
 ## Verzeichnisse
 
 | Verzeichnis | Inhalt |

@@ -9,6 +9,19 @@
 
 ## 1. Grundsatz
 
+`Invoke-ContainerCpuFaultChecks.ps1` prüft den internen CPU-Puls offline mit
+Fake-Provider und hart beendetem Kindprozess. Die getrennten nativen Läufe
+`Tests/Integration/Invoke-ContainerCpuFaultAcceptance.ps1 -Provider docker`
+und `-Provider podman` verlangen Readiness, einen frischen eigenen SQL-2025-
+Run, Applied-/Restore-Postconditions und vollständiges Cleanup. Bestehende
+Runs sind kein Testziel; Hyper-V wird dafür nicht gestartet. Der genaue
+Recovery- und Deadlinevertrag steht in
+`Documentation/Architecture/CONTAINER_CPU_FAULT.md`.
+Die getrennten lokalen SQL-2025-Läufe für Docker und Podman bestanden am
+2026-09-19 mit Applied-Postcondition, SQL-Probe, exakter Rücknahme, terminalem
+Resume und jeweils zwei erfolgreichen Cleanup-Schritten ohne Restcontainer.
+Ein echter Provider-Prozessabbruch mit Resume bleibt `NOT_EXECUTED`.
+
 `Invoke-ScenarioExecutorChecks.ps1` prüft SCN-802 ausschließlich offline:
 Phasenreihenfolge, Cancellation vor/nach Arrange, Arbeits-/Cleanup-Timeouts,
 Handler-/Cleanupfehler, begrenztes Cleanup-Resume, Ownership-/Planbindung,

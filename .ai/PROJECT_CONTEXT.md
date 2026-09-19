@@ -27,6 +27,14 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- interner FLT-811/FLT-812-CPU-Puls für frische operationseigene Docker-/Podman-
+  SQL-Testcontainer mit authentifiziertem Write-ahead-Journal und Restore-only-
+  Resume; Offlineprüfungen und getrennte native Acceptance-Einstiege liegen vor.
+  Docker und Podman bestanden die getrennte lokale SQL-2025-Abnahme am
+  2026-09-19 einschließlich exakter CPU-Rücknahme, SQL-Probe und Cleanup;
+  natives Hard-Interrupt-/Resume bleibt `NOT_EXECUTED`. Einzelheiten unter
+  `Documentation/Architecture/CONTAINER_CPU_FAULT.md`;
+
 - interner providerloser SCN-802-Executor mit fünf festen synthetischen Phasen,
   authentifiziertem atomischem Journal, Ownership, Timeouts, Cancellation und
   Cleanup-Resume; SCN-801 bleibt ein unveränderter Metadatenvertrag. Öffentliche

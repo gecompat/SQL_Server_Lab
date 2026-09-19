@@ -90,6 +90,7 @@ end {
         @{ Pattern = '(?i)(ContainerDatabasePackage|container-database-package)'; Checks = @('Invoke-ContainerDatabasePackageRecoveryChecks.ps1') },
         @{ Pattern = '(?i)(DatabaseMigrationDependency|database-migration-dependency)'; Checks = @('Invoke-DatabaseMigrationDependencyChecks.ps1','Invoke-BackupLibraryChecks.ps1','Invoke-DatabasePackageChecks.ps1') },
         @{ Pattern = '(?i)(AiScenario|ai-scenario|ai-(model-catalog|endpoint-plan|runtime-journal|query-result)|Catalogs[\\/]ai-models|SQL2025_AI_PLATFORM|SQL2025_VECTOR_EMBEDDING|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
+        @{ Pattern = '(?i)(ContainerCpuFault|container-cpu-fault|CONTAINER_CPU_FAULT)'; Checks = @('Invoke-ContainerCpuFaultChecks.ps1') },
         @{ Pattern = '(?i)(ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioContractChecks.ps1') },
         @{ Pattern = '(?i)(ScenarioExecutor|scenario-execution|ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioExecutorChecks.ps1','Invoke-ScenarioContractChecks.ps1') },
         @{ Pattern = '(?i)(AiVectorIndexAcceptance|Fixtures[\\/]VectorIndex[\\/])'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
@@ -195,6 +196,7 @@ end {
             if ($runtimePath -match '(?i)(CollationRuntimeEvidence|collation-runtime-evidence|Invoke-ContainerCollationAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerInstanceStore|container-instance-store)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerRuntimeScope|container-runtime-scope)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(ContainerCpuFault|container-cpu-fault)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(RelationalCoreComparison|relational-core-comparison)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(PortableContainerTransferPreflight|portable-container-transfer-preflight)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(AiScenario|ai-scenario|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario|AiVectorCoreAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
