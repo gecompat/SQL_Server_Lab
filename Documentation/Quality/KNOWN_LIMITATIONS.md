@@ -1,5 +1,10 @@
 # Bekannte Grenzen
 
+Der private CORE-102-[Instanzentscheid](../Architecture/INSTANCE_CAPABILITY_ASSESSMENT.md)
+fasst nur Katalog- und Providermetadaten zusammen. Sein deklarativer Status
+belegt keine Runtimebereitschaft oder Ausführungsautorität; physische
+Storage-Bindings und aktuelle SQL-Erreichbarkeit bleiben separate Nachweise.
+
 CORE-111 speichert den Erstellungs-Preflight für `New-SqlServerLab` lokal und
 unterscheidet `EXECUTED`, `SKIPPED` und explizites `OVERRIDDEN`.
 Der Lifecycle-Plan zeigt nur den historischen Entscheid, keine aktuelle

@@ -135,6 +135,7 @@ end {
         @{ Pattern = '(?i)(HyperVTestDatabaseReconcile|hyperv-test-database-(ownership|reconcile)|hyperv-test-database-reconcile)'; Checks = @('Invoke-HyperVTestDatabaseReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-InstanceIntentChecks.ps1','Invoke-SampleHandlerChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSampleManifest|hyperv-sample-manifest)'; Checks = @('Invoke-HyperVSampleManifestAcceptanceChecks.ps1','Invoke-SampleHandlerChecks.ps1','Invoke-SampleBaselineRegistryChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(ContainerReconcile|Update-SqlServerLabContainer)'; Checks = @('Invoke-ContainerReconcileChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1','Invoke-ReadinessContractChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-PortAllocationChecks.ps1') },
+        @{ Pattern = '(?i)(InstanceCapabilityAssessment|instance-capability-assessment|DesiredState|ProviderCapability|provider\.json|VersionCatalog|sql-server-versions\.json|SoftwareCatalog|Catalogs/software\.json|LabNetwork)'; Checks = @('Invoke-InstanceCapabilityAssessmentChecks.ps1','Invoke-InstanceIntentChecks.ps1') },
         @{ Pattern = '(?i)(ProviderCapability|provider\.json)'; Checks = @('Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(InstanceIntent|ServerConfig|ResourceAssessment)'; Checks = @('Invoke-InstanceIntentChecks.ps1') },
         @{ Pattern = '(?i)(ManifestBuilder|ManifestParser|VersionCatalog|sql-server-versions|lab-manifest|New-SqlServerLabManifest)'; Checks = @('Invoke-ManifestBuilderChecks.ps1','Invoke-AiScenarioChecks.ps1') },
@@ -222,6 +223,7 @@ end {
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/SecurityToolCatalog\.ps1|Public/Get-SqlServerLabSecurityToolPlan\.ps1|Catalogs/security-tools\.json|Schemas/security-tool-(catalog|request|plan)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioExecutor\.ps1|Schemas/scenario-execution-(plan|journal)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioCapabilityDecision\.ps1|Schemas/scenario-capability-(plan|decision)\.schema\.json)$'
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/InstanceCapabilityAssessment\.ps1|Schemas/instance-capability-assessment\.schema\.json)$'
             if ($pathHasProductCode -and -not $knownDomainChange -and -not $staticOnlyProductChange) {
                 $pathRuntime.Docker = $true
             }

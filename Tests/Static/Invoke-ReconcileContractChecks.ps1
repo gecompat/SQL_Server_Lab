@@ -63,17 +63,21 @@ $forbiddenPresent = @($forbiddenPlannerMutations | Where-Object { $source -match
                 @($_.PSObject.Properties.Name | Where-Object { $_ -notin @('Id', 'Provider', 'Version', 'Profile', 'AutoStart', 'DatabaseNames', 'Intents') })
             }
         ) | ForEach-Object { $_ }
+        $intentUnknown = @($snapshot.Instances | ForEach-Object {
+            $_.Intents.PSObject.Properties.Name | Where-Object { $_ -notin @('Contract','Drives','Network','Resources','SqlEndpoint','SqlConfiguration','Databases','Software','CapabilityAssessment','Storage','WindowsLocale','WindowsActivation') }
+        })
         [PSCustomObject]@{
             Snapshot = $snapshot
             TopUnknown = $topUnknown
             InstanceUnknown = @($instanceUnknown | Where-Object { $_ })
+            IntentUnknown = $intentUnknown
             Serialized = $snapshot | ConvertTo-Json -Depth 10
         }
     }
 
     Add-CheckResult `
         -Name 'DesiredState-Snapshot enthält nur erlaubte Felder' `
-        -Success ($desiredSnapshot.TopUnknown.Count -eq 0 -and $desiredSnapshot.InstanceUnknown.Count -eq 0)
+        -Success ($desiredSnapshot.TopUnknown.Count -eq 0 -and $desiredSnapshot.InstanceUnknown.Count -eq 0 -and $desiredSnapshot.IntentUnknown.Count -eq 0)
         Add-CheckResult `
         -Name 'DesiredState-Snapshot ist frei von Host-/Secret-bezogenen Inhalten' `
         -Success ($desiredSnapshot.Serialized -notmatch 'C:\\|D:\\|hostPath|automation|EnvironmentVariable|not-persist')
