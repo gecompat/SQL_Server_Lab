@@ -6,13 +6,14 @@
     Beendet sich sofort, wenn `podman info` erfolgreich ist. Ist Podman
     installiert, aber keine Runtime erreichbar, wird eine vorhandene gestoppte
     Podman-Machine gestartet. Anschliessend wartet das Skript begrenzt auf eine
-    erfolgreiche Verbindung.
+    erfolgreiche Verbindung. Bei bereits laufender oder startender Machine
+    wartet es ohne erneuten Start auf deren Erreichbarkeit.
 
     Das Skript erstellt keine neue Podman-Machine und veraendert keine
     Connection-Auswahl. Bei mehreren gestoppten Machines wird bevorzugt
     `podman-machine-default` verwendet; ohne eindeutiges Ziel bricht es ab.
 .PARAMETER TimeoutSeconds
-    Maximale Wartezeit nach dem Start. Default: 90 Sekunden.
+    Maximale Poll-Wartezeit auf Erreichbarkeit. Default: 90 Sekunden.
 .PARAMETER PollIntervalSeconds
     Abstand zwischen Erreichbarkeitspruefungen. Default: 2 Sekunden.
 .EXAMPLE
@@ -121,11 +122,25 @@ try {
     }
 
     $targetName = Get-PodmanMachineName -Machine $target
-    Write-Host "Podman-Runtime ist nicht erreichbar. Starte Machine '$targetName' ..." -ForegroundColor Yellow
-    $startOutput = @(& $podmanInvocation machine start $targetName 2>&1)
-    $startExitCode = $LASTEXITCODE
-    if ($startExitCode -ne 0) {
-        throw "Podman-Machine '$targetName' konnte nicht gestartet werden: $($startOutput -join "`n")"
+    $alreadyActive = $false
+    foreach ($stateName in @('Running', 'Starting')) {
+        $state = $target.PSObject.Properties[$stateName]
+        if ($state -and $state.Value -is [bool] -and $state.Value) {
+            $alreadyActive = $true
+        }
+    }
+    $startedByScript = $false
+    if ($alreadyActive) {
+        Write-Host "Podman-Machine '$targetName' ist aktiv. Warte auf Erreichbarkeit ..." -ForegroundColor Yellow
+    }
+    else {
+        Write-Host "Podman-Runtime ist nicht erreichbar. Starte Machine '$targetName' ..." -ForegroundColor Yellow
+        $startOutput = @(& $podmanInvocation machine start $targetName 2>&1)
+        $startExitCode = $LASTEXITCODE
+        if ($startExitCode -ne 0) {
+            throw "Podman-Machine '$targetName' konnte nicht gestartet werden: $($startOutput -join "`n")"
+        }
+        $startedByScript = $true
     }
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
@@ -136,7 +151,7 @@ try {
             return [pscustomobject]@{
                 Status          = 'READY'
                 MachineName     = $targetName
-                StartedByScript = $true
+                StartedByScript = $startedByScript
             }
         }
 
@@ -144,7 +159,7 @@ try {
     } while ($stopwatch.Elapsed.TotalSeconds -lt $TimeoutSeconds)
 
     $stopwatch.Stop()
-    throw "Podman-Machine '$targetName' wurde gestartet, war aber nach $TimeoutSeconds Sekunden nicht erreichbar."
+    throw "Podman-Machine '$targetName' war nach $TimeoutSeconds Sekunden nicht erreichbar (StartedByScript=$startedByScript)."
 }
 finally {
     if ($acquired) {

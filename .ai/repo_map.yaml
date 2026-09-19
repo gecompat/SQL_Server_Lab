@@ -1426,6 +1426,8 @@ validation:
     covers:
       - already_ready
       - stopped_default_machine
+      - running_or_starting_machine_readiness_without_restart
+      - active_machine_readiness_timeout
       - unique_custom_machine
       - no_machine
       - ambiguous_machines
