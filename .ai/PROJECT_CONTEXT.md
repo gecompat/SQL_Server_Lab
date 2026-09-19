@@ -27,6 +27,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- privater providerloser SCN-803-Capability-Entscheid vor einer möglichen
+  Szenarioausführung: strikte Scenario-/Capability-/synthetische Evidence-
+  Bindung, deterministische UTC-Fristen und sanitisierte Entscheidungen.
+  `ELIGIBLE` beschreibt nur deklarierte Verfügbarkeit; synthetische Alternativen
+  bleiben `NOT_EXECUTED`. Runtime-Discovery und Executorbindung bleiben offen.
+  Vertrag: `Documentation/Architecture/SCENARIO_CAPABILITY_DECISION.md`;
+
 - interner `container.memory-limit`-Puls für frische operationseigene Linux-
   SQL-2025-Testcontainer (3072→2560→3072 MiB), mit eigenem Rohsnapshot,
   authentifiziertem Journal und Restore-only-Resume. Limit-Rücknahme und

@@ -1,5 +1,14 @@
 # Bekannte Grenzen
 
+Der private SCN-803-Capability-Entscheid verarbeitet ausschließlich vom
+vertrauenswürdigen lokalen Aufrufer gelieferte Deklarationen und synthetische
+Evidence. `ELIGIBLE` ist weder Ausführungsfreigabe noch Runtime-Nachweis.
+Eine vollständig gebundene Alternative bleibt `NOT_EXECUTED`; unvollständige
+Abdeckung bleibt `UNSUPPORTED`, ungültige Eingaben werden `BLOCKED`.
+Es gibt keine Provider-/SQL-Discovery, automatische Ausführung, Journaldateien
+oder öffentliche API. Siehe
+`Documentation/Architecture/SCENARIO_CAPABILITY_DECISION.md`.
+
 Der private `container.memory-limit`-Puls erlaubt ausschließlich frische eigene
 Linux-SQL-2025-Testcontainer mit 3072 MiB Memory und 6144 MiB MemorySwap.
 Der Puls begrenzt Memory kurz auf 2560 MiB. Docker bestätigt die Limit-Rücknahme

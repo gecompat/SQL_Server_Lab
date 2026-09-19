@@ -30,6 +30,12 @@ und bytegleichem terminalem Journal. Docker und Podman sind separat auszuführen
 
 ## Kurz-Readiness vor einem Pull Request
 
+`Tests/Static/Invoke-ScenarioCapabilityDecisionChecks.ps1` prüft den privaten
+SCN-803-Entscheid ausschließlich mit synthetischem JSON: Capability-Mengen,
+strikte Evidence-Bindung, Ablaufzeiten, vollständige Eingabevalidierung und
+deterministische sanitisierte Ergebnisse. Es entstehen keine Runtime- oder
+Journaldateien; der Test ist kein SQL-/Provider-Nachweis.
+
 `Tests/Static/Invoke-ScenarioExecutorChecks.ps1` prüft den internen synthetischen
 SCN-802-Executor einschließlich Cancellation, Timeout, Fehlern, Ownership,
 Journalintegrität und Resume nach hartem Abbruch eines eigenen Kindprozesses.

@@ -94,6 +94,7 @@ end {
         @{ Pattern = '(?i)(ContainerMemoryFault|container-memory-fault|CONTAINER_MEMORY_FAULT|Private/ContainerCpuFault)'; Checks = @('Invoke-ContainerMemoryFaultChecks.ps1') },
         @{ Pattern = '(?i)(ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioContractChecks.ps1') },
         @{ Pattern = '(?i)(ScenarioExecutor|scenario-execution|ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioExecutorChecks.ps1','Invoke-ScenarioContractChecks.ps1') },
+        @{ Pattern = '(?i)(ScenarioCapabilityDecision|scenario-capability-(plan|decision)|SCENARIO_CAPABILITY_DECISION|ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioCapabilityDecisionChecks.ps1','Invoke-ScenarioContractChecks.ps1') },
         @{ Pattern = '(?i)(AiVectorIndexAcceptance|Fixtures[\\/]VectorIndex[\\/])'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
         @{ Pattern = '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(StateUpgrade|state-upgrade)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
@@ -218,6 +219,7 @@ end {
             $staticOnlyProductChange = $runtimePath -match '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact)|ResourceSet|ResourcePlan|ScenarioContract|scenario-contract|EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence|AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/SecurityToolCatalog\.ps1|Public/Get-SqlServerLabSecurityToolPlan\.ps1|Catalogs/security-tools\.json|Schemas/security-tool-(catalog|request|plan)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioExecutor\.ps1|Schemas/scenario-execution-(plan|journal)\.schema\.json)$'
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioCapabilityDecision\.ps1|Schemas/scenario-capability-(plan|decision)\.schema\.json)$'
             if ($pathHasProductCode -and -not $knownDomainChange -and -not $staticOnlyProductChange) {
                 $pathRuntime.Docker = $true
             }

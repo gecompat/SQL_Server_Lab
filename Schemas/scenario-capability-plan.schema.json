@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.InternalScenarioCapabilityPlan/0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "ScenarioId", "ScenarioVersion", "RequiredCapabilities", "AvailableCapabilityIds", "AlternativeEvidence"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.InternalScenarioCapabilityPlan/0.1" },
+    "ScenarioId": { "$ref": "#/$defs/id" },
+    "ScenarioVersion": { "$ref": "#/$defs/version" },
+    "RequiredCapabilities": { "type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+    "AvailableCapabilityIds": { "type": "array", "maxItems": 64, "uniqueItems": true, "items": { "$ref": "#/$defs/id" } },
+    "AlternativeEvidence": {
+      "type": "array", "maxItems": 64,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["EvidenceId", "CapabilityId", "ScenarioId", "ScenarioVersion", "Classification", "Result", "ObservedAtUtc", "ExpiresAtUtc"],
+        "properties": {
+          "EvidenceId": { "$ref": "#/$defs/id" },
+          "CapabilityId": { "$ref": "#/$defs/id" },
+          "ScenarioId": { "$ref": "#/$defs/id" },
+          "ScenarioVersion": { "$ref": "#/$defs/version" },
+          "Classification": { "const": "SYNTHETIC" },
+          "Result": { "const": "PASSED" },
+          "ObservedAtUtc": { "$ref": "#/$defs/utc" },
+          "ExpiresAtUtc": { "$ref": "#/$defs/utc" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+    "version": { "type": "string", "maxLength": 16, "pattern": "^[1-9][0-9]*\\.[0-9]+$" },
+    "utc": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" }
+  }
+}
