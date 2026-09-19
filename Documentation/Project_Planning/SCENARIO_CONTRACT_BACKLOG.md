@@ -78,6 +78,15 @@ Ein bestandener Lauf ist kein Docker-, Podman-, Hyper-V- oder SQL-Nachweis.
 
 ## Offene Entscheidungen
 
+Der zusätzliche private SCN-803-Teilscope unter
+`Private/ScenarioCapabilityDecision.ps1` bewertet deklarierte Capabilities und
+streng gebundene synthetische AlternativeEvidence ohne Ausführung. Der genaue
+Vertrag steht in
+[`SCENARIO_CAPABILITY_DECISION.md`](../Architecture/SCENARIO_CAPABILITY_DECISION.md).
+SCN-801 bleibt `ExecutionImplemented=false`; SCN-802 und der öffentliche
+KI-Szenariopfad werden dadurch nicht angebunden. Die allgemeine Runtime-
+Capability-Ermittlung und Executorintegration von SCN-803 bleiben offen.
+
 Folgende öffentliche oder dauerhafte Entscheidungen sind weiterhin `DECISION_REQUIRED` und werden durch diesen internen Slice nicht entschieden:
 
 - Registration Authority und öffentliches Namens-/Versionsmodell für Scenario-Identitäten;

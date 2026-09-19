@@ -9,6 +9,15 @@
 
 ## 1. Grundsatz
 
+`Invoke-ScenarioCapabilityDecisionChecks.ps1` prüft SCN-803 providerlos mit
+synthetischen JSON-Eingaben: vollständige, fehlende und teilweise Capability-
+Abdeckung, Scenario-/Version-/Evidence-Bindung, UTC-Fristen, unbekannte Felder,
+duplizierte JSON-Schlüssel, geschlossene Aufrufe und sanitisierte deterministische
+Ausgaben. Die Produktsources wählen nur statische Prüfungen. Die Änderung am
+gemeinsamen CI-Selektor fordert weiterhin dessen Runtime-Matrix im PR-Gate;
+dieser lokale read-only Slice führt keine Provider-Smokes aus und behauptet
+keinen solchen Nachweis.
+
 `Invoke-ContainerMemoryFaultChecks.ps1` prüft den privaten Memory-Puls offline,
 einschließlich gestopptem Restoreziel und separat persistierter SQL-Readiness.
 `Tests/Integration/Invoke-ContainerMemoryFaultAcceptance.ps1 -Provider docker`

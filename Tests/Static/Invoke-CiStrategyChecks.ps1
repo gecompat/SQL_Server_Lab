@@ -61,6 +61,19 @@ foreach ($scenarioPath in @('Private/ScenarioExecutor.ps1','Schemas/scenario-exe
 }
 $scenarioMixed = & $selector -ChangedPath @('Private/ScenarioExecutor.ps1','Private/UnknownScenarioExecutor.ps1')
 Add-CheckResult -Name 'Synthetischer Executor unterdrueckt keinen unbekannten produktiven Runtime-Fallback' -Success $scenarioMixed.Docker
+foreach ($capabilityPath in @('Private/ScenarioCapabilityDecision.ps1','Schemas/scenario-capability-plan.schema.json','Schemas/scenario-capability-decision.schema.json')) {
+    foreach ($path in @($capabilityPath,$capabilityPath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "Capability-Entscheidung bleibt providerlos: $path" -Success (
+            'Invoke-ScenarioCapabilityDecisionChecks.ps1' -in $selected.StaticChecks -and
+            'Invoke-ScenarioContractChecks.ps1' -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+    }
+}
+$capabilityMixed = & $selector -ChangedPath @('Private/ScenarioCapabilityDecision.ps1','Private/UnknownScenarioCapabilityDecision.ps1')
+Add-CheckResult -Name 'Capability-Entscheidung unterdrueckt keinen unbekannten Runtime-Fallback' -Success $capabilityMixed.Docker
+$capabilityConsumer = & $selector -ChangedPath @('Schemas/scenario-contract.schema.json')
+Add-CheckResult -Name 'SCN-801-Aenderung prueft Capability-Consumer mit' -Success ('Invoke-ScenarioCapabilityDecisionChecks.ps1' -in $capabilityConsumer.StaticChecks)
 foreach ($securityPath in @('Private/SecurityToolCatalog.ps1','Public/Get-SqlServerLabSecurityToolPlan.ps1',
     'Catalogs/security-tools.json','Schemas/security-tool-catalog.schema.json','Schemas/security-tool-request.schema.json',
     'Schemas/security-tool-plan.schema.json','Tests/Fixtures/SecurityTools/catalog.json')) {
