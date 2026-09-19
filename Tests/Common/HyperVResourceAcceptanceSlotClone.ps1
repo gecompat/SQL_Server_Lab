@@ -57,7 +57,8 @@ function New-HyperVResourceAcceptanceSlotClone {
         [Parameter(Mandatory)][string]$MediaRoot,
         [ValidateSet('Enterprise','Standard','Eval')][string]$MediaEdition='Enterprise',
         [Parameter(Mandatory)][securestring]$SqlPassword,
-        [Parameter(Mandatory)][string]$StateRoot
+        [Parameter(Mandatory)][string]$StateRoot,
+        [switch]$RequireExistingNetwork
     )
     $source=Get-HyperVResourceAcceptanceSlotSource -SourceRunId $SourceRunId -StateRoot $StateRoot
     $resolved=Read-LabManifest -Path $ManifestPath
@@ -68,6 +69,10 @@ function New-HyperVResourceAcceptanceSlotClone {
     $null=Confirm-HyperVSqlInstallationMediaVersion -IsoPath $media.IsoPath -SqlVersion 2025
     $networkPlan=Resolve-LabHyperVNetworkBoundPlan -Intent hostOnly
     if([string]$networkPlan.Status -ne 'READY'){throw 'HYPERV_RESOURCE_SLOT_NETWORK_NOT_READY'}
+    if($RequireExistingNetwork -and (@($networkPlan.Actions).Count -ne 0 -or
+        [string]$networkPlan.Intent -ne 'hostOnly' -or -not [string]$networkPlan.Name -or -not [string]$networkPlan.Subnet)){
+        throw 'HYPERV_RESOURCE_SLOT_EXISTING_NETWORK_REQUIRED'
+    }
     $sourceLocks=[Collections.Generic.List[IDisposable]]::new()
     $chain=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     $run=$null
@@ -97,6 +102,7 @@ function New-HyperVResourceAcceptanceSlotClone {
             New-LabRunState -StateRoot $StateRoot -Metadata @{
                 name=[string]$manifest.name;workflowKind='hyperv-lab';baseKind='managed-run-acceptance-clone';workload='windows'
                 autostart='off';sourceRunId=$SourceRunId.ToString();purpose='resource-reconcile-native-evidence'
+                workflowOperationId=$OperationId
                 windowsActivationIntent=$activation;windowsActivationIntentSource='parameters'
                 desiredState=(New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode adhoc -PersistentData:$false)
             } -ProviderSubRuns @([pscustomobject]@{id='provider-hyperv';provider='hyperv';instanceIds=@('primary')})
@@ -119,7 +125,20 @@ function New-HyperVResourceAcceptanceSlotClone {
         foreach($handle in $sourceLocks){$handle.Dispose()}
     }
     # Any failure leaves operation-bound state for the outer supervisor.
-    $network=Invoke-LabHyperVNetworkBoundPlan -Plan $networkPlan
+    if($RequireExistingNetwork){
+        # Do not call the infrastructure executor in this mode: it may repair
+        # infrastructure that disappeared after preflight. Revalidate read-only.
+        $network=Resolve-LabHyperVNetworkBoundPlan -Intent hostOnly -SwitchName ([string]$networkPlan.Name) -Subnet ([string]$networkPlan.Subnet)
+        if([string]$network.Status -ne 'READY' -or @($network.Actions).Count -ne 0 -or
+            [string]$network.Intent -ne 'hostOnly' -or [string]$network.Name -ne [string]$networkPlan.Name -or
+            [string]$network.Subnet -ne [string]$networkPlan.Subnet -or
+            [string]$network.HostAddress -ne [string]$networkPlan.HostAddress -or
+            [int]$network.PrefixLength -ne [int]$networkPlan.PrefixLength){
+            throw 'HYPERV_RESOURCE_SLOT_EXISTING_NETWORK_CHANGED'
+        }
+    } else {
+        $network=Invoke-LabHyperVNetworkBoundPlan -Plan $networkPlan
+    }
     $lease=Reserve-LabHyperVNetworkAddress -Network $network -RunId $run.RunId -ScopeId $run.ScopeId -InstanceId primary -StateRoot $StateRoot
     $null=Add-CleanupStep -RunDir $run.RunDir -ResourceType ipam-lease -ResourceId ([string]$lease.address) -Action release -Provider hyperv -ProviderSubRunId provider-hyperv -Compensation 'Release resource acceptance IPAM lease'
     $network | Add-Member -NotePropertyName address -NotePropertyValue ([string]$lease.address) -Force
@@ -146,7 +165,7 @@ function New-HyperVResourceAcceptanceSlotClone {
     } else {
         Set-VMMemory -VM $owned.VM -DynamicMemoryEnabled $false -StartupBytes ([long]$target.memoryStartupMB*1MB) -ErrorAction Stop
     }
-    $installed=Invoke-HyperVLabSqlSlotInstall -RunId $run.RunId -MediaRoot $MediaRoot -SqlSaPassword $SqlPassword -StateRoot $StateRoot
+    $installed=Invoke-HyperVLabSqlSlotInstall -RunId $run.RunId -MediaRoot $MediaRoot -SqlSaPassword $SqlPassword -StateRoot $StateRoot -RequireExistingNetwork:$RequireExistingNetwork
     if([string]$installed.State -ne 'SQL_SLOT_READY'){throw 'HYPERV_RESOURCE_SLOT_SQL_NOT_READY'}
     [pscustomobject]@{RunId=$run.RunId;State='RUNNING'}
 }

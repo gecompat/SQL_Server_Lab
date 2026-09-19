@@ -1487,6 +1487,27 @@ Läufe. Die historische Aufarbeitung steht in
 
 ### Hyper-V-Netzwerk-Reconcile
 
+Die vorbereitete Reconnect-Abnahme besitzt isolierte Offline-Fehlerfaelle fuer
+Operationsbindung, Adapteridentitaet, Vorschau, Reparatur und Kompensation.
+Der interne Schalter `RequireExistingNetwork` wird vom Test-Clone bis zum
+SQL-Hostzugriff weitergegeben: Er verlangt vorhandene `hostOnly`-Infrastruktur,
+prueft sie nach der Kopie erneut und umgeht die schreibenden Infrastruktur-
+Resolver. Fehlende oder mehrdeutige Adapter werden abgewiesen. Die normalen
+Produktpfade ohne diesen Schalter bleiben unveraendert. Der native Runner
+`Invoke-HyperVNetworkReconnectAcceptance.ps1` erzeugt einen neuen SQL-2025-Clone
+aus einer explizit gebundenen Windows-2025-Quelle und prueft einen synthetischen
+SQL-Marker vor und nach dem Adapter-Reconnect. Sein Parent haelt den gemeinsamen
+Runtime-Lock und bereinigt nur die eigene Operation nach bestaetigtem Prozessende;
+unbestaetigte Terminierung oder Cleanupfehler ergeben `RECOVERY_REQUIRED`.
+Die isolierten Supervisor-/Cleanup-Fixtures sind offline geprueft. Die native
+Ausfuehrung bestand lokal am 2026-09-19 fuer SQL Server 2025 auf einem neuen,
+operationseigenen Windows-2025-Clone: SQL-Marker vor und nach dem Reconnect,
+Reconnect-Plan, `WhatIf`, Apply, No-op und vier erfolgreiche Cleanup-Schritte
+(VM, beide run-eigenen VHDX und IPAM-Lease). Der Nachweis gilt nur fuer genau
+einen vorhandenen `hostOnly`-Adapter und bestehende Infrastruktur. Er ist kein
+Nachweis fuer External-Switch-Erstellung, Host-IP-/NAT-Reparatur, Adapter-Neuanlage,
+Gastadressreparatur oder Fault/Resume.
+
 Plan und Action sind statisch und synthetisch für No-op, additive
 Infrastruktur, einen vorhandenen getrennten Adapter, `WhatIf`, Journal-Retry,
 Identity-Mismatch sowie die fail-closed Grenzen getestet. Diese Evidence

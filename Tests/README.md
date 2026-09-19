@@ -550,3 +550,35 @@ Get-VM | Where-Object Notes -Like 'SQL_SERVER_LAB:*'
 ```
 
 Die Remote-Workflows verwenden `KeepOnFailure` nicht. Sie versuchen den normalen testseitigen Cleanup und beenden den Job bei einem Fehler mit Exitcode `1`.
+
+### Native Hyper-V-Netzwerk-Reconnect-Abnahme
+
+`Integration/Invoke-HyperVNetworkReconnectAcceptance.ps1` wird in einer erhoehten
+PowerShell-7-Sitzung ausgefuehrt. `CloneSourceRunId` bezeichnet einen ausdruecklich
+ausgewaehlten, gestoppten eigenen Windows-2025-Slot ohne SQL-Plan und Checkpoints;
+`MediaRoot` enthaelt bereits hashregistrierte SQL-2025-Medien.
+
+```powershell
+.\Tests\Integration\Invoke-HyperVNetworkReconnectAcceptance.ps1 `
+    -CloneSourceRunId $approvedSourceRunId -MediaRoot $approvedMediaRoot `
+    -MediaEdition Enterprise -TimeoutSeconds 5400
+```
+
+Der Runner kopiert die Quelle unabhaengig, verwendet `VerifyOnly` ohne Egress
+und ausschliesslich vorhandene `hostOnly`-Infrastruktur. Der eigene SQL-Run wird
+vor und nach Disconnect/Plan/WhatIf/Apply/No-op mit einem synthetischen SQL-Marker
+geprueft. Es werden keine externen Switches, Host-IP-Adressen oder NAT angelegt.
+Der Parent haelt `Global\SQL_Server_Lab_Runtime_Smoke`. Nach Timeout wird der
+Kindprozessbaum beendet; erst nach bestaetigter Terminierung darf der Parent
+die eigene Operation bereinigen. Quelle und fremde Ressourcen sind niemals
+Cleanupziele. Bei unbestaetigter Terminierung bleibt der lokale Operationshinweis
+fuer Recovery erhalten; ein solcher Lauf ist kein PASS.
+
+Die Offline-Suite `Static/Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1`
+prueft Identitaetswechsel, Fehlerkompensation, bestehende Infrastruktur und die
+Supervisor-/Cleanup-Grenzen ohne Providerressourcen. Die lokale native Abnahme
+bestand am 2026-09-19 fuer einen neuen Windows-2025-/SQL-2025-Clone mit SQL-Marker
+vor und nach dem Reconnect, Plan, `WhatIf`, Apply, No-op und vollstaendigem
+operationseigenem Cleanup. Sie ist auf einen vorhandenen `hostOnly`-Adapter
+begrenzt und ersetzt keinen Nachweis fuer External-Switches, Host-IP/NAT,
+Adapter-Neuanlage, Gastadressreparatur oder Fault/Resume.

@@ -1355,7 +1355,8 @@ function Invoke-HyperVLabSqlSlotInstall {
         [SecureString]$SqlSaPassword,
         [ValidateRange(60, 10800)][int]$SetupTimeoutSeconds = 7200,
         [ValidateRange(60, 3600)][int]$ReadinessTimeoutSeconds = 900,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [switch]$RequireExistingNetwork
     )
 
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
@@ -1721,7 +1722,7 @@ function Invoke-HyperVLabSqlSlotInstall {
     $plan = $lab.Instance.sqlDeploymentPlan
     Write-LabInfo 'SQL-Instanz wird für Hostzugriff, TCP/IP, Firewall und Labnetz fertig konfiguriert.'
     $hostAccess = Enable-HyperVLabHostSqlAccess -RunId $RunId -Credential $credential -SqlSaPassword $SqlSaPassword `
-        -SqlPort $(if ($plan.sqlPort) { [int]$plan.sqlPort } else { 1433 }) -StateRoot $lab.StateRoot
+        -SqlPort $(if ($plan.sqlPort) { [int]$plan.sqlPort } else { 1433 }) -StateRoot $lab.StateRoot -RequireExistingNetwork:$RequireExistingNetwork
     if ($plan.serverConfig) {
         Write-LabInfo 'Deklarierte SQL-Memory-, MAXDOP-, Cost-Threshold- und TempDB-Konfiguration wird angewendet.'
         $null = Set-LabServerConfig -Config $plan.serverConfig -HostName ([string]$hostAccess.Network.Address) `
@@ -2239,7 +2240,8 @@ function Enable-HyperVLabHostSqlAccess {
         [SecureString]$SqlSaPassword,
         [ValidateRange(1,65535)][int]$SqlPort = 1433,
         [string]$SwitchName,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [switch]$RequireExistingNetwork
     )
 
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
@@ -2253,7 +2255,26 @@ function Enable-HyperVLabHostSqlAccess {
         if ($attached.Count -eq 1) { [string]$attached[0].SwitchName } else { $null }
     }
     $usesLan = $lab.Instance.labNetwork -and [string]$lab.Instance.labNetwork.intent -eq 'lan'
-    if ($usesLan) {
+    if ($RequireExistingNetwork) {
+        # Bounded acceptance must never repair shared host infrastructure or
+        # persist a different default switch as a side effect of SQL setup.
+        if (-not $preferredSwitch -or [string]$lab.Instance.labNetwork.intent -ne 'hostOnly') {
+            throw 'HYPERV_LAB_HOST_SQL_EXISTING_NETWORK_REQUIRED'
+        }
+        $network = Resolve-LabHyperVNetworkBoundPlan -Intent hostOnly -SwitchName $preferredSwitch -Subnet ([string]$lab.Instance.labNetwork.subnet)
+        if ([string]$network.Status -ne 'READY' -or @($network.Actions).Count -ne 0 -or
+            [string]$network.Name -ne $preferredSwitch -or [string]$network.Intent -ne 'hostOnly' -or
+            [string]$network.Subnet -ne [string]$lab.Instance.labNetwork.subnet -or
+            [string]$network.HostAddress -ne [string]$lab.Instance.labNetwork.hostAddress -or
+            [int]$network.PrefixLength -ne [int]$lab.Instance.labNetwork.prefixLength) {
+            throw 'HYPERV_LAB_HOST_SQL_EXISTING_NETWORK_CHANGED'
+        }
+        $existingAdapters = @(Get-VMNetworkAdapter -VM $managed.VM -ErrorAction Stop)
+        if ($existingAdapters.Count -ne 1 -or [string]$existingAdapters[0].SwitchName -ne $preferredSwitch) {
+            throw 'HYPERV_LAB_HOST_SQL_EXISTING_ADAPTER_REQUIRED'
+        }
+    }
+    elseif ($usesLan) {
         $boundPlanPath = Join-Path $lab.RunDirectory 'network-bound-plan.json'
         if (-not (Test-Path -LiteralPath $boundPlanPath -PathType Leaf)) { throw 'HYPERV_LAN_BOUND_PLAN_MISSING' }
         $persistedPlan = Get-Content -LiteralPath $boundPlanPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
@@ -2264,6 +2285,7 @@ function Enable-HyperVLabHostSqlAccess {
     else { $network = Resolve-LabHyperVNetwork -SwitchName $preferredSwitch }
     $attached = @(Get-VMNetworkAdapter -VMName $lab.Instance.vmName -ErrorAction Stop | Where-Object { [string]$_.SwitchName -eq [string]$network.Name })
     if ($attached.Count -eq 0) {
+        if ($RequireExistingNetwork) { throw 'HYPERV_LAB_HOST_SQL_EXISTING_ADAPTER_REQUIRED' }
         Write-LabInfo "Hostzugriff: binde $($lab.Instance.vmName) an $($network.Name)."
         Add-VMNetworkAdapter -VMName $lab.Instance.vmName -SwitchName $network.Name -Name 'SQL_LAB_HYPERV' -ErrorAction Stop | Out-Null
     }
