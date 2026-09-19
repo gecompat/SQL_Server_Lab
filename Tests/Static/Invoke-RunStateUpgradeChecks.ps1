@@ -45,13 +45,17 @@ try {
                     Sort-Object FullName |
                     ForEach-Object {
                         $relativePath = [IO.Path]::GetRelativePath($Root, $_.FullName).Replace('\', '/')
-                        $content = Get-Content -LiteralPath $_.FullName -Raw -Encoding utf8
-                        $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($content))).ToLowerInvariant()
-                        "$relativePath|$hash"
+                        $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+                        "$relativePath|$hash|$($_.LastWriteTimeUtc.Ticks)"
                     }
             )
         }
+        $freshRun = New-LabRunState -StateRoot $StateRoot -Metadata @{ name = 'synthetic-fresh-run' }
+        $freshState = Get-LabRunState -RunId $freshRun.RunId -StateRoot $StateRoot
         $snapshotBeforePlanning = & $getStateSnapshot $StateRoot
+        $freshPlan = Get-SqlServerLabRunStateUpgradePlan -RunId $freshRun.RunId -StateRoot $StateRoot
+        $freshExecution = Invoke-SqlServerLabRunStateUpgrade -RunId $freshRun.RunId -StateRoot $StateRoot -Confirm:$false
+        $freshRepeat = Get-SqlServerLabRunStateUpgradePlan -RunId $freshRun.RunId -StateRoot $StateRoot
         $legacy = Get-SqlServerLabRunStateUpgradePlan -RunId $LegacyRunId -StateRoot $StateRoot
         $current = Get-SqlServerLabRunStateUpgradePlan -RunId $CurrentRunId -StateRoot $StateRoot
         $currentRepeat = Get-SqlServerLabRunStateUpgradePlan -RunId $CurrentRunId -StateRoot $StateRoot
@@ -90,9 +94,31 @@ try {
         $unsupported.contractVersion = 'SqlServerLab.RunState/9.9'
         $unsupported | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $unsupportedPath -Encoding utf8
         $unsupportedPlan = Get-SqlServerLabRunStateUpgradePlan -RunId $CurrentRunId -StateRoot $StateRoot
-        [PSCustomObject]@{ Legacy=$legacy;Current=$current;CurrentRepeat=$currentRepeat;ExplicitLegacy=$explicitLegacy;MissingVersion=$missingVersion;MalformedVersion=$malformedVersion;AlternateCurrent=$alternateCurrent;SnapshotBeforePlanning=$snapshotBeforePlanning;SnapshotAfterPlanning=$snapshotAfterPlanning;ExpectedCurrentSourceHash=$expectedCurrentSourceHash;ExpectedCurrentPlanId=$expectedCurrentPlanId;ExpectedAlternateSourceHash=$expectedAlternateSourceHash;Blocked=$blocked;Unmarked=$unmarked;LegacyWhatIf=$legacyWhatIf;LegacyExecution=$legacyExecution;LegacyAfter=$legacyAfter;LegacyJournal=$legacyCompletedJournal;LegacyResume=$legacyResume;LegacyResumedJournal=$legacyCompletedResumeJournal;ResumeSourceChanged=$resumeSourceChanged;Unsupported=$unsupportedPlan }
+        [PSCustomObject]@{
+            FreshState=$freshState;FreshPlan=$freshPlan;FreshExecution=$freshExecution;FreshRepeat=$freshRepeat
+            Legacy=$legacy;Current=$current;CurrentRepeat=$currentRepeat;ExplicitLegacy=$explicitLegacy;MissingVersion=$missingVersion;MalformedVersion=$malformedVersion;AlternateCurrent=$alternateCurrent;SnapshotBeforePlanning=$snapshotBeforePlanning;SnapshotAfterPlanning=$snapshotAfterPlanning;ExpectedCurrentSourceHash=$expectedCurrentSourceHash;ExpectedCurrentPlanId=$expectedCurrentPlanId;ExpectedAlternateSourceHash=$expectedAlternateSourceHash;Blocked=$blocked;Unmarked=$unmarked;LegacyWhatIf=$legacyWhatIf;LegacyExecution=$legacyExecution;LegacyAfter=$legacyAfter;LegacyJournal=$legacyCompletedJournal;LegacyResume=$legacyResume;LegacyResumedJournal=$legacyCompletedResumeJournal;ResumeSourceChanged=$resumeSourceChanged;Unsupported=$unsupportedPlan
+        }
     } $temporaryRoot $legacyRunId $currentRunId $blockedRunId $unmarkedRunId $explicitLegacyRunId $missingVersionRunId $malformedVersionRunId $alternateCurrentRunId
 
+    Add-CheckResult -Name 'Frisch erzeugter Run-State persistiert den aktuellen Vertrag ohne Legacy-Markierung' -Success (
+        $results.FreshState.contractVersion -eq 'SqlServerLab.RunState/1.0' -and
+        $results.FreshState.state -eq 'INITIALIZING' -and
+        $null -ne $results.FreshState.PSObject.Properties['providerSubRuns'] -and
+        $null -eq $results.FreshState.metadata.PSObject.Properties['syntheticStateFixture'])
+    Add-CheckResult -Name 'Frisch erzeugter Run-State wird ohne Upgradebedarf klassifiziert' -Success (
+        $results.FreshPlan.SourceContractVersion -eq 'SqlServerLab.RunState/1.0' -and
+        $results.FreshPlan.TargetContractVersion -eq 'SqlServerLab.RunState/1.0' -and
+        $results.FreshPlan.Status -eq 'NO_ACTION' -and $results.FreshPlan.Action -eq 'NO_ACTION' -and
+        -not $results.FreshPlan.SyntheticFixture -and
+        @($results.FreshPlan.Changes).Count -eq 0 -and @($results.FreshPlan.Blockers).Count -eq 0)
+    Add-CheckResult -Name 'Upgrade-Aufruf auf frischem State bleibt stabiler No-op ohne Schreibzugriff' -Success (
+        $results.FreshExecution.Status -eq 'NO_ACTION' -and
+        $results.FreshExecution.RollbackStatus -eq 'NOT_REQUIRED' -and
+        $results.FreshRepeat.Status -eq 'NO_ACTION' -and
+        $results.FreshRepeat.SourceContractVersion -eq $results.FreshPlan.SourceContractVersion -and
+        $results.FreshRepeat.PlanId -eq $results.FreshPlan.PlanId -and
+        $results.FreshRepeat.SourceStateSha256 -eq $results.FreshPlan.SourceStateSha256 -and
+        (@($results.SnapshotBeforePlanning) -join "`n") -eq (@($results.SnapshotAfterPlanning) -join "`n"))
     Add-CheckResult -Name 'Legacy-Run-State erhält einen stabilen read-only Upgrade-Plan' -Success (
         $results.Legacy.ContractVersion -eq 'SqlServerLab.RunStateUpgradePlan/1.0' -and
         $results.Legacy.Status -eq 'READY' -and $results.Legacy.Action -eq 'EXECUTE_SYNTHETIC_UPGRADE' -and

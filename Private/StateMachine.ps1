@@ -126,6 +126,7 @@ function New-LabRunState {
     }
 
     $state = [PSCustomObject]@{
+        contractVersion = 'SqlServerLab.RunState/1.0'
         runId        = $runId
         scopeId      = $ScopeId
         state        = 'INITIALIZING'

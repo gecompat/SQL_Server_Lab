@@ -1030,8 +1030,11 @@ führt keine Checkpoint-Erstellung, SQL-Quiesce, Retention oder Restore-Probe au
 Nicht implementiert sind insbesondere ein zeitgesteuerter Watchdog, ein
 portabler Gesamt-Lab-Exporter/-Importexecutor, konkrete externe Vault-Adapter,
 ein vollständiger Lifecycle verwalteter Recovery Points und ein ausführbarer Framework-/State-Upgrade-
-Lifecycle für produktive oder unbekannte historische States. Der neue
-State-Upgrade-Executor migriert ausschließlich einen ausdrücklich mit
+Lifecycle für produktive oder unbekannte historische States. Neue Run-States
+tragen bereits `contractVersion=SqlServerLab.RunState/1.0`; Planung und
+Upgrade-Aufruf bleiben dafür `NO_ACTION` ohne State-Schreibzugriff oder
+Upgrade-Artefakte. Historische unversionierte States werden nicht nachträglich
+markiert. Der State-Upgrade-Executor migriert ausschließlich einen ausdrücklich mit
 `metadata.syntheticStateFixture=true` markierten, unversionierten synthetischen
 State atomar, sichert die Ausgangsrevision und journalisiert Commit oder
 Rollback; er verändert keine Provider- oder Runtime-Ressourcen. Erweiterte
