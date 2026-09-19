@@ -220,7 +220,7 @@ function Get-LabHyperVSqlConfigurationReconcileContext {
     if($ManifestPath){
         $resolved=Read-LabManifest -Path $ManifestPath
         $desiredSnapshot=New-LabDesiredStateSnapshot -ResolvedLab $resolved `
-            -ProvisioningMode ([string]$currentSnapshot.ProvisioningMode) -PersistentData ([bool]$currentSnapshot.PersistentData)
+            -ProvisioningMode ([string]$currentSnapshot.ProvisioningMode) -PersistentData ([bool]$currentSnapshot.PersistentData) -PreviousSnapshot $currentSnapshot
         if([string]$resolved.name -ne [string]$currentSnapshot.LabName){throw 'HYPERV_SQL_CONFIGURATION_RECONCILE_LAB_IDENTITY_CHANGED'}
         $currentIds=@($currentSnapshot.Instances|ForEach-Object{[string]$_.Id}|Sort-Object)
         $targetIds=@($desiredSnapshot.Instances|ForEach-Object{[string]$_.Id}|Sort-Object)

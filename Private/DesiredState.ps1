@@ -363,6 +363,7 @@ function New-LabInstanceIntentSnapshot {
         SqlConfiguration = New-LabSqlConfigurationIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
         Databases = New-LabDatabaseIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
         Software = $software
+        CapabilityAssessment = New-LabInstanceCapabilityAssessment -Instance $Instance -ProviderCapability $ProviderCapability -Network $network -Drives $drives -Software $software
         Storage = $storage
         WindowsLocale = $Instance.windowsLocale
         WindowsActivation = $Instance.windowsActivation
@@ -374,7 +375,8 @@ function New-LabDesiredStateSnapshot {
     param(
         [Parameter(Mandatory)]$ResolvedLab,
         [Parameter(Mandatory)][ValidateSet('manifest', 'adhoc')][string]$ProvisioningMode,
-        [bool]$PersistentData
+        [bool]$PersistentData,
+        $PreviousSnapshot
     )
 
     $providerCapabilities = @(Get-LabProviderCapabilityContract)
@@ -390,11 +392,21 @@ function New-LabDesiredStateSnapshot {
             if (-not $providerCapability) {
                 $providerCapability = [PSCustomObject]@{ Capabilities = @() }
             }
+            $intents = New-LabInstanceIntentSnapshot -Instance $instance -ProviderCapability $providerCapability
+            # Ein Target-Rebuild migriert bestehende optionale Metadaten nicht.
+            # Alle anderen Felder bleiben Bestandteil der bisherigen Driftpruefung.
+            $previous = @($PreviousSnapshot.Instances | Where-Object {
+                [string]$_.Id -ceq [string]$instance.id -and [string]$_.Provider -ceq [string]$instance.provider
+            })
+            if ($previous.Count -eq 1 -and $previous[0].Intents -and
+                -not $previous[0].Intents.PSObject.Properties['CapabilityAssessment']) {
+                $intents.PSObject.Properties.Remove('CapabilityAssessment')
+            }
             [PSCustomObject]@{
                 Id = [string]$instance.id; Provider = [string]$instance.provider; Version = [string]$instance.version
                 Profile = [string]$instance.profile; AutoStart = [string]$instance.autostart
                 DatabaseNames = @($instance.databases | ForEach-Object { [string]$_.name })
-                Intents = New-LabInstanceIntentSnapshot -Instance $instance -ProviderCapability $providerCapability
+                Intents = $intents
             }
         })
     }
@@ -433,6 +445,10 @@ function Get-LabPersistedDesiredState {
 
     $validationErrors = New-Object System.Collections.Generic.List[string]
     foreach ($instance in @($snapshot.Instances)) {
+        if ($instance.Intents -and $instance.Intents.PSObject.Properties['CapabilityAssessment'] -and
+            -not (Test-LabInstanceCapabilityAssessment -Assessment $instance.Intents.CapabilityAssessment)) {
+            $validationErrors.Add('INSTANCE_CAPABILITY_ASSESSMENT_INVALID')
+        }
         if (-not $instance.Id) { $validationErrors.Add("Instance entry hat keine Id.") }
         if (-not $instance.Provider) { $validationErrors.Add("Instance '$($instance.Id)' hat keinen Provider.") }
         if ($instance.Intents -and

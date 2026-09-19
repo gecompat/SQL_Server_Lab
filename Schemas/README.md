@@ -6,6 +6,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 
 | Datei | Zweck |
 |---|---|
+| `instance-capability-assessment.schema.json` | Privater deklarativer Instanzentscheid für Provider, OS, SQL, Netzwerk, Drives und Software; keine Runtime- oder Ausführungsfreigabe |
 | `security-tool-catalog.schema.json` | Geschlossener Security-Tool-/Trust-Metadatenvertrag mit leerer produktiver Allowlist |
 | `security-tool-request.schema.json` | Exakte Tool-/Varianten-/Purpose-IDs und vollständiges Zieltuple ohne lokale Bindings oder freie Quellen |
 | `security-tool-plan.schema.json` | Nicht ausführbarer read-only Metadatenplan mit Kataloghash, PlanHash und stabilen Blockercodes |

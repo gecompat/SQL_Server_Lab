@@ -9,6 +9,13 @@
 
 ## 1. Grundsatz
 
+`Invoke-InstanceCapabilityAssessmentChecks.ps1` prüft den privaten CORE-102-
+Metadatenentscheid offline: Provider-/OS-Tuple, bestehende SQL-/Netzwerk-/
+Softwareentscheidungen, pfadfreie Drives, Determinismus, Sanitierung sowie
+Legacy- und Fehlerfälle des read-only Desired-State-Readers. Diese Prüfung
+erzeugt keine Providerressourcen. Die bestehende Runtime-Auswahl für
+`DesiredState.ps1` und den gemeinsamen CI-Selektor bleibt unverändert.
+
 `Invoke-ManifestBuilderChecks.ps1` prüft die SQL-Lifecycle-Projektion der
 Manifest-Planvorschau `1.3` offline: unterstützte, veraltete und unbekannte
 Versionen, CU-Basisauflösung, unveränderte Eingaben, unabhängige fachliche

@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SqlServerLab.InstanceCapabilityAssessment/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["Contract", "Provider", "OperatingSystem", "SqlVersion", "Network", "Storage", "Software", "Status", "BlockerCodes"],
+  "properties": {
+    "Contract": {
+      "type": "object", "additionalProperties": false,
+      "required": ["Name", "Version", "EvidenceBoundary"],
+      "properties": {
+        "Name": { "const": "SqlServerLab.InstanceCapabilityAssessment" },
+        "Version": { "const": "1.0" },
+        "EvidenceBoundary": { "const": "catalog-and-provider-metadata" }
+      }
+    },
+    "Provider": {
+      "type": "object", "additionalProperties": false, "required": ["Name", "Status"],
+      "properties": {
+        "Name": { "enum": ["docker", "podman", "hyperv", "UNKNOWN"] },
+        "Status": { "$ref": "#/definitions/declaredStatus" }
+      }
+    },
+    "OperatingSystem": {
+      "type": "object", "additionalProperties": false, "required": ["Name", "Status"],
+      "properties": {
+        "Name": { "enum": ["linux", "windows", "UNKNOWN"] },
+        "Status": { "$ref": "#/definitions/declaredStatus" }
+      }
+    },
+    "SqlVersion": {
+      "type": "object", "additionalProperties": false, "required": ["Requested", "CatalogVersionId", "Status"],
+      "properties": {
+        "Requested": { "type": ["string", "null"], "maxLength": 64, "pattern": "^\\d{4}(?:[Rr]2)?(?:-[Ll][Aa][Tt][Ee][Ss][Tt]|-[Cc][Uu]\\d+(?:-[Uu][Bb][Uu][Nn][Tt][Uu]-\\d{2}\\.\\d{2})?)?$" },
+        "CatalogVersionId": { "type": ["string", "null"], "maxLength": 6, "pattern": "^\\d{4}(?:R2)?$" },
+        "Status": { "enum": ["SUPPORTED", "PREVIEW", "DEPRECATED", "RETIRED", "BLOCKED", "UNKNOWN", "NOT_REQUESTED"] }
+      }
+    },
+    "Network": {
+      "type": "object", "additionalProperties": false, "required": ["RequiredCapability", "Status", "ReasonCode"],
+      "properties": {
+        "RequiredCapability": { "enum": ["isolated-network", "managed-lab-network", "nat-network", "external-network-binding", "unknown-network-intent"] },
+        "Status": { "$ref": "#/definitions/declaredStatus" },
+        "ReasonCode": { "enum": [null, "NETWORK_INTENT_UNKNOWN", "NETWORK_EXPOSURE_CONFLICT", "NETWORK_LEGACY_SWITCH_CONFLICT", "NETWORK_INTENT_PROVIDER_UNSUPPORTED"] }
+      }
+    },
+    "Storage": {
+      "type": "object", "additionalProperties": false, "required": ["Bindings", "RequiredCapabilities", "Status"],
+      "properties": {
+        "Bindings": { "type": "array", "maxItems": 3, "uniqueItems": true, "items": { "enum": ["host-mount", "additional-vhdx", "managed-volume"] } },
+        "RequiredCapabilities": { "type": "array", "maxItems": 2, "uniqueItems": true, "items": { "enum": ["run-local-additional-vhdx", "volume-mounts"] } },
+        "Status": { "$ref": "#/definitions/optionalStatus" }
+      }
+    },
+    "Software": {
+      "type": "object", "additionalProperties": false, "required": ["RequiredCapabilities", "ReasonCodes", "Status"],
+      "properties": {
+        "RequiredCapabilities": { "type": "array", "maxItems": 5, "uniqueItems": true, "items": { "enum": ["software-catalog-planning", "derived-image-build", "container-tool-image", "sql-external-runtime", "powershell-direct-software-installation"] } },
+        "ReasonCodes": { "type": "array", "maxItems": 16, "uniqueItems": true, "items": { "enum": ["SOFTWARE_NOT_CATALOGUED", "SQL_VERSION_UNKNOWN", "RUNTIME_COMBINATION_NOT_CATALOGUED", "LEGACY_POST_START_MUTATION", "IMAGE_BINDING_NOT_IMPLEMENTED", "PACKAGE_NOT_LOCKED", "VARIANT_PREVIEW", "VARIANT_UNSUPPORTED", "VARIANT_DEPRECATED", "VARIANT_RETIRED", "VARIANT_BLOCKED", "PROVIDER_CAPABILITY_MISSING", "ARTIFACT_INTEGRITY_INCOMPLETE", "PACKAGE_LOCK_INTEGRITY_INCOMPLETE", "GENERAL_SOFTWARE_RUNTIME_NOT_IMPLEMENTED", "GENERAL_SOFTWARE_FREE_INPUT_FORBIDDEN"] } },
+        "Status": { "$ref": "#/definitions/optionalStatus" }
+      }
+    },
+    "Status": { "$ref": "#/definitions/declaredStatus" },
+    "BlockerCodes": { "type": "array", "maxItems": 6, "uniqueItems": true, "items": { "enum": ["PROVIDER_UNDECLARED", "OS_PROVIDER_UNSUPPORTED", "SQL_VERSION_POLICY_UNSUPPORTED", "NETWORK_UNSUPPORTED", "STORAGE_UNSUPPORTED", "SOFTWARE_UNSUPPORTED"] } }
+  },
+  "definitions": {
+    "declaredStatus": { "enum": ["DECLARED_SUPPORTED", "DECLARED_UNSUPPORTED"] },
+    "optionalStatus": { "enum": ["DECLARED_SUPPORTED", "DECLARED_UNSUPPORTED", "NOT_REQUESTED"] }
+  }
+}
