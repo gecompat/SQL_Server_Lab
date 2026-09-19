@@ -423,6 +423,7 @@ function Get-LabPersistedDesiredState {
             Status = 'ABSENT'
             Snapshot = $null
             Reason = $null
+            ReasonCodes = @()
         }
     }
 
@@ -431,7 +432,8 @@ function Get-LabPersistedDesiredState {
         return [PSCustomObject]@{
             Status = 'INVALID'
             Snapshot = $snapshot
-            Reason = 'Run metadata desiredState-Contract fehlt oder hat keine gueltige Contract-Identitaet.'
+            Reason = 'DESIRED_STATE_CONTRACT_INVALID'
+            ReasonCodes = @('DESIRED_STATE_CONTRACT_INVALID')
         }
     }
 
@@ -439,42 +441,45 @@ function Get-LabPersistedDesiredState {
         return [PSCustomObject]@{
             Status = 'INVALID'
             Snapshot = $snapshot
-            Reason = 'Run metadata desiredState-Inhalt enthaelt keine Instanzen.'
+            Reason = 'DESIRED_STATE_INSTANCES_MISSING'
+            ReasonCodes = @('DESIRED_STATE_INSTANCES_MISSING')
         }
     }
 
-    $validationErrors = New-Object System.Collections.Generic.List[string]
+    $validationErrors = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     $instanceIdsByProvider = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.HashSet[string]]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($instance in @($snapshot.Instances)) {
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['CapabilityAssessment'] -and
             -not (Test-LabInstanceCapabilityAssessment -Assessment $instance.Intents.CapabilityAssessment)) {
-            $validationErrors.Add('INSTANCE_CAPABILITY_ASSESSMENT_INVALID')
+            [void]$validationErrors.Add('INSTANCE_CAPABILITY_ASSESSMENT_INVALID')
         }
-        if (-not $instance.Id) { $validationErrors.Add("Instance entry hat keine Id.") }
-        if (-not $instance.Provider) { $validationErrors.Add("Instance '$($instance.Id)' hat keinen Provider.") }
+        if (-not $instance.Id) { [void]$validationErrors.Add('DESIRED_INSTANCE_ID_MISSING') }
+        if (-not $instance.Provider) { [void]$validationErrors.Add('DESIRED_INSTANCE_PROVIDER_MISSING') }
         if ($instance.Id -and $instance.Provider) {
             $provider = [string]$instance.Provider
             if (-not $instanceIdsByProvider.ContainsKey($provider)) {
                 $instanceIdsByProvider[$provider] = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
             }
-            if (-not $instanceIdsByProvider[$provider].Add([string]$instance.Id) -and
-                -not $validationErrors.Contains('DESIRED_INSTANCE_IDENTITY_DUPLICATE')) {
-                $validationErrors.Add('DESIRED_INSTANCE_IDENTITY_DUPLICATE')
+            if (-not $instanceIdsByProvider[$provider].Add([string]$instance.Id)) {
+                [void]$validationErrors.Add('DESIRED_INSTANCE_IDENTITY_DUPLICATE')
             }
         }
         if ($instance.Intents -and
             (-not $instance.Intents.Contract -or
              [string]$instance.Intents.Contract.Name -ne 'SqlServerLab.InstanceIntent' -or
              [string]$instance.Intents.Contract.Version -ne '1.0')) {
-            $validationErrors.Add("Instance '$($instance.Id)' hat keinen gueltigen InstanceIntent-Contract.")
+            [void]$validationErrors.Add('DESIRED_INSTANCE_INTENT_CONTRACT_INVALID')
         }
     }
 
     if ($validationErrors.Count -gt 0) {
+        $reasonCodes = [string[]]@($validationErrors)
+        [Array]::Sort($reasonCodes, [StringComparer]::Ordinal)
         return [PSCustomObject]@{
             Status = 'INVALID'
             Snapshot = $snapshot
-            Reason = ($validationErrors -join ' ')
+            Reason = ($reasonCodes -join ',')
+            ReasonCodes = @($reasonCodes)
         }
     }
 
@@ -482,5 +487,6 @@ function Get-LabPersistedDesiredState {
         Status = 'VALID'
         Snapshot = $snapshot
         Reason = $null
+        ReasonCodes = @()
     }
 }

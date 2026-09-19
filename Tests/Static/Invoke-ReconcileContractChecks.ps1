@@ -192,6 +192,40 @@ try {
                     ConnectionUnchanged=$beforeIdentityConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($identityConnectionPath))
                 }
             })
+            $sanitizationSnapshot = [PSCustomObject]@{
+                Contract = [PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
+                Instances = @(
+                    [PSCustomObject]@{
+                        Id='persisted-instance-secret-9'; Provider='docker'; Host='secret-host.invalid'; ConnectionString='Password=not-in-plan'
+                        Intents=[PSCustomObject]@{
+                            Contract=[PSCustomObject]@{ Name='invalid'; Version='9.9' }
+                            CapabilityAssessment=[PSCustomObject]@{ Invalid='invalid-assessment' }
+                        }
+                    },
+                    [PSCustomObject]@{ Id='PERSISTED-INSTANCE-SECRET-9'; Provider='DOCKER' },
+                    [PSCustomObject]@{ Id=$null; Provider=$null; Host='other-secret-host.invalid' }
+                )
+            }
+            $sanitizationRun = New-LabRunState -StateRoot $Root -Metadata @{ name='Reconcile sanitization'; desiredState=$sanitizationSnapshot } -ProviderSubRuns @(
+                [PSCustomObject]@{ provider='docker'; instanceIds=@('fallback') }
+            )
+            $sanitizationStatePath = Join-Path $sanitizationRun.RunDir 'run-state.json'
+            $sanitizationConnectionPath = Join-Path $sanitizationRun.RunDir 'connection-info.json'
+            Write-LabArtifactJsonAtomic -Path $sanitizationConnectionPath -InputObject $connection
+            $beforeSanitizationState = [Convert]::ToBase64String([IO.File]::ReadAllBytes($sanitizationStatePath))
+            $beforeSanitizationConnection = [Convert]::ToBase64String([IO.File]::ReadAllBytes($sanitizationConnectionPath))
+            $persistedSanitization = Get-LabPersistedDesiredState -RunId $sanitizationRun.RunId -StateRoot $Root
+            $sanitizationPlans = @(foreach ($target in @('RUNNING','STOPPED')) {
+                $script:reconcileRuntimeState = if ($target -eq 'RUNNING') { 'STOPPED' } else { 'RUNNING' }
+                $script:reconcileRuntimeInstances = @([PSCustomObject]@{ Id='primary'; Provider='docker'; State=$script:reconcileRuntimeState })
+                Get-SqlServerLabReconcilePlan -RunId $sanitizationRun.RunId -TargetState $target -StateRoot $Root
+            })
+            $sanitization = [PSCustomObject]@{
+                Status=$persistedSanitization.Status; Reason=$persistedSanitization.Reason; ReasonCodes=@($persistedSanitization.ReasonCodes)
+                Plans=$sanitizationPlans
+                StateUnchanged=$beforeSanitizationState -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($sanitizationStatePath))
+                ConnectionUnchanged=$beforeSanitizationConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($sanitizationConnectionPath))
+            }
         }
         finally {
             Set-Item Function:Get-LabRunRuntimeStatus -Value $originalRuntime
@@ -200,6 +234,7 @@ try {
         [PSCustomObject]@{
             NoOp = $noOp; Restart = $restart; Partial = $partial; Invalid = $invalid; MigrationBlocked = $migrationBlocked
             Identities = $identities
+            Sanitization = $sanitization
             StateUnchanged = $beforeState -eq (Get-Content -LiteralPath $statePath -Raw -Encoding utf8)
             ConnectionUnchanged = $beforeConnection -eq (Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8)
         }
@@ -247,6 +282,33 @@ try {
         Add-CheckResult -Name "Identitaetspruefung ($($identity.Name)) erhaelt State- und Connection-Bytes" `
             -Success ($identity.StateUnchanged -and $identity.ConnectionUnchanged)
     }
+    $expectedSanitizedCodes = @(
+        'DESIRED_INSTANCE_IDENTITY_DUPLICATE',
+        'DESIRED_INSTANCE_ID_MISSING',
+        'DESIRED_INSTANCE_INTENT_CONTRACT_INVALID',
+        'DESIRED_INSTANCE_PROVIDER_MISSING',
+        'INSTANCE_CAPABILITY_ASSESSMENT_INVALID'
+    )
+    Add-CheckResult `
+        -Name 'Persistierte Mehrfachfehler liefern eindeutige ordinal sortierte ReasonCodes' `
+        -Success ($contract.Sanitization.Status -eq 'INVALID' -and
+            (($contract.Sanitization.ReasonCodes -join ',') -ceq ($expectedSanitizedCodes -join ',')) -and
+            $contract.Sanitization.Reason -ceq ($expectedSanitizedCodes -join ','))
+    foreach ($plan in $contract.Sanitization.Plans) {
+        Add-CheckResult -Name "Persistierte Mehrfachfehler blockieren $($plan.Desired.TargetState) sanitisiert und fail-closed" `
+            -Success ($plan.HighestChangeClass -eq 'unsupported' -and $plan.Actions.Count -eq 0 -and
+                -not $plan.MutationAllowed -and -not $plan.IsNoOp -and -not $plan.Desired.IsValid -and
+                $plan.Desired.Instances.Count -eq 0 -and
+                (($plan.Diff[0].Reasons -join ',') -ceq (@($expectedSanitizedCodes | ForEach-Object { "Persisted desired state ist ungültig: $_" }) -join ',')) -and
+                (($plan.Warnings -join ',') -ceq 'Persisted desired state validation blocks lifecycle reconcile; fail-closed without partial mutation.'))
+    }
+    $serializedSanitization = $contract.Sanitization | ConvertTo-Json -Depth 20
+    Add-CheckResult `
+        -Name 'Persistierte Mehrfachfehler reflektieren keine dynamischen Persistenzwerte' `
+        -Success (-not ($serializedSanitization -match 'persisted-instance-secret-9|secret-host\.invalid|not-in-plan|invalid-assessment'))
+    Add-CheckResult `
+        -Name 'Persistierte Mehrfachfehler erhalten State- und Connection-Bytes' `
+        -Success ($contract.Sanitization.StateUnchanged -and $contract.Sanitization.ConnectionUnchanged)
     Add-CheckResult `
         -Name 'Nichtterminale Hyper-V-Ressourcenmigration blockiert Reconcile read-only' `
         -Success ($contract.MigrationBlocked.HighestChangeClass -eq 'unsupported' -and $contract.MigrationBlocked.Actions.Count -eq 0 -and

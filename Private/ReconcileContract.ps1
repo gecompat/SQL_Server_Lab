@@ -57,6 +57,7 @@ function New-LabDesiredState {
             ResourceAssessment = Get-LabResourceAssessmentSummary -Run $Run
             IsValid = $true
             ValidationError = $null
+            ValidationErrors = @()
             Instances = @($snapshot.Instances | ForEach-Object {
                 [PSCustomObject]@{
                     Id = [string]$_.Id
@@ -81,6 +82,7 @@ function New-LabDesiredState {
             ResourceAssessment = Get-LabResourceAssessmentSummary -Run $Run
             IsValid = $false
             ValidationError = [string]$persisted.Reason
+            ValidationErrors = @($persisted.ReasonCodes)
             Instances = @()
         }
     }
@@ -126,6 +128,7 @@ function New-LabDesiredState {
         ResourceAssessment = Get-LabResourceAssessmentSummary -Run $Run
         IsValid = $true
         ValidationError = $null
+        ValidationErrors = @()
         Instances = $instances
     }
 }
@@ -320,11 +323,21 @@ function Compare-LabDesiredActualState {
 
     $diagnosticStates = @('UNKNOWN', 'UNAVAILABLE', 'MISSING', 'PARTIAL')
     if ($Desired.PSObject.Properties.Name -contains 'IsValid' -and -not [bool]$Desired.IsValid) {
+        $validationReasonCodes = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+        foreach ($reasonCode in @($Desired.ValidationErrors)) {
+            $candidate = [string]$reasonCode
+            if ($candidate -match '^[A-Z][A-Z0-9_]*$') {
+                [void]$validationReasonCodes.Add($candidate)
+            }
+        }
+        if ($validationReasonCodes.Count -eq 0) { $validationReasonCodes = @('DESIRED_STATE_VALIDATION_FAILED') }
+        $validationReasonCodes = [string[]]$validationReasonCodes
+        [Array]::Sort($validationReasonCodes, [StringComparer]::Ordinal)
         return [PSCustomObject]@{
             ChangeClass = 'unsupported'
-            Reasons = @("Persisted desired state ist ungültig: $($Desired.ValidationError)")
+            Reasons = @($validationReasonCodes | ForEach-Object { "Persisted desired state ist ungültig: $_" })
             Actions = @()
-            Warnings = @("Bitte Snapshot reparieren oder entfernen; fail-closed ohne Teilmutation bis zum Zielzustand.")
+            Warnings = @('Persisted desired state validation blocks lifecycle reconcile; fail-closed without partial mutation.')
         }
     }
     if ($Actual.State -in $diagnosticStates) {
