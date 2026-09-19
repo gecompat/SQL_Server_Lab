@@ -417,7 +417,7 @@ verlangt, dass der Dialog nur bei Fehlern aufgerufen wird und dass das
 Schnellkonfigurations-Netzwerkmodus-Feld begründet deaktiviert ist;
 Gegenbeweis durch Rücknahme der Änderung belegt den Fehlschlag.
 
-### Windows-Administratorpasswort im CLI-Menü abrufen — IMPLEMENTED_WITH_GAPS
+### Windows-Administratorpasswort im CLI-Menü abrufen — IMPLEMENTED
 
 Geprüfter Ist-Zustand vom 2026-09-19: Das öffentliche Cmdlet
 `Get-SqlServerLabGeneratedWindowsAccess -RunId <RunId>` entschlüsselt den
@@ -460,10 +460,18 @@ Betroffene Quellen: `Public/BatchConsole.ps1`, `Public/Invoke-SqlServerLab.ps1`,
 Die synthetischen Funktionstests decken den rungebundenen Abruf, selbst
 vergebene Kennwörter, fehlende Secrets und Entschlüsselungsfehler ab. Fehler
 kehren nach Bestätigung ohne Zugangsdaten oder rohe Entschlüsselungsdiagnose
-zurück. Die Produkt-Aufrufstelle und der Abbruch vor dem Abruf sind bislang
-quelltextgestützt geprüft; eine vollständige funktionale Menü-Navigation mit
-Abbruch und ein isolierter Windows-/DPAPI-Menünachweis bleiben offen. Die
-synthetischen Tests sind kein nativer DPAPI- oder Hyper-V-Nachweis.
+zurück. Die echte Verwaltungsmenüfunktion wird zusätzlich mit simulierten
+Auswahlantworten ausgeführt: Abbruch in Run- und Aktionsauswahl ruft keine
+Zugangsdaten ab; Nicht-Hyper-V-Runs erscheinen nicht in der Auswahl.
+Auf Windows durchläuft ein ausschließlich synthetisches Secret den echten
+DPAPI-Speicher, den öffentlichen Reader und den gewählten Menühandler.
+Run-Auflösung, VM-Inventur und Darstellung bleiben isoliert; ausgegeben werden
+nur Prüfergebnisse, keine Secretwerte. Der temporäre Scope wird im `finally`
+entfernt und sein Wegfall geprüft. Dieser lokale Windows-Nachweis bestand am
+2026-09-19 innerhalb der Konsolensuite (211 PASS, 0 FAIL). Nicht-Windows meldet
+den DPAPI-Anteil ausdrücklich als `NOT_EXECUTED`. Echte Tastatureingaben,
+Entschlüsselung unter einem anderen Benutzer und Hyper-V-Gastverhalten sind
+nicht Gegenstand dieses Nachweises.
 
 ## Bindende Erkenntnisse für die Wiederaufnahme
 
