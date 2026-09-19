@@ -621,10 +621,10 @@ ohne eine zweite Labplattform zu erhalten.
 
 | ID | Arbeitspaket | Ergebnis |
 |---|---|---|
-| `SCN-801` | Scenario-, Workflow-, Probe-, Assertion- und Evidence-Verträge finalisieren | providerneutrale fachliche Abläufe |
-| `SCN-802` | `Arrange`, `Act`, `Observe`, `Assert`, `Cleanup`, Timeouts und Abbruchsignale | resumierbare Scenario Engine |
-| `FLT-811` | Netzwerk-, I/O-, CPU-, Memory-, TempDB- und Log-Faults capability- und scopegebunden | sichere Fault Injection |
-| `FLT-812` | Ausgangszustand, automatische Rücknahme und Recovery verifizieren | kein unkontrollierter Restzustand |
+| `SCN-801` | Öffentliche Scenario-, Workflow-, Probe-, Assertion- und Evidence-Verträge finalisieren | Der interne providerneutrale Metadatenslice `SqlServerLab.InternalScenarioContract/0.1` ist implementiert, bleibt mit `ExecutionImplemented=false` nicht ausführbar; öffentliche Contract-, Registrierungs- und Migrationsentscheidungen sind offen |
+| `SCN-802` | `Arrange`, `Act`, `Observe`, `Assert`, `Cleanup`, Timeouts und Abbruchsignale | Privater synthetischer Executor einschließlich SCN-804-Phasenfristen und Cleanup-Resume ist implementiert; öffentliche API, Provider-/SQL-Bindung und fachliche Szenarien sind offen |
+| `FLT-811` | Netzwerk-, I/O-, CPU-, Memory-, TempDB- und Log-Faults capability- und scopegebunden | Interne, frische operationseigene Container-CPU- und -Memory-Pulse sind für Docker und Podman getrennt belegt; Netzwerk-, I/O-, TempDB- und Log-Profile sowie die Executorintegration sind offen |
+| `FLT-812` | Ausgangszustand, automatische Rücknahme und Recovery verifizieren | Rücknahme und Hard-Interrupt-Recovery der internen CPU-/Memory-Pulse sind im jeweiligen engen Containerscope belegt; providerübergreifender Fault- und Szenariorecoveryvertrag bleibt offen |
 | `MIG-821` | weitere Schulungs-, Analyze- und Toolbelt-Piloten migrieren | fachliche Breite |
 | `MIG-822` | Compatibility Wrapper, Deprecation und Paritätsnachweise | kontrollierter Übergang |
 | `MIG-823` | generische Doppelimplementierungen erst nach Abnahme entfernen | kein Funktionsverlust |

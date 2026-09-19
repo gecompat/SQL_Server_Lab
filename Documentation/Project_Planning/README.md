@@ -12,7 +12,7 @@
 | RESERVED_MANIFEST_FIELDS_ASSESSMENT_2026-09-10.md | Abgeschlossene Bedarfsbewertung reservierter Manifest- und Adapterfelder mit Wiederverwendung bestehender Verträge, Risiken, relativem Aufwand und konkreten Freischaltungskriterien; keine neue Runtimefreigabe |
 | DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md | Kanonische Ausführungsreihenfolge; Abschnitt 12 führt den evidenzgebundenen Status der fünf Wellen für Baseline, P0-Recovery, drei Adapterpiloten, Hyper-V-End-to-End sowie Storage/Reconcile |
 | M0_STATUS_TRUTH_MATRIX.md | Kanonische deduplizierte M0-Abnahmekriterien, Statusvokabular, vollständiges Alt-Wellen-Mapping und Readinessmatrix je Änderungsklasse |
-| SCENARIO_CONTRACT_BACKLOG.md | Interner, nicht ausführbarer `SCN-801`-Schema-Slice für Scenario-, Step-, Evidence- und Outcome-Metadaten sowie verbleibende öffentliche Contract-Entscheidungen |
+| SCENARIO_CONTRACT_BACKLOG.md | Interner, nicht ausführbarer `SCN-801`-Metadatenslice für Scenario-, Step-, Evidence- und Outcome-Metadaten (`ExecutionImplemented=false`), mit getrennten privaten synthetischen SCN-802–804-Ergänzungen; öffentliche Contracts, Provider-/SQL-Ausführung und Consumer-Migration bleiben offen |
 | MASTER_IMPLEMENTATION_PLAN.md | Gesamtziel, Wellen, Abnahmekriterien und Umsetzungsstand |
 | MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md | Vorrangige Scope-Regeln |
 | FUTURE_UI_WORKFLOW_PLAN_2026-08-08.md | Zukunftsplanung für CLI-/UI-Menüführung, Reconcile-Aktionen und Infrastruktur-Changes (Hyper-V + Container) |
