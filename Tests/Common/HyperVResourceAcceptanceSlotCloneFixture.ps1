@@ -32,11 +32,18 @@ try {
     function Read-LabManifest { [pscustomobject]@{} }
     function Resolve-HyperVSqlInstallationMedia { [pscustomobject]@{HashStatus='SIDECAR_READY';IsoPath='synthetic.iso';RelativePath='SQL/2025/Enterprise/ISO/synthetic.iso'} }
     function Confirm-HyperVSqlInstallationMediaVersion { $script:events.Add('media') }
-    function Resolve-LabHyperVNetworkBoundPlan { [pscustomobject]@{Status='READY'} }
+    $script:networkCase='normal';$script:networkResolves=0
+    function Resolve-LabHyperVNetworkBoundPlan {
+        $script:networkResolves++
+        $plan=[pscustomobject]@{Status='READY';Actions=@();Name='synthetic-network';Intent='hostOnly';Subnet='192.0.2.0/24';PrefixLength=24;HostAddress='192.0.2.1';Gateway=$null;DnsServers=@()}
+        if($script:networkCase -eq 'initialActions' -or ($script:networkCase -eq 'lateActions' -and $script:networkResolves -gt 1)){$plan.Actions=@('create-switch')}
+        if($script:networkCase -eq 'lateBinding' -and $script:networkResolves -gt 1){$plan.HostAddress='192.0.2.2'}
+        $plan
+    }
     function Get-VHD { param($Path) [pscustomobject]@{ParentPath=$null;VhdType='Dynamic'} }
     function Invoke-WithLabWorkflowOperationContext { param($OperationId,$ScriptBlock) $script:events.Add('operation');& $ScriptBlock }
     function New-LabDesiredStateSnapshot { [pscustomobject]@{synthetic=$true} }
-    function New-LabRunState { param($Metadata) if(-not $Metadata.desiredState.synthetic){throw 'missing desired state'};$script:events.Add('state');[pscustomobject]@{RunId='44444444-4444-4444-4444-444444444444';ScopeId='55555555-5555-5555-5555-555555555555';RunDir=$runDir} }
+    function New-LabRunState { param($Metadata) if(-not $Metadata.desiredState.synthetic){throw 'missing desired state'};$script:cloneMetadata=$Metadata;$script:events.Add('state');[pscustomobject]@{RunId='44444444-4444-4444-4444-444444444444';ScopeId='55555555-5555-5555-5555-555555555555';RunDir=$runDir} }
     function New-CleanupPlan { $script:events.Add('cleanup-plan') }
     function Set-LabRunState {}
     function Set-LabProviderSubRunState {}
@@ -44,7 +51,7 @@ try {
     function Assert-LabHyperVBoundPath { param($Binding,$Path) $Path }
     function Add-CleanupStep { param($ResourceType) $script:events.Add('cleanup-'+$ResourceType) }
     function Convert-VHD { param($Path,$DestinationPath,$VHDType) $script:events.Add('copy');if($script:failCopy){throw 'synthetic copy failure'};[IO.File]::WriteAllText($DestinationPath,'synthetic independent copy') }
-    function Invoke-LabHyperVNetworkBoundPlan { [pscustomobject]@{Name='synthetic-network';Intent='hostOnly';Subnet='192.0.2.0';PrefixLength=24;HostAddress='192.0.2.1';Gateway=$null;DnsServers=@()} }
+    function Invoke-LabHyperVNetworkBoundPlan { $script:events.Add('network-executor');[pscustomobject]@{Name='synthetic-network';Intent='hostOnly';Subnet='192.0.2.0';PrefixLength=24;HostAddress='192.0.2.1';Gateway=$null;DnsServers=@()} }
     function Reserve-LabHyperVNetworkAddress { $script:events.Add('lease');[pscustomobject]@{address='192.0.2.5'} }
     function Write-LabArtifactJsonAtomic { param($Path,$InputObject) if($Path.EndsWith('connection-info.json')){$script:connection=$InputObject;$script:events.Add('connection')} }
     function New-HyperVInstance { $script:events.Add('vm');[pscustomobject]@{VMName='synthetic-clone';VMId='66666666-6666-6666-6666-666666666666';NetworkBinding=$null} }
@@ -52,7 +59,7 @@ try {
     function Save-LabSecret { $script:events.Add('secret') }
     function Set-HyperVLabSqlDeploymentPlan { $script:events.Add('sql-plan') }
     function Set-VMMemory { $script:events.Add('memory') }
-    function Invoke-HyperVLabSqlSlotInstall { $script:events.Add('sql-install');[pscustomobject]@{State='SQL_SLOT_READY'} }
+    function Invoke-HyperVLabSqlSlotInstall { param([switch]$RequireExistingNetwork) if($RequireExistingNetwork){$script:events.Add('sql-existing-network')};$script:events.Add('sql-install');[pscustomobject]@{State='SQL_SLOT_READY'} }
     function Assert-Fixture { param([bool]$Condition,[string]$Name) if(-not $Condition){throw ('SLOT_CLONE_CONTRACT_FAILED: '+$Name)} }
     Write-FixtureSource
     $null=Get-HyperVResourceAcceptanceSlotSource -SourceRunId $sourceId -StateRoot $fixtureRoot
@@ -68,11 +75,27 @@ try {
     $cloneArguments=@{SourceRunId=$sourceId;ManifestPath=$manifestPath;OperationId='github-1-1-resource-r1';MediaRoot=$fixtureRoot;SqlPassword=(Get-LabSecret);StateRoot=$fixtureRoot}
     $result=New-HyperVResourceAcceptanceSlotClone @cloneArguments
     Assert-Fixture ($result.State -eq 'RUNNING') 'complete transaction'
+    Assert-Fixture ($script:cloneMetadata.workflowOperationId -eq 'github-1-1-resource-r1') 'operation ownership persists with clone state'
     $eventSnapshot=@($script:events)
     Assert-Fixture ([array]::IndexOf($eventSnapshot,'cleanup-plan') -lt [array]::IndexOf($eventSnapshot,'copy') -and [array]::IndexOf($eventSnapshot,'cleanup-vhdx') -lt [array]::IndexOf($eventSnapshot,'copy')) 'copy has prior cleanup'
     Assert-Fixture ([array]::IndexOf($eventSnapshot,'cleanup-ipam-lease') -lt [array]::IndexOf($eventSnapshot,'vm') -and [array]::IndexOf($eventSnapshot,'connection') -lt [array]::IndexOf($eventSnapshot,'sql-install')) 'lease and connection precede SQL'
     Assert-Fixture ($script:connection.instances[0].windowsActivationIntent.Strategy -eq 'VerifyOnly' -and $script:connection.instances[0].windowsActivationIntent.EgressPolicy -eq 'Denied') 'verification only'
     Assert-Fixture ((Get-Content $sourceFile -Raw) -ceq 'synthetic source') 'source unchanged'
+    foreach($networkCase in @('initialActions','lateActions','lateBinding','normal')){
+        $script:networkCase=$networkCase;$script:networkResolves=0;$script:events.Clear()
+        $copyPath=Join-Path $runDir 'primary-source-parent.vhdx'
+        (Get-Item -LiteralPath $copyPath).IsReadOnly=$false
+        $networkError=$null
+        try{$null=New-HyperVResourceAcceptanceSlotClone @cloneArguments -RequireExistingNetwork}catch{$networkError=$_.Exception.Message}
+        Assert-Fixture (-not $script:events.Contains('network-executor')) ('existing-only never invokes infrastructure: '+$networkCase)
+        if($networkCase -eq 'normal'){
+            Assert-Fixture ($null -eq $networkError -and $script:networkResolves -eq 2 -and $script:events.Contains('sql-existing-network')) 'existing-only completes after fresh read and propagates to SQL'
+        } elseif($networkCase -eq 'initialActions'){
+            Assert-Fixture ($networkError -eq 'HYPERV_RESOURCE_SLOT_EXISTING_NETWORK_REQUIRED' -and -not $script:events.Contains('state')) 'initial infrastructure blocks before state or copy'
+        } else {
+            Assert-Fixture ($networkError -eq 'HYPERV_RESOURCE_SLOT_EXISTING_NETWORK_CHANGED' -and $script:events.Contains('cleanup-vhdx') -and -not $script:events.Contains('lease') -and -not $script:events.Contains('vm')) ('late drift leaves only cleanup-bound copy: '+$networkCase)
+        }
+    }
     $script:events.Clear();$script:failCopy=$true;$failed=$false
     try{$null=New-HyperVResourceAcceptanceSlotClone @cloneArguments}catch{$failed=$_.Exception.Message -eq 'synthetic copy failure'}
     Assert-Fixture ($failed -and $script:events.Contains('cleanup-vhdx') -and -not $script:events.Contains('vm') -and -not $script:events.Contains('sql-install')) 'copy failure stops before VM or SQL'

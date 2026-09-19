@@ -160,6 +160,13 @@ sources_of_truth:
   hyperv_network_reconcile_contract: Private/HyperVNetworkReconcile.ps1
   hyperv_network_reconcile_journal_schema: Schemas/hyperv-network-reconcile-journal.schema.json
   validation_hyperv_network_reconcile: Tests/Static/Invoke-HyperVNetworkReconcileChecks.ps1
+  validation_hyperv_network_reconnect_helper: Tests/Common/HyperVNetworkReconnectAcceptance.ps1
+  validation_hyperv_network_reconnect_native: Tests/Integration/Invoke-HyperVNetworkReconnectAcceptance.ps1
+  validation_hyperv_network_reconnect_worker: Tests/Common/HyperVNetworkReconnectWorker.ps1
+  validation_hyperv_network_reconnect_supervisor: Tests/Common/HyperVNetworkReconnectSupervisor.ps1
+  validation_hyperv_network_reconnect_supervisor_fixture: Tests/Common/HyperVNetworkReconnectSupervisorFixture.ps1
+  validation_hyperv_network_reconnect_static: Tests/Static/Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1
+  validation_hyperv_existing_network_fixture: Tests/Common/HyperVExistingNetworkFixture.ps1
   hyperv_resource_reconcile_contract: Private/HyperVResourceReconcile.ps1
   hyperv_resource_reconcile_journal_schema: Schemas/hyperv-resource-reconcile-journal.schema.json
   validation_hyperv_resource_reconcile: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1
@@ -1219,6 +1226,15 @@ validation:
       - explicit_external_switch_creation_approval
       - run_scope_vm_and_adapter_bound_journal
       - recovery_finalize_and_fail_closed_drift_boundaries
+  static_hyperv_network_reconnect_acceptance:
+    command: '.\Tests\Static\Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1'
+    source: Tests/Static/Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1
+    covers:
+      - operation_owned_adapter_reconnect_acceptance_and_compensation
+      - pre_apply_vm_adapter_switch_identity_revalidation
+      - existing_only_sql_host_access_without_infrastructure_mutation
+      - child_timeout_and_termination_gated_operation_cleanup
+      - source_run_and_foreign_cleanup_resource_rejection
   static_mixed_provider_contracts:
     command: '.\Tests\Static\Invoke-MixedProviderLifecycleChecks.ps1'
     source: Tests/Static/Invoke-MixedProviderLifecycleChecks.ps1
