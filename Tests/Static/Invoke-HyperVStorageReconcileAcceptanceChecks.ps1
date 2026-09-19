@@ -2,7 +2,9 @@
 [CmdletBinding()]param()
 $ErrorActionPreference='Stop';$repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $path=Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVStorageReconcileAcceptance.ps1';$workflow=Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml';$source=Get-Content $path -Raw -Encoding utf8;$errors=$null;$null=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$null,[ref]$errors)
+. (Join-Path $PSScriptRoot '../Common/HyperVStorageAcceptanceRecoveryFixture.ps1')
 $checks=[ordered]@{
+ 'Early clone failure recovers only this operation; unowned, absent and ambiguous runs remain fail-closed'=(Test-HyperVStorageAcceptanceRecovery -RunnerPath $path)
  'Native storage acceptance is syntactically valid'=($errors.Count -eq 0)
  'Acceptance uses an isolated operation-owned verified Windows 2025 clone'=($source -match 'CloneSourceRunId' -and $source -match 'Parameter\(Mandatory\)\]\[string\]\$CloneSourceRunId' -and $source -match 'New-HyperVResourceAcceptanceSlotClone')
  'Acceptance remains scoped to HV-603 host storage rather than SQL path rebinding'=($source -match 'RepairHyperVStorage' -and $source -notmatch 'RepairHyperVSqlStorage' -and $source -notmatch 'RepairHyperVSqlConfiguration')

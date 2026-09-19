@@ -28,7 +28,9 @@ function Test-ComparisonCase {
  & $comparison
 }
 $valid=Test-ComparisonCase 'Valid'
+. (Join-Path $PSScriptRoot '../Common/HyperVStorageAcceptanceRecoveryFixture.ps1')
 $checks=[ordered]@{
+ 'Early clone failure recovers only this operation; unowned, absent and ambiguous runs remain fail-closed'=(Test-HyperVStorageAcceptanceRecovery -RunnerPath $path)
  'Directory delimiters and case do not reject converged SQL paths'=($valid.Defaults -and $valid.TempDb)
  'Different and empty default directories remain rejected'=(-not (Test-ComparisonCase 'WrongDefault').Defaults -and -not (Test-ComparisonCase 'EmptyDefault').Defaults)
  'Missing duplicate and misplaced TempDB files remain rejected'=(-not (Test-ComparisonCase 'MissingTempDb').TempDb -and -not (Test-ComparisonCase 'DuplicateTempDb').TempDb -and -not (Test-ComparisonCase 'WrongTempDb').TempDb)

@@ -1422,14 +1422,14 @@ Versionen und Ressourcenklassen bleiben getrennt nachweispflichtig.
 ### Storage-Reconcile aus einem Windows-Slot
 
 Der manuelle Main-Modus `storage-reconcile-acceptance` akzeptiert dieselbe
-optionale `clone_source_run_id`-Quelle. `Invoke-HyperVStorageReconcileAcceptance.ps1`
+explizite `clone_source_run_id`-Quelle. `Invoke-HyperVStorageReconcileAcceptance.ps1`
 prüft für HV-603 ausschließlich zwei manifestgebundene Host-SCSI-Lanes,
 Add-Reconcile, das unveränderte `WhatIf`, den VHDX-/Attachment- und
 Gast-Receipt, SQL-Readiness nach VM-Neustart, No-op und operationseigenes
 Cleanup. Der Clone erhält SQL 2025 aus hashregistrierten Medien und nutzt
 `VerifyOnly`; SQL-Dateipfad-Relocation oder -Rebinding gehört nicht zu diesem
-Runner (HV-603A). Der native Lauf wurde noch nicht gestartet und ist daher
-`NOT_EXECUTED`. Grow-only sowie die kontrollierte Unterbrechung nach
+Runner (HV-603A). Die lokale native Abnahme vom 2026-09-19 bestand mit
+vollständigem Cleanup; der genaue Nachweisumfang steht unten. Grow-only sowie die kontrollierte Unterbrechung nach
 `HOST_APPLIED` und Resume ohne doppelte Hostmutation werden weiterhin durch den
 vorhandenen synthetischen Storage-Reconcile-Vertrag belegt, bis ein
 produktionssicherer nativer Fault-Injection-Punkt ausdrücklich autorisiert ist.
@@ -1458,3 +1458,26 @@ Die ausführbare Offline-Regression prüft zusätzlich falsche und leere
 Default-Verzeichnisse sowie fehlende, doppelte und falsch platzierte
 TempDB-Dateien. Andere Versionskombinationen und natives Fault/Resume sind
 damit nicht belegt.
+
+Nachträgliche Sicherheitshärtung: Der größenbasierte RAW-Fallback wurde
+entfernt. `Invoke-HyperVProviderChecks.ps1` führt die tatsächliche Gast-
+Auswahllogik ohne Diskmutation mit synthetischen IDs aus und prüft fremde,
+fehlende, mehrdeutige und bereits beanspruchte Disks sowie zwei gleich große
+Disks mit passenden IDs. Der native Erfolg auf `43bdb819` darf nicht auf diese
+Änderung übertragen werden. Der integrierte Parser liest die vollständige GUID
+aus binären Microsoft-T10-Geräteidentifikatoren. Seine synthetischen Tests
+prüfen auch ungültige Längen und Verweise sowie fremde Vendor-, Port-, Codeset-
+und NAA-Kennungen. Boot-/Systemplatten und Fehler in späteren Planeinträgen
+werden vor dem Schreibabschnitt abgefangen. Ein separater rein lesender
+Windows-2025-Gastprobe bestätigte die vollständige Host-GUID. Am 2026-09-19
+bestand auch der lokale native `Invoke-HyperVStorageReconcileAcceptance.ps1`-
+Lauf mit dem integrierten Stand: zwei neue Datenplatten, Add-WhatIf ohne Mutation,
+Gast-Receipts, SQL-Bereitschaft nach VM-Neustart und No-op. Alle sechs
+Cleanup-Schritte sowie die zusätzliche operationseigene Restprüfung waren
+erfolgreich. Dies ist kein GitHub-Actions- oder nativer Fault-Injection-Nachweis.
+
+Beide Storage-Acceptance-Runner lehnen bereits belegte Operation-IDs vor dem
+Clone ab. Schlägt der Clone vor Rückgabe des Runs fehl, wird ausschließlich der
+eindeutig zu dieser Operation gehörende Run für Cleanup oder `KeepOnFailure`
+wiederaufgenommen. Die gemeinsame Offline-Fixture prüft erfolgreiche,
+fehlende und mehrdeutige Zuordnung sowie fehlende Ownership und bestehende Runs.

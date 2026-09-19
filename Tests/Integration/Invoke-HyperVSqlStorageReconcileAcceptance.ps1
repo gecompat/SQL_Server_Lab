@@ -24,6 +24,7 @@ $modulePath=Join-Path $repoRoot 'SqlServerLab.psd1'
 $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hv-sql-storage-'+[guid]::NewGuid().ToString('N'))
 $previousStateRoot=$env:SQL_SERVER_LAB_STATE
 $module=$null;$lab=$null;$ownedPaths=@();$completed=$false;$script:saPassword=$null
+$ownsOperation=$false
 $mutex=[Threading.Mutex]::new($false,'Global\SQL_Server_Lab_HyperV_SQL_Storage_Reconcile_Acceptance');$mutexAcquired=$false
 
 function Assert-HyperVSqlStorageAcceptance { param([bool]$Condition,[string]$Description) if(-not $Condition){throw "HYPERV_SQL_STORAGE_ACCEPTANCE_FAILED: $Description"};Write-Host "PASS: $Description" -ForegroundColor Green }
@@ -61,6 +62,8 @@ try {
     Get-Command Get-VM,Get-VHD,Get-VMHardDiskDrive -ErrorAction Stop|Out-Null
     $null=New-Item -ItemType Directory -Path $testRoot -Force;$module=Import-Module $modulePath -Force -PassThru
     if(-not $StateRoot){$StateRoot=Invoke-Private {Get-LabStateRoot}};$env:SQL_SERVER_LAB_STATE=$StateRoot
+    if(Invoke-Private {param($Op,$Root)Get-LabOperationOwnedRun -OperationId $Op -StateRoot $Root} @($OperationId,$StateRoot)){throw 'HYPERV_SQL_STORAGE_ACCEPTANCE_OPERATION_ALREADY_OWNED'}
+    $ownsOperation=$true
     $manifestPath=Join-Path $testRoot 'sql-storage.json';New-StorageManifest $manifestPath ('hv-sql-storage-'+[guid]::NewGuid().ToString('N').Substring(0,8))
     Assert-HyperVSqlStorageAcceptance (Test-SqlServerLabManifest -Path $manifestPath).IsValid 'VerifyOnly-Manifest mit gebundenem Storage-Intent ist gueltig'
     $script:saPassword=Invoke-Private {New-HyperVSqlUnattendedPassword};$lab=New-OwnedRun $manifestPath $script:saPassword
@@ -115,6 +118,13 @@ try {
     Assert-HyperVSqlStorageAcceptance ($noOp.IsNoOp -and @($noOp.Actions).Count -eq 0) 'Wiederholter HV-603A-Plan ist No-op'
     $cleanup=Remove-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -Force -Confirm:$false;Assert-HyperVSqlStorageAcceptance ([string]$cleanup.Status -in @('REMOVED','COMPLETED')) 'Operationseigener Run wurde scopegebunden entfernt';$lab=$null;foreach($path in $ownedPaths){Assert-HyperVSqlStorageAcceptance (-not(Test-Path -LiteralPath $path)) 'Run-eigene VHDX wurde entfernt'};$completed=$true
 }
-catch { if($lab -and $KeepOnFailure){Write-Host "RECOVERY_RUN_ID=$([string]$lab.RunId)";Write-Host "RECOVERY_MANIFEST_ROOT=$testRoot"};throw }
+catch {
+    if(-not $lab -and $ownsOperation){
+        $recovered=Invoke-Private {param($Op,$Root)Get-LabOperationOwnedRun -OperationId $Op -StateRoot $Root} @($OperationId,$StateRoot)
+        if($recovered){$lab=[pscustomobject]@{RunId=[string]$recovered.runId}}
+    }
+    if($lab -and $KeepOnFailure){Write-Host "RECOVERY_RUN_ID=$([string]$lab.RunId)";Write-Host "RECOVERY_MANIFEST_ROOT=$testRoot"}
+    throw
+}
 finally { $script:saPassword=$null;if($lab -and -not $KeepOnFailure){try{Remove-SqlServerLab -RunId ([string]$lab.RunId) -StateRoot $StateRoot -Force -Confirm:$false|Out-Null}catch{Write-Warning 'HYPERV_SQL_STORAGE_ACCEPTANCE_OWNED_CLEANUP_FAILED'}};if(($completed -or -not $KeepOnFailure) -and (Test-Path $testRoot)){if(-not(Test-ScopedTemporaryRoot $testRoot)){throw 'HYPERV_SQL_STORAGE_ACCEPTANCE_TEMP_SCOPE_INVALID'};Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue};if($previousStateRoot){$env:SQL_SERVER_LAB_STATE=$previousStateRoot}else{Remove-Item Env:SQL_SERVER_LAB_STATE -ErrorAction SilentlyContinue};if($mutexAcquired){$mutex.ReleaseMutex()};$mutex.Dispose() }
 Write-Host 'Native Hyper-V-SQL-Storage-Reconcile-Akzeptanz erfolgreich.' -ForegroundColor Green

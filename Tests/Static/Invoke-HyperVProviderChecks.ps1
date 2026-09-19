@@ -345,14 +345,87 @@ try {
             $provider -match 'contractVersion = ''1''[\s\S]+drives = \$portablePlan' -and
             $provider -match '\$specifications = @\(\$plan\.drives\)'
         )
+    # Execute the actual guest selection prefix without any disk mutation commands.
+    $providerAst = [Management.Automation.Language.Parser]::ParseInput($provider, [ref]$null, [ref]$null)
+    $normalizer = $providerAst.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'ConvertTo-NormalizedDiskIdentifier'}, $true)
+    $selectionStart = $provider.IndexOf('            $claimedDiskNumbers = [Collections.Generic.HashSet[int]]::new()')
+    $selectionEnd = $provider.IndexOf('            foreach ($resolvedDrive in $resolvedDrives)', $selectionStart)
+    if (-not $normalizer -or $selectionStart -lt 0 -or $selectionEnd -le $selectionStart) { throw 'Guest disk selection boundary missing' }
+    $guestSelection = [scriptblock]::Create($normalizer.Extent.Text + "`n" +
+        $provider.Substring($selectionStart, $selectionEnd - $selectionStart) +
+        '; $mutationBoundaryProbe.Add($true); foreach ($resolvedDrive in $resolvedDrives) { $resolvedDrive.Disk.Number }')
+    $firstId = '11111111-1111-1111-1111-111111111111'
+    $descriptorParser = $providerAst.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'ConvertFrom-HyperVStorageIdentifierDescriptor'}, $true)
+    if (-not $descriptorParser) { throw 'Guest descriptor parser missing' }
+    $parseDescriptor = [scriptblock]::Create('param([byte[]]$Buffer)' + $descriptorParser.Extent.Text + '; ConvertFrom-HyperVStorageIdentifierDescriptor -Buffer $Buffer')
+    $descriptor = [byte[]]::new(52)
+    [BitConverter]::GetBytes([uint32]52).CopyTo($descriptor, 0)
+    [BitConverter]::GetBytes([uint32]52).CopyTo($descriptor, 4)
+    [BitConverter]::GetBytes([uint32]1).CopyTo($descriptor, 8)
+    [BitConverter]::GetBytes([uint32]1).CopyTo($descriptor, 12)
+    [BitConverter]::GetBytes([uint32]1).CopyTo($descriptor, 16)
+    [BitConverter]::GetBytes([uint16]24).CopyTo($descriptor, 20)
+    [Text.Encoding]::ASCII.GetBytes('MSFT    ').CopyTo($descriptor, 28)
+    ([guid]$firstId).ToByteArray().CopyTo($descriptor, 36)
+    Add-CheckResult -Name 'T10-Deskriptor liefert die vollstaendige GUID' -Success ((& $parseDescriptor $descriptor) -eq ($firstId -replace '-', ''))
+    $mixedCaseDescriptor = [byte[]]$descriptor.Clone()
+    [Text.Encoding]::ASCII.GetBytes('Msft    ').CopyTo($mixedCaseDescriptor, 28)
+    Add-CheckResult -Name 'Microsoft-Vendor-Kennung akzeptiert Grossschreibungsvarianten' -Success ((& $parseDescriptor $mixedCaseDescriptor) -eq ($firstId -replace '-', ''))
+    $rejectedDescriptors = 0
+    foreach ($mutation in @(
+        @{Offset=4;Value=53}, @{Offset=20;Value=255}, @{Offset=8;Value=2}
+    )) {
+        $invalid = [byte[]]$descriptor.Clone()
+        $invalid[$mutation.Offset] = [byte]$mutation.Value
+        try { $null = & $parseDescriptor $invalid } catch { $rejectedDescriptors++ }
+    }
+    Add-CheckResult -Name 'Ungueltige Deskriptorlaengen und Verkettung werden abgewiesen' -Success ($rejectedDescriptors -eq 3)
+    $ignoredDescriptors = 0
+    foreach ($mutation in @(
+        @{Offset=28;Value=88}, @{Offset=24;Value=1}, @{Offset=12;Value=2}, @{Offset=16;Value=3}
+    )) {
+        $foreignDescriptor = [byte[]]$descriptor.Clone()
+        $foreignDescriptor[$mutation.Offset] = [byte]$mutation.Value
+        if (@(& $parseDescriptor $foreignDescriptor).Count -eq 0) { $ignoredDescriptors++ }
+    }
+    Add-CheckResult -Name 'Fremde Vendor-, Port-, Codeset- und NAA-Kennungen ergeben keine GUID' -Success ($ignoredDescriptors -eq 4)
+    $secondId = '22222222-2222-2222-2222-222222222222'
+    function Invoke-SyntheticDiskSelection {
+        param([object[]]$Disks, [string[]]$Ids)
+        $allDisks = $Disks
+        $diskIdentifiers = @{}
+        foreach ($candidate in $Disks) {
+            $diskIdentifiers[[int]$candidate.Number] = @(([string]$candidate.UniqueId -replace '[^A-Fa-f0-9]', '').ToUpperInvariant())
+        }
+        $specifications = @($Ids | ForEach-Object { [pscustomobject]@{id='synthetic';diskIdentifier=$_;sizeBytes=8GB;controllerLocation=2} })
+        $mutationBoundaryProbe = [Collections.Generic.List[bool]]::new()
+        try { [pscustomobject]@{Selected=@(& $guestSelection);Error=$null;MutationBoundaryReached=($mutationBoundaryProbe.Count -gt 0)} }
+        catch { [pscustomobject]@{Selected=@();Error=$_.Exception.Message;MutationBoundaryReached=($mutationBoundaryProbe.Count -gt 0)} }
+    }
+    $firstDisk = [pscustomobject]@{Number=7;UniqueId=$firstId;Size=8GB;PartitionStyle='RAW';IsBoot=$false;IsSystem=$false}
+    $secondDisk = [pscustomobject]@{Number=9;UniqueId=$secondId;Size=8GB;PartitionStyle='RAW';IsBoot=$false;IsSystem=$false}
+    $foreign = Invoke-SyntheticDiskSelection -Disks @($secondDisk) -Ids @($firstId)
+    $absent = Invoke-SyntheticDiskSelection -Disks @() -Ids @($firstId)
+    $ambiguous = Invoke-SyntheticDiskSelection -Disks @($firstDisk,$firstDisk) -Ids @($firstId)
+    $matching = Invoke-SyntheticDiskSelection -Disks @($secondDisk,$firstDisk) -Ids @($firstId,$secondId)
+    $reclaimed = Invoke-SyntheticDiskSelection -Disks @($firstDisk) -Ids @($firstId,$firstId)
+    $laterMissing = Invoke-SyntheticDiskSelection -Disks @($firstDisk) -Ids @($firstId,$secondId)
+    Add-CheckResult -Name 'Fehler im spaeteren Laufwerksplan blockieren vor jeder Diskmutation' -Success ($laterMissing.Error -eq 'GUEST_DISK_IDENTIFIER_MATCH_COUNT_synthetic_0' -and -not $laterMissing.MutationBoundaryReached -and -not $reclaimed.MutationBoundaryReached -and $matching.MutationBoundaryReached)
+    $bootDisk = [pscustomobject]@{Number=0;UniqueId=$firstId;Size=8GB;PartitionStyle='GPT';IsBoot=$true;IsSystem=$false}
+    $systemDisk = [pscustomobject]@{Number=1;UniqueId=$firstId;Size=8GB;PartitionStyle='GPT';IsBoot=$false;IsSystem=$true}
+    $bootSelection = Invoke-SyntheticDiskSelection -Disks @($bootDisk) -Ids @($firstId)
+    $systemSelection = Invoke-SyntheticDiskSelection -Disks @($systemDisk) -Ids @($firstId)
+    Add-CheckResult -Name 'Boot- und Systemdisk bleiben auch bei passender ID vor Diskmutation blockiert' -Success ($bootSelection.Error -eq 'GUEST_DISK_SYSTEM_DISK_FORBIDDEN_synthetic' -and $systemSelection.Error -eq 'GUEST_DISK_SYSTEM_DISK_FORBIDDEN_synthetic')
+    Add-CheckResult -Name 'Fremde gleich grosse RAW-Disk bleibt ohne Identitaetsnachweis blockiert' -Success ($foreign.Error -eq 'GUEST_DISK_IDENTIFIER_MATCH_COUNT_synthetic_0')
+    Add-CheckResult -Name 'Fehlende und mehrdeutige Gast-Diskidentitaeten bleiben blockiert' -Success ($absent.Error -eq 'GUEST_DISK_IDENTIFIER_MATCH_COUNT_synthetic_0' -and $ambiguous.Error -eq 'GUEST_DISK_IDENTIFIER_MATCH_COUNT_synthetic_2')
+    Add-CheckResult -Name 'Gleich grosse eigene Disks werden unabhaengig von der Disknummer per ID gebunden' -Success (-not $matching.Error -and ($matching.Selected -join ',') -eq '7,9')
+    Add-CheckResult -Name 'Bereits beanspruchte Gast-Disk wird nicht erneut zugeordnet' -Success ($reclaimed.Error -eq 'GUEST_DISK_ALREADY_CLAIMED_synthetic_7')
     Add-CheckResult `
-        -Name 'Frische Daten-VHDX nutzt einen eindeutigen RAW-Groessenfallback ohne Disknummer-Annahme' `
+        -Name 'Gast-Datentraegerauswahl verlangt Identitaet statt Groessen- oder Disknummer-Fallback' `
         -Success (
-            $provider -match '\$matchingMethod = ''raw-size-fallback''' -and
-            $provider -match '\$rawCandidates\.Count -eq 1' -and
-            $provider -match '\[string\]\$_.PartitionStyle -eq ''RAW''' -and
+            $provider -match '\$matchingMethod = ''disk-identifier''' -and
+            $provider -notmatch 'raw-size-fallback|scsi-location-raw-fallback|\$rawCandidates' -and
             $provider -notmatch '\[int\]\$_.Number -eq \[int\]\$specification.controllerLocation' -and
-            $provider -match '\[long\]\$_.Size -eq \[long\]\$specification.sizeBytes' -and
             $provider -match 'GUEST_DISK_ALREADY_CLAIMED' -and
             $provider -match 'GUEST_DISK_IDENTIFIER_MATCH_COUNT'
         )

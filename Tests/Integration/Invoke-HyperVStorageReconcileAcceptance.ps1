@@ -27,6 +27,7 @@ $modulePath=Join-Path $repoRoot 'SqlServerLab.psd1'
 $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hv-storage-'+[guid]::NewGuid().ToString('N'))
 $previousStateRoot=$env:SQL_SERVER_LAB_STATE
 $module=$null;$lab=$null;$ownedPaths=@();$completed=$false;$script:saPassword=$null
+$ownsOperation=$false
 $mutex=[Threading.Mutex]::new($false,'Global\SQL_Server_Lab_HyperV_Storage_Reconcile_Acceptance');$mutexAcquired=$false
 
 function Assert-HyperVStorageAcceptance { param([bool]$Condition,[string]$Description) if(-not $Condition){throw "HYPERV_STORAGE_ACCEPTANCE_FAILED: $Description"};Write-Host "PASS: $Description" -ForegroundColor Green }
@@ -58,6 +59,8 @@ try {
     $null=New-Item -ItemType Directory -Path $testRoot -Force
     $module=Import-Module $modulePath -Force -PassThru
     if(-not $StateRoot){$StateRoot=Invoke-Private {Get-LabStateRoot}};$env:SQL_SERVER_LAB_STATE=$StateRoot
+    if(Invoke-Private {param($Op,$Root)Get-LabOperationOwnedRun -OperationId $Op -StateRoot $Root} @($OperationId,$StateRoot)){throw 'HYPERV_STORAGE_ACCEPTANCE_OPERATION_ALREADY_OWNED'}
+    $ownsOperation=$true
     $manifestPath=Join-Path $testRoot 'storage.json';New-StorageManifest $manifestPath ('hv-storage-'+[guid]::NewGuid().ToString('N').Substring(0,8)) $null
     Assert-HyperVStorageAcceptance (Test-SqlServerLabManifest -Path $manifestPath).IsValid 'Manifest mit zwei gebundenen SCSI-Lanes ist gueltig'
     $guest=Invoke-Private {New-HyperVSqlUnattendedPassword};$script:saPassword=Invoke-Private {New-HyperVSqlUnattendedPassword}
@@ -85,7 +88,14 @@ try {
     Assert-HyperVStorageAcceptance ($noOp.IsNoOp -and @($noOp.Actions).Count -eq 0) 'Wiederholter Storage-Plan ist No-op; Resume erzeugt keine doppelte Hostmutation'
     $cleanup=Remove-SqlServerLab -RunId $lab.RunId -StateRoot $StateRoot -Force -Confirm:$false;Assert-HyperVStorageAcceptance ([string]$cleanup.Status -in @('REMOVED','COMPLETED')) 'Operationseigener Run wurde scopegebunden entfernt';$lab=$null;foreach($path in $ownedPaths){Assert-HyperVStorageAcceptance (-not(Test-Path -LiteralPath $path)) 'Run-eigene VHDX wurde entfernt'};$completed=$true
 }
-catch { if($lab -and $KeepOnFailure){Write-Host "RECOVERY_RUN_ID=$([string]$lab.RunId)";Write-Host "RECOVERY_MANIFEST_ROOT=$testRoot"};throw }
+catch {
+    if(-not $lab -and $ownsOperation){
+        $recovered=Invoke-Private {param($Op,$Root)Get-LabOperationOwnedRun -OperationId $Op -StateRoot $Root} @($OperationId,$StateRoot)
+        if($recovered){$lab=[pscustomobject]@{RunId=[string]$recovered.runId}}
+    }
+    if($lab -and $KeepOnFailure){Write-Host "RECOVERY_RUN_ID=$([string]$lab.RunId)";Write-Host "RECOVERY_MANIFEST_ROOT=$testRoot"}
+    throw
+}
 finally {
     $script:saPassword=$null
     if($lab -and -not $KeepOnFailure){try{Remove-SqlServerLab -RunId ([string]$lab.RunId) -StateRoot $StateRoot -Force -Confirm:$false|Out-Null}catch{Write-Warning 'HYPERV_STORAGE_ACCEPTANCE_OWNED_CLEANUP_FAILED'}}

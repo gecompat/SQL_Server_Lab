@@ -633,8 +633,8 @@ operationseigenen Windows-2025-Clone
 registriert und prüft SCSI-Add, Gast-Receipt, Restart, No-op und
 scopegebundenes Cleanup. Grow-only und Abbruch/Resume bleiben wegen der
 fehlenden zerstörungsfreien nativen Drift-Injektion synthetisch belegt. Ein
-positiver nativer Reparaturlauf wurde für diesen neuen Runner noch nicht
-ausgeführt und bleibt `NOT_EXECUTED`; HV-603A bleibt ein getrennter
+positiver lokaler nativer Reparaturlauf bestand am 2026-09-19; der genaue
+Nachweisumfang steht unten. HV-603A bleibt ein getrennter
 SQL-Dateipfad-Rebinding-Nachweis.
 
 Der getrennte HV-603A-Runner
@@ -649,6 +649,21 @@ für Windows Server 2025 und SQL Server 2025 Enterprise auf Runnerstand
 eine Logdatei konvergierten, der Gast-Bootzeitpunkt blieb beim SQL-Dienstrestart
 unverändert, der Folgeplan war No-op und Cleanup endete ohne Fehler.
 Dies ist kein GitHub-Actions-Nachweis und keine allgemeine Versionsmatrix.
+Nach diesem Lauf wurde der unsichere RAW-Größenfallback im Gast entfernt.
+Die vollständige GUID aus dem binären Microsoft-T10-Identifier wird mit dem
+gebundenen VHDX-DiskIdentifier verglichen. Die bevorzugte Gast-`UniqueId` kann
+verkürzt sein und dient nicht zur Auswahl. Ungültige Deskriptoren, Boot-/
+Systemplatten sowie fehlende oder mehrdeutige Bindungen stoppen die vollständige
+Zuordnungsvorprüfung vor der ersten Diskmutation.
+Fremde gleich große RAW-Disks, fehlende oder mehrdeutige IDs und doppelte
+Beanspruchung sind offline negativ geprüft; gleich große Disks mit jeweils
+passender ID bleiben unterscheidbar. Die frühere Abnahme auf `43bdb819`
+belegt nicht den gehärteten Stand. Die vollständige GUID konnte an einer
+bestehenden Windows-2025-Systemplatte rein lesend mit der Host-GUID abgeglichen
+werden. Zusätzlich bestand am 2026-09-19 der lokale native Storage-Abnahmelauf
+mit dem integrierten Stand: zwei neue Datenplatten, verifizierte Gast-Receipts,
+SQL-Bereitschaft nach VM-Neustart, No-op sowie sechs Cleanup-Schritte ohne Fehler.
+Dieser Nachweis umfasst keine zusätzliche Versionsmatrix oder native Fault-Injection.
 User- und Systemdatenbankdateien, zusätzliche TempDB-Logfiles, Rollen-/
 Pfadwechsel, Removal und Fault-Injection bleiben außerhalb dieses Nachweises.
 
