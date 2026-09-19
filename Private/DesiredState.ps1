@@ -448,19 +448,56 @@ function Get-LabPersistedDesiredState {
 
     $validationErrors = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
     $instanceIdsByProvider = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.HashSet[string]]]::new([StringComparer]::OrdinalIgnoreCase)
+    $supportedProviders = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    [void]$supportedProviders.Add('docker')
+    [void]$supportedProviders.Add('podman')
+    [void]$supportedProviders.Add('hyperv')
     foreach ($instance in @($snapshot.Instances)) {
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['CapabilityAssessment'] -and
             -not (Test-LabInstanceCapabilityAssessment -Assessment $instance.Intents.CapabilityAssessment)) {
             [void]$validationErrors.Add('INSTANCE_CAPABILITY_ASSESSMENT_INVALID')
         }
-        if (-not $instance.Id) { [void]$validationErrors.Add('DESIRED_INSTANCE_ID_MISSING') }
-        if (-not $instance.Provider) { [void]$validationErrors.Add('DESIRED_INSTANCE_PROVIDER_MISSING') }
-        if ($instance.Id -and $instance.Provider) {
-            $provider = [string]$instance.Provider
+        $idIsValid = $false
+        $providerIsValid = $false
+        $instanceId = $null
+        $provider = $null
+        if ($null -eq $instance.Id) {
+            [void]$validationErrors.Add('DESIRED_INSTANCE_ID_MISSING')
+        }
+        elseif ($instance.Id -isnot [string]) {
+            # Persistierte JSON-Werte duerfen nicht durch String-Coercion zu
+            # scheinbar gueltigen Manifest-IDs werden (z.B. $true oder $false).
+            [void]$validationErrors.Add('DESIRED_INSTANCE_ID_INVALID')
+        }
+        else {
+            $instanceId = $instance.Id
+            if ($instanceId.Length -eq 0) {
+                [void]$validationErrors.Add('DESIRED_INSTANCE_ID_MISSING')
+            }
+            elseif ($instanceId -notmatch '^[a-zA-Z][a-zA-Z0-9_-]*$') {
+                [void]$validationErrors.Add('DESIRED_INSTANCE_ID_INVALID')
+            }
+            else {
+                $idIsValid = $true
+            }
+        }
+        $provider = [string]$instance.Provider
+        if ($null -eq $instance.Provider -or $provider.Length -eq 0) {
+            [void]$validationErrors.Add('DESIRED_INSTANCE_PROVIDER_MISSING')
+        }
+        else {
+            if (-not $supportedProviders.Contains($provider)) {
+                [void]$validationErrors.Add('DESIRED_INSTANCE_PROVIDER_INVALID')
+            }
+            else {
+                $providerIsValid = $true
+            }
+        }
+        if ($idIsValid -and $providerIsValid) {
             if (-not $instanceIdsByProvider.ContainsKey($provider)) {
                 $instanceIdsByProvider[$provider] = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
             }
-            if (-not $instanceIdsByProvider[$provider].Add([string]$instance.Id)) {
+            if (-not $instanceIdsByProvider[$provider].Add($instanceId)) {
                 [void]$validationErrors.Add('DESIRED_INSTANCE_IDENTITY_DUPLICATE')
             }
         }
