@@ -493,6 +493,14 @@ Runtimes auch Sample-ID und Variante, Artifact Type, Quelle, Lizenz, erwartete
 Outputs, Download-/Installationsgröße, Integritäts-/Trust-Status, Handler und
 Idempotenz.
 
+Die aktuelle `SqlServerLab.ManifestPlanPreview/1.3` ergänzt je Instanz die
+angeforderte `SqlVersion` um `SqlVersionLifecycle`: aufgelöste `CatalogVersionId`
+sowie `Status`, `Supported` und `Message` aus `Test-SqlServerVersionSupported`.
+`UNKNOWN` erhält eine null-Katalog-ID. Andere fachliche Fehler verhindern diese
+Projektion nicht; bei Schemafehlern bleibt die Instanzliste leer. Die Anzeige
+zeigt den Lifecycle auch ohne Samples oder External Runtimes. Daraus folgt
+keine Änderung an Manifeststruktur, Deprecation-Policy oder Providerfähigkeit.
+
 ## 10. `LAB_GENERATED`-Baselines
 
 ### 10.1 Zweck

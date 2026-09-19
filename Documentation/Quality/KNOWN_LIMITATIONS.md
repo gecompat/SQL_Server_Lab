@@ -1197,7 +1197,12 @@ Default-Data-, Default-Log- und Backup-Lanes gebunden und blockiert
 widersprüchliche datenbankspezifische Platzierung vor der Provider-Mutation.
 Weitere Hyper-V-Sample-Varianten sind damit nicht nativ abgenommen. Der Manifest-Wizard
 unterstützt Hilfe, schrittweise Zurücknavigation, Zwischenzusammenfassung und
-Abbruch ohne partielle Datei. Seine mutationsfreie Planvorschau umfasst
+Abbruch ohne partielle Datei. Die Manifest-Planvorschau `1.3` projiziert den
+bestehenden SQL-Lifecycle-Entscheid einschließlich `UNKNOWN` je Instanz.
+Dieser Status bestätigt weder CU-Tag noch Providerfähigkeit; andere
+Validierungsfehler bleiben erhalten. Bei Schemafehlern ist die Instanzliste
+leer. Eine Ausnahme für veraltete Versionen wird dadurch nicht eingeführt.
+Seine mutationsfreie Planvorschau umfasst außerdem
 External Runtimes sowie Sample-/Artifact-Quelle, Lizenz, Outputs, Größen,
 Integrität, Trust, Handler und Idempotenz. Single- und
 Multi-Output-Container-Samples erzeugen

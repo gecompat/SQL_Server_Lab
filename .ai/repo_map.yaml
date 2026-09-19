@@ -699,6 +699,7 @@ internal_components:
       - "nur resolverfreigegebene External-Runtime-Varianten im Instanzkontext anbieten"
       - "mutationsfreie Software-Planvorschau mit Downloads, Build/Gastmutation, Downtime, Locks, Verification und Aenderungsklassen liefern"
       - "mutationsfreie Sample-/Artifact-Planvorschau mit Quelle, Lizenz, Outputs, Groessen, Integritaet, Trust, Handler und Idempotenz liefern"
+      - "ManifestPlanPreview 1.3 projiziert SQL-Bezeichner, Katalogversion und bestehenden Lifecycle-Entscheid auch bei fachlichen Fehlern; UNKNOWN besitzt keine erfundene Katalog-ID"
       - "Schema-, Katalog- und Runtime-Grenzen vor dem Speichern prüfen"
       - "reservierte Runtimefelder und -werte schemaabgeleitet fail-closed ablehnen"
       - "Warnungen für riskante, aber ausführbare Konfigurationen erzeugen"
@@ -1187,6 +1188,7 @@ validation:
       - semantic_validation
       - resolver_approved_external_runtime_selection
       - external_runtime_plan_preview
+      - sql_version_lifecycle_plan_preview
       - atomic_manifest_write
   static_documentation:
     command: '.\Tests\Static\Invoke-DocumentationChecks.ps1'

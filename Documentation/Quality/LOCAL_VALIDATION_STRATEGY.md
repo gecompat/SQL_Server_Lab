@@ -9,6 +9,13 @@
 
 ## 1. Grundsatz
 
+`Invoke-ManifestBuilderChecks.ps1` prüft die SQL-Lifecycle-Projektion der
+Manifest-Planvorschau `1.3` offline: unterstützte, veraltete und unbekannte
+Versionen, CU-Basisauflösung, unveränderte Eingaben, unabhängige fachliche
+Fehler, leere Schemafehler-Hülle und Anzeige ohne Samples oder External Runtimes.
+Die CI-Einzelpfadfälle binden Builder, Parser und Versionskatalog an dieselbe
+Suite und bewahren deren Collation-Verknüpfung. Dies ist kein Providernachweis.
+
 `Invoke-ResourceAssessmentChecks.ps1` prüft offline die Statuspriorität,
 Overcommit-Entscheidung, Skip-Unterscheidung, lokale Messwertpersistenz und
 hostwertfreie Lifecycle-Projektion einschließlich unveränderter Legacy-Bytes.
