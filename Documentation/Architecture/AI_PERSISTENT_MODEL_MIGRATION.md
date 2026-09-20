@@ -1,6 +1,6 @@
 # Begrenzter Modellwechsel im persistenten SQL-Retrieval
 
-Stand: 2026-09-21. Status: `IMPLEMENTED_NATIVE_PENDING`. Dieser Folgeslice
+Stand: 2026-09-21. Status: `VALIDATED_REFERENCE`. Dieser Folgeslice
 erweitert [persistentes Retrieval](AI_PERSISTENT_RETRIEVAL.md) um genau einen
 ausdrücklichen Modellwechsel: bestätigtes Delta, Generation 2 mit vorhandenem
 `embeddinggemma:latest`, nach Generation 3 mit vorhandenem
@@ -107,7 +107,7 @@ Die bestehende begrenzte Wallclock-Garantie wird dadurch nicht erweitert.
 
 Die Offline-Suite prüft die Upgrade-/Staging-/Commitfenster, alte und neue
 Query, Profile, Drift, Sperren, Journalfehler und besitzgebundenes Remove.
-Der separate vorbereitete Einstieg lautet:
+Der getrennt nativ geprüfte Einstieg lautet:
 
 ```powershell
 .\Tests\Integration\Invoke-AiPersistentRetrievalMigrationAcceptance.ps1 -Provider docker
@@ -117,7 +117,11 @@ Der separate vorbereitete Einstieg lautet:
 Er verwendet je einen eigenen SQLrun, zählt die tatsächlich erreichten
 Faultpoints, prüft beide festen Top-IDs vor/nach Cutover und SQLrestart sowie
 unveränderte Quellgenerationen und Hosttags. PASS folgt erst nach eigenem
-DB-/Run-/Volume-Cleanup. **Beide nativen Migrationsnachweise sind ausstehend.**
-Die bestehende Podman-Evidence für Initial/Delta belegt keinen Modellwechsel.
+DB-/Run-/Volume-Cleanup. Die getrennten Docker- und Podman-Läufe bestanden am
+2026-09-21 jeweils 20 Assertions und vollständiges Cleanup (zwei Schritte,
+keine Fehler). Sie belegen den Modellwechsel einschließlich SQLrestart,
+Upgrade-/Staging-/Commit-Antwortverlust und beider festen Suchfragen.
+Ein früherer Docker-Versuch erreichte wegen der belegten Testsperre keine
+Runtime; der anschließende Lauf mit vorgeschalteter Sperrübernahme bestand.
 Beliebige Dokumente, weitere Modell-/Dimensionsmigrationen, alte Generationen
 selektiv entfernen, Hyper-V, ANN und Golden-v1-Modelländerungen bleiben offen.

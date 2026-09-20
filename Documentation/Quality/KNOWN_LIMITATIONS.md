@@ -89,7 +89,7 @@ Re-Embedding-Ausführung bleiben außerhalb des engen
 [Migrations-Slices](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) offen:
 explizit bestätigtes Delta/Embeddinggemma nach Nomic v2 MoE bei 768 Dimensionen,
 versioniertes Upgrade, feste Präfixprofile und besitzgebundenes Remove sind
-implementiert; die native Docker-/Podman-Abnahme dieser Migration steht aus.
+implementiert und unter Docker sowie Podman getrennt nativ mit je 20 Assertions, SQLrestart und vollständigem Cleanup belegt.
 
 Der Ollama-Modellkatalog sowie die Verträge für Endpointplan, Runtimejournal
 und sanitisierte Abfrageergebnisse sind vorhanden. Ollama-Cloud-Generation ist

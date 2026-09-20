@@ -118,7 +118,7 @@ Dies ist ein inkrementeller Generationsrebuild mit unver채nderter Modellidentit�
 Der bestehende reine `New-LabAiReembeddingPlan` f체r einen echten Modellwechsel
 bleibt unver채ndert und wird vom neuen
 [begrenzten Modellwechsel](AI_PERSISTENT_MODEL_MIGRATION.md) f체r genau Delta/gen2
-nach Nomic v2 MoE/gen3 wiederverwendet. Dessen native Abnahmen stehen aus.
+nach Nomic v2 MoE/gen3 wiederverwendet. Docker und Podman bestanden getrennt jeweils 20 Assertions, SQLrestart und Cleanup.
 Weitere Digest-/Dimensionswechsel, beliebige Dokumente,
 Retention alter Generationen, Cloud, Generierung, Hyper-V und ANN sind offen.
 Golden v1 sowie SQL-seitiges EXTERNAL MODEL/TLS-Gateway bleiben unver채ndert.

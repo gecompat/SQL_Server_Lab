@@ -33,7 +33,7 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   und besitzgebundenes Remove. Offline sowie nativ unter Docker und Podman geprüft (je 16 Assertions und vollständiges Cleanup).
   Der enge Folgeslice `Migrate` ergänzt Generation 3 mit Nomic v2 MoE,
   v2-Upgrade, festen Präfixprofilen und SQL-gebundener aktiver Modellwahl;
-  dessen native Docker-/Podman-Evidence steht aus. Keine beliebigen Dokumente oder Cloud.
+  getrennt nativ unter Docker und Podman belegt (je 20 Assertions und Cleanup). Keine beliebigen Dokumente oder Cloud.
   Vertrag: `Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md`;
 
 - AdHoc-RAG mit vorhandenem Host-`embeddinggemma:latest` und expliziter

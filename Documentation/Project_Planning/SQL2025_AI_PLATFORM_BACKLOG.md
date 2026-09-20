@@ -57,8 +57,7 @@ Dimensionswechsel. Der begrenzte
 [persistente Modellwechsel](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md)
 führt nun explizit Delta/gen2 mit Embeddinggemma nach Nomic v2 MoE/gen3 aus:
 versioniertes Upgrade, feste Präfixprofile, separate Zielvektoren und atomare
-Aktivierung. Offline-Verträge sind geprüft, native Docker-/Podman-Evidence
-dieser Migration bleibt offen. Allgemeine Modell-/Dimensionswechsel bleiben Backlog.
+Aktivierung. Offline-Verträge und getrennte native Docker-/Podman-Abnahmen mit je 20 Assertions, SQLrestart und vollständigem Cleanup sind belegt. Allgemeine Modell-/Dimensionswechsel bleiben Backlog.
 
 ### AI-05 – Ollama-Vertragsgrundlage
 
@@ -213,4 +212,4 @@ ist implementiert und offline geprüft: eigene SQL-2025-Datenbank, feste
 Initial-/Delta-Generation, aktive Altgeneration bei Stagingfehlern, atomarer
 Cutover und SQL-quittiertes Resume/Remove. Docker und Podman bestanden getrennt je 16 Assertions mit SQLrestart, Fehler-/Resume-Prüfungen und vollständigem Cleanup. Dies ist ein inkrementeller Rebuild mit unverändertem Modell;
 der bestehende reine Modellwechsel-Re-Embedding-Plan bleibt unverändert.
-Beliebige Dokumente, Modell-/Dimensionsmigration, Hyper-V und ANN bleiben offen.
+Beliebige Dokumente, weitere Modell-/Dimensionsmigrationen, Hyper-V und ANN bleiben offen.

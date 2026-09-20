@@ -13,7 +13,7 @@
 Upgrade-/Staging-/Commit-Abbrüche, unveränderte Quellgenerationen, SQL-first
 Modellwahl, Präfix-/Digestdrift und modellunabhängiges Cleanup. Der separate
 `Invoke-AiPersistentRetrievalMigrationAcceptance.ps1` ist für eigene Docker-
-und Podman-Runs vorbereitet; beide Migrationsnachweise bleiben ausstehend.
+und Podman-Runs am 2026-09-21 getrennt bestanden: je 20 Assertions, SQLrestart und vollständiges Cleanup.
 Siehe [Migrationsvertrag](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
 
 `Invoke-AiPersistentRetrievalChecks.ps1` prüft den begrenzten persistenten
