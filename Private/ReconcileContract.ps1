@@ -424,6 +424,36 @@ function New-LabReconcilePlan {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $run = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
     $desired = New-LabDesiredState -Run $run -TargetState $TargetState -StateRoot $StateRoot
+    if (-not $desired.IsValid) {
+        # Ein persistierter Fehler ist vor jeder Runtime- oder Hyper-V-Abfrage
+        # abschliessend. Insbesondere darf kein unvollstaendiger Intent den
+        # Connection-Info-Fallback oder Host-Cmdlets erreichen.
+        $actual = [PSCustomObject]@{
+            Contract = [PSCustomObject]@{ Name = 'SqlServerLab.ActualState'; Version = '1.0' }
+            RunId = [string]$run.runId
+            State = 'UNAVAILABLE'
+            Source = 'persisted-desired-state-invalid'
+            Instances = @()
+        }
+        $comparison = Compare-LabDesiredActualState -Desired $desired -Actual $actual
+        $migrationGuard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $RunId -StateRoot $StateRoot
+        return [PSCustomObject]@{
+            Contract = [PSCustomObject]@{ Name = 'SqlServerLab.ReconcilePlan'; Version = '1.0' }
+            RunId = [string]$run.runId
+            Desired = $desired
+            Actual = $actual
+            Diff = @([PSCustomObject]@{
+                Kind = 'lifecycle'
+                TargetState = $desired.TargetState; ActualState = $actual.State; ChangeClass = $comparison.ChangeClass; Reasons = $comparison.Reasons
+            })
+            Actions = $comparison.Actions
+            HighestChangeClass = $comparison.ChangeClass
+            IsNoOp = $false
+            MutationAllowed = $false
+            Warnings = $comparison.Warnings
+            HyperVResourceMigration = $migrationGuard
+        }
+    }
     $actual = Get-LabActualState -Run $run -Desired $desired -StateRoot $StateRoot
     $comparison = Compare-LabDesiredActualState -Desired $desired -Actual $actual
     $migrationGuard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $RunId -StateRoot $StateRoot

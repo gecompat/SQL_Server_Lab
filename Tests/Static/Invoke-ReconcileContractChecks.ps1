@@ -283,6 +283,7 @@ try {
                         Id='persisted-instance-secret-9'; Provider='docker'; Host='secret-host.invalid'; ConnectionString='Password=not-in-plan'
                         Intents=[PSCustomObject]@{
                             Contract=[PSCustomObject]@{ Name='invalid'; Version='9.9' }
+                            Network='invalid-network-intent'
                             CapabilityAssessment=[PSCustomObject]@{ Invalid='invalid-assessment' }
                         }
                     },
@@ -424,6 +425,7 @@ try {
         'DESIRED_INSTANCE_IDENTITY_DUPLICATE',
         'DESIRED_INSTANCE_ID_MISSING',
         'DESIRED_INSTANCE_INTENT_CONTRACT_INVALID',
+        'DESIRED_INSTANCE_NETWORK_INTENT_INVALID',
         'DESIRED_INSTANCE_PROVIDER_MISSING',
         'INSTANCE_CAPABILITY_ASSESSMENT_INVALID'
     )
@@ -463,6 +465,119 @@ try {
         -Name 'Read-only Plan veraendert weder Run-State noch Connection-Info' `
         -Success ($contract.StateUnchanged -and $contract.ConnectionUnchanged)
 
+    $persistedNetworkContract = & $module {
+        param($Root)
+
+        function New-TestPersistedNetworkIntent {
+            param([string]$Provider, [string]$Intent)
+            $resolved = Resolve-LabNetworkIntentPlan -Provider $Provider -Network ([PSCustomObject]@{
+                intent=$Intent
+                exposure=switch($Intent){ 'isolated'{'none'}; 'lan'{'lan'}; default{'host'} }
+            })
+            [PSCustomObject]@{
+                Intent=[string]$resolved.Intent; Exposure=[string]$resolved.Exposure; Binding=[string]$resolved.Binding
+                ManagedBinding=([string]$resolved.Intent -ne 'isolated'); RequiredCapability=[string]$resolved.RequiredCapability
+                CapabilityStatus=if([string]$resolved.Status -eq 'RESOLVED'){'DECLARED_SUPPORTED'}else{'DECLARED_UNSUPPORTED'}
+                PlanStatus=[string]$resolved.Status; ReasonCode=$resolved.ReasonCode
+            }
+        }
+
+        $cases = @(
+            @{ Name='Docker NAT'; Provider='docker'; Intent='nat'; Kind='valid'; Valid=$true },
+            @{ Name='Podman NAT mit deklarativ fehlender Capability'; Provider='podman'; Intent='nat'; Kind='declared-unsupported'; Valid=$true },
+            @{ Name='Hyper-V isolated'; Provider='hyperv'; Intent='isolated'; Kind='valid'; Valid=$true },
+            @{ Name='Hyper-V hostOnly'; Provider='hyperv'; Intent='hostOnly'; Kind='valid'; Valid=$true },
+            @{ Name='Hyper-V NAT'; Provider='hyperv'; Intent='nat'; Kind='valid'; Valid=$true },
+            @{ Name='Hyper-V LAN'; Provider='hyperv'; Intent='lan'; Kind='valid'; Valid=$true },
+            @{ Name='Legacy ohne Network'; Provider='hyperv'; Intent='hostOnly'; Kind='legacy'; Valid=$true },
+            @{ Name='Network falscher Typ'; Provider='hyperv'; Intent='hostOnly'; Kind='type'; Valid=$false },
+            @{ Name='Binding fehlt'; Provider='hyperv'; Intent='hostOnly'; Kind='missing-binding'; Valid=$false },
+            @{ Name='Exposure passt nicht zum Intent'; Provider='hyperv'; Intent='hostOnly'; Kind='exposure'; Valid=$false },
+            @{ Name='Binding passt nicht zum Provider'; Provider='hyperv'; Intent='hostOnly'; Kind='binding'; Valid=$false },
+            @{ Name='ManagedBinding passt nicht zum Intent'; Provider='hyperv'; Intent='hostOnly'; Kind='managed-binding'; Valid=$false },
+            @{ Name='Capability passt nicht zum Intent'; Provider='hyperv'; Intent='nat'; Kind='capability'; Valid=$false },
+            @{ Name='CapabilityStatus ist ungueltig'; Provider='hyperv'; Intent='nat'; Kind='capability-status'; Valid=$false },
+            @{ Name='Reason passt nicht zum unsupported Intent'; Provider='docker'; Intent='hostOnly'; Kind='reason'; Valid=$false },
+            @{ Name='PlanStatus passt nicht zum Resolver'; Provider='docker'; Intent='nat'; Kind='plan-status'; Valid=$false },
+            @{ Name='Hostwert im Network-Snapshot'; Provider='hyperv'; Intent='hostOnly'; Kind='unknown-field'; Valid=$false }
+        )
+        $originalRuntime = (Get-Command Get-LabRunRuntimeStatus).ScriptBlock
+        $script:invalidPersistedNetworkRuntimeCalls = 0
+        try {
+            Set-Item Function:Get-LabRunRuntimeStatus -Value {
+                $script:invalidPersistedNetworkRuntimeCalls++
+                throw 'RUNTIME_MUST_NOT_BE_READ_FOR_INVALID_PERSISTED_NETWORK'
+            }
+            $results = @($cases | ForEach-Object {
+                $case = $_
+                $intents = [PSCustomObject]@{ Contract=[PSCustomObject]@{ Name='SqlServerLab.InstanceIntent'; Version='1.0' } }
+                if ($case.Kind -ne 'legacy') {
+                    $network = New-TestPersistedNetworkIntent -Provider $case.Provider -Intent $case.Intent
+                    switch ($case.Kind) {
+                        'type' { $network = 'not-a-network-object' }
+                        'missing-binding' { $network.PSObject.Properties.Remove('Binding') }
+                        'exposure' { $network.Exposure = 'none' }
+                        'binding' { $network.Binding = 'managed-bridge-nat' }
+                        'managed-binding' { $network.ManagedBinding = $false }
+                        'capability' { $network.RequiredCapability = 'managed-lab-network' }
+                        'declared-unsupported' { $network.CapabilityStatus = 'DECLARED_UNSUPPORTED' }
+                        'capability-status' { $network.CapabilityStatus = 'NOT_REQUESTED' }
+                        'reason' { $network.ReasonCode = 'NETWORK_INTENT_UNKNOWN' }
+                        'plan-status' { $network.PlanStatus = 'DECLARED_UNSUPPORTED' }
+                        'unknown-field' { $network | Add-Member -NotePropertyName HostAddress -NotePropertyValue '192.0.2.10' }
+                    }
+                    $intents | Add-Member -NotePropertyName Network -NotePropertyValue $network
+                }
+                $snapshot = [PSCustomObject]@{
+                    Contract=[PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
+                    ProvisioningMode='manifest'; PersistentData=$false
+                    Instances=@([PSCustomObject]@{ Id='primary'; Provider=$case.Provider; Profile='standard'; Intents=$intents })
+                }
+                $run = New-LabRunState -StateRoot $Root -Metadata @{ name='persisted network intent'; desiredState=$snapshot } `
+                    -ProviderSubRuns @([PSCustomObject]@{ provider=$case.Provider; instanceIds=@('primary') })
+                $statePath = Join-Path $run.RunDir 'run-state.json'
+                $connectionPath = Join-Path $run.RunDir 'connection-info.json'
+                Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject ([PSCustomObject]@{ instances=@([PSCustomObject]@{ id='primary'; provider=$case.Provider; host='must-not-fallback.invalid' }) })
+                $beforeState = [Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath))
+                $beforeConnection = [Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))
+                $persisted = Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $Root
+                $plans = @()
+                if (-not $case.Valid) {
+                    foreach ($target in @('RUNNING','STOPPED')) {
+                        $plans += Get-SqlServerLabReconcilePlan -RunId $run.RunId -TargetState $target -StateRoot $Root
+                    }
+                }
+                [PSCustomObject]@{
+                    Name=$case.Name; Valid=$case.Valid; Status=$persisted.Status; ReasonCodes=@($persisted.ReasonCodes); Plans=@($plans)
+                    StateUnchanged=$beforeState -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath))
+                    ConnectionUnchanged=$beforeConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))
+                }
+            })
+            [PSCustomObject]@{ Cases=$results; RuntimeCalls=$script:invalidPersistedNetworkRuntimeCalls }
+        }
+        finally { Set-Item Function:Get-LabRunRuntimeStatus -Value $originalRuntime }
+    } $tempRoot
+    foreach ($networkCase in @($persistedNetworkContract.Cases)) {
+        if ($networkCase.Valid) {
+            Add-CheckResult -Name "Persistierter Network-Intent ($($networkCase.Name)) bleibt kanonisch oder legacy-gueltig" `
+                -Success ($networkCase.Status -eq 'VALID' -and $networkCase.ReasonCodes.Count -eq 0)
+        }
+        else {
+            Add-CheckResult -Name "Ungueltiger persistierter Network-Intent ($($networkCase.Name)) liefert den festen Grund" `
+                -Success ($networkCase.Status -eq 'INVALID' -and ($networkCase.ReasonCodes -join ',') -ceq 'DESIRED_INSTANCE_NETWORK_INTENT_INVALID')
+            foreach ($plan in $networkCase.Plans) {
+                Add-CheckResult -Name "Ungueltiger persistierter Network-Intent ($($networkCase.Name)) blockiert $($plan.Desired.TargetState) ohne Runtime-Fallback" `
+                    -Success ($plan.HighestChangeClass -eq 'unsupported' -and $plan.Actions.Count -eq 0 -and -not $plan.MutationAllowed -and
+                        -not $plan.IsNoOp -and -not $plan.Desired.IsValid -and $plan.Desired.Instances.Count -eq 0 -and
+                        $plan.Actual.Source -eq 'persisted-desired-state-invalid')
+            }
+        }
+        Add-CheckResult -Name "Persistierter Network-Intent ($($networkCase.Name)) erhaelt State- und Connection-Bytes" `
+            -Success ($networkCase.StateUnchanged -and $networkCase.ConnectionUnchanged)
+    }
+    Add-CheckResult -Name 'Ungueltige persistierte Network-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' `
+        -Success ($persistedNetworkContract.RuntimeCalls -eq 0)
+
     $networkContract = & $module {
         param($Root)
 
@@ -473,7 +588,10 @@ try {
                 Id='primary'; Provider='hyperv'; Version='2025'; Profile='standard'; DatabaseNames=@()
                 Intents=[PSCustomObject]@{
                     Contract=[PSCustomObject]@{ Name='SqlServerLab.InstanceIntent'; Version='1.0' }
-                    Network=[PSCustomObject]@{ Intent='hostOnly'; Exposure='host'; Binding='internal-switch' }
+                    Network=[PSCustomObject]@{
+                        Intent='hostOnly'; Exposure='host'; Binding='internal-switch'; ManagedBinding=$true
+                        RequiredCapability='managed-lab-network'; CapabilityStatus='DECLARED_SUPPORTED'; PlanStatus='RESOLVED'; ReasonCode=$null
+                    }
                 }
             })
         }
@@ -547,6 +665,8 @@ try {
 
         $lanSnapshot = $desiredSnapshot | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
         $lanSnapshot.Instances[0].Intents.Network.Intent='lan'; $lanSnapshot.Instances[0].Intents.Network.Exposure='lan'; $lanSnapshot.Instances[0].Intents.Network.Binding='external-switch'
+        $lanSnapshot.Instances[0].Intents.Network.ManagedBinding=$true; $lanSnapshot.Instances[0].Intents.Network.RequiredCapability='external-network-binding'
+        $lanSnapshot.Instances[0].Intents.Network.CapabilityStatus='DECLARED_SUPPORTED'; $lanSnapshot.Instances[0].Intents.Network.PlanStatus='RESOLVED'; $lanSnapshot.Instances[0].Intents.Network.ReasonCode=$null
         $lanRun = New-LabRunState -StateRoot $Root -Metadata @{ name='Hyper-V LAN reconcile'; workflowKind='hyperv-lab'; desiredState=$lanSnapshot } `
             -ProviderSubRuns @([PSCustomObject]@{ provider='hyperv'; instanceIds=@('primary') })
         Write-LabArtifactJsonAtomic -Path (Join-Path $lanRun.RunDir 'connection-info.json') -InputObject ([PSCustomObject]@{

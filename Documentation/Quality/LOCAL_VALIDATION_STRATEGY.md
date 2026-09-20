@@ -16,11 +16,16 @@ Jeder Persistenzfehler wird ausschließlich über feste ReasonCodes reflektiert:
 `DESIRED_INSTANCE_ID_MISSING`, `DESIRED_INSTANCE_PROVIDER_MISSING`,
 `DESIRED_INSTANCE_INTENT_CONTRACT_INVALID`,
 `INSTANCE_CAPABILITY_ASSESSMENT_INVALID` und
-`DESIRED_INSTANCE_IDENTITY_DUPLICATE`. Mehrere Codes sind eindeutig und ordinal
-sortiert. RUNNING- und STOPPED-Pläne bleiben dann `unsupported`, ohne Aktionen
-oder Fallback auf Connection-Info; State- und Connection-Dateien bleiben
-bytegleich. Weder Reconcile-Reasons noch Warnings spiegeln Instanz-ID, Provider,
-Host oder sonstige dynamische Persistenzwerte. Dieselbe Id unter verschiedenen
+`DESIRED_INSTANCE_IDENTITY_DUPLICATE` sowie
+`DESIRED_INSTANCE_NETWORK_INTENT_INVALID`. Ein vorhandener Network-Intent
+enthält vollständig die kanonische, hostwertfreie Resolver-Projektion; ein
+vollständig fehlendes `Network` bleibt ausschließlich für Legacy-Snapshots
+zulässig. Mehrere Codes sind eindeutig und ordinal sortiert. RUNNING- und
+STOPPED-Pläne bleiben dann `unsupported`, ohne Aktionen oder Fallback auf
+Connection-Info; State- und Connection-Dateien bleiben bytegleich. Weder
+Reconcile-Reasons noch Warnings spiegeln Instanz-ID, Provider, Host oder
+sonstige dynamische Persistenzwerte. Auch ein ungültiger Hyper-V-Network-Intent
+erreicht keine Runtime- oder Host-Cmdlet-Abfrage. Dieselbe Id unter verschiedenen
 Providern bleibt gültig. Dies ist kein nativer Providernachweis.
 
 `Invoke-InstanceCapabilityAssessmentChecks.ps1` prüft den privaten CORE-102-

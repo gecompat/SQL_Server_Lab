@@ -61,6 +61,14 @@ try {
         $vm = $snapshot.Instances | Where-Object Id -eq 'vm' | Select-Object -First 1
         $isolatedVm = $snapshot.Instances | Where-Object Id -eq 'vm-isolated' | Select-Object -First 1
         $serialized = $snapshot | ConvertTo-Json -Depth 20
+        $podmanCapability = Get-LabProviderCapabilityContract | Where-Object Provider -eq 'podman' | Select-Object -First 1
+        $historicPodmanCapability = $podmanCapability | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
+        $historicPodmanCapability.Capabilities = @($historicPodmanCapability.Capabilities | Where-Object SourceKey -ne 'nat-network')
+        $historicPodmanInstance = [PSCustomObject]@{
+            id='podman-historic-network'; provider='podman'; version='2022'; profile='standard'; networkName=$null
+            network=[PSCustomObject]@{ intent='nat'; exposure='host' }; databases=@(); drives=@(); software=@(); hyperv=$null
+        }
+        $historicPodmanNetwork = (New-LabInstanceIntentSnapshot -Instance $historicPodmanInstance -ProviderCapability $historicPodmanCapability).Network
 
         [PSCustomObject]@{
             Contract = $container.Intents.Contract.Name -eq 'SqlServerLab.InstanceIntent' -and $container.Intents.Contract.Version -eq '1.0'
@@ -73,6 +81,14 @@ try {
                 $container.Intents.Network.Binding -eq 'managed-bridge-nat' -and
                 $container.Intents.Network.RequiredCapability -eq 'nat-network' -and
                 $container.Intents.Network.CapabilityStatus -eq 'DECLARED_SUPPORTED'
+            HistoricPodmanNetwork = $historicPodmanNetwork.Intent -eq 'nat' -and
+                $historicPodmanNetwork.Exposure -eq 'host' -and
+                $historicPodmanNetwork.Binding -eq 'managed-bridge-nat' -and
+                $historicPodmanNetwork.RequiredCapability -eq 'nat-network' -and
+                $historicPodmanNetwork.PlanStatus -eq 'RESOLVED' -and
+                $historicPodmanNetwork.CapabilityStatus -eq 'DECLARED_UNSUPPORTED' -and
+                [string]::IsNullOrEmpty([string]$historicPodmanNetwork.ReasonCode) -and
+                (Test-LabPersistedNetworkIntent -Network $historicPodmanNetwork -Provider 'podman')
             SoftwareBoundary = $container.Intents.Software.Items[0].Id -eq 'sqlpackage' -and
                 $container.Intents.Software.CapabilityStatus -eq 'DECLARED_UNSUPPORTED'
             HyperV = $vm.Intents.Drives[0].Role -eq 'sqlLog' -and
@@ -98,6 +114,7 @@ try {
     Add-CheckResult -Name 'Desired State enthaelt versionierten InstanceIntent-Contract' -Success $result.Contract
     Add-CheckResult -Name 'Drive Intent normalisiert Rolle, Gastpfad, Binding und Capability' -Success $result.Drive
     Add-CheckResult -Name 'Network Intent normalisiert Hostzugriff und Provider-Evidenz' -Success $result.Network
+    Add-CheckResult -Name 'Historischer Podman-NAT-Intent bleibt bei deklarativ fehlender Capability kanonisch unsupported' -Success $result.HistoricPodmanNetwork
     Add-CheckResult -Name 'Nicht implementierte Software-Bindung bleibt sichtbar unsupported' -Success $result.SoftwareBoundary
     Add-CheckResult -Name 'Hyper-V-HostOnly-Intent bindet internen Switch und implementierte Drives' -Success $result.HyperV
     Add-CheckResult -Name 'Hyper-V-Ressourcenintent bindet vCPU und RAM-Modus mit Min-/Startup-/Max' -Success $result.HyperVResources

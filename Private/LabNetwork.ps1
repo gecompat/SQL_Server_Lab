@@ -194,6 +194,70 @@ function Resolve-LabNetworkIntentPlan {
     }
 }
 
+function Test-LabPersistedNetworkIntent {
+    <#
+    .SYNOPSIS
+        Validiert einen bereits persistierten, geheimnisfreien Network-Intent.
+    .DESCRIPTION
+        Diese Pruefung ist absichtlich strenger als die Manifest-Aufloesung:
+        ein vorhandener Snapshot muss die vollstaendige kanonische Projektion
+        des bestehenden Resolver-Vertrags enthalten. Sie liest weder
+        Hostzustand noch Provider und ergaenzt keine Legacy-Werte.
+    #>
+    [CmdletBinding()]
+    param(
+        [AllowNull()]$Network,
+        [Parameter(Mandatory)][string]$Provider
+    )
+
+    if ($null -eq $Network -or $Network -isnot [psobject]) { return $false }
+    $requiredFields = @(
+        'Intent', 'Exposure', 'Binding', 'ManagedBinding', 'RequiredCapability',
+        'CapabilityStatus', 'PlanStatus', 'ReasonCode'
+    )
+    $actualFields = @($Network.PSObject.Properties | ForEach-Object Name | Sort-Object)
+    if (($actualFields -join ',') -cne (($requiredFields | Sort-Object) -join ',')) { return $false }
+    foreach ($field in @('Intent', 'Exposure', 'Binding', 'RequiredCapability', 'CapabilityStatus', 'PlanStatus')) {
+        if ($Network.$field -isnot [string] -or [string]::IsNullOrEmpty([string]$Network.$field)) { return $false }
+    }
+    if ($Network.ManagedBinding -isnot [bool]) { return $false }
+    if ($null -ne $Network.ReasonCode -and $Network.ReasonCode -isnot [string]) { return $false }
+
+    $canonicalProvider = $Provider.ToLowerInvariant()
+    if ($canonicalProvider -notin @('docker', 'podman', 'hyperv')) { return $false }
+    if ([string]$Network.Intent -notin @('isolated', 'hostOnly', 'nat', 'lan')) { return $false }
+
+    # Der Resolver ist der einzige Ort fuer Intent-/Exposure-/Binding-Mapping.
+    # Der vollstaendige Snapshot darf dabei keine Defaults aus einem fehlenden
+    # Feld erhalten, weil dessen Feldform oben bereits geschlossen validiert ist.
+    $resolved = Resolve-LabNetworkIntentPlan -Provider $canonicalProvider -Network ([PSCustomObject]@{
+        intent = [string]$Network.Intent
+        exposure = [string]$Network.Exposure
+    })
+    $expectedPlanStatus = [string]$resolved.Status
+    # Die Aufloesung des Intent-Tuples und die deklarierte Capability sind
+    # getrennte Aussagen. Ein historischer Snapshot darf ein weiterhin
+    # kanonisches Tuple als DECLARED_UNSUPPORTED tragen, wenn die zum
+    # Erstellungszeitpunkt geltende Provider-Matrix die erforderliche
+    # Capability nicht enthielt. Der Resolver darf diese deklarierte Grenze
+    # nicht nachtraeglich aufheben. Fuer nicht aufloesbare Tuples bleibt
+    # dagegen ausschliesslich DECLARED_UNSUPPORTED zulaessig.
+    $capabilityStatusIsValid = if ($expectedPlanStatus -eq 'RESOLVED') {
+        [string]$Network.CapabilityStatus -cin @('DECLARED_SUPPORTED', 'DECLARED_UNSUPPORTED')
+    }
+    else {
+        [string]$Network.CapabilityStatus -ceq 'DECLARED_UNSUPPORTED'
+    }
+    $expectedReasonCode = if ($resolved.ReasonCode) { [string]$resolved.ReasonCode } else { $null }
+    return [string]$Network.Exposure -ceq [string]$resolved.Exposure -and
+        [string]$Network.Binding -ceq [string]$resolved.Binding -and
+        [bool]$Network.ManagedBinding -eq ([string]$resolved.Intent -ne 'isolated') -and
+        [string]$Network.RequiredCapability -ceq [string]$resolved.RequiredCapability -and
+        [string]$Network.PlanStatus -ceq $expectedPlanStatus -and
+        $capabilityStatusIsValid -and
+        [string]$Network.ReasonCode -ceq [string]$expectedReasonCode
+}
+
 function Get-LabRuntimeNetwork {
     [CmdletBinding()]
     param(

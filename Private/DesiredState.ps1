@@ -500,6 +500,10 @@ function Get-LabPersistedDesiredState {
                 $providerIsValid = $true
             }
         }
+        if ($instance.Intents -and $instance.Intents.PSObject.Properties['Network'] -and
+            -not (Test-LabPersistedNetworkIntent -Network $instance.Intents.Network -Provider $provider)) {
+            [void]$validationErrors.Add('DESIRED_INSTANCE_NETWORK_INTENT_INVALID')
+        }
         if ($idIsValid -and $providerIsValid) {
             if (-not $instanceIdsByProvider.ContainsKey($provider)) {
                 $instanceIdsByProvider[$provider] = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
