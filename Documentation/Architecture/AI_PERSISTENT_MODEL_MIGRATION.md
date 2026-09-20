@@ -44,7 +44,7 @@ automatische Trunkierung gehören nicht zum Vertrag. Die
 [Nomic-Modellkarte](https://huggingface.co/nomic-ai/nomic-embed-text-v2-moe)
 weist Apache-2.0 aus. `minimumOllamaVersion=0.34.2` ist der konservative
 Projekt-Floor dieses neuen Katalogeintrags, keine behauptete Herstellermindestversion.
-Seine native Eignung für diese SQL-Migration ist noch nachzuweisen.
+Die native Eignung für diese begrenzte SQL-Migration ist unter Docker und Podman nachgewiesen.
 
 Der Livevertrag prüft Tag, Manifestdigest, Ollama-Version, Embeddingfähigkeit,
 Dimension und fehlende Remoteidentität. Diese Bindung wird vor und nach den
