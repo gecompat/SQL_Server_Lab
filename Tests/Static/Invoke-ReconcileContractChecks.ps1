@@ -971,6 +971,8 @@ try {
             @{Name='Capability passt nicht';Kind='capability';Provider='docker';Valid=$false},
             @{Name='Persistence passt nicht';Kind='persistence';Provider='podman';Valid=$false},
             @{Name='PersistentStorageId ungueltig';Kind='storage-id';Provider='docker';Valid=$false},
+            @{Name='Run-scoped Runtime-Paarung nicht kanonisch';Kind='runtime-pairing';Provider='docker';Valid=$false},
+            @{Name='Katalogisierte Runtime ohne stabile ID';Kind='cataloged-storage-id-missing';Provider='docker';Valid=$false},
             @{Name='CapabilityStatus ungueltig';Kind='status';Provider='hyperv';Valid=$false},
             @{Name='CapabilityStatus erhoeht deklarativ unsupported';Kind='status-upgrade';Provider='hyperv';Valid=$false},
             @{Name='Drive-ID doppelt';Kind='duplicate';Provider='hyperv';Valid=$false}
@@ -1018,6 +1020,8 @@ try {
                             'capability' {$drive.RequiredCapability='run-local-additional-vhdx'}
                             'persistence' {$drive.Persistence='external-host-path'}
                             'storage-id' {$drive.PersistentStorageId='not-a-guid'}
+                            'runtime-pairing' {$drive.Persistence='run-scoped-runtime-volume';$drive.PersistentStorageId=[guid]::NewGuid().ToString('D')}
+                            'cataloged-storage-id-missing' {$drive.Id='persistent-mssql';$drive.GuestPath='/var/opt/mssql';$drive.Persistence='cataloged-runtime-volume';$drive.PersistentStorageId=$null}
                             'status' {$drive.CapabilityStatus='SUPPORTED'}
                             'valid-unsupported' {$drive.CapabilityStatus='DECLARED_UNSUPPORTED'}
                             'status-upgrade' {$drive.CapabilityStatus='DECLARED_SUPPORTED'}
@@ -1047,9 +1051,58 @@ try {
             $canonicalRun=New-LabRunState -StateRoot $Root -Metadata @{name='canonical persisted drive roundtrip';desiredState=$canonicalSnapshot} -ProviderSubRuns @([PSCustomObject]@{provider='hyperv';instanceIds=@('primary')})
             $canonicalPersisted=Get-LabPersistedDesiredState -RunId $canonicalRun.RunId -StateRoot $Root
             $canonicalDrive=$canonicalPersisted.Snapshot.Instances[0].Intents.Drives[0]
+            $newContainerInstance = {
+                [PSCustomObject]@{
+                    provider='docker'; storageIntent=$null; drives=@(); software=@(); hyperv=$null; network=$null; databases=@()
+                }
+            }
+            $containerProviderCapability=[PSCustomObject]@{Capabilities=@([PSCustomObject]@{SourceKey='volume-mounts'})}
+            $newPersistedContainerRun = {
+                param($Name, $Instance, $ProviderCapability)
+                $intents=New-LabInstanceIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
+                $snapshot=[PSCustomObject]@{
+                    Contract=[PSCustomObject]@{Name='SqlServerLab.RunDesiredState';Version='1.0'}; ProvisioningMode='manifest'; PersistentData=$false
+                    Instances=@([PSCustomObject]@{Id='primary';Provider='docker';Profile='standard';Intents=$intents})
+                }
+                $run=New-LabRunState -StateRoot $Root -Metadata @{name=$Name;desiredState=$snapshot} -ProviderSubRuns @([PSCustomObject]@{provider='docker';instanceIds=@('primary')})
+                Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $Root
+            }
+            $runScopedInstance=& $newContainerInstance
+            $null=Add-LabRunScopedContainerSystemDrive -Instance $runScopedInstance -IncludeExternalRuntimeState
+            $runScopedPersisted=& $newPersistedContainerRun 'canonical run scoped runtime drive' $runScopedInstance $containerProviderCapability
+            $dataRootInstance=& $newContainerInstance
+            $storage=[PSCustomObject]@{LabId='canonical';Provider='docker';InstanceId='primary';SqlVersion='2025';BackupRoot='C:\canonical-backups'}
+            $null=Add-LabPersistentContainerDrive -Instance $dataRootInstance -Storage $storage -IncludeExternalRuntimeState
+            $dataRootPersisted=& $newPersistedContainerRun 'canonical data root runtime drive' $dataRootInstance $containerProviderCapability
+            $catalogedInstance=& $newContainerInstance
+            $catalogedStorageId=[guid]::NewGuid().ToString('D')
+            $catalogedPlan=[PSCustomObject]@{
+                Status='READY';Action='CONTINUE';Source=[PSCustomObject]@{
+                    VolumeName='sql-lab-canonical-cataloged';PersistentStorageId=$catalogedStorageId
+                    Sidecars=@(
+                        [PSCustomObject]@{Role='EXTERNAL_LANGUAGES';ContainerPath='/var/opt/mssql-extensibility/externallanguages';VolumeName='sql-lab-canonical-cataloged-external-languages'},
+                        [PSCustomObject]@{Role='EXTERNAL_LIBRARIES';ContainerPath='/var/opt/mssql-extensibility/externallibraries';VolumeName='sql-lab-canonical-cataloged-external-libraries'}
+                    )
+                }
+            }
+            $null=Add-LabSelectedPersistentContainerDrive -Instance $catalogedInstance -Plan $catalogedPlan -Storage $storage -IncludeExternalRuntimeState
+            $catalogedPersisted=& $newPersistedContainerRun 'canonical cataloged runtime drive' $catalogedInstance $containerProviderCapability
             [PSCustomObject]@{Cases=$results;RuntimeCalls=$script:invalidPersistedDriveRuntimeCalls;CanonicalRoundtrip=(
                 $canonicalPersisted.Status -eq 'VALID' -and $canonicalDrive.SizeGB -is [double] -and
                 ((@($canonicalDrive.PSObject.Properties.Name|Sort-Object)-join ',') -ceq 'AccessMode,Binding,CapabilityStatus,GuestPath,Id,PerformanceClass,Persistence,PersistentStorageId,RequiredCapability,Role,SizeGB')
+            );CanonicalContainerRuntimeRoundtrip=(
+                $runScopedPersisted.Status -eq 'VALID' -and
+                @($runScopedPersisted.Snapshot.Instances[0].Intents.Drives | Where-Object {
+                    $_.Persistence -ceq 'run-scoped-runtime-volume' -and $_.PersistentStorageId -match '^[0-9a-f-]{36}$'
+                }).Count -eq 3 -and
+                $dataRootPersisted.Status -eq 'VALID' -and
+                @($dataRootPersisted.Snapshot.Instances[0].Intents.Drives | Where-Object {
+                    $_.Persistence -ceq 'data-root-runtime-volume'
+                }).Count -eq 3 -and
+                $catalogedPersisted.Status -eq 'VALID' -and
+                @($catalogedPersisted.Snapshot.Instances[0].Intents.Drives | Where-Object {
+                    $_.Persistence -ceq 'cataloged-runtime-volume' -and $_.PersistentStorageId -eq $catalogedStorageId
+                }).Count -eq 3
             )}
         } finally {
             Set-Item Function:Get-LabRunRuntimeStatus -Value $originalRuntime
@@ -1069,6 +1122,7 @@ try {
     }
     Add-CheckResult -Name 'Ungueltige persistierte Drive-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' -Success ($persistedDriveIntentContract.RuntimeCalls -eq 0)
     Add-CheckResult -Name 'Realer Desired-State-Snapshot rundet den kanonischen Drive-Intent mit JSON-Doubletrip' -Success $persistedDriveIntentContract.CanonicalRoundtrip
+    Add-CheckResult -Name 'Kanonische Container-Runtime- und Katalog-Drive-Intents bleiben nach Persistenz lesbar' -Success $persistedDriveIntentContract.CanonicalContainerRuntimeRoundtrip
 
     $persistedStorageIntentContract = & $module {
         param($Root)

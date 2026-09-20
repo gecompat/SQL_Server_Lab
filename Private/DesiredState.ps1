@@ -546,15 +546,31 @@ function Test-LabPersistedDriveIntents {
         'AccessMode','Binding','CapabilityStatus','GuestPath','Id','PerformanceClass',
         'Persistence','PersistentStorageId','RequiredCapability','Role','SizeGB'
     )
+    $containerRuntimeDrives = @{
+        'runtime-mssql' = '/var/opt/mssql'
+        'runtime-mssql-external-languages' = '/var/opt/mssql-extensibility/externallanguages'
+        'runtime-mssql-external-libraries' = '/var/opt/mssql-extensibility/externallibraries'
+    }
+    $containerPersistentDrives = @{
+        'persistent-mssql' = '/var/opt/mssql'
+        'persistent-mssql-external-languages' = '/var/opt/mssql-extensibility/externallanguages'
+        'persistent-mssql-external-libraries' = '/var/opt/mssql-extensibility/externallibraries'
+    }
     foreach ($drive in @($Drives)) {
         if ($null -eq $drive -or $drive -is [string] -or $drive -is [bool] -or $drive -is [array] -or
             ((@($drive.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($expectedFields -join ','))) { return $false }
-        if ($drive.Id -isnot [string] -or $drive.Id -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$' -or
+        $isCanonicalContainerDrive = $providerName -in @('docker','podman') -and
+            ($containerRuntimeDrives.ContainsKey([string]$drive.Id) -or $containerPersistentDrives.ContainsKey([string]$drive.Id))
+        if ($drive.Id -isnot [string] -or
+            (($drive.Id -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$') -and -not $isCanonicalContainerDrive) -or
             -not $ids.Add($drive.Id) -or
             $drive.Role -isnot [string] -or $drive.Role -cnotin @('sqlData','sqlLog','tempdb','backup','general') -or
             $drive.AccessMode -isnot [string] -or $drive.AccessMode -cnotin @('readOnly','readWrite') -or
             $drive.PerformanceClass -isnot [string] -or $drive.PerformanceClass -cnotin @('ssd','hdd','tmpfs','auto') -or
-            $drive.Persistence -isnot [string] -or $drive.Persistence -cnotin @('run-scoped','external-host-path') -or
+            $drive.Persistence -isnot [string] -or $drive.Persistence -cnotin @(
+                'run-scoped','external-host-path','run-scoped-runtime-volume',
+                'data-root-runtime-volume','data-root-backup-bind','cataloged-runtime-volume'
+            ) -or
             $drive.CapabilityStatus -isnot [string] -or $drive.CapabilityStatus -cnotin @('DECLARED_SUPPORTED','DECLARED_UNSUPPORTED') -or
             $drive.GuestPath -isnot [string] -or [string]::IsNullOrWhiteSpace($drive.GuestPath)) { return $false }
 
@@ -583,9 +599,28 @@ function Test-LabPersistedDriveIntents {
             if ($drive.Binding -cnotin @('host-mount','managed-volume') -or
                 $drive.RequiredCapability -cne 'volume-mounts' -or
                 $drive.GuestPath -notmatch '^/(?:[^/\x00\r\n]+(?:/[^/\x00\r\n]+)*)?$') { return $false }
-            if (($drive.Binding -ceq 'host-mount' -and $drive.Persistence -cne 'external-host-path') -or
-                ($drive.Binding -ceq 'managed-volume' -and $drive.Persistence -cne 'run-scoped') -or
-                $null -ne $drive.PersistentStorageId) { return $false }
+            if ($drive.Binding -ceq 'host-mount') {
+                if (($drive.Persistence -ceq 'external-host-path' -and $null -eq $drive.PersistentStorageId) -or
+                    ($drive.Persistence -ceq 'data-root-backup-bind' -and $null -eq $drive.PersistentStorageId -and
+                     $drive.Id -ceq 'persistent-backups' -and $drive.GuestPath -ceq '/var/opt/mssql/backup')) {
+                    continue
+                }
+                return $false
+            }
+
+            if ($drive.Persistence -ceq 'run-scoped' -and $null -eq $drive.PersistentStorageId) { continue }
+            if ($drive.Persistence -ceq 'run-scoped-runtime-volume' -and
+                $null -ne $drive.PersistentStorageId -and
+                $containerRuntimeDrives.ContainsKey([string]$drive.Id) -and
+                $drive.GuestPath -ceq $containerRuntimeDrives[[string]$drive.Id]) { continue }
+            if ($drive.Persistence -ceq 'data-root-runtime-volume' -and
+                $containerPersistentDrives.ContainsKey([string]$drive.Id) -and
+                $drive.GuestPath -ceq $containerPersistentDrives[[string]$drive.Id]) { continue }
+            if ($drive.Persistence -ceq 'cataloged-runtime-volume' -and
+                $null -ne $drive.PersistentStorageId -and
+                $containerPersistentDrives.ContainsKey([string]$drive.Id) -and
+                $drive.GuestPath -ceq $containerPersistentDrives[[string]$drive.Id]) { continue }
+            return $false
         }
     }
     return $true
