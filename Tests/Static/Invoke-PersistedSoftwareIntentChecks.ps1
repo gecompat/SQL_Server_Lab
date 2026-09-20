@@ -26,11 +26,11 @@ try {
         param($Root)
 
         function New-TestSoftwareDesiredState {
-            param([ValidateSet('docker','hyperv')][string]$Provider)
+            param([ValidateSet('docker','hyperv')][string]$Provider, [switch]$IncludeServerConfig)
             $instance = [pscustomobject]@{
                 id='primary'; provider=$Provider; os=$(if($Provider -eq 'hyperv'){'windows'}else{'linux'})
                 version='2022'; profile='standard'; autostart='off'; databases=@(); drives=@(); networkName=$null
-                hyperv=$null; serverConfig=$null
+                hyperv=$null; serverConfig=$(if($IncludeServerConfig){[pscustomobject]@{maxDop=4}}else{$null})
                 software=@([pscustomobject]@{ id='sql-python'; version=$null; variant=$null; scope='sqlExternalRuntime'; installMethod='catalog'; packages=@(); optional=$false; requestSource='software' })
             }
             New-LabDesiredStateSnapshot -ResolvedLab ([pscustomobject]@{name="persisted-software-$Provider";instances=@($instance)}) -ProvisioningMode manifest -PersistentData:$false
@@ -48,10 +48,17 @@ try {
 
         $dockerDesired = New-TestSoftwareDesiredState docker
         $hyperVDesired = New-TestSoftwareDesiredState hyperv
+        $dockerConfigurationDesired = New-TestSoftwareDesiredState docker -IncludeServerConfig
         $dockerRun = New-TestSoftwareRun $dockerDesired docker 'container-lab'
         $hyperVRun = New-TestSoftwareRun $hyperVDesired hyperv 'hyperv-lab'
         $dockerPersisted = Get-LabPersistedDesiredState -RunId $dockerRun.RunId -StateRoot $Root
         $hyperVPersisted = Get-LabPersistedDesiredState -RunId $hyperVRun.RunId -StateRoot $Root
+        $dockerConfigurationRun = New-TestSoftwareRun $dockerConfigurationDesired docker 'container-lab'
+        $dockerConfigurationPersisted = Get-LabPersistedDesiredState -RunId $dockerConfigurationRun.RunId -StateRoot $Root
+        $dockerConfigurationTampered = $dockerConfigurationDesired | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
+        $dockerConfigurationTampered.Instances[0].Intents.SqlConfiguration.CapabilityStatus = 'DECLARED_SUPPORTED'
+        $dockerConfigurationTamperedRun = New-TestSoftwareRun $dockerConfigurationTampered docker 'container-lab'
+        $dockerConfigurationTamperedPersisted = Get-LabPersistedDesiredState -RunId $dockerConfigurationTamperedRun.RunId -StateRoot $Root
 
         $legacyMissing = $dockerDesired | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
         $legacyMissing.Instances[0].Intents.PSObject.Properties.Remove('Software')
@@ -97,6 +104,7 @@ try {
 
         [pscustomobject]@{
             DockerCanonical=$dockerPersisted; HyperVCanonical=$hyperVPersisted
+            DockerConfigurationCanonical=$dockerConfigurationPersisted; DockerConfigurationTampered=$dockerConfigurationTamperedPersisted
             LegacyMissing=(New-TestSoftwareRun $legacyMissing docker 'container-lab'); LegacyNull=(New-TestSoftwareRun $legacyNull docker 'container-lab')
             Invalid=@($invalid); HyperVMessage=$hyperVMessage
             HyperVStateUnchanged=($beforeHyperVState -ceq (Get-Content -LiteralPath (Join-Path $hyperVInvalidRun.RunDir 'run-state.json') -Raw -Encoding utf8))
@@ -107,6 +115,10 @@ try {
     $legacyMissing = & $module { param($run,$root) Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $root } $result.LegacyMissing $temporaryRoot
     $legacyNull = & $module { param($run,$root) Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $root } $result.LegacyNull $temporaryRoot
     Add-CheckResult -Name 'Katalog-erzeugte Software-Snapshots überstehen Docker- und Hyper-V-JSON-Roundtrip' -Success ($result.DockerCanonical.Status -eq 'VALID' -and $result.HyperVCanonical.Status -eq 'VALID')
+    Add-CheckResult -Name 'Docker-SQL-Konfigurationsstatus bleibt an die deklarierte Provider-Capability gebunden' -Success (
+        $result.DockerConfigurationCanonical.Status -eq 'VALID' -and
+        $result.DockerConfigurationTampered.Status -eq 'INVALID' -and
+        (@($result.DockerConfigurationTampered.ReasonCodes) -join ',') -ceq 'DESIRED_INSTANCE_SQL_CONFIGURATION_INTENT_INVALID')
     Add-CheckResult -Name 'Fehlende oder null Software bleibt fuer Legacy-Snapshots zulaessig' -Success ($legacyMissing.Status -eq 'VALID' -and $legacyNull.Status -eq 'VALID')
     Add-CheckResult -Name 'Manipulierte Software-Projection bleibt mit festem Grund vor Container-Target und Journal blockiert' -Success (@($result.Invalid).Count -eq 10 -and @($result.Invalid | Where-Object { $_.Persisted.Status -ne 'INVALID' -or @($_.Persisted.ReasonCodes) -cne @('DESIRED_INSTANCE_SOFTWARE_INTENT_INVALID') -or $_.Message -notmatch '^EXTERNAL_RUNTIME_RECONCILE_DESIRED_STATE_INVALID' -or -not $_.StateUnchanged -or -not $_.ConnectionUnchanged }).Count -eq 0)
     Add-CheckResult -Name 'Manipulierte Software-Projection bleibt vor Hyper-V-VM, Connection und Journal blockiert' -Success ($result.HyperVMessage -match '^HYPERV_EXTERNAL_RUNTIME_RECONCILE_DESIRED_STATE_INVALID' -and $result.HyperVStateUnchanged -and $result.HyperVConnectionUnchanged)

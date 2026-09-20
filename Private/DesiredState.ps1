@@ -143,7 +143,9 @@ function New-LabSqlConfigurationIntentSnapshot {
     return [PSCustomObject]@{
         Contract = [PSCustomObject]@{ Name='SqlServerLab.SqlConfigurationIntent'; Version='1.0' }
         Configurations = @($deduplicated)
-        TraceFlags = @($config.traceFlags | ForEach-Object { [int]$_ } | Sort-Object -Unique)
+        # An omitted optional traceFlags property must remain an empty intent;
+        # converting a null pipeline item to Int32 would persist an invalid 0.
+        TraceFlags = @($config.traceFlags | Where-Object { $null -ne $_ } | ForEach-Object { [int]$_ } | Sort-Object -Unique)
         RequiredCapability = $requiredCapability
         CapabilityStatus = Get-LabDeclaredIntentCapabilityStatus -ProviderCapability $ProviderCapability -RequiredCapability $requiredCapability
     }
@@ -443,7 +445,7 @@ function Test-LabPersistedSqlEndpointIntent {
 
 function Test-LabPersistedSqlConfigurationIntent {
     [CmdletBinding()]
-    param($SqlConfiguration, [string]$Provider)
+    param($SqlConfiguration, [string]$Provider, $ProviderCapability)
 
     # Der Persistenzsnapshot ist kein Eingabeformat. Insbesondere duerfen
     # gespeicherte Strings, Bools oder Gleitkommawerte nicht spaeter in einen
@@ -465,7 +467,8 @@ function Test-LabPersistedSqlConfigurationIntent {
     }
     else { return $false }
     if ([string]$SqlConfiguration.RequiredCapability -cne $expectedRequiredCapability -or
-        [string]$SqlConfiguration.CapabilityStatus -cnotin @('DECLARED_SUPPORTED','DECLARED_UNSUPPORTED')) { return $false }
+        [string]$SqlConfiguration.CapabilityStatus -cne (Get-LabDeclaredIntentCapabilityStatus `
+            -ProviderCapability $ProviderCapability -RequiredCapability $expectedRequiredCapability)) { return $false }
     if ($SqlConfiguration.Configurations -isnot [array] -or $SqlConfiguration.TraceFlags -isnot [array]) { return $false }
 
     $configurationNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
@@ -1154,7 +1157,7 @@ function Get-LabPersistedDesiredState {
             [void]$validationErrors.Add('DESIRED_INSTANCE_SQL_ENDPOINT_INTENT_INVALID')
         }
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['SqlConfiguration'] -and $null -ne $instance.Intents.SqlConfiguration -and
-            -not (Test-LabPersistedSqlConfigurationIntent -SqlConfiguration $instance.Intents.SqlConfiguration -Provider $provider)) {
+            -not (Test-LabPersistedSqlConfigurationIntent -SqlConfiguration $instance.Intents.SqlConfiguration -Provider $provider -ProviderCapability $providerCapability)) {
             [void]$validationErrors.Add('DESIRED_INSTANCE_SQL_CONFIGURATION_INTENT_INVALID')
         }
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['Resources'] -and $null -ne $instance.Intents.Resources -and
