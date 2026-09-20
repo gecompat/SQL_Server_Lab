@@ -862,6 +862,15 @@ setzt dynamische Ports außer Kraft, aktualisiert bei bestehendem Hostzugriff
 die Gastfirewall, startet ausschließlich `MSSQLSERVER` neu und bestätigt SQL
 über den Zielport. Erst danach werden die Connection-Receipts atomar erneuert.
 Mehrdeutige Instanzen, Dienste oder Firewallregeln bleiben fail-closed.
+Ein vorhandener Persistenzintent ist vor jedem Reconcile zentral geschlossen
+validiert: ausschließlich `Contract`, `Protocol`, `Port`,
+`RequiredCapability` und `CapabilityStatus` sind erlaubt. Er verlangt den
+Hyper-V-Provider, `tcp`, die Capability `hyperv-sql-port-reconcile`, einen
+kanonischen deklarierten Status und eine echte ganzzahlige JSON-Portnummer von
+`1` bis `65535`. Alte Snapshots ohne oder mit `null`-Intent bleiben lesbar;
+ein ungültiger vorhandener Intent liefert sanitisiert
+`DESIRED_INSTANCE_SQL_ENDPOINT_INTENT_INVALID` und blockiert jeden Runtime- und
+Gastzugriff fail-closed.
 
 Der getrennte `SqlServerLab.DatabaseIntent/1.0` bildet katalogisierte Samples
 auf stabile, quellhash- und outputgebundene PlanKeys ab. Eine erfolgreiche
