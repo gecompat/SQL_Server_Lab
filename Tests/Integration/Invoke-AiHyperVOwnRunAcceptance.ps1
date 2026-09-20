@@ -91,10 +91,28 @@ try{
         if($phase -eq 'before'){
             $binding=Get-OwnHyperVAiBinding @boundArgs -RequireReady
             $restart=Restart-SqlServerLab -RunId $binding.RunId -TimeoutSeconds 300 -Force -Confirm:$false
-            Assert-HyperVAi ($restart.Action -notin @('CANCELLED','SKIPPED')) 'Eigener VMrestart ausgeführt'
+            Assert-HyperVAi (
+                $restart.Exists -and
+                $restart.State -eq 'Running' -and
+                [string]$restart.VMId -ceq $binding.VmId -and
+                [string]$restart.RunId -ceq $binding.RunId -and
+                [string]$restart.ScopeId -ceq $binding.ScopeId
+            ) 'Eigener VMrestart ausgeführt'
             $binding=Get-OwnHyperVAiBinding @boundArgs -RequireReady
             $bootAfter=Get-OwnHyperVAiBootTime -VmId $binding.VmId -Credential ([PSCredential]::new('Administrator',$guestPassword))
             Assert-HyperVAi ([datetimeoffset]$bootAfter -gt [datetimeoffset]$bootBefore) 'Gebundene VM wurde tatsächlich neugestartet'
+            $sqlReady=& $module {
+                param($Binding,$GuestPassword,$SaPassword)
+                Wait-HyperVGuestSqlReady -VMName ([string]$Binding.Instance.vmName) -ExpectedRunId ([string]$Binding.RunId) -ExpectedScopeId ([string]$Binding.ScopeId) -Credential ([PSCredential]::new('Administrator',$GuestPassword)) -SaPassword $SaPassword -ExpectedMajorVersion 17 -TimeoutSeconds 300
+            } $binding $guestPassword $saPassword
+            Assert-HyperVAi (
+                $sqlReady.Ready -and
+                $sqlReady.Status -eq 'SQL_READY_RUN' -and
+                $sqlReady.MajorVersion -eq 17 -and
+                $sqlReady.OnlineSystemDatabases -eq 4 -and
+                [string]$sqlReady.RunId -ceq $binding.RunId -and
+                [string]$sqlReady.ScopeId -ceq $binding.ScopeId
+            ) 'Eigener SQL-Server ist nach VMrestart bereit'
         }
     }
     $complete=$true

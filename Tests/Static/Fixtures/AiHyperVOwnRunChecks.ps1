@@ -10,6 +10,16 @@ param($Module,$RepoRoot,$TemporaryRoot)
     $localParameters=@($containerCommand.ParameterSets|Where-Object Name -eq Local)[0]
     Check 'Container-Clouddefault behält Pflichtsecret und schließt lokale Diagnose aus' ($cloudParameters.IsDefault -and @($cloudParameters.Parameters|Where-Object {$_.Name -eq 'SecretFilePath' -and $_.IsMandatory}).Count -eq 1 -and 'IncludeDiagnostic' -notin $cloudParameters.Parameters.Name)
     Check 'Lokaler Container-Diagnosemodus verlangt Auswahl und erlaubt keine Cloudsecrets' (@($localParameters.Parameters|Where-Object {$_.Name -eq 'LocalGeneration' -and $_.IsMandatory}).Count -eq 1 -and 'IncludeDiagnostic' -in $localParameters.Parameters.Name -and 'SecretFilePath' -notin $localParameters.Parameters.Name)
+    $ownRunAcceptance=Get-Content -LiteralPath (Join-Path $RepoRoot 'Tests/Integration/Invoke-AiHyperVOwnRunAcceptance.ps1') -Raw -Encoding utf8
+    Check 'Own-Run-Restart bindet echten Hyper-V-Status und begrenzte Gast-SQL-Readiness' (
+        $ownRunAcceptance -match '\$restart\.Exists' -and
+        $ownRunAcceptance -match '\$restart\.State -eq ''Running''' -and
+        $ownRunAcceptance -match '\$restart\.VMId' -and
+        $ownRunAcceptance -match 'Wait-HyperVGuestSqlReady' -and
+        $ownRunAcceptance -match '-ExpectedMajorVersion 17 -TimeoutSeconds 300' -and
+        $ownRunAcceptance -match '\$sqlReady\.Status -eq ''SQL_READY_RUN''' -and
+        $ownRunAcceptance -notmatch '\$restart\.Action'
+    )
     $originals=@{}
     $names=@('Get-HyperVImageArtifact','Resolve-LabHyperVResourceBinding','Get-LabAiHostModelBinding','Test-LabAutomatedTestEnvironmentRun','Get-LabRunState','Get-HyperVManagedVM','Read-LabHyperVResourceBinding','Test-LabHyperVBoundPath','Get-VMHardDiskDrive','Get-VHD','Get-VM','Get-HyperVLabVMs')
     foreach($name in $names){$command=Get-Command $name -ErrorAction SilentlyContinue;$originals[$name]=if($command){$command.ScriptBlock}else{$null}}
