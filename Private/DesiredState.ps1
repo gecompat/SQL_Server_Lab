@@ -101,12 +101,15 @@ function New-LabHyperVResourceIntentSnapshot {
 
 function New-LabContainerRuntimeIntentSnapshot {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Instance)
+    param(
+        [Parameter(Mandatory)]$Instance,
+        [switch]$ParserAuthorizedRuntime
+    )
 
     if ([string]$Instance.provider -notin @('docker','podman')) { return $null }
-    # Generic container snapshots and capability assessment intentionally have
-    # no SQL version.  They must not enter the collation catalog path or gain
-    # a synthetic runtime intent.
+    # Direct generic and capability-assessment projections have no parser
+    # authority to create a runtime intent, even when they carry a version.
+    if (-not $ParserAuthorizedRuntime) { return $null }
     $version = [string]$Instance.version
     if ([string]::IsNullOrWhiteSpace($version)) { return $null }
     # Generic assessments can contain syntactically versioned inputs.  Only
@@ -294,7 +297,8 @@ function New-LabInstanceIntentSnapshot {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Instance,
-        [Parameter(Mandatory)]$ProviderCapability
+        [Parameter(Mandatory)]$ProviderCapability,
+        [switch]$ParserAuthorizedRuntime
     )
 
     $provider = [string]$Instance.provider
@@ -399,7 +403,7 @@ function New-LabInstanceIntentSnapshot {
         Contract = [PSCustomObject]@{ Name = 'SqlServerLab.InstanceIntent'; Version = '1.0'; EvidenceBoundary = 'provider-metadata' }
         Drives = $drives
         Network = $network
-        ContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance $Instance
+        ContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance $Instance -ParserAuthorizedRuntime:$ParserAuthorizedRuntime
         Resources = New-LabHyperVResourceIntentSnapshot -Instance $Instance
         SqlEndpoint = New-LabSqlEndpointIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
         SqlConfiguration = New-LabSqlConfigurationIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
@@ -434,7 +438,7 @@ function New-LabDesiredStateSnapshot {
             if (-not $providerCapability) {
                 $providerCapability = [PSCustomObject]@{ Capabilities = @() }
             }
-            $intents = New-LabInstanceIntentSnapshot -Instance $instance -ProviderCapability $providerCapability
+            $intents = New-LabInstanceIntentSnapshot -Instance $instance -ProviderCapability $providerCapability -ParserAuthorizedRuntime
             # Ein Target-Rebuild migriert bestehende optionale Metadaten nicht.
             # Alle anderen Felder bleiben Bestandteil der bisherigen Driftpruefung.
             $previous = @($PreviousSnapshot.Instances | Where-Object {

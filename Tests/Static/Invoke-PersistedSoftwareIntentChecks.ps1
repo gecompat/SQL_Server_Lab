@@ -50,17 +50,18 @@ try {
         $dockerDesired = New-TestSoftwareDesiredState docker
         $hyperVDesired = New-TestSoftwareDesiredState hyperv
         $genericContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version=$null;profile='standard'})
+        $genericVersionedContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='2022';profile='standard';collation='sql_latin1_general_cp1_ci_as'})
         $whitespaceVersionContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='   ';profile='standard'})
-        $unknownVersionContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='2099';profile='standard'})
+        $unknownVersionContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='2099';profile='standard'}) -ParserAuthorizedRuntime
         $deprecatedVersionMessage = ''
         try {
-            $null = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='2017';profile='standard';collation='sql_latin1_general_cp1_ci_as'})
+            $null = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='2017';profile='standard';collation='sql_latin1_general_cp1_ci_as'}) -ParserAuthorizedRuntime
         }
         catch { $deprecatedVersionMessage = $_.Exception.Message }
-        $knownContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='2022';profile='standard';collation='sql_latin1_general_cp1_ci_as'})
+        $knownContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='2022';profile='standard';collation='sql_latin1_general_cp1_ci_as'}) -ParserAuthorizedRuntime
         $invalidCollationMessage = ''
         try {
-            $null = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='2022';profile='standard';collation='Not_A_Collation'})
+            $null = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='2022';profile='standard';collation='Not_A_Collation'}) -ParserAuthorizedRuntime
         }
         catch { $invalidCollationMessage = $_.Exception.Message }
         $dockerConfigurationDesired = New-TestSoftwareDesiredState docker -IncludeServerConfig
@@ -135,7 +136,7 @@ try {
 
         [pscustomobject]@{
             DockerCanonical=$dockerPersisted; HyperVCanonical=$hyperVPersisted
-            GenericContainerRuntime=$genericContainerRuntime; WhitespaceVersionContainerRuntime=$whitespaceVersionContainerRuntime
+            GenericContainerRuntime=$genericContainerRuntime; GenericVersionedContainerRuntime=$genericVersionedContainerRuntime; WhitespaceVersionContainerRuntime=$whitespaceVersionContainerRuntime
             UnknownVersionContainerRuntime=$unknownVersionContainerRuntime; DeprecatedVersionMessage=$deprecatedVersionMessage; KnownContainerRuntime=$knownContainerRuntime
             InvalidCollationMessage=$invalidCollationMessage
             DockerPersistedPlans=$dockerPersistedPlans; HyperVPersistedPlans=$hyperVPersistedPlans
@@ -152,8 +153,8 @@ try {
     $legacyMissing = & $module { param($run,$root) Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $root } $result.LegacyMissing $temporaryRoot
     $legacyNull = & $module { param($run,$root) Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $root } $result.LegacyNull $temporaryRoot
     Add-CheckResult -Name 'Katalog-erzeugte Software-Snapshots überstehen Docker- und Hyper-V-JSON-Roundtrip' -Success ($result.DockerCanonical.Status -eq 'VALID' -and $result.HyperVCanonical.Status -eq 'VALID')
-    Add-CheckResult -Name 'Versionslose, leerzeichenhafte oder unkatalogisierte generische Container-Snapshots erzeugen keinen Runtime-Intent; die katalogisierte 2022-Version normalisiert die Collation' -Success (
-        $null -eq $result.GenericContainerRuntime -and $null -eq $result.WhitespaceVersionContainerRuntime -and $null -eq $result.UnknownVersionContainerRuntime -and
+    Add-CheckResult -Name 'Nicht parserautorisierte sowie leerzeichenhafte oder unkatalogisierte Container-Snapshots erzeugen keinen Runtime-Intent; die autorisierte 2022-Version normalisiert die Collation' -Success (
+        $null -eq $result.GenericContainerRuntime -and $null -eq $result.GenericVersionedContainerRuntime -and $null -eq $result.WhitespaceVersionContainerRuntime -and $null -eq $result.UnknownVersionContainerRuntime -and
         [string]$result.KnownContainerRuntime.Collation -eq 'SQL_Latin1_General_CP1_CI_AS')
     Add-CheckResult -Name 'Katalogisierte deprecated und bekannte Container-Versionen propagieren Collation-Katalogfehler' -Success (
         $result.DeprecatedVersionMessage -match '^SQL_COLLATION_VERSION_NOT_CATALOGED' -and $result.InvalidCollationMessage -match '^SQL_COLLATION_NOT_CATALOGED')
