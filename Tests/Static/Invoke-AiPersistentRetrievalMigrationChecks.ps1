@@ -64,6 +64,10 @@ try{
             Reset
             $preview=Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Migrate -FixtureRevision Delta -TargetModelKey ollama-nomic-embed-text-v2-moe -WhatIf
             Check 'Migrate WhatIf prüft nur den festen lokalen Plan' ($preview.ModelKey -ceq 'ollama-nomic-embed-text-v2-moe' -and $script:events.Count -eq 0 -and -not(Test-Path $Root))
+            $queryPreview=Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Query -StateRoot $Root -WhatIf
+            Check 'Query WhatIf lässt aktive Modell- und Revisionswahl ohne Statezugriff offen' ($null -eq $queryPreview.ModelKey -and $null -eq $queryPreview.Revision -and $queryPreview.ModelSelection -ceq 'ACTIVE_SQL_GENERATION' -and $script:events.Count -eq 0 -and -not(Test-Path $Root))
+            $removePreview=Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Remove -StateRoot $Root -WhatIf
+            Check 'Remove WhatIf behauptet keine Modellabhängigkeit' ($null -eq $removePreview.ModelKey -and $null -eq $removePreview.Revision -and $removePreview.ModelSelection -ceq 'NOT_REQUIRED' -and $script:events.Count -eq 0 -and -not(Test-Path $Root))
             Check 'Migrate verlangt die explizite Zielwahl' (Reject {New-LabAiPersistentPlan @script:parameters -TargetModelKey ollama-nomic-embed-text-v2-moe} 'AI_PERSISTENT_MIGRATION_TARGET_UNEXPECTED')
             $null=Execute
             Check 'Initial ist keine zulässige Migrationsquelle' (Reject {Execute -Action Migrate} 'AI_PERSISTENT_MIGRATION_SOURCE_REQUIRED')

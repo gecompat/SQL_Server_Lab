@@ -25,7 +25,12 @@ Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Remove
 Die Quelle muss vollständig COMMITTED sein. Die API akzeptiert genau diesen
 Zielschlüssel und benötigt ausdrücklich `FixtureRevision Delta`. WhatIf liest
 nur lokale versionierte Verträge; es prüft keine Runtime und schreibt keinen
-State. Die alten Apply-/Query-/Remove-Aufrufe für Journal 1.0 bleiben erhalten.
+State. Die Vorschau nennt bei Query
+`ModelSelection=ACTIVE_SQL_GENERATION` und lässt `ModelKey` und `Revision` leer,
+weil deren tatsächliche Werte erst aus der aktiven SQL-Generation folgen.
+Bei Remove gilt `ModelSelection=NOT_REQUIRED`; Apply und Migrate nennen das
+feste Modell. Die eigentliche Ausführung der alten Apply-/Query-/Remove-Aufrufe
+für Journal 1.0 bleibt erhalten.
 Nach dem Upgrade ist Apply gesperrt; die Migration kann wiederholt bestätigt,
 aber weder rückwärts noch zu einem weiteren Modell ausgeführt werden.
 

@@ -30,6 +30,7 @@
     Lokaler Run-State mit verschlüsseltem verwaltetem Secret und atomarem Journal.
 .OUTPUTS
     Plan bei WhatIf; andernfalls Status, CollectionId, Generation und Requestzahl, bei Query Rangfolge.
+    Query plant ohne Statezugriff mit ModelSelection ACTIVE_SQL_GENERATION und leerem ModelKey/Revision; Remove benötigt keine Modellwahl.
 .EXAMPLE
     Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId -Action Apply -FixtureRevision Initial
 .EXAMPLE
@@ -52,7 +53,9 @@ function Invoke-SqlServerLabAiPersistentRetrieval {
     )
     $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId $InstanceId -CollectionId $CollectionId -Action $Action -FixtureRevision $FixtureRevision -QueryId $QueryId -LocalPort $LocalPort -TimeoutSeconds $TimeoutSeconds -Resume:$Resume -TargetModelKey $TargetModelKey
     if(-not $PSCmdlet.ShouldProcess("Run $RunId / Collection $CollectionId",$Action)){
-        return [pscustomobject]@{Status='PLANNED';Action=$Action;CollectionId=$CollectionId;Revision=$FixtureRevision;PlanKey=$plan.PlanKey;ModelKey=$plan.EndpointPlan.ModelKey;Dimension=768}
+        $fixedModel=$Action -in @('Apply','Migrate')
+        $selection=if($fixedModel){'FIXED'}elseif($Action -eq 'Query'){'ACTIVE_SQL_GENERATION'}else{'NOT_REQUIRED'}
+        return [pscustomobject]@{Status='PLANNED';Action=$Action;CollectionId=$CollectionId;Revision=$(if($fixedModel){$FixtureRevision}else{$null});PlanKey=$plan.PlanKey;ModelKey=$(if($fixedModel){$plan.EndpointPlan.ModelKey}else{$null});ModelSelection=$selection;Dimension=768}
     }
     try{Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $StateRoot}
     catch{if($_.Exception.Message -match '^AI_PERSISTENT_[A-Z_]+$'){throw $_.Exception.Message};throw 'AI_PERSISTENT_RECOVERY_REQUIRED'}

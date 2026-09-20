@@ -235,5 +235,5 @@ implementiert: eigener SQL-2025-Containerscope, Initial/Delta, Resume und
 atomarer aktiver Zeiger. Offline-Verträge und die getrennten nativen Docker-/Podman-Abnahmen sind geprüft, einschließlich SQLrestart und vollständigem Cleanup.
 Der nachfolgende [begrenzte Modellwechsel](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md)
 ergänzt explizit Delta/gen2 nach Nomic v2 MoE/gen3 mit v2-Upgrade und festen
-Präfixprofilen. Die 42 fokussierten Migrationchecks sowie beide nativen Abnahmen mit je 20 Assertions, SQLrestart und vollständigem Cleanup bestehen. Allgemeine Modell-/Dimensionswechsel und
+Präfixprofilen. Die 44 fokussierten Migrationchecks sowie beide nativen Abnahmen mit je 20 Assertions, SQLrestart und vollständigem Cleanup bestehen. Allgemeine Modell-/Dimensionswechsel und
 beliebige Nutzerdokumente bleiben offen; Golden v1 wird nicht umgebunden.
