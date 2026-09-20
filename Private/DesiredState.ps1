@@ -104,6 +104,10 @@ function New-LabContainerRuntimeIntentSnapshot {
     param([Parameter(Mandatory)]$Instance)
 
     if ([string]$Instance.provider -notin @('docker','podman')) { return $null }
+    # Generic container snapshots and capability assessment intentionally have
+    # no SQL version.  They must not enter the collation catalog path or gain
+    # a synthetic runtime intent.
+    if ([string]::IsNullOrWhiteSpace([string]$Instance.version)) { return $null }
     $profile = Get-LabResourceProfile -Name $(if ($Instance.profile) { [string]$Instance.profile } else { 'standard' })
     # Docker and Podman accept fractional CPU quotas.  Keep the numeric value
     # as a double through JSON instead of truncating it to an integer.
@@ -113,11 +117,19 @@ function New-LabContainerRuntimeIntentSnapshot {
         throw 'CONTAINER_RUNTIME_CPU_PRECISION_INVALID'
     }
     $memoryMB = if ($Instance.runtimeResources -and $null -ne $Instance.runtimeResources.memoryMB) { [long]$Instance.runtimeResources.memoryMB } else { [long]$profile.maxMemoryMB }
+    try {
+        $collation = Resolve-LabSqlServerCollation -Name ([string]$Instance.collation) -SqlVersion ([string]$Instance.version)
+    }
+    catch {
+        # Generic assessment inputs are not parser-authorized runtime
+        # instances.  Do not invent a version or runtime intent for them.
+        return $null
+    }
     return [PSCustomObject]@{
         Contract = [PSCustomObject]@{ Name='SqlServerLab.ContainerRuntimeIntent'; Version='1.0' }
         Cpu = $cpu
         MemoryMB = $memoryMB
-        Collation = Resolve-LabSqlServerCollation -Name ([string]$Instance.collation) -SqlVersion ([string]$Instance.version)
+        Collation = $collation
     }
 }
 
