@@ -437,6 +437,54 @@ function Test-LabPersistedSqlEndpointIntent {
     return ([decimal]$port -ge 1 -and [decimal]$port -le 65535)
 }
 
+function Test-LabPersistedSqlConfigurationIntent {
+    [CmdletBinding()]
+    param($SqlConfiguration, [string]$Provider)
+
+    # Der Persistenzsnapshot ist kein Eingabeformat. Insbesondere duerfen
+    # gespeicherte Strings, Bools oder Gleitkommawerte nicht spaeter in einen
+    # SQL-/Hyper-V-Reconcile-Aufruf coercen.
+    if ($null -eq $SqlConfiguration -or $SqlConfiguration -is [string] -or
+        $SqlConfiguration -is [bool] -or $SqlConfiguration -is [array]) { return $false }
+    $expectedFields = @('CapabilityStatus','Configurations','Contract','RequiredCapability','TraceFlags')
+    if ((@($SqlConfiguration.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($expectedFields -join ',')) { return $false }
+    if ($null -eq $SqlConfiguration.Contract -or $SqlConfiguration.Contract -is [string] -or
+        $SqlConfiguration.Contract -is [bool] -or $SqlConfiguration.Contract -is [array] -or
+        ((@($SqlConfiguration.Contract.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'Name,Version') -or
+        [string]$SqlConfiguration.Contract.Name -cne 'SqlServerLab.SqlConfigurationIntent' -or
+        [string]$SqlConfiguration.Contract.Version -cne '1.0') { return $false }
+    if ([string]$Provider -ine 'hyperv' -or
+        [string]$SqlConfiguration.RequiredCapability -cne 'hyperv-sql-configuration-reconcile' -or
+        [string]$SqlConfiguration.CapabilityStatus -cnotin @('DECLARED_SUPPORTED','DECLARED_UNSUPPORTED')) { return $false }
+    if ($SqlConfiguration.Configurations -isnot [array] -or $SqlConfiguration.TraceFlags -isnot [array]) { return $false }
+
+    $configurationNames = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($configuration in @($SqlConfiguration.Configurations)) {
+        if ($null -eq $configuration -or $configuration -is [string] -or $configuration -is [bool] -or $configuration -is [array] -or
+            ((@($configuration.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'Name,Value') -or
+            $configuration.Name -isnot [string] -or -not (Test-LabSqlConfigurationIntentName -Name $configuration.Name) -or
+            # New-LabSqlConfigurationIntentSnapshot normalizes every persisted
+            # configuration value to Int64 after first accepting only Int32
+            # manifest values.  The reconcile path carries that value as
+            # SqlDbType.BigInt, so accepting another runtime type or a value
+            # outside the originating Int32 range would create a coercion
+            # boundary after state validation.
+            $configuration.Value -isnot [long] -or $configuration.Value -lt [int]::MinValue -or $configuration.Value -gt [int]::MaxValue -or
+            -not $configurationNames.Add($configuration.Name)) { return $false }
+    }
+
+    $traceFlags = [System.Collections.Generic.HashSet[long]]::new()
+    foreach ($traceFlag in @($SqlConfiguration.TraceFlags)) {
+        # Persisted JSON numbers normalize to Int64, while every subsequent
+        # trace-flag consumer binds Int32.  Check the complete Int32 range
+        # before the cast so malformed UInt64 values cannot throw during the
+        # invalid-state path.
+        if ($traceFlag -isnot [long] -or $traceFlag -lt 1 -or $traceFlag -gt [int]::MaxValue -or
+            -not $traceFlags.Add($traceFlag)) { return $false }
+    }
+    return $true
+}
+
 function Get-LabPersistedDesiredState {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
@@ -531,6 +579,10 @@ function Get-LabPersistedDesiredState {
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['SqlEndpoint'] -and $null -ne $instance.Intents.SqlEndpoint -and
             -not (Test-LabPersistedSqlEndpointIntent -SqlEndpoint $instance.Intents.SqlEndpoint -Provider $provider)) {
             [void]$validationErrors.Add('DESIRED_INSTANCE_SQL_ENDPOINT_INTENT_INVALID')
+        }
+        if ($instance.Intents -and $instance.Intents.PSObject.Properties['SqlConfiguration'] -and $null -ne $instance.Intents.SqlConfiguration -and
+            -not (Test-LabPersistedSqlConfigurationIntent -SqlConfiguration $instance.Intents.SqlConfiguration -Provider $provider)) {
+            [void]$validationErrors.Add('DESIRED_INSTANCE_SQL_CONFIGURATION_INTENT_INVALID')
         }
         if ($idIsValid -and $providerIsValid) {
             if (-not $instanceIdsByProvider.ContainsKey($provider)) {
