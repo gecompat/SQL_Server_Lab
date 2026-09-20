@@ -931,6 +931,145 @@ try {
     Add-CheckResult -Name 'Ungueltige persistierte Hyper-V-Ressourcen-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' `
         -Success ($persistedHyperVResourceContract.RuntimeCalls -eq 0)
 
+    $persistedDriveIntentContract = & $module {
+        param($Root)
+
+        function New-TestPersistedDriveIntent {
+            param([string]$Provider = 'hyperv', [string]$Binding)
+            $isHyperV = $Provider -eq 'hyperv'
+            [PSCustomObject]@{
+                Id='data'; Role='sqlData'; GuestPath=if($isHyperV){'D:\SQLData'}else{'/var/opt/mssql/data'}
+                Binding=if($Binding){$Binding}elseif($isHyperV){'additional-vhdx'}else{'managed-volume'}
+                AccessMode='readWrite'; SizeGB=if($isHyperV){[double]64}else{$null}; PerformanceClass='ssd'
+                Persistence=if($Binding -eq 'host-mount'){'external-host-path'}else{'run-scoped'}; PersistentStorageId=$null
+                RequiredCapability=if($isHyperV){'run-local-additional-vhdx'}else{'volume-mounts'}; CapabilityStatus='DECLARED_SUPPORTED'
+            }
+        }
+
+        $cases=@(
+            @{Name='Hyper-V kanonisch';Kind='valid-hyperv';Provider='hyperv';Valid=$true},
+            @{Name='Hyper-V deklarativ unsupported kanonisch';Kind='valid-unsupported';Provider='hyperv';Valid=$true},
+            @{Name='Docker managed volume kanonisch';Kind='valid-docker';Provider='docker';Valid=$true},
+            @{Name='Podman host mount kanonisch';Kind='valid-podman-host';Provider='podman';Valid=$true},
+            @{Name='legacy fehlt';Kind='legacy';Provider='hyperv';Valid=$true},
+            @{Name='legacy null';Kind='null';Provider='hyperv';Valid=$true},
+            @{Name='Drive-Liste kein Array';Kind='scalar';Provider='hyperv';Valid=$false},
+            @{Name='unbekanntes Feld';Kind='unknown-field';Provider='hyperv';Valid=$false},
+            @{Name='ID boolesch';Kind='id-bool';Provider='hyperv';Valid=$false},
+            @{Name='ID ungueltig';Kind='id-invalid';Provider='hyperv';Valid=$false},
+            @{Name='GuestPath boolesch';Kind='path-bool';Provider='hyperv';Valid=$false},
+            @{Name='GuestPath falsch';Kind='path-invalid';Provider='docker';Valid=$false},
+            @{Name='AccessMode ungueltig';Kind='access';Provider='hyperv';Valid=$false},
+            @{Name='Role ungueltig';Kind='role';Provider='hyperv';Valid=$false},
+            @{Name='PerformanceClass ungueltig';Kind='performance';Provider='hyperv';Valid=$false},
+            @{Name='Hyper-V tmpfs';Kind='hyperv-tmpfs';Provider='hyperv';Valid=$false},
+            @{Name='SizeGB String';Kind='size-string';Provider='hyperv';Valid=$false},
+            @{Name='SizeGB null Hyper-V';Kind='size-null';Provider='hyperv';Valid=$false},
+            @{Name='SizeGB zu klein';Kind='size-low';Provider='hyperv';Valid=$false},
+            @{Name='SizeGB zu gross';Kind='size-high';Provider='hyperv';Valid=$false},
+            @{Name='Binding passt nicht';Kind='binding';Provider='hyperv';Valid=$false},
+            @{Name='Capability passt nicht';Kind='capability';Provider='docker';Valid=$false},
+            @{Name='Persistence passt nicht';Kind='persistence';Provider='podman';Valid=$false},
+            @{Name='PersistentStorageId ungueltig';Kind='storage-id';Provider='docker';Valid=$false},
+            @{Name='CapabilityStatus ungueltig';Kind='status';Provider='hyperv';Valid=$false},
+            @{Name='CapabilityStatus erhoeht deklarativ unsupported';Kind='status-upgrade';Provider='hyperv';Valid=$false},
+            @{Name='Drive-ID doppelt';Kind='duplicate';Provider='hyperv';Valid=$false}
+        )
+        $originalRuntime=(Get-Command Get-LabRunRuntimeStatus).ScriptBlock
+        $originalProviderCapability=(Get-Command Get-LabProviderCapabilityContract).ScriptBlock
+        $script:invalidPersistedDriveRuntimeCalls=0
+        $script:persistedDriveCapabilityMode='supported'
+        try {
+            Set-Item Function:Get-LabRunRuntimeStatus -Value {
+                $script:invalidPersistedDriveRuntimeCalls++
+                throw 'RUNTIME_MUST_NOT_BE_READ_FOR_INVALID_PERSISTED_DRIVE_INTENT'
+            }
+            Set-Item Function:Get-LabProviderCapabilityContract -Value {
+                $contracts=@(& $originalProviderCapability)
+                if($script:persistedDriveCapabilityMode -eq 'unsupported') {
+                    foreach($contract in @($contracts | Where-Object Provider -eq 'hyperv')) {
+                        $contract.Capabilities=@($contract.Capabilities | Where-Object SourceKey -ne 'run-local-additional-vhdx')
+                    }
+                }
+                return $contracts
+            }
+            $results=@($cases|ForEach-Object {
+                $case=$_;$script:persistedDriveCapabilityMode=if($case.Kind -in @('valid-unsupported','status-upgrade')){'unsupported'}else{'supported'};$intents=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.InstanceIntent';Version='1.0'}}
+                if($case.Kind -ne 'legacy') {
+                    $drives=if($case.Kind -eq 'null'){$null}else{@(New-TestPersistedDriveIntent -Provider $case.Provider -Binding $(if($case.Kind -eq 'valid-podman-host'){'host-mount'}else{$null}))}
+                    if($null -ne $drives) {
+                        $drives=@($drives)
+                        $drive=$drives[0]
+                        switch($case.Kind) {
+                            'unknown-field' {$drive|Add-Member -NotePropertyName HostPath -NotePropertyValue 'must-not-persist.invalid'}
+                            'id-bool' {$drive.Id=$true}
+                            'id-invalid' {$drive.Id='data drive'}
+                            'path-bool' {$drive.GuestPath=$false}
+                            'path-invalid' {$drive.GuestPath='relative/path'}
+                            'access' {$drive.AccessMode='execute'}
+                            'role' {$drive.Role='other'}
+                            'performance' {$drive.PerformanceClass='nvme'}
+                            'hyperv-tmpfs' {$drive.PerformanceClass='tmpfs'}
+                            'size-string' {$drive.SizeGB='64'}
+                            'size-null' {$drive.SizeGB=$null}
+                            'size-low' {$drive.SizeGB=[double]0.01}
+                            'size-high' {$drive.SizeGB=[double]65537}
+                            'binding' {$drive.Binding='managed-volume'}
+                            'capability' {$drive.RequiredCapability='run-local-additional-vhdx'}
+                            'persistence' {$drive.Persistence='external-host-path'}
+                            'storage-id' {$drive.PersistentStorageId='not-a-guid'}
+                            'status' {$drive.CapabilityStatus='SUPPORTED'}
+                            'valid-unsupported' {$drive.CapabilityStatus='DECLARED_UNSUPPORTED'}
+                            'status-upgrade' {$drive.CapabilityStatus='DECLARED_SUPPORTED'}
+                            'duplicate' {$duplicate=$drive|ConvertTo-Json -Depth 10|ConvertFrom-Json -Depth 10;$duplicate.Id='DATA';$drives+=,$duplicate}
+                        }
+                    }
+                    if($case.Kind -eq 'scalar') {$drives=$drives[0]}
+                    $intents|Add-Member -NotePropertyName Drives -NotePropertyValue $drives
+                }
+                $snapshot=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.RunDesiredState';Version='1.0'};ProvisioningMode='manifest';PersistentData=$false
+                    Instances=@([PSCustomObject]@{Id='primary';Provider=$case.Provider;Profile='standard';Intents=$intents})}
+                $run=New-LabRunState -StateRoot $Root -Metadata @{name='persisted drive intent';desiredState=$snapshot} -ProviderSubRuns @([PSCustomObject]@{provider=$case.Provider;instanceIds=@('primary')})
+                $statePath=Join-Path $run.RunDir 'run-state.json';$connectionPath=Join-Path $run.RunDir 'connection-info.json'
+                Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject ([PSCustomObject]@{instances=@([PSCustomObject]@{id='primary';provider=$case.Provider;host='must-not-fallback.invalid'})})
+                $beforeState=[Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath));$beforeConnection=[Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))
+                $persisted=Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $Root;$plans=@()
+                if(-not $case.Valid){foreach($target in @('RUNNING','STOPPED')){$plans+=Get-SqlServerLabReconcilePlan -RunId $run.RunId -TargetState $target -StateRoot $Root}}
+                [PSCustomObject]@{Name=$case.Name;Valid=$case.Valid;Status=$persisted.Status;ReasonCodes=@($persisted.ReasonCodes);Plans=@($plans)
+                    StateUnchanged=$beforeState -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath));ConnectionUnchanged=$beforeConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))}
+            })
+            $resolved=[PSCustomObject]@{name='canonical persisted drive roundtrip';ai=$null;instances=@([PSCustomObject]@{
+                id='primary';provider='hyperv';version='2025';profile='standard';autostart='off';databases=@();software=@();network=$null
+                drives=@([PSCustomObject]@{id='data';containerPath='D:\SQLData';hostPath=$null;readOnly=$false;sizeLimitGB=[double]64;type='ssd'})
+                hyperv=[PSCustomObject]@{processorCount=4;dynamicMemoryEnabled=$true;memoryMinimumMB=2048;memoryStartupMB=4096;memoryMaximumMB=8192}
+            })}
+            $canonicalSnapshot=New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData $false
+            $canonicalRun=New-LabRunState -StateRoot $Root -Metadata @{name='canonical persisted drive roundtrip';desiredState=$canonicalSnapshot} -ProviderSubRuns @([PSCustomObject]@{provider='hyperv';instanceIds=@('primary')})
+            $canonicalPersisted=Get-LabPersistedDesiredState -RunId $canonicalRun.RunId -StateRoot $Root
+            $canonicalDrive=$canonicalPersisted.Snapshot.Instances[0].Intents.Drives[0]
+            [PSCustomObject]@{Cases=$results;RuntimeCalls=$script:invalidPersistedDriveRuntimeCalls;CanonicalRoundtrip=(
+                $canonicalPersisted.Status -eq 'VALID' -and $canonicalDrive.SizeGB -is [double] -and
+                ((@($canonicalDrive.PSObject.Properties.Name|Sort-Object)-join ',') -ceq 'AccessMode,Binding,CapabilityStatus,GuestPath,Id,PerformanceClass,Persistence,PersistentStorageId,RequiredCapability,Role,SizeGB')
+            )}
+        } finally {
+            Set-Item Function:Get-LabRunRuntimeStatus -Value $originalRuntime
+            Set-Item Function:Get-LabProviderCapabilityContract -Value $originalProviderCapability
+        }
+    } $tempRoot
+    foreach($driveIntentCase in @($persistedDriveIntentContract.Cases)) {
+        if($driveIntentCase.Valid) {
+            Add-CheckResult -Name "Persistierter Drive-Intent ($($driveIntentCase.Name)) bleibt kanonisch oder legacy-gueltig" -Success ($driveIntentCase.Status -eq 'VALID' -and $driveIntentCase.ReasonCodes.Count -eq 0)
+        } else {
+            Add-CheckResult -Name "Ungueltiger persistierter Drive-Intent ($($driveIntentCase.Name)) liefert den festen Grund" -Success ($driveIntentCase.Status -eq 'INVALID' -and ($driveIntentCase.ReasonCodes -join ',') -ceq 'DESIRED_INSTANCE_DRIVE_INTENT_INVALID')
+            foreach($plan in $driveIntentCase.Plans) {
+                Add-CheckResult -Name "Ungueltiger persistierter Drive-Intent ($($driveIntentCase.Name)) blockiert $($plan.Desired.TargetState) ohne Runtime-Fallback" -Success ($plan.HighestChangeClass -eq 'unsupported' -and $plan.Actions.Count -eq 0 -and -not $plan.MutationAllowed -and -not $plan.IsNoOp -and -not $plan.Desired.IsValid -and $plan.Desired.Instances.Count -eq 0 -and $plan.Actual.Source -eq 'persisted-desired-state-invalid')
+            }
+        }
+        Add-CheckResult -Name "Persistierter Drive-Intent ($($driveIntentCase.Name)) erhaelt State- und Connection-Bytes" -Success ($driveIntentCase.StateUnchanged -and $driveIntentCase.ConnectionUnchanged)
+    }
+    Add-CheckResult -Name 'Ungueltige persistierte Drive-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' -Success ($persistedDriveIntentContract.RuntimeCalls -eq 0)
+    Add-CheckResult -Name 'Realer Desired-State-Snapshot rundet den kanonischen Drive-Intent mit JSON-Doubletrip' -Success $persistedDriveIntentContract.CanonicalRoundtrip
+
     $networkContract = & $module {
         param($Root)
 

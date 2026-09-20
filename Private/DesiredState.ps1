@@ -529,6 +529,68 @@ function Test-LabPersistedHyperVResourceIntent {
     return $true
 }
 
+function Test-LabPersistedDriveIntents {
+    [CmdletBinding()]
+    param($Drives, [string]$Provider, $ProviderCapability)
+
+    # Drives are persisted provider metadata, not a second manifest input
+    # surface.  Validate their closed JSON shape before a reconcile path can
+    # derive a VHDX size or a mount binding from them.
+    if ($null -eq $Drives) { return $true }
+    if ($Drives -isnot [array]) { return $false }
+
+    $providerName = ([string]$Provider).ToLowerInvariant()
+    if ($providerName -notin @('docker','podman','hyperv')) { return $false }
+    $ids = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $expectedFields = @(
+        'AccessMode','Binding','CapabilityStatus','GuestPath','Id','PerformanceClass',
+        'Persistence','PersistentStorageId','RequiredCapability','Role','SizeGB'
+    )
+    foreach ($drive in @($Drives)) {
+        if ($null -eq $drive -or $drive -is [string] -or $drive -is [bool] -or $drive -is [array] -or
+            ((@($drive.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($expectedFields -join ','))) { return $false }
+        if ($drive.Id -isnot [string] -or $drive.Id -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$' -or
+            -not $ids.Add($drive.Id) -or
+            $drive.Role -isnot [string] -or $drive.Role -cnotin @('sqlData','sqlLog','tempdb','backup','general') -or
+            $drive.AccessMode -isnot [string] -or $drive.AccessMode -cnotin @('readOnly','readWrite') -or
+            $drive.PerformanceClass -isnot [string] -or $drive.PerformanceClass -cnotin @('ssd','hdd','tmpfs','auto') -or
+            $drive.Persistence -isnot [string] -or $drive.Persistence -cnotin @('run-scoped','external-host-path') -or
+            $drive.CapabilityStatus -isnot [string] -or $drive.CapabilityStatus -cnotin @('DECLARED_SUPPORTED','DECLARED_UNSUPPORTED') -or
+            $drive.GuestPath -isnot [string] -or [string]::IsNullOrWhiteSpace($drive.GuestPath)) { return $false }
+
+        # CapabilityStatus is a projection of the declared provider contract,
+        # not a caller-selectable enum.  A persisted "supported" value must
+        # therefore never upgrade a drive whose declared capability is absent.
+        if ($null -eq $ProviderCapability -or
+            [string]$drive.CapabilityStatus -cne (Get-LabDeclaredIntentCapabilityStatus `
+                -ProviderCapability $ProviderCapability `
+                -RequiredCapability ([string]$drive.RequiredCapability))) { return $false }
+
+        if ($null -ne $drive.PersistentStorageId -and
+            ($drive.PersistentStorageId -isnot [string] -or -not [guid]::TryParse($drive.PersistentStorageId, [ref]([guid]::Empty)))) { return $false }
+        if ($null -ne $drive.SizeGB -and
+            ($drive.SizeGB -isnot [double] -or -not [double]::IsFinite($drive.SizeGB) -or
+             $drive.SizeGB -lt 0.1 -or $drive.SizeGB -gt 65536)) { return $false }
+
+        if ($providerName -eq 'hyperv') {
+            if ($drive.Binding -cne 'additional-vhdx' -or
+                $drive.RequiredCapability -cne 'run-local-additional-vhdx' -or
+                $drive.PerformanceClass -ceq 'tmpfs' -or $null -eq $drive.SizeGB -or
+                $drive.GuestPath -notmatch '^[D-Zd-z]:\\(?:[^<>:"/|?*\r\n]+(?:\\[^<>:"/|?*\r\n]+)*)?$' -or
+                $drive.Persistence -cne 'run-scoped' -or $null -ne $drive.PersistentStorageId) { return $false }
+        }
+        else {
+            if ($drive.Binding -cnotin @('host-mount','managed-volume') -or
+                $drive.RequiredCapability -cne 'volume-mounts' -or
+                $drive.GuestPath -notmatch '^/(?:[^/\x00\r\n]+(?:/[^/\x00\r\n]+)*)?$') { return $false }
+            if (($drive.Binding -ceq 'host-mount' -and $drive.Persistence -cne 'external-host-path') -or
+                ($drive.Binding -ceq 'managed-volume' -and $drive.Persistence -cne 'run-scoped') -or
+                $null -ne $drive.PersistentStorageId) { return $false }
+        }
+    }
+    return $true
+}
+
 function Get-LabPersistedDesiredState {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
@@ -563,6 +625,9 @@ function Get-LabPersistedDesiredState {
     }
 
     $validationErrors = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    # This is static provider metadata from the registered provider contract;
+    # it is deliberately not a runtime or host capability probe.
+    $providerCapabilities = @(Get-LabProviderCapabilityContract)
     if ($snapshot.ProvisioningMode -isnot [string] -or
         (-not (($snapshot.ProvisioningMode -ceq 'manifest') -or ($snapshot.ProvisioningMode -ceq 'adhoc')))) {
         [void]$validationErrors.Add('DESIRED_STATE_PROVISIONING_MODE_INVALID')
@@ -605,6 +670,7 @@ function Get-LabPersistedDesiredState {
             }
         }
         $provider = [string]$instance.Provider
+        $providerCapability = $null
         if ($null -eq $instance.Provider -or $provider.Length -eq 0) {
             [void]$validationErrors.Add('DESIRED_INSTANCE_PROVIDER_MISSING')
         }
@@ -614,6 +680,9 @@ function Get-LabPersistedDesiredState {
             }
             else {
                 $providerIsValid = $true
+                $providerCapability = @($providerCapabilities | Where-Object {
+                    [string]$_.Provider -ieq $provider
+                } | Select-Object -First 1)[0]
             }
         }
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['Network'] -and
@@ -631,6 +700,10 @@ function Get-LabPersistedDesiredState {
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['Resources'] -and $null -ne $instance.Intents.Resources -and
             -not (Test-LabPersistedHyperVResourceIntent -Resources $instance.Intents.Resources -Provider $provider)) {
             [void]$validationErrors.Add('DESIRED_INSTANCE_HYPERV_RESOURCE_INTENT_INVALID')
+        }
+        if ($instance.Intents -and $instance.Intents.PSObject.Properties['Drives'] -and $null -ne $instance.Intents.Drives -and
+            -not (Test-LabPersistedDriveIntents -Drives $instance.Intents.Drives -Provider $provider -ProviderCapability $providerCapability)) {
+            [void]$validationErrors.Add('DESIRED_INSTANCE_DRIVE_INTENT_INVALID')
         }
         if ($idIsValid -and $providerIsValid) {
             if (-not $instanceIdsByProvider.ContainsKey($provider)) {
