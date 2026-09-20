@@ -852,6 +852,7 @@ internal_components:
       - "Hyper-V-Manifest-Drives als run-lokale VHDX- und Guest-Initialisierungs-Intents binden"
       - "Drive-, Network- und Software-Anforderungen providerneutral normalisieren"
       - "deklarative Provider-Capability-Evidenz ohne Runtime-Annahme persistieren"
+      - "persistierte Drive-Intents vor Lifecycle-Reconcile strikt und providergebunden fail-closed validieren"
   - name: CleanupEngine
     source: Private/CleanupEngine.ps1
     audit: Public/Get-SqlServerLabCleanupAudit.ps1
