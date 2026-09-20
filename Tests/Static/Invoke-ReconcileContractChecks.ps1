@@ -669,6 +669,132 @@ try {
     Add-CheckResult -Name 'Ungueltige persistierte SQL-Endpoint-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' `
         -Success ($persistedSqlEndpointContract.RuntimeCalls -eq 0)
 
+    $persistedSqlConfigurationContract = & $module {
+        param($Root)
+
+        function New-TestPersistedSqlConfigurationIntent {
+            [PSCustomObject]@{
+                Contract=[PSCustomObject]@{ Name='SqlServerLab.SqlConfigurationIntent'; Version='1.0' }
+                Configurations=@([PSCustomObject]@{Name='max degree of parallelism';Value=[int]4})
+                TraceFlags=@([int]3226)
+                RequiredCapability='hyperv-sql-configuration-reconcile'
+                CapabilityStatus='DECLARED_SUPPORTED'
+            }
+        }
+
+        $cases = @(
+            @{ Name='kanonisch'; Kind='valid'; Valid=$true },
+            @{ Name='legacy fehlt'; Kind='legacy'; Valid=$true },
+            @{ Name='legacy null'; Kind='null'; Valid=$true },
+            @{ Name='unbekanntes Feld'; Kind='unknown-field'; Valid=$false },
+            @{ Name='falscher Contract'; Kind='contract'; Valid=$false },
+            @{ Name='unbekanntes Contract-Feld'; Kind='contract-field'; Valid=$false },
+            @{ Name='Konfigurationen kein Array'; Kind='config-scalar'; Valid=$false },
+            @{ Name='Konfiguration unbekanntes Feld'; Kind='config-field'; Valid=$false },
+            @{ Name='Konfigurationsname ungueltig'; Kind='config-name'; Valid=$false },
+            @{ Name='Konfigurationswert boolesch'; Kind='config-bool'; Valid=$false },
+            @{ Name='Konfigurationswert String'; Kind='config-string'; Valid=$false },
+            @{ Name='Konfigurationswert Gleitkomma'; Kind='config-double'; Valid=$false },
+            @{ Name='Konfigurationswert Int32-Grenze'; Kind='config-int32-boundary'; Valid=$true },
+            @{ Name='Konfigurationswert oberhalb Int32'; Kind='config-int32-overrange'; Valid=$false },
+            @{ Name='Konfigurationswert UInt64-Ueberlauf'; Kind='config-uint64-overrange'; Valid=$false },
+            @{ Name='Konfigurationsname doppelt'; Kind='config-duplicate'; Valid=$false },
+            @{ Name='TraceFlags kein Array'; Kind='trace-scalar'; Valid=$false },
+            @{ Name='TraceFlag boolesch'; Kind='trace-bool'; Valid=$false },
+            @{ Name='TraceFlag String'; Kind='trace-string'; Valid=$false },
+            @{ Name='TraceFlag Gleitkomma'; Kind='trace-double'; Valid=$false },
+            @{ Name='TraceFlag null'; Kind='trace-null'; Valid=$false },
+            @{ Name='TraceFlag nicht positiv'; Kind='trace-zero'; Valid=$false },
+            @{ Name='TraceFlag oberhalb Int32'; Kind='trace-int32-overrange'; Valid=$false },
+            @{ Name='TraceFlag UInt64-Ueberlauf'; Kind='trace-uint64-overflow'; Valid=$false },
+            @{ Name='TraceFlag doppelt'; Kind='trace-duplicate'; Valid=$false },
+            @{ Name='falsche Capability'; Kind='capability'; Valid=$false },
+            @{ Name='falscher CapabilityStatus'; Kind='status'; Valid=$false },
+            @{ Name='falscher Anbieter'; Kind='provider'; Valid=$false }
+        )
+        $originalRuntime = (Get-Command Get-LabRunRuntimeStatus).ScriptBlock
+        $script:invalidPersistedSqlConfigurationRuntimeCalls=0
+        try {
+            Set-Item Function:Get-LabRunRuntimeStatus -Value {
+                $script:invalidPersistedSqlConfigurationRuntimeCalls++
+                throw 'RUNTIME_MUST_NOT_BE_READ_FOR_INVALID_PERSISTED_SQL_CONFIGURATION'
+            }
+            $results=@($cases | ForEach-Object {
+                $case=$_
+                $intents=[PSCustomObject]@{ Contract=[PSCustomObject]@{ Name='SqlServerLab.InstanceIntent'; Version='1.0' } }
+                if($case.Kind -ne 'legacy') {
+                    $configuration=if($case.Kind -eq 'null'){$null}else{New-TestPersistedSqlConfigurationIntent}
+                    switch($case.Kind) {
+                        'unknown-field' { $configuration | Add-Member -NotePropertyName Host -NotePropertyValue 'must-not-persist.invalid' }
+                        'contract' { $configuration.Contract.Version='2.0' }
+                        'contract-field' { $configuration.Contract | Add-Member -NotePropertyName Extra -NotePropertyValue 'invalid' }
+                        'config-scalar' { $configuration.Configurations=$configuration.Configurations[0] }
+                        'config-field' { $configuration.Configurations[0] | Add-Member -NotePropertyName Extra -NotePropertyValue 'invalid' }
+                        'config-name' { $configuration.Configurations[0].Name='bad;name' }
+                        'config-bool' { $configuration.Configurations[0].Value=$true }
+                        'config-string' { $configuration.Configurations[0].Value='4' }
+                        'config-double' { $configuration.Configurations[0].Value=[double]4 }
+                        'config-int32-boundary' { $configuration.Configurations[0].Value=[long][int]::MaxValue }
+                        'config-int32-overrange' { $configuration.Configurations[0].Value=[long]([int]::MaxValue + 1) }
+                        'config-uint64-overrange' { $configuration.Configurations[0].Value=[uint64]::MaxValue }
+                        'config-duplicate' { $configuration.Configurations+=,[PSCustomObject]@{Name='MAX DEGREE OF PARALLELISM';Value=[int]4} }
+                        'trace-scalar' { $configuration.TraceFlags=$configuration.TraceFlags[0] }
+                        'trace-bool' { $configuration.TraceFlags=@($true) }
+                        'trace-string' { $configuration.TraceFlags=@('3226') }
+                        'trace-double' { $configuration.TraceFlags=@([double]3226) }
+                        'trace-null' { $configuration.TraceFlags=@($null) }
+                        'trace-zero' { $configuration.TraceFlags=@([int]0) }
+                        'trace-int32-overrange' { $configuration.TraceFlags=@([long]([int]::MaxValue + 1)) }
+                        'trace-uint64-overflow' { $configuration.TraceFlags=@([uint64]::MaxValue) }
+                        'trace-duplicate' { $configuration.TraceFlags=@([int]3226,[int]3226) }
+                        'capability' { $configuration.RequiredCapability='other-capability' }
+                        'status' { $configuration.CapabilityStatus='SUPPORTED' }
+                    }
+                    $intents | Add-Member -NotePropertyName SqlConfiguration -NotePropertyValue $configuration
+                }
+                $provider=if($case.Kind -eq 'provider'){'docker'}else{'hyperv'}
+                $snapshot=[PSCustomObject]@{
+                    Contract=[PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
+                    ProvisioningMode='manifest'; PersistentData=$false
+                    Instances=@([PSCustomObject]@{ Id='primary'; Provider=$provider; Profile='standard'; Intents=$intents })
+                }
+                $run=New-LabRunState -StateRoot $Root -Metadata @{ name='persisted SQL configuration intent'; desiredState=$snapshot } `
+                    -ProviderSubRuns @([PSCustomObject]@{ provider=$provider; instanceIds=@('primary') })
+                $statePath=Join-Path $run.RunDir 'run-state.json';$connectionPath=Join-Path $run.RunDir 'connection-info.json'
+                Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject ([PSCustomObject]@{instances=@([PSCustomObject]@{id='primary';provider=$provider;host='must-not-fallback.invalid'})})
+                $beforeState=[Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath))
+                $beforeConnection=[Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))
+                $persisted=Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $Root
+                $plans=@()
+                if(-not $case.Valid){foreach($target in @('RUNNING','STOPPED')){$plans+=Get-SqlServerLabReconcilePlan -RunId $run.RunId -TargetState $target -StateRoot $Root}}
+                [PSCustomObject]@{Name=$case.Name;Valid=$case.Valid;Status=$persisted.Status;ReasonCodes=@($persisted.ReasonCodes);Plans=@($plans)
+                    StateUnchanged=$beforeState -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath));ConnectionUnchanged=$beforeConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))}
+            })
+            [PSCustomObject]@{Cases=$results;RuntimeCalls=$script:invalidPersistedSqlConfigurationRuntimeCalls}
+        }
+        finally {Set-Item Function:Get-LabRunRuntimeStatus -Value $originalRuntime}
+    } $tempRoot
+    foreach($sqlConfigurationCase in @($persistedSqlConfigurationContract.Cases)) {
+        if($sqlConfigurationCase.Valid) {
+            Add-CheckResult -Name "Persistierter SQL-Konfigurations-Intent ($($sqlConfigurationCase.Name)) bleibt kanonisch oder legacy-gueltig" `
+                -Success ($sqlConfigurationCase.Status -eq 'VALID' -and $sqlConfigurationCase.ReasonCodes.Count -eq 0)
+        }
+        else {
+            Add-CheckResult -Name "Ungueltiger persistierter SQL-Konfigurations-Intent ($($sqlConfigurationCase.Name)) liefert den festen Grund" `
+                -Success ($sqlConfigurationCase.Status -eq 'INVALID' -and ($sqlConfigurationCase.ReasonCodes -join ',') -ceq 'DESIRED_INSTANCE_SQL_CONFIGURATION_INTENT_INVALID')
+            foreach($plan in $sqlConfigurationCase.Plans) {
+                Add-CheckResult -Name "Ungueltiger persistierter SQL-Konfigurations-Intent ($($sqlConfigurationCase.Name)) blockiert $($plan.Desired.TargetState) ohne Runtime-Fallback" `
+                    -Success ($plan.HighestChangeClass -eq 'unsupported' -and $plan.Actions.Count -eq 0 -and -not $plan.MutationAllowed -and
+                        -not $plan.IsNoOp -and -not $plan.Desired.IsValid -and $plan.Desired.Instances.Count -eq 0 -and
+                        $plan.Actual.Source -eq 'persisted-desired-state-invalid')
+            }
+        }
+        Add-CheckResult -Name "Persistierter SQL-Konfigurations-Intent ($($sqlConfigurationCase.Name)) erhaelt State- und Connection-Bytes" `
+            -Success ($sqlConfigurationCase.StateUnchanged -and $sqlConfigurationCase.ConnectionUnchanged)
+    }
+    Add-CheckResult -Name 'Ungueltige persistierte SQL-Konfigurations-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' `
+        -Success ($persistedSqlConfigurationContract.RuntimeCalls -eq 0)
+
     $networkContract = & $module {
         param($Root)
 
