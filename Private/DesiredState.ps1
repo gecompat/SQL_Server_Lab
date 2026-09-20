@@ -718,6 +718,76 @@ function Test-LabPersistedStorageIntent {
     }
 }
 
+function Test-LabPersistedDatabaseIntent {
+    [CmdletBinding()]
+    param($Databases, [string]$Provider, $ProviderCapability)
+
+    # Database intents are persisted provider metadata, not a permissive
+    # restore/create request.  Keep the envelope closed before a reconcile
+    # path reads a manifest, a VM, or a SQL endpoint from the run state.
+    if ($null -eq $Databases -or $Databases -is [string] -or $Databases -is [bool] -or
+        $Databases -is [array]) { return $false }
+    $expectedFields = @('CapabilityStatus','Contract','Items','RequiredCapability')
+    if ((@($Databases.PSObject.Properties.Name | Sort-Object) -join ',') -cne
+        ($expectedFields -join ',')) { return $false }
+    if ($null -eq $Databases.Contract -or $Databases.Contract -is [string] -or
+        $Databases.Contract -is [bool] -or $Databases.Contract -is [array] -or
+        ((@($Databases.Contract.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'Name,Version') -or
+        [string]$Databases.Contract.Name -cne 'SqlServerLab.DatabaseIntent' -or
+        [string]$Databases.Contract.Version -cne '1.0' -or
+        $Databases.Items -isnot [array]) { return $false }
+
+    $providerName = ([string]$Provider).ToLowerInvariant()
+    if ($providerName -notin @('docker','podman','hyperv') -or $null -eq $ProviderCapability) { return $false }
+    $itemFields = @('DefinitionHash','ExpectedDatabaseNames','Name','PlanKey','ReconcileSupported','SampleId','SampleVariant','Type')
+    $itemKeys = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $outputNames = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $catalogSampleCount = 0
+    foreach ($item in @($Databases.Items)) {
+        if ($null -eq $item -or $item -is [string] -or $item -is [bool] -or $item -is [array] -or
+            ((@($item.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($itemFields -join ',')) -or
+            $item.Type -isnot [string] -or $item.Type -cnotin @('catalog-sample','direct-restore','create') -or
+            $item.Name -isnot [string] -or $item.Name -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$' -or
+            $item.DefinitionHash -isnot [string] -or $item.DefinitionHash -notmatch '^[a-f0-9]{64}$' -or
+            $item.ExpectedDatabaseNames -isnot [array] -or $item.ReconcileSupported -isnot [bool]) { return $false }
+
+        $expectedNames = @($item.ExpectedDatabaseNames)
+        if ($expectedNames.Count -eq 0) { return $false }
+        foreach ($name in $expectedNames) {
+            if ($name -isnot [string] -or $name -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$' -or
+                -not $outputNames.Add($name)) { return $false }
+        }
+
+        switch ([string]$item.Type) {
+            'catalog-sample' {
+                $catalogSampleCount++
+                if ($item.SampleId -isnot [string] -or [string]::IsNullOrWhiteSpace($item.SampleId) -or
+                    $item.SampleVariant -isnot [string] -or [string]::IsNullOrWhiteSpace($item.SampleVariant) -or
+                    $item.PlanKey -isnot [string] -or $item.PlanKey -notmatch '^[a-f0-9]{64}$' -or
+                    $item.DefinitionHash -cne $item.PlanKey -or
+                    $item.ReconcileSupported -ne ($providerName -eq 'hyperv')) { return $false }
+            }
+            default {
+                if ($null -ne $item.SampleId -or $null -ne $item.SampleVariant -or $null -ne $item.PlanKey -or
+                    $item.ReconcileSupported -or $expectedNames.Count -ne 1 -or $expectedNames[0] -cne $item.Name) { return $false }
+            }
+        }
+        $planKeyPart = if ($null -eq $item.PlanKey) { '' } else { [string]$item.PlanKey }
+        $key = '{0}|{1}|{2}' -f $item.Type, $item.Name, $planKeyPart
+        if (-not $itemKeys.Add($key)) { return $false }
+    }
+
+    if ($catalogSampleCount -eq 0) {
+        return $null -eq $Databases.RequiredCapability -and [string]$Databases.CapabilityStatus -ceq 'NOT_REQUESTED'
+    }
+    $requiredCapability = if ($providerName -eq 'hyperv') { 'hyperv-test-database-reconcile' } else { 'test-database-reconcile' }
+    return $Databases.RequiredCapability -is [string] -and
+        [string]$Databases.RequiredCapability -ceq $requiredCapability -and
+        $Databases.CapabilityStatus -is [string] -and
+        [string]$Databases.CapabilityStatus -ceq (Get-LabDeclaredIntentCapabilityStatus `
+            -ProviderCapability $ProviderCapability -RequiredCapability $requiredCapability)
+}
+
 function Get-LabPersistedDesiredState {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
@@ -835,6 +905,10 @@ function Get-LabPersistedDesiredState {
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['Storage'] -and $null -ne $instance.Intents.Storage -and
             -not (Test-LabPersistedStorageIntent -Storage $instance.Intents.Storage)) {
             [void]$validationErrors.Add('DESIRED_INSTANCE_STORAGE_INTENT_INVALID')
+        }
+        if ($instance.Intents -and $instance.Intents.PSObject.Properties['Databases'] -and $null -ne $instance.Intents.Databases -and
+            -not (Test-LabPersistedDatabaseIntent -Databases $instance.Intents.Databases -Provider $provider -ProviderCapability $providerCapability)) {
+            [void]$validationErrors.Add('DESIRED_INSTANCE_DATABASE_INTENT_INVALID')
         }
         if ($idIsValid -and $providerIsValid) {
             if (-not $instanceIdsByProvider.ContainsKey($provider)) {

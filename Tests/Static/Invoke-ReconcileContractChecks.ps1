@@ -1188,6 +1188,124 @@ try {
         }
     }
 
+    $persistedDatabaseIntentContract = & $module {
+        param($Root)
+
+        function New-TestPersistedDatabaseIntent {
+            param([string]$Provider = 'hyperv')
+            $capability = if ($Provider -eq 'hyperv') { 'hyperv-test-database-reconcile' } else { 'test-database-reconcile' }
+            [PSCustomObject]@{
+                Contract=[PSCustomObject]@{Name='SqlServerLab.DatabaseIntent';Version='1.0'}
+                Items=@([PSCustomObject]@{
+                    Type='catalog-sample';Name='SampleDb';SampleId='sample-a';SampleVariant='full'
+                    PlanKey=('a'*64);DefinitionHash=('a'*64);ExpectedDatabaseNames=@('SampleDb');ReconcileSupported=($Provider -eq 'hyperv')
+                })
+                RequiredCapability=$capability;CapabilityStatus='DECLARED_SUPPORTED'
+            }
+        }
+
+        $cases=@(
+            @{Name='kanonischer Hyper-V-Katalogsample';Kind='valid';Valid=$true},
+            @{Name='legacy fehlt';Kind='legacy';Valid=$true},
+            @{Name='legacy null';Kind='null';Valid=$true},
+            @{Name='Envelope-String';Kind='scalar';Valid=$false},
+            @{Name='unbekanntes Envelope-Feld';Kind='extra';Valid=$false},
+            @{Name='falscher Contract';Kind='contract';Valid=$false},
+            @{Name='falscher Itemtyp';Kind='item-type';Valid=$false},
+            @{Name='unbekanntes Item-Feld';Kind='item-extra';Valid=$false},
+            @{Name='ungueltiger PlanKey';Kind='plan-key';Valid=$false},
+            @{Name='DefinitionHash passt nicht';Kind='definition-hash';Valid=$false},
+            @{Name='ungueltiger Outputtyp';Kind='output-type';Valid=$false},
+            @{Name='doppelter Output';Kind='duplicate-output';Valid=$false},
+            @{Name='doppeltes Item';Kind='duplicate-item';Valid=$false},
+            @{Name='ReconcileSupported passt nicht';Kind='reconcile-supported';Valid=$false},
+            @{Name='manipulierter CapabilityStatus';Kind='capability-status';Valid=$false},
+            @{Name='falsche Capability';Kind='capability';Valid=$false},
+            @{Name='ungestuetzte Direktdatenbank mit Capability';Kind='direct-capability';Valid=$false}
+        )
+        $originalRuntime=(Get-Command Get-LabRunRuntimeStatus).ScriptBlock
+        $originalManagedVm=(Get-Command Get-HyperVManagedVM).ScriptBlock
+        $originalCapability=(Get-Command Get-LabProviderCapabilityContract).ScriptBlock
+        $script:invalidPersistedDatabaseRuntimeCalls=0
+        $script:invalidPersistedDatabaseManagedVmCalls=0
+        try {
+            Set-Item Function:Get-LabRunRuntimeStatus -Value { $script:invalidPersistedDatabaseRuntimeCalls++; throw 'RUNTIME_MUST_NOT_BE_READ_FOR_INVALID_PERSISTED_DATABASE_INTENT' }
+            Set-Item Function:Get-HyperVManagedVM -Value { $script:invalidPersistedDatabaseManagedVmCalls++; throw 'HYPERV_MUST_NOT_BE_READ_FOR_INVALID_PERSISTED_DATABASE_INTENT' }
+            Set-Item Function:Get-LabProviderCapabilityContract -Value {
+                @([PSCustomObject]@{Provider='hyperv';Capabilities=@([PSCustomObject]@{SourceKey='hyperv-test-database-reconcile'})},
+                  [PSCustomObject]@{Provider='docker';Capabilities=@([PSCustomObject]@{SourceKey='test-database-reconcile'})},
+                  [PSCustomObject]@{Provider='podman';Capabilities=@()})
+            }
+            $results=@($cases | ForEach-Object {
+                $case=$_
+                $intents=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.InstanceIntent';Version='1.0'}}
+                if($case.Kind -ne 'legacy') {
+                    $databases=if($case.Kind -eq 'null'){$null}elseif($case.Kind -eq 'scalar'){'must-not-coerce'}else{New-TestPersistedDatabaseIntent}
+                    if($null -ne $databases -and $databases -isnot [string]) {
+                        switch($case.Kind) {
+                            'extra' {$databases|Add-Member -NotePropertyName HostPath -NotePropertyValue 'must-not-persist.invalid'}
+                            'contract' {$databases.Contract.Version='2.0'}
+                            'item-type' {$databases.Items[0].Type='freeform-restore'}
+                            'item-extra' {$databases.Items[0]|Add-Member -NotePropertyName Source -NotePropertyValue 'must-not-persist.invalid'}
+                            'plan-key' {$databases.Items[0].PlanKey='not-a-hash'}
+                            'definition-hash' {$databases.Items[0].DefinitionHash=('b'*64)}
+                            'output-type' {$databases.Items[0].ExpectedDatabaseNames=@($true)}
+                            'duplicate-output' {$databases.Items[0].ExpectedDatabaseNames=@('SampleDb','sampledb')}
+                            'duplicate-item' {$databases.Items+=@($databases.Items[0]|ConvertTo-Json -Depth 10|ConvertFrom-Json -Depth 10)}
+                            'reconcile-supported' {$databases.Items[0].ReconcileSupported=$false}
+                            'capability-status' {$databases.CapabilityStatus='DECLARED_UNSUPPORTED'}
+                            'capability' {$databases.RequiredCapability='untrusted-capability'}
+                            'direct-capability' {
+                                $databases.Items=@([PSCustomObject]@{Type='create';Name='AppDb';SampleId=$null;SampleVariant=$null;PlanKey=$null;DefinitionHash=('c'*64);ExpectedDatabaseNames=@('AppDb');ReconcileSupported=$false})
+                            }
+                        }
+                    }
+                    $intents|Add-Member -NotePropertyName Databases -NotePropertyValue $databases
+                }
+                $snapshot=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.RunDesiredState';Version='1.0'};ProvisioningMode='manifest';PersistentData=$false
+                    Instances=@([PSCustomObject]@{Id='primary';Provider='hyperv';Profile='standard';Intents=$intents})}
+                $run=New-LabRunState -StateRoot $Root -Metadata @{name='persisted database intent';workflowKind='hyperv-lab';desiredState=$snapshot} -ProviderSubRuns @([PSCustomObject]@{provider='hyperv';instanceIds=@('primary')})
+                $statePath=Join-Path $run.RunDir 'run-state.json';$connectionPath=Join-Path $run.RunDir 'connection-info.json'
+                Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject ([PSCustomObject]@{instances=@([PSCustomObject]@{id='primary';provider='hyperv';vmName='must-not-read-vm'})})
+                $beforeState=[Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath));$beforeConnection=[Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))
+                $persisted=Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $Root;$plans=@();$specializedPlan=$null
+                if(-not $case.Valid) {
+                    foreach($target in @('RUNNING','STOPPED')){$plans+=Get-SqlServerLabReconcilePlan -RunId $run.RunId -TargetState $target -StateRoot $Root}
+                    $specializedPlan=Get-SqlServerLabReconcilePlan -RunId $run.RunId -HyperVTestDatabases -ManifestPath 'must-not-read.json' -InstanceId primary -StateRoot $Root
+                }
+                [PSCustomObject]@{Name=$case.Name;Valid=$case.Valid;Status=$persisted.Status;ReasonCodes=@($persisted.ReasonCodes);Plans=@($plans);SpecializedPlan=$specializedPlan
+                    StateUnchanged=$beforeState -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath));ConnectionUnchanged=$beforeConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))}
+            })
+            $resolved=[PSCustomObject]@{name='canonical persisted database roundtrip';ai=$null;instances=@([PSCustomObject]@{id='primary';provider='hyperv';version='2025';profile='standard';autostart='off';drives=@();software=@();network=$null;storageIntent=$null
+                databases=@([PSCustomObject]@{name='SampleDb';restore=[PSCustomObject]@{sampleId='sample-a';sampleVariant='full';source='https://example.invalid/sample-a.bak';artifactType='backup';handlerContractVersion='1';expectedSha256=('a'*64);expectedOutputs=@([PSCustomObject]@{kind='database';name='SampleDb'})}})})}
+            $canonicalSnapshot=New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData $false
+            $canonicalRun=New-LabRunState -StateRoot $Root -Metadata @{name='canonical persisted database roundtrip';desiredState=$canonicalSnapshot} -ProviderSubRuns @([PSCustomObject]@{provider='hyperv';instanceIds=@('primary')})
+            $canonicalPersisted=Get-LabPersistedDesiredState -RunId $canonicalRun.RunId -StateRoot $Root
+            [PSCustomObject]@{Cases=$results;RuntimeCalls=$script:invalidPersistedDatabaseRuntimeCalls;ManagedVmCalls=$script:invalidPersistedDatabaseManagedVmCalls;CanonicalRoundtrip=(
+                $canonicalPersisted.Status -eq 'VALID' -and $canonicalPersisted.Snapshot.Instances[0].Intents.Databases.Items[0].PlanKey -match '^[a-f0-9]{64}$' -and
+                ((@($canonicalPersisted.Snapshot.Instances[0].Intents.Databases.PSObject.Properties.Name|Sort-Object)-join ',') -ceq 'CapabilityStatus,Contract,Items,RequiredCapability')
+            )}
+        } finally {
+            Set-Item Function:Get-LabRunRuntimeStatus -Value $originalRuntime
+            Set-Item Function:Get-HyperVManagedVM -Value $originalManagedVm
+            Set-Item Function:Get-LabProviderCapabilityContract -Value $originalCapability
+        }
+    } $tempRoot
+    foreach($databaseIntentCase in @($persistedDatabaseIntentContract.Cases)) {
+        if($databaseIntentCase.Valid) {
+            Add-CheckResult -Name "Persistierter Database-Intent ($($databaseIntentCase.Name)) bleibt kanonisch oder legacy-gueltig" -Success ($databaseIntentCase.Status -eq 'VALID' -and $databaseIntentCase.ReasonCodes.Count -eq 0)
+        } else {
+            Add-CheckResult -Name "Ungueltiger persistierter Database-Intent ($($databaseIntentCase.Name)) liefert den festen Grund" -Success ($databaseIntentCase.Status -eq 'INVALID' -and ($databaseIntentCase.ReasonCodes -join ',') -ceq 'DESIRED_INSTANCE_DATABASE_INTENT_INVALID')
+            foreach($plan in $databaseIntentCase.Plans) {
+                Add-CheckResult -Name "Ungueltiger persistierter Database-Intent ($($databaseIntentCase.Name)) blockiert $($plan.Desired.TargetState) ohne Runtime-Fallback" -Success ($plan.HighestChangeClass -eq 'unsupported' -and $plan.Actions.Count -eq 0 -and -not $plan.MutationAllowed -and -not $plan.IsNoOp -and -not $plan.Desired.IsValid -and $plan.Desired.Instances.Count -eq 0 -and $plan.Actual.Source -eq 'persisted-desired-state-invalid')
+            }
+            Add-CheckResult -Name "Ungueltiger persistierter Database-Intent ($($databaseIntentCase.Name)) blockiert den spezialisierten Hyper-V-Datenbankpfad ohne VM-Lesen" -Success ($databaseIntentCase.SpecializedPlan.HighestChangeClass -eq 'unsupported' -and $databaseIntentCase.SpecializedPlan.Actions.Count -eq 0 -and -not $databaseIntentCase.SpecializedPlan.MutationAllowed)
+        }
+        Add-CheckResult -Name "Persistierter Database-Intent ($($databaseIntentCase.Name)) erhaelt State- und Connection-Bytes" -Success ($databaseIntentCase.StateUnchanged -and $databaseIntentCase.ConnectionUnchanged)
+    }
+    Add-CheckResult -Name 'Ungueltige persistierte Database-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' -Success ($persistedDatabaseIntentContract.RuntimeCalls -eq 0 -and $persistedDatabaseIntentContract.ManagedVmCalls -eq 0)
+    Add-CheckResult -Name 'Realer Desired-State-Snapshot rundet den kanonischen Database-Intent mit JSON-Doubletrip' -Success $persistedDatabaseIntentContract.CanonicalRoundtrip
+
     $persistedStorageIntentContract = & $module {
         param($Root)
 
