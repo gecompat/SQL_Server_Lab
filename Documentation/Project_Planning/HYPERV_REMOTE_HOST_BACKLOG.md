@@ -2,9 +2,16 @@
 
 ## Status
 
-Nicht implementiert. Die erste Workflow-Oberfläche steuert ausschließlich den
-lokalen Windows-Hyper-V-Host. Unter Linux bleiben Hyper-V-Aktionen sichtbar,
-aber deaktiviert.
+`BACKLOG`, Priorität `P3` und nicht implementiert. Die erste
+Workflow-Oberfläche steuert ausschließlich den lokalen Windows-Hyper-V-Host.
+Unter Linux bleiben Hyper-V-Aktionen sichtbar, aber deaktiviert.
+
+Dieser Backlog ist eine spätere Erweiterung für entfernte Hoststeuerung und
+einen möglichen Multi-Host-Infrastruktur-HA-Nachweis. Er blockiert keinen
+funktionalen SQL-/SSIS-/SSAS-Cluster in mehreren isolierten VMs auf einem
+einzigen lokalen Hyper-V-Host. Ein solcher Lab-Slice bleibt fachlich nützlich,
+behauptet aber weder Schutz gegen den Ausfall des physischen Hosts noch eine
+produktive HA-Eigenschaft.
 
 ## Ziel
 

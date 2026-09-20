@@ -670,9 +670,9 @@ Diese Punkte bleiben erhalten, blockieren aber den kritischen Pfad nicht:
 | `P2` | vollautomatische Factory `MEDIA_VERIFIED -> OS_GENERALIZED_SEALED` | M4 Cold Path stabil; vorhandene Baseline genügt vorher |
 | `P2` | `OS_READY_SLOT`/`SQL_READY_SLOT` Warm Pool | M5 Cold Path stabil; Poolfehler darf nur Geschwindigkeit beeinflussen |
 | `P2` | Hyper-V Linux Vertical Slice | Windows-Hyper-V- und providerneutrale Verträge stabil |
-| `P2` | Multi-Instanz, Domain Controller, Kerberos, WSFC, AG, FCI | konkreter SQL-Zweck, M8 Scenario-/Capability-Vertrag |
+| `P2` | lokaler funktionaler SQL-/SSIS-/SSAS-Cluster (`FUNCTIONAL_GUEST_CLUSTER`) | konkreter SQL-Zweck, isolierte Domain-/Netzwerk-/Storage-Bindung und bestätigtes Ressourcenbudget; mehrere VMs auf einem lokalen Hyper-V-Host sind zulässig |
 | `P2` | PolyBase/Hadoop, REST-/HTTP- und weitere Supporting Components | konkreter SQL-Integrationstest; kein allgemeines Fremdprodukt-Lab |
-| `P3` | Remote Windows Hyper-V Host | registrierter Host, gehärtetes Remoting, separater Teilhost-State und kein implizites Credential Delegation |
+| `P3` | Remote Windows Hyper-V Host und Multi-Host-Infrastruktur-HA | registrierter Host, gehärtetes Remoting, separater Teilhost-State und kein implizites Credential Delegation; blockiert keinen lokalen `FUNCTIONAL_GUEST_CLUSTER`-Slice |
 | `P3` | zentrale Scheduler-, Cloud-, Kubernetes- oder allgemeine Remote-Agent-Architektur | nur nach konkretem SQL-Bedarf und neuer Architekturentscheidung |
 
 Das CU-Monitoring ist bereits als aktive, getrennte Monitoring-Lane umgesetzt
