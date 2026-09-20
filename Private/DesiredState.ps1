@@ -882,6 +882,12 @@ function Test-LabPersistedAiIntent {
         $Ai.Policies.ContentLogging -isnot [string] -or $Ai.Policies.ContentLogging -cnotin @('disabled','metadata-only') -or
         $Ai.Policies.Fallback -isnot [string] -or $Ai.Policies.Fallback -cnotin @('disabled','explicit') -or
         $Ai.Policies.AllowedTools -isnot [array]) { return $false }
+    # PlanKeys provide deterministic integrity only; they are not signatures.
+    # Re-apply the manifest's egress invariant so a re-keyed persisted cloud
+    # model cannot defer an explicitly denied egress decision to a later
+    # endpoint or scenario path.
+    if ([string]$Ai.Policies.Egress -cne 'explicit' -and
+        @($models | Where-Object { [string]$_.Provider -cin @('openai','azure-openai') }).Count -gt 0) { return $false }
     $allowedTools = @($Ai.Policies.AllowedTools)
     $allowedToolIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach ($tool in $allowedTools) {

@@ -60,6 +60,13 @@ try {
             @{Name='credential-value'; Mutate={param($a) $a.Ai.Models[0].CredentialRef='not-a-secret-reference'}},
             @{Name='endpoint-url'; Mutate={param($a) $a.Ai.Models[0].EndpointRef='https://endpoint.invalid'}},
             @{Name='unknown-allowed-tool'; Mutate={param($a) $a.Ai.Policies.AllowedTools=@('free-sql-tool'); $a.Ai.PlanKey='c'*64}},
+            @{Name='cloud-provider-with-denied-egress'; Mutate={param($a)
+                $model=$a.Ai.Models[0]
+                $model.Provider='openai'; $model.EndpointRef='cloud-endpoint'; $model.CredentialRef='SQL_SERVER_LAB_SECRET_CLOUD'
+                $canonicalModel=[ordered]@{Id=[string]$model.Id;Purpose=[string]$model.Purpose;Provider=[string]$model.Provider;Variant=[string]$model.Variant;EndpointRef=[string]$model.EndpointRef;CredentialRef=[string]$model.CredentialRef;Dimension=[long]$model.Dimension;TimeoutSeconds=[long]$model.TimeoutSeconds;RetryCount=[long]$model.RetryCount}
+                $model.PlanKey=Get-LabAiPlanKey -InputObject ([ordered]@{Contract='SqlServerLab.AiModelPlan/1.0';Model=$canonicalModel})
+                $a.Ai.PlanKey=Get-LabAiPlanKey -InputObject ([ordered]@{Contract='SqlServerLab.AiIntent/1.0';Models=@($a.Ai.Models);Policies=$a.Ai.Policies;Scenarios=@($a.Ai.Scenarios)})
+            }},
             @{Name='scenario-plan-key'; Mutate={param($a) $a.Ai.Scenarios[0].PlanKey=('d'*64)}},
             @{Name='scenario-instance'; Mutate={param($a) $a.Ai.Scenarios[0].InstanceId='missing-target'}},
             @{Name='scenario-duplicate'; Mutate={param($a) $copy=$a.Ai.Scenarios[0]|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20; $a.Ai.Scenarios=@($a.Ai.Scenarios)+@($copy)}}
@@ -115,7 +122,7 @@ try {
     Add-CheckResult 'WhatIf bleibt mutationsfrei und erzeugt kein Journal' (
         $result.WhatIf.Status -eq 'PLAN_ONLY' -and $result.JournalAbsent)
     Add-CheckResult 'Persistierte KI-Intents bleiben geschlossen, lokal plan-key-gebunden und vor Target-/Journalzugriff fail-closed' (
-        @($result.AiPersistedCases).Count -eq 10 -and
+        @($result.AiPersistedCases).Count -eq 11 -and
         @($result.AiPersistedCases | Where-Object {
             $_.Persisted.Status -ne 'INVALID' -or
             @($_.Persisted.ReasonCodes) -cnotcontains 'DESIRED_STATE_AI_INTENT_INVALID' -or
