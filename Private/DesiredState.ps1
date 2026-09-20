@@ -623,6 +623,57 @@ function Test-LabPersistedDriveIntents {
             return $false
         }
     }
+
+    # The canonical container system volumes are not independent user drives.
+    # PersistentLabData emits them as one of three exact groups: the system
+    # volume alone, or the system volume together with both external-runtime
+    # sidecars.  Keep that producer contract intact after persistence so a
+    # caller cannot attach a sidecar to an arbitrary identity, split a group
+    # across identities, or drop one member before reconcile reads it.
+    if ($providerName -in @('docker','podman')) {
+        $containerDriveGroups = @(
+            [PSCustomObject]@{
+                Persistence = 'run-scoped-runtime-volume'
+                SystemId = 'runtime-mssql'
+                SidecarIds = @('runtime-mssql-external-languages','runtime-mssql-external-libraries')
+                RequiresStorageId = $true
+            },
+            [PSCustomObject]@{
+                Persistence = 'data-root-runtime-volume'
+                SystemId = 'persistent-mssql'
+                SidecarIds = @('persistent-mssql-external-languages','persistent-mssql-external-libraries')
+                RequiresStorageId = $false
+            },
+            [PSCustomObject]@{
+                Persistence = 'cataloged-runtime-volume'
+                SystemId = 'persistent-mssql'
+                SidecarIds = @('persistent-mssql-external-languages','persistent-mssql-external-libraries')
+                RequiresStorageId = $true
+            }
+        )
+        foreach ($groupDefinition in $containerDriveGroups) {
+            $group = @($Drives | Where-Object { $_.Persistence -ceq $groupDefinition.Persistence })
+            if ($group.Count -eq 0) { continue }
+
+            $groupIds = @($group | ForEach-Object { [string]$_.Id })
+            $hasSidecar = @($groupIds | Where-Object { $_ -in $groupDefinition.SidecarIds }).Count -gt 0
+            $expectedIds = @($groupDefinition.SystemId)
+            if ($hasSidecar) { $expectedIds += @($groupDefinition.SidecarIds) }
+            if ($groupIds.Count -ne $expectedIds.Count -or
+                @($expectedIds | Where-Object { $_ -notin $groupIds }).Count -ne 0) { return $false }
+
+            if ($groupDefinition.RequiresStorageId) {
+                $storageIds = @($group | ForEach-Object { [string]$_.PersistentStorageId } | Sort-Object -Unique)
+                if ($storageIds.Count -ne 1 -or [string]::IsNullOrWhiteSpace($storageIds[0])) { return $false }
+            }
+            elseif (@($group | Where-Object { $null -ne $_.PersistentStorageId }).Count -ne 0) {
+                # Data-root runtime volumes deliberately have no catalog or
+                # run-scoped identity; PersistentLabData only emits their
+                # stable volume names and the backup bind separately.
+                return $false
+            }
+        }
+    }
     return $true
 }
 
