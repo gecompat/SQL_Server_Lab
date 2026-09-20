@@ -1017,9 +1017,12 @@ Watch-Projektion sind statisch geprüft; Capture und die erforderliche native
 Evidence bleiben offen. Bis zu einer gebundenen und frischen Evidence kann der
 Watch keine aktuelle SQL-Gastfrist aus Image- oder Windows-Metadaten ableiten. Die
 Observability-Evidence enthält aggregierte Server-, Datenbank-, Query-Store-
-und Wait-Metriken ohne SQL-Texte, Namen, Endpunkte oder Secrets; Extended
-Events, SQL-Agent-/Backupzustände, Retention, Evidenzpakete und eine
-providerbezogene Native-Abnahme bleiben offen. Der portable Container-
+und Wait-Metriken ohne SQL-Texte, Namen, Endpunkte oder Secrets. Die getrennte
+native Abnahme vom 2026-09-20 bestand für Docker und Podman auf jeweils einem
+eigenen SQL-2025-Linux-Run mit öffentlicher rungebundener Capture vor und nach
+Restart, synthetischer Query-Store-Datenbank, Datenmarker sowie vollständigem
+scopegebundenem Cleanup. Extended Events, SQL-Agent-/Backupzustände, Retention,
+Evidenzpakete, externe Provider und Hyper-V bleiben offen. Der portable Container-
 Transfer-Preflight prüft ausschließlich `PortableLabPackage/1.1`-
 BackupSetId-Referenzen samt CHECKSUM-, VERIFYONLY-, SHA-256- und Größen-Evidence
 gegen einen bestehenden Docker-/Podman-Ziel-Run; er akzeptiert keine Secrets und

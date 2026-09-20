@@ -112,6 +112,18 @@ Inspect-Template-ID und bereinigte ebenfalls vollständig; nach Korrektur des
 festen Providerfelds bestand der getrennte Wiederholungslauf. Host-/Engine-
 Abstürze und andere native Unterbrechungszeitpunkte sind damit nicht belegt.
 
+`Invoke-SqlObservabilityEvidenceChecks.ps1` prüft den geschlossenen,
+sanitisierten Parser- und Schemavertrag offline. Die getrennten nativen
+Referenzläufe `Tests/Integration/Invoke-ContainerSqlObservabilityAcceptance.ps1
+-Provider docker` und `-Provider podman` verwenden jeweils einen frischen
+eigenen SQL-2025-Linux-Run. Sie prüfen öffentliche rungebundene Capture vor und
+nach einem öffentlichen Restart, die exakte Query-Store-/Online-Datenbankdelta
+einer synthetischen Datenbank, einen persistenten Marker, Privacy-Grenzen und
+scopegebundenen Container-/Volume-Cleanup. Beide Läufe bestanden am 2026-09-20
+mit jeweils 35 Assertions. Hyper-V, externe Provider, Extended Events,
+SQL-Agent-/Backupzustände, Retention und Evidenzpakete bleiben getrennte
+Nachweise.
+
 `Invoke-ScenarioExecutorChecks.ps1` prüft SCN-802/SCN-804 ausschließlich offline:
 Phasenreihenfolge, Cancellation vor/nach Arrange, Arbeits-/Phasen-/Cleanup-Timeouts,
 Handler-/Cleanupfehler, begrenztes Cleanup-Resume, Ownership-/Planbindung,

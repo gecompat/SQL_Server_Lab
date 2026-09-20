@@ -131,6 +131,7 @@ sources_of_truth:
   sql_observability_evidence_public: Public/Get-SqlServerLabSqlObservabilityEvidence.ps1
   sql_observability_evidence_schema: Schemas/sql-observability-evidence.schema.json
   validation_sql_observability_evidence: Tests/Static/Invoke-SqlObservabilityEvidenceChecks.ps1
+  acceptance_sql_observability_evidence_container: Tests/Integration/Invoke-ContainerSqlObservabilityAcceptance.ps1
   sql_guest_evaluation_evidence_contract: Private/SqlGuestEvaluationEvidence.ps1
   sql_guest_evaluation_evidence_schema: Schemas/sql-guest-evaluation-evidence.schema.json
   validation_sql_guest_evaluation_evidence: Tests/Static/Invoke-EvaluationWatchChecks.ps1
