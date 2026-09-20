@@ -16,6 +16,20 @@
   ],
   "models": [
     {
+      "key": "ollama-embeddinggemma-latest",
+      "provider": "ollama",
+      "lane": "local",
+      "purpose": "embedding",
+      "model": "embeddinggemma:latest",
+      "dimension": 768,
+      "status": "SUPPORTED",
+      "minimumOllamaVersion": "0.11.10",
+      "identityPolicy": "LIVE_MANIFEST_DIGEST_REQUIRED",
+      "estimatedSizeBytes": 622000000,
+      "license": "Gemma Terms of Use",
+      "source": "https://ollama.com/library/embeddinggemma"
+    },
+    {
       "key": "ollama-embeddinggemma-300m-q4",
       "provider": "ollama",
       "lane": "local",

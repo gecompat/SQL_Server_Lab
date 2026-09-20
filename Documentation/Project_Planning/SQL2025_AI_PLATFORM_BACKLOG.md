@@ -70,6 +70,16 @@ Dimensionswechsel; ein Executor, Live-Probes und Runtime-Evidence bleiben offen.
 
 ## Priorisierte Lieferwellen
 
+Benutzerpriorität vom 2026-09-20: zuerst Podman-RAG mit brauchbaren bereits
+vorhandenen Host-Embeddings und explizit gewählter Cloudgeneration, danach die
+isolierte Hyper-V-RAG-/Agent-Abnahme, anschließend persistentes Retrieval und
+Re-Embedding. Vorhandene lokale Golden-v1-Bindungen werden dabei nicht verändert.
+Der [erste ausführbare Host-Slice](../Architecture/AI_RAG_EXISTING_OLLAMA.md)
+ist implementiert und für Podman und Docker am 2026-09-20 getrennt mit eigenem
+SQLrestart und vollständigem Cleanup nativ belegt; Hyper-V bleibt offen.
+Eine AdHoc-Abnahme mit anderem Modell
+schließt das unveränderte Golden-v1-Gate nicht automatisch ab.
+
 | Welle | Ziel | Abnahmegrenze |
 |---|---|---|
 | AI-10B | Deterministischer Embedding-/Generation-Endpoint-Stub, Dimensionskonflikt, Timeout, Rate Limit, ungültige Antwort, Retry und verbotenes Fallback | Offline Static- und Integration-Gate ohne Modellruntime |

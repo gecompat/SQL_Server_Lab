@@ -172,11 +172,16 @@ function Invoke-LabOllamaHttpTransport {
         $sslOptions = [Net.Security.SslClientAuthenticationOptions]::new()
         $sslOptions.CertificateChainPolicy = $chainPolicy
         $handler = [Net.Http.SocketsHttpHandler]::new()
+        $handler.AllowAutoRedirect = $false
+        if($base.IsLoopback){$handler.UseProxy=$false}
         $handler.SslOptions = $sslOptions
         $client = [Net.Http.HttpClient]::new($handler, $true)
     }
     else {
-        $client = [Net.Http.HttpClient]::new()
+        $handler = [Net.Http.HttpClientHandler]::new()
+        $handler.AllowAutoRedirect = $false
+        if($base.IsLoopback){$handler.UseProxy=$false}
+        $client = [Net.Http.HttpClient]::new($handler, $true)
     }
     $message = $null
     $plainCredential = $null

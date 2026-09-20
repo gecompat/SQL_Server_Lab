@@ -33,6 +33,18 @@
     Optionaler State-Root zur Auflösung des Runs.
 .OUTPUTS
     SqlServerLab.AiRagPlan/1.0 bei WhatIf oder SqlServerLab.AiQueryResult/1.0 bei Ausführung.
+.PARAMETER GenerationLane
+    AdHoc: lokale Generierung oder ausdrücklich gewählte direkte HTTPS-Cloud.
+.PARAMETER AllowCloudEgress
+    Erlaubt Frage und ausgewählten Dokumentkontext an ollama.com zu senden.
+.PARAMETER DataClassification
+    Cloud verlangt synthetic-only oder public-or-redistributable für sämtliche Eingaben.
+.PARAMETER SecretFilePath
+    Cloud: lokale .env mit OLLAMA; Standard ist Media Root. Lesen erst nach ShouldProcess.
+.PARAMETER GenerationTimeoutSeconds
+    Begrenzte Laufzeit pro Generierungsversuch (1 bis 230 Sekunden).
+.PARAMETER GenerationRetryCount
+    Null oder eine Wiederholung; kein automatischer Wechsel der Lane.
 .EXAMPLE
     Invoke-SqlServerLabAiRag -RunId $runId -SaPassword $password -Question 'Welche Sicherung gilt?' -Document @(@{Id='backup-policy';Content='Sicherungen werden täglich geprüft.'})
 .EXAMPLE
@@ -53,6 +65,12 @@ function Invoke-SqlServerLabAiRag {
         [Parameter(Mandatory,ParameterSetName='Golden')][ValidatePattern('^[a-z][a-z0-9-]{2,63}$')][string]$CaseId,
         [ValidateRange(1024,65535)][int]$LocalPort=11434,
         [Parameter(ParameterSetName='AdHoc')][ValidateRange(1,20)][int]$TopK=3,
+        [Parameter(ParameterSetName='AdHoc')][ValidateSet('local','cloud')][string]$GenerationLane='local',
+        [Parameter(ParameterSetName='AdHoc')][switch]$AllowCloudEgress,
+        [Parameter(ParameterSetName='AdHoc')][ValidateSet('synthetic-only','public-or-redistributable','internal-explicit')][string]$DataClassification,
+        [Parameter(ParameterSetName='AdHoc')][string]$SecretFilePath,
+        [Parameter(ParameterSetName='AdHoc')][ValidateRange(1,230)][int]$GenerationTimeoutSeconds=60,
+        [Parameter(ParameterSetName='AdHoc')][ValidateRange(0,1)][int]$GenerationRetryCount=1,
         [string]$StateRoot
     )
     $evaluationBinding = $null
@@ -71,15 +89,29 @@ function Invoke-SqlServerLabAiRag {
             CaseId = $CaseId
         }
     }
-    $plan=New-LabAiRagPlan -RunId $RunId -InstanceId $InstanceId -Question $Question -Document $Document -EmbeddingModelKey $EmbeddingModelKey -GenerationModelKey $GenerationModelKey -LocalPort $LocalPort -TopK $TopK -EvaluationBinding $evaluationBinding
-    if (-not $PSCmdlet.ShouldProcess("Run $RunId / Instanz $InstanceId",'lokales SQL-zentriertes RAG ausführen')) {
+    if($GenerationLane -eq 'local' -and $SecretFilePath){throw 'AI_RAG_SECRET_UNEXPECTED'}
+    $classificationArguments=@{}
+    if($DataClassification){$classificationArguments.DataClassification=$DataClassification}
+    $plan=New-LabAiRagPlan -RunId $RunId -InstanceId $InstanceId -Question $Question -Document $Document -EmbeddingModelKey $EmbeddingModelKey -GenerationModelKey $GenerationModelKey -LocalPort $LocalPort -TopK $TopK -EvaluationBinding $evaluationBinding -GenerationLane $GenerationLane -AllowCloudEgress:$AllowCloudEgress -GenerationTimeoutSeconds $GenerationTimeoutSeconds -GenerationRetryCount $GenerationRetryCount @classificationArguments
+    if (-not $PSCmdlet.ShouldProcess("Run $RunId / Instanz $InstanceId","SQL-RAG mit $GenerationLane Generierung ausführen")) {
         return [PSCustomObject]@{
             Contract=$plan.Contract;Status=$plan.Status;RunId=$plan.RunId;InstanceId=$plan.InstanceId
             ScenarioId=$plan.ScenarioId;TopK=$plan.TopK;DocumentCount=$plan.DocumentCount
             EmbeddingModelKey=$plan.EmbeddingModelKey;GenerationModelKey=$plan.GenerationModelKey;PlanKey=$plan.PlanKey
             EvaluationBinding=$plan.EvaluationBinding
+            GenerationLane=$GenerationLane;DataClassification=$DataClassification;Egress=$plan.GenerationPlan.Egress
         }
     }
     $target=Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
-    Invoke-LabAiRag -Plan $plan -SaPassword $SaPassword -Target $target -Question $Question
+    $credential=$null
+    try {
+        if($GenerationLane -eq 'cloud'){
+            if(-not $SecretFilePath){$mediaRoot=Get-LabMediaRootDefault;if(-not $mediaRoot){throw 'AI_SECRET_MEDIA_ROOT_NOT_CONFIGURED'};$SecretFilePath=Join-Path $mediaRoot '.env'}
+            $secret=Get-LabAiDotEnvSecret -Path $SecretFilePath
+            $credential=$secret.Secret
+            foreach($warningCode in @($secret.Warnings)){Write-Warning $warningCode}
+        }
+        Invoke-LabAiRag -Plan $plan -SaPassword $SaPassword -Target $target -Question $Question -GenerationCredential $credential
+    }
+    finally {if($credential){$credential.Dispose()};$secret=$null}
 }

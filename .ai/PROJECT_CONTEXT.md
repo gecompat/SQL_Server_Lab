@@ -27,6 +27,14 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- AdHoc-RAG mit vorhandenem Host-`embeddinggemma:latest` und expliziter
+  HTTPS-Cloudgeneration über die bestehende Ollama-Lane; lokale Defaults und
+  Golden v1 unverändert. Live-Modellbindung, Egress/Datenklasse, Secret-Cleanup
+  und Redirectabwehr sind offline geprüft. Docker und Podman bestanden am
+  2026-09-20 getrennt neun Assertions, SQLrestart und vollständiges Cleanup;
+  Hyper-V und Golden v1 mit anderer Modellbindung bleiben offen. Vertrag:
+  `Documentation/Architecture/AI_RAG_EXISTING_OLLAMA.md`;
+
 - Ein-Datenbank-Transfer über `Invoke-SqlServerLabPortableContainerTransfer`:
   read-only SQL-2025-Linux-Quelle und registriertes read-only Backup, neuer
   operationseigener Docker-/Podman-Ziel-Run mit eigenem Volume, begrenzte

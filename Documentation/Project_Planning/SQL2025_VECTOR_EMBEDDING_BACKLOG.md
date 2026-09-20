@@ -6,10 +6,15 @@
 `EXTERNAL_EMBEDDINGS BACKLOG`. Das hashgebundene Szenario
 `vector-core-ci/1.0` führt feste synthetische Vektoren, exakte Suche und
 Chunking aus. Die getrennten nativen Docker-/Podman-Nachweise waren am
-2026-09-05 erfolgreich; jede echte lokale oder externe Embedding-Erzeugung
-steht noch aus. Der versionierte Ollama-Modellkatalog sowie Endpoint-,
-Journal- und Ergebnisverträge sind implementiert; ihre Einträge bleiben bis
-zu getrennten Live-Nachweisen `PLANNED`. Reihenfolge und Priorität folgen
+2026-09-05 erfolgreich. Controllerseitige lokale Ollama-Embeddings und exaktes
+SQL-RAG sind implementiert und getrennt nativ belegt; zusätzlich verbindet der
+[Host-RAG-Slice](../Architecture/AI_RAG_EXISTING_OLLAMA.md) vorhandene Modelle
+mit expliziter Cloudgeneration. SQL-seitige Embedding-Erzeugung über External
+Model/TLS-Gateway sowie ONNX bleibt offen. Der versionierte Ollama-Modellkatalog
+sowie Endpoint-, Journal- und Ergebnisverträge sind implementiert; jede
+Provider-/Modellfreigabe benötigt ihren eigenen Live-Nachweis. Priorität seit
+2026-09-20: Podman-RAG, isoliertes Hyper-V-RAG/Agent und anschließend persistentes
+Retrieval/Re-Embedding. Reihenfolge und Priorität folgen
 dem übergeordneten
 [KI-Plattform-Backlog](SQL2025_AI_PLATFORM_BACKLOG.md) und dem kanonischen
 Entwicklungs- und Ausführungsplan.
