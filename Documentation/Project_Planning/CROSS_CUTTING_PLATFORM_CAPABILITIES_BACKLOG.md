@@ -53,7 +53,7 @@ Jede spätere Umsetzung muss:
 | P0 | Evaluation-Watchdog und Benachrichtigung | `IMPLEMENTED_READ_ONLY` | read-only Prüfung aller registrierten Windows-/SQL-Evaluationsfristen mit lokalem fälligen Ereignis und sanitisierter Ausgabe |
 | P0 | Portabler Gesamt-Lab-Export/-Import | `IMPLEMENTED_STATIC_CONTRACT` | einen pfad- und secretfreien Backup-Referenzvertrag mit Integritäts-Evidence an einen bestehenden Container-Ziel-Run binden; Export, Rekonstruktion und Import folgen getrennt |
 | P0 | Externe Secret-Store-Anbindung | `IMPLEMENTED_STATIC_CONTRACT` | providerneutrale `SecretRef` über PowerShell SecretManagement auflösen, ohne Wert in State, Plan oder Log zu persistieren |
-| P1 | Zentrale Observability und Evidence | `IMPLEMENTED_STATIC_CONTRACT` | Aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken eines gebundenen Runs read-only und sanitisiert erfassen; Extended Events, Retention und Native-Abnahme folgen getrennt |
+| P1 | Zentrale Observability und Evidence | `IMPLEMENTED_VALIDATED_REFERENCE` | Aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken eines gebundenen Runs read-only und sanitisiert erfassen; Docker und Podman sind für SQL-2025 nativ referenziert, Extended Events, Retention, externe Provider und Hyper-V folgen getrennt |
 | P1 | Verwaltete Recovery Points | `ACCEPTED_NEED` | applikationskonsistenter Recovery Point eines Hyper-V-SQL-Runs mit Restore-Probe und expliziter Retention |
 | P1 | Framework- und State-Upgrade-Lifecycle | `IMPLEMENTED_READ_ONLY` | eine versionierte, reversible Migration eines synthetischen alten Run-State in ein neues Schema |
 | P2 | Offline-/Air-Gap-Distributionspaket | `ACCEPTED_NEED` | hash- und lizenzgebundener Export bereits freigegebener Medien, Kataloge und Samples ohne Secrets oder Runtime-State |
@@ -169,8 +169,12 @@ versionierten `SqlServerLab.SqlObservabilityEvidence/1.0`-Vertrag. Er bindet
 eine direkte Quelle oder einen bestehenden Run an aggregierte Server-,
 Datenbank-, Query-Store- und Wait-Metriken. SQL-Texte, Datenbank-, Login- und
 Hostnamen sowie Secretwerte werden nicht projiziert oder gespeichert. Der
-aktuelle Nachweis ist ein statischer Mock-Vertrag; eine providerbezogene
-Native-Abnahme wurde für diesen neuen Pfad noch nicht ausgeführt.
+statische Mock-Vertrag ergänzt zwei getrennte native Referenzläufe vom
+2026-09-20: Docker und Podman bestanden jeweils mit einem eigenen SQL-2025-
+Linux-Run die öffentliche rungebundene Capture vor und nach Restart,
+synthetische Query-Store-Datenbank, persistenten Datenmarker, Privacy-Grenzen
+und scopegebundenen Cleanup. Dies ist keine Freigabe für Hyper-V, externe
+Provider oder allgemeines Monitoring.
 
 Weiterhin offen bleiben:
 
