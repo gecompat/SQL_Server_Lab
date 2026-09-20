@@ -2,6 +2,12 @@
 
 Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. Die autoritative Exportliste steht in `SqlServerLab.psd1`.
 
+`New-SqlServerLab -AllowResourceOvercommit` erlaubt gemessene übersteuerbare
+Unterversorgung. Ausgeführtes, explizit übersteuertes und per `-SkipAssessment`
+übersprungenes Assessment werden im lokalen Run getrennt gespeichert.
+`Get-SqlServerLabReconcilePlan -TargetState` zeigt den historischen Entscheid
+hostwertfrei unter `Desired.ResourceAssessment`; harte Sperren bleiben aktiv.
+
 `Find-SqlServerLabCollation` liefert die kuratierte Auswahl für die
 Instanzcollation in `New-SqlServerLab -Collation` und `instances[].collation`.
 Manifest-Wizard und Konsolenformular prüfen denselben versionsgebundenen
@@ -66,7 +72,7 @@ Die SQL-seitige Verifikation bleibt offen.
 | `Move-SqlServerLabContainerNetwork` | `Move-SqlServerLabContainerNetwork.ps1` | Konfligierendes verwaltetes Docker- oder Podman-Labnetz nach expliziter Bestätigung auf ein automatisch geprüftes Subnetz verschieben; fremde Container bleiben unverändert |
 | `Invoke-SqlServerLabWorkflowAction` | `Invoke-SqlServerLabWorkflowAction.ps1` | Nicht interaktive, UI-taugliche Workflow-Aktion einschließlich getrenntem journalgebundenem Hyper-V-Datenbankpaket-Attach-Recovery und pfad-/secretfreier Container-Paket-Exportbindung |
 | `New-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema-gesteuertes Manifest interaktiv oder aus einem Objekt erstellen |
-| `Test-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema, Kataloge und Runtime-Grenzen prüfen und eine mutationsfreie External-Runtime-Planvorschau liefern |
+| `Test-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema, Kataloge und Runtime-Grenzen prüfen und eine mutationsfreie SQL-Lifecycle-, External-Runtime- und Sample-Planvorschau liefern |
 | `New-SqlServerLab` | `New-SqlServerLab.ps1` | Neue Umgebung ad hoc oder per Manifest erstellen; detached Docker-/Podman-Instanzstore optional per stabiler ID fortsetzen oder unabhängig klonen |
 | `Get-SqlServerLab` | `Get-SqlServerLab.ps1` | State, Live-Containerstatus und sanitisierte kataloggebundene Container-Tool-Metadaten je Provider anzeigen |
 | `Start-SqlServerLab` | `Start-SqlServerLab.ps1` | Gestoppte Umgebung je gespeicherten Provider starten |

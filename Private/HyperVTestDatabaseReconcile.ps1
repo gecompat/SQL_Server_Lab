@@ -235,7 +235,7 @@ function Get-LabHyperVTestDatabaseReconcileContext {
     $persisted = Get-LabPersistedDesiredState -RunId $RunId -StateRoot $StateRoot
     if ([string]$persisted.Status -ne 'VALID') { throw 'HYPERV_TEST_DATABASE_RECONCILE_DESIRED_STATE_INVALID' }
     $resolved = Read-LabManifest -Path $ManifestPath
-    $desiredSnapshot = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode ([string]$persisted.Snapshot.ProvisioningMode) -PersistentData ([bool]$persisted.Snapshot.PersistentData)
+    $desiredSnapshot = New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode ([string]$persisted.Snapshot.ProvisioningMode) -PersistentData ([bool]$persisted.Snapshot.PersistentData) -PreviousSnapshot $persisted.Snapshot
     if ([string]$resolved.name -ne [string]$persisted.Snapshot.LabName) { throw 'HYPERV_TEST_DATABASE_RECONCILE_LAB_IDENTITY_CHANGED' }
     $currentIds = @($persisted.Snapshot.Instances | ForEach-Object { [string]$_.Id } | Sort-Object)
     $targetIds = @($desiredSnapshot.Instances | ForEach-Object { [string]$_.Id } | Sort-Object)

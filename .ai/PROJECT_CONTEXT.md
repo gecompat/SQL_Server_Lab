@@ -27,6 +27,55 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- CORE-110-Teilvertrag: Manifest-Planvorschau `1.3` projiziert je Instanz den
+  angeforderten SQL-Bezeichner, die aufgelöste Katalogversion und den bestehenden
+  Lifecycle-Entscheid einschließlich `UNKNOWN`. Fachliche Validierungsfehler
+  bleiben unabhängig sichtbar; Schemafehler liefern eine leere Instanzliste.
+  Manifest-, Provider- und Deprecation-Policy bleiben unverändert;
+
+- CORE-111-Teilvertrag: `New-SqlServerLab` persistiert ausgeführtes,
+  übersprungenes oder explizit übersteuertes Resource Assessment vor der
+  Providermutation für Container und manifestgebundenes Hyper-V. Lifecycle-
+  Reconcile projiziert den historischen Entscheid hostwertfrei; fehlende
+  Legacy-Records werden nicht nachgeschrieben. Kapazitätsmodelle bleiben
+  unverändert. Vertrag: `Documentation/Architecture/RESOURCE_ASSESSMENT_DECISION.md`;
+
+- privater providerloser SCN-803-Capability-Entscheid vor einer möglichen
+  Szenarioausführung: strikte Scenario-/Capability-/synthetische Evidence-
+  Bindung, deterministische UTC-Fristen und sanitisierte Entscheidungen.
+  `ELIGIBLE` beschreibt nur deklarierte Verfügbarkeit; synthetische Alternativen
+  bleiben `NOT_EXECUTED`. Runtime-Discovery und Executorbindung bleiben offen.
+  Vertrag: `Documentation/Architecture/SCENARIO_CAPABILITY_DECISION.md`;
+
+- interner `container.memory-limit`-Puls für frische operationseigene Linux-
+  SQL-2025-Testcontainer (3072→2560→3072 MiB), mit eigenem Rohsnapshot,
+  authentifiziertem Journal und Restore-only-Resume. Limit-Rücknahme und
+  SQL-Readiness bleiben getrennt; gestoppte Ziele werden nicht gestartet.
+  Offlineprüfungen sowie getrennte native Docker-/Podman-Pulse und Hard-
+  Interrupt-Abnahmen bestanden am 2026-09-19. Docker bestätigt auch die
+  gestoppte Limit-Rücknahme; Podman 6.0.2 bleibt dort mangels exakter Inspect-
+  Postcondition mit unverifizierter Rücknahme `RECOVERY_REQUIRED`. Beide
+  gestoppten Recoveryklassifizierungen und eigenes Cleanup sind nativ belegt.
+  Vertrag: `Documentation/Architecture/CONTAINER_MEMORY_FAULT.md`;
+
+- interner FLT-811/FLT-812-CPU-Puls für frische operationseigene Docker-/Podman-
+  SQL-Testcontainer mit authentifiziertem Write-ahead-Journal und Restore-only-
+  Resume; Offlineprüfungen und getrennte native Acceptance-Einstiege liegen vor.
+  Docker und Podman bestanden die getrennte lokale SQL-2025-Abnahme am
+  2026-09-19 einschließlich exakter CPU-Rücknahme, SQL-Probe und Cleanup.
+  Beide Provider bestanden auch den separaten nativen Hard-Interrupt nach
+  authentifiziertem Applied-Checkpoint mit Restore-only-Resume, `INTERRUPTED`,
+  bytegleichem terminalem Journal und vollständigem Cleanup. Einzelheiten unter
+  `Documentation/Architecture/CONTAINER_CPU_FAULT.md`;
+
+- interner providerloser SCN-802-Executor mit fünf festen synthetischen Phasen,
+  authentifiziertem atomischem Journal, Ownership, Timeouts, Cancellation und
+  Cleanup-Resume; SCN-801 bleibt ein unveränderter Metadatenvertrag. Öffentliche
+  API, SQL-/Providerbindung und fachliche Szenarien sind weiterhin offen;
+  SCN-804 ergänzt im privaten Plan `0.2` zwingende individuelle Primärphasenfristen
+  innerhalb des globalen Budgets; Cleanup behält sein unabhängiges Budget,
+  alte Pläne werden ohne automatische Journalmigration abgewiesen;
+
 - dedizierter Security-Tool-/Trust-Metadatenkatalog mit leerer produktiver
   Allowlist und `Get-SqlServerLabSecurityToolPlan` für exakte IDs und Zieltuple;
   ausschließlich lokale, nicht ausführbare Planung. Downloads, Approvals,
@@ -80,6 +129,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - SQL-Version- und CU-Buildauflösung aus dem Katalog;
 - Resource Assessment;
 - lokaler Run-State und Cleanup-Plan;
+- neue Run-States tragen `contractVersion=SqlServerLab.RunState/1.0` und
+  benötigen kein State-Upgrade. Historische unversionierte States bleiben
+  ohne synthetische Fixture-Markierung für die automatische Migration blockiert;
 - SQL-Bereitschaft;
 - Server- und Datenbankkonfiguration im dokumentierten Umfang;
 - Datenbankerstellung;

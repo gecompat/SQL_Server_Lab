@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Internal fresh operation-owned container memory fault target",
+  "type": "object", "additionalProperties": false,
+  "required": ["ContractVersion", "Profile", "Provider", "OperationId", "RunId", "ScopeId", "InstanceId", "ContainerId", "CreatedAfterUtc"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.InternalContainerMemoryFaultTarget/0.1" },
+    "Profile": { "const": "container.memory-limit" },
+    "Provider": { "enum": ["docker", "podman"] },
+    "OperationId": { "$ref": "#/$defs/guid" }, "RunId": { "$ref": "#/$defs/guid" }, "ScopeId": { "$ref": "#/$defs/guid" },
+    "InstanceId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" },
+    "ContainerId": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "CreatedAfterUtc": { "type": "string", "format": "date-time", "pattern": "(Z|\\+00:00)$" }
+  },
+  "$defs": { "guid": { "type": "string", "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$" } }
+}

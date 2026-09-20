@@ -9,6 +9,123 @@
 
 ## 1. Grundsatz
 
+`Invoke-ReconcileContractChecks.ps1` prüft persistierte Sollidentitäten offline.
+Jeder Persistenzfehler wird ausschließlich über feste ReasonCodes reflektiert:
+`DESIRED_STATE_CONTRACT_INVALID`, `DESIRED_STATE_PROVISIONING_MODE_INVALID`,
+`DESIRED_STATE_PERSISTENT_DATA_INVALID`, `DESIRED_STATE_INSTANCES_MISSING`,
+`DESIRED_INSTANCE_ID_MISSING`, `DESIRED_INSTANCE_PROVIDER_MISSING`,
+`DESIRED_INSTANCE_ID_INVALID`, `DESIRED_INSTANCE_PROVIDER_INVALID`,
+`DESIRED_INSTANCE_INTENT_CONTRACT_INVALID`,
+`INSTANCE_CAPABILITY_ASSESSMENT_INVALID` und
+`DESIRED_INSTANCE_IDENTITY_DUPLICATE` sowie
+`DESIRED_INSTANCE_NETWORK_INTENT_INVALID`,
+`DESIRED_INSTANCE_SQL_ENDPOINT_INTENT_INVALID`,
+`DESIRED_INSTANCE_SQL_CONFIGURATION_INTENT_INVALID`,
+`DESIRED_INSTANCE_HYPERV_RESOURCE_INTENT_INVALID`,
+`DESIRED_INSTANCE_DRIVE_INTENT_INVALID`,
+`DESIRED_INSTANCE_STORAGE_INTENT_INVALID` und
+`DESIRED_INSTANCE_DATABASE_INTENT_INVALID` sowie
+`DESIRED_STATE_AI_INTENT_INVALID`. Ein vorhandener Network-Intent
+enthält vollständig die kanonische, hostwertfreie Resolver-Projektion; ein
+vollständig fehlendes `Network` bleibt ausschließlich für Legacy-Snapshots
+zulässig. Mehrere Codes sind eindeutig und ordinal sortiert. RUNNING- und
+STOPPED-Pläne bleiben dann `unsupported`, ohne Aktionen oder Fallback auf
+Connection-Info; State- und Connection-Dateien bleiben bytegleich. Weder
+Reconcile-Reasons noch Warnings spiegeln Instanz-ID, Provider, Host oder
+sonstige dynamische Persistenzwerte. Auch ein ungültiger Hyper-V-Network-Intent
+erreicht keine Runtime- oder Host-Cmdlet-Abfrage. Dieselbe Id unter verschiedenen
+Providern bleibt gültig. Dies ist kein nativer Providernachweis.
+
+`Invoke-InstanceCapabilityAssessmentChecks.ps1` prüft den privaten CORE-102-
+Metadatenentscheid offline: Provider-/OS-Tuple, bestehende SQL-/Netzwerk-/
+Softwareentscheidungen, pfadfreie Drives, Determinismus, Sanitierung sowie
+Legacy- und Fehlerfälle des read-only Desired-State-Readers. Diese Prüfung
+erzeugt keine Providerressourcen. Die bestehende Runtime-Auswahl für
+`DesiredState.ps1` und den gemeinsamen CI-Selektor bleibt unverändert.
+
+`Invoke-ManifestBuilderChecks.ps1` prüft die SQL-Lifecycle-Projektion der
+Manifest-Planvorschau `1.3` offline: unterstützte, veraltete und unbekannte
+Versionen, CU-Basisauflösung, unveränderte Eingaben, unabhängige fachliche
+Fehler, leere Schemafehler-Hülle und Anzeige ohne Samples oder External Runtimes.
+Die CI-Einzelpfadfälle binden Builder, Parser und Versionskatalog an dieselbe
+Suite und bewahren deren Collation-Verknüpfung. Dies ist kein Providernachweis.
+
+`Invoke-ResourceAssessmentChecks.ps1` prüft offline die Statuspriorität,
+Overcommit-Entscheidung, Skip-Unterscheidung, lokale Messwertpersistenz und
+hostwertfreie Lifecycle-Projektion einschließlich unveränderter Legacy-Bytes.
+Die öffentlichen Docker-/Podman-/Hyper-V-Erstellungspfade werden mit
+synthetischen Preflights bis zur echten State-Persistenz ausgeführt und vor
+Providermutationen unterbrochen. Getrennte native Provider-Smokes bleiben
+für Änderungen am Erstellungsvertrag erforderlich.
+
+`Invoke-RunStateUpgradeChecks.ps1` erzeugt einen frischen Run-State über den
+internen Konstruktor und prüft `SqlServerLab.RunState/1.0`, `NO_ACTION`, stabile
+Versions-/Planbindung sowie unveränderte Dateimenge, Bytes und Schreibzeiten
+nach Planung und Upgrade-Aufruf. Historische unversionierte States ohne
+Fixture-Markierung bleiben blockiert; ausschließlich synthetische Legacy-
+Migration und deren bestehendes Resume werden offline geprüft. Änderungen an
+`StateMachine.ps1` wählen diese Suite zusätzlich zur Mixed-Provider-
+Lifecycle-Suite. Providerressourcen werden für diesen lokalen Vertrag nicht
+benötigt; die Runtime-Auswahl des gemeinsamen CI-Selektors bleibt unverändert.
+
+`Invoke-ScenarioCapabilityDecisionChecks.ps1` prüft SCN-803 providerlos mit
+synthetischen JSON-Eingaben: vollständige, fehlende und teilweise Capability-
+Abdeckung, Scenario-/Version-/Evidence-Bindung, UTC-Fristen, unbekannte Felder,
+duplizierte JSON-Schlüssel, geschlossene Aufrufe und sanitisierte deterministische
+Ausgaben. Die Produktsources wählen nur statische Prüfungen. Die Änderung am
+gemeinsamen CI-Selektor fordert weiterhin dessen Runtime-Matrix im PR-Gate;
+dieser lokale read-only Slice führt keine Provider-Smokes aus und behauptet
+keinen solchen Nachweis.
+
+`Invoke-ContainerMemoryFaultChecks.ps1` prüft den privaten Memory-Puls offline,
+einschließlich gestopptem Restoreziel und separat persistierter SQL-Readiness.
+`Tests/Integration/Invoke-ContainerMemoryFaultAcceptance.ps1 -Provider docker`
+beziehungsweise `-Provider podman` prüft je einen frischen eigenen SQL-2025-Run;
+`-HardInterrupt` prüft den authentifizierten Applied-Checkpoint und
+Restore-only-Resume nach echtem Kindprozessabbruch. Provider werden sequenziell
+geprüft. `-HardInterrupt -StopAfterInterrupt` prüft zusätzlich ohne Start die
+exakte Docker-Limit-Rücknahme beziehungsweise die unverifizierte Podman-Grenze
+und die erwartete SQL-Recoverygrenze. Bestehende
+Testumgebungen sind ausgeschlossen. Der Abnahmestand steht
+in `Documentation/Architecture/CONTAINER_MEMORY_FAULT.md`.
+
+`Invoke-ContainerCpuFaultChecks.ps1` prüft den internen CPU-Puls offline mit
+Fake-Provider und hart beendetem Kindprozess. Die getrennten nativen Läufe
+`Tests/Integration/Invoke-ContainerCpuFaultAcceptance.ps1 -Provider docker`
+und `-Provider podman` verlangen Readiness, einen frischen eigenen SQL-2025-
+Run, Applied-/Restore-Postconditions und vollständiges Cleanup. Bestehende
+Runs sind kein Testziel; Hyper-V wird dafür nicht gestartet. Der genaue
+Recovery- und Deadlinevertrag steht in
+`Documentation/Architecture/CONTAINER_CPU_FAULT.md`.
+Die getrennten lokalen SQL-2025-Läufe für Docker und Podman bestanden am
+2026-09-19 mit Applied-Postcondition, SQL-Probe, exakter Rücknahme, terminalem
+Resume und jeweils zwei erfolgreichen Cleanup-Schritten ohne Restcontainer.
+Die zusätzlichen lokalen Läufe mit `-Provider docker -HardInterrupt` und
+`-Provider podman -HardInterrupt` bestanden am selben Tag: authentifizierter
+Applied-Checkpoint, hart beendeter eigener PowerShell-Kindprozess, bestätigtes
+Prozessende, exakte native Baseline-Rücknahme und SQL-Probe im Parent mit
+`INTERRUPTED`/`CleanupStatus=PASSED`, keine Aktivierungswiederholung und bytegleiches
+zweites Resume. Beide Runs entfernten Container und Volume mit jeweils zwei
+Cleanup-Schritten und null Fehlern; Restobjektprüfungen und temporärer Cleanup
+bestanden. Ein erster Podman-Versuch scheiterte vor Aktivierung an der
+Inspect-Template-ID und bereinigte ebenfalls vollständig; nach Korrektur des
+festen Providerfelds bestand der getrennte Wiederholungslauf. Host-/Engine-
+Abstürze und andere native Unterbrechungszeitpunkte sind damit nicht belegt.
+
+`Invoke-ScenarioExecutorChecks.ps1` prüft SCN-802/SCN-804 ausschließlich offline:
+Phasenreihenfolge, Cancellation vor/nach Arrange, Arbeits-/Phasen-/Cleanup-Timeouts,
+Handler-/Cleanupfehler, begrenztes Cleanup-Resume, Ownership-/Planbindung,
+Journalmanipulation, Lockkonflikt, Sanitierung und einen hart beendeten eigenen
+PowerShell-Kindprozess. Sämtlicher State ist synthetisch und temporär.
+Plan `0.2` wird mit fehlenden, typfalschen und außerhalb der Grenzen liegenden
+Phasencaps sowie alten Versionen negativ geprüft. Jeder Primärphasencap,
+die frühere globale Frist, ein erst beim Phaseneintritt beginnendes Budget,
+unabhängiges Cleanup und die Ablehnung geänderter Caps bei unterbrochenem
+Resume sind Bestandteil derselben Suite.
+`Invoke-ScenarioContractChecks.ps1` erhält unabhängig davon SCN-801 als
+Metadatenvertrag. Die Produktsources wählen keine Provider-Smokes; Änderungen
+am gemeinsamen CI-Selektor wählen weiterhin dessen vollständige Runtime-Matrix.
+
 `Tests/Static/Invoke-SecurityToolCatalogChecks.ps1` prüft den geschlossenen
 Security-Tool-/Trust-Metadatenkatalog, die leere produktive Allowlist und den
 direkten read-only Plan. Ausschließlich synthetische Katalogdaten prüfen

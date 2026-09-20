@@ -1,0 +1,16 @@
+{
+  "$schema": "./lab-manifest.schema.json",
+  "name": "explicit-resource-overcommit-example",
+  "description": "Bewusstes Opt-in fuer gemessene RAM-Unterversorgung; kann die Lab-Stabilitaet beeintraechtigen. Harte Sperren bleiben aktiv.",
+  "resourceOverrides": {
+    "allowResourceOvercommit": true,
+    "skipAssessment": false
+  },
+  "automation": {
+    "mode": "unattended",
+    "secrets": { "saPassword": "SQL_SERVER_LAB_SECRET_SA_PASSWORD" }
+  },
+  "instances": [
+    { "id": "primary", "version": "2025", "provider": "docker", "profile": "standard" }
+  ]
+}

@@ -1,5 +1,32 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Invoke-ResourceAssessmentChecks.ps1` prüft CORE-111 offline: feste
+Statuspriorität, explizites Overcommit, Skip, Persistenz vor Providermutation
+für die drei `New-SqlServerLab`-Providerpfade sowie hostwertfreie read-only
+Legacy-/Desired-Projektion. Vertrag:
+`../Documentation/Architecture/RESOURCE_ASSESSMENT_DECISION.md`.
+
+Der private Memory-Puls besitzt `Static/Invoke-ContainerMemoryFaultChecks.ps1`
+und `Integration/Invoke-ContainerMemoryFaultAcceptance.ps1 -Provider docker`
+beziehungsweise `-Provider podman`. Beide nativen Varianten unterstützen
+`-HardInterrupt` und verwenden frische eigene SQL-2025-Runs mit Cleanup.
+`-HardInterrupt -StopAfterInterrupt` prüft am gestoppten eigenen Container die
+Docker-Limit-Rücknahme beziehungsweise die unverifizierte Podman-Grenze,
+jeweils mit erwartetem Recoverybedarf und anschließendem Cleanup.
+Offline werden gestoppte Restoreziele und separate Limit-/SQL-Evidence geprüft.
+Vertrag: `../Documentation/Architecture/CONTAINER_MEMORY_FAULT.md`.
+
+Der interne Container-CPU-Puls besitzt die Offline-Suite
+`Static/Invoke-ContainerCpuFaultChecks.ps1` sowie die getrennten nativen
+`Integration/Invoke-ContainerCpuFaultAcceptance.ps1 -Provider docker` und
+`-Provider podman`. Beide nativen Läufe erzeugen ausschließlich frische eigene
+SQL-2025-Runs und verlangen vollständigen Cleanup. Der Vertrag steht unter
+`Documentation/Architecture/CONTAINER_CPU_FAULT.md`.
+Mit zusätzlichem `-HardInterrupt` wartet der Parent auf den authentifizierten
+Applied-Checkpoint eines secretfreien Kindprozesses, bestätigt dessen harten
+Abbruch und prüft Restore-only-Resume mit echter SQL-Probe, exakter Baseline
+und bytegleichem terminalem Journal. Docker und Podman sind separat auszuführen.
+
 ## Verzeichnisse
 
 | Verzeichnis | Inhalt |
@@ -8,6 +35,20 @@
 | `Integration/` | read-only sowie mutierende Lifecycle-, Provider-, Versions- und Parallelitäts-Smoke-Tests |
 
 ## Kurz-Readiness vor einem Pull Request
+
+`Tests/Static/Invoke-ScenarioCapabilityDecisionChecks.ps1` prüft den privaten
+SCN-803-Entscheid ausschließlich mit synthetischem JSON: Capability-Mengen,
+strikte Evidence-Bindung, Ablaufzeiten, vollständige Eingabevalidierung und
+deterministische sanitisierte Ergebnisse. Es entstehen keine Runtime- oder
+Journaldateien; der Test ist kein SQL-/Provider-Nachweis.
+
+`Tests/Static/Invoke-ScenarioExecutorChecks.ps1` prüft den internen synthetischen
+SCN-802/SCN-804-Executor einschließlich Cancellation, globalen und individuellen
+Phasenfristen, unabhängigem Cleanupbudget, Fehlern, Ownership,
+Journalintegrität und Resume nach hartem Abbruch eines eigenen Kindprozesses.
+Plan `0.2` erzwingt begrenzte Primärphasencaps; alte Pläne und bei Resume
+geänderte Caps werden vor Mutation abgewiesen.
+Er erzeugt ausschließlich temporäre lokale Fixtures, keine SQL-Umgebungen.
 
 Der lokale Security-Tool-Katalog-/Planvertrag wird mit
 `Tests/Static/Invoke-SecurityToolCatalogChecks.ps1` ausschließlich anhand

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Internal authenticated CPU pulse recovery journal",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion", "Profile", "Target", "TargetHash", "Runtime", "Baseline", "Mode", "RestoreIntent", "Status", "PrimaryStatus", "CleanupStatus", "CleanupAttempts", "AppliedVerified", "RestoredVerified"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.InternalContainerCpuFaultJournal/0.1" },
+    "Profile": { "const": "container.cpu-limit" },
+    "Target": { "type": "object" },
+    "TargetHash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "Runtime": {
+      "type": "object", "additionalProperties": false,
+      "required": ["Provider", "Invocation", "Arguments", "Identity"],
+      "properties": {
+        "Provider": { "enum": ["docker", "podman"] },
+        "Invocation": { "type": "string", "minLength": 1 },
+        "Arguments": { "type": "array", "maxItems": 6, "items": { "type": "string" } },
+        "Identity": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "Baseline": {
+      "type": "object", "additionalProperties": false, "required": ["Cpu", "Created", "Image"],
+      "properties": {
+        "Created": { "type": "string", "minLength": 1 }, "Image": { "type": "string", "minLength": 1 },
+        "Cpu": {
+          "type": "object", "additionalProperties": false,
+          "required": ["NanoCpus", "CpuPeriod", "CpuQuota", "CpuShares", "CpuRealtimePeriod", "CpuRealtimeRuntime", "CpusetCpus", "CpusetMems", "CpuCount", "CpuPercent"],
+          "properties": {
+            "NanoCpus": { "type": ["integer", "null"] }, "CpuPeriod": { "type": ["integer", "null"] }, "CpuQuota": { "type": ["integer", "null"] },
+            "CpuShares": { "type": ["integer", "null"] }, "CpuRealtimePeriod": { "type": ["integer", "null"] }, "CpuRealtimeRuntime": { "type": ["integer", "null"] },
+            "CpusetCpus": { "type": ["string", "null"] }, "CpusetMems": { "type": ["string", "null"] },
+            "CpuCount": { "type": ["integer", "null"] }, "CpuPercent": { "type": ["integer", "null"] }
+          }
+        }
+      }
+    },
+    "Mode": { "enum": ["NANO", "QUOTA", "PODMAN_QUOTA"] }, "RestoreIntent": { "const": true },
+    "Status": { "enum": ["RESTORE_REQUIRED", "RECOVERY_REQUIRED", "COMPLETED"] },
+    "PrimaryStatus": { "enum": ["NOT_EXECUTED", "PASSED", "CANCELLED", "INTERRUPTED", "TIMED_OUT", "EXECUTION_FAILED"] },
+    "CleanupStatus": { "enum": ["PENDING", "IN_PROGRESS", "PASSED", "FAILED"] },
+    "CleanupAttempts": { "type": "integer", "minimum": 0, "maximum": 3 },
+    "AppliedVerified": { "type": "boolean" }, "RestoredVerified": { "type": "boolean" }
+  }
+}

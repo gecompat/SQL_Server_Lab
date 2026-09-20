@@ -31,6 +31,7 @@ try {
         $script:hvRuntimeCurrent = @()
         $script:hvRuntimeInstallCount = 0
         $script:hvRuntimeFailOnce = $false
+        $script:hvRuntimeResourceGovernorConfig = 'UNSET'
         $script:hvRuntimeConnectionInstance = [PSCustomObject]@{
             id='primary';provider='hyperv';sqlVersion='2022';vmName='synthetic-vm';vmId='synthetic-vm-id';host='synthetic-host';port=1433
             externalRuntime=$null
@@ -56,8 +57,13 @@ try {
                 RunId=$RunId;ScopeId=$ScopeId;InstanceId='primary';StateRoot=$Root;Run=$script:hvRuntimeRun
                 RunDirectory=$runDirectory;ConnectionPath=$connectionPath;Connection=$script:hvRuntimeConnection
                 ConnectionInstance=$script:hvRuntimeConnectionInstance;VM=[PSCustomObject]@{Id='synthetic-vm-id';State='Running'}
-                DesiredSnapshot=[PSCustomObject]@{Revision=($script:hvRuntimeDesired.PlanKey -join ',')}
-                ResolvedInstance=[PSCustomObject]@{serverConfig=[PSCustomObject]@{externalScripts=[PSCustomObject]@{resourceGovernor=$null}}}
+                # This models a persisted software context.  The resolved
+                # manifest object deliberately contains a hostile post-state
+                # resource governor and must not reach Apply or Resume.
+                PersistedSnapshot=[PSCustomObject]@{Revision=($script:hvRuntimeDesired.PlanKey -join ',');Authority='persisted'}
+                DesiredSnapshot=[PSCustomObject]@{Revision=($script:hvRuntimeDesired.PlanKey -join ',');Authority='persisted'}
+                ResolvedInstance=[PSCustomObject]@{serverConfig=[PSCustomObject]@{externalScripts=[PSCustomObject]@{resourceGovernor=[PSCustomObject]@{maxMemoryPercent=70;maxProcesses=1}}}}
+                RuntimeResourceGovernorConfig=$null
                 DesiredPlans=@($script:hvRuntimeDesired);CurrentReceipts=@($script:hvRuntimeCurrent);TargetHash=$targetHash
             }
             $journalPath = Get-LabHyperVExternalRuntimeReconcileJournalPath -RunDirectory $runDirectory
@@ -69,6 +75,7 @@ try {
         function Install-LabHyperVExternalRuntimes {
             param($SoftwarePlans,$RunId,$Credential,$SqlSaPassword,$MediaRoot,$ResourceGovernorConfig,$StateRoot)
             $script:hvRuntimeInstallCount++
+            $script:hvRuntimeResourceGovernorConfig = $ResourceGovernorConfig
             if ($script:hvRuntimeFailOnce) { $script:hvRuntimeFailOnce=$false; throw 'SYNTHETIC_HYPERV_RUNTIME_INSTALL_FAILURE' }
             $receipts = @($SoftwarePlans | ForEach-Object {
                 New-LabSoftwareInstallationReceipt -Plan $_ -Postconditions @([PSCustomObject]@{Id='synthetic-sql-probe';Status='PASS'})
@@ -113,10 +120,10 @@ try {
             ImplicitInstance=$planWithoutInstance.InstanceId -eq 'primary'
             WhatIf=$whatIfSafe -and $whatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE'
             Apply=$applied.ExecutionSummary.Status -eq 'SUCCEEDED' -and $journal.Status -eq 'COMPLETED' -and $script:hvRuntimeInstallCount -ge 1
-            StateCommit=[string]$persistedRun.metadata.desiredState.Revision -eq [string]$pythonPlan.PlanKey
+            StateCommit=[string]$persistedRun.metadata.desiredState.Revision -eq [string]$pythonPlan.PlanKey -and [string]$persistedRun.metadata.desiredState.Authority -eq 'persisted'
             NoOp=$noOp.IsNoOp -and $noOp.HighestChangeClass -eq 'no-op' -and @($noOp.Warnings).Count -eq 0
             Failure=$failed.ExecutionSummary.Status -eq 'FAILED' -and $failedJournal.Status -eq 'RECOVERY_REQUIRED' -and $failedJournal.Recovery.ErrorCode -eq 'SYNTHETIC_HYPERV_RUNTIME_INSTALL_FAILURE'
-            Resume=$resumePlan.Actions[0].Operation -eq 'ResumeHyperVExternalRuntime' -and $resumed.ExecutionSummary.Status -eq 'SUCCEEDED' -and $resumedJournal.Status -eq 'COMPLETED' -and $resumedJournal.Recovery.Attempts -eq 1
+            Resume=$resumePlan.Actions[0].Operation -eq 'ResumeHyperVExternalRuntime' -and $resumed.ExecutionSummary.Status -eq 'SUCCEEDED' -and $resumedJournal.Status -eq 'COMPLETED' -and $resumedJournal.Recovery.Attempts -eq 1 -and $null -eq $script:hvRuntimeResourceGovernorConfig
             Unsupported=$unsupported.HighestChangeClass -eq 'unsupported' -and @($unsupported.Actions).Count -eq 0 -and $unsupportedAction.ExecutionSummary.Status -eq 'UNSUPPORTED' -and @($unsupported.Warnings).Count -eq 1 -and [string]$unsupported.Warnings[0] -eq 'HYPERV_EXTERNAL_RUNTIME_REMOVAL_UNSUPPORTED'
             CurrentPlanKeys=@($script:hvRuntimeConnectionInstance.externalRuntime.receipts | Where-Object { [string]$_.PlanKey -match '^[a-f0-9]{64}$' }).Count -eq 2
         }

@@ -62,6 +62,7 @@ end {
     }
 
     $staticGroups = @(
+        @{ Pattern = '(?i)(ResourceAssessment|resource-assessment|New-SqlServerLab\.ps1|HyperVLabEnvironment|ReconcileContract|ManifestParser|lab-manifest)'; Checks = @('Invoke-ResourceAssessmentChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(HyperVNetworkReconnect|HyperVExistingNetwork|HyperVResourceAcceptanceSlotClone|HyperVLabEnvironment)'; Checks = @('Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1') },
         @{ Pattern = '(?i)(SecurityTool|security-tool|Fixtures/SecurityTools/)'; Checks = @('Invoke-SecurityToolCatalogChecks.ps1') },
         @{ Pattern = '(?i)(Prepare-LocalRelease|ReleaseArtifact)'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1') },
@@ -90,10 +91,14 @@ end {
         @{ Pattern = '(?i)(ContainerDatabasePackage|container-database-package)'; Checks = @('Invoke-ContainerDatabasePackageRecoveryChecks.ps1') },
         @{ Pattern = '(?i)(DatabaseMigrationDependency|database-migration-dependency)'; Checks = @('Invoke-DatabaseMigrationDependencyChecks.ps1','Invoke-BackupLibraryChecks.ps1','Invoke-DatabasePackageChecks.ps1') },
         @{ Pattern = '(?i)(AiScenario|ai-scenario|ai-(model-catalog|endpoint-plan|runtime-journal|query-result)|Catalogs[\\/]ai-models|SQL2025_AI_PLATFORM|SQL2025_VECTOR_EMBEDDING|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
+        @{ Pattern = '(?i)(ContainerCpuFault|container-cpu-fault|CONTAINER_CPU_FAULT)'; Checks = @('Invoke-ContainerCpuFaultChecks.ps1') },
+        @{ Pattern = '(?i)(ContainerMemoryFault|container-memory-fault|CONTAINER_MEMORY_FAULT|Private/ContainerCpuFault)'; Checks = @('Invoke-ContainerMemoryFaultChecks.ps1') },
         @{ Pattern = '(?i)(ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioContractChecks.ps1') },
+        @{ Pattern = '(?i)(ScenarioExecutor|scenario-execution|ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioExecutorChecks.ps1','Invoke-ScenarioContractChecks.ps1') },
+        @{ Pattern = '(?i)(ScenarioCapabilityDecision|scenario-capability-(plan|decision)|SCENARIO_CAPABILITY_DECISION|ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioCapabilityDecisionChecks.ps1','Invoke-ScenarioContractChecks.ps1') },
         @{ Pattern = '(?i)(AiVectorIndexAcceptance|Fixtures[\\/]VectorIndex[\\/])'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
         @{ Pattern = '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
-        @{ Pattern = '(?i)(StateUpgrade|state-upgrade)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
+        @{ Pattern = '(?i)(StateUpgrade|state-upgrade|StateMachine)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
         @{ Pattern = '(?i)(AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'; Checks = @('Invoke-AutomationApiPlanChecks.ps1') },
         @{ Pattern = '(?i)(CollationRuntimeEvidence|collation-runtime-evidence|ContainerCollationAcceptance)'; Checks = @('Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-CollationCatalogChecks.ps1','Invoke-VersionCatalogChecks.ps1') },
         @{ Pattern = '(?i)(CollationCatalog|sql-server-collation|Find-SqlServerLabCollation|ManifestParser|ManifestBuilder|lab-manifest|Public[\\/]New-SqlServerLab\.ps1|Public[\\/]Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-VersionCatalogChecks.ps1') },
@@ -116,12 +121,12 @@ end {
         @{ Pattern = '(?i)(SoftwareCatalog|software-catalog|Catalogs/software\.json)'; Checks = @('Invoke-SoftwareCatalogChecks.ps1','Invoke-ExternalRuntimeContainerImageChecks.ps1','Invoke-ExternalRuntimeWindowsChecks.ps1','Invoke-InstanceIntentChecks.ps1') },
         @{ Pattern = '(?i)(ContainerToolAcceptance)'; Checks = @('Invoke-SoftwareCatalogChecks.ps1') },
         @{ Pattern = '(?i)(ContainerImageArtifact|ExternalRuntimeLifecycle|Images[\\/]ExternalLanguages|Providers[\\/](Docker|Podman)[\\/]|Public[\\/]New-SqlServerLab\.ps1)'; Checks = @('Invoke-ExternalRuntimeContainerImageChecks.ps1','Invoke-ExternalRuntimeWindowsChecks.ps1','Invoke-SoftwareCatalogChecks.ps1','Invoke-ReadinessContractChecks.ps1') },
-        @{ Pattern = '(?i)(ExternalRuntimeReconcile|Invoke-ExternalRuntimeContainerAcceptance|Invoke-SqlServerLabReconcileAction)'; Checks = @('Invoke-ExternalRuntimeReconcileChecks.ps1','Invoke-HyperVExternalRuntimeReconcileChecks.ps1','Invoke-HyperVExternalRuntimeReconcileCiAcceptanceChecks.ps1','Invoke-ExternalRuntimeContainerImageChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1') },
+        @{ Pattern = '(?i)(ExternalRuntimeReconcile|PersistedSoftwareIntent|Invoke-ExternalRuntimeContainerAcceptance|Invoke-SqlServerLabReconcileAction)'; Checks = @('Invoke-ExternalRuntimeReconcileChecks.ps1','Invoke-HyperVExternalRuntimeReconcileChecks.ps1','Invoke-HyperVExternalRuntimeReconcileCiAcceptanceChecks.ps1','Invoke-ExternalRuntimeContainerImageChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-PersistedSoftwareIntentChecks.ps1','Invoke-ReconcileActionContractChecks.ps1') },
         @{ Pattern = '(?i)(ExternalRuntimeWindows|Images[\\/]ExternalLanguages[\\/]Windows|ExternalRuntimeHyperVAcceptance)'; Checks = @('Invoke-ExternalRuntimeWindowsChecks.ps1','Invoke-SoftwareCatalogChecks.ps1','Invoke-HyperVLabEnvironmentChecks.ps1','Invoke-HyperVSqlImageBuilderChecks.ps1') },
         @{ Pattern = '(?i)(New-SqlServerLabDatabase|DatabaseCommand)'; Checks = @('Invoke-DatabaseCommandChecks.ps1') },
         @{ Pattern = '(?i)(SqlActionProgress|SqlReadiness|Readiness)'; Checks = @('Invoke-ReadinessContractChecks.ps1','Invoke-SqlActionProgressChecks.ps1') },
         @{ Pattern = '(?i)(ContainerTransferProgress|SampleArtifactHandlers|ContainerDatabasePackage|Restore-SqlServerLabDatabase|ActionProgress)'; Checks = @('Invoke-ContainerTransferProgressChecks.ps1') },
-        @{ Pattern = '(?i)(DesiredState|ReconcileContract|Get-SqlServerLabReconcilePlan)'; Checks = @('Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1') },
+        @{ Pattern = '(?i)(DesiredState|PersistedSoftwareIntent|ReconcileContract|Get-SqlServerLabReconcilePlan)'; Checks = @('Invoke-ReconcileContractChecks.ps1','Invoke-PersistedSoftwareIntentChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-HyperVResourceReconcileChecks.ps1') },
         @{ Pattern = '(?i)(HyperVResourceReconcile|HyperVResourceAcceptanceSlot(Clone|Supervisor)|hyperv-resource-reconcile)'; Checks = @('Invoke-HyperVResourceReconcileChecks.ps1','Invoke-HyperVResourceReconcileAcceptanceChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-HyperVProviderChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-InstanceIntentChecks.ps1') },
         @{ Pattern = '(?i)HyperVStorageAcceptanceRecoveryFixture'; Checks = @('Invoke-HyperVStorageReconcileAcceptanceChecks.ps1','Invoke-HyperVSqlStorageReconcileAcceptanceChecks.ps1') },
         @{ Pattern = '(?i)(HyperVStorageReconcile|hyperv-storage-reconcile)'; Checks = @('Invoke-HyperVStorageReconcileChecks.ps1','Invoke-HyperVStorageReconcileAcceptanceChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-HyperVProviderChecks.ps1','Invoke-StorageFilePlacementChecks.ps1','Invoke-InstanceIntentChecks.ps1') },
@@ -130,9 +135,10 @@ end {
         @{ Pattern = '(?i)(HyperVTestDatabaseReconcile|hyperv-test-database-(ownership|reconcile)|hyperv-test-database-reconcile)'; Checks = @('Invoke-HyperVTestDatabaseReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-InstanceIntentChecks.ps1','Invoke-SampleHandlerChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSampleManifest|hyperv-sample-manifest)'; Checks = @('Invoke-HyperVSampleManifestAcceptanceChecks.ps1','Invoke-SampleHandlerChecks.ps1','Invoke-SampleBaselineRegistryChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(ContainerReconcile|Update-SqlServerLabContainer)'; Checks = @('Invoke-ContainerReconcileChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1','Invoke-ReadinessContractChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-PortAllocationChecks.ps1') },
+        @{ Pattern = '(?i)(InstanceCapabilityAssessment|instance-capability-assessment|DesiredState|ProviderCapability|provider\.json|VersionCatalog|sql-server-versions\.json|SoftwareCatalog|Catalogs/software\.json|LabNetwork)'; Checks = @('Invoke-InstanceCapabilityAssessmentChecks.ps1','Invoke-InstanceIntentChecks.ps1') },
         @{ Pattern = '(?i)(ProviderCapability|provider\.json)'; Checks = @('Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(InstanceIntent|ServerConfig|ResourceAssessment)'; Checks = @('Invoke-InstanceIntentChecks.ps1') },
-        @{ Pattern = '(?i)(ManifestBuilder|ManifestParser|lab-manifest|New-SqlServerLabManifest)'; Checks = @('Invoke-ManifestBuilderChecks.ps1','Invoke-AiScenarioChecks.ps1') },
+        @{ Pattern = '(?i)(ManifestBuilder|ManifestParser|VersionCatalog|sql-server-versions|lab-manifest|New-SqlServerLabManifest)'; Checks = @('Invoke-ManifestBuilderChecks.ps1','Invoke-AiScenarioChecks.ps1') },
         @{ Pattern = '(?i)(ArchiveProgress|SampleArtifact|sample-databases)'; Checks = @('Invoke-ArchiveProgressChecks.ps1','Invoke-SampleHandlerChecks.ps1','Invoke-SampleBaselineRegistryChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(ProjectAdapter|Adapters/|project-adapter)'; Checks = @('Invoke-ProjectAdapterChecks.ps1') },
         @{ Pattern = '(?i)(MixedProvider|ProviderSubRun|StateMachine)'; Checks = @('Invoke-MixedProviderLifecycleChecks.ps1') },
@@ -194,6 +200,8 @@ end {
             if ($runtimePath -match '(?i)(CollationRuntimeEvidence|collation-runtime-evidence|Invoke-ContainerCollationAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerInstanceStore|container-instance-store)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerRuntimeScope|container-runtime-scope)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(ContainerCpuFault|container-cpu-fault)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(ContainerMemoryFault|container-memory-fault)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(RelationalCoreComparison|relational-core-comparison)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(PortableContainerTransferPreflight|portable-container-transfer-preflight)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(AiScenario|ai-scenario|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario|AiVectorCoreAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
@@ -207,11 +215,15 @@ end {
             if ($runtimePath -match '(?i)(runtime-smoke-mixed-providers\.yml|MixedProvider|ProviderCapability|DesiredState|ReconcileContract|ProviderSubRun)') { $pathRuntime.Mixed = $true }
             if ($runtimePath -match '(?i)(^Providers/HyperV/|runtime-smoke-hyperv\.yml|/HyperV|^Private/HyperV|HyperVSmokeTest|^Private/ExternalRuntimeWindows|Images/ExternalLanguages/Windows|ExternalRuntimeHyperVAcceptance)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)^Public/New-SqlServerLab\.ps1$') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)(ResourceAssessment|resource-assessment)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true; $pathRuntime.Mixed = $true }
             if ($runtimePath -match '(?i)(^Adapters/|ProjectAdapter|adapter-smoke|project-adapter)') { $pathRuntime.Adapter = $true }
 
             $knownDomainChange = $pathRuntime.Docker -or $pathRuntime.Podman -or $pathRuntime.Mixed -or $pathRuntime.HyperV -or $pathRuntime.Adapter
             $staticOnlyProductChange = $runtimePath -match '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact)|ResourceSet|ResourcePlan|ScenarioContract|scenario-contract|EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence|AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/SecurityToolCatalog\.ps1|Public/Get-SqlServerLabSecurityToolPlan\.ps1|Catalogs/security-tools\.json|Schemas/security-tool-(catalog|request|plan)\.schema\.json)$'
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioExecutor\.ps1|Schemas/scenario-execution-(plan|journal)\.schema\.json)$'
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioCapabilityDecision\.ps1|Schemas/scenario-capability-(plan|decision)\.schema\.json)$'
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/InstanceCapabilityAssessment\.ps1|Schemas/instance-capability-assessment\.schema\.json)$'
             if ($pathHasProductCode -and -not $knownDomainChange -and -not $staticOnlyProductChange) {
                 $pathRuntime.Docker = $true
             }

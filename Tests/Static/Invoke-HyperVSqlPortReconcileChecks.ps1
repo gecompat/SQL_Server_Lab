@@ -78,8 +78,10 @@ try {
             TcpEnabled=$true;StaticPort=$true;Port=15433;SqlReachable=$true;FirewallRuleCount=1;FirewallPorts=@('15433');FirewallProtocols=@('TCP')
             FirewallRemoteAddresses=@('private-persisted-host-address');FirewallEnabled=$true;FirewallInbound=$true;FirewallAllow=$true
         }
+        $script:persistedVmLookupCount=0
         function Get-HyperVManagedVM {
             param([string]$VMName,[string]$ExpectedRunId,[string]$ExpectedScopeId)
+            $script:persistedVmLookupCount++
             if($VMName -ne 'private-persisted-port-vm' -or $ExpectedRunId -ne [string]$persistedRun.RunId -or $ExpectedScopeId -ne [string]$persistedRun.ScopeId){
                 throw 'SYNTHETIC_PERSISTED_PORT_VM_IDENTITY_MISMATCH'
             }
@@ -127,6 +129,12 @@ try {
         $invalidSnapshot.Contract.Version='invalid'
         Set-StaticPersistedPortSnapshot -Snapshot $invalidSnapshot
         $invalidDesiredStateReason=Get-StaticPersistedPortReason
+        $boolPortSnapshot=$persistedSnapshot|ConvertTo-Json -Depth 50|ConvertFrom-Json -Depth 50
+        $boolPortSnapshot.Instances[0].Intents.SqlEndpoint.Port=$true
+        Set-StaticPersistedPortSnapshot -Snapshot $boolPortSnapshot
+        $script:persistedVmLookupCount=0
+        $boolPortReason=Get-StaticPersistedPortReason
+        $boolPortVmLookupCount=$script:persistedVmLookupCount
         Set-StaticPersistedPortSnapshot -Snapshot $persistedSnapshot
         $persistedPathContract=([int]$persistedSnapshot.Instances[0].Intents.SqlEndpoint.Port -eq 14333 -and
             [int]$persistedContext.Desired.Port -eq 14333 -and [int]$persistedContext.ConnectionInstance.port -eq 15433 -and
@@ -136,10 +144,11 @@ try {
             $persistedPlan.Actions[0].RequiresServiceRestart -and -not $persistedPlan.Actions[0].RequiresVmRestart -and -not $persistedPlan.MutationAllowed)
         $persistedReadOnlyContract=($persistedStateBefore -ceq $persistedStateAfter -and -not(Test-Path -LiteralPath $persistedJournalPath))
         $persistedFailClosedContract=($missingIntentReason -eq 'HYPERV_SQL_PORT_RECONCILE_INTENT_MISSING' -and
-            $duplicateReason -eq 'HYPERV_SQL_PORT_RECONCILE_INSTANCE_NOT_UNIQUE' -and
-            $wrongProviderReason -eq 'HYPERV_SQL_PORT_RECONCILE_HYPERV_INSTANCE_REQUIRED' -and
+            $duplicateReason -eq 'HYPERV_SQL_PORT_RECONCILE_DESIRED_STATE_INVALID' -and
+            $wrongProviderReason -eq 'HYPERV_SQL_PORT_RECONCILE_DESIRED_STATE_INVALID' -and
             $unsupportedIntentReason -eq 'HYPERV_SQL_PORT_RECONCILE_INTENT_UNSUPPORTED' -and
-            $invalidDesiredStateReason -eq 'HYPERV_SQL_PORT_RECONCILE_DESIRED_STATE_INVALID')
+            $invalidDesiredStateReason -eq 'HYPERV_SQL_PORT_RECONCILE_DESIRED_STATE_INVALID' -and
+            $boolPortReason -eq 'HYPERV_SQL_PORT_RECONCILE_DESIRED_STATE_INVALID' -and $boolPortVmLookupCount -eq 0)
 
         $script:portDesired=$defaultPortIntent
         $script:portContext=[PSCustomObject]@{

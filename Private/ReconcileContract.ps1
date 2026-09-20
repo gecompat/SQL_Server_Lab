@@ -54,8 +54,10 @@ function New-LabDesiredState {
             RunId = [string]$Run.runId
             TargetState = $TargetState
             Source = 'persisted-desired-state'
+            ResourceAssessment = Get-LabResourceAssessmentSummary -Run $Run
             IsValid = $true
             ValidationError = $null
+            ValidationErrors = @()
             Instances = @($snapshot.Instances | ForEach-Object {
                 [PSCustomObject]@{
                     Id = [string]$_.Id
@@ -77,8 +79,10 @@ function New-LabDesiredState {
             RunId = [string]$Run.runId
             TargetState = $TargetState
             Source = 'persisted-desired-state-invalid'
+            ResourceAssessment = Get-LabResourceAssessmentSummary -Run $Run
             IsValid = $false
             ValidationError = [string]$persisted.Reason
+            ValidationErrors = @($persisted.ReasonCodes)
             Instances = @()
         }
     }
@@ -121,8 +125,10 @@ function New-LabDesiredState {
         RunId = [string]$Run.runId
         TargetState = $TargetState
         Source = 'connection-info-or-provider-subruns'
+        ResourceAssessment = Get-LabResourceAssessmentSummary -Run $Run
         IsValid = $true
         ValidationError = $null
+        ValidationErrors = @()
         Instances = $instances
     }
 }
@@ -317,11 +323,21 @@ function Compare-LabDesiredActualState {
 
     $diagnosticStates = @('UNKNOWN', 'UNAVAILABLE', 'MISSING', 'PARTIAL')
     if ($Desired.PSObject.Properties.Name -contains 'IsValid' -and -not [bool]$Desired.IsValid) {
+        $validationReasonCodes = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+        foreach ($reasonCode in @($Desired.ValidationErrors)) {
+            $candidate = [string]$reasonCode
+            if ($candidate -match '^[A-Z][A-Z0-9_]*$') {
+                [void]$validationReasonCodes.Add($candidate)
+            }
+        }
+        if ($validationReasonCodes.Count -eq 0) { $validationReasonCodes = @('DESIRED_STATE_VALIDATION_FAILED') }
+        $validationReasonCodes = [string[]]$validationReasonCodes
+        [Array]::Sort($validationReasonCodes, [StringComparer]::Ordinal)
         return [PSCustomObject]@{
             ChangeClass = 'unsupported'
-            Reasons = @("Persisted desired state ist ungültig: $($Desired.ValidationError)")
+            Reasons = @($validationReasonCodes | ForEach-Object { "Persisted desired state ist ungültig: $_" })
             Actions = @()
-            Warnings = @("Bitte Snapshot reparieren oder entfernen; fail-closed ohne Teilmutation bis zum Zielzustand.")
+            Warnings = @('Persisted desired state validation blocks lifecycle reconcile; fail-closed without partial mutation.')
         }
     }
     if ($Actual.State -in $diagnosticStates) {
@@ -408,6 +424,36 @@ function New-LabReconcilePlan {
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $run = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
     $desired = New-LabDesiredState -Run $run -TargetState $TargetState -StateRoot $StateRoot
+    if (-not $desired.IsValid) {
+        # Ein persistierter Fehler ist vor jeder Runtime- oder Hyper-V-Abfrage
+        # abschliessend. Insbesondere darf kein unvollstaendiger Intent den
+        # Connection-Info-Fallback oder Host-Cmdlets erreichen.
+        $actual = [PSCustomObject]@{
+            Contract = [PSCustomObject]@{ Name = 'SqlServerLab.ActualState'; Version = '1.0' }
+            RunId = [string]$run.runId
+            State = 'UNAVAILABLE'
+            Source = 'persisted-desired-state-invalid'
+            Instances = @()
+        }
+        $comparison = Compare-LabDesiredActualState -Desired $desired -Actual $actual
+        $migrationGuard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $RunId -StateRoot $StateRoot
+        return [PSCustomObject]@{
+            Contract = [PSCustomObject]@{ Name = 'SqlServerLab.ReconcilePlan'; Version = '1.0' }
+            RunId = [string]$run.runId
+            Desired = $desired
+            Actual = $actual
+            Diff = @([PSCustomObject]@{
+                Kind = 'lifecycle'
+                TargetState = $desired.TargetState; ActualState = $actual.State; ChangeClass = $comparison.ChangeClass; Reasons = $comparison.Reasons
+            })
+            Actions = $comparison.Actions
+            HighestChangeClass = $comparison.ChangeClass
+            IsNoOp = $false
+            MutationAllowed = $false
+            Warnings = $comparison.Warnings
+            HyperVResourceMigration = $migrationGuard
+        }
+    }
     $actual = Get-LabActualState -Run $run -Desired $desired -StateRoot $StateRoot
     $comparison = Compare-LabDesiredActualState -Desired $desired -Actual $actual
     $migrationGuard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $RunId -StateRoot $StateRoot

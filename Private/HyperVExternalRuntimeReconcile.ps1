@@ -149,13 +149,16 @@ function Get-LabHyperVExternalRuntimeReconcileContext {
     $run = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
     if ([string]$run.metadata.workflowKind -ne 'hyperv-lab') { throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_HYPERV_RUN_REQUIRED' }
     if ([string]$run.state -ne 'RUNNING') { throw "HYPERV_EXTERNAL_RUNTIME_RECONCILE_RUN_NOT_RUNNING: $($run.state)" }
-    $guard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $RunId -StateRoot $StateRoot
-    if (-not $guard.Allowed) { throw "HYPERV_EXTERNAL_RUNTIME_RECONCILE_MIGRATION_BLOCKED: $([string]$guard.ReasonCode)" }
     $persisted = Get-LabPersistedDesiredState -RunId $RunId -StateRoot $StateRoot
     if ([string]$persisted.Status -ne 'VALID') { throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_DESIRED_STATE_INVALID' }
+    # Validate persisted intents before reading a migration journal, connection
+    # record, VM or provider.  A tampered software projection must not select a
+    # target or create any recovery-visible side effect.
+    $guard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $RunId -StateRoot $StateRoot
+    if (-not $guard.Allowed) { throw "HYPERV_EXTERNAL_RUNTIME_RECONCILE_MIGRATION_BLOCKED: $([string]$guard.ReasonCode)" }
     $resolved = Read-LabManifest -Path $ManifestPath
     $desiredSnapshot = New-LabDesiredStateSnapshot -ResolvedLab $resolved `
-        -ProvisioningMode ([string]$persisted.Snapshot.ProvisioningMode) -PersistentData ([bool]$persisted.Snapshot.PersistentData)
+        -ProvisioningMode ([string]$persisted.Snapshot.ProvisioningMode) -PersistentData ([bool]$persisted.Snapshot.PersistentData) -PreviousSnapshot $persisted.Snapshot
     if ([string]$resolved.name -ne [string]$persisted.Snapshot.LabName) { throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_LAB_IDENTITY_CHANGED' }
     $currentIds = @($persisted.Snapshot.Instances | ForEach-Object { [string]$_.Id } | Sort-Object)
     $targetIds = @($desiredSnapshot.Instances | ForEach-Object { [string]$_.Id } | Sort-Object)
@@ -176,7 +179,20 @@ function Get-LabHyperVExternalRuntimeReconcileContext {
     $currentFingerprint = (Get-LabHyperVExternalRuntimeInstanceFingerprint -Instance $currentInstances[0]) | ConvertTo-Json -Depth 50 -Compress
     $targetFingerprint = (Get-LabHyperVExternalRuntimeInstanceFingerprint -Instance $targetInstances[0]) | ConvertTo-Json -Depth 50 -Compress
     if ($currentFingerprint -cne $targetFingerprint) { throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_NON_SOFTWARE_DRIFT' }
-    $desiredPlans = @(Resolve-LabExternalRuntimePlansForInstance -Instance $resolvedInstances[0])
+    $providerCapability = @(Get-LabProviderCapabilityContract | Where-Object {
+        [string]$_.Provider -ieq [string]$currentInstances[0].Provider
+    } | Select-Object -First 1)[0]
+    if ($null -eq $providerCapability) { throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_PROVIDER_UNSUPPORTED' }
+    $persistedSoftware = $currentInstances[0].Intents.Software
+    $hasPersistedSoftware = $currentInstances[0].Intents.PSObject.Properties['Software'] -and $null -ne $persistedSoftware
+    $desiredPlans = if ($hasPersistedSoftware) {
+        @(Resolve-LabValidatedPersistedSoftwarePlans -Software $persistedSoftware -Instance $currentInstances[0] -ProviderCapability $providerCapability)
+    }
+    else {
+        # Legacy snapshots predate the closed software envelope and retain the
+        # established manifest-derived compatibility path.
+        @(Resolve-LabExternalRuntimePlansForInstance -Instance $resolvedInstances[0])
+    }
     if (@($desiredPlans | Where-Object Status -ne 'RESOLVED').Count -gt 0) {
         throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_DESIRED_PLAN_UNRESOLVED'
     }
@@ -200,10 +216,17 @@ function Get-LabHyperVExternalRuntimeReconcileContext {
     }
     $currentReceipts = @(Get-LabHyperVExternalRuntimeInstallationReceipts -RunDirectory $runDirectory -InstanceId $InstanceId)
     $targetHash = Get-LabHyperVExternalRuntimeTargetHash -Plans $desiredPlans
+    # A present persisted software envelope freezes External-Runtime apply
+    # inputs.  Do not let a manifest edited after state creation change the
+    # resource-governor value or overwrite the desired-state record.  Legacy
+    # snapshots without that envelope keep their documented manifest fallback.
+    $runtimeResourceGovernorConfig = if ($hasPersistedSoftware) { $null } else { $resolvedInstances[0].serverConfig.externalScripts.resourceGovernor }
+    $stateCommitSnapshot = if ($hasPersistedSoftware) { $persisted.Snapshot } else { $desiredSnapshot }
     $context = [PSCustomObject]@{
         RunId=$RunId;ScopeId=[string]$run.scopeId;InstanceId=$InstanceId;StateRoot=$StateRoot;Run=$run
         RunDirectory=$runDirectory;ConnectionPath=$connectionPath;Connection=$connection;ConnectionInstance=$connectionInstances[0]
-        VM=$managed.VM;Managed=$managed;PersistedSnapshot=$persisted.Snapshot;DesiredSnapshot=$desiredSnapshot
+        VM=$managed.VM;Managed=$managed;PersistedSnapshot=$persisted.Snapshot;DesiredSnapshot=$stateCommitSnapshot
+        RuntimeResourceGovernorConfig=$runtimeResourceGovernorConfig
         ResolvedManifest=$resolved;ResolvedInstance=$resolvedInstances[0];DesiredPlans=$desiredPlans;CurrentReceipts=$currentReceipts
         TargetHash=$targetHash
     }
@@ -330,7 +353,7 @@ function Invoke-LabHyperVExternalRuntimeReconcileRepair {
             $journal = Set-LabHyperVExternalRuntimeReconcileJournalStatus -Journal $journal -Path $context.JournalPath -Status INSTALLING
             $receipts = @(Install-LabHyperVExternalRuntimes -SoftwarePlans $context.DesiredPlans -RunId $RunId `
                 -Credential $credentials.GuestCredential -SqlSaPassword $credentials.SqlSaPassword -MediaRoot $MediaRoot `
-                -ResourceGovernorConfig $context.ResolvedInstance.serverConfig.externalScripts.resourceGovernor -StateRoot $context.StateRoot)
+                -ResourceGovernorConfig $context.RuntimeResourceGovernorConfig -StateRoot $context.StateRoot)
             $receiptKeys = @($receipts.PlanKey | Sort-Object -Unique)
             if (($receiptKeys -join ',') -cne (@($context.DesiredPlans.PlanKey | Sort-Object -Unique) -join ',')) {
                 throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_POSTCONDITION_PLAN_KEYS_MISMATCH'

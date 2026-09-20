@@ -139,7 +139,20 @@ function Get-LabExternalRuntimeReconcileContext {
         throw 'EXTERNAL_RUNTIME_RECONCILE_PROVIDER_OR_VERSION_UNSUPPORTED'
     }
 
-    $desiredPlans = @(Resolve-LabExternalRuntimePlansForInstance -Instance $targetResolved[0])
+    $providerCapability = @(Get-LabProviderCapabilityContract | Where-Object {
+        [string]$_.Provider -ieq [string]$currentSnapshot[0].Provider
+    } | Select-Object -First 1)[0]
+    if ($null -eq $providerCapability) { throw 'EXTERNAL_RUNTIME_RECONCILE_PROVIDER_UNSUPPORTED' }
+    $persistedSoftware = $currentSnapshot[0].Intents.Software
+    $hasPersistedSoftware = $currentSnapshot[0].Intents.PSObject.Properties['Software'] -and $null -ne $persistedSoftware
+    $desiredPlans = if ($hasPersistedSoftware) {
+        @(Resolve-LabValidatedPersistedSoftwarePlans -Software $persistedSoftware -Instance $currentSnapshot[0] -ProviderCapability $providerCapability)
+    }
+    else {
+        # Historical snapshots have no software envelope.  Preserve their
+        # existing manifest fallback without broadening the new persisted path.
+        @(Resolve-LabExternalRuntimePlansForInstance -Instance $targetResolved[0])
+    }
     if (@($desiredPlans | Where-Object Status -ne 'RESOLVED').Count -gt 0) {
         throw 'EXTERNAL_RUNTIME_RECONCILE_DESIRED_PLAN_UNRESOLVED'
     }
@@ -165,10 +178,32 @@ function Get-LabExternalRuntimeReconcileContext {
     $currentKeys = @($currentPlans.PlanKey | Sort-Object -Unique)
     $desiredKeys = @($desiredPlans.PlanKey | Sort-Object -Unique)
 
+    # The persisted software envelope is the authority boundary for a refresh.
+    # It must also prevent a later manifest from changing the runtime SQL
+    # configuration input or replacing the recorded desired-state snapshot.
+    # Older snapshots did not carry that envelope and intentionally retain the
+    # established manifest path.
+    $runtimeResourceGovernorConfig = if ($hasPersistedSoftware) { $null } else { $targetResolved[0].serverConfig.externalScripts.resourceGovernor }
+    $stateCommitSnapshot = if ($hasPersistedSoftware) { $persisted.Snapshot } else { $desiredSnapshot }
+    $runtimeInstance = $targetResolved[0] | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
+    if ($hasPersistedSoftware) {
+        $containerRuntime = $currentSnapshot[0].Intents.ContainerRuntime
+        if ($null -eq $containerRuntime -or -not (Test-LabPersistedContainerRuntimeIntent -ContainerRuntime $containerRuntime -Provider ([string]$currentSnapshot[0].Provider) -SqlVersion ([string]$currentSnapshot[0].Version))) {
+            throw 'EXTERNAL_RUNTIME_RECONCILE_CONTAINER_RUNTIME_INTENT_MISSING'
+        }
+        # The replacement provider only needs non-software container shape;
+        # image and installer inputs are separately catalog/persisted bound.
+        $runtimeInstance.PSObject.Properties.Remove('software')
+        $runtimeInstance.PSObject.Properties.Remove('serverConfig')
+        $runtimeInstance | Add-Member -NotePropertyName collation -NotePropertyValue ([string]$containerRuntime.Collation) -Force
+        $runtimeInstance | Add-Member -NotePropertyName runtimeResources -NotePropertyValue ([PSCustomObject]@{ cpu=[double]$containerRuntime.Cpu; memoryMB=[int]$containerRuntime.MemoryMB }) -Force
+    }
+
     return [PSCustomObject]@{
         Run=$run; RunDirectory=$runDirectory; ConnectionPath=$connectionPath; Connection=$connection
-        ConnectionInstance=$connectionInstance; ResolvedManifest=$resolved; ResolvedInstance=$targetResolved[0]
-        PersistedSnapshot=$persisted.Snapshot; DesiredSnapshot=$desiredSnapshot
+        ConnectionInstance=$connectionInstance; ResolvedManifest=$resolved; ResolvedInstance=$targetResolved[0]; RuntimeInstance=$runtimeInstance
+        PersistedSnapshot=$persisted.Snapshot; DesiredSnapshot=$stateCommitSnapshot
+        RuntimeResourceGovernorConfig=$runtimeResourceGovernorConfig
         DesiredPlans=$desiredPlans; CurrentPlans=$currentPlans; Preview=$preview; ImagePlan=$imagePlan
         CurrentPlanKeys=$currentKeys; DesiredPlanKeys=$desiredKeys
         RemovedIds=@($removedIds | Sort-Object -Unique)
@@ -574,7 +609,7 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
     $isInitialInstall = $context.CurrentPlans.Count -eq 0
     $isLastRemoval = $context.DesiredPlans.Count -eq 0 -and $context.CurrentPlans.Count -gt 0
     $replacementInstance = New-LabExternalRuntimeReplacementInstance `
-        -ResolvedInstance $context.ResolvedInstance -ContainerInspect $inspect `
+        -ResolvedInstance $context.RuntimeInstance -ContainerInspect $inspect `
         -AllowNewExternalRuntimeVolumes:$isInitialInstall `
         -ExcludeExternalRuntimeVolumes:$isLastRemoval `
         -PersistentData:([bool]$context.PersistedSnapshot.PersistentData)
@@ -657,7 +692,7 @@ function Invoke-LabExternalRuntimeReconcileRefresh {
         else {
             @(Initialize-LabExternalRuntimes -SoftwarePlans $context.DesiredPlans -LabInstance $labInstance `
                 -ImageArtifact $artifact -SaPassword $saPassword -RunDirectory $context.RunDirectory `
-                -ResourceGovernorConfig $context.ResolvedInstance.serverConfig.externalScripts.resourceGovernor `
+                -ResourceGovernorConfig $context.RuntimeResourceGovernorConfig `
                 -CompensationRecords ([ref]$javaCompensations))
         }
         if ($javaCleanup) {

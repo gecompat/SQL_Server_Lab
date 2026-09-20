@@ -51,7 +51,7 @@ testet seinen Core je Provider nur mit SQL Server 2025.
 | Persistente Container-Instanzstores | Continue und unabhängiger Clone per stabiler `PersistentStorageId` in CLI und Browser; operationsgebundene Lease, Digest und atomarer Katalogcommit | `Private/ContainerInstanceStore.ps1`, `Tests/Static/Invoke-ContainerInstanceStoreChecks.ps1` |
 | Providerneutrale Batch-, Queue- und Resume-Provisionierung | implementiert | `Private/BatchWorkflow.ps1`, `Public/BatchWorkflow.ps1`, `Schemas/lab-batch.schema.json` |
 | Manifest-Provisionierung | primärer unbeaufsichtigter Containerpfad; externe Secret-Referenzen, SHA-256-Restores und sichere Mount-Defaults | `Schemas/lab-manifest.schema.json`, `Documentation/Architecture/TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md` |
-| Resource Assessment | implementiert | `Test-SqlServerLabPrerequisite` |
+| Resource Assessment | Erstellungsentscheid mit explizitem Overcommit und lokaler Persistenz; Kapazitätsmodelle teilweise | `Test-SqlServerLabPrerequisite`, [Entscheidungsvertrag](Documentation/Architecture/RESOURCE_ASSESSMENT_DECISION.md) |
 | Run-State und Cleanup-Plan | implementiert | `Private/StateMachine.ps1`, `Private/CleanupEngine.ps1` |
 | Datenbankerstellung | implementiert | `New-SqlServerLabDatabase` |
 | Backup-Restore mit Artifact Resolver | implementiert | `Restore-SqlServerLabDatabase`, `Private/ArtifactResolver.ps1` |
@@ -489,7 +489,8 @@ kennzeichnen weiterhin riskante, aber ausführbare SQL-Konfigurationen. Bei
 `software` bietet der interaktive Wizard
 nur Varianten an, die der Software-Resolver fuer die bereits gewählte
 SQL-Version, den Provider und das Betriebssystem als `RESOLVED` freigibt. Die
-mutationsfreie Planvorschau nennt Artifact-Downloads, Derived-Image-Build oder
+mutationsfreie Planvorschau nennt den SQL-Lifecycle aus dem Versionskatalog
+einschließlich unbekannter Versionen sowie Artifact-Downloads, Derived-Image-Build oder
 Gastmutation, Restarts, Downtime, Package Locks, Verification und den sicheren
 Aenderungsweg (`rebuild`, `restart`, `recreate` oder `reprovision`). Ein
 gespeichertes Manifest läuft standardmäßig

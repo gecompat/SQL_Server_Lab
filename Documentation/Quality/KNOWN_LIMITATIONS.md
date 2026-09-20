@@ -1,11 +1,75 @@
 # Bekannte Grenzen
 
+Der private CORE-102-[Instanzentscheid](../Architecture/INSTANCE_CAPABILITY_ASSESSMENT.md)
+fasst nur Katalog- und Providermetadaten zusammen. Sein deklarativer Status
+belegt keine Runtimebereitschaft oder Ausführungsautorität; physische
+Storage-Bindings und aktuelle SQL-Erreichbarkeit bleiben separate Nachweise.
+
+CORE-111 speichert den Erstellungs-Preflight für `New-SqlServerLab` lokal und
+unterscheidet `EXECUTED`, `SKIPPED` und explizites `OVERRIDDEN`.
+Der Lifecycle-Plan zeigt nur den historischen Entscheid, keine aktuelle
+Kapazitätsmessung. Die bisherigen RAM-Profil- und Storage-Schätzungen sowie
+die Lab-Portanzahl bleiben unverändert; vollständige Hostreserve-, CPU-,
+Peakbedarfs- und Einzelportmodelle bleiben offen. Eigenständige interne
+Image-/VM-Builder sind nicht auf den neuen gemeinsamen Preflight umgestellt.
+Offline-Persistenztests ersetzen keine native Provider-Abnahme. Vertrag:
+`Documentation/Architecture/RESOURCE_ASSESSMENT_DECISION.md`.
+
+Der private SCN-803-Capability-Entscheid verarbeitet ausschließlich vom
+vertrauenswürdigen lokalen Aufrufer gelieferte Deklarationen und synthetische
+Evidence. `ELIGIBLE` ist weder Ausführungsfreigabe noch Runtime-Nachweis.
+Eine vollständig gebundene Alternative bleibt `NOT_EXECUTED`; unvollständige
+Abdeckung bleibt `UNSUPPORTED`, ungültige Eingaben werden `BLOCKED`.
+Es gibt keine Provider-/SQL-Discovery, automatische Ausführung, Journaldateien
+oder öffentliche API. Siehe
+`Documentation/Architecture/SCENARIO_CAPABILITY_DECISION.md`.
+
+Der private `container.memory-limit`-Puls erlaubt ausschließlich frische eigene
+Linux-SQL-2025-Testcontainer mit 3072 MiB Memory und 6144 MiB MemorySwap.
+Der Puls begrenzt Memory kurz auf 2560 MiB. Docker bestätigt die Limit-Rücknahme
+auch am gestoppten Ziel. Podman 6.0.2 zeigt dort nach Update weiterhin Applied-
+Werte; die Rücknahme bleibt unverifiziert. Beide Fälle bleiben ohne SQL-
+Readiness `RECOVERY_REQUIRED`; automatischer Start ist ausgeschlossen.
+Offlineprüfungen sind bestanden; normale native Docker-/Podman-Pulse und
+Hard-Interrupt mit laufendem Restoreziel ebenfalls (2026-09-19). Die getrennten
+gestoppten Fälle bestätigten die genannten Recoverygrenzen und jeweils
+vollständiges eigenes Cleanup. Weitere Versionen, OOM-
+Erzeugung und Performancewirkung bleiben offen. Vertrag:
+`Documentation/Architecture/CONTAINER_MEMORY_FAULT.md`.
+
+Der interne `container.cpu-limit`-Puls ist auf frische operationseigene
+Docker-/Podman-SQL-Testcontainer und exakt unterstützte 2→1-CPU-Rohzustände
+begrenzt. Docker und Podman bestanden am 2026-09-19 die getrennte lokale
+SQL-2025-Abnahme mit exakter CPU-Rücknahme, SQL-Probe und Cleanup. Die separaten
+nativen Hard-Interrupt-Läufe nach authentifiziertem Applied-Checkpoint bestanden
+ebenfalls mit `INTERRUPTED`, Restore-only-Resume, bytegleichem terminalem Journal
+und vollständigem Cleanup. Weitere SQL-Versionen sowie Host-/Engine-Abstürze
+und Unterbrechungen an anderen nativen Zeitpunkten bleiben `NOT_EXECUTED`.
+Es gibt keine öffentliche Fault-API, keine Hyper-V-Anbindung und keine
+Garantie einer fünfsekündigen Rücknahme bei Host-/Runtimeausfall. Siehe
+`Documentation/Architecture/CONTAINER_CPU_FAULT.md` für Ownership, Grenzen
+und Restore-only-Recovery.
+
 | Merkmal | Wert |
 |---|---|
 | Status | `BINDING_LIMITATIONS` |
 | Stand | 2026-09-08 |
 
 Dieses Dokument beschreibt bekannte Grenzen des aktuell implementierten Runtimepfads. Es ist Teil des öffentlichen Projektvertrags. Ein Feld im JSON-Schema oder ein Planungsdokument gilt nicht automatisch als Implementierungsnachweis.
+
+Der interne [SCN-802-Executor](../Project_Planning/SCENARIO_CONTRACT_BACKLOG.md)
+führt nur fest eingebaute synthetische Handler in einem lokalen Journal aus.
+SCN-801 bleibt ein nicht ausführbarer Metadatenvertrag. Öffentliche API,
+SQL-/Provideraktionen und fachliche Scenario-Outcomes sind nicht implementiert.
+Resume bereinigt unterbrochene Arbeit, wiederholt sie aber nicht; nach drei
+Cleanupversuchen bleibt Recovery erforderlich. Das lokale Journal setzt einen
+vertrauenswürdigen Aufrufer mit separat erhaltenem Ownershipschlüssel voraus;
+Dateisystemzugriffe besitzen keinen präemptiven Timeout.
+SCN-804 begrenzt mit Plan `0.2` jede Primärphase zusätzlich zur globalen
+Arbeitsfrist. Cleanup hat ein unabhängiges Budget. Plan `0.1` wird ohne
+automatische Migration abgewiesen; dessen Journale benötigen zur Recovery den
+passenden bisherigen Executor. Diese Fristen belegen ausschließlich den
+synthetischen internen Ablauf, keine SQL-/Providerdeadline.
 
 `RELATIONAL_CORE/1.0` inventarisiert alle Benutzertabellen und vergleicht ausschließlich zulässige Tabelleninhalte read-only zwischen live gebundenen Docker-/Podman-Runs. Es lässt nur normale diskbasierte Benutzertabellen mit aktivem, ungefiltertem PK zu. Jeder PK muss ausschließlich aus `tinyint`, `smallint`, `int`, `bigint` oder `uniqueidentifier` bestehen. Zugelassene Nicht-PK-Spaltentypen sind `bit`, diese fünf PK-Typen, `date`, `datetime2`, `datetimeoffset`, `time`, `char`, `varchar`, `nchar`, `nvarchar`, `binary` und `varbinary`; jede `max`-Spalte und jede versteckte Spalte wird blockiert. RLS, Temporal-, FileTable-, External-, Memory-optimized-, Graph- und Ledger-Tabellen, unzulässige Spaltenattribute und alle übrigen Typen – einschließlich `decimal`, `numeric`, `money`, `smallmoney`, `datetime` und `smalldatetime` – werden nicht angenähert, sondern als inventarisierte Tabelle fail-closed mit `TABLE_UNSUPPORTED_OR_POLICY_BLOCKED` ausgewiesen. Quelle und Ziel müssen SQL-seitig als exakt ausgewählte `ONLINE`- und `READ_ONLY`-Datenbanken bestätigt sein. Ergebnisse enthalten keine Datenwerte. Restore, Backup-Staging, Zielerzeugung und jeder Transfer-Executor sind nicht implementiert und bleiben `BLOCKED`.
 
@@ -981,8 +1045,11 @@ führt keine Checkpoint-Erstellung, SQL-Quiesce, Retention oder Restore-Probe au
 Nicht implementiert sind insbesondere ein zeitgesteuerter Watchdog, ein
 portabler Gesamt-Lab-Exporter/-Importexecutor, konkrete externe Vault-Adapter,
 ein vollständiger Lifecycle verwalteter Recovery Points und ein ausführbarer Framework-/State-Upgrade-
-Lifecycle für produktive oder unbekannte historische States. Der neue
-State-Upgrade-Executor migriert ausschließlich einen ausdrücklich mit
+Lifecycle für produktive oder unbekannte historische States. Neue Run-States
+tragen bereits `contractVersion=SqlServerLab.RunState/1.0`; Planung und
+Upgrade-Aufruf bleiben dafür `NO_ACTION` ohne State-Schreibzugriff oder
+Upgrade-Artefakte. Historische unversionierte States werden nicht nachträglich
+markiert. Der State-Upgrade-Executor migriert ausschließlich einen ausdrücklich mit
 `metadata.syntheticStateFixture=true` markierten, unversionierten synthetischen
 State atomar, sichert die Ausgangsrevision und journalisiert Commit oder
 Rollback; er verändert keine Provider- oder Runtime-Ressourcen. Erweiterte
@@ -1135,7 +1202,12 @@ Default-Data-, Default-Log- und Backup-Lanes gebunden und blockiert
 widersprüchliche datenbankspezifische Platzierung vor der Provider-Mutation.
 Weitere Hyper-V-Sample-Varianten sind damit nicht nativ abgenommen. Der Manifest-Wizard
 unterstützt Hilfe, schrittweise Zurücknavigation, Zwischenzusammenfassung und
-Abbruch ohne partielle Datei. Seine mutationsfreie Planvorschau umfasst
+Abbruch ohne partielle Datei. Die Manifest-Planvorschau `1.3` projiziert den
+bestehenden SQL-Lifecycle-Entscheid einschließlich `UNKNOWN` je Instanz.
+Dieser Status bestätigt weder CU-Tag noch Providerfähigkeit; andere
+Validierungsfehler bleiben erhalten. Bei Schemafehlern ist die Instanzliste
+leer. Eine Ausnahme für veraltete Versionen wird dadurch nicht eingeführt.
+Seine mutationsfreie Planvorschau umfasst außerdem
 External Runtimes sowie Sample-/Artifact-Quelle, Lizenz, Outputs, Größen,
 Integrität, Trust, Handler und Idempotenz. Single- und
 Multi-Output-Container-Samples erzeugen

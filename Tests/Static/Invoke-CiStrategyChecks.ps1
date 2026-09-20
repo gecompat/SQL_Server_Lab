@@ -34,6 +34,54 @@ Add-CheckResult -Name 'Windows-External-Runtime-Aenderung aktiviert Katalog-, Ga
 )
 
 $shared = & $selector -ChangedPath @('Private/Common.ps1')
+foreach ($assessmentPath in @('Private/ResourceAssessment.ps1','Private/ResourceAssessmentDecision.ps1','Schemas/resource-assessment-record.schema.json')) {
+    foreach ($path in @($assessmentPath,$assessmentPath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "Assessment bindet gemeinsame Erstellung und separate Provider: $path" -Success (
+            'Invoke-ResourceAssessmentChecks.ps1' -in $selected.StaticChecks -and
+            $selected.Docker -and $selected.Podman -and $selected.HyperV -and $selected.Mixed)
+    }
+}
+foreach ($faultPath in @('Private/ContainerMemoryFault.ps1','Schemas/container-memory-fault-target.schema.json','Schemas/container-memory-fault-journal.schema.json','Tests/Integration/Invoke-ContainerMemoryFaultAcceptance.ps1')) {
+    foreach ($path in @($faultPath,$faultPath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "Memory-Fault waehlt getrennte Containerprovider: $path" -Success (
+            'Invoke-ContainerMemoryFaultChecks.ps1' -in $selected.StaticChecks -and
+            $selected.Docker -and $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+    }
+}
+$memoryTransport = & $selector -ChangedPath @('Private/ContainerCpuFault.ps1')
+Add-CheckResult -Name 'CPU-Transportaenderung prueft auch den Memory-Consumer' -Success ('Invoke-ContainerMemoryFaultChecks.ps1' -in $memoryTransport.StaticChecks)
+foreach ($faultPath in @('Private/ContainerCpuFault.ps1','Schemas/container-cpu-fault-target.schema.json','Schemas/container-cpu-fault-journal.schema.json','Tests/Integration/Invoke-ContainerCpuFaultAcceptance.ps1')) {
+    foreach ($path in @($faultPath,$faultPath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "CPU-Fault waehlt getrennte Containerprovider: $path" -Success (
+            'Invoke-ContainerCpuFaultChecks.ps1' -in $selected.StaticChecks -and
+            $selected.Docker -and $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+    }
+}
+foreach ($scenarioPath in @('Private/ScenarioExecutor.ps1','Schemas/scenario-execution-plan.schema.json','Schemas/scenario-execution-journal.schema.json','Tests/Fixtures/ScenarioExecutor/Invoke-InterruptedFixture.ps1')) {
+    $selected = & $selector -ChangedPath @($scenarioPath)
+    Add-CheckResult -Name "Synthetischer interner Executor bleibt providerlos: $scenarioPath" -Success (
+        'Invoke-ScenarioExecutorChecks.ps1' -in $selected.StaticChecks -and
+        'Invoke-ScenarioContractChecks.ps1' -in $selected.StaticChecks -and
+        -not $selected.Docker -and -not $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+}
+$scenarioMixed = & $selector -ChangedPath @('Private/ScenarioExecutor.ps1','Private/UnknownScenarioExecutor.ps1')
+Add-CheckResult -Name 'Synthetischer Executor unterdrueckt keinen unbekannten produktiven Runtime-Fallback' -Success $scenarioMixed.Docker
+foreach ($capabilityPath in @('Private/ScenarioCapabilityDecision.ps1','Schemas/scenario-capability-plan.schema.json','Schemas/scenario-capability-decision.schema.json')) {
+    foreach ($path in @($capabilityPath,$capabilityPath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "Capability-Entscheidung bleibt providerlos: $path" -Success (
+            'Invoke-ScenarioCapabilityDecisionChecks.ps1' -in $selected.StaticChecks -and
+            'Invoke-ScenarioContractChecks.ps1' -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+    }
+}
+$capabilityMixed = & $selector -ChangedPath @('Private/ScenarioCapabilityDecision.ps1','Private/UnknownScenarioCapabilityDecision.ps1')
+Add-CheckResult -Name 'Capability-Entscheidung unterdrueckt keinen unbekannten Runtime-Fallback' -Success $capabilityMixed.Docker
+$capabilityConsumer = & $selector -ChangedPath @('Schemas/scenario-contract.schema.json')
+Add-CheckResult -Name 'SCN-801-Aenderung prueft Capability-Consumer mit' -Success ('Invoke-ScenarioCapabilityDecisionChecks.ps1' -in $capabilityConsumer.StaticChecks)
 foreach ($securityPath in @('Private/SecurityToolCatalog.ps1','Public/Get-SqlServerLabSecurityToolPlan.ps1',
     'Catalogs/security-tools.json','Schemas/security-tool-catalog.schema.json','Schemas/security-tool-request.schema.json',
     'Schemas/security-tool-plan.schema.json','Tests/Fixtures/SecurityTools/catalog.json')) {
@@ -186,6 +234,7 @@ $dependencyCases = @(
     @{ Path = 'Private/AiReembedding.ps1'; Checks = @('Invoke-AiScenarioChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
     @{ Path = 'Schemas/ai-reembedding-plan.schema.json'; Checks = @('Invoke-AiScenarioChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
     @{ Path = 'Private/StateUpgrade.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/StateMachine.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1'); Runtime = @() },
     @{ Path = 'Public/Get-SqlServerLabRunStateUpgradePlan.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
     @{ Path = 'Public/Invoke-SqlServerLabRunStateUpgrade.ps1'; Checks = @('Invoke-RunStateUpgradeChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/CollationCatalog.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-VersionCatalogChecks.ps1'); Runtime = @() },
@@ -194,8 +243,13 @@ $dependencyCases = @(
     @{ Path = 'Public/Find-SqlServerLabCollation.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
     @{ Path = 'Catalogs/sql-server-collations.json'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/sql-server-collation-catalog.schema.json'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
-    @{ Path = 'Private/ManifestParser.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
-    @{ Path = 'Private/ManifestBuilder.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/ManifestParser.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-ManifestBuilderChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/ManifestBuilder.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-ManifestBuilderChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/InstanceCapabilityAssessment.ps1'; Checks = @('Invoke-InstanceCapabilityAssessmentChecks.ps1','Invoke-InstanceIntentChecks.ps1'); Runtime = @() },
+    @{ Path = 'Schemas/instance-capability-assessment.schema.json'; Checks = @('Invoke-InstanceCapabilityAssessmentChecks.ps1','Invoke-InstanceIntentChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/DesiredState.ps1'; Checks = @('Invoke-InstanceCapabilityAssessmentChecks.ps1','Invoke-InstanceIntentChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-PersistedSoftwareIntentChecks.ps1','Invoke-HyperVResourceReconcileChecks.ps1'); Runtime = @('Mixed') },
+    @{ Path = 'Private/VersionCatalog.ps1'; Checks = @('Invoke-ManifestBuilderChecks.ps1','Invoke-InstanceCapabilityAssessmentChecks.ps1'); Runtime = @() },
+    @{ Path = 'Catalogs/sql-server-versions.json'; Checks = @('Invoke-ManifestBuilderChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/lab-manifest.schema.json'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },
     @{ Path = 'Public/New-SqlServerLab.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-HyperVSqlConfigurationReconcileChecks.ps1','Invoke-ReconcileActionContractChecks.ps1','Invoke-InstanceIntentChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
     @{ Path = 'Public/Invoke-SqlServerLab.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },

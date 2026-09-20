@@ -317,7 +317,7 @@ try {
             StateBefore=(Get-Content -LiteralPath (Join-Path $run.RunDir 'run-state.json') -Raw -Encoding utf8)
             ConnectionBefore=(Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8)
         }
-    } $tempRoot $currentManifestPath
+    } $tempRoot $desiredManifestPath
 
     $plan = Get-SqlServerLabReconcilePlan -RunId $fixture.RunId -ManifestPath $desiredManifestPath -InstanceId external-runtime -StateRoot $fixture.StateRoot
     Add-CheckResult -Name 'Additiver Resolverplan erzeugt sanitisierten Recreate-Plan' -Success (
@@ -346,7 +346,7 @@ try {
             })
         })
         [PSCustomObject]@{ RunId=$run.RunId; RunDirectory=$run.RunDir; StateRoot=$Root }
-    } $tempRoot $plainManifestPath
+    } $tempRoot $desiredManifestPath
     $installPlan = Get-SqlServerLabReconcilePlan -RunId $plainFixture.RunId -ManifestPath $desiredManifestPath `
         -InstanceId external-runtime -StateRoot $plainFixture.StateRoot
     Add-CheckResult -Name 'SQL-2022-Container ohne bestehende Runtime erhält einen Erstinstallationsplan' -Success (
@@ -391,22 +391,19 @@ try {
     catch { $driftRejected = $_.Exception.Message -match 'NON_SOFTWARE_DRIFT' }
     Add-CheckResult -Name 'Nicht-Software-Drift wird vor jeder Mutation abgelehnt' -Success $driftRejected
     $removalPlan = Get-SqlServerLabReconcilePlan -RunId $fixture.RunId -ManifestPath $removalManifestPath -InstanceId external-runtime -StateRoot $fixture.StateRoot
-    Add-CheckResult -Name 'Einzelne Runtime-Entfernung wird als sanitisiertes Recreate geplant' -Success (
-        @($removalPlan.Diff | Where-Object { $_.SoftwareId -eq 'sql-python' -and $_.ChangeClassification.Intent -eq 'remove' }).Count -eq 1 -and
-        @($removalPlan.Diff | Where-Object SoftwareId -eq 'sql-r').Count -eq 1 -and
-        $removalPlan.HighestChangeClass -eq 'recreate'
+    Add-CheckResult -Name 'Nach Persistierung geaenderte Manifest-Software kann keinen Containerplan oder ImageKey waehlen' -Success (
+        (@($removalPlan.Desired.PlanKeys) -join ',') -ceq (@($plan.Desired.PlanKeys) -join ',') -and
+        [string]$removalPlan.Desired.ImageKey -ceq [string]$plan.Desired.ImageKey -and
+        @($removalPlan.Desired.Software | Where-Object SoftwareId -eq 'sql-r').Count -eq 1 -and
+        @($removalPlan.Diff | Where-Object { $_.SoftwareId -eq 'sql-python' -and $_.ChangeClassification.Intent -eq 'remove' }).Count -eq 0
     )
     $lastRemovalPlan = Get-SqlServerLabReconcilePlan -RunId $fixture.RunId -ManifestPath $lastRemovalManifestPath `
         -InstanceId external-runtime -StateRoot $fixture.StateRoot
-    Add-CheckResult -Name 'Entfernung der letzten Runtime plant den sanitisierten Basisimage-Rueckweg' -Success (
-        @($lastRemovalPlan.Actions).Count -eq 1 -and
-        $lastRemovalPlan.Actions[0].Operation -eq 'RemoveExternalRuntime' -and
-        $null -eq $lastRemovalPlan.Actions[0].ImageKey -and
-        $null -eq $lastRemovalPlan.Desired.ImageKey -and
-        @($lastRemovalPlan.Desired.PlanKeys).Count -eq 0 -and
-        @($lastRemovalPlan.Desired.Software).Count -eq 0 -and
-        @($lastRemovalPlan.Diff | Where-Object { $_.SoftwareId -eq 'sql-python' -and $_.ChangeClassification.Intent -eq 'remove' }).Count -eq 1 -and
-        @($lastRemovalPlan.Warnings | Where-Object { $_ -match 'katalogisierte SQL-Basisimage' }).Count -eq 1 -and
+    Add-CheckResult -Name 'Leere nachpersistierte Manifest-Software kann keinen Basisimage-Rueckweg erzwingen' -Success (
+        (@($lastRemovalPlan.Desired.PlanKeys) -join ',') -ceq (@($plan.Desired.PlanKeys) -join ',') -and
+        [string]$lastRemovalPlan.Desired.ImageKey -ceq [string]$plan.Desired.ImageKey -and
+        @($lastRemovalPlan.Desired.Software).Count -eq 2 -and
+        @($lastRemovalPlan.Diff | Where-Object { $_.ChangeClassification.Intent -eq 'remove' }).Count -eq 0 -and
         (($lastRemovalPlan | ConvertTo-Json -Depth 30) -notmatch 'secret-host|secret-container|14331|last-removal\.json')
     )
 }
