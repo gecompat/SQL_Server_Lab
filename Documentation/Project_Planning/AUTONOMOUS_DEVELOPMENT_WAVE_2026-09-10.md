@@ -107,6 +107,12 @@ unverändert, und seine andere Modellbindung wird nicht nachträglich als geprü
 ausgewiesen. Nicht abgeschlossene andere Punkte einschließlich SQL-Gast-
 Evaluation-Capture bleiben erhalten und werden dadurch nicht abgeschlossen.
 
+Der nächste Slice ist die [isolierte Hyper-V-Abnahme](../Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md)
+mit explizitem Prepared-Artefakt, eigener VM und lokaler Qwen-Generierung für
+RAG/Agent. Implementierung und Offline-Verträge sind vorbereitet; native
+VM-Neustart-/Cleanup-Evidence steht noch aus. Persistentes Retrieval und
+Re-Embedding folgen danach, Golden v1 bleibt gesondert offen.
+
 Abgesehen von der obigen ausdrücklichen KI-Priorität sind Reihenfolge und
 Abnahme innerhalb dieser Tabelle von oben nach unten vorgegeben.
 Unabhängige Offlinearbeit darf bei einem konkret dokumentierten

@@ -46,6 +46,16 @@ on:
           - storage-reconcile-acceptance
           - sample-manifest-acceptance
           - external-runtime-reconcile-acceptance
+          - ai-rag-own-run-acceptance
+      ai_preflight_only:
+        description: Im KI-Own-Run-Modus ausschließlich vorhandenes Artifact und Hostmodelle lesend prüfen
+        required: false
+        type: boolean
+        default: true
+      ai_state_root:
+        description: Expliziter bestehender State Root für KI-Artifactkatalog und eigenen neuen Run; leer verwendet Runnerkonfiguration
+        required: false
+        type: string
       image_artifact_id:
         description: Optionales OS_SEALED-Artifact fuer den Slot-Batch oder SQL_PREPARED_SEALED-Artifact fuer Reconcile-Acceptances; leer waehlt jeweils das neueste passende Artifact
         required: false
@@ -106,6 +116,30 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
+
+      - name: Reject AI own-run acceptance outside trusted manual dispatch
+        if: inputs.mode == 'ai-rag-own-run-acceptance' && !(github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository)
+        run: |
+          throw 'AI_HYPERV_MANUAL_DISPATCH_REQUIRED'
+
+      - name: Read-only Hyper-V AI artifact and host model preflight
+        if: inputs.mode == 'ai-rag-own-run-acceptance' && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
+        env:
+          SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+          SQL_SERVER_LAB_CI_AI_STATE_ROOT: ${{ inputs.ai_state_root }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID)) { throw 'AI_HYPERV_EXPLICIT_ARTIFACT_REQUIRED' }
+          .\Tests\Integration\Invoke-AiHyperVOwnRunAcceptance.ps1 -ArtifactId $env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID -StateRoot $env:SQL_SERVER_LAB_CI_AI_STATE_ROOT -PreflightOnly
+
+      - name: Hyper-V AI own-run acceptance
+        if: inputs.mode == 'ai-rag-own-run-acceptance' && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository && inputs.ai_preflight_only == false
+        env:
+          SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+          SQL_SERVER_LAB_CI_AI_STATE_ROOT: ${{ inputs.ai_state_root }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Integration\Invoke-AiHyperVOwnRunAcceptance.ps1 -ArtifactId $env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID -StateRoot $env:SQL_SERVER_LAB_CI_AI_STATE_ROOT
 
       - name: Hyper-V Windows locale and cold start
         if: inputs.mode == 'locale-acceptance'

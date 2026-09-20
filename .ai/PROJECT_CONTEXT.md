@@ -27,6 +27,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- Isolierte Hyper-V-RAG-/Agent-Abnahme aus explizitem SQL-Prepared-Artefakt,
+  mit vorhandenem lokalem Qwen, VMId-/Parentbindung und vollständigem Own-Cleanup
+  vorbereitet (`IMPLEMENTED_NATIVE_PENDING`). Die neue Modellpaarung ersetzt
+  weder Golden v1 noch den älteren `PARTIAL`-Nachweis. Vertrag:
+  `Documentation/Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md`;
+
 - AdHoc-RAG mit vorhandenem Host-`embeddinggemma:latest` und expliziter
   HTTPS-Cloudgeneration über die bestehende Ollama-Lane; lokale Defaults und
   Golden v1 unverändert. Live-Modellbindung, Egress/Datenklasse, Secret-Cleanup
