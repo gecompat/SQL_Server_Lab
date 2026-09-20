@@ -1087,6 +1087,54 @@ try {
             }
             $null=Add-LabSelectedPersistentContainerDrive -Instance $catalogedInstance -Plan $catalogedPlan -Storage $storage -IncludeExternalRuntimeState
             $catalogedPersisted=& $newPersistedContainerRun 'canonical cataloged runtime drive' $catalogedInstance $containerProviderCapability
+            $newContainerDriveGroupResult = {
+                param([string]$Name, [scriptblock]$Build, [scriptblock]$Tamper, [bool]$Valid)
+                $instance = & $newContainerInstance
+                & $Build $instance
+                $intents = New-LabInstanceIntentSnapshot -Instance $instance -ProviderCapability $containerProviderCapability
+                & $Tamper @($intents.Drives)
+                $snapshot = [PSCustomObject]@{
+                    Contract=[PSCustomObject]@{Name='SqlServerLab.RunDesiredState';Version='1.0'}; ProvisioningMode='manifest'; PersistentData=$false
+                    Instances=@([PSCustomObject]@{Id='primary';Provider='docker';Profile='standard';Intents=$intents})
+                }
+                $run = New-LabRunState -StateRoot $Root -Metadata @{name=$Name;desiredState=$snapshot} -ProviderSubRuns @([PSCustomObject]@{provider='docker';instanceIds=@('primary')})
+                $persisted = Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $Root
+                $plans = if ($Valid) { @() } else {
+                    @(Get-SqlServerLabReconcilePlan -RunId $run.RunId -TargetState RUNNING -StateRoot $Root)
+                }
+                [PSCustomObject]@{ Name=$Name; Valid=$Valid; Persisted=$persisted; Plans=$plans }
+            }
+            $containerDriveGroupCases = @(
+                (& $newContainerDriveGroupResult 'actual producer run scoped group' {
+                    param($instance); $null=Add-LabRunScopedContainerSystemDrive -Instance $instance -IncludeExternalRuntimeState
+                } {} $true),
+                (& $newContainerDriveGroupResult 'actual producer data root group' {
+                    param($instance); $null=Add-LabPersistentContainerDrive -Instance $instance -Storage $storage -IncludeExternalRuntimeState
+                } {} $true),
+                (& $newContainerDriveGroupResult 'actual producer cataloged group' {
+                    param($instance); $null=Add-LabSelectedPersistentContainerDrive -Instance $instance -Plan $catalogedPlan -Storage $storage -IncludeExternalRuntimeState
+                } {} $true),
+                (& $newContainerDriveGroupResult 'tampered arbitrary runtime drive identity' {
+                    param($instance); $null=Add-LabRunScopedContainerSystemDrive -Instance $instance -IncludeExternalRuntimeState
+                } {
+                    param($drives); @($drives | Where-Object Id -eq 'runtime-mssql-external-libraries')[0].Id='untrusted-runtime-volume'
+                } $false),
+                (& $newContainerDriveGroupResult 'divergent cataloged drive identities' {
+                    param($instance); $null=Add-LabSelectedPersistentContainerDrive -Instance $instance -Plan $catalogedPlan -Storage $storage -IncludeExternalRuntimeState
+                } {
+                    param($drives); @($drives | Where-Object Id -eq 'persistent-mssql-external-libraries')[0].PersistentStorageId=[guid]::NewGuid().ToString('D')
+                } $false),
+                (& $newContainerDriveGroupResult 'incomplete data root drive group' {
+                    param($instance); $null=Add-LabPersistentContainerDrive -Instance $instance -Storage $storage -IncludeExternalRuntimeState
+                } {
+                    param($drives); $intents.Drives=@($drives | Where-Object Id -ne 'persistent-mssql-external-libraries')
+                } $false),
+                (& $newContainerDriveGroupResult 'data root drive identity injected' {
+                    param($instance); $null=Add-LabPersistentContainerDrive -Instance $instance -Storage $storage -IncludeExternalRuntimeState
+                } {
+                    param($drives); @($drives | Where-Object Id -eq 'persistent-mssql')[0].PersistentStorageId=[guid]::NewGuid().ToString('D')
+                } $false)
+            )
             [PSCustomObject]@{Cases=$results;RuntimeCalls=$script:invalidPersistedDriveRuntimeCalls;CanonicalRoundtrip=(
                 $canonicalPersisted.Status -eq 'VALID' -and $canonicalDrive.SizeGB -is [double] -and
                 ((@($canonicalDrive.PSObject.Properties.Name|Sort-Object)-join ',') -ceq 'AccessMode,Binding,CapabilityStatus,GuestPath,Id,PerformanceClass,Persistence,PersistentStorageId,RequiredCapability,Role,SizeGB')
@@ -1103,7 +1151,7 @@ try {
                 @($catalogedPersisted.Snapshot.Instances[0].Intents.Drives | Where-Object {
                     $_.Persistence -ceq 'cataloged-runtime-volume' -and $_.PersistentStorageId -eq $catalogedStorageId
                 }).Count -eq 3
-            )}
+            );ContainerDriveGroups=$containerDriveGroupCases}
         } finally {
             Set-Item Function:Get-LabRunRuntimeStatus -Value $originalRuntime
             Set-Item Function:Get-LabProviderCapabilityContract -Value $originalProviderCapability
@@ -1123,6 +1171,22 @@ try {
     Add-CheckResult -Name 'Ungueltige persistierte Drive-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' -Success ($persistedDriveIntentContract.RuntimeCalls -eq 0)
     Add-CheckResult -Name 'Realer Desired-State-Snapshot rundet den kanonischen Drive-Intent mit JSON-Doubletrip' -Success $persistedDriveIntentContract.CanonicalRoundtrip
     Add-CheckResult -Name 'Kanonische Container-Runtime- und Katalog-Drive-Intents bleiben nach Persistenz lesbar' -Success $persistedDriveIntentContract.CanonicalContainerRuntimeRoundtrip
+    foreach($containerDriveGroupCase in @($persistedDriveIntentContract.ContainerDriveGroups)) {
+        if($containerDriveGroupCase.Valid) {
+            Add-CheckResult -Name "Vom Producer erzeugte Container-Drive-Gruppe ($($containerDriveGroupCase.Name)) bleibt kanonisch" -Success (
+                $containerDriveGroupCase.Persisted.Status -eq 'VALID' -and $containerDriveGroupCase.Persisted.ReasonCodes.Count -eq 0
+            )
+        } else {
+            Add-CheckResult -Name "Manipulierte Container-Drive-Gruppe ($($containerDriveGroupCase.Name)) blockiert vor Runtime" -Success (
+                $containerDriveGroupCase.Persisted.Status -eq 'INVALID' -and
+                ($containerDriveGroupCase.Persisted.ReasonCodes -join ',') -ceq 'DESIRED_INSTANCE_DRIVE_INTENT_INVALID' -and
+                @($containerDriveGroupCase.Plans | Where-Object {
+                    $_.HighestChangeClass -eq 'unsupported' -and $_.Actions.Count -eq 0 -and -not $_.MutationAllowed -and
+                    $_.Actual.Source -eq 'persisted-desired-state-invalid'
+                }).Count -eq 1
+            )
+        }
+    }
 
     $persistedStorageIntentContract = & $module {
         param($Root)
