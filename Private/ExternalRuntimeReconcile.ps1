@@ -139,7 +139,20 @@ function Get-LabExternalRuntimeReconcileContext {
         throw 'EXTERNAL_RUNTIME_RECONCILE_PROVIDER_OR_VERSION_UNSUPPORTED'
     }
 
-    $desiredPlans = @(Resolve-LabExternalRuntimePlansForInstance -Instance $targetResolved[0])
+    $providerCapability = @(Get-LabProviderCapabilityContract | Where-Object {
+        [string]$_.Provider -ieq [string]$currentSnapshot[0].Provider
+    } | Select-Object -First 1)[0]
+    if ($null -eq $providerCapability) { throw 'EXTERNAL_RUNTIME_RECONCILE_PROVIDER_UNSUPPORTED' }
+    $persistedSoftware = $currentSnapshot[0].Intents.Software
+    $hasPersistedSoftware = $currentSnapshot[0].Intents.PSObject.Properties['Software'] -and $null -ne $persistedSoftware
+    $desiredPlans = if ($hasPersistedSoftware) {
+        @(Resolve-LabValidatedPersistedSoftwarePlans -Software $persistedSoftware -Instance $currentSnapshot[0] -ProviderCapability $providerCapability)
+    }
+    else {
+        # Historical snapshots have no software envelope.  Preserve their
+        # existing manifest fallback without broadening the new persisted path.
+        @(Resolve-LabExternalRuntimePlansForInstance -Instance $targetResolved[0])
+    }
     if (@($desiredPlans | Where-Object Status -ne 'RESOLVED').Count -gt 0) {
         throw 'EXTERNAL_RUNTIME_RECONCILE_DESIRED_PLAN_UNRESOLVED'
     }

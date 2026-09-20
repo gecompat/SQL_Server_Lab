@@ -929,6 +929,49 @@ function Test-LabPersistedSoftwareIntent {
         [string]$Software.CapabilityStatus -ceq $capability
 }
 
+function Resolve-LabValidatedPersistedSoftwarePlans {
+    <#
+    .SYNOPSIS
+        Rehydrates only catalog-bound plans from a validated persisted projection.
+    .DESCRIPTION
+        This is deliberately not a manifest consumer.  The persisted item is
+        reduced to catalog identity inputs before invoking the resolver, so a
+        post-persistence manifest edit cannot select a package, artifact, plan
+        key or derived image.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Software,
+        [Parameter(Mandatory)]$Instance,
+        [Parameter(Mandatory)]$ProviderCapability
+    )
+
+    if (-not (Test-LabPersistedSoftwareIntent -Software $Software -Instance $Instance -ProviderCapability $ProviderCapability)) {
+        throw 'DESIRED_INSTANCE_SOFTWARE_INTENT_INVALID'
+    }
+    $plans = [Collections.Generic.List[object]]::new()
+    foreach ($item in @($Software.Items)) {
+        $actual = ConvertTo-LabValidatedPersistedSoftwareItemProjection -Item $item
+        $request = [PSCustomObject]@{
+            Id=[string]$actual.Id; Version=[string]$actual.RuntimeVersion; Variant=[string]$actual.VariantId
+            Scope=[string]$actual.Scope; InstallMethod=[string]$actual.InstallationMethod; Optional=[bool]$actual.Optional
+            Packages=@($actual.PackageLocks | ForEach-Object {
+                [PSCustomObject]@{Name=[string]$_.Name;Version=[string]$_.Version;Scope=[string]$_.Scope}
+            })
+            RequestSource='persisted-desired-state'
+        }
+        $operatingSystem = if ([string]$Instance.Provider -ceq 'hyperv') { 'windows' } else { 'linux' }
+        $plan = Resolve-LabExternalRuntimePlan -SoftwareItem $request -SqlVersion ([string]$Instance.Version -split '-',2)[0] `
+            -Provider ([string]$Instance.Provider) -OperatingSystem $operatingSystem
+        if ((ConvertTo-Json -InputObject (ConvertTo-LabPersistedSoftwareItemProjection -Plan $plan) -Depth 20 -Compress) -cne
+            (ConvertTo-Json -InputObject $actual -Depth 20 -Compress)) {
+            throw 'DESIRED_INSTANCE_SOFTWARE_INTENT_INVALID'
+        }
+        $plans.Add($plan)
+    }
+    return @($plans)
+}
+
 function Test-LabPersistedAiIntent {
     <#
     .SYNOPSIS

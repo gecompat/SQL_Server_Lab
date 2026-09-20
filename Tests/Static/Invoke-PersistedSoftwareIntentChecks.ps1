@@ -53,6 +53,12 @@ try {
         $hyperVRun = New-TestSoftwareRun $hyperVDesired hyperv 'hyperv-lab'
         $dockerPersisted = Get-LabPersistedDesiredState -RunId $dockerRun.RunId -StateRoot $Root
         $hyperVPersisted = Get-LabPersistedDesiredState -RunId $hyperVRun.RunId -StateRoot $Root
+        $dockerInstance = $dockerPersisted.Snapshot.Instances[0]
+        $hyperVInstance = $hyperVPersisted.Snapshot.Instances[0]
+        $dockerCapability = @(Get-LabProviderCapabilityContract | Where-Object Provider -eq 'docker')[0]
+        $hyperVCapability = @(Get-LabProviderCapabilityContract | Where-Object Provider -eq 'hyperv')[0]
+        $dockerPersistedPlans = @(Resolve-LabValidatedPersistedSoftwarePlans -Software $dockerInstance.Intents.Software -Instance $dockerInstance -ProviderCapability $dockerCapability)
+        $hyperVPersistedPlans = @(Resolve-LabValidatedPersistedSoftwarePlans -Software $hyperVInstance.Intents.Software -Instance $hyperVInstance -ProviderCapability $hyperVCapability)
         $dockerConfigurationRun = New-TestSoftwareRun $dockerConfigurationDesired docker 'container-lab'
         $dockerConfigurationPersisted = Get-LabPersistedDesiredState -RunId $dockerConfigurationRun.RunId -StateRoot $Root
         $dockerConfigurationTampered = $dockerConfigurationDesired | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
@@ -104,6 +110,7 @@ try {
 
         [pscustomobject]@{
             DockerCanonical=$dockerPersisted; HyperVCanonical=$hyperVPersisted
+            DockerPersistedPlans=$dockerPersistedPlans; HyperVPersistedPlans=$hyperVPersistedPlans
             DockerConfigurationCanonical=$dockerConfigurationPersisted; DockerConfigurationTampered=$dockerConfigurationTamperedPersisted
             LegacyMissing=(New-TestSoftwareRun $legacyMissing docker 'container-lab'); LegacyNull=(New-TestSoftwareRun $legacyNull docker 'container-lab')
             Invalid=@($invalid); HyperVMessage=$hyperVMessage
@@ -115,6 +122,9 @@ try {
     $legacyMissing = & $module { param($run,$root) Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $root } $result.LegacyMissing $temporaryRoot
     $legacyNull = & $module { param($run,$root) Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $root } $result.LegacyNull $temporaryRoot
     Add-CheckResult -Name 'Katalog-erzeugte Software-Snapshots überstehen Docker- und Hyper-V-JSON-Roundtrip' -Success ($result.DockerCanonical.Status -eq 'VALID' -and $result.HyperVCanonical.Status -eq 'VALID')
+    Add-CheckResult -Name 'Persistierte Software-Projektion rehydriert Container- und Hyper-V-PlanKeys ohne Manifestinput' -Success (
+        (@($result.DockerPersistedPlans.PlanKey) -join ',') -ceq (@($result.DockerCanonical.Snapshot.Instances[0].Intents.Software.Items.PlanKey) -join ',') -and
+        (@($result.HyperVPersistedPlans.PlanKey) -join ',') -ceq (@($result.HyperVCanonical.Snapshot.Instances[0].Intents.Software.Items.PlanKey) -join ','))
     Add-CheckResult -Name 'Docker-SQL-Konfigurationsstatus bleibt an die deklarierte Provider-Capability gebunden' -Success (
         $result.DockerConfigurationCanonical.Status -eq 'VALID' -and
         $result.DockerConfigurationTampered.Status -eq 'INVALID' -and
@@ -128,6 +138,11 @@ try {
         $containerContextSource.IndexOf('Get-LabPersistedDesiredState') -lt $containerContextSource.IndexOf("Get-Content -LiteralPath `$connectionPath") -and
         $hyperVContextSource.IndexOf('Get-LabPersistedDesiredState') -lt $hyperVContextSource.IndexOf('Get-LabHyperVResourceMigrationLifecycleGuard') -and
         $hyperVContextSource.IndexOf('Get-LabPersistedDesiredState') -lt $hyperVContextSource.IndexOf("Get-Content -LiteralPath `$connectionPath"))
+    Add-CheckResult -Name 'External-Runtime-Consumer verwenden beidseitig die validierte persistierte Software-Projektion mit Legacy-Fallback' -Success (
+        $containerContextSource -match 'Resolve-LabValidatedPersistedSoftwarePlans -Software \$persistedSoftware' -and
+        $hyperVContextSource -match 'Resolve-LabValidatedPersistedSoftwarePlans -Software \$persistedSoftware' -and
+        $containerContextSource -match 'Historical snapshots have no software envelope' -and
+        $hyperVContextSource -match 'Legacy snapshots predate the closed software envelope')
 }
 finally {
     if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force }

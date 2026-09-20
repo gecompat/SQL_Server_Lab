@@ -179,7 +179,20 @@ function Get-LabHyperVExternalRuntimeReconcileContext {
     $currentFingerprint = (Get-LabHyperVExternalRuntimeInstanceFingerprint -Instance $currentInstances[0]) | ConvertTo-Json -Depth 50 -Compress
     $targetFingerprint = (Get-LabHyperVExternalRuntimeInstanceFingerprint -Instance $targetInstances[0]) | ConvertTo-Json -Depth 50 -Compress
     if ($currentFingerprint -cne $targetFingerprint) { throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_NON_SOFTWARE_DRIFT' }
-    $desiredPlans = @(Resolve-LabExternalRuntimePlansForInstance -Instance $resolvedInstances[0])
+    $providerCapability = @(Get-LabProviderCapabilityContract | Where-Object {
+        [string]$_.Provider -ieq [string]$currentInstances[0].Provider
+    } | Select-Object -First 1)[0]
+    if ($null -eq $providerCapability) { throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_PROVIDER_UNSUPPORTED' }
+    $persistedSoftware = $currentInstances[0].Intents.Software
+    $hasPersistedSoftware = $currentInstances[0].Intents.PSObject.Properties['Software'] -and $null -ne $persistedSoftware
+    $desiredPlans = if ($hasPersistedSoftware) {
+        @(Resolve-LabValidatedPersistedSoftwarePlans -Software $persistedSoftware -Instance $currentInstances[0] -ProviderCapability $providerCapability)
+    }
+    else {
+        # Legacy snapshots predate the closed software envelope and retain the
+        # established manifest-derived compatibility path.
+        @(Resolve-LabExternalRuntimePlansForInstance -Instance $resolvedInstances[0])
+    }
     if (@($desiredPlans | Where-Object Status -ne 'RESOLVED').Count -gt 0) {
         throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_DESIRED_PLAN_UNRESOLVED'
     }
