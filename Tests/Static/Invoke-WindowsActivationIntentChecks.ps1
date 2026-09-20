@@ -84,7 +84,7 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
         if($ArgumentList.Count -eq 1){return [pscustomobject]@{Available=$true}}
         $script:configureTemporary=$ArgumentList[1]
         if($script:activationFailure){throw 'WINDOWS_ACTIVATION_SYNTHETIC_FAILURE'}
-        if($script:guestReportedFailure){return [pscustomobject]@{contractVersion='SqlServerLab.WindowsActivationGuestReceipt/1.0';status='FAILED';failureCode='WINDOWS_ACTIVATION_NETWORK_NOT_READY'}}
+        if($script:guestReportedFailure){return [pscustomobject]@{contractVersion='SqlServerLab.WindowsActivationGuestReceipt/1.0';status='FAILED';failureCode='WINDOWS_ACTIVATION_NETWORK_NOT_READY';diagnostic='dns=unresolved'}}
         [pscustomobject]@{edition='ServerStandardEval';licenseStatus=1;evaluationMinutesRemaining=100;observedAt='2026-09-10T00:00:00Z'}
     }
     $credential=[pscredential]::new('synthetic',[SecureString]::new())
@@ -94,8 +94,8 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
     try{$null=Invoke-LabWindowsSlotActivationReconcile -RunId own-run -Credential $credential}catch{$failed=$_.Exception.Message -match 'WINDOWS_ACTIVATION_SYNTHETIC_FAILURE'}
     Assert-Path ($failed -and $script:permanentAdapter.Id -eq 'own-adapter' -and $script:permanentAdapter.SwitchId -eq 'own-switch') 'Aktivierungsfehler erhaelt die permanente NIC unveraendert'
     $script:activationFailure=$false;$script:guestReportedFailure=$true;$failed=$false
-    try{$null=Invoke-LabWindowsSlotActivationReconcile -RunId own-run -Credential $credential}catch{$failed=$_.Exception.Message -match 'WINDOWS_ACTIVATION_NETWORK_NOT_READY'}
-    Assert-Path ($failed -and $script:permanentAdapter.Id -eq 'own-adapter' -and $script:permanentAdapter.SwitchId -eq 'own-switch') 'Sanitisierter Gast-Fehlercode bleibt bis zum Aktivierungsaufrufer erhalten'
+    try{$null=Invoke-LabWindowsSlotActivationReconcile -RunId own-run -Credential $credential}catch{$failed=$_.Exception.Message -match 'WINDOWS_ACTIVATION_NETWORK_NOT_READY' -and $_.Exception.Message -match 'dns=unresolved'}
+    Assert-Path ($failed -and $script:permanentAdapter.Id -eq 'own-adapter' -and $script:permanentAdapter.SwitchId -eq 'own-switch') 'Sanitisierter Gast-Fehlercode und Netzwerkdiagnose bleiben bis zum Aktivierungsaufrufer erhalten'
     & {
         $fixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-activation-resume-'+[guid]::NewGuid().ToString('N'))
         try {
