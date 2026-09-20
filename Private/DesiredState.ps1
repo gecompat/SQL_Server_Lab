@@ -107,7 +107,13 @@ function New-LabContainerRuntimeIntentSnapshot {
     # Generic container snapshots and capability assessment intentionally have
     # no SQL version.  They must not enter the collation catalog path or gain
     # a synthetic runtime intent.
-    if ([string]::IsNullOrWhiteSpace([string]$Instance.version)) { return $null }
+    $version = [string]$Instance.version
+    if ([string]::IsNullOrWhiteSpace($version)) { return $null }
+    # Capability assessments can contain syntactically versioned generic or
+    # deprecated inputs.  Without a currently supported catalog decision they
+    # have not crossed the manifest/parser boundary and cannot form a runtime
+    # intent.
+    if (-not (Test-SqlServerVersionSupported -VersionId $version).Supported) { return $null }
     $profile = Get-LabResourceProfile -Name $(if ($Instance.profile) { [string]$Instance.profile } else { 'standard' })
     # Docker and Podman accept fractional CPU quotas.  Keep the numeric value
     # as a double through JSON instead of truncating it to an integer.
@@ -117,14 +123,9 @@ function New-LabContainerRuntimeIntentSnapshot {
         throw 'CONTAINER_RUNTIME_CPU_PRECISION_INVALID'
     }
     $memoryMB = if ($Instance.runtimeResources -and $null -ne $Instance.runtimeResources.memoryMB) { [long]$Instance.runtimeResources.memoryMB } else { [long]$profile.maxMemoryMB }
-    try {
-        $collation = Resolve-LabSqlServerCollation -Name ([string]$Instance.collation) -SqlVersion ([string]$Instance.version)
-    }
-    catch {
-        # Generic assessment inputs are not parser-authorized runtime
-        # instances.  Do not invent a version or runtime intent for them.
-        return $null
-    }
+    # A versioned instance has passed the manifest/parser boundary.  Its
+    # collation and catalog errors are contractual and must reach the caller.
+    $collation = Resolve-LabSqlServerCollation -Name ([string]$Instance.collation) -SqlVersion $version
     return [PSCustomObject]@{
         Contract = [PSCustomObject]@{ Name='SqlServerLab.ContainerRuntimeIntent'; Version='1.0' }
         Cpu = $cpu

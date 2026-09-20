@@ -50,7 +50,14 @@ try {
         $dockerDesired = New-TestSoftwareDesiredState docker
         $hyperVDesired = New-TestSoftwareDesiredState hyperv
         $genericContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version=$null;profile='standard'})
+        $whitespaceVersionContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='   ';profile='standard'})
+        $unknownVersionContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='2099';profile='standard'})
         $knownContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='2022';profile='standard';collation='sql_latin1_general_cp1_ci_as'})
+        $invalidCollationMessage = ''
+        try {
+            $null = New-LabContainerRuntimeIntentSnapshot -Instance ([pscustomobject]@{provider='docker';version='2022';profile='standard';collation='Not_A_Collation'})
+        }
+        catch { $invalidCollationMessage = $_.Exception.Message }
         $dockerConfigurationDesired = New-TestSoftwareDesiredState docker -IncludeServerConfig
         $dockerFractionalDesired = New-TestSoftwareDesiredState docker -Cpu 1.5
         $dockerHundredthsDesired = New-TestSoftwareDesiredState docker -Cpu 1.23
@@ -123,7 +130,9 @@ try {
 
         [pscustomobject]@{
             DockerCanonical=$dockerPersisted; HyperVCanonical=$hyperVPersisted
-            GenericContainerRuntime=$genericContainerRuntime; KnownContainerRuntime=$knownContainerRuntime
+            GenericContainerRuntime=$genericContainerRuntime; WhitespaceVersionContainerRuntime=$whitespaceVersionContainerRuntime
+            UnknownVersionContainerRuntime=$unknownVersionContainerRuntime; KnownContainerRuntime=$knownContainerRuntime
+            InvalidCollationMessage=$invalidCollationMessage
             DockerPersistedPlans=$dockerPersistedPlans; HyperVPersistedPlans=$hyperVPersistedPlans
             DockerConfigurationCanonical=$dockerConfigurationPersisted; DockerConfigurationTampered=$dockerConfigurationTamperedPersisted
             DockerFractional=$dockerFractionalPersisted
@@ -138,8 +147,11 @@ try {
     $legacyMissing = & $module { param($run,$root) Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $root } $result.LegacyMissing $temporaryRoot
     $legacyNull = & $module { param($run,$root) Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $root } $result.LegacyNull $temporaryRoot
     Add-CheckResult -Name 'Katalog-erzeugte Software-Snapshots überstehen Docker- und Hyper-V-JSON-Roundtrip' -Success ($result.DockerCanonical.Status -eq 'VALID' -and $result.HyperVCanonical.Status -eq 'VALID')
-    Add-CheckResult -Name 'Versionslose generische Container-Snapshots erzeugen keinen Runtime-Intent; bekannte Version normalisiert die Collation' -Success (
-        $null -eq $result.GenericContainerRuntime -and [string]$result.KnownContainerRuntime.Collation -eq 'SQL_Latin1_General_CP1_CI_AS')
+    Add-CheckResult -Name 'Versionslose, leerzeichenhafte oder unkatalogisierte generische Container-Snapshots erzeugen keinen Runtime-Intent; bekannte Version normalisiert die Collation' -Success (
+        $null -eq $result.GenericContainerRuntime -and $null -eq $result.WhitespaceVersionContainerRuntime -and $null -eq $result.UnknownVersionContainerRuntime -and
+        [string]$result.KnownContainerRuntime.Collation -eq 'SQL_Latin1_General_CP1_CI_AS')
+    Add-CheckResult -Name 'Katalogisierte Container-Versionen propagieren ungueltige Collation-Katalogfehler' -Success (
+        $result.InvalidCollationMessage -match '^SQL_COLLATION_NOT_CATALOGED')
     Add-CheckResult -Name 'Persistierte Software-Projektion rehydriert Container- und Hyper-V-PlanKeys ohne Manifestinput' -Success (
         (@($result.DockerPersistedPlans.PlanKey) -join ',') -ceq (@($result.DockerCanonical.Snapshot.Instances[0].Intents.Software.Items.PlanKey) -join ',') -and
         (@($result.HyperVPersistedPlans.PlanKey) -join ',') -ceq (@($result.HyperVCanonical.Snapshot.Instances[0].Intents.Software.Items.PlanKey) -join ','))
