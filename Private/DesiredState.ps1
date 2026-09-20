@@ -413,6 +413,30 @@ function New-LabDesiredStateSnapshot {
     return $snapshot
 }
 
+function Test-LabPersistedSqlEndpointIntent {
+    [CmdletBinding()]
+    param($SqlEndpoint, [string]$Provider)
+
+    # Der Snapshot ist ein Persistenzvertrag, kein bequemes Eingabeformat:
+    # unbekannte Felder und Coercion (z.B. true oder "1433") duerfen keinen
+    # spaeteren Hyper-V-/Gastzugriff ausloesen.
+    if ($null -eq $SqlEndpoint -or $SqlEndpoint -is [string] -or $SqlEndpoint -is [bool]) { return $false }
+    $expectedFields = @('CapabilityStatus','Contract','Port','Protocol','RequiredCapability')
+    if ((@($SqlEndpoint.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($expectedFields -join ',')) { return $false }
+    if (-not $SqlEndpoint.Contract -or $SqlEndpoint.Contract -is [string] -or $SqlEndpoint.Contract -is [bool] -or
+        ((@($SqlEndpoint.Contract.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'Name,Version') -or
+        [string]$SqlEndpoint.Contract.Name -cne 'SqlServerLab.SqlEndpointIntent' -or
+        [string]$SqlEndpoint.Contract.Version -cne '1.0') { return $false }
+    if ([string]$Provider -ine 'hyperv' -or [string]$SqlEndpoint.Protocol -cne 'tcp' -or
+        [string]$SqlEndpoint.RequiredCapability -cne 'hyperv-sql-port-reconcile' -or
+        [string]$SqlEndpoint.CapabilityStatus -cnotin @('DECLARED_SUPPORTED','DECLARED_UNSUPPORTED')) { return $false }
+
+    $port = $SqlEndpoint.Port
+    $integralTypes = @([byte],[sbyte],[int16],[uint16],[int],[uint32],[long],[uint64])
+    if ($null -eq $port -or $integralTypes -notcontains $port.GetType()) { return $false }
+    return ([decimal]$port -ge 1 -and [decimal]$port -le 65535)
+}
+
 function Get-LabPersistedDesiredState {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
@@ -503,6 +527,10 @@ function Get-LabPersistedDesiredState {
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['Network'] -and
             -not (Test-LabPersistedNetworkIntent -Network $instance.Intents.Network -Provider $provider)) {
             [void]$validationErrors.Add('DESIRED_INSTANCE_NETWORK_INTENT_INVALID')
+        }
+        if ($instance.Intents -and $instance.Intents.PSObject.Properties['SqlEndpoint'] -and $null -ne $instance.Intents.SqlEndpoint -and
+            -not (Test-LabPersistedSqlEndpointIntent -SqlEndpoint $instance.Intents.SqlEndpoint -Provider $provider)) {
+            [void]$validationErrors.Add('DESIRED_INSTANCE_SQL_ENDPOINT_INTENT_INVALID')
         }
         if ($idIsValid -and $providerIsValid) {
             if (-not $instanceIdsByProvider.ContainsKey($provider)) {

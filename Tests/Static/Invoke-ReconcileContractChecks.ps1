@@ -578,6 +578,97 @@ try {
     Add-CheckResult -Name 'Ungueltige persistierte Network-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' `
         -Success ($persistedNetworkContract.RuntimeCalls -eq 0)
 
+    $persistedSqlEndpointContract = & $module {
+        param($Root)
+
+        function New-TestPersistedSqlEndpointIntent {
+            [PSCustomObject]@{
+                Contract=[PSCustomObject]@{ Name='SqlServerLab.SqlEndpointIntent'; Version='1.0' }
+                Protocol='tcp'; Port=[int]1433; RequiredCapability='hyperv-sql-port-reconcile'; CapabilityStatus='DECLARED_SUPPORTED'
+            }
+        }
+
+        $cases = @(
+            @{ Name='kanonisch'; Kind='valid'; Valid=$true },
+            @{ Name='legacy fehlt'; Kind='legacy'; Valid=$true },
+            @{ Name='legacy null'; Kind='null'; Valid=$true },
+            @{ Name='boolescher Port'; Kind='bool-port'; Valid=$false },
+            @{ Name='string Port'; Kind='string-port'; Valid=$false },
+            @{ Name='Gleitkomma-Port'; Kind='float-port'; Valid=$false },
+            @{ Name='Port ausserhalb des Bereichs'; Kind='range-port'; Valid=$false },
+            @{ Name='falsches Protokoll'; Kind='protocol'; Valid=$false },
+            @{ Name='falsche Capability'; Kind='capability'; Valid=$false },
+            @{ Name='falscher CapabilityStatus'; Kind='status'; Valid=$false },
+            @{ Name='unbekanntes Feld'; Kind='unknown-field'; Valid=$false },
+            @{ Name='falscher Anbieter'; Kind='provider'; Valid=$false }
+        )
+        $originalRuntime = (Get-Command Get-LabRunRuntimeStatus).ScriptBlock
+        $script:invalidPersistedSqlEndpointRuntimeCalls=0
+        try {
+            Set-Item Function:Get-LabRunRuntimeStatus -Value {
+                $script:invalidPersistedSqlEndpointRuntimeCalls++
+                throw 'RUNTIME_MUST_NOT_BE_READ_FOR_INVALID_PERSISTED_SQL_ENDPOINT'
+            }
+            $results=@($cases | ForEach-Object {
+                $case=$_
+                $intents=[PSCustomObject]@{ Contract=[PSCustomObject]@{ Name='SqlServerLab.InstanceIntent'; Version='1.0' } }
+                if($case.Kind -ne 'legacy') {
+                    $endpoint=if($case.Kind -eq 'null'){$null}else{New-TestPersistedSqlEndpointIntent}
+                    switch($case.Kind) {
+                        'bool-port' { $endpoint.Port=$true }
+                        'string-port' { $endpoint.Port='1433' }
+                        'float-port' { $endpoint.Port=[double]1433 }
+                        'range-port' { $endpoint.Port=[int]65536 }
+                        'protocol' { $endpoint.Protocol='TCP' }
+                        'capability' { $endpoint.RequiredCapability='other-capability' }
+                        'status' { $endpoint.CapabilityStatus='SUPPORTED' }
+                        'unknown-field' { $endpoint | Add-Member -NotePropertyName Host -NotePropertyValue 'must-not-persist.invalid' }
+                    }
+                    $intents | Add-Member -NotePropertyName SqlEndpoint -NotePropertyValue $endpoint
+                }
+                $provider=if($case.Kind -eq 'provider'){'docker'}else{'hyperv'}
+                $snapshot=[PSCustomObject]@{
+                    Contract=[PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
+                    ProvisioningMode='manifest'; PersistentData=$false
+                    Instances=@([PSCustomObject]@{ Id='primary'; Provider=$provider; Profile='standard'; Intents=$intents })
+                }
+                $run=New-LabRunState -StateRoot $Root -Metadata @{ name='persisted SQL endpoint intent'; desiredState=$snapshot } `
+                    -ProviderSubRuns @([PSCustomObject]@{ provider=$provider; instanceIds=@('primary') })
+                $statePath=Join-Path $run.RunDir 'run-state.json';$connectionPath=Join-Path $run.RunDir 'connection-info.json'
+                Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject ([PSCustomObject]@{instances=@([PSCustomObject]@{id='primary';provider=$provider;host='must-not-fallback.invalid'})})
+                $beforeState=[Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath))
+                $beforeConnection=[Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))
+                $persisted=Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $Root
+                $plans=@()
+                if(-not $case.Valid){foreach($target in @('RUNNING','STOPPED')){$plans+=Get-SqlServerLabReconcilePlan -RunId $run.RunId -TargetState $target -StateRoot $Root}}
+                [PSCustomObject]@{Name=$case.Name;Valid=$case.Valid;Status=$persisted.Status;ReasonCodes=@($persisted.ReasonCodes);Plans=@($plans)
+                    StateUnchanged=$beforeState -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath));ConnectionUnchanged=$beforeConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))}
+            })
+            [PSCustomObject]@{Cases=$results;RuntimeCalls=$script:invalidPersistedSqlEndpointRuntimeCalls}
+        }
+        finally {Set-Item Function:Get-LabRunRuntimeStatus -Value $originalRuntime}
+    } $tempRoot
+    foreach($sqlEndpointCase in @($persistedSqlEndpointContract.Cases)) {
+        if($sqlEndpointCase.Valid) {
+            Add-CheckResult -Name "Persistierter SQL-Endpoint-Intent ($($sqlEndpointCase.Name)) bleibt kanonisch oder legacy-gueltig" `
+                -Success ($sqlEndpointCase.Status -eq 'VALID' -and $sqlEndpointCase.ReasonCodes.Count -eq 0)
+        }
+        else {
+            Add-CheckResult -Name "Ungueltiger persistierter SQL-Endpoint-Intent ($($sqlEndpointCase.Name)) liefert den festen Grund" `
+                -Success ($sqlEndpointCase.Status -eq 'INVALID' -and ($sqlEndpointCase.ReasonCodes -join ',') -ceq 'DESIRED_INSTANCE_SQL_ENDPOINT_INTENT_INVALID')
+            foreach($plan in $sqlEndpointCase.Plans) {
+                Add-CheckResult -Name "Ungueltiger persistierter SQL-Endpoint-Intent ($($sqlEndpointCase.Name)) blockiert $($plan.Desired.TargetState) ohne Runtime-Fallback" `
+                    -Success ($plan.HighestChangeClass -eq 'unsupported' -and $plan.Actions.Count -eq 0 -and -not $plan.MutationAllowed -and
+                        -not $plan.IsNoOp -and -not $plan.Desired.IsValid -and $plan.Desired.Instances.Count -eq 0 -and
+                        $plan.Actual.Source -eq 'persisted-desired-state-invalid')
+            }
+        }
+        Add-CheckResult -Name "Persistierter SQL-Endpoint-Intent ($($sqlEndpointCase.Name)) erhaelt State- und Connection-Bytes" `
+            -Success ($sqlEndpointCase.StateUnchanged -and $sqlEndpointCase.ConnectionUnchanged)
+    }
+    Add-CheckResult -Name 'Ungueltige persistierte SQL-Endpoint-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' `
+        -Success ($persistedSqlEndpointContract.RuntimeCalls -eq 0)
+
     $networkContract = & $module {
         param($Root)
 
