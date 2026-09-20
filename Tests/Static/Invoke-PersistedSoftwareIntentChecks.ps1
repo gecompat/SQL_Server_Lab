@@ -143,6 +143,18 @@ try {
         $hyperVContextSource -match 'Resolve-LabValidatedPersistedSoftwarePlans -Software \$persistedSoftware' -and
         $containerContextSource -match 'Historical snapshots have no software envelope' -and
         $hyperVContextSource -match 'Legacy snapshots predate the closed software envelope')
+    Add-CheckResult -Name 'Persistierte Software-Envelopes sperren Apply- und State-Commit gegen nachtraegliche Manifest-Runtimewerte' -Success (
+        $containerContextSource -match '\$runtimeResourceGovernorConfig = if \(\$hasPersistedSoftware\) \{ \$null \}' -and
+        $containerContextSource -match '\$stateCommitSnapshot = if \(\$hasPersistedSoftware\) \{ \$persisted\.Snapshot \}' -and
+        $containerContextSource -match 'ResourceGovernorConfig \$context\.RuntimeResourceGovernorConfig' -and
+        $containerContextSource -notmatch 'ResourceGovernorConfig \$context\.ResolvedInstance\.serverConfig' -and
+        $containerContextSource -match '\$runtimeInstance\.PSObject\.Properties\.Remove\(''software''\)' -and
+        $containerContextSource -match '\$runtimeInstance\.PSObject\.Properties\.Remove\(''serverConfig''\)' -and
+        $containerContextSource -match '-ResolvedInstance \$context\.RuntimeInstance' -and
+        $hyperVContextSource -match '\$runtimeResourceGovernorConfig = if \(\$hasPersistedSoftware\) \{ \$null \}' -and
+        $hyperVContextSource -match '\$stateCommitSnapshot = if \(\$hasPersistedSoftware\) \{ \$persisted\.Snapshot \}' -and
+        $hyperVContextSource -match 'ResourceGovernorConfig \$context\.RuntimeResourceGovernorConfig' -and
+        $hyperVContextSource -notmatch 'ResourceGovernorConfig \$context\.ResolvedInstance\.serverConfig')
 }
 finally {
     if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force }

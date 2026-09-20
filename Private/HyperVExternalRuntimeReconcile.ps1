@@ -216,10 +216,17 @@ function Get-LabHyperVExternalRuntimeReconcileContext {
     }
     $currentReceipts = @(Get-LabHyperVExternalRuntimeInstallationReceipts -RunDirectory $runDirectory -InstanceId $InstanceId)
     $targetHash = Get-LabHyperVExternalRuntimeTargetHash -Plans $desiredPlans
+    # A present persisted software envelope freezes External-Runtime apply
+    # inputs.  Do not let a manifest edited after state creation change the
+    # resource-governor value or overwrite the desired-state record.  Legacy
+    # snapshots without that envelope keep their documented manifest fallback.
+    $runtimeResourceGovernorConfig = if ($hasPersistedSoftware) { $null } else { $resolvedInstances[0].serverConfig.externalScripts.resourceGovernor }
+    $stateCommitSnapshot = if ($hasPersistedSoftware) { $persisted.Snapshot } else { $desiredSnapshot }
     $context = [PSCustomObject]@{
         RunId=$RunId;ScopeId=[string]$run.scopeId;InstanceId=$InstanceId;StateRoot=$StateRoot;Run=$run
         RunDirectory=$runDirectory;ConnectionPath=$connectionPath;Connection=$connection;ConnectionInstance=$connectionInstances[0]
-        VM=$managed.VM;Managed=$managed;PersistedSnapshot=$persisted.Snapshot;DesiredSnapshot=$desiredSnapshot
+        VM=$managed.VM;Managed=$managed;PersistedSnapshot=$persisted.Snapshot;DesiredSnapshot=$stateCommitSnapshot
+        RuntimeResourceGovernorConfig=$runtimeResourceGovernorConfig
         ResolvedManifest=$resolved;ResolvedInstance=$resolvedInstances[0];DesiredPlans=$desiredPlans;CurrentReceipts=$currentReceipts
         TargetHash=$targetHash
     }
@@ -346,7 +353,7 @@ function Invoke-LabHyperVExternalRuntimeReconcileRepair {
             $journal = Set-LabHyperVExternalRuntimeReconcileJournalStatus -Journal $journal -Path $context.JournalPath -Status INSTALLING
             $receipts = @(Install-LabHyperVExternalRuntimes -SoftwarePlans $context.DesiredPlans -RunId $RunId `
                 -Credential $credentials.GuestCredential -SqlSaPassword $credentials.SqlSaPassword -MediaRoot $MediaRoot `
-                -ResourceGovernorConfig $context.ResolvedInstance.serverConfig.externalScripts.resourceGovernor -StateRoot $context.StateRoot)
+                -ResourceGovernorConfig $context.RuntimeResourceGovernorConfig -StateRoot $context.StateRoot)
             $receiptKeys = @($receipts.PlanKey | Sort-Object -Unique)
             if (($receiptKeys -join ',') -cne (@($context.DesiredPlans.PlanKey | Sort-Object -Unique) -join ',')) {
                 throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_POSTCONDITION_PLAN_KEYS_MISMATCH'
