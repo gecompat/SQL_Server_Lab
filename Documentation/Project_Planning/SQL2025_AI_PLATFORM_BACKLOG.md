@@ -163,7 +163,7 @@ werden danach an das lokale Generierungsmodell gegeben. Es entstehen weder
 dauerhafte SQL-Objekte noch Inhaltsjournale. Die getrennten nativen Docker- und
 Podman-Läufe waren am 2026-09-06 einschließlich SQL-/Ollama-Restart, erwarteter
 Top-Quelle und vollständigem Cleanup erfolgreich. Hybride Volltextsuche,
-Aktualisierung/Löschung und Re-Embedding bleiben offen.
+Aktualisierung/Löschung beliebiger Dokumente und Modellwechsel-Re-Embedding bleiben offen; der neue feste synthetische Persistenz-Slice ist unten gesondert beschrieben.
 
 `AI-50A` implementiert den read-only Diagnose-Agenten mit vier festen
 SELECT-Werkzeugen, maximal vier Aufrufen, Zeilen- und Kontextgrenzen sowie
@@ -206,3 +206,12 @@ kein Embedding-, Generation-, RAG- oder Agentennachweis.
 - [`AI_GENERATE_CHUNKS`](https://learn.microsoft.com/en-us/sql/t-sql/functions/ai-generate-chunks-transact-sql?view=sql-server-ver17)
 - [`CREATE EXTERNAL MODEL`](https://learn.microsoft.com/en-us/sql/t-sql/statements/create-external-model-transact-sql?view=sql-server-ver17)
 - [Ollama Embeddings](https://docs.ollama.com/capabilities/embeddings)
+
+## Persistenter Container-Slice vom 2026-09-21
+
+Der [synthetische Persistenz-Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
+ist implementiert und offline geprüft: eigene SQL-2025-Datenbank, feste
+Initial-/Delta-Generation, aktive Altgeneration bei Stagingfehlern, atomarer
+Cutover und SQL-quittiertes Resume/Remove. Docker und Podman bestanden getrennt je 16 Assertions mit SQLrestart, Fehler-/Resume-Prüfungen und vollständigem Cleanup. Dies ist ein inkrementeller Rebuild mit unverändertem Modell;
+der bestehende reine Modellwechsel-Re-Embedding-Plan bleibt unverändert.
+Beliebige Dokumente, Modell-/Dimensionsmigration, Hyper-V und ANN bleiben offen.

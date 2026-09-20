@@ -64,6 +64,7 @@ end {
     $staticGroups = @(
         @{ Pattern = '(?i)(ResourceAssessment|resource-assessment|New-SqlServerLab\.ps1|HyperVLabEnvironment|ReconcileContract|ManifestParser|lab-manifest)'; Checks = @('Invoke-ResourceAssessmentChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(HyperVNetworkReconnect|HyperVExistingNetwork|HyperVResourceAcceptanceSlotClone|HyperVLabEnvironment)'; Checks = @('Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1') },
+        @{ Pattern = '(?i)(AiPersistentRetrieval|ai-persistent-retrieval|Scenarios/Ai/persistent-retrieval/)'; Checks = @('Invoke-AiPersistentRetrievalChecks.ps1') },
         @{ Pattern = '(?i)(SecurityTool|security-tool|Fixtures/SecurityTools/)'; Checks = @('Invoke-SecurityToolCatalogChecks.ps1') },
         @{ Pattern = '(?i)(Prepare-LocalRelease|ReleaseArtifact)'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1') },
         @{ Pattern = '(?i)(TransferProgress|HyperVImageMigration|HyperVImageRegistry|HyperVResourceMigration|ArtifactResolver|Save-SqlServerLabMediaSource|VersionCatalog|ExternalRuntimeWindows|Restore-SqlServerLabDatabase)'; Checks = @('Invoke-TransferProgressChecks.ps1') },
@@ -207,7 +208,9 @@ end {
             if ($runtimePath -match '(?i)(PortableContainerTransferPreflight|portable-container-transfer-preflight)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(PortableContainerTransferExecutorRuntime|Invoke-SqlServerLabPortableContainerTransfer|portable-container-transfer-journal|Invoke-PortableContainerTransferAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(AiScenario|ai-scenario|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario|AiVectorCoreAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
-            if ($runtimePath -match '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$|SqlObservabilityEvidence|sql-observability-evidence)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
+            $persistentRetrievalPath = $runtimePath -match '(?i)(AiPersistentRetrieval|ai-persistent-retrieval)'
+            if ($persistentRetrievalPath) { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if (-not $persistentRetrievalPath -and $runtimePath -match '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$|SqlObservabilityEvidence|sql-observability-evidence)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(SqlStorageOperations|SessionTransferProgress)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(AiVectorIndexAcceptance|Fixtures/VectorIndex/)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(PersistentStorageRemoval|persistent-storage-removal)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }

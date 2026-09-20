@@ -1,0 +1,56 @@
+<#
+.SYNOPSIS
+    Verwaltet persistentes synthetisches Retrieval auf einem eigenen SQL-Datenbankscope.
+.DESCRIPTION
+    SQL Server 2025 unter Docker oder Podman; vorhandenes lokales embeddinggemma:latest.
+    Initial und Delta sind feste versionierte synthetische Dokumentmengen. Kein
+    Cloudzugriff, keine Generierung oder fremde Dokumente. Eine Datenbank ohne
+    exakten Besitznachweis wird weder übernommen noch entfernt. WhatIf ist rein planend.
+.PARAMETER RunId
+    Vorhandener laufender SQL-2025-Container-Run mit verwaltetem SA-Secret.
+.PARAMETER InstanceId
+    SQL-Instanz, standardmäßig primary.
+.PARAMETER CollectionId
+    Selbst gewählte GUID der Collection; für Wiederaufnahme und Remove beibehalten.
+.PARAMETER Action
+    Apply erstellt eine neue Generation; Query liest die aktive; Remove entfernt nur die eigene Datenbank.
+.PARAMETER FixtureRevision
+    Initial oder Delta. Delta aktualisiert, entfernt und ergänzt feste synthetische Dokumente.
+.PARAMETER QueryId
+    Feste synthetische Frage backup oder cleanup.
+.PARAMETER Resume
+    Setzt exakt gebundenes Staging fort; bestätigte SQL-Chunks werden nicht erneut eingebettet.
+.PARAMETER LocalPort
+    Loopback-Port des bereits laufenden Ollama-Dienstes.
+.PARAMETER TimeoutSeconds
+    Begrenzte Operationslaufzeit; einzelne SQL-/Embeddingrequests dauern höchstens 60 Sekunden.
+.PARAMETER StateRoot
+    Lokaler Run-State mit verschlüsseltem verwaltetem Secret und atomarem Journal.
+.OUTPUTS
+    Plan bei WhatIf; andernfalls Status, CollectionId, Generation und Requestzahl, bei Query Rangfolge.
+.EXAMPLE
+    Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId -Action Apply -FixtureRevision Initial
+.EXAMPLE
+    Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId -Action Apply -FixtureRevision Delta -Resume
+.EXAMPLE
+    Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId -Action Remove
+#>
+function Invoke-SqlServerLabAiPersistentRetrieval {
+    [CmdletBinding(SupportsShouldProcess,ConfirmImpact='High')]
+    param(
+        [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$RunId,
+        [ValidatePattern('^[a-zA-Z][a-zA-Z0-9_-]{0,63}$')][string]$InstanceId='primary',
+        [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$CollectionId,
+        [ValidateSet('Apply','Query','Remove')][string]$Action='Apply',
+        [ValidateSet('Initial','Delta')][string]$FixtureRevision='Initial',
+        [ValidateSet('backup','cleanup')][string]$QueryId='backup',
+        [switch]$Resume,[ValidateRange(1024,65535)][int]$LocalPort=11434,
+        [ValidateRange(60,600)][int]$TimeoutSeconds=300,[string]$StateRoot
+    )
+    $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId $InstanceId -CollectionId $CollectionId -Action $Action -FixtureRevision $FixtureRevision -QueryId $QueryId -LocalPort $LocalPort -TimeoutSeconds $TimeoutSeconds -Resume:$Resume
+    if(-not $PSCmdlet.ShouldProcess("Run $RunId / Collection $CollectionId",$Action)){
+        return [pscustomobject]@{Status='PLANNED';Action=$Action;CollectionId=$CollectionId;Revision=$FixtureRevision;PlanKey=$plan.PlanKey;ModelKey='ollama-embeddinggemma-latest';Dimension=768}
+    }
+    try{Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $StateRoot}
+    catch{if($_.Exception.Message -match '^AI_PERSISTENT_[A-Z_]+$'){throw $_.Exception.Message};throw 'AI_PERSISTENT_RECOVERY_REQUIRED'}
+}

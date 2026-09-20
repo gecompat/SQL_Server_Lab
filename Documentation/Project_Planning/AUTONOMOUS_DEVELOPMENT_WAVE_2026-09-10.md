@@ -150,7 +150,7 @@ und die [Known Limitations](../Quality/KNOWN_LIMITATIONS.md).
 | Podman Golden RAG | `implemented_partial` | Der eigene AdHoc-Slice mit vorhandenem Host-embeddinggemma und expliziter Cloudgeneration bestand am 2026-09-20 unter Podman und Docker getrennt mit exakten Retrievaltreffern, SQLrestart und Cleanup. Das unveränderte lokale Golden v1 verwendet andere Modellbindungen und bleibt separat offen; kein stiller Austausch dieser Bindungen. |
 | Hyper-V RAG/Agent | `validated_reference` | Eigener SQL-2025-Prepared-Run mit Host-Embeddinggemma und lokalem Qwen: Lauf 35542940923 bestand am 2026-09-21 mit 14 Assertions, tatsächlichem VM-Neustart, SQL-Bereitschaft, Login-Cleanup und vollständigem VM-/Child-VHDX-/IPAM-Cleanup. Parent und Hostmodellinventar unverändert; reservierte Gruppen unberührt. Golden v1 bleibt separat. |
 | Modellcache | `validated` (Bewertung; Nichtübernahme) | [Bewertung](SQL_AI_CAPABILITIES_ASSESSMENT_2026-09-10.md): vorerst kein gemeinsamer persistenter Cache. Ein Pull-Timeout belegt keinen Cachegewinn; ein sicherer Blob-/Lease-/Publish-Vertrag fehlt. Erst erfolgreichen geänderten Podman-Lauf messen, bei bestätigtem Engpass separate Umsetzung mit Digest-, Abbruch-, Konkurrenz- und Cleanup-Abnahme; Aufwand L. |
-| Persistentes Retrieval/Re-Embedding | `planned` | Integrierten read-only Plan zu begrenzter Modell-/SQL-Ausführung ausbauen; stabile Inhalte/Generationen, Aktualisierung/Löschung, Dimensionen, Resume und atomare Umschaltung mit Negativtests belegen. |
+| Persistentes Retrieval/Re-Embedding | `validated_reference` (enger synthetischer Slice) | [Eigene SQL-2025-Containergenerationen](../Architecture/AI_PERSISTENT_RETRIEVAL.md) mit festen Initial-/Delta-Dokumenten, lokalem Host-Embedding, atomarem Cutover, SQL-quittiertem Resume und besitzgebundenem Remove. 46 fokussierte Offlinechecks und getrennte native Docker-/Podman-Abnahmen bestanden (je 16 Assertions, SQLrestart und vollständiges Cleanup). Echter Modell-/Dimensionswechsel, beliebige Dokumente und Hyper-V bleiben offen. |
 
 Die [neuen SQL-Anwendungsfälle](NEW_SQL_LAB_USE_CASES_BACKLOG.md), der
 [KI-Plattformbacklog](SQL2025_AI_PLATFORM_BACKLOG.md), der
@@ -232,3 +232,11 @@ Der Gesamtabschluss verlangt:
 | 2026-09-11 | Evaluation-Watch gegen den integrierten Stand geprüft | Fünf Contracts belegen stabile Artefakt-IDs, Fristenklassifikation, read-only Standardpfad, deduplizierte lokale Ereignisse und sanitisierte Ausgabe. Laufende Instanzen und Zeittrigger bleiben als Restscope offen. |
 | 2026-09-11 | Registrierte RUNNING-Hyper-V-Instanzen im Evaluation-Watch ergänzt | Die zusätzliche Instanzprojektion liest nur die gespeicherte Windows-Aktivierungsevidenz, bindet Run-, Instanz- und Artefakt-ID ohne VM-Namen oder Pfade und dedupliziert Ereignisse getrennt. Sechs Contracts belegen die Projektion, die getrennte Frist, den read-only Pfad und die Sanitierung. Persistierte SQL-Gastfristen und der Zeittrigger bleiben offen. |
 | 2026-09-11 | Begrenzten lokalen Evaluation-Watch-Zeittrigger ergänzt | Der foreground-Trigger führt den vorhandenen Watch sofort und höchstens für die explizit angegebene Anzahl Prüfungen aus. Er registriert keine Windows-Aufgabe, startet keine Runtime und nutzt nur bei `-RecordEvents` die vorhandene lokale Ereignisdeduplizierung. Persistierte SQL-Gastfristen und Benachrichtigungskanäle bleiben offen. |
+
+## Persistentes Retrieval: begrenzter Folgeslice 2026-09-21
+
+Nach der ausdrücklich priorisierten KI-Reihenfolge ist der
+[synthetische Persistenz-Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
+implementiert: eigener SQL-2025-Containerscope, Initial/Delta, Resume und
+atomarer aktiver Zeiger. Offline-Verträge und die getrennten nativen Docker-/Podman-Abnahmen sind geprüft, einschließlich SQLrestart und vollständigem Cleanup. Ein echter Modellwechsel-Re-Embedding-Executor und
+beliebige Nutzerdokumente bleiben offen; Golden v1 wird nicht umgebunden.

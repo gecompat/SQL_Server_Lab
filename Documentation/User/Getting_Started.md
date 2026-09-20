@@ -4,6 +4,17 @@
 
 `Test-SqlServerLabRelationalCoreComparison` vergleicht explizit benannte, bereits laufende verwaltete Docker-/Podman-Datenbankpaare. Der Befehl nimmt keine Endpunkte, Connection Strings, SQL-Texte oder Kennwörter an. Ein Paar enthält nur die stabile Paar-ID sowie Quell- und Ziel-RunId, InstanceId und Datenbankname. Der Vergleich kann `MATCH`, `DIFFERENT` oder `UNSUPPORTED` feststellen; er ändert keine Datenbank und führt keinen Transfer aus.
 
+## Persistentes synthetisches Retrieval
+
+`Invoke-SqlServerLabAiPersistentRetrieval` verwendet einen vorhandenen
+SQL-2025-Docker-/Podman-Run mit verwaltetem SA-Secret und ein bereits laufendes
+lokales `embeddinggemma:latest`. Mit einer beibehaltenen Collection-GUID führen
+`-FixtureRevision Initial`, `-FixtureRevision Delta`, `-Action Query` und
+`-Action Remove` durch persistente Generationen und eigenes Cleanup. `-Resume`
+setzt nur exakt gebundenes unterbrochenes Apply fort; `-WhatIf` ist rein planend.
+[Beispiel, Besitzvertrag und Grenzen](../Architecture/AI_PERSISTENT_RETRIEVAL.md).
+Die neue native Referenz steht noch aus.
+
 ## Ziel
 
 Diese Anleitung führt vom leeren Arbeitsverzeichnis bis zu einer erreichbaren SQL-Server-Testinstanz und anschließend durch Datenbankerstellung, Restore, Skriptausführung und Cleanup.

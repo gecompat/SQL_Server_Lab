@@ -32,6 +32,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   nativ am 2026-09-21 bestanden (`VALIDATED_REFERENCE`, 14 Assertions und Cleanup). Die neue Modellpaarung ersetzt
   weder Golden v1 noch den älteren `PARTIAL`-Nachweis. Vertrag:
   `Documentation/Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md`;
+- Persistentes synthetisches Retrieval über `Invoke-SqlServerLabAiPersistentRetrieval`:
+  eigene Datenbank auf SQL-2025-Docker/Podman, lokale Host-Embeddings, feste
+  Initial-/Delta-Fixture, atomarer aktiver Generationszeiger, quittiertes Resume
+  und besitzgebundenes Remove. Offline sowie nativ unter Docker und Podman geprüft (je 16 Assertions und vollständiges Cleanup).
+  Kein Modellwechsel-Re-Embedding, keine beliebigen Dokumente oder Cloud.
+  Vertrag: `Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md`;
 
 - AdHoc-RAG mit vorhandenem Host-`embeddinggemma:latest` und expliziter
   HTTPS-Cloudgeneration über die bestehende Ollama-Lane; lokale Defaults und

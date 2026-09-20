@@ -457,6 +457,15 @@ Add-CheckResult -Name 'Nightly enthaelt Vollregression und taeglichen Zeitplan' 
     $nightly -match 'Invoke-AllChecks\.ps1' -and $nightly -match '(?m)^\s*schedule:\s*$'
 )
 
+foreach($path in @('Private/AiPersistentRetrieval.ps1','Private/AiPersistentRetrievalSql.ps1','Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1','Schemas/ai-persistent-retrieval-journal.schema.json','Scenarios/Ai/persistent-retrieval/1.0/fixture.json')){
+    $persistent=& $selector -ChangedPath @($path)
+    Add-CheckResult -Name "Persistentes Retrieval bleibt je Einzelpfad Docker/Podman: $path" -Success ($persistent.Docker -and $persistent.Podman -and -not $persistent.HyperV -and -not $persistent.Mixed -and -not $persistent.Adapter -and 'Invoke-AiPersistentRetrievalChecks.ps1' -in $persistent.StaticChecks)
+}
+$combinedPersistent=& $selector -ChangedPath @('Private/AiPersistentRetrieval.ps1','Private/AiRag.ps1')
+Add-CheckResult -Name 'Geteilter KI-Vertrag behält Hyper-V trotz begrenztem Persistenzpfad' -Success ($combinedPersistent.HyperV -and $combinedPersistent.Docker -and $combinedPersistent.Podman)
+$persistentInfrastructure=& $selector -ChangedPath @('Private/AiPersistentRetrieval.ps1','Tools/Get-CiTestSelection.ps1')
+Add-CheckResult -Name 'CI-Infrastrukturänderung behält vollständige Runtimeauswahl' -Success ($persistentInfrastructure.Docker -and $persistentInfrastructure.Podman -and $persistentInfrastructure.HyperV -and $persistentInfrastructure.Mixed -and $persistentInfrastructure.Adapter)
+
 if ($failures.Count -gt 0) {
     Write-Host "`nErgebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Red
     foreach ($failure in $failures) { Write-Host "  - $failure" -ForegroundColor Red }

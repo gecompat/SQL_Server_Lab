@@ -657,3 +657,18 @@ Resume ohne Restorewiederholung. Der CI-Selektor entdeckt diese Suite separat.
 beziehungsweise `-Provider podman` erstellt ausschließlich eigene SQL-2025-
 Linux-Runs und prüft Backup/Restore/MATCH, unveränderte read-only Quelle,
 Idempotenz sowie abweichenden Inhalt mit vollständigem Whole-Run-Cleanup.
+
+## Persistentes synthetisches Retrieval
+
+`Tests/Static/Invoke-AiPersistentRetrievalChecks.ps1` prüft den eigenen SQL-
+Generationsvertrag offline. Die native Abnahme verwendet vorhandenes lokales
+Embeddinggemma und getrennte eigene SQL-Runs:
+
+```powershell
+.\Tests\Integration\Invoke-AiPersistentRetrievalAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-AiPersistentRetrievalAcceptance.ps1 -Provider podman
+```
+
+Sie umfasst SQLrestart, konkurrierenden SQL-AppLock, Staging-/Commitantwortverlust,
+Resume und eigenes DB-/Run-Cleanup. Kein Download oder Cloudaufruf. Native
+Evidence steht noch aus; [Vertrag](../Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md).
