@@ -53,7 +53,12 @@ beide Provider erfolgreich, einschließlich Szenario- und Provider-Cleanup.
 Damit ist `AI-10A` `SUPPORTED`. Der echte HTTPS-Endpoint-Stub und die
 Fehlerverträge sind umgesetzt. `AI-10B` enthält nun einen rein lesenden,
 deterministischen Re-Embedding-Plan- und Journalvertrag für Modell- und
-Dimensionswechsel; ein Executor, Live-Probes und Runtime-Evidence bleiben offen.
+Dimensionswechsel. Der begrenzte
+[persistente Modellwechsel](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md)
+führt nun explizit Delta/gen2 mit Embeddinggemma nach Nomic v2 MoE/gen3 aus:
+versioniertes Upgrade, feste Präfixprofile, separate Zielvektoren und atomare
+Aktivierung. Offline-Verträge sind geprüft, native Docker-/Podman-Evidence
+dieser Migration bleibt offen. Allgemeine Modell-/Dimensionswechsel bleiben Backlog.
 
 ### AI-05 – Ollama-Vertragsgrundlage
 

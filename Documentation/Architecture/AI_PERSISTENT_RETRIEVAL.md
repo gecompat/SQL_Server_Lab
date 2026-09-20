@@ -114,6 +114,9 @@ Der native Podman-Lauf bestand am 2026-09-21 alle 16 Assertions, SQLrestart, gez
 
 Dies ist ein inkrementeller Generationsrebuild mit unveränderter Modellidentität.
 Der bestehende reine `New-LabAiReembeddingPlan` für einen echten Modellwechsel
-bleibt unverändert. Ein Digest-/Dimensionswechsel, beliebige Dokumente,
+bleibt unverändert und wird vom neuen
+[begrenzten Modellwechsel](AI_PERSISTENT_MODEL_MIGRATION.md) für genau Delta/gen2
+nach Nomic v2 MoE/gen3 wiederverwendet. Dessen native Abnahmen stehen aus.
+Weitere Digest-/Dimensionswechsel, beliebige Dokumente,
 Retention alter Generationen, Cloud, Generierung, Hyper-V und ANN sind offen.
 Golden v1 sowie SQL-seitiges EXTERNAL MODEL/TLS-Gateway bleiben unverändert.

@@ -144,7 +144,7 @@ und die [Known Limitations](../Quality/KNOWN_LIMITATIONS.md).
 | Podman Golden RAG | `implemented_partial` | Der eigene AdHoc-Slice mit vorhandenem Host-embeddinggemma und expliziter Cloudgeneration bestand am 2026-09-20 unter Podman und Docker getrennt mit exakten Retrievaltreffern, SQLrestart und Cleanup. Das unveränderte lokale Golden v1 verwendet andere Modellbindungen und bleibt separat offen; kein stiller Austausch dieser Bindungen. |
 | Hyper-V RAG/Agent | `planned` | Isoliertes SQL-Ziel verwenden und bisher fehlenden VM-Neustart samt Login-/Modell-/Lab-Cleanup nachweisen; Schutz gemeinsamer Testgruppen nicht umgehen. |
 | Modellcache | `validated` (Bewertung; Nichtübernahme) | [Bewertung](SQL_AI_CAPABILITIES_ASSESSMENT_2026-09-10.md): vorerst kein gemeinsamer persistenter Cache. Ein Pull-Timeout belegt keinen Cachegewinn; ein sicherer Blob-/Lease-/Publish-Vertrag fehlt. Erst erfolgreichen geänderten Podman-Lauf messen, bei bestätigtem Engpass separate Umsetzung mit Digest-, Abbruch-, Konkurrenz- und Cleanup-Abnahme; Aufwand L. |
-| Persistentes Retrieval/Re-Embedding | `implemented_native_pending` (enger synthetischer Slice) | [Eigene SQL-2025-Containergenerationen](../Architecture/AI_PERSISTENT_RETRIEVAL.md) mit festen Initial-/Delta-Dokumenten, lokalem Host-Embedding, atomarem Cutover, SQL-quittiertem Resume und besitzgebundenem Remove. 44 fokussierte Offlinechecks und native Podman-Abnahme bestanden; Docker-Evidence ausstehend. Echter Modell-/Dimensionswechsel, beliebige Dokumente und Hyper-V bleiben offen. |
+| Persistentes Retrieval/Re-Embedding | `implemented_native_pending` (enger synthetischer Slice) | [Eigene SQL-2025-Containergenerationen](../Architecture/AI_PERSISTENT_RETRIEVAL.md) mit festen Initial-/Delta-Dokumenten, lokalem Host-Embedding, atomarem Cutover, SQL-quittiertem Resume und besitzgebundenem Remove. 44 fokussierte Offlinechecks und native Podman-Abnahme bestanden; Docker-Evidence ausstehend. Enger Modellwechsel Delta→Nomic ist implementiert, seine native Abnahme steht aus; weitere Modell-/Dimensionswechsel, beliebige Dokumente und Hyper-V bleiben offen. |
 
 Die [neuen SQL-Anwendungsfälle](NEW_SQL_LAB_USE_CASES_BACKLOG.md), der
 [KI-Plattformbacklog](SQL2025_AI_PLATFORM_BACKLOG.md), der
@@ -232,5 +232,9 @@ Der Gesamtabschluss verlangt:
 Nach der ausdrücklich priorisierten KI-Reihenfolge ist der
 [synthetische Persistenz-Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
 implementiert: eigener SQL-2025-Containerscope, Initial/Delta, Resume und
-atomarer aktiver Zeiger. Offline-Verträge und die native Podman-Abnahme sind geprüft; Docker-Evidence steht aus. Ein echter Modellwechsel-Re-Embedding-Executor und
+atomarer aktiver Zeiger. Offline-Verträge und die native Podman-Abnahme sind geprüft; Docker-Evidence steht aus.
+Der nachfolgende [begrenzte Modellwechsel](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md)
+ergänzt explizit Delta/gen2 nach Nomic v2 MoE/gen3 mit v2-Upgrade und festen
+Präfixprofilen. Die 42 fokussierten Migrationchecks bestehen; beide nativen
+Migrationsabnahmen bleiben ausstehend. Allgemeine Modell-/Dimensionswechsel und
 beliebige Nutzerdokumente bleiben offen; Golden v1 wird nicht umgebunden.

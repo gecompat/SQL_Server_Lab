@@ -9,6 +9,13 @@
 
 ## 1. Grundsatz
 
+`Invoke-AiPersistentRetrievalMigrationChecks.ps1` ergänzt die v1-Regression um
+Upgrade-/Staging-/Commit-Abbrüche, unveränderte Quellgenerationen, SQL-first
+Modellwahl, Präfix-/Digestdrift und modellunabhängiges Cleanup. Der separate
+`Invoke-AiPersistentRetrievalMigrationAcceptance.ps1` ist für eigene Docker-
+und Podman-Runs vorbereitet; beide Migrationsnachweise bleiben ausstehend.
+Siehe [Migrationsvertrag](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
+
 `Invoke-AiPersistentRetrievalChecks.ps1` prüft den begrenzten persistenten
 Containerpfad mit Chunk-/Commit-Antwortverlust, aktiver Altgeneration, fehlendem
 Ownershipreceipt, Vektor-/Modell-/DB-Drift, Locks und Journalschreibfehlern.

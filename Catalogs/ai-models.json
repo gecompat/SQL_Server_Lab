@@ -16,6 +16,20 @@
   ],
   "models": [
     {
+      "key": "ollama-nomic-embed-text-v2-moe",
+      "provider": "ollama",
+      "lane": "local",
+      "purpose": "embedding",
+      "model": "nomic-embed-text-v2-moe:latest",
+      "dimension": 768,
+      "status": "SUPPORTED",
+      "minimumOllamaVersion": "0.34.2",
+      "identityPolicy": "LIVE_MANIFEST_DIGEST_REQUIRED",
+      "estimatedSizeBytes": 958000000,
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/nomic-ai/nomic-embed-text-v2-moe"
+    },
+    {
       "key": "ollama-embeddinggemma-latest",
       "provider": "ollama",
       "lane": "local",

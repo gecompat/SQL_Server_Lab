@@ -13,7 +13,9 @@
 .PARAMETER CollectionId
     Selbst gewählte GUID der Collection; für Wiederaufnahme und Remove beibehalten.
 .PARAMETER Action
-    Apply erstellt eine neue Generation; Query liest die aktive; Remove entfernt nur die eigene Datenbank.
+    Apply erstellt eine neue Generation; Migrate baut Delta mit dem expliziten Zielmodell neu auf; Query liest die aktive; Remove entfernt nur die eigene Datenbank.
+.PARAMETER TargetModelKey
+    Ausschließlich für Migrate: ollama-nomic-embed-text-v2-moe. Benötigt FixtureRevision Delta.
 .PARAMETER FixtureRevision
     Initial oder Delta. Delta aktualisiert, entfernt und ergänzt feste synthetische Dokumente.
 .PARAMETER QueryId
@@ -41,15 +43,16 @@ function Invoke-SqlServerLabAiPersistentRetrieval {
         [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$RunId,
         [ValidatePattern('^[a-zA-Z][a-zA-Z0-9_-]{0,63}$')][string]$InstanceId='primary',
         [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$CollectionId,
-        [ValidateSet('Apply','Query','Remove')][string]$Action='Apply',
+        [ValidateSet('Apply','Query','Remove','Migrate')][string]$Action='Apply',
+        [ValidateSet('ollama-nomic-embed-text-v2-moe')][string]$TargetModelKey,
         [ValidateSet('Initial','Delta')][string]$FixtureRevision='Initial',
         [ValidateSet('backup','cleanup')][string]$QueryId='backup',
         [switch]$Resume,[ValidateRange(1024,65535)][int]$LocalPort=11434,
         [ValidateRange(60,600)][int]$TimeoutSeconds=300,[string]$StateRoot
     )
-    $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId $InstanceId -CollectionId $CollectionId -Action $Action -FixtureRevision $FixtureRevision -QueryId $QueryId -LocalPort $LocalPort -TimeoutSeconds $TimeoutSeconds -Resume:$Resume
+    $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId $InstanceId -CollectionId $CollectionId -Action $Action -FixtureRevision $FixtureRevision -QueryId $QueryId -LocalPort $LocalPort -TimeoutSeconds $TimeoutSeconds -Resume:$Resume -TargetModelKey $TargetModelKey
     if(-not $PSCmdlet.ShouldProcess("Run $RunId / Collection $CollectionId",$Action)){
-        return [pscustomobject]@{Status='PLANNED';Action=$Action;CollectionId=$CollectionId;Revision=$FixtureRevision;PlanKey=$plan.PlanKey;ModelKey='ollama-embeddinggemma-latest';Dimension=768}
+        return [pscustomobject]@{Status='PLANNED';Action=$Action;CollectionId=$CollectionId;Revision=$FixtureRevision;PlanKey=$plan.PlanKey;ModelKey=$plan.EndpointPlan.ModelKey;Dimension=768}
     }
     try{Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $StateRoot}
     catch{if($_.Exception.Message -match '^AI_PERSISTENT_[A-Z_]+$'){throw $_.Exception.Message};throw 'AI_PERSISTENT_RECOVERY_REQUIRED'}

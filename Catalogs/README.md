@@ -12,7 +12,7 @@ Die Kataloge sind maschinenlesbare Runtimeeingaben. Änderungen müssen mit Sche
 | `sql-server-media-sources.json` | Direkte Microsoft-Downloads, verifizierte Archiv-Fallbacks und manuelle Lizenzmedien für nicht-Azure SQL-Server-Basisversionen | `../Schemas/sql-server-media-sources.schema.json` |
 | `sample-databases.json` | Metadaten öffentlicher Testdatenbanken, Varianten, Lizenzen, URLs und Mindestversionen | `sample-databases.schema.json` → `../Schemas/sample-databases.schema.json` |
 | `software.json` | Providerneutrale SQL-bezogene Software- und External-Runtime-Varianten mit Support-, Integrity- und Verification-Metadaten | `../Schemas/software-catalog.schema.json` |
-| `ai-models.json` | Ollama-Modellidentitäten für Embedding, lokale Generierung und optionale Cloud-Generierung; Status bleibt bis zum jeweiligen nativen Nachweis `PLANNED` | `../Schemas/ai-model-catalog.schema.json` |
+| `ai-models.json` | Ollama-Modellidentitäten für Embedding, lokale Generierung und optionale Cloud-Generierung; Katalogunterstützung und native Nachweise bleiben getrennt | `../Schemas/ai-model-catalog.schema.json` |
 
 ## Security-Tool-Katalog
 
@@ -318,3 +318,10 @@ Trust-Record.
 ```
 
 Die Prüfung kontrolliert JSON-Syntax, Schema-Referenzen und zentrale Katalogverträge.
+
+Der Eintrag `ollama-nomic-embed-text-v2-moe` bindet das vorhandene lokale
+768-dimensionale Modell für die [explizite persistente Migration](../Documentation/Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
+Apache-2.0 stammt aus der verlinkten Nomic-Modellkarte. Der Ollama-Floor 0.34.2
+ist eine konservative Projektgrenze; ein offizieller Hersteller-Minimalstand
+wird nicht behauptet. Modellinstallation und native SQL-Eignung werden durch
+einen Katalogeintrag nicht bestätigt.

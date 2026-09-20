@@ -448,9 +448,10 @@ Add-CheckResult -Name 'Nightly enthaelt Vollregression und taeglichen Zeitplan' 
     $nightly -match 'Invoke-AllChecks\.ps1' -and $nightly -match '(?m)^\s*schedule:\s*$'
 )
 
-foreach($path in @('Private/AiPersistentRetrieval.ps1','Private/AiPersistentRetrievalSql.ps1','Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1','Schemas/ai-persistent-retrieval-journal.schema.json','Scenarios/Ai/persistent-retrieval/1.0/fixture.json')){
+foreach($path in @('Private/AiPersistentRetrieval.ps1','Private/AiPersistentRetrievalSql.ps1','Private/AiPersistentRetrievalMigration.ps1','Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1','Schemas/ai-persistent-retrieval-journal.schema.json','Schemas/ai-persistent-retrieval-journal-v2.schema.json','Scenarios/Ai/persistent-retrieval/1.0/fixture.json')){
     $persistent=& $selector -ChangedPath @($path)
     Add-CheckResult -Name "Persistentes Retrieval bleibt je Einzelpfad Docker/Podman: $path" -Success ($persistent.Docker -and $persistent.Podman -and -not $persistent.HyperV -and -not $persistent.Mixed -and -not $persistent.Adapter -and 'Invoke-AiPersistentRetrievalChecks.ps1' -in $persistent.StaticChecks)
+    Add-CheckResult -Name "Persistenzänderung erreicht auch Migrationsregression: $path" -Success ('Invoke-AiPersistentRetrievalMigrationChecks.ps1' -in $persistent.StaticChecks)
 }
 $combinedPersistent=& $selector -ChangedPath @('Private/AiPersistentRetrieval.ps1','Private/AiRag.ps1')
 Add-CheckResult -Name 'Geteilter KI-Vertrag behält Hyper-V trotz begrenztem Persistenzpfad' -Success ($combinedPersistent.HyperV -and $combinedPersistent.Docker -and $combinedPersistent.Podman)

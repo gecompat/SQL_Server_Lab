@@ -85,7 +85,11 @@ und vollständigem Cleanup samt Residueprüfung. Hyper-V bleibt separat offen.
 Der [persistente synthetische Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
 implementiert inzwischen eine eigene SQL-Datenbank, Initial-/Delta-Generationen,
 Resume und besitzgebundenes Cleanup auf Docker/Podman. Podman ist nativ belegt; der getrennte Docker-Nachweis steht noch aus. Echter Modellwechsel, beliebige Dokumente und breite
-Re-Embedding-Ausführung bleiben offen.
+Re-Embedding-Ausführung bleiben außerhalb des engen
+[Migrations-Slices](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) offen:
+explizit bestätigtes Delta/Embeddinggemma nach Nomic v2 MoE bei 768 Dimensionen,
+versioniertes Upgrade, feste Präfixprofile und besitzgebundenes Remove sind
+implementiert; die native Docker-/Podman-Abnahme dieser Migration steht aus.
 
 Der Ollama-Modellkatalog sowie die Verträge für Endpointplan, Runtimejournal
 und sanitisierte Abfrageergebnisse sind vorhanden. Ollama-Cloud-Generation ist
