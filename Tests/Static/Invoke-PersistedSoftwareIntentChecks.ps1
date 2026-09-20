@@ -26,11 +26,12 @@ try {
         param($Root)
 
         function New-TestSoftwareDesiredState {
-            param([ValidateSet('docker','hyperv')][string]$Provider, [switch]$IncludeServerConfig)
+            param([ValidateSet('docker','hyperv')][string]$Provider, [switch]$IncludeServerConfig, [double]$Cpu=4)
             $instance = [pscustomobject]@{
                 id='primary'; provider=$Provider; os=$(if($Provider -eq 'hyperv'){'windows'}else{'linux'})
                 version='2022'; profile='standard'; autostart='off'; databases=@(); drives=@(); networkName=$null
                 hyperv=$null; serverConfig=$(if($IncludeServerConfig){[pscustomobject]@{maxDop=4}}else{$null})
+                runtimeResources=[pscustomobject]@{cpu=$Cpu;memoryMB=4096}; collation='SQL_Latin1_General_CP1_CI_AS'
                 software=@([pscustomobject]@{ id='sql-python'; version=$null; variant=$null; scope='sqlExternalRuntime'; installMethod='catalog'; packages=@(); optional=$false; requestSource='software' })
             }
             New-LabDesiredStateSnapshot -ResolvedLab ([pscustomobject]@{name="persisted-software-$Provider";instances=@($instance)}) -ProvisioningMode manifest -PersistentData:$false
@@ -49,6 +50,7 @@ try {
         $dockerDesired = New-TestSoftwareDesiredState docker
         $hyperVDesired = New-TestSoftwareDesiredState hyperv
         $dockerConfigurationDesired = New-TestSoftwareDesiredState docker -IncludeServerConfig
+        $dockerFractionalDesired = New-TestSoftwareDesiredState docker -Cpu 1.5
         $dockerRun = New-TestSoftwareRun $dockerDesired docker 'container-lab'
         $hyperVRun = New-TestSoftwareRun $hyperVDesired hyperv 'hyperv-lab'
         $dockerPersisted = Get-LabPersistedDesiredState -RunId $dockerRun.RunId -StateRoot $Root
@@ -61,6 +63,8 @@ try {
         $hyperVPersistedPlans = @(Resolve-LabValidatedPersistedSoftwarePlans -Software $hyperVInstance.Intents.Software -Instance $hyperVInstance -ProviderCapability $hyperVCapability)
         $dockerConfigurationRun = New-TestSoftwareRun $dockerConfigurationDesired docker 'container-lab'
         $dockerConfigurationPersisted = Get-LabPersistedDesiredState -RunId $dockerConfigurationRun.RunId -StateRoot $Root
+        $dockerFractionalRun = New-TestSoftwareRun $dockerFractionalDesired docker 'container-lab'
+        $dockerFractionalPersisted = Get-LabPersistedDesiredState -RunId $dockerFractionalRun.RunId -StateRoot $Root
         $dockerConfigurationTampered = $dockerConfigurationDesired | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
         $dockerConfigurationTampered.Instances[0].Intents.SqlConfiguration.CapabilityStatus = 'DECLARED_SUPPORTED'
         $dockerConfigurationTamperedRun = New-TestSoftwareRun $dockerConfigurationTampered docker 'container-lab'
@@ -112,6 +116,7 @@ try {
             DockerCanonical=$dockerPersisted; HyperVCanonical=$hyperVPersisted
             DockerPersistedPlans=$dockerPersistedPlans; HyperVPersistedPlans=$hyperVPersistedPlans
             DockerConfigurationCanonical=$dockerConfigurationPersisted; DockerConfigurationTampered=$dockerConfigurationTamperedPersisted
+            DockerFractional=$dockerFractionalPersisted
             LegacyMissing=(New-TestSoftwareRun $legacyMissing docker 'container-lab'); LegacyNull=(New-TestSoftwareRun $legacyNull docker 'container-lab')
             Invalid=@($invalid); HyperVMessage=$hyperVMessage
             HyperVStateUnchanged=($beforeHyperVState -ceq (Get-Content -LiteralPath (Join-Path $hyperVInvalidRun.RunDir 'run-state.json') -Raw -Encoding utf8))
@@ -125,6 +130,9 @@ try {
     Add-CheckResult -Name 'Persistierte Software-Projektion rehydriert Container- und Hyper-V-PlanKeys ohne Manifestinput' -Success (
         (@($result.DockerPersistedPlans.PlanKey) -join ',') -ceq (@($result.DockerCanonical.Snapshot.Instances[0].Intents.Software.Items.PlanKey) -join ',') -and
         (@($result.HyperVPersistedPlans.PlanKey) -join ',') -ceq (@($result.HyperVCanonical.Snapshot.Instances[0].Intents.Software.Items.PlanKey) -join ','))
+    Add-CheckResult -Name 'Fractional Container-CPU bleibt ueber Persistenz und JSON-Roundtrip exakt gebunden' -Success (
+        $result.DockerFractional.Status -eq 'VALID' -and
+        [double]$result.DockerFractional.Snapshot.Instances[0].Intents.ContainerRuntime.Cpu -eq 1.5)
     Add-CheckResult -Name 'Docker-SQL-Konfigurationsstatus bleibt an die deklarierte Provider-Capability gebunden' -Success (
         $result.DockerConfigurationCanonical.Status -eq 'VALID' -and
         $result.DockerConfigurationTampered.Status -eq 'INVALID' -and
@@ -153,7 +161,7 @@ try {
         $containerContextSource -match '-ResolvedInstance \$context\.RuntimeInstance' -and
         $containerContextSource -match 'EXTERNAL_RUNTIME_RECONCILE_CONTAINER_RUNTIME_INTENT_MISSING' -and
         $containerContextSource -match 'NotePropertyName collation -NotePropertyValue \(\[string\]\$containerRuntime\.Collation\)' -and
-        $containerContextSource -match 'NotePropertyName runtimeResources -NotePropertyValue \(\[PSCustomObject\]@\{ cpu=\[int\]\$containerRuntime\.Cpu; memoryMB=\[int\]\$containerRuntime\.MemoryMB \}\)' -and
+        $containerContextSource -match 'NotePropertyName runtimeResources -NotePropertyValue \(\[PSCustomObject\]@\{ cpu=\[double\]\$containerRuntime\.Cpu; memoryMB=\[int\]\$containerRuntime\.MemoryMB \}\)' -and
         $hyperVContextSource -match '\$runtimeResourceGovernorConfig = if \(\$hasPersistedSoftware\) \{ \$null \}' -and
         $hyperVContextSource -match '\$stateCommitSnapshot = if \(\$hasPersistedSoftware\) \{ \$persisted\.Snapshot \}' -and
         $hyperVContextSource -match 'ResourceGovernorConfig \$context\.RuntimeResourceGovernorConfig' -and

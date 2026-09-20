@@ -105,7 +105,9 @@ function New-LabContainerRuntimeIntentSnapshot {
 
     if ([string]$Instance.provider -notin @('docker','podman')) { return $null }
     $profile = Get-LabResourceProfile -Name $(if ($Instance.profile) { [string]$Instance.profile } else { 'standard' })
-    $cpu = if ($Instance.runtimeResources -and $null -ne $Instance.runtimeResources.cpu) { [long]$Instance.runtimeResources.cpu } else { [long]$profile.maxCpus }
+    # Docker and Podman accept fractional CPU quotas.  Keep the numeric value
+    # as a double through JSON instead of truncating it to an integer.
+    $cpu = if ($Instance.runtimeResources -and $null -ne $Instance.runtimeResources.cpu) { [double]$Instance.runtimeResources.cpu } else { [double]$profile.maxCpus }
     $memoryMB = if ($Instance.runtimeResources -and $null -ne $Instance.runtimeResources.memoryMB) { [long]$Instance.runtimeResources.memoryMB } else { [long]$profile.maxMemoryMB }
     return [PSCustomObject]@{
         Contract = [PSCustomObject]@{ Name='SqlServerLab.ContainerRuntimeIntent'; Version='1.0' }
@@ -527,10 +529,18 @@ function Test-LabPersistedContainerRuntimeIntent {
         [string]$ContainerRuntime.Contract.Name -cne 'SqlServerLab.ContainerRuntimeIntent' -or
         [string]$ContainerRuntime.Contract.Version -cne '1.0' -or
         [string]$Provider -cnotin @('docker','podman') -or
-        $ContainerRuntime.Cpu -isnot [long] -or $ContainerRuntime.Cpu -lt 1 -or $ContainerRuntime.Cpu -gt 64 -or
+        (-not ($ContainerRuntime.Cpu -is [long] -or $ContainerRuntime.Cpu -is [double])) -or
+        [double]::IsNaN([double]$ContainerRuntime.Cpu) -or [double]::IsInfinity([double]$ContainerRuntime.Cpu) -or
+        [double]$ContainerRuntime.Cpu -lt 0.5 -or [double]$ContainerRuntime.Cpu -gt 64 -or
         $ContainerRuntime.MemoryMB -isnot [long] -or $ContainerRuntime.MemoryMB -lt 512 -or $ContainerRuntime.MemoryMB -gt 1048576 -or
         $ContainerRuntime.Collation -isnot [string]) { return $false }
     try {
+        # The invariant roundtrip rejects culture-dependent or coerced input
+        # while preserving a valid fractional Docker/Podman quota exactly.
+        $cpuValue = [double]$ContainerRuntime.Cpu
+        $cpuText = $cpuValue.ToString('R', [Globalization.CultureInfo]::InvariantCulture)
+        $roundtripCpu = 0.0
+        if (-not [double]::TryParse($cpuText, [Globalization.NumberStyles]::Float, [Globalization.CultureInfo]::InvariantCulture, [ref]$roundtripCpu) -or $roundtripCpu -ne $cpuValue) { return $false }
         return [string](Resolve-LabSqlServerCollation -Name $ContainerRuntime.Collation -SqlVersion $SqlVersion) -ceq [string]$ContainerRuntime.Collation
     }
     catch { return $false }

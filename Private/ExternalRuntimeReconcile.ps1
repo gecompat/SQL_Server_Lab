@@ -196,7 +196,7 @@ function Get-LabExternalRuntimeReconcileContext {
         $runtimeInstance.PSObject.Properties.Remove('software')
         $runtimeInstance.PSObject.Properties.Remove('serverConfig')
         $runtimeInstance | Add-Member -NotePropertyName collation -NotePropertyValue ([string]$containerRuntime.Collation) -Force
-        $runtimeInstance | Add-Member -NotePropertyName runtimeResources -NotePropertyValue ([PSCustomObject]@{ cpu=[int]$containerRuntime.Cpu; memoryMB=[int]$containerRuntime.MemoryMB }) -Force
+        $runtimeInstance | Add-Member -NotePropertyName runtimeResources -NotePropertyValue ([PSCustomObject]@{ cpu=[double]$containerRuntime.Cpu; memoryMB=[int]$containerRuntime.MemoryMB }) -Force
     }
 
     return [PSCustomObject]@{
