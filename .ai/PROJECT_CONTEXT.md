@@ -493,14 +493,20 @@ nach den Runtime-Postconditions fortgeschrieben. Die Hyper-V-VM bleibt gestartet
 Ein erhöhter nativer Runner samt isoliertem `SQL_PREPARED_SEALED`-Bootstrap
 bindet Plan, `WhatIf`, Live-Änderung, Ownership-Add/-Remove,
 Fremd-Trace-Flag-Schutz, ausschließlich `MSSQLSERVER`-Restart, Desired-State-
-Rückkehr, No-op und Cleanup ausführbar; seine positive Ausführung ist noch
-`NOT_EXECUTED`. Der
+Rückkehr, No-op und Cleanup ausführbar. Der erfolgreiche erhöhte
+GitHub-Actions-Lauf `34754976310` vom 2026-09-13 belegte diesen
+SQL-2025-Konfigurationsscope nativ mit verifiziertem Prepared-Artifact,
+`WhatIf`, Live-/Restart-Reconcile, Trace-Flag-Ownership, Restart ohne
+VM-Neustart, Desired-State-Konvergenz und VM-/VHDX-/IPAM-Cleanup. Der
 Port-Slice bindet genau eine Standardinstanz, Gastfirewall, SQL-Dienstrestart,
 Readiness und Connection-State journalisiert. Ein erhöhter nativer Runner samt
 isoliertem `SQL_PREPARED_SEALED`-Bootstrap erzeugt eine eng gebundene Gastdrift
 und prüft Plan, `WhatIf`, ausschließlich `MSSQLSERVER`-Restart ohne VM-Neustart,
-Connection-State, No-op und Cleanup ausführbar; seine positive Ausführung ist
-noch `NOT_EXECUTED`. Der Testdatenbank-Slice vergleicht `sys.databases` mit
+Connection-State, No-op und Cleanup ausführbar. Der erfolgreiche erhöhte
+GitHub-Actions-Lauf `34761955648` vom 2026-09-13 belegte diesen SQL-Port-Scope
+nativ mit Prepared-Artifact, Port-/Connection-State, Alternativport-Drift,
+TCP-/Firewall-Plan, Restart ohne VM-Neustart, No-op und VM-/VHDX-/IPAM-Cleanup.
+Der Testdatenbank-Slice vergleicht `sys.databases` mit
 stabilen Sample-PlanKeys und einem VM-gebundenen lokalen Ownership-Receipt.
 Er fuegt katalogisierte Samples ueber den gemeinsamen Handler hinzu und
 entfernt nur nachgewiesen run-eigene Outputs nach CHECKSUM-Backup und
