@@ -457,8 +457,14 @@ function Test-LabPersistedSqlConfigurationIntent {
         ((@($SqlConfiguration.Contract.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'Name,Version') -or
         [string]$SqlConfiguration.Contract.Name -cne 'SqlServerLab.SqlConfigurationIntent' -or
         [string]$SqlConfiguration.Contract.Version -cne '1.0') { return $false }
-    if ([string]$Provider -ine 'hyperv' -or
-        [string]$SqlConfiguration.RequiredCapability -cne 'hyperv-sql-configuration-reconcile' -or
+    $expectedRequiredCapability = if ([string]$Provider -ieq 'hyperv') {
+        'hyperv-sql-configuration-reconcile'
+    }
+    elseif ([string]$Provider -iin @('docker','podman')) {
+        'sql-configuration-reconcile'
+    }
+    else { return $false }
+    if ([string]$SqlConfiguration.RequiredCapability -cne $expectedRequiredCapability -or
         [string]$SqlConfiguration.CapabilityStatus -cnotin @('DECLARED_SUPPORTED','DECLARED_UNSUPPORTED')) { return $false }
     if ($SqlConfiguration.Configurations -isnot [array] -or $SqlConfiguration.TraceFlags -isnot [array]) { return $false }
 
@@ -804,6 +810,122 @@ function Test-LabPersistedDatabaseIntent {
             -ProviderCapability $ProviderCapability -RequiredCapability $requiredCapability)
 }
 
+function ConvertTo-LabPersistedSoftwareItemProjection {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Plan)
+
+    return [ordered]@{
+        Id = [string]$Plan.SoftwareId
+        PlanKey = [string]$Plan.PlanKey
+        Optional = if ($Plan.PSObject.Properties['Optional']) { [bool]$Plan.Optional } else { [string]$Plan.Kind -ne 'sqlExternalRuntime' }
+        Scope = if ([string]$Plan.Kind -eq 'sqlExternalRuntime') { 'sqlExternalRuntime' } else { 'instance' }
+        Status = [string]$Plan.Status
+        ReasonCode = [string]$Plan.ReasonCode
+        VariantId = [string]$Plan.VariantId
+        RuntimeVersion = [string]$Plan.RuntimeVersion
+        InstallationMethod = [string]$Plan.InstallationMethod
+        RequiredCapabilities = @($Plan.RequiredCapabilities | ForEach-Object { [string]$_ })
+        ArtifactRefs = @($Plan.ArtifactRefs | ForEach-Object {
+            [ordered]@{ Id=[string]$_.Id; SourceType=[string]$_.SourceType; Version=[string]$_.Version; Sha256=[string]$_.Sha256; IntegrityOrigin=[string]$_.IntegrityOrigin }
+        })
+        PackageLocks = @($Plan.PackageLocks | ForEach-Object {
+            [ordered]@{ Name=[string]$_.Name; Version=[string]$_.Version; Sha256=[string]$_.Sha256; Scope=[string]$_.Scope }
+        })
+        Restart = if ($null -eq $Plan.Restart) { $null } else { [ordered]@{ sqlServer=[bool]$Plan.Restart.sqlServer; launchpad=[bool]$Plan.Restart.launchpad; guest=[bool]$Plan.Restart.guest } }
+        Validation = if ($null -eq $Plan.Validation) { $null } else { [ordered]@{ type=[string]$Plan.Validation.type; language=[string]$Plan.Validation.language; probeId=[string]$Plan.Validation.probeId; expectedRuntimeVersion=[string]$Plan.Validation.expectedRuntimeVersion } }
+    }
+}
+
+function ConvertTo-LabValidatedPersistedSoftwareItemProjection {
+    [CmdletBinding()]
+    param($Item)
+
+    if ($null -eq $Item -or $Item -is [string] -or $Item -is [bool] -or $Item -is [array]) { return $null }
+    $fields = @('ArtifactRefs','Id','InstallationMethod','Optional','PackageLocks','PlanKey','ReasonCode','RequiredCapabilities','Restart','RuntimeVersion','Scope','Status','Validation','VariantId')
+    if ((@($Item.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($fields -join ',')) { return $null }
+    if ($Item.Id -isnot [string] -or $Item.Id -notmatch '^[a-z][a-z0-9-]{2,63}$' -or
+        $Item.PlanKey -isnot [string] -or ($Item.PlanKey.Length -gt 0 -and $Item.PlanKey -notmatch '^[a-f0-9]{64}$') -or
+        $Item.Optional -isnot [bool] -or $Item.Scope -isnot [string] -or $Item.Scope -cnotin @('instance','sqlExternalRuntime') -or
+        $Item.Status -isnot [string] -or $Item.Status -cnotin @('RESOLVED','DECLARED_UNSUPPORTED','NON_REPRODUCIBLE') -or
+        $Item.ReasonCode -isnot [string] -or $Item.VariantId -isnot [string] -or $Item.RuntimeVersion -isnot [string] -or
+        $Item.InstallationMethod -isnot [string] -or $Item.RequiredCapabilities -isnot [array] -or
+        $Item.ArtifactRefs -isnot [array] -or $Item.PackageLocks -isnot [array]) { return $null }
+    if (($null -ne $Item.Restart -and ($Item.Restart -is [string] -or $Item.Restart -is [bool] -or $Item.Restart -is [array])) -or
+        ($null -ne $Item.Validation -and ($Item.Validation -is [string] -or $Item.Validation -is [bool] -or $Item.Validation -is [array]))) { return $null }
+    foreach ($capability in @($Item.RequiredCapabilities)) {
+        if ($capability -isnot [string] -or $capability -notmatch '^[a-z][a-z0-9-]{2,63}$') { return $null }
+    }
+    foreach ($artifact in @($Item.ArtifactRefs)) {
+        if ($null -eq $artifact -or $artifact -is [string] -or $artifact -is [bool] -or $artifact -is [array] -or
+            ((@($artifact.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'Id,IntegrityOrigin,Sha256,SourceType,Version') -or
+            $artifact.Id -isnot [string] -or $artifact.SourceType -isnot [string] -or $artifact.Version -isnot [string] -or
+            $artifact.Sha256 -isnot [string] -or $artifact.Sha256 -notmatch '^[a-f0-9]{64}$' -or $artifact.IntegrityOrigin -isnot [string]) { return $null }
+    }
+    foreach ($package in @($Item.PackageLocks)) {
+        if ($null -eq $package -or $package -is [string] -or $package -is [bool] -or $package -is [array] -or
+            ((@($package.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'Name,Scope,Sha256,Version') -or
+            $package.Name -isnot [string] -or $package.Version -isnot [string] -or $package.Scope -isnot [string] -or
+            $package.Sha256 -isnot [string] -or $package.Sha256 -notmatch '^[a-f0-9]{64}$') { return $null }
+    }
+    if ($null -ne $Item.Restart -and (((@($Item.Restart.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'guest,launchpad,sqlServer') -or
+        $Item.Restart.sqlServer -isnot [bool] -or $Item.Restart.launchpad -isnot [bool] -or $Item.Restart.guest -isnot [bool])) { return $null }
+    if ($null -ne $Item.Validation -and (((@($Item.Validation.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'expectedRuntimeVersion,language,probeId,type') -or
+        $Item.Validation.type -isnot [string] -or $Item.Validation.language -isnot [string] -or $Item.Validation.probeId -isnot [string] -or
+        $Item.Validation.expectedRuntimeVersion -isnot [string])) { return $null }
+    return [ordered]@{
+        Id=[string]$Item.Id; PlanKey=[string]$Item.PlanKey; Optional=[bool]$Item.Optional; Scope=[string]$Item.Scope; Status=[string]$Item.Status
+        ReasonCode=[string]$Item.ReasonCode; VariantId=[string]$Item.VariantId; RuntimeVersion=[string]$Item.RuntimeVersion; InstallationMethod=[string]$Item.InstallationMethod
+        RequiredCapabilities=@($Item.RequiredCapabilities | ForEach-Object {[string]$_})
+        ArtifactRefs=@($Item.ArtifactRefs | ForEach-Object {[ordered]@{Id=[string]$_.Id;SourceType=[string]$_.SourceType;Version=[string]$_.Version;Sha256=[string]$_.Sha256;IntegrityOrigin=[string]$_.IntegrityOrigin}})
+        PackageLocks=@($Item.PackageLocks | ForEach-Object {[ordered]@{Name=[string]$_.Name;Version=[string]$_.Version;Sha256=[string]$_.Sha256;Scope=[string]$_.Scope}})
+        Restart=if($null -eq $Item.Restart){$null}else{[ordered]@{sqlServer=[bool]$Item.Restart.sqlServer;launchpad=[bool]$Item.Restart.launchpad;guest=[bool]$Item.Restart.guest}}
+        Validation=if($null -eq $Item.Validation){$null}else{[ordered]@{type=[string]$Item.Validation.type;language=[string]$Item.Validation.language;probeId=[string]$Item.Validation.probeId;expectedRuntimeVersion=[string]$Item.Validation.expectedRuntimeVersion}}
+    }
+}
+
+function Test-LabPersistedSoftwareIntent {
+    <# Validates only the secret-free resolver projection; the catalog is the authority. #>
+    [CmdletBinding()]
+    param($Software, [Parameter(Mandatory)]$Instance, $ProviderCapability)
+
+    if ($null -eq $Software -or $Software -is [string] -or $Software -is [bool] -or $Software -is [array]) { return $false }
+    $fields = @('CapabilityStatus','Items','PlanningCapabilityStatus','RequiredCapability')
+    if ((@($Software.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($fields -join ',') -or
+        $Software.Items -isnot [array] -or $Software.CapabilityStatus -isnot [string] -or
+        $Software.PlanningCapabilityStatus -isnot [string] -or
+        ($null -ne $Software.RequiredCapability -and $Software.RequiredCapability -isnot [string])) { return $false }
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $expected = [Collections.Generic.List[object]]::new()
+    foreach ($item in @($Software.Items)) {
+        $actual = ConvertTo-LabValidatedPersistedSoftwareItemProjection -Item $item
+        if ($null -eq $actual -or -not $seen.Add([string]$actual.Id)) { return $false }
+        # Never use a persisted installer, URL, path or command.  Resolve only
+        # an already closed catalog item against the persisted run identity.
+        if (-not (Get-LabSoftwareCatalogItem -Id ([string]$actual.Id))) { return $false }
+        $request = [PSCustomObject]@{
+            Id=[string]$actual.Id; Version=[string]$actual.RuntimeVersion; Variant=[string]$actual.VariantId
+            Scope=[string]$actual.Scope; InstallMethod=[string]$actual.InstallationMethod; Optional=[bool]$actual.Optional
+            Packages=@($actual.PackageLocks | ForEach-Object {[PSCustomObject]@{Name=[string]$_.Name;Version=[string]$_.Version;Scope=[string]$_.Scope}})
+            RequestSource='persisted-desired-state'
+        }
+        $operatingSystem = if ([string]$Instance.Provider -ceq 'hyperv') { 'windows' } else { 'linux' }
+        try { $plan = Resolve-LabExternalRuntimePlan -SoftwareItem $request -SqlVersion ([string]$Instance.Version -split '-',2)[0] -Provider ([string]$Instance.Provider) -OperatingSystem $operatingSystem }
+        catch { return $false }
+        $expectedItem = ConvertTo-LabPersistedSoftwareItemProjection -Plan $plan
+        if ((ConvertTo-Json -InputObject $actual -Depth 20 -Compress) -cne (ConvertTo-Json -InputObject $expectedItem -Depth 20 -Compress)) { return $false }
+        $expected.Add($expectedItem)
+    }
+    $planning = if ($expected.Count -eq 0) { 'NOT_REQUESTED' } else { Get-LabDeclaredIntentCapabilityStatus -ProviderCapability $ProviderCapability -RequiredCapability 'software-catalog-planning' }
+    $requiredCapability = if ($expected.Count -eq 0) { $null } else { 'software-catalog-planning' }
+    $capability = if ($expected.Count -eq 0) { 'NOT_REQUESTED' } elseif ($planning -ne 'DECLARED_SUPPORTED' -or @($expected | Where-Object Status -ne 'RESOLVED').Count -gt 0) { 'DECLARED_UNSUPPORTED' } else { 'DECLARED_SUPPORTED' }
+    # Preserve a null required capability for an empty, catalog-derived intent.
+    # Casting it to a string would turn a valid legacy-safe empty projection into
+    # an invalid empty string after JSON round-tripping.
+    return $Software.RequiredCapability -ceq $requiredCapability -and
+        [string]$Software.PlanningCapabilityStatus -ceq $planning -and
+        [string]$Software.CapabilityStatus -ceq $capability
+}
+
 function Test-LabPersistedAiIntent {
     <#
     .SYNOPSIS
@@ -1050,6 +1172,13 @@ function Get-LabPersistedDesiredState {
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['Databases'] -and $null -ne $instance.Intents.Databases -and
             -not (Test-LabPersistedDatabaseIntent -Databases $instance.Intents.Databases -Provider $provider -ProviderCapability $providerCapability)) {
             [void]$validationErrors.Add('DESIRED_INSTANCE_DATABASE_INTENT_INVALID')
+        }
+        # Missing/null Software is retained for legacy snapshots.  A present
+        # projection is re-derived only from the local catalog before any
+        # container, Hyper-V, target, journal, or installer path can observe it.
+        if ($instance.Intents -and $instance.Intents.PSObject.Properties['Software'] -and $null -ne $instance.Intents.Software -and
+            -not (Test-LabPersistedSoftwareIntent -Software $instance.Intents.Software -Instance $instance -ProviderCapability $providerCapability)) {
+            [void]$validationErrors.Add('DESIRED_INSTANCE_SOFTWARE_INTENT_INVALID')
         }
         if ($idIsValid -and $providerIsValid) {
             if (-not $instanceIdsByProvider.ContainsKey($provider)) {

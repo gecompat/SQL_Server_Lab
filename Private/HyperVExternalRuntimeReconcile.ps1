@@ -149,10 +149,13 @@ function Get-LabHyperVExternalRuntimeReconcileContext {
     $run = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
     if ([string]$run.metadata.workflowKind -ne 'hyperv-lab') { throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_HYPERV_RUN_REQUIRED' }
     if ([string]$run.state -ne 'RUNNING') { throw "HYPERV_EXTERNAL_RUNTIME_RECONCILE_RUN_NOT_RUNNING: $($run.state)" }
-    $guard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $RunId -StateRoot $StateRoot
-    if (-not $guard.Allowed) { throw "HYPERV_EXTERNAL_RUNTIME_RECONCILE_MIGRATION_BLOCKED: $([string]$guard.ReasonCode)" }
     $persisted = Get-LabPersistedDesiredState -RunId $RunId -StateRoot $StateRoot
     if ([string]$persisted.Status -ne 'VALID') { throw 'HYPERV_EXTERNAL_RUNTIME_RECONCILE_DESIRED_STATE_INVALID' }
+    # Validate persisted intents before reading a migration journal, connection
+    # record, VM or provider.  A tampered software projection must not select a
+    # target or create any recovery-visible side effect.
+    $guard = Get-LabHyperVResourceMigrationLifecycleGuard -RunId $RunId -StateRoot $StateRoot
+    if (-not $guard.Allowed) { throw "HYPERV_EXTERNAL_RUNTIME_RECONCILE_MIGRATION_BLOCKED: $([string]$guard.ReasonCode)" }
     $resolved = Read-LabManifest -Path $ManifestPath
     $desiredSnapshot = New-LabDesiredStateSnapshot -ResolvedLab $resolved `
         -ProvisioningMode ([string]$persisted.Snapshot.ProvisioningMode) -PersistentData ([bool]$persisted.Snapshot.PersistentData) -PreviousSnapshot $persisted.Snapshot

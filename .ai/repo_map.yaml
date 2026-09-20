@@ -1245,6 +1245,14 @@ validation:
       - sanitized_plan_and_whatif
       - build_journal_validation_state_commit_cleanup_order
       - rollback_and_resume_contract
+  static_persisted_software_intent:
+    command: '.\Tests\Static\Invoke-PersistedSoftwareIntentChecks.ps1'
+    source: Tests/Static/Invoke-PersistedSoftwareIntentChecks.ps1
+    covers:
+      - legacy_safe_missing_or_null_software
+      - closed_catalog_and_resolver_bound_software_projection
+      - tamper_rejection_before_connection_vm_target_or_journal
+      - state_and_connection_byte_preservation
   static_hyperv_external_runtime_reconcile:
     command: '.\Tests\Static\Invoke-HyperVExternalRuntimeReconcileChecks.ps1'
     source: Tests/Static/Invoke-HyperVExternalRuntimeReconcileChecks.ps1

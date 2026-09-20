@@ -8,6 +8,7 @@ Container, Datenbanken oder Run-States.
 | `Invoke-AllChecks.ps1` | Fuehrt alle statischen Suites isoliert aus und erzwingt deren Exitcodes | `.\Tests\Static\Invoke-AllChecks.ps1` |
 | `Invoke-ImpactedChecks.ps1` | Fuehrt anhand geaenderter Repositorypfade nur die betroffenen Suites aus | `.\Tests\Static\Invoke-ImpactedChecks.ps1 -ChangedPath $paths` |
 | `Invoke-CiStrategyChecks.ps1` | Prueft Pfadklassifikation, PR-/Nightly-Trennung und das Verbot redundanter Volltests | `.\Tests\Static\Invoke-CiStrategyChecks.ps1` |
+| `Invoke-PersistedSoftwareIntentChecks.ps1` | Geschlossene, katalog- und resolvergebundene Software-Intents; Legacy-Snapshots sowie fail-closed Container-/Hyper-V-Reconcile-Gates ohne Runtimezugriff | `.\Tests\Static\Invoke-PersistedSoftwareIntentChecks.ps1` |
 | `Invoke-ConnectionCenterCmsChecks.ps1` | Rekursive CMS-Zaehler, ID-stabile Migration, Kollisionsschutz sowie streng generatorgebundene, direkt kopierbare und nur fluechtig synchronisierte Kennwortknoten | `.\Tests\Static\Invoke-ConnectionCenterCmsChecks.ps1` |
 | `Invoke-ActionResultChecks.ps1` | `ActionResult/1.0`, No-op-/Abbruchgrenzen und exakt ein Connection-Center-/CMS-Sync fuer endpunktrelevante Mutationen | `.\Tests\Static\Invoke-ActionResultChecks.ps1` |
 | `Invoke-ElevationChecks.ps1` | UAC-Vorschau, Ablehnung, Zustimmung und bereits erhöhte Sitzung ohne vorsorglichen Prozessstart | `.\Tests\Static\Invoke-ElevationChecks.ps1` |
