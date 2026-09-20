@@ -81,9 +81,11 @@ Live-Digest/Capability/Dimension, Datenklasse, Egress und Secretgrenze werden
 geprüft; es gibt keine Downloads oder Host-Lifecycleaktionen. Lokale und Golden-
 Defaults bleiben erhalten. Die neuen kombinierten Podman- und Docker-Nachweise
 bestanden am 2026-09-20 mit jeweils neun Assertions, SQLrestart, zwei Cloudrequests
-und vollständigem Cleanup samt Residueprüfung. Hyper-V bleibt separat offen;
-persistentes Retrieval und
-Re-Embedding-Ausführung sind weiterhin nicht implementiert.
+und vollständigem Cleanup samt Residueprüfung. Hyper-V bleibt separat offen.
+Der [persistente synthetische Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
+implementiert inzwischen eine eigene SQL-Datenbank, Initial-/Delta-Generationen,
+Resume und besitzgebundenes Cleanup auf Docker/Podman. Docker und Podman sind mit je 16 Assertions, SQLrestart und vollständigem Cleanup nativ belegt. Echter Modellwechsel, beliebige Dokumente und breite
+Re-Embedding-Ausführung bleiben offen.
 
 Der Ollama-Modellkatalog sowie die Verträge für Endpointplan, Runtimejournal
 und sanitisierte Abfrageergebnisse sind vorhanden. Ollama-Cloud-Generation ist

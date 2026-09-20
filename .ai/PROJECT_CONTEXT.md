@@ -27,6 +27,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- Persistentes synthetisches Retrieval über `Invoke-SqlServerLabAiPersistentRetrieval`:
+  eigene Datenbank auf SQL-2025-Docker/Podman, lokale Host-Embeddings, feste
+  Initial-/Delta-Fixture, atomarer aktiver Generationszeiger, quittiertes Resume
+  und besitzgebundenes Remove. Offline sowie nativ unter Docker und Podman geprüft (je 16 Assertions und vollständiges Cleanup).
+  Kein Modellwechsel-Re-Embedding, keine beliebigen Dokumente oder Cloud.
+  Vertrag: `Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md`;
+
 - AdHoc-RAG mit vorhandenem Host-`embeddinggemma:latest` und expliziter
   HTTPS-Cloudgeneration über die bestehende Ollama-Lane; lokale Defaults und
   Golden v1 unverändert. Live-Modellbindung, Egress/Datenklasse, Secret-Cleanup

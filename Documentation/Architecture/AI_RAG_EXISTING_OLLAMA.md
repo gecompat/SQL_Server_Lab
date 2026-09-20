@@ -92,5 +92,8 @@ Eine nichtleere
 Cloudantwort beweist Inferenz, keine allgemeine Antwortqualität.
 
 SQL-seitiges `CREATE EXTERNAL MODEL`/TLS-Gateway bleibt `NOT_IMPLEMENTED`.
-Persistentes Retrieval, Aktualisierung/Löschung, Re-Embedding mit atomarer
-Generationenumschaltung und die offene isolierte Hyper-V-Abnahme folgen separat.
+Modellwechsel-Re-Embedding und die isolierte Hyper-V-Abnahme bleiben separate Nachweise.
+
+Der separate [persistente synthetische Slice](AI_PERSISTENT_RETRIEVAL.md)
+implementiert nun Initial-/Delta-Generationen auf Docker/Podman mit derselben
+Host-Embeddingidentität, ohne Generierung. Docker und Podman sind getrennt nativ belegt; echter Modellwechsel bleibt offen; der oben datierte AdHoc-Nachweis bleibt getrennt.

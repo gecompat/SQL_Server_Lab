@@ -73,6 +73,14 @@ sources_of_truth:
   ai_model_catalog_schema: Schemas/ai-model-catalog.schema.json
   ai_endpoint_plan_schema: Schemas/ai-endpoint-plan.schema.json
   ai_runtime_journal_schema: Schemas/ai-runtime-journal.schema.json
+  ai_persistent_retrieval_api: Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1
+  ai_persistent_retrieval_runtime: Private/AiPersistentRetrieval.ps1
+  ai_persistent_retrieval_sql: Private/AiPersistentRetrievalSql.ps1
+  ai_persistent_retrieval_journal_schema: Schemas/ai-persistent-retrieval-journal.schema.json
+  ai_persistent_retrieval_fixture: Scenarios/Ai/persistent-retrieval/1.0/fixture.json
+  ai_persistent_retrieval_contract: Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md
+  validation_ai_persistent_retrieval: Tests/Static/Invoke-AiPersistentRetrievalChecks.ps1
+  acceptance_ai_persistent_retrieval: Tests/Integration/Invoke-AiPersistentRetrievalAcceptance.ps1
   ai_reembedding_plan_contract: Private/AiReembedding.ps1
   ai_reembedding_plan_schema: Schemas/ai-reembedding-plan.schema.json
   ai_reembedding_journal_schema: Schemas/ai-reembedding-journal.schema.json
