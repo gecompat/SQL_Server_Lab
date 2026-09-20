@@ -150,6 +150,14 @@ Add-CheckResult -Name 'Transfer-Staging-Preflight aktiviert seinen Vertrag und g
     'Invoke-PortableContainerTransferExecutorChecks.ps1' -in $transferPreflight.StaticChecks
 )
 
+$transferRuntime = & $selector -ChangedPath @('Private/PortableContainerTransferExecutorRuntime.ps1')
+Add-CheckResult -Name 'Ein-Datenbank-Transferexecutor aktiviert seine Runtime- und Inhaltsvertraege nur fuer Docker und Podman' -Success (
+    $transferRuntime.Docker -and $transferRuntime.Podman -and
+    -not $transferRuntime.Mixed -and -not $transferRuntime.HyperV -and -not $transferRuntime.Adapter -and
+    'Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1' -in $transferRuntime.StaticChecks -and
+    'Invoke-RelationalCoreComparisonChecks.ps1' -in $transferRuntime.StaticChecks
+)
+
 $persistentStorageArtifact = & $selector -ChangedPath @('Public/Sync-SqlServerLabPersistentStorageArtifact.ps1')
 Add-CheckResult -Name 'Reiner Persistent-Storage-Artefakt-Sync aktiviert nur die betroffenen statischen Verträge' -Success (
     -not $persistentStorageArtifact.Docker -and -not $persistentStorageArtifact.Podman -and
@@ -259,6 +267,10 @@ $dependencyCases = @(
     @{ Path = 'Public/Get-SqlServerLabPortableContainerTransferExecutorPlan.ps1'; Checks = @('Invoke-PortableContainerTransferExecutorChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/portable-container-transfer-executor-plan.schema.json'; Checks = @('Invoke-PortableContainerTransferExecutorChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/portable-container-transfer-executor-journal.schema.json'; Checks = @('Invoke-PortableContainerTransferExecutorChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/PortableContainerTransferExecutorRuntime.ps1'; Checks = @('Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1','Invoke-RelationalCoreComparisonChecks.ps1'); Runtime = @('Docker','Podman') },
+    @{ Path = 'Public/Invoke-SqlServerLabPortableContainerTransfer.ps1'; Checks = @('Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1','Invoke-RelationalCoreComparisonChecks.ps1'); Runtime = @('Docker','Podman') },
+    @{ Path = 'Schemas/portable-container-transfer-journal.schema.json'; Checks = @('Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1','Invoke-RelationalCoreComparisonChecks.ps1'); Runtime = @('Docker','Podman') },
+    @{ Path = 'Tests/Integration/Invoke-PortableContainerTransferAcceptance.ps1'; Checks = @('Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1','Invoke-RelationalCoreComparisonChecks.ps1'); Runtime = @('Docker','Podman') },
     @{ Path = 'Private/PortableContainerTransferPreflight.ps1'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1','Invoke-PortableContainerTransferExecutorChecks.ps1'); Runtime = @('Docker','Podman') },
     @{ Path = 'Public/Invoke-SqlServerLabPortableContainerTransferPreflight.ps1'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1','Invoke-PortableContainerTransferExecutorChecks.ps1'); Runtime = @('Docker','Podman') },
     @{ Path = 'Schemas/portable-container-transfer-preflight-request.schema.json'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1'); Runtime = @('Docker','Podman') },

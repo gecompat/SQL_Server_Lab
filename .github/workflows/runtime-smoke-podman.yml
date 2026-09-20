@@ -121,6 +121,12 @@ jobs:
               $preflightExitCode = $LASTEXITCODE
               if ($preflightExitCode -ne 0) { throw "Podman Portable-Container-Transfer-Preflight-Akzeptanz endete mit Exitcode $preflightExitCode." }
 
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PortableContainerTransferAcceptance.ps1 `
+                -Provider podman `
+                -RuntimeMutexAlreadyHeld 2>&1 | Tee-Object -FilePath $logPath -Append
+              $transferExitCode = $LASTEXITCODE
+              if ($transferExitCode -ne 0) { throw "Podman Portable-Container-Transfer-Akzeptanz endete mit Exitcode $transferExitCode." }
+
               & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-AiVectorCoreAcceptance.ps1 `
                 -Provider podman 2>&1 | Tee-Object -FilePath $logPath -Append
               $aiVectorExitCode = $LASTEXITCODE

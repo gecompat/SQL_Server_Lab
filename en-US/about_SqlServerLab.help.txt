@@ -434,3 +434,8 @@ SEE ALSO
     about_Command_Syntax
     about_CommonParameters
     Test-SqlServerLabContainerTool - Read-only verification of catalog-bound SqlPackage.
+
+    Invoke-SqlServerLabPortableContainerTransfer transfers one already read-only
+    SQL Server 2025 Linux database from a registered backup into a new owned
+    Docker/Podman run. Success retains the read-only target after a full MATCH.
+    Reusing OperationId never repeats RESTORE; recovery only cleans up the owned run.

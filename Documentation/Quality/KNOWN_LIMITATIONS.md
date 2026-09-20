@@ -71,7 +71,7 @@ automatische Migration abgewiesen; dessen Journale benötigen zur Recovery den
 passenden bisherigen Executor. Diese Fristen belegen ausschließlich den
 synthetischen internen Ablauf, keine SQL-/Providerdeadline.
 
-`RELATIONAL_CORE/1.0` inventarisiert alle Benutzertabellen und vergleicht ausschließlich zulässige Tabelleninhalte read-only zwischen live gebundenen Docker-/Podman-Runs. Es lässt nur normale diskbasierte Benutzertabellen mit aktivem, ungefiltertem PK zu. Jeder PK muss ausschließlich aus `tinyint`, `smallint`, `int`, `bigint` oder `uniqueidentifier` bestehen. Zugelassene Nicht-PK-Spaltentypen sind `bit`, diese fünf PK-Typen, `date`, `datetime2`, `datetimeoffset`, `time`, `char`, `varchar`, `nchar`, `nvarchar`, `binary` und `varbinary`; jede `max`-Spalte und jede versteckte Spalte wird blockiert. RLS, Temporal-, FileTable-, External-, Memory-optimized-, Graph- und Ledger-Tabellen, unzulässige Spaltenattribute und alle übrigen Typen – einschließlich `decimal`, `numeric`, `money`, `smallmoney`, `datetime` und `smalldatetime` – werden nicht angenähert, sondern als inventarisierte Tabelle fail-closed mit `TABLE_UNSUPPORTED_OR_POLICY_BLOCKED` ausgewiesen. Quelle und Ziel müssen SQL-seitig als exakt ausgewählte `ONLINE`- und `READ_ONLY`-Datenbanken bestätigt sein. Ergebnisse enthalten keine Datenwerte. Restore, Backup-Staging, Zielerzeugung und jeder Transfer-Executor sind nicht implementiert und bleiben `BLOCKED`.
+`RELATIONAL_CORE/1.0` inventarisiert alle Benutzertabellen und vergleicht ausschließlich zulässige Tabelleninhalte read-only zwischen live gebundenen Docker-/Podman-Runs. Es lässt nur normale diskbasierte Benutzertabellen mit aktivem, ungefiltertem PK zu. Jeder PK muss ausschließlich aus `tinyint`, `smallint`, `int`, `bigint` oder `uniqueidentifier` bestehen. Zugelassene Nicht-PK-Spaltentypen sind `bit`, diese fünf PK-Typen, `date`, `datetime2`, `datetimeoffset`, `time`, `char`, `varchar`, `nchar`, `nvarchar`, `binary` und `varbinary`; jede `max`-Spalte und jede versteckte Spalte wird blockiert. RLS, Temporal-, FileTable-, External-, Memory-optimized-, Graph- und Ledger-Tabellen, unzulässige Spaltenattribute und alle übrigen Typen – einschließlich `decimal`, `numeric`, `money`, `smallmoney`, `datetime` und `smalldatetime` – werden nicht angenähert, sondern als inventarisierte Tabelle fail-closed mit `TABLE_UNSUPPORTED_OR_POLICY_BLOCKED` ausgewiesen. Quelle und Ziel müssen SQL-seitig als exakt ausgewählte `ONLINE`- und `READ_ONLY`-Datenbanken bestätigt sein. Ergebnisse enthalten keine Datenwerte. Der Vergleich selbst erzeugt keine Ziele und führt keinen Transfer aus. Der getrennte Ein-Datenbank-Executor für einen neuen eigenen SQL-2025-Linux-Run ist unter `Documentation/Architecture/PORTABLE_CONTAINER_TRANSFER.md` beschrieben; bestehende Ziele und Mehrdatenbank-Transfers bleiben blockiert.
 
 ## KI und Ollama
 
@@ -1039,9 +1039,16 @@ Container noch Mounts noch Runtime-Lifecycleobjekte. Nach dem temporären
 operationseigenen Staging führt sie ausschließlich `HEADERONLY` und
 `VERIFYONLY WITH CHECKSUM, STOP_ON_ERROR` per `SqlCredential` aus und räumt
 die eigenen Dateien wieder auf. Ein erfolgreicher Medienpreflight setzt den
-Transferexecutor weiterhin auf `BLOCKED`; Restore, Datenbankerzeugung und
-AllEligible bleiben nicht implementiert. Die erforderliche native Docker- und
-Podman-Evidence für diesen neuen Pfad ist `NOT_EXECUTED`.
+Mehrdatenbank-Transferexecutor weiterhin auf `BLOCKED`; dieser Preflight führt keinen Restore aus.
+Der getrennte `Invoke-SqlServerLabPortableContainerTransfer` erstellt ausschließlich
+einen eigenen SQL-2025-Linux-Ziel-Run mit eigenem Volume. Er verlangt ein read-only
+Backup, begrenzte Dateigröße, READ_ONLY/MATCH und Whole-Run-Cleanup bei Fehler.
+Wiederaufnahme ist Cleanup-only; bestehende Ziele, AllEligible und Mehrdatenbank-
+Transfer bleiben offen. Die lokalen Docker- und Podman-Referenzabnahmen dieses
+Executors bestanden getrennt am 2026-09-20 mit jeweils zwölf Assertions und
+vollständiger Restprüfung. Verlorene Antworten und Journalfehler sind offline
+geprüft; native Prozessabbrüche bleiben offen.
+Für den getrennten bestehenden Medienpreflight bleibt die dokumentierte native Evidence `NOT_EXECUTED`.
 Der Hyper-V-Recovery-Point-Plan inventarisiert ausschließlich bereits
 vorhandene, eindeutig gebundene Checkpoints ohne VM-Namen oder Hostpfade; er
 führt keine Checkpoint-Erstellung, SQL-Quiesce, Retention oder Restore-Probe aus.

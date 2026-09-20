@@ -623,3 +623,12 @@ vor und nach dem Reconnect, Plan, `WhatIf`, Apply, No-op und vollstaendigem
 operationseigenem Cleanup. Sie ist auf einen vorhandenen `hostOnly`-Adapter
 begrenzt und ersetzt keinen Nachweis fuer External-Switches, Host-IP/NAT,
 Adapter-Neuanlage, Gastadressreparatur oder Fault/Resume.
+
+`Static/Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1` prüft den
+neuen Ein-Datenbank-Executor offline: eigene Runtime-/Volume-/Endpunktbindung,
+Request-/Lockkollision, Größenlimit, Journal-/Antwortverlust, Cleanupresiduen und
+Resume ohne Restorewiederholung. Der CI-Selektor entdeckt diese Suite separat.
+`Integration/Invoke-PortableContainerTransferAcceptance.ps1 -Provider docker`
+beziehungsweise `-Provider podman` erstellt ausschließlich eigene SQL-2025-
+Linux-Runs und prüft Backup/Restore/MATCH, unveränderte read-only Quelle,
+Idempotenz sowie abweichenden Inhalt mit vollständigem Whole-Run-Cleanup.

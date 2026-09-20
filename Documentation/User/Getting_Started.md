@@ -1719,3 +1719,40 @@ Prüfen Sie zuerst:
 4. `Documentation/Quality/KNOWN_LIMITATIONS.md`
 
 Das Schema allein ist kein Runtime-Nachweis.
+
+## Eine read-only Datenbank in einen neuen Container-Run übertragen
+
+`Invoke-SqlServerLabPortableContainerTransfer` erstellt selbst einen eigenen
+SQL-2025-Linux-Ziel-Run beim Provider der Quelle (Docker oder Podman). Die Quelle
+muss bereits ONLINE/READ_ONLY sein; auch das registrierte Backup muss aus diesem
+read-only Zustand stammen. Der Befehl nimmt keine Kennwörter oder bestehenden
+Ziel-Runs an. Er verlangt einen vollständigen `RELATIONAL_CORE/1.0`-Vergleich.
+
+```powershell
+$operationId = [guid]::NewGuid()
+Invoke-SqlServerLabPortableContainerTransfer `
+    -SourceRunId $source.RunId -SourceInstanceId primary `
+    -SourceDatabaseName Demo -BackupSetId $backup.BackupSetId `
+    -TargetDatabaseName DemoCopy -OperationId $operationId `
+    -DataRoot 'D:\Lab_Data' -WhatIf
+
+$result = Invoke-SqlServerLabPortableContainerTransfer `
+    -SourceRunId $source.RunId -SourceInstanceId primary `
+    -SourceDatabaseName Demo -BackupSetId $backup.BackupSetId `
+    -TargetDatabaseName DemoCopy -OperationId $operationId `
+    -DataRoot 'D:\Lab_Data' -Confirm:$false
+```
+
+Bei `SUCCEEDED` bleibt `$result.TargetRunId` erhalten und kann mit den normalen
+Lifecycle-Befehlen verwaltet beziehungsweise mit `Remove-SqlServerLab` entfernt
+werden. `FAILED_CLEANED` ist ein fehlgeschlagener Transfer mit bestätigtem
+Cleanup; `RECOVERY_REQUIRED` verlangt eine überprüfbare Recovery. Derselbe
+Aufruf mit unveränderter OperationId und unveränderten Parametern führt niemals
+einen zweiten Restore aus. Er liefert einen terminalen Nachweis oder versucht
+bei einer unterbrochenen Operation ausschließlich das eigene Run-Cleanup.
+
+Grenzen: 256 MiB Backup, 1 GiB restaurierte Dateien, maximal 16 Dateien,
+32 unterstützte Tabellen und 100000 Zeilen. Vorhandene Ziele, mehrere
+Datenbanken, Serverobjekte, Windows/Hyper-V und andere SQL-Versionen bleiben
+außerhalb dieses Befehls. Details stehen im
+[Transfervertrag](../Architecture/PORTABLE_CONTAINER_TRANSFER.md).
