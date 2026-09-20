@@ -69,6 +69,8 @@ Journal ist kein Beweis dafür, dass ein SQL-Schritt abgeschlossen wurde.
 Unveränderte Vektoren dürfen nur aus der vollständig validierten aktiven
 Generation mit derselben Modellidentität kopiert werden. Digest-/Versionsdrift
 blockiert Apply und Query, aber nicht das exakt besitzgebundene Remove.
+Query prüft außerdem den Plan-Schlüssel der aktiven SQL-Generation gegen die
+rekonstruierte Fixture- und Endpointbindung, bevor es ein Embedding erzeugt.
 
 Der Cutover prüft Soll-IDs, vollständige Inhalte einschließlich Byte-Längen,
 Hashes, Modell-/Dataset-/Operationsbindung und vollständige Chunkmenge innerhalb

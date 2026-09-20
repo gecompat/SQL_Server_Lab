@@ -126,7 +126,7 @@ DECLARE @result int; EXEC @result=sys.sp_getapplock @Resource=@resource,@LockMod
             $activeRevision=if([int]$owner.ActiveGeneration -eq 1){'Initial'}else{'Delta'}
             $active=New-LabAiPersistentPlan -RunId $Plan.RunId -InstanceId $Plan.InstanceId -CollectionId $Plan.CollectionId -Action Query -FixtureRevision $activeRevision -QueryId $Plan.QueryId -LocalPort $Plan.EndpointPlan.Port -TimeoutSeconds $Plan.TimeoutSeconds
             $generation=@(Get-LabAiPersistentGeneration $context $journal ([int]$owner.ActiveGeneration))
-            if($generation.Count -ne 1 -or $generation[0].Status -cne 'COMMITTED' -or $generation[0].ModelHash -cne $journal.modelHash -or $generation[0].DatasetHash -cne $active.DatasetHash){throw 'AI_PERSISTENT_GENERATION_DRIFT'}
+            if($generation.Count -ne 1 -or $generation[0].Status -cne 'COMMITTED' -or $generation[0].ModelHash -cne $journal.modelHash -or $generation[0].DatasetHash -cne $active.DatasetHash -or $generation[0].PlanKey -cne $active.PlanKey){throw 'AI_PERSISTENT_GENERATION_DRIFT'}
             $chunks=@(Get-LabAiPersistentChunks $context $journal ([int]$owner.ActiveGeneration));Assert-LabAiPersistentChunks $chunks $active.Documents -Complete
             $null=Get-LabAiPersistentModel $context $Plan $MetadataTransport $model
             $embedding=Get-LabAiPersistentEmbedding $context $Plan $Plan.Question $EmbeddingTransport;$requests+=$embedding.Attempts
