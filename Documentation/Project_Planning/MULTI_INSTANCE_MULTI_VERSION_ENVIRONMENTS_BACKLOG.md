@@ -39,11 +39,13 @@ Providerfähigkeit, Ressourcenassessment und Datenbank-Kompatibilität sie
 akzeptieren.
 
 Für Docker und Podman entspricht ein Ziel genau einem SQL-Server-Container.
-Für Hyper-V entspricht ein Ziel in der ersten Ausbaustufe genau einer eigenen
-run- und scopegebundenen Windows-VM aus einem verifizierten Prepared Image.
-Die Ausbaustufe führt **keine** mehreren benannten SQL-Dienste in derselben
-Windows-VM ein. Dieser andere Betriebsmodus benötigt getrennte Service-,
-Firewall-, Upgrade- und Cleanup-Verträge und bleibt außerhalb dieses Backlogs.
+Für die anfängliche Mehrziel-Manifestprovisionierung entspricht ein Hyper-V-
+Ziel in der ersten Ausbaustufe genau einer eigenen run- und scopegebundenen
+Windows-VM aus einem verifizierten Prepared Image. Die nachträgliche
+Nachinstallation einer weiteren benannten SQL-Server-Instanz im bestehenden
+Windows-Gast ist dagegen der getrennte Mitgliedschafts-Slice dieses Backlogs
+und benötigt den unten definierten Service-, Firewall-, Setup- und
+Deinstallationsvertrag.
 
 Ein Run darf Docker-, Podman- und Hyper-V-Ziele enthalten, sofern keine
 providerübergreifende Netz-, Cluster- oder Failoversemantik gefordert wird.
@@ -97,10 +99,104 @@ Cleanup-Aktionen bleiben provider- und eigentumsgebunden.
 - Kein gemeinsames Docker-/Podman-/Hyper-V-L2-Netz, keine AG-/FCI-, Cluster-,
   Replikations- oder Failover-Automatisierung in dieser Ausbaustufe. Solche
   Szenarien benötigen einen separaten Topologievertrag.
-- Der Einzelfall „mehrere benannte SQL-Instanzen auf einem Windows-Gast“ ist
-  ausdrücklich nicht abgedeckt; seine Ports, Dienstnamen und Deinstallations-
-  bzw. Upgrade-Risiken dürfen nicht stillschweigend durch die VM-Topologie
-  ersetzt werden.
+- Mehrere benannte SQL-Instanzen in einem bestehenden Windows-Gast sind nur
+  über den nachfolgenden Mitgliedschafts-Slice zulässig. Ihre Ports,
+  Dienstnamen, gemeinsame Setup-Komponenten, Deinstallations- und
+  Upgrade-Risiken dürfen nicht durch die VM-Topologie verdeckt werden.
+
+## Nachträgliche Instanzmitgliedschaft eines bestehenden Labs
+
+### Status
+
+`BACKLOG` – ein bestehender Run kann derzeit nicht über die öffentliche CLI um
+eine weitere Instanz erweitert oder um genau eine Instanz reduziert werden.
+`New-SqlServerLab` erstellt den vollständigen Run aus dem Ad-hoc-Intent oder
+dem Manifest; `Remove-SqlServerLab` entfernt dagegen den gesamten Run. Die
+bereits vorhandene Mehrinstanz-Manifestprovisionierung ist kein Ersatz für
+eine sichere Änderung eines laufenden oder gestoppten Labs.
+
+### Ziel
+
+Eine öffentliche, planbare Reconcile-Aktion soll die Mitgliedschaft eines
+eindeutig ausgewählten bestehenden Labs ändern können:
+
+- eine SQL-Server-Instanz mit eigener Instanz-ID, SQL-Version, Provider,
+  Ressourcen-, Netzwerk- und Storage-Intent hinzufügen;
+- eine ausdrücklich ausgewählte, vom Lab verwaltete Instanz deinstallieren
+  beziehungsweise entfernen;
+- den unveränderten Mitgliedern desselben Runs weder Konfiguration noch
+  Lifecyclezustand oder Daten mutieren.
+
+Die Operation darf nur gegen einen bestehenden, per `RunId` und `ScopeId`
+gebundenen Run arbeiten. Sie benötigt vor jeder Mutation einen versionierten
+Desired-State-Diff, eine Action-Preview sowie einen eigenen, fortsetzbaren
+Operationsjournal- und Cleanup-Abschnitt. Ein Manifest bleibt die deklarative
+Quelle für einen Neuaufbau; die Mitgliedschaftsänderung erzeugt keinen
+stillen Rewrite des ursprünglichen Manifest-Locks.
+
+### Providerzuordnung
+
+| Provider | Zusätzliche Instanz | Entfernen einer Instanz | Ausdrücklich nicht umfasst |
+|---|---|---|---|
+| Docker | Einen neuen, run-/scope-/instanzgebundenen SQL-Container einschließlich Volume-, Port-, Label- und Connection-Bindung anlegen. | Nur den registrierten Container und dessen ausschließlich dieser Instanz gehörende Cleanup-Objekte entfernen oder nach dem gewählten Retention-Vertrag behandeln. | Fremde Container, gemeinsame Netze ohne exakte Ownership oder eine In-Place-Änderung eines bestehenden Containers. |
+| Podman | Wie Docker, jedoch ausschließlich über die im Run gebundene Podman-Runtime und Machine/Connection. | Wie Docker, mit providergebundener Ownership- und Runtime-Revalidierung. | Wechsel der Podman-Connection, fremde Container oder ein Fallback auf Docker. |
+| Hyper-V | In der bereits an Run und Scope gebundenen Windows-VM eine zusätzliche benannte SQL-Server-Instanz aus versions- und editionskompatiblen, hashverifizierten Setupmedien installieren. Service, Instanzname/-ID, feste oder reservierte Portbindung, Firewallregel, Datenpfade, SQL-Readiness und das Setup-Receipt werden separat gebunden. | Ausschließlich die gewählte, registrierte benannte SQL-Instanz über den SQL-Setup-Deinstallationspfad entfernen; vorab werden die Zugehörigkeit sämtlicher instanzspezifischer Dienste, Ports, Firewallregeln, Daten- und Setupkomponenten geprüft. | Eine Deinstallation gemeinsamer Setup-Komponenten, der Standardinstanz, anderer Named Instances oder der VM; Versions-/Editionswechsel einer bestehenden Instanz und jede unklare Setup-Ownership. |
+
+Gleiche und unterschiedliche katalogisierte SQL-Versionen sind pro neuem
+Mitglied zulässig, sofern der Versionskatalog, die Provider-/OS-Matrix,
+vorhandene Artefakte, Ressourcengrenzen und die Endpoint-Topologie dies
+bestätigen. Eine Versionsmischung begründet weder Datenmigration noch
+Cluster-, Failover- oder providerübergreifende Netzsemantik.
+
+### Mindestvertrag und Abnahmekriterien
+
+1. Eine Plan-API akzeptiert nur eine bestehende, eindeutig verwaltete
+   `RunId` plus Ziel-`InstanceId`; sie zeigt Add oder Remove, betroffene
+   Ressourcen, erforderliche Artifacts, Ressourcenwirkung, Downtime und
+   Recovery-Schritte ohne Secrets, Hostpfade oder rohe Endpunkte.
+2. Add prüft vor der ersten Mutation die Eindeutigkeit der Instanz-ID,
+   Provider-/Versions-/OS-Kompatibilität, Image- bzw. Medienbindung,
+   aggregierte CPU-, RAM-, Storage- und Portkapazität sowie die vollständige
+   Ownership der vorhandenen Runressourcen. Harte Blocker sind nicht
+   übersteuerbar. Auf Hyper-V/Windows bleibt es bei höchstens einer
+   Standardinstanz; jede nachträglich installierte Instanz erhält daher einen
+   eindeutigen Named-Instance-Namen und eine eigene, geprüfte Endpunktbindung.
+3. Remove ist nur für eine registrierte, exakt an Run, Scope und Instanz-ID
+   gebundene Instanz ausführbar. Persistent Storage, Backups und
+   Datenbankpakete folgen ausschließlich einem vorher gewählten und
+   revalidierten Retention-Vertrag; ohne solchen Vertrag endet die Aktion vor
+   einer destruktiven Mutation.
+4. Docker und Podman werden jeweils nativ für Add und Remove einer
+   gleichversionigen sowie einer versionsgemischten Instanz geprüft,
+   einschließlich Portbindung, SQL-Readiness, Status, Start/Stop und
+   vollständigem eigenem Cleanup.
+5. Hyper-V wird nativ für Add und Remove einer zusätzlichen benannten
+   SQL-Server-Instanz in derselben bestehenden Windows-VM geprüft,
+   einschließlich Setupmedien- und Editionskompatibilität, Dienst-,
+   Instanzname/-ID-, Port-, Firewall- und Datenpfadownership, SQL-Readiness,
+   Resume nach Teilfehler und vollständiger Rücknahme ausschließlich der
+   zusätzlichen Instanz. Die Abnahme enthält mindestens gleichversionige und
+   versionsgemischte Ziele, sobald passende freigegebene Medien existieren.
+6. Negativtests decken doppelte IDs oder Instanznamen, kollidierende
+   veröffentlichte Endpunkte, unzureichende Ressourcen, unpassende oder
+   fehlende Artifacts beziehungsweise Setupmedien, fremde Ressourcen,
+   gemeinsame Setupkomponenten und einen Fehler nach erfolgreicher erster
+   Mutation ab. Jeder Fall muss fail-closed enden und bereits erzeugte eigene
+   Ressourcen genau einmal recovern oder als `RECOVERY_REQUIRED` ausweisen.
+7. Dokumentation, Schema-/Planvalidierung, CLI-Hilfe und Known Limitations
+   werden gemeinsam aktualisiert. Bis zur jeweiligen nativen Evidence bleibt
+   der Providerpfad `NOT_EXECUTED` beziehungsweise `UNSUPPORTED`; ein
+   erfolgreiches Containerergebnis ist keine Hyper-V-Freigabe.
+
+### Nichtziele
+
+- keine automatische Übernahme, Verschiebung oder Löschung von Datenbanken,
+  Logins, Agent-Jobs, Zertifikaten, Service-Master-Key-Material oder anderen
+  Serverobjekten;
+- keine automatische Umwandlung eines Single-Provider-Runs in eine
+  providerübergreifende Netzwerk-, Cluster-, AG- oder FCI-Topologie;
+- keine Mutation fremder Runtime-, Hyper-V-, Netzwerk-, Storage- oder
+  Artifact-Objekte und kein stillschweigendes Löschen persistenter Daten.
 
 ## Akzeptanzkriterien
 
