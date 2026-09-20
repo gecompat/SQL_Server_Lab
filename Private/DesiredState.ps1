@@ -447,6 +447,13 @@ function Get-LabPersistedDesiredState {
     }
 
     $validationErrors = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::Ordinal)
+    if ($snapshot.ProvisioningMode -isnot [string] -or
+        (-not (($snapshot.ProvisioningMode -ceq 'manifest') -or ($snapshot.ProvisioningMode -ceq 'adhoc')))) {
+        [void]$validationErrors.Add('DESIRED_STATE_PROVISIONING_MODE_INVALID')
+    }
+    if ($snapshot.PersistentData -isnot [bool]) {
+        [void]$validationErrors.Add('DESIRED_STATE_PERSISTENT_DATA_INVALID')
+    }
     $instanceIdsByProvider = [System.Collections.Generic.Dictionary[string, System.Collections.Generic.HashSet[string]]]::new([StringComparer]::OrdinalIgnoreCase)
     $supportedProviders = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
     [void]$supportedProviders.Add('docker')

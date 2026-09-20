@@ -67,7 +67,7 @@ try {
             $checks["Ungueltiger Assessment-Fall $case wird abgewiesen"] = -not (Test-LabInstanceCapabilityAssessment -Assessment $invalid)
         }
         # Der reale Reader wird mit synthetischem Run-Transport ausgefuehrt.
-        $script:assessmentFixtureRun = [PSCustomObject]@{metadata=[PSCustomObject]@{desiredState=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.RunDesiredState';Version='1.0'};Instances=@([PSCustomObject]@{Id='fixture';Provider='docker';Intents=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.InstanceIntent';Version='1.0'}}})}}}
+        $script:assessmentFixtureRun = [PSCustomObject]@{metadata=[PSCustomObject]@{desiredState=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.RunDesiredState';Version='1.0'};ProvisioningMode='manifest';PersistentData=$false;Instances=@([PSCustomObject]@{Id='fixture';Provider='docker';Intents=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.InstanceIntent';Version='1.0'}}})}}}
         $original = (Get-Command Get-LabRunState).ScriptBlock
         try {
             Set-Item Function:script:Get-LabRunState -Value { param($RunId,$StateRoot) $null=$RunId,$StateRoot; return $script:assessmentFixtureRun }

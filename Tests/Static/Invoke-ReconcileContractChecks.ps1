@@ -161,6 +161,7 @@ try {
             $identities = @(foreach ($case in $identityCases) {
                 $identitySnapshot = [PSCustomObject]@{
                     Contract = [PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
+                    ProvisioningMode='manifest'; PersistentData=$false
                     Instances = @(for ($i=0; $i -lt $case.Ids.Count; $i++) {
                         [PSCustomObject]@{
                             Id=$case.Ids[$i]; Provider=$case.Providers[$i]; Profile='standard'
@@ -206,6 +207,7 @@ try {
             $identityGrammar = @(foreach ($case in $identityGrammarCases) {
                 $grammarSnapshot = [PSCustomObject]@{
                     Contract = [PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
+                    ProvisioningMode='manifest'; PersistentData=$false
                     Instances = @([PSCustomObject]@{ Id=$case.Id; Provider=$case.Provider; Profile='standard' })
                 }
                 $grammarRun = New-LabRunState -StateRoot $Root -Metadata @{ name='Reconcile identity grammar'; desiredState=$grammarSnapshot } -ProviderSubRuns @(
@@ -231,8 +233,51 @@ try {
                     ConnectionUnchanged=$beforeGrammarConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($grammarConnectionPath))
                 }
             })
+            $topLevelCases = @(
+                @{ Name='manifest und false bleiben gueltig'; ProvisioningMode='manifest'; PersistentData=$false; Expected=@() },
+                @{ Name='adhoc und true bleiben gueltig'; ProvisioningMode='adhoc'; PersistentData=$true; Expected=@() },
+                @{ Name='fehlender ProvisioningMode'; PersistentData=$false; Expected=@('DESIRED_STATE_PROVISIONING_MODE_INVALID') },
+                @{ Name='boolescher ProvisioningMode'; ProvisioningMode=$false; PersistentData=$false; Expected=@('DESIRED_STATE_PROVISIONING_MODE_INVALID') },
+                @{ Name='numerischer ProvisioningMode'; ProvisioningMode=0; PersistentData=$false; Expected=@('DESIRED_STATE_PROVISIONING_MODE_INVALID') },
+                @{ Name='ungueltiger ProvisioningMode-Wert'; ProvisioningMode='Manifest'; PersistentData=$false; Expected=@('DESIRED_STATE_PROVISIONING_MODE_INVALID') },
+                @{ Name='fehlendes PersistentData'; ProvisioningMode='manifest'; Expected=@('DESIRED_STATE_PERSISTENT_DATA_INVALID') },
+                @{ Name='string PersistentData'; ProvisioningMode='manifest'; PersistentData='false'; Expected=@('DESIRED_STATE_PERSISTENT_DATA_INVALID') },
+                @{ Name='numerisches PersistentData'; ProvisioningMode='manifest'; PersistentData=0; Expected=@('DESIRED_STATE_PERSISTENT_DATA_INVALID') },
+                @{ Name='null PersistentData'; ProvisioningMode='manifest'; PersistentData=$null; Expected=@('DESIRED_STATE_PERSISTENT_DATA_INVALID') },
+                @{ Name='kombinierte Top-Level-Fehler'; ProvisioningMode='invalid'; PersistentData='false'; Expected=@('DESIRED_STATE_PERSISTENT_DATA_INVALID','DESIRED_STATE_PROVISIONING_MODE_INVALID') }
+            )
+            $topLevel = @(foreach ($case in $topLevelCases) {
+                $topLevelSnapshot = [PSCustomObject]@{
+                    Contract = [PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
+                    LabName = 'Reconcile top-level options'
+                    Instances = @([PSCustomObject]@{ Id='primary'; Provider='docker'; Profile='standard' })
+                }
+                if ($case.ContainsKey('ProvisioningMode')) { Add-Member -InputObject $topLevelSnapshot -MemberType NoteProperty -Name ProvisioningMode -Value $case.ProvisioningMode }
+                if ($case.ContainsKey('PersistentData')) { Add-Member -InputObject $topLevelSnapshot -MemberType NoteProperty -Name PersistentData -Value $case.PersistentData }
+                $topLevelRun = New-LabRunState -StateRoot $Root -Metadata @{ name='Reconcile top-level options'; desiredState=$topLevelSnapshot } -ProviderSubRuns @(
+                    [PSCustomObject]@{ provider='docker'; instanceIds=@('fallback') }
+                )
+                $topLevelStatePath = Join-Path $topLevelRun.RunDir 'run-state.json'
+                $topLevelConnectionPath = Join-Path $topLevelRun.RunDir 'connection-info.json'
+                Write-LabArtifactJsonAtomic -Path $topLevelConnectionPath -InputObject $connection
+                $beforeTopLevelState = [Convert]::ToBase64String([IO.File]::ReadAllBytes($topLevelStatePath))
+                $beforeTopLevelConnection = [Convert]::ToBase64String([IO.File]::ReadAllBytes($topLevelConnectionPath))
+                $persistedTopLevel = Get-LabPersistedDesiredState -RunId $topLevelRun.RunId -StateRoot $Root
+                $topLevelPlans = @(foreach ($target in @('RUNNING','STOPPED')) {
+                    $script:reconcileRuntimeState = if ($target -eq 'RUNNING') { 'STOPPED' } else { 'RUNNING' }
+                    $script:reconcileRuntimeInstances = @([PSCustomObject]@{ Id='primary'; Provider='docker'; State=$script:reconcileRuntimeState })
+                    Get-SqlServerLabReconcilePlan -RunId $topLevelRun.RunId -TargetState $target -StateRoot $Root
+                })
+                [PSCustomObject]@{
+                    Name=$case.Name; Expected=@($case.Expected); Status=$persistedTopLevel.Status
+                    Reason=$persistedTopLevel.Reason; ReasonCodes=@($persistedTopLevel.ReasonCodes); Plans=$topLevelPlans
+                    StateUnchanged=$beforeTopLevelState -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($topLevelStatePath))
+                    ConnectionUnchanged=$beforeTopLevelConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($topLevelConnectionPath))
+                }
+            })
             $sanitizationSnapshot = [PSCustomObject]@{
                 Contract = [PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
+                ProvisioningMode='manifest'; PersistentData=$false
                 Instances = @(
                     [PSCustomObject]@{
                         Id='persisted-instance-secret-9'; Provider='docker'; Host='secret-host.invalid'; ConnectionString='Password=not-in-plan'
@@ -273,6 +318,7 @@ try {
         [PSCustomObject]@{
             NoOp = $noOp; Restart = $restart; Partial = $partial; Invalid = $invalid; MigrationBlocked = $migrationBlocked
             Identities = $identities; IdentityGrammar = $identityGrammar
+            TopLevel = $topLevel
             Sanitization = $sanitization
             StateUnchanged = $beforeState -eq (Get-Content -LiteralPath $statePath -Raw -Encoding utf8)
             ConnectionUnchanged = $beforeConnection -eq (Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8)
@@ -347,6 +393,32 @@ try {
         }
         Add-CheckResult -Name "Persistierte Identitaetsgrammatik ($($grammar.Name)) erhaelt State- und Connection-Bytes" `
             -Success ($grammar.StateUnchanged -and $grammar.ConnectionUnchanged)
+    }
+    foreach ($topLevel in $contract.TopLevel) {
+        if ($topLevel.Expected.Count -eq 0) {
+            Add-CheckResult -Name "Gueltige persistierte Top-Level-Optionen ($($topLevel.Name)) bleiben akzeptiert" `
+                -Success ($topLevel.Status -eq 'VALID' -and $null -eq $topLevel.Reason -and $topLevel.ReasonCodes.Count -eq 0)
+            foreach ($plan in $topLevel.Plans) {
+                Add-CheckResult -Name "Gueltige persistierte Top-Level-Optionen ($($topLevel.Name)) erlauben $($plan.Desired.TargetState)" `
+                    -Success ($plan.Desired.IsValid -and $plan.Desired.Source -eq 'persisted-desired-state' -and
+                        $plan.Desired.Instances.Count -eq 1)
+            }
+        }
+        else {
+            Add-CheckResult -Name "Ungueltige persistierte Top-Level-Optionen ($($topLevel.Name)) liefern deduplizierte ordinale Gruende" `
+                -Success ($topLevel.Status -eq 'INVALID' -and
+                    (($topLevel.ReasonCodes -join ',') -ceq ($topLevel.Expected -join ',')) -and
+                    $topLevel.Reason -ceq ($topLevel.Expected -join ','))
+            foreach ($plan in $topLevel.Plans) {
+                Add-CheckResult -Name "Ungueltige persistierte Top-Level-Optionen ($($topLevel.Name)) blockieren $($plan.Desired.TargetState) fail-closed" `
+                    -Success ($plan.HighestChangeClass -eq 'unsupported' -and $plan.Actions.Count -eq 0 -and
+                        -not $plan.MutationAllowed -and -not $plan.IsNoOp -and -not $plan.Desired.IsValid -and
+                        $plan.Desired.Source -eq 'persisted-desired-state-invalid' -and $plan.Desired.Instances.Count -eq 0 -and
+                        (($plan.Diff[0].Reasons -join ',') -ceq (@($topLevel.Expected | ForEach-Object { "Persisted desired state ist ungültig: $_" }) -join ',')))
+            }
+        }
+        Add-CheckResult -Name "Persistierte Top-Level-Optionen ($($topLevel.Name)) erhalten State- und Connection-Bytes" `
+            -Success ($topLevel.StateUnchanged -and $topLevel.ConnectionUnchanged)
     }
     $expectedSanitizedCodes = @(
         'DESIRED_INSTANCE_IDENTITY_DUPLICATE',
