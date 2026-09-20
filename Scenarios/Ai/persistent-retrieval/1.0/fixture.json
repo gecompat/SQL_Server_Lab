@@ -1,0 +1,22 @@
+{
+  "contract": "SqlServerLab.AiPersistentFixture/1.0",
+  "datasetId": "persistent-retrieval-synthetic",
+  "modelKey": "ollama-embeddinggemma-latest",
+  "dimension": 768,
+  "revisions": {
+    "Initial": [
+      { "Id": "backup-policy", "Content": "SQL Server Lab überprüft synthetische Sicherungen täglich." },
+      { "Id": "cleanup-policy", "Content": "Run-eigene Testressourcen werden nach der Abnahme vollständig entfernt." },
+      { "Id": "network-policy", "Content": "Das synthetische Labnetz verwendet ausschließlich isolierte Testadressen." }
+    ],
+    "Delta": [
+      { "Id": "backup-policy", "Content": "SQL Server Lab überprüft synthetische Sicherungen jetzt stündlich." },
+      { "Id": "cleanup-policy", "Content": "Run-eigene Testressourcen werden nach der Abnahme vollständig entfernt." },
+      { "Id": "retention-policy", "Content": "Synthetische Testberichte werden nach sieben Tagen gelöscht." }
+    ]
+  },
+  "queries": {
+    "backup": "Wie oft werden synthetische Sicherungen überprüft?",
+    "cleanup": "Was passiert mit Run-eigenen Testressourcen nach der Abnahme?"
+  }
+}

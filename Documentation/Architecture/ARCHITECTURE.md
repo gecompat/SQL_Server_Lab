@@ -138,6 +138,7 @@ Invoke-SqlServerLabAiScenario          # Deklariertes hashgebundenes SQL-KI-Szen
 Invoke-SqlServerLabAiModel             # Katalogisiertes lokales oder Cloud-Ollama-Modell kontrolliert aufrufen
 Measure-SqlServerLabAiRetrieval        # Rangfolge oder gebundenes Golden-RAG deterministisch gegen Qualitätsgrenzen prüfen
 Invoke-SqlServerLabAiRag               # AdHoc-/Golden-RAG, optional Host-Embeddings und explizite Cloudgeneration
+Invoke-SqlServerLabAiPersistentRetrieval # Persistente synthetische Containergenerationen mit atomarem Cutover und Resume
 Invoke-SqlServerLabAiDiagnosticAgent   # Allowlist-basierten read-only SQL-Agenten ausführen
 Test-SqlServerLabContainerTool         # Kataloggebundenes SqlPackage read-only pruefen
 Get-SqlServerLabGeneratedSqlAccess      # Hyper-V-Generierte SQL-Accessdaten (ConnectionString/Passwort) abrufen
