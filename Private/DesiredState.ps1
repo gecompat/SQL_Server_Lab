@@ -109,11 +109,11 @@ function New-LabContainerRuntimeIntentSnapshot {
     # a synthetic runtime intent.
     $version = [string]$Instance.version
     if ([string]::IsNullOrWhiteSpace($version)) { return $null }
-    # Capability assessments can contain syntactically versioned generic or
-    # deprecated inputs.  Without a currently supported catalog decision they
-    # have not crossed the manifest/parser boundary and cannot form a runtime
-    # intent.
-    if (-not (Test-SqlServerVersionSupported -VersionId $version).Supported) { return $null }
+    # Generic assessments can contain syntactically versioned inputs.  Only
+    # values absent from the version catalog are not runtime intents.  Catalog
+    # membership, rather than current support status, keeps catalogized
+    # DEPRECATED, RETIRED and BLOCKED versions on their contractual error path.
+    if (-not (Get-SqlServerVersion -VersionId $version)) { return $null }
     $profile = Get-LabResourceProfile -Name $(if ($Instance.profile) { [string]$Instance.profile } else { 'standard' })
     # Docker and Podman accept fractional CPU quotas.  Keep the numeric value
     # as a double through JSON instead of truncating it to an integer.
