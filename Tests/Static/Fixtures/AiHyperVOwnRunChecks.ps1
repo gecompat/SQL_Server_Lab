@@ -36,7 +36,7 @@ param($Module,$RepoRoot,$TemporaryRoot)
         Set-Item Function:script:Get-HyperVManagedVM -Value {param($VMName,$ExpectedRunId,$ExpectedScopeId)$script:hvManaged}
         Set-Item Function:script:Read-LabHyperVResourceBinding -Value {param($StateDirectory)$script:hvResource}
         Set-Item Function:script:Test-LabHyperVBoundPath -Value {param($Binding,$Path)@{Valid=$true}}
-        Set-Item Function:script:Get-VMHardDiskDrive -Value {param($VMId)@{Path=if($script:hvForeignAttachment){'unrelated.vhdx'}else{$script:hvManaged.Identity.childVhdxPath}}}
+        Set-Item Function:script:Get-VMHardDiskDrive -Value {[CmdletBinding()]param([Parameter(Mandatory)]$VM)if([string]$VM.Id -cne [string]$script:hvManaged.VM.Id){throw 'unexpected VM binding'};@{Path=if($script:hvForeignAttachment){'unrelated.vhdx'}else{$script:hvManaged.Identity.childVhdxPath}}}
         Set-Item Function:script:Get-VHD -Value {param($Path)@{VhdType='Differencing';ParentPath=if($script:hvForeignParent){'unrelated-parent.vhdx'}else{$script:hvArtifact.Path}}}
         Set-Item Function:script:Get-VM -Value {if($script:hvVmResidue){$script:hvManaged.VM}}
         Set-Item Function:script:Get-HyperVLabVMs -Value {param($RunId,$ScopeId)@()}

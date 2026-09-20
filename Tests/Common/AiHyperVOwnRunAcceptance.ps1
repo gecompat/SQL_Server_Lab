@@ -40,7 +40,7 @@ function Get-OwnHyperVAiBinding {
         if(-not $resource -or [string]$resource.ResourceId -cne $RunId){throw 'AI_HYPERV_RESOURCE_BINDING_INVALID'}
         $paths=@([string]$managed.Identity.childVhdxPath)+@($managed.Identity.additionalDrives|ForEach-Object{[string]$_.path})
         foreach($path in $paths){if(-not $path -or -not (Test-LabHyperVBoundPath -Binding $resource -Path $path).Valid){throw 'AI_HYPERV_CHILD_BINDING_INVALID'}}
-        $attached=@(Get-VMHardDiskDrive -VMId ([guid]$managed.VM.Id) -ErrorAction Stop)
+        $attached=@(Get-VMHardDiskDrive -VM $managed.VM -ErrorAction Stop)
         if($attached.Count -ne $paths.Count -or @($attached|Where-Object{[IO.Path]::GetFullPath([string]$_.Path) -notin @($paths|ForEach-Object{[IO.Path]::GetFullPath($_)})}).Count){throw 'AI_HYPERV_DISK_ATTACHMENT_DRIFT'}
         $artifact=Get-HyperVImageArtifact -ArtifactId $ArtifactId -StateRoot $StateRoot -SkipIntegrityCheck
         $child=Get-VHD -Path ([string]$managed.Identity.childVhdxPath) -ErrorAction Stop
