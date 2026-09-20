@@ -247,7 +247,7 @@ $dependencyCases = @(
     @{ Path = 'Private/ManifestBuilder.ps1'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-ManifestBuilderChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/InstanceCapabilityAssessment.ps1'; Checks = @('Invoke-InstanceCapabilityAssessmentChecks.ps1','Invoke-InstanceIntentChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/instance-capability-assessment.schema.json'; Checks = @('Invoke-InstanceCapabilityAssessmentChecks.ps1','Invoke-InstanceIntentChecks.ps1'); Runtime = @() },
-    @{ Path = 'Private/DesiredState.ps1'; Checks = @('Invoke-InstanceCapabilityAssessmentChecks.ps1','Invoke-InstanceIntentChecks.ps1','Invoke-ReconcileContractChecks.ps1'); Runtime = @('Mixed') },
+    @{ Path = 'Private/DesiredState.ps1'; Checks = @('Invoke-InstanceCapabilityAssessmentChecks.ps1','Invoke-InstanceIntentChecks.ps1','Invoke-ReconcileContractChecks.ps1','Invoke-HyperVResourceReconcileChecks.ps1'); Runtime = @('Mixed') },
     @{ Path = 'Private/VersionCatalog.ps1'; Checks = @('Invoke-ManifestBuilderChecks.ps1','Invoke-InstanceCapabilityAssessmentChecks.ps1'); Runtime = @() },
     @{ Path = 'Catalogs/sql-server-versions.json'; Checks = @('Invoke-ManifestBuilderChecks.ps1'); Runtime = @() },
     @{ Path = 'Schemas/lab-manifest.schema.json'; Checks = @('Invoke-CollationCatalogChecks.ps1'); Runtime = @() },

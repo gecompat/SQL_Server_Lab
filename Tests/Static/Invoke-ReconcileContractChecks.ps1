@@ -814,6 +814,123 @@ try {
     Add-CheckResult -Name 'Ungueltige persistierte SQL-Konfigurations-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' `
         -Success ($persistedSqlConfigurationContract.RuntimeCalls -eq 0)
 
+    $persistedHyperVResourceContract = & $module {
+        param($Root)
+
+        function New-TestPersistedHyperVResourceIntent {
+            [PSCustomObject]@{
+                Contract=[PSCustomObject]@{ Name='SqlServerLab.HyperVResourceIntent'; Version='1.0' }
+                ProcessorCount=[long]4; DynamicMemoryEnabled=$true
+                MemoryMinimumMB=[long]2048; MemoryStartupMB=[long]4096; MemoryMaximumMB=[long]8192
+                RequiredCapability='hyperv-resource-reconcile'; CapabilityStatus='DECLARED_SUPPORTED'
+            }
+        }
+
+        $cases = @(
+            @{ Name='kanonisch'; Kind='valid'; Valid=$true },
+            @{ Name='legacy fehlt'; Kind='legacy'; Valid=$true },
+            @{ Name='legacy null'; Kind='null'; Valid=$true },
+            @{ Name='unbekanntes Feld'; Kind='unknown-field'; Valid=$false },
+            @{ Name='falscher Contract'; Kind='contract'; Valid=$false },
+            @{ Name='unbekanntes Contract-Feld'; Kind='contract-field'; Valid=$false },
+            @{ Name='CPU boolesch'; Kind='cpu-bool'; Valid=$false },
+            @{ Name='CPU String'; Kind='cpu-string'; Valid=$false },
+            @{ Name='CPU Gleitkomma'; Kind='cpu-double'; Valid=$false },
+            @{ Name='CPU null'; Kind='cpu-null'; Valid=$false },
+            @{ Name='CPU unterhalb Bereich'; Kind='cpu-low'; Valid=$false },
+            @{ Name='CPU oberhalb Bereich'; Kind='cpu-high'; Valid=$false },
+            @{ Name='RAM boolesch'; Kind='memory-bool'; Valid=$false },
+            @{ Name='RAM String'; Kind='memory-string'; Valid=$false },
+            @{ Name='RAM Gleitkomma'; Kind='memory-double'; Valid=$false },
+            @{ Name='RAM unterhalb Bereich'; Kind='memory-low'; Valid=$false },
+            @{ Name='RAM oberhalb Bereich'; Kind='memory-high'; Valid=$false },
+            @{ Name='RAM Minimum ueber Startup'; Kind='memory-minimum-inversion'; Valid=$false },
+            @{ Name='RAM Startup ueber Maximum'; Kind='memory-maximum-inversion'; Valid=$false },
+            @{ Name='Statischer RAM nicht gleich'; Kind='static-unequal'; Valid=$false },
+            @{ Name='DynamicMemory kein Bool'; Kind='dynamic-string'; Valid=$false },
+            @{ Name='falsche Capability'; Kind='capability'; Valid=$false },
+            @{ Name='falscher CapabilityStatus'; Kind='status'; Valid=$false },
+            @{ Name='falscher Anbieter'; Kind='provider'; Valid=$false }
+        )
+        $originalRuntime = (Get-Command Get-LabRunRuntimeStatus).ScriptBlock
+        $script:invalidPersistedHyperVResourceRuntimeCalls=0
+        try {
+            Set-Item Function:Get-LabRunRuntimeStatus -Value {
+                $script:invalidPersistedHyperVResourceRuntimeCalls++
+                throw 'RUNTIME_MUST_NOT_BE_READ_FOR_INVALID_PERSISTED_HYPERV_RESOURCE'
+            }
+            $results=@($cases | ForEach-Object {
+                $case=$_
+                $intents=[PSCustomObject]@{ Contract=[PSCustomObject]@{ Name='SqlServerLab.InstanceIntent'; Version='1.0' } }
+                if($case.Kind -ne 'legacy') {
+                    $resources=if($case.Kind -eq 'null'){$null}else{New-TestPersistedHyperVResourceIntent}
+                    switch($case.Kind) {
+                        'unknown-field' { $resources | Add-Member -NotePropertyName Host -NotePropertyValue 'must-not-persist.invalid' }
+                        'contract' { $resources.Contract.Version='2.0' }
+                        'contract-field' { $resources.Contract | Add-Member -NotePropertyName Extra -NotePropertyValue 'invalid' }
+                        'cpu-bool' { $resources.ProcessorCount=$true }
+                        'cpu-string' { $resources.ProcessorCount='4' }
+                        'cpu-double' { $resources.ProcessorCount=[double]4 }
+                        'cpu-null' { $resources.ProcessorCount=$null }
+                        'cpu-low' { $resources.ProcessorCount=[long]0 }
+                        'cpu-high' { $resources.ProcessorCount=[long]65 }
+                        'memory-bool' { $resources.MemoryStartupMB=$true }
+                        'memory-string' { $resources.MemoryStartupMB='4096' }
+                        'memory-double' { $resources.MemoryStartupMB=[double]4096 }
+                        'memory-low' { $resources.MemoryMinimumMB=[long]511 }
+                        'memory-high' { $resources.MemoryMaximumMB=[long]1048577 }
+                        'memory-minimum-inversion' { $resources.MemoryMinimumMB=[long]6144 }
+                        'memory-maximum-inversion' { $resources.MemoryMaximumMB=[long]2048 }
+                        'static-unequal' { $resources.DynamicMemoryEnabled=$false }
+                        'dynamic-string' { $resources.DynamicMemoryEnabled='true' }
+                        'capability' { $resources.RequiredCapability='other-capability' }
+                        'status' { $resources.CapabilityStatus='SUPPORTED' }
+                    }
+                    $intents | Add-Member -NotePropertyName Resources -NotePropertyValue $resources
+                }
+                $provider=if($case.Kind -eq 'provider'){'docker'}else{'hyperv'}
+                $snapshot=[PSCustomObject]@{
+                    Contract=[PSCustomObject]@{ Name='SqlServerLab.RunDesiredState'; Version='1.0' }
+                    ProvisioningMode='manifest'; PersistentData=$false
+                    Instances=@([PSCustomObject]@{ Id='primary'; Provider=$provider; Profile='standard'; Intents=$intents })
+                }
+                $run=New-LabRunState -StateRoot $Root -Metadata @{ name='persisted Hyper-V resource intent'; desiredState=$snapshot } `
+                    -ProviderSubRuns @([PSCustomObject]@{ provider=$provider; instanceIds=@('primary') })
+                $statePath=Join-Path $run.RunDir 'run-state.json';$connectionPath=Join-Path $run.RunDir 'connection-info.json'
+                Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject ([PSCustomObject]@{instances=@([PSCustomObject]@{id='primary';provider=$provider;host='must-not-fallback.invalid'})})
+                $beforeState=[Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath))
+                $beforeConnection=[Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))
+                $persisted=Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $Root
+                $plans=@()
+                if(-not $case.Valid){foreach($target in @('RUNNING','STOPPED')){$plans+=Get-SqlServerLabReconcilePlan -RunId $run.RunId -TargetState $target -StateRoot $Root}}
+                [PSCustomObject]@{Name=$case.Name;Valid=$case.Valid;Status=$persisted.Status;ReasonCodes=@($persisted.ReasonCodes);Plans=@($plans)
+                    StateUnchanged=$beforeState -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath));ConnectionUnchanged=$beforeConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))}
+            })
+            [PSCustomObject]@{Cases=$results;RuntimeCalls=$script:invalidPersistedHyperVResourceRuntimeCalls}
+        }
+        finally {Set-Item Function:Get-LabRunRuntimeStatus -Value $originalRuntime}
+    } $tempRoot
+    foreach($hyperVResourceCase in @($persistedHyperVResourceContract.Cases)) {
+        if($hyperVResourceCase.Valid) {
+            Add-CheckResult -Name "Persistierter Hyper-V-Ressourcen-Intent ($($hyperVResourceCase.Name)) bleibt kanonisch oder legacy-gueltig" `
+                -Success ($hyperVResourceCase.Status -eq 'VALID' -and $hyperVResourceCase.ReasonCodes.Count -eq 0)
+        }
+        else {
+            Add-CheckResult -Name "Ungueltiger persistierter Hyper-V-Ressourcen-Intent ($($hyperVResourceCase.Name)) liefert den festen Grund" `
+                -Success ($hyperVResourceCase.Status -eq 'INVALID' -and ($hyperVResourceCase.ReasonCodes -join ',') -ceq 'DESIRED_INSTANCE_HYPERV_RESOURCE_INTENT_INVALID')
+            foreach($plan in $hyperVResourceCase.Plans) {
+                Add-CheckResult -Name "Ungueltiger persistierter Hyper-V-Ressourcen-Intent ($($hyperVResourceCase.Name)) blockiert $($plan.Desired.TargetState) ohne Runtime-Fallback" `
+                    -Success ($plan.HighestChangeClass -eq 'unsupported' -and $plan.Actions.Count -eq 0 -and -not $plan.MutationAllowed -and
+                        -not $plan.IsNoOp -and -not $plan.Desired.IsValid -and $plan.Desired.Instances.Count -eq 0 -and
+                        $plan.Actual.Source -eq 'persisted-desired-state-invalid')
+            }
+        }
+        Add-CheckResult -Name "Persistierter Hyper-V-Ressourcen-Intent ($($hyperVResourceCase.Name)) erhaelt State- und Connection-Bytes" `
+            -Success ($hyperVResourceCase.StateUnchanged -and $hyperVResourceCase.ConnectionUnchanged)
+    }
+    Add-CheckResult -Name 'Ungueltige persistierte Hyper-V-Ressourcen-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' `
+        -Success ($persistedHyperVResourceContract.RuntimeCalls -eq 0)
+
     $networkContract = & $module {
         param($Root)
 

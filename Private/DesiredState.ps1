@@ -82,14 +82,18 @@ function New-LabHyperVResourceIntentSnapshot {
         [int]$settings.memoryMaximumMB
     }
     else { [int][Math]::Min(1048576, [long]$startupMB * 2) }
+    $processorCount = if ($settings -and $settings.PSObject.Properties['processorCount']) {
+        [int]$settings.processorCount
+    }
+    else { 4 }
 
     return [PSCustomObject]@{
         Contract = [PSCustomObject]@{ Name='SqlServerLab.HyperVResourceIntent'; Version='1.0' }
-        ProcessorCount = if ($settings -and $settings.PSObject.Properties['processorCount']) { [int]$settings.processorCount } else { 4 }
+        ProcessorCount = [long]$processorCount
         DynamicMemoryEnabled = $dynamicEnabled
-        MemoryMinimumMB = $minimumMB
-        MemoryStartupMB = $startupMB
-        MemoryMaximumMB = $maximumMB
+        MemoryMinimumMB = [long]$minimumMB
+        MemoryStartupMB = [long]$startupMB
+        MemoryMaximumMB = [long]$maximumMB
         RequiredCapability = 'hyperv-resource-reconcile'
         CapabilityStatus = 'DECLARED_SUPPORTED'
     }
@@ -485,6 +489,46 @@ function Test-LabPersistedSqlConfigurationIntent {
     return $true
 }
 
+function Test-LabPersistedHyperVResourceIntent {
+    [CmdletBinding()]
+    param($Resources, [string]$Provider)
+
+    # Persisted desired state is a closed contract, not a permissive input
+    # surface.  Every number has already passed manifest validation and JSON
+    # deserialization normalizes it to Int64; accepting any other CLR type
+    # here would reintroduce a coercion boundary before Hyper-V is read.
+    if ($null -eq $Resources -or $Resources -is [string] -or $Resources -is [bool] -or
+        $Resources -is [array]) { return $false }
+    $expectedFields = @(
+        'CapabilityStatus','Contract','DynamicMemoryEnabled','MemoryMaximumMB',
+        'MemoryMinimumMB','MemoryStartupMB','ProcessorCount','RequiredCapability'
+    )
+    if ((@($Resources.PSObject.Properties.Name | Sort-Object) -join ',') -cne
+        ($expectedFields -join ',')) { return $false }
+    if ($null -eq $Resources.Contract -or $Resources.Contract -is [string] -or
+        $Resources.Contract -is [bool] -or $Resources.Contract -is [array] -or
+        ((@($Resources.Contract.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'Name,Version') -or
+        [string]$Resources.Contract.Name -cne 'SqlServerLab.HyperVResourceIntent' -or
+        [string]$Resources.Contract.Version -cne '1.0') { return $false }
+    if ([string]$Provider -ine 'hyperv' -or
+        [string]$Resources.RequiredCapability -cne 'hyperv-resource-reconcile' -or
+        [string]$Resources.CapabilityStatus -cnotin @('DECLARED_SUPPORTED','DECLARED_UNSUPPORTED') -or
+        $Resources.DynamicMemoryEnabled -isnot [bool]) { return $false }
+
+    if ($Resources.ProcessorCount -isnot [long] -or
+        $Resources.ProcessorCount -lt 1 -or $Resources.ProcessorCount -gt 64) { return $false }
+    foreach ($memoryField in @('MemoryMinimumMB','MemoryStartupMB','MemoryMaximumMB')) {
+        $memoryValue = $Resources.$memoryField
+        if ($memoryValue -isnot [long] -or $memoryValue -lt 512 -or $memoryValue -gt 1048576) { return $false }
+    }
+    if ($Resources.MemoryMinimumMB -gt $Resources.MemoryStartupMB -or
+        $Resources.MemoryStartupMB -gt $Resources.MemoryMaximumMB) { return $false }
+    if (-not $Resources.DynamicMemoryEnabled -and
+        ($Resources.MemoryMinimumMB -ne $Resources.MemoryStartupMB -or
+         $Resources.MemoryStartupMB -ne $Resources.MemoryMaximumMB)) { return $false }
+    return $true
+}
+
 function Get-LabPersistedDesiredState {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
@@ -583,6 +627,10 @@ function Get-LabPersistedDesiredState {
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['SqlConfiguration'] -and $null -ne $instance.Intents.SqlConfiguration -and
             -not (Test-LabPersistedSqlConfigurationIntent -SqlConfiguration $instance.Intents.SqlConfiguration -Provider $provider)) {
             [void]$validationErrors.Add('DESIRED_INSTANCE_SQL_CONFIGURATION_INTENT_INVALID')
+        }
+        if ($instance.Intents -and $instance.Intents.PSObject.Properties['Resources'] -and $null -ne $instance.Intents.Resources -and
+            -not (Test-LabPersistedHyperVResourceIntent -Resources $instance.Intents.Resources -Provider $provider)) {
+            [void]$validationErrors.Add('DESIRED_INSTANCE_HYPERV_RESOURCE_INTENT_INVALID')
         }
         if ($idIsValid -and $providerIsValid) {
             if (-not $instanceIdsByProvider.ContainsKey($provider)) {
