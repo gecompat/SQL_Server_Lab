@@ -99,6 +99,22 @@ function New-LabHyperVResourceIntentSnapshot {
     }
 }
 
+function New-LabContainerRuntimeIntentSnapshot {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Instance)
+
+    if ([string]$Instance.provider -notin @('docker','podman')) { return $null }
+    $profile = Get-LabResourceProfile -Name $(if ($Instance.profile) { [string]$Instance.profile } else { 'standard' })
+    $cpu = if ($Instance.runtimeResources -and $null -ne $Instance.runtimeResources.cpu) { [long]$Instance.runtimeResources.cpu } else { [long]$profile.maxCpus }
+    $memoryMB = if ($Instance.runtimeResources -and $null -ne $Instance.runtimeResources.memoryMB) { [long]$Instance.runtimeResources.memoryMB } else { [long]$profile.maxMemoryMB }
+    return [PSCustomObject]@{
+        Contract = [PSCustomObject]@{ Name='SqlServerLab.ContainerRuntimeIntent'; Version='1.0' }
+        Cpu = $cpu
+        MemoryMB = $memoryMB
+        Collation = Resolve-LabSqlServerCollation -Name ([string]$Instance.collation) -SqlVersion ([string]$Instance.version)
+    }
+}
+
 function New-LabSqlConfigurationIntentSnapshot {
     [CmdletBinding()]
     param(
@@ -364,6 +380,7 @@ function New-LabInstanceIntentSnapshot {
         Contract = [PSCustomObject]@{ Name = 'SqlServerLab.InstanceIntent'; Version = '1.0'; EvidenceBoundary = 'provider-metadata' }
         Drives = $drives
         Network = $network
+        ContainerRuntime = New-LabContainerRuntimeIntentSnapshot -Instance $Instance
         Resources = New-LabHyperVResourceIntentSnapshot -Instance $Instance
         SqlEndpoint = New-LabSqlEndpointIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
         SqlConfiguration = New-LabSqlConfigurationIntentSnapshot -Instance $Instance -ProviderCapability $ProviderCapability
@@ -496,6 +513,27 @@ function Test-LabPersistedSqlConfigurationIntent {
             -not $traceFlags.Add($traceFlag)) { return $false }
     }
     return $true
+}
+
+function Test-LabPersistedContainerRuntimeIntent {
+    [CmdletBinding()]
+    param($ContainerRuntime, [string]$Provider, [string]$SqlVersion)
+
+    if ($null -eq $ContainerRuntime -or $ContainerRuntime -is [string] -or $ContainerRuntime -is [bool] -or $ContainerRuntime -is [array]) { return $false }
+    $expectedFields = @('Collation','Contract','Cpu','MemoryMB')
+    if ((@($ContainerRuntime.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($expectedFields -join ',')) { return $false }
+    if (-not $ContainerRuntime.Contract -or $ContainerRuntime.Contract -is [string] -or $ContainerRuntime.Contract -is [bool] -or
+        ((@($ContainerRuntime.Contract.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'Name,Version') -or
+        [string]$ContainerRuntime.Contract.Name -cne 'SqlServerLab.ContainerRuntimeIntent' -or
+        [string]$ContainerRuntime.Contract.Version -cne '1.0' -or
+        [string]$Provider -cnotin @('docker','podman') -or
+        $ContainerRuntime.Cpu -isnot [long] -or $ContainerRuntime.Cpu -lt 1 -or $ContainerRuntime.Cpu -gt 64 -or
+        $ContainerRuntime.MemoryMB -isnot [long] -or $ContainerRuntime.MemoryMB -lt 512 -or $ContainerRuntime.MemoryMB -gt 1048576 -or
+        $ContainerRuntime.Collation -isnot [string]) { return $false }
+    try {
+        return [string](Resolve-LabSqlServerCollation -Name $ContainerRuntime.Collation -SqlVersion $SqlVersion) -ceq [string]$ContainerRuntime.Collation
+    }
+    catch { return $false }
 }
 
 function Test-LabPersistedHyperVResourceIntent {
@@ -1202,6 +1240,10 @@ function Get-LabPersistedDesiredState {
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['SqlConfiguration'] -and $null -ne $instance.Intents.SqlConfiguration -and
             -not (Test-LabPersistedSqlConfigurationIntent -SqlConfiguration $instance.Intents.SqlConfiguration -Provider $provider -ProviderCapability $providerCapability)) {
             [void]$validationErrors.Add('DESIRED_INSTANCE_SQL_CONFIGURATION_INTENT_INVALID')
+        }
+        if ($instance.Intents -and $instance.Intents.PSObject.Properties['ContainerRuntime'] -and $null -ne $instance.Intents.ContainerRuntime -and
+            -not (Test-LabPersistedContainerRuntimeIntent -ContainerRuntime $instance.Intents.ContainerRuntime -Provider $provider -SqlVersion ([string]$instance.Version))) {
+            [void]$validationErrors.Add('DESIRED_INSTANCE_CONTAINER_RUNTIME_INTENT_INVALID')
         }
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['Resources'] -and $null -ne $instance.Intents.Resources -and
             -not (Test-LabPersistedHyperVResourceIntent -Resources $instance.Intents.Resources -Provider $provider)) {

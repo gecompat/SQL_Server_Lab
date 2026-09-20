@@ -151,6 +151,9 @@ try {
         $containerContextSource -match '\$runtimeInstance\.PSObject\.Properties\.Remove\(''software''\)' -and
         $containerContextSource -match '\$runtimeInstance\.PSObject\.Properties\.Remove\(''serverConfig''\)' -and
         $containerContextSource -match '-ResolvedInstance \$context\.RuntimeInstance' -and
+        $containerContextSource -match 'EXTERNAL_RUNTIME_RECONCILE_CONTAINER_RUNTIME_INTENT_MISSING' -and
+        $containerContextSource -match 'NotePropertyName collation -NotePropertyValue \(\[string\]\$containerRuntime\.Collation\)' -and
+        $containerContextSource -match 'NotePropertyName runtimeResources -NotePropertyValue \(\[PSCustomObject\]@\{ cpu=\[int\]\$containerRuntime\.Cpu; memoryMB=\[int\]\$containerRuntime\.MemoryMB \}\)' -and
         $hyperVContextSource -match '\$runtimeResourceGovernorConfig = if \(\$hasPersistedSoftware\) \{ \$null \}' -and
         $hyperVContextSource -match '\$stateCommitSnapshot = if \(\$hasPersistedSoftware\) \{ \$persisted\.Snapshot \}' -and
         $hyperVContextSource -match 'ResourceGovernorConfig \$context\.RuntimeResourceGovernorConfig' -and

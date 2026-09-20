@@ -187,10 +187,16 @@ function Get-LabExternalRuntimeReconcileContext {
     $stateCommitSnapshot = if ($hasPersistedSoftware) { $persisted.Snapshot } else { $desiredSnapshot }
     $runtimeInstance = $targetResolved[0] | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
     if ($hasPersistedSoftware) {
+        $containerRuntime = $currentSnapshot[0].Intents.ContainerRuntime
+        if ($null -eq $containerRuntime -or -not (Test-LabPersistedContainerRuntimeIntent -ContainerRuntime $containerRuntime -Provider ([string]$currentSnapshot[0].Provider) -SqlVersion ([string]$currentSnapshot[0].Version))) {
+            throw 'EXTERNAL_RUNTIME_RECONCILE_CONTAINER_RUNTIME_INTENT_MISSING'
+        }
         # The replacement provider only needs non-software container shape;
         # image and installer inputs are separately catalog/persisted bound.
         $runtimeInstance.PSObject.Properties.Remove('software')
         $runtimeInstance.PSObject.Properties.Remove('serverConfig')
+        $runtimeInstance | Add-Member -NotePropertyName collation -NotePropertyValue ([string]$containerRuntime.Collation) -Force
+        $runtimeInstance | Add-Member -NotePropertyName runtimeResources -NotePropertyValue ([PSCustomObject]@{ cpu=[int]$containerRuntime.Cpu; memoryMB=[int]$containerRuntime.MemoryMB }) -Force
     }
 
     return [PSCustomObject]@{

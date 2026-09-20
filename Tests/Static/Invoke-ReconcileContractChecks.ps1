@@ -64,7 +64,7 @@ $forbiddenPresent = @($forbiddenPlannerMutations | Where-Object { $source -match
             }
         ) | ForEach-Object { $_ }
         $intentUnknown = @($snapshot.Instances | ForEach-Object {
-            $_.Intents.PSObject.Properties.Name | Where-Object { $_ -notin @('Contract','Drives','Network','Resources','SqlEndpoint','SqlConfiguration','Databases','Software','CapabilityAssessment','Storage','WindowsLocale','WindowsActivation') }
+            $_.Intents.PSObject.Properties.Name | Where-Object { $_ -notin @('Contract','Drives','Network','ContainerRuntime','Resources','SqlEndpoint','SqlConfiguration','Databases','Software','CapabilityAssessment','Storage','WindowsLocale','WindowsActivation') }
         })
         [PSCustomObject]@{
             Snapshot = $snapshot
