@@ -1,6 +1,6 @@
 # Persistentes synthetisches Retrieval unter SQL Server 2025
 
-Stand: 2026-09-21. Status: `IMPLEMENTED_NATIVE_PENDING`. Der erste Slice
+Stand: 2026-09-21. Status: `VALIDATED_REFERENCE`. Der erste Slice
 speichert einen festen synthetischen Dokumentbestand und seine Vektoren in
 einer eigenen Datenbank eines laufenden Docker-/Podman-Runs. Er verwendet das
 bereits vorhandene lokale `embeddinggemma:latest` mit 768 Dimensionen. Es gibt
@@ -69,6 +69,8 @@ Journal ist kein Beweis dafür, dass ein SQL-Schritt abgeschlossen wurde.
 Unveränderte Vektoren dürfen nur aus der vollständig validierten aktiven
 Generation mit derselben Modellidentität kopiert werden. Digest-/Versionsdrift
 blockiert Apply und Query, aber nicht das exakt besitzgebundene Remove.
+Query prüft außerdem den Plan-Schlüssel der aktiven SQL-Generation gegen die
+rekonstruierte Fixture- und Endpointbindung, bevor es ein Embedding erzeugt.
 
 Der Cutover prüft Soll-IDs, vollständige Inhalte einschließlich Byte-Längen,
 Hashes, Modell-/Dataset-/Operationsbindung und vollständige Chunkmenge innerhalb
@@ -110,7 +112,7 @@ Reparse-StateRoot, Modell-/Vektordrift und Journalschreibfehler. Der vorbereitet
 einen eigenen SQL-Run, prüft echte Dateisperre und SQL-AppLock, Restart, Delta-
 Teilfehler und Commitantwortverlust und entfernt erst die eigene DB, dann den
 eigenen Run mit Container-/Volume-Residueprüfung. PASS erfolgt erst nach Cleanup.
-Der native Podman-Lauf bestand am 2026-09-21 alle 16 Assertions, SQLrestart, gezielte Staging-/Commitfehler und vollständiges DB-/Run-Cleanup. Der getrennte Docker-Nachweis steht noch aus.
+Die getrennten nativen Docker- und Podman-Läufe bestanden am 2026-09-21 jeweils alle 16 Assertions, SQLrestart, gezielte Staging-/Commitfehler und vollständiges DB-/Run-Cleanup. Das vorhandene Hostmodellinventar blieb unverändert.
 
 Dies ist ein inkrementeller Generationsrebuild mit unveränderter Modellidentität.
 Der bestehende reine `New-LabAiReembeddingPlan` für einen echten Modellwechsel

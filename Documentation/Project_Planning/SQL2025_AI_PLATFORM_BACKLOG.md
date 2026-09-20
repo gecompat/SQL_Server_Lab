@@ -211,6 +211,6 @@ kein Embedding-, Generation-, RAG- oder Agentennachweis.
 Der [synthetische Persistenz-Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
 ist implementiert und offline geprüft: eigene SQL-2025-Datenbank, feste
 Initial-/Delta-Generation, aktive Altgeneration bei Stagingfehlern, atomarer
-Cutover und SQL-quittiertes Resume/Remove. Podman bestand nativ 16 Assertions mit vollständigem Cleanup; Docker steht aus. Dies ist ein inkrementeller Rebuild mit unverändertem Modell;
+Cutover und SQL-quittiertes Resume/Remove. Docker und Podman bestanden getrennt je 16 Assertions mit SQLrestart, Fehler-/Resume-Prüfungen und vollständigem Cleanup. Dies ist ein inkrementeller Rebuild mit unverändertem Modell;
 der bestehende reine Modellwechsel-Re-Embedding-Plan bleibt unverändert.
 Beliebige Dokumente, Modell-/Dimensionsmigration, Hyper-V und ANN bleiben offen.

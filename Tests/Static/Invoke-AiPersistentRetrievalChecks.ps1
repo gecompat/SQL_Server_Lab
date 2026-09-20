@@ -116,6 +116,12 @@ try{
             Check 'Kein SQL-Aufruf vor dauerhaftem Createintent' ('Lock' -notin $script:events -and 'Create' -notin $script:events)
             Set-Item Function:script:Write-LabArtifactJsonAtomic $originalWrite
             Reset;$null=Execute
+            $script:generations[1].PlanKey='f'*64
+            $beforeEmbeddings=$script:payloads
+            $beforeQueries=@($script:events|Where-Object{$_ -eq 'Query'}).Count
+            Check 'Manipulierter aktiver PlanKey blockiert Query' (Reject {Execute -Action Query} 'AI_PERSISTENT_GENERATION_DRIFT')
+            Check 'Aktive Plandrift erreicht weder Embedding noch Vektorsuche' ($script:payloads -eq $beforeEmbeddings -and @($script:events|Where-Object{$_ -eq 'Query'}).Count -eq $beforeQueries)
+            Reset;$null=Execute
             $script:fail='QueryHash'
             Check 'Falscher Hash im Queryresultat scheitert trotz richtiger Dokument-ID' (Reject {Execute -Action Query} 'AI_PERSISTENT_QUERY_INVALID')
             $script:fail='';$script:generations[1].ModelHash='f'*64

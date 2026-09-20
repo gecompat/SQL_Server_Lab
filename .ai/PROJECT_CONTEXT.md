@@ -30,7 +30,7 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 - Persistentes synthetisches Retrieval über `Invoke-SqlServerLabAiPersistentRetrieval`:
   eigene Datenbank auf SQL-2025-Docker/Podman, lokale Host-Embeddings, feste
   Initial-/Delta-Fixture, atomarer aktiver Generationszeiger, quittiertes Resume
-  und besitzgebundenes Remove. Offline und nativ unter Podman geprüft; Docker ausstehend.
+  und besitzgebundenes Remove. Offline sowie nativ unter Docker und Podman geprüft (je 16 Assertions und vollständiges Cleanup).
   Der enge Folgeslice `Migrate` ergänzt Generation 3 mit Nomic v2 MoE,
   v2-Upgrade, festen Präfixprofilen und SQL-gebundener aktiver Modellwahl;
   dessen native Docker-/Podman-Evidence steht aus. Keine beliebigen Dokumente oder Cloud.
