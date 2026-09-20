@@ -160,6 +160,12 @@ sources_of_truth:
   portable_lab_package_schema: Schemas/portable-lab-package.schema.json
   portable_lab_import_plan_schema: Schemas/portable-lab-import-plan.schema.json
   validation_portable_lab_import_preflight: Tests/Static/Invoke-PortableLabImportChecks.ps1
+  portable_container_transfer_execution_contract: Private/PortableContainerTransferExecutorRuntime.ps1 # one read-only SQL-2025 backup into a new exclusively owned Linux container run; cleanup-only resume
+  portable_container_transfer_execution_public: Public/Invoke-SqlServerLabPortableContainerTransfer.ps1
+  portable_container_transfer_execution_journal_schema: Schemas/portable-container-transfer-journal.schema.json
+  portable_container_transfer_execution_architecture: Documentation/Architecture/PORTABLE_CONTAINER_TRANSFER.md
+  validation_portable_container_transfer_execution: Tests/Static/Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1
+  acceptance_portable_container_transfer_execution: Tests/Integration/Invoke-PortableContainerTransferAcceptance.ps1
   portable_container_transfer_executor_preflight_contract: Private/PortableContainerTransferExecutor.ps1 # local single-BackupSet executor plan/journal; preflight-only and fail-closed
   portable_container_transfer_executor_preflight_public: Public/Get-SqlServerLabPortableContainerTransferExecutorPlan.ps1
   portable_container_transfer_executor_plan_schema: Schemas/portable-container-transfer-executor-plan.schema.json

@@ -48,7 +48,7 @@ function New-LabRelationalCoreConnection {
     if(-not $Secret.IsReadOnly()){ $Secret.MakeReadOnly() }
     $credential=[System.Data.SqlClient.SqlCredential]::new('sa',$Secret)
     $connection=[System.Data.SqlClient.SqlConnection]::new()
-    $connection.ConnectionString="Data Source=$($Binding.HostName),$($Binding.Port);Initial Catalog=$DatabaseName;Encrypt=True;TrustServerCertificate=True;Connect Timeout=15;Application Name=SqlServerLab.RelationalCoreComparison"
+    $connection.ConnectionString="Data Source=$($Binding.HostName),$($Binding.Port);Initial Catalog=$DatabaseName;Encrypt=True;TrustServerCertificate=True;Connect Timeout=15;Application Name=SqlServerLab.RelationalCoreComparison;Pooling=False;Persist Security Info=False"
     $connection.Credential=$credential
     return $connection
 }
@@ -76,8 +76,14 @@ function Assert-LabRelationalCoreDatabaseBinding {
     try {
         $readerPair=@(Invoke-LabRelationalCoreReader -Connection $Connection -Query "SELECT DB_NAME(), DB_ID(), state_desc, is_read_only FROM sys.databases WHERE database_id=DB_ID();");$command=$readerPair[0];$reader=$readerPair[1]
         if(-not $reader.Read()) { throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE' }
-        if($reader.FieldCount -ne 4 -or $reader.IsDBNull(0) -or $reader.IsDBNull(1) -or $reader.IsDBNull(2) -or $reader.IsDBNull(3)) { throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE' }
-        $observation=[PSCustomObject]@{ActualName=$reader.GetString(0);DatabaseId=$reader.GetInt32(1);State=$reader.GetString(2);IsReadOnly=$reader.GetBoolean(3)}
+        if($reader.FieldCount -ne 4) { throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE' }
+        # SequentialAccess forbids returning to ordinal zero after probing later
+        # columns. Read each nullable value completely before advancing.
+        if($reader.IsDBNull(0)){throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE'};$actualName=$reader.GetString(0)
+        if($reader.IsDBNull(1)){throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE'};$databaseId=[int]$reader.GetValue(1)
+        if($reader.IsDBNull(2)){throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE'};$state=$reader.GetString(2)
+        if($reader.IsDBNull(3)){throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE'};$isReadOnly=$reader.GetBoolean(3)
+        $observation=[PSCustomObject]@{ActualName=$actualName;DatabaseId=$databaseId;State=$state;IsReadOnly=$isReadOnly}
         if($reader.Read()) { throw 'RELATIONAL_CORE_DATABASE_IDENTITY_UNVERIFIABLE' }
         $null=Test-LabRelationalCoreDatabaseObservation -RequestedDatabaseName $RequestedDatabaseName -Observation $observation
     } finally { if($reader){$reader.Dispose()};if($command){$command.Dispose()} }
@@ -165,14 +171,23 @@ function Test-LabRelationalCoreFieldEqual {
 
 function Compare-LabRelationalCoreTable {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][System.Data.SqlClient.SqlConnection]$Source,[Parameter(Mandatory)][System.Data.SqlClient.SqlConnection]$Target,[Parameter(Mandatory)]$SourceTable,[Parameter(Mandatory)]$TargetTable,[Parameter(Mandatory)][int]$TableOrdinal)
+    param([Parameter(Mandatory)][System.Data.SqlClient.SqlConnection]$Source,[Parameter(Mandatory)][System.Data.SqlClient.SqlConnection]$Target,[Parameter(Mandatory)]$SourceTable,[Parameter(Mandatory)]$TargetTable,[Parameter(Mandatory)][int]$TableOrdinal,[datetime]$Deadline=[datetime]::MaxValue)
     if([string]$SourceTable.Signature -cne [string]$TargetTable.Signature -or [string]$SourceTable.PrimaryKeyOrder -cne [string]$TargetTable.PrimaryKeyOrder) { return [PSCustomObject]@{ Status='DIFFERENT';RowsCompared=0;Issues=@((New-LabRelationalCoreIssue -Code 'TABLE_SCHEMA_OR_PRIMARY_KEY_MISMATCH' -TableOrdinal $TableOrdinal)) } }
     $sourceCommand=$null;$sourceReader=$null;$targetCommand=$null;$targetReader=$null;$rows=0;$issues=[Collections.Generic.List[object]]::new()
     try {
         $sourceReaderPair=@(Invoke-LabRelationalCoreReader -Connection $Source -Query (ConvertTo-LabRelationalCoreSelect -Table $SourceTable));$sourceCommand=$sourceReaderPair[0];$sourceReader=$sourceReaderPair[1]
         $targetReaderPair=@(Invoke-LabRelationalCoreReader -Connection $Target -Query (ConvertTo-LabRelationalCoreSelect -Table $TargetTable));$targetCommand=$targetReaderPair[0];$targetReader=$targetReaderPair[1]
         while($true) {
-            $hasSource=$sourceReader.Read();$hasTarget=$targetReader.Read()
+            if([datetime]::UtcNow -ge $Deadline){throw 'RELATIONAL_CORE_COMPARISON_TIMEOUT'}
+            if($Deadline -eq [datetime]::MaxValue){$hasSource=$sourceReader.Read();$hasTarget=$targetReader.Read()}
+            else {
+                $remaining=$Deadline-[datetime]::UtcNow
+                if($remaining.TotalMilliseconds -le 0){throw 'RELATIONAL_CORE_COMPARISON_TIMEOUT'}
+                $hasSource=$sourceReader.ReadAsync().WaitAsync($remaining).GetAwaiter().GetResult()
+                $remaining=$Deadline-[datetime]::UtcNow
+                if($remaining.TotalMilliseconds -le 0){throw 'RELATIONAL_CORE_COMPARISON_TIMEOUT'}
+                $hasTarget=$targetReader.ReadAsync().WaitAsync($remaining).GetAwaiter().GetResult()
+            }
             if(-not $hasSource -and -not $hasTarget){break}
             if($hasSource -ne $hasTarget){$issues.Add((New-LabRelationalCoreIssue -Code 'TABLE_ROW_COUNT_MISMATCH' -TableOrdinal $TableOrdinal));break}
             $rows++
@@ -186,7 +201,8 @@ function Compare-LabRelationalCoreTable {
 
 function Invoke-LabRelationalCoreComparison {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][object[]]$ComparisonPair,[string]$StateRoot)
+    param([Parameter(Mandatory)][object[]]$ComparisonPair,[string]$StateRoot,[ValidateRange(0,3600)][int]$TimeoutSeconds=0,[object]$ExpectedBindings)
+    $deadline=if($TimeoutSeconds){[datetime]::UtcNow.AddSeconds($TimeoutSeconds)}else{[datetime]::MaxValue}
     $pairResults=[Collections.Generic.List[object]]::new();$allIssues=[Collections.Generic.List[object]]::new()
     foreach($pair in $ComparisonPair) {
         $pairId=[string]$pair.PairId
@@ -196,13 +212,23 @@ function Invoke-LabRelationalCoreComparison {
         try {
             $sourceBinding=Get-LabRelationalCoreLiveBinding -RunId ([string]$pair.SourceRunId) -InstanceId ([string]$pair.SourceInstanceId) -StateRoot $StateRoot
             $targetBinding=Get-LabRelationalCoreLiveBinding -RunId ([string]$pair.TargetRunId) -InstanceId ([string]$pair.TargetInstanceId) -StateRoot $StateRoot
+            if($ExpectedBindings){
+                if($ComparisonPair.Count -ne 1){throw 'RELATIONAL_CORE_EXPECTED_BINDING_INVALID'}
+                foreach($side in @('Source','Target')){
+                    $actual=if($side -eq 'Source'){$sourceBinding}else{$targetBinding}
+                    $expected=$ExpectedBindings.$side
+                    foreach($property in @('Provider','RuntimeScopeId','ContainerId','HostName','Port')){
+                        if(-not $expected -or [string]$actual.$property -cne [string]$expected.$property){throw 'RELATIONAL_CORE_EXPECTED_BINDING_DRIFT'}
+                    }
+                }
+            }
             if($sourceBinding.ContainerId -eq $targetBinding.ContainerId){throw 'RELATIONAL_CORE_SOURCE_TARGET_MUST_DIFFER'}
             $sourceSecret=Get-LabRelationalCoreSecret -RunId ([string]$pair.SourceRunId) -StateRoot $StateRoot;$targetSecret=Get-LabRelationalCoreSecret -RunId ([string]$pair.TargetRunId) -StateRoot $StateRoot
             $sourceConnection=New-LabRelationalCoreConnection -Binding $sourceBinding -DatabaseName ([string]$pair.SourceDatabaseName) -Secret $sourceSecret;$targetConnection=New-LabRelationalCoreConnection -Binding $targetBinding -DatabaseName ([string]$pair.TargetDatabaseName) -Secret $targetSecret
             $sourceConnection.Open();$targetConnection.Open();Assert-LabRelationalCoreDatabaseBinding -Connection $sourceConnection -RequestedDatabaseName ([string]$pair.SourceDatabaseName);Assert-LabRelationalCoreDatabaseBinding -Connection $targetConnection -RequestedDatabaseName ([string]$pair.TargetDatabaseName);$sourceTables=Get-LabRelationalCoreTableInventory -Connection $sourceConnection;$targetTables=Get-LabRelationalCoreTableInventory -Connection $targetConnection
             $sourceMap=@{};foreach($table in $sourceTables){$sourceMap[($table.Schema+'|'+$table.Name)]=$table};$targetMap=@{};foreach($table in $targetTables){$targetMap[($table.Schema+'|'+$table.Name)]=$table}
             if($sourceMap.Count -ne $targetMap.Count -or @($sourceMap.Keys|Where-Object{$_ -notin $targetMap.Keys}).Count){$pairIssues.Add((New-LabRelationalCoreIssue -Code 'TABLE_SET_MISMATCH'));$supported=$false}
-            $ordinal=0;foreach($key in @($sourceMap.Keys|Sort-Object)){$ordinal++;if(-not $targetMap.ContainsKey($key)){continue};$sourceEligibility=Get-LabRelationalCoreTableEligibility -Table $sourceMap[$key] -TableOrdinal $ordinal;$targetEligibility=Get-LabRelationalCoreTableEligibility -Table $targetMap[$key] -TableOrdinal $ordinal;if(-not $sourceEligibility.Supported -or -not $targetEligibility.Supported){$ineligibleFinding=if(-not $sourceEligibility.Supported){$sourceEligibility.Finding}else{$targetEligibility.Finding};$pairIssues.Add($ineligibleFinding);$supported=$false;continue};$tableResult=Compare-LabRelationalCoreTable -Source $sourceConnection -Target $targetConnection -SourceTable $sourceMap[$key] -TargetTable $targetMap[$key] -TableOrdinal $ordinal;$tablesCompared++;$rowsCompared+=[long]$tableResult.RowsCompared;foreach($issue in @($tableResult.Issues)){$pairIssues.Add($issue)} }
+            $ordinal=0;foreach($key in @($sourceMap.Keys|Sort-Object)){if([datetime]::UtcNow -ge $deadline){throw 'RELATIONAL_CORE_COMPARISON_TIMEOUT'};$ordinal++;if(-not $targetMap.ContainsKey($key)){continue};$sourceEligibility=Get-LabRelationalCoreTableEligibility -Table $sourceMap[$key] -TableOrdinal $ordinal;$targetEligibility=Get-LabRelationalCoreTableEligibility -Table $targetMap[$key] -TableOrdinal $ordinal;if(-not $sourceEligibility.Supported -or -not $targetEligibility.Supported){$ineligibleFinding=if(-not $sourceEligibility.Supported){$sourceEligibility.Finding}else{$targetEligibility.Finding};$pairIssues.Add($ineligibleFinding);$supported=$false;continue};$tableResult=Compare-LabRelationalCoreTable -Source $sourceConnection -Target $targetConnection -SourceTable $sourceMap[$key] -TargetTable $targetMap[$key] -TableOrdinal $ordinal -Deadline $deadline;$tablesCompared++;$rowsCompared+=[long]$tableResult.RowsCompared;foreach($issue in @($tableResult.Issues)){$pairIssues.Add($issue)} }
         } catch { $pairIssues.Add((New-LabRelationalCoreIssue -Code 'RELATIONAL_CORE_COMPARISON_UNVERIFIABLE'));$supported=$false }
         finally { if($sourceConnection){$sourceConnection.Dispose()};if($targetConnection){$targetConnection.Dispose()};$sourceSecret=$null;$targetSecret=$null }
         $status=if(-not $supported){'UNSUPPORTED'}elseif($pairIssues.Count){'DIFFERENT'}else{'MATCH'}

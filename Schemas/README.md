@@ -259,3 +259,5 @@ Verification und Aenderungsklasse ohne Runtime-Mutation.
 ```
 
 Die Prüfung kontrolliert JSON-Syntax, Schema-Referenzen und zentrale Beispielverträge. Ein echter Provider-Smoke-Test bleibt zusätzlich erforderlich.
+
+`portable-container-transfer-journal.schema.json` beschreibt das lokale atomare Journal des ausführbaren Ein-Datenbank-Transfers in einen neuen eigenen SQL-2025-Linux-Run: Request-/Backup-/Runtimebindung, Dateizuordnung, Restoregrenze, Vergleich und Cleanup. Es ist getrennt vom weiterhin blockierten Mehrdatenbank-Executorplan.

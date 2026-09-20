@@ -1618,3 +1618,25 @@ Clone ab. Schlägt der Clone vor Rückgabe des Runs fehl, wird ausschließlich d
 eindeutig zu dieser Operation gehörende Run für Cleanup oder `KeepOnFailure`
 wiederaufgenommen. Die gemeinsame Offline-Fixture prüft erfolgreiche,
 fehlende und mehrdeutige Zuordnung sowie fehlende Ownership und bestehende Runs.
+
+### Ein-Datenbank-Containertransfer
+
+`Invoke-PortableContainerTransferExecutorRuntimeChecks.ps1` prüft offline den
+neuen Executor mit Fehlern an Ownership-, Endpunkt-, Journal-, Restore- und
+Cleanupgrenzen einschließlich verlorener Antworten und Wiederaufnahme ohne
+zweiten Restore. `Invoke-RelationalCoreComparisonChecks.ps1` bewahrt den
+bestehenden Inhaltsvertrag. Der CI-Selektor wählt die neue Suite separat.
+Für Änderungen an diesem Executorpfad wählt er Docker und Podman; eine Änderung
+am Selektor selbst bleibt dagegen CI-Infrastruktur und aktiviert die bestehende
+vollständige Provider-Matrix einschließlich Hyper-V.
+Die native Abnahme ist `Tests/Integration/Invoke-PortableContainerTransferAcceptance.ps1`
+mit jeweils `-Provider docker` und `-Provider podman`. Sie verwendet ausschließlich
+eigene SQL-2025-Linux-Runs und synthetische Daten. Quelle und Ziel werden
+vollständig scopegebunden bereinigt; erhaltene Recovery-Reste sind kein PASS.
+Die fokussierte Offlineprüfung bestand am 2026-09-20 mit 32 Assertions. Die
+lokalen Docker- und Podman-Referenzabnahmen bestanden getrennt am selben Tag
+mit jeweils zwölf Assertions,
+einschließlich unveränderter read-only Quelle, Replay, Inhaltsabweichung und
+vollständiger Restprüfung. Native Prozessabbrüche sind dadurch nicht belegt;
+verlorene Antworten und Journalfehler bleiben getrennte Offline-Evidence.
+Hyper-V gehört nicht zu diesem Änderungsscope.

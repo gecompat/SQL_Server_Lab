@@ -27,6 +27,15 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- Ein-Datenbank-Transfer über `Invoke-SqlServerLabPortableContainerTransfer`:
+  read-only SQL-2025-Linux-Quelle und registriertes read-only Backup, neuer
+  operationseigener Docker-/Podman-Ziel-Run mit eigenem Volume, begrenzte
+  Payload-/Datei-/Inhaltsgrößen, Restore ohne REPLACE, READ_ONLY/MATCH und
+  Cleanup-only-Resume. Offlinevertrag mit 32 Assertions geprüft; native
+  Docker- und Podman-Referenzabnahmen am 2026-09-20 getrennt mit jeweils zwölf
+  Assertions und Cleanup bestanden. Vorhandene Ziele und Mehrdatenbanktransfer bleiben offen.
+  Vertrag: `Documentation/Architecture/PORTABLE_CONTAINER_TRANSFER.md`;
+
 - CORE-110-Teilvertrag: Manifest-Planvorschau `1.3` projiziert je Instanz den
   angeforderten SQL-Bezeichner, die aufgelöste Katalogversion und den bestehenden
   Lifecycle-Entscheid einschließlich `UNKNOWN`. Fachliche Validierungsfehler

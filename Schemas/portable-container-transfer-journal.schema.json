@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.PortableContainerTransferJournal/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ContractVersion","OperationId","RequestHash","Status","Source","SourceObservationHash","BackupSha256","BackupBytes","Target","Files","RestoreStarted","Comparison","CleanupStatus","FailureCode","UpdatedAt"],
+  "properties": {
+    "ContractVersion": {"const":"SqlServerLab.PortableContainerTransferJournal/1.0"},
+    "OperationId": {"type":"string","format":"uuid"},
+    "RequestHash": {"$ref":"#/$defs/hash"},
+    "Status": {"enum":["INTENT","CREATE_STARTED","TARGET_CREATED","STAGED","RESTORE_STARTED","RESTORED","VERIFIED","SUCCEEDED","RECOVERY_REQUIRED","FAILED_CLEANED"]},
+    "Source": {"$ref":"#/$defs/binding"},
+    "SourceObservationHash": {"$ref":"#/$defs/hash"},
+    "BackupSha256": {"$ref":"#/$defs/hash"},
+    "BackupBytes": {"type":"integer","minimum":1},
+    "Target": {"anyOf":[{"type":"null"},{"$ref":"#/$defs/binding"}]},
+    "Files": {"type":"array","maxItems":16,"items":{"type":"object","additionalProperties":false,"required":["LogicalName","Type","FileId","Bytes","Path"],"properties":{
+      "LogicalName":{"type":"string","minLength":1,"maxLength":128},
+      "Type":{"enum":["D","L"]},"FileId":{"type":"integer","minimum":1},"Bytes":{"type":"integer","minimum":1,"maximum":1073741824},
+      "Path":{"type":"string","pattern":"^/var/opt/mssql/data/transfer-[0-9a-f-]{36}-[0-9]+\\.(mdf|ldf)$"}
+    }}},
+    "RestoreStarted":{"type":"boolean"},
+    "Comparison":{"enum":["NOT_EXECUTED","MATCH","DIFFERENT_OR_UNSUPPORTED"]},
+    "CleanupStatus":{"enum":["NOT_STARTED","CLEANED","RECOVERY_REQUIRED","STAGE_CLEANED_TARGET_RETAINED"]},
+    "FailureCode":{"type":["string","null"],"pattern":"^TRANSFER_[A-Z_]+$"},
+    "UpdatedAt":{"type":"string","format":"date-time"}
+  },
+  "$defs": {
+    "hash":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "binding":{"type":"object","additionalProperties":false,"required":["RunId","ScopeId","InstanceId","Provider","RuntimeScopeId","ContainerId","Volumes","EndpointHash"],"properties":{
+      "RunId":{"type":"string","format":"uuid"},"ScopeId":{"type":"string","minLength":1},"InstanceId":{"type":"string","minLength":1},
+      "Provider":{"enum":["docker","podman"]},"RuntimeScopeId":{"type":"string","minLength":1},"ContainerId":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+      "EndpointHash":{"$ref":"#/$defs/hash"},"Volumes":{"type":"array","maxItems":1,"items":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$"}}
+    }}
+  }
+}
