@@ -220,8 +220,11 @@ try {
         -Name 'Reconcile-Executor reicht den angeforderten StateRoot an Start und Stop weiter' `
         -Success ($contract.ExecutorStateRoots.Count -eq 2 -and @($contract.ExecutorStateRoots | Where-Object { $_ -ne $testData.StateRoot }).Count -eq 0)
     Add-CheckResult `
-        -Name 'WhatIf verhindert Laufzeitmutation' `
-        -Success ($contract.WhatIf.MutationAllowed -eq $false -and $contract.WhatIf.ExecutionSummary.ExecutedActions -eq 0 -and $contract.WhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE')
+        -Name 'WhatIf mit kanonischem persistiertem Docker-Network-Intent verhindert Laufzeitmutation' `
+        -Success ($contract.WhatIf.MutationAllowed -eq $false -and $contract.WhatIf.ExecutionSummary.ExecutedActions -eq 0 -and
+            $contract.WhatIf.ExecutionSummary.Status -eq 'WOULD_EXECUTE' -and
+            (@($contract.WhatIf.Plan.Desired.Instances | Where-Object { $_.Id -eq 'primary' -and $_.Provider -eq 'docker' -and
+                $_.Network.Intent -eq 'nat' -and $_.Network.Exposure -eq 'host' -and $_.Network.PlanStatus -eq 'RESOLVED' }).Count -eq 1))
     Add-CheckResult `
         -Name 'Gemischte Reconcile-Operationen werden als unsupported klassifiziert' `
         -Success ($contract.Mixed.ExecutionSummary.Status -eq 'UNSUPPORTED' -and $contract.Mixed.MutationAllowed -eq $false -and $contract.StartCalls -eq 1 -and $contract.StopCalls -eq 1)

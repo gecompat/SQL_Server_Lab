@@ -215,7 +215,10 @@ function Test-LabPersistedNetworkIntent {
         'Intent', 'Exposure', 'Binding', 'ManagedBinding', 'RequiredCapability',
         'CapabilityStatus', 'PlanStatus', 'ReasonCode'
     )
-    $actualFields = @($Network.PSObject.Properties | ForEach-Object Name | Sort-Object)
+    # Die Member-Property-Form von ForEach-Object ist ShouldProcess-faehig und
+    # wird daher bei einem aeusseren -WhatIf unterdrueckt. Die ScriptBlock-Form
+    # liest ausschliesslich die bereits persistierten Eigenschaftsnamen.
+    $actualFields = @($Network.PSObject.Properties | ForEach-Object { $_.Name } | Sort-Object)
     if (($actualFields -join ',') -cne (($requiredFields | Sort-Object) -join ',')) { return $false }
     foreach ($field in @('Intent', 'Exposure', 'Binding', 'RequiredCapability', 'CapabilityStatus', 'PlanStatus')) {
         if ($Network.$field -isnot [string] -or [string]::IsNullOrEmpty([string]$Network.$field)) { return $false }

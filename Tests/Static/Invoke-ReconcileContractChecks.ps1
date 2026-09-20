@@ -578,6 +578,25 @@ try {
     Add-CheckResult -Name 'Ungueltige persistierte Network-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' `
         -Success ($persistedNetworkContract.RuntimeCalls -eq 0)
 
+    $persistedDockerNetworkWhatIf = & $module {
+        $resolved = Resolve-LabNetworkIntentPlan -Provider docker -Network ([PSCustomObject]@{ intent='nat'; exposure='host' })
+        $network = [PSCustomObject]@{
+            Intent=[string]$resolved.Intent; Exposure=[string]$resolved.Exposure; Binding=[string]$resolved.Binding
+            ManagedBinding=([string]$resolved.Intent -ne 'isolated'); RequiredCapability=[string]$resolved.RequiredCapability
+            CapabilityStatus='DECLARED_SUPPORTED'; PlanStatus=[string]$resolved.Status; ReasonCode=$resolved.ReasonCode
+        }
+        $previousWhatIfPreference = $WhatIfPreference
+        try {
+            $WhatIfPreference = $true
+            Test-LabPersistedNetworkIntent -Network $network -Provider docker
+        }
+        finally {
+            $WhatIfPreference = $previousWhatIfPreference
+        }
+    }
+    Add-CheckResult -Name 'Kanonischer persistierter Docker-Network-Intent bleibt unter WhatIf gueltig' `
+        -Success ($persistedDockerNetworkWhatIf -eq $true)
+
     $persistedSqlEndpointContract = & $module {
         param($Root)
 
