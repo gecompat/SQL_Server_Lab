@@ -28,12 +28,15 @@ Das Repository dient insbesondere als gemeinsame Ausführungsbasis für:
 
 `SQL_PerformanceSchulung` verwendet überwiegend eine aktuelle Linux-Umgebung
 zur Konstruktion von Beispielen und kann für besondere Konstellationen Windows
-oder eine andere katalogisierte SQL-Version anfordern. `SQL_Server_Analyze` und
-`SQL_Server_Toolbelt` verwenden Windows- und Linux-Umgebungen mit SQL Server
-2019, 2022 und 2025 für versionsabhängige Entwicklungs- und Abnahmetests. Die
-fachlichen Inhalte und Nachweise bleiben in den konsumierenden Projekten;
-`SQL_Server_Lab` stellt den generischen Umgebungs- und Lifecyclepfad bereit und
-testet seinen Core je Provider nur mit SQL Server 2025.
+oder eine andere katalogisierte SQL-Version anfordern. Für jede freigegebene
+Demo hält das Schulungsrepository eine Schritt-für-Schritt-Anleitung vor, mit
+der Dritte Aufbau, Durchführung, Beobachtung und Einordnung reproduzierbar
+nachvollziehen können. `SQL_Server_Analyze` und `SQL_Server_Toolbelt`
+verwenden Windows- und Linux-Umgebungen mit SQL Server 2019, 2022 und 2025 für
+versionsabhängige Entwicklungs- und Abnahmetests. Die fachlichen Inhalte und
+Nachweise bleiben in den konsumierenden Projekten; `SQL_Server_Lab` stellt den
+generischen Umgebungs- und Lifecyclepfad bereit und testet seinen Core je
+Provider nur mit SQL Server 2025.
 
 ## Aktueller Status
 
