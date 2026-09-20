@@ -109,9 +109,9 @@ Evaluation-Capture bleiben erhalten und werden dadurch nicht abgeschlossen.
 
 Der nächste Slice ist die [isolierte Hyper-V-Abnahme](../Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md)
 mit explizitem Prepared-Artefakt, eigener VM und lokaler Qwen-Generierung für
-RAG/Agent. Implementierung und Offline-Verträge sind vorbereitet; native
-VM-Neustart-/Cleanup-Evidence steht noch aus. Persistentes Retrieval und
-Re-Embedding folgen danach, Golden v1 bleibt gesondert offen.
+RAG/Agent. Der erhöhte native Lauf 35542940923 bestand am 2026-09-21 mit
+14 Assertions, VM-Neustart, SQL-Bereitschaft und vollständigem Cleanup.
+Persistentes Retrieval und Re-Embedding besitzen getrennte Nachweise; Golden v1 bleibt gesondert offen.
 
 Abgesehen von der obigen ausdrücklichen KI-Priorität sind Reihenfolge und
 Abnahme innerhalb dieser Tabelle von oben nach unten vorgegeben.
@@ -148,7 +148,7 @@ und die [Known Limitations](../Quality/KNOWN_LIMITATIONS.md).
 | Legacy-WMI-Fortschritt | `implemented` (Offline-Abnahme; neue Gastabnahme offen) | Vorhandene WMI-, Aktivierungs-, Sysprep- und Shutdown-Reporter inventarisiert. Luecken im SQL-Receipt-Polling, Legacy-OOBE und direkten SQL-Setup-Abfragen verwenden nun denselben durchgehenden Reporter. Synthetischer Transport reproduzierte die fehlende Anzeige; Heartbeat, Ausgabe, Fehler vor/nach Transportbeginn und eigener/geliehener Reporter-Cleanup bestehen nach dem Fix. Der bestehende echte Pipeline-Abbruchtest bleibt Bestandteil der fokussierten Suite. Keine Aenderung am WMI-/SMB-Transport oder an dessen Abbruchlatenz; neuer isolierter Legacy-Gastlauf bleibt offen. |
 | Reservierte Manifestfelder | `validated` (Bewertung) | [Einzelbewertung](RESERVED_MANIFEST_FIELDS_ASSESSMENT_2026-09-10.md) für alle neun direkten reservierten `serverConfig`-Felder, `customImage`, zwei `installMethod`-Werte und die gesonderten Adapterfelder abgeschlossen. Bestehende Collation-/Storage-/Derived-Image-Verträge haben Vorrang; direkte erste PITR-/Upgrade-Szenarien benötigen keine zusätzlichen Agent-/CLR-/Authentifizierungsschalter. Jeder spätere Bedarf besitzt Nutzen, Abhängigkeit, Risiko, relativen Aufwand und konkreten Folgeschritt. Felder bleiben reserviert; keine neue Runtimefreigabe. |
 | Podman Golden RAG | `implemented_partial` | Der eigene AdHoc-Slice mit vorhandenem Host-embeddinggemma und expliziter Cloudgeneration bestand am 2026-09-20 unter Podman und Docker getrennt mit exakten Retrievaltreffern, SQLrestart und Cleanup. Das unveränderte lokale Golden v1 verwendet andere Modellbindungen und bleibt separat offen; kein stiller Austausch dieser Bindungen. |
-| Hyper-V RAG/Agent | `planned` | Isoliertes SQL-Ziel verwenden und bisher fehlenden VM-Neustart samt Login-/Modell-/Lab-Cleanup nachweisen; Schutz gemeinsamer Testgruppen nicht umgehen. |
+| Hyper-V RAG/Agent | `validated_reference` | Eigener SQL-2025-Prepared-Run mit Host-Embeddinggemma und lokalem Qwen: Lauf 35542940923 bestand am 2026-09-21 mit 14 Assertions, tatsächlichem VM-Neustart, SQL-Bereitschaft, Login-Cleanup und vollständigem VM-/Child-VHDX-/IPAM-Cleanup. Parent und Hostmodellinventar unverändert; reservierte Gruppen unberührt. Golden v1 bleibt separat. |
 | Modellcache | `validated` (Bewertung; Nichtübernahme) | [Bewertung](SQL_AI_CAPABILITIES_ASSESSMENT_2026-09-10.md): vorerst kein gemeinsamer persistenter Cache. Ein Pull-Timeout belegt keinen Cachegewinn; ein sicherer Blob-/Lease-/Publish-Vertrag fehlt. Erst erfolgreichen geänderten Podman-Lauf messen, bei bestätigtem Engpass separate Umsetzung mit Digest-, Abbruch-, Konkurrenz- und Cleanup-Abnahme; Aufwand L. |
 | Persistentes Retrieval/Re-Embedding | `planned` | Integrierten read-only Plan zu begrenzter Modell-/SQL-Ausführung ausbauen; stabile Inhalte/Generationen, Aktualisierung/Löschung, Dimensionen, Resume und atomare Umschaltung mit Negativtests belegen. |
 

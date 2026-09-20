@@ -29,7 +29,7 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 - Isolierte Hyper-V-RAG-/Agent-Abnahme aus explizitem SQL-Prepared-Artefakt,
   mit vorhandenem lokalem Qwen, VMId-/Parentbindung und vollständigem Own-Cleanup
-  vorbereitet (`IMPLEMENTED_NATIVE_PENDING`). Die neue Modellpaarung ersetzt
+  nativ am 2026-09-21 bestanden (`VALIDATED_REFERENCE`, 14 Assertions und Cleanup). Die neue Modellpaarung ersetzt
   weder Golden v1 noch den älteren `PARTIAL`-Nachweis. Vertrag:
   `Documentation/Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md`;
 

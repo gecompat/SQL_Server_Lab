@@ -1,6 +1,6 @@
 # Isolierte Hyper-V-Abnahme für lokales RAG und Diagnose
 
-Stand: 2026-09-20. Status: `IMPLEMENTED_NATIVE_PENDING`. Die neue Abnahme
+Stand: 2026-09-21. Status: `VALIDATED_REFERENCE`. Die neue Abnahme
 verwendet ausschließlich einen eigenen SQL-Server-2025-Run aus einem explizit
 ausgewählten, bereits registrierten `SQL_PREPARED_SEALED`-Developer-Artefakt.
 Sie ersetzt weder den bisherigen `PARTIAL`-Nachweis noch das Golden Dataset v1.
@@ -56,8 +56,10 @@ Der neue Run bindet Operation, Run, Scope, primäre Instanz, VMId und Artefakt.
 Tatsächliche VM-Laufwerke und der Differencing-Parent werden vor RAG und
 Restart gelesen und mit dieser Bindung abgeglichen. Ein gleicher VM-Name
 ersetzt keine VMId. Der Bootzeitnachweis verwendet PowerShell Direct mit VMId.
-RUNNING/VM-Status sind Vorbedingungen; erst nachfolgende SQL-Aufrufe belegen
-SQL-Erreichbarkeit.
+RUNNING/VM-Status sind Vorbedingungen. Nach nachgewiesenem Bootzeitwechsel
+wartet die Abnahme begrenzt auf den gebundenen SQL-Server 2025 und alle vier
+online befindlichen Systemdatenbanken; danach belegen RAG und Agent den
+SQL-Zugriff vom Controller.
 
 RAG und Agent laufen vor und nach eigenem VM-Neustart, insgesamt höchstens vier
 lokale Generierungsrequests ohne Retry. Die synthetische Retrieval-Top-ID wird
@@ -83,5 +85,5 @@ Cleanup ausgegeben.
 Die Offline-Fixtures prüfen Modell-/Remoteidentitydrift, Credential-Lebensdauer,
 GRANT-Teilfehler und unbestätigtes CREATE, VMId-/Instanz-/Parent-/Attachmentdrift,
 geschützte Runs sowie eigene und fremde IPAM-Leases. Native Nachweise für diese
-neue Modellpaarung sind für Docker und Podman am 2026-09-20 getrennt bestanden: RAG und Diagnose vor/nach SQLrestart, keine Diagnose-Logins sowie vollständiges eigenes Container-/Volume-Cleanup. Der Hyper-V-Nachweis steht noch aus. Persistentes Retrieval, Re-Embedding und
-SQL-seitiges EXTERNAL MODEL/TLS-Gateway sind weiterhin separate offene Slices.
+neue Modellpaarung sind für Docker und Podman am 2026-09-20 getrennt bestanden: RAG und Diagnose vor/nach SQLrestart, keine Diagnose-Logins sowie vollständiges eigenes Container-/Volume-Cleanup. Der erhöhte [Hyper-V-Lauf 35542940923](https://github.com/gecompat/SQL_Server_Lab/actions/runs/35542940923) bestand am 2026-09-21 mit 14 Assertions, tatsächlichem VM-Neustart, SQL-Bereitschaft, vier lokalen Generierungsrequests und vollständigem VM-/Child-VHDX-/IPAM-Cleanup (drei Schritte, keine Fehler). Parent und Hostmodellinventar blieben unverändert. Zwei vorherige Testharnessfehler (Datenträger-Cmdletparameter und fehlendes Warten auf SQL nach dem Neustart) sind korrigiert; ihre eigenen Runtime-Ressourcen wurden entfernt.
+Persistentes Retrieval und Re-Embedding besitzen eigene Verträge. SQL-seitiges EXTERNAL MODEL/TLS-Gateway bleibt offen.

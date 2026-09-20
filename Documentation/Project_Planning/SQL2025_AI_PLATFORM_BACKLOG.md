@@ -80,8 +80,9 @@ SQLrestart und vollständigem Cleanup nativ belegt; Hyper-V bleibt offen.
 
 Die [isolierte Hyper-V-Abnahme](../Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md)
 ist als nächster Slice implementiert: explizites Prepared-Artefakt, eigene VM,
-lokales Qwen für RAG/Agent, VM-Neustart und Cleanup. Native Evidence steht noch
-aus; persistentes Retrieval und Re-Embedding folgen. Golden v1 bleibt separat.
+lokales Qwen für RAG/Agent, VM-Neustart und Cleanup. Der native Lauf 35542940923
+bestand am 2026-09-21 mit 14 Assertions und vollständigem Cleanup.
+Persistentes Retrieval und Re-Embedding besitzen getrennte Nachweise. Golden v1 bleibt separat.
 Eine AdHoc-Abnahme mit anderem Modell
 schließt das unveränderte Golden-v1-Gate nicht automatisch ab.
 
