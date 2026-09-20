@@ -84,7 +84,7 @@ bestanden am 2026-09-20 mit jeweils neun Assertions, SQLrestart, zwei Cloudreque
 und vollständigem Cleanup samt Residueprüfung. Hyper-V bleibt separat offen.
 Der [persistente synthetische Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
 implementiert inzwischen eine eigene SQL-Datenbank, Initial-/Delta-Generationen,
-Resume und besitzgebundenes Cleanup auf Docker/Podman. Podman ist nativ belegt; der getrennte Docker-Nachweis steht noch aus. Echter Modellwechsel, beliebige Dokumente und breite
+Resume und besitzgebundenes Cleanup auf Docker/Podman. Docker und Podman sind mit je 16 Assertions, SQLrestart und vollständigem Cleanup nativ belegt. Echter Modellwechsel, beliebige Dokumente und breite
 Re-Embedding-Ausführung bleiben offen.
 
 Der Ollama-Modellkatalog sowie die Verträge für Endpointplan, Runtimejournal
