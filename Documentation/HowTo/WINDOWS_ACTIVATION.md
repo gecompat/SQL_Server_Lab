@@ -28,6 +28,13 @@ eigene temporaere NIC an einem vorhandenen verbundenen External-Switch.
 bei isolierten Slots `Denied`. Ein bestehender Adapter ohne persistierte
 Identitaetsbindung wird nicht anhand seines Namens als Eigentum angenommen.
 
+Der Windows-Slot-Pool ist die gezielte Ausnahme: Er nutzt dauerhaft `hostOnly`
+und setzt ohne einen übergebenen `-WindowsActivation`-Intent daher
+`EvaluationOnline`/`AllowTemporary`. Für die Aktivierung bindet er ausschließlich
+eine eigene NIC an einen bereits vorhandenen, verbundenen External-Switch und
+entfernt diese über das Ownership-Journal direkt danach wieder. Das dauerhafte
+`hostOnly`-Netz sowie fremde Adapter und Switches bleiben unverändert.
+
 Manifest, Batch-Intent `WindowsActivation`,
 `New-SqlServerLabWindowsSlotPool -WindowsActivation` und
 `Invoke-SqlServerLabWorkflowAction -Action NewHyperVLab -WindowsActivation`

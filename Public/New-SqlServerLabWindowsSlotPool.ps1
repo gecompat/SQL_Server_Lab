@@ -161,7 +161,19 @@ function New-SqlServerLabWindowsSlotPool {
         throw 'HYPERV_WINDOWS_SLOT_POOL_MEMORY_RANGE_INVALID'
     }
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
-    $poolActivation=Resolve-LabWindowsActivationIntent -Intent $WindowsActivation
+    # Ein Slot-Pool verwendet dauerhaft hostOnly. Dieser Adapter hat bewusst
+    # keinen Egress; für die einmalige Evaluation braucht der Pool daher einen
+    # explizit kontrollierten, anschließend wieder entfernten Adapter.
+    $poolActivation = if ($PSBoundParameters.ContainsKey('WindowsActivation')) {
+        Resolve-LabWindowsActivationIntent -Intent $WindowsActivation
+    }
+    else {
+        Resolve-LabWindowsActivationIntent -Intent @{
+            ContractVersion = 'SqlServerLab.WindowsActivationIntent/1.0'
+            Strategy = 'EvaluationOnline'
+            EgressPolicy = 'AllowTemporary'
+        }
+    }
 
     $artifact = Resolve-LabWindowsSlotPoolArtifact -ArtifactId $ArtifactId `
         -MinimumEvaluationDaysRemaining $MinimumEvaluationDaysRemaining -InstallationType $InstallationType -VerifyIntegrity -StateRoot $StateRoot
@@ -201,7 +213,13 @@ function New-SqlServerLabWindowsSlotPool {
             [int]$resource.processorCount -ne $ProcessorCount) { $issues.Add('resources') }
         if ([string]$lab.Run.metadata.networkIntent -ne 'hostOnly') { $issues.Add('network') }
         $existingActivation=Resolve-LabWindowsActivationIntent -Intent $lab.Instance.windowsActivationIntent
-        if($existingActivation.Strategy -ne $poolActivation.Strategy -or $existingActivation.EgressPolicy -ne $poolActivation.EgressPolicy){$issues.Add('windowsActivation')}
+        # Frühere Pool-Slots trugen den globalen ExistingOnly-Default, obwohl
+        # ihr festes hostOnly-Netz keinen Egress bereitstellt. Ohne expliziten
+        # Benutzer-Intent darf ein erneuter Pool-Aufruf sie auf den nun
+        # passenden Pool-Default heben; ein explizit abweichender Intent bleibt
+        # weiterhin ein Konflikt.
+        if (($existingActivation.Strategy -ne $poolActivation.Strategy -or $existingActivation.EgressPolicy -ne $poolActivation.EgressPolicy) -and
+            $PSBoundParameters.ContainsKey('WindowsActivation')) { $issues.Add('windowsActivation') }
         $runtime = Get-HyperVInstanceStatus -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId)
         if (-not $runtime.Exists) { $issues.Add('runtime-missing') }
@@ -238,7 +256,11 @@ function New-SqlServerLabWindowsSlotPool {
                 -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId)
             if ($PSCmdlet.ShouldProcess($specification.Name, 'Windows-Aktivierung des vorhandenen Slots live pruefen')) {
                 try {
-                    $null = Start-HyperVLabEnvironment -RunId ([string]$lab.Run.runId) -StateRoot $StateRoot
+                    # Die Aktivierung wird direkt mit dem Pool-Intent ausgeführt.
+                    # Dadurch können auch vor dieser Korrektur angelegte,
+                    # unvollständige ExistingOnly-Slots resumiert werden.
+                    $null = Start-HyperVLabEnvironment -RunId ([string]$lab.Run.runId) -SkipWindowsActivationReconcile -StateRoot $StateRoot
+                    $null = Invoke-HyperVWindowsSlotActivation -RunId ([string]$lab.Run.runId) -WindowsActivation $poolActivation -StateRoot $StateRoot
                 }
                 finally {
                     if(-not $LeaveRunning){$null = Stop-HyperVLabEnvironment -RunId ([string]$lab.Run.runId) -StateRoot $StateRoot}

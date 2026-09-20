@@ -116,17 +116,28 @@ try {
             $script:poolLabs[$RunId].Instance.oobeAutomation.passwordSource = $PasswordSource
         }
         function Stop-HyperVLabEnvironment { param($RunId,$StateRoot) $script:stopCalls.Add($RunId) }
-        function Start-HyperVLabEnvironment {param($RunId,$StateRoot) $script:activationChecks.Add($RunId)}
+        function Start-HyperVLabEnvironment {param($RunId,$StateRoot,[switch]$SkipWindowsActivationReconcile) $script:activationChecks.Add($RunId)}
+        function Invoke-HyperVWindowsSlotActivation {
+            param($RunId,$WindowsActivation,$StateRoot)
+            $script:activationChecks.Add("activation:${RunId}:$($WindowsActivation.EgressPolicy)")
+        }
 
         $result = New-SqlServerLabWindowsSlotPool -Count 2 -GenerateAdministratorPasswords -ArtifactId '' `
             -StateRoot 'X:\state' -Confirm:$false
         function Get-LabActiveRuns {@($script:poolLabs.Values | ForEach-Object {$_.Run})}
         $reuse = New-SqlServerLabWindowsSlotPool -Count 2 -GenerateAdministratorPasswords -StateRoot 'X:\state' -Confirm:$false
+        $legacyIntent = Resolve-LabWindowsActivationIntent -Intent @{
+            ContractVersion = 'SqlServerLab.WindowsActivationIntent/1.0'
+            Strategy = 'EvaluationOnline'
+            EgressPolicy = 'ExistingOnly'
+        }
+        foreach ($lab in @($script:poolLabs.Values)) { $lab.Instance.windowsActivationIntent = $legacyIntent }
+        $legacyReuse = New-SqlServerLabWindowsSlotPool -Count 2 -GenerateAdministratorPasswords -StateRoot 'X:\state' -Confirm:$false
         $invalidExplicitArtifactRejected = $false
         try { New-SqlServerLabWindowsSlotPool -Count 1 -GenerateAdministratorPasswords -ArtifactId 'invalid-artifact' | Out-Null }
         catch { $invalidExplicitArtifactRejected = $true }
         [PSCustomObject]@{
-            Result=$result; Reuse=$reuse; ActivationChecks=@($script:activationChecks); Creates=@($script:createCalls); Provisions=@($script:provisionCalls); Stops=@($script:stopCalls)
+            Result=$result; Reuse=$reuse; LegacyReuse=$legacyReuse; ActivationChecks=@($script:activationChecks); Creates=@($script:createCalls); Provisions=@($script:provisionCalls); Stops=@($script:stopCalls)
             InvalidExplicitArtifactRejected=$invalidExplicitArtifactRejected
         }
         }
@@ -142,8 +153,8 @@ try {
 
     Add-CheckResult -Name 'Leere optionale ArtifactId loest die automatische Baseline-Auswahl aus; eine explizit ungueltige ID bleibt abgewiesen' -Success (
         $behavior.Result.ArtifactId -eq ("hyperv-os-sealed-" + ('a' * 64)) -and $behavior.InvalidExplicitArtifactRejected)
-    Add-CheckResult -Name 'Wiederverwendung prueft beide Aktivierungen live ohne erneute OOBE oder neue VM' -Success ($behavior.ActivationChecks.Count -eq 2 -and $behavior.Creates.Count -eq 2 -and $behavior.Provisions.Count -eq 2)
-    Add-CheckResult -Name 'Pool bindet den Aktivierungsintent vor der ersten VM' -Success (@($behavior.Creates | Where-Object {$_.WindowsActivation.ContractVersion -eq 'SqlServerLab.WindowsActivationIntent/1.0' -and $_.WindowsActivation.EgressPolicy -eq 'ExistingOnly'}).Count -eq 2)
+    Add-CheckResult -Name 'Wiederverwendung hebt auch fruehere ExistingOnly-Slots mit dem Pool-Intent ohne erneute OOBE oder neue VM an' -Success ($behavior.ActivationChecks.Count -eq 8 -and @($behavior.ActivationChecks | Where-Object { $_ -match ':AllowTemporary$' }).Count -eq 4 -and @($behavior.LegacyReuse.Slots).Count -eq 2 -and $behavior.Creates.Count -eq 2 -and $behavior.Provisions.Count -eq 2)
+    Add-CheckResult -Name 'Pool bindet vor der ersten VM einen kontrollierten temporaeren Aktivierungsintent' -Success (@($behavior.Creates | Where-Object {$_.WindowsActivation.ContractVersion -eq 'SqlServerLab.WindowsActivationIntent/1.0' -and $_.WindowsActivation.EgressPolicy -eq 'AllowTemporary'}).Count -eq 2)
     Add-CheckResult -Name 'Pool erstellt zwei Slots mit den gebundenen Standardressourcen' -Success (
         $behavior.Result.Status -eq 'COMPLETE' -and @($behavior.Result.Slots).Count -eq 2 -and
         @($behavior.Creates | Where-Object { $_.Minimum -eq 1024 -and $_.Startup -eq 2048 -and $_.Maximum -eq 4096 -and $_.ProcessorCount -eq 4 }).Count -eq 2)
@@ -154,7 +165,7 @@ try {
         @($behavior.Provisions | Where-Object {
             $_.PasswordSource -eq 'generated' -and $_.Region -eq 'AT' -and $_.SystemLocale -eq 'de-AT' -and
             $_.UiLanguage -eq 'en-US' -and $_.InputLocale -eq '0407:00000407'
-        }).Count -eq 2 -and @($behavior.Stops).Count -eq 4)
+        }).Count -eq 2 -and @($behavior.Stops).Count -eq 6)
 
     $poolSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\New-SqlServerLabWindowsSlotPool.ps1') -Raw -Encoding utf8
     $uiSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
