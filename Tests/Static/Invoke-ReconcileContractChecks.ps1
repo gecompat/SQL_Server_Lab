@@ -1119,6 +1119,21 @@ try {
                 } {
                     param($drives); @($drives | Where-Object Id -eq 'runtime-mssql-external-libraries')[0].Id='untrusted-runtime-volume'
                 } $false),
+                (& $newContainerDriveGroupResult 'full runtime drive group downgraded to generic persistence' {
+                    param($instance); $null=Add-LabRunScopedContainerSystemDrive -Instance $instance -IncludeExternalRuntimeState
+                } {
+                    param($drives); foreach($drive in @($drives)) { $drive.Persistence='run-scoped';$drive.PersistentStorageId=$null }
+                } $false),
+                (& $newContainerDriveGroupResult 'full data root drive group downgraded to generic persistence' {
+                    param($instance); $null=Add-LabPersistentContainerDrive -Instance $instance -Storage $storage -IncludeExternalRuntimeState
+                } {
+                    param($drives); foreach($drive in @($drives | Where-Object Id -ne 'persistent-backups')) { $drive.Persistence='run-scoped';$drive.PersistentStorageId=$null }
+                } $false),
+                (& $newContainerDriveGroupResult 'full cataloged drive group downgraded to generic persistence' {
+                    param($instance); $null=Add-LabSelectedPersistentContainerDrive -Instance $instance -Plan $catalogedPlan -Storage $storage -IncludeExternalRuntimeState
+                } {
+                    param($drives); foreach($drive in @($drives | Where-Object Id -ne 'persistent-backups')) { $drive.Persistence='run-scoped';$drive.PersistentStorageId=$null }
+                } $false),
                 (& $newContainerDriveGroupResult 'divergent cataloged drive identities' {
                     param($instance); $null=Add-LabSelectedPersistentContainerDrive -Instance $instance -Plan $catalogedPlan -Storage $storage -IncludeExternalRuntimeState
                 } {

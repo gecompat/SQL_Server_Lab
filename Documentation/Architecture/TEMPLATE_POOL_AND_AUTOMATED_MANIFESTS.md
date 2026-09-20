@@ -127,6 +127,14 @@ Netzwerkreparatur sind noch nicht vollständig atomar nachgewiesen beziehungswei
 implementiert; der read-only Lifecycle-Plan vergleicht die Hyper-V-
 Netzbindung bereits semantisch und blockiert Teilaktionen bei Drift.
 
+Persistierte Container-Drive-Intents bleiben eine geschlossene, vom Producer
+bestimmte Metadatenoberfläche. Die IDs für SQL-Systemvolumes, optionale
+External-Runtime-Sidecars und den Data-Root-Backup-Bind dürfen ihre jeweils
+kanonische Persistenzklasse nicht in einen generischen `run-scoped`-Drive
+wechseln. Manipulierte Gruppen werden vor jedem Runtime- oder Providerzugriff
+als ungültiger Desired State abgewiesen; frei deklarierte Nutzer-Drives bleiben
+davon getrennt.
+
 ## 5. Sicher validieren
 
 Diese Änderungen werden ohne Container-, VM- oder Netzwerkmutation geprüft:
