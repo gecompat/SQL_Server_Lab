@@ -128,6 +128,51 @@ try {
         }
     } $testRoot $runId $scopeId
 
+    # Die spezialisierte Ressourcenroute darf bei einem ungueltigen, bereits
+    # persistierten Intent nicht erst die VM-/Hostidentitaet lesen.  Der
+    # allgemeine Reconcile-Vertrag prueft die Persistenzgrenze bereits breit;
+    # dieser Fall bindet sie zusaetzlich an den konkreten Hyper-V-Executor.
+    $invalidPersistedIntent = & $module {
+        param($Root)
+        $resources = [PSCustomObject]@{
+            Contract = [PSCustomObject]@{ Name='SqlServerLab.HyperVResourceIntent'; Version='1.0' }
+            ProcessorCount = [long]0; DynamicMemoryEnabled = $true
+            MemoryMinimumMB = [long]2048; MemoryStartupMB = [long]4096; MemoryMaximumMB = [long]8192
+            RequiredCapability='hyperv-resource-reconcile'; CapabilityStatus='DECLARED_SUPPORTED'
+        }
+        $snapshot = [PSCustomObject]@{
+            Contract=[PSCustomObject]@{Name='SqlServerLab.RunDesiredState';Version='1.0'}
+            ProvisioningMode='manifest';PersistentData=$false;LabName='invalid persisted resource intent'
+            Instances=@([PSCustomObject]@{
+                Id='primary';Provider='hyperv';Profile='standard'
+                Intents=[PSCustomObject]@{
+                    Contract=[PSCustomObject]@{Name='SqlServerLab.InstanceIntent';Version='1.0'}
+                    Resources=$resources
+                }
+            })
+        }
+        $run = New-LabRunState -StateRoot $Root -Metadata @{
+            workflowKind='hyperv-lab'; name='invalid persisted resource intent'; desiredState=$snapshot
+        } -ProviderSubRuns @([PSCustomObject]@{provider='hyperv';instanceIds=@('primary')})
+        $connectionPath = Join-Path $run.RunDir 'connection-info.json'
+        Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject ([PSCustomObject]@{
+            schemaVersion=1; instances=@([PSCustomObject]@{id='primary';provider='hyperv';vmName='must-not-read.invalid';vmId='must-not-read'})
+        })
+        $beforeState = [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $run.RunDir 'run-state.json')))
+        $beforeConnection = [Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))
+        $script:invalidPersistedResourceManagedVmReads = 0
+        function Get-HyperVManagedVM {
+            $script:invalidPersistedResourceManagedVmReads++
+            throw 'HYPERV_MUST_NOT_BE_READ_FOR_INVALID_PERSISTED_RESOURCE_INTENT'
+        }
+        $plan = Get-SqlServerLabReconcilePlan -RunId $run.RunId -HyperVResources -InstanceId primary -StateRoot $Root
+        [PSCustomObject]@{
+            Plan=$plan; ManagedVmReads=$script:invalidPersistedResourceManagedVmReads
+            StateUnchanged=($beforeState -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes((Join-Path $run.RunDir 'run-state.json'))))
+            ConnectionUnchanged=($beforeConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath)))
+        }
+    } $testRoot
+
     $checks = [ordered]@{
         'Restart verwendet gastgesteuertes Stop-VM ohne harte Abschaltschalter'=($resourceSource -match 'Stop-VM\s+-VM\s+\$context\.VM\s+-Confirm:\$false' -and $resourceSource -notmatch 'Stop-VM[^\r\n]*-(Force|TurnOff|Save|Shutdown)')
         'Semantisch passende vCPU-/RAM-Werte bleiben No-op'=$result.NoOp
@@ -142,6 +187,8 @@ try {
         'Fehlgeschlagener Restart bleibt als Recovery sichtbar'=$result.Recovery
         'Recovery setzt Stop-Apply-Start idempotent fort'=$result.Resume
         'Nicht steuerbarer VM-Zustand bleibt unsupported'=$result.Unsupported
+        'Ungueltiger persistierter Ressourcen-Intent blockiert die spezialisierte Hyper-V-Route vor Hostzugriff'=($invalidPersistedIntent.ManagedVmReads -eq 0 -and $invalidPersistedIntent.Plan.HighestChangeClass -eq 'unsupported' -and @($invalidPersistedIntent.Plan.Actions).Count -eq 0 -and -not $invalidPersistedIntent.Plan.MutationAllowed -and @($invalidPersistedIntent.Plan.ReasonCodes) -ceq @('HYPERV_RESOURCE_RECONCILE_DESIRED_STATE_INVALID'))
+        'Ungueltiger persistierter Ressourcen-Intent erhaelt State- und Connection-Bytes'=($invalidPersistedIntent.StateUnchanged -and $invalidPersistedIntent.ConnectionUnchanged)
     }
     $failedChecks=@($checks.GetEnumerator() | Where-Object {-not $_.Value})
     foreach($check in $checks.GetEnumerator()){
