@@ -289,6 +289,7 @@ function Invoke-HyperVWindowsSlotActivation {
     $operationFailed = $false
     $cleanupFailed = $false
     $failureCode = $null
+    $failureDiagnostic = $null
     $finalReceipt = $null
     $activationNetworkMode=if($usesTemporary){'Temporary'}else{'Permanent'}
     try {
@@ -313,6 +314,9 @@ function Invoke-HyperVWindowsSlotActivation {
                 param($MacAddress,$ConfigureTemporaryAdapter)
                 $ErrorActionPreference = 'Stop'
                 $activationStage = 'guest-operation'
+                $endpointDnsResolved = $false
+                $activationReturnValue = $null
+                $activationHResult = $null
                 try {
                 $adapterDeadline = [datetime]::UtcNow.AddSeconds(30)
                 do {
@@ -337,6 +341,12 @@ function Invoke-HyperVWindowsSlotActivation {
                     Start-Sleep -Seconds 2
                 } while ([datetime]::UtcNow -lt $networkDeadline)
                 if ($address.Count -eq 0 -or $defaultRoute.Count -eq 0) { throw 'WINDOWS_ACTIVATION_NETWORK_NOT_READY' }
+                # Die Aufloesung ist eine reine, secretsfreie Diagnose. Die
+                # anschliessende Windows-API bleibt der maßgebliche Online-Test.
+                try {
+                    $endpointDnsResolved = @(Resolve-DnsName -Name 'activation.sls.microsoft.com' -Type A -ErrorAction Stop).Count -gt 0
+                }
+                catch { $endpointDnsResolved = $false }
                 $activationStage = 'license-discovery'
                 $currentEdition=[string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name EditionID -ErrorAction Stop).EditionID
                 if($currentEdition -notmatch '(?i)eval'){throw 'WINDOWS_EVALUATION_EDITION_REQUIRED'}
@@ -347,8 +357,17 @@ function Invoke-HyperVWindowsSlotActivation {
                 $product = @($products | Select-Object -First 1)[0]
                 if (-not $product) { throw 'WINDOWS_ACTIVATION_PRODUCT_NOT_FOUND' }
                 $activationStage = 'activation-request'
-                $activate = Invoke-CimMethod -InputObject $product -MethodName Activate -ErrorAction Stop
-                if ([int]$activate.ReturnValue -ne 0) { throw "WINDOWS_ACTIVATION_FAILED: $([int]$activate.ReturnValue)" }
+                try {
+                    $activate = Invoke-CimMethod -InputObject $product -MethodName Activate -ErrorAction Stop
+                }
+                catch {
+                    if ($_.Exception.HResult) { $activationHResult = ('0x{0:X8}' -f [uint32]$_.Exception.HResult) }
+                    throw
+                }
+                if ([uint32]$activate.ReturnValue -ne 0) {
+                    $activationReturnValue = ('0x{0:X8}' -f [uint32]$activate.ReturnValue)
+                    throw 'WINDOWS_ACTIVATION_REQUEST_REJECTED'
+                }
                 $service = Get-CimInstance -ClassName SoftwareLicensingService -ErrorAction Stop
                 $null = Invoke-CimMethod -InputObject $service -MethodName RefreshLicenseStatus -ErrorAction Stop
                 $activationStage = 'activation-verification'
@@ -372,7 +391,7 @@ function Invoke-HyperVWindowsSlotActivation {
                 }
                 catch {
                     $message=[string]$_.Exception.Message
-                    $code=if($message -match 'WINDOWS_[A-Z0-9_]+'){$Matches[0]}else{
+                    $code=if($message -match 'WINDOWS_ACTIVATION_REQUEST_REJECTED'){'WINDOWS_ACTIVATION_REQUEST_FAILED'}elseif($message -match 'WINDOWS_[A-Z0-9_]+'){$Matches[0]}else{
                         switch($activationStage){
                             'network-configuration' {'WINDOWS_ACTIVATION_NETWORK_CONFIGURATION_FAILED'}
                             'license-discovery' {'WINDOWS_ACTIVATION_LICENSE_DISCOVERY_FAILED'}
@@ -381,8 +400,12 @@ function Invoke-HyperVWindowsSlotActivation {
                             default {'WINDOWS_ACTIVATION_GUEST_OPERATION_FAILED'}
                         }
                     }
+                    $diagnostic = 'dns=' + $(if($endpointDnsResolved){'resolved'}else{'unresolved'})
+                    if ($activationReturnValue) { $diagnostic += ';apiReturn=' + $activationReturnValue }
+                    elseif ($activationHResult) { $diagnostic += ';hresult=' + $activationHResult }
+                    elseif ($activationStage -eq 'activation-request') { $diagnostic += ';api=exception' }
                     [PSCustomObject]@{
-                        contractVersion='SqlServerLab.WindowsActivationGuestReceipt/1.0'; status='FAILED'; failureCode=$code
+                        contractVersion='SqlServerLab.WindowsActivationGuestReceipt/1.0'; status='FAILED'; failureCode=$code; diagnostic=$diagnostic
                     }
                 }
             }
@@ -390,6 +413,7 @@ function Invoke-HyperVWindowsSlotActivation {
         if ([string]$activation.contractVersion -eq 'SqlServerLab.WindowsActivationGuestReceipt/1.0' -and
             [string]$activation.status -eq 'FAILED') {
             $failureCode=[string]$activation.failureCode
+            $failureDiagnostic=[string]$activation.diagnostic
             if($failureCode -notmatch '^WINDOWS_[A-Z0-9_]+$'){throw 'HYPERV_WINDOWS_ACTIVATION_GUEST_RECEIPT_INVALID'}
             throw $failureCode
         }
@@ -410,8 +434,10 @@ function Invoke-HyperVWindowsSlotActivation {
     }
     catch {
         $operationFailed = $true
-        $failureCode = if ([string]$_.Exception.Message -match '(?:HYPERV|WINDOWS)_[A-Z0-9_]+') { [string]$Matches[0] }
-            else { 'HYPERV_WINDOWS_ACTIVATION_OPERATION_FAILED' }
+        if (-not $failureCode) {
+            $failureCode = if ([string]$_.Exception.Message -match '(?:HYPERV|WINDOWS)_[A-Z0-9_]+') { [string]$Matches[0] }
+                else { 'HYPERV_WINDOWS_ACTIVATION_OPERATION_FAILED' }
+        }
         $null = Set-HyperVWindowsSlotActivationEvidence -RunId $RunId -State ACTIVATION_REQUIRED `
             -Edition ([string]$current.Edition) -LicenseStatus ([int]$current.LicenseStatus) `
             -EvaluationMinutesRemaining ([int]$current.EvaluationMinutesRemaining) `
@@ -436,7 +462,10 @@ function Invoke-HyperVWindowsSlotActivation {
         }
     }
     if ($cleanupFailed) { throw 'HYPERV_WINDOWS_ACTIVATION_NETWORK_CLEANUP_FAILED' }
-    if ($operationFailed) { throw "HYPERV_WINDOWS_ACTIVATION_FAILED: $failureCode" }
+    if ($operationFailed) {
+        if ($failureDiagnostic) { throw "HYPERV_WINDOWS_ACTIVATION_FAILED: $failureCode [$failureDiagnostic]" }
+        throw "HYPERV_WINDOWS_ACTIVATION_FAILED: $failureCode"
+    }
     return $finalReceipt
 }
 

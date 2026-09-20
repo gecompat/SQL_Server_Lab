@@ -80,6 +80,15 @@ Temporare Adapter werden anhand des Ownership-Journals auch nach Teilfehlern
 und bei Wiederaufnahme bereinigt. Ungeklaerte Bindungen bleiben
 `RECOVERY_REQUIRED` und werden nicht durch Namenssuche geloescht.
 
+Bei einem Fehler der Windows-Aktivierungsanfrage enthält die öffentliche
+Exception zusätzlich eine secretsfreie Diagnose: `dns=resolved` oder
+`dns=unresolved` für `activation.sls.microsoft.com` sowie, falls verfügbar,
+den numerischen API-Rückgabewert oder HRESULT. IP-Adressen, Proxywerte,
+Zugangsdaten und Windows-Fehlermeldungstexte werden nicht gespeichert oder
+ausgegeben. Microsoft dokumentiert die Aktivierungs- und Validierungsendpunkte
+für Proxy-/Firewall-Freigaben in der
+[Windows-Server-Fehlerbehebung](https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/windows-activation-validation-fails).
+
 ## Nachweisgrenze
 
 Statische Verhaltenstests pruefen Entscheidungsmatrix, Ablaufdatum,
