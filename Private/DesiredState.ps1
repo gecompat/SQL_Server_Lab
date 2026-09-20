@@ -556,6 +556,15 @@ function Test-LabPersistedDriveIntents {
         'persistent-mssql-external-languages' = '/var/opt/mssql-extensibility/externallanguages'
         'persistent-mssql-external-libraries' = '/var/opt/mssql-extensibility/externallibraries'
     }
+    $containerReservedPersistence = @{
+        'runtime-mssql' = @('run-scoped-runtime-volume')
+        'runtime-mssql-external-languages' = @('run-scoped-runtime-volume')
+        'runtime-mssql-external-libraries' = @('run-scoped-runtime-volume')
+        'persistent-mssql' = @('data-root-runtime-volume','cataloged-runtime-volume')
+        'persistent-mssql-external-languages' = @('data-root-runtime-volume','cataloged-runtime-volume')
+        'persistent-mssql-external-libraries' = @('data-root-runtime-volume','cataloged-runtime-volume')
+        'persistent-backups' = @('data-root-backup-bind')
+    }
     foreach ($drive in @($Drives)) {
         if ($null -eq $drive -or $drive -is [string] -or $drive -is [bool] -or $drive -is [array] -or
             ((@($drive.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($expectedFields -join ','))) { return $false }
@@ -599,6 +608,13 @@ function Test-LabPersistedDriveIntents {
             if ($drive.Binding -cnotin @('host-mount','managed-volume') -or
                 $drive.RequiredCapability -cne 'volume-mounts' -or
                 $drive.GuestPath -notmatch '^/(?:[^/\x00\r\n]+(?:/[^/\x00\r\n]+)*)?$') { return $false }
+
+            # These producer-owned IDs carry SQL system state or the bound
+            # data-root backup lane.  They must not be downgraded into a
+            # generic user drive by changing the entire persisted group to
+            # run-scoped/null before a reconcile path reads it.
+            $reservedPersistences = $containerReservedPersistence[[string]$drive.Id]
+            if ($null -ne $reservedPersistences -and [string]$drive.Persistence -cnotin $reservedPersistences) { return $false }
             if ($drive.Binding -ceq 'host-mount') {
                 if (($drive.Persistence -ceq 'external-host-path' -and $null -eq $drive.PersistentStorageId) -or
                     ($drive.Persistence -ceq 'data-root-backup-bind' -and $null -eq $drive.PersistentStorageId -and
