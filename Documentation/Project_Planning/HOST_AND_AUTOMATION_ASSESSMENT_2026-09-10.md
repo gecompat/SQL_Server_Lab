@@ -36,10 +36,13 @@ Konkrete Laufzeiten benötigen einen gebundenen Zielhost und Ressourcenplan.
 
 Der Nutzen ist die Ausführung eines SQL-Labs auf einem ausdrücklich zugeordneten
 Windows-Testhost, wenn der lokale Client keine geeignete Hyper-V-Runtime besitzt.
-Die Entscheidung lautet: zuerst read-only Hostregistrierung und Inventur,
+Die Priorität ist `P3`: zuerst read-only Hostregistrierung und Inventur,
 Mutation erst nach deren Abnahme und einer eigenen Autorisierungsentscheidung.
 Der erste gesamte mutierende Slice umfasst später genau einen SQL-Referenzrun
 auf genau einem registrierten Host; automatische Ersatzplatzierung entfällt.
+Remote Hyper-V ist keine Voraussetzung für einen lokalen funktionalen
+Gastcluster und wird erst für einen Multi-Host-Infrastruktur-HA-Nachweis
+benötigt.
 
 | Grenze | Risiko und nächster abnehmbarer Schritt |
 |---|---|
@@ -93,10 +96,12 @@ kein Adapter erhält eine eigene parallele Ressourcenregistrierung.
 ## Cluster, HA und DR
 
 Der [Clusterbacklog](SQL_SSIS_SSAS_CLUSTER_BACKLOG.md) bleibt fachlich sinnvoll
-für SQL-Failover- und Recovery-Schulungen. Seine Umsetzung startet erst mit einem
-konkreten Szenario, isolierter Domänen-/Netzwerk-/Storage-Bindung und bestätigtem
-Ressourcenbudget. Ein lokaler Einzelhost kann funktionalen Gastfailover prüfen;
-er kann seinen eigenen physischen Ausfall nicht als überlebt nachweisen.
+für SQL-Failover- und Recovery-Schulungen. Sein erster `P2`-Slice startet mit
+einem konkreten Szenario, isolierter Domänen-/Netzwerk-/Storage-Bindung und
+bestätigtem Ressourcenbudget. Mehrere isolierte VMs auf einem lokalen
+Hyper-V-Host reichen für diesen funktionalen Gastfailover-Nachweis aus; Remote
+Hyper-V ist dafür keine Abhängigkeit. Ein einzelner physischer Host kann seinen
+eigenen Ausfall jedoch nicht als überlebt nachweisen.
 
 | Fähigkeit / Nutzen | Entscheidung, Abhängigkeit und nächster Schritt |
 |---|---|
@@ -106,7 +111,7 @@ er kann seinen eigenen physischen Ausfall nicht als überlebt nachweisen.
 | SSIS Scale Out | Erst bei belegtem parallelem Packagebedarf; zwei begrenzte Worker mit Versions-/Zertifikatsbindung. Workerabbruch und Wiederzuweisung prüfen. Kein Exactly-once- oder SSISDB-HA-Claim aus bloßem Workerbetrieb. Aufwand L. |
 | SSAS WSFC | Erst nach Tabular-Einzelabnahme und bestätigtem SQL-2025-/Domain-Servicekonto-Vertrag. Failover bei Query und Processing, Entschlüsselung, Rollen und DAX-Ergebnisse prüfen. Aufwand L; keine Übertragung auf ältere SSAS-Stände. |
 | SSAS Query Scale-out | Erst bei gemessenem Querybedarf; gemeinsame Modellrevision auf zwei eigenen Queryknoten erzwingen. Unterschiedliche Generationen blockieren Freigabe. Knotenverlust, Client-Retry und Aktualisierung prüfen. Aufwand L. |
-| Gemeinsame BI / mehrere Hosts | Erst nach allen verwendeten Einzelverträgen. Fachliche Quell-/Warehouse-/DAX-Konsistenz unter Fault belegen. Physische HA benötigt mehrere gebundene Hosts samt unabhängigem Infrastrukturfehler; RPO/RTO bleiben Messwerte des konkreten Laufs. Aufwand L zusätzlich zu den Einzelabnahmen. |
+| Gemeinsame BI / mehrere Hosts | Erst nach allen verwendeten Einzelverträgen. Fachliche Quell-/Warehouse-/DAX-Konsistenz unter Fault kann zunächst auf einem lokalen Host mit mehreren Gast-VMs belegt werden. Physische HA benötigt erst in der getrennten `P3`-Erweiterung mehrere gebundene Hosts samt unabhängigem Infrastrukturfehler; RPO/RTO bleiben Messwerte des konkreten Laufs. Aufwand L zusätzlich zu den Einzelabnahmen. |
 
 ## Quellen und Abnahmegrenze
 

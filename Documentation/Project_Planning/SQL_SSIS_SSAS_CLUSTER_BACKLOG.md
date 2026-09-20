@@ -150,9 +150,16 @@ Tests von Gastknoten-, Dienst-, Netzwerk- und Rollenfailover. Sie beweisen
 nicht die Verfügbarkeit beim Ausfall des physischen Hosts, dessen Storage,
 Netzwerk oder Hypervisors.
 
-Ein echter Infrastruktur-HA-Nachweis benötigt mehrere physische Hyper-V-Hosts
-und baut auf dem Remote-Hyper-V-Backlog sowie einem eigenen Host-, Netzwerk-,
-Storage- und Cleanup-Vertrag auf. Beide Evidence-Klassen werden getrennt als
+Der erste `P2`-Vertical-Slice ist deshalb ein lokaler
+`FUNCTIONAL_GUEST_CLUSTER`: Domain Controller/DNS, Witness und Clusterknoten
+laufen als getrennte, scopegebundene VMs auf einem lokalen Hyper-V-Host. Er
+ist von Remote Hyper-V unabhängig und dient der Lab-Ausbildung sowie dem
+funktionalen Nachweis von Setup, Rollenwechsel, Recovery und Cleanup.
+
+Ein echter Infrastruktur-HA-Nachweis ist eine getrennte spätere
+`P3`-Erweiterung. Er benötigt mehrere physische Hyper-V-Hosts und baut dann
+auf dem Remote-Hyper-V-Backlog sowie einem eigenen Host-, Netzwerk-, Storage-
+und Cleanup-Vertrag auf. Beide Evidence-Klassen werden getrennt als
 `FUNCTIONAL_GUEST_CLUSTER` und `MULTI_HOST_INFRASTRUCTURE_HA` berichtet.
 
 ## Empfohlene Lieferreihenfolge
@@ -164,7 +171,8 @@ Storage- und Cleanup-Vertrag auf. Beide Evidence-Klassen werden getrennt als
 5. SSAS-2025-Tabular-WSFC;
 6. SSAS Query Scale-out mit zwei Query-Knoten;
 7. Clustered End-to-End BI;
-8. echter Multi-Host-Hyper-V-Nachweis.
+8. optionaler `P3`-Multi-Host-Hyper-V-Nachweis nach dem lokalen funktionalen
+   Cluster-Slice.
 
 ## Gemeinsame Fault- und Abnahmematrix
 
@@ -197,7 +205,8 @@ Storage- und Cleanup-Vertrag auf. Beide Evidence-Klassen werden getrennt als
 - [End-to-End-BI-Pipeline](END_TO_END_BI_PIPELINE_BACKLOG.md);
 - [SSIS ETL-, Data-Warehouse- und Recovery-Lab](SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md);
 - [SSAS Analytics- und Semantic-Model-Lab](SSAS_ANALYTICS_SEMANTIC_MODEL_BACKLOG.md);
-- [Remote-Hyper-V-Host](HYPERV_REMOTE_HOST_BACKLOG.md);
+- [Remote-Hyper-V-Host](HYPERV_REMOTE_HOST_BACKLOG.md) ausschließlich für die
+  spätere `P3`-Multi-Host-Infrastruktur-HA;
 - [Windows-Slot-Aktivierung](WINDOWS_SLOT_ACTIVATION_BACKLOG.md);
 - [Hyper-V-`Lab_Data`-Bugfix](HYPERV_LAB_DATA_RESOURCE_ROOT_BUGFIX_BACKLOG.md).
 
