@@ -24,7 +24,8 @@ Jeder Persistenzfehler wird ausschließlich über feste ReasonCodes reflektiert:
 `DESIRED_INSTANCE_HYPERV_RESOURCE_INTENT_INVALID`,
 `DESIRED_INSTANCE_DRIVE_INTENT_INVALID`,
 `DESIRED_INSTANCE_STORAGE_INTENT_INVALID` und
-`DESIRED_INSTANCE_DATABASE_INTENT_INVALID`. Ein vorhandener Network-Intent
+`DESIRED_INSTANCE_DATABASE_INTENT_INVALID` sowie
+`DESIRED_STATE_AI_INTENT_INVALID`. Ein vorhandener Network-Intent
 enthält vollständig die kanonische, hostwertfreie Resolver-Projektion; ein
 vollständig fehlendes `Network` bleibt ausschließlich für Legacy-Snapshots
 zulässig. Mehrere Codes sind eindeutig und ordinal sortiert. RUNNING- und

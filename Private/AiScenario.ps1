@@ -315,21 +315,33 @@ function Get-LabAiScenarioPlan {
     $lastEvidence = $null
     if ($RunId) {
         if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
-        $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
-        $provider = [string]$target.Provider
-        $sqlVersion = [string]$target.Version
-        if ($provider -notin @($definition.Scenario.requirements.providers)) {
-            $blockers.Add("AI_SCENARIO_PROVIDER_UNSUPPORTED: $provider")
-        }
-        if (($sqlVersion -split '-', 2)[0] -ne '2025') {
-            $blockers.Add("AI_SCENARIO_SQL_VERSION_UNSUPPORTED: $sqlVersion")
-        }
-
         $desired = Get-LabPersistedDesiredState -RunId $RunId -StateRoot $StateRoot
-        if ($desired.Status -ne 'VALID' -or -not $desired.Snapshot.Ai) {
+        # A malformed persisted AI envelope is terminal before resolving a
+        # connection target, provider capability, journal, or SQL endpoint.
+        # The desired-state validator has already re-derived all local plan
+        # bindings, so no downstream consumer receives a caller-controlled
+        # intent object.
+        if ($desired.Status -ne 'VALID') {
+            if (@($desired.ReasonCodes) -contains 'DESIRED_STATE_AI_INTENT_INVALID') {
+                $blockers.Add('DESIRED_STATE_AI_INTENT_INVALID')
+            }
+            else {
+                $blockers.Add('AI_SCENARIO_DESIRED_STATE_INVALID')
+            }
+        }
+        elseif (-not $desired.Snapshot.Ai) {
             $blockers.Add('AI_SCENARIO_INTENT_NOT_DECLARED')
         }
         else {
+            $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+            $provider = [string]$target.Provider
+            $sqlVersion = [string]$target.Version
+            if ($provider -notin @($definition.Scenario.requirements.providers)) {
+                $blockers.Add("AI_SCENARIO_PROVIDER_UNSUPPORTED: $provider")
+            }
+            if (($sqlVersion -split '-', 2)[0] -ne '2025') {
+                $blockers.Add("AI_SCENARIO_SQL_VERSION_UNSUPPORTED: $sqlVersion")
+            }
             $reference = @($desired.Snapshot.Ai.Scenarios | Where-Object {
                 [string]$_.Id -ceq $ScenarioId -and [string]$_.Version -ceq $Version -and [string]$_.InstanceId -ceq $InstanceId
             })
@@ -345,27 +357,27 @@ function Get-LabAiScenarioPlan {
                     $blockers.Add("AI_SCENARIO_MODEL_PROVIDER_NOT_IMPLEMENTED: $($models[0].Provider)")
                 }
             }
-        }
 
-        $providerContract = @(Get-LabProviderCapabilityContract | Where-Object Provider -eq $provider | Select-Object -First 1)
-        $declaredCapabilities = @($providerContract.Capabilities | ForEach-Object { [string]$_.SourceKey })
-        foreach ($capability in @($definition.Scenario.requirements.requiredCapabilities)) {
-            if ($declaredCapabilities -notcontains [string]$capability) {
-                $blockers.Add("AI_SCENARIO_CAPABILITY_MISSING: $capability")
+            $providerContract = @(Get-LabProviderCapabilityContract | Where-Object Provider -eq $provider | Select-Object -First 1)
+            $declaredCapabilities = @($providerContract.Capabilities | ForEach-Object { [string]$_.SourceKey })
+            foreach ($capability in @($definition.Scenario.requirements.requiredCapabilities)) {
+                if ($declaredCapabilities -notcontains [string]$capability) {
+                    $blockers.Add("AI_SCENARIO_CAPABILITY_MISSING: $capability")
+                }
             }
-        }
 
-        $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
-        $journalPath = Get-LabAiScenarioJournalPath -RunDirectory $runDirectory -ScenarioId $ScenarioId -Version $Version -InstanceId $InstanceId
-        if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
-            $journal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
-            $lastEvidence = [PSCustomObject]@{
-                Status = [string]$journal.status
-                PlanKey = [string]$journal.planKey
-                StartedAt = [string]$journal.startedAt
-                CompletedAt = [string]$journal.completedAt
-                CleanupStatus = [string]$journal.cleanupStatus
-                StepCount = @($journal.steps).Count
+            $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
+            $journalPath = Get-LabAiScenarioJournalPath -RunDirectory $runDirectory -ScenarioId $ScenarioId -Version $Version -InstanceId $InstanceId
+            if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
+                $journal = Get-Content -LiteralPath $journalPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+                $lastEvidence = [PSCustomObject]@{
+                    Status = [string]$journal.status
+                    PlanKey = [string]$journal.planKey
+                    StartedAt = [string]$journal.startedAt
+                    CompletedAt = [string]$journal.completedAt
+                    CleanupStatus = [string]$journal.cleanupStatus
+                    StepCount = @($journal.steps).Count
+                }
             }
         }
     }

@@ -48,6 +48,31 @@ try {
         $whatIf=Invoke-SqlServerLabAiScenario -ScenarioId vector-core-ci -RunId $runId -StateRoot $TemporaryRoot -SaPassword $password -WhatIf
         $journalPath=Get-LabAiScenarioJournalPath -RunDirectory $runDirectory -ScenarioId vector-core-ci -Version 1.0 -InstanceId primary
 
+        # Persisted AI metadata is a closed, local-only envelope.  The invalid
+        # cases intentionally have no connection-info file: reaching a target
+        # resolver would turn this regression into an error instead of the
+        # required pre-runtime BLOCKED plan.
+        $aiCases=@(
+            @{Name='unknown-envelope-field'; Mutate={param($a) $a.Ai | Add-Member NoteProperty Unexpected 'x'}},
+            @{Name='model-plan-key'; Mutate={param($a) $a.Ai.Models[0].PlanKey=('a'*64)}},
+            @{Name='overall-plan-key'; Mutate={param($a) $a.Ai.PlanKey=('b'*64)}},
+            @{Name='duplicate-model-id'; Mutate={param($a) $copy=$a.Ai.Models[0]|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20; $a.Ai.Models=@($a.Ai.Models)+@($copy)}},
+            @{Name='credential-value'; Mutate={param($a) $a.Ai.Models[0].CredentialRef='not-a-secret-reference'}},
+            @{Name='endpoint-url'; Mutate={param($a) $a.Ai.Models[0].EndpointRef='https://endpoint.invalid'}},
+            @{Name='unknown-allowed-tool'; Mutate={param($a) $a.Ai.Policies.AllowedTools=@('free-sql-tool'); $a.Ai.PlanKey='c'*64}},
+            @{Name='scenario-plan-key'; Mutate={param($a) $a.Ai.Scenarios[0].PlanKey=('d'*64)}},
+            @{Name='scenario-instance'; Mutate={param($a) $a.Ai.Scenarios[0].InstanceId='missing-target'}},
+            @{Name='scenario-duplicate'; Mutate={param($a) $copy=$a.Ai.Scenarios[0]|ConvertTo-Json -Depth 20|ConvertFrom-Json -Depth 20; $a.Ai.Scenarios=@($a.Ai.Scenarios)+@($copy)}}
+        )
+        $aiPersistedCases=@(foreach($case in $aiCases){
+            $invalidDesired=$desired|ConvertTo-Json -Depth 50|ConvertFrom-Json -Depth 50
+            & $case.Mutate $invalidDesired
+            $invalidRun=New-LabRunState -StateRoot $TemporaryRoot -Metadata @{name='invalid persisted ai';desiredState=$invalidDesired} -ProviderSubRuns @()
+            $persisted=Get-LabPersistedDesiredState -RunId $invalidRun.RunId -StateRoot $TemporaryRoot
+            $invalidPlan=Get-LabAiScenarioPlan -ScenarioId vector-core-ci -Version '1.0' -RunId $invalidRun.RunId -StateRoot $TemporaryRoot
+            [PSCustomObject]@{Name=$case.Name;Persisted=$persisted;Plan=$invalidPlan}
+        })
+
         $manifest=Get-Content -LiteralPath $ManifestPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
         $manifest.ai.models[0].provider='openai'
         $manifest.ai.models[0] | Add-Member NoteProperty endpointRef cloud-endpoint
@@ -63,6 +88,7 @@ try {
         [PSCustomObject]@{
             ManifestSchemaResult=$manifestSchemaResult;Resolved=$resolved;Desired=$desired;CatalogPlan=$catalogPlan;RunPlan=$runPlan;WhatIf=$whatIf
             JournalAbsent=-not (Test-Path -LiteralPath $journalPath)
+            AiPersistedCases=$aiPersistedCases
             EgressRejected=(-not $egressValidation.IsValid -and @($egressValidation.Errors) -match "Cloud-Modell.*benötigt 'explicit'")
             PathRejected=$pathRejected
             DockerCapability='sql2025-vector-core' -in @($providerCapabilities|Where-Object Provider -eq docker|ForEach-Object Capabilities|ForEach-Object SourceKey)
@@ -88,6 +114,15 @@ try {
         $result.RunPlan.Status -eq 'READY' -and $result.RunPlan.Provider -eq 'docker' -and $result.RunPlan.SqlVersion -eq '2025')
     Add-CheckResult 'WhatIf bleibt mutationsfrei und erzeugt kein Journal' (
         $result.WhatIf.Status -eq 'PLAN_ONLY' -and $result.JournalAbsent)
+    Add-CheckResult 'Persistierte KI-Intents bleiben geschlossen, lokal plan-key-gebunden und vor Target-/Journalzugriff fail-closed' (
+        @($result.AiPersistedCases).Count -eq 10 -and
+        @($result.AiPersistedCases | Where-Object {
+            $_.Persisted.Status -ne 'INVALID' -or
+            @($_.Persisted.ReasonCodes) -cnotcontains 'DESIRED_STATE_AI_INTENT_INVALID' -or
+            $_.Plan.Status -ne 'BLOCKED' -or
+            @($_.Plan.Blockers) -cnotcontains 'DESIRED_STATE_AI_INTENT_INVALID' -or
+            $null -ne $_.Plan.Provider -or $null -ne $_.Plan.LastEvidence
+        }).Count -eq 0)
     Add-CheckResult 'Cloudmodell mit verweigertem Egress wird fachlich abgelehnt' $result.EgressRejected
     Add-CheckResult 'Szenario-Artefakte außerhalb des Package-Roots werden abgelehnt' $result.PathRejected
     Add-CheckResult 'Docker und Podman deklarieren Vector-Core getrennt' ($result.DockerCapability -and $result.PodmanCapability)

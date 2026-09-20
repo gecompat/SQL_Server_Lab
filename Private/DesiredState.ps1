@@ -804,6 +804,125 @@ function Test-LabPersistedDatabaseIntent {
             -ProviderCapability $ProviderCapability -RequiredCapability $requiredCapability)
 }
 
+function Test-LabPersistedAiIntent {
+    <#
+    .SYNOPSIS
+        Validiert den optionalen, persistierten KI-Intent vor jeder
+        Szenario-, Journal- oder SQL-Aufloesung.
+    .DESCRIPTION
+        Der Snapshot ist kein zweites Manifestformat.  Er enthaelt nur die
+        vom lokalen Resolver erzeugte, geheimnisfreie Projektion.  Deshalb
+        werden Modell- und Szenario-PlanKeys erneut aus lokalen Definitionen
+        abgeleitet und alle Envelopes strikt geschlossen.
+    #>
+    [CmdletBinding()]
+    param(
+        $Ai,
+        [Parameter(Mandatory)]$Instances
+    )
+
+    if ($null -eq $Ai) { return $true }
+    if ($Ai -is [string] -or $Ai -is [bool] -or $Ai -is [array]) { return $false }
+    $expectedFields = @('Contract','Models','PlanKey','Policies','Scenarios')
+    if ((@($Ai.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($expectedFields -join ',')) { return $false }
+    if ($null -eq $Ai.Contract -or $Ai.Contract -is [string] -or $Ai.Contract -is [bool] -or $Ai.Contract -is [array] -or
+        ((@($Ai.Contract.PSObject.Properties.Name | Sort-Object) -join ',') -cne 'Name,Version') -or
+        $Ai.Contract.Name -isnot [string] -or $Ai.Contract.Version -isnot [string] -or
+        [string]$Ai.Contract.Name -cne 'SqlServerLab.AiIntent' -or [string]$Ai.Contract.Version -cne '1.0' -or
+        $Ai.Models -isnot [array] -or $Ai.Models.Count -eq 0 -or
+        $Ai.Scenarios -isnot [array] -or $Ai.Scenarios.Count -eq 0 -or
+        $Ai.PlanKey -isnot [string] -or $Ai.PlanKey -notmatch '^[a-f0-9]{64}$') { return $false }
+
+    $modelFields = @('CredentialRef','Dimension','EndpointRef','Id','PlanKey','Provider','Purpose','RetryCount','TimeoutSeconds','Variant')
+    $modelIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $models = [Collections.Generic.List[object]]::new()
+    foreach ($model in @($Ai.Models)) {
+        if ($null -eq $model -or $model -is [string] -or $model -is [bool] -or $model -is [array] -or
+            ((@($model.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($modelFields -join ',')) -or
+            $model.Id -isnot [string] -or $model.Id -notmatch '^[a-z][a-z0-9-]{2,63}$' -or -not $modelIds.Add($model.Id) -or
+            $model.Purpose -isnot [string] -or $model.Purpose -cnotin @('embedding','generation') -or
+            $model.Provider -isnot [string] -or $model.Provider -cnotin @('precomputed','stub','ollama','openai','azure-openai','onnx') -or
+            $model.Variant -isnot [string] -or $model.Variant -notmatch '^[a-z0-9][a-z0-9._:-]{1,127}$' -or
+            $model.TimeoutSeconds -isnot [long] -or $model.TimeoutSeconds -lt 1 -or $model.TimeoutSeconds -gt 600 -or
+            $model.RetryCount -isnot [long] -or $model.RetryCount -lt 0 -or $model.RetryCount -gt 10 -or
+            $model.PlanKey -isnot [string] -or $model.PlanKey -notmatch '^[a-f0-9]{64}$') { return $false }
+
+        # EndpointRef is an opaque catalog identifier, never a URL or a path.
+        # A credential may only be the already schema-bound environment-name
+        # reference; a value, arbitrary environment name, or host data never
+        # enters the persistable contract.
+        if ($null -ne $model.EndpointRef -and ($model.EndpointRef -isnot [string] -or $model.EndpointRef -notmatch '^[a-z][a-z0-9-]{2,63}$') -or
+            ($null -ne $model.CredentialRef -and ($model.CredentialRef -isnot [string] -or $model.CredentialRef -notmatch '^SQL_SERVER_LAB_SECRET_[A-Z0-9_]+$'))) { return $false }
+        if (($model.Provider -in @('precomputed','onnx')) -and $null -ne $model.EndpointRef) { return $false }
+        if (($model.Provider -in @('stub','ollama','openai','azure-openai')) -and $null -eq $model.EndpointRef) { return $false }
+        if (($model.Provider -in @('openai','azure-openai')) -and $null -eq $model.CredentialRef) { return $false }
+        if (($model.Provider -notin @('openai','azure-openai')) -and $null -ne $model.CredentialRef) { return $false }
+        if ($model.Purpose -ceq 'embedding') {
+            if ($model.Dimension -isnot [long] -or $model.Dimension -lt 1 -or $model.Dimension -gt 1998) { return $false }
+        }
+        elseif ($null -ne $model.Dimension) { return $false }
+
+        $canonicalModel = [ordered]@{
+            Id=[string]$model.Id; Purpose=[string]$model.Purpose; Provider=[string]$model.Provider; Variant=[string]$model.Variant
+            EndpointRef=if($null -ne $model.EndpointRef){[string]$model.EndpointRef}else{$null}
+            CredentialRef=if($null -ne $model.CredentialRef){[string]$model.CredentialRef}else{$null}
+            Dimension=if($null -ne $model.Dimension){[long]$model.Dimension}else{$null}
+            TimeoutSeconds=[long]$model.TimeoutSeconds; RetryCount=[long]$model.RetryCount
+        }
+        $expectedModelKey = Get-LabAiPlanKey -InputObject ([ordered]@{ Contract='SqlServerLab.AiModelPlan/1.0'; Model=$canonicalModel })
+        if ([string]$model.PlanKey -cne $expectedModelKey) { return $false }
+        $models.Add([PSCustomObject]($canonicalModel + [ordered]@{ PlanKey=$expectedModelKey }))
+    }
+
+    if ($null -eq $Ai.Policies -or $Ai.Policies -is [string] -or $Ai.Policies -is [bool] -or $Ai.Policies -is [array]) { return $false }
+    $policyFields = @('AllowedTools','ContentLogging','DataClassification','Egress','Fallback')
+    if ((@($Ai.Policies.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($policyFields -join ',') -or
+        $Ai.Policies.DataClassification -isnot [string] -or $Ai.Policies.DataClassification -cnotin @('synthetic-only','public-or-redistributable','internal-explicit') -or
+        $Ai.Policies.Egress -isnot [string] -or $Ai.Policies.Egress -cnotin @('denied','explicit') -or
+        $Ai.Policies.ContentLogging -isnot [string] -or $Ai.Policies.ContentLogging -cnotin @('disabled','metadata-only') -or
+        $Ai.Policies.Fallback -isnot [string] -or $Ai.Policies.Fallback -cnotin @('disabled','explicit') -or
+        $Ai.Policies.AllowedTools -isnot [array]) { return $false }
+    $allowedTools = @($Ai.Policies.AllowedTools)
+    $allowedToolIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach ($tool in $allowedTools) {
+        if ($tool -isnot [string] -or $tool -notmatch '^[a-z][a-z0-9-]{2,63}$' -or -not $allowedToolIds.Add($tool)) { return $false }
+    }
+    if ((@($allowedTools) -join "`0") -cne (@($allowedTools | Sort-Object) -join "`0")) { return $false }
+
+    $scenarioFields = @('Id','InstanceId','PlanKey','Version')
+    $scenarioIds = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $scenarioTools = [Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $scenarios = [Collections.Generic.List[object]]::new()
+    foreach ($reference in @($Ai.Scenarios)) {
+        if ($null -eq $reference -or $reference -is [string] -or $reference -is [bool] -or $reference -is [array] -or
+            ((@($reference.PSObject.Properties.Name | Sort-Object) -join ',') -cne ($scenarioFields -join ',')) -or
+            $reference.Id -isnot [string] -or $reference.Id -notmatch '^[a-z][a-z0-9-]{2,63}$' -or
+            $reference.Version -isnot [string] -or $reference.Version -notmatch '^[1-9][0-9]*\.[0-9]+$' -or
+            $reference.InstanceId -isnot [string] -or $reference.InstanceId -notmatch '^[a-zA-Z][a-zA-Z0-9_-]*$' -or
+            $reference.PlanKey -isnot [string] -or $reference.PlanKey -notmatch '^[a-f0-9]{64}$') { return $false }
+        $scenarioIdentity = '{0}|{1}|{2}' -f $reference.Id,$reference.Version,$reference.InstanceId
+        if (-not $scenarioIds.Add($scenarioIdentity)) { return $false }
+        if (@($Instances | Where-Object { $_.Id -is [string] -and [string]$_.Id -ceq [string]$reference.InstanceId }).Count -ne 1) { return $false }
+        try { $definition = Read-LabAiScenarioDefinition -ScenarioId $reference.Id -Version $reference.Version }
+        catch { return $false }
+        if ([string]$reference.PlanKey -cne [string]$definition.PlanKey) { return $false }
+        foreach ($tool in @($definition.Scenario.tools)) { [void]$scenarioTools.Add([string]$tool) }
+        foreach ($binding in $definition.Scenario.modelBindings.PSObject.Properties) {
+            $bound = @($models | Where-Object { [string]$_.Id -ceq [string]$binding.Value })
+            if ($bound.Count -ne 1 -or [string]$bound[0].Purpose -cne [string]$binding.Name) { return $false }
+        }
+        $scenarios.Add([PSCustomObject]@{ Id=[string]$reference.Id; Version=[string]$reference.Version; InstanceId=[string]$reference.InstanceId; PlanKey=[string]$definition.PlanKey })
+    }
+    foreach ($tool in @($allowedTools)) { if (-not $scenarioTools.Contains($tool)) { return $false } }
+
+    $policies = [PSCustomObject]@{
+        DataClassification=[string]$Ai.Policies.DataClassification; Egress=[string]$Ai.Policies.Egress
+        AllowedTools=@($allowedTools); ContentLogging=[string]$Ai.Policies.ContentLogging; Fallback=[string]$Ai.Policies.Fallback
+    }
+    $portable = [ordered]@{ Contract='SqlServerLab.AiIntent/1.0'; Models=@($models); Policies=$policies; Scenarios=@($scenarios) }
+    return [string]$Ai.PlanKey -ceq (Get-LabAiPlanKey -InputObject $portable)
+}
+
 function Get-LabPersistedDesiredState {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
@@ -940,6 +1059,14 @@ function Get-LabPersistedDesiredState {
              [string]$instance.Intents.Contract.Version -ne '1.0')) {
             [void]$validationErrors.Add('DESIRED_INSTANCE_INTENT_CONTRACT_INVALID')
         }
+    }
+
+    # Missing/null AI remains a valid legacy snapshot.  Any present value is
+    # an exact, locally re-derived contract and may not defer validation to a
+    # scenario planner, journal writer, endpoint resolver, or SQL call.
+    if ($snapshot.PSObject.Properties['Ai'] -and $null -ne $snapshot.Ai -and
+        -not (Test-LabPersistedAiIntent -Ai $snapshot.Ai -Instances @($snapshot.Instances))) {
+        [void]$validationErrors.Add('DESIRED_STATE_AI_INTENT_INVALID')
     }
 
     if ($validationErrors.Count -gt 0) {
