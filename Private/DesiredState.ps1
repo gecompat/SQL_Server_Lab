@@ -591,6 +591,47 @@ function Test-LabPersistedDriveIntents {
     return $true
 }
 
+function Test-LabPersistedStorageIntent {
+    [CmdletBinding()]
+    param($Storage)
+
+    # Der persistierte Snapshot verwendet absichtlich ein PascalCase-Envelope,
+    # waehrend der portable Storage-Vertrag lower camel case verwendet.  Nur
+    # eine vollstaendig geschlossene Envelope darf deshalb in einen neuen,
+    # schema-validierten portablen Wert rehydriert werden.  Dies verhindert,
+    # dass ein nachtraeglich eingefuegtes Feld oder eine abweichende Schreibweise
+    # spaeter unbemerkt im Hyper-V-Storage-Reconcile verwendet wird.
+    if ($null -eq $Storage -or $Storage -is [string] -or $Storage -is [bool] -or
+        $Storage -is [array]) { return $false }
+    $expectedFields = @(
+        'BindingStatus','ContractVersion','DatabaseFiles','PhysicalIsolation','PlacementPolicy',
+        'RestoreRules','Roles','TempDb'
+    )
+    if ((@($Storage.PSObject.Properties.Name | Sort-Object) -join ',') -cne
+        ($expectedFields -join ',')) { return $false }
+    if ($Storage.BindingStatus -isnot [string] -or $Storage.BindingStatus -cne 'LOCAL_BINDING_REQUIRED') { return $false }
+
+    # Do not pass the persisted PascalCase object directly to a later consumer.
+    # Assert-LabStorageIntent owns the complete portable schema and the semantic
+    # selector/file-count rules after this explicit casing boundary.
+    $portable = [PSCustomObject]@{
+        contractVersion = $Storage.ContractVersion
+        placementPolicy = $Storage.PlacementPolicy
+        physicalIsolation = $Storage.PhysicalIsolation
+        roles = $Storage.Roles
+        tempDb = $Storage.TempDb
+        databaseFiles = $Storage.DatabaseFiles
+        restoreRules = $Storage.RestoreRules
+    }
+    try {
+        $null = Assert-LabStorageIntent -StorageIntent $portable
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
 function Get-LabPersistedDesiredState {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
@@ -704,6 +745,10 @@ function Get-LabPersistedDesiredState {
         if ($instance.Intents -and $instance.Intents.PSObject.Properties['Drives'] -and $null -ne $instance.Intents.Drives -and
             -not (Test-LabPersistedDriveIntents -Drives $instance.Intents.Drives -Provider $provider -ProviderCapability $providerCapability)) {
             [void]$validationErrors.Add('DESIRED_INSTANCE_DRIVE_INTENT_INVALID')
+        }
+        if ($instance.Intents -and $instance.Intents.PSObject.Properties['Storage'] -and $null -ne $instance.Intents.Storage -and
+            -not (Test-LabPersistedStorageIntent -Storage $instance.Intents.Storage)) {
+            [void]$validationErrors.Add('DESIRED_INSTANCE_STORAGE_INTENT_INVALID')
         }
         if ($idIsValid -and $providerIsValid) {
             if (-not $instanceIdsByProvider.ContainsKey($provider)) {

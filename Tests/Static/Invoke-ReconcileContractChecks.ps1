@@ -1070,6 +1070,115 @@ try {
     Add-CheckResult -Name 'Ungueltige persistierte Drive-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' -Success ($persistedDriveIntentContract.RuntimeCalls -eq 0)
     Add-CheckResult -Name 'Realer Desired-State-Snapshot rundet den kanonischen Drive-Intent mit JSON-Doubletrip' -Success $persistedDriveIntentContract.CanonicalRoundtrip
 
+    $persistedStorageIntentContract = & $module {
+        param($Root)
+
+        function New-TestPersistedStorageIntent {
+            [PSCustomObject]@{
+                ContractVersion='SqlServerLab.StorageIntent/1.0'; PlacementPolicy='logical-only'; PhysicalIsolation='not-required'
+                BindingStatus='LOCAL_BINDING_REQUIRED'
+                Roles=[PSCustomObject]@{defaultData=[PSCustomObject]@{selector='default'};defaultLog=[PSCustomObject]@{selector='default'};backup=[PSCustomObject]@{selector='default'}}
+                TempDb=[PSCustomObject]@{
+                    distribution='single-location';dataFileCount=[long]1;dataLocationSelectors=@('default')
+                    logPlacement=[PSCustomObject]@{selector='default';logicalName='templog';fileName='templog.ldf';sizeMB=[long]64;growth='32MB'}
+                }
+                DatabaseFiles=@([PSCustomObject]@{database='AppDb';logicalName='AppDb_Data';fileType='data';fileName='AppDb_Data.mdf';selector='default'})
+                RestoreRules=@()
+            }
+        }
+
+        $cases=@(
+            @{Name='kanonisch';Kind='valid';Valid=$true},
+            @{Name='legacy fehlt';Kind='legacy';Valid=$true},
+            @{Name='legacy null';Kind='null';Valid=$true},
+            @{Name='Skalar';Kind='scalar';Valid=$false},
+            @{Name='unbekanntes Envelope-Feld';Kind='extra';Valid=$false},
+            @{Name='falscher Contract';Kind='contract';Valid=$false},
+            @{Name='ungueltiger TempDB-Selector';Kind='tempdb-selector';Valid=$false},
+            @{Name='ungueltiger DatabaseFiles-Selector';Kind='database-selector';Valid=$false}
+        )
+        $originalRuntime=(Get-Command Get-LabRunRuntimeStatus).ScriptBlock
+        $originalManagedVm=(Get-Command Get-HyperVManagedVM).ScriptBlock
+        $script:invalidPersistedStorageRuntimeCalls=0
+        $script:invalidPersistedStorageManagedVmCalls=0
+        try {
+            Set-Item Function:Get-LabRunRuntimeStatus -Value {
+                $script:invalidPersistedStorageRuntimeCalls++
+                throw 'RUNTIME_MUST_NOT_BE_READ_FOR_INVALID_PERSISTED_STORAGE_INTENT'
+            }
+            Set-Item Function:Get-HyperVManagedVM -Value {
+                $script:invalidPersistedStorageManagedVmCalls++
+                throw 'HYPERV_MUST_NOT_BE_READ_FOR_INVALID_PERSISTED_STORAGE_INTENT'
+            }
+            $results=@($cases | ForEach-Object {
+                $case=$_
+                $intents=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.InstanceIntent';Version='1.0'}}
+                if($case.Kind -ne 'legacy') {
+                    $storage=if($case.Kind -eq 'null'){$null}elseif($case.Kind -eq 'scalar'){'must-not-coerce'}else{New-TestPersistedStorageIntent}
+                    if($null -ne $storage -and $storage -isnot [string]) {
+                        switch($case.Kind) {
+                            'extra' {$storage|Add-Member -NotePropertyName HostPath -NotePropertyValue 'must-not-persist.invalid'}
+                            'contract' {$storage.ContractVersion='SqlServerLab.StorageIntent/2.0'}
+                            'tempdb-selector' {$storage.TempDb.DataLocationSelectors=@('Invalid')}
+                            'database-selector' {$storage.DatabaseFiles[0].selector='Invalid'}
+                        }
+                    }
+                    $intents|Add-Member -NotePropertyName Storage -NotePropertyValue $storage
+                }
+                $snapshot=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.RunDesiredState';Version='1.0'};ProvisioningMode='manifest';PersistentData=$false
+                    Instances=@([PSCustomObject]@{Id='primary';Provider='hyperv';Profile='standard';Intents=$intents})}
+                $run=New-LabRunState -StateRoot $Root -Metadata @{name='persisted storage intent';desiredState=$snapshot} -ProviderSubRuns @([PSCustomObject]@{provider='hyperv';instanceIds=@('primary')})
+                $statePath=Join-Path $run.RunDir 'run-state.json';$connectionPath=Join-Path $run.RunDir 'connection-info.json'
+                Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject ([PSCustomObject]@{instances=@([PSCustomObject]@{id='primary';provider='hyperv';host='must-not-fallback.invalid'})})
+                $beforeState=[Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath));$beforeConnection=[Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))
+                $persisted=Get-LabPersistedDesiredState -RunId $run.RunId -StateRoot $Root;$plans=@()
+                if(-not $case.Valid){
+                    foreach($target in @('RUNNING','STOPPED')){$plans+=Get-SqlServerLabReconcilePlan -RunId $run.RunId -TargetState $target -StateRoot $Root}
+                    $plans+=Get-SqlServerLabReconcilePlan -RunId $run.RunId -HyperVStorage -InstanceId primary -StateRoot $Root
+                }
+                [PSCustomObject]@{Name=$case.Name;Valid=$case.Valid;Status=$persisted.Status;ReasonCodes=@($persisted.ReasonCodes);Plans=@($plans)
+                    StateUnchanged=$beforeState -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($statePath));ConnectionUnchanged=$beforeConnection -ceq [Convert]::ToBase64String([IO.File]::ReadAllBytes($connectionPath))}
+            })
+            $canonicalIntent=[PSCustomObject]@{contractVersion='SqlServerLab.StorageIntent/1.0';placementPolicy='logical-only';physicalIsolation='not-required'
+                roles=[PSCustomObject]@{defaultData=[PSCustomObject]@{selector='default'}}
+                tempDb=[PSCustomObject]@{distribution='single-location';dataFileCount=1;dataLocationSelectors=@('default');logPlacement=[PSCustomObject]@{selector='default';logicalName='templog';fileName='templog.ldf';sizeMB=64;growth='32MB'}}
+                databaseFiles=@();restoreRules=@()}
+            $resolved=[PSCustomObject]@{name='canonical persisted storage roundtrip';ai=$null;instances=@([PSCustomObject]@{
+                id='primary';provider='hyperv';version='2025';profile='standard';autostart='off';databases=@();software=@();network=$null;drives=@();storageIntent=$canonicalIntent
+                hyperv=[PSCustomObject]@{processorCount=4;dynamicMemoryEnabled=$true;memoryMinimumMB=2048;memoryStartupMB=4096;memoryMaximumMB=8192}
+            })}
+            $canonicalSnapshot=New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest -PersistentData $false
+            $canonicalRun=New-LabRunState -StateRoot $Root -Metadata @{name='canonical persisted storage roundtrip';desiredState=$canonicalSnapshot} -ProviderSubRuns @([PSCustomObject]@{provider='hyperv';instanceIds=@('primary')})
+            $canonicalPersisted=Get-LabPersistedDesiredState -RunId $canonicalRun.RunId -StateRoot $Root
+            $canonicalStorage=$canonicalPersisted.Snapshot.Instances[0].Intents.Storage
+            [PSCustomObject]@{Cases=$results;RuntimeCalls=$script:invalidPersistedStorageRuntimeCalls;ManagedVmCalls=$script:invalidPersistedStorageManagedVmCalls;CanonicalRoundtrip=(
+                $canonicalPersisted.Status -eq 'VALID' -and $canonicalStorage.ContractVersion -ceq 'SqlServerLab.StorageIntent/1.0' -and
+                ((@($canonicalStorage.PSObject.Properties.Name|Sort-Object)-join ',') -ceq 'BindingStatus,ContractVersion,DatabaseFiles,PhysicalIsolation,PlacementPolicy,RestoreRules,Roles,TempDb')
+            )}
+        } finally {
+            Set-Item Function:Get-LabRunRuntimeStatus -Value $originalRuntime
+            Set-Item Function:Get-HyperVManagedVM -Value $originalManagedVm
+        }
+    } $tempRoot
+    foreach($storageIntentCase in @($persistedStorageIntentContract.Cases)) {
+        if($storageIntentCase.Valid) {
+            Add-CheckResult -Name "Persistierter Storage-Intent ($($storageIntentCase.Name)) bleibt kanonisch oder legacy-gueltig" -Success ($storageIntentCase.Status -eq 'VALID' -and $storageIntentCase.ReasonCodes.Count -eq 0)
+        } else {
+            Add-CheckResult -Name "Ungueltiger persistierter Storage-Intent ($($storageIntentCase.Name)) liefert den festen Grund" -Success ($storageIntentCase.Status -eq 'INVALID' -and ($storageIntentCase.ReasonCodes -join ',') -ceq 'DESIRED_INSTANCE_STORAGE_INTENT_INVALID')
+            foreach($plan in $storageIntentCase.Plans) {
+                $isLifecyclePlan = -not [string]::IsNullOrWhiteSpace([string]$plan.Desired.TargetState)
+                $blocked = $plan.HighestChangeClass -eq 'unsupported' -and $plan.Actions.Count -eq 0 -and -not $plan.MutationAllowed
+                if($isLifecyclePlan) {
+                    $blocked = $blocked -and -not $plan.IsNoOp -and -not $plan.Desired.IsValid -and $plan.Desired.Instances.Count -eq 0 -and $plan.Actual.Source -eq 'persisted-desired-state-invalid'
+                }
+                Add-CheckResult -Name "Ungueltiger persistierter Storage-Intent ($($storageIntentCase.Name)) blockiert $(if($isLifecyclePlan){$plan.Desired.TargetState}else{'HyperVStorage'}) ohne Runtime-Fallback" -Success $blocked
+            }
+        }
+        Add-CheckResult -Name "Persistierter Storage-Intent ($($storageIntentCase.Name)) erhaelt State- und Connection-Bytes" -Success ($storageIntentCase.StateUnchanged -and $storageIntentCase.ConnectionUnchanged)
+    }
+    Add-CheckResult -Name 'Ungueltige persistierte Storage-Intents rufen keine Runtime oder Hyper-V-Providerpfade auf' -Success ($persistedStorageIntentContract.RuntimeCalls -eq 0 -and $persistedStorageIntentContract.ManagedVmCalls -eq 0)
+    Add-CheckResult -Name 'Realer Desired-State-Snapshot rundet den kanonischen Storage-Intent mit JSON-Doubletrip' -Success $persistedStorageIntentContract.CanonicalRoundtrip
+
     $networkContract = & $module {
         param($Root)
 

@@ -853,6 +853,7 @@ internal_components:
       - "Drive-, Network- und Software-Anforderungen providerneutral normalisieren"
       - "deklarative Provider-Capability-Evidenz ohne Runtime-Annahme persistieren"
       - "persistierte Drive-Intents vor Lifecycle-Reconcile strikt und providergebunden fail-closed validieren"
+      - "persistierte Storage-Intents nur ueber ein geschlossenes PascalCase-Envelope in den portablen Schema-/Semantikvertrag rehydrieren und vor Lifecycle- oder Hyper-V-Storage-Reconcile fail-closed validieren"
   - name: CleanupEngine
     source: Private/CleanupEngine.ps1
     audit: Public/Get-SqlServerLabCleanupAudit.ps1
