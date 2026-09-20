@@ -39,6 +39,13 @@ einem tatsächlich erfolgreichen, passenden Lauf verwendet.
 
 ### 1.2 Verbindlich berücksichtigte Planungsquellen
 
+Die ausdrückliche Priorisierung vom 2026-09-20 zieht Podman-RAG/Golden,
+isoliertes Hyper-V-RAG/Agent und danach persistentes Retrieval/Re-Embedding vor.
+Die [Entwicklungswelle](AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md) hält die
+konkreten Grenzen und getrennten Nachweise fest. Vorhandene Hostmodelle werden
+bei nachgewiesener Eignung verwendet; Cloud bleibt opt-in. Alle übrigen offenen
+Arbeiten behalten ihren Status und werden nicht stillschweigend gestrichen.
+
 - [Master-Umsetzungsplan](MASTER_IMPLEMENTATION_PLAN.md) einschließlich Wellenstatus;
 - [Masterplan-Ergänzung](MASTER_IMPLEMENTATION_PLAN_SCOPE_ADDENDUM.md);
 - [Project-Adapter-Priorisierung](PROJECT_ADAPTER_PRIORITIZATION.md);

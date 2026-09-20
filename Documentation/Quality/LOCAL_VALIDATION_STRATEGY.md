@@ -9,6 +9,15 @@
 
 ## 1. Grundsatz
 
+`Invoke-AiScenarioChecks.ps1` bindet auch `Fixtures/AiRagHostChecks.ps1` ein:
+Hostmodell-Digest/Capability/Dimension/Remoteidentity, Egress/Datenklasse,
+WhatIf, Vektoren und echten synthetischen HTTP307 ohne Weiterleitung.
+`Invoke-AiRagExistingOllamaAcceptance.ps1` ist eine separate opt-in Abnahme mit
+vorhandenem Host-Ollama, ausdrücklich freigegebener Cloud und eigenem SQLrun;
+Docker und Podman werden getrennt ausgeführt. Sie ersetzt weder Golden-v1 noch
+die Hyper-V-Abnahme. Gemeinsame KI-Produktänderungen wählen weiterhin alle
+drei betroffenen Provider; ihre Evidence bleibt getrennt sichtbar.
+
 `Invoke-ReconcileContractChecks.ps1` prüft persistierte Sollidentitäten offline.
 Jeder Persistenzfehler wird ausschließlich über feste ReasonCodes reflektiert:
 `DESIRED_STATE_CONTRACT_INVALID`, `DESIRED_STATE_PROVISIONING_MODE_INVALID`,

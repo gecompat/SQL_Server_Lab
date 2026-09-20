@@ -757,7 +757,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Invoke-SqlServerLabAiScenario` | Deklariertes, hashgebundenes SQL-KI-Szenario journalisiert ausführen |
 | `Invoke-SqlServerLabAiModel` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress und lokalem `.env`-Secret aufrufen |
 | `Measure-SqlServerLabAiRetrieval` | Manuelle Rangfolgen oder gebundene Golden-RAG-Ergebnisse deterministisch mit Recall@k, Precision@k, MRR und nDCG bewerten |
-| `Invoke-SqlServerLabAiRag` | Lokales RAG ad hoc oder aus einem versionierten Golden-Fall mit Ollama-Embeddings und exakter SQL-Server-2025-Vektorsuche ausführen |
+| `Invoke-SqlServerLabAiRag` | Lokales AdHoc-/Golden-RAG; optional vorhandene Host-Embeddings mit ausdrücklich gewählter HTTPS-Cloudgeneration und exakter SQL-Server-2025-Vektorsuche ([Vertrag](Documentation/Architecture/AI_RAG_EXISTING_OLLAMA.md)) |
 | `Invoke-SqlServerLabAiDiagnosticAgent` | Read-only SQL-Diagnose-Agent mit festen Werkzeugen und lokaler Ollama-Zusammenfassung |
 | `Test-SqlServerLabContainerTool` | Kataloggebundenes SqlPackage read-only per Run-/Scope-gebundener Versionsprobe prüfen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |

@@ -6,6 +6,7 @@ Verbindliche Architekturdokumente fuer das SQL Server Lab.
 |---|---|
 | SQL_SERVER_CENTRIC_SCOPE_DECISION.md | SQL Server als Hauptzweck, Scope-Grenzen |
 | LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md | Bindendes `Lab_Data`-Versprechen, native Runtime-Ausnahmen und Hosteingriffsgrenzen |
+| [AI_RAG_EXISTING_OLLAMA.md](AI_RAG_EXISTING_OLLAMA.md) | Vorhandene Host-Embeddings, explizite Cloudgeneration und exakte SQLsuche |
 | EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md | Package, Provider, Workflow, Recovery |
 | MANIFEST_AND_INTERFACE_ARCHITECTURE.md | Schema-Definitionen, Version Constraints |
 | TEMPLATE_POOL_AND_AUTOMATED_MANIFESTS.md | Vorlagenpool, wegwerfbare Labs, Expertenaktionen und unbeaufsichtigte Manifeste |

@@ -75,6 +75,16 @@ synthetischen internen Ablauf, keine SQL-/Providerdeadline.
 
 ## KI und Ollama
 
+Der [Host-RAG-Slice](../Architecture/AI_RAG_EXISTING_OLLAMA.md) verbindet vorhandenes
+`embeddinggemma:latest` mit exakter SQLsuche und expliziter HTTPS-Cloudgeneration.
+Live-Digest/Capability/Dimension, Datenklasse, Egress und Secretgrenze werden
+geprüft; es gibt keine Downloads oder Host-Lifecycleaktionen. Lokale und Golden-
+Defaults bleiben erhalten. Die neuen kombinierten Podman- und Docker-Nachweise
+bestanden am 2026-09-20 mit jeweils neun Assertions, SQLrestart, zwei Cloudrequests
+und vollständigem Cleanup samt Residueprüfung. Hyper-V bleibt separat offen;
+persistentes Retrieval und
+Re-Embedding-Ausführung sind weiterhin nicht implementiert.
+
 Der Ollama-Modellkatalog sowie die Verträge für Endpointplan, Runtimejournal
 und sanitisierte Abfrageergebnisse sind vorhanden. Ollama-Cloud-Generation ist
 mit `gpt-oss:120b` für synthetische oder öffentlich/weiterverteilbare Inhalte

@@ -276,6 +276,22 @@ blockierend. Docker und Podman werden getrennt samt Restart und Cleanup geprüft
 .\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider podman
 ```
 
+Für bereits vorhandenes Host-`embeddinggemma:latest` mit ausdrücklich gewählter
+HTTPS-Cloudgeneration gibt es eine separate synthetische AdHoc-Abnahme:
+
+```powershell
+.\Tests\Integration\Invoke-AiRagExistingOllamaAcceptance.ps1 -Provider podman -SecretFilePath $secretFile
+```
+
+Sie prüft zwei feste Retrievaltreffer über einen eigenen SQLrestart, höchstens
+zwei Cloudrequests ohne Retry, unveränderte Host-Tags und exakte Container-/
+Volume-Abwesenheit nach Cleanup. Hostmodelle werden weder heruntergeladen noch
+entfernt; der Hostdienst wird nicht neugestartet. `PASS` kommt erst nach dem
+Cleanup. Docker benötigt einen getrennten Aufruf. Dies ist kein unverändertes
+Golden-v1-Gate und keine allgemeine Antwortqualitätszusage. Der genaue
+[Vertrag und Evidencestand](../Documentation/Architecture/AI_RAG_EXISTING_OLLAMA.md)
+bleiben maßgeblich.
+
 Der read-only Diagnose-Agent wird mit echten katalogisierten SQL-Abfragen,
 kurzlebigem Login, lokalem Modell, Login-Cleanup und Restart getrennt geprüft:
 

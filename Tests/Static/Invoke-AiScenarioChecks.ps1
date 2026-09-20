@@ -450,6 +450,9 @@ try {
     $reembeddingSource=Get-Content (Join-Path $repoRoot 'Private/AiReembedding.ps1') -Raw -Encoding utf8
     Add-CheckResult 'Re-Embedding-Planer bleibt ohne Apply-, Provider-, Modell- oder Netzwerkzugriff' (
         $reembeddingSource -notmatch 'Invoke-RestMethod|Invoke-WebRequest|Invoke-SqlQuery|Start-Process|Write-LabArtifactJsonAtomic|ShouldProcess')
+    foreach($hostCheck in @(& (Join-Path $PSScriptRoot 'Fixtures/AiRagHostChecks.ps1') -Module $module -RepoRoot $repoRoot)){
+        Add-CheckResult $hostCheck.Name $hostCheck.Success
+    }
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue

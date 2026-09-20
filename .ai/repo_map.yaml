@@ -82,6 +82,10 @@ sources_of_truth:
   ai_retrieval_golden_dataset_schema: Schemas/ai-retrieval-golden-dataset.schema.json
   ai_retrieval_golden_dataset: Scenarios/Ai/rag-local-vector/1.0/golden-dataset.json
   ai_rag_orchestration: Public/Invoke-SqlServerLabAiRag.ps1
+  ai_rag_host_binding: Private/AiRagHost.ps1
+  ai_rag_existing_ollama_contract: Documentation/Architecture/AI_RAG_EXISTING_OLLAMA.md
+  validation_ai_rag_host_fixture: Tests/Static/Fixtures/AiRagHostChecks.ps1
+  validation_ai_rag_existing_ollama: Tests/Integration/Invoke-AiRagExistingOllamaAcceptance.ps1
   ai_diagnostic_agent: Public/Invoke-SqlServerLabAiDiagnosticAgent.ps1
   validation_ai_diagnostic_agent_container: Tests/Integration/Invoke-AiDiagnosticAgentContainerAcceptance.ps1
   validation_ai_hyperv: Tests/Integration/Invoke-AiHyperVAcceptance.ps1
