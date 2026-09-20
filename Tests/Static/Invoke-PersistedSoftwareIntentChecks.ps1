@@ -51,6 +51,7 @@ try {
         $hyperVDesired = New-TestSoftwareDesiredState hyperv
         $dockerConfigurationDesired = New-TestSoftwareDesiredState docker -IncludeServerConfig
         $dockerFractionalDesired = New-TestSoftwareDesiredState docker -Cpu 1.5
+        $dockerHundredthsDesired = New-TestSoftwareDesiredState docker -Cpu 1.23
         $dockerRun = New-TestSoftwareRun $dockerDesired docker 'container-lab'
         $hyperVRun = New-TestSoftwareRun $hyperVDesired hyperv 'hyperv-lab'
         $dockerPersisted = Get-LabPersistedDesiredState -RunId $dockerRun.RunId -StateRoot $Root
@@ -65,6 +66,12 @@ try {
         $dockerConfigurationPersisted = Get-LabPersistedDesiredState -RunId $dockerConfigurationRun.RunId -StateRoot $Root
         $dockerFractionalRun = New-TestSoftwareRun $dockerFractionalDesired docker 'container-lab'
         $dockerFractionalPersisted = Get-LabPersistedDesiredState -RunId $dockerFractionalRun.RunId -StateRoot $Root
+        $dockerHundredthsRun = New-TestSoftwareRun $dockerHundredthsDesired docker 'container-lab'
+        $dockerHundredthsPersisted = Get-LabPersistedDesiredState -RunId $dockerHundredthsRun.RunId -StateRoot $Root
+        $dockerInvalidCpu = $dockerDesired | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
+        $dockerInvalidCpu.Instances[0].Intents.ContainerRuntime.Cpu = 1.234
+        $dockerInvalidCpuRun = New-TestSoftwareRun $dockerInvalidCpu docker 'container-lab'
+        $dockerInvalidCpuPersisted = Get-LabPersistedDesiredState -RunId $dockerInvalidCpuRun.RunId -StateRoot $Root
         $dockerConfigurationTampered = $dockerConfigurationDesired | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
         $dockerConfigurationTampered.Instances[0].Intents.SqlConfiguration.CapabilityStatus = 'DECLARED_SUPPORTED'
         $dockerConfigurationTamperedRun = New-TestSoftwareRun $dockerConfigurationTampered docker 'container-lab'
@@ -117,6 +124,7 @@ try {
             DockerPersistedPlans=$dockerPersistedPlans; HyperVPersistedPlans=$hyperVPersistedPlans
             DockerConfigurationCanonical=$dockerConfigurationPersisted; DockerConfigurationTampered=$dockerConfigurationTamperedPersisted
             DockerFractional=$dockerFractionalPersisted
+            DockerHundredths=$dockerHundredthsPersisted; DockerInvalidCpu=$dockerInvalidCpuPersisted
             LegacyMissing=(New-TestSoftwareRun $legacyMissing docker 'container-lab'); LegacyNull=(New-TestSoftwareRun $legacyNull docker 'container-lab')
             Invalid=@($invalid); HyperVMessage=$hyperVMessage
             HyperVStateUnchanged=($beforeHyperVState -ceq (Get-Content -LiteralPath (Join-Path $hyperVInvalidRun.RunDir 'run-state.json') -Raw -Encoding utf8))
@@ -133,6 +141,9 @@ try {
     Add-CheckResult -Name 'Fractional Container-CPU bleibt ueber Persistenz und JSON-Roundtrip exakt gebunden' -Success (
         $result.DockerFractional.Status -eq 'VALID' -and
         [double]$result.DockerFractional.Snapshot.Instances[0].Intents.ContainerRuntime.Cpu -eq 1.5)
+    Add-CheckResult -Name 'Container-CPU akzeptiert exakt zwei Dezimalstellen und blockiert 1.234 vor Providerzugriff' -Success (
+        $result.DockerHundredths.Status -eq 'VALID' -and [double]$result.DockerHundredths.Snapshot.Instances[0].Intents.ContainerRuntime.Cpu -eq 1.23 -and
+        $result.DockerInvalidCpu.Status -eq 'INVALID' -and $result.DockerInvalidCpu.ReasonCodes -contains 'DESIRED_INSTANCE_CONTAINER_RUNTIME_INTENT_INVALID')
     Add-CheckResult -Name 'Docker-SQL-Konfigurationsstatus bleibt an die deklarierte Provider-Capability gebunden' -Success (
         $result.DockerConfigurationCanonical.Status -eq 'VALID' -and
         $result.DockerConfigurationTampered.Status -eq 'INVALID' -and

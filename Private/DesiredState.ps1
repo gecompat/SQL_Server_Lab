@@ -108,6 +108,10 @@ function New-LabContainerRuntimeIntentSnapshot {
     # Docker and Podman accept fractional CPU quotas.  Keep the numeric value
     # as a double through JSON instead of truncating it to an integer.
     $cpu = if ($Instance.runtimeResources -and $null -ne $Instance.runtimeResources.cpu) { [double]$Instance.runtimeResources.cpu } else { [double]$profile.maxCpus }
+    if ([double]::IsNaN($cpu) -or [double]::IsInfinity($cpu) -or $cpu -lt 0.5 -or $cpu -gt 64 -or
+        [Math]::Abs($cpu - [Math]::Round($cpu, 2, [MidpointRounding]::AwayFromZero)) -gt 0.000000001) {
+        throw 'CONTAINER_RUNTIME_CPU_PRECISION_INVALID'
+    }
     $memoryMB = if ($Instance.runtimeResources -and $null -ne $Instance.runtimeResources.memoryMB) { [long]$Instance.runtimeResources.memoryMB } else { [long]$profile.maxMemoryMB }
     return [PSCustomObject]@{
         Contract = [PSCustomObject]@{ Name='SqlServerLab.ContainerRuntimeIntent'; Version='1.0' }
@@ -532,6 +536,7 @@ function Test-LabPersistedContainerRuntimeIntent {
         (-not ($ContainerRuntime.Cpu -is [long] -or $ContainerRuntime.Cpu -is [double])) -or
         [double]::IsNaN([double]$ContainerRuntime.Cpu) -or [double]::IsInfinity([double]$ContainerRuntime.Cpu) -or
         [double]$ContainerRuntime.Cpu -lt 0.5 -or [double]$ContainerRuntime.Cpu -gt 64 -or
+        [Math]::Abs(([double]$ContainerRuntime.Cpu) - [Math]::Round([double]$ContainerRuntime.Cpu, 2, [MidpointRounding]::AwayFromZero)) -gt 0.000000001 -or
         $ContainerRuntime.MemoryMB -isnot [long] -or $ContainerRuntime.MemoryMB -lt 512 -or $ContainerRuntime.MemoryMB -gt 1048576 -or
         $ContainerRuntime.Collation -isnot [string]) { return $false }
     try {
