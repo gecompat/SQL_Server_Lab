@@ -71,6 +71,7 @@
         'Remove-SqlServerLab'
         'Clear-SqlServerLab'
         'Get-SqlServerLabCleanupAudit'
+        'Get-SqlServerLabDiagnosticBundle'
         'Get-SqlServerLabMaintenancePlan'
         'Invoke-SqlServerLabMaintenance'
         'Get-SqlServerLabPersistentStorageRemovalPlan'

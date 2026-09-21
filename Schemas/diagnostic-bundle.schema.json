@@ -1,0 +1,572 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.DiagnosticBundle/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "ContractVersion",
+    "ResultVersion",
+    "Status",
+    "Request",
+    "Binding",
+    "History",
+    "Cleanup",
+    "Operation",
+    "Readiness",
+    "Capabilities",
+    "SpecializedRecovery",
+    "Reproduction",
+    "Exclusions"
+  ],
+  "properties": {
+    "ContractVersion": {
+      "const": "SqlServerLab.DiagnosticBundle/1.0"
+    },
+    "ResultVersion": {
+      "const": "1.0"
+    },
+    "Status": {
+      "type": "string",
+      "enum": [
+        "OBSERVED",
+        "UNAVAILABLE",
+        "BLOCKED"
+      ]
+    },
+    "Request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "EvidenceStatus",
+        "Operation",
+        "Target"
+      ],
+      "properties": {
+        "EvidenceStatus": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "NOT_EXECUTED",
+            "UNAVAILABLE",
+            "UNSUPPORTED",
+            "BLOCKED"
+          ]
+        },
+        "Operation": {
+          "type": "string",
+          "enum": [
+            "UNKNOWN",
+            "Inspect",
+            "Validate",
+            "Create",
+            "Start",
+            "Stop",
+            "Remove",
+            "PrepareImage"
+          ]
+        },
+        "Target": {
+          "const": "SINGLE_RUN_INSTANCE"
+        }
+      }
+    },
+    "Binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "EvidenceStatus",
+        "Reason",
+        "Provider",
+        "SqlVersion",
+        "OperatingSystem",
+        "Persistence",
+        "ProvisioningMode"
+      ],
+      "properties": {
+        "EvidenceStatus": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "NOT_EXECUTED",
+            "UNAVAILABLE",
+            "UNSUPPORTED",
+            "BLOCKED"
+          ]
+        },
+        "Reason": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "DIAGNOSTIC_REQUEST_INVALID",
+            "DIAGNOSTIC_ROOT_INVALID",
+            "DIAGNOSTIC_LINK_BLOCKED",
+            "DIAGNOSTIC_EVIDENCE_MISSING",
+            "DIAGNOSTIC_SIZE_LIMIT",
+            "DIAGNOSTIC_METADATA_INVALID",
+            "DIAGNOSTIC_TARGET_INVALID",
+            "DIAGNOSTIC_CONTROLLER_MISMATCH",
+            "DIAGNOSTIC_ROOT_MISMATCH",
+            "DIAGNOSTIC_COUNT_LIMIT",
+            "DIAGNOSTIC_ROOT_UNREGISTERED",
+            "DIAGNOSTIC_RUN_CONTRACT_UNSUPPORTED",
+            "DIAGNOSTIC_RUN_SCOPE_MISMATCH",
+            "DIAGNOSTIC_DESIRED_BINDING_INVALID",
+            "DIAGNOSTIC_PERSISTENT_ROOT_MISMATCH",
+            "DIAGNOSTIC_INSTANCE_BINDING_INVALID",
+            "DIAGNOSTIC_PROVIDER_BINDING_INVALID",
+            "DIAGNOSTIC_INSTANCE_UNAVAILABLE",
+            "DIAGNOSTIC_PROVIDER_MISMATCH",
+            "DIAGNOSTIC_SQL_VERSION_UNSUPPORTED",
+            "DIAGNOSTIC_STATE_INVALID",
+            "DIAGNOSTIC_EVIDENCE_UNVERIFIABLE"
+          ]
+        },
+        "Provider": {
+          "type": "string",
+          "enum": [
+            "UNKNOWN",
+            "docker",
+            "podman",
+            "hyperv"
+          ]
+        },
+        "SqlVersion": {
+          "type": "string",
+          "enum": [
+            "UNKNOWN",
+            "2016",
+            "2017",
+            "2019",
+            "2022",
+            "2025"
+          ]
+        },
+        "OperatingSystem": {
+          "type": "string",
+          "enum": [
+            "UNKNOWN",
+            "windows",
+            "linux"
+          ]
+        },
+        "Persistence": {
+          "type": "string",
+          "enum": [
+            "UNKNOWN",
+            "PERSISTENT",
+            "RUN_SCOPED"
+          ]
+        },
+        "ProvisioningMode": {
+          "type": "string",
+          "enum": [
+            "UNKNOWN",
+            "adhoc",
+            "manifest"
+          ]
+        }
+      }
+    },
+    "History": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "EvidenceStatus",
+        "RunState",
+        "RecoveryStatus",
+        "ErrorCount",
+        "RuntimeStatus"
+      ],
+      "properties": {
+        "EvidenceStatus": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "NOT_EXECUTED",
+            "UNAVAILABLE",
+            "UNSUPPORTED",
+            "BLOCKED"
+          ]
+        },
+        "RunState": {
+          "type": "string",
+          "enum": [
+            "UNKNOWN",
+            "INITIALIZING",
+            "PROVISIONING",
+            "SQL_READY",
+            "DATABASES_CREATED",
+            "POST_PROVISIONED",
+            "RUNNING",
+            "STOPPED",
+            "PROVISION_FAILED",
+            "CLEANUP_PENDING",
+            "CLEANUP_RUNNING",
+            "CLEANED_UP",
+            "RECOVERY_REQUIRED",
+            "REMOVED"
+          ]
+        },
+        "RecoveryStatus": {
+          "type": "string",
+          "enum": [
+            "UNKNOWN",
+            "REQUIRED",
+            "NOT_RECORDED"
+          ]
+        },
+        "ErrorCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "RuntimeStatus": {
+          "const": "NOT_EXECUTED"
+        }
+      }
+    },
+    "Cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "EvidenceStatus",
+        "Reason",
+        "Status",
+        "PendingSteps",
+        "CompletedSteps",
+        "FailedSteps",
+        "LiveResidueStatus"
+      ],
+      "properties": {
+        "EvidenceStatus": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "NOT_EXECUTED",
+            "UNAVAILABLE",
+            "UNSUPPORTED",
+            "BLOCKED"
+          ]
+        },
+        "Reason": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "DIAGNOSTIC_BINDING_REQUIRED",
+            "DIAGNOSTIC_CLEANUP_NOT_RECORDED",
+            "DIAGNOSTIC_CLEANUP_UNVERIFIABLE"
+          ]
+        },
+        "Status": {
+          "type": "string",
+          "enum": [
+            "UNKNOWN",
+            "PENDING",
+            "EXECUTING",
+            "COMPLETED",
+            "PARTIAL"
+          ]
+        },
+        "PendingSteps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "CompletedSteps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "FailedSteps": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 256
+        },
+        "LiveResidueStatus": {
+          "const": "NOT_EXECUTED"
+        }
+      }
+    },
+    "Operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "EvidenceStatus",
+        "Reason",
+        "Status",
+        "StepCount",
+        "CleanupRequested"
+      ],
+      "properties": {
+        "EvidenceStatus": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "NOT_EXECUTED",
+            "UNAVAILABLE",
+            "UNSUPPORTED",
+            "BLOCKED"
+          ]
+        },
+        "Reason": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "DIAGNOSTIC_BINDING_REQUIRED",
+            "DIAGNOSTIC_OPERATION_NOT_RECORDED",
+            "DIAGNOSTIC_OPERATION_UNVERIFIABLE"
+          ]
+        },
+        "Status": {
+          "type": "string",
+          "enum": [
+            "UNKNOWN",
+            "Draft",
+            "Queued",
+            "Running",
+            "WaitingForDependency",
+            "WaitingForUser",
+            "CandidateSatisfied",
+            "Paused",
+            "CleanupQueued",
+            "Completed",
+            "Failed",
+            "Cancelled"
+          ]
+        },
+        "StepCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "CleanupRequested": {
+          "type": "boolean"
+        }
+      }
+    },
+    "Readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "EvidenceStatus",
+        "Reason",
+        "Status",
+        "Checks"
+      ],
+      "properties": {
+        "EvidenceStatus": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "NOT_EXECUTED",
+            "UNAVAILABLE",
+            "UNSUPPORTED",
+            "BLOCKED"
+          ]
+        },
+        "Reason": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "DIAGNOSTIC_BINDING_REQUIRED",
+            "DIAGNOSTIC_READINESS_NOT_REQUESTED",
+            "DIAGNOSTIC_READINESS_FAILED",
+            "DIAGNOSTIC_READINESS_TIMEOUT",
+            "DIAGNOSTIC_READINESS_OUTPUT_LIMIT",
+            "DIAGNOSTIC_READINESS_TERMINATION_UNCONFIRMED",
+            "DIAGNOSTIC_READINESS_RESPONSE_INVALID"
+          ]
+        },
+        "Status": {
+          "type": "string",
+          "enum": [
+            "UNKNOWN",
+            "READY",
+            "READY_WITH_WARNINGS",
+            "NOT_READY"
+          ]
+        },
+        "Checks": {
+          "type": "array",
+          "maxItems": 24,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "Category",
+              "Code",
+              "Status"
+            ],
+            "properties": {
+              "Category": {
+                "type": "string",
+                "enum": [
+                  "OperatingSystem",
+                  "PowerShell",
+                  "Repository",
+                  "Manifest",
+                  "ModuleImport",
+                  "Exports",
+                  "Provider",
+                  "Installation",
+                  "Permission",
+                  "Reachability",
+                  "Storage",
+                  "OperationRights"
+                ]
+              },
+              "Code": {
+                "type": "string",
+                "enum": [
+                  "OS_SUPPORTED",
+                  "OS_UNSUPPORTED",
+                  "POWERSHELL_SUPPORTED",
+                  "POWERSHELL_7_2_REQUIRED",
+                  "REPOSITORY_PRESENT",
+                  "REPOSITORY_INCOMPLETE",
+                  "MANIFEST_VALID",
+                  "MANIFEST_INVALID",
+                  "MODULE_IMPORTED",
+                  "MODULE_IMPORT_FAILED",
+                  "MODULE_EXPORTS_PRESENT",
+                  "MODULE_EXPORTS_MISSING",
+                  "PROVIDER_OS_UNSUPPORTED",
+                  "PROVIDER_NOT_INSTALLED",
+                  "PROVIDER_ACCESS_DENIED",
+                  "PROVIDER_UNREACHABLE",
+                  "PROVIDER_INSTALLATION_INCOMPLETE",
+                  "PROVIDER_REACHABLE",
+                  "TOOL_RESOLUTION_FAILED",
+                  "TOOL_NOT_INSTALLED",
+                  "TOOL_NATIVE_PATH_REQUIRED",
+                  "TOOL_EXECUTION_DENIED",
+                  "PROVIDER_PROBE_TIMEOUT",
+                  "PROVIDER_PROBE_FAILED",
+                  "PROVIDER_RESPONSE_INVALID",
+                  "STORAGE_CONFIGURED",
+                  "STORAGE_CONFIGURATION_REQUIRED",
+                  "STORAGE_CONFIGURATION_INVALID",
+                  "OPERATION_PROVIDER_UNSUPPORTED",
+                  "ELEVATION_PRESENT",
+                  "ELEVATION_REQUIRED",
+                  "TARGET_AUTHORIZATION_REQUIRED",
+                  "READ_ONLY_PROBE_COMPLETED",
+                  "BOOTSTRAP_REQUIRED"
+                ]
+              },
+              "Status": {
+                "type": "string",
+                "enum": [
+                  "PASS",
+                  "BLOCKED",
+                  "WARNING",
+                  "NOT_CHECKED"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "Capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "EvidenceStatus",
+        "Scope",
+        "MutationAllowed",
+        "SqlProbe",
+        "ClientReadiness",
+        "ProviderReadiness"
+      ],
+      "properties": {
+        "EvidenceStatus": {
+          "const": "OBSERVED"
+        },
+        "Scope": {
+          "const": "REGISTERED_MODERN_RUN"
+        },
+        "MutationAllowed": {
+          "const": false
+        },
+        "SqlProbe": {
+          "const": "NOT_EXECUTED"
+        },
+        "ClientReadiness": {
+          "const": "UNSUPPORTED"
+        },
+        "ProviderReadiness": {
+          "const": "BOUNDED_READ_ONLY"
+        }
+      }
+    },
+    "SpecializedRecovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "EvidenceStatus",
+        "Reason"
+      ],
+      "properties": {
+        "EvidenceStatus": {
+          "const": "UNSUPPORTED"
+        },
+        "Reason": {
+          "const": "DIAGNOSTIC_SPECIALIZED_JOURNALS_EXCLUDED"
+        }
+      }
+    },
+    "Reproduction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "EvidenceStatus",
+        "Reason",
+        "VersionCatalogSha256"
+      ],
+      "properties": {
+        "EvidenceStatus": {
+          "type": "string",
+          "enum": [
+            "OBSERVED",
+            "NOT_EXECUTED",
+            "UNAVAILABLE",
+            "UNSUPPORTED",
+            "BLOCKED"
+          ]
+        },
+        "Reason": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "DIAGNOSTIC_BINDING_REQUIRED",
+            "DIAGNOSTIC_CATALOG_UNAVAILABLE"
+          ]
+        },
+        "VersionCatalogSha256": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-f0-9]{64}$"
+        }
+      }
+    },
+    "Exclusions": {
+      "const": [
+        "SECRETS",
+        "CONNECTION_INFO",
+        "SQL_CONTENT",
+        "RAW_LOGS",
+        "HOST_LOCATORS",
+        "RUNTIME_IDENTIFIERS",
+        "RUN_AND_INSTANCE_IDENTIFIERS",
+        "DISPLAY_NAMES",
+        "SPECIALIZED_JOURNALS",
+        "UNBOUND_INVENTORIES",
+        "GLOBAL_STORAGE_CONFIGURATION",
+        "AUTOMATIC_EXPORT"
+      ]
+    }
+  }
+}

@@ -1,5 +1,14 @@
 # Bekannte Grenzen
 
+`Get-SqlServerLabDiagnosticBundle` unterstützt ausschließlich eine moderne,
+vollständig gebundene Instanz unter einem registrierten `Lab_Data/State`.
+Historischer State und Cleanupstatus sind keine SQL-Readiness oder aktuelle
+Restprüfung. Die isolierte Providerprobe verwendet den aktuellen Clientkontext;
+sie bestätigt keine historische Runtimebindung. Vollständige Client-Readiness
+mit globaler Storage-Konfiguration, Legacy-/freie StateRoots, genaue Fehlertexte,
+Spezialjournale, automatische Exporte und Operator-Integration bleiben außerhalb
+dieses Slices. [Vertrag und Grenzen](../Architecture/DIAGNOSTIC_BUNDLE.md).
+
 Die [SQL-2022-/SQL-2025-Upgrade-Referenz](SQL_VERSION_UPGRADE_REFERENCE.md)
 ist als fester Test implementiert: zwei neue eigene Container-Runs,
 registriertes Full-Backup, Restore mit erhaltenem Compatibility Level 160,

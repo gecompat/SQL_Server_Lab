@@ -86,6 +86,7 @@ Get-SqlServerLabEvaluationWatch         # Windows-/SQL-Artefakte und nur receipt
 Invoke-SqlServerLabEvaluationWatchTrigger # Evaluation-Watch lokal und begrenzt zeitgesteuert ausführen
 Update-SqlServerLabSqlGuestEvaluationEvidence # SQL-2025-Hyper-V-Edition erfassen und NO_DEADLINE-Receipt atomar erneuern
 Get-SqlServerLabRunStateUpgradePlan     # Lokalen Run-State read-only gegen Zielvertrag klassifizieren
+Get-SqlServerLabDiagnosticBundle        # Gebundene, sanitisierte Einzelinstanz-Diagnose ohne Mutation
 Invoke-SqlServerLabRunStateUpgrade       # Ausdrücklich synthetischen Legacy-State atomar migrieren
 Get-SqlServerLabPortableLabImportPlan   # Portables Container-Lab-Paket mit Backup-Integritäts-Evidence an vorhandenen Ziel-Run read-only vorprüfen
 Get-SqlServerLabPortableContainerTransferExecutorPlan # Mehrdatenbank-Transfervertrag vorprüfen; Ausführung bleibt blockiert
