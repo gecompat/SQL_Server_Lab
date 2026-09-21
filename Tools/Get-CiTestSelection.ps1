@@ -88,7 +88,7 @@ end {
         @{ Pattern = '(?i)(DockerProvider|PodmanProvider|ContainerVolume)'; Checks = @('Invoke-ContainerVolumeContractChecks.ps1','Invoke-PortAllocationChecks.ps1') },
         @{ Pattern = '(?i)(ContainerInstanceStore|container-instance-store)'; Checks = @('Invoke-ContainerInstanceStoreChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
         @{ Pattern = '(?i)(ContainerRuntimeScope|container-runtime-scope)'; Checks = @('Invoke-ContainerRuntimeScopeChecks.ps1') },
-        @{ Pattern = '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|persistent-storage-(catalog|artifact))'; Checks = @('Invoke-PersistentStorageCatalogChecks.ps1','Invoke-BackupLibraryChecks.ps1','Invoke-DatabasePackageChecks.ps1') },
+        @{ Pattern = '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|PersistentStorageRecovery|persistent-storage-(catalog|artifact|recovery))'; Checks = @('Invoke-PersistentStorageCatalogChecks.ps1','Invoke-PersistentStorageRecoveryChecks.ps1','Invoke-BackupLibraryChecks.ps1','Invoke-DatabasePackageChecks.ps1') },
         @{ Pattern = '(?i)(BackupLibrary|backup-library|Backup-SqlServerLabDatabase|Restore-SqlServerLabDatabase)'; Checks = @('Invoke-BackupLibraryChecks.ps1','Invoke-DatabaseMigrationDependencyChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(DatabasePackage|database-package)'; Checks = @('Invoke-DatabasePackageChecks.ps1','Invoke-DatabaseMigrationDependencyChecks.ps1') },
         @{ Pattern = '(?i)(ContainerDatabasePackage|container-database-package)'; Checks = @('Invoke-ContainerDatabasePackageRecoveryChecks.ps1') },

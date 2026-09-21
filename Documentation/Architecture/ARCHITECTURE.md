@@ -99,6 +99,7 @@ Get-SqlServerLabPersistentStorageRemovalPlan # Retention-Folgen per stabiler Sto
 Invoke-SqlServerLabPersistentStorageRemoval  # Retain, Backup, Datenbankpaket oder beides journalisiert ausführen
 Sync-SqlServerLabPersistentStorageArtifact   # Vorhandenes Backup/Paket/Exchange-Workspace per stabiler ID katalogisieren
 Sync-SqlServerLabRunScopedContainerStore     # Laufenden labelgebundenen Containerstore per Run-Evidence katalogisieren
+Repair-SqlServerLabPersistentStorageCatalog  # Eigenen abgetrennten labelgebundenen Containerstore wieder katalogisieren
 Get-SqlServerLabDatabasePackage              # Datenbankpakete per stabiler ID pfadfrei inventarisieren
 Export-SqlServerLabDatabasePackage           # Rungebundene Container-Datenbank nach Offline-Commit hashgebunden veröffentlichen
 Invoke-SqlServerLabDatabasePackageAttach     # Paket pfadfrei an einen stabil gebundenen Hyper-V-SQL-Run attachen

@@ -76,6 +76,7 @@
         'Invoke-SqlServerLabPersistentStorageRemoval'
         'Sync-SqlServerLabPersistentStorageArtifact'
         'Sync-SqlServerLabRunScopedContainerStore'
+        'Repair-SqlServerLabPersistentStorageCatalog'
         'Get-SqlServerLabDatabasePackage'
         'Export-SqlServerLabDatabasePackage'
         'Invoke-SqlServerLabDatabasePackageAttach'

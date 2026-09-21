@@ -820,3 +820,14 @@ Für den nahtlosen Weitbetrieb gilt:
 - Nicht mehr benötigte PRs sind zu schließen oder zu löschen, um den Projektzustand zu säubern.
 - Commitnachrichten richten sich nach den Projektregeln mit KI-Präfix in der ersten Zeile und klarer Änderungsbeschreibung.
 - Branches, deren PRs abgeschlossen sind oder verworfen wurden, sind zeitnah aufzuräumen.
+
+Der enge Katalog-Recovery-Pfad für eigene retained Docker-/Podman-Instanzstores
+ist implementiert: `Repair-SqlServerLabPersistentStorageCatalog` erhält die
+bestehende Label-UUID und bindet vollständige Original-Run-Evidence sowie die
+aktuelle Provider-Runtime. Alle Continue-/Clone-/Lease-/Provider-Consumer prüfen
+diese optionale Bindung; normale bestehende Einträge bleiben kompatibel.
+Neue PersistentData-Runs persistieren die nach dem Lease-Erwerb vollständigen
+Drive-Intents vor Providerarbeit. Historische unvollständige oder UUID-lose
+Evidence wird nicht migriert. Native Recovery-Akzeptanz ist getrennt offen;
+Tests/Integration/Invoke-PersistentStorageRecoveryAcceptance.ps1 bereitet
+jeweils einen eigenen Docker-/Podman-SQL-Store samt vollständigem Cleanup vor.

@@ -732,3 +732,15 @@ Reason-Code und Handlungshinweis sind schemafest; jeder Befund setzt
 - [Konsolen-, Lifecycle- und Storage-Konsolidierung](CONSOLE_LIFECYCLE_AND_STORAGE_CONSOLIDATION_PLAN_2026-08-12.md);
 - [Providerneutraler Batch-, Queue- und Resume-Workflow](PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md);
 - [SQL-, SSIS- und SSAS-Cluster](SQL_SSIS_SSAS_CLUSTER_BACKLOG.md).
+
+Der ergänzende enge Recovery-Slice von PSR-003 ist implementiert:
+`Repair-SqlServerLabPersistentStorageCatalog` stellt ausschließlich verlorene
+Bindungen eigener, bereits UUID-gelabelter detached retained Docker-/Podman-Stores
+wieder her. Original-Evidence, Controller, Runtime-Kontext, SQL-Version und
+unveränderte Labels werden erneut geprüft; CAS, Spiegelrollback und identische
+Wiederholung verwenden den gemeinsamen Katalogkern. Die Provider-Runtime-Bindung
+wird durch Continue, Clone, Lease/Release, Initialisierung und Residency getragen.
+Neue Runs erhalten den vollständigen persistenten Drive-Snapshot; historische
+Lücken werden nicht migriert. Fremde/unbekannte Stores, run-scoped Konvertierung,
+Sidecars und breite Bestandsadoption bleiben ausgeschlossen. Der native Nachweis
+für Docker und Podman ist vorbereitet und bleibt bis zur Ausführung offen.

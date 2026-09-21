@@ -897,6 +897,10 @@ internal_components:
     audit_findings: Private/CleanupAuditFindings.ps1
     storage_residency: Private/StorageResidencyInventory.ps1
     persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
+    persistent_storage_catalog_recovery: Public/Repair-SqlServerLabPersistentStorageCatalog.ps1
+    persistent_storage_recovery_core: Private/PersistentStorageRecovery.ps1
+    persistent_storage_recovery_checks: Tests/Static/Invoke-PersistentStorageRecoveryChecks.ps1
+    persistent_storage_recovery_acceptance: Tests/Integration/Invoke-PersistentStorageRecoveryAcceptance.ps1
     persistent_storage_artifact_sync: Public/Sync-SqlServerLabPersistentStorageArtifact.ps1
     persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
     persistent_storage_removal_preview: Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1
