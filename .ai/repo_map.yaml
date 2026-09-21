@@ -313,6 +313,20 @@ sources_of_truth:
   persistent_storage_artifact_sync_result_schema: Schemas/persistent-storage-artifact-sync-result.schema.json
   validation_persistent_storage_catalog: Tests/Static/Invoke-PersistentStorageCatalogChecks.ps1
   persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
+  retained_store_removal: Private/RetainedStoreRemoval.ps1
+  retained_store_runtime: Private/RetainedStoreRuntime.ps1
+  retained_store_console: Private/RetainedStoreConsole.ps1
+  retained_store_removal_preview: Public/Get-SqlServerLabRetainedStoreRemovalPlan.ps1
+  retained_store_removal_action: Public/Invoke-SqlServerLabRetainedStoreRemoval.ps1
+  retained_store_removal_journal: Schemas/retained-store-removal-journal.schema.json
+  retained_store_removal_user_guide: Documentation/User/RETAINED_STORE_REMOVAL.md
+  retained_store_removal_checks: Tests/Static/Invoke-RetainedStoreRemovalChecks.ps1
+  retained_store_runtime_checks: Tests/Static/Invoke-RetainedStoreRuntimeChecks.ps1
+  retained_store_concurrency_checks: Tests/Static/Invoke-RetainedStoreRemovalConcurrencyChecks.ps1
+  retained_store_acceptance: Tests/Integration/Invoke-RetainedStoreRemovalAcceptance.ps1
+  retained_store_acceptance_worker: Tests/Common/RetainedStoreRemovalAcceptanceWorker.ps1
+  retained_store_acceptance_cleanup: Tests/Common/RetainedStoreRemovalAcceptanceCleanup.ps1
+  retained_store_acceptance_supervisor: Tests/Common/RetainedStoreRemovalSupervisor.ps1
   persistent_storage_removal_preview: Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1
   persistent_storage_removal_executor: Private/PersistentStorageRemovalExecutor.ps1
   container_database_package: Private/ContainerDatabasePackage.ps1
@@ -1433,6 +1447,24 @@ validation:
       - exchange_workspace_reference_and_binding_uniqueness
       - revision_guarded_hyperv_instance_store_reservation_completion_and_recovery
       - revision_guarded_run_scoped_container_store_registration
+  static_retained_store_removal:
+    command: '.\Tests\Static\Invoke-RetainedStoreRemovalChecks.ps1'
+    source: Tests/Static/Invoke-RetainedStoreRemovalChecks.ps1
+    covers:
+      - exact_preview_cas_and_immutable_tombstone
+      - journal_and_mirror_fault_forward_recovery
+      - public_console_and_workflow_confirmation
+  static_retained_store_runtime:
+    command: '.\Tests\Static\Invoke-RetainedStoreRuntimeChecks.ps1'
+    source: Tests/Static/Invoke-RetainedStoreRuntimeChecks.ps1
+    covers:
+      - context_bound_non_forced_delete_and_missing_proof
+      - bounded_acceptance_children_and_owned_cleanup
+  static_retained_store_concurrency:
+    command: '.\Tests\Static\Invoke-RetainedStoreRemovalConcurrencyChecks.ps1'
+    source: Tests/Static/Invoke-RetainedStoreRemovalConcurrencyChecks.ps1
+    covers:
+      - cross_process_reservation_and_abandoned_mutex
   static_persistent_storage_removal_plan:
     command: '.\Tests\Static\Invoke-PersistentStorageRemovalPlanChecks.ps1'
     source: Tests/Static/Invoke-PersistentStorageRemovalPlanChecks.ps1

@@ -17,7 +17,7 @@
           "PersistentStorageId": { "type": "string", "format": "uuid" },
           "DisplayName": { "type": "string", "minLength": 1, "maxLength": 128 },
           "StorageClass": { "enum": ["INSTANCE_STORE", "DATABASE_PACKAGE", "BACKUP_SET", "EXCHANGE_WORKSPACE"] },
-          "State": { "enum": ["AVAILABLE", "IN_USE", "DETACHED", "INCOMPLETE", "RECOVERY_REQUIRED", "DELETE_PENDING"] },
+          "State": { "enum": ["AVAILABLE", "IN_USE", "DETACHED", "INCOMPLETE", "RECOVERY_REQUIRED", "DELETE_PENDING", "REMOVED"] },
           "Provider": { "enum": ["core", "docker", "podman", "hyperv", "external"] },
           "LocationBinding": {
             "type": "object",
@@ -89,6 +89,21 @@
                 },
                 "additionalProperties": false
               }
+            },
+            "additionalProperties": false
+          },
+          "Deletion": {
+            "type": "object",
+            "required": ["OperationId", "PlanKey", "RuntimeScopeId", "VolumeFingerprint", "RecordFingerprint", "RequestedAt", "RemovedAt", "AbsenceVerifiedAt"],
+            "properties": {
+              "OperationId": { "type": "string", "format": "uuid" },
+              "PlanKey": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "RuntimeScopeId": { "type": "string", "pattern": "^runtime-scope-[a-f0-9]{24}$" },
+              "VolumeFingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "RecordFingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+              "RequestedAt": { "type": "string", "format": "date-time" },
+              "RemovedAt": { "type": ["string", "null"], "format": "date-time" },
+              "AbsenceVerifiedAt": { "type": ["string", "null"], "format": "date-time" }
             },
             "additionalProperties": false
           },

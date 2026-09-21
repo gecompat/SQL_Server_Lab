@@ -26,7 +26,8 @@ function Invoke-LabPersistentStorageCatalogLock {
     $name = if ($IsWindows) { "Global\SQL_Server_Lab_Persistent_Storage_$token" } else { "SQL_Server_Lab_Persistent_Storage_$token" }
     $mutex = [Threading.Mutex]::new($false,$name); $acquired = $false
     try {
-        $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds(30))
+        try { $acquired = $mutex.WaitOne([TimeSpan]::FromSeconds(30)) }
+        catch [Threading.AbandonedMutexException] { $acquired = $true }
         if (-not $acquired) { throw 'PERSISTENT_STORAGE_CATALOG_LOCK_TIMEOUT' }
         return & $ScriptBlock
     }
@@ -116,8 +117,19 @@ function Test-LabPersistentStorageCatalogDocument {
         if ([string]$store.State -eq 'IN_USE' -and -not $hasLease) {
             throw "PERSISTENT_STORAGE_LEASE_REQUIRED: $storageId"
         }
-        if ([string]$store.State -in @('AVAILABLE','DETACHED','DELETE_PENDING') -and $hasLease) {
+        if ([string]$store.State -in @('AVAILABLE','DETACHED','DELETE_PENDING','REMOVED') -and $hasLease) {
             throw "PERSISTENT_STORAGE_LEASE_STATE_INVALID: $storageId"
+        }
+        if ($store.Deletion -or $store.State -ceq 'REMOVED') {
+            if (-not $store.Deletion -or $store.StorageClass -cne 'INSTANCE_STORE' -or
+                $store.Provider -cnotin @('docker','podman') -or $residency -cne 'NATIVE_RUNTIME' -or
+                $store.Retention -cne 'RETAINED' -or $store.CleanupDisposition -cne 'PRESERVE' -or
+                $store.State -cnotin @('DELETE_PENDING','REMOVED') -or $hasLease -or
+                @($store.References | Where-Object State -CEQ 'ACTIVE').Count -gt 0 -or
+                ($store.State -ceq 'REMOVED' -and (-not $store.Deletion.RemovedAt -or -not $store.Deletion.AbsenceVerifiedAt)) -or
+                ($store.State -ceq 'DELETE_PENDING' -and ($store.Deletion.RemovedAt -or $store.Deletion.AbsenceVerifiedAt))) {
+                throw 'PERSISTENT_STORAGE_DELETION_RECEIPT_INVALID'
+            }
         }
         if ($hasLease) {
             $activeRunReferences = @($store.References | Where-Object {
@@ -281,6 +293,13 @@ function Invoke-LabPersistentStorageCatalogMutation {
         $working = $catalog.Document | ConvertTo-Json -Depth 40 | ConvertFrom-Json -Depth 40
         $before = $working.Stores | ConvertTo-Json -Depth 40 -Compress
         $value = & $Mutation $working
+        foreach ($terminal in @($catalog.Document.Stores | Where-Object State -CEQ 'REMOVED')) {
+            $retainedIdentity=@($working.Stores | Where-Object PersistentStorageId -CEQ $terminal.PersistentStorageId)
+            if ($retainedIdentity.Count -ne 1 -or
+                ($terminal | ConvertTo-Json -Depth 40 -Compress) -cne ($retainedIdentity[0] | ConvertTo-Json -Depth 40 -Compress)) {
+                throw 'PERSISTENT_STORAGE_TERMINAL_IDENTITY_IMMUTABLE'
+            }
+        }
         if ([string]$working.ContractVersion -ne 'SqlServerLab.PersistentStorageCatalog/1.0' -or
             [string]$working.ControllerId -ne [string]$Configuration.ControllerId -or
             [int]$working.Revision -ne $previousRevision) {
@@ -1886,12 +1905,13 @@ function Get-LabPersistentStoragePlan {
             })
         }
         else { @() }
-        if ($store.RuntimeBinding) {
+        if ($store.RuntimeBinding -and $store.State -cne 'REMOVED') {
             $matches=@($matches | Where-Object { [string]$_.Details.RuntimeScopeId -ceq [string]$store.RuntimeBinding.RuntimeScopeId })
         }
         foreach ($match in $matches) { $null = $matchedObjectIds.Add([string]$match.ObjectId) }
 
         $observationStatus = if ($matches.Count -eq 1) { 'MATCHED' } elseif ($matches.Count -gt 1) { 'AMBIGUOUS' } elseif ([string]$store.Provider -eq 'external') { 'NOT_REQUIRED' } else { 'MISSING' }
+        if ($store.State -ceq 'REMOVED' -and $matches.Count -eq 0) { $observationStatus='NOT_REQUIRED' }
         $leaseStatus = 'NONE'
         if ($store.Lease) {
             if ($matches.Count -gt 1) { $leaseStatus = 'CONFLICT' }
@@ -1905,7 +1925,18 @@ function Get-LabPersistentStoragePlan {
             ObservationStatus=$observationStatus; ObservedObjectIds=@($matches | ForEach-Object { [string]$_.ObjectId } | Sort-Object -Unique)
         })
 
-        if ($observationStatus -eq 'AMBIGUOUS' -or $leaseStatus -eq 'CONFLICT') {
+        if ($store.State -ceq 'REMOVED') {
+            $actions.Add([PSCustomObject]@{
+                Action=if($matches.Count){'RESOLVE_CONFLICT'}else{'NO_OP'}
+                Severity=if($matches.Count){'BLOCKING'}else{'INFO'}
+                PersistentStorageId=[string]$store.PersistentStorageId; InventoryObjectId=$null
+                Reason=if($matches.Count){'REMOVED_STORAGE_REOBSERVED'}else{'STORAGE_REMOVED'}
+            })
+        }
+        elseif ($store.State -ceq 'DELETE_PENDING' -and $store.Deletion) {
+            $actions.Add([PSCustomObject]@{Action='VERIFY_REQUIRED';Severity='WARNING';PersistentStorageId=[string]$store.PersistentStorageId;InventoryObjectId=$null;Reason='RETAINED_STORE_REMOVAL_RESUME_REQUIRED'})
+        }
+        elseif ($observationStatus -eq 'AMBIGUOUS' -or $leaseStatus -eq 'CONFLICT') {
             $actions.Add([PSCustomObject]@{ Action='RESOLVE_CONFLICT'; Severity='BLOCKING'; PersistentStorageId=[string]$store.PersistentStorageId; InventoryObjectId=$null; Reason='BINDING_OR_LEASE_CONFLICT' })
         }
         elseif ($observationStatus -eq 'MISSING' -or $leaseStatus -eq 'NOT_OBSERVED') {

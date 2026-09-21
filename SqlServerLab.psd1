@@ -74,6 +74,8 @@
         'Get-SqlServerLabMaintenancePlan'
         'Invoke-SqlServerLabMaintenance'
         'Get-SqlServerLabPersistentStorageRemovalPlan'
+        'Get-SqlServerLabRetainedStoreRemovalPlan'
+        'Invoke-SqlServerLabRetainedStoreRemoval'
         'Invoke-SqlServerLabPersistentStorageRemoval'
         'Sync-SqlServerLabPersistentStorageArtifact'
         'Sync-SqlServerLabRunScopedContainerStore'

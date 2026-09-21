@@ -872,3 +872,15 @@ Evidence wird nicht migriert. Die getrennten nativen SQL-2025-Abnahmen am
 2026-09-21 bestanden je acht Assertions: eigener Store, Katalogverlust,
 Recovery, Continue, SQL-Marker und Serverobjekt, unveränderte Labels sowie
 vollständiges Run-, Volume- und Testroot-Cleanup.
+
+Die getrennte endgültige Löschung eines einzelnen modernen, eigenen detached
+Container-Instanzstores ist über stabile PersistentStorageId, Preview mit
+Revision/PlanKey, Bestätigung und operationsgebundenes Resume implementiert.
+`DELETE_PENDING` reserviert gegen Continue/Clone/Recovery; bestätigte Abwesenheit
+endet mit unveränderlicher ID als `REMOVED`-Tombstone. Ein Read-only-Planner
+behandelt diesen nicht als vermissten nutzbaren Store oder Registrierungskandidat.
+CLI und Browser verwenden denselben öffentlichen Core. Sidecars, Legacy ohne
+vollständige Evidence, externe Speicher und Hyper-V bleiben ausgeschlossen;
+Backup und aktuelles Offline-Inhaltsinventar werden nicht bestätigt. Synthetische
+Fault-/Prozesstests und ein eigener nativer SQL-2025-Harness sind vorhanden;
+die nativen Docker-/Podman-Abnahmen stehen noch aus.

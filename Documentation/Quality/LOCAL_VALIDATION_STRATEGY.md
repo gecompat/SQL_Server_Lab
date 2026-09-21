@@ -354,6 +354,29 @@ bleiben bei Preview unveraendert; Apply registriert das Ziel und loest die
 Quell-Lease in derselben Revision. Copy-/Katalogfehler und Resume bleiben
 Bestandteil der Suite; diese Pruefung startet keine Container-Runtime.
 
+Die drei Retained-Store-Suites `Invoke-RetainedStoreRemovalChecks.ps1`,
+`Invoke-RetainedStoreRuntimeChecks.ps1` und
+`Invoke-RetainedStoreRemovalConcurrencyChecks.ps1` prüfen Producer-Fixtures,
+Preview/WhatIf/Abbruch, stabile Planbindung, CAS-/Lease-/Referenzschutz,
+Journal- und Spiegel-Schreibfehler, verlorene erfolgreiche Delete-Antworten,
+vorwärtsgerichtetes Resume sowie den dauerhaften Tombstone. Echte getrennte
+Prozesse prüfen den Katalogmutex und Prozessabbruch; Runtime-Befehle bleiben
+synthetisch. Timeout-/Partial-New-Supervisortests prüfen privaten Logtransport
+und unabhängiges Cleanup erst nach bestätigtem Prozessende.
+
+Die vorbereitete native Abnahme
+`Tests/Integration/Invoke-RetainedStoreRemovalAcceptance.ps1 -Provider docker`
+beziehungsweise `-Provider podman` erstellt ausschließlich einen frischen eigenen
+SQL-2025-Run mit isoliertem StateRoot/DataRoot. Sie schreibt einen SQL-Marker,
+trennt den behaltenen Store ab, prüft WhatIf, öffentliche Löschung, Tombstone,
+idempotentes Resume und eigene Restfreiheit. Der Parent hält
+`SQL_Server_Lab_Runtime_Smoke` (unter Windows `Global\`), begrenzt den Arbeitschild
+auf 1200 und Cleanup auf 300 Sekunden und erhält private Evidence auch nach
+Fehlern. Diese beiden nativen Abnahmen sind für diesen Stand **NOT_EXECUTED**.
+Die Capability selbst betrifft Docker/Podman; die gekoppelte Änderung am
+gemeinsamen Testselektor verlangt nach bestehenden Regeln den breiteren CI-Gate
+einschließlich Hyper-V und wird nicht dafür abgeschwächt.
+
 `Invoke-PersistentStorageRecoveryChecks.ps1` prüft öffentliche Preview, WhatIf,
 Abbruch, Apply und Wiederholung mit echten schemaförmigen Producer-Fixtures.
 Negative Ownership-, Retention-, Runtime-, Sidecar-, Lifecycle-, Lease- und

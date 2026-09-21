@@ -47,6 +47,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `persistent-storage-removal-intent.schema.json` | Explizite run- und storage-ID-gebundene Policy-Auswahl `SqlServerLab.PersistentStorageRemovalIntent/1.0` ohne Secrets |
 | `persistent-storage-removal-plan.schema.json` | Verlustsicherer read-only Vertrag `SqlServerLab.PersistentStorageRemovalPlan/1.0` für Retention, Backup/Package, Recovery-Evidence und separate Löschung |
 | `persistent-storage-removal-journal.schema.json` | Geheimnisfreies, fortsetzbares Journal `SqlServerLab.PersistentStorageRemovalJournal/1.0` für verifizierte Backups und Run-Entfernung |
+| `retained-store-removal-journal.schema.json` | Getrennter UUID-/Preview-gebundener Delete eines einzelnen behaltenen Instanzstores; eigene Operation und terminaler REMOVED-Nachweis |
 | `container-instance-store-intent.schema.json` | Strikter `CONTINUE`-/`CLONE`-Intent für katalogisierte Docker-/Podman-Instanzstores |
 | `container-instance-store-plan.schema.json` | Fail-closed Auswahl-, Kompatibilitäts- und Mutationsplan für Container-Instanzstores |
 | `container-instance-store-journal.schema.json` | Wiederaufnehmbares Clone-Journal mit Quell-/Zielidentität und Inhaltsdigest-Evidence |

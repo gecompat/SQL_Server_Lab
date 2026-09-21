@@ -160,6 +160,14 @@ COMMANDS
         Plant Retention-, Backup-/Package- und Bindungsfolgen einer
         Run-Entfernung per stabiler Storage-ID read-only und fail-closed.
 
+    Get-SqlServerLabRetainedStoreRemovalPlan
+        Prüft die endgültige Löschung eines eigenen abgetrennten Docker-/Podman-
+        Speichers per UUID. Backup und gespeicherte SQL-Inhalte sind nicht geprüft.
+
+    Invoke-SqlServerLabRetainedStoreRemoval
+        Löscht den bestätigten Speicher mit gebundener Vorschau und wiederaufnehmbarer
+        Ownership-Prüfung. Seine UUID bleibt dauerhaft als REMOVED reserviert.
+
     Invoke-SqlServerLabPersistentStorageRemoval
         Fuehrt Retain oder verifiziertes Backup-on-Remove fuer einen
         Docker-/Podman-Instanzstore journalisiert und wiederaufnehmbar aus.

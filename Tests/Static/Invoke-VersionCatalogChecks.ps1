@@ -295,7 +295,7 @@ $invalidRuntimeWorkflows = @($runtimeWorkflowPaths | Where-Object {
     $workflowText = Get-Content -LiteralPath $_ -Raw -Encoding utf8
     $workflowText -match '(?m)-FullMatrix|(?m)-IncludeParallel' -or
     @([regex]::Matches($workflowText, '(?m)-ReferenceVersion\s+2025')).Count -ne 1 -or
-    @([regex]::Matches($workflowText, '(?m)-Version\s+2025')).Count -ne 2 -or
+    @([regex]::Matches($workflowText, '(?m)-Version\s+2025')).Count -ne 3 -or
     @([regex]::Matches($workflowText, '(?m)-Version\s+2022-CU18')).Count -ne 1 -or
     $workflowText -match '(?m)-(?:Reference)?Version\s+(?:2017|2019)(?:\s|$)' -or
     $workflowText -match '(?m)-(?:Reference)?Version\s+2022(?!-CU18)(?:\s|$)'
