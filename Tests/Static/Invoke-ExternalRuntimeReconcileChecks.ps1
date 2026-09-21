@@ -33,6 +33,19 @@ Add-CheckResult -Name 'Public Reconcile APIs besitzen getrennten ExternalRuntime
     $getCommand.Parameters.ContainsKey('ManifestPath') -and $invokeCommand.Parameters.ContainsKey('ReadinessTimeoutSeconds')
 )
 
+$manifestComparableDrives = & $module {
+    Get-LabExternalRuntimeManifestComparableDrives -Drives @(
+        [PSCustomObject]@{ Id='runtime-mssql'; Persistence='run-scoped-runtime-volume' },
+        [PSCustomObject]@{ Id='persistent-mssql'; Persistence='data-root-runtime-volume' },
+        [PSCustomObject]@{ Id='persistent-backups'; Persistence='data-root-backup-bind' },
+        [PSCustomObject]@{ Id='declared-data'; Persistence='run-scoped' },
+        [PSCustomObject]@{ Id='declared-scripts'; Persistence='external-host-path' }
+    )
+}
+Add-CheckResult -Name 'External-Runtime-Reconcile vergleicht nur manifestierbare Drive-Intents' -Success (
+    @($manifestComparableDrives | ForEach-Object Id | Sort-Object) -join ',' -ceq 'declared-data,declared-scripts'
+)
+
 $source = Get-Content -LiteralPath $implementationPath -Raw -Encoding utf8
 $lifecycleSource = Get-Content -LiteralPath $lifecyclePath -Raw -Encoding utf8
 $buildIndex = $source.IndexOf('Invoke-LabExternalRuntimeContainerImageBuild -ImagePlan')

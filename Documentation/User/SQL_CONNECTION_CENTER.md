@@ -65,6 +65,12 @@ Anmeldung des einrichtenden Benutzers verfügbar. So bleibt die zentrale Instanz
 nicht versehentlich wegen einer ausgeschalteten Podman Machine oder eines nicht
 gestarteten Docker Desktop stehen.
 
+`Initialize-SqlServerLabCms -LabName 'Lab_CMS'` vergibt einen stabilen logischen
+Namen. Existiert ausschließlich eine CMS-Registrierung für einen bereits als
+`REMOVED` markierten Run, kann sie nur mit der ausdrücklichen Freigabe
+`-ReplaceRemovedCms` ersetzt werden. Laufende, angehaltene oder nicht eindeutig
+entfernte CMS-Registrierungen bleiben gesperrt.
+
 Die Ausgabeaktionen der Verbindungszentrale – Status, SSMS-Importhinweis,
 Export, Gruppenkonfiguration, Synchronisation und Vorschau – bleiben sichtbar,
 bis sie mit **Enter** oder **Escape** geschlossen werden.

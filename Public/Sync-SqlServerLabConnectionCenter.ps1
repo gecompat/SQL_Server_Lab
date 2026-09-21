@@ -290,17 +290,41 @@ function Initialize-SqlServerLabCms {
         im Ergebnis ausgegeben und danach run-lokal geschützt gespeichert.
     .PARAMETER Provider
         Optionaler Containerprovider. Ohne Angabe wird Docker vor Podman bevorzugt.
+    .PARAMETER LabName
+        Stabiler logischer Name des neu erstellten CMS-Labs.
+    .PARAMETER ReplaceRemovedCms
+        Ersetzt ausschließlich eine vorhandene CMS-Registrierung, deren gebundener
+        Run bereits den terminalen Status REMOVED trägt. Andere CMS-Registrierungen
+        bleiben ohne Änderung blockierend.
     .PARAMETER StateRoot
         Optionaler State Root. Ohne Angabe wird der konfigurierte Standard verwendet.
     .OUTPUTS
         PSCustomObject mit CMS-Konfiguration, Run-Information und einmaligem Passwort.
     #>
     [CmdletBinding()]
-    param([ValidateSet('docker', 'podman')][string]$Provider, [string]$StateRoot)
+    param(
+        [ValidateSet('docker', 'podman')][string]$Provider,
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$')][string]$LabName = 'sql-server-lab-cms',
+        [switch]$ReplaceRemovedCms,
+        [string]$StateRoot
+    )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $existing = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
-    if ($existing) { throw "CONNECTION_CENTER_CMS_ALREADY_CONFIGURED: Run $($existing.RunId) ist bereits als CMS registriert." }
+    if ($existing) {
+        if (-not $ReplaceRemovedCms) {
+            throw "CONNECTION_CENTER_CMS_ALREADY_CONFIGURED: Run $($existing.RunId) ist bereits als CMS registriert."
+        }
+        $existingRun = Get-LabRunState -RunId ([string]$existing.RunId) -StateRoot $StateRoot
+        if ([string]$existingRun.state -ne 'REMOVED') {
+            throw "CONNECTION_CENTER_CMS_REPLACEMENT_BLOCKED: Run $($existing.RunId) ist nicht REMOVED."
+        }
+        $configurationPath = Join-Path (Join-Path $StateRoot 'catalog') 'sql-connection-center-cms.json'
+        if (-not (Test-Path -LiteralPath $configurationPath -PathType Leaf)) {
+            throw 'CONNECTION_CENTER_CMS_CONFIGURATION_MISSING: Die CMS-Registrierung kann nicht gezielt ersetzt werden.'
+        }
+        Remove-Item -LiteralPath $configurationPath -Force -ErrorAction Stop
+    }
     $available = @(Get-AvailableLabProviders)
     if (-not $Provider) {
         if ('docker' -in $available) { $Provider = 'docker' }
@@ -311,7 +335,7 @@ function Initialize-SqlServerLabCms {
     $dataRoot = Get-LabDataRootDefault
     if (-not $dataRoot) { throw 'CONNECTION_CENTER_CMS_DATA_ROOT_REQUIRED: Für einen dauerhaften CMS zuerst einen Data Root konfigurieren.' }
     $password = New-LabConnectionCenterPassword
-    $lab = New-SqlServerLab -Version '2025' -Provider $Provider -Profile compact -LabName 'sql-server-lab-cms' -PersistentData -DataRoot $dataRoot -AutoStart on -SaPassword $password -StateRoot $StateRoot
+    $lab = New-SqlServerLab -Version '2025' -Provider $Provider -Profile compact -LabName $LabName -PersistentData -DataRoot $dataRoot -AutoStart on -SaPassword $password -StateRoot $StateRoot
     $configuration = [PSCustomObject]@{
         ContractVersion = 'SqlServerLab.ConnectionCenterCms/1.0'
         RunId = [string]$lab.RunId

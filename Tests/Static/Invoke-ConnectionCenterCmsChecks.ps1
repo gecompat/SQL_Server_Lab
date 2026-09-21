@@ -163,6 +163,16 @@ try {
         $source -match 'CmsShowGeneratedPasswordInName = \$false' -and
         $source -match 'if \(\$null -eq \$saved\.CmsShowGeneratedPasswordInName\) \{ \$false \}')
 
+    Add-CheckResult -Name 'CMS-Ersatz entfernt nur eine explizit freigegebene terminale Registrierung' -Success (
+        $source -match '\[switch\]\$ReplaceRemovedCms' -and
+        $source -match 'CONNECTION_CENTER_CMS_REPLACEMENT_BLOCKED' -and
+        $source -match '\[string\]\$existingRun\.state -ne ''REMOVED''' -and
+        $source -match "'sql-connection-center-cms\.json'" -and
+        $source -match 'Remove-Item -LiteralPath \$configurationPath -Force -ErrorAction Stop')
+    Add-CheckResult -Name 'CMS-Initialisierung bindet den angeforderten Labnamen' -Success (
+        $source -match '\[string\]\$LabName = ''sql-server-lab-cms''' -and
+        $source -match 'New-SqlServerLab .* -LabName \$LabName')
+
     Add-CheckResult -Name 'CMS-Menue warnt vor Klartext und bewahrt manuelle Passwoerter' -Success (
         $source -match "Generiertes Passwort im CMS-Namen anzeigen" -and
         $source -match 'Klartext in CMS-Namen, SSMS-Ansichten, Screenshots und CMS-Backups' -and
