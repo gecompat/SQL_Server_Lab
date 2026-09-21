@@ -12,6 +12,17 @@ function Assert-Check {
     if (-not $Condition) { throw $Message }
 }
 
+function Wait-TestFile {
+    param([string]$Path, [int]$TimeoutSeconds = 10)
+
+    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        if (Test-Path -LiteralPath $Path -PathType Leaf) { return $true }
+        Start-Sleep -Milliseconds 25
+    }
+    return Test-Path -LiteralPath $Path -PathType Leaf
+}
+
 try {
     Import-Module $modulePath -Force -ErrorAction Stop
     $module = Get-Module SqlServerLab
@@ -34,6 +45,114 @@ try {
     & $module { param($Root) Invoke-SqlServerLabScheduler -UntilIdle -MaxWorkers 1 -StateRoot $Root | Out-Null } $testRoot
     $expandedOperations = @(Get-SqlServerLabOperation -BatchId $batch.batchId -StateRoot $testRoot)
     Assert-Check (@($expandedOperations | Where-Object status -eq 'Completed').Count -eq 3) 'Expandierte Vorgaenge wurden nicht abgeschlossen.'
+
+    $lockFixtureRoot = Join-Path $testRoot ('workflow-lock-' + [Guid]::NewGuid().ToString('N'))
+    $lockReadyPath = Join-Path $lockFixtureRoot 'holder-ready'
+    $lockReleasePath = Join-Path $lockFixtureRoot 'holder-release'
+    $summaryEnteredPath = Join-Path $lockFixtureRoot 'summary-entered'
+    $summaryCompletedPath = Join-Path $lockFixtureRoot 'summary-completed'
+    New-Item -ItemType Directory -Path $lockFixtureRoot -Force | Out-Null
+    $lockProcess = $null
+    $summaryJob = $null
+    try {
+        $modulePathLiteral = $modulePath.Replace("'", "''")
+        $stateRootLiteral = $testRoot.Replace("'", "''")
+        $lockReadyLiteral = $lockReadyPath.Replace("'", "''")
+        $lockReleaseLiteral = $lockReleasePath.Replace("'", "''")
+        $lockScript = @"
+`$ModulePath = '$modulePathLiteral'
+`$StateRoot = '$stateRootLiteral'
+`$ReadyPath = '$lockReadyLiteral'
+`$ReleasePath = '$lockReleaseLiteral'
+"@ + "`n" + @'
+$ErrorActionPreference = 'Stop'
+Import-Module $ModulePath -Force
+$module = Get-Module SqlServerLab
+$lock = & $module {
+    param($Root, $Ready, $Release)
+    Invoke-WithLabWorkflowLock -StateRoot $Root -ScriptBlock {
+        New-Item -ItemType File -Path $Ready -Force | Out-Null
+        $deadline = [DateTime]::UtcNow.AddSeconds(10)
+        while (-not (Test-Path -LiteralPath $Release -PathType Leaf)) {
+            if ([DateTime]::UtcNow -ge $deadline) {
+                throw 'BATCH_SUMMARY_LOCK_RELEASE_TIMEOUT'
+            }
+            Start-Sleep -Milliseconds 25
+        }
+        return $true
+    }
+} $StateRoot $ReadyPath $ReleasePath
+if (-not $lock) { throw 'BATCH_SUMMARY_LOCK_ACQUISITION_FAILED' }
+'@
+        $encodedLockScript = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($lockScript))
+        $lockErrorPath = Join-Path $lockFixtureRoot 'holder.err'
+        $lockStart = @{
+            FilePath = (Get-Process -Id $PID).Path
+            ArgumentList = @('-NoProfile', '-EncodedCommand', $encodedLockScript)
+            RedirectStandardError = $lockErrorPath
+            PassThru = $true
+        }
+        if ($IsWindows) { $lockStart.WindowStyle = 'Hidden' }
+        $lockProcess = Start-Process @lockStart
+        Assert-Check (Wait-TestFile -Path $lockReadyPath) 'Der Kindprozess hat die Workflow-Sperre nicht erworben.'
+
+        $summaryJob = Start-ThreadJob -ArgumentList $modulePath, $testRoot, $batch.batchId, $summaryEnteredPath, $summaryCompletedPath -ScriptBlock {
+            param($ModulePath, $Root, $BatchId, $EnteredPath, $CompletedPath)
+            Import-Module $ModulePath -Force
+            $module = Get-Module SqlServerLab
+            New-Item -ItemType File -Path $EnteredPath -Force | Out-Null
+            $summary = & $module { param($Id, $State) Update-LabBatchSummary -BatchId $Id -StateRoot $State } $BatchId $Root
+            New-Item -ItemType File -Path $CompletedPath -Force | Out-Null
+            return $summary
+        }
+        Assert-Check (Wait-TestFile -Path $summaryEnteredPath) 'Der Summary-Worker hat die Aktualisierung nicht erreicht.'
+        Start-Sleep -Milliseconds 300
+        Assert-Check ($summaryJob.State -eq 'Running' -and -not (Test-Path -LiteralPath $summaryCompletedPath -PathType Leaf)) 'Die Batch-Zusammenfassung umgeht die gehaltene Workflow-Sperre.'
+
+        New-Item -ItemType File -Path $lockReleasePath -Force | Out-Null
+        Assert-Check ($null -ne ($summaryJob | Wait-Job -Timeout 10)) 'Die Batch-Zusammenfassung wurde nach Freigabe der Workflow-Sperre nicht beendet.'
+        $lockedSummary = @($summaryJob | Receive-Job -ErrorAction Stop)
+        Assert-Check ($lockedSummary.Count -eq 1 -and $lockedSummary[0].batchId -eq $batch.batchId -and (Test-Path -LiteralPath $summaryCompletedPath -PathType Leaf)) 'Die Batch-Zusammenfassung liefert nach der Sperrenfreigabe kein gueltiges Ergebnis.'
+        Assert-Check ($lockProcess.WaitForExit(10000) -and $lockProcess.ExitCode -eq 0) 'Der sperrende Kindprozess wurde nicht erfolgreich beendet.'
+        Write-Host "BATCH_WORKFLOW_LOCK_CHILD_EXITCODE: $($lockProcess.ExitCode)"
+    }
+    finally {
+        if (-not (Test-Path -LiteralPath $lockReleasePath -PathType Leaf)) {
+            New-Item -ItemType File -Path $lockReleasePath -Force | Out-Null
+        }
+        if ($summaryJob) {
+            $null = $summaryJob | Wait-Job -Timeout 5 -ErrorAction SilentlyContinue
+            Remove-Job -Job $summaryJob -Force -ErrorAction SilentlyContinue
+        }
+        if ($lockProcess) {
+            if (-not $lockProcess.HasExited) {
+                Stop-Process -Id $lockProcess.Id -Force
+            }
+            $lockProcess.Dispose()
+        }
+    }
+
+    $summaryJobs = @()
+    try {
+        foreach ($worker in 1..2) {
+            $summaryJobs += Start-ThreadJob -ArgumentList $modulePath, $testRoot, $batch.batchId -ScriptBlock {
+                param($ModulePath, $Root, $BatchId)
+                Import-Module $ModulePath -Force
+                $module = Get-Module SqlServerLab
+                1..4 | ForEach-Object {
+                    & $module { param($Id, $State) Update-LabBatchSummary -BatchId $Id -StateRoot $State } $BatchId $Root
+                }
+            }
+        }
+        Assert-Check (@($summaryJobs | Wait-Job -Timeout 10).Count -eq 2) 'Parallele Batch-Zusammenfassungen wurden nicht vollstaendig beendet.'
+        $concurrentSummaries = @($summaryJobs | Receive-Job -ErrorAction Stop)
+        Assert-Check ($concurrentSummaries.Count -eq 8) 'Parallele Batch-Zusammenfassungen liefern nicht alle Ergebnisse.'
+        $concurrentBatch = Get-SqlServerLabBatch -BatchId $batch.batchId -StateRoot $testRoot
+        Assert-Check ($concurrentBatch.status -eq 'Completed' -and $concurrentBatch.progress.total -eq 3 -and $concurrentBatch.progress.counts.Completed -eq 3) 'Parallele Batch-Zusammenfassungen erhalten keinen vollstaendigen gueltigen Abschlusszustand.'
+    }
+    finally {
+        $summaryJobs | Remove-Job -Force -ErrorAction SilentlyContinue
+    }
 
     $mixed = New-SqlServerLabBatch -Name 'Unabhaengige Fehler' -StateRoot $testRoot -Items @(
         [pscustomobject]@{ id = 'ok'; kind = 'Test'; intent = [pscustomobject]@{} }
@@ -281,7 +400,6 @@ try {
     Assert-Check ($batchRuntimeSource -match [regex]::Escape("if (`$autoStartValue) { 'on' } else { 'off' }")) 'Container-Batches normalisieren boolesches AutoStart nicht auf den oeffentlichen on/off-Vertrag.'
     Assert-Check ($batchRuntimeSource -match [regex]::Escape('BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_REQUIRED')) 'Container-Batches brechen ohne Secret-Referenz nicht eindeutig ab.'
     Assert-Check ($batchRuntimeSource -match [regex]::Escape("Get-LabManifestEnvironmentSecret -Name `$saPasswordEnvironmentVariable")) 'Container-Batches loesen die eng benannte Secret-Referenz nicht erst im Worker auf.'
-    Assert-Check ($batchRuntimeSource -match '(?s)function Update-LabBatchSummary\s*\{.*?return Invoke-WithLabWorkflowLock -StateRoot \$StateRoot -ScriptBlock \{.*?Write-LabBatchState -Batch \$batch -StateRoot \$StateRoot') 'Parallele Worker aktualisieren die gemeinsame Batch-Zusammenfassung nicht unter der Workflow-Sperre.'
     Assert-Check ($batchRuntimeSource -match [regex]::Escape('function Get-LabRunHyperVVmName') -and
         $batchRuntimeSource -match [regex]::Escape("Get-LabWorkflowValue -InputObject `$verification.data -Name 'vmName' -Default ''") -and
         $batchRuntimeSource -match [regex]::Escape("Add-Member -NotePropertyName 'vmName' -NotePropertyValue `$resolvedVmName -Force") -and
