@@ -1783,6 +1783,17 @@ außerhalb dieses Befehls. Details stehen im
 
 ### Katalogbindung eines eigenen retained Containerstores wiederherstellen
 
+Ein bereits katalogisierter eigener abgetrennter Store kann getrennt über
+`Get-SqlServerLabRetainedStoreRemovalPlan` und
+`Invoke-SqlServerLabRetainedStoreRemoval` endgültig gelöscht werden. In der CLI
+führt **Infrastruktur und Medien → Medien, Testdaten und Speicher → Behaltenen
+SQL-Speicher löschen** zum gleichen Core wie die Browser-Workflow-UI. Alle Inhalte
+gehen verloren; ein Backup wird nicht geprüft. Revision und PlanKey binden die
+Vorschau, Fehler bleiben operationsgebunden fortsetzbar, die Speicher-ID bleibt
+als `REMOVED`-Tombstone erhalten. Details und sichere Preview-/Resume-Beispiele:
+[Behaltenen SQL-Speicher löschen](RETAINED_STORE_REMOVAL.md). Native Nachweise
+dieser Löschaktion stehen getrennt für Docker und Podman noch aus.
+
 `Repair-SqlServerLabPersistentStorageCatalog` stellt ausschließlich eine verlorene
 Katalogbindung eines bereits UUID-gelabelten, abgetrennten Docker-/Podman-Stores
 wieder her. Der ursprüngliche entfernte Run muss vollständige Desired-State- und

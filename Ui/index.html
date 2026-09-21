@@ -110,8 +110,15 @@
       </section>
       <section class="panel compact">
         <div class="section-heading"><div><p class="eyebrow">CONTAINER</p><h2>Aktive Lab-Umgebungen</h2></div></div>
-        <div id="active-labs" class="list"></div>
+      <div id="active-labs" class="list"></div>
       </section>
+    </section>
+
+    <section class="panel compact">
+      <div class="section-heading"><div><p class="eyebrow">DOCKER / PODMAN</p><h2>Behaltenen SQL-Speicher löschen</h2></div></div>
+      <label>Abgetrennten Speicher auswählen<select id="retained-store-source"><option value="">Kein Speicher verfügbar</option></select></label>
+      <p id="retained-store-details" class="form-note">Alle Datenbanken und Serverobjekte gehen endgültig verloren. Ein Backup wird nicht geprüft.</p>
+      <div class="build-actions"><button id="retained-store-preview" type="button" class="button secondary" disabled>Löschung prüfen</button><button id="retained-store-delete" type="button" class="button danger" disabled>Endgültig löschen</button></div>
     </section>
 
     <section class="panel">

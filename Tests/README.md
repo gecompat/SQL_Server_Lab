@@ -715,3 +715,24 @@ Podman sind jeweils mit 16 Assertions und vollständigem Cleanup nativ belegt;
 
 - `Static/Invoke-SqlGuestEvaluationCaptureChecks.ps1`: Offlinevertrag für Editionscapture, Bindung, Dateisperre, atomaren Receipt und Fehlererhaltung.
 - `Integration/Invoke-SqlGuestEvaluationCaptureAcceptance.ps1 -ArtifactId <prepared-id>`: eigener Developer-Run auf erhöhtem Hyper-V-Runner, echter Capture/Watch, Evidence-Kette und Cleanup. Verwendet ein vorhandenes SQL_PREPARED_SEALED-Artifact; kein neuer Image-Build und kein positiver Deadline-Nachweis.
+
+## Behaltenen Instanzstore endgültig löschen
+
+Offline: `Invoke-RetainedStoreRemovalChecks.ps1`,
+`Invoke-RetainedStoreRuntimeChecks.ps1` und
+`Invoke-RetainedStoreRemovalConcurrencyChecks.ps1` unter `Tests/Static`.
+Die Suites verwenden ausschließlich synthetische Fixtures und begrenzte Prozesse.
+
+Native Abnahme (für diesen Stand noch nicht ausgeführt):
+
+```powershell
+./Tests/Integration/Invoke-RetainedStoreRemovalAcceptance.ps1 -Provider docker
+./Tests/Integration/Invoke-RetainedStoreRemovalAcceptance.ps1 -Provider podman
+```
+
+Jeder Lauf erstellt seinen eigenen isolierten SQL-2025-Run. Der Supervisor hält
+den Runtime-Testmutex, begrenzt Arbeit und Cleanup getrennt und persistiert die
+Operation vor New. Private Rohlogs, Run-State und Katalog bleiben lokal zur Prüfung
+erhalten. Nur geschlossene Statuswerte verlassen den Supervisor. Der Harness
+übernimmt oder löscht keinen vorhandenen Benutzerstore. Details zur Produktgrenze
+stehen in [der Benutzeranleitung](../Documentation/User/RETAINED_STORE_REMOVAL.md).

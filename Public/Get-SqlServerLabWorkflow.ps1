@@ -61,6 +61,7 @@ function Get-SqlServerLabWorkflow {
     $backupLibrary = @()
     $databasePackageLibrary = @()
     $persistentStorageRemovalCandidates = @()
+    $retainedStoreRemovalCandidates = @()
     $containerInstanceStoreCandidates = @()
     $hyperVPersistentDataCandidates = @()
     $mediaSources = @()
@@ -95,6 +96,7 @@ function Get-SqlServerLabWorkflow {
         $storageConfiguration = Get-LabStorageConfiguration
         $storageCatalog = Get-LabPersistentStorageCatalog -Configuration $storageConfiguration
         if ([string]$storageCatalog.Status -in @('AVAILABLE', 'EMPTY')) {
+            $retainedStoreRemovalCandidates=@(Get-LabRetainedStoreRemovalCandidates -Catalog $storageCatalog)
             $activeRunIds = @($activeRuns | ForEach-Object { [string]$_.runId })
             $persistentStorageRemovalCandidates = @(
                 foreach ($store in @($storageCatalog.Document.Stores)) {
@@ -371,6 +373,7 @@ function Get-SqlServerLabWorkflow {
         BackupLibrary = $backupLibrary
         DatabasePackageLibrary = $databasePackageLibrary
         PersistentStorageRemovalCandidates = $persistentStorageRemovalCandidates
+        RetainedStoreRemovalCandidates = $retainedStoreRemovalCandidates
         ContainerInstanceStoreCandidates = $containerInstanceStoreCandidates
         HyperVPersistentDataCandidates = $hyperVPersistentDataCandidates
         MediaSources = $mediaSources

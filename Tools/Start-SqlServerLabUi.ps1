@@ -410,6 +410,14 @@ try {
                 Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 20) -ContentType 'application/json; charset=utf-8'
                 continue
             }
+            if ($path -eq '/api/persistent-storage/retained-removal-plan' -and $context.Request.HttpMethod -eq 'POST') {
+                $body=[IO.StreamReader]::new($context.Request.InputStream,$context.Request.ContentEncoding).ReadToEnd()
+                $request=$body | ConvertFrom-Json -Depth 8
+                $dataRoot=& (Get-Module SqlServerLab) { Get-LabDataRootDefault }
+                $plan=Get-SqlServerLabRetainedStoreRemovalPlan -PersistentStorageId ([guid]$request.persistentStorageId) -DataRoot $dataRoot
+                Write-UiResponse -Context $context -Body ($plan | ConvertTo-Json -Depth 10) -ContentType 'application/json; charset=utf-8'
+                continue
+            }
             if ($path -eq '/api/persistent-storage/removal-plan' -and $context.Request.HttpMethod -eq 'POST') {
                 $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
                 $request = $body | ConvertFrom-Json -Depth 30

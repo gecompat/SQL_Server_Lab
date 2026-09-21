@@ -127,6 +127,7 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
     CONTINUE bindet denselben Store; CLONE erstellt über den gemeinsamen
     journalisierten Fachkern eine unabhängige Kopie.
 .PARAMETER PersistentStorageSelection
+    Auswahl der rungebundenen Retention-Policies.
     Explizite Retention-Auswahl je stabiler PersistentStorageId. Der Workflow
     fuehrt fuer Docker-/Podman-Instanzstores RETAIN_INSTANCE_STORE,
     BACKUP_ON_REMOVE, PACKAGE_ON_REMOVE und BACKUP_AND_PACKAGE aus.
@@ -134,6 +135,10 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
     RUN_SCOPED/RUN_CLEANUP-Docker-/Podman-Instanzstore zweiphasig über
     DELETE_PENDING und einen Missing-Volume-Nachweis ausführbar. Eine
     EXTERNAL_UNMANAGED-Auswahl loest ausschliesslich die eigene Katalogbindung.
+.PARAMETER ExpectedCatalogRevision
+    Erwartete Katalogrevision aus der getrennten Retained-Store-Löschvorschau.
+.PARAMETER ExpectedPlanKey
+    Fingerprint der bestätigten Retained-Store-Löschvorschau.
 .PARAMETER GuestUserName
     Lokaler Administratorname im Gast für PowerShell Direct.
 .PARAMETER GuestPassword
@@ -200,7 +205,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
-            'ExecutePersistentStorageRemoval',
+            'ExecutePersistentStorageRemoval', 'RemoveRetainedStore',
             'CreateContainerDatabase', 'InspectContainerDatabaseMigrationDependencies', 'ExportContainerDatabasePackage', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
             'NewHyperVLab', 'NewHyperVLabFromExistingVm', 'StartHyperVLab', 'StopHyperVLab', 'EnableHyperVLabPersistentData', 'InitializeHyperVLabPersistentData', 'ReleaseHyperVPersistentData', 'ReattachHyperVPersistentData', 'CloneHyperVPersistentData', 'CompleteHyperVLabSql', 'EnableHyperVLabHostSqlAccess', 'InspectHyperVLabSqlInstances', 'AttachHyperVDatabasePackage', 'RecoverHyperVDatabasePackageAttach', 'OpenHyperVConsole', 'RemoveHyperVLab',
             'NewWindowsBuild', 'SetWindowsMediaHash', 'OpenWindowsConsole', 'ConfirmWindowsInstall', 'GeneralizeWindowsBuild', 'PublishWindowsBuild',
@@ -225,6 +230,8 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$TargetLocationId,
         [ValidateSet('CONTINUE','CLONE')][string]$PersistentStorageAction = 'CONTINUE',
         [object[]]$PersistentStorageSelection,
+        [ValidateRange(0,2147483647)][int]$ExpectedCatalogRevision,
+        [ValidatePattern('^[a-f0-9]{64}$')][string]$ExpectedPlanKey,
         [ValidateRange(32, 4096)][int]$PersistentDataDiskGB = 128,
         [ValidatePattern('^windows-(server-)?[0-9]+(?:-r2)?$')][string]$OperatingSystemId = 'windows-server-2025',
         [string]$WindowsMediaPath,
@@ -316,7 +323,7 @@ function Invoke-SqlServerLabWorkflowAction {
     $containerActions = @(
         'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'RestartContainerLab', 'RemoveContainerLab',
         'ClearAllLabs', 'CreateContainerDatabase', 'InspectContainerDatabaseMigrationDependencies', 'ExportContainerDatabasePackage', 'RestoreContainerLibraryBackup', 'InstallContainerSampleDatabase', 'InstallContainerSampleDatabases', 'ExecuteContainerScript',
-        'ExecutePersistentStorageRemoval',
+        'ExecutePersistentStorageRemoval', 'RemoveRetainedStore',
         'StartLabReconcile', 'StopLabReconcile'
     )
     if ($Action -notin $containerActions) {
@@ -542,6 +549,18 @@ function Invoke-SqlServerLabWorkflowAction {
         'RemoveContainerLab' { Remove-SqlServerLab -RunId $BuildId -Force -Confirm:$false }
         'ExecutePersistentStorageRemoval' {
             Invoke-SqlServerLabPersistentStorageRemoval -RunId $BuildId -Selection $PersistentStorageSelection -DataRoot $DataRoot -Force -Confirm:$false
+        }
+        'RemoveRetainedStore' {
+            if (-not $PersistentStorageId -or -not $DataRoot) { throw 'RETAINED_STORE_WORKFLOW_SELECTION_REQUIRED' }
+            $removal=@{PersistentStorageId=$PersistentStorageId;DataRoot=$DataRoot;Confirm=$false}
+            if ($PersistentStorageOperationId) { $removal.OperationId=$PersistentStorageOperationId }
+            else {
+                if (-not $ExpectedPlanKey -or -not $PSBoundParameters.ContainsKey('ExpectedCatalogRevision')) { throw 'RETAINED_STORE_WORKFLOW_PREVIEW_REQUIRED' }
+                $removal.ExpectedCatalogRevision=$ExpectedCatalogRevision; $removal.ExpectedPlanKey=$ExpectedPlanKey
+            }
+            $result=Invoke-SqlServerLabRetainedStoreRemoval @removal
+            if ($result.Status -cne 'REMOVED') { throw "RETAINED_STORE_RECOVERY_REQUIRED: OperationId=$($result.OperationId); Reason=$($result.Reason)" }
+            $result
         }
         'ClearAllLabs' { Clear-SqlServerLab -Force }
         'CreateContainerDatabase' {

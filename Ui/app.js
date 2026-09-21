@@ -540,6 +540,7 @@ function renderWorkflow(data) {
   renderMediaSources(data.MediaSources || []);
   renderDatabasePackageOptions(data.DatabasePackageLibrary || []);
   renderHyperVPersistentDataOptions(data.HyperVPersistentDataCandidates || []);
+  renderRetainedStoreRemovalOptions(data.RetainedStoreRemovalCandidates || []);
   renderSqlInstallationMedia(data.SqlInstallationMedia);
   const sqlFreshBuildDialogOpen = $('#build-dialog')?.open && $('#build-type')?.value === 'sql-fresh';
   renderWindowsInstallationMedia(data.WindowsInstallationMedia, sqlFreshBuildDialogOpen);
@@ -1865,6 +1866,59 @@ $('#persistent-storage-removal-execute').addEventListener('click', () => {
     { BuildId: pending.runId, PersistentStorageSelection: pending.selections, DataRoot: workflow?.Defaults?.DataRoot || '' },
     'Backup + entfernen'
   );
+});
+
+let retainedStoreRemovalPreview = null;
+function renderRetainedStoreRemovalOptions(items) {
+  const select = $('#retained-store-source');
+  const previous = select.value;
+  select.innerHTML = '<option value="">Speicher auswählen …</option>' + items.map((item) =>
+    '<option value="' + escapeHtml(item.PersistentStorageId) + '">' +
+    escapeHtml(item.DisplayName + ' · ' + item.Provider + ' · ' + item.State + ' · ' + shortId(item.PersistentStorageId)) + '</option>').join('');
+  if (items.some((item) => item.PersistentStorageId === previous)) select.value = previous;
+  retainedStoreRemovalPreview = null;
+  updateRetainedStoreRemovalSelection();
+}
+function updateRetainedStoreRemovalSelection() {
+  const selected = (workflow?.RetainedStoreRemovalCandidates || []).find((item) => item.PersistentStorageId === $('#retained-store-source').value);
+  retainedStoreRemovalPreview = null;
+  $('#retained-store-preview').disabled = !selected || Boolean(selected.OperationId);
+  $('#retained-store-delete').disabled = !selected?.OperationId;
+  $('#retained-store-delete').textContent = selected?.OperationId ? 'Löschung fortsetzen' : 'Endgültig löschen';
+  $('#retained-store-details').textContent = selected?.OperationId
+    ? 'Ausstehender Löschvorgang ' + selected.OperationId + '. Die ursprüngliche Bindung und der Restzustand werden erneut geprüft.'
+    : 'Alle Datenbanken und Serverobjekte gehen endgültig verloren. Ein Backup wird nicht geprüft.';
+}
+$('#retained-store-source').addEventListener('change', updateRetainedStoreRemovalSelection);
+$('#retained-store-preview').addEventListener('click', async () => {
+  const id = $('#retained-store-source').value;
+  $('#retained-store-delete').disabled = true;
+  try {
+    const response = await fetch('/api/persistent-storage/retained-removal-plan', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ persistentStorageId: id })
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const plan = await response.json();
+    if ($('#retained-store-source').value !== id) return;
+    retainedStoreRemovalPreview = plan;
+    $('#retained-store-delete').disabled = plan.Status !== 'READY';
+    $('#retained-store-details').textContent = 'Eigentum und Abtrennung geprüft. Alle Inhalte werden endgültig gelöscht. Backup nicht geprüft.';
+  }
+  catch (error) { showError(error); }
+});
+$('#retained-store-delete').addEventListener('click', () => {
+  const selected = (workflow?.RetainedStoreRemovalCandidates || []).find((item) => item.PersistentStorageId === $('#retained-store-source').value);
+  if (!selected) return;
+  const parameters = { PersistentStorageId: selected.PersistentStorageId, DataRoot: workflow?.Defaults?.DataRoot || '' };
+  if (selected.OperationId) parameters.PersistentStorageOperationId = selected.OperationId;
+  else {
+    if (!retainedStoreRemovalPreview || retainedStoreRemovalPreview.PersistentStorageId !== selected.PersistentStorageId) return;
+    parameters.ExpectedCatalogRevision = retainedStoreRemovalPreview.CatalogRevision;
+    parameters.ExpectedPlanKey = retainedStoreRemovalPreview.PlanKey;
+  }
+  openConfirmation('Behaltenen SQL-Speicher endgültig löschen',
+    'Alle Datenbanken und Serverobjekte dieses Speichers gehen unwiederbringlich verloren. Ein Backup wurde nicht geprüft. Speicher-ID: ' + selected.PersistentStorageId,
+    'RemoveRetainedStore', parameters, 'Endgültig löschen');
 });
 
 function cancelDialog(dialog) {

@@ -172,6 +172,14 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Downloads und Verschiebungen werden einzeln bestaetigt.'
             Command = 'Get-SqlServerLabResourcePlan'
             Preconditions = @($dataRootPrecondition)
+            Items = @{
+                'RetainedStoreRemoval' = @{ Purpose='Prüft und löscht einen eigenen abgetrennten Docker-/Podman-SQL-Speicher über seine stabile ID.'; Effects='Endgültiger Verlust aller enthaltenen Daten nach Preview und Bestätigung; Backup nicht geprüft. Fehlgeschlagene Vorgänge bleiben ausschließlich vorwärts fortsetzbar.'; Command='Get-SqlServerLabRetainedStoreRemovalPlan; Invoke-SqlServerLabRetainedStoreRemoval' }
+            }
+        }
+        'retained-store-removal' = @{
+            Title='Behaltenen SQL-Speicher löschen'; Purpose='Auswahl eines eigenen abgetrennten Speichers.'
+            Effects='Alle Inhalte gehen nach gesonderter Bestätigung endgültig verloren; keine Backup-Zusage.'
+            Command='Invoke-SqlServerLabRetainedStoreRemoval'; Preconditions=@($dataRootPrecondition)
         }
         'database-menu' = @{
             Title   = 'Datenbanken und Verbindungen'

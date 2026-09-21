@@ -490,6 +490,15 @@ Add-CheckResult -Name 'Geteilter KI-Vertrag behält Hyper-V trotz begrenztem Per
 $persistentInfrastructure=& $selector -ChangedPath @('Private/AiPersistentRetrieval.ps1','Tools/Get-CiTestSelection.ps1')
 Add-CheckResult -Name 'CI-Infrastrukturänderung behält vollständige Runtimeauswahl' -Success ($persistentInfrastructure.Docker -and $persistentInfrastructure.Podman -and $persistentInfrastructure.HyperV -and $persistentInfrastructure.Mixed -and $persistentInfrastructure.Adapter)
 
+foreach($path in @('Private/RetainedStoreRemoval.ps1','Public/Invoke-SqlServerLabRetainedStoreRemoval.ps1','Schemas/retained-store-removal-journal.schema.json','Tests/Integration/Invoke-RetainedStoreRemovalAcceptance.ps1')){
+    $retained=& $selector -ChangedPath @($path)
+    Add-CheckResult -Name "Retained-Delete bleibt je Einzelpfad Docker/Podman: $path" -Success (
+        $retained.Docker -and $retained.Podman -and -not $retained.HyperV -and -not $retained.Mixed -and
+        'Invoke-RetainedStoreRemovalChecks.ps1' -in $retained.StaticChecks -and
+        'Invoke-RetainedStoreRuntimeChecks.ps1' -in $retained.StaticChecks -and
+        'Invoke-RetainedStoreRemovalConcurrencyChecks.ps1' -in $retained.StaticChecks)
+}
+
 if ($failures.Count -gt 0) {
     Write-Host "`nErgebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Red
     foreach ($failure in $failures) { Write-Host "  - $failure" -ForegroundColor Red }

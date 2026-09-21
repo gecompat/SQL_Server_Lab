@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -151,6 +151,7 @@ function Invoke-LabMenuAction {
         Wait-LabConsoleAcknowledgement
     }
     if ($ActionName -in @('DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach')) { Wait-LabConsoleAcknowledgement }
+    if ($ActionName -eq 'RetainedStoreRemoval') { Wait-LabConsoleAcknowledgement }
 
 }
 
@@ -297,6 +298,7 @@ function Show-LabStorageMenu {
         New-LabConsoleItem -Id 'CuResource' -Label 'SQL Server CU herunterladen oder prüfen' -Value 'Windows-Paket oder Linux-MCR-Image · alle katalogisierten CUs' -Shortcut 'c'
         New-LabConsoleItem -Id 'CuStatus' -Label 'Aktuelle CUs bei Microsoft prüfen' -Value 'read-only Änderungsvorschau; kein ungeprüfter Download' -Shortcut 'w'
         New-LabConsoleItem -Id 'DataRoot' -Label 'Lab_Data verwalten' -Value 'Lab_Data je Volume' -Shortcut 'd'
+        New-LabConsoleItem -Id 'RetainedStoreRemoval' -Label 'Behaltenen SQL-Speicher löschen' -Value 'endgültig · Docker/Podman' -Shortcut 'l'
         New-LabConsoleItem -Id 'TestDataRoot' -Label 'Testdaten-Bibliothek konfigurieren' -Shortcut 't'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
@@ -1402,6 +1404,7 @@ function Invoke-LabAction {
         'DataRoot' {
             Invoke-LabStorageInteractive
         }
+        'RetainedStoreRemoval' { Invoke-LabRetainedStoreRemovalInteractive }
         'CleanupAudit' {
             $result = Get-SqlServerLabCleanupAudit -NoWrite
             Write-LabStatus -Label 'Audit-Status' -Value $result.Audit.Status -Color $(if ($result.Audit.Status -eq 'CLEAN') { 'Green' } else { 'Yellow' })
