@@ -289,17 +289,18 @@ blockierend. Docker und Podman werden getrennt samt Restart und Cleanup geprüft
 
 ```powershell
 .\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider docker
-.\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider podman
+.\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider podman -TimeoutSeconds 1800
 ```
 
 Der Golden-Lauf verwendet einen run-eigenen Ollama-Bind-Mount, den globalen Runtime-Mutex und eine tokengebundene Container-ID. Ohne `-KeepOnFailure` bestätigt er SQL-, Container- und Storage-Cleanup vor `PASS`; `-KeepOnFailure` ist ausschließlich für die Recovery eines fehlgeschlagenen eigenen Laufs vorgesehen.
 
-Docker bestand am 2026-09-21 Golden-Metriken, SQL-/Ollama-Restart und vollständiges
-Cleanup. Podman erreichte RAG nach den Modell-Downloads, scheiterte aber mit
-`AI_ENDPOINT_TIMEOUT`; sein Cleanup war erfolgreich. Bei Fehlern bleibt ein
+Docker und Podman bestanden am 2026-09-21 den festen Fall `backup-frequency`,
+Golden-Metriken, SQL-/Ollama-Restart und vollständiges eigenes Cleanup.
+Modellpaarung und Inferenzlimits blieben unverändert. Bei Fehlern bleibt ein
 ignorierter Receipt unter `.artifacts/test-runs/ai-golden-podman-acceptance/`
-auch nach Temp-Cleanup erhalten. Er enthält nur Provider, erste beziehungsweise
-Restart-Phase, einen freigegebenen Fehlercode und die aus der bekannten lokalen
+auch nach Temp-Cleanup erhalten. Er enthält nur Provider, Bereitstellungs-,
+Download-, erste beziehungsweise Restart-Phase, einen freigegebenen Fehlercode
+und die aus der bekannten lokalen
 RAG-Aufrufstelle abgeleitete Einordnung Embedding/Generierung oder `UNCLASSIFIED`.
 
 Für bereits vorhandenes Host-`embeddinggemma:latest` mit ausdrücklich gewählter

@@ -53,7 +53,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Golden v1 unverändert. Live-Modellbindung, Egress/Datenklasse, Secret-Cleanup
   und Redirectabwehr sind offline geprüft. Docker und Podman bestanden am
   2026-09-20 getrennt neun Assertions, SQLrestart und vollständiges Cleanup;
-  Hyper-V und Golden v1 mit anderer Modellbindung bleiben offen. Vertrag:
+  Hyper-V für diese Cloudpaarung bleibt offen. Der lokale Golden-Fall
+  `backup-frequency` besitzt einen getrennten Docker-/Podman-Nachweis vom
+  2026-09-21 mit unveränderter Modellbindung, SQL-/Ollama-Restart und Cleanup. Vertrag:
   `Documentation/Architecture/AI_RAG_EXISTING_OLLAMA.md`;
 
 - Ein-Datenbank-Transfer über `Invoke-SqlServerLabPortableContainerTransfer`:

@@ -166,10 +166,12 @@ Schwellen, Dataset-Hash und Fall-ID werden vor Ausführung an den RAG-PlanKey
 gebunden. Nur ein erfolgreiches `SqlServerLab.AiQueryResult/1.0` mit exakt
 passender Bindung wird bewertet; Hash- oder Fallabweichungen scheitern vor der
 Metrik. Der native Docker-Lauf war zuletzt am 2026-09-21 einschließlich SQL-Suche,
-Golden-Gate, SQL-/Ollama-Restart und Cleanup erfolgreich. Der getrennte Podman-Lauf
-erreichte nach abgeschlossenen Modell-Downloads die RAG-Ausführung und scheiterte
-mit `AI_ENDPOINT_TIMEOUT`. Der genaue Modellaufruf ist noch nicht belegt.
-Das eigene Cleanup war vollständig; der Golden-Runtime-Nachweis für Podman bleibt offen.
+Golden-Gate, SQL-/Ollama-Restart und Cleanup erfolgreich. Podman bestand den festen
+Fall `backup-frequency` am selben Tag getrennt mit derselben Modellpaarung,
+Golden-Metriken, SQL-/Ollama-Restart und vollständigem eigenem Cleanup. Der Download
+verwendete ein Budget von 1800 Sekunden pro Modell; Inferenzlimits blieben unverändert.
+Der frühere Inferenz-Timeout trat nicht erneut auf. Weitere Golden-Fälle benötigen
+eigene Native-Evidence.
 
 `AI-30A` implementiert die lokale Controller-Orchestrierung für RAG. Dokumente
 werden flüchtig mit dem katalogisierten 768-dimensionalen Ollama-Modell
