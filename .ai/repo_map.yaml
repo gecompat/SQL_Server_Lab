@@ -1045,6 +1045,7 @@ providers:
     image_migration_static_checks: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
     sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1
     sql_prepared_locale_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedLocaleAcceptance.ps1
+    sql_prepared_locale_native_evidence: "VALIDATED_REFERENCE: Run 35574934252 am 2026-09-21 auf bf72dc32; englisches SQL-2025-Prepared-Artifact, eigener US-Manifest-Child, fünf Locale-Werte nach Kaltstart, VM-ID-gebundener SQL-SELECT Major 17, Aktivierung, Receipt, unveränderter Parent und überwachter Cleanup COMPLETED; eigener Run-State separat REMOVED bestätigt. Weitere Image-Sprachen und SQL-Versionen bleiben offen."
     sql_prepared_locale_ci: Tests/Integration/Invoke-HyperVSqlPreparedLocaleCiAcceptance.ps1
     sql_prepared_locale_common: Tests/Common/HyperVPreparedLocaleAcceptance.ps1
     sql_prepared_locale_supervisor: Tests/Common/HyperVPreparedLocaleSupervisor.ps1

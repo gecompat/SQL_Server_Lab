@@ -27,6 +27,14 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- Direkte SQL-Prepared-Locale-Referenz für ein englisches SQL-2025-Artifact:
+  [Run 35574934252](https://github.com/gecompat/SQL_Server_Lab/actions/runs/35574934252)
+  bestand am 2026-09-21 auf `bf72dc32` mit frischem eigenem US-Manifest-Child,
+  allen fünf Locale-Werten nach Kaltstart, VM-ID-gebundenem SQL-SELECT (Major 17),
+  Aktivierung, Locale-Receipt, unverändertem Parent und überwachtem Cleanup.
+  Der eigene Run-State ist `REMOVED`; weitere Image-Sprachen und SQL-Versionen
+  bleiben separat. Vertrag: `Documentation/HowTo/WINDOWS_LOCALE.md`;
+
 - interner Docker-only-SQL-HTTPS-Referenzslice mit eigenem Loopback-Gateway,
   festen synthetischen Embeddings und nativer External-Model-Abnahme am
   2026-09-21 (`VALIDATED_REFERENCE`). Sieben Embeddings, SQL-TLS-Negative,
