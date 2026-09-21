@@ -93,25 +93,25 @@ try {
         $manualNodeName -eq 'MANUELLES PASSWORT EINGEBEN' -and
         $passwordDisplayDisabled -eq 'Demo (primary)')
 
-    $longEntry = [PSCustomObject]@{ RunId='generated-run'; Id='generated-run/primary'; DisplayName=(('x' * 160) + ' (primary)') }
+    $longEntry = [PSCustomObject]@{ RunId='generated-run'; Id='generated-run/primary'; DisplayName=(('x' * 160) + ' (primary)'); Server='192.0.2.10,1433'; Provider='docker'; RuntimeState='RUNNING' }
     $boundedEnvironmentGroup = Get-LabCmsEnvironmentGroupDisplayName -Entry $longEntry
-    Add-CheckResult -Name 'CMS-Umgebungsordner bleibt innerhalb der sysname-Grenze' -Success (
+    Add-CheckResult -Name 'CMS-Umgebungsordner bleibt kompakt, eindeutig und innerhalb der sysname-Grenze' -Success (
         $boundedEnvironmentGroup.Length -le 128 -and
-        $boundedEnvironmentGroup -match 'Run=generated-run' -and
-        $boundedEnvironmentGroup -match 'Instance=primary' -and
-        $boundedEnvironmentGroup -match 'Identity=[0-9a-f]{12}\]$')
+        $boundedEnvironmentGroup -match '192\.0\.2\.10,1433 \| ID:[0-9a-f]{12}$' -and
+        $boundedEnvironmentGroup -notmatch 'Run=|Instance=|Identity=')
 
     $collidingCmsEntries = @(
-        [PSCustomObject]@{ RunId='11111111-1111-1111-1111-111111111111'; Id='11111111-1111-1111-1111-111111111111/primary'; DisplayName='sql2022-latest (primary)' },
-        [PSCustomObject]@{ RunId='22222222-2222-2222-2222-222222222222'; Id='22222222-2222-2222-2222-222222222222/primary'; DisplayName='sql2022-latest (primary)' }
+        [PSCustomObject]@{ RunId='11111111-1111-1111-1111-111111111111'; Id='11111111-1111-1111-1111-111111111111/primary'; DisplayName='sql2022-latest (primary)'; Server='192.0.2.10,1433'; Provider='docker'; RuntimeState='RUNNING' },
+        [PSCustomObject]@{ RunId='22222222-2222-2222-2222-222222222222'; Id='22222222-2222-2222-2222-222222222222/primary'; DisplayName='sql2022-latest (primary)'; Server='192.0.2.10,1433'; Provider='docker'; RuntimeState='RUNNING' }
     )
     $resolvedCmsNames = @($collidingCmsEntries | ForEach-Object { Get-LabCmsManagedRegisteredServerDisplayName -Entry $_ -StateRoot 'unused' })
     $repeatedCmsNames = @($collidingCmsEntries | ForEach-Object { Get-LabCmsManagedRegisteredServerDisplayName -Entry $_ -StateRoot 'unused' })
     Add-CheckResult -Name 'Gleichnamige CMS-Server behalten beide stabile Run- und Instanzidentitaeten' -Success (
         $resolvedCmsNames.Count -eq 2 -and
         @($resolvedCmsNames | Select-Object -Unique).Count -eq 2 -and
-        $resolvedCmsNames[0] -match 'sql2022-latest \(primary\) \[Run=11111111-1111-1111-1111-111111111111; Instance=primary; Identity=[0-9a-f]{12}\]$' -and
-        $resolvedCmsNames[1] -match 'sql2022-latest \(primary\) \[Run=22222222-2222-2222-2222-222222222222; Instance=primary; Identity=[0-9a-f]{12}\]$' -and
+        $resolvedCmsNames[0] -match 'sql2022-latest \(primary\) \| 192\.0\.2\.10,1433 \| ID:[0-9a-f]{12}$' -and
+        $resolvedCmsNames[1] -match 'sql2022-latest \(primary\) \| 192\.0\.2\.10,1433 \| ID:[0-9a-f]{12}$' -and
+        @($resolvedCmsNames | Where-Object { $_ -match 'Run=|Instance=|Identity=' }).Count -eq 0 -and
         (@($resolvedCmsNames) -join "`n") -eq (@($repeatedCmsNames) -join "`n"))
     Add-CheckResult -Name 'CMS-Namensauflosung bleibt sysname-begrenzt und bindet die volle Identitaet stabil' -Success (
         (Get-LabCmsManagedRegisteredServerDisplayName -Entry $longEntry -StateRoot 'unused').Length -le 128 -and
@@ -119,6 +119,11 @@ try {
         $source -match 'function Get-LabCmsIdentityDisplayName' -and
         $source -match 'SHA256.*Identity' -and
         $source -match 'Get-LabCmsManagedRegisteredServerDisplayName')
+
+    $ipv6CmsName = Get-LabCmsManagedRegisteredServerDisplayName -Entry ([PSCustomObject]@{ RunId='ipv6-run'; Id='ipv6-run/primary'; DisplayName='SQL2025 (primary)'; Server='[2001:db8::25],1433'; Provider='podman'; RuntimeState='UNKNOWN' }) -StateRoot 'unused' -IncludeProvider -IncludeRuntimeState
+    Add-CheckResult -Name 'CMS-Namen bewahren IPv6-Endpunkt sowie nicht gruppierbaren RuntimeState vollständig' -Success (
+        $ipv6CmsName -match 'SQL2025 \(primary\) \| \[2001:db8::25\],1433 \| ID:[0-9a-f]{12} \| Provider:PODMAN \| State:UNKNOWN$' -and
+        $ipv6CmsName.Length -le 128)
     $resolvedAliasGroups = @($collidingCmsEntries | ForEach-Object { Get-LabCmsEnvironmentGroupDisplayName -Entry $_ })
     Add-CheckResult -Name 'Kennwortalias-Ordner bleiben bei gleichem Namen pro Run eindeutig' -Success (
         $resolvedAliasGroups.Count -eq 2 -and
@@ -137,6 +142,28 @@ try {
         $source -match '\$targetGroup = "@EnvironmentGroup_\$variableSuffix"' -and
         $source -match 'ManagedEnvironmentGroups_' -and
         $source -match 'CmsEnvironmentGroupCursor_')
+
+    $script:cmsCompactExportCenter = [PSCustomObject]@{
+        Grouping = [PSCustomObject]@{ RootGroupName='SQL Server Lab'; CmsUseRootGroup=$true; CmsGroupByProvider=$false }
+        Entries = @(
+            [PSCustomObject]@{ RunId='plain-run'; Id='plain-run/primary'; DisplayName='SQL2025 (primary)'; Server='192.0.2.10,1433'; Provider='docker'; RuntimeState='RUNNING' },
+            [PSCustomObject]@{ RunId='password-run'; Id='password-run/primary'; DisplayName='SQL2025 (primary)'; Server='[2001:db8::25],1433'; Provider='podman'; RuntimeState='UNKNOWN' }
+        )
+    }
+    function Sync-SqlServerLabConnectionCenter { param([string]$StateRoot,[switch]$Quiet) [PSCustomObject]@{ ConnectionCenter=$script:cmsCompactExportCenter } }
+    function Get-LabConnectionCenterCmsConfiguration { param([string]$StateRoot) $null }
+    function Get-LabDataRootDefault { $null }
+    function Test-CmsTool { param([string]$Argument) $global:LASTEXITCODE = 0 }
+    function Resolve-LabHostTool { param([string]$Name) [PSCustomObject]@{ Available=$true; Invocation='Test-CmsTool' } }
+    function Get-LabAutomaticallyGeneratedRunSaPassword { param([string]$RunId,[string]$StateRoot) 'Generated!234' }
+    $plainCmsSql = (Export-SqlServerLabCmsSyncScript -StateRoot 'unused' -InMemory).ScriptContent
+    $passwordCmsSql = (Export-SqlServerLabCmsSyncScript -StateRoot 'unused' -InMemory -IncludeGeneratedPasswordAliases).ScriptContent
+    Add-CheckResult -Name 'CMS-Export propagiert kompakte Namen in normale und Kennwortumgebungs-Knoten' -Success (
+        $plainCmsSql -match "SQL2025 \(primary\) \| 192\.0\.2\.10,1433 \| ID:[0-9a-f]{12} \| Provider:DOCKER" -and
+        $plainCmsSql -match "SQL2025 \(primary\) \| \[2001:db8::25\],1433 \| ID:[0-9a-f]{12} \| Provider:PODMAN \| State:UNKNOWN" -and
+        $passwordCmsSql -match "SQL2025 \(primary\) \| \[2001:db8::25\],1433 \| ID:[0-9a-f]{12} \| Provider:PODMAN \| State:UNKNOWN" -and
+        $passwordCmsSql -match "@name = N'Generated!234'" -and
+        $passwordCmsSql -match 'Identity=password-run/primary')
 
     $newLabSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\New-SqlServerLab.ps1') -Raw -Encoding utf8
     $testEnvironmentSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\TestEnvironment.ps1') -Raw -Encoding utf8
@@ -162,6 +189,16 @@ try {
         $source -match "ConnectionCenterGroups/1\.2" -and
         $source -match 'CmsShowGeneratedPasswordInName = \$false' -and
         $source -match 'if \(\$null -eq \$saved\.CmsShowGeneratedPasswordInName\) \{ \$false \}')
+
+    Add-CheckResult -Name 'CMS-Ersatz entfernt nur eine explizit freigegebene terminale Registrierung' -Success (
+        $source -match '\[switch\]\$ReplaceRemovedCms' -and
+        $source -match 'CONNECTION_CENTER_CMS_REPLACEMENT_BLOCKED' -and
+        $source -match '\[string\]\$existingRun\.state -ne ''REMOVED''' -and
+        $source -match "'sql-connection-center-cms\.json'" -and
+        $source -match 'Remove-Item -LiteralPath \$configurationPath -Force -ErrorAction Stop')
+    Add-CheckResult -Name 'CMS-Initialisierung bindet den angeforderten Labnamen' -Success (
+        $source -match '\[string\]\$LabName = ''sql-server-lab-cms''' -and
+        $source -match 'New-SqlServerLab .* -LabName \$LabName')
 
     Add-CheckResult -Name 'CMS-Menue warnt vor Klartext und bewahrt manuelle Passwoerter' -Success (
         $source -match "Generiertes Passwort im CMS-Namen anzeigen" -and

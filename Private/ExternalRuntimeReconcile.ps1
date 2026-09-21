@@ -9,6 +9,21 @@
     erhalten; der alte Container wird erst nach persistiertem State entfernt.
 #>
 
+function Get-LabExternalRuntimeManifestComparableDrives {
+    [CmdletBinding()]
+    param($Drives)
+
+    $frameworkPersistences = @(
+        'run-scoped-runtime-volume',
+        'data-root-runtime-volume',
+        'data-root-backup-bind',
+        'cataloged-runtime-volume'
+    )
+    return @($Drives | Where-Object {
+        $_ -and [string]$_.Persistence -notin $frameworkPersistences
+    })
+}
+
 function Resolve-LabExternalRuntimeReconcileTarget {
     [CmdletBinding()]
     param(
@@ -106,7 +121,8 @@ function Get-LabExternalRuntimeReconcileContext {
             Id=[string]$item.Id; Provider=[string]$item.Provider; Version=[string]$item.Version
             Profile=[string]$item.Profile; AutoStart=[string]$item.AutoStart
             DatabaseNames=@($item.DatabaseNames | Sort-Object)
-            Drives=@($item.Intents.Drives); Network=$item.Intents.Network
+            Drives=@(Get-LabExternalRuntimeManifestComparableDrives -Drives @($item.Intents.Drives) | Sort-Object Id)
+            Network=$item.Intents.Network
         }
     }
     $currentFingerprint = (& $toImmutableFingerprint $currentSnapshot[0]) | ConvertTo-Json -Depth 30 -Compress
@@ -145,8 +161,12 @@ function Get-LabExternalRuntimeReconcileContext {
     if ($null -eq $providerCapability) { throw 'EXTERNAL_RUNTIME_RECONCILE_PROVIDER_UNSUPPORTED' }
     $persistedSoftware = $currentSnapshot[0].Intents.Software
     $hasPersistedSoftware = $currentSnapshot[0].Intents.PSObject.Properties['Software'] -and $null -ne $persistedSoftware
-    $desiredPlans = if ($hasPersistedSoftware) {
+    $hasPersistedSoftwareItems = $hasPersistedSoftware -and @($persistedSoftware.Items).Count -gt 0
+    $desiredPlans = if ($hasPersistedSoftwareItems) {
         @(Resolve-LabValidatedPersistedSoftwarePlans -Software $persistedSoftware -Instance $currentSnapshot[0] -ProviderCapability $providerCapability)
+    }
+    elseif ($hasPersistedSoftware) {
+        @(Resolve-LabValidatedPersistedSoftwarePlans -Software $targetSnapshot[0].Intents.Software -Instance $targetSnapshot[0] -ProviderCapability $providerCapability)
     }
     else {
         # Historical snapshots have no software envelope.  Preserve their
@@ -184,7 +204,7 @@ function Get-LabExternalRuntimeReconcileContext {
     # Older snapshots did not carry that envelope and intentionally retain the
     # established manifest path.
     $runtimeResourceGovernorConfig = if ($hasPersistedSoftware) { $null } else { $targetResolved[0].serverConfig.externalScripts.resourceGovernor }
-    $stateCommitSnapshot = if ($hasPersistedSoftware) { $persisted.Snapshot } else { $desiredSnapshot }
+    $stateCommitSnapshot = if ($hasPersistedSoftwareItems) { $persisted.Snapshot } else { $desiredSnapshot }
     $runtimeInstance = $targetResolved[0] | ConvertTo-Json -Depth 50 | ConvertFrom-Json -Depth 50
     if ($hasPersistedSoftware) {
         $containerRuntime = $currentSnapshot[0].Intents.ContainerRuntime
