@@ -256,18 +256,34 @@ ergänzt explizit Delta/gen2 nach Nomic v2 MoE/gen3 mit v2-Upgrade und festen
 Präfixprofilen. Die 44 fokussierten Migrationchecks sowie beide nativen Abnahmen mit je 20 Assertions, SQLrestart und vollständigem Cleanup bestehen. Allgemeine Modell-/Dimensionswechsel und
 beliebige Nutzerdokumente bleiben offen; Golden v1 wird nicht umgebunden.
 
-## Aufgenommene Entwicklungsübergaben vom 2026-09-21
+## Entwicklungsreihenfolge nach Fortsetzung vom 2026-09-21
 
-Quellen sind die vom Benutzer bereitgestellten Dokumente
+Die vom Benutzer bereitgestellten Übergaben
 `sql-server-lab-development-handoff.prompt.md` und
-`sql-server-lab-diagnostic-bundle-development.prompt.md`. Ihre Betriebsbefunde
-gelten für den dort beschriebenen Ausgangshost, nicht als Nachweis auf einem
-anderen Host. Dieser Nachtrag erfasst die offenen Arbeiten; er startet keine
-Implementierung oder Runtime. Die autonome Entwicklung bleibt auf Benutzerwunsch
-pausiert. Die gesondert beauftragte kompakte CMS-Anzeige wird in
-[PR #540](https://github.com/gecompat/SQL_Server_Lab/pull/540) geführt und ersetzt
-keinen der folgenden Nachweise. Die Zeilen sind beschreibende Arbeitspakete,
-keine neuen sequenziellen Task-IDs.
+`sql-server-lab-diagnostic-bundle-development.prompt.md` bleiben historische
+Quellen; Betriebsbefunde eines anderen Hosts sind kein Nachweis für den
+aktuellen Zielhost. Die autonome Entwicklung ist fortgesetzt. Bei der
+Wiederaufnahme waren die kompakte CMS-Anzeige, Point-in-Time-Recovery,
+die SQL-Versionsupgrade-Referenz und die enge retained-store-Arbeit noch nicht
+vollständig integriert. Diese begonnenen Slices werden zuerst abgeschlossen;
+die separat unter Docker und Podman validierte Upgrade-Referenz folgt nach der
+PITR-Integration. [PR #540](https://github.com/gecompat/SQL_Server_Lab/pull/540)
+für die CMS-Anzeige und [PR #537](https://github.com/gecompat/SQL_Server_Lab/pull/537)
+für PITR wurden inzwischen nach grüner CI integriert. Die
+KI-Statuskorrektur in den Benutzerdokumenten ist in diesem Dokumentationsslice
+enthalten. Einzelne historische Prüferfolge ersetzen keine abschließende
+Prüfung und Integration des jeweiligen aktuellen Branchstands.
+
+Die aktuelle read-only Zielhostprüfung klassifiziert Docker und Podman für den
+Container-Python/R-Pfad wegen erforderlichem cgroup v1 bei beobachtetem cgroup
+v2 als `INFRASTRUCTURE_UNAVAILABLE`. Das ist kein Embedding-Blocker, keine
+Abnahme von Python/R und keine Grundlage für einen Host- oder cgroup-Umbau.
+Nach Abschluss der vorhandenen Slices ist daher zuerst die unabhängige
+kombinierte synthetische SQLKI-/Northwind-/Chinook-Abnahme möglich; danach
+folgen der begrenzte Diagnose-API-Vertrag und erst anschließend der Operator-
+Handoff. Ältere breitere Arbeiten und Assessments bleiben von ihren bestehenden
+Abhängigkeiten bestimmt. Die Zeilen sind beschreibende Arbeitspakete, keine
+neuen sequenziellen Task-IDs.
 
 ### CMS, SQLKI und External Languages
 
@@ -278,11 +294,11 @@ sind wiederzuverwenden; die kombinierte Zielhost-Abnahme bleibt offen.
 
 | Reihenfolge / Arbeit | Stand und Abhängigkeiten | Akzeptanz und nächste Prüfung |
 |---|---|---|
-| Zielhost-Bestandsaufnahme | `planned`; Voraussetzung für mutierende Abnahmen | Readiness, öffentliche Connection-Center-Projektion und aktuelle Endpunkte prüfen. Installiertes Tool, unerreichbare Runtime, fehlende Berechtigung und fehlendes Secret getrennt klassifizieren; Provider getrennt bewerten. Keine historischen Ports übernehmen. |
+| Zielhost-Bestandsaufnahme | `partially_validated`; Docker-/Podman-Readiness und cgroup-Kompatibilität aktuell geprüft; weitere Zielbindungen bleiben vor ihrer Mutation zu prüfen | Öffentliche Connection-Center-Projektion und aktuelle Endpunkte für den jeweiligen Ziel-Run prüfen. Installiertes Tool, unerreichbare Runtime, fehlende Berechtigung und fehlendes Secret getrennt klassifizieren; Provider getrennt bewerten. Keine historischen Ports übernehmen. |
 | CMS-Registrierung und Secret-Herkunft | `partially_implemented`; `f67c71f2` enthält benannten CMS und explizites Ersetzen ausschließlich terminaler `REMOVED`-Registrierungen | Öffentliche API und passwortfreie Projektion prüfen. Laufende, gestoppte und unklare Registrierungen bleiben gesperrt. Nur nachgewiesen generierte Passwörter dürfen in der ausdrücklich aktivierten CMS-Anzeige erscheinen. Einen fehlenden Herkunftsnachweis nicht allein aus einem vorhandenen Secret ableiten oder manuelle Kennwörter umklassifizieren; zulässigen Reparaturvertrag vor einer möglichen Mutation klären. |
 | Persistentes SQLKI-Setup | `planned` für den kombinierten Anwendungsfall; vorhandene [Podman-KI-Erstellung](../Architecture/AI_PODMAN_SETUP.md) und [persistentes Retrieval](../Architecture/AI_PERSISTENT_RETRIEVAL.md) berücksichtigen | Entscheidung für ein bewusst persistentes Setup dokumentieren; erwartete Datenbank und Dokumente nach Setup sowie SQL-Neustart über SQL prüfen. Das Cleanup von `vector-core-ci/1.0` bleibt unverändert. Bestehende feste Fixture nicht als beliebigen Dokumentimport ausgeben. |
 | Container-Reconcile-Regressionsnachweis | `partially_implemented`; `f67c71f2` enthält Drive-Abgrenzung und Erstinstallation bei leerem Software-Envelope | Framework-eigene Volume-Metadaten dürfen keinen falschen Manifestdrift erzeugen. Tatsächlich deklarierte Drive-Änderungen und nichtleere persistierte Software bleiben verbindlich. Leer → erste Installation → persistierter Zielzustand gezielt prüfen. Keine automatische Übertragung dieser Containerregel auf Hyper-V. |
-| Python/R und SQL Launchpad | `planned`; nach Readiness und Reconcile-Prüfung | cgroup-/Launchpad-Kompatibilität vor Mutation feststellen. Auf dem Ausgangshost war Podman/cgroup v2 blockiert; das ist kein aktueller Zielhost-Befund. Unterstützten Docker-/Podman-Pfad getrennt mit echten SQL-External-Script-Postconditions, Restart und Cleanup/Recovery abnehmen. Bei Blockade `INFRASTRUCTURE_UNAVAILABLE`; kein stiller Host-/cgroup-Umbau. Hyper-V nur als ausdrücklich passender eigener Scope mit getrenntem Vertrag und Nachweis. |
+| Python/R und SQL Launchpad | `INFRASTRUCTURE_UNAVAILABLE` für den aktuellen SQL-2025-Containervertrag; aktuelle read-only Prüfung bestätigt cgroup v2 unter Docker und Podman bei erforderlichem v1 | Ein künftig kompatibler Docker-/Podman-Pfad benötigt getrennte echte SQL-External-Script-Postconditions, Restart und Cleanup/Recovery. Keine native Python-/R-Abnahme und kein stiller Host-/cgroup-Umbau. Hyper-V nur als ausdrücklich passender eigener Scope mit getrenntem Vertrag und Nachweis. |
 | Northwind und Chinook | `planned`; im berichteten kombinierten Ablauf wegen Runtime-Blocker nicht ausgeführt | Nach erfüllten Voraussetzungen über katalogisierte öffentliche Installationspfade einbringen, Datenbankzustand und erwartete Inhalte prüfen. Vorhandene allgemeine Sample-Nachweise ersetzen nicht diese kombinierte Abnahme. |
 | Abschluss der Übergabe | `planned`; nach den betroffenen Arbeitspaketen | Analyzer-Verfügbarkeit tatsächlich prüfen; Infrastrukturfehler nicht als Code-Erfolg behandeln. Reproduktion → fokussierte Tests → betroffene Suiten → tatsächlich betroffene Provider. Ergebnis, nicht ausgeführte Nachweise und Cleanup getrennt dokumentieren; konsistente Änderungen nur über geprüfte PRs integrieren. |
 

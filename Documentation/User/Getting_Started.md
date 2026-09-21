@@ -43,7 +43,10 @@ setzt nur exakt gebundenes unterbrochenes Apply beziehungsweise Migrate fort;
 den einmaligen Wechsel auf das bereits vorhandene lokale Nomic-Modell.
 [Upgrade, Profile und Recovery](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
 [Beispiel, Besitzvertrag und Grenzen](../Architecture/AI_PERSISTENT_RETRIEVAL.md).
-Die neue native Referenz steht noch aus.
+Die getrennten nativen Docker- und Podman-Referenzläufe bestanden am 2026-09-21
+jeweils mit 16 Assertions, SQLrestart und vollständigem eigenem DB-/Run-Cleanup.
+Der begrenzte Modellwechsel bestand je Provider mit 20 Assertions und Cleanup;
+weitere Modelle, Dimensionen, Dokumente und Hyper-V bleiben offen.
 
 ## Ziel
 
