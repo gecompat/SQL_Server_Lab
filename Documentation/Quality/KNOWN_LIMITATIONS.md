@@ -1655,6 +1655,9 @@ Der native Runner enthaelt zusaetzlich einen test-only, Run-/Scope-/Instanz-/
 VM-ID-gebundenen einmaligen Pre-Start-Fehler mit Wrapper-Entfernung vor dem
 Resume. Er belegt keine Hyper-V-Plattformfehlersimulation und ist bis zur
 erhoehten manuellen Ausfuehrung weiterhin `NOT_EXECUTED`.
+Der getrennte [Own-Run-Einstieg](../Architecture/HYPERV_RESOURCE_RECONCILE_OWN_RUN_ACCEPTANCE.md)
+verwendet ausschließlich ein explizites SQL-2025-Prepared-Artifact und keinen
+Clone-Quellrun; auch dessen native Evidence bleibt `NOT_EXECUTED`.
 Am 2026-09-14 bestand zusätzlich die vollständige native Ressourcen-Acceptance
 mit einem expliziten gestoppten Windows-2025-Clone-Quellslot und SQL Server 2025
 Enterprise aus dem konfigurierten Medienroot. Sie belegte `VerifyOnly` mit

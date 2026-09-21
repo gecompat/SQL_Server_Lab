@@ -234,6 +234,8 @@ sources_of_truth:
   validation_hyperv_network_reconnect_static: Tests/Static/Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1
   validation_hyperv_existing_network_fixture: Tests/Common/HyperVExistingNetworkFixture.ps1
   hyperv_resource_reconcile_contract: Private/HyperVResourceReconcile.ps1
+  hyperv_resource_reconcile_own_run_acceptance: Tests/Integration/Invoke-HyperVResourceReconcileOwnRunAcceptance.ps1
+  hyperv_resource_reconcile_own_run_contract: Documentation/Architecture/HYPERV_RESOURCE_RECONCILE_OWN_RUN_ACCEPTANCE.md
   hyperv_resource_reconcile_journal_schema: Schemas/hyperv-resource-reconcile-journal.schema.json
   validation_hyperv_resource_reconcile: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1
   validation_hyperv_resource_reconcile_acceptance: Tests/Integration/Invoke-HyperVResourceReconcileAcceptance.ps1
