@@ -76,11 +76,22 @@ function Initialize-PodmanSqlNamedVolume {
         [Parameter(Mandatory)][string]$InstanceId,
         [Parameter(Mandatory)][ValidatePattern('^/[A-Za-z0-9._/-]+$')][string]$ContainerPath,
         [string]$PersistentStorageId,
+        [AllowNull()]$RuntimeBinding,
         [ValidatePattern('^$|^(EXTERNAL_LANGUAGES|EXTERNAL_LIBRARIES)$')][string]$PersistentStorageRole,
         [string]$Persistence,
         [switch]$SyncImageContent
     )
 
+    if ($RuntimeBinding) {
+        $observed=Get-LabContainerInstanceStoreRuntimeInspection -Provider podman -VolumeName $VolumeName
+        $boundStore=[pscustomobject]@{Provider='podman';PersistentStorageId=$PersistentStorageId;LocationBinding=[pscustomobject]@{ProviderResourceId=$VolumeName};RuntimeBinding=$RuntimeBinding}
+        if ($observed.Status -cne 'AVAILABLE' -or @($observed.AttachedContainers).Count -ne 0 -or
+            $observed.Labels.'sql-server-lab.persistent-storage-id' -cne $PersistentStorageId -or
+            $observed.Labels.'sql-server-lab.sql-major-version' -cne $VersionId.Substring(0,4) -or
+            -not (Test-LabContainerInstanceStoreRuntimeBinding -Store $boundStore -RuntimeInspection $observed)) { throw 'RECOVERED_CONTAINER_STORE_INITIALIZATION_BLOCKED' }
+        # A bound existing store is never recreated or initialized through this path.
+        return $false
+    }
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
     $inspectionOutput = @(& $podmanInvocation volume inspect $VolumeName 2>$null)
     $volumeExists = $LASTEXITCODE -eq 0
@@ -200,7 +211,7 @@ function New-PodmanInstance {
         if (-not $drive.hostPath) {
             $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId -VersionId $VersionId -InstanceId $InstanceId `
                 -ContainerPath ([string]$drive.containerPath) `
-                -PersistentStorageId ([string]$drive.persistentStorageId) -Persistence ([string]$drive.persistence) `
+                -PersistentStorageId ([string]$drive.persistentStorageId) -RuntimeBinding $drive.runtimeBinding -Persistence ([string]$drive.persistence) `
                 -PersistentStorageRole ([string]$drive.persistentStorageRole) `
                 -SyncImageContent:($ExternalRuntimeLaunchMode -in @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1') -and
                     [string]$drive.containerPath -in @('/var/opt/mssql-extensibility/externallanguages','/var/opt/mssql-extensibility/externallibraries'))
@@ -311,6 +322,7 @@ function New-PodmanInstance {
                 )
 
                 Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Podman]"
+                foreach ($boundDrive in @($Drives | Where-Object { $_.runtimeBinding })) { Assert-LabContainerStoreRuntimeScope -Provider podman -RuntimeBinding $boundDrive.runtimeBinding }
                 $providerOperation = Invoke-LabProviderOperation -Provider podman -Phase 'container-create' -RunId $RunId -Native `
                     -Command "podman $(@($podmanArguments | ForEach-Object { $_ }) -join ' ')" `
                     -Action { & $podmanInvocation @podmanArguments 2>&1 }

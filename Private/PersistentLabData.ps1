@@ -6,6 +6,24 @@
     niemals in einen regulären Cleanup-Plan aufgenommen.
 #>
 
+function Update-LabPersistentContainerDesiredState {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$ResolvedLab, [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$ScopeId, [Parameter(Mandatory)][string]$StateRoot,
+        [Parameter(Mandatory)][ValidateSet('manifest','adhoc')][string]$ProvisioningMode)
+    $run=Get-LabRunState -RunId $RunId -StateRoot $StateRoot
+    if ($run.runId -cne $RunId -or $run.scopeId -cne $ScopeId -or $run.state -cne 'INITIALIZING' -or
+        $run.metadata.persistentData -isnot [bool] -or -not $run.metadata.persistentData) {
+        throw 'PERSISTENT_DESIRED_STATE_INITIALIZATION_REQUIRED'
+    }
+    # Lease IDs and persistent drives become available after the initial snapshot.
+    # Complete only this newly created run before provider work; never migrate history.
+    $snapshot=New-LabDesiredStateSnapshot -ResolvedLab $ResolvedLab -ProvisioningMode $ProvisioningMode `
+        -PersistentData $true -PreviousSnapshot $run.metadata.desiredState
+    $run.metadata.desiredState=$snapshot
+    Write-LabArtifactJsonAtomic -Path (Join-Path (Join-Path (Join-Path $StateRoot 'runs') $RunId) 'run-state.json') -InputObject $run
+}
+
 function ConvertTo-LabDataPathSegment {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Value)

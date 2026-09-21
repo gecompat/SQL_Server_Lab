@@ -965,6 +965,9 @@ function New-SqlServerLab {
                     -DataRoot $DataRoot
                 $persistentDrive | Add-Member -NotePropertyName persistentStorageId `
                     -NotePropertyValue ([string]$lease.Store.PersistentStorageId) -Force
+                if ($lease.Store.RuntimeBinding) {
+                    $persistentDrive | Add-Member -NotePropertyName runtimeBinding -NotePropertyValue $lease.Store.RuntimeBinding -Force
+                }
                 foreach ($sidecarDrive in @($instance.drives | Where-Object {
                     $_.persistentStorageRole -in @('EXTERNAL_LANGUAGES','EXTERNAL_LIBRARIES')
                 })) {
@@ -988,6 +991,11 @@ function New-SqlServerLab {
                 $null = Add-LabRunScopedContainerSystemDrive -Instance $instance `
                     -IncludeExternalRuntimeState:$hasExternalRuntime
             }
+        }
+
+        if ($PersistentData) {
+            Update-LabPersistentContainerDesiredState -ResolvedLab $resolved -RunId $runState.RunId `
+                -ScopeId $runState.ScopeId -StateRoot $effectiveStateRoot -ProvisioningMode $desiredProvisioningMode
         }
 
         foreach ($instance in $resolved.instances) {

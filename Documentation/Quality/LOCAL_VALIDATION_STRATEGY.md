@@ -298,6 +298,20 @@ bleiben bei Preview unveraendert; Apply registriert das Ziel und loest die
 Quell-Lease in derselben Revision. Copy-/Katalogfehler und Resume bleiben
 Bestandteil der Suite; diese Pruefung startet keine Container-Runtime.
 
+`Invoke-PersistentStorageRecoveryChecks.ps1` prüft öffentliche Preview, WhatIf,
+Abbruch, Apply und Wiederholung mit echten schemaförmigen Producer-Fixtures.
+Negative Ownership-, Retention-, Runtime-, Sidecar-, Lifecycle-, Lease- und
+Bindungsfälle erhalten Katalogbytes und Labels; Evidence-Wechsel zwischen
+Preview und Apply, Revisionkonflikt, Spiegelrollback und Consumer-Runtimewechsel
+sind injiziert. Legacy-Intents bleiben lesbar; unvollständige historische Runs
+bleiben nicht recoverbar. Dies ersetzt keinen nativen SQL-Inhaltsnachweis.
+`Tests/Integration/Invoke-PersistentStorageRecoveryAcceptance.ps1 -Provider docker`
+beziehungsweise `-Provider podman` bestand am 2026-09-21 auf `d26c29b2`
+getrennt je acht Assertions: eigener frischer retained SQL-2025-Store,
+Serverobjekt und Datenmarker, Detach, Verlust ausschließlich der eigenen
+isolierten Katalogbindung, öffentliche Recovery und Continue sowie unveränderte
+Labels. Beide Runs je Provider endeten mit zwei Cleanup-Schritten ohne Fehler;
+das eigene retained Volume und der isolierte Testroot wurden anschließend entfernt.
 Der regulaere Container-Lease-Erwerb und -Release verwenden ebenfalls den
 gemeinsamen Katalogkern. Die Katalogsuite prueft deren Previews, erwartete
 Revisionen und den fehlerhaften Release: `RECOVERY_REQUIRED` wird im Apply
