@@ -1,8 +1,8 @@
 # SQL-Version-Upgrade-Referenz: 2022 nach 2025
 
-Status: `validation_pending`; die historischen nativen Docker- und Podman-
-Abnahmen bestanden am 2026-09-21 auf `46340200`. Für die spätere Korrektur der
-Passwortargumentbindung stehen frische Provider-Abnahmen aus.
+Status: `validated_reference`; die nativen Docker- und Podman-Abnahmen der
+korrigierten Passwortargumentbindung bestanden am 2026-09-21 auf `e7083492`.
+Die historischen Abnahmen auf `46340200` bleiben als frühere Evidence erhalten.
 
 Der feste Integrationstest erzeugt zwei neue eigene Runs auf demselben explizit
 gewählten Containerprovider. Er prüft einen Datenbanktransfer über die
@@ -91,8 +91,9 @@ Credentials, Runtime-IDs oder Hostpfade.
 Der spätere Docker-CI-Lauf `35615252394` scheiterte in der Metadatenabfrage mit
 `sqlcmd: '-P': Missing argument`; das unabhängige Runtime-Cleanup meldete Erfolg.
 Der direkte sqlcmd-Aufruf umging die zentrale Argumentbindung. Die Korrektur
-und die nun deterministische Passwortvariante benötigen frische native
-Docker-/Podman-Abnahmen; die vorherigen Erfolge gelten nicht als deren Nachweis.
+und die nun deterministische Passwortvariante bestanden anschließend getrennte
+native Docker-/Podman-Abnahmen auf `e7083492`; beide eigenen Quell-/Zielpaare
+wurden entfernt, die unabhängige Restprüfung fand keine Container oder Volumes.
 
 `Invoke-SqlVersionUpgradeScenarioChecks.ps1` führt den wirklichen Kontrollfluss
 mit synthetischen Transport-/Providergrenzen aus: zwei Versionen, fremde Labels,
