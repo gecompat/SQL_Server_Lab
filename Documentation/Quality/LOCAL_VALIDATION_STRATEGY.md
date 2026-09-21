@@ -1453,8 +1453,36 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider docker
 .\Tests\Integration\Invoke-SmokeMatrix.ps1
 ```
+
+Die PITR-Referenz prüft ausschließlich einen neuen eigenen SQL-2025-Container:
+Full vor gutem Commit, SQL-Serverzeit-Cutoff in `datetime`-Präzision, getrennter
+fehlerhafter Commit und erst danach Log-Backup. Offline werden der tatsächliche
+orchestrierte SQL-Ablauf, mehrere Resultsets, Quelle nach Restore, Cleanup trotz
+verlorener New-Rückgabe sowie echte Kindprozesse mit Timeout/Abbruch geprüft.
+Arrange und Cleanup sind separat begrenzt; Rohlogs bleiben im geschützten lokalen
+Temp-Root. Auf `f51595ea` bestanden am 2026-09-21 getrennte native Docker- und
+Podman-Referenzen mit SQL-Major 17, gutem wiederhergestellten Commit, ausgeschlossener
+Fehlmutation, unveränderter Quelle, `DBCC CHECKDB`, Own-Run-Removal und fehlenden
+Runtime-Resten. Die gemessenen Restoreintervalle (Docker 2873,8858 ms; Podman
+6600,8529 ms) dokumentieren nur Beobachtungen. Die gemeinsame Selektoränderung
+verlangt den bestehenden breiten CI-Gate; die PITR-Capability benötigt nur Docker
+und Podman. Private Temp-Evidence ist nach abgelehnter automatischer Löschung
+zurückgeblieben; daraus folgt keine Behauptung vollständiger Dateibereinigung.
+Bei einem vor SQL-Readiness beendeten eigenen New-Container kann der isolierte
+Child vor dem bestehenden Auto-Cleanup eine private, sanitierte Readiness-Log-
+Kopie erfassen. Das verlangt erneut passenden Operation-Run, Runtime-Scope sowie
+frische Run-/Scope-/Instanzlabels und exakte Container-ID; fremde, laufende oder
+nicht verifizierbare Container werden nicht gelesen. Capture-Fehler verändern
+weder den primären New-Fehler noch den Cleanup. Die Diagnose ist kein Ursachen-
+oder Ressourcenfix; der beobachtete Podman-Startabbruch bleibt `UNKNOWN`.
+Die getrennte erneute Podman-Abnahme auf `a33675ca` bestand am 2026-09-21:
+PITR und Cleanup abgeschlossen, eigener Run `REMOVED`, unabhängig bestätigte
+Restfreiheit. Der frühere Startfehler wurde dabei nicht reproduziert; seine
+Ursache ist damit weiterhin nicht belegt. Die Diagnoseintegration besteht
+zusätzlich 142 fokussierte Prüfungen unter Windows und Linux.
 
 ### Host-Tool-Auflösung betroffen
 
@@ -1491,6 +1519,7 @@ wenn deren API bis zum Ende der Poll-Wartezeit unerreichbar bleibt.
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider podman
 .\Tests\Integration\Invoke-SmokeMatrix.ps1
 ```
 
