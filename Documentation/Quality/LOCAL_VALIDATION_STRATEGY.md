@@ -114,7 +114,11 @@ internen Konstruktor und prüft `SqlServerLab.RunState/1.0`, `NO_ACTION`, stabil
 Versions-/Planbindung sowie unveränderte Dateimenge, Bytes und Schreibzeiten
 nach Planung und Upgrade-Aufruf. Historische unversionierte States ohne
 Fixture-Markierung bleiben blockiert; ausschließlich synthetische Legacy-
-Migration und deren bestehendes Resume werden offline geprüft. Änderungen an
+Migration und deren bestehendes Resume werden offline geprüft. Zusätzliche
+Negativfälle prüfen Text-/Zahlmarkierungen, unvollständige aktuelle States und
+fremde Änderungen an Scope, Status, Provider-Subruns oder zusätzlichen Zielfeldern.
+Abgelehnte Aufrufe bewahren State und Journal beziehungsweise erzeugen keine
+Upgrade-Artefakte. Änderungen an
 `StateMachine.ps1` wählen diese Suite zusätzlich zur Mixed-Provider-
 Lifecycle-Suite. Providerressourcen werden für diesen lokalen Vertrag nicht
 benötigt; die Runtime-Auswahl des gemeinsamen CI-Selektors bleibt unverändert.
@@ -946,6 +950,19 @@ idempotentes Resume und scopegebundenen Cleanup:
 .\Tests\Integration\Invoke-BatchUserGateAcceptance.ps1 `
     -ArtifactId 'hyperv-os-sealed-<sha256>'
 ```
+
+Die statische Batch-Workflow-Prüfung hält zusätzlich die zustandsrootgebundene
+Workflow-Sperre in einem eigenen PowerShell-Kindprozess. Sie verlangt, dass
+eine Batch-Zusammenfassung bis zur Freigabe wartet und danach erfolgreich
+abschließt. Zwei parallele Zusammenfassungen müssen anschließend denselben
+vollständigen Batchzustand mit allen terminalen Operationen erhalten. Dieser
+synthetische Nachweis belegt die lokale Dateisynchronisation, nicht die
+Provider-Provisionierung oder extern verursachte Dateisperren.
+
+Die getrennten nativen Batch-Referenzläufe vom 2026-09-21 bestanden mit dem
+unveränderten Runtime-Commit `85dcd126`: Docker und Podman meldeten jeweils
+zwölf Assertions sowie `CLEANUP_SUCCEEDED` mit zwei Schritten und null Fehlern.
+Sie belegen keine externen ACL- oder fremden Reader-Sperren.
 
 Container-Batchpositionen müssen dazu in `defaults`, `intent`, `manifest` oder
 `overrides` das Feld `SaPasswordEnvironmentVariable` mit dem Namen einer
