@@ -111,8 +111,14 @@ mit dem im CMS-Menü angezeigten Serverziel registriert werden. Danach den Knote
 aktualisieren und beispielsweise **SQL Server Lab (8) -> Running (3)** aufklappen;
 darunter folgen optional die nichtleeren Providergruppen wie `DOCKER (1)` und
 `HYPERV (2)`. Root-, Status- und Providergruppen zeigen bei jedem Abgleich die
-Anzahl aller jeweils darunterliegenden Umgebungen. Das CMS-Menü zeigt dafür den
-konkreten Servernamen. CMS-Mitglieder speichern selbst keine Anmeldung: Microsoft
+Anzahl aller jeweils darunterliegenden Umgebungen. Die Namen der normalen
+CMS-Mitglieder enthalten Lab und Instanz, den erreichbaren Client-Endpunkt und
+eine stabile Kurz-ID, etwa `SQL2025 (primary) | 192.0.2.10,1433 | ID:0ca026f9417f`.
+Bei deaktivierten Providergruppen ergänzt der Name den Provider; ein vom
+`Running`-/`Stopped`-Ordner nicht eindeutig beschriebener RuntimeState erscheint
+ebenfalls im Namen. Die vollständige Run-/Instanzidentität bleibt ausschließlich
+in der verwalteten Beschreibung. Das CMS-Menü zeigt dafür den konkreten
+Servernamen. CMS-Mitglieder speichern selbst keine Anmeldung: Microsoft
 beschränkt deren [zentrale Registrierung](https://learn.microsoft.com/en-us/ssms/register-servers/create-a-new-registered-server-sql-server-management-studio)
 auf Servername, sichtbaren Namen und Beschreibung. Nur die einmalige lokale
 Verbindung von SSMS zum CMS kann ein von SSMS verschlüsselt gespeichertes Kennwort
@@ -132,7 +138,7 @@ Der darin liegende Serverknoten heißt ausschließlich wie das generierte Kennwo
 
 ```text
 DOCKER (1)
-└─ Demo (primary)
+└─ Demo (primary) | 127.0.0.1,1433 | ID:0ca026f9417f
    └─ GeneriertesPasswort
 ```
 
