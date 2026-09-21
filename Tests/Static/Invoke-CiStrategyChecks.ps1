@@ -390,10 +390,15 @@ Add-CheckResult -Name 'Hyper-V-Workflow fuehrt SQL-Konfigurations-Reconcile nur 
     $hyperVWorkflow -match 'Invoke-HyperVSqlConfigurationReconcileAcceptance\.ps1 @arguments' -and
     $hyperVWorkflow -match '\$arguments\.ArtifactId = \$artifactId'
 )
-Add-CheckResult -Name 'Hyper-V-Workflow verbindet SQL-Gast-Capture mit explizitem Prepared-Artifact und ohne Image-Bootstrap' -Success (
+Add-CheckResult -Name 'Hyper-V-Workflow bindet SQL-Gast-Capture nur an manuellen Same-Repo-Dispatch mit explizitem Artifact und optionalem State Root' -Success (
     $hyperVWorkflow -match '(?m)^\s*- sql-guest-evaluation-capture-acceptance\s*$' -and
     $hyperVWorkflow -match "inputs\.mode == 'sql-guest-evaluation-capture-acceptance'" -and
-    $hyperVWorkflow -match 'Invoke-SqlGuestEvaluationCaptureAcceptance\.ps1 -ArtifactId \$env:SQL_GUEST_CAPTURE_ARTIFACT_ID'
+    $hyperVWorkflow -match 'SQL_GUEST_CAPTURE_MANUAL_DISPATCH_REQUIRED' -and
+    $hyperVWorkflow -match 'SQL_GUEST_CAPTURE_EXPLICIT_ARTIFACT_REQUIRED' -and
+    $hyperVWorkflow -match 'github\.event_name == ''workflow_dispatch'' && github\.event\.repository\.full_name == github\.repository' -and
+    $hyperVWorkflow -match 'capture_state_root:' -and
+    $hyperVWorkflow -match 'SQL_GUEST_CAPTURE_STATE_ROOT' -and
+    $hyperVWorkflow -match 'Invoke-SqlGuestEvaluationCaptureAcceptance\.ps1 -ArtifactId \$env:SQL_GUEST_CAPTURE_ARTIFACT_ID -StateRoot \$env:SQL_GUEST_CAPTURE_STATE_ROOT'
 )
 Add-CheckResult -Name 'Hyper-V-Workflow fuehrt SQL-Port-Reconcile nur im exakten Akzeptanzmodus aus' -Success (
     $hyperVWorkflow -match '(?m)^\s*- sql-port-reconcile-acceptance\s*$' -and
