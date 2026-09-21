@@ -9,8 +9,12 @@ die echten Kontrollflüsse, Disk-State-Operationssuche und eigene Child-Prozesse
 SQL-/Providergrenzen sind synthetisch. Anschließend wählen tatsächliche geänderte
 und unversionierte Pfade über `Get-CiTestSelection.ps1` die betroffenen Checks.
 Die native Abnahme erfolgt getrennt mit
-`Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker` und `-Provider podman`;
-beide sind derzeit `NOT_EXECUTED`. CI-Hooks verwenden den vorhandenen Runtime-Lock.
+`Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker` und `-Provider podman`.
+Beide Referenzläufe bestanden am 2026-09-21 auf `46340200`; der unabhängige
+Nachlauf bestätigte je Provider zwei entfernte Own-Runs und keine Runtime-Residuen.
+CI-Hooks verwenden den vorhandenen Runtime-Lock. Die privaten temporären
+Evidence-Wurzeln bleiben gemäß Runnervertrag erhalten; Runtime-Cleanup belegt
+keine vollständige Entfernung aller temporären Dateien.
 Die Fähigkeit selbst betrifft beide Containerprovider; die Änderung am gemeinsamen
 Selektor behält ausdrücklich die volle bestehende CI-Pflichtmatrix bei.
 

@@ -1729,7 +1729,7 @@ validation:
     contract: Documentation/Quality/SQL_VERSION_UPGRADE_REFERENCE.md
     docker: '.\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker'
     podman: '.\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider podman'
-    execution_status: "implemented; native Docker/Podman NOT_EXECUTED"
+    execution_status: "validated_reference; native Docker and Podman passed 2026-09-21 on 46340200; runtime cleanup verified, private temporary evidence retained"
     scope: "own SQL 2022 major16 compat160 -> registered full BackupSetId -> new SQL 2025 major17 compat160 -> explicit compat170; fixed rows, aggregates, rollback, constraints, CHECKDB, unchanged source; operation/runtime-bound bounded cleanup"
   relational_core_comparison:
     source: Private/RelationalCoreComparison.ps1

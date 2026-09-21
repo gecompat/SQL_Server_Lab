@@ -1,6 +1,7 @@
 # SQL-Version-Upgrade-Referenz: 2022 nach 2025
 
-Status: `implemented`, native Docker-/Podman-Abnahme `NOT_EXECUTED`.
+Status: `validated_reference`; getrennte native Docker- und Podman-Abnahme am
+2026-09-21 auf `46340200` bestanden.
 
 Der feste Integrationstest erzeugt zwei neue eigene Runs auf demselben explizit
 gewählten Containerprovider. Er prüft einen Datenbanktransfer über die
@@ -92,9 +93,21 @@ für Erfolg, Fehler, harten Teilabbruch, Timeout und Cancellation; sie prüft
 bestätigte Terminierung, private Rohstreams und fehlgeschlagenes Output-Drain.
 Offline-Checks führen kein SQL aus und ersetzen keinen nativen Providernachweis.
 
-Docker und Podman bleiben bis zur getrennten Abnahme `NOT_EXECUTED`.
-Hyper-V, weitere Versionspaare, Serverobjektmigration, TDE/FILESTREAM,
-Produktionsdaten, Query-Store-/Anwendungsregressionen, beliebige Workloads und eine Performancefreigabe bleiben
+Die getrennten nativen Referenzläufe auf Docker und Podman bestanden am
+2026-09-21 auf `46340200`: Major 16 als Quelle und Major 17 als Ziel,
+erhaltenes Compatibility Level 160 vor dem expliziten Wechsel auf 170, feste
+Daten-, Aggregat-, Rollback-, Constraint- und `DBCC CHECKDB`-Postconditions sowie
+eine unveränderte Quelle. Der unabhängige Nachlauf bestätigte je Provider zwei
+entfernte eigene Runs und keine Runtime-Residuen. Beobachtete Restore-Dauern
+waren 3577.8575 ms (Docker) und 6837.2858 ms (Podman); sie sind keine
+Performance-Benchmarkwerte. Weitere Ablaufdauern schließen Controller-Bindung
+und SQL-Aufrufe ein und erlauben ebenfalls keinen Datenbank-Performancevergleich.
+
+Die private temporäre Evidence-Wurzel bleibt nach dem Runtime-Cleanup gemäß
+Runnervertrag erhalten; sie ist weder Repository-Evidence noch ein Nachweis,
+dass alle temporären Dateien entfernt wurden. Hyper-V, weitere Versionspaare,
+Serverobjektmigration, TDE/FILESTREAM, Produktionsdaten, Query-Store-/
+Anwendungsregressionen, beliebige Workloads und eine Performancefreigabe bleiben
 außerhalb dieses festen Tests. Die neue Einzelpfadklassifikation wählt nur
 Docker/Podman. Änderungen am gemeinsamen Selektor beziehungsweise an der
 CI-Infrastruktur wählen weiterhin die bestehende volle Pflichtmatrix.
