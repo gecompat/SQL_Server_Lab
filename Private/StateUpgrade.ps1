@@ -2,8 +2,8 @@
 .SYNOPSIS
     Bewertet die Upgrade-Fähigkeit eines lokalen Run-State.
 .DESCRIPTION
-    Der erste Upgrade-Slice erzeugt ausschließlich einen sanitierten,
-    nicht ausführbaren Plan. Er verändert weder Run-State noch Runtime.
+    Plant lokale State-Upgrades und migriert ausschließlich ausdrücklich
+    markierte synthetische Legacy-States. Provider und Runtime bleiben unverändert.
 #>
 
 function Get-LabRunStateUpgradePlan {
@@ -42,7 +42,7 @@ function Get-LabRunStateUpgradePlan {
     $syntheticLegacy = $false
     if ($state.PSObject.Properties['metadata'] -and $state.metadata -and
         $state.metadata.PSObject.Properties['syntheticStateFixture']) {
-        $syntheticLegacy = [bool]$state.metadata.syntheticStateFixture
+        $syntheticLegacy = $state.metadata.syntheticStateFixture -is [bool] -and $state.metadata.syntheticStateFixture -eq $true
     }
     if ($sourceContractVersion -notin @('UNVERSIONED_LEGACY', $targetContractVersion)) {
         $blockers.Add("RUN_STATE_CONTRACT_UNSUPPORTED:$sourceContractVersion")
@@ -57,6 +57,9 @@ function Get-LabRunStateUpgradePlan {
     }
     if (-not $state.PSObject.Properties['providerSubRuns']) {
         $changes.Add([PSCustomObject]@{ Kind = 'ADD_PROVIDER_SUBRUNS'; Status = 'PENDING' })
+    }
+    if ($changes.Count -gt 0 -and $sourceContractVersion -ne 'UNVERSIONED_LEGACY') {
+        $blockers.Add('RUN_STATE_UPGRADE_LEGACY_SOURCE_REQUIRED')
     }
 
     $status = if ($blockers.Count -gt 0) { 'BLOCKED' } elseif ($changes.Count -gt 0) { 'READY' } else { 'NO_ACTION' }
@@ -117,7 +120,7 @@ function Resume-LabRunStateUpgrade {
     $entry = $journals[0]
     $journal = $entry.Journal
     if ([string]$journal.ContractVersion -ne 'SqlServerLab.RunStateUpgradeJournal/1.0' -or
-        [string]$journal.RunId -ne $RunId -or [string]::IsNullOrWhiteSpace([string]$journal.PlanId) -or
+        [string]$journal.RunId -ne $RunId -or [string]$journal.PlanId -cnotmatch '^run-state-upgrade-[a-f0-9]{64}$' -or
         [string]::IsNullOrWhiteSpace([string]$journal.SourceStateSha256) -or
         [string]::IsNullOrWhiteSpace([string]$journal.TargetContractVersion)) {
         throw 'RUN_STATE_UPGRADE_RESUME_JOURNAL_INVALID'
@@ -127,6 +130,17 @@ function Resume-LabRunStateUpgrade {
     $sourceJson = Get-Content -LiteralPath $sourcePath -Raw -Encoding utf8
     $sourceHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($sourceJson))).ToLowerInvariant()
     if ($sourceHash -ne [string]$journal.SourceStateSha256) { throw 'RUN_STATE_UPGRADE_RESUME_SOURCE_CHANGED' }
+    $source = $sourceJson | ConvertFrom-Json -Depth 20
+    $sourceVersion = if ($source.PSObject.Properties['contractVersion']) { [string]$source.contractVersion } else { 'UNVERSIONED_LEGACY' }
+    if ($sourceVersion -cne 'UNVERSIONED_LEGACY' -or [string]$source.runId -cne $RunId -or
+        [string]::IsNullOrWhiteSpace([string]$source.scopeId) -or -not (Get-LabStateTransitionMap).ContainsKey([string]$source.state) -or
+        -not ($source.metadata.syntheticStateFixture -is [bool]) -or $source.metadata.syntheticStateFixture -ne $true -or
+        [string]$journal.TargetContractVersion -cne 'SqlServerLab.RunState/1.0') {
+        throw 'RUN_STATE_UPGRADE_RESUME_SOURCE_UNAUTHORIZED'
+    }
+    $fingerprint = "$RunId|$sourceVersion|SqlServerLab.RunState/1.0|$sourceHash"
+    $expectedPlanId = 'run-state-upgrade-' + [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($fingerprint))).ToLowerInvariant()
+    if ([string]$journal.PlanId -cne $expectedPlanId) { throw 'RUN_STATE_UPGRADE_RESUME_PLAN_MISMATCH' }
     $statePath = Join-Path $runDirectory 'run-state.json'
     $currentJson = Get-Content -LiteralPath $statePath -Raw -Encoding utf8
     $currentHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($currentJson))).ToLowerInvariant()
@@ -134,6 +148,12 @@ function Resume-LabRunStateUpgrade {
     try { $current = $currentJson | ConvertFrom-Json -Depth 20 } catch { throw 'RUN_STATE_UPGRADE_RESUME_STATE_INVALID' }
     if ([string]$current.runId -ne $RunId -or [string]$current.contractVersion -ne [string]$journal.TargetContractVersion -or
         -not $current.PSObject.Properties['providerSubRuns']) { throw 'RUN_STATE_UPGRADE_RESUME_POSTCONDITION_FAILED' }
+    # Der gesicherte Quellstate bestimmt das vollständige Ziel, nicht nur dessen Versionsfelder.
+    $source | Add-Member -NotePropertyName contractVersion -NotePropertyValue 'SqlServerLab.RunState/1.0' -Force
+    if (-not $source.PSObject.Properties['providerSubRuns']) { $source | Add-Member -NotePropertyName providerSubRuns -NotePropertyValue @() }
+    if (($current | ConvertTo-Json -Depth 30 -Compress) -cne ($source | ConvertTo-Json -Depth 30 -Compress)) {
+        throw 'RUN_STATE_UPGRADE_RESUME_TARGET_CHANGED'
+    }
     $journal.Status = 'COMPLETED'; $journal.RollbackStatus = 'NOT_REQUIRED'; $journal.CompletedAt = Get-LabTimestamp
     Write-LabArtifactJsonAtomic -Path $entry.Path -InputObject $journal
     return [PSCustomObject]@{
