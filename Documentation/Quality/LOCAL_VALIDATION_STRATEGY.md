@@ -445,8 +445,9 @@ und separat `-Provider podman` prüfen je einen eigenen SQL-2025-Run mit
 synthetischem führendem Minus: Hostquery und Containerstatus `healthy`.
 Die globale Runtime-Sperre wird vor Runtimeaktionen bis zu 30 Minuten erworben;
 PASS setzt bestätigtes Run-/Volume-Cleanup voraus. Bei unklarer Bindung bleibt
-der Recovery-State erhalten. Beide neuen nativen Varianten sind noch
-`NOT_EXECUTED`. Host-sqlcmd wird auch von Windows-/Hyper-V-SQL-Workflows
+der Recovery-State erhalten. Docker und Podman bestanden am 2026-09-21
+getrennt Hostquery und `healthy`; je zwei Cleanup-Schritte endeten ohne Fehler,
+Container- und Volume-Abwesenheit wurden bestätigt. Host-sqlcmd wird auch von Windows-/Hyper-V-SQL-Workflows
 verwendet; die Änderung am gemeinsamen Wrapper hebt deren Auswahl im
 verbindlichen Impact-Selector nicht auf und ist kein neuer Hyper-V-Nachweis.
 
