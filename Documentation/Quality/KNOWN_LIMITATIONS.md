@@ -2243,7 +2243,10 @@ aktuelle Provider-Runtime (`runtime-scope-…`) und unveränderte Original-Run-E
 Run-/Scope-/Instanzlabels bleiben getrennt erhalten. Preview, Abbruch, CAS und
 Spiegelrollback ändern weder Ressourcen noch Labels; Continue, Clone, Lease,
 Release, Providerinitialisierung und Residency prüfen die zusätzliche Bindung.
-Native Recovery-Abnahmen für Docker und Podman sind vorbereitet, noch nicht ausgeführt.
+Die getrennten nativen SQL-2025-Abnahmen für Docker und Podman bestanden am
+2026-09-21 je acht Assertions einschließlich Serverobjekt und Datenmarker nach
+Continue, unveränderter Labels und vollständigem eigenen Cleanup. Dieser
+Referenzfall belegt keine Sidecar-Recovery oder breite Versionsmatrix.
 
 Zwei bisherige Producer-Lücken sind für neue Runs korrigiert: Eine UUID auf einem
 `data-root-runtime-volume`-Intent wird akzeptiert; der initiale Desired-State wird

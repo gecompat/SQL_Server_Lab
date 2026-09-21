@@ -736,7 +736,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Invoke-SqlServerLabMaintenance` | Den revalidierten Plan sicher oder einschließlich scopegebundenem Cleanup ausführen; fremde Ressourcen bleiben unangetastet |
 | `Get-SqlServerLabPersistentStorageRemovalPlan` | Retention-, Backup-/Package- und Bindungsfolgen einer Run-Entfernung anhand stabiler Storage-IDs read-only und fail-closed planen |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | Retained Docker-/Podman-Instanzstores optional verifiziert sichern, den Run journalisiert entfernen und den Store detached erhalten |
-| `Repair-SqlServerLabPersistentStorageCatalog` | Verlorene Katalogbindung eines eigenen UUID-gelabelten detached retained Docker-/Podman-Stores anhand originaler Run-Evidence und aktueller Runtime-ID wiederherstellen; native Recovery-Abnahme offen |
+| `Repair-SqlServerLabPersistentStorageCatalog` | Verlorene Katalogbindung eines eigenen UUID-gelabelten detached retained Docker-/Podman-Stores anhand originaler Run-Evidence und aktueller Runtime-ID wiederherstellen; SQL-2025-Referenzfall getrennt nativ belegt |
 | `Sync-SqlServerLabPersistentStorageArtifact` | Ein vorhandenes Backup-Set, Datenbankpaket oder sicheres relatives Exchange-Workspace per stabiler Artefakt-ID idempotent mit dem Persistent-Storage-Katalog synchronisieren |
 | `Sync-SqlServerLabRunScopedContainerStore` | Einen laufenden, vollständig run-, scope-, label- und containergebunden nachgewiesenen Docker-/Podman-Store revisionsgeschützt katalogisieren |
 | `Get-SqlServerLabDatabasePackage` | Datenbankpakete pfadfrei anhand ihrer stabilen `DatabasePackageId` auswählen und optional vollständig verifizieren |

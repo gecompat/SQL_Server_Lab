@@ -834,6 +834,7 @@ aktuelle Provider-Runtime. Alle Continue-/Clone-/Lease-/Provider-Consumer prüfe
 diese optionale Bindung; normale bestehende Einträge bleiben kompatibel.
 Neue PersistentData-Runs persistieren die nach dem Lease-Erwerb vollständigen
 Drive-Intents vor Providerarbeit. Historische unvollständige oder UUID-lose
-Evidence wird nicht migriert. Native Recovery-Akzeptanz ist getrennt offen;
-Tests/Integration/Invoke-PersistentStorageRecoveryAcceptance.ps1 bereitet
-jeweils einen eigenen Docker-/Podman-SQL-Store samt vollständigem Cleanup vor.
+Evidence wird nicht migriert. Die getrennten nativen SQL-2025-Abnahmen am
+2026-09-21 bestanden je acht Assertions: eigener Store, Katalogverlust,
+Recovery, Continue, SQL-Marker und Serverobjekt, unveränderte Labels sowie
+vollständiges Run-, Volume- und Testroot-Cleanup.

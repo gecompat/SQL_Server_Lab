@@ -1811,7 +1811,8 @@ Store unter der erneut geprüften Runtime-Bindung. Ein identischer Repair liefer
 Run-scoped Stores, aktive Leases, fremde Ownership, Sidecars und unbekannte
 Runtime-Evidence bleiben blockiert. Ältere Runs ohne persistierte Drive-/UUID-
 Evidence werden nicht nachträglich ergänzt; UUID-lose historische Intents bleiben
-lesbar. Die getrennte native Docker-/Podman-Abnahme dieses Recovery-Pfads steht noch aus.
+lesbar. Der SQL-2025-Referenzfall ist unter Docker und Podman getrennt mit
+Serverobjekt, Datenmarker nach Continue, unveränderten Labels und Cleanup belegt.
 
 ### SQL-Gast-Edition und Evaluation-Evidence
 

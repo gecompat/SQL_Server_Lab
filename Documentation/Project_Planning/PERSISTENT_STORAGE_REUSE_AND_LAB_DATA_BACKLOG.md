@@ -742,5 +742,8 @@ Wiederholung verwenden den gemeinsamen Katalogkern. Die Provider-Runtime-Bindung
 wird durch Continue, Clone, Lease/Release, Initialisierung und Residency getragen.
 Neue Runs erhalten den vollständigen persistenten Drive-Snapshot; historische
 Lücken werden nicht migriert. Fremde/unbekannte Stores, run-scoped Konvertierung,
-Sidecars und breite Bestandsadoption bleiben ausgeschlossen. Der native Nachweis
-für Docker und Podman ist vorbereitet und bleibt bis zur Ausführung offen.
+Sidecars und breite Bestandsadoption bleiben ausgeschlossen. Die getrennten
+nativen SQL-2025-Abnahmen für Docker und Podman bestanden am 2026-09-21 auf
+`d26c29b2` je acht Assertions einschließlich Recovery, Continue, SQL-Inhalt,
+unveränderter Labels und vollständigem eigenen Cleanup. PSR-003 bleibt wegen
+der weiteren Bestandsklassen und Wiederverwendungsgrenzen teilweise offen.
