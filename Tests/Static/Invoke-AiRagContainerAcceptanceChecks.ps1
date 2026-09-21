@@ -45,7 +45,7 @@ try {
     $afterJob=Start-Job -ScriptBlock {param($Name)$probe=[Threading.Mutex]::new($false,$Name);try{$got=$probe.WaitOne(150);if($got){$probe.ReleaseMutex()};$got}finally{$probe.Dispose()}} -ArgumentList $mutexName;Wait-Job $afterJob|Out-Null;$released=[bool](Receive-Job $afterJob);Remove-Job $afterJob
     Check 'Root-Deletefehler journalisiert Recovery und gibt den Mutex prozessübergreifend frei' ($blocked -and $rootFailure.CleanupFailed -and $script:recovery -contains 'TEST_ROOT_CLEANUP_FAILED' -and $released)
     $source=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-AiRagContainerAcceptance.ps1') -Raw -Encoding utf8
-    Check 'Golden-Harness hält den exakten Runtime-Mutex und nutzt cidfile plus Bind-Mount' ($source -match 'Global\\SQL_Server_Lab_Runtime_Smoke' -and $source -match '\$RuntimeMutexAlreadyHeld' -and $source -match '--cidfile' -and $source -match ':/root/\.ollama' -and $source -match 'Assert-LabTransferNoResidue')
+    Check 'Golden-Harness hält Mutex, Bind-Mount und nicht sensitive RAG-Phasen fest' ($source -match 'Global\\SQL_Server_Lab_Runtime_Smoke' -and $source -match '\$RuntimeMutexAlreadyHeld' -and $source -match '--cidfile' -and $source -match ':/root/\.ollama' -and $source -match 'phase=\$phase' -and $source -match "'FIRST_RAG'" -and $source -match "'RESTART_RAG'" -and $source -match 'Assert-LabTransferNoResidue')
 }
 finally {if(Test-Path -LiteralPath $data){Remove-Item -LiteralPath $data -Recurse -Force -ErrorAction SilentlyContinue}}
 foreach($result in $results){Write-Host "$(if($result.Success){'PASS'}else{'FAIL'}): $($result.Name)"}

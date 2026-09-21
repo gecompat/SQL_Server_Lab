@@ -24,11 +24,11 @@ $token=[Guid]::NewGuid().ToString('N');$operation=[Guid]::NewGuid().ToString('D'
 $testRoot=Join-Path ([IO.Path]::GetTempPath()) "sql-lab-ai-rag-$Provider-$token"
 $stateRoot=Join-Path $testRoot 'state';$ollamaData=Join-Path $testRoot 'ollama';$manifestPath=Join-Path $testRoot 'manifest.json';$journalPath=Join-Path $testRoot 'journal.json';$cidPath=Join-Path $testRoot 'ollama.cid'
 $runtimeName="sql-lab-ai-rag-$Provider-$($token.Substring(0,10))"
-$tool=$null;$module=$null;$lab=$null;$binding=$null;$runtimeId=$null;$runtimeStartAttempted=$false;$arrangeStarted=$false;$complete=$false;$testFailed=$false;$cleanupFailed=$false;$cleanupReason=$null;$mutex=$null;$mutexAcquired=$false;$result=$null;$password=$null
+$tool=$null;$module=$null;$lab=$null;$binding=$null;$runtimeId=$null;$runtimeStartAttempted=$false;$arrangeStarted=$false;$complete=$false;$testFailed=$false;$cleanupFailed=$false;$cleanupReason=$null;$mutex=$null;$mutexAcquired=$false;$result=$null;$password=$null;$phase='ARRANGE'
 
 function Write-RagAcceptanceJournal {
     param([Parameter(Mandatory)][string]$Status,[string]$RecoveryReason=$null,[bool]$TestFailed=$false)
-    $journal=[ordered]@{contract='SqlServerLab.AiRagContainerAcceptance/1.1';provider=$Provider;operationId=$operation;runtimeName=$runtimeName;runtimeId=$runtimeId;status=$Status;recoveryReason=$RecoveryReason;testFailed=$TestFailed}
+    $journal=[ordered]@{contract='SqlServerLab.AiRagContainerAcceptance/1.1';provider=$Provider;operationId=$operation;runtimeName=$runtimeName;runtimeId=$runtimeId;status=$Status;phase=$phase;recoveryReason=$RecoveryReason;testFailed=$TestFailed}
     $temporary="$journalPath.partial"
     [IO.File]::WriteAllText($temporary,($journal|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
     [IO.File]::Move($temporary,$journalPath,$true)
@@ -93,6 +93,7 @@ try {
     $binding=& $module {param($Run,$State,$Operation)Get-LabTransferBinding -RunId $Run -InstanceId primary -StateRoot $State -OperationId $Operation} $lab.RunId $stateRoot $operation
     Write-RagAcceptanceJournal -Status 'SQL_OWNED'
     $invoke=@{RunId=$lab.RunId;InstanceId='primary';SaPassword=$password;CaseId='backup-frequency';LocalPort=$ollamaPort;StateRoot=$stateRoot;Confirm=$false}
+    $phase='FIRST_RAG';Write-RagAcceptanceJournal -Status 'SQL_OWNED'
     $first=Invoke-SqlServerLabAiRag @invoke
     if($first.Status-ne'SUCCEEDED'-or $first.Citations[0]-ne'backup-policy'-or [string]::IsNullOrWhiteSpace($first.Answer)){throw 'AI_RAG_RESULT_FAILED'}
     $evaluation=Measure-SqlServerLabAiRetrieval -QueryResult $first -CaseId backup-frequency
@@ -102,6 +103,7 @@ try {
     $ollamaRestart=Invoke-RagRuntimeCommand @('restart',$runtimeId);if($ollamaRestart.ExitCode-ne 0){throw 'AI_RAG_OLLAMA_RESTART_FAILED'}
     $portResult=Invoke-RagRuntimeCommand @('port',$runtimeId,'11434/tcp');if($portResult.ExitCode-ne 0){throw 'AI_RAG_RESTART_PORT_MISSING'}
     $portText=[string]($portResult.Output|Select-Object -First 1);if($portText-notmatch':(?<port>[0-9]+)$'){throw 'AI_RAG_RESTART_PORT_MISSING'};$ollamaPort=[int]$Matches.port;Wait-RagOllama -Port $ollamaPort;$invoke.LocalPort=$ollamaPort
+    $phase='RESTART_RAG';Write-RagAcceptanceJournal -Status 'SQL_OWNED'
     $second=Invoke-SqlServerLabAiRag @invoke;if($second.Status-ne'SUCCEEDED'-or $second.Citations[0]-ne'backup-policy'){throw 'AI_RAG_RESTART_RESULT_FAILED'}
     $secondEvaluation=Measure-SqlServerLabAiRetrieval -QueryResult $second -CaseId backup-frequency;if($secondEvaluation.Status-ne'PASSED'-or $secondEvaluation.Binding.PlanKey-ne$second.PlanKey){throw 'AI_RAG_RESTART_EVALUATION_FAILED'}
     $complete=$true;$result=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiRagContainerAcceptance';Version='1.1'};Status='PASSED';Provider=$Provider;SqlRetrieval='EXACT_COSINE';TopCitation='backup-policy';GoldenEvaluation='PASSED';Restart='PASSED'}
