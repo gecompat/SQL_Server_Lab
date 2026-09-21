@@ -11,6 +11,7 @@ Container-basierte SQL-Server-Instanzen via Docker Desktop oder Docker Engine.
 
 - Volume-Mounts fuer Multi-Disk-Szenarien (`-Drives`)
 - Health-Check via sqlcmd
+- Passwortbindung als ein Shellargument, auch bei führendem Minus; derselbe Vertrag gilt beim Container-Reconcile
 - Labels fuer Lifecycle-Management (`sql-server-lab.*`)
 - MSSQL_AGENT_ENABLED=true (immer aktiv)
 - Ressourcen-Limits (Memory, CPUs) per Profile; SQL Server erhaelt zusaetzlich
