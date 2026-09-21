@@ -329,6 +329,8 @@ function Show-LabAiMenu {
     param()
 
     return Show-LabSubMenu -ScreenId 'ai-menu' -Title 'SQL Server 2025 KI' -Subtitle 'Kostenbewusste, kataloggebundene Ollama- und SQL-Workflows' -Items @(
+        New-LabConsoleItem -Id 'AiPodmanSetup' -Label 'Podman-KI-Testumgebung erstellen' -Value 'SQL 2025 · vorhandenes Embeddingmodell · Daten bleiben erhalten' -Shortcut '9'
+        New-LabConsoleItem -Id 'AiPodmanEnvironments' -Label 'Meine KI-Testumgebungen anzeigen' -Value 'Umgebung und gespeicherte Beispieldaten wiederfinden' -Shortcut 'v'
         New-LabConsoleItem -Id 'AiScenarioPlan' -Label 'KI-Szenarioplan anzeigen' -Value 'read-only · hashgebundener Katalogvertrag' -Shortcut '1'
         New-LabConsoleItem -Id 'AiScenarioRun' -Label 'KI-Szenario ausführen' -Value 'SQL 2025 · journalisiert · Cleanup immer' -Shortcut '2'
         New-LabConsoleItem -Id 'AiModel' -Label 'Ollama-Modell aufrufen' -Value 'lokal oder explizit freigegebene Cloud-Lane' -Shortcut '3'
@@ -1439,6 +1441,8 @@ function Invoke-LabAction {
             }
             catch { Write-LabError $_.Exception.Message }
         }
+        'AiPodmanSetup' { Invoke-LabAiPodmanSetupInteractive }
+        'AiPodmanEnvironments' { Show-LabAiPodmanEnvironmentsInteractive }
         'AiScenarioPlan' { Invoke-LabAiScenarioPlanInteractive }
         'AiScenarioRun' { Invoke-LabAiScenarioRunInteractive }
         'AiModel' { Invoke-LabAiModelInteractive }
@@ -5992,4 +5996,82 @@ function Rename-LabEnvironmentInteractive {
         else { Write-LabInfo 'Name unverändert.' }
     }
     catch { Write-LabError $_.Exception.Message }
+}
+
+function Read-LabAiPodmanSetupNumber {
+    param([string]$Prompt,[int]$Default,[int]$Minimum,[int]$Maximum)
+    while ($true) {
+        $inputResult=Read-LabConsoleTextInput -Prompt $Prompt -Default ([string]$Default)
+        if ($inputResult.Status -ceq 'Cancelled') { return $null }
+        $number=0
+        if ([int]::TryParse([string]$inputResult.Value,[ref]$number) -and $number -ge $Minimum -and $number -le $Maximum) { return $number }
+        Write-LabWarning "Bitte eine ganze Zahl zwischen $Minimum und $Maximum eingeben."
+    }
+}
+
+function Show-LabAiPodmanEnvironmentsInteractive {
+    [CmdletBinding()]
+    param()
+    $entries=@(Get-LabAiPodmanSetupEntries)
+    if (-not $entries.Count) { Write-LabInfo 'Noch keine Podman-KI-Testumgebung über dieses Menü erstellt.';return }
+    foreach ($entry in $entries) {
+        Write-LabStatus -Label 'Umgebung' -Value $entry.Name
+        Write-LabStatus -Label 'Erstellung' -Value $entry.Status
+        Write-LabStatus -Label 'Runzustand' -Value $entry.RunState
+        if ($entry.RunId) { Write-LabStatus -Label 'RunId' -Value $entry.RunId }
+        Write-LabStatus -Label 'CollectionId' -Value $entry.CollectionId
+        Write-LabStatus -Label 'Ollama-Port' -Value $entry.LocalPort
+        if ($entry.Status -cne 'READY') { Write-LabInfo 'Unvollständiger Vorgang: Status der Umgebung und Bereinigung prüfen; nicht erneut übernehmen.' }
+    }
+    Write-LabInfo 'SQL-Zugang und Start/Stop befinden sich in der Verbindungszentrale beziehungsweise unter Umgebungen.'
+    Write-LabInfo 'Gespeicherte Beispieldaten: Invoke-SqlServerLabAiPersistentRetrieval -RunId <RunId> -CollectionId <CollectionId> -Action Query -QueryId backup -LocalPort <Ollama-Port>'
+}
+
+function Invoke-LabAiPodmanSetupInteractive {
+    [CmdletBinding()]
+    param()
+    $name=Read-LabConsoleTextInput -Prompt 'Name der KI-Testumgebung' -Default 'Podman KI'
+    if ($name.Status -ceq 'Cancelled') { return New-LabActionResult -Action AiPodmanSetup -Status Cancelled }
+    while ($name.Value -cnotmatch '^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$') {
+        Write-LabWarning 'Der Name benötigt 1 bis 64 Buchstaben, Ziffern, Leerzeichen, Unterstriche oder Bindestriche.'
+        $name=Read-LabConsoleTextInput -Prompt 'Name der KI-Testumgebung' -Default 'Podman KI'
+        if ($name.Status -ceq 'Cancelled') { return New-LabActionResult -Action AiPodmanSetup -Status Cancelled }
+    }
+    $port=Read-LabAiPodmanSetupNumber -Prompt 'Port des vorhandenen lokalen Ollama-Dienstes' -Default 11434 -Minimum 1024 -Maximum 65535
+    if ($null -eq $port) { return New-LabActionResult -Action AiPodmanSetup -Status Cancelled }
+    $cpu=Read-LabAiPodmanSetupNumber -Prompt 'SQL-Prozessorkerne' -Default 2 -Minimum 1 -Maximum 8
+    if ($null -eq $cpu) { return New-LabActionResult -Action AiPodmanSetup -Status Cancelled }
+    $memory=Read-LabAiPodmanSetupNumber -Prompt 'SQL-Arbeitsspeicher in MiB' -Default 4096 -Minimum 2560 -Maximum 65536
+    if ($null -eq $memory) { return New-LabActionResult -Action AiPodmanSetup -Status Cancelled }
+    try { $plan=New-LabAiPodmanSetupPlan -Name $name.Value -LocalPort $port -Cpu $cpu -MemoryMB $memory }
+    catch {
+        $message=if ($_.Exception.Message -ceq 'AI_PODMAN_SETUP_MODEL_UNAVAILABLE') {
+            'Lokales embeddinggemma:latest ist nicht passend verfügbar. Vorhandenen Ollama-Dienst, Modell und 768 Dimensionen prüfen.'
+        } else { 'Podman ist nicht bereit. Laufende Runtime und Zugriffsberechtigung prüfen; dieses Menü startet keine Podman-Machine.' }
+        Write-LabWarning $message
+        return New-LabActionResult -Action AiPodmanSetup -Status Failed -ErrorCode AI_PODMAN_SETUP_PREFLIGHT_FAILED
+    }
+    Write-LabInfo "Neue Umgebung: $($plan.name) · Podman · SQL Server 2025 · $cpu Kerne · $memory MiB."
+    Write-LabInfo "Vorhandenes lokales embeddinggemma:latest auf Port $port; drei synthetische Dokumente und eine überprüfte Beispielsuchabfrage."
+    Write-LabInfo 'SQL-Zugang wird verwaltet erzeugt. Daten bleiben im Lab-Volume erhalten; Entfernen der Umgebung löscht sie.'
+    if (-not (Read-LabConfirm -Prompt 'Diese KI-Testumgebung jetzt erstellen?' -Default $false)) {
+        return New-LabActionResult -Action AiPodmanSetup -Status Cancelled
+    }
+    Write-LabInfo 'SQL wird bereitgestellt und die Beispielsuchabfrage geprüft. Das kann einige Minuten dauern.'
+    try { $result=Invoke-LabAiPodmanSetup -Plan $plan -Confirm:$false }
+    catch {
+        Write-LabWarning 'Die Erstellung konnte nicht abgeschlossen werden. Meine KI-Testumgebungen zeigt den erhaltenen Vorgang zur Status- und Bereinigungsprüfung.'
+        return New-LabActionResult -Action AiPodmanSetup -Status Failed -ErrorCode AI_PODMAN_SETUP_FAILED
+    }
+    if ($result.Status -ceq 'READY') {
+        Write-LabSuccess 'Die Podman-KI-Testumgebung ist bereit; die Beispielsuchabfrage wurde geprüft.'
+        Write-LabStatus -Label 'RunId' -Value $result.RunId
+        Write-LabStatus -Label 'CollectionId' -Value $result.CollectionId
+        Write-LabInfo 'SQL-Zugang: Verbindungszentrale. IDs später erneut unter Meine KI-Testumgebungen anzeigen.'
+        return New-LabActionResult -Action AiPodmanSetup -Status Changed -RunIds @($result.RunId) -ConnectionCenterImpact EndpointSet
+    }
+    Write-LabWarning 'Erstellung fehlgeschlagen.'
+    Write-LabStatus -Label 'Bereinigung' -Value $result.CleanupStatus
+    if ($result.Status -ceq 'RECOVERY_REQUIRED') { Write-LabWarning 'Eigene Ressourcen konnten nicht vollständig bestätigt werden. Vorgang und Run-State bleiben für die Bereinigung erhalten.' }
+    return New-LabActionResult -Action AiPodmanSetup -Status Failed -RunIds @($result.RunId) -ErrorCode AI_PODMAN_SETUP_FAILED
 }
