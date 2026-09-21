@@ -113,6 +113,9 @@ try{
         Check 'Freier Input blockiert selbst vor Metadaten' ((Reject {Invoke-LabAiSqlHttpsEmbedding -Plan $plan -Expected $binding -InputText arbitrary -HttpTransport $transport} 'PAYLOAD_INVALID') -and $script:requests.Count -eq 0)
         Check 'Freier Upstreampfad blockiert vor Netzwerk' (Reject {Invoke-LabAiSqlHttpsHttp -Port 11434 -Path /api/generate -TimeoutMilliseconds 1000} 'UPSTREAM_INVALID')
         Check 'Nullbudget blockiert vor Netzwerk' (Reject {Invoke-LabAiSqlHttpsHttp -Port 11434 -Path /api/embed -TimeoutMilliseconds 0} 'UPSTREAM_INVALID')
+        $linuxStat='41 (bridge) worker) '+((@('R')+@(1..18|ForEach-Object {'0'})+@('77221')) -join ' ')
+        Check 'Linux-Prozessidentität nutzt Boot-ID und robustes letztes Kommandoende' ((ConvertTo-LabAiSqlHttpsLinuxProcessIdentity -ProcessId 41 -Stat $linuxStat -BootId '01234567-89ab-cdef-0123-456789abcdef') -ceq 'linux:01234567-89ab-cdef-0123-456789abcdef:77221')
+        Check 'Ungültige Linux-Prozessidentität blockiert statt Zeitstempeltoleranz' (Reject {ConvertTo-LabAiSqlHttpsLinuxProcessIdentity -ProcessId 41 -Stat '42 (bridge) R 0' -BootId '01234567-89ab-cdef-0123-456789abcdef'} 'PROCESS_IDENTITY_UNAVAILABLE')
         $progress=@{}
         $rejected=Reject {Read-Wire $body -Headers '' -Progress $progress} 'AUTH_FAILED'
         Check 'Authnegative zählt empfangenen HTTP-Header' ($rejected -and $progress.HttpRequest -and $progress.HeaderBytes -gt 0)
@@ -139,6 +142,10 @@ try{
     $cleanupSafe=$false
     try{$bridge=& $module {param($Root)Start-LabAiSqlHttpsBridge -Root $Root -OperationId ([guid]::NewGuid().ToString('D')) -Token ('a'*64) -Binding @{ModelKey='ollama-embeddinggemma-latest';Model='embeddinggemma:latest';Digest=('a'*64);Version='0.34.2';Dimension=768} -LocalPort 11434} $root;$cleanupSafe=$true}
     catch{if($_.Exception.Message -ceq 'AI_SQL_HTTPS_GATEWAY_START_FAILED_CLEANED'){$cleanupSafe=$true};throw}
+    $identity=$bridge.ProcessIdentity;$bridge.ProcessIdentity='wrong-identity';$bindingRejected=$false
+    try{& $module {param($Bridge)Stop-LabAiSqlHttpsBridge $Bridge} $bridge|Out-Null}catch{$bindingRejected=$_.Exception.Message -ceq 'AI_SQL_HTTPS_PROCESS_BINDING_INVALID'}finally{$bridge.ProcessIdentity=$identity}
+    if(-not $bindingRejected){throw 'PROCESS_IDENTITY_BINDING_NOT_ENFORCED'}
+    Write-Host 'PASS: Abweichende Prozessidentität blockiert STOP vor jeder Prozessmutation'
     $certificate=[Security.Cryptography.X509Certificates.X509Certificate2]::new([Convert]::FromBase64String($bridge.Ready.CaBase64))
     try{
         if($certificate.HasPrivateKey){throw 'PRIVATE_KEY_EXPOSED'}
@@ -207,7 +214,7 @@ try{
     if($fault.Confirmed -and $fault.Stopped){$cleanupSafe=$true}
     if(-not $cleanupSafe -or -not $fault.Reached){throw 'DYNAMIC_START_FAILURE_CLEANUP_FAILED'}
     Write-Host 'PASS: Injizierter Fehler nach realem Prozessstart bestätigt Exit und STOPPED vor Dateicleanup'
-    Write-Host "AI SQL HTTPS BRIDGE CHECKS: PASS ($($checks.Count+14) assertions)"
+    Write-Host "AI SQL HTTPS BRIDGE CHECKS: PASS ($($checks.Count+17) assertions)"
 }finally{
     if($bridge){& $module {param($Bridge)Stop-LabAiSqlHttpsBridge $Bridge} $bridge|Out-Null}
     if($cleanupSafe -and (Test-Path -LiteralPath $root)){$resolved=[IO.Path]::GetFullPath($root);$boundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar;if(-not $resolved.StartsWith($boundary,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolved) -notlike 'sql-lab-ai-bridge-check-*'){throw 'TEST_CLEANUP_SCOPE_INVALID'};Remove-Item -LiteralPath $resolved -Recurse -Force}
