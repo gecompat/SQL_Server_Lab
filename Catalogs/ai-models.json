@@ -16,6 +16,19 @@
   ],
   "models": [
     {
+      "key": "ollama-qwen25-coder-7b-local",
+      "provider": "ollama",
+      "lane": "local",
+      "purpose": "generation",
+      "model": "qwen2.5-coder:7b",
+      "status": "SUPPORTED",
+      "minimumOllamaVersion": "0.11.10",
+      "identityPolicy": "LIVE_MANIFEST_DIGEST_REQUIRED",
+      "estimatedSizeBytes": 4700000000,
+      "license": "Apache-2.0",
+      "source": "https://ollama.com/library/qwen2.5-coder:7b"
+    },
+    {
       "key": "ollama-embeddinggemma-latest",
       "provider": "ollama",
       "lane": "local",
