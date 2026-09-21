@@ -415,7 +415,7 @@ function New-DockerInstance {
                     '--label', 'sql-server-lab.provider=docker',
                     '--label', "sql-server-lab.autostart=$AutoStart",
                     '--label', "sql-server-lab.created-at=$(Get-LabTimestamp)",
-                    '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b',
+                    '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P"$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b',
                     '--health-interval', '5s',
                     '--health-timeout', '3s',
                     '--health-retries', '30',

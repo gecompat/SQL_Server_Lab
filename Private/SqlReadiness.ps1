@@ -424,6 +424,16 @@ function Invoke-LabSqlcmdProgress {
     if (-not $command) { throw 'sqlcmd wurde nicht gefunden.' }
     $outputPath = [IO.Path]::GetTempFileName()
     try {
+        # Ein getrenntes Passwort mit fuehrendem Minus gilt fuer sqlcmd als
+        # Option. Anhaengen bindet den unveraenderten Wert in einem argv-Eintrag.
+        $boundArguments = [Collections.Generic.List[string]]::new()
+        for ($index = 0; $index -lt $ArgumentList.Count; $index++) {
+            if ($ArgumentList[$index] -ceq '-P' -and $index + 1 -lt $ArgumentList.Count) {
+                $boundArguments.Add('-P' + $ArgumentList[++$index])
+            } else { $boundArguments.Add($ArgumentList[$index]) }
+        }
+        $ArgumentList = $boundArguments.ToArray()
+        $boundArguments.Clear()
         # ODBC-sqlcmd kann bei stdout trotz -u/-f die OEM-Codepage verwenden.
         # -u mit eigener -o-Datei liefert dagegen BOM-gebundenes UTF-16LE.
         # Die kurzlebige Ergebnisdatei wird nach jedem Ausgang entfernt.

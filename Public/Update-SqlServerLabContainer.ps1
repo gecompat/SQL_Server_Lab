@@ -121,7 +121,7 @@ function Update-SqlServerLabContainer {
         if ([string]$plan.Desired.AutoStart -eq 'on') {
             $arguments += @('--restart','unless-stopped')
         }
-        $arguments += @('--health-cmd','/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P "$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b','--health-interval','5s','--health-timeout','3s','--health-retries','30',[string]$inspect.Config.Image)
+        $arguments += @('--health-cmd','/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P"$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b','--health-interval','5s','--health-timeout','3s','--health-retries','30',[string]$inspect.Config.Image)
         if ($context.WasRunning) { $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments @('stop',$name) -ErrorCode 'CONTAINER_RECONCILE_STOP_FAILED' }
         $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments @('rename',$name,$backupName) -ErrorCode 'CONTAINER_RECONCILE_RENAME_FAILED'
         $journal = Set-LabContainerReconcileJournalStatus -Journal $journal -Path $journalPath -Status ORIGINAL_RENAMED
