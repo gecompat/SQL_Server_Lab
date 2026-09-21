@@ -281,6 +281,7 @@ try {
     Assert-Check ($batchRuntimeSource -match [regex]::Escape("if (`$autoStartValue) { 'on' } else { 'off' }")) 'Container-Batches normalisieren boolesches AutoStart nicht auf den oeffentlichen on/off-Vertrag.'
     Assert-Check ($batchRuntimeSource -match [regex]::Escape('BATCH_SA_PASSWORD_ENVIRONMENT_VARIABLE_REQUIRED')) 'Container-Batches brechen ohne Secret-Referenz nicht eindeutig ab.'
     Assert-Check ($batchRuntimeSource -match [regex]::Escape("Get-LabManifestEnvironmentSecret -Name `$saPasswordEnvironmentVariable")) 'Container-Batches loesen die eng benannte Secret-Referenz nicht erst im Worker auf.'
+    Assert-Check ($batchRuntimeSource -match '(?s)function Update-LabBatchSummary\s*\{.*?return Invoke-WithLabWorkflowLock -StateRoot \$StateRoot -ScriptBlock \{.*?Write-LabBatchState -Batch \$batch -StateRoot \$StateRoot') 'Parallele Worker aktualisieren die gemeinsame Batch-Zusammenfassung nicht unter der Workflow-Sperre.'
     Assert-Check ($batchRuntimeSource -match [regex]::Escape('function Get-LabRunHyperVVmName') -and
         $batchRuntimeSource -match [regex]::Escape("Get-LabWorkflowValue -InputObject `$verification.data -Name 'vmName' -Default ''") -and
         $batchRuntimeSource -match [regex]::Escape("Add-Member -NotePropertyName 'vmName' -NotePropertyValue `$resolvedVmName -Force") -and
