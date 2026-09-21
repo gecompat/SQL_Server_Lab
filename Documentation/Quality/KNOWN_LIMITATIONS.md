@@ -1095,7 +1095,12 @@ Upgrade-Artefakte. Historische unversionierte States werden nicht nachträglich
 markiert. Der State-Upgrade-Executor migriert ausschließlich einen ausdrücklich mit
 `metadata.syntheticStateFixture=true` markierten, unversionierten synthetischen
 State atomar, sichert die Ausgangsrevision und journalisiert Commit oder
-Rollback; er verändert keine Provider- oder Runtime-Ressourcen. Erweiterte
+Rollback. Die Markierung muss der boolesche Wert `true` sein; Text- und Zahlwerte
+erteilen keine Freigabe. Unvollständige bereits versionierte States bleiben
+vor Mutation blockiert. Resume bindet Quelle, Plan-ID und festen Zielvertrag
+und akzeptiert nur das vollständige aus der Quelle abgeleitete Migrationsergebnis;
+zusätzliche Änderungen bleiben ohne Journalabschluss blockiert. Der Executor
+verändert keine Provider- oder Runtime-Ressourcen. Erweiterte
 Kapazitätsquoten, Mehrbenutzerbetrieb sowie eine stabile Automation-API mit
 IaC-Adaptern bleiben zusätzlich `DECISION_REQUIRED`. Die Backlogaufnahme
 erteilt keine Runtime-, Remote-, Secret-, Export-, Import- oder
@@ -1651,6 +1656,18 @@ journalisiert Stop, Apply, Start und Postconditions und setzt
 bewusst `unsupported`.
 
 No-op, Live, Restart, `WhatIf`, Recovery und Resume sind synthetisch belegt.
+Der native Runner enthaelt zusaetzlich einen test-only, Run-/Scope-/Instanz-/
+VM-ID-gebundenen einmaligen Pre-Start-Fehler mit Wrapper-Entfernung vor dem
+Resume. Der erhöhte manuelle Lauf `35564131935` vom 2026-09-21 bestand auf
+Commit `a4510f5c` einschließlich Wiederaufnahme und persistentem SQL-Marker.
+Er belegt einen injizierten Executorfehler, keine Hyper-V-Plattformfehlersimulation.
+Der getrennte [Own-Run-Einstieg](../Architecture/HYPERV_RESOURCE_RECONCILE_OWN_RUN_ACCEPTANCE.md)
+verwendet ausschließlich ein explizites SQL-2025-Prepared-Artifact und keinen
+Clone-Quellrun. Der erfolgreiche Lauf verwendete zwei eigene Windows-2025-/
+SQL-2025-Developer-Runs; beide endeten mit jeweils drei Cleanup-Schritten und
+null Fehlern. Der vorausgegangene Aktivierungsfehler in Lauf `35562372061`
+bleibt als gescheiterter Versuch mit erfolgreichem Cleanup erhalten; seine
+Ursache ist nicht geklärt.
 Am 2026-09-14 bestand zusätzlich die vollständige native Ressourcen-Acceptance
 mit einem expliziten gestoppten Windows-2025-Clone-Quellslot und SQL Server 2025
 Enterprise aus dem konfigurierten Medienroot. Sie belegte `VerifyOnly` mit

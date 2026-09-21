@@ -3,7 +3,7 @@
     Migriert einen ausdrücklich markierten synthetischen Legacy-Run-State.
 .DESCRIPTION
     Revalidiert den read-only Upgrade-Plan direkt vor der Mutation. Nur ein
-    unversionierter State mit `metadata.syntheticStateFixture=true` darf
+    unversionierter State mit dem booleschen `metadata.syntheticStateFixture=true` darf
     migriert werden. Die ursprüngliche Revision und ein Journal bleiben im
     Run-Verzeichnis; der Commit ist atomar, und ein Fehler stellt den
     Ausgangszustand wieder her. Provider- oder Runtime-Ressourcen werden nie
@@ -14,7 +14,8 @@
     Optionaler lokaler State-Root.
 .PARAMETER Resume
     Finalisiert ausschließlich ein exakt gebundenes PENDING-Journal, wenn der
-    atomare Zielstate bereits vollständig geschrieben wurde.
+    atomare Zielstate bereits vollständig geschrieben wurde und einschließlich
+    aller unveränderten Quellfelder dem erwarteten Migrationsergebnis entspricht.
 .OUTPUTS
     SqlServerLab.RunStateUpgradeResult/1.0 ohne lokale Pfade oder Secrets.
 .EXAMPLE
