@@ -3,12 +3,17 @@ $ErrorActionPreference='Stop'
 $repoRoot=Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $acceptancePath=Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVResourceReconcileAcceptance.ps1'
 $ciPath=Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVResourceReconcileCiAcceptance.ps1'
+$faultSupportPath=Join-Path $repoRoot 'Tests/Common/HyperVResourceAcceptanceStartVmFault.ps1'
+$ownRunSupportPath=Join-Path $repoRoot 'Tests/Common/HyperVResourceReconcileOwnRunAcceptance.ps1'
+$ownRunPath=Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVResourceReconcileOwnRunAcceptance.ps1'
 $workflowPath=Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml'
 $acceptance=Get-Content -LiteralPath $acceptancePath -Raw -Encoding utf8
 $ci=Get-Content -LiteralPath $ciPath -Raw -Encoding utf8
 $workflow=Get-Content -LiteralPath $workflowPath -Raw -Encoding utf8
 $tokens=$null;$errors=$null;[Management.Automation.Language.Parser]::ParseFile($acceptancePath,[ref]$tokens,[ref]$errors)|Out-Null
 $ciTokens=$null;$ciErrors=$null;$ciAst=[Management.Automation.Language.Parser]::ParseFile($ciPath,[ref]$ciTokens,[ref]$ciErrors)
+$faultTokens=$null;$faultErrors=$null;[Management.Automation.Language.Parser]::ParseFile($faultSupportPath,[ref]$faultTokens,[ref]$faultErrors)|Out-Null
+$ownTokens=$null;$ownErrors=$null;[Management.Automation.Language.Parser]::ParseFile($ownRunPath,[ref]$ownTokens,[ref]$ownErrors)|Out-Null
 function Add-Check {param([string]$Name,[bool]$Success);Write-Host ('  {0}  {1}' -f $(if($Success){'PASS'}else{'FAIL'}),$Name) -ForegroundColor $(if($Success){'Green'}else{'Red'});[pscustomobject]@{Name=$Name;Success=$Success}}
 function Test-StageReceiptContract {
     $functionAst=@($ciAst.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Test-HyperVResourceReconcileCiStageReceipt'},$true))[0]
@@ -50,9 +55,10 @@ function Test-RunnerReasonCodeContract {
         . ([scriptblock]::Create($functionAst.Extent.Text))
         $stage=@(Get-HyperVResourceReconcileCiRunnerReasonCode -RunnerOutput @('HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_SHUTDOWN_READINESS_FAILED'))
         $staticStage=@(Get-HyperVResourceReconcileCiRunnerReasonCode -RunnerOutput @('HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_STATIC_DRIFT_SQL_READINESS_FAILED'))
+        $fault=@(Get-HyperVResourceReconcileCiRunnerReasonCode -RunnerOutput @('HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_STATIC_FAULT_INJECT_FAILED'))
         $legacy=@(Get-HyperVResourceReconcileCiRunnerReasonCode -RunnerOutput @('HYPERV_RESOURCE_ACCEPTANCE_FAILED: local detail'))
         $unknown=@(Get-HyperVResourceReconcileCiRunnerReasonCode -RunnerOutput @('HYPERV_RESOURCE_RECONCILE_CI_EXECUTION_FAILED'))
-        return $stage.Count -eq 1 -and $stage[0] -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_SHUTDOWN_READINESS_FAILED' -and $staticStage.Count -eq 1 -and $staticStage[0] -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_STATIC_DRIFT_SQL_READINESS_FAILED' -and $legacy.Count -eq 1 -and $legacy[0] -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_LEGACY_UNCLASSIFIED_FAILED' -and $unknown.Count -eq 0
+        return $stage.Count -eq 1 -and $stage[0] -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_DYNAMIC_LIVE_SHUTDOWN_READINESS_FAILED' -and $staticStage.Count -eq 1 -and $staticStage[0] -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_STATIC_DRIFT_SQL_READINESS_FAILED' -and $fault.Count -eq 1 -and $fault[0] -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_STATIC_FAULT_INJECT_FAILED' -and $legacy.Count -eq 1 -and $legacy[0] -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_LEGACY_UNCLASSIFIED_FAILED' -and $unknown.Count -eq 0
     } catch { return $false }
 }
 function Test-ActivationReasonContract {
@@ -143,17 +149,59 @@ function Test-DynamicLiveOrdering {
     $markerIndex=$slice.IndexOf('CREATE TABLE tempdb.dbo.SqlLabHvResourceMarker')
     return $stopIndex -ge 0 -and $setIndex -gt $stopIndex -and $startIndex -gt $setIndex -and $sqlReadyIndex -gt $startIndex -and $shutdownReadyIndex -gt $sqlReadyIndex -and $markerIndex -gt $shutdownReadyIndex
 }
+function Test-StartVmFaultWrapperContract {
+    try {
+        . $faultSupportPath
+        $calls=[Collections.Generic.List[string]]::new()
+        $module=New-Module -ScriptBlock {}
+        $target=New-HyperVResourceAcceptanceStartVmFaultTarget -RunId 'run-a' -ScopeId 'scope-a' -InstanceId 'primary' -VMId 'vm-a'
+        $original=({param($VM)$calls.Add([string]$VM.Id)}.GetNewClosure())
+        $null=Install-HyperVResourceAcceptanceStartVmFaultWrapper -Module $module -Target $target -ExpectedRunId 'run-a' -ExpectedScopeId 'scope-a' -ExpectedInstanceId 'primary' -ExpectedVMId 'vm-a' -OriginalStartVm $original
+        $wrong=[pscustomobject]@{Id='vm-b'}
+        & $module {param($Vm)Start-VM -VM $Vm} $wrong
+        $wrongDelegated=$calls.Count -eq 1 -and $calls[0] -ceq 'vm-b' -and $target.Armed -and -not $target.Used
+        $matched=[pscustomobject]@{Id='vm-a'};$injected=$false
+        try {& $module {param($Vm)Start-VM -VM $Vm} $matched} catch {$injected=$_.Exception.Message -ceq 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_INJECTED_PRESTART_FAILURE'}
+        & $module {param($Vm)Start-VM -VM $Vm} $matched
+        $oneUse=$injected -and -not $target.Armed -and $target.Used -and $calls.Count -eq 2 -and $calls[1] -ceq 'vm-a'
+        Remove-HyperVResourceAcceptanceStartVmFaultWrapper -Module $module
+        $removed=-not (Get-HyperVResourceAcceptanceStartVmFaultWrapperState -Module $module).WrapperPresent
+        $cleanupFailClosed=$false;try{Remove-HyperVResourceAcceptanceStartVmFaultWrapper -Module $module}catch{$cleanupFailClosed=$_.Exception.Message -ceq 'HYPERV_RESOURCE_ACCEPTANCE_START_VM_WRAPPER_MISSING'}
+        $mismatchFailClosed=$false;try{Install-HyperVResourceAcceptanceStartVmFaultWrapper -Module $module -Target $target -ExpectedRunId 'run-b' -ExpectedScopeId 'scope-a' -ExpectedInstanceId 'primary' -ExpectedVMId 'vm-a' -OriginalStartVm $original}catch{$mismatchFailClosed=$_.Exception.Message -ceq 'HYPERV_RESOURCE_ACCEPTANCE_FAULT_TARGET_IDENTITY_MISMATCH'}
+        $wrappedModule=New-Module -ScriptBlock {function Start-VM {param($VM)}}
+        $wrapperFailClosed=$false;try{Install-HyperVResourceAcceptanceStartVmFaultWrapper -Module $wrappedModule -Target (New-HyperVResourceAcceptanceStartVmFaultTarget -RunId 'run-a' -ScopeId 'scope-a' -InstanceId 'primary' -VMId 'vm-a') -ExpectedRunId 'run-a' -ExpectedScopeId 'scope-a' -ExpectedInstanceId 'primary' -ExpectedVMId 'vm-a' -OriginalStartVm $original}catch{$wrapperFailClosed=$_.Exception.Message -ceq 'HYPERV_RESOURCE_ACCEPTANCE_START_VM_WRAPPER_PRESENT'}
+        return $wrongDelegated -and $oneUse -and $removed -and $cleanupFailClosed -and $mismatchFailClosed -and $wrapperFailClosed
+    } catch { return $false }
+}
+function Test-OwnRunGuardContract {
+    try {
+        . $ownRunSupportPath
+        $base=[pscustomobject]@{EventName='workflow_dispatch';EventRepository='gecompat/SQL_Server_Lab';Repository='gecompat/SQL_Server_Lab';ExpectedCommit=('a'*40);CheckoutCommit=('a'*40);ArtifactId=('hyperv-sql-prepared-sealed-'+('b'*64));CloneSourceRunId=''}
+        $valid=Assert-HyperVResourceReconcileOwnRunAcceptanceGuard -Context $base
+        function Reject-OwnRun {param($Context,$Code)try{Assert-HyperVResourceReconcileOwnRunAcceptanceGuard -Context $Context|Out-Null;$false}catch{$_.Exception.Message -ceq $Code}}
+        $foreign=[pscustomobject]$base.psobject.Copy();$foreign.EventRepository='fork/resource'
+        $nonManual=[pscustomobject]$base.psobject.Copy();$nonManual.EventName='push'
+        $missing=[pscustomobject]$base.psobject.Copy();$missing.ArtifactId=''
+        $invalid=[pscustomobject]$base.psobject.Copy();$invalid.ArtifactId='hyperv-os-sealed-'+('b'*64)
+        $clone=[pscustomobject]$base.psobject.Copy();$clone.CloneSourceRunId='11111111-1111-4111-8111-111111111111'
+        $commit=[pscustomobject]$base.psobject.Copy();$commit.CheckoutCommit=('c'*40)
+        return $valid.ArtifactId -ceq $base.ArtifactId -and (Reject-OwnRun $foreign 'HYPERV_RESOURCE_OWN_RUN_REPOSITORY_MISMATCH') -and (Reject-OwnRun $nonManual 'HYPERV_RESOURCE_OWN_RUN_MANUAL_DISPATCH_REQUIRED') -and (Reject-OwnRun $missing 'HYPERV_RESOURCE_OWN_RUN_EXPLICIT_PREPARED_ARTIFACT_REQUIRED') -and (Reject-OwnRun $invalid 'HYPERV_RESOURCE_OWN_RUN_EXPLICIT_PREPARED_ARTIFACT_REQUIRED') -and (Reject-OwnRun $clone 'HYPERV_RESOURCE_OWN_RUN_CLONE_SOURCE_FORBIDDEN') -and (Reject-OwnRun $commit 'HYPERV_RESOURCE_OWN_RUN_CHECKOUT_COMMIT_MISMATCH')
+    }catch{return $false}
+}
 $checks=@(
  Add-Check 'Echter synthetischer Childprozess transportiert Slotparameter und eine konsistente Erfolgsquittung' ([bool](& (Join-Path $repoRoot 'Tests/Common/HyperVResourceAcceptanceSlotSupervisorFixture.ps1') -CiPath $ciPath))
  Add-Check 'Slot-Clone prueft Quelle, eigene Transaktion, VerifyOnly und Kopierfehler ohne Runtime' ([bool](& (Join-Path $repoRoot 'Tests/Common/HyperVResourceAcceptanceSlotCloneFixture.ps1') -HelperPath (Join-Path $repoRoot 'Tests/Common/HyperVResourceAcceptanceSlotClone.ps1')))
- Add-Check 'Native- und CI-Runner sind syntaktisch gueltig' ($errors.Count -eq 0 -and $ciErrors.Count -eq 0)
+ Add-Check 'Native-, CI- und Fault-/Own-Run-Skripte sind syntaktisch gueltig' ($errors.Count -eq 0 -and $ciErrors.Count -eq 0 -and $faultErrors.Count -eq 0 -and $ownErrors.Count -eq 0)
  Add-Check 'Native Runner erzeugt genau zwei operationgebundene SQL-2025-Prepared-Runs' ($acceptance -match '\$Run1OperationId' -and $acceptance -match '\$Run2OperationId' -and $acceptance -match 'DeferCleanup' -and $acceptance -match 'Invoke-WithLabWorkflowOperationContext' -and $acceptance -match "artifactState -eq 'SQL_PREPARED_SEALED'" -and $acceptance -match "sql.version -eq '2025'")
  Add-Check 'Dynamischer und statischer Ressourcenfall pruefen Plan, WhatIf, Apply und No-op' ($acceptance -match 'DynamicMemoryEnabled' -and $acceptance -match 'ProcessorCount' -and $acceptance -match 'Get-SqlServerLabReconcilePlan.*-HyperVResources' -and $acceptance -match 'Invoke-SqlServerLabReconcileAction.*-RepairHyperVResources.*-WhatIf' -and $acceptance -match 'Dynamischer Wiederholungsplan ist No-op' -and $acceptance -match 'Statischer Wiederholungsplan ist No-op')
  Add-Check 'Dynamic-Apply prueft gestoppte einengende Drift, getrennte Restart- und Live-Readiness sowie bereichserweiternde Live-Reparatur' ($acceptance -match 'einengende dynamische Drift gestoppt' -and $acceptance -match 'DYNAMIC_FORBIDDEN_PLAN' -and $acceptance -match 'HYPERV_RESOURCE_RECONCILE_LIVE_DIRECTION_RESTART_REQUIRED' -and $acceptance -match 'DYNAMIC_LIVE_PLAN' -and $acceptance -match 'tempdb-Marker ohne Restart wieder her' -and (Test-DynamicRestartReadinessOrdering) -and (Test-DynamicLiveOrdering))
  Add-Check 'Shutdown-Readiness verwendet die feste Shutdown-GUID und den lokalisierungsfreien operativen Status' (Test-ShutdownIntegrationReadinessContract)
  Add-Check 'Static-Apply prueft CPU, RAM-Modus, SQL- und Shutdown-Readiness vor Plan/WhatIf sowie den persistenten Datenmarker mit normalisierten Werten' ($acceptance -match 'CREATE DATABASE SqlLabHvResourceMarkerDb' -and $acceptance -match 'Wait-ResourcePersistentSqlMarker' -and $acceptance -match 'Minimum=if\(\$dynamic\)' -and $acceptance -match 'Restart-Reconcile stellt CPU, statischen RAM, SQL-Readiness und persistenten Datenmarker wieder her' -and (Test-StaticProvisionOrdering) -and (Test-StaticDriftReadinessOrdering))
  Add-Check 'Native Runner emittiert nur allowlistgebundene Fehlerstufen ohne Rohfehler' ($acceptance -match "\`$allowedStages=@\('INITIALIZATION'" -and $acceptance -match 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_\$\{safeStage\}_FAILED' -and $acceptance -notmatch 'throw "HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_\$\{safeStage\}_FAILED: \$\(')
- Add-Check 'Native Failure-Injection wird nicht behauptet' ($acceptance -match '(?s)Runner injiziert keinen.*bleibt daher bewusst offen' -and $acceptance -notmatch 'Mock\s+Start-VM')
+ Add-Check 'Test-only Start-VM-Wrapper bindet Ownership, einen Fehler und Wiederherstellung ausfuehrbar' (Test-StartVmFaultWrapperContract)
+ Add-Check 'Own-Run-Guard blockiert fremde, nichtmanuelle, ungebundene und Clone-Quellen vor Providerzugriff' (Test-OwnRunGuardContract)
+ Add-Check 'Own-Run reicht den expliziten State Root an den bestehenden Supervisor weiter' ($workflow -match 'resource_state_root:' -and $workflow -match 'SQL_SERVER_LAB_CI_RESOURCE_STATE_ROOT: \$\{\{ inputs\.resource_state_root \}\}' -and $workflow -match '-StateRoot \$env:SQL_SERVER_LAB_CI_RESOURCE_STATE_ROOT' -and (Get-Content -Raw $ownRunPath) -match '-ArtifactId \$guard\.ArtifactId -StateRoot \$StateRoot')
+ Add-Check 'Native Runner injiziert nur vor Start-VM, entfernt den Wrapper vor Resume und behauptet keinen Plattformfehler' ($acceptance -match 'STATIC_FAULT_INJECT' -and $acceptance -match 'Remove-HyperVResourceAcceptanceStartVmFaultWrapper' -and $acceptance -match 'STATIC_RESUME' -and $acceptance -match 'keine Hyper-V-Plattformfehlersimulation' -and $acceptance -notmatch 'Mock\s+Start-VM')
  Add-Check 'Supervisor extrahiert nur feste Stufencodes und ordnet Legacyfehler sicher zu' (Test-RunnerReasonCodeContract)
  Add-Check 'Receipt akzeptiert nur eine feste Fehlerstufe und weist generische Codes ab' (Test-StageReceiptContract)
  Add-Check 'Provisionierungsfehler transportieren nur nachgewiesene Aktivierungsgründe; Quellfehler bleiben ohne Aktivierungscode' (Test-ActivationReasonContract)
@@ -162,5 +210,6 @@ $checks=@(
  Add-Check 'Supervisor validiert nur feste Stufen sowie allowlistgebundene Aktivierungs- und Provisionierungsgründe in der Receipt' ($ci -match "reasonCode -notmatch '\^HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_STAGE_" -and $ci -match 'activationReasonCode' -and $ci -match 'provisionReasonCode' -and $ci -match 'HYPERV_RESOURCE_RECONCILE_ACCEPTANCE_ACTIVATION_REASON_UNCLASSIFIED' -and $ci -match 'HYPERV_SQL_MEDIA_DIRECTORY_NOT_FOUND' -and $ci -match 'LEGACY_UNCLASSIFIED')
  Add-Check 'Supervisor begrenzt den Childprozess, validiert eine kleine Receipt und bereinigt nur operationgebundene Runs' ($ci -match 'RunnerTimeoutSeconds' -and $ci -match 'DeferCleanup' -and $ci -match 'Test-HyperVResourceReconcileCiStageReceipt' -and $ci -match 'Stop-HyperVResourceReconcileCiChildProcessTree' -and $ci -match 'Get-LabOperationOwnedRun' -and $ci -match 'Get-HyperVManagedVM.*-ExpectedRunId.*-ExpectedScopeId' -and $ci -match 'Remove-SqlServerLab -RunId \$RunId -StateRoot \$Root -Force -Confirm:\$false')
  Add-Check 'Workflow erlaubt den nativen Modus nur manuell auf main und uebergibt ArtifactId ueber Environment' ($workflow -match '(?s)workflow_dispatch:.*resource-reconcile-acceptance' -and $workflow -match "github\.event_name == 'workflow_dispatch' && github\.ref == 'refs/heads/main' && inputs\.mode == 'resource-reconcile-acceptance'" -and $workflow -match "inputs\.mode == 'resource-reconcile-acceptance' && !\(github\.event_name == 'workflow_dispatch' && github\.ref == 'refs/heads/main'\)" -and $workflow -match 'HYPERV_RESOURCE_RECONCILE_CI_MANUAL_MAIN_REQUIRED' -and $workflow -match 'SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID' -and $workflow -match 'Invoke-HyperVResourceReconcileCiAcceptance\.ps1 @arguments')
+ Add-Check 'Own-Run-Workflow bleibt vom Main-Modus getrennt, bindet Checkout und verweigert Clone-Quelle' ($workflow -match 'resource-reconcile-own-run-acceptance' -and $workflow -match 'github\.event\.repository\.full_name == github\.repository' -and $workflow -match 'HYPERV_RESOURCE_OWN_RUN_MANUAL_DISPATCH_REQUIRED' -and $workflow -match 'Invoke-HyperVResourceReconcileOwnRunAcceptance\.ps1 -ArtifactId \$env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID' -and (Get-Content -Raw $ownRunPath) -match 'GITHUB_SHA' -and (Get-Content -Raw $ownRunPath) -match 'rev-parse HEAD' -and (Get-Content -Raw $ownRunSupportPath) -match 'CLONE_SOURCE_FORBIDDEN')
 )
 $failed=@($checks|Where-Object{-not $_.Success});if($failed){throw "Hyper-V resource reconcile acceptance checks failed: $($failed.Name -join ', ')"};Write-Host "Hyper-V Resource Reconcile Acceptance Checks: $($checks.Count) PASS, 0 FAIL" -ForegroundColor Green
