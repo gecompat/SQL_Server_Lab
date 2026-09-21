@@ -110,10 +110,12 @@ try {
 }
 catch {
     $testFailed=$true
-    $receipt=Get-AiRagFailureReceipt -Provider $Provider -Phase $phase -ErrorRecord $_
-    $receiptRoot=Join-Path $repoRoot '.artifacts/test-runs/ai-golden-podman-acceptance'
-    New-Item -ItemType Directory -Path $receiptRoot -Force|Out-Null
-    $receipt|ConvertTo-Json -Compress|Set-Content -LiteralPath (Join-Path $receiptRoot "failure-$operation.json") -Encoding utf8
+    try {
+        $receipt=Get-AiRagFailureReceipt -Provider $Provider -Phase $phase -ErrorRecord $_
+        $receiptRoot=Join-Path $repoRoot '.artifacts/test-runs/ai-golden-podman-acceptance'
+        New-Item -ItemType Directory -Path $receiptRoot -Force|Out-Null
+        $receipt|ConvertTo-Json -Compress|Set-Content -LiteralPath (Join-Path $receiptRoot "failure-$operation.json") -Encoding utf8
+    }catch{Write-Warning 'AI_RAG_FAILURE_DIAGNOSTIC_UNAVAILABLE'}
     throw
 }
 finally {

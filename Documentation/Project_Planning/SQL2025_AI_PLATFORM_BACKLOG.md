@@ -150,10 +150,11 @@ synthetisches Golden Dataset. Frage, Dokumente, lokale Modellschlüssel, Top-k,
 Schwellen, Dataset-Hash und Fall-ID werden vor Ausführung an den RAG-PlanKey
 gebunden. Nur ein erfolgreiches `SqlServerLab.AiQueryResult/1.0` mit exakt
 passender Bindung wird bewertet; Hash- oder Fallabweichungen scheitern vor der
-Metrik. Der native Docker-Lauf war am 2026-09-07 einschließlich SQL-Suche,
-Golden-Gate, Restart und Cleanup erfolgreich. Der getrennte Podman-Lauf erreichte
-die RAG-Ausführung nicht, weil der einmalige lokale Modell-Pull nach 900 Sekunden
-ablief; dessen Golden-Runtime-Nachweis bleibt deshalb offen.
+Metrik. Der native Docker-Lauf war zuletzt am 2026-09-21 einschließlich SQL-Suche,
+Golden-Gate, SQL-/Ollama-Restart und Cleanup erfolgreich. Der getrennte Podman-Lauf
+erreichte nach abgeschlossenen Modell-Downloads die RAG-Ausführung und scheiterte
+mit `AI_ENDPOINT_TIMEOUT`. Der genaue Modellaufruf ist noch nicht belegt.
+Das eigene Cleanup war vollständig; der Golden-Runtime-Nachweis für Podman bleibt offen.
 
 `AI-30A` implementiert die lokale Controller-Orchestrierung für RAG. Dokumente
 werden flüchtig mit dem katalogisierten 768-dimensionalen Ollama-Modell

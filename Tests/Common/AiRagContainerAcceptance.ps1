@@ -68,8 +68,16 @@ function Invoke-AiRagAcceptanceFinalization {
 function Get-AiRagFailureReceipt {
     param([string]$Provider,[string]$Phase,$ErrorRecord)
     $message=[string]$ErrorRecord.Exception.Message
-    $code=if($message -in @('AI_ENDPOINT_TIMEOUT','AI_ENDPOINT_UNAVAILABLE','AI_ENDPOINT_INVALID_RESPONSE')){$message}else{'UNCLASSIFIED'}
+    $code=if($message -cin @('AI_ENDPOINT_TIMEOUT','AI_ENDPOINT_NETWORK_FAILURE','AI_ENDPOINT_RESPONSE_INVALID')){$message}else{'UNCLASSIFIED'}
     $stack=[string]$ErrorRecord.ScriptStackTrace
-    $callsite=if($stack -match 'AiRag\.ps1: line (97|103)'){'EMBEDDING'}elseif($stack -match 'AiRag\.ps1: line 124'){'GENERATION'}else{'UNCLASSIFIED'}
+    $callsite='UNCLASSIFIED'
+    if($stack -match '(?m)^at Invoke-LabAiRag, [^\r\n]*[\\/]AiRag\.ps1: line (?<line>[1-9][0-9]*)\s*$'){
+        # Nur die bekannte Repositoryquelle lesen; keine Pfade aus dem Fehler übernehmen.
+        $source=Get-Content -LiteralPath (Join-Path $PSScriptRoot '../../Private/AiRag.ps1')
+        $line=[int]$Matches.line
+        if($line -le $source.Count -and $source[$line-1] -match '\bInvoke-LabAiEndpointRequest\s+-Plan\s+\$Plan\.(EmbeddingPlan|GenerationPlan)\b'){
+            $callsite=if($Matches[1] -ceq 'EmbeddingPlan'){'EMBEDDING'}else{'GENERATION'}
+        }
+    }
     [pscustomobject]@{Provider=$Provider;Phase=$Phase;ErrorCode=$code;Callsite=$callsite}
 }

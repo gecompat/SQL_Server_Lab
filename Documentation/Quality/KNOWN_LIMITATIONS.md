@@ -119,10 +119,12 @@ Podman wurden dafür am 2026-09-06 getrennt einschließlich SQL-/Ollama-Restart
 und Cleanup nativ geprüft. Das versionierte synthetische Golden Dataset bindet
 Frage, Dokumente, lokale Modelle, Top-k, Schwellen, Dataset-Hash und Fall-ID an
 den RAG-PlanKey; nur das passend gebundene Ergebnis eines tatsächlich
-ausgeführten SQL-RAG-Laufs darf bewertet werden. Docker hat diesen Pfad am
-2026-09-07 einschließlich Restart und Cleanup nativ bestanden. Der getrennte
-Podman-Nachweis erreichte wegen eines nach 900 Sekunden abgelaufenen lokalen
-Modell-Pulls die RAG-Ausführung nicht; Cleanup war erfolgreich. Hybride Suche
+ausgeführten SQL-RAG-Laufs darf bewertet werden. Docker hat diesen Pfad zuletzt am
+2026-09-21 einschließlich Golden-Metriken, SQL-/Ollama-Restart und Cleanup nativ bestanden.
+Der getrennte Podman-Lauf erreichte diesmal nach abgeschlossenen Modell-Downloads
+die RAG-Ausführung, scheiterte dort aber mit `AI_ENDPOINT_TIMEOUT`.
+Der genaue Modellaufruf ist noch nicht belegt; eigene SQL-, Ollama- und temporäre
+Ressourcen wurden vollständig bereinigt. Der Golden-Podman-Nachweis bleibt offen. Hybride Suche
 und automatische Antworttreueprüfung bleiben offen. Ein Modell-Judge wird
 bewusst nicht als blockierendes Gate verwendet.
 
