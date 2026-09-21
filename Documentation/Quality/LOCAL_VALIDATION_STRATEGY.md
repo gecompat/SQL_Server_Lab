@@ -1458,6 +1458,11 @@ frische Run-/Scope-/Instanzlabels und exakte Container-ID; fremde, laufende oder
 nicht verifizierbare Container werden nicht gelesen. Capture-Fehler verändern
 weder den primären New-Fehler noch den Cleanup. Die Diagnose ist kein Ursachen-
 oder Ressourcenfix; der beobachtete Podman-Startabbruch bleibt `UNKNOWN`.
+Die getrennte erneute Podman-Abnahme auf `a33675ca` bestand am 2026-09-21:
+PITR und Cleanup abgeschlossen, eigener Run `REMOVED`, unabhängig bestätigte
+Restfreiheit. Der frühere Startfehler wurde dabei nicht reproduziert; seine
+Ursache ist damit weiterhin nicht belegt. Die Diagnoseintegration besteht
+zusätzlich 142 fokussierte Prüfungen unter Windows und Linux.
 
 ### Host-Tool-Auflösung betroffen
 
