@@ -33,6 +33,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Evidence noch `NOT_EXECUTED`. Vertrag:
   `Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md`;
 
+- Isolierte Hyper-V-RAG-/Agent-Abnahme aus explizitem SQL-Prepared-Artefakt,
+  mit vorhandenem lokalem Qwen, VMId-/Parentbindung und vollständigem Own-Cleanup
+  nativ am 2026-09-21 bestanden (`VALIDATED_REFERENCE`, 14 Assertions und Cleanup). Die neue Modellpaarung ersetzt
+  weder Golden v1 noch den älteren `PARTIAL`-Nachweis. Vertrag:
+  `Documentation/Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md`;
 - Persistentes synthetisches Retrieval über `Invoke-SqlServerLabAiPersistentRetrieval`:
   eigene Datenbank auf SQL-2025-Docker/Podman, lokale Host-Embeddings, feste
   Initial-/Delta-Fixture, atomarer aktiver Generationszeiger, quittiertes Resume

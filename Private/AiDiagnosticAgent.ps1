@@ -23,10 +23,13 @@ function New-LabAiDiagnosticAgentPlan {
     if(@($selected|Select-Object -Unique).Count-ne$selected.Count){throw 'AI_AGENT_TOOL_DUPLICATE'}
     $catalog=@(Get-LabAiDiagnosticToolCatalog)
     foreach($id in $selected){if($id-notin@($catalog.Id)){throw "AI_AGENT_TOOL_NOT_ALLOWED: $id"}}
-    $modelPlan=New-LabAiEndpointPlan -ModelKey $GenerationModelKey -EndpointRef ollama-local -Lane local -LocalPort $LocalPort -MaximumRequests 2 -MaximumOutputTokens 256 -TimeoutSeconds 180 -RetryCount 1
+    $hostValidation=$GenerationModelKey -ceq 'ollama-qwen25-coder-7b-local'
+    $retryCount=if($hostValidation){0}else{1}
+    $modelPlan=New-LabAiEndpointPlan -ModelKey $GenerationModelKey -EndpointRef ollama-local -Lane local -LocalPort $LocalPort -MaximumRequests (1+$retryCount) -MaximumOutputTokens 256 -TimeoutSeconds 180 -RetryCount $retryCount
     if($modelPlan.Purpose-ne'generation'-or$modelPlan.Status-eq'BLOCKED'){throw 'AI_AGENT_MODEL_INVALID'}
     $identity=[ordered]@{Contract='SqlServerLab.AiDiagnosticAgentPlan/1.0';RunId=$RunId;InstanceId=$InstanceId;QuestionHash=Get-LabAiSha256Text -Text $Question;ToolIds=$selected;GenerationPlanKey=$modelPlan.PlanKey}
-    [PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiDiagnosticAgentPlan';Version='1.0'};Status='READY';RunId=$RunId;InstanceId=$InstanceId;ScenarioId='diagnostic-agent-readonly';ToolIds=$selected;GenerationModelKey=$GenerationModelKey;PlanKey=Get-LabAiPlanKey -InputObject $identity;InternalTools=@($catalog|Where-Object Id -in $selected);GenerationPlan=$modelPlan}
+    if($hostValidation){$identity.HostModelValidation='LIVE_LOCAL_IDENTITY'}
+    [PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiDiagnosticAgentPlan';Version='1.0'};Status='READY';RunId=$RunId;InstanceId=$InstanceId;ScenarioId='diagnostic-agent-readonly';ToolIds=$selected;GenerationModelKey=$GenerationModelKey;PlanKey=Get-LabAiPlanKey -InputObject $identity;InternalTools=@($catalog|Where-Object Id -in $selected);GenerationPlan=$modelPlan;HostModelValidation=$hostValidation}
 }
 
 function Invoke-LabAiSqlCommand {
@@ -41,29 +44,45 @@ function Invoke-LabAiSqlCommand {
 
 function Invoke-LabAiDiagnosticAgent {
     [CmdletBinding()]
-    param($Plan,[SecureString]$SaPassword,$Target,[string]$Question,[string]$StateRoot,[scriptblock]$GenerationTransport,[scriptblock]$SqlExecutor)
+    param($Plan,[SecureString]$SaPassword,$Target,[string]$Question,[string]$StateRoot,[scriptblock]$GenerationTransport,[scriptblock]$SqlExecutor,[scriptblock]$MetadataTransport)
     if(($Target.Version-split'-',2)[0]-ne'2025'){throw 'AI_AGENT_SQL_VERSION_UNSUPPORTED'}
     if($Target.Provider-notin@('docker','podman','hyperv')){throw 'AI_AGENT_PROVIDER_UNSUPPORTED'}
+    $hostBinding=$null
+    if($Plan.HostModelValidation){$hostBinding=Get-LabAiHostModelBinding -Plan $Plan.GenerationPlan -MetadataTransport $MetadataTransport}
     if(-not$StateRoot){$StateRoot=Get-LabStateRoot}
     $journalDirectory=Join-Path (Join-Path (Join-Path $StateRoot 'runs') $Plan.RunId) 'ai-agent';$journalPath=Join-Path $journalDirectory "diagnostic-$($Plan.InstanceId)-$($Plan.PlanKey.Substring(0,12)).json"
     $journal=[PSCustomObject]@{contract=[PSCustomObject]@{name='SqlServerLab.AiRuntimeJournal';version='1.0'};operationId=[Guid]::NewGuid().ToString();runId=$Plan.RunId;instanceId=$Plan.InstanceId;planKey=$Plan.PlanKey;status='PENDING';lane='local';modelKeys=@($Plan.GenerationModelKey);steps=@($Plan.ToolIds|ForEach-Object{[PSCustomObject]@{id=$_;status='PENDING';reasonCode=$null}});cleanupStatus='NOT_STARTED';startedAt=Get-LabTimestamp;completedAt=$null}
     Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal
     $loginName="sql_lab_ai_$([Guid]::NewGuid().ToString('N').Substring(0,12))";$bytes=[byte[]]::new(24);[Security.Cryptography.RandomNumberGenerator]::Fill($bytes);$loginPassword="Aa1!$([Convert]::ToBase64String($bytes))";[Array]::Clear($bytes,0,$bytes.Length)
     $loginSecret=[SecureString]::new();foreach($character in $loginPassword.ToCharArray()){$loginSecret.AppendChar($character)};$loginSecret.MakeReadOnly()
-    $saCredential=[PSCredential]::new('sa',$SaPassword);$loginCredential=[PSCredential]::new($loginName,$loginSecret);$created=$false;$timer=[Diagnostics.Stopwatch]::StartNew()
+    $saCredential=[PSCredential]::new('sa',$SaPassword);$loginCredential=[PSCredential]::new($loginName,$loginSecret);$created=$false;$createAttempted=$false;$timer=[Diagnostics.Stopwatch]::StartNew()
     $executeSql={param($credential,$sql,$nonQuery)if($SqlExecutor){return @(& $SqlExecutor $credential $sql $nonQuery)};return @(Invoke-LabAiSqlCommand -HostName $Target.HostName -Port $Target.Port -Credential $credential -Sql $sql -NonQuery:$nonQuery)}
     try{
-        $escaped=$loginPassword.Replace("'","''");$setup="CREATE LOGIN [$loginName] WITH PASSWORD=N'$escaped',CHECK_POLICY=OFF,CHECK_EXPIRATION=OFF; GRANT VIEW SERVER STATE TO [$loginName]; GRANT VIEW SERVER PERFORMANCE STATE TO [$loginName]; GRANT VIEW ANY DATABASE TO [$loginName];"
+        $escaped=$loginPassword.Replace("'","''");$setup="CREATE LOGIN [$loginName] WITH PASSWORD=N'$escaped',CHECK_POLICY=OFF,CHECK_EXPIRATION=OFF;"
+        $createAttempted=$true
         & $executeSql $saCredential $setup $true|Out-Null;$created=$true;$loginPassword=$null;$escaped=$null;$setup=$null
+        & $executeSql $saCredential "GRANT VIEW SERVER STATE TO [$loginName]; GRANT VIEW SERVER PERFORMANCE STATE TO [$loginName]; GRANT VIEW ANY DATABASE TO [$loginName];" $true|Out-Null
         $evidence=[ordered]@{};$executions=[Collections.Generic.List[object]]::new()
         foreach($tool in $Plan.InternalTools){$rows=@(& $executeSql $loginCredential $tool.Sql $false);if($rows.Count-gt$tool.MaxRows){throw 'AI_AGENT_TOOL_ROW_LIMIT_EXCEEDED'};$evidence[$tool.Id]=$rows;$executions.Add([PSCustomObject]@{ToolId=$tool.Id;Status='SUCCEEDED';RowCount=$rows.Count})}
         $payload=$evidence|ConvertTo-Json -Depth 8 -Compress;if($payload.Length-gt32768){throw 'AI_AGENT_CONTEXT_SIZE_EXCEEDED'}
         $prompt="Du bist ein read-only SQL-Diagnoseassistent. Nutze ausschließlich die gelieferten Metriken, erfinde keine Befunde und schlage keine automatisch ausgeführten Änderungen vor. Frage: $Question`nMetriken: $payload"
-        $answer=Invoke-LabAiEndpointRequest -Plan $Plan.GenerationPlan -InputText $prompt -Transport $GenerationTransport;$timer.Stop();$journal.status='SUCCEEDED';foreach($step in $journal.steps){$step.status='SUCCEEDED'};$journal.completedAt=Get-LabTimestamp
-        [PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiQueryResult';Version='1.0'};Status='SUCCEEDED';Mode='DiagnosticAgent';RunId=$Plan.RunId;InstanceId=$Plan.InstanceId;ScenarioId=$Plan.ScenarioId;PlanKey=$Plan.PlanKey;ModelKey=$Plan.GenerationModelKey;Answer=$answer.Text;Citations=@($Plan.ToolIds);ToolExecutions=@($executions);Metrics=[PSCustomObject]@{RequestCount=$answer.Attempts;LatencyMilliseconds=[int]$timer.ElapsedMilliseconds}}
+        if($hostBinding){Assert-LabAiHostModelBinding -Plan $Plan.GenerationPlan -Expected $hostBinding -MetadataTransport $MetadataTransport}
+        $answer=Invoke-LabAiEndpointRequest -Plan $Plan.GenerationPlan -InputText $prompt -Transport $GenerationTransport
+        if($hostBinding){Assert-LabAiHostModelBinding -Plan $Plan.GenerationPlan -Expected $hostBinding -MetadataTransport $MetadataTransport}
+        $timer.Stop();$journal.status='SUCCEEDED';foreach($step in $journal.steps){$step.status='SUCCEEDED'};$journal.completedAt=Get-LabTimestamp
+        $result=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiQueryResult';Version='1.0'};Status='SUCCEEDED';Mode='DiagnosticAgent';RunId=$Plan.RunId;InstanceId=$Plan.InstanceId;ScenarioId=$Plan.ScenarioId;PlanKey=$Plan.PlanKey;ModelKey=$Plan.GenerationModelKey;Answer=$answer.Text;Citations=@($Plan.ToolIds);ToolExecutions=@($executions);Metrics=[PSCustomObject]@{RequestCount=$answer.Attempts;LatencyMilliseconds=[int]$timer.ElapsedMilliseconds}}
+        if($hostBinding){
+            $result|Add-Member -NotePropertyName HostGenerationBinding -NotePropertyValue $hostBinding
+            $result|Add-Member -NotePropertyName ExecutionKey -NotePropertyValue (Get-LabAiPlanKey -InputObject ([ordered]@{PlanKey=$Plan.PlanKey;HostGenerationBinding=$hostBinding}))
+        }
+        $result
     }
     catch{$journal.status='FAILED';$journal.completedAt=Get-LabTimestamp;throw}
     finally{
-        try{if($created){& $executeSql $saCredential "DROP LOGIN [$loginName];" $true|Out-Null};$journal.cleanupStatus='SUCCEEDED'}catch{$journal.cleanupStatus='RECOVERY_REQUIRED';if($journal.status-eq'SUCCEEDED'){throw}}finally{$loginPassword=$null;$loginSecret=$null;$loginCredential=$null;$saCredential=$null;Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal}
+        try{
+            if($created){& $executeSql $saCredential "DROP LOGIN [$loginName];" $true|Out-Null;$journal.cleanupStatus='SUCCEEDED'}
+            elseif($createAttempted){$journal.cleanupStatus='RECOVERY_REQUIRED'}
+            else{$journal.cleanupStatus='SUCCEEDED'}
+        }catch{$journal.cleanupStatus='RECOVERY_REQUIRED';if($journal.status-eq'SUCCEEDED'){throw}}finally{$loginPassword=$null;$escaped=$null;$setup=$null;$loginSecret.Dispose();$loginSecret=$null;$loginCredential=$null;$saCredential=$null;Write-LabArtifactJsonAtomic -Path $journalPath -InputObject $journal}
     }
 }

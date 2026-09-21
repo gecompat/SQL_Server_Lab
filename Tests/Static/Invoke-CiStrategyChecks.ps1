@@ -393,6 +393,15 @@ Add-CheckResult -Name 'Hyper-V-Workflow fuehrt SQL-Port-Reconcile nur im exakten
     $hyperVWorkflow -match 'Invoke-HyperVSqlPortReconcileAcceptance\.ps1 @arguments' -and
     $hyperVWorkflow -match '\$arguments\.ArtifactId = \$artifactId'
 )
+Add-CheckResult -Name 'Hyper-V-KI-Abnahme bleibt explizit manuell mit Artifact und read-only Vorprüfung' -Success (
+    $hyperVWorkflow -match '(?m)^\s*- ai-rag-own-run-acceptance\s*$' -and
+    $hyperVWorkflow -match 'AI_HYPERV_MANUAL_DISPATCH_REQUIRED' -and
+    $hyperVWorkflow -match 'AI_HYPERV_EXPLICIT_ARTIFACT_REQUIRED' -and
+    $hyperVWorkflow -match 'github\.event\.repository\.full_name == github\.repository' -and
+    $hyperVWorkflow -match 'inputs\.ai_preflight_only == false' -and
+    $hyperVWorkflow -match 'Invoke-AiHyperVOwnRunAcceptance\.ps1 -ArtifactId .* -PreflightOnly' -and
+    $hyperVWorkflow -match 'SQL_SERVER_LAB_CI_AI_STATE_ROOT'
+)
 
 Add-CheckResult -Name 'Hyper-V-Workflow fuehrt Ressourcen-Reconcile-Akzeptanz nur manuell auf main mit kontrolliertem Artifact-Input aus' -Success (
     $hyperVWorkflow -match '(?m)^\s*- resource-reconcile-acceptance\s*$' -and

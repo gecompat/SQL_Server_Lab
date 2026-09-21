@@ -453,6 +453,12 @@ try {
     foreach($hostCheck in @(& (Join-Path $PSScriptRoot 'Fixtures/AiRagHostChecks.ps1') -Module $module -RepoRoot $repoRoot)){
         Add-CheckResult $hostCheck.Name $hostCheck.Success
     }
+    foreach($agentCheck in @(& (Join-Path $PSScriptRoot 'Fixtures/AiDiagnosticHostChecks.ps1') -Module $module -RepoRoot $repoRoot -TemporaryRoot $temporaryRoot)){
+        Add-CheckResult $agentCheck.Name $agentCheck.Success
+    }
+    foreach($ownRunCheck in @(& (Join-Path $PSScriptRoot 'Fixtures/AiHyperVOwnRunChecks.ps1') -Module $module -RepoRoot $repoRoot -TemporaryRoot $temporaryRoot)){
+        Add-CheckResult $ownRunCheck.Name $ownRunCheck.Success
+    }
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue

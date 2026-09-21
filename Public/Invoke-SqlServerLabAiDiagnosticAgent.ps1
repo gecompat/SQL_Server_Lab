@@ -18,6 +18,8 @@
     Ein bis vier erlaubte Werkzeuge: server-summary, database-capacity, wait-statistics oder active-requests.
 .PARAMETER GenerationModelKey
     Katalogschlüssel des lokalen Generierungsmodells.
+    ollama-qwen25-coder-7b-local prüft das vorhandene Hostmodell vor SQL-Login
+    und vor/nach Generierung; ein Request mit 180 Sekunden, ohne Retry.
 .PARAMETER LocalPort
     Loopback-Port des lokalen Ollama-Endpunkts.
 .PARAMETER StateRoot
@@ -26,6 +28,8 @@
     Planobjekt bei WhatIf oder SqlServerLab.AiQueryResult/1.0.
 .EXAMPLE
     Invoke-SqlServerLabAiDiagnosticAgent -RunId $runId -SaPassword $password -Question 'Gibt es auffällige Wartezeiten?' -ToolId wait-statistics
+.EXAMPLE
+    Invoke-SqlServerLabAiDiagnosticAgent -RunId $runId -SaPassword $password -Question 'Fasse den Zustand zusammen.' -GenerationModelKey ollama-qwen25-coder-7b-local
 #>
 function Invoke-SqlServerLabAiDiagnosticAgent {
     [CmdletBinding(SupportsShouldProcess,ConfirmImpact='High')]
