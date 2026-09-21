@@ -1114,8 +1114,8 @@ Docker und Podman belegt. Endpoint-Verträge (`AI-05`), Evaluation
 Ollama-Cloud-Generation (`AI-60A`) besitzt einen eigenen opt-in Nachweis.
 Der interne [SQL-HTTPS-Docker-Referenzslice](../Architecture/AI_SQL_HTTPS_BRIDGE.md)
 konkretisiert die TLS-Gateway-Folgewelle mit vorhandenem Hostmodell und eigenem
-SQL-Run. Offlinevertrag und Loopbackroute sind geprüft; die vorbereitete native
-SQL-/TLS-Abnahme bleibt offen. Allgemeiner Gatewaybetrieb,
+SQL-Run. Die native SQL-/TLS-Abnahme bestand am 2026-09-21 einschließlich
+Negativen, Retrieval nach SQLrestart und eigenem Cleanup. Allgemeiner Gatewaybetrieb,
 Retrieval-/Re-Embedding-Restarbeiten, weitere Provider-Evidence,
 OpenAI/Azure, Windows-ONNX und ANN bleiben in den dort definierten Folgewellen.
 Diese KI-Wellen verdrängen keine offenen P0-/Recovery-

@@ -4,8 +4,9 @@
 
 `Tests/Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` erstellt einen eigenen
 SQL-2025-Docker-Run und einen begrenzten Loopback-Gateway zu bereits vorhandenem
-Host-`embeddinggemma:latest`. Keine öffentliche Gateway-API; SQL-/TLS-Nachweis
-noch `NOT_EXECUTED`. Voraussetzungen, Aufruf und Besitzgrenzen stehen im
+Host-`embeddinggemma:latest`. Die Docker-Referenzabnahme bestand am 2026-09-21
+einschließlich SQL-TLS-Negativen, Retrieval nach SQLrestart und Cleanup.
+Keine öffentliche Gateway-API. Voraussetzungen, Aufruf und Besitzgrenzen stehen im
 [Referenzvertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
 
 ## Read-only Mehrdatenbankvergleich

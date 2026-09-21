@@ -1365,10 +1365,10 @@ echter flüchtiger Loopback-HTTPS-Stub Embed-/Generate-Payloads, exakten
 Zertifikat-Pin und HTTP-Retry ohne globale Trust-Store-Mutation. Das ist kein
 TLS-Gateway für SQL Servers `CREATE EXTERNAL MODEL`. Der separate interne
 [Docker-Referenzslice](../Architecture/AI_SQL_HTTPS_BRIDGE.md) besitzt begrenzten
-Gateway, eigene SQL-CA und vorbereitete native Abnahme. Loopback-Netzroute,
-Offlineverträge sowie native SQL-Embeddings und erstes Retrieval sind geprüft.
-Gesamtabnahme `PARTIAL`: vollständige SQL-TLS-Negative mit korrigierten HTTP-Zählern
-und Retrieval nach SQLrestart bleiben offen. Dimensionswechsel/Re-Embedding-Ausführung
+Gateway und eigene SQL-CA. Die native Docker-Abnahme bestand am 2026-09-21:
+sieben SQL-Embeddings, WrongCA-/WrongSAN-Ablehnung, Auth-/Payloadnegative,
+Retrieval vor/nach SQLrestart und vollständiges eigenes Cleanup. Allgemeiner
+Gatewaybetrieb und weitere Provider sind damit nicht belegt. Dimensionswechsel/Re-Embedding-Ausführung
 bleiben offen. Ein rein lesender
 Re-Embedding-Plan- und Journalvertrag bindet zwar Modell-,
 Dimensions-, Dataset-, Chunk- und Vectoridentitäten und sperrt Mischbetrieb;

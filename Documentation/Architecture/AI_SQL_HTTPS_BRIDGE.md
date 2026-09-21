@@ -1,11 +1,10 @@
 # SQL-seitige Embeddings über einen eigenen HTTPS-Gateway
 
-Stand: 2026-09-21. Interner Docker-only-Referenzslice mit vorbereiteter nativer
-Abnahme; native Gesamtabnahme `PARTIAL`. Nach der Eingabereaderkorrektur wurden
-drei SQL-seitige Embeddings gespeichert und beide Rankings vor SQLrestart
-bestanden. Die Abnahme scheiterte anschließend an der HTTP-Zählerklassifikation
-des WrongCA-Falls. Der korrigierte Zählervertrag ist offline geprüft; vollständige
-SQL-TLS-Negative und Retrieval nach SQLrestart bleiben nativ offen.
+Stand: 2026-09-21. Interner Docker-only-Referenzslice, nativ
+`VALIDATED_REFERENCE`: drei SQL-seitige Embeddings gespeichert, beide Rankings
+vor und nach SQLrestart bestanden. WrongCA, WrongSAN, HTTP-Downgrade, fehlender
+Authheader und fremdes Modell wurden abgewiesen. Sieben erfolgreiche Embeddings,
+unverändertes Hostmodellinventar und vollständiges eigenes Cleanup sind belegt.
 Keine neue öffentliche Gateway-API.
 Die reine Docker-Netzprobe erreichte bereits einen ausschließlich an
 `127.0.0.1` gebundenen Hostlistener über `host.docker.internal`. Eigener
@@ -94,7 +93,7 @@ Fehlerfelder `Number`, `Class`, `State`, die numerische SQL-Fehlerliste und
 Keine Wiederholung ungewisser
 Inferenz, Name-only-Löschung, Prune, Modell-Pull oder Hostdienständerung.
 
-## Primärquellen und offene SQLPAL-Annahme
+## Primärquellen und SQLPAL-Nachweis
 
 Microsoft dokumentiert HTTPS, Ollama, Credentialbindung und Retryoptionen unter
 [CREATE EXTERNAL MODEL](https://learn.microsoft.com/en-us/sql/t-sql/statements/create-external-model-transact-sql?view=sql-server-ver17).
@@ -106,9 +105,8 @@ bindet das Modell innerhalb der SQL-Abfrage.
 
 SQLPAL-CA-Pfad und Einlesen beim SQLstart sind für
 [S3-Backup über HTTPS](https://learn.microsoft.com/en-us/sql/relational-databases/backup-restore/sql-server-backup-to-url-s3-compatible-object-storage?view=sql-server-ver17)
-dokumentiert. Der positive External-Model-Pfad ist inzwischen nativ belegt;
-die vollständige Vertrauensgrenze mit beiden SQL-seitigen WrongCA-/WrongSAN-
-Negativen bleibt **offen**.
+dokumentiert. Der positive External-Model-Pfad und beide SQL-seitigen
+WrongCA-/WrongSAN-Negative sind für diesen Docker-Referenzslice nativ belegt.
 .NET-TLS oder Betriebssystem-Trust genügen nicht als SQL-Nachweis. Die Hostadresse
 steht im [Docker-Desktop-Netzwerkvertrag](https://docs.docker.com/desktop/features/networking/networking-how-tos/);
 die lokale Loopbackroute wurde zusätzlich direkt geprüft.

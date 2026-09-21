@@ -9,13 +9,12 @@ Authablehnung ohne Upstream und EOF-Cleanup gehören zur Offlineprüfung.
 TLS 1.2 und TLS 1.3 prüfen getrennt WrongCA, WrongSAN und einen gültigen TLS-Kanal
 ohne HTTP; Receipt `1.1` trennt lokale Handshakefehler, Schließen ohne
 Anwendungsbytes und empfangene HTTP-Requests.
-`Invoke-AiSqlHttpsBridgeAcceptance.ps1` bereitet den getrennten
-Docker-Nachweis vor: SQL External Model, frische WrongCA-/WrongSAN-Handshakes,
+`Invoke-AiSqlHttpsBridgeAcceptance.ps1` führt den getrennten
+Docker-Nachweis aus: SQL External Model, frische WrongCA-/WrongSAN-Handshakes,
 Auth-/Payloadnegative, exaktes Retrieval vor/nach SQLrestart und vollständiges
-Cleanup. Der Docker-zu-Hostloopback-TCP-Nachweis sowie native SQL-Embeddings und
-beide Rankings vor SQLrestart bestanden. Die Gesamtabnahme bleibt `PARTIAL`:
-vollständige SQL-TLS-Negative mit korrigierter Zählerklassifikation und Retrieval
-nach SQLrestart stehen noch aus.
+Cleanup. Die Gesamtabnahme bestand nativ am 2026-09-21: sieben Embeddings,
+vollständige SQL-TLS-Negative mit Receipt `1.1`, beide Rankings vor/nach
+SQLrestart, unverändertes Hostmodellinventar und bestätigtes eigenes Cleanup.
 [Vertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
 
 | Merkmal | Wert |

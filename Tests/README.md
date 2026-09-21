@@ -4,8 +4,9 @@
 eigenen Gateway-Prozess ohne SQL oder Modellrequests.
 `Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` ist die separate Docker-only-
 Referenz für SQL External Model, TLS-Negative, Retrieval, SQLrestart und Cleanup.
-Die bisherigen SQL-Läufe sind `PARTIAL`; die vollständige Abnahme des aktuellen
-Stands steht aus. [Vertrag](../Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md).
+Die native Abnahme bestand am 2026-09-21 mit sieben Embeddings, SQL-TLS-Negativen,
+Retrieval vor/nach SQLrestart und eigenem Cleanup.
+[Vertrag](../Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md).
 
 `Integration/Invoke-SqlcmdPasswordParserAcceptance.ps1` charakterisiert den
 echten lokalen sqlcmd-Hilfeparser ohne SQL-Verbindung. Die separate
