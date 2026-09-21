@@ -1,5 +1,22 @@
 # Lokale Validierungsstrategie
 
+## SQL-HTTPS-Referenzslice
+
+`Invoke-AiSqlHttpsBridgeChecks.ps1` prüft Requestbytes, Vektorgrenzen,
+Digest-/Remoteabwehr und den eigenen Zertifikat-/Prozesszyklus ohne SQL oder
+Modellaufrufe. Echte Loopbackverarbeitung vor STOP, CA-/SAN-validiertes TLS mit
+Authablehnung ohne Upstream und EOF-Cleanup gehören zur Offlineprüfung.
+TLS 1.2 und TLS 1.3 prüfen getrennt WrongCA, WrongSAN und einen gültigen TLS-Kanal
+ohne HTTP; Receipt `1.1` trennt lokale Handshakefehler, Schließen ohne
+Anwendungsbytes und empfangene HTTP-Requests.
+`Invoke-AiSqlHttpsBridgeAcceptance.ps1` führt den getrennten
+Docker-Nachweis aus: SQL External Model, frische WrongCA-/WrongSAN-Handshakes,
+Auth-/Payloadnegative, exaktes Retrieval vor/nach SQLrestart und vollständiges
+Cleanup. Die Gesamtabnahme bestand nativ am 2026-09-21: sieben Embeddings,
+vollständige SQL-TLS-Negative mit Receipt `1.1`, beide Rankings vor/nach
+SQLrestart, unverändertes Hostmodellinventar und bestätigtes eigenes Cleanup.
+[Vertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
+
 | Merkmal | Wert |
 |---|---|
 | Status | `IMPLEMENTED_WITH_GAPS` |

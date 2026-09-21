@@ -1371,7 +1371,12 @@ Ollama-Cloud-Generation ist explizit egress- und secretgebunden belegt. Der
 gemeinsame Endpointvertrag deckt Fehlerfälle offline ab; zusätzlich belegt ein
 echter flüchtiger Loopback-HTTPS-Stub Embed-/Generate-Payloads, exakten
 Zertifikat-Pin und HTTP-Retry ohne globale Trust-Store-Mutation. Das ist kein
-TLS-Gateway für SQL Servers `CREATE EXTERNAL MODEL`. Dieser Gateway,
+TLS-Gateway für SQL Servers `CREATE EXTERNAL MODEL`. Der separate interne
+[Docker-Referenzslice](../Architecture/AI_SQL_HTTPS_BRIDGE.md) besitzt begrenzten
+Gateway und eigene SQL-CA. Die native Docker-Abnahme bestand am 2026-09-21:
+sieben SQL-Embeddings, WrongCA-/WrongSAN-Ablehnung, Auth-/Payloadnegative,
+Retrieval vor/nach SQLrestart und vollständiges eigenes Cleanup. Allgemeiner
+Gatewaybetrieb und weitere Provider sind damit nicht belegt.
 Dimensionswechsel und allgemeine Re-Embedding-Ausführung bleiben offen.
 Die begrenzte [Migration](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md)
 der festen Fixture von Embeddinggemma zu Nomic ist auf Docker und Podman nativ
@@ -1379,8 +1384,10 @@ belegt. Ein rein lesender
 Re-Embedding-Plan- und Journalvertrag bindet zwar Modell-,
 Dimensions-, Dataset-, Chunk- und Vectoridentitäten und sperrt Mischbetrieb;
 Ollama-Cloud-Embeddings, OpenAI, Azure OpenAI und lokales Windows-ONNX
-bleiben offen. Hyper-V-RAG und Agent sind
-bis zum isolierten VM-Neustartnachweis nur `PARTIAL`. Es gibt keinen stillen
+bleiben offen. Der ursprüngliche Hyper-V-Nachweis bleibt `PARTIAL`; die getrennte
+[eigene Hyper-V-Abnahme](../Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md) mit
+vorhandenem Qwen bestand einschließlich VM-Neustart und Cleanup. Sie ersetzt
+weder Golden v1 noch den früheren Modellpfad. Es gibt keinen stillen
 Provider- oder Cloud-Fallback.
 
 `CREATE VECTOR INDEX` und `VECTOR_SEARCH` bleiben Preview und sind nicht Teil

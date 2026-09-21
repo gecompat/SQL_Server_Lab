@@ -143,10 +143,19 @@ mit `ollama/ollama:0.11.10`, dynamischem Loopback-Port, live gebundenem Image-
 und Modelldigest, `embeddinggemma:300m-qat-q4_0` mit 768 Dimensionen,
 `gemma3:1b`, Container-Restart und vollständigem Cleanup erfolgreich. Diese
 Controller-Lane verwendet ausschließlich Loopback-HTTP. Ein TLS-Gateway für
-SQL Servers `CREATE EXTERNAL MODEL` und ein TLS-Gateway bleiben `AI-20B`. Der
+SQL Servers `CREATE EXTERNAL MODEL` bleibt `AI-20B`. Der neue interne
+[Docker-only-Referenzslice](../Architecture/AI_SQL_HTTPS_BRIDGE.md) besitzt
+Gateway, Auth-/Payloadgrenzen, eigenen CA-Vertrag und SQL-Abnahmeskript.
+Die native Docker-Abnahme bestand am 2026-09-21 mit sieben Embeddings,
+SQL-TLS-Negativen, Retrieval vor/nach SQLrestart und eigenem Cleanup.
+Das schließt weder den allgemeinen Gateway- noch den Providerbacklog.
+Der
 providerneutrale Controller akzeptiert inzwischen verwaltete Hyper-V-SQL-2025-
-Ziele für lokales RAG und read-only Diagnose; der native Nachweis ist wegen des
-korrekt geschützten Einzelneustarts einer Testgruppen-VM noch `PARTIAL`.
+Ziele für lokales RAG und read-only Diagnose. Der ursprüngliche native Nachweis
+bleibt wegen des geschützten Einzelneustarts einer Testgruppen-VM `PARTIAL`.
+Die getrennte [Own-Run-Abnahme](../Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md)
+mit vorhandenem Qwen bestand am 2026-09-21 einschließlich VM-Neustart und Cleanup;
+sie ersetzt weder Golden v1 noch den früheren Modellpfad.
 
 `AI-40A` implementiert das deterministische, modellunabhängige Retrieval-Gate.
 Es berechnet Recall@k, Precision@k, MRR und nDCG aus eindeutigen Dokument-IDs,
