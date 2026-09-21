@@ -90,6 +90,12 @@ jobs:
               $restoreExitCode = $LASTEXITCODE
               if ($restoreExitCode -ne 0) { throw "Podman Restore Smoke Test endete mit Exitcode $restoreExitCode." }
 
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 `
+                -Provider podman `
+                -Version 2025 -RuntimeMutexAlreadyHeld 2>&1 | Tee-Object -FilePath $logPath -Append
+              $pitrExitCode = $LASTEXITCODE
+              if ($pitrExitCode -ne 0) { throw "Podman Point-in-Time-Recovery-Akzeptanz endete mit Exitcode $pitrExitCode." }
+
               & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
                 -Provider podman `
                 -Version 2025 2>&1 | Tee-Object -FilePath $logPath -Append
