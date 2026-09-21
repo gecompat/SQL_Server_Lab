@@ -79,6 +79,14 @@ Dispatch-Input `capture_state_root` wird ausschließlich an den `StateRoot`-
 Parameter des Runners weitergereicht. Ein leerer Wert verwendet die lokale
 Runnerkonfiguration. Der State Root wird nicht in Projektartefakte versioniert.
 Er baut kein Image und startet keinen PreparedImage-Bootstrap. Native
-Capture-Evidence ist noch `NOT_EXECUTED`.
+Capture-Evidence ist noch `NOT_EXECUTED`. Der native Versuch vom 2026-09-21
+scheiterte vor der SQL-Capture bei der Windows-Aktivierung mit
+`WINDOWS_ACTIVATION_NETWORK_NOT_READY`; eigener VM-/Disk-/IPAM-Cleanup bestand
+mit drei Schritten und ohne Fehler. Die Gastdiagnose unterscheidet inzwischen
+ungeprüfte DNS-Auflösung von einem tatsächlich fehlgeschlagenen DNS-Versuch
+und gibt nur Kategorien für vorhandene oder fehlende IPv4-Adresse und
+Standardroute aus. Der frühere Zusatz `dns=unresolved` war kein Nachweis einer
+tatsächlich versuchten DNS-Auflösung. Timeout, Aktivierung und Egress-Intent
+werden durch diese Diagnosekorrektur nicht verändert.
 Positive Evaluation-/Deadline-Evidence, andere Versionen, Container,
 automatischer Refresh und Lizenzverlängerung bleiben offen.
