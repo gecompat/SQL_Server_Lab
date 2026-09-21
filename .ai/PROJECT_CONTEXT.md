@@ -60,7 +60,8 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 - SQL-2025-Hyper-V-Editionscapture über `Update-SqlServerLabSqlGuestEvaluationEvidence`
   mit VM-ID-Bindung, runlokaler Dateisperre, unverändertem Vorgänger bei Fehler
-  und 24-Stunden-NO_DEADLINE-Receipt. Native Capture-Evidence noch NOT_EXECUTED;
+  und 24-Stunden-NO_DEADLINE-Receipt. Native Developer-Abnahme 35563036235 am
+  2026-09-21 mit elf Assertions und vollständigem Cleanup bestanden;
   Vertrag: `Documentation/Architecture/SQL_GUEST_EVALUATION_CAPTURE.md`;
 
 - Ein-Datenbank-Transfer über `Invoke-SqlServerLabPortableContainerTransfer`:

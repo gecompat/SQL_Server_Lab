@@ -79,7 +79,11 @@ Dispatch-Input `capture_state_root` wird ausschließlich an den `StateRoot`-
 Parameter des Runners weitergereicht. Ein leerer Wert verwendet die lokale
 Runnerkonfiguration. Der State Root wird nicht in Projektartefakte versioniert.
 Er baut kein Image und startet keinen PreparedImage-Bootstrap. Native
-Capture-Evidence ist noch `NOT_EXECUTED`. Der native Versuch vom 2026-09-21
+Der native Lauf `35563036235` auf Commit `00742f14` bestand am 2026-09-21
+elf Assertions: verifiziertes Developer-Artifact, eigener Run, unverändertes
+`WhatIf`, echte Editionscapture ohne erfundene Frist, Watch-Status
+`NOT_APPLICABLE`, Receiptkette, bytegleicher Run-/Connection-State, unveränderter
+Parent und vollständiger Cleanup ohne VM- oder Diskreste. Der erste Versuch
 scheiterte vor der SQL-Capture bei der Windows-Aktivierung mit
 `WINDOWS_ACTIVATION_NETWORK_NOT_READY`; eigener VM-/Disk-/IPAM-Cleanup bestand
 mit drei Schritten und ohne Fehler. Die Gastdiagnose unterscheidet inzwischen
@@ -88,5 +92,6 @@ und gibt nur Kategorien für vorhandene oder fehlende IPv4-Adresse und
 Standardroute aus. Der frühere Zusatz `dns=unresolved` war kein Nachweis einer
 tatsächlich versuchten DNS-Auflösung. Timeout, Aktivierung und Egress-Intent
 werden durch diese Diagnosekorrektur nicht verändert.
+Der spätere Erfolg erklärt die Ursache des ersten Netzwerkfehlers nicht.
 Positive Evaluation-/Deadline-Evidence, andere Versionen, Container,
 automatischer Refresh und Lizenzverlängerung bleiben offen.

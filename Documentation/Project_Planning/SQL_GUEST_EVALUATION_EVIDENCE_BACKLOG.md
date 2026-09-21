@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `PARTIALLY_IMPLEMENTED`: Reader, Watch und enger SQL-2025-Hyper-V-Editionscapture; native Capture-Evidence noch NOT_EXECUTED, positive Deadline-Evidence offen |
+| Status | `PARTIALLY_IMPLEMENTED`: Reader, Watch und enger SQL-2025-Hyper-V-Developer-Capture nativ in Lauf 35563036235 belegt; positive Deadline-Evidence offen |
 | Stand | 2026-09-13 |
 | Scope | Hyper-V-Run mit SQL-Gast; nur Evaluationsermittlung und read-only Projektion |
 | Ziel | Versionsgebundene, frische und geheimnisfreie SQL-Gast-Frist für Watch und Refresh |
@@ -159,7 +159,9 @@ die read-only Editionsabfrage für einen laufenden SQL-2025-Prepared-Hyper-V-Run
 Developer ergibt frische NOT_EVALUATION-Evidence ohne Frist; Evaluation ohne
 beobachtbare Frist bleibt UNKNOWN. Der vorbereitete Native-Runner erstellt nur
 einen eigenen Run aus einem vorhandenen Developer-Prepared-Artifact, kein
-neues Image. Seine Abnahme ist noch NOT_EXECUTED. Positive Evaluation- und
+neues Image. Seine Developer-Abnahme bestand am 2026-09-21 in Lauf 35563036235
+mit elf Assertions, Receiptkette, unverändertem State und vollständigem Cleanup.
+Positive Evaluation- und
 Deadline-Evidence bleiben davon getrennt offen.
 Er schafft keine Lizenzverlängerung, keinen automatischen Refresh, Cutover,
 Export, Import, Notification-Service oder Windows-Aufgabe. Der vollständige
