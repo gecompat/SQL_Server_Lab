@@ -435,6 +435,29 @@ bestanden diesen Test am 2026-09-10 getrennt. Die separaten SQL-2025-Smokes
 bestanden jeweils 34/34 Pruefungen samt Run-Cleanup. Native Runtime-Build-Caches
 bleiben unter der bestehenden Providerverwaltung; der Test fuehrt kein Prune aus.
 
+### sqlcmd-Passwortbindung
+
+`Tests/Static/Invoke-SqlActionProgressChecks.ps1` prüft unveränderte
+synthetische Passwortwerte einschließlich Minus, Leerzeichen, Anführungszeichen,
+Backslash und Unicode über Query, Readiness und KeepConnection.
+`Invoke-ReadinessContractChecks.ps1` bindet beide Provider-Healthchecks und
+den gemeinsamen Container-Reconcile an denselben Shellargumentvertrag.
+`Tests/Integration/Invoke-SqlcmdPasswordParserAcceptance.ps1` reproduziert
+mit dem echten lokalen ODBC-sqlcmd-Hilfeparser den getrennten Argumentfehler
+und prüft die gebundene Form ohne SQL-Verbindung. Keine Passwortwerte oder
+nativen Argumente werden ausgegeben. Dieser Parsernachweis bestand am 2026-09-21.
+
+`Tests/Integration/Invoke-SqlcmdPasswordAcceptance.ps1 -Provider docker`
+und separat `-Provider podman` prüfen je einen eigenen SQL-2025-Run mit
+synthetischem führendem Minus: Hostquery und Containerstatus `healthy`.
+Die globale Runtime-Sperre wird vor Runtimeaktionen bis zu 30 Minuten erworben;
+PASS setzt bestätigtes Run-/Volume-Cleanup voraus. Bei unklarer Bindung bleibt
+der Recovery-State erhalten. Docker und Podman bestanden am 2026-09-21
+getrennt Hostquery und `healthy`; je zwei Cleanup-Schritte endeten ohne Fehler,
+Container- und Volume-Abwesenheit wurden bestätigt. Host-sqlcmd wird auch von Windows-/Hyper-V-SQL-Workflows
+verwendet; die Änderung am gemeinsamen Wrapper hebt deren Auswahl im
+verbindlichen Impact-Selector nicht auf und ist kein neuer Hyper-V-Nachweis.
+
 ### Statische Prüfung
 
 `Tests/Static/Invoke-JobProgressChecks.ps1` prueft echte lokale PowerShell-Jobs:

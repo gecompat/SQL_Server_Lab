@@ -201,6 +201,15 @@ der Zustand oder tritt ein anderer Readiness-Fehler auf, bleibt der Lauf
 fail-closed. Alle Testressourcen wurden scopegebunden bereinigt. Details stehen im
 [Validierungsbericht vom 2026-08-27](VALIDATION_RESULT_2026-08-27.md).
 
+Der zentrale Host-sqlcmd-Pfad und Docker-/Podman-Healthchecks einschließlich
+Reconcile binden Passwortwerte mit führendem Minus unverändert an `-P`.
+Der echte lokale Hilfeparser ist dafür ohne SQL-Verbindung charakterisiert;
+die isolierten SQL-2025-Passwort-Acceptances für Docker und Podman bestanden
+am 2026-09-21 getrennt Hostquery, `healthy` und vollständiges eigenes Cleanup.
+Bestehende Container erhalten einen gespeicherten alten
+Healthcheck erst durch den expliziten Runtime-Vertrags-Reconcile oder Neuerstellung.
+Der Passwortgenerator und vorhandene Credentials bleiben unverändert.
+
 ### Gemischte Containerprovider in einem Run
 
 Ein Run kann Docker- und Podman-Instanzen enthalten. State, Status, Start, Stop

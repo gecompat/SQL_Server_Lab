@@ -118,6 +118,11 @@ Mindestens erforderlich:
 - `sqlcmd` für Datenbankerstellung, Restore, Skriptausführung und den vollständigen Smoke-Test
 - Git für Klonen und Aktualisieren des Repository; bei ZIP-Bezug optional
 
+SA-Passwörter werden beim Host-`sqlcmd` und den Docker-/Podman-Healthchecks
+unverändert an die Passwortoption gebunden, einschließlich führendem Minus.
+Die begrenzten Parser- und Providerprüfungen stehen in
+[der lokalen Validierungsstrategie](Documentation/Quality/LOCAL_VALIDATION_STRATEGY.md#sqlcmd-passwortbindung).
+
 Die vollständige Einrichtung mit offiziellen Downloadlinks, Installationsbefehlen,
 Docker-/Podman-Auswahl und `podman machine start podman-machine-default` steht in
 der [Windows-Installationsanleitung für AnwenderInnen](Documentation/User/INSTALLATION_WINDOWS.md).

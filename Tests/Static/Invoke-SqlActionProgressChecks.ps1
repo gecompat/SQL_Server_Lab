@@ -13,6 +13,8 @@ $repoRoot=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $calls=[Collections.Generic.List[object]]::new()
 $behavior=[pscustomobject]@{ExitCode=0;Output=@('synthetic-result');Failure='';Available=$true}
 $commandResolver=Get-Command Get-Command
+function Write-LabInfo { param($Message) }
+function Write-LabSuccess { param($Message) }
 function Get-Command {
     [CmdletBinding()]
     param($Name,$CommandType)
@@ -42,6 +44,20 @@ $null=New-Item -ItemType Directory -Path $root
 $credential=[securestring]::new()
 $credential.AppendChar([char]83)
 try {
+    $synthetic = '-OnlySynthetic A1!"\ä$;'
+    $credential.Dispose()
+    $credential=[securestring]::new()
+    foreach($character in $synthetic.ToCharArray()) { $credential.AppendChar($character) }
+    foreach($sample in @($synthetic,'ordinary-only','-P','--',' trailing ')) {
+        $null=Invoke-LabSqlcmdProgress -ArgumentList @('-P',$sample,'-Q','SELECT 1;')
+        Assert-SqlProgress ($calls[-1].Args[0] -ceq ('-P'+$sample) -and $calls[-1].Args[1] -ceq '-Q') 'Passwortwert bleibt exakt ein gebundenes Argument'
+    }
+    $null=Invoke-SqlQuery -Port 1433 -SaPlain $synthetic -Query 'SELECT 1;'
+    Assert-SqlProgress ($calls[-1].Args -ccontains ('-P'+$synthetic) -and $calls[-1].Args -cnotcontains '-P') 'Query bewahrt Sonderzeichen ohne Shell-Escaping'
+    $behavior.Output=@('17')
+    $ready=Wait-SqlReady -Port 1433 -SaPassword $credential -TimeoutSeconds 5 -StabilitySeconds 1 -PollIntervalMilliseconds 100 -ExpectedMajorVersion 17
+    Assert-SqlProgress ($ready.Ready -and $calls[-1].Args -ccontains ('-P'+$synthetic)) 'Echte Readiness-Schleife nutzt gebundenes Passwort'
+    $behavior.Output=@('synthetic-result')
     $query="SELECT N'Gruesse';"
     $output=@(Invoke-SqlQuery -Port 1433 -SaPlain 'synthetic-only' -Query $query -TimeoutSeconds 7)
     $call=$calls[-1]
@@ -72,6 +88,7 @@ try {
     $result=Invoke-LabSqlScript -ScriptPath $scriptPath -Port 1433 -SaPassword $credential -KeepConnection -TimeoutSeconds 11
     $call=$calls[-1]
     Assert-SqlProgress ($result.Success -and $result.Batches -eq 2 -and $calls.Count -eq $before+1 -and $call.Args -contains '-X1' -and $call.Args -contains '-x') 'GO-Batches bleiben in einem Prozess mit deaktivierter sqlcmd-Skriptebene'
+    Assert-SqlProgress ($call.Args -ccontains ('-P'+$synthetic) -and $credential.Length -eq $synthetic.Length) 'KeepConnection bewahrt Passwort und caller-eigenen SecureString'
     Assert-SqlProgress ($call.InputBytes[0] -eq 239 -and $call.InputBytes[1] -eq 187 -and $call.InputBytes[2] -eq 191 -and -not [IO.File]::Exists($call.InputPath)) 'UTF-8-BOM-Datei wird nach Erfolg entfernt'
     $before=$calls.Count
     $result=Invoke-LabSqlScript -ScriptPath $scriptPath -Port 1433 -SaPassword $credential
