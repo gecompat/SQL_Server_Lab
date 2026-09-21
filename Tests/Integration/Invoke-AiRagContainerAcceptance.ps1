@@ -84,6 +84,7 @@ try {
     $phase='MODEL_PULL';Write-RagAcceptanceJournal -Status 'OLLAMA_OWNED'
     Invoke-AiRagModelPull -ModelRole EMBEDDING -Model 'embeddinggemma:300m-qat-q4_0' -Port $ollamaPort -TimeoutSeconds $TimeoutSeconds|Out-Null
     Invoke-AiRagModelPull -ModelRole GENERATION -Model 'gemma3:1b' -Port $ollamaPort -TimeoutSeconds $TimeoutSeconds|Out-Null
+    $phase='ARRANGE';Write-RagAcceptanceJournal -Status 'OLLAMA_OWNED'
     $manifest=Get-Content (Join-Path $repoRoot 'Schemas\example-ai-vector-core.json') -Raw -Encoding utf8|ConvertFrom-Json -Depth 50
     $manifest.name="ai-rag-$Provider-$($token.Substring(0,8))";$manifest.instances[0].provider=$Provider
     $manifest.instances[0] | Add-Member -NotePropertyName drives -NotePropertyValue @([pscustomobject]@{id='ai-golden-data';containerPath='/var/opt/mssql'}) -Force

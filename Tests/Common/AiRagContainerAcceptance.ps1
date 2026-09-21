@@ -124,11 +124,12 @@ function Invoke-AiRagModelPull {
         $requestTimeoutSeconds = [int][Math]::Floor($remainingMilliseconds / 1000)
         try {
             $response = & $Request $uri $body $requestTimeoutSeconds
+            if ([long](& $ElapsedMilliseconds) -ge $budgetMilliseconds) { throw 'AI_RAG_MODEL_PULL_TIMEOUT' }
             if ($null -eq $response -or [string]$response.status -cne 'success') { throw 'AI_RAG_MODEL_PULL_RESPONSE_INVALID' }
             return $response
         }
         catch {
-            if ($_.Exception.Message -eq 'AI_RAG_MODEL_PULL_RESPONSE_INVALID') { throw }
+            if ($_.Exception.Message -cin @('AI_RAG_MODEL_PULL_RESPONSE_INVALID','AI_RAG_MODEL_PULL_TIMEOUT')) { throw }
             if (-not (Test-AiRagModelPullRetryableFailure -ErrorRecord $_)) { throw 'AI_RAG_MODEL_PULL_REQUEST_FAILED' }
             $remainingMilliseconds = $budgetMilliseconds - [long](& $ElapsedMilliseconds)
             if ($remainingMilliseconds -le 0) { throw 'AI_RAG_MODEL_PULL_TIMEOUT' }
