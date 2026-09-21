@@ -124,9 +124,18 @@ function New-SqlUpgradeOwnRun {
     $roleOperation=$OperationId+'-'+$Role
     $lab=Invoke-WithLabWorkflowOperationContext -OperationId $roleOperation -ScriptBlock {
         param($Provider,$StateRoot,$Version,$Role)
-        New-SqlServerLab -Version $Version -Provider $Provider -Profile compact -Cpu 1 -MemoryMB 2560 `
-            -LabName ('upgrade-'+$Role) -StateRoot $StateRoot -GenerateSaPassword -NonInteractive -SkipAssessment `
-            -Drives @([pscustomobject]@{id='upgrade-data';containerPath='/var/opt/mssql'})
+        # Exercise the public backup path with an option-like generated value.
+        $secret=[Security.SecureString]::new()
+        foreach ($character in ('-'+[guid]::NewGuid().ToString('N')+'aA1!').ToCharArray()) {
+            $secret.AppendChar($character)
+        }
+        $secret.MakeReadOnly()
+        try {
+            New-SqlServerLab -Version $Version -Provider $Provider -Profile compact -Cpu 1 -MemoryMB 2560 `
+                -LabName ('upgrade-'+$Role) -StateRoot $StateRoot -SaPassword $secret -NonInteractive -SkipAssessment `
+                -Drives @([pscustomobject]@{id='upgrade-data';containerPath='/var/opt/mssql'})
+        }
+        finally { $secret.Dispose() }
     } -ArgumentList @($Provider,$StateRoot,$version,$Role)
     if ($lab.State -ine 'RUNNING' -or @($lab.Instances).Count -ne 1) { throw 'SQL_UPGRADE_NEW_FAILED' }
     $binding=Get-SqlUpgradeBinding -RunId $lab.RunId -OperationId $roleOperation -Version $version -StateRoot $StateRoot
