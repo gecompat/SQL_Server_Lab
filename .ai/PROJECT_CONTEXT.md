@@ -8,6 +8,12 @@
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
+Die feste [SQL-Version-Upgrade-Referenz](../Documentation/Quality/SQL_VERSION_UPGRADE_REFERENCE.md)
+überträgt eine eigene synthetische SQL-2022-Datenbank über die öffentliche
+Backup-Bibliothek auf einen neuen SQL-2025-Container. Compatibility Level 160
+und der separate Wechsel auf 170 werden funktional geprüft. Implementierter
+Test mit eigener Operation-/Runtimebindung und Cleanup; getrennte native
+Docker-/Podman-Abnahme bleibt `NOT_EXECUTED`, allgemeine Migration unverändert.
 ## 1. Ziel
 
 `SQL_Server_Lab` ist die gemeinsame Plattform für lokale, isolierte und reproduzierbare SQL-Server-Testumgebungen.

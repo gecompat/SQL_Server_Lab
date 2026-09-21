@@ -90,6 +90,11 @@ jobs:
               $restoreExitCode = $LASTEXITCODE
               if ($restoreExitCode -ne 0) { throw "Podman Restore Smoke Test endete mit Exitcode $restoreExitCode." }
 
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 `
+                -Provider podman `
+                -RuntimeMutexAlreadyHeld 2>&1 | Tee-Object -FilePath $logPath -Append
+              $upgradeExitCode = $LASTEXITCODE
+              if ($upgradeExitCode -ne 0) { throw "SQL version upgrade reference failed (exit $upgradeExitCode)." }
               & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
                 -Provider podman `
                 -Version 2025 2>&1 | Tee-Object -FilePath $logPath -Append

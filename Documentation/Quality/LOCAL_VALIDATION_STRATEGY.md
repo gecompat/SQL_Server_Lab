@@ -1,5 +1,20 @@
 # Lokale Validierungsstrategie
 
+## SQL-Version-Upgrade-Referenz
+
+Der [feste SQL-2022-/SQL-2025-Test](SQL_VERSION_UPGRADE_REFERENCE.md) wird zuerst
+mit `Invoke-SqlVersionUpgradeScenarioChecks.ps1` und
+`Invoke-SqlVersionUpgradeSupervisorChecks.ps1` offline geprüft. Die Suite nutzt
+die echten Kontrollflüsse, Disk-State-Operationssuche und eigene Child-Prozesse;
+SQL-/Providergrenzen sind synthetisch. Anschließend wählen tatsächliche geänderte
+und unversionierte Pfade über `Get-CiTestSelection.ps1` die betroffenen Checks.
+Die native Abnahme erfolgt getrennt mit
+`Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker` und `-Provider podman`;
+beide sind derzeit `NOT_EXECUTED`. CI-Hooks verwenden den vorhandenen Runtime-Lock.
+Die Fähigkeit selbst betrifft beide Containerprovider; die Änderung am gemeinsamen
+Selektor behält ausdrücklich die volle bestehende CI-Pflichtmatrix bei.
+
+
 ## SQL-HTTPS-Referenzslice
 
 `Invoke-AiSqlHttpsBridgeChecks.ps1` prüft Requestbytes, Vektorgrenzen,
