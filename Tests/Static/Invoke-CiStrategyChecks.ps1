@@ -9,6 +9,18 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach($setupPath in @('Private/AiPodmanSetup.ps1','Private/AiPodmanSetupProcess.ps1','Tools/Invoke-AiPodmanSetupWorker.ps1','Schemas/ai-podman-setup.schema.json','Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1')) {
+    foreach($path in @($setupPath,$setupPath.Replace('/','\'))) {
+        $selected=& $selector -ChangedPath @($path)
+        Add-CheckResult -Name "KI-Erstellung bleibt je Einzelpfad Podman: $path" -Success (
+            $selected.Podman -and -not $selected.Docker -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter -and
+            'Invoke-AiPodmanSetupChecks.ps1' -in $selected.StaticChecks -and 'Invoke-AiPodmanSetupProcessChecks.ps1' -in $selected.StaticChecks)
+    }
+}
+$setupShared=& $selector -ChangedPath @('Private/AiPodmanSetup.ps1','Private/AiEndpoint.ps1')
+Add-CheckResult -Name 'Podman-Erstellung unterdrückt keine gemeinsame KI-Providerprüfung' -Success ($setupShared.Docker -and $setupShared.Podman -and $setupShared.HyperV)
+$setupInfrastructure=& $selector -ChangedPath @('Private/AiPodmanSetup.ps1','Tools/Get-CiTestSelection.ps1')
+Add-CheckResult -Name 'Podman-Erstellung ändert die volle Infrastrukturmatrix nicht' -Success ($setupInfrastructure.Docker -and $setupInfrastructure.Podman -and $setupInfrastructure.HyperV -and $setupInfrastructure.Mixed -and $setupInfrastructure.Adapter)
 
 $docs = & $selector -ChangedPath @('Documentation/User/Getting_Started.md')
 Add-CheckResult -Name 'Dokumentation loest keinen Runtime-Smoke aus' -Success (

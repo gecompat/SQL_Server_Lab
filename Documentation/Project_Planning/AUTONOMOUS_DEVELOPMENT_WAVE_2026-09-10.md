@@ -140,6 +140,16 @@ und die [Known Limitations](../Quality/KNOWN_LIMITATIONS.md).
 
 ## Szenarien, Bedienung und KI
 
+Der priorisierte [Podman-KI-Erstellungsdialog](../Architecture/AI_PODMAN_SETUP.md)
+ergänzt die bisher getrennten Schritte um neue eigene SQL-2025-Umgebung,
+vorhandenes Host-Embeddingmodell, Initial-Collection und bestätigte feste
+Backup-Abfrage. Erfolgreiche Umgebungen bleiben mit auffindbaren IDs erhalten;
+Fehler bereinigen nur die eigene Operation. Status `validated_reference`:
+Die native Podman-Referenz auf `9d8d313a` bestand am 2026-09-21 mit sechs
+Assertions, persistierter Query nach SQLrestart, unverändertem Modellinventar
+und unabhängig bestätigtem vollständigem Own-Cleanup. Dies ändert
+keine Golden-Referenz und behauptet keinen Podman-SQL-HTTPS-Nachweis.
+
 | Arbeit | Status | Abschlusskriterium |
 |---|---|---|
 | Allgemeiner Szenariokern | `implemented_partial` | [SCN-802](SCENARIO_CONTRACT_BACKLOG.md) ergänzt einen internen providerlosen synthetischen Executor: fünf feste Phasen, authentifiziertes atomisches Journal, Ownership, begrenzte Timeouts/Cancellation und Cleanup-Resume. Offline-Verträge einschließlich eigener harter Kindprozessunterbrechung sind vorhanden. SCN-801 bleibt unverändert; öffentliche API, fachliche Szenarien, SQL-/Providerbindung und native Evidence bleiben offen. |
@@ -245,3 +255,54 @@ Der nachfolgende [begrenzte Modellwechsel](../Architecture/AI_PERSISTENT_MODEL_M
 ergänzt explizit Delta/gen2 nach Nomic v2 MoE/gen3 mit v2-Upgrade und festen
 Präfixprofilen. Die 44 fokussierten Migrationchecks sowie beide nativen Abnahmen mit je 20 Assertions, SQLrestart und vollständigem Cleanup bestehen. Allgemeine Modell-/Dimensionswechsel und
 beliebige Nutzerdokumente bleiben offen; Golden v1 wird nicht umgebunden.
+
+## Aufgenommene Entwicklungsübergaben vom 2026-09-21
+
+Quellen sind die vom Benutzer bereitgestellten Dokumente
+`sql-server-lab-development-handoff.prompt.md` und
+`sql-server-lab-diagnostic-bundle-development.prompt.md`. Ihre Betriebsbefunde
+gelten für den dort beschriebenen Ausgangshost, nicht als Nachweis auf einem
+anderen Host. Dieser Nachtrag erfasst die offenen Arbeiten; er startet keine
+Implementierung oder Runtime. Die autonome Entwicklung bleibt auf Benutzerwunsch
+pausiert. Die gesondert beauftragte kompakte CMS-Anzeige wird in
+[PR #540](https://github.com/gecompat/SQL_Server_Lab/pull/540) geführt und ersetzt
+keinen der folgenden Nachweise. Die Zeilen sind beschreibende Arbeitspakete,
+keine neuen sequenziellen Task-IDs.
+
+### CMS, SQLKI und External Languages
+
+Ziel bleibt eine unabhängige SQL-2022-, SQL-2025- und SQLKI-Testumgebung mit
+persistentem CMS. SQLKI soll persistente KI-Testdaten, generierte Zugangsdaten,
+Python/R und katalogisierte Testdatenbanken kombinieren. Bestehende Teilpfade
+sind wiederzuverwenden; die kombinierte Zielhost-Abnahme bleibt offen.
+
+| Reihenfolge / Arbeit | Stand und Abhängigkeiten | Akzeptanz und nächste Prüfung |
+|---|---|---|
+| Zielhost-Bestandsaufnahme | `planned`; Voraussetzung für mutierende Abnahmen | Readiness, öffentliche Connection-Center-Projektion und aktuelle Endpunkte prüfen. Installiertes Tool, unerreichbare Runtime, fehlende Berechtigung und fehlendes Secret getrennt klassifizieren; Provider getrennt bewerten. Keine historischen Ports übernehmen. |
+| CMS-Registrierung und Secret-Herkunft | `partially_implemented`; `f67c71f2` enthält benannten CMS und explizites Ersetzen ausschließlich terminaler `REMOVED`-Registrierungen | Öffentliche API und passwortfreie Projektion prüfen. Laufende, gestoppte und unklare Registrierungen bleiben gesperrt. Nur nachgewiesen generierte Passwörter dürfen in der ausdrücklich aktivierten CMS-Anzeige erscheinen. Einen fehlenden Herkunftsnachweis nicht allein aus einem vorhandenen Secret ableiten oder manuelle Kennwörter umklassifizieren; zulässigen Reparaturvertrag vor einer möglichen Mutation klären. |
+| Persistentes SQLKI-Setup | `planned` für den kombinierten Anwendungsfall; vorhandene [Podman-KI-Erstellung](../Architecture/AI_PODMAN_SETUP.md) und [persistentes Retrieval](../Architecture/AI_PERSISTENT_RETRIEVAL.md) berücksichtigen | Entscheidung für ein bewusst persistentes Setup dokumentieren; erwartete Datenbank und Dokumente nach Setup sowie SQL-Neustart über SQL prüfen. Das Cleanup von `vector-core-ci/1.0` bleibt unverändert. Bestehende feste Fixture nicht als beliebigen Dokumentimport ausgeben. |
+| Container-Reconcile-Regressionsnachweis | `partially_implemented`; `f67c71f2` enthält Drive-Abgrenzung und Erstinstallation bei leerem Software-Envelope | Framework-eigene Volume-Metadaten dürfen keinen falschen Manifestdrift erzeugen. Tatsächlich deklarierte Drive-Änderungen und nichtleere persistierte Software bleiben verbindlich. Leer → erste Installation → persistierter Zielzustand gezielt prüfen. Keine automatische Übertragung dieser Containerregel auf Hyper-V. |
+| Python/R und SQL Launchpad | `planned`; nach Readiness und Reconcile-Prüfung | cgroup-/Launchpad-Kompatibilität vor Mutation feststellen. Auf dem Ausgangshost war Podman/cgroup v2 blockiert; das ist kein aktueller Zielhost-Befund. Unterstützten Docker-/Podman-Pfad getrennt mit echten SQL-External-Script-Postconditions, Restart und Cleanup/Recovery abnehmen. Bei Blockade `INFRASTRUCTURE_UNAVAILABLE`; kein stiller Host-/cgroup-Umbau. Hyper-V nur als ausdrücklich passender eigener Scope mit getrenntem Vertrag und Nachweis. |
+| Northwind und Chinook | `planned`; im berichteten kombinierten Ablauf wegen Runtime-Blocker nicht ausgeführt | Nach erfüllten Voraussetzungen über katalogisierte öffentliche Installationspfade einbringen, Datenbankzustand und erwartete Inhalte prüfen. Vorhandene allgemeine Sample-Nachweise ersetzen nicht diese kombinierte Abnahme. |
+| Abschluss der Übergabe | `planned`; nach den betroffenen Arbeitspaketen | Analyzer-Verfügbarkeit tatsächlich prüfen; Infrastrukturfehler nicht als Code-Erfolg behandeln. Reproduktion → fokussierte Tests → betroffene Suiten → tatsächlich betroffene Provider. Ergebnis, nicht ausgeführte Nachweise und Cleanup getrennt dokumentieren; konsistente Änderungen nur über geprüfte PRs integrieren. |
+
+### Sanitisiertes Diagnosebundle und Operator-Handoff
+
+Status: `planned`. Eine öffentliche Funktion wie
+`Get-SqlServerLabDiagnosticBundle` ist ein Namensvorschlag, keine vorhandene
+API. Das Vorhaben wird vor einer Implementierung gegen bestehende Readiness-,
+Workflow-, Connection-Center-, Reconcile- und Operationsprojektionen abgegrenzt.
+
+| Reihenfolge / Arbeit | Abhängigkeiten und Akzeptanz |
+|---|---|
+| Ergebnisvertrag und Privacy-Grenze festlegen | Contract-/Ergebnisversion, kanonische Operationskategorien, Provider-/SQL-/OS-Klassen, gebundener Run-/Instanzstatus, feste Reason Codes, Fehlerphase und Recovery/Cleanup. Reproduktionsbindungen nur als zulässige Katalog-/Manifest-/Planhashes, keine Inhalte oder Pfade. Abschnitte tragen `OBSERVED`, `NOT_EXECUTED`, `UNAVAILABLE`, `UNSUPPORTED` oder `BLOCKED`; ausgeschlossene Datengruppen werden maschinenlesbar aufgeführt. |
+| Begrenzte read-only Reader und API implementieren | Nur sanitierte, ownership-gebundene Projektionen oder eng begrenzte interne Reader. Readiness einschließlich Toolverfügbarkeit ohne Installationspfade aufnehmen. Feste Allowlist für notwendige OS-/Architektur-, Versions-, Berechtigungs- und gegebenenfalls cgroup-Kategorien; keine frei formulierbaren Diagnosebefehle. Anzahl, Größe und Tiefe begrenzen. Fehlendes Tool und unerreichbarer Provider müssen unterscheidbar bleiben. |
+| Negativ- und Vertragsprüfungen | Keine Passwörter, Tokens, SecureStrings, Secret-Aliasse, Connection Strings mit Kennwort, SQL-Texte, Datenbankinhalte, Rohlogs, Hostnamen, IPs, Ports, lokale Pfade oder Container-/VM-/Runtime-IDs. Keine direkten öffentlichen Zugriffe auf Secretstores, State-/Connection-Dateien oder Provider-Inspect. Fremde, unbekannte und ungebundene Ziele werden gesperrt. Keine Netzwerk-, Provider-, SQL-, Datei-, Git-, Konfigurations- oder Hostmutation und kein Runtime-Start/-Stop. |
+| Öffentliche Dokumentation und Exportvertrag | Erst implementierte Funktion exportieren; Help, Benutzerreferenz, Repo-Map, DTO/Schema und Tests gemeinsam pflegen. Mit synthetischen Fixtures Reproduzierbarkeit, Datenschutz und getrennte Fehlerklassen prüfen; erforderliche Provider-Nachweise nach tatsächlichem Scope auswählen. |
+| Operator erst nach bestandener API-Abnahme anbinden | Der `SQL Server Lab Operator` nutzt ausschließlich diese API und vorhandene öffentliche Cmdlets für die benutzergebundene Operation. Handoff auf entscheidungsrelevante sanitierte Felder reduzieren; Produktfehler, Infrastruktur, Berechtigung, Secret und fehlende Evidence trennen. Keine eigenständige Entwicklung oder erweiterte Shell-Freigabe. |
+
+Ein automatischer Bundle-Dateiexport oder Upload ist ausdrücklich nicht Teil
+dieses Vorhabens. Ein späterer Support-Export benötigt einen getrennten
+Privacy-, Retention-, Speicherort- und Freigabevertrag. Die Originaluploads und
+das CMS-Bild werden nicht ins Repository übernommen; insbesondere werden keine
+abgebildeten Kennwörter oder privaten Hostdaten versioniert.

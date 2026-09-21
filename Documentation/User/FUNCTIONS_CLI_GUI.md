@@ -87,7 +87,7 @@ Legende:
 | [`Sync-SqlServerLabConnectionCenter`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Aktualisiert den Endpunktkatalog der Verbindungszentrale atomar. | Verbindungszentrale; zusätzlich nach endpunktrelevanten Lifecycle-Aktionen | – |
 | [`Export-SqlServerLabSsmsRegistration`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt einen kennwortfreien SSMS-`.regsrvr`-Export. | Verbindungszentrale → SSMS-Export | – |
 | [`Export-SqlServerLabCmsSyncScript`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erzeugt ein idempotentes CMS-Synchronisationsskript. | Verbindungszentrale → CMS-Skript | – |
-| [`Initialize-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erstellt nach expliziter Auswahl einen kompakten persistenten Docker-/Podman-CMS. | Verbindungszentrale → CMS initialisieren | – |
+| [`Initialize-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Erstellt nach expliziter Auswahl einen kompakten persistenten Docker-/Podman-CMS; `-LabName` benennt ihn, `-ReplaceRemovedCms` ersetzt ausschließlich eine terminal entfernte CMS-Registrierung. | Verbindungszentrale → CMS initialisieren | – |
 | [`Sync-SqlServerLabCms`](../../Public/Sync-SqlServerLabConnectionCenter.ps1) | Gleicht den verwalteten lokalen CMS mit dem aktuellen Katalog ab. | Verbindungszentrale; zusätzlich nach endpunktrelevanten Lifecycle-Aktionen | – |
 
 ## Reconcile und GUI-Adapter
