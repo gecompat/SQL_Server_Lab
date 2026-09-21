@@ -105,6 +105,11 @@ COMMANDS
     Get-SqlServerLabRunStateUpgradePlan
         Klassifiziert einen lokalen Run-State read-only gegen den Zielvertrag.
 
+    Get-SqlServerLabDiagnosticBundle
+        Liefert begrenzte, besitzgebundene Diagnose-Evidence für eine Instanz.
+        Historischer State und optionale Provider-Readiness sind getrennt;
+        keine SQL-Probe, Rohlogs, Hostwerte, Secrets oder Mutation.
+
     Get-SqlServerLabAutomationPlan
         Projiziert einen versionierten lokalen, sanitisierten und nicht
         ausführbaren Plan-/Result-Vertrag für ausgewählte bestehende öffentliche

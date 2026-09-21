@@ -1701,6 +1701,22 @@ Die Prüfung kontrolliert unter anderem Exportliste, Kernlinks, Schema-Referenze
 
 ## 20. Troubleshooting
 
+### Sanitisierte Diagnose für eine bekannte Instanz
+
+Für einen modernen Run unter einem bereits registrierten `Lab_Data/State`:
+
+```powershell
+Get-SqlServerLabDiagnosticBundle -RunId $runId -InstanceId primary `
+    -DataRoot $dataRoot -Operation Inspect
+```
+
+Der Befehl liefert begrenzte, besitzgebundene historische Metadaten und optional
+Provider-Readiness. `-SkipReadiness` beschränkt ihn auf lokale Metadaten.
+Es werden keine Dateien exportiert oder hochgeladen. Hostwerte, Secrets,
+Rohlogs und SQL-Inhalte bleiben ausgeschlossen; ein historischer Cleanupstatus
+beweist keine aktuelle Restfreiheit. Freie StateRoots und Legacy-Bindungen
+bleiben blockiert. [Vertrag und Grenzen](../Architecture/DIAGNOSTIC_BUNDLE.md).
+
 ### Modul importiert nicht
 
 ```powershell

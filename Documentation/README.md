@@ -78,7 +78,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 98 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 99 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -125,6 +125,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Invoke-SqlServerLabEvaluationWatchTrigger` | Evaluation-Watch in einem explizit begrenzten lokalen Zeitintervall ausführen; registriert keine Windows-Aufgabe und verändert weder Runtime noch Netzwerk |
 | `Update-SqlServerLabSqlGuestEvaluationEvidence` | SQL-2025-Hyper-V-Edition lesen und atomare NO_DEADLINE-Evidence erneuern; keine Fristheuristik |
 | `Get-SqlServerLabRunStateUpgradePlan` | Einen lokalen Run-State gegen den Zielvertrag read-only klassifizieren |
+| `Get-SqlServerLabDiagnosticBundle` | [Sanitisierte Diagnose-Evidence](Architecture/DIAGNOSTIC_BUNDLE.md) für eine gebundene Instanz und optionale Provider-Readiness |
 | `Invoke-SqlServerLabRunStateUpgrade` | Einen explizit synthetischen, unversionierten Legacy-State atomar migrieren; unbekannte Versionen bleiben blockiert |
 | `Get-SqlServerLabPortableLabImportPlan` | Ein portables Container-Lab-Paket read-only an einen bestehenden Docker-/Podman-Ziel-Run binden und ausschließlich BackupSetId- sowie CHECKSUM-, VERIFYONLY-, SHA-256- und Größen-Evidence prüfen; Transfer und Import bleiben nicht implementiert |
 | `Get-SqlServerLabPortableContainerTransferExecutorPlan` | Eine explizite Mehrdatenbankauswahl lokal vorprüfen; ohne vollständige Inventur, SQL-Revalidierung und atomaren Rollback bleibt jede Ausführung blockiert |

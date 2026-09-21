@@ -4,7 +4,7 @@
 |---|---|
 | Stand | 2026-09-07 |
 | Autoritative Funktionsliste | [`SqlServerLab.psd1`](../../SqlServerLab.psd1) |
-| Öffentliche Funktionen | 86 exportierte Cmdlets |
+| Öffentliche Funktionen | 99 exportierte Cmdlets |
 | Konsolenoberfläche | `Invoke-SqlServerLab` |
 | Browseroberfläche | `Tools/Start-SqlServerLabUi.ps1` und `Ui/` |
 
@@ -72,6 +72,7 @@ Legende:
 | [`Get-SqlServerLabHyperVImageArtifact`](../../Public/Get-SqlServerLabHyperVImageArtifact.ps1) | Inventarisiert Hyper-V-Images pfadfrei mit Evaluation, Referenzen und optionaler Integritätsprüfung. | Hyper-V-Infrastruktur → Images/Slots | direkt über die Workflow-Inventur: Image-Karten und Vorlagenpool |
 | [`Get-SqlServerLabEvaluationWatch`](../../Public/Get-SqlServerLabEvaluationWatch.ps1) | Bewertet Windows- und SQL-Artefaktfristen sowie getrennte, persistierte Windows-Fristen registrierter RUNNING-Hyper-V-Instanzen. Für RUNNING-/STOPPED-Hyper-V-SQL-Runs projiziert er eine Frist ausschließlich aus frischer, gebundener SQL-Gast-Evidence; `-RecordEvents` dedupliziert fällige Ereignisse lokal ohne Images, Lizenzen oder Runs zu verändern. | – | – |
 | [`Get-SqlServerLabRunStateUpgradePlan`](../../Public/Get-SqlServerLabRunStateUpgradePlan.ps1) | Klassifiziert einen lokalen Run-State gegen den Zielvertrag ohne State- oder Runtime-Mutation. | – | – |
+| [`Get-SqlServerLabDiagnosticBundle`](../../Public/Get-SqlServerLabDiagnosticBundle.ps1) | Liefert [begrenzte, gebundene Diagnose-Evidence](../Architecture/DIAGNOSTIC_BUNDLE.md) ohne Secrets, Rohlogs, Hostwerte oder Mutation. | – | – |
 | [`Invoke-SqlServerLabRunStateUpgrade`](../../Public/Invoke-SqlServerLabRunStateUpgrade.ps1) | Migriert nur einen explizit synthetischen, unversionierten Legacy-State atomar; `WhatIf` plant ohne Commit, unbekannte Versionen und Runtime-Ressourcen bleiben blockiert. | – | – |
 | [`Get-SqlServerLabPortableLabImportPlan`](../../Public/Get-SqlServerLabPortableLabImportPlan.ps1) | Bindet BackupSetId- und Integritäts-Evidence eines portablen Container-Lab-Pakets read-only an einen bestehenden Docker-/Podman-Ziel-Run; die Ausführung ist nicht implementiert. | – | – |
 | [`Get-SqlServerLabPortableContainerTransferExecutorPlan`](../../Public/Get-SqlServerLabPortableContainerTransferExecutorPlan.ps1) | Prüft eine ausdrückliche Mehrdatenbankauswahl oder die angeforderte `AllEligible`-Inventur zwischen zwei laufenden SQL-2025/Linux-Containerinstanzen. Der Plan ist absichtlich blockiert: sichere Inventur, HEADERONLY-/Live-CHECKSUM-/VERIFYONLY- und `RELATIONAL_CORE/1.0`-Inhaltsvergleich sowie atomarer Mehrdatenbank-Rollback fehlen noch; es gibt keine Ausführung. | – | – |

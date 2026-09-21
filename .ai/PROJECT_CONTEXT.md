@@ -18,6 +18,13 @@ beobachteten Restore-Dauern sind kein Performance-Benchmark; allgemeine
 Migration bleibt unverändert.
 ## 1. Ziel
 
+Der enge Diagnosebundle-Vertrag `Get-SqlServerLabDiagnosticBundle` liefert
+gebundene, sanitisierte Metadaten für eine moderne Instanz unter einem
+registrierten `Lab_Data/State`. Optionale Provider-Readiness läuft isoliert und
+begrenzt; SQL-Proben, globale Storage-Konfiguration, Runtime-/Hostwerte,
+Spezialjournale, Export und Operator-Integration bleiben ausgeschlossen.
+Vertrag: [DIAGNOSTIC_BUNDLE.md](../Documentation/Architecture/DIAGNOSTIC_BUNDLE.md).
+
 `SQL_Server_Lab` ist die gemeinsame Plattform für lokale, isolierte und reproduzierbare SQL-Server-Testumgebungen.
 
 Hauptanwendungsfälle:

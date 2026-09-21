@@ -121,6 +121,7 @@ end {
         @{ Pattern = '(?i)(HyperVPersistentDataDrive|hyperv-persistent-data)'; Checks = @('Invoke-HyperVPersistentDataDriveChecks.ps1','Invoke-HyperVProviderChecks.ps1') },
         @{ Pattern = '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools|Initialize-PodmanRuntime|PodmanBootstrap)'; Checks = @('Invoke-HostToolResolutionChecks.ps1','Invoke-PodmanBootstrapChecks.ps1') },
         @{ Pattern = '(?i)(ClientReadiness|client-readiness|HostToolResolution|StorageContract|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-ClientReadinessChecks.ps1') },
+        @{ Pattern = '(?i)(DiagnosticBundle|DiagnosticReadiness|diagnostic-bundle|DIAGNOSTIC_BUNDLE|ClientReadiness|StateMachine|DesiredState|StorageContract|CleanupEngine|Private/BatchWorkflow\.ps1|sql-server-versions)'; Checks = @('Invoke-DiagnosticBundleChecks.ps1') },
         @{ Pattern = '(?i)(^\.agents/skills/|Invoke-SkillChecks|REPOSITORY_AGENT_SKILLS_BACKLOG|SqlServerLab\.psd1)'; Checks = @('Invoke-SkillChecks.ps1','Invoke-DocumentationChecks.ps1','Invoke-PrivacyScannerChecks.ps1') },
         @{ Pattern = '(?i)(CapabilityInventory|capability-evidence-index|ProviderCapability|provider\.json|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-CapabilityInventoryChecks.ps1') },
         @{ Pattern = '(?i)(LabNetwork|PortAllocation)'; Checks = @('Invoke-LabNetworkChecks.ps1','Invoke-PortAllocationChecks.ps1') },
@@ -244,6 +245,7 @@ end {
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioExecutor\.ps1|Schemas/scenario-execution-(plan|journal)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/ScenarioCapabilityDecision\.ps1|Schemas/scenario-capability-(plan|decision)\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/InstanceCapabilityAssessment\.ps1|Schemas/instance-capability-assessment\.schema\.json)$'
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/DiagnosticBundle(Reader|Readiness)\.ps1|Public/Get-SqlServerLabDiagnosticBundle\.ps1|Schemas/diagnostic-bundle\.schema\.json)$'
             if ($pathHasProductCode -and -not $knownDomainChange -and -not $staticOnlyProductChange) {
                 $pathRuntime.Docker = $true
             }

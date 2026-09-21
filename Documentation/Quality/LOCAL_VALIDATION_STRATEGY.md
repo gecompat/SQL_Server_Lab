@@ -1,5 +1,18 @@
 # Lokale Validierungsstrategie
 
+## Diagnosebundle
+
+`Invoke-DiagnosticBundleChecks.ps1` prüft unter Windows und Linux den
+geschlossenen read-only Vertrag mit synthetischem registriertem Storage,
+realen modernen State-Produzenten, Canarywerten, Ownership-Negativen,
+Dateibytegleichheit und begrenzten synthetischen Kindprozessen.
+Provider-Readiness wird simuliert und durch `Invoke-ClientReadinessChecks.ps1`
+an die bestehenden klassifizierten Resolver-/Prozessgrenzen gebunden.
+Die Produktdateien wählen statische Prüfungen; Änderungen am gemeinsamen
+CI-Selektor bewahren dessen vollständige Pflichtmatrix einschließlich Hyper-V.
+Dieser API-Slice führt lokal keine nativen Provider-Smokes aus und behauptet
+keine SQL- oder Runtime-Evidence. [Vertrag](../Architecture/DIAGNOSTIC_BUNDLE.md).
+
 ## Podman-KI-Erstellung
 
 `Invoke-AiPodmanSetupChecks.ps1` prüft die echte interne Orchestrierung und

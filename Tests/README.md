@@ -1,5 +1,10 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Invoke-DiagnosticBundleChecks.ps1` prüft das read-only Diagnosebundle
+mit synthetischen modernen State-Produzenten, Ownership- und Privacy-Negativen,
+Schema und echten begrenzten synthetischen Kindprozessen. Provider-Readiness
+ist dabei simuliert; keine Lab-Runtime wird verändert.
+
 `Static/Invoke-AiSqlHttpsBridgeChecks.ps1` prüft Request-/Vektorvertrag und einen
 eigenen Gateway-Prozess ohne SQL oder Modellrequests.
 `Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` ist die separate Docker-only-

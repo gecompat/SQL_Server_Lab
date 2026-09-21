@@ -730,6 +730,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Invoke-SqlServerLabEvaluationWatchTrigger` | Evaluation-Watch in einem explizit begrenzten lokalen Zeitintervall ausführen; registriert keine Windows-Aufgabe und verändert weder Runtime noch Netzwerk |
 | `Update-SqlServerLabSqlGuestEvaluationEvidence` | Edition einer laufenden SQL-2025-Hyper-V-Instanz lesen und gebundene NO_DEADLINE-Evidence atomar erneuern; Developer ergibt frisch NOT_APPLICABLE, Evaluation ohne Frist bleibt UNKNOWN |
 | `Get-SqlServerLabRunStateUpgradePlan` | Einen lokalen Run-State gegen den aktuellen Zielvertrag read-only klassifizieren |
+| `Get-SqlServerLabDiagnosticBundle` | [Gebundene Diagnose-Evidence](Documentation/Architecture/DIAGNOSTIC_BUNDLE.md) für eine Instanz ohne Secrets, Hostwerte, Rohlogs oder Mutation liefern |
 | `Invoke-SqlServerLabRunStateUpgrade` | Einen explizit synthetischen, unversionierten Legacy-State atomar migrieren; unbekannte Versionen bleiben blockiert |
 | `Get-SqlServerLabPortableLabImportPlan` | Ein portables Container-Lab-Paket read-only an einen bestehenden Docker-/Podman-Ziel-Run binden und ausschließlich BackupSetId- sowie Integritäts-Evidence prüfen; die Ausführung bleibt nicht implementiert |
 | `Get-SqlServerLabPortableContainerTransferExecutorPlan` | Eine explizite Mehrdatenbankauswahl prüfen; die Ausführung bleibt bis zum vollständigen sicheren Mehrdatenbankvertrag blockiert |
