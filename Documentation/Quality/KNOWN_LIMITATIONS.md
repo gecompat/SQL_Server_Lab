@@ -123,10 +123,13 @@ Podman wurden dafür am 2026-09-06 getrennt einschließlich SQL-/Ollama-Restart
 und Cleanup nativ geprüft. Das versionierte synthetische Golden Dataset bindet
 Frage, Dokumente, lokale Modelle, Top-k, Schwellen, Dataset-Hash und Fall-ID an
 den RAG-PlanKey; nur das passend gebundene Ergebnis eines tatsächlich
-ausgeführten SQL-RAG-Laufs darf bewertet werden. Docker hat diesen Pfad am
-2026-09-07 einschließlich Restart und Cleanup nativ bestanden. Der getrennte
-Podman-Nachweis erreichte wegen eines nach 900 Sekunden abgelaufenen lokalen
-Modell-Pulls die RAG-Ausführung nicht; Cleanup war erfolgreich. Hybride Suche
+ausgeführten SQL-RAG-Laufs darf bewertet werden. Docker und Podman bestanden den
+festen Golden-Fall `backup-frequency` am 2026-09-21 getrennt einschließlich
+Golden-Metriken, SQL-/Ollama-Restart und vollständigem eigenem Cleanup. Die Modelle
+`embeddinggemma:300m-qat-q4_0` und `gemma3:1b` blieben unverändert. Die erfolgreichen
+Docker- und Podman-Läufe verwendeten `-TimeoutSeconds 1800` für die Modelldownloads; Inferenzlimits
+wurden nicht erhöht. Ein früherer Inferenz-Timeout trat nicht erneut auf, seine
+Ursache ist nicht belegt. Weitere Golden-Fälle, hybride Suche
 und automatische Antworttreueprüfung bleiben offen. Ein Modell-Judge wird
 bewusst nicht als blockierendes Gate verwendet.
 

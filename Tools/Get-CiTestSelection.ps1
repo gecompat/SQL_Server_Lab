@@ -65,6 +65,7 @@ end {
         @{ Pattern = '(?i)(ResourceAssessment|resource-assessment|New-SqlServerLab\.ps1|HyperVLabEnvironment|ReconcileContract|ManifestParser|lab-manifest)'; Checks = @('Invoke-ResourceAssessmentChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(HyperVNetworkReconnect|HyperVExistingNetwork|HyperVResourceAcceptanceSlotClone|HyperVLabEnvironment)'; Checks = @('Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1') },
         @{ Pattern = '(?i)(AiPersistentRetrieval|ai-persistent-retrieval|Scenarios/Ai/persistent-retrieval/)'; Checks = @('Invoke-AiPersistentRetrievalChecks.ps1','Invoke-AiPersistentRetrievalMigrationChecks.ps1') },
+        @{ Pattern = '(?i)(AiRagContainerAcceptance)'; Checks = @('Invoke-AiRagContainerAcceptanceChecks.ps1') },
         @{ Pattern = '(?i)(AiSqlHttpsBridge|ai-sql-https-bridge)'; Checks = @('Invoke-AiSqlHttpsBridgeChecks.ps1') },
         @{ Pattern = '(?i)(SecurityTool|security-tool|Fixtures/SecurityTools/)'; Checks = @('Invoke-SecurityToolCatalogChecks.ps1') },
         @{ Pattern = '(?i)(Prepare-LocalRelease|ReleaseArtifact)'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1') },
@@ -209,6 +210,7 @@ end {
             if ($runtimePath -match '(?i)(PortableContainerTransferPreflight|portable-container-transfer-preflight)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(PortableContainerTransferExecutorRuntime|Invoke-SqlServerLabPortableContainerTransfer|portable-container-transfer-journal|Invoke-PortableContainerTransferAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(AiScenario|ai-scenario|Scenarios[\\/]Ai|example-ai-vector-core|SqlServerLabAiScenario|AiVectorCoreAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(AiRagContainerAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             $persistentRetrievalPath = $runtimePath -match '(?i)(AiPersistentRetrieval|ai-persistent-retrieval)'
             if ($persistentRetrievalPath) { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             $sqlHttpsBridgePath = $runtimePath -match '(?i)^(Private/AiSqlHttpsBridge\.ps1|Schemas/ai-sql-https-bridge-receipt\.schema\.json|Tests/(Static/Invoke-AiSqlHttpsBridgeChecks|Integration/(Invoke-AiSqlHttpsBridgeAcceptance|Support/Invoke-AiSqlHttpsBridgeServer))\.ps1)$'

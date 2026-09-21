@@ -103,15 +103,17 @@ Modellvertrag genutzt werden; Cloudgeneration bleibt ausdrücklich opt-in.
 Der [ausführbare Host-RAG-Slice](../Architecture/AI_RAG_EXISTING_OLLAMA.md) ist
 implementiert und am 2026-09-20 unter Podman und Docker getrennt einschließlich
 SQLrestart und Cleanup nativ belegt; Hyper-V bleibt offen. Golden v1 bleibt
-unverändert, und seine andere Modellbindung wird nicht nachträglich als geprüft
-ausgewiesen. Nicht abgeschlossene andere Punkte einschließlich SQL-Gast-
+unverändert. Sein fester Fall `backup-frequency` bestand am 2026-09-21 separat
+unter Docker und Podman mit der ursprünglichen Modellpaarung, Golden-Metriken,
+SQL-/Ollama-Restart und Cleanup. Nicht abgeschlossene andere Punkte einschließlich SQL-Gast-
 Evaluation-Capture bleiben erhalten und werden dadurch nicht abgeschlossen.
 
 Der nächste Slice ist die [isolierte Hyper-V-Abnahme](../Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md)
 mit explizitem Prepared-Artefakt, eigener VM und lokaler Qwen-Generierung für
 RAG/Agent. Der erhöhte native Lauf 35542940923 bestand am 2026-09-21 mit
 14 Assertions, VM-Neustart, SQL-Bereitschaft und vollständigem Cleanup.
-Persistentes Retrieval und Re-Embedding besitzen getrennte Nachweise; Golden v1 bleibt gesondert offen.
+Persistentes Retrieval und Re-Embedding besitzen getrennte Nachweise. Für Golden v1
+ist der feste Containerfall `backup-frequency` belegt; weitere Fälle bleiben offen.
 
 Abgesehen von der obigen ausdrücklichen KI-Priorität sind Reihenfolge und
 Abnahme innerhalb dieser Tabelle von oben nach unten vorgegeben.
@@ -147,7 +149,7 @@ und die [Known Limitations](../Quality/KNOWN_LIMITATIONS.md).
 | Direkter SQL-Prepared-Locale-Pfad | `planned` | Bestehenden portablen Locale-Intent separat im direkten Manifestpfad nach Kaltstart und mit Cleanup abnehmen. |
 | Legacy-WMI-Fortschritt | `implemented` (Offline-Abnahme; neue Gastabnahme offen) | Vorhandene WMI-, Aktivierungs-, Sysprep- und Shutdown-Reporter inventarisiert. Luecken im SQL-Receipt-Polling, Legacy-OOBE und direkten SQL-Setup-Abfragen verwenden nun denselben durchgehenden Reporter. Synthetischer Transport reproduzierte die fehlende Anzeige; Heartbeat, Ausgabe, Fehler vor/nach Transportbeginn und eigener/geliehener Reporter-Cleanup bestehen nach dem Fix. Der bestehende echte Pipeline-Abbruchtest bleibt Bestandteil der fokussierten Suite. Keine Aenderung am WMI-/SMB-Transport oder an dessen Abbruchlatenz; neuer isolierter Legacy-Gastlauf bleibt offen. |
 | Reservierte Manifestfelder | `validated` (Bewertung) | [Einzelbewertung](RESERVED_MANIFEST_FIELDS_ASSESSMENT_2026-09-10.md) für alle neun direkten reservierten `serverConfig`-Felder, `customImage`, zwei `installMethod`-Werte und die gesonderten Adapterfelder abgeschlossen. Bestehende Collation-/Storage-/Derived-Image-Verträge haben Vorrang; direkte erste PITR-/Upgrade-Szenarien benötigen keine zusätzlichen Agent-/CLR-/Authentifizierungsschalter. Jeder spätere Bedarf besitzt Nutzen, Abhängigkeit, Risiko, relativen Aufwand und konkreten Folgeschritt. Felder bleiben reserviert; keine neue Runtimefreigabe. |
-| Podman Golden RAG | `implemented_partial` | Der eigene AdHoc-Slice mit vorhandenem Host-embeddinggemma und expliziter Cloudgeneration bestand am 2026-09-20 unter Podman und Docker getrennt mit exakten Retrievaltreffern, SQLrestart und Cleanup. Das unveränderte lokale Golden v1 verwendet andere Modellbindungen und bleibt separat offen; kein stiller Austausch dieser Bindungen. |
+| Podman Golden RAG | `validated_reference` | Der feste Golden-v1-Fall `backup-frequency` bestand am 2026-09-21 getrennt unter Docker und Podman mit `embeddinggemma:300m-qat-q4_0` und `gemma3:1b`, exaktem SQL-Retrieval, Golden-Metriken, SQL-/Ollama-Restart und vollständigem eigenem Cleanup. Podman verwendete 1800 Sekunden Downloadbudget je Modell; die Inferenzlimits blieben unverändert. Weitere Golden-Fälle sind nicht durch diese Referenz abgedeckt. |
 | Hyper-V RAG/Agent | `validated_reference` | Eigener SQL-2025-Prepared-Run mit Host-Embeddinggemma und lokalem Qwen: Lauf 35542940923 bestand am 2026-09-21 mit 14 Assertions, tatsächlichem VM-Neustart, SQL-Bereitschaft, Login-Cleanup und vollständigem VM-/Child-VHDX-/IPAM-Cleanup. Parent und Hostmodellinventar unverändert; reservierte Gruppen unberührt. Golden v1 bleibt separat. |
 | Modellcache | `validated` (Bewertung; Nichtübernahme) | [Bewertung](SQL_AI_CAPABILITIES_ASSESSMENT_2026-09-10.md): vorerst kein gemeinsamer persistenter Cache. Ein Pull-Timeout belegt keinen Cachegewinn; ein sicherer Blob-/Lease-/Publish-Vertrag fehlt. Erst erfolgreichen geänderten Podman-Lauf messen, bei bestätigtem Engpass separate Umsetzung mit Digest-, Abbruch-, Konkurrenz- und Cleanup-Abnahme; Aufwand L. |
 | Persistentes Retrieval/Re-Embedding | `validated_reference` (enger synthetischer Slice) | [Eigene SQL-2025-Containergenerationen](../Architecture/AI_PERSISTENT_RETRIEVAL.md) mit festen Initial-/Delta-Dokumenten, lokalem Host-Embedding, atomarem Cutover, SQL-quittiertem Resume und besitzgebundenem Remove. 46 fokussierte Offlinechecks und getrennte native Docker-/Podman-Abnahmen bestanden (je 16 Assertions, SQLrestart und vollständiges Cleanup). Enger Modellwechsel Delta→Nomic ist unter Docker und Podman getrennt nativ belegt (je 20 Assertions, SQLrestart und Cleanup); weitere Modell-/Dimensionswechsel, beliebige Dokumente und Hyper-V bleiben offen. |
