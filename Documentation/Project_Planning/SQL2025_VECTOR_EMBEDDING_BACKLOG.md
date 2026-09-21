@@ -10,7 +10,10 @@ Chunking aus. Die getrennten nativen Docker-/Podman-Nachweise waren am
 SQL-RAG sind implementiert und getrennt nativ belegt; zusätzlich verbindet der
 [Host-RAG-Slice](../Architecture/AI_RAG_EXISTING_OLLAMA.md) vorhandene Modelle
 mit expliziter Cloudgeneration. SQL-seitige Embedding-Erzeugung über External
-Model/TLS-Gateway sowie ONNX bleibt offen. Der versionierte Ollama-Modellkatalog
+Model/TLS-Gateway besitzt einen internen
+[Docker-Referenzslice](../Architecture/AI_SQL_HTTPS_BRIDGE.md) mit geprüfter
+Loopbackroute und vorbereiteter, noch nicht ausgeführter SQL-/TLS-Abnahme.
+Allgemeiner Gatewaybetrieb und ONNX bleiben offen. Der versionierte Ollama-Modellkatalog
 sowie Endpoint-, Journal- und Ergebnisverträge sind implementiert; jede
 Provider-/Modellfreigabe benötigt ihren eigenen Live-Nachweis. Priorität seit
 2026-09-20: Podman-RAG, isoliertes Hyper-V-RAG/Agent und anschließend persistentes

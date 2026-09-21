@@ -1112,7 +1112,11 @@ und der read-only Diagnose-Agent (`AI-50A`) sind ebenfalls getrennt auf
 Docker und Podman belegt. Endpoint-Verträge (`AI-05`), Evaluation
 (`AI-40A`/`AI-40B`) und geführte Demos (`AI-90`) sind implementiert;
 Ollama-Cloud-Generation (`AI-60A`) besitzt einen eigenen opt-in Nachweis.
-TLS-Gateway, Retrieval-/Re-Embedding-Restarbeiten, weitere Provider-Evidence,
+Der interne [SQL-HTTPS-Docker-Referenzslice](../Architecture/AI_SQL_HTTPS_BRIDGE.md)
+konkretisiert die TLS-Gateway-Folgewelle mit vorhandenem Hostmodell und eigenem
+SQL-Run. Offlinevertrag und Loopbackroute sind geprüft; die vorbereitete native
+SQL-/TLS-Abnahme bleibt offen. Allgemeiner Gatewaybetrieb,
+Retrieval-/Re-Embedding-Restarbeiten, weitere Provider-Evidence,
 OpenAI/Azure, Windows-ONNX und ANN bleiben in den dort definierten Folgewellen.
 Diese KI-Wellen verdrängen keine offenen P0-/Recovery-
 Arbeiten des Kernplans.

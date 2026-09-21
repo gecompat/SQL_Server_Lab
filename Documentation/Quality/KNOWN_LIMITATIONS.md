@@ -1345,8 +1345,12 @@ Ollama-Cloud-Generation ist explizit egress- und secretgebunden belegt. Der
 gemeinsame Endpointvertrag deckt Fehlerfälle offline ab; zusätzlich belegt ein
 echter flüchtiger Loopback-HTTPS-Stub Embed-/Generate-Payloads, exakten
 Zertifikat-Pin und HTTP-Retry ohne globale Trust-Store-Mutation. Das ist kein
-TLS-Gateway für SQL Servers `CREATE EXTERNAL MODEL`. Dieser Gateway,
-Dimensionswechsel/Re-Embedding-Ausführung bleiben offen. Ein rein lesender
+TLS-Gateway für SQL Servers `CREATE EXTERNAL MODEL`. Der separate interne
+[Docker-Referenzslice](../Architecture/AI_SQL_HTTPS_BRIDGE.md) besitzt begrenzten
+Gateway, eigene SQL-CA und vorbereitete native Abnahme. Nur Loopback-Netzroute
+und Offlineverträge sind geprüft; SQLPAL-Trust, SQL-Embeddings und native
+TLS-Negative bleiben `NOT_EXECUTED`. Dimensionswechsel/Re-Embedding-Ausführung
+bleiben offen. Ein rein lesender
 Re-Embedding-Plan- und Journalvertrag bindet zwar Modell-,
 Dimensions-, Dataset-, Chunk- und Vectoridentitäten und sperrt Mischbetrieb;
 Ollama-Cloud-Embeddings, OpenAI, Azure OpenAI und lokales Windows-ONNX

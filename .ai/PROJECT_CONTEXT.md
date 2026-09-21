@@ -27,6 +27,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- interner Docker-only-SQL-HTTPS-Referenzslice mit eigenem Loopback-Gateway,
+  festen synthetischen Embeddings und vorbereiteter External-Model-Abnahme.
+  Netzwerkroute und Offlinevertrag geprüft; SQLPAL-Trust und native SQL-/TLS-
+  Evidence noch `NOT_EXECUTED`. Vertrag:
+  `Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md`;
+
 - Persistentes synthetisches Retrieval über `Invoke-SqlServerLabAiPersistentRetrieval`:
   eigene Datenbank auf SQL-2025-Docker/Podman, lokale Host-Embeddings, feste
   Initial-/Delta-Fixture, atomarer aktiver Generationszeiger, quittiertes Resume

@@ -18,6 +18,11 @@ The complete terms are defined in [LICENCE.md](./LICENCE.md).
 
 ## Zweck
 
+Der interne [SQL-HTTPS-Referenzslice](Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md)
+bereitet SQL-seitige Embeddings auf einem eigenen Docker-Run über vorhandenes
+Host-Ollama vor. Die Loopback-Netzroute ist geprüft; der native SQL-/TLS-Nachweis
+steht noch aus. Bestehende Controller-RAG-Lanes bleiben davon unabhängig.
+
 `SQL_Server_Lab` erstellt lokale, isolierte und reproduzierbare SQL-Server-Testumgebungen. Das PowerShell-Modul kapselt Provisionierung, Ressourcenprüfung, Container-Lifecycle, SQL-Bereitschaft, Datenbankerstellung, Restore, Skriptausführung, lokalen Run-State und Cleanup.
 
 Das Repository dient insbesondere als gemeinsame Ausführungsbasis für:

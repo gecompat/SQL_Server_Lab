@@ -1,5 +1,15 @@
 # Lokale Validierungsstrategie
 
+## SQL-HTTPS-Referenzslice
+
+`Invoke-AiSqlHttpsBridgeChecks.ps1` prüft Requestbytes, Vektorgrenzen,
+Digest-/Remoteabwehr und den eigenen Zertifikat-/Prozesszyklus ohne SQL oder
+Modellaufrufe. `Invoke-AiSqlHttpsBridgeAcceptance.ps1` bereitet den getrennten
+Docker-Nachweis vor: SQL External Model, frische WrongCA-/WrongSAN-Handshakes,
+Auth-/Payloadnegative, exaktes Retrieval vor/nach SQLrestart und vollständiges
+Cleanup. Der reine Docker-zu-Hostloopback-TCP-Nachweis bestand; SQL-/TLS-Native
+ist `NOT_EXECUTED`. [Vertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
+
 | Merkmal | Wert |
 |---|---|
 | Status | `IMPLEMENTED_WITH_GAPS` |

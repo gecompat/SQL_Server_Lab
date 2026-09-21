@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.AiSqlHttpsBridgeReceipt/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract", "operationId", "status", "connections", "negativeTlsConnections", "tlsRejected", "requests", "rejected", "upstreamRequests", "successfulEmbeddings", "modelBindingHash", "caSha256", "failure"],
+  "properties": {
+    "contract": {"const": "SqlServerLab.AiSqlHttpsBridgeReceipt/1.0"},
+    "operationId": {"type": "string", "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"},
+    "status": {"enum": ["STARTING", "ACTIVE", "STOPPED", "FAILED"]},
+    "connections": {"type": "integer", "minimum": 0, "maximum": 20},
+    "negativeTlsConnections": {"type": "integer", "minimum": 0, "maximum": 20},
+    "tlsRejected": {"type": "integer", "minimum": 0, "maximum": 20},
+    "requests": {"type": "integer", "minimum": 0, "maximum": 20},
+    "rejected": {"type": "integer", "minimum": 0, "maximum": 20},
+    "upstreamRequests": {"type": "integer", "minimum": 0, "maximum": 8},
+    "successfulEmbeddings": {"type": "integer", "minimum": 0, "maximum": 8},
+    "modelBindingHash": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "caSha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+    "failure": {"enum": [null, "AI_SQL_HTTPS_GATEWAY_FAILED"]}
+  }
+}

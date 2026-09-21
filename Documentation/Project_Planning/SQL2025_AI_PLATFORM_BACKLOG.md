@@ -131,7 +131,12 @@ mit `ollama/ollama:0.11.10`, dynamischem Loopback-Port, live gebundenem Image-
 und Modelldigest, `embeddinggemma:300m-qat-q4_0` mit 768 Dimensionen,
 `gemma3:1b`, Container-Restart und vollständigem Cleanup erfolgreich. Diese
 Controller-Lane verwendet ausschließlich Loopback-HTTP. Ein TLS-Gateway für
-SQL Servers `CREATE EXTERNAL MODEL` und ein TLS-Gateway bleiben `AI-20B`. Der
+SQL Servers `CREATE EXTERNAL MODEL` bleibt `AI-20B`. Der neue interne
+[Docker-only-Referenzslice](../Architecture/AI_SQL_HTTPS_BRIDGE.md) besitzt
+Gateway, Auth-/Payloadgrenzen, eigenen CA-Vertrag und SQL-Abnahmeskript.
+Loopback-Netzroute und Offlinevertrag sind geprüft; native SQL-/TLS-Evidence
+steht aus. Das schließt weder den allgemeinen Gateway- noch den Providerbacklog.
+Der
 providerneutrale Controller akzeptiert inzwischen verwaltete Hyper-V-SQL-2025-
 Ziele für lokales RAG und read-only Diagnose; der native Nachweis ist wegen des
 korrekt geschützten Einzelneustarts einer Testgruppen-VM noch `PARTIAL`.

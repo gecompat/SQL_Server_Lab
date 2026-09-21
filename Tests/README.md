@@ -1,5 +1,11 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Invoke-AiSqlHttpsBridgeChecks.ps1` prüft Request-/Vektorvertrag und einen
+eigenen Gateway-Prozess ohne SQL oder Modellrequests.
+`Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` ist die separate Docker-only-
+Referenz für SQL External Model, TLS-Negative, Retrieval, SQLrestart und Cleanup.
+SQL-Native noch `NOT_EXECUTED`; [Vertrag](../Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md).
+
 `Static/Invoke-ResourceAssessmentChecks.ps1` prüft CORE-111 offline: feste
 Statuspriorität, explizites Overcommit, Skip, Persistenz vor Providermutation
 für die drei `New-SqlServerLab`-Providerpfade sowie hostwertfreie read-only

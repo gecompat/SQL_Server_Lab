@@ -9,6 +9,10 @@ Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../READM
 
 [Persistentes synthetisches Retrieval](Architecture/AI_PERSISTENT_RETRIEVAL.md) beschreibt den begrenzten SQL-2025-Containerpfad mit Generationen, Resume und eigenem Cleanup.
 
+[SQL-seitige HTTPS-Embeddings](Architecture/AI_SQL_HTTPS_BRIDGE.md) beschreibt
+den internen Docker-Referenzslice. Loopbackroute und Offlinevertrag sind geprüft;
+SQL-/TLS-Native bleibt offen.
+
 ## 1. Einstieg nach Zielgruppe
 
 ### Lab verwenden

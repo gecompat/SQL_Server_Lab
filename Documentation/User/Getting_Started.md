@@ -1,5 +1,13 @@
 # SQL_Server_Lab – Getting Started
 
+## SQL-seitige HTTPS-Embeddings: Referenzabnahme
+
+`Tests/Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` erstellt einen eigenen
+SQL-2025-Docker-Run und einen begrenzten Loopback-Gateway zu bereits vorhandenem
+Host-`embeddinggemma:latest`. Keine öffentliche Gateway-API; SQL-/TLS-Nachweis
+noch `NOT_EXECUTED`. Voraussetzungen, Aufruf und Besitzgrenzen stehen im
+[Referenzvertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
+
 ## Read-only Mehrdatenbankvergleich
 
 `Test-SqlServerLabRelationalCoreComparison` vergleicht explizit benannte, bereits laufende verwaltete Docker-/Podman-Datenbankpaare. Der Befehl nimmt keine Endpunkte, Connection Strings, SQL-Texte oder Kennwörter an. Ein Paar enthält nur die stabile Paar-ID sowie Quell- und Ziel-RunId, InstanceId und Datenbankname. Der Vergleich kann `MATCH`, `DIFFERENT` oder `UNSUPPORTED` feststellen; er ändert keine Datenbank und führt keinen Transfer aus.
