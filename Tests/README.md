@@ -1,5 +1,13 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Invoke-AiSqlHttpsBridgeChecks.ps1` prüft Request-/Vektorvertrag und einen
+eigenen Gateway-Prozess ohne SQL oder Modellrequests.
+`Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` ist die separate Docker-only-
+Referenz für SQL External Model, TLS-Negative, Retrieval, SQLrestart und Cleanup.
+Die native Abnahme bestand am 2026-09-21 mit sieben Embeddings, SQL-TLS-Negativen,
+Retrieval vor/nach SQLrestart und eigenem Cleanup.
+[Vertrag](../Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md).
+
 `Integration/Invoke-SqlcmdPasswordParserAcceptance.ps1` charakterisiert den
 echten lokalen sqlcmd-Hilfeparser ohne SQL-Verbindung. Die separate
 `Integration/Invoke-SqlcmdPasswordAcceptance.ps1 -Provider docker|podman`
