@@ -20,7 +20,11 @@ SQL-2025-Docker-/Podman-Run mit verwaltetem SA-Secret und ein bereits laufendes
 lokales `embeddinggemma:latest`. Mit einer beibehaltenen Collection-GUID führen
 `-FixtureRevision Initial`, `-FixtureRevision Delta`, `-Action Query` und
 `-Action Remove` durch persistente Generationen und eigenes Cleanup. `-Resume`
-setzt nur exakt gebundenes unterbrochenes Apply fort; `-WhatIf` ist rein planend.
+setzt nur exakt gebundenes unterbrochenes Apply beziehungsweise Migrate fort;
+`-WhatIf` ist rein planend. Für bestätigtes Delta erlaubt
+`-Action Migrate -FixtureRevision Delta -TargetModelKey ollama-nomic-embed-text-v2-moe`
+den einmaligen Wechsel auf das bereits vorhandene lokale Nomic-Modell.
+[Upgrade, Profile und Recovery](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
 [Beispiel, Besitzvertrag und Grenzen](../Architecture/AI_PERSISTENT_RETRIEVAL.md).
 Die neue native Referenz steht noch aus.
 
