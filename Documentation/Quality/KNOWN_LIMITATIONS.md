@@ -1096,7 +1096,12 @@ Upgrade-Artefakte. Historische unversionierte States werden nicht nachträglich
 markiert. Der State-Upgrade-Executor migriert ausschließlich einen ausdrücklich mit
 `metadata.syntheticStateFixture=true` markierten, unversionierten synthetischen
 State atomar, sichert die Ausgangsrevision und journalisiert Commit oder
-Rollback; er verändert keine Provider- oder Runtime-Ressourcen. Erweiterte
+Rollback. Die Markierung muss der boolesche Wert `true` sein; Text- und Zahlwerte
+erteilen keine Freigabe. Unvollständige bereits versionierte States bleiben
+vor Mutation blockiert. Resume bindet Quelle, Plan-ID und festen Zielvertrag
+und akzeptiert nur das vollständige aus der Quelle abgeleitete Migrationsergebnis;
+zusätzliche Änderungen bleiben ohne Journalabschluss blockiert. Der Executor
+verändert keine Provider- oder Runtime-Ressourcen. Erweiterte
 Kapazitätsquoten, Mehrbenutzerbetrieb sowie eine stabile Automation-API mit
 IaC-Adaptern bleiben zusätzlich `DECISION_REQUIRED`. Die Backlogaufnahme
 erteilt keine Runtime-, Remote-, Secret-, Export-, Import- oder

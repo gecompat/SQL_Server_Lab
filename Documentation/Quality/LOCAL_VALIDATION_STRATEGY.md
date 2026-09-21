@@ -114,7 +114,11 @@ internen Konstruktor und prüft `SqlServerLab.RunState/1.0`, `NO_ACTION`, stabil
 Versions-/Planbindung sowie unveränderte Dateimenge, Bytes und Schreibzeiten
 nach Planung und Upgrade-Aufruf. Historische unversionierte States ohne
 Fixture-Markierung bleiben blockiert; ausschließlich synthetische Legacy-
-Migration und deren bestehendes Resume werden offline geprüft. Änderungen an
+Migration und deren bestehendes Resume werden offline geprüft. Zusätzliche
+Negativfälle prüfen Text-/Zahlmarkierungen, unvollständige aktuelle States und
+fremde Änderungen an Scope, Status, Provider-Subruns oder zusätzlichen Zielfeldern.
+Abgelehnte Aufrufe bewahren State und Journal beziehungsweise erzeugen keine
+Upgrade-Artefakte. Änderungen an
 `StateMachine.ps1` wählen diese Suite zusätzlich zur Mixed-Provider-
 Lifecycle-Suite. Providerressourcen werden für diesen lokalen Vertrag nicht
 benötigt; die Runtime-Auswahl des gemeinsamen CI-Selektors bleibt unverändert.
