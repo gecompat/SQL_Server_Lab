@@ -63,4 +63,40 @@ Nachweis eines erfolgreichen Laufs.
 Am 2026-09-10 hat [Run 34435602810](https://github.com/gecompat/SQL_Server_Lab/actions/runs/34435602810)
 auf Commit `bbd29e7` den Windows-Server-2025-Batch mit dem geparsten US-Manifest,
 OOBE, Kaltstart, allen fuenf Locale-Werten und vollstaendigem Cleanup bestaetigt.
-Der direkte SQL-Prepared-Manifestlauf ist damit nicht separat nativ belegt.
+Dieser ältere Lauf belegt den OS-Batch-Pfad; der direkte SQL-Prepared-Pfad
+wurde anschließend separat abgenommen.
+
+Die direkte SQL-Prepared-Locale-Abnahme ist als separater manueller Workflowmodus
+`sql-prepared-locale-acceptance` verfügbar. `image_artifact_id` ist dabei eine
+explizite verifizierte englische SQL-2025-Prepared-ID; `prepared_locale_state_root`
+bindet den bestehenden Artifactkatalog und ausschließlich den neuen eigenen Run.
+Der Checkout muss exakt dem 40-stelligen `GITHUB_SHA` desselben Repositorys entsprechen.
+Ein Clone-Quellrun ist in diesem Modus verboten; zusätzliche Berechtigungen werden
+nicht eingerichtet. Der bestehende erhöhte Hyper-V-Runner führt die Abnahme aus.
+
+Die Abnahme bindet Operation, Run, Scope und VM-ID vor Stop/Start sowie jeder
+Gast-/SQL-Probe neu. Nach dem Kaltstart werden alle fünf Locale-Werte und ein echter
+SQL-SELECT über die vorhandene Capture-Probe geprüft (SQL-Major 17, Instanz und Edition).
+`EvaluationOnline` mit `AllowTemporary` verwendet den vorhandenen Aktivierungsvertrag;
+aktiver Lizenzzustand und gegebenenfalls Adapter-Cleanup werden geprüft.
+Der OOBE-Receipt bleibt separat vom Kaltstartnachweis; der Parent wird tatsächlich
+vor und nach dem Lauf gehasht. Cleanup kontrolliert die exakten VM-IDs und Child-Disks,
+auch bei verlorener New-Rückgabe.
+
+Am 2026-09-21 bestand [Run 35574934252](https://github.com/gecompat/SQL_Server_Lab/actions/runs/35574934252)
+auf Commit `bf72dc32` die direkte Abnahme mit einem englischen SQL-2025-Prepared-
+Artifact: frischer eigener US-Manifest-Child, alle fünf Locale-Werte nach Kaltstart,
+VM-ID-gebundener SQL-SELECT mit Major 17, aktiver Windows-Lizenzzustand,
+Locale-Receipt und unveränderter Parent-Hash. Der überwachte Cleanup endete mit
+`COMPLETED`; der genau zugehörige Run-State wurde separat als `REMOVED` bestätigt.
+Andere Image-Sprachen und SQL-Versionen sind durch diesen Referenzlauf nicht belegt.
+
+Der CI-Parent legt vor Arrange eine Operation-ID fest und überwacht einen verborgenen
+Kindprozess (maximal 90 Minuten). Erst nach bestätigtem Prozessende startet er den
+separaten eigenen Cleanup (maximal 15 Minuten); beide verwenden
+`Global\SQL_Server_Lab_Runtime_Smoke`. Bei unbestätigtem Ende bleibt Cleanup gesperrt.
+Rohmeldungen, Operation-Bindung und kleine Statusquittungen bleiben im nur für den
+Runnerbenutzer zugänglichen lokalen Temp-Verzeichnis
+`sql-server-lab-prepared-locale-ci-*`, außerhalb des Repositorys und ohne Upload.
+GitHub erhält ausschließlich feste Ergebnis-/Fehlercodes. Ein erfolgreicher Cleanup
+verdeckt keinen ursprünglichen Fehler; fehlgeschlagener Cleanup erfordert lokale Recovery.

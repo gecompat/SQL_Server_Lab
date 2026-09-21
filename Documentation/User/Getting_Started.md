@@ -1781,6 +1781,39 @@ Datenbanken, Serverobjekte, Windows/Hyper-V und andere SQL-Versionen bleiben
 außerhalb dieses Befehls. Details stehen im
 [Transfervertrag](../Architecture/PORTABLE_CONTAINER_TRANSFER.md).
 
+### Katalogbindung eines eigenen retained Containerstores wiederherstellen
+
+`Repair-SqlServerLabPersistentStorageCatalog` stellt ausschließlich eine verlorene
+Katalogbindung eines bereits UUID-gelabelten, abgetrennten Docker-/Podman-Stores
+wieder her. Der ursprüngliche entfernte Run muss vollständige Desired-State- und
+Connection-Evidence enthalten und zu einem controllergebundenen Data Root gehören.
+Die erwartete Runtime-ID stammt aus dem read-only Cleanup-Audit; sie ist keine Run-Scope-ID.
+
+```powershell
+$audit = Get-SqlServerLabCleanupAudit -DataRoot $dataRoot -StateRoot $stateRoot -NoWrite
+$runtimeId = ($audit.Audit.RuntimeScopes | Where-Object Provider -eq 'docker').RuntimeId
+$repair = @{
+    OriginalRunId = $originalRunId
+    InstanceId = 'primary'
+    ExpectedPersistentStorageId = $storageId
+    ExpectedRuntimeScopeId = $runtimeId
+    DataRoot = $dataRoot
+    StateRoot = $stateRoot
+}
+Repair-SqlServerLabPersistentStorageCatalog @repair -WhatIf
+Repair-SqlServerLabPersistentStorageCatalog @repair
+```
+
+Nach `RECOVERED` verwendet `New-SqlServerLab -PersistentData
+-PersistentStorageId $storageId -PersistentStorageAction CONTINUE` den bestehenden
+Store unter der erneut geprüften Runtime-Bindung. Ein identischer Repair liefert
+`NO_CHANGE`. Der Befehl ändert keine SQL-Daten, Volumes oder Labels.
+Run-scoped Stores, aktive Leases, fremde Ownership, Sidecars und unbekannte
+Runtime-Evidence bleiben blockiert. Ältere Runs ohne persistierte Drive-/UUID-
+Evidence werden nicht nachträglich ergänzt; UUID-lose historische Intents bleiben
+lesbar. Der SQL-2025-Referenzfall ist unter Docker und Podman getrennt mit
+Serverobjekt, Datenmarker nach Continue, unveränderten Labels und Cleanup belegt.
+
 ### SQL-Gast-Edition und Evaluation-Evidence
 
 Ein laufender eigener SQL-2025-Hyper-V-Run aus einem Prepared-Image kann seine

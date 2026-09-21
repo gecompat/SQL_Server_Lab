@@ -430,6 +430,11 @@ function Get-LabStorageResidencyInventory {
         if ($runIds.Count -eq 0 -and $inspection -and [string]$inspection.RunId -and $activeRunIds.Contains([string]$inspection.RunId)) {
             $runIds = @([string]$inspection.RunId)
         }
+        $boundStore=@($PersistentStorageStores | Where-Object { $_.RuntimeBinding -and $_.Provider -eq $provider -and $_.LocationBinding.ProviderResourceId -eq $name })
+        $observedRuntimeId=$null
+        if ($boundStore.Count -gt 0) {
+            try { $scope=Get-LabContainerRuntimeScope -Provider $provider; if($scope.Status -ceq 'AVAILABLE'){$observedRuntimeId=[string]$scope.RuntimeId} } catch { }
+        }
         $persistent = $name -match '^sql-lab-persistent-'
         $relation = if ($inspection) { Get-LabStoragePathRelation -Path ([string]$inspection.Mountpoint) -KnownRoots $knownRoots -RuntimeNamespace } else { 'UNKNOWN' }
         $referenceState = if ($runIds.Count -gt 0) { 'ACTIVE_REFERENCE' } elseif ($persistent) { 'RETAINED_UNBOUND' } else { 'ORPHAN_CANDIDATE' }
@@ -439,7 +444,7 @@ function Get-LabStorageResidencyInventory {
             -PathVisibility RUNTIME_NAMESPACE -LabDataRelation $relation -LogicalName $name `
             -Path $(if ($inspection) { [string]$inspection.Mountpoint } else { $null }) -RunIds $runIds `
             -CleanupPolicy $(if ($persistent) { 'PRESERVE_RETAINED' } else { 'RUN_CLEANUP' }) -AuditStatus $auditStatus `
-            -Details @{ ReferenceState=$referenceState; DeclaredRunId=if ($inspection) { [string]$inspection.RunId } else { $null }; DeclaredScopeId=if ($inspection) { [string]$inspection.ScopeId } else { $null } }))
+            -Details @{ RuntimeScopeId=$observedRuntimeId; ReferenceState=$referenceState; DeclaredRunId=if ($inspection) { [string]$inspection.RunId } else { $null }; DeclaredScopeId=if ($inspection) { [string]$inspection.ScopeId } else { $null } }))
     }
 
     $seenHyperVPaths = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
