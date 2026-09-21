@@ -1368,7 +1368,10 @@ gemeinsame Endpointvertrag deckt Fehlerfälle offline ab; zusätzlich belegt ein
 echter flüchtiger Loopback-HTTPS-Stub Embed-/Generate-Payloads, exakten
 Zertifikat-Pin und HTTP-Retry ohne globale Trust-Store-Mutation. Das ist kein
 TLS-Gateway für SQL Servers `CREATE EXTERNAL MODEL`. Dieser Gateway,
-Dimensionswechsel/Re-Embedding-Ausführung bleiben offen. Ein rein lesender
+Dimensionswechsel und allgemeine Re-Embedding-Ausführung bleiben offen.
+Die begrenzte [Migration](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md)
+der festen Fixture von Embeddinggemma zu Nomic ist auf Docker und Podman nativ
+belegt. Ein rein lesender
 Re-Embedding-Plan- und Journalvertrag bindet zwar Modell-,
 Dimensions-, Dataset-, Chunk- und Vectoridentitäten und sperrt Mischbetrieb;
 Ollama-Cloud-Embeddings, OpenAI, Azure OpenAI und lokales Windows-ONNX
