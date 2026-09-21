@@ -39,6 +39,7 @@ on:
           - shared-environments
           - cli-acceptance
           - locale-acceptance
+          - sql-prepared-locale-acceptance
           - sql-configuration-reconcile-acceptance
           - sql-guest-evaluation-capture-acceptance
           - sql-storage-reconcile-acceptance
@@ -64,6 +65,10 @@ on:
         type: string
       capture_state_root:
         description: Expliziter bestehender State Root für SQL-Gast-Capture-Artifactkatalog und eigenen neuen Run; leer verwendet Runnerkonfiguration
+        required: false
+        type: string
+      prepared_locale_state_root:
+        description: Expliziter bestehender State Root für das Prepared-Artifact und den eigenen Locale-Run
         required: false
         type: string
       image_artifact_id:
@@ -155,6 +160,22 @@ jobs:
         if: inputs.mode == 'locale-acceptance'
         run: |
           .\Tests\Integration\Invoke-HyperVWindowsLocaleAcceptance.ps1
+
+      - name: Reject Prepared locale acceptance outside trusted manual dispatch
+        if: inputs.mode == 'sql-prepared-locale-acceptance' && !(github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository)
+        run: |
+          throw 'PREPARED_LOCALE_MANUAL_DISPATCH_REQUIRED'
+
+      - name: Hyper-V SQL Prepared locale and cold start
+        if: inputs.mode == 'sql-prepared-locale-acceptance' && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
+        env:
+          SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+          SQL_SERVER_LAB_CI_EVENT_REPOSITORY: ${{ github.event.repository.full_name }}
+          SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID: ${{ inputs.clone_source_run_id }}
+          SQL_SERVER_LAB_CI_PREPARED_LOCALE_STATE_ROOT: ${{ inputs.prepared_locale_state_root }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Integration\Invoke-HyperVSqlPreparedLocaleCiAcceptance.ps1 -ArtifactId $env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID -StateRoot $env:SQL_SERVER_LAB_CI_PREPARED_LOCALE_STATE_ROOT
 
       - name: Hyper-V OS-slot batch with scoped cleanup
         if: inputs.mode == 'slot-batch'

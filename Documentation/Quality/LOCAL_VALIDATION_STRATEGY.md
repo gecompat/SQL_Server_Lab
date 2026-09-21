@@ -271,6 +271,23 @@ waehlte eine ungeeignete Legacy-Baseline und lief in den OOBE-Timeout;
 sein dreistufiger Cleanup war erfolgreich. Die Baseline-Auswahl ist jetzt
 explizit auf Windows Server 2025 begrenzt und statisch regressionsgeprueft.
 
+`Invoke-HyperVSqlPreparedLocaleAcceptance.ps1` verwendet getrennt davon nur ein
+explizites vorhandenes englisches SQL-2025-Prepared-Artifact. Es erzeugt einen
+eigenen Manifest-Child mit US-Locale, prüft den Gast nach Kaltstart über die
+VM-ID-gebundene PowerShell-Direct-Probe und einen echten SQL-SELECT mit Major 17, bewahrt
+den Parent-Hash und entfernt ausschließlich den operationseigenen Run.
+[Run 35574934252](https://github.com/gecompat/SQL_Server_Lab/actions/runs/35574934252)
+bestand am 2026-09-21 auf `bf72dc32` diese direkte en-US-/SQL-2025-Referenz
+mit Aktivierung, Locale-Receipt und überwachtem Cleanup; der eigene
+Run-State wurde zusätzlich als `REMOVED` bestätigt. Die Offline-Suite führt auch fehlende/gewechselte VM-ID, Operationskonflikte, SQL-Timeout/-Identität, Receipt-/Parent-Abweichung, verlorene New-Rückgabe und Cleanup-Reste aus. Der manuelle Modus `sql-prepared-locale-acceptance` bindet denselben Repository-Checkout an den exakten 40-stelligen Commit; ArtifactId und StateRoot werden als Environmentwerte übergeben. Clone-Quellen sind ausgeschlossen.
+Der CI-Supervisor prüft mit echten synthetischen Kindprozessen Erfolg, Fehler,
+abgebrochenen Arrange ohne Quittung, Timeout und Cleanupfehler. Rohmeldungen bleiben
+lokal im geschützten Temp-Verzeichnis außerhalb des Repositorys; nur feste Codes
+erreichen GitHub. Parentgewählte Operation-ID, getrennte Fehlererhaltung und Cleanup
+erst nach bestätigtem Kindprozessende sind ausführbar geprüft. Arrange ist auf
+90 Minuten, nachfolgender Cleanup auf 15 Minuten begrenzt; beide verwenden den
+bestehenden Runtime-Smoke-Mutex. Diese synthetischen Tests ersetzen keinen Hyper-V-Lauf.
+
 `Invoke-BlockingActionProgressChecks.ps1` prueft einen mit `Thread.Sleep`
 blockierten Hauptthread: Heartbeat ab fuenf Sekunden, Drosselung,
 Phasenwechsel, Secretfreiheit, verschachtelte Aufrufe und Cleanup ohne
