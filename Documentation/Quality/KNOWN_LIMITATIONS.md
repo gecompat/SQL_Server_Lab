@@ -484,7 +484,7 @@ liest ausschließlich einen rungebundenen SQL-Gast-Receipt und bindet ihn an
 Run, Scope, Instanz, VM, Image sowie eine vollständige passende
 `SQL_READY_RUN`-Readiness. Zukünftige Beobachtungen, überlange Freshness-TTLs
 und widersprüchliche Evaluation-Klassifikation/Edition bleiben fail-closed.
-Der getrennte SQL-2025-Hyper-V-Capture liest ausschließlich die gebundene Edition und schreibt atomare NO_DEADLINE-Evidence. Unbekannte Editionen und Fehler bewahren den Vorgänger. Native Capture-Evidence bleibt NOT_EXECUTED; eine echte SQL-Frist wird weiterhin weder beobachtet noch geschätzt. Siehe [Capture-Vertrag](../Architecture/SQL_GUEST_EVALUATION_CAPTURE.md).
+Der getrennte SQL-2025-Hyper-V-Capture liest ausschließlich die gebundene Edition und schreibt atomare NO_DEADLINE-Evidence. Unbekannte Editionen und Fehler bewahren den Vorgänger. Der native Developer-Lauf 35563036235 bestand mit elf Assertions und vollständigem Cleanup; eine echte SQL-Frist wird weiterhin weder beobachtet noch geschätzt. Siehe [Capture-Vertrag](../Architecture/SQL_GUEST_EVALUATION_CAPTURE.md).
 
 Der Prepared-Image-Klonpfad aus `SQL_PREPARED_SEALED` ist für Windows Server
 2025 Standard Evaluation (Desktop Experience) und SQL Server 2025 Enterprise
@@ -1047,7 +1047,7 @@ Pulumi bleiben nicht implementiert.
 SQL-Gast-Evaluationsfrist eines Hyper-V-Runs wird ausschließlich aus einem
 schema-validierten, an Run, Scope, Instanz, VM, Image und vorhandene
 SQL-Readiness gebundenen Receipt gelesen. Der Reader und die fail-closed
-Watch-Projektion sind statisch geprüft. Der separate SQL-2025-Hyper-V-Capture ist auf Editionsbeobachtung und NO_DEADLINE begrenzt; native Capture-Evidence bleibt NOT_EXECUTED. Bis zu einer gebundenen und frischen Evidence kann der
+Watch-Projektion sind statisch geprüft. Der separate SQL-2025-Hyper-V-Capture ist auf Editionsbeobachtung und NO_DEADLINE begrenzt; der native Developer-Lauf 35563036235 bestand mit Receiptkette, unverändertem State/Parent und vollständigem Cleanup. Bis zu einer gebundenen und frischen Evidence kann der
 Watch keine aktuelle SQL-Gastfrist aus Image- oder Windows-Metadaten ableiten. Die
 Observability-Evidence enthält aggregierte Server-, Datenbank-, Query-Store-
 und Wait-Metriken ohne SQL-Texte, Namen, Endpunkte oder Secrets. Die getrennte

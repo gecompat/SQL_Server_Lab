@@ -62,6 +62,10 @@ on:
         description: Expliziter bestehender State Root für die Resource-Own-Run-Abnahme; leer verwendet Runnerkonfiguration
         required: false
         type: string
+      capture_state_root:
+        description: Expliziter bestehender State Root für SQL-Gast-Capture-Artifactkatalog und eigenen neuen Run; leer verwendet Runnerkonfiguration
+        required: false
+        type: string
       image_artifact_id:
         description: Optionales OS_SEALED-Artifact fuer den Slot-Batch oder SQL_PREPARED_SEALED-Artifact fuer Reconcile-Acceptances; leer waehlt jeweils das neueste passende Artifact
         required: false
@@ -207,13 +211,20 @@ jobs:
           if (-not [string]::IsNullOrWhiteSpace($artifactId)) { $arguments.ArtifactId = $artifactId }
           .\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1 @arguments
 
+      - name: Reject SQL guest evaluation capture outside trusted manual dispatch
+        if: inputs.mode == 'sql-guest-evaluation-capture-acceptance' && !(github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository)
+        run: |
+          throw 'SQL_GUEST_CAPTURE_MANUAL_DISPATCH_REQUIRED'
+
       - name: Hyper-V SQL guest evaluation capture acceptance
-        if: inputs.mode == 'sql-guest-evaluation-capture-acceptance'
+        if: inputs.mode == 'sql-guest-evaluation-capture-acceptance' && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
         env:
           SQL_GUEST_CAPTURE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+          SQL_GUEST_CAPTURE_STATE_ROOT: ${{ inputs.capture_state_root }}
         run: |
           $ErrorActionPreference = 'Stop'
-          .\Tests\Integration\Invoke-SqlGuestEvaluationCaptureAcceptance.ps1 -ArtifactId $env:SQL_GUEST_CAPTURE_ARTIFACT_ID
+          if ([string]::IsNullOrWhiteSpace($env:SQL_GUEST_CAPTURE_ARTIFACT_ID)) { throw 'SQL_GUEST_CAPTURE_EXPLICIT_ARTIFACT_REQUIRED' }
+          .\Tests\Integration\Invoke-SqlGuestEvaluationCaptureAcceptance.ps1 -ArtifactId $env:SQL_GUEST_CAPTURE_ARTIFACT_ID -StateRoot $env:SQL_GUEST_CAPTURE_STATE_ROOT
 
       - name: Reject SQL storage reconcile acceptance outside manual main
         if: inputs.mode == 'sql-storage-reconcile-acceptance' && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')

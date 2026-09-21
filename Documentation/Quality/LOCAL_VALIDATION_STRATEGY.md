@@ -1737,6 +1737,9 @@ sind durch `Invoke-CiStrategyChecks.ps1` gebunden.
 Die native Abnahme `Tests/Integration/Invoke-SqlGuestEvaluationCaptureAcceptance.ps1`
 benötigt eine explizite vorhandene SQL-2025-Developer-Prepared-Artifact-ID und
 Administratorrechte. Der Hyper-V-Modus `sql-guest-evaluation-capture-acceptance`
-verwendet diesen Runner ohne Image-Bootstrap. Native Capture-Evidence ist noch
-`NOT_EXECUTED`; positive Evaluation und echte Deadline bleiben eigene offene
-Nachweise. Die Abnahme erstellt und bereinigt ausschließlich ihren eigenen Run.
+verwendet diesen Runner ohne Image-Bootstrap. Lauf `35563036235` auf Commit
+`00742f14` bestand am 2026-09-21 mit elf Assertions einschließlich Developer-
+Capture, Receiptkette, unverändertem Run-/Connection-State und Parent sowie
+vollständigem Cleanup (drei Schritte, keine Fehler, keine VM-/Diskreste).
+Positive Evaluation und echte Deadline bleiben eigene offene Nachweise.
+Die Abnahme erstellt und bereinigt ausschließlich ihren eigenen Run.

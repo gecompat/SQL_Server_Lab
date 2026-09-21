@@ -315,6 +315,9 @@ function Invoke-HyperVWindowsSlotActivation {
                 $ErrorActionPreference = 'Stop'
                 $activationStage = 'guest-operation'
                 $endpointDnsResolved = $false
+                $endpointDnsChecked = $false
+                $networkAddressState = 'not_checked'
+                $networkRouteState = 'not_checked'
                 $activationReturnValue = $null
                 $activationHResult = $null
                 try {
@@ -332,11 +335,14 @@ function Invoke-HyperVWindowsSlotActivation {
                     Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ResetServerAddresses -ErrorAction Stop
                     $null = & ipconfig.exe /renew $adapter.Name
                 }
+                $activationStage = 'network-readiness'
                 $networkDeadline = [datetime]::UtcNow.AddSeconds(60)
                 do {
                     $address = @(Get-NetIPAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue |
                         Where-Object { $_.AddressState -eq 'Preferred' -and $_.IPAddress -notlike '169.254.*' })
                     $defaultRoute = @(Get-NetRoute -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
+                    $networkAddressState = if ($address.Count -gt 0) { 'present' } else { 'missing' }
+                    $networkRouteState = if ($defaultRoute.Count -gt 0) { 'present' } else { 'missing' }
                     if ($address.Count -gt 0 -and $defaultRoute.Count -gt 0) { break }
                     Start-Sleep -Seconds 2
                 } while ([datetime]::UtcNow -lt $networkDeadline)
@@ -344,6 +350,7 @@ function Invoke-HyperVWindowsSlotActivation {
                 # Die Aufloesung ist eine reine, secretsfreie Diagnose. Die
                 # anschliessende Windows-API bleibt der maßgebliche Online-Test.
                 try {
+                    $endpointDnsChecked = $true
                     $endpointDnsResolved = @(Resolve-DnsName -Name 'activation.sls.microsoft.com' -Type A -ErrorAction Stop).Count -gt 0
                 }
                 catch { $endpointDnsResolved = $false }
@@ -394,13 +401,15 @@ function Invoke-HyperVWindowsSlotActivation {
                     $code=if($message -match 'WINDOWS_ACTIVATION_REQUEST_REJECTED'){'WINDOWS_ACTIVATION_REQUEST_FAILED'}elseif($message -match 'WINDOWS_[A-Z0-9_]+'){$Matches[0]}else{
                         switch($activationStage){
                             'network-configuration' {'WINDOWS_ACTIVATION_NETWORK_CONFIGURATION_FAILED'}
+                            'network-readiness' {'WINDOWS_ACTIVATION_NETWORK_NOT_READY'}
                             'license-discovery' {'WINDOWS_ACTIVATION_LICENSE_DISCOVERY_FAILED'}
                             'activation-request' {'WINDOWS_ACTIVATION_REQUEST_FAILED'}
                             'activation-verification' {'WINDOWS_ACTIVATION_VERIFICATION_FAILED'}
                             default {'WINDOWS_ACTIVATION_GUEST_OPERATION_FAILED'}
                         }
                     }
-                    $diagnostic = 'dns=' + $(if($endpointDnsResolved){'resolved'}else{'unresolved'})
+                    $diagnostic = 'dns=' + $(if(-not $endpointDnsChecked){'not_checked'}elseif($endpointDnsResolved){'resolved'}else{'unresolved'})
+                    $diagnostic += ';ipv4=' + $networkAddressState + ';route=' + $networkRouteState
                     if ($activationReturnValue) { $diagnostic += ';apiReturn=' + $activationReturnValue }
                     elseif ($activationHResult) { $diagnostic += ';hresult=' + $activationHResult }
                     elseif ($activationStage -eq 'activation-request') { $diagnostic += ';api=exception' }
