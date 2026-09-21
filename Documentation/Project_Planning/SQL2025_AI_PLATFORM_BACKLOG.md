@@ -180,10 +180,15 @@ Cosine-Distanz in einer Tabellenvariable. Nur die ausgewählten Dokumenttexte
 werden danach an das lokale Generierungsmodell gegeben. Es entstehen weder
 dauerhafte SQL-Objekte noch Inhaltsjournale. Die getrennten nativen Docker- und
 Podman-Läufe waren am 2026-09-06 einschließlich SQL-/Ollama-Restart, erwarteter
-Top-Quelle und vollständigem Cleanup erfolgreich. Hybride Volltextsuche,
-Aktualisierung/Löschung beliebiger Dokumente und allgemeines Modellwechsel-Re-Embedding
-bleiben offen; die feste synthetische Persistenz und ihre begrenzte Migration
-sind unten gesondert beschrieben.
+Top-Quelle und vollständigem Cleanup erfolgreich. Der persistente synthetische
+Slice kombiniert inzwischen zusätzlich deterministische SQL-Termabdeckung und
+exakte Cosine-Distanz für seine aktive Generation. Docker und Podman bestanden
+am 2026-09-22 getrennt mit jeweils 19 Assertions einschließlich SQLrestart,
+Delta-Cutover und Cleanup. Aktualisierung/Löschung
+beliebiger Dokumente und allgemeines Modellwechsel-Re-Embedding bleiben offen;
+die feste synthetische Persistenz und ihre begrenzte Migration sind unten
+gesondert beschrieben. SQL Server Full-Text Search bleibt offen, solange kein
+reproduzierbarer, paketgebundener Containerpfad für `mssql-server-fts` besteht.
 
 `AI-50A` implementiert den read-only Diagnose-Agenten mit vier festen
 SELECT-Werkzeugen, maximal vier Aufrufen, Zeilen- und Kontextgrenzen sowie

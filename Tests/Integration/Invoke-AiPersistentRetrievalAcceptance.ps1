@@ -45,6 +45,8 @@ try{
     $query=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Query -Confirm:$false
     $initialHash=@($query.Ranked|Where-Object ChunkId -eq backup-policy)[0].ContentHash
     Assert-Persistent ($query.Generation -eq 1 -and $query.Ranked[0].ChunkId -ceq 'backup-policy' -and 'network-policy' -in $query.Ranked.ChunkId) 'Exakte Vektorsuche trifft synthetische Sicherungsrichtlinie'
+    $hybrid=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Query -SearchMode Hybrid -Confirm:$false
+    Assert-Persistent ($hybrid.Generation -eq 1 -and $hybrid.SearchMode -ceq 'Hybrid' -and $hybrid.Ranked[0].ChunkId -ceq 'backup-policy' -and [double]$hybrid.Ranked[0].LexicalScore -gt 0 -and [double]$hybrid.Ranked[0].HybridScore -gt 0) 'SQL-Termabdeckung und exakter Vektor bilden ein hybrides Ranking'
     $replay=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Confirm:$false
     Assert-Persistent ($replay.EmbeddingRequests -eq 0) 'Identischer Replay erzeugt keine neuen Embeddings'
     $null=Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 180 -Force -Confirm:$false
@@ -52,6 +54,8 @@ try{
     Assert-Persistent ($afterBinding.ContainerId -ceq $binding.ContainerId) 'SQLrestart erhält die gebundene Containeridentität'
     $afterRestart=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Query -Confirm:$false
     Assert-Persistent ($afterRestart.Generation -eq 1 -and $afterRestart.Ranked[0].ChunkId -ceq 'backup-policy') 'Aktive Generation übersteht SQLrestart'
+    $hybridAfterRestart=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Query -SearchMode Hybrid -Confirm:$false
+    Assert-Persistent ($hybridAfterRestart.Ranked[0].ChunkId -ceq 'backup-policy' -and [double]$hybridAfterRestart.Ranked[0].LexicalScore -gt 0) 'Hybridsuche übersteht SQLrestart'
     $journalPath=Join-Path $state "runs/$($lab.RunId)/ai-persistent/primary-$collection.json"
     $fileLock=[IO.File]::Open("$journalPath.lock",[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)
     $fileBlocked=$false
@@ -109,6 +113,8 @@ try{
     Assert-Persistent ($copyProof.GenerationCount -eq 2 -and $copyProof.UnchangedCopies -eq 1) 'Genau zwei Generationen und unveränderter übernommener Vektor'
     $delta=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Query -Confirm:$false
     Assert-Persistent ($delta.Generation -eq 2 -and $delta.Ranked[0].ChunkId -ceq 'backup-policy' -and 'network-policy' -notin $delta.Ranked.ChunkId -and 'retention-policy' -in $delta.Ranked.ChunkId -and @($delta.Ranked|Where-Object ChunkId -eq backup-policy)[0].ContentHash -cne $initialHash) 'Update, Delete und Insert sind nach atomarem Cutover sichtbar'
+    $hybridDelta=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Query -SearchMode Hybrid -Confirm:$false
+    Assert-Persistent ($hybridDelta.Generation -eq 2 -and $hybridDelta.Ranked[0].ChunkId -ceq 'backup-policy' -and 'network-policy' -notin $hybridDelta.Ranked.ChunkId -and 'retention-policy' -in $hybridDelta.Ranked.ChunkId) 'Hybridsuche verwendet ausschließlich die atomar aktivierte Delta-Generation'
     $removed=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Remove -Confirm:$false
     $again=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Remove -Confirm:$false
     Assert-Persistent ($removed.Status -eq 'REMOVED' -and $again.Status -eq 'REMOVED') 'Eigene Datenbank entfernt und Abwesenheit bestätigt'
@@ -137,4 +143,4 @@ try{
     }
 }
 if(-not $complete -or $cleanupFailed){throw 'AI_PERSISTENT_ACCEPTANCE_INCOMPLETE'}
-Write-Host "AI PERSISTENT RETRIEVAL ACCEPTANCE: PASS ($Provider; SQLrestart; staging/resume; own DB/run cleanup)"
+Write-Host "AI PERSISTENT RETRIEVAL ACCEPTANCE: PASS ($Provider; vector/hybrid; SQLrestart; staging/resume; own DB/run cleanup)"

@@ -20,6 +20,10 @@
     Initial oder Delta. Delta aktualisiert, entfernt und ergänzt feste synthetische Dokumente.
 .PARAMETER QueryId
     Feste synthetische Frage backup oder cleanup.
+.PARAMETER SearchMode
+    Vector verwendet ausschließlich exakte Cosine-Distanz. Hybrid kombiniert
+    diese mit deterministischer SQL-seitiger Termabdeckung. Hybrid gilt nur für das lokale
+    Embeddinggemma-Schema und nicht für eine Modellmigration.
 .PARAMETER Resume
     Setzt exakt gebundenes Staging fort; bestätigte SQL-Chunks werden nicht erneut eingebettet.
 .PARAMETER LocalPort
@@ -48,14 +52,15 @@ function Invoke-SqlServerLabAiPersistentRetrieval {
         [ValidateSet('ollama-nomic-embed-text-v2-moe')][string]$TargetModelKey,
         [ValidateSet('Initial','Delta')][string]$FixtureRevision='Initial',
         [ValidateSet('backup','cleanup')][string]$QueryId='backup',
+        [ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',
         [switch]$Resume,[ValidateRange(1024,65535)][int]$LocalPort=11434,
         [ValidateRange(60,600)][int]$TimeoutSeconds=300,[string]$StateRoot
     )
-    $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId $InstanceId -CollectionId $CollectionId -Action $Action -FixtureRevision $FixtureRevision -QueryId $QueryId -LocalPort $LocalPort -TimeoutSeconds $TimeoutSeconds -Resume:$Resume -TargetModelKey $TargetModelKey
+    $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId $InstanceId -CollectionId $CollectionId -Action $Action -FixtureRevision $FixtureRevision -QueryId $QueryId -SearchMode $SearchMode -LocalPort $LocalPort -TimeoutSeconds $TimeoutSeconds -Resume:$Resume -TargetModelKey $TargetModelKey
     if(-not $PSCmdlet.ShouldProcess("Run $RunId / Collection $CollectionId",$Action)){
         $fixedModel=$Action -in @('Apply','Migrate')
         $selection=if($fixedModel){'FIXED'}elseif($Action -eq 'Query'){'ACTIVE_SQL_GENERATION'}else{'NOT_REQUIRED'}
-        return [pscustomobject]@{Status='PLANNED';Action=$Action;CollectionId=$CollectionId;Revision=$(if($fixedModel){$FixtureRevision}else{$null});PlanKey=$plan.PlanKey;ModelKey=$(if($fixedModel){$plan.EndpointPlan.ModelKey}else{$null});ModelSelection=$selection;Dimension=768}
+        return [pscustomobject]@{Status='PLANNED';Action=$Action;CollectionId=$CollectionId;Revision=$(if($fixedModel){$FixtureRevision}else{$null});PlanKey=$plan.PlanKey;ModelKey=$(if($fixedModel){$plan.EndpointPlan.ModelKey}else{$null});ModelSelection=$selection;SearchMode=$SearchMode;Dimension=768}
     }
     try{Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $StateRoot}
     catch{if($_.Exception.Message -match '^AI_PERSISTENT_[A-Z_]+$'){throw $_.Exception.Message};throw 'AI_PERSISTENT_RECOVERY_REQUIRED'}

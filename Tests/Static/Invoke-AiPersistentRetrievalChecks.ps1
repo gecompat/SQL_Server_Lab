@@ -45,12 +45,14 @@ try{
                 Copy {$script:chunks[$P.generation][$P.id]=$script:chunks[$P.previous][$P.id].PSObject.Copy()}
                 Commit {if($script:owner.ActiveGeneration -ne $P.previous -or $script:chunks[$P.generation].Count -ne 3){throw 'cutover conflict'};$script:generations[$P.generation].Status='COMMITTED';$script:owner.ActiveGeneration=$P.generation}
                 Query {foreach($row in @($script:chunks[$script:owner.ActiveGeneration].Values|Sort-Object ChunkId)){[pscustomobject]@{ChunkId=$row.ChunkId;ContentHash=$(if($script:fail -eq 'QueryHash'){'d'*64}else{$row.ContentHash});Distance=0.1}}}
+                HybridQuery {foreach($row in @($script:chunks[$script:owner.ActiveGeneration].Values|Sort-Object ChunkId)){[pscustomobject]@{ChunkId=$row.ChunkId;ContentHash=$row.ContentHash;Distance=0.1;LexicalScore=$(if($row.ChunkId -ceq 'backup-policy'){0.75}else{0.25});HybridScore=$(if($row.ChunkId -ceq 'backup-policy'){0.855}else{0.705})}}}
                 Remove {$script:db=$false;$script:owner=$null}
                 default {throw "Unexpected SQL step $Step"}
             }
         }
-        function Execute {param([string]$Action='Apply',[string]$Revision='Initial',[switch]$Resume,[scriptblock]$Fault)
+        function Execute {param([string]$Action='Apply',[string]$Revision='Initial',[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[switch]$Resume,[scriptblock]$Fault)
             $p=$script:parameters.Clone();$p.Action=$Action;$p.FixtureRevision=$Revision;$p.Resume=[bool]$Resume
+            $p.SearchMode=$SearchMode
             $plan=New-LabAiPersistentPlan @p
             Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $Root -SqlExecutor $sql -MetadataTransport $metadata -EmbeddingTransport $transport -FaultInjector $Fault
         }
@@ -60,6 +62,7 @@ try{
             $null=Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -StateRoot $Root -WhatIf
             Check 'Public WhatIf berührt weder State noch Binding, Modell oder SQL' ($script:events.Count -eq 0 -and -not(Test-Path $Root))
             Check 'Ungültige GUID scheitert auch im rein planenden öffentlichen Aufruf' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId ('-'*36) -WhatIf} 'AI_PERSISTENT_IDENTITY_INVALID')
+            Check 'Hybridmodus ist ausschließlich für Query zulässig' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -SearchMode Hybrid -WhatIf} 'AI_PERSISTENT_SEARCH_MODE_INVALID')
             $first=Execute
             Check 'Initial erstellt drei persistente Chunks und aktiviert genau eine Generation' ($first.Status -eq 'COMMITTED' -and $first.EmbeddingRequests -eq 3 -and $script:owner.ActiveGeneration -eq 1 -and $script:chunks[1].Count -eq 3)
             $guidJournal=Read-LabAiPersistentJournal -Path (JournalPath) -Plan (New-LabAiPersistentPlan @script:parameters) -BindingHash ((Get-Content (JournalPath) -Raw|ConvertFrom-Json).bindingHash)
@@ -104,6 +107,8 @@ try{
             Check 'Vorhandene Namenskollision wird niemals überschrieben' (Reject {Execute} 'AI_PERSISTENT_OWNERSHIP_UNPROVEN')
             Check 'Kollision erreicht kein CREATE' ('Create' -notin $script:events)
             Reset;$null=Execute
+            $hybrid=Execute -Action Query -SearchMode Hybrid
+            Check 'Hybridsuche kombiniert gebundene lexikalische und Vektorscores' ($hybrid.SearchMode -ceq 'Hybrid' -and $hybrid.Ranked.Count -eq 3 -and $hybrid.Ranked[0].ChunkId -ceq 'backup-policy' -and 'HybridQuery' -in $script:events)
             $script:guid='55555555-5555-4555-8555-555555555555'
             Check 'Database-GUID-ABA blockiert trotz gleichem Receipt' (Reject {Execute -Action Remove} 'AI_PERSISTENT_DATABASE_IDENTITY_DRIFT')
             $script:guid='ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF';$script:chunks[1]['backup-policy'].ActualVectorHash='e'*64
