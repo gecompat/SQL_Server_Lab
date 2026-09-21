@@ -120,6 +120,34 @@ Teilfehler und Commitantwortverlust und entfernt erst die eigene DB, dann den
 eigenen Run mit Container-/Volume-Residueprüfung. PASS erfolgt erst nach Cleanup.
 Die getrennten nativen Docker- und Podman-Läufe bestanden am 2026-09-21 jeweils alle 16 Assertions, SQLrestart, gezielte Staging-/Commitfehler und vollständiges DB-/Run-Cleanup. Das vorhandene Hostmodellinventar blieb unverändert.
 
+Die ergänzende Referenz `Invoke-AiPodmanSamplesReferenceAcceptance.ps1` bleibt
+auf Podman begrenzt. Sie kombiniert einen frischen eigenen SQL-2025-Run, die
+kataloggebundenen Samples Northwind und Chinook, die feste `backup`-Query und
+einen öffentlichen SQLrestart. Sie verlangt exakt 830 Northwind-Orders und 275
+Chinook-Artists vor und nach dem Restart und entfernt anschließend den gesamten eigenen Run
+einschließlich der Collection und seiner Volume. Sie benötigt ein bereits vorhandenes lokales
+`embeddinggemma:latest`; Python/R, Docker, Hyper-V, Cloud und beliebige
+Dokumente gehören nicht zu diesem Referenzscope. Eine nicht verfügbare Runtime,
+ein fehlendes Modell oder ein Katalog-/Integritätsfehler ist kein PASS.
+
+Der Test-Parent persistiert die Operation und die aktuell verifizierte Runtime-ID
+vor dem Workerstart in einem privaten temporären Root (Windows-ACL beziehungsweise
+Unix-Modus 700). Acceptance und Cleanup laufen in getrennten Prozessen mit
+unabhängigen Grenzen von standardmäßig 900 und 240 Sekunden. Bei Timeout folgt
+die begrenzte Prozessbeendigung; unbestätigte Beendigung blockiert Cleanup.
+Private Streams, Operation und beide Ergebnisse bleiben für lokale Recovery erhalten.
+Es gibt keinen `KeepOnFailure`-Pfad. Cleanup benötigt auch nach partiellem New
+keinen laufenden SQL-Endpunkt: Es prüft exakte Operationszuordnung, Cleanup-Plan,
+frische Runtime-ID, Ressourcenlabels und fremde Volume-Attachments vor Remove.
+Anschließend müssen sowohl die dokumentierten Ressourcen als auch alle Run-Labels
+aus dem Runtime-Inventar verschwunden sein. Ein terminaler Run-State allein reicht
+nicht. Fehlende oder mehrdeutige Ownership bleibt Recoverybedarf. Die fokussierte
+Suite prüft diese Fehlerpfade synthetisch sowie echte Child-Prozessgrenzen mit
+persistiertem Arrange-Marker und `NewStarted=true` vor dem künstlichen Hang.
+Der Cleanup-Child verlangt das Ende des vorherigen Prozesses und quittiert die
+synthetische Zustandsbereinigung; ein Cleanup-Timeout erhält den offenen Marker.
+Der kombinierte native Podman-Nachweis für diesen Runner bleibt offen.
+
 Dies ist ein inkrementeller Generationsrebuild mit unveränderter Modellidentität.
 Der bestehende reine `New-LabAiReembeddingPlan` für einen echten Modellwechsel
 bleibt unverändert und wird vom neuen

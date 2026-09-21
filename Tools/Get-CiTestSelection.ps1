@@ -62,6 +62,7 @@ end {
     }
 
     $staticGroups = @(
+        @{ Pattern = '(?i)(AiPodmanSamplesReference|ai-podman-samples-reference)'; Checks = @('Invoke-AiPodmanSamplesReferenceChecks.ps1') },
         @{ Pattern = '(?i)(AiPodmanSetup|ai-podman-setup)'; Checks = @('Invoke-AiPodmanSetupChecks.ps1','Invoke-AiPodmanSetupProcessChecks.ps1','Invoke-AiPersistentRetrievalChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
 
         @{ Pattern = '(?i)(SqlVersionUpgrade|SQL_VERSION_UPGRADE_REFERENCE)'; Checks = @('Invoke-SqlVersionUpgradeScenarioChecks.ps1','Invoke-SqlVersionUpgradeSupervisorChecks.ps1','Invoke-BackupLibraryChecks.ps1') },
@@ -223,9 +224,11 @@ end {
             if ($persistentRetrievalPath) { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             $aiPodmanSetupPath = $runtimePath -match '(?i)(AiPodmanSetup|ai-podman-setup)'
             if ($aiPodmanSetupPath) { $pathRuntime.Podman = $true }
+            $aiPodmanSamplesReferencePath = $runtimePath -match '(?i)(AiPodmanSamplesReference|ai-podman-samples-reference)'
+            if ($aiPodmanSamplesReferencePath) { $pathRuntime.Podman = $true }
             $sqlHttpsBridgePath = $runtimePath -match '(?i)^(Private/AiSqlHttpsBridge\.ps1|Schemas/ai-sql-https-bridge-receipt\.schema\.json|Tests/(Static/Invoke-AiSqlHttpsBridgeChecks|Integration/(Invoke-AiSqlHttpsBridgeAcceptance|Support/Invoke-AiSqlHttpsBridgeServer))\.ps1)$'
             if ($sqlHttpsBridgePath) { $pathRuntime.Docker = $true }
-            if (-not $persistentRetrievalPath -and -not $aiPodmanSetupPath -and -not $sqlHttpsBridgePath -and $runtimePath -match '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$|SqlObservabilityEvidence|sql-observability-evidence)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
+            if (-not $persistentRetrievalPath -and -not $aiPodmanSetupPath -and -not $aiPodmanSamplesReferencePath -and -not $sqlHttpsBridgePath -and $runtimePath -match '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$|SqlObservabilityEvidence|sql-observability-evidence)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(SqlStorageOperations|SessionTransferProgress)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(AiVectorIndexAcceptance|Fixtures/VectorIndex/)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(PersistentStorageRemoval|persistent-storage-removal)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
