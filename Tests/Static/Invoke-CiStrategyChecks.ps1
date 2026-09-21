@@ -395,6 +395,10 @@ Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die getrennte AI-Vecto
     $dockerWorkflow -match 'Invoke-AiVectorCoreAcceptance\.ps1\s+`?\s*-Provider docker' -and
     $podmanWorkflow -match 'Invoke-AiVectorCoreAcceptance\.ps1\s+`?\s*-Provider podman'
 )
+Add-CheckResult -Name 'Podman-Gate führt die Sample-Referenz unter dem bestehenden Runtime-Mutex aus' -Success (
+    $podmanWorkflow -match 'Invoke-AiPodmanSamplesReferenceAcceptance\.ps1\s+`\s+-RuntimeMutexAlreadyHeld' -and
+    $podmanWorkflow -match 'if \(\$aiSamplesExitCode -ne 0\)'
+)
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die getrennte Collation-Akzeptanz' -Success (
     $dockerWorkflow -match 'Invoke-ContainerCollationAcceptance\.ps1\s+`?\s*-Provider docker' -and
     $podmanWorkflow -match 'Invoke-ContainerCollationAcceptance\.ps1\s+`?\s*-Provider podman'
