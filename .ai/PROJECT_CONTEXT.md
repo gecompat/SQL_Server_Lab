@@ -27,6 +27,15 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- Geführte Podman-KI-Erstellung im Konsolenmenü mit vorhandenem lokalem
+  `embeddinggemma:latest`, SQL 2025, eigener Volume und persistenter fester
+  Initial-Collection. Operation, Runtime- und Modellbindung, getrennte
+  Fehlerbereinigung und dauerhafte Run-/Collection-Discovery sind implementiert.
+  Native Podman-Referenz auf `9d8d313a` am 2026-09-21 bestanden: sechs Assertions,
+  Query nach SQLrestart, unverändertes Hostmodellinventar und unabhängig
+  bestätigtes Own-Cleanup mit null verbleibenden Containern/Volumes.
+  Vertrag: `Documentation/Architecture/AI_PODMAN_SETUP.md`;
+
 - Direkte SQL-Prepared-Locale-Referenz für ein englisches SQL-2025-Artifact:
   [Run 35574934252](https://github.com/gecompat/SQL_Server_Lab/actions/runs/35574934252)
   bestand am 2026-09-21 auf `bf72dc32` mit frischem eigenem US-Manifest-Child,

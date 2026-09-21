@@ -35,6 +35,8 @@ $checks = @(
     'Invoke-PSScriptAnalyzerChecks.ps1',
     'Invoke-CiStrategyChecks.ps1',
     'Invoke-ConsoleUiChecks.ps1',
+    'Invoke-AiPodmanSetupChecks.ps1',
+    'Invoke-AiPodmanSetupProcessChecks.ps1',
     'Invoke-ActionProgressChecks.ps1',
     'Invoke-BlockingActionProgressChecks.ps1',
     'Invoke-TransferProgressChecks.ps1',

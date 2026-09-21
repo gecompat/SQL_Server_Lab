@@ -1757,6 +1757,11 @@ Add-ConsoleUiCheck 'Restore-Core entfernt die exakt gebundene temporaere Contain
     $restoreCommandSource -match 'elseif \(\$runtimeBackupCopied[\s\S]+?rm -f -- \$runtimeBackupPath'
 )
 $aiMenuSource = [regex]::Match($mainMenuSource, "function Show-LabAiMenu \{[\s\S]+?(?=\r?\nfunction )").Value
+Add-ConsoleUiCheck 'KI-Menü bietet Podman-Erstellung und dauerhafte Wiederauffindbarkeit neben bisherigen Demos' (
+    $aiMenuSource -match "-Id 'AiPodmanSetup' -Label 'Podman-KI-Testumgebung erstellen'" -and
+    $aiMenuSource -match "-Id 'AiPodmanEnvironments'" -and $mainMenuSource -match 'Invoke-LabAiPodmanSetupInteractive' -and
+    $mainMenuSource -match 'Show-LabAiPodmanEnvironmentsInteractive'
+)
 $offeredAiActions = @([regex]::Matches($aiMenuSource, "New-LabConsoleItem -Id '([^']+)'") |
         ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -ne 'back' })
 $unhandledAiActions = @($offeredAiActions | Where-Object { $mainMenuSource -notmatch "'$_' \{ [A-Za-z0-9-]+ \}" })
