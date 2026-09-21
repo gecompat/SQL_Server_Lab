@@ -33,8 +33,10 @@ allgemeiner Gatewaybetrieb bleiben außerhalb dieses Referenzvertrags.
 - Ein operationgebundener neuer SQL-Run besitzt genau ein eigenes Volume.
   Run, Scope, Operation, Container-ID, Runtime, Loopback-SQL-Port und
   Volume-Labels/Attachments werden live geprüft. Keine Adoption bestehender Runs.
-- Der Gateway startet verborgen mit Prozessobjekt und Startzeitbindung nach
-  lokalem Startrecord. Authentisierung und Modellbindung gelangen über stdin
+- Der Gateway startet verborgen mit Prozessobjekt und stabiler Identitätsbindung nach
+  lokalem Startrecord. Windows bindet die Prozessstartzeit, Linux die Boot-ID
+  und den Startzähler aus `/proc`; ein Toleranzfenster wird nicht verwendet.
+  Authentisierung und Modellbindung gelangen über stdin
   zum Kindprozess, niemals über Prozessargumente. Ein gemeinsamer eigener
   `StreamReader` auf `Console.OpenStandardInput()` liest Konfiguration und
   asynchron das Stoppsignal; er erhält gepufferte Eingaben zwischen beiden
