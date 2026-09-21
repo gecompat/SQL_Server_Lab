@@ -35,6 +35,23 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- Geführte Podman-KI-Erstellung im Konsolenmenü mit vorhandenem lokalem
+  `embeddinggemma:latest`, SQL 2025, eigener Volume und persistenter fester
+  Initial-Collection. Operation, Runtime- und Modellbindung, getrennte
+  Fehlerbereinigung und dauerhafte Run-/Collection-Discovery sind implementiert.
+  Native Podman-Referenz auf `9d8d313a` am 2026-09-21 bestanden: sechs Assertions,
+  Query nach SQLrestart, unverändertes Hostmodellinventar und unabhängig
+  bestätigtes Own-Cleanup mit null verbleibenden Containern/Volumes.
+  Vertrag: `Documentation/Architecture/AI_PODMAN_SETUP.md`;
+
+- Direkte SQL-Prepared-Locale-Referenz für ein englisches SQL-2025-Artifact:
+  [Run 35574934252](https://github.com/gecompat/SQL_Server_Lab/actions/runs/35574934252)
+  bestand am 2026-09-21 auf `bf72dc32` mit frischem eigenem US-Manifest-Child,
+  allen fünf Locale-Werten nach Kaltstart, VM-ID-gebundenem SQL-SELECT (Major 17),
+  Aktivierung, Locale-Receipt, unverändertem Parent und überwachtem Cleanup.
+  Der eigene Run-State ist `REMOVED`; weitere Image-Sprachen und SQL-Versionen
+  bleiben separat. Vertrag: `Documentation/HowTo/WINDOWS_LOCALE.md`;
+
 - interner Docker-only-SQL-HTTPS-Referenzslice mit eigenem Loopback-Gateway,
   festen synthetischen Embeddings und nativer External-Model-Abnahme am
   2026-09-21 (`VALIDATED_REFERENCE`). Sieben Embeddings, SQL-TLS-Negative,
@@ -841,3 +858,15 @@ Für den nahtlosen Weitbetrieb gilt:
 - Nicht mehr benötigte PRs sind zu schließen oder zu löschen, um den Projektzustand zu säubern.
 - Commitnachrichten richten sich nach den Projektregeln mit KI-Präfix in der ersten Zeile und klarer Änderungsbeschreibung.
 - Branches, deren PRs abgeschlossen sind oder verworfen wurden, sind zeitnah aufzuräumen.
+
+Der enge Katalog-Recovery-Pfad für eigene retained Docker-/Podman-Instanzstores
+ist implementiert: `Repair-SqlServerLabPersistentStorageCatalog` erhält die
+bestehende Label-UUID und bindet vollständige Original-Run-Evidence sowie die
+aktuelle Provider-Runtime. Alle Continue-/Clone-/Lease-/Provider-Consumer prüfen
+diese optionale Bindung; normale bestehende Einträge bleiben kompatibel.
+Neue PersistentData-Runs persistieren die nach dem Lease-Erwerb vollständigen
+Drive-Intents vor Providerarbeit. Historische unvollständige oder UUID-lose
+Evidence wird nicht migriert. Die getrennten nativen SQL-2025-Abnahmen am
+2026-09-21 bestanden je acht Assertions: eigener Store, Katalogverlust,
+Recovery, Continue, SQL-Marker und Serverobjekt, unveränderte Labels sowie
+vollständiges Run-, Volume- und Testroot-Cleanup.

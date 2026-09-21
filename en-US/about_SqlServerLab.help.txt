@@ -159,6 +159,7 @@ COMMANDS
         Executes retain or verified backup-on-remove for a Docker or Podman
         instance store with a resumable journal.
 
+Repair-SqlServerLabPersistentStorageCatalog
 Sync-SqlServerLabPersistentStorageArtifact
 Sync-SqlServerLabRunScopedContainerStore
         Revalidates one existing backup set or database package and synchronizes

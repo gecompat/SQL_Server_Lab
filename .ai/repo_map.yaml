@@ -74,6 +74,14 @@ sources_of_truth:
   ai_endpoint_plan_schema: Schemas/ai-endpoint-plan.schema.json
   ai_runtime_journal_schema: Schemas/ai-runtime-journal.schema.json
   ai_persistent_retrieval_api: Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1
+  ai_podman_setup: Private/AiPodmanSetup.ps1
+  ai_podman_setup_process: Private/AiPodmanSetupProcess.ps1
+  ai_podman_setup_worker: Tools/Invoke-AiPodmanSetupWorker.ps1
+  ai_podman_setup_schema: Schemas/ai-podman-setup.schema.json
+  ai_podman_setup_contract: Documentation/Architecture/AI_PODMAN_SETUP.md
+  validation_ai_podman_setup: Tests/Static/Invoke-AiPodmanSetupChecks.ps1
+  validation_ai_podman_setup_process: Tests/Static/Invoke-AiPodmanSetupProcessChecks.ps1
+  acceptance_ai_podman_setup: Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1
   ai_persistent_retrieval_runtime: Private/AiPersistentRetrieval.ps1
   ai_persistent_retrieval_sql: Private/AiPersistentRetrievalSql.ps1
   ai_persistent_retrieval_migration: Private/AiPersistentRetrievalMigration.ps1
@@ -904,6 +912,10 @@ internal_components:
     audit_findings: Private/CleanupAuditFindings.ps1
     storage_residency: Private/StorageResidencyInventory.ps1
     persistent_storage_catalog: Private/PersistentStorageCatalog.ps1
+    persistent_storage_catalog_recovery: Public/Repair-SqlServerLabPersistentStorageCatalog.ps1
+    persistent_storage_recovery_core: Private/PersistentStorageRecovery.ps1
+    persistent_storage_recovery_checks: Tests/Static/Invoke-PersistentStorageRecoveryChecks.ps1
+    persistent_storage_recovery_acceptance: Tests/Integration/Invoke-PersistentStorageRecoveryAcceptance.ps1
     persistent_storage_artifact_sync: Public/Sync-SqlServerLabPersistentStorageArtifact.ps1
     persistent_storage_removal_plan: Private/PersistentStorageRemovalPlan.ps1
     persistent_storage_removal_preview: Public/Get-SqlServerLabPersistentStorageRemovalPlan.ps1
@@ -1044,6 +1056,13 @@ providers:
     resource_migration_acceptance: Tests/Integration/Invoke-HyperVResourceMigrationAcceptance.ps1
     image_migration_static_checks: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
     sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1
+    sql_prepared_locale_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedLocaleAcceptance.ps1
+    sql_prepared_locale_native_evidence: "VALIDATED_REFERENCE: Run 35574934252 am 2026-09-21 auf bf72dc32; englisches SQL-2025-Prepared-Artifact, eigener US-Manifest-Child, fünf Locale-Werte nach Kaltstart, VM-ID-gebundener SQL-SELECT Major 17, Aktivierung, Receipt, unveränderter Parent und überwachter Cleanup COMPLETED; eigener Run-State separat REMOVED bestätigt. Weitere Image-Sprachen und SQL-Versionen bleiben offen."
+    sql_prepared_locale_ci: Tests/Integration/Invoke-HyperVSqlPreparedLocaleCiAcceptance.ps1
+    sql_prepared_locale_common: Tests/Common/HyperVPreparedLocaleAcceptance.ps1
+    sql_prepared_locale_supervisor: Tests/Common/HyperVPreparedLocaleSupervisor.ps1
+    sql_prepared_locale_supervisor_checks: Tests/Static/Invoke-HyperVPreparedLocaleSupervisorChecks.ps1
+    sql_prepared_locale_static_checks: Tests/Static/Invoke-HyperVSqlPreparedLocaleAcceptanceChecks.ps1
     test_database_reconcile_acceptance: "Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 plus isolierter Prepared-Artifact-Bootstrap; ausfuehrbarer Plan/WhatIf/Add/No-op/Remove-/Restart-/Cleanup-Vertrag mit prozesslokal isolierter LAB_GENERATED-Erzeugung, Hashprüfung, bevorzugter Wiederverwendung, stabiler Host-SQL-Readiness nach VM-Neustart und zweitem eigentumsgebundenem Cleanup; nativer positiver Nachweis am 2026-09-12"
     sample_manifest_acceptance: "Tests/Integration/Invoke-HyperVSampleManifestAcceptance.ps1 und sein manueller main-gebundener CI-Wrapper; erfolgreicher Main-Lauf 34790092466 auf Commit 95c5a79c: zwei frische sequenzielle SQL-2025-Prepared-Manifest-Runs mit einem isolierten Testdatenroot, Chinook (sql-server) und Northwind (script), katalog-/hashgebundenen Quellen, LAB_GENERATED-Baseline-ID/Key/Hash- und manifest.lock-Gleichheit im zweiten Run sowie scopegebundenem Cleanup; weitere Hyper-V-Sample-Varianten bleiben getrennt"
     external_runtime_reconcile_static_checks: "Tests/Static/Invoke-HyperVExternalRuntimeReconcileChecks.ps1; Plan/WhatIf/Add/No-op/Recovery/Resume/Removal-Blockade und PlanKey-gebundener Connection-State"
@@ -1618,6 +1637,23 @@ validation:
       - restore_filelistonly_and_move
       - restored_database_online_and_content
       - full_cleanup
+  point_in_time_recovery_scenario:
+    source: Tests/Integration/Invoke-PointInTimeRecoveryAcceptance.ps1
+    child: Tests/Integration/Invoke-PointInTimeRecoveryChild.ps1
+    contract: Tests/Common/PointInTimeRecoveryScenario.ps1
+    supervisor: Tests/Common/PointInTimeRecoverySupervisor.ps1
+    static_checks:
+      - Tests/Static/Invoke-PointInTimeRecoveryScenarioChecks.ps1
+      - Tests/Static/Invoke-PointInTimeRecoverySupervisorChecks.ps1
+    docker: '.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider docker'
+    podman: '.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider podman'
+    execution_status: "narrow validated reference: separate native Docker and Podman runs passed on f51595ea (2026-09-21); SQL major 17, good commit restored, bad mutation excluded, source unchanged, CHECKDB, own-run removal and no runtime residue; observed restore intervals are not performance benchmarks"
+    checks:
+      - own_sql_2025_run_and_container_local_backup_paths
+      - full_log_chain_with_sql_server_local_datetime_stopat_cutoff
+      - restored_good_marker_and_absent_bad_mutation
+      - checkdb_recovery_duration_and_scope_bound_cleanup
+      - bounded_children_private_raw_output_and_lost_new_cleanup
   hyperv_windows_baseline_acceptance:
     source: Tests/Integration/Invoke-HyperVWindowsBaselineAcceptanceRun.ps1
     command: '.\Tests\Integration\Invoke-HyperVWindowsBaselineAcceptanceRun.ps1 -ArtifactId <hyperv-os-sealed-id> -AdministratorPassword <SecureString>'

@@ -87,6 +87,15 @@ synthetischen internen Ablauf, keine SQL-/Providerdeadline.
 
 ## KI und Ollama
 
+Der [Podman-KI-Erstellungsdialog](../Architecture/AI_PODMAN_SETUP.md) setzt
+bereites Podman und vorhandenes lokales `embeddinggemma:latest` voraus. Er
+installiert keine Modelle, startet keine Machine und richtet kein SQL External
+Model ein. Die feste native Podman-Referenz bestand am 2026-09-21 mit sechs
+Assertions, Query nach SQLrestart und unabhängig bestätigtem Own-Cleanup.
+Andere Provider, Modelle und eigene Dokumentbestände sind dadurch nicht freigegeben.
+Ein harter Abbruch des Elternprozesses benötigt Prüfung der dauerhaft
+gespeicherten eigenen Operation; es gibt keinen automatischen Recoverydienst.
+
 Der [Host-RAG-Slice](../Architecture/AI_RAG_EXISTING_OLLAMA.md) verbindet vorhandenes
 `embeddinggemma:latest` mit exakter SQLsuche und expliziter HTTPS-Cloudgeneration.
 Live-Digest/Capability/Dimension, Datenklasse, Egress und Secretgrenze werden
@@ -1176,6 +1185,22 @@ Nicht automatisch unterstützt werden:
 - verschlüsselte Backups mit externen Zertifikaten
 - komplexe Mehrfach-Backup-Sets
 
+Die separate PITR-Testreferenz `Invoke-PointInTimeRecoveryAcceptance.ps1` erweitert
+diesen öffentlichen Restorevertrag nicht. Sie verwendet ausschließlich einen
+frischen eigenen SQL-2025-Docker-/Podman-Run mit festen synthetischen Zeilen und
+containerlokaler Full-/Log-Kette. Die korrigierte Offline-Abnahme prüft Ablauf,
+Serverzeit-Cutoff, exakten Inhalt, verlorene New-Rückgabe und überwachten Cleanup.
+Getrennte native Docker- und Podman-Referenzläufe auf `f51595ea` bestanden am
+2026-09-21; sie bestätigten SQL-Major 17, guten Commit ohne Fehlmutation, unveränderte
+Quelle, `DBCC CHECKDB`, Own-Run-Removal und fehlende Runtime-Reste. Die beobachteten
+Restoreintervalle von 2873,8858 ms (Docker) und 6600,8529 ms (Podman) sind keine
+Leistungskennzahlen. Die Laufzeit-Cleanups sind damit belegt; lokale private
+Temp-Evidence blieb nach abgelehnter automatischer Löschung erhalten und wird nicht
+als vollständig entfernte Dateistruktur behauptet. Nach hartem Ende des Supervisor-
+Prozesses bleiben lokale Operation-/Run-Evidence für Recovery erhalten; eine
+automatische Fortsetzung nach Verlust des Parents wird nicht behauptet. Hyper-V und
+jeder allgemeine PITR-/Restorevertrag bleiben offen.
+
 Bei manuellen Restores ist `-RunId` mit optionaler `-InstanceId` die bevorzugte Identitaet. Provider, Container, Host und Port werden dabei aus der gespeicherten `connection-info.json` aufgeloest. Der direkte Modus mit `-Port` bleibt fuer externe Aufrufer erhalten; ohne `-ContainerName` verwendet er die portbasierte Containererkennung.
 
 ## Sample-Datenbanken
@@ -2244,7 +2269,13 @@ werden.
 Der portable Locale-Intent ist an Manifest, Batch und OOBE gebunden.
 Der native US-Kaltstartnachweis fuer einen Windows-Server-2025-Batch ist am
 2026-09-10 bestanden (Run `34435602810`, Commit `bbd29e7`), einschliesslich
-Cleanup. Der direkte SQL-Prepared-Manifestlauf bleibt separat offen. UI-Sprache ist derzeit nur
+Cleanup. Der direkte eigene SQL-2025-Prepared-Manifestlauf mit englischem Artifact
+und US-Locale bestand am 2026-09-21 separat im
+[Run 35574934252](https://github.com/gecompat/SQL_Server_Lab/actions/runs/35574934252)
+auf `bf72dc32`: Kaltstart, alle fünf Locale-Werte, VM-ID-gebundener SQL-SELECT
+(Major 17), Aktivierung, Receipt, unveränderter Parent und Cleanup. Der eigene
+Run-State ist `REMOVED`. Weitere Image-Sprachen und SQL-Versionen bleiben offen.
+UI-Sprache ist derzeit nur
 über die registrierte Image-Sprache belegt; Offline-Language-Packs und
 Tastaturlayouts außerhalb der sechs dokumentierten eingebauten IDs sind
 nicht freigegeben. [Vertrag und Nachweisgrenzen](../HowTo/WINDOWS_LOCALE.md).
@@ -2263,3 +2294,24 @@ Die Live-Gates vor SQL Setup, bei Start und Pool-Wiederaufnahme ersetzen keinen
 positiven Aktivierungsnachweis auf einem konkreten Gast. Der native Adaptertest hat
 am 2026-09-10 Erfolg, kontrollierten Fehler, Resume und Cleanup auf einem
 privaten Switch bestaetigt; er fuehrt keine Windows-Lizenzaktivierung aus.
+
+### Recovery verlorener retained Katalogbindungen
+
+Der öffentliche Befehl `Repair-SqlServerLabPersistentStorageCatalog` bindet einen
+bereits UUID-gelabelten, eigenen detached Docker-/Podman-INSTANCE_STORE an die
+aktuelle Provider-Runtime (`runtime-scope-…`) und unveränderte Original-Run-Evidence.
+Run-/Scope-/Instanzlabels bleiben getrennt erhalten. Preview, Abbruch, CAS und
+Spiegelrollback ändern weder Ressourcen noch Labels; Continue, Clone, Lease,
+Release, Providerinitialisierung und Residency prüfen die zusätzliche Bindung.
+Die getrennten nativen SQL-2025-Abnahmen für Docker und Podman bestanden am
+2026-09-21 je acht Assertions einschließlich Serverobjekt und Datenmarker nach
+Continue, unveränderter Labels und vollständigem eigenen Cleanup. Dieser
+Referenzfall belegt keine Sidecar-Recovery oder breite Versionsmatrix.
+
+Zwei bisherige Producer-Lücken sind für neue Runs korrigiert: Eine UUID auf einem
+`data-root-runtime-volume`-Intent wird akzeptiert; der initiale Desired-State wird
+nach Lease-/Drive-Aufbau vor Providerarbeit im eigenen INITIALIZING-Run vervollständigt.
+Historische Runs ohne diese Evidence und UUID-lose Stores bleiben für Recovery
+blockiert. Es gibt keine historische Migration, Retention-Konvertierung, fremde
+Adoption oder Sidecar-Recovery. Bestehende Katalogeinträge ohne RuntimeBinding
+bleiben mit ihren bisherigen Verträgen kompatibel.

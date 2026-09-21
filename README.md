@@ -18,6 +18,15 @@ The complete terms are defined in [LICENCE.md](./LICENCE.md).
 
 ## Zweck
 
+Unter **Datenbanken und Verbindungen → SQL Server 2025 KI → Podman-KI-Testumgebung erstellen** erstellt die
+Konsole nach Bestätigung SQL Server 2025 mit eigener Datenvolume und einer
+persistenten synthetischen Retrieval-Collection. Voraussetzung ist bereits
+laufendes lokales Ollama mit `embeddinggemma:latest`; es erfolgt kein
+Modell-Download. Erfolgreiche Umgebungen bleiben erhalten und sind mit Run-
+und Collection-ID wieder auffindbar. Der eigene native Podman-Referenzlauf
+bestand am 2026-09-21 einschließlich Query nach SQLrestart und vollständigem Cleanup.
+[Ablauf und Grenzen](Documentation/Architecture/AI_PODMAN_SETUP.md).
+
 Der interne [SQL-HTTPS-Referenzslice](Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md)
 belegt SQL-seitige Embeddings auf einem eigenen Docker-Run über vorhandenes
 Host-Ollama. SQL-/TLS-Negative, Retrieval vor/nach SQLrestart und eigenes Cleanup
@@ -736,6 +745,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Invoke-SqlServerLabMaintenance` | Den revalidierten Plan sicher oder einschließlich scopegebundenem Cleanup ausführen; fremde Ressourcen bleiben unangetastet |
 | `Get-SqlServerLabPersistentStorageRemovalPlan` | Retention-, Backup-/Package- und Bindungsfolgen einer Run-Entfernung anhand stabiler Storage-IDs read-only und fail-closed planen |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | Retained Docker-/Podman-Instanzstores optional verifiziert sichern, den Run journalisiert entfernen und den Store detached erhalten |
+| `Repair-SqlServerLabPersistentStorageCatalog` | Verlorene Katalogbindung eines eigenen UUID-gelabelten detached retained Docker-/Podman-Stores anhand originaler Run-Evidence und aktueller Runtime-ID wiederherstellen; SQL-2025-Referenzfall getrennt nativ belegt |
 | `Sync-SqlServerLabPersistentStorageArtifact` | Ein vorhandenes Backup-Set, Datenbankpaket oder sicheres relatives Exchange-Workspace per stabiler Artefakt-ID idempotent mit dem Persistent-Storage-Katalog synchronisieren |
 | `Sync-SqlServerLabRunScopedContainerStore` | Einen laufenden, vollständig run-, scope-, label- und containergebunden nachgewiesenen Docker-/Podman-Store revisionsgeschützt katalogisieren |
 | `Get-SqlServerLabDatabasePackage` | Datenbankpakete pfadfrei anhand ihrer stabilen `DatabasePackageId` auswählen und optional vollständig verifizieren |

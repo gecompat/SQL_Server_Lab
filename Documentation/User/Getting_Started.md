@@ -1,5 +1,22 @@
 # SQL_Server_Lab – Getting Started
 
+## Podman-KI-Testumgebung erstellen
+
+Starte `Invoke-SqlServerLab` und wähle **Datenbanken und Verbindungen → SQL Server 2025 KI →
+Podman-KI-Testumgebung erstellen**. Podman muss bereit sein; im bereits
+laufenden lokalen Ollama muss `embeddinggemma:latest` vorhanden sein. Der
+Dialog fragt Name, lokalen Ollama-Port (11434), CPU (2) und RAM in MB (4096)
+und zeigt vor der Erstellung eine Vorschau. Abbruch erstellt keinen Run.
+
+Nach Erfolg bleiben SQL Server 2025, eigene Volume und die synthetischen
+Embeddingdaten erhalten. **Meine KI-Testumgebungen anzeigen** liefert später
+RunId und CollectionId für erneute Abfragen; SQL-Verbindungen stehen im
+Connection Center. Die vorhandene Run-Entfernung entfernt die ganze Umgebung
+ausdrücklich. Keine Modellinstallation, Cloud oder beliebigen Dokumente.
+Der eigene native Podman-Referenzlauf bestand am 2026-09-21 mit persistierter
+Query nach SQLrestart und unabhängig bestätigtem vollständigem Cleanup.
+[Details, Fehlerbehandlung und Grenzen](../Architecture/AI_PODMAN_SETUP.md).
+
 ## SQL-seitige HTTPS-Embeddings: Referenzabnahme
 
 `Tests/Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` erstellt einen eigenen
@@ -1780,6 +1797,39 @@ Grenzen: 256 MiB Backup, 1 GiB restaurierte Dateien, maximal 16 Dateien,
 Datenbanken, Serverobjekte, Windows/Hyper-V und andere SQL-Versionen bleiben
 außerhalb dieses Befehls. Details stehen im
 [Transfervertrag](../Architecture/PORTABLE_CONTAINER_TRANSFER.md).
+
+### Katalogbindung eines eigenen retained Containerstores wiederherstellen
+
+`Repair-SqlServerLabPersistentStorageCatalog` stellt ausschließlich eine verlorene
+Katalogbindung eines bereits UUID-gelabelten, abgetrennten Docker-/Podman-Stores
+wieder her. Der ursprüngliche entfernte Run muss vollständige Desired-State- und
+Connection-Evidence enthalten und zu einem controllergebundenen Data Root gehören.
+Die erwartete Runtime-ID stammt aus dem read-only Cleanup-Audit; sie ist keine Run-Scope-ID.
+
+```powershell
+$audit = Get-SqlServerLabCleanupAudit -DataRoot $dataRoot -StateRoot $stateRoot -NoWrite
+$runtimeId = ($audit.Audit.RuntimeScopes | Where-Object Provider -eq 'docker').RuntimeId
+$repair = @{
+    OriginalRunId = $originalRunId
+    InstanceId = 'primary'
+    ExpectedPersistentStorageId = $storageId
+    ExpectedRuntimeScopeId = $runtimeId
+    DataRoot = $dataRoot
+    StateRoot = $stateRoot
+}
+Repair-SqlServerLabPersistentStorageCatalog @repair -WhatIf
+Repair-SqlServerLabPersistentStorageCatalog @repair
+```
+
+Nach `RECOVERED` verwendet `New-SqlServerLab -PersistentData
+-PersistentStorageId $storageId -PersistentStorageAction CONTINUE` den bestehenden
+Store unter der erneut geprüften Runtime-Bindung. Ein identischer Repair liefert
+`NO_CHANGE`. Der Befehl ändert keine SQL-Daten, Volumes oder Labels.
+Run-scoped Stores, aktive Leases, fremde Ownership, Sidecars und unbekannte
+Runtime-Evidence bleiben blockiert. Ältere Runs ohne persistierte Drive-/UUID-
+Evidence werden nicht nachträglich ergänzt; UUID-lose historische Intents bleiben
+lesbar. Der SQL-2025-Referenzfall ist unter Docker und Podman getrennt mit
+Serverobjekt, Datenmarker nach Continue, unveränderten Labels und Cleanup belegt.
 
 ### SQL-Gast-Edition und Evaluation-Evidence
 

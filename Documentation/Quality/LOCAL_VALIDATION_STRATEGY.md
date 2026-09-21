@@ -1,5 +1,25 @@
 # Lokale Validierungsstrategie
 
+## Podman-KI-Erstellung
+
+`Invoke-AiPodmanSetupChecks.ps1` prüft die echte interne Orchestrierung und
+Menüintegration mit injizierten Provider-/SQL-Grenzen. Ergänzend führt
+`Invoke-AiPodmanSetupProcessChecks.ps1` echte lokale Testkindprozesse für
+Timeout, Abbruch, vorzeitiges Ende, private Ausgabe und Outputdrain aus.
+`Invoke-AiPodmanSetupAcceptance.ps1` ist die separate native
+Podman-Abnahme mit eigenem isoliertem StateRoot, echtem Initial-Apply/Query,
+Restart, persistierter Query und vollständigem Own-Cleanup. Sie benötigt das
+bereits vorhandene Hostmodell und zieht es nicht automatisch nach.
+Die Podman-Referenz auf `9d8d313a` bestand am 2026-09-21: sechs Assertions,
+Exitcode 0 und unabhängig bestätigte Restfreiheit der einzigen eigenen
+Operation (Run entfernt, Runtimebindung passend, null Container/Volumes).
+577 Core-/UI- und 34 Prozessassertions bestanden unter Windows und Linux;
+der vollständige betroffene statische Gate bestand mit 19 Suites und
+unverändertem Dateistand.
+Der spezielle Dateiscope wählt Podman; gemeinsame Selektoränderungen behalten
+die vollständige Pflichtmatrix einschließlich Hyper-V.
+[Vertrag und Aufruf](../Architecture/AI_PODMAN_SETUP.md).
+
 ## SQL-Version-Upgrade-Referenz
 
 Der [feste SQL-2022-/SQL-2025-Test](SQL_VERSION_UPGRADE_REFERENCE.md) wird zuerst
@@ -270,6 +290,23 @@ waehlte eine ungeeignete Legacy-Baseline und lief in den OOBE-Timeout;
 sein dreistufiger Cleanup war erfolgreich. Die Baseline-Auswahl ist jetzt
 explizit auf Windows Server 2025 begrenzt und statisch regressionsgeprueft.
 
+`Invoke-HyperVSqlPreparedLocaleAcceptance.ps1` verwendet getrennt davon nur ein
+explizites vorhandenes englisches SQL-2025-Prepared-Artifact. Es erzeugt einen
+eigenen Manifest-Child mit US-Locale, prüft den Gast nach Kaltstart über die
+VM-ID-gebundene PowerShell-Direct-Probe und einen echten SQL-SELECT mit Major 17, bewahrt
+den Parent-Hash und entfernt ausschließlich den operationseigenen Run.
+[Run 35574934252](https://github.com/gecompat/SQL_Server_Lab/actions/runs/35574934252)
+bestand am 2026-09-21 auf `bf72dc32` diese direkte en-US-/SQL-2025-Referenz
+mit Aktivierung, Locale-Receipt und überwachtem Cleanup; der eigene
+Run-State wurde zusätzlich als `REMOVED` bestätigt. Die Offline-Suite führt auch fehlende/gewechselte VM-ID, Operationskonflikte, SQL-Timeout/-Identität, Receipt-/Parent-Abweichung, verlorene New-Rückgabe und Cleanup-Reste aus. Der manuelle Modus `sql-prepared-locale-acceptance` bindet denselben Repository-Checkout an den exakten 40-stelligen Commit; ArtifactId und StateRoot werden als Environmentwerte übergeben. Clone-Quellen sind ausgeschlossen.
+Der CI-Supervisor prüft mit echten synthetischen Kindprozessen Erfolg, Fehler,
+abgebrochenen Arrange ohne Quittung, Timeout und Cleanupfehler. Rohmeldungen bleiben
+lokal im geschützten Temp-Verzeichnis außerhalb des Repositorys; nur feste Codes
+erreichen GitHub. Parentgewählte Operation-ID, getrennte Fehlererhaltung und Cleanup
+erst nach bestätigtem Kindprozessende sind ausführbar geprüft. Arrange ist auf
+90 Minuten, nachfolgender Cleanup auf 15 Minuten begrenzt; beide verwenden den
+bestehenden Runtime-Smoke-Mutex. Diese synthetischen Tests ersetzen keinen Hyper-V-Lauf.
+
 `Invoke-BlockingActionProgressChecks.ps1` prueft einen mit `Thread.Sleep`
 blockierten Hauptthread: Heartbeat ab fuenf Sekunden, Drosselung,
 Phasenwechsel, Secretfreiheit, verschachtelte Aufrufe und Cleanup ohne
@@ -317,6 +354,20 @@ bleiben bei Preview unveraendert; Apply registriert das Ziel und loest die
 Quell-Lease in derselben Revision. Copy-/Katalogfehler und Resume bleiben
 Bestandteil der Suite; diese Pruefung startet keine Container-Runtime.
 
+`Invoke-PersistentStorageRecoveryChecks.ps1` prüft öffentliche Preview, WhatIf,
+Abbruch, Apply und Wiederholung mit echten schemaförmigen Producer-Fixtures.
+Negative Ownership-, Retention-, Runtime-, Sidecar-, Lifecycle-, Lease- und
+Bindungsfälle erhalten Katalogbytes und Labels; Evidence-Wechsel zwischen
+Preview und Apply, Revisionkonflikt, Spiegelrollback und Consumer-Runtimewechsel
+sind injiziert. Legacy-Intents bleiben lesbar; unvollständige historische Runs
+bleiben nicht recoverbar. Dies ersetzt keinen nativen SQL-Inhaltsnachweis.
+`Tests/Integration/Invoke-PersistentStorageRecoveryAcceptance.ps1 -Provider docker`
+beziehungsweise `-Provider podman` bestand am 2026-09-21 auf `d26c29b2`
+getrennt je acht Assertions: eigener frischer retained SQL-2025-Store,
+Serverobjekt und Datenmarker, Detach, Verlust ausschließlich der eigenen
+isolierten Katalogbindung, öffentliche Recovery und Continue sowie unveränderte
+Labels. Beide Runs je Provider endeten mit zwei Cleanup-Schritten ohne Fehler;
+das eigene retained Volume und der isolierte Testroot wurden anschließend entfernt.
 Der regulaere Container-Lease-Erwerb und -Release verwenden ebenfalls den
 gemeinsamen Katalogkern. Die Katalogsuite prueft deren Previews, erwartete
 Revisionen und den fehlerhaften Release: `RECOVERY_REQUIRED` wird im Apply
@@ -1421,8 +1472,36 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider docker
 .\Tests\Integration\Invoke-SmokeMatrix.ps1
 ```
+
+Die PITR-Referenz prüft ausschließlich einen neuen eigenen SQL-2025-Container:
+Full vor gutem Commit, SQL-Serverzeit-Cutoff in `datetime`-Präzision, getrennter
+fehlerhafter Commit und erst danach Log-Backup. Offline werden der tatsächliche
+orchestrierte SQL-Ablauf, mehrere Resultsets, Quelle nach Restore, Cleanup trotz
+verlorener New-Rückgabe sowie echte Kindprozesse mit Timeout/Abbruch geprüft.
+Arrange und Cleanup sind separat begrenzt; Rohlogs bleiben im geschützten lokalen
+Temp-Root. Auf `f51595ea` bestanden am 2026-09-21 getrennte native Docker- und
+Podman-Referenzen mit SQL-Major 17, gutem wiederhergestellten Commit, ausgeschlossener
+Fehlmutation, unveränderter Quelle, `DBCC CHECKDB`, Own-Run-Removal und fehlenden
+Runtime-Resten. Die gemessenen Restoreintervalle (Docker 2873,8858 ms; Podman
+6600,8529 ms) dokumentieren nur Beobachtungen. Die gemeinsame Selektoränderung
+verlangt den bestehenden breiten CI-Gate; die PITR-Capability benötigt nur Docker
+und Podman. Private Temp-Evidence ist nach abgelehnter automatischer Löschung
+zurückgeblieben; daraus folgt keine Behauptung vollständiger Dateibereinigung.
+Bei einem vor SQL-Readiness beendeten eigenen New-Container kann der isolierte
+Child vor dem bestehenden Auto-Cleanup eine private, sanitierte Readiness-Log-
+Kopie erfassen. Das verlangt erneut passenden Operation-Run, Runtime-Scope sowie
+frische Run-/Scope-/Instanzlabels und exakte Container-ID; fremde, laufende oder
+nicht verifizierbare Container werden nicht gelesen. Capture-Fehler verändern
+weder den primären New-Fehler noch den Cleanup. Die Diagnose ist kein Ursachen-
+oder Ressourcenfix; der beobachtete Podman-Startabbruch bleibt `UNKNOWN`.
+Die getrennte erneute Podman-Abnahme auf `a33675ca` bestand am 2026-09-21:
+PITR und Cleanup abgeschlossen, eigener Run `REMOVED`, unabhängig bestätigte
+Restfreiheit. Der frühere Startfehler wurde dabei nicht reproduziert; seine
+Ursache ist damit weiterhin nicht belegt. Die Diagnoseintegration besteht
+zusätzlich 142 fokussierte Prüfungen unter Windows und Linux.
 
 ### Host-Tool-Auflösung betroffen
 
@@ -1459,6 +1538,7 @@ wenn deren API bis zum Ende der Poll-Wartezeit unerreichbar bleibt.
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider podman
 .\Tests\Integration\Invoke-SmokeMatrix.ps1
 ```
 

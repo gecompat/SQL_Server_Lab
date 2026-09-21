@@ -263,6 +263,48 @@ ONLINE-Status, Inhalt und Cleanup. Es werden keine externen Backups verwendet.
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
 ```
 
+## Invoke-PointInTimeRecoveryAcceptance.ps1
+
+Die PITR-Referenz erzeugt je Docker- oder Podman-Lauf eine eigene SQL-2025-
+Instanz und Datenbank. Full- und Log-Backup bleiben unter einem zufaelligen,
+containerlokalen Backupverzeichnis. Nach einem guten Marker wird ein
+SQL-seitiger Serverzeit-`STOPAT`-Zeitpunkt erfasst; die anschliessende Fehlmutation
+liegt mit dem Marker in demselben Log-Backup. Der Runner restauriert Full mit
+`NORECOVERY` in eine neue Zieldatenbank, restauriert das Log mit
+`STOPAT`/`RECOVERY` und prueft Marker, fehlende Fehlmutation, `DBCC CHECKDB`,
+Recoverydauer ausschließlich vom Beginn des Full-Restores bis zum Ende des
+Log-Restores sowie vollstaendigen eigenen Cleanup. Der Cutoff verwendet SQL-
+Serverlokalzeit als `datetime` mit drei Nachkommastellen und SQL-seitigem Abstand
+zu beiden Commits. Die Quelle behält nach Restore exakt beide Zeilen; das neue
+Ziel enthält exakt die gute Zeile und ist `ONLINE`. Er ist kein allgemeiner Restore-
+oder Scenario-Executor und akzeptiert keine externen Datenbanken oder Backups.
+Die Zeitsemantik folgt [Restore a SQL Server database to a point in time](https://learn.microsoft.com/en-us/sql/relational-databases/backup-restore/restore-a-sql-server-database-to-a-point-in-time-full-recovery-model?view=sql-server-ver17): Der Full-Backup-Endpunkt liegt vor `STOPAT`, das Log enthaelt den Zeitpunkt, und `STOPAT` behaelt nur Commits bis zu diesem Zeitpunkt.
+
+Der Parent erstellt Operation-ID und isolierten StateRoot vor Arrange. Verborgene
+Kindprozesse begrenzen Arrange auf 15 Minuten und den unabhängigen Cleanup auf
+5 Minuten. Cleanup beginnt erst nach bestätigtem Ende des Arrange-Prozesses und
+findet den eigenen Run auch bei verlorener New-Rückgabe. Provider-/Runtimewechsel,
+Ownershipkonflikte, Prozessende ohne Bestätigung und Cleanupfehler blockieren Erfolg.
+Rohmeldungen, `sql-receipt.json` mit Recoverydauer und Recovery-State bleiben im
+benutzergebundenen Temp-Verzeichnis `sql-server-lab-pitr-*` außerhalb des Repositorys;
+GitHub erhält nur feste Statuscodes. Keine Podman-Machine wird initialisiert oder
+gestartet. Der bestehende Runtime-Smoke-Mutex serialisiert beide Provider; bereits
+haltende CI-Aufrufer übergeben `-RuntimeMutexAlreadyHeld`. Bei hartem Parentverlust
+bleibt lokale Recovery notwendig; es gibt weder KeepOnFailure noch automatisches
+Löschen eines möglicherweise noch benötigten StateRoot. Die getrennten nativen
+Docker- und Podman-Referenzen auf `f51595ea` bestanden am 2026-09-21 mit SQL-Major
+17, korrektem Commit-Cutoff, unveränderter Quelle, `DBCC CHECKDB`, entferntem Own-Run
+und fehlenden Runtime-Resten. Ihre Restoreintervalle (Docker 2873,8858 ms; Podman
+6600,8529 ms) sind beobachtete Einzelwerte, keine Performance-Aussage. Private
+Temp-Evidence kann nach abgelehnter automatischer Löschung erhalten bleiben; dies
+ändert den belegten Runtime-Cleanup nicht und behauptet keine vollständige
+Dateibereinigung.
+
+```powershell
+.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider podman
+```
+
 ## Invoke-BackupLibraryCrossProviderAcceptance.ps1
 
 Die PSR-008-Abnahme erstellt ein checksum-verifiziertes, inhaltsadressiertes

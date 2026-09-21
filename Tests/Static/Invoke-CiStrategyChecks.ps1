@@ -9,6 +9,18 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach($setupPath in @('Private/AiPodmanSetup.ps1','Private/AiPodmanSetupProcess.ps1','Tools/Invoke-AiPodmanSetupWorker.ps1','Schemas/ai-podman-setup.schema.json','Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1')) {
+    foreach($path in @($setupPath,$setupPath.Replace('/','\'))) {
+        $selected=& $selector -ChangedPath @($path)
+        Add-CheckResult -Name "KI-Erstellung bleibt je Einzelpfad Podman: $path" -Success (
+            $selected.Podman -and -not $selected.Docker -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter -and
+            'Invoke-AiPodmanSetupChecks.ps1' -in $selected.StaticChecks -and 'Invoke-AiPodmanSetupProcessChecks.ps1' -in $selected.StaticChecks)
+    }
+}
+$setupShared=& $selector -ChangedPath @('Private/AiPodmanSetup.ps1','Private/AiEndpoint.ps1')
+Add-CheckResult -Name 'Podman-Erstellung unterdrückt keine gemeinsame KI-Providerprüfung' -Success ($setupShared.Docker -and $setupShared.Podman -and $setupShared.HyperV)
+$setupInfrastructure=& $selector -ChangedPath @('Private/AiPodmanSetup.ps1','Tools/Get-CiTestSelection.ps1')
+Add-CheckResult -Name 'Podman-Erstellung ändert die volle Infrastrukturmatrix nicht' -Success ($setupInfrastructure.Docker -and $setupInfrastructure.Podman -and $setupInfrastructure.HyperV -and $setupInfrastructure.Mixed -and $setupInfrastructure.Adapter)
 
 $docs = & $selector -ChangedPath @('Documentation/User/Getting_Started.md')
 Add-CheckResult -Name 'Dokumentation loest keinen Runtime-Smoke aus' -Success (
@@ -112,6 +124,12 @@ Add-CheckResult -Name 'Provideruebergreifende Aenderung verwendet Mixed-Smoke' -
 $batchWorkflow = & $selector -ChangedPath @('Private/BatchWorkflow.ps1')
 Add-CheckResult -Name 'Batch-Aenderung aktiviert Batch-Vertrag und repraesentativen Docker-Smoke' -Success (
     $batchWorkflow.Docker -and 'Invoke-BatchWorkflowChecks.ps1' -in $batchWorkflow.StaticChecks
+)
+
+$pitrScenario = & $selector -ChangedPath @('Tests/Integration/Invoke-PointInTimeRecoveryAcceptance.ps1')
+Add-CheckResult -Name 'PITR-Referenz aktiviert nur ihren Vertrag sowie Docker und Podman' -Success (
+    'Invoke-PointInTimeRecoveryScenarioChecks.ps1' -in $pitrScenario.StaticChecks -and
+    $pitrScenario.Docker -and $pitrScenario.Podman -and -not $pitrScenario.HyperV -and -not $pitrScenario.Mixed -and -not $pitrScenario.Adapter
 )
 
 $containerReconcile = & $selector -ChangedPath @('Private/ContainerReconcile.ps1')
@@ -361,6 +379,10 @@ $hyperVWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflo
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten den realen Batch-Smoke' -Success (
     $dockerWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`?\s*-Provider docker' -and
     $podmanWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`?\s*-Provider podman'
+)
+Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die PITR-Referenz' -Success (
+    $dockerWorkflow -match 'Invoke-PointInTimeRecoveryAcceptance\.ps1\s+`?\s*-Provider docker' -and
+    $podmanWorkflow -match 'Invoke-PointInTimeRecoveryAcceptance\.ps1\s+`?\s*-Provider podman'
 )
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die getrennte AI-Vector-Core-Abnahme' -Success (
     $dockerWorkflow -match 'Invoke-AiVectorCoreAcceptance\.ps1\s+`?\s*-Provider docker' -and

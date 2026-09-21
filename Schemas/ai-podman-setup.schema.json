@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Own Podman AI setup operation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract","operationId","collectionId","runId","name","port","cpu","memoryMB","runtimeScopeId","modelBinding","binding","status","primaryReason","cleanupStatus","collectionCleanup","newStarted"],
+  "properties": {
+    "contract": {"const":"SqlServerLab.AiPodmanSetup/1.0"},
+    "operationId": {"type":"string","pattern":"^[a-f0-9]{32}$"},
+    "collectionId": {"type":"string","pattern":"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"},
+    "runId": {"type":["string","null"],"pattern":"^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$"},
+    "name": {"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$"},
+    "port": {"type":"integer","minimum":1024,"maximum":65535},
+    "cpu": {"type":"integer","minimum":1,"maximum":8},
+    "memoryMB": {"type":"integer","minimum":2560,"maximum":65536},
+    "runtimeScopeId": {"type":"string","pattern":"^runtime-scope-[a-f0-9]{24}$"},
+    "modelBinding": {
+      "type":"object","additionalProperties":false,
+      "required":["ModelKey","Model","Digest","Version","Dimension"],
+      "properties": {
+        "ModelKey":{"const":"ollama-embeddinggemma-latest"},
+        "Model":{"const":"embeddinggemma:latest"},
+        "Digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+        "Version":{"type":"string","pattern":"^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "Dimension":{"const":768}
+      }
+    },
+    "newStarted":{"type":"boolean"},
+    "binding":{
+      "type":["object","null"],"additionalProperties":false,
+      "required":["RunId","ScopeId","InstanceId","Provider","RuntimeScopeId","ContainerId","Volumes","EndpointHash"],
+      "properties":{
+        "RunId":{"type":"string","pattern":"^[a-f0-9-]{36}$"},
+        "ScopeId":{"type":"string","pattern":"^[a-f0-9-]{36}$"},
+        "InstanceId":{"const":"primary"},"Provider":{"const":"podman"},
+        "RuntimeScopeId":{"type":"string","pattern":"^runtime-scope-[a-f0-9]{24}$"},
+        "ContainerId":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+        "Volumes":{"type":"array","minItems":1,"maxItems":1,"items":{"type":"string","minLength":1}},
+        "EndpointHash":{"type":"string","pattern":"^[a-f0-9]{64}$"}
+      }
+    },
+    "status":{"enum":["PREPARED","CREATING","APPLYING","QUERYING","PROVISIONED","READY","ROLLBACK_REQUIRED","FAILED","RECOVERY_REQUIRED"]},
+    "primaryReason":{"enum":["NONE","RUNTIME_NOT_READY","RUNTIME_CHANGED","MODEL_UNAVAILABLE","MODEL_CHANGED","NEW_FAILED","APPLY_FAILED","QUERY_FAILED","TIMEOUT","CANCELLED","OUTPUT_FAILED","CHILD_FAILED","RECEIPT_INVALID","TERMINATION_UNCONFIRMED","CHILD_START_FAILED","SUPERVISOR_FAILED","WORKER_FAILED"]},
+    "cleanupStatus":{"enum":["NOT_STARTED","COMPLETED","FAILED","NOT_REQUIRED"]},
+    "collectionCleanup":{"enum":["NOT_NEEDED","REMOVED","FAILED"]}
+  }
+}

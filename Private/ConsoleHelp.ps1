@@ -314,6 +314,9 @@ function Get-LabConsoleHelpCatalog {
         Effects = 'Offline-Auswertungen mutieren nichts; SQL- und Modellpfade verwenden die jeweils angezeigten Sicherheits- und Egress-Verträge.'
         Command = 'Get-SqlServerLabAiScenario / Invoke-SqlServerLabAiModel'; Preconditions = @($stateRootPrecondition)
     }
+    $catalog['ai-menu'].Purpose += ' Erstellt außerdem eine bleibende Podman-KI-Testumgebung und zeigt ihre gespeicherten IDs.'
+    $catalog['ai-menu'].Preconditions += 'Für die neue Testumgebung: laufendes Podman und vorhandenes lokales embeddinggemma:latest mit 768 Dimensionen.'
+    $catalog['ai-menu'].Effects += ' Neue Umgebung nur nach Vorschau und Bestätigung; SQL-Daten bleiben erhalten. Fehlerbereinigung betrifft ausschließlich den gerade neu erstellten eigenen Run.'
     $catalog['connection-center-cms'] = @{
         Title = 'CMS-Verwaltung'; Purpose = 'Erstellt, übernimmt oder synchronisiert den zentralen Verwaltungsserver.'
         Effects = 'Erstellen legt eine persistente SQL-Umgebung an; Übernehmen bindet eine vorhandene Umgebung; Export bleibt kennwortfrei.'
