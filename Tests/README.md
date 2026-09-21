@@ -276,6 +276,8 @@ blockierend. Docker und Podman werden getrennt samt Restart und Cleanup geprüft
 .\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider podman
 ```
 
+Der Golden-Lauf verwendet einen run-eigenen Ollama-Bind-Mount, den globalen Runtime-Mutex und eine tokengebundene Container-ID. Ohne `-KeepOnFailure` bestätigt er SQL-, Container- und Storage-Cleanup vor `PASS`; `-KeepOnFailure` ist ausschließlich für die Recovery eines fehlgeschlagenen eigenen Laufs vorgesehen.
+
 Für bereits vorhandenes Host-`embeddinggemma:latest` mit ausdrücklich gewählter
 HTTPS-Cloudgeneration gibt es eine separate synthetische AdHoc-Abnahme:
 
