@@ -682,7 +682,8 @@ Die separate Abnahme `Tests/Integration/Invoke-AiPersistentRetrievalMigrationAcc
 mit `-Provider docker` beziehungsweise `-Provider podman` verwendet je einen
 eigenen SQLrun, vorhandene Hostmodelle, gezählte Faultpoints, beide festen
 Rankings vor/nach Cutover und SQLrestart sowie eigenes vollständiges Cleanup.
-Die nativen Migrationsabnahmen sind ausstehend; Details im
+Docker und Podman bestanden die nativen Migrationsabnahmen am 2026-09-21
+mit jeweils 20 Assertions und vollständigem Cleanup; Details im
 [Migrationsvertrag](../Documentation/Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
 
 `Tests/Static/Invoke-AiPersistentRetrievalChecks.ps1` prüft den eigenen SQL-
@@ -695,5 +696,6 @@ Embeddinggemma und getrennte eigene SQL-Runs:
 ```
 
 Sie umfasst SQLrestart, konkurrierenden SQL-AppLock, Staging-/Commitantwortverlust,
-Resume und eigenes DB-/Run-Cleanup. Kein Download oder Cloudaufruf. Native
-Evidence steht noch aus; [Vertrag](../Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md).
+Resume und eigenes DB-/Run-Cleanup. Kein Download oder Cloudaufruf. Docker und
+Podman sind jeweils mit 16 Assertions und vollständigem Cleanup nativ belegt;
+[Vertrag](../Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md).

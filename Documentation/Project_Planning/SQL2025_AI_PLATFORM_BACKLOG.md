@@ -122,8 +122,10 @@ Endpointplan gebunden; Embed, Generate und ein echter HTTP-429-Retry laufen
 über den normalen `HttpClient`, ohne den globalen Trust Store zu verändern.
 Der kontrollierte Re-Embedding-Plan bindet alte und neue Modell-, Dimensions-,
 Dataset-, Chunk- und Vectoridentitäten und blockiert Mischbetrieb. Er führt
-keine Runtimeaktion aus; Dimensionswechsel, Re-Embedding-Ausführung und
-Rebuild-Evidence bleiben offen.
+keine Runtimeaktion aus. Der getrennte
+[Migrations-Slice](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) belegt
+Re-Embedding der festen Fixture von Embeddinggemma zu Nomic auf Docker und
+Podman. Dimensionswechsel und allgemeine Rebuild-Ausführung bleiben offen.
 
 `AI-60A` stellt kataloggebundene Ollama-Cloud-Generation bereit. Der öffentliche
 Aufruf verlangt eine nicht-interne Datenklasse und expliziten Cloud-Egress,
@@ -149,8 +151,11 @@ SQL-TLS-Negativen, Retrieval vor/nach SQLrestart und eigenem Cleanup.
 Das schließt weder den allgemeinen Gateway- noch den Providerbacklog.
 Der
 providerneutrale Controller akzeptiert inzwischen verwaltete Hyper-V-SQL-2025-
-Ziele für lokales RAG und read-only Diagnose; der native Nachweis ist wegen des
-korrekt geschützten Einzelneustarts einer Testgruppen-VM noch `PARTIAL`.
+Ziele für lokales RAG und read-only Diagnose. Der ursprüngliche native Nachweis
+bleibt wegen des geschützten Einzelneustarts einer Testgruppen-VM `PARTIAL`.
+Die getrennte [Own-Run-Abnahme](../Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md)
+mit vorhandenem Qwen bestand am 2026-09-21 einschließlich VM-Neustart und Cleanup;
+sie ersetzt weder Golden v1 noch den früheren Modellpfad.
 
 `AI-40A` implementiert das deterministische, modellunabhängige Retrieval-Gate.
 Es berechnet Recall@k, Precision@k, MRR und nDCG aus eindeutigen Dokument-IDs,
@@ -173,7 +178,9 @@ werden danach an das lokale Generierungsmodell gegeben. Es entstehen weder
 dauerhafte SQL-Objekte noch Inhaltsjournale. Die getrennten nativen Docker- und
 Podman-Läufe waren am 2026-09-06 einschließlich SQL-/Ollama-Restart, erwarteter
 Top-Quelle und vollständigem Cleanup erfolgreich. Hybride Volltextsuche,
-Aktualisierung/Löschung beliebiger Dokumente und Modellwechsel-Re-Embedding bleiben offen; der neue feste synthetische Persistenz-Slice ist unten gesondert beschrieben.
+Aktualisierung/Löschung beliebiger Dokumente und allgemeines Modellwechsel-Re-Embedding
+bleiben offen; die feste synthetische Persistenz und ihre begrenzte Migration
+sind unten gesondert beschrieben.
 
 `AI-50A` implementiert den read-only Diagnose-Agenten mit vier festen
 SELECT-Werkzeugen, maximal vier Aufrufen, Zeilen- und Kontextgrenzen sowie
