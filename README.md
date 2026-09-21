@@ -787,6 +787,11 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 
 `SqlServerLab.psd1` ist die autoritative Liste der exportierten Funktionen.
 
+Vorhandenes lokales Qwen kann über `ollama-qwen25-coder-7b-local` mit
+Live-Modellbindung verwendet werden. Die [isolierte Hyper-V-Abnahme](Documentation/Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md)
+prüft einen eigenen Prepared-SQL-Run, RAG/Agent, Neustart und Cleanup; neue
+native Evidence steht noch aus. Defaults und Golden v1 bleiben unverändert.
+
 ## State und lokale Daten
 
 Run-State liegt außerhalb des Git-Checkouts:

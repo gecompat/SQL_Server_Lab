@@ -294,6 +294,15 @@ Golden-v1-Gate und keine allgemeine Antwortqualitätszusage. Der genaue
 [Vertrag und Evidencestand](../Documentation/Architecture/AI_RAG_EXISTING_OLLAMA.md)
 bleiben maßgeblich.
 
+Derselbe Container-Harness unterstützt `-LocalGeneration -IncludeDiagnostic`
+mit vorhandenem Qwen, ohne Cloudsecret. Docker und Podman prüfen RAG/Agent
+vor und nach SQLrestart und vollständiges Cleanup getrennt. Der neue
+`Invoke-AiHyperVOwnRunAcceptance.ps1` benötigt ein explizites `ArtifactId` und
+prüft mit `PreflightOnly` ausschließlich die Voraussetzungen. Der vollständige
+Lauf ist über den manuellen Workflowmodus `ai-rag-own-run-acceptance` verfügbar;
+[Vertrag und native Grenzen](../Documentation/Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md).
+bleiben maßgeblich.
+
 Der read-only Diagnose-Agent wird mit echten katalogisierten SQL-Abfragen,
 kurzlebigem Login, lokalem Modell, Login-Cleanup und Restart getrennt geprüft:
 
