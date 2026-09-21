@@ -56,6 +56,66 @@ try {
         foreach ($cutoff in @('2026-01-02T03:04:05.1234567','2026-01-02 03:04:05.123Z','2026-02-30 03:04:05.123',"2026-01-02 03:04:05.123'; DROP DATABASE master;--")) {
             Reject { Assert-PitrCutoff $cutoff } 'CUTOFF_INVALID'
         }
+        $captureOperation='abcdefabcdefabcdefabcdefabcdefab'
+        $captureRun=[guid]::NewGuid().ToString(); $captureScope=[guid]::NewGuid().ToString()
+        $captureContainer=('c'*64); $captureRuntime='runtime-scope-'+('d'*24)
+        $captureEvidence=Join-Path $Root 'readiness-capture'; $null=New-Item -ItemType Directory $captureEvidence
+        $script:captureMode='own'; $script:captureCalls=0
+        function Get-LabContainerRuntimeScope { param($Provider) [pscustomobject]@{Status='AVAILABLE';RuntimeId=$captureRuntime} }
+        function Get-LabOperationOwnedRun { param($OperationId,$StateRoot)
+            if ($script:captureMode -eq 'foreign') { return [pscustomobject]@{runId=$captureRun;scopeId=$captureScope;metadata=@{workflowOperationId='foreign';persistentData=$false}} }
+            [pscustomobject]@{runId=$captureRun;scopeId=$captureScope;metadata=@{workflowOperationId=$captureOperation;persistentData=$false}}
+        }
+        function Get-LabProviderSubRuns { param($RunId,$StateRoot)
+            [pscustomobject]@{provider='docker';state='PROVISIONING'}
+        }
+        function Get-CleanupPlan { param($RunDir)
+            [pscustomobject]@{runId=$captureRun;scopeId=$captureScope;providerSubRuns=@([pscustomobject]@{provider='docker'})}
+        }
+        function Invoke-LabTransferNative {
+            param($Provider,$Arguments,$TimeoutSeconds)
+            $script:captureCalls++
+            if ($script:captureMode -eq 'throw' -and $Arguments[0] -eq 'logs') { throw 'SYNTHETIC_CAPTURE_FAILURE' }
+            if ($Arguments[0] -eq 'inspect') {
+                $labels=@{'sql-server-lab.run-id'=$captureRun;'sql-server-lab.scope-id'=$captureScope;'sql-server-lab.instance-id'='primary'}
+                if ($script:captureMode -eq 'labels') { $labels.'sql-server-lab.run-id'='foreign' }
+                return (@([pscustomobject]@{Id=$captureContainer;State=[pscustomobject]@{Running=$false};Config=[pscustomobject]@{Labels=$labels}})|ConvertTo-Json -Depth 8 -Compress)
+            }
+            if ($Arguments[0] -eq 'logs') { return 'engine failure password=synthetic-secret CANARY_PRIVATE_LOG' }
+            throw 'SYNTHETIC_NATIVE_ARGUMENT_INVALID'
+        }
+        function Get-LabContainerReadinessDiagnostic {
+            param($Provider,$ContainerIdOrName,[switch]$IncludeLogs)
+            [pscustomobject]@{Status='exited';Running=$false;Message='ORIGINAL_DIAGNOSTIC_CANARY'}
+        }
+        $originalReadiness=(Get-Command Get-LabContainerReadinessDiagnostic -CommandType Function).ScriptBlock
+        $captureParameters=@{Provider='docker';OperationId=$captureOperation;StateRoot=$Root;EvidenceRoot=$captureEvidence;RuntimeScopeId=$captureRuntime}
+        $result=Invoke-PitrReadinessDiagnosticWithCapture -Original $originalReadiness @captureParameters -ContainerIdOrName $captureContainer -IncludeLogs
+        $capturePath=Join-Path $captureEvidence 'readiness-failure.log'
+        $captured=Get-Content -LiteralPath $capturePath -Raw
+        Check ($result.Message -ceq 'ORIGINAL_DIAGNOSTIC_CANARY' -and $captured -match 'CANARY_PRIVATE_LOG' -and
+            $captured -notmatch 'synthetic-secret' -and $captured -match 'password=\*\*\*' -and
+            -not (Test-Path -LiteralPath (Join-Path $Root ("runs/$captureRun/connection-info.json")))) 'Own stopped container captures before connection-info exists while original diagnostic remains unchanged'
+        $null=Invoke-PitrNewWithReadinessCapture @captureParameters -Action { 'SYNTHETIC_NEW_SUCCESS' }
+        Check (((Get-Command Get-LabContainerReadinessDiagnostic -CommandType Function).ScriptBlock.ToString()) -eq $originalReadiness.ToString()) 'Readiness wrapper is restored after successful New boundary'
+        Remove-Item -LiteralPath $capturePath -Force
+        $script:captureCalls=0
+        $null=Invoke-PitrReadinessDiagnosticWithCapture -Original $originalReadiness @captureParameters -ContainerIdOrName $captureContainer
+        Check (-not (Test-Path -LiteralPath $capturePath) -and $script:captureCalls -eq 0) 'Diagnostic without IncludeLogs performs no extra runtime capture'
+        foreach ($mode in @('foreign','labels')) {
+            $script:captureMode=$mode; $script:captureCalls=0
+            $null=Invoke-PitrReadinessDiagnosticWithCapture -Original $originalReadiness @captureParameters -ContainerIdOrName $captureContainer -IncludeLogs
+            $expectedCalls=if ($mode -eq 'foreign') { 0 } else { 1 }
+            Check (-not (Test-Path -LiteralPath $capturePath) -and $script:captureCalls -eq $expectedCalls) "$mode ownership validation skips logs before foreign or unverifiable access"
+        }
+        $script:captureMode='throw'; $primary=$null
+        try {
+            $null=Invoke-PitrReadinessDiagnosticWithCapture -Original $originalReadiness @captureParameters -ContainerIdOrName $captureContainer -IncludeLogs
+            throw 'SYNTHETIC_PRIMARY_FAILURE'
+        }
+        catch { $primary=$_.Exception.Message }
+        Check ($primary -ceq 'SYNTHETIC_PRIMARY_FAILURE' -and -not (Test-Path -LiteralPath $capturePath) -and
+            ((Get-Command Get-LabContainerReadinessDiagnostic -CommandType Function).ScriptBlock.ToString()) -eq $originalReadiness.ToString()) 'Capture failure preserves primary failure and restores readiness wrapper'
         $operation='1234567890abcdef1234567890abcdef'
         $script:binding=[pscustomobject]@{Provider='docker';ContainerId=('a'*64);RuntimeScopeId=('runtime-scope-'+('b'*24));RunId=[guid]::NewGuid().ToString();ScopeId=[guid]::NewGuid().ToString()}
         function Assert-LabTransferBinding {
@@ -63,7 +123,14 @@ try {
             if ($script:mode -ceq 'binding') { throw 'TRANSFER_LIVE_BINDING_DRIFT' }
             return $script:binding
         }
-        function Invoke-LabTransferNative { param($Provider,$Arguments,$TimeoutSeconds) }
+        function Invoke-LabTransferNative {
+            param($Provider,$Arguments,$TimeoutSeconds)
+            if (-not $script:readinessFailure) { return }
+            if ($Arguments[0] -eq 'inspect') {
+                return (@([pscustomobject]@{Id=$captureContainer;State=[pscustomobject]@{Running=$false};Config=[pscustomobject]@{Labels=@{'sql-server-lab.run-id'=$captureRun;'sql-server-lab.scope-id'=$captureScope;'sql-server-lab.instance-id'='primary'}}}) | ConvertTo-Json -Depth 8 -Compress)
+            }
+            if ($Arguments[0] -eq 'logs') { return 'failure password=synthetic-secret MODULE_WRAPPER_CANARY' }
+        }
         function Invoke-PitrSql {
             param($Binding,$OperationId,$StateRoot,$Query)
             $script:queries.Add($Query)
@@ -124,11 +191,20 @@ try {
         function Get-LabTransferBinding {param($RunId,$InstanceId,$StateRoot,$OperationId) $script:binding}
         function Get-LabTransferBindingIdentity {param($Binding) $Binding}
         function Get-LabOperationOwnedRun {param($OperationId,$StateRoot) $script:owned}
-        function Get-LabProviderSubRuns {param($RunId,$StateRoot)[pscustomobject]@{provider=$script:provider}}
+        function Get-LabProviderSubRuns {param($RunId,$StateRoot)[pscustomobject]@{provider=$script:provider;state='PROVISIONING'}}
         function New-SqlServerLab {
             param($Version,$Provider,$Profile,$Cpu,$MemoryMB,$LabName,$StateRoot,[switch]$GenerateSaPassword,[switch]$NonInteractive,[switch]$SkipAssessment,$Drives)
             Check ((Get-LabWorkflowOperationContext) -ceq $script:operation -and (Test-Path (Join-Path $script:evidence 'intent.json'))) 'Real New boundary receives operation context after durable intent'
+            $installed=(Get-Command Get-LabContainerReadinessDiagnostic -CommandType Function).ScriptBlock
+            Check ($installed.ToString() -match 'captureDiagnostic') 'Actual New boundary observes the temporary module readiness wrapper'
             $script:owned=[pscustomobject]@{runId=$script:binding.RunId;scopeId=$script:binding.ScopeId;metadata=@{workflowOperationId=$script:operation;persistentData=$false}}
+            $diagnostic=Get-LabContainerReadinessDiagnostic -Provider docker -ContainerIdOrName $script:binding.ContainerId -IncludeLogs:$script:readinessFailure
+            if ($script:readinessFailure) {
+                $captured=Get-Content -LiteralPath (Join-Path $script:evidence 'readiness-failure.log') -Raw
+                Check ($diagnostic.Message -ceq 'ORIGINAL_DIAGNOSTIC_CANARY' -and $captured -match 'MODULE_WRAPPER_CANARY' -and $captured -notmatch 'synthetic-secret') 'Actual New failure captures private logs before primary failure'
+                throw 'SYNTHETIC_PRIMARY_FAILURE'
+            }
+            Check ($diagnostic.Message -ceq 'ORIGINAL_DIAGNOSTIC_CANARY' -and -not (Test-Path (Join-Path $script:evidence 'readiness-failure.log'))) 'Actual New boundary delegates unchanged readiness result without log capture'
             if ($script:lostNew) { throw 'SYNTHETIC_NEW_RESPONSE_LOST' }
             [pscustomobject]@{State='RUNNING';RunId=$script:binding.RunId;Instances=@([pscustomobject]@{})}
         }
@@ -138,10 +214,18 @@ try {
             [pscustomobject]@{Status=if($script:cleanupFailure){'RECOVERY_REQUIRED'}else{'REMOVED'};Cleanup='CLEANUP_SUCCEEDED';Errors=0}
         }
         function Assert-LabTransferNoResidue {param($Binding) if ($script:residue) { throw 'TRANSFER_CLEANUP_RESIDUE' }}
+        $ordinaryBinding=$script:binding
+        $script:binding=[pscustomobject]@{Provider='docker';ContainerId=$captureContainer;RuntimeScopeId=$captureRuntime;RunId=$captureRun;ScopeId=$captureScope}
+        $script:operation=$captureOperation; $script:runtimeId=$captureRuntime; $script:provider='docker'; $script:owned=$null
+        $script:readinessFailure=$true; $script:evidence=$captureEvidence
+        Reject { Invoke-PitrArrange -Provider docker -OperationId $captureOperation -StateRoot $Root -EvidenceRoot $captureEvidence } 'SYNTHETIC_PRIMARY_FAILURE'
+        Check (((Get-Command Get-LabContainerReadinessDiagnostic -CommandType Function).ScriptBlock.ToString()) -eq $originalReadiness.ToString()) 'Actual New failure restores module readiness wrapper after capture and primary failure'
+        Remove-Item -LiteralPath (Join-Path $captureEvidence 'readiness-failure.log') -Force
+        $script:binding=$ordinaryBinding; $script:readinessFailure=$false
         foreach ($mode in @('success','lost-new','operation-drift','runtime-drift','provider-drift','cleanup-failed','residue')) {
             $script:mode='success'; $script:operation=$operation; $script:runtimeId=$script:binding.RuntimeScopeId
             $script:provider='docker'; $script:owned=$null; $script:removed=0
-            $script:lostNew=($mode -ceq 'lost-new'); $script:cleanupFailure=($mode -ceq 'cleanup-failed'); $script:residue=($mode -ceq 'residue')
+            $script:lostNew=($mode -ceq 'lost-new'); $script:cleanupFailure=($mode -ceq 'cleanup-failed'); $script:residue=($mode -ceq 'residue'); $script:readinessFailure=$false
             $script:rows=@(); $script:queries=[Collections.Generic.List[string]]::new(); $script:captured=$false; $script:delayed=$false
             $script:evidence=Join-Path $Root $mode; $null=New-Item -ItemType Directory $script:evidence
             $parameters=@{Provider='docker';OperationId=$operation;StateRoot=$Root;EvidenceRoot=$script:evidence}

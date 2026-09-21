@@ -1451,6 +1451,13 @@ Runtime-Resten. Die gemessenen Restoreintervalle (Docker 2873,8858 ms; Podman
 verlangt den bestehenden breiten CI-Gate; die PITR-Capability benötigt nur Docker
 und Podman. Private Temp-Evidence ist nach abgelehnter automatischer Löschung
 zurückgeblieben; daraus folgt keine Behauptung vollständiger Dateibereinigung.
+Bei einem vor SQL-Readiness beendeten eigenen New-Container kann der isolierte
+Child vor dem bestehenden Auto-Cleanup eine private, sanitierte Readiness-Log-
+Kopie erfassen. Das verlangt erneut passenden Operation-Run, Runtime-Scope sowie
+frische Run-/Scope-/Instanzlabels und exakte Container-ID; fremde, laufende oder
+nicht verifizierbare Container werden nicht gelesen. Capture-Fehler verändern
+weder den primären New-Fehler noch den Cleanup. Die Diagnose ist kein Ursachen-
+oder Ressourcenfix; der beobachtete Podman-Startabbruch bleibt `UNKNOWN`.
 
 ### Host-Tool-Auflösung betroffen
 

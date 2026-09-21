@@ -36,6 +36,101 @@ function Assert-PitrCutoff {
             [Globalization.DateTimeStyles]::None,[ref]$parsed)) { throw 'PITR_CUTOFF_INVALID' }
 }
 
+function Save-PitrFailedReadinessLogs {
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [Parameter(Mandatory)][string]$ContainerIdOrName,
+        [Parameter(Mandatory)][string]$OperationId,
+        [Parameter(Mandatory)][string]$StateRoot,
+        [Parameter(Mandatory)][string]$EvidenceRoot,
+        [Parameter(Mandatory)][string]$ExpectedRuntimeScopeId
+    )
+
+    # This executes only from the isolated child while New-SqlServerLab still owns
+    # the failed container. All validation is repeated because this path writes raw
+    # diagnostics and must never read a foreign resource.
+    if ($OperationId -cnotmatch '^[a-f0-9]{32}$' -or $ContainerIdOrName -cnotmatch '^[a-f0-9]{64}$' -or
+        $ExpectedRuntimeScopeId -cnotmatch '^runtime-scope-[a-f0-9]{24}$' -or
+        -not (Test-Path -LiteralPath $EvidenceRoot -PathType Container)) { return $false }
+    try {
+        $scope=Get-LabContainerRuntimeScope -Provider $Provider
+        if ($scope.Status -cne 'AVAILABLE' -or $scope.RuntimeId -cne $ExpectedRuntimeScopeId) { return $false }
+        $owned=Get-LabOperationOwnedRun -OperationId $OperationId -StateRoot $StateRoot
+        if (-not $owned -or $owned.metadata.workflowOperationId -cne $OperationId -or [bool]$owned.metadata.persistentData) { return $false }
+        $subRuns=@(Get-LabProviderSubRuns -RunId ([string]$owned.runId) -StateRoot $StateRoot)
+        if ($subRuns.Count -ne 1 -or [string]$subRuns[0].provider -cne $Provider -or
+            [string]$subRuns[0].state -notin @('PROVISIONING','SQL_READY')) { return $false }
+        $runDirectory=Join-Path (Join-Path $StateRoot 'runs') ([string]$owned.runId)
+        $cleanupPlan=Get-CleanupPlan -RunDir $runDirectory
+        if (-not $cleanupPlan -or [string]$cleanupPlan.runId -cne [string]$owned.runId -or
+            [string]$cleanupPlan.scopeId -cne [string]$owned.scopeId -or
+            @($cleanupPlan.providerSubRuns | Where-Object { [string]$_.provider -ceq $Provider }).Count -ne 1) { return $false }
+        $inspection=@((Invoke-LabTransferNative -Provider $Provider -Arguments @('inspect',$ContainerIdOrName) -TimeoutSeconds 15) -join "`n" | ConvertFrom-Json -Depth 30)
+        if ($inspection.Count -ne 1) { return $false }
+        $container=$inspection[0]; $labels=$container.Config.Labels
+        if ($container.State.Running -eq $true -or [string]$container.Id -cne $ContainerIdOrName -or
+            [string]$container.Id -notmatch '^[a-f0-9]{64}$' -or
+            [string]$labels.'sql-server-lab.run-id' -cne [string]$owned.runId -or
+            [string]$labels.'sql-server-lab.scope-id' -cne [string]$owned.scopeId -or
+            [string]$labels.'sql-server-lab.instance-id' -cne 'primary') { return $false }
+        $raw=@(Invoke-LabTransferNative -Provider $Provider -Arguments @('logs','--tail','1200',[string]$container.Id) -TimeoutSeconds 15) -join "`n"
+        $sanitized=[regex]::Replace($raw,'(?i)((?:sa_)?password\s*[=:]\s*)\S+','$1***')
+        if ($sanitized.Length -gt 24000) {
+            $sanitized=$sanitized.Substring(0,12000)+"`n[...truncated...]`n"+$sanitized.Substring($sanitized.Length-12000)
+        }
+        [IO.File]::WriteAllText((Join-Path $EvidenceRoot 'readiness-failure.log'),$sanitized,[Text.UTF8Encoding]::new($false))
+        return $true
+    }
+    catch { return $false }
+}
+
+function Invoke-PitrReadinessDiagnosticWithCapture {
+    param(
+        [Parameter(Mandatory)][scriptblock]$Original,
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [Parameter(Mandatory)][string]$ContainerIdOrName,
+        [switch]$IncludeLogs,
+        [Parameter(Mandatory)][string]$OperationId,
+        [Parameter(Mandatory)][string]$StateRoot,
+        [Parameter(Mandatory)][string]$EvidenceRoot,
+        [Parameter(Mandatory)][string]$RuntimeScopeId
+    )
+    if ($IncludeLogs) {
+        try { $null=Save-PitrFailedReadinessLogs -Provider $Provider -ContainerIdOrName $ContainerIdOrName -OperationId $OperationId -StateRoot $StateRoot -EvidenceRoot $EvidenceRoot -ExpectedRuntimeScopeId $RuntimeScopeId }
+        catch { }
+    }
+    return (& $Original -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs:$IncludeLogs)
+}
+
+function Invoke-PitrNewWithReadinessCapture {
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [Parameter(Mandatory)][string]$OperationId,
+        [Parameter(Mandatory)][string]$StateRoot,
+        [Parameter(Mandatory)][string]$EvidenceRoot,
+        [Parameter(Mandatory)][string]$RuntimeScopeId,
+        [Parameter(Mandatory)][scriptblock]$Action
+    )
+
+    $original=(Get-Command Get-LabContainerReadinessDiagnostic -CommandType Function -ErrorAction Stop).ScriptBlock
+    $captureDiagnostic=(Get-Command Invoke-PitrReadinessDiagnosticWithCapture -CommandType Function -ErrorAction Stop).ScriptBlock
+    $moduleScope=$ExecutionContext.SessionState.Module
+    if (-not $moduleScope) { throw 'PITR_READINESS_MODULE_SCOPE_UNAVAILABLE' }
+    $wrapper={
+        [CmdletBinding()]
+        param([string]$Provider,[string]$ContainerIdOrName,[switch]$IncludeLogs)
+        & $captureDiagnostic -Original $original -Provider $Provider -ContainerIdOrName $ContainerIdOrName `
+            -IncludeLogs:$IncludeLogs -OperationId $OperationId -StateRoot $StateRoot -EvidenceRoot $EvidenceRoot -RuntimeScopeId $RuntimeScopeId
+    }.GetNewClosure()
+    try {
+        & $moduleScope { param($Replacement) Set-Item -Path Function:Get-LabContainerReadinessDiagnostic -Value $Replacement -Force } $wrapper
+        return (& $Action)
+    }
+    finally {
+        & $moduleScope { param($Replacement) Set-Item -Path Function:Get-LabContainerReadinessDiagnostic -Value $Replacement -Force } $original
+    }
+}
+
 function Invoke-PitrRecovery {
     param([Parameter(Mandatory)]$Binding,[string]$OperationId,[string]$StateRoot)
     if ($OperationId -cnotmatch '^[a-f0-9]{32}$') { throw 'PITR_OPERATION_INVALID' }
@@ -86,12 +181,15 @@ function Invoke-PitrArrange {
     if ($scope.Status -cne 'AVAILABLE' -or $scope.RuntimeId -cnotmatch '^runtime-scope-[a-f0-9]{24}$') { throw 'PITR_RUNTIME_UNAVAILABLE' }
     $intent=@{OperationId=$OperationId;Provider=$Provider;RuntimeScopeId=$scope.RuntimeId}
     $intent | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $EvidenceRoot 'intent.json')
-    $lab=Invoke-WithLabWorkflowOperationContext -OperationId $OperationId -ScriptBlock {
-        param($Provider,$StateRoot)
-        New-SqlServerLab -Version 2025 -Provider $Provider -Profile compact -Cpu 1 -MemoryMB 2560 `
-            -LabName 'pitr-acceptance' -StateRoot $StateRoot -GenerateSaPassword -NonInteractive -SkipAssessment `
-            -Drives @([pscustomobject]@{id='pitr-data';containerPath='/var/opt/mssql'})
-    } -ArgumentList @($Provider,$StateRoot)
+    $lab=Invoke-PitrNewWithReadinessCapture -Provider $Provider -OperationId $OperationId -StateRoot $StateRoot `
+        -EvidenceRoot $EvidenceRoot -RuntimeScopeId $scope.RuntimeId -Action {
+            Invoke-WithLabWorkflowOperationContext -OperationId $OperationId -ScriptBlock {
+                param($Provider,$StateRoot)
+                New-SqlServerLab -Version 2025 -Provider $Provider -Profile compact -Cpu 1 -MemoryMB 2560 `
+                    -LabName 'pitr-acceptance' -StateRoot $StateRoot -GenerateSaPassword -NonInteractive -SkipAssessment `
+                    -Drives @([pscustomobject]@{id='pitr-data';containerPath='/var/opt/mssql'})
+            } -ArgumentList @($Provider,$StateRoot)
+        }
     if ($lab.State -ine 'RUNNING' -or @($lab.Instances).Count -ne 1) { throw 'PITR_NEW_FAILED' }
     $binding=Get-LabTransferBinding -RunId $lab.RunId -InstanceId primary -StateRoot $StateRoot -OperationId $OperationId
     if ($binding.Provider -cne $Provider -or $binding.RuntimeScopeId -cne $scope.RuntimeId) { throw 'PITR_RUNTIME_CHANGED' }
