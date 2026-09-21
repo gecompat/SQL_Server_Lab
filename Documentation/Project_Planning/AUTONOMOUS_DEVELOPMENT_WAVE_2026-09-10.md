@@ -256,18 +256,31 @@ ergänzt explizit Delta/gen2 nach Nomic v2 MoE/gen3 mit v2-Upgrade und festen
 Präfixprofilen. Die 44 fokussierten Migrationchecks sowie beide nativen Abnahmen mit je 20 Assertions, SQLrestart und vollständigem Cleanup bestehen. Allgemeine Modell-/Dimensionswechsel und
 beliebige Nutzerdokumente bleiben offen; Golden v1 wird nicht umgebunden.
 
-## Aufgenommene Entwicklungsübergaben vom 2026-09-21
+## Entwicklungsreihenfolge nach Fortsetzung vom 2026-09-21
 
-Quellen sind die vom Benutzer bereitgestellten Dokumente
+Die vom Benutzer bereitgestellten Übergaben
 `sql-server-lab-development-handoff.prompt.md` und
-`sql-server-lab-diagnostic-bundle-development.prompt.md`. Ihre Betriebsbefunde
-gelten für den dort beschriebenen Ausgangshost, nicht als Nachweis auf einem
-anderen Host. Dieser Nachtrag erfasst die offenen Arbeiten; er startet keine
-Implementierung oder Runtime. Die autonome Entwicklung bleibt auf Benutzerwunsch
-pausiert. Die gesondert beauftragte kompakte CMS-Anzeige wird in
-[PR #540](https://github.com/gecompat/SQL_Server_Lab/pull/540) geführt und ersetzt
-keinen der folgenden Nachweise. Die Zeilen sind beschreibende Arbeitspakete,
-keine neuen sequenziellen Task-IDs.
+`sql-server-lab-diagnostic-bundle-development.prompt.md` bleiben historische
+Quellen; Betriebsbefunde eines anderen Hosts sind kein Nachweis für den
+aktuellen Zielhost. Die autonome Entwicklung ist fortgesetzt. Zuerst werden die bereits
+begonnenen, kohärenten Slices abgeschlossen: [PR #540](https://github.com/gecompat/SQL_Server_Lab/pull/540)
+für die kompakte CMS-Anzeige und PR #537 für Point-in-Time-Recovery hatten je
+einen grünen CI-Stand, benötigen aber noch die Main-Ausrichtung. Der separat
+unter Docker und Podman validierte SQL-Versionsupgrade-Slice ist noch nicht
+veröffentlicht und folgt nach der PITR-Integration. Die enge retained-store-
+Arbeit bleibt in Umsetzung; die KI-Statuskorrektur in den Benutzerdokumenten
+ist in diesem Dokumentationsslice enthalten.
+
+Die aktuelle read-only Zielhostprüfung klassifiziert Docker und Podman für den
+Container-Python/R-Pfad wegen erforderlichem cgroup v1 bei beobachtetem cgroup
+v2 als `INFRASTRUCTURE_UNAVAILABLE`. Das ist kein Embedding-Blocker, keine
+Abnahme von Python/R und keine Grundlage für einen Host- oder cgroup-Umbau.
+Nach Abschluss der vorhandenen Slices ist daher zuerst die unabhängige
+kombinierte synthetische SQLKI-/Northwind-/Chinook-Abnahme möglich; danach
+folgen der begrenzte Diagnose-API-Vertrag und erst anschließend der Operator-
+Handoff. Ältere breitere Arbeiten und Assessments bleiben von ihren bestehenden
+Abhängigkeiten bestimmt. Die Zeilen sind beschreibende Arbeitspakete, keine
+neuen sequenziellen Task-IDs.
 
 ### CMS, SQLKI und External Languages
 
