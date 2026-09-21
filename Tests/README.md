@@ -4,7 +4,16 @@
 eigenen Gateway-Prozess ohne SQL oder Modellrequests.
 `Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` ist die separate Docker-only-
 Referenz für SQL External Model, TLS-Negative, Retrieval, SQLrestart und Cleanup.
-SQL-Native noch `NOT_EXECUTED`; [Vertrag](../Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md).
+Die bisherigen SQL-Läufe sind `PARTIAL`; die vollständige Abnahme des aktuellen
+Stands steht aus. [Vertrag](../Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md).
+
+`Integration/Invoke-SqlcmdPasswordParserAcceptance.ps1` charakterisiert den
+echten lokalen sqlcmd-Hilfeparser ohne SQL-Verbindung. Die separate
+`Integration/Invoke-SqlcmdPasswordAcceptance.ps1 -Provider docker|podman`
+verwendet einen neuen operationgebundenen SQL-2025-Run mit synthetischem
+führendem Minus im Passwort: Readiness, Hostquery, Healthcheck und bestätigtes
+Run-/Volume-Cleanup. Sie besitzt die globale Runtime-Sperre; unklare Ownership
+bewahrt den Recovery-State. Native Nachweise sind providerweise auszuführen.
 
 `Static/Invoke-ResourceAssessmentChecks.ps1` prüft CORE-111 offline: feste
 Statuspriorität, explizites Overcommit, Skip, Persistenz vor Providermutation

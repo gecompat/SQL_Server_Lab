@@ -81,6 +81,10 @@ if ($failures.Count -eq 0) {
     $podmanProvider = Get-Content -LiteralPath $podmanProviderPath -Raw -Encoding utf8
     $podmanBootstrap = Get-Content -LiteralPath $podmanBootstrapPath -Raw -Encoding utf8
     $documentation = Get-Content -LiteralPath $documentationPath -Raw -Encoding utf8
+    foreach($providerSource in @($dockerProvider,$podmanProvider,$containerReconcile)) {
+        Assert-Contains $providerSource ([regex]::Escape('-P"$MSSQL_SA_PASSWORD"')) 'Healthcheck muss den Passwortwert in genau einem Shellargument an -P binden.'
+        Assert-NotContains $providerSource ([regex]::Escape('-P "$MSSQL_SA_PASSWORD"')) 'Healthcheck darf fuehrendes Minus nicht als neue sqlcmd-Option uebergeben.'
+    }
 
     Assert-Contains $sqlReadiness 'function\s+Get-PodmanWindowsLocalhostDiagnostic' 'Podman-Windows-Diagnosefunktion fehlt.'
     Assert-Contains $sqlReadiness 'function\s+Resolve-PodmanWindowsHostName' 'Podman-Windows-Hostauflösung fehlt.'
