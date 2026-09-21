@@ -1628,6 +1628,7 @@ validation:
       - Tests/Static/Invoke-PointInTimeRecoverySupervisorChecks.ps1
     docker: '.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider docker'
     podman: '.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider podman'
+    execution_status: "narrow validated reference: separate native Docker and Podman runs passed on f51595ea (2026-09-21); SQL major 17, good commit restored, bad mutation excluded, source unchanged, CHECKDB, own-run removal and no runtime residue; observed restore intervals are not performance benchmarks"
     checks:
       - own_sql_2025_run_and_container_local_backup_paths
       - full_log_chain_with_sql_server_local_datetime_stopat_cutoff

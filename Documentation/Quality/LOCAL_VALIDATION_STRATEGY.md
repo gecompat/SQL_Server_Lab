@@ -1412,9 +1412,14 @@ fehlerhafter Commit und erst danach Log-Backup. Offline werden der tatsächliche
 orchestrierte SQL-Ablauf, mehrere Resultsets, Quelle nach Restore, Cleanup trotz
 verlorener New-Rückgabe sowie echte Kindprozesse mit Timeout/Abbruch geprüft.
 Arrange und Cleanup sind separat begrenzt; Rohlogs bleiben im geschützten lokalen
-Temp-Root. Die gemeinsame Selektoränderung verlangt den bestehenden breiten
-CI-Gate; die neue PITR-Capability selbst benötigt nur Docker und Podman.
-Ein Offline-PASS ersetzt keinen der beiden noch offenen nativen Provider-Nachweise.
+Temp-Root. Auf `f51595ea` bestanden am 2026-09-21 getrennte native Docker- und
+Podman-Referenzen mit SQL-Major 17, gutem wiederhergestellten Commit, ausgeschlossener
+Fehlmutation, unveränderter Quelle, `DBCC CHECKDB`, Own-Run-Removal und fehlenden
+Runtime-Resten. Die gemessenen Restoreintervalle (Docker 2873,8858 ms; Podman
+6600,8529 ms) dokumentieren nur Beobachtungen. Die gemeinsame Selektoränderung
+verlangt den bestehenden breiten CI-Gate; die PITR-Capability benötigt nur Docker
+und Podman. Private Temp-Evidence ist nach abgelehnter automatischer Löschung
+zurückgeblieben; daraus folgt keine Behauptung vollständiger Dateibereinigung.
 
 ### Host-Tool-Auflösung betroffen
 

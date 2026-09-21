@@ -280,7 +280,14 @@ GitHub erhält nur feste Statuscodes. Keine Podman-Machine wird initialisiert od
 gestartet. Der bestehende Runtime-Smoke-Mutex serialisiert beide Provider; bereits
 haltende CI-Aufrufer übergeben `-RuntimeMutexAlreadyHeld`. Bei hartem Parentverlust
 bleibt lokale Recovery notwendig; es gibt weder KeepOnFailure noch automatisches
-Löschen eines möglicherweise noch benötigten StateRoot. Native Nachweise stehen aus.
+Löschen eines möglicherweise noch benötigten StateRoot. Die getrennten nativen
+Docker- und Podman-Referenzen auf `f51595ea` bestanden am 2026-09-21 mit SQL-Major
+17, korrektem Commit-Cutoff, unveränderter Quelle, `DBCC CHECKDB`, entferntem Own-Run
+und fehlenden Runtime-Resten. Ihre Restoreintervalle (Docker 2873,8858 ms; Podman
+6600,8529 ms) sind beobachtete Einzelwerte, keine Performance-Aussage. Private
+Temp-Evidence kann nach abgelehnter automatischer Löschung erhalten bleiben; dies
+ändert den belegten Runtime-Cleanup nicht und behauptet keine vollständige
+Dateibereinigung.
 
 ```powershell
 .\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider docker
