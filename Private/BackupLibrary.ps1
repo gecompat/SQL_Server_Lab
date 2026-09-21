@@ -110,9 +110,11 @@ SELECT CONCAT(
     CONVERT(nvarchar(1),(SELECT is_encrypted FROM sys.databases WHERE database_id = DB_ID()))
 );
 "@
-    $output = @(& sqlcmd -S "${HostName},${Port}" -U sa -P $SaPlain -C -b -d master `
-        -Q $query -h -1 -W 2>&1)
-    $exitCode = $LASTEXITCODE
+    $native = Invoke-LabSqlcmdProgress -ProcessTimeoutSeconds 60 -ArgumentList @(
+        '-S',"${HostName},${Port}",'-U','sa','-P',$SaPlain,'-C','-b','-d','master',
+        '-Q',$query,'-h','-1','-W','-l','15','-t','45')
+    $output = @($native.Output)
+    $exitCode = $native.ExitCode
     $text = ($output | ForEach-Object { [string]$_ }) -join "`n"
     if ($exitCode -ne 0 -or $text -match 'Msg \d+, Level (1[1-9]|[2-9]\d)') {
         throw "BACKUP_METADATA_QUERY_FAILED: $text"

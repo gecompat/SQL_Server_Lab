@@ -1,7 +1,8 @@
 # SQL-Version-Upgrade-Referenz: 2022 nach 2025
 
-Status: `validated_reference`; getrennte native Docker- und Podman-Abnahme am
-2026-09-21 auf `46340200` bestanden.
+Status: `validation_pending`; die historischen nativen Docker- und Podman-
+Abnahmen bestanden am 2026-09-21 auf `46340200`. Für die spätere Korrektur der
+Passwortargumentbindung stehen frische Provider-Abnahmen aus.
 
 Der feste Integrationstest erzeugt zwei neue eigene Runs auf demselben explizit
 gewählten Containerprovider. Er prüft einen Datenbanktransfer über die
@@ -62,8 +63,12 @@ Arrange läuft in einem verborgenen Child mit standardmäßig 900 Sekunden
 Gesamtbudget (`-TimeoutSeconds`, maximal 1800). Eigene SQL-Probes verwenden
 `SqlCredential`, 15 Sekunden Connection- und 45 Sekunden Command-Timeout;
 Connection, Reader, Command und SecureString werden auch bei Fehlern geschlossen.
-Die öffentlichen Backup-/Restore-Helfer bleiben unverändert und liegen ebenfalls
-innerhalb des Child-Gesamtbudgets.
+Die Backup-Metadatenabfrage verwendet den zentralen sqlcmd-Runner mit 15 Sekunden
+Login-, 45 Sekunden Query- und 60 Sekunden Prozessbudget. Dieser bindet auch
+Passwörter mit führendem Minus unverändert als ein Argument. Die eigenen Runs
+verwenden dafür jeweils neu generierte Passwörter mit führendem Minus.
+Die öffentlichen Backup-/Restore-Aufrufe liegen zusätzlich innerhalb des
+Child-Gesamtbudgets.
 
 Nach bestätigtem Child-Ende startet der Parent unabhängig ein begrenztes
 Cleanup-Child (600 Sekunden). Es sucht beide Operationen auch nach verlorener
@@ -82,6 +87,12 @@ Runtime-Cleanup keine Evidence-Wurzel. GitHub erhält nur geschlossene
 Credentials, Runtime-IDs oder Hostpfade.
 
 ## Nachweise und Grenzen
+
+Der spätere Docker-CI-Lauf `35615252394` scheiterte in der Metadatenabfrage mit
+`sqlcmd: '-P': Missing argument`; das unabhängige Runtime-Cleanup meldete Erfolg.
+Der direkte sqlcmd-Aufruf umging die zentrale Argumentbindung. Die Korrektur
+und die nun deterministische Passwortvariante benötigen frische native
+Docker-/Podman-Abnahmen; die vorherigen Erfolge gelten nicht als deren Nachweis.
 
 `Invoke-SqlVersionUpgradeScenarioChecks.ps1` führt den wirklichen Kontrollfluss
 mit synthetischen Transport-/Providergrenzen aus: zwei Versionen, fremde Labels,
