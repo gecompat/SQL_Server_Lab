@@ -18,6 +18,11 @@ The complete terms are defined in [LICENCE.md](./LICENCE.md).
 
 ## Zweck
 
+Der interne [SQL-HTTPS-Referenzslice](Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md)
+belegt SQL-seitige Embeddings auf einem eigenen Docker-Run über vorhandenes
+Host-Ollama. SQL-/TLS-Negative, Retrieval vor/nach SQLrestart und eigenes Cleanup
+bestanden nativ am 2026-09-21. Bestehende Controller-RAG-Lanes bleiben davon unabhängig.
+
 `SQL_Server_Lab` erstellt lokale, isolierte und reproduzierbare SQL-Server-Testumgebungen. Das PowerShell-Modul kapselt Provisionierung, Ressourcenprüfung, Container-Lifecycle, SQL-Bereitschaft, Datenbankerstellung, Restore, Skriptausführung, lokalen Run-State und Cleanup.
 
 Das Repository dient insbesondere als gemeinsame Ausführungsbasis für:
@@ -764,7 +769,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Invoke-SqlServerLabAiModel` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress und lokalem `.env`-Secret aufrufen |
 | `Measure-SqlServerLabAiRetrieval` | Manuelle Rangfolgen oder gebundene Golden-RAG-Ergebnisse deterministisch mit Recall@k, Precision@k, MRR und nDCG bewerten |
 | `Invoke-SqlServerLabAiRag` | Lokales AdHoc-/Golden-RAG; optional vorhandene Host-Embeddings mit ausdrücklich gewählter HTTPS-Cloudgeneration und exakter SQL-Server-2025-Vektorsuche ([Vertrag](Documentation/Architecture/AI_RAG_EXISTING_OLLAMA.md)) |
-| `Invoke-SqlServerLabAiPersistentRetrieval` | Persistentes synthetisches Retrieval mit lokalem Host-Embedding, atomaren Generationen und eigenem DB-Cleanup ([Vertrag](Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md)) |
+| `Invoke-SqlServerLabAiPersistentRetrieval` | Persistentes synthetisches Retrieval mit lokalem Host-Embedding, expliziter Nomic-Migration, atomaren Generationen und eigenem DB-Cleanup ([Vertrag](Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md)) |
 | `Invoke-SqlServerLabAiDiagnosticAgent` | Read-only SQL-Diagnose-Agent mit festen Werkzeugen und lokaler Ollama-Zusammenfassung |
 | `Test-SqlServerLabContainerTool` | Kataloggebundenes SqlPackage read-only per Run-/Scope-gebundener Versionsprobe prüfen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |
@@ -795,8 +800,9 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 
 Vorhandenes lokales Qwen kann über `ollama-qwen25-coder-7b-local` mit
 Live-Modellbindung verwendet werden. Die [isolierte Hyper-V-Abnahme](Documentation/Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md)
-prüft einen eigenen Prepared-SQL-Run, RAG/Agent, Neustart und Cleanup; neue
-native Evidence steht noch aus. Defaults und Golden v1 bleiben unverändert.
+prüft einen eigenen Prepared-SQL-Run, RAG/Agent, Neustart und Cleanup. Dieser
+Referenzlauf bestand am 2026-09-21 mit 14 Assertions und vollständigem Cleanup.
+Defaults und Golden v1 bleiben unverändert.
 
 ## State und lokale Daten
 

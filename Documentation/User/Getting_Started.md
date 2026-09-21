@@ -1,5 +1,14 @@
 # SQL_Server_Lab – Getting Started
 
+## SQL-seitige HTTPS-Embeddings: Referenzabnahme
+
+`Tests/Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` erstellt einen eigenen
+SQL-2025-Docker-Run und einen begrenzten Loopback-Gateway zu bereits vorhandenem
+Host-`embeddinggemma:latest`. Die Docker-Referenzabnahme bestand am 2026-09-21
+einschließlich SQL-TLS-Negativen, Retrieval nach SQLrestart und Cleanup.
+Keine öffentliche Gateway-API. Voraussetzungen, Aufruf und Besitzgrenzen stehen im
+[Referenzvertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
+
 ## Read-only Mehrdatenbankvergleich
 
 `Test-SqlServerLabRelationalCoreComparison` vergleicht explizit benannte, bereits laufende verwaltete Docker-/Podman-Datenbankpaare. Der Befehl nimmt keine Endpunkte, Connection Strings, SQL-Texte oder Kennwörter an. Ein Paar enthält nur die stabile Paar-ID sowie Quell- und Ziel-RunId, InstanceId und Datenbankname. Der Vergleich kann `MATCH`, `DIFFERENT` oder `UNSUPPORTED` feststellen; er ändert keine Datenbank und führt keinen Transfer aus.
@@ -11,7 +20,11 @@ SQL-2025-Docker-/Podman-Run mit verwaltetem SA-Secret und ein bereits laufendes
 lokales `embeddinggemma:latest`. Mit einer beibehaltenen Collection-GUID führen
 `-FixtureRevision Initial`, `-FixtureRevision Delta`, `-Action Query` und
 `-Action Remove` durch persistente Generationen und eigenes Cleanup. `-Resume`
-setzt nur exakt gebundenes unterbrochenes Apply fort; `-WhatIf` ist rein planend.
+setzt nur exakt gebundenes unterbrochenes Apply beziehungsweise Migrate fort;
+`-WhatIf` ist rein planend. Für bestätigtes Delta erlaubt
+`-Action Migrate -FixtureRevision Delta -TargetModelKey ollama-nomic-embed-text-v2-moe`
+den einmaligen Wechsel auf das bereits vorhandene lokale Nomic-Modell.
+[Upgrade, Profile und Recovery](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
 [Beispiel, Besitzvertrag und Grenzen](../Architecture/AI_PERSISTENT_RETRIEVAL.md).
 Die neue native Referenz steht noch aus.
 

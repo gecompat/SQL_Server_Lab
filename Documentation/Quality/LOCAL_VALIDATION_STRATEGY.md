@@ -1,5 +1,22 @@
 # Lokale Validierungsstrategie
 
+## SQL-HTTPS-Referenzslice
+
+`Invoke-AiSqlHttpsBridgeChecks.ps1` prüft Requestbytes, Vektorgrenzen,
+Digest-/Remoteabwehr und den eigenen Zertifikat-/Prozesszyklus ohne SQL oder
+Modellaufrufe. Echte Loopbackverarbeitung vor STOP, CA-/SAN-validiertes TLS mit
+Authablehnung ohne Upstream und EOF-Cleanup gehören zur Offlineprüfung.
+TLS 1.2 und TLS 1.3 prüfen getrennt WrongCA, WrongSAN und einen gültigen TLS-Kanal
+ohne HTTP; Receipt `1.1` trennt lokale Handshakefehler, Schließen ohne
+Anwendungsbytes und empfangene HTTP-Requests.
+`Invoke-AiSqlHttpsBridgeAcceptance.ps1` führt den getrennten
+Docker-Nachweis aus: SQL External Model, frische WrongCA-/WrongSAN-Handshakes,
+Auth-/Payloadnegative, exaktes Retrieval vor/nach SQLrestart und vollständiges
+Cleanup. Die Gesamtabnahme bestand nativ am 2026-09-21: sieben Embeddings,
+vollständige SQL-TLS-Negative mit Receipt `1.1`, beide Rankings vor/nach
+SQLrestart, unverändertes Hostmodellinventar und bestätigtes eigenes Cleanup.
+[Vertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
+
 | Merkmal | Wert |
 |---|---|
 | Status | `IMPLEMENTED_WITH_GAPS` |
@@ -8,6 +25,13 @@
 | Ziel | reproduzierbare lokale Prüfung von Verträgen und Provider-Runtime |
 
 ## 1. Grundsatz
+
+`Invoke-AiPersistentRetrievalMigrationChecks.ps1` ergänzt die v1-Regression um
+Upgrade-/Staging-/Commit-Abbrüche, unveränderte Quellgenerationen, SQL-first
+Modellwahl, Präfix-/Digestdrift und modellunabhängiges Cleanup. Der separate
+`Invoke-AiPersistentRetrievalMigrationAcceptance.ps1` ist für eigene Docker-
+und Podman-Runs am 2026-09-21 getrennt bestanden: je 20 Assertions, SQLrestart und vollständiges Cleanup.
+Siehe [Migrationsvertrag](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
 
 `Invoke-AiPersistentRetrievalChecks.ps1` prüft den begrenzten persistenten
 Containerpfad mit Chunk-/Commit-Antwortverlust, aktiver Altgeneration, fehlendem

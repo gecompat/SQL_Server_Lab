@@ -291,7 +291,7 @@ Sync-SqlServerLabRunScopedContainerStore
         Runs local Ollama RAG with exact SQL Server 2025 vector search.
 
     Invoke-SqlServerLabAiPersistentRetrieval
-        Persists fixed synthetic SQL Server 2025 retrieval generations with resume and owned cleanup.
+        Persists fixed synthetic SQL Server 2025 retrieval generations with explicit Nomic migration, resume and owned cleanup.
 
     Invoke-SqlServerLabAiDiagnosticAgent
         Runs cataloged read-only SQL diagnostics and summarizes them locally.

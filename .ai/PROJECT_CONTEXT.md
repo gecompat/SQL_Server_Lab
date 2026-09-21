@@ -27,6 +27,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- interner Docker-only-SQL-HTTPS-Referenzslice mit eigenem Loopback-Gateway,
+  festen synthetischen Embeddings und nativer External-Model-Abnahme am
+  2026-09-21 (`VALIDATED_REFERENCE`). Sieben Embeddings, SQL-TLS-Negative,
+  Retrieval vor/nach SQLrestart, unverändertes Hostmodellinventar und eigenes
+  Cleanup bestanden. Vertrag:
+  `Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md`;
+
 - Isolierte Hyper-V-RAG-/Agent-Abnahme aus explizitem SQL-Prepared-Artefakt,
   mit vorhandenem lokalem Qwen, VMId-/Parentbindung und vollständigem Own-Cleanup
   nativ am 2026-09-21 bestanden (`VALIDATED_REFERENCE`, 14 Assertions und Cleanup). Die neue Modellpaarung ersetzt
@@ -36,7 +43,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   eigene Datenbank auf SQL-2025-Docker/Podman, lokale Host-Embeddings, feste
   Initial-/Delta-Fixture, atomarer aktiver Generationszeiger, quittiertes Resume
   und besitzgebundenes Remove. Offline sowie nativ unter Docker und Podman geprüft (je 16 Assertions und vollständiges Cleanup).
-  Kein Modellwechsel-Re-Embedding, keine beliebigen Dokumente oder Cloud.
+  Der enge Folgeslice `Migrate` ergänzt Generation 3 mit Nomic v2 MoE,
+  v2-Upgrade, festen Präfixprofilen und SQL-gebundener aktiver Modellwahl;
+  getrennt nativ unter Docker und Podman belegt (je 20 Assertions und Cleanup). Keine beliebigen Dokumente oder Cloud.
   Vertrag: `Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md`;
 
 - AdHoc-RAG mit vorhandenem Host-`embeddinggemma:latest` und expliziter
@@ -44,7 +53,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Golden v1 unverändert. Live-Modellbindung, Egress/Datenklasse, Secret-Cleanup
   und Redirectabwehr sind offline geprüft. Docker und Podman bestanden am
   2026-09-20 getrennt neun Assertions, SQLrestart und vollständiges Cleanup;
-  Hyper-V und Golden v1 mit anderer Modellbindung bleiben offen. Vertrag:
+  Hyper-V für diese Cloudpaarung bleibt offen. Der lokale Golden-Fall
+  `backup-frequency` besitzt einen getrennten Docker-/Podman-Nachweis vom
+  2026-09-21 mit unveränderter Modellbindung, SQL-/Ollama-Restart und Cleanup. Vertrag:
   `Documentation/Architecture/AI_RAG_EXISTING_OLLAMA.md`;
 
 - SQL-2025-Hyper-V-Editionscapture über `Update-SqlServerLabSqlGuestEvaluationEvidence`

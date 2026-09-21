@@ -21,6 +21,16 @@ Add-CheckResult -Name 'Docker-Aenderung bleibt auf Docker begrenzt' -Success (
 )
 
 $hyperV = & $selector -ChangedPath @('Private/HyperVLabEnvironment.ps1')
+foreach($bridgePath in @('Private/AiSqlHttpsBridge.ps1','Schemas/ai-sql-https-bridge-receipt.schema.json','Tests/Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1','Tests/Integration/Support/Invoke-AiSqlHttpsBridgeServer.ps1')) {
+    foreach($path in @($bridgePath,$bridgePath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "SQL-HTTPS-Referenz bleibt Docker-only: $path" -Success (
+            'Invoke-AiSqlHttpsBridgeChecks.ps1' -in $selected.StaticChecks -and $selected.Docker -and
+            -not $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+    }
+}
+$bridgeShared = & $selector -ChangedPath @('Private/AiSqlHttpsBridge.ps1','Private/AiEndpoint.ps1')
+Add-CheckResult -Name 'SQL-HTTPS-Ausnahme unterdrückt keine gemeinsame AI-Änderung' -Success ($bridgeShared.Docker -and $bridgeShared.Podman -and $bridgeShared.HyperV)
 Add-CheckResult -Name 'Hyper-V-Aenderung aktiviert Hyper-V-Vertraege und Runtime' -Success (
     $hyperV.HyperV -and 'Invoke-HyperVLabEnvironmentChecks.ps1' -in $hyperV.StaticChecks -and -not $hyperV.Docker
 )
@@ -465,9 +475,10 @@ Add-CheckResult -Name 'Nightly enthaelt Vollregression und taeglichen Zeitplan' 
     $nightly -match 'Invoke-AllChecks\.ps1' -and $nightly -match '(?m)^\s*schedule:\s*$'
 )
 
-foreach($path in @('Private/AiPersistentRetrieval.ps1','Private/AiPersistentRetrievalSql.ps1','Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1','Schemas/ai-persistent-retrieval-journal.schema.json','Scenarios/Ai/persistent-retrieval/1.0/fixture.json')){
+foreach($path in @('Private/AiPersistentRetrieval.ps1','Private/AiPersistentRetrievalSql.ps1','Private/AiPersistentRetrievalMigration.ps1','Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1','Schemas/ai-persistent-retrieval-journal.schema.json','Schemas/ai-persistent-retrieval-journal-v2.schema.json','Scenarios/Ai/persistent-retrieval/1.0/fixture.json')){
     $persistent=& $selector -ChangedPath @($path)
     Add-CheckResult -Name "Persistentes Retrieval bleibt je Einzelpfad Docker/Podman: $path" -Success ($persistent.Docker -and $persistent.Podman -and -not $persistent.HyperV -and -not $persistent.Mixed -and -not $persistent.Adapter -and 'Invoke-AiPersistentRetrievalChecks.ps1' -in $persistent.StaticChecks)
+    Add-CheckResult -Name "Persistenzänderung erreicht auch Migrationsregression: $path" -Success ('Invoke-AiPersistentRetrievalMigrationChecks.ps1' -in $persistent.StaticChecks)
 }
 $combinedPersistent=& $selector -ChangedPath @('Private/AiPersistentRetrieval.ps1','Private/AiRag.ps1')
 Add-CheckResult -Name 'Geteilter KI-Vertrag behält Hyper-V trotz begrenztem Persistenzpfad' -Success ($combinedPersistent.HyperV -and $combinedPersistent.Docker -and $combinedPersistent.Podman)

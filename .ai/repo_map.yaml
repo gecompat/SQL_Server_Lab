@@ -76,6 +76,11 @@ sources_of_truth:
   ai_persistent_retrieval_api: Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1
   ai_persistent_retrieval_runtime: Private/AiPersistentRetrieval.ps1
   ai_persistent_retrieval_sql: Private/AiPersistentRetrievalSql.ps1
+  ai_persistent_retrieval_migration: Private/AiPersistentRetrievalMigration.ps1
+  ai_persistent_retrieval_migration_schema: Schemas/ai-persistent-retrieval-journal-v2.schema.json
+  ai_persistent_retrieval_migration_contract: Documentation/Architecture/AI_PERSISTENT_MODEL_MIGRATION.md
+  validation_ai_persistent_retrieval_migration: Tests/Static/Invoke-AiPersistentRetrievalMigrationChecks.ps1
+  acceptance_ai_persistent_retrieval_migration: Tests/Integration/Invoke-AiPersistentRetrievalMigrationAcceptance.ps1
   ai_persistent_retrieval_journal_schema: Schemas/ai-persistent-retrieval-journal.schema.json
   ai_persistent_retrieval_fixture: Scenarios/Ai/persistent-retrieval/1.0/fixture.json
   ai_persistent_retrieval_contract: Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md
@@ -104,6 +109,12 @@ sources_of_truth:
   validation_ai_diagnostic_host_fixture: Tests/Static/Fixtures/AiDiagnosticHostChecks.ps1
   validation_ai_scenario: Tests/Static/Invoke-AiScenarioChecks.ps1
   validation_ai_https_endpoint_stub: Tests/Integration/Invoke-AiHttpsEndpointStubAcceptance.ps1
+  ai_sql_https_bridge: Private/AiSqlHttpsBridge.ps1
+  ai_sql_https_bridge_contract: Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md
+  ai_sql_https_bridge_receipt: Schemas/ai-sql-https-bridge-receipt.schema.json
+  ai_sql_https_bridge_server: Tests/Integration/Support/Invoke-AiSqlHttpsBridgeServer.ps1
+  validation_ai_sql_https_bridge: Tests/Static/Invoke-AiSqlHttpsBridgeChecks.ps1
+  acceptance_ai_sql_https_bridge: Tests/Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1
   validation_ai_ollama_cloud: Tests/Integration/Invoke-AiOllamaCloudAcceptance.ps1
   validation_ai_ollama_container: Tests/Integration/Invoke-AiOllamaContainerAcceptance.ps1
   validation_ai_rag_container: Tests/Integration/Invoke-AiRagContainerAcceptance.ps1

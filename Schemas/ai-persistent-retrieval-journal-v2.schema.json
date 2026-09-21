@@ -1,0 +1,252 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Persistent retrieval migration journal v2",
+  "type": "object",
+  "required": [
+    "contract",
+    "runId",
+    "scopeId",
+    "instanceId",
+    "collectionId",
+    "bindingHash",
+    "databaseName",
+    "databaseGuid",
+    "ownerToken",
+    "modelBinding",
+    "modelHash",
+    "operationId",
+    "revision",
+    "planKey",
+    "datasetHash",
+    "status",
+    "activeGeneration",
+    "completedChunks",
+    "migration"
+  ],
+  "properties": {
+    "contract": {
+      "const": "SqlServerLab.AiPersistentJournal/2.0"
+    },
+    "runId": {
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "type": "string"
+    },
+    "scopeId": {
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "type": "string"
+    },
+    "collectionId": {
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "type": "string"
+    },
+    "operationId": {
+      "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+      "type": "string"
+    },
+    "bindingHash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "ownerToken": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "modelHash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "planKey": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "datasetHash": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "instanceId": {
+      "pattern": "^[a-zA-Z][a-zA-Z0-9_-]{0,63}$",
+      "type": "string"
+    },
+    "databaseName": {
+      "pattern": "^SqlLabAi_[a-f0-9]{32}$",
+      "type": "string"
+    },
+    "databaseGuid": {
+      "pattern": "^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "modelBinding": {
+      "additionalProperties": false,
+      "required": [
+        "ModelKey",
+        "Model",
+        "Digest",
+        "Version",
+        "Dimension"
+      ],
+      "properties": {
+        "ModelKey": {
+          "const": "ollama-embeddinggemma-latest"
+        },
+        "Version": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "type": "string"
+        },
+        "Dimension": {
+          "const": 768
+        },
+        "Model": {
+          "const": "embeddinggemma:latest"
+        },
+        "Digest": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "type": "object"
+    },
+    "revision": {
+      "enum": [
+        "Initial",
+        "Delta"
+      ]
+    },
+    "status": {
+      "enum": [
+        "CREATE_PENDING",
+        "STAGING",
+        "COMMITTED",
+        "REMOVING",
+        "REMOVED",
+        "UPGRADE_PENDING"
+      ]
+    },
+    "activeGeneration": {
+      "minimum": 0,
+      "maximum": 3,
+      "type": "integer"
+    },
+    "completedChunks": {
+      "uniqueItems": true,
+      "items": {
+        "pattern": "^[a-z][a-z0-9-]{2,95}$",
+        "type": "string"
+      },
+      "maxItems": 3,
+      "type": "array"
+    },
+    "migration": {
+      "required": [
+        "operationId",
+        "localPort",
+        "requestKey",
+        "planKey",
+        "reembeddingPlanKey",
+        "targetBinding",
+        "targetModelHash",
+        "sourceProfileHash",
+        "targetProfileHash",
+        "sourceChunks"
+      ],
+      "additionalProperties": false,
+      "type": "object",
+      "properties": {
+        "operationId": {
+          "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$",
+          "type": "string"
+        },
+        "localPort": {
+          "minimum": 1024,
+          "maximum": 65535,
+          "type": "integer"
+        },
+        "requestKey": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "planKey": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "reembeddingPlanKey": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "targetBinding": {
+          "additionalProperties": false,
+          "required": [
+            "ModelKey",
+            "Model",
+            "Digest",
+            "Version",
+            "Dimension"
+          ],
+          "properties": {
+            "ModelKey": {
+              "const": "ollama-nomic-embed-text-v2-moe"
+            },
+            "Version": {
+              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+              "type": "string"
+            },
+            "Dimension": {
+              "const": 768
+            },
+            "Model": {
+              "const": "nomic-embed-text-v2-moe:latest"
+            },
+            "Digest": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            }
+          },
+          "type": "object"
+        },
+        "targetModelHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "sourceProfileHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "targetProfileHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "sourceChunks": {
+          "minItems": 3,
+          "type": "array",
+          "maxItems": 3,
+          "items": {
+            "required": [
+              "ChunkId",
+              "ChunkSha256",
+              "SourceVectorSha256"
+            ],
+            "additionalProperties": false,
+            "type": "object",
+            "properties": {
+              "SourceVectorSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "ChunkId": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{2,95}$"
+              },
+              "ChunkSha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -53,7 +53,11 @@ beide Provider erfolgreich, einschließlich Szenario- und Provider-Cleanup.
 Damit ist `AI-10A` `SUPPORTED`. Der echte HTTPS-Endpoint-Stub und die
 Fehlerverträge sind umgesetzt. `AI-10B` enthält nun einen rein lesenden,
 deterministischen Re-Embedding-Plan- und Journalvertrag für Modell- und
-Dimensionswechsel; ein Executor, Live-Probes und Runtime-Evidence bleiben offen.
+Dimensionswechsel. Der begrenzte
+[persistente Modellwechsel](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md)
+führt nun explizit Delta/gen2 mit Embeddinggemma nach Nomic v2 MoE/gen3 aus:
+versioniertes Upgrade, feste Präfixprofile, separate Zielvektoren und atomare
+Aktivierung. Offline-Verträge und getrennte native Docker-/Podman-Abnahmen mit je 20 Assertions, SQLrestart und vollständigem Cleanup sind belegt. Allgemeine Modell-/Dimensionswechsel bleiben Backlog.
 
 ### AI-05 – Ollama-Vertragsgrundlage
 
@@ -118,8 +122,10 @@ Endpointplan gebunden; Embed, Generate und ein echter HTTP-429-Retry laufen
 über den normalen `HttpClient`, ohne den globalen Trust Store zu verändern.
 Der kontrollierte Re-Embedding-Plan bindet alte und neue Modell-, Dimensions-,
 Dataset-, Chunk- und Vectoridentitäten und blockiert Mischbetrieb. Er führt
-keine Runtimeaktion aus; Dimensionswechsel, Re-Embedding-Ausführung und
-Rebuild-Evidence bleiben offen.
+keine Runtimeaktion aus. Der getrennte
+[Migrations-Slice](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) belegt
+Re-Embedding der festen Fixture von Embeddinggemma zu Nomic auf Docker und
+Podman. Dimensionswechsel und allgemeine Rebuild-Ausführung bleiben offen.
 
 `AI-60A` stellt kataloggebundene Ollama-Cloud-Generation bereit. Der öffentliche
 Aufruf verlangt eine nicht-interne Datenklasse und expliziten Cloud-Egress,
@@ -137,10 +143,19 @@ mit `ollama/ollama:0.11.10`, dynamischem Loopback-Port, live gebundenem Image-
 und Modelldigest, `embeddinggemma:300m-qat-q4_0` mit 768 Dimensionen,
 `gemma3:1b`, Container-Restart und vollständigem Cleanup erfolgreich. Diese
 Controller-Lane verwendet ausschließlich Loopback-HTTP. Ein TLS-Gateway für
-SQL Servers `CREATE EXTERNAL MODEL` und ein TLS-Gateway bleiben `AI-20B`. Der
+SQL Servers `CREATE EXTERNAL MODEL` bleibt `AI-20B`. Der neue interne
+[Docker-only-Referenzslice](../Architecture/AI_SQL_HTTPS_BRIDGE.md) besitzt
+Gateway, Auth-/Payloadgrenzen, eigenen CA-Vertrag und SQL-Abnahmeskript.
+Die native Docker-Abnahme bestand am 2026-09-21 mit sieben Embeddings,
+SQL-TLS-Negativen, Retrieval vor/nach SQLrestart und eigenem Cleanup.
+Das schließt weder den allgemeinen Gateway- noch den Providerbacklog.
+Der
 providerneutrale Controller akzeptiert inzwischen verwaltete Hyper-V-SQL-2025-
-Ziele für lokales RAG und read-only Diagnose; der native Nachweis ist wegen des
-korrekt geschützten Einzelneustarts einer Testgruppen-VM noch `PARTIAL`.
+Ziele für lokales RAG und read-only Diagnose. Der ursprüngliche native Nachweis
+bleibt wegen des geschützten Einzelneustarts einer Testgruppen-VM `PARTIAL`.
+Die getrennte [Own-Run-Abnahme](../Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md)
+mit vorhandenem Qwen bestand am 2026-09-21 einschließlich VM-Neustart und Cleanup;
+sie ersetzt weder Golden v1 noch den früheren Modellpfad.
 
 `AI-40A` implementiert das deterministische, modellunabhängige Retrieval-Gate.
 Es berechnet Recall@k, Precision@k, MRR und nDCG aus eindeutigen Dokument-IDs,
@@ -150,10 +165,13 @@ synthetisches Golden Dataset. Frage, Dokumente, lokale Modellschlüssel, Top-k,
 Schwellen, Dataset-Hash und Fall-ID werden vor Ausführung an den RAG-PlanKey
 gebunden. Nur ein erfolgreiches `SqlServerLab.AiQueryResult/1.0` mit exakt
 passender Bindung wird bewertet; Hash- oder Fallabweichungen scheitern vor der
-Metrik. Der native Docker-Lauf war am 2026-09-07 einschließlich SQL-Suche,
-Golden-Gate, Restart und Cleanup erfolgreich. Der getrennte Podman-Lauf erreichte
-die RAG-Ausführung nicht, weil der einmalige lokale Modell-Pull nach 900 Sekunden
-ablief; dessen Golden-Runtime-Nachweis bleibt deshalb offen.
+Metrik. Der native Docker-Lauf war zuletzt am 2026-09-21 einschließlich SQL-Suche,
+Golden-Gate, SQL-/Ollama-Restart und Cleanup erfolgreich. Podman bestand den festen
+Fall `backup-frequency` am selben Tag getrennt mit derselben Modellpaarung,
+Golden-Metriken, SQL-/Ollama-Restart und vollständigem eigenem Cleanup. Der Download
+verwendete ein Budget von 1800 Sekunden pro Modell; Inferenzlimits blieben unverändert.
+Der frühere Inferenz-Timeout trat nicht erneut auf. Weitere Golden-Fälle benötigen
+eigene Native-Evidence.
 
 `AI-30A` implementiert die lokale Controller-Orchestrierung für RAG. Dokumente
 werden flüchtig mit dem katalogisierten 768-dimensionalen Ollama-Modell
@@ -163,7 +181,9 @@ werden danach an das lokale Generierungsmodell gegeben. Es entstehen weder
 dauerhafte SQL-Objekte noch Inhaltsjournale. Die getrennten nativen Docker- und
 Podman-Läufe waren am 2026-09-06 einschließlich SQL-/Ollama-Restart, erwarteter
 Top-Quelle und vollständigem Cleanup erfolgreich. Hybride Volltextsuche,
-Aktualisierung/Löschung beliebiger Dokumente und Modellwechsel-Re-Embedding bleiben offen; der neue feste synthetische Persistenz-Slice ist unten gesondert beschrieben.
+Aktualisierung/Löschung beliebiger Dokumente und allgemeines Modellwechsel-Re-Embedding
+bleiben offen; die feste synthetische Persistenz und ihre begrenzte Migration
+sind unten gesondert beschrieben.
 
 `AI-50A` implementiert den read-only Diagnose-Agenten mit vier festen
 SELECT-Werkzeugen, maximal vier Aufrufen, Zeilen- und Kontextgrenzen sowie
@@ -214,4 +234,4 @@ ist implementiert und offline geprüft: eigene SQL-2025-Datenbank, feste
 Initial-/Delta-Generation, aktive Altgeneration bei Stagingfehlern, atomarer
 Cutover und SQL-quittiertes Resume/Remove. Docker und Podman bestanden getrennt je 16 Assertions mit SQLrestart, Fehler-/Resume-Prüfungen und vollständigem Cleanup. Dies ist ein inkrementeller Rebuild mit unverändertem Modell;
 der bestehende reine Modellwechsel-Re-Embedding-Plan bleibt unverändert.
-Beliebige Dokumente, Modell-/Dimensionsmigration, Hyper-V und ANN bleiben offen.
+Beliebige Dokumente, weitere Modell-/Dimensionsmigrationen, Hyper-V und ANN bleiben offen.

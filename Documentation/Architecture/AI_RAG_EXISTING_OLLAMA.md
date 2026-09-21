@@ -91,9 +91,22 @@ unverändertem Produktcode. Hyper-V bleibt für diesen kombinierten Slice offen.
 Eine nichtleere
 Cloudantwort beweist Inferenz, keine allgemeine Antwortqualität.
 
-SQL-seitiges `CREATE EXTERNAL MODEL`/TLS-Gateway bleibt `NOT_IMPLEMENTED`.
+Die isolierte Golden-Containerabnahme lädt ihre beiden festen lokalen Modelle
+in den eigenen, bind-gemounteten Ollama-Container. Pro Modell gilt das unveränderte
+`TimeoutSeconds`-Budget von 60–1800 Sekunden als eine monotone Gesamtdeadline
+über höchstens zwei Versuche einschließlich einer begrenzten Wartezeit. Nur HTTP
+408, 429 und 5xx sowie typisierte Transport-/Abbruchfehler erhalten einen Retry;
+4xx, unbekannte Fehler und jede Antwort ohne exakt `status: success` brechen
+sofort mit einem redigierten `AI_RAG_MODEL_PULL_*`-Code ab. Die
+[Ollama-Pull-API](https://github.com/ollama/ollama/blob/main/docs/api.md#pull-a-model)
+beschreibt fortsetzbare abgebrochene Pulls und gemeinsam berichteten Fortschritt.
+Der Harness verwendet deshalb keine neue Download- oder Host-Ollama-Lane.
+
+Der interne [SQL-HTTPS-Docker-Referenzslice](AI_SQL_HTTPS_BRIDGE.md) belegt
+SQL-seitiges `CREATE EXTERNAL MODEL`, TLS-Negative, Retrieval nach SQLrestart
+und eigenes Cleanup. Allgemeiner Gatewaybetrieb bleibt `NOT_IMPLEMENTED`.
 Modellwechsel-Re-Embedding und die isolierte Hyper-V-Abnahme bleiben separate Nachweise.
 
 Der separate [persistente synthetische Slice](AI_PERSISTENT_RETRIEVAL.md)
 implementiert nun Initial-/Delta-Generationen auf Docker/Podman mit derselben
-Host-Embeddingidentität, ohne Generierung. Docker und Podman sind getrennt nativ belegt; echter Modellwechsel bleibt offen; der oben datierte AdHoc-Nachweis bleibt getrennt.
+Host-Embeddingidentität, ohne Generierung. Docker und Podman sind getrennt nativ belegt; der gesonderte [Modellwechsel](AI_PERSISTENT_MODEL_MIGRATION.md) von Delta nach Nomic v2 MoE ist ebenfalls für beide Containerprovider nativ geprüft; der oben datierte AdHoc-Nachweis bleibt getrennt.

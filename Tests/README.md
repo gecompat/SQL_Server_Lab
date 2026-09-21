@@ -1,5 +1,13 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Invoke-AiSqlHttpsBridgeChecks.ps1` prüft Request-/Vektorvertrag und einen
+eigenen Gateway-Prozess ohne SQL oder Modellrequests.
+`Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` ist die separate Docker-only-
+Referenz für SQL External Model, TLS-Negative, Retrieval, SQLrestart und Cleanup.
+Die native Abnahme bestand am 2026-09-21 mit sieben Embeddings, SQL-TLS-Negativen,
+Retrieval vor/nach SQLrestart und eigenem Cleanup.
+[Vertrag](../Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md).
+
 `Integration/Invoke-SqlcmdPasswordParserAcceptance.ps1` charakterisiert den
 echten lokalen sqlcmd-Hilfeparser ohne SQL-Verbindung. Die separate
 `Integration/Invoke-SqlcmdPasswordAcceptance.ps1 -Provider docker|podman`
@@ -281,8 +289,19 @@ blockierend. Docker und Podman werden getrennt samt Restart und Cleanup geprüft
 
 ```powershell
 .\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider docker
-.\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider podman
+.\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider podman -TimeoutSeconds 1800
 ```
+
+Der Golden-Lauf verwendet einen run-eigenen Ollama-Bind-Mount, den globalen Runtime-Mutex und eine tokengebundene Container-ID. Ohne `-KeepOnFailure` bestätigt er SQL-, Container- und Storage-Cleanup vor `PASS`; `-KeepOnFailure` ist ausschließlich für die Recovery eines fehlgeschlagenen eigenen Laufs vorgesehen.
+
+Docker und Podman bestanden am 2026-09-21 den festen Fall `backup-frequency`,
+Golden-Metriken, SQL-/Ollama-Restart und vollständiges eigenes Cleanup.
+Modellpaarung und Inferenzlimits blieben unverändert. Bei Fehlern bleibt ein
+ignorierter Receipt unter `.artifacts/test-runs/ai-golden-podman-acceptance/`
+auch nach Temp-Cleanup erhalten. Er enthält nur Provider, Bereitstellungs-,
+Download-, erste beziehungsweise Restart-Phase, einen freigegebenen Fehlercode
+und die aus der bekannten lokalen
+RAG-Aufrufstelle abgeleitete Einordnung Embedding/Generierung oder `UNCLASSIFIED`.
 
 Für bereits vorhandenes Host-`embeddinggemma:latest` mit ausdrücklich gewählter
 HTTPS-Cloudgeneration gibt es eine separate synthetische AdHoc-Abnahme:
@@ -667,6 +686,16 @@ Linux-Runs und prüft Backup/Restore/MATCH, unveränderte read-only Quelle,
 Idempotenz sowie abweichenden Inhalt mit vollständigem Whole-Run-Cleanup.
 
 ## Persistentes synthetisches Retrieval
+
+`Tests/Static/Invoke-AiPersistentRetrievalMigrationChecks.ps1` prüft das enge
+v1→v2-Upgrade und den expliziten Modellwechsel von Delta/gen2 nach Nomic/gen3.
+Die separate Abnahme `Tests/Integration/Invoke-AiPersistentRetrievalMigrationAcceptance.ps1`
+mit `-Provider docker` beziehungsweise `-Provider podman` verwendet je einen
+eigenen SQLrun, vorhandene Hostmodelle, gezählte Faultpoints, beide festen
+Rankings vor/nach Cutover und SQLrestart sowie eigenes vollständiges Cleanup.
+Docker und Podman bestanden die nativen Migrationsabnahmen am 2026-09-21
+mit jeweils 20 Assertions und vollständigem Cleanup; Details im
+[Migrationsvertrag](../Documentation/Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
 
 `Tests/Static/Invoke-AiPersistentRetrievalChecks.ps1` prüft den eigenen SQL-
 Generationsvertrag offline. Die native Abnahme verwendet vorhandenes lokales
