@@ -107,4 +107,4 @@ Modellwechsel-Re-Embedding und die isolierte Hyper-V-Abnahme bleiben separate Na
 
 Der separate [persistente synthetische Slice](AI_PERSISTENT_RETRIEVAL.md)
 implementiert nun Initial-/Delta-Generationen auf Docker/Podman mit derselben
-Host-Embeddingidentität, ohne Generierung. Docker und Podman sind getrennt nativ belegt; echter Modellwechsel bleibt offen; der oben datierte AdHoc-Nachweis bleibt getrennt.
+Host-Embeddingidentität, ohne Generierung. Docker und Podman sind getrennt nativ belegt; der gesonderte [Modellwechsel](AI_PERSISTENT_MODEL_MIGRATION.md) von Delta nach Nomic v2 MoE ist ebenfalls für beide Containerprovider nativ geprüft; der oben datierte AdHoc-Nachweis bleibt getrennt.

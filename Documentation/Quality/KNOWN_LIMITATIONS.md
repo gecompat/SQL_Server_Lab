@@ -85,7 +85,11 @@ und vollständigem Cleanup samt Residueprüfung. Hyper-V bleibt separat offen.
 Der [persistente synthetische Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
 implementiert inzwischen eine eigene SQL-Datenbank, Initial-/Delta-Generationen,
 Resume und besitzgebundenes Cleanup auf Docker/Podman. Docker und Podman sind mit je 16 Assertions, SQLrestart und vollständigem Cleanup nativ belegt. Echter Modellwechsel, beliebige Dokumente und breite
-Re-Embedding-Ausführung bleiben offen.
+Re-Embedding-Ausführung bleiben außerhalb des engen
+[Migrations-Slices](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) offen:
+explizit bestätigtes Delta/Embeddinggemma nach Nomic v2 MoE bei 768 Dimensionen,
+versioniertes Upgrade, feste Präfixprofile und besitzgebundenes Remove sind
+implementiert und unter Docker sowie Podman getrennt nativ mit je 20 Assertions, SQLrestart und vollständigem Cleanup belegt.
 
 Der Ollama-Modellkatalog sowie die Verträge für Endpointplan, Runtimejournal
 und sanitisierte Abfrageergebnisse sind vorhanden. Ollama-Cloud-Generation ist
@@ -1368,7 +1372,10 @@ gemeinsame Endpointvertrag deckt Fehlerfälle offline ab; zusätzlich belegt ein
 echter flüchtiger Loopback-HTTPS-Stub Embed-/Generate-Payloads, exakten
 Zertifikat-Pin und HTTP-Retry ohne globale Trust-Store-Mutation. Das ist kein
 TLS-Gateway für SQL Servers `CREATE EXTERNAL MODEL`. Dieser Gateway,
-Dimensionswechsel/Re-Embedding-Ausführung bleiben offen. Ein rein lesender
+Dimensionswechsel und allgemeine Re-Embedding-Ausführung bleiben offen.
+Die begrenzte [Migration](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md)
+der festen Fixture von Embeddinggemma zu Nomic ist auf Docker und Podman nativ
+belegt. Ein rein lesender
 Re-Embedding-Plan- und Journalvertrag bindet zwar Modell-,
 Dimensions-, Dataset-, Chunk- und Vectoridentitäten und sperrt Mischbetrieb;
 Ollama-Cloud-Embeddings, OpenAI, Azure OpenAI und lokales Windows-ONNX

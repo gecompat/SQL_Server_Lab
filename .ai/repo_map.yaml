@@ -76,6 +76,11 @@ sources_of_truth:
   ai_persistent_retrieval_api: Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1
   ai_persistent_retrieval_runtime: Private/AiPersistentRetrieval.ps1
   ai_persistent_retrieval_sql: Private/AiPersistentRetrievalSql.ps1
+  ai_persistent_retrieval_migration: Private/AiPersistentRetrievalMigration.ps1
+  ai_persistent_retrieval_migration_schema: Schemas/ai-persistent-retrieval-journal-v2.schema.json
+  ai_persistent_retrieval_migration_contract: Documentation/Architecture/AI_PERSISTENT_MODEL_MIGRATION.md
+  validation_ai_persistent_retrieval_migration: Tests/Static/Invoke-AiPersistentRetrievalMigrationChecks.ps1
+  acceptance_ai_persistent_retrieval_migration: Tests/Integration/Invoke-AiPersistentRetrievalMigrationAcceptance.ps1
   ai_persistent_retrieval_journal_schema: Schemas/ai-persistent-retrieval-journal.schema.json
   ai_persistent_retrieval_fixture: Scenarios/Ai/persistent-retrieval/1.0/fixture.json
   ai_persistent_retrieval_contract: Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md

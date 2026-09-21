@@ -169,7 +169,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Invoke-SqlServerLabAiModel` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane opt-in mit Datenklasse und Budget aufrufen |
 | `Measure-SqlServerLabAiRetrieval` | Manuelle Rangfolgen oder gebundene Golden-RAG-Ergebnisse deterministisch mit Recall@k, Precision@k, MRR und nDCG gegen Schwellen prüfen |
 | `Invoke-SqlServerLabAiRag` | Lokales Ollama-RAG ad hoc oder aus einem versionierten Golden-Fall mit exakter SQL-2025-Vektorsuche ausführen |
-| `Invoke-SqlServerLabAiPersistentRetrieval` | Feste synthetische SQL-2025-Generationen persistent abfragen, fortsetzen und besitzgebunden entfernen |
+| `Invoke-SqlServerLabAiPersistentRetrieval` | Feste synthetische SQL-2025-Generationen persistent abfragen, explizit nach Nomic migrieren, fortsetzen und besitzgebunden entfernen |
 | `Invoke-SqlServerLabAiDiagnosticAgent` | Katalogisierte read-only SQL-Diagnosen kurzlebig ausführen und lokal zusammenfassen |
 | `Test-SqlServerLabContainerTool` | Kataloggebundenes SqlPackage read-only per Run-/Scope-gebundener Versionsprobe prüfen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Laufzeit-generierte SQL-Access-Daten inkl. SA-Passwort und ConnectionString aus einem Hyper-V-Run beziehen |

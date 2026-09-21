@@ -21,8 +21,11 @@ function Get-LabAiPersistentEmbedding {
 }
 
 function New-LabAiPersistentPlan {
-    param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume)
-    if($Resume -and $Action -ne 'Apply'){throw 'AI_PERSISTENT_RESUME_ACTION_INVALID'}
+    param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume,[string]$TargetModelKey)
+    if($Resume -and $Action -notin @('Apply','Migrate')){throw 'AI_PERSISTENT_RESUME_ACTION_INVALID'}
+    if($Action -eq 'Migrate'){
+        if($FixtureRevision -cne 'Delta' -or $TargetModelKey -cne 'ollama-nomic-embed-text-v2-moe'){throw 'AI_PERSISTENT_MIGRATION_REQUEST_INVALID'}
+    }elseif($TargetModelKey){throw 'AI_PERSISTENT_MIGRATION_TARGET_UNEXPECTED'}
     try{$RunId=([guid]::ParseExact($RunId,'D')).ToString('D');$CollectionId=([guid]::ParseExact($CollectionId,'D')).ToString('D')}catch{throw 'AI_PERSISTENT_IDENTITY_INVALID'}
     $fixturePath=Join-Path $script:ModuleRoot 'Scenarios/Ai/persistent-retrieval/1.0/fixture.json'
     $fixture=Get-Content -LiteralPath $fixturePath -Raw -Encoding utf8|ConvertFrom-Json -Depth 10
@@ -30,10 +33,12 @@ function New-LabAiPersistentPlan {
     $documents=@($fixture.revisions.$FixtureRevision|Sort-Object Id|ForEach-Object{[pscustomobject]@{Id=[string]$_.Id;Content=[string]$_.Content;ContentHash=Get-LabAiSha256Text ([string]$_.Content)}})
     if($documents.Count -ne 3 -or @($documents.Id|Select-Object -Unique).Count -ne 3){throw 'AI_PERSISTENT_FIXTURE_INVALID'}
     foreach($document in $documents){if($document.Id -notmatch '^[a-z][a-z0-9-]{2,95}$' -or -not $document.Content -or $document.Content.Length -gt 4000){throw 'AI_PERSISTENT_FIXTURE_INVALID'}}
-    $endpoint=New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-latest -EndpointRef ollama-local -Lane local -LocalPort $LocalPort -MaximumRequests 1 -RetryCount 0 -TimeoutSeconds 60
+    $modelKey=if($Action -eq 'Migrate'){$TargetModelKey}else{'ollama-embeddinggemma-latest'}
+    $endpoint=New-LabAiEndpointPlan -ModelKey $modelKey -EndpointRef ollama-local -Lane local -LocalPort $LocalPort -MaximumRequests 1 -RetryCount 0 -TimeoutSeconds 60
     if($endpoint.Status -eq 'BLOCKED' -or $endpoint.Dimension -ne 768){throw 'AI_PERSISTENT_MODEL_PLAN_INVALID'}
     $datasetHash=Get-LabAiPlanKey @($documents|ForEach-Object{[ordered]@{Id=$_.Id;Hash=$_.ContentHash}})
     $identity=[ordered]@{Contract='SqlServerLab.AiPersistentRetrieval/1.0';RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Revision=$FixtureRevision;DatasetHash=$datasetHash;EndpointPlanKey=$endpoint.PlanKey}
+    if($Action -eq 'Migrate'){$identity.Contract='SqlServerLab.AiPersistentMigration/2.0';$identity.SourceGeneration=2;$identity.TargetGeneration=3;$identity.ProfileHash=Get-LabAiPlanKey (Get-LabAiPersistentProfile nomic-search)}
     [pscustomobject]@{RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Action=$Action;Revision=$FixtureRevision;Generation=$(if($FixtureRevision -eq 'Initial'){1}else{2});QueryId=$QueryId;Question=[string]$fixture.queries.$QueryId;Documents=$documents;DatasetHash=$datasetHash;PlanKey=Get-LabAiPlanKey $identity;EndpointPlan=$endpoint;TimeoutSeconds=$TimeoutSeconds;Resume=[bool]$Resume}
 }
 
@@ -41,15 +46,19 @@ function Write-LabAiPersistentJournal {
     param([string]$Path,$Journal)
     Assert-LabAiPersistentPath $Path
     $json=$Journal|ConvertTo-Json -Depth 15
-    if(-not ($json|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'ai-persistent-retrieval-journal.schema.json') -ErrorAction SilentlyContinue)){throw 'AI_PERSISTENT_JOURNAL_INVALID'}
+    $schema=if($Journal.contract -ceq 'SqlServerLab.AiPersistentJournal/2.0'){'ai-persistent-retrieval-journal-v2.schema.json'}else{'ai-persistent-retrieval-journal.schema.json'}
+    if(-not ($json|Test-Json -SchemaFile (Join-Path $script:SchemasPath $schema) -ErrorAction SilentlyContinue)){throw 'AI_PERSISTENT_JOURNAL_INVALID'}
+    if($Journal.contract -ceq 'SqlServerLab.AiPersistentJournal/2.0'){Assert-LabAiPersistentMigrationJournal $Journal}
     Write-LabArtifactJsonAtomic -Path $Path -InputObject $Journal
 }
 
 function Read-LabAiPersistentJournal {
     param([string]$Path,$Plan,[string]$BindingHash)
     $json=Get-Content -LiteralPath $Path -Raw -Encoding utf8
-    if(-not ($json|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'ai-persistent-retrieval-journal.schema.json') -ErrorAction SilentlyContinue)){throw 'AI_PERSISTENT_JOURNAL_INVALID'}
     $journal=$json|ConvertFrom-Json -Depth 15
+    $schema=if($journal.contract -ceq 'SqlServerLab.AiPersistentJournal/2.0'){'ai-persistent-retrieval-journal-v2.schema.json'}else{'ai-persistent-retrieval-journal.schema.json'}
+    if(-not ($json|Test-Json -SchemaFile (Join-Path $script:SchemasPath $schema) -ErrorAction SilentlyContinue)){throw 'AI_PERSISTENT_JOURNAL_INVALID'}
+    if($journal.contract -ceq 'SqlServerLab.AiPersistentJournal/2.0'){Assert-LabAiPersistentMigrationJournal $journal}
     if((Get-LabAiPlanKey $journal.modelBinding) -cne $journal.modelHash){throw 'AI_PERSISTENT_JOURNAL_MODEL_INVALID'}
     if($journal.runId -cne $Plan.RunId -or $journal.instanceId -cne $Plan.InstanceId -or $journal.collectionId -cne $Plan.CollectionId -or $journal.bindingHash -cne $BindingHash){throw 'AI_PERSISTENT_REQUEST_BINDING_DRIFT'}
     return $journal
@@ -73,7 +82,7 @@ function Invoke-LabAiPersistentRetrieval {
         if(Test-Path -LiteralPath $path){$journal=Read-LabAiPersistentJournal $path $Plan $bindingHash;if($Plan.Action -eq 'Apply' -and $journal.status -notin @('COMMITTED','REMOVED') -and -not $Plan.Resume){throw 'AI_PERSISTENT_RESUME_REQUIRED'}}
         elseif($Plan.Action -ne 'Apply' -or $Plan.Revision -ne 'Initial' -or $Plan.Resume){throw 'AI_PERSISTENT_COLLECTION_NOT_FOUND'}
         $model=$null
-        if($Plan.Action -ne 'Remove'){
+        if($Plan.Action -notin @('Remove','Migrate') -and (-not $journal -or $journal.contract -ceq 'SqlServerLab.AiPersistentJournal/1.0')){
             $model=Get-LabAiPersistentModel $context $Plan $MetadataTransport
             if($model.Dimension -ne 768){throw 'AI_PERSISTENT_MODEL_DIMENSION_INVALID'}
             $modelHash=Get-LabAiPlanKey $model
@@ -121,6 +130,9 @@ DECLARE @result int; EXEC @result=sys.sp_getapplock @Resource=@resource,@LockMod
         # Auch bei verlorenem Initialize-Response ist ausschließlich das SQL-Receipt maßgeblich.
         $owner=Assert-LabAiPersistentOwner $context $journal
         if(-not $journal.databaseGuid){if($Plan.Action -ne 'Apply'){throw 'AI_PERSISTENT_RESUME_REQUIRED'};$journal.databaseGuid=[string]$owner.DatabaseGuid;Write-LabAiPersistentJournal $path $journal}
+        if($Plan.Action -eq 'Migrate' -or $journal.contract -ceq 'SqlServerLab.AiPersistentJournal/2.0'){
+            return Invoke-LabAiPersistentMigration -Context $context -Plan $Plan -Journal $journal -Owner $owner -Path $path -Identity $identity -StateRoot $StateRoot -MetadataTransport $MetadataTransport -EmbeddingTransport $EmbeddingTransport -FaultInjector $FaultInjector
+        }
         if($Plan.Action -eq 'Query'){
             if([int]$owner.ActiveGeneration -notin @(1,2)){throw 'AI_PERSISTENT_ACTIVE_GENERATION_MISSING'}
             $activeRevision=if([int]$owner.ActiveGeneration -eq 1){'Initial'}else{'Delta'}
