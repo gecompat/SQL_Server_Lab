@@ -1,5 +1,17 @@
 # Bekannte Grenzen
 
+Die [SQL-2022-/SQL-2025-Upgrade-Referenz](SQL_VERSION_UPGRADE_REFERENCE.md)
+ist als fester Test implementiert: zwei neue eigene Container-Runs,
+registriertes Full-Backup, Restore mit erhaltenem Compatibility Level 160,
+separater Wechsel auf 170, feste funktionale Prüfungen und Runtime-Cleanup.
+Die getrennten nativen Docker-/Podman-Referenzläufe bestanden am 2026-09-21 auf
+`46340200`; der unabhängige Nachlauf bestätigte je Provider zwei entfernte
+Own-Runs und keine Runtime-Residuen. Die private temporäre Evidence-Wurzel
+bleibt gemäß Runnervertrag erhalten, daher ist kein vollständiges Löschen aller
+temporären Dateien behauptet. Offline-Mocks beweisen weiterhin weder SQL-Ausführung
+noch Providerparität. Weitere Versionspaare, Instanz-/Serverobjektmigration,
+TDE/FILESTREAM und Hyper-V sind nicht Gegenstand dieser Referenz.
+
 Der private CORE-102-[Instanzentscheid](../Architecture/INSTANCE_CAPABILITY_ASSESSMENT.md)
 fasst nur Katalog- und Providermetadaten zusammen. Sein deklarativer Status
 belegt keine Runtimebereitschaft oder Ausführungsautorität; physische
@@ -1172,6 +1184,22 @@ Nicht automatisch unterstützt werden:
 - Differential- oder Log-Backup-Ketten
 - verschlüsselte Backups mit externen Zertifikaten
 - komplexe Mehrfach-Backup-Sets
+
+Die separate PITR-Testreferenz `Invoke-PointInTimeRecoveryAcceptance.ps1` erweitert
+diesen öffentlichen Restorevertrag nicht. Sie verwendet ausschließlich einen
+frischen eigenen SQL-2025-Docker-/Podman-Run mit festen synthetischen Zeilen und
+containerlokaler Full-/Log-Kette. Die korrigierte Offline-Abnahme prüft Ablauf,
+Serverzeit-Cutoff, exakten Inhalt, verlorene New-Rückgabe und überwachten Cleanup.
+Getrennte native Docker- und Podman-Referenzläufe auf `f51595ea` bestanden am
+2026-09-21; sie bestätigten SQL-Major 17, guten Commit ohne Fehlmutation, unveränderte
+Quelle, `DBCC CHECKDB`, Own-Run-Removal und fehlende Runtime-Reste. Die beobachteten
+Restoreintervalle von 2873,8858 ms (Docker) und 6600,8529 ms (Podman) sind keine
+Leistungskennzahlen. Die Laufzeit-Cleanups sind damit belegt; lokale private
+Temp-Evidence blieb nach abgelehnter automatischer Löschung erhalten und wird nicht
+als vollständig entfernte Dateistruktur behauptet. Nach hartem Ende des Supervisor-
+Prozesses bleiben lokale Operation-/Run-Evidence für Recovery erhalten; eine
+automatische Fortsetzung nach Verlust des Parents wird nicht behauptet. Hyper-V und
+jeder allgemeine PITR-/Restorevertrag bleiben offen.
 
 Bei manuellen Restores ist `-RunId` mit optionaler `-InstanceId` die bevorzugte Identitaet. Provider, Container, Host und Port werden dabei aus der gespeicherten `connection-info.json` aufgeloest. Der direkte Modus mit `-Port` bleibt fuer externe Aufrufer erhalten; ohne `-ContainerName` verwendet er die portbasierte Containererkennung.
 
