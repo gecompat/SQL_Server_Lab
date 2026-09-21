@@ -2009,8 +2009,9 @@ Der bestehende normale Run-Cleanup entfernt seine im Cleanup-Plan gebundenen
 Docker-/Podman-Volumes jedoch nur nach einer frischen Runtime-Prüfung beider
 Labels `sql-server-lab.run-id` und `sql-server-lab.scope-id`; fehlende oder
 abweichende Ownership-Evidence blockiert den Remove-Aufruf und hält den Run im
-Recovery-Pfad. Die getrennte endgültige Storage-Löschaktion bleibt vor jeder
-Mutation blockiert.
+Recovery-Pfad. Der getrennte endgültige Delete unterstützt inzwischen einzelne
+moderne eigene detached Docker-/Podman-Stores (siehe unten); breitere Fälle
+bleiben vor jeder Mutation blockiert.
 Der PSR-005-Core kann einen bereits katalogisierten und passend gelabelten
 Docker-/Podman-Instanzstore detached per stabiler ID für Continue binden oder
 in ein neues Volume klonen. Quelle und SQL-Major-Version werden unmittelbar vor
@@ -2305,6 +2306,20 @@ am 2026-09-10 Erfolg, kontrollierten Fehler, Resume und Cleanup auf einem
 privaten Switch bestaetigt; er fuehrt keine Windows-Lizenzaktivierung aus.
 
 ### Recovery verlorener retained Katalogbindungen
+
+Die getrennte endgültige Löschung ist jetzt für einen einzelnen modernen,
+eigenen detached Docker-/Podman-Instanzstore als Public-API sowie CLI-/Browser-
+Aktion implementiert. Sie verlangt vollständige Original-Evidence, UUID-Labels,
+stabile Runtime-Bindung, keine aktive Lease/Referenz und keine Attachments.
+`DELETE_PENDING` reserviert den Store; bestätigte Abwesenheit endet dauerhaft als
+`REMOVED`. Ersatzvolumes, veränderte Evidence, unbekannte Abwesenheit und
+uneindeutige Katalogspiegel blockieren Resume. Das Journal darf nicht entfernt
+werden, solange Recovery offen ist. Sidecars, Gruppen, UUID-lose oder unvollständig
+belegte Legacy-Stores, externe Speicher und Hyper-V bleiben ausgeschlossen.
+Die Aktion prüft weder Backupverfügbarkeit noch ein vollständiges aktuelles
+SQL-Inhaltsinventar; alle Store-Inhalte gehen verloren. Native SQL-2025-Abnahmen
+für Docker und Podman sind vorbereitet, aber noch nicht ausgeführt. Einzelheiten:
+[Behaltenen SQL-Speicher löschen](../User/RETAINED_STORE_REMOVAL.md).
 
 Der öffentliche Befehl `Repair-SqlServerLabPersistentStorageCatalog` bindet einen
 bereits UUID-gelabelten, eigenen detached Docker-/Podman-INSTANCE_STORE an die

@@ -160,6 +160,14 @@ COMMANDS
         Plans retention, backup/package, and binding consequences of removing a
         run by stable storage ID without mutating the run, catalog, or storage.
 
+    Get-SqlServerLabRetainedStoreRemovalPlan
+        Previews permanent deletion of one owned detached Docker/Podman store by
+        stable UUID. Backup availability and stored SQL contents are not verified.
+
+    Invoke-SqlServerLabRetainedStoreRemoval
+        Deletes the exact preview-bound store with confirmation and resumable
+        ownership checks. Its UUID remains permanently reserved by a REMOVED record.
+
     Invoke-SqlServerLabPersistentStorageRemoval
         Executes retain or verified backup-on-remove for a Docker or Podman
         instance store with a resumable journal.

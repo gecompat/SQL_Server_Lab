@@ -17,7 +17,7 @@
           "PersistentStorageId": { "type": "string", "format": "uuid" },
           "StorageClass": { "enum": ["INSTANCE_STORE", "DATABASE_PACKAGE", "BACKUP_SET", "EXCHANGE_WORKSPACE"] },
           "Provider": { "enum": ["core", "docker", "podman", "hyperv", "external"] },
-          "State": { "enum": ["AVAILABLE", "IN_USE", "DETACHED", "INCOMPLETE", "RECOVERY_REQUIRED", "DELETE_PENDING"] },
+          "State": { "enum": ["AVAILABLE", "IN_USE", "DETACHED", "INCOMPLETE", "RECOVERY_REQUIRED", "DELETE_PENDING", "REMOVED"] },
           "LeaseStatus": { "enum": ["NONE", "CONSISTENT", "NOT_OBSERVED", "CONFLICT"] },
           "ObservationStatus": { "enum": ["MATCHED", "MISSING", "AMBIGUOUS", "NOT_REQUIRED"] },
           "ObservedObjectIds": { "type": "array", "items": { "type": "string", "pattern": "^storage-object-[a-f0-9]{24}$" }, "uniqueItems": true }

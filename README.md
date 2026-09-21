@@ -61,6 +61,7 @@ Provider nur mit SQL Server 2025.
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
 | Docker-Provider | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman-Provider | implementiert | `Providers/Podman/PodmanProvider.ps1` |
+| Behaltenen Container-SQL-Speicher löschen | enger öffentlicher ID-/Preview-/Resume-Pfad für eigene einzelne detached Stores; native Docker-/Podman-Abnahme ausstehend | [Bedienung und Grenzen](Documentation/User/RETAINED_STORE_REMOVAL.md) |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert und additiv per Reconcile planbar, C# für SQL 2019–2025 sichtbar `PREVIEW` | `Catalogs/software.json`, `Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
 | Gemischter Docker-/Podman-Lifecycle | implementiert | `Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md` |
 | Hyper-V-Provider | Lifecycle einschließlich Gast-Drives, Windows-Specialization, SQL-Readiness, Image-Registry, Windows-Builder und resumierbarem SQL-`PrepareImage`-Builder implementiert; frischer Windows-Slot mit echter SQL-2025-Installation sowie operationsgeleaster, atomar katalogisierter Daten-VHDX-Clone/Reattach/Release nativ akzeptiert | `Providers/HyperV/HyperVProvider.ps1`, `Private/HyperVImageBuilder.ps1`, `Private/HyperVSqlImageBuilder.ps1`, `Private/HyperVPersistentDataDrive.ps1`, `Tests/Integration/Invoke-HyperVCliAcceptance.ps1`, `Tests/Integration/Invoke-HyperVPersistentDataDriveAcceptance.ps1` |
@@ -745,6 +746,8 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Get-SqlServerLabMaintenancePlan` | State und alle vorhandenen Docker-/Podman-Container sowie Hyper-V-VMs read-only auf Drift, Orphans und alte Testartefakte prüfen |
 | `Invoke-SqlServerLabMaintenance` | Den revalidierten Plan sicher oder einschließlich scopegebundenem Cleanup ausführen; fremde Ressourcen bleiben unangetastet |
 | `Get-SqlServerLabPersistentStorageRemovalPlan` | Retention-, Backup-/Package- und Bindungsfolgen einer Run-Entfernung anhand stabiler Storage-IDs read-only und fail-closed planen |
+| `Get-SqlServerLabRetainedStoreRemovalPlan` | UUID-basierte Vorschau für einen eigenen abgetrennten Docker-/Podman-Speicher; Backup und Inhalte nicht geprüft |
+| `Invoke-SqlServerLabRetainedStoreRemoval` | Endgültiger Delete mit Preview-Bindung, eigener Wiederaufnahme und unveränderlichem REMOVED-Tombstone |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | Retained Docker-/Podman-Instanzstores optional verifiziert sichern, den Run journalisiert entfernen und den Store detached erhalten |
 | `Repair-SqlServerLabPersistentStorageCatalog` | Verlorene Katalogbindung eines eigenen UUID-gelabelten detached retained Docker-/Podman-Stores anhand originaler Run-Evidence und aktueller Runtime-ID wiederherstellen; SQL-2025-Referenzfall getrennt nativ belegt |
 | `Sync-SqlServerLabPersistentStorageArtifact` | Ein vorhandenes Backup-Set, Datenbankpaket oder sicheres relatives Exchange-Workspace per stabiler Artefakt-ID idempotent mit dem Persistent-Storage-Katalog synchronisieren |

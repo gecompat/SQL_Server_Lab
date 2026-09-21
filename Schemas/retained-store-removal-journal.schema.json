@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.RetainedStoreRemovalJournal/1.0",
+  "type": "object",
+  "required": ["ContractVersion", "OperationId", "Plan", "Phase", "UpdatedAt"],
+  "properties": {
+    "ContractVersion": { "const": "SqlServerLab.RetainedStoreRemovalJournal/1.0" },
+    "OperationId": { "type": "string", "format": "uuid" },
+    "Phase": { "enum": ["PREPARED", "DELETE_REQUESTED", "REMOVED"] },
+    "UpdatedAt": { "type": "string", "format": "date-time" },
+    "Plan": {
+      "type": "object",
+      "required": ["ContractVersion", "PersistentStorageId", "ControllerId", "CatalogRevision", "CatalogedDatabaseReferenceCount", "Provider", "RuntimeScopeId", "RecordFingerprint", "VolumeFingerprint", "Source", "PlanKey"],
+      "properties": {
+        "ContractVersion": { "const": "SqlServerLab.RetainedStoreRemovalPlan/1.0" },
+        "PersistentStorageId": { "type": "string", "format": "uuid" },
+        "ControllerId": { "type": "string", "format": "uuid" },
+        "CatalogRevision": { "type": "integer", "minimum": 0 },
+        "CatalogedDatabaseReferenceCount": { "type": "integer", "minimum": 0 },
+        "Provider": { "enum": ["docker", "podman"] },
+        "RuntimeScopeId": { "type": "string", "pattern": "^runtime-scope-[a-f0-9]{24}$" },
+        "RecordFingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "VolumeFingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "PlanKey": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "Source": {
+          "type": "object",
+          "required": ["Provider", "VolumeName", "PersistentStorageId", "RunId", "ScopeId", "InstanceId", "SqlMajorVersion", "Persistence", "EvidenceSha256", "DisplayName"],
+          "properties": {
+            "Provider": { "enum": ["docker", "podman"] },
+            "VolumeName": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$" },
+            "PersistentStorageId": { "type": "string", "format": "uuid" },
+            "RunId": { "type": "string", "format": "uuid" },
+            "ScopeId": { "type": "string", "format": "uuid" },
+            "InstanceId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$" },
+            "SqlMajorVersion": { "type": "string", "pattern": "^\\d{4}$" },
+            "Persistence": { "enum": ["data-root-runtime-volume", "cataloged-runtime-volume"] },
+            "EvidenceSha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+            "DisplayName": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

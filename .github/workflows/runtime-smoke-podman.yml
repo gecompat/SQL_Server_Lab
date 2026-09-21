@@ -143,6 +143,11 @@ jobs:
                 -Provider podman 2>&1 | Tee-Object -FilePath $logPath -Append
               $aiVectorExitCode = $LASTEXITCODE
               if ($aiVectorExitCode -ne 0) { throw "Podman AI-Vector-Core-Akzeptanz endete mit Exitcode $aiVectorExitCode." }
+
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-AiPodmanSamplesReferenceAcceptance.ps1 `
+                -RuntimeMutexAlreadyHeld 2>&1 | Tee-Object -FilePath $logPath -Append
+              $aiSamplesExitCode = $LASTEXITCODE
+              if ($aiSamplesExitCode -ne 0) { throw "Podman AI-Sample-Referenz endete mit Exitcode $aiSamplesExitCode." }
             }
           }
           finally {
