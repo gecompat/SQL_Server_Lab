@@ -661,57 +661,59 @@ function Update-LabBatchSummary {
         [string]$StateRoot
     )
 
-    $batchPath = Get-LabBatchStatePath -BatchId $BatchId -StateRoot $StateRoot
-    $batch = Read-LabWorkflowJson -Path $batchPath
-    if ($null -eq $batch) {
-        return $null
-    }
-    $operations = @()
-    foreach ($operationId in @($batch.operationIds)) {
-        $operation = Read-LabWorkflowJson -Path (Get-LabOperationStatePath -OperationId $operationId -StateRoot $StateRoot)
-        if ($null -ne $operation) {
-            $operations += $operation
+    return Invoke-WithLabWorkflowLock -StateRoot $StateRoot -ScriptBlock {
+        $batchPath = Get-LabBatchStatePath -BatchId $BatchId -StateRoot $StateRoot
+        $batch = Read-LabWorkflowJson -Path $batchPath
+        if ($null -eq $batch) {
+            return $null
         }
-    }
-    $counts = [ordered]@{}
-    foreach ($status in @('Draft', 'Queued', 'Running', 'WaitingForDependency', 'WaitingForUser', 'CandidateSatisfied', 'Paused', 'CleanupQueued', 'Completed', 'Failed', 'Cancelled')) {
-        $counts[$status] = @($operations | Where-Object status -eq $status).Count
-    }
-    $total = $operations.Count
-    $terminal = $counts.Completed + $counts.Failed + $counts.Cancelled
-    $progress = if ($total -eq 0) { 0 } else { [Math]::Round(((@($operations | Measure-Object -Property progress -Average).Average)), 1) }
+        $operations = @()
+        foreach ($operationId in @($batch.operationIds)) {
+            $operation = Read-LabWorkflowJson -Path (Get-LabOperationStatePath -OperationId $operationId -StateRoot $StateRoot)
+            if ($null -ne $operation) {
+                $operations += $operation
+            }
+        }
+        $counts = [ordered]@{}
+        foreach ($status in @('Draft', 'Queued', 'Running', 'WaitingForDependency', 'WaitingForUser', 'CandidateSatisfied', 'Paused', 'CleanupQueued', 'Completed', 'Failed', 'Cancelled')) {
+            $counts[$status] = @($operations | Where-Object status -eq $status).Count
+        }
+        $total = $operations.Count
+        $terminal = $counts.Completed + $counts.Failed + $counts.Cancelled
+        $progress = if ($total -eq 0) { 0 } else { [Math]::Round(((@($operations | Measure-Object -Property progress -Average).Average)), 1) }
 
-    if ($batch.status -eq 'Draft' -or $batch.status -eq 'Validated') {
-        $status = $batch.status
+        if ($batch.status -eq 'Draft' -or $batch.status -eq 'Validated') {
+            $status = $batch.status
+        }
+        elseif ($counts.CleanupQueued -gt 0) {
+            $status = 'CleanupQueued'
+        }
+        elseif ($terminal -eq $total -and $total -gt 0) {
+            $status = if (($counts.Failed + $counts.Cancelled) -gt 0) { 'CompletedWithErrors' } else { 'Completed' }
+        }
+        elseif (($counts.WaitingForUser + $counts.CandidateSatisfied) -gt 0 -and $counts.Running -eq 0) {
+            $status = 'Waiting'
+        }
+        elseif ($counts.Running -gt 0 -or $terminal -gt 0) {
+            $status = 'Running'
+        }
+        else {
+            $status = 'Queued'
+        }
+        $batch.status = $status
+        $batch.progress = [pscustomobject][ordered]@{
+            percent = $progress
+            total = $total
+            counts = [pscustomobject]$counts
+        }
+        $batch.errorStatus = [pscustomobject][ordered]@{
+            failed = $counts.Failed
+            cancelled = $counts.Cancelled
+            hasErrors = ($counts.Failed + $counts.Cancelled) -gt 0
+        }
+        Write-LabBatchState -Batch $batch -StateRoot $StateRoot | Out-Null
+        return $batch
     }
-    elseif ($counts.CleanupQueued -gt 0) {
-        $status = 'CleanupQueued'
-    }
-    elseif ($terminal -eq $total -and $total -gt 0) {
-        $status = if (($counts.Failed + $counts.Cancelled) -gt 0) { 'CompletedWithErrors' } else { 'Completed' }
-    }
-    elseif (($counts.WaitingForUser + $counts.CandidateSatisfied) -gt 0 -and $counts.Running -eq 0) {
-        $status = 'Waiting'
-    }
-    elseif ($counts.Running -gt 0 -or $terminal -gt 0) {
-        $status = 'Running'
-    }
-    else {
-        $status = 'Queued'
-    }
-    $batch.status = $status
-    $batch.progress = [pscustomobject][ordered]@{
-        percent = $progress
-        total = $total
-        counts = [pscustomobject]$counts
-    }
-    $batch.errorStatus = [pscustomobject][ordered]@{
-        failed = $counts.Failed
-        cancelled = $counts.Cancelled
-        hasErrors = ($counts.Failed + $counts.Cancelled) -gt 0
-    }
-    Write-LabBatchState -Batch $batch -StateRoot $StateRoot | Out-Null
-    return $batch
 }
 
 function Get-LabPriorityRank {
