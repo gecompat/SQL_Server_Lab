@@ -17,6 +17,13 @@ foreach($setupPath in @('Private/AiPodmanSetup.ps1','Private/AiPodmanSetupProces
             'Invoke-AiPodmanSetupChecks.ps1' -in $selected.StaticChecks -and 'Invoke-AiPodmanSetupProcessChecks.ps1' -in $selected.StaticChecks)
     }
 }
+foreach($referencePath in @('Tests/Integration/Invoke-AiPodmanSamplesReferenceAcceptance.ps1','Tests\\Integration\\Invoke-AiPodmanSamplesReferenceAcceptance.ps1',
+    'Tests/Integration/Support/Invoke-AiPodmanSamplesReferenceWorker.ps1','Tests/Common/AiPodmanSamplesReferenceScenario.ps1','Tests/Common/AiPodmanSamplesReferenceSupervisor.ps1')) {
+    $selected = & $selector -ChangedPath @($referencePath)
+    Add-CheckResult -Name "Podman-Sample-Referenz bleibt providergebunden: $referencePath" -Success (
+        $selected.Podman -and -not $selected.Docker -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter -and
+        'Invoke-AiPodmanSamplesReferenceChecks.ps1' -in $selected.StaticChecks)
+}
 $setupShared=& $selector -ChangedPath @('Private/AiPodmanSetup.ps1','Private/AiEndpoint.ps1')
 Add-CheckResult -Name 'Podman-Erstellung unterdrückt keine gemeinsame KI-Providerprüfung' -Success ($setupShared.Docker -and $setupShared.Podman -and $setupShared.HyperV)
 $setupInfrastructure=& $selector -ChangedPath @('Private/AiPodmanSetup.ps1','Tools/Get-CiTestSelection.ps1')
@@ -388,6 +395,10 @@ Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die getrennte AI-Vecto
     $dockerWorkflow -match 'Invoke-AiVectorCoreAcceptance\.ps1\s+`?\s*-Provider docker' -and
     $podmanWorkflow -match 'Invoke-AiVectorCoreAcceptance\.ps1\s+`?\s*-Provider podman'
 )
+Add-CheckResult -Name 'Podman-Gate führt die Sample-Referenz unter dem bestehenden Runtime-Mutex aus' -Success (
+    $podmanWorkflow -match 'Invoke-AiPodmanSamplesReferenceAcceptance\.ps1\s+`\s+-RuntimeMutexAlreadyHeld' -and
+    $podmanWorkflow -match 'if \(\$aiSamplesExitCode -ne 0\)'
+)
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die getrennte Collation-Akzeptanz' -Success (
     $dockerWorkflow -match 'Invoke-ContainerCollationAcceptance\.ps1\s+`?\s*-Provider docker' -and
     $podmanWorkflow -match 'Invoke-ContainerCollationAcceptance\.ps1\s+`?\s*-Provider podman'
@@ -521,6 +532,20 @@ foreach($path in @('Private/RetainedStoreRemoval.ps1','Public/Invoke-SqlServerLa
         'Invoke-RetainedStoreRemovalConcurrencyChecks.ps1' -in $retained.StaticChecks)
 }
 
+foreach ($path in @('Tests/Common/SqlVersionUpgradeScenario.ps1','Tests/Common/SqlVersionUpgradeSupervisor.ps1',
+    'Tests/Integration/Invoke-SqlVersionUpgradeAcceptance.ps1','Tests/Integration/Invoke-SqlVersionUpgradeChild.ps1')) {
+    $upgrade=& $selector -ChangedPath @($path)
+    Add-CheckResult -Name "SQL upgrade reference selects both container providers: $path" -Success (
+        $upgrade.Docker -and $upgrade.Podman -and -not $upgrade.HyperV -and -not $upgrade.Mixed -and
+        -not $upgrade.Adapter -and 'Invoke-SqlVersionUpgradeScenarioChecks.ps1' -in $upgrade.StaticChecks -and
+        'Invoke-SqlVersionUpgradeSupervisorChecks.ps1' -in $upgrade.StaticChecks -and 'Invoke-BackupLibraryChecks.ps1' -in $upgrade.StaticChecks)
+}
+foreach ($provider in @('docker','podman')) {
+    $workflow=Get-Content (Join-Path $repoRoot ('.github/workflows/runtime-smoke-'+$provider+'.yml')) -Raw
+    Add-CheckResult -Name "$provider workflow invokes supervised upgrade within existing runtime mutex" -Success (
+        $workflow -match ('Invoke-SqlVersionUpgradeAcceptance\.ps1\s+`\s+-Provider '+$provider+'\s+`\s+-RuntimeMutexAlreadyHeld') -and
+         $workflow -match 'if \(\$upgradeExitCode -ne 0\)')
+ }
 if ($failures.Count -gt 0) {
     Write-Host "`nErgebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Red
     foreach ($failure in $failures) { Write-Host "  - $failure" -ForegroundColor Red }

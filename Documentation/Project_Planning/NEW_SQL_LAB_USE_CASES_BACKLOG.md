@@ -69,6 +69,15 @@ Ein Kandidat erhält eine hohe Priorität, wenn er:
 
 ### 1. Upgrade- und Regressionslab
 
+Ein enger [SQL-2022-/SQL-2025-Referenztest](../Quality/SQL_VERSION_UPGRADE_REFERENCE.md)
+ist implementiert: eigene synthetische Quelle und neues Ziel, öffentlicher
+BackupSetId-Transfer, erhaltene Kompatibilität 160 vor separatem Wechsel auf 170,
+feste funktionale Prüfungen, beobachtete Dauern und operationsgebundenes Cleanup.
+Die getrennte native Docker-/Podman-Abnahme bestand am 2026-09-21 auf `46340200`;
+der unabhängige Nachlauf bestätigte je Provider zwei entfernte Own-Runs und keine
+Runtime-Residuen. Query-Store-Auswertung, Anwendungs-/Planregressionen und weitere
+Versionspaare dieser breiteren Planung sind damit noch nicht umgesetzt.
+
 Dieses Szenario besitzt den höchsten unmittelbaren Nutzen und verwendet bereits
 vorhandene SQL-Versionen, Restore, Query Store, Workloads und Provider. Der
 erste Slice soll:

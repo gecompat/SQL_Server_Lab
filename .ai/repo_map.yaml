@@ -94,6 +94,11 @@ sources_of_truth:
   ai_persistent_retrieval_contract: Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md
   validation_ai_persistent_retrieval: Tests/Static/Invoke-AiPersistentRetrievalChecks.ps1
   acceptance_ai_persistent_retrieval: Tests/Integration/Invoke-AiPersistentRetrievalAcceptance.ps1
+  acceptance_ai_podman_samples_reference: Tests/Integration/Invoke-AiPodmanSamplesReferenceAcceptance.ps1
+  acceptance_ai_podman_samples_worker: Tests/Integration/Support/Invoke-AiPodmanSamplesReferenceWorker.ps1
+  acceptance_ai_podman_samples_supervisor: Tests/Common/AiPodmanSamplesReferenceSupervisor.ps1
+  acceptance_ai_podman_samples_scenario: Tests/Common/AiPodmanSamplesReferenceScenario.ps1
+  validation_ai_podman_samples_reference: Tests/Static/Invoke-AiPodmanSamplesReferenceChecks.ps1
   ai_reembedding_plan_contract: Private/AiReembedding.ps1
   ai_reembedding_plan_schema: Schemas/ai-reembedding-plan.schema.json
   ai_reembedding_journal_schema: Schemas/ai-reembedding-journal.schema.json
@@ -1787,6 +1792,18 @@ validation:
       - physical_host_backing_vhdx_and_configuration
       - runtime_image_container_volume_build_cache_inventory
       - before_after_resource_fingerprint_unchanged
+  sql_version_upgrade_reference:
+    source: Tests/Integration/Invoke-SqlVersionUpgradeAcceptance.ps1
+    child: Tests/Integration/Invoke-SqlVersionUpgradeChild.ps1
+    orchestration: Tests/Common/SqlVersionUpgradeScenario.ps1
+    supervisor: Tests/Common/SqlVersionUpgradeSupervisor.ps1
+    validation: Tests/Static/Invoke-SqlVersionUpgradeScenarioChecks.ps1
+    supervisor_validation: Tests/Static/Invoke-SqlVersionUpgradeSupervisorChecks.ps1
+    contract: Documentation/Quality/SQL_VERSION_UPGRADE_REFERENCE.md
+    docker: '.\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker'
+    podman: '.\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider podman'
+    execution_status: "validated_reference; native Docker and Podman passed 2026-09-21 on 46340200; runtime cleanup verified, private temporary evidence retained"
+    scope: "own SQL 2022 major16 compat160 -> registered full BackupSetId -> new SQL 2025 major17 compat160 -> explicit compat170; fixed rows, aggregates, rollback, constraints, CHECKDB, unchanged source; operation/runtime-bound bounded cleanup"
   relational_core_comparison:
     source: Private/RelationalCoreComparison.ps1
     public_command: Public/Test-SqlServerLabRelationalCoreComparison.ps1

@@ -10,11 +10,13 @@ $repoRoot=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 . (Join-Path $repoRoot 'Private/ConsoleUi.ps1')
 . (Join-Path $repoRoot 'Private/ActionProgress.ps1')
 . (Join-Path $repoRoot 'Private/SqlReadiness.ps1')
+. (Join-Path $repoRoot 'Private/BackupLibrary.ps1')
 $calls=[Collections.Generic.List[object]]::new()
 $behavior=[pscustomobject]@{ExitCode=0;Output=@('synthetic-result');Failure='';Available=$true}
 $commandResolver=Get-Command Get-Command
 function Write-LabInfo { param($Message) }
 function Write-LabSuccess { param($Message) }
+function sqlcmd { throw 'DIRECT_SQLCMD_BYPASSES_BOUNDED_RUNNER' }
 function Get-Command {
     [CmdletBinding()]
     param($Name,$CommandType)
@@ -45,6 +47,25 @@ $credential=[securestring]::new()
 $credential.AppendChar([char]83)
 try {
     $synthetic = '-OnlySynthetic A1!"\ä$;'
+    $behavior.Output=@('16|2|0|0|0')
+    $metadata=Get-LabDatabaseBackupMetadata -Port 1433 -SaPlain $synthetic -DatabaseName SyntheticBackup
+    $metadataCall=$calls[-1]
+    Assert-SqlProgress ($metadata.SqlMajorVersion -eq '16' -and $metadata.FileCount -eq 2 -and -not $metadata.IsEncrypted) 'Backup-Metadaten behalten ihren strukturierten Ergebnisvertrag'
+    Assert-SqlProgress ($metadataCall.Args -ccontains ('-P'+$synthetic) -and $metadataCall.Args -cnotcontains '-P') 'Backup-Metadaten binden fuehrendes Minus und Sonderzeichen unveraendert'
+    Assert-SqlProgress ($metadataCall.Timeout -eq 60 -and $metadataCall.Args[[array]::IndexOf($metadataCall.Args,'-l')+1] -eq '15' -and $metadataCall.Args[[array]::IndexOf($metadataCall.Args,'-t')+1] -eq '45') 'Backup-Metadaten begrenzen Login, Query und Prozess'
+    foreach($failureCase in @(
+        @{Exit=9;Output=@('synthetic failure');Failure='';Expected='BACKUP_METADATA_QUERY_FAILED'},
+        @{Exit=0;Output=@('Msg 50000, Level 16, State 1');Failure='';Expected='BACKUP_METADATA_QUERY_FAILED'},
+        @{Exit=0;Output=@('invalid result');Failure='';Expected='BACKUP_METADATA_RESULT_INVALID'},
+        @{Exit=0;Output=@();Failure='LAB_NATIVE_OPERATION_TIMEOUT';Expected='BACKUP_METADATA_QUERY_FAILED: SQLCMD_OPERATION_TIMEOUT'}
+    )) {
+        $behavior.ExitCode=$failureCase.Exit; $behavior.Output=$failureCase.Output; $behavior.Failure=$failureCase.Failure
+        $rejected=$false
+        try { $null=Get-LabDatabaseBackupMetadata -Port 1433 -SaPlain $synthetic -DatabaseName SyntheticBackup }
+        catch { $rejected=$_.Exception.Message.StartsWith($failureCase.Expected) }
+        Assert-SqlProgress ($rejected -and -not [IO.File]::Exists($calls[-1].OutputPath)) 'Backup-Metadaten bewahren Fehler und entfernen die Ergebnisdatei'
+    }
+    $behavior.ExitCode=0; $behavior.Output=@('synthetic-result'); $behavior.Failure=''
     $credential.Dispose()
     $credential=[securestring]::new()
     foreach($character in $synthetic.ToCharArray()) { $credential.AppendChar($character) }

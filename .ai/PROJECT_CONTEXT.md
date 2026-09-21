@@ -8,6 +8,14 @@
 | Repository | `gecompat/SQL_Server_Lab` |
 | Maschinenlesbare Landkarte | [`repo_map.yaml`](repo_map.yaml) |
 
+Die feste [SQL-Version-Upgrade-Referenz](../Documentation/Quality/SQL_VERSION_UPGRADE_REFERENCE.md)
+überträgt eine eigene synthetische SQL-2022-Datenbank über die öffentliche
+Backup-Bibliothek auf einen neuen SQL-2025-Container. Compatibility Level 160
+bleibt zunächst erhalten; der Wechsel auf 170 wird separat funktional geprüft.
+Die getrennten nativen Docker-/Podman-Referenzläufe bestanden am 2026-09-21 auf
+`46340200` mit eigener Operation-/Runtimebindung und Runtime-Cleanup. Die
+beobachteten Restore-Dauern sind kein Performance-Benchmark; allgemeine
+Migration bleibt unverändert.
 ## 1. Ziel
 
 `SQL_Server_Lab` ist die gemeinsame Plattform für lokale, isolierte und reproduzierbare SQL-Server-Testumgebungen.
@@ -233,13 +241,15 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Zertifikat-Pinning sowie den realen `HttpClient`-Retrypfad ohne globale
   Trust-Store-Mutation. Das
   versionierte Golden Dataset bindet synthetische Fragen, Dokumente, Modelle,
-  Top-k und Schwellen an den RAG-Plan sowie dessen deterministische Auswertung;
-  Docker ist dafür nativ belegt, während der getrennte Podman-Nachweis vor der
-  RAG-Ausführung an einem zeitlich begrenzten Modell-Pull endete. Das bestehende
-  KI-Untermenü bietet geführte Vector-, Retrieval-, Golden-RAG- und read-only
-  Agent-Demos über exakt diese Produkt- und CI-Verträge; die Retrieval-Demo ist
-  modell- und netzwerkfrei.
-  Cloud-Embeddings, TLS-Gateway, ONNX und ANN bleiben offen;
+  Top-k und Schwellen an den RAG-Plan sowie dessen deterministische Auswertung.
+  Der feste Golden-v1-Fall `backup-frequency` ist am 2026-09-21 getrennt unter
+  Docker und Podman nativ belegt; weitere Golden-Fälle bleiben offen. Das
+  bestehende KI-Untermenü bietet geführte Vector-, Retrieval-, Golden-RAG- und
+  read-only Agent-Demos über exakt diese Produkt- und CI-Verträge; die
+  Retrieval-Demo ist modell- und netzwerkfrei. Der SQL-seitige HTTPS-Slice ist
+  ausschließlich als interner Docker-Loopback-Referenzfall belegt; er eröffnet
+  keine allgemeine Gateway- oder Podman-Fähigkeit. Cloud-Embeddings, ONNX und
+  ANN bleiben offen;
 - Start, Stop, Restart, Status, Remove und Clear;
 - read-only Desired/Actual/Diff-Reconcile, kontrollierte START-/STOP-Aktionen
   sowie journalisierter Container-Reconcile für CPU, RAM, SQL `max server

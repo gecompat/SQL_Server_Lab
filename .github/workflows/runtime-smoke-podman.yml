@@ -96,6 +96,12 @@ jobs:
               $pitrExitCode = $LASTEXITCODE
               if ($pitrExitCode -ne 0) { throw "Podman Point-in-Time-Recovery-Akzeptanz endete mit Exitcode $pitrExitCode." }
 
+
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 `
+                -Provider podman `
+                -RuntimeMutexAlreadyHeld 2>&1 | Tee-Object -FilePath $logPath -Append
+              $upgradeExitCode = $LASTEXITCODE
+              if ($upgradeExitCode -ne 0) { throw "SQL version upgrade reference failed (exit $upgradeExitCode)." }
               & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
                 -Provider podman `
                 -Version 2025 2>&1 | Tee-Object -FilePath $logPath -Append
@@ -137,6 +143,11 @@ jobs:
                 -Provider podman 2>&1 | Tee-Object -FilePath $logPath -Append
               $aiVectorExitCode = $LASTEXITCODE
               if ($aiVectorExitCode -ne 0) { throw "Podman AI-Vector-Core-Akzeptanz endete mit Exitcode $aiVectorExitCode." }
+
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-AiPodmanSamplesReferenceAcceptance.ps1 `
+                -RuntimeMutexAlreadyHeld 2>&1 | Tee-Object -FilePath $logPath -Append
+              $aiSamplesExitCode = $LASTEXITCODE
+              if ($aiSamplesExitCode -ne 0) { throw "Podman AI-Sample-Referenz endete mit Exitcode $aiSamplesExitCode." }
             }
           }
           finally {
