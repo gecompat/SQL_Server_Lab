@@ -1041,6 +1041,12 @@ providers:
     resource_migration_acceptance: Tests/Integration/Invoke-HyperVResourceMigrationAcceptance.ps1
     image_migration_static_checks: Tests/Static/Invoke-HyperVImageMigrationChecks.ps1
     sql_prepared_build_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedImageAcceptance.ps1
+    sql_prepared_locale_acceptance: Tests/Integration/Invoke-HyperVSqlPreparedLocaleAcceptance.ps1
+    sql_prepared_locale_ci: Tests/Integration/Invoke-HyperVSqlPreparedLocaleCiAcceptance.ps1
+    sql_prepared_locale_common: Tests/Common/HyperVPreparedLocaleAcceptance.ps1
+    sql_prepared_locale_supervisor: Tests/Common/HyperVPreparedLocaleSupervisor.ps1
+    sql_prepared_locale_supervisor_checks: Tests/Static/Invoke-HyperVPreparedLocaleSupervisorChecks.ps1
+    sql_prepared_locale_static_checks: Tests/Static/Invoke-HyperVSqlPreparedLocaleAcceptanceChecks.ps1
     test_database_reconcile_acceptance: "Tests/Integration/Invoke-HyperVTestDatabaseReconcileAcceptance.ps1 plus isolierter Prepared-Artifact-Bootstrap; ausfuehrbarer Plan/WhatIf/Add/No-op/Remove-/Restart-/Cleanup-Vertrag mit prozesslokal isolierter LAB_GENERATED-Erzeugung, Hashprüfung, bevorzugter Wiederverwendung, stabiler Host-SQL-Readiness nach VM-Neustart und zweitem eigentumsgebundenem Cleanup; nativer positiver Nachweis am 2026-09-12"
     sample_manifest_acceptance: "Tests/Integration/Invoke-HyperVSampleManifestAcceptance.ps1 und sein manueller main-gebundener CI-Wrapper; erfolgreicher Main-Lauf 34790092466 auf Commit 95c5a79c: zwei frische sequenzielle SQL-2025-Prepared-Manifest-Runs mit einem isolierten Testdatenroot, Chinook (sql-server) und Northwind (script), katalog-/hashgebundenen Quellen, LAB_GENERATED-Baseline-ID/Key/Hash- und manifest.lock-Gleichheit im zweiten Run sowie scopegebundenem Cleanup; weitere Hyper-V-Sample-Varianten bleiben getrennt"
     external_runtime_reconcile_static_checks: "Tests/Static/Invoke-HyperVExternalRuntimeReconcileChecks.ps1; Plan/WhatIf/Add/No-op/Recovery/Resume/Removal-Blockade und PlanKey-gebundener Connection-State"
