@@ -99,6 +99,7 @@ end {
         @{ Pattern = '(?i)(ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioContractChecks.ps1') },
         @{ Pattern = '(?i)(ScenarioExecutor|scenario-execution|ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioExecutorChecks.ps1','Invoke-ScenarioContractChecks.ps1') },
         @{ Pattern = '(?i)(ScenarioCapabilityDecision|scenario-capability-(plan|decision)|SCENARIO_CAPABILITY_DECISION|ScenarioContract|scenario-contract|SCENARIO_CONTRACT_BACKLOG)'; Checks = @('Invoke-ScenarioCapabilityDecisionChecks.ps1','Invoke-ScenarioContractChecks.ps1') },
+        @{ Pattern = '(?i)(PointInTimeRecovery|point-in-time-recovery|PITR)'; Checks = @('Invoke-PointInTimeRecoveryScenarioChecks.ps1','Invoke-PointInTimeRecoverySupervisorChecks.ps1') },
         @{ Pattern = '(?i)(AiVectorIndexAcceptance|Fixtures[\\/]VectorIndex[\\/])'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
         @{ Pattern = '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(StateUpgrade|state-upgrade|StateMachine)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
@@ -197,6 +198,7 @@ end {
             if ($runtimePath -match '(?i)ContainerNetworkCleanup') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(^Providers/Docker/|runtime-smoke-docker\.yml|Invoke-Smoke(Matrix|Test)|Invoke-RestoreSmokeTest|BatchWorkflow|BatchConsole|lab-batch)') { $pathRuntime.Docker = $true }
             if ($runtimePath -match '(?i)(^Providers/Podman/|runtime-smoke-podman\.yml|PodmanBootstrap|Initialize-PodmanRuntime)') { $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(PointInTimeRecovery|point-in-time-recovery|PITR)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(^Private[\\/]ExternalRuntimeReconcile|^Tests[\\/]Static[\\/]Invoke-ExternalRuntimeReconcileChecks|Invoke-ExternalRuntimeContainerAcceptance|Public[\\/]Invoke-SqlServerLabReconcileAction)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(HyperVExternalRuntimeReconcile|hyperv-external-runtime-reconcile|Public[\\/]Invoke-SqlServerLabReconcileAction)') { $pathRuntime.HyperV = $true }

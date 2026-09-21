@@ -114,6 +114,12 @@ Add-CheckResult -Name 'Batch-Aenderung aktiviert Batch-Vertrag und repraesentati
     $batchWorkflow.Docker -and 'Invoke-BatchWorkflowChecks.ps1' -in $batchWorkflow.StaticChecks
 )
 
+$pitrScenario = & $selector -ChangedPath @('Tests/Integration/Invoke-PointInTimeRecoveryAcceptance.ps1')
+Add-CheckResult -Name 'PITR-Referenz aktiviert nur ihren Vertrag sowie Docker und Podman' -Success (
+    'Invoke-PointInTimeRecoveryScenarioChecks.ps1' -in $pitrScenario.StaticChecks -and
+    $pitrScenario.Docker -and $pitrScenario.Podman -and -not $pitrScenario.HyperV -and -not $pitrScenario.Mixed -and -not $pitrScenario.Adapter
+)
+
 $containerReconcile = & $selector -ChangedPath @('Private/ContainerReconcile.ps1')
 Add-CheckResult -Name 'Container-Reconcile aktiviert Vertrag sowie Docker- und Podman-Akzeptanz' -Success (
     $containerReconcile.Docker -and $containerReconcile.Podman -and
@@ -361,6 +367,10 @@ $hyperVWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflo
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten den realen Batch-Smoke' -Success (
     $dockerWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`?\s*-Provider docker' -and
     $podmanWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`?\s*-Provider podman'
+)
+Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die PITR-Referenz' -Success (
+    $dockerWorkflow -match 'Invoke-PointInTimeRecoveryAcceptance\.ps1\s+`?\s*-Provider docker' -and
+    $podmanWorkflow -match 'Invoke-PointInTimeRecoveryAcceptance\.ps1\s+`?\s*-Provider podman'
 )
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die getrennte AI-Vector-Core-Abnahme' -Success (
     $dockerWorkflow -match 'Invoke-AiVectorCoreAcceptance\.ps1\s+`?\s*-Provider docker' -and

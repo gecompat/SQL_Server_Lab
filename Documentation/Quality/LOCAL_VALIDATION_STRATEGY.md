@@ -1402,8 +1402,19 @@ Ein nicht verfügbarer Provider darf nicht als `PASS` behandelt werden.
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider docker
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider docker
+.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider docker
 .\Tests\Integration\Invoke-SmokeMatrix.ps1
 ```
+
+Die PITR-Referenz prüft ausschließlich einen neuen eigenen SQL-2025-Container:
+Full vor gutem Commit, SQL-Serverzeit-Cutoff in `datetime`-Präzision, getrennter
+fehlerhafter Commit und erst danach Log-Backup. Offline werden der tatsächliche
+orchestrierte SQL-Ablauf, mehrere Resultsets, Quelle nach Restore, Cleanup trotz
+verlorener New-Rückgabe sowie echte Kindprozesse mit Timeout/Abbruch geprüft.
+Arrange und Cleanup sind separat begrenzt; Rohlogs bleiben im geschützten lokalen
+Temp-Root. Die gemeinsame Selektoränderung verlangt den bestehenden breiten
+CI-Gate; die neue PITR-Capability selbst benötigt nur Docker und Podman.
+Ein Offline-PASS ersetzt keinen der beiden noch offenen nativen Provider-Nachweise.
 
 ### Host-Tool-Auflösung betroffen
 
@@ -1440,6 +1451,7 @@ wenn deren API bis zum Ende der Poll-Wartezeit unerreichbar bleibt.
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 .\Tests\Integration\Invoke-SmokeTest.ps1 -Provider podman
 .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -Provider podman
+.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider podman
 .\Tests\Integration\Invoke-SmokeMatrix.ps1
 ```
 

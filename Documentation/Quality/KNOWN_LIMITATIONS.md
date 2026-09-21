@@ -1164,6 +1164,15 @@ Nicht automatisch unterstützt werden:
 - verschlüsselte Backups mit externen Zertifikaten
 - komplexe Mehrfach-Backup-Sets
 
+Die separate PITR-Testreferenz `Invoke-PointInTimeRecoveryAcceptance.ps1` erweitert
+diesen öffentlichen Restorevertrag nicht. Sie verwendet ausschließlich einen
+frischen eigenen SQL-2025-Docker-/Podman-Run mit festen synthetischen Zeilen und
+containerlokaler Full-/Log-Kette. Die korrigierte Offline-Abnahme prüft Ablauf,
+Serverzeit-Cutoff, exakten Inhalt, verlorene New-Rückgabe und überwachten Cleanup.
+Getrennte native Docker- und Podman-Nachweise stehen noch aus. Nach hartem Ende
+des Supervisor-Prozesses bleiben lokale Operation-/Run-Evidence für Recovery
+erhalten; eine automatische Fortsetzung nach Verlust des Parents wird nicht behauptet.
+
 Bei manuellen Restores ist `-RunId` mit optionaler `-InstanceId` die bevorzugte Identitaet. Provider, Container, Host und Port werden dabei aus der gespeicherten `connection-info.json` aufgeloest. Der direkte Modus mit `-Port` bleibt fuer externe Aufrufer erhalten; ohne `-ContainerName` verwendet er die portbasierte Containererkennung.
 
 ## Sample-Datenbanken

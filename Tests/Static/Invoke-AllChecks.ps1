@@ -69,6 +69,8 @@ $checks = @(
     'Invoke-ScenarioContractChecks.ps1',
     'Invoke-ScenarioExecutorChecks.ps1',
     'Invoke-ScenarioCapabilityDecisionChecks.ps1',
+    'Invoke-PointInTimeRecoveryScenarioChecks.ps1',
+    'Invoke-PointInTimeRecoverySupervisorChecks.ps1',
     'Invoke-ContainerCpuFaultChecks.ps1',
     'Invoke-ContainerInstanceStoreChecks.ps1',
     'Invoke-ContainerRuntimeScopeChecks.ps1',
