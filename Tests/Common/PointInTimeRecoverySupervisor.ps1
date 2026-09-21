@@ -24,7 +24,7 @@ function New-PitrSupervisorRoot {
         Set-Acl -LiteralPath $root -AclObject $acl
     }
     if (-not $IsWindows) {
-        $chmod=(Get-Command chmod -CommandType Application -ErrorAction Stop).Source
+        $chmod=@(Get-Command chmod -CommandType Application -ErrorAction Stop)[0].Source
         & $chmod 700 $root 1>$null 2>$null
         if ($LASTEXITCODE -ne 0) { throw 'PITR_SUPERVISOR_ROOT_PERMISSIONS_FAILED' }
     }
