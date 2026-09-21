@@ -15,13 +15,19 @@ function Assert-Rejected {
     Add-CheckResult -Name $Name -Success $rejected
 }
 try {
+    $workerPath=Join-Path $PSScriptRoot '../Integration/Support/Invoke-AiPodmanSamplesReferenceWorker.ps1'
     foreach($path in @($helper,(Join-Path $PSScriptRoot '../Common/AiPodmanSamplesReferenceSupervisor.ps1'),
         (Join-Path $PSScriptRoot '../Integration/Invoke-AiPodmanSamplesReferenceAcceptance.ps1'),
-        (Join-Path $PSScriptRoot '../Integration/Support/Invoke-AiPodmanSamplesReferenceWorker.ps1'))){
+        $workerPath)){
         $tokens=$null;$errors=$null
         $null=[Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)
         Add-CheckResult -Name ('Syntax '+[IO.Path]::GetFileName($path)) -Success ($errors.Count -eq 0)
     }
+    $tokens=$null;$errors=$null
+    $workerAst=[Management.Automation.Language.Parser]::ParseFile($workerPath,[ref]$tokens,[ref]$errors)
+    $restartCommands=@($workerAst.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -ceq 'Restart-SqlServerLab'},$true))
+    $restartParameters=@($restartCommands[0].CommandElements|Where-Object {$_ -is [Management.Automation.Language.CommandParameterAst]}|ForEach-Object ParameterName)
+    Add-CheckResult -Name 'Restart verwendet nur den öffentlichen StateRoot-losen Vertrag' -Success ($restartCommands.Count -eq 1 -and $restartParameters -cnotcontains 'StateRoot' -and $restartParameters -ccontains 'RunId')
     $module=New-Module -ArgumentList $helper -ScriptBlock {
         param($Helper)
         . $Helper

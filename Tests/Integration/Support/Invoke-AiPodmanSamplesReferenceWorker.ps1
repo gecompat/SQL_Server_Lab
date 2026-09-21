@@ -38,7 +38,7 @@ try {
         $applied=Invoke-SqlServerLabAiPersistentRetrieval @retrievalArguments -FixtureRevision Initial
         $query=Invoke-SqlServerLabAiPersistentRetrieval @retrievalArguments -Action Query -QueryId backup
         if($applied.Status -cne 'COMMITTED' -or $query.Status -cne 'QUERIED' -or $query.Ranked[0].ChunkId -cne 'backup-policy'){throw 'SAMPLES_RETRIEVAL_FAILED'}
-        $restart=Restart-SqlServerLab -RunId $lab.RunId -StateRoot $record.StateRoot -TimeoutSeconds 180 -Force -Confirm:$false
+        $restart=Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 180 -Force -Confirm:$false
         if($restart.Status -cne 'RUNNING' -or $restart.Errors){throw 'SAMPLES_RESTART_FAILED'}
         $afterBinding=Assert-LabTransferBinding -Expected $identity -StateRoot $record.StateRoot -OperationId $Operation
         $after=Get-AiPodmanSamplesContentEvidence -Binding $afterBinding -StateRoot $record.StateRoot
