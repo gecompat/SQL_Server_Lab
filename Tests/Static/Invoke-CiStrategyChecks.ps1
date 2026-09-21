@@ -17,6 +17,13 @@ foreach($setupPath in @('Private/AiPodmanSetup.ps1','Private/AiPodmanSetupProces
             'Invoke-AiPodmanSetupChecks.ps1' -in $selected.StaticChecks -and 'Invoke-AiPodmanSetupProcessChecks.ps1' -in $selected.StaticChecks)
     }
 }
+foreach($referencePath in @('Tests/Integration/Invoke-AiPodmanSamplesReferenceAcceptance.ps1','Tests\\Integration\\Invoke-AiPodmanSamplesReferenceAcceptance.ps1',
+    'Tests/Integration/Support/Invoke-AiPodmanSamplesReferenceWorker.ps1','Tests/Common/AiPodmanSamplesReferenceScenario.ps1','Tests/Common/AiPodmanSamplesReferenceSupervisor.ps1')) {
+    $selected = & $selector -ChangedPath @($referencePath)
+    Add-CheckResult -Name "Podman-Sample-Referenz bleibt providergebunden: $referencePath" -Success (
+        $selected.Podman -and -not $selected.Docker -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter -and
+        'Invoke-AiPodmanSamplesReferenceChecks.ps1' -in $selected.StaticChecks)
+}
 $setupShared=& $selector -ChangedPath @('Private/AiPodmanSetup.ps1','Private/AiEndpoint.ps1')
 Add-CheckResult -Name 'Podman-Erstellung unterdrückt keine gemeinsame KI-Providerprüfung' -Success ($setupShared.Docker -and $setupShared.Podman -and $setupShared.HyperV)
 $setupInfrastructure=& $selector -ChangedPath @('Private/AiPodmanSetup.ps1','Tools/Get-CiTestSelection.ps1')

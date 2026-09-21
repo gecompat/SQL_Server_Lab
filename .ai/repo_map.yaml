@@ -94,6 +94,11 @@ sources_of_truth:
   ai_persistent_retrieval_contract: Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md
   validation_ai_persistent_retrieval: Tests/Static/Invoke-AiPersistentRetrievalChecks.ps1
   acceptance_ai_persistent_retrieval: Tests/Integration/Invoke-AiPersistentRetrievalAcceptance.ps1
+  acceptance_ai_podman_samples_reference: Tests/Integration/Invoke-AiPodmanSamplesReferenceAcceptance.ps1
+  acceptance_ai_podman_samples_worker: Tests/Integration/Support/Invoke-AiPodmanSamplesReferenceWorker.ps1
+  acceptance_ai_podman_samples_supervisor: Tests/Common/AiPodmanSamplesReferenceSupervisor.ps1
+  acceptance_ai_podman_samples_scenario: Tests/Common/AiPodmanSamplesReferenceScenario.ps1
+  validation_ai_podman_samples_reference: Tests/Static/Invoke-AiPodmanSamplesReferenceChecks.ps1
   ai_reembedding_plan_contract: Private/AiReembedding.ps1
   ai_reembedding_plan_schema: Schemas/ai-reembedding-plan.schema.json
   ai_reembedding_journal_schema: Schemas/ai-reembedding-journal.schema.json
