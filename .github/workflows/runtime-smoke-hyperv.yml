@@ -44,6 +44,7 @@ on:
           - sql-storage-reconcile-acceptance
           - sql-port-reconcile-acceptance
           - resource-reconcile-acceptance
+          - resource-reconcile-own-run-acceptance
           - storage-reconcile-acceptance
           - sample-manifest-acceptance
           - external-runtime-reconcile-acceptance
@@ -55,6 +56,10 @@ on:
         default: true
       ai_state_root:
         description: Expliziter bestehender State Root für KI-Artifactkatalog und eigenen neuen Run; leer verwendet Runnerkonfiguration
+        required: false
+        type: string
+      resource_state_root:
+        description: Expliziter bestehender State Root für die Resource-Own-Run-Abnahme; leer verwendet Runnerkonfiguration
         required: false
         type: string
       capture_state_root:
@@ -254,6 +259,21 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           throw 'HYPERV_RESOURCE_RECONCILE_CI_MANUAL_MAIN_REQUIRED'
+      - name: Reject resource reconcile own-run acceptance outside trusted manual dispatch
+        if: inputs.mode == 'resource-reconcile-own-run-acceptance' && !(github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository)
+        run: |
+          $ErrorActionPreference = 'Stop'
+          throw 'HYPERV_RESOURCE_OWN_RUN_MANUAL_DISPATCH_REQUIRED'
+      - name: Hyper-V resource reconcile own-run acceptance
+        if: inputs.mode == 'resource-reconcile-own-run-acceptance' && github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository
+        env:
+          SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+          SQL_SERVER_LAB_CI_CLONE_SOURCE_RUN_ID: ${{ inputs.clone_source_run_id }}
+          SQL_SERVER_LAB_CI_EVENT_REPOSITORY: ${{ github.event.repository.full_name }}
+          SQL_SERVER_LAB_CI_RESOURCE_STATE_ROOT: ${{ inputs.resource_state_root }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Integration\Invoke-HyperVResourceReconcileOwnRunAcceptance.ps1 -ArtifactId $env:SQL_SERVER_LAB_CI_IMAGE_ARTIFACT_ID -StateRoot $env:SQL_SERVER_LAB_CI_RESOURCE_STATE_ROOT
       - name: Hyper-V resource reconcile acceptance
         if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.mode == 'resource-reconcile-acceptance'
         env:

@@ -234,6 +234,8 @@ sources_of_truth:
   validation_hyperv_network_reconnect_static: Tests/Static/Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1
   validation_hyperv_existing_network_fixture: Tests/Common/HyperVExistingNetworkFixture.ps1
   hyperv_resource_reconcile_contract: Private/HyperVResourceReconcile.ps1
+  hyperv_resource_reconcile_own_run_acceptance: Tests/Integration/Invoke-HyperVResourceReconcileOwnRunAcceptance.ps1
+  hyperv_resource_reconcile_own_run_contract: Documentation/Architecture/HYPERV_RESOURCE_RECONCILE_OWN_RUN_ACCEPTANCE.md
   hyperv_resource_reconcile_journal_schema: Schemas/hyperv-resource-reconcile-journal.schema.json
   validation_hyperv_resource_reconcile: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1
   validation_hyperv_resource_reconcile_acceptance: Tests/Integration/Invoke-HyperVResourceReconcileAcceptance.ps1
@@ -1033,6 +1035,7 @@ providers:
     resource_binding_static_checks: Tests/Static/Invoke-HyperVResourceBindingChecks.ps1
     resource_migration_static_checks: Tests/Static/Invoke-HyperVResourceMigrationChecks.ps1
     resource_reconcile_static_checks: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1
+    resource_reconcile_own_run_native: "35564131935; 2026-09-21; a4510f5c; eigene Windows-2025-/SQL-2025-Developer-Runs, Live/Restart, injizierter VM-ID-gebundener Pre-Start-Fehler, Resume und persistenter SQL-Marker; Cleanup je 3/0; keine reale Plattformfehlersimulation"
     storage_reconcile_static_checks: Tests/Static/Invoke-HyperVStorageReconcileChecks.ps1
     storage_reconcile_acceptance: "Tests/Integration/Invoke-HyperVStorageReconcileAcceptance.ps1; manueller Main-Nachweis fuer einen operationseigenen Windows-2025-Clone, SCSI-Hostbindung, Gast-Receipt, Restart, No-op und Cleanup; Grow-only bleibt synthetisch belegt, SQL-Dateipfad-Rebinding bleibt HV-603A"
     sql_storage_reconcile_static_checks: Tests/Static/Invoke-HyperVSqlStorageReconcileChecks.ps1

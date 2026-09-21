@@ -168,6 +168,50 @@ try {
         $results.Unmarked.Status -eq 'BLOCKED' -and @($results.Unmarked.Blockers) -contains 'RUN_STATE_UPGRADE_SYNTHETIC_FIXTURE_REQUIRED')
     Add-CheckResult -Name 'Upgrade-Plan gibt keinen lokalen State-Root aus' -Success (
         ($results | ConvertTo-Json -Depth 20) -notmatch [regex]::Escape($temporaryRoot))
+
+    foreach ($case in @(
+        @{ Id='string-false'; Marker='false'; Version=$null },
+        @{ Id='string-true'; Marker='true'; Version=$null },
+        @{ Id='numeric-one'; Marker=1; Version=$null },
+        @{ Id='boolean-false'; Marker=$false; Version=$null },
+        @{ Id='current-incomplete'; Marker=$null; Version='SqlServerLab.RunState/1.0' }
+    )) {
+        $directory=Join-Path (Join-Path $temporaryRoot 'runs') $case.Id
+        New-Item -ItemType Directory -Path $directory | Out-Null
+        $state=@{runId=$case.Id;scopeId='synthetic';state='STOPPED';metadata=@{syntheticStateFixture=$case.Marker}}
+        if ($case.Version) { $state.contractVersion=$case.Version }
+        $path=Join-Path $directory 'run-state.json'
+        $state | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $path -Encoding utf8
+        $before=(Get-FileHash -LiteralPath $path).Hash
+        $plan=Get-SqlServerLabRunStateUpgradePlan -RunId $case.Id -StateRoot $temporaryRoot
+        $execution=Invoke-SqlServerLabRunStateUpgrade -RunId $case.Id -StateRoot $temporaryRoot -Confirm:$false
+        Add-CheckResult -Name "Unzulässiger Upgrade-Quellstate $($case.Id) bleibt ohne Schreibzugriff blockiert" -Success (
+            $plan.Status -eq 'BLOCKED' -and $execution.Status -eq 'BLOCKED' -and
+            $before -eq (Get-FileHash -LiteralPath $path).Hash -and @(Get-ChildItem -LiteralPath $directory -File).Count -eq 1)
+    }
+    foreach ($field in @('scopeId','state','providerSubRuns','unexpected')) {
+        $id="resume-changed-$field"
+        $directory=Join-Path (Join-Path $temporaryRoot 'runs') $id
+        New-Item -ItemType Directory -Path $directory | Out-Null
+        $path=Join-Path $directory 'run-state.json'
+        @{runId=$id;scopeId='synthetic';state='STOPPED';metadata=@{syntheticStateFixture=$true}} |
+            ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $path -Encoding utf8
+        $null=Invoke-SqlServerLabRunStateUpgrade -RunId $id -StateRoot $temporaryRoot -Confirm:$false
+        $journalFile=Get-ChildItem -LiteralPath $directory -Filter '*.journal.json' | Select-Object -First 1
+        $journal=Get-Content -LiteralPath $journalFile.FullName -Raw | ConvertFrom-Json
+        $journal.Status='PENDING';$journal.CompletedAt=$null
+        $journal | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $journalFile.FullName -Encoding utf8
+        $current=Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
+        $current | Add-Member -NotePropertyName $field -NotePropertyValue 'synthetic-change' -Force
+        $current | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $path -Encoding utf8
+        $beforeState=(Get-FileHash -LiteralPath $path).Hash
+        $beforeJournal=(Get-FileHash -LiteralPath $journalFile.FullName).Hash
+        $rejected=try { $null=Invoke-SqlServerLabRunStateUpgrade -RunId $id -StateRoot $temporaryRoot -Resume -Confirm:$false;$false }
+            catch { $_.Exception.Message -eq 'RUN_STATE_UPGRADE_RESUME_TARGET_CHANGED' }
+        Add-CheckResult -Name "Resume weist fremde Zieländerung $field ohne State- oder Journalcommit ab" -Success (
+            $rejected -and $beforeState -eq (Get-FileHash -LiteralPath $path).Hash -and
+            $beforeJournal -eq (Get-FileHash -LiteralPath $journalFile.FullName).Hash)
+    }
 }
 finally {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue

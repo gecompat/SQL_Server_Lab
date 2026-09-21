@@ -114,7 +114,11 @@ internen Konstruktor und prüft `SqlServerLab.RunState/1.0`, `NO_ACTION`, stabil
 Versions-/Planbindung sowie unveränderte Dateimenge, Bytes und Schreibzeiten
 nach Planung und Upgrade-Aufruf. Historische unversionierte States ohne
 Fixture-Markierung bleiben blockiert; ausschließlich synthetische Legacy-
-Migration und deren bestehendes Resume werden offline geprüft. Änderungen an
+Migration und deren bestehendes Resume werden offline geprüft. Zusätzliche
+Negativfälle prüfen Text-/Zahlmarkierungen, unvollständige aktuelle States und
+fremde Änderungen an Scope, Status, Provider-Subruns oder zusätzlichen Zielfeldern.
+Abgelehnte Aufrufe bewahren State und Journal beziehungsweise erzeugen keine
+Upgrade-Artefakte. Änderungen an
 `StateMachine.ps1` wählen diese Suite zusätzlich zur Mixed-Provider-
 Lifecycle-Suite. Providerressourcen werden für diesen lokalen Vertrag nicht
 benötigt; die Runtime-Auswahl des gemeinsamen CI-Selektors bleibt unverändert.
@@ -1656,6 +1660,17 @@ Live-/Restart- sowie statische Restart-Reconcile-Pfade, SQL-Readiness,
 Shutdown-Integration, persistenten Datenmarker und vollständigen Cleanup der
 beiden Test-Runs. Der Nachweis gilt nur für diesen Scope; weitere SQL-/Windows-
 Versionen und Ressourcenklassen bleiben getrennt nachweispflichtig.
+
+Der getrennte manuelle Modus `resource-reconcile-own-run-acceptance` bindet
+statt einer Clone-Quelle ein explizites SQL-2025-Prepared-Artifact, denselben
+Repositorykontext und den tatsächlich ausgecheckten Commit. Der native Lauf
+`35564131935` vom 2026-09-21 bestand auf `a4510f5c`: dynamischer Live-/Restart-
+und statischer Restart-Abgleich, `WhatIf`, VM-ID-gebundener einmaliger
+Pre-Start-Fehler, Wrapper-Entfernung und Wiederaufnahme mit persistentem
+SQL-Marker. Die beiden eigenen Windows-2025-/SQL-2025-Developer-Runs wurden
+jeweils mit drei Cleanup-Schritten und null Fehlern entfernt. Der frühere
+Aktivierungsfehler `35562372061` bleibt erhalten; der spätere Erfolg erklärt
+seine Ursache nicht. Ein realer Hyper-V-Plattformfehler wird damit nicht belegt.
 
 ### Storage-Reconcile aus einem Windows-Slot
 
