@@ -2232,7 +2232,13 @@ werden.
 Der portable Locale-Intent ist an Manifest, Batch und OOBE gebunden.
 Der native US-Kaltstartnachweis fuer einen Windows-Server-2025-Batch ist am
 2026-09-10 bestanden (Run `34435602810`, Commit `bbd29e7`), einschliesslich
-Cleanup. Der direkte SQL-Prepared-Manifestlauf bleibt separat offen. UI-Sprache ist derzeit nur
+Cleanup. Der direkte eigene SQL-2025-Prepared-Manifestlauf mit englischem Artifact
+und US-Locale bestand am 2026-09-21 separat im
+[Run 35574934252](https://github.com/gecompat/SQL_Server_Lab/actions/runs/35574934252)
+auf `bf72dc32`: Kaltstart, alle fünf Locale-Werte, VM-ID-gebundener SQL-SELECT
+(Major 17), Aktivierung, Receipt, unveränderter Parent und Cleanup. Der eigene
+Run-State ist `REMOVED`. Weitere Image-Sprachen und SQL-Versionen bleiben offen.
+UI-Sprache ist derzeit nur
 über die registrierte Image-Sprache belegt; Offline-Language-Packs und
 Tastaturlayouts außerhalb der sechs dokumentierten eingebauten IDs sind
 nicht freigegeben. [Vertrag und Nachweisgrenzen](../HowTo/WINDOWS_LOCALE.md).
