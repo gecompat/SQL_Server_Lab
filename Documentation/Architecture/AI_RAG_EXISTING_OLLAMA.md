@@ -91,6 +91,17 @@ unverändertem Produktcode. Hyper-V bleibt für diesen kombinierten Slice offen.
 Eine nichtleere
 Cloudantwort beweist Inferenz, keine allgemeine Antwortqualität.
 
+Die isolierte Golden-Containerabnahme lädt ihre beiden festen lokalen Modelle
+in den eigenen, bind-gemounteten Ollama-Container. Pro Modell gilt das unveränderte
+`TimeoutSeconds`-Budget von 60–1800 Sekunden als eine monotone Gesamtdeadline
+über höchstens zwei Versuche einschließlich einer begrenzten Wartezeit. Nur HTTP
+408, 429 und 5xx sowie typisierte Transport-/Abbruchfehler erhalten einen Retry;
+4xx, unbekannte Fehler und jede Antwort ohne exakt `status: success` brechen
+sofort mit einem redigierten `AI_RAG_MODEL_PULL_*`-Code ab. Die
+[Ollama-Pull-API](https://github.com/ollama/ollama/blob/main/docs/api.md#pull-a-model)
+beschreibt fortsetzbare abgebrochene Pulls und gemeinsam berichteten Fortschritt.
+Der Harness verwendet deshalb keine neue Download- oder Host-Ollama-Lane.
+
 SQL-seitiges `CREATE EXTERNAL MODEL`/TLS-Gateway bleibt `NOT_IMPLEMENTED`.
 Modellwechsel-Re-Embedding und die isolierte Hyper-V-Abnahme bleiben separate Nachweise.
 

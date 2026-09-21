@@ -123,8 +123,10 @@ ausgeführten SQL-RAG-Laufs darf bewertet werden. Docker hat diesen Pfad zuletzt
 2026-09-21 einschließlich Golden-Metriken, SQL-/Ollama-Restart und Cleanup nativ bestanden.
 Der getrennte Podman-Lauf erreichte diesmal nach abgeschlossenen Modell-Downloads
 die RAG-Ausführung, scheiterte dort aber mit `AI_ENDPOINT_TIMEOUT`.
-Der genaue Modellaufruf ist noch nicht belegt; eigene SQL-, Ollama- und temporäre
-Ressourcen wurden vollständig bereinigt. Der Golden-Podman-Nachweis bleibt offen. Hybride Suche
+Der zweite Podman-Anlauf stoppte vor dem SQL-Start beim Registry-HEAD für
+`gemma3` mit einem Verbindungs-Timeout; die eigenen temporären Ressourcen
+wurden bereinigt. Der genaue Inferenzaufruf des ersten Fehlers ist weiterhin
+nicht belegt. Der Golden-Podman-Nachweis bleibt offen. Hybride Suche
 und automatische Antworttreueprüfung bleiben offen. Ein Modell-Judge wird
 bewusst nicht als blockierendes Gate verwendet.
 

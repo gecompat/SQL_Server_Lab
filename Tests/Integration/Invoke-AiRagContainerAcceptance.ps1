@@ -81,7 +81,9 @@ try {
     $portResult=Invoke-RagRuntimeCommand @('port',$runtimeId,'11434/tcp');if($portResult.ExitCode-ne 0){throw 'AI_RAG_OLLAMA_PORT_MISSING'}
     $portText=[string]($portResult.Output|Select-Object -First 1);if($portText-notmatch':(?<port>[0-9]+)$'){throw 'AI_RAG_OLLAMA_PORT_MISSING'};$ollamaPort=[int]$Matches.port
     Wait-RagOllama -Port $ollamaPort
-    foreach($model in @('embeddinggemma:300m-qat-q4_0','gemma3:1b')){$body=@{model=$model;stream=$false}|ConvertTo-Json -Compress;$null=Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:$ollamaPort/api/pull" -ContentType application/json -Body $body -TimeoutSec $TimeoutSeconds}
+    $phase='MODEL_PULL';Write-RagAcceptanceJournal -Status 'OLLAMA_OWNED'
+    Invoke-AiRagModelPull -ModelRole EMBEDDING -Model 'embeddinggemma:300m-qat-q4_0' -Port $ollamaPort -TimeoutSeconds $TimeoutSeconds|Out-Null
+    Invoke-AiRagModelPull -ModelRole GENERATION -Model 'gemma3:1b' -Port $ollamaPort -TimeoutSeconds $TimeoutSeconds|Out-Null
     $manifest=Get-Content (Join-Path $repoRoot 'Schemas\example-ai-vector-core.json') -Raw -Encoding utf8|ConvertFrom-Json -Depth 50
     $manifest.name="ai-rag-$Provider-$($token.Substring(0,8))";$manifest.instances[0].provider=$Provider
     $manifest.instances[0] | Add-Member -NotePropertyName drives -NotePropertyValue @([pscustomobject]@{id='ai-golden-data';containerPath='/var/opt/mssql'}) -Force

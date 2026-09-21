@@ -65,10 +65,84 @@ function Invoke-AiRagAcceptanceFinalization {
     }
 }
 
+function Get-AiRagModelPullHttpStatus {
+    param($ErrorRecord)
+    foreach ($candidate in @(
+        $ErrorRecord.Exception.Response,
+        $ErrorRecord.Exception.StatusCode,
+        $ErrorRecord.Response,
+        $ErrorRecord.StatusCode
+    )) {
+        if ($null -eq $candidate) { continue }
+        try {
+            $status = if ($null -ne $candidate.StatusCode) { [int]$candidate.StatusCode } else { [int]$candidate }
+            if ($status -ge 100 -and $status -le 599) { return $status }
+        }
+        catch {}
+    }
+    return $null
+}
+
+function Test-AiRagModelPullRetryableFailure {
+    param($ErrorRecord)
+    $status = Get-AiRagModelPullHttpStatus -ErrorRecord $ErrorRecord
+    if ($null -ne $status) { return ($status -in 408,429 -or ($status -ge 500 -and $status -le 599)) }
+    $exception = $ErrorRecord.Exception
+    if ($exception -is [TimeoutException] -or
+        $exception -is [OperationCanceledException] -or
+        $exception -is [Net.Http.HttpRequestException]) { return $true }
+    if ($exception -is [Net.WebException] -and $exception.Status -ne [Net.WebExceptionStatus]::ProtocolError) { return $true }
+    return $false
+}
+
+function Invoke-AiRagModelPull {
+    param(
+        [Parameter(Mandatory)][ValidateSet('EMBEDDING','GENERATION')][string]$ModelRole,
+        [Parameter(Mandatory)][string]$Model,
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][ValidateRange(60,1800)][int]$TimeoutSeconds,
+        [scriptblock]$Request,
+        [scriptblock]$ElapsedMilliseconds,
+        [scriptblock]$Delay
+    )
+    if (-not $Request) {
+        $Request = {
+            param($Uri,$Body,$RequestTimeoutSeconds)
+            Invoke-RestMethod -Method Post -Uri $Uri -ContentType application/json -Body $Body -TimeoutSec $RequestTimeoutSeconds
+        }
+    }
+    $timer = [Diagnostics.Stopwatch]::StartNew()
+    if (-not $ElapsedMilliseconds) { $ElapsedMilliseconds = { [long]$timer.ElapsedMilliseconds } }
+    if (-not $Delay) { $Delay = { param([int]$Milliseconds) Start-Sleep -Milliseconds $Milliseconds } }
+    $body = @{ model = $Model; stream = $false } | ConvertTo-Json -Compress
+    $uri = "http://127.0.0.1:$Port/api/pull"
+    $budgetMilliseconds = [long]$TimeoutSeconds * 1000
+    for ($attempt = 1; $attempt -le 2; $attempt++) {
+        $remainingMilliseconds = $budgetMilliseconds - [long](& $ElapsedMilliseconds)
+        # Invoke-RestMethod accepts whole seconds only. A conservative floor never extends the shared deadline.
+        if ($remainingMilliseconds -lt 1000) { throw 'AI_RAG_MODEL_PULL_TIMEOUT' }
+        $requestTimeoutSeconds = [int][Math]::Floor($remainingMilliseconds / 1000)
+        try {
+            $response = & $Request $uri $body $requestTimeoutSeconds
+            if ($null -eq $response -or [string]$response.status -cne 'success') { throw 'AI_RAG_MODEL_PULL_RESPONSE_INVALID' }
+            return $response
+        }
+        catch {
+            if ($_.Exception.Message -eq 'AI_RAG_MODEL_PULL_RESPONSE_INVALID') { throw }
+            if (-not (Test-AiRagModelPullRetryableFailure -ErrorRecord $_)) { throw 'AI_RAG_MODEL_PULL_REQUEST_FAILED' }
+            $remainingMilliseconds = $budgetMilliseconds - [long](& $ElapsedMilliseconds)
+            if ($remainingMilliseconds -le 0) { throw 'AI_RAG_MODEL_PULL_TIMEOUT' }
+            if ($attempt -eq 2) { throw 'AI_RAG_MODEL_PULL_TRANSIENT_EXHAUSTED' }
+            & $Delay ([int][Math]::Min(1000,$remainingMilliseconds))
+        }
+    }
+    throw 'AI_RAG_MODEL_PULL_TRANSIENT_EXHAUSTED'
+}
+
 function Get-AiRagFailureReceipt {
     param([string]$Provider,[string]$Phase,$ErrorRecord)
     $message=[string]$ErrorRecord.Exception.Message
-    $code=if($message -cin @('AI_ENDPOINT_TIMEOUT','AI_ENDPOINT_NETWORK_FAILURE','AI_ENDPOINT_RESPONSE_INVALID')){$message}else{'UNCLASSIFIED'}
+    $code=if($message -cin @('AI_ENDPOINT_TIMEOUT','AI_ENDPOINT_NETWORK_FAILURE','AI_ENDPOINT_RESPONSE_INVALID','AI_RAG_MODEL_PULL_TIMEOUT','AI_RAG_MODEL_PULL_TRANSIENT_EXHAUSTED','AI_RAG_MODEL_PULL_RESPONSE_INVALID','AI_RAG_MODEL_PULL_REQUEST_FAILED')){$message}else{'UNCLASSIFIED'}
     $stack=[string]$ErrorRecord.ScriptStackTrace
     $callsite='UNCLASSIFIED'
     if($stack -match '(?m)^at Invoke-LabAiRag, [^\r\n]*[\\/]AiRag\.ps1: line (?<line>[1-9][0-9]*)\s*$'){

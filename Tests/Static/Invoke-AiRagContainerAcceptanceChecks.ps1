@@ -7,6 +7,7 @@ $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $results=[Collections.Generic.List[object]]::new()
 function Check {param([string]$Name,[bool]$Success)$results.Add([pscustomobject]@{Name=$Name;Success=$Success})}
 function Reject {param([scriptblock]$Action,[string]$Code)try{& $Action|Out-Null;$false}catch{$_.Exception.Message -eq $Code}}
+function New-PullFailure {param([int]$StatusCode)$exception=[Exception]::new('synthetic transport failure');$exception|Add-Member -NotePropertyName Response -NotePropertyValue ([pscustomobject]@{StatusCode=$StatusCode});$exception}
 $data=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-ai-rag-check-'+[guid]::NewGuid().ToString('N'))
 $id=('a'*64 -join '');$name='sql-lab-ai-rag-podman-0123456789';$operation='11111111-1111-4111-8111-111111111111'
 function New-Inspection {
@@ -52,8 +53,24 @@ try {
     Check 'Failure-Receipt klassifiziert nur allowlisted Code, Phase und RAG-Callsite' ($embedding.Phase -eq 'FIRST_RAG' -and $embedding.Callsite -eq 'EMBEDDING' -and $generation.Phase -eq 'RESTART_RAG' -and $generation.Callsite -eq 'GENERATION')
     $unknown=Get-AiRagFailureReceipt -Provider podman -Phase FIRST_RAG -ErrorRecord ([pscustomobject]@{Exception=[Exception]::new('synthetic private text');ScriptStackTrace='at Other, /untrusted/AiRag.ps1: line 124'})
     Check 'Unbekannte Fehler und fremde Callsite bleiben inhaltsfrei unklassifiziert' ($unknown.ErrorCode -ceq 'UNCLASSIFIED' -and $unknown.Callsite -ceq 'UNCLASSIFIED' -and ($unknown|ConvertTo-Json) -notmatch 'private text|untrusted')
+    $script:pullAttempts=0;$script:elapsed=0;$script:delays=@()
+    $retryRequest={param($Uri,$Body,$Timeout)$script:pullAttempts++;if($script:pullAttempts-eq 1){throw (New-PullFailure 429)};[pscustomobject]@{status='success'}}
+    $retryResult=Invoke-AiRagModelPull -ModelRole EMBEDDING -Model 'synthetic' -Port 11434 -TimeoutSeconds 60 -Request $retryRequest -ElapsedMilliseconds {[long]$script:elapsed} -Delay {param($Milliseconds)$script:delays+=$Milliseconds}
+    Check 'Transientes HTTP 429 wird genau einmal innerhalb des Modellbudgets wiederholt' ($retryResult.status-ceq'success' -and $script:pullAttempts-eq 2 -and @($script:delays).Count-eq 1 -and $script:delays[0]-eq 1000)
+    $script:pullAttempts=0
+    $exhaustedRequest={param($Uri,$Body,$Timeout)$script:pullAttempts++;throw (New-PullFailure 503)}
+    Check 'Zwei transiente Fehler erschöpfen die feste Pull-Versuchsgrenze' ((Reject {Invoke-AiRagModelPull -ModelRole GENERATION -Model 'synthetic' -Port 11434 -TimeoutSeconds 60 -Request $exhaustedRequest -ElapsedMilliseconds {0} -Delay {param($Milliseconds)}} 'AI_RAG_MODEL_PULL_TRANSIENT_EXHAUSTED') -and $script:pullAttempts-eq 2)
+    $script:pullAttempts=0;$script:elapsed=0;$script:delays=@()
+    $deadlineRequest={param($Uri,$Body,$Timeout)$script:pullAttempts++;if($script:pullAttempts-eq 2){$script:elapsed=60000};throw (New-PullFailure 503)}
+    Check 'Retry und Wartezeit teilen eine monotone Modell-Deadline über beide Versuche' ((Reject {Invoke-AiRagModelPull -ModelRole EMBEDDING -Model 'synthetic' -Port 11434 -TimeoutSeconds 60 -Request $deadlineRequest -ElapsedMilliseconds {[long]$script:elapsed} -Delay {param($Milliseconds)$script:delays+=$Milliseconds;$script:elapsed+=$Milliseconds}} 'AI_RAG_MODEL_PULL_TIMEOUT') -and $script:pullAttempts-eq 2 -and $script:delays[0]-eq 1000)
+    $script:pullAttempts=0
+    $nonRetryableRequest={param($Uri,$Body,$Timeout)$script:pullAttempts++;throw (New-PullFailure 400)}
+    Check 'Nichttransientes HTTP 400 wird ohne Retry als redigierter Pullfehler beendet' ((Reject {Invoke-AiRagModelPull -ModelRole EMBEDDING -Model 'synthetic' -Port 11434 -TimeoutSeconds 60 -Request $nonRetryableRequest -ElapsedMilliseconds {0} -Delay {param($Milliseconds)}} 'AI_RAG_MODEL_PULL_REQUEST_FAILED') -and $script:pullAttempts-eq 1)
+    $http400=[Net.Http.HttpRequestException]::new('synthetic',[Exception]::new('inner'),[Net.HttpStatusCode]::BadRequest)
+    Check 'Ein HTTP-Status 400 bleibt auch bei typisierter HTTP-Ausnahme nicht retrybar' (-not (Test-AiRagModelPullRetryableFailure -ErrorRecord ([pscustomobject]@{Exception=$http400})))
+    Check 'Ein HTTP-Erfolg ohne exakten success-Status wird nicht als Modellpull akzeptiert' (Reject {Invoke-AiRagModelPull -ModelRole GENERATION -Model 'synthetic' -Port 11434 -TimeoutSeconds 60 -Request {param($Uri,$Body,$Timeout)[pscustomobject]@{status='error'}} -ElapsedMilliseconds {0} -Delay {param($Milliseconds)}} 'AI_RAG_MODEL_PULL_RESPONSE_INVALID')
     $source=Get-Content -LiteralPath (Join-Path $repoRoot 'Tests/Integration/Invoke-AiRagContainerAcceptance.ps1') -Raw -Encoding utf8
-    Check 'Golden-Harness hält Mutex, Bind-Mount und nicht sensitive RAG-Phasen fest' ($source -match 'Global\\SQL_Server_Lab_Runtime_Smoke' -and $source -match '\$RuntimeMutexAlreadyHeld' -and $source -match '--cidfile' -and $source -match ':/root/\.ollama' -and $source -match 'phase=\$phase' -and $source -match "'FIRST_RAG'" -and $source -match "'RESTART_RAG'" -and $source -match 'Assert-LabTransferNoResidue')
+    Check 'Golden-Harness hält Mutex, Bind-Mount sowie redigierte Pull- und RAG-Phasen fest' ($source -match 'Global\\SQL_Server_Lab_Runtime_Smoke' -and $source -match '\$RuntimeMutexAlreadyHeld' -and $source -match '--cidfile' -and $source -match ':/root/\.ollama' -and $source -match 'phase=\$phase' -and $source -match "'MODEL_PULL'" -and $source -match "'FIRST_RAG'" -and $source -match "'RESTART_RAG'" -and $source -match 'Invoke-AiRagModelPull' -and $source -match 'Assert-LabTransferNoResidue')
 }
 finally {if(Test-Path -LiteralPath $data){Remove-Item -LiteralPath $data -Recurse -Force -ErrorAction SilentlyContinue}}
 foreach($result in $results){Write-Host "$(if($result.Success){'PASS'}else{'FAIL'}): $($result.Name)"}
