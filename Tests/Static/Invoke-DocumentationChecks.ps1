@@ -1360,7 +1360,7 @@ Add-ValidationResult `
         $repoMap -match 'full_instance_evaluation_refresh_backlog: Documentation/Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG\.md')
 
 Add-ValidationResult `
-    -Name 'SQL-Gast-Evidence-Reader bleibt provider- und secretfrei; Capture und Native-Evidence bleiben Backlog' `
+    -Name 'SQL-Gast-Evidence-Reader bleibt lesend; Editionscapture und offene Deadline-Evidence sind getrennt' `
     -Success ($sqlGuestEvaluationEvidenceBacklog -match '(?m)^\| Status \| `PARTIALLY_IMPLEMENTED`:' -and
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('SqlServerLab.SqlGuestEvaluationEvidence/1.0') -and
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('runs/<RunId>/sql-guest-evaluation-evidence.json') -and
@@ -1374,12 +1374,15 @@ Add-ValidationResult `
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('EVIDENCE_INVALID') -and
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('EVIDENCE_STALE') -and
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('REFRESH_BLOCKED') -and
-        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('keine neue Gastabfrage') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('Update-SqlServerLabSqlGuestEvaluationEvidence') -and
+        $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('NO_DEADLINE') -and
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('keine synthetische Produktionsfrist') -and
         $sqlGuestEvaluationEvidenceBacklog -match [regex]::Escape('Erforderliche native Evidence') -and
         (Test-Path -LiteralPath (Join-Path $repoRoot 'Private\SqlGuestEvaluationEvidence.ps1') -PathType Leaf) -and
         (Test-Path -LiteralPath (Join-Path $repoRoot 'Schemas\sql-guest-evaluation-evidence.schema.json') -PathType Leaf) -and
-        $knownLimitations -match 'Reader und die fail-closed\s*Watch-Projektion sind statisch geprüft; Capture und die erforderliche native\s*Evidence bleiben offen' -and
+        $knownLimitations -match 'SQL-2025-Hyper-V-Capture' -and
+        $knownLimitations -match 'NO_DEADLINE' -and
+        $sqlGuestEvaluationEvidenceBacklog -match 'Deadline-Evidence bleiben.*getrennt offen' -and
         $crossCuttingPlatformCapabilitiesBacklog -match 'SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG\.md' -and
         $fullInstanceEvaluationRefreshBacklog -match 'SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG\.md' -and
         $knownLimitations -match 'SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG\.md' -and
