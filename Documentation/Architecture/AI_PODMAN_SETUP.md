@@ -1,6 +1,6 @@
 # Podman-KI-Testumgebung aus der Konsole
 
-Stand: 2026-09-21. Status: `IMPLEMENTED_RUNTIME_PENDING`.
+Stand: 2026-09-21. Status: `VALIDATED_REFERENCE`.
 
 `Invoke-SqlServerLab` bietet unter **Datenbanken und Verbindungen → SQL Server 2025 KI → Podman-KI-Testumgebung
 erstellen** einen geführten Aufbau. Er erstellt nach Vorschau und Bestätigung
@@ -80,8 +80,16 @@ Replay, getrennte Cleanupfehler und Menü-/Connection-Center-Integration.
 `Invoke-AiPodmanSetupProcessChecks.ps1` startet echte begrenzte Testprozesse
 für Timeout, Abbruch, Teilabbruch, Streamdrain und private Ausgabe.
 
-Die neue native Referenz ist noch nicht ausgeführt. Sie benötigt bereits
-bereites Podman und das vorhandene Modell:
+Die native Podman-Referenz auf `9d8d313a` bestand am 2026-09-21 mit sechs
+Assertions und Exitcode 0: eigene SQL-2025-Erstellung, persistierte
+768-dimensionale Collection, auffindbare IDs, Query vor/nach SQLrestart,
+gleiche Runtimebindung und unverändertes Hostmodellinventar. Das Cleanup wurde
+unabhängig bestätigt: exakt eine eigene Operation, Run `REMOVED`, passende
+Runtime und null verbleibende eigene Container oder Volumes. Dies belegt den
+festen synthetischen Referenzfall; es ist keine Freigabe anderer Provider,
+Modelle, Cloud- oder SQL-External-Model-Pfade.
+
+Der eigene temporäre Test benötigt bereits bereites Podman und das vorhandene Modell:
 
 ```powershell
 ./Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1 -LocalPort 11434

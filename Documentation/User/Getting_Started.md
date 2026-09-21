@@ -13,7 +13,8 @@ Embeddingdaten erhalten. **Meine KI-Testumgebungen anzeigen** liefert später
 RunId und CollectionId für erneute Abfragen; SQL-Verbindungen stehen im
 Connection Center. Die vorhandene Run-Entfernung entfernt die ganze Umgebung
 ausdrücklich. Keine Modellinstallation, Cloud oder beliebigen Dokumente.
-Die neue native Referenz ist noch offen.
+Der eigene native Podman-Referenzlauf bestand am 2026-09-21 mit persistierter
+Query nach SQLrestart und unabhängig bestätigtem vollständigem Cleanup.
 [Details, Fehlerbehandlung und Grenzen](../Architecture/AI_PODMAN_SETUP.md).
 
 ## SQL-seitige HTTPS-Embeddings: Referenzabnahme

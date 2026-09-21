@@ -11,7 +11,8 @@ keinen Modell-Download, Host-Neustart, Cloudaufruf oder Generierungsschritt.
 Für eine neue eigene Podman-Umgebung bündelt der
 [KI-Erstellungsdialog](AI_PODMAN_SETUP.md) New, Initial-Apply und die feste
 Backup-Abfrage. Er behält erfolgreiche Umgebungen mit auffindbarer Collection-ID;
-sein neuer nativer Gesamtnachweis steht noch aus.
+sein eigener nativer Podman-Gesamtnachweis bestand am 2026-09-21 einschließlich
+Query nach SQLrestart und unabhängig bestätigtem vollständigem Cleanup.
 
 Der Run benötigt ein verwaltetes SA-Secret, SQL Server 2025 unter Linux und
 einen live bestätigten Loopback-SQL-Endpunkt. Die API akzeptiert keine eigenen

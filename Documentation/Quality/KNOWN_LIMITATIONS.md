@@ -78,7 +78,9 @@ synthetischen internen Ablauf, keine SQL-/Providerdeadline.
 Der [Podman-KI-Erstellungsdialog](../Architecture/AI_PODMAN_SETUP.md) setzt
 bereites Podman und vorhandenes lokales `embeddinggemma:latest` voraus. Er
 installiert keine Modelle, startet keine Machine und richtet kein SQL External
-Model ein. Die neue integrierte Erstellung/Restart-Abnahme ist noch offen.
+Model ein. Die feste native Podman-Referenz bestand am 2026-09-21 mit sechs
+Assertions, Query nach SQLrestart und unabhängig bestätigtem Own-Cleanup.
+Andere Provider, Modelle und eigene Dokumentbestände sind dadurch nicht freigegeben.
 Ein harter Abbruch des Elternprozesses benötigt Prüfung der dauerhaft
 gespeicherten eigenen Operation; es gibt keinen automatischen Recoverydienst.
 

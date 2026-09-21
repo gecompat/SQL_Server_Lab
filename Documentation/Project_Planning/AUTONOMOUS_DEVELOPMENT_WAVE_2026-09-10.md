@@ -144,8 +144,10 @@ Der priorisierte [Podman-KI-Erstellungsdialog](../Architecture/AI_PODMAN_SETUP.m
 ergänzt die bisher getrennten Schritte um neue eigene SQL-2025-Umgebung,
 vorhandenes Host-Embeddingmodell, Initial-Collection und bestätigte feste
 Backup-Abfrage. Erfolgreiche Umgebungen bleiben mit auffindbaren IDs erhalten;
-Fehler bereinigen nur die eigene Operation. Status `implemented_runtime_pending`:
-Die neue integrierte Erstellung/Restart-Abnahme ist noch offen. Dies ändert
+Fehler bereinigen nur die eigene Operation. Status `validated_reference`:
+Die native Podman-Referenz auf `9d8d313a` bestand am 2026-09-21 mit sechs
+Assertions, persistierter Query nach SQLrestart, unverändertem Modellinventar
+und unabhängig bestätigtem vollständigem Own-Cleanup. Dies ändert
 keine Golden-Referenz und behauptet keinen Podman-SQL-HTTPS-Nachweis.
 
 | Arbeit | Status | Abschlusskriterium |
