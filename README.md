@@ -18,6 +18,14 @@ The complete terms are defined in [LICENCE.md](./LICENCE.md).
 
 ## Zweck
 
+Unter **Datenbanken und Verbindungen → SQL Server 2025 KI → Podman-KI-Testumgebung erstellen** erstellt die
+Konsole nach Bestätigung SQL Server 2025 mit eigener Datenvolume und einer
+persistenten synthetischen Retrieval-Collection. Voraussetzung ist bereits
+laufendes lokales Ollama mit `embeddinggemma:latest`; es erfolgt kein
+Modell-Download. Erfolgreiche Umgebungen bleiben erhalten und sind mit Run-
+und Collection-ID wieder auffindbar. Die neue native Abnahme steht noch aus.
+[Ablauf und Grenzen](Documentation/Architecture/AI_PODMAN_SETUP.md).
+
 Der interne [SQL-HTTPS-Referenzslice](Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md)
 belegt SQL-seitige Embeddings auf einem eigenen Docker-Run über vorhandenes
 Host-Ollama. SQL-/TLS-Negative, Retrieval vor/nach SQLrestart und eigenes Cleanup

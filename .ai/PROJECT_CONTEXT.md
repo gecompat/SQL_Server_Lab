@@ -27,6 +27,13 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 ### Implementiert
 
+- Geführte Podman-KI-Erstellung im Konsolenmenü mit vorhandenem lokalem
+  `embeddinggemma:latest`, SQL 2025, eigener Volume und persistenter fester
+  Initial-Collection. Operation, Runtime- und Modellbindung, getrennte
+  Fehlerbereinigung und dauerhafte Run-/Collection-Discovery sind implementiert;
+  die neue native Erstellung/Restart-Abnahme steht aus.
+  Vertrag: `Documentation/Architecture/AI_PODMAN_SETUP.md`;
+
 - interner Docker-only-SQL-HTTPS-Referenzslice mit eigenem Loopback-Gateway,
   festen synthetischen Embeddings und nativer External-Model-Abnahme am
   2026-09-21 (`VALIDATED_REFERENCE`). Sieben Embeddings, SQL-TLS-Negative,

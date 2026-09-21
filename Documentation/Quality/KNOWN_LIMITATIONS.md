@@ -75,6 +75,13 @@ synthetischen internen Ablauf, keine SQL-/Providerdeadline.
 
 ## KI und Ollama
 
+Der [Podman-KI-Erstellungsdialog](../Architecture/AI_PODMAN_SETUP.md) setzt
+bereites Podman und vorhandenes lokales `embeddinggemma:latest` voraus. Er
+installiert keine Modelle, startet keine Machine und richtet kein SQL External
+Model ein. Die neue integrierte Erstellung/Restart-Abnahme ist noch offen.
+Ein harter Abbruch des Elternprozesses benötigt Prüfung der dauerhaft
+gespeicherten eigenen Operation; es gibt keinen automatischen Recoverydienst.
+
 Der [Host-RAG-Slice](../Architecture/AI_RAG_EXISTING_OLLAMA.md) verbindet vorhandenes
 `embeddinggemma:latest` mit exakter SQLsuche und expliziter HTTPS-Cloudgeneration.
 Live-Digest/Capability/Dimension, Datenklasse, Egress und Secretgrenze werden

@@ -1,5 +1,21 @@
 # SQL_Server_Lab – Getting Started
 
+## Podman-KI-Testumgebung erstellen
+
+Starte `Invoke-SqlServerLab` und wähle **Datenbanken und Verbindungen → SQL Server 2025 KI →
+Podman-KI-Testumgebung erstellen**. Podman muss bereit sein; im bereits
+laufenden lokalen Ollama muss `embeddinggemma:latest` vorhanden sein. Der
+Dialog fragt Name, lokalen Ollama-Port (11434), CPU (2) und RAM in MB (4096)
+und zeigt vor der Erstellung eine Vorschau. Abbruch erstellt keinen Run.
+
+Nach Erfolg bleiben SQL Server 2025, eigene Volume und die synthetischen
+Embeddingdaten erhalten. **Meine KI-Testumgebungen anzeigen** liefert später
+RunId und CollectionId für erneute Abfragen; SQL-Verbindungen stehen im
+Connection Center. Die vorhandene Run-Entfernung entfernt die ganze Umgebung
+ausdrücklich. Keine Modellinstallation, Cloud oder beliebigen Dokumente.
+Die neue native Referenz ist noch offen.
+[Details, Fehlerbehandlung und Grenzen](../Architecture/AI_PODMAN_SETUP.md).
+
 ## SQL-seitige HTTPS-Embeddings: Referenzabnahme
 
 `Tests/Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` erstellt einen eigenen

@@ -1,5 +1,19 @@
 # Lokale Validierungsstrategie
 
+## Podman-KI-Erstellung
+
+`Invoke-AiPodmanSetupChecks.ps1` prüft die echte interne Orchestrierung und
+Menüintegration mit injizierten Provider-/SQL-Grenzen. Ergänzend führt
+`Invoke-AiPodmanSetupProcessChecks.ps1` echte lokale Testkindprozesse für
+Timeout, Abbruch, vorzeitiges Ende, private Ausgabe und Outputdrain aus.
+`Invoke-AiPodmanSetupAcceptance.ps1` ist die separate noch offene native
+Podman-Abnahme mit eigenem isoliertem StateRoot, echtem Initial-Apply/Query,
+Restart, persistierter Query und vollständigem Own-Cleanup. Sie benötigt das
+bereits vorhandene Hostmodell und zieht es nicht automatisch nach.
+Der spezielle Dateiscope wählt Podman; gemeinsame Selektoränderungen behalten
+die vollständige Pflichtmatrix einschließlich Hyper-V.
+[Vertrag und Aufruf](../Architecture/AI_PODMAN_SETUP.md).
+
 ## SQL-HTTPS-Referenzslice
 
 `Invoke-AiSqlHttpsBridgeChecks.ps1` prüft Requestbytes, Vektorgrenzen,

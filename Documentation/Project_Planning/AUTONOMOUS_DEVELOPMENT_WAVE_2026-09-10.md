@@ -140,6 +140,14 @@ und die [Known Limitations](../Quality/KNOWN_LIMITATIONS.md).
 
 ## Szenarien, Bedienung und KI
 
+Der priorisierte [Podman-KI-Erstellungsdialog](../Architecture/AI_PODMAN_SETUP.md)
+ergänzt die bisher getrennten Schritte um neue eigene SQL-2025-Umgebung,
+vorhandenes Host-Embeddingmodell, Initial-Collection und bestätigte feste
+Backup-Abfrage. Erfolgreiche Umgebungen bleiben mit auffindbaren IDs erhalten;
+Fehler bereinigen nur die eigene Operation. Status `implemented_runtime_pending`:
+Die neue integrierte Erstellung/Restart-Abnahme ist noch offen. Dies ändert
+keine Golden-Referenz und behauptet keinen Podman-SQL-HTTPS-Nachweis.
+
 | Arbeit | Status | Abschlusskriterium |
 |---|---|---|
 | Allgemeiner Szenariokern | `implemented_partial` | [SCN-802](SCENARIO_CONTRACT_BACKLOG.md) ergänzt einen internen providerlosen synthetischen Executor: fünf feste Phasen, authentifiziertes atomisches Journal, Ownership, begrenzte Timeouts/Cancellation und Cleanup-Resume. Offline-Verträge einschließlich eigener harter Kindprozessunterbrechung sind vorhanden. SCN-801 bleibt unverändert; öffentliche API, fachliche Szenarien, SQL-/Providerbindung und native Evidence bleiben offen. |
