@@ -91,7 +91,9 @@ unverändertem Produktcode. Hyper-V bleibt für diesen kombinierten Slice offen.
 Eine nichtleere
 Cloudantwort beweist Inferenz, keine allgemeine Antwortqualität.
 
-SQL-seitiges `CREATE EXTERNAL MODEL`/TLS-Gateway bleibt `NOT_IMPLEMENTED`.
+Der interne [SQL-HTTPS-Docker-Referenzslice](AI_SQL_HTTPS_BRIDGE.md) belegt
+SQL-seitiges `CREATE EXTERNAL MODEL`, TLS-Negative, Retrieval nach SQLrestart
+und eigenes Cleanup. Allgemeiner Gatewaybetrieb bleibt `NOT_IMPLEMENTED`.
 Modellwechsel-Re-Embedding und die isolierte Hyper-V-Abnahme bleiben separate Nachweise.
 
 Der separate [persistente synthetische Slice](AI_PERSISTENT_RETRIEVAL.md)
