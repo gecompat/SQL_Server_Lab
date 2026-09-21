@@ -10,7 +10,7 @@
 [CmdletBinding()]
 param([Parameter(Mandatory)][string]$Root)
 $ErrorActionPreference='Stop'
-$module=$null;$certificates=[Collections.Generic.List[IDisposable]]::new();$servers=@();$receipt=$null;$failure=$false
+$module=$null;$certificates=[Collections.Generic.List[IDisposable]]::new();$servers=@();$receipt=$null;$failure=$false;$controlReader=$null
 $readyPath=Join-Path $Root 'ready.json';$receiptPath=Join-Path $Root 'gateway.json'
 
 function New-BridgeCertificate {
@@ -52,8 +52,11 @@ try{
     $module=Import-Module (Join-Path $PSScriptRoot '../../../SqlServerLab.psd1') -Force -PassThru
     & $module {param($Root)Assert-LabAiPersistentPath $Root} $Root
     if(-not(Test-Path -LiteralPath $Root -PathType Container) -or (Test-Path -LiteralPath $readyPath) -or (Test-Path -LiteralPath $receiptPath)){throw 'AI_SQL_HTTPS_ROOT_INVALID'}
+    # Console.In synchronisiert auch ReadLineAsync und würde bis STOP den Listener blockieren.
+    # Derselbe StreamReader behält gepufferte Bytes zwischen Konfiguration und Stoppsignal.
+    $controlReader=[IO.StreamReader]::new([Console]::OpenStandardInput(),[Console]::InputEncoding)
     $configuration=[Text.StringBuilder]::new()
-    while($configuration.Length -lt 8192){$value=[Console]::In.Read();if($value -eq 10){break};if($value -lt 0){throw 'AI_SQL_HTTPS_CONFIG_INVALID'};$null=$configuration.Append([char]$value)}
+    while($configuration.Length -lt 8192){$value=$controlReader.Read();if($value -eq 10){break};if($value -lt 0){throw 'AI_SQL_HTTPS_CONFIG_INVALID'};$null=$configuration.Append([char]$value)}
     if($configuration.Length -ge 8192){throw 'AI_SQL_HTTPS_CONFIG_INVALID'}
     $config=$configuration.ToString()|ConvertFrom-Json -Depth 8;$configuration.Clear()|Out-Null
     if($config.Token -cnotmatch '^[a-f0-9]{64}$' -or ([guid]$config.OperationId).ToString('D') -cne $config.OperationId -or $config.LocalPort -lt 1024 -or $config.LocalPort -gt 65535){throw 'AI_SQL_HTTPS_CONFIG_INVALID'}
@@ -75,7 +78,7 @@ try{
     $ports=@{};foreach($server in $servers){$ports[$server.Kind]=$server.Listener.LocalEndpoint.Port}
     $receipt.status='ACTIVE';Save-BridgeReceipt
     & $module {param($Path,$Value)Write-LabArtifactJsonAtomic -Path $Path -InputObject $Value} $readyPath @{OperationId=$config.OperationId;ProcessId=$PID;StartTicks=(Get-Process -Id $PID).StartTime.ToUniversalTime().Ticks;Ports=$ports;CaBase64=[Convert]::ToBase64String($public);CaSha256=$receipt.caSha256}
-    $stop=[Console]::In.ReadLineAsync();$deadline=[DateTime]::UtcNow.AddMinutes(15)
+    $stop=$controlReader.ReadLineAsync();$deadline=[DateTime]::UtcNow.AddMinutes(15)
     while([DateTime]::UtcNow -lt $deadline -and -not $stop.IsCompleted){
         $parent.Refresh();if($parent.HasExited){break}
         $pending=@($servers|Where-Object {$_.Accept.IsCompleted}|Select-Object -First 1)
@@ -113,6 +116,7 @@ try{
 finally{
     foreach($server in $servers){$server.Listener.Stop()}
     foreach($certificate in $certificates){$certificate.Dispose()}
+    if($controlReader){$controlReader.Dispose()}
     if($receipt){try{Save-BridgeReceipt}catch{$failure=$true}}
     if($config){$config.Token=$null};if($module){Remove-Module $module -Force}
 }

@@ -5,6 +5,17 @@ $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-ai-bridge-check-'+[guid]::NewGuid().ToString('N'))
 $bridge=$null;$cleanupSafe=$true
+function Wait-BridgeCounters {
+    param([int]$Connections,[int]$Requests,[int]$Rejected,[int]$TlsRejected)
+    $deadline=[DateTime]::UtcNow.AddSeconds(6)
+    do {
+        $observed=Get-Content -LiteralPath (Join-Path $bridge.Root 'gateway.json') -Raw|ConvertFrom-Json
+        if($observed.status -ceq 'ACTIVE' -and $observed.connections -eq $Connections -and $observed.requests -eq $Requests -and
+            $observed.rejected -eq $Rejected -and $observed.tlsRejected -eq $TlsRejected -and $observed.upstreamRequests -eq 0){return}
+        Start-Sleep -Milliseconds 25
+    }while([DateTime]::UtcNow -lt $deadline)
+    throw 'GATEWAY_BEFORE_STOP_PROGRESS_FAILED'
+}
 try{
     $checks=& $module {
         $checks=[Collections.Generic.List[object]]::new()
@@ -85,16 +96,51 @@ try{
         if(-not $timedOut -or $timer.Elapsed.TotalSeconds -lt 4.5 -or $timer.Elapsed.TotalSeconds -gt 10){throw 'REAL_REQUEST_DEADLINE_FAILED'}
         Write-Host 'PASS: Echter langsamer eigener Loopback-Read endet am gemeinsamen 5s-Budget'
     }finally{if($peer){$peer.Dispose()};if($client){$client.Dispose()};$listener.Stop()}
-    # Echter eigener Zertifikat-/Prozesszyklus ohne SQL oder Modell-/HTTP-Aufruf.
+    # Echter eigener Zertifikat-/Prozesszyklus ohne SQL oder Modellaufruf.
     $null=New-Item -ItemType Directory -Path $root
     $cleanupSafe=$false
     try{$bridge=& $module {param($Root)Start-LabAiSqlHttpsBridge -Root $Root -OperationId ([guid]::NewGuid().ToString('D')) -Token ('a'*64) -Binding @{ModelKey='ollama-embeddinggemma-latest';Model='embeddinggemma:latest';Digest=('a'*64);Version='0.34.2';Dimension=768} -LocalPort 11434} $root;$cleanupSafe=$true}
     catch{if($_.Exception.Message -ceq 'AI_SQL_HTTPS_GATEWAY_START_FAILED_CLEANED'){$cleanupSafe=$true};throw}
     $certificate=[Security.Cryptography.X509Certificates.X509Certificate2]::new([Convert]::FromBase64String($bridge.Ready.CaBase64))
-    try{if($certificate.HasPrivateKey){throw 'PRIVATE_KEY_EXPOSED'}}finally{$certificate.Dispose()}
+    try{
+        if($certificate.HasPrivateKey){throw 'PRIVATE_KEY_EXPOSED'}
+        # Der Server muss schon vor STOP arbeiten; bloßes Start/Stop findet blockierendes stdin nicht.
+        $probe=[Net.Sockets.TcpClient]::new()
+        try{$probe.ConnectAsync([Net.IPAddress]::Loopback,[int]$bridge.Ready.Ports.Good).WaitAsync([TimeSpan]::FromSeconds(3)).GetAwaiter().GetResult()}finally{$probe.Dispose()}
+        Wait-BridgeCounters -Connections 1 -Requests 0 -Rejected 0 -TlsRejected 1
+        Write-Host 'PASS: Gateway verarbeitet TCP-Abbruch vor STOP ohne Upstreamrequest'
+        $probe=[Net.Sockets.TcpClient]::new();$ssl=$null;$reader=$null
+        try{
+            $probe.ConnectAsync([Net.IPAddress]::Loopback,[int]$bridge.Ready.Ports.Good).WaitAsync([TimeSpan]::FromSeconds(3)).GetAwaiter().GetResult()
+            $ssl=[Net.Security.SslStream]::new($probe.GetStream(),$false)
+            $options=[Net.Security.SslClientAuthenticationOptions]::new();$options.TargetHost='host.docker.internal'
+            $options.CertificateChainPolicy=[Security.Cryptography.X509Certificates.X509ChainPolicy]::new()
+            $options.CertificateChainPolicy.TrustMode=[Security.Cryptography.X509Certificates.X509ChainTrustMode]::CustomRootTrust
+            $options.CertificateChainPolicy.CustomTrustStore.Add($certificate)
+            $options.CertificateChainPolicy.RevocationMode=[Security.Cryptography.X509Certificates.X509RevocationMode]::NoCheck
+            $cancel=[Threading.CancellationTokenSource]::new(5000)
+            try{$ssl.AuthenticateAsClientAsync($options,$cancel.Token).GetAwaiter().GetResult()}finally{$cancel.Dispose()}
+            $ssl.WriteTimeout=3000
+            $wire=[Text.Encoding]::ASCII.GetBytes("POST /api/embed HTTP/1.1`r`nHost: host.docker.internal`r`nContent-Type: application/json`r`nContent-Length: 2`r`n`r`n{}")
+            $ssl.Write($wire,0,$wire.Length);$ssl.Flush()
+            $reader=[IO.StreamReader]::new($ssl)
+            $response=$reader.ReadToEndAsync().WaitAsync([TimeSpan]::FromSeconds(5)).GetAwaiter().GetResult()
+            if(-not $response.StartsWith("HTTP/1.1 401 Result`r`n",[StringComparison]::Ordinal)){throw 'LIVE_AUTH_REJECTION_FAILED'}
+        }finally{if($reader){$reader.Dispose()};if($ssl){$ssl.Dispose()};$probe.Dispose()}
+        Wait-BridgeCounters -Connections 2 -Requests 1 -Rejected 1 -TlsRejected 1
+        Write-Host 'PASS: Eigene CA und SAN validiert; Live-TLS-Authnegative antwortet vor STOP ohne Upstreamrequest'
+    }finally{$certificate.Dispose()}
     $receipt=& $module {param($Bridge)Stop-LabAiSqlHttpsBridge $Bridge} $bridge;$bridge=$null
-    if($receipt.upstreamRequests -ne 0 -or $receipt.connections -ne 0 -or $receipt.status -cne 'STOPPED'){throw 'OFFLINE_PROCESS_LIFECYCLE_INVALID'}
-    Write-Host "PASS: Eigener Gateway-Zertifikat-/Prozesszyklus; kein privater CA-Key im Readyrecord, keine Netzwerkrequests"
+    if($receipt.upstreamRequests -ne 0 -or $receipt.connections -ne 2 -or $receipt.requests -ne 1 -or $receipt.status -cne 'STOPPED'){throw 'OFFLINE_PROCESS_LIFECYCLE_INVALID'}
+    Write-Host 'PASS: Eigener Gateway-Zertifikat-/Prozesszyklus; kein privater CA-Key im Readyrecord, keine Modellrequests'
+    $eofRoot=Join-Path $root 'eof';$null=New-Item -ItemType Directory -Path $eofRoot;$cleanupSafe=$false
+    try{$bridge=& $module {param($Root)Start-LabAiSqlHttpsBridge -Root $Root -OperationId ([guid]::NewGuid().ToString('D')) -Token ('a'*64) -Binding @{} -LocalPort 11434} $eofRoot;$cleanupSafe=$true}
+    catch{if($_.Exception.Message -ceq 'AI_SQL_HTTPS_GATEWAY_START_FAILED_CLEANED'){$cleanupSafe=$true};throw}
+    $bridge.Process.StandardInput.Close()
+    if(-not $bridge.Process.WaitForExit(5000)){throw 'GATEWAY_EOF_STOP_FAILED'}
+    $receipt=& $module {param($Bridge)Stop-LabAiSqlHttpsBridge $Bridge} $bridge;$bridge=$null
+    if($receipt.connections -ne 0 -or $receipt.upstreamRequests -ne 0 -or $receipt.status -cne 'STOPPED'){throw 'GATEWAY_EOF_RECEIPT_INVALID'}
+    Write-Host 'PASS: EOF beendet eigenen Gateway kooperativ ohne Requests'
     $faultRoot=Join-Path $root 'start-fault';$null=New-Item -ItemType Directory -Path $faultRoot;$cleanupSafe=$false
     $fault=& $module {
         param($Root)
@@ -106,7 +152,7 @@ try{
     if($fault.Confirmed -and $fault.Stopped){$cleanupSafe=$true}
     if(-not $cleanupSafe -or -not $fault.Reached){throw 'DYNAMIC_START_FAILURE_CLEANUP_FAILED'}
     Write-Host 'PASS: Injizierter Fehler nach realem Prozessstart bestätigt Exit und STOPPED vor Dateicleanup'
-    Write-Host "AI SQL HTTPS BRIDGE CHECKS: PASS ($($checks.Count+3) assertions)"
+    Write-Host "AI SQL HTTPS BRIDGE CHECKS: PASS ($($checks.Count+6) assertions)"
 }finally{
     if($bridge){& $module {param($Bridge)Stop-LabAiSqlHttpsBridge $Bridge} $bridge|Out-Null}
     if($cleanupSafe -and (Test-Path -LiteralPath $root)){$resolved=[IO.Path]::GetFullPath($root);$boundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar;if(-not $resolved.StartsWith($boundary,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolved) -notlike 'sql-lab-ai-bridge-check-*'){throw 'TEST_CLEANUP_SCOPE_INVALID'};Remove-Item -LiteralPath $resolved -Recurse -Force}

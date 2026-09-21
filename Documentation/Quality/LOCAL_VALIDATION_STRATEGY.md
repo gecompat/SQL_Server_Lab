@@ -4,11 +4,15 @@
 
 `Invoke-AiSqlHttpsBridgeChecks.ps1` prüft Requestbytes, Vektorgrenzen,
 Digest-/Remoteabwehr und den eigenen Zertifikat-/Prozesszyklus ohne SQL oder
-Modellaufrufe. `Invoke-AiSqlHttpsBridgeAcceptance.ps1` bereitet den getrennten
+Modellaufrufe. Echte Loopbackverarbeitung vor STOP, CA-/SAN-validiertes TLS mit
+Authablehnung ohne Upstream und EOF-Cleanup gehören zur Offlineprüfung.
+`Invoke-AiSqlHttpsBridgeAcceptance.ps1` bereitet den getrennten
 Docker-Nachweis vor: SQL External Model, frische WrongCA-/WrongSAN-Handshakes,
 Auth-/Payloadnegative, exaktes Retrieval vor/nach SQLrestart und vollständiges
 Cleanup. Der reine Docker-zu-Hostloopback-TCP-Nachweis bestand; SQL-/TLS-Native
-ist `NOT_EXECUTED`. [Vertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
+ist nach Korrektur des blockierenden Eingabereaders `NOT_EXECUTED`; frühere
+Versuche endeten ohne Gatewayverarbeitung im SQL-Timeout.
+[Vertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
 
 | Merkmal | Wert |
 |---|---|

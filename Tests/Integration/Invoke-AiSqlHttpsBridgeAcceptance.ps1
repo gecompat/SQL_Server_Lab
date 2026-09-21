@@ -31,9 +31,16 @@ function Invoke-BridgeSql {
         $connection=New-LabRelationalCoreConnection -Binding $actual -DatabaseName $Database -Secret $Secret
         try{$connection.Open();Invoke-LabTransferSqlRows -Connection $connection -Query $Query -Parameters $Parameters -TimeoutSeconds 45}
         catch{
-            $errorValue=$_.Exception.GetBaseException()
-            $details=[ordered]@{OperationId=$Operation;Phase=$Phase;Number=$null;Class=$null;State=$null}
-            if($errorValue -is [Data.SqlClient.SqlException]){$details.Number=$errorValue.Number;$details.Class=$errorValue.Class;$details.State=$errorValue.State}
+            $errorValue=$_.Exception
+            $details=[ordered]@{OperationId=$Operation;Phase=$Phase;Number=$null;Class=$null;State=$null;NativeErrorCode=$null;SqlErrors=@()}
+            while($errorValue){
+                if($errorValue -is [Data.SqlClient.SqlException]){
+                    $details.Number=$errorValue.Number;$details.Class=$errorValue.Class;$details.State=$errorValue.State
+                    $details.SqlErrors=@($errorValue.Errors|ForEach-Object {@{Number=$_.Number;Class=$_.Class;State=$_.State}})
+                }
+                if($errorValue -is [ComponentModel.Win32Exception]){$details.NativeErrorCode=$errorValue.NativeErrorCode}
+                $errorValue=$errorValue.InnerException
+            }
             try{Assert-LabAiPersistentPath $DiagnosticPath;Write-LabArtifactJsonAtomic -Path $DiagnosticPath -InputObject $details}catch{}
             throw 'AI_SQL_HTTPS_SQL_FAILED'
         }finally{$connection.Dispose()}
@@ -143,7 +150,10 @@ DECLARE @ddl nvarchar(max)=N'CREATE DATABASE SCOPED CREDENTIAL '+QUOTENAME(@endp
 }catch{Write-Warning 'AI_SQL_HTTPS_ACCEPTANCE_FAILED; eigener Cleanup folgt'}
 finally{
     if($gatewayStartAttempted -and -not $bridge -and -not $gatewayStartCleaned){$cleanupFailed=$true;Write-Warning 'AI_SQL_HTTPS_GATEWAY_START_RECOVERY_REQUIRED'}
-    if($bridge){try{$receipt=& $module {param($Bridge)Stop-LabAiSqlHttpsBridge $Bridge} $bridge}catch{$cleanupFailed=$true;Write-Warning 'AI_SQL_HTTPS_GATEWAY_RECOVERY_REQUIRED'}}
+    if($bridge){try{
+        $receipt=& $module {param($Bridge)Stop-LabAiSqlHttpsBridge $Bridge} $bridge
+        & $module {param($Path,$Receipt)Assert-LabAiPersistentPath $Path;Write-LabArtifactJsonAtomic -Path $Path -InputObject $Receipt} (Join-Path $diagnosticRoot ('gateway-'+$operation+'.json')) $receipt
+    }catch{$cleanupFailed=$true;Write-Warning 'AI_SQL_HTTPS_GATEWAY_RECOVERY_REQUIRED'}}
     if($secret){$secret.Dispose()};$token=$null
     if($module -and $arrangeStarted){
         try{
