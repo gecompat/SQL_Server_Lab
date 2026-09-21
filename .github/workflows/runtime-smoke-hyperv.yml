@@ -40,6 +40,7 @@ on:
           - cli-acceptance
           - locale-acceptance
           - sql-configuration-reconcile-acceptance
+          - sql-guest-evaluation-capture-acceptance
           - sql-storage-reconcile-acceptance
           - sql-port-reconcile-acceptance
           - resource-reconcile-acceptance
@@ -200,6 +201,14 @@ jobs:
           $artifactId = '${{ inputs.image_artifact_id }}'
           if (-not [string]::IsNullOrWhiteSpace($artifactId)) { $arguments.ArtifactId = $artifactId }
           .\Tests\Integration\Invoke-HyperVSqlConfigurationReconcileAcceptance.ps1 @arguments
+
+      - name: Hyper-V SQL guest evaluation capture acceptance
+        if: inputs.mode == 'sql-guest-evaluation-capture-acceptance'
+        env:
+          SQL_GUEST_CAPTURE_ARTIFACT_ID: ${{ inputs.image_artifact_id }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\Tests\Integration\Invoke-SqlGuestEvaluationCaptureAcceptance.ps1 -ArtifactId $env:SQL_GUEST_CAPTURE_ARTIFACT_ID
 
       - name: Reject SQL storage reconcile acceptance outside manual main
         if: inputs.mode == 'sql-storage-reconcile-acceptance' && !(github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')

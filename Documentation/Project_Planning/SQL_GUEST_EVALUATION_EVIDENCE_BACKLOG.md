@@ -2,11 +2,11 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `PARTIALLY_IMPLEMENTED`: schema-validierender Reader und Watch-Projektion sind statisch geprüft; Capture und Native-Evidence bleiben offen |
+| Status | `PARTIALLY_IMPLEMENTED`: Reader, Watch und enger SQL-2025-Hyper-V-Editionscapture; native Capture-Evidence noch NOT_EXECUTED, positive Deadline-Evidence offen |
 | Stand | 2026-09-13 |
 | Scope | Hyper-V-Run mit SQL-Gast; nur Evaluationsermittlung und read-only Projektion |
 | Ziel | Versionsgebundene, frische und geheimnisfreie SQL-Gast-Frist für Watch und Refresh |
-| Autorität | Vertrag und Abnahmeplan; keine neue Gastabfrage, Lizenz-, Refresh-, Netzwerk- oder Runtime-Mutation |
+| Autorität | Expliziter Capture liest nur die SQL-Edition und erneuert den lokalen Receipt; keine Lizenz-, Refresh-, Netzwerk- oder Runtime-Mutation |
 
 ## Ausgangslage und Lücke
 
@@ -17,7 +17,7 @@ online Systemdatenbanken. Er enthält keine SQL-Lizenz- oder Evaluationsfrist.
 Bei SQL-Evaluation-Images kann die Image-Frist bewusst leer bleiben, weil ihr
 Beginn erst im Gast eintritt. Daraus darf keine Frist abgeleitet werden.
 
-Es gibt daher derzeit **keinen** persistierten Produktionsvertrag für eine
+Der vorhandene Receiptvertrag trennt beobachtete Edition und unbekannte
 SQL-Gast-Evaluationsfrist. Image-Lizenzmetadaten, Windows-Aktivierung,
 SQL-Readiness und eine aus einer Buildzeit berechnete Schätzung sind kein
 Ersatz. Der bestehende Watch darf diesen Zustand nicht als `OK` oder als
@@ -30,7 +30,7 @@ Der erste Slice ergänzt genau einen kanonischen, runlokalen Receipt:
 - Pfad: `runs/<RunId>/sql-guest-evaluation-evidence.json` unter dem gebundenen lokalen State-Root;
 - Vertrag: `SqlServerLab.SqlGuestEvaluationEvidence/1.0`;
 - Provider: ausschließlich `hyperv`; Container und andere Provider erhalten keine implizite Parität;
-- Erfassung: eine spätere explizite Capture-Aktion darf nur nach erfolgreicher Live-Prüfung des gebundenen SQL-Gastes atomar schreiben;
+- Erfassung: `Update-SqlServerLabSqlGuestEvaluationEvidence` schreibt nach erfolgreicher Live-Prüfung der gebundenen SQL-2025-Hyper-V-Edition atomare NO_DEADLINE-Evidence;
 - Projektion: der Watch liest nur Receipt, Run-State und Connection-State. Er startet keine VM, öffnet keine SQL-Verbindung und repariert nichts.
 
 Der Receipt ist die alleinige Quelle für die SQL-Gastfrist.
@@ -138,7 +138,7 @@ EvidenceStatus und Frist-/Statusfingerprint.
 
 ## Erforderliche native Evidence
 
-Vor `IMPLEMENTED_READ_ONLY` ist ein isolierter Hyper-V-Lauf mit tatsächlich als
+Für einen positiven Evaluations-/Fristnachweis ist ein isolierter Hyper-V-Lauf mit tatsächlich als
 Evaluation erkannter SQL-Instanz erforderlich. Er muss einen verwalteten
 SQL-Evaluations-Run mit SQL-Readiness und Cleanup bereitstellen, Capture mit
 flüchtigem Credential ausführen, die Bindung gegen Run/VM/Image/Readiness
@@ -154,9 +154,13 @@ behaupten.
 
 ## Abgrenzung und Folgearbeit
 
-Dieser Slice implementiert weder Capture noch neue SQL- oder Hyper-V-Abfragen.
-Insbesondere liegt keine reale SQL-Gastfrist-Capture und keine positive native
-Deadline-Evidence vor.
+Der [enge Capture](../Architecture/SQL_GUEST_EVALUATION_CAPTURE.md) implementiert
+die read-only Editionsabfrage für einen laufenden SQL-2025-Prepared-Hyper-V-Run.
+Developer ergibt frische NOT_EVALUATION-Evidence ohne Frist; Evaluation ohne
+beobachtbare Frist bleibt UNKNOWN. Der vorbereitete Native-Runner erstellt nur
+einen eigenen Run aus einem vorhandenen Developer-Prepared-Artifact, kein
+neues Image. Seine Abnahme ist noch NOT_EXECUTED. Positive Evaluation- und
+Deadline-Evidence bleiben davon getrennt offen.
 Er schafft keine Lizenzverlängerung, keinen automatischen Refresh, Cutover,
 Export, Import, Notification-Service oder Windows-Aufgabe. Der vollständige
 Evaluation-Refresh darf erst eine frische, gültig gebundene SQL-Gast-Evidence

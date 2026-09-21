@@ -1690,3 +1690,18 @@ einschließlich unveränderter read-only Quelle, Replay, Inhaltsabweichung und
 vollständiger Restprüfung. Native Prozessabbrüche sind dadurch nicht belegt;
 verlorene Antworten und Journalfehler bleiben getrennte Offline-Evidence.
 Hyper-V gehört nicht zu diesem Änderungsscope.
+
+### SQL-Gast-Editionscapture
+
+`Tests/Static/Invoke-SqlGuestEvaluationCaptureChecks.ps1` prüft Receiptkette,
+Drift, Credentialgrenze, Lock, Reparse-Root, Fehlererhaltung sowie echte
+SqlClient-Builder und sequenzielle Reader. `Invoke-HyperVGuestProgressChecks.ps1`
+prüft den optionalen VM-ID-Pfad ohne WinRM-Fallback. CI-Auswahl und Workflowmodus
+sind durch `Invoke-CiStrategyChecks.ps1` gebunden.
+
+Die native Abnahme `Tests/Integration/Invoke-SqlGuestEvaluationCaptureAcceptance.ps1`
+benötigt eine explizite vorhandene SQL-2025-Developer-Prepared-Artifact-ID und
+Administratorrechte. Der Hyper-V-Modus `sql-guest-evaluation-capture-acceptance`
+verwendet diesen Runner ohne Image-Bootstrap. Native Capture-Evidence ist noch
+`NOT_EXECUTED`; positive Evaluation und echte Deadline bleiben eigene offene
+Nachweise. Die Abnahme erstellt und bereinigt ausschließlich ihren eigenen Run.

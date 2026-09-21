@@ -278,6 +278,9 @@ $dependencyCases = @(
     @{ Path = 'Schemas/portable-container-transfer-preflight-journal.schema.json'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1'); Runtime = @('Docker','Podman') },
     @{ Path = 'Public/Get-SqlServerLabEvaluationWatch.ps1'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/SqlGuestEvaluationEvidence.ps1'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },
+    @{ Path = 'Private/SqlGuestEvaluationCapture.ps1'; Checks = @('Invoke-SqlGuestEvaluationCaptureChecks.ps1','Invoke-EvaluationWatchChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1'); Runtime = @('HyperV') },
+    @{ Path = 'Public/Update-SqlServerLabSqlGuestEvaluationEvidence.ps1'; Checks = @('Invoke-SqlGuestEvaluationCaptureChecks.ps1','Invoke-EvaluationWatchChecks.ps1'); Runtime = @('HyperV') },
+    @{ Path = 'Tests/Integration/Invoke-SqlGuestEvaluationCaptureAcceptance.ps1'; Checks = @('Invoke-SqlGuestEvaluationCaptureChecks.ps1'); Runtime = @('HyperV') },
     @{ Path = 'Schemas/sql-guest-evaluation-evidence.schema.json'; Checks = @('Invoke-EvaluationWatchChecks.ps1'); Runtime = @() },
     @{ Path = 'Private/SqlObservabilityEvidence.ps1'; Checks = @('Invoke-SqlObservabilityEvidenceChecks.ps1'); Runtime = @('Docker','Podman','HyperV') },
     @{ Path = 'Private/RecoveryPointPlan.ps1'; Checks = @('Invoke-HyperVRecoveryPointPlanChecks.ps1'); Runtime = @() },
@@ -376,6 +379,11 @@ Add-CheckResult -Name 'Hyper-V-Workflow fuehrt SQL-Konfigurations-Reconcile nur 
     $hyperVWorkflow -match "inputs\.mode == 'sql-configuration-reconcile-acceptance'" -and
     $hyperVWorkflow -match 'Invoke-HyperVSqlConfigurationReconcileAcceptance\.ps1 @arguments' -and
     $hyperVWorkflow -match '\$arguments\.ArtifactId = \$artifactId'
+)
+Add-CheckResult -Name 'Hyper-V-Workflow verbindet SQL-Gast-Capture mit explizitem Prepared-Artifact und ohne Image-Bootstrap' -Success (
+    $hyperVWorkflow -match '(?m)^\s*- sql-guest-evaluation-capture-acceptance\s*$' -and
+    $hyperVWorkflow -match "inputs\.mode == 'sql-guest-evaluation-capture-acceptance'" -and
+    $hyperVWorkflow -match 'Invoke-SqlGuestEvaluationCaptureAcceptance\.ps1 -ArtifactId \$env:SQL_GUEST_CAPTURE_ARTIFACT_ID'
 )
 Add-CheckResult -Name 'Hyper-V-Workflow fuehrt SQL-Port-Reconcile nur im exakten Akzeptanzmodus aus' -Success (
     $hyperVWorkflow -match '(?m)^\s*- sql-port-reconcile-acceptance\s*$' -and

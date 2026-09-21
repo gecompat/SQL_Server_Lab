@@ -54,7 +54,7 @@ try {
                 schemaVersion = 1
                 instances = @([PSCustomObject]@{
                     id = 'sql-primary'; provider = 'hyperv'; workload = 'sql'; vmName = 'secret-sql-vm'; vmId = $sqlVmId
-                    imageArtifactId = $sqlArtifactId; sqlEdition = 'Enterprise Evaluation Edition'
+                    imageArtifactId = $sqlArtifactId; sqlEdition = 'Evaluation'
                     sqlReadiness = [PSCustomObject]@{
                         status = 'SQL_READY_RUN'; instanceName = 'MSSQLSERVER'; majorVersion = 17; edition = 'Enterprise Evaluation Edition'
                     }
@@ -159,7 +159,7 @@ try {
             $evidence.SqlEdition = 'Enterprise Developer'
         } -ConnectionMutation {
             param($connection)
-            $connection.instances[0].sqlEdition = 'Enterprise Developer'
+            $connection.instances[0].sqlEdition = 'EnterpriseDeveloper'
             $connection.instances[0].sqlReadiness.edition = 'Enterprise Developer'
         }
         $notEvaluationClassificationMismatchResult = Invoke-SqlGuestEvidenceReaderCase -EvidenceMutation {
@@ -186,7 +186,7 @@ try {
             $connection.instances[0].sqlReadiness.edition = 'Enterprise Developer'
         }
         $staleNotEvaluationEvidence = $validEvidence | ConvertTo-Json -Depth 20 | ConvertFrom-Json -Depth 20
-        $staleNotEvaluationEvidence.SqlEdition = 'Enterprise Developer'
+        $staleNotEvaluationEvidence.SqlEdition = 'Enterprise Developer Edition'
         $staleNotEvaluationEvidence.LicenseClassification = 'NOT_EVALUATION'
         $staleNotEvaluationEvidence.EvaluationExpiresAt = $null
         $staleNotEvaluationEvidence.DeadlineSource = 'SQL_GUEST_NO_DEADLINE'
@@ -194,8 +194,8 @@ try {
         $staleNotEvaluationEvidence.ObservedAt = [datetime]::UtcNow.AddDays(-7).ToString('o')
         $staleNotEvaluationEvidence.EvidenceFreshUntil = [datetime]::UtcNow.AddMinutes(-1).ToString('o')
         $staleNotEvaluationConnection = $validConnectionJson | ConvertFrom-Json -Depth 20
-        $staleNotEvaluationConnection.instances[0].sqlEdition = 'Enterprise Developer'
-        $staleNotEvaluationConnection.instances[0].sqlReadiness.edition = 'Enterprise Developer'
+        $staleNotEvaluationConnection.instances[0].sqlEdition = 'EnterpriseDeveloper'
+        $staleNotEvaluationConnection.instances[0].sqlReadiness.edition = 'Enterprise Developer Edition'
         $staleNotEvaluationEvidence | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $sqlEvidencePath -Encoding utf8
         $staleNotEvaluationConnection | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $sqlConnectionPath -Encoding utf8
         $staleNotEvaluation = Get-SqlServerLabEvaluationWatch -StateRoot $StateRoot -WarningDaysRemaining 30 -CriticalDaysRemaining 7
