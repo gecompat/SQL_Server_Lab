@@ -710,3 +710,8 @@ Sie umfasst SQLrestart, konkurrierenden SQL-AppLock, Staging-/Commitantwortverlu
 Resume und eigenes DB-/Run-Cleanup. Kein Download oder Cloudaufruf. Docker und
 Podman sind jeweils mit 16 Assertions und vollständigem Cleanup nativ belegt;
 [Vertrag](../Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md).
+
+## SQL-Gast-Evidence-Capture
+
+- `Static/Invoke-SqlGuestEvaluationCaptureChecks.ps1`: Offlinevertrag für Editionscapture, Bindung, Dateisperre, atomaren Receipt und Fehlererhaltung.
+- `Integration/Invoke-SqlGuestEvaluationCaptureAcceptance.ps1 -ArtifactId <prepared-id>`: eigener Developer-Run auf erhöhtem Hyper-V-Runner, echter Capture/Watch, Evidence-Kette und Cleanup. Verwendet ein vorhandenes SQL_PREPARED_SEALED-Artifact; kein neuer Image-Build und kein positiver Deadline-Nachweis.

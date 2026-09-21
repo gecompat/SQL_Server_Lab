@@ -40,6 +40,31 @@ function ConvertFrom-LabSqlGuestEvaluationEvidenceUtcTimestamp {
     return $parsed.ToUniversalTime()
 }
 
+function Test-LabSqlGuestEditionBinding {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$SetupEdition,
+        [Parameter(Mandatory)][string]$ObservedEdition,
+        [Parameter(Mandatory)][int]$SqlMajorVersion
+    )
+
+    if ($SetupEdition -ceq $ObservedEdition) { return $true }
+    if ($SqlMajorVersion -ne 17) { return $false }
+
+    switch -c ($SetupEdition) {
+        'Evaluation' {
+            return $ObservedEdition -match '^(Enterprise )?Evaluation Edition(?: \(64-bit\))?$'
+        }
+        'EnterpriseDeveloper' {
+            return $ObservedEdition -match '^(Developer|Enterprise Developer|Developer Enterprise) Edition(?: \(64-bit\))?$'
+        }
+        'StandardDeveloper' {
+            return $ObservedEdition -match '^(Standard Developer|Developer Standard) Edition(?: \(64-bit\))?$'
+        }
+        default { return $false }
+    }
+}
+
 function Test-LabSqlGuestEvaluationEvidenceSemantics {
     [CmdletBinding()]
     param(
@@ -82,7 +107,7 @@ function Test-LabSqlGuestEvaluationEvidenceSemantics {
         [string]$Evidence.SqlInstanceName -ne [string]$readiness.instanceName -or
         [int]$Evidence.SqlMajorVersion -ne [int]$readiness.majorVersion -or
         [string]$Evidence.SqlEdition -ne [string]$readiness.edition -or
-        [string]$Evidence.SqlEdition -ne [string]$Instance.sqlEdition) {
+        -not (Test-LabSqlGuestEditionBinding -SetupEdition ([string]$Instance.sqlEdition) -ObservedEdition ([string]$Evidence.SqlEdition) -SqlMajorVersion ([int]$Evidence.SqlMajorVersion))) {
         return $false
     }
 

@@ -442,3 +442,8 @@ SEE ALSO
     SQL Server 2025 Linux database from a registered backup into a new owned
     Docker/Podman run. Success retains the read-only target after a full MATCH.
     Reusing OperationId never repeats RESTORE; recovery only cleans up the owned run.
+
+    Update-SqlServerLabSqlGuestEvaluationEvidence reads the edition of one running
+    SQL 2025 Hyper-V instance and atomically refreshes its local receipt.
+    Fresh Developer evidence is NOT_APPLICABLE; Evaluation without a deadline
+    remains UNKNOWN. WhatIf performs no guest access or receipt/lock writes.

@@ -58,6 +58,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   2026-09-21 mit unveränderter Modellbindung, SQL-/Ollama-Restart und Cleanup. Vertrag:
   `Documentation/Architecture/AI_RAG_EXISTING_OLLAMA.md`;
 
+- SQL-2025-Hyper-V-Editionscapture über `Update-SqlServerLabSqlGuestEvaluationEvidence`
+  mit VM-ID-Bindung, runlokaler Dateisperre, unverändertem Vorgänger bei Fehler
+  und 24-Stunden-NO_DEADLINE-Receipt. Native Developer-Abnahme 35563036235 am
+  2026-09-21 mit elf Assertions und vollständigem Cleanup bestanden;
+  Vertrag: `Documentation/Architecture/SQL_GUEST_EVALUATION_CAPTURE.md`;
+
 - Ein-Datenbank-Transfer über `Invoke-SqlServerLabPortableContainerTransfer`:
   read-only SQL-2025-Linux-Quelle und registriertes read-only Backup, neuer
   operationseigener Docker-/Podman-Ziel-Run mit eigenem Volume, begrenzte
