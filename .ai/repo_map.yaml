@@ -1031,6 +1031,7 @@ providers:
     resource_binding_static_checks: Tests/Static/Invoke-HyperVResourceBindingChecks.ps1
     resource_migration_static_checks: Tests/Static/Invoke-HyperVResourceMigrationChecks.ps1
     resource_reconcile_static_checks: Tests/Static/Invoke-HyperVResourceReconcileChecks.ps1
+    resource_reconcile_own_run_native: "35564131935; 2026-09-21; a4510f5c; eigene Windows-2025-/SQL-2025-Developer-Runs, Live/Restart, injizierter VM-ID-gebundener Pre-Start-Fehler, Resume und persistenter SQL-Marker; Cleanup je 3/0; keine reale Plattformfehlersimulation"
     storage_reconcile_static_checks: Tests/Static/Invoke-HyperVStorageReconcileChecks.ps1
     storage_reconcile_acceptance: "Tests/Integration/Invoke-HyperVStorageReconcileAcceptance.ps1; manueller Main-Nachweis fuer einen operationseigenen Windows-2025-Clone, SCSI-Hostbindung, Gast-Receipt, Restart, No-op und Cleanup; Grow-only bleibt synthetisch belegt, SQL-Dateipfad-Rebinding bleibt HV-603A"
     sql_storage_reconcile_static_checks: Tests/Static/Invoke-HyperVSqlStorageReconcileChecks.ps1

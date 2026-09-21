@@ -506,6 +506,13 @@ LAN verwendet eine lokale Switch-/Adapter-Allowlist, External Switch und
 Gast-DHCP; die eng begrenzte schreibende Netzwerkreparatur ist synthetisch
 implementiert, positive native Switch-/Repair-Evidence bleibt offen.
 
+Der manuelle Ressourcenlauf `35564131935` vom 2026-09-21 bestätigte auf
+`a4510f5c` zwei eigene Windows-2025-/SQL-2025-Developer-Runs: Live-/Restart-
+Abgleich, VM-ID-gebundene Pre-Start-Unterbrechung, Wiederaufnahme mit
+persistentem SQL-Marker und vollständigen Cleanup (je drei Schritte, null
+Fehler). Dies ist ein injizierter Executorfehler, kein Nachweis eines realen
+Hyper-V-Plattformfehlers.
+
 Der Hyper-V-Reconcile besitzt getrennte, hostwertfreie Pläne für vCPU/RAM,
 zusätzliche VHDX/Grow-only, SQL-Storage, SQL-Konfiguration, den
 statischen SQL-TCP-Port und katalogisierte Testdatenbanken. Der SQL-Storage-Slice wird erst nach

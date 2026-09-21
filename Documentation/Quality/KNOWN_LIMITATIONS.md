@@ -1653,11 +1653,16 @@ bewusst `unsupported`.
 No-op, Live, Restart, `WhatIf`, Recovery und Resume sind synthetisch belegt.
 Der native Runner enthaelt zusaetzlich einen test-only, Run-/Scope-/Instanz-/
 VM-ID-gebundenen einmaligen Pre-Start-Fehler mit Wrapper-Entfernung vor dem
-Resume. Er belegt keine Hyper-V-Plattformfehlersimulation und ist bis zur
-erhoehten manuellen Ausfuehrung weiterhin `NOT_EXECUTED`.
+Resume. Der erhöhte manuelle Lauf `35564131935` vom 2026-09-21 bestand auf
+Commit `a4510f5c` einschließlich Wiederaufnahme und persistentem SQL-Marker.
+Er belegt einen injizierten Executorfehler, keine Hyper-V-Plattformfehlersimulation.
 Der getrennte [Own-Run-Einstieg](../Architecture/HYPERV_RESOURCE_RECONCILE_OWN_RUN_ACCEPTANCE.md)
 verwendet ausschließlich ein explizites SQL-2025-Prepared-Artifact und keinen
-Clone-Quellrun; auch dessen native Evidence bleibt `NOT_EXECUTED`.
+Clone-Quellrun. Der erfolgreiche Lauf verwendete zwei eigene Windows-2025-/
+SQL-2025-Developer-Runs; beide endeten mit jeweils drei Cleanup-Schritten und
+null Fehlern. Der vorausgegangene Aktivierungsfehler in Lauf `35562372061`
+bleibt als gescheiterter Versuch mit erfolgreichem Cleanup erhalten; seine
+Ursache ist nicht geklärt.
 Am 2026-09-14 bestand zusätzlich die vollständige native Ressourcen-Acceptance
 mit einem expliziten gestoppten Windows-2025-Clone-Quellslot und SQL Server 2025
 Enterprise aus dem konfigurierten Medienroot. Sie belegte `VerifyOnly` mit
