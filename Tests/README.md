@@ -288,7 +288,7 @@ flüchtigen SQL-Server-2025-Vektorsuche und bewertet den gebundenen Golden-Fall
 blockierend. Docker und Podman werden getrennt samt Restart und Cleanup geprüft:
 
 ```powershell
-.\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider docker
+.\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider docker -TimeoutSeconds 1800
 .\Tests\Integration\Invoke-AiRagContainerAcceptance.ps1 -Provider podman -TimeoutSeconds 1800
 ```
 

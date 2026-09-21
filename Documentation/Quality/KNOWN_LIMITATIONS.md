@@ -126,8 +126,8 @@ den RAG-PlanKey; nur das passend gebundene Ergebnis eines tatsächlich
 ausgeführten SQL-RAG-Laufs darf bewertet werden. Docker und Podman bestanden den
 festen Golden-Fall `backup-frequency` am 2026-09-21 getrennt einschließlich
 Golden-Metriken, SQL-/Ollama-Restart und vollständigem eigenem Cleanup. Die Modelle
-`embeddinggemma:300m-qat-q4_0` und `gemma3:1b` blieben unverändert. Der erfolgreiche
-Podman-Lauf verwendete `-TimeoutSeconds 1800` für die Modelldownloads; Inferenzlimits
+`embeddinggemma:300m-qat-q4_0` und `gemma3:1b` blieben unverändert. Die erfolgreichen
+Docker- und Podman-Läufe verwendeten `-TimeoutSeconds 1800` für die Modelldownloads; Inferenzlimits
 wurden nicht erhöht. Ein früherer Inferenz-Timeout trat nicht erneut auf, seine
 Ursache ist nicht belegt. Weitere Golden-Fälle, hybride Suche
 und automatische Antworttreueprüfung bleiben offen. Ein Modell-Judge wird
