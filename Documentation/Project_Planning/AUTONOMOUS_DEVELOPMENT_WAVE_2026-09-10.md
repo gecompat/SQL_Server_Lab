@@ -262,14 +262,16 @@ Die vom Benutzer bereitgestellten Übergaben
 `sql-server-lab-development-handoff.prompt.md` und
 `sql-server-lab-diagnostic-bundle-development.prompt.md` bleiben historische
 Quellen; Betriebsbefunde eines anderen Hosts sind kein Nachweis für den
-aktuellen Zielhost. Die autonome Entwicklung ist fortgesetzt. Zuerst werden die bereits
-begonnenen, kohärenten Slices abgeschlossen: [PR #540](https://github.com/gecompat/SQL_Server_Lab/pull/540)
-für die kompakte CMS-Anzeige und PR #537 für Point-in-Time-Recovery hatten je
-einen grünen CI-Stand, benötigen aber noch die Main-Ausrichtung. Der separat
-unter Docker und Podman validierte SQL-Versionsupgrade-Slice ist noch nicht
-veröffentlicht und folgt nach der PITR-Integration. Die enge retained-store-
-Arbeit bleibt in Umsetzung; die KI-Statuskorrektur in den Benutzerdokumenten
-ist in diesem Dokumentationsslice enthalten.
+aktuellen Zielhost. Die autonome Entwicklung ist fortgesetzt. Bei der
+Wiederaufnahme waren die kompakte CMS-Anzeige, Point-in-Time-Recovery,
+die SQL-Versionsupgrade-Referenz und die enge retained-store-Arbeit noch nicht
+vollständig integriert. Diese begonnenen Slices werden zuerst abgeschlossen;
+die separat unter Docker und Podman validierte Upgrade-Referenz folgt nach der
+PITR-Integration. [PR #540](https://github.com/gecompat/SQL_Server_Lab/pull/540)
+für die CMS-Anzeige wurde inzwischen nach grüner CI integriert. Die
+KI-Statuskorrektur in den Benutzerdokumenten ist in diesem Dokumentationsslice
+enthalten. Einzelne historische Prüferfolge ersetzen keine abschließende
+Prüfung und Integration des jeweiligen aktuellen Branchstands.
 
 Die aktuelle read-only Zielhostprüfung klassifiziert Docker und Podman für den
 Container-Python/R-Pfad wegen erforderlichem cgroup v1 bei beobachtetem cgroup
