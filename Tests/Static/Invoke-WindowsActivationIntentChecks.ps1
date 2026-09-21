@@ -80,8 +80,9 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
     function Remove-LabWindowsActivationAdapter {throw 'UNEXPECTED_ADAPTER_REMOVAL'}
     function Resolve-HyperVWindowsActivationExternalSwitch {throw 'UNEXPECTED_EXTERNAL_SWITCH_LOOKUP'}
     function Invoke-HyperVPowerShellDirect {
-        param($ArgumentList)
+        param($ArgumentList,$ScriptBlock)
         if($ArgumentList.Count -eq 1){return [pscustomobject]@{Available=$true}}
+        $script:activationGuestScript=$ScriptBlock
         $script:configureTemporary=$ArgumentList[1]
         if($script:activationFailure){throw 'WINDOWS_ACTIVATION_SYNTHETIC_FAILURE'}
         if($script:guestReportedFailure){return [pscustomobject]@{contractVersion='SqlServerLab.WindowsActivationGuestReceipt/1.0';status='FAILED';failureCode='WINDOWS_ACTIVATION_NETWORK_NOT_READY';diagnostic='dns=unresolved'}}
@@ -96,6 +97,21 @@ $module=Import-Module (Join-Path $PSScriptRoot '../../SqlServerLab.psd1') -Force
     $script:activationFailure=$false;$script:guestReportedFailure=$true;$failed=$false
     try{$null=Invoke-LabWindowsSlotActivationReconcile -RunId own-run -Credential $credential}catch{$failed=$_.Exception.Message -match 'WINDOWS_ACTIVATION_NETWORK_NOT_READY' -and $_.Exception.Message -match 'dns=unresolved'}
     Assert-Path ($failed -and $script:permanentAdapter.Id -eq 'own-adapter' -and $script:permanentAdapter.SwitchId -eq 'own-switch') 'Sanitisierter Gast-Fehlercode und Netzwerkdiagnose bleiben bis zum Aktivierungsaufrufer erhalten'
+    & {
+        # Den tatsächlichen Gastblock ausschließlich mit synthetischen Cmdlets ausführen.
+        function Get-NetAdapter { [pscustomobject]@{MacAddress='00155D010203';ifIndex=3;Name='synthetic'} }
+        function Get-NetIPAddress { if(-not $script:networkMissing){[pscustomobject]@{AddressState='Preferred';IPAddress='192.0.2.10'}} }
+        function Get-NetRoute { if(-not $script:networkMissing){[pscustomobject]@{DestinationPrefix='0.0.0.0/0'}} }
+        function Start-Sleep { throw 'WINDOWS_ACTIVATION_NETWORK_NOT_READY' }
+        function Resolve-DnsName { throw 'synthetic DNS unavailable' }
+        function Get-ItemProperty { throw 'WINDOWS_ACTIVATION_LICENSE_DISCOVERY_FAILED' }
+        $script:networkMissing=$true
+        $missing=& $script:activationGuestScript '00155D010203' $false
+        Assert-Path ($missing.failureCode -eq 'WINDOWS_ACTIVATION_NETWORK_NOT_READY' -and $missing.diagnostic -ceq 'dns=not_checked;ipv4=missing;route=missing') 'Fehlende IPv4/Route wird ohne erfundene DNS-Abfrage diagnostiziert'
+        $script:networkMissing=$false
+        $dns=& $script:activationGuestScript '00155D010203' $false
+        Assert-Path ($dns.failureCode -eq 'WINDOWS_ACTIVATION_LICENSE_DISCOVERY_FAILED' -and $dns.diagnostic -ceq 'dns=unresolved;ipv4=present;route=present') 'Tatsächlich fehlgeschlagene DNS-Abfrage bleibt von nicht geprüfter DNS getrennt'
+    }
     & {
         $fixtureRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-activation-resume-'+[guid]::NewGuid().ToString('N'))
         try {

@@ -161,6 +161,11 @@ sources_of_truth:
   validation_sql_observability_evidence: Tests/Static/Invoke-SqlObservabilityEvidenceChecks.ps1
   acceptance_sql_observability_evidence_container: Tests/Integration/Invoke-ContainerSqlObservabilityAcceptance.ps1
   sql_guest_evaluation_evidence_contract: Private/SqlGuestEvaluationEvidence.ps1
+  sql_guest_evaluation_capture_contract: Private/SqlGuestEvaluationCapture.ps1
+  sql_guest_evaluation_capture_public: Public/Update-SqlServerLabSqlGuestEvaluationEvidence.ps1
+  sql_guest_evaluation_capture_architecture: Documentation/Architecture/SQL_GUEST_EVALUATION_CAPTURE.md
+  validation_sql_guest_evaluation_capture: Tests/Static/Invoke-SqlGuestEvaluationCaptureChecks.ps1
+  acceptance_sql_guest_evaluation_capture: Tests/Integration/Invoke-SqlGuestEvaluationCaptureAcceptance.ps1
   sql_guest_evaluation_evidence_schema: Schemas/sql-guest-evaluation-evidence.schema.json
   validation_sql_guest_evaluation_evidence: Tests/Static/Invoke-EvaluationWatchChecks.ps1
   host_tool_resolution: Private/HostToolResolution.ps1
@@ -1009,7 +1014,7 @@ providers:
     physical_resource_root: "registered Lab_Data/HyperV; StateRoot contains control state only; persisted builder disks resolve through their Build binding"
     image_registry: Private/HyperVImageRegistry.ps1
     image_artifact_inventory: "Public/Get-SqlServerLabHyperVImageArtifact.ps1 und Get-SqlServerLabWorkflow.ps1; pfadfreie read-only Registry-, Workflow-, Evaluierungs-, manueller Refresh- und Referenzsicht, optionale Parent-Hash-Pruefung ohne Refresh- oder Loeschautoritaet"
-    evaluation_watch: "Public/Get-SqlServerLabEvaluationWatch.ps1, Private/SqlGuestEvaluationEvidence.ps1 und Public/Invoke-SqlServerLabEvaluationWatchTrigger.ps1; read-only Windows-/SQL-Imagebewertung und persistierte Windows-Instanzfrist mit optionaler lokaler Ereignis-Deduplizierung sowie explizit begrenztem foreground-Zeittrigger ohne Windows-Aufgabe, Lizenz-, Image-, Run-, Runtime- oder Netzwerkmutation; SQL-Gastfristen werden ausschließlich aus einem schema- und bindungsvalidierten, frischen runlokalen Receipt projektiert. Capture und Native-Abnahme bleiben im SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG offen."
+    evaluation_watch: "Public/Get-SqlServerLabEvaluationWatch.ps1, Private/SqlGuestEvaluationEvidence.ps1 und Public/Invoke-SqlServerLabEvaluationWatchTrigger.ps1; read-only Windows-/SQL-Imagebewertung und persistierte Windows-Instanzfrist mit optionaler lokaler Ereignis-Deduplizierung sowie explizit begrenztem foreground-Zeittrigger ohne Windows-Aufgabe, Lizenz-, Image-, Run-, Runtime- oder Netzwerkmutation; SQL-Gastfristen werden ausschließlich aus einem schema- und bindungsvalidierten, frischen runlokalen Receipt projektiert. Separater SQL-2025-Hyper-V-Capture schreibt ausschließlich NO_DEADLINE-Evidence; Der native Developer-Lauf 35563036235 bestand mit Receiptkette, unverändertem State/Parent und vollständigem Cleanup; positive Deadline-Abnahme bleibt offen."
     validation_evaluation_watch: Tests/Static/Invoke-EvaluationWatchChecks.ps1
     image_builder: "Private/HyperVImageBuilder.ps1 plus Private/HyperVWindowsEvaluationTemplate.ps1, Private/HyperVLegacyWindowsEvaluationTemplate.ps1 und Private/HyperVSqlImageBuilder.ps1; katalog- und hashgebundener Windows-/SQL-Evaluation-Build, versionsgerechte Hyper-V-Plattform, einmaliger buildlokaler Medienprüfbeleg für unveränderte Resumes, temporäre Aktivierungs-NIC, Sysprep, fail-closed CHILD_BOOT_VERIFIED-Gate und PowerShell-Direct- beziehungsweise Legacy-WMI-/Lab-WinRM-Gaststeuerung"
     windows_slot_pool: "Public/New-SqlServerLabWindowsSlotPool.ps1; geeignete OS_SEALED-Baseline, N resumierbare Child-VMs, RAM-/Locale-Vertrag, generierte oder gemeinsame Passwoerter und unbeaufsichtigte OOBE"

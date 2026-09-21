@@ -1812,3 +1812,19 @@ Run-scoped Stores, aktive Leases, fremde Ownership, Sidecars und unbekannte
 Runtime-Evidence bleiben blockiert. Ältere Runs ohne persistierte Drive-/UUID-
 Evidence werden nicht nachträglich ergänzt; UUID-lose historische Intents bleiben
 lesbar. Die getrennte native Docker-/Podman-Abnahme dieses Recovery-Pfads steht noch aus.
+
+### SQL-Gast-Edition und Evaluation-Evidence
+
+Ein laufender eigener SQL-2025-Hyper-V-Run aus einem Prepared-Image kann seine
+Edition explizit erfassen. Er benötigt verwaltete Gast-/SA-Secrets, genau eine
+SQL-Instanz und passende SQL-Readiness. Vorschau und Capture:
+
+```powershell
+Update-SqlServerLabSqlGuestEvaluationEvidence -RunId $run.RunId -StateRoot $stateRoot -WhatIf
+Update-SqlServerLabSqlGuestEvaluationEvidence -RunId $run.RunId -StateRoot $stateRoot
+Get-SqlServerLabEvaluationWatch -StateRoot $stateRoot
+```
+
+Der Capture beobachtet keine Ablaufzeit: Developer ergibt für 24 Stunden
+`NOT_APPLICABLE`, Evaluation ohne Frist bleibt `UNKNOWN`. Fehler bewahren den
+alten Receipt. [Bindung, Grenzen und Nachweise](../Architecture/SQL_GUEST_EVALUATION_CAPTURE.md).

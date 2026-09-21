@@ -719,6 +719,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Get-SqlServerLabHyperVImageArtifact` | Pfadfreie, read-only Hyper-V-Image-Registry mit Evaluierungs-, Refresh- und Referenzstatus; `-VerifyIntegrity` prüft ausgewählte Parent-VHDX erneut |
 | `Get-SqlServerLabEvaluationWatch` | Registrierte Windows-/SQL-Artefaktfristen und persistierte Windows-Fristen registrierter RUNNING-Hyper-V-Instanzen read-only bewerten; für RUNNING-/STOPPED-Hyper-V-SQL-Runs ausschließlich frische, gebundene SQL-Gast-Evidence projizieren und fällige Ereignisse optional lokal deduplizieren |
 | `Invoke-SqlServerLabEvaluationWatchTrigger` | Evaluation-Watch in einem explizit begrenzten lokalen Zeitintervall ausführen; registriert keine Windows-Aufgabe und verändert weder Runtime noch Netzwerk |
+| `Update-SqlServerLabSqlGuestEvaluationEvidence` | Edition einer laufenden SQL-2025-Hyper-V-Instanz lesen und gebundene NO_DEADLINE-Evidence atomar erneuern; Developer ergibt frisch NOT_APPLICABLE, Evaluation ohne Frist bleibt UNKNOWN |
 | `Get-SqlServerLabRunStateUpgradePlan` | Einen lokalen Run-State gegen den aktuellen Zielvertrag read-only klassifizieren |
 | `Invoke-SqlServerLabRunStateUpgrade` | Einen explizit synthetischen, unversionierten Legacy-State atomar migrieren; unbekannte Versionen bleiben blockiert |
 | `Get-SqlServerLabPortableLabImportPlan` | Ein portables Container-Lab-Paket read-only an einen bestehenden Docker-/Podman-Ziel-Run binden und ausschließlich BackupSetId- sowie Integritäts-Evidence prüfen; die Ausführung bleibt nicht implementiert |

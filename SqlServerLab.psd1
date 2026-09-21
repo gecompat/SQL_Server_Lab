@@ -28,6 +28,7 @@
         'Find-SqlServerLabCollation'
         'Get-SqlServerLabHyperVImageArtifact'
         'Get-SqlServerLabEvaluationWatch'
+        'Update-SqlServerLabSqlGuestEvaluationEvidence'
         'Invoke-SqlServerLabEvaluationWatchTrigger'
         'Get-SqlServerLabRunStateUpgradePlan'
         'Invoke-SqlServerLabRunStateUpgrade'
