@@ -1637,6 +1637,23 @@ validation:
       - restore_filelistonly_and_move
       - restored_database_online_and_content
       - full_cleanup
+  point_in_time_recovery_scenario:
+    source: Tests/Integration/Invoke-PointInTimeRecoveryAcceptance.ps1
+    child: Tests/Integration/Invoke-PointInTimeRecoveryChild.ps1
+    contract: Tests/Common/PointInTimeRecoveryScenario.ps1
+    supervisor: Tests/Common/PointInTimeRecoverySupervisor.ps1
+    static_checks:
+      - Tests/Static/Invoke-PointInTimeRecoveryScenarioChecks.ps1
+      - Tests/Static/Invoke-PointInTimeRecoverySupervisorChecks.ps1
+    docker: '.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider docker'
+    podman: '.\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -Provider podman'
+    execution_status: "narrow validated reference: separate native Docker and Podman runs passed on f51595ea (2026-09-21); SQL major 17, good commit restored, bad mutation excluded, source unchanged, CHECKDB, own-run removal and no runtime residue; observed restore intervals are not performance benchmarks"
+    checks:
+      - own_sql_2025_run_and_container_local_backup_paths
+      - full_log_chain_with_sql_server_local_datetime_stopat_cutoff
+      - restored_good_marker_and_absent_bad_mutation
+      - checkdb_recovery_duration_and_scope_bound_cleanup
+      - bounded_children_private_raw_output_and_lost_new_cleanup
   hyperv_windows_baseline_acceptance:
     source: Tests/Integration/Invoke-HyperVWindowsBaselineAcceptanceRun.ps1
     command: '.\Tests\Integration\Invoke-HyperVWindowsBaselineAcceptanceRun.ps1 -ArtifactId <hyperv-os-sealed-id> -AdministratorPassword <SecureString>'
@@ -1738,6 +1755,18 @@ validation:
       - physical_host_backing_vhdx_and_configuration
       - runtime_image_container_volume_build_cache_inventory
       - before_after_resource_fingerprint_unchanged
+  sql_version_upgrade_reference:
+    source: Tests/Integration/Invoke-SqlVersionUpgradeAcceptance.ps1
+    child: Tests/Integration/Invoke-SqlVersionUpgradeChild.ps1
+    orchestration: Tests/Common/SqlVersionUpgradeScenario.ps1
+    supervisor: Tests/Common/SqlVersionUpgradeSupervisor.ps1
+    validation: Tests/Static/Invoke-SqlVersionUpgradeScenarioChecks.ps1
+    supervisor_validation: Tests/Static/Invoke-SqlVersionUpgradeSupervisorChecks.ps1
+    contract: Documentation/Quality/SQL_VERSION_UPGRADE_REFERENCE.md
+    docker: '.\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker'
+    podman: '.\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider podman'
+    execution_status: "validated_reference; native Docker and Podman passed 2026-09-21 on 46340200; runtime cleanup verified, private temporary evidence retained"
+    scope: "own SQL 2022 major16 compat160 -> registered full BackupSetId -> new SQL 2025 major17 compat160 -> explicit compat170; fixed rows, aggregates, rollback, constraints, CHECKDB, unchanged source; operation/runtime-bound bounded cleanup"
   relational_core_comparison:
     source: Private/RelationalCoreComparison.ps1
     public_command: Public/Test-SqlServerLabRelationalCoreComparison.ps1
