@@ -2257,3 +2257,24 @@ Die Live-Gates vor SQL Setup, bei Start und Pool-Wiederaufnahme ersetzen keinen
 positiven Aktivierungsnachweis auf einem konkreten Gast. Der native Adaptertest hat
 am 2026-09-10 Erfolg, kontrollierten Fehler, Resume und Cleanup auf einem
 privaten Switch bestaetigt; er fuehrt keine Windows-Lizenzaktivierung aus.
+
+### Recovery verlorener retained Katalogbindungen
+
+Der öffentliche Befehl `Repair-SqlServerLabPersistentStorageCatalog` bindet einen
+bereits UUID-gelabelten, eigenen detached Docker-/Podman-INSTANCE_STORE an die
+aktuelle Provider-Runtime (`runtime-scope-…`) und unveränderte Original-Run-Evidence.
+Run-/Scope-/Instanzlabels bleiben getrennt erhalten. Preview, Abbruch, CAS und
+Spiegelrollback ändern weder Ressourcen noch Labels; Continue, Clone, Lease,
+Release, Providerinitialisierung und Residency prüfen die zusätzliche Bindung.
+Die getrennten nativen SQL-2025-Abnahmen für Docker und Podman bestanden am
+2026-09-21 je acht Assertions einschließlich Serverobjekt und Datenmarker nach
+Continue, unveränderter Labels und vollständigem eigenen Cleanup. Dieser
+Referenzfall belegt keine Sidecar-Recovery oder breite Versionsmatrix.
+
+Zwei bisherige Producer-Lücken sind für neue Runs korrigiert: Eine UUID auf einem
+`data-root-runtime-volume`-Intent wird akzeptiert; der initiale Desired-State wird
+nach Lease-/Drive-Aufbau vor Providerarbeit im eigenen INITIALIZING-Run vervollständigt.
+Historische Runs ohne diese Evidence und UUID-lose Stores bleiben für Recovery
+blockiert. Es gibt keine historische Migration, Retention-Konvertierung, fremde
+Adoption oder Sidecar-Recovery. Bestehende Katalogeinträge ohne RuntimeBinding
+bleiben mit ihren bisherigen Verträgen kompatibel.

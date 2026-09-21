@@ -20,6 +20,14 @@ $source=$null;$targetId=$null;$module=$null;$mutex=$null;$acquired=$false;$clean
 $ownedBindings=[Collections.Generic.List[object]]::new()
 $sourceOperation=[guid]::NewGuid().ToString('D');$operation=[guid]::NewGuid();$failureOperation=[guid]::NewGuid()
 function Assert-TransferAcceptance {param([bool]$Condition,[string]$Name)if(-not $Condition){throw "TRANSFER_ACCEPTANCE_FAILED: $Name"};Write-Host "PASS: $Name"}
+function Get-TransferAcceptanceResultDiagnostic {
+    param([Parameter(Mandatory)]$Result)
+    $status=if($Result.Status -cin @('SUCCEEDED','FAILED_CLEANED','RECOVERY_REQUIRED')){[string]$Result.Status}else{'UNKNOWN'}
+    $comparison=if($Result.Comparison -cin @('MATCH','NOT_EXECUTED','DIFFERENT_OR_UNSUPPORTED')){[string]$Result.Comparison}else{'UNKNOWN'}
+    $cleanup=if($Result.CleanupStatus -cin @('STAGE_CLEANED_TARGET_RETAINED','CLEANED','RECOVERY_REQUIRED','NOT_STARTED')){[string]$Result.CleanupStatus}else{'UNKNOWN'}
+    $failure=if([string]$Result.FailureCode -cmatch '^TRANSFER_[A-Z_]{1,100}$'){[string]$Result.FailureCode}else{'UNKNOWN'}
+    return "Status=$status; Comparison=$comparison; Cleanup=$cleanup; Failure=$failure"
+}
 try {
     if(-not $RuntimeMutexAlreadyHeld){$mutex=[Threading.Mutex]::new($false,$(if($IsWindows){'Global\SQL_Server_Lab_Runtime_Smoke'}else{'SQL_Server_Lab_Runtime_Smoke'}));$acquired=$mutex.WaitOne([TimeSpan]::FromMinutes(10));if(-not $acquired){throw 'TRANSFER_ACCEPTANCE_LOCK_TIMEOUT'}}
     $resolution=@(& (Join-Path $repoRoot 'Tools/Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
@@ -67,7 +75,10 @@ try {
     $result=Invoke-SqlServerLabPortableContainerTransfer @parameters -Confirm:$false
     $targetId=$result.TargetRunId
     if($targetId){$targetBinding=& $module {param($Run,$State,$Op)Get-LabTransferBinding -RunId $Run -InstanceId primary -StateRoot $State -OperationId $Op} $targetId $state $operation.ToString('D');$ownedBindings.Add($targetBinding)}
-    Assert-TransferAcceptance ($result.Status -eq 'SUCCEEDED' -and $result.Comparison -eq 'MATCH' -and $result.CleanupStatus -eq 'STAGE_CLEANED_TARGET_RETAINED') 'Echter Restore ergibt vollständigen read-only MATCH und Stage-Cleanup'
+    if($result.Status -ne 'SUCCEEDED' -or $result.Comparison -ne 'MATCH' -or $result.CleanupStatus -ne 'STAGE_CLEANED_TARGET_RETAINED') {
+        throw ('TRANSFER_ACCEPTANCE_RESULT_FAILED: '+(Get-TransferAcceptanceResultDiagnostic -Result $result))
+    }
+    Assert-TransferAcceptance $true 'Echter Restore ergibt vollständigen read-only MATCH und Stage-Cleanup'
     $again=Invoke-SqlServerLabPortableContainerTransfer @parameters -Confirm:$false
     Assert-TransferAcceptance ($again.Status -eq 'SUCCEEDED' -and $again.TargetRunId -eq $targetId) 'Terminale Wiederholung behält denselben Ziel-Run'
     $after=@(& $readSource $module $source.RunId $state $sourceOperation)

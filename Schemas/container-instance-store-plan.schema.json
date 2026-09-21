@@ -20,6 +20,67 @@
         "State": { "type": ["string", "null"] },
         "SqlMajorVersion": { "type": ["string", "null"], "pattern": "^\\d{4}$" },
         "AttachedContainers": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "RuntimeBinding": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "RuntimeScopeId",
+            "ObservedAt"
+          ],
+          "properties": {
+            "RuntimeScopeId": {
+              "type": "string",
+              "pattern": "^runtime-scope-[a-f0-9]{24}$"
+            },
+            "ObservedAt": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "RecoverySource": {
+              "type": "object",
+              "required": [
+                "RunId",
+                "ScopeId",
+                "InstanceId",
+                "SqlMajorVersion",
+                "Persistence",
+                "EvidenceSha256"
+              ],
+              "properties": {
+                "RunId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "ScopeId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "InstanceId": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+                },
+                "SqlMajorVersion": {
+                  "type": "string",
+                  "pattern": "^\\d{4}$"
+                },
+                "Persistence": {
+                  "enum": [
+                    "data-root-runtime-volume",
+                    "cataloged-runtime-volume"
+                  ]
+                },
+                "EvidenceSha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
         "Sidecars": { "type": "array", "items": { "$ref": "#/$defs/sidecar" }, "maxItems": 2 }
       },
       "additionalProperties": false

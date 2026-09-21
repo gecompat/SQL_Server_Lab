@@ -762,10 +762,11 @@ function Test-LabPersistedDriveIntents {
                 if ($storageIds.Count -ne 1 -or [string]::IsNullOrWhiteSpace($storageIds[0])) { return $false }
             }
             elseif (@($group | Where-Object { $null -ne $_.PersistentStorageId }).Count -ne 0) {
-                # Data-root runtime volumes deliberately have no catalog or
-                # run-scoped identity; PersistentLabData only emits their
-                # stable volume names and the backup bind separately.
-                return $false
+                # Current PersistentData creation stamps the catalog UUID before
+                # provisioning. Keep UUID-less legacy groups readable, but never
+                # accept a partially labeled or mixed-identity volume group.
+                $storageIds=@($group | ForEach-Object { [string]$_.PersistentStorageId } | Sort-Object -Unique)
+                if ($storageIds.Count -ne 1 -or [string]::IsNullOrWhiteSpace($storageIds[0])) { return $false }
             }
         }
     }

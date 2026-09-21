@@ -41,12 +41,17 @@ function Get-LabContainerInstanceStoreRuntimeInspection {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
-        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName,
+        [switch]$RequireMissingEvidence
     )
 
     $invocation = Get-LabHostToolInvocation -Name $Provider
     $raw = @(& $invocation volume inspect $VolumeName 2>$null)
     if ($LASTEXITCODE -ne 0) {
+        if ($RequireMissingEvidence) {
+            $names=@(& $invocation volume ls --format '{{.Name}}' 2>$null)
+            if ($LASTEXITCODE -ne 0 -or $VolumeName -cin $names) { throw 'CONTAINER_INSTANCE_STORE_ABSENCE_UNVERIFIABLE' }
+        }
         return [PSCustomObject]@{ Status='MISSING'; Provider=$Provider; VolumeName=$VolumeName; VolumeId=$null; Labels=[PSCustomObject]@{}; AttachedContainers=@() }
     }
     try { $inspection = @($raw | ConvertFrom-Json -Depth 40 -ErrorAction Stop)[0] }
@@ -108,6 +113,9 @@ function Get-LabContainerInstanceStorePlan {
         if ([string]$store.LocationBinding.Residency -ne 'NATIVE_RUNTIME' -or
             [string]::IsNullOrWhiteSpace([string]$store.LocationBinding.ProviderResourceId)) {
             $issues.Add('SOURCE_RUNTIME_BINDING_INVALID')
+        }
+        if (-not (Test-LabContainerInstanceStoreRuntimeBinding -Store $store -RuntimeInspection $RuntimeInspection)) {
+            $issues.Add('SOURCE_RECOVERED_RUNTIME_BINDING_INVALID')
         }
     }
 
@@ -210,6 +218,7 @@ function Get-LabContainerInstanceStorePlan {
         Steps=$steps; Blockers=$blockers
         Preview=[PSCustomObject]@{ SourceMutation=$false; SourceDeletion=$false; TargetCreated=([string]$Intent.Action -eq 'CLONE'); RequiresDetachedSource=$true; CatalogCommitRequired=([string]$Intent.Action -eq 'CLONE') }
     }
+    if ($store.RuntimeBinding) { $plan.Source | Add-Member -NotePropertyName RuntimeBinding -NotePropertyValue $store.RuntimeBinding }
     $schemaPath = Join-Path $script:SchemasPath 'container-instance-store-plan.schema.json'
     $schemaErrors = @()
     if (-not (($plan | ConvertTo-Json -Depth 30) | Test-Json -SchemaFile $schemaPath -ErrorAction SilentlyContinue -ErrorVariable +schemaErrors)) {
@@ -320,9 +329,11 @@ function Invoke-LabContainerInstanceStoreRuntimeCommand {
     param(
         [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
         [Parameter(Mandatory)][string[]]$Arguments,
-        [Parameter(Mandatory)][string]$ErrorCode
+        [Parameter(Mandatory)][string]$ErrorCode,
+        [AllowNull()]$RuntimeBinding
     )
     $invocation = Get-LabHostToolInvocation -Name $Provider
+    Assert-LabContainerStoreRuntimeScope -Provider $Provider -RuntimeBinding $RuntimeBinding
     $output = @(& $invocation @Arguments 2>&1)
     if ($LASTEXITCODE -ne 0) { throw "${ErrorCode}: $($output -join ' ')" }
     return @($output)
@@ -333,14 +344,15 @@ function Get-LabContainerVolumeContentEvidence {
     param(
         [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
         [Parameter(Mandatory)][string]$VolumeName,
-        [Parameter(Mandatory)][string]$HelperImage
+        [Parameter(Mandatory)][string]$HelperImage,
+        [AllowNull()]$RuntimeBinding
     )
     $scriptText = @'
 set -eu; cd /store; c=$(find . -type f | wc -l); b=$(find . -type f -printf '%s\n' | awk '{s+=$1} END {print s+0}'); h=$(find . -type f -print0 | sort -z | xargs -0 -r sha256sum | sha256sum | awk '{print $1}'); printf '%s|%s|%s\n' "$c" "$b" "$h"
 '@
     $output = Invoke-LabContainerInstanceStoreRuntimeCommand -Provider $Provider -Arguments @(
         'run','--rm','--user','0:0','--entrypoint','/bin/sh','-v',"${VolumeName}:/store:ro",$HelperImage,'-c',$scriptText
-    ) -ErrorCode 'CONTAINER_INSTANCE_STORE_EVIDENCE_FAILED'
+    ) -ErrorCode 'CONTAINER_INSTANCE_STORE_EVIDENCE_FAILED' -RuntimeBinding $RuntimeBinding
     $line = @($output | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ -match '^\d+\|\d+\|[a-f0-9]{64}$' } | Select-Object -Last 1)
     if ($line.Count -ne 1) { throw 'CONTAINER_INSTANCE_STORE_EVIDENCE_INVALID' }
     $parts = [string]$line[0] -split '\|'
@@ -357,6 +369,7 @@ function Invoke-LabContainerInstanceStoreClone {
     if ([string]$Plan.Status -ne 'READY' -or [string]$Plan.Action -ne 'CLONE') {
         throw 'CONTAINER_INSTANCE_STORE_CLONE_PLAN_REQUIRED'
     }
+    Assert-LabContainerStoreRuntimeScope -Provider $Plan.Provider -RuntimeBinding $Plan.Source.RuntimeBinding
     if (-not (Test-Path -LiteralPath $OperationDirectory -PathType Container)) {
         $null = New-Item -ItemType Directory -Path $OperationDirectory -Force
     }
@@ -427,6 +440,7 @@ function Invoke-LabContainerInstanceStoreClone {
         })
 
         foreach ($copy in $copies) {
+            Assert-LabContainerStoreRuntimeScope -Provider $Plan.Provider -RuntimeBinding $Plan.Source.RuntimeBinding
             $source = Get-LabContainerInstanceStoreRuntimeInspection -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.SourcePlan.VolumeName)
             $sourceRoleValid = [string]$copy.Role -eq 'SYSTEM' -or
                 [string]$source.Labels.'sql-server-lab.storage-role' -eq [string]$copy.Role
@@ -436,7 +450,7 @@ function Invoke-LabContainerInstanceStoreClone {
                 [string]$source.Labels.'sql-server-lab.sql-major-version' -ne [string]$Plan.Target.SqlMajorVersion) {
                 throw 'CONTAINER_INSTANCE_STORE_SOURCE_REVALIDATION_FAILED'
             }
-            $sourceEvidence = Get-LabContainerVolumeContentEvidence -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.SourcePlan.VolumeName) -HelperImage ([string]$Plan.Target.HelperImage)
+            $sourceEvidence = Get-LabContainerVolumeContentEvidence -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.SourcePlan.VolumeName) -HelperImage ([string]$Plan.Target.HelperImage) -RuntimeBinding $Plan.Source.RuntimeBinding
             if ($copy.SourceJournal.Evidence -and [string]$copy.SourceJournal.Evidence.Sha256 -ne [string]$sourceEvidence.Sha256) {
                 throw 'CONTAINER_INSTANCE_STORE_SOURCE_DRIFTED'
             }
@@ -459,7 +473,7 @@ function Invoke-LabContainerInstanceStoreClone {
                 }
                 $arguments += [string]$copy.TargetPlan.VolumeName
                 $null = Invoke-LabContainerInstanceStoreRuntimeCommand -Provider ([string]$Plan.Provider) `
-                    -Arguments $arguments -ErrorCode 'CONTAINER_INSTANCE_STORE_TARGET_CREATE_FAILED'
+                    -Arguments $arguments -ErrorCode 'CONTAINER_INSTANCE_STORE_TARGET_CREATE_FAILED' -RuntimeBinding $Plan.Source.RuntimeBinding
                 $target = Get-LabContainerInstanceStoreRuntimeInspection -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.TargetPlan.VolumeName)
             }
             $targetRoleValid = [string]$copy.Role -eq 'SYSTEM' -or
@@ -480,15 +494,15 @@ function Invoke-LabContainerInstanceStoreClone {
                 'run','--rm','--user','0:0','--entrypoint','/bin/sh',
                 '-v',"$([string]$copy.SourcePlan.VolumeName):/source:ro",'-v',"$([string]$copy.TargetPlan.VolumeName):/target",
                 [string]$Plan.Target.HelperImage,'-c',$copyScript
-            ) -ErrorCode 'CONTAINER_INSTANCE_STORE_COPY_FAILED'
+            ) -ErrorCode 'CONTAINER_INSTANCE_STORE_COPY_FAILED' -RuntimeBinding $Plan.Source.RuntimeBinding
         }
         $journal.Status = 'CONTENT_COPIED'
         $null = Write-LabContainerInstanceStoreJournal -Journal $journal -Path $path
 
         foreach ($copy in $copies) {
             $sourceEvidence = $copy.SourceJournal.Evidence
-            $sourceAfter = Get-LabContainerVolumeContentEvidence -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.SourcePlan.VolumeName) -HelperImage ([string]$Plan.Target.HelperImage)
-            $targetEvidence = Get-LabContainerVolumeContentEvidence -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.TargetPlan.VolumeName) -HelperImage ([string]$Plan.Target.HelperImage)
+            $sourceAfter = Get-LabContainerVolumeContentEvidence -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.SourcePlan.VolumeName) -HelperImage ([string]$Plan.Target.HelperImage) -RuntimeBinding $Plan.Source.RuntimeBinding
+            $targetEvidence = Get-LabContainerVolumeContentEvidence -Provider ([string]$Plan.Provider) -VolumeName ([string]$copy.TargetPlan.VolumeName) -HelperImage ([string]$Plan.Target.HelperImage) -RuntimeBinding $Plan.Source.RuntimeBinding
             if ([string]$sourceAfter.Sha256 -ne [string]$sourceEvidence.Sha256 -or [long]$sourceAfter.FileCount -ne [long]$sourceEvidence.FileCount -or
                 [long]$sourceAfter.TotalBytes -ne [long]$sourceEvidence.TotalBytes) { throw 'CONTAINER_INSTANCE_STORE_SOURCE_DRIFTED' }
             if ([string]$targetEvidence.Sha256 -ne [string]$sourceEvidence.Sha256 -or [long]$targetEvidence.FileCount -ne [long]$sourceEvidence.FileCount -or

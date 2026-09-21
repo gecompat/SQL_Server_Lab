@@ -70,6 +70,11 @@ function Test-LabPersistentStorageCatalogDocument {
 
         $binding = $store.LocationBinding
         $residency = [string]$binding.Residency
+        if ($store.RuntimeBinding -and ($store.StorageClass -cne 'INSTANCE_STORE' -or
+            $store.Provider -cnotin @('docker','podman') -or $residency -cne 'NATIVE_RUNTIME' -or
+            $store.Retention -cne 'RETAINED' -or $store.CleanupDisposition -cne 'PRESERVE')) {
+            throw 'PERSISTENT_STORAGE_RUNTIME_BINDING_INVALID'
+        }
         if ([string]$store.Provider -eq 'core') {
             if ([string]$store.StorageClass -ne 'EXCHANGE_WORKSPACE' -or $residency -ne 'LAB_DATA' -or
                 -not $binding.LocationId -or $binding.ProviderResourceId -or -not $binding.InventoryObjectId -or
@@ -1207,6 +1212,8 @@ function Register-LabContainerInstanceStoreLease {
 
     $newIdentity=${function:New-LabPersistentStorageId}
     $now=Get-LabTimestamp
+    $inspectBoundRuntime=${function:Get-LabContainerInstanceStoreRuntimeInspection}
+    $checkBoundRuntime=${function:Test-LabContainerInstanceStoreRuntimeBinding}
     $mutation = {
         param($Document)
         $storeMatches = @($Document.Stores | Where-Object {
@@ -1232,6 +1239,11 @@ function Register-LabContainerInstanceStoreLease {
                 [string]$existing.Retention -ne 'RETAINED' -or [string]$existing.CleanupDisposition -ne 'PRESERVE') {
                 throw 'CONTAINER_INSTANCE_STORE_LEASE_CONFLICT'
             }
+            if ($existing.RuntimeBinding) {
+                $fresh=& $inspectBoundRuntime -Provider $Provider -VolumeName $VolumeName
+                if ($fresh.Status -cne 'AVAILABLE' -or -not (& $checkBoundRuntime -Store $existing -RuntimeInspection $fresh)) { throw 'CONTAINER_INSTANCE_STORE_LEASE_RUNTIME_CONFLICT' }
+                $runtime=$fresh
+            }
             $sameLease = $existing.Lease -and [string]$existing.Lease.RunId -eq $RunId -and
                 [string]$existing.Lease.ScopeId -eq $ScopeId -and $activeRunReferences.Count -eq 1 -and
                 [string]$activeRunReferences[0].TargetId -eq $RunId -and [string]$existing.State -eq 'IN_USE'
@@ -1243,6 +1255,7 @@ function Register-LabContainerInstanceStoreLease {
                 throw 'CONTAINER_INSTANCE_STORE_LEASE_CONFLICT'
             }
             if ([string]$runtime.Status -ne 'AVAILABLE' -or @($runtime.AttachedContainers).Count -gt 0 -or
+                -not (& $checkBoundRuntime -Store $existing -RuntimeInspection $runtime) -or
                 [string]$runtime.Labels.'sql-server-lab.persistent-storage-id' -ne [string]$existing.PersistentStorageId -or
                 [string]$runtime.Labels.'sql-server-lab.sql-major-version' -ne $sqlMajorVersion) {
                 throw 'CONTAINER_INSTANCE_STORE_LEASE_RUNTIME_CONFLICT'
@@ -1528,6 +1541,8 @@ function Unregister-LabContainerInstanceStoreLease {
 
     $inspectRuntime=${function:Get-LabContainerInstanceStoreRuntimeInspection}
     $now=Get-LabTimestamp
+    $inspectBoundRuntime=${function:Get-LabContainerInstanceStoreRuntimeInspection}
+    $checkBoundRuntime=${function:Test-LabContainerInstanceStoreRuntimeBinding}
     $mutation = {
         param($Document)
         $storeMatches = @($Document.Stores | Where-Object {
@@ -1564,6 +1579,7 @@ function Unregister-LabContainerInstanceStoreLease {
 
         $runtime = & $inspectRuntime -Provider $Provider -VolumeName $VolumeName
         $runtimeValid = [string]$runtime.Status -eq 'AVAILABLE' -and @($runtime.AttachedContainers).Count -eq 0 -and
+            (& $checkBoundRuntime -Store $existing -RuntimeInspection $runtime) -and
             [string]$runtime.Labels.'sql-server-lab.persistent-storage-id' -eq [string]$existing.PersistentStorageId -and
             [string]$runtime.Labels.'sql-server-lab.sql-major-version' -match '^\d{4}$'
         $nextStore = $existing
@@ -1615,6 +1631,8 @@ function Set-LabContainerInstanceStoreCloneLease {
 
     $inspectRuntime=${function:Get-LabContainerInstanceStoreRuntimeInspection}
     $now=Get-LabTimestamp
+    $inspectBoundRuntime=${function:Get-LabContainerInstanceStoreRuntimeInspection}
+    $checkBoundRuntime=${function:Test-LabContainerInstanceStoreRuntimeBinding}
     $mutation = {
         param($Document)
         $sourceStores = @($Document.Stores | Where-Object {
@@ -1622,6 +1640,11 @@ function Set-LabContainerInstanceStoreCloneLease {
         })
         if ($sourceStores.Count -ne 1) { throw 'CONTAINER_INSTANCE_STORE_LEASE_SOURCE_UNRESOLVED' }
         $source = $sourceStores[0]
+        if ($source.RuntimeBinding -or $Plan.Source.RuntimeBinding) {
+            if (($source.RuntimeBinding | ConvertTo-Json -Depth 10 -Compress) -cne ($Plan.Source.RuntimeBinding | ConvertTo-Json -Depth 10 -Compress)) { throw 'CONTAINER_INSTANCE_STORE_RUNTIME_BINDING_CHANGED' }
+            $boundRuntime=& $inspectBoundRuntime -Provider $Plan.Provider -VolumeName $Plan.Source.VolumeName
+            if (-not (& $checkBoundRuntime -Store $source -RuntimeInspection $boundRuntime)) { throw 'CONTAINER_INSTANCE_STORE_RUNTIME_BINDING_CHANGED' }
+        }
         $operationReferences = @($source.References | Where-Object {
             [string]$_.ReferenceId -eq [string]$Plan.OperationId -and [string]$_.Kind -eq 'RUN' -and
             [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq [string]$Plan.Target.RunId
@@ -1713,6 +1736,8 @@ function Register-LabContainerInstanceStoreClone {
     $targetInventoryObjectId = Get-LabStorageResidencyObjectId -Key "runtime-volume|$([string]$Plan.Provider)|$targetVolumeName"
 
     $now=Get-LabTimestamp
+    $inspectBoundRuntime=${function:Get-LabContainerInstanceStoreRuntimeInspection}
+    $checkBoundRuntime=${function:Test-LabContainerInstanceStoreRuntimeBinding}
     $mutation = {
         param($Document)
         $sourceStores = @($Document.Stores | Where-Object {
@@ -1724,6 +1749,11 @@ function Register-LabContainerInstanceStoreClone {
             throw 'CONTAINER_INSTANCE_STORE_CATALOG_SOURCE_CONFLICT'
         }
         $source = $sourceStores[0]
+        if ($source.RuntimeBinding -or $Plan.Source.RuntimeBinding) {
+            if (($source.RuntimeBinding | ConvertTo-Json -Depth 10 -Compress) -cne ($Plan.Source.RuntimeBinding | ConvertTo-Json -Depth 10 -Compress)) { throw 'CONTAINER_INSTANCE_STORE_RUNTIME_BINDING_CHANGED' }
+            $boundRuntime=& $inspectBoundRuntime -Provider $Plan.Provider -VolumeName $Plan.Source.VolumeName
+            if (-not (& $checkBoundRuntime -Store $source -RuntimeInspection $boundRuntime)) { throw 'CONTAINER_INSTANCE_STORE_RUNTIME_BINDING_CHANGED' }
+        }
         $activeOperationReferences = @($source.References | Where-Object {
             [string]$_.ReferenceId -eq [string]$Plan.OperationId -and [string]$_.Kind -eq 'RUN' -and
             [string]$_.State -eq 'ACTIVE' -and [string]$_.TargetId -eq [string]$Plan.Target.RunId
@@ -1780,6 +1810,9 @@ function Register-LabContainerInstanceStoreClone {
                 ReferenceId=[string]$Plan.OperationId; Kind='RUN'; State='RELEASED'; TargetId=[string]$Plan.Target.RunId
             })
             Lease=$null; Retention='RETAINED'; CleanupDisposition='PRESERVE'; CreatedAt=$now; UpdatedAt=$now
+        }
+        if ($source.RuntimeBinding) {
+            $store | Add-Member -NotePropertyName RuntimeBinding -NotePropertyValue ([pscustomobject]@{RuntimeScopeId=$source.RuntimeBinding.RuntimeScopeId;ObservedAt=$now})
         }
         $nextSource = $source
         @($nextSource.References | Where-Object {
@@ -1853,6 +1886,9 @@ function Get-LabPersistentStoragePlan {
             })
         }
         else { @() }
+        if ($store.RuntimeBinding) {
+            $matches=@($matches | Where-Object { [string]$_.Details.RuntimeScopeId -ceq [string]$store.RuntimeBinding.RuntimeScopeId })
+        }
         foreach ($match in $matches) { $null = $matchedObjectIds.Add([string]$match.ObjectId) }
 
         $observationStatus = if ($matches.Count -eq 1) { 'MATCHED' } elseif ($matches.Count -gt 1) { 'AMBIGUOUS' } elseif ([string]$store.Provider -eq 'external') { 'NOT_REQUIRED' } else { 'MISSING' }

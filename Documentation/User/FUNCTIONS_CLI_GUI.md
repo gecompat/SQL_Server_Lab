@@ -4,7 +4,7 @@
 |---|---|
 | Stand | 2026-09-07 |
 | Autoritative Funktionsliste | [`SqlServerLab.psd1`](../../SqlServerLab.psd1) |
-| Öffentliche Funktionen | 85 exportierte Cmdlets |
+| Öffentliche Funktionen | 86 exportierte Cmdlets |
 | Konsolenoberfläche | `Invoke-SqlServerLab` |
 | Browseroberfläche | `Tools/Start-SqlServerLabUi.ps1` und `Ui/` |
 
@@ -138,6 +138,7 @@ Legende:
 | [`Invoke-SqlServerLabPersistentStorageRemoval`](../../Public/Invoke-SqlServerLabPersistentStorageRemoval.ps1) | Führt unterstützte Retention-Policies journalisiert und wiederaufnehmbar aus; endgültige Löschung bleibt eng begrenzt. | über interne Storage-Verwaltungsflüsse | über Adapter: `ExecutePersistentStorageRemoval` |
 | [`Sync-SqlServerLabPersistentStorageArtifact`](../../Public/Sync-SqlServerLabPersistentStorageArtifact.ps1) | Revalidiert und registriert genau ein Backup-Set, Datenbankpaket oder Exchange-Workspace idempotent. | – | – |
 | [`Sync-SqlServerLabRunScopedContainerStore`](../../Public/Sync-SqlServerLabRunScopedContainerStore.ps1) | Registriert einen laufenden, vollständig labelgebundenen Docker-/Podman-Run-Store revisionsgeschützt. | – | – |
+| [`Repair-SqlServerLabPersistentStorageCatalog`](../../Public/Repair-SqlServerLabPersistentStorageCatalog.ps1) | Katalogisiert ausschließlich einen nachweisbar eigenen, abgetrennten und UUID-labelgebundenen Docker-/Podman-Store wieder. | – | – |
 
 ## Datenbankpakete und Migrationsinventur
 
