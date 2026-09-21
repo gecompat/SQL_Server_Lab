@@ -290,17 +290,41 @@ function Initialize-SqlServerLabCms {
         im Ergebnis ausgegeben und danach run-lokal geschützt gespeichert.
     .PARAMETER Provider
         Optionaler Containerprovider. Ohne Angabe wird Docker vor Podman bevorzugt.
+    .PARAMETER LabName
+        Stabiler logischer Name des neu erstellten CMS-Labs.
+    .PARAMETER ReplaceRemovedCms
+        Ersetzt ausschließlich eine vorhandene CMS-Registrierung, deren gebundener
+        Run bereits den terminalen Status REMOVED trägt. Andere CMS-Registrierungen
+        bleiben ohne Änderung blockierend.
     .PARAMETER StateRoot
         Optionaler State Root. Ohne Angabe wird der konfigurierte Standard verwendet.
     .OUTPUTS
         PSCustomObject mit CMS-Konfiguration, Run-Information und einmaligem Passwort.
     #>
     [CmdletBinding()]
-    param([ValidateSet('docker', 'podman')][string]$Provider, [string]$StateRoot)
+    param(
+        [ValidateSet('docker', 'podman')][string]$Provider,
+        [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$')][string]$LabName = 'sql-server-lab-cms',
+        [switch]$ReplaceRemovedCms,
+        [string]$StateRoot
+    )
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $existing = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
-    if ($existing) { throw "CONNECTION_CENTER_CMS_ALREADY_CONFIGURED: Run $($existing.RunId) ist bereits als CMS registriert." }
+    if ($existing) {
+        if (-not $ReplaceRemovedCms) {
+            throw "CONNECTION_CENTER_CMS_ALREADY_CONFIGURED: Run $($existing.RunId) ist bereits als CMS registriert."
+        }
+        $existingRun = Get-LabRunState -RunId ([string]$existing.RunId) -StateRoot $StateRoot
+        if ([string]$existingRun.state -ne 'REMOVED') {
+            throw "CONNECTION_CENTER_CMS_REPLACEMENT_BLOCKED: Run $($existing.RunId) ist nicht REMOVED."
+        }
+        $configurationPath = Join-Path (Join-Path $StateRoot 'catalog') 'sql-connection-center-cms.json'
+        if (-not (Test-Path -LiteralPath $configurationPath -PathType Leaf)) {
+            throw 'CONNECTION_CENTER_CMS_CONFIGURATION_MISSING: Die CMS-Registrierung kann nicht gezielt ersetzt werden.'
+        }
+        Remove-Item -LiteralPath $configurationPath -Force -ErrorAction Stop
+    }
     $available = @(Get-AvailableLabProviders)
     if (-not $Provider) {
         if ('docker' -in $available) { $Provider = 'docker' }
@@ -311,7 +335,7 @@ function Initialize-SqlServerLabCms {
     $dataRoot = Get-LabDataRootDefault
     if (-not $dataRoot) { throw 'CONNECTION_CENTER_CMS_DATA_ROOT_REQUIRED: Für einen dauerhaften CMS zuerst einen Data Root konfigurieren.' }
     $password = New-LabConnectionCenterPassword
-    $lab = New-SqlServerLab -Version '2025' -Provider $Provider -Profile compact -LabName 'sql-server-lab-cms' -PersistentData -DataRoot $dataRoot -AutoStart on -SaPassword $password -StateRoot $StateRoot
+    $lab = New-SqlServerLab -Version '2025' -Provider $Provider -Profile compact -LabName $LabName -PersistentData -DataRoot $dataRoot -AutoStart on -SaPassword $password -StateRoot $StateRoot
     $configuration = [PSCustomObject]@{
         ContractVersion = 'SqlServerLab.ConnectionCenterCms/1.0'
         RunId = [string]$lab.RunId
@@ -615,15 +639,19 @@ function Get-LabCmsIdentityDisplayName {
     .DESCRIPTION
         CMS verlangt innerhalb einer Servergruppe eindeutige sysname-Werte. Der
         sichtbare Labname ist dafuer keine Identitaet: mehrere Runs duerfen
-        denselben Lab- und Instanznamen verwenden. Der Suffix zeigt deshalb
-        lesbare Teile von Run und Instanz und sichert die vollstaendige Identitaet
-        mit einem stabilen Hash ab. Es werden keine Eintraege anhand ihres Namens
-        zusammengefasst oder verworfen.
+        denselben Lab- und Instanznamen verwenden. Der Name zeigt deshalb den
+        aktuellen Client-Endpunkt und sichert die vollstaendige interne
+        Run-/Instanzidentitaet mit einem stabilen Hash ab. Provider und
+        RuntimeState erscheinen nur, wenn die CMS-Ordnerstruktur sie nicht
+        bereits eindeutig vermittelt. Es werden keine Eintraege anhand ihres
+        Namens zusammengefasst oder verworfen.
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Entry,
-        [Parameter(Mandatory)][string]$BaseName
+        [Parameter(Mandatory)][string]$BaseName,
+        [switch]$IncludeProvider,
+        [switch]$IncludeRuntimeState
     )
 
     $runId = [string]$Entry.RunId
@@ -642,11 +670,22 @@ function Get-LabCmsIdentityDisplayName {
     $identityHash = [Convert]::ToHexString(
         [Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($identityMaterial))
     ).ToLowerInvariant().Substring(0, 12)
-    $displayRunId = ($runId -replace '[\r\n\t]', ' ').Trim()
-    $displayInstanceId = ($instanceId -replace '[\r\n\t]', ' ').Trim()
-    if ($displayRunId.Length -gt 36) { $displayRunId = $displayRunId.Substring(0, 36) }
-    if ($displayInstanceId.Length -gt 24) { $displayInstanceId = $displayInstanceId.Substring(0, 24) }
-    $suffix = " [Run=$displayRunId; Instance=$displayInstanceId; Identity=$identityHash]"
+    $endpoint = if ($Entry.PSObject.Properties['Server']) { ([string]$Entry.Server -replace '[\r\n\t]', ' ').Trim() } else { '' }
+    if ([string]::IsNullOrWhiteSpace($endpoint)) { throw 'CONNECTION_CENTER_CMS_ENDPOINT_MISSING' }
+    $suffixParts = [Collections.Generic.List[string]]::new()
+    $suffixParts.Add($endpoint)
+    $suffixParts.Add("ID:$identityHash")
+    if ($IncludeProvider) {
+        $provider = if ($Entry.PSObject.Properties['Provider']) { ([string]$Entry.Provider -replace '[\r\n\t]', ' ').Trim() } else { '' }
+        if ([string]::IsNullOrWhiteSpace($provider)) { throw 'CONNECTION_CENTER_CMS_PROVIDER_MISSING' }
+        $suffixParts.Add("Provider:$($provider.ToUpperInvariant())")
+    }
+    if ($IncludeRuntimeState) {
+        $runtimeState = if ($Entry.PSObject.Properties['RuntimeState']) { ([string]$Entry.RuntimeState -replace '[\r\n\t]', ' ').Trim() } else { '' }
+        if ([string]::IsNullOrWhiteSpace($runtimeState)) { $runtimeState = 'UNKNOWN' }
+        $suffixParts.Add("State:$($runtimeState.ToUpperInvariant())")
+    }
+    $suffix = ' | ' + ($suffixParts -join ' | ')
     $maximumBaseLength = 128 - $suffix.Length
     if ($maximumBaseLength -lt 1) { throw 'CONNECTION_CENTER_CMS_IDENTITY_SUFFIX_TOO_LONG' }
 
@@ -661,21 +700,27 @@ function Get-LabCmsManagedRegisteredServerDisplayName {
     param(
         [Parameter(Mandatory)]$Entry,
         [string]$StateRoot,
-        [switch]$IncludeGeneratedPassword
+        [switch]$IncludeGeneratedPassword,
+        [switch]$IncludeProvider,
+        [switch]$IncludeRuntimeState
     )
 
     $displayName = Get-LabCmsRegisteredServerDisplayName -Entry $Entry -StateRoot $StateRoot -IncludeGeneratedPassword:$IncludeGeneratedPassword
     # In diesem Modus ist der Servername absichtlich exakt das kopierbare
     # Kennwort. Die eindeutige Identitaet liegt im umgebenden CMS-Ordner.
     if ($IncludeGeneratedPassword) { return $displayName }
-    return Get-LabCmsIdentityDisplayName -Entry $Entry -BaseName $displayName
+    return Get-LabCmsIdentityDisplayName -Entry $Entry -BaseName $displayName -IncludeProvider:$IncludeProvider -IncludeRuntimeState:$IncludeRuntimeState
 }
 
 function Get-LabCmsEnvironmentGroupDisplayName {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Entry)
+    param(
+        [Parameter(Mandatory)]$Entry,
+        [switch]$IncludeProvider,
+        [switch]$IncludeRuntimeState
+    )
 
-    return Get-LabCmsIdentityDisplayName -Entry $Entry -BaseName ([string]$Entry.DisplayName)
+    return Get-LabCmsIdentityDisplayName -Entry $Entry -BaseName ([string]$Entry.DisplayName) -IncludeProvider:$IncludeProvider -IncludeRuntimeState:$IncludeRuntimeState
 }
 
 function Invoke-LabCmsSqlInMemory {
@@ -896,9 +941,11 @@ function Export-SqlServerLabCmsSyncScript {
 
             foreach ($entry in @($providerEntries | Sort-Object RuntimeState, DisplayName, Server)) {
                 $server = & $escape (ConvertTo-LabCmsServerTarget -Server $entry.Server -CmsProvider $CmsProvider)
-                $resolvedDisplayName = Get-LabCmsManagedRegisteredServerDisplayName -Entry $entry -StateRoot $StateRoot -IncludeGeneratedPassword:$IncludeGeneratedPasswordAliases
-                $displayName = & $escape $resolvedDisplayName
                 $runtimeState = ([string]$entry.RuntimeState).ToUpperInvariant()
+                $includeProvider = -not [bool]$center.Grouping.CmsGroupByProvider
+                $includeRuntimeState = $runtimeState -notin @('RUNNING','STOPPED')
+                $resolvedDisplayName = Get-LabCmsManagedRegisteredServerDisplayName -Entry $entry -StateRoot $StateRoot -IncludeGeneratedPassword:$IncludeGeneratedPasswordAliases -IncludeProvider:$includeProvider -IncludeRuntimeState:$includeRuntimeState
+                $displayName = & $escape $resolvedDisplayName
                 if ([bool]$center.Grouping.CmsGroupByProvider) {
                     $targetGroup = if ($runtimeState -eq 'RUNNING') { "@RunningProvider_$suffix" } else { "@StoppedProvider_$suffix" }
                 }
@@ -909,7 +956,7 @@ function Export-SqlServerLabCmsSyncScript {
                 $description = & $escape ("ManagedBy=SQL_Server_Lab;Contract=1.0;Identity={0};Provider={1};RuntimeState={2}" -f $entry.Id, $provider, $runtimeState)
                 $variableSuffix = [Guid]::NewGuid().ToString('N').Substring(0, 8)
                 if ($IncludeGeneratedPasswordAliases) {
-                    $environmentGroupName = & $escape (Get-LabCmsEnvironmentGroupDisplayName -Entry $entry)
+                    $environmentGroupName = & $escape (Get-LabCmsEnvironmentGroupDisplayName -Entry $entry -IncludeProvider:$includeProvider -IncludeRuntimeState:$includeRuntimeState)
                     $environmentGroupDescription = & $escape ("ManagedBy=SQL_Server_Lab;Contract=1.2;Role=Environment;Identity={0};Provider={1};RuntimeState={2}" -f $entry.Id, $provider, $runtimeState)
                     $lines.Add("DECLARE @EnvironmentGroup_$variableSuffix int;")
                     $lines.Add("EXEC msdb.dbo.sp_sysmanagement_add_shared_server_group @name = N'$environmentGroupName', @description = N'$environmentGroupDescription', @server_type = 0, @parent_id = $targetGroup, @server_group_id = @EnvironmentGroup_$variableSuffix OUTPUT;")
