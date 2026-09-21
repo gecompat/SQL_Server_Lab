@@ -104,7 +104,10 @@ try {
             [pscustomobject]@{RunId=$RunId;ScopeId=$script:runs[$role].scopeId;OperationId=$OperationId;Version=$Version;Provider='docker';RuntimeScopeId=$script:runtime;ContainerId=($(if($role -ceq 'source'){'a'}else{'c'})*64);Volumes=@('synthetic-'+$role)}
         }
         function New-SqlServerLab {
-            param($Version,$Provider,[Alias('Profile')]$LabProfile,$Cpu,$MemoryMB,$LabName,$StateRoot,[switch]$GenerateSaPassword,[switch]$NonInteractive,[switch]$SkipAssessment,$Drives)
+            param($Version,$Provider,[Alias('Profile')]$LabProfile,$Cpu,$MemoryMB,$LabName,$StateRoot,[Security.SecureString]$SaPassword,[switch]$NonInteractive,[switch]$SkipAssessment,$Drives)
+            $plain=ConvertFrom-SecureString -SecureString $SaPassword -AsPlainText
+            try { Check ($plain -cmatch '^-[a-f0-9]{32}aA1!$') 'Own-run credentials cover leading-minus backup regression' }
+            finally { $plain=$null }
             $role=if($Version -ceq '2022'){'source'}else{'target'}
             $intent=Get-Content (Join-Path $script:evidence 'intent.json') -Raw | ConvertFrom-Json
             Check ($intent.SourceOperationId -ceq ($script:operation+'-source') -and $intent.TargetOperationId -ceq ($script:operation+'-target') -and
