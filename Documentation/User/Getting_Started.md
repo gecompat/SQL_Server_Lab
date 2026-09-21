@@ -1780,3 +1780,19 @@ Grenzen: 256 MiB Backup, 1 GiB restaurierte Dateien, maximal 16 Dateien,
 Datenbanken, Serverobjekte, Windows/Hyper-V und andere SQL-Versionen bleiben
 außerhalb dieses Befehls. Details stehen im
 [Transfervertrag](../Architecture/PORTABLE_CONTAINER_TRANSFER.md).
+
+### SQL-Gast-Edition und Evaluation-Evidence
+
+Ein laufender eigener SQL-2025-Hyper-V-Run aus einem Prepared-Image kann seine
+Edition explizit erfassen. Er benötigt verwaltete Gast-/SA-Secrets, genau eine
+SQL-Instanz und passende SQL-Readiness. Vorschau und Capture:
+
+```powershell
+Update-SqlServerLabSqlGuestEvaluationEvidence -RunId $run.RunId -StateRoot $stateRoot -WhatIf
+Update-SqlServerLabSqlGuestEvaluationEvidence -RunId $run.RunId -StateRoot $stateRoot
+Get-SqlServerLabEvaluationWatch -StateRoot $stateRoot
+```
+
+Der Capture beobachtet keine Ablaufzeit: Developer ergibt für 24 Stunden
+`NOT_APPLICABLE`, Evaluation ohne Frist bleibt `UNKNOWN`. Fehler bewahren den
+alten Receipt. [Bindung, Grenzen und Nachweise](../Architecture/SQL_GUEST_EVALUATION_CAPTURE.md).

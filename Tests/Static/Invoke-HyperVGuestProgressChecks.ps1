@@ -16,15 +16,15 @@ $start=${function:Start-LabActionProgress}
 function Start-LabActionProgress {param($Phase);$context=& $start -Phase $Phase -Now ([datetime]::UtcNow.AddSeconds(-6));$context.Enabled=$true;$contexts.Add($context);return $context}
 function Write-Progress {param($Id,$Activity,$Status,$CurrentOperation,$PercentComplete,[switch]$Completed)}
 function Write-LabInfo {param($Message)}
-function Get-HyperVManagedVM {param($VMName,$ExpectedRunId,$ExpectedScopeId);if($mode -eq 'ownership'){throw 'SYNTHETIC_OWNERSHIP_MISMATCH'};return @{VM=@{State='Running'};Identity=@{guestTransport=$(if($mode -eq 'winrm'){'lab-winrm'}else{'psdirect'})}}}
+function Get-HyperVManagedVM {param($VMName,$ExpectedRunId,$ExpectedScopeId);if($mode -eq 'ownership'){throw 'SYNTHETIC_OWNERSHIP_MISMATCH'};return @{VM=@{State='Running';Id='22222222-2222-2222-2222-222222222222'};Identity=@{guestTransport=$(if($mode -eq 'winrm'){'lab-winrm'}else{'psdirect'})}}}
 function Wait-LabProgressDelay {param($Progress,$Milliseconds);$calls.Add(@{Kind='delay';Progress=$Progress;Milliseconds=$Milliseconds});if($mode -eq 'wait-timeout'){Start-Sleep -Milliseconds 100}}
 function Initialize-HyperVLabWinRmClient {'synthetic-registry'}
 function Get-ItemPropertyValue {param($LiteralPath,$Name);'synthetic-existing'}
 function Set-ItemProperty {param($LiteralPath,$Name,$Value,$Type,[switch]$Force);$trustWrites.Add([string]$Value)}
 function Invoke-Command {
     [CmdletBinding()]
-    param($VMName,$ComputerName,$Credential,$Authentication,$ScriptBlock,$ArgumentList,[switch]$AsJob)
-    $calls.Add(@{Kind='invoke';AsJob=[bool]$AsJob;Transport=$(if($ComputerName){'winrm'}else{'direct'})})
+    param($VMName,$VMId,$ComputerName,$Credential,$Authentication,$ScriptBlock,$ArgumentList,[switch]$AsJob)
+    $calls.Add(@{Kind='invoke';AsJob=[bool]$AsJob;VMId=$VMId;VMName=$VMName;Transport=$(if($ComputerName){'winrm'}else{'direct'})})
     if(-not $AsJob){throw 'SYNTHETIC_JOB_REQUIRED'}
     $count=@($calls | Where-Object Kind -eq invoke).Count
     if($mode -eq 'domain-error'){throw 'SYNTHETIC_DOMAIN_ERROR'}
@@ -45,6 +45,17 @@ try {
         else {Assert-GuestProgress ($result.Value -eq 17 -and -not $failure) "Job-Ergebnis erreicht den Aufrufer: $mode"}
         Assert-GuestProgress (@($contexts | Where-Object {-not $_.Completed}).Count -eq 0) "Gastreporter abgeschlossen: $mode"
         if($mode -in @('fallback','winrm')) {Assert-GuestProgress ($trustWrites.Count -eq 2 -and $trustWrites[-1] -eq 'synthetic-existing') "Temporaeres WinRM-Trust wird wiederhergestellt: $mode"}
+    }
+    $mode='success';$calls.Clear();$contexts.Clear()
+    $null=Invoke-HyperVPowerShellDirect -VMName SyntheticVM -ExpectedRunId synthetic-run -ExpectedScopeId synthetic-scope -ExpectedVmId '22222222-2222-2222-2222-222222222222' -Credential $credential -ScriptBlock {17} -TimeoutSeconds 30
+    Assert-GuestProgress ($calls[0].VMId -eq '22222222-2222-2222-2222-222222222222' -and -not $calls[0].VMName) 'Strikter Gastaufruf pinnt die tatsächliche VMId statt des austauschbaren Namens'
+    foreach($strictCase in @('foreign','fallback','empty')){
+        $calls.Clear();$failed=$false;$arguments=@{VMName='SyntheticVM';ExpectedRunId='synthetic-run';ExpectedScopeId='synthetic-scope';ExpectedVmId='22222222-2222-2222-2222-222222222222';Credential=$credential;ScriptBlock={17}}
+        if($strictCase -eq 'foreign'){$arguments.ExpectedVmId=[guid]::NewGuid()}
+        if($strictCase -eq 'fallback'){$arguments.FallbackAddress='127.0.0.1'}
+        if($strictCase -eq 'empty'){$arguments.ExpectedVmId=[guid]::Empty}
+        try{$null=Invoke-HyperVPowerShellDirect @arguments}catch{$failed=$_.Exception.Message -match '^HYPERV_GUEST_VM_ID_'}
+        Assert-GuestProgress ($failed -and $calls.Count -eq 0) "Strikte Bindung blockiert vor Credentialtransport: $strictCase"
     }
     $mode='wait-ready';$calls.Clear();$contexts.Clear();$script:probes=0
     function Invoke-HyperVPowerShellDirect {

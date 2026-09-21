@@ -996,6 +996,7 @@ function Invoke-HyperVPowerShellDirect {
         [Parameter(Mandatory)][string]$VMName,
         [Parameter(Mandatory)][string]$ExpectedRunId,
         [Parameter(Mandatory)][string]$ExpectedScopeId,
+        [guid]$ExpectedVmId,
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][scriptblock]$ScriptBlock,
         [object[]]$ArgumentList = @(),
@@ -1004,12 +1005,19 @@ function Invoke-HyperVPowerShellDirect {
         [ValidateRange(1,86400)][int]$TimeoutSeconds=86400
     )
 
+    $strictVmBinding = $PSBoundParameters.ContainsKey('ExpectedVmId')
+    if ($strictVmBinding -and ($ExpectedVmId -eq [guid]::Empty -or $FallbackAddress)) {
+        throw 'HYPERV_GUEST_VM_ID_BINDING_INVALID'
+    }
     $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
     if (-not $managed) {
         throw "Hyper-V-VM nicht gefunden: $VMName"
     }
     if ([string]$managed.VM.State -ne 'Running') {
         throw "PowerShell Direct erfordert eine laufende VM: $VMName"
+    }
+    if ($strictVmBinding -and [string]$managed.VM.Id -ne $ExpectedVmId.ToString()) {
+        throw 'HYPERV_GUEST_VM_ID_MISMATCH'
     }
 
     $ownsProgress=$null -eq $Progress
@@ -1032,8 +1040,9 @@ function Invoke-HyperVPowerShellDirect {
         try {
             if([datetime]::UtcNow -ge $deadline){throw 'GUEST_JOB_OPERATION_TIMEOUT'}
             Update-LabActionProgress -Progress $Progress -Phase GuestWait -ProbeCount $attempt
-            $job=Invoke-Command `
-                -VMName $VMName `
+            # Der strikte Pfad darf bei einer Umbenennung keine andere VM öffnen.
+            $vmSelector = if ($strictVmBinding) { @{ VMId = $ExpectedVmId } } else { @{ VMName = $VMName } }
+            $job=Invoke-Command @vmSelector `
                 -Credential $Credential `
                 -ScriptBlock $ScriptBlock `
                 -ArgumentList $ArgumentList `

@@ -84,6 +84,7 @@ Find-SqlServerLabCollation             # Versionsgebundenen Collation-Katalog to
 Get-SqlServerLabHyperVImageArtifact    # Hyper-V-Image-Registry, Evaluation und Referenzen read-only
 Get-SqlServerLabEvaluationWatch         # Windows-/SQL-Artefakte und nur receiptgebundene SQL-Gastfristen read-only bewerten und Ereignisse optional deduplizieren
 Invoke-SqlServerLabEvaluationWatchTrigger # Evaluation-Watch lokal und begrenzt zeitgesteuert ausführen
+Update-SqlServerLabSqlGuestEvaluationEvidence # SQL-2025-Hyper-V-Edition erfassen und NO_DEADLINE-Receipt atomar erneuern
 Get-SqlServerLabRunStateUpgradePlan     # Lokalen Run-State read-only gegen Zielvertrag klassifizieren
 Invoke-SqlServerLabRunStateUpgrade       # Ausdrücklich synthetischen Legacy-State atomar migrieren
 Get-SqlServerLabPortableLabImportPlan   # Portables Container-Lab-Paket mit Backup-Integritäts-Evidence an vorhandenen Ziel-Run read-only vorprüfen
