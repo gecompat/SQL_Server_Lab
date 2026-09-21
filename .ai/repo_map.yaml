@@ -102,6 +102,11 @@ sources_of_truth:
   ai_diagnostic_agent: Public/Invoke-SqlServerLabAiDiagnosticAgent.ps1
   validation_ai_diagnostic_agent_container: Tests/Integration/Invoke-AiDiagnosticAgentContainerAcceptance.ps1
   validation_ai_hyperv: Tests/Integration/Invoke-AiHyperVAcceptance.ps1
+  ai_hyperv_own_run_contract: Documentation/Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md
+  validation_ai_hyperv_own_run: Tests/Integration/Invoke-AiHyperVOwnRunAcceptance.ps1
+  ai_hyperv_own_run_helpers: Tests/Common/AiHyperVOwnRunAcceptance.ps1
+  validation_ai_hyperv_own_run_fixture: Tests/Static/Fixtures/AiHyperVOwnRunChecks.ps1
+  validation_ai_diagnostic_host_fixture: Tests/Static/Fixtures/AiDiagnosticHostChecks.ps1
   validation_ai_scenario: Tests/Static/Invoke-AiScenarioChecks.ps1
   validation_ai_https_endpoint_stub: Tests/Integration/Invoke-AiHttpsEndpointStubAcceptance.ps1
   validation_ai_ollama_cloud: Tests/Integration/Invoke-AiOllamaCloudAcceptance.ps1

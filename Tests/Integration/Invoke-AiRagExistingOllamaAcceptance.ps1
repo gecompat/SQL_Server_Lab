@@ -5,12 +5,16 @@
 .DESCRIPTION
     Keine Hostmodell-Downloads, kein Hostservice-Lifecycle. Zwei synthetische
     RAG-Aufrufe mit höchstens zwei Cloudrequests, eigener SQLrestart und
-    scopegebundenes Cleanup. Dies ersetzt nicht das lokale Golden-v1-Gate.
+    scopegebundenes Cleanup. LocalGeneration verwendet stattdessen vorhandenes
+    Qwen; IncludeDiagnostic prüft dabei zusätzlich Login-Cleanup vor/nach Restart.
+    Dies ersetzt nicht das lokale Golden-v1-Gate.
 #>
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName='Cloud')]
 param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
-    [Parameter(Mandatory)][string]$SecretFilePath,
+    [Parameter(Mandatory,ParameterSetName='Cloud')][string]$SecretFilePath,
+    [Parameter(Mandatory,ParameterSetName='Local')][switch]$LocalGeneration,
+    [Parameter(ParameterSetName='Local')][switch]$IncludeDiagnostic,
     [ValidateRange(1024,65535)][int]$LocalPort=11434,
     [ValidateRange(90,230)][int]$GenerationTimeoutSeconds=120,
     [switch]$RuntimeMutexAlreadyHeld
@@ -32,6 +36,17 @@ function Get-HostRagInventoryKey {
         Get-LabAiPlanKey -InputObject @($tags.models|Sort-Object -Property name -CaseSensitive)
     } $Port
 }
+function Assert-HostRagDiagnostic {
+    param($Module,$Binding,[SecureString]$Password,[string]$StateRoot,[int]$Port)
+    $result=Invoke-SqlServerLabAiDiagnosticAgent -RunId $Binding.RunId -SaPassword $Password -Question 'Fasse den SQL-Testserverzustand knapp zusammen.' -ToolId server-summary,wait-statistics -GenerationModelKey ollama-qwen25-coder-7b-local -LocalPort $Port -StateRoot $StateRoot -Confirm:$false
+    $count=& $Module {
+        param($Binding,$Password)
+        $rows=@(Invoke-LabAiSqlCommand -HostName $Binding.HostName -Port $Binding.Port -Credential ([PSCredential]::new('sa',$Password)) -Sql "SELECT COUNT(*) AS LoginCount FROM sys.server_principals WHERE name LIKE 'sql_lab_ai_%';")
+        if($rows.Count -ne 1){throw 'AI_HOST_RAG_LOGIN_PROBE_INVALID'}
+        [int]$rows[0].LoginCount
+    } $Binding $Password
+    Assert-HostRag ($result.Status -eq 'SUCCEEDED' -and $result.ToolExecutions.Count -eq 2 -and $result.Metrics.RequestCount -eq 1 -and $count -eq 0) 'Lokale Diagnose mit genau einem Request und vollständigem Login-Cleanup'
+}
 try{
     if(-not $RuntimeMutexAlreadyHeld){$mutex=[Threading.Mutex]::new($false,$(if($IsWindows){'Global\SQL_Server_Lab_Runtime_Smoke'}else{'SQL_Server_Lab_Runtime_Smoke'}));$acquired=$mutex.WaitOne([TimeSpan]::FromMinutes(10));if(-not $acquired){throw 'AI_HOST_RAG_LOCK_TIMEOUT'}}
     $resolution=@(& (Join-Path $repoRoot 'Tools/Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
@@ -40,6 +55,9 @@ try{
     $hostTags=Get-HostRagInventoryKey -Module $module -Port $LocalPort
     $probe=& $module {param($Port)$p=New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-latest -EndpointRef ollama-local -Lane local -LocalPort $Port;Get-LabAiHostModelBinding -Plan $p} $LocalPort
     Assert-HostRag ($probe.Dimension -eq 768) 'Vorhandenes lokales Embeddingmodell geprüft'
+    if($LocalGeneration){
+        $null=& $module {param($Port)$p=New-LabAiEndpointPlan -ModelKey ollama-qwen25-coder-7b-local -EndpointRef ollama-local -Lane local -LocalPort $Port;Get-LabAiHostModelBinding -Plan $p} $LocalPort
+    }
     $null=New-Item -ItemType Directory -Path $root
     $env:SQL_SERVER_LAB_STATE=$state;$env:SQL_SERVER_LAB_DATA_ROOT=$data
     & $module {param($Data)$null=Initialize-LabManagedDataRoot -DataRoot $Data -ControllerId ([guid]::NewGuid().ToString('D')) -Confirm:$false} $data
@@ -58,18 +76,22 @@ try{
         @{Id='network-policy';Content='Das synthetische Labnetz verwendet ausschließlich isolierte Testadressen.'},
         @{Id='cleanup-policy';Content='Run-eigene Testressourcen werden nach der Abnahme vollständig entfernt.'}
     )
-    $parameters=@{RunId=$lab.RunId;SaPassword=$password;Document=$documents;TopK=2;EmbeddingModelKey='ollama-embeddinggemma-latest';GenerationModelKey='ollama-gpt-oss-120b-cloud';GenerationLane='cloud';AllowCloudEgress=$true;DataClassification='synthetic-only';SecretFilePath=$SecretFilePath;GenerationTimeoutSeconds=$GenerationTimeoutSeconds;GenerationRetryCount=0;LocalPort=$LocalPort;StateRoot=$state;Question='Wie oft werden synthetische Sicherungen überprüft?'}
+    $parameters=@{RunId=$lab.RunId;SaPassword=$password;Document=$documents;TopK=2;EmbeddingModelKey='ollama-embeddinggemma-latest';GenerationTimeoutSeconds=$GenerationTimeoutSeconds;GenerationRetryCount=0;LocalPort=$LocalPort;StateRoot=$state;Question='Wie oft werden synthetische Sicherungen überprüft?'}
+    if($LocalGeneration){$parameters.GenerationModelKey='ollama-qwen25-coder-7b-local';$parameters.GenerationLane='local'}
+    else{$parameters.GenerationModelKey='ollama-gpt-oss-120b-cloud';$parameters.GenerationLane='cloud';$parameters.AllowCloudEgress=$true;$parameters.DataClassification='synthetic-only';$parameters.SecretFilePath=$SecretFilePath}
     $preview=Invoke-SqlServerLabAiRag @parameters -WhatIf
-    Assert-HostRag ($preview.GenerationLane -eq 'cloud' -and $preview.Egress -eq 'explicit') 'WhatIf zeigt explizite Cloudlane'
+    Assert-HostRag ($preview.GenerationLane -eq $parameters.GenerationLane -and $preview.Egress -eq $(if($LocalGeneration){'denied'}else{'explicit'})) 'WhatIf zeigt exakt die ausgewählte Generationlane'
     $first=Invoke-SqlServerLabAiRag @parameters -Confirm:$false
-    Assert-HostRag ($first.Status -eq 'SUCCEEDED' -and $first.Citations.Count -eq 2 -and $first.Citations[0] -ceq 'backup-policy' -and -not [string]::IsNullOrWhiteSpace($first.Answer)) 'SQL-Retrieval trifft backup-policy und Cloud antwortet'
+    Assert-HostRag ($first.Status -eq 'SUCCEEDED' -and $first.Citations.Count -eq 2 -and $first.Citations[0] -ceq 'backup-policy' -and -not [string]::IsNullOrWhiteSpace($first.Answer)) 'SQL-Retrieval trifft backup-policy und das gewählte Modell antwortet'
     Assert-HostRag ($first.Metrics.RequestCount -ge 5 -and $first.Metrics.RequestCount -le 9 -and $first.HostEmbeddingBinding.Digest -ceq $probe.Digest) 'Begrenzte Requests und Live-Modellbindung'
+    if($IncludeDiagnostic){Assert-HostRagDiagnostic -Module $module -Binding $binding -Password $password -StateRoot $state -Port $LocalPort}
     $null=Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 180 -Force -Confirm:$false
     $afterBinding=& $module {param($Run,$State,$Op)Get-LabTransferBinding -RunId $Run -InstanceId primary -StateRoot $State -OperationId $Op} $lab.RunId $state $operation
     Assert-HostRag ($afterBinding.ContainerId -ceq $binding.ContainerId) 'Eigener SQLrestart ist bereit und identitätsgleich'
     $parameters.Question='Was geschieht nach der Abnahme mit run-eigenen Testressourcen?'
     $second=Invoke-SqlServerLabAiRag @parameters -Confirm:$false
     Assert-HostRag ($second.Status -eq 'SUCCEEDED' -and $second.Citations.Count -eq 2 -and $second.Citations[0] -ceq 'cleanup-policy' -and -not [string]::IsNullOrWhiteSpace($second.Answer)) 'Nach SQLrestart trifft Retrieval cleanup-policy'
+    if($IncludeDiagnostic){Assert-HostRagDiagnostic -Module $module -Binding $afterBinding -Password $password -StateRoot $state -Port $LocalPort}
     $tagsAfter=Get-HostRagInventoryKey -Module $module -Port $LocalPort
     Assert-HostRag ($hostTags -ceq $tagsAfter -and $second.HostEmbeddingBinding.Digest -ceq $probe.Digest) 'Hostmodellinventar und Modelldigest bleiben unverändert'
     $complete=$true
@@ -96,4 +118,4 @@ try{
     }
 }
 if($cleanupFailed -or -not $complete){throw 'AI_HOST_RAG_ACCEPTANCE_INCOMPLETE'}
-Write-Host "AI EXISTING HOST OLLAMA RAG ACCEPTANCE: PASS ($Provider; 2 Cloudrequests; SQLrestart; own cleanup)"
+Write-Host "AI EXISTING HOST OLLAMA RAG ACCEPTANCE: PASS ($Provider; GenerationLane=$($parameters.GenerationLane); Diagnostic=$([bool]$IncludeDiagnostic); SQLrestart; own cleanup)"

@@ -146,6 +146,15 @@ Schutz der automatischen Testgruppe korrekt blockiert und wurde nicht
 umgangen; der Gesamtstatus ist deshalb `PARTIAL`, und Hyper-V deklariert die
 Fähigkeiten weiterhin nicht als vollständig belegt.
 
+Die neue [Own-Run-Abnahme](../Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md)
+erstellt aus einem explizit geprüften Prepared-Artefakt einen eigenen Run und
+prüft VM-Neustart sowie VM/VHDX/IPAM-Cleanup. Host-Embeddinggemma und lokales
+Qwen sind eine neue Modellpaarung; der getrennte eigene Hyper-V-Lauf
+35542940923 bestand am 2026-09-21 einschließlich VM-Neustart, SQL-Bereitschaft,
+Login-Cleanup und vollständigem VM-/Child-VHDX-/IPAM-Cleanup. CREATE und
+GRANT sind beim Agenten getrennt, damit bestätigte eigene Logins auch nach
+GRANT-Fehler entfernt werden. Unbestätigtes CREATE bleibt Recovery ohne DROP.
+
 Die geführten Vector-, Retrieval-, Golden-RAG- und Agent-Demos sind im
 bestehenden KI-Untermenü der achtteiligen Konsole verfügbar. Sie verwenden
 dieselben Szenariopakete, Golden-Dataset-Bindungen, Metriken und

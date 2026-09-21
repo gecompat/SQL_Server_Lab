@@ -35,6 +35,14 @@ Docker und Podman werden getrennt ausgeführt. Sie ersetzt weder Golden-v1 noch
 die Hyper-V-Abnahme. Gemeinsame KI-Produktänderungen wählen weiterhin alle
 drei betroffenen Provider; ihre Evidence bleibt getrennt sichtbar.
 
+Die Fixtures `AiDiagnosticHostChecks.ps1` und `AiHyperVOwnRunChecks.ps1` prüfen
+lokale Qwen-Bindung, Login-Teilfehler sowie VM-/Datenträger-/IPAM-Grenzen.
+Die [isolierte Hyper-V-Abnahme](../Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md)
+ist ein manueller Workflow mit explizitem Prepared-Artefakt und read-only
+Vorprüfung. Der Container-Parametersatz `-LocalGeneration -IncludeDiagnostic`
+prüft denselben Agentpfad auf Docker und Podman ohne Cloudsecrets getrennt.
+Docker und Podman haben diesen lokalen Parametersatz am 2026-09-20 jeweils mit SQLrestart, Login-Cleanup und eigenem Ressourcen-Cleanup bestanden. Der getrennte Hyper-V-Lauf 35542940923 bestand am 2026-09-21 mit 14 Assertions, VM-Neustart, anschließendem SQL-Ready-Nachweis, Login-Cleanup und vollständigem VM-/Childdisk-/IPAM-Cleanup.
+
 `Invoke-ReconcileContractChecks.ps1` prüft persistierte Sollidentitäten offline.
 Jeder Persistenzfehler wird ausschließlich über feste ReasonCodes reflektiert:
 `DESIRED_STATE_CONTRACT_INVALID`, `DESIRED_STATE_PROVISIONING_MODE_INVALID`,
