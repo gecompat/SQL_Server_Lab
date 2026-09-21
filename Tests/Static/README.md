@@ -5,6 +5,8 @@ Container, Datenbanken oder Run-States.
 
 | Skript | Scope | Aufruf |
 |---|---|---|
+| `Invoke-SqlVersionUpgradeScenarioChecks.ps1` | Tatsächlicher Upgrade-Kontrollfluss, 2022-/2025-Ownership, Bibliotheksbindung, Kompatibilität 160/170, Fehler und verlorenes New beider eigenen Runs | `.\Tests\Static\Invoke-SqlVersionUpgradeScenarioChecks.ps1` |
+| `Invoke-SqlVersionUpgradeSupervisorChecks.ps1` | Eigene begrenzte Kindprozesse, Timeout/Cancellation/Teilabbruch, private Streams und unabhängiges Cleanup | `.\Tests\Static\Invoke-SqlVersionUpgradeSupervisorChecks.ps1` |
 | `Invoke-AllChecks.ps1` | Fuehrt alle statischen Suites isoliert aus und erzwingt deren Exitcodes | `.\Tests\Static\Invoke-AllChecks.ps1` |
 | `Invoke-ImpactedChecks.ps1` | Fuehrt anhand geaenderter Repositorypfade nur die betroffenen Suites aus | `.\Tests\Static\Invoke-ImpactedChecks.ps1 -ChangedPath $paths` |
 | `Invoke-CiStrategyChecks.ps1` | Prueft Pfadklassifikation, PR-/Nightly-Trennung und das Verbot redundanter Volltests | `.\Tests\Static\Invoke-CiStrategyChecks.ps1` |

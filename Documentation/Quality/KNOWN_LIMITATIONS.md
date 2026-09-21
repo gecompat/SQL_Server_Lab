@@ -1,5 +1,17 @@
 # Bekannte Grenzen
 
+Die [SQL-2022-/SQL-2025-Upgrade-Referenz](SQL_VERSION_UPGRADE_REFERENCE.md)
+ist als fester Test implementiert: zwei neue eigene Container-Runs,
+registriertes Full-Backup, Restore mit erhaltenem Compatibility Level 160,
+separater Wechsel auf 170, feste funktionale Prüfungen und Runtime-Cleanup.
+Die getrennten nativen Docker-/Podman-Referenzläufe bestanden am 2026-09-21 auf
+`46340200`; der unabhängige Nachlauf bestätigte je Provider zwei entfernte
+Own-Runs und keine Runtime-Residuen. Die private temporäre Evidence-Wurzel
+bleibt gemäß Runnervertrag erhalten, daher ist kein vollständiges Löschen aller
+temporären Dateien behauptet. Offline-Mocks beweisen weiterhin weder SQL-Ausführung
+noch Providerparität. Weitere Versionspaare, Instanz-/Serverobjektmigration,
+TDE/FILESTREAM und Hyper-V sind nicht Gegenstand dieser Referenz.
+
 Der private CORE-102-[Instanzentscheid](../Architecture/INSTANCE_CAPABILITY_ASSESSMENT.md)
 fasst nur Katalog- und Providermetadaten zusammen. Sein deklarativer Status
 belegt keine Runtimebereitschaft oder Ausführungsautorität; physische

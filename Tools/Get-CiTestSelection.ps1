@@ -63,6 +63,8 @@ end {
 
     $staticGroups = @(
         @{ Pattern = '(?i)(AiPodmanSetup|ai-podman-setup)'; Checks = @('Invoke-AiPodmanSetupChecks.ps1','Invoke-AiPodmanSetupProcessChecks.ps1','Invoke-AiPersistentRetrievalChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
+
+        @{ Pattern = '(?i)(SqlVersionUpgrade|SQL_VERSION_UPGRADE_REFERENCE)'; Checks = @('Invoke-SqlVersionUpgradeScenarioChecks.ps1','Invoke-SqlVersionUpgradeSupervisorChecks.ps1','Invoke-BackupLibraryChecks.ps1') },
         @{ Pattern = '(?i)(ResourceAssessment|resource-assessment|New-SqlServerLab\.ps1|HyperVLabEnvironment|ReconcileContract|ManifestParser|lab-manifest)'; Checks = @('Invoke-ResourceAssessmentChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(HyperVNetworkReconnect|HyperVExistingNetwork|HyperVResourceAcceptanceSlotClone|HyperVLabEnvironment)'; Checks = @('Invoke-HyperVNetworkReconnectAcceptanceChecks.ps1') },
         @{ Pattern = '(?i)(AiPersistentRetrieval|ai-persistent-retrieval|Scenarios/Ai/persistent-retrieval/)'; Checks = @('Invoke-AiPersistentRetrievalChecks.ps1','Invoke-AiPersistentRetrievalMigrationChecks.ps1') },
@@ -211,6 +213,7 @@ end {
             if ($runtimePath -match '(?i)(ContainerRuntimeScope|container-runtime-scope)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerCpuFault|container-cpu-fault)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerMemoryFault|container-memory-fault)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(SqlVersionUpgrade)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(RelationalCoreComparison|relational-core-comparison)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(PortableContainerTransferPreflight|portable-container-transfer-preflight)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(PortableContainerTransferExecutorRuntime|Invoke-SqlServerLabPortableContainerTransfer|portable-container-transfer-journal|Invoke-PortableContainerTransferAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }

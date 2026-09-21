@@ -512,6 +512,20 @@ Add-CheckResult -Name 'Geteilter KI-Vertrag behält Hyper-V trotz begrenztem Per
 $persistentInfrastructure=& $selector -ChangedPath @('Private/AiPersistentRetrieval.ps1','Tools/Get-CiTestSelection.ps1')
 Add-CheckResult -Name 'CI-Infrastrukturänderung behält vollständige Runtimeauswahl' -Success ($persistentInfrastructure.Docker -and $persistentInfrastructure.Podman -and $persistentInfrastructure.HyperV -and $persistentInfrastructure.Mixed -and $persistentInfrastructure.Adapter)
 
+foreach ($path in @('Tests/Common/SqlVersionUpgradeScenario.ps1','Tests/Common/SqlVersionUpgradeSupervisor.ps1',
+    'Tests/Integration/Invoke-SqlVersionUpgradeAcceptance.ps1','Tests/Integration/Invoke-SqlVersionUpgradeChild.ps1')) {
+    $upgrade=& $selector -ChangedPath @($path)
+    Add-CheckResult -Name "SQL upgrade reference selects both container providers: $path" -Success (
+        $upgrade.Docker -and $upgrade.Podman -and -not $upgrade.HyperV -and -not $upgrade.Mixed -and
+        -not $upgrade.Adapter -and 'Invoke-SqlVersionUpgradeScenarioChecks.ps1' -in $upgrade.StaticChecks -and
+        'Invoke-SqlVersionUpgradeSupervisorChecks.ps1' -in $upgrade.StaticChecks -and 'Invoke-BackupLibraryChecks.ps1' -in $upgrade.StaticChecks)
+}
+foreach ($provider in @('docker','podman')) {
+    $workflow=Get-Content (Join-Path $repoRoot ('.github/workflows/runtime-smoke-'+$provider+'.yml')) -Raw
+    Add-CheckResult -Name "$provider workflow invokes supervised upgrade within existing runtime mutex" -Success (
+        $workflow -match ('Invoke-SqlVersionUpgradeAcceptance\.ps1\s+`\s+-Provider '+$provider+'\s+`\s+-RuntimeMutexAlreadyHeld') -and
+        $workflow -match 'if \(\$upgradeExitCode -ne 0\)')
+}
 if ($failures.Count -gt 0) {
     Write-Host "`nErgebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Red
     foreach ($failure in $failures) { Write-Host "  - $failure" -ForegroundColor Red }

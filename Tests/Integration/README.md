@@ -2,6 +2,17 @@
 
 End-to-End-Test des gesamten Lab-Lifecycles.
 
+## SQL-2022-/SQL-2025-Upgrade-Referenz
+
+`Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker` beziehungsweise
+`-Provider podman` erzeugt zwei neue eigene Runs, überträgt eine feste synthetische
+Datenbank über öffentliche Backup-/Restore-Bibliotheksbefehle und prüft die
+Kompatibilitätsphasen 160 und 170 getrennt. Bounded Child-Supervision und
+operationsgebundenes Cleanup gehören zum Test. Die getrennten Docker-/Podman-
+Referenzläufe bestanden am 2026-09-21 auf `46340200`; Runtime-Cleanup bestätigte
+je Provider zwei entfernte Own-Runs und keine Runtime-Residuen. Ablauf, lokale
+Evidence und Abbruchgrenzen stehen im
+[Referenzvertrag](../../Documentation/Quality/SQL_VERSION_UPGRADE_REFERENCE.md).
 ## Invoke-SmokeTest.ps1
 
 | Parameter | Default | Beschreibung |
