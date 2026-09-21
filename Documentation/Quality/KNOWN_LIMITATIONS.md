@@ -1651,6 +1651,10 @@ journalisiert Stop, Apply, Start und Postconditions und setzt
 bewusst `unsupported`.
 
 No-op, Live, Restart, `WhatIf`, Recovery und Resume sind synthetisch belegt.
+Der native Runner enthaelt zusaetzlich einen test-only, Run-/Scope-/Instanz-/
+VM-ID-gebundenen einmaligen Pre-Start-Fehler mit Wrapper-Entfernung vor dem
+Resume. Er belegt keine Hyper-V-Plattformfehlersimulation und ist bis zur
+erhoehten manuellen Ausfuehrung weiterhin `NOT_EXECUTED`.
 Am 2026-09-14 bestand zusätzlich die vollständige native Ressourcen-Acceptance
 mit einem expliziten gestoppten Windows-2025-Clone-Quellslot und SQL Server 2025
 Enterprise aus dem konfigurierten Medienroot. Sie belegte `VerifyOnly` mit
