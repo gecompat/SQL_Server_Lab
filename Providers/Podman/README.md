@@ -14,6 +14,7 @@ SQL Server 2019/2022/2025 External Runtimes benötigen rootful Linux mit cgroup 
 - Windows/Mac: `podman machine` muss laufen
 - stderr-Warnings werden als Strings konvertiert (ErrorRecord-Fix)
 - Container-ID per Hex-Regex extrahiert
+- sqlcmd-Healthcheck bindet das Passwort unverändert als ein Shellargument, auch bei führendem Minus und beim Container-Reconcile
 - SQL-internes Memory-Limit mit 20 Prozent Headroom unterhalb des
   Containerlimits sowie TLS-vertraulicher Healthcheck
 - Autostart über `--restart unless-stopped` und das Lab-Label; auf nativem Linux
