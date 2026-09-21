@@ -62,7 +62,7 @@ try{
     if($config.Token -cnotmatch '^[a-f0-9]{64}$' -or ([guid]$config.OperationId).ToString('D') -cne $config.OperationId -or $config.LocalPort -lt 1024 -or $config.LocalPort -gt 65535){throw 'AI_SQL_HTTPS_CONFIG_INVALID'}
     $parent=Get-Process -Id $config.ParentPid -ErrorAction Stop
     if($parent.StartTime.ToUniversalTime().Ticks -ne $config.ParentStartTicks){throw 'AI_SQL_HTTPS_PARENT_INVALID'}
-    $receipt=[ordered]@{contract='SqlServerLab.AiSqlHttpsBridgeReceipt/1.0';operationId=$config.OperationId;status='STARTING';connections=0;negativeTlsConnections=0;tlsRejected=0;requests=0;rejected=0;upstreamRequests=0;successfulEmbeddings=0;modelBindingHash=$null;caSha256=$null;failure=$null}
+    $receipt=[ordered]@{contract='SqlServerLab.AiSqlHttpsBridgeReceipt/1.1';operationId=$config.OperationId;status='STARTING';connections=0;negativeTlsConnections=0;tlsRejected=0;closedBeforeHttp=0;requests=0;rejected=0;upstreamRequests=0;successfulEmbeddings=0;modelBindingHash=$null;caSha256=$null;failure=$null}
     Save-BridgeReceipt
     $plan=& $module {param($Port)New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-latest -EndpointRef ollama-local -Lane local -LocalPort $Port -RetryCount 0 -TimeoutSeconds 16} $config.LocalPort
     $receipt.modelBindingHash=& $module {param($Binding)Get-LabAiPlanKey $Binding} $config.Binding
@@ -84,6 +84,7 @@ try{
         $pending=@($servers|Where-Object {$_.Accept.IsCompleted}|Select-Object -First 1)
         if(-not $pending.Count){Start-Sleep -Milliseconds 25;continue}
         $server=$pending[0];$peer=$server.Accept.GetAwaiter().GetResult();$ssl=$null;$authenticated=$false
+        $progress=@{HeaderBytes=0;HttpRequest=$false};$requestCounted=$false
         try{
             $receipt.connections++;if($receipt.connections -gt 20){throw 'AI_SQL_HTTPS_CONNECTION_BUDGET'}
             if($server.Kind -cne 'Good'){$receipt.negativeTlsConnections++}
@@ -92,8 +93,8 @@ try{
             $options=[Net.Security.SslServerAuthenticationOptions]::new();$options.ServerCertificate=$server.Certificate;$options.EnabledSslProtocols=[Security.Authentication.SslProtocols]::Tls12 -bor [Security.Authentication.SslProtocols]::Tls13
             $cancel=[Threading.CancellationTokenSource]::new(5000)
             try{$ssl.AuthenticateAsServerAsync($options,$cancel.Token).GetAwaiter().GetResult();$authenticated=$true}finally{$cancel.Dispose()}
-            $receipt.requests++
-            $text=& $module {param($Stream,$Token)Read-LabAiSqlHttpsRequest -Stream $Stream -Token $Token} $ssl $config.Token
+            $text=& $module {param($Stream,$Token,$Progress)Read-LabAiSqlHttpsRequest -Stream $Stream -Token $Token -Progress $Progress} $ssl $config.Token $progress
+            $receipt.requests++;$requestCounted=$true
             if($server.Kind -cne 'Good'){throw 'AI_SQL_HTTPS_NEGATIVE_CERT_ACCEPTED'}
             if($receipt.upstreamRequests -ge 8){throw 'AI_SQL_HTTPS_REQUEST_BUDGET'}
             # Der Zähler erfasst versuchte Embeddings, auch wenn die Bindungsprüfung blockiert.
@@ -103,12 +104,18 @@ try{
             $receipt.successfulEmbeddings++
         }catch{
             if(-not $authenticated){$receipt.tlsRejected++}
-            else{
+            elseif($progress.HeaderBytes -gt 0){
                 $receipt.rejected++
                 $code=if($_.Exception.Message -ceq 'AI_SQL_HTTPS_AUTH_FAILED'){401}else{400}
                 try{& $module {param($Stream,$Code)Write-LabAiSqlHttpsResponse -Stream $Stream -StatusCode $Code -Body '{"error":"REQUEST_REJECTED"}'} $ssl $code}catch{}
             }
-        }finally{if($ssl){$ssl.Dispose()};$peer.Dispose();Save-BridgeReceipt;$server.Accept=$server.Listener.AcceptTcpClientAsync()}
+        }finally{
+            if($progress.HttpRequest -and -not $requestCounted){$receipt.requests++}
+            if($ssl){$ssl.Dispose()};$peer.Dispose()
+            # Lokale Beobachtung: geschlossen ohne Anwendungsbytes, keine behauptete Zertifikatsursache.
+            if($progress.HeaderBytes -eq 0){$receipt.closedBeforeHttp++}
+            Save-BridgeReceipt;$server.Accept=$server.Listener.AcceptTcpClientAsync()
+        }
         if($receipt.connections -ge 20){break}
     }
     $receipt.status='STOPPED'

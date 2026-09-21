@@ -29,8 +29,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
 
 - interner Docker-only-SQL-HTTPS-Referenzslice mit eigenem Loopback-Gateway,
   festen synthetischen Embeddings und vorbereiteter External-Model-Abnahme.
-  Netzwerkroute und Offlinevertrag geprüft; SQLPAL-Trust und native SQL-/TLS-
-  Evidence noch `NOT_EXECUTED`. Vertrag:
+  Netzwerkroute und Offlinevertrag geprüft; SQL-seitige Embeddings und erstes
+  Retrieval nativ belegt. Gesamtabnahme `PARTIAL`: vollständige SQL-TLS-Negative
+  mit korrigierten HTTP-Zählern und Retrieval nach SQLrestart noch offen. Vertrag:
   `Documentation/Architecture/AI_SQL_HTTPS_BRIDGE.md`;
 
 - Isolierte Hyper-V-RAG-/Agent-Abnahme aus explizitem SQL-Prepared-Artefakt,

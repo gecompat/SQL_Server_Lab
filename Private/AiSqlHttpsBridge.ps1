@@ -15,18 +15,20 @@ function Get-LabAiSqlHttpsFixture {
 }
 
 function Read-LabAiSqlHttpsRequest {
-    param([Parameter(Mandatory)][IO.Stream]$Stream,[Parameter(Mandatory)][string]$Token)
+    param([Parameter(Mandatory)][IO.Stream]$Stream,[Parameter(Mandatory)][string]$Token,[hashtable]$Progress=@{})
+    $Progress.HeaderBytes=0;$Progress.HttpRequest=$false
     $cancel=[Threading.CancellationTokenSource]::new(5000)
     try {
     $bytes=[Collections.Generic.List[byte]]::new()
     $single=[byte[]]::new(1)
     while($bytes.Count -lt 8192){
-        $read=$Stream.ReadAsync($single,0,1,$cancel.Token).GetAwaiter().GetResult();if($read -ne 1){throw 'AI_SQL_HTTPS_REQUEST_INVALID'};$bytes.Add($single[0])
+        $read=$Stream.ReadAsync($single,0,1,$cancel.Token).GetAwaiter().GetResult();if($read -ne 1){throw 'AI_SQL_HTTPS_REQUEST_INVALID'};$bytes.Add($single[0]);$Progress.HeaderBytes=$bytes.Count
         $n=$bytes.Count
         if($n -ge 4 -and $bytes[$n-4] -eq 13 -and $bytes[$n-3] -eq 10 -and $bytes[$n-2] -eq 13 -and $bytes[$n-1] -eq 10){break}
     }
     if($bytes.Count -ge 8192){throw 'AI_SQL_HTTPS_REQUEST_INVALID'}
     $lines=@([Text.Encoding]::ASCII.GetString($bytes.ToArray()) -split "`r`n")
+    $Progress.HttpRequest=$lines[0] -cmatch '^[A-Z]+ [^\r\n ]+ HTTP/1\.[01]$'
     if($lines[0] -cne 'POST /api/embed HTTP/1.1'){throw 'AI_SQL_HTTPS_REQUEST_INVALID'}
     $headers=[Collections.Generic.Dictionary[string,string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach($line in $lines[1..($lines.Count-1)]){

@@ -1,9 +1,12 @@
 # SQL-seitige Embeddings über einen eigenen HTTPS-Gateway
 
 Stand: 2026-09-21. Interner Docker-only-Referenzslice mit vorbereiteter nativer
-Abnahme; SQL-/TLS-Nachweis nach der Eingabereaderkorrektur `NOT_EXECUTED`.
-Vorherige native Versuche endeten im SQL-Timeout, während der Gateway noch vor
-seiner Verarbeitungsschleife blockierte. Keine neue öffentliche Gateway-API.
+Abnahme; native Gesamtabnahme `PARTIAL`. Nach der Eingabereaderkorrektur wurden
+drei SQL-seitige Embeddings gespeichert und beide Rankings vor SQLrestart
+bestanden. Die Abnahme scheiterte anschließend an der HTTP-Zählerklassifikation
+des WrongCA-Falls. Der korrigierte Zählervertrag ist offline geprüft; vollständige
+SQL-TLS-Negative und Retrieval nach SQLrestart bleiben nativ offen.
+Keine neue öffentliche Gateway-API.
 Die reine Docker-Netzprobe erreichte bereits einen ausschließlich an
 `127.0.0.1` gebundenen Hostlistener über `host.docker.internal`. Eigener
 kurzlebiger Container und Listener wurden vollständig entfernt. Dieser
@@ -61,10 +64,24 @@ allgemeiner Gatewaybetrieb bleiben außerhalb dieses Referenzvertrags.
   kontrollierter Abbruch mit sichtbarem Fehler.
 
 Drei unterschiedliche Listenerports mit gültigem Zertifikat, falscher CA und
-falschem SAN erzwingen frische TLS-Verbindungen. SQL-Negativtests müssen sowohl
-die neuen Verbindungen und TLS-Ablehnungen vor HTTP im Receipt als auch
-SQL-Verbindungsfehler nachweisen.
-Auth-/Payload-Negative dürfen den Embeddingzähler nicht erhöhen.
+falschem SAN erzwingen frische TLS-Verbindungen. Receipt `1.1` unterscheidet:
+
+- `tlsRejected`: ausschließlich Fehler von `AuthenticateAsServerAsync`; daraus
+  folgt keine Aussage über die clientseitige Zertifikatsprüfung.
+- `closedBeforeHttp`: lokal geschlossene Verbindung, aus der kein einziges
+  entschlüsseltes Anwendungsbyte gelesen wurde. Der Zähler umfasst auch
+  Handshakefehler, EOF und lokale Fristabläufe; er behauptet keine Fehlerursache.
+- `requests`: empfangene HTTP-Startzeile und vollständiger Header; eine bloß
+  erfolgreiche serverseitige TLS-Authentisierung zählt keinen HTTP-Request.
+- `rejected`: eingegangene Anwendungsdaten wurden verworfen; auch unvollständige
+  Header sind möglich. Verbindungen ohne Anwendungsbytes erhöhen ihn nicht.
+
+SQL-Negativtests verbinden den numerischen SQL-REST-Fehler `31608` mit exakt einer
+neuen Verbindung am jeweiligen Negativlistener, `closedBeforeHttp + 1` und
+unveränderten Request-, Ablehnungs-, Upstream- und Erfolgscountern. Ein SQL-Client-
+Timeout genügt nicht. Die echte positive SQL-Embeddingstrecke bleibt Voraussetzung.
+Auth-/Payload-Negative dürfen den Embeddingzähler nicht erhöhen. Alte Receipts
+werden nicht auf `1.1` umgedeutet.
 
 Cleanup stoppt den eigenen Gatewayprozess, entfernt den vollständig gebundenen
 SQL-Run und bestätigt Container-/Volume-Abwesenheit. Erst danach werden eigene
@@ -89,8 +106,9 @@ bindet das Modell innerhalb der SQL-Abfrage.
 
 SQLPAL-CA-Pfad und Einlesen beim SQLstart sind für
 [S3-Backup über HTTPS](https://learn.microsoft.com/en-us/sql/relational-databases/backup-restore/sql-server-backup-to-url-s3-compatible-object-storage?view=sql-server-ver17)
-dokumentiert. Ihre Übertragung auf External Models ist bis zum tatsächlichen
-SQL-Positivnachweis samt WrongCA/WrongSAN-Negativen eine **unbestätigte Annahme**.
+dokumentiert. Der positive External-Model-Pfad ist inzwischen nativ belegt;
+die vollständige Vertrauensgrenze mit beiden SQL-seitigen WrongCA-/WrongSAN-
+Negativen bleibt **offen**.
 .NET-TLS oder Betriebssystem-Trust genügen nicht als SQL-Nachweis. Die Hostadresse
 steht im [Docker-Desktop-Netzwerkvertrag](https://docs.docker.com/desktop/features/networking/networking-how-tos/);
 die lokale Loopbackroute wurde zusätzlich direkt geprüft.
@@ -101,6 +119,14 @@ Damit darf dieser Reader nicht vor der Gateway-Verarbeitungsschleife auf STOP
 warten. Ein bereits gestarteter Socket und veröffentlichter Readyrecord beweisen
 noch keine laufende Requestverarbeitung; auch der Verbindungszähler wird erst
 innerhalb dieser Schleife erhöht.
+
+TLS-Authentisierung und Anwendungsdaten sind getrennte Beobachtungen. Laut
+[`SslStream.Read`](https://learn.microsoft.com/en-us/dotnet/api/system.net.security.sslstream.read)
+liefert erst der Streamread Anwendungsbytes beziehungsweise EOF oder einen
+Lesefehler. Die Loopbackreproduktion zeigte bei TLS 1.2 und TLS 1.3, dass die
+clientseitige Zertifikatsablehnung nicht zuverlässig als serverseitiger
+Authentisierungsfehler gezählt werden kann. Deshalb stützt sich die Abnahme
+nicht allein auf `tlsRejected`.
 
 ## Abnahme
 
@@ -113,7 +139,11 @@ Statisch: Requestbytes, Vektoren, Doppelbindung und eigener Zertifikat-/Prozess-
 zyklus ohne SQL oder Modellrequests. Der echte Loopbacktest prüft vor STOP einen
 TCP-Abbruch und einen per eigener CA und SAN validierten TLS-Request ohne
 Authheader: HTTP 401, erhöhte Verbindungs-/Request-/Ablehnungszähler und weiterhin
-kein Upstreamrequest. Ein separater EOF-Fall bestätigt kooperatives Prozessende.
+kein Upstreamrequest. Getrennte TLS-1.2-/TLS-1.3-Fälle prüfen jeweils positives
+CA-/SAN-Vertrauen, strikte WrongCA-/WrongSAN-Ablehnung sowie einen gültigen
+TLS-Kanal, der ohne HTTP geschlossen wird. Sie prüfen die exakten HTTP- und
+`closedBeforeHttp`-Zähler ohne Zertifikatscallback oder Hosttruständerung.
+Ein separater EOF-Fall bestätigt kooperatives Prozessende.
 Diese Prüfung belegt den Hostgateway, nicht den SQLPAL-Trust.
 Nativ erforderlich: vorhandenes Hostmodell,
 Docker, globaler Runtime-Mutex über Arrange und Cleanup, SQL-Embeddings,

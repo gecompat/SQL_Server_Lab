@@ -54,7 +54,15 @@ function Read-BridgeReceipt {
 }
 function Test-BridgeSqlRejected {
     param([string]$Query,[hashtable]$Parameters=@{},[string]$Phase='NegativeTls')
-    try{$null=Invoke-BridgeSql -Query $Query -Parameters $Parameters -Database BridgeFixture -Phase $Phase;return $false}catch{if($_.Exception.Message -cne 'AI_SQL_HTTPS_SQL_FAILED'){throw};return $true}
+    try{$null=Invoke-BridgeSql -Query $Query -Parameters $Parameters -Database BridgeFixture -Phase $Phase;return $false}catch{
+        if($_.Exception.Message -cne 'AI_SQL_HTTPS_SQL_FAILED'){throw}
+        if($Phase -ceq 'NegativeTls'){
+            $diagnostic=Get-Content -LiteralPath $diagnosticPath -Raw|ConvertFrom-Json
+            return ($diagnostic.OperationId -ceq $operation -and $diagnostic.Phase -ceq $Phase -and
+                @($diagnostic.SqlErrors|Where-Object {$_.Number -eq 31608}).Count -gt 0)
+        }
+        return $true
+    }
 }
 function Invoke-BridgeRanking {
     param($Fixture)
@@ -128,9 +136,12 @@ DECLARE @ddl nvarchar(max)=N'CREATE DATABASE SCOPED CREDENTIAL '+QUOTENAME(@endp
         $tlsBefore=Read-BridgeReceipt
         $rejected=Test-BridgeSqlRejected -Query 'DECLARE @response nvarchar(max); EXEC sp_invoke_external_rest_endpoint @url=@url,@method=''POST'',@credential=@url,@payload=@body,@timeout=10,@retry_count=0,@response=@response OUTPUT;' -Parameters @{url=$endpoints[$kind];body=(@{model='embeddinggemma:latest';input=@($fixture.Questions[0].Content)}|ConvertTo-Json -Compress)}
         Assert-Bridge $rejected ('SQL lehnt frischen TLS-Handshake ab: '+$kind)
-        Start-Sleep -Milliseconds 100
-        $tlsAfter=Read-BridgeReceipt
-        Assert-Bridge ($tlsAfter.tlsRejected -eq $tlsBefore.tlsRejected+1 -and $tlsAfter.negativeTlsConnections -eq $tlsBefore.negativeTlsConnections+1 -and $tlsAfter.requests -eq $tlsBefore.requests -and $tlsAfter.upstreamRequests -eq $tlsBefore.upstreamRequests) ('Handshake vor HTTP tatsächlich abgewiesen: '+$kind)
+        $deadline=[DateTime]::UtcNow.AddSeconds(6)
+        do{$tlsAfter=Read-BridgeReceipt;if($tlsAfter.closedBeforeHttp -gt $tlsBefore.closedBeforeHttp){break};Start-Sleep -Milliseconds 25}while([DateTime]::UtcNow -lt $deadline)
+        Assert-Bridge ($tlsAfter.connections -eq $tlsBefore.connections+1 -and $tlsAfter.closedBeforeHttp -eq $tlsBefore.closedBeforeHttp+1 -and
+            $tlsAfter.negativeTlsConnections -eq $tlsBefore.negativeTlsConnections+1 -and $tlsAfter.requests -eq $tlsBefore.requests -and
+            $tlsAfter.rejected -eq $tlsBefore.rejected -and $tlsAfter.upstreamRequests -eq $tlsBefore.upstreamRequests -and
+            $tlsAfter.successfulEmbeddings -eq $tlsBefore.successfulEmbeddings) ('SQL-REST-Fehler und neue Verbindung ohne HTTP-Anwendungsbytes belegt: '+$kind)
     }
     $http='http://host.docker.internal:'+([int]$bridge.Ready.Ports.Good)+'/api/embed'
     Assert-Bridge (Test-BridgeSqlRejected -Phase NegativeHttp -Query 'EXEC sp_invoke_external_rest_endpoint @url=@url,@method=''POST'',@payload=N''{}'',@timeout=5,@retry_count=0;' -Parameters @{url=$http}) 'SQL lehnt HTTP-Downgrade ab'

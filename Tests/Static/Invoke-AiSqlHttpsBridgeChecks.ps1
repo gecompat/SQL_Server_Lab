@@ -6,15 +6,45 @@ $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-ai-bridge-check-'+[guid]::NewGuid().ToString('N'))
 $bridge=$null;$cleanupSafe=$true
 function Wait-BridgeCounters {
-    param([int]$Connections,[int]$Requests,[int]$Rejected,[int]$TlsRejected)
+    param([int]$Connections,[int]$Requests,[int]$Rejected,[int]$TlsRejected=-1,[int]$ClosedBeforeHttp=-1)
     $deadline=[DateTime]::UtcNow.AddSeconds(6)
     do {
         $observed=Get-Content -LiteralPath (Join-Path $bridge.Root 'gateway.json') -Raw|ConvertFrom-Json
         if($observed.status -ceq 'ACTIVE' -and $observed.connections -eq $Connections -and $observed.requests -eq $Requests -and
-            $observed.rejected -eq $Rejected -and $observed.tlsRejected -eq $TlsRejected -and $observed.upstreamRequests -eq 0){return}
+            $observed.rejected -eq $Rejected -and ($TlsRejected -lt 0 -or $observed.tlsRejected -eq $TlsRejected) -and
+            ($ClosedBeforeHttp -lt 0 -or $observed.closedBeforeHttp -eq $ClosedBeforeHttp) -and $observed.upstreamRequests -eq 0){return}
         Start-Sleep -Milliseconds 25
     }while([DateTime]::UtcNow -lt $deadline)
     throw 'GATEWAY_BEFORE_STOP_PROGRESS_FAILED'
+}
+function Invoke-BridgeTlsProbe {
+    param($Certificate,[string]$Kind='Good',[Security.Authentication.SslProtocols]$Protocol,[switch]$CloseBeforeHttp)
+    $probe=[Net.Sockets.TcpClient]::new();$ssl=$null;$reader=$null
+    try{
+        $probe.ConnectAsync([Net.IPAddress]::Loopback,[int]$bridge.Ready.Ports.$Kind).WaitAsync([TimeSpan]::FromSeconds(3)).GetAwaiter().GetResult()
+        $ssl=[Net.Security.SslStream]::new($probe.GetStream(),$false)
+        $options=[Net.Security.SslClientAuthenticationOptions]::new();$options.TargetHost='host.docker.internal';$options.EnabledSslProtocols=$Protocol
+        $options.CertificateChainPolicy=[Security.Cryptography.X509Certificates.X509ChainPolicy]::new()
+        $options.CertificateChainPolicy.TrustMode=[Security.Cryptography.X509Certificates.X509ChainTrustMode]::CustomRootTrust
+        $options.CertificateChainPolicy.CustomTrustStore.Add($Certificate)
+        $options.CertificateChainPolicy.RevocationMode=[Security.Cryptography.X509Certificates.X509RevocationMode]::NoCheck
+        $cancel=[Threading.CancellationTokenSource]::new(5000);$authRejected=$false
+        try{$ssl.AuthenticateAsClientAsync($options,$cancel.Token).GetAwaiter().GetResult()}
+        catch{
+            $failure=$_.Exception
+            while($failure){if($failure -is [Security.Authentication.AuthenticationException]){$authRejected=$true};$failure=$failure.InnerException}
+            if(-not $authRejected){throw 'TLS_PROBE_UNEXPECTED_FAILURE'}
+        }finally{$cancel.Dispose()}
+        if($Kind -cne 'Good'){if(-not $authRejected){throw 'NEGATIVE_CERTIFICATE_ACCEPTED'};return}
+        if($authRejected -or $ssl.SslProtocol -ne $Protocol){throw 'POSITIVE_TLS_PROTOCOL_FAILED'}
+        if($CloseBeforeHttp){return}
+        $ssl.WriteTimeout=3000
+        $wire=[Text.Encoding]::ASCII.GetBytes("POST /api/embed HTTP/1.1`r`nHost: host.docker.internal`r`nContent-Type: application/json`r`nContent-Length: 2`r`n`r`n{}")
+        $ssl.Write($wire,0,$wire.Length);$ssl.Flush()
+        $reader=[IO.StreamReader]::new($ssl)
+        $response=$reader.ReadToEndAsync().WaitAsync([TimeSpan]::FromSeconds(5)).GetAwaiter().GetResult()
+        if(-not $response.StartsWith("HTTP/1.1 401 Result`r`n",[StringComparison]::Ordinal)){throw 'LIVE_AUTH_REJECTION_FAILED'}
+    }finally{if($reader){$reader.Dispose()};if($ssl){$ssl.Dispose()};$probe.Dispose()}
 }
 try{
     $checks=& $module {
@@ -23,11 +53,11 @@ try{
         function Reject {param([scriptblock]$Action,[string]$Code)try{& $Action|Out-Null;$false}catch{$_.Exception.Message -match $Code}}
         $token='a'*64;$fixture=Get-LabAiSqlHttpsFixture
         function Read-Wire {
-            param([string]$Body,[string]$Headers="X-SqlLab-Token: $token`r`n",[string]$RequestLine='POST /api/embed HTTP/1.1')
+            param([string]$Body,[string]$Headers="X-SqlLab-Token: $token`r`n",[string]$RequestLine='POST /api/embed HTTP/1.1',[hashtable]$Progress=@{})
             $bytes=[Text.Encoding]::UTF8.GetBytes($Body)
             $header=[Text.Encoding]::ASCII.GetBytes("$RequestLine`r`n${Headers}Content-Type: application/json`r`nContent-Length: $($bytes.Length)`r`n`r`n")
             $stream=[IO.MemoryStream]::new();$stream.Write($header,0,$header.Length);$stream.Write($bytes,0,$bytes.Length);$stream.Position=0
-            try{Read-LabAiSqlHttpsRequest -Stream $stream -Token $token}finally{$stream.Dispose()}
+            try{Read-LabAiSqlHttpsRequest -Stream $stream -Token $token -Progress $Progress}finally{$stream.Dispose()}
         }
         $body=@{model='embeddinggemma:latest';input=@($fixture.Documents[0].Content)}|ConvertTo-Json -Compress
         Check 'Einzelarray aus SQL wird exakt aufgelöst' ((Read-Wire $body) -ceq $fixture.Documents[0].Content)
@@ -83,6 +113,14 @@ try{
         Check 'Freier Input blockiert selbst vor Metadaten' ((Reject {Invoke-LabAiSqlHttpsEmbedding -Plan $plan -Expected $binding -InputText arbitrary -HttpTransport $transport} 'PAYLOAD_INVALID') -and $script:requests.Count -eq 0)
         Check 'Freier Upstreampfad blockiert vor Netzwerk' (Reject {Invoke-LabAiSqlHttpsHttp -Port 11434 -Path /api/generate -TimeoutMilliseconds 1000} 'UPSTREAM_INVALID')
         Check 'Nullbudget blockiert vor Netzwerk' (Reject {Invoke-LabAiSqlHttpsHttp -Port 11434 -Path /api/embed -TimeoutMilliseconds 0} 'UPSTREAM_INVALID')
+        $progress=@{}
+        $rejected=Reject {Read-Wire $body -Headers '' -Progress $progress} 'AUTH_FAILED'
+        Check 'Authnegative zählt empfangenen HTTP-Header' ($rejected -and $progress.HttpRequest -and $progress.HeaderBytes -gt 0)
+        foreach($prefix in @('','P')){
+            $stream=[IO.MemoryStream]::new([Text.Encoding]::ASCII.GetBytes($prefix));$progress=@{}
+            try{$rejected=Reject {Read-LabAiSqlHttpsRequest -Stream $stream -Token $token -Progress $progress} 'REQUEST_INVALID'}finally{$stream.Dispose()}
+            Check ('Unvollständiger Header bleibt ohne HTTP-Request: '+$prefix.Length) ($rejected -and -not $progress.HttpRequest -and $progress.HeaderBytes -eq $prefix.Length)
+        }
         return @($checks)
     }
     foreach($check in $checks){Write-Host "$(if($check.Success){'PASS'}else{'FAIL'}): $($check.Name)"}
@@ -107,7 +145,7 @@ try{
         # Der Server muss schon vor STOP arbeiten; bloßes Start/Stop findet blockierendes stdin nicht.
         $probe=[Net.Sockets.TcpClient]::new()
         try{$probe.ConnectAsync([Net.IPAddress]::Loopback,[int]$bridge.Ready.Ports.Good).WaitAsync([TimeSpan]::FromSeconds(3)).GetAwaiter().GetResult()}finally{$probe.Dispose()}
-        Wait-BridgeCounters -Connections 1 -Requests 0 -Rejected 0 -TlsRejected 1
+        Wait-BridgeCounters -Connections 1 -Requests 0 -Rejected 0 -TlsRejected 1 -ClosedBeforeHttp 1
         Write-Host 'PASS: Gateway verarbeitet TCP-Abbruch vor STOP ohne Upstreamrequest'
         $probe=[Net.Sockets.TcpClient]::new();$ssl=$null;$reader=$null
         try{
@@ -127,11 +165,28 @@ try{
             $response=$reader.ReadToEndAsync().WaitAsync([TimeSpan]::FromSeconds(5)).GetAwaiter().GetResult()
             if(-not $response.StartsWith("HTTP/1.1 401 Result`r`n",[StringComparison]::Ordinal)){throw 'LIVE_AUTH_REJECTION_FAILED'}
         }finally{if($reader){$reader.Dispose()};if($ssl){$ssl.Dispose()};$probe.Dispose()}
-        Wait-BridgeCounters -Connections 2 -Requests 1 -Rejected 1 -TlsRejected 1
+        Wait-BridgeCounters -Connections 2 -Requests 1 -Rejected 1 -TlsRejected 1 -ClosedBeforeHttp 1
         Write-Host 'PASS: Eigene CA und SAN validiert; Live-TLS-Authnegative antwortet vor STOP ohne Upstreamrequest'
+        $connectionCount=2;$requestCount=1;$closedCount=1
+        foreach($protocol in @([Security.Authentication.SslProtocols]::Tls12,[Security.Authentication.SslProtocols]::Tls13)){
+            Invoke-BridgeTlsProbe -Certificate $certificate -Protocol $protocol
+            $connectionCount++;$requestCount++
+            Wait-BridgeCounters -Connections $connectionCount -Requests $requestCount -Rejected $requestCount -ClosedBeforeHttp $closedCount
+            Write-Host "PASS: $protocol positive CA und SAN validiert; HTTP-Authnegative ohne Upstream"
+            foreach($kind in @('WrongCa','WrongSan')){
+                Invoke-BridgeTlsProbe -Certificate $certificate -Protocol $protocol -Kind $kind
+                $connectionCount++;$closedCount++
+                Wait-BridgeCounters -Connections $connectionCount -Requests $requestCount -Rejected $requestCount -ClosedBeforeHttp $closedCount
+                Write-Host "PASS: $protocol $kind clientseitig strikt abgewiesen ohne HTTP oder Upstream"
+            }
+            Invoke-BridgeTlsProbe -Certificate $certificate -Protocol $protocol -CloseBeforeHttp
+            $connectionCount++;$closedCount++
+            Wait-BridgeCounters -Connections $connectionCount -Requests $requestCount -Rejected $requestCount -ClosedBeforeHttp $closedCount
+            Write-Host "PASS: $protocol gültige TLS-Verbindung ohne HTTP erzeugt keinen Request"
+        }
     }finally{$certificate.Dispose()}
     $receipt=& $module {param($Bridge)Stop-LabAiSqlHttpsBridge $Bridge} $bridge;$bridge=$null
-    if($receipt.upstreamRequests -ne 0 -or $receipt.connections -ne 2 -or $receipt.requests -ne 1 -or $receipt.status -cne 'STOPPED'){throw 'OFFLINE_PROCESS_LIFECYCLE_INVALID'}
+    if($receipt.upstreamRequests -ne 0 -or $receipt.connections -ne 10 -or $receipt.requests -ne 3 -or $receipt.closedBeforeHttp -ne 7 -or $receipt.negativeTlsConnections -ne 4 -or $receipt.status -cne 'STOPPED'){throw 'OFFLINE_PROCESS_LIFECYCLE_INVALID'}
     Write-Host 'PASS: Eigener Gateway-Zertifikat-/Prozesszyklus; kein privater CA-Key im Readyrecord, keine Modellrequests'
     $eofRoot=Join-Path $root 'eof';$null=New-Item -ItemType Directory -Path $eofRoot;$cleanupSafe=$false
     try{$bridge=& $module {param($Root)Start-LabAiSqlHttpsBridge -Root $Root -OperationId ([guid]::NewGuid().ToString('D')) -Token ('a'*64) -Binding @{} -LocalPort 11434} $eofRoot;$cleanupSafe=$true}
@@ -152,7 +207,7 @@ try{
     if($fault.Confirmed -and $fault.Stopped){$cleanupSafe=$true}
     if(-not $cleanupSafe -or -not $fault.Reached){throw 'DYNAMIC_START_FAILURE_CLEANUP_FAILED'}
     Write-Host 'PASS: Injizierter Fehler nach realem Prozessstart bestätigt Exit und STOPPED vor Dateicleanup'
-    Write-Host "AI SQL HTTPS BRIDGE CHECKS: PASS ($($checks.Count+6) assertions)"
+    Write-Host "AI SQL HTTPS BRIDGE CHECKS: PASS ($($checks.Count+14) assertions)"
 }finally{
     if($bridge){& $module {param($Bridge)Stop-LabAiSqlHttpsBridge $Bridge} $bridge|Out-Null}
     if($cleanupSafe -and (Test-Path -LiteralPath $root)){$resolved=[IO.Path]::GetFullPath($root);$boundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar;if(-not $resolved.StartsWith($boundary,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolved) -notlike 'sql-lab-ai-bridge-check-*'){throw 'TEST_CLEANUP_SCOPE_INVALID'};Remove-Item -LiteralPath $resolved -Recurse -Force}

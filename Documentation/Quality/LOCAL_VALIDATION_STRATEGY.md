@@ -6,12 +6,16 @@
 Digest-/Remoteabwehr und den eigenen Zertifikat-/Prozesszyklus ohne SQL oder
 Modellaufrufe. Echte Loopbackverarbeitung vor STOP, CA-/SAN-validiertes TLS mit
 Authablehnung ohne Upstream und EOF-Cleanup gehören zur Offlineprüfung.
+TLS 1.2 und TLS 1.3 prüfen getrennt WrongCA, WrongSAN und einen gültigen TLS-Kanal
+ohne HTTP; Receipt `1.1` trennt lokale Handshakefehler, Schließen ohne
+Anwendungsbytes und empfangene HTTP-Requests.
 `Invoke-AiSqlHttpsBridgeAcceptance.ps1` bereitet den getrennten
 Docker-Nachweis vor: SQL External Model, frische WrongCA-/WrongSAN-Handshakes,
 Auth-/Payloadnegative, exaktes Retrieval vor/nach SQLrestart und vollständiges
-Cleanup. Der reine Docker-zu-Hostloopback-TCP-Nachweis bestand; SQL-/TLS-Native
-ist nach Korrektur des blockierenden Eingabereaders `NOT_EXECUTED`; frühere
-Versuche endeten ohne Gatewayverarbeitung im SQL-Timeout.
+Cleanup. Der Docker-zu-Hostloopback-TCP-Nachweis sowie native SQL-Embeddings und
+beide Rankings vor SQLrestart bestanden. Die Gesamtabnahme bleibt `PARTIAL`:
+vollständige SQL-TLS-Negative mit korrigierter Zählerklassifikation und Retrieval
+nach SQLrestart stehen noch aus.
 [Vertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
 
 | Merkmal | Wert |
