@@ -108,7 +108,14 @@ try {
     $secondEvaluation=Measure-SqlServerLabAiRetrieval -QueryResult $second -CaseId backup-frequency;if($secondEvaluation.Status-ne'PASSED'-or $secondEvaluation.Binding.PlanKey-ne$second.PlanKey){throw 'AI_RAG_RESTART_EVALUATION_FAILED'}
     $complete=$true;$result=[PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiRagContainerAcceptance';Version='1.1'};Status='PASSED';Provider=$Provider;SqlRetrieval='EXACT_COSINE';TopCitation='backup-policy';GoldenEvaluation='PASSED';Restart='PASSED'}
 }
-catch { $testFailed=$true; throw }
+catch {
+    $testFailed=$true
+    $receipt=Get-AiRagFailureReceipt -Provider $Provider -Phase $phase -ErrorRecord $_
+    $receiptRoot=Join-Path $repoRoot '.artifacts/test-runs/ai-golden-podman-acceptance'
+    New-Item -ItemType Directory -Path $receiptRoot -Force|Out-Null
+    $receipt|ConvertTo-Json -Compress|Set-Content -LiteralPath (Join-Path $receiptRoot "failure-$operation.json") -Encoding utf8
+    throw
+}
 finally {
     $finalization=Invoke-AiRagAcceptanceFinalization -ArrangeStarted $arrangeStarted -KeepOnFailure $KeepOnFailure -Completed $complete -SqlCleanup {
         $owned=& $module {param($Operation,$State)Get-LabOperationOwnedRun -OperationId $Operation -StateRoot $State} $operation $stateRoot

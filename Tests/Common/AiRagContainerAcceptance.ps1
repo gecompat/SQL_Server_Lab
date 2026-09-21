@@ -64,3 +64,12 @@ function Invoke-AiRagAcceptanceFinalization {
         if ($Mutex) { if ($MutexAcquired) { try { $Mutex.ReleaseMutex() } catch {} }; $Mutex.Dispose() }
     }
 }
+
+function Get-AiRagFailureReceipt {
+    param([string]$Provider,[string]$Phase,$ErrorRecord)
+    $message=[string]$ErrorRecord.Exception.Message
+    $code=if($message -in @('AI_ENDPOINT_TIMEOUT','AI_ENDPOINT_UNAVAILABLE','AI_ENDPOINT_INVALID_RESPONSE')){$message}else{'UNCLASSIFIED'}
+    $stack=[string]$ErrorRecord.ScriptStackTrace
+    $callsite=if($stack -match 'AiRag\.ps1: line (97|103)'){'EMBEDDING'}elseif($stack -match 'AiRag\.ps1: line 124'){'GENERATION'}else{'UNCLASSIFIED'}
+    [pscustomobject]@{Provider=$Provider;Phase=$Phase;ErrorCode=$code;Callsite=$callsite}
+}
