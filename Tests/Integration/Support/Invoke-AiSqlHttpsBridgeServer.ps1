@@ -59,9 +59,9 @@ try{
     while($configuration.Length -lt 8192){$value=$controlReader.Read();if($value -eq 10){break};if($value -lt 0){throw 'AI_SQL_HTTPS_CONFIG_INVALID'};$null=$configuration.Append([char]$value)}
     if($configuration.Length -ge 8192){throw 'AI_SQL_HTTPS_CONFIG_INVALID'}
     $config=$configuration.ToString()|ConvertFrom-Json -Depth 8;$configuration.Clear()|Out-Null
-    if($config.Token -cnotmatch '^[a-f0-9]{64}$' -or ([guid]$config.OperationId).ToString('D') -cne $config.OperationId -or $config.LocalPort -lt 1024 -or $config.LocalPort -gt 65535){throw 'AI_SQL_HTTPS_CONFIG_INVALID'}
+    if($config.Token -cnotmatch '^[a-f0-9]{64}$' -or ([guid]$config.OperationId).ToString('D') -cne $config.OperationId -or $config.LocalPort -lt 1024 -or $config.LocalPort -gt 65535 -or $config.ParentIdentity -isnot [string]){throw 'AI_SQL_HTTPS_CONFIG_INVALID'}
     $parent=Get-Process -Id $config.ParentPid -ErrorAction Stop
-    if($parent.StartTime.ToUniversalTime().Ticks -ne $config.ParentStartTicks){throw 'AI_SQL_HTTPS_PARENT_INVALID'}
+    if((& $module {param($ProcessId)Get-LabAiSqlHttpsProcessIdentity -ProcessId $ProcessId} $config.ParentPid) -cne $config.ParentIdentity){throw 'AI_SQL_HTTPS_PARENT_INVALID'}
     $receipt=[ordered]@{contract='SqlServerLab.AiSqlHttpsBridgeReceipt/1.1';operationId=$config.OperationId;status='STARTING';connections=0;negativeTlsConnections=0;tlsRejected=0;closedBeforeHttp=0;requests=0;rejected=0;upstreamRequests=0;successfulEmbeddings=0;modelBindingHash=$null;caSha256=$null;failure=$null}
     Save-BridgeReceipt
     $plan=& $module {param($Port)New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-latest -EndpointRef ollama-local -Lane local -LocalPort $Port -RetryCount 0 -TimeoutSeconds 16} $config.LocalPort
@@ -77,7 +77,7 @@ try{
     }
     $ports=@{};foreach($server in $servers){$ports[$server.Kind]=$server.Listener.LocalEndpoint.Port}
     $receipt.status='ACTIVE';Save-BridgeReceipt
-    & $module {param($Path,$Value)Write-LabArtifactJsonAtomic -Path $Path -InputObject $Value} $readyPath @{OperationId=$config.OperationId;ProcessId=$PID;StartTicks=(Get-Process -Id $PID).StartTime.ToUniversalTime().Ticks;Ports=$ports;CaBase64=[Convert]::ToBase64String($public);CaSha256=$receipt.caSha256}
+    & $module {param($Path,$Value)Write-LabArtifactJsonAtomic -Path $Path -InputObject $Value} $readyPath @{OperationId=$config.OperationId;ProcessId=$PID;ProcessIdentity=(& $module {param($ProcessId)Get-LabAiSqlHttpsProcessIdentity -ProcessId $ProcessId} $PID);Ports=$ports;CaBase64=[Convert]::ToBase64String($public);CaSha256=$receipt.caSha256}
     $stop=$controlReader.ReadLineAsync();$deadline=[DateTime]::UtcNow.AddMinutes(15)
     while([DateTime]::UtcNow -lt $deadline -and -not $stop.IsCompleted){
         $parent.Refresh();if($parent.HasExited){break}
