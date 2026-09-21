@@ -116,6 +116,9 @@ Die getrennten nativen Docker- und Podman-Läufe bestanden am 2026-09-21 jeweils
 
 Dies ist ein inkrementeller Generationsrebuild mit unveränderter Modellidentität.
 Der bestehende reine `New-LabAiReembeddingPlan` für einen echten Modellwechsel
-bleibt unverändert. Ein Digest-/Dimensionswechsel, beliebige Dokumente,
+bleibt unverändert und wird vom neuen
+[begrenzten Modellwechsel](AI_PERSISTENT_MODEL_MIGRATION.md) für genau Delta/gen2
+nach Nomic v2 MoE/gen3 wiederverwendet. Docker und Podman bestanden getrennt jeweils 20 Assertions, SQLrestart und Cleanup.
+Weitere Digest-/Dimensionswechsel, beliebige Dokumente,
 Retention alter Generationen, Cloud, Generierung, Hyper-V und ANN sind offen.
 Golden v1 sowie SQL-seitiges EXTERNAL MODEL/TLS-Gateway bleiben unverändert.

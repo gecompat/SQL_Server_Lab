@@ -668,6 +668,16 @@ Idempotenz sowie abweichenden Inhalt mit vollständigem Whole-Run-Cleanup.
 
 ## Persistentes synthetisches Retrieval
 
+`Tests/Static/Invoke-AiPersistentRetrievalMigrationChecks.ps1` prüft das enge
+v1→v2-Upgrade und den expliziten Modellwechsel von Delta/gen2 nach Nomic/gen3.
+Die separate Abnahme `Tests/Integration/Invoke-AiPersistentRetrievalMigrationAcceptance.ps1`
+mit `-Provider docker` beziehungsweise `-Provider podman` verwendet je einen
+eigenen SQLrun, vorhandene Hostmodelle, gezählte Faultpoints, beide festen
+Rankings vor/nach Cutover und SQLrestart sowie eigenes vollständiges Cleanup.
+Docker und Podman bestanden die nativen Migrationsabnahmen am 2026-09-21
+mit jeweils 20 Assertions und vollständigem Cleanup; Details im
+[Migrationsvertrag](../Documentation/Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
+
 `Tests/Static/Invoke-AiPersistentRetrievalChecks.ps1` prüft den eigenen SQL-
 Generationsvertrag offline. Die native Abnahme verwendet vorhandenes lokales
 Embeddinggemma und getrennte eigene SQL-Runs:
@@ -678,5 +688,6 @@ Embeddinggemma und getrennte eigene SQL-Runs:
 ```
 
 Sie umfasst SQLrestart, konkurrierenden SQL-AppLock, Staging-/Commitantwortverlust,
-Resume und eigenes DB-/Run-Cleanup. Kein Download oder Cloudaufruf. Native
-Evidence steht noch aus; [Vertrag](../Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md).
+Resume und eigenes DB-/Run-Cleanup. Kein Download oder Cloudaufruf. Docker und
+Podman sind jeweils mit 16 Assertions und vollständigem Cleanup nativ belegt;
+[Vertrag](../Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md).

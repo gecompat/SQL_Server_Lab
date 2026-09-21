@@ -36,7 +36,9 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   eigene Datenbank auf SQL-2025-Docker/Podman, lokale Host-Embeddings, feste
   Initial-/Delta-Fixture, atomarer aktiver Generationszeiger, quittiertes Resume
   und besitzgebundenes Remove. Offline sowie nativ unter Docker und Podman geprüft (je 16 Assertions und vollständiges Cleanup).
-  Kein Modellwechsel-Re-Embedding, keine beliebigen Dokumente oder Cloud.
+  Der enge Folgeslice `Migrate` ergänzt Generation 3 mit Nomic v2 MoE,
+  v2-Upgrade, festen Präfixprofilen und SQL-gebundener aktiver Modellwahl;
+  getrennt nativ unter Docker und Podman belegt (je 20 Assertions und Cleanup). Keine beliebigen Dokumente oder Cloud.
   Vertrag: `Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md`;
 
 - AdHoc-RAG mit vorhandenem Host-`embeddinggemma:latest` und expliziter
