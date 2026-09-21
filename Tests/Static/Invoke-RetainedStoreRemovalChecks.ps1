@@ -4,7 +4,7 @@ param([switch]$CancellationChild)
 $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-retained-remove-check-'+[guid]::NewGuid().ToString('N'))
-$module=Import-Module (Join-Path $repo 'SQLServerLab.psd1') -Force -PassThru
+$module=Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru
 try {
     & $module {
         param($Root,$Repo,$Cancel)

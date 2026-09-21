@@ -5,7 +5,7 @@ $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-retained-race-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $root
-$module=Import-Module (Join-Path $repo 'SQLServerLab.psd1') -Force -PassThru
+$module=Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru
 $worker=$null
 $observer=$null
 try {
@@ -13,7 +13,7 @@ try {
     @'
 param($Repo,$Root,$Mode)
 $ErrorActionPreference='Stop'
-$module=Import-Module (Join-Path $Repo 'SQLServerLab.psd1') -Force -PassThru
+$module=Import-Module (Join-Path $Repo 'SqlServerLab.psd1') -Force -PassThru
 & $module {
     param($Root,$Mode)
     $script:race=Get-Content -LiteralPath (Join-Path $Root 'input.json') -Raw | ConvertFrom-Json -Depth 20

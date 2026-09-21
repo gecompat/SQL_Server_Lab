@@ -3,7 +3,7 @@
 param()
 $ErrorActionPreference='Stop'
 $repo=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-$module=Import-Module (Join-Path $repo 'SQLServerLab.psd1') -Force -PassThru
+$module=Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru
 try {
     & $module {
         $script:checks=0

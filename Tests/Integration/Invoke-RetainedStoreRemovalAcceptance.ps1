@@ -28,7 +28,7 @@ try {
         if(-not $acquired){throw 'ACCEPTANCE_RUNTIME_MUTEX_TIMEOUT'}
     }
     $root=New-RetainedStoreAcceptanceRoot
-    $module=Import-Module (Join-Path $repo 'SQLServerLab.psd1') -Force -PassThru
+    $module=Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru
     $context=& $module {param($Provider)Get-LabRetainedStoreRuntimeContext -Provider $Provider} $Provider
     $inputObject=[pscustomobject]@{
         OperationId=[guid]::NewGuid().ToString('D');ControllerId=[guid]::NewGuid().ToString('D')

@@ -16,7 +16,7 @@ $state=Join-Path $root 'state';$data=Join-Path $root 'Lab_Data'
 $env:SQL_SERVER_LAB_STATE=$state;$env:SQL_SERVER_LAB_DATA_ROOT=$data
 $env:SQL_SERVER_LAB_TEST_DATA_ROOT=Join-Path $root 'test-data'
 $env:SQL_SERVER_LAB_CONTROLLER_ID=[string]$inputObject.ControllerId
-$module=Import-Module (Join-Path $repo 'SQLServerLab.psd1') -Force -PassThru
+$module=Import-Module (Join-Path $repo 'SqlServerLab.psd1') -Force -PassThru
 $receipt=[ordered]@{OperationId=$OperationId.ToString('D');Stage=$Stage;Status='FAILED';Assertions=0}
 try {
     $count=& $module {
