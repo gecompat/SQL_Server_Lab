@@ -122,36 +122,64 @@ function Write-LabAiSqlHttpsResponse {
     $Stream.Write($header,0,$header.Length);$Stream.Write($bytes,0,$bytes.Length);$Stream.Flush()
 }
 
+function ConvertTo-LabAiSqlHttpsLinuxProcessIdentity {
+    param([Parameter(Mandatory)][int]$ProcessId,[Parameter(Mandatory)][string]$Stat,[Parameter(Mandatory)][string]$BootId)
+    if($ProcessId -le 0 -or $BootId -cnotmatch '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' -or -not $Stat.StartsWith("$ProcessId (",[StringComparison]::Ordinal)){throw 'AI_SQL_HTTPS_PROCESS_IDENTITY_UNAVAILABLE'}
+    $closing=$Stat.LastIndexOf(')');if($closing -lt ($ProcessId.ToString().Length+2) -or $closing -ge $Stat.Length-2){throw 'AI_SQL_HTTPS_PROCESS_IDENTITY_UNAVAILABLE'}
+    $fields=$Stat.Substring($closing+2).Trim() -split '\s+'
+    if($fields.Count -lt 20 -or $fields[0] -notmatch '^[A-Za-z]$' -or $fields[19] -cnotmatch '^[0-9]+$'){throw 'AI_SQL_HTTPS_PROCESS_IDENTITY_UNAVAILABLE'}
+    return "linux:${BootId}:$($fields[19])"
+}
+
+function Get-LabAiSqlHttpsProcessIdentity {
+    param([Parameter(Mandatory)][int]$ProcessId)
+    if($ProcessId -le 0){throw 'AI_SQL_HTTPS_PROCESS_IDENTITY_UNAVAILABLE'}
+    if($IsLinux){
+        try{
+            $stat=Get-Content -LiteralPath "/proc/$ProcessId/stat" -Raw -Encoding utf8 -ErrorAction Stop
+            $bootId=(Get-Content -LiteralPath '/proc/sys/kernel/random/boot_id' -Raw -Encoding utf8 -ErrorAction Stop).Trim()
+            return ConvertTo-LabAiSqlHttpsLinuxProcessIdentity -ProcessId $ProcessId -Stat $stat -BootId $bootId
+        }catch{throw 'AI_SQL_HTTPS_PROCESS_IDENTITY_UNAVAILABLE'}
+    }
+    if($IsWindows){
+        try{
+            $process=Get-Process -Id $ProcessId -ErrorAction Stop;$process.Refresh()
+            if($process.HasExited){throw 'exited'}
+            return "windows:$($process.StartTime.ToUniversalTime().Ticks)"
+        }catch{throw 'AI_SQL_HTTPS_PROCESS_IDENTITY_UNAVAILABLE'}
+    }
+    throw 'AI_SQL_HTTPS_PROCESS_IDENTITY_UNAVAILABLE'
+}
+
 function Start-LabAiSqlHttpsBridge {
     param([string]$Root,[string]$OperationId,[string]$Token,$Binding,[int]$LocalPort,[scriptblock]$FaultInjector)
     Assert-LabAiPersistentPath $Root
     if(-not(Test-Path -LiteralPath $Root -PathType Container) -or (Test-Path -LiteralPath (Join-Path $Root 'process.json'))){throw 'AI_SQL_HTTPS_ROOT_INVALID'}
     $process=$null
     try{
-        Write-LabArtifactJsonAtomic -Path (Join-Path $Root 'process.json') -InputObject @{OperationId=$OperationId;Status='STARTING';ProcessId=$null;StartTicks=$null}
+        Write-LabArtifactJsonAtomic -Path (Join-Path $Root 'process.json') -InputObject @{OperationId=$OperationId;Status='STARTING';ProcessId=$null;StartIdentity=$null}
         $start=[Diagnostics.ProcessStartInfo]::new((Get-Command pwsh -ErrorAction Stop).Source)
         $start.UseShellExecute=$false;$start.CreateNoWindow=$true;$start.WindowStyle=[Diagnostics.ProcessWindowStyle]::Hidden;$start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
         foreach($argument in @('-NoLogo','-NoProfile','-NonInteractive','-File',(Join-Path $script:ModuleRoot 'Tests/Integration/Support/Invoke-AiSqlHttpsBridgeServer.ps1'),'-Root',$Root)){$start.ArgumentList.Add($argument)}
         $process=[Diagnostics.Process]::Start($start);$out=$process.StandardOutput.ReadToEndAsync();$err=$process.StandardError.ReadToEndAsync()
-        $ticks=$process.StartTime.ToUniversalTime().Ticks
-        Write-LabArtifactJsonAtomic -Path (Join-Path $Root 'process.json') -InputObject @{OperationId=$OperationId;Status='STARTED';ProcessId=$process.Id;StartTicks=$ticks}
+        $identity=Get-LabAiSqlHttpsProcessIdentity -ProcessId $process.Id
+        Write-LabArtifactJsonAtomic -Path (Join-Path $Root 'process.json') -InputObject @{OperationId=$OperationId;Status='STARTED';ProcessId=$process.Id;StartIdentity=$identity}
         if($FaultInjector){& $FaultInjector $process.Id}
-        $parent=Get-Process -Id $PID
-        $process.StandardInput.WriteLine((@{OperationId=$OperationId;Token=$Token;Binding=$Binding;LocalPort=$LocalPort;ParentPid=$PID;ParentStartTicks=$parent.StartTime.ToUniversalTime().Ticks}|ConvertTo-Json -Depth 8 -Compress));$process.StandardInput.Flush()
+        $process.StandardInput.WriteLine((@{OperationId=$OperationId;Token=$Token;Binding=$Binding;LocalPort=$LocalPort;ParentPid=$PID;ParentIdentity=(Get-LabAiSqlHttpsProcessIdentity -ProcessId $PID)}|ConvertTo-Json -Depth 8 -Compress));$process.StandardInput.Flush()
         $readyPath=Join-Path $Root 'ready.json';$deadline=[DateTime]::UtcNow.AddSeconds(30)
         while(-not(Test-Path -LiteralPath $readyPath)){if($process.HasExited -or [DateTime]::UtcNow -ge $deadline){throw 'AI_SQL_HTTPS_GATEWAY_START_FAILED'};Start-Sleep -Milliseconds 50}
         Assert-LabAiPersistentPath $readyPath
         $ready=Get-Content -LiteralPath $readyPath -Raw|ConvertFrom-Json -Depth 8
-        if($ready.OperationId -cne $OperationId -or $ready.ProcessId -ne $process.Id -or $ready.StartTicks -ne $ticks){throw 'AI_SQL_HTTPS_PROCESS_BINDING_INVALID'}
+        if($ready.OperationId -cne $OperationId -or $ready.ProcessId -ne $process.Id -or $ready.ProcessIdentity -cne $identity){throw 'AI_SQL_HTTPS_PROCESS_BINDING_INVALID'}
         $ports=@($ready.Ports.Good,$ready.Ports.WrongSan,$ready.Ports.WrongCa)
         if(@($ports|Select-Object -Unique).Count -ne 3 -or @($ports|Where-Object {$_ -lt 1024 -or $_ -gt 65535}).Count){throw 'AI_SQL_HTTPS_PORT_INVALID'}
         $ca=[Convert]::FromBase64String($ready.CaBase64)
         if([Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($ca)).ToLowerInvariant() -cne $ready.CaSha256){throw 'AI_SQL_HTTPS_CA_INVALID'}
-        [pscustomobject]@{Process=$process;StartTicks=$ticks;Ready=$ready;Root=$Root;OutputTask=$out;ErrorTask=$err}
+        [pscustomobject]@{Process=$process;ProcessIdentity=$identity;Ready=$ready;Root=$Root;OutputTask=$out;ErrorTask=$err}
     }catch{
         $confirmed=$null -eq $process
         try{if($process){if(-not $process.HasExited){$process.Kill($true);$confirmed=$process.WaitForExit(5000)}else{$confirmed=$true}}}catch{$confirmed=$false}
-        try{Write-LabArtifactJsonAtomic -Path (Join-Path $Root 'process.json') -InputObject @{OperationId=$OperationId;Status=$(if($confirmed){'STOPPED'}else{'RECOVERY_REQUIRED'});ProcessId=$(if($process){$process.Id}else{$null});StartTicks=$ticks}}catch{}
+        try{Write-LabArtifactJsonAtomic -Path (Join-Path $Root 'process.json') -InputObject @{OperationId=$OperationId;Status=$(if($confirmed){'STOPPED'}else{'RECOVERY_REQUIRED'});ProcessId=$(if($process){$process.Id}else{$null});StartIdentity=$identity}}catch{}
         if(-not $confirmed){throw 'AI_SQL_HTTPS_PROCESS_RECOVERY_REQUIRED'}
         if($process){$process.Dispose()};throw 'AI_SQL_HTTPS_GATEWAY_START_FAILED_CLEANED'
     }
@@ -160,8 +188,8 @@ function Start-LabAiSqlHttpsBridge {
 function Stop-LabAiSqlHttpsBridge {
     param([Parameter(Mandatory)]$Bridge)
     $process=$Bridge.Process
-    if($process.StartTime.ToUniversalTime().Ticks -ne $Bridge.StartTicks){throw 'AI_SQL_HTTPS_PROCESS_BINDING_INVALID'}
     if(-not $process.HasExited){
+        if((Get-LabAiSqlHttpsProcessIdentity -ProcessId $process.Id) -cne $Bridge.ProcessIdentity){throw 'AI_SQL_HTTPS_PROCESS_BINDING_INVALID'}
         $process.StandardInput.WriteLine('STOP');$process.StandardInput.Flush()
         if(-not $process.WaitForExit(55000)){$process.Kill($true);if(-not $process.WaitForExit(5000)){throw 'AI_SQL_HTTPS_PROCESS_RECOVERY_REQUIRED'};throw 'AI_SQL_HTTPS_GATEWAY_FORCED_STOP'}
     }
