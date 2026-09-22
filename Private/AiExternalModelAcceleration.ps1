@@ -92,7 +92,10 @@ function New-LabAiExternalModelPlan {
         'LlamaCppSnapdragonHexagon' { @('NPU'); break }
     }
     if ($Accelerator -notin $allowedAccelerators) { $blockers.Add('AI_EXTERNAL_MODEL_ACCELERATOR_UNSUPPORTED') }
-    if ($Backend -eq 'OpenVinoModelServer' -and $TlsMode -ne 'Gateway') { $blockers.Add('AI_EXTERNAL_MODEL_OVMS_GATEWAY_REQUIRED') }
+    if ($Backend -eq 'OpenVinoModelServer') {
+        if ($TlsMode -ne 'Gateway') { $blockers.Add('AI_EXTERNAL_MODEL_OVMS_GATEWAY_REQUIRED') }
+        else { $blockers.Add('AI_EXTERNAL_MODEL_OVMS_GATEWAY_NOT_IMPLEMENTED') }
+    }
     if ($Backend -ne 'OpenVinoModelServer' -and $TlsMode -eq 'Gateway') { $warnings.Add('AI_EXTERNAL_MODEL_GATEWAY_REQUIRES_SEPARATE_BINDING') }
     if ($Backend -eq 'LlamaCppSnapdragonHexagon') { $warnings.Add('AI_EXTERNAL_MODEL_SNAPDRAGON_HEXAGON_OPT_IN') }
 
