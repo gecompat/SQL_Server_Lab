@@ -188,6 +188,13 @@ SQL greift über den scopegebundenen HTTPS-Gateway oder einen gleichwertig
 geprüften Reverse Proxy zu. Für SQL ist anschließend `/v3/embeddings` mit
 `API_FORMAT='OpenAI'` zu prüfen.
 
+Der aktuelle Planvertrag gibt diesen Pfad noch nicht zur Ausführung frei. Auch
+mit `-TlsMode Gateway` bleibt ein OVMS-Plan mit
+`AI_EXTERNAL_MODEL_OVMS_GATEWAY_NOT_IMPLEMENTED` blockiert, bis der Gateway
+seine genaue Upstream-, Modell-, Zertifikats- und Prozessbindung nachweist. Der
+interne Ollama-Gateway aus der Docker-Referenzabnahme ist keine allgemeine
+OVMS-Gateway-API.
+
 ## GMKtec EVO-X2 mit Ryzen AI Max+ 395 unter Linux
 
 Für die NPU-Lane werden AMD-XRT, `amdxdna` und Ryzen AI Software verwendet.
