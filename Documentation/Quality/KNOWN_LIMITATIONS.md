@@ -114,7 +114,12 @@ bestanden am 2026-09-20 mit jeweils neun Assertions, SQLrestart, zwei Cloudreque
 und vollständigem Cleanup samt Residueprüfung. Hyper-V bleibt separat offen.
 Der [persistente synthetische Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
 implementiert inzwischen eine eigene SQL-Datenbank, Initial-/Delta-Generationen,
-Resume und besitzgebundenes Cleanup auf Docker/Podman. Docker und Podman sind mit je 16 Assertions, SQLrestart und vollständigem Cleanup nativ belegt. Echter Modellwechsel, beliebige Dokumente und breite
+exakte Vektor- sowie hybride SQL-Termabdeckungs-/Vektorsuche, Resume und
+besitzgebundenes Cleanup auf Docker/Podman. Docker und Podman bestanden am
+2026-09-22 getrennt mit je 19 Assertions einschließlich Hybridranking,
+SQLrestart, Delta-Cutover und vollständigem Cleanup. SQL Server
+Full-Text Search bleibt wegen des im Standardcontainer fehlenden optionalen
+`mssql-server-fts`-Pakets offen. Echter Modellwechsel, beliebige Dokumente und breite
 Re-Embedding-Ausführung bleiben außerhalb des engen
 [Migrations-Slices](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) offen:
 explizit bestätigtes Delta/Embeddinggemma nach Nomic v2 MoE bei 768 Dimensionen,
@@ -159,7 +164,8 @@ Golden-Metriken, SQL-/Ollama-Restart und vollständigem eigenem Cleanup. Die Mod
 `embeddinggemma:300m-qat-q4_0` und `gemma3:1b` blieben unverändert. Die erfolgreichen
 Docker- und Podman-Läufe verwendeten `-TimeoutSeconds 1800` für die Modelldownloads; Inferenzlimits
 wurden nicht erhöht. Ein früherer Inferenz-Timeout trat nicht erneut auf, seine
-Ursache ist nicht belegt. Weitere Golden-Fälle, hybride Suche
+Ursache ist nicht belegt. Weitere Golden-Fälle, hybride Suche im allgemeinen
+RAG-Vertrag
 und automatische Antworttreueprüfung bleiben offen. Ein Modell-Judge wird
 bewusst nicht als blockierendes Gate verwendet.
 

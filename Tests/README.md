@@ -711,9 +711,10 @@ Embeddinggemma und getrennte eigene SQL-Runs:
 .\Tests\Integration\Invoke-AiPersistentRetrievalAcceptance.ps1 -Provider podman
 ```
 
-Sie umfasst SQLrestart, konkurrierenden SQL-AppLock, Staging-/Commitantwortverlust,
-Resume und eigenes DB-/Run-Cleanup. Kein Download oder Cloudaufruf. Docker und
-Podman sind jeweils mit 16 Assertions und vollständigem Cleanup nativ belegt;
+Sie umfasst exakte Vektor- und hybride SQL-Termabdeckungs-/Vektorsuche, SQLrestart,
+konkurrierenden SQL-AppLock, Staging-/Commitantwortverlust, Resume und eigenes
+DB-/Run-Cleanup. Kein Download oder Cloudaufruf. Docker und Podman bestanden am
+2026-09-22 getrennt mit jeweils 19 Assertions und vollständigem Cleanup;
 [Vertrag](../Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md).
 
 ## SQL-Gast-Evidence-Capture

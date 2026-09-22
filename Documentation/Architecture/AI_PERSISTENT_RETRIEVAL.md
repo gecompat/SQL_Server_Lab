@@ -24,6 +24,7 @@ $scope = @{ RunId=$runId; CollectionId=$collectionId; StateRoot=$stateRoot }
 Invoke-SqlServerLabAiPersistentRetrieval @scope -WhatIf
 Invoke-SqlServerLabAiPersistentRetrieval @scope -FixtureRevision Initial
 Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Query -QueryId backup
+Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Query -QueryId backup -SearchMode Hybrid
 Invoke-SqlServerLabAiPersistentRetrieval @scope -FixtureRevision Delta
 # Nur nach unterbrochenem Apply mit exakt derselben Revision:
 Invoke-SqlServerLabAiPersistentRetrieval @scope -FixtureRevision Delta -Resume
@@ -42,7 +43,18 @@ Die versionierte Fixture `Scenarios/Ai/persistent-retrieval/1.0/fixture.json`
 enthält zwei Generationen mit jeweils drei Dokumenten: Initial enthält Backup,
 Cleanup und Netzwerk. Delta aktualisiert Backup, entfernt Netzwerk, erhält
 Cleanup und ergänzt Retention. Alte Generationen bleiben unverändert erhalten.
-Die Suche verwendet ausschließlich die aktive Generation und exakte
+Die Suche verwendet ausschließlich die aktive Generation. Der Standardmodus
+`Vector` ordnet per exakter Cosine-Distanz. `Hybrid` kombiniert 70 Prozent
+Vektorscore mit 30 Prozent SQL-seitig berechneter lexikalischer Termabdeckung
+und löst Gleichstände deterministisch per Distanz und Chunk-ID auf. Wörter mit
+weniger als vier Zeichen und definierte Satzzeichen gehen nicht in den
+lexikalischen Score ein. Die Berechnung verwendet nur parametrisierte feste SQL
+und ausschließlich die aktive Generation. Sie ist für die
+Embeddinggemma-Generationen 1 und 2 freigegeben. Der separate Nomic-
+Modellmigrationspfad bleibt reine Vektorsuche. SQL Server Full-Text Search mit
+sprachspezifischem Word Breaker und Ranking bleibt ein eigener offener Slice,
+weil das offizielle Standard-Containerimage das optionale
+`mssql-server-fts`-Paket nicht enthält.
 `VECTOR_DISTANCE`-Cosinesuche, keinen ANN-Index. SQL speichert `VECTOR(768)`
 mit float32; die JSON-Konvertierung ist ein dokumentierter
 [SQL-Vektorvertrag](https://learn.microsoft.com/en-us/sql/t-sql/data-types/vector-data-type?view=sql-server-ver17).
@@ -118,7 +130,11 @@ Reparse-StateRoot, Modell-/Vektordrift und Journalschreibfehler. Der vorbereitet
 einen eigenen SQL-Run, prüft echte Dateisperre und SQL-AppLock, Restart, Delta-
 Teilfehler und Commitantwortverlust und entfernt erst die eigene DB, dann den
 eigenen Run mit Container-/Volume-Residueprüfung. PASS erfolgt erst nach Cleanup.
-Die getrennten nativen Docker- und Podman-Läufe bestanden am 2026-09-21 jeweils alle 16 Assertions, SQLrestart, gezielte Staging-/Commitfehler und vollständiges DB-/Run-Cleanup. Das vorhandene Hostmodellinventar blieb unverändert.
+Die getrennten nativen Docker- und Podman-Läufe vom 2026-09-22 belegen mit
+jeweils 19 Assertions Vektor- und Hybridranking vor und nach SQLrestart sowie
+nach Delta-Cutover, gezielte Staging-/Commitfehler und vollständiges
+DB-/Run-Cleanup.
+Das vorhandene Hostmodellinventar bleibt unverändert.
 
 Die ergänzende Referenz `Invoke-AiPodmanSamplesReferenceAcceptance.ps1` bleibt
 auf Podman begrenzt. Sie kombiniert einen frischen eigenen SQL-2025-Run, die

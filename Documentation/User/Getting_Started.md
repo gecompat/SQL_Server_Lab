@@ -38,13 +38,16 @@ lokales `embeddinggemma:latest`. Mit einer beibehaltenen Collection-GUID führen
 `-FixtureRevision Initial`, `-FixtureRevision Delta`, `-Action Query` und
 `-Action Remove` durch persistente Generationen und eigenes Cleanup. `-Resume`
 setzt nur exakt gebundenes unterbrochenes Apply beziehungsweise Migrate fort;
-`-WhatIf` ist rein planend. Für bestätigtes Delta erlaubt
+`-WhatIf` ist rein planend. `-Action Query -SearchMode Hybrid` kombiniert für
+die Embeddinggemma-Generationen SQL-Termabdeckung und exakte Cosine-Distanz; der
+Nomic-Migrationspfad bleibt reine Vektorsuche. Für bestätigtes Delta erlaubt
 `-Action Migrate -FixtureRevision Delta -TargetModelKey ollama-nomic-embed-text-v2-moe`
 den einmaligen Wechsel auf das bereits vorhandene lokale Nomic-Modell.
 [Upgrade, Profile und Recovery](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
 [Beispiel, Besitzvertrag und Grenzen](../Architecture/AI_PERSISTENT_RETRIEVAL.md).
-Die getrennten nativen Docker- und Podman-Referenzläufe bestanden am 2026-09-21
-jeweils mit 16 Assertions, SQLrestart und vollständigem eigenem DB-/Run-Cleanup.
+Die getrennten nativen Docker- und Podman-Referenzläufe vom 2026-09-22 belegen
+Vektor- und Hybridranking jeweils mit 19 Assertions, SQLrestart, Delta-Cutover
+und vollständigem eigenem DB-/Run-Cleanup.
 Der begrenzte Modellwechsel bestand je Provider mit 20 Assertions und Cleanup;
 weitere Modelle, Dimensionen, Dokumente und Hyper-V bleiben offen.
 
