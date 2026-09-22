@@ -20,6 +20,43 @@ try {
         'AI_EXTERNAL_MODEL_OVMS_GATEWAY_NOT_IMPLEMENTED' -in $ovmsGateway.Blockers -and
         'AI_EXTERNAL_MODEL_OVMS_GATEWAY_REQUIRED' -notin $ovmsGateway.Blockers -and
         $ovmsGateway.EndpointPath -eq '/v3/embeddings')
+    $ovmsCapture=[Runtime.CompilerServices.StrongBox[object]]::new()
+    $ovmsTransport={param($request)$ovmsCapture.Value=$request;[PSCustomObject]@{
+        StatusCode=200;Body=[PSCustomObject]@{model='bound-ovms-model';data=@([PSCustomObject]@{embedding=@(1.0,-0.25,0)})}
+    }}.GetNewClosure()
+    $ovmsReceipt=& $module {param($t)Invoke-LabAiOvmsUpstreamProbe -Location 'http://127.0.0.1:9000/v3/embeddings' -RuntimeModel bound-ovms-model -Dimension 3 -Transport $t} $ovmsTransport
+    Add-CheckResult 'OVMS-Upstream-Probe bindet genau einen Loopback-v3-Request' (
+        $ovmsCapture.Value.Method -eq 'POST' -and $ovmsCapture.Value.Path -eq '/v3/embeddings' -and
+        $ovmsCapture.Value.Body.model -eq 'bound-ovms-model' -and
+        @($ovmsCapture.Value.Body.input).Count -eq 1 -and $ovmsCapture.Value.Body.encoding_format -eq 'float')
+    Add-CheckResult 'OVMS-Upstream-Receipt ist schema-valide, sanitisiert und lässt Gateway-Evidence offen' (
+        ($ovmsReceipt|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-ovms-upstream-receipt.schema.json')) -and
+        $ovmsReceipt.Status -eq 'UPSTREAM_VERIFIED' -and 'HTTPS_GATEWAY_BINDING' -in $ovmsReceipt.PendingEvidence -and
+        ($ovmsReceipt|ConvertTo-Json -Depth 10) -notmatch '(?i)(bound-ovms-model|synthetic|127\.0\.0\.1|v3/embeddings)')
+    foreach($invalidLocation in @(
+        'https://127.0.0.1:9000/v3/embeddings','http://localhost:9000/v3/embeddings',
+        'http://192.0.2.1:9000/v3/embeddings','http://127.0.0.1:9000/v1/embeddings',
+        'http://127.0.0.1:80/v3/embeddings','http://user@127.0.0.1:9000/v3/embeddings')) {
+        $locationCode=$null
+        try{& $module {param($l,$t)Invoke-LabAiOvmsUpstreamProbe -Location $l -RuntimeModel bound-ovms-model -Dimension 3 -Transport $t} $invalidLocation $ovmsTransport;$locationCode='NO_ERROR'}catch{$locationCode=$_.Exception.Message}
+        Add-CheckResult "OVMS-Upstream blockiert fremde Transportgrenze: $invalidLocation" ($locationCode -eq 'AI_OVMS_UPSTREAM_LOCATION_INVALID')
+    }
+    $ovmsFailureCases=@(
+        @{Name='HTTP-Fehler';Code='AI_OVMS_UPSTREAM_HTTP_503';StatusCode=503;Body=$null},
+        @{Name='falsches Modell';Code='AI_OVMS_UPSTREAM_RUNTIME_MODEL_MISMATCH';Body=[PSCustomObject]@{model='other';data=@([PSCustomObject]@{embedding=@(1,2,3)})}},
+        @{Name='falsche Dimension';Code='AI_OVMS_UPSTREAM_DIMENSION_MISMATCH';Body=[PSCustomObject]@{model='bound-ovms-model';data=@([PSCustomObject]@{embedding=@(1,2)})}},
+        @{Name='nicht endlichen Vektor';Code='AI_OVMS_UPSTREAM_VECTOR_INVALID';Body=[PSCustomObject]@{model='bound-ovms-model';data=@([PSCustomObject]@{embedding=@(1,[double]::NaN,3)})}},
+        @{Name='Vektorwert ausserhalb float32';Code='AI_OVMS_UPSTREAM_VECTOR_INVALID';Body=[PSCustomObject]@{model='bound-ovms-model';data=@([PSCustomObject]@{embedding=@(1,[double]::MaxValue,3)})}},
+        @{Name='mehrere Vektoren';Code='AI_OVMS_UPSTREAM_RESPONSE_INVALID';Body=[PSCustomObject]@{model='bound-ovms-model';data=@([PSCustomObject]@{embedding=@(1,2,3)},[PSCustomObject]@{embedding=@(1,2,3)})}}
+    )
+    foreach($case in $ovmsFailureCases){
+        $body=$case.Body;$statusCode=if($case.StatusCode){$case.StatusCode}else{200};$failureTransport={param($request)$null=$request;[PSCustomObject]@{StatusCode=$statusCode;Body=$body}}.GetNewClosure();$actual=$null
+        try{& $module {param($t)Invoke-LabAiOvmsUpstreamProbe -Location 'http://127.0.0.1:9000/v3/embeddings' -RuntimeModel bound-ovms-model -Dimension 3 -Transport $t} $failureTransport;$actual='NO_ERROR'}catch{$actual=$_.Exception.Message}
+        Add-CheckResult "OVMS-Upstream blockiert $($case.Name)" ($actual -eq $case.Code)
+    }
+    Add-CheckResult 'Öffentliche OVMS-Upstream-Prüfung ist exportiert und verbirgt den Testtransport' (
+        (Get-Command Test-SqlServerLabOvmsUpstreamEndpoint -Module $module.Name).Parameters.ContainsKey('Location') -and
+        -not (Get-Command Test-SqlServerLabOvmsUpstreamEndpoint -Module $module.Name).Parameters.ContainsKey('Transport'))
     $rocm=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppRocm -Accelerator NPU -Location 'https://localhost:11435/v1/embeddings' -ExternalModelName RocmNpu -RuntimeModel model -Dimension 768 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
     Add-CheckResult 'ROCm wird nicht fälschlich als NPU-Nachweis behandelt' ($rocm.Status -eq 'BLOCKED' -and 'AI_EXTERNAL_MODEL_ACCELERATOR_UNSUPPORTED' -in $rocm.Blockers)
     $wrongPath=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU -Location 'https://localhost:11435/v3/embeddings' -ExternalModelName WrongPath -RuntimeModel model -Dimension 768 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
@@ -84,6 +121,7 @@ try {
         @{Name='mehrere Vektoren';Code='AI_EXTERNAL_MODEL_RESPONSE_INVALID';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1,2,3)},[PSCustomObject]@{embedding=@(1,2,3)})}}}.GetNewClosure()},
         @{Name='falsche Dimension';Code='AI_EXTERNAL_MODEL_DIMENSION_MISMATCH';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1,2)})}}}.GetNewClosure()},
         @{Name='nicht endlichen Vektor';Code='AI_EXTERNAL_MODEL_VECTOR_INVALID';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1,[double]::NaN,3)})}}}.GetNewClosure()},
+        @{Name='Vektorwert ausserhalb float32';Code='AI_EXTERNAL_MODEL_VECTOR_INVALID';Transport={param($request)$null=$request;[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1,[double]::MaxValue,3)})}}}.GetNewClosure()},
         @{Name='textuellen Vektorwert';Code='AI_EXTERNAL_MODEL_VECTOR_INVALID';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1,'2',3)})}}}.GetNewClosure()}
     )
     foreach($case in $failureCases){

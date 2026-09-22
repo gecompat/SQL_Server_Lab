@@ -7,6 +7,10 @@ ist dabei simuliert; keine Lab-Runtime wird verändert.
 
 `Static/Invoke-AiSqlHttpsBridgeChecks.ps1` prüft Request-/Vektorvertrag und einen
 eigenen Gateway-Prozess ohne SQL oder Modellrequests.
+`Static/Invoke-AiExternalModelAccelerationChecks.ps1` prüft zusätzlich den
+OVMS-Upstreamvertrag ausschließlich mit synthetischem Transport: numerischer
+Loopback, fester `/v3/embeddings`-Pfad, exaktes Runtime-Modell, Dimension und
+sanitisiertes Receipt. Dabei startet der Test weder OVMS noch einen Gateway.
 `Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` ist die separate Docker-only-
 Referenz für SQL External Model, TLS-Negative, Retrieval, SQLrestart und Cleanup.
 Die native Abnahme bestand am 2026-09-21 mit sieben Embeddings, SQL-TLS-Negativen,

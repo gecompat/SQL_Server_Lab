@@ -229,6 +229,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Prueft Zertifikatspin, OpenAI-Antwortform und Embeddingdimension mit
         einem festen synthetischen Request, ohne Accelerator-Evidence zu behaupten.
 
+    Test-SqlServerLabOvmsUpstreamEndpoint
+        Prueft einen vorhandenen OVMS-v3-Embedding-Upstream ausschliesslich auf
+        numerischem Loopback, ohne Gateway oder Accelerator zu bestaetigen.
+
     Get-SqlServerLabConnectionCenter
         Liefert den passwortfreien SQL-Endpunktkatalog für SSMS und CMS.
 

@@ -223,6 +223,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Verifies the certificate pin, OpenAI response shape, and embedding
         dimension with one fixed synthetic request without claiming accelerator evidence.
 
+    Test-SqlServerLabOvmsUpstreamEndpoint
+        Verifies an existing OVMS v3 embedding upstream only on numeric
+        loopback without claiming gateway or accelerator evidence.
+
     Get-SqlServerLabConnectionCenter
         Returns the password-free SQL endpoint catalog used by SSMS and CMS.
 

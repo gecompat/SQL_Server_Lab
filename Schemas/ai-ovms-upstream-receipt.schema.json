@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-ovms-upstream-receipt.schema.json",
+  "title": "SQL Server Lab AI OVMS Upstream Receipt",
+  "type": "object",
+  "required": ["Contract","Status","EvidenceStatus","BindingKey","Dimension","HttpStatus","DurationMilliseconds","VerifiedEvidence","PendingEvidence"],
+  "properties": {
+    "Contract": {"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiOvmsUpstreamReceipt"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status": {"const":"UPSTREAM_VERIFIED"},
+    "EvidenceStatus": {"const":"LIVE_LOOPBACK_ENDPOINT"},
+    "BindingKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "Dimension": {"type":"integer","minimum":1,"maximum":1998},
+    "HttpStatus": {"type":"integer","minimum":200,"maximum":299},
+    "DurationMilliseconds": {"type":"integer","minimum":0},
+    "VerifiedEvidence": {"type":"array","minItems":5,"uniqueItems":true,"items":{"enum":["LOOPBACK_HTTP_BOUND","OVMS_V3_RESPONSE_SHAPE_MATCH","RUNTIME_MODEL_MATCH","EMBEDDING_DIMENSION_MATCH","FINITE_NUMERIC_VECTOR_MATCH"]}},
+    "PendingEvidence": {"type":"array","minItems":3,"uniqueItems":true,"items":{"enum":["HTTPS_GATEWAY_BINDING","GATEWAY_PROCESS_OWNERSHIP","ACCELERATOR_RUNTIME_ATTESTATION"]}}
+  },
+  "additionalProperties": false
+}

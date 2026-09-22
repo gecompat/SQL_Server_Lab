@@ -115,6 +115,7 @@ Get-SqlServerLabLlamaCppRuntime             # Windows-Pakete begrenzt ohne Hashp
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen
 Test-SqlServerLabAiExternalModelArtifact   # Runtime- und Modelldatei read-only gegen die Plandigests prüfen
 Test-SqlServerLabAiExternalModelEndpoint     # Zertifikatspin, Runtime-Modell, OpenAI-Antwortform und Dimension read-only prüfen
+Test-SqlServerLabOvmsUpstreamEndpoint        # OVMS-v3-Upstream ausschließlich auf numerischem Loopback read-only prüfen
 Get-SqlServerLabConnectionCenter       # Passwortfreier SQL-Endpunktkatalog für SSMS und CMS
 Sync-SqlServerLabConnectionCenter      # Endpunktkatalog atomar aktualisieren
 Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erzeugen

@@ -133,7 +133,112 @@ function Test-LabAiExternalModelNumericValue {
         [TypeCode]::Int16,[TypeCode]::Int32,[TypeCode]::Int64,[TypeCode]::Single,[TypeCode]::Double,[TypeCode]::Decimal
     )) { return $false }
     $number = [double]$Value
-    return -not [double]::IsNaN($number) -and -not [double]::IsInfinity($number)
+    return -not [double]::IsNaN($number) -and -not [double]::IsInfinity($number) -and
+        [Math]::Abs($number) -le [float]::MaxValue
+}
+
+function Resolve-LabAiOvmsUpstreamLocation {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Location)
+
+    try { $uri = [Uri]::new($Location, [UriKind]::Absolute) }
+    catch { throw 'AI_OVMS_UPSTREAM_LOCATION_INVALID' }
+    $address = $null
+    if ($uri.Scheme -cne 'http' -or -not [string]::IsNullOrEmpty($uri.UserInfo) -or
+        -not [string]::IsNullOrEmpty($uri.Query) -or -not [string]::IsNullOrEmpty($uri.Fragment) -or
+        $uri.AbsolutePath -cne '/v3/embeddings' -or $uri.Port -lt 1024 -or $uri.Port -gt 65535 -or
+        -not [Net.IPAddress]::TryParse($uri.Host, [ref]$address) -or -not [Net.IPAddress]::IsLoopback($address)) {
+        throw 'AI_OVMS_UPSTREAM_LOCATION_INVALID'
+    }
+    return $uri
+}
+
+function Invoke-LabAiOvmsUpstreamHttpTransport {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Request,[Parameter(Mandatory)][Uri]$Location)
+
+    $handler = [Net.Http.HttpClientHandler]::new()
+    $handler.AllowAutoRedirect = $false
+    $handler.UseProxy = $false
+    $client = [Net.Http.HttpClient]::new($handler, $true)
+    $client.MaxResponseContentBufferSize = 1MB
+    $message = $null
+    try {
+        $client.Timeout = [TimeSpan]::FromSeconds([int]$Request.TimeoutSeconds)
+        $message = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Post, $Location)
+        $message.Content = [Net.Http.StringContent]::new(
+            ($Request.Body | ConvertTo-Json -Depth 10 -Compress), [Text.Encoding]::UTF8, 'application/json')
+        $httpResponse = $client.SendAsync($message).GetAwaiter().GetResult()
+        try {
+            if (-not $httpResponse.IsSuccessStatusCode) {
+                return [PSCustomObject]@{StatusCode=[int]$httpResponse.StatusCode;Body=$null}
+            }
+            $json = $httpResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+            try { $body = if ($json) { $json | ConvertFrom-Json -Depth 30 -ErrorAction Stop } else { $null } }
+            catch { throw 'AI_OVMS_UPSTREAM_RESPONSE_INVALID' }
+            finally { $json = $null }
+            return [PSCustomObject]@{StatusCode=[int]$httpResponse.StatusCode;Body=$body}
+        }
+        finally { $httpResponse.Dispose() }
+    }
+    finally {
+        if ($message) { $message.Dispose() }
+        $client.Dispose()
+    }
+}
+
+function Invoke-LabAiOvmsUpstreamProbe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Location,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,255}$')][string]$RuntimeModel,
+        [Parameter(Mandatory)][ValidateRange(1,1998)][int]$Dimension,
+        [ValidateRange(1,300)][int]$TimeoutSeconds = 30,
+        [scriptblock]$Transport
+    )
+
+    $uri = Resolve-LabAiOvmsUpstreamLocation -Location $Location
+    $identity = [ordered]@{
+        Contract='SqlServerLab.AiOvmsUpstreamBinding/1.0';Location=$uri.AbsoluteUri
+        RuntimeModel=$RuntimeModel;Dimension=$Dimension
+    }
+    $request = [PSCustomObject]@{
+        Method='POST';Path='/v3/embeddings';TimeoutSeconds=$TimeoutSeconds
+        Body=[ordered]@{model=$RuntimeModel;input=@('SQL Server Lab synthetic OVMS probe');encoding_format='float'}
+    }
+    $started = [Diagnostics.Stopwatch]::StartNew()
+    try {
+        try {
+            if ($Transport) { $response = & $Transport $request }
+            else { $response = Invoke-LabAiOvmsUpstreamHttpTransport -Request $request -Location $uri }
+        }
+        catch [System.Threading.Tasks.TaskCanceledException] { throw 'AI_OVMS_UPSTREAM_TIMEOUT' }
+        catch [System.Net.Http.HttpRequestException] { throw 'AI_OVMS_UPSTREAM_NETWORK_FAILURE' }
+    }
+    finally { $started.Stop() }
+
+    if ($null -eq $response -or $null -eq $response.StatusCode) { throw 'AI_OVMS_UPSTREAM_RESPONSE_INVALID' }
+    $statusCode = [int]$response.StatusCode
+    if ($statusCode -lt 200 -or $statusCode -ge 300) { throw "AI_OVMS_UPSTREAM_HTTP_$statusCode" }
+    if ($null -eq $response.Body) { throw 'AI_OVMS_UPSTREAM_RESPONSE_INVALID' }
+    if ([string]$response.Body.model -cne $RuntimeModel) { throw 'AI_OVMS_UPSTREAM_RUNTIME_MODEL_MISMATCH' }
+    $data = @($response.Body.data)
+    if ($data.Count -ne 1 -or $null -eq $data[0].embedding) { throw 'AI_OVMS_UPSTREAM_RESPONSE_INVALID' }
+    $vector = @($data[0].embedding)
+    if ($vector.Count -ne $Dimension) { throw 'AI_OVMS_UPSTREAM_DIMENSION_MISMATCH' }
+    if (@($vector | Where-Object { -not (Test-LabAiExternalModelNumericValue -Value $_) }).Count -gt 0) {
+        throw 'AI_OVMS_UPSTREAM_VECTOR_INVALID'
+    }
+
+    return [PSCustomObject]@{
+        Contract=[PSCustomObject]@{Name='SqlServerLab.AiOvmsUpstreamReceipt';Version='1.0'}
+        Status='UPSTREAM_VERIFIED';EvidenceStatus='LIVE_LOOPBACK_ENDPOINT'
+        BindingKey=Get-LabAiPlanKey -InputObject $identity
+        Dimension=$Dimension;HttpStatus=$statusCode
+        DurationMilliseconds=[Math]::Max(0,[int64]$started.ElapsedMilliseconds)
+        VerifiedEvidence=@('LOOPBACK_HTTP_BOUND','OVMS_V3_RESPONSE_SHAPE_MATCH','RUNTIME_MODEL_MATCH','EMBEDDING_DIMENSION_MATCH','FINITE_NUMERIC_VECTOR_MATCH')
+        PendingEvidence=@('HTTPS_GATEWAY_BINDING','GATEWAY_PROCESS_OWNERSHIP','ACCELERATOR_RUNTIME_ATTESTATION')
+    }
 }
 
 function Resolve-LabAiExternalModelPlan {
