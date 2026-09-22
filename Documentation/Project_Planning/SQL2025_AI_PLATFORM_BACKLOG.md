@@ -77,6 +77,16 @@ Dimensionswechsel. Der begrenzte
 
 ## Priorisierte Lieferwellen
 
+Benutzerpriorität vom 2026-09-22: Der allgemeine lokale
+[`CREATE EXTERNAL MODEL`-/Beschleunigungspfad](AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md)
+liegt vor gewöhnlichen Modellerweiterungen und sonstigen Routinearbeiten.
+Bevorzugter erster Pfad ist `llama.cpp` mit OpenVINO-NPU unter Windows; danach
+folgen OpenVINO Model Server, Ryzen-AI-NPU/ROCm unter Linux sowie die getrennte
+NPU-/iGPU-/RTX-5080-Matrix. HTTPS muss ohne dauerhaften globalen Hosttrust und
+ohne breit geöffneten Listener auskommen. Der bereits nativ belegte
+Docker-/Ollama-Gateway ist die Sicherheitsgrundlage, aber noch kein allgemeiner
+Backend- oder Acceleratornachweis.
+
 Benutzerpriorität vom 2026-09-20: zuerst Podman-RAG mit brauchbaren bereits
 vorhandenen Host-Embeddings und explizit gewählter Cloudgeneration, danach die
 isolierte Hyper-V-RAG-/Agent-Abnahme, anschließend persistentes Retrieval und

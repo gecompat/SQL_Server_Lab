@@ -3,7 +3,10 @@
 ## Status
 
 `VECTOR_CORE SUPPORTED`, `VECTOR_INDEX PREVIEW ACCEPTANCE`, `LOCAL_ONNX BACKLOG`,
-`EXTERNAL_EMBEDDINGS BACKLOG`. Das hashgebundene Szenario
+`EXTERNAL_EMBEDDINGS BACKLOG`. Der seit 2026-09-22 vorrangige
+[Acceleration-Backlog](AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md) konkretisiert
+die allgemeine External-Model-Lane für `llama.cpp`, OpenVINO Model Server,
+Ryzen AI, ROCm, CUDA und weitere CPU-/GPU-/NPU-Backends. Das hashgebundene Szenario
 `vector-core-ci/1.0` führt feste synthetische Vektoren, exakte Suche und
 Chunking aus. Die getrennten nativen Docker-/Podman-Nachweise waren am
 2026-09-05 erfolgreich. Controllerseitige lokale Ollama-Embeddings und exaktes

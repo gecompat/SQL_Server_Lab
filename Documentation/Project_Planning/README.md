@@ -37,6 +37,7 @@
 | POLYBASE_S3_OBJECT_STORAGE_BACKLOG.md | Automatisierter S3-kompatibler Object Store als SQL-Supporting-Component für PolyBase und native SQL-2025-Dateizugriffe unter Docker, Podman und später Hyper-V/Linux |
 | SQL2025_AI_PLATFORM_BACKLOG.md | Übergeordneter local-first KI-Backlog für Plattformverträge, Vector-Core, Ollama, Retrieval/RAG, Evaluation, Read-only Agent, Cloud, ONNX und Schulung |
 | SQL2025_VECTOR_EMBEDDING_BACKLOG.md | SQL-2025-Vector-Core, lokale ONNX-Embeddings unter Windows sowie gesicherte lokale Ollama- und optionale Cloud-Embedding-Lanes |
+| AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md | Hoch priorisierter Plan für SQL `CREATE EXTERNAL MODEL` mit lokalen `llama.cpp`-, OpenVINO-, Ryzen-AI-, ROCm-, CUDA- und weiteren CPU-/GPU-/NPU-Backends sowie minimalinvasivem HTTPS |
 | NEW_SQL_LAB_USE_CASES_BACKLOG.md | Priorisierter Explorationsbacklog für neue fachliche Lab-Produkte wie Upgrade-/Regressionstests, Recovery-Übungen, App-/Treiberkompatibilität, Cross-Platform-Parität, Security, HA/DR und Event-Integration |
 | SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md | SSIS-Backlog für ETL, Data Warehouse, CDC/SCD, SSISDB, Package-Kompatibilität, Fault/Resume, Betrieb, Performance und Scale Out |
 | SSAS_ANALYTICS_SEMANTIC_MODEL_BACKLOG.md | SSAS-Backlog für Tabular und später Multidimensional, DAX/MDX, Import/DirectQuery, Processing, Partitionierung, Security, Deployment, Performance und Recovery |
