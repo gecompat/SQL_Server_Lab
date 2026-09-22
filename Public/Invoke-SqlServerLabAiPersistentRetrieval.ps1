@@ -23,7 +23,8 @@
     callerverwaltete Dokumente behalten FixtureRevision Initial.
 .PARAMETER EmbeddingModelKey
     Lokales Embeddingmodell für Apply, Query und Sync. EmbeddingGemma bleibt der
-    Standard; BGE-M3 verwendet 1024 Dimensionen. Bei Query muss die Auswahl zur
+    Standard; BGE-M3 verwendet 1024 Dimensionen. Nomic v2 verwendet 768 Dimensionen
+    und wendet sein Suchprofil mit einer Eingabegrenze von 512 UTF-8-Bytes automatisch an. Bei Query muss die Auswahl zur
     v1-Collection passen. Migrate bindet sein Zielmodell separat.
 .PARAMETER FixtureRevision
     Initial oder Delta. Delta aktualisiert, entfernt und ergänzt feste synthetische Dokumente.
@@ -75,7 +76,7 @@ function Invoke-SqlServerLabAiPersistentRetrieval {
         [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$CollectionId,
         [ValidateSet('Apply','Query','Remove','Migrate','Sync','Prune')][string]$Action='Apply',
         [ValidateSet('ollama-nomic-embed-text-v2-moe')][string]$TargetModelKey,
-        [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',
+        [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',
         [ValidateSet('Initial','Delta')][string]$FixtureRevision='Initial',
         [ValidateSet('backup','cleanup')][string]$QueryId='backup',
         [ValidateCount(1,16)][object[]]$Documents,

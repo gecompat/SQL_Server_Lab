@@ -8,7 +8,8 @@ einen neuen SQL-Server-2025-Podman-Run mit eigener Datenvolume, verwaltetem
 SA-Secret und der festen synthetischen Initial-Collection. Der Controller
 verwendet ausschließlich vorhandenes lokales Ollama. Im Dialog ist
 `embeddinggemma:latest` mit 768 Dimensionen der Standard; alternativ kann
-`bge-m3:latest` mit 1024 Dimensionen gewählt werden. Anschließend muss die feste Frage
+`bge-m3:latest` mit 1024 Dimensionen oder `nomic-embed-text-v2-moe:latest`
+mit 768 Dimensionen und automatischem Suchprofil gewählt werden. Anschließend muss die feste Frage
 `backup` das Dokument `backup-policy` zuerst finden.
 
 Der Dialog fragt Name, Embeddingmodell, Ollama-Loopbackport (Standard 11434), CPU (Standard 2)
@@ -96,12 +97,20 @@ Assertions: `VECTOR(1024)`, feste Top-ID vor und nach öffentlichem SQLrestart,
 unverändertes Ollama-Modellinventar sowie bestätigtes vollständiges Collection-
 und Whole-Run-Cleanup ohne eigene Container- oder Volumereste.
 
+Die direkte Nomic-v2-Auswahl bestand am 2026-09-22 ebenfalls mit sechs
+Assertions: `VECTOR(768)`, rollengetreues Suchprofil, feste Top-ID vor und nach
+öffentlichem SQLrestart, unverändertes Ollama-Modellinventar sowie bestätigtes
+vollständiges Collection- und Whole-Run-Cleanup ohne eigene Container- oder
+Volumereste.
+
 Der eigene temporäre Test benötigt bereits bereites Podman und das ausgewählte vorhandene Modell:
 
 ```powershell
 ./Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1 -LocalPort 11434
 ./Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1 -LocalPort 11434 `
     -EmbeddingModelKey ollama-bge-m3-latest
+./Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1 -LocalPort 11434 `
+    -EmbeddingModelKey ollama-nomic-embed-text-v2-moe
 ```
 
 Der Harness erstellt ausschließlich einen eigenen temporären StateRoot und

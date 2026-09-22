@@ -4,11 +4,6 @@ function Get-LabAiPersistentProfile {
     [pscustomobject][ordered]@{Contract='SqlServerLab.AiEmbeddingProfile/1.0';Name=$Name;DocumentPrefix=$(if($Name -eq 'raw'){''}else{'search_document: '});QueryPrefix=$(if($Name -eq 'raw'){''}else{'search_query: '});Dimension=768}
 }
 
-function Assert-LabAiPersistentMigrationInput {
-    param([string]$Text)
-    if([Text.Encoding]::UTF8.GetByteCount($Text) -gt 512){throw 'AI_PERSISTENT_MODEL_INPUT_LIMIT_EXCEEDED'}
-}
-
 function Get-LabAiPersistentMigrationSourceGeneration {
     param($Migration)
     if($null -eq $Migration){return 2}
@@ -173,7 +168,7 @@ function Invoke-LabAiPersistentMigrationQuery {
     }
     $null=Get-LabAiPersistentModel $Context $active $MetadataTransport $expected
     $queryInput=$profile.QueryPrefix+$active.Question
-    if($profile.Name -ceq 'nomic-search'){Assert-LabAiPersistentMigrationInput $queryInput}
+    if($profile.Name -ceq 'nomic-search'){Assert-LabAiPersistentInput $queryInput}
     $embedding=Get-LabAiPersistentEmbedding $Context $active $queryInput $EmbeddingTransport
     $vector=ConvertTo-LabAiVectorLiteral -Vector @($embedding.Vector) -Dimension 768
     $null=Get-LabAiPersistentModel $Context $active $MetadataTransport $expected
@@ -192,6 +187,7 @@ function Invoke-LabAiPersistentMigration {
     if($Plan.Action -eq 'Query'){return Invoke-LabAiPersistentMigrationQuery $Context $Plan $Journal $Owner $Identity $StateRoot $MetadataTransport $EmbeddingTransport}
     if($Plan.Action -ne 'Migrate'){throw 'AI_PERSISTENT_MIGRATION_REQUEST_INVALID'}
     if($Journal.contract -ceq 'SqlServerLab.AiPersistentJournal/1.0'){
+        if($Journal.modelBinding.ModelKey -cne 'ollama-embeddinggemma-latest'){throw 'AI_PERSISTENT_MIGRATION_SOURCE_MODEL_UNSUPPORTED'}
         $sourceGeneration=[int]$Owner.ActiveGeneration;$targetGeneration=$sourceGeneration+1
         if($targetGeneration -gt 32){throw 'AI_PERSISTENT_GENERATION_LIMIT_REACHED'}
         if($Plan.Resume -or $Journal.status -cne 'COMMITTED' -or $Journal.activeGeneration -ne $sourceGeneration -or $sourceGeneration -lt 1){throw 'AI_PERSISTENT_MIGRATION_SOURCE_REQUIRED'}
@@ -260,7 +256,7 @@ function Invoke-LabAiPersistentMigration {
         if($document.Id -cin $rows.ChunkId){continue}
         $null=Assert-LabTransferBinding -Expected $Identity -StateRoot $StateRoot
         $null=Get-LabAiPersistentModel $Context $Plan $MetadataTransport $m.targetBinding
-        $documentInput=$profile.DocumentPrefix+$document.Content;Assert-LabAiPersistentMigrationInput $documentInput
+        $documentInput=$profile.DocumentPrefix+$document.Content;Assert-LabAiPersistentInput $documentInput
         $embedding=Get-LabAiPersistentEmbedding $Context $Plan $documentInput $EmbeddingTransport;$requests+=$embedding.Attempts
         $vector=ConvertTo-LabAiVectorLiteral -Vector @($embedding.Vector) -Dimension 768
         $null=Get-LabAiPersistentModel $Context $Plan $MetadataTransport $m.targetBinding

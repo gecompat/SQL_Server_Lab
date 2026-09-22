@@ -47,7 +47,7 @@ try {
         function Invoke-LabAiHostMetadata {
             param($Port,$Path,$Model)
             $expectedDimension=if($Model -ceq 'bge-m3:latest'){1024}else{768}
-            Check ($Port -eq 11434 -and $Model -cin @('embeddinggemma:latest','bge-m3:latest')) 'Preflight uses only a cataloged local model and selected loopback port'
+            Check ($Port -eq 11434 -and $Model -cin @('embeddinggemma:latest','bge-m3:latest','nomic-embed-text-v2-moe:latest')) 'Preflight uses only a cataloged local model and selected loopback port'
             switch($Path) {
                 /api/version {return [pscustomobject]@{version=$(if($script:mode -ceq 'version'){'0.1.0'}else{'0.34.2'})}}
                 /api/tags {
@@ -76,6 +76,9 @@ try {
         $bgePlan=New-LabAiPodmanSetupPlan -EmbeddingModelKey ollama-bge-m3-latest
         Assert-LabAiPodmanSetupRecord $bgePlan $bgePlan.operationId
         Check ($bgePlan.modelBinding.Model -ceq 'bge-m3:latest' -and $bgePlan.modelBinding.Dimension -eq 1024) 'BGE-M3 plan persists its exact 1024-dimensional binding'
+        $nomicPlan=New-LabAiPodmanSetupPlan -EmbeddingModelKey ollama-nomic-embed-text-v2-moe
+        Assert-LabAiPodmanSetupRecord $nomicPlan $nomicPlan.operationId
+        Check ($nomicPlan.modelBinding.Model -ceq 'nomic-embed-text-v2-moe:latest' -and $nomicPlan.modelBinding.Dimension -eq 768) 'Nomic v2 plan persists its exact 768-dimensional binding'
         $cancelled=Invoke-LabAiPodmanSetup -Plan $plan -StateRoot $Root -WhatIf
         Check ($cancelled.Status -ceq 'CANCELLED' -and @(Get-ChildItem $Root).Count -eq 0) 'WhatIf creates neither worker nor state'
         $cancel=[Threading.CancellationTokenSource]::new();$cancel.Cancel()
@@ -273,6 +276,9 @@ try {
         $script:cancelAt=0;$script:inputIndex=0;$script:uiCreates=0;$script:confirmSetup=$true;$script:modelChoice=1;$script:uiText=[Collections.Generic.List[string]]::new()
         $bgeAction=Invoke-LabAiPodmanSetupInteractive
         Check ($bgeAction.Status -ceq 'Changed' -and $script:lastUiModel.ModelKey -ceq 'ollama-bge-m3-latest' -and $script:lastUiModel.Dimension -eq 1024) 'UI selection reaches creation with the exact BGE-M3 binding'
+        $script:mode='none';$script:inputIndex=0;$script:cancelAt=0;$script:uiCreates=0;$script:confirmSetup=$true;$script:modelChoice=2;$script:uiText=[Collections.Generic.List[string]]::new()
+        $nomicAction=Invoke-LabAiPodmanSetupInteractive
+        Check ($nomicAction.Status -ceq 'Changed' -and $script:lastUiModel.ModelKey -ceq 'ollama-nomic-embed-text-v2-moe' -and $script:lastUiModel.Dimension -eq 768) 'UI selection reaches creation with the exact Nomic-v2 binding'
         $script:mode='missing';$script:inputIndex=0;$script:cancelAt=0;$script:uiCreates=0
         $action=Invoke-LabAiPodmanSetupInteractive
         Check ($action.Status -ceq 'Failed' -and $script:uiCreates -eq 0) 'UI missing model cannot reach creation'

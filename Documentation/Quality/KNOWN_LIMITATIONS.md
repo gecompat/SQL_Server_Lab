@@ -97,14 +97,16 @@ synthetischen internen Ablauf, keine SQL-/Providerdeadline.
 ## KI und Ollama
 
 Der [Podman-KI-Erstellungsdialog](../Architecture/AI_PODMAN_SETUP.md) setzt
-bereites Podman und das ausgewählte vorhandene lokale `embeddinggemma:latest`
-oder `bge-m3:latest` voraus. Er
+bereites Podman und das ausgewählte vorhandene lokale `embeddinggemma:latest`,
+`bge-m3:latest` oder `nomic-embed-text-v2-moe:latest` voraus. Er
 installiert keine Modelle, startet keine Machine und richtet kein SQL External
 Model ein. Die feste native Podman-Referenz bestand am 2026-09-21 mit sechs
 Assertions, Query nach SQLrestart und unabhängig bestätigtem Own-Cleanup.
 Die BGE-M3-/1024-Auswahl bestand am 2026-09-22 mit denselben sechs Assertions,
 unverändertem Hostmodellinventar und vollständig bestätigtem Cleanup.
-Andere Provider, weitere Modelle und eigene Dokumentbestände sind dadurch nicht freigegeben.
+Die Nomic-v2-/768-Auswahl bestand am 2026-09-22 ebenfalls mit denselben sechs
+Assertions und vollständig bestätigtem Cleanup. Andere Provider, weitere Modelle
+und eigene Dokumentbestände sind dadurch nicht freigegeben.
 Ein harter Abbruch des Elternprozesses benötigt Prüfung der dauerhaft
 gespeicherten eigenen Operation; es gibt keinen automatischen Recoverydienst.
 

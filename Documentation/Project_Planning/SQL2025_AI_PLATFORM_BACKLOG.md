@@ -130,6 +130,10 @@ keine Runtimeaktion aus. Der getrennte
   Re-Embedding der festen Fixture und eines vollständig gebundenen Caller-
   Bestands von Embeddinggemma zu Nomic. Docker und Podman bestanden jeweils 25
   native Prüfungen einschließlich SQL-Neustart und vollständigem Cleanup.
+  Nomic v2 ist außerdem direkt für persistentes Apply, Query und Sync sowie im
+  geführten Podman-Setup auswählbar; die Rollenpräfixe werden kataloggebunden
+  angewendet. Der native Nomic-Setup-Nachweis bestand am 2026-09-22 mit Query
+  vor und nach SQLrestart, unverändertem Modellinventar und vollständigem Cleanup.
   Dimensionswechsel bleiben offen.
 
 `AI-60A` stellt kataloggebundene Ollama-Cloud-Generation bereit. Der öffentliche

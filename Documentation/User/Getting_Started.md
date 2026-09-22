@@ -4,8 +4,9 @@
 
 Starte `Invoke-SqlServerLab` und wähle **Datenbanken und Verbindungen → SQL Server 2025 KI →
 Podman-KI-Testumgebung erstellen**. Podman muss bereit sein. Der Dialog lässt
-zwischen dem vorhandenen `embeddinggemma:latest` (768 Dimensionen, Standard)
-und `bge-m3:latest` (1024 Dimensionen, mehrsprachig) wählen. Er fragt außerdem
+zwischen dem vorhandenen `embeddinggemma:latest` (768 Dimensionen, Standard),
+`bge-m3:latest` (1024 Dimensionen, mehrsprachig) und
+`nomic-embed-text-v2-moe:latest` (768 Dimensionen, Suchprofil) wählen. Er fragt außerdem
 Name, lokalen Ollama-Port (11434), CPU (2) und RAM in MB (4096)
 und zeigt vor der Erstellung eine Vorschau. Abbruch erstellt keinen Run.
 
@@ -14,8 +15,8 @@ Embeddingdaten erhalten. **Meine KI-Testumgebungen anzeigen** liefert später
 RunId, CollectionId, Modell und Dimension für erneute Abfragen; SQL-Verbindungen stehen im
 Connection Center. Die vorhandene Run-Entfernung entfernt die ganze Umgebung
 ausdrücklich. Keine Modellinstallation, Cloud oder beliebigen Dokumente.
-Der native Standardlauf bestand am 2026-09-21; die BGE-M3-/1024-Auswahl am
-2026-09-22. Beide behielten die Query über einen SQLrestart und bestätigten
+Der native Standardlauf bestand am 2026-09-21; die BGE-M3-/1024- und die
+Nomic-v2-/768-Auswahl am 2026-09-22. Alle behielten die Query über einen SQLrestart und bestätigten
 anschließend vollständiges eigenes Cleanup.
 [Details, Fehlerbehandlung und Grenzen](../Architecture/AI_PODMAN_SETUP.md).
 
@@ -60,14 +61,17 @@ Keine öffentliche Gateway-API. Voraussetzungen, Aufruf und Besitzgrenzen stehen
 `Invoke-SqlServerLabAiPersistentRetrieval` verwendet einen vorhandenen
 SQL-2025-Docker-/Podman-Run mit verwaltetem SA-Secret und ein bereits laufendes
 lokales `embeddinggemma:latest` oder mit explizitem
-`-EmbeddingModelKey ollama-bge-m3-latest` das lokale BGE-M3. Mit einer
+`-EmbeddingModelKey ollama-bge-m3-latest` das lokale BGE-M3 oder mit
+`-EmbeddingModelKey ollama-nomic-embed-text-v2-moe` das lokale Nomic v2. Mit einer
 beibehaltenen Collection-GUID führen
 `-FixtureRevision Initial`, `-FixtureRevision Delta`, `-Action Sync`, `-Action Query` und
 `-Action Remove` durch persistente Generationen und eigenes Cleanup. `-Resume`
 setzt nur exakt gebundenes unterbrochenes Apply, Sync beziehungsweise Migrate fort;
 `-WhatIf` ist rein planend. `-Action Query -SearchMode Hybrid` kombiniert für
 die v1-Generationen SQL-Termabdeckung und exakte Cosine-Distanz; der
-  Nomic-Migrationspfad bleibt reine Vektorsuche. Für bestätigtes Delta erlaubt
+  eine direkte Nomic-v2-Collection setzt die Rollenpräfixe automatisch und begrenzt
+  Eingaben einschließlich Präfix auf 512 UTF-8-Bytes. Der Nomic-Migrationspfad
+  bleibt reine Vektorsuche. Für bestätigtes Delta erlaubt
   `-Action Migrate -FixtureRevision Delta -TargetModelKey ollama-nomic-embed-text-v2-moe`
   den einmaligen Wechsel auf das bereits vorhandene lokale Nomic-Modell.
 Alternativ erstellt `-Documents` eine Collection aus 1 bis 16 Objekten mit
