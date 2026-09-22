@@ -1915,3 +1915,14 @@ Die Abnahme erstellt und bereinigt ausschließlich ihren eigenen Run.
 `Invoke-LlamaCppRuntimeChecks.ps1` prüft synthetische Windows-Paketbäume:
 Hashfreiheit, Backendmehrdeutigkeit, NPU-Filter, Suchgrenzen, isolierte explizite
 Wurzeln und Schema. Die Prüfung startet weder llama-server noch SQL-Provider.
+
+### Eigener llama.cpp-Lifecycle
+
+`Invoke-LlamaCppOwnedRuntimeChecks.ps1` prüft Accelerator-Evidence und negative
+Ownership. `Invoke-LlamaCppOwnershipAcceptance.ps1` führt echte Windows-Kinder
+für Ownerverlust, Lease-Ende und Worker-Kill aus. Die getrennte
+`Invoke-LlamaCppSqlAcceptance.ps1 -RuntimeDirectory <Paket> -ModelPath <GGUF>`
+benötigt Windows, CUDA, ein passendes 768-dimensionales Nomic-Embeddingmodell
+und Docker. Sie legt eigene Testzertifikate und einen eigenen SQL-2025-Run an,
+prüft Auth, External Model und SQLrestart und bereinigt ausschließlich eigene
+Ressourcen. Beide Acceptances sind opt-in und laden keine Modelle herunter.

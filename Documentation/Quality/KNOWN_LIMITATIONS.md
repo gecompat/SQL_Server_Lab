@@ -2400,6 +2400,15 @@ bleiben mit ihren bisherigen Verträgen kompatibel.
 
 `Get-SqlServerLabLlamaCppRuntime` erkennt Windows-Pakete ohne Hashpflicht und
 ohne Ausführung. Backend-DLLs und Verzeichnisnamen beweisen weder Ursprung,
-Geräteverfügbarkeit noch Embeddingeignung. Prozessstart, ownershipgebundener
-Lifecycle und native SQL-Abnahme sind damit nicht implementiert. Details:
+Geräteverfügbarkeit noch Embeddingeignung. Der getrennte Windows-Start besitzt einen sitzungsgebundenen Lifecycle;
+die Discovery selbst attestiert weiterhin keinen laufenden Dienst. Details:
 [lokale Beschleunigung](../User/SQL_AI_LOCAL_ACCELERATION.md).
+
+### Eigener llama.cpp-Start
+
+Der Windows-Start/Stop-Vertrag prüft HTTPS, Modellalias, Dimension und eigene
+Runtime-Logs vor Erfolg. Er bleibt auf Loopback und eine begrenzte Lease
+beschränkt. OpenVINO-NPU mit der geprüften Nomic-Paarung scheiterte an der
+Graphberechnung; das vorhandene Ollama-Embeddinggemma-GGUF war für b11104 nicht
+ladbar. Weitere Backend-/Modellpaare sowie Podman und Hyper-V bleiben separat.
+[Vertrag und genaue Evidence-Grenzen](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

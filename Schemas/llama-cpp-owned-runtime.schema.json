@@ -1,0 +1,91 @@
+{
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "required": [
+    "Contract",
+    "OperationId",
+    "Status",
+    "Backend",
+    "Accelerator",
+    "ModelName",
+    "Dimension",
+    "Location",
+    "ServerCertificateSha256",
+    "LeaseSeconds",
+    "ArtifactEvidence"
+  ],
+  "properties": {
+    "Contract": {
+      "const": "SqlServerLab.LlamaCppOwnedRuntime/1.0"
+    },
+    "OperationId": {
+      "format": "uuid",
+      "type": "string"
+    },
+    "LeaseSeconds": {
+      "type": "integer",
+      "minimum": 30,
+      "maximum": 3600
+    },
+    "Accelerator": {
+      "enum": [
+        "CPU",
+        "GPU",
+        "NPU"
+      ]
+    },
+    "ModelName": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "type": "string"
+    },
+    "Status": {
+      "const": "ENDPOINT_VERIFIED"
+    },
+    "Dimension": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1998
+    },
+    "Location": {
+      "pattern": "^https://127\\.0\\.0\\.1:[0-9]+/v1/embeddings$",
+      "type": "string"
+    },
+    "ServerCertificateSha256": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "Backend": {
+      "enum": [
+        "LlamaCppCuda",
+        "LlamaCppOpenVino"
+      ]
+    },
+    "ArtifactEvidence": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ModelSha256": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "RuntimeSha256": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            }
+          },
+          "required": [
+            "RuntimeSha256",
+            "ModelSha256"
+          ]
+        }
+      ]
+    }
+  },
+  "title": "SQL Server Lab owned llama.cpp runtime"
+}

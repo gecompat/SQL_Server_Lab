@@ -1948,3 +1948,9 @@ Modellauswahl mit `Get-SqlServerLabLlamaCppRuntime -SearchRoot 'C:\Pfad\llama'`
 rein lesend erkennen. Hashes sind dafür nicht erforderlich. Die Ausgabe belegt
 nur Dateien und enthält lokale Pfade; Geräte-, Embedding- und HTTPS-Nachweise
 bleiben separat. Siehe [lokale Beschleunigung](SQL_AI_LOCAL_ACCELERATION.md).
+
+Mit `Start-SqlServerLabLlamaCppRuntime` und `Stop-SqlServerLabLlamaCppRuntime`
+lässt sich anschließend ein eigener Windows-HTTPS-Embeddingserver ohne
+Hashpflicht zeitlich begrenzt betreiben. Runtime, Embeddingmodell, Accelerator,
+Dimension, Pooling, Port und TLS-Dateien sind explizit anzugeben. Siehe den
+[Start- und Cleanupvertrag](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

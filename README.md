@@ -779,6 +779,8 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Get-SqlServerLabAiScenario` | Katalogisierten KI-Szenarioplan und optionale sanitisierte Run-Evidence anzeigen |
+| `Start-SqlServerLabLlamaCppRuntime` | Eigenen Windows-HTTPS-Embeddingserver mit expliziter Runtime-/Modell-/Gerätewahl und begrenzter Lease starten |
+| `Stop-SqlServerLabLlamaCppRuntime` | Ausschließlich den eigenen sitzungsgebundenen llama.cpp-Server beenden und API-Key bereinigen |
 | `Get-SqlServerLabLlamaCppRuntime` | Lokale Windows-llama.cpp-Pakete begrenzt und ohne Hashpflicht erkennen; kein Geräte- oder Modellnachweis |
 | `Get-SqlServerLabAiExternalModelPlan` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt hashgebunden für SQL `CREATE EXTERNAL MODEL` planen |
 | `Test-SqlServerLabAiExternalModelArtifact` | Lokale Runtime- und Modelldatei read-only gegen die im External-Model-Plan gebundenen SHA-256-Werte prüfen |

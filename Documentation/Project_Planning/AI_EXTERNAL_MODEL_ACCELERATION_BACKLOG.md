@@ -12,7 +12,7 @@ nicht als Beschleunigungsnachweis.
 Der vorhandene Referenzslice bleibt gültig: SQL Server 2025 ruft ein lokales
 Ollama-Modell über einen kurzlebigen HTTPS-Gateway auf, erzeugt die Embeddings
 selbst und prüft TLS-Negative, Ranking, SQL-Neustart und Cleanup. Offen sind
-allgemeine Backendwahl, Installation, Gerätebindung, Podman, Hyper-V und die
+allgemeine Backendwahl, Installation, weitere Gerätebindungen, Podman, Hyper-V und die
 unten beschriebenen Hardwarepfade.
 
 ## Zielbild
@@ -39,10 +39,10 @@ Bevorzugte Reihenfolge:
 | ID | Priorität | Ziel | Status und erforderlicher Nachweis |
 |---|---:|---|---|
 | `AIX-001` | P0 | Allgemeiner lokaler External-Model-Endpunktvertrag | `IMPLEMENTED_PARTIAL`: Plan bindet Runtime, Modell-/Dateidigest, Dimension, Inputprofil, Accelerator, Endpoint und TLS. Getrennte read-only Prüfungen bestätigen lokale Runtime-/Modelldateien sowie Zertifikatspin, OpenAI-Antwortform, endliche Werte und Dimension. Geräteattestation, SQL-Mutation und Cleanup bleiben getrennte Nachweise. |
-| `AIX-002` | P0 | `llama.cpp` OpenVINO auf Intel NPU unter Windows 11 | `RESEARCHED`: Upstream unterstützt Intel CPU, GPU und NPU sowie fertige Windows-x64-OpenVINO-Artefakte. Erforderlich sind echter `/v1/embeddings`-Probe, Gerätebeleg, SQL-Embedding, Ranking, Restart und Cleanup. |
-| `AIX-003` | P0 | HTTPS ohne dauerhaften Hosttrust oder breite Listenerfreigabe | `IMPLEMENTED_PARTIAL`: Die Hostprobe prüft Leaf-Pin, SAN und Systemtrust oder eine ausschließlich im Prozess verwendete Custom Root ohne Proxy, Redirect oder Truststoreänderung. Direktes `llama-server`-TLS bleibt bevorzugt; SQL-seitiger CA-Import in den eigenen Run und Gateway-Cleanup benötigen noch native Evidence. |
-| `AIX-004` | P0 | Intel Core Ultra 7 165U, Windows 11 | `USER_EVIDENCE`: OpenVINO-Build von `llama.cpp` ist installiert und NPU-Nutzung funktioniert. Die portable Digestprüfung ist implementiert; ihre Ausführung auf diesem Host sowie Endpoint-, Geräte- und SQL-Evidence stehen aus. |
-| `AIX-005` | P0 | Intel Core Ultra 9 275HX plus Intel-Grafik und RTX 5080 Laptop GPU | `HOST_DETECTED`: CPU und beide GPUs wurden read-only erkannt. NPU-Inventar, OpenVINO-NPU, OpenVINO-/SYCL-iGPU sowie CUDA-/Vulkan-RTX werden mit demselben Fixture getrennt gemessen. |
+| `AIX-002` | P0 | `llama.cpp` OpenVINO auf Intel NPU unter Windows 11 | `IMPLEMENTED_PARTIAL`: Discovery und expliziter OpenVINO-Start sind vorhanden. Die Nomic-NPU-Probe unter b11104 scheiterte an der Graphberechnung; ein positives kompatibles Embeddingmodell, SQL, Ranking und Restart bleiben offen. |
+| `AIX-003` | P0 | HTTPS ohne dauerhaften Hosttrust oder breite Listenerfreigabe | `IMPLEMENTED_PARTIAL`: Die Hostprobe prüft Leaf-Pin, SAN und Systemtrust oder eine ausschließlich im Prozess verwendete Custom Root ohne Proxy, Redirect oder Truststoreänderung. Direktes `llama-server`-TLS mit eigener SQL-CA, CUDA/Nomic und SQLrestart ist unter Docker am 2026-09-22 nativ belegt; weitere Backendpaare bleiben separat. |
+| `AIX-004` | P0 | Intel Core Ultra 7 165U, Windows 11 | `USER_EVIDENCE`: OpenVINO-Build von `llama.cpp` ist installiert und NPU-Nutzung funktioniert. Discovery und Start benötigen keinen Digest; die optionale Datei-Evidence folgt erst auf die konkrete Auswahl. Endpoint-, Geräte- und SQL-Evidence dieser Kombination bleiben separat. |
+| `AIX-005` | P0 | Intel Core Ultra 9 275HX plus Intel-Grafik und RTX 5080 Laptop GPU | `IMPLEMENTED_PARTIAL`: CUDA/Nomic bestand die eigene HTTPS-/SQL-2025-Docker-Referenz einschließlich SQLrestart und Cleanup. NPU, OpenVINO-/SYCL-iGPU, Vulkan und vergleichbare Performance-Messungen bleiben separat. |
 | `AIX-006` | P0 | GMKtec EVO-X2, Ryzen AI Max+ 395, Linux | `RESEARCHED`: Ryzen AI Software unterstützt Linux-NPU-Flows; ROCm führt `gfx1151` offiziell. NPU-Serviceadapter und `llama.cpp`-ROCm sind getrennte Lanes. ROCm ist der zuerst ausführbare Serverkandidat, NPU bleibt das bevorzugte Ziel. |
 | `AIX-007` | P1 | OpenVINO Model Server | `RESEARCHED`: OpenAI-kompatible Embeddings und explizites `--target_device NPU` sind vorhanden. OVMS verschlüsselt REST/gRPC nicht selbst und benötigt für SQL einen Reverse Proxy oder den vorhandenen Gatewayvertrag. |
 | `AIX-008` | P1 | Backendvergleich und Auswahl | `BACKLOG`: gleiche Modellfamilie, Dimension, Inputs und SQL-Assertions; Warmup, Latenz, Durchsatz, Arbeitsspeicher, Energie soweit messbar sowie tatsächliches Zielgerät werden protokolliert. |
@@ -147,3 +147,5 @@ Jede unterstützte Kombination benötigt:
 - AMD: [Ryzen AI Software unter Linux](https://ryzenai.docs.amd.com/en/latest/linux.html)
 - AMD: [ROCm-Linux-Supportmatrix für Ryzen](https://rocm.docs.amd.com/projects/radeon-ryzen/en/latest/docs/compatibility/compatibilityryz/native_linux/native_linux_compatibility.html)
 - llama.cpp: [Snapdragon unter Windows](https://github.com/ggml-org/llama.cpp/blob/master/docs/backend/snapdragon/windows.md)
+
+Der konkrete [Windows-Ownershipvertrag](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md) bindet Start/Stop, Lease, Endpointprobe und optionales Artifact-Hashing.

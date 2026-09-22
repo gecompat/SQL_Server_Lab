@@ -27,6 +27,8 @@
         'Get-SqlServerLabAiScenario'
         'Get-SqlServerLabAiExternalModelPlan'
         'Get-SqlServerLabLlamaCppRuntime'
+        'Start-SqlServerLabLlamaCppRuntime'
+        'Stop-SqlServerLabLlamaCppRuntime'
         'Test-SqlServerLabAiExternalModelArtifact'
         'Test-SqlServerLabAiExternalModelEndpoint'
         'Find-SqlServerLabCollation'
