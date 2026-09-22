@@ -20,6 +20,46 @@ try {
     $wrongPath=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU -Location 'https://localhost:11435/v3/embeddings' -ExternalModelName WrongPath -RuntimeModel model -Dimension 768 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
     Add-CheckResult 'Backendfremder Embeddingpfad blockiert' ($wrongPath.Status -eq 'BLOCKED' -and 'AI_EXTERNAL_MODEL_ENDPOINT_PATH_MISMATCH' -in $wrongPath.Blockers)
     Add-CheckResult 'Beschleunigernachweis bleibt explizit offen' ('ACCELERATOR_RUNTIME_ATTESTATION' -in $plan.RequiredEvidence)
+
+    $requestCapture=[Runtime.CompilerServices.StrongBox[object]]::new()
+    $transport={param($request)$requestCapture.Value=$request;[PSCustomObject]@{
+        StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1.0,-0.25,0)})}
+    }}.GetNewClosure()
+    $probePlan=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU -Location 'https://localhost:11435/v1/embeddings' -ExternalModelName LocalNpuEmbedding -RuntimeModel bound-model -Dimension 3 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
+    $receipt=& $module {param($p,$t)Invoke-LabAiExternalModelEndpointProbe -Plan $p -Transport $t} $probePlan $transport
+    Add-CheckResult 'Read-only Probe sendet genau den festen OpenAI-Embeddingrequest' (
+        $requestCapture.Value.Method -eq 'POST' -and $requestCapture.Value.Path -eq '/v1/embeddings' -and
+        $requestCapture.Value.Body.model -eq 'bound-model' -and @($requestCapture.Value.Body.input).Count -eq 1 -and
+        $requestCapture.Value.Body.input[0] -eq 'SQL Server Lab synthetic embedding probe' -and $requestCapture.Value.Body.encoding_format -eq 'float')
+    Add-CheckResult 'Endpoint-Receipt ist schema-valide und lässt Runtime-/Accelerator-Evidence offen' (
+        ($receipt|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-endpoint-receipt.schema.json')) -and
+        $receipt.Status -eq 'ENDPOINT_VERIFIED' -and 'ACCELERATOR_RUNTIME_ATTESTATION' -in $receipt.PendingEvidence)
+    $receiptJson=$receipt|ConvertTo-Json -Depth 10
+    Add-CheckResult 'Endpoint-Receipt enthält weder Vektor, Payload, Secret noch Hostpfad' (
+        $receiptJson -notmatch '(?i)("Vector"|synthetic|"Input"|secret|bearer|localhost|C:\\|/home/)')
+
+    $failureCases=@(
+        @{Name='Zertifikatabweichung';Code='AI_EXTERNAL_MODEL_TLS_CERTIFICATE_MISMATCH';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=('d'*64);Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1,2,3)})}}}},
+        @{Name='mehrere Vektoren';Code='AI_EXTERNAL_MODEL_RESPONSE_INVALID';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1,2,3)},[PSCustomObject]@{embedding=@(1,2,3)})}}}.GetNewClosure()},
+        @{Name='falsche Dimension';Code='AI_EXTERNAL_MODEL_DIMENSION_MISMATCH';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1,2)})}}}.GetNewClosure()},
+        @{Name='nicht endlicher Vektor';Code='AI_EXTERNAL_MODEL_VECTOR_INVALID';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1,[double]::NaN,3)})}}}.GetNewClosure()},
+        @{Name='textueller Vektorwert';Code='AI_EXTERNAL_MODEL_VECTOR_INVALID';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1,'2',3)})}}}.GetNewClosure()}
+    )
+    foreach($case in $failureCases){
+        $actual=$null
+        try{& $module {param($p,$t)Invoke-LabAiExternalModelEndpointProbe -Plan $p -Transport $t} $probePlan $case.Transport; $actual='NO_ERROR'}catch{$actual=$_.Exception.Message}
+        Add-CheckResult "Probe blockiert $($case.Name)" ($actual -eq $case.Code)
+    }
+    $blockedCode=$null
+    try{& $module {param($p,$t)Invoke-LabAiExternalModelEndpointProbe -Plan $p -Transport $t} $rocm $transport; $blockedCode='NO_ERROR'}catch{$blockedCode=$_.Exception.Message}
+    Add-CheckResult 'Blockierter Plan führt keinen Endpointrequest aus' ($blockedCode -eq 'AI_EXTERNAL_MODEL_PLAN_BLOCKED')
+    $mutatedPlan=$probePlan.PSObject.Copy();$mutatedPlan.Dimension=2
+    $integrityCode=$null
+    try{& $module {param($p,$t)Invoke-LabAiExternalModelEndpointProbe -Plan $p -Transport $t} $mutatedPlan $transport; $integrityCode='NO_ERROR'}catch{$integrityCode=$_.Exception.Message}
+    Add-CheckResult 'Nachträglich veränderter Plan wird vor dem Request verworfen' ($integrityCode -eq 'AI_EXTERNAL_MODEL_PLAN_INVALID')
+    Add-CheckResult 'Öffentliche Probe ist exportiert und verbirgt den Testtransport' (
+        (Get-Command Test-SqlServerLabAiExternalModelEndpoint -Module $module.Name).Parameters.ContainsKey('TrustedRootCertificate') -and
+        -not (Get-Command Test-SqlServerLabAiExternalModelEndpoint -Module $module.Name).Parameters.ContainsKey('Transport'))
 }
 finally {Remove-Module $module -Force -ErrorAction SilentlyContinue}
 Write-Host "`nAI external model acceleration checks: $passed passed, $($failures.Count) failed"

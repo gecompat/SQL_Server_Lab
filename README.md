@@ -86,7 +86,7 @@ Provider nur mit SQL Server 2025.
 | Sample-Datenbanken (Backup) | implementiert | `Private/SampleArtifactHandlers.ps1`; direkte `.bak`-Varianten über Trust-/Hash-Pfad, Mehrfachauswahl im Menü und `New-SqlServerLab -Sample` |
 | Project Adapter (v0.1) | implementiert | `Schemas/project-adapter.schema.json`, `Test-SqlServerLabAdapter`, `Install-SqlServerLabAdapter`; T-SQL-Entrypoints ohne Lifecycle-Seiteneffekt |
 | T-SQL-Skriptausführung | implementiert | `Invoke-SqlServerLabScript` |
-| SQL-2025-KI-Szenarien | Manifest-/Szenariovertrag, deterministischer Vector-Core, lokale Ollama-Embedding-/Generation-Lanes für Docker und Podman, hashgebundene Golden-RAG-Auswertung, opt-in Cloud-Generation sowie ein providerneutraler Hyper-V-Controller mit dokumentiertem `PARTIAL`-Restartnachweis; vorhandene OpenAI-kompatible CPU-/GPU-/NPU-Endpunkte lassen sich ohne Mutation für `CREATE EXTERNAL MODEL` planen | `Get-SqlServerLabAiScenario`, `Get-SqlServerLabAiExternalModelPlan`, `Invoke-SqlServerLabAiScenario`, `Invoke-SqlServerLabAiModel`, `Invoke-SqlServerLabAiRag`, `Measure-SqlServerLabAiRetrieval`, `Invoke-SqlServerLabAiDiagnosticAgent` |
+| SQL-2025-KI-Szenarien | Manifest-/Szenariovertrag, deterministischer Vector-Core, lokale Ollama-Embedding-/Generation-Lanes für Docker und Podman, hashgebundene Golden-RAG-Auswertung, opt-in Cloud-Generation sowie ein providerneutraler Hyper-V-Controller mit dokumentiertem `PARTIAL`-Restartnachweis; vorhandene OpenAI-kompatible CPU-/GPU-/NPU-Endpunkte lassen sich ohne Mutation für `CREATE EXTERNAL MODEL` planen und read-only über HTTPS prüfen | `Get-SqlServerLabAiScenario`, `Get-SqlServerLabAiExternalModelPlan`, `Test-SqlServerLabAiExternalModelEndpoint`, `Invoke-SqlServerLabAiScenario`, `Invoke-SqlServerLabAiModel`, `Invoke-SqlServerLabAiRag`, `Measure-SqlServerLabAiRetrieval`, `Invoke-SqlServerLabAiDiagnosticAgent` |
 | Provider-/Versions-/Parallel-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeMatrix.ps1` |
 | Einzelprovider-Smoke-Test | implementiert | `Tests/Integration/Invoke-SmokeTest.ps1` |
 | Statische Konsistenzprüfung | implementiert | `Tests/Static/Invoke-DocumentationChecks.ps1` |
@@ -780,6 +780,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Get-SqlServerLabAiScenario` | Katalogisierten KI-Szenarioplan und optionale sanitisierte Run-Evidence anzeigen |
 | `Get-SqlServerLabAiExternalModelPlan` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt hashgebunden für SQL `CREATE EXTERNAL MODEL` planen |
+| `Test-SqlServerLabAiExternalModelEndpoint` | Geplanten Endpunkt mit Zertifikatspin sowie OpenAI-Antwort- und Dimensionsprüfung read-only verifizieren |
 | `Invoke-SqlServerLabAiScenario` | Deklariertes, hashgebundenes SQL-KI-Szenario journalisiert ausführen |
 | `Invoke-SqlServerLabAiModel` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress und lokalem `.env`-Secret aufrufen |
 | `Measure-SqlServerLabAiRetrieval` | Manuelle Rangfolgen oder gebundene Golden-RAG-Ergebnisse deterministisch mit Recall@k, Precision@k, MRR und nDCG bewerten |
