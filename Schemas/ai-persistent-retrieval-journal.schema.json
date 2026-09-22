@@ -119,6 +119,13 @@
             "Model": { "const": "bge-m3:latest" },
             "Dimension": { "const": 1024 }
           }
+        },
+        {
+          "properties": {
+            "ModelKey": { "const": "ollama-nomic-embed-text-v2-moe" },
+            "Model": { "const": "nomic-embed-text-v2-moe:latest" },
+            "Dimension": { "const": 768 }
+          }
         }
       ],
       "type": "object"

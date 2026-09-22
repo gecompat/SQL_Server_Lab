@@ -26,7 +26,8 @@
       },
       "oneOf":[
         {"properties":{"ModelKey":{"const":"ollama-embeddinggemma-latest"},"Model":{"const":"embeddinggemma:latest"},"Dimension":{"const":768}}},
-        {"properties":{"ModelKey":{"const":"ollama-bge-m3-latest"},"Model":{"const":"bge-m3:latest"},"Dimension":{"const":1024}}}
+        {"properties":{"ModelKey":{"const":"ollama-bge-m3-latest"},"Model":{"const":"bge-m3:latest"},"Dimension":{"const":1024}}},
+        {"properties":{"ModelKey":{"const":"ollama-nomic-embed-text-v2-moe"},"Model":{"const":"nomic-embed-text-v2-moe:latest"},"Dimension":{"const":768}}}
       ]
     },
     "newStarted":{"type":"boolean"},

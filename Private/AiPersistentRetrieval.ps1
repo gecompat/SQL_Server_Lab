@@ -20,6 +20,11 @@ function Get-LabAiPersistentEmbedding {
     Invoke-LabAiEndpointRequest -Plan $Plan.EndpointPlan -InputText $Text -Transport $Transport
 }
 
+function Assert-LabAiPersistentInput {
+    param([string]$Text)
+    if([Text.Encoding]::UTF8.GetByteCount($Text) -gt 512){throw 'AI_PERSISTENT_MODEL_INPUT_LIMIT_EXCEEDED'}
+}
+
 function ConvertTo-LabAiPersistentDocuments {
     param([object[]]$Documents)
     if($null -eq $Documents -or $Documents.Count -lt 1 -or $Documents.Count -gt 16){throw 'AI_PERSISTENT_DOCUMENTS_INVALID'}
@@ -30,7 +35,7 @@ function ConvertTo-LabAiPersistentDocuments {
 }
 
 function New-LabAiPersistentPlan {
-    param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume,[string]$TargetModelKey,[ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',[int]$KeepGenerations=2)
+    param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume,[string]$TargetModelKey,[ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',[int]$KeepGenerations=2)
     if($Resume -and $Action -notin @('Apply','Migrate','Sync')){throw 'AI_PERSISTENT_RESUME_ACTION_INVALID'}
     $callerSupplied=$null -ne $Documents
     if($Action -eq 'Migrate'){
@@ -73,6 +78,10 @@ function New-LabAiPersistentPlan {
     $modelKey=if($Action -eq 'Migrate'){$TargetModelKey}else{$EmbeddingModelKey}
     $endpoint=New-LabAiEndpointPlan -ModelKey $modelKey -EndpointRef ollama-local -Lane local -LocalPort $LocalPort -MaximumRequests 1 -RetryCount 0 -TimeoutSeconds 60
     if($endpoint.Status -eq 'BLOCKED' -or $endpoint.Dimension -notin @(768,1024)){throw 'AI_PERSISTENT_MODEL_PLAN_INVALID'}
+    if($endpoint.InputProfile -ceq 'nomic-search'){
+        foreach($document in $documents){Assert-LabAiPersistentInput (ConvertTo-LabAiEmbeddingInput -Plan $endpoint -Role document -Text $document.Content)}
+        if($Action -eq 'Query'){Assert-LabAiPersistentInput (ConvertTo-LabAiEmbeddingInput -Plan $endpoint -Role query -Text $questionText)}
+    }
     $datasetHash=Get-LabAiPlanKey @($documents|ForEach-Object{[ordered]@{Id=$_.Id;Hash=$_.ContentHash}})
     $identity=[ordered]@{Contract='SqlServerLab.AiPersistentRetrieval/1.0';RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Revision=$FixtureRevision;DatasetHash=$datasetHash;EndpointPlanKey=$endpoint.PlanKey}
     if($callerSupplied){$identity.DatasetMode=$datasetMode}
@@ -224,7 +233,9 @@ SELECT @retainedGenerations AS RetainedGenerations,@deletedGenerations AS Delete
             if($Plan.DatasetMode -ceq 'CallerSupplied'){$activeRevision=[string]$generation[0].Revision}
             $chunks=@(Get-LabAiPersistentChunks $context $journal ([int]$owner.ActiveGeneration));Assert-LabAiPersistentChunks $chunks $active.Documents -Complete
             $null=Get-LabAiPersistentModel $context $Plan $MetadataTransport $model
-            $embedding=Get-LabAiPersistentEmbedding $context $Plan $Plan.Question $EmbeddingTransport;$requests+=$embedding.Attempts
+            $queryInput=ConvertTo-LabAiEmbeddingInput -Plan $Plan.EndpointPlan -Role query -Text $Plan.Question
+            if($Plan.EndpointPlan.InputProfile -ceq 'nomic-search'){Assert-LabAiPersistentInput $queryInput}
+            $embedding=Get-LabAiPersistentEmbedding $context $Plan $queryInput $EmbeddingTransport;$requests+=$embedding.Attempts
             $vector=ConvertTo-LabAiVectorLiteral -Vector @($embedding.Vector) -Dimension $dimension
             $null=Get-LabAiPersistentModel $context $Plan $MetadataTransport $model
             $null=Assert-LabTransferBinding -Expected $identity -StateRoot $StateRoot
@@ -325,7 +336,9 @@ FROM Ranked ORDER BY HybridScore DESC,Distance,ChunkId;
                 Assert-LabAiPersistentChunks $old @($document) -Complete
                 $null=Invoke-LabAiPersistentSql $context Copy "INSERT [$($journal.databaseName)].dbo.LabChunks SELECT @generation,ChunkId,Content,ContentHash,Embedding,VectorHash FROM [$($journal.databaseName)].dbo.LabChunks WHERE Generation=@previous AND ChunkId=@id AND ContentHash=@hash;" @{generation=$Plan.Generation;previous=[int]$owner.ActiveGeneration;id=$document.Id;hash=$document.ContentHash};$copied++
             }else{
-                $embedding=Get-LabAiPersistentEmbedding $context $Plan $document.Content $EmbeddingTransport;$requests+=$embedding.Attempts
+                $documentInput=ConvertTo-LabAiEmbeddingInput -Plan $Plan.EndpointPlan -Role document -Text $document.Content
+                if($Plan.EndpointPlan.InputProfile -ceq 'nomic-search'){Assert-LabAiPersistentInput $documentInput}
+                $embedding=Get-LabAiPersistentEmbedding $context $Plan $documentInput $EmbeddingTransport;$requests+=$embedding.Attempts
                 $vector=ConvertTo-LabAiVectorLiteral -Vector @($embedding.Vector) -Dimension $dimension
                 $null=Get-LabAiPersistentModel $context $Plan $MetadataTransport $model
                 $null=Invoke-LabAiPersistentSql $context Insert "DECLARE @v VECTOR($dimension)=CAST(@vector AS VECTOR($dimension));INSERT [$($journal.databaseName)].dbo.LabChunks VALUES(@generation,@id,@content,@hash,@v,LOWER(CONVERT(char(64),HASHBYTES('SHA2_256',CAST(@v AS varchar(max))),2)));" @{generation=$Plan.Generation;id=$document.Id;content=$document.Content;hash=$document.ContentHash;vector=$vector}

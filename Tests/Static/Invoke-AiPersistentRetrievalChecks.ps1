@@ -15,7 +15,7 @@ try{
         function script:Get-LabTransferBinding {param($RunId,$InstanceId,$StateRoot)$script:events.Add('Binding');[pscustomobject]@{RunId=$RunId;ScopeId='33333333-3333-4333-8333-333333333333';InstanceId=$InstanceId;Provider='docker';RuntimeScopeId='synthetic';ContainerId='a'*64;Volumes=@();HostName='127.0.0.1';Port=14331}}
         function script:Assert-LabTransferBinding {param($Expected,$StateRoot)$script:events.Add('Rebind');if($script:bindingDrift){throw 'TRANSFER_LIVE_BINDING_DRIFT'}}
         function Reset {
-            $script:events=[Collections.Generic.List[string]]::new();$script:sqlTexts=[Collections.Generic.List[string]]::new();$script:bindingDrift=$false;$script:modelDrift=$false;$script:fail='';$script:payloads=0;$script:dimension=768
+            $script:events=[Collections.Generic.List[string]]::new();$script:sqlTexts=[Collections.Generic.List[string]]::new();$script:embeddingInputs=[Collections.Generic.List[string]]::new();$script:bindingDrift=$false;$script:modelDrift=$false;$script:fail='';$script:payloads=0;$script:dimension=768
             $script:db=$false;$script:owner=$null;$script:generations=@{};$script:chunks=@{};$script:guid='ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF'
             $script:collection=[guid]::NewGuid().ToString('D');$script:run='11111111-1111-4111-8111-111111111111'
             $script:parameters=@{RunId=$script:run;InstanceId='primary';CollectionId=$script:collection;Action='Apply';FixtureRevision='Initial';QueryId='backup';LocalPort=11434;TimeoutSeconds=300}
@@ -28,7 +28,7 @@ try{
                 '/api/show' {[pscustomobject]@{capabilities=@('embedding');model_info=[pscustomobject]@{'synthetic.embedding_length'=$script:dimension}}}
             }
         }
-        $transport={param($Request)$script:payloads++;[pscustomobject]@{StatusCode=200;Body=@{embeddings=@(,@(1..$script:dimension|ForEach-Object{0.01}))}}}
+        $transport={param($Request)$script:payloads++;$script:embeddingInputs.Add([string]$Request.Body.input[0]);[pscustomobject]@{StatusCode=200;Body=@{embeddings=@(,@(1..$script:dimension|ForEach-Object{0.01}))}}}
         $sql={param($Step,$Sql,$P)
             $script:events.Add($Step)
             $script:sqlTexts.Add("$Step|$Sql")
@@ -52,12 +52,14 @@ try{
                 default {throw "Unexpected SQL step $Step"}
             }
         }
-        function Execute {param([string]$Action='Apply',[string]$Revision='Initial',[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[switch]$Resume,[scriptblock]$Fault,[int]$KeepGenerations=2)
+        function Execute {param([string]$Action='Apply',[string]$Revision='Initial',[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[switch]$Resume,[scriptblock]$Fault,[int]$KeepGenerations=2,[string]$EmbeddingModelKey)
             $p=$script:parameters.Clone();$p.Action=$Action;$p.FixtureRevision=$Revision;$p.Resume=[bool]$Resume
             $p.SearchMode=$SearchMode
+            if($Action -eq 'Migrate'){$p.TargetModelKey='ollama-nomic-embed-text-v2-moe'}
             if($null -ne $Documents){$p.Documents=$Documents}
             if($null -ne $ExpectedDocuments){$p.ExpectedDocuments=$ExpectedDocuments}
             if($Question){$p.Question=$Question}
+            if($EmbeddingModelKey){$p.EmbeddingModelKey=$EmbeddingModelKey}
             $p.KeepGenerations=$KeepGenerations
             $plan=New-LabAiPersistentPlan @p
             Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $Root -SqlExecutor $sql -MetadataTransport $metadata -EmbeddingTransport $transport -FaultInjector $Fault
@@ -237,6 +239,20 @@ try{
             $script:parameters.Remove('EmbeddingModelKey')
             $bgeRemoved=Execute -Action Remove
             Check 'BGE-M3-Collection bleibt ohne erneute Modellauswahl exakt entfernbar' ($bgeRemoved.Status -ceq 'REMOVED' -and -not $script:db)
+            Reset;$script:parameters.EmbeddingModelKey='ollama-nomic-embed-text-v2-moe'
+            $nomicPreview=Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -EmbeddingModelKey ollama-nomic-embed-text-v2-moe -WhatIf
+            Check 'Nomic-v2-WhatIf bindet 768 Dimensionen ohne Statezugriff' ($nomicPreview.ModelKey -ceq 'ollama-nomic-embed-text-v2-moe' -and $nomicPreview.Dimension -eq 768 -and $script:events.Count -eq 0)
+            $nomicApplied=Execute
+            $nomicQuery=Execute -Action Query
+            $nomicJournal=Get-Content (JournalPath) -Raw|ConvertFrom-Json
+            Check 'Nomic v2 bindet Journal und SQL-Speicher exakt an 768 Dimensionen' ($nomicApplied.Status -ceq 'COMMITTED' -and $nomicQuery.Status -ceq 'QUERIED' -and $nomicJournal.modelBinding.ModelKey -ceq 'ollama-nomic-embed-text-v2-moe' -and $nomicJournal.modelBinding.Dimension -eq 768)
+            Check 'Nomic v2 präfigiert persistente Dokumente und Fragen rollengetreu' (@($script:embeddingInputs|Where-Object{$_ -clike 'search_document: *'}).Count -eq 3 -and $script:embeddingInputs[-1] -ceq 'search_query: Wie oft werden synthetische Sicherungen überprüft?')
+            $oversized=@([pscustomobject]@{Id='oversized-input';Content=('x'*500)})
+            Check 'Nomic v2 weist zu große persistente Inputs vor Statezugriff ab' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId ([guid]::NewGuid().ToString('D')) -Documents $oversized -EmbeddingModelKey ollama-nomic-embed-text-v2-moe -WhatIf} 'AI_PERSISTENT_MODEL_INPUT_LIMIT_EXCEEDED')
+            Check 'Nomic-v2-Ausgang wird nicht fälschlich als EmbeddingGemma-Migrationsquelle behandelt' (Reject {Execute -Action Migrate -Revision Delta} 'AI_PERSISTENT_MIGRATION_SOURCE_MODEL_UNSUPPORTED')
+            $script:parameters.Remove('EmbeddingModelKey')
+            $nomicRemoved=Execute -Action Remove
+            Check 'Nomic-v2-Collection bleibt ohne erneute Modellauswahl exakt entfernbar' ($nomicRemoved.Status -ceq 'REMOVED' -and -not $script:db)
             function script:Get-LabTransferBinding {param($RunId,$InstanceId,$StateRoot)throw 'SYNTHETIC_PRIVATE_ENDPOINT_DETAIL'}
             Check 'Öffentlicher Vertrag sanitisiert auch frühe Bindingfehler' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Query -StateRoot $Root -Confirm:$false} '^AI_PERSISTENT_RECOVERY_REQUIRED$')
         }finally{

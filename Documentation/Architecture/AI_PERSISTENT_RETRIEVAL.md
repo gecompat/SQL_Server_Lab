@@ -6,6 +6,10 @@ einer eigenen Datenbank eines laufenden Docker-/Podman-Runs. Er verwendet
 standardmäßig das bereits vorhandene lokale `embeddinggemma:latest` mit 768
 Dimensionen. `-EmbeddingModelKey ollama-bge-m3-latest` wählt für Apply, Query
 und Sync das vorhandene lokale `bge-m3:latest` mit 1024 Dimensionen. Es gibt
+alternativ `-EmbeddingModelKey ollama-nomic-embed-text-v2-moe` für das lokale
+Nomic-v2-Modell mit 768 Dimensionen. Dessen Dokumente und Fragen erhalten
+automatisch die katalogisierten Rollenpräfixe und sind einschließlich Präfix
+auf 512 UTF-8-Bytes begrenzt. Es gibt
 keinen Modell-Download, Host-Neustart, Cloudaufruf oder Generierungsschritt.
 
 ## Öffentlicher Ablauf
@@ -26,6 +30,7 @@ $collectionId = [guid]::NewGuid().ToString('D')
 $scope = @{ RunId=$runId; CollectionId=$collectionId; StateRoot=$stateRoot }
 # Optional vor Apply setzen und bei jeder folgenden modellnutzenden Aktion beibehalten:
 # $scope.EmbeddingModelKey = 'ollama-bge-m3-latest'
+# $scope.EmbeddingModelKey = 'ollama-nomic-embed-text-v2-moe'
 Invoke-SqlServerLabAiPersistentRetrieval @scope -WhatIf
 Invoke-SqlServerLabAiPersistentRetrieval @scope -FixtureRevision Initial
 Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Query -QueryId backup
@@ -91,8 +96,8 @@ und löst Gleichstände deterministisch per Distanz und Chunk-ID auf. Wörter mi
 weniger als vier Zeichen und definierte Satzzeichen gehen nicht in den
 lexikalischen Score ein. Die Berechnung verwendet nur parametrisierte feste SQL
 und ausschließlich die aktive Generation. Sie ist für die
-EmbeddingGemma- und BGE-M3-v1-Generationen freigegeben. Der separate Nomic-
-Modellmigrationspfad bleibt reine Vektorsuche. SQL Server Full-Text Search mit
+EmbeddingGemma-, BGE-M3- und direkten Nomic-v2-Generationen im v1-Journal freigegeben. Der
+separate Nomic-Modellmigrationspfad bleibt reine Vektorsuche. SQL Server Full-Text Search mit
 sprachspezifischem Word Breaker und Ranking bleibt ein eigener offener Slice,
 weil das offizielle Standard-Containerimage das optionale
 `mssql-server-fts`-Paket nicht enthält.
@@ -167,10 +172,13 @@ oder eine abschließende Modellmigrationsgeneration mit jeweils 1 bis 16
 Dokumenten. Explizites `Prune` begrenzt abgeschlossene v1-Caller-Generationen,
 setzt die monotone Generationsnummer jedoch nicht zurück. Nach Generation 32
 blockiert daher weiterhin `AI_PERSISTENT_GENERATION_LIMIT_REACHED`;
-automatische Retention ist nicht implementiert. Die Nomic-v2-Migration bleibt
+automatische Retention ist nicht implementiert. Direkte Nomic-v2-Collections
+können angewendet, abgefragt, synchronisiert, begrenzt und entfernt werden.
+Die Nomic-v2-Migration bleibt
 an ihre validierte EmbeddingGemma-768-Quelle gebunden; eine BGE-M3-Collection
 kann abgefragt, synchronisiert, begrenzt und entfernt, derzeit aber nicht zu
-Nomic migriert werden. Datenfile maximal
+Nomic migriert werden. Ebenso ist eine direkte Nomic-v2-Collection keine Quelle
+für diesen einmaligen Migrationstyp. Datenfile maximal
 64 MiB, Log maximal 32 MiB. Fixture-Initial erzeugt drei Embeddings, Delta zwei
 und kopiert einen unveränderten Vektor. Caller-Initial erzeugt ein Embedding je
 Dokument. Query erzeugt ein Embedding. Retry ist
@@ -196,6 +204,9 @@ Caller-Dokumenten, freier hybrider Frage, Hashdrift-Abweisung, atomarem
 Update/Insert/Delete bei Übernahme eines unveränderten Vektors sowie
 idempotentem Prune mit unabhängig abgefragtem SQL-Tabellenbestand.
 Das vorhandene Hostmodellinventar bleibt unverändert.
+Die direkte Nomic-v2-Auswahl des geführten Podman-Setups bestand am 2026-09-22
+zusätzlich mit sechs Assertions, Query vor und nach SQLrestart sowie
+vollständigem eigenem Cleanup.
 
 Die ergänzende Referenz `Invoke-AiPodmanSamplesReferenceAcceptance.ps1` bleibt
 auf Podman begrenzt. Sie kombiniert einen frischen eigenen SQL-2025-Run, die
