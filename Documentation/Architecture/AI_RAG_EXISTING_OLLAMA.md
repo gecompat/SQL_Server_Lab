@@ -64,7 +64,8 @@ Tagliste weist `latest` und `v1.5` mit demselben Manifest aus. Die
 verlangt bei Retrieval `search_document: ` vor Dokumenten und `search_query: `
 vor Fragen. Dasselbe Profil gilt für das bereits katalogisierte
 `ollama-nomic-embed-text-v2-moe`. Das katalogisierte Profil `nomic-search` wendet beide Präfixe
-rollengetreu an; `raw` lässt EmbeddingGemma-, BGE-M3-, All-MiniLM- und
+rollengetreu an; `snowflake-search` lässt Dokumente unverändert und präfigiert
+nur Fragen. `raw` lässt EmbeddingGemma-, BGE-M3-, All-MiniLM- und
 Paraphrase-Multilingual-Eingaben unverändert. Das Profil ist
 Teil des Endpoint-PlanKeys. Tatsächliche Version und Manifestdigest werden live
 geprüft, nicht als allgemeine Hostidentität im Repository festgeschrieben.
@@ -90,6 +91,16 @@ beschreibt das Modell für semantische Suche und 50 Sprachen; die
 [Sentence-Transformers-Modellkarte](https://huggingface.co/sentence-transformers/paraphrase-multilingual-mpnet-base-v2)
 belegt Dimension und Lizenz. SQL verwendet `VECTOR(768)`. Die katalogisierte
 Mindestversion 0.34.2 ist der nachgewiesene Projektstand.
+
+`ollama-snowflake-arctic-embed2-latest` benennt
+`snowflake-arctic-embed2:latest` mit 1024 Dimensionen, Apache-2.0 und dem
+Profil `snowflake-search`. Die [offizielle Ollama-Modellseite](https://ollama.com/library/snowflake-arctic-embed2)
+belegt Mehrsprachigkeit und 8K-Kontext; die
+[Snowflake-Modellkarte](https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0)
+belegt Dimension, Lizenz und den ausschließlich für Fragen vorgesehenen Präfix
+`Represent this sentence for searching relevant passages: `. SQL verwendet
+`VECTOR(1024)`. Die katalogisierte Mindestversion 0.34.2 ist der nachgewiesene
+Projektstand.
 
 Bei den katalogisierten vorhandenen Host-Embeddingmodellen oder expliziter
 Cloudgeneration liest der Controller vor

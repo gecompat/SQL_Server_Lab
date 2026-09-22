@@ -6048,9 +6048,10 @@ function Invoke-LabAiPodmanSetupInteractive {
         'BGE-M3 · 1024 Dimensionen · mehrsprachig',
         'Nomic Embed Text v2 MoE · 768 Dimensionen · Suchprofil',
         'All-MiniLM · 384 Dimensionen · sehr kompakt',
-        'Paraphrase Multilingual · 768 Dimensionen · mehrsprachig'
+        'Paraphrase Multilingual · 768 Dimensionen · mehrsprachig',
+        'Snowflake Arctic Embed 2 · 1024 Dimensionen · mehrsprachiges Suchprofil'
     )
-    $embeddingModelKey=@('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe','ollama-all-minilm-latest','ollama-paraphrase-multilingual-latest')[$modelChoice]
+    $embeddingModelKey=@('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe','ollama-all-minilm-latest','ollama-paraphrase-multilingual-latest','ollama-snowflake-arctic-embed2-latest')[$modelChoice]
     $port=Read-LabAiPodmanSetupNumber -Prompt 'Port des vorhandenen lokalen Ollama-Dienstes' -Default 11434 -Minimum 1024 -Maximum 65535
     if ($null -eq $port) { return New-LabActionResult -Action AiPodmanSetup -Status Cancelled }
     $cpu=Read-LabAiPodmanSetupNumber -Prompt 'SQL-Prozessorkerne' -Default 2 -Minimum 1 -Maximum 8

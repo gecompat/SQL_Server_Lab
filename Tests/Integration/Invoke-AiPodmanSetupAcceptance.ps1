@@ -3,7 +3,7 @@
 [CmdletBinding()]
 param(
     [ValidateRange(1024,65535)][int]$LocalPort=11434,
-    [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe','ollama-all-minilm-latest','ollama-paraphrase-multilingual-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',
+    [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe','ollama-all-minilm-latest','ollama-paraphrase-multilingual-latest','ollama-snowflake-arctic-embed2-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',
     [switch]$RuntimeMutexAlreadyHeld
 )
 $ErrorActionPreference='Stop'

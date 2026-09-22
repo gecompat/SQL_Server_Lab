@@ -271,6 +271,15 @@ try{
             $script:parameters.Remove('EmbeddingModelKey')
             $paraphraseRemoved=Execute -Action Remove
             Check 'Paraphrase-Multilingual-Collection bleibt ohne erneute Modellauswahl exakt entfernbar' ($paraphraseRemoved.Status -ceq 'REMOVED' -and -not $script:db)
+            Reset;$script:dimension=1024;$script:parameters.EmbeddingModelKey='ollama-snowflake-arctic-embed2-latest'
+            $snowflakeApplied=Execute
+            $snowflakeQuery=Execute -Action Query
+            $snowflakeJournal=Get-Content (JournalPath) -Raw|ConvertFrom-Json
+            Check 'Snowflake Arctic Embed 2 bindet Journal und SQL-Speicher exakt an 1024 Dimensionen' ($snowflakeApplied.Status -ceq 'COMMITTED' -and $snowflakeQuery.Status -ceq 'QUERIED' -and $snowflakeJournal.modelBinding.ModelKey -ceq 'ollama-snowflake-arctic-embed2-latest' -and $snowflakeJournal.modelBinding.Dimension -eq 1024 -and @($script:sqlTexts|Where-Object{$_ -match '^(Initialize|Insert|Query)\|' -and $_ -match 'VECTOR\(1024\)'}).Count -ge 3)
+            Check 'Snowflake Arctic Embed 2 präfigiert nur die Frage' (@($script:embeddingInputs|Where-Object{$_ -clike 'Represent this sentence for searching relevant passages: *'}).Count -eq 1 -and $script:embeddingInputs[-1] -ceq 'Represent this sentence for searching relevant passages: Wie oft werden synthetische Sicherungen überprüft?')
+            $script:parameters.Remove('EmbeddingModelKey')
+            $snowflakeRemoved=Execute -Action Remove
+            Check 'Snowflake-Arctic-Embed-2-Collection bleibt ohne erneute Modellauswahl exakt entfernbar' ($snowflakeRemoved.Status -ceq 'REMOVED' -and -not $script:db)
             function script:Get-LabTransferBinding {param($RunId,$InstanceId,$StateRoot)throw 'SYNTHETIC_PRIVATE_ENDPOINT_DETAIL'}
             Check 'Öffentlicher Vertrag sanitisiert auch frühe Bindingfehler' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Query -StateRoot $Root -Confirm:$false} '^AI_PERSISTENT_RECOVERY_REQUIRED$')
         }finally{

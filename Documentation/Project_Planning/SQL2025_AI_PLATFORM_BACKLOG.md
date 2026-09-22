@@ -144,6 +144,12 @@ keine Runtimeaktion aus. Der getrennte
   Vektorsuche `backup-policy` zuerst. Der native Podman-Setup-Nachweis bestand
   am 2026-09-22 mit Query vor und nach SQLrestart, unverändertem
   Modellinventar und vollständigem Cleanup.
+  Snowflake Arctic Embed 2 ist als lokale mehrsprachige 1024-dimensionale
+  Alternative mit katalogisiertem Fragepräfix für Ad-hoc-RAG, persistentes
+  Retrieval und das geführte Podman-Setup implementiert. Die feste deutsche
+  Vorprüfung trifft mit reiner Vektorsuche `backup-policy` zuerst. Der native
+  Podman-Setup-Nachweis bestand am 2026-09-22 mit Query vor und nach SQLrestart,
+  unverändertem Modellinventar und vollständigem Cleanup.
   Modellmigrationen mit Dimensionswechsel bleiben offen.
 
 `AI-60A` stellt kataloggebundene Ollama-Cloud-Generation bereit. Der öffentliche

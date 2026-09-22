@@ -23,7 +23,7 @@ param($Module,$RepoRoot)
             '/api/version' {@{version=if($script:hostFault -eq 'version'){'0.11.9'}else{'0.34.2'}}}
             '/api/tags' {@{models=@([pscustomobject]@{name=$Model;digest=if($script:hostFault -eq 'digest'){'bad'}elseif($script:hostFault -eq 'drift'){'b'*64}else{'a'*64};remote_model=if($script:hostFault -eq 'remote-tag'){'remote'}else{''}})}}
             '/api/show' {
-                $dimension=if($script:hostFault -eq 'dimension'){384}elseif($Model -ceq 'bge-m3:latest'){1024}elseif($Model -ceq 'all-minilm:latest'){384}else{768}
+                $dimension=if($script:hostFault -eq 'dimension'){384}elseif($Model -cin @('bge-m3:latest','snowflake-arctic-embed2:latest')){1024}elseif($Model -ceq 'all-minilm:latest'){384}else{768}
                 [pscustomobject]@{remote_host=if($script:hostFault -eq 'remote-show'){'https://remote.invalid'}else{''};capabilities=if($script:hostFault -eq 'capability'){@('completion')}else{@('embedding')};model_info=[pscustomobject]@{'model.embedding_length'=$dimension}}
             }
         }
@@ -50,6 +50,10 @@ param($Module,$RepoRoot)
     $paraphrasePlan=New-LabAiRagPlan @paraphraseBase
     Check 'Paraphrase Multilingual bindet 768 Dimensionen, Rohtextprofil und Live-Hostprüfung' (
         $paraphrasePlan.EmbeddingPlan.Dimension -eq 768 -and $paraphrasePlan.EmbeddingPlan.InputProfile -ceq 'raw' -and $paraphrasePlan.HostModelValidation)
+    $snowflakeBase=$base.Clone();$snowflakeBase.EmbeddingModelKey='ollama-snowflake-arctic-embed2-latest'
+    $snowflakePlan=New-LabAiRagPlan @snowflakeBase
+    Check 'Snowflake Arctic Embed 2 bindet 1024 Dimensionen, Suchprofil und Live-Hostprüfung' (
+        $snowflakePlan.EmbeddingPlan.Dimension -eq 1024 -and $snowflakePlan.EmbeddingPlan.InputProfile -ceq 'snowflake-search' -and $snowflakePlan.HostModelValidation)
     foreach($fault in @('version','digest','remote-tag','remote-show','capability','dimension')){
         $script:hostFault=$fault
         Check "Hostmodell $fault blockiert vor Payload" (Reject {Get-LabAiHostModelBinding -Plan $plan.EmbeddingPlan -MetadataTransport $metadata} 'AI_RAG_HOST_')
@@ -82,6 +86,14 @@ param($Module,$RepoRoot)
         Check 'BGE-M3 führt unveränderte Texte als 1024-dimensionale SQL-Vektoren aus' (
             $bgeResult.Status -eq 'SUCCEEDED' -and $script:bgeInputs.Count -eq 2 -and
             $script:bgeInputs[0] -ceq 'Tägliche Sicherung.' -and $script:bgeInputs[1] -ceq 'Sicherung?')
+        $script:snowflakeInputs=[Collections.Generic.List[string]]::new()
+        $snowflakeInvoke=$invoke.Clone();$snowflakeInvoke.Plan=$snowflakePlan
+        $snowflakeInvoke.EmbeddingTransport={param($Request)$script:payloadCalls++;$script:snowflakeInputs.Add([string]$Request.Body.input[0]);$v=[double[]]::new(1024);$v[0]=1;[pscustomobject]@{StatusCode=200;Body=@{embeddings=@(,$v)}}}
+        $snowflakeResult=Invoke-LabAiRag @snowflakeInvoke
+        Check 'Snowflake Arctic Embed 2 präfigiert nur die Frage' (
+            $snowflakeResult.Status -eq 'SUCCEEDED' -and $script:snowflakeInputs.Count -eq 2 -and
+            $script:snowflakeInputs[0] -ceq 'Tägliche Sicherung.' -and
+            $script:snowflakeInputs[1] -ceq 'Represent this sentence for searching relevant passages: Sicherung?')
         $script:hostFault='remote-show';$before=$script:payloadCalls;$beforeSql=$script:sqlCalls;$beforeCloud=$script:cloudCalls
         Check 'Remote Hostmodell sendet weder Dokumente noch SQL oder Cloud' ((Reject {Invoke-LabAiRag @invoke} 'AI_RAG_HOST_REMOTE_MODEL_FORBIDDEN') -and $script:payloadCalls -eq $before -and $script:sqlCalls -eq $beforeSql -and $script:cloudCalls -eq $beforeCloud)
         $script:hostFault=''

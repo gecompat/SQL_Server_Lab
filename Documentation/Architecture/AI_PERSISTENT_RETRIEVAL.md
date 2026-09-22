@@ -13,7 +13,10 @@ auf 512 UTF-8-Bytes begrenzt. `-EmbeddingModelKey ollama-all-minilm-latest`
 verwendet das kompakte lokale `all-minilm:latest` mit 384 Dimensionen und
 unverändertem Rohtext. `-EmbeddingModelKey ollama-paraphrase-multilingual-latest`
 verwendet das mehrsprachige lokale `paraphrase-multilingual:latest` mit 768
-Dimensionen ebenfalls ohne Rollenpräfix. Es gibt
+Dimensionen ebenfalls ohne Rollenpräfix. `-EmbeddingModelKey
+ollama-snowflake-arctic-embed2-latest` verwendet das mehrsprachige lokale
+`snowflake-arctic-embed2:latest` mit 1024 Dimensionen; Dokumente bleiben roh,
+Fragen erhalten den katalogisierten Snowflake-Retrievalpräfix. Es gibt
 keinen Modell-Download, Host-Neustart, Cloudaufruf oder Generierungsschritt.
 
 ## Öffentlicher Ablauf
@@ -100,8 +103,8 @@ und löst Gleichstände deterministisch per Distanz und Chunk-ID auf. Wörter mi
 weniger als vier Zeichen und definierte Satzzeichen gehen nicht in den
 lexikalischen Score ein. Die Berechnung verwendet nur parametrisierte feste SQL
 und ausschließlich die aktive Generation. Sie ist für die
-EmbeddingGemma-, BGE-M3-, direkten Nomic-v2-, All-MiniLM- und
-Paraphrase-Multilingual-Generationen im
+EmbeddingGemma-, BGE-M3-, direkten Nomic-v2-, All-MiniLM-,
+Paraphrase-Multilingual- und Snowflake-Arctic-Embed-2-Generationen im
 v1-Journal freigegeben. Der
 separate Nomic-Modellmigrationspfad bleibt reine Vektorsuche. SQL Server Full-Text Search mit
 sprachspezifischem Word Breaker und Ranking bleibt ein eigener offener Slice,
@@ -182,7 +185,8 @@ blockiert daher weiterhin `AI_PERSISTENT_GENERATION_LIMIT_REACHED`;
 automatische Retention ist nicht implementiert. Direkte Nomic-v2-Collections
 können angewendet, abgefragt, synchronisiert, begrenzt und entfernt werden.
 Dasselbe gilt für direkte All-MiniLM-Collections mit 384 und
-Paraphrase-Multilingual-Collections mit 768 Dimensionen.
+Paraphrase-Multilingual-Collections mit 768 sowie Snowflake-Arctic-Embed-2-
+Collections mit 1024 Dimensionen.
 Die Nomic-v2-Migration bleibt
 an ihre validierte EmbeddingGemma-768-Quelle gebunden; eine BGE-M3-Collection
 kann abgefragt, synchronisiert, begrenzt und entfernt, derzeit aber nicht zu
@@ -222,6 +226,9 @@ vollständigem eigenem Cleanup.
 Die Paraphrase-Multilingual-Auswahl bestand am selben Tag mit sechs Assertions,
 `VECTOR(768)`, reiner Vektorsuche, Query vor und nach SQLrestart sowie
 vollständigem eigenem Cleanup.
+Die Snowflake-Arctic-Embed-2-Auswahl bestand am selben Tag mit sechs Assertions,
+`VECTOR(1024)`, katalogisiertem Fragepräfix, reiner Vektorsuche, Query vor und
+nach SQLrestart sowie vollständigem eigenem Cleanup.
 
 Die ergänzende Referenz `Invoke-AiPodmanSamplesReferenceAcceptance.ps1` bleibt
 auf Podman begrenzt. Sie kombiniert einen frischen eigenen SQL-2025-Run, die
