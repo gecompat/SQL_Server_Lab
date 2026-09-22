@@ -4,7 +4,7 @@
 |---|---|
 | Stand | 2026-09-07 |
 | Autoritative Funktionsliste | [`SqlServerLab.psd1`](../../SqlServerLab.psd1) |
-| Öffentliche Funktionen | 99 exportierte Cmdlets |
+| Öffentliche Funktionen | 102 exportierte Cmdlets |
 | Konsolenoberfläche | `Invoke-SqlServerLab` |
 | Browseroberfläche | `Tools/Start-SqlServerLabUi.ps1` und `Ui/` |
 
@@ -69,6 +69,7 @@ Legende:
 | [`Get-SqlServerLabWorkflow`](../../Public/Get-SqlServerLabWorkflow.ps1) | Liefert eine verdichtete, geheimnisfreie Workflow-, Image- und Kombinationsübersicht. | – | direkt: zentrale Dashboard-Inventur und Refresh |
 | [`Get-SqlServerLabAutomationPlan`](../../Public/Get-SqlServerLabAutomationPlan.ps1) | Projiziert ausgewählte bestehende öffentliche Plan-/Action-Grenzen als lokalen, versionierten und nicht ausführbaren Vertrag; keine Runtime-, Netzwerk- oder State-Aktion und keine IaC-Adapter. | – | – |
 | [`Get-SqlServerLabAiScenario`](../../Public/Get-SqlServerLabAiScenario.ps1) | Löst ein hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen Run auf. | Datenbanken und Verbindungen → SQL Server 2025 KI → Szenarioplan | – |
+| [`Get-SqlServerLabAiExternalModelPlan`](../../Public/Get-SqlServerLabAiExternalModelPlan.ps1) | Bindet einen vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt samt Runtime-, Modell- und Zertifikatshash für SQL `CREATE EXTERNAL MODEL`; der Plan führt keine Probe oder Hostmutation aus. | – | – |
 | [`Get-SqlServerLabHyperVImageArtifact`](../../Public/Get-SqlServerLabHyperVImageArtifact.ps1) | Inventarisiert Hyper-V-Images pfadfrei mit Evaluation, Referenzen und optionaler Integritätsprüfung. | Hyper-V-Infrastruktur → Images/Slots | direkt über die Workflow-Inventur: Image-Karten und Vorlagenpool |
 | [`Get-SqlServerLabEvaluationWatch`](../../Public/Get-SqlServerLabEvaluationWatch.ps1) | Bewertet Windows- und SQL-Artefaktfristen sowie getrennte, persistierte Windows-Fristen registrierter RUNNING-Hyper-V-Instanzen. Für RUNNING-/STOPPED-Hyper-V-SQL-Runs projiziert er eine Frist ausschließlich aus frischer, gebundener SQL-Gast-Evidence; `-RecordEvents` dedupliziert fällige Ereignisse lokal ohne Images, Lizenzen oder Runs zu verändern. | – | – |
 | [`Get-SqlServerLabRunStateUpgradePlan`](../../Public/Get-SqlServerLabRunStateUpgradePlan.ps1) | Klassifiziert einen lokalen Run-State gegen den Zielvertrag ohne State- oder Runtime-Mutation. | – | – |

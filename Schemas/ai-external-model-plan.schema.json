@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-external-model-plan.schema.json",
+  "title": "SQL Server Lab AI External Model Plan",
+  "type": "object",
+  "required": ["Contract","Status","EvidenceStatus","Backend","Accelerator","ApiFormat","Location","EndpointPath","CredentialName","ExternalModelName","RuntimeModel","ModelType","Dimension","InputProfile","TlsMode","ModelSha256","RuntimeSha256","ServerCertificateSha256","RequiredEvidence","Blockers","Warnings","PlanKey"],
+  "properties": {
+    "Contract": {"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiExternalModelPlan"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status": {"enum":["NOT_PROBED","BLOCKED"]},
+    "EvidenceStatus": {"const":"CONFIGURATION_ONLY"},
+    "Backend": {"enum":["LlamaCppOpenVino","OpenVinoModelServer","LlamaCppRocm","LlamaCppCuda","LlamaCppSnapdragonOpenCl","LlamaCppSnapdragonHexagon"]},
+    "Accelerator": {"enum":["CPU","GPU","NPU"]},
+    "ApiFormat": {"const":"OpenAI"},
+    "Location": {"type":"string","pattern":"^https://"},
+    "EndpointPath": {"enum":["/v1/embeddings","/v3/embeddings"]},
+    "CredentialName": {"type":["string","null"]},
+    "ExternalModelName": {"type":"string","pattern":"^[A-Za-z_][A-Za-z0-9_]{0,127}$"},
+    "RuntimeModel": {"type":"string","minLength":1,"maxLength":256},
+    "ModelType": {"const":"EMBEDDINGS"},
+    "Dimension": {"type":"integer","minimum":1,"maximum":1998},
+    "InputProfile": {"enum":["raw","nomic-search","snowflake-search"]},
+    "TlsMode": {"enum":["Direct","Gateway"]},
+    "ModelSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "RuntimeSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "ServerCertificateSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "RequiredEvidence": {"type":"array","minItems":5,"uniqueItems":true,"items":{"type":"string"}},
+    "Blockers": {"type":"array","uniqueItems":true,"items":{"type":"string"}},
+    "Warnings": {"type":"array","uniqueItems":true,"items":{"type":"string"}},
+    "PlanKey": {"type":"string","pattern":"^[a-f0-9]{64}$"}
+  },
+  "additionalProperties": false
+}

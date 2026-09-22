@@ -16,6 +16,23 @@ und OpenVINO Model Server passt `API_FORMAT='OpenAI'` mit dem Endpunkt
 Der Accelerator wird von der Inferenzruntime gewählt, nicht von SQL Server.
 Die SQL-Definition allein beweist daher keine NPU- oder GPU-Nutzung.
 
+Vor einer Live-Probe erzeugt das neue read-only Cmdlet einen gebundenen Plan:
+
+```powershell
+Get-SqlServerLabAiExternalModelPlan `
+  -Backend LlamaCppOpenVino -Accelerator NPU `
+  -Location 'https://host.docker.internal:11435/v1/embeddings' `
+  -ExternalModelName LocalNpuEmbedding -RuntimeModel bound-model `
+  -Dimension 768 -ModelSha256 $modelHash -RuntimeSha256 $runtimeHash `
+  -ServerCertificateSha256 $certificateHash
+```
+
+Ein gültiger Plan bleibt absichtlich `NOT_PROBED` mit
+`EvidenceStatus=CONFIGURATION_ONLY`. Erst ein späterer Endpunkt-, Dimensions-
+und Runtime-Nachweis darf daraus ausgeführte CPU-, GPU- oder NPU-Evidence
+machen. Das Cmdlet installiert nichts und ändert weder Trust Store, Firewall,
+Hosts-Datei noch Dienste.
+
 ## Empfohlene Topologie
 
 ```text
