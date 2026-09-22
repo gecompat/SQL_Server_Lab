@@ -29,7 +29,7 @@ function New-LabAiPodmanSetupPlan {
         [ValidateRange(1024,65535)][int]$LocalPort=11434,
         [ValidateRange(1,8)][int]$Cpu=2,
         [ValidateRange(2560,65536)][int]$MemoryMB=4096,
-        [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest'
+        [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe','ollama-all-minilm-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest'
     )
     $readiness=Get-LabClientRuntimeReadiness -Provider podman
     if ($readiness.Status -cne 'PASS') { throw 'AI_PODMAN_SETUP_RUNTIME_NOT_READY' }
@@ -42,7 +42,9 @@ function New-LabAiPodmanSetupPlan {
     [pscustomobject][ordered]@{
         contract='SqlServerLab.AiPodmanSetup/1.0';operationId=[guid]::NewGuid().ToString('N')
         collectionId=[guid]::NewGuid().ToString('D');runId=$null;name=$Name;port=$LocalPort;cpu=$Cpu;memoryMB=$MemoryMB
-        runtimeScopeId=$scope.RuntimeId;modelBinding=$model;binding=$null;status='PREPARED'
+        runtimeScopeId=$scope.RuntimeId;modelBinding=$model
+        searchMode=$(if($EmbeddingModelKey -ceq 'ollama-all-minilm-latest'){'Hybrid'}else{'Vector'})
+        binding=$null;status='PREPARED'
         primaryReason='NONE';cleanupStatus='NOT_STARTED';collectionCleanup='NOT_NEEDED';newStarted=$false
     }
 }
@@ -126,10 +128,10 @@ function Invoke-LabAiPodmanSetupApply {
         $record.status='QUERYING';Write-LabAiPodmanSetupRecord $record $StateRoot
         $reason='QUERY_FAILED'
         $null=Assert-LabTransferBinding -Expected $record.binding -StateRoot $StateRoot -OperationId $OperationId
-        $query=Invoke-SqlServerLabAiPersistentRetrieval @arguments -Action Query -QueryId backup
+        $query=Invoke-SqlServerLabAiPersistentRetrieval @arguments -Action Query -QueryId backup -SearchMode $record.searchMode
         if ($query.Status -cne 'QUERIED' -or $query.CollectionId -cne $record.collectionId -or $query.Generation -ne 1 -or @($query.Ranked).Count -ne 3 -or $query.Ranked[0].ChunkId -cne 'backup-policy') { throw 'AI_PODMAN_SETUP_QUERY_FAILED' }
         Assert-LabAiPodmanSetupPreflight $record
-        $plan=New-LabAiPersistentPlan -RunId $record.runId -InstanceId primary -CollectionId $record.collectionId -Action Query -FixtureRevision Initial -QueryId backup -LocalPort $record.port -EmbeddingModelKey $record.modelBinding.ModelKey -TimeoutSeconds 300
+        $plan=New-LabAiPersistentPlan -RunId $record.runId -InstanceId primary -CollectionId $record.collectionId -Action Query -FixtureRevision Initial -QueryId backup -SearchMode $record.searchMode -LocalPort $record.port -EmbeddingModelKey $record.modelBinding.ModelKey -TimeoutSeconds 300
         $journalPath=Join-Path $StateRoot ('runs/'+$record.runId+'/ai-persistent/primary-'+$record.collectionId+'.json')
         $current=Assert-LabTransferBinding -Expected $record.binding -StateRoot $StateRoot -OperationId $OperationId
         $retrievalIdentity=Get-LabTransferBindingIdentity $current
@@ -274,7 +276,7 @@ function ConvertTo-LabAiPodmanSetupResult {
     param($Record)
     [pscustomobject]@{
         Status=$Record.status;OperationId=$Record.operationId;RunId=$Record.runId;CollectionId=$Record.collectionId
-        Name=$Record.name;LocalPort=$Record.port;EmbeddingModelKey=$Record.modelBinding.ModelKey;Dimension=$Record.modelBinding.Dimension;PrimaryReason=$Record.primaryReason
+        Name=$Record.name;LocalPort=$Record.port;EmbeddingModelKey=$Record.modelBinding.ModelKey;Dimension=$Record.modelBinding.Dimension;SearchMode=$Record.searchMode;PrimaryReason=$Record.primaryReason
         CleanupStatus=$Record.cleanupStatus;CollectionCleanup=$Record.collectionCleanup
     }
 }

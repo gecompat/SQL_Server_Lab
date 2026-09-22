@@ -46,8 +46,8 @@ try {
         function Get-LabAiPodmanSetupRuntimeScope {[pscustomobject]@{Status='AVAILABLE';RuntimeId=$script:runtime}}
         function Invoke-LabAiHostMetadata {
             param($Port,$Path,$Model)
-            $expectedDimension=if($Model -ceq 'bge-m3:latest'){1024}else{768}
-            Check ($Port -eq 11434 -and $Model -cin @('embeddinggemma:latest','bge-m3:latest','nomic-embed-text-v2-moe:latest')) 'Preflight uses only a cataloged local model and selected loopback port'
+            $expectedDimension=if($Model -ceq 'bge-m3:latest'){1024}elseif($Model -ceq 'all-minilm:latest'){384}else{768}
+            Check ($Port -eq 11434 -and $Model -cin @('embeddinggemma:latest','bge-m3:latest','nomic-embed-text-v2-moe:latest','all-minilm:latest')) 'Preflight uses only a cataloged local model and selected loopback port'
             switch($Path) {
                 /api/version {return [pscustomobject]@{version=$(if($script:mode -ceq 'version'){'0.1.0'}else{'0.34.2'})}}
                 /api/tags {
@@ -79,6 +79,9 @@ try {
         $nomicPlan=New-LabAiPodmanSetupPlan -EmbeddingModelKey ollama-nomic-embed-text-v2-moe
         Assert-LabAiPodmanSetupRecord $nomicPlan $nomicPlan.operationId
         Check ($nomicPlan.modelBinding.Model -ceq 'nomic-embed-text-v2-moe:latest' -and $nomicPlan.modelBinding.Dimension -eq 768) 'Nomic v2 plan persists its exact 768-dimensional binding'
+        $miniPlan=New-LabAiPodmanSetupPlan -EmbeddingModelKey ollama-all-minilm-latest
+        Assert-LabAiPodmanSetupRecord $miniPlan $miniPlan.operationId
+        Check ($miniPlan.modelBinding.Model -ceq 'all-minilm:latest' -and $miniPlan.modelBinding.Dimension -eq 384 -and $miniPlan.searchMode -ceq 'Hybrid') 'All-MiniLM plan persists its exact 384-dimensional binding and hybrid reference query'
         $cancelled=Invoke-LabAiPodmanSetup -Plan $plan -StateRoot $Root -WhatIf
         Check ($cancelled.Status -ceq 'CANCELLED' -and @(Get-ChildItem $Root).Count -eq 0) 'WhatIf creates neither worker nor state'
         $cancel=[Threading.CancellationTokenSource]::new();$cancel.Cancel()
@@ -136,14 +139,15 @@ try {
             }
         }
         function Invoke-SqlServerLabAiPersistentRetrieval {
-            param($RunId,$InstanceId,$CollectionId,$StateRoot,$LocalPort,$EmbeddingModelKey,$TimeoutSeconds,$Action,$FixtureRevision,$QueryId,[switch]$Confirm)
+            param($RunId,$InstanceId,$CollectionId,$StateRoot,$LocalPort,$EmbeddingModelKey,$TimeoutSeconds,$Action,$FixtureRevision,$QueryId,$SearchMode='Vector',[switch]$Confirm)
             $script:events.Add($Action)
             $record=Read-LabAiPodmanSetupRecord $StateRoot $script:operation
             Check ($RunId -ceq $script:run.runId -and $LocalPort -eq 11434 -and ($Action -ceq 'Remove' -or $EmbeddingModelKey -ceq $record.modelBinding.ModelKey)) 'Public retrieval receives exact own run and selected host model binding'
+            if($Action -ceq 'Query') { Check ($SearchMode -ceq $record.searchMode) 'Reference query uses the search mode persisted by the setup plan' }
             if($Action -ceq 'Apply') {
                 Check ($FixtureRevision -ceq 'Initial' -and $InstanceId -ceq 'primary') 'Only fixed Initial collection is applied'
                 $directory=Join-Path $StateRoot ('runs/'+$RunId+'/ai-persistent');$null=New-Item -ItemType Directory $directory -Force
-                $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId primary -CollectionId $CollectionId -Action Apply -FixtureRevision Initial -QueryId backup -LocalPort $LocalPort -EmbeddingModelKey $EmbeddingModelKey -TimeoutSeconds 300
+                $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId primary -CollectionId $CollectionId -Action Apply -FixtureRevision Initial -QueryId backup -SearchMode $SearchMode -LocalPort $LocalPort -EmbeddingModelKey $EmbeddingModelKey -TimeoutSeconds 300
                 # Match the real retrieval producer: no OperationId means no volume list in its hash.
                 $identity=Get-LabTransferBindingIdentity (Get-LabTransferBinding -RunId $RunId -InstanceId primary -StateRoot $StateRoot)
                 $model=$record.modelBinding
@@ -269,7 +273,7 @@ try {
             if($cancelAt){Check ($action.Status -ceq 'Cancelled' -and $script:uiCreates -eq 0 -and $script:syncCalls -eq 0) "UI cancel $cancelAt creates no run and triggers no connection sync"}
             else {
                 Check ($action.Status -ceq 'Changed' -and $action.ConnectionCenterImpact -ceq 'EndpointSet' -and $script:uiCreates -eq 1 -and $script:syncCalls -eq 1) 'Actual menu dispatch returns ActionResult and synchronizes connection center exactly once'
-                Check (($script:uiText -join '|') -match 'RunId: 11111111-' -and ($script:uiText -join '|') -match 'CollectionId:' -and
+                Check (($script:uiText -join '|') -match 'RunId: 11111111-' -and ($script:uiText -join '|') -match 'CollectionId:' -and ($script:uiText -join '|') -match 'Suchmodus Vector' -and
                     ($script:uiText -join '|') -notmatch 'Password=|RAW_|Digest|ContainerId') 'UI prints useful IDs without secret or internal runtime details'
             }
         }
@@ -279,6 +283,9 @@ try {
         $script:mode='none';$script:inputIndex=0;$script:cancelAt=0;$script:uiCreates=0;$script:confirmSetup=$true;$script:modelChoice=2;$script:uiText=[Collections.Generic.List[string]]::new()
         $nomicAction=Invoke-LabAiPodmanSetupInteractive
         Check ($nomicAction.Status -ceq 'Changed' -and $script:lastUiModel.ModelKey -ceq 'ollama-nomic-embed-text-v2-moe' -and $script:lastUiModel.Dimension -eq 768) 'UI selection reaches creation with the exact Nomic-v2 binding'
+        $script:mode='none';$script:inputIndex=0;$script:cancelAt=0;$script:uiCreates=0;$script:confirmSetup=$true;$script:modelChoice=3;$script:uiText=[Collections.Generic.List[string]]::new()
+        $miniAction=Invoke-LabAiPodmanSetupInteractive
+        Check ($miniAction.Status -ceq 'Changed' -and $script:lastUiModel.ModelKey -ceq 'ollama-all-minilm-latest' -and $script:lastUiModel.Dimension -eq 384) 'UI selection reaches creation with the exact All-MiniLM binding'
         $script:mode='missing';$script:inputIndex=0;$script:cancelAt=0;$script:uiCreates=0
         $action=Invoke-LabAiPodmanSetupInteractive
         Check ($action.Status -ceq 'Failed' -and $script:uiCreates -eq 0) 'UI missing model cannot reach creation'

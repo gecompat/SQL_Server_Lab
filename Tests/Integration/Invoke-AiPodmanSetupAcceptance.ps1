@@ -3,7 +3,7 @@
 [CmdletBinding()]
 param(
     [ValidateRange(1024,65535)][int]$LocalPort=11434,
-    [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',
+    [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe','ollama-all-minilm-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',
     [switch]$RuntimeMutexAlreadyHeld
 )
 $ErrorActionPreference='Stop'
@@ -44,7 +44,7 @@ try {
     $record=& $module {param($State,$Op)Read-LabAiPodmanSetupRecord $State $Op} $state $plan.operationId
     $entries=@(& $module {param($State)Get-LabAiPodmanSetupEntries -StateRoot $State} $state)
     Assert-AiSetupAcceptance ($entries.Count -eq 1 -and $entries[0].RunId -ceq $result.RunId -and $entries[0].CollectionId -ceq $result.CollectionId)
-    $parameters=@{RunId=$result.RunId;CollectionId=$result.CollectionId;StateRoot=$state;LocalPort=$LocalPort;EmbeddingModelKey=$EmbeddingModelKey;TimeoutSeconds=300;Confirm=$false}
+    $parameters=@{RunId=$result.RunId;CollectionId=$result.CollectionId;StateRoot=$state;LocalPort=$LocalPort;EmbeddingModelKey=$EmbeddingModelKey;SearchMode=$result.SearchMode;TimeoutSeconds=300;Confirm=$false}
     $query=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Query -QueryId backup
     Assert-AiSetupAcceptance ($query.Status -ceq 'QUERIED' -and $query.Generation -eq 1 -and $query.Ranked[0].ChunkId -ceq 'backup-policy')
     # Existing public restart is bounded; its normal provider text stays private.

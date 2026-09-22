@@ -23,7 +23,7 @@ param($Module,$RepoRoot)
             '/api/version' {@{version=if($script:hostFault -eq 'version'){'0.11.9'}else{'0.34.2'}}}
             '/api/tags' {@{models=@([pscustomobject]@{name=$Model;digest=if($script:hostFault -eq 'digest'){'bad'}elseif($script:hostFault -eq 'drift'){'b'*64}else{'a'*64};remote_model=if($script:hostFault -eq 'remote-tag'){'remote'}else{''}})}}
             '/api/show' {
-                $dimension=if($script:hostFault -eq 'dimension'){384}elseif($Model -ceq 'bge-m3:latest'){1024}else{768}
+                $dimension=if($script:hostFault -eq 'dimension'){384}elseif($Model -ceq 'bge-m3:latest'){1024}elseif($Model -ceq 'all-minilm:latest'){384}else{768}
                 [pscustomobject]@{remote_host=if($script:hostFault -eq 'remote-show'){'https://remote.invalid'}else{''};capabilities=if($script:hostFault -eq 'capability'){@('completion')}else{@('embedding')};model_info=[pscustomobject]@{'model.embedding_length'=$dimension}}
             }
         }
@@ -42,6 +42,10 @@ param($Module,$RepoRoot)
     $bgePlan=New-LabAiRagPlan @bgeBase
     Check 'BGE-M3 bindet 1024 Dimensionen, Rohtextprofil und Live-Hostprüfung' (
         $bgePlan.EmbeddingPlan.Dimension -eq 1024 -and $bgePlan.EmbeddingPlan.InputProfile -ceq 'raw' -and $bgePlan.HostModelValidation)
+    $miniBase=$base.Clone();$miniBase.EmbeddingModelKey='ollama-all-minilm-latest'
+    $miniPlan=New-LabAiRagPlan @miniBase
+    Check 'All-MiniLM bindet 384 Dimensionen, Rohtextprofil und Live-Hostprüfung' (
+        $miniPlan.EmbeddingPlan.Dimension -eq 384 -and $miniPlan.EmbeddingPlan.InputProfile -ceq 'raw' -and $miniPlan.HostModelValidation)
     foreach($fault in @('version','digest','remote-tag','remote-show','capability','dimension')){
         $script:hostFault=$fault
         Check "Hostmodell $fault blockiert vor Payload" (Reject {Get-LabAiHostModelBinding -Plan $plan.EmbeddingPlan -MetadataTransport $metadata} 'AI_RAG_HOST_')
