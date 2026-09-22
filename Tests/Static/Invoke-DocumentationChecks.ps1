@@ -696,6 +696,9 @@ $persistentStorageBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Docum
 $fullInstanceEvaluationRefreshBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md') -Raw -Encoding utf8
 $sqlGuestEvaluationEvidenceBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\SQL_GUEST_EVALUATION_EVIDENCE_BACKLOG.md') -Raw -Encoding utf8
 $crossCuttingPlatformCapabilitiesBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md') -Raw -Encoding utf8
+$aiExternalModelAccelerationBacklog = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md') -Raw -Encoding utf8
+$sqlAiLocalAcceleration = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\User\SQL_AI_LOCAL_ACCELERATION.md') -Raw -Encoding utf8
+$userDocumentationIndex = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\User\README.md') -Raw -Encoding utf8
 $evaluationRefreshRunbook = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\HowTo\PERSISTENT_DATA_AND_EVALUATION_REFRESH.md') -Raw -Encoding utf8
 $labDataResidencyDecision = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Architecture\LAB_DATA_AND_NATIVE_RUNTIME_STORAGE_DECISION.md') -Raw -Encoding utf8
 $batchWorkflowPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation\Project_Planning\PROVIDER_NEUTRAL_BATCH_QUEUE_RESUME_WORKFLOW_2026-08-13.md') -Raw -Encoding utf8
@@ -763,6 +766,22 @@ Add-ValidationResult `
     -Name 'Keine alten Public-Command-Namen in aktiven Dateien' `
     -Success ($legacyCommandHits.Count -eq 0) `
     -Message ($legacyCommandHits -join '; ')
+
+Add-ValidationResult `
+    -Name 'External-Model-Beschleunigung ist als vorrangiger, hardwaregebundener Backlog dokumentiert' `
+    -Success ($projectPlanningIndex -match [regex]::Escape('AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md') -and
+        $userDocumentationIndex -match [regex]::Escape('SQL_AI_LOCAL_ACCELERATION.md') -and
+        $aiExternalModelAccelerationBacklog -match [regex]::Escape('USER_PRIORITY_P0') -and
+        $aiExternalModelAccelerationBacklog -match [regex]::Escape('CREATE EXTERNAL MODEL') -and
+        $aiExternalModelAccelerationBacklog -match [regex]::Escape('Intel Core Ultra 7 165U') -and
+        $aiExternalModelAccelerationBacklog -match [regex]::Escape('Ryzen AI Max+ 395') -and
+        $aiExternalModelAccelerationBacklog -match [regex]::Escape('RTX 5080 Laptop GPU') -and
+        $aiExternalModelAccelerationBacklog -match [regex]::Escape('Eine Hosts-Datei ordnet nur Namen Adressen zu') -and
+        $aiExternalModelAccelerationBacklog -match [regex]::Escape('ist daher allein keine Lösung') -and
+        $sqlAiLocalAcceleration -match [regex]::Escape("API_FORMAT = 'OpenAI'") -and
+        $sqlAiLocalAcceleration -match [regex]::Escape('GGML_OPENVINO_DEVICE') -and
+        $sqlAiLocalAcceleration -match [regex]::Escape('--target_device NPU') -and
+        $sqlAiLocalAcceleration -match 'kein.*nativer Projektnachweis')
 
 Add-ValidationResult `
     -Name 'Root-README ist nicht mehr PLANNING_FOUNDATION' `

@@ -10,4 +10,5 @@
 | [INTERACTIVE_WORKFLOW.md](INTERACTIVE_WORKFLOW.md) | Ziel-zuerst-Interaktionsfluss für neue Umgebungen und Hyper-V/Container-Entscheidungen |
 | [SQL_CONNECTION_CENTER.md](SQL_CONNECTION_CENTER.md) | Providerübergreifender SQL-Endpunktkatalog sowie SSMS- und CMS-Integration |
 | [AUTOMATED_TEST_ENVIRONMENTS.md](AUTOMATED_TEST_ENVIRONMENTS.md) | Mehrfacherstellung und `TestUmgebung.env`/JSON-Vertrag für KI und Testwerkzeuge |
+| [SQL_AI_LOCAL_ACCELERATION.md](SQL_AI_LOCAL_ACCELERATION.md) | Forschungs- und Konfigurations-How-to für SQL `CREATE EXTERNAL MODEL` mit lokalem `llama.cpp`, OpenVINO, Ryzen AI, ROCm, CUDA und NPU/GPU-Nachweisen |
 | [LOCAL_SQL_TESTING_PROMPT.md](LOCAL_SQL_TESTING_PROMPT.md) | Portabler Prompt und kurzer `AGENTS.md`-Baustein für konsumierende Projekte |
