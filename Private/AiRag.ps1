@@ -18,6 +18,21 @@ function ConvertTo-LabAiVectorLiteral {
     return '[' + ($values -join ',') + ']'
 }
 
+function ConvertTo-LabAiEmbeddingInput {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)][ValidateSet('document','query')][string]$Role,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Text
+    )
+
+    switch ([string]$Plan.InputProfile) {
+        'raw' { return $Text }
+        'nomic-search' { return "search_$($Role): $Text" }
+        default { throw 'AI_RAG_EMBEDDING_INPUT_PROFILE_INVALID' }
+    }
+}
+
 function New-LabAiRagPlan {
     [CmdletBinding()]
     param(
@@ -73,7 +88,7 @@ function New-LabAiRagPlan {
     }
     $identity=[ordered]@{Contract='SqlServerLab.AiRagPlan/1.0';RunId=$RunId;InstanceId=$InstanceId;QuestionHash=Get-LabAiSha256Text -Text $Question;Documents=@($normalized|ForEach-Object{[ordered]@{Id=$_.Id;ContentHash=$_.ContentHash}});EmbeddingPlanKey=$embeddingPlan.PlanKey;GenerationPlanKey=$generationPlan.PlanKey;TopK=$TopK}
     if ($null -ne $normalizedBinding) { $identity.EvaluationBinding = $normalizedBinding }
-    $hostValidation=$EmbeddingModelKey -eq 'ollama-embeddinggemma-latest' -or $GenerationLane -eq 'cloud'
+    $hostValidation=$EmbeddingModelKey -in @('ollama-embeddinggemma-latest','ollama-nomic-embed-text-v1-5','ollama-nomic-embed-text-v2-moe') -or $GenerationLane -eq 'cloud'
     if($hostValidation){$identity.HostModelValidation='LIVE_LOCAL_IDENTITY';$identity.DataClassification=$DataClassification}
     [PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiRagPlan';Version='1.0'};Status='READY';RunId=$RunId;InstanceId=$InstanceId;ScenarioId='rag-local-vector';TopK=$TopK;DocumentCount=$normalized.Count;EmbeddingModelKey=$EmbeddingModelKey;GenerationModelKey=$GenerationModelKey;PlanKey=Get-LabAiPlanKey -InputObject $identity;EvaluationBinding=$normalizedBinding;Documents=@($normalized);EmbeddingPlan=$embeddingPlan;GenerationPlan=$generationPlan;HostModelValidation=$hostValidation;DataClassification=$DataClassification}
 }
@@ -94,13 +109,15 @@ function Invoke-LabAiRag {
     $rows=[Collections.Generic.List[string]]::new()
     foreach($document in $Plan.Documents) {
         if($hostBinding){Assert-LabAiHostModelBinding -Plan $Plan.EmbeddingPlan -Expected $hostBinding -MetadataTransport $MetadataTransport}
-        $result=Invoke-LabAiEndpointRequest -Plan $Plan.EmbeddingPlan -InputText $document.Content -Transport $EmbeddingTransport
+        $embeddingInput=ConvertTo-LabAiEmbeddingInput -Plan $Plan.EmbeddingPlan -Role document -Text $document.Content
+        $result=Invoke-LabAiEndpointRequest -Plan $Plan.EmbeddingPlan -InputText $embeddingInput -Transport $EmbeddingTransport
         $requests += $result.Attempts
         $literal=ConvertTo-LabAiVectorLiteral -Vector @($result.Vector) -Dimension ([int]$Plan.EmbeddingPlan.Dimension)
         $rows.Add("(N'$($document.Id)',CAST('$literal' AS VECTOR($($Plan.EmbeddingPlan.Dimension))))")
     }
     if($hostBinding){Assert-LabAiHostModelBinding -Plan $Plan.EmbeddingPlan -Expected $hostBinding -MetadataTransport $MetadataTransport}
-    $queryResult=Invoke-LabAiEndpointRequest -Plan $Plan.EmbeddingPlan -InputText $Question -Transport $EmbeddingTransport
+    $queryInput=ConvertTo-LabAiEmbeddingInput -Plan $Plan.EmbeddingPlan -Role query -Text $Question
+    $queryResult=Invoke-LabAiEndpointRequest -Plan $Plan.EmbeddingPlan -InputText $queryInput -Transport $EmbeddingTransport
     $requests += $queryResult.Attempts
     $queryLiteral=ConvertTo-LabAiVectorLiteral -Vector @($queryResult.Vector) -Dimension ([int]$Plan.EmbeddingPlan.Dimension)
     if($hostBinding){Assert-LabAiHostModelBinding -Plan $Plan.EmbeddingPlan -Expected $hostBinding -MetadataTransport $MetadataTransport}

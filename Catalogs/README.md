@@ -325,3 +325,10 @@ Apache-2.0 stammt aus der verlinkten Nomic-Modellkarte. Der Ollama-Floor 0.34.2
 ist eine konservative Projektgrenze; ein offizieller Hersteller-Minimalstand
 wird nicht behauptet. Modellinstallation und native SQL-Eignung werden durch
 einen Katalogeintrag nicht bestätigt.
+
+`ollama-nomic-embed-text-v1-5` bindet den lokal vorhandenen Ollama-Tag
+`nomic-embed-text:latest`, der laut offizieller Tagliste mit `v1.5` identisch
+ist, an das Ad-hoc-SQL-RAG. Das Katalogprofil `nomic-search` erzwingt dabei
+`search_document: ` für Dokumente und `search_query: ` für Fragen. Version,
+Embedding-Capability, 768 Dimensionen und tatsächlicher Manifestdigest werden
+vor Payload und während der Ausführung live am Loopback-Endpunkt geprüft.

@@ -1,7 +1,8 @@
-# RAG mit vorhandenem Host-Ollama und expliziter Cloudgeneration
+# RAG mit vorhandenem Host-Ollama
 
-Stand: 2026-09-20. Der Controller verbindet lokale Embeddings mit exakter
-SQL-Server-2025-Vektorsuche und ausdrücklich gewählter HTTPS-Cloudgeneration.
+Stand: 2026-09-22. Der Controller verbindet lokale Embeddings mit exakter
+SQL-Server-2025-Vektorsuche und lokaler oder ausdrücklich gewählter
+HTTPS-Cloudgeneration.
 `Invoke-SqlServerLabAiRag` bleibt für vorhandene lokale AdHoc- und Golden-v1-
 Aufrufe unverändert voreingestellt. Der neue Slice erstellt keine dauerhaften
 Retrievaltabellen und ist kein Re-Embedding-Executor.
@@ -16,6 +17,16 @@ Invoke-SqlServerLabAiRag -RunId $runId -SaPassword $password `
     -GenerationModelKey ollama-gpt-oss-120b-cloud -GenerationLane cloud `
     -DataClassification synthetic-only -AllowCloudEgress `
     -SecretFilePath $secretFile -GenerationTimeoutSeconds 120 -GenerationRetryCount 0
+```
+
+Ein vollständig lokaler Nomic-v1.5-Aufruf verwendet denselben Vertrag:
+
+```powershell
+Invoke-SqlServerLabAiRag -RunId $runId -SaPassword $password `
+    -Question 'Wie oft werden synthetische Sicherungen geprüft?' `
+    -Document @(@{Id='backup-policy';Content='Synthetische Sicherungen werden täglich geprüft.'}) `
+    -TopK 1 -EmbeddingModelKey ollama-nomic-embed-text-v1-5 `
+    -GenerationModelKey ollama-qwen25-coder-7b-local -GenerationLane local
 ```
 
 Die zusätzlichen Parameter gelten nur für AdHoc. `CaseId` bindet weiterhin die
@@ -36,16 +47,25 @@ Ergebnis oder Git.
 
 ## Modell- und Transportgrenze
 
-Der zusätzliche Katalogeintrag `ollama-embeddinggemma-latest` benennt
+Der Katalogeintrag `ollama-embeddinggemma-latest` benennt
 `embeddinggemma:latest`, 768 Dimensionen, mindestens Ollama 0.11.10 und Gemma Terms
 of Use. Die [Ollama-Modellseite](https://ollama.com/library/embeddinggemma) dokumentiert
 Tag, ungefähre Größe und Mindestversion; die
 [Google-Modellkarte](https://ai.google.dev/gemma/docs/embeddinggemma/model_card)
 belegt Dimension und Nutzungsbedingungen. Der Tag ist kein unveränderlicher
-Digest. Tatsächliche Version und Manifestdigest werden live geprüft, nicht als
-allgemeine Hostidentität im Repository festgeschrieben.
+Digest. `ollama-nomic-embed-text-v1-5` benennt `nomic-embed-text:latest`, 768
+Dimensionen, mindestens Ollama 0.1.26 und Apache-2.0. Die offizielle Ollama-
+Tagliste weist `latest` und `v1.5` mit demselben Manifest aus. Die
+[Nomic-Modellkarte](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5)
+verlangt bei Retrieval `search_document: ` vor Dokumenten und `search_query: `
+vor Fragen. Dasselbe Profil gilt für das bereits katalogisierte
+`ollama-nomic-embed-text-v2-moe`. Das katalogisierte Profil `nomic-search` wendet beide Präfixe
+rollengetreu an; `raw` lässt EmbeddingGemma-Eingaben unverändert. Das Profil ist
+Teil des Endpoint-PlanKeys. Tatsächliche Version und Manifestdigest werden live
+geprüft, nicht als allgemeine Hostidentität im Repository festgeschrieben.
 
-Bei diesem Modell oder expliziter Cloudgeneration liest der Controller vor
+Bei den drei vorhandenen Host-Embeddingmodellen oder expliziter
+Cloudgeneration liest der Controller vor
 Payload `/api/version`, `/api/tags` und `/api/show` am festen Loopback-Endpunkt.
 Exakte Modellidentität, gültiger Digest, Mindestversion, Capability und
 Embeddingdimension sind Pflicht. `remote_model` oder `remote_host` blockieren
@@ -72,10 +92,11 @@ Embeddingrequest je Dokument plus Frage, maximal ein Retry pro Request. Die
 Generierung hat 512 Ausgabetokens, 1–230 Sekunden pro Versuch und 0–1 Retry.
 Dies ist ein je Request geltendes Budget, kein providerweiter Kostenledger.
 Metadatenrequests haben jeweils 15 Sekunden Timeout. Der native Nachweis wählt
-120 Sekunden und Retry 0, insgesamt höchstens zwei Cloudrequests.
+für Cloudgeneration 120 Sekunden und Retry 0, insgesamt höchstens zwei
+Cloudrequests. Die lokale Nomic-Referenz verwendet 180 Sekunden ohne Retry.
 
 `Tests/Static/Invoke-AiScenarioChecks.ps1` umfasst die fokussierten Host-/Cloud-
-Checks einschließlich echter lokaler HTTP307-Characterization; insgesamt 74
+Checks einschließlich echter lokaler HTTP307-Characterization; insgesamt 105
 Assertions bestanden auf dem finalen Stand. Die isolierte
 `Tests/Integration/Invoke-AiRagExistingOllamaAcceptance.ps1` verwendet je Provider
 einen neuen eigenen SQLrun, prüft feste Top-IDs vor/nach SQLrestart, unveränderte
@@ -91,6 +112,15 @@ unverändertem Produktcode. Hyper-V bleibt für diesen kombinierten Slice offen.
 Eine nichtleere
 Cloudantwort beweist Inferenz, keine allgemeine Antwortqualität.
 
+Am 2026-09-22 bestanden Docker und Podman den zusätzlichen vollständig lokalen
+Nomic-v1.5-Nachweis getrennt mit jeweils neun Assertions. Beide Läufe banden
+den Live-Digest, trafen vor SQLrestart `backup-policy`, danach `cleanup-policy`,
+verwendeten lokale Qwen-Generierung und bestätigten ein unverändertes
+Hostmodellinventar. Container und eigenes Volume wurden jeweils mit zwei
+Cleanupschritten und null Fehlern entfernt. Der gemeinsame Controllercode
+betrifft keine Hyper-V-Bereitstellung; dafür wurde kein neuer Hyper-V-Lauf
+ausgewählt.
+
 Die isolierte Golden-Containerabnahme lädt ihre beiden festen lokalen Modelle
 in den eigenen, bind-gemounteten Ollama-Container. Pro Modell gilt das unveränderte
 `TimeoutSeconds`-Budget von 60–1800 Sekunden als eine monotone Gesamtdeadline
@@ -105,7 +135,8 @@ Der Harness verwendet deshalb keine neue Download- oder Host-Ollama-Lane.
 Der interne [SQL-HTTPS-Docker-Referenzslice](AI_SQL_HTTPS_BRIDGE.md) belegt
 SQL-seitiges `CREATE EXTERNAL MODEL`, TLS-Negative, Retrieval nach SQLrestart
 und eigenes Cleanup. Allgemeiner Gatewaybetrieb bleibt `NOT_IMPLEMENTED`.
-Modellwechsel-Re-Embedding und die isolierte Hyper-V-Abnahme bleiben separate Nachweise.
+Das Ad-hoc-Profil ändert keine persistente Collection. Persistente
+Modellmigration und die isolierte Hyper-V-Abnahme bleiben separate Nachweise.
 
 Der separate [persistente synthetische Slice](AI_PERSISTENT_RETRIEVAL.md)
 implementiert nun Initial-/Delta-Generationen auf Docker/Podman mit derselben

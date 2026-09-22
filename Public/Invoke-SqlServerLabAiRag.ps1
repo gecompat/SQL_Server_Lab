@@ -22,7 +22,8 @@
 .PARAMETER CaseId
     Fall aus dem Golden Dataset; Frage, Dokumente, Modelle, Top-k und Schwellen werden daraus gebunden.
 .PARAMETER EmbeddingModelKey
-    Katalogschlüssel des lokalen Embeddingmodells.
+    Katalogschlüssel des lokalen Embeddingmodells. Das katalogisierte
+    Eingabeprofil steuert modellabhängige Dokument- und Fragepräfixe.
 .PARAMETER GenerationModelKey
     Katalogschlüssel des lokalen Generierungsmodells.
 .PARAMETER LocalPort
@@ -47,6 +48,8 @@
     Null oder eine Wiederholung; kein automatischer Wechsel der Lane.
 .EXAMPLE
     Invoke-SqlServerLabAiRag -RunId $runId -SaPassword $password -Question 'Welche Sicherung gilt?' -Document @(@{Id='backup-policy';Content='Sicherungen werden täglich geprüft.'})
+.EXAMPLE
+    Invoke-SqlServerLabAiRag -RunId $runId -SaPassword $password -Question 'Welche Sicherung gilt?' -Document @(@{Id='backup-policy';Content='Sicherungen werden täglich geprüft.'}) -EmbeddingModelKey ollama-nomic-embed-text-v1-5
 .EXAMPLE
     Invoke-SqlServerLabAiRag -RunId $runId -SaPassword $password -CaseId backup-frequency
 #>

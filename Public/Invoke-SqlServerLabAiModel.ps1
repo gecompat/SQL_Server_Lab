@@ -57,7 +57,7 @@ function Invoke-SqlServerLabAiModel {
 
     $publicPlan = [PSCustomObject]@{
         Contract=$plan.Contract;Status=$plan.Status;Lane=$plan.Lane;EndpointRef=$plan.EndpointRef
-        TargetHost=$plan.TargetHost;ModelKey=$plan.ModelKey;Purpose=$plan.Purpose;Dimension=$plan.Dimension
+        TargetHost=$plan.TargetHost;ModelKey=$plan.ModelKey;Purpose=$plan.Purpose;Dimension=$plan.Dimension;InputProfile=$plan.InputProfile
         Port=$plan.Port;CredentialRef=$plan.CredentialRef;Egress=$plan.Egress;RequestBudget=$plan.RequestBudget
         Blockers=@($plan.Blockers);Warnings=@($plan.Warnings);PlanKey=$plan.PlanKey
     }

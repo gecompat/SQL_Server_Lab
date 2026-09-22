@@ -8,6 +8,15 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Ad-hoc-SQL-RAG unterstützt das vorhandene lokale
+  `nomic-embed-text:latest` als `ollama-nomic-embed-text-v1-5`. Ein
+  kataloggebundenes Eingabeprofil setzt Dokument- und Fragepräfixe getrennt,
+  bindet sie an den Endpoint-PlanKey und erhält die Liveprüfung von Version,
+  Capability, Dimension und Manifestdigest. Dasselbe Profil macht das bereits
+  katalogisierte Nomic-v2-MoE-Modell im Ad-hoc-Pfad korrekt nutzbar. Docker und
+  Podman bestanden den Nomic-v1.5-Nachweis getrennt mit SQLrestart und
+  vollständigem Cleanup.
+
 - `Invoke-SqlServerLabAiPersistentRetrieval -Action Prune` begrenzt alte
   abgeschlossene Generationen einer callerverwalteten v1-Collection nach
   erfolgreichem Sync. Der modellfreie, idempotente SQL-Schritt bindet Besitzer

@@ -165,6 +165,9 @@ try {
         }
     }
     Add-CheckResult 'KI-Modell-, Endpoint-, Journal- und Ergebnisverträge sind lokal parse- und schema-valide' $contractsValid
+    $modelCatalog=Get-Content (Join-Path $repoRoot 'Catalogs/ai-models.json') -Raw -Encoding utf8|ConvertFrom-Json -Depth 30
+    Add-CheckResult 'Alle aktuellen Embeddingmodelle deklarieren ihr Eingabeprofil explizit' (
+        @($modelCatalog.models|Where-Object purpose -eq embedding|Where-Object inputProfile -notin @('raw','nomic-search')).Count -eq 0)
 
     $stubPlan=& $module { New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-300m-q4 -EndpointRef deterministic-stub -Lane stub -RetryCount 1 }
     $httpsStubPlan=& $module {
@@ -185,7 +188,7 @@ try {
     $httpsStubProjection=[ordered]@{
         Contract=$httpsStubPlan.Contract;Status=$httpsStubPlan.Status;Lane=$httpsStubPlan.Lane
         EndpointRef=$httpsStubPlan.EndpointRef;TargetHost=$httpsStubPlan.TargetHost;ModelKey=$httpsStubPlan.ModelKey
-        Purpose=$httpsStubPlan.Purpose;Dimension=$httpsStubPlan.Dimension;Port=$httpsStubPlan.Port
+        Purpose=$httpsStubPlan.Purpose;Dimension=$httpsStubPlan.Dimension;InputProfile=$httpsStubPlan.InputProfile;Port=$httpsStubPlan.Port
         ServerCertificateSha256=$httpsStubPlan.ServerCertificateSha256;CredentialRef=$httpsStubPlan.CredentialRef
         Egress=$httpsStubPlan.Egress;RequestBudget=$httpsStubPlan.RequestBudget;Blockers=@($httpsStubPlan.Blockers)
         Warnings=@($httpsStubPlan.Warnings);PlanKey=$httpsStubPlan.PlanKey
@@ -259,7 +262,8 @@ try {
     Add-CheckResult 'Cloudplan verlangt expliziten Egress und projiziert nur CredentialRef und Zielhost' (
         $cloudBlocked.Status -eq 'BLOCKED' -and $cloudBlocked.Blockers -contains 'AI_ENDPOINT_CLOUD_EGRESS_NOT_ALLOWED' -and
         $cloudReady.Status -eq 'NOT_PROBED' -and $cloudReady.CredentialRef -eq 'SQL_SERVER_LAB_SECRET_OLLAMA' -and
-        $cloudReady.TargetHost -eq 'ollama.com' -and ($cloudReady | ConvertTo-Json -Depth 10) -notmatch 'Bearer|api_key')
+        $cloudReady.TargetHost -eq 'ollama.com' -and $null -eq $cloudReady.InputProfile -and
+        ($cloudReady | ConvertTo-Json -Depth 10) -notmatch 'Bearer|api_key')
 
     $missingSecretPath=Join-Path $temporaryRoot 'does-not-exist.env'
     $publicCloudPlan=& $module {
@@ -296,7 +300,8 @@ try {
     }
     Add-CheckResult 'Lokaler WhatIf-Plan bindet dynamischen Loopback-Port ohne Credential oder Egress' (
         (($publicLocalPlan | ConvertTo-Json -Depth 20) | Test-Json -SchemaFile $endpointSchema -ErrorAction SilentlyContinue) -and
-        $publicLocalPlan.Port -eq 23456 -and $null -eq $publicLocalPlan.CredentialRef -and $publicLocalPlan.Egress -eq 'denied')
+        $publicLocalPlan.Port -eq 23456 -and $publicLocalPlan.InputProfile -ceq 'raw' -and
+        $null -eq $publicLocalPlan.CredentialRef -and $publicLocalPlan.Egress -eq 'denied')
 
     $laneMismatch=& $module {
         New-LabAiEndpointPlan -ModelKey ollama-gpt-oss-120b-cloud -EndpointRef ollama-local -Lane local

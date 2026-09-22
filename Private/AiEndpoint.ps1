@@ -85,6 +85,7 @@ function New-LabAiEndpointPlan {
         Contract='SqlServerLab.AiEndpointPlan/1.0';Lane=$Lane;EndpointRef=$EndpointRef
         ModelKey=$ModelKey;Model=[string]$model.model;IdentityPolicy=[string]$model.identityPolicy
         Purpose=[string]$model.purpose;Dimension=if ($model.dimension) { [int]$model.dimension } else { $null }
+        InputProfile=if ($model.inputProfile) { [string]$model.inputProfile } elseif ([string]$model.purpose -eq 'embedding') { 'raw' } else { $null }
         Port=if ($Lane -eq 'local') { $LocalPort } elseif ($stubUri) { $stubUri.Port } else { $null }
         ServerCertificateSha256=if ($StubServerCertificateSha256) { $StubServerCertificateSha256.ToLowerInvariant() } else { $null }
         CredentialRef=$credentialRef;Egress=if ($AllowCloudEgress) { 'explicit' } else { 'denied' }
@@ -95,6 +96,7 @@ function New-LabAiEndpointPlan {
         Status=if ($blockers.Count) { 'BLOCKED' } else { 'NOT_PROBED' }
         Lane=$Lane;EndpointRef=$EndpointRef;TargetHost=if ($stubUri) { $stubUri.Host } else { $hostName };ModelKey=$ModelKey
         Purpose=[string]$model.purpose;Dimension=if ($model.dimension) { [int]$model.dimension } else { $null }
+        InputProfile=$planIdentity.InputProfile
         Port=if ($Lane -eq 'local') { $LocalPort } elseif ($stubUri) { $stubUri.Port } else { $null }
         ServerCertificateSha256=if ($StubServerCertificateSha256) { $StubServerCertificateSha256.ToLowerInvariant() } else { $null }
         CredentialRef=$credentialRef;Egress=if ($AllowCloudEgress) { 'explicit' } else { 'denied' }
