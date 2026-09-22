@@ -6,6 +6,7 @@ $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $failures=[Collections.Generic.List[string]]::new();$passed=0
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 $h='a'*64;$c='b'*64
+$artifactRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-ai-artifacts-'+[guid]::NewGuid().ToString('N'))
 try {
     $plan=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU -Location 'https://host.docker.internal:11435/v1/embeddings' -ExternalModelName LocalNpuEmbedding -RuntimeModel bound-model -Dimension 768 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
     Add-CheckResult 'OpenVINO-NPU-Plan bleibt bis zur Live-Evidence NOT_PROBED' ($plan.Status -eq 'NOT_PROBED' -and $plan.EvidenceStatus -eq 'CONFIGURATION_ONLY' -and $plan.ApiFormat -eq 'OpenAI')
@@ -20,6 +21,37 @@ try {
     $wrongPath=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU -Location 'https://localhost:11435/v3/embeddings' -ExternalModelName WrongPath -RuntimeModel model -Dimension 768 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
     Add-CheckResult 'Backendfremder Embeddingpfad blockiert' ($wrongPath.Status -eq 'BLOCKED' -and 'AI_EXTERNAL_MODEL_ENDPOINT_PATH_MISMATCH' -in $wrongPath.Blockers)
     Add-CheckResult 'Beschleunigernachweis bleibt explizit offen' ('ACCELERATOR_RUNTIME_ATTESTATION' -in $plan.RequiredEvidence)
+
+    $null=New-Item -ItemType Directory -Path $artifactRoot -Force
+    $runtimePath=Join-Path $artifactRoot 'llama-server.exe'
+    $modelPath=Join-Path $artifactRoot 'embedding.gguf'
+    $wrongModelPath=Join-Path $artifactRoot 'wrong.gguf'
+    [IO.File]::WriteAllBytes($runtimePath,[byte[]](1,2,3,4,5))
+    [IO.File]::WriteAllBytes($modelPath,[byte[]](6,7,8,9))
+    [IO.File]::WriteAllBytes($wrongModelPath,[byte[]](9,8,7,6))
+    $runtimeHash=(Get-FileHash -LiteralPath $runtimePath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $modelHash=(Get-FileHash -LiteralPath $modelPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $artifactPlan=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU `
+        -Location 'https://localhost:11435/v1/embeddings' -ExternalModelName LocalNpuEmbedding `
+        -RuntimeModel bound-model -Dimension 3 -ModelSha256 $modelHash -RuntimeSha256 $runtimeHash `
+        -ServerCertificateSha256 $c
+    $artifactReceipt=$artifactPlan | Test-SqlServerLabAiExternalModelArtifact -RuntimePath $runtimePath -ModelPath $modelPath
+    Add-CheckResult 'Lokale Runtime- und Modelldateien werden gegen den Plan verifiziert' (
+        $artifactReceipt.Status -eq 'ARTIFACTS_VERIFIED' -and
+        @($artifactReceipt.VerifiedEvidence) -join ',' -eq 'RUNTIME_BINARY_MATCH,MODEL_FILE_MATCH' -and
+        'ACCELERATOR_RUNTIME_ATTESTATION' -in $artifactReceipt.PendingEvidence)
+    Add-CheckResult 'Artifact-Receipt ist schema-valide und enthält keine lokalen Pfade' (
+        ($artifactReceipt|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-artifact-receipt.schema.json')) -and
+        ($artifactReceipt|ConvertTo-Json -Depth 10) -notmatch '(?i)(llama-server|embedding\.gguf|C:\\|/home/)')
+    $modelMismatch=$null
+    try{$artifactPlan|Test-SqlServerLabAiExternalModelArtifact -RuntimePath $runtimePath -ModelPath $wrongModelPath;$modelMismatch='NO_ERROR'}catch{$modelMismatch=$_.Exception.Message}
+    Add-CheckResult 'Abweichende Modelldatei scheitert geschlossen' ($modelMismatch -eq 'AI_EXTERNAL_MODEL_MODEL_HASH_MISMATCH')
+    $runtimeMissing=$null
+    try{$artifactPlan|Test-SqlServerLabAiExternalModelArtifact -RuntimePath (Join-Path $artifactRoot 'missing.exe') -ModelPath $modelPath;$runtimeMissing='NO_ERROR'}catch{$runtimeMissing=$_.Exception.Message}
+    Add-CheckResult 'Fehlende Runtime scheitert ohne Pfadleak mit stabilem Fehlercode' ($runtimeMissing -eq 'AI_EXTERNAL_MODEL_RUNTIME_FILE_UNREADABLE')
+    $samePath=$null
+    try{$artifactPlan|Test-SqlServerLabAiExternalModelArtifact -RuntimePath $runtimePath -ModelPath $runtimePath;$samePath='NO_ERROR'}catch{$samePath=$_.Exception.Message}
+    Add-CheckResult 'Runtime und Modell müssen getrennte Dateien sein' ($samePath -eq 'AI_EXTERNAL_MODEL_ARTIFACT_PATHS_MUST_DIFFER')
 
     $requestCapture=[Runtime.CompilerServices.StrongBox[object]]::new()
     $transport={param($request)$requestCapture.Value=$request;[PSCustomObject]@{
@@ -60,7 +92,13 @@ try {
     Add-CheckResult 'Öffentliche Probe ist exportiert und verbirgt den Testtransport' (
         (Get-Command Test-SqlServerLabAiExternalModelEndpoint -Module $module.Name).Parameters.ContainsKey('TrustedRootCertificate') -and
         -not (Get-Command Test-SqlServerLabAiExternalModelEndpoint -Module $module.Name).Parameters.ContainsKey('Transport'))
+    Add-CheckResult 'Öffentliche Artifact-Prüfung ist exportiert und verlangt beide lokalen Dateien' (
+        (Get-Command Test-SqlServerLabAiExternalModelArtifact -Module $module.Name).Parameters.ContainsKey('RuntimePath') -and
+        (Get-Command Test-SqlServerLabAiExternalModelArtifact -Module $module.Name).Parameters.ContainsKey('ModelPath'))
 }
-finally {Remove-Module $module -Force -ErrorAction SilentlyContinue}
+finally {
+    Remove-Module $module -Force -ErrorAction SilentlyContinue
+    if(Test-Path -LiteralPath $artifactRoot){Remove-Item -LiteralPath $artifactRoot -Recurse -Force}
+}
 Write-Host "`nAI external model acceleration checks: $passed passed, $($failures.Count) failed"
 if($failures.Count){$failures|ForEach-Object{Write-Host " - $_" -ForegroundColor Red};exit 1}

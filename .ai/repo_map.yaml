@@ -75,8 +75,10 @@ sources_of_truth:
   ai_runtime_journal_schema: Schemas/ai-runtime-journal.schema.json
   ai_external_model_contract: Private/AiExternalModelAcceleration.ps1
   ai_external_model_plan_api: Public/Get-SqlServerLabAiExternalModelPlan.ps1
+  ai_external_model_artifact_api: Public/Test-SqlServerLabAiExternalModelArtifact.ps1
   ai_external_model_probe_api: Public/Test-SqlServerLabAiExternalModelEndpoint.ps1
   ai_external_model_plan_schema: Schemas/ai-external-model-plan.schema.json
+  ai_external_model_artifact_receipt_schema: Schemas/ai-external-model-artifact-receipt.schema.json
   ai_external_model_endpoint_receipt_schema: Schemas/ai-external-model-endpoint-receipt.schema.json
   validation_ai_external_model: Tests/Static/Invoke-AiExternalModelAccelerationChecks.ps1
   ai_external_model_acceleration_howto: Documentation/User/SQL_AI_LOCAL_ACCELERATION.md

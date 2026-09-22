@@ -207,6 +207,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Plans an existing OpenAI-compatible HTTPS embedding endpoint with hash
         bindings and without network or host mutation.
 
+    Test-SqlServerLabAiExternalModelArtifact
+        Verifies local runtime and model files read-only against the SHA-256
+        values in the plan without claiming process or accelerator evidence.
+
     Test-SqlServerLabAiExternalModelEndpoint
         Verifies the certificate pin, OpenAI response shape, and embedding
         dimension with one fixed synthetic request without claiming accelerator evidence.

@@ -1475,6 +1475,10 @@ Gateway und eigene SQL-CA. Die native Docker-Abnahme bestand am 2026-09-21:
 sieben SQL-Embeddings, WrongCA-/WrongSAN-Ablehnung, Auth-/Payloadnegative,
 Retrieval vor/nach SQLrestart und vollständiges eigenes Cleanup. Allgemeiner
 Gatewaybetrieb und weitere Provider sind damit nicht belegt.
+Für weitere OpenAI-kompatible Backends sind ein hashgebundener Plan sowie
+getrennte read-only Prüfungen der lokalen Runtime-/Modelldateien und des
+HTTPS-Embedding-Endpunkts implementiert. Diese Nachweise bestätigen keine
+Prozessidentität, Acceleratornutzung oder SQL-seitige External-Model-Abnahme.
 Weitere Zielmodelle und Dimensionswechsel bleiben offen. Die begrenzte
 [Migration](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) der festen Fixture
 und callerverwalteter Collections von Embeddinggemma zu Nomic ist offline sowie

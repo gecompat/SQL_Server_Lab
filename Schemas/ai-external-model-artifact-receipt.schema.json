@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-external-model-artifact-receipt.schema.json",
+  "title": "SQL Server Lab AI External Model Artifact Receipt",
+  "type": "object",
+  "required": ["Contract","Status","EvidenceStatus","PlanKey","Backend","RuntimeSha256","ModelSha256","VerifiedEvidence","PendingEvidence"],
+  "properties": {
+    "Contract": {"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiExternalModelArtifactReceipt"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status": {"const":"ARTIFACTS_VERIFIED"},
+    "EvidenceStatus": {"const":"LOCAL_ARTIFACTS"},
+    "PlanKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "Backend": {"enum":["LlamaCppOpenVino","OpenVinoModelServer","LlamaCppRocm","LlamaCppCuda","LlamaCppSnapdragonOpenCl","LlamaCppSnapdragonHexagon"]},
+    "RuntimeSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "ModelSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "VerifiedEvidence": {"type":"array","minItems":2,"uniqueItems":true,"items":{"enum":["RUNTIME_BINARY_MATCH","MODEL_FILE_MATCH"]}},
+    "PendingEvidence": {"type":"array","minItems":5,"uniqueItems":true,"items":{"enum":["HTTPS_CERTIFICATE_MATCH","OPENAI_RESPONSE_SHAPE_MATCH","EMBEDDING_DIMENSION_MATCH","FINITE_NUMERIC_VECTOR_MATCH","ACCELERATOR_RUNTIME_ATTESTATION"]}}
+  },
+  "additionalProperties": false
+}
