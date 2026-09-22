@@ -2,8 +2,10 @@
 
 Stand: 2026-09-22. Status: `VALIDATED_REFERENCE`. Der erste Slice
 speichert einen festen synthetischen Dokumentbestand und seine Vektoren in
-einer eigenen Datenbank eines laufenden Docker-/Podman-Runs. Er verwendet das
-bereits vorhandene lokale `embeddinggemma:latest` mit 768 Dimensionen. Es gibt
+einer eigenen Datenbank eines laufenden Docker-/Podman-Runs. Er verwendet
+standardmäßig das bereits vorhandene lokale `embeddinggemma:latest` mit 768
+Dimensionen. `-EmbeddingModelKey ollama-bge-m3-latest` wählt für Apply, Query
+und Sync das vorhandene lokale `bge-m3:latest` mit 1024 Dimensionen. Es gibt
 keinen Modell-Download, Host-Neustart, Cloudaufruf oder Generierungsschritt.
 
 ## Öffentlicher Ablauf
@@ -22,6 +24,8 @@ akzeptiert keine SQL-Texte, Datenbanknamen oder Verbindungszeichenfolgen.
 ```powershell
 $collectionId = [guid]::NewGuid().ToString('D')
 $scope = @{ RunId=$runId; CollectionId=$collectionId; StateRoot=$stateRoot }
+# Optional vor Apply setzen und bei jeder folgenden modellnutzenden Aktion beibehalten:
+# $scope.EmbeddingModelKey = 'ollama-bge-m3-latest'
 Invoke-SqlServerLabAiPersistentRetrieval @scope -WhatIf
 Invoke-SqlServerLabAiPersistentRetrieval @scope -FixtureRevision Initial
 Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Query -QueryId backup
@@ -29,6 +33,7 @@ Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Query -QueryId backup -S
 Invoke-SqlServerLabAiPersistentRetrieval @scope -FixtureRevision Delta
 # Nur nach unterbrochenem Apply mit exakt derselben Revision:
 Invoke-SqlServerLabAiPersistentRetrieval @scope -FixtureRevision Delta -Resume
+$scope.Remove('EmbeddingModelKey') # Remove und Prune sind modellfrei.
 Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Remove
 
 $documents = @(
@@ -86,13 +91,13 @@ und löst Gleichstände deterministisch per Distanz und Chunk-ID auf. Wörter mi
 weniger als vier Zeichen und definierte Satzzeichen gehen nicht in den
 lexikalischen Score ein. Die Berechnung verwendet nur parametrisierte feste SQL
 und ausschließlich die aktive Generation. Sie ist für die
-Embeddinggemma-Generationen 1 und 2 freigegeben. Der separate Nomic-
+EmbeddingGemma- und BGE-M3-v1-Generationen freigegeben. Der separate Nomic-
 Modellmigrationspfad bleibt reine Vektorsuche. SQL Server Full-Text Search mit
 sprachspezifischem Word Breaker und Ranking bleibt ein eigener offener Slice,
 weil das offizielle Standard-Containerimage das optionale
 `mssql-server-fts`-Paket nicht enthält.
-`VECTOR_DISTANCE`-Cosinesuche, keinen ANN-Index. SQL speichert `VECTOR(768)`
-mit float32; die JSON-Konvertierung ist ein dokumentierter
+`VECTOR_DISTANCE`-Cosinesuche, keinen ANN-Index. SQL speichert abhängig von
+der gebundenen Collection `VECTOR(768)` oder `VECTOR(1024)` mit float32; die JSON-Konvertierung ist ein dokumentierter
 [SQL-Vektorvertrag](https://learn.microsoft.com/en-us/sql/t-sql/data-types/vector-data-type?view=sql-server-ver17).
 
 ## Besitz, Nebenläufigkeit und Recovery
@@ -121,8 +126,9 @@ gespeicherten SQL-Vektorrepräsentation. Resume liest diese Receipts aus SQL,
 prüft sie und ergänzt ausschließlich nachweislich fehlende Chunks. Das lokale
 Journal ist kein Beweis dafür, dass ein SQL-Schritt abgeschlossen wurde.
 Unveränderte Vektoren dürfen nur aus der vollständig validierten aktiven
-Generation mit derselben Modellidentität kopiert werden. Digest-/Versionsdrift
-blockiert Apply und Query, aber nicht das exakt besitzgebundene Remove.
+Generation mit derselben Modellidentität kopiert werden. Digest-/Versions-/
+Dimensionsdrift blockiert Apply und Query, aber nicht das exakt besitzgebundene
+Remove oder Prune.
 Query prüft außerdem den Plan-Schlüssel der aktiven SQL-Generation gegen die
 rekonstruierte Fixture- beziehungsweise erneut übergebene Caller-Dokument- und
 Endpointbindung, bevor es ein Embedding erzeugt. Bei `Sync` bindet ein eigener
@@ -161,7 +167,10 @@ oder eine abschließende Modellmigrationsgeneration mit jeweils 1 bis 16
 Dokumenten. Explizites `Prune` begrenzt abgeschlossene v1-Caller-Generationen,
 setzt die monotone Generationsnummer jedoch nicht zurück. Nach Generation 32
 blockiert daher weiterhin `AI_PERSISTENT_GENERATION_LIMIT_REACHED`;
-automatische Retention ist nicht implementiert. Datenfile maximal
+automatische Retention ist nicht implementiert. Die Nomic-v2-Migration bleibt
+an ihre validierte EmbeddingGemma-768-Quelle gebunden; eine BGE-M3-Collection
+kann abgefragt, synchronisiert, begrenzt und entfernt, derzeit aber nicht zu
+Nomic migriert werden. Datenfile maximal
 64 MiB, Log maximal 32 MiB. Fixture-Initial erzeugt drei Embeddings, Delta zwei
 und kopiert einen unveränderten Vektor. Caller-Initial erzeugt ein Embedding je
 Dokument. Query erzeugt ein Embedding. Retry ist

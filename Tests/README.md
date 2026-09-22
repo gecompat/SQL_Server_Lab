@@ -728,8 +728,20 @@ getrennt mit je 25 Assertions und vollständigem Cleanup. Details im
 [Migrationsvertrag](../Documentation/Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
 
 `Tests/Static/Invoke-AiPersistentRetrievalChecks.ps1` prüft den eigenen SQL-
-Generationsvertrag offline. Die native Abnahme verwendet vorhandenes lokales
-Embeddinggemma und getrennte eigene SQL-Runs:
+Generationsvertrag offline, einschließlich der exakten 768-/1024-dimensionalen
+SQL-Bindung für EmbeddingGemma und BGE-M3. Der geführte Podman-
+Erstellungsnachweis kann beide öffentlichen Auswahlen prüfen:
+
+```powershell
+.\Tests\Integration\Invoke-AiPodmanSetupAcceptance.ps1
+.\Tests\Integration\Invoke-AiPodmanSetupAcceptance.ps1 -EmbeddingModelKey ollama-bge-m3-latest
+```
+
+Der BGE-M3-Lauf bestand am 2026-09-22 mit sechs Assertions, Query vor und nach
+SQLrestart, unverändertem Hostmodellinventar und `CLEANUP=COMPLETED`.
+
+Die allgemeine persistente Abnahme verwendet standardmäßig EmbeddingGemma und
+getrennte eigene SQL-Runs:
 
 ```powershell
 .\Tests\Integration\Invoke-AiPersistentRetrievalAcceptance.ps1 -Provider docker

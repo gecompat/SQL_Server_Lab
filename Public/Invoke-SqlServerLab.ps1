@@ -6024,10 +6024,12 @@ function Show-LabAiPodmanEnvironmentsInteractive {
         if ($entry.RunId) { Write-LabStatus -Label 'RunId' -Value $entry.RunId }
         Write-LabStatus -Label 'CollectionId' -Value $entry.CollectionId
         Write-LabStatus -Label 'Ollama-Port' -Value $entry.LocalPort
+        Write-LabStatus -Label 'Embeddingmodell' -Value $entry.EmbeddingModelKey
+        Write-LabStatus -Label 'Dimensionen' -Value $entry.Dimension
         if ($entry.Status -cne 'READY') { Write-LabInfo 'Unvollständiger Vorgang: Status der Umgebung und Bereinigung prüfen; nicht erneut übernehmen.' }
     }
     Write-LabInfo 'SQL-Zugang und Start/Stop befinden sich in der Verbindungszentrale beziehungsweise unter Umgebungen.'
-    Write-LabInfo 'Gespeicherte Beispieldaten: Invoke-SqlServerLabAiPersistentRetrieval -RunId <RunId> -CollectionId <CollectionId> -Action Query -QueryId backup -LocalPort <Ollama-Port>'
+    Write-LabInfo 'Gespeicherte Beispieldaten: Invoke-SqlServerLabAiPersistentRetrieval -RunId <RunId> -CollectionId <CollectionId> -Action Query -QueryId backup -EmbeddingModelKey <Embeddingmodell> -LocalPort <Ollama-Port>'
 }
 
 function Invoke-LabAiPodmanSetupInteractive {
@@ -6040,22 +6042,27 @@ function Invoke-LabAiPodmanSetupInteractive {
         $name=Read-LabConsoleTextInput -Prompt 'Name der KI-Testumgebung' -Default 'Podman KI'
         if ($name.Status -ceq 'Cancelled') { return New-LabActionResult -Action AiPodmanSetup -Status Cancelled }
     }
+    $modelChoice=Read-LabChoice -Prompt 'Welches lokale Embeddingmodell verwenden?' -Default 1 -Options @(
+        'EmbeddingGemma · 768 Dimensionen · kompakt (Standard)',
+        'BGE-M3 · 1024 Dimensionen · mehrsprachig'
+    )
+    $embeddingModelKey=@('ollama-embeddinggemma-latest','ollama-bge-m3-latest')[$modelChoice]
     $port=Read-LabAiPodmanSetupNumber -Prompt 'Port des vorhandenen lokalen Ollama-Dienstes' -Default 11434 -Minimum 1024 -Maximum 65535
     if ($null -eq $port) { return New-LabActionResult -Action AiPodmanSetup -Status Cancelled }
     $cpu=Read-LabAiPodmanSetupNumber -Prompt 'SQL-Prozessorkerne' -Default 2 -Minimum 1 -Maximum 8
     if ($null -eq $cpu) { return New-LabActionResult -Action AiPodmanSetup -Status Cancelled }
     $memory=Read-LabAiPodmanSetupNumber -Prompt 'SQL-Arbeitsspeicher in MiB' -Default 4096 -Minimum 2560 -Maximum 65536
     if ($null -eq $memory) { return New-LabActionResult -Action AiPodmanSetup -Status Cancelled }
-    try { $plan=New-LabAiPodmanSetupPlan -Name $name.Value -LocalPort $port -Cpu $cpu -MemoryMB $memory }
+    try { $plan=New-LabAiPodmanSetupPlan -Name $name.Value -LocalPort $port -Cpu $cpu -MemoryMB $memory -EmbeddingModelKey $embeddingModelKey }
     catch {
         $message=if ($_.Exception.Message -ceq 'AI_PODMAN_SETUP_MODEL_UNAVAILABLE') {
-            'Lokales embeddinggemma:latest ist nicht passend verfügbar. Vorhandenen Ollama-Dienst, Modell und 768 Dimensionen prüfen.'
+            "Das gewählte lokale Embeddingmodell $embeddingModelKey ist nicht passend verfügbar. Vorhandenen Ollama-Dienst, Modell und Dimensionsbindung prüfen."
         } else { 'Podman ist nicht bereit. Laufende Runtime und Zugriffsberechtigung prüfen; dieses Menü startet keine Podman-Machine.' }
         Write-LabWarning $message
         return New-LabActionResult -Action AiPodmanSetup -Status Failed -ErrorCode AI_PODMAN_SETUP_PREFLIGHT_FAILED
     }
     Write-LabInfo "Neue Umgebung: $($plan.name) · Podman · SQL Server 2025 · $cpu Kerne · $memory MiB."
-    Write-LabInfo "Vorhandenes lokales embeddinggemma:latest auf Port $port; drei synthetische Dokumente und eine überprüfte Beispielsuchabfrage."
+    Write-LabInfo "Vorhandenes lokales $($plan.modelBinding.Model) mit $($plan.modelBinding.Dimension) Dimensionen auf Port $port; drei synthetische Dokumente und eine überprüfte Beispielsuchabfrage."
     Write-LabInfo 'SQL-Zugang wird verwaltet erzeugt. Daten bleiben im Lab-Volume erhalten; Entfernen der Umgebung löscht sie.'
     if (-not (Read-LabConfirm -Prompt 'Diese KI-Testumgebung jetzt erstellen?' -Default $false)) {
         return New-LabActionResult -Action AiPodmanSetup -Status Cancelled

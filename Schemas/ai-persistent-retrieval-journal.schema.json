@@ -88,23 +88,39 @@
       ],
       "properties": {
         "ModelKey": {
-          "const": "ollama-embeddinggemma-latest"
+          "type": "string"
         },
         "Version": {
           "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
           "type": "string"
         },
         "Dimension": {
-          "const": 768
+          "type": "integer"
         },
         "Model": {
-          "const": "embeddinggemma:latest"
+          "type": "string"
         },
         "Digest": {
           "pattern": "^[a-f0-9]{64}$",
           "type": "string"
         }
       },
+      "oneOf": [
+        {
+          "properties": {
+            "ModelKey": { "const": "ollama-embeddinggemma-latest" },
+            "Model": { "const": "embeddinggemma:latest" },
+            "Dimension": { "const": 768 }
+          }
+        },
+        {
+          "properties": {
+            "ModelKey": { "const": "ollama-bge-m3-latest" },
+            "Model": { "const": "bge-m3:latest" },
+            "Dimension": { "const": 1024 }
+          }
+        }
+      ],
       "type": "object"
     },
     "revision": {

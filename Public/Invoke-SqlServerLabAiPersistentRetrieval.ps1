@@ -21,6 +21,10 @@
 .PARAMETER TargetModelKey
     Ausschließlich für Migrate: ollama-nomic-embed-text-v2-moe. Die feste Fixture benötigt Delta;
     callerverwaltete Dokumente behalten FixtureRevision Initial.
+.PARAMETER EmbeddingModelKey
+    Lokales Embeddingmodell für Apply, Query und Sync. EmbeddingGemma bleibt der
+    Standard; BGE-M3 verwendet 1024 Dimensionen. Bei Query muss die Auswahl zur
+    v1-Collection passen. Migrate bindet sein Zielmodell separat.
 .PARAMETER FixtureRevision
     Initial oder Delta. Delta aktualisiert, entfernt und ergänzt feste synthetische Dokumente.
 .PARAMETER QueryId
@@ -71,6 +75,7 @@ function Invoke-SqlServerLabAiPersistentRetrieval {
         [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$CollectionId,
         [ValidateSet('Apply','Query','Remove','Migrate','Sync','Prune')][string]$Action='Apply',
         [ValidateSet('ollama-nomic-embed-text-v2-moe')][string]$TargetModelKey,
+        [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',
         [ValidateSet('Initial','Delta')][string]$FixtureRevision='Initial',
         [ValidateSet('backup','cleanup')][string]$QueryId='backup',
         [ValidateCount(1,16)][object[]]$Documents,
@@ -82,11 +87,12 @@ function Invoke-SqlServerLabAiPersistentRetrieval {
         [ValidateRange(1,31)][int]$KeepGenerations=2
     )
     if($Action -ne 'Prune' -and $PSBoundParameters.ContainsKey('KeepGenerations')){throw 'AI_PERSISTENT_RETENTION_UNEXPECTED'}
-    $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId $InstanceId -CollectionId $CollectionId -Action $Action -FixtureRevision $FixtureRevision -QueryId $QueryId -Documents $Documents -ExpectedDocuments $ExpectedDocuments -Question $Question -SearchMode $SearchMode -LocalPort $LocalPort -TimeoutSeconds $TimeoutSeconds -Resume:$Resume -TargetModelKey $TargetModelKey -KeepGenerations $KeepGenerations
+    if($PSBoundParameters.ContainsKey('EmbeddingModelKey') -and $Action -in @('Remove','Migrate','Prune')){throw 'AI_PERSISTENT_MODEL_SELECTION_UNEXPECTED'}
+    $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId $InstanceId -CollectionId $CollectionId -Action $Action -FixtureRevision $FixtureRevision -QueryId $QueryId -Documents $Documents -ExpectedDocuments $ExpectedDocuments -Question $Question -SearchMode $SearchMode -LocalPort $LocalPort -TimeoutSeconds $TimeoutSeconds -Resume:$Resume -TargetModelKey $TargetModelKey -EmbeddingModelKey $EmbeddingModelKey -KeepGenerations $KeepGenerations
     if(-not $PSCmdlet.ShouldProcess("Run $RunId / Collection $CollectionId",$Action)){
         $fixedModel=$Action -in @('Apply','Migrate','Sync')
         $selection=if($fixedModel){'FIXED'}elseif($Action -eq 'Query'){'ACTIVE_SQL_GENERATION'}else{'NOT_REQUIRED'}
-        return [pscustomobject]@{Status='PLANNED';Action=$Action;CollectionId=$CollectionId;Revision=$(if($fixedModel){$plan.Revision}else{$null});PlanKey=$plan.PlanKey;ModelKey=$(if($fixedModel){$plan.EndpointPlan.ModelKey}else{$null});ModelSelection=$selection;DatasetMode=$plan.DatasetMode;DocumentCount=$plan.Documents.Count;ExpectedDocumentCount=$(if($Action -eq 'Sync'){$plan.ExpectedDocuments.Count}else{$null});KeepGenerations=$(if($Action -eq 'Prune'){$plan.KeepGenerations}else{$null});SearchMode=$SearchMode;Dimension=768}
+        return [pscustomobject]@{Status='PLANNED';Action=$Action;CollectionId=$CollectionId;Revision=$(if($fixedModel){$plan.Revision}else{$null});PlanKey=$plan.PlanKey;ModelKey=$(if($fixedModel){$plan.EndpointPlan.ModelKey}else{$null});ModelSelection=$selection;DatasetMode=$plan.DatasetMode;DocumentCount=$plan.Documents.Count;ExpectedDocumentCount=$(if($Action -eq 'Sync'){$plan.ExpectedDocuments.Count}else{$null});KeepGenerations=$(if($Action -eq 'Prune'){$plan.KeepGenerations}else{$null});SearchMode=$SearchMode;Dimension=$(if($plan.EndpointPlan){$plan.EndpointPlan.Dimension}else{$null})}
     }
     try{Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $StateRoot}
     catch{if($_.Exception.Message -match '^AI_PERSISTENT_[A-Z_]+$'){throw $_.Exception.Message};throw 'AI_PERSISTENT_RECOVERY_REQUIRED'}

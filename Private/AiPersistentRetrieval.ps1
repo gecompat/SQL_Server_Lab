@@ -30,7 +30,7 @@ function ConvertTo-LabAiPersistentDocuments {
 }
 
 function New-LabAiPersistentPlan {
-    param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume,[string]$TargetModelKey,[int]$KeepGenerations=2)
+    param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume,[string]$TargetModelKey,[ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',[int]$KeepGenerations=2)
     if($Resume -and $Action -notin @('Apply','Migrate','Sync')){throw 'AI_PERSISTENT_RESUME_ACTION_INVALID'}
     $callerSupplied=$null -ne $Documents
     if($Action -eq 'Migrate'){
@@ -70,9 +70,9 @@ function New-LabAiPersistentPlan {
         $questionText=[string]$fixture.queries.$QueryId
         $datasetMode='Fixture'
     }
-    $modelKey=if($Action -eq 'Migrate'){$TargetModelKey}else{'ollama-embeddinggemma-latest'}
+    $modelKey=if($Action -eq 'Migrate'){$TargetModelKey}else{$EmbeddingModelKey}
     $endpoint=New-LabAiEndpointPlan -ModelKey $modelKey -EndpointRef ollama-local -Lane local -LocalPort $LocalPort -MaximumRequests 1 -RetryCount 0 -TimeoutSeconds 60
-    if($endpoint.Status -eq 'BLOCKED' -or $endpoint.Dimension -ne 768){throw 'AI_PERSISTENT_MODEL_PLAN_INVALID'}
+    if($endpoint.Status -eq 'BLOCKED' -or $endpoint.Dimension -notin @(768,1024)){throw 'AI_PERSISTENT_MODEL_PLAN_INVALID'}
     $datasetHash=Get-LabAiPlanKey @($documents|ForEach-Object{[ordered]@{Id=$_.Id;Hash=$_.ContentHash}})
     $identity=[ordered]@{Contract='SqlServerLab.AiPersistentRetrieval/1.0';RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Revision=$FixtureRevision;DatasetHash=$datasetHash;EndpointPlanKey=$endpoint.PlanKey}
     if($callerSupplied){$identity.DatasetMode=$datasetMode}
@@ -133,7 +133,7 @@ function Invoke-LabAiPersistentRetrieval {
         $model=$null
         if($Plan.Action -notin @('Remove','Migrate','Prune') -and (-not $journal -or $journal.contract -ceq 'SqlServerLab.AiPersistentJournal/1.0')){
             $model=Get-LabAiPersistentModel $context $Plan $MetadataTransport
-            if($model.Dimension -ne 768){throw 'AI_PERSISTENT_MODEL_DIMENSION_INVALID'}
+            if($model.Dimension -ne $Plan.EndpointPlan.Dimension){throw 'AI_PERSISTENT_MODEL_DIMENSION_INVALID'}
             $modelHash=Get-LabAiPlanKey $model
             if($journal -and $journal.modelHash -cne $modelHash){throw 'AI_PERSISTENT_MODEL_DRIFT'}
         }
@@ -141,6 +141,11 @@ function Invoke-LabAiPersistentRetrieval {
             $token=[Convert]::ToHexString([Security.Cryptography.RandomNumberGenerator]::GetBytes(32)).ToLowerInvariant()
             $journal=[pscustomobject][ordered]@{contract='SqlServerLab.AiPersistentJournal/1.0';runId=$Plan.RunId;scopeId=$binding.ScopeId;instanceId=$Plan.InstanceId;collectionId=$Plan.CollectionId;bindingHash=$bindingHash;databaseName=('SqlLabAi_'+[guid]::NewGuid().ToString('N'));databaseGuid=$null;ownerToken=$token;modelBinding=$model;modelHash=$modelHash;operationId=[guid]::NewGuid().ToString('D');revision=$Plan.Revision;planKey=$Plan.PlanKey;datasetHash=$Plan.DatasetHash;status='CREATE_PENDING';activeGeneration=0;completedChunks=@()}
             Write-LabAiPersistentJournal $path $journal
+        }
+        $dimension=[int]$journal.modelBinding.Dimension
+        if($dimension -lt 1 -or $dimension -gt 1998 -or
+            ($Plan.Action -notin @('Remove','Prune') -and $dimension -ne [int]$Plan.EndpointPlan.Dimension)) {
+            throw 'AI_PERSISTENT_MODEL_DIMENSION_INVALID'
         }
         if($journal.status -eq 'REMOVED'){
             if($Plan.Action -ne 'Remove'){throw 'AI_PERSISTENT_COLLECTION_REMOVED'}
@@ -212,7 +217,7 @@ SELECT @retainedGenerations AS RetainedGenerations,@deletedGenerations AS Delete
             }else{
                 if([int]$owner.ActiveGeneration -notin @(1,2)){throw 'AI_PERSISTENT_ACTIVE_GENERATION_MISSING'}
                 $activeRevision=if([int]$owner.ActiveGeneration -eq 1){'Initial'}else{'Delta'}
-                $active=New-LabAiPersistentPlan -RunId $Plan.RunId -InstanceId $Plan.InstanceId -CollectionId $Plan.CollectionId -Action Query -FixtureRevision $activeRevision -QueryId $Plan.QueryId -SearchMode $Plan.SearchMode -LocalPort $Plan.EndpointPlan.Port -TimeoutSeconds $Plan.TimeoutSeconds
+                $active=New-LabAiPersistentPlan -RunId $Plan.RunId -InstanceId $Plan.InstanceId -CollectionId $Plan.CollectionId -Action Query -FixtureRevision $activeRevision -QueryId $Plan.QueryId -SearchMode $Plan.SearchMode -LocalPort $Plan.EndpointPlan.Port -TimeoutSeconds $Plan.TimeoutSeconds -EmbeddingModelKey $journal.modelBinding.ModelKey
             }
             $generation=@(Get-LabAiPersistentGeneration $context $journal ([int]$owner.ActiveGeneration))
             if($generation.Count -ne 1 -or $generation[0].Status -cne 'COMMITTED' -or $generation[0].ModelHash -cne $journal.modelHash -or $generation[0].DatasetHash -cne $active.DatasetHash -or $generation[0].PlanKey -cne $active.PlanKey){throw 'AI_PERSISTENT_GENERATION_DRIFT'}
@@ -220,12 +225,12 @@ SELECT @retainedGenerations AS RetainedGenerations,@deletedGenerations AS Delete
             $chunks=@(Get-LabAiPersistentChunks $context $journal ([int]$owner.ActiveGeneration));Assert-LabAiPersistentChunks $chunks $active.Documents -Complete
             $null=Get-LabAiPersistentModel $context $Plan $MetadataTransport $model
             $embedding=Get-LabAiPersistentEmbedding $context $Plan $Plan.Question $EmbeddingTransport;$requests+=$embedding.Attempts
-            $vector=ConvertTo-LabAiVectorLiteral -Vector @($embedding.Vector) -Dimension 768
+            $vector=ConvertTo-LabAiVectorLiteral -Vector @($embedding.Vector) -Dimension $dimension
             $null=Get-LabAiPersistentModel $context $Plan $MetadataTransport $model
             $null=Assert-LabTransferBinding -Expected $identity -StateRoot $StateRoot
             if($Plan.SearchMode -eq 'Hybrid'){
                 $ranked=@(Invoke-LabAiPersistentSql $context HybridQuery @"
-DECLARE @v VECTOR(768)=CAST(@vector AS VECTOR(768));
+DECLARE @v VECTOR($dimension)=CAST(@vector AS VECTOR($dimension));
 WITH QueryTerms AS (
  SELECT DISTINCT LOWER(value) AS Term
  FROM STRING_SPLIT(TRANSLATE(@question,N'.,;:!?()[]{}',N'            '),N' ')
@@ -242,7 +247,7 @@ SELECT TOP(3) ChunkId,ContentHash,Distance,LexicalScore,
 FROM Ranked ORDER BY HybridScore DESC,Distance,ChunkId;
 "@ @{vector=$vector;question=$Plan.Question;generation=[int]$owner.ActiveGeneration})
             }else{
-                $ranked=@(Invoke-LabAiPersistentSql $context Query "DECLARE @v VECTOR(768)=CAST(@vector AS VECTOR(768));SELECT TOP(3) c.ChunkId,c.ContentHash,CONVERT(float,VECTOR_DISTANCE('cosine',@v,c.Embedding)) AS Distance FROM [$($journal.databaseName)].dbo.LabChunks c JOIN [$($journal.databaseName)].dbo.LabOwner o ON c.Generation=o.ActiveGeneration WHERE o.Singleton=1 AND o.ActiveGeneration=@generation ORDER BY VECTOR_DISTANCE('cosine',@v,c.Embedding),c.ChunkId;" @{vector=$vector;generation=[int]$owner.ActiveGeneration})
+                $ranked=@(Invoke-LabAiPersistentSql $context Query "DECLARE @v VECTOR($dimension)=CAST(@vector AS VECTOR($dimension));SELECT TOP(3) c.ChunkId,c.ContentHash,CONVERT(float,VECTOR_DISTANCE('cosine',@v,c.Embedding)) AS Distance FROM [$($journal.databaseName)].dbo.LabChunks c JOIN [$($journal.databaseName)].dbo.LabOwner o ON c.Generation=o.ActiveGeneration WHERE o.Singleton=1 AND o.ActiveGeneration=@generation ORDER BY VECTOR_DISTANCE('cosine',@v,c.Embedding),c.ChunkId;" @{vector=$vector;generation=[int]$owner.ActiveGeneration})
             }
             $expectedRankedCount=[Math]::Min(3,$active.Documents.Count)
             if($ranked.Count -ne $expectedRankedCount -or @($ranked.ChunkId|Select-Object -Unique).Count -ne $expectedRankedCount){throw 'AI_PERSISTENT_QUERY_INVALID'}
@@ -321,9 +326,9 @@ FROM Ranked ORDER BY HybridScore DESC,Distance,ChunkId;
                 $null=Invoke-LabAiPersistentSql $context Copy "INSERT [$($journal.databaseName)].dbo.LabChunks SELECT @generation,ChunkId,Content,ContentHash,Embedding,VectorHash FROM [$($journal.databaseName)].dbo.LabChunks WHERE Generation=@previous AND ChunkId=@id AND ContentHash=@hash;" @{generation=$Plan.Generation;previous=[int]$owner.ActiveGeneration;id=$document.Id;hash=$document.ContentHash};$copied++
             }else{
                 $embedding=Get-LabAiPersistentEmbedding $context $Plan $document.Content $EmbeddingTransport;$requests+=$embedding.Attempts
-                $vector=ConvertTo-LabAiVectorLiteral -Vector @($embedding.Vector) -Dimension 768
+                $vector=ConvertTo-LabAiVectorLiteral -Vector @($embedding.Vector) -Dimension $dimension
                 $null=Get-LabAiPersistentModel $context $Plan $MetadataTransport $model
-                $null=Invoke-LabAiPersistentSql $context Insert "DECLARE @v VECTOR(768)=CAST(@vector AS VECTOR(768));INSERT [$($journal.databaseName)].dbo.LabChunks VALUES(@generation,@id,@content,@hash,@v,LOWER(CONVERT(char(64),HASHBYTES('SHA2_256',CAST(@v AS varchar(max))),2)));" @{generation=$Plan.Generation;id=$document.Id;content=$document.Content;hash=$document.ContentHash;vector=$vector}
+                $null=Invoke-LabAiPersistentSql $context Insert "DECLARE @v VECTOR($dimension)=CAST(@vector AS VECTOR($dimension));INSERT [$($journal.databaseName)].dbo.LabChunks VALUES(@generation,@id,@content,@hash,@v,LOWER(CONVERT(char(64),HASHBYTES('SHA2_256',CAST(@v AS varchar(max))),2)));" @{generation=$Plan.Generation;id=$document.Id;content=$document.Content;hash=$document.ContentHash;vector=$vector}
             }
             if($FaultInjector){& $FaultInjector 'AfterChunkSql' $document.Id}
             $rows=@(Get-LabAiPersistentChunks $context $journal $Plan.Generation);Assert-LabAiPersistentChunks $rows $Plan.Documents

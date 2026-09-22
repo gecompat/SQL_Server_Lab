@@ -1,7 +1,11 @@
 #Requires -Version 7.2
 <# Own temporary Podman environment; no persistent user environment is accepted as input. #>
 [CmdletBinding()]
-param([ValidateRange(1024,65535)][int]$LocalPort=11434,[switch]$RuntimeMutexAlreadyHeld)
+param(
+    [ValidateRange(1024,65535)][int]$LocalPort=11434,
+    [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',
+    [switch]$RuntimeMutexAlreadyHeld
+)
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-ai-podman-acceptance-'+[guid]::NewGuid().ToString('N'))
@@ -33,14 +37,14 @@ try {
     $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru -WarningAction SilentlyContinue
     & $module {param($Data)$null=Initialize-LabManagedDataRoot -DataRoot $Data -ControllerId ([guid]::NewGuid().ToString('D')) -Confirm:$false} $data
     $before=& $module {param($Port)Get-LabAiPlanKey @((Invoke-LabAiHostMetadata -Port $Port -Path /api/tags).models|Sort-Object name -CaseSensitive)} $LocalPort
-    $plan=& $module {param($Port)New-LabAiPodmanSetupPlan -Name 'ai-podman-cli-acceptance' -LocalPort $Port -Cpu 1 -MemoryMB 2560} $LocalPort
+    $plan=& $module {param($Port,$ModelKey)New-LabAiPodmanSetupPlan -Name 'ai-podman-cli-acceptance' -LocalPort $Port -Cpu 1 -MemoryMB 2560 -EmbeddingModelKey $ModelKey} $LocalPort $EmbeddingModelKey
     $result=& $module {param($Plan,$State)Invoke-LabAiPodmanSetup -Plan $Plan -StateRoot $State -Confirm:$false} $plan $state
-    Assert-AiSetupAcceptance ($result.Status -ceq 'READY' -and $result.RunId -and $result.CollectionId -ceq $plan.collectionId)
+    Assert-AiSetupAcceptance ($result.Status -ceq 'READY' -and $result.RunId -and $result.CollectionId -ceq $plan.collectionId -and $result.EmbeddingModelKey -ceq $EmbeddingModelKey -and $result.Dimension -eq $plan.modelBinding.Dimension)
     $directory=& $module {param($State,$Op)Get-LabAiPodmanSetupDirectory $State $Op} $state $plan.operationId
     $record=& $module {param($State,$Op)Read-LabAiPodmanSetupRecord $State $Op} $state $plan.operationId
     $entries=@(& $module {param($State)Get-LabAiPodmanSetupEntries -StateRoot $State} $state)
     Assert-AiSetupAcceptance ($entries.Count -eq 1 -and $entries[0].RunId -ceq $result.RunId -and $entries[0].CollectionId -ceq $result.CollectionId)
-    $parameters=@{RunId=$result.RunId;CollectionId=$result.CollectionId;StateRoot=$state;LocalPort=$LocalPort;TimeoutSeconds=300;Confirm=$false}
+    $parameters=@{RunId=$result.RunId;CollectionId=$result.CollectionId;StateRoot=$state;LocalPort=$LocalPort;EmbeddingModelKey=$EmbeddingModelKey;TimeoutSeconds=300;Confirm=$false}
     $query=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Query -QueryId backup
     Assert-AiSetupAcceptance ($query.Status -ceq 'QUERIED' -and $query.Generation -eq 1 -and $query.Ranked[0].ChunkId -ceq 'backup-policy')
     # Existing public restart is bounded; its normal provider text stays private.

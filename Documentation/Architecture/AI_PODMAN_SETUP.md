@@ -1,16 +1,17 @@
 # Podman-KI-Testumgebung aus der Konsole
 
-Stand: 2026-09-21. Status: `VALIDATED_REFERENCE`.
+Stand: 2026-09-22. Status: `VALIDATED_REFERENCE`.
 
 `Invoke-SqlServerLab` bietet unter **Datenbanken und Verbindungen → SQL Server 2025 KI → Podman-KI-Testumgebung
 erstellen** einen geführten Aufbau. Er erstellt nach Vorschau und Bestätigung
 einen neuen SQL-Server-2025-Podman-Run mit eigener Datenvolume, verwaltetem
 SA-Secret und der festen synthetischen Initial-Collection. Der Controller
-verwendet ausschließlich vorhandenes lokales Ollama mit
-`embeddinggemma:latest` und 768 Dimensionen. Anschließend muss die feste Frage
+verwendet ausschließlich vorhandenes lokales Ollama. Im Dialog ist
+`embeddinggemma:latest` mit 768 Dimensionen der Standard; alternativ kann
+`bge-m3:latest` mit 1024 Dimensionen gewählt werden. Anschließend muss die feste Frage
 `backup` das Dokument `backup-policy` zuerst finden.
 
-Der Dialog fragt Name, Ollama-Loopbackport (Standard 11434), CPU (Standard 2)
+Der Dialog fragt Name, Embeddingmodell, Ollama-Loopbackport (Standard 11434), CPU (Standard 2)
 und RAM in MB (Standard 4096). SQL erhält einen freien lokalen Port. Fehlende
 Podman-Bereitschaft, fehlendes Modell, Cloudidentität, falsche Capability,
 Dimension, Version oder fehlender Digest verhindern die Erstellung. Der
@@ -28,7 +29,8 @@ Center geöffnet; der Dialog gibt keine Kennwörter aus. Die feste Abfrage kann
 mit den angezeigten IDs erneut ausgeführt werden:
 
 ```powershell
-Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId -Action Query -QueryId backup
+Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId `
+    -Action Query -QueryId backup -EmbeddingModelKey $embeddingModelKey
 ```
 
 Bei abweichendem Ollama-Port ist derselbe `-LocalPort` anzugeben. Die bestehende
@@ -89,10 +91,17 @@ Runtime und null verbleibende eigene Container oder Volumes. Dies belegt den
 festen synthetischen Referenzfall; es ist keine Freigabe anderer Provider,
 Modelle, Cloud- oder SQL-External-Model-Pfade.
 
-Der eigene temporäre Test benötigt bereits bereites Podman und das vorhandene Modell:
+Die zusätzliche BGE-M3-Auswahl bestand am 2026-09-22 ebenfalls mit sechs
+Assertions: `VECTOR(1024)`, feste Top-ID vor und nach öffentlichem SQLrestart,
+unverändertes Ollama-Modellinventar sowie bestätigtes vollständiges Collection-
+und Whole-Run-Cleanup ohne eigene Container- oder Volumereste.
+
+Der eigene temporäre Test benötigt bereits bereites Podman und das ausgewählte vorhandene Modell:
 
 ```powershell
 ./Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1 -LocalPort 11434
+./Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1 -LocalPort 11434 `
+    -EmbeddingModelKey ollama-bge-m3-latest
 ```
 
 Der Harness erstellt ausschließlich einen eigenen temporären StateRoot und
