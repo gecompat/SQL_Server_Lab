@@ -68,6 +68,7 @@ Die SQL-seitige Verifikation bleibt offen.
 | `Get-SqlServerLabSqlObservabilityEvidence` | `Get-SqlServerLabSqlObservabilityEvidence.ps1` | Aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken direkt oder per Run-/Instanzbindung read-only erfassen, ohne Endpunkt-, SQL-Text-, Namens- oder Secretprojektion |
 | `Get-SqlServerLabAiScenario` | `Get-SqlServerLabAiScenario.ps1` | Hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen Run auflösen; Ausgabe bleibt frei von Pfaden, Endpoints und Secrets |
 | `Get-SqlServerLabAiExternalModelPlan` | `Get-SqlServerLabAiExternalModelPlan.ps1` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt hashgebunden für SQL `CREATE EXTERNAL MODEL` planen; keine Probe oder Hostmutation |
+| `Test-SqlServerLabAiExternalModelEndpoint` | `Test-SqlServerLabAiExternalModelEndpoint.ps1` | Geplanten HTTPS-Endpunkt mit festem synthetischem Request, echtem Zertifikatspin sowie Antwort- und Dimensionsprüfung read-only verifizieren; keine Accelerator-Attestation |
 | `Get-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Passwortfreie Endpunktübersicht für SSMS, CMS und Exporte |
 | `Sync-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Endpunktkatalog der Verbindungszentrale atomar aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | `Sync-SqlServerLabConnectionCenter.ps1` | Kennwortfreien SSMS-`.regsrvr`-Export erzeugen |

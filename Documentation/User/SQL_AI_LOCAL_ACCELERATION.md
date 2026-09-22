@@ -19,7 +19,7 @@ Die SQL-Definition allein beweist daher keine NPU- oder GPU-Nutzung.
 Vor einer Live-Probe erzeugt das neue read-only Cmdlet einen gebundenen Plan:
 
 ```powershell
-Get-SqlServerLabAiExternalModelPlan `
+$plan = Get-SqlServerLabAiExternalModelPlan `
   -Backend LlamaCppOpenVino -Accelerator NPU `
   -Location 'https://host.docker.internal:11435/v1/embeddings' `
   -ExternalModelName LocalNpuEmbedding -RuntimeModel bound-model `
@@ -28,9 +28,27 @@ Get-SqlServerLabAiExternalModelPlan `
 ```
 
 Ein gültiger Plan bleibt absichtlich `NOT_PROBED` mit
-`EvidenceStatus=CONFIGURATION_ONLY`. Erst ein späterer Endpunkt-, Dimensions-
-und Runtime-Nachweis darf daraus ausgeführte CPU-, GPU- oder NPU-Evidence
-machen. Das Cmdlet installiert nichts und ändert weder Trust Store, Firewall,
+`EvidenceStatus=CONFIGURATION_ONLY`. Der Endpunkt kann anschließend ohne
+Änderung des Host-Truststores geprüft werden. Für eine private CA wird deren
+Zertifikat nur im aktuellen Prozess als Custom Root verwendet:
+
+```powershell
+$rootCa = [Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPemFile(
+  'C:\Pfad\run\ca.pem')
+$apiKey = Read-Host 'Lokaler API-Key' -AsSecureString
+$receipt = $plan | Test-SqlServerLabAiExternalModelEndpoint `
+  -ApiKey $apiKey -TrustedRootCertificate $rootCa
+```
+
+Bei einem öffentlich oder bereits systemweit vertrauten Zertifikat entfällt
+`TrustedRootCertificate`; der im Plan gebundene Leaf-SHA-256 wird trotzdem
+exakt geprüft. Die Probe sendet genau einen festen synthetischen Text und
+liefert weder Text noch Embeddingvektor oder API-Key zurück. Ein Erfolg heißt
+`ENDPOINT_VERIFIED`: TLS, OpenAI-Antwortform, endliche numerische Werte und
+Dimension sind live bestätigt. Runtime-Binärdatei, Modelldatei und tatsächliche
+CPU-/GPU-/NPU-Ausführung bleiben bis zu getrennten Nachweisen offen.
+
+Plan und Probe installieren nichts und ändern weder Truststore, Firewall,
 Hosts-Datei noch Dienste.
 
 ## Empfohlene Topologie

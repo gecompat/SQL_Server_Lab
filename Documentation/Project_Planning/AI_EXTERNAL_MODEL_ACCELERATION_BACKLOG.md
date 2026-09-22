@@ -2,7 +2,7 @@
 
 ## Status und Priorität
 
-`RESEARCHED / USER_PRIORITY_P0`. Dieser Arbeitsstrom hat Vorrang vor allgemeinen
+`IMPLEMENTED_PARTIAL / USER_PRIORITY_P0`. Dieser Arbeitsstrom hat Vorrang vor allgemeinen
 Routineerweiterungen. Er erweitert den vorhandenen, nativ belegten
 [Docker-Referenzslice](../Architecture/AI_SQL_HTTPS_BRIDGE.md) von
 `CREATE EXTERNAL MODEL` um auswählbare lokale Inferenzruntimes und echte
@@ -38,9 +38,9 @@ Bevorzugte Reihenfolge:
 
 | ID | Priorität | Ziel | Status und erforderlicher Nachweis |
 |---|---:|---|---|
-| `AIX-001` | P0 | Allgemeiner lokaler External-Model-Endpunktvertrag | `BACKLOG`: Runtime, API-Format, Modell-/Dateidigest, Dimension, Inputprofil, Accelerator, Endpoint, TLS, Auth, Timeout und Cleanup werden vor SQL-Mutation gebunden. |
+| `AIX-001` | P0 | Allgemeiner lokaler External-Model-Endpunktvertrag | `IMPLEMENTED_PARTIAL`: Plan bindet Runtime, Modell-/Dateidigest, Dimension, Inputprofil, Accelerator, Endpoint und TLS. Die read-only Probe bestätigt Zertifikatspin, OpenAI-Antwortform, endliche Werte und Dimension. Runtime-/Modelldigest, Geräteattestation, SQL-Mutation und Cleanup bleiben getrennte Nachweise. |
 | `AIX-002` | P0 | `llama.cpp` OpenVINO auf Intel NPU unter Windows 11 | `RESEARCHED`: Upstream unterstützt Intel CPU, GPU und NPU sowie fertige Windows-x64-OpenVINO-Artefakte. Erforderlich sind echter `/v1/embeddings`-Probe, Gerätebeleg, SQL-Embedding, Ranking, Restart und Cleanup. |
-| `AIX-003` | P0 | HTTPS ohne dauerhaften Hosttrust oder breite Listenerfreigabe | `DESIGNED`: direktes `llama-server`-TLS bevorzugen; sonst kurzlebiger Gateway. Nur die öffentliche Test-CA gelangt in den eigenen SQL-Run. Keine persistente Host-PATH-, Trust- oder Firewalländerung. |
+| `AIX-003` | P0 | HTTPS ohne dauerhaften Hosttrust oder breite Listenerfreigabe | `IMPLEMENTED_PARTIAL`: Die Hostprobe prüft Leaf-Pin, SAN und Systemtrust oder eine ausschließlich im Prozess verwendete Custom Root ohne Proxy, Redirect oder Truststoreänderung. Direktes `llama-server`-TLS bleibt bevorzugt; SQL-seitiger CA-Import in den eigenen Run und Gateway-Cleanup benötigen noch native Evidence. |
 | `AIX-004` | P0 | Intel Core Ultra 7 165U, Windows 11 | `USER_EVIDENCE`: OpenVINO-Build von `llama.cpp` ist installiert und NPU-Nutzung funktioniert. Projekt-Evidence für Binärdigest, Modell, Endpoint und SQL-Aufruf steht aus. |
 | `AIX-005` | P0 | Intel Core Ultra 9 275HX plus Intel-Grafik und RTX 5080 Laptop GPU | `HOST_DETECTED`: CPU und beide GPUs wurden read-only erkannt. NPU-Inventar, OpenVINO-NPU, OpenVINO-/SYCL-iGPU sowie CUDA-/Vulkan-RTX werden mit demselben Fixture getrennt gemessen. |
 | `AIX-006` | P0 | GMKtec EVO-X2, Ryzen AI Max+ 395, Linux | `RESEARCHED`: Ryzen AI Software unterstützt Linux-NPU-Flows; ROCm führt `gfx1151` offiziell. NPU-Serviceadapter und `llama.cpp`-ROCm sind getrennte Lanes. ROCm ist der zuerst ausführbare Serverkandidat, NPU bleibt das bevorzugte Ziel. |
