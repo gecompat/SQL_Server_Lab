@@ -1942,3 +1942,9 @@ Get-SqlServerLabEvaluationWatch -StateRoot $stateRoot
 Der Capture beobachtet keine Ablaufzeit: Developer ergibt für 24 Stunden
 `NOT_APPLICABLE`, Evaluation ohne Frist bleibt `UNKNOWN`. Fehler bewahren den
 alten Receipt. [Bindung, Grenzen und Nachweise](../Architecture/SQL_GUEST_EVALUATION_CAPTURE.md).
+
+Lokale Windows-llama.cpp-Pakete für SQL Server 2025 lassen sich vor der
+Modellauswahl mit `Get-SqlServerLabLlamaCppRuntime -SearchRoot 'C:\Pfad\llama'`
+rein lesend erkennen. Hashes sind dafür nicht erforderlich. Die Ausgabe belegt
+nur Dateien und enthält lokale Pfade; Geräte-, Embedding- und HTTPS-Nachweise
+bleiben separat. Siehe [lokale Beschleunigung](SQL_AI_LOCAL_ACCELERATION.md).

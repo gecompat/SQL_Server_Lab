@@ -203,6 +203,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Resolves a hash-bound SQL AI scenario from the catalog or against a run
         and returns sanitized plan and evidence metadata only.
 
+    Get-SqlServerLabLlamaCppRuntime
+        Discovers local Windows packages without hashes or process execution.
+        FILES_ONLY does not attest device or model execution.
+
     Get-SqlServerLabAiExternalModelPlan
         Plans an existing OpenAI-compatible HTTPS embedding endpoint with hash
         bindings and without network or host mutation.

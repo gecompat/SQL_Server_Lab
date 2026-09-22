@@ -330,3 +330,79 @@ function Invoke-LabAiExternalModelEndpointProbe {
         PendingEvidence=@('RUNTIME_BINARY_MATCH','MODEL_FILE_MATCH','ACCELERATOR_RUNTIME_ATTESTATION')
     }
 }
+function Get-LabLlamaCppRuntimeCandidate {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$DirectoryPath)
+
+    $serverPath = Join-Path $DirectoryPath 'llama-server.exe'
+    if (-not (Test-Path -LiteralPath $serverPath -PathType Leaf)) { return }
+    $backends = [Collections.Generic.List[string]]::new()
+    foreach ($entry in @(
+        @('ggml-openvino.dll','LlamaCppOpenVino'), @('ggml-cuda.dll','LlamaCppCuda'),
+        @('ggml-hip.dll','LlamaCppRocm'), @('ggml-vulkan.dll','LlamaCppVulkan'),
+        @('ggml-sycl.dll','LlamaCppSycl')
+    )) {
+        if (Test-Path -LiteralPath (Join-Path $DirectoryPath $entry[0]) -PathType Leaf) { $backends.Add($entry[1]) }
+    }
+    $backend = if ($backends.Count -eq 1) { $backends[0] } elseif ($backends.Count -gt 1) { 'Ambiguous' } else { 'Unknown' }
+    $accelerators = @('CPU')
+    if ($backends.Count) { $accelerators += 'GPU' }
+    if ('LlamaCppOpenVino' -in $backends) { $accelerators += 'NPU' }
+    $package = Split-Path -Leaf $DirectoryPath
+    $build = $null
+    if ($package -match '^llama-b(?<build>[0-9]+)-bin-.+$') {
+        $parsedBuild = 0L
+        if ([long]::TryParse($Matches.build, [ref]$parsedBuild)) { $build = $parsedBuild }
+    }
+    [PSCustomObject]@{
+        Contract = [PSCustomObject]@{ Name='SqlServerLab.LlamaCppRuntime'; Version='1.0' }
+        Status = 'INSTALLED'; EvidenceStatus = 'FILES_ONLY'
+        Backend = $backend; DetectedBackends = @($backends)
+        Build = $build; Package = $package
+        InstallationPath = $DirectoryPath; Invocation = $serverPath
+        CandidateAccelerators = $accelerators
+        SelectionEnvironment = if ($backend -eq 'LlamaCppOpenVino') { 'GGML_OPENVINO_DEVICE' } else { $null }
+        PackageOrigin = 'UNVERIFIED'
+        ReleaseReference = 'https://github.com/ggml-org/llama.cpp/releases'
+    }
+}
+
+function Find-LabLlamaCppRuntime {
+    [CmdletBinding()]
+    param(
+        [ValidateCount(1,32)][ValidateNotNullOrEmpty()][string[]]$SearchRoot,
+        [ValidateSet('CPU','GPU','NPU')][string]$Accelerator
+    )
+    # Explicit roots isolate discovery from ambient host configuration.
+    $roots = @($SearchRoot)
+    if (-not $PSBoundParameters.ContainsKey('SearchRoot')) {
+        $roots = @()
+        if ($env:SQL_SERVER_LAB_LLAMA_ROOT) { $roots += $env:SQL_SERVER_LAB_LLAMA_ROOT }
+        $command = Get-Command llama-server.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($command) { $roots += Split-Path -Parent $command.Source }
+    }
+    $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $runtimes = foreach ($root in $roots) {
+        try {
+            $item = Get-Item -LiteralPath $root -Force -ErrorAction Stop
+            if ($item -isnot [IO.DirectoryInfo]) { continue }
+            if ($item.FullName -eq $item.Root.FullName) { throw 'LLAMA_DISCOVERY_DRIVE_ROOT_REJECTED' }
+            if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { continue }
+            $children = @(Get-ChildItem -LiteralPath $item.FullName -Directory -ErrorAction Stop | Select-Object -First 257)
+            if ($children.Count -gt 256) { throw 'LLAMA_DISCOVERY_ROOT_LIMIT_EXCEEDED' }
+        }
+        catch {
+            if ($_.Exception.Message -like 'LLAMA_DISCOVERY_*') { throw }
+            Write-Warning 'LLAMA_DISCOVERY_ROOT_UNREADABLE'
+            continue
+        }
+        foreach ($directory in @($item) + $children) {
+            if ($directory.Attributes -band [IO.FileAttributes]::ReparsePoint) { continue }
+            if (-not $seen.Add($directory.FullName)) { continue }
+            $runtime = Get-LabLlamaCppRuntimeCandidate -DirectoryPath $directory.FullName
+            if ($runtime -and (-not $Accelerator -or $Accelerator -in $runtime.CandidateAccelerators)) { $runtime }
+        }
+    }
+    @($runtimes | Sort-Object @{Expression={ if ($null -eq $_.Build) { 1 } else { 0 } }},
+        @{Expression={ $_.Build }; Descending=$true}, InstallationPath)
+}

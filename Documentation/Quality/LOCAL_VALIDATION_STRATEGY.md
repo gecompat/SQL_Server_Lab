@@ -1909,3 +1909,9 @@ Capture, Receiptkette, unverändertem Run-/Connection-State und Parent sowie
 vollständigem Cleanup (drei Schritte, keine Fehler, keine VM-/Diskreste).
 Positive Evaluation und echte Deadline bleiben eigene offene Nachweise.
 Die Abnahme erstellt und bereinigt ausschließlich ihren eigenen Run.
+
+### llama.cpp-Discovery
+
+`Invoke-LlamaCppRuntimeChecks.ps1` prüft synthetische Windows-Paketbäume:
+Hashfreiheit, Backendmehrdeutigkeit, NPU-Filter, Suchgrenzen, isolierte explizite
+Wurzeln und Schema. Die Prüfung startet weder llama-server noch SQL-Provider.
