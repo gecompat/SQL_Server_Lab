@@ -340,3 +340,11 @@ Ollama-Modellseite dokumentiert den 512-Token-Kontext, die ungefähre Größe vo
 46 MB und Ollama 0.1.26 als Mindestversion. Version, Embedding-Capability,
 Dimension und tatsächlicher Manifestdigest werden vor jeder Nutzung live am
 Loopback-Endpunkt geprüft.
+
+`ollama-paraphrase-multilingual-latest` bindet das lokale
+`paraphrase-multilingual:latest` mit 768 Dimensionen und dem Rohtextprofil
+`raw`. Die offizielle Ollama-Modellseite beschreibt das Modell für semantische
+Suche und 50 Sprachen; die verlinkte Sentence-Transformers-Modellkarte belegt
+768 Dimensionen und Apache-2.0. Der katalogisierte Ollama-Floor 0.34.2 ist der
+lokal nachgewiesene Projektstand. Version, Capability, Dimension und
+tatsächlicher Manifestdigest werden live am Loopback-Endpunkt gebunden.

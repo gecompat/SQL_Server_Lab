@@ -29,7 +29,7 @@ function New-LabAiPodmanSetupPlan {
         [ValidateRange(1024,65535)][int]$LocalPort=11434,
         [ValidateRange(1,8)][int]$Cpu=2,
         [ValidateRange(2560,65536)][int]$MemoryMB=4096,
-        [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe','ollama-all-minilm-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest'
+        [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe','ollama-all-minilm-latest','ollama-paraphrase-multilingual-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest'
     )
     $readiness=Get-LabClientRuntimeReadiness -Provider podman
     if ($readiness.Status -cne 'PASS') { throw 'AI_PODMAN_SETUP_RUNTIME_NOT_READY' }

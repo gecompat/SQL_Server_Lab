@@ -88,7 +88,7 @@ function New-LabAiRagPlan {
     }
     $identity=[ordered]@{Contract='SqlServerLab.AiRagPlan/1.0';RunId=$RunId;InstanceId=$InstanceId;QuestionHash=Get-LabAiSha256Text -Text $Question;Documents=@($normalized|ForEach-Object{[ordered]@{Id=$_.Id;ContentHash=$_.ContentHash}});EmbeddingPlanKey=$embeddingPlan.PlanKey;GenerationPlanKey=$generationPlan.PlanKey;TopK=$TopK}
     if ($null -ne $normalizedBinding) { $identity.EvaluationBinding = $normalizedBinding }
-    $hostValidation=$EmbeddingModelKey -in @('ollama-embeddinggemma-latest','ollama-nomic-embed-text-v1-5','ollama-nomic-embed-text-v2-moe','ollama-bge-m3-latest','ollama-all-minilm-latest') -or $GenerationLane -eq 'cloud'
+    $hostValidation=$EmbeddingModelKey -in @('ollama-embeddinggemma-latest','ollama-nomic-embed-text-v1-5','ollama-nomic-embed-text-v2-moe','ollama-bge-m3-latest','ollama-all-minilm-latest','ollama-paraphrase-multilingual-latest') -or $GenerationLane -eq 'cloud'
     if($hostValidation){$identity.HostModelValidation='LIVE_LOCAL_IDENTITY';$identity.DataClassification=$DataClassification}
     [PSCustomObject]@{Contract=[PSCustomObject]@{Name='SqlServerLab.AiRagPlan';Version='1.0'};Status='READY';RunId=$RunId;InstanceId=$InstanceId;ScenarioId='rag-local-vector';TopK=$TopK;DocumentCount=$normalized.Count;EmbeddingModelKey=$EmbeddingModelKey;GenerationModelKey=$GenerationModelKey;PlanKey=Get-LabAiPlanKey -InputObject $identity;EvaluationBinding=$normalizedBinding;Documents=@($normalized);EmbeddingPlan=$embeddingPlan;GenerationPlan=$generationPlan;HostModelValidation=$hostValidation;DataClassification=$DataClassification}
 }

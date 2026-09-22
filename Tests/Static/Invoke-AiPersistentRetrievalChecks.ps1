@@ -262,6 +262,15 @@ try{
             $script:parameters.Remove('EmbeddingModelKey')
             $miniRemoved=Execute -Action Remove
             Check 'All-MiniLM-Collection bleibt ohne erneute Modellauswahl exakt entfernbar' ($miniRemoved.Status -ceq 'REMOVED' -and -not $script:db)
+            Reset;$script:parameters.EmbeddingModelKey='ollama-paraphrase-multilingual-latest'
+            $paraphraseApplied=Execute
+            $paraphraseQuery=Execute -Action Query
+            $paraphraseJournal=Get-Content (JournalPath) -Raw|ConvertFrom-Json
+            Check 'Paraphrase Multilingual bindet Journal und SQL-Speicher exakt an 768 Dimensionen' ($paraphraseApplied.Status -ceq 'COMMITTED' -and $paraphraseQuery.Status -ceq 'QUERIED' -and $paraphraseJournal.modelBinding.ModelKey -ceq 'ollama-paraphrase-multilingual-latest' -and $paraphraseJournal.modelBinding.Dimension -eq 768 -and @($script:sqlTexts|Where-Object{$_ -match '^(Initialize|Insert|Query)\|' -and $_ -match 'VECTOR\(768\)'}).Count -ge 3)
+            Check 'Paraphrase Multilingual verwendet Dokumente und Fragen ohne Rollenpräfix' (@($script:embeddingInputs|Where-Object{$_ -clike 'search_*'}).Count -eq 0 -and $script:embeddingInputs[-1] -ceq 'Wie oft werden synthetische Sicherungen überprüft?')
+            $script:parameters.Remove('EmbeddingModelKey')
+            $paraphraseRemoved=Execute -Action Remove
+            Check 'Paraphrase-Multilingual-Collection bleibt ohne erneute Modellauswahl exakt entfernbar' ($paraphraseRemoved.Status -ceq 'REMOVED' -and -not $script:db)
             function script:Get-LabTransferBinding {param($RunId,$InstanceId,$StateRoot)throw 'SYNTHETIC_PRIVATE_ENDPOINT_DETAIL'}
             Check 'Öffentlicher Vertrag sanitisiert auch frühe Bindingfehler' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Query -StateRoot $Root -Confirm:$false} '^AI_PERSISTENT_RECOVERY_REQUIRED$')
         }finally{
