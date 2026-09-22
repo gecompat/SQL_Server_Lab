@@ -8,6 +8,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Ad-hoc-SQL-RAG unterstützt das vorhandene lokale `bge-m3:latest` als
+  `ollama-bge-m3-latest`. Das mehrsprachige MIT-Modell erweitert den
+  katalogisierten Hostpfad um 1024-dimensionale Embeddings mit unverändertem
+  Rohtextprofil. Live-Version, Capability, Dimension und Manifestdigest werden
+  vor Payload geprüft. Docker und Podman bestanden den BGE-M3-Nachweis getrennt
+  mit exakter SQL-Vektorsuche, SQLrestart und vollständigem Cleanup.
+
 - Ad-hoc-SQL-RAG unterstützt das vorhandene lokale
   `nomic-embed-text:latest` als `ollama-nomic-embed-text-v1-5`. Ein
   kataloggebundenes Eingabeprofil setzt Dokument- und Fragepräfixe getrennt,

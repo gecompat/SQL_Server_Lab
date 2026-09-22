@@ -35,6 +35,11 @@ Der Katalog wendet die für Nomic erforderlichen Suchpräfixe automatisch an.
 SQL Server führt die exakte Cosine-Suche aus; Texte und Frage werden nicht in
 der Lab-State-Ablage persistiert.
 
+Als mehrsprachige 1024-dimensionale Alternative kann im selben Aufruf
+`-EmbeddingModelKey ollama-bge-m3-latest` gewählt werden. Dafür muss
+`bge-m3:latest` bereits im lokalen Ollama vorhanden sein. Dieser Ad-hoc-Pfad
+erstellt in SQL Server `VECTOR(1024)` und verwendet die Dokumente unverändert.
+
 ## SQL-seitige HTTPS-Embeddings: Referenzabnahme
 
 `Tests/Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` erstellt einen eigenen

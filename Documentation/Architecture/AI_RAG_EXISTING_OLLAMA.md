@@ -29,6 +29,10 @@ Invoke-SqlServerLabAiRag -RunId $runId -SaPassword $password `
     -GenerationModelKey ollama-qwen25-coder-7b-local -GenerationLane local
 ```
 
+Für mehrsprachige 1024-dimensionale Embeddings kann derselbe Aufruf
+`-EmbeddingModelKey ollama-bge-m3-latest` verwenden. Das Modell muss bereits im
+laufenden lokalen Ollama vorhanden sein; der Controller lädt oder startet es nicht.
+
 Die zusätzlichen Parameter gelten nur für AdHoc. `CaseId` bindet weiterhin die
 lokalen Modelle des unveränderten Golden Datasets 1.0. Es gibt weder automatische
 Cloudfallbacks noch eine Umdeutung eines lokal erreichbaren Cloudproxys als
@@ -60,11 +64,19 @@ Tagliste weist `latest` und `v1.5` mit demselben Manifest aus. Die
 verlangt bei Retrieval `search_document: ` vor Dokumenten und `search_query: `
 vor Fragen. Dasselbe Profil gilt für das bereits katalogisierte
 `ollama-nomic-embed-text-v2-moe`. Das katalogisierte Profil `nomic-search` wendet beide Präfixe
-rollengetreu an; `raw` lässt EmbeddingGemma-Eingaben unverändert. Das Profil ist
+rollengetreu an; `raw` lässt EmbeddingGemma- und BGE-M3-Eingaben unverändert. Das Profil ist
 Teil des Endpoint-PlanKeys. Tatsächliche Version und Manifestdigest werden live
 geprüft, nicht als allgemeine Hostidentität im Repository festgeschrieben.
 
-Bei den drei vorhandenen Host-Embeddingmodellen oder expliziter
+`ollama-bge-m3-latest` benennt `bge-m3:latest` mit 1024 Dimensionen,
+mehrsprachiger Eingabe, MIT-Lizenz und dem Rohtextprofil `raw`. Die
+[offizielle Ollama-Modellseite](https://ollama.com/library/bge-m3) beschreibt
+Mehrsprachigkeit und 8K-Kontext; die
+[BAAI-Modellkarte](https://huggingface.co/BAAI/bge-m3) belegt Dimension und
+Lizenz. SQL verwendet dadurch `VECTOR(1024)`. Die katalogisierte Mindestversion
+0.34.2 ist der nachgewiesene Projektstand und keine behauptete Herstellergrenze.
+
+Bei den vier vorhandenen Host-Embeddingmodellen oder expliziter
 Cloudgeneration liest der Controller vor
 Payload `/api/version`, `/api/tags` und `/api/show` am festen Loopback-Endpunkt.
 Exakte Modellidentität, gültiger Digest, Mindestversion, Capability und
@@ -93,10 +105,11 @@ Generierung hat 512 Ausgabetokens, 1–230 Sekunden pro Versuch und 0–1 Retry.
 Dies ist ein je Request geltendes Budget, kein providerweiter Kostenledger.
 Metadatenrequests haben jeweils 15 Sekunden Timeout. Der native Nachweis wählt
 für Cloudgeneration 120 Sekunden und Retry 0, insgesamt höchstens zwei
-Cloudrequests. Die lokale Nomic-Referenz verwendet 180 Sekunden ohne Retry.
+Cloudrequests. Die lokalen Nomic- und BGE-M3-Referenzen verwenden 180 Sekunden
+ohne Retry.
 
 `Tests/Static/Invoke-AiScenarioChecks.ps1` umfasst die fokussierten Host-/Cloud-
-Checks einschließlich echter lokaler HTTP307-Characterization; insgesamt 105
+Checks einschließlich echter lokaler HTTP307-Characterization; insgesamt 107
 Assertions bestanden auf dem finalen Stand. Die isolierte
 `Tests/Integration/Invoke-AiRagExistingOllamaAcceptance.ps1` verwendet je Provider
 einen neuen eigenen SQLrun, prüft feste Top-IDs vor/nach SQLrestart, unveränderte
@@ -120,6 +133,13 @@ Hostmodellinventar. Container und eigenes Volume wurden jeweils mit zwei
 Cleanupschritten und null Fehlern entfernt. Der gemeinsame Controllercode
 betrifft keine Hyper-V-Bereitstellung; dafür wurde kein neuer Hyper-V-Lauf
 ausgewählt.
+
+Am selben Tag bestanden Docker und Podman auch den vollständig lokalen
+BGE-M3-Nachweis mit jeweils neun Assertions. Beide Läufe verwendeten
+`VECTOR(1024)`, banden den Live-Digest, trafen dieselben festen Top-IDs vor und
+nach SQLrestart und bestätigten das unveränderte Hostmodellinventar. Container
+und eigenes Volume wurden jeweils mit zwei Cleanupschritten und null Fehlern
+entfernt.
 
 Die isolierte Golden-Containerabnahme lädt ihre beiden festen lokalen Modelle
 in den eigenen, bind-gemounteten Ollama-Container. Pro Modell gilt das unveränderte

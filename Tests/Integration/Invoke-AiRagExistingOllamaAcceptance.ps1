@@ -54,8 +54,8 @@ try{
     Assert-HostRag ([bool]$resolution.Available) 'Providerwerkzeug verfügbar'
     $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
     $hostTags=Get-HostRagInventoryKey -Module $module -Port $LocalPort
-    $probe=& $module {param($Port,$ModelKey)$p=New-LabAiEndpointPlan -ModelKey $ModelKey -EndpointRef ollama-local -Lane local -LocalPort $Port;Get-LabAiHostModelBinding -Plan $p} $LocalPort $EmbeddingModelKey
-    Assert-HostRag ($probe.Dimension -eq 768) 'Vorhandenes lokales Embeddingmodell geprüft'
+    $probe=& $module {param($Port,$ModelKey)$p=New-LabAiEndpointPlan -ModelKey $ModelKey -EndpointRef ollama-local -Lane local -LocalPort $Port;$b=Get-LabAiHostModelBinding -Plan $p;[pscustomobject]@{Binding=$b;PlannedDimension=$p.Dimension}} $LocalPort $EmbeddingModelKey
+    Assert-HostRag ($probe.Binding.Dimension -eq $probe.PlannedDimension -and $probe.PlannedDimension -ge 1) 'Vorhandenes lokales Embeddingmodell mit katalogisierter Dimension geprüft'
     if($LocalGeneration){
         $null=& $module {param($Port)$p=New-LabAiEndpointPlan -ModelKey ollama-qwen25-coder-7b-local -EndpointRef ollama-local -Lane local -LocalPort $Port;Get-LabAiHostModelBinding -Plan $p} $LocalPort
     }
@@ -84,7 +84,7 @@ try{
     Assert-HostRag ($preview.GenerationLane -eq $parameters.GenerationLane -and $preview.Egress -eq $(if($LocalGeneration){'denied'}else{'explicit'})) 'WhatIf zeigt exakt die ausgewählte Generationlane'
     $first=Invoke-SqlServerLabAiRag @parameters -Confirm:$false
     Assert-HostRag ($first.Status -eq 'SUCCEEDED' -and $first.Citations.Count -eq 2 -and $first.Citations[0] -ceq 'backup-policy' -and -not [string]::IsNullOrWhiteSpace($first.Answer)) 'SQL-Retrieval trifft backup-policy und das gewählte Modell antwortet'
-    Assert-HostRag ($first.Metrics.RequestCount -ge 5 -and $first.Metrics.RequestCount -le 9 -and $first.HostEmbeddingBinding.Digest -ceq $probe.Digest) 'Begrenzte Requests und Live-Modellbindung'
+    Assert-HostRag ($first.Metrics.RequestCount -ge 5 -and $first.Metrics.RequestCount -le 9 -and $first.HostEmbeddingBinding.Digest -ceq $probe.Binding.Digest) 'Begrenzte Requests und Live-Modellbindung'
     if($IncludeDiagnostic){Assert-HostRagDiagnostic -Module $module -Binding $binding -Password $password -StateRoot $state -Port $LocalPort}
     $null=Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 180 -Force -Confirm:$false
     $afterBinding=& $module {param($Run,$State,$Op)Get-LabTransferBinding -RunId $Run -InstanceId primary -StateRoot $State -OperationId $Op} $lab.RunId $state $operation
@@ -94,7 +94,7 @@ try{
     Assert-HostRag ($second.Status -eq 'SUCCEEDED' -and $second.Citations.Count -eq 2 -and $second.Citations[0] -ceq 'cleanup-policy' -and -not [string]::IsNullOrWhiteSpace($second.Answer)) 'Nach SQLrestart trifft Retrieval cleanup-policy'
     if($IncludeDiagnostic){Assert-HostRagDiagnostic -Module $module -Binding $afterBinding -Password $password -StateRoot $state -Port $LocalPort}
     $tagsAfter=Get-HostRagInventoryKey -Module $module -Port $LocalPort
-    Assert-HostRag ($hostTags -ceq $tagsAfter -and $second.HostEmbeddingBinding.Digest -ceq $probe.Digest) 'Hostmodellinventar und Modelldigest bleiben unverändert'
+    Assert-HostRag ($hostTags -ceq $tagsAfter -and $second.HostEmbeddingBinding.Digest -ceq $probe.Binding.Digest) 'Hostmodellinventar und Modelldigest bleiben unverändert'
     $complete=$true
 }finally{
     if($password){$password.Dispose()}
