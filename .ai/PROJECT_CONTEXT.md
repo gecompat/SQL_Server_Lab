@@ -83,9 +83,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   je 25 Assertions, SQLrestart und vollständigem Cleanup.
   Eine Collection akzeptiert zusätzlich 1 bis 16 Caller-Dokumente, eine freie
   Query und atomaren `Sync` mit vollständig gebundenem Ausgangs- und Zielbestand;
-  Inhalte bleiben aus dem Journal. Docker und Podman bestanden den Gesamtvertrag
-  am 2026-09-22 getrennt mit je 26 Assertions, drei Ausgangsdokumenten,
-  Update/Insert/Delete, Vektorübernahme und vollständigem Cleanup. Cloud bleibt offen.
+  Inhalte bleiben aus dem Journal. Explizites `Prune` begrenzt danach alte
+  abgeschlossene v1-Caller-Generationen transaktional und modellfrei. Docker und
+  Podman bestanden den Gesamtvertrag am 2026-09-22 getrennt mit je 30 Assertions,
+  drei Ausgangsdokumenten, Update/Insert/Delete, Vektorübernahme, SQL-belegtem
+  Prune und vollständigem Cleanup. Cloud bleibt offen.
   Vertrag: `Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md`;
 
 - AdHoc-RAG mit vorhandenem Host-`embeddinggemma:latest` und expliziter

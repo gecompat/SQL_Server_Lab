@@ -45,10 +45,12 @@ $updatedDocuments = @(
 )
 Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Sync `
     -ExpectedDocuments $documents -Documents $updatedDocuments
+# Nach mindestens einem erfolgreichen Caller-Sync die zwei jüngsten Generationen behalten:
+Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Prune -KeepGenerations 2
 ```
 
 `WhatIf` liest nur versionierte lokale Verträge und berührt weder Run-State,
-Credentials, SQL noch Ollama. `CollectionId` ist für Resume und Remove
+Credentials, SQL noch Ollama. `CollectionId` ist für Resume, Prune und Remove
 beizubehalten. Eine bereits entfernte Collection wird nicht neu verwendet.
 `QueryId` benennt ausschließlich die festen Fragen `backup` und `cleanup`.
 `Documents` bindet eine Collection an sortierte IDs und Inhaltshashes;
@@ -58,6 +60,14 @@ Bestand und in `Documents` den vollständigen Zielbestand. Erst nach Prüfung de
 Ausgangsbestands entsteht eine neue Generation: unveränderte IDs und Inhalte
 übernehmen den vorhandenen Vektor, neue oder geänderte Inhalte werden neu
 eingebettet und ausgelassene IDs sind nach dem atomaren Cutover gelöscht.
+`Prune` ist ein expliziter, modellfreier Retention-Schritt für eine
+callerverwaltete v1-Collection nach mindestens einem erfolgreichen `Sync`.
+`KeepGenerations` liegt zwischen 1 und 31 und ist standardmäßig 2. Eine einzige
+SQL-Transaktion sperrt den exakten Besitzer und aktiven Zeiger, verlangt
+ausschließlich `COMMITTED`-Generationen, behält die jüngsten Generationen
+einschließlich der aktiven und entfernt nur ältere Chunk- und Generationszeilen.
+Replay ist idempotent. Fixture-Collections, unvollständiges Staging und
+v2-Modellmigrationsjournale werden vor der Löschung abgewiesen.
 Die Frage wird weder im Plan noch im Journal gespeichert. Dokumentinhalte liegen
 nur in der eigenen SQL-Datenbank und in den lokalen Ollama-Requests. Abweichende
 IDs oder Inhalte scheitern vor dem Query-Embedding.
@@ -148,9 +158,10 @@ der tatsächlichen Abwesenheit finalisiert werden.
 Pro Fixture-Collection höchstens zwei Generationen mit je drei Dokumenten. Eine
 Caller-Collection besitzt eine initiale und bis zu 31 weitere atomare Sync-
 oder eine abschließende Modellmigrationsgeneration mit jeweils 1 bis 16
-Dokumenten. Danach blockiert
-`AI_PERSISTENT_GENERATION_LIMIT_REACHED`; automatische Retention ist nicht
-implementiert. Datenfile maximal
+Dokumenten. Explizites `Prune` begrenzt abgeschlossene v1-Caller-Generationen,
+setzt die monotone Generationsnummer jedoch nicht zurück. Nach Generation 32
+blockiert daher weiterhin `AI_PERSISTENT_GENERATION_LIMIT_REACHED`;
+automatische Retention ist nicht implementiert. Datenfile maximal
 64 MiB, Log maximal 32 MiB. Fixture-Initial erzeugt drei Embeddings, Delta zwei
 und kopiert einen unveränderten Vektor. Caller-Initial erzeugt ein Embedding je
 Dokument. Query erzeugt ein Embedding. Retry ist
@@ -169,11 +180,12 @@ einen eigenen SQL-Run, prüft echte Dateisperre und SQL-AppLock, Restart, Delta-
 Teilfehler und Commitantwortverlust und entfernt erst die eigene DB, dann den
 eigenen Run mit Container-/Volume-Residueprüfung. PASS erfolgt erst nach Cleanup.
 Die getrennten nativen Docker- und Podman-Läufe vom 2026-09-22 belegen mit
-jeweils 26 Assertions Vektor- und Hybridranking vor und nach SQLrestart sowie
+jeweils 30 Assertions Vektor- und Hybridranking vor und nach SQLrestart sowie
 nach Delta-Cutover, gezielte Staging-/Commitfehler und vollständiges
 DB-/Run-Cleanup. Beide Läufe belegen außerdem eine eigene Collection mit drei
-Caller-Dokumenten, freier hybrider Frage, Hashdrift-Abweisung und atomarem
-Update/Insert/Delete bei Übernahme eines unveränderten Vektors.
+Caller-Dokumenten, freier hybrider Frage, Hashdrift-Abweisung, atomarem
+Update/Insert/Delete bei Übernahme eines unveränderten Vektors sowie
+idempotentem Prune mit unabhängig abgefragtem SQL-Tabellenbestand.
 Das vorhandene Hostmodellinventar bleibt unverändert.
 
 Die ergänzende Referenz `Invoke-AiPodmanSamplesReferenceAcceptance.ps1` bleibt
@@ -211,6 +223,6 @@ bleibt unverändert und wird vom neuen
 Delta- sowie für callerverwaltete Collections nach Nomic v2 MoE wiederverwendet.
 Die erweiterten Docker- und Podman-Nachweise bestanden am 2026-09-22 getrennt
 mit je 25 Assertions, Caller-Collection, SQLrestart und vollständigem Cleanup.
-Weitere Zielmodelle und Dimensionswechsel, Sync nach Modellmigration, Retention alter Generationen, Cloud,
+Weitere Zielmodelle und Dimensionswechsel, Sync oder Prune nach Modellmigration, automatische Retention, Cloud,
 Generierung, Hyper-V und ANN sind offen.
 Golden v1 sowie SQL-seitiges EXTERNAL MODEL/TLS-Gateway bleiben unverändert.

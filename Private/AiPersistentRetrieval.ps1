@@ -30,14 +30,20 @@ function ConvertTo-LabAiPersistentDocuments {
 }
 
 function New-LabAiPersistentPlan {
-    param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume,[string]$TargetModelKey)
+    param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume,[string]$TargetModelKey,[int]$KeepGenerations=2)
     if($Resume -and $Action -notin @('Apply','Migrate','Sync')){throw 'AI_PERSISTENT_RESUME_ACTION_INVALID'}
     $callerSupplied=$null -ne $Documents
     if($Action -eq 'Migrate'){
         if($TargetModelKey -cne 'ollama-nomic-embed-text-v2-moe' -or ($callerSupplied -and $FixtureRevision -cne 'Initial') -or (-not $callerSupplied -and $FixtureRevision -cne 'Delta')){throw 'AI_PERSISTENT_MIGRATION_REQUEST_INVALID'}
     }elseif($TargetModelKey){throw 'AI_PERSISTENT_MIGRATION_TARGET_UNEXPECTED'}
+    if($Action -ne 'Prune' -and $KeepGenerations -ne 2){throw 'AI_PERSISTENT_RETENTION_UNEXPECTED'}
     if($SearchMode -eq 'Hybrid' -and $Action -ne 'Query'){throw 'AI_PERSISTENT_SEARCH_MODE_INVALID'}
     try{$RunId=([guid]::ParseExact($RunId,'D')).ToString('D');$CollectionId=([guid]::ParseExact($CollectionId,'D')).ToString('D')}catch{throw 'AI_PERSISTENT_IDENTITY_INVALID'}
+    if($Action -eq 'Prune'){
+        if($callerSupplied -or $null -ne $ExpectedDocuments -or $Question -or $TargetModelKey -or $FixtureRevision -cne 'Initial' -or $QueryId -cne 'backup' -or $KeepGenerations -lt 1 -or $KeepGenerations -gt 31){throw 'AI_PERSISTENT_RETENTION_REQUEST_INVALID'}
+        $identity=[ordered]@{Contract='SqlServerLab.AiPersistentRetention/1.0';RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;KeepGenerations=$KeepGenerations}
+        return [pscustomobject]@{RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Action=$Action;Revision=$null;Generation=0;DatasetMode=$null;SearchMode='Vector';Documents=@();DatasetHash=$null;PlanKey=Get-LabAiPlanKey $identity;ExpectedDocuments=@();EndpointPlan=$null;TimeoutSeconds=$TimeoutSeconds;Resume=$false;KeepGenerations=$KeepGenerations}
+    }
     if($callerSupplied){
         if($Action -notin @('Apply','Query','Sync','Migrate') -or $FixtureRevision -cne 'Initial' -or ($Action -ne 'Migrate' -and $TargetModelKey)){throw 'AI_PERSISTENT_DOCUMENTS_ACTION_INVALID'}
         $documents=ConvertTo-LabAiPersistentDocuments $Documents
@@ -125,7 +131,7 @@ function Invoke-LabAiPersistentRetrieval {
         if(Test-Path -LiteralPath $path){$journal=Read-LabAiPersistentJournal $path $Plan $bindingHash;if($Plan.Action -in @('Apply','Sync') -and $journal.status -notin @('COMMITTED','REMOVED') -and -not $Plan.Resume){throw 'AI_PERSISTENT_RESUME_REQUIRED'}}
         elseif($Plan.Action -ne 'Apply' -or $Plan.Revision -ne 'Initial' -or $Plan.Resume){throw 'AI_PERSISTENT_COLLECTION_NOT_FOUND'}
         $model=$null
-        if($Plan.Action -notin @('Remove','Migrate') -and (-not $journal -or $journal.contract -ceq 'SqlServerLab.AiPersistentJournal/1.0')){
+        if($Plan.Action -notin @('Remove','Migrate','Prune') -and (-not $journal -or $journal.contract -ceq 'SqlServerLab.AiPersistentJournal/1.0')){
             $model=Get-LabAiPersistentModel $context $Plan $MetadataTransport
             if($model.Dimension -ne 768){throw 'AI_PERSISTENT_MODEL_DIMENSION_INVALID'}
             $modelHash=Get-LabAiPlanKey $model
@@ -173,6 +179,27 @@ DECLARE @result int; EXEC @result=sys.sp_getapplock @Resource=@resource,@LockMod
         # Auch bei verlorenem Initialize-Response ist ausschließlich das SQL-Receipt maßgeblich.
         $owner=Assert-LabAiPersistentOwner $context $journal
         if(-not $journal.databaseGuid){if($Plan.Action -ne 'Apply'){throw 'AI_PERSISTENT_RESUME_REQUIRED'};$journal.databaseGuid=[string]$owner.DatabaseGuid;Write-LabAiPersistentJournal $path $journal}
+        if($Plan.Action -eq 'Prune'){
+            if($journal.contract -cne 'SqlServerLab.AiPersistentJournal/1.0' -or $journal.status -cne 'COMMITTED' -or $journal.revision -cne 'Managed' -or [int]$owner.ActiveGeneration -ne [int]$journal.activeGeneration){throw 'AI_PERSISTENT_RETENTION_UNSUPPORTED'}
+            $rows=@(Invoke-LabAiPersistentSql $context Prune @"
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+IF NOT EXISTS(SELECT 1 FROM [$($journal.databaseName)].dbo.LabOwner WITH(UPDLOCK,HOLDLOCK) WHERE Singleton=1 AND OwnerToken=@token AND DatabaseGuid=@guid AND ActiveGeneration=@active) THROW 51000,'AI_PERSISTENT_OWNERSHIP_MISMATCH',1;
+IF EXISTS(SELECT 1 FROM [$($journal.databaseName)].dbo.LabGenerations WITH(UPDLOCK,HOLDLOCK) WHERE Status<>'COMMITTED') THROW 51000,'AI_PERSISTENT_RETENTION_INCOMPLETE',1;
+DECLARE @retained TABLE(Generation int PRIMARY KEY);
+INSERT @retained SELECT TOP(@keep) Generation FROM [$($journal.databaseName)].dbo.LabGenerations ORDER BY Generation DESC;
+IF NOT EXISTS(SELECT 1 FROM @retained WHERE Generation=@active) THROW 51000,'AI_PERSISTENT_ACTIVE_GENERATION_MISSING',1;
+DECLARE @deletedGenerations int=(SELECT COUNT(*) FROM [$($journal.databaseName)].dbo.LabGenerations WHERE Generation NOT IN(SELECT Generation FROM @retained));
+DECLARE @deletedChunks int=(SELECT COUNT(*) FROM [$($journal.databaseName)].dbo.LabChunks WHERE Generation NOT IN(SELECT Generation FROM @retained));
+DECLARE @retainedGenerations int=(SELECT COUNT(*) FROM @retained);
+DELETE FROM [$($journal.databaseName)].dbo.LabChunks WHERE Generation NOT IN(SELECT Generation FROM @retained);
+DELETE FROM [$($journal.databaseName)].dbo.LabGenerations WHERE Generation NOT IN(SELECT Generation FROM @retained);
+COMMIT TRANSACTION;
+SELECT @retainedGenerations AS RetainedGenerations,@deletedGenerations AS DeletedGenerations,@deletedChunks AS DeletedChunks;
+"@ @{token=$journal.ownerToken;guid=$journal.databaseGuid;active=[int]$owner.ActiveGeneration;keep=$Plan.KeepGenerations})
+            if($rows.Count -ne 1 -or [int]$rows[0].RetainedGenerations -lt 1 -or [int]$rows[0].RetainedGenerations -gt $Plan.KeepGenerations -or [int]$rows[0].DeletedGenerations -lt 0 -or [int]$rows[0].DeletedChunks -lt 0){throw 'AI_PERSISTENT_RETENTION_UNCONFIRMED'}
+            return [pscustomobject]@{Status='PRUNED';CollectionId=$Plan.CollectionId;Generation=[int]$owner.ActiveGeneration;RetainedGenerations=[int]$rows[0].RetainedGenerations;DeletedGenerations=[int]$rows[0].DeletedGenerations;DeletedChunks=[int]$rows[0].DeletedChunks;EmbeddingRequests=0}
+        }
         if($Plan.Action -eq 'Sync' -and $journal.contract -ceq 'SqlServerLab.AiPersistentJournal/2.0'){throw 'AI_PERSISTENT_SYNC_MIGRATION_UNSUPPORTED'}
         if($Plan.Action -eq 'Migrate' -or $journal.contract -ceq 'SqlServerLab.AiPersistentJournal/2.0'){
             if($Plan.Action -eq 'Query' -and $Plan.SearchMode -eq 'Hybrid'){throw 'AI_PERSISTENT_HYBRID_MIGRATION_UNSUPPORTED'}

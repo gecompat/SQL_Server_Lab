@@ -49,6 +49,9 @@ aktuellen Bestand als `-ExpectedDocuments` und den vollständigen Zielbestand al
 `-Documents`; unveränderte Vektoren werden übernommen, Änderungen neu eingebettet
 und ausgelassene IDs atomar entfernt. `-Action Query` verlangt den vollständigen
   aktiven Bestand und eine freie `-Question`; Inhalt und Frage bleiben aus dem Journal heraus.
+  Nach mindestens einem erfolgreichen Caller-Sync entfernt
+  `-Action Prune -KeepGenerations 2` alte inaktive v1-Generationen in einer SQL-Transaktion.
+  Der modellfreie Aufruf ist idempotent und akzeptiert keine Dokumentpayloads.
   Derselbe vollständige Bestand kann mit `-Action Migrate`, dem Parameter
   `-Documents` und `-TargetModelKey ollama-nomic-embed-text-v2-moe` vollständig in die nächste
   Nomic-Generation neu eingebettet werden. Dokumentinput und spätere Frage sind
@@ -58,11 +61,11 @@ und ausgelassene IDs atomar entfernt. `-Action Query` verlangt den vollständige
 [Beispiel, Besitzvertrag und Grenzen](../Architecture/AI_PERSISTENT_RETRIEVAL.md).
 Die getrennten nativen Docker- und Podman-Referenzläufe vom 2026-09-22 belegen
 Vektor- und Hybridranking der Fixture sowie Caller-Dokument-Sync jeweils
-mit 26 Assertions, SQLrestart, Delta-Cutover, Hashdrift-Abweisung und
-vollständigem eigenem DB-/Run-Cleanup.
+mit 30 Assertions, SQLrestart, Delta-Cutover, Hashdrift-Abweisung, explizitem
+Prune samt SQL-Tabellenbeleg und vollständigem eigenem DB-/Run-Cleanup.
 Der erweiterte Modellwechsel bestand unter Docker und Podman getrennt mit je 25
 Assertions, Caller-Collection, SQLrestart und vollständigem Cleanup. Weitere
-Zielmodelle, Dimensionen, automatische Generation-Retention
+Zielmodelle, Dimensionen, automatische Generation-Retention, Prune nach Modellmigration
 und Hyper-V bleiben offen.
 
 ## Ziel

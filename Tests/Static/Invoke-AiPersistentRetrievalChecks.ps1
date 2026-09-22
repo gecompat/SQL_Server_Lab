@@ -46,16 +46,18 @@ try{
                 Commit {if($script:owner.ActiveGeneration -ne $P.previous -or $script:chunks[$P.generation].Count -ne $P.documentCount){throw 'cutover conflict'};$script:generations[$P.generation].Status='COMMITTED';$script:owner.ActiveGeneration=$P.generation}
                 Query {foreach($row in @($script:chunks[$script:owner.ActiveGeneration].Values|Sort-Object ChunkId)){[pscustomobject]@{ChunkId=$row.ChunkId;ContentHash=$(if($script:fail -eq 'QueryHash'){'d'*64}else{$row.ContentHash});Distance=0.1}}}
                 HybridQuery {foreach($row in @($script:chunks[$script:owner.ActiveGeneration].Values|Sort-Object ChunkId)){[pscustomobject]@{ChunkId=$row.ChunkId;ContentHash=$row.ContentHash;Distance=0.1;LexicalScore=$(if($row.ChunkId -ceq 'backup-policy'){0.75}else{0.25});HybridScore=$(if($row.ChunkId -ceq 'backup-policy'){0.855}else{0.705})}}}
+                Prune {$keep=@($script:generations.Keys|Sort-Object -Descending|Select-Object -First $P.keep);$drop=@($script:generations.Keys|Where-Object{$_ -notin $keep});$deletedChunks=0;foreach($generation in $drop){$deletedChunks+=$script:chunks[$generation].Count;$script:chunks.Remove($generation);$script:generations.Remove($generation)};[pscustomobject]@{RetainedGenerations=$keep.Count;DeletedGenerations=$drop.Count;DeletedChunks=$deletedChunks}}
                 Remove {$script:db=$false;$script:owner=$null}
                 default {throw "Unexpected SQL step $Step"}
             }
         }
-        function Execute {param([string]$Action='Apply',[string]$Revision='Initial',[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[switch]$Resume,[scriptblock]$Fault)
+        function Execute {param([string]$Action='Apply',[string]$Revision='Initial',[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[switch]$Resume,[scriptblock]$Fault,[int]$KeepGenerations=2)
             $p=$script:parameters.Clone();$p.Action=$Action;$p.FixtureRevision=$Revision;$p.Resume=[bool]$Resume
             $p.SearchMode=$SearchMode
             if($null -ne $Documents){$p.Documents=$Documents}
             if($null -ne $ExpectedDocuments){$p.ExpectedDocuments=$ExpectedDocuments}
             if($Question){$p.Question=$Question}
+            $p.KeepGenerations=$KeepGenerations
             $plan=New-LabAiPersistentPlan @p
             Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $Root -SqlExecutor $sql -MetadataTransport $metadata -EmbeddingTransport $transport -FaultInjector $Fault
         }
@@ -78,6 +80,8 @@ try{
             Check 'Sync-WhatIf zählt Ausgang und Ziel ohne Dokumentinhalt' ($syncPreview.ExpectedDocumentCount -eq 3 -and $syncPreview.DocumentCount -eq 2 -and ($syncPreview|ConvertTo-Json -Compress) -notmatch 'Neuer synthetischer Inhalt')
             Check 'Sync verlangt den vollständigen erwarteten Ausgangsbestand' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Sync -Documents $updatedPreview -WhatIf} 'AI_PERSISTENT_DOCUMENTS_INVALID')
             Check 'ExpectedDocuments gilt ausschließlich für Sync' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Documents $custom -ExpectedDocuments $custom -WhatIf} 'AI_PERSISTENT_EXPECTED_DOCUMENTS_UNEXPECTED')
+            Check 'Prune weist Dokumentpayloads und ungültige Retention planend ab' ((Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Prune -Documents $custom -WhatIf} 'AI_PERSISTENT_RETENTION_REQUEST_INVALID') -and (Reject {$invalid=$script:parameters.Clone();$invalid.Action='Prune';$invalid.KeepGenerations=32;New-LabAiPersistentPlan @invalid} 'AI_PERSISTENT_RETENTION_REQUEST_INVALID'))
+            Check 'KeepGenerations gilt ausschließlich für Prune' ((Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -KeepGenerations 2 -WhatIf} 'AI_PERSISTENT_RETENTION_UNEXPECTED') -and (Reject {New-LabAiPersistentPlan @script:parameters -KeepGenerations 3} 'AI_PERSISTENT_RETENTION_UNEXPECTED'))
             Check 'Doppelte Caller-Dokument-IDs werden vor State und Modell abgewiesen' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Documents @($custom[0],$custom[0]) -WhatIf} 'AI_PERSISTENT_DOCUMENTS_INVALID')
             Reset
             $customResult=Execute -Documents $custom
@@ -101,12 +105,20 @@ try{
             Check 'Sync mit falschem erwarteten Ausgangsstand scheitert vor Embedding' ((Reject {Execute -Action Sync -Documents $custom -ExpectedDocuments $wrongExpected} 'AI_PERSISTENT_SOURCE_GENERATION_DRIFT') -and $script:payloads -eq $beforeSyncDrift)
             $secondSync=Execute -Action Sync -Documents $custom -ExpectedDocuments $updated
             Check 'Weitere Sync-Generation verwendet den jeweils aktiven gebundenen Ausgangsstand' ($secondSync.Generation -eq 3 -and $secondSync.EmbeddingRequests -eq 2 -and $secondSync.CopiedChunks -eq 1 -and $script:owner.ActiveGeneration -eq 3)
+            $prunePreview=Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Prune -KeepGenerations 2 -WhatIf
+            Check 'Prune-WhatIf ist modellfrei und bindet die Retention' ($prunePreview.KeepGenerations -eq 2 -and $prunePreview.ModelSelection -ceq 'NOT_REQUIRED' -and $prunePreview.DocumentCount -eq 0)
+            $pruned=Execute -Action Prune -KeepGenerations 2
+            Check 'Prune entfernt nur abgeschlossene inaktive Generationen' ($pruned.Status -ceq 'PRUNED' -and $pruned.Generation -eq 3 -and $pruned.DeletedGenerations -eq 1 -and $pruned.DeletedChunks -eq 3 -and @($script:generations.Keys|Sort-Object) -join ',' -ceq '2,3')
+            $prunedAgain=Execute -Action Prune -KeepGenerations 2
+            Check 'Prune-Replay ist idempotent und modellfrei' ($prunedAgain.DeletedGenerations -eq 0 -and $prunedAgain.DeletedChunks -eq 0 -and $script:payloads -eq 9)
             $journalText=Get-Content (JournalPath) -Raw
             Check 'Sync-Journal enthält weder aktuelle noch frühere Dokumentinhalte' ($journalText -notmatch 'CHECKDB|Abfragepläne|Testressourcen')
             $null=Execute -Action Remove
             Reset;$null=Execute -Documents $custom
             $syncCrash={param($Step,$Id)if($Step -eq 'AfterChunkSql'){throw 'synthetic sync crash'}}
             Check 'Sync-Abbruch während Staging bleibt explizit sichtbar' (Reject {Execute -Action Sync -Documents $updated -ExpectedDocuments $custom -Fault $syncCrash} 'AI_PERSISTENT_RECOVERY_REQUIRED')
+            $beforePruneEvents=@($script:events|Where-Object{$_ -eq 'Prune'}).Count
+            Check 'Prune blockiert unvollständiges Staging ohne Löschung' ((Reject {Execute -Action Prune} 'AI_PERSISTENT_RETENTION_UNSUPPORTED') -and @($script:events|Where-Object{$_ -eq 'Prune'}).Count -eq $beforePruneEvents -and $script:generations.Count -eq 2)
             $stagedQuery=Execute -Action Query -Documents $custom -Question 'Welche Tests?'
             Check 'Query liest während Sync-Staging weiterhin vollständig die alte Generation' ($stagedQuery.Generation -eq 1 -and $script:owner.ActiveGeneration -eq 1)
             Check 'Sync-Staging verlangt explizites Resume' (Reject {Execute -Action Sync -Documents $updated -ExpectedDocuments $custom} 'AI_PERSISTENT_RESUME_REQUIRED')
@@ -124,6 +136,8 @@ try{
             Reset
             $first=Execute
             Check 'Initial erstellt drei persistente Chunks und aktiviert genau eine Generation' ($first.Status -eq 'COMMITTED' -and $first.EmbeddingRequests -eq 3 -and $script:owner.ActiveGeneration -eq 1 -and $script:chunks[1].Count -eq 3)
+            $beforeFixturePrune=@($script:events|Where-Object{$_ -eq 'Prune'}).Count
+            Check 'Prune übernimmt keine feste Fixture-Collection' ((Reject {Execute -Action Prune} 'AI_PERSISTENT_RETENTION_UNSUPPORTED') -and @($script:events|Where-Object{$_ -eq 'Prune'}).Count -eq $beforeFixturePrune -and $script:generations.Count -eq 1)
             $guidJournal=Read-LabAiPersistentJournal -Path (JournalPath) -Plan (New-LabAiPersistentPlan @script:parameters) -BindingHash ((Get-Content (JournalPath) -Raw|ConvertFrom-Json).bindingHash)
             Check 'Journal-Roundtrip bewahrt die großgeschriebene SQL-GUID wie Receipt und Observation' ($guidJournal.databaseGuid -ceq 'ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF' -and $guidJournal.databaseGuid -ceq $script:owner.DatabaseGuid)
             $guidJournal.databaseGuid='-'*36

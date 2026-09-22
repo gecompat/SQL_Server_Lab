@@ -193,8 +193,8 @@ Ihr vollständiger Bestand kann mit gebundenem Ausgangsstand atomar synchronisie
 werden; unveränderte Vektoren werden übernommen, Update und Insert neu eingebettet
 und ausgelassene IDs beim Cutover entfernt.
 Die erweiterten Docker- und Podman-Läufe bestanden am 2026-09-22 getrennt mit
-je 26 Assertions einschließlich einer Collection aus drei Caller-Dokumenten,
-SQLrestart, Delta-Cutover, Caller-Sync, Hashdrift und Cleanup.
+je 30 Assertions einschließlich einer Collection aus drei Caller-Dokumenten,
+SQLrestart, Delta-Cutover, Caller-Sync, explizitem Prune, Hashdrift und Cleanup.
 Caller-Modellwechsel-Re-Embedding zum festen lokalen Nomic-Ziel ist umgesetzt;
 weitere Zielmodelle und Dimensionswechsel bleiben offen. Die feste synthetische
 Persistenz und ihre Migration sind unten gesondert beschrieben. SQL Server Full-Text Search bleibt offen, solange kein
@@ -248,10 +248,11 @@ Der [synthetische Persistenz-Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
 ist implementiert und offline geprüft: eigene SQL-2025-Datenbank, feste
 Initial-/Delta-Generation, aktive Altgeneration bei Stagingfehlern, atomarer
 Cutover und SQL-quittiertes Resume/Remove. Der aktuelle Docker-/Podman-Nachweis
-mit je 26 Assertions schließt zusätzlich atomaren Caller-Dokument-Sync ein. Dies ist
+mit je 30 Assertions schließt zusätzlich atomaren Caller-Dokument-Sync und
+explizites transaktionales Prune alter v1-Caller-Generationen ein. Dies ist
 für Delta weiterhin ein inkrementeller Rebuild mit unverändertem Modell. Der
 Modellwechsel-Re-Embedding-Plan führt nun auch vollständig gebundene Caller-
 Bestände in die nächste Nomic-Generation. Docker und Podman bestanden jeweils
 25 native Prüfungen einschließlich SQL-Neustart und vollständigem Cleanup.
-Automatische Retention, weitere Zielmodelle,
+Automatische Retention und Prune nach Modellmigration, weitere Zielmodelle,
 Dimensionsmigrationen, Hyper-V und ANN bleiben offen.
