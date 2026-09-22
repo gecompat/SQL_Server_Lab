@@ -21,26 +21,43 @@ function Get-LabAiPersistentEmbedding {
 }
 
 function New-LabAiPersistentPlan {
-    param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume,[string]$TargetModelKey)
+    param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[object[]]$Documents,[string]$Question,[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume,[string]$TargetModelKey)
     if($Resume -and $Action -notin @('Apply','Migrate')){throw 'AI_PERSISTENT_RESUME_ACTION_INVALID'}
     if($Action -eq 'Migrate'){
         if($FixtureRevision -cne 'Delta' -or $TargetModelKey -cne 'ollama-nomic-embed-text-v2-moe'){throw 'AI_PERSISTENT_MIGRATION_REQUEST_INVALID'}
     }elseif($TargetModelKey){throw 'AI_PERSISTENT_MIGRATION_TARGET_UNEXPECTED'}
     if($SearchMode -eq 'Hybrid' -and $Action -ne 'Query'){throw 'AI_PERSISTENT_SEARCH_MODE_INVALID'}
     try{$RunId=([guid]::ParseExact($RunId,'D')).ToString('D');$CollectionId=([guid]::ParseExact($CollectionId,'D')).ToString('D')}catch{throw 'AI_PERSISTENT_IDENTITY_INVALID'}
-    $fixturePath=Join-Path $script:ModuleRoot 'Scenarios/Ai/persistent-retrieval/1.0/fixture.json'
-    $fixture=Get-Content -LiteralPath $fixturePath -Raw -Encoding utf8|ConvertFrom-Json -Depth 10
-    if($fixture.contract -cne 'SqlServerLab.AiPersistentFixture/1.0' -or $fixture.modelKey -cne 'ollama-embeddinggemma-latest' -or $fixture.dimension -ne 768){throw 'AI_PERSISTENT_FIXTURE_INVALID'}
-    $documents=@($fixture.revisions.$FixtureRevision|Sort-Object Id|ForEach-Object{[pscustomobject]@{Id=[string]$_.Id;Content=[string]$_.Content;ContentHash=Get-LabAiSha256Text ([string]$_.Content)}})
-    if($documents.Count -ne 3 -or @($documents.Id|Select-Object -Unique).Count -ne 3){throw 'AI_PERSISTENT_FIXTURE_INVALID'}
-    foreach($document in $documents){if($document.Id -notmatch '^[a-z][a-z0-9-]{2,95}$' -or -not $document.Content -or $document.Content.Length -gt 4000){throw 'AI_PERSISTENT_FIXTURE_INVALID'}}
+    $callerSupplied=$null -ne $Documents
+    if($callerSupplied){
+        if($Action -notin @('Apply','Query') -or $FixtureRevision -cne 'Initial' -or $TargetModelKey){throw 'AI_PERSISTENT_DOCUMENTS_ACTION_INVALID'}
+        if($Documents.Count -lt 1 -or $Documents.Count -gt 16){throw 'AI_PERSISTENT_DOCUMENTS_INVALID'}
+        $documents=@($Documents|ForEach-Object{[pscustomobject]@{Id=[string]$_.Id;Content=[string]$_.Content;ContentHash=Get-LabAiSha256Text ([string]$_.Content)}}|Sort-Object Id -CaseSensitive)
+        $documentIds=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+        foreach($document in $documents){if(-not $documentIds.Add($document.Id) -or $document.Id -notmatch '^[a-z][a-z0-9-]{2,95}$' -or [string]::IsNullOrWhiteSpace($document.Content) -or $document.Content.Length -gt 4000){throw 'AI_PERSISTENT_DOCUMENTS_INVALID'}}
+        if($Action -eq 'Query' -and [string]::IsNullOrWhiteSpace($Question)){throw 'AI_PERSISTENT_QUESTION_INVALID'}
+        if($Action -ne 'Query' -and $Question){throw 'AI_PERSISTENT_QUESTION_INVALID'}
+        $questionText=$Question
+        $datasetMode='CallerSupplied'
+    }else{
+        if($Question){throw 'AI_PERSISTENT_QUESTION_INVALID'}
+        $fixturePath=Join-Path $script:ModuleRoot 'Scenarios/Ai/persistent-retrieval/1.0/fixture.json'
+        $fixture=Get-Content -LiteralPath $fixturePath -Raw -Encoding utf8|ConvertFrom-Json -Depth 10
+        if($fixture.contract -cne 'SqlServerLab.AiPersistentFixture/1.0' -or $fixture.modelKey -cne 'ollama-embeddinggemma-latest' -or $fixture.dimension -ne 768){throw 'AI_PERSISTENT_FIXTURE_INVALID'}
+        $documents=@($fixture.revisions.$FixtureRevision|Sort-Object Id|ForEach-Object{[pscustomobject]@{Id=[string]$_.Id;Content=[string]$_.Content;ContentHash=Get-LabAiSha256Text ([string]$_.Content)}})
+        if($documents.Count -ne 3 -or @($documents.Id|Select-Object -Unique).Count -ne 3){throw 'AI_PERSISTENT_FIXTURE_INVALID'}
+        foreach($document in $documents){if($document.Id -notmatch '^[a-z][a-z0-9-]{2,95}$' -or -not $document.Content -or $document.Content.Length -gt 4000){throw 'AI_PERSISTENT_FIXTURE_INVALID'}}
+        $questionText=[string]$fixture.queries.$QueryId
+        $datasetMode='Fixture'
+    }
     $modelKey=if($Action -eq 'Migrate'){$TargetModelKey}else{'ollama-embeddinggemma-latest'}
     $endpoint=New-LabAiEndpointPlan -ModelKey $modelKey -EndpointRef ollama-local -Lane local -LocalPort $LocalPort -MaximumRequests 1 -RetryCount 0 -TimeoutSeconds 60
     if($endpoint.Status -eq 'BLOCKED' -or $endpoint.Dimension -ne 768){throw 'AI_PERSISTENT_MODEL_PLAN_INVALID'}
     $datasetHash=Get-LabAiPlanKey @($documents|ForEach-Object{[ordered]@{Id=$_.Id;Hash=$_.ContentHash}})
     $identity=[ordered]@{Contract='SqlServerLab.AiPersistentRetrieval/1.0';RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Revision=$FixtureRevision;DatasetHash=$datasetHash;EndpointPlanKey=$endpoint.PlanKey}
+    if($callerSupplied){$identity.DatasetMode=$datasetMode}
     if($Action -eq 'Migrate'){$identity.Contract='SqlServerLab.AiPersistentMigration/2.0';$identity.SourceGeneration=2;$identity.TargetGeneration=3;$identity.ProfileHash=Get-LabAiPlanKey (Get-LabAiPersistentProfile nomic-search)}
-    [pscustomobject]@{RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Action=$Action;Revision=$FixtureRevision;Generation=$(if($FixtureRevision -eq 'Initial'){1}else{2});QueryId=$QueryId;Question=[string]$fixture.queries.$QueryId;SearchMode=$SearchMode;Documents=$documents;DatasetHash=$datasetHash;PlanKey=Get-LabAiPlanKey $identity;EndpointPlan=$endpoint;TimeoutSeconds=$TimeoutSeconds;Resume=[bool]$Resume}
+    [pscustomobject]@{RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Action=$Action;Revision=$FixtureRevision;Generation=$(if($FixtureRevision -eq 'Initial'){1}else{2});QueryId=$QueryId;Question=$questionText;DatasetMode=$datasetMode;SearchMode=$SearchMode;Documents=$documents;DatasetHash=$datasetHash;PlanKey=Get-LabAiPlanKey $identity;EndpointPlan=$endpoint;TimeoutSeconds=$TimeoutSeconds;Resume=[bool]$Resume}
 }
 
 function Write-LabAiPersistentJournal {
@@ -136,9 +153,14 @@ DECLARE @result int; EXEC @result=sys.sp_getapplock @Resource=@resource,@LockMod
             return Invoke-LabAiPersistentMigration -Context $context -Plan $Plan -Journal $journal -Owner $owner -Path $path -Identity $identity -StateRoot $StateRoot -MetadataTransport $MetadataTransport -EmbeddingTransport $EmbeddingTransport -FaultInjector $FaultInjector
         }
         if($Plan.Action -eq 'Query'){
-            if([int]$owner.ActiveGeneration -notin @(1,2)){throw 'AI_PERSISTENT_ACTIVE_GENERATION_MISSING'}
-            $activeRevision=if([int]$owner.ActiveGeneration -eq 1){'Initial'}else{'Delta'}
-            $active=New-LabAiPersistentPlan -RunId $Plan.RunId -InstanceId $Plan.InstanceId -CollectionId $Plan.CollectionId -Action Query -FixtureRevision $activeRevision -QueryId $Plan.QueryId -SearchMode $Plan.SearchMode -LocalPort $Plan.EndpointPlan.Port -TimeoutSeconds $Plan.TimeoutSeconds
+            if($Plan.DatasetMode -ceq 'CallerSupplied'){
+                if([int]$owner.ActiveGeneration -ne 1){throw 'AI_PERSISTENT_ACTIVE_GENERATION_MISSING'}
+                $activeRevision='Initial';$active=$Plan
+            }else{
+                if([int]$owner.ActiveGeneration -notin @(1,2)){throw 'AI_PERSISTENT_ACTIVE_GENERATION_MISSING'}
+                $activeRevision=if([int]$owner.ActiveGeneration -eq 1){'Initial'}else{'Delta'}
+                $active=New-LabAiPersistentPlan -RunId $Plan.RunId -InstanceId $Plan.InstanceId -CollectionId $Plan.CollectionId -Action Query -FixtureRevision $activeRevision -QueryId $Plan.QueryId -SearchMode $Plan.SearchMode -LocalPort $Plan.EndpointPlan.Port -TimeoutSeconds $Plan.TimeoutSeconds
+            }
             $generation=@(Get-LabAiPersistentGeneration $context $journal ([int]$owner.ActiveGeneration))
             if($generation.Count -ne 1 -or $generation[0].Status -cne 'COMMITTED' -or $generation[0].ModelHash -cne $journal.modelHash -or $generation[0].DatasetHash -cne $active.DatasetHash -or $generation[0].PlanKey -cne $active.PlanKey){throw 'AI_PERSISTENT_GENERATION_DRIFT'}
             $chunks=@(Get-LabAiPersistentChunks $context $journal ([int]$owner.ActiveGeneration));Assert-LabAiPersistentChunks $chunks $active.Documents -Complete
@@ -168,13 +190,14 @@ FROM Ranked ORDER BY HybridScore DESC,Distance,ChunkId;
             }else{
                 $ranked=@(Invoke-LabAiPersistentSql $context Query "DECLARE @v VECTOR(768)=CAST(@vector AS VECTOR(768));SELECT TOP(3) c.ChunkId,c.ContentHash,CONVERT(float,VECTOR_DISTANCE('cosine',@v,c.Embedding)) AS Distance FROM [$($journal.databaseName)].dbo.LabChunks c JOIN [$($journal.databaseName)].dbo.LabOwner o ON c.Generation=o.ActiveGeneration WHERE o.Singleton=1 AND o.ActiveGeneration=@generation ORDER BY VECTOR_DISTANCE('cosine',@v,c.Embedding),c.ChunkId;" @{vector=$vector;generation=[int]$owner.ActiveGeneration})
             }
-            if($ranked.Count -ne 3 -or @($ranked.ChunkId|Select-Object -Unique).Count -ne 3){throw 'AI_PERSISTENT_QUERY_INVALID'}
+            $expectedRankedCount=[Math]::Min(3,$active.Documents.Count)
+            if($ranked.Count -ne $expectedRankedCount -or @($ranked.ChunkId|Select-Object -Unique).Count -ne $expectedRankedCount){throw 'AI_PERSISTENT_QUERY_INVALID'}
             foreach($row in $ranked){
                 $expectedDocument=@($active.Documents|Where-Object Id -CEQ $row.ChunkId)
                 if($expectedDocument.Count -ne 1 -or [string]$row.ContentHash -cne $expectedDocument[0].ContentHash -or [double]::IsNaN([double]$row.Distance) -or [double]::IsInfinity([double]$row.Distance)){throw 'AI_PERSISTENT_QUERY_INVALID'}
                 if($Plan.SearchMode -eq 'Hybrid' -and ([double]::IsNaN([double]$row.LexicalScore) -or [double]::IsInfinity([double]$row.LexicalScore) -or [double]$row.LexicalScore -lt 0 -or [double]$row.LexicalScore -gt 1 -or [double]::IsNaN([double]$row.HybridScore) -or [double]::IsInfinity([double]$row.HybridScore))){throw 'AI_PERSISTENT_QUERY_INVALID'}
             }
-            return [pscustomobject]@{Status='QUERIED';CollectionId=$Plan.CollectionId;Generation=[int]$owner.ActiveGeneration;Revision=$activeRevision;SearchMode=$Plan.SearchMode;Ranked=$ranked;EmbeddingRequests=$requests}
+            return [pscustomobject]@{Status='QUERIED';CollectionId=$Plan.CollectionId;Generation=[int]$owner.ActiveGeneration;Revision=$activeRevision;DatasetMode=$Plan.DatasetMode;SearchMode=$Plan.SearchMode;Ranked=$ranked;EmbeddingRequests=$requests}
         }
         if([int]$owner.ActiveGeneration -gt $Plan.Generation){throw 'AI_PERSISTENT_STALE_REVISION'}
         if($Plan.Generation -eq 2 -and [int]$owner.ActiveGeneration -lt 1){throw 'AI_PERSISTENT_INITIAL_REQUIRED'}
@@ -197,7 +220,7 @@ FROM Ranked ORDER BY HybridScore DESC,Distance,ChunkId;
             if($g.Status -eq 'COMMITTED' -and [int]$owner.ActiveGeneration -eq $Plan.Generation){
                 Assert-LabAiPersistentChunks @(Get-LabAiPersistentChunks $context $journal $Plan.Generation) $Plan.Documents -Complete
                 $journal.status='COMMITTED';$journal.activeGeneration=$Plan.Generation;Write-LabAiPersistentJournal $path $journal
-                return [pscustomobject]@{Status='COMMITTED';CollectionId=$Plan.CollectionId;Generation=$Plan.Generation;EmbeddingRequests=0;CopiedChunks=0}
+                return [pscustomobject]@{Status='COMMITTED';CollectionId=$Plan.CollectionId;Generation=$Plan.Generation;DatasetMode=$Plan.DatasetMode;EmbeddingRequests=0;CopiedChunks=0}
             }
             if($g.Status -ne 'STAGING' -or -not $Plan.Resume){throw 'AI_PERSISTENT_RESUME_REQUIRED'}
         }else{
@@ -230,7 +253,7 @@ FROM Ranked ORDER BY HybridScore DESC,Distance,ChunkId;
         Complete-LabAiPersistentGeneration $context $journal $Plan ([int]$owner.ActiveGeneration)
         if($FaultInjector){& $FaultInjector 'AfterCommitSql' ''}
         $journal.status='COMMITTED';$journal.activeGeneration=$Plan.Generation;Write-LabAiPersistentJournal $path $journal
-        [pscustomobject]@{Status='COMMITTED';CollectionId=$Plan.CollectionId;Generation=$Plan.Generation;EmbeddingRequests=$requests;CopiedChunks=$copied}
+        [pscustomobject]@{Status='COMMITTED';CollectionId=$Plan.CollectionId;Generation=$Plan.Generation;DatasetMode=$Plan.DatasetMode;EmbeddingRequests=$requests;CopiedChunks=$copied}
     }catch{
         # Keine blinde SQL-Wiederholung oder Cleanup bei unbekanntem Ausgang.
         $code=if($_.Exception.Message -match '^AI_PERSISTENT_[A-Z_]+$'){$_.Exception.Message}else{'AI_PERSISTENT_RECOVERY_REQUIRED'}

@@ -71,13 +71,18 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   nativ am 2026-09-21 bestanden (`VALIDATED_REFERENCE`, 14 Assertions und Cleanup). Die neue Modellpaarung ersetzt
   weder Golden v1 noch den älteren `PARTIAL`-Nachweis. Vertrag:
   `Documentation/Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md`;
-- Persistentes synthetisches Retrieval über `Invoke-SqlServerLabAiPersistentRetrieval`:
+- Persistentes Retrieval über `Invoke-SqlServerLabAiPersistentRetrieval`:
   eigene Datenbank auf SQL-2025-Docker/Podman, lokale Host-Embeddings, feste
   Initial-/Delta-Fixture, atomarer aktiver Generationszeiger, quittiertes Resume
-  und besitzgebundenes Remove. Offline sowie nativ unter Docker und Podman geprüft (je 16 Assertions und vollständiges Cleanup).
+  und besitzgebundenes Remove. Offline sowie nativ unter Docker und Podman geprüft.
   Der enge Folgeslice `Migrate` ergänzt Generation 3 mit Nomic v2 MoE,
   v2-Upgrade, festen Präfixprofilen und SQL-gebundener aktiver Modellwahl;
-  getrennt nativ unter Docker und Podman belegt (je 20 Assertions und Cleanup). Keine beliebigen Dokumente oder Cloud.
+  getrennt nativ unter Docker und Podman belegt (je 20 Assertions und Cleanup).
+  Eine initiale Collection akzeptiert zusätzlich 1 bis 16 Caller-Dokumente und
+  eine freie Query, hashgebunden und ohne Inhalte im Journal; Docker und Podman
+  bestanden den Gesamtvertrag am 2026-09-22 getrennt mit je 23 Assertions,
+  einer Collection aus zwei Caller-Dokumenten und vollständigem Cleanup.
+  Updates/Deletes und Cloud bleiben offen.
   Vertrag: `Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md`;
 
 - AdHoc-RAG mit vorhandenem Host-`embeddinggemma:latest` und expliziter

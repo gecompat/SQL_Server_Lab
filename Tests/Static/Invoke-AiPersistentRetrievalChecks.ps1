@@ -43,16 +43,18 @@ try{
                 Stage {$script:generations[$P.generation]=[pscustomobject]@{Generation=$P.generation;OperationId=$P.operation;PlanKey=$P.plan;Revision=$P.revision;DatasetHash=$P.dataset;ModelHash=$P.model;Status='STAGING'};$script:chunks[$P.generation]=@{}}
                 Insert {if($script:chunks[$P.generation].ContainsKey($P.id)){throw 'duplicate'};$script:chunks[$P.generation][$P.id]=[pscustomobject]@{ChunkId=$P.id;Content=$P.content;ContentHash=$P.hash;VectorHash='c'*64;ActualVectorHash='c'*64}}
                 Copy {$script:chunks[$P.generation][$P.id]=$script:chunks[$P.previous][$P.id].PSObject.Copy()}
-                Commit {if($script:owner.ActiveGeneration -ne $P.previous -or $script:chunks[$P.generation].Count -ne 3){throw 'cutover conflict'};$script:generations[$P.generation].Status='COMMITTED';$script:owner.ActiveGeneration=$P.generation}
+                Commit {if($script:owner.ActiveGeneration -ne $P.previous -or $script:chunks[$P.generation].Count -ne $P.documentCount){throw 'cutover conflict'};$script:generations[$P.generation].Status='COMMITTED';$script:owner.ActiveGeneration=$P.generation}
                 Query {foreach($row in @($script:chunks[$script:owner.ActiveGeneration].Values|Sort-Object ChunkId)){[pscustomobject]@{ChunkId=$row.ChunkId;ContentHash=$(if($script:fail -eq 'QueryHash'){'d'*64}else{$row.ContentHash});Distance=0.1}}}
                 HybridQuery {foreach($row in @($script:chunks[$script:owner.ActiveGeneration].Values|Sort-Object ChunkId)){[pscustomobject]@{ChunkId=$row.ChunkId;ContentHash=$row.ContentHash;Distance=0.1;LexicalScore=$(if($row.ChunkId -ceq 'backup-policy'){0.75}else{0.25});HybridScore=$(if($row.ChunkId -ceq 'backup-policy'){0.855}else{0.705})}}}
                 Remove {$script:db=$false;$script:owner=$null}
                 default {throw "Unexpected SQL step $Step"}
             }
         }
-        function Execute {param([string]$Action='Apply',[string]$Revision='Initial',[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[switch]$Resume,[scriptblock]$Fault)
+        function Execute {param([string]$Action='Apply',[string]$Revision='Initial',[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[object[]]$Documents,[string]$Question,[switch]$Resume,[scriptblock]$Fault)
             $p=$script:parameters.Clone();$p.Action=$Action;$p.FixtureRevision=$Revision;$p.Resume=[bool]$Resume
             $p.SearchMode=$SearchMode
+            if($null -ne $Documents){$p.Documents=$Documents}
+            if($Question){$p.Question=$Question}
             $plan=New-LabAiPersistentPlan @p
             Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $Root -SqlExecutor $sql -MetadataTransport $metadata -EmbeddingTransport $transport -FaultInjector $Fault
         }
@@ -63,6 +65,23 @@ try{
             Check 'Public WhatIf berührt weder State noch Binding, Modell oder SQL' ($script:events.Count -eq 0 -and -not(Test-Path $Root))
             Check 'Ungültige GUID scheitert auch im rein planenden öffentlichen Aufruf' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId ('-'*36) -WhatIf} 'AI_PERSISTENT_IDENTITY_INVALID')
             Check 'Hybridmodus ist ausschließlich für Query zulässig' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -SearchMode Hybrid -WhatIf} 'AI_PERSISTENT_SEARCH_MODE_INVALID')
+            $custom=@(
+                [pscustomobject]@{Id='restore-guide';Content='Synthetische Restore-Tests prüfen CHECKDB nach der Wiederherstellung.'},
+                [pscustomobject]@{Id='index-guide';Content='Synthetische Index-Tests vergleichen reproduzierbare Abfragepläne.'}
+            )
+            $customPreview=Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Documents $custom -WhatIf
+            Check 'Caller-Dokumente bleiben im WhatIf rein planend und werden nur gezählt' ($customPreview.DatasetMode -ceq 'CallerSupplied' -and $customPreview.DocumentCount -eq 2 -and $script:events.Count -eq 0 -and -not(Test-Path $Root))
+            Check 'Doppelte Caller-Dokument-IDs werden vor State und Modell abgewiesen' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Documents @($custom[0],$custom[0]) -WhatIf} 'AI_PERSISTENT_DOCUMENTS_INVALID')
+            Reset
+            $customResult=Execute -Documents $custom
+            Check 'Caller-Dokumente erzeugen eine gebundene initiale SQL-Generation' ($customResult.DatasetMode -ceq 'CallerSupplied' -and $customResult.EmbeddingRequests -eq 2 -and $script:owner.ActiveGeneration -eq 1 -and $script:chunks[1].Count -eq 2)
+            $customQuery=Execute -Action Query -Documents $custom -Question 'Was prüfen synthetische Restore-Tests?'
+            Check 'Freie Frage liest ausschließlich die gebundene Caller-Collection' ($customQuery.DatasetMode -ceq 'CallerSupplied' -and $customQuery.Ranked.Count -eq 2 -and 'restore-guide' -in $customQuery.Ranked.ChunkId)
+            $beforeCustomDrift=$script:payloads
+            $changed=@($custom[0],[pscustomobject]@{Id='index-guide';Content='Geänderter synthetischer Inhalt.'})
+            Check 'Abweichende Caller-Dokumente blockieren Query vor Embedding' ((Reject {Execute -Action Query -Documents $changed -Question 'Welche Tests?'} 'AI_PERSISTENT_GENERATION_DRIFT') -and $script:payloads -eq $beforeCustomDrift)
+            $null=Execute -Action Remove
+            Reset
             $first=Execute
             Check 'Initial erstellt drei persistente Chunks und aktiviert genau eine Generation' ($first.Status -eq 'COMMITTED' -and $first.EmbeddingRequests -eq 3 -and $script:owner.ActiveGeneration -eq 1 -and $script:chunks[1].Count -eq 3)
             $guidJournal=Read-LabAiPersistentJournal -Path (JournalPath) -Plan (New-LabAiPersistentPlan @script:parameters) -BindingHash ((Get-Content (JournalPath) -Raw|ConvertFrom-Json).bindingHash)

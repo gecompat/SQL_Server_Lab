@@ -74,7 +74,7 @@ function Complete-LabAiPersistentGeneration {
     $manifest=@($Plan.Documents|ForEach-Object{[ordered]@{Id=$_.Id;Content=$_.Content;ContentHash=$_.ContentHash}})|ConvertTo-Json -Compress
     $name=$Journal.databaseName
     $migrationGuard=''
-    $parameters=@{token=$Journal.ownerToken;databaseGuid=$Journal.databaseGuid;previous=$Previous;generation=$Plan.Generation;operation=$Journal.operationId;plan=$Plan.PlanKey;model=$Journal.modelHash;manifest=$manifest;dataset=$Plan.DatasetHash;revision=$Plan.Revision}
+    $parameters=@{token=$Journal.ownerToken;databaseGuid=$Journal.databaseGuid;previous=$Previous;generation=$Plan.Generation;operation=$Journal.operationId;plan=$Plan.PlanKey;model=$Journal.modelHash;manifest=$manifest;documentCount=$Plan.Documents.Count;dataset=$Plan.DatasetHash;revision=$Plan.Revision}
     if($MigrationJournal){
         $parameters.receipt=$MigrationJournal.migration|ConvertTo-Json -Depth 15 -Compress
         $parameters.sourcePlan=$MigrationJournal.planKey;$parameters.sourceModel=$MigrationJournal.modelHash;$parameters.sourceOperation=$MigrationJournal.operationId
@@ -90,7 +90,7 @@ BEGIN TRANSACTION;
 IF NOT EXISTS(SELECT 1 FROM [$name].dbo.LabOwner WITH(UPDLOCK,HOLDLOCK) WHERE Singleton=1 AND OwnerToken=@token AND DatabaseGuid=@databaseGuid AND ActiveGeneration=@previous) THROW 51000,'AI_PERSISTENT_CUTOVER_CONFLICT',1;
 $migrationGuard
 IF NOT EXISTS(SELECT 1 FROM [$name].dbo.LabGenerations WITH(UPDLOCK,HOLDLOCK) WHERE Generation=@generation AND OperationId=@operation AND PlanKey=@plan AND ModelHash=@model AND DatasetHash=@dataset AND Revision=@revision AND Status='STAGING') THROW 51000,'AI_PERSISTENT_GENERATION_DRIFT',1;
-IF (SELECT COUNT(*) FROM [$name].dbo.LabChunks WITH(UPDLOCK,HOLDLOCK) WHERE Generation=@generation)<>3 OR EXISTS(SELECT Id COLLATE Latin1_General_100_BIN2,DATALENGTH(Id),Content COLLATE Latin1_General_100_BIN2,DATALENGTH(Content),ContentHash FROM OPENJSON(@manifest) WITH(Id nvarchar(96),Content nvarchar(4000),ContentHash char(64)) EXCEPT SELECT ChunkId,DATALENGTH(ChunkId),Content COLLATE Latin1_General_100_BIN2,DATALENGTH(Content),ContentHash FROM [$name].dbo.LabChunks WHERE Generation=@generation) OR EXISTS(SELECT 1 FROM [$name].dbo.LabChunks WHERE Generation=@generation AND VectorHash<>LOWER(CONVERT(char(64),HASHBYTES('SHA2_256',CAST(Embedding AS varchar(max))),2))) THROW 51000,'AI_PERSISTENT_GENERATION_INCOMPLETE',1;
+IF (SELECT COUNT(*) FROM [$name].dbo.LabChunks WITH(UPDLOCK,HOLDLOCK) WHERE Generation=@generation)<>@documentCount OR EXISTS(SELECT Id COLLATE Latin1_General_100_BIN2,DATALENGTH(Id),Content COLLATE Latin1_General_100_BIN2,DATALENGTH(Content),ContentHash FROM OPENJSON(@manifest) WITH(Id nvarchar(96),Content nvarchar(4000),ContentHash char(64)) EXCEPT SELECT ChunkId,DATALENGTH(ChunkId),Content COLLATE Latin1_General_100_BIN2,DATALENGTH(Content),ContentHash FROM [$name].dbo.LabChunks WHERE Generation=@generation) OR EXISTS(SELECT 1 FROM [$name].dbo.LabChunks WHERE Generation=@generation AND VectorHash<>LOWER(CONVERT(char(64),HASHBYTES('SHA2_256',CAST(Embedding AS varchar(max))),2))) THROW 51000,'AI_PERSISTENT_GENERATION_INCOMPLETE',1;
 UPDATE [$name].dbo.LabGenerations SET Status='COMMITTED' WHERE Generation=@generation;
 UPDATE [$name].dbo.LabOwner SET ActiveGeneration=@generation WHERE Singleton=1;
 COMMIT;

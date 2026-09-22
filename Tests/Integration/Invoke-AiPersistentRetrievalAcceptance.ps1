@@ -12,7 +12,7 @@ param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,[V
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-ai-persistent-'+[guid]::NewGuid().ToString('N'))
-$state=Join-Path $root 'state';$data=Join-Path $root 'Lab_Data';$operation=[guid]::NewGuid().ToString('D');$collection=[guid]::NewGuid().ToString('D')
+$state=Join-Path $root 'state';$data=Join-Path $root 'Lab_Data';$operation=[guid]::NewGuid().ToString('D');$collection=[guid]::NewGuid().ToString('D');$customCollection=[guid]::NewGuid().ToString('D')
 $module=$null;$binding=$null;$complete=$false;$cleanupFailed=$false;$arrangeStarted=$false;$mutex=$null;$acquired=$false
 $oldState=$env:SQL_SERVER_LAB_STATE;$oldData=$env:SQL_SERVER_LAB_DATA_ROOT
 function Assert-Persistent {param([bool]$Condition,[string]$Name)if(-not $Condition){throw "AI_PERSISTENT_ACCEPTANCE_FAILED: $Name"};Write-Host "PASS: $Name"}
@@ -115,6 +115,21 @@ try{
     Assert-Persistent ($delta.Generation -eq 2 -and $delta.Ranked[0].ChunkId -ceq 'backup-policy' -and 'network-policy' -notin $delta.Ranked.ChunkId -and 'retention-policy' -in $delta.Ranked.ChunkId -and @($delta.Ranked|Where-Object ChunkId -eq backup-policy)[0].ContentHash -cne $initialHash) 'Update, Delete und Insert sind nach atomarem Cutover sichtbar'
     $hybridDelta=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Query -SearchMode Hybrid -Confirm:$false
     Assert-Persistent ($hybridDelta.Generation -eq 2 -and $hybridDelta.Ranked[0].ChunkId -ceq 'backup-policy' -and 'network-policy' -notin $hybridDelta.Ranked.ChunkId -and 'retention-policy' -in $hybridDelta.Ranked.ChunkId) 'Hybridsuche verwendet ausschließlich die atomar aktivierte Delta-Generation'
+    $customDocuments=@(
+        [pscustomobject]@{Id='restore-guide';Content='Synthetische Restore-Tests prüfen CHECKDB nach der Wiederherstellung.'},
+        [pscustomobject]@{Id='index-guide';Content='Synthetische Index-Tests vergleichen reproduzierbare Abfragepläne.'}
+    )
+    $customParameters=@{RunId=$lab.RunId;CollectionId=$customCollection;StateRoot=$state;LocalPort=$LocalPort;TimeoutSeconds=300;Documents=$customDocuments}
+    $customApplied=Invoke-SqlServerLabAiPersistentRetrieval @customParameters -Confirm:$false
+    Assert-Persistent ($customApplied.Status -eq 'COMMITTED' -and $customApplied.DatasetMode -ceq 'CallerSupplied' -and $customApplied.EmbeddingRequests -eq 2) 'Zwei Caller-Dokumente werden als eigene initiale Collection persistiert'
+    $customQuery=Invoke-SqlServerLabAiPersistentRetrieval @customParameters -Action Query -Question 'Was prüfen synthetische Restore-Tests?' -SearchMode Hybrid -Confirm:$false
+    Assert-Persistent ($customQuery.DatasetMode -ceq 'CallerSupplied' -and $customQuery.Ranked.Count -eq 2 -and 'restore-guide' -in $customQuery.Ranked.ChunkId) 'Freie Frage verwendet ausschließlich die hashgebundene Caller-Collection'
+    $customDrift=$false
+    $changedDocuments=@($customDocuments[0],[pscustomobject]@{Id='index-guide';Content='Geänderter synthetischer Inhalt.'})
+    try{$null=Invoke-SqlServerLabAiPersistentRetrieval -RunId $lab.RunId -CollectionId $customCollection -StateRoot $state -LocalPort $LocalPort -TimeoutSeconds 300 -Documents $changedDocuments -Action Query -Question 'Welche Tests?' -Confirm:$false}catch{if($_.Exception.Message -ceq 'AI_PERSISTENT_GENERATION_DRIFT'){$customDrift=$true}else{throw}}
+    Assert-Persistent $customDrift 'Abweichender Caller-Inhalt wird vor der Query abgewiesen'
+    $customRemoved=Invoke-SqlServerLabAiPersistentRetrieval -RunId $lab.RunId -CollectionId $customCollection -StateRoot $state -LocalPort $LocalPort -TimeoutSeconds 300 -Action Remove -Confirm:$false
+    Assert-Persistent ($customRemoved.Status -eq 'REMOVED') 'Caller-Collection wird besitzgebunden entfernt'
     $removed=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Remove -Confirm:$false
     $again=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Remove -Confirm:$false
     Assert-Persistent ($removed.Status -eq 'REMOVED' -and $again.Status -eq 'REMOVED') 'Eigene Datenbank entfernt und Abwesenheit bestätigt'
@@ -143,4 +158,4 @@ try{
     }
 }
 if(-not $complete -or $cleanupFailed){throw 'AI_PERSISTENT_ACCEPTANCE_INCOMPLETE'}
-Write-Host "AI PERSISTENT RETRIEVAL ACCEPTANCE: PASS ($Provider; vector/hybrid; SQLrestart; staging/resume; own DB/run cleanup)"
+Write-Host "AI PERSISTENT RETRIEVAL ACCEPTANCE: PASS ($Provider; vector/hybrid; caller documents; SQLrestart; staging/resume; own DB/run cleanup)"
