@@ -25,6 +25,9 @@ Das Runtimeverzeichnis wird unmittelbar revalidiert. Mehrdeutige Backend-DLLs,
 CUDA-NPU, fehlende Dateien, falsches GGUF-Magic, unpassende Zertifikat-/Key-
 Paare und belegte Ports blockieren. Es gibt keine Übernahme fremder Prozesse.
 OpenVINO erhält im Kindprozess ausdrücklich `GGML_OPENVINO_DEVICE=CPU|GPU|NPU`.
+Für NPU werden keine OpenVINO-Cacheverzeichnisse gesetzt, weil Upstream diese
+Gerätekombination nicht unterstützt. CPU und GPU erhalten weiterhin ausschließlich
+operationsgebundene Cachepfade.
 CUDA-GPU verwendet `CUDA0`; CUDA-CPU verwendet `--device none` und null
 GPU-Layer. Automatische Fit-Anpassung ist aus, modellbezogene geerbte
 `LLAMA*`-/`GGML*`-/CUDA-/OpenVINO-Overrides werden im Kindprozess entfernt.
@@ -43,6 +46,10 @@ GPU-Modell-/Compute-Puffer für CUDA-CPU. Erkannter Fallback blockiert. Diese
 Evidence belegt Runtimekonfiguration und erfolgreiche Berechnung gemeinsam;
 sie ist keine unabhängige Hardwaretelemetrie und kein Performancebenchmark.
 Unbekannte künftige Logformate können deshalb geschlossen scheitern.
+Ein vom eigenen OpenVINO-Prozess geloggter Graph-/Computefehler bei einer
+fehlgeschlagenen Embeddingantwort wird als `LLAMA_ACCELERATOR_COMPUTE_FAILED`
+von einer sonst ungültigen HTTP-Antwort getrennt. Das ist Fehlerklassifikation,
+kein positiver Gerätenachweis.
 
 ## Ownership, Fristen und Cleanup
 
@@ -91,6 +98,10 @@ Die lokale Embeddinggemma-Variante scheiterte mit Build b11104 an einer
 Tensoranzahlabweichung. Nomic konnte unter CUDA Embeddings liefern;
 die OpenVINO-NPU-Kombination scheiterte bei der Graphberechnung. Diese Fälle
 werden nicht durch automatische Modell- oder Gerätewechsel umgangen.
+Am 2026-09-23 reproduzierten zwei vorhandene kleine BERT-Embeddingmodelle auf
+demselben NPU-Pfad die fehlende `inp_pos`-Graphanforderung; beide eigenen
+Prozesse und API-Key-Dateien wurden bereinigt. Weitere gleichartige BERT-
+Varianten wurden nach der identischen Signatur nicht blind wiederholt.
 Positive NPU-, OpenVINO-GPU-/CPU-, CUDA-CPU-, Podman- und Hyper-V-Nachweise
 bleiben separat. Die Discovery und der Start installieren keine Modelle.
 

@@ -2409,6 +2409,9 @@ die Discovery selbst attestiert weiterhin keinen laufenden Dienst. Details:
 Der Windows-Start/Stop-Vertrag prüft HTTPS, Modellalias, Dimension und eigene
 Runtime-Logs vor Erfolg. Er bleibt auf Loopback und eine begrenzte Lease
 beschränkt. OpenVINO-NPU mit der geprüften Nomic-Paarung scheiterte an der
-Graphberechnung; das vorhandene Ollama-Embeddinggemma-GGUF war für b11104 nicht
-ladbar. Weitere Backend-/Modellpaare sowie Podman und Hyper-V bleiben separat.
+Graphberechnung; zwei kleine BERT-Embeddingmodelle reproduzierten unter b11104
+eine fehlende `inp_pos`-Graphanforderung. Der Start meldet solche belegten
+OpenVINO-Graphfehler getrennt als `LLAMA_ACCELERATOR_COMPUTE_FAILED`. Das
+vorhandene Ollama-Embeddinggemma-GGUF war für b11104 nicht ladbar. Weitere
+Backend-/Modellpaare sowie Podman und Hyper-V bleiben separat.
 [Vertrag und genaue Evidence-Grenzen](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
