@@ -46,9 +46,11 @@ Bei einem öffentlich oder bereits systemweit vertrauten Zertifikat entfällt
 `TrustedRootCertificate`; der im Plan gebundene Leaf-SHA-256 wird trotzdem
 exakt geprüft. Die Probe sendet genau einen festen synthetischen Text und
 liefert weder Text noch Embeddingvektor oder API-Key zurück. Ein Erfolg heißt
-`ENDPOINT_VERIFIED`: TLS, OpenAI-Antwortform, endliche numerische Werte und
-Dimension sind live bestätigt. Runtime-Binärdatei, Modelldatei und tatsächliche
-CPU-/GPU-/NPU-Ausführung bleiben bis zu getrennten Nachweisen offen.
+`ENDPOINT_VERIFIED`: TLS, exakter Runtime-Modellname, OpenAI-Antwortform,
+endliche numerische Werte und Dimension sind live bestätigt. Runtime-
+Binärdatei, Modelldatei und tatsächliche CPU-/GPU-/NPU-Ausführung bleiben bis
+zu getrennten Nachweisen offen. Ein fehlender oder abweichender Modellname
+blockiert mit `AI_EXTERNAL_MODEL_RUNTIME_MODEL_MISMATCH`.
 
 Plan und Probe installieren nichts und ändern weder Truststore, Firewall,
 Hosts-Datei noch Dienste.

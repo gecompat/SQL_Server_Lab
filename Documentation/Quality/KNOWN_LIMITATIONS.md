@@ -1477,8 +1477,10 @@ Retrieval vor/nach SQLrestart und vollständiges eigenes Cleanup. Allgemeiner
 Gatewaybetrieb und weitere Provider sind damit nicht belegt.
 Für weitere OpenAI-kompatible Backends sind ein hashgebundener Plan sowie
 getrennte read-only Prüfungen der lokalen Runtime-/Modelldateien und des
-HTTPS-Embedding-Endpunkts implementiert. Diese Nachweise bestätigen keine
-Prozessidentität, Acceleratornutzung oder SQL-seitige External-Model-Abnahme.
+HTTPS-Embedding-Endpunkts implementiert. Die Live-Probe verlangt den exakt im
+Plan gebundenen Runtime-Modellnamen in der OpenAI-Antwort. Diese Nachweise
+bestätigen keine Prozessidentität, Acceleratornutzung oder SQL-seitige
+External-Model-Abnahme.
 Weitere Zielmodelle und Dimensionswechsel bleiben offen. Die begrenzte
 [Migration](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) der festen Fixture
 und callerverwalteter Collections von Embeddinggemma zu Nomic ist offline sowie

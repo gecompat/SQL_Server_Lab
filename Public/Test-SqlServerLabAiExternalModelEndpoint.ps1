@@ -4,9 +4,9 @@
 .DESCRIPTION
     Sendet genau einen festen synthetischen OpenAI-kompatiblen Embeddingrequest,
     prüft den tatsächlich präsentierten Zertifikatshash, die Vertrauenskette,
-    das Antwortformat und die geplante Dimension. Das Ergebnis enthält weder
-    Testtext, Embeddingvektor noch API-Key. Runtime-, Modell- und Accelerator-
-    Identität bleiben ausdrücklich unbestätigt.
+    den Runtime-Modellnamen, das Antwortformat und die geplante Dimension. Das
+    Ergebnis enthält weder Testtext, Embeddingvektor noch API-Key. Runtime-
+    Binärdatei, Modelldatei und Accelerator-Identität bleiben unbestätigt.
 .PARAMETER Plan
     Ergebnis von Get-SqlServerLabAiExternalModelPlan.
 .PARAMETER ApiKey

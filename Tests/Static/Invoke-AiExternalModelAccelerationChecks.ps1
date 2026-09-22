@@ -10,7 +10,7 @@ $artifactRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-ai-artifacts-'+[gui
 try {
     $plan=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU -Location 'https://host.docker.internal:11435/v1/embeddings' -ExternalModelName LocalNpuEmbedding -RuntimeModel bound-model -Dimension 768 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
     Add-CheckResult 'OpenVINO-NPU-Plan bleibt bis zur Live-Evidence NOT_PROBED' ($plan.Status -eq 'NOT_PROBED' -and $plan.EvidenceStatus -eq 'CONFIGURATION_ONLY' -and $plan.ApiFormat -eq 'OpenAI')
-    Add-CheckResult 'Plan ist schema-valide und hashgebunden' (($plan|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-plan.schema.json')) -and $plan.PlanKey -match '^[a-f0-9]{64}$')
+    Add-CheckResult 'Plan ist schema-valide, hash- und Runtime-Modell-gebunden' (($plan|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-plan.schema.json')) -and $plan.PlanKey -match '^[a-f0-9]{64}$' -and 'RUNTIME_MODEL_MATCH' -in $plan.RequiredEvidence)
     Add-CheckResult 'Plan enthält keine Secretwerte oder Hostpfade' (($plan|ConvertTo-Json -Depth 10) -notmatch '(?i)(Bearer|secret|C:\\|/home/)')
     $ovms=Get-SqlServerLabAiExternalModelPlan -Backend OpenVinoModelServer -Accelerator NPU -Location 'https://localhost:8443/v3/embeddings' -ExternalModelName OvmsNpu -RuntimeModel model -Dimension 1024 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
     Add-CheckResult 'OVMS verlangt den separaten TLS-Gateway' ($ovms.Status -eq 'BLOCKED' -and 'AI_EXTERNAL_MODEL_OVMS_GATEWAY_REQUIRED' -in $ovms.Blockers)
@@ -42,7 +42,8 @@ try {
         'ACCELERATOR_RUNTIME_ATTESTATION' -in $artifactReceipt.PendingEvidence)
     Add-CheckResult 'Artifact-Receipt ist schema-valide und enthält keine lokalen Pfade' (
         ($artifactReceipt|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-artifact-receipt.schema.json')) -and
-        ($artifactReceipt|ConvertTo-Json -Depth 10) -notmatch '(?i)(llama-server|embedding\.gguf|C:\\|/home/)')
+        ($artifactReceipt|ConvertTo-Json -Depth 10) -notmatch '(?i)(llama-server|embedding\.gguf|C:\\|/home/)' -and
+        'RUNTIME_MODEL_MATCH' -in $artifactReceipt.PendingEvidence)
     $modelMismatch=$null
     try{$artifactPlan|Test-SqlServerLabAiExternalModelArtifact -RuntimePath $runtimePath -ModelPath $wrongModelPath;$modelMismatch='NO_ERROR'}catch{$modelMismatch=$_.Exception.Message}
     Add-CheckResult 'Abweichende Modelldatei scheitert geschlossen' ($modelMismatch -eq 'AI_EXTERNAL_MODEL_MODEL_HASH_MISMATCH')
@@ -55,7 +56,7 @@ try {
 
     $requestCapture=[Runtime.CompilerServices.StrongBox[object]]::new()
     $transport={param($request)$requestCapture.Value=$request;[PSCustomObject]@{
-        StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1.0,-0.25,0)})}
+        StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1.0,-0.25,0)})}
     }}.GetNewClosure()
     $probePlan=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU -Location 'https://localhost:11435/v1/embeddings' -ExternalModelName LocalNpuEmbedding -RuntimeModel bound-model -Dimension 3 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
     $receipt=& $module {param($p,$t)Invoke-LabAiExternalModelEndpointProbe -Plan $p -Transport $t} $probePlan $transport
@@ -65,17 +66,21 @@ try {
         $requestCapture.Value.Body.input[0] -eq 'SQL Server Lab synthetic embedding probe' -and $requestCapture.Value.Body.encoding_format -eq 'float')
     Add-CheckResult 'Endpoint-Receipt ist schema-valide und lässt Runtime-/Accelerator-Evidence offen' (
         ($receipt|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-endpoint-receipt.schema.json')) -and
-        $receipt.Status -eq 'ENDPOINT_VERIFIED' -and 'ACCELERATOR_RUNTIME_ATTESTATION' -in $receipt.PendingEvidence)
+        $receipt.Status -eq 'ENDPOINT_VERIFIED' -and 'RUNTIME_MODEL_MATCH' -in $receipt.VerifiedEvidence -and
+        'ACCELERATOR_RUNTIME_ATTESTATION' -in $receipt.PendingEvidence)
     $receiptJson=$receipt|ConvertTo-Json -Depth 10
     Add-CheckResult 'Endpoint-Receipt enthält weder Vektor, Payload, Secret noch Hostpfad' (
         $receiptJson -notmatch '(?i)("Vector"|synthetic|"Input"|secret|bearer|localhost|C:\\|/home/)')
 
     $failureCases=@(
-        @{Name='Zertifikatabweichung';Code='AI_EXTERNAL_MODEL_TLS_CERTIFICATE_MISMATCH';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=('d'*64);Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1,2,3)})}}}},
-        @{Name='mehrere Vektoren';Code='AI_EXTERNAL_MODEL_RESPONSE_INVALID';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1,2,3)},[PSCustomObject]@{embedding=@(1,2,3)})}}}.GetNewClosure()},
-        @{Name='falsche Dimension';Code='AI_EXTERNAL_MODEL_DIMENSION_MISMATCH';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1,2)})}}}.GetNewClosure()},
-        @{Name='nicht endlicher Vektor';Code='AI_EXTERNAL_MODEL_VECTOR_INVALID';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1,[double]::NaN,3)})}}}.GetNewClosure()},
-        @{Name='textueller Vektorwert';Code='AI_EXTERNAL_MODEL_VECTOR_INVALID';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1,'2',3)})}}}.GetNewClosure()}
+        @{Name='Zertifikatabweichung';Code='AI_EXTERNAL_MODEL_TLS_CERTIFICATE_MISMATCH';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=('d'*64);Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1,2,3)})}}}},
+        @{Name='leere Antwort';Code='AI_EXTERNAL_MODEL_RESPONSE_INVALID';Transport={param($request)$null=$request;[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=$null}}.GetNewClosure()},
+        @{Name='abweichenden Runtime-Modellnamen';Code='AI_EXTERNAL_MODEL_RUNTIME_MODEL_MISMATCH';Transport={param($request)$null=$request;[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{model='other-model';data=@([PSCustomObject]@{embedding=@(1,2,3)})}}}.GetNewClosure()},
+        @{Name='fehlenden Runtime-Modellnamen';Code='AI_EXTERNAL_MODEL_RUNTIME_MODEL_MISMATCH';Transport={param($request)$null=$request;[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{data=@([PSCustomObject]@{embedding=@(1,2,3)})}}}.GetNewClosure()},
+        @{Name='mehrere Vektoren';Code='AI_EXTERNAL_MODEL_RESPONSE_INVALID';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1,2,3)},[PSCustomObject]@{embedding=@(1,2,3)})}}}.GetNewClosure()},
+        @{Name='falsche Dimension';Code='AI_EXTERNAL_MODEL_DIMENSION_MISMATCH';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1,2)})}}}.GetNewClosure()},
+        @{Name='nicht endlichen Vektor';Code='AI_EXTERNAL_MODEL_VECTOR_INVALID';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1,[double]::NaN,3)})}}}.GetNewClosure()},
+        @{Name='textuellen Vektorwert';Code='AI_EXTERNAL_MODEL_VECTOR_INVALID';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=$c;Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1,'2',3)})}}}.GetNewClosure()}
     )
     foreach($case in $failureCases){
         $actual=$null
