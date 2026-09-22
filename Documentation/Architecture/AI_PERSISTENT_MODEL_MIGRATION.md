@@ -151,5 +151,5 @@ SQLrestart und vollständigem Cleanup. Die Fixture-Abnahme belegt den Modellwech
 Upgrade-/Staging-/Commit-Antwortverlust und beider festen Suchfragen.
 Ein früherer Docker-Versuch erreichte wegen der belegten Testsperre keine
 Runtime; der anschließende Lauf mit vorgeschalteter Sperrübernahme bestand.
-Weitere Zielmodelle, Dimensionswechsel, alte Generationen selektiv entfernen,
+Weitere Zielmodelle, Dimensionswechsel, alte Generationen eines v2-Journals selektiv entfernen,
 Sync nach dem Modellwechsel, Hyper-V, ANN und Golden-v1-Modelländerungen bleiben offen.

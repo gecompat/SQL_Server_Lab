@@ -27,8 +27,11 @@ Der persistente Containerpfad unterstützt inzwischen den atomaren Sync von
 unter Docker und Podman getrennt nativ belegt. Derselbe Bestand kann vollständig
 in die nächste, lokal gebundene Nomic-Generation migriert werden. Docker und
 Podman bestanden dafür jeweils 25 native Prüfungen einschließlich SQL-Neustart
-und vollständigem Cleanup. Offen bleiben insbesondere automatische
-Generation-Retention, weitere Zielmodelle, Dimensionswechsel und ANN.
+und vollständigem Cleanup. Explizites transaktionales Prune ist für
+callerverwaltete v1-Collections nach erfolgreichem Sync implementiert und unter
+beiden Providern mit je 30 Prüfungen belegt. Offen bleiben insbesondere
+automatische Generation-Retention, Prune nach Modellmigration, weitere
+Zielmodelle, Dimensionswechsel und ANN.
 
 Der kleinste Re-Embedding-Slice ist als rein lesender, interner Plan- und
 Journalvertrag implementiert. Er bindet alte und neue ModelKey-, Dimensions-

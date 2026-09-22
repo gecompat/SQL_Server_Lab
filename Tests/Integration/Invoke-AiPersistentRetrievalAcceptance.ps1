@@ -143,6 +143,21 @@ try{
     $sourceDrift=$false
     try{$null=Invoke-SqlServerLabAiPersistentRetrieval -RunId $lab.RunId -CollectionId $customCollection -StateRoot $state -LocalPort $LocalPort -TimeoutSeconds 300 -Documents $customDocuments -ExpectedDocuments $wrongExpected -Action Sync -Confirm:$false}catch{if($_.Exception.Message -ceq 'AI_PERSISTENT_SOURCE_GENERATION_DRIFT'){$sourceDrift=$true}else{throw}}
     Assert-Persistent $sourceDrift 'Sync mit abweichendem erwartetem Ausgangsbestand wird vor Staging abgewiesen'
+    $secondSyncParameters=$customParameters.Clone();$secondSyncParameters.Action='Sync';$secondSyncParameters.Documents=$customDocuments;$secondSyncParameters.ExpectedDocuments=$updatedDocuments
+    $secondSync=Invoke-SqlServerLabAiPersistentRetrieval @secondSyncParameters -Confirm:$false
+    Assert-Persistent ($secondSync.Generation -eq 3 -and $secondSync.EmbeddingRequests -eq 2) 'Zweite Caller-Synchronisierung erzeugt eine dritte abgeschlossene Generation'
+    $pruned=Invoke-SqlServerLabAiPersistentRetrieval -RunId $lab.RunId -CollectionId $customCollection -StateRoot $state -LocalPort $LocalPort -TimeoutSeconds 300 -Action Prune -KeepGenerations 2 -Confirm:$false
+    $prunedAgain=Invoke-SqlServerLabAiPersistentRetrieval -RunId $lab.RunId -CollectionId $customCollection -StateRoot $state -LocalPort $LocalPort -TimeoutSeconds 300 -Action Prune -KeepGenerations 2 -Confirm:$false
+    Assert-Persistent ($pruned.Generation -eq 3 -and $pruned.DeletedGenerations -eq 1 -and $pruned.DeletedChunks -eq 3 -and $prunedAgain.DeletedGenerations -eq 0) 'Retention entfernt die älteste inaktive Generation und ist idempotent'
+    $pruneProof=& $module {
+        param($Binding,$State,$RunId,$Collection)
+        $journal=Get-Content -LiteralPath (Join-Path $State "runs/$RunId/ai-persistent/primary-$Collection.json") -Raw|ConvertFrom-Json
+        $secret=Get-LabRelationalCoreSecret -RunId $Binding.RunId -StateRoot $State;$connection=$null
+        try{$connection=New-LabRelationalCoreConnection -Binding $Binding -DatabaseName master -Secret $secret;$connection.Open();@(Invoke-LabTransferSqlRows -Connection $connection -Query "SELECT COUNT(*) AS GenerationCount,SUM(CASE WHEN Generation=1 THEN 1 ELSE 0 END) AS GenerationOneCount,(SELECT COUNT(*) FROM [$($journal.databaseName)].dbo.LabChunks) AS ChunkCount,(SELECT ActiveGeneration FROM [$($journal.databaseName)].dbo.LabOwner WHERE Singleton=1) AS ActiveGeneration FROM [$($journal.databaseName)].dbo.LabGenerations;")[0]}finally{if($connection){$connection.Dispose()};$secret.Dispose()}
+    } $binding $state $lab.RunId $customCollection
+    Assert-Persistent ($pruneProof.GenerationCount -eq 2 -and $pruneProof.GenerationOneCount -eq 0 -and $pruneProof.ChunkCount -eq 6 -and $pruneProof.ActiveGeneration -eq 3) 'SQL belegt ausschließlich Generation 2 und 3 mit aktivem Zeiger auf 3'
+    $afterPrune=Invoke-SqlServerLabAiPersistentRetrieval @customParameters -Action Query -Question 'Was prüfen synthetische Restore-Tests?' -Confirm:$false
+    Assert-Persistent ($afterPrune.Generation -eq 3 -and 'restore-guide' -in $afterPrune.Ranked.ChunkId) 'Aktive Caller-Generation bleibt nach Retention abfragbar'
     $customRemoved=Invoke-SqlServerLabAiPersistentRetrieval -RunId $lab.RunId -CollectionId $customCollection -StateRoot $state -LocalPort $LocalPort -TimeoutSeconds 300 -Action Remove -Confirm:$false
     Assert-Persistent ($customRemoved.Status -eq 'REMOVED') 'Caller-Collection wird besitzgebunden entfernt'
     $removed=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Remove -Confirm:$false
@@ -173,4 +188,4 @@ try{
     }
 }
 if(-not $complete -or $cleanupFailed){throw 'AI_PERSISTENT_ACCEPTANCE_INCOMPLETE'}
-Write-Host "AI PERSISTENT RETRIEVAL ACCEPTANCE: PASS ($Provider; vector/hybrid; caller document sync; SQLrestart; staging/resume; own DB/run cleanup)"
+Write-Host "AI PERSISTENT RETRIEVAL ACCEPTANCE: PASS ($Provider; vector/hybrid; caller sync/prune; SQLrestart; staging/resume; own DB/run cleanup)"

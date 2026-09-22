@@ -8,6 +8,13 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- `Invoke-SqlServerLabAiPersistentRetrieval -Action Prune` begrenzt alte
+  abgeschlossene Generationen einer callerverwalteten v1-Collection nach
+  erfolgreichem Sync. Der modellfreie, idempotente SQL-Schritt bindet Besitzer
+  und aktiven Zeiger transaktional, erhält die jüngsten Generationen und weist
+  Fixture-, Staging- und v2-Migrationszustände vor jeder Löschung ab. Docker und
+  Podman bestanden getrennt mit je 30 Assertions und vollständigem Cleanup.
+
 - `Invoke-SqlServerLabAiPersistentRetrieval -Action Migrate` akzeptiert neben
   der festen Delta-Fixture nun den vollständigen Bestand einer callerverwalteten
   Collection. Alle Dokumente werden unter gebundener Quellgeneration in die
@@ -22,7 +29,8 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
   bettet neue oder geänderte Inhalte neu ein und entfernt ausgelassene IDs erst
   beim SQL-Cutover. Resume verarbeitet bestätigtes Staging und verlorene
   Commitantworten ohne doppelte Embeddings. Docker und Podman bestanden den
-  Gesamtvertrag getrennt mit je 26 Assertions und vollständigem Cleanup.
+  damaligen Gesamtvertrag getrennt mit je 26 Assertions und vollständigem Cleanup;
+  der nachfolgende Prune-Slice erweitert den aktuellen Gesamtvertrag auf 30.
 
 ## 2026-09-10
 

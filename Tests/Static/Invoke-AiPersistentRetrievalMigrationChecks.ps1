@@ -199,6 +199,8 @@ try{
             Check 'Caller-Query weist einen anderen vollständigen Bestand vor Embedding ab' ((Reject {ExecuteCaller -Action Query -Documents $wrong} 'AI_PERSISTENT_REQUEST_BINDING_DRIFT') -and $script:payloads -eq $beforePayloads)
             $beforePayloads=$script:payloads;$callerReplay=ExecuteCaller -Action Migrate -Documents $callerThird
             Check 'Caller-Migration wird nach bestätigtem Cutover nur idempotent bestätigt' ($callerReplay.Generation -eq 4 -and $callerReplay.EmbeddingRequests -eq 0 -and $script:payloads -eq $beforePayloads)
+            $prunePlan=New-LabAiPersistentPlan -RunId $script:run -InstanceId primary -CollectionId $script:collection -Action Prune -FixtureRevision Initial -QueryId backup -LocalPort 11434 -TimeoutSeconds 300 -KeepGenerations 2
+            Check 'Prune verändert kein v2-Migrationsjournal' ((Reject {Invoke-LabAiPersistentRetrieval -Plan $prunePlan -StateRoot $Root -SqlExecutor $sql -MetadataTransport $metadata -EmbeddingTransport $transport} 'AI_PERSISTENT_RETENTION_UNSUPPORTED') -and $script:owner.ActiveGeneration -eq 4 -and $script:generations.Count -eq 4)
         }finally{
             Set-Item Function:script:Get-LabTransferBinding $originalBinding;Set-Item Function:script:Assert-LabTransferBinding $originalAssert;Set-Item Function:script:Write-LabArtifactJsonAtomic $originalWrite
         }

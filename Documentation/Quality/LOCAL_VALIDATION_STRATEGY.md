@@ -93,10 +93,11 @@ Ownershipreceipt, Vektor-/Modell-/DB-Drift, Locks und Journalschreibfehlern.
 `Invoke-AiPersistentRetrievalAcceptance.ps1` erstellt je Docker oder Podman
 nur einen eigenen SQLrun und prüft echtes SQL-AppLock, Restart, Delta/Resume,
 Fixture-Update/Delete, Caller-Dokument-Sync samt Ausgangs- und Hashdrift,
+explizites Generation-Prune samt SQL-Tabellenbeleg,
 SQL-Termabdeckungs-/Vektor-Hybridranking und vollständiges DB-/Run-Cleanup.
-Docker und Podman bestanden am 2026-09-22 getrennt mit je 26 Assertions
+Docker und Podman bestanden am 2026-09-22 getrennt mit je 30 Assertions
 einschließlich Caller-Collection, atomarem Update/Insert/Delete, freier Frage
-und Hashdrift-Abweisung sowie
+und Hashdrift-Abweisung sowie idempotenter Retention und
 vollständigem Cleanup;
 [Vertrag und Aufruf](../Architecture/AI_PERSISTENT_RETRIEVAL.md). Der Selector
 begrenzt diese Produktdateien auf Docker/Podman; Änderungen am Selector selbst
