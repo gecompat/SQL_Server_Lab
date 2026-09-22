@@ -89,12 +89,7 @@ function Start-LabLlamaCppOwnedRuntime {
         $environment=@{}
         $device=if($Accelerator -eq 'CPU' -and $Backend -eq 'LlamaCppCuda'){'none'}elseif($Backend -eq 'LlamaCppCuda'){'CUDA0'}else{'OPENVINO0'}
         $layers=if($device -eq 'none'){'0'}else{'999'}
-        if($Backend -eq 'LlamaCppOpenVino') {
-            $environment.GGML_OPENVINO_DEVICE=$Accelerator
-            $environment.GGML_OPENVINO_STATEFUL_EXECUTION='0'
-            $environment.GGML_OPENVINO_CACHE_DIR=Join-Path $operationRoot 'ov-cache'
-            $environment.GGML_OPENVINO_MODEL_CACHE_DIR=Join-Path $operationRoot 'ov-model-cache'
-        }
+        if($Backend -eq 'LlamaCppOpenVino') {$environment=Get-LabLlamaCppOpenVinoEnvironment -Accelerator $Accelerator -OperationRoot $operationRoot}
         $arguments=@('--model',$ModelPath,'--alias',$ModelName,'--embedding','--pooling',$Pooling,
             '--ctx-size',[string]$ContextSize,'--batch-size',[string]$ContextSize,'--ubatch-size',[string]$ContextSize,
             '--parallel','1','--device',$device,'--gpu-layers',$layers,'--fit','off','--offline','--log-verbosity','4',
@@ -127,7 +122,12 @@ function Start-LabLlamaCppOwnedRuntime {
                         if($models.StatusCode -eq 503){Start-Sleep -Milliseconds 200;continue}
                         if($models.StatusCode -ne 200 -or @($models.Body.data).Count -ne 1 -or $models.Body.data[0].id -cne $ModelName){throw 'LLAMA_MODEL_IDENTITY_MISMATCH'}
                         $response=Invoke-LabAiExternalModelHttpTransport @common -Location $location -Request @{Method='POST';TimeoutSeconds=5;Body=@{model=$ModelName;input=@('SQL Server Lab synthetic embedding probe');encoding_format='float'}}
-                        if($response.StatusCode -ne 200 -or $response.Body.model -cne $ModelName){throw 'LLAMA_EMBEDDING_RESPONSE_INVALID'}
+                        if($response.StatusCode -ne 200) {
+                            $computeLog=Get-Content -LiteralPath (Join-Path $operationRoot 'stderr.log') -Raw -ErrorAction SilentlyContinue
+                            if(Test-LabLlamaCppComputeFailureLog -Log $computeLog -Backend $Backend -Accelerator $Accelerator){throw 'LLAMA_ACCELERATOR_COMPUTE_FAILED'}
+                            throw 'LLAMA_EMBEDDING_RESPONSE_INVALID'
+                        }
+                        if($response.Body.model -cne $ModelName){throw 'LLAMA_EMBEDDING_RESPONSE_INVALID'}
                         $data=@($response.Body.data)
                         if($data.Count -ne 1 -or @($data[0].embedding).Count -ne $Dimension){throw 'LLAMA_DIMENSION_MISMATCH'}
                         foreach($value in $data[0].embedding){if($null -eq $value -or -not (Test-LabAiExternalModelNumericValue $value)){throw 'LLAMA_VECTOR_INVALID'}}
@@ -157,6 +157,35 @@ function Start-LabLlamaCppOwnedRuntime {
         throw $failure
     }
     finally {if($rootCertificate){$rootCertificate.Dispose()};if($modelReadLock){$modelReadLock.Dispose()};if($runtimeReadLock){$runtimeReadLock.Dispose()}}
+}
+
+function Get-LabLlamaCppOpenVinoEnvironment {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('CPU','GPU','NPU')][string]$Accelerator,
+        [Parameter(Mandatory)][string]$OperationRoot
+    )
+    $environment=@{
+        GGML_OPENVINO_DEVICE=$Accelerator
+        GGML_OPENVINO_STATEFUL_EXECUTION='0'
+    }
+    # Upstream does not support the OpenVINO cache directories on NPU.
+    if($Accelerator -ne 'NPU') {
+        $environment.GGML_OPENVINO_CACHE_DIR=Join-Path $OperationRoot 'ov-cache'
+        $environment.GGML_OPENVINO_MODEL_CACHE_DIR=Join-Path $OperationRoot 'ov-model-cache'
+    }
+    return $environment
+}
+
+function Test-LabLlamaCppComputeFailureLog {
+    [CmdletBinding()]
+    param(
+        [AllowEmptyString()][string]$Log,
+        [string]$Backend,
+        [string]$Accelerator
+    )
+    if($Backend -ne 'LlamaCppOpenVino' -or $Accelerator -notin @('CPU','GPU','NPU')){return $false}
+    return $Log -match '(?i)(GGML OpenVINO backend[^\r\n]*(exception|error)|graph_compute[^\r\n]*failed|process_ubatch[^\r\n]*failed to compute|srv\s+send_error:[^\r\n]*Compute error)'
 }
 
 function Test-LabLlamaCppAcceleratorLog {
