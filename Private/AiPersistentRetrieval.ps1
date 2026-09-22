@@ -32,15 +32,19 @@ function ConvertTo-LabAiPersistentDocuments {
 function New-LabAiPersistentPlan {
     param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume,[string]$TargetModelKey)
     if($Resume -and $Action -notin @('Apply','Migrate','Sync')){throw 'AI_PERSISTENT_RESUME_ACTION_INVALID'}
+    $callerSupplied=$null -ne $Documents
     if($Action -eq 'Migrate'){
-        if($FixtureRevision -cne 'Delta' -or $TargetModelKey -cne 'ollama-nomic-embed-text-v2-moe'){throw 'AI_PERSISTENT_MIGRATION_REQUEST_INVALID'}
+        if($TargetModelKey -cne 'ollama-nomic-embed-text-v2-moe' -or ($callerSupplied -and $FixtureRevision -cne 'Initial') -or (-not $callerSupplied -and $FixtureRevision -cne 'Delta')){throw 'AI_PERSISTENT_MIGRATION_REQUEST_INVALID'}
     }elseif($TargetModelKey){throw 'AI_PERSISTENT_MIGRATION_TARGET_UNEXPECTED'}
     if($SearchMode -eq 'Hybrid' -and $Action -ne 'Query'){throw 'AI_PERSISTENT_SEARCH_MODE_INVALID'}
     try{$RunId=([guid]::ParseExact($RunId,'D')).ToString('D');$CollectionId=([guid]::ParseExact($CollectionId,'D')).ToString('D')}catch{throw 'AI_PERSISTENT_IDENTITY_INVALID'}
-    $callerSupplied=$null -ne $Documents
     if($callerSupplied){
-        if($Action -notin @('Apply','Query','Sync') -or $FixtureRevision -cne 'Initial' -or $TargetModelKey){throw 'AI_PERSISTENT_DOCUMENTS_ACTION_INVALID'}
+        if($Action -notin @('Apply','Query','Sync','Migrate') -or $FixtureRevision -cne 'Initial' -or ($Action -ne 'Migrate' -and $TargetModelKey)){throw 'AI_PERSISTENT_DOCUMENTS_ACTION_INVALID'}
         $documents=ConvertTo-LabAiPersistentDocuments $Documents
+        if($Action -eq 'Migrate'){
+            $prefixBytes=[Text.Encoding]::UTF8.GetByteCount('search_document: ')
+            foreach($document in $documents){if($prefixBytes+[Text.Encoding]::UTF8.GetByteCount($document.Content) -gt 512){throw 'AI_PERSISTENT_MODEL_INPUT_LIMIT_EXCEEDED'}}
+        }
         if($Action -eq 'Sync'){$expected=ConvertTo-LabAiPersistentDocuments $ExpectedDocuments}
         elseif($null -ne $ExpectedDocuments){throw 'AI_PERSISTENT_EXPECTED_DOCUMENTS_UNEXPECTED'}
         if($Action -eq 'Query' -and [string]::IsNullOrWhiteSpace($Question)){throw 'AI_PERSISTENT_QUESTION_INVALID'}
@@ -66,7 +70,11 @@ function New-LabAiPersistentPlan {
     $datasetHash=Get-LabAiPlanKey @($documents|ForEach-Object{[ordered]@{Id=$_.Id;Hash=$_.ContentHash}})
     $identity=[ordered]@{Contract='SqlServerLab.AiPersistentRetrieval/1.0';RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Revision=$FixtureRevision;DatasetHash=$datasetHash;EndpointPlanKey=$endpoint.PlanKey}
     if($callerSupplied){$identity.DatasetMode=$datasetMode}
-    if($Action -eq 'Migrate'){$identity.Contract='SqlServerLab.AiPersistentMigration/2.0';$identity.SourceGeneration=2;$identity.TargetGeneration=3;$identity.ProfileHash=Get-LabAiPlanKey (Get-LabAiPersistentProfile nomic-search)}
+    if($Action -eq 'Migrate'){
+        $identity.Contract='SqlServerLab.AiPersistentMigration/2.0'
+        if(-not $callerSupplied){$identity.SourceGeneration=2;$identity.TargetGeneration=3}
+        $identity.ProfileHash=Get-LabAiPlanKey (Get-LabAiPersistentProfile nomic-search)
+    }
     $expectedDatasetHash=$null;$expectedPlanKey=$null
     if($Action -eq 'Sync'){
         $expectedDatasetHash=Get-LabAiPlanKey @($expected|ForEach-Object{[ordered]@{Id=$_.Id;Hash=$_.ContentHash}})
@@ -74,7 +82,7 @@ function New-LabAiPersistentPlan {
         $expectedIdentity.DatasetMode='CallerSupplied'
         $expectedPlanKey=Get-LabAiPlanKey $expectedIdentity
     }
-    [pscustomobject]@{RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Action=$Action;Revision=$(if($Action -eq 'Sync'){'Managed'}else{$FixtureRevision});Generation=$(if($Action -eq 'Sync'){0}elseif($FixtureRevision -eq 'Initial'){1}else{2});QueryId=$QueryId;Question=$questionText;DatasetMode=$datasetMode;SearchMode=$SearchMode;Documents=$documents;DatasetHash=$datasetHash;PlanKey=Get-LabAiPlanKey $identity;ExpectedDocuments=$expected;ExpectedDatasetHash=$expectedDatasetHash;ExpectedPlanKey=$expectedPlanKey;EndpointPlan=$endpoint;TimeoutSeconds=$TimeoutSeconds;Resume=[bool]$Resume}
+    [pscustomobject]@{RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Action=$Action;Revision=$(if($Action -eq 'Sync' -or ($Action -eq 'Migrate' -and $callerSupplied)){'Managed'}else{$FixtureRevision});Generation=$(if($Action -eq 'Sync' -or ($Action -eq 'Migrate' -and $callerSupplied)){0}elseif($FixtureRevision -eq 'Initial'){1}else{2});QueryId=$QueryId;Question=$questionText;DatasetMode=$datasetMode;SearchMode=$SearchMode;Documents=$documents;DatasetHash=$datasetHash;PlanKey=Get-LabAiPlanKey $identity;ExpectedDocuments=$expected;ExpectedDatasetHash=$expectedDatasetHash;ExpectedPlanKey=$expectedPlanKey;EndpointPlan=$endpoint;TimeoutSeconds=$TimeoutSeconds;Resume=[bool]$Resume}
 }
 
 function Write-LabAiPersistentJournal {

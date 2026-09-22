@@ -147,7 +147,8 @@ der tatsächlichen Abwesenheit finalisiert werden.
 
 Pro Fixture-Collection höchstens zwei Generationen mit je drei Dokumenten. Eine
 Caller-Collection besitzt eine initiale und bis zu 31 weitere atomare Sync-
-Generationen mit jeweils 1 bis 16 Dokumenten. Danach blockiert
+oder eine abschließende Modellmigrationsgeneration mit jeweils 1 bis 16
+Dokumenten. Danach blockiert
 `AI_PERSISTENT_GENERATION_LIMIT_REACHED`; automatische Retention ist nicht
 implementiert. Datenfile maximal
 64 MiB, Log maximal 32 MiB. Fixture-Initial erzeugt drei Embeddings, Delta zwei
@@ -203,11 +204,13 @@ Der Cleanup-Child verlangt das Ende des vorherigen Prozesses und quittiert die
 synthetische Zustandsbereinigung; ein Cleanup-Timeout erhält den offenen Marker.
 Der kombinierte native Podman-Nachweis für diesen Runner bleibt offen.
 
-Dies ist ein inkrementeller Generationsrebuild mit unveränderter Modellidentität.
+Sync ist ein inkrementeller Generationsrebuild mit unveränderter Modellidentität.
 Der bestehende reine `New-LabAiReembeddingPlan` für einen echten Modellwechsel
 bleibt unverändert und wird vom neuen
-[begrenzten Modellwechsel](AI_PERSISTENT_MODEL_MIGRATION.md) für genau Delta/gen2
-nach Nomic v2 MoE/gen3 wiederverwendet. Docker und Podman bestanden getrennt jeweils 20 Assertions, SQLrestart und Cleanup.
-Weitere Digest-/Dimensionswechsel, Retention alter Generationen, Cloud,
+[begrenzten Modellwechsel](AI_PERSISTENT_MODEL_MIGRATION.md) für die feste
+Delta- sowie für callerverwaltete Collections nach Nomic v2 MoE wiederverwendet.
+Die erweiterten Docker- und Podman-Nachweise bestanden am 2026-09-22 getrennt
+mit je 25 Assertions, Caller-Collection, SQLrestart und vollständigem Cleanup.
+Weitere Zielmodelle und Dimensionswechsel, Sync nach Modellmigration, Retention alter Generationen, Cloud,
 Generierung, Hyper-V und ANN sind offen.
 Golden v1 sowie SQL-seitiges EXTERNAL MODEL/TLS-Gateway bleiben unverändert.

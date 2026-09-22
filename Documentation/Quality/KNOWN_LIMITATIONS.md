@@ -122,12 +122,15 @@ Full-Text Search bleibt wegen des im Standardcontainer fehlenden optionalen
 `mssql-server-fts`-Pakets offen. Caller-Collections mit 1 bis 16 Dokumenten,
 freier Frage und atomarem Update/Insert/Delete sind implementiert; die nativen
 Referenzen verwendeten jeweils drei Dokumente. Alte Generationen bleiben erhalten;
-automatische Retention und mehr als 32 Generationen sind offen. Breite Modellwechsel- und
-Re-Embedding-Ausführung bleiben außerhalb des engen
-[Migrations-Slices](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) offen:
-explizit bestätigtes Delta/Embeddinggemma nach Nomic v2 MoE bei 768 Dimensionen,
-versioniertes Upgrade, feste Präfixprofile und besitzgebundenes Remove sind
-implementiert und unter Docker sowie Podman getrennt nativ mit je 20 Assertions, SQLrestart und vollständigem Cleanup belegt.
+automatische Retention und mehr als 32 Generationen sind offen. Der
+[Migrations-Slice](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) unterstützt
+explizit bestätigte Fixture- und Caller-Bestände von Embeddinggemma nach Nomic
+v2 MoE bei 768 Dimensionen, versioniertes Upgrade, feste Präfixprofile und
+besitzgebundenes Remove. Caller-Dokumente und Fragen sind einschließlich Präfix
+auf 512 UTF-8-Bytes begrenzt; es gibt keine automatische Trunkierung. Der
+erweiterten Docker- und Podman-Nachweise bestanden am 2026-09-22 getrennt mit
+je 25 Assertions, SQLrestart und vollständigem Cleanup. Weitere Zielmodelle,
+Dimensionswechsel und Sync nach der Migration bleiben offen.
 
 Der Ollama-Modellkatalog sowie die Verträge für Endpointplan, Runtimejournal
 und sanitisierte Abfrageergebnisse sind vorhanden. Ollama-Cloud-Generation ist
@@ -1432,10 +1435,10 @@ Gateway und eigene SQL-CA. Die native Docker-Abnahme bestand am 2026-09-21:
 sieben SQL-Embeddings, WrongCA-/WrongSAN-Ablehnung, Auth-/Payloadnegative,
 Retrieval vor/nach SQLrestart und vollständiges eigenes Cleanup. Allgemeiner
 Gatewaybetrieb und weitere Provider sind damit nicht belegt.
-Dimensionswechsel und allgemeine Re-Embedding-Ausführung bleiben offen.
-Die begrenzte [Migration](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md)
-der festen Fixture von Embeddinggemma zu Nomic ist auf Docker und Podman nativ
-belegt. Ein rein lesender
+Weitere Zielmodelle und Dimensionswechsel bleiben offen. Die begrenzte
+[Migration](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) der festen Fixture
+und callerverwalteter Collections von Embeddinggemma zu Nomic ist offline sowie
+unter Docker und Podman getrennt nativ belegt. Ein rein lesender
 Re-Embedding-Plan- und Journalvertrag bindet zwar Modell-,
 Dimensions-, Dataset-, Chunk- und Vectoridentitäten und sperrt Mischbetrieb;
 Ollama-Cloud-Embeddings, OpenAI, Azure OpenAI und lokales Windows-ONNX

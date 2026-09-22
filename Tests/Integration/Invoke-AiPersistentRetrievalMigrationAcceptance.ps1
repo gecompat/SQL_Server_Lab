@@ -1,11 +1,11 @@
 #Requires -Version 7.2
 <#
 .SYNOPSIS
-    Prüft den expliziten Modellwechsel von Generation 2 auf 3 unter Docker oder Podman.
+    Prüft den expliziten Modellwechsel einer Fixture- und Caller-Collection unter Docker oder Podman.
 .DESCRIPTION
     Vorhandenes Host-Embeddinggemma und Nomic v2 MoE; keine Downloads oder
     Host-Lifecycleaktion. Eigener SQL-Run, Upgrade-/Staging-/Commitantwortverlust,
-    exakte Rangfolge beider Fixturefragen und vollständig gebundenes Cleanup.
+    exakte Rangfolge beider Fixturefragen, Caller-Dokumente und vollständig gebundenes Cleanup.
 #>
 [CmdletBinding()]
 param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,[ValidateRange(1024,65535)][int]$LocalPort=11434,[switch]$RuntimeMutexAlreadyHeld)
@@ -95,6 +95,23 @@ try{
     $replay=Invoke-SqlServerLabAiPersistentRetrieval @parameters @migration -Confirm:$false
     $proof=Read-MigrationSqlProof
     Assert-Persistent ($resumed.Generation -eq 3 -and $resumed.EmbeddingRequests -eq 0 -and $replay.EmbeddingRequests -eq 0 -and $proof.TargetCount -eq 3 -and $proof.TotalCount -eq 9 -and $proof.SourceHash -ceq $sourceProof.SourceHash) 'Resume und Replay bestätigen genau drei Generationen ohne weitere Embeddings'
+    $callerCollection=[guid]::NewGuid().ToString('D')
+    $callerDocuments=@(
+        [pscustomobject]@{Id='caller-backup';Content='Synthetische Sicherungen werden täglich geprüft.'},
+        [pscustomobject]@{Id='caller-restore';Content='Ein synthetischer Restoretest läuft wöchentlich.'},
+        [pscustomobject]@{Id='caller-retention';Content='Die synthetische Aufbewahrung beträgt vierzehn Tage.'}
+    )
+    $callerParameters=@{RunId=$lab.RunId;CollectionId=$callerCollection;StateRoot=$state;LocalPort=$LocalPort;TimeoutSeconds=600;Documents=$callerDocuments}
+    $callerInitial=Invoke-SqlServerLabAiPersistentRetrieval @callerParameters -Action Apply -Confirm:$false
+    $callerMigrated=Invoke-SqlServerLabAiPersistentRetrieval @callerParameters -Action Migrate -TargetModelKey ollama-nomic-embed-text-v2-moe -Confirm:$false
+    Assert-Persistent ($callerInitial.Generation -eq 1 -and $callerMigrated.Generation -eq 2 -and $callerMigrated.DatasetMode -ceq 'CallerSupplied' -and $callerMigrated.EmbeddingRequests -eq 3) 'Caller-Collection wird aus aktiver Generation vollständig neu eingebettet'
+    $callerJournalPath=Join-Path $state "runs/$($lab.RunId)/ai-persistent/primary-$callerCollection.json"
+    $callerJournalText=Get-Content -LiteralPath $callerJournalPath -Raw
+    $callerJournal=$callerJournalText|ConvertFrom-Json
+    Assert-Persistent ($callerJournal.migration.sourceGeneration -eq 1 -and $callerJournal.migration.targetGeneration -eq 2 -and $callerJournal.migration.datasetMode -ceq 'CallerSupplied' -and $callerJournalText -notmatch 'Synthetische Sicherungen') 'Caller-Migrationsjournal bindet Generationen ohne Dokumentinhalt'
+    $callerQueryParameters=$callerParameters.Clone();$callerQueryParameters.Question='Wie werden synthetische Sicherungen geprüft?'
+    $callerBeforeRestart=Invoke-SqlServerLabAiPersistentRetrieval @callerQueryParameters -Action Query -Confirm:$false
+    Assert-Persistent ($callerBeforeRestart.Generation -eq 2 -and $callerBeforeRestart.ModelKey -ceq 'ollama-nomic-embed-text-v2-moe' -and $callerBeforeRestart.Profile -ceq 'nomic-search' -and $callerBeforeRestart.Ranked.Count -eq 3) 'Caller-Query verwendet nach Cutover das Nomic-Profil'
     $null=Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 180 -Force -Confirm:$false
     $afterBinding=& $module {param($Run,$State,$Op)Get-LabTransferBinding -RunId $Run -InstanceId primary -StateRoot $State -OperationId $Op} $lab.RunId $state $operation
     Assert-Persistent ($afterBinding.ContainerId -ceq $binding.ContainerId) 'SQLrestart erhält die gebundene Containeridentität'
@@ -102,6 +119,10 @@ try{
         $target=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Query -QueryId $question -Confirm:$false
         Assert-Persistent ($target.Generation -eq 3 -and $target.Ranked[0].ChunkId -ceq "$question-policy") "Zielranking $question übersteht SQLrestart"
     }
+    $callerAfterRestart=Invoke-SqlServerLabAiPersistentRetrieval @callerQueryParameters -Action Query -Confirm:$false
+    Assert-Persistent ($callerAfterRestart.Generation -eq 2 -and (($callerAfterRestart.Ranked.ChunkId -join ',') -ceq ($callerBeforeRestart.Ranked.ChunkId -join ','))) 'Caller-Zielranking übersteht SQLrestart'
+    $callerRemoved=Invoke-SqlServerLabAiPersistentRetrieval -RunId $lab.RunId -CollectionId $callerCollection -StateRoot $state -LocalPort $LocalPort -TimeoutSeconds 600 -Action Remove -Confirm:$false
+    Assert-Persistent ($callerRemoved.Status -eq 'REMOVED') 'Eigene Caller-Datenbank entfernt'
     $removed=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Remove -Confirm:$false
     $again=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Remove -Confirm:$false
     Assert-Persistent ($removed.Status -eq 'REMOVED' -and $again.Status -eq 'REMOVED') 'Eigene Datenbank entfernt und Abwesenheit bestätigt'
@@ -130,4 +151,4 @@ try{
     }
 }
 if(-not $complete -or $cleanupFailed){throw 'AI_PERSISTENT_ACCEPTANCE_INCOMPLETE'}
-Write-Host "AI MODEL MIGRATION ACCEPTANCE: PASS ($Provider; SQLrestart; staging/resume; own DB/run cleanup)"
+Write-Host "AI MODEL MIGRATION ACCEPTANCE: PASS ($Provider; fixture and caller collections; SQLrestart; staging/resume; own DB/run cleanup)"

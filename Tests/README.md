@@ -692,14 +692,15 @@ Idempotenz sowie abweichenden Inhalt mit vollständigem Whole-Run-Cleanup.
 
 ## Persistentes Retrieval
 
-`Tests/Static/Invoke-AiPersistentRetrievalMigrationChecks.ps1` prüft das enge
-v1→v2-Upgrade und den expliziten Modellwechsel von Delta/gen2 nach Nomic/gen3.
+`Tests/Static/Invoke-AiPersistentRetrievalMigrationChecks.ps1` prüft das
+v1→v2-Upgrade und den expliziten Modellwechsel der festen Delta-Fixture sowie
+eines vollständig gebundenen Caller-Bestands in die nächste Nomic-Generation.
 Die separate Abnahme `Tests/Integration/Invoke-AiPersistentRetrievalMigrationAcceptance.ps1`
 mit `-Provider docker` beziehungsweise `-Provider podman` verwendet je einen
 eigenen SQLrun, vorhandene Hostmodelle, gezählte Faultpoints, beide festen
-Rankings vor/nach Cutover und SQLrestart sowie eigenes vollständiges Cleanup.
-Docker und Podman bestanden die nativen Migrationsabnahmen am 2026-09-21
-mit jeweils 20 Assertions und vollständigem Cleanup; Details im
+Rankings, eine Caller-Collection vor/nach SQLrestart sowie eigenes vollständiges
+Cleanup. Die erweiterten Docker- und Podman-Nachweise bestanden am 2026-09-22
+getrennt mit je 25 Assertions und vollständigem Cleanup. Details im
 [Migrationsvertrag](../Documentation/Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
 
 `Tests/Static/Invoke-AiPersistentRetrievalChecks.ps1` prüft den eigenen SQL-

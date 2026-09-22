@@ -55,9 +55,12 @@ Fehlerverträge sind umgesetzt. `AI-10B` enthält nun einen rein lesenden,
 deterministischen Re-Embedding-Plan- und Journalvertrag für Modell- und
 Dimensionswechsel. Der begrenzte
 [persistente Modellwechsel](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md)
-führt nun explizit Delta/gen2 mit Embeddinggemma nach Nomic v2 MoE/gen3 aus:
-versioniertes Upgrade, feste Präfixprofile, separate Zielvektoren und atomare
-Aktivierung. Offline-Verträge und getrennte native Docker-/Podman-Abnahmen mit je 20 Assertions, SQLrestart und vollständigem Cleanup sind belegt. Allgemeine Modell-/Dimensionswechsel bleiben Backlog.
+  führt nun explizit die feste Delta-Fixture sowie callerverwaltete Collections
+  mit Embeddinggemma in die jeweils nächste Nomic-v2-MoE-Generation: versioniertes
+  Upgrade, feste Präfixprofile, separate Zielvektoren und atomare Aktivierung.
+  Offline-Verträge sowie jeweils 25 native Prüfungen unter Docker und Podman
+  einschließlich SQL-Neustart und vollständigem Cleanup sind belegt. Weitere
+  Zielmodelle und Dimensionswechsel bleiben Backlog.
 
 ### AI-05 – Ollama-Vertragsgrundlage
 
@@ -124,8 +127,10 @@ Der kontrollierte Re-Embedding-Plan bindet alte und neue Modell-, Dimensions-,
 Dataset-, Chunk- und Vectoridentitäten und blockiert Mischbetrieb. Er führt
 keine Runtimeaktion aus. Der getrennte
 [Migrations-Slice](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) belegt
-Re-Embedding der festen Fixture von Embeddinggemma zu Nomic auf Docker und
-Podman. Dimensionswechsel und allgemeine Rebuild-Ausführung bleiben offen.
+  Re-Embedding der festen Fixture und eines vollständig gebundenen Caller-
+  Bestands von Embeddinggemma zu Nomic. Docker und Podman bestanden jeweils 25
+  native Prüfungen einschließlich SQL-Neustart und vollständigem Cleanup.
+  Dimensionswechsel bleiben offen.
 
 `AI-60A` stellt kataloggebundene Ollama-Cloud-Generation bereit. Der öffentliche
 Aufruf verlangt eine nicht-interne Datenklasse und expliziten Cloud-Egress,
@@ -190,9 +195,9 @@ und ausgelassene IDs beim Cutover entfernt.
 Die erweiterten Docker- und Podman-Läufe bestanden am 2026-09-22 getrennt mit
 je 26 Assertions einschließlich einer Collection aus drei Caller-Dokumenten,
 SQLrestart, Delta-Cutover, Caller-Sync, Hashdrift und Cleanup.
-Allgemeines Modellwechsel-Re-Embedding bleibt offen;
-die feste synthetische Persistenz und ihre begrenzte Migration sind unten
-gesondert beschrieben. SQL Server Full-Text Search bleibt offen, solange kein
+Caller-Modellwechsel-Re-Embedding zum festen lokalen Nomic-Ziel ist umgesetzt;
+weitere Zielmodelle und Dimensionswechsel bleiben offen. Die feste synthetische
+Persistenz und ihre Migration sind unten gesondert beschrieben. SQL Server Full-Text Search bleibt offen, solange kein
 reproduzierbarer, paketgebundener Containerpfad für `mssql-server-fts` besteht.
 
 `AI-50A` implementiert den read-only Diagnose-Agenten mit vier festen
@@ -244,6 +249,9 @@ ist implementiert und offline geprüft: eigene SQL-2025-Datenbank, feste
 Initial-/Delta-Generation, aktive Altgeneration bei Stagingfehlern, atomarer
 Cutover und SQL-quittiertes Resume/Remove. Der aktuelle Docker-/Podman-Nachweis
 mit je 26 Assertions schließt zusätzlich atomaren Caller-Dokument-Sync ein. Dies ist
-für Delta weiterhin ein inkrementeller Rebuild mit unverändertem Modell;
-der bestehende reine Modellwechsel-Re-Embedding-Plan bleibt unverändert.
-Automatische Retention, weitere Modell-/Dimensionsmigrationen, Hyper-V und ANN bleiben offen.
+für Delta weiterhin ein inkrementeller Rebuild mit unverändertem Modell. Der
+Modellwechsel-Re-Embedding-Plan führt nun auch vollständig gebundene Caller-
+Bestände in die nächste Nomic-Generation. Docker und Podman bestanden jeweils
+25 native Prüfungen einschließlich SQL-Neustart und vollständigem Cleanup.
+Automatische Retention, weitere Zielmodelle,
+Dimensionsmigrationen, Hyper-V und ANN bleiben offen.

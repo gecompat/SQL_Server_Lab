@@ -47,7 +47,7 @@ try{
                 Stage {$script:generations[$P.generation]=[pscustomobject]@{Generation=$P.generation;OperationId=$P.operation;PlanKey=$P.plan;Revision=$P.revision;DatasetHash=$P.dataset;ModelHash=$P.model;Status='STAGING'};$script:chunks[$P.generation]=@{}}
                 Insert {if($script:chunks[$P.generation].ContainsKey($P.id)){throw 'duplicate'};$script:chunks[$P.generation][$P.id]=[pscustomobject]@{ChunkId=$P.id;Content=$P.content;ContentHash=$P.hash;VectorHash='c'*64;ActualVectorHash='c'*64}}
                 Copy {$script:chunks[$P.generation][$P.id]=$script:chunks[$P.previous][$P.id].PSObject.Copy()}
-                Commit {if($script:owner.ActiveGeneration -ne $P.previous -or $script:chunks[$P.generation].Count -ne 3){throw 'cutover conflict'};$script:commitSql=$Sql;$script:generations[$P.generation].Status='COMMITTED';$script:owner.ActiveGeneration=$P.generation}
+                Commit {if($script:owner.ActiveGeneration -ne $P.previous -or $script:chunks[$P.generation].Count -ne $P.documentCount){throw 'cutover conflict'};$script:commitSql=$Sql;$script:generations[$P.generation].Status='COMMITTED';$script:owner.ActiveGeneration=$P.generation}
                 Query {foreach($row in @($script:chunks[$script:owner.ActiveGeneration].Values|Sort-Object ChunkId)){[pscustomobject]@{ChunkId=$row.ChunkId;ContentHash=$(if($script:fail -eq 'QueryHash'){'d'*64}else{$row.ContentHash});Distance=0.1}}}
                 Remove {$script:db=$false;$script:owner=$null}
                 default {throw "Unexpected SQL step $Step"}
@@ -56,6 +56,14 @@ try{
         function Execute {param([string]$Action='Apply',[string]$Revision='Initial',[switch]$Resume,[scriptblock]$Fault)
             $p=$script:parameters.Clone();$p.Action=$Action;$p.FixtureRevision=$Revision;$p.Resume=[bool]$Resume
             if($Action -eq 'Migrate'){$p.TargetModelKey='ollama-nomic-embed-text-v2-moe';$p.FixtureRevision='Delta'}
+            $plan=New-LabAiPersistentPlan @p
+            Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $Root -SqlExecutor $sql -MetadataTransport $metadata -EmbeddingTransport $transport -FaultInjector $Fault
+        }
+        function ExecuteCaller {param([string]$Action,[object[]]$Documents,[object[]]$ExpectedDocuments,[switch]$Resume,[scriptblock]$Fault)
+            $p=$script:parameters.Clone();$p.Action=$Action;$p.Documents=$Documents;$p.Resume=[bool]$Resume
+            if($null -ne $ExpectedDocuments){$p.ExpectedDocuments=$ExpectedDocuments}
+            if($Action -eq 'Query'){$p.Question='Welche synthetische Richtlinie gilt?'}
+            if($Action -eq 'Migrate'){$p.TargetModelKey='ollama-nomic-embed-text-v2-moe'}
             $plan=New-LabAiPersistentPlan @p
             Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $Root -SqlExecutor $sql -MetadataTransport $metadata -EmbeddingTransport $transport -FaultInjector $Fault
         }
@@ -149,6 +157,48 @@ try{
             Check 'Fremdes SQL-Upgradereceipt blockiert Query' (Reject {Execute -Action Query} 'AI_PERSISTENT_MIGRATION_RECEIPT_DRIFT')
             $script:targetDrift=$true
             Check 'Remove bleibt unabhängig von beiden Modellverfügbarkeiten' ((Execute -Action Remove).Status -eq 'REMOVED' -and -not $script:db)
+
+            Reset
+            $callerInitial=@(
+                [pscustomobject]@{Id='caller-alpha';Content='Alpha beschreibt eine synthetische Sicherungsrichtlinie.'},
+                [pscustomobject]@{Id='caller-beta';Content='Beta beschreibt einen synthetischen Wiederanlauf.'}
+            )
+            $callerSecond=@(
+                [pscustomobject]@{Id='caller-alpha';Content='Alpha beschreibt eine aktualisierte synthetische Sicherungsrichtlinie.'},
+                [pscustomobject]@{Id='caller-gamma';Content='Gamma beschreibt eine synthetische Aufbewahrung.'}
+            )
+            $callerThird=@(
+                [pscustomobject]@{Id='caller-alpha';Content='Alpha beschreibt eine aktualisierte synthetische Sicherungsrichtlinie.'},
+                [pscustomobject]@{Id='caller-delta';Content='Delta beschreibt einen synthetischen Restoretest.'}
+            )
+            $null=ExecuteCaller -Action Apply -Documents $callerInitial
+            $null=ExecuteCaller -Action Sync -Documents $callerSecond -ExpectedDocuments $callerInitial
+            $null=ExecuteCaller -Action Sync -Documents $callerThird -ExpectedDocuments $callerSecond
+            $callerPreview=Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Migrate -Documents $callerThird -TargetModelKey ollama-nomic-embed-text-v2-moe -WhatIf
+            Check 'Caller-Migrate WhatIf bindet Dokumentzahl und Zielmodell ohne Statezugriff' ($callerPreview.DatasetMode -ceq 'CallerSupplied' -and $callerPreview.DocumentCount -eq 2 -and $callerPreview.Revision -ceq 'Managed' -and $callerPreview.ModelKey -ceq 'ollama-nomic-embed-text-v2-moe')
+            $oversized=@([pscustomobject]@{Id='caller-large';Content=('x'*500)})
+            Check 'Caller-Migrate weist ein Zielmodell-Input über 512 UTF-8-Bytes planend ab' (Reject {New-LabAiPersistentPlan -RunId $script:run -InstanceId primary -CollectionId $script:collection -Action Migrate -FixtureRevision Initial -QueryId backup -Documents $oversized -TargetModelKey ollama-nomic-embed-text-v2-moe -LocalPort 11434 -TimeoutSeconds 300} 'AI_PERSISTENT_MODEL_INPUT_LIMIT_EXCEEDED')
+            $beforeRequests=$script:requests.Count
+            Check 'Unterbrochenes Caller-Migrate hält die dynamische Quelle aktiv' (Reject {ExecuteCaller -Action Migrate -Documents $callerThird -Fault {param($Step,$Id)if($Step -eq 'AfterChunkSql'){throw 'lost caller chunk'}}} 'AI_PERSISTENT_RECOVERY_REQUIRED')
+            Check 'Caller-Migrate verlangt nach Teilstaging explizites Resume' (Reject {ExecuteCaller -Action Migrate -Documents $callerThird} 'AI_PERSISTENT_RESUME_REQUIRED')
+            $sourceQuery=ExecuteCaller -Action Query -Documents $callerThird
+            Check 'Caller-Query bleibt während Zielstaging auf der gebundenen Quelle' ($sourceQuery.Generation -eq 3 -and $sourceQuery.ModelKey -ceq 'ollama-embeddinggemma-latest' -and $script:owner.ActiveGeneration -eq 3)
+            $callerMigration=ExecuteCaller -Action Migrate -Documents $callerThird -Resume
+            Check 'Caller-Migrate nutzt die aktive Generation und schneidet atomar auf die nächste um' ($callerMigration.Generation -eq 4 -and $script:owner.ActiveGeneration -eq 4 -and $callerMigration.EmbeddingRequests -eq 1 -and $script:generations[3].Status -ceq 'COMMITTED')
+            Check 'Caller-Migrate erzeugt jeden Zielvektor neu und Resume ergänzt nur den fehlenden' ($script:requests.Count-$beforeRequests -eq 3 -and @($script:events|Where-Object{$_ -eq 'Copy'}).Count -eq 1)
+            $callerJournalText=Get-Content (JournalPath) -Raw
+            $callerJournal=$callerJournalText|ConvertFrom-Json
+            Check 'Caller-Migrationsjournal bindet dynamische Generationen ohne Dokumentinhalt' ($callerJournal.migration.datasetMode -ceq 'CallerSupplied' -and $callerJournal.migration.sourceGeneration -eq 3 -and $callerJournal.migration.targetGeneration -eq 4 -and $callerJournal.migration.sourceRevision -ceq 'Managed' -and $callerJournalText -notmatch 'aktualisierte synthetische')
+            $callerQuery=ExecuteCaller -Action Query -Documents $callerThird
+            Check 'Caller-Query verwendet nach Cutover Nomic und die freie Frage' ($callerQuery.Generation -eq 4 -and $callerQuery.DatasetMode -ceq 'CallerSupplied' -and $callerQuery.ModelKey -ceq 'ollama-nomic-embed-text-v2-moe' -and $callerQuery.Ranked.Count -eq 2 -and $script:requests[-1].Body.input[0] -ceq 'search_query: Welche synthetische Richtlinie gilt?')
+            $largeQueryPlan=New-LabAiPersistentPlan -RunId $script:run -InstanceId primary -CollectionId $script:collection -Action Query -FixtureRevision Initial -QueryId backup -Documents $callerThird -Question ('q'*500) -LocalPort 11434 -TimeoutSeconds 300
+            $beforePayloads=$script:payloads
+            Check 'Caller-Zielquery weist ein Input über 512 UTF-8-Bytes vor Embedding ab' ((Reject {Invoke-LabAiPersistentRetrieval -Plan $largeQueryPlan -StateRoot $Root -SqlExecutor $sql -MetadataTransport $metadata -EmbeddingTransport $transport} 'AI_PERSISTENT_MODEL_INPUT_LIMIT_EXCEEDED') -and $script:payloads -eq $beforePayloads)
+            $wrong=@([pscustomobject]@{Id='caller-alpha';Content='Falscher Bestand.'})
+            $beforePayloads=$script:payloads
+            Check 'Caller-Query weist einen anderen vollständigen Bestand vor Embedding ab' ((Reject {ExecuteCaller -Action Query -Documents $wrong} 'AI_PERSISTENT_REQUEST_BINDING_DRIFT') -and $script:payloads -eq $beforePayloads)
+            $beforePayloads=$script:payloads;$callerReplay=ExecuteCaller -Action Migrate -Documents $callerThird
+            Check 'Caller-Migration wird nach bestätigtem Cutover nur idempotent bestätigt' ($callerReplay.Generation -eq 4 -and $callerReplay.EmbeddingRequests -eq 0 -and $script:payloads -eq $beforePayloads)
         }finally{
             Set-Item Function:script:Get-LabTransferBinding $originalBinding;Set-Item Function:script:Assert-LabTransferBinding $originalAssert;Set-Item Function:script:Write-LabArtifactJsonAtomic $originalWrite
         }

@@ -1,10 +1,11 @@
 # Begrenzter Modellwechsel im persistenten SQL-Retrieval
 
-Stand: 2026-09-21. Status: `VALIDATED_REFERENCE`. Dieser Folgeslice
+Stand: 2026-09-22. Status: `VALIDATED_REFERENCE`. Dieser Folgeslice
 erweitert [persistentes Retrieval](AI_PERSISTENT_RETRIEVAL.md) um genau einen
-ausdrücklichen Modellwechsel: bestätigtes Delta, Generation 2 mit vorhandenem
-`embeddinggemma:latest`, nach Generation 3 mit vorhandenem
-`nomic-embed-text-v2-moe:latest`. SQL Server 2025 unter Docker und Podman bleiben
+ausdrücklichen Modellwechsel: eine bestätigte Fixture- oder callerverwaltete
+Generation mit vorhandenem `embeddinggemma:latest` wird als nächste Generation
+mit vorhandenem `nomic-embed-text-v2-moe:latest` vollständig neu eingebettet.
+SQL Server 2025 unter Docker und Podman bleiben
 die einzigen Zielprovider. Der Controller kontaktiert ausschließlich Loopback;
 kein Download, Cloudaufruf, Generierungsschritt oder Host-Lifecycleeingriff.
 
@@ -22,8 +23,26 @@ Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Query -QueryId cleanup
 Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Remove
 ```
 
-Die Quelle muss vollständig COMMITTED sein. Die API akzeptiert genau diesen
-Zielschlüssel und benötigt ausdrücklich `FixtureRevision Delta`. WhatIf liest
+Eine callerverwaltete Collection verwendet denselben vollständigen Bestand bei
+Migration und Query:
+
+```powershell
+$documents = @(
+    [pscustomobject]@{Id='backup-policy';Content='Synthetische Sicherungen werden täglich geprüft.'},
+    [pscustomobject]@{Id='restore-policy';Content='Ein synthetischer Restoretest läuft wöchentlich.'}
+)
+Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Apply -Documents $documents
+Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Migrate -Documents $documents `
+    -TargetModelKey ollama-nomic-embed-text-v2-moe -TimeoutSeconds 600
+Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Query -Documents $documents `
+    -Question 'Wie werden synthetische Sicherungen geprüft?'
+```
+
+Die Quelle muss vollständig `COMMITTED` sein. Für die feste Fixture benötigt
+die API `FixtureRevision Delta`; bei 1 bis 16 Caller-Dokumenten bleibt
+`FixtureRevision Initial` und der vollständige aktuelle Bestand wird erneut
+übergeben. Die Zielgeneration ist jeweils die aktive Generation plus eins und
+bleibt auf maximal 32 begrenzt. Die API akzeptiert genau diesen Zielschlüssel. WhatIf liest
 nur lokale versionierte Verträge; es prüft keine Runtime und schreibt keinen
 State. Die Vorschau nennt bei Query
 `ModelSelection=ACTIVE_SQL_GENERATION` und lässt `ModelKey` und `Revision` leer,
@@ -39,8 +58,11 @@ Beide Modelle liefern 768 Dimensionen. Das unveränderte Quellprofil `raw`
 Dokumenten exakt `search_document: ` und Fragen exakt `search_query: ` voran.
 Die [Ollama-Modellseite](https://ollama.com/library/nomic-embed-text-v2-moe)
 beschreibt diese Präfixe, 768 Dimensionen und das Limit von 512 Tokens. Die
-feste kurze Fixture bleibt innerhalb dieser Grenze; freie Dokumente und
-automatische Trunkierung gehören nicht zum Vertrag. Die
+feste kurze Fixture bleibt innerhalb dieser Grenze. Für Caller-Migration und
+Query mit aktivem Nomic-Profil gilt konservativ einschließlich Präfix ein Limit
+von 512 UTF-8-Bytes; ein größerer Input wird vor dem Modellrequest mit
+`AI_PERSISTENT_MODEL_INPUT_LIMIT_EXCEEDED` abgewiesen. Automatische Trunkierung
+gehört nicht zum Vertrag. Die
 [Nomic-Modellkarte](https://huggingface.co/nomic-ai/nomic-embed-text-v2-moe)
 weist Apache-2.0 aus. `minimumOllamaVersion=0.34.2` ist der konservative
 Projekt-Floor dieses neuen Katalogeintrags, keine behauptete Herstellermindestversion.
@@ -54,7 +76,7 @@ als allgemeine Konstante versioniert.
 
 ## Identität und Upgrade
 
-Der bestehende reine Re-Embedding-Planer bindet Delta-Dataset, Chunking,
+Der bestehende reine Re-Embedding-Planer bindet Datasetmodus und -hash, Chunking,
 Dokumenthashes, tatsächliche SQL-Quellvektorhashes und beide Modellidentitäten.
 Ein äußerer PlanKey ergänzt Run-/Scope-/Instanz-/Collection-/DB-Identität,
 Operation, Request, Quellreceipt, vollständige Hostbindings und beide Profile.
@@ -71,10 +93,10 @@ umgebaut. Fremde oder widersprüchliche Receipts werden nicht adoptiert.
 | Abbruchfenster | Verhalten |
 |---|---|
 | Vor dauerhaftem v2-Intent | Keine SQL-Upgrademutation; alte Journalbytes bleiben erhalten. |
-| Intent vorhanden, SQL-Upgrade fehlt | Query liest Generation 2; explizites Resume darf das exakt gebundene Upgrade ausführen. |
+| Intent vorhanden, SQL-Upgrade fehlt | Query liest die bisher aktive Quellgeneration; explizites Resume darf das exakt gebundene Upgrade ausführen. |
 | SQL-Upgrade bestätigt, Antwort verloren | Resume erkennt das Receipt und wiederholt kein DDL. |
-| Ein Teil der Zielchunks bestätigt | Generation 2 bleibt aktiv; Resume validiert SQL und ergänzt nur fehlende Zielchunks. |
-| SQL-Cutover bestätigt, Journal noch STAGING | Query verwendet sofort Generation 3 und das Zielprofil. Resume finalisiert ohne neue Embeddings oder zweiten Cutover. |
+| Ein Teil der Zielchunks bestätigt | Die Quellgeneration bleibt aktiv; Resume validiert SQL und ergänzt nur fehlende Zielchunks. |
+| SQL-Cutover bestätigt, Journal noch STAGING | Query verwendet sofort die nächste Generation und das Zielprofil. Resume finalisiert ohne neue Embeddings oder zweiten Cutover. |
 
 Das Upgrade ist ausdrücklich vorwärts gerichtet. Alte Clients lehnen das neue
 Journal ab. Ein unbekanntes Vertragsformat, ein fehlendes erwartetes Receipt
@@ -85,7 +107,7 @@ Staging** verfügbar, nicht parallel zu einem laufenden exklusiven Migrate-Aufru
 
 ## Staging, Cutover und Cleanup
 
-Alle drei Zielvektoren werden neu erzeugt, auch beim unveränderten Cleanuptext.
+Alle Zielvektoren werden neu erzeugt, auch bei inhaltlich unveränderten Dokumenten.
 Es gibt keinen Copy-Pfad über Modellgrenzen. Die Quellgenerationen bleiben
 unverändert. SQL validiert das Zielmanifest einschließlich vollständiger
 Inhalte, Modell-/Plan-/Operationsbindung, gespeicherter Vektorhashes sowie das
@@ -103,8 +125,9 @@ und tatsächliche Abwesenheit; fehlerhafte Ownership wird nicht übergangen.
 
 ## Grenzen und Nachweise
 
-Höchstens drei Generationen mit je drei festen Dokumenten; Datenfile maximal
-64 MiB und Log maximal 32 MiB wie bisher. Migration benötigt drei Embeddings,
+Höchstens 32 Generationen mit 1 bis 16 Caller-Dokumenten beziehungsweise drei
+festen Fixture-Dokumenten; Datenfile maximal 64 MiB und Log maximal 32 MiB wie
+bisher. Migration benötigt ein Embedding je Dokument,
 Resume nur die fehlenden, Query eines. Keine automatischen Retries. Modellprobes
 und Payloads benötigen weiterhin 45 beziehungsweise 60 Sekunden Restbudget;
 600 Sekunden Operationsbudget werden für den Modellwechsel empfohlen.
@@ -122,11 +145,11 @@ Der getrennt nativ geprüfte Einstieg lautet:
 Er verwendet je einen eigenen SQLrun, zählt die tatsächlich erreichten
 Faultpoints, prüft beide festen Top-IDs vor/nach Cutover und SQLrestart sowie
 unveränderte Quellgenerationen und Hosttags. PASS folgt erst nach eigenem
-DB-/Run-/Volume-Cleanup. Die getrennten Docker- und Podman-Läufe bestanden am
-2026-09-21 jeweils 20 Assertions und vollständiges Cleanup (zwei Schritte,
-keine Fehler). Sie belegen den Modellwechsel einschließlich SQLrestart,
+DB-/Run-/Volume-Cleanup. Die erweiterten Docker- und Podman-Läufe bestanden am
+2026-09-22 getrennt mit je 25 Assertions, einer eigenen Caller-Collection,
+SQLrestart und vollständigem Cleanup. Die Fixture-Abnahme belegt den Modellwechsel einschließlich
 Upgrade-/Staging-/Commit-Antwortverlust und beider festen Suchfragen.
 Ein früherer Docker-Versuch erreichte wegen der belegten Testsperre keine
 Runtime; der anschließende Lauf mit vorgeschalteter Sperrübernahme bestand.
-Beliebige Dokumente, weitere Modell-/Dimensionsmigrationen, alte Generationen
-selektiv entfernen, Hyper-V, ANN und Golden-v1-Modelländerungen bleiben offen.
+Weitere Zielmodelle, Dimensionswechsel, alte Generationen selektiv entfernen,
+Sync nach dem Modellwechsel, Hyper-V, ANN und Golden-v1-Modelländerungen bleiben offen.

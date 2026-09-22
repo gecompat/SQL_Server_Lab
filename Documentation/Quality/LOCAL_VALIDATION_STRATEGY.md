@@ -79,10 +79,12 @@ SQLrestart, unverändertes Hostmodellinventar und bestätigtes eigenes Cleanup.
 ## 1. Grundsatz
 
 `Invoke-AiPersistentRetrievalMigrationChecks.ps1` ergänzt die v1-Regression um
-Upgrade-/Staging-/Commit-Abbrüche, unveränderte Quellgenerationen, SQL-first
-Modellwahl, Präfix-/Digestdrift und modellunabhängiges Cleanup. Der separate
-`Invoke-AiPersistentRetrievalMigrationAcceptance.ps1` ist für eigene Docker-
-und Podman-Runs am 2026-09-21 getrennt bestanden: je 20 Assertions, SQLrestart und vollständiges Cleanup.
+Upgrade-/Staging-/Commit-Abbrüche, dynamische Caller-Generationen, unveränderte
+Quellgenerationen, SQL-first Modellwahl, Präfix-/Digestdrift und
+modellunabhängiges Cleanup. Der separate
+`Invoke-AiPersistentRetrievalMigrationAcceptance.ps1` prüft feste und Caller-
+Collections in eigenen Docker-/Podman-Runs. Die erweiterten Nachweise bestanden
+am 2026-09-22 getrennt mit je 25 Assertions, SQLrestart und vollständigem Cleanup.
 Siehe [Migrationsvertrag](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
 
 `Invoke-AiPersistentRetrievalChecks.ps1` prüft den begrenzten persistenten
