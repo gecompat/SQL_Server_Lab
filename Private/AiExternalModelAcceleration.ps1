@@ -114,7 +114,7 @@ function New-LabAiExternalModelPlan {
         RuntimeModel=$RuntimeModel;ModelType='EMBEDDINGS';Dimension=$Dimension;InputProfile=$InputProfile
         TlsMode=$TlsMode;ModelSha256=$identity.ModelSha256;RuntimeSha256=$identity.RuntimeSha256
         ServerCertificateSha256=$identity.ServerCertificateSha256
-        RequiredEvidence=@('HTTPS_CERTIFICATE_MATCH','RUNTIME_BINARY_MATCH','MODEL_FILE_MATCH','EMBEDDING_DIMENSION_MATCH','ACCELERATOR_RUNTIME_ATTESTATION')
+        RequiredEvidence=@('HTTPS_CERTIFICATE_MATCH','RUNTIME_BINARY_MATCH','MODEL_FILE_MATCH','RUNTIME_MODEL_MATCH','EMBEDDING_DIMENSION_MATCH','ACCELERATOR_RUNTIME_ATTESTATION')
         Blockers=@($blockers);Warnings=@($warnings);PlanKey=Get-LabAiPlanKey -InputObject $identity
     }
 }
@@ -219,7 +219,7 @@ function Test-LabAiExternalModelArtifact {
         Backend=[string]$canonicalPlan.Backend;RuntimeSha256=$runtimeSha256;ModelSha256=$modelSha256
         VerifiedEvidence=@('RUNTIME_BINARY_MATCH','MODEL_FILE_MATCH')
         PendingEvidence=@(
-            'HTTPS_CERTIFICATE_MATCH','OPENAI_RESPONSE_SHAPE_MATCH','EMBEDDING_DIMENSION_MATCH',
+            'HTTPS_CERTIFICATE_MATCH','OPENAI_RESPONSE_SHAPE_MATCH','RUNTIME_MODEL_MATCH','EMBEDDING_DIMENSION_MATCH',
             'FINITE_NUMERIC_VECTOR_MATCH','ACCELERATOR_RUNTIME_ATTESTATION'
         )
     }
@@ -314,6 +314,8 @@ function Invoke-LabAiExternalModelEndpointProbe {
     if ($statusCode -lt 200 -or $statusCode -ge 300) { throw "AI_EXTERNAL_MODEL_HTTP_$statusCode" }
     $observedPin = ([string]$response.ServerCertificateSha256).ToLowerInvariant()
     if ($observedPin -cne [string]$Plan.ServerCertificateSha256) { throw 'AI_EXTERNAL_MODEL_TLS_CERTIFICATE_MISMATCH' }
+    if ($null -eq $response.Body) { throw 'AI_EXTERNAL_MODEL_RESPONSE_INVALID' }
+    if ([string]$response.Body.model -cne [string]$Plan.RuntimeModel) { throw 'AI_EXTERNAL_MODEL_RUNTIME_MODEL_MISMATCH' }
     $data = @($response.Body.data)
     if ($data.Count -ne 1 -or $null -eq $data[0].embedding) { throw 'AI_EXTERNAL_MODEL_RESPONSE_INVALID' }
     $vector = @($data[0].embedding)
@@ -327,7 +329,7 @@ function Invoke-LabAiExternalModelEndpointProbe {
         Status='ENDPOINT_VERIFIED';EvidenceStatus='LIVE_ENDPOINT';PlanKey=[string]$Plan.PlanKey
         Backend=[string]$Plan.Backend;Dimension=[int]$Plan.Dimension;HttpStatus=$statusCode
         ServerCertificateSha256=$observedPin;DurationMilliseconds=[Math]::Max(0,[int64]$started.ElapsedMilliseconds)
-        VerifiedEvidence=@('HTTPS_CERTIFICATE_MATCH','OPENAI_RESPONSE_SHAPE_MATCH','EMBEDDING_DIMENSION_MATCH','FINITE_NUMERIC_VECTOR_MATCH')
+        VerifiedEvidence=@('HTTPS_CERTIFICATE_MATCH','OPENAI_RESPONSE_SHAPE_MATCH','RUNTIME_MODEL_MATCH','EMBEDDING_DIMENSION_MATCH','FINITE_NUMERIC_VECTOR_MATCH')
         PendingEvidence=@('RUNTIME_BINARY_MATCH','MODEL_FILE_MATCH','ACCELERATOR_RUNTIME_ATTESTATION')
     }
 }

@@ -23,7 +23,7 @@
     "ModelSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
     "RuntimeSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
     "ServerCertificateSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
-    "RequiredEvidence": {"type":"array","minItems":5,"uniqueItems":true,"items":{"type":"string"}},
+    "RequiredEvidence": {"type":"array","minItems":6,"uniqueItems":true,"items":{"type":"string"}},
     "Blockers": {"type":"array","uniqueItems":true,"items":{"type":"string"}},
     "Warnings": {"type":"array","uniqueItems":true,"items":{"type":"string"}},
     "PlanKey": {"type":"string","pattern":"^[a-f0-9]{64}$"}
