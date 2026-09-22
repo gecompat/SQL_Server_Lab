@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SQL Server Lab llama.cpp Runtime",
+  "type": "object",
+  "required": [
+    "Contract",
+    "Status",
+    "EvidenceStatus",
+    "Backend",
+    "DetectedBackends",
+    "Build",
+    "Package",
+    "InstallationPath",
+    "Invocation",
+    "CandidateAccelerators",
+    "SelectionEnvironment",
+    "PackageOrigin",
+    "ReleaseReference"
+  ],
+  "properties": {
+    "Contract": {
+      "type": "object",
+      "required": [
+        "Name",
+        "Version"
+      ],
+      "properties": {
+        "Name": {
+          "const": "SqlServerLab.LlamaCppRuntime"
+        },
+        "Version": {
+          "const": "1.0"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Status": {
+      "const": "INSTALLED"
+    },
+    "Backend": {
+      "enum": [
+        "LlamaCppOpenVino",
+        "LlamaCppCuda",
+        "LlamaCppRocm",
+        "LlamaCppVulkan",
+        "LlamaCppSycl",
+        "Unknown",
+        "Ambiguous"
+      ]
+    },
+    "Build": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "Package": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255
+    },
+    "InstallationPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "Invocation": {
+      "type": "string",
+      "minLength": 1
+    },
+    "SelectionEnvironment": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "enum": [
+        "GGML_OPENVINO_DEVICE",
+        null
+      ]
+    },
+    "CandidateAccelerators": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "CPU",
+          "GPU",
+          "NPU"
+        ]
+      }
+    },
+    "ReleaseReference": {
+      "const": "https://github.com/ggml-org/llama.cpp/releases"
+    },
+    "EvidenceStatus": {
+      "const": "FILES_ONLY"
+    },
+    "PackageOrigin": {
+      "const": "UNVERIFIED"
+    },
+    "DetectedBackends": {
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "LlamaCppOpenVino",
+          "LlamaCppCuda",
+          "LlamaCppRocm",
+          "LlamaCppVulkan",
+          "LlamaCppSycl"
+        ]
+      },
+      "type": "array"
+    }
+  },
+  "additionalProperties": false
+}

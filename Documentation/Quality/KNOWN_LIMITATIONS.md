@@ -2395,3 +2395,11 @@ Historische Runs ohne diese Evidence und UUID-lose Stores bleiben für Recovery
 blockiert. Es gibt keine historische Migration, Retention-Konvertierung, fremde
 Adoption oder Sidecar-Recovery. Bestehende Katalogeinträge ohne RuntimeBinding
 bleiben mit ihren bisherigen Verträgen kompatibel.
+
+### llama.cpp-Discovery
+
+`Get-SqlServerLabLlamaCppRuntime` erkennt Windows-Pakete ohne Hashpflicht und
+ohne Ausführung. Backend-DLLs und Verzeichnisnamen beweisen weder Ursprung,
+Geräteverfügbarkeit noch Embeddingeignung. Prozessstart, ownershipgebundener
+Lifecycle und native SQL-Abnahme sind damit nicht implementiert. Details:
+[lokale Beschleunigung](../User/SQL_AI_LOCAL_ACCELERATION.md).

@@ -235,3 +235,34 @@ Vor der Kennzeichnung `SUPPORTED` müssen mindestens bestehen:
 
 Die priorisierte Umsetzung und weitere Hardwarepfade stehen im
 [Acceleration-Backlog](../Project_Planning/AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md).
+
+## Lokale llama.cpp-Installation erkennen
+
+`Get-SqlServerLabLlamaCppRuntime -SearchRoot 'C:\Pfad\llama' -Accelerator NPU`
+findet Windows-Pakete anhand von `llama-server.exe` und Backend-DLLs, ohne
+Hashes, Prozessstart oder Netzwerkzugriff. Explizite Suchwurzeln ersetzen die
+Umgebungssuche; ohne sie werden `SQL_SERVER_LAB_LLAMA_ROOT` und der erste
+Treffer für `llama-server.exe` im Prozess-PATH verwendet. Es werden höchstens
+32 Wurzeln mit jeweils 256 unmittelbaren Unterverzeichnissen geprüft.
+Laufwerkswurzeln werden abgewiesen, Reparse-Verzeichnisse übersprungen.
+Nicht lesbare Wurzeln ergeben eine Warnung; eine leere Ausgabe ist dann kein
+Beweis, dass der Host keine Installation besitzt. Eine überschrittene Grenze
+bricht die Suche ab, statt einen scheinbar vollständigen Bestand zu liefern.
+
+`INSTALLED` und `FILES_ONLY` bestätigen ausschließlich die gefundenen Dateien.
+`CandidateAccelerators` ist ein Paketfilter, kein Nachweis verfügbarer Hardware.
+Mehrere Backend-DLLs ergeben `Backend=Ambiguous`; es wird kein Backend still
+gewählt. Die Sortierung verwendet den aus dem Verzeichnisnamen abgeleiteten
+Build absteigend und anschließend den Pfad; sie ist keine Eignungsentscheidung.
+`Build` ist unverifizierte Namensinformation. `ReleaseReference` verweist auf
+die [offiziellen Pakete](https://github.com/ggml-org/llama.cpp/releases),
+`PackageOrigin=UNVERIFIED` bestätigt ausdrücklich nicht deren Herkunft.
+Die Rückgabe enthält lokale Pfade und darf nicht versioniert werden.
+
+Für OpenVINO wird CPU, GPU oder NPU später explizit mit
+`GGML_OPENVINO_DEVICE` gewählt. Ein unbekannter laufender Prozess wird weder
+übernommen noch beendet. Ein Generations-GGUF ist kein bestätigtes
+Embeddingmodell. Modellpfad, Pooling und Dimension müssen separat feststehen;
+dieser Discovery-Vertrag startet keinen Dienst. Optionale Artifact-Evidence
+bindet erst die konkret ausgewählten Dateien. Der bestehende hashgebundene
+Endpointplan ist ein separater Vertrag und keine Voraussetzung der Discovery.

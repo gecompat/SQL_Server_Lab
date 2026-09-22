@@ -109,6 +109,7 @@ Export-SqlServerLabDatabasePackage           # Rungebundene Container-Datenbank 
 Invoke-SqlServerLabDatabasePackageAttach     # Paket pfadfrei an einen stabil gebundenen Hyper-V-SQL-Run attachen
 Get-SqlServerLabDatabaseMigrationDependency  # SQL-Migrationsabhaengigkeiten read-only inventarisieren
 Get-SqlServerLabAiScenario                   # SQL-KI-Szenario und sanitisierte Evidence read-only aufloesen
+Get-SqlServerLabLlamaCppRuntime             # Windows-Pakete begrenzt ohne Hashpflicht erkennen
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen
 Test-SqlServerLabAiExternalModelArtifact   # Runtime- und Modelldatei read-only gegen die Plandigests prüfen
 Test-SqlServerLabAiExternalModelEndpoint     # Zertifikatspin, OpenAI-Antwortform und Dimension read-only prüfen
