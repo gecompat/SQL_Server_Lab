@@ -133,6 +133,98 @@ function Test-LabAiExternalModelNumericValue {
     return -not [double]::IsNaN($number) -and -not [double]::IsInfinity($number)
 }
 
+function Resolve-LabAiExternalModelPlan {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Plan)
+
+    if ([string]$Plan.Contract.Name -cne 'SqlServerLab.AiExternalModelPlan' -or [string]$Plan.Contract.Version -cne '1.0') {
+        throw 'AI_EXTERNAL_MODEL_PLAN_INVALID'
+    }
+    try {
+        $canonicalPlan=New-LabAiExternalModelPlan -Backend ([string]$Plan.Backend) -Accelerator ([string]$Plan.Accelerator) `
+            -Location ([string]$Plan.Location) -ExternalModelName ([string]$Plan.ExternalModelName) `
+            -RuntimeModel ([string]$Plan.RuntimeModel) -Dimension ([int]$Plan.Dimension) `
+            -ModelSha256 ([string]$Plan.ModelSha256) -RuntimeSha256 ([string]$Plan.RuntimeSha256) `
+            -ServerCertificateSha256 ([string]$Plan.ServerCertificateSha256) -TlsMode ([string]$Plan.TlsMode) `
+            -InputProfile ([string]$Plan.InputProfile)
+    }
+    catch { throw 'AI_EXTERNAL_MODEL_PLAN_INVALID' }
+    if ([string]$canonicalPlan.PlanKey -cne [string]$Plan.PlanKey) { throw 'AI_EXTERNAL_MODEL_PLAN_INVALID' }
+    if ([string]$canonicalPlan.Status -eq 'BLOCKED') { throw 'AI_EXTERNAL_MODEL_PLAN_BLOCKED' }
+    if ([string]$Plan.Status -cne 'NOT_PROBED' -or [string]$Plan.EvidenceStatus -cne 'CONFIGURATION_ONLY') {
+        throw 'AI_EXTERNAL_MODEL_PLAN_INVALID'
+    }
+    return $canonicalPlan
+}
+
+function Get-LabAiExternalModelFileSha256 {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Path,
+        [Parameter(Mandatory)][ValidateSet('RUNTIME','MODEL')][string]$ArtifactKind
+    )
+
+    try {
+        $item = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
+        if (-not ($item -is [IO.FileInfo])) { throw 'NOT_A_FILE' }
+        $stream = [IO.File]::Open($item.FullName, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::Read)
+        try {
+            $sha = [Security.Cryptography.SHA256]::Create()
+            try { return ([Convert]::ToHexString($sha.ComputeHash($stream))).ToLowerInvariant() }
+            finally { $sha.Dispose() }
+        }
+        finally { $stream.Dispose() }
+    }
+    catch {
+        throw "AI_EXTERNAL_MODEL_${ArtifactKind}_FILE_UNREADABLE"
+    }
+}
+
+function Test-LabAiExternalModelArtifact {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)][string]$RuntimePath,
+        [Parameter(Mandatory)][string]$ModelPath
+    )
+
+    $canonicalPlan = Resolve-LabAiExternalModelPlan -Plan $Plan
+    try {
+        $runtimeFullPath = [IO.Path]::GetFullPath($RuntimePath)
+        $modelFullPath = [IO.Path]::GetFullPath($ModelPath)
+    }
+    catch { throw 'AI_EXTERNAL_MODEL_ARTIFACT_PATH_INVALID' }
+    $pathComparison = if ([OperatingSystem]::IsWindows()) {
+        [StringComparison]::OrdinalIgnoreCase
+    }
+    else {
+        [StringComparison]::Ordinal
+    }
+    if ([string]::Equals($runtimeFullPath, $modelFullPath, $pathComparison)) {
+        throw 'AI_EXTERNAL_MODEL_ARTIFACT_PATHS_MUST_DIFFER'
+    }
+
+    $runtimeSha256 = Get-LabAiExternalModelFileSha256 -Path $runtimeFullPath -ArtifactKind RUNTIME
+    if ($runtimeSha256 -cne [string]$canonicalPlan.RuntimeSha256) {
+        throw 'AI_EXTERNAL_MODEL_RUNTIME_HASH_MISMATCH'
+    }
+    $modelSha256 = Get-LabAiExternalModelFileSha256 -Path $modelFullPath -ArtifactKind MODEL
+    if ($modelSha256 -cne [string]$canonicalPlan.ModelSha256) {
+        throw 'AI_EXTERNAL_MODEL_MODEL_HASH_MISMATCH'
+    }
+
+    return [PSCustomObject]@{
+        Contract=[PSCustomObject]@{Name='SqlServerLab.AiExternalModelArtifactReceipt';Version='1.0'}
+        Status='ARTIFACTS_VERIFIED';EvidenceStatus='LOCAL_ARTIFACTS';PlanKey=[string]$canonicalPlan.PlanKey
+        Backend=[string]$canonicalPlan.Backend;RuntimeSha256=$runtimeSha256;ModelSha256=$modelSha256
+        VerifiedEvidence=@('RUNTIME_BINARY_MATCH','MODEL_FILE_MATCH')
+        PendingEvidence=@(
+            'HTTPS_CERTIFICATE_MATCH','OPENAI_RESPONSE_SHAPE_MATCH','EMBEDDING_DIMENSION_MATCH',
+            'FINITE_NUMERIC_VECTOR_MATCH','ACCELERATOR_RUNTIME_ATTESTATION'
+        )
+    }
+}
+
 function Invoke-LabAiExternalModelHttpTransport {
     [CmdletBinding()]
     param(
@@ -197,22 +289,7 @@ function Invoke-LabAiExternalModelEndpointProbe {
         [scriptblock]$Transport
     )
 
-    if ([string]$Plan.Contract.Name -cne 'SqlServerLab.AiExternalModelPlan' -or [string]$Plan.Contract.Version -cne '1.0') {
-        throw 'AI_EXTERNAL_MODEL_PLAN_INVALID'
-    }
-    try {
-        $canonicalPlan=New-LabAiExternalModelPlan -Backend ([string]$Plan.Backend) -Accelerator ([string]$Plan.Accelerator) `
-            -Location ([string]$Plan.Location) -ExternalModelName ([string]$Plan.ExternalModelName) `
-            -RuntimeModel ([string]$Plan.RuntimeModel) -Dimension ([int]$Plan.Dimension) `
-            -ModelSha256 ([string]$Plan.ModelSha256) -RuntimeSha256 ([string]$Plan.RuntimeSha256) `
-            -ServerCertificateSha256 ([string]$Plan.ServerCertificateSha256) -TlsMode ([string]$Plan.TlsMode) `
-            -InputProfile ([string]$Plan.InputProfile)
-    }
-    catch { throw 'AI_EXTERNAL_MODEL_PLAN_INVALID' }
-    if ([string]$canonicalPlan.PlanKey -cne [string]$Plan.PlanKey) { throw 'AI_EXTERNAL_MODEL_PLAN_INVALID' }
-    if ([string]$canonicalPlan.Status -eq 'BLOCKED') { throw 'AI_EXTERNAL_MODEL_PLAN_BLOCKED' }
-    if ([string]$Plan.Status -cne 'NOT_PROBED' -or [string]$Plan.EvidenceStatus -cne 'CONFIGURATION_ONLY') { throw 'AI_EXTERNAL_MODEL_PLAN_INVALID' }
-    $Plan=$canonicalPlan
+    $Plan = Resolve-LabAiExternalModelPlan -Plan $Plan
 
     $request = [PSCustomObject]@{
         Method='POST';Path=[string]$Plan.EndpointPath;TimeoutSeconds=$TimeoutSeconds

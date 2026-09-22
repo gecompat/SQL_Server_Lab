@@ -50,10 +50,10 @@ foreach($bridgePath in @('Private/AiSqlHttpsBridge.ps1','Schemas/ai-sql-https-br
 }
 $bridgeShared = & $selector -ChangedPath @('Private/AiSqlHttpsBridge.ps1','Private/AiEndpoint.ps1')
 Add-CheckResult -Name 'SQL-HTTPS-Ausnahme unterdrückt keine gemeinsame AI-Änderung' -Success ($bridgeShared.Docker -and $bridgeShared.Podman -and $bridgeShared.HyperV)
-foreach($externalPlanPath in @('Private/AiExternalModelAcceleration.ps1','Public/Get-SqlServerLabAiExternalModelPlan.ps1','Public/Test-SqlServerLabAiExternalModelEndpoint.ps1','Schemas/ai-external-model-plan.schema.json','Schemas/ai-external-model-endpoint-receipt.schema.json','Tests/Static/Invoke-AiExternalModelAccelerationChecks.ps1')) {
+foreach($externalPlanPath in @('Private/AiExternalModelAcceleration.ps1','Public/Get-SqlServerLabAiExternalModelPlan.ps1','Public/Test-SqlServerLabAiExternalModelEndpoint.ps1','Public/Test-SqlServerLabAiExternalModelArtifact.ps1','Schemas/ai-external-model-plan.schema.json','Schemas/ai-external-model-endpoint-receipt.schema.json','Schemas/ai-external-model-artifact-receipt.schema.json','Tests/Static/Invoke-AiExternalModelAccelerationChecks.ps1')) {
     foreach($path in @($externalPlanPath,$externalPlanPath.Replace('/','\'))) {
         $selected=& $selector -ChangedPath @($path)
-        Add-CheckResult -Name "External-Model-Plan und -Probe bleiben ohne Runtime-Mutation statisch: $path" -Success (
+        Add-CheckResult -Name "External-Model-Plan, -Dateiprüfung und -Probe bleiben ohne Runtime-Mutation statisch: $path" -Success (
             'Invoke-AiExternalModelAccelerationChecks.ps1' -in $selected.StaticChecks -and
             -not $selected.Docker -and -not $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
     }

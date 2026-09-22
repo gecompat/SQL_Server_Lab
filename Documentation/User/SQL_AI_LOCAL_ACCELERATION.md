@@ -105,6 +105,24 @@ Server muss mit TLS-Unterstützung gebaut worden sein.
 
 Read-only prüfen:
 
+Zuerst werden die lokalen Dateien ohne Prozessstart gegen den Plan gebunden:
+
+```powershell
+$runtimeHash = (Get-FileHash C:\AI\llama-server.exe -Algorithm SHA256).Hash
+$modelHash = (Get-FileHash C:\AI\embedding.gguf -Algorithm SHA256).Hash
+$plan = Get-SqlServerLabAiExternalModelPlan `
+  -Backend LlamaCppOpenVino -Accelerator NPU `
+  -Location https://localhost:11435/v1/embeddings `
+  -ExternalModelName LocalNpuEmbedding -RuntimeModel bound-model -Dimension 768 `
+  -RuntimeSha256 $runtimeHash -ModelSha256 $modelHash `
+  -ServerCertificateSha256 $serverCertificateHash
+$plan | Test-SqlServerLabAiExternalModelArtifact `
+  -RuntimePath C:\AI\llama-server.exe -ModelPath C:\AI\embedding.gguf
+```
+
+Das Receipt enthält nur Digests und Evidence-Codes. Es übernimmt keine lokalen
+Pfade und bestätigt weder einen laufenden Prozess noch NPU-Nutzung.
+
 ```powershell
 curl.exe --cacert C:\Pfad\run\ca.pem https://localhost:11435/health
 curl.exe --cacert C:\Pfad\run\ca.pem https://localhost:11435/v1/embeddings `
