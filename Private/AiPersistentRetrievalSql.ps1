@@ -29,6 +29,8 @@ function Initialize-LabAiPersistentDatabase {
     # CREATE DATABASE kann nicht gemeinsam mit dem Receipt transaktional sein.
     # Eine vorhandene DB ohne Receipt wird deshalb niemals nachträglich adoptiert.
     $name=$Journal.databaseName
+    $dimension=[int]$Journal.modelBinding.Dimension
+    if($dimension -lt 1 -or $dimension -gt 1998){throw 'AI_PERSISTENT_MODEL_DIMENSION_INVALID'}
     $null=Invoke-LabAiPersistentSql $Context Create @'
 IF DB_ID(@name) IS NOT NULL THROW 51000,'AI_PERSISTENT_DATABASE_COLLISION',1;
 DECLARE @data nvarchar(4000)=CONVERT(nvarchar(4000),SERVERPROPERTY('InstanceDefaultDataPath')),
@@ -42,7 +44,7 @@ SET XACT_ABORT ON;
 BEGIN TRANSACTION;
 CREATE TABLE [$name].dbo.LabOwner(Singleton int NOT NULL PRIMARY KEY CHECK(Singleton=1),OwnerToken char(64) NOT NULL,RunId varchar(36) NOT NULL,ScopeId varchar(36) NOT NULL,InstanceId nvarchar(64) NOT NULL,CollectionId varchar(36) NOT NULL,DatabaseGuid varchar(36) NOT NULL,ActiveGeneration int NOT NULL);
 CREATE TABLE [$name].dbo.LabGenerations(Generation int NOT NULL PRIMARY KEY,OperationId varchar(36) NOT NULL,PlanKey char(64) NOT NULL,Revision varchar(16) NOT NULL,DatasetHash char(64) NOT NULL,ModelHash char(64) NOT NULL,Status varchar(16) NOT NULL);
-CREATE TABLE [$name].dbo.LabChunks(Generation int NOT NULL,ChunkId nvarchar(96) COLLATE Latin1_General_100_BIN2 NOT NULL,Content nvarchar(4000) NOT NULL,ContentHash char(64) NOT NULL,Embedding VECTOR(768) NOT NULL,VectorHash char(64) NOT NULL,PRIMARY KEY(Generation,ChunkId));
+CREATE TABLE [$name].dbo.LabChunks(Generation int NOT NULL,ChunkId nvarchar(96) COLLATE Latin1_General_100_BIN2 NOT NULL,Content nvarchar(4000) NOT NULL,ContentHash char(64) NOT NULL,Embedding VECTOR($dimension) NOT NULL,VectorHash char(64) NOT NULL,PRIMARY KEY(Generation,ChunkId));
 INSERT [$name].dbo.LabOwner SELECT 1,@token,@run,@scope,@instance,@collection,CONVERT(varchar(36),database_guid),0 FROM sys.database_recovery_status WHERE database_id=DB_ID(@name);
 IF @@ROWCOUNT<>1 THROW 51000,'AI_PERSISTENT_DATABASE_RECEIPT_FAILED',1;
 COMMIT;

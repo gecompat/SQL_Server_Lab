@@ -28,16 +28,17 @@ function New-LabAiPodmanSetupPlan {
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9 _-]{0,63}$')][string]$Name='Podman KI',
         [ValidateRange(1024,65535)][int]$LocalPort=11434,
         [ValidateRange(1,8)][int]$Cpu=2,
-        [ValidateRange(2560,65536)][int]$MemoryMB=4096
+        [ValidateRange(2560,65536)][int]$MemoryMB=4096,
+        [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest'
     )
     $readiness=Get-LabClientRuntimeReadiness -Provider podman
     if ($readiness.Status -cne 'PASS') { throw 'AI_PODMAN_SETUP_RUNTIME_NOT_READY' }
     $scope=Get-LabAiPodmanSetupRuntimeScope
     if ($scope.Status -cne 'AVAILABLE' -or $scope.RuntimeId -cnotmatch '^runtime-scope-[a-f0-9]{24}$') { throw 'AI_PODMAN_SETUP_RUNTIME_NOT_READY' }
-    $endpoint=New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-latest -EndpointRef ollama-local -Lane local -LocalPort $LocalPort
+    $endpoint=New-LabAiEndpointPlan -ModelKey $EmbeddingModelKey -EndpointRef ollama-local -Lane local -LocalPort $LocalPort
     try { $model=Get-LabAiHostModelBinding -Plan $endpoint }
     catch { throw 'AI_PODMAN_SETUP_MODEL_UNAVAILABLE' }
-    if ($model.Dimension -ne 768 -or $model.Model -cne 'embeddinggemma:latest') { throw 'AI_PODMAN_SETUP_MODEL_UNAVAILABLE' }
+    if ($model.ModelKey -cne $endpoint.ModelKey -or $model.Dimension -ne $endpoint.Dimension -or $model.Model -cne $endpoint.InternalModel) { throw 'AI_PODMAN_SETUP_MODEL_UNAVAILABLE' }
     [pscustomobject][ordered]@{
         contract='SqlServerLab.AiPodmanSetup/1.0';operationId=[guid]::NewGuid().ToString('N')
         collectionId=[guid]::NewGuid().ToString('D');runId=$null;name=$Name;port=$LocalPort;cpu=$Cpu;memoryMB=$MemoryMB
@@ -86,7 +87,7 @@ function Assert-LabAiPodmanSetupPreflight {
     param($Record)
     $scope=Get-LabAiPodmanSetupRuntimeScope
     if ($scope.Status -cne 'AVAILABLE' -or $scope.RuntimeId -cne $Record.runtimeScopeId) { throw 'AI_PODMAN_SETUP_RUNTIME_CHANGED' }
-    $endpoint=New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-latest -EndpointRef ollama-local -Lane local -LocalPort $Record.port
+    $endpoint=New-LabAiEndpointPlan -ModelKey $Record.modelBinding.ModelKey -EndpointRef ollama-local -Lane local -LocalPort $Record.port
     try { Assert-LabAiHostModelBinding -Plan $endpoint -Expected $Record.modelBinding }
     catch { throw 'AI_PODMAN_SETUP_MODEL_CHANGED' }
 }
@@ -119,7 +120,7 @@ function Invoke-LabAiPodmanSetupApply {
         $reason='MODEL_CHANGED';Assert-LabAiPodmanSetupPreflight $record
         $reason='APPLY_FAILED'
         $null=Assert-LabTransferBinding -Expected $record.binding -StateRoot $StateRoot -OperationId $OperationId
-        $arguments=@{RunId=$record.runId;InstanceId='primary';CollectionId=$record.collectionId;StateRoot=$StateRoot;LocalPort=$record.port;TimeoutSeconds=300;Confirm=$false}
+        $arguments=@{RunId=$record.runId;InstanceId='primary';CollectionId=$record.collectionId;StateRoot=$StateRoot;LocalPort=$record.port;EmbeddingModelKey=$record.modelBinding.ModelKey;TimeoutSeconds=300;Confirm=$false}
         $applied=Invoke-SqlServerLabAiPersistentRetrieval @arguments -Action Apply -FixtureRevision Initial
         if ($applied.Status -cne 'COMMITTED' -or $applied.CollectionId -cne $record.collectionId -or $applied.Generation -ne 1) { throw 'AI_PODMAN_SETUP_APPLY_FAILED' }
         $record.status='QUERYING';Write-LabAiPodmanSetupRecord $record $StateRoot
@@ -128,7 +129,7 @@ function Invoke-LabAiPodmanSetupApply {
         $query=Invoke-SqlServerLabAiPersistentRetrieval @arguments -Action Query -QueryId backup
         if ($query.Status -cne 'QUERIED' -or $query.CollectionId -cne $record.collectionId -or $query.Generation -ne 1 -or @($query.Ranked).Count -ne 3 -or $query.Ranked[0].ChunkId -cne 'backup-policy') { throw 'AI_PODMAN_SETUP_QUERY_FAILED' }
         Assert-LabAiPodmanSetupPreflight $record
-        $plan=New-LabAiPersistentPlan -RunId $record.runId -InstanceId primary -CollectionId $record.collectionId -Action Query -FixtureRevision Initial -QueryId backup -LocalPort $record.port -TimeoutSeconds 300
+        $plan=New-LabAiPersistentPlan -RunId $record.runId -InstanceId primary -CollectionId $record.collectionId -Action Query -FixtureRevision Initial -QueryId backup -LocalPort $record.port -EmbeddingModelKey $record.modelBinding.ModelKey -TimeoutSeconds 300
         $journalPath=Join-Path $StateRoot ('runs/'+$record.runId+'/ai-persistent/primary-'+$record.collectionId+'.json')
         $current=Assert-LabTransferBinding -Expected $record.binding -StateRoot $StateRoot -OperationId $OperationId
         $retrievalIdentity=Get-LabTransferBindingIdentity $current
@@ -273,7 +274,7 @@ function ConvertTo-LabAiPodmanSetupResult {
     param($Record)
     [pscustomobject]@{
         Status=$Record.status;OperationId=$Record.operationId;RunId=$Record.runId;CollectionId=$Record.collectionId
-        Name=$Record.name;LocalPort=$Record.port;PrimaryReason=$Record.primaryReason
+        Name=$Record.name;LocalPort=$Record.port;EmbeddingModelKey=$Record.modelBinding.ModelKey;Dimension=$Record.modelBinding.Dimension;PrimaryReason=$Record.primaryReason
         CleanupStatus=$Record.cleanupStatus;CollectionCleanup=$Record.collectionCleanup
     }
 }

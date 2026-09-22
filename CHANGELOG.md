@@ -8,6 +8,12 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- Der geführte Podman-KI-Erstellungsdialog kann neben EmbeddingGemma mit 768
+  Dimensionen nun BGE-M3 mit 1024 Dimensionen wählen. Persistente v1-Collections
+  binden Modell und SQL-`VECTOR`-Dimension exakt; erneute Abfragen zeigen und
+  verlangen die gespeicherte Auswahl. Remove und Prune bleiben modellfrei. Der
+  native BGE-M3-Podman-Lauf bestand mit SQLrestart und vollständigem Cleanup.
+
 - Ad-hoc-SQL-RAG unterstützt das vorhandene lokale `bge-m3:latest` als
   `ollama-bge-m3-latest`. Das mehrsprachige MIT-Modell erweitert den
   katalogisierten Hostpfad um 1024-dimensionale Embeddings mit unverändertem

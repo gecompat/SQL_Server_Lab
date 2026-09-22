@@ -46,19 +46,20 @@ try {
         function Get-LabAiPodmanSetupRuntimeScope {[pscustomobject]@{Status='AVAILABLE';RuntimeId=$script:runtime}}
         function Invoke-LabAiHostMetadata {
             param($Port,$Path,$Model)
-            Check ($Port -eq 11434 -and $Model -ceq 'embeddinggemma:latest') 'Preflight uses only fixed local model and selected loopback port'
+            $expectedDimension=if($Model -ceq 'bge-m3:latest'){1024}else{768}
+            Check ($Port -eq 11434 -and $Model -cin @('embeddinggemma:latest','bge-m3:latest')) 'Preflight uses only a cataloged local model and selected loopback port'
             switch($Path) {
-                /api/version {return [pscustomobject]@{version=$(if($script:mode -ceq 'version'){'0.1.0'}else{'0.13.0'})}}
+                /api/version {return [pscustomobject]@{version=$(if($script:mode -ceq 'version'){'0.1.0'}else{'0.34.2'})}}
                 /api/tags {
-                    $models=@([pscustomobject]@{name='embeddinggemma:latest';digest=('b'*64)})
+                    $models=@([pscustomobject]@{name=$Model;digest=('b'*64)})
                     if($script:mode -ceq 'missing'){$models=@()}
                     if($script:mode -ceq 'digest'){$models[0].digest='invalid'}
                     if($script:mode -ceq 'drift'){$models[0].digest=('c'*64)}
                     return [pscustomobject]@{models=$models}
                 }
                 /api/show {
-                    $show=[pscustomobject]@{capabilities=@('embedding');model_info=[pscustomobject]@{'gemma.embedding_length'=768};remote_host=''}
-                    if($script:mode -ceq 'dimension'){$show.model_info.'gemma.embedding_length'=1024}
+                    $show=[pscustomobject]@{capabilities=@('embedding');model_info=[pscustomobject]@{'synthetic.embedding_length'=$expectedDimension};remote_host=''}
+                    if($script:mode -ceq 'dimension'){$show.model_info.'synthetic.embedding_length'=$expectedDimension+1}
                     if($script:mode -ceq 'capability'){$show.capabilities=@('completion')}
                     if($script:mode -ceq 'remote'){$show.remote_host='https://synthetic.invalid'}
                     return $show
@@ -72,6 +73,9 @@ try {
         }
         $script:mode='none';$plan=New-LabAiPodmanSetupPlan
         Assert-LabAiPodmanSetupRecord $plan $plan.operationId
+        $bgePlan=New-LabAiPodmanSetupPlan -EmbeddingModelKey ollama-bge-m3-latest
+        Assert-LabAiPodmanSetupRecord $bgePlan $bgePlan.operationId
+        Check ($bgePlan.modelBinding.Model -ceq 'bge-m3:latest' -and $bgePlan.modelBinding.Dimension -eq 1024) 'BGE-M3 plan persists its exact 1024-dimensional binding'
         $cancelled=Invoke-LabAiPodmanSetup -Plan $plan -StateRoot $Root -WhatIf
         Check ($cancelled.Status -ceq 'CANCELLED' -and @(Get-ChildItem $Root).Count -eq 0) 'WhatIf creates neither worker nor state'
         $cancel=[Threading.CancellationTokenSource]::new();$cancel.Cancel()
@@ -129,14 +133,14 @@ try {
             }
         }
         function Invoke-SqlServerLabAiPersistentRetrieval {
-            param($RunId,$InstanceId,$CollectionId,$StateRoot,$LocalPort,$TimeoutSeconds,$Action,$FixtureRevision,$QueryId,[switch]$Confirm)
+            param($RunId,$InstanceId,$CollectionId,$StateRoot,$LocalPort,$EmbeddingModelKey,$TimeoutSeconds,$Action,$FixtureRevision,$QueryId,[switch]$Confirm)
             $script:events.Add($Action)
-            Check ($RunId -ceq $script:run.runId -and $LocalPort -eq 11434) 'Public retrieval receives exact own run and selected host model port'
+            $record=Read-LabAiPodmanSetupRecord $StateRoot $script:operation
+            Check ($RunId -ceq $script:run.runId -and $LocalPort -eq 11434 -and ($Action -ceq 'Remove' -or $EmbeddingModelKey -ceq $record.modelBinding.ModelKey)) 'Public retrieval receives exact own run and selected host model binding'
             if($Action -ceq 'Apply') {
                 Check ($FixtureRevision -ceq 'Initial' -and $InstanceId -ceq 'primary') 'Only fixed Initial collection is applied'
                 $directory=Join-Path $StateRoot ('runs/'+$RunId+'/ai-persistent');$null=New-Item -ItemType Directory $directory -Force
-                $record=Read-LabAiPodmanSetupRecord $StateRoot $script:operation
-                $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId primary -CollectionId $CollectionId -Action Apply -FixtureRevision Initial -QueryId backup -LocalPort $LocalPort -TimeoutSeconds 300
+                $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId primary -CollectionId $CollectionId -Action Apply -FixtureRevision Initial -QueryId backup -LocalPort $LocalPort -EmbeddingModelKey $EmbeddingModelKey -TimeoutSeconds 300
                 # Match the real retrieval producer: no OperationId means no volume list in its hash.
                 $identity=Get-LabTransferBindingIdentity (Get-LabTransferBinding -RunId $RunId -InstanceId primary -StateRoot $StateRoot)
                 $model=$record.modelBinding
@@ -240,6 +244,7 @@ try {
             if($script:inputIndex -eq $script:cancelAt){return [pscustomobject]@{Status='Cancelled';Value=$null}}
             [pscustomobject]@{Status='Confirmed';Value=$Default}
         }
+        function Read-LabChoice {param($Options,$Prompt,$Default) $script:modelChoice}
         function Read-LabConfirm {param($Prompt,$Default) $script:confirmSetup}
         function Write-LabInfo {param($Message)$script:uiText.Add([string]$Message)}
         function Write-LabWarning {param($Message)$script:uiText.Add([string]$Message)}
@@ -248,13 +253,14 @@ try {
         function Invoke-LabAiPodmanSetup {
             param($Plan,[switch]$Confirm)
             $script:uiCreates++
+            $script:lastUiModel=$Plan.modelBinding
             [pscustomobject]@{Status='READY';RunId='11111111-2222-4333-8444-555555555555';CollectionId=$Plan.collectionId}
         }
         function Get-LabWorkflowLifecycleFingerprint {'synthetic'}
         function Sync-LabConnectionCenterAfterLifecycle {$script:syncCalls++}
         foreach($cancelAt in @(1,2,3,4,5,0)) {
             $script:mode='none';$script:runtime='runtime-scope-'+('a'*24)
-            $script:cancelAt=$cancelAt;$script:inputIndex=0;$script:uiCreates=0;$script:syncCalls=0
+            $script:cancelAt=$cancelAt;$script:inputIndex=0;$script:uiCreates=0;$script:syncCalls=0;$script:modelChoice=0
             $script:confirmSetup=$cancelAt -ne 5;$script:uiText=[Collections.Generic.List[string]]::new()
             $action=Invoke-LabActionWithResult -ActionName AiPodmanSetup
             if($cancelAt){Check ($action.Status -ceq 'Cancelled' -and $script:uiCreates -eq 0 -and $script:syncCalls -eq 0) "UI cancel $cancelAt creates no run and triggers no connection sync"}
@@ -264,6 +270,9 @@ try {
                     ($script:uiText -join '|') -notmatch 'Password=|RAW_|Digest|ContainerId') 'UI prints useful IDs without secret or internal runtime details'
             }
         }
+        $script:cancelAt=0;$script:inputIndex=0;$script:uiCreates=0;$script:confirmSetup=$true;$script:modelChoice=1;$script:uiText=[Collections.Generic.List[string]]::new()
+        $bgeAction=Invoke-LabAiPodmanSetupInteractive
+        Check ($bgeAction.Status -ceq 'Changed' -and $script:lastUiModel.ModelKey -ceq 'ollama-bge-m3-latest' -and $script:lastUiModel.Dimension -eq 1024) 'UI selection reaches creation with the exact BGE-M3 binding'
         $script:mode='missing';$script:inputIndex=0;$script:cancelAt=0;$script:uiCreates=0
         $action=Invoke-LabAiPodmanSetupInteractive
         Check ($action.Status -ceq 'Failed' -and $script:uiCreates -eq 0) 'UI missing model cannot reach creation'

@@ -18,12 +18,16 @@
       "type":"object","additionalProperties":false,
       "required":["ModelKey","Model","Digest","Version","Dimension"],
       "properties": {
-        "ModelKey":{"const":"ollama-embeddinggemma-latest"},
-        "Model":{"const":"embeddinggemma:latest"},
+        "ModelKey":{"type":"string"},
+        "Model":{"type":"string"},
         "Digest":{"type":"string","pattern":"^[a-f0-9]{64}$"},
         "Version":{"type":"string","pattern":"^[0-9]+\\.[0-9]+\\.[0-9]+$"},
-        "Dimension":{"const":768}
-      }
+        "Dimension":{"type":"integer"}
+      },
+      "oneOf":[
+        {"properties":{"ModelKey":{"const":"ollama-embeddinggemma-latest"},"Model":{"const":"embeddinggemma:latest"},"Dimension":{"const":768}}},
+        {"properties":{"ModelKey":{"const":"ollama-bge-m3-latest"},"Model":{"const":"bge-m3:latest"},"Dimension":{"const":1024}}}
+      ]
     },
     "newStarted":{"type":"boolean"},
     "binding":{

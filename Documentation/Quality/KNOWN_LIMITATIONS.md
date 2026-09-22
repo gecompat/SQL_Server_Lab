@@ -97,11 +97,14 @@ synthetischen internen Ablauf, keine SQL-/Providerdeadline.
 ## KI und Ollama
 
 Der [Podman-KI-Erstellungsdialog](../Architecture/AI_PODMAN_SETUP.md) setzt
-bereites Podman und vorhandenes lokales `embeddinggemma:latest` voraus. Er
+bereites Podman und das ausgewählte vorhandene lokale `embeddinggemma:latest`
+oder `bge-m3:latest` voraus. Er
 installiert keine Modelle, startet keine Machine und richtet kein SQL External
 Model ein. Die feste native Podman-Referenz bestand am 2026-09-21 mit sechs
 Assertions, Query nach SQLrestart und unabhängig bestätigtem Own-Cleanup.
-Andere Provider, Modelle und eigene Dokumentbestände sind dadurch nicht freigegeben.
+Die BGE-M3-/1024-Auswahl bestand am 2026-09-22 mit denselben sechs Assertions,
+unverändertem Hostmodellinventar und vollständig bestätigtem Cleanup.
+Andere Provider, weitere Modelle und eigene Dokumentbestände sind dadurch nicht freigegeben.
 Ein harter Abbruch des Elternprozesses benötigt Prüfung der dauerhaft
 gespeicherten eigenen Operation; es gibt keinen automatischen Recoverydienst.
 
@@ -156,8 +159,9 @@ die Hyper-V-Ollama-Lane bleiben `PLANNED`. Ein kostenbegrenzter Live-Probe am
 401 abgewiesen wurden; daraus wird bewusst kein Cloud-Embedding-Support
 abgeleitet.
 Die zusätzliche lokale Nomic-v1.5-Unterstützung gilt für flüchtiges Ad-hoc-RAG.
-Sie erweitert weder die feste persistente Migration auf weitere Zielmodelle
-noch den Podman-KI-Erstellungsdialog, der weiterhin EmbeddingGemma verwendet.
+Sie erweitert die feste persistente Migration nicht auf weitere Zielmodelle.
+Der Podman-KI-Erstellungsdialog unterstützt EmbeddingGemma und BGE-M3, aber
+keine Nomic-Erstellung; BGE-M3-v1-Collections können nicht zu Nomic v2 migriert werden.
 Der implementierte Offline-Transport prüft Request-, Retry-, Dimensions- und
 Fehlerverträge, stellt aber selbst keinen Netzwerkdienst bereit.
 Interne Inhalte werden vom Cloud-Command fail-closed abgelehnt. Eine breit

@@ -15,7 +15,7 @@ try{
         function script:Get-LabTransferBinding {param($RunId,$InstanceId,$StateRoot)$script:events.Add('Binding');[pscustomobject]@{RunId=$RunId;ScopeId='33333333-3333-4333-8333-333333333333';InstanceId=$InstanceId;Provider='docker';RuntimeScopeId='synthetic';ContainerId='a'*64;Volumes=@();HostName='127.0.0.1';Port=14331}}
         function script:Assert-LabTransferBinding {param($Expected,$StateRoot)$script:events.Add('Rebind');if($script:bindingDrift){throw 'TRANSFER_LIVE_BINDING_DRIFT'}}
         function Reset {
-            $script:events=[Collections.Generic.List[string]]::new();$script:bindingDrift=$false;$script:modelDrift=$false;$script:fail='';$script:payloads=0
+            $script:events=[Collections.Generic.List[string]]::new();$script:sqlTexts=[Collections.Generic.List[string]]::new();$script:bindingDrift=$false;$script:modelDrift=$false;$script:fail='';$script:payloads=0;$script:dimension=768
             $script:db=$false;$script:owner=$null;$script:generations=@{};$script:chunks=@{};$script:guid='ABCDEFAB-CDEF-4ABC-8DEF-ABCDEFABCDEF'
             $script:collection=[guid]::NewGuid().ToString('D');$script:run='11111111-1111-4111-8111-111111111111'
             $script:parameters=@{RunId=$script:run;InstanceId='primary';CollectionId=$script:collection;Action='Apply';FixtureRevision='Initial';QueryId='backup';LocalPort=11434;TimeoutSeconds=300}
@@ -25,12 +25,13 @@ try{
             switch($Path){
                 '/api/version' {@{version='0.34.2'}}
                 '/api/tags' {@{models=@([pscustomobject]@{name=$Model;digest=$(if($script:modelDrift){'b'*64}else{'a'*64})})}}
-                '/api/show' {[pscustomobject]@{capabilities=@('embedding');model_info=[pscustomobject]@{'gemma.embedding_length'=768}}}
+                '/api/show' {[pscustomobject]@{capabilities=@('embedding');model_info=[pscustomobject]@{'synthetic.embedding_length'=$script:dimension}}}
             }
         }
-        $transport={param($Request)$script:payloads++;[pscustomobject]@{StatusCode=200;Body=@{embeddings=@(,@(1..768|ForEach-Object{0.01}))}}}
+        $transport={param($Request)$script:payloads++;[pscustomobject]@{StatusCode=200;Body=@{embeddings=@(,@(1..$script:dimension|ForEach-Object{0.01}))}}}
         $sql={param($Step,$Sql,$P)
             $script:events.Add($Step)
+            $script:sqlTexts.Add("$Step|$Sql")
             if($Step -ceq $script:fail){throw 'synthetic SQL failure'}
             switch($Step){
                 Lock {@{LockResult=0}}
@@ -228,6 +229,14 @@ try{
             $tampered=Get-Content (JournalPath) -Raw|ConvertFrom-Json;$tampered.modelBinding.Digest='e'*64
             & $originalWrite -Path (JournalPath) -InputObject $tampered
             Check 'Manipulierte Journal-Modellbindung scheitert vor Live-SQL' (Reject {Execute -Action Query} 'AI_PERSISTENT_JOURNAL_MODEL_INVALID')
+            Reset;$script:dimension=1024;$script:parameters.EmbeddingModelKey='ollama-bge-m3-latest'
+            $bgeApplied=Execute
+            $bgeQuery=Execute -Action Query
+            $bgeJournal=Get-Content (JournalPath) -Raw|ConvertFrom-Json
+            Check 'BGE-M3 bindet Journal und SQL-Speicher exakt an 1024 Dimensionen' ($bgeApplied.Status -ceq 'COMMITTED' -and $bgeQuery.Status -ceq 'QUERIED' -and $bgeJournal.modelBinding.ModelKey -ceq 'ollama-bge-m3-latest' -and $bgeJournal.modelBinding.Dimension -eq 1024 -and @($script:sqlTexts|Where-Object{$_ -match '^(Initialize|Insert|Query)\|' -and $_ -match 'VECTOR\(1024\)'}).Count -ge 3)
+            $script:parameters.Remove('EmbeddingModelKey')
+            $bgeRemoved=Execute -Action Remove
+            Check 'BGE-M3-Collection bleibt ohne erneute Modellauswahl exakt entfernbar' ($bgeRemoved.Status -ceq 'REMOVED' -and -not $script:db)
             function script:Get-LabTransferBinding {param($RunId,$InstanceId,$StateRoot)throw 'SYNTHETIC_PRIVATE_ENDPOINT_DETAIL'}
             Check 'Öffentlicher Vertrag sanitisiert auch frühe Bindingfehler' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Query -StateRoot $Root -Confirm:$false} '^AI_PERSISTENT_RECOVERY_REQUIRED$')
         }finally{
