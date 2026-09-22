@@ -17,6 +17,24 @@ Der eigene native Podman-Referenzlauf bestand am 2026-09-21 mit persistierter
 Query nach SQLrestart und unabhängig bestätigtem vollständigem Cleanup.
 [Details, Fehlerbehandlung und Grenzen](../Architecture/AI_PODMAN_SETUP.md).
 
+Für Ad-hoc-RAG auf einem vorhandenen SQL-2025-Podman-Run kann stattdessen das
+lokal installierte Nomic-v1.5-Modell gewählt werden. Es wird weder geladen noch
+gestartet; Ollama muss auf dem angegebenen Loopback-Port laufen:
+
+```powershell
+Invoke-SqlServerLabAiRag -RunId $runId -SaPassword $password `
+    -Question 'Wie oft werden synthetische Sicherungen geprüft?' `
+    -Document @(
+        @{Id='backup-policy';Content='Synthetische Sicherungen werden täglich geprüft.'}
+        @{Id='cleanup-policy';Content='Run-eigene Ressourcen werden vollständig entfernt.'}
+    ) -TopK 1 -EmbeddingModelKey ollama-nomic-embed-text-v1-5 `
+    -GenerationModelKey ollama-qwen25-coder-7b-local -GenerationLane local
+```
+
+Der Katalog wendet die für Nomic erforderlichen Suchpräfixe automatisch an.
+SQL Server führt die exakte Cosine-Suche aus; Texte und Frage werden nicht in
+der Lab-State-Ablage persistiert.
+
 ## SQL-seitige HTTPS-Embeddings: Referenzabnahme
 
 `Tests/Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` erstellt einen eigenen

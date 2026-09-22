@@ -15,6 +15,7 @@ param(
     [Parameter(Mandatory,ParameterSetName='Cloud')][string]$SecretFilePath,
     [Parameter(Mandatory,ParameterSetName='Local')][switch]$LocalGeneration,
     [Parameter(ParameterSetName='Local')][switch]$IncludeDiagnostic,
+    [ValidatePattern('^[a-z][a-z0-9-]{2,95}$')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',
     [ValidateRange(1024,65535)][int]$LocalPort=11434,
     [ValidateRange(90,230)][int]$GenerationTimeoutSeconds=120,
     [switch]$RuntimeMutexAlreadyHeld
@@ -53,7 +54,7 @@ try{
     Assert-HostRag ([bool]$resolution.Available) 'Providerwerkzeug verfügbar'
     $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
     $hostTags=Get-HostRagInventoryKey -Module $module -Port $LocalPort
-    $probe=& $module {param($Port)$p=New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-latest -EndpointRef ollama-local -Lane local -LocalPort $Port;Get-LabAiHostModelBinding -Plan $p} $LocalPort
+    $probe=& $module {param($Port,$ModelKey)$p=New-LabAiEndpointPlan -ModelKey $ModelKey -EndpointRef ollama-local -Lane local -LocalPort $Port;Get-LabAiHostModelBinding -Plan $p} $LocalPort $EmbeddingModelKey
     Assert-HostRag ($probe.Dimension -eq 768) 'Vorhandenes lokales Embeddingmodell geprüft'
     if($LocalGeneration){
         $null=& $module {param($Port)$p=New-LabAiEndpointPlan -ModelKey ollama-qwen25-coder-7b-local -EndpointRef ollama-local -Lane local -LocalPort $Port;Get-LabAiHostModelBinding -Plan $p} $LocalPort
@@ -76,7 +77,7 @@ try{
         @{Id='network-policy';Content='Das synthetische Labnetz verwendet ausschließlich isolierte Testadressen.'},
         @{Id='cleanup-policy';Content='Run-eigene Testressourcen werden nach der Abnahme vollständig entfernt.'}
     )
-    $parameters=@{RunId=$lab.RunId;SaPassword=$password;Document=$documents;TopK=2;EmbeddingModelKey='ollama-embeddinggemma-latest';GenerationTimeoutSeconds=$GenerationTimeoutSeconds;GenerationRetryCount=0;LocalPort=$LocalPort;StateRoot=$state;Question='Wie oft werden synthetische Sicherungen überprüft?'}
+    $parameters=@{RunId=$lab.RunId;SaPassword=$password;Document=$documents;TopK=2;EmbeddingModelKey=$EmbeddingModelKey;GenerationTimeoutSeconds=$GenerationTimeoutSeconds;GenerationRetryCount=0;LocalPort=$LocalPort;StateRoot=$state;Question='Wie oft werden synthetische Sicherungen überprüft?'}
     if($LocalGeneration){$parameters.GenerationModelKey='ollama-qwen25-coder-7b-local';$parameters.GenerationLane='local'}
     else{$parameters.GenerationModelKey='ollama-gpt-oss-120b-cloud';$parameters.GenerationLane='cloud';$parameters.AllowCloudEgress=$true;$parameters.DataClassification='synthetic-only';$parameters.SecretFilePath=$SecretFilePath}
     $preview=Invoke-SqlServerLabAiRag @parameters -WhatIf
@@ -118,4 +119,4 @@ try{
     }
 }
 if($cleanupFailed -or -not $complete){throw 'AI_HOST_RAG_ACCEPTANCE_INCOMPLETE'}
-Write-Host "AI EXISTING HOST OLLAMA RAG ACCEPTANCE: PASS ($Provider; GenerationLane=$($parameters.GenerationLane); Diagnostic=$([bool]$IncludeDiagnostic); SQLrestart; own cleanup)"
+Write-Host "AI EXISTING HOST OLLAMA RAG ACCEPTANCE: PASS ($Provider; EmbeddingModelKey=$EmbeddingModelKey; GenerationLane=$($parameters.GenerationLane); Diagnostic=$([bool]$IncludeDiagnostic); SQLrestart; own cleanup)"

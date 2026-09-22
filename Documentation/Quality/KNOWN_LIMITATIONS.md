@@ -106,12 +106,18 @@ Ein harter Abbruch des Elternprozesses benötigt Prüfung der dauerhaft
 gespeicherten eigenen Operation; es gibt keinen automatischen Recoverydienst.
 
 Der [Host-RAG-Slice](../Architecture/AI_RAG_EXISTING_OLLAMA.md) verbindet vorhandenes
-`embeddinggemma:latest` mit exakter SQLsuche und expliziter HTTPS-Cloudgeneration.
+`embeddinggemma:latest` oder `nomic-embed-text:latest` mit exakter SQLsuche und
+lokaler oder expliziter HTTPS-Cloudgeneration. Nomic v1.5 verwendet das
+kataloggebundene `nomic-search`-Profil; Dokument- und Fragepräfixe werden
+automatisch getrennt angewendet.
 Live-Digest/Capability/Dimension, Datenklasse, Egress und Secretgrenze werden
 geprüft; es gibt keine Downloads oder Host-Lifecycleaktionen. Lokale und Golden-
 Defaults bleiben erhalten. Die neuen kombinierten Podman- und Docker-Nachweise
 bestanden am 2026-09-20 mit jeweils neun Assertions, SQLrestart, zwei Cloudrequests
 und vollständigem Cleanup samt Residueprüfung. Hyper-V bleibt separat offen.
+Der zusätzliche lokale Nomic-v1.5-Pfad bestand am 2026-09-22 unter Docker und
+Podman getrennt mit jeweils neun Assertions, SQLrestart, unverändertem
+Hostmodellinventar und vollständigem eigenem Cleanup.
 Der [persistente synthetische Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
 implementiert inzwischen eine eigene SQL-Datenbank, Initial-/Delta-Generationen,
 exakte Vektor- sowie hybride SQL-Termabdeckungs-/Vektorsuche, Resume und
@@ -145,6 +151,9 @@ die Hyper-V-Ollama-Lane bleiben `PLANNED`. Ein kostenbegrenzter Live-Probe am
 `embeddinggemma` und `embeddinggemma:cloud` am Embed-Endpunkt jeweils mit HTTP
 401 abgewiesen wurden; daraus wird bewusst kein Cloud-Embedding-Support
 abgeleitet.
+Die zusätzliche lokale Nomic-v1.5-Unterstützung gilt für flüchtiges Ad-hoc-RAG.
+Sie erweitert weder die feste persistente Migration auf weitere Zielmodelle
+noch den Podman-KI-Erstellungsdialog, der weiterhin EmbeddingGemma verwendet.
 Der implementierte Offline-Transport prüft Request-, Retry-, Dimensions- und
 Fehlerverträge, stellt aber selbst keinen Netzwerkdienst bereit.
 Interne Inhalte werden vom Cloud-Command fail-closed abgelehnt. Eine breit

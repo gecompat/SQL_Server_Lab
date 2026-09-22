@@ -330,8 +330,21 @@ vor und nach SQLrestart und vollständiges Cleanup getrennt. Der neue
 `Invoke-AiHyperVOwnRunAcceptance.ps1` benötigt ein explizites `ArtifactId` und
 prüft mit `PreflightOnly` ausschließlich die Voraussetzungen. Der vollständige
 Lauf ist über den manuellen Workflowmodus `ai-rag-own-run-acceptance` verfügbar;
-[Vertrag und native Grenzen](../Documentation/Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md).
+[Vertrag und native Grenzen](../Documentation/Architecture/AI_HYPERV_OWN_RUN_ACCEPTANCE.md)
 bleiben maßgeblich.
+
+Das zusätzliche Nomic-v1.5-Profil wird mit demselben eigenen SQL-Run-Harness
+und rein lokaler Generierung geprüft:
+
+```powershell
+.\Tests\Integration\Invoke-AiRagExistingOllamaAcceptance.ps1 -Provider podman `
+    -LocalGeneration -EmbeddingModelKey ollama-nomic-embed-text-v1-5
+```
+
+Der Host muss `nomic-embed-text:latest` und das lokale Qwen-Modell bereits
+enthalten. Der Harness verändert das Hostmodellinventar nicht. Docker und
+Podman bestanden am 2026-09-22 getrennt mit SQLrestart und vollständigem
+eigenem Cleanup.
 
 Der read-only Diagnose-Agent wird mit echten katalogisierten SQL-Abfragen,
 kurzlebigem Login, lokalem Modell, Login-Cleanup und Restart getrennt geprüft:

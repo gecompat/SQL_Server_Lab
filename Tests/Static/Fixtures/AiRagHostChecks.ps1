@@ -27,6 +27,14 @@ param($Module,$RepoRoot)
     }
     $binding=Get-LabAiHostModelBinding -Plan $plan.EmbeddingPlan -MetadataTransport $metadata
     Check 'Vorhandenes lokales Modell bindet Version Dimension und Live-Digest' ($binding.Digest -ceq ('a'*64) -and $binding.Dimension -eq 768)
+    $nomicBase=$base.Clone();$nomicBase.EmbeddingModelKey='ollama-nomic-embed-text-v1-5'
+    $nomicPlan=New-LabAiRagPlan @nomicBase
+    Check 'Nomic v1.5 bindet das katalogisierte Suchprofil und die Live-Hostprüfung' (
+        $nomicPlan.EmbeddingPlan.InputProfile -ceq 'nomic-search' -and $nomicPlan.HostModelValidation)
+    $nomicV2Base=$base.Clone();$nomicV2Base.EmbeddingModelKey='ollama-nomic-embed-text-v2-moe'
+    $nomicV2Plan=New-LabAiRagPlan @nomicV2Base
+    Check 'Nomic v2 bindet dasselbe Suchprofil und die Live-Hostprüfung im Ad-hoc-RAG' (
+        $nomicV2Plan.EmbeddingPlan.InputProfile -ceq 'nomic-search' -and $nomicV2Plan.HostModelValidation)
     foreach($fault in @('version','digest','remote-tag','remote-show','capability','dimension')){
         $script:hostFault=$fault
         Check "Hostmodell $fault blockiert vor Payload" (Reject {Get-LabAiHostModelBinding -Plan $plan.EmbeddingPlan -MetadataTransport $metadata} 'AI_RAG_HOST_')
@@ -44,11 +52,19 @@ param($Module,$RepoRoot)
         $result=Invoke-LabAiRag @invoke
         Check 'Hostembedding SQL-Retrieval und explizite Cloudgeneration bilden einen Aufruf' ($script:payloadCalls -eq 2 -and $script:sqlCalls -eq 1 -and $script:cloudCalls -eq 1 -and $result.Citations[0] -ceq 'backup-policy' -and $result.Metrics.RequestCount -eq 3)
         Check 'Live-Binding und ExecutionKey sind schema-valide' (($result|ConvertTo-Json -Depth 15)|Test-Json -SchemaFile (Join-Path $RepoRoot 'Schemas/ai-query-result.schema.json'))
-        $script:hostFault='remote-show';$before=$script:payloadCalls
-        Check 'Remote Hostmodell sendet weder Dokumente noch SQL oder Cloud' ((Reject {Invoke-LabAiRag @invoke} 'AI_RAG_HOST_REMOTE_MODEL_FORBIDDEN') -and $script:payloadCalls -eq $before -and $script:sqlCalls -eq 1 -and $script:cloudCalls -eq 1)
+        $script:nomicInputs=[Collections.Generic.List[string]]::new()
+        $nomicInvoke=$invoke.Clone();$nomicInvoke.Plan=$nomicPlan
+        $nomicInvoke.EmbeddingTransport={param($Request)$script:payloadCalls++;$script:nomicInputs.Add([string]$Request.Body.input[0]);$v=[double[]]::new(768);$v[0]=1;[pscustomobject]@{StatusCode=200;Body=@{embeddings=@(,$v)}}}
+        $nomicResult=Invoke-LabAiRag @nomicInvoke
+        Check 'Nomic v1.5 präfigiert Dokument und Frage rollengetreu vor dem SQL-Retrieval' (
+            $nomicResult.Status -eq 'SUCCEEDED' -and $script:nomicInputs.Count -eq 2 -and
+            $script:nomicInputs[0] -ceq 'search_document: Tägliche Sicherung.' -and
+            $script:nomicInputs[1] -ceq 'search_query: Sicherung?')
+        $script:hostFault='remote-show';$before=$script:payloadCalls;$beforeSql=$script:sqlCalls;$beforeCloud=$script:cloudCalls
+        Check 'Remote Hostmodell sendet weder Dokumente noch SQL oder Cloud' ((Reject {Invoke-LabAiRag @invoke} 'AI_RAG_HOST_REMOTE_MODEL_FORBIDDEN') -and $script:payloadCalls -eq $before -and $script:sqlCalls -eq $beforeSql -and $script:cloudCalls -eq $beforeCloud)
         $script:hostFault=''
         $invoke.EmbeddingTransport={param($Request)$script:hostFault='drift';$v=[double[]]::new(768);$v[0]=1;@{StatusCode=200;Body=@{embeddings=@(,$v)}}}
-        Check 'Digestdrift nach Embedding sperrt SQL und Cloud' ((Reject {Invoke-LabAiRag @invoke} 'AI_RAG_HOST_MODEL_DRIFT') -and $script:sqlCalls -eq 1 -and $script:cloudCalls -eq 1)
+        Check 'Digestdrift nach Embedding sperrt SQL und Cloud' ((Reject {Invoke-LabAiRag @invoke} 'AI_RAG_HOST_MODEL_DRIFT') -and $script:sqlCalls -eq $beforeSql -and $script:cloudCalls -eq $beforeCloud)
         $script:hostFault=''
         foreach($badValue in @([double]::NaN,[double]::PositiveInfinity)){
             $v=[double[]]::new(768);$v[0]=$badValue
