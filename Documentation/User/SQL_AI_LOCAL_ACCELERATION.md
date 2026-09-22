@@ -1,7 +1,9 @@
 # Lokale beschleunigte Embeddings für SQL Server 2025
 
-Dieses How-to beschreibt den erforschten Zielpfad. Es installiert derzeit
-nichts automatisch und ist kein nativer Projektnachweis. Der bestehende
+Dieses How-to trennt implementierte Discovery und Windows-Start von noch
+offenen Backend-/Modellkombinationen. Es installiert nichts automatisch.
+Für die übrigen Backend-/Modellpaare besteht kein allgemeiner nativer Projektnachweis.
+Der bestehende
 [SQL-HTTPS-Referenzslice](../Architecture/AI_SQL_HTTPS_BRIDGE.md) ist dagegen
 mit Docker und Ollama nativ belegt.
 
@@ -33,8 +35,8 @@ Ein gültiger Plan bleibt absichtlich `NOT_PROBED` mit
 Zertifikat nur im aktuellen Prozess als Custom Root verwendet:
 
 ```powershell
-$rootCa = [Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPemFile(
-  'C:\Pfad\run\ca.pem')
+$rootCa = [Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem(
+  [IO.File]::ReadAllText('C:\Pfad\run\ca.pem'))
 $apiKey = Read-Host 'Lokaler API-Key' -AsSecureString
 $receipt = $plan | Test-SqlServerLabAiExternalModelEndpoint `
   -ApiKey $apiKey -TrustedRootCertificate $rootCa
@@ -145,7 +147,7 @@ CREATE MASTER KEY ENCRYPTION BY PASSWORD = '<kurzlebiges Testsecret>';
 
 CREATE DATABASE SCOPED CREDENTIAL [https://host.docker.internal:11435]
 WITH IDENTITY = 'HTTPEndpointHeaders',
-     SECRET = '{"Bearer":"<lokaler API-Key>"}';
+     SECRET = '{"Authorization":"Bearer <lokaler API-Key>"}';
 
 CREATE EXTERNAL MODEL LocalNpuEmbedding
 WITH (
@@ -266,3 +268,41 @@ Embeddingmodell. Modellpfad, Pooling und Dimension müssen separat feststehen;
 dieser Discovery-Vertrag startet keinen Dienst. Optionale Artifact-Evidence
 bindet erst die konkret ausgewählten Dateien. Der bestehende hashgebundene
 Endpointplan ist ein separater Vertrag und keine Voraussetzung der Discovery.
+
+## Eigenen Windows-Server starten und beenden
+
+Nach der expliziten Paketauswahl sind keine vorab bekannten Runtime- oder
+Modellhashes erforderlich:
+
+```powershell
+$runtime = Start-SqlServerLabLlamaCppRuntime `
+  -RuntimeDirectory 'C:\Pfad\llama' -Backend LlamaCppCuda -Accelerator GPU `
+  -ModelPath 'C:\Pfad\embedding.gguf' -ModelName local-embedding `
+  -Dimension 768 -Pooling mean -Port 19435 `
+  -CertificatePath 'C:\Pfad\run\server.pem' `
+  -PrivateKeyPath 'C:\Pfad\run\server-key.pem' `
+  -TrustedRootPath 'C:\Pfad\run\ca.pem' -ApiKey $apiKey `
+  -StartTimeoutSeconds 120 -LeaseSeconds 900
+try {
+  # In derselben Modulsitzung kann SQL den verifizierten Endpunkt nutzen,
+  # nachdem seine eigene Route und CA-Vertrauensstellung geprüft wurden.
+  $runtime
+}
+finally {
+  Stop-SqlServerLabLlamaCppRuntime -OperationId $runtime.OperationId
+}
+```
+
+Der API-Key ist ein SecureString aus 24 bis 256 ASCII-Buchstaben, Ziffern,
+Unterstrichen oder Bindestrichen. Das Zertifikat braucht einen IP-SAN für
+`127.0.0.1`. Für Docker ist zusätzlich der eigene DNS-SAN und das Vertrauen im
+SQL-Container erforderlich. Die Lease umfasst die Startphase; Modulfreigabe
+oder Ownerverlust beendet den Server. `CaptureArtifactEvidence` ergänzt
+optional die Digests erst nach erfolgreicher Probe. Der bestehende
+External-Model-Plan und seine Artifact-Prüfung bleiben davon unabhängig.
+
+Ein Modellname allein beweist keine Kompatibilität: Ein vorhandenes
+Ollama-Embeddinggemma-GGUF scheiterte unter b11104 beim Laden; ein vorhandenes
+Nomic-Embedding-GGUF lief unter CUDA, scheiterte aber unter OpenVINO-NPU bei
+der Berechnung. Keine dieser Abweichungen führt zu einem stillen Fallback.
+[Ownership-, Probe- und Cleanupvertrag](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

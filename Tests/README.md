@@ -781,3 +781,9 @@ Operation vor New. Private Rohlogs, Run-State und Katalog bleiben lokal zur Prü
 erhalten. Nur geschlossene Statuswerte verlassen den Supervisor. Der Harness
 übernimmt oder löscht keinen vorhandenen Benutzerstore. Details zur Produktgrenze
 stehen in [der Benutzeranleitung](../Documentation/User/RETAINED_STORE_REMOVAL.md).
+
+Für den Windows-llama.cpp-Pfad sind
+`Static/Invoke-LlamaCppOwnedRuntimeChecks.ps1`,
+`Integration/Invoke-LlamaCppOwnershipAcceptance.ps1` und die optionale
+Docker-/CUDA-Abnahme `Integration/Invoke-LlamaCppSqlAcceptance.ps1` getrennt.
+[Vertrag](../Documentation/Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

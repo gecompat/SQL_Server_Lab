@@ -248,8 +248,9 @@ function Invoke-LabAiExternalModelHttpTransport {
     $plainApiKey = $null
     try {
         $client.Timeout = [TimeSpan]::FromSeconds([int]$Request.TimeoutSeconds)
-        $message = [Net.Http.HttpRequestMessage]::new([Net.Http.HttpMethod]::Post, [Uri]$Location)
-        $message.Content = [Net.Http.StringContent]::new(($Request.Body | ConvertTo-Json -Depth 10 -Compress), [Text.Encoding]::UTF8, 'application/json')
+        $method = if ($Request.Method -eq 'GET') { [Net.Http.HttpMethod]::Get } else { [Net.Http.HttpMethod]::Post }
+        $message = [Net.Http.HttpRequestMessage]::new($method, [Uri]$Location)
+        if ($method -eq [Net.Http.HttpMethod]::Post) { $message.Content = [Net.Http.StringContent]::new(($Request.Body | ConvertTo-Json -Depth 10 -Compress), [Text.Encoding]::UTF8, 'application/json') }
         if ($ApiKey) {
             $plainApiKey = ConvertFrom-LabSecureString -SecureString $ApiKey
             $message.Headers.Authorization = [Net.Http.Headers.AuthenticationHeaderValue]::new('Bearer', $plainApiKey)
