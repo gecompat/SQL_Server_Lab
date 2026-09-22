@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Persistent synthetic retrieval journal",
+  "title": "Persistent retrieval journal",
   "type": "object",
   "required": [
     "contract",
@@ -133,7 +133,7 @@
         "pattern": "^[a-z][a-z0-9-]{2,95}$",
         "type": "string"
       },
-      "maxItems": 3,
+      "maxItems": 16,
       "type": "array"
     }
   },

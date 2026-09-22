@@ -1,6 +1,6 @@
-# Persistentes synthetisches Retrieval unter SQL Server 2025
+# Persistentes Retrieval unter SQL Server 2025
 
-Stand: 2026-09-21. Status: `VALIDATED_REFERENCE`. Der erste Slice
+Stand: 2026-09-22. Status: `VALIDATED_REFERENCE`. Der erste Slice
 speichert einen festen synthetischen Dokumentbestand und seine Vektoren in
 einer eigenen Datenbank eines laufenden Docker-/Podman-Runs. Er verwendet das
 bereits vorhandene lokale `embeddinggemma:latest` mit 768 Dimensionen. Es gibt
@@ -15,8 +15,9 @@ sein eigener nativer Podman-Gesamtnachweis bestand am 2026-09-21 einschließlich
 Query nach SQLrestart und unabhängig bestätigtem vollständigem Cleanup.
 
 Der Run benötigt ein verwaltetes SA-Secret, SQL Server 2025 unter Linux und
-einen live bestätigten Loopback-SQL-Endpunkt. Die API akzeptiert keine eigenen
-Dokumente, SQL-Texte, Datenbanknamen oder Verbindungszeichenfolgen.
+einen live bestätigten Loopback-SQL-Endpunkt. Die API akzeptiert entweder die
+feste Fixture oder 1 bis 16 Caller-Dokumente für eine initiale Collection. Sie
+akzeptiert keine SQL-Texte, Datenbanknamen oder Verbindungszeichenfolgen.
 
 ```powershell
 $collectionId = [guid]::NewGuid().ToString('D')
@@ -29,12 +30,25 @@ Invoke-SqlServerLabAiPersistentRetrieval @scope -FixtureRevision Delta
 # Nur nach unterbrochenem Apply mit exakt derselben Revision:
 Invoke-SqlServerLabAiPersistentRetrieval @scope -FixtureRevision Delta -Resume
 Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Remove
+
+$documents = @(
+    [pscustomobject]@{ Id='restore-guide'; Content='Synthetische Restore-Tests prüfen CHECKDB.' }
+    [pscustomobject]@{ Id='index-guide'; Content='Synthetische Index-Tests vergleichen Abfragepläne.' }
+)
+Invoke-SqlServerLabAiPersistentRetrieval @scope -Documents $documents
+Invoke-SqlServerLabAiPersistentRetrieval @scope -Action Query -Documents $documents `
+    -Question 'Was prüfen synthetische Restore-Tests?' -SearchMode Hybrid
 ```
 
 `WhatIf` liest nur versionierte lokale Verträge und berührt weder Run-State,
 Credentials, SQL noch Ollama. `CollectionId` ist für Resume und Remove
 beizubehalten. Eine bereits entfernte Collection wird nicht neu verwendet.
 `QueryId` benennt ausschließlich die festen Fragen `backup` und `cleanup`.
+`Documents` bindet eine initiale Collection an sortierte IDs und Inhaltshashes;
+Query verlangt dieselbe vollständige Dokumentmenge und zusätzlich `Question`.
+Die Frage wird weder im Plan noch im Journal gespeichert. Dokumentinhalte liegen
+nur in der eigenen SQL-Datenbank und in den lokalen Ollama-Requests. Abweichende
+IDs oder Inhalte scheitern vor dem Query-Embedding.
 Das Ergebnis enthält die aktive Generation, feste Dokument-IDs, Inhaltshashes,
 Cosinedistanzen und die Anzahl der Embeddingrequests; keine Credentials,
 Hostadressen oder Besitzmarker.
@@ -88,7 +102,8 @@ Unveränderte Vektoren dürfen nur aus der vollständig validierten aktiven
 Generation mit derselben Modellidentität kopiert werden. Digest-/Versionsdrift
 blockiert Apply und Query, aber nicht das exakt besitzgebundene Remove.
 Query prüft außerdem den Plan-Schlüssel der aktiven SQL-Generation gegen die
-rekonstruierte Fixture- und Endpointbindung, bevor es ein Embedding erzeugt.
+rekonstruierte Fixture- beziehungsweise erneut übergebene Caller-Dokument- und
+Endpointbindung, bevor es ein Embedding erzeugt.
 
 Der Cutover prüft Soll-IDs, vollständige Inhalte einschließlich Byte-Längen,
 Hashes, Modell-/Dataset-/Operationsbindung und vollständige Chunkmenge innerhalb
@@ -113,9 +128,12 @@ der tatsächlichen Abwesenheit finalisiert werden.
 
 ## Grenzen und Nachweise
 
-Pro Collection höchstens zwei Generationen mit drei Dokumenten; Datenfile
-maximal 64 MiB, Log maximal 32 MiB. Initial erzeugt drei Embeddings, Delta zwei
-und kopiert einen unveränderten Vektor. Query erzeugt ein Embedding. Retry ist
+Pro Fixture-Collection höchstens zwei Generationen mit je drei Dokumenten. Eine
+Caller-Collection besitzt derzeit genau eine initiale Generation mit 1 bis 16
+Dokumenten; Update und Delete sind noch nicht freigegeben. Datenfile maximal
+64 MiB, Log maximal 32 MiB. Fixture-Initial erzeugt drei Embeddings, Delta zwei
+und kopiert einen unveränderten Vektor. Caller-Initial erzeugt ein Embedding je
+Dokument. Query erzeugt ein Embedding. Retry ist
 jeweils null; Embedding- und SQL-Aufrufe dauern höchstens 60 Sekunden,
 Metadatenrequests jeweils 15 Sekunden. `TimeoutSeconds` ist ein zwischen den
 Schritten geprüftes Budget (60–600, Standard 300). Modellprobes und Embeddings
@@ -131,9 +149,10 @@ einen eigenen SQL-Run, prüft echte Dateisperre und SQL-AppLock, Restart, Delta-
 Teilfehler und Commitantwortverlust und entfernt erst die eigene DB, dann den
 eigenen Run mit Container-/Volume-Residueprüfung. PASS erfolgt erst nach Cleanup.
 Die getrennten nativen Docker- und Podman-Läufe vom 2026-09-22 belegen mit
-jeweils 19 Assertions Vektor- und Hybridranking vor und nach SQLrestart sowie
+jeweils 23 Assertions Vektor- und Hybridranking vor und nach SQLrestart sowie
 nach Delta-Cutover, gezielte Staging-/Commitfehler und vollständiges
-DB-/Run-Cleanup.
+DB-/Run-Cleanup. Beide Läufe belegen außerdem eine eigene initiale Collection
+mit zwei Caller-Dokumenten, freier hybrider Frage und Hashdrift-Abweisung.
 Das vorhandene Hostmodellinventar bleibt unverändert.
 
 Die ergänzende Referenz `Invoke-AiPodmanSamplesReferenceAcceptance.ps1` bleibt
@@ -169,6 +188,6 @@ Der bestehende reine `New-LabAiReembeddingPlan` für einen echten Modellwechsel
 bleibt unverändert und wird vom neuen
 [begrenzten Modellwechsel](AI_PERSISTENT_MODEL_MIGRATION.md) für genau Delta/gen2
 nach Nomic v2 MoE/gen3 wiederverwendet. Docker und Podman bestanden getrennt jeweils 20 Assertions, SQLrestart und Cleanup.
-Weitere Digest-/Dimensionswechsel, beliebige Dokumente,
+Weitere Digest-/Dimensionswechsel, Update/Delete für Caller-Dokumente,
 Retention alter Generationen, Cloud, Generierung, Hyper-V und ANN sind offen.
 Golden v1 sowie SQL-seitiges EXTERNAL MODEL/TLS-Gateway bleiben unverändert.

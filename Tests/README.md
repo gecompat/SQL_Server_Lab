@@ -690,7 +690,7 @@ beziehungsweise `-Provider podman` erstellt ausschließlich eigene SQL-2025-
 Linux-Runs und prüft Backup/Restore/MATCH, unveränderte read-only Quelle,
 Idempotenz sowie abweichenden Inhalt mit vollständigem Whole-Run-Cleanup.
 
-## Persistentes synthetisches Retrieval
+## Persistentes Retrieval
 
 `Tests/Static/Invoke-AiPersistentRetrievalMigrationChecks.ps1` prüft das enge
 v1→v2-Upgrade und den expliziten Modellwechsel von Delta/gen2 nach Nomic/gen3.
@@ -711,10 +711,12 @@ Embeddinggemma und getrennte eigene SQL-Runs:
 .\Tests\Integration\Invoke-AiPersistentRetrievalAcceptance.ps1 -Provider podman
 ```
 
-Sie umfasst exakte Vektor- und hybride SQL-Termabdeckungs-/Vektorsuche, SQLrestart,
+Sie umfasst exakte Vektor- und hybride SQL-Termabdeckungs-/Vektorsuche, 1–16
+initiale Caller-Dokumente mit freier Frage und Hashdrift-Abweisung, SQLrestart,
 konkurrierenden SQL-AppLock, Staging-/Commitantwortverlust, Resume und eigenes
 DB-/Run-Cleanup. Kein Download oder Cloudaufruf. Docker und Podman bestanden am
-2026-09-22 getrennt mit jeweils 19 Assertions und vollständigem Cleanup;
+2026-09-22 getrennt mit jeweils 23 Assertions einschließlich initialer
+Caller-Collection, freier Frage und Hashdrift-Abweisung sowie vollständigem Cleanup;
 [Vertrag](../Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md).
 
 ## SQL-Gast-Evidence-Capture
