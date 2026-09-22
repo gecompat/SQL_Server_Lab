@@ -11,7 +11,9 @@ verwendet ausschließlich vorhandenes lokales Ollama. Im Dialog ist
 `bge-m3:latest` mit 1024 Dimensionen oder `nomic-embed-text-v2-moe:latest`
 mit 768 Dimensionen und automatischem Suchprofil sowie das kompakte
 `all-minilm:latest` mit 384 Dimensionen oder das mehrsprachige
-`paraphrase-multilingual:latest` mit 768 Dimensionen gewählt werden. Für All-MiniLM bindet
+`paraphrase-multilingual:latest` mit 768 Dimensionen sowie
+`snowflake-arctic-embed2:latest` mit 1024 Dimensionen und Suchprofil gewählt
+werden. Für All-MiniLM bindet
 der Plan die feste deutsche Referenzabfrage ausdrücklich an den vorhandenen
 Hybridmodus; die anderen Modelle verwenden die Vektorsuche. Anschließend muss die feste Frage
 `backup` das Dokument `backup-policy` zuerst finden.
@@ -119,6 +121,12 @@ und nach öffentlichem SQLrestart, unverändertes Ollama-Modellinventar sowie
 bestätigtes vollständiges Collection- und Whole-Run-Cleanup ohne eigene
 Container- oder Volumereste.
 
+Die Snowflake-Arctic-Embed-2-Auswahl bestand am 2026-09-22 mit sechs
+Assertions: `VECTOR(1024)`, katalogisiertes Fragepräfix, plan- und
+ergebnisgebundener Vektormodus, feste Top-ID vor und nach öffentlichem
+SQLrestart, unverändertes Ollama-Modellinventar sowie bestätigtes vollständiges
+Collection- und Whole-Run-Cleanup ohne eigene Container- oder Volumereste.
+
 Der eigene temporäre Test benötigt bereits bereites Podman und das ausgewählte vorhandene Modell:
 
 ```powershell
@@ -131,6 +139,8 @@ Der eigene temporäre Test benötigt bereits bereites Podman und das ausgewählt
     -EmbeddingModelKey ollama-all-minilm-latest
 ./Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1 -LocalPort 11434 `
     -EmbeddingModelKey ollama-paraphrase-multilingual-latest
+./Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1 -LocalPort 11434 `
+    -EmbeddingModelKey ollama-snowflake-arctic-embed2-latest
 ```
 
 Der Harness erstellt ausschließlich einen eigenen temporären StateRoot und

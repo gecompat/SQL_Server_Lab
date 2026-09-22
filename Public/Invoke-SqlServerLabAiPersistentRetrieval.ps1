@@ -23,10 +23,11 @@
     callerverwaltete Dokumente behalten FixtureRevision Initial.
 .PARAMETER EmbeddingModelKey
     Lokales Embeddingmodell für Apply, Query und Sync. EmbeddingGemma bleibt der
-    Standard; All-MiniLM verwendet 384, BGE-M3 1024 und Paraphrase Multilingual
-    768 Dimensionen. Nomic v2 verwendet 768 Dimensionen
+    Standard; All-MiniLM verwendet 384, BGE-M3 und Snowflake Arctic Embed 2
+    jeweils 1024 sowie Paraphrase Multilingual 768 Dimensionen. Nomic v2 verwendet 768 Dimensionen
     und wendet sein Suchprofil mit einer Eingabegrenze von 512 UTF-8-Bytes automatisch an. Bei Query muss die Auswahl zur
-    v1-Collection passen. Migrate bindet sein Zielmodell separat.
+    v1-Collection passen. Snowflake wendet seinen katalogisierten Präfix nur auf
+    Fragen an. Migrate bindet sein Zielmodell separat.
 .PARAMETER FixtureRevision
     Initial oder Delta. Delta aktualisiert, entfernt und ergänzt feste synthetische Dokumente.
 .PARAMETER QueryId
@@ -77,7 +78,7 @@ function Invoke-SqlServerLabAiPersistentRetrieval {
         [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$CollectionId,
         [ValidateSet('Apply','Query','Remove','Migrate','Sync','Prune')][string]$Action='Apply',
         [ValidateSet('ollama-nomic-embed-text-v2-moe')][string]$TargetModelKey,
-        [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe','ollama-all-minilm-latest','ollama-paraphrase-multilingual-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',
+        [ValidateSet('ollama-embeddinggemma-latest','ollama-bge-m3-latest','ollama-nomic-embed-text-v2-moe','ollama-all-minilm-latest','ollama-paraphrase-multilingual-latest','ollama-snowflake-arctic-embed2-latest')][string]$EmbeddingModelKey='ollama-embeddinggemma-latest',
         [ValidateSet('Initial','Delta')][string]$FixtureRevision='Initial',
         [ValidateSet('backup','cleanup')][string]$QueryId='backup',
         [ValidateCount(1,16)][object[]]$Documents,

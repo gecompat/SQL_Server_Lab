@@ -46,6 +46,21 @@
       "source": "https://huggingface.co/sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
     },
     {
+      "key": "ollama-snowflake-arctic-embed2-latest",
+      "provider": "ollama",
+      "lane": "local",
+      "purpose": "embedding",
+      "model": "snowflake-arctic-embed2:latest",
+      "dimension": 1024,
+      "inputProfile": "snowflake-search",
+      "status": "SUPPORTED",
+      "minimumOllamaVersion": "0.34.2",
+      "identityPolicy": "LIVE_MANIFEST_DIGEST_REQUIRED",
+      "estimatedSizeBytes": 1160296718,
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/Snowflake/snowflake-arctic-embed-l-v2.0"
+    },
+    {
       "key": "ollama-bge-m3-latest",
       "provider": "ollama",
       "lane": "local",

@@ -140,6 +140,13 @@
             "Model": { "const": "paraphrase-multilingual:latest" },
             "Dimension": { "const": 768 }
           }
+        },
+        {
+          "properties": {
+            "ModelKey": { "const": "ollama-snowflake-arctic-embed2-latest" },
+            "Model": { "const": "snowflake-arctic-embed2:latest" },
+            "Dimension": { "const": 1024 }
+          }
         }
       ],
       "type": "object"

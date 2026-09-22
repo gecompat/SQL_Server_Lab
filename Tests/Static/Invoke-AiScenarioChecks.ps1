@@ -167,7 +167,7 @@ try {
     Add-CheckResult 'KI-Modell-, Endpoint-, Journal- und Ergebnisverträge sind lokal parse- und schema-valide' $contractsValid
     $modelCatalog=Get-Content (Join-Path $repoRoot 'Catalogs/ai-models.json') -Raw -Encoding utf8|ConvertFrom-Json -Depth 30
     Add-CheckResult 'Alle aktuellen Embeddingmodelle deklarieren ihr Eingabeprofil explizit' (
-        @($modelCatalog.models|Where-Object purpose -eq embedding|Where-Object inputProfile -notin @('raw','nomic-search')).Count -eq 0)
+        @($modelCatalog.models|Where-Object purpose -eq embedding|Where-Object inputProfile -notin @('raw','nomic-search','snowflake-search')).Count -eq 0)
 
     $stubPlan=& $module { New-LabAiEndpointPlan -ModelKey ollama-embeddinggemma-300m-q4 -EndpointRef deterministic-stub -Lane stub -RetryCount 1 }
     $httpsStubPlan=& $module {

@@ -46,8 +46,8 @@ try {
         function Get-LabAiPodmanSetupRuntimeScope {[pscustomobject]@{Status='AVAILABLE';RuntimeId=$script:runtime}}
         function Invoke-LabAiHostMetadata {
             param($Port,$Path,$Model)
-            $expectedDimension=if($Model -ceq 'bge-m3:latest'){1024}elseif($Model -ceq 'all-minilm:latest'){384}else{768}
-            Check ($Port -eq 11434 -and $Model -cin @('embeddinggemma:latest','bge-m3:latest','nomic-embed-text-v2-moe:latest','all-minilm:latest','paraphrase-multilingual:latest')) 'Preflight uses only a cataloged local model and selected loopback port'
+            $expectedDimension=if($Model -cin @('bge-m3:latest','snowflake-arctic-embed2:latest')){1024}elseif($Model -ceq 'all-minilm:latest'){384}else{768}
+            Check ($Port -eq 11434 -and $Model -cin @('embeddinggemma:latest','bge-m3:latest','nomic-embed-text-v2-moe:latest','all-minilm:latest','paraphrase-multilingual:latest','snowflake-arctic-embed2:latest')) 'Preflight uses only a cataloged local model and selected loopback port'
             switch($Path) {
                 /api/version {return [pscustomobject]@{version=$(if($script:mode -ceq 'version'){'0.1.0'}else{'0.34.2'})}}
                 /api/tags {
@@ -85,6 +85,9 @@ try {
         $paraphrasePlan=New-LabAiPodmanSetupPlan -EmbeddingModelKey ollama-paraphrase-multilingual-latest
         Assert-LabAiPodmanSetupRecord $paraphrasePlan $paraphrasePlan.operationId
         Check ($paraphrasePlan.modelBinding.Model -ceq 'paraphrase-multilingual:latest' -and $paraphrasePlan.modelBinding.Dimension -eq 768 -and $paraphrasePlan.searchMode -ceq 'Vector') 'Paraphrase Multilingual plan persists its exact 768-dimensional binding and vector reference query'
+        $snowflakePlan=New-LabAiPodmanSetupPlan -EmbeddingModelKey ollama-snowflake-arctic-embed2-latest
+        Assert-LabAiPodmanSetupRecord $snowflakePlan $snowflakePlan.operationId
+        Check ($snowflakePlan.modelBinding.Model -ceq 'snowflake-arctic-embed2:latest' -and $snowflakePlan.modelBinding.Dimension -eq 1024 -and $snowflakePlan.searchMode -ceq 'Vector') 'Snowflake Arctic Embed 2 plan persists its exact 1024-dimensional binding and vector reference query'
         $cancelled=Invoke-LabAiPodmanSetup -Plan $plan -StateRoot $Root -WhatIf
         Check ($cancelled.Status -ceq 'CANCELLED' -and @(Get-ChildItem $Root).Count -eq 0) 'WhatIf creates neither worker nor state'
         $cancel=[Threading.CancellationTokenSource]::new();$cancel.Cancel()
@@ -292,6 +295,9 @@ try {
         $script:mode='none';$script:inputIndex=0;$script:cancelAt=0;$script:uiCreates=0;$script:confirmSetup=$true;$script:modelChoice=4;$script:uiText=[Collections.Generic.List[string]]::new()
         $paraphraseAction=Invoke-LabAiPodmanSetupInteractive
         Check ($paraphraseAction.Status -ceq 'Changed' -and $script:lastUiModel.ModelKey -ceq 'ollama-paraphrase-multilingual-latest' -and $script:lastUiModel.Dimension -eq 768) 'UI selection reaches creation with the exact Paraphrase-Multilingual binding'
+        $script:mode='none';$script:inputIndex=0;$script:cancelAt=0;$script:uiCreates=0;$script:confirmSetup=$true;$script:modelChoice=5;$script:uiText=[Collections.Generic.List[string]]::new()
+        $snowflakeAction=Invoke-LabAiPodmanSetupInteractive
+        Check ($snowflakeAction.Status -ceq 'Changed' -and $script:lastUiModel.ModelKey -ceq 'ollama-snowflake-arctic-embed2-latest' -and $script:lastUiModel.Dimension -eq 1024) 'UI selection reaches creation with the exact Snowflake-Arctic-Embed-2 binding'
         $script:mode='missing';$script:inputIndex=0;$script:cancelAt=0;$script:uiCreates=0
         $action=Invoke-LabAiPodmanSetupInteractive
         Check ($action.Status -ceq 'Failed' -and $script:uiCreates -eq 0) 'UI missing model cannot reach creation'

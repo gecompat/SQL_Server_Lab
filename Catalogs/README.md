@@ -348,3 +348,11 @@ Suche und 50 Sprachen; die verlinkte Sentence-Transformers-Modellkarte belegt
 768 Dimensionen und Apache-2.0. Der katalogisierte Ollama-Floor 0.34.2 ist der
 lokal nachgewiesene Projektstand. Version, Capability, Dimension und
 tatsächlicher Manifestdigest werden live am Loopback-Endpunkt gebunden.
+
+`ollama-snowflake-arctic-embed2-latest` bindet das lokale
+`snowflake-arctic-embed2:latest` mit 1024 Dimensionen und dem Eingabeprofil
+`snowflake-search`. Dieses lässt Dokumente unverändert und setzt ausschließlich
+vor Fragen den von Snowflake dokumentierten Retrievalpräfix. Die verlinkte
+Modellkarte belegt 1024 Dimensionen, Mehrsprachigkeit und Apache-2.0; die
+offizielle Ollama-Tagliste belegt den 8K-Kontext und den live geprüften Tag.
+Der Ollama-Floor 0.34.2 ist der lokal nachgewiesene Projektstand.
