@@ -15,6 +15,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `ai-scenario.schema.json` | Versioniertes, hashgebundenes SQL-KI-Szenariopaket mit Dataset, Schritten, Assertions, Evaluation und Cleanup |
 | `ai-model-catalog.schema.json` | Providerneutraler Modellkatalog für Ollama-Lane, Zweck, Dimension, Lizenz, Größe und verpflichtende Runtimeidentität |
 | `ai-endpoint-plan.schema.json` | Geheimnisfreier read-only Endpointplan mit Lane, Modell, Egress, Budget, Blockern und Warnungen |
+| `ai-external-model-plan.schema.json` | Hashgebundener, nicht ausführbarer SQL-External-Model-Plan für vorhandene OpenAI-kompatible HTTPS-Embedding-Endpunkte und CPU/GPU/NPU-Ziele |
 | `ai-runtime-journal.schema.json` | Run- und PlanKey-gebundenes Journal für Modell-, Endpoint- und Cleanup-Schritte ohne Payload oder Secretwert |
 | `ai-query-result.schema.json` | Sanitisiertes RAG-/Agentenergebnis mit Chunk-Referenzen, begrenzten Tool-Metadaten und Metriken |
 | `ai-retrieval-evaluation.schema.json` | Deterministisches Retrieval-Gate mit Recall@k, Precision@k, MRR, nDCG und blockierenden Schwellenwerten |

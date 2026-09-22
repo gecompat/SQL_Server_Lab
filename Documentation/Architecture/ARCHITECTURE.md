@@ -109,6 +109,7 @@ Export-SqlServerLabDatabasePackage           # Rungebundene Container-Datenbank 
 Invoke-SqlServerLabDatabasePackageAttach     # Paket pfadfrei an einen stabil gebundenen Hyper-V-SQL-Run attachen
 Get-SqlServerLabDatabaseMigrationDependency  # SQL-Migrationsabhaengigkeiten read-only inventarisieren
 Get-SqlServerLabAiScenario                   # SQL-KI-Szenario und sanitisierte Evidence read-only aufloesen
+Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen
 Get-SqlServerLabConnectionCenter       # Passwortfreier SQL-Endpunktkatalog für SSMS und CMS
 Sync-SqlServerLabConnectionCenter      # Endpunktkatalog atomar aktualisieren
 Export-SqlServerLabSsmsRegistration    # Kennwortfreien SSMS-.regsrvr-Export erzeugen

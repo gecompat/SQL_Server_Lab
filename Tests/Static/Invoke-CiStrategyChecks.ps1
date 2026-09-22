@@ -50,6 +50,12 @@ foreach($bridgePath in @('Private/AiSqlHttpsBridge.ps1','Schemas/ai-sql-https-br
 }
 $bridgeShared = & $selector -ChangedPath @('Private/AiSqlHttpsBridge.ps1','Private/AiEndpoint.ps1')
 Add-CheckResult -Name 'SQL-HTTPS-Ausnahme unterdrückt keine gemeinsame AI-Änderung' -Success ($bridgeShared.Docker -and $bridgeShared.Podman -and $bridgeShared.HyperV)
+foreach($externalPlanPath in @('Private/AiExternalModelAcceleration.ps1','Public/Get-SqlServerLabAiExternalModelPlan.ps1','Schemas/ai-external-model-plan.schema.json','Tests/Static/Invoke-AiExternalModelAccelerationChecks.ps1')) {
+    $selected=& $selector -ChangedPath @($externalPlanPath)
+    Add-CheckResult -Name "External-Model-Plan bleibt ohne Runtime-Mutation statisch: $externalPlanPath" -Success (
+        'Invoke-AiExternalModelAccelerationChecks.ps1' -in $selected.StaticChecks -and
+        -not $selected.Docker -and -not $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+}
 Add-CheckResult -Name 'Hyper-V-Aenderung aktiviert Hyper-V-Vertraege und Runtime' -Success (
     $hyperV.HyperV -and 'Invoke-HyperVLabEnvironmentChecks.ps1' -in $hyperV.StaticChecks -and -not $hyperV.Docker
 )

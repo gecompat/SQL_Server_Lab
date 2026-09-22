@@ -25,6 +25,7 @@
         'Get-SqlServerLabWorkflow'
         'Get-SqlServerLabAutomationPlan'
         'Get-SqlServerLabAiScenario'
+        'Get-SqlServerLabAiExternalModelPlan'
         'Find-SqlServerLabCollation'
         'Get-SqlServerLabHyperVImageArtifact'
         'Get-SqlServerLabEvaluationWatch'

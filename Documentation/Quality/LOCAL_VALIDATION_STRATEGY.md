@@ -104,6 +104,12 @@ begrenzt diese Produktdateien auf Docker/Podman; Änderungen am Selector selbst
 behalten die vollständige CI-Infrastrukturmatrix.
 
 `Invoke-AiScenarioChecks.ps1` bindet auch `Fixtures/AiRagHostChecks.ps1` ein:
+
+`Invoke-AiExternalModelAccelerationChecks.ps1` prüft getrennt den rein
+lesenden, hashgebundenen Plan für vorhandene OpenAI-kompatible HTTPS-
+Embedding-Endpunkte. Der Test deckt OpenVINO-NPU, den erforderlichen OVMS-
+Gateway, falsche Backend-/Accelerator-Kombinationen und den ausdrücklich noch
+nicht ausgeführten Evidence-Status ab; er startet keine Runtime.
 Hostmodell-Digest/Capability/Dimension/Remoteidentity, Egress/Datenklasse,
 WhatIf, Vektoren und echten synthetischen HTTP307 ohne Weiterleitung.
 `Invoke-AiRagExistingOllamaAcceptance.ps1` ist eine separate opt-in Abnahme mit
