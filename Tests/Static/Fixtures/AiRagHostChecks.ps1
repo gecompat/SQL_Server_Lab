@@ -22,7 +22,10 @@ param($Module,$RepoRoot)
         switch($Path){
             '/api/version' {@{version=if($script:hostFault -eq 'version'){'0.11.9'}else{'0.34.2'}}}
             '/api/tags' {@{models=@([pscustomobject]@{name=$Model;digest=if($script:hostFault -eq 'digest'){'bad'}elseif($script:hostFault -eq 'drift'){'b'*64}else{'a'*64};remote_model=if($script:hostFault -eq 'remote-tag'){'remote'}else{''}})}}
-            '/api/show' {[pscustomobject]@{remote_host=if($script:hostFault -eq 'remote-show'){'https://remote.invalid'}else{''};capabilities=if($script:hostFault -eq 'capability'){@('completion')}else{@('embedding')};model_info=[pscustomobject]@{'gemma3.embedding_length'=if($script:hostFault -eq 'dimension'){384}else{768}}}}
+            '/api/show' {
+                $dimension=if($script:hostFault -eq 'dimension'){384}elseif($Model -ceq 'bge-m3:latest'){1024}else{768}
+                [pscustomobject]@{remote_host=if($script:hostFault -eq 'remote-show'){'https://remote.invalid'}else{''};capabilities=if($script:hostFault -eq 'capability'){@('completion')}else{@('embedding')};model_info=[pscustomobject]@{'model.embedding_length'=$dimension}}
+            }
         }
     }
     $binding=Get-LabAiHostModelBinding -Plan $plan.EmbeddingPlan -MetadataTransport $metadata
@@ -35,6 +38,10 @@ param($Module,$RepoRoot)
     $nomicV2Plan=New-LabAiRagPlan @nomicV2Base
     Check 'Nomic v2 bindet dasselbe Suchprofil und die Live-Hostprüfung im Ad-hoc-RAG' (
         $nomicV2Plan.EmbeddingPlan.InputProfile -ceq 'nomic-search' -and $nomicV2Plan.HostModelValidation)
+    $bgeBase=$base.Clone();$bgeBase.EmbeddingModelKey='ollama-bge-m3-latest'
+    $bgePlan=New-LabAiRagPlan @bgeBase
+    Check 'BGE-M3 bindet 1024 Dimensionen, Rohtextprofil und Live-Hostprüfung' (
+        $bgePlan.EmbeddingPlan.Dimension -eq 1024 -and $bgePlan.EmbeddingPlan.InputProfile -ceq 'raw' -and $bgePlan.HostModelValidation)
     foreach($fault in @('version','digest','remote-tag','remote-show','capability','dimension')){
         $script:hostFault=$fault
         Check "Hostmodell $fault blockiert vor Payload" (Reject {Get-LabAiHostModelBinding -Plan $plan.EmbeddingPlan -MetadataTransport $metadata} 'AI_RAG_HOST_')
@@ -60,6 +67,13 @@ param($Module,$RepoRoot)
             $nomicResult.Status -eq 'SUCCEEDED' -and $script:nomicInputs.Count -eq 2 -and
             $script:nomicInputs[0] -ceq 'search_document: Tägliche Sicherung.' -and
             $script:nomicInputs[1] -ceq 'search_query: Sicherung?')
+        $script:bgeInputs=[Collections.Generic.List[string]]::new()
+        $bgeInvoke=$invoke.Clone();$bgeInvoke.Plan=$bgePlan
+        $bgeInvoke.EmbeddingTransport={param($Request)$script:payloadCalls++;$script:bgeInputs.Add([string]$Request.Body.input[0]);$v=[double[]]::new(1024);$v[0]=1;[pscustomobject]@{StatusCode=200;Body=@{embeddings=@(,$v)}}}
+        $bgeResult=Invoke-LabAiRag @bgeInvoke
+        Check 'BGE-M3 führt unveränderte Texte als 1024-dimensionale SQL-Vektoren aus' (
+            $bgeResult.Status -eq 'SUCCEEDED' -and $script:bgeInputs.Count -eq 2 -and
+            $script:bgeInputs[0] -ceq 'Tägliche Sicherung.' -and $script:bgeInputs[1] -ceq 'Sicherung?')
         $script:hostFault='remote-show';$before=$script:payloadCalls;$beforeSql=$script:sqlCalls;$beforeCloud=$script:cloudCalls
         Check 'Remote Hostmodell sendet weder Dokumente noch SQL oder Cloud' ((Reject {Invoke-LabAiRag @invoke} 'AI_RAG_HOST_REMOTE_MODEL_FORBIDDEN') -and $script:payloadCalls -eq $before -and $script:sqlCalls -eq $beforeSql -and $script:cloudCalls -eq $beforeCloud)
         $script:hostFault=''

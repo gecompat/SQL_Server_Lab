@@ -16,6 +16,21 @@
   ],
   "models": [
     {
+      "key": "ollama-bge-m3-latest",
+      "provider": "ollama",
+      "lane": "local",
+      "purpose": "embedding",
+      "model": "bge-m3:latest",
+      "dimension": 1024,
+      "inputProfile": "raw",
+      "status": "SUPPORTED",
+      "minimumOllamaVersion": "0.34.2",
+      "identityPolicy": "LIVE_MANIFEST_DIGEST_REQUIRED",
+      "estimatedSizeBytes": 1200000000,
+      "license": "MIT",
+      "source": "https://huggingface.co/BAAI/bge-m3"
+    },
+    {
       "key": "ollama-nomic-embed-text-v2-moe",
       "provider": "ollama",
       "lane": "local",

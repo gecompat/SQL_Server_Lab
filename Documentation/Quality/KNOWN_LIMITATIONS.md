@@ -106,10 +106,11 @@ Ein harter Abbruch des Elternprozesses benötigt Prüfung der dauerhaft
 gespeicherten eigenen Operation; es gibt keinen automatischen Recoverydienst.
 
 Der [Host-RAG-Slice](../Architecture/AI_RAG_EXISTING_OLLAMA.md) verbindet vorhandenes
-`embeddinggemma:latest` oder `nomic-embed-text:latest` mit exakter SQLsuche und
+`embeddinggemma:latest`, `nomic-embed-text:latest` oder `bge-m3:latest` mit exakter SQLsuche und
 lokaler oder expliziter HTTPS-Cloudgeneration. Nomic v1.5 verwendet das
 kataloggebundene `nomic-search`-Profil; Dokument- und Fragepräfixe werden
-automatisch getrennt angewendet.
+automatisch getrennt angewendet. BGE-M3 verwendet 1024 Dimensionen und das
+unveränderte Rohtextprofil.
 Live-Digest/Capability/Dimension, Datenklasse, Egress und Secretgrenze werden
 geprüft; es gibt keine Downloads oder Host-Lifecycleaktionen. Lokale und Golden-
 Defaults bleiben erhalten. Die neuen kombinierten Podman- und Docker-Nachweise
@@ -118,6 +119,9 @@ und vollständigem Cleanup samt Residueprüfung. Hyper-V bleibt separat offen.
 Der zusätzliche lokale Nomic-v1.5-Pfad bestand am 2026-09-22 unter Docker und
 Podman getrennt mit jeweils neun Assertions, SQLrestart, unverändertem
 Hostmodellinventar und vollständigem eigenem Cleanup.
+Der zusätzliche lokale BGE-M3-Pfad bestand am 2026-09-22 unter Docker und
+Podman getrennt mit `VECTOR(1024)`, festen Top-Treffern vor und nach SQLrestart,
+unverändertem Hostmodellinventar und vollständigem eigenem Cleanup.
 Der [persistente synthetische Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
 implementiert inzwischen eine eigene SQL-Datenbank, Initial-/Delta-Generationen,
 exakte Vektor- sowie hybride SQL-Termabdeckungs-/Vektorsuche, Resume und

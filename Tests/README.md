@@ -346,6 +346,17 @@ enthalten. Der Harness verändert das Hostmodellinventar nicht. Docker und
 Podman bestanden am 2026-09-22 getrennt mit SQLrestart und vollständigem
 eigenem Cleanup.
 
+Der mehrsprachige 1024-dimensionale BGE-M3-Pfad verwendet denselben Harness:
+
+```powershell
+.\Tests\Integration\Invoke-AiRagExistingOllamaAcceptance.ps1 -Provider podman `
+    -LocalGeneration -EmbeddingModelKey ollama-bge-m3-latest
+```
+
+Der Host muss dafür zusätzlich `bge-m3:latest` enthalten. Docker und Podman
+bestanden am 2026-09-22 getrennt mit festen SQL-Top-Treffern vor und nach
+SQLrestart sowie vollständigem eigenem Cleanup.
+
 Der read-only Diagnose-Agent wird mit echten katalogisierten SQL-Abfragen,
 kurzlebigem Login, lokalem Modell, Login-Cleanup und Restart getrennt geprüft:
 
