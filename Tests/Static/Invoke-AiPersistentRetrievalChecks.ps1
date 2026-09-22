@@ -253,6 +253,15 @@ try{
             $script:parameters.Remove('EmbeddingModelKey')
             $nomicRemoved=Execute -Action Remove
             Check 'Nomic-v2-Collection bleibt ohne erneute Modellauswahl exakt entfernbar' ($nomicRemoved.Status -ceq 'REMOVED' -and -not $script:db)
+            Reset;$script:dimension=384;$script:parameters.EmbeddingModelKey='ollama-all-minilm-latest'
+            $miniApplied=Execute
+            $miniQuery=Execute -Action Query
+            $miniJournal=Get-Content (JournalPath) -Raw|ConvertFrom-Json
+            Check 'All-MiniLM bindet Journal und SQL-Speicher exakt an 384 Dimensionen' ($miniApplied.Status -ceq 'COMMITTED' -and $miniQuery.Status -ceq 'QUERIED' -and $miniJournal.modelBinding.ModelKey -ceq 'ollama-all-minilm-latest' -and $miniJournal.modelBinding.Dimension -eq 384 -and @($script:sqlTexts|Where-Object{$_ -match '^(Initialize|Insert|Query)\|' -and $_ -match 'VECTOR\(384\)'}).Count -ge 3)
+            Check 'All-MiniLM verwendet Dokumente und Fragen ohne Rollenpräfix' (@($script:embeddingInputs|Where-Object{$_ -clike 'search_*'}).Count -eq 0 -and $script:embeddingInputs[-1] -ceq 'Wie oft werden synthetische Sicherungen überprüft?')
+            $script:parameters.Remove('EmbeddingModelKey')
+            $miniRemoved=Execute -Action Remove
+            Check 'All-MiniLM-Collection bleibt ohne erneute Modellauswahl exakt entfernbar' ($miniRemoved.Status -ceq 'REMOVED' -and -not $script:db)
             function script:Get-LabTransferBinding {param($RunId,$InstanceId,$StateRoot)throw 'SYNTHETIC_PRIVATE_ENDPOINT_DETAIL'}
             Check 'Öffentlicher Vertrag sanitisiert auch frühe Bindingfehler' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Query -StateRoot $Root -Confirm:$false} '^AI_PERSISTENT_RECOVERY_REQUIRED$')
         }finally{

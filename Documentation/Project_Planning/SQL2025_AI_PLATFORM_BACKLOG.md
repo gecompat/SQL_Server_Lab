@@ -134,7 +134,11 @@ keine Runtimeaktion aus. Der getrennte
   geführten Podman-Setup auswählbar; die Rollenpräfixe werden kataloggebunden
   angewendet. Der native Nomic-Setup-Nachweis bestand am 2026-09-22 mit Query
   vor und nach SQLrestart, unverändertem Modellinventar und vollständigem Cleanup.
-  Dimensionswechsel bleiben offen.
+  All-MiniLM ist als kompakte lokale 384-dimensionale Alternative für Ad-hoc-
+  RAG, persistentes Retrieval und das geführte Podman-Setup implementiert. Der
+  native Podman-Setup-Nachweis bestand am 2026-09-22 mit gebundenem Hybridmodus,
+  Query vor und nach SQLrestart und vollständigem Cleanup.
+  Modellmigrationen mit Dimensionswechsel bleiben offen.
 
 `AI-60A` stellt kataloggebundene Ollama-Cloud-Generation bereit. Der öffentliche
 Aufruf verlangt eine nicht-interne Datenklasse und expliziten Cloud-Egress,

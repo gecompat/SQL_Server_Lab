@@ -9,7 +9,9 @@ und Sync das vorhandene lokale `bge-m3:latest` mit 1024 Dimensionen. Es gibt
 alternativ `-EmbeddingModelKey ollama-nomic-embed-text-v2-moe` für das lokale
 Nomic-v2-Modell mit 768 Dimensionen. Dessen Dokumente und Fragen erhalten
 automatisch die katalogisierten Rollenpräfixe und sind einschließlich Präfix
-auf 512 UTF-8-Bytes begrenzt. Es gibt
+auf 512 UTF-8-Bytes begrenzt. `-EmbeddingModelKey ollama-all-minilm-latest`
+verwendet das kompakte lokale `all-minilm:latest` mit 384 Dimensionen und
+unverändertem Rohtext. Es gibt
 keinen Modell-Download, Host-Neustart, Cloudaufruf oder Generierungsschritt.
 
 ## Öffentlicher Ablauf
@@ -96,13 +98,15 @@ und löst Gleichstände deterministisch per Distanz und Chunk-ID auf. Wörter mi
 weniger als vier Zeichen und definierte Satzzeichen gehen nicht in den
 lexikalischen Score ein. Die Berechnung verwendet nur parametrisierte feste SQL
 und ausschließlich die aktive Generation. Sie ist für die
-EmbeddingGemma-, BGE-M3- und direkten Nomic-v2-Generationen im v1-Journal freigegeben. Der
+EmbeddingGemma-, BGE-M3-, direkten Nomic-v2- und All-MiniLM-Generationen im
+v1-Journal freigegeben. Der
 separate Nomic-Modellmigrationspfad bleibt reine Vektorsuche. SQL Server Full-Text Search mit
 sprachspezifischem Word Breaker und Ranking bleibt ein eigener offener Slice,
 weil das offizielle Standard-Containerimage das optionale
 `mssql-server-fts`-Paket nicht enthält.
 `VECTOR_DISTANCE`-Cosinesuche, keinen ANN-Index. SQL speichert abhängig von
-der gebundenen Collection `VECTOR(768)` oder `VECTOR(1024)` mit float32; die JSON-Konvertierung ist ein dokumentierter
+der gebundenen Collection `VECTOR(384)`, `VECTOR(768)` oder `VECTOR(1024)` mit
+float32; die JSON-Konvertierung ist ein dokumentierter
 [SQL-Vektorvertrag](https://learn.microsoft.com/en-us/sql/t-sql/data-types/vector-data-type?view=sql-server-ver17).
 
 ## Besitz, Nebenläufigkeit und Recovery
@@ -174,6 +178,7 @@ setzt die monotone Generationsnummer jedoch nicht zurück. Nach Generation 32
 blockiert daher weiterhin `AI_PERSISTENT_GENERATION_LIMIT_REACHED`;
 automatische Retention ist nicht implementiert. Direkte Nomic-v2-Collections
 können angewendet, abgefragt, synchronisiert, begrenzt und entfernt werden.
+Dasselbe gilt für direkte All-MiniLM-Collections mit 384 Dimensionen.
 Die Nomic-v2-Migration bleibt
 an ihre validierte EmbeddingGemma-768-Quelle gebunden; eine BGE-M3-Collection
 kann abgefragt, synchronisiert, begrenzt und entfernt, derzeit aber nicht zu
@@ -206,6 +211,9 @@ idempotentem Prune mit unabhängig abgefragtem SQL-Tabellenbestand.
 Das vorhandene Hostmodellinventar bleibt unverändert.
 Die direkte Nomic-v2-Auswahl des geführten Podman-Setups bestand am 2026-09-22
 zusätzlich mit sechs Assertions, Query vor und nach SQLrestart sowie
+vollständigem eigenem Cleanup.
+Die All-MiniLM-Auswahl bestand am selben Tag ebenfalls mit sechs Assertions,
+`VECTOR(384)`, gebundenem Hybridmodus, Query vor und nach SQLrestart sowie
 vollständigem eigenem Cleanup.
 
 Die ergänzende Referenz `Invoke-AiPodmanSamplesReferenceAcceptance.ps1` bleibt

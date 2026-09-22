@@ -64,7 +64,8 @@ Tagliste weist `latest` und `v1.5` mit demselben Manifest aus. Die
 verlangt bei Retrieval `search_document: ` vor Dokumenten und `search_query: `
 vor Fragen. Dasselbe Profil gilt für das bereits katalogisierte
 `ollama-nomic-embed-text-v2-moe`. Das katalogisierte Profil `nomic-search` wendet beide Präfixe
-rollengetreu an; `raw` lässt EmbeddingGemma- und BGE-M3-Eingaben unverändert. Das Profil ist
+rollengetreu an; `raw` lässt EmbeddingGemma-, BGE-M3- und All-MiniLM-Eingaben
+unverändert. Das Profil ist
 Teil des Endpoint-PlanKeys. Tatsächliche Version und Manifestdigest werden live
 geprüft, nicht als allgemeine Hostidentität im Repository festgeschrieben.
 
@@ -76,7 +77,13 @@ Mehrsprachigkeit und 8K-Kontext; die
 Lizenz. SQL verwendet dadurch `VECTOR(1024)`. Die katalogisierte Mindestversion
 0.34.2 ist der nachgewiesene Projektstand und keine behauptete Herstellergrenze.
 
-Bei den vier vorhandenen Host-Embeddingmodellen oder expliziter
+`ollama-all-minilm-latest` benennt `all-minilm:latest` mit 384 Dimensionen,
+Apache-2.0 und dem Rohtextprofil `raw`. Die offizielle Ollama-Modellseite nennt
+46 MB, 512 Token Kontext und Ollama 0.1.26 als Mindestversion; die verlinkte
+Sentence-Transformers-Modellkarte belegt Dimension und Lizenz. SQL verwendet
+dadurch `VECTOR(384)`.
+
+Bei den katalogisierten vorhandenen Host-Embeddingmodellen oder expliziter
 Cloudgeneration liest der Controller vor
 Payload `/api/version`, `/api/tags` und `/api/show` am festen Loopback-Endpunkt.
 Exakte Modellidentität, gültiger Digest, Mindestversion, Capability und

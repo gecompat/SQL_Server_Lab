@@ -332,3 +332,11 @@ ist, an das Ad-hoc-SQL-RAG. Das Katalogprofil `nomic-search` erzwingt dabei
 `search_document: ` für Dokumente und `search_query: ` für Fragen. Version,
 Embedding-Capability, 768 Dimensionen und tatsächlicher Manifestdigest werden
 vor Payload und während der Ausführung live am Loopback-Endpunkt geprüft.
+
+`ollama-all-minilm-latest` bindet das kompakte lokale
+`all-minilm:latest` mit 384 Dimensionen und dem Rohtextprofil `raw`. Die
+verlinkte Sentence-Transformers-Modellkarte belegt Apache-2.0; die offizielle
+Ollama-Modellseite dokumentiert den 512-Token-Kontext, die ungefähre Größe von
+46 MB und Ollama 0.1.26 als Mindestversion. Version, Embedding-Capability,
+Dimension und tatsächlicher Manifestdigest werden vor jeder Nutzung live am
+Loopback-Endpunkt geprüft.

@@ -9,7 +9,10 @@ SA-Secret und der festen synthetischen Initial-Collection. Der Controller
 verwendet ausschließlich vorhandenes lokales Ollama. Im Dialog ist
 `embeddinggemma:latest` mit 768 Dimensionen der Standard; alternativ kann
 `bge-m3:latest` mit 1024 Dimensionen oder `nomic-embed-text-v2-moe:latest`
-mit 768 Dimensionen und automatischem Suchprofil gewählt werden. Anschließend muss die feste Frage
+mit 768 Dimensionen und automatischem Suchprofil sowie das kompakte
+`all-minilm:latest` mit 384 Dimensionen gewählt werden. Für All-MiniLM bindet
+der Plan die feste deutsche Referenzabfrage ausdrücklich an den vorhandenen
+Hybridmodus; die anderen Modelle verwenden die Vektorsuche. Anschließend muss die feste Frage
 `backup` das Dokument `backup-policy` zuerst finden.
 
 Der Dialog fragt Name, Embeddingmodell, Ollama-Loopbackport (Standard 11434), CPU (Standard 2)
@@ -31,7 +34,7 @@ mit den angezeigten IDs erneut ausgeführt werden:
 
 ```powershell
 Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId `
-    -Action Query -QueryId backup -EmbeddingModelKey $embeddingModelKey
+    -Action Query -QueryId backup -EmbeddingModelKey $embeddingModelKey -SearchMode $searchMode
 ```
 
 Bei abweichendem Ollama-Port ist derselbe `-LocalPort` anzugeben. Die bestehende
@@ -103,6 +106,12 @@ Assertions: `VECTOR(768)`, rollengetreues Suchprofil, feste Top-ID vor und nach
 vollständiges Collection- und Whole-Run-Cleanup ohne eigene Container- oder
 Volumereste.
 
+Die All-MiniLM-Auswahl bestand am 2026-09-22 mit sechs Assertions:
+`VECTOR(384)`, der plan- und ergebnisgebundene Hybridmodus, feste Top-ID vor
+und nach öffentlichem SQLrestart, unverändertes Ollama-Modellinventar sowie
+bestätigtes vollständiges Collection- und Whole-Run-Cleanup ohne eigene
+Container- oder Volumereste.
+
 Der eigene temporäre Test benötigt bereits bereites Podman und das ausgewählte vorhandene Modell:
 
 ```powershell
@@ -111,6 +120,8 @@ Der eigene temporäre Test benötigt bereits bereites Podman und das ausgewählt
     -EmbeddingModelKey ollama-bge-m3-latest
 ./Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1 -LocalPort 11434 `
     -EmbeddingModelKey ollama-nomic-embed-text-v2-moe
+./Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1 -LocalPort 11434 `
+    -EmbeddingModelKey ollama-all-minilm-latest
 ```
 
 Der Harness erstellt ausschließlich einen eigenen temporären StateRoot und

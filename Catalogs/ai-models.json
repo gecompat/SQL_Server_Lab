@@ -16,6 +16,21 @@
   ],
   "models": [
     {
+      "key": "ollama-all-minilm-latest",
+      "provider": "ollama",
+      "lane": "local",
+      "purpose": "embedding",
+      "model": "all-minilm:latest",
+      "dimension": 384,
+      "inputProfile": "raw",
+      "status": "SUPPORTED",
+      "minimumOllamaVersion": "0.1.26",
+      "identityPolicy": "LIVE_MANIFEST_DIGEST_REQUIRED",
+      "estimatedSizeBytes": 45960996,
+      "license": "Apache-2.0",
+      "source": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2"
+    },
+    {
       "key": "ollama-bge-m3-latest",
       "provider": "ollama",
       "lane": "local",

@@ -126,6 +126,13 @@
             "Model": { "const": "nomic-embed-text-v2-moe:latest" },
             "Dimension": { "const": 768 }
           }
+        },
+        {
+          "properties": {
+            "ModelKey": { "const": "ollama-all-minilm-latest" },
+            "Model": { "const": "all-minilm:latest" },
+            "Dimension": { "const": 384 }
+          }
         }
       ],
       "type": "object"

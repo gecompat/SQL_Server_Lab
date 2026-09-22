@@ -14,6 +14,7 @@
     "cpu": {"type":"integer","minimum":1,"maximum":8},
     "memoryMB": {"type":"integer","minimum":2560,"maximum":65536},
     "runtimeScopeId": {"type":"string","pattern":"^runtime-scope-[a-f0-9]{24}$"},
+    "searchMode": {"enum":["Vector","Hybrid"]},
     "modelBinding": {
       "type":"object","additionalProperties":false,
       "required":["ModelKey","Model","Digest","Version","Dimension"],
@@ -27,7 +28,8 @@
       "oneOf":[
         {"properties":{"ModelKey":{"const":"ollama-embeddinggemma-latest"},"Model":{"const":"embeddinggemma:latest"},"Dimension":{"const":768}}},
         {"properties":{"ModelKey":{"const":"ollama-bge-m3-latest"},"Model":{"const":"bge-m3:latest"},"Dimension":{"const":1024}}},
-        {"properties":{"ModelKey":{"const":"ollama-nomic-embed-text-v2-moe"},"Model":{"const":"nomic-embed-text-v2-moe:latest"},"Dimension":{"const":768}}}
+        {"properties":{"ModelKey":{"const":"ollama-nomic-embed-text-v2-moe"},"Model":{"const":"nomic-embed-text-v2-moe:latest"},"Dimension":{"const":768}}},
+        {"properties":{"ModelKey":{"const":"ollama-all-minilm-latest"},"Model":{"const":"all-minilm:latest"},"Dimension":{"const":384}}}
       ]
     },
     "newStarted":{"type":"boolean"},
