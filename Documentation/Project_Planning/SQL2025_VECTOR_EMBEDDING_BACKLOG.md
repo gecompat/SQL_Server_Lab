@@ -22,6 +22,10 @@ Retrieval/Re-Embedding. Reihenfolge und Priorität folgen
 dem übergeordneten
 [KI-Plattform-Backlog](SQL2025_AI_PLATFORM_BACKLOG.md) und dem kanonischen
 Entwicklungs- und Ausführungsplan.
+Der persistente Containerpfad unterstützt inzwischen den atomaren Sync von
+1 bis 16 Caller-Dokumenten mit gebundenem Ausgangsbestand und ist am 2026-09-22
+unter Docker und Podman getrennt nativ belegt. Offen bleiben insbesondere
+automatische Generation-Retention, weitere Modell-/Dimensionswechsel und ANN.
 
 Der kleinste Re-Embedding-Slice ist als rein lesender, interner Plan- und
 Journalvertrag implementiert. Er bindet alte und neue ModelKey-, Dimensions-

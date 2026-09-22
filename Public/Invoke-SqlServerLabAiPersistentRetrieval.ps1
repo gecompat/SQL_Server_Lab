@@ -4,10 +4,10 @@
 .DESCRIPTION
     SQL Server 2025 unter Docker oder Podman; vorhandenes lokales embeddinggemma:latest.
     Initial und Delta sind feste versionierte synthetische Dokumentmengen. Alternativ
-    kann eine initiale Collection aus 1 bis 16 vom Aufrufer übergebenen Dokumenten
-    aufgebaut und mit einer freien Frage abgefragt werden. Inhalte bleiben in der
-    eigenen SQL-Datenbank und in lokalen Ollama-Requests; Journal und Plan enthalten
-    nur Hashes. Kein Cloudzugriff oder Generierung. Eine Datenbank ohne exakten
+    kann eine Collection aus 1 bis 16 vom Aufrufer übergebenen Dokumenten aufgebaut,
+    atomar synchronisiert und mit einer freien Frage abgefragt werden. Inhalte bleiben in der
+    eigenen SQL-Datenbank und in lokalen Ollama-Requests; Journal und öffentliche
+    WhatIf-Ausgabe enthalten nur Hashes. Kein Cloudzugriff oder Generierung. Eine Datenbank ohne exakten
     Besitznachweis wird weder übernommen noch entfernt. WhatIf ist rein planend.
 .PARAMETER RunId
     Vorhandener laufender SQL-2025-Container-Run mit verwaltetem SA-Secret.
@@ -16,7 +16,7 @@
 .PARAMETER CollectionId
     Selbst gewählte GUID der Collection; für Wiederaufnahme und Remove beibehalten.
 .PARAMETER Action
-    Apply erstellt eine neue Generation; Migrate baut Delta mit dem expliziten Zielmodell neu auf; Query liest die aktive; Remove entfernt nur die eigene Datenbank.
+    Apply erstellt eine neue Generation; Sync ersetzt den gebundenen Dokumentbestand atomar; Migrate baut Delta mit dem expliziten Zielmodell neu auf; Query liest die aktive; Remove entfernt nur die eigene Datenbank.
 .PARAMETER TargetModelKey
     Ausschließlich für Migrate: ollama-nomic-embed-text-v2-moe. Benötigt FixtureRevision Delta.
 .PARAMETER FixtureRevision
@@ -25,7 +25,9 @@
     Feste synthetische Frage backup oder cleanup.
 .PARAMETER Documents
     Optional 1 bis 16 Dokumente mit eindeutigen Eigenschaften Id und Content.
-    Gilt nur für eine initiale Apply-Generation und deren Query.
+    Gilt für eine initiale Apply-Generation, Sync und deren Query.
+.PARAMETER ExpectedDocuments
+    Bei Sync der vollständige erwartete aktive Dokumentbestand. Abweichungen blockieren vor Embedding und SQL-Staging.
 .PARAMETER Question
     Freie Frage für Query mit Documents. Sie wird weder journalisiert noch protokolliert.
 .PARAMETER SearchMode
@@ -48,6 +50,8 @@
 .EXAMPLE
     Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId -Action Apply -FixtureRevision Delta -Resume
 .EXAMPLE
+    Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId -Action Sync -ExpectedDocuments $old -Documents $new
+.EXAMPLE
     Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId -Action Remove
 #>
 function Invoke-SqlServerLabAiPersistentRetrieval {
@@ -56,21 +60,22 @@ function Invoke-SqlServerLabAiPersistentRetrieval {
         [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$RunId,
         [ValidatePattern('^[a-zA-Z][a-zA-Z0-9_-]{0,63}$')][string]$InstanceId='primary',
         [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$CollectionId,
-        [ValidateSet('Apply','Query','Remove','Migrate')][string]$Action='Apply',
+        [ValidateSet('Apply','Query','Remove','Migrate','Sync')][string]$Action='Apply',
         [ValidateSet('ollama-nomic-embed-text-v2-moe')][string]$TargetModelKey,
         [ValidateSet('Initial','Delta')][string]$FixtureRevision='Initial',
         [ValidateSet('backup','cleanup')][string]$QueryId='backup',
         [ValidateCount(1,16)][object[]]$Documents,
+        [ValidateCount(1,16)][object[]]$ExpectedDocuments,
         [ValidateLength(1,1000)][string]$Question,
         [ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',
         [switch]$Resume,[ValidateRange(1024,65535)][int]$LocalPort=11434,
         [ValidateRange(60,600)][int]$TimeoutSeconds=300,[string]$StateRoot
     )
-    $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId $InstanceId -CollectionId $CollectionId -Action $Action -FixtureRevision $FixtureRevision -QueryId $QueryId -Documents $Documents -Question $Question -SearchMode $SearchMode -LocalPort $LocalPort -TimeoutSeconds $TimeoutSeconds -Resume:$Resume -TargetModelKey $TargetModelKey
+    $plan=New-LabAiPersistentPlan -RunId $RunId -InstanceId $InstanceId -CollectionId $CollectionId -Action $Action -FixtureRevision $FixtureRevision -QueryId $QueryId -Documents $Documents -ExpectedDocuments $ExpectedDocuments -Question $Question -SearchMode $SearchMode -LocalPort $LocalPort -TimeoutSeconds $TimeoutSeconds -Resume:$Resume -TargetModelKey $TargetModelKey
     if(-not $PSCmdlet.ShouldProcess("Run $RunId / Collection $CollectionId",$Action)){
-        $fixedModel=$Action -in @('Apply','Migrate')
+        $fixedModel=$Action -in @('Apply','Migrate','Sync')
         $selection=if($fixedModel){'FIXED'}elseif($Action -eq 'Query'){'ACTIVE_SQL_GENERATION'}else{'NOT_REQUIRED'}
-        return [pscustomobject]@{Status='PLANNED';Action=$Action;CollectionId=$CollectionId;Revision=$(if($fixedModel){$plan.Revision}else{$null});PlanKey=$plan.PlanKey;ModelKey=$(if($fixedModel){$plan.EndpointPlan.ModelKey}else{$null});ModelSelection=$selection;DatasetMode=$plan.DatasetMode;DocumentCount=$plan.Documents.Count;SearchMode=$SearchMode;Dimension=768}
+        return [pscustomobject]@{Status='PLANNED';Action=$Action;CollectionId=$CollectionId;Revision=$(if($fixedModel){$plan.Revision}else{$null});PlanKey=$plan.PlanKey;ModelKey=$(if($fixedModel){$plan.EndpointPlan.ModelKey}else{$null});ModelSelection=$selection;DatasetMode=$plan.DatasetMode;DocumentCount=$plan.Documents.Count;ExpectedDocumentCount=$(if($Action -eq 'Sync'){$plan.ExpectedDocuments.Count}else{$null});SearchMode=$SearchMode;Dimension=768}
     }
     try{Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $StateRoot}
     catch{if($_.Exception.Message -match '^AI_PERSISTENT_[A-Z_]+$'){throw $_.Exception.Message};throw 'AI_PERSISTENT_RECOVERY_REQUIRED'}

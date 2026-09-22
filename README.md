@@ -783,7 +783,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Invoke-SqlServerLabAiModel` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress und lokalem `.env`-Secret aufrufen |
 | `Measure-SqlServerLabAiRetrieval` | Manuelle Rangfolgen oder gebundene Golden-RAG-Ergebnisse deterministisch mit Recall@k, Precision@k, MRR und nDCG bewerten |
 | `Invoke-SqlServerLabAiRag` | Lokales AdHoc-/Golden-RAG; optional vorhandene Host-Embeddings mit ausdrücklich gewählter HTTPS-Cloudgeneration und exakter SQL-Server-2025-Vektorsuche ([Vertrag](Documentation/Architecture/AI_RAG_EXISTING_OLLAMA.md)) |
-| `Invoke-SqlServerLabAiPersistentRetrieval` | Persistentes synthetisches Retrieval mit lokalem Host-Embedding, expliziter Nomic-Migration, atomaren Generationen und eigenem DB-Cleanup ([Vertrag](Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md)) |
+| `Invoke-SqlServerLabAiPersistentRetrieval` | Persistentes Retrieval mit lokalem Host-Embedding, atomarem Caller-Dokument-Sync, expliziter Nomic-Migration, atomaren Generationen und eigenem DB-Cleanup ([Vertrag](Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md)) |
 | `Invoke-SqlServerLabAiDiagnosticAgent` | Read-only SQL-Diagnose-Agent mit festen Werkzeugen und lokaler Ollama-Zusammenfassung |
 | `Test-SqlServerLabContainerTool` | Kataloggebundenes SqlPackage read-only per Run-/Scope-gebundener Versionsprobe prüfen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Hyper-V SQL-Zugriffsdaten (ConnectionString + generiertes SA-Passwort) aus dem Run abrufen |

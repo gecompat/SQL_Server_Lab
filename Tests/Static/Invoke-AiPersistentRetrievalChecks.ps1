@@ -50,10 +50,11 @@ try{
                 default {throw "Unexpected SQL step $Step"}
             }
         }
-        function Execute {param([string]$Action='Apply',[string]$Revision='Initial',[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[object[]]$Documents,[string]$Question,[switch]$Resume,[scriptblock]$Fault)
+        function Execute {param([string]$Action='Apply',[string]$Revision='Initial',[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[switch]$Resume,[scriptblock]$Fault)
             $p=$script:parameters.Clone();$p.Action=$Action;$p.FixtureRevision=$Revision;$p.Resume=[bool]$Resume
             $p.SearchMode=$SearchMode
             if($null -ne $Documents){$p.Documents=$Documents}
+            if($null -ne $ExpectedDocuments){$p.ExpectedDocuments=$ExpectedDocuments}
             if($Question){$p.Question=$Question}
             $plan=New-LabAiPersistentPlan @p
             Invoke-LabAiPersistentRetrieval -Plan $plan -StateRoot $Root -SqlExecutor $sql -MetadataTransport $metadata -EmbeddingTransport $transport -FaultInjector $Fault
@@ -67,19 +68,58 @@ try{
             Check 'Hybridmodus ist ausschließlich für Query zulässig' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -SearchMode Hybrid -WhatIf} 'AI_PERSISTENT_SEARCH_MODE_INVALID')
             $custom=@(
                 [pscustomobject]@{Id='restore-guide';Content='Synthetische Restore-Tests prüfen CHECKDB nach der Wiederherstellung.'},
-                [pscustomobject]@{Id='index-guide';Content='Synthetische Index-Tests vergleichen reproduzierbare Abfragepläne.'}
+                [pscustomobject]@{Id='index-guide';Content='Synthetische Index-Tests vergleichen reproduzierbare Abfragepläne.'},
+                [pscustomobject]@{Id='security-guide';Content='Synthetische Sicherheitstests prüfen ausschließlich Testidentitäten.'}
             )
             $customPreview=Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Documents $custom -WhatIf
-            Check 'Caller-Dokumente bleiben im WhatIf rein planend und werden nur gezählt' ($customPreview.DatasetMode -ceq 'CallerSupplied' -and $customPreview.DocumentCount -eq 2 -and $script:events.Count -eq 0 -and -not(Test-Path $Root))
+            Check 'Caller-Dokumente bleiben im WhatIf rein planend und werden nur gezählt' ($customPreview.DatasetMode -ceq 'CallerSupplied' -and $customPreview.DocumentCount -eq 3 -and $script:events.Count -eq 0 -and -not(Test-Path $Root))
+            $updatedPreview=@([pscustomobject]@{Id='restore-guide';Content='Neuer synthetischer Inhalt.'},$custom[1])
+            $syncPreview=Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Sync -Documents $updatedPreview -ExpectedDocuments $custom -WhatIf
+            Check 'Sync-WhatIf zählt Ausgang und Ziel ohne Dokumentinhalt' ($syncPreview.ExpectedDocumentCount -eq 3 -and $syncPreview.DocumentCount -eq 2 -and ($syncPreview|ConvertTo-Json -Compress) -notmatch 'Neuer synthetischer Inhalt')
+            Check 'Sync verlangt den vollständigen erwarteten Ausgangsbestand' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Action Sync -Documents $updatedPreview -WhatIf} 'AI_PERSISTENT_DOCUMENTS_INVALID')
+            Check 'ExpectedDocuments gilt ausschließlich für Sync' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Documents $custom -ExpectedDocuments $custom -WhatIf} 'AI_PERSISTENT_EXPECTED_DOCUMENTS_UNEXPECTED')
             Check 'Doppelte Caller-Dokument-IDs werden vor State und Modell abgewiesen' (Reject {Invoke-SqlServerLabAiPersistentRetrieval -RunId $script:run -CollectionId $script:collection -Documents @($custom[0],$custom[0]) -WhatIf} 'AI_PERSISTENT_DOCUMENTS_INVALID')
             Reset
             $customResult=Execute -Documents $custom
-            Check 'Caller-Dokumente erzeugen eine gebundene initiale SQL-Generation' ($customResult.DatasetMode -ceq 'CallerSupplied' -and $customResult.EmbeddingRequests -eq 2 -and $script:owner.ActiveGeneration -eq 1 -and $script:chunks[1].Count -eq 2)
+            Check 'Caller-Dokumente erzeugen eine gebundene initiale SQL-Generation' ($customResult.DatasetMode -ceq 'CallerSupplied' -and $customResult.EmbeddingRequests -eq 3 -and $script:owner.ActiveGeneration -eq 1 -and $script:chunks[1].Count -eq 3)
             $customQuery=Execute -Action Query -Documents $custom -Question 'Was prüfen synthetische Restore-Tests?'
-            Check 'Freie Frage liest ausschließlich die gebundene Caller-Collection' ($customQuery.DatasetMode -ceq 'CallerSupplied' -and $customQuery.Ranked.Count -eq 2 -and 'restore-guide' -in $customQuery.Ranked.ChunkId)
+            Check 'Freie Frage liest ausschließlich die gebundene Caller-Collection' ($customQuery.DatasetMode -ceq 'CallerSupplied' -and $customQuery.Ranked.Count -eq 3 -and 'restore-guide' -in $customQuery.Ranked.ChunkId)
             $beforeCustomDrift=$script:payloads
             $changed=@($custom[0],[pscustomobject]@{Id='index-guide';Content='Geänderter synthetischer Inhalt.'})
             Check 'Abweichende Caller-Dokumente blockieren Query vor Embedding' ((Reject {Execute -Action Query -Documents $changed -Question 'Welche Tests?'} 'AI_PERSISTENT_GENERATION_DRIFT') -and $script:payloads -eq $beforeCustomDrift)
+            $updated=@(
+                [pscustomobject]@{Id='restore-guide';Content='Synthetische Restore-Tests prüfen CHECKDB und den Datenstatus.'},
+                $custom[1],
+                [pscustomobject]@{Id='cleanup-guide';Content='Synthetische Testressourcen werden nach der Abnahme entfernt.'}
+            )
+            $sync=Execute -Action Sync -Documents $updated -ExpectedDocuments $custom
+            Check 'Sync kopiert unveränderte Vektoren und bettet Update sowie Insert neu ein' ($sync.Generation -eq 2 -and $sync.EmbeddingRequests -eq 2 -and $sync.CopiedChunks -eq 1 -and $script:owner.ActiveGeneration -eq 2)
+            $updatedQuery=Execute -Action Query -Documents $updated -Question 'Was geschieht nach der Abnahme?'
+            Check 'Sync aktiviert Update, Insert und Delete atomar für folgende Queries' ($updatedQuery.Generation -eq 2 -and 'cleanup-guide' -in $updatedQuery.Ranked.ChunkId -and 'security-guide' -notin $updatedQuery.Ranked.ChunkId)
+            $wrongExpected=@($custom[0],$custom[1],[pscustomobject]@{Id='security-guide';Content='Abweichender Altinhalt.'})
+            $beforeSyncDrift=$script:payloads
+            Check 'Sync mit falschem erwarteten Ausgangsstand scheitert vor Embedding' ((Reject {Execute -Action Sync -Documents $custom -ExpectedDocuments $wrongExpected} 'AI_PERSISTENT_SOURCE_GENERATION_DRIFT') -and $script:payloads -eq $beforeSyncDrift)
+            $secondSync=Execute -Action Sync -Documents $custom -ExpectedDocuments $updated
+            Check 'Weitere Sync-Generation verwendet den jeweils aktiven gebundenen Ausgangsstand' ($secondSync.Generation -eq 3 -and $secondSync.EmbeddingRequests -eq 2 -and $secondSync.CopiedChunks -eq 1 -and $script:owner.ActiveGeneration -eq 3)
+            $journalText=Get-Content (JournalPath) -Raw
+            Check 'Sync-Journal enthält weder aktuelle noch frühere Dokumentinhalte' ($journalText -notmatch 'CHECKDB|Abfragepläne|Testressourcen')
+            $null=Execute -Action Remove
+            Reset;$null=Execute -Documents $custom
+            $syncCrash={param($Step,$Id)if($Step -eq 'AfterChunkSql'){throw 'synthetic sync crash'}}
+            Check 'Sync-Abbruch während Staging bleibt explizit sichtbar' (Reject {Execute -Action Sync -Documents $updated -ExpectedDocuments $custom -Fault $syncCrash} 'AI_PERSISTENT_RECOVERY_REQUIRED')
+            $stagedQuery=Execute -Action Query -Documents $custom -Question 'Welche Tests?'
+            Check 'Query liest während Sync-Staging weiterhin vollständig die alte Generation' ($stagedQuery.Generation -eq 1 -and $script:owner.ActiveGeneration -eq 1)
+            Check 'Sync-Staging verlangt explizites Resume' (Reject {Execute -Action Sync -Documents $updated -ExpectedDocuments $custom} 'AI_PERSISTENT_RESUME_REQUIRED')
+            $syncResume=Execute -Action Sync -Documents $updated -ExpectedDocuments $custom -Resume
+            Check 'Sync-Resume übernimmt SQL-bestätigte Chunks ohne erneutes Embedding' ($syncResume.Generation -eq 2 -and $syncResume.EmbeddingRequests -eq 1 -and $syncResume.CopiedChunks -eq 1)
+            Reset;$null=Execute -Documents $custom
+            $syncLostReply={param($Step,$Id)if($Step -eq 'AfterCommitSql'){throw 'lost sync reply'}}
+            Check 'Verlorene Sync-Cutoverantwort wird als Recoveryfall gemeldet' (Reject {Execute -Action Sync -Documents $updated -ExpectedDocuments $custom -Fault $syncLostReply} 'AI_PERSISTENT_RECOVERY_REQUIRED')
+            $beforeSyncRecovery=$script:payloads
+            $syncRecovered=Execute -Action Sync -Documents $updated -ExpectedDocuments $custom -Resume
+            Check 'SQL-Commitreceipt schließt Sync ohne Quell-Revalidierung oder neue Embeddings ab' ($syncRecovered.Generation -eq 2 -and $syncRecovered.EmbeddingRequests -eq 0 -and $script:payloads -eq $beforeSyncRecovery)
+            $script:owner.ActiveGeneration=32;$beforeGenerationLimit=$script:payloads
+            Check 'Begrenzte Generationenzahl blockiert vor Embedding und neuem Staging' ((Reject {Execute -Action Sync -Documents $custom -ExpectedDocuments $updated} 'AI_PERSISTENT_GENERATION_LIMIT_REACHED') -and $script:payloads -eq $beforeGenerationLimit -and $script:generations.Count -eq 2)
             $null=Execute -Action Remove
             Reset
             $first=Execute

@@ -712,11 +712,11 @@ Embeddinggemma und getrennte eigene SQL-Runs:
 ```
 
 Sie umfasst exakte Vektor- und hybride SQL-Termabdeckungs-/Vektorsuche, 1–16
-initiale Caller-Dokumente mit freier Frage und Hashdrift-Abweisung, SQLrestart,
+Caller-Dokumente mit freier Frage, atomarem Sync und Hashdrift-Abweisung, SQLrestart,
 konkurrierenden SQL-AppLock, Staging-/Commitantwortverlust, Resume und eigenes
 DB-/Run-Cleanup. Kein Download oder Cloudaufruf. Docker und Podman bestanden am
-2026-09-22 getrennt mit jeweils 23 Assertions einschließlich initialer
-Caller-Collection, freier Frage und Hashdrift-Abweisung sowie vollständigem Cleanup;
+2026-09-22 getrennt mit jeweils 26 Assertions einschließlich Caller-Update,
+Insert, Delete, Vektorübernahme und vollständigem Cleanup;
 [Vertrag](../Documentation/Architecture/AI_PERSISTENT_RETRIEVAL.md).
 
 ## SQL-Gast-Evidence-Capture

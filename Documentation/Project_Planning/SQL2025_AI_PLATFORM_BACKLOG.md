@@ -184,10 +184,13 @@ Top-Quelle und vollständigem Cleanup erfolgreich. Der persistente synthetische
 Slice kombiniert inzwischen zusätzlich deterministische SQL-Termabdeckung und
 exakte Cosine-Distanz für seine aktive Generation. Initiale Caller-Collections
 mit 1 bis 16 Dokumenten und freier Frage sind ebenfalls hashgebunden implementiert.
+Ihr vollständiger Bestand kann mit gebundenem Ausgangsstand atomar synchronisiert
+werden; unveränderte Vektoren werden übernommen, Update und Insert neu eingebettet
+und ausgelassene IDs beim Cutover entfernt.
 Die erweiterten Docker- und Podman-Läufe bestanden am 2026-09-22 getrennt mit
-je 23 Assertions einschließlich einer Collection aus zwei Caller-Dokumenten,
-SQLrestart, Delta-Cutover, Caller-Hashdrift und Cleanup.
-Ihre Aktualisierung/Löschung und allgemeines Modellwechsel-Re-Embedding bleiben offen;
+je 26 Assertions einschließlich einer Collection aus drei Caller-Dokumenten,
+SQLrestart, Delta-Cutover, Caller-Sync, Hashdrift und Cleanup.
+Allgemeines Modellwechsel-Re-Embedding bleibt offen;
 die feste synthetische Persistenz und ihre begrenzte Migration sind unten
 gesondert beschrieben. SQL Server Full-Text Search bleibt offen, solange kein
 reproduzierbarer, paketgebundener Containerpfad für `mssql-server-fts` besteht.
@@ -240,7 +243,7 @@ Der [synthetische Persistenz-Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
 ist implementiert und offline geprüft: eigene SQL-2025-Datenbank, feste
 Initial-/Delta-Generation, aktive Altgeneration bei Stagingfehlern, atomarer
 Cutover und SQL-quittiertes Resume/Remove. Der aktuelle Docker-/Podman-Nachweis
-mit je 23 Assertions schließt zusätzlich initiale Caller-Dokumente ein. Dies ist
+mit je 26 Assertions schließt zusätzlich atomaren Caller-Dokument-Sync ein. Dies ist
 für Delta weiterhin ein inkrementeller Rebuild mit unverändertem Modell;
 der bestehende reine Modellwechsel-Re-Embedding-Plan bleibt unverändert.
-Beliebige Dokumente, weitere Modell-/Dimensionsmigrationen, Hyper-V und ANN bleiben offen.
+Automatische Retention, weitere Modell-/Dimensionsmigrationen, Hyper-V und ANN bleiben offen.

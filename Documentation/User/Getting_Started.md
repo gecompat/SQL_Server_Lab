@@ -35,25 +35,28 @@ Keine öffentliche Gateway-API. Voraussetzungen, Aufruf und Besitzgrenzen stehen
 `Invoke-SqlServerLabAiPersistentRetrieval` verwendet einen vorhandenen
 SQL-2025-Docker-/Podman-Run mit verwaltetem SA-Secret und ein bereits laufendes
 lokales `embeddinggemma:latest`. Mit einer beibehaltenen Collection-GUID führen
-`-FixtureRevision Initial`, `-FixtureRevision Delta`, `-Action Query` und
+`-FixtureRevision Initial`, `-FixtureRevision Delta`, `-Action Sync`, `-Action Query` und
 `-Action Remove` durch persistente Generationen und eigenes Cleanup. `-Resume`
-setzt nur exakt gebundenes unterbrochenes Apply beziehungsweise Migrate fort;
+setzt nur exakt gebundenes unterbrochenes Apply, Sync beziehungsweise Migrate fort;
 `-WhatIf` ist rein planend. `-Action Query -SearchMode Hybrid` kombiniert für
 die Embeddinggemma-Generationen SQL-Termabdeckung und exakte Cosine-Distanz; der
 Nomic-Migrationspfad bleibt reine Vektorsuche. Für bestätigtes Delta erlaubt
 `-Action Migrate -FixtureRevision Delta -TargetModelKey ollama-nomic-embed-text-v2-moe`
 den einmaligen Wechsel auf das bereits vorhandene lokale Nomic-Modell.
-Alternativ erstellt `-Documents` eine initiale Collection aus 1 bis 16 Objekten
-mit eindeutiger `Id` und `Content`. `-Action Query` verlangt dieselbe Menge und
-eine freie `-Question`; Inhalt und Frage bleiben aus Plan und Journal heraus.
+Alternativ erstellt `-Documents` eine Collection aus 1 bis 16 Objekten mit
+eindeutiger `Id` und `Content`. `-Action Sync` verlangt den vollständigen
+aktuellen Bestand als `-ExpectedDocuments` und den vollständigen Zielbestand als
+`-Documents`; unveränderte Vektoren werden übernommen, Änderungen neu eingebettet
+und ausgelassene IDs atomar entfernt. `-Action Query` verlangt den vollständigen
+aktiven Bestand und eine freie `-Question`; Inhalt und Frage bleiben aus dem Journal heraus.
 [Upgrade, Profile und Recovery](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md).
 [Beispiel, Besitzvertrag und Grenzen](../Architecture/AI_PERSISTENT_RETRIEVAL.md).
 Die getrennten nativen Docker- und Podman-Referenzläufe vom 2026-09-22 belegen
-Vektor- und Hybridranking der Fixture sowie initiale Caller-Dokumente jeweils
-mit 23 Assertions, SQLrestart, Delta-Cutover, Hashdrift-Abweisung und
+Vektor- und Hybridranking der Fixture sowie Caller-Dokument-Sync jeweils
+mit 26 Assertions, SQLrestart, Delta-Cutover, Hashdrift-Abweisung und
 vollständigem eigenem DB-/Run-Cleanup.
 Der begrenzte Modellwechsel bestand je Provider mit 20 Assertions und Cleanup;
-weitere Modelle, Dimensionen, Caller-Updates/-Deletes und Hyper-V bleiben offen.
+weitere Modelle, Dimensionen, automatische Generation-Retention und Hyper-V bleiben offen.
 
 ## Ziel
 
