@@ -141,6 +141,9 @@ try{
             $replay=Execute -Action Migrate -Resume
             Check 'SQL-Commitreceipt finalisiert ohne neue Embeddings oder Generation' ($replay.EmbeddingRequests -eq 0 -and $script:generations.Count -eq 3)
             Check 'SQL-Cutover prüft Receiptprofil und Quellvektoren in derselben Transaktion' ($script:commitSql -match 'LabMigrationReceipt WITH\(UPDLOCK,HOLDLOCK\)' -and $script:commitSql -match 'SourceVectorSha256' -and $script:commitSql -match 'DATALENGTH\(Receipt\)')
+            $caller=@([pscustomobject]@{Id='synthetic-guide';Content='Synthetischer Inhalt für die getrennte Sync-Grenze.'})
+            $syncPlan=New-LabAiPersistentPlan -RunId $script:run -InstanceId primary -CollectionId $script:collection -Action Sync -FixtureRevision Initial -QueryId backup -Documents $caller -ExpectedDocuments $caller -LocalPort 11434 -TimeoutSeconds 300
+            Check 'Caller-Sync bleibt nach dem getrennten Nomic-Modellupgrade explizit blockiert' (Reject {Invoke-LabAiPersistentRetrieval -Plan $syncPlan -StateRoot $Root -SqlExecutor $sql -MetadataTransport $metadata -EmbeddingTransport $transport} 'AI_PERSISTENT_SYNC_MIGRATION_UNSUPPORTED')
             Check 'Apply nach Modellmigration kann nicht zurückschalten' (Reject {Execute -Revision Delta} 'AI_PERSISTENT_STALE_REVISION')
             $script:receipt.UpgradeId=[guid]::NewGuid().ToString('D')
             Check 'Fremdes SQL-Upgradereceipt blockiert Query' (Reject {Execute -Action Query} 'AI_PERSISTENT_MIGRATION_RECEIPT_DRIFT')

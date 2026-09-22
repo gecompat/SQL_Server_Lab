@@ -4,6 +4,18 @@ Dieses Changelog dokumentiert Änderungen am öffentlichen Verhalten, an maschin
 
 Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher nach Datum geführt. Neue Einträge werden oben ergänzt.
 
+## 2026-09-22
+
+### Ergaenzt
+
+- `Invoke-SqlServerLabAiPersistentRetrieval -Action Sync` ersetzt eine
+  Caller-Collection aus 1 bis 16 Dokumenten atomar. Der Aufruf bindet den
+  vollständigen erwarteten Ausgangsbestand, übernimmt unveränderte Vektoren,
+  bettet neue oder geänderte Inhalte neu ein und entfernt ausgelassene IDs erst
+  beim SQL-Cutover. Resume verarbeitet bestätigtes Staging und verlorene
+  Commitantworten ohne doppelte Embeddings. Docker und Podman bestanden den
+  Gesamtvertrag getrennt mit je 26 Assertions und vollständigem Cleanup.
+
 ## 2026-09-10
 
 ### Ergaenzt

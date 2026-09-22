@@ -7,7 +7,7 @@
 
 Diese Datei ist der verbindliche Dokumentationsindex. Die Root-[README](../README.md) ist der operative Einstieg. Bei Widersprüchen zwischen Planungsdokumenten und implementiertem Verhalten gelten Code, Schemas, Kataloge, Tests und die dokumentierten bekannten Grenzen als Ist-Nachweis.
 
-[Persistentes Retrieval](Architecture/AI_PERSISTENT_RETRIEVAL.md) beschreibt den begrenzten SQL-2025-Containerpfad mit Fixture- oder initialen Caller-Dokumenten, exakter Vektor- und hybrider lexikalischer SQL-Suche, Resume und eigenem Cleanup.
+[Persistentes Retrieval](Architecture/AI_PERSISTENT_RETRIEVAL.md) beschreibt den begrenzten SQL-2025-Containerpfad mit Fixture- oder atomar synchronisierten Caller-Dokumenten, exakter Vektor- und hybrider lexikalischer SQL-Suche, Resume und eigenem Cleanup.
 
 [SQL-seitige HTTPS-Embeddings](Architecture/AI_SQL_HTTPS_BRIDGE.md) beschreibt
 den internen Docker-Referenzslice. SQL-Embeddings, TLS-Negative, Retrieval nach
@@ -178,7 +178,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Invoke-SqlServerLabAiModel` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane opt-in mit Datenklasse und Budget aufrufen |
 | `Measure-SqlServerLabAiRetrieval` | Manuelle Rangfolgen oder gebundene Golden-RAG-Ergebnisse deterministisch mit Recall@k, Precision@k, MRR und nDCG gegen Schwellen prüfen |
 | `Invoke-SqlServerLabAiRag` | Lokales Ollama-RAG ad hoc oder aus einem versionierten Golden-Fall mit exakter SQL-2025-Vektorsuche ausführen |
-| `Invoke-SqlServerLabAiPersistentRetrieval` | Feste synthetische Generationen oder eine initiale Caller-Collection in SQL Server 2025 persistieren und per exakter Vektor- oder hybrider lexikalischer/Vektorsuche abfragen; Fixture explizit nach Nomic migrieren, gebunden fortsetzen und entfernen |
+| `Invoke-SqlServerLabAiPersistentRetrieval` | Feste synthetische Generationen oder eine Caller-Collection in SQL Server 2025 persistieren, vollständig und atomar synchronisieren und per exakter Vektor- oder hybrider lexikalischer/Vektorsuche abfragen; Fixture explizit nach Nomic migrieren, gebunden fortsetzen und entfernen |
 | `Invoke-SqlServerLabAiDiagnosticAgent` | Katalogisierte read-only SQL-Diagnosen kurzlebig ausführen und lokal zusammenfassen |
 | `Test-SqlServerLabContainerTool` | Kataloggebundenes SqlPackage read-only per Run-/Scope-gebundener Versionsprobe prüfen |
 | `Get-SqlServerLabGeneratedSqlAccess` | Laufzeit-generierte SQL-Access-Daten inkl. SA-Passwort und ConnectionString aus einem Hyper-V-Run beziehen |

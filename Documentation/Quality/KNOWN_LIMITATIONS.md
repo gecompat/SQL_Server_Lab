@@ -116,12 +116,13 @@ Der [persistente synthetische Slice](../Architecture/AI_PERSISTENT_RETRIEVAL.md)
 implementiert inzwischen eine eigene SQL-Datenbank, Initial-/Delta-Generationen,
 exakte Vektor- sowie hybride SQL-Termabdeckungs-/Vektorsuche, Resume und
 besitzgebundenes Cleanup auf Docker/Podman. Docker und Podman bestanden am
-2026-09-22 getrennt mit je 23 Assertions einschließlich Hybridranking,
-SQLrestart, Delta-Cutover, Caller-Dokumenten, Hashdrift und vollständigem Cleanup. SQL Server
+2026-09-22 getrennt mit je 26 Assertions einschließlich Hybridranking,
+SQLrestart, Delta-Cutover, Caller-Sync, Hashdrift und vollständigem Cleanup. SQL Server
 Full-Text Search bleibt wegen des im Standardcontainer fehlenden optionalen
-`mssql-server-fts`-Pakets offen. Initiale Caller-Collections mit 1 bis 16
-Dokumenten und freier Frage sind implementiert; die nativen Referenzen verwendeten
-jeweils zwei Dokumente. Updates und Deletes bleiben offen. Breite Modellwechsel- und
+`mssql-server-fts`-Pakets offen. Caller-Collections mit 1 bis 16 Dokumenten,
+freier Frage und atomarem Update/Insert/Delete sind implementiert; die nativen
+Referenzen verwendeten jeweils drei Dokumente. Alte Generationen bleiben erhalten;
+automatische Retention und mehr als 32 Generationen sind offen. Breite Modellwechsel- und
 Re-Embedding-Ausführung bleiben außerhalb des engen
 [Migrations-Slices](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md) offen:
 explizit bestätigtes Delta/Embeddinggemma nach Nomic v2 MoE bei 768 Dimensionen,

@@ -20,9 +20,18 @@ function Get-LabAiPersistentEmbedding {
     Invoke-LabAiEndpointRequest -Plan $Plan.EndpointPlan -InputText $Text -Transport $Transport
 }
 
+function ConvertTo-LabAiPersistentDocuments {
+    param([object[]]$Documents)
+    if($null -eq $Documents -or $Documents.Count -lt 1 -or $Documents.Count -gt 16){throw 'AI_PERSISTENT_DOCUMENTS_INVALID'}
+    $result=@($Documents|ForEach-Object{[pscustomobject]@{Id=[string]$_.Id;Content=[string]$_.Content;ContentHash=Get-LabAiSha256Text ([string]$_.Content)}}|Sort-Object Id -CaseSensitive)
+    $ids=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    foreach($document in $result){if(-not $ids.Add($document.Id) -or $document.Id -notmatch '^[a-z][a-z0-9-]{2,95}$' -or [string]::IsNullOrWhiteSpace($document.Content) -or $document.Content.Length -gt 4000){throw 'AI_PERSISTENT_DOCUMENTS_INVALID'}}
+    return $result
+}
+
 function New-LabAiPersistentPlan {
-    param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[object[]]$Documents,[string]$Question,[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume,[string]$TargetModelKey)
-    if($Resume -and $Action -notin @('Apply','Migrate')){throw 'AI_PERSISTENT_RESUME_ACTION_INVALID'}
+    param([string]$RunId,[string]$InstanceId,[string]$CollectionId,[string]$Action,[string]$FixtureRevision,[string]$QueryId,[object[]]$Documents,[object[]]$ExpectedDocuments,[string]$Question,[ValidateSet('Vector','Hybrid')][string]$SearchMode='Vector',[int]$LocalPort,[int]$TimeoutSeconds,[switch]$Resume,[string]$TargetModelKey)
+    if($Resume -and $Action -notin @('Apply','Migrate','Sync')){throw 'AI_PERSISTENT_RESUME_ACTION_INVALID'}
     if($Action -eq 'Migrate'){
         if($FixtureRevision -cne 'Delta' -or $TargetModelKey -cne 'ollama-nomic-embed-text-v2-moe'){throw 'AI_PERSISTENT_MIGRATION_REQUEST_INVALID'}
     }elseif($TargetModelKey){throw 'AI_PERSISTENT_MIGRATION_TARGET_UNEXPECTED'}
@@ -30,16 +39,17 @@ function New-LabAiPersistentPlan {
     try{$RunId=([guid]::ParseExact($RunId,'D')).ToString('D');$CollectionId=([guid]::ParseExact($CollectionId,'D')).ToString('D')}catch{throw 'AI_PERSISTENT_IDENTITY_INVALID'}
     $callerSupplied=$null -ne $Documents
     if($callerSupplied){
-        if($Action -notin @('Apply','Query') -or $FixtureRevision -cne 'Initial' -or $TargetModelKey){throw 'AI_PERSISTENT_DOCUMENTS_ACTION_INVALID'}
-        if($Documents.Count -lt 1 -or $Documents.Count -gt 16){throw 'AI_PERSISTENT_DOCUMENTS_INVALID'}
-        $documents=@($Documents|ForEach-Object{[pscustomobject]@{Id=[string]$_.Id;Content=[string]$_.Content;ContentHash=Get-LabAiSha256Text ([string]$_.Content)}}|Sort-Object Id -CaseSensitive)
-        $documentIds=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
-        foreach($document in $documents){if(-not $documentIds.Add($document.Id) -or $document.Id -notmatch '^[a-z][a-z0-9-]{2,95}$' -or [string]::IsNullOrWhiteSpace($document.Content) -or $document.Content.Length -gt 4000){throw 'AI_PERSISTENT_DOCUMENTS_INVALID'}}
+        if($Action -notin @('Apply','Query','Sync') -or $FixtureRevision -cne 'Initial' -or $TargetModelKey){throw 'AI_PERSISTENT_DOCUMENTS_ACTION_INVALID'}
+        $documents=ConvertTo-LabAiPersistentDocuments $Documents
+        if($Action -eq 'Sync'){$expected=ConvertTo-LabAiPersistentDocuments $ExpectedDocuments}
+        elseif($null -ne $ExpectedDocuments){throw 'AI_PERSISTENT_EXPECTED_DOCUMENTS_UNEXPECTED'}
         if($Action -eq 'Query' -and [string]::IsNullOrWhiteSpace($Question)){throw 'AI_PERSISTENT_QUESTION_INVALID'}
         if($Action -ne 'Query' -and $Question){throw 'AI_PERSISTENT_QUESTION_INVALID'}
         $questionText=$Question
         $datasetMode='CallerSupplied'
     }else{
+        if($Action -eq 'Sync'){throw 'AI_PERSISTENT_DOCUMENTS_INVALID'}
+        if($null -ne $ExpectedDocuments){throw 'AI_PERSISTENT_EXPECTED_DOCUMENTS_UNEXPECTED'}
         if($Question){throw 'AI_PERSISTENT_QUESTION_INVALID'}
         $fixturePath=Join-Path $script:ModuleRoot 'Scenarios/Ai/persistent-retrieval/1.0/fixture.json'
         $fixture=Get-Content -LiteralPath $fixturePath -Raw -Encoding utf8|ConvertFrom-Json -Depth 10
@@ -57,7 +67,14 @@ function New-LabAiPersistentPlan {
     $identity=[ordered]@{Contract='SqlServerLab.AiPersistentRetrieval/1.0';RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Revision=$FixtureRevision;DatasetHash=$datasetHash;EndpointPlanKey=$endpoint.PlanKey}
     if($callerSupplied){$identity.DatasetMode=$datasetMode}
     if($Action -eq 'Migrate'){$identity.Contract='SqlServerLab.AiPersistentMigration/2.0';$identity.SourceGeneration=2;$identity.TargetGeneration=3;$identity.ProfileHash=Get-LabAiPlanKey (Get-LabAiPersistentProfile nomic-search)}
-    [pscustomobject]@{RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Action=$Action;Revision=$FixtureRevision;Generation=$(if($FixtureRevision -eq 'Initial'){1}else{2});QueryId=$QueryId;Question=$questionText;DatasetMode=$datasetMode;SearchMode=$SearchMode;Documents=$documents;DatasetHash=$datasetHash;PlanKey=Get-LabAiPlanKey $identity;EndpointPlan=$endpoint;TimeoutSeconds=$TimeoutSeconds;Resume=[bool]$Resume}
+    $expectedDatasetHash=$null;$expectedPlanKey=$null
+    if($Action -eq 'Sync'){
+        $expectedDatasetHash=Get-LabAiPlanKey @($expected|ForEach-Object{[ordered]@{Id=$_.Id;Hash=$_.ContentHash}})
+        $expectedIdentity=[ordered]@{Contract='SqlServerLab.AiPersistentRetrieval/1.0';RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Revision='Initial';DatasetHash=$expectedDatasetHash;EndpointPlanKey=$endpoint.PlanKey}
+        $expectedIdentity.DatasetMode='CallerSupplied'
+        $expectedPlanKey=Get-LabAiPlanKey $expectedIdentity
+    }
+    [pscustomobject]@{RunId=$RunId;InstanceId=$InstanceId;CollectionId=$CollectionId;Action=$Action;Revision=$(if($Action -eq 'Sync'){'Managed'}else{$FixtureRevision});Generation=$(if($Action -eq 'Sync'){0}elseif($FixtureRevision -eq 'Initial'){1}else{2});QueryId=$QueryId;Question=$questionText;DatasetMode=$datasetMode;SearchMode=$SearchMode;Documents=$documents;DatasetHash=$datasetHash;PlanKey=Get-LabAiPlanKey $identity;ExpectedDocuments=$expected;ExpectedDatasetHash=$expectedDatasetHash;ExpectedPlanKey=$expectedPlanKey;EndpointPlan=$endpoint;TimeoutSeconds=$TimeoutSeconds;Resume=[bool]$Resume}
 }
 
 function Write-LabAiPersistentJournal {
@@ -97,7 +114,7 @@ function Invoke-LabAiPersistentRetrieval {
     Assert-LabAiPersistentPath $directory
     try{$lock=[IO.File]::Open("$path.lock",[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)}catch{throw 'AI_PERSISTENT_LOCKED'}
     try{
-        if(Test-Path -LiteralPath $path){$journal=Read-LabAiPersistentJournal $path $Plan $bindingHash;if($Plan.Action -eq 'Apply' -and $journal.status -notin @('COMMITTED','REMOVED') -and -not $Plan.Resume){throw 'AI_PERSISTENT_RESUME_REQUIRED'}}
+        if(Test-Path -LiteralPath $path){$journal=Read-LabAiPersistentJournal $path $Plan $bindingHash;if($Plan.Action -in @('Apply','Sync') -and $journal.status -notin @('COMMITTED','REMOVED') -and -not $Plan.Resume){throw 'AI_PERSISTENT_RESUME_REQUIRED'}}
         elseif($Plan.Action -ne 'Apply' -or $Plan.Revision -ne 'Initial' -or $Plan.Resume){throw 'AI_PERSISTENT_COLLECTION_NOT_FOUND'}
         $model=$null
         if($Plan.Action -notin @('Remove','Migrate') -and (-not $journal -or $journal.contract -ceq 'SqlServerLab.AiPersistentJournal/1.0')){
@@ -148,14 +165,15 @@ DECLARE @result int; EXEC @result=sys.sp_getapplock @Resource=@resource,@LockMod
         # Auch bei verlorenem Initialize-Response ist ausschließlich das SQL-Receipt maßgeblich.
         $owner=Assert-LabAiPersistentOwner $context $journal
         if(-not $journal.databaseGuid){if($Plan.Action -ne 'Apply'){throw 'AI_PERSISTENT_RESUME_REQUIRED'};$journal.databaseGuid=[string]$owner.DatabaseGuid;Write-LabAiPersistentJournal $path $journal}
+        if($Plan.Action -eq 'Sync' -and $journal.contract -ceq 'SqlServerLab.AiPersistentJournal/2.0'){throw 'AI_PERSISTENT_SYNC_MIGRATION_UNSUPPORTED'}
         if($Plan.Action -eq 'Migrate' -or $journal.contract -ceq 'SqlServerLab.AiPersistentJournal/2.0'){
             if($Plan.Action -eq 'Query' -and $Plan.SearchMode -eq 'Hybrid'){throw 'AI_PERSISTENT_HYBRID_MIGRATION_UNSUPPORTED'}
             return Invoke-LabAiPersistentMigration -Context $context -Plan $Plan -Journal $journal -Owner $owner -Path $path -Identity $identity -StateRoot $StateRoot -MetadataTransport $MetadataTransport -EmbeddingTransport $EmbeddingTransport -FaultInjector $FaultInjector
         }
         if($Plan.Action -eq 'Query'){
             if($Plan.DatasetMode -ceq 'CallerSupplied'){
-                if([int]$owner.ActiveGeneration -ne 1){throw 'AI_PERSISTENT_ACTIVE_GENERATION_MISSING'}
-                $activeRevision='Initial';$active=$Plan
+                if([int]$owner.ActiveGeneration -lt 1 -or [int]$owner.ActiveGeneration -gt 32){throw 'AI_PERSISTENT_ACTIVE_GENERATION_MISSING'}
+                $activeRevision='Managed';$active=$Plan
             }else{
                 if([int]$owner.ActiveGeneration -notin @(1,2)){throw 'AI_PERSISTENT_ACTIVE_GENERATION_MISSING'}
                 $activeRevision=if([int]$owner.ActiveGeneration -eq 1){'Initial'}else{'Delta'}
@@ -163,6 +181,7 @@ DECLARE @result int; EXEC @result=sys.sp_getapplock @Resource=@resource,@LockMod
             }
             $generation=@(Get-LabAiPersistentGeneration $context $journal ([int]$owner.ActiveGeneration))
             if($generation.Count -ne 1 -or $generation[0].Status -cne 'COMMITTED' -or $generation[0].ModelHash -cne $journal.modelHash -or $generation[0].DatasetHash -cne $active.DatasetHash -or $generation[0].PlanKey -cne $active.PlanKey){throw 'AI_PERSISTENT_GENERATION_DRIFT'}
+            if($Plan.DatasetMode -ceq 'CallerSupplied'){$activeRevision=[string]$generation[0].Revision}
             $chunks=@(Get-LabAiPersistentChunks $context $journal ([int]$owner.ActiveGeneration));Assert-LabAiPersistentChunks $chunks $active.Documents -Complete
             $null=Get-LabAiPersistentModel $context $Plan $MetadataTransport $model
             $embedding=Get-LabAiPersistentEmbedding $context $Plan $Plan.Question $EmbeddingTransport;$requests+=$embedding.Attempts
@@ -199,15 +218,44 @@ FROM Ranked ORDER BY HybridScore DESC,Distance,ChunkId;
             }
             return [pscustomobject]@{Status='QUERIED';CollectionId=$Plan.CollectionId;Generation=[int]$owner.ActiveGeneration;Revision=$activeRevision;DatasetMode=$Plan.DatasetMode;SearchMode=$Plan.SearchMode;Ranked=$ranked;EmbeddingRequests=$requests}
         }
+        if($Plan.Action -eq 'Sync'){
+            $resumingSync=$journal.revision -ceq 'Managed' -and $journal.status -eq 'STAGING'
+            if($resumingSync){
+                if('targetGeneration' -notin $journal.PSObject.Properties.Name){throw 'AI_PERSISTENT_JOURNAL_INVALID'}
+                $Plan.Generation=[int]$journal.targetGeneration
+                if($journal.planKey -cne $Plan.PlanKey -or $journal.datasetHash -cne $Plan.DatasetHash){throw 'AI_PERSISTENT_RESUME_REQUEST_MISMATCH'}
+                $receipt=@(Get-LabAiPersistentGeneration $context $journal $Plan.Generation)
+                if($receipt.Count -eq 1 -and $receipt[0].Status -ceq 'COMMITTED' -and [int]$owner.ActiveGeneration -eq $Plan.Generation){
+                    if($receipt[0].OperationId -cne $journal.operationId -or $receipt[0].PlanKey -cne $Plan.PlanKey -or $receipt[0].ModelHash -cne $journal.modelHash -or $receipt[0].DatasetHash -cne $Plan.DatasetHash){throw 'AI_PERSISTENT_GENERATION_DRIFT'}
+                    Assert-LabAiPersistentChunks @(Get-LabAiPersistentChunks $context $journal $Plan.Generation) $Plan.Documents -Complete
+                    $journal.status='COMMITTED';$journal.activeGeneration=$Plan.Generation;Write-LabAiPersistentJournal $path $journal
+                    return [pscustomobject]@{Status='COMMITTED';CollectionId=$Plan.CollectionId;Generation=$Plan.Generation;DatasetMode=$Plan.DatasetMode;EmbeddingRequests=0;CopiedChunks=0}
+                }
+                if(-not $Plan.Resume){throw 'AI_PERSISTENT_RESUME_REQUIRED'}
+                if([int]$owner.ActiveGeneration -ne ($Plan.Generation-1)){throw 'AI_PERSISTENT_SOURCE_GENERATION_DRIFT'}
+            }else{
+                if($journal.status -ne 'COMMITTED' -or $Plan.Resume){throw 'AI_PERSISTENT_RESUME_REQUEST_MISMATCH'}
+                $Plan.Generation=[int]$owner.ActiveGeneration+1
+                if($Plan.Generation -gt 32){throw 'AI_PERSISTENT_GENERATION_LIMIT_REACHED'}
+            }
+            $sourceGeneration=@(Get-LabAiPersistentGeneration $context $journal ([int]$owner.ActiveGeneration))
+            if($sourceGeneration.Count -ne 1 -or $sourceGeneration[0].Status -cne 'COMMITTED' -or $sourceGeneration[0].ModelHash -cne $journal.modelHash -or $sourceGeneration[0].DatasetHash -cne $Plan.ExpectedDatasetHash -or $sourceGeneration[0].PlanKey -cne $Plan.ExpectedPlanKey){throw 'AI_PERSISTENT_SOURCE_GENERATION_DRIFT'}
+            try{Assert-LabAiPersistentChunks @(Get-LabAiPersistentChunks $context $journal ([int]$owner.ActiveGeneration)) $Plan.ExpectedDocuments -Complete}catch{throw 'AI_PERSISTENT_SOURCE_GENERATION_DRIFT'}
+            if(-not $resumingSync){
+                $journal.operationId=[guid]::NewGuid().ToString('D');$journal.revision='Managed';$journal.planKey=$Plan.PlanKey;$journal.datasetHash=$Plan.DatasetHash;$journal.completedChunks=@();$journal.status='STAGING'
+                if('targetGeneration' -in $journal.PSObject.Properties.Name){$journal.targetGeneration=$Plan.Generation}else{$journal|Add-Member -NotePropertyName targetGeneration -NotePropertyValue $Plan.Generation}
+                Write-LabAiPersistentJournal $path $journal
+            }
+        }
         if([int]$owner.ActiveGeneration -gt $Plan.Generation){throw 'AI_PERSISTENT_STALE_REVISION'}
-        if($Plan.Generation -eq 2 -and [int]$owner.ActiveGeneration -lt 1){throw 'AI_PERSISTENT_INITIAL_REQUIRED'}
-        if($Plan.Generation -eq 2 -and [int]$owner.ActiveGeneration -eq 1){
+        if($Plan.Action -ne 'Sync' -and $Plan.Generation -eq 2 -and [int]$owner.ActiveGeneration -lt 1){throw 'AI_PERSISTENT_INITIAL_REQUIRED'}
+        if($Plan.Action -ne 'Sync' -and $Plan.Generation -eq 2 -and [int]$owner.ActiveGeneration -eq 1){
             $sourcePlan=New-LabAiPersistentPlan -RunId $Plan.RunId -InstanceId $Plan.InstanceId -CollectionId $Plan.CollectionId -Action Apply -FixtureRevision Initial -QueryId backup -LocalPort $Plan.EndpointPlan.Port -TimeoutSeconds $Plan.TimeoutSeconds
             $sourceGeneration=@(Get-LabAiPersistentGeneration $context $journal 1)
             if($sourceGeneration.Count -ne 1 -or $sourceGeneration[0].Status -cne 'COMMITTED' -or $sourceGeneration[0].ModelHash -cne $journal.modelHash -or $sourceGeneration[0].DatasetHash -cne $sourcePlan.DatasetHash -or $sourceGeneration[0].PlanKey -cne $sourcePlan.PlanKey){throw 'AI_PERSISTENT_SOURCE_GENERATION_DRIFT'}
             Assert-LabAiPersistentChunks @(Get-LabAiPersistentChunks $context $journal 1) $sourcePlan.Documents -Complete
         }
-        if($journal.revision -cne $Plan.Revision){
+        if($Plan.Action -ne 'Sync' -and $journal.revision -cne $Plan.Revision){
             if($journal.status -ne 'COMMITTED' -or $Plan.Resume){throw 'AI_PERSISTENT_RESUME_REQUEST_MISMATCH'}
             $journal.operationId=[guid]::NewGuid().ToString('D');$journal.revision=$Plan.Revision;$journal.planKey=$Plan.PlanKey;$journal.datasetHash=$Plan.DatasetHash;$journal.completedChunks=@();$journal.status='STAGING'
             Write-LabAiPersistentJournal $path $journal

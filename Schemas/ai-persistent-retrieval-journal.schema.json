@@ -110,7 +110,8 @@
     "revision": {
       "enum": [
         "Initial",
-        "Delta"
+        "Delta",
+        "Managed"
       ]
     },
     "status": {
@@ -124,7 +125,12 @@
     },
     "activeGeneration": {
       "minimum": 0,
-      "maximum": 2,
+      "maximum": 32,
+      "type": "integer"
+    },
+    "targetGeneration": {
+      "minimum": 1,
+      "maximum": 32,
       "type": "integer"
     },
     "completedChunks": {

@@ -117,17 +117,32 @@ try{
     Assert-Persistent ($hybridDelta.Generation -eq 2 -and $hybridDelta.Ranked[0].ChunkId -ceq 'backup-policy' -and 'network-policy' -notin $hybridDelta.Ranked.ChunkId -and 'retention-policy' -in $hybridDelta.Ranked.ChunkId) 'Hybridsuche verwendet ausschließlich die atomar aktivierte Delta-Generation'
     $customDocuments=@(
         [pscustomobject]@{Id='restore-guide';Content='Synthetische Restore-Tests prüfen CHECKDB nach der Wiederherstellung.'},
-        [pscustomobject]@{Id='index-guide';Content='Synthetische Index-Tests vergleichen reproduzierbare Abfragepläne.'}
+        [pscustomobject]@{Id='index-guide';Content='Synthetische Index-Tests vergleichen reproduzierbare Abfragepläne.'},
+        [pscustomobject]@{Id='security-guide';Content='Synthetische Sicherheitstests prüfen ausschließlich Testidentitäten.'}
     )
     $customParameters=@{RunId=$lab.RunId;CollectionId=$customCollection;StateRoot=$state;LocalPort=$LocalPort;TimeoutSeconds=300;Documents=$customDocuments}
     $customApplied=Invoke-SqlServerLabAiPersistentRetrieval @customParameters -Confirm:$false
-    Assert-Persistent ($customApplied.Status -eq 'COMMITTED' -and $customApplied.DatasetMode -ceq 'CallerSupplied' -and $customApplied.EmbeddingRequests -eq 2) 'Zwei Caller-Dokumente werden als eigene initiale Collection persistiert'
+    Assert-Persistent ($customApplied.Status -eq 'COMMITTED' -and $customApplied.DatasetMode -ceq 'CallerSupplied' -and $customApplied.EmbeddingRequests -eq 3) 'Drei Caller-Dokumente werden als eigene initiale Collection persistiert'
     $customQuery=Invoke-SqlServerLabAiPersistentRetrieval @customParameters -Action Query -Question 'Was prüfen synthetische Restore-Tests?' -SearchMode Hybrid -Confirm:$false
-    Assert-Persistent ($customQuery.DatasetMode -ceq 'CallerSupplied' -and $customQuery.Ranked.Count -eq 2 -and 'restore-guide' -in $customQuery.Ranked.ChunkId) 'Freie Frage verwendet ausschließlich die hashgebundene Caller-Collection'
+    Assert-Persistent ($customQuery.DatasetMode -ceq 'CallerSupplied' -and $customQuery.Ranked.Count -eq 3 -and 'restore-guide' -in $customQuery.Ranked.ChunkId) 'Freie Frage verwendet ausschließlich die hashgebundene Caller-Collection'
     $customDrift=$false
     $changedDocuments=@($customDocuments[0],[pscustomobject]@{Id='index-guide';Content='Geänderter synthetischer Inhalt.'})
     try{$null=Invoke-SqlServerLabAiPersistentRetrieval -RunId $lab.RunId -CollectionId $customCollection -StateRoot $state -LocalPort $LocalPort -TimeoutSeconds 300 -Documents $changedDocuments -Action Query -Question 'Welche Tests?' -Confirm:$false}catch{if($_.Exception.Message -ceq 'AI_PERSISTENT_GENERATION_DRIFT'){$customDrift=$true}else{throw}}
     Assert-Persistent $customDrift 'Abweichender Caller-Inhalt wird vor der Query abgewiesen'
+    $updatedDocuments=@(
+        [pscustomobject]@{Id='restore-guide';Content='Synthetische Restore-Tests prüfen CHECKDB und den Datenstatus.'},
+        $customDocuments[1],
+        [pscustomobject]@{Id='cleanup-guide';Content='Synthetische Testressourcen werden nach der Abnahme entfernt.'}
+    )
+    $syncParameters=$customParameters.Clone();$syncParameters.Action='Sync';$syncParameters.Documents=$updatedDocuments;$syncParameters.ExpectedDocuments=$customDocuments
+    $customSynced=Invoke-SqlServerLabAiPersistentRetrieval @syncParameters -Confirm:$false
+    Assert-Persistent ($customSynced.Generation -eq 2 -and $customSynced.EmbeddingRequests -eq 2 -and $customSynced.CopiedChunks -eq 1) 'Sync bettet Update und Insert neu ein und übernimmt den unveränderten Vektor'
+    $updatedQuery=Invoke-SqlServerLabAiPersistentRetrieval -RunId $lab.RunId -CollectionId $customCollection -StateRoot $state -LocalPort $LocalPort -TimeoutSeconds 300 -Documents $updatedDocuments -Action Query -Question 'Was geschieht nach der Abnahme?' -SearchMode Hybrid -Confirm:$false
+    Assert-Persistent ($updatedQuery.Generation -eq 2 -and 'cleanup-guide' -in $updatedQuery.Ranked.ChunkId -and 'security-guide' -notin $updatedQuery.Ranked.ChunkId) 'Sync macht Update, Insert und Delete erst nach atomarem Cutover sichtbar'
+    $wrongExpected=@($customDocuments[0],$customDocuments[1],[pscustomobject]@{Id='security-guide';Content='Abweichender synthetischer Altinhalt.'})
+    $sourceDrift=$false
+    try{$null=Invoke-SqlServerLabAiPersistentRetrieval -RunId $lab.RunId -CollectionId $customCollection -StateRoot $state -LocalPort $LocalPort -TimeoutSeconds 300 -Documents $customDocuments -ExpectedDocuments $wrongExpected -Action Sync -Confirm:$false}catch{if($_.Exception.Message -ceq 'AI_PERSISTENT_SOURCE_GENERATION_DRIFT'){$sourceDrift=$true}else{throw}}
+    Assert-Persistent $sourceDrift 'Sync mit abweichendem erwartetem Ausgangsbestand wird vor Staging abgewiesen'
     $customRemoved=Invoke-SqlServerLabAiPersistentRetrieval -RunId $lab.RunId -CollectionId $customCollection -StateRoot $state -LocalPort $LocalPort -TimeoutSeconds 300 -Action Remove -Confirm:$false
     Assert-Persistent ($customRemoved.Status -eq 'REMOVED') 'Caller-Collection wird besitzgebunden entfernt'
     $removed=Invoke-SqlServerLabAiPersistentRetrieval @parameters -Action Remove -Confirm:$false
@@ -158,4 +173,4 @@ try{
     }
 }
 if(-not $complete -or $cleanupFailed){throw 'AI_PERSISTENT_ACCEPTANCE_INCOMPLETE'}
-Write-Host "AI PERSISTENT RETRIEVAL ACCEPTANCE: PASS ($Provider; vector/hybrid; caller documents; SQLrestart; staging/resume; own DB/run cleanup)"
+Write-Host "AI PERSISTENT RETRIEVAL ACCEPTANCE: PASS ($Provider; vector/hybrid; caller document sync; SQLrestart; staging/resume; own DB/run cleanup)"

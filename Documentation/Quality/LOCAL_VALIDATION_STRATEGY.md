@@ -90,10 +90,11 @@ Containerpfad mit Chunk-/Commit-Antwortverlust, aktiver Altgeneration, fehlendem
 Ownershipreceipt, Vektor-/Modell-/DB-Drift, Locks und Journalschreibfehlern.
 `Invoke-AiPersistentRetrievalAcceptance.ps1` erstellt je Docker oder Podman
 nur einen eigenen SQLrun und prüft echtes SQL-AppLock, Restart, Delta/Resume,
-Fixture-Update/Delete, initiale Caller-Dokumente samt Hashdrift,
+Fixture-Update/Delete, Caller-Dokument-Sync samt Ausgangs- und Hashdrift,
 SQL-Termabdeckungs-/Vektor-Hybridranking und vollständiges DB-/Run-Cleanup.
-Docker und Podman bestanden am 2026-09-22 getrennt mit je 23 Assertions
-einschließlich Caller-Collection, freier Frage und Hashdrift-Abweisung sowie
+Docker und Podman bestanden am 2026-09-22 getrennt mit je 26 Assertions
+einschließlich Caller-Collection, atomarem Update/Insert/Delete, freier Frage
+und Hashdrift-Abweisung sowie
 vollständigem Cleanup;
 [Vertrag und Aufruf](../Architecture/AI_PERSISTENT_RETRIEVAL.md). Der Selector
 begrenzt diese Produktdateien auf Docker/Podman; Änderungen am Selector selbst
