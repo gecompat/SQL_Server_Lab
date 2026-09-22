@@ -8,6 +8,14 @@ Das Repository verwendet derzeit keine formalen Releases. Einträge werden daher
 
 ### Ergaenzt
 
+- `Invoke-SqlServerLabAiPersistentRetrieval -Action Migrate` akzeptiert neben
+  der festen Delta-Fixture nun den vollständigen Bestand einer callerverwalteten
+  Collection. Alle Dokumente werden unter gebundener Quellgeneration in die
+  nächste Nomic-v2-MoE-Generation neu eingebettet; Staging, Resume, SQL-Cutover,
+  Query und Journal bleiben atomar und inhaltsfrei. Die erweiterten Docker- und
+  Podman-Nachweise bestanden getrennt mit je 25 Assertions, SQLrestart und
+  vollständigem Cleanup.
+
 - `Invoke-SqlServerLabAiPersistentRetrieval -Action Sync` ersetzt eine
   Caller-Collection aus 1 bis 16 Dokumenten atomar. Der Aufruf bindet den
   vollständigen erwarteten Ausgangsbestand, übernimmt unveränderte Vektoren,

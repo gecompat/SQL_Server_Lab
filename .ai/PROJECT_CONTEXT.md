@@ -75,9 +75,12 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   eigene Datenbank auf SQL-2025-Docker/Podman, lokale Host-Embeddings, feste
   Initial-/Delta-Fixture, atomarer aktiver Generationszeiger, quittiertes Resume
   und besitzgebundenes Remove. Offline sowie nativ unter Docker und Podman geprüft.
-  Der enge Folgeslice `Migrate` ergänzt Generation 3 mit Nomic v2 MoE,
-  v2-Upgrade, festen Präfixprofilen und SQL-gebundener aktiver Modellwahl;
-  getrennt nativ unter Docker und Podman belegt (je 20 Assertions und Cleanup).
+  Der Folgeslice `Migrate` ergänzt die jeweils nächste Generation mit Nomic v2
+  MoE, v2-Upgrade, festen Präfixprofilen und SQL-gebundener aktiver Modellwahl.
+  Neben der festen Delta-Fixture akzeptiert er den vollständig gebundenen Bestand
+  einer callerverwalteten Collection und erzeugt alle Zielvektoren neu. Der
+  erweiterten Docker- und Podman-Nachweise bestanden am 2026-09-22 getrennt mit
+  je 25 Assertions, SQLrestart und vollständigem Cleanup.
   Eine Collection akzeptiert zusätzlich 1 bis 16 Caller-Dokumente, eine freie
   Query und atomaren `Sync` mit vollständig gebundenem Ausgangs- und Zielbestand;
   Inhalte bleiben aus dem Journal. Docker und Podman bestanden den Gesamtvertrag

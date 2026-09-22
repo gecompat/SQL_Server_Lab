@@ -24,8 +24,11 @@ dem übergeordneten
 Entwicklungs- und Ausführungsplan.
 Der persistente Containerpfad unterstützt inzwischen den atomaren Sync von
 1 bis 16 Caller-Dokumenten mit gebundenem Ausgangsbestand und ist am 2026-09-22
-unter Docker und Podman getrennt nativ belegt. Offen bleiben insbesondere
-automatische Generation-Retention, weitere Modell-/Dimensionswechsel und ANN.
+unter Docker und Podman getrennt nativ belegt. Derselbe Bestand kann vollständig
+in die nächste, lokal gebundene Nomic-Generation migriert werden. Docker und
+Podman bestanden dafür jeweils 25 native Prüfungen einschließlich SQL-Neustart
+und vollständigem Cleanup. Offen bleiben insbesondere automatische
+Generation-Retention, weitere Zielmodelle, Dimensionswechsel und ANN.
 
 Der kleinste Re-Embedding-Slice ist als rein lesender, interner Plan- und
 Journalvertrag implementiert. Er bindet alte und neue ModelKey-, Dimensions-

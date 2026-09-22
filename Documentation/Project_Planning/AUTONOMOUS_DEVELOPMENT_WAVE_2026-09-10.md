@@ -162,7 +162,7 @@ keine Golden-Referenz und behauptet keinen Podman-SQL-HTTPS-Nachweis.
 | Podman Golden RAG | `validated_reference` | Der feste Golden-v1-Fall `backup-frequency` bestand am 2026-09-21 getrennt unter Docker und Podman mit `embeddinggemma:300m-qat-q4_0` und `gemma3:1b`, exaktem SQL-Retrieval, Golden-Metriken, SQL-/Ollama-Restart und vollständigem eigenem Cleanup. Podman verwendete 1800 Sekunden Downloadbudget je Modell; die Inferenzlimits blieben unverändert. Weitere Golden-Fälle sind nicht durch diese Referenz abgedeckt. |
 | Hyper-V RAG/Agent | `validated_reference` | Eigener SQL-2025-Prepared-Run mit Host-Embeddinggemma und lokalem Qwen: Lauf 35542940923 bestand am 2026-09-21 mit 14 Assertions, tatsächlichem VM-Neustart, SQL-Bereitschaft, Login-Cleanup und vollständigem VM-/Child-VHDX-/IPAM-Cleanup. Parent und Hostmodellinventar unverändert; reservierte Gruppen unberührt. Golden v1 bleibt separat. |
 | Modellcache | `validated` (Bewertung; Nichtübernahme) | [Bewertung](SQL_AI_CAPABILITIES_ASSESSMENT_2026-09-10.md): vorerst kein gemeinsamer persistenter Cache. Ein Pull-Timeout belegt keinen Cachegewinn; ein sicherer Blob-/Lease-/Publish-Vertrag fehlt. Erst erfolgreichen geänderten Podman-Lauf messen, bei bestätigtem Engpass separate Umsetzung mit Digest-, Abbruch-, Konkurrenz- und Cleanup-Abnahme; Aufwand L. |
-| Persistentes Retrieval/Re-Embedding | `validated_reference` (enger synthetischer Slice) | [Eigene SQL-2025-Containergenerationen](../Architecture/AI_PERSISTENT_RETRIEVAL.md) mit festen Initial-/Delta-Dokumenten, lokalem Host-Embedding, atomarem Cutover, SQL-quittiertem Resume und besitzgebundenem Remove. 46 fokussierte Offlinechecks und getrennte native Docker-/Podman-Abnahmen bestanden (je 16 Assertions, SQLrestart und vollständiges Cleanup). Enger Modellwechsel Delta→Nomic ist unter Docker und Podman getrennt nativ belegt (je 20 Assertions, SQLrestart und Cleanup); weitere Modell-/Dimensionswechsel, beliebige Dokumente und Hyper-V bleiben offen. |
+| Persistentes Retrieval/Re-Embedding | `validated_reference` (begrenzter Container-Slice) | [Eigene SQL-2025-Containergenerationen](../Architecture/AI_PERSISTENT_RETRIEVAL.md) mit festen Initial-/Delta- oder 1–16 Caller-Dokumenten, lokalem Host-Embedding, atomarem Cutover, SQL-quittiertem Resume und besitzgebundenem Remove. Sync ist unter Docker und Podman nativ belegt. Der Modellwechsel Embeddinggemma→Nomic unterstützt feste und Caller-Bestände; Docker und Podman bestanden jeweils 25 native Prüfungen einschließlich SQL-Neustart und vollständigem Cleanup. Weitere Zielmodelle, Dimensionswechsel und Hyper-V bleiben offen. |
 
 Die [neuen SQL-Anwendungsfälle](NEW_SQL_LAB_USE_CASES_BACKLOG.md), der
 [KI-Plattformbacklog](SQL2025_AI_PLATFORM_BACKLOG.md), der
@@ -253,8 +253,11 @@ implementiert: eigener SQL-2025-Containerscope, Initial/Delta, Resume und
 atomarer aktiver Zeiger. Offline-Verträge und die getrennten nativen Docker-/Podman-Abnahmen sind geprüft, einschließlich SQLrestart und vollständigem Cleanup.
 Der nachfolgende [begrenzte Modellwechsel](../Architecture/AI_PERSISTENT_MODEL_MIGRATION.md)
 ergänzt explizit Delta/gen2 nach Nomic v2 MoE/gen3 mit v2-Upgrade und festen
-Präfixprofilen. Die 44 fokussierten Migrationchecks sowie beide nativen Abnahmen mit je 20 Assertions, SQLrestart und vollständigem Cleanup bestehen. Allgemeine Modell-/Dimensionswechsel und
-beliebige Nutzerdokumente bleiben offen; Golden v1 wird nicht umgebunden.
+Präfixprofilen. Am 2026-09-22 wurde derselbe atomare Vertrag auf vollständig
+gebundene Caller-Bestände und dynamische Quell-/Zielgenerationen erweitert. Die
+fokussierte Suite besteht; Docker und Podman bestanden jeweils 25 native
+Prüfungen einschließlich SQL-Neustart und vollständigem Cleanup. Weitere
+Zielmodelle und Dimensionswechsel bleiben offen; Golden v1 wird nicht umgebunden.
 
 ## Entwicklungsreihenfolge nach Fortsetzung vom 2026-09-21
 

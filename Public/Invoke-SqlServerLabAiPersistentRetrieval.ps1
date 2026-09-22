@@ -18,14 +18,15 @@
 .PARAMETER Action
     Apply erstellt eine neue Generation; Sync ersetzt den gebundenen Dokumentbestand atomar; Migrate baut Delta mit dem expliziten Zielmodell neu auf; Query liest die aktive; Remove entfernt nur die eigene Datenbank.
 .PARAMETER TargetModelKey
-    Ausschließlich für Migrate: ollama-nomic-embed-text-v2-moe. Benötigt FixtureRevision Delta.
+    Ausschließlich für Migrate: ollama-nomic-embed-text-v2-moe. Die feste Fixture benötigt Delta;
+    callerverwaltete Dokumente behalten FixtureRevision Initial.
 .PARAMETER FixtureRevision
     Initial oder Delta. Delta aktualisiert, entfernt und ergänzt feste synthetische Dokumente.
 .PARAMETER QueryId
     Feste synthetische Frage backup oder cleanup.
 .PARAMETER Documents
     Optional 1 bis 16 Dokumente mit eindeutigen Eigenschaften Id und Content.
-    Gilt für eine initiale Apply-Generation, Sync und deren Query.
+    Gilt für eine initiale Apply-Generation, Sync, Migrate und deren Query.
 .PARAMETER ExpectedDocuments
     Bei Sync der vollständige erwartete aktive Dokumentbestand. Abweichungen blockieren vor Embedding und SQL-Staging.
 .PARAMETER Question
@@ -51,6 +52,8 @@
     Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId -Action Apply -FixtureRevision Delta -Resume
 .EXAMPLE
     Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId -Action Sync -ExpectedDocuments $old -Documents $new
+.EXAMPLE
+    Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId -Action Migrate -Documents $documents -TargetModelKey ollama-nomic-embed-text-v2-moe
 .EXAMPLE
     Invoke-SqlServerLabAiPersistentRetrieval -RunId $runId -CollectionId $collectionId -Action Remove
 #>
