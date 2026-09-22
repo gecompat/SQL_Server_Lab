@@ -46,6 +46,10 @@ param($Module,$RepoRoot)
     $miniPlan=New-LabAiRagPlan @miniBase
     Check 'All-MiniLM bindet 384 Dimensionen, Rohtextprofil und Live-Hostprüfung' (
         $miniPlan.EmbeddingPlan.Dimension -eq 384 -and $miniPlan.EmbeddingPlan.InputProfile -ceq 'raw' -and $miniPlan.HostModelValidation)
+    $paraphraseBase=$base.Clone();$paraphraseBase.EmbeddingModelKey='ollama-paraphrase-multilingual-latest'
+    $paraphrasePlan=New-LabAiRagPlan @paraphraseBase
+    Check 'Paraphrase Multilingual bindet 768 Dimensionen, Rohtextprofil und Live-Hostprüfung' (
+        $paraphrasePlan.EmbeddingPlan.Dimension -eq 768 -and $paraphrasePlan.EmbeddingPlan.InputProfile -ceq 'raw' -and $paraphrasePlan.HostModelValidation)
     foreach($fault in @('version','digest','remote-tag','remote-show','capability','dimension')){
         $script:hostFault=$fault
         Check "Hostmodell $fault blockiert vor Payload" (Reject {Get-LabAiHostModelBinding -Plan $plan.EmbeddingPlan -MetadataTransport $metadata} 'AI_RAG_HOST_')

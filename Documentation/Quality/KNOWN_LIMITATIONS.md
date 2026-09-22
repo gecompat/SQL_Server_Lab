@@ -98,7 +98,8 @@ synthetischen internen Ablauf, keine SQL-/Providerdeadline.
 
 Der [Podman-KI-Erstellungsdialog](../Architecture/AI_PODMAN_SETUP.md) setzt
 bereites Podman und das ausgewählte vorhandene lokale `embeddinggemma:latest`,
-`bge-m3:latest`, `nomic-embed-text-v2-moe:latest` oder `all-minilm:latest`
+`bge-m3:latest`, `nomic-embed-text-v2-moe:latest`, `all-minilm:latest` oder
+`paraphrase-multilingual:latest`
 voraus. Er
 installiert keine Modelle, startet keine Machine und richtet kein SQL External
 Model ein. Die feste native Podman-Referenz bestand am 2026-09-21 mit sechs
@@ -108,7 +109,9 @@ unverändertem Hostmodellinventar und vollständig bestätigtem Cleanup.
 Die Nomic-v2-/768-Auswahl bestand am 2026-09-22 ebenfalls mit denselben sechs
 Assertions und vollständig bestätigtem Cleanup. Die All-MiniLM-/384-Auswahl
 bestand am selben Tag mit gebundenem Hybridmodus, denselben sechs Assertions
-und vollständig bestätigtem Cleanup. Andere Provider, weitere Modelle und
+und vollständig bestätigtem Cleanup. Die Paraphrase-Multilingual-/768-Auswahl
+bestand am selben Tag mit reiner Vektorsuche, denselben sechs Assertions und
+vollständig bestätigtem Cleanup. Andere Provider, weitere Modelle und
 eigene Dokumentbestände sind dadurch nicht freigegeben.
 All-MiniLM erreicht für die feste deutsche Referenzfrage im reinen Vektormodus
 nicht den erwarteten Top-Treffer. Der geführte Plan bindet deshalb für dieses
@@ -118,13 +121,13 @@ Ein harter Abbruch des Elternprozesses benötigt Prüfung der dauerhaft
 gespeicherten eigenen Operation; es gibt keinen automatischen Recoverydienst.
 
 Der [Host-RAG-Slice](../Architecture/AI_RAG_EXISTING_OLLAMA.md) verbindet vorhandenes
-`embeddinggemma:latest`, `nomic-embed-text:latest`, `bge-m3:latest` oder
-`all-minilm:latest` mit exakter SQLsuche und
+`embeddinggemma:latest`, `nomic-embed-text:latest`, `bge-m3:latest`,
+`all-minilm:latest` oder `paraphrase-multilingual:latest` mit exakter SQLsuche und
 lokaler oder expliziter HTTPS-Cloudgeneration. Nomic v1.5 verwendet das
 kataloggebundene `nomic-search`-Profil; Dokument- und Fragepräfixe werden
 automatisch getrennt angewendet. BGE-M3 verwendet 1024 Dimensionen und das
 unveränderte Rohtextprofil; All-MiniLM verwendet dasselbe Profil mit 384
-Dimensionen.
+Dimensionen, Paraphrase Multilingual mit 768 Dimensionen.
 Live-Digest/Capability/Dimension, Datenklasse, Egress und Secretgrenze werden
 geprüft; es gibt keine Downloads oder Host-Lifecycleaktionen. Lokale und Golden-
 Defaults bleiben erhalten. Die neuen kombinierten Podman- und Docker-Nachweise
@@ -171,8 +174,9 @@ die Hyper-V-Ollama-Lane bleiben `PLANNED`. Ein kostenbegrenzter Live-Probe am
 abgeleitet.
 Die zusätzliche lokale Nomic-v1.5-Unterstützung gilt für flüchtiges Ad-hoc-RAG.
 Sie erweitert die feste persistente Migration nicht auf weitere Zielmodelle.
-Der Podman-KI-Erstellungsdialog unterstützt EmbeddingGemma, BGE-M3, Nomic v2
-und All-MiniLM. BGE-M3-, All-MiniLM- und direkte Nomic-v2-Collections können
+Der Podman-KI-Erstellungsdialog unterstützt EmbeddingGemma, BGE-M3, Nomic v2,
+All-MiniLM und Paraphrase Multilingual. BGE-M3-, All-MiniLM-,
+Paraphrase-Multilingual- und direkte Nomic-v2-Collections können
 nicht mit dem festen EmbeddingGemma-zu-Nomic-Migrationspfad migriert werden.
 Der implementierte Offline-Transport prüft Request-, Retry-, Dimensions- und
 Fehlerverträge, stellt aber selbst keinen Netzwerkdienst bereit.

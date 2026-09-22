@@ -5,9 +5,10 @@
 Starte `Invoke-SqlServerLab` und wähle **Datenbanken und Verbindungen → SQL Server 2025 KI →
 Podman-KI-Testumgebung erstellen**. Podman muss bereit sein. Der Dialog lässt
 zwischen dem vorhandenen `embeddinggemma:latest` (768 Dimensionen, Standard),
-`bge-m3:latest` (1024 Dimensionen, mehrsprachig) und
-`nomic-embed-text-v2-moe:latest` (768 Dimensionen, Suchprofil) sowie dem
-kompakten `all-minilm:latest` (384 Dimensionen) wählen. Er fragt außerdem
+`bge-m3:latest` (1024 Dimensionen, mehrsprachig),
+`nomic-embed-text-v2-moe:latest` (768 Dimensionen, Suchprofil), dem
+kompakten `all-minilm:latest` (384 Dimensionen) und dem mehrsprachigen
+`paraphrase-multilingual:latest` (768 Dimensionen) wählen. Er fragt außerdem
 Name, lokalen Ollama-Port (11434), CPU (2) und RAM in MB (4096)
 und zeigt vor der Erstellung eine Vorschau. Abbruch erstellt keinen Run.
 Die feste deutsche All-MiniLM-Referenzabfrage verwendet den gebundenen
@@ -19,8 +20,8 @@ Embeddingdaten erhalten. **Meine KI-Testumgebungen anzeigen** liefert später
 RunId, CollectionId, Modell und Dimension für erneute Abfragen; SQL-Verbindungen stehen im
 Connection Center. Die vorhandene Run-Entfernung entfernt die ganze Umgebung
 ausdrücklich. Keine Modellinstallation, Cloud oder beliebigen Dokumente.
-Der native Standardlauf bestand am 2026-09-21; die BGE-M3-/1024- und die
-Nomic-v2-/768- sowie All-MiniLM-/384-Auswahl am 2026-09-22. Alle behielten die
+Der native Standardlauf bestand am 2026-09-21; die BGE-M3-/1024-, Nomic-v2-/768-,
+All-MiniLM-/384- und Paraphrase-Multilingual-/768-Auswahl am 2026-09-22. Alle behielten die
 Query über einen SQLrestart und bestätigten
 anschließend vollständiges eigenes Cleanup.
 [Details, Fehlerbehandlung und Grenzen](../Architecture/AI_PODMAN_SETUP.md).
@@ -69,7 +70,9 @@ lokales `embeddinggemma:latest` oder mit explizitem
 `-EmbeddingModelKey ollama-bge-m3-latest` das lokale BGE-M3 oder mit
 `-EmbeddingModelKey ollama-nomic-embed-text-v2-moe` das lokale Nomic v2. Mit
 `-EmbeddingModelKey ollama-all-minilm-latest` wird All-MiniLM mit
-`VECTOR(384)` und unverändertem Rohtext verwendet. Mit einer
+`VECTOR(384)` und unverändertem Rohtext verwendet. Mit
+`-EmbeddingModelKey ollama-paraphrase-multilingual-latest` wird Paraphrase
+Multilingual mit `VECTOR(768)` und unverändertem Rohtext verwendet. Mit einer
 beibehaltenen Collection-GUID führen
 `-FixtureRevision Initial`, `-FixtureRevision Delta`, `-Action Sync`, `-Action Query` und
 `-Action Remove` durch persistente Generationen und eigenes Cleanup. `-Resume`

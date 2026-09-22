@@ -11,7 +11,9 @@ Nomic-v2-Modell mit 768 Dimensionen. Dessen Dokumente und Fragen erhalten
 automatisch die katalogisierten Rollenpräfixe und sind einschließlich Präfix
 auf 512 UTF-8-Bytes begrenzt. `-EmbeddingModelKey ollama-all-minilm-latest`
 verwendet das kompakte lokale `all-minilm:latest` mit 384 Dimensionen und
-unverändertem Rohtext. Es gibt
+unverändertem Rohtext. `-EmbeddingModelKey ollama-paraphrase-multilingual-latest`
+verwendet das mehrsprachige lokale `paraphrase-multilingual:latest` mit 768
+Dimensionen ebenfalls ohne Rollenpräfix. Es gibt
 keinen Modell-Download, Host-Neustart, Cloudaufruf oder Generierungsschritt.
 
 ## Öffentlicher Ablauf
@@ -98,7 +100,8 @@ und löst Gleichstände deterministisch per Distanz und Chunk-ID auf. Wörter mi
 weniger als vier Zeichen und definierte Satzzeichen gehen nicht in den
 lexikalischen Score ein. Die Berechnung verwendet nur parametrisierte feste SQL
 und ausschließlich die aktive Generation. Sie ist für die
-EmbeddingGemma-, BGE-M3-, direkten Nomic-v2- und All-MiniLM-Generationen im
+EmbeddingGemma-, BGE-M3-, direkten Nomic-v2-, All-MiniLM- und
+Paraphrase-Multilingual-Generationen im
 v1-Journal freigegeben. Der
 separate Nomic-Modellmigrationspfad bleibt reine Vektorsuche. SQL Server Full-Text Search mit
 sprachspezifischem Word Breaker und Ranking bleibt ein eigener offener Slice,
@@ -178,7 +181,8 @@ setzt die monotone Generationsnummer jedoch nicht zurück. Nach Generation 32
 blockiert daher weiterhin `AI_PERSISTENT_GENERATION_LIMIT_REACHED`;
 automatische Retention ist nicht implementiert. Direkte Nomic-v2-Collections
 können angewendet, abgefragt, synchronisiert, begrenzt und entfernt werden.
-Dasselbe gilt für direkte All-MiniLM-Collections mit 384 Dimensionen.
+Dasselbe gilt für direkte All-MiniLM-Collections mit 384 und
+Paraphrase-Multilingual-Collections mit 768 Dimensionen.
 Die Nomic-v2-Migration bleibt
 an ihre validierte EmbeddingGemma-768-Quelle gebunden; eine BGE-M3-Collection
 kann abgefragt, synchronisiert, begrenzt und entfernt, derzeit aber nicht zu
@@ -214,6 +218,9 @@ zusätzlich mit sechs Assertions, Query vor und nach SQLrestart sowie
 vollständigem eigenem Cleanup.
 Die All-MiniLM-Auswahl bestand am selben Tag ebenfalls mit sechs Assertions,
 `VECTOR(384)`, gebundenem Hybridmodus, Query vor und nach SQLrestart sowie
+vollständigem eigenem Cleanup.
+Die Paraphrase-Multilingual-Auswahl bestand am selben Tag mit sechs Assertions,
+`VECTOR(768)`, reiner Vektorsuche, Query vor und nach SQLrestart sowie
 vollständigem eigenem Cleanup.
 
 Die ergänzende Referenz `Invoke-AiPodmanSamplesReferenceAcceptance.ps1` bleibt

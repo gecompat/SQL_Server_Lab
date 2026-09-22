@@ -133,6 +133,13 @@
             "Model": { "const": "all-minilm:latest" },
             "Dimension": { "const": 384 }
           }
+        },
+        {
+          "properties": {
+            "ModelKey": { "const": "ollama-paraphrase-multilingual-latest" },
+            "Model": { "const": "paraphrase-multilingual:latest" },
+            "Dimension": { "const": 768 }
+          }
         }
       ],
       "type": "object"
