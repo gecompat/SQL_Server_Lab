@@ -226,6 +226,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Plant einen vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt
         hashgebunden und ohne Netzwerk- oder Hostmutation.
 
+    Get-SqlServerLabAiExternalModelSqlPlan
+        Bindet einen frischen Endpoint-Nachweis an einen geheimnisfreien
+        SQL-2025-Mutations- und Cleanupplan, ohne SQL-Verbindung oder Mutation.
+
     Test-SqlServerLabAiExternalModelArtifact
         Prueft lokale Runtime- und Modelldateien read-only gegen die SHA-256-
         Werte des Plans, ohne Prozess- oder Accelerator-Evidence zu behaupten.

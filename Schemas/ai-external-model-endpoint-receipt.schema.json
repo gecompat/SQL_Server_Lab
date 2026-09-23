@@ -3,7 +3,7 @@
   "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-external-model-endpoint-receipt.schema.json",
   "title": "SQL Server Lab AI External Model Endpoint Receipt",
   "type": "object",
-  "required": ["Contract","Status","EvidenceStatus","PlanKey","Backend","Dimension","HttpStatus","ServerCertificateSha256","DurationMilliseconds","VerifiedEvidence","PendingEvidence"],
+  "required": ["Contract","Status","EvidenceStatus","PlanKey","Backend","Dimension","HttpStatus","ServerCertificateSha256","DurationMilliseconds","VerifiedAtUtc","ReceiptKey","VerifiedEvidence","PendingEvidence"],
   "properties": {
     "Contract": {"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiExternalModelEndpointReceipt"},"Version":{"const":"1.0"}},"additionalProperties":false},
     "Status": {"const":"ENDPOINT_VERIFIED"},
@@ -14,6 +14,8 @@
     "HttpStatus": {"type":"integer","minimum":200,"maximum":299},
     "ServerCertificateSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
     "DurationMilliseconds": {"type":"integer","minimum":0},
+    "VerifiedAtUtc": {"type":"string","format":"date-time"},
+    "ReceiptKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
     "VerifiedEvidence": {"type":"array","minItems":5,"uniqueItems":true,"items":{"enum":["HTTPS_CERTIFICATE_MATCH","OPENAI_RESPONSE_SHAPE_MATCH","RUNTIME_MODEL_MATCH","EMBEDDING_DIMENSION_MATCH","FINITE_NUMERIC_VECTOR_MATCH"]}},
     "PendingEvidence": {"type":"array","minItems":3,"uniqueItems":true,"items":{"enum":["RUNTIME_BINARY_MATCH","MODEL_FILE_MATCH","ACCELERATOR_RUNTIME_ATTESTATION"]}}
   },

@@ -110,7 +110,10 @@ lesenden, hashgebundenen Plan für vorhandene OpenAI-kompatible HTTPS-
 Embedding-Endpunkte. Der Test deckt OpenVINO-NPU, den erforderlichen OVMS-
 Gateway, einen exakt gebundenen Runtime-Modellnamen, falsche Backend-/
 Accelerator-Kombinationen und den ausdrücklich noch nicht ausgeführten
-Evidence-Status ab; er startet keine Runtime.
+Evidence-Status ab. Ein nachrechenbarer UTC-Receipt-Key bindet die Live-Probe an
+den geheimnisfreien SQL-2025-Mutations-/Cleanupplan; Manipulation, Planabweichung
+und abgelaufene Endpoint-Evidence werden vor jeder SQL-Verbindung abgewiesen. Der
+Test startet keine Runtime und führt kein SQL aus.
 Zusätzlich prüft er die read-only OVMS-Upstream-Probe mit numerischem Loopback,
 festem `/v3/embeddings`-Pfad, exaktem Runtime-Modell, Dimension und endlichen
 Vektorwerten. Der getrennte
@@ -118,8 +121,8 @@ Vektorwerten. Der getrennte
 Windows nur eigene freie Loopbackports, einen synthetischen HTTP-Upstream und
 eine kurzlebige CA-/Leaf-Kette. Er bestätigt TLS-Start, kanonische Planbindung,
 planbasierte HTTPS-Endpunktprobe, Owner-Stop, Listenerabbau und Secret-Löschung
-ohne SQL oder Provider. Accelerator- und SQL-Evidence bleiben ausdrücklich
-unbestätigt.
+sowie den daraus erzeugten SQL-Plan ohne SQL-Verbindung oder Provider.
+Accelerator- und SQL-Evidence bleiben ausdrücklich unbestätigt.
 Hostmodell-Digest/Capability/Dimension/Remoteidentity, Egress/Datenklasse,
 WhatIf, Vektoren und echten synthetischen HTTP307 ohne Weiterleitung.
 `Invoke-AiRagExistingOllamaAcceptance.ps1` ist eine separate opt-in Abnahme mit

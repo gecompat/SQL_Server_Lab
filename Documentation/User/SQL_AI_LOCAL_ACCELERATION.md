@@ -40,6 +40,9 @@ $rootCa = [Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromP
 $apiKey = Read-Host 'Lokaler API-Key' -AsSecureString
 $receipt = $plan | Test-SqlServerLabAiExternalModelEndpoint `
   -ApiKey $apiKey -TrustedRootCertificate $rootCa
+
+$sqlPlan = Get-SqlServerLabAiExternalModelSqlPlan `
+  -Plan $plan -EndpointReceipt $receipt -DatabaseName AiLab
 ```
 
 Bei einem öffentlich oder bereits systemweit vertrauten Zertifikat entfällt
@@ -51,6 +54,12 @@ endliche numerische Werte und Dimension sind live bestätigt. Runtime-
 Binärdatei, Modelldatei und tatsächliche CPU-/GPU-/NPU-Ausführung bleiben bis
 zu getrennten Nachweisen offen. Ein fehlender oder abweichender Modellname
 blockiert mit `AI_EXTERNAL_MODEL_RUNTIME_MODEL_MISMATCH`.
+
+Der SQL-Planer akzeptiert standardmäßig nur ein höchstens fünf Minuten altes,
+unverändertes Receipt. Er beschreibt den SQL-17-, Datenbankberechtigungs- und
+Database-Master-Key-Preflight, Credential, External Model, Katalogprüfung und
+die umgekehrte Cleanupfolge, verbindet sich aber nicht mit SQL Server und nimmt
+kein Secret entgegen.
 
 Plan und Probe installieren nichts und ändern weder Truststore, Firewall,
 Hosts-Datei noch Dienste.
@@ -212,8 +221,10 @@ $plan = Get-SqlServerLabAiExternalModelPlan `
 
 $root = [Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem(
   [IO.File]::ReadAllText('C:\certs\lab-root.pem'))
-$plan | Test-SqlServerLabAiExternalModelEndpoint `
+$endpointReceipt = $plan | Test-SqlServerLabAiExternalModelEndpoint `
   -ApiKey $apiKey -TrustedRootCertificate $root
+$sqlPlan = Get-SqlServerLabAiExternalModelSqlPlan `
+  -Plan $plan -EndpointReceipt $endpointReceipt -DatabaseName AiLab
 $root.Dispose()
 
 Stop-SqlServerLabOvmsHttpsGateway -OperationId $gateway.OperationId
@@ -229,6 +240,9 @@ resultierende Status `NOT_PROBED` erlaubt die getrennte HTTPS-Probe, führt aber
 noch keine SQL-Mutation aus und bestätigt keine Acceleratornutzung. Der interne
 Ollama-Gateway aus der
 Docker-Referenzabnahme ist weiterhin keine allgemeine OVMS-Gateway-API.
+Auch der resultierende SQL-Plan ist nur ein zeitlich begrenzter, geheimnisfreier
+Vertrag. Insbesondere ist der OVMS-v3-Pfad noch nicht nativ durch SQL Server 2025
+abgenommen.
 
 Ein bereits vom Operator gestarteter OVMS-Upstream kann vorab ohne Mutation
 geprüft werden:

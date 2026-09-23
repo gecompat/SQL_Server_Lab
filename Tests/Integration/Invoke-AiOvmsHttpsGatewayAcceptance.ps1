@@ -36,13 +36,17 @@ try {
     if($plan.Status -cne 'NOT_PROBED' -or $plan.GatewayBindingKey -cne $gateway.BindingKey){throw 'GATEWAY_PLAN_NOT_BOUND'}
     $endpointReceipt=$plan|Test-SqlServerLabAiExternalModelEndpoint -ApiKey $secret -TrustedRootCertificate $ca -TimeoutSeconds 5
     if($endpointReceipt.Status -cne 'ENDPOINT_VERIFIED' -or $endpointReceipt.PlanKey -cne $plan.PlanKey){throw 'GATEWAY_PLAN_ENDPOINT_NOT_VERIFIED'}
+    $sqlPlan=Get-SqlServerLabAiExternalModelSqlPlan -Plan $plan -EndpointReceipt $endpointReceipt -DatabaseName AiLab
+    if($sqlPlan.Status -cne 'PLANNED' -or $sqlPlan.SourcePlanKey -cne $plan.PlanKey -or
+       $sqlPlan.EndpointReceiptKey -cne $endpointReceipt.ReceiptKey -or
+       -not($sqlPlan|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-sql-plan.schema.json'))){throw 'GATEWAY_SQL_PLAN_NOT_BOUND'}
     $operationRoot=Join-Path $env:TEMP ('sql-lab-ovms-gateway-'+$gateway.OperationId)
     if(-not (Test-Path (Join-Path $operationRoot 'api-key.txt'))){throw 'SECRET_NOT_PRESENT_WHILE_RUNNING'}
     $cleanup=Stop-SqlServerLabOvmsHttpsGateway -OperationId $gateway.OperationId -Confirm:$false;$gateway=$null
     if($cleanup.Status -cne 'CLEANUP_SUCCEEDED'){throw 'CLEANUP_NOT_CONFIRMED'}
     if(Test-Path (Join-Path $operationRoot 'api-key.txt')){throw 'SECRET_REMAINS'}
     if(@(Get-NetTCPConnection -LocalPort $gatewayPort -State Listen -ErrorAction SilentlyContinue).Count){throw 'LISTENER_REMAINS'}
-    [PSCustomObject]@{Status='PASS';GatewayPort=$gatewayPort;UpstreamPort=$upstreamPort;PlanBound=$true;EndpointVerified=$true;SecretRemoved=$true;ListenerRemoved=$true;BindingKeyLength=64}
+    [PSCustomObject]@{Status='PASS';GatewayPort=$gatewayPort;UpstreamPort=$upstreamPort;PlanBound=$true;EndpointVerified=$true;SqlPlanned=$true;SecretRemoved=$true;ListenerRemoved=$true;BindingKeyLength=64}
 }
 finally {
     if($gateway){try{Stop-SqlServerLabOvmsHttpsGateway -OperationId $gateway.OperationId -Confirm:$false|Out-Null}catch{}}

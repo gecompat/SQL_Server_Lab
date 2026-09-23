@@ -1480,8 +1480,10 @@ OVMS-Upstream, kurzlebiger CA, TLS-Probe, Owner-Stop, Listenerabbau und
 Secret-Löschung abgenommen. Der External-Model-Plan rechnet dessen Binding-Key
 erneut nach und bindet Operation, Lease, Upstream, HTTPS-Location, Modell,
 Dimension und Pin. Die Acceptance bestätigt auch die planbasierte
-HTTPS-Endpunktprobe. SQL-Mutation, SQLrestart und Acceleratorattestation fehlen
-weiterhin. Der vorhandene
+HTTPS-Endpunktprobe und einen frischen, manipulationsgebundenen SQL-2025-
+Mutations-/Cleanupplan ohne Secret. Es gibt noch keinen Executor; insbesondere
+ist OVMS `/v3/embeddings` nicht nativ durch SQL Server abgenommen. SQL-Mutation,
+SQLrestart und Acceleratorattestation fehlen weiterhin. Der vorhandene
 Docker-/Ollama-Referenzgateway bindet einen festen Ollama-Pfad und darf weiterhin
 nicht als allgemeiner OVMS-Reverse-Proxy interpretiert werden.
 Eine read-only OVMS-Probe kann einen bereits laufenden numerischen

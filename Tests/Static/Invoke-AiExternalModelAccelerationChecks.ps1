@@ -158,10 +158,32 @@ try {
     Add-CheckResult 'Endpoint-Receipt ist schema-valide und lässt Runtime-/Accelerator-Evidence offen' (
         ($receipt|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-endpoint-receipt.schema.json')) -and
         $receipt.Status -eq 'ENDPOINT_VERIFIED' -and 'RUNTIME_MODEL_MATCH' -in $receipt.VerifiedEvidence -and
-        'ACCELERATOR_RUNTIME_ATTESTATION' -in $receipt.PendingEvidence)
+        'ACCELERATOR_RUNTIME_ATTESTATION' -in $receipt.PendingEvidence -and $receipt.ReceiptKey -match '^[a-f0-9]{64}$' -and
+        [DateTimeOffset]::Parse($receipt.VerifiedAtUtc).Offset -eq [TimeSpan]::Zero)
     $receiptJson=$receipt|ConvertTo-Json -Depth 10
     Add-CheckResult 'Endpoint-Receipt enthält weder Vektor, Payload, Secret noch Hostpfad' (
         $receiptJson -notmatch '(?i)("Vector"|synthetic|"Input"|secret|bearer|localhost|C:\\|/home/)')
+    $sqlPlan=Get-SqlServerLabAiExternalModelSqlPlan -Plan $probePlan -EndpointReceipt $receipt -DatabaseName AiLab
+    Add-CheckResult 'SQL-Plan bindet frische Endpoint-Evidence ohne Mutation' (
+        $sqlPlan.Status -eq 'PLANNED' -and $sqlPlan.EvidenceStatus -eq 'LIVE_ENDPOINT_BOUND' -and
+        $sqlPlan.SourcePlanKey -ceq $probePlan.PlanKey -and $sqlPlan.EndpointReceiptKey -ceq $receipt.ReceiptKey -and
+        @($sqlPlan.MutationSequence) -join ',' -eq 'PREFLIGHT_DATABASE_VERSION_PERMISSIONS_AND_MASTER_KEY,CREATE_DATABASE_SCOPED_CREDENTIAL,CREATE_EXTERNAL_MODEL,VERIFY_EXTERNAL_MODEL_CATALOG' -and
+        @($sqlPlan.RequiredPermissions) -join ',' -eq 'CONTROL_DATABASE,CREATE_EXTERNAL_MODEL' -and
+        ($sqlPlan|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-sql-plan.schema.json')))
+    Add-CheckResult 'SQL-Plan bleibt geheimnisfrei und lässt SQL, Restart, Accelerator und Cleanup offen' (
+        (($sqlPlan|ConvertTo-Json -Depth 10) -notmatch '(?i)(bearer|password|api.?key|secret.{0,3}:|C:\\|/home/)') -and
+        @($sqlPlan.PendingEvidence) -join ',' -eq 'SQL_EXTERNAL_MODEL_CREATED,SQL_EMBEDDING_VERIFIED,SQL_RESTART_VERIFIED,ACCELERATOR_RUNTIME_ATTESTATION,SQL_CLEANUP_VERIFIED')
+    $tamperedReceipt=$receipt.PSObject.Copy();$tamperedReceipt.ReceiptKey='e'*64
+    $tamperedReceiptCode=$null;try{Get-SqlServerLabAiExternalModelSqlPlan -Plan $probePlan -EndpointReceipt $tamperedReceipt -DatabaseName AiLab|Out-Null;$tamperedReceiptCode='NO_ERROR'}catch{$tamperedReceiptCode=$_.Exception.Message}
+    Add-CheckResult 'SQL-Plan blockiert manipuliertes Endpoint-Receipt' ($tamperedReceiptCode -eq 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_INVALID')
+    $otherPlan=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU -Location 'https://localhost:11435/v1/embeddings' -ExternalModelName OtherModel -RuntimeModel bound-model -Dimension 3 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
+    $mismatchedReceiptCode=$null;try{Get-SqlServerLabAiExternalModelSqlPlan -Plan $otherPlan -EndpointReceipt $receipt -DatabaseName AiLab|Out-Null;$mismatchedReceiptCode='NO_ERROR'}catch{$mismatchedReceiptCode=$_.Exception.Message}
+    Add-CheckResult 'SQL-Plan blockiert planfremdes Endpoint-Receipt' ($mismatchedReceiptCode -eq 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_MISMATCH')
+    $expiredReceipt=$receipt.PSObject.Copy();$expiredReceipt.VerifiedAtUtc=[DateTime]::UtcNow.AddSeconds(-301).ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+    $expiredIdentity=[ordered]@{Contract='SqlServerLab.AiExternalModelEndpointReceiptBinding/1.0';PlanKey=$expiredReceipt.PlanKey;Backend=$expiredReceipt.Backend;Dimension=[int]$expiredReceipt.Dimension;HttpStatus=[int]$expiredReceipt.HttpStatus;ServerCertificateSha256=$expiredReceipt.ServerCertificateSha256;DurationMilliseconds=[int64]$expiredReceipt.DurationMilliseconds;VerifiedAtUtc=$expiredReceipt.VerifiedAtUtc}
+    $expiredReceipt.ReceiptKey=& $module {param($i)Get-LabAiPlanKey -InputObject $i} $expiredIdentity
+    $expiredReceiptCode=$null;try{Get-SqlServerLabAiExternalModelSqlPlan -Plan $probePlan -EndpointReceipt $expiredReceipt -DatabaseName AiLab -MaxEndpointAgeSeconds 300|Out-Null;$expiredReceiptCode='NO_ERROR'}catch{$expiredReceiptCode=$_.Exception.Message}
+    Add-CheckResult 'SQL-Plan blockiert abgelaufene Endpoint-Evidence' ($expiredReceiptCode -eq 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_EXPIRED')
 
     $failureCases=@(
         @{Name='Zertifikatabweichung';Code='AI_EXTERNAL_MODEL_TLS_CERTIFICATE_MISMATCH';Transport={param($request)[PSCustomObject]@{StatusCode=200;ServerCertificateSha256=('d'*64);Body=[PSCustomObject]@{model='bound-model';data=@([PSCustomObject]@{embedding=@(1,2,3)})}}}},
@@ -189,6 +211,11 @@ try {
     Add-CheckResult 'Öffentliche Probe ist exportiert und verbirgt den Testtransport' (
         (Get-Command Test-SqlServerLabAiExternalModelEndpoint -Module $module.Name).Parameters.ContainsKey('TrustedRootCertificate') -and
         -not (Get-Command Test-SqlServerLabAiExternalModelEndpoint -Module $module.Name).Parameters.ContainsKey('Transport'))
+    $sqlPlanCommand=Get-Command Get-SqlServerLabAiExternalModelSqlPlan -Module $module.Name
+    Add-CheckResult 'Öffentlicher SQL-Planer verlangt Plan, Receipt und Datenbank ohne Apply-Parameter' (
+        $sqlPlanCommand.Parameters.ContainsKey('Plan') -and $sqlPlanCommand.Parameters.ContainsKey('EndpointReceipt') -and
+        $sqlPlanCommand.Parameters.ContainsKey('DatabaseName') -and -not $sqlPlanCommand.Parameters.ContainsKey('ApiKey') -and
+        -not $sqlPlanCommand.Parameters.ContainsKey('SqlExecutor'))
     Add-CheckResult 'Öffentliche Artifact-Prüfung ist exportiert und verlangt beide lokalen Dateien' (
         (Get-Command Test-SqlServerLabAiExternalModelArtifact -Module $module.Name).Parameters.ContainsKey('RuntimePath') -and
         (Get-Command Test-SqlServerLabAiExternalModelArtifact -Module $module.Name).Parameters.ContainsKey('ModelPath'))

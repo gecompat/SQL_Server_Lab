@@ -26,6 +26,7 @@
         'Get-SqlServerLabAutomationPlan'
         'Get-SqlServerLabAiScenario'
         'Get-SqlServerLabAiExternalModelPlan'
+        'Get-SqlServerLabAiExternalModelSqlPlan'
         'Get-SqlServerLabLlamaCppRuntime'
         'Start-SqlServerLabLlamaCppRuntime'
         'Stop-SqlServerLabLlamaCppRuntime'

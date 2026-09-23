@@ -115,6 +115,7 @@ Start-SqlServerLabOvmsHttpsGateway          # Eigenen begrenzten OVMS-Loopback-H
 Stop-SqlServerLabOvmsHttpsGateway           # Eigenen Gateway und API-Key bereinigen
 Get-SqlServerLabLlamaCppRuntime             # Windows-Pakete begrenzt ohne Hashpflicht erkennen
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen
+Get-SqlServerLabAiExternalModelSqlPlan       # Frische Endpoint-Evidence an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden
 Test-SqlServerLabAiExternalModelArtifact   # Runtime- und Modelldatei read-only gegen die Plandigests prüfen
 Test-SqlServerLabAiExternalModelEndpoint     # Zertifikatspin, Runtime-Modell, OpenAI-Antwortform und Dimension read-only prüfen
 Test-SqlServerLabOvmsUpstreamEndpoint        # OVMS-v3-Upstream ausschließlich auf numerischem Loopback read-only prüfen
