@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-external-model-sql-embedding-receipt.schema.json",
+  "title": "SQL Server Lab AI External Model SQL Embedding Receipt",
+  "type": "object",
+  "required": ["Contract","Status","EvidenceStatus","OperationId","SqlPlanKey","ApplyReceiptKey","RunId","ScopeId","InstanceId","Provider","BindingKey","DatabaseName","DatabaseGuid","Dimension","BaseType","NonZero","VerifiedAtUtc","VerifiedEvidence","ReceiptKey"],
+  "properties": {
+    "Contract": {"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiExternalModelSqlEmbeddingReceipt"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status": {"const":"SQL_EMBEDDING_VERIFIED"},
+    "EvidenceStatus": {"const":"LIVE_SQL_BOUND"},
+    "OperationId": {"type":"string","pattern":"^[a-f0-9-]{36}$"},
+    "SqlPlanKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "ApplyReceiptKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "RunId": {"type":"string","pattern":"^[a-f0-9-]{36}$"},
+    "ScopeId": {"type":"string","pattern":"^[a-f0-9-]{36}$"},
+    "InstanceId": {"type":"string","pattern":"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$"},
+    "Provider": {"type":"string","minLength":1,"maxLength":32},
+    "BindingKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "DatabaseName": {"type":"string","pattern":"^[A-Za-z_][A-Za-z0-9_]{0,127}$"},
+    "DatabaseGuid": {"type":"string","pattern":"^[a-f0-9-]{36}$"},
+    "Dimension": {"type":"integer","minimum":1,"maximum":1998},
+    "BaseType": {"const":"float32"},
+    "NonZero": {"const":true},
+    "VerifiedAtUtc": {"type":"string","format":"date-time"},
+    "VerifiedEvidence": {"type":"array","minItems":3,"maxItems":3,"uniqueItems":true,"items":{"enum":["SQL_OWNERSHIP_RECEIPT_REVALIDATED","SQL_EMBEDDING_DIMENSION_VERIFIED","SQL_EMBEDDING_FINITE_NONZERO_VERIFIED"]}},
+    "ReceiptKey": {"type":"string","pattern":"^[a-f0-9]{64}$"}
+  },
+  "additionalProperties": false
+}

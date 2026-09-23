@@ -127,7 +127,11 @@ abgeschlossenen Zustandsdrift und blockierte Teilzustände geprüft. Diese
 Suite prüft außerdem den receiptgebundenen Cleanup: exakte Ownership vor
 Mutation, Löschreihenfolge External Model/Credential/Ownership-Tabelle,
 idempotente Abwesenheit, blockierte Teilzustände und Apply-Sperre nach
-`CLEANED`. Diese
+`CLEANED`. Davor prüft sie die receiptgebundene SQL-Embeddingprobe auf Shared-
+AppLock, erneute Ownership-/Katalog-ID-Bindung, parametrisierten Festtext,
+Dimension, `float32`, endliche Nichtnull-Norm und sanitisiertes Receipt; falsche
+Ergebnisanzahl, Dimension, Basistyp, Norm, Receipt und Katalogdrift scheitern
+geschlossen. Diese
 statischen Fälle führen kein DDL auf einer echten SQL-Instanz aus; ein nativer
 SQL-2025-Nachweis bleibt separat offen.
 Zusätzlich prüft er die read-only OVMS-Upstream-Probe mit numerischem Loopback,
