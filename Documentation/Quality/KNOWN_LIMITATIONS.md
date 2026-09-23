@@ -1494,8 +1494,15 @@ External Model in einer `XACT_ABORT`-Transaktion. Ein unbekannter Ausgang wird
 nur über `-Resume` beobachtet; Teilzustände werden nicht adoptiert oder blind
 wiederholt. Dieser Pfad ist bislang ausschließlich mit injiziertem SQL-Transport
 statisch belegt. Insbesondere ist OVMS `/v3/embeddings` nicht nativ durch SQL
-Server abgenommen. Embeddingprobe, SQLrestart, Cleanup, ein Hyper-V-Preflight
-und Acceleratorattestation fehlen weiterhin.
+Server abgenommen. Ein getrennter Cleanup-Executor bindet Apply-Receipt,
+Live-Run, Journal, Datenbank-GUID und SQL-Ownership-Receipt erneut, journalisiert
+vor Mutation und entfernt External Model, Credential und Ownership-Tabelle
+transaktional. Die beim Apply gespeicherten `credential_id` und
+`external_model_id` blockieren namensgleiche Ersatzobjekte. Vollständige
+Abwesenheit ist idempotent; Teilzustände bleiben
+Recoverybedarf und Apply nach `CLEANED` ist blockiert. Auch dieser Pfad ist nur
+mit injiziertem SQL-Transport statisch belegt. Embeddingprobe, SQLrestart, ein
+nativer Cleanup, ein Hyper-V-Preflight und Acceleratorattestation fehlen weiterhin.
 Der vorhandene
 Docker-/Ollama-Referenzgateway bindet einen festen Ollama-Pfad und darf weiterhin
 nicht als allgemeiner OVMS-Reverse-Proxy interpretiert werden.

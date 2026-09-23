@@ -232,6 +232,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Creates the ownership receipt, credential, and external model with a
         journaled transaction and never blindly repeats an uncertain partial state.
 
+    Remove-SqlServerLabAiExternalModelSql
+        Removes the owned external model, credential, and ownership receipt in a
+        receipt-bound transaction and leaves partial states for recovery.
+
     Test-SqlServerLabAiExternalModelArtifact
         Verifies local runtime and model files read-only against the SHA-256
         values in the plan without claiming process or accelerator evidence.

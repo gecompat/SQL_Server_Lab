@@ -238,6 +238,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Erstellt Ownership-Receipt, Credential und External Model journalisiert
         und transaktional; unbekannte Teilzustaende werden nicht blind wiederholt.
 
+    Remove-SqlServerLabAiExternalModelSql
+        Entfernt eigenes External Model, Credential und Ownership-Receipt
+        receiptgebunden und transaktional; Teilzustaende bleiben Recoverybedarf.
+
     Test-SqlServerLabAiExternalModelArtifact
         Prueft lokale Runtime- und Modelldateien read-only gegen die SHA-256-
         Werte des Plans, ohne Prozess- oder Accelerator-Evidence zu behaupten.

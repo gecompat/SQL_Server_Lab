@@ -51,6 +51,9 @@ $credentialSecret = Read-Host 'HTTP-Header-Secret für SQL' -AsSecureString
 $sqlApply = Invoke-SqlServerLabAiExternalModelSqlApply `
   -SqlPlan $sqlPlan -PreflightReceipt $sqlPreflight -RunId $runId `
   -CredentialSecret $credentialSecret
+
+$sqlCleanup = Remove-SqlServerLabAiExternalModelSql `
+  -SqlPlan $sqlPlan -ApplyReceipt $sqlApply -RunId $runId
 ```
 
 Bei einem öffentlich oder bereits systemweit vertrauten Zertifikat entfällt
@@ -83,14 +86,27 @@ Docker-/Podman-Container und die Datenbank-GUID. Vor der ersten SQL-Mutation
 schreibt er ein geheimnisfreies, atomisches Journal. Eine einzelne
 `XACT_ABORT`-Transaktion erstellt zuerst eine planabgeleitete Ownership-Tabelle,
 danach das Database Scoped Credential und das External Model und bestätigt alle
-drei Postconditions. Das Credential-Secret wird nur als `SecureString`
+drei Postconditions. Die Ownership-Zeile bindet zusätzlich `credential_id` und
+`external_model_id`; ein später unter gleichem Namen ersetztes Objekt gilt nicht
+mehr als eigenes Cleanup-Ziel. Das Credential-Secret wird nur als `SecureString`
 angenommen und weder in Receipt noch Journal geschrieben. Bei verlorener Antwort
 wird kein DDL blind wiederholt: `-Resume` liest den gebundenen SQL-Zustand und
 akzeptiert nur die vollständige Ownership-Postcondition; Teilzustände melden
 `AI_EXTERNAL_MODEL_SQL_APPLY_RECOVERY_REQUIRED`.
 
-Der aktuelle Apply-Receipt bestätigt noch keinen Embeddingaufruf, SQL-Neustart,
-Acceleratorpfad oder Cleanup. Dafür bleiben getrennte Nachweise erforderlich.
+Der Cleanup-Befehl revalidiert Plan, Apply-Receipt, Live-Binding, Journal und
+Datenbank-GUID. Er akzeptiert nur die vollständige, exakt eigene SQL-
+Ownership-Postcondition. Danach löscht eine einzelne `XACT_ABORT`-Transaktion
+External Model, Database Scoped Credential und Ownership-Tabelle in dieser
+Abhängigkeitsreihenfolge. Das Journal wird vor der Mutation auf
+`CLEANUP_PENDING` gesetzt. `-Resume` bestätigt nach einem unbekannten Ausgang
+nur vollständige Abwesenheit oder wiederholt bei weiterhin vollständig
+intaktem Eigentum; Teilzustände bleiben `AI_EXTERNAL_MODEL_SQL_CLEANUP_RECOVERY_REQUIRED`.
+
+Der aktuelle Apply-Receipt bestätigt noch keinen Embeddingaufruf, SQL-Neustart
+oder Acceleratorpfad. Der Cleanup-Receipt belegt die SQL-seitige Abwesenheit,
+aber noch keinen nativen SQL-2025-End-to-End-Lauf. Dafür bleiben getrennte
+Nachweise erforderlich.
 
 Plan und Probe installieren nichts und ändern weder Truststore, Firewall,
 Hosts-Datei noch Dienste.
