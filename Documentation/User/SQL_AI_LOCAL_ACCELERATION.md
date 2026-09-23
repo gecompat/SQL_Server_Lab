@@ -43,6 +43,9 @@ $receipt = $plan | Test-SqlServerLabAiExternalModelEndpoint `
 
 $sqlPlan = Get-SqlServerLabAiExternalModelSqlPlan `
   -Plan $plan -EndpointReceipt $receipt -DatabaseName AiLab
+
+$sqlPreflight = Test-SqlServerLabAiExternalModelSqlPreflight `
+  -SqlPlan $sqlPlan -RunId $runId
 ```
 
 Bei einem öffentlich oder bereits systemweit vertrauten Zertifikat entfällt
@@ -60,6 +63,13 @@ unverändertes Receipt. Er beschreibt den SQL-17-, Datenbankberechtigungs- und
 Database-Master-Key-Preflight, Credential, External Model, Katalogprüfung und
 die umgekehrte Cleanupfolge, verbindet sich aber nicht mit SQL Server und nimmt
 kein Secret entgegen.
+
+Der anschließende Preflight verbindet sich ausschließlich mit dem eigenen,
+rungebundenen Docker-/Podman-SQL-Ziel. Er prüft SQL 2025, eine Benutzer-
+Datenbank und deren exakte Identität,
+`ONLINE`/`READ_WRITE`, Database Master Key, `CONTROL` und
+`CREATE EXTERNAL MODEL` sowie freie Credential- und Modellnamen. Sein
+hashgebundenes Receipt enthält weder Secret noch SQL-Text und führt kein DDL aus.
 
 Plan und Probe installieren nichts und ändern weder Truststore, Firewall,
 Hosts-Datei noch Dienste.

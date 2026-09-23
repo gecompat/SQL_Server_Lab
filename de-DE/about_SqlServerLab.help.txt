@@ -230,6 +230,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Bindet einen frischen Endpoint-Nachweis an einen geheimnisfreien
         SQL-2025-Mutations- und Cleanupplan, ohne SQL-Verbindung oder Mutation.
 
+    Test-SqlServerLabAiExternalModelSqlPreflight
+        Prueft einen eigenen SQL-2025-Zielscope read-only auf Datenbankidentitaet,
+        Master Key, Berechtigungen und freie Credential-/External-Model-Namen.
+
     Test-SqlServerLabAiExternalModelArtifact
         Prueft lokale Runtime- und Modelldateien read-only gegen die SHA-256-
         Werte des Plans, ohne Prozess- oder Accelerator-Evidence zu behaupten.

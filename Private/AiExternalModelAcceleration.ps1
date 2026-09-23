@@ -540,6 +540,98 @@ function New-LabAiExternalModelSqlPlan {
     $sqlPlan.SqlPlanKey=Get-LabAiPlanKey -InputObject $identity
     [PSCustomObject]$sqlPlan
 }
+
+function Resolve-LabAiExternalModelSqlPlan {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$SqlPlan)
+    try{$valid=$SqlPlan|ConvertTo-Json -Depth 12|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'ai-external-model-sql-plan.schema.json') -ErrorAction Stop}
+    catch{throw 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID'}
+    if(-not $valid){throw 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID'}
+    $validUntil=[DateTimeOffset]::MinValue
+    if(-not [DateTimeOffset]::TryParseExact([string]$SqlPlan.ValidUntilUtc,'o',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$validUntil) -or
+       $validUntil.Offset -ne [TimeSpan]::Zero){throw 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID'}
+    $identity=[ordered]@{
+        Contract='SqlServerLab.AiExternalModelSqlPlan/1.0';DatabaseName=[string]$SqlPlan.DatabaseName;SqlMajorVersion=[int]$SqlPlan.SqlMajorVersion
+        ExternalModelName=[string]$SqlPlan.ExternalModelName;CredentialName=[string]$SqlPlan.CredentialName
+        Location=[string]$SqlPlan.Location;ApiFormat=[string]$SqlPlan.ApiFormat;RuntimeModel=[string]$SqlPlan.RuntimeModel
+        Dimension=[int]$SqlPlan.Dimension;RetryCount=[int]$SqlPlan.RetryCount;SourcePlanKey=[string]$SqlPlan.SourcePlanKey
+        EndpointReceiptKey=[string]$SqlPlan.EndpointReceiptKey;ValidUntilUtc=[string]$SqlPlan.ValidUntilUtc
+    }
+    if((Get-LabAiPlanKey -InputObject $identity) -cne [string]$SqlPlan.SqlPlanKey){throw 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID'}
+    if($validUntil -lt [DateTimeOffset]::UtcNow){throw 'AI_EXTERNAL_MODEL_SQL_PLAN_EXPIRED'}
+    $SqlPlan
+}
+
+function Invoke-LabAiExternalModelSqlPreflight {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$SqlPlan,
+        [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$RunId,
+        [ValidatePattern('^[a-zA-Z][a-zA-Z0-9_-]{0,63}$')][string]$InstanceId='primary',
+        [string]$StateRoot,
+        [scriptblock]$SqlExecutor,
+        $Binding,
+        $BindingIdentity
+    )
+    $canonical=Resolve-LabAiExternalModelSqlPlan -SqlPlan $SqlPlan
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    if(-not $Binding){$Binding=Get-LabTransferBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
+    if(-not $BindingIdentity){$BindingIdentity=Get-LabTransferBindingIdentity $Binding}
+    if([string]$BindingIdentity.RunId -cne $RunId -or [string]$BindingIdentity.InstanceId -cne $InstanceId -or
+       [string]$BindingIdentity.ScopeId -notmatch '^[a-f0-9-]{36}$' -or -not [string]$BindingIdentity.Provider){
+        throw 'AI_EXTERNAL_MODEL_SQL_BINDING_INVALID'
+    }
+    $bindingKey=Get-LabAiPlanKey -InputObject $BindingIdentity
+    $query=@'
+SELECT CONVERT(int,SERVERPROPERTY('ProductMajorVersion')) AS SqlMajorVersion, DB_ID() AS DatabaseId,
+ CONVERT(nvarchar(128),DB_NAME()) AS DatabaseName,
+ CONVERT(nvarchar(60),DATABASEPROPERTYEX(DB_NAME(),'Status')) AS DatabaseStatus,
+ CONVERT(bit,CASE WHEN DATABASEPROPERTYEX(DB_NAME(),'Updateability')='READ_WRITE' THEN 1 ELSE 0 END) AS IsReadWrite,
+ CONVERT(varchar(36),database_guid) AS DatabaseGuid,
+ CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.symmetric_keys WHERE name=N'##MS_DatabaseMasterKey##') THEN 1 ELSE 0 END) AS HasDatabaseMasterKey,
+ CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name=N'CONTROL') THEN 1 ELSE 0 END) AS HasControlDatabase,
+ CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name=N'CREATE EXTERNAL MODEL') THEN 1 ELSE 0 END) AS HasCreateExternalModel,
+ CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.database_scoped_credentials WHERE name=@credential) THEN 1 ELSE 0 END) AS CredentialExists,
+ CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.external_models WHERE name=@model) THEN 1 ELSE 0 END) AS ExternalModelExists
+FROM sys.database_recovery_status WHERE database_id=DB_ID();
+'@
+    $parameters=@{credential=[string]$canonical.CredentialName;model=[string]$canonical.ExternalModelName}
+    $connection=$null;$secret=$null
+    try{
+        if($SqlExecutor){$rows=@(& $SqlExecutor $query $parameters ([string]$canonical.DatabaseName))}
+        else{
+            $storedSecret=Get-LabRelationalCoreSecret -RunId $RunId -StateRoot $StateRoot
+            try{$secret=$storedSecret.Copy();$secret.MakeReadOnly()}finally{$storedSecret.Dispose()}
+            $connection=New-LabRelationalCoreConnection -Binding $Binding -DatabaseName ([string]$canonical.DatabaseName) -Secret $secret
+            $connection.Open()
+            $rows=@(Invoke-LabTransferSqlRows -Connection $connection -Query $query -Parameters $parameters -TimeoutSeconds 30)
+        }
+    } finally {
+        if($connection){$connection.Dispose()}
+        if($secret){$secret.Dispose()}
+    }
+    if($rows.Count -ne 1){throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_INVALID'}
+    $row=$rows[0]
+    if([int]$row.SqlMajorVersion -ne 17){throw 'AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED'}
+    if([int]$row.DatabaseId -le 4 -or [string]$row.DatabaseName -cne [string]$canonical.DatabaseName -or [string]$row.DatabaseGuid -notmatch '^[a-f0-9-]{36}$'){
+        throw 'AI_EXTERNAL_MODEL_SQL_DATABASE_MISMATCH'
+    }
+    if([string]$row.DatabaseStatus -cne 'ONLINE' -or -not [bool]$row.IsReadWrite){throw 'AI_EXTERNAL_MODEL_SQL_DATABASE_UNAVAILABLE'}
+    if(-not [bool]$row.HasDatabaseMasterKey){throw 'AI_EXTERNAL_MODEL_SQL_MASTER_KEY_REQUIRED'}
+    if(-not [bool]$row.HasControlDatabase -or -not [bool]$row.HasCreateExternalModel){throw 'AI_EXTERNAL_MODEL_SQL_PERMISSION_DENIED'}
+    if([bool]$row.CredentialExists -or [bool]$row.ExternalModelExists){throw 'AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION'}
+    $verifiedAt=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+    $receiptIdentity=[ordered]@{Contract='SqlServerLab.AiExternalModelSqlPreflightBinding/1.0';SqlPlanKey=[string]$canonical.SqlPlanKey;BindingKey=$bindingKey;DatabaseGuid=[string]$row.DatabaseGuid;VerifiedAtUtc=$verifiedAt}
+    [PSCustomObject][ordered]@{
+        Contract=[PSCustomObject]@{Name='SqlServerLab.AiExternalModelSqlPreflightReceipt';Version='1.0'}
+        Status='SQL_PREFLIGHT_VERIFIED';EvidenceStatus='LIVE_SQL_BOUND';SqlPlanKey=[string]$canonical.SqlPlanKey
+        RunId=$RunId;ScopeId=[string]$BindingIdentity.ScopeId;InstanceId=$InstanceId;Provider=[string]$BindingIdentity.Provider
+        BindingKey=$bindingKey;DatabaseName=[string]$canonical.DatabaseName;DatabaseGuid=[string]$row.DatabaseGuid
+        SqlMajorVersion=17;VerifiedAtUtc=$verifiedAt;ReceiptKey=Get-LabAiPlanKey -InputObject $receiptIdentity
+        VerifiedEvidence=@('SQL_2025_MATCH','DATABASE_ONLINE_READ_WRITE','DATABASE_MASTER_KEY_PRESENT','CONTROL_DATABASE_PERMISSION','CREATE_EXTERNAL_MODEL_PERMISSION','SQL_OBJECT_NAMES_AVAILABLE')
+        PendingEvidence=@('SQL_EXTERNAL_MODEL_CREATED','SQL_EMBEDDING_VERIFIED','SQL_RESTART_VERIFIED','ACCELERATOR_RUNTIME_ATTESTATION','SQL_CLEANUP_VERIFIED')
+    }
+}
 function Get-LabLlamaCppRuntimeCandidate {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$DirectoryPath)

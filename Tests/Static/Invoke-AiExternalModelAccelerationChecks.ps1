@@ -173,6 +173,45 @@ try {
     Add-CheckResult 'SQL-Plan bleibt geheimnisfrei und lässt SQL, Restart, Accelerator und Cleanup offen' (
         (($sqlPlan|ConvertTo-Json -Depth 10) -notmatch '(?i)(bearer|password|api.?key|secret.{0,3}:|C:\\|/home/)') -and
         @($sqlPlan.PendingEvidence) -join ',' -eq 'SQL_EXTERNAL_MODEL_CREATED,SQL_EMBEDDING_VERIFIED,SQL_RESTART_VERIFIED,ACCELERATOR_RUNTIME_ATTESTATION,SQL_CLEANUP_VERIFIED')
+    $runId=[guid]::NewGuid().ToString('D');$scopeId=[guid]::NewGuid().ToString('D');$databaseGuid=[guid]::NewGuid().ToString('D')
+    $bindingIdentity=[ordered]@{RunId=$runId;ScopeId=$scopeId;InstanceId='primary';Provider='docker';ResourceId='owned-container'}
+    $validSqlRow=[PSCustomObject]@{
+        SqlMajorVersion=17;DatabaseId=5;DatabaseName='AiLab';DatabaseStatus='ONLINE';IsReadWrite=$true;DatabaseGuid=$databaseGuid
+        HasDatabaseMasterKey=$true;HasControlDatabase=$true;HasCreateExternalModel=$true;CredentialExists=$false;ExternalModelExists=$false
+    }
+    $sqlRow=[Runtime.CompilerServices.StrongBox[object]]::new($validSqlRow.PSObject.Copy())
+    $sqlCapture=[Runtime.CompilerServices.StrongBox[object]]::new()
+    $sqlExecutor={param($query,$parameters,$database)$sqlCapture.Value=[PSCustomObject]@{Query=$query;Parameters=$parameters;Database=$database};$sqlRow.Value}.GetNewClosure()
+    $preflight=& $module {param($p,$run,$executor,$identity)Invoke-LabAiExternalModelSqlPreflight -SqlPlan $p -RunId $run -SqlExecutor $executor -Binding ([PSCustomObject]@{}) -BindingIdentity $identity} $sqlPlan $runId $sqlExecutor $bindingIdentity
+    Add-CheckResult 'SQL-Preflight bindet eigenen Run an SQL-Plan und Datenbankidentität' (
+        $preflight.Status -ceq 'SQL_PREFLIGHT_VERIFIED' -and $preflight.SqlPlanKey -ceq $sqlPlan.SqlPlanKey -and
+        $preflight.RunId -ceq $runId -and $preflight.ScopeId -ceq $scopeId -and $preflight.DatabaseGuid -ceq $databaseGuid)
+    Add-CheckResult 'SQL-Preflight prüft Zielscope ausschließlich lesend und parametrisiert' (
+        $sqlCapture.Value.Database -ceq 'AiLab' -and $sqlCapture.Value.Parameters.credential -ceq $sqlPlan.CredentialName -and
+        $sqlCapture.Value.Query -match 'sys\.fn_my_permissions' -and $sqlCapture.Value.Query -notmatch '(?im)^\s*(CREATE|ALTER|DROP|INSERT|UPDATE|DELETE)\s')
+    Add-CheckResult 'SQL-Preflight-Receipt ist schema-valide, hashgebunden und geheimnisfrei' (
+        ($preflight|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-sql-preflight-receipt.schema.json')) -and
+        $preflight.ReceiptKey -match '^[a-f0-9]{64}$' -and
+        (($preflight|ConvertTo-Json -Depth 10) -notmatch '(?i)(password|api.?key|secret|query|credential.{0,3}:|C:\\|/home/)'))
+    $preflightFailures=@(
+        @{Name='SQL-Version';Code='AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED';Property='SqlMajorVersion';Value=16},
+        @{Name='Systemdatenbank';Code='AI_EXTERNAL_MODEL_SQL_DATABASE_MISMATCH';Property='DatabaseId';Value=1},
+        @{Name='Datenbankzustand';Code='AI_EXTERNAL_MODEL_SQL_DATABASE_UNAVAILABLE';Property='DatabaseStatus';Value='OFFLINE'},
+        @{Name='Database Master Key';Code='AI_EXTERNAL_MODEL_SQL_MASTER_KEY_REQUIRED';Property='HasDatabaseMasterKey';Value=$false},
+        @{Name='CONTROL-Berechtigung';Code='AI_EXTERNAL_MODEL_SQL_PERMISSION_DENIED';Property='HasControlDatabase';Value=$false},
+        @{Name='CREATE-EXTERNAL-MODEL-Berechtigung';Code='AI_EXTERNAL_MODEL_SQL_PERMISSION_DENIED';Property='HasCreateExternalModel';Value=$false},
+        @{Name='Credential-Kollision';Code='AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION';Property='CredentialExists';Value=$true},
+        @{Name='External-Model-Kollision';Code='AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION';Property='ExternalModelExists';Value=$true}
+    )
+    foreach($case in $preflightFailures){
+        $changed=$validSqlRow.PSObject.Copy();$changed.($case.Property)=$case.Value;$sqlRow.Value=$changed;$actual=$null
+        try{& $module {param($p,$run,$executor,$identity)Invoke-LabAiExternalModelSqlPreflight -SqlPlan $p -RunId $run -SqlExecutor $executor -Binding ([PSCustomObject]@{}) -BindingIdentity $identity} $sqlPlan $runId $sqlExecutor $bindingIdentity|Out-Null;$actual='NO_ERROR'}catch{$actual=$_.Exception.Message}
+        Add-CheckResult "SQL-Preflight blockiert $($case.Name)" ($actual -eq $case.Code)
+    }
+    $sqlRow.Value=$validSqlRow.PSObject.Copy()
+    $tamperedSqlPlan=$sqlPlan.PSObject.Copy();$tamperedSqlPlan.DatabaseName='OtherDb';$sqlCallsBefore=$sqlCapture.Value
+    $tamperedSqlPlanCode=$null;try{& $module {param($p,$run,$executor,$identity)Invoke-LabAiExternalModelSqlPreflight -SqlPlan $p -RunId $run -SqlExecutor $executor -Binding ([PSCustomObject]@{}) -BindingIdentity $identity} $tamperedSqlPlan $runId $sqlExecutor $bindingIdentity|Out-Null;$tamperedSqlPlanCode='NO_ERROR'}catch{$tamperedSqlPlanCode=$_.Exception.Message}
+    Add-CheckResult 'SQL-Preflight blockiert manipulierten SQL-Plan vor SQL-Zugriff' ($tamperedSqlPlanCode -eq 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID' -and $sqlCapture.Value -eq $sqlCallsBefore)
     $tamperedReceipt=$receipt.PSObject.Copy();$tamperedReceipt.ReceiptKey='e'*64
     $tamperedReceiptCode=$null;try{Get-SqlServerLabAiExternalModelSqlPlan -Plan $probePlan -EndpointReceipt $tamperedReceipt -DatabaseName AiLab|Out-Null;$tamperedReceiptCode='NO_ERROR'}catch{$tamperedReceiptCode=$_.Exception.Message}
     Add-CheckResult 'SQL-Plan blockiert manipuliertes Endpoint-Receipt' ($tamperedReceiptCode -eq 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_INVALID')
@@ -216,6 +255,11 @@ try {
         $sqlPlanCommand.Parameters.ContainsKey('Plan') -and $sqlPlanCommand.Parameters.ContainsKey('EndpointReceipt') -and
         $sqlPlanCommand.Parameters.ContainsKey('DatabaseName') -and -not $sqlPlanCommand.Parameters.ContainsKey('ApiKey') -and
         -not $sqlPlanCommand.Parameters.ContainsKey('SqlExecutor'))
+    $sqlPreflightCommand=Get-Command Test-SqlServerLabAiExternalModelSqlPreflight -Module $module.Name
+    Add-CheckResult 'Öffentlicher SQL-Preflight bindet Run und verbirgt Executor und Secret' (
+        $sqlPreflightCommand.Parameters.ContainsKey('SqlPlan') -and $sqlPreflightCommand.Parameters.ContainsKey('RunId') -and
+        $sqlPreflightCommand.Parameters.ContainsKey('InstanceId') -and -not $sqlPreflightCommand.Parameters.ContainsKey('SqlExecutor') -and
+        -not $sqlPreflightCommand.Parameters.ContainsKey('SaPassword'))
     Add-CheckResult 'Öffentliche Artifact-Prüfung ist exportiert und verlangt beide lokalen Dateien' (
         (Get-Command Test-SqlServerLabAiExternalModelArtifact -Module $module.Name).Parameters.ContainsKey('RuntimePath') -and
         (Get-Command Test-SqlServerLabAiExternalModelArtifact -Module $module.Name).Parameters.ContainsKey('ModelPath'))
