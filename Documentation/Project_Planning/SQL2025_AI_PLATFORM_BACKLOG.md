@@ -13,6 +13,14 @@ der technische Teilplan für Vector Storage, Embeddings, ONNX, Ollama und
 optionale Cloud-Endpunkte. Planungsstatus und statische Prüfung sind kein
 Docker-, Podman-, Hyper-V- oder Modell-Runtime-Nachweis.
 
+Der [External-Model-Backlog, AIX-003](AI_EXTERNAL_MODEL_ACCELERATION_BACKLOG.md#gemeinsamer-lab-gateway-zertifikate-und-wiederherstellung-aix-003)
+hält den noch offenen gemeinsamen Lab-Gateway fest: parallele KI-Labs,
+runübergreifende Zertifikats-/CA-Wiederverwendung ohne globalen Hosttrust,
+geschütztes Backup sowie Wiederherstellung und Umbindung auf einen vollständig
+neuen Gateway mit neuer CA. Alle Komponenten gehören zum Lab; ein externer
+Infrastrukturbetreiber wird nicht vorausgesetzt. Die bestehenden temporären
+HTTPS-Referenzen sind kein Nachweis dieses dauerhaften Lebenszyklus.
+
 ## Zielbild und Grenzen
 
 - SQL Server bleibt Daten-, Retrieval-, Sicherheits- und Nachweiszentrum.
