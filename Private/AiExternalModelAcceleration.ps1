@@ -69,7 +69,9 @@ function New-LabAiExternalModelPlan {
         [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$RuntimeSha256,
         [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$ServerCertificateSha256,
         [ValidateSet('Direct','Gateway')][string]$TlsMode = 'Direct',
-        [ValidateSet('raw','nomic-search','snowflake-search')][string]$InputProfile = 'raw'
+        [ValidateSet('raw','nomic-search','snowflake-search')][string]$InputProfile = 'raw',
+        [object]$GatewayBinding,
+        [ValidatePattern('^[a-f0-9]{64}$')][string]$GatewayBindingKey
     )
 
     $blockers = [Collections.Generic.List[string]]::new()
@@ -92,14 +94,21 @@ function New-LabAiExternalModelPlan {
         'LlamaCppSnapdragonHexagon' { @('NPU'); break }
     }
     if ($Accelerator -notin $allowedAccelerators) { $blockers.Add('AI_EXTERNAL_MODEL_ACCELERATOR_UNSUPPORTED') }
+    if($GatewayBinding -and $GatewayBindingKey){throw 'AI_EXTERNAL_MODEL_GATEWAY_BINDING_AMBIGUOUS'}
+    $resolvedGateway=$null
+    if($GatewayBinding){try{$resolvedGateway=Resolve-LabAiOvmsHttpsGatewayBinding -Binding $GatewayBinding;$GatewayBindingKey=$resolvedGateway.BindingKey}catch{$blockers.Add('AI_EXTERNAL_MODEL_OVMS_GATEWAY_BINDING_INVALID')}}
     if ($Backend -eq 'OpenVinoModelServer') {
         if ($TlsMode -ne 'Gateway') { $blockers.Add('AI_EXTERNAL_MODEL_OVMS_GATEWAY_REQUIRED') }
-        else { $blockers.Add('AI_EXTERNAL_MODEL_OVMS_GATEWAY_NOT_IMPLEMENTED') }
+        elseif(-not $GatewayBindingKey -and -not $GatewayBinding){$blockers.Add('AI_EXTERNAL_MODEL_OVMS_GATEWAY_BINDING_REQUIRED')}
     }
-    if ($Backend -ne 'OpenVinoModelServer' -and $TlsMode -eq 'Gateway') { $warnings.Add('AI_EXTERNAL_MODEL_GATEWAY_REQUIRES_SEPARATE_BINDING') }
+    if ($Backend -ne 'OpenVinoModelServer' -and ($TlsMode -eq 'Gateway' -or $GatewayBindingKey)) { $blockers.Add('AI_EXTERNAL_MODEL_GATEWAY_BINDING_UNSUPPORTED') }
     if ($Backend -eq 'LlamaCppSnapdragonHexagon') { $warnings.Add('AI_EXTERNAL_MODEL_SNAPDRAGON_HEXAGON_OPT_IN') }
 
     $normalizedLocation = if ($uri) { $uri.AbsoluteUri } else { $Location }
+    if($resolvedGateway -and ($resolvedGateway.Location -cne $normalizedLocation -or $resolvedGateway.RuntimeModel -cne $RuntimeModel -or
+       $resolvedGateway.Dimension -ne $Dimension -or $resolvedGateway.ServerCertificateSha256 -cne $ServerCertificateSha256.ToLowerInvariant())){
+        $blockers.Add('AI_EXTERNAL_MODEL_OVMS_GATEWAY_BINDING_MISMATCH')
+    }
     $credentialName = if ($uri) { '{0}://{1}' -f $uri.Scheme, $uri.Authority } else { $null }
     $identity = [ordered]@{
         Contract='SqlServerLab.AiExternalModelPlan/1.0';Backend=$Backend;Accelerator=$Accelerator
@@ -108,7 +117,8 @@ function New-LabAiExternalModelPlan {
         ModelSha256=$ModelSha256.ToLowerInvariant();RuntimeSha256=$RuntimeSha256.ToLowerInvariant()
         ServerCertificateSha256=$ServerCertificateSha256.ToLowerInvariant()
     }
-    [PSCustomObject]@{
+    if($GatewayBindingKey){$identity.GatewayBindingKey=$GatewayBindingKey}
+    $plan=[ordered]@{
         Contract=[PSCustomObject]@{Name='SqlServerLab.AiExternalModelPlan';Version='1.0'}
         Status=if ($blockers.Count) { 'BLOCKED' } else { 'NOT_PROBED' }
         EvidenceStatus='CONFIGURATION_ONLY'
@@ -118,8 +128,11 @@ function New-LabAiExternalModelPlan {
         TlsMode=$TlsMode;ModelSha256=$identity.ModelSha256;RuntimeSha256=$identity.RuntimeSha256
         ServerCertificateSha256=$identity.ServerCertificateSha256
         RequiredEvidence=@('HTTPS_CERTIFICATE_MATCH','RUNTIME_BINARY_MATCH','MODEL_FILE_MATCH','RUNTIME_MODEL_MATCH','EMBEDDING_DIMENSION_MATCH','ACCELERATOR_RUNTIME_ATTESTATION')
-        Blockers=@($blockers);Warnings=@($warnings);PlanKey=Get-LabAiPlanKey -InputObject $identity
+        Blockers=@($blockers);Warnings=@($warnings)
     }
+    if($GatewayBindingKey){$plan.GatewayBindingKey=$GatewayBindingKey;$plan.RequiredEvidence=@($plan.RequiredEvidence)+@('HTTPS_GATEWAY_BINDING','GATEWAY_PROCESS_OWNERSHIP')}
+    $plan.PlanKey=Get-LabAiPlanKey -InputObject $identity
+    [PSCustomObject]$plan
 }
 
 function Test-LabAiExternalModelNumericValue {
@@ -249,12 +262,12 @@ function Resolve-LabAiExternalModelPlan {
         throw 'AI_EXTERNAL_MODEL_PLAN_INVALID'
     }
     try {
-        $canonicalPlan=New-LabAiExternalModelPlan -Backend ([string]$Plan.Backend) -Accelerator ([string]$Plan.Accelerator) `
-            -Location ([string]$Plan.Location) -ExternalModelName ([string]$Plan.ExternalModelName) `
-            -RuntimeModel ([string]$Plan.RuntimeModel) -Dimension ([int]$Plan.Dimension) `
-            -ModelSha256 ([string]$Plan.ModelSha256) -RuntimeSha256 ([string]$Plan.RuntimeSha256) `
-            -ServerCertificateSha256 ([string]$Plan.ServerCertificateSha256) -TlsMode ([string]$Plan.TlsMode) `
-            -InputProfile ([string]$Plan.InputProfile)
+        $arguments=@{Backend=[string]$Plan.Backend;Accelerator=[string]$Plan.Accelerator;Location=[string]$Plan.Location
+            ExternalModelName=[string]$Plan.ExternalModelName;RuntimeModel=[string]$Plan.RuntimeModel;Dimension=[int]$Plan.Dimension
+            ModelSha256=[string]$Plan.ModelSha256;RuntimeSha256=[string]$Plan.RuntimeSha256
+            ServerCertificateSha256=[string]$Plan.ServerCertificateSha256;TlsMode=[string]$Plan.TlsMode;InputProfile=[string]$Plan.InputProfile}
+        if($Plan.PSObject.Properties['GatewayBindingKey']){$arguments.GatewayBindingKey=[string]$Plan.GatewayBindingKey}
+        $canonicalPlan=New-LabAiExternalModelPlan @arguments
     }
     catch { throw 'AI_EXTERNAL_MODEL_PLAN_INVALID' }
     if ([string]$canonicalPlan.PlanKey -cne [string]$Plan.PlanKey) { throw 'AI_EXTERNAL_MODEL_PLAN_INVALID' }

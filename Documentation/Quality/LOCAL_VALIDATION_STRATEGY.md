@@ -116,9 +116,10 @@ festem `/v3/embeddings`-Pfad, exaktem Runtime-Modell, Dimension und endlichen
 Vektorwerten. Der getrennte
 `Tests/Integration/Invoke-AiOvmsHttpsGatewayAcceptance.ps1` verwendet unter
 Windows nur eigene freie Loopbackports, einen synthetischen HTTP-Upstream und
-eine kurzlebige CA-/Leaf-Kette. Er bestätigt TLS-Start, Binding-Key, Owner-Stop,
-Listenerabbau und Secret-Löschung ohne SQL oder Provider. Accelerator- und
-SQL-Evidence bleiben ausdrücklich unbestätigt.
+eine kurzlebige CA-/Leaf-Kette. Er bestätigt TLS-Start, kanonische Planbindung,
+planbasierte HTTPS-Endpunktprobe, Owner-Stop, Listenerabbau und Secret-Löschung
+ohne SQL oder Provider. Accelerator- und SQL-Evidence bleiben ausdrücklich
+unbestätigt.
 Hostmodell-Digest/Capability/Dimension/Remoteidentity, Egress/Datenklasse,
 WhatIf, Vektoren und echten synthetischen HTTP307 ohne Weiterleitung.
 `Invoke-AiRagExistingOllamaAcceptance.ps1` ist eine separate opt-in Abnahme mit

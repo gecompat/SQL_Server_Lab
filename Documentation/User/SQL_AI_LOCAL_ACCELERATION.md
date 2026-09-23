@@ -202,17 +202,33 @@ $gateway = Start-SqlServerLabOvmsHttpsGateway `
   -TrustedRootPath C:\certs\lab-root.pem `
   -ApiKey $apiKey -LeaseSeconds 900
 
+$plan = Get-SqlServerLabAiExternalModelPlan `
+  -Backend OpenVinoModelServer -Accelerator NPU -TlsMode Gateway `
+  -Location $gateway.Location -ExternalModelName OvmsNpu `
+  -RuntimeModel $gateway.RuntimeModel -Dimension $gateway.Dimension `
+  -ModelSha256 $modelHash -RuntimeSha256 $runtimeHash `
+  -ServerCertificateSha256 $gateway.ServerCertificateSha256 `
+  -GatewayBinding $gateway
+
+$root = [Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPem(
+  [IO.File]::ReadAllText('C:\certs\lab-root.pem'))
+$plan | Test-SqlServerLabAiExternalModelEndpoint `
+  -ApiKey $apiKey -TrustedRootCertificate $root
+$root.Dispose()
+
 Stop-SqlServerLabOvmsHttpsGateway -OperationId $gateway.OperationId
 ```
 
 Der Worker bindet nur `127.0.0.1`, verwendet keinen Proxy oder Redirect,
 rekonstruiert genau einen Embeddingrequest und entfernt seine API-Key-Datei beim
 Stop, Ownerverlust oder Lease-Ende. Zertifikat und Key bleiben Eigentum des
-Callers. Der aktuelle External-Model-Plan übernimmt den Gateway-Binding-Key noch
-nicht. Deshalb bleibt ein OVMS-Plan auch mit `-TlsMode Gateway` vor SQL-Mutation
-mit `AI_EXTERNAL_MODEL_OVMS_GATEWAY_NOT_IMPLEMENTED` blockiert. Der interne
-Ollama-Gateway aus der Docker-Referenzabnahme ist weiterhin keine allgemeine
-OVMS-Gateway-API.
+Callers. Der Plan rechnet den Binding-Key aus Operation, Lease,
+Upstream-Binding, HTTPS-Location, Modell, Dimension und Zertifikatspin erneut
+nach. Fehlende, manipulierte oder abweichende Bindungen blockieren. Der
+resultierende Status `NOT_PROBED` erlaubt die getrennte HTTPS-Probe, führt aber
+noch keine SQL-Mutation aus und bestätigt keine Acceleratornutzung. Der interne
+Ollama-Gateway aus der
+Docker-Referenzabnahme ist weiterhin keine allgemeine OVMS-Gateway-API.
 
 Ein bereits vom Operator gestarteter OVMS-Upstream kann vorab ohne Mutation
 geprüft werden:

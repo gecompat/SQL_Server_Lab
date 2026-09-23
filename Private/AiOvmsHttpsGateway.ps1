@@ -89,6 +89,33 @@ function ConvertFrom-LabAiOvmsGatewayUpstreamResponse {
     finally { $document.Dispose() }
 }
 
+function Resolve-LabAiOvmsHttpsGatewayBinding {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Binding)
+    $operationId=[guid]::Empty
+    if([string]$Binding.Contract -cne 'SqlServerLab.AiOvmsHttpsGateway/1.0' -or
+       [string]$Binding.Status -cne 'ENDPOINT_VERIFIED' -or
+       -not [guid]::TryParseExact([string]$Binding.OperationId,'D',[ref]$operationId) -or
+       [string]$Binding.UpstreamBindingKey -notmatch '^[a-f0-9]{64}$' -or
+       [string]$Binding.BindingKey -notmatch '^[a-f0-9]{64}$' -or
+       [string]$Binding.ServerCertificateSha256 -notmatch '^[a-f0-9]{64}$' -or
+       [string]$Binding.RuntimeModel -notmatch '^[A-Za-z0-9][A-Za-z0-9._:/+-]{0,255}$' -or
+       [int]$Binding.Dimension -lt 1 -or [int]$Binding.Dimension -gt 1998 -or
+       [int]$Binding.LeaseSeconds -lt 30 -or [int]$Binding.LeaseSeconds -gt 3600){throw 'AI_OVMS_GATEWAY_BINDING_INVALID'}
+    try{$uri=[Uri]::new([string]$Binding.Location,[UriKind]::Absolute)}catch{throw 'AI_OVMS_GATEWAY_BINDING_INVALID'}
+    $address=$null
+    if($uri.Scheme -cne 'https' -or $uri.AbsolutePath -cne '/v3/embeddings' -or
+       -not [string]::IsNullOrEmpty($uri.UserInfo) -or -not [string]::IsNullOrEmpty($uri.Query) -or
+       -not [string]::IsNullOrEmpty($uri.Fragment) -or $uri.Port -lt 1024 -or
+       -not [Net.IPAddress]::TryParse($uri.Host,[ref]$address) -or -not [Net.IPAddress]::IsLoopback($address)){
+        throw 'AI_OVMS_GATEWAY_BINDING_INVALID'
+    }
+    $identity=[ordered]@{Contract='SqlServerLab.AiOvmsHttpsGatewayBinding/1.0';OperationId=$operationId.ToString('D');LeaseSeconds=[int]$Binding.LeaseSeconds;UpstreamBindingKey=[string]$Binding.UpstreamBindingKey;Location=$uri.AbsoluteUri;RuntimeModel=[string]$Binding.RuntimeModel;Dimension=[int]$Binding.Dimension;ServerCertificateSha256=([string]$Binding.ServerCertificateSha256).ToLowerInvariant()}
+    $bindingKey=Get-LabAiPlanKey -InputObject $identity
+    if($bindingKey -cne [string]$Binding.BindingKey){throw 'AI_OVMS_GATEWAY_BINDING_INVALID'}
+    [PSCustomObject]@{OperationId=$identity.OperationId;LeaseSeconds=$identity.LeaseSeconds;Location=$uri.AbsoluteUri;RuntimeModel=$identity.RuntimeModel;Dimension=$identity.Dimension;ServerCertificateSha256=$identity.ServerCertificateSha256;UpstreamBindingKey=$identity.UpstreamBindingKey;BindingKey=$bindingKey}
+}
+
 function Stop-LabAiOvmsHttpsGateway {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$OperationId)
@@ -166,8 +193,8 @@ function Start-LabAiOvmsHttpsGateway {
             Start-Sleep -Milliseconds 100
         }
         if(-not $verified){throw 'AI_OVMS_GATEWAY_START_TIMEOUT'}
-        $binding=Get-LabAiPlanKey -InputObject ([ordered]@{Contract='SqlServerLab.AiOvmsHttpsGatewayBinding/1.0';UpstreamBindingKey=$upstreamReceipt.BindingKey;Location=$location;RuntimeModel=$RuntimeModel;Dimension=$Dimension;ServerCertificateSha256=$pin})
-        [PSCustomObject]@{Contract='SqlServerLab.AiOvmsHttpsGateway/1.0';OperationId=$operationId;Status='ENDPOINT_VERIFIED';Location=$location;RuntimeModel=$RuntimeModel;Dimension=$Dimension;ServerCertificateSha256=$pin;LeaseSeconds=$LeaseSeconds;BindingKey=$binding}
+        $binding=Get-LabAiPlanKey -InputObject ([ordered]@{Contract='SqlServerLab.AiOvmsHttpsGatewayBinding/1.0';OperationId=$operationId;LeaseSeconds=$LeaseSeconds;UpstreamBindingKey=$upstreamReceipt.BindingKey;Location=$location;RuntimeModel=$RuntimeModel;Dimension=$Dimension;ServerCertificateSha256=$pin})
+        [PSCustomObject]@{Contract='SqlServerLab.AiOvmsHttpsGateway/1.0';OperationId=$operationId;Status='ENDPOINT_VERIFIED';Location=$location;RuntimeModel=$RuntimeModel;Dimension=$Dimension;ServerCertificateSha256=$pin;UpstreamBindingKey=[string]$upstreamReceipt.BindingKey;LeaseSeconds=$LeaseSeconds;BindingKey=$binding}
     }
     catch {$failure=$_.Exception.Message;if($registered){try{$null=Stop-LabAiOvmsHttpsGateway $operationId;if($session.ErrTask.IsCompleted){$diagnostic=[string]$session.ErrTask.GetAwaiter().GetResult();if($diagnostic.Length -gt 4096){$diagnostic=$diagnostic.Substring(0,4096)};[IO.File]::WriteAllText((Join-Path $operationRoot 'worker-diagnostic.log'),$diagnostic)}}catch{throw "AI_OVMS_GATEWAY_RECOVERY_REQUIRED; OperationId=$operationId; OriginalFailure=$failure"}}elseif($worker){if(-not $worker.HasExited){$worker.Kill()};$worker.Dispose()};if(Test-Path -LiteralPath $keyPath){Remove-Item -LiteralPath $keyPath -Force};throw $failure}
     finally {if($rootCertificate){$rootCertificate.Dispose()}}

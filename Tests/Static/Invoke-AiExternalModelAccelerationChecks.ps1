@@ -15,11 +15,35 @@ try {
     $ovms=Get-SqlServerLabAiExternalModelPlan -Backend OpenVinoModelServer -Accelerator NPU -Location 'https://localhost:8443/v3/embeddings' -ExternalModelName OvmsNpu -RuntimeModel model -Dimension 1024 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
     Add-CheckResult 'OVMS verlangt den separaten TLS-Gateway' ($ovms.Status -eq 'BLOCKED' -and 'AI_EXTERNAL_MODEL_OVMS_GATEWAY_REQUIRED' -in $ovms.Blockers)
     $ovmsGateway=Get-SqlServerLabAiExternalModelPlan -Backend OpenVinoModelServer -Accelerator NPU -TlsMode Gateway -Location 'https://localhost:8443/v3/embeddings' -ExternalModelName OvmsNpu -RuntimeModel model -Dimension 1024 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
-    Add-CheckResult 'OVMS-Gateway bleibt bis zum gebundenen Lifecycle explizit blockiert' (
+    Add-CheckResult 'OVMS-Gateway bleibt ohne gebundenen Lifecycle explizit blockiert' (
         $ovmsGateway.Status -eq 'BLOCKED' -and
-        'AI_EXTERNAL_MODEL_OVMS_GATEWAY_NOT_IMPLEMENTED' -in $ovmsGateway.Blockers -and
+        'AI_EXTERNAL_MODEL_OVMS_GATEWAY_BINDING_REQUIRED' -in $ovmsGateway.Blockers -and
         'AI_EXTERNAL_MODEL_OVMS_GATEWAY_REQUIRED' -notin $ovmsGateway.Blockers -and
         $ovmsGateway.EndpointPath -eq '/v3/embeddings')
+    $gatewayLocation='https://127.0.0.1:18443/v3/embeddings';$upstreamBindingKey='d'*64;$gatewayOperationId=[guid]::NewGuid().ToString('D')
+    $gatewayIdentity=[ordered]@{Contract='SqlServerLab.AiOvmsHttpsGatewayBinding/1.0';OperationId=$gatewayOperationId;LeaseSeconds=900;UpstreamBindingKey=$upstreamBindingKey;Location=$gatewayLocation;RuntimeModel='bound-ovms-model';Dimension=3;ServerCertificateSha256=$c}
+    $gatewayBindingKey=& $module {param($i)Get-LabAiPlanKey -InputObject $i} $gatewayIdentity
+    $gatewayBinding=[PSCustomObject]@{Contract='SqlServerLab.AiOvmsHttpsGateway/1.0';OperationId=$gatewayOperationId;Status='ENDPOINT_VERIFIED';Location=$gatewayLocation;RuntimeModel='bound-ovms-model';Dimension=3;ServerCertificateSha256=$c;UpstreamBindingKey=$upstreamBindingKey;LeaseSeconds=900;BindingKey=$gatewayBindingKey}
+    $boundOvms=Get-SqlServerLabAiExternalModelPlan -Backend OpenVinoModelServer -Accelerator NPU -TlsMode Gateway -Location $gatewayLocation -ExternalModelName OvmsNpu -RuntimeModel bound-ovms-model -Dimension 3 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c -GatewayBinding $gatewayBinding
+    Add-CheckResult 'OVMS-Plan übernimmt nur eine kanonisch passende Gateway-Bindung' (
+        $boundOvms.Status -eq 'NOT_PROBED' -and $boundOvms.GatewayBindingKey -ceq $gatewayBindingKey -and
+        'HTTPS_GATEWAY_BINDING' -in $boundOvms.RequiredEvidence -and 'GATEWAY_PROCESS_OWNERSHIP' -in $boundOvms.RequiredEvidence -and
+        ($boundOvms|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-plan.schema.json')))
+    $resolvedBoundOvms=& $module {param($p)Resolve-LabAiExternalModelPlan -Plan $p} $boundOvms
+    Add-CheckResult 'Gebundener OVMS-Plan bleibt bei Revalidierung hashstabil' ($resolvedBoundOvms.PlanKey -ceq $boundOvms.PlanKey -and $resolvedBoundOvms.GatewayBindingKey -ceq $gatewayBindingKey)
+    $tamperedBinding=$gatewayBinding.PSObject.Copy();$tamperedBinding.BindingKey='e'*64
+    $tamperedPlan=Get-SqlServerLabAiExternalModelPlan -Backend OpenVinoModelServer -Accelerator NPU -TlsMode Gateway -Location $gatewayLocation -ExternalModelName OvmsNpu -RuntimeModel bound-ovms-model -Dimension 3 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c -GatewayBinding $tamperedBinding
+    Add-CheckResult 'OVMS-Plan blockiert manipulierten Gateway-Binding-Key' ($tamperedPlan.Status -eq 'BLOCKED' -and @($tamperedPlan.Blockers) -join ',' -eq 'AI_EXTERNAL_MODEL_OVMS_GATEWAY_BINDING_INVALID')
+    $tamperedOperation=$gatewayBinding.PSObject.Copy();$tamperedOperation.OperationId=[guid]::NewGuid().ToString('D')
+    $tamperedOperationPlan=Get-SqlServerLabAiExternalModelPlan -Backend OpenVinoModelServer -Accelerator NPU -TlsMode Gateway -Location $gatewayLocation -ExternalModelName OvmsNpu -RuntimeModel bound-ovms-model -Dimension 3 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c -GatewayBinding $tamperedOperation
+    Add-CheckResult 'OVMS-Plan blockiert manipulierte Gateway-Operation' ($tamperedOperationPlan.Status -eq 'BLOCKED' -and @($tamperedOperationPlan.Blockers) -join ',' -eq 'AI_EXTERNAL_MODEL_OVMS_GATEWAY_BINDING_INVALID')
+    $tamperedLease=$gatewayBinding.PSObject.Copy();$tamperedLease.LeaseSeconds=901
+    $tamperedLeasePlan=Get-SqlServerLabAiExternalModelPlan -Backend OpenVinoModelServer -Accelerator NPU -TlsMode Gateway -Location $gatewayLocation -ExternalModelName OvmsNpu -RuntimeModel bound-ovms-model -Dimension 3 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c -GatewayBinding $tamperedLease
+    Add-CheckResult 'OVMS-Plan blockiert manipulierte Gateway-Lease' ($tamperedLeasePlan.Status -eq 'BLOCKED' -and @($tamperedLeasePlan.Blockers) -join ',' -eq 'AI_EXTERNAL_MODEL_OVMS_GATEWAY_BINDING_INVALID')
+    $mismatchPlan=Get-SqlServerLabAiExternalModelPlan -Backend OpenVinoModelServer -Accelerator NPU -TlsMode Gateway -Location $gatewayLocation -ExternalModelName OvmsNpu -RuntimeModel other-model -Dimension 3 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c -GatewayBinding $gatewayBinding
+    Add-CheckResult 'OVMS-Plan blockiert Modellabweichung zur Gateway-Bindung' ($mismatchPlan.Status -eq 'BLOCKED' -and 'AI_EXTERNAL_MODEL_OVMS_GATEWAY_BINDING_MISMATCH' -in $mismatchPlan.Blockers)
+    $unsupportedBinding=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU -Location 'https://localhost:11435/v1/embeddings' -ExternalModelName WrongBinding -RuntimeModel bound-model -Dimension 3 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c -GatewayBinding $gatewayBinding
+    Add-CheckResult 'Nicht-OVMS-Plan blockiert fremde Gateway-Bindung' ($unsupportedBinding.Status -eq 'BLOCKED' -and 'AI_EXTERNAL_MODEL_GATEWAY_BINDING_UNSUPPORTED' -in $unsupportedBinding.Blockers)
     $ovmsCapture=[Runtime.CompilerServices.StrongBox[object]]::new()
     $ovmsTransport={param($request)$ovmsCapture.Value=$request;[PSCustomObject]@{
         StatusCode=200;Body=[PSCustomObject]@{model='bound-ovms-model';data=@([PSCustomObject]@{embedding=@(1.0,-0.25,0)})}
