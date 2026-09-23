@@ -7,7 +7,7 @@
   "properties": {
     "Contract": {"const":"SqlServerLab.AiExternalModelSqlApplyJournal/1.0"},
     "OperationId": {"type":"string","pattern":"^[a-f0-9-]{36}$"},
-    "Status": {"enum":["APPLY_PENDING","APPLIED"]},
+    "Status": {"enum":["APPLY_PENDING","APPLIED","CLEANUP_PENDING","CLEANED"]},
     "SqlPlanKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
     "PreflightReceiptKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
     "BindingKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
@@ -20,7 +20,7 @@
     "OwnershipTableName": {"type":"string","pattern":"^SqlServerLabAiOwner_[a-f0-9]{24}$"},
     "ExternalModelName": {"type":"string","pattern":"^[A-Za-z_][A-Za-z0-9_]{0,127}$"},
     "CredentialName": {"type":"string","pattern":"^https://[^/]+$"},
-    "Recovery": {"enum":["RESUME_AND_VERIFY_SQL_RECEIPT","NOT_REQUIRED"]},
+    "Recovery": {"enum":["RESUME_AND_VERIFY_SQL_RECEIPT","RESUME_AND_VERIFY_SQL_CLEANUP","NOT_REQUIRED"]},
     "UpdatedAtUtc": {"type":"string","format":"date-time"}
   },
   "additionalProperties": false

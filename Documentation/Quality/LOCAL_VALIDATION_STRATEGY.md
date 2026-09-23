@@ -124,6 +124,10 @@ Der anschließende Apply-Executor wird mit injiziertem SQL-Transport auf
 transaktionale Reihenfolge, geheimnisfreies Vorjournal, exakte SQL-Postcondition,
 `WhatIf`, idempotente Beobachtung mit `-Resume`, verlorene Antworten,
 abgeschlossenen Zustandsdrift und blockierte Teilzustände geprüft. Diese
+Suite prüft außerdem den receiptgebundenen Cleanup: exakte Ownership vor
+Mutation, Löschreihenfolge External Model/Credential/Ownership-Tabelle,
+idempotente Abwesenheit, blockierte Teilzustände und Apply-Sperre nach
+`CLEANED`. Diese
 statischen Fälle führen kein DDL auf einer echten SQL-Instanz aus; ein nativer
 SQL-2025-Nachweis bleibt separat offen.
 Zusätzlich prüft er die read-only OVMS-Upstream-Probe mit numerischem Loopback,

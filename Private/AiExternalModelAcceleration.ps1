@@ -716,19 +716,23 @@ function Get-LabAiExternalModelSqlApplyObservation {
 DECLARE @ownerObject nvarchar(300)=N'dbo.'+QUOTENAME(@ownerName);
 DECLARE @ownerExists bit=CONVERT(bit,CASE WHEN OBJECT_ID(@ownerObject,N'U') IS NULL THEN 0 ELSE 1 END);
 DECLARE @ownerPlanKey varchar(64)=NULL,@ownerReceiptKey varchar(64)=NULL,@ownerBindingKey varchar(64)=NULL,
-        @ownerOperationId varchar(36)=NULL,@ownerDatabaseGuid varchar(36)=NULL,@ownerStatus varchar(16)=NULL;
+        @ownerOperationId varchar(36)=NULL,@ownerDatabaseGuid varchar(36)=NULL,@ownerStatus varchar(16)=NULL,
+        @ownerCredentialId int=NULL,@ownerExternalModelId int=NULL;
 IF @ownerExists=1
 BEGIN
  DECLARE @read nvarchar(max)=N'SELECT @plan=SqlPlanKey,@receipt=PreflightReceiptKey,@binding=BindingKey,'+
-  N'@operation=CONVERT(varchar(36),OperationId),@guid=CONVERT(varchar(36),DatabaseGuid),@status=Status FROM dbo.'+QUOTENAME(@ownerName)+N' WHERE Singleton=1;';
- EXEC sys.sp_executesql @read,N'@plan varchar(64) OUTPUT,@receipt varchar(64) OUTPUT,@binding varchar(64) OUTPUT,@operation varchar(36) OUTPUT,@guid varchar(36) OUTPUT,@status varchar(16) OUTPUT',
-  @plan=@ownerPlanKey OUTPUT,@receipt=@ownerReceiptKey OUTPUT,@binding=@ownerBindingKey OUTPUT,@operation=@ownerOperationId OUTPUT,@guid=@ownerDatabaseGuid OUTPUT,@status=@ownerStatus OUTPUT;
+  N'@operation=CONVERT(varchar(36),OperationId),@guid=CONVERT(varchar(36),DatabaseGuid),@status=Status,@credentialId=CredentialId,@modelId=ExternalModelId FROM dbo.'+QUOTENAME(@ownerName)+N' WHERE Singleton=1;';
+ EXEC sys.sp_executesql @read,N'@plan varchar(64) OUTPUT,@receipt varchar(64) OUTPUT,@binding varchar(64) OUTPUT,@operation varchar(36) OUTPUT,@guid varchar(36) OUTPUT,@status varchar(16) OUTPUT,@credentialId int OUTPUT,@modelId int OUTPUT',
+   @plan=@ownerPlanKey OUTPUT,@receipt=@ownerReceiptKey OUTPUT,@binding=@ownerBindingKey OUTPUT,@operation=@ownerOperationId OUTPUT,@guid=@ownerDatabaseGuid OUTPUT,@status=@ownerStatus OUTPUT,@credentialId=@ownerCredentialId OUTPUT,@modelId=@ownerExternalModelId OUTPUT;
 END;
 SELECT CONVERT(varchar(36),database_guid) AS DatabaseGuid,@ownerExists AS OwnershipTableExists,
  CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.database_scoped_credentials WHERE name=@credential) THEN 1 ELSE 0 END) AS CredentialExists,
  CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.external_models WHERE name=@model) THEN 1 ELSE 0 END) AS ExternalModelExists,
+ (SELECT credential_id FROM sys.database_scoped_credentials WHERE name=@credential) AS CredentialId,
+ (SELECT external_model_id FROM sys.external_models WHERE name=@model) AS ExternalModelId,
  @ownerPlanKey AS OwnerPlanKey,@ownerReceiptKey AS OwnerReceiptKey,@ownerBindingKey AS OwnerBindingKey,
- @ownerOperationId AS OwnerOperationId,@ownerDatabaseGuid AS OwnerDatabaseGuid,@ownerStatus AS OwnerStatus
+ @ownerOperationId AS OwnerOperationId,@ownerDatabaseGuid AS OwnerDatabaseGuid,@ownerStatus AS OwnerStatus,
+ @ownerCredentialId AS OwnerCredentialId,@ownerExternalModelId AS OwnerExternalModelId
 FROM sys.database_recovery_status WHERE database_id=DB_ID();
 '@
     $rows=@(& $ExecuteSql $query @{ownerName=[string]$SqlPlan.OwnershipTableName;credential=[string]$SqlPlan.CredentialName;model=[string]$SqlPlan.ExternalModelName} ([string]$SqlPlan.DatabaseName))
@@ -745,6 +749,9 @@ function Test-LabAiExternalModelSqlAppliedObservation {
     [string]$Observation.OwnerReceiptKey -ceq [string]$Journal.PreflightReceiptKey -and
     [string]$Observation.OwnerBindingKey -ceq [string]$Journal.BindingKey -and
     [string]$Observation.OwnerOperationId -ceq [string]$Journal.OperationId -and
+    $null -ne $Observation.CredentialId -and $null -ne $Observation.ExternalModelId -and
+    [int]$Observation.OwnerCredentialId -eq [int]$Observation.CredentialId -and
+    [int]$Observation.OwnerExternalModelId -eq [int]$Observation.ExternalModelId -and
     [string]$Observation.OwnerStatus -ceq 'APPLIED'
 }
 
@@ -807,6 +814,7 @@ function Invoke-LabAiExternalModelSqlApply {
             }
             if(-not $Resume){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RESUME_REQUIRED'}
         }elseif($Resume){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_JOURNAL_NOT_FOUND'}
+        if($journal -and [string]$journal.Status -in @('CLEANUP_PENDING','CLEANED')){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RECOVERY_REQUIRED'}
         if(-not $journal){
             $journal=[pscustomobject][ordered]@{
                 Contract='SqlServerLab.AiExternalModelSqlApplyJournal/1.0';OperationId=[guid]::NewGuid().ToString('D');Status='APPLY_PENDING'
@@ -854,7 +862,7 @@ IF CONVERT(nvarchar(60),DATABASEPROPERTYEX(DB_NAME(),'Status'))<>N'ONLINE' OR CO
 IF NOT EXISTS(SELECT 1 FROM sys.symmetric_keys WHERE name=N'##MS_DatabaseMasterKey##') THROW 51000,'AI_EXTERNAL_MODEL_SQL_MASTER_KEY_REQUIRED',1;
 IF NOT EXISTS(SELECT 1 FROM sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name=N'CONTROL') OR NOT EXISTS(SELECT 1 FROM sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name=N'CREATE EXTERNAL MODEL') THROW 51000,'AI_EXTERNAL_MODEL_SQL_PERMISSION_REQUIRED',1;
 IF OBJECT_ID(N'dbo.'+QUOTENAME(@ownerName),N'U') IS NOT NULL OR EXISTS(SELECT 1 FROM sys.database_scoped_credentials WHERE name=@credential) OR EXISTS(SELECT 1 FROM sys.external_models WHERE name=@modelName) THROW 51000,'AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION',1;
-DECLARE @ddl nvarchar(max)=N'CREATE TABLE dbo.'+QUOTENAME(@ownerName)+N'(Singleton tinyint NOT NULL PRIMARY KEY CHECK(Singleton=1),SqlPlanKey varchar(64) NOT NULL,PreflightReceiptKey varchar(64) NOT NULL,BindingKey varchar(64) NOT NULL,OperationId uniqueidentifier NOT NULL,DatabaseGuid uniqueidentifier NOT NULL,Status varchar(16) NOT NULL,CreatedAtUtc datetime2(7) NOT NULL);';
+DECLARE @ddl nvarchar(max)=N'CREATE TABLE dbo.'+QUOTENAME(@ownerName)+N'(Singleton tinyint NOT NULL PRIMARY KEY CHECK(Singleton=1),SqlPlanKey varchar(64) NOT NULL,PreflightReceiptKey varchar(64) NOT NULL,BindingKey varchar(64) NOT NULL,OperationId uniqueidentifier NOT NULL,DatabaseGuid uniqueidentifier NOT NULL,CredentialId int NULL,ExternalModelId int NULL,Status varchar(16) NOT NULL,CreatedAtUtc datetime2(7) NOT NULL);';
 EXEC(@ddl);
 SET @ddl=N'INSERT dbo.'+QUOTENAME(@ownerName)+N'(Singleton,SqlPlanKey,PreflightReceiptKey,BindingKey,OperationId,DatabaseGuid,Status,CreatedAtUtc) VALUES(1,@plan,@receipt,@binding,@operation,@guid,''APPLYING'',SYSUTCDATETIME());';
 EXEC sys.sp_executesql @ddl,N'@plan varchar(64),@receipt varchar(64),@binding varchar(64),@operation uniqueidentifier,@guid uniqueidentifier',@plan=@planKey,@receipt=@preflightReceiptKey,@binding=@bindingKey,@operation=@operationId,@guid=@databaseGuid;
@@ -862,9 +870,11 @@ SET @ddl=N'CREATE DATABASE SCOPED CREDENTIAL '+QUOTENAME(@credential)+N' WITH ID
 EXEC(@ddl);
 SET @ddl=N'CREATE EXTERNAL MODEL '+QUOTENAME(@modelName)+N' WITH (LOCATION='''+REPLACE(@location,'''','''''')+N''',API_FORMAT=''OpenAI'',MODEL_TYPE=EMBEDDINGS,MODEL='''+REPLACE(@runtimeModel,'''','''''')+N''',CREDENTIAL='+QUOTENAME(@credential)+N',PARAMETERS=''{"sql_rest_options":{"retry_count":0}}'');';
 EXEC(@ddl);
-IF NOT EXISTS(SELECT 1 FROM sys.database_scoped_credentials WHERE name=@credential) OR NOT EXISTS(SELECT 1 FROM sys.external_models WHERE name=@modelName) THROW 51000,'AI_EXTERNAL_MODEL_SQL_APPLY_POSTCONDITION_FAILED',1;
-SET @ddl=N'UPDATE dbo.'+QUOTENAME(@ownerName)+N' SET Status=''APPLIED'' WHERE Singleton=1 AND SqlPlanKey=@plan AND PreflightReceiptKey=@receipt AND BindingKey=@binding AND OperationId=@operation AND DatabaseGuid=@guid; IF @@ROWCOUNT<>1 THROW 51000,''AI_EXTERNAL_MODEL_SQL_OWNERSHIP_MISMATCH'',1;';
-EXEC sys.sp_executesql @ddl,N'@plan varchar(64),@receipt varchar(64),@binding varchar(64),@operation uniqueidentifier,@guid uniqueidentifier',@plan=@planKey,@receipt=@preflightReceiptKey,@binding=@bindingKey,@operation=@operationId,@guid=@databaseGuid;
+DECLARE @credentialId int=(SELECT credential_id FROM sys.database_scoped_credentials WHERE name=@credential);
+DECLARE @externalModelId int=(SELECT external_model_id FROM sys.external_models WHERE name=@modelName AND credential_id=@credentialId);
+IF @credentialId IS NULL OR @externalModelId IS NULL THROW 51000,'AI_EXTERNAL_MODEL_SQL_APPLY_POSTCONDITION_FAILED',1;
+SET @ddl=N'UPDATE dbo.'+QUOTENAME(@ownerName)+N' SET CredentialId=@credentialId,ExternalModelId=@modelId,Status=''APPLIED'' WHERE Singleton=1 AND SqlPlanKey=@plan AND PreflightReceiptKey=@receipt AND BindingKey=@binding AND OperationId=@operation AND DatabaseGuid=@guid; IF @@ROWCOUNT<>1 THROW 51000,''AI_EXTERNAL_MODEL_SQL_OWNERSHIP_MISMATCH'',1;';
+EXEC sys.sp_executesql @ddl,N'@credentialId int,@modelId int,@plan varchar(64),@receipt varchar(64),@binding varchar(64),@operation uniqueidentifier,@guid uniqueidentifier',@credentialId=@credentialId,@modelId=@externalModelId,@plan=@planKey,@receipt=@preflightReceiptKey,@binding=@bindingKey,@operation=@operationId,@guid=@databaseGuid;
 COMMIT TRANSACTION;
 '@
         $parameters=@{lockResource=('SqlServerLab.AiExternalModel.'+[string]$canonical.SqlPlanKey);ownerName=[string]$canonical.OwnershipTableName;credential=[string]$canonical.CredentialName;modelName=[string]$canonical.ExternalModelName;databaseGuid=[string]$receipt.DatabaseGuid;planKey=[string]$canonical.SqlPlanKey;preflightReceiptKey=[string]$receipt.ReceiptKey;bindingKey=[string]$receipt.BindingKey;operationId=[string]$journal.OperationId;credentialSecret=$plain;location=[string]$canonical.Location;runtimeModel=[string]$canonical.RuntimeModel}
@@ -884,6 +894,165 @@ COMMIT TRANSACTION;
         if($parameters){$parameters.credentialSecret=$null}
         $plain=$null
         if($pointer -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)}
+        if($connection){$connection.Dispose()};if($sqlSecret){$sqlSecret.Dispose()};if($lock){$lock.Dispose()}
+    }
+}
+
+function Resolve-LabAiExternalModelSqlApplyReceipt {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$SqlPlan,
+        [Parameter(Mandatory)]$ApplyReceipt,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)]$BindingIdentity,
+        [Parameter(Mandatory)]$Journal
+    )
+    try{$valid=$ApplyReceipt|ConvertTo-Json -Depth 12|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'ai-external-model-sql-apply-receipt.schema.json') -ErrorAction Stop}
+    catch{throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RECEIPT_INVALID'}
+    if(-not $valid){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RECEIPT_INVALID'}
+    $identity=[ordered]@{
+        Contract='SqlServerLab.AiExternalModelSqlApplyBinding/1.0';OperationId=[string]$ApplyReceipt.OperationId
+        SqlPlanKey=[string]$ApplyReceipt.SqlPlanKey;PreflightReceiptKey=[string]$ApplyReceipt.PreflightReceiptKey
+        BindingKey=[string]$ApplyReceipt.BindingKey;DatabaseGuid=[string]$ApplyReceipt.DatabaseGuid
+        VerifiedAtUtc=[string]$ApplyReceipt.VerifiedAtUtc
+    }
+    if((Get-LabAiPlanKey -InputObject $identity) -cne [string]$ApplyReceipt.ReceiptKey){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RECEIPT_INVALID'}
+    $bindingKey=Get-LabAiPlanKey -InputObject $BindingIdentity
+    if([string]$ApplyReceipt.SqlPlanKey -cne [string]$SqlPlan.SqlPlanKey -or
+       [string]$ApplyReceipt.RunId -cne $RunId -or [string]$ApplyReceipt.InstanceId -cne $InstanceId -or
+       [string]$BindingIdentity.RunId -cne $RunId -or [string]$BindingIdentity.InstanceId -cne $InstanceId -or
+       [string]$ApplyReceipt.ScopeId -cne [string]$BindingIdentity.ScopeId -or
+       [string]$ApplyReceipt.Provider -cne [string]$BindingIdentity.Provider -or
+       [string]$ApplyReceipt.BindingKey -cne $bindingKey -or
+       [string]$ApplyReceipt.DatabaseName -cne [string]$SqlPlan.DatabaseName -or
+       [string]$ApplyReceipt.OperationId -cne [string]$Journal.OperationId -or
+       [string]$ApplyReceipt.BindingKey -cne [string]$Journal.BindingKey -or
+       [string]$ApplyReceipt.RunId -cne [string]$Journal.RunId -or [string]$ApplyReceipt.ScopeId -cne [string]$Journal.ScopeId -or
+       [string]$ApplyReceipt.InstanceId -cne [string]$Journal.InstanceId -or [string]$ApplyReceipt.Provider -cne [string]$Journal.Provider -or
+       [string]$ApplyReceipt.DatabaseName -cne [string]$Journal.DatabaseName -or
+       [string]$ApplyReceipt.PreflightReceiptKey -cne [string]$Journal.PreflightReceiptKey -or
+       [string]$ApplyReceipt.DatabaseGuid -cne [string]$Journal.DatabaseGuid){
+        throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RECEIPT_MISMATCH'
+    }
+    $ApplyReceipt
+}
+
+function Test-LabAiExternalModelSqlCleanedObservation {
+    param([Parameter(Mandatory)]$Observation,[Parameter(Mandatory)]$Journal)
+    [string]$Observation.DatabaseGuid -ceq [string]$Journal.DatabaseGuid -and
+    -not [bool]$Observation.OwnershipTableExists -and -not [bool]$Observation.CredentialExists -and -not [bool]$Observation.ExternalModelExists
+}
+
+function New-LabAiExternalModelSqlCleanupReceipt {
+    param([Parameter(Mandatory)]$Journal,[Parameter(Mandatory)]$ApplyReceipt)
+    $verifiedAt=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+    $identity=[ordered]@{Contract='SqlServerLab.AiExternalModelSqlCleanupBinding/1.0';OperationId=[string]$Journal.OperationId;SqlPlanKey=[string]$Journal.SqlPlanKey;ApplyReceiptKey=[string]$ApplyReceipt.ReceiptKey;BindingKey=[string]$Journal.BindingKey;DatabaseGuid=[string]$Journal.DatabaseGuid;VerifiedAtUtc=$verifiedAt}
+    $result=[pscustomobject][ordered]@{
+        Contract=[pscustomobject]@{Name='SqlServerLab.AiExternalModelSqlCleanupReceipt';Version='1.0'}
+        Status='SQL_EXTERNAL_MODEL_CLEANED';EvidenceStatus='LIVE_SQL_ABSENCE_BOUND';OperationId=[string]$Journal.OperationId
+        SqlPlanKey=[string]$Journal.SqlPlanKey;ApplyReceiptKey=[string]$ApplyReceipt.ReceiptKey
+        RunId=[string]$Journal.RunId;ScopeId=[string]$Journal.ScopeId;InstanceId=[string]$Journal.InstanceId
+        Provider=[string]$Journal.Provider;BindingKey=[string]$Journal.BindingKey;DatabaseName=[string]$Journal.DatabaseName
+        DatabaseGuid=[string]$Journal.DatabaseGuid;VerifiedAtUtc=$verifiedAt
+        VerifiedEvidence=@('SQL_EXTERNAL_MODEL_ABSENT','DATABASE_SCOPED_CREDENTIAL_ABSENT','SQL_OWNERSHIP_RECEIPT_ABSENT')
+        ReceiptKey=Get-LabAiPlanKey -InputObject $identity
+    }
+    if(-not ($result|ConvertTo-Json -Depth 12|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'ai-external-model-sql-cleanup-receipt.schema.json') -ErrorAction SilentlyContinue)){
+        throw 'AI_EXTERNAL_MODEL_SQL_CLEANUP_RECEIPT_INVALID'
+    }
+    $result
+}
+
+function Invoke-LabAiExternalModelSqlCleanup {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$SqlPlan,
+        [Parameter(Mandatory)]$ApplyReceipt,
+        [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$RunId,
+        [ValidatePattern('^[a-zA-Z][a-zA-Z0-9_-]{0,63}$')][string]$InstanceId='primary',
+        [string]$StateRoot,
+        [switch]$Resume,
+        [scriptblock]$SqlExecutor,
+        $Binding,
+        $BindingIdentity,
+        [scriptblock]$FaultInjector
+    )
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $StateRoot=[IO.Path]::GetFullPath($StateRoot)
+    $canonical=Resolve-LabAiExternalModelSqlPlan -SqlPlan $SqlPlan -AllowExpired
+    if(-not $Binding){$Binding=Get-LabTransferBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
+    if(-not $BindingIdentity){$BindingIdentity=Get-LabTransferBindingIdentity $Binding}
+    $paths=Get-LabAiExternalModelSqlApplyJournalPath -StateRoot $StateRoot -RunId $RunId -InstanceId $InstanceId -SqlPlanKey ([string]$canonical.SqlPlanKey)
+    if(-not (Test-Path -LiteralPath $paths.Path -PathType Leaf)){throw 'AI_EXTERNAL_MODEL_SQL_CLEANUP_JOURNAL_NOT_FOUND'}
+    $lock=$null;$connection=$null;$sqlSecret=$null
+    try{$lock=[IO.File]::Open($paths.LockPath,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)}catch{throw 'AI_EXTERNAL_MODEL_SQL_CLEANUP_LOCKED'}
+    try{
+        $journal=Read-LabAiExternalModelSqlApplyJournal -Path $paths.Path
+        if([string]$journal.SqlPlanKey -cne [string]$canonical.SqlPlanKey -or [string]$journal.RunId -cne $RunId -or [string]$journal.InstanceId -cne $InstanceId){throw 'AI_EXTERNAL_MODEL_SQL_CLEANUP_JOURNAL_MISMATCH'}
+        $receipt=Resolve-LabAiExternalModelSqlApplyReceipt -SqlPlan $canonical -ApplyReceipt $ApplyReceipt -RunId $RunId -InstanceId $InstanceId -BindingIdentity $BindingIdentity -Journal $journal
+        if(-not $SqlExecutor){
+            $storedSecret=Get-LabRelationalCoreSecret -RunId $RunId -StateRoot $StateRoot
+            try{$sqlSecret=$storedSecret.Copy();$sqlSecret.MakeReadOnly()}finally{$storedSecret.Dispose()}
+            $connection=New-LabRelationalCoreConnection -Binding $Binding -DatabaseName ([string]$canonical.DatabaseName) -Secret $sqlSecret
+            $connection.Open()
+        }
+        $executeSql={param($query,$parameters,$database)
+            if($SqlExecutor){return @(& $SqlExecutor $query $parameters $database)}
+            @(Invoke-LabTransferSqlRows -Connection $connection -Query $query -Parameters $parameters -TimeoutSeconds 120)
+        }.GetNewClosure()
+        $observation=Get-LabAiExternalModelSqlApplyObservation -SqlPlan $canonical -ExecuteSql $executeSql
+        if([string]$journal.Status -ceq 'CLEANED'){
+            if(-not (Test-LabAiExternalModelSqlCleanedObservation -Observation $observation -Journal $journal)){throw 'AI_EXTERNAL_MODEL_SQL_CLEANUP_RECOVERY_REQUIRED'}
+            return New-LabAiExternalModelSqlCleanupReceipt -Journal $journal -ApplyReceipt $receipt
+        }
+        if([string]$journal.Status -ceq 'CLEANUP_PENDING'){
+            if(-not $Resume){throw 'AI_EXTERNAL_MODEL_SQL_CLEANUP_RESUME_REQUIRED'}
+            if(Test-LabAiExternalModelSqlCleanedObservation -Observation $observation -Journal $journal){
+                $journal.Status='CLEANED';$journal.Recovery='NOT_REQUIRED';$journal.UpdatedAtUtc=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+                Write-LabAiExternalModelSqlApplyJournal -Path $paths.Path -Journal $journal
+                return New-LabAiExternalModelSqlCleanupReceipt -Journal $journal -ApplyReceipt $receipt
+            }
+            if(-not (Test-LabAiExternalModelSqlAppliedObservation -Observation $observation -Journal $journal)){throw 'AI_EXTERNAL_MODEL_SQL_CLEANUP_RECOVERY_REQUIRED'}
+        }elseif([string]$journal.Status -ceq 'APPLIED'){
+            if(-not (Test-LabAiExternalModelSqlAppliedObservation -Observation $observation -Journal $journal)){throw 'AI_EXTERNAL_MODEL_SQL_CLEANUP_RECOVERY_REQUIRED'}
+            $journal.Status='CLEANUP_PENDING';$journal.Recovery='RESUME_AND_VERIFY_SQL_CLEANUP';$journal.UpdatedAtUtc=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+            Write-LabAiExternalModelSqlApplyJournal -Path $paths.Path -Journal $journal
+        }else{throw 'AI_EXTERNAL_MODEL_SQL_CLEANUP_RECOVERY_REQUIRED'}
+        if($FaultInjector){& $FaultInjector 'BeforeSqlMutation'}
+        $cleanupQuery=@'
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+DECLARE @lockResult int;
+EXEC @lockResult=sys.sp_getapplock @Resource=@lockResource,@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=0;
+IF @lockResult<0 THROW 51000,'AI_EXTERNAL_MODEL_SQL_CLEANUP_LOCKED',1;
+IF CONVERT(int,SERVERPROPERTY('ProductMajorVersion'))<>17 THROW 51000,'AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED',1;
+IF NOT EXISTS(SELECT 1 FROM sys.database_recovery_status WHERE database_id=DB_ID() AND CONVERT(varchar(36),database_guid)=@databaseGuid) THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_MISMATCH',1;
+IF CONVERT(nvarchar(60),DATABASEPROPERTYEX(DB_NAME(),'Status'))<>N'ONLINE' OR CONVERT(nvarchar(60),DATABASEPROPERTYEX(DB_NAME(),'Updateability'))<>N'READ_WRITE' THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_NOT_WRITABLE',1;
+IF NOT EXISTS(SELECT 1 FROM sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name=N'CONTROL') THROW 51000,'AI_EXTERNAL_MODEL_SQL_PERMISSION_REQUIRED',1;
+IF OBJECT_ID(N'dbo.'+QUOTENAME(@ownerName),N'U') IS NULL OR NOT EXISTS(SELECT 1 FROM sys.database_scoped_credentials WHERE name=@credential) OR NOT EXISTS(SELECT 1 FROM sys.external_models WHERE name=@modelName) THROW 51000,'AI_EXTERNAL_MODEL_SQL_CLEANUP_STATE_MISMATCH',1;
+DECLARE @owned bit=0,@ddl nvarchar(max)=N'SELECT @match=CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM dbo.'+QUOTENAME(@ownerName)+N' o JOIN sys.database_scoped_credentials c ON c.name=@credential AND c.credential_id=o.CredentialId JOIN sys.external_models m ON m.name=@model AND m.external_model_id=o.ExternalModelId AND m.credential_id=c.credential_id WHERE o.Singleton=1 AND o.SqlPlanKey=@plan AND o.PreflightReceiptKey=@receipt AND o.BindingKey=@binding AND o.OperationId=@operation AND o.DatabaseGuid=@guid AND o.Status=''APPLIED'') THEN 1 ELSE 0 END);';
+EXEC sys.sp_executesql @ddl,N'@match bit OUTPUT,@credential sysname,@model sysname,@plan varchar(64),@receipt varchar(64),@binding varchar(64),@operation uniqueidentifier,@guid uniqueidentifier',@match=@owned OUTPUT,@credential=@credential,@model=@modelName,@plan=@planKey,@receipt=@preflightReceiptKey,@binding=@bindingKey,@operation=@operationId,@guid=@databaseGuid;
+IF @owned<>1 THROW 51000,'AI_EXTERNAL_MODEL_SQL_CLEANUP_OWNERSHIP_MISMATCH',1;
+SET @ddl=N'DROP EXTERNAL MODEL '+QUOTENAME(@modelName)+N';'; EXEC(@ddl);
+SET @ddl=N'DROP DATABASE SCOPED CREDENTIAL '+QUOTENAME(@credential)+N';'; EXEC(@ddl);
+SET @ddl=N'DROP TABLE dbo.'+QUOTENAME(@ownerName)+N';'; EXEC(@ddl);
+IF OBJECT_ID(N'dbo.'+QUOTENAME(@ownerName),N'U') IS NOT NULL OR EXISTS(SELECT 1 FROM sys.database_scoped_credentials WHERE name=@credential) OR EXISTS(SELECT 1 FROM sys.external_models WHERE name=@modelName) THROW 51000,'AI_EXTERNAL_MODEL_SQL_CLEANUP_POSTCONDITION_FAILED',1;
+COMMIT TRANSACTION;
+'@
+        $parameters=@{lockResource=('SqlServerLab.AiExternalModel.'+[string]$canonical.SqlPlanKey);ownerName=[string]$canonical.OwnershipTableName;credential=[string]$canonical.CredentialName;modelName=[string]$canonical.ExternalModelName;databaseGuid=[string]$journal.DatabaseGuid;planKey=[string]$journal.SqlPlanKey;preflightReceiptKey=[string]$journal.PreflightReceiptKey;bindingKey=[string]$journal.BindingKey;operationId=[string]$journal.OperationId}
+        $null=@(& $executeSql $cleanupQuery $parameters ([string]$canonical.DatabaseName))
+        if($FaultInjector){& $FaultInjector 'AfterSqlMutation'}
+        $observation=Get-LabAiExternalModelSqlApplyObservation -SqlPlan $canonical -ExecuteSql $executeSql
+        if(-not (Test-LabAiExternalModelSqlCleanedObservation -Observation $observation -Journal $journal)){throw 'AI_EXTERNAL_MODEL_SQL_CLEANUP_RECOVERY_REQUIRED'}
+        $journal.Status='CLEANED';$journal.Recovery='NOT_REQUIRED';$journal.UpdatedAtUtc=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+        Write-LabAiExternalModelSqlApplyJournal -Path $paths.Path -Journal $journal
+        New-LabAiExternalModelSqlCleanupReceipt -Journal $journal -ApplyReceipt $receipt
+    }catch{
+        $code=[string]$_.Exception.Message
+        if($code -match '^AI_EXTERNAL_MODEL_SQL_(PLAN|APPLY_RECEIPT|CLEANUP_JOURNAL|CLEANUP_LOCKED|CLEANUP_RESUME|CLEANUP_RECOVERY|CLEANUP_RECEIPT)_[A-Z_]+$' -or $code -eq 'AI_EXTERNAL_MODEL_SQL_CLEANUP_LOCKED'){throw $code}
+        throw 'AI_EXTERNAL_MODEL_SQL_CLEANUP_RECOVERY_REQUIRED'
+    }finally{
         if($connection){$connection.Dispose()};if($sqlSecret){$sqlSecret.Dispose()};if($lock){$lock.Dispose()}
     }
 }
