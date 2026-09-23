@@ -224,6 +224,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Binds fresh endpoint evidence to a secret-free SQL 2025 mutation and
         cleanup plan without a SQL connection or mutation.
 
+    Test-SqlServerLabAiExternalModelSqlPreflight
+        Checks an owned SQL 2025 target read-only for database identity, master
+        key, permissions, and available credential and external-model names.
+
     Test-SqlServerLabAiExternalModelArtifact
         Verifies local runtime and model files read-only against the SHA-256
         values in the plan without claiming process or accelerator evidence.

@@ -32,6 +32,7 @@
         'Stop-SqlServerLabLlamaCppRuntime'
         'Test-SqlServerLabAiExternalModelArtifact'
         'Test-SqlServerLabAiExternalModelEndpoint'
+        'Test-SqlServerLabAiExternalModelSqlPreflight'
         'Test-SqlServerLabOvmsUpstreamEndpoint'
         'Start-SqlServerLabOvmsHttpsGateway'
         'Stop-SqlServerLabOvmsHttpsGateway'
