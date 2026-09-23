@@ -531,13 +531,14 @@ function New-LabAiExternalModelSqlPlan {
         ApiFormat='OpenAI';ModelType='EMBEDDINGS';RuntimeModel=$identity.RuntimeModel;Dimension=$identity.Dimension;RetryCount=0
         SourcePlanKey=$identity.SourcePlanKey;EndpointReceiptKey=$binding.ReceiptKey;ValidUntilUtc=$validUntil
         AuthenticationIdentity='HTTPEndpointHeaders';CredentialSecretRequired=$true
-        MutationSequence=@('PREFLIGHT_DATABASE_VERSION_PERMISSIONS_AND_MASTER_KEY','CREATE_DATABASE_SCOPED_CREDENTIAL','CREATE_EXTERNAL_MODEL','VERIFY_EXTERNAL_MODEL_CATALOG')
-        CleanupSequence=@('DROP_EXTERNAL_MODEL','DROP_DATABASE_SCOPED_CREDENTIAL','VERIFY_SQL_OBJECTS_REMOVED')
+        MutationSequence=@('PREFLIGHT_DATABASE_VERSION_PERMISSIONS_AND_MASTER_KEY','CREATE_OWNERSHIP_RECEIPT','CREATE_DATABASE_SCOPED_CREDENTIAL','CREATE_EXTERNAL_MODEL','VERIFY_EXTERNAL_MODEL_CATALOG')
+        CleanupSequence=@('DROP_EXTERNAL_MODEL','DROP_DATABASE_SCOPED_CREDENTIAL','DROP_OWNERSHIP_RECEIPT','VERIFY_SQL_OBJECTS_REMOVED')
         RequiredPermissions=@('CONTROL_DATABASE','CREATE_EXTERNAL_MODEL')
         PendingEvidence=@('SQL_EXTERNAL_MODEL_CREATED','SQL_EMBEDDING_VERIFIED','SQL_RESTART_VERIFIED','ACCELERATOR_RUNTIME_ATTESTATION','SQL_CLEANUP_VERIFIED')
     }
     if($canonicalPlan.PSObject.Properties['GatewayBindingKey']){$sqlPlan.GatewayBindingKey=[string]$canonicalPlan.GatewayBindingKey}
     $sqlPlan.SqlPlanKey=Get-LabAiPlanKey -InputObject $identity
+    $sqlPlan.OwnershipTableName='SqlServerLabAiOwner_'+$sqlPlan.SqlPlanKey.Substring(0,24)
     [PSCustomObject]$sqlPlan
 }
 
@@ -557,7 +558,10 @@ function Resolve-LabAiExternalModelSqlPlan {
         Dimension=[int]$SqlPlan.Dimension;RetryCount=[int]$SqlPlan.RetryCount;SourcePlanKey=[string]$SqlPlan.SourcePlanKey
         EndpointReceiptKey=[string]$SqlPlan.EndpointReceiptKey;ValidUntilUtc=[string]$SqlPlan.ValidUntilUtc
     }
-    if((Get-LabAiPlanKey -InputObject $identity) -cne [string]$SqlPlan.SqlPlanKey){throw 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID'}
+    if((Get-LabAiPlanKey -InputObject $identity) -cne [string]$SqlPlan.SqlPlanKey -or
+       [string]$SqlPlan.OwnershipTableName -cne ('SqlServerLabAiOwner_'+([string]$SqlPlan.SqlPlanKey).Substring(0,24))){
+        throw 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID'
+    }
     if($validUntil -lt [DateTimeOffset]::UtcNow){throw 'AI_EXTERNAL_MODEL_SQL_PLAN_EXPIRED'}
     $SqlPlan
 }
@@ -592,10 +596,11 @@ SELECT CONVERT(int,SERVERPROPERTY('ProductMajorVersion')) AS SqlMajorVersion, DB
  CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name=N'CONTROL') THEN 1 ELSE 0 END) AS HasControlDatabase,
  CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name=N'CREATE EXTERNAL MODEL') THEN 1 ELSE 0 END) AS HasCreateExternalModel,
  CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.database_scoped_credentials WHERE name=@credential) THEN 1 ELSE 0 END) AS CredentialExists,
- CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.external_models WHERE name=@model) THEN 1 ELSE 0 END) AS ExternalModelExists
+ CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.external_models WHERE name=@model) THEN 1 ELSE 0 END) AS ExternalModelExists,
+ CONVERT(bit,CASE WHEN OBJECT_ID(@ownerTable,N'U') IS NOT NULL THEN 1 ELSE 0 END) AS OwnershipTableExists
 FROM sys.database_recovery_status WHERE database_id=DB_ID();
 '@
-    $parameters=@{credential=[string]$canonical.CredentialName;model=[string]$canonical.ExternalModelName}
+    $parameters=@{credential=[string]$canonical.CredentialName;model=[string]$canonical.ExternalModelName;ownerTable=('dbo.'+[string]$canonical.OwnershipTableName)}
     $connection=$null;$secret=$null
     try{
         if($SqlExecutor){$rows=@(& $SqlExecutor $query $parameters ([string]$canonical.DatabaseName))}
@@ -619,7 +624,7 @@ FROM sys.database_recovery_status WHERE database_id=DB_ID();
     if([string]$row.DatabaseStatus -cne 'ONLINE' -or -not [bool]$row.IsReadWrite){throw 'AI_EXTERNAL_MODEL_SQL_DATABASE_UNAVAILABLE'}
     if(-not [bool]$row.HasDatabaseMasterKey){throw 'AI_EXTERNAL_MODEL_SQL_MASTER_KEY_REQUIRED'}
     if(-not [bool]$row.HasControlDatabase -or -not [bool]$row.HasCreateExternalModel){throw 'AI_EXTERNAL_MODEL_SQL_PERMISSION_DENIED'}
-    if([bool]$row.CredentialExists -or [bool]$row.ExternalModelExists){throw 'AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION'}
+    if([bool]$row.CredentialExists -or [bool]$row.ExternalModelExists -or [bool]$row.OwnershipTableExists){throw 'AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION'}
     $verifiedAt=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
     $receiptIdentity=[ordered]@{Contract='SqlServerLab.AiExternalModelSqlPreflightBinding/1.0';SqlPlanKey=[string]$canonical.SqlPlanKey;BindingKey=$bindingKey;DatabaseGuid=[string]$row.DatabaseGuid;VerifiedAtUtc=$verifiedAt}
     [PSCustomObject][ordered]@{
