@@ -111,6 +111,8 @@ Get-SqlServerLabDatabaseMigrationDependency  # SQL-Migrationsabhaengigkeiten rea
 Get-SqlServerLabAiScenario                   # SQL-KI-Szenario und sanitisierte Evidence read-only aufloesen
 Start-SqlServerLabLlamaCppRuntime           # Eigene begrenzte Windows-Embeddingruntime starten
 Stop-SqlServerLabLlamaCppRuntime            # Eigene Runtime und API-Key bereinigen
+Start-SqlServerLabOvmsHttpsGateway          # Eigenen begrenzten OVMS-Loopback-HTTPS-Gateway starten
+Stop-SqlServerLabOvmsHttpsGateway           # Eigenen Gateway und API-Key bereinigen
 Get-SqlServerLabLlamaCppRuntime             # Windows-Pakete begrenzt ohne Hashpflicht erkennen
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen
 Test-SqlServerLabAiExternalModelArtifact   # Runtime- und Modelldatei read-only gegen die Plandigests prüfen

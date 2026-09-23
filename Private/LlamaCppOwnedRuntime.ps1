@@ -208,4 +208,9 @@ $ExecutionContext.SessionState.Module.OnRemove = {
             try {if(-not $session.Worker.HasExited){$session.Worker.StandardInput.Close()}} catch { }
         }
     }
+    if($script:AiOvmsGatewaySessions) {
+        foreach($session in @($script:AiOvmsGatewaySessions.Values)) {
+            try {if(-not $session.Worker.HasExited){$session.Worker.StandardInput.Close()}} catch { }
+        }
+    }
 }

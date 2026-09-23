@@ -74,6 +74,8 @@ Die SQL-seitige Verifikation bleibt offen.
 | `Test-SqlServerLabAiExternalModelArtifact` | `Test-SqlServerLabAiExternalModelArtifact.ps1` | Lokale Runtime- und Modelldatei read-only gegen die SHA-256-Werte des Plans prüfen; kein Prozess- oder Acceleratornachweis |
 | `Test-SqlServerLabAiExternalModelEndpoint` | `Test-SqlServerLabAiExternalModelEndpoint.ps1` | Geplanten HTTPS-Endpunkt mit festem synthetischem Request, echtem Zertifikatspin sowie Antwort- und Dimensionsprüfung read-only verifizieren; keine Accelerator-Attestation |
 | `Test-SqlServerLabOvmsUpstreamEndpoint` | `Test-SqlServerLabOvmsUpstreamEndpoint.ps1` | Numerischen Loopback-HTTP-Upstream von OVMS mit festem `/v3/embeddings`-Request, Modell- und Dimensionsbindung read-only prüfen; kein Gateway- oder Acceleratornachweis |
+| `Start-SqlServerLabOvmsHttpsGateway` | `Start-SqlServerLabOvmsHttpsGateway.ps1` | Eigenen zeitlich begrenzten Windows-Loopback-HTTPS-Gateway vor einem verifizierten OVMS-v3-Upstream starten |
+| `Stop-SqlServerLabOvmsHttpsGateway` | `Stop-SqlServerLabOvmsHttpsGateway.ps1` | Ausschließlich den sitzungsgebundenen OVMS-Gateway beenden und dessen API-Key-Datei entfernen |
 | `Get-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Passwortfreie Endpunktübersicht für SSMS, CMS und Exporte |
 | `Sync-SqlServerLabConnectionCenter` | `Sync-SqlServerLabConnectionCenter.ps1` | Endpunktkatalog der Verbindungszentrale atomar aktualisieren |
 | `Export-SqlServerLabSsmsRegistration` | `Sync-SqlServerLabConnectionCenter.ps1` | Kennwortfreien SSMS-`.regsrvr`-Export erzeugen |

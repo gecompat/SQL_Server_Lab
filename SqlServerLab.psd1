@@ -32,6 +32,8 @@
         'Test-SqlServerLabAiExternalModelArtifact'
         'Test-SqlServerLabAiExternalModelEndpoint'
         'Test-SqlServerLabOvmsUpstreamEndpoint'
+        'Start-SqlServerLabOvmsHttpsGateway'
+        'Stop-SqlServerLabOvmsHttpsGateway'
         'Find-SqlServerLabCollation'
         'Get-SqlServerLabHyperVImageArtifact'
         'Get-SqlServerLabEvaluationWatch'
