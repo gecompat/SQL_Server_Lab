@@ -186,6 +186,50 @@ Die spätere automatische Gerätewahl vergleicht nur vollständig benchmarkte,
 für denselben Modell-/Workloadvertrag geeignete CPU-, NPU-, Einzel-GPU- und
 Mehr-GPU-Kandidaten. Die Katalogstufe ersetzt diese Messung nicht.
 
+### Benchmarkgebundene Gerätewahl
+
+`Get-SqlServerLabAiComputeSelection` setzt `Auto` als Standard um. Jeder
+Kandidat benennt Backend, Runtime-SHA-256 und ein Set aus einem oder mehreren
+CPU-, NPU- oder GPU-Geräten. Damit sind einzelne Beschleuniger, mehrere
+Grafikkarten und gemischte Gerätesätze ausdrückbar. Ungeeignete Kandidaten
+bleiben mit ihren Blockern sichtbar, nehmen aber nicht am Ranking teil.
+
+Auto verlangt für jeden geeigneten Kandidaten genau einen erfolgreich
+abgeschlossenen Benchmark mit identischem Workloadschlüssel, Modell-SHA-256,
+Benchmarkprofil-SHA-256 und Hardwareinventar-SHA-256 sowie dem
+kandidatengebundenen Runtime-Hash.
+Fehlt nur eine Messung, wird keine Auswahl geliefert. Primär entscheidet der
+Durchsatz; bei Gleichstand folgen niedrigere P95-Latenz, geringerer Peak Working
+Set und die Kandidaten-ID als stabiler Tie-Breaker.
+
+```powershell
+$selection = Get-SqlServerLabAiComputeSelection `
+  -WorkloadKey sql-ai-generation `
+  -ModelSha256 $modelHash `
+  -BenchmarkProfileSha256 $profileHash `
+  -InventorySha256 $inventoryHash `
+  -Candidate $completeInventory `
+  -Benchmark $comparableReceipts
+```
+
+Eine bewusste Fixierung benötigt keine Benchmarkentscheidung, darf aber nur
+einen geeigneten Kandidaten wählen:
+
+```powershell
+$selection = Get-SqlServerLabAiComputeSelection `
+  -WorkloadKey sql-ai-generation `
+  -ModelSha256 $modelHash `
+  -BenchmarkProfileSha256 $profileHash `
+  -InventorySha256 $inventoryHash `
+  -Candidate $completeInventory `
+  -PinnedCandidateId rtx5080-pair
+```
+
+Der Befehl ist ein deterministischer Auswahlkern. Er inventarisiert keine
+Hardware, führt keinen Benchmark aus und startet keine Runtime. Bis diese
+Producer angebunden sind, müssen Kandidaten und Receipts aus einem getrennt
+geprüften Inventar- und Benchmarklauf stammen.
+
 Voraussetzungen sind ein passender Intel-NPU-Treiber, ein OpenVINO-Build von
 `llama.cpp`, ein geeignetes Embedding-GGUF sowie ein operationseigenes
 Zertifikat und eine API-Key-Datei. Modell, Quantisierung und Pooling müssen aus

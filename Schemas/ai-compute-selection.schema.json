@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/sql-server-lab/ai-compute-selection.schema.json",
+  "type": "object",
+  "required": ["Contract","Status","SelectionMode","CandidateId","Backend","Devices","RuntimeSha256","WorkloadKey","ModelSha256","BenchmarkProfileSha256","InventorySha256","SelectedBenchmark","RankedCandidates","ExcludedCandidates","SelectionKey"],
+  "properties": {
+    "Contract": {"const":"SqlServerLab.AiComputeSelection/1.0"},
+    "Status": {"const":"SELECTED"},
+    "SelectionMode": {"enum":["AUTO_FASTEST","PINNED"]},
+    "CandidateId": {"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,127}$"},
+    "Backend": {"enum":["LlamaCppCuda","LlamaCppOpenVino","LlamaCppRocm","LlamaCppSnapdragonOpenCl","LlamaCppSnapdragonHexagon","OpenVinoModelServer","Ollama"]},
+    "Devices": {"type":"array","minItems":1,"maxItems":16,"items":{"$ref":"#/$defs/device"}},
+    "RuntimeSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "WorkloadKey": {"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,127}$"},
+    "ModelSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "BenchmarkProfileSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "InventorySha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "SelectedBenchmark": {"anyOf":[{"type":"null"},{"$ref":"#/$defs/benchmark"}]},
+    "RankedCandidates": {"type":"array","items":{"$ref":"#/$defs/benchmark"}},
+    "ExcludedCandidates": {"type":"array","items":{"type":"object","required":["CandidateId","Blockers"],"properties":{"CandidateId":{"type":"string"},"Blockers":{"type":"array","minItems":1,"items":{"type":"string"}}},"additionalProperties":false}},
+    "SelectionKey": {"type":"string","pattern":"^[a-f0-9]{64}$"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "device": {"type":"object","required":["Kind","DeviceId"],"properties":{"Kind":{"enum":["CPU","GPU","NPU"]},"DeviceId":{"type":"string"}},"additionalProperties":false},
+    "benchmark": {"type":"object","required":["CandidateId","ThroughputPerSecond","P95LatencyMilliseconds","PeakWorkingSetBytes","SuccessfulIterations","TotalIterations"],"properties":{"CandidateId":{"type":"string"},"ThroughputPerSecond":{"type":"number","exclusiveMinimum":0},"P95LatencyMilliseconds":{"type":"number","minimum":0},"PeakWorkingSetBytes":{"type":"integer","minimum":0},"SuccessfulIterations":{"type":"integer","minimum":3},"TotalIterations":{"type":"integer","minimum":3}},"additionalProperties":false}
+  }
+}

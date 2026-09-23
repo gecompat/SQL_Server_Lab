@@ -1955,6 +1955,12 @@ kleine Dateien prüfen Download-on-demand, Cache-Revalidierung, atomare
 Veröffentlichung, Teilstandbereinigung, GGUF-Magic, Quellen-Allowlist und
 `WhatIf`; die Suite lädt keine realen Modelle und startet keine Runtime.
 
+`Invoke-AiComputeSelectionChecks.ps1` prüft Auto als Default, vollständige
+vergleichbare Coverage, Mehr-GPU- und gemischte Gerätesätze, stabile
+Eingabereihenfolge, Throughput-/P95-Tie-Breaks, Pinned-Override und negative
+Binding-, Eligibility-, Duplikat-, Teilfehler- und NaN-Fälle. Die Suite erzeugt
+nur synthetische Receipts und greift auf keine Hosthardware zu.
+
 ### Eigener llama.cpp-Lifecycle
 
 `Invoke-LlamaCppOwnedRuntimeChecks.ps1` prüft Accelerator-Evidence und negative

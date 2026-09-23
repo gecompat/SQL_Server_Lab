@@ -12,17 +12,20 @@ nicht als Beschleunigungsnachweis.
 Der vorhandene Referenzslice bleibt gültig: SQL Server 2025 ruft ein lokales
 Ollama-Modell über einen kurzlebigen HTTPS-Gateway auf, erzeugt die Embeddings
 selbst und prüft TLS-Negative, Ranking, SQL-Neustart und Cleanup. Offen sind
-allgemeine Backendwahl, Installation, weitere Gerätebindungen, Podman, Hyper-V und die
+allgemeine Hardwareinventarisierung, Benchmarkausführung, weitere Gerätebindungen, Podman, Hyper-V und die
 unten beschriebenen Hardwarepfade.
 
 ## Zielbild
 
 SQL Server bleibt Besitzer von External Model, Credential, Vektoren, Suche und
 Abnahme. Ein lokaler Inferenzdienst stellt eine klar gebundene OpenAI- oder
-Ollama-kompatible Embedding-API bereit. Der Plan wählt die Runtime explizit;
-ein stiller Wechsel zwischen NPU, GPU, CPU, lokal und Cloud ist unzulässig.
+Ollama-kompatible Embedding-API bereit. Auto wählt standardmäßig die schnellste
+geeignete CPU-/NPU-/Einzel-GPU-/Mehr-GPU- oder gemischte Kombination nur aus
+vollständiger vergleichbarer Benchmark-Evidence. Eine explizite Fixierung
+überschreibt Auto. Ein stiller Wechsel zwischen NPU, GPU, CPU, lokal und Cloud
+ist unzulässig.
 
-Bevorzugte Reihenfolge:
+Umsetzungsreihenfolge:
 
 1. `llama.cpp` mit OpenVINO und NPU auf Windows als erster Referenzpfad;
 2. direkte SQL-Anbindung über `API_FORMAT='OpenAI'` und `/v1/embeddings`;
@@ -43,9 +46,9 @@ Bevorzugte Reihenfolge:
 | `AIX-003` | P0 | HTTPS ohne dauerhaften Hosttrust oder breite Listenerfreigabe | `IMPLEMENTED_PARTIAL`: Die Hostprobe prüft Leaf-Pin, SAN und Systemtrust oder eine ausschließlich im Prozess verwendete Custom Root ohne Proxy, Redirect oder Truststoreänderung. Direktes `llama-server`-TLS mit eigener SQL-CA, CUDA/Nomic und SQLrestart ist unter Docker am 2026-09-22 nativ belegt; weitere Backendpaare bleiben separat. |
 | `AIX-004` | P0 | Intel Core Ultra 7 165U, Windows 11 | `USER_EVIDENCE`: OpenVINO-Build von `llama.cpp` ist installiert und NPU-Nutzung funktioniert. Discovery und Start benötigen keinen Digest; die optionale Datei-Evidence folgt erst auf die konkrete Auswahl. Endpoint-, Geräte- und SQL-Evidence dieser Kombination bleiben separat. |
 | `AIX-005` | P0 | Intel Core Ultra 9 275HX plus Intel-Grafik und RTX 5080 Laptop GPU | `IMPLEMENTED_PARTIAL`: CUDA/Nomic bestand die eigene HTTPS-/SQL-2025-Docker-Referenz einschließlich SQLrestart und Cleanup. NPU, OpenVINO-/SYCL-iGPU, Vulkan und vergleichbare Performance-Messungen bleiben separat. |
-| `AIX-006` | P0 | GMKtec EVO-X2, Ryzen AI Max+ 395, Linux | `RESEARCHED`: Ryzen AI Software unterstützt Linux-NPU-Flows; ROCm führt `gfx1151` offiziell. NPU-Serviceadapter und `llama.cpp`-ROCm sind getrennte Lanes. ROCm ist der zuerst ausführbare Serverkandidat, NPU bleibt das bevorzugte Ziel. |
+| `AIX-006` | P0 | GMKtec EVO-X2, Ryzen AI Max+ 395, Linux | `RESEARCHED`: Ryzen AI Software unterstützt Linux-NPU-Flows; ROCm führt `gfx1151` offiziell. NPU-Serviceadapter und `llama.cpp`-ROCm sind getrennte Lanes. ROCm ist der zuerst ausführbare Serverkandidat, NPU bleibt ein eigenständiger Vergleichskandidat. |
 | `AIX-007` | P1 | OpenVINO Model Server | `IMPLEMENTED_PARTIAL`: Die read-only Probe bindet einen vorhandenen OVMS-v3-Upstream an numerischen Loopback, exakten Modellnamen, Antwortform und Dimension. Der getrennte Windows-TLS-Gateway-Lifecycle besitzt Ownerkanal, Lease, Auth und Request-/Response-Rekonstruktion. Der External-Model-Plan rechnet das Gateway-Receipt kanonisch nach; die synthetische End-to-End-Abnahme bestätigt Planbindung, HTTPS-Probe und einen altersgebundenen geheimnisfreien SQL-2025-Mutations-/Cleanupplan. Der read-only SQL-Preflight ist statisch belegt; SQL-Mutation, SQLrestart und Acceleratorattestation bleiben offen. |
-| `AIX-008` | P1 | Backendvergleich und Auswahl | `BACKLOG`: gleiche Modellfamilie, Dimension, Inputs und SQL-Assertions; Warmup, Latenz, Durchsatz, Arbeitsspeicher, Energie soweit messbar sowie tatsächliches Zielgerät werden protokolliert. |
+| `AIX-008` | P1 | Backendvergleich und Auswahl | `IMPLEMENTED_PARTIAL`: Der providerneutrale Auswahlkern verwendet Auto als Default, verlangt vollständige vergleichbare Evidence aller geeigneten Kandidaten, unterstützt CPU, NPU, Einzel-/Mehr-GPU und gemischte Sets und rangiert Durchsatz, P95-Latenz, Arbeitsspeicher sowie stabile ID. Pinned fixiert einen geeigneten Kandidaten ohne Benchmarkentscheidung oder Fallback. Hostinventarisierung, Benchmarkproducer, Energie- und Geräteattestation sowie Consumerintegration bleiben offen. |
 | `AIX-009` | P2 | Snapdragon Windows ARM64 | `RESEARCHED`: Upstream liefert CPU- und Adreno-OpenCL-Artefakte. Hexagon-NPU erfordert derzeit zusätzliche SDK-/Treiber- und Signaturschritte und bleibt wegen des Hosteingriffs eine eigene opt-in Lane. |
 
 ## Gemeinsamer Lab-Gateway, Zertifikate und Wiederherstellung (AIX-003)
@@ -250,9 +253,11 @@ Für dasselbe GGUF-/Embedding-Fixture werden getrennt geprüft:
 - CUDA auf RTX 5080; Vulkan als explizite Vergleichslane;
 - CPU nur als Baseline und Recoverydiagnose.
 
-Eine schnellere RTX-Lane darf die vom Nutzer gewünschte NPU-Eignungsprüfung
-nicht verdrängen. Bekannte upstream RTX-5080-/CUDA-Regressionsmeldungen werden
-vor dem Festschreiben einer Buildversion erneut geprüft.
+Eine schnellere RTX-Lane gewinnt Auto nur nach vollständiger vergleichbarer
+Evidence; sie entfernt die NPU-Lane nicht aus Inventar und Benchmarkmatrix.
+Eine gewünschte NPU-Ausführung wird mit Pinned explizit festgelegt. Bekannte
+upstream RTX-5080-/CUDA-Regressionsmeldungen werden vor dem Festschreiben einer
+Buildversion erneut geprüft.
 
 ## Abnahmevertrag
 

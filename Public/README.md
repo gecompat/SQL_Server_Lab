@@ -72,8 +72,7 @@ Die SQL-seitige Verifikation bleibt offen.
 | `Get-SqlServerLabLlamaCppRuntime` | `Get-SqlServerLabLlamaCppRuntime.ps1` | Lokale Windows-Pakete ohne Hashpflicht erkennen; FILES_ONLY und lokale Pfade, kein Laufzeitnachweis |
 | `Get-SqlServerLabLlamaCppModel` | `Get-SqlServerLabLlamaCppModel.ps1` | Kuratierte Generations-GGUFs mit fest gebundener Herstellerquelle, Revision, Größe, SHA-256 und Lizenz auflisten |
 | `Save-SqlServerLabLlamaCppModel` | `Save-SqlServerLabLlamaCppModel.ps1` | Ein explizit gewähltes Katalogmodell bei Bedarf unter `MediaRoot/AI/Models` laden und vor atomarer Veröffentlichung vollständig prüfen |
-| `Get-SqlServerLabLlamaCppModel` | `Get-SqlServerLabLlamaCppModel.ps1` | Kuratierte Generations-GGUFs mit fest gebundener Herstellerquelle, Revision, Größe, SHA-256 und Lizenz auflisten |
-| `Save-SqlServerLabLlamaCppModel` | `Save-SqlServerLabLlamaCppModel.ps1` | Ein explizit gewähltes Katalogmodell bei Bedarf unter `MediaRoot/AI/Models` laden und vor atomarer Veröffentlichung vollständig prüfen |
+| `Get-SqlServerLabAiComputeSelection` | `Get-SqlServerLabAiComputeSelection.ps1` | Vollständig benchmarkte geeignete CPU-/NPU-/Einzel-/Mehr-GPU-Kandidaten automatisch rangieren oder eine geeignete Kombination explizit fixieren |
 | `Get-SqlServerLabAiExternalModelPlan` | `Get-SqlServerLabAiExternalModelPlan.ps1` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt hashgebunden für SQL `CREATE EXTERNAL MODEL` planen; keine Probe oder Hostmutation |
 | `Get-SqlServerLabAiExternalModelSqlPlan` | `Get-SqlServerLabAiExternalModelSqlPlan.ps1` | Frisches Endpoint-Receipt an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden; keine SQL-Verbindung oder Objektmutation |
 | `Test-SqlServerLabAiExternalModelSqlPreflight` | `Test-SqlServerLabAiExternalModelSqlPreflight.ps1` | Eigenen SQL-2025-Zielscope read-only auf Datenbankidentität, Master Key, Rechte und freie Objektnamen prüfen |

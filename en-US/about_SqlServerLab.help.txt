@@ -224,6 +224,11 @@ Sync-SqlServerLabRunScopedContainerStore
         Downloads an explicitly selected catalog model on demand and publishes
         it under the media root only after complete verification.
 
+    Get-SqlServerLabAiComputeSelection
+        Selects the fastest fully and comparably benchmarked eligible CPU,
+        NPU, or GPU combination by default. An explicit candidate pin overrides
+        automatic selection without a silent fallback.
+
     Get-SqlServerLabAiExternalModelPlan
         Plans an existing OpenAI-compatible HTTPS embedding endpoint with hash
         bindings and without network or host mutation.

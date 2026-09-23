@@ -72,6 +72,7 @@ end {
         @{ Pattern = '(?i)(AiRagContainerAcceptance)'; Checks = @('Invoke-AiRagContainerAcceptanceChecks.ps1') },
         @{ Pattern = '(?i)(AiSqlHttpsBridge|ai-sql-https-bridge)'; Checks = @('Invoke-AiSqlHttpsBridgeChecks.ps1') },
         @{ Pattern = '(?i)(AiExternalModelAcceleration|AiExternalModelPlan|AiExternalModelEndpoint|AiExternalModelArtifact|OvmsUpstream|OvmsHttpsGateway|ai-(external-model-(plan|endpoint|artifact)|ovms-(upstream|https-gateway)))'; Checks = @('Invoke-AiExternalModelAccelerationChecks.ps1') },
+        @{ Pattern = '(?i)(AiComputeSelection|ai-compute-selection)'; Checks = @('Invoke-AiComputeSelectionChecks.ps1') },
         @{ Pattern = '(?i)(LlamaCppModelCatalog|llama-cpp-model|Catalogs[\\/]llama-cpp-models)'; Checks = @('Invoke-LlamaCppModelCatalogChecks.ps1') },
         @{ Pattern = '(?i)(SecurityTool|security-tool|Fixtures/SecurityTools/)'; Checks = @('Invoke-SecurityToolCatalogChecks.ps1') },
         @{ Pattern = '(?i)(Prepare-LocalRelease|ReleaseArtifact)'; Checks = @('Invoke-ReleaseArtifactChecks.ps1','Invoke-ReleaseReadinessChecks.ps1') },
@@ -254,6 +255,7 @@ end {
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/InstanceCapabilityAssessment\.ps1|Schemas/instance-capability-assessment\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '^(Private/DiagnosticBundle(Reader|Readiness)\.ps1|Public/Get-SqlServerLabDiagnosticBundle\.ps1|Schemas/diagnostic-bundle\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $aiExternalModelPlanPath
+            $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '(?i)^(Private/AiComputeSelection\.ps1|Public/Get-SqlServerLabAiComputeSelection\.ps1|Schemas/ai-compute-selection\.schema\.json)$'
             $staticOnlyProductChange = $staticOnlyProductChange -or $runtimePath -match '(?i)^(Private/LlamaCppModelCatalog\.ps1|Public/(Get|Save)-SqlServerLabLlamaCppModel\.ps1|Catalogs/llama-cpp-models\.json|Schemas/llama-cpp-model-catalog\.schema\.json)$'
             if ($pathHasProductCode -and -not $knownDomainChange -and -not $staticOnlyProductChange) {
                 $pathRuntime.Docker = $true
