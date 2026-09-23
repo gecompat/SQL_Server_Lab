@@ -188,11 +188,30 @@ SQL greift über den scopegebundenen HTTPS-Gateway oder einen gleichwertig
 geprüften Reverse Proxy zu. Für SQL ist anschließend `/v3/embeddings` mit
 `API_FORMAT='OpenAI'` zu prüfen.
 
-Der aktuelle Planvertrag gibt diesen Pfad noch nicht zur Ausführung frei. Auch
-mit `-TlsMode Gateway` bleibt ein OVMS-Plan mit
-`AI_EXTERNAL_MODEL_OVMS_GATEWAY_NOT_IMPLEMENTED` blockiert, bis der Gateway
-seine genaue Upstream-, Modell-, Zertifikats- und Prozessbindung nachweist. Der
-interne Ollama-Gateway aus der Docker-Referenzabnahme ist keine allgemeine
+Der eigene Windows-Gateway kann einen bereits gestarteten OVMS-Upstream
+verifizieren und zeitlich begrenzt als Loopback-HTTPS-Endpunkt bereitstellen:
+
+```powershell
+$apiKey = Read-Host 'Gateway API key' -AsSecureString
+$gateway = Start-SqlServerLabOvmsHttpsGateway `
+  -UpstreamLocation 'http://127.0.0.1:9000/v3/embeddings' `
+  -RuntimeModel 'OpenVINO/Qwen3-Embedding-0.6B-int8-ov' `
+  -Dimension 1024 -Port 19443 `
+  -CertificatePath C:\certs\ovms-gateway.pem `
+  -PrivateKeyPath C:\certs\ovms-gateway-key.pem `
+  -TrustedRootPath C:\certs\lab-root.pem `
+  -ApiKey $apiKey -LeaseSeconds 900
+
+Stop-SqlServerLabOvmsHttpsGateway -OperationId $gateway.OperationId
+```
+
+Der Worker bindet nur `127.0.0.1`, verwendet keinen Proxy oder Redirect,
+rekonstruiert genau einen Embeddingrequest und entfernt seine API-Key-Datei beim
+Stop, Ownerverlust oder Lease-Ende. Zertifikat und Key bleiben Eigentum des
+Callers. Der aktuelle External-Model-Plan übernimmt den Gateway-Binding-Key noch
+nicht. Deshalb bleibt ein OVMS-Plan auch mit `-TlsMode Gateway` vor SQL-Mutation
+mit `AI_EXTERNAL_MODEL_OVMS_GATEWAY_NOT_IMPLEMENTED` blockiert. Der interne
+Ollama-Gateway aus der Docker-Referenzabnahme ist weiterhin keine allgemeine
 OVMS-Gateway-API.
 
 Ein bereits vom Operator gestarteter OVMS-Upstream kann vorab ohne Mutation

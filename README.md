@@ -786,6 +786,8 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Test-SqlServerLabAiExternalModelArtifact` | Lokale Runtime- und Modelldatei read-only gegen die im External-Model-Plan gebundenen SHA-256-Werte prüfen |
 | `Test-SqlServerLabAiExternalModelEndpoint` | Geplanten Endpunkt mit Zertifikatspin sowie OpenAI-Antwort- und Dimensionsprüfung read-only verifizieren |
 | `Test-SqlServerLabOvmsUpstreamEndpoint` | OVMS-v3-Embedding-Upstream ausschließlich auf numerischem Loopback read-only verifizieren |
+| `Start-SqlServerLabOvmsHttpsGateway` | Eigenen zeitlich begrenzten Windows-Loopback-HTTPS-Gateway vor einem verifizierten OVMS-v3-Upstream starten |
+| `Stop-SqlServerLabOvmsHttpsGateway` | Ausschließlich den sitzungsgebundenen OVMS-Gateway beenden und dessen API-Key-Datei entfernen |
 | `Invoke-SqlServerLabAiScenario` | Deklariertes, hashgebundenes SQL-KI-Szenario journalisiert ausführen |
 | `Invoke-SqlServerLabAiModel` | Katalogisiertes lokales Ollama-Modell oder die Cloud-Lane mit explizitem Egress und lokalem `.env`-Secret aufrufen |
 | `Measure-SqlServerLabAiRetrieval` | Manuelle Rangfolgen oder gebundene Golden-RAG-Ergebnisse deterministisch mit Recall@k, Precision@k, MRR und nDCG bewerten |

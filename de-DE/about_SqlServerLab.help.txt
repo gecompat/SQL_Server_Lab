@@ -213,6 +213,11 @@ Sync-SqlServerLabRunScopedContainerStore
     Stop-SqlServerLabLlamaCppRuntime
         Startet und beendet einen eigenen zeitlich begrenzten Windows-Embeddingserver.
 
+    Start-SqlServerLabOvmsHttpsGateway
+    Stop-SqlServerLabOvmsHttpsGateway
+        Startet und beendet einen eigenen zeitlich begrenzten Loopback-HTTPS-Gateway
+        vor einem verifizierten OVMS-v3-Upstream.
+
     Get-SqlServerLabLlamaCppRuntime
         Erkennt lokale Windows-Pakete ohne Hashpflicht oder Prozessstart.
         FILES_ONLY ist kein Geräte- oder Modellnachweis.

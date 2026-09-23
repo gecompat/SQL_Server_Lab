@@ -113,8 +113,12 @@ Accelerator-Kombinationen und den ausdrücklich noch nicht ausgeführten
 Evidence-Status ab; er startet keine Runtime.
 Zusätzlich prüft er die read-only OVMS-Upstream-Probe mit numerischem Loopback,
 festem `/v3/embeddings`-Pfad, exaktem Runtime-Modell, Dimension und endlichen
-Vektorwerten. Gateway-Prozess, TLS-Terminierung und Accelerator bleiben davon
-ausdrücklich unbestätigt.
+Vektorwerten. Der getrennte
+`Tests/Integration/Invoke-AiOvmsHttpsGatewayAcceptance.ps1` verwendet unter
+Windows nur eigene freie Loopbackports, einen synthetischen HTTP-Upstream und
+eine kurzlebige CA-/Leaf-Kette. Er bestätigt TLS-Start, Binding-Key, Owner-Stop,
+Listenerabbau und Secret-Löschung ohne SQL oder Provider. Accelerator- und
+SQL-Evidence bleiben ausdrücklich unbestätigt.
 Hostmodell-Digest/Capability/Dimension/Remoteidentity, Egress/Datenklasse,
 WhatIf, Vektoren und echten synthetischen HTTP307 ohne Weiterleitung.
 `Invoke-AiRagExistingOllamaAcceptance.ps1` ist eine separate opt-in Abnahme mit

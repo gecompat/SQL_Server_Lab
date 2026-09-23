@@ -1476,13 +1476,18 @@ sieben SQL-Embeddings, WrongCA-/WrongSAN-Ablehnung, Auth-/Payloadnegative,
 Retrieval vor/nach SQLrestart und vollständiges eigenes Cleanup. Allgemeiner
 Gatewaybetrieb und weitere Provider sind damit nicht belegt.
 Ein OpenVINO-Model-Server-Plan bleibt deshalb auch bei `TlsMode=Gateway` mit
-`AI_EXTERNAL_MODEL_OVMS_GATEWAY_NOT_IMPLEMENTED` blockiert. Der vorhandene
-Docker-/Ollama-Referenzgateway bindet einen festen Ollama-Pfad und darf nicht als
-allgemeiner OVMS-Reverse-Proxy interpretiert werden.
+`AI_EXTERNAL_MODEL_OVMS_GATEWAY_NOT_IMPLEMENTED` blockiert. Ein eigener
+Windows-Loopback-Gateway-Lifecycle ist zwar implementiert und mit synthetischem
+OVMS-Upstream, kurzlebiger CA, TLS-Probe, Owner-Stop, Listenerabbau und
+Secret-Löschung abgenommen. Der External-Model-Plan übernimmt dessen Binding-Key
+aber noch nicht und SQL-/Accelerator-Evidence fehlt. Der vorhandene
+Docker-/Ollama-Referenzgateway bindet einen festen Ollama-Pfad und darf weiterhin
+nicht als allgemeiner OVMS-Reverse-Proxy interpretiert werden.
 Eine read-only OVMS-Probe kann einen bereits laufenden numerischen
 Loopback-HTTP-Upstream auf `/v3/embeddings`, exakten Modellnamen, Antwortform
 und Dimension prüfen. Sie startet keinen Prozess und belegt weder
-TLS-Terminierung, Gatewaybesitz noch Acceleratornutzung.
+TLS-Terminierung, Gatewaybesitz noch Acceleratornutzung. Diese Evidence liefert
+erst `Start-SqlServerLabOvmsHttpsGateway` für seine eigene Operation.
 Für weitere OpenAI-kompatible Backends sind ein hashgebundener Plan sowie
 getrennte read-only Prüfungen der lokalen Runtime-/Modelldateien und des
 HTTPS-Embedding-Endpunkts implementiert. Die Live-Probe verlangt den exakt im

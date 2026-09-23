@@ -57,6 +57,32 @@ try {
     Add-CheckResult 'Öffentliche OVMS-Upstream-Prüfung ist exportiert und verbirgt den Testtransport' (
         (Get-Command Test-SqlServerLabOvmsUpstreamEndpoint -Module $module.Name).Parameters.ContainsKey('Location') -and
         -not (Get-Command Test-SqlServerLabOvmsUpstreamEndpoint -Module $module.Name).Parameters.ContainsKey('Transport'))
+    $gatewayBody=& $module {ConvertTo-LabAiOvmsGatewayUpstreamBody -Json '{"model":"bound-ovms-model","input":"synthetic","encoding_format":"float"}' -ExpectedModel bound-ovms-model}
+    $gatewayRequest=$gatewayBody|ConvertFrom-Json
+    Add-CheckResult 'OVMS-Gatewaykern rekonstruiert genau den erlaubten Einzelrequest' (
+        $gatewayRequest.model -ceq 'bound-ovms-model' -and @($gatewayRequest.input).Count -eq 1 -and
+        $gatewayRequest.input[0] -ceq 'synthetic' -and $gatewayRequest.encoding_format -ceq 'float')
+    $gatewayResponse=& $module {ConvertFrom-LabAiOvmsGatewayUpstreamResponse -Json '{"object":"list","data":[{"object":"embedding","index":0,"embedding":[1,-0.25,0]}],"model":"bound-ovms-model","usage":{"prompt_tokens":1}}' -ExpectedModel bound-ovms-model -Dimension 3}
+    $gatewayResult=$gatewayResponse|ConvertFrom-Json
+    Add-CheckResult 'OVMS-Gatewaykern rekonstruiert genau eine float32-sichere Antwort' (
+        $gatewayResult.model -ceq 'bound-ovms-model' -and @($gatewayResult.data).Count -eq 1 -and
+        @($gatewayResult.data[0].embedding).Count -eq 3 -and $gatewayResult.data[0].index -eq 0 -and
+        -not $gatewayResult.PSObject.Properties['usage'])
+    $gatewayRequestFailures=@(
+        @{Name='fremdes Modell';Code='AI_OVMS_GATEWAY_RUNTIME_MODEL_MISMATCH';Json='{"model":"other","input":"synthetic"}'},
+        @{Name='doppeltes Modellfeld';Code='AI_OVMS_GATEWAY_PAYLOAD_INVALID';Json='{"model":"bound-ovms-model","model":"bound-ovms-model","input":"synthetic"}'},
+        @{Name='mehrere Inputs';Code='AI_OVMS_GATEWAY_PAYLOAD_INVALID';Json='{"model":"bound-ovms-model","input":["one","two"]}'},
+        @{Name='fremdes Payloadfeld';Code='AI_OVMS_GATEWAY_PAYLOAD_INVALID';Json='{"model":"bound-ovms-model","input":"synthetic","user":"foreign"}'}
+    )
+    foreach($case in $gatewayRequestFailures){$actual=$null;try{& $module {param($j)ConvertTo-LabAiOvmsGatewayUpstreamBody -Json $j -ExpectedModel bound-ovms-model} $case.Json;$actual='NO_ERROR'}catch{$actual=$_.Exception.Message};Add-CheckResult "OVMS-Gatewaykern blockiert $($case.Name)" ($actual -eq $case.Code)}
+    $gatewayResponseFailures=@(
+        @{Name='Antwortmodellabweichung';Code='AI_OVMS_GATEWAY_RUNTIME_MODEL_MISMATCH';Json='{"model":"other","data":[{"embedding":[1,2,3]}]}'},
+        @{Name='Antwortdimension';Code='AI_OVMS_GATEWAY_DIMENSION_MISMATCH';Json='{"model":"bound-ovms-model","data":[{"embedding":[1,2]}]}'},
+        @{Name='Antwortwert ausserhalb float32';Code='AI_OVMS_GATEWAY_VECTOR_INVALID';Json='{"model":"bound-ovms-model","data":[{"embedding":[1,3.4028236e38,3]}]}'},
+        @{Name='doppelten Antwortindex';Code='AI_OVMS_GATEWAY_RESPONSE_INVALID';Json='{"model":"bound-ovms-model","data":[{"index":0,"index":0,"embedding":[1,2,3]}]}'},
+        @{Name='doppeltes Antwortmodell';Code='AI_OVMS_GATEWAY_RESPONSE_INVALID';Json='{"model":"bound-ovms-model","model":"bound-ovms-model","data":[{"embedding":[1,2,3]}]}'}
+    )
+    foreach($case in $gatewayResponseFailures){$actual=$null;try{& $module {param($j)ConvertFrom-LabAiOvmsGatewayUpstreamResponse -Json $j -ExpectedModel bound-ovms-model -Dimension 3} $case.Json;$actual='NO_ERROR'}catch{$actual=$_.Exception.Message};Add-CheckResult "OVMS-Gatewaykern blockiert $($case.Name)" ($actual -eq $case.Code)}
     $rocm=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppRocm -Accelerator NPU -Location 'https://localhost:11435/v1/embeddings' -ExternalModelName RocmNpu -RuntimeModel model -Dimension 768 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
     Add-CheckResult 'ROCm wird nicht fälschlich als NPU-Nachweis behandelt' ($rocm.Status -eq 'BLOCKED' -and 'AI_EXTERNAL_MODEL_ACCELERATOR_UNSUPPORTED' -in $rocm.Blockers)
     $wrongPath=Get-SqlServerLabAiExternalModelPlan -Backend LlamaCppOpenVino -Accelerator NPU -Location 'https://localhost:11435/v3/embeddings' -ExternalModelName WrongPath -RuntimeModel model -Dimension 768 -ModelSha256 $h -RuntimeSha256 $h -ServerCertificateSha256 $c
@@ -142,6 +168,21 @@ try {
     Add-CheckResult 'Öffentliche Artifact-Prüfung ist exportiert und verlangt beide lokalen Dateien' (
         (Get-Command Test-SqlServerLabAiExternalModelArtifact -Module $module.Name).Parameters.ContainsKey('RuntimePath') -and
         (Get-Command Test-SqlServerLabAiExternalModelArtifact -Module $module.Name).Parameters.ContainsKey('ModelPath'))
+    $gatewayStartCommand=Get-Command Start-SqlServerLabOvmsHttpsGateway -Module $module.Name
+    $gatewayStopCommand=Get-Command Stop-SqlServerLabOvmsHttpsGateway -Module $module.Name
+    Add-CheckResult 'Öffentlicher OVMS-Gateway-Lifecycle ist explizit und WhatIf-fähig' (
+        $gatewayStartCommand.Parameters.ContainsKey('UpstreamLocation') -and $gatewayStartCommand.Parameters.ContainsKey('CertificatePath') -and
+        $gatewayStartCommand.Parameters.ContainsKey('ApiKey') -and $gatewayStartCommand.Parameters.ContainsKey('WhatIf') -and
+        $gatewayStopCommand.Parameters.ContainsKey('OperationId') -and $gatewayStopCommand.Parameters.ContainsKey('WhatIf'))
+    $whatIfSecret=[Security.SecureString]::new();1..24|ForEach-Object{$whatIfSecret.AppendChar('a')};$whatIfSecret.MakeReadOnly()
+    $gatewayWhatIf=Start-SqlServerLabOvmsHttpsGateway -UpstreamLocation 'http://127.0.0.1:19000/v3/embeddings' -RuntimeModel model -Dimension 3 -Port 19001 -CertificatePath missing -PrivateKeyPath missing -ApiKey $whatIfSecret -WhatIf
+    Add-CheckResult 'OVMS-Gateway-WhatIf startet weder Probe noch Worker' ($null -eq $gatewayWhatIf)
+    $foreignStop=$null;try{Stop-SqlServerLabOvmsHttpsGateway -OperationId ([guid]::NewGuid().ToString('D')) -Confirm:$false;$foreignStop='NO_ERROR'}catch{$foreignStop=$_.Exception.Message}
+    Add-CheckResult 'OVMS-Gateway-Stop blockiert fremde Operationen' ($foreignStop -eq 'AI_OVMS_GATEWAY_OWNERSHIP_NOT_FOUND')
+    $workerSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Tools/Invoke-OvmsHttpsGatewayWorker.ps1') -Raw
+    Add-CheckResult 'OVMS-Gateway-Worker bindet Loopback, deaktiviert Proxy und begrenzt Eingaben' (
+        $workerSource -match '\[Net\.IPAddress\]::Loopback' -and $workerSource -match '\$handler\.UseProxy=\$false' -and
+        $workerSource -match '16384' -and $workerSource -match '65536' -and $workerSource -match 'FixedTimeEquals')
 }
 finally {
     Remove-Module $module -Force -ErrorAction SilentlyContinue

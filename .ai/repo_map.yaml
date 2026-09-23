@@ -75,6 +75,11 @@ sources_of_truth:
   ai_runtime_journal_schema: Schemas/ai-runtime-journal.schema.json
   ai_external_model_contract: Private/AiExternalModelAcceleration.ps1
   ai_external_model_plan_api: Public/Get-SqlServerLabAiExternalModelPlan.ps1
+  ai_ovms_https_gateway: Private/AiOvmsHttpsGateway.ps1
+  ai_ovms_https_gateway_worker: Tools/Invoke-OvmsHttpsGatewayWorker.ps1
+  ai_ovms_https_gateway_start: Public/Start-SqlServerLabOvmsHttpsGateway.ps1
+  ai_ovms_https_gateway_stop: Public/Stop-SqlServerLabOvmsHttpsGateway.ps1
+  acceptance_ai_ovms_https_gateway: Tests/Integration/Invoke-AiOvmsHttpsGatewayAcceptance.ps1
   llama_cpp_owned_runtime: Private/LlamaCppOwnedRuntime.ps1
   llama_cpp_owned_worker: Tools/Invoke-LlamaCppOwnedWorker.ps1
   llama_cpp_owned_start: Public/Start-SqlServerLabLlamaCppRuntime.ps1
