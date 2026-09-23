@@ -782,6 +782,8 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Start-SqlServerLabLlamaCppRuntime` | Eigenen Windows-HTTPS-Embeddingserver mit expliziter Runtime-/Modell-/Gerätewahl und begrenzter Lease starten |
 | `Stop-SqlServerLabLlamaCppRuntime` | Ausschließlich den eigenen sitzungsgebundenen llama.cpp-Server beenden und API-Key bereinigen |
 | `Get-SqlServerLabLlamaCppRuntime` | Lokale Windows-llama.cpp-Pakete begrenzt und ohne Hashpflicht erkennen; kein Geräte- oder Modellnachweis |
+| `Get-SqlServerLabLlamaCppModel` | Kuratierte offizielle Generations-GGUFs mit Revision, Größe, SHA-256 und Lizenz auflisten |
+| `Save-SqlServerLabLlamaCppModel` | Ein explizit ausgewähltes Katalogmodell bei Bedarf hashgeprüft unter der Medienwurzel ablegen |
 | `Get-SqlServerLabAiExternalModelPlan` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt hashgebunden für SQL `CREATE EXTERNAL MODEL` planen |
 | `Get-SqlServerLabAiExternalModelSqlPlan` | Frisches Endpoint-Receipt an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden; führt kein SQL aus |
 | `Test-SqlServerLabAiExternalModelSqlPreflight` | Eigenen SQL-2025-Zielscope read-only auf Datenbankidentität, Master Key, Rechte und freie Objektnamen prüfen |

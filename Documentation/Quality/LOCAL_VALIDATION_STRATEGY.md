@@ -1949,6 +1949,12 @@ Die Abnahme erstellt und bereinigt ausschließlich ihren eigenen Run.
 Hashfreiheit, Backendmehrdeutigkeit, NPU-Filter, Suchgrenzen, isolierte explizite
 Wurzeln und Schema. Die Prüfung startet weder llama-server noch SQL-Provider.
 
+`Invoke-LlamaCppModelCatalogChecks.ps1` validiert Katalog und Schema sowie die
+unveränderliche HTTPS-/Revisions-/Größen-/SHA-256-/Lizenzbindung. Synthetische
+kleine Dateien prüfen Download-on-demand, Cache-Revalidierung, atomare
+Veröffentlichung, Teilstandbereinigung, GGUF-Magic, Quellen-Allowlist und
+`WhatIf`; die Suite lädt keine realen Modelle und startet keine Runtime.
+
 ### Eigener llama.cpp-Lifecycle
 
 `Invoke-LlamaCppOwnedRuntimeChecks.ps1` prüft Accelerator-Evidence und negative

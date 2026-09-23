@@ -216,6 +216,14 @@ Sync-SqlServerLabRunScopedContainerStore
         Discovers local Windows packages without hashes or process execution.
         FILES_ONLY does not attest device or model execution.
 
+    Get-SqlServerLabLlamaCppModel
+        Lists curated official generation GGUFs with immutable revision, size,
+        SHA-256, and license metadata.
+
+    Save-SqlServerLabLlamaCppModel
+        Downloads an explicitly selected catalog model on demand and publishes
+        it under the media root only after complete verification.
+
     Get-SqlServerLabAiExternalModelPlan
         Plans an existing OpenAI-compatible HTTPS embedding endpoint with hash
         bindings and without network or host mutation.
