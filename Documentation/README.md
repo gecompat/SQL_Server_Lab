@@ -78,7 +78,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 114 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 115 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -160,6 +160,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabAiExternalModelSqlPlan` | Frisches Endpoint-Receipt an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden; keine SQL-Verbindung oder Mutation |
 | `Test-SqlServerLabAiExternalModelSqlPreflight` | Eigenen SQL-2025-Zielscope read-only auf Datenbankidentität, Master Key, Rechte und freie Objektnamen prüfen |
 | `Invoke-SqlServerLabAiExternalModelSqlApply` | Gebundenes Ownership-Receipt, Credential und External Model journalisiert und transaktional erstellen; Teilzustände bleiben Recoverybedarf |
+| `Test-SqlServerLabAiExternalModelSqlEmbedding` | Applied-Ownership revalidieren und ein festes SQL-Embedding mit sanitisiertem Receipt prüfen |
 | `Remove-SqlServerLabAiExternalModelSql` | Eigenes External Model, Credential und Ownership-Receipt receiptgebunden, journalisiert und transaktional entfernen |
 | `Test-SqlServerLabAiExternalModelArtifact` | Lokale Runtime- und Modelldatei read-only gegen die im Plan gebundenen SHA-256-Werte prüfen |
 | `Test-SqlServerLabAiExternalModelEndpoint` | Geplanten HTTPS-Endpunkt mit echtem Zertifikatspin sowie OpenAI-Antwort- und Dimensionsprüfung read-only verifizieren |

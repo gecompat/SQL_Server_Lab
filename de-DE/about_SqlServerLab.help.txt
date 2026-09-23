@@ -238,6 +238,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Erstellt Ownership-Receipt, Credential und External Model journalisiert
         und transaktional; unbekannte Teilzustaende werden nicht blind wiederholt.
 
+    Test-SqlServerLabAiExternalModelSqlEmbedding
+        Revalidiert Applied-Ownership und prueft genau ein festes SQL-Embedding;
+        Text und Vektor werden nicht ausgegeben.
+
     Remove-SqlServerLabAiExternalModelSql
         Entfernt eigenes External Model, Credential und Ownership-Receipt
         receiptgebunden und transaktional; Teilzustaende bleiben Recoverybedarf.

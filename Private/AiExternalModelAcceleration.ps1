@@ -938,6 +938,105 @@ function Resolve-LabAiExternalModelSqlApplyReceipt {
     $ApplyReceipt
 }
 
+function New-LabAiExternalModelSqlEmbeddingReceipt {
+    param([Parameter(Mandatory)]$Journal,[Parameter(Mandatory)]$ApplyReceipt,[Parameter(Mandatory)][int]$Dimension,[Parameter(Mandatory)][string]$BaseType)
+    $verifiedAt=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+    $identity=[ordered]@{Contract='SqlServerLab.AiExternalModelSqlEmbeddingBinding/1.0';OperationId=[string]$Journal.OperationId;SqlPlanKey=[string]$Journal.SqlPlanKey;ApplyReceiptKey=[string]$ApplyReceipt.ReceiptKey;BindingKey=[string]$Journal.BindingKey;DatabaseGuid=[string]$Journal.DatabaseGuid;Dimension=$Dimension;BaseType=$BaseType;VerifiedAtUtc=$verifiedAt}
+    $result=[pscustomobject][ordered]@{
+        Contract=[pscustomobject]@{Name='SqlServerLab.AiExternalModelSqlEmbeddingReceipt';Version='1.0'}
+        Status='SQL_EMBEDDING_VERIFIED';EvidenceStatus='LIVE_SQL_BOUND';OperationId=[string]$Journal.OperationId
+        SqlPlanKey=[string]$Journal.SqlPlanKey;ApplyReceiptKey=[string]$ApplyReceipt.ReceiptKey
+        RunId=[string]$Journal.RunId;ScopeId=[string]$Journal.ScopeId;InstanceId=[string]$Journal.InstanceId
+        Provider=[string]$Journal.Provider;BindingKey=[string]$Journal.BindingKey;DatabaseName=[string]$Journal.DatabaseName
+        DatabaseGuid=[string]$Journal.DatabaseGuid;Dimension=$Dimension;BaseType=$BaseType;NonZero=$true;VerifiedAtUtc=$verifiedAt
+        VerifiedEvidence=@('SQL_OWNERSHIP_RECEIPT_REVALIDATED','SQL_EMBEDDING_DIMENSION_VERIFIED','SQL_EMBEDDING_FINITE_NONZERO_VERIFIED')
+        ReceiptKey=Get-LabAiPlanKey -InputObject $identity
+    }
+    if(-not ($result|ConvertTo-Json -Depth 12|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'ai-external-model-sql-embedding-receipt.schema.json') -ErrorAction SilentlyContinue)){
+        throw 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_RECEIPT_INVALID'
+    }
+    $result
+}
+
+function Invoke-LabAiExternalModelSqlEmbeddingProbe {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$SqlPlan,
+        [Parameter(Mandatory)]$ApplyReceipt,
+        [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$RunId,
+        [ValidatePattern('^[a-zA-Z][a-zA-Z0-9_-]{0,63}$')][string]$InstanceId='primary',
+        [string]$StateRoot,
+        [scriptblock]$SqlExecutor,
+        $Binding,
+        $BindingIdentity
+    )
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $StateRoot=[IO.Path]::GetFullPath($StateRoot)
+    $canonical=Resolve-LabAiExternalModelSqlPlan -SqlPlan $SqlPlan -AllowExpired
+    if(-not $Binding){$Binding=Get-LabTransferBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
+    if(-not $BindingIdentity){$BindingIdentity=Get-LabTransferBindingIdentity $Binding}
+    $paths=Get-LabAiExternalModelSqlApplyJournalPath -StateRoot $StateRoot -RunId $RunId -InstanceId $InstanceId -SqlPlanKey ([string]$canonical.SqlPlanKey)
+    if(-not (Test-Path -LiteralPath $paths.Path -PathType Leaf)){throw 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_JOURNAL_NOT_FOUND'}
+    $lock=$null;$connection=$null;$sqlSecret=$null
+    try{$lock=[IO.File]::Open($paths.LockPath,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)}catch{throw 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_LOCKED'}
+    try{
+        $journal=Read-LabAiExternalModelSqlApplyJournal -Path $paths.Path
+        if([string]$journal.SqlPlanKey -cne [string]$canonical.SqlPlanKey -or [string]$journal.RunId -cne $RunId -or [string]$journal.InstanceId -cne $InstanceId){throw 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_JOURNAL_MISMATCH'}
+        if([string]$journal.Status -cne 'APPLIED'){throw 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_STATE_INVALID'}
+        $receipt=Resolve-LabAiExternalModelSqlApplyReceipt -SqlPlan $canonical -ApplyReceipt $ApplyReceipt -RunId $RunId -InstanceId $InstanceId -BindingIdentity $BindingIdentity -Journal $journal
+        if(-not $SqlExecutor){
+            $storedSecret=Get-LabRelationalCoreSecret -RunId $RunId -StateRoot $StateRoot
+            try{$sqlSecret=$storedSecret.Copy();$sqlSecret.MakeReadOnly()}finally{$storedSecret.Dispose()}
+            $connection=New-LabRelationalCoreConnection -Binding $Binding -DatabaseName ([string]$canonical.DatabaseName) -Secret $sqlSecret
+            $connection.Open()
+        }
+        $executeSql={param($query,$parameters,$database)
+            if($SqlExecutor){return @(& $SqlExecutor $query $parameters $database)}
+            @(Invoke-LabTransferSqlRows -Connection $connection -Query $query -Parameters $parameters -TimeoutSeconds 120)
+        }.GetNewClosure()
+        $observation=Get-LabAiExternalModelSqlApplyObservation -SqlPlan $canonical -ExecuteSql $executeSql
+        if(-not (Test-LabAiExternalModelSqlAppliedObservation -Observation $observation -Journal $journal)){throw 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_OWNERSHIP_MISMATCH'}
+        $probeQuery=@'
+SET XACT_ABORT ON;
+BEGIN TRY
+ BEGIN TRANSACTION;
+ DECLARE @lockResult int;
+ EXEC @lockResult=sys.sp_getapplock @Resource=@lockResource,@LockMode='Shared',@LockOwner='Transaction',@LockTimeout=0;
+ IF @lockResult<0 THROW 51000,'AI_EXTERNAL_MODEL_SQL_EMBEDDING_LOCKED',1;
+ IF CONVERT(int,SERVERPROPERTY('ProductMajorVersion'))<>17 THROW 51000,'AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED',1;
+ IF NOT EXISTS(SELECT 1 FROM sys.database_recovery_status WHERE database_id=DB_ID() AND CONVERT(varchar(36),database_guid)=@databaseGuid) THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_MISMATCH',1;
+ IF OBJECT_ID(N'dbo.'+QUOTENAME(@ownerName),N'U') IS NULL THROW 51000,'AI_EXTERNAL_MODEL_SQL_EMBEDDING_OWNERSHIP_MISMATCH',1;
+ DECLARE @owned bit=0,@sql nvarchar(max)=N'SELECT @match=CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM dbo.'+QUOTENAME(@ownerName)+N' o JOIN sys.database_scoped_credentials c ON c.name=@credential AND c.credential_id=o.CredentialId JOIN sys.external_models m ON m.name=@model AND m.external_model_id=o.ExternalModelId AND m.credential_id=c.credential_id WHERE o.Singleton=1 AND o.SqlPlanKey=@plan AND o.PreflightReceiptKey=@receipt AND o.BindingKey=@binding AND o.OperationId=@operation AND o.DatabaseGuid=@guid AND o.Status=''APPLIED'') THEN 1 ELSE 0 END);';
+ EXEC sys.sp_executesql @sql,N'@match bit OUTPUT,@credential sysname,@model sysname,@plan varchar(64),@receipt varchar(64),@binding varchar(64),@operation uniqueidentifier,@guid uniqueidentifier',@match=@owned OUTPUT,@credential=@credential,@model=@modelName,@plan=@planKey,@receipt=@preflightReceiptKey,@binding=@bindingKey,@operation=@operationId,@guid=@databaseGuid;
+ IF @owned<>1 THROW 51000,'AI_EXTERNAL_MODEL_SQL_EMBEDDING_OWNERSHIP_MISMATCH',1;
+ SET @sql=N'DECLARE @embedding vector('+CONVERT(nvarchar(10),@dimension)+N')=AI_GENERATE_EMBEDDINGS(@probeInput USE MODEL '+QUOTENAME(@modelName)+N'); SELECT CONVERT(int,VECTORPROPERTY(@embedding,''Dimensions'')) AS Dimension,CONVERT(nvarchar(16),VECTORPROPERTY(@embedding,''BaseType'')) AS BaseType,CONVERT(float,VECTOR_NORM(@embedding,''norm2'')) AS Norm2;';
+ EXEC sys.sp_executesql @sql,N'@probeInput nvarchar(128)',@probeInput=@probeInput;
+ COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+ IF XACT_STATE()<>0 ROLLBACK TRANSACTION;
+ THROW;
+END CATCH;
+'@
+        $parameters=@{lockResource=('SqlServerLab.AiExternalModel.'+[string]$canonical.SqlPlanKey);ownerName=[string]$canonical.OwnershipTableName;credential=[string]$canonical.CredentialName;modelName=[string]$canonical.ExternalModelName;databaseGuid=[string]$journal.DatabaseGuid;planKey=[string]$journal.SqlPlanKey;preflightReceiptKey=[string]$journal.PreflightReceiptKey;bindingKey=[string]$journal.BindingKey;operationId=[string]$journal.OperationId;dimension=[int]$canonical.Dimension;probeInput='sql-server-lab-embedding-postcondition-v1'}
+        $rows=@(& $executeSql $probeQuery $parameters ([string]$canonical.DatabaseName))
+        if($rows.Count -ne 1){throw 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_RESULT_INVALID'}
+        $dimension=0
+        if(-not [int]::TryParse([string]$rows[0].Dimension,[ref]$dimension) -or $dimension -ne [int]$canonical.Dimension){throw 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_DIMENSION_MISMATCH'}
+        $baseType=[string]$rows[0].BaseType
+        if($baseType -cne 'float32'){throw 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_BASE_TYPE_INVALID'}
+        $norm=0.0
+        if(-not [double]::TryParse([string]$rows[0].Norm2,[Globalization.NumberStyles]::Float,[Globalization.CultureInfo]::InvariantCulture,[ref]$norm) -or [double]::IsNaN($norm) -or [double]::IsInfinity($norm) -or $norm -le 0){throw 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_VECTOR_INVALID'}
+        New-LabAiExternalModelSqlEmbeddingReceipt -Journal $journal -ApplyReceipt $receipt -Dimension $dimension -BaseType $baseType
+    }catch{
+        $code=[string]$_.Exception.Message
+        if($code -match '^AI_EXTERNAL_MODEL_SQL_(PLAN|APPLY_RECEIPT|EMBEDDING)_[A-Z_]+$' -or $code -eq 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_LOCKED'){throw $code}
+        throw 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_PROBE_FAILED'
+    }finally{
+        if($connection){$connection.Dispose()};if($sqlSecret){$sqlSecret.Dispose()};if($lock){$lock.Dispose()}
+    }
+}
+
 function Test-LabAiExternalModelSqlCleanedObservation {
     param([Parameter(Mandatory)]$Observation,[Parameter(Mandatory)]$Journal)
     [string]$Observation.DatabaseGuid -ceq [string]$Journal.DatabaseGuid -and

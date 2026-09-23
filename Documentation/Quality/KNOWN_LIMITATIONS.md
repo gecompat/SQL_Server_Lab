@@ -1500,9 +1500,12 @@ vor Mutation und entfernt External Model, Credential und Ownership-Tabelle
 transaktional. Die beim Apply gespeicherten `credential_id` und
 `external_model_id` blockieren namensgleiche Ersatzobjekte. Vollständige
 Abwesenheit ist idempotent; Teilzustände bleiben
-Recoverybedarf und Apply nach `CLEANED` ist blockiert. Auch dieser Pfad ist nur
-mit injiziertem SQL-Transport statisch belegt. Embeddingprobe, SQLrestart, ein
-nativer Cleanup, ein Hyper-V-Preflight und Acceleratorattestation fehlen weiterhin.
+Recoverybedarf und Apply nach `CLEANED` ist blockiert. Eine receiptgebundene
+Embeddingprobe revalidiert Ownership und Katalog-IDs unter einem Shared-AppLock,
+führt genau einen parametrisierten `AI_GENERATE_EMBEDDINGS`-Aufruf aus und gibt
+nur Dimension, Basistyp und ein sanitisiertes Receipt frei. Auch diese Pfade sind
+nur mit injiziertem SQL-Transport statisch belegt. Native Embeddingprobe,
+SQLrestart, nativer Cleanup, Hyper-V-Preflight und Acceleratorattestation fehlen weiterhin.
 Der vorhandene
 Docker-/Ollama-Referenzgateway bindet einen festen Ollama-Pfad und darf weiterhin
 nicht als allgemeiner OVMS-Reverse-Proxy interpretiert werden.

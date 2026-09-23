@@ -52,6 +52,9 @@ $sqlApply = Invoke-SqlServerLabAiExternalModelSqlApply `
   -SqlPlan $sqlPlan -PreflightReceipt $sqlPreflight -RunId $runId `
   -CredentialSecret $credentialSecret
 
+$sqlEmbedding = Test-SqlServerLabAiExternalModelSqlEmbedding `
+  -SqlPlan $sqlPlan -ApplyReceipt $sqlApply -RunId $runId
+
 $sqlCleanup = Remove-SqlServerLabAiExternalModelSql `
   -SqlPlan $sqlPlan -ApplyReceipt $sqlApply -RunId $runId
 ```
@@ -94,6 +97,14 @@ wird kein DDL blind wiederholt: `-Resume` liest den gebundenen SQL-Zustand und
 akzeptiert nur die vollständige Ownership-Postcondition; Teilzustände melden
 `AI_EXTERNAL_MODEL_SQL_APPLY_RECOVERY_REQUIRED`.
 
+Die anschließende SQL-Embedding-Probe verlangt das unveränderte Apply-Receipt
+und Journal im Zustand `APPLIED`. Unter demselben lokalen Journal-Lock und einem
+SQL-Shared-AppLock revalidiert sie Datenbank-GUID, Ownership-Zeile sowie die
+gespeicherten Credential- und External-Model-Katalog-IDs. Dann führt SQL Server
+genau einen festen, parametrisierten `AI_GENERATE_EMBEDDINGS`-Aufruf aus. Das
+sanitisierte Receipt bestätigt Dimension, `float32` und einen endlichen,
+nichtleeren Vektor, enthält aber weder Testtext, SQL-Text, Norm noch Vektor.
+
 Der Cleanup-Befehl revalidiert Plan, Apply-Receipt, Live-Binding, Journal und
 Datenbank-GUID. Er akzeptiert nur die vollständige, exakt eigene SQL-
 Ownership-Postcondition. Danach löscht eine einzelne `XACT_ABORT`-Transaktion
@@ -103,10 +114,10 @@ Abhängigkeitsreihenfolge. Das Journal wird vor der Mutation auf
 nur vollständige Abwesenheit oder wiederholt bei weiterhin vollständig
 intaktem Eigentum; Teilzustände bleiben `AI_EXTERNAL_MODEL_SQL_CLEANUP_RECOVERY_REQUIRED`.
 
-Der aktuelle Apply-Receipt bestätigt noch keinen Embeddingaufruf, SQL-Neustart
-oder Acceleratorpfad. Der Cleanup-Receipt belegt die SQL-seitige Abwesenheit,
-aber noch keinen nativen SQL-2025-End-to-End-Lauf. Dafür bleiben getrennte
-Nachweise erforderlich.
+Der Apply-Receipt allein bestätigt keinen Embeddingaufruf. Das getrennte
+Embedding-Receipt schließt diese Postcondition, belegt aber weder SQL-Neustart
+noch Acceleratorpfad. Der Cleanup-Receipt belegt die SQL-seitige Abwesenheit.
+Ein nativer SQL-2025-End-to-End-Lauf bleibt für diese neue Probe separat offen.
 
 Plan und Probe installieren nichts und ändern weder Truststore, Firewall,
 Hosts-Datei noch Dienste.

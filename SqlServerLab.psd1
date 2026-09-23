@@ -34,6 +34,7 @@
         'Test-SqlServerLabAiExternalModelEndpoint'
         'Test-SqlServerLabAiExternalModelSqlPreflight'
         'Invoke-SqlServerLabAiExternalModelSqlApply',
+        'Test-SqlServerLabAiExternalModelSqlEmbedding'
         'Remove-SqlServerLabAiExternalModelSql'
         'Test-SqlServerLabOvmsUpstreamEndpoint'
         'Start-SqlServerLabOvmsHttpsGateway'

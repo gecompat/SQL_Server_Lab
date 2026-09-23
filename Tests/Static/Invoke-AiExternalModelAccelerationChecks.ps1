@@ -219,7 +219,7 @@ try {
     $tamperedOwnerCode=$null;try{& $module {param($p,$run,$executor,$identity)Invoke-LabAiExternalModelSqlPreflight -SqlPlan $p -RunId $run -SqlExecutor $executor -Binding ([PSCustomObject]@{}) -BindingIdentity $identity} $tamperedOwnerPlan $runId $sqlExecutor $bindingIdentity|Out-Null;$tamperedOwnerCode='NO_ERROR'}catch{$tamperedOwnerCode=$_.Exception.Message}
     Add-CheckResult 'SQL-Preflight blockiert abweichenden Ownership-Tabellennamen vor SQL-Zugriff' ($tamperedOwnerCode -eq 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID' -and $sqlCapture.Value -eq $sqlCallsBefore)
     $applyStateRoot=Join-Path $artifactRoot 'apply-state'
-    $applyState=[Runtime.CompilerServices.StrongBox[object]]::new([pscustomobject]@{Applied=$false;Partial=$false;CatalogDrift=$false;Parameters=$null;SecretBound=$false;ApplyCalls=0;CleanupCalls=0;Queries=[Collections.Generic.List[string]]::new()})
+    $applyState=[Runtime.CompilerServices.StrongBox[object]]::new([pscustomobject]@{Applied=$false;Partial=$false;CatalogDrift=$false;Parameters=$null;SecretBound=$false;ApplyCalls=0;CleanupCalls=0;ProbeCalls=0;ProbeDimension=3;ProbeBaseType='float32';ProbeNorm2=1.25;ProbeRows=1;ProbeParameters=$null;Queries=[Collections.Generic.List[string]]::new()})
     $applyExecutor={param($query,$parameters,$database)
         $applyState.Value.Queries.Add($query);$null=$database
         if($query -match "SET @ddl=N'DROP EXTERNAL MODEL"){
@@ -227,6 +227,12 @@ try {
         }
         if($query -match 'CREATE EXTERNAL MODEL'){
             $applyState.Value.ApplyCalls++;$applyState.Value.SecretBound=([string]$parameters.credentialSecret -ceq 'header-secret-value');$applyState.Value.Parameters=@{operationId=$parameters.operationId};$applyState.Value.Applied=$true;return @()
+        }
+        if($query -match 'AI_GENERATE_EMBEDDINGS'){
+            $applyState.Value.ProbeCalls++;$applyState.Value.ProbeParameters=$parameters
+            if($applyState.Value.ProbeRows -eq 0){return @()}
+            $result=1..$applyState.Value.ProbeRows|ForEach-Object{[pscustomobject]@{Dimension=$applyState.Value.ProbeDimension;BaseType=$applyState.Value.ProbeBaseType;Norm2=$applyState.Value.ProbeNorm2}}
+            return @($result)
         }
         if($applyState.Value.Partial){
             return [pscustomobject]@{DatabaseGuid=$databaseGuid;OwnershipTableExists=$true;CredentialExists=$true;ExternalModelExists=$false;CredentialId=101;ExternalModelId=$null;OwnerCredentialId=101;OwnerExternalModelId=201;OwnerPlanKey=$sqlPlan.SqlPlanKey;OwnerReceiptKey=$preflight.ReceiptKey;OwnerBindingKey=$preflight.BindingKey;OwnerOperationId=[string]$applyState.Value.Parameters.operationId;OwnerDatabaseGuid=$databaseGuid;OwnerStatus='APPLIED'}
@@ -277,6 +283,41 @@ try {
     $tamperedPreflight=$preflight.PSObject.Copy();$tamperedPreflight.DatabaseGuid=[guid]::NewGuid().ToString('D');$tamperedApplyCalls=$applyState.Value.Queries.Count
     $tamperedApplyCode=$null;try{& $module {param($plan,$receipt,$run,$secret,$root,$executor,$identity)Invoke-LabAiExternalModelSqlApply -SqlPlan $plan -PreflightReceipt $receipt -RunId $run -CredentialSecret $secret -StateRoot $root -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $tamperedPreflight $runId $credentialSecret (Join-Path $artifactRoot 'tampered-state') $applyExecutor $bindingIdentity|Out-Null;$tamperedApplyCode='NO_ERROR'}catch{$tamperedApplyCode=$_.Exception.Message}
     Add-CheckResult 'SQL-Apply blockiert manipuliertes Preflight-Receipt vor Journal und SQL' ($tamperedApplyCode -eq 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_RECEIPT_INVALID' -and $applyState.Value.Queries.Count -eq $tamperedApplyCalls)
+    $embeddingReceipt=& $module {param($plan,$receipt,$run,$root,$executor,$identity)Invoke-LabAiExternalModelSqlEmbeddingProbe -SqlPlan $plan -ApplyReceipt $receipt -RunId $run -StateRoot $root -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $applyReceipt $runId $applyStateRoot $applyExecutor $bindingIdentity
+    $embeddingQuery=@($applyState.Value.Queries|Where-Object{$_ -match 'AI_GENERATE_EMBEDDINGS'})[0]
+    Add-CheckResult 'SQL-Embedding-Probe hält Shared-Lock, revalidiert Ownership und parametrisiert festen Text' (
+        $applyState.Value.ProbeCalls -eq 1 -and $embeddingQuery -match "sp_getapplock @Resource=@lockResource,@LockMode='Shared'" -and
+        $embeddingQuery -match 'credential_id=o.CredentialId' -and $embeddingQuery -match 'external_model_id=o.ExternalModelId' -and
+        $embeddingQuery -match 'AI_GENERATE_EMBEDDINGS\(@probeInput USE MODEL' -and
+        $embeddingQuery -notmatch 'sql-server-lab-embedding-postcondition-v1' -and
+        $applyState.Value.ProbeParameters.probeInput -ceq 'sql-server-lab-embedding-postcondition-v1' -and
+        $applyState.Value.ProbeParameters.dimension -eq 3)
+    Add-CheckResult 'SQL-Embedding-Receipt ist schema-valide, hashgebunden und enthält weder Text noch Vektor' (
+        ($embeddingReceipt|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-sql-embedding-receipt.schema.json')) -and
+        $embeddingReceipt.Status -ceq 'SQL_EMBEDDING_VERIFIED' -and $embeddingReceipt.ApplyReceiptKey -ceq $applyReceipt.ReceiptKey -and
+        $embeddingReceipt.Dimension -eq 3 -and $embeddingReceipt.BaseType -ceq 'float32' -and $embeddingReceipt.NonZero -eq $true -and
+        $embeddingReceipt.ReceiptKey -match '^[a-f0-9]{64}$' -and (($embeddingReceipt|ConvertTo-Json -Depth 10) -notmatch '(?i)(postcondition|vector|norm|query|location|runtimeModel)'))
+    $embeddingFailures=@(
+        @{Name='fehlende Ergebniszeile';Code='AI_EXTERNAL_MODEL_SQL_EMBEDDING_RESULT_INVALID';Property='ProbeRows';Value=0},
+        @{Name='mehrere Ergebniszeilen';Code='AI_EXTERNAL_MODEL_SQL_EMBEDDING_RESULT_INVALID';Property='ProbeRows';Value=2},
+        @{Name='falsche Dimension';Code='AI_EXTERNAL_MODEL_SQL_EMBEDDING_DIMENSION_MISMATCH';Property='ProbeDimension';Value=2},
+        @{Name='falschen Basistyp';Code='AI_EXTERNAL_MODEL_SQL_EMBEDDING_BASE_TYPE_INVALID';Property='ProbeBaseType';Value='float64'},
+        @{Name='Nullvektor';Code='AI_EXTERNAL_MODEL_SQL_EMBEDDING_VECTOR_INVALID';Property='ProbeNorm2';Value=0.0},
+        @{Name='nicht endlichen Vektor';Code='AI_EXTERNAL_MODEL_SQL_EMBEDDING_VECTOR_INVALID';Property='ProbeNorm2';Value=[double]::NaN}
+    )
+    foreach($case in $embeddingFailures){
+        $old=$applyState.Value.($case.Property);$applyState.Value.($case.Property)=$case.Value;$actual=$null
+        try{& $module {param($plan,$receipt,$run,$root,$executor,$identity)Invoke-LabAiExternalModelSqlEmbeddingProbe -SqlPlan $plan -ApplyReceipt $receipt -RunId $run -StateRoot $root -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $applyReceipt $runId $applyStateRoot $applyExecutor $bindingIdentity|Out-Null;$actual='NO_ERROR'}catch{$actual=$_.Exception.Message}
+        $applyState.Value.($case.Property)=$old
+        Add-CheckResult "SQL-Embedding-Probe blockiert $($case.Name)" ($actual -eq $case.Code)
+    }
+    $tamperedEmbeddingReceipt=$applyReceipt.PSObject.Copy();$tamperedEmbeddingReceipt.DatabaseGuid=[guid]::NewGuid().ToString('D');$probeCallsBefore=$applyState.Value.ProbeCalls;$queriesBefore=$applyState.Value.Queries.Count
+    $tamperedEmbeddingCode=$null;try{& $module {param($plan,$receipt,$run,$root,$executor,$identity)Invoke-LabAiExternalModelSqlEmbeddingProbe -SqlPlan $plan -ApplyReceipt $receipt -RunId $run -StateRoot $root -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $tamperedEmbeddingReceipt $runId $applyStateRoot $applyExecutor $bindingIdentity|Out-Null;$tamperedEmbeddingCode='NO_ERROR'}catch{$tamperedEmbeddingCode=$_.Exception.Message}
+    Add-CheckResult 'SQL-Embedding-Probe blockiert manipuliertes Apply-Receipt vor SQL-Zugriff' ($tamperedEmbeddingCode -eq 'AI_EXTERNAL_MODEL_SQL_APPLY_RECEIPT_INVALID' -and $applyState.Value.ProbeCalls -eq $probeCallsBefore -and $applyState.Value.Queries.Count -eq $queriesBefore)
+    $applyState.Value.CatalogDrift=$true;$probeCallsBefore=$applyState.Value.ProbeCalls;$catalogProbeCode=$null
+    try{& $module {param($plan,$receipt,$run,$root,$executor,$identity)Invoke-LabAiExternalModelSqlEmbeddingProbe -SqlPlan $plan -ApplyReceipt $receipt -RunId $run -StateRoot $root -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $applyReceipt $runId $applyStateRoot $applyExecutor $bindingIdentity|Out-Null;$catalogProbeCode='NO_ERROR'}catch{$catalogProbeCode=$_.Exception.Message}
+    $applyState.Value.CatalogDrift=$false
+    Add-CheckResult 'SQL-Embedding-Probe blockiert ersetzte Katalogobjekte vor AI-Aufruf' ($catalogProbeCode -eq 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_OWNERSHIP_MISMATCH' -and $applyState.Value.ProbeCalls -eq $probeCallsBefore)
     $applyState.Value.CatalogDrift=$true;$catalogDriftCode=$null
     try{& $module {param($plan,$receipt,$run,$root,$executor,$identity)Invoke-LabAiExternalModelSqlCleanup -SqlPlan $plan -ApplyReceipt $receipt -RunId $run -StateRoot $root -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $applyReceipt $runId $applyStateRoot $applyExecutor $bindingIdentity|Out-Null;$catalogDriftCode='NO_ERROR'}catch{$catalogDriftCode=$_.Exception.Message}
     $applyState.Value.CatalogDrift=$false
@@ -294,6 +335,9 @@ try {
         $cleanupReceipt.ReceiptKey -match '^[a-f0-9]{64}$' -and (($cleanupReceipt|ConvertTo-Json -Depth 10) -notmatch '(?i)(header-secret|query|location|runtimeModel)'))
     $cleanupAgain=& $module {param($plan,$receipt,$run,$root,$executor,$identity)Invoke-LabAiExternalModelSqlCleanup -SqlPlan $plan -ApplyReceipt $receipt -RunId $run -StateRoot $root -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $applyReceipt $runId $applyStateRoot $applyExecutor $bindingIdentity
     Add-CheckResult 'SQL-Cleanup ist nach bestätigter Abwesenheit idempotent' ($cleanupAgain.Status -ceq 'SQL_EXTERNAL_MODEL_CLEANED' -and $applyState.Value.CleanupCalls -eq 1)
+    $queriesBefore=$applyState.Value.Queries.Count;$probeAfterCleanupCode=$null
+    try{& $module {param($plan,$receipt,$run,$root,$executor,$identity)Invoke-LabAiExternalModelSqlEmbeddingProbe -SqlPlan $plan -ApplyReceipt $receipt -RunId $run -StateRoot $root -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $applyReceipt $runId $applyStateRoot $applyExecutor $bindingIdentity|Out-Null;$probeAfterCleanupCode='NO_ERROR'}catch{$probeAfterCleanupCode=$_.Exception.Message}
+    Add-CheckResult 'SQL-Embedding-Probe bleibt nach abgeschlossenem Cleanup vor SQL gesperrt' ($probeAfterCleanupCode -eq 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_STATE_INVALID' -and $applyState.Value.Queries.Count -eq $queriesBefore)
     $applyAfterCleanupCode=$null;try{& $module {param($plan,$receipt,$run,$secret,$root,$executor,$identity)Invoke-LabAiExternalModelSqlApply -SqlPlan $plan -PreflightReceipt $receipt -RunId $run -CredentialSecret $secret -StateRoot $root -Resume -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $preflight $runId $credentialSecret $applyStateRoot $applyExecutor $bindingIdentity|Out-Null;$applyAfterCleanupCode='NO_ERROR'}catch{$applyAfterCleanupCode=$_.Exception.Message}
     Add-CheckResult 'SQL-Apply rekonstruiert nach abgeschlossenem Cleanup keine Objekte' ($applyAfterCleanupCode -eq 'AI_EXTERNAL_MODEL_SQL_APPLY_RECOVERY_REQUIRED' -and $applyState.Value.ApplyCalls -eq 1)
     $tamperedApplyReceipt=$applyReceipt.PSObject.Copy();$tamperedApplyReceipt.DatabaseGuid=[guid]::NewGuid().ToString('D');$cleanupCallsBefore=$applyState.Value.Queries.Count
@@ -372,6 +416,11 @@ try {
     $whatIfCleanupRoot=Join-Path $artifactRoot 'whatif-cleanup-state'
     $whatIfCleanup=Remove-SqlServerLabAiExternalModelSql -SqlPlan $sqlPlan -ApplyReceipt $applyReceipt -RunId $runId -StateRoot $whatIfCleanupRoot -WhatIf
     Add-CheckResult 'SQL-Cleanup-WhatIf schreibt kein Journal und öffnet kein SQL' ($null -eq $whatIfCleanup -and -not (Test-Path -LiteralPath $whatIfCleanupRoot))
+    $sqlEmbeddingCommand=Get-Command Test-SqlServerLabAiExternalModelSqlEmbedding -Module $module.Name
+    Add-CheckResult 'Öffentliche SQL-Embedding-Probe bindet Apply-Receipt und verbirgt Executor und Eingabetext' (
+        $sqlEmbeddingCommand.Parameters.ContainsKey('SqlPlan') -and $sqlEmbeddingCommand.Parameters.ContainsKey('ApplyReceipt') -and
+        $sqlEmbeddingCommand.Parameters.ContainsKey('RunId') -and $sqlEmbeddingCommand.Parameters.ContainsKey('InstanceId') -and
+        -not $sqlEmbeddingCommand.Parameters.ContainsKey('SqlExecutor') -and -not $sqlEmbeddingCommand.Parameters.ContainsKey('Input'))
     Add-CheckResult 'Öffentliche Artifact-Prüfung ist exportiert und verlangt beide lokalen Dateien' (
         (Get-Command Test-SqlServerLabAiExternalModelArtifact -Module $module.Name).Parameters.ContainsKey('RuntimePath') -and
         (Get-Command Test-SqlServerLabAiExternalModelArtifact -Module $module.Name).Parameters.ContainsKey('ModelPath'))
