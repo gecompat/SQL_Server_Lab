@@ -117,6 +117,7 @@ Get-SqlServerLabLlamaCppRuntime             # Windows-Pakete begrenzt ohne Hashp
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen
 Get-SqlServerLabAiExternalModelSqlPlan       # Frische Endpoint-Evidence an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden
 Test-SqlServerLabAiExternalModelSqlPreflight # Eigenen SQL-2025-Zielscope read-only und hashgebunden vor jeder Mutation prüfen
+Invoke-SqlServerLabAiExternalModelSqlApply    # Ownership-Receipt, Credential und External Model journalisiert und transaktional erstellen
 Test-SqlServerLabAiExternalModelArtifact   # Runtime- und Modelldatei read-only gegen die Plandigests prüfen
 Test-SqlServerLabAiExternalModelEndpoint     # Zertifikatspin, Runtime-Modell, OpenAI-Antwortform und Dimension read-only prüfen
 Test-SqlServerLabOvmsUpstreamEndpoint        # OVMS-v3-Upstream ausschließlich auf numerischem Loopback read-only prüfen

@@ -1487,10 +1487,15 @@ und eine Datenbank-GUID. Er bestätigt SQL 2025, `ONLINE`/`READ_WRITE`, Database
 Key, benötigte Rechte und freie Zielnamen, erstellt aber weder Credential noch
 External Model. Der SQL-Plan reserviert zusätzlich einen deterministisch aus
 seinem Plan-Key abgeleiteten Tabellennamen für einen späteren SQL-seitigen
-Ownership-Receipt und der Preflight blockiert dessen Kollision. Es gibt noch
-keinen Executor; insbesondere ist OVMS
-`/v3/embeddings` nicht nativ durch SQL Server abgenommen. SQL-Mutation,
-SQLrestart, ein Hyper-V-Preflight und Acceleratorattestation fehlen weiterhin.
+Ownership-Receipt und der Preflight blockiert dessen Kollision. Der begrenzte
+Apply-Executor bindet Plan, Preflight-Receipt, eigenen Container und Datenbank-GUID,
+journalisiert vor Mutation und erstellt Ownership-Tabelle, Credential und
+External Model in einer `XACT_ABORT`-Transaktion. Ein unbekannter Ausgang wird
+nur über `-Resume` beobachtet; Teilzustände werden nicht adoptiert oder blind
+wiederholt. Dieser Pfad ist bislang ausschließlich mit injiziertem SQL-Transport
+statisch belegt. Insbesondere ist OVMS `/v3/embeddings` nicht nativ durch SQL
+Server abgenommen. Embeddingprobe, SQLrestart, Cleanup, ein Hyper-V-Preflight
+und Acceleratorattestation fehlen weiterhin.
 Der vorhandene
 Docker-/Ollama-Referenzgateway bindet einen festen Ollama-Pfad und darf weiterhin
 nicht als allgemeiner OVMS-Reverse-Proxy interpretiert werden.

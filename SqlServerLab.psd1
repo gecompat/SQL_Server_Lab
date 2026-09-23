@@ -33,6 +33,7 @@
         'Test-SqlServerLabAiExternalModelArtifact'
         'Test-SqlServerLabAiExternalModelEndpoint'
         'Test-SqlServerLabAiExternalModelSqlPreflight'
+        'Invoke-SqlServerLabAiExternalModelSqlApply'
         'Test-SqlServerLabOvmsUpstreamEndpoint'
         'Start-SqlServerLabOvmsHttpsGateway'
         'Stop-SqlServerLabOvmsHttpsGateway'

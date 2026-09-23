@@ -228,6 +228,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Checks an owned SQL 2025 target read-only for database identity, master
         key, permissions, and available credential and external-model names.
 
+    Invoke-SqlServerLabAiExternalModelSqlApply
+        Creates the ownership receipt, credential, and external model with a
+        journaled transaction and never blindly repeats an uncertain partial state.
+
     Test-SqlServerLabAiExternalModelArtifact
         Verifies local runtime and model files read-only against the SHA-256
         values in the plan without claiming process or accelerator evidence.

@@ -46,6 +46,11 @@ $sqlPlan = Get-SqlServerLabAiExternalModelSqlPlan `
 
 $sqlPreflight = Test-SqlServerLabAiExternalModelSqlPreflight `
   -SqlPlan $sqlPlan -RunId $runId
+
+$credentialSecret = Read-Host 'HTTP-Header-Secret für SQL' -AsSecureString
+$sqlApply = Invoke-SqlServerLabAiExternalModelSqlApply `
+  -SqlPlan $sqlPlan -PreflightReceipt $sqlPreflight -RunId $runId `
+  -CredentialSecret $credentialSecret
 ```
 
 Bei einem öffentlich oder bereits systemweit vertrauten Zertifikat entfällt
@@ -72,6 +77,20 @@ Datenbank und deren exakte Identität,
 `ONLINE`/`READ_WRITE`, Database Master Key, `CONTROL` und
 `CREATE EXTERNAL MODEL` sowie freie Credential- und Modellnamen. Sein
 hashgebundenes Receipt enthält weder Secret noch SQL-Text und führt kein DDL aus.
+
+Der anschließende Apply-Befehl revalidiert Plan, Preflight-Receipt, den laufenden
+Docker-/Podman-Container und die Datenbank-GUID. Vor der ersten SQL-Mutation
+schreibt er ein geheimnisfreies, atomisches Journal. Eine einzelne
+`XACT_ABORT`-Transaktion erstellt zuerst eine planabgeleitete Ownership-Tabelle,
+danach das Database Scoped Credential und das External Model und bestätigt alle
+drei Postconditions. Das Credential-Secret wird nur als `SecureString`
+angenommen und weder in Receipt noch Journal geschrieben. Bei verlorener Antwort
+wird kein DDL blind wiederholt: `-Resume` liest den gebundenen SQL-Zustand und
+akzeptiert nur die vollständige Ownership-Postcondition; Teilzustände melden
+`AI_EXTERNAL_MODEL_SQL_APPLY_RECOVERY_REQUIRED`.
+
+Der aktuelle Apply-Receipt bestätigt noch keinen Embeddingaufruf, SQL-Neustart,
+Acceleratorpfad oder Cleanup. Dafür bleiben getrennte Nachweise erforderlich.
 
 Plan und Probe installieren nichts und ändern weder Truststore, Firewall,
 Hosts-Datei noch Dienste.
