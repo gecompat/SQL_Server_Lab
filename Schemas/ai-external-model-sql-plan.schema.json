@@ -11,7 +11,7 @@
     "DatabaseName": {"type":"string","pattern":"^[A-Za-z_][A-Za-z0-9_]{0,127}$"},
     "SqlMajorVersion": {"const":17},
     "ExternalModelName": {"type":"string","pattern":"^[A-Za-z_][A-Za-z0-9_]{0,127}$"},
-    "CredentialName": {"type":"string","pattern":"^https://[^/]+$"},
+    "CredentialName": {"type":"string","minLength":9,"maxLength":128,"pattern":"^https://[^/]+$"},
     "OwnershipTableName": {"type":"string","pattern":"^SqlServerLabAiOwner_[a-f0-9]{24}$"},
     "Location": {"type":"string","pattern":"^https://"},
     "ApiFormat": {"const":"OpenAI"},

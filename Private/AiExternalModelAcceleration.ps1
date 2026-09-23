@@ -544,7 +544,7 @@ function New-LabAiExternalModelSqlPlan {
 
 function Resolve-LabAiExternalModelSqlPlan {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$SqlPlan)
+    param([Parameter(Mandatory)]$SqlPlan,[switch]$AllowExpired)
     try{$valid=$SqlPlan|ConvertTo-Json -Depth 12|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'ai-external-model-sql-plan.schema.json') -ErrorAction Stop}
     catch{throw 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID'}
     if(-not $valid){throw 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID'}
@@ -562,7 +562,7 @@ function Resolve-LabAiExternalModelSqlPlan {
        [string]$SqlPlan.OwnershipTableName -cne ('SqlServerLabAiOwner_'+([string]$SqlPlan.SqlPlanKey).Substring(0,24))){
         throw 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID'
     }
-    if($validUntil -lt [DateTimeOffset]::UtcNow){throw 'AI_EXTERNAL_MODEL_SQL_PLAN_EXPIRED'}
+    if(-not $AllowExpired -and $validUntil -lt [DateTimeOffset]::UtcNow){throw 'AI_EXTERNAL_MODEL_SQL_PLAN_EXPIRED'}
     $SqlPlan
 }
 
@@ -635,6 +635,256 @@ FROM sys.database_recovery_status WHERE database_id=DB_ID();
         SqlMajorVersion=17;VerifiedAtUtc=$verifiedAt;ReceiptKey=Get-LabAiPlanKey -InputObject $receiptIdentity
         VerifiedEvidence=@('SQL_2025_MATCH','DATABASE_ONLINE_READ_WRITE','DATABASE_MASTER_KEY_PRESENT','CONTROL_DATABASE_PERMISSION','CREATE_EXTERNAL_MODEL_PERMISSION','SQL_OBJECT_NAMES_AVAILABLE')
         PendingEvidence=@('SQL_EXTERNAL_MODEL_CREATED','SQL_EMBEDDING_VERIFIED','SQL_RESTART_VERIFIED','ACCELERATOR_RUNTIME_ATTESTATION','SQL_CLEANUP_VERIFIED')
+    }
+}
+
+function Resolve-LabAiExternalModelSqlPreflightReceipt {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$SqlPlan,
+        [Parameter(Mandatory)]$PreflightReceipt,
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)]$BindingIdentity,
+        [ValidateRange(30,3600)][int]$MaxPreflightAgeSeconds=300,
+        [switch]$AllowExpired
+    )
+    try{$valid=$PreflightReceipt|ConvertTo-Json -Depth 12|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'ai-external-model-sql-preflight-receipt.schema.json') -ErrorAction Stop}
+    catch{throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_RECEIPT_INVALID'}
+    if(-not $valid){throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_RECEIPT_INVALID'}
+    $verifiedAt=[DateTimeOffset]::MinValue
+    if(-not [DateTimeOffset]::TryParseExact([string]$PreflightReceipt.VerifiedAtUtc,'o',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$verifiedAt) -or
+       $verifiedAt.Offset -ne [TimeSpan]::Zero -or $verifiedAt -gt [DateTimeOffset]::UtcNow.AddSeconds(60)){
+        throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_RECEIPT_INVALID'
+    }
+    $identity=[ordered]@{
+        Contract='SqlServerLab.AiExternalModelSqlPreflightBinding/1.0';SqlPlanKey=[string]$PreflightReceipt.SqlPlanKey
+        BindingKey=[string]$PreflightReceipt.BindingKey;DatabaseGuid=[string]$PreflightReceipt.DatabaseGuid
+        VerifiedAtUtc=[string]$PreflightReceipt.VerifiedAtUtc
+    }
+    if((Get-LabAiPlanKey -InputObject $identity) -cne [string]$PreflightReceipt.ReceiptKey){throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_RECEIPT_INVALID'}
+    $bindingKey=Get-LabAiPlanKey -InputObject $BindingIdentity
+    if([string]$PreflightReceipt.SqlPlanKey -cne [string]$SqlPlan.SqlPlanKey -or
+       [string]$PreflightReceipt.RunId -cne $RunId -or [string]$PreflightReceipt.InstanceId -cne $InstanceId -or
+       [string]$BindingIdentity.RunId -cne $RunId -or [string]$BindingIdentity.InstanceId -cne $InstanceId -or
+       [string]$PreflightReceipt.ScopeId -cne [string]$BindingIdentity.ScopeId -or
+       [string]$PreflightReceipt.Provider -cne [string]$BindingIdentity.Provider -or
+       [string]$PreflightReceipt.BindingKey -cne $bindingKey -or
+       [string]$PreflightReceipt.DatabaseName -cne [string]$SqlPlan.DatabaseName){
+        throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_RECEIPT_MISMATCH'
+    }
+    if(-not $AllowExpired -and $verifiedAt -lt [DateTimeOffset]::UtcNow.AddSeconds(-$MaxPreflightAgeSeconds)){
+        throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_RECEIPT_EXPIRED'
+    }
+    $PreflightReceipt
+}
+
+function Get-LabAiExternalModelSqlApplyJournalPath {
+    param([Parameter(Mandatory)][string]$StateRoot,[Parameter(Mandatory)][string]$RunId,[Parameter(Mandatory)][string]$InstanceId,[Parameter(Mandatory)][string]$SqlPlanKey)
+    $root=[IO.Path]::GetFullPath($StateRoot)
+    $directory=Join-Path (Join-Path (Join-Path $root 'runs') $RunId) 'ai-external-model'
+    $path=Join-Path $directory ($InstanceId+'-'+$SqlPlanKey+'.json')
+    foreach($target in @($directory,$path,"$path.lock")){
+        $check=Test-LabPathWithinRoot -Root $root -Path $target
+        if(-not $check.Valid){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_STATE_PATH_INVALID'}
+    }
+    [pscustomobject]@{Directory=$directory;Path=$path;LockPath="$path.lock"}
+}
+
+function Write-LabAiExternalModelSqlApplyJournal {
+    param([Parameter(Mandatory)][string]$Path,[Parameter(Mandatory)]$Journal)
+    $json=$Journal|ConvertTo-Json -Depth 15
+    if(-not ($json|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'ai-external-model-sql-apply-journal.schema.json') -ErrorAction SilentlyContinue)){
+        throw 'AI_EXTERNAL_MODEL_SQL_APPLY_JOURNAL_INVALID'
+    }
+    Write-LabArtifactJsonAtomic -Path $Path -InputObject $Journal
+}
+
+function Read-LabAiExternalModelSqlApplyJournal {
+    param([Parameter(Mandatory)][string]$Path)
+    try{$json=Get-Content -LiteralPath $Path -Raw -Encoding utf8;$journal=$json|ConvertFrom-Json -Depth 15}
+    catch{throw 'AI_EXTERNAL_MODEL_SQL_APPLY_JOURNAL_INVALID'}
+    if(-not ($json|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'ai-external-model-sql-apply-journal.schema.json') -ErrorAction SilentlyContinue)){
+        throw 'AI_EXTERNAL_MODEL_SQL_APPLY_JOURNAL_INVALID'
+    }
+    $journal
+}
+
+function Get-LabAiExternalModelSqlApplyObservation {
+    param([Parameter(Mandatory)]$SqlPlan,[Parameter(Mandatory)][scriptblock]$ExecuteSql)
+    $query=@'
+DECLARE @ownerObject nvarchar(300)=N'dbo.'+QUOTENAME(@ownerName);
+DECLARE @ownerExists bit=CONVERT(bit,CASE WHEN OBJECT_ID(@ownerObject,N'U') IS NULL THEN 0 ELSE 1 END);
+DECLARE @ownerPlanKey varchar(64)=NULL,@ownerReceiptKey varchar(64)=NULL,@ownerBindingKey varchar(64)=NULL,
+        @ownerOperationId varchar(36)=NULL,@ownerDatabaseGuid varchar(36)=NULL,@ownerStatus varchar(16)=NULL;
+IF @ownerExists=1
+BEGIN
+ DECLARE @read nvarchar(max)=N'SELECT @plan=SqlPlanKey,@receipt=PreflightReceiptKey,@binding=BindingKey,'+
+  N'@operation=CONVERT(varchar(36),OperationId),@guid=CONVERT(varchar(36),DatabaseGuid),@status=Status FROM dbo.'+QUOTENAME(@ownerName)+N' WHERE Singleton=1;';
+ EXEC sys.sp_executesql @read,N'@plan varchar(64) OUTPUT,@receipt varchar(64) OUTPUT,@binding varchar(64) OUTPUT,@operation varchar(36) OUTPUT,@guid varchar(36) OUTPUT,@status varchar(16) OUTPUT',
+  @plan=@ownerPlanKey OUTPUT,@receipt=@ownerReceiptKey OUTPUT,@binding=@ownerBindingKey OUTPUT,@operation=@ownerOperationId OUTPUT,@guid=@ownerDatabaseGuid OUTPUT,@status=@ownerStatus OUTPUT;
+END;
+SELECT CONVERT(varchar(36),database_guid) AS DatabaseGuid,@ownerExists AS OwnershipTableExists,
+ CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.database_scoped_credentials WHERE name=@credential) THEN 1 ELSE 0 END) AS CredentialExists,
+ CONVERT(bit,CASE WHEN EXISTS(SELECT 1 FROM sys.external_models WHERE name=@model) THEN 1 ELSE 0 END) AS ExternalModelExists,
+ @ownerPlanKey AS OwnerPlanKey,@ownerReceiptKey AS OwnerReceiptKey,@ownerBindingKey AS OwnerBindingKey,
+ @ownerOperationId AS OwnerOperationId,@ownerDatabaseGuid AS OwnerDatabaseGuid,@ownerStatus AS OwnerStatus
+FROM sys.database_recovery_status WHERE database_id=DB_ID();
+'@
+    $rows=@(& $ExecuteSql $query @{ownerName=[string]$SqlPlan.OwnershipTableName;credential=[string]$SqlPlan.CredentialName;model=[string]$SqlPlan.ExternalModelName} ([string]$SqlPlan.DatabaseName))
+    if($rows.Count -ne 1){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_OBSERVATION_INVALID'}
+    $rows[0]
+}
+
+function Test-LabAiExternalModelSqlAppliedObservation {
+    param([Parameter(Mandatory)]$Observation,[Parameter(Mandatory)]$Journal)
+    [bool]$Observation.OwnershipTableExists -and [bool]$Observation.CredentialExists -and [bool]$Observation.ExternalModelExists -and
+    [string]$Observation.DatabaseGuid -ceq [string]$Journal.DatabaseGuid -and
+    [string]$Observation.OwnerDatabaseGuid -ceq [string]$Journal.DatabaseGuid -and
+    [string]$Observation.OwnerPlanKey -ceq [string]$Journal.SqlPlanKey -and
+    [string]$Observation.OwnerReceiptKey -ceq [string]$Journal.PreflightReceiptKey -and
+    [string]$Observation.OwnerBindingKey -ceq [string]$Journal.BindingKey -and
+    [string]$Observation.OwnerOperationId -ceq [string]$Journal.OperationId -and
+    [string]$Observation.OwnerStatus -ceq 'APPLIED'
+}
+
+function New-LabAiExternalModelSqlApplyReceipt {
+    param([Parameter(Mandatory)]$Journal)
+    $verifiedAt=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+    $identity=[ordered]@{Contract='SqlServerLab.AiExternalModelSqlApplyBinding/1.0';OperationId=[string]$Journal.OperationId;SqlPlanKey=[string]$Journal.SqlPlanKey;PreflightReceiptKey=[string]$Journal.PreflightReceiptKey;BindingKey=[string]$Journal.BindingKey;DatabaseGuid=[string]$Journal.DatabaseGuid;VerifiedAtUtc=$verifiedAt}
+    $result=[pscustomobject][ordered]@{
+        Contract=[pscustomobject]@{Name='SqlServerLab.AiExternalModelSqlApplyReceipt';Version='1.0'}
+        Status='SQL_EXTERNAL_MODEL_APPLIED';EvidenceStatus='LIVE_SQL_BOUND';OperationId=[string]$Journal.OperationId
+        SqlPlanKey=[string]$Journal.SqlPlanKey;PreflightReceiptKey=[string]$Journal.PreflightReceiptKey
+        RunId=[string]$Journal.RunId;ScopeId=[string]$Journal.ScopeId;InstanceId=[string]$Journal.InstanceId
+        Provider=[string]$Journal.Provider;BindingKey=[string]$Journal.BindingKey;DatabaseName=[string]$Journal.DatabaseName
+        DatabaseGuid=[string]$Journal.DatabaseGuid;VerifiedAtUtc=$verifiedAt
+        VerifiedEvidence=@('SQL_OWNERSHIP_RECEIPT_CREATED','DATABASE_SCOPED_CREDENTIAL_CREATED','SQL_EXTERNAL_MODEL_CREATED')
+        PendingEvidence=@('SQL_EMBEDDING_VERIFIED','SQL_RESTART_VERIFIED','ACCELERATOR_RUNTIME_ATTESTATION','SQL_CLEANUP_VERIFIED')
+        ReceiptKey=Get-LabAiPlanKey -InputObject $identity
+    }
+    if(-not ($result|ConvertTo-Json -Depth 12|Test-Json -SchemaFile (Join-Path $script:SchemasPath 'ai-external-model-sql-apply-receipt.schema.json') -ErrorAction SilentlyContinue)){
+        throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RECEIPT_INVALID'
+    }
+    $result
+}
+
+function Invoke-LabAiExternalModelSqlApply {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$SqlPlan,
+        [Parameter(Mandatory)]$PreflightReceipt,
+        [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$RunId,
+        [ValidatePattern('^[a-zA-Z][a-zA-Z0-9_-]{0,63}$')][string]$InstanceId='primary',
+        [Parameter(Mandatory)][Security.SecureString]$CredentialSecret,
+        [string]$StateRoot,
+        [switch]$Resume,
+        [scriptblock]$SqlExecutor,
+        $Binding,
+        $BindingIdentity,
+        [scriptblock]$FaultInjector
+    )
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    if($CredentialSecret.Length -lt 1 -or $CredentialSecret.Length -gt 4000){throw 'AI_EXTERNAL_MODEL_SQL_CREDENTIAL_SECRET_INVALID'}
+    $StateRoot=[IO.Path]::GetFullPath($StateRoot)
+    $allowExpired=[bool]$Resume
+    $canonical=Resolve-LabAiExternalModelSqlPlan -SqlPlan $SqlPlan -AllowExpired:$allowExpired
+    if(-not $Binding){$Binding=Get-LabTransferBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
+    if(-not $BindingIdentity){$BindingIdentity=Get-LabTransferBindingIdentity $Binding}
+    $receipt=Resolve-LabAiExternalModelSqlPreflightReceipt -SqlPlan $canonical -PreflightReceipt $PreflightReceipt -RunId $RunId -InstanceId $InstanceId -BindingIdentity $BindingIdentity -AllowExpired:$allowExpired
+    $paths=Get-LabAiExternalModelSqlApplyJournalPath -StateRoot $StateRoot -RunId $RunId -InstanceId $InstanceId -SqlPlanKey ([string]$canonical.SqlPlanKey)
+    $null=New-Item -ItemType Directory -Path $paths.Directory -Force
+    $lock=$null;$connection=$null;$sqlSecret=$null;$pointer=[IntPtr]::Zero;$plain=$null;$parameters=$null
+    try{$lock=[IO.File]::Open($paths.LockPath,[IO.FileMode]::OpenOrCreate,[IO.FileAccess]::ReadWrite,[IO.FileShare]::None)}catch{throw 'AI_EXTERNAL_MODEL_SQL_APPLY_LOCKED'}
+    try{
+        $journal=$null
+        if(Test-Path -LiteralPath $paths.Path){
+            $journal=Read-LabAiExternalModelSqlApplyJournal -Path $paths.Path
+            if([string]$journal.SqlPlanKey -cne [string]$canonical.SqlPlanKey -or [string]$journal.PreflightReceiptKey -cne [string]$receipt.ReceiptKey -or
+               [string]$journal.BindingKey -cne [string]$receipt.BindingKey -or [string]$journal.DatabaseGuid -cne [string]$receipt.DatabaseGuid -or
+               [string]$journal.RunId -cne $RunId -or [string]$journal.InstanceId -cne $InstanceId){
+                throw 'AI_EXTERNAL_MODEL_SQL_APPLY_JOURNAL_MISMATCH'
+            }
+            if(-not $Resume){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RESUME_REQUIRED'}
+        }elseif($Resume){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_JOURNAL_NOT_FOUND'}
+        if(-not $journal){
+            $journal=[pscustomobject][ordered]@{
+                Contract='SqlServerLab.AiExternalModelSqlApplyJournal/1.0';OperationId=[guid]::NewGuid().ToString('D');Status='APPLY_PENDING'
+                SqlPlanKey=[string]$canonical.SqlPlanKey;PreflightReceiptKey=[string]$receipt.ReceiptKey;BindingKey=[string]$receipt.BindingKey
+                RunId=$RunId;ScopeId=[string]$receipt.ScopeId;InstanceId=$InstanceId;Provider=[string]$receipt.Provider
+                DatabaseName=[string]$canonical.DatabaseName;DatabaseGuid=[string]$receipt.DatabaseGuid
+                OwnershipTableName=[string]$canonical.OwnershipTableName;ExternalModelName=[string]$canonical.ExternalModelName
+                CredentialName=[string]$canonical.CredentialName;Recovery='RESUME_AND_VERIFY_SQL_RECEIPT';UpdatedAtUtc=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+            }
+            Write-LabAiExternalModelSqlApplyJournal -Path $paths.Path -Journal $journal
+        }
+        if(-not $SqlExecutor){
+            $storedSecret=Get-LabRelationalCoreSecret -RunId $RunId -StateRoot $StateRoot
+            try{$sqlSecret=$storedSecret.Copy();$sqlSecret.MakeReadOnly()}finally{$storedSecret.Dispose()}
+            $connection=New-LabRelationalCoreConnection -Binding $Binding -DatabaseName ([string]$canonical.DatabaseName) -Secret $sqlSecret
+            $connection.Open()
+        }
+        $executeSql={param($query,$parameters,$database)
+            if($SqlExecutor){return @(& $SqlExecutor $query $parameters $database)}
+            @(Invoke-LabTransferSqlRows -Connection $connection -Query $query -Parameters $parameters -TimeoutSeconds 120)
+        }.GetNewClosure()
+        $observation=Get-LabAiExternalModelSqlApplyObservation -SqlPlan $canonical -ExecuteSql $executeSql
+        if(Test-LabAiExternalModelSqlAppliedObservation -Observation $observation -Journal $journal){
+            if([string]$journal.Status -cne 'APPLIED'){$journal.Status='APPLIED';$journal.Recovery='NOT_REQUIRED';$journal.UpdatedAtUtc=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture);Write-LabAiExternalModelSqlApplyJournal -Path $paths.Path -Journal $journal}
+            return New-LabAiExternalModelSqlApplyReceipt -Journal $journal
+        }
+        if([string]$journal.Status -ceq 'APPLIED'){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RECOVERY_REQUIRED'}
+        $anyObject=[bool]$observation.OwnershipTableExists -or [bool]$observation.CredentialExists -or [bool]$observation.ExternalModelExists
+        if($anyObject){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RECOVERY_REQUIRED'}
+        if($Resume -and ([DateTimeOffset]::Parse([string]$canonical.ValidUntilUtc) -lt [DateTimeOffset]::UtcNow -or [DateTimeOffset]::Parse([string]$receipt.VerifiedAtUtc) -lt [DateTimeOffset]::UtcNow.AddSeconds(-300))){
+            throw 'AI_EXTERNAL_MODEL_SQL_APPLY_REPLAN_REQUIRED'
+        }
+        if($FaultInjector){& $FaultInjector 'BeforeSqlMutation'}
+        $pointer=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($CredentialSecret)
+        $plain=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($pointer)
+        $applyQuery=@'
+SET XACT_ABORT ON;
+BEGIN TRANSACTION;
+DECLARE @lockResult int;
+EXEC @lockResult=sys.sp_getapplock @Resource=@lockResource,@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=0;
+IF @lockResult<0 THROW 51000,'AI_EXTERNAL_MODEL_SQL_APPLY_LOCKED',1;
+IF CONVERT(int,SERVERPROPERTY('ProductMajorVersion'))<>17 THROW 51000,'AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED',1;
+IF NOT EXISTS(SELECT 1 FROM sys.database_recovery_status WHERE database_id=DB_ID() AND CONVERT(varchar(36),database_guid)=@databaseGuid) THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_MISMATCH',1;
+IF CONVERT(nvarchar(60),DATABASEPROPERTYEX(DB_NAME(),'Status'))<>N'ONLINE' OR CONVERT(nvarchar(60),DATABASEPROPERTYEX(DB_NAME(),'Updateability'))<>N'READ_WRITE' THROW 51000,'AI_EXTERNAL_MODEL_SQL_DATABASE_NOT_WRITABLE',1;
+IF NOT EXISTS(SELECT 1 FROM sys.symmetric_keys WHERE name=N'##MS_DatabaseMasterKey##') THROW 51000,'AI_EXTERNAL_MODEL_SQL_MASTER_KEY_REQUIRED',1;
+IF NOT EXISTS(SELECT 1 FROM sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name=N'CONTROL') OR NOT EXISTS(SELECT 1 FROM sys.fn_my_permissions(NULL,'DATABASE') WHERE permission_name=N'CREATE EXTERNAL MODEL') THROW 51000,'AI_EXTERNAL_MODEL_SQL_PERMISSION_REQUIRED',1;
+IF OBJECT_ID(N'dbo.'+QUOTENAME(@ownerName),N'U') IS NOT NULL OR EXISTS(SELECT 1 FROM sys.database_scoped_credentials WHERE name=@credential) OR EXISTS(SELECT 1 FROM sys.external_models WHERE name=@modelName) THROW 51000,'AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION',1;
+DECLARE @ddl nvarchar(max)=N'CREATE TABLE dbo.'+QUOTENAME(@ownerName)+N'(Singleton tinyint NOT NULL PRIMARY KEY CHECK(Singleton=1),SqlPlanKey varchar(64) NOT NULL,PreflightReceiptKey varchar(64) NOT NULL,BindingKey varchar(64) NOT NULL,OperationId uniqueidentifier NOT NULL,DatabaseGuid uniqueidentifier NOT NULL,Status varchar(16) NOT NULL,CreatedAtUtc datetime2(7) NOT NULL);';
+EXEC(@ddl);
+SET @ddl=N'INSERT dbo.'+QUOTENAME(@ownerName)+N'(Singleton,SqlPlanKey,PreflightReceiptKey,BindingKey,OperationId,DatabaseGuid,Status,CreatedAtUtc) VALUES(1,@plan,@receipt,@binding,@operation,@guid,''APPLYING'',SYSUTCDATETIME());';
+EXEC sys.sp_executesql @ddl,N'@plan varchar(64),@receipt varchar(64),@binding varchar(64),@operation uniqueidentifier,@guid uniqueidentifier',@plan=@planKey,@receipt=@preflightReceiptKey,@binding=@bindingKey,@operation=@operationId,@guid=@databaseGuid;
+SET @ddl=N'CREATE DATABASE SCOPED CREDENTIAL '+QUOTENAME(@credential)+N' WITH IDENTITY=''HTTPEndpointHeaders'', SECRET='''+REPLACE(@credentialSecret,'''','''''')+N''';';
+EXEC(@ddl);
+SET @ddl=N'CREATE EXTERNAL MODEL '+QUOTENAME(@modelName)+N' WITH (LOCATION='''+REPLACE(@location,'''','''''')+N''',API_FORMAT=''OpenAI'',MODEL_TYPE=EMBEDDINGS,MODEL='''+REPLACE(@runtimeModel,'''','''''')+N''',CREDENTIAL='+QUOTENAME(@credential)+N',PARAMETERS=''{"sql_rest_options":{"retry_count":0}}'');';
+EXEC(@ddl);
+IF NOT EXISTS(SELECT 1 FROM sys.database_scoped_credentials WHERE name=@credential) OR NOT EXISTS(SELECT 1 FROM sys.external_models WHERE name=@modelName) THROW 51000,'AI_EXTERNAL_MODEL_SQL_APPLY_POSTCONDITION_FAILED',1;
+SET @ddl=N'UPDATE dbo.'+QUOTENAME(@ownerName)+N' SET Status=''APPLIED'' WHERE Singleton=1 AND SqlPlanKey=@plan AND PreflightReceiptKey=@receipt AND BindingKey=@binding AND OperationId=@operation AND DatabaseGuid=@guid; IF @@ROWCOUNT<>1 THROW 51000,''AI_EXTERNAL_MODEL_SQL_OWNERSHIP_MISMATCH'',1;';
+EXEC sys.sp_executesql @ddl,N'@plan varchar(64),@receipt varchar(64),@binding varchar(64),@operation uniqueidentifier,@guid uniqueidentifier',@plan=@planKey,@receipt=@preflightReceiptKey,@binding=@bindingKey,@operation=@operationId,@guid=@databaseGuid;
+COMMIT TRANSACTION;
+'@
+        $parameters=@{lockResource=('SqlServerLab.AiExternalModel.'+[string]$canonical.SqlPlanKey);ownerName=[string]$canonical.OwnershipTableName;credential=[string]$canonical.CredentialName;modelName=[string]$canonical.ExternalModelName;databaseGuid=[string]$receipt.DatabaseGuid;planKey=[string]$canonical.SqlPlanKey;preflightReceiptKey=[string]$receipt.ReceiptKey;bindingKey=[string]$receipt.BindingKey;operationId=[string]$journal.OperationId;credentialSecret=$plain;location=[string]$canonical.Location;runtimeModel=[string]$canonical.RuntimeModel}
+        $null=@(& $executeSql $applyQuery $parameters ([string]$canonical.DatabaseName))
+        $plain=$null;[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer);$pointer=[IntPtr]::Zero
+        if($FaultInjector){& $FaultInjector 'AfterSqlMutation'}
+        $observation=Get-LabAiExternalModelSqlApplyObservation -SqlPlan $canonical -ExecuteSql $executeSql
+        if(-not (Test-LabAiExternalModelSqlAppliedObservation -Observation $observation -Journal $journal)){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RECOVERY_REQUIRED'}
+        $journal.Status='APPLIED';$journal.Recovery='NOT_REQUIRED';$journal.UpdatedAtUtc=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+        Write-LabAiExternalModelSqlApplyJournal -Path $paths.Path -Journal $journal
+        New-LabAiExternalModelSqlApplyReceipt -Journal $journal
+    }catch{
+        $code=[string]$_.Exception.Message
+        if($code -match '^AI_EXTERNAL_MODEL_SQL_(PLAN|PREFLIGHT_RECEIPT|APPLY_JOURNAL|APPLY_STATE_PATH|APPLY_LOCKED|APPLY_RESUME|APPLY_REPLAN|APPLY_RECOVERY|APPLY_OBSERVATION|APPLY_RECEIPT)_[A-Z_]+$' -or $code -eq 'AI_EXTERNAL_MODEL_SQL_APPLY_LOCKED'){throw $code}
+        throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RECOVERY_REQUIRED'
+    }finally{
+        if($parameters){$parameters.credentialSecret=$null}
+        $plain=$null
+        if($pointer -ne [IntPtr]::Zero){[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($pointer)}
+        if($connection){$connection.Dispose()};if($sqlSecret){$sqlSecret.Dispose()};if($lock){$lock.Dispose()}
     }
 }
 function Get-LabLlamaCppRuntimeCandidate {

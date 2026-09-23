@@ -234,6 +234,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Prueft einen eigenen SQL-2025-Zielscope read-only auf Datenbankidentitaet,
         Master Key, Berechtigungen und freie Credential-/External-Model-Namen.
 
+    Invoke-SqlServerLabAiExternalModelSqlApply
+        Erstellt Ownership-Receipt, Credential und External Model journalisiert
+        und transaktional; unbekannte Teilzustaende werden nicht blind wiederholt.
+
     Test-SqlServerLabAiExternalModelArtifact
         Prueft lokale Runtime- und Modelldateien read-only gegen die SHA-256-
         Werte des Plans, ohne Prozess- oder Accelerator-Evidence zu behaupten.

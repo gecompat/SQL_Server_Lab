@@ -218,6 +218,58 @@ try {
     $tamperedOwnerPlan=$sqlPlan.PSObject.Copy();$tamperedOwnerPlan.OwnershipTableName='SqlServerLabAiOwner_'+('e'*24)
     $tamperedOwnerCode=$null;try{& $module {param($p,$run,$executor,$identity)Invoke-LabAiExternalModelSqlPreflight -SqlPlan $p -RunId $run -SqlExecutor $executor -Binding ([PSCustomObject]@{}) -BindingIdentity $identity} $tamperedOwnerPlan $runId $sqlExecutor $bindingIdentity|Out-Null;$tamperedOwnerCode='NO_ERROR'}catch{$tamperedOwnerCode=$_.Exception.Message}
     Add-CheckResult 'SQL-Preflight blockiert abweichenden Ownership-Tabellennamen vor SQL-Zugriff' ($tamperedOwnerCode -eq 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID' -and $sqlCapture.Value -eq $sqlCallsBefore)
+    $applyStateRoot=Join-Path $artifactRoot 'apply-state'
+    $applyState=[Runtime.CompilerServices.StrongBox[object]]::new([pscustomobject]@{Applied=$false;Parameters=$null;SecretBound=$false;ApplyCalls=0;Queries=[Collections.Generic.List[string]]::new()})
+    $applyExecutor={param($query,$parameters,$database)
+        $applyState.Value.Queries.Add($query);$null=$database
+        if($query -match 'CREATE EXTERNAL MODEL'){
+            $applyState.Value.ApplyCalls++;$applyState.Value.SecretBound=([string]$parameters.credentialSecret -ceq 'header-secret-value');$applyState.Value.Parameters=@{operationId=$parameters.operationId};$applyState.Value.Applied=$true;return @()
+        }
+        if($applyState.Value.Applied){
+            return [pscustomobject]@{DatabaseGuid=$databaseGuid;OwnershipTableExists=$true;CredentialExists=$true;ExternalModelExists=$true;OwnerPlanKey=$sqlPlan.SqlPlanKey;OwnerReceiptKey=$preflight.ReceiptKey;OwnerBindingKey=$preflight.BindingKey;OwnerOperationId=[string]$applyState.Value.Parameters.operationId;OwnerDatabaseGuid=$databaseGuid;OwnerStatus='APPLIED'}
+        }
+        [pscustomobject]@{DatabaseGuid=$databaseGuid;OwnershipTableExists=$false;CredentialExists=$false;ExternalModelExists=$false;OwnerPlanKey=$null;OwnerReceiptKey=$null;OwnerBindingKey=$null;OwnerOperationId=$null;OwnerDatabaseGuid=$null;OwnerStatus=$null}
+    }.GetNewClosure()
+    $credentialSecret=[Security.SecureString]::new();'header-secret-value'.ToCharArray()|ForEach-Object{$credentialSecret.AppendChar($_)};$credentialSecret.MakeReadOnly()
+    $applyReceipt=& $module {param($plan,$receipt,$run,$secret,$root,$executor,$identity)Invoke-LabAiExternalModelSqlApply -SqlPlan $plan -PreflightReceipt $receipt -RunId $run -CredentialSecret $secret -StateRoot $root -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $preflight $runId $credentialSecret $applyStateRoot $applyExecutor $bindingIdentity
+    $applyQuery=@($applyState.Value.Queries|Where-Object{$_ -match 'CREATE EXTERNAL MODEL'})[0]
+    $applySource=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/AiExternalModelAcceleration.ps1') -Raw
+    Add-CheckResult 'SQL-Apply erstellt Ownership, Credential und External Model atomar in fester Reihenfolge' (
+        $applyState.Value.ApplyCalls -eq 1 -and $applyQuery -match 'SET XACT_ABORT ON' -and $applyQuery -match 'BEGIN TRANSACTION' -and
+        $applySource -match 'Updateability' -and $applySource -match 'MS_DatabaseMasterKey' -and $applySource -match 'fn_my_permissions' -and
+        $applyQuery.IndexOf('CREATE TABLE') -lt $applyQuery.IndexOf('CREATE DATABASE SCOPED CREDENTIAL') -and
+        $applyQuery.IndexOf('CREATE DATABASE SCOPED CREDENTIAL') -lt $applyQuery.IndexOf("SET @ddl=N'CREATE EXTERNAL MODEL") -and
+        $applyQuery -notmatch 'header-secret-value' -and $applyState.Value.SecretBound)
+    Add-CheckResult 'SQL-Apply-Receipt ist schema-valide, hashgebunden und geheimnisfrei' (
+        ($applyReceipt|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-sql-apply-receipt.schema.json')) -and
+        $applyReceipt.Status -ceq 'SQL_EXTERNAL_MODEL_APPLIED' -and $applyReceipt.SqlPlanKey -ceq $sqlPlan.SqlPlanKey -and
+        $applyReceipt.PreflightReceiptKey -ceq $preflight.ReceiptKey -and $applyReceipt.ReceiptKey -match '^[a-f0-9]{64}$' -and
+        (($applyReceipt|ConvertTo-Json -Depth 10) -notmatch '(?i)(header-secret|query|location|runtimeModel)'))
+    $applyJournalPath=Get-ChildItem -LiteralPath (Join-Path (Join-Path (Join-Path $applyStateRoot 'runs') $runId) 'ai-external-model') -Filter '*.json' -File|Select-Object -First 1
+    $applyJournalText=Get-Content -LiteralPath $applyJournalPath.FullName -Raw
+    Add-CheckResult 'SQL-Apply-Journal bleibt geheimnisfrei und markiert vollständige Postcondition' (
+        $applyJournalText -notmatch '(?i)(header-secret|CREATE EXTERNAL|LOCATION)' -and ($applyJournalText|ConvertFrom-Json).Status -ceq 'APPLIED')
+    $resumeReceipt=& $module {param($plan,$receipt,$run,$secret,$root,$executor,$identity)Invoke-LabAiExternalModelSqlApply -SqlPlan $plan -PreflightReceipt $receipt -RunId $run -CredentialSecret $secret -StateRoot $root -Resume -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $preflight $runId $credentialSecret $applyStateRoot $applyExecutor $bindingIdentity
+    Add-CheckResult 'SQL-Apply-Resume bestätigt SQL-Receipt ohne zweite Mutation' ($resumeReceipt.Status -ceq 'SQL_EXTERNAL_MODEL_APPLIED' -and $applyState.Value.ApplyCalls -eq 1)
+    $applyState.Value.Applied=$false;$appliedDriftCode=$null
+    try{& $module {param($plan,$receipt,$run,$secret,$root,$executor,$identity)Invoke-LabAiExternalModelSqlApply -SqlPlan $plan -PreflightReceipt $receipt -RunId $run -CredentialSecret $secret -StateRoot $root -Resume -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $preflight $runId $credentialSecret $applyStateRoot $applyExecutor $bindingIdentity|Out-Null;$appliedDriftCode='NO_ERROR'}catch{$appliedDriftCode=$_.Exception.Message}
+    $applyState.Value.Applied=$true
+    Add-CheckResult 'SQL-Apply rekonstruiert fehlende Objekte nach abgeschlossenem Journal nie neu' ($appliedDriftCode -eq 'AI_EXTERNAL_MODEL_SQL_APPLY_RECOVERY_REQUIRED' -and $applyState.Value.ApplyCalls -eq 1)
+    $repeatCode=$null;try{& $module {param($plan,$receipt,$run,$secret,$root,$executor,$identity)Invoke-LabAiExternalModelSqlApply -SqlPlan $plan -PreflightReceipt $receipt -RunId $run -CredentialSecret $secret -StateRoot $root -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $preflight $runId $credentialSecret $applyStateRoot $applyExecutor $bindingIdentity|Out-Null;$repeatCode='NO_ERROR'}catch{$repeatCode=$_.Exception.Message}
+    Add-CheckResult 'SQL-Apply blockiert Wiederholung ohne Resume' ($repeatCode -eq 'AI_EXTERNAL_MODEL_SQL_APPLY_RESUME_REQUIRED' -and $applyState.Value.ApplyCalls -eq 1)
+    $recoveryRoot=Join-Path $artifactRoot 'recovery-state'
+    $recoveryState=[Runtime.CompilerServices.StrongBox[object]]::new([pscustomobject]@{Partial=$false;ApplyCalls=0;Parameters=$null})
+    $recoveryExecutor={param($query,$parameters,$database)$null=$database
+        if($query -match 'CREATE EXTERNAL MODEL'){$recoveryState.Value.ApplyCalls++;$recoveryState.Value.Parameters=$parameters;$recoveryState.Value.Partial=$true;throw 'SIMULATED_LOST_RESPONSE'}
+        if($recoveryState.Value.Partial){return [pscustomobject]@{DatabaseGuid=$databaseGuid;OwnershipTableExists=$true;CredentialExists=$true;ExternalModelExists=$false;OwnerPlanKey=$sqlPlan.SqlPlanKey;OwnerReceiptKey=$preflight.ReceiptKey;OwnerBindingKey=$preflight.BindingKey;OwnerOperationId=[string]$recoveryState.Value.Parameters.operationId;OwnerDatabaseGuid=$databaseGuid;OwnerStatus='APPLYING'}}
+        [pscustomobject]@{DatabaseGuid=$databaseGuid;OwnershipTableExists=$false;CredentialExists=$false;ExternalModelExists=$false;OwnerPlanKey=$null;OwnerReceiptKey=$null;OwnerBindingKey=$null;OwnerOperationId=$null;OwnerDatabaseGuid=$null;OwnerStatus=$null}
+    }.GetNewClosure()
+    $lostCode=$null;try{& $module {param($plan,$receipt,$run,$secret,$root,$executor,$identity)Invoke-LabAiExternalModelSqlApply -SqlPlan $plan -PreflightReceipt $receipt -RunId $run -CredentialSecret $secret -StateRoot $root -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $preflight $runId $credentialSecret $recoveryRoot $recoveryExecutor $bindingIdentity|Out-Null;$lostCode='NO_ERROR'}catch{$lostCode=$_.Exception.Message}
+    $resumeRecoveryCode=$null;try{& $module {param($plan,$receipt,$run,$secret,$root,$executor,$identity)Invoke-LabAiExternalModelSqlApply -SqlPlan $plan -PreflightReceipt $receipt -RunId $run -CredentialSecret $secret -StateRoot $root -Resume -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $preflight $runId $credentialSecret $recoveryRoot $recoveryExecutor $bindingIdentity|Out-Null;$resumeRecoveryCode='NO_ERROR'}catch{$resumeRecoveryCode=$_.Exception.Message}
+    Add-CheckResult 'SQL-Apply wiederholt unbekannten Teilzustand niemals blind' ($lostCode -eq 'AI_EXTERNAL_MODEL_SQL_APPLY_RECOVERY_REQUIRED' -and $resumeRecoveryCode -eq 'AI_EXTERNAL_MODEL_SQL_APPLY_RECOVERY_REQUIRED' -and $recoveryState.Value.ApplyCalls -eq 1)
+    $tamperedPreflight=$preflight.PSObject.Copy();$tamperedPreflight.DatabaseGuid=[guid]::NewGuid().ToString('D');$tamperedApplyCalls=$applyState.Value.Queries.Count
+    $tamperedApplyCode=$null;try{& $module {param($plan,$receipt,$run,$secret,$root,$executor,$identity)Invoke-LabAiExternalModelSqlApply -SqlPlan $plan -PreflightReceipt $receipt -RunId $run -CredentialSecret $secret -StateRoot $root -SqlExecutor $executor -Binding ([pscustomobject]@{}) -BindingIdentity $identity} $sqlPlan $tamperedPreflight $runId $credentialSecret (Join-Path $artifactRoot 'tampered-state') $applyExecutor $bindingIdentity|Out-Null;$tamperedApplyCode='NO_ERROR'}catch{$tamperedApplyCode=$_.Exception.Message}
+    Add-CheckResult 'SQL-Apply blockiert manipuliertes Preflight-Receipt vor Journal und SQL' ($tamperedApplyCode -eq 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_RECEIPT_INVALID' -and $applyState.Value.Queries.Count -eq $tamperedApplyCalls)
     $tamperedReceipt=$receipt.PSObject.Copy();$tamperedReceipt.ReceiptKey='e'*64
     $tamperedReceiptCode=$null;try{Get-SqlServerLabAiExternalModelSqlPlan -Plan $probePlan -EndpointReceipt $tamperedReceipt -DatabaseName AiLab|Out-Null;$tamperedReceiptCode='NO_ERROR'}catch{$tamperedReceiptCode=$_.Exception.Message}
     Add-CheckResult 'SQL-Plan blockiert manipuliertes Endpoint-Receipt' ($tamperedReceiptCode -eq 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_INVALID')
@@ -266,6 +318,14 @@ try {
         $sqlPreflightCommand.Parameters.ContainsKey('SqlPlan') -and $sqlPreflightCommand.Parameters.ContainsKey('RunId') -and
         $sqlPreflightCommand.Parameters.ContainsKey('InstanceId') -and -not $sqlPreflightCommand.Parameters.ContainsKey('SqlExecutor') -and
         -not $sqlPreflightCommand.Parameters.ContainsKey('SaPassword'))
+    $sqlApplyCommand=Get-Command Invoke-SqlServerLabAiExternalModelSqlApply -Module $module.Name
+    Add-CheckResult 'Öffentlicher SQL-Apply ist explizit, WhatIf-fähig und verbirgt Testtransport' (
+        $sqlApplyCommand.Parameters.ContainsKey('SqlPlan') -and $sqlApplyCommand.Parameters.ContainsKey('PreflightReceipt') -and
+        $sqlApplyCommand.Parameters.ContainsKey('CredentialSecret') -and $sqlApplyCommand.Parameters.ContainsKey('Resume') -and
+        $sqlApplyCommand.Parameters.ContainsKey('WhatIf') -and -not $sqlApplyCommand.Parameters.ContainsKey('SqlExecutor'))
+    $whatIfRoot=Join-Path $artifactRoot 'whatif-state'
+    $whatIfApply=Invoke-SqlServerLabAiExternalModelSqlApply -SqlPlan $sqlPlan -PreflightReceipt $preflight -RunId $runId -CredentialSecret $credentialSecret -StateRoot $whatIfRoot -WhatIf
+    Add-CheckResult 'SQL-Apply-WhatIf schreibt kein Journal und öffnet kein SQL' ($null -eq $whatIfApply -and -not (Test-Path -LiteralPath $whatIfRoot))
     Add-CheckResult 'Öffentliche Artifact-Prüfung ist exportiert und verlangt beide lokalen Dateien' (
         (Get-Command Test-SqlServerLabAiExternalModelArtifact -Module $module.Name).Parameters.ContainsKey('RuntimePath') -and
         (Get-Command Test-SqlServerLabAiExternalModelArtifact -Module $module.Name).Parameters.ContainsKey('ModelPath'))

@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-external-model-sql-apply-receipt.schema.json",
+  "title": "SQL Server Lab AI External Model SQL Apply Receipt",
+  "type": "object",
+  "required": ["Contract","Status","EvidenceStatus","OperationId","SqlPlanKey","PreflightReceiptKey","RunId","ScopeId","InstanceId","Provider","BindingKey","DatabaseName","DatabaseGuid","VerifiedAtUtc","VerifiedEvidence","PendingEvidence","ReceiptKey"],
+  "properties": {
+    "Contract": {"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiExternalModelSqlApplyReceipt"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status": {"const":"SQL_EXTERNAL_MODEL_APPLIED"},
+    "EvidenceStatus": {"const":"LIVE_SQL_BOUND"},
+    "OperationId": {"type":"string","pattern":"^[a-f0-9-]{36}$"},
+    "SqlPlanKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "PreflightReceiptKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "RunId": {"type":"string","pattern":"^[a-f0-9-]{36}$"},
+    "ScopeId": {"type":"string","pattern":"^[a-f0-9-]{36}$"},
+    "InstanceId": {"type":"string","pattern":"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$"},
+    "Provider": {"type":"string","minLength":1,"maxLength":32},
+    "BindingKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "DatabaseName": {"type":"string","pattern":"^[A-Za-z_][A-Za-z0-9_]{0,127}$"},
+    "DatabaseGuid": {"type":"string","pattern":"^[a-f0-9-]{36}$"},
+    "VerifiedAtUtc": {"type":"string","format":"date-time"},
+    "VerifiedEvidence": {"type":"array","minItems":3,"maxItems":3,"uniqueItems":true,"items":{"enum":["SQL_OWNERSHIP_RECEIPT_CREATED","DATABASE_SCOPED_CREDENTIAL_CREATED","SQL_EXTERNAL_MODEL_CREATED"]}},
+    "PendingEvidence": {"type":"array","minItems":4,"maxItems":4,"uniqueItems":true,"items":{"enum":["SQL_EMBEDDING_VERIFIED","SQL_RESTART_VERIFIED","ACCELERATOR_RUNTIME_ATTESTATION","SQL_CLEANUP_VERIFIED"]}},
+    "ReceiptKey": {"type":"string","pattern":"^[a-f0-9]{64}$"}
+  },
+  "additionalProperties": false
+}

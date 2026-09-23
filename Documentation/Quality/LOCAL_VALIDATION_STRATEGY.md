@@ -120,6 +120,12 @@ SQL-2025-Version, `ONLINE`/`READ_WRITE`, Database Master Key, beide Rechte und
 freie Credential-/Modellnamen. Version, Zustand, Master Key, Rechte,
 Namenskollisionen einschließlich des abgeleiteten Ownership-Tabellennamens und
 manipulierte Pläne besitzen getrennte Negativfälle.
+Der anschließende Apply-Executor wird mit injiziertem SQL-Transport auf
+transaktionale Reihenfolge, geheimnisfreies Vorjournal, exakte SQL-Postcondition,
+`WhatIf`, idempotente Beobachtung mit `-Resume`, verlorene Antworten,
+abgeschlossenen Zustandsdrift und blockierte Teilzustände geprüft. Diese
+statischen Fälle führen kein DDL auf einer echten SQL-Instanz aus; ein nativer
+SQL-2025-Nachweis bleibt separat offen.
 Zusätzlich prüft er die read-only OVMS-Upstream-Probe mit numerischem Loopback,
 festem `/v3/embeddings`-Pfad, exaktem Runtime-Modell, Dimension und endlichen
 Vektorwerten. Der getrennte
