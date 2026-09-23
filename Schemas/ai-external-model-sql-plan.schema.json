@@ -3,7 +3,7 @@
   "$id": "https://github.com/gecompat/SQL_Server_Lab/raw/main/Schemas/ai-external-model-sql-plan.schema.json",
   "title": "SQL Server Lab AI External Model SQL Plan",
   "type": "object",
-  "required": ["Contract","Status","EvidenceStatus","DatabaseName","SqlMajorVersion","ExternalModelName","CredentialName","Location","ApiFormat","ModelType","RuntimeModel","Dimension","RetryCount","SourcePlanKey","EndpointReceiptKey","ValidUntilUtc","AuthenticationIdentity","CredentialSecretRequired","MutationSequence","CleanupSequence","RequiredPermissions","PendingEvidence","SqlPlanKey"],
+  "required": ["Contract","Status","EvidenceStatus","DatabaseName","SqlMajorVersion","ExternalModelName","CredentialName","OwnershipTableName","Location","ApiFormat","ModelType","RuntimeModel","Dimension","RetryCount","SourcePlanKey","EndpointReceiptKey","ValidUntilUtc","AuthenticationIdentity","CredentialSecretRequired","MutationSequence","CleanupSequence","RequiredPermissions","PendingEvidence","SqlPlanKey"],
   "properties": {
     "Contract": {"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiExternalModelSqlPlan"},"Version":{"const":"1.0"}},"additionalProperties":false},
     "Status": {"const":"PLANNED"},
@@ -12,6 +12,7 @@
     "SqlMajorVersion": {"const":17},
     "ExternalModelName": {"type":"string","pattern":"^[A-Za-z_][A-Za-z0-9_]{0,127}$"},
     "CredentialName": {"type":"string","pattern":"^https://[^/]+$"},
+    "OwnershipTableName": {"type":"string","pattern":"^SqlServerLabAiOwner_[a-f0-9]{24}$"},
     "Location": {"type":"string","pattern":"^https://"},
     "ApiFormat": {"const":"OpenAI"},
     "ModelType": {"const":"EMBEDDINGS"},
@@ -24,8 +25,8 @@
     "ValidUntilUtc": {"type":"string","format":"date-time"},
     "AuthenticationIdentity": {"const":"HTTPEndpointHeaders"},
     "CredentialSecretRequired": {"const":true},
-    "MutationSequence": {"type":"array","minItems":4,"maxItems":4,"uniqueItems":true,"items":{"enum":["PREFLIGHT_DATABASE_VERSION_PERMISSIONS_AND_MASTER_KEY","CREATE_DATABASE_SCOPED_CREDENTIAL","CREATE_EXTERNAL_MODEL","VERIFY_EXTERNAL_MODEL_CATALOG"]}},
-    "CleanupSequence": {"type":"array","minItems":3,"maxItems":3,"uniqueItems":true,"items":{"enum":["DROP_EXTERNAL_MODEL","DROP_DATABASE_SCOPED_CREDENTIAL","VERIFY_SQL_OBJECTS_REMOVED"]}},
+    "MutationSequence": {"type":"array","minItems":5,"maxItems":5,"uniqueItems":true,"items":{"enum":["PREFLIGHT_DATABASE_VERSION_PERMISSIONS_AND_MASTER_KEY","CREATE_OWNERSHIP_RECEIPT","CREATE_DATABASE_SCOPED_CREDENTIAL","CREATE_EXTERNAL_MODEL","VERIFY_EXTERNAL_MODEL_CATALOG"]}},
+    "CleanupSequence": {"type":"array","minItems":4,"maxItems":4,"uniqueItems":true,"items":{"enum":["DROP_EXTERNAL_MODEL","DROP_DATABASE_SCOPED_CREDENTIAL","DROP_OWNERSHIP_RECEIPT","VERIFY_SQL_OBJECTS_REMOVED"]}},
     "RequiredPermissions": {"type":"array","minItems":2,"maxItems":2,"uniqueItems":true,"items":{"enum":["CONTROL_DATABASE","CREATE_EXTERNAL_MODEL"]}},
     "PendingEvidence": {"type":"array","minItems":5,"maxItems":5,"uniqueItems":true,"items":{"enum":["SQL_EXTERNAL_MODEL_CREATED","SQL_EMBEDDING_VERIFIED","SQL_RESTART_VERIFIED","ACCELERATOR_RUNTIME_ATTESTATION","SQL_CLEANUP_VERIFIED"]}},
     "SqlPlanKey": {"type":"string","pattern":"^[a-f0-9]{64}$"}

@@ -1485,7 +1485,10 @@ Mutations-/Cleanupplan ohne Secret. Ein getrennter read-only Preflight bindet
 diesen Plan an einen eigenen Docker-/Podman-Run-/Scope-/Instance-SQLkontext
 und eine Datenbank-GUID. Er bestätigt SQL 2025, `ONLINE`/`READ_WRITE`, Database Master
 Key, benötigte Rechte und freie Zielnamen, erstellt aber weder Credential noch
-External Model. Es gibt noch keinen Executor; insbesondere ist OVMS
+External Model. Der SQL-Plan reserviert zusätzlich einen deterministisch aus
+seinem Plan-Key abgeleiteten Tabellennamen für einen späteren SQL-seitigen
+Ownership-Receipt und der Preflight blockiert dessen Kollision. Es gibt noch
+keinen Executor; insbesondere ist OVMS
 `/v3/embeddings` nicht nativ durch SQL Server abgenommen. SQL-Mutation,
 SQLrestart, ein Hyper-V-Preflight und Acceleratorattestation fehlen weiterhin.
 Der vorhandene

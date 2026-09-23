@@ -61,8 +61,10 @@ blockiert mit `AI_EXTERNAL_MODEL_RUNTIME_MODEL_MISMATCH`.
 Der SQL-Planer akzeptiert standardmäßig nur ein höchstens fünf Minuten altes,
 unverändertes Receipt. Er beschreibt den SQL-17-, Datenbankberechtigungs- und
 Database-Master-Key-Preflight, Credential, External Model, Katalogprüfung und
-die umgekehrte Cleanupfolge, verbindet sich aber nicht mit SQL Server und nimmt
-kein Secret entgegen.
+die umgekehrte Cleanupfolge. Ein aus dem Plan-Key abgeleiteter Tabellenname ist
+für das spätere SQL-seitige Ownership-Receipt reserviert; eine vorhandene Tabelle
+mit diesem Namen blockiert den Preflight. Der Planer verbindet sich nicht mit
+SQL Server und nimmt kein Secret entgegen.
 
 Der anschließende Preflight verbindet sich ausschließlich mit dem eigenen,
 rungebundenen Docker-/Podman-SQL-Ziel. Er prüft SQL 2025, eine Benutzer-

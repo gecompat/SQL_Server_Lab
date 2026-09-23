@@ -167,8 +167,9 @@ try {
     Add-CheckResult 'SQL-Plan bindet frische Endpoint-Evidence ohne Mutation' (
         $sqlPlan.Status -eq 'PLANNED' -and $sqlPlan.EvidenceStatus -eq 'LIVE_ENDPOINT_BOUND' -and
         $sqlPlan.SourcePlanKey -ceq $probePlan.PlanKey -and $sqlPlan.EndpointReceiptKey -ceq $receipt.ReceiptKey -and
-        @($sqlPlan.MutationSequence) -join ',' -eq 'PREFLIGHT_DATABASE_VERSION_PERMISSIONS_AND_MASTER_KEY,CREATE_DATABASE_SCOPED_CREDENTIAL,CREATE_EXTERNAL_MODEL,VERIFY_EXTERNAL_MODEL_CATALOG' -and
+        @($sqlPlan.MutationSequence) -join ',' -eq 'PREFLIGHT_DATABASE_VERSION_PERMISSIONS_AND_MASTER_KEY,CREATE_OWNERSHIP_RECEIPT,CREATE_DATABASE_SCOPED_CREDENTIAL,CREATE_EXTERNAL_MODEL,VERIFY_EXTERNAL_MODEL_CATALOG' -and
         @($sqlPlan.RequiredPermissions) -join ',' -eq 'CONTROL_DATABASE,CREATE_EXTERNAL_MODEL' -and
+        $sqlPlan.OwnershipTableName -ceq ('SqlServerLabAiOwner_'+$sqlPlan.SqlPlanKey.Substring(0,24)) -and
         ($sqlPlan|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-sql-plan.schema.json')))
     Add-CheckResult 'SQL-Plan bleibt geheimnisfrei und lässt SQL, Restart, Accelerator und Cleanup offen' (
         (($sqlPlan|ConvertTo-Json -Depth 10) -notmatch '(?i)(bearer|password|api.?key|secret.{0,3}:|C:\\|/home/)') -and
@@ -177,7 +178,7 @@ try {
     $bindingIdentity=[ordered]@{RunId=$runId;ScopeId=$scopeId;InstanceId='primary';Provider='docker';ResourceId='owned-container'}
     $validSqlRow=[PSCustomObject]@{
         SqlMajorVersion=17;DatabaseId=5;DatabaseName='AiLab';DatabaseStatus='ONLINE';IsReadWrite=$true;DatabaseGuid=$databaseGuid
-        HasDatabaseMasterKey=$true;HasControlDatabase=$true;HasCreateExternalModel=$true;CredentialExists=$false;ExternalModelExists=$false
+        HasDatabaseMasterKey=$true;HasControlDatabase=$true;HasCreateExternalModel=$true;CredentialExists=$false;ExternalModelExists=$false;OwnershipTableExists=$false
     }
     $sqlRow=[Runtime.CompilerServices.StrongBox[object]]::new($validSqlRow.PSObject.Copy())
     $sqlCapture=[Runtime.CompilerServices.StrongBox[object]]::new()
@@ -188,6 +189,7 @@ try {
         $preflight.RunId -ceq $runId -and $preflight.ScopeId -ceq $scopeId -and $preflight.DatabaseGuid -ceq $databaseGuid)
     Add-CheckResult 'SQL-Preflight prüft Zielscope ausschließlich lesend und parametrisiert' (
         $sqlCapture.Value.Database -ceq 'AiLab' -and $sqlCapture.Value.Parameters.credential -ceq $sqlPlan.CredentialName -and
+        $sqlCapture.Value.Parameters.ownerTable -ceq ('dbo.'+$sqlPlan.OwnershipTableName) -and
         $sqlCapture.Value.Query -match 'sys\.fn_my_permissions' -and $sqlCapture.Value.Query -notmatch '(?im)^\s*(CREATE|ALTER|DROP|INSERT|UPDATE|DELETE)\s')
     Add-CheckResult 'SQL-Preflight-Receipt ist schema-valide, hashgebunden und geheimnisfrei' (
         ($preflight|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-external-model-sql-preflight-receipt.schema.json')) -and
@@ -201,7 +203,8 @@ try {
         @{Name='CONTROL-Berechtigung';Code='AI_EXTERNAL_MODEL_SQL_PERMISSION_DENIED';Property='HasControlDatabase';Value=$false},
         @{Name='CREATE-EXTERNAL-MODEL-Berechtigung';Code='AI_EXTERNAL_MODEL_SQL_PERMISSION_DENIED';Property='HasCreateExternalModel';Value=$false},
         @{Name='Credential-Kollision';Code='AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION';Property='CredentialExists';Value=$true},
-        @{Name='External-Model-Kollision';Code='AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION';Property='ExternalModelExists';Value=$true}
+        @{Name='External-Model-Kollision';Code='AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION';Property='ExternalModelExists';Value=$true},
+        @{Name='Ownership-Tabellen-Kollision';Code='AI_EXTERNAL_MODEL_SQL_OBJECT_COLLISION';Property='OwnershipTableExists';Value=$true}
     )
     foreach($case in $preflightFailures){
         $changed=$validSqlRow.PSObject.Copy();$changed.($case.Property)=$case.Value;$sqlRow.Value=$changed;$actual=$null
@@ -212,6 +215,9 @@ try {
     $tamperedSqlPlan=$sqlPlan.PSObject.Copy();$tamperedSqlPlan.DatabaseName='OtherDb';$sqlCallsBefore=$sqlCapture.Value
     $tamperedSqlPlanCode=$null;try{& $module {param($p,$run,$executor,$identity)Invoke-LabAiExternalModelSqlPreflight -SqlPlan $p -RunId $run -SqlExecutor $executor -Binding ([PSCustomObject]@{}) -BindingIdentity $identity} $tamperedSqlPlan $runId $sqlExecutor $bindingIdentity|Out-Null;$tamperedSqlPlanCode='NO_ERROR'}catch{$tamperedSqlPlanCode=$_.Exception.Message}
     Add-CheckResult 'SQL-Preflight blockiert manipulierten SQL-Plan vor SQL-Zugriff' ($tamperedSqlPlanCode -eq 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID' -and $sqlCapture.Value -eq $sqlCallsBefore)
+    $tamperedOwnerPlan=$sqlPlan.PSObject.Copy();$tamperedOwnerPlan.OwnershipTableName='SqlServerLabAiOwner_'+('e'*24)
+    $tamperedOwnerCode=$null;try{& $module {param($p,$run,$executor,$identity)Invoke-LabAiExternalModelSqlPreflight -SqlPlan $p -RunId $run -SqlExecutor $executor -Binding ([PSCustomObject]@{}) -BindingIdentity $identity} $tamperedOwnerPlan $runId $sqlExecutor $bindingIdentity|Out-Null;$tamperedOwnerCode='NO_ERROR'}catch{$tamperedOwnerCode=$_.Exception.Message}
+    Add-CheckResult 'SQL-Preflight blockiert abweichenden Ownership-Tabellennamen vor SQL-Zugriff' ($tamperedOwnerCode -eq 'AI_EXTERNAL_MODEL_SQL_PLAN_INVALID' -and $sqlCapture.Value -eq $sqlCallsBefore)
     $tamperedReceipt=$receipt.PSObject.Copy();$tamperedReceipt.ReceiptKey='e'*64
     $tamperedReceiptCode=$null;try{Get-SqlServerLabAiExternalModelSqlPlan -Plan $probePlan -EndpointReceipt $tamperedReceipt -DatabaseName AiLab|Out-Null;$tamperedReceiptCode='NO_ERROR'}catch{$tamperedReceiptCode=$_.Exception.Message}
     Add-CheckResult 'SQL-Plan blockiert manipuliertes Endpoint-Receipt' ($tamperedReceiptCode -eq 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_INVALID')

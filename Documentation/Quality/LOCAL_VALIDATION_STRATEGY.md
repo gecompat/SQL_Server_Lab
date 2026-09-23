@@ -118,7 +118,8 @@ Die gleiche statische Suite prüft den anschließenden read-only SQL-Preflight
 mit injiziertem Executor: exakte Run-/Scope-/Instance-/Datenbankbindung,
 SQL-2025-Version, `ONLINE`/`READ_WRITE`, Database Master Key, beide Rechte und
 freie Credential-/Modellnamen. Version, Zustand, Master Key, Rechte,
-Namenskollisionen und manipulierte Pläne besitzen getrennte Negativfälle.
+Namenskollisionen einschließlich des abgeleiteten Ownership-Tabellennamens und
+manipulierte Pläne besitzen getrennte Negativfälle.
 Zusätzlich prüft er die read-only OVMS-Upstream-Probe mit numerischem Loopback,
 festem `/v3/embeddings`-Pfad, exaktem Runtime-Modell, Dimension und endlichen
 Vektorwerten. Der getrennte
