@@ -27,6 +27,9 @@
     Direct für Runtime-TLS oder Gateway für einen getrennt gebundenen TLS-Proxy.
 .PARAMETER InputProfile
     Rollenabhängige Textvorverarbeitung vor dem Embeddingaufruf.
+.PARAMETER GatewayBinding
+    Vollständiges Receipt von Start-SqlServerLabOvmsHttpsGateway. Nur für OVMS
+    mit TlsMode Gateway; der Plan rechnet dessen Binding-Key erneut nach.
 .OUTPUTS
     SqlServerLab.AiExternalModelPlan/1.0 ohne Secretwert oder lokalen Pfad.
 .EXAMPLE
@@ -45,7 +48,8 @@ function Get-SqlServerLabAiExternalModelPlan {
         [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$RuntimeSha256,
         [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$ServerCertificateSha256,
         [ValidateSet('Direct','Gateway')][string]$TlsMode = 'Direct',
-        [ValidateSet('raw','nomic-search','snowflake-search')][string]$InputProfile = 'raw'
+        [ValidateSet('raw','nomic-search','snowflake-search')][string]$InputProfile = 'raw',
+        [object]$GatewayBinding
     )
     New-LabAiExternalModelPlan @PSBoundParameters
 }

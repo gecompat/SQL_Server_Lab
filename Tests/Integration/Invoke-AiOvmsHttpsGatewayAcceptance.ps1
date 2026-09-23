@@ -29,14 +29,20 @@ try {
     $gateway=Start-SqlServerLabOvmsHttpsGateway -UpstreamLocation "http://127.0.0.1:$upstreamPort/v3/embeddings" -RuntimeModel ovms-proof -Dimension 3 -Port $gatewayPort -CertificatePath $certPath -PrivateKeyPath $keyPath -TrustedRootPath $rootPath -ApiKey $secret -StartTimeoutSeconds 10 -LeaseSeconds 60 -Confirm:$false
     if($gateway.Status -cne 'ENDPOINT_VERIFIED'){throw 'GATEWAY_NOT_VERIFIED'}
     if([string]$gateway.BindingKey -cnotmatch '^[a-f0-9]{64}$'){throw 'GATEWAY_BINDING_INVALID'}
+    if([string]$gateway.UpstreamBindingKey -cnotmatch '^[a-f0-9]{64}$'){throw 'UPSTREAM_BINDING_INVALID'}
     if(($gateway|ConvertTo-Json -Depth 5) -match '(?i)(api-key|cert\.pem|key\.pem|sql-lab-ovms-proof)'){throw 'GATEWAY_OUTPUT_NOT_SANITIZED'}
+    $hash='a'*64
+    $plan=Get-SqlServerLabAiExternalModelPlan -Backend OpenVinoModelServer -Accelerator NPU -TlsMode Gateway -Location $gateway.Location -ExternalModelName OvmsProof -RuntimeModel ovms-proof -Dimension 3 -ModelSha256 $hash -RuntimeSha256 $hash -ServerCertificateSha256 $gateway.ServerCertificateSha256 -GatewayBinding $gateway
+    if($plan.Status -cne 'NOT_PROBED' -or $plan.GatewayBindingKey -cne $gateway.BindingKey){throw 'GATEWAY_PLAN_NOT_BOUND'}
+    $endpointReceipt=$plan|Test-SqlServerLabAiExternalModelEndpoint -ApiKey $secret -TrustedRootCertificate $ca -TimeoutSeconds 5
+    if($endpointReceipt.Status -cne 'ENDPOINT_VERIFIED' -or $endpointReceipt.PlanKey -cne $plan.PlanKey){throw 'GATEWAY_PLAN_ENDPOINT_NOT_VERIFIED'}
     $operationRoot=Join-Path $env:TEMP ('sql-lab-ovms-gateway-'+$gateway.OperationId)
     if(-not (Test-Path (Join-Path $operationRoot 'api-key.txt'))){throw 'SECRET_NOT_PRESENT_WHILE_RUNNING'}
     $cleanup=Stop-SqlServerLabOvmsHttpsGateway -OperationId $gateway.OperationId -Confirm:$false;$gateway=$null
     if($cleanup.Status -cne 'CLEANUP_SUCCEEDED'){throw 'CLEANUP_NOT_CONFIRMED'}
     if(Test-Path (Join-Path $operationRoot 'api-key.txt')){throw 'SECRET_REMAINS'}
     if(@(Get-NetTCPConnection -LocalPort $gatewayPort -State Listen -ErrorAction SilentlyContinue).Count){throw 'LISTENER_REMAINS'}
-    [PSCustomObject]@{Status='PASS';GatewayPort=$gatewayPort;UpstreamPort=$upstreamPort;SecretRemoved=$true;ListenerRemoved=$true;BindingKeyLength=64}
+    [PSCustomObject]@{Status='PASS';GatewayPort=$gatewayPort;UpstreamPort=$upstreamPort;PlanBound=$true;EndpointVerified=$true;SecretRemoved=$true;ListenerRemoved=$true;BindingKeyLength=64}
 }
 finally {
     if($gateway){try{Stop-SqlServerLabOvmsHttpsGateway -OperationId $gateway.OperationId -Confirm:$false|Out-Null}catch{}}
