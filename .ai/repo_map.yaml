@@ -83,6 +83,12 @@ sources_of_truth:
   ai_ovms_https_gateway_stop: Public/Stop-SqlServerLabOvmsHttpsGateway.ps1
   acceptance_ai_ovms_https_gateway: Tests/Integration/Invoke-AiOvmsHttpsGatewayAcceptance.ps1
   llama_cpp_owned_runtime: Private/LlamaCppOwnedRuntime.ps1
+  llama_cpp_model_catalog: Catalogs/llama-cpp-models.json
+  llama_cpp_model_catalog_schema: Schemas/llama-cpp-model-catalog.schema.json
+  llama_cpp_model_resolver: Private/LlamaCppModelCatalog.ps1
+  llama_cpp_model_api: Public/Get-SqlServerLabLlamaCppModel.ps1
+  llama_cpp_model_download: Public/Save-SqlServerLabLlamaCppModel.ps1
+  validation_llama_cpp_model_catalog: Tests/Static/Invoke-LlamaCppModelCatalogChecks.ps1
   llama_cpp_owned_worker: Tools/Invoke-LlamaCppOwnedWorker.ps1
   llama_cpp_owned_start: Public/Start-SqlServerLabLlamaCppRuntime.ps1
   llama_cpp_owned_stop: Public/Stop-SqlServerLabLlamaCppRuntime.ps1

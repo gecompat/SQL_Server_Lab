@@ -2445,6 +2445,18 @@ Geräteverfügbarkeit noch Embeddingeignung. Der getrennte Windows-Start besitzt
 die Discovery selbst attestiert weiterhin keinen laufenden Dienst. Details:
 [lokale Beschleunigung](../User/SQL_AI_LOCAL_ACCELERATION.md).
 
+### llama.cpp-Modellkatalog und Download
+
+Der Katalog umfasst derzeit drei offizielle, nicht gesperrte
+Qwen-Generationsmodelle in den Stufen compact, balanced und performance.
+`Save-SqlServerLabLlamaCppModel` lädt ausschließlich nach expliziter ID in eine
+vorhandene Medienwurzel und prüft Größe, SHA-256 sowie GGUF-Magic vor atomarer
+Veröffentlichung. Die Stufen sind keine Benchmarkresultate. Der Katalog wählt
+kein Gerät, startet keine Runtime und macht aus einem Generationsmodell kein
+Embeddingmodell. Gated Modelle, Community-Quantisierungen und lokale Dateien
+ohne fest gebundene Herausgeberquelle bleiben bewusst außerhalb des direkten
+Downloads.
+
 ### Eigener llama.cpp-Start
 
 Der Windows-Start/Stop-Vertrag prüft HTTPS, Modellalias, Dimension und eigene

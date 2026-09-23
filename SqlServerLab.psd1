@@ -28,6 +28,8 @@
         'Get-SqlServerLabAiExternalModelPlan'
         'Get-SqlServerLabAiExternalModelSqlPlan'
         'Get-SqlServerLabLlamaCppRuntime'
+        'Get-SqlServerLabLlamaCppModel'
+        'Save-SqlServerLabLlamaCppModel'
         'Start-SqlServerLabLlamaCppRuntime'
         'Stop-SqlServerLabLlamaCppRuntime'
         'Test-SqlServerLabAiExternalModelArtifact'

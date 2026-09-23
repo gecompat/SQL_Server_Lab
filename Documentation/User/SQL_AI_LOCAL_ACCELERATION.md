@@ -148,6 +148,44 @@ dem später verwendeten DNS-Namen, Port und Zertifikat geprüft werden.
 
 ## Windows: llama.cpp mit OpenVINO-NPU
 
+### Kuratierte Generationsmodelle bei Bedarf laden
+
+Der Repositorykatalog enthält drei nicht gesperrte, vom Hersteller Qwen
+veröffentlichte GGUF-Dateien. Quelle und Revision sind unveränderlich gebunden;
+Größe, SHA-256, Apache-2.0-Lizenz und GGUF-Magic werden vor der atomaren Ablage
+unter `MediaRoot/AI/Models` geprüft. Ein vorhandener Cache wird bei jeder
+Auswahl vollständig revalidiert. Es gibt keinen Quellen- oder Modellfallback.
+
+```powershell
+Get-SqlServerLabLlamaCppModel
+
+$selected = Save-SqlServerLabLlamaCppModel `
+  -Id qwen3-4b-q4_k_m `
+  -MediaRoot D:\Lab_Base `
+  -Confirm:$false
+
+$selected.Path
+```
+
+| Stufe | Katalog-ID | Datei | Zweck |
+|---|---|---:|---|
+| compact | `qwen2.5-1.5b-instruct-q4_0` | ca. 1,07 GB | kleinste offizielle Q4_0-Alternative für CPU und experimentelle OpenVINO-Pfade |
+| balanced | `qwen3-4b-q4_k_m` | ca. 2,50 GB | ausgewogene lokale Generationslast für eine diskrete GPU oder ausreichend schnellen CPU-/GPU-Speicher |
+| performance | `qwen3-8b-q4_k_m` | ca. 5,03 GB | größere Generationslast für die RTX- oder Ryzen-Max+-Klasse mit ausreichendem Speicher |
+
+Diese Stufen sind Kapazitätsempfehlungen und keine Benchmarks. Die Dateien sind
+Instruct-/Generationsmodelle. Der vorhandene
+`Start-SqlServerLabLlamaCppRuntime` ist ein streng geprüfter Embeddingpfad und
+übernimmt diese Auswahl deshalb nicht automatisch. Die lokal vorhandenen
+Dateien `Llama-3.2-1B-Instruct-Q4_0.gguf` und
+`Qwen_Qwen3-0.6B-Q4_0.gguf` können weiterhin explizit über ihren Pfad verwendet
+werden; ohne gebundene Herausgeberquelle und SHA-256 werden sie nicht als
+vertrauenswürdiger Katalogdownload ausgegeben.
+
+Die spätere automatische Gerätewahl vergleicht nur vollständig benchmarkte,
+für denselben Modell-/Workloadvertrag geeignete CPU-, NPU-, Einzel-GPU- und
+Mehr-GPU-Kandidaten. Die Katalogstufe ersetzt diese Messung nicht.
+
 Voraussetzungen sind ein passender Intel-NPU-Treiber, ein OpenVINO-Build von
 `llama.cpp`, ein geeignetes Embedding-GGUF sowie ein operationseigenes
 Zertifikat und eine API-Key-Datei. Modell, Quantisierung und Pooling müssen aus
