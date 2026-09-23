@@ -445,14 +445,100 @@ function Invoke-LabAiExternalModelEndpointProbe {
         throw 'AI_EXTERNAL_MODEL_VECTOR_INVALID'
     }
 
+    $durationMilliseconds=[Math]::Max(0,[int64]$started.ElapsedMilliseconds)
+    $verifiedAtUtc=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+    $receiptIdentity=[ordered]@{
+        Contract='SqlServerLab.AiExternalModelEndpointReceiptBinding/1.0';PlanKey=[string]$Plan.PlanKey
+        Backend=[string]$Plan.Backend;Dimension=[int]$Plan.Dimension;HttpStatus=$statusCode
+        ServerCertificateSha256=$observedPin;DurationMilliseconds=$durationMilliseconds;VerifiedAtUtc=$verifiedAtUtc
+    }
     return [PSCustomObject]@{
         Contract=[PSCustomObject]@{Name='SqlServerLab.AiExternalModelEndpointReceipt';Version='1.0'}
         Status='ENDPOINT_VERIFIED';EvidenceStatus='LIVE_ENDPOINT';PlanKey=[string]$Plan.PlanKey
         Backend=[string]$Plan.Backend;Dimension=[int]$Plan.Dimension;HttpStatus=$statusCode
-        ServerCertificateSha256=$observedPin;DurationMilliseconds=[Math]::Max(0,[int64]$started.ElapsedMilliseconds)
+        ServerCertificateSha256=$observedPin;DurationMilliseconds=$durationMilliseconds;VerifiedAtUtc=$verifiedAtUtc
+        ReceiptKey=Get-LabAiPlanKey -InputObject $receiptIdentity
         VerifiedEvidence=@('HTTPS_CERTIFICATE_MATCH','OPENAI_RESPONSE_SHAPE_MATCH','RUNTIME_MODEL_MATCH','EMBEDDING_DIMENSION_MATCH','FINITE_NUMERIC_VECTOR_MATCH')
         PendingEvidence=@('RUNTIME_BINARY_MATCH','MODEL_FILE_MATCH','ACCELERATOR_RUNTIME_ATTESTATION')
     }
+}
+
+function Resolve-LabAiExternalModelEndpointReceipt {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)]$EndpointReceipt,
+        [ValidateRange(30,3600)][int]$MaxEndpointAgeSeconds = 300
+    )
+    $canonicalPlan=Resolve-LabAiExternalModelPlan -Plan $Plan
+    $verifiedAt=[DateTimeOffset]::MinValue
+    if([string]$EndpointReceipt.Contract.Name -cne 'SqlServerLab.AiExternalModelEndpointReceipt' -or
+       [string]$EndpointReceipt.Contract.Version -cne '1.0' -or [string]$EndpointReceipt.Status -cne 'ENDPOINT_VERIFIED' -or
+       [string]$EndpointReceipt.EvidenceStatus -cne 'LIVE_ENDPOINT' -or [string]$EndpointReceipt.ReceiptKey -notmatch '^[a-f0-9]{64}$' -or
+       [int64]$EndpointReceipt.DurationMilliseconds -lt 0 -or [int]$EndpointReceipt.HttpStatus -lt 200 -or
+       [int]$EndpointReceipt.HttpStatus -gt 299 -or [string]$EndpointReceipt.ServerCertificateSha256 -notmatch '^[a-f0-9]{64}$' -or
+       -not [DateTimeOffset]::TryParseExact([string]$EndpointReceipt.VerifiedAtUtc,'o',[Globalization.CultureInfo]::InvariantCulture,[Globalization.DateTimeStyles]::RoundtripKind,[ref]$verifiedAt) -or
+       $verifiedAt.Offset -ne [TimeSpan]::Zero){throw 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_INVALID'}
+    $verified=@($EndpointReceipt.VerifiedEvidence)
+    $pending=@($EndpointReceipt.PendingEvidence)
+    $expectedVerified=@('HTTPS_CERTIFICATE_MATCH','OPENAI_RESPONSE_SHAPE_MATCH','RUNTIME_MODEL_MATCH','EMBEDDING_DIMENSION_MATCH','FINITE_NUMERIC_VECTOR_MATCH')
+    $expectedPending=@('RUNTIME_BINARY_MATCH','MODEL_FILE_MATCH','ACCELERATOR_RUNTIME_ATTESTATION')
+    if($verified.Count -ne $expectedVerified.Count -or $pending.Count -ne $expectedPending.Count -or
+       @($expectedVerified|Where-Object {$_ -cnotin $verified}).Count -or @($expectedPending|Where-Object {$_ -cnotin $pending}).Count){
+        throw 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_INVALID'
+    }
+    if([string]$EndpointReceipt.PlanKey -cne [string]$canonicalPlan.PlanKey -or
+       [string]$EndpointReceipt.Backend -cne [string]$canonicalPlan.Backend -or
+       [int]$EndpointReceipt.Dimension -ne [int]$canonicalPlan.Dimension -or
+       [string]$EndpointReceipt.ServerCertificateSha256 -cne [string]$canonicalPlan.ServerCertificateSha256){
+        throw 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_MISMATCH'
+    }
+    $receiptIdentity=[ordered]@{
+        Contract='SqlServerLab.AiExternalModelEndpointReceiptBinding/1.0';PlanKey=[string]$EndpointReceipt.PlanKey
+        Backend=[string]$EndpointReceipt.Backend;Dimension=[int]$EndpointReceipt.Dimension;HttpStatus=[int]$EndpointReceipt.HttpStatus
+        ServerCertificateSha256=[string]$EndpointReceipt.ServerCertificateSha256
+        DurationMilliseconds=[int64]$EndpointReceipt.DurationMilliseconds;VerifiedAtUtc=[string]$EndpointReceipt.VerifiedAtUtc
+    }
+    if((Get-LabAiPlanKey -InputObject $receiptIdentity) -cne [string]$EndpointReceipt.ReceiptKey){throw 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_INVALID'}
+    $now=[DateTimeOffset]::UtcNow
+    if($verifiedAt -gt $now.AddSeconds(60)){throw 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_INVALID'}
+    if($verifiedAt -lt $now.AddSeconds(-$MaxEndpointAgeSeconds)){throw 'AI_EXTERNAL_MODEL_ENDPOINT_RECEIPT_EXPIRED'}
+    [PSCustomObject]@{Plan=$canonicalPlan;VerifiedAtUtc=$verifiedAt;ReceiptKey=[string]$EndpointReceipt.ReceiptKey}
+}
+
+function New-LabAiExternalModelSqlPlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)]$EndpointReceipt,
+        [Parameter(Mandatory)][ValidatePattern('^[A-Za-z_][A-Za-z0-9_]{0,127}$')][string]$DatabaseName,
+        [ValidateRange(30,3600)][int]$MaxEndpointAgeSeconds = 300
+    )
+    $binding=Resolve-LabAiExternalModelEndpointReceipt -Plan $Plan -EndpointReceipt $EndpointReceipt -MaxEndpointAgeSeconds $MaxEndpointAgeSeconds
+    $canonicalPlan=$binding.Plan
+    $validUntil=$binding.VerifiedAtUtc.AddSeconds($MaxEndpointAgeSeconds).ToString('o',[Globalization.CultureInfo]::InvariantCulture)
+    $identity=[ordered]@{
+        Contract='SqlServerLab.AiExternalModelSqlPlan/1.0';DatabaseName=$DatabaseName;SqlMajorVersion=17
+        ExternalModelName=[string]$canonicalPlan.ExternalModelName;CredentialName=[string]$canonicalPlan.CredentialName
+        Location=[string]$canonicalPlan.Location;ApiFormat='OpenAI';RuntimeModel=[string]$canonicalPlan.RuntimeModel
+        Dimension=[int]$canonicalPlan.Dimension;RetryCount=0;SourcePlanKey=[string]$canonicalPlan.PlanKey
+        EndpointReceiptKey=$binding.ReceiptKey;ValidUntilUtc=$validUntil
+    }
+    $sqlPlan=[ordered]@{
+        Contract=[PSCustomObject]@{Name='SqlServerLab.AiExternalModelSqlPlan';Version='1.0'}
+        Status='PLANNED';EvidenceStatus='LIVE_ENDPOINT_BOUND';DatabaseName=$DatabaseName;SqlMajorVersion=17
+        ExternalModelName=$identity.ExternalModelName;CredentialName=$identity.CredentialName;Location=$identity.Location
+        ApiFormat='OpenAI';ModelType='EMBEDDINGS';RuntimeModel=$identity.RuntimeModel;Dimension=$identity.Dimension;RetryCount=0
+        SourcePlanKey=$identity.SourcePlanKey;EndpointReceiptKey=$binding.ReceiptKey;ValidUntilUtc=$validUntil
+        AuthenticationIdentity='HTTPEndpointHeaders';CredentialSecretRequired=$true
+        MutationSequence=@('PREFLIGHT_DATABASE_VERSION_PERMISSIONS_AND_MASTER_KEY','CREATE_DATABASE_SCOPED_CREDENTIAL','CREATE_EXTERNAL_MODEL','VERIFY_EXTERNAL_MODEL_CATALOG')
+        CleanupSequence=@('DROP_EXTERNAL_MODEL','DROP_DATABASE_SCOPED_CREDENTIAL','VERIFY_SQL_OBJECTS_REMOVED')
+        RequiredPermissions=@('CONTROL_DATABASE','CREATE_EXTERNAL_MODEL')
+        PendingEvidence=@('SQL_EXTERNAL_MODEL_CREATED','SQL_EMBEDDING_VERIFIED','SQL_RESTART_VERIFIED','ACCELERATOR_RUNTIME_ATTESTATION','SQL_CLEANUP_VERIFIED')
+    }
+    if($canonicalPlan.PSObject.Properties['GatewayBindingKey']){$sqlPlan.GatewayBindingKey=[string]$canonicalPlan.GatewayBindingKey}
+    $sqlPlan.SqlPlanKey=Get-LabAiPlanKey -InputObject $identity
+    [PSCustomObject]$sqlPlan
 }
 function Get-LabLlamaCppRuntimeCandidate {
     [CmdletBinding()]

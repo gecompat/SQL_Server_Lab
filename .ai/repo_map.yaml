@@ -75,6 +75,7 @@ sources_of_truth:
   ai_runtime_journal_schema: Schemas/ai-runtime-journal.schema.json
   ai_external_model_contract: Private/AiExternalModelAcceleration.ps1
   ai_external_model_plan_api: Public/Get-SqlServerLabAiExternalModelPlan.ps1
+  ai_external_model_sql_plan_api: Public/Get-SqlServerLabAiExternalModelSqlPlan.ps1
   ai_ovms_https_gateway: Private/AiOvmsHttpsGateway.ps1
   ai_ovms_https_gateway_worker: Tools/Invoke-OvmsHttpsGatewayWorker.ps1
   ai_ovms_https_gateway_start: Public/Start-SqlServerLabOvmsHttpsGateway.ps1
@@ -98,6 +99,7 @@ sources_of_truth:
   ai_external_model_plan_schema: Schemas/ai-external-model-plan.schema.json
   ai_external_model_artifact_receipt_schema: Schemas/ai-external-model-artifact-receipt.schema.json
   ai_external_model_endpoint_receipt_schema: Schemas/ai-external-model-endpoint-receipt.schema.json
+  ai_external_model_sql_plan_schema: Schemas/ai-external-model-sql-plan.schema.json
   validation_ai_external_model: Tests/Static/Invoke-AiExternalModelAccelerationChecks.ps1
   ai_external_model_acceleration_howto: Documentation/User/SQL_AI_LOCAL_ACCELERATION.md
   ai_persistent_retrieval_api: Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1
