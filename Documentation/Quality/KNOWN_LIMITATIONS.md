@@ -1479,6 +1479,10 @@ Ein OpenVINO-Model-Server-Plan bleibt deshalb auch bei `TlsMode=Gateway` mit
 `AI_EXTERNAL_MODEL_OVMS_GATEWAY_NOT_IMPLEMENTED` blockiert. Der vorhandene
 Docker-/Ollama-Referenzgateway bindet einen festen Ollama-Pfad und darf nicht als
 allgemeiner OVMS-Reverse-Proxy interpretiert werden.
+Eine read-only OVMS-Probe kann einen bereits laufenden numerischen
+Loopback-HTTP-Upstream auf `/v3/embeddings`, exakten Modellnamen, Antwortform
+und Dimension prüfen. Sie startet keinen Prozess und belegt weder
+TLS-Terminierung, Gatewaybesitz noch Acceleratornutzung.
 Für weitere OpenAI-kompatible Backends sind ein hashgebundener Plan sowie
 getrennte read-only Prüfungen der lokalen Runtime-/Modelldateien und des
 HTTPS-Embedding-Endpunkts implementiert. Die Live-Probe verlangt den exakt im

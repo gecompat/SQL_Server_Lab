@@ -111,6 +111,10 @@ Embedding-Endpunkte. Der Test deckt OpenVINO-NPU, den erforderlichen OVMS-
 Gateway, einen exakt gebundenen Runtime-Modellnamen, falsche Backend-/
 Accelerator-Kombinationen und den ausdrücklich noch nicht ausgeführten
 Evidence-Status ab; er startet keine Runtime.
+Zusätzlich prüft er die read-only OVMS-Upstream-Probe mit numerischem Loopback,
+festem `/v3/embeddings`-Pfad, exaktem Runtime-Modell, Dimension und endlichen
+Vektorwerten. Gateway-Prozess, TLS-Terminierung und Accelerator bleiben davon
+ausdrücklich unbestätigt.
 Hostmodell-Digest/Capability/Dimension/Remoteidentity, Egress/Datenklasse,
 WhatIf, Vektoren und echten synthetischen HTTP307 ohne Weiterleitung.
 `Invoke-AiRagExistingOllamaAcceptance.ps1` ist eine separate opt-in Abnahme mit

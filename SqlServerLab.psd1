@@ -31,6 +31,7 @@
         'Stop-SqlServerLabLlamaCppRuntime'
         'Test-SqlServerLabAiExternalModelArtifact'
         'Test-SqlServerLabAiExternalModelEndpoint'
+        'Test-SqlServerLabOvmsUpstreamEndpoint'
         'Find-SqlServerLabCollation'
         'Get-SqlServerLabHyperVImageArtifact'
         'Get-SqlServerLabEvaluationWatch'

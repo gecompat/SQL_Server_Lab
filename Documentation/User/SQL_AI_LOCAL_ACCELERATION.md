@@ -195,6 +195,21 @@ seine genaue Upstream-, Modell-, Zertifikats- und Prozessbindung nachweist. Der
 interne Ollama-Gateway aus der Docker-Referenzabnahme ist keine allgemeine
 OVMS-Gateway-API.
 
+Ein bereits vom Operator gestarteter OVMS-Upstream kann vorab ohne Mutation
+geprüft werden:
+
+```powershell
+Test-SqlServerLabOvmsUpstreamEndpoint `
+  -Location 'http://127.0.0.1:9000/v3/embeddings' `
+  -RuntimeModel 'OpenVINO/Qwen3-Embedding-0.6B-int8-ov' `
+  -Dimension 1024
+```
+
+Die Prüfung akzeptiert nur eine numerische Loopback-Adresse, Klartext-HTTP,
+einen nicht privilegierten Port und exakt `/v3/embeddings`. Ihr Receipt belegt
+Antwortform, Modell und Dimension des Upstreams, aber weder TLS-Gateway,
+Prozessbesitz noch NPU-Nutzung.
+
 ## GMKtec EVO-X2 mit Ryzen AI Max+ 395 unter Linux
 
 Für die NPU-Lane werden AMD-XRT, `amdxdna` und Ryzen AI Software verwendet.
