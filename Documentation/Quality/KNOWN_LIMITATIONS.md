@@ -2457,6 +2457,16 @@ Embeddingmodell. Gated Modelle, Community-Quantisierungen und lokale Dateien
 ohne fest gebundene Herausgeberquelle bleiben bewusst außerhalb des direkten
 Downloads.
 
+### Benchmarkgebundene KI-Gerätewahl
+
+Der Auswahlkern unterstützt Auto als Default sowie eine explizite Fixierung.
+Auto fällt bei unvollständiger Benchmarkabdeckung geschlossen aus und rangiert
+nur geeignete, gleich gebundene CPU-, NPU-, Einzel-GPU-, Mehr-GPU- und gemischte
+Kandidaten. Der Kern inventarisiert derzeit keine Hosthardware, erzeugt selbst
+keine Benchmarkreceipts und startet keine Runtime. Eine Auswahl belegt daher
+die deterministische Auswertung der übergebenen Evidence, nicht deren externe
+Erzeugung oder tatsächliche Geräteausführung.
+
 ### Eigener llama.cpp-Start
 
 Der Windows-Start/Stop-Vertrag prüft HTTPS, Modellalias, Dimension und eigene

@@ -230,6 +230,11 @@ Sync-SqlServerLabRunScopedContainerStore
         Lädt ein explizit ausgewähltes Katalogmodell bei Bedarf in die
         Medienwurzel und veröffentlicht es erst nach vollständiger Prüfung.
 
+    Get-SqlServerLabAiComputeSelection
+        Wählt standardmäßig die schnellste vollständig und vergleichbar
+        benchmarkte geeignete CPU-/NPU-/GPU-Kombination. Eine explizite
+        Kandidatenfixierung überschreibt Auto ohne stillen Fallback.
+
     Get-SqlServerLabAiExternalModelPlan
         Plant einen vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt
         hashgebunden und ohne Netzwerk- oder Hostmutation.

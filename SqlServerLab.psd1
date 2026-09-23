@@ -25,6 +25,7 @@
         'Get-SqlServerLabWorkflow'
         'Get-SqlServerLabAutomationPlan'
         'Get-SqlServerLabAiScenario'
+        'Get-SqlServerLabAiComputeSelection'
         'Get-SqlServerLabAiExternalModelPlan'
         'Get-SqlServerLabAiExternalModelSqlPlan'
         'Get-SqlServerLabLlamaCppRuntime'

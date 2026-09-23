@@ -116,6 +116,7 @@ Stop-SqlServerLabOvmsHttpsGateway           # Eigenen Gateway und API-Key berein
 Get-SqlServerLabLlamaCppRuntime             # Windows-Pakete begrenzt ohne Hashpflicht erkennen
 Get-SqlServerLabLlamaCppModel               # Kuratierte hashgebundene Generations-GGUFs auflisten
 Save-SqlServerLabLlamaCppModel              # Gewähltes GGUF bei Bedarf geprüft im MediaRoot ablegen
+Get-SqlServerLabAiComputeSelection          # Vollständig benchmarkte Gerätekombination automatisch wählen oder explizit fixieren
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen
 Get-SqlServerLabAiExternalModelSqlPlan       # Frische Endpoint-Evidence an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden
 Test-SqlServerLabAiExternalModelSqlPreflight # Eigenen SQL-2025-Zielscope read-only und hashgebunden vor jeder Mutation prüfen
