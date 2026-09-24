@@ -271,17 +271,26 @@ Ohne `-DeviceBinding` liest der Befehl zuerst die aktuelle
 eindeutig übereinstimmenden Gerätenamens zu. Mehrere Selektoren werden mit `/`
 als gemeinsamer Lauf übergeben. CPU verwendet ausschließlich `none`.
 
+`Measure-SqlServerLabAiComputeCandidateSet` ist der Standardpfad: Er misst jeden
+geeigneten Kandidaten mit demselben Profil nacheinander und liefert direkt die
+vollständige `Selection`. Mehrere `-RuntimeDirectory`-Werte dürfen verschiedene
+Backendpakete bereitstellen; ihr Runtimehash ordnet jeden Kandidaten eindeutig
+zu. Fehlt nur ein Paket oder Receipt, entsteht keine Teilauswahl.
+
 ```powershell
-$benchmarks = foreach ($candidate in $candidateSet.Candidates | Where-Object Eligible) {
-  Measure-SqlServerLabAiComputeCandidate `
-    -Inventory $inventory `
-    -Candidate $candidate `
-    -RuntimeDirectory $runtimeDirectory `
-    -ModelPath $modelPath `
-    -WorkloadKey sql-ai-embedding `
-    -BenchmarkMode Embedding -PromptTokens 512
-}
+$benchmarkSet = Measure-SqlServerLabAiComputeCandidateSet `
+  -Inventory $inventory `
+  -Candidate $candidateSet.Candidates `
+  -RuntimeDirectory $runtimeDirectories `
+  -ModelPath $modelPath `
+  -WorkloadKey sql-ai-embedding `
+  -BenchmarkMode Embedding -PromptTokens 512
+
+$selection = $benchmarkSet.Selection
 ```
+
+`Measure-SqlServerLabAiComputeCandidate` bleibt für eine gezielte Einzelmessung
+und eine explizite `-DeviceBinding` verfügbar.
 
 Eine explizite `-DeviceBinding` bleibt als Override verfügbar. Automatische
 Zuordnung fällt bei abweichenden Namen, fehlenden Selektoren und mehrdeutigen

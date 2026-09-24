@@ -185,3 +185,55 @@ function Invoke-LabAiComputeBenchmark {
     if($packageAfter.RuntimeSha256 -cne $packageBefore.RuntimeSha256 -or $modelAfter -cne $modelHash){throw 'AI_COMPUTE_BENCHMARK_ARTIFACT_CHANGED'}
     [PSCustomObject]@{Contract='SqlServerLab.AiComputeBenchmark/1.0';CandidateId=[string]$validation.CandidateId;WorkloadKey=$WorkloadKey;ModelSha256=$modelHash;BenchmarkProfileSha256=$profileHash;InventorySha256=[string]$Inventory.InventorySha256;RuntimeSha256=[string]$validation.RuntimeSha256;ThroughputPerSecond=[double]$throughput;P95LatencyMilliseconds=([double]$orderedNs[$p95Index]/1000000);PeakWorkingSetBytes=[long]$result.PeakWorkingSetBytes;SuccessfulIterations=$Repetitions;TotalIterations=$Repetitions;EvidenceStatus='BENCHMARK_VERIFIED'}
 }
+
+function Invoke-LabAiComputeBenchmarkSet {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Inventory,
+        [Parameter(Mandatory)][ValidateCount(1,64)][object[]]$Candidate,
+        [Parameter(Mandatory)][ValidateCount(1,64)][string[]]$RuntimeDirectory,
+        [Parameter(Mandatory)][string]$ModelPath,
+        [Parameter(Mandatory)][ValidatePattern('^[a-z0-9][a-z0-9._-]{0,127}$')][string]$WorkloadKey,
+        [ValidateRange(3,30)][int]$Repetitions=5,
+        [ValidateRange(1,4096)][int]$GeneratedTokens=128,
+        [ValidateSet('Generation','Embedding')][string]$BenchmarkMode='Generation',
+        [ValidateRange(1,4096)][int]$PromptTokens=512,
+        [ValidateRange(1,4096)][int]$BatchSize=512,
+        [ValidateRange(1,4096)][int]$MicroBatchSize=128,
+        [ValidateRange(1,3600)][int]$TimeoutSeconds=900,
+        [scriptblock]$BenchmarkAction
+    )
+    $Inventory=Assert-LabAiComputeInventoryReceipt -Inventory $Inventory
+    $eligibleInput=@($Candidate|Where-Object {$null -ne $_ -and $_.PSObject.Properties['Eligible'] -and $_.Eligible -eq $true})
+    $probeId=if($eligibleInput.Count){[string]$eligibleInput[0].CandidateId}else{'missing'}
+    $null=Get-LabAiComputeSelection -WorkloadKey $WorkloadKey -ModelSha256 ('0'*64) -BenchmarkProfileSha256 ('0'*64) `
+        -InventorySha256 $Inventory.InventorySha256 -Candidate $Candidate -PinnedCandidateId $probeId
+    $eligible=@($Candidate|Where-Object {$_.Eligible -eq $true}|Sort-Object CandidateId)
+    $supported=@('LlamaCppCpu','LlamaCppCuda','LlamaCppRocm','LlamaCppVulkan','LlamaCppSycl','LlamaCppOpenVino')
+    $unsupported=@($eligible|Where-Object {$_.Backend -cnotin $supported}|ForEach-Object CandidateId)
+    if($unsupported.Count){throw ('AI_COMPUTE_BENCHMARK_SET_UNSUPPORTED: '+($unsupported -join ','))}
+
+    $runtimeByHash=@{}
+    foreach($path in $RuntimeDirectory){
+        try{$root=[IO.Path]::GetFullPath($path).TrimEnd([IO.Path]::DirectorySeparatorChar,[IO.Path]::AltDirectorySeparatorChar)}catch{throw 'AI_COMPUTE_BENCHMARK_RUNTIME_INVALID'}
+        try{$runtime=@(Find-LabLlamaCppRuntime -SearchRoot $root|Where-Object InstallationPath -EQ $root)}catch{throw 'AI_COMPUTE_BENCHMARK_RUNTIME_INVALID'}
+        if($runtime.Count -ne 1){throw 'AI_COMPUTE_BENCHMARK_RUNTIME_INVALID'}
+        $package=Get-LabAiRuntimePackageSha256 -Runtime $runtime[0];$hash=[string]$package.RuntimeSha256
+        if($runtimeByHash.ContainsKey($hash)){throw "AI_COMPUTE_BENCHMARK_RUNTIME_AMBIGUOUS: $hash"}
+        $runtimeByHash[$hash]=$root
+    }
+    $receipts=[Collections.Generic.List[object]]::new()
+    foreach($item in $eligible){
+        $runtimeHash=([string]$item.RuntimeSha256).ToLowerInvariant()
+        if(-not $runtimeByHash.ContainsKey($runtimeHash)){throw "AI_COMPUTE_BENCHMARK_RUNTIME_MISSING: $($item.CandidateId)"}
+        $arguments=@{Inventory=$Inventory;Candidate=$item;RuntimeDirectory=$runtimeByHash[$runtimeHash];ModelPath=$ModelPath;WorkloadKey=$WorkloadKey;Repetitions=$Repetitions;GeneratedTokens=$GeneratedTokens;BenchmarkMode=$BenchmarkMode;PromptTokens=$PromptTokens;BatchSize=$BatchSize;MicroBatchSize=$MicroBatchSize;TimeoutSeconds=$TimeoutSeconds}
+        $receipt=if($BenchmarkAction){& $BenchmarkAction $arguments}else{Invoke-LabAiComputeBenchmark @arguments}
+        if($null -eq $receipt){throw "AI_COMPUTE_BENCHMARK_SET_INCOMPLETE: $($item.CandidateId)"}
+        $receipts.Add($receipt)
+    }
+    $modelHashes=@($receipts.ModelSha256|Sort-Object -Unique);$profileHashes=@($receipts.BenchmarkProfileSha256|Sort-Object -Unique)
+    if($modelHashes.Count -ne 1 -or $profileHashes.Count -ne 1){throw 'AI_COMPUTE_BENCHMARK_SET_NOT_COMPARABLE'}
+    $selection=Get-LabAiComputeSelection -WorkloadKey $WorkloadKey -ModelSha256 $modelHashes[0] -BenchmarkProfileSha256 $profileHashes[0] `
+        -InventorySha256 $Inventory.InventorySha256 -Candidate $Candidate -Benchmark @($receipts)
+    [PSCustomObject]@{Contract='SqlServerLab.AiComputeBenchmarkSet/1.0';Status='SELECTED';Selection=$selection;Benchmarks=@($receipts|Sort-Object CandidateId)}
+}

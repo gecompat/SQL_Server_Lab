@@ -121,6 +121,7 @@ Get-SqlServerLabAiRuntimeCapability         # Paketbinärdateien hashen und hers
 Get-SqlServerLabAiComputeCandidate          # Alle erlaubten Einzel-, Mehrgeräte- und Mischkandidaten bilden
 Get-SqlServerLabAiComputeSelection          # Vollständig benchmarkte Gerätekombination automatisch wählen oder explizit fixieren
 Measure-SqlServerLabAiComputeCandidate      # Gebundenen llama.cpp-Kandidaten mit llama-bench messen
+Measure-SqlServerLabAiComputeCandidateSet   # Vollständige Kandidatenmenge messen und schnellste Option wählen
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen
 Get-SqlServerLabAiExternalModelSqlPlan       # Frische Endpoint-Evidence an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden
 Test-SqlServerLabAiExternalModelSqlPreflight # Eigenen SQL-2025-Zielscope read-only und hashgebunden vor jeder Mutation prüfen
