@@ -790,6 +790,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Get-SqlServerLabAiComputeSelection` | Schnellste vollständig benchmarkte geeignete Gerätekombination wählen oder einen Kandidaten explizit fixieren |
 | `Measure-SqlServerLabAiComputeCandidate` | Explizit gerätegebundenen llama.cpp-Kandidaten mit `llama-bench` messen und ein auswahlfähiges Receipt erzeugen |
 | `Measure-SqlServerLabAiComputeCandidateSet` | Alle geeigneten llama.cpp-Kandidaten mit identischem Profil messen und direkt die schnellste vollständige Auswahl liefern |
+| `Get-SqlServerLabAiSharedGatewayPlan` | Gemeinsamen lokalen HTTPS-Gateway und mehrere SQL-Verbraucher geheimnisfrei planen; Ausführung bleibt blockiert |
 | `Get-SqlServerLabAiExternalModelPlan` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt hashgebunden für SQL `CREATE EXTERNAL MODEL` planen |
 | `Get-SqlServerLabAiExternalModelSqlPlan` | Frisches Endpoint-Receipt an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden; führt kein SQL aus |
 | `Test-SqlServerLabAiExternalModelSqlPreflight` | Eigenen SQL-2025-Zielscope read-only auf Datenbankidentität, Master Key, Rechte und freie Objektnamen prüfen |

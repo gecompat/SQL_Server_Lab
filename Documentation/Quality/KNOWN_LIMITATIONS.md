@@ -1475,6 +1475,11 @@ Gateway und eigene SQL-CA. Die native Docker-Abnahme bestand am 2026-09-21:
 sieben SQL-Embeddings, WrongCA-/WrongSAN-Ablehnung, Auth-/Payloadnegative,
 Retrieval vor/nach SQLrestart und vollständiges eigenes Cleanup. Allgemeiner
 Gatewaybetrieb und weitere Provider sind damit nicht belegt.
+Der gemeinsame Gateway besitzt inzwischen einen read-only Planvertrag. Er bindet
+einen lokalen HTTPS-Endpunkt, den Loopback-Upstream, Inhaltsdigests, Zertifikate,
+eine externe Secretreferenz und bis zu 64 SQL-Verbraucher. Sein Status bleibt
+blockiert: persistenter Dienstbetrieb, geschützter gemeinsamer Speicher,
+Nebenläufigkeit, Rotation, Backup/Restore sowie Apply und Remove fehlen.
 Ein eigener Windows-Loopback-Gateway-Lifecycle ist mit synthetischem
 OVMS-Upstream, kurzlebiger CA, TLS-Probe, Owner-Stop, Listenerabbau und
 Secret-Löschung abgenommen. Der External-Model-Plan rechnet dessen Binding-Key

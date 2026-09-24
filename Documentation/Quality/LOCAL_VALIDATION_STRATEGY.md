@@ -143,6 +143,14 @@ eine kurzlebige CA-/Leaf-Kette. Er bestätigt TLS-Start, kanonische Planbindung,
 planbasierte HTTPS-Endpunktprobe, Owner-Stop, Listenerabbau und Secret-Löschung
 sowie den daraus erzeugten SQL-Plan ohne SQL-Verbindung oder Provider.
 Accelerator- und SQL-Evidence bleiben ausdrücklich unbestätigt.
+
+`Invoke-AiSharedGatewayPlanChecks.ps1` prüft den rein lesenden gemeinsamen
+Gatewayplan: deterministische Verbraucherreihenfolge, stabile Planbindung,
+lokale HTTPS-Ziele, reine Loopback-Upstreams, Inhalts- und Zertifikatshashes,
+Secretreferenzen sowie negative öffentliche Ziele, falsche Backendpfade,
+Duplikate und zusätzliche Hostdaten. Die Suite startet keinen Dienst, ändert
+keine Zertifikate und verbindet sich nicht mit SQL; Apply/Remove und native
+Evidence bleiben offen.
 Hostmodell-Digest/Capability/Dimension/Remoteidentity, Egress/Datenklasse,
 WhatIf, Vektoren und echten synthetischen HTTP307 ohne Weiterleitung.
 `Invoke-AiRagExistingOllamaAcceptance.ps1` ist eine separate opt-in Abnahme mit

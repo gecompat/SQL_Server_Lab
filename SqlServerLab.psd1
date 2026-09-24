@@ -31,6 +31,7 @@
         'Get-SqlServerLabAiComputeSelection'
         'Measure-SqlServerLabAiComputeCandidate'
         'Measure-SqlServerLabAiComputeCandidateSet'
+        'Get-SqlServerLabAiSharedGatewayPlan'
         'Get-SqlServerLabAiExternalModelPlan'
         'Get-SqlServerLabAiExternalModelSqlPlan'
         'Get-SqlServerLabLlamaCppRuntime'

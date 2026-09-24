@@ -1,0 +1,22 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://example.invalid/sql-server-lab/ai-shared-gateway-plan.schema.json",
+  "type":"object",
+  "required":["Contract","Status","EvidenceStatus","GatewayId","ApiFormat","Location","EndpointPath","Port","UpstreamBackend","UpstreamLocation","RuntimeModel","Dimension","InputProfile","ModelSha256","RuntimeSha256","ServerCertificateSha256","CertificateAuthoritySha256","Consumers","RequiredActions","Blockers","Warnings","PlanKey"],
+  "properties":{
+    "Contract":{"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiSharedGatewayPlan"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status":{"const":"BLOCKED"},"EvidenceStatus":{"const":"CONFIGURATION_ONLY"},
+    "GatewayId":{"type":"string","pattern":"^[a-z][a-z0-9-]{0,62}$"},"ApiFormat":{"const":"OpenAI"},
+    "Location":{"type":"string","pattern":"^https://"},"EndpointPath":{"const":"/v1/embeddings"},"Port":{"type":"integer","minimum":1024,"maximum":65535},
+    "UpstreamBackend":{"enum":["LlamaCppCpu","LlamaCppCuda","LlamaCppOpenVino","LlamaCppRocm","LlamaCppVulkan","LlamaCppSycl","OpenVinoModelServer"]},
+    "UpstreamLocation":{"type":"string","pattern":"^https?://"},"RuntimeModel":{"type":"string","minLength":1,"maxLength":256},"Dimension":{"type":"integer","minimum":1,"maximum":1998},"InputProfile":{"enum":["raw","nomic-search","snowflake-search"]},
+    "ModelSha256":{"$ref":"#/$defs/hash"},"RuntimeSha256":{"$ref":"#/$defs/hash"},"ServerCertificateSha256":{"$ref":"#/$defs/hash"},"CertificateAuthoritySha256":{"$ref":"#/$defs/hash"},
+    "Consumers":{"type":"array","minItems":1,"maxItems":64,"items":{"$ref":"#/$defs/consumer"}},
+    "RequiredActions":{"type":"array","minItems":5,"maxItems":5,"uniqueItems":true,"items":{"enum":["ENSURE_PROTECTED_SHARED_STORAGE","ENSURE_GATEWAY_CERTIFICATE","ENSURE_PERSISTENT_GATEWAY_SERVICE","REGISTER_SQL_CONSUMERS","VERIFY_ENDPOINT_AND_CONSUMER_BINDINGS"]}},
+    "Blockers":{"type":"array","minItems":1,"maxItems":1,"items":{"const":"AI_SHARED_GATEWAY_EXECUTION_NOT_IMPLEMENTED"}},"Warnings":{"type":"array","maxItems":0},"PlanKey":{"$ref":"#/$defs/hash"}
+  },"additionalProperties":false,
+  "$defs":{
+    "hash":{"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "consumer":{"type":"object","required":["RunId","InstanceId","DatabaseId","ExternalModelName","ApiKeyReference"],"properties":{"RunId":{"type":"string","format":"uuid"},"InstanceId":{"type":"string","pattern":"^[a-z][a-z0-9-]{0,62}$"},"DatabaseId":{"type":"string","format":"uuid"},"ExternalModelName":{"type":"string","pattern":"^[A-Za-z_][A-Za-z0-9_]{0,127}$"},"ApiKeyReference":{"type":"string","pattern":"^SQL_SERVER_LAB_SECRET_[A-Z0-9_]{1,96}$"}},"additionalProperties":false}
+  }
+}
