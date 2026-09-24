@@ -241,6 +241,10 @@ Sync-SqlServerLabRunScopedContainerStore
         NPU, or GPU combination by default. An explicit candidate pin overrides
         automatic selection without a silent fallback.
 
+    Measure-SqlServerLabAiComputeCandidate
+        Runs llama-bench offline for a candidate explicitly bound to runtime
+        device selectors and produces a selection-ready receipt.
+
     Get-SqlServerLabAiExternalModelPlan
         Plans an existing OpenAI-compatible HTTPS embedding endpoint with hash
         bindings and without network or host mutation.

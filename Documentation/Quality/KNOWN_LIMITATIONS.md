@@ -2468,9 +2468,12 @@ DRM-sysfs und die Kernel-Accel-Klasse. Fehlende Coverage liefert keinen
 Inventarhash. Lokale llama.cpp-Receipts können inzwischen inhaltsgebunden in
 CPU-, CUDA-, ROCm-, Vulkan-, SYCL- und OpenVINO-Lanes übersetzt werden. Dieser
 Beleg hasht Paketbinärdateien und filtert Gerätearten sowie Hersteller, startet
-aber keine Runtime. Der Kern erzeugt weiterhin keine Benchmarkreceipts. Eine
-Auswahl belegt daher Inventar-, Paket- und Auswertungsbindung, nicht
-Benchmark-Erzeugung oder tatsächliche Geräteausführung.
+aber keine Runtime. Der neue `llama-bench`-Producer erzeugt dagegen gebundene
+Receipts für CPU-, NPU-, Einzel- und Mehr-GPU-Kandidaten, sofern jede portable
+Geräte-ID explizit einem vom Lauf ausgegebenen Runtime-Selector zugeordnet ist.
+Eine automatische Zuordnung dieser IDs zu CUDA-/HIP-/Vulkan-/SYCL-/OpenVINO-
+Ordinalen, Energieerfassung und eine native Matrix aller Hardwarekombinationen
+fehlen weiterhin. Ohne vollständige Receipts bleibt Auto geschlossen.
 
 ### Eigener llama.cpp-Start
 

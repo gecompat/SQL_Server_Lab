@@ -29,6 +29,7 @@
         'Get-SqlServerLabAiRuntimeCapability'
         'Get-SqlServerLabAiComputeCandidate'
         'Get-SqlServerLabAiComputeSelection'
+        'Measure-SqlServerLabAiComputeCandidate'
         'Get-SqlServerLabAiExternalModelPlan'
         'Get-SqlServerLabAiExternalModelSqlPlan'
         'Get-SqlServerLabLlamaCppRuntime'

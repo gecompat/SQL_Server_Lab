@@ -85,7 +85,7 @@ function Get-LabAiComputeSelection {
         $selected=$matches[0]
     }
     else {
-        $benchmarkFields=@('CandidateId','WorkloadKey','ModelSha256','BenchmarkProfileSha256','InventorySha256','RuntimeSha256','ThroughputPerSecond','P95LatencyMilliseconds','PeakWorkingSetBytes','SuccessfulIterations','TotalIterations','EvidenceStatus')
+        $benchmarkFields=@('Contract','CandidateId','WorkloadKey','ModelSha256','BenchmarkProfileSha256','InventorySha256','RuntimeSha256','ThroughputPerSecond','P95LatencyMilliseconds','PeakWorkingSetBytes','SuccessfulIterations','TotalIterations','EvidenceStatus')
         $benchmarksById=@{}
         foreach($measurement in $Benchmark) {
             Assert-LabAiComputeProperties $measurement $benchmarkFields 'AI_COMPUTE_BENCHMARK_INVALID'
@@ -96,7 +96,7 @@ function Get-LabAiComputeSelection {
             if($benchmarksById.ContainsKey($id)){throw "AI_COMPUTE_BENCHMARK_DUPLICATE: $id"}
             $measurementModel=[string]$measurement.ModelSha256;$measurementProfile=[string]$measurement.BenchmarkProfileSha256
             $measurementInventory=[string]$measurement.InventorySha256;$measurementRuntime=[string]$measurement.RuntimeSha256
-            if($measurementModel -notmatch '^[a-fA-F0-9]{64}$' -or $measurementProfile -notmatch '^[a-fA-F0-9]{64}$' -or
+            if([string]$measurement.Contract -cne 'SqlServerLab.AiComputeBenchmark/1.0' -or $measurementModel -notmatch '^[a-fA-F0-9]{64}$' -or $measurementProfile -notmatch '^[a-fA-F0-9]{64}$' -or
                 $measurementInventory -notmatch '^[a-fA-F0-9]{64}$' -or $measurementRuntime -notmatch '^[a-fA-F0-9]{64}$' -or
                 [string]$measurement.WorkloadKey -cne $WorkloadKey -or $measurementModel.ToLowerInvariant() -cne $modelHash -or
                 $measurementProfile.ToLowerInvariant() -cne $profileHash -or $measurementInventory.ToLowerInvariant() -cne $inventoryHash -or

@@ -120,6 +120,7 @@ Get-SqlServerLabAiComputeInventory          # CPU, GPU und NPU read-only mit vol
 Get-SqlServerLabAiRuntimeCapability         # Paketbinärdateien hashen und herstellergebundene Lanes ableiten
 Get-SqlServerLabAiComputeCandidate          # Alle erlaubten Einzel-, Mehrgeräte- und Mischkandidaten bilden
 Get-SqlServerLabAiComputeSelection          # Vollständig benchmarkte Gerätekombination automatisch wählen oder explizit fixieren
+Measure-SqlServerLabAiComputeCandidate      # Gebundenen llama.cpp-Kandidaten mit llama-bench messen
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen
 Get-SqlServerLabAiExternalModelSqlPlan       # Frische Endpoint-Evidence an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden
 Test-SqlServerLabAiExternalModelSqlPreflight # Eigenen SQL-2025-Zielscope read-only und hashgebunden vor jeder Mutation prüfen

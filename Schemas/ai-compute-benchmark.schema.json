@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/sql-server-lab/ai-compute-benchmark.schema.json",
+  "type": "object",
+  "required": ["Contract","CandidateId","WorkloadKey","ModelSha256","BenchmarkProfileSha256","InventorySha256","RuntimeSha256","ThroughputPerSecond","P95LatencyMilliseconds","PeakWorkingSetBytes","SuccessfulIterations","TotalIterations","EvidenceStatus"],
+  "properties": {
+    "Contract": {"const":"SqlServerLab.AiComputeBenchmark/1.0"},
+    "CandidateId": {"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,127}$"},
+    "WorkloadKey": {"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,127}$"},
+    "ModelSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "BenchmarkProfileSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "InventorySha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "RuntimeSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "ThroughputPerSecond": {"type":"number","exclusiveMinimum":0},
+    "P95LatencyMilliseconds": {"type":"number","exclusiveMinimum":0},
+    "PeakWorkingSetBytes": {"type":"integer","minimum":0},
+    "SuccessfulIterations": {"type":"integer","minimum":3},
+    "TotalIterations": {"type":"integer","minimum":3},
+    "EvidenceStatus": {"const":"BENCHMARK_VERIFIED"}
+  },
+  "additionalProperties": false
+}

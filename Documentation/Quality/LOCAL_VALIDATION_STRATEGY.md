@@ -1961,6 +1961,13 @@ Eingabereihenfolge, Throughput-/P95-Tie-Breaks, Pinned-Override und negative
 Binding-, Eligibility-, Duplikat-, Teilfehler- und NaN-Fälle. Die Suite erzeugt
 nur synthetische Receipts und greift auf keine Hosthardware zu.
 
+`Invoke-AiComputeBenchmarkChecks.ps1` prüft den `llama-bench`-Producer mit einem
+synthetischen Prozessadapter: vollständige CPU-/Einzel-/Mehr-GPU-Coverage,
+explizite Geräteselektoren, identische Profilbindung, GGUF-Magic, Backend- und
+Runtimehashbindung, P95-/Durchsatzableitung, Auto-Übergabe sowie negative
+Ausgabe-, Duplikat- und Manipulationsfälle. Diese Offline-Suite führt kein echtes
+Modell aus; ein nativer Lauf bleibt ein getrennter Nachweis.
+
 `Invoke-AiComputeInventoryChecks.ps1` prüft synthetische Windows-/Linux-nahe
 CPU-, GPU- und NPU-Probes, stabile datenschutzbegrenzte Inventarhashes sowie die
 vollständige Potenzmengenbildung innerhalb expliziter Runtimegrenzen. Sie prüft

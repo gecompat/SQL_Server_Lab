@@ -12,7 +12,7 @@ try {
         [pscustomobject]@{CandidateId=$id;Backend=$backend;RuntimeSha256=$runtime;Devices=@($devices);Eligible=$eligible;Blockers=@($blockers)}
     }
     function Benchmark($candidate,$runtime,$throughput,$latency,$memory,$success=5,$total=5){
-        [pscustomobject]@{CandidateId=$candidate;WorkloadKey='sql-ai-generation';ModelSha256=$model;BenchmarkProfileSha256=$profile;InventorySha256=$inventory;RuntimeSha256=$runtime;ThroughputPerSecond=$throughput;P95LatencyMilliseconds=$latency;PeakWorkingSetBytes=$memory;SuccessfulIterations=$success;TotalIterations=$total;EvidenceStatus='BENCHMARK_VERIFIED'}
+        [pscustomobject]@{Contract='SqlServerLab.AiComputeBenchmark/1.0';CandidateId=$candidate;WorkloadKey='sql-ai-generation';ModelSha256=$model;BenchmarkProfileSha256=$profile;InventorySha256=$inventory;RuntimeSha256=$runtime;ThroughputPerSecond=$throughput;P95LatencyMilliseconds=$latency;PeakWorkingSetBytes=$memory;SuccessfulIterations=$success;TotalIterations=$total;EvidenceStatus='BENCHMARK_VERIFIED'}
     }
     function Reject([scriptblock]$action,[string]$pattern){try{& $action|Out-Null;$false}catch{$_.Exception.Message -like $pattern}}
     $cpu=Candidate cpu LlamaCppOpenVino ('1'*64) (Device CPU cpu0)
