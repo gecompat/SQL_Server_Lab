@@ -29,12 +29,71 @@ function Stop-LabLlamaCppOwnedRuntime {
     finally {if($cleanupSucceeded){$worker.Dispose()}}
 }
 
-function Start-LabLlamaCppOwnedRuntime {
+function Resolve-LabLlamaCppComputeSelection {
     [CmdletBinding()]
     param(
+        [Parameter(Mandatory)]$ComputeSelection,
+        [Parameter(Mandatory)]$Inventory,
+        [Parameter(Mandatory)]$Runtime,
+        [Parameter(Mandatory)][string]$ModelPath,
+        [ValidateCount(1,16)][object[]]$DeviceBinding,
+        [ValidateRange(1,600)][int]$TimeoutSeconds=30,
+        [scriptblock]$ProcessRunner
+    )
+    $schema=Join-Path $script:ModuleRoot 'Schemas/ai-compute-selection.schema.json'
+    try{$valid=$ComputeSelection|ConvertTo-Json -Depth 30|Test-Json -SchemaFile $schema -ErrorAction Stop}catch{$valid=$false}
+    if(-not $valid){throw 'LLAMA_COMPUTE_SELECTION_INVALID'}
+    if([string]$ComputeSelection.WorkloadKey -cne 'sql-ai-embedding'){throw 'LLAMA_COMPUTE_WORKLOAD_MISMATCH'}
+    $Inventory=Assert-LabAiComputeInventoryReceipt -Inventory $Inventory
+    if([string]$ComputeSelection.InventorySha256 -cne [string]$Inventory.InventorySha256){throw 'LLAMA_COMPUTE_INVENTORY_MISMATCH'}
+    $package=Get-LabAiRuntimePackageSha256 -Runtime $Runtime
+    if([string]$ComputeSelection.RuntimeSha256 -cne [string]$package.RuntimeSha256){throw 'LLAMA_COMPUTE_RUNTIME_MISMATCH'}
+    $modelHash=Get-LabAiExternalModelFileSha256 -Path $ModelPath -ArtifactKind MODEL
+    if([string]$ComputeSelection.ModelSha256 -cne $modelHash){throw 'LLAMA_COMPUTE_MODEL_MISMATCH'}
+    $backend=[string]$ComputeSelection.Backend
+    if($backend -cnotin @('LlamaCppCpu','LlamaCppCuda','LlamaCppOpenVino','LlamaCppRocm','LlamaCppVulkan','LlamaCppSycl')){throw 'LLAMA_COMPUTE_BACKEND_UNSUPPORTED'}
+    if($backend -ne 'LlamaCppCpu' -and $backend -cnotin @($package.DetectedBackends)){throw 'LLAMA_COMPUTE_BACKEND_MISMATCH'}
+    $devices=@($ComputeSelection.Devices)
+    $candidateIds=@($devices.DeviceId)
+    $inventoryDevices=@($Inventory.Devices|Where-Object {$_.DeviceId -cin $candidateIds})
+    if($inventoryDevices.Count -ne $candidateIds.Count){throw 'LLAMA_COMPUTE_DEVICE_MISMATCH'}
+    $kinds=@($devices.Kind|Sort-Object -Unique)
+    if($kinds.Count -ne 1){throw 'LLAMA_COMPUTE_DEVICE_MISMATCH'}
+    $accelerator=[string]$kinds[0]
+    $deviceContractValid=switch($backend){
+        LlamaCppCpu {$accelerator -ceq 'CPU' -and $devices.Count -eq 1}
+        LlamaCppCuda {$accelerator -ceq 'GPU' -and -not @($inventoryDevices|Where-Object VendorId -ne '10de').Count}
+        LlamaCppRocm {$accelerator -ceq 'GPU' -and -not @($inventoryDevices|Where-Object VendorId -ne '1002').Count}
+        LlamaCppVulkan {$accelerator -ceq 'GPU'}
+        LlamaCppSycl {$accelerator -ceq 'GPU' -and -not @($inventoryDevices|Where-Object VendorId -ne '8086').Count}
+        LlamaCppOpenVino {$accelerator -in @('CPU','GPU','NPU') -and -not @($inventoryDevices|Where-Object {$_.Kind -in @('GPU','NPU') -and $_.VendorId -ne '8086'}).Count}
+    }
+    if(-not $deviceContractValid){throw 'LLAMA_COMPUTE_DEVICE_MISMATCH'}
+    $bindings=if($null -eq $DeviceBinding -or $DeviceBinding.Count -eq 0){
+        @(Resolve-LabAiRuntimeDeviceBinding -Inventory $Inventory -Candidate $ComputeSelection -BenchmarkInvocation $Runtime.Invocation -TimeoutSeconds $TimeoutSeconds -ProcessRunner $ProcessRunner)
+    }else{@($DeviceBinding)}
+    $bindingIds=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal);$bindingSelectors=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach($binding in $bindings){
+        Assert-LabAiComputeProperties $binding @('DeviceId','RuntimeSelector') 'LLAMA_COMPUTE_DEVICE_BINDING_INVALID'
+        $id=[string]$binding.DeviceId;$selector=[string]$binding.RuntimeSelector
+        if(-not $bindingIds.Add($id) -or -not $bindingSelectors.Add($selector) -or $selector -notmatch '^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$'){throw 'LLAMA_COMPUTE_DEVICE_BINDING_INVALID'}
+    }
+    if((($candidateIds|Sort-Object) -join ',') -cne ((@($bindings.DeviceId)|Sort-Object) -join ',')){throw 'LLAMA_COMPUTE_DEVICE_BINDING_MISMATCH'}
+    $selectors=@($devices|ForEach-Object {$id=$_.DeviceId;[string]@($bindings|Where-Object DeviceId -CEQ $id)[0].RuntimeSelector})
+    $prefixes=switch($backend){LlamaCppCpu{@('none')};LlamaCppCuda{@('CUDA')};LlamaCppRocm{@('ROCm','HIP')};LlamaCppVulkan{@('Vulkan')};LlamaCppSycl{@('SYCL')};LlamaCppOpenVino{@('OpenVINO')}}
+    if(@($selectors|Where-Object {$selector=$_;@($prefixes|Where-Object {if($_ -ceq 'none'){$selector -ceq 'none'}else{$selector.StartsWith($_,[StringComparison]::OrdinalIgnoreCase)}}).Count -eq 0}).Count){throw 'LLAMA_COMPUTE_DEVICE_BINDING_MISMATCH'}
+    [PSCustomObject]@{Backend=$backend;Accelerator=$accelerator;RuntimeSelectors=$selectors;RuntimeSha256=$package.RuntimeSha256;ModelSha256=$modelHash;CandidateId=[string]$ComputeSelection.CandidateId;SelectionMode=[string]$ComputeSelection.SelectionMode}
+}
+
+function Start-LabLlamaCppOwnedRuntime {
+    [CmdletBinding(DefaultParameterSetName='Explicit')]
+    param(
         [Parameter(Mandatory)][string]$RuntimeDirectory,
-        [Parameter(Mandatory)][ValidateSet('LlamaCppCuda','LlamaCppOpenVino')][string]$Backend,
-        [Parameter(Mandatory)][ValidateSet('CPU','GPU','NPU')][string]$Accelerator,
+        [Parameter(Mandatory,ParameterSetName='Explicit')][ValidateSet('LlamaCppCuda','LlamaCppOpenVino')][string]$Backend,
+        [Parameter(Mandatory,ParameterSetName='Explicit')][ValidateSet('CPU','GPU','NPU')][string]$Accelerator,
+        [Parameter(Mandatory,ParameterSetName='Selected')][object]$ComputeSelection,
+        [Parameter(Mandatory,ParameterSetName='Selected')][object]$Inventory,
+        [Parameter(ParameterSetName='Selected')][ValidateCount(1,16)][object[]]$DeviceBinding,
         [Parameter(Mandatory)][string]$ModelPath,
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$')][string]$ModelName,
         [Parameter(Mandatory)][ValidateRange(1,1998)][int]$Dimension,
@@ -52,8 +111,9 @@ function Start-LabLlamaCppOwnedRuntime {
     if(-not $IsWindows){throw 'LLAMA_WINDOWS_REQUIRED'}
     if($LeaseSeconds -le $StartTimeoutSeconds){throw 'LLAMA_LEASE_MUST_EXCEED_START_TIMEOUT'}
     $runtime=@(Find-LabLlamaCppRuntime -SearchRoot $RuntimeDirectory | Where-Object InstallationPath -eq ([IO.Path]::GetFullPath($RuntimeDirectory).TrimEnd('\')))
-    if($runtime.Count -ne 1 -or $runtime[0].Backend -ne $Backend){throw 'LLAMA_RUNTIME_SELECTION_MISMATCH'}
-    if($Backend -eq 'LlamaCppCuda' -and $Accelerator -eq 'NPU'){throw 'LLAMA_ACCELERATOR_UNSUPPORTED'}
+    if($runtime.Count -ne 1){throw 'LLAMA_RUNTIME_SELECTION_MISMATCH'}
+    if($PSCmdlet.ParameterSetName -eq 'Explicit' -and $runtime[0].Backend -ne $Backend){throw 'LLAMA_RUNTIME_SELECTION_MISMATCH'}
+    if($PSCmdlet.ParameterSetName -eq 'Explicit' -and $Backend -eq 'LlamaCppCuda' -and $Accelerator -eq 'NPU'){throw 'LLAMA_ACCELERATOR_UNSUPPORTED'}
     $runtime=$runtime[0]
     foreach($path in @($ModelPath,$CertificatePath,$PrivateKeyPath)) {
         $item=Get-Item -LiteralPath $path -ErrorAction Stop
@@ -64,6 +124,13 @@ function Start-LabLlamaCppOwnedRuntime {
     $PrivateKeyPath=(Get-Item -LiteralPath $PrivateKeyPath).FullName
     $stream=[IO.File]::OpenRead($ModelPath)
     try{$magic=[byte[]]::new(4);if($stream.Read($magic,0,4) -ne 4 -or [Text.Encoding]::ASCII.GetString($magic) -cne 'GGUF'){throw 'LLAMA_GGUF_REQUIRED'}}finally{$stream.Dispose()}
+    $selectedConfiguration=$null
+    if($PSCmdlet.ParameterSetName -eq 'Selected'){
+        $selectionArguments=@{ComputeSelection=$ComputeSelection;Inventory=$Inventory;Runtime=$runtime;ModelPath=$ModelPath;TimeoutSeconds=[Math]::Min(30,$StartTimeoutSeconds)}
+        if($DeviceBinding){$selectionArguments.DeviceBinding=$DeviceBinding}
+        $selectedConfiguration=Resolve-LabLlamaCppComputeSelection @selectionArguments
+        $Backend=$selectedConfiguration.Backend;$Accelerator=$selectedConfiguration.Accelerator
+    }
     $certificate=[Security.Cryptography.X509Certificates.X509Certificate2]::CreateFromPemFile($CertificatePath,$PrivateKeyPath)
     try{$pin=$certificate.GetCertHashString([Security.Cryptography.HashAlgorithmName]::SHA256).ToLowerInvariant()}finally{$certificate.Dispose()}
     $rootCertificate=$null
@@ -87,12 +154,13 @@ function Start-LabLlamaCppOwnedRuntime {
         $plain=ConvertFrom-LabSecureString $ApiKey
         try{if($plain -notmatch '^[A-Za-z0-9_-]{24,256}$'){throw 'LLAMA_API_KEY_FORMAT'};[IO.File]::WriteAllText($keyPath,$plain)}finally{$plain=$null}
         $environment=@{}
-        $device=if($Accelerator -eq 'CPU' -and $Backend -eq 'LlamaCppCuda'){'none'}elseif($Backend -eq 'LlamaCppCuda'){'CUDA0'}else{'OPENVINO0'}
-        $layers=if($device -eq 'none'){'0'}else{'999'}
+        $selectors=if($selectedConfiguration){@($selectedConfiguration.RuntimeSelectors)}else{@($(if($Accelerator -eq 'CPU' -and $Backend -eq 'LlamaCppCuda'){'none'}elseif($Backend -eq 'LlamaCppCuda'){'CUDA0'}else{'OPENVINO0'}))}
+        $device=$selectors -join ','
+        $layers=if($selectors.Count -eq 1 -and $selectors[0] -ceq 'none'){'0'}else{'999'}
         if($Backend -eq 'LlamaCppOpenVino') {$environment=Get-LabLlamaCppOpenVinoEnvironment -Accelerator $Accelerator -OperationRoot $operationRoot}
         $arguments=@('--model',$ModelPath,'--alias',$ModelName,'--embedding','--pooling',$Pooling,
             '--ctx-size',[string]$ContextSize,'--batch-size',[string]$ContextSize,'--ubatch-size',[string]$ContextSize,
-            '--parallel','1','--device',$device,'--gpu-layers',$layers,'--fit','off','--offline','--log-verbosity','4',
+            '--parallel','1','--device',$device,'--split-mode',$(if($selectors.Count -gt 1){'layer'}else{'none'}),'--gpu-layers',$layers,'--fit','off','--offline','--log-verbosity','4',
             '--host','127.0.0.1','--port',[string]$Port,'--ssl-cert-file',$CertificatePath,
             '--ssl-key-file',$PrivateKeyPath,'--api-key-file',$keyPath,'--no-webui')
         $request=[ordered]@{Contract='SqlServerLab.LlamaCppOwnedRequest/1.0';CleanupPolicy='OWN_JOB_TERMINATE_AND_REMOVE_API_KEY';OperationId=$operationId;Invocation=$runtime.Invocation;Arguments=$arguments;Environment=$environment;LeaseSeconds=$LeaseSeconds;StartTimeoutSeconds=$StartTimeoutSeconds}
@@ -142,12 +210,16 @@ function Start-LabLlamaCppOwnedRuntime {
         }
         if(-not $verified){throw 'LLAMA_START_TIMEOUT'}
         $log=Get-Content -LiteralPath (Join-Path $operationRoot 'stderr.log') -Raw
-        if(-not (Test-LabLlamaCppAcceleratorLog -Log $log -Backend $Backend -Accelerator $Accelerator)){throw 'LLAMA_ACCELERATOR_NOT_VERIFIED'}
+        if(-not (Test-LabLlamaCppAcceleratorLog -Log $log -Backend $Backend -Accelerator $Accelerator -RuntimeSelector $selectors)){throw 'LLAMA_ACCELERATOR_NOT_VERIFIED'}
+        if($selectedConfiguration){
+            $packageAfter=Get-LabAiRuntimePackageSha256 -Runtime $runtime
+            if([string]$packageAfter.RuntimeSha256 -cne [string]$selectedConfiguration.RuntimeSha256 -or (Get-LabAiExternalModelFileSha256 $ModelPath MODEL) -cne [string]$selectedConfiguration.ModelSha256){throw 'LLAMA_COMPUTE_ARTIFACT_CHANGED'}
+        }
         [IO.File]::WriteAllText((Join-Path $operationRoot 'ready'),'ENDPOINT_VERIFIED')
         $artifacts=$null
         if($CaptureArtifactEvidence){$artifacts=[PSCustomObject]@{RuntimeSha256=(Get-LabAiExternalModelFileSha256 $runtime.Invocation RUNTIME);ModelSha256=(Get-LabAiExternalModelFileSha256 $ModelPath MODEL)}}
         if($worker.HasExited -or -not @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue|Where-Object OwningProcess -eq $receipt.ProcessId).Count){throw 'LLAMA_ENDPOINT_LEASE_ENDED'}
-        [PSCustomObject]@{Contract='SqlServerLab.LlamaCppOwnedRuntime/1.0';OperationId=$operationId;Status='ENDPOINT_VERIFIED';Backend=$Backend;Accelerator=$Accelerator;ModelName=$ModelName;Dimension=$Dimension;Location=$location;ServerCertificateSha256=$pin;LeaseSeconds=$LeaseSeconds;ArtifactEvidence=$artifacts}
+        [PSCustomObject]@{Contract='SqlServerLab.LlamaCppOwnedRuntime/1.0';OperationId=$operationId;Status='ENDPOINT_VERIFIED';Backend=$Backend;Accelerator=$Accelerator;ModelName=$ModelName;Dimension=$Dimension;Location=$location;ServerCertificateSha256=$pin;LeaseSeconds=$LeaseSeconds;ArtifactEvidence=$artifacts;CandidateId=if($selectedConfiguration){$selectedConfiguration.CandidateId}else{$null};SelectionMode=if($selectedConfiguration){$selectedConfiguration.SelectionMode}else{'EXPLICIT_LEGACY'};RuntimeSelectors=$selectors}
     }
     catch {
         $failure=$_.Exception.Message
@@ -190,15 +262,20 @@ function Test-LabLlamaCppComputeFailureLog {
 
 function Test-LabLlamaCppAcceleratorLog {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$Log,[string]$Backend,[string]$Accelerator)
+    param([Parameter(Mandatory)][string]$Log,[string]$Backend,[string]$Accelerator,[string[]]$RuntimeSelector)
     if($Log -match '(?i)falling back|fallback to'){return $false}
-    if($Backend -eq 'LlamaCppCuda' -and $Accelerator -eq 'CPU') {
-        return $Log -match 'CPU\s+compute buffer size' -and $Log -notmatch '(CUDA[0-9]+|OPENVINO[0-9]+)\s+(model|compute) buffer size'
+    if((-not $RuntimeSelector -and $Accelerator -eq 'CPU') -or ($RuntimeSelector.Count -eq 1 -and $RuntimeSelector[0] -ceq 'none')) {
+        return $Log -match 'CPU\s+compute buffer size' -and $Log -notmatch '(CUDA|ROCm|HIP|Vulkan|SYCL|OPENVINO)[0-9]+\s+(model|compute) buffer size'
     }
+    $selectors=if($RuntimeSelector){@($RuntimeSelector)}elseif($Backend -eq 'LlamaCppCuda' -and $Accelerator -eq 'CPU'){@('none')}elseif($Backend -eq 'LlamaCppCuda'){@('CUDA0')}else{@('OPENVINO0')}
     $offload=[regex]::Match($Log,'offloaded ([1-9][0-9]*)/([1-9][0-9]*) layers')
     if(-not $offload.Success -or $offload.Groups[1].Value -ne $offload.Groups[2].Value){return $false}
-    if($Backend -eq 'LlamaCppCuda') {return $Log -match 'CUDA0\s+compute buffer size'}
-    return $Log -match ('OpenVINO: using device '+[regex]::Escape($Accelerator)+'(?:\s|$)') -and $Log -match 'OPENVINO0'
+    if($Backend -eq 'LlamaCppOpenVino' -and $Log -notmatch ('OpenVINO: using device '+[regex]::Escape($Accelerator)+'(?:\s|$)')){return $false}
+    foreach($selector in $selectors){
+        $pattern=if($Backend -eq 'LlamaCppOpenVino'){'(?im)'+[regex]::Escape($selector)}else{'(?im)'+[regex]::Escape($selector)+'[^\r\n]*(model|compute) buffer size'}
+        if($Log -notmatch $pattern){return $false}
+    }
+    return $true
 }
 
 # Removing the module relinquishes ownership; the worker observes EOF and cleans up.

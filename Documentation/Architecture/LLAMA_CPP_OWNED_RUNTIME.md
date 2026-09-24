@@ -2,10 +2,16 @@
 
 ## Vertrag
 
-`Start-SqlServerLabLlamaCppRuntime` startet unter Windows ein explizit
-gewähltes CUDA- oder OpenVINO-Paket mit einem ausdrücklich angegebenen
-Embedding-GGUF. Backend, Accelerator, Modellalias, Dimension, Pooling, Port,
-Zertifikat, privater Key und API-Key sind Pflichtangaben. Die reine
+`Start-SqlServerLabLlamaCppRuntime` startet unter Windows ein ausgewähltes
+llama.cpp-Paket mit einem ausdrücklich angegebenen Embedding-GGUF. Der bisherige
+explizite CUDA-/OpenVINO-Modus bleibt erhalten. Alternativ übernimmt der Start
+eine `SqlServerLab.AiComputeSelection/1.0` aus Auto oder Pinned und bindet damit
+CPU, CUDA, OpenVINO, ROCm, Vulkan oder SYCL einschließlich mehrerer GPUs.
+Da dieser Lifecycle ausschließlich Embeddings bereitstellt, akzeptiert er nur
+eine Auswahl mit `WorkloadKey=sql-ai-embedding`; der Benchmarkproducer erzeugt
+diese Receipts mit `BenchmarkMode=Embedding`.
+Modellalias, Dimension, Pooling, Port, Zertifikat, privater Key und API-Key sind
+in beiden Modi Pflichtangaben. Die reine
 [Discovery](../User/SQL_AI_LOCAL_ACCELERATION.md) erfordert keine Hashes.
 Auch Start verlangt keinen Hash. `CaptureArtifactEvidence` hasht optional die
 konkret gewählten Runtime-/Modelldateien nach erfolgreicher Probe; während
@@ -21,15 +27,22 @@ Hosts-Datei, Dienste noch globale Umgebungsvariablen und lädt nichts herunter.
 
 ## Auswahl und Verifikation
 
-Das Runtimeverzeichnis wird unmittelbar revalidiert. Mehrdeutige Backend-DLLs,
-CUDA-NPU, fehlende Dateien, falsches GGUF-Magic, unpassende Zertifikat-/Key-
-Paare und belegte Ports blockieren. Es gibt keine Übernahme fremder Prozesse.
+Das Runtimeverzeichnis wird unmittelbar revalidiert. Im expliziten Altmodus
+blockieren mehrdeutige Backend-DLLs weiterhin. Im Auswahlmodus muss der
+Paketdigest dagegen exakt dem ausgewählten Runtimehash entsprechen; das gewählte
+Backend muss im Paket enthalten sein. Inventar- und Modellhash, Gerätearten,
+Herstellergrenzen und Runtime-Selektoren werden ebenfalls erneut geprüft.
+Fehlende Dateien, falsches GGUF-Magic, unpassende Zertifikat-/Key-Paare und
+belegte Ports blockieren. Es gibt keine Übernahme fremder Prozesse.
 OpenVINO erhält im Kindprozess ausdrücklich `GGML_OPENVINO_DEVICE=CPU|GPU|NPU`.
 Für NPU werden keine OpenVINO-Cacheverzeichnisse gesetzt, weil Upstream diese
 Gerätekombination nicht unterstützt. CPU und GPU erhalten weiterhin ausschließlich
 operationsgebundene Cachepfade.
-CUDA-GPU verwendet `CUDA0`; CUDA-CPU verwendet `--device none` und null
-GPU-Layer. Automatische Fit-Anpassung ist aus, modellbezogene geerbte
+Der explizite CUDA-GPU-Modus verwendet `CUDA0`; CUDA-CPU verwendet `--device none`
+und null GPU-Layer. Der Auswahlmodus leitet die Selektoren standardmäßig aus
+der aktuellen `--list-devices`-Ausgabe ab oder akzeptiert eine vollständige
+explizite Bindung. Mehrere Geräte werden kommagetrennt mit `split-mode=layer`
+übergeben. Automatische Fit-Anpassung ist aus, modellbezogene geerbte
 `LLAMA*`-/`GGML*`-/CUDA-/OpenVINO-Overrides werden im Kindprozess entfernt.
 
 Vor Erfolg müssen Listener-PID und eigener Prozess übereinstimmen. Die
@@ -40,12 +53,15 @@ Ein eigener fester synthetischer Text wird verwendet; die Rückgabe enthält
 weder Text, Vektor, Secret noch lokale Dateipfade.
 
 Zusätzlich werden ausschließlich die Logs dieses gestarteten Prozesses
-geprüft: vollständiger Layer-Offload und Compute-Puffer für CUDA-GPU,
+geprüft: vollständiger Layer-Offload und ein Modell-/Compute-Puffer je
+ausgewähltem CUDA-, ROCm-, Vulkan- oder SYCL-Gerät,
 explizite OpenVINO-Gerätewahl mit vollständigem Offload oder CPU-Compute ohne
 GPU-Modell-/Compute-Puffer für CUDA-CPU. Erkannter Fallback blockiert. Diese
 Evidence belegt Runtimekonfiguration und erfolgreiche Berechnung gemeinsam;
 sie ist keine unabhängige Hardwaretelemetrie und kein Performancebenchmark.
-Unbekannte künftige Logformate können deshalb geschlossen scheitern.
+Unbekannte künftige Logformate können deshalb geschlossen scheitern. Im
+Auswahlmodus werden Runtimepaket und Modell nach erfolgreicher Probe erneut
+gehasht; Drift beendet die eigene Operation.
 Ein vom eigenen OpenVINO-Prozess geloggter Graph-/Computefehler bei einer
 fehlgeschlagenen Embeddingantwort wird als `LLAMA_ACCELERATOR_COMPUTE_FAILED`
 von einer sonst ungültigen HTTP-Antwort getrennt. Das ist Fehlerklassifikation,
@@ -102,8 +118,10 @@ Am 2026-09-23 reproduzierten zwei vorhandene kleine BERT-Embeddingmodelle auf
 demselben NPU-Pfad die fehlende `inp_pos`-Graphanforderung; beide eigenen
 Prozesse und API-Key-Dateien wurden bereinigt. Weitere gleichartige BERT-
 Varianten wurden nach der identischen Signatur nicht blind wiederholt.
-Positive NPU-, OpenVINO-GPU-/CPU-, CUDA-CPU-, Podman- und Hyper-V-Nachweise
-bleiben separat. Die Discovery und der Start installieren keine Modelle.
+Positive NPU-, OpenVINO-GPU-/CPU-, CUDA-CPU-, Mehr-GPU-, ROCm-, Vulkan-, SYCL-,
+Podman- und Hyper-V-Nachweise bleiben separat. Die neue Auswahlbindung ist
+statisch belegt und noch keine native Hardware-Evidence. Discovery und Start
+installieren keine Modelle.
 
 Am 2026-09-22 bestand der begrenzte CUDA-/Nomic-Referenzpfad: eigener Server,
 HTTPS-Pin, Modellalias, 768 endliche Werte, vollständiger GPU-Layer-Offload,

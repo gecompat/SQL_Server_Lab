@@ -14,6 +14,14 @@
     Explizit LlamaCppCuda oder LlamaCppOpenVino; mehrdeutige Pakete blockieren.
 .PARAMETER Accelerator
     CPU, GPU oder NPU. CUDA-NPU ist ausgeschlossen; CUDA-GPU verwendet CUDA0.
+.PARAMETER ComputeSelection
+    Gebundene SqlServerLab.AiComputeSelection/1.0-Auswahl. Runtime, Modell,
+    Inventar und Geräte werden vor dem Start erneut geprüft.
+.PARAMETER Inventory
+    Vollständiges Hardwareinventar, an das ComputeSelection gebunden ist.
+.PARAMETER DeviceBinding
+    Optionale explizite Zuordnung der ausgewählten Geräte zu llama.cpp-Selektoren.
+    Ohne Angabe wird die aktuelle --list-devices-Ausgabe eindeutig ausgewertet.
 .PARAMETER ModelPath
     Explizites vorhandenes Embedding-GGUF; Generationsmodelle sind ungeeignet.
 .PARAMETER ModelName
@@ -46,11 +54,14 @@
     $runtime = Start-SqlServerLabLlamaCppRuntime -RuntimeDirectory 'C:\Pfad\llama' -Backend LlamaCppCuda -Accelerator GPU -ModelPath 'C:\Pfad\embedding.gguf' -ModelName local-embedding -Dimension 768 -Pooling mean -Port 19435 -CertificatePath $cert -PrivateKeyPath $key -ApiKey $apiKey
 #>
 function Start-SqlServerLabLlamaCppRuntime {
-    [CmdletBinding(SupportsShouldProcess)]
+    [CmdletBinding(SupportsShouldProcess,DefaultParameterSetName='Explicit')]
     param(
         [Parameter(Mandatory)][string]$RuntimeDirectory,
-        [Parameter(Mandatory)][ValidateSet('LlamaCppCuda','LlamaCppOpenVino')][string]$Backend,
-        [Parameter(Mandatory)][ValidateSet('CPU','GPU','NPU')][string]$Accelerator,
+        [Parameter(Mandatory,ParameterSetName='Explicit')][ValidateSet('LlamaCppCuda','LlamaCppOpenVino')][string]$Backend,
+        [Parameter(Mandatory,ParameterSetName='Explicit')][ValidateSet('CPU','GPU','NPU')][string]$Accelerator,
+        [Parameter(Mandatory,ParameterSetName='Selected')][object]$ComputeSelection,
+        [Parameter(Mandatory,ParameterSetName='Selected')][object]$Inventory,
+        [Parameter(ParameterSetName='Selected')][ValidateCount(1,16)][object[]]$DeviceBinding,
         [Parameter(Mandatory)][string]$ModelPath,
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$')][string]$ModelName,
         [Parameter(Mandatory)][ValidateRange(1,1998)][int]$Dimension,

@@ -236,7 +236,7 @@ Set und die Kandidaten-ID als stabiler Tie-Breaker.
 
 ```powershell
 $selection = Get-SqlServerLabAiComputeSelection `
-  -WorkloadKey sql-ai-generation `
+  -WorkloadKey sql-ai-embedding `
   -ModelSha256 $modelHash `
   -BenchmarkProfileSha256 $profileHash `
   -InventorySha256 $inventoryHash `
@@ -249,7 +249,7 @@ einen geeigneten Kandidaten wählen:
 
 ```powershell
 $selection = Get-SqlServerLabAiComputeSelection `
-  -WorkloadKey sql-ai-generation `
+  -WorkloadKey sql-ai-embedding `
   -ModelSha256 $modelHash `
   -BenchmarkProfileSha256 $profileHash `
   -InventorySha256 $inventoryHash `
@@ -261,6 +261,11 @@ $selection = Get-SqlServerLabAiComputeSelection `
 `llama-bench` mit gesperrtem Netzwerkdownload (`--offline`) aus. Modell und alle
 unmittelbaren Paketbinärdateien werden vor und nach dem Lauf gehasht. Derselbe
 Profilhash bindet Wiederholungen, Generationslänge, Batch- und Microbatchgröße.
+Der Standard `Generation` misst generierte Tokens. Für den Embeddingserver muss
+jedes Kandidatenreceipt mit `-BenchmarkMode Embedding -WorkloadKey
+sql-ai-embedding` und identischer `-PromptTokens`-Einstellung entstehen; dabei
+misst `llama-bench` Promptverarbeitung mit `--embeddings` und ohne generierte
+Tokens. Ein Generationsbenchmark darf nicht als Embeddingbenchmark auftreten.
 Ohne `-DeviceBinding` liest der Befehl zuerst die aktuelle
 `llama-bench --list-devices`-Ausgabe und ordnet Kandidatengeräte anhand des
 eindeutig übereinstimmenden Gerätenamens zu. Mehrere Selektoren werden mit `/`
@@ -273,7 +278,8 @@ $benchmarks = foreach ($candidate in $candidateSet.Candidates | Where-Object Eli
     -Candidate $candidate `
     -RuntimeDirectory $runtimeDirectory `
     -ModelPath $modelPath `
-    -WorkloadKey sql-ai-generation
+    -WorkloadKey sql-ai-embedding `
+    -BenchmarkMode Embedding -PromptTokens 512
 }
 ```
 
@@ -283,6 +289,26 @@ Teilgruppen identischer Geräte geschlossen aus. Ein vollständiger Kandidat aus
 gleich benannten identischen Geräten darf dagegen als Gesamtgruppe gebunden
 werden. Erst genau ein gültiges Receipt je geeignetem Kandidaten erlaubt die
 automatische Auswahl.
+
+Unter Windows kann dieselbe Auswahl direkt den eigenen Embeddingserver starten.
+Der Start prüft Inventar-, Runtime- und Modellhash erneut und verwendet die
+gebundenen Selektoren; `PINNED` folgt demselben Pfad:
+
+```powershell
+$runtime = Start-SqlServerLabLlamaCppRuntime `
+  -RuntimeDirectory $runtimeDirectory `
+  -ComputeSelection $selection -Inventory $inventory `
+  -ModelPath $modelPath -ModelName local-embedding `
+  -Dimension 768 -Pooling mean -Port 19435 `
+  -CertificatePath $certificatePath -PrivateKeyPath $privateKeyPath `
+  -TrustedRootPath $trustedRootPath -ApiKey $apiKey
+```
+
+Ohne `-DeviceBinding` wird die aktuelle `llama-server --list-devices`-Ausgabe
+eindeutig zugeordnet. Eine explizite vollständige Bindung bleibt möglich. Der
+Start fällt bei Hash-, Inventar-, Backend- oder Geräteabweichung geschlossen aus.
+ROCm, Vulkan, SYCL und Mehr-GPU sind vertraglich angebunden, besitzen aber noch
+keinen nativen Projektnachweis.
 
 Voraussetzungen sind ein passender Intel-NPU-Treiber, ein OpenVINO-Build von
 `llama.cpp`, ein geeignetes Embedding-GGUF sowie ein operationseigenes
@@ -539,8 +565,7 @@ Endpointplan ist ein separater Vertrag und keine Voraussetzung der Discovery.
 
 ## Eigenen Windows-Server starten und beenden
 
-Nach der expliziten Paketauswahl sind keine vorab bekannten Runtime- oder
-Modellhashes erforderlich:
+Der explizite Altmodus benötigt keine vorab bekannten Runtime- oder Modellhashes:
 
 ```powershell
 $runtime = Start-SqlServerLabLlamaCppRuntime `

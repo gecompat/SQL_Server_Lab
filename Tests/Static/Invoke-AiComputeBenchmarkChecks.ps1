@@ -59,6 +59,15 @@ try {
     $cpu=@($candidateSet.Candidates|Where-Object Backend -eq LlamaCppCpu)[0]
     $cpuAutoReceipt=& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -ProcessRunner $run} $inventory $cpu $package $model $runner
     Add-CheckResult 'CPU wird ohne Discovery eindeutig auf none gebunden' ($cpuAutoReceipt.CandidateId -ceq $cpu.CandidateId -and $cpuAutoReceipt.ThroughputPerSecond -eq 10)
+    $embeddingRunner={
+        param($invocation,$arguments,$environment,$timeout)
+        $prompt=[int]$arguments[$arguments.IndexOf('-p')+1];$generated=[int]$arguments[$arguments.IndexOf('-n')+1];$repetitions=[int]$arguments[$arguments.IndexOf('-r')+1]
+        $record=[ordered]@{backends='CPU';devices='none';n_prompt=$prompt;n_gen=$generated;avg_ts=30;samples_ns=@(1..$repetitions|ForEach-Object {20000000+($_*1000000)});samples_ts=@(1..$repetitions|ForEach-Object {30})}
+        [pscustomobject]@{ExitCode=0;StdOut=($record|ConvertTo-Json -Compress);PeakWorkingSetBytes=2048}
+    }
+    $embeddingReceipt=& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-embedding -BenchmarkMode Embedding -PromptTokens 64 -ProcessRunner $run} $inventory $cpu $package $model $embeddingRunner
+    Add-CheckResult 'Embeddingmodus bindet Promptmessung ohne generierte Tokens' ($embeddingReceipt.WorkloadKey -ceq 'sql-ai-embedding' -and $embeddingReceipt.ThroughputPerSecond -eq 30 -and $embeddingReceipt.BenchmarkProfileSha256 -cne $cpuAutoReceipt.BenchmarkProfileSha256)
+    Add-CheckResult 'Embedding-Workloadschlüssel darf keinen Generationsbenchmark tarnen' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-embedding -ProcessRunner $run} $inventory $cpu $package $model $runner} 'AI_COMPUTE_BENCHMARK_WORKLOAD_MISMATCH')
     Add-CheckResult 'CPU-Lane verlangt explizit den Selector none' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -DeviceBinding @([pscustomobject]@{DeviceId=$c.Devices[0].DeviceId;RuntimeSelector='CUDA0'}) -ProcessRunner $run} $inventory $cpu $package $model $runner} 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_MISMATCH')
     $badRunner={param($i,$a,$e,$t)[pscustomobject]@{ExitCode=0;StdOut='[]';PeakWorkingSetBytes=1}}
     Add-CheckResult 'Leere oder ungebundene llama-bench-Ausgabe wird abgewiesen' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -DeviceBinding @([pscustomobject]@{DeviceId=$c.Devices[0].DeviceId;RuntimeSelector='none'}) -ProcessRunner $run} $inventory $cpu $package $model $badRunner} 'AI_COMPUTE_BENCHMARK_OUTPUT_INVALID')
