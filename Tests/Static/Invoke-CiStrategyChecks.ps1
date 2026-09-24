@@ -58,6 +58,15 @@ foreach($externalPlanPath in @('Private/AiExternalModelAcceleration.ps1','Privat
             -not $selected.Docker -and -not $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
     }
 }
+foreach($benchmarkPath in @('Private/AiComputeBenchmark.ps1','Public/Measure-SqlServerLabAiComputeCandidate.ps1','Schemas/ai-compute-benchmark.schema.json','Tests/Static/Invoke-AiComputeBenchmarkChecks.ps1')) {
+    foreach($path in @($benchmarkPath,$benchmarkPath.Replace('/','\'))) {
+        $selected=& $selector -ChangedPath @($path)
+        Add-CheckResult -Name "KI-Benchmarkproducer bleibt ohne SQL-Provider-Smoke: $path" -Success (
+            'Invoke-AiComputeBenchmarkChecks.ps1' -in $selected.StaticChecks -and
+            'Invoke-AiComputeSelectionChecks.ps1' -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+    }
+}
 Add-CheckResult -Name 'Hyper-V-Aenderung aktiviert Hyper-V-Vertraege und Runtime' -Success (
     $hyperV.HyperV -and 'Invoke-HyperVLabEnvironmentChecks.ps1' -in $hyperV.StaticChecks -and -not $hyperV.Docker
 )

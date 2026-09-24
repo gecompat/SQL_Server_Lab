@@ -247,6 +247,10 @@ Sync-SqlServerLabRunScopedContainerStore
         benchmarkte geeignete CPU-/NPU-/GPU-Kombination. Eine explizite
         Kandidatenfixierung überschreibt Auto ohne stillen Fallback.
 
+    Measure-SqlServerLabAiComputeCandidate
+        Führt llama-bench offline für einen explizit an Runtime-Geräteselektoren
+        gebundenen Kandidaten aus und erzeugt ein auswahlfähiges Receipt.
+
     Get-SqlServerLabAiExternalModelPlan
         Plant einen vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt
         hashgebunden und ohne Netzwerk- oder Hostmutation.

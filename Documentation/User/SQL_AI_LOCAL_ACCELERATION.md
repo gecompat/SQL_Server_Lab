@@ -257,9 +257,31 @@ $selection = Get-SqlServerLabAiComputeSelection `
   -PinnedCandidateId rtx5080-pair
 ```
 
-Die Befehle starten keine Runtime und führen keinen Benchmark aus. Bis der
-Benchmarkproducer angebunden ist, müssen Receipts aus einem getrennt geprüften
-Benchmarklauf stammen.
+`Measure-SqlServerLabAiComputeCandidate` führt das zum ausgewählten Paket gehörende
+`llama-bench` mit gesperrtem Netzwerkdownload (`--offline`) aus. Modell und alle
+unmittelbaren Paketbinärdateien werden vor und nach dem Lauf gehasht. Derselbe
+Profilhash bindet Wiederholungen, Generationslänge, Batch- und Microbatchgröße.
+Jede portable Geräte-ID benötigt eine explizite, eindeutige Zuordnung zum
+Runtime-Selector; mehrere Selektoren werden mit `/` als gemeinsamer Lauf an
+`llama-bench` übergeben. CPU verwendet ausschließlich `none`.
+
+```powershell
+$benchmarks = foreach ($candidate in $candidateSet.Candidates | Where-Object Eligible) {
+  Measure-SqlServerLabAiComputeCandidate `
+    -Inventory $inventory `
+    -Candidate $candidate `
+    -RuntimeDirectory $runtimeDirectory `
+    -ModelPath $modelPath `
+    -WorkloadKey sql-ai-generation `
+    -DeviceBinding $bindingsByCandidate[$candidate.CandidateId]
+}
+```
+
+Die Zuordnung zwischen portabler Hardware-ID und `llama.cpp`-Selector wird noch
+nicht automatisch hergeleitet. Sie muss deshalb bewusst für jeden Kandidaten
+angegeben werden; fehlende, doppelte oder widersprüchliche Bindungen blockieren
+vor dem Prozessstart. Erst genau ein gültiges Receipt je geeignetem Kandidaten
+erlaubt die automatische Auswahl.
 
 Voraussetzungen sind ein passender Intel-NPU-Treiber, ein OpenVINO-Build von
 `llama.cpp`, ein geeignetes Embedding-GGUF sowie ein operationseigenes
