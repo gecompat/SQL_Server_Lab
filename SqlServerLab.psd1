@@ -25,6 +25,8 @@
         'Get-SqlServerLabWorkflow'
         'Get-SqlServerLabAutomationPlan'
         'Get-SqlServerLabAiScenario'
+        'Get-SqlServerLabAiComputeInventory'
+        'Get-SqlServerLabAiComputeCandidate'
         'Get-SqlServerLabAiComputeSelection'
         'Get-SqlServerLabAiExternalModelPlan'
         'Get-SqlServerLabAiExternalModelSqlPlan'

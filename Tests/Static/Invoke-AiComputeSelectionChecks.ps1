@@ -49,7 +49,10 @@ try {
     $duplicateDevice=Candidate bad-devices LlamaCppCuda ('5'*64) @((Device GPU cuda0),(Device GPU CUDA0))
     Add-CheckResult 'Doppelte Geräte-ID im Kandidaten wird abgewiesen' (Reject {Get-SqlServerLabAiComputeSelection -WorkloadKey sql-ai-generation -ModelSha256 $model -BenchmarkProfileSha256 $profile -InventorySha256 $inventory -Candidate @($duplicateDevice) -PinnedCandidateId bad-devices} 'AI_COMPUTE_DEVICE_INVALID')
     $cpuAlias=Candidate cpu-alias LlamaCppOpenVino ('1'*64) (Device CPU CPU0)
-    Add-CheckResult 'Doppelte Backend-Gerätekombination wird unabhängig von Großschreibung abgewiesen' (Reject {Get-SqlServerLabAiComputeSelection -WorkloadKey sql-ai-generation -ModelSha256 $model -BenchmarkProfileSha256 $profile -InventorySha256 $inventory -Candidate @($cpu,$cpuAlias) -PinnedCandidateId cpu} 'AI_COMPUTE_CANDIDATE_DUPLICATE')
+    Add-CheckResult 'Doppelte Backend-/Runtime-/Gerätekombination wird unabhängig von Großschreibung abgewiesen' (Reject {Get-SqlServerLabAiComputeSelection -WorkloadKey sql-ai-generation -ModelSha256 $model -BenchmarkProfileSha256 $profile -InventorySha256 $inventory -Candidate @($cpu,$cpuAlias) -PinnedCandidateId cpu} 'AI_COMPUTE_CANDIDATE_DUPLICATE')
+    $cpuOtherRuntime=Candidate cpu-other LlamaCppOpenVino ('8'*64) (Device CPU CPU0)
+    $runtimeVariant=Get-SqlServerLabAiComputeSelection -WorkloadKey sql-ai-generation -ModelSha256 $model -BenchmarkProfileSha256 $profile -InventorySha256 $inventory -Candidate @($cpu,$cpuOtherRuntime) -PinnedCandidateId cpu-other
+    Add-CheckResult 'Unterschiedliche Runtimehashes dürfen dieselbe Backend-Gerätekombination vergleichen' ($runtimeVariant.CandidateId -ceq 'cpu-other')
     $extra=$cpu|ConvertTo-Json -Depth 5|ConvertFrom-Json;$extra|Add-Member Surprise value
     Add-CheckResult 'Unbekanntes Kandidatenfeld wird abgewiesen' (Reject {Get-SqlServerLabAiComputeSelection -WorkloadKey sql-ai-generation -ModelSha256 $model -BenchmarkProfileSha256 $profile -InventorySha256 $inventory -Candidate @($extra) -PinnedCandidateId cpu} 'AI_COMPUTE_CANDIDATE_INVALID')
     $tieA=Candidate tie-a LlamaCppCuda ('6'*64) (Device GPU cuda2);$tieB=Candidate tie-b LlamaCppRocm ('7'*64) (Device GPU rocm0)
