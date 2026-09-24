@@ -72,6 +72,7 @@ $checks = @(
     'Invoke-AiScenarioChecks.ps1',
     'Invoke-AiComputeBenchmarkAcceptanceChecks.ps1',
     'Invoke-AiSharedGatewayPlanChecks.ps1',
+    'Invoke-AiSharedGatewayPreflightChecks.ps1',
     'Invoke-ScenarioContractChecks.ps1',
     'Invoke-ScenarioExecutorChecks.ps1',
     'Invoke-ScenarioCapabilityDecisionChecks.ps1',

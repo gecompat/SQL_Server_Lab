@@ -14,6 +14,9 @@ sanitisiertes Receipt. Dabei startet der Test weder OVMS noch einen Gateway.
 `Static/Invoke-AiSharedGatewayPlanChecks.ps1` prüft den rein lesenden Vertrag
 für einen gemeinsamen lokalen HTTPS-Gateway, deterministische Consumerbindung,
 Secret-Referenzen, lokale Endpunkte und den ausdrücklich blockierten Status.
+`Static/Invoke-AiSharedGatewayPreflightChecks.ps1` erzeugt ausschließlich
+synthetische lokale Dateien und Zertifikate. Die Suite prüft Hash-, Key-, CA-,
+Chain-, Gültigkeits- und SAN-Bindung, ohne Listener, Gateway oder SQL zu starten.
 `Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` ist die separate Docker-only-
 Referenz für SQL External Model, TLS-Negative, Retrieval, SQLrestart und Cleanup.
 Die native Abnahme bestand am 2026-09-21 mit sieben Embeddings, SQL-TLS-Negativen,

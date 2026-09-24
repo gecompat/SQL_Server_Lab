@@ -6,9 +6,9 @@ $failures=[Collections.Generic.List[string]]::new();$passed=0
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 try {
     function Reject([scriptblock]$Action,[string]$Code){try{& $Action|Out-Null;$false}catch{$_.Exception.Message -ceq $Code}}
-    $h='a'*64;$c1=[pscustomobject]@{RunId='11111111-1111-4111-8111-111111111111';InstanceId='primary';DatabaseId='22222222-2222-4222-8222-222222222222';ExternalModelName='SharedEmbedding';ApiKeyReference='SQL_SERVER_LAB_SECRET_SHARED_AI_A'}
+    $h='a'*64;$caHash='b'*64;$c1=[pscustomobject]@{RunId='11111111-1111-4111-8111-111111111111';InstanceId='primary';DatabaseId='22222222-2222-4222-8222-222222222222';ExternalModelName='SharedEmbedding';ApiKeyReference='SQL_SERVER_LAB_SECRET_SHARED_AI_A'}
     $c2=[pscustomobject]@{RunId='33333333-3333-4333-8333-333333333333';InstanceId='secondary';DatabaseId='44444444-4444-4444-8444-444444444444';ExternalModelName='SharedEmbedding2';ApiKeyReference='SQL_SERVER_LAB_SECRET_SHARED_AI_B'}
-    $planArgs=@{GatewayId='shared-ai';Location='https://host.docker.internal:18443/v1/embeddings';UpstreamBackend='LlamaCppCuda';UpstreamLocation='http://127.0.0.1:18080/v1/embeddings';RuntimeModel='bound-model';Dimension=768;InputProfile='nomic-search';ModelSha256=$h;RuntimeSha256=$h;ServerCertificateSha256=$h;CertificateAuthoritySha256=$h;Consumer=@($c2,$c1)}
+    $planArgs=@{GatewayId='shared-ai';Location='https://host.docker.internal:18443/v1/embeddings';UpstreamBackend='LlamaCppCuda';UpstreamLocation='http://127.0.0.1:18080/v1/embeddings';RuntimeModel='bound-model';Dimension=768;InputProfile='nomic-search';ModelSha256=$h;RuntimeSha256=$h;ServerCertificateSha256=$h;CertificateAuthoritySha256=$caHash;Consumer=@($c2,$c1)}
     $plan=Get-SqlServerLabAiSharedGatewayPlan @planArgs
     Add-CheckResult 'Plan ist geheimnisfrei, blockiert und schema-valide' ($plan.Status -ceq 'BLOCKED' -and $plan.EvidenceStatus -ceq 'CONFIGURATION_ONLY' -and ($plan|ConvertTo-Json -Depth 12|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-shared-gateway-plan.schema.json')))
     $reordered=@{}+$planArgs;$reordered.Consumer=@($c1,$c2);$reorderedPlan=Get-SqlServerLabAiSharedGatewayPlan @reordered
@@ -20,6 +20,8 @@ try {
     Add-CheckResult 'Nicht-Loopback-Upstream wird abgewiesen' (Reject {Get-SqlServerLabAiSharedGatewayPlan @remote} 'AI_SHARED_GATEWAY_UPSTREAM_INVALID')
     $wrongPath=@{}+$planArgs;$wrongPath.UpstreamBackend='OpenVinoModelServer'
     Add-CheckResult 'Falscher Backendpfad wird abgewiesen' (Reject {Get-SqlServerLabAiSharedGatewayPlan @wrongPath} 'AI_SHARED_GATEWAY_UPSTREAM_INVALID')
+    $sameCertificate=@{}+$planArgs;$sameCertificate.CertificateAuthoritySha256=$sameCertificate.ServerCertificateSha256
+    Add-CheckResult 'Identische CA- und Serverzertifikathashes werden abgewiesen' (Reject {Get-SqlServerLabAiSharedGatewayPlan @sameCertificate} 'AI_SHARED_GATEWAY_CERTIFICATE_HASHES_MUST_DIFFER')
     $duplicate=@{}+$planArgs;$duplicate.Consumer=@($c1,$c1)
     Add-CheckResult 'Doppelter Verbraucher wird abgewiesen' (Reject {Get-SqlServerLabAiSharedGatewayPlan @duplicate} 'AI_SHARED_GATEWAY_CONSUMER_DUPLICATE')
     $sameSecret=$c2|Select-Object *;$sameSecret.ApiKeyReference=$c1.ApiKeyReference

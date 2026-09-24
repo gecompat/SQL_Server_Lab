@@ -1478,8 +1478,11 @@ Gatewaybetrieb und weitere Provider sind damit nicht belegt.
 Der gemeinsame Gateway besitzt inzwischen einen read-only Planvertrag. Er bindet
 einen lokalen HTTPS-Endpunkt, den Loopback-Upstream, Inhaltsdigests, Zertifikate,
 eine externe Secretreferenz und bis zu 64 SQL-Verbraucher. Sein Status bleibt
-blockiert: persistenter Dienstbetrieb, geschützter gemeinsamer Speicher,
-Nebenläufigkeit, Rotation, Backup/Restore sowie Apply und Remove fehlen.
+blockiert. Ein read-only Preflight kann Runtime, Modell, Serverzertifikat,
+zugehörigen privaten Schlüssel, CA-Kette, Zertifikatsgültigkeit und exakten SAN
+sanitisiert bestätigen. Persistenter Dienstbetrieb, geschützter gemeinsamer
+Speicher, Nebenläufigkeit, Live-Endpunkt, SQL-Bindung, Rotation, Backup/Restore
+sowie Apply und Remove fehlen weiterhin.
 Ein eigener Windows-Loopback-Gateway-Lifecycle ist mit synthetischem
 OVMS-Upstream, kurzlebiger CA, TLS-Probe, Owner-Stop, Listenerabbau und
 Secret-Löschung abgenommen. Der External-Model-Plan rechnet dessen Binding-Key

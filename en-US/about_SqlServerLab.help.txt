@@ -254,6 +254,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Binds a shared local HTTPS gateway and multiple SQL consumers without
         secret values; the execution path remains blocked.
 
+    Test-SqlServerLabAiSharedGatewayPreflight
+        Checks the local runtime, model, server certificate, private key, CA
+        chain, validity, and SAN read-only against the gateway plan.
+
     Get-SqlServerLabAiExternalModelPlan
         Plans an existing OpenAI-compatible HTTPS embedding endpoint with hash
         bindings and without network or host mutation.

@@ -151,6 +151,11 @@ Secretreferenzen sowie negative öffentliche Ziele, falsche Backendpfade,
 Duplikate und zusätzliche Hostdaten. Die Suite startet keinen Dienst, ändert
 keine Zertifikate und verbindet sich nicht mit SQL; Apply/Remove und native
 Evidence bleiben offen.
+`Invoke-AiSharedGatewayPreflightChecks.ps1` erzeugt nur synthetische lokale
+Dateien und eine kurzlebige CA-/Leaf-Kette. Die Suite prüft Planrevalidierung,
+Runtime-/Modellhashes, privaten Schlüssel, CA-Pin, Chain, Gültigkeit und exakten
+SAN sowie sanitisierte Evidence. Sie startet keinen Listener, Gateway oder SQL-
+Zugriff und bestätigt weder geschützten Storage noch persistenten Dienstbetrieb.
 Hostmodell-Digest/Capability/Dimension/Remoteidentity, Egress/Datenklasse,
 WhatIf, Vektoren und echten synthetischen HTTP307 ohne Weiterleitung.
 `Invoke-AiRagExistingOllamaAcceptance.ps1` ist eine separate opt-in Abnahme mit
