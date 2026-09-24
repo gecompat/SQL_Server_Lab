@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Startet einen eigenen, zeitlich begrenzten Windows-llama.cpp-Embeddingserver.
+    Startet einen eigenen, zeitlich begrenzten Windows-/Linux-llama.cpp-Embeddingserver.
 .DESCRIPTION
     Verlangt explizite Runtime, Embedding-GGUF, Backend, Accelerator, Dimension,
     Pooling, Port, TLS-Zertifikat und Key. Startet ausschließlich auf IPv4-
@@ -9,7 +9,7 @@
     Keine Downloads, Dienstinstallation, Truststoreänderungen oder Fallbacks.
     Die Lease läuft einschließlich Startphase. Stop verwendet dieselbe Modulsitzung.
 .PARAMETER RuntimeDirectory
-    Exaktes Verzeichnis einer zuvor ausgewählten Windows-Installation.
+    Exaktes Verzeichnis einer zuvor ausgewählten Windows-/Linux-Installation.
 .PARAMETER Backend
     Explizit LlamaCppCuda oder LlamaCppOpenVino; mehrdeutige Pakete blockieren.
 .PARAMETER Accelerator
