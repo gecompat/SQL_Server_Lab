@@ -289,6 +289,14 @@ $benchmarkSet = Measure-SqlServerLabAiComputeCandidateSet `
 $selection = $benchmarkSet.Selection
 ```
 
+Für einen reproduzierbaren nativen Hostnachweis steht der opt-in Runner
+`Tests/Integration/Invoke-AiComputeBenchmarkAcceptance.ps1` bereit. Er führt
+dieselbe öffentliche Pipeline von Inventar und Runtimefähigkeiten bis zur
+vollständigen Mengensmessung aus, prüft Coverage, Rangfolge und Hashbindungen
+erneut und kann über `-EvidencePath` ein pfadfreies Receipt schreiben. Er lädt
+weder Runtime noch Modell herunter; dafür bleibt der katalogisierte
+`Save-SqlServerLabLlamaCppModel`-Pfad zuständig.
+
 `Measure-SqlServerLabAiComputeCandidate` bleibt für eine gezielte Einzelmessung
 und eine explizite `-DeviceBinding` verfügbar.
 

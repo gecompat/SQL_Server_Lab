@@ -1973,6 +1973,15 @@ prüft die vollständige Mengensmessung, Runtimehash-Zuordnung, direkte
 Schnellstauswahl und fail-closed fehlende Pakete oder Teilreceipts. Diese Offline-Suite führt kein echtes
 Modell aus; ein nativer Lauf bleibt ein getrennter Nachweis.
 
+`Invoke-AiComputeBenchmarkAcceptanceChecks.ps1` bindet den opt-in Runner an die
+öffentliche Inventar-, Runtimefähigkeits-, Kandidaten- und Mengensmesspipeline,
+prüft dessen fail-closed Postconditions, das eigenständige Receipt-Schema und
+den frühen mutationsfreien `WhatIf`-Pfad. Der getrennte
+`Invoke-AiComputeBenchmarkAcceptance.ps1` führt auf ausdrücklich freigegebener
+Hardware alle geeigneten Kandidaten real aus und schreibt optional pfadfreie
+Evidence. Ein solcher nativer Lauf wurde auf dem aktuellen Entwicklungsstand
+noch nicht ausgeführt.
+
 `Invoke-AiComputeInventoryChecks.ps1` prüft synthetische Windows-/Linux-nahe
 CPU-, GPU- und NPU-Probes, stabile datenschutzbegrenzte Inventarhashes sowie die
 vollständige Potenzmengenbildung innerhalb expliziter Runtimegrenzen. Sie prüft
