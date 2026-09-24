@@ -256,6 +256,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Misst alle geeigneten Kandidaten nacheinander mit identischem Profil und
         liefert nur bei vollständiger Coverage direkt die schnellste Auswahl.
 
+    Get-SqlServerLabAiSharedGatewayPlan
+        Bindet einen gemeinsamen lokalen HTTPS-Gateway und mehrere SQL-
+        Verbraucher geheimnisfrei; der Ausführungspfad ist noch blockiert.
+
     Get-SqlServerLabAiExternalModelPlan
         Plant einen vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt
         hashgebunden und ohne Netzwerk- oder Hostmutation.

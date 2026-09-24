@@ -122,6 +122,7 @@ Get-SqlServerLabAiComputeCandidate          # Alle erlaubten Einzel-, Mehrgerät
 Get-SqlServerLabAiComputeSelection          # Vollständig benchmarkte Gerätekombination automatisch wählen oder explizit fixieren
 Measure-SqlServerLabAiComputeCandidate      # Gebundenen llama.cpp-Kandidaten mit llama-bench messen
 Measure-SqlServerLabAiComputeCandidateSet   # Vollständige Kandidatenmenge messen und schnellste Option wählen
+Get-SqlServerLabAiSharedGatewayPlan         # Gemeinsamen Gateway und SQL-Verbraucher read-only binden
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen
 Get-SqlServerLabAiExternalModelSqlPlan       # Frische Endpoint-Evidence an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden
 Test-SqlServerLabAiExternalModelSqlPreflight # Eigenen SQL-2025-Zielscope read-only und hashgebunden vor jeder Mutation prüfen

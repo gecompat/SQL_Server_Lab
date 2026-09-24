@@ -481,6 +481,38 @@ Auch der resultierende SQL-Plan ist nur ein zeitlich begrenzter, geheimnisfreier
 Vertrag. Insbesondere ist der OVMS-v3-Pfad noch nicht nativ durch SQL Server 2025
 abgenommen.
 
+Mehrere SQL-Consumer können bereits einen gemeinsamen, langfristig vorgesehenen
+Gateway-Vertrag deterministisch planen. Die angegebene HTTPS-Adresse muss für
+die SQL-Instanzen lokal erreichbar sein; der Upstream bleibt auf numerisches
+Loopback beschränkt:
+
+```powershell
+$consumers = @(
+  [pscustomobject]@{
+    RunId = '<run-guid>'
+    InstanceId = 'primary'
+    DatabaseId = '<database-guid>'
+    ExternalModelName = 'SharedEmbedding'
+    ApiKeyReference = 'SQL_SERVER_LAB_SECRET_SHARED_AI_A'
+  }
+)
+
+$sharedPlan = Get-SqlServerLabAiSharedGatewayPlan `
+  -GatewayId shared-ai `
+  -Location 'https://host.docker.internal:18443/v1/embeddings' `
+  -UpstreamBackend LlamaCppCuda `
+  -UpstreamLocation 'http://127.0.0.1:18080/v1/embeddings' `
+  -RuntimeModel bound-model -Dimension 768 -InputProfile nomic-search `
+  -ModelSha256 $modelHash -RuntimeSha256 $runtimeHash `
+  -ServerCertificateSha256 $serverCertHash `
+  -CertificateAuthoritySha256 $caHash `
+  -Consumer $consumers
+```
+
+Der Befehl verändert weder Host noch SQL Server. Er liefert derzeit absichtlich
+`BLOCKED`, bis persistenter Dienstbetrieb, Storage, Zertifikatsrotation,
+Backup/Restore sowie Apply und Remove implementiert und separat abgenommen sind.
+
 Ein bereits vom Operator gestarteter OVMS-Upstream kann vorab ohne Mutation
 geprüft werden:
 

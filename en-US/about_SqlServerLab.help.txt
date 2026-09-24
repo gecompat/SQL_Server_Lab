@@ -250,6 +250,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Measures every eligible candidate sequentially with one profile and
         returns the fastest selection only after complete coverage.
 
+    Get-SqlServerLabAiSharedGatewayPlan
+        Binds a shared local HTTPS gateway and multiple SQL consumers without
+        secret values; the execution path remains blocked.
+
     Get-SqlServerLabAiExternalModelPlan
         Plans an existing OpenAI-compatible HTTPS embedding endpoint with hash
         bindings and without network or host mutation.

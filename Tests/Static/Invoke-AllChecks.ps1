@@ -71,6 +71,7 @@ $checks = @(
     'Invoke-DatabaseMigrationDependencyChecks.ps1',
     'Invoke-AiScenarioChecks.ps1',
     'Invoke-AiComputeBenchmarkAcceptanceChecks.ps1',
+    'Invoke-AiSharedGatewayPlanChecks.ps1',
     'Invoke-ScenarioContractChecks.ps1',
     'Invoke-ScenarioExecutorChecks.ps1',
     'Invoke-ScenarioCapabilityDecisionChecks.ps1',

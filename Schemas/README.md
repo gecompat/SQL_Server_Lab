@@ -23,6 +23,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `ai-compute-benchmark.schema.json` | Pfadfreies `llama-bench`-Receipt mit Kandidaten-, Modell-, Profil-, Inventar- und Runtimebindung |
 | `ai-compute-benchmark-set.schema.json` | Vollständige Benchmarkmenge mit allen Receipts und direkt gebundener schnellster Auswahl |
 | `ai-compute-benchmark-acceptance.schema.json` | Pfadfreier nativer Abnahmenachweis für vollständige Kandidatenmessung und die daraus gewählte schnellste Option |
+| `ai-shared-gateway-plan.schema.json` | Geheimnisfreier, deterministischer Plan für einen lokalen gemeinsamen HTTPS-Gateway und gebundene SQL-Verbraucher; derzeit nicht ausführbar |
 | `ai-external-model-artifact-receipt.schema.json` | Sanitierter read-only Nachweis, dass lokale Runtime- und Modelldatei den im External-Model-Plan gebundenen SHA-256-Werten entsprechen |
 | `ai-external-model-endpoint-receipt.schema.json` | Sanitisiertes Live-Receipt für Zertifikatspin, OpenAI-Antwortform, endliche Vektorwerte und Dimension; Runtime-, Modell- und Accelerator-Attestation bleiben offen |
 | `ai-ovms-upstream-receipt.schema.json` | Sanitisiertes Live-Receipt für einen numerischen Loopback-OVMS-v3-Upstream mit exaktem Runtime-Modell, Antwortformat, Dimension und endlichen Vektorwerten; Gateway und Accelerator bleiben offen |

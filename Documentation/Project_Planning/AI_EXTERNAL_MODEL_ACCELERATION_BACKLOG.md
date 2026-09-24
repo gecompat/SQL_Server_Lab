@@ -53,9 +53,15 @@ Umsetzungsreihenfolge:
 
 ## Gemeinsamer Lab-Gateway, Zertifikate und Wiederherstellung (AIX-003)
 
-Anforderung vom 2026-09-23, Status `BACKLOG`: Der dauerhafte gemeinsame
-Gateway-Lebenszyklus einschließlich paralleler KI-Labs, Backup, Restore und
-Zertifikatswechsel ist noch nicht implementiert oder nativ nachgewiesen.
+Anforderung vom 2026-09-23, Status `IMPLEMENTED_PARTIAL`: Der read-only
+`Get-SqlServerLabAiSharedGatewayPlan` bindet einen lokalen HTTPS-Endpunkt,
+Loopback-Upstream, Runtime-/Modellhashes, CA-/Serverzertifikat, externe
+Secretreferenz und mehrere eindeutig identifizierte SQL-Verbraucher in einem
+deterministischen Plan. Der Plan bleibt mit
+`AI_SHARED_GATEWAY_EXECUTION_NOT_IMPLEMENTED` ausdrücklich blockiert. Der
+dauerhafte gemeinsame Gateway-Lebenszyklus einschließlich Apply/Remove,
+paralleler Einrichtung, Backup, Restore und Zertifikatswechsel ist noch nicht
+implementiert oder nativ nachgewiesen.
 Die vorhandenen HTTPS-Referenzen bleiben begrenzte Nachweise der Transportstrecke.
 
 ### Geltungsbereich und Ist-Stand
