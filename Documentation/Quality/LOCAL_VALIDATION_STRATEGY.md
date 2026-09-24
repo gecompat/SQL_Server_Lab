@@ -1963,7 +1963,8 @@ nur synthetische Receipts und greift auf keine Hosthardware zu.
 
 `Invoke-AiComputeBenchmarkChecks.ps1` prüft den `llama-bench`-Producer mit einem
 synthetischen Prozessadapter: vollständige CPU-/Einzel-/Mehr-GPU-Coverage,
-explizite Geräteselektoren, identische Profilbindung, GGUF-Magic, Backend- und
+automatisch eindeutige und explizite Geräteselektoren, blockierte identische
+Teilgruppen, identische Profilbindung, GGUF-Magic, Backend- und
 Runtimehashbindung, P95-/Durchsatzableitung, Auto-Übergabe sowie negative
 Ausgabe-, Duplikat- und Manipulationsfälle. Diese Offline-Suite führt kein echtes
 Modell aus; ein nativer Lauf bleibt ein getrennter Nachweis.

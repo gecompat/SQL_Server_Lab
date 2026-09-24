@@ -248,8 +248,8 @@ Sync-SqlServerLabRunScopedContainerStore
         Kandidatenfixierung überschreibt Auto ohne stillen Fallback.
 
     Measure-SqlServerLabAiComputeCandidate
-        Führt llama-bench offline für einen explizit an Runtime-Geräteselektoren
-        gebundenen Kandidaten aus und erzeugt ein auswahlfähiges Receipt.
+        Führt llama-bench offline für einen automatisch eindeutig oder explizit
+        an Runtime-Geräteselektoren gebundenen Kandidaten aus.
 
     Get-SqlServerLabAiExternalModelPlan
         Plant einen vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt
