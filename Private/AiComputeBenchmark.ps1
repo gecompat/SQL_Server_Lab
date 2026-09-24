@@ -29,6 +29,65 @@ function Invoke-LabAiBenchmarkProcess {
     } finally {$process.Dispose()}
 }
 
+function ConvertTo-LabAiRuntimeDeviceName {
+    [CmdletBinding()]
+    param([AllowEmptyString()][string]$Value)
+    return (($Value.ToLowerInvariant() -replace '[^a-z0-9]+',' ').Trim() -replace '\s+',' ')
+}
+
+function Resolve-LabAiRuntimeDeviceBinding {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Inventory,
+        [Parameter(Mandatory)]$Candidate,
+        [Parameter(Mandatory)][string]$BenchmarkInvocation,
+        [Parameter(Mandatory)][ValidateRange(1,3600)][int]$TimeoutSeconds,
+        [scriptblock]$ProcessRunner
+    )
+    $backend=[string]$Candidate.Backend
+    if($backend -ceq 'LlamaCppCpu'){
+        if(@($Candidate.Devices).Count -ne 1 -or [string]$Candidate.Devices[0].Kind -cne 'CPU'){throw 'AI_COMPUTE_DEVICE_BINDING_UNRESOLVED'}
+        return @([PSCustomObject]@{DeviceId=[string]$Candidate.Devices[0].DeviceId;RuntimeSelector='none'})
+    }
+    $prefixes=switch($backend){LlamaCppCuda{@('CUDA')};LlamaCppRocm{@('ROCm','HIP')};LlamaCppVulkan{@('Vulkan')};LlamaCppSycl{@('SYCL')};LlamaCppOpenVino{@('OpenVINO')};default{throw 'AI_COMPUTE_DEVICE_BINDING_UNSUPPORTED'}}
+    $environment=@{}
+    if($backend -ceq 'LlamaCppOpenVino'){
+        $kinds=@($Candidate.Devices.Kind|Sort-Object -Unique)
+        if($kinds.Count -ne 1){throw 'AI_COMPUTE_DEVICE_BINDING_UNRESOLVED'}
+        $environment.GGML_OPENVINO_DEVICE=$kinds[0]
+    }
+    try{$result=if($ProcessRunner){& $ProcessRunner $BenchmarkInvocation @('--list-devices') $environment $TimeoutSeconds}else{Invoke-LabAiBenchmarkProcess -Invocation $BenchmarkInvocation -ArgumentList @('--list-devices') -Environment $environment -TimeoutSeconds $TimeoutSeconds}}catch{throw 'AI_COMPUTE_DEVICE_DISCOVERY_FAILED'}
+    if($null -eq $result -or [int]$result.ExitCode -ne 0){throw 'AI_COMPUTE_DEVICE_DISCOVERY_FAILED'}
+    $runtimeDevices=[Collections.Generic.List[object]]::new();$selectors=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach($line in @(([string]$result.StdOut) -split "`r?`n")){
+        if($line -notmatch '^\s*(?<Selector>[A-Za-z][A-Za-z0-9._-]{0,63})\s*:\s*(?<Description>.+?)\s*$'){continue}
+        $selector=[string]$Matches.Selector
+        if(@($prefixes|Where-Object {$selector.StartsWith($_,[StringComparison]::OrdinalIgnoreCase)}).Count -eq 0){continue}
+        if(-not $selectors.Add($selector)){throw 'AI_COMPUTE_DEVICE_DISCOVERY_INVALID'}
+        $description=([string]$Matches.Description -replace '\s+\([0-9]+\s+MiB(?:,\s*[0-9]+\s+MiB\s+free)?\)\s*$','').Trim()
+        $key=ConvertTo-LabAiRuntimeDeviceName $description
+        if(-not $key){throw 'AI_COMPUTE_DEVICE_DISCOVERY_INVALID'}
+        $runtimeDevices.Add([PSCustomObject]@{RuntimeSelector=$selector;NameKey=$key})
+    }
+    if(-not $runtimeDevices.Count){throw 'AI_COMPUTE_DEVICE_BINDING_UNRESOLVED'}
+    $candidateIds=@($Candidate.Devices.DeviceId)
+    $inventoryDevices=@($Inventory.Devices|Where-Object {$_.DeviceId -cin $candidateIds})
+    if($inventoryDevices.Count -ne $candidateIds.Count){throw 'AI_COMPUTE_DEVICE_BINDING_UNRESOLVED'}
+    $bindings=[Collections.Generic.List[object]]::new();$matchedSelectors=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach($group in @($inventoryDevices|Group-Object {ConvertTo-LabAiRuntimeDeviceName ([string]$_.DisplayName)})){
+        $kind=[string]$group.Group[0].Kind
+        $allInventoryMatches=@($Inventory.Devices|Where-Object {$_.Kind -ceq $kind -and (ConvertTo-LabAiRuntimeDeviceName ([string]$_.DisplayName)) -ceq $group.Name})
+        $runtimeMatches=@($runtimeDevices|Where-Object {$_.NameKey -ceq $group.Name -or $_.NameKey.StartsWith($group.Name+' ',[StringComparison]::Ordinal)})
+        if($group.Count -ne $allInventoryMatches.Count){throw 'AI_COMPUTE_DEVICE_BINDING_AMBIGUOUS'}
+        if(-not $runtimeMatches.Count){throw 'AI_COMPUTE_DEVICE_BINDING_UNRESOLVED'}
+        if($runtimeMatches.Count -ne $group.Count -or @($runtimeMatches|Where-Object {-not $matchedSelectors.Add($_.RuntimeSelector)}).Count){throw 'AI_COMPUTE_DEVICE_BINDING_AMBIGUOUS'}
+        $orderedIds=@($group.Group.DeviceId|Sort-Object);$orderedSelectors=@($runtimeMatches.RuntimeSelector|Sort-Object)
+        for($index=0;$index -lt $orderedIds.Count;$index++){$bindings.Add([PSCustomObject]@{DeviceId=[string]$orderedIds[$index];RuntimeSelector=[string]$orderedSelectors[$index]})}
+    }
+    if($bindings.Count -ne $candidateIds.Count){throw 'AI_COMPUTE_DEVICE_BINDING_UNRESOLVED'}
+    return @($bindings)
+}
+
 function Invoke-LabAiComputeBenchmark {
     [CmdletBinding()]
     param(
@@ -37,7 +96,7 @@ function Invoke-LabAiComputeBenchmark {
         [Parameter(Mandatory)][string]$RuntimeDirectory,
         [Parameter(Mandatory)][string]$ModelPath,
         [Parameter(Mandatory)][ValidatePattern('^[a-z0-9][a-z0-9._-]{0,127}$')][string]$WorkloadKey,
-        [Parameter(Mandatory)][ValidateCount(1,16)][object[]]$DeviceBinding,
+        [ValidateCount(1,16)][object[]]$DeviceBinding,
         [ValidateRange(3,30)][int]$Repetitions=5,
         [ValidateRange(1,4096)][int]$GeneratedTokens=128,
         [ValidateRange(1,4096)][int]$BatchSize=512,
@@ -67,16 +126,6 @@ function Invoke-LabAiComputeBenchmark {
         finally{$modelStream.Dispose()}
     }catch{throw 'AI_COMPUTE_BENCHMARK_MODEL_INVALID'}
     $modelHash=Get-LabAiExternalModelFileSha256 -Path $modelItem.FullName -ArtifactKind MODEL
-    $bindingFields=@('DeviceId','RuntimeSelector');$bindings=[Collections.Generic.List[object]]::new();$bindingIds=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
-    $bindingSelectors=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
-    foreach($binding in $DeviceBinding){
-        Assert-LabAiComputeProperties $binding $bindingFields 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_INVALID'
-        $id=[string]$binding.DeviceId;$selector=[string]$binding.RuntimeSelector
-        if(-not $bindingIds.Add($id) -or -not $bindingSelectors.Add($selector) -or $selector -notmatch '^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$'){throw 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_INVALID'}
-        $bindings.Add([PSCustomObject]@{DeviceId=$id;RuntimeSelector=$selector})
-    }
-    $candidateIds=@($validation.Devices.DeviceId|Sort-Object)
-    if(($candidateIds -join ',') -cne ((@($bindings.DeviceId)|Sort-Object) -join ',')){throw 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_MISMATCH'}
     $backend=[string]$validation.Backend
     $expectedToken=switch($backend){LlamaCppCpu{'CPU'};LlamaCppCuda{'CUDA'};LlamaCppRocm{'ROCm|HIP'};LlamaCppVulkan{'Vulkan'};LlamaCppSycl{'SYCL'};LlamaCppOpenVino{'OpenVINO'};default{throw 'AI_COMPUTE_BENCHMARK_BACKEND_UNSUPPORTED'}}
     if($backend -ne 'LlamaCppCpu' -and $backend -cnotin @($packageBefore.DetectedBackends)){throw 'AI_COMPUTE_BENCHMARK_BACKEND_MISMATCH'}
@@ -90,8 +139,23 @@ function Invoke-LabAiComputeBenchmark {
         LlamaCppOpenVino {@($selectedInventoryDevices.Kind|Sort-Object -Unique).Count -eq 1 -and -not @($selectedInventoryDevices|Where-Object {$_.Kind -in @('GPU','NPU') -and $_.VendorId -ne '8086'}).Count}
     }
     if(-not $deviceContractValid){throw 'AI_COMPUTE_BENCHMARK_DEVICE_MISMATCH'}
+    $effectiveBindings=if($null -eq $DeviceBinding -or $DeviceBinding.Count -eq 0){@(Resolve-LabAiRuntimeDeviceBinding -Inventory $Inventory -Candidate $validation -BenchmarkInvocation $bench[0].FullName -TimeoutSeconds $TimeoutSeconds -ProcessRunner $ProcessRunner)}else{@($DeviceBinding)}
+    $bindingFields=@('DeviceId','RuntimeSelector');$bindings=[Collections.Generic.List[object]]::new();$bindingIds=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $bindingSelectors=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    foreach($binding in $effectiveBindings){
+        Assert-LabAiComputeProperties $binding $bindingFields 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_INVALID'
+        $id=[string]$binding.DeviceId;$selector=[string]$binding.RuntimeSelector
+        if(-not $bindingIds.Add($id) -or -not $bindingSelectors.Add($selector) -or $selector -notmatch '^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$'){throw 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_INVALID'}
+        $bindings.Add([PSCustomObject]@{DeviceId=$id;RuntimeSelector=$selector})
+    }
+    $candidateIds=@($validation.Devices.DeviceId|Sort-Object)
+    if(($candidateIds -join ',') -cne ((@($bindings.DeviceId)|Sort-Object) -join ',')){throw 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_MISMATCH'}
     $selectors=@($validation.Devices|ForEach-Object {$id=$_.DeviceId;@($bindings|Where-Object DeviceId -CEQ $id)[0].RuntimeSelector})
     if($backend -eq 'LlamaCppCpu' -and ($selectors.Count -ne 1 -or $selectors[0] -cne 'none')){throw 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_MISMATCH'}
+    if($backend -ne 'LlamaCppCpu'){
+        $selectorPrefixes=switch($backend){LlamaCppCuda{@('CUDA')};LlamaCppRocm{@('ROCm','HIP')};LlamaCppVulkan{@('Vulkan')};LlamaCppSycl{@('SYCL')};LlamaCppOpenVino{@('OpenVINO')};default{@()}}
+        if(@($selectors|Where-Object {$selector=$_;@($selectorPrefixes|Where-Object {$selector.StartsWith($_,[StringComparison]::OrdinalIgnoreCase)}).Count -eq 0}).Count){throw 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_MISMATCH'}
+    }
     $profile=[ordered]@{Contract='SqlServerLab.AiComputeBenchmarkProfile/1.0';WorkloadKey=$WorkloadKey;Repetitions=$Repetitions;GeneratedTokens=$GeneratedTokens;BatchSize=$BatchSize;MicroBatchSize=$MicroBatchSize}
     $profileHash=Get-LabAiPlanKey $profile
     $arguments=@('-m',$modelItem.FullName,'-o','json','-r',[string]$Repetitions,'-p','0','-n',[string]$GeneratedTokens,'-b',[string]$BatchSize,'-ub',[string]$MicroBatchSize,'-ngl',$(if($backend -eq 'LlamaCppCpu'){'0'}else{'99'}),'-dev',($selectors -join '/'),'-sm',$(if($selectors.Count -gt 1){'layer'}else{'none'}),'--offline')

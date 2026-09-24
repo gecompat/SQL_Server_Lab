@@ -261,9 +261,10 @@ $selection = Get-SqlServerLabAiComputeSelection `
 `llama-bench` mit gesperrtem Netzwerkdownload (`--offline`) aus. Modell und alle
 unmittelbaren Paketbinärdateien werden vor und nach dem Lauf gehasht. Derselbe
 Profilhash bindet Wiederholungen, Generationslänge, Batch- und Microbatchgröße.
-Jede portable Geräte-ID benötigt eine explizite, eindeutige Zuordnung zum
-Runtime-Selector; mehrere Selektoren werden mit `/` als gemeinsamer Lauf an
-`llama-bench` übergeben. CPU verwendet ausschließlich `none`.
+Ohne `-DeviceBinding` liest der Befehl zuerst die aktuelle
+`llama-bench --list-devices`-Ausgabe und ordnet Kandidatengeräte anhand des
+eindeutig übereinstimmenden Gerätenamens zu. Mehrere Selektoren werden mit `/`
+als gemeinsamer Lauf übergeben. CPU verwendet ausschließlich `none`.
 
 ```powershell
 $benchmarks = foreach ($candidate in $candidateSet.Candidates | Where-Object Eligible) {
@@ -272,16 +273,16 @@ $benchmarks = foreach ($candidate in $candidateSet.Candidates | Where-Object Eli
     -Candidate $candidate `
     -RuntimeDirectory $runtimeDirectory `
     -ModelPath $modelPath `
-    -WorkloadKey sql-ai-generation `
-    -DeviceBinding $bindingsByCandidate[$candidate.CandidateId]
+    -WorkloadKey sql-ai-generation
 }
 ```
 
-Die Zuordnung zwischen portabler Hardware-ID und `llama.cpp`-Selector wird noch
-nicht automatisch hergeleitet. Sie muss deshalb bewusst für jeden Kandidaten
-angegeben werden; fehlende, doppelte oder widersprüchliche Bindungen blockieren
-vor dem Prozessstart. Erst genau ein gültiges Receipt je geeignetem Kandidaten
-erlaubt die automatische Auswahl.
+Eine explizite `-DeviceBinding` bleibt als Override verfügbar. Automatische
+Zuordnung fällt bei abweichenden Namen, fehlenden Selektoren und mehrdeutigen
+Teilgruppen identischer Geräte geschlossen aus. Ein vollständiger Kandidat aus
+gleich benannten identischen Geräten darf dagegen als Gesamtgruppe gebunden
+werden. Erst genau ein gültiges Receipt je geeignetem Kandidaten erlaubt die
+automatische Auswahl.
 
 Voraussetzungen sind ein passender Intel-NPU-Treiber, ein OpenVINO-Build von
 `llama.cpp`, ein geeignetes Embedding-GGUF sowie ein operationseigenes

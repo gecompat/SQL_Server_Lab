@@ -2469,11 +2469,12 @@ Inventarhash. Lokale llama.cpp-Receipts können inzwischen inhaltsgebunden in
 CPU-, CUDA-, ROCm-, Vulkan-, SYCL- und OpenVINO-Lanes übersetzt werden. Dieser
 Beleg hasht Paketbinärdateien und filtert Gerätearten sowie Hersteller, startet
 aber keine Runtime. Der neue `llama-bench`-Producer erzeugt dagegen gebundene
-Receipts für CPU-, NPU-, Einzel- und Mehr-GPU-Kandidaten, sofern jede portable
-Geräte-ID explizit einem vom Lauf ausgegebenen Runtime-Selector zugeordnet ist.
-Eine automatische Zuordnung dieser IDs zu CUDA-/HIP-/Vulkan-/SYCL-/OpenVINO-
-Ordinalen, Energieerfassung und eine native Matrix aller Hardwarekombinationen
-fehlen weiterhin. Ohne vollständige Receipts bleibt Auto geschlossen.
+Receipts für CPU-, NPU-, Einzel- und Mehr-GPU-Kandidaten. Ohne explizites
+Binding leitet er CUDA-/ROCm-/Vulkan-/SYCL-/OpenVINO-Selektoren aus der aktuellen
+`--list-devices`-Ausgabe ab. Die Zuordnung verlangt eindeutige normalisierte
+Gerätenamen; Teilmengen gleich benannter Geräte bleiben absichtlich blockiert.
+Energieerfassung und eine native Matrix aller Hardwarekombinationen fehlen
+weiterhin. Ohne vollständige Receipts bleibt Auto geschlossen.
 
 ### Eigener llama.cpp-Start
 
