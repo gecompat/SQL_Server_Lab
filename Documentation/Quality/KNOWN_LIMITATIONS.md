@@ -2473,8 +2473,14 @@ Receipts für CPU-, NPU-, Einzel- und Mehr-GPU-Kandidaten. Ohne explizites
 Binding leitet er CUDA-/ROCm-/Vulkan-/SYCL-/OpenVINO-Selektoren aus der aktuellen
 `--list-devices`-Ausgabe ab. Die Zuordnung verlangt eindeutige normalisierte
 Gerätenamen; Teilmengen gleich benannter Geräte bleiben absichtlich blockiert.
-Energieerfassung und eine native Matrix aller Hardwarekombinationen fehlen
-weiterhin. Ohne vollständige Receipts bleibt Auto geschlossen.
+Der Windows-Start kann die ausgewählte Kombination inzwischen konsumieren. Er
+prüft Inventar-, Runtime- und Modellhash, leitet eindeutige Runtime-Selektoren
+ab und attestiert die ausgewählten Geräte aus den eigenen Prozesslogs. Nur der
+mit `BenchmarkMode=Embedding` erzeugte Workload `sql-ai-embedding` ist für diesen
+Embedding-Lifecycle zulässig. Der
+bisherige explizite CUDA-/OpenVINO-Start bleibt verfügbar. Energieerfassung,
+Linux-Consumerintegration und eine native Matrix aller Hardwarekombinationen
+fehlen weiterhin. Ohne vollständige Receipts bleibt Auto geschlossen.
 
 ### Eigener llama.cpp-Start
 

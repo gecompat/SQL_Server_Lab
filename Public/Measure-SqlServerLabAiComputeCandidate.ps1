@@ -22,6 +22,11 @@
     Anzahl der von llama-bench auszuführenden Messwiederholungen.
 .PARAMETER GeneratedTokens
     Anzahl der pro Wiederholung zu erzeugenden Tokens.
+.PARAMETER BenchmarkMode
+    Generation misst Tokenausgabe; Embedding misst Promptverarbeitung eines
+    Embeddingmodells mit dem Workloadschlüssel sql-ai-embedding.
+.PARAMETER PromptTokens
+    Anzahl verarbeiteter Prompttokens je Embedding-Wiederholung.
 .PARAMETER BatchSize
     Logische llama.cpp-Batchgröße.
 .PARAMETER MicroBatchSize
@@ -42,6 +47,8 @@ function Measure-SqlServerLabAiComputeCandidate {
         [ValidateCount(1,16)][object[]]$DeviceBinding,
         [ValidateRange(3,30)][int]$Repetitions=5,
         [ValidateRange(1,4096)][int]$GeneratedTokens=128,
+        [ValidateSet('Generation','Embedding')][string]$BenchmarkMode='Generation',
+        [ValidateRange(1,4096)][int]$PromptTokens=512,
         [ValidateRange(1,4096)][int]$BatchSize=512,
         [ValidateRange(1,4096)][int]$MicroBatchSize=128,
         [ValidateRange(1,3600)][int]$TimeoutSeconds=900

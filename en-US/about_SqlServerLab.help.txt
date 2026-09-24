@@ -205,7 +205,8 @@ Sync-SqlServerLabRunScopedContainerStore
 
     Start-SqlServerLabLlamaCppRuntime
     Stop-SqlServerLabLlamaCppRuntime
-        Starts and stops an owned Windows embedding server with a bounded lease.
+        Starts and stops an owned Windows embedding server with an Auto/Pinned
+        compute selection or explicit device choice and a bounded lease.
 
     Start-SqlServerLabOvmsHttpsGateway
     Stop-SqlServerLabOvmsHttpsGateway

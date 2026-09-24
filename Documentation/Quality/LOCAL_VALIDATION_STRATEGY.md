@@ -1966,7 +1966,9 @@ synthetischen Prozessadapter: vollständige CPU-/Einzel-/Mehr-GPU-Coverage,
 automatisch eindeutige und explizite Geräteselektoren, blockierte identische
 Teilgruppen, identische Profilbindung, GGUF-Magic, Backend- und
 Runtimehashbindung, P95-/Durchsatzableitung, Auto-Übergabe sowie negative
-Ausgabe-, Duplikat- und Manipulationsfälle. Diese Offline-Suite führt kein echtes
+Ausgabe-, Duplikat- und Manipulationsfälle. Sie prüft außerdem den getrennten
+Embeddingmodus mit Prompttokens ohne Generationsausgabe und verhindert eine
+falsche Wiederverwendung des Embedding-Workloadschlüssels. Diese Offline-Suite führt kein echtes
 Modell aus; ein nativer Lauf bleibt ein getrennter Nachweis.
 
 `Invoke-AiComputeInventoryChecks.ps1` prüft synthetische Windows-/Linux-nahe
@@ -1983,8 +1985,11 @@ Suite prüft Pfadfreiheit, Duplikate, Binärdrift, fehlende Backenddateien und d
 
 ### Eigener llama.cpp-Lifecycle
 
-`Invoke-LlamaCppOwnedRuntimeChecks.ps1` prüft Accelerator-Evidence und negative
-Ownership. `Invoke-LlamaCppOwnershipAcceptance.ps1` führt echte Windows-Kinder
+`Invoke-LlamaCppOwnedRuntimeChecks.ps1` prüft Accelerator-Evidence, negative
+Ownership sowie die hashgebundene Übergabe einer Auto-/Pinned-Auswahl an CPU-,
+CUDA-, OpenVINO-, ROCm-, Vulkan-, SYCL- und Mehr-GPU-Startparameter. Die Suite
+verwendet synthetische Pakete, Geräte und Prozessausgaben.
+`Invoke-LlamaCppOwnershipAcceptance.ps1` führt echte Windows-Kinder
 für Ownerverlust, Lease-Ende und Worker-Kill aus. Die getrennte
 `Invoke-LlamaCppSqlAcceptance.ps1 -RuntimeDirectory <Paket> -ModelPath <GGUF>`
 benötigt Windows, CUDA, ein passendes 768-dimensionales Nomic-Embeddingmodell

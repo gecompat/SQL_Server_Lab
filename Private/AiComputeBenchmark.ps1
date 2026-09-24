@@ -99,11 +99,15 @@ function Invoke-LabAiComputeBenchmark {
         [ValidateCount(1,16)][object[]]$DeviceBinding,
         [ValidateRange(3,30)][int]$Repetitions=5,
         [ValidateRange(1,4096)][int]$GeneratedTokens=128,
+        [ValidateSet('Generation','Embedding')][string]$BenchmarkMode='Generation',
+        [ValidateRange(1,4096)][int]$PromptTokens=512,
         [ValidateRange(1,4096)][int]$BatchSize=512,
         [ValidateRange(1,4096)][int]$MicroBatchSize=128,
         [ValidateRange(1,3600)][int]$TimeoutSeconds=900,
         [scriptblock]$ProcessRunner
     )
+    if($BenchmarkMode -eq 'Embedding' -and $WorkloadKey -cne 'sql-ai-embedding'){throw 'AI_COMPUTE_BENCHMARK_WORKLOAD_MISMATCH'}
+    if($BenchmarkMode -eq 'Generation' -and $WorkloadKey -ceq 'sql-ai-embedding'){throw 'AI_COMPUTE_BENCHMARK_WORKLOAD_MISMATCH'}
     $Inventory=Assert-LabAiComputeInventoryReceipt -Inventory $Inventory
     $validation=Get-LabAiComputeSelection -WorkloadKey $WorkloadKey -ModelSha256 ('0'*64) -BenchmarkProfileSha256 ('0'*64) -InventorySha256 $Inventory.InventorySha256 -Candidate @($Candidate) -PinnedCandidateId ([string]$Candidate.CandidateId)
     $knownIds=@($Inventory.Devices.DeviceId)
@@ -156,9 +160,12 @@ function Invoke-LabAiComputeBenchmark {
         $selectorPrefixes=switch($backend){LlamaCppCuda{@('CUDA')};LlamaCppRocm{@('ROCm','HIP')};LlamaCppVulkan{@('Vulkan')};LlamaCppSycl{@('SYCL')};LlamaCppOpenVino{@('OpenVINO')};default{@()}}
         if(@($selectors|Where-Object {$selector=$_;@($selectorPrefixes|Where-Object {$selector.StartsWith($_,[StringComparison]::OrdinalIgnoreCase)}).Count -eq 0}).Count){throw 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_MISMATCH'}
     }
-    $profile=[ordered]@{Contract='SqlServerLab.AiComputeBenchmarkProfile/1.0';WorkloadKey=$WorkloadKey;Repetitions=$Repetitions;GeneratedTokens=$GeneratedTokens;BatchSize=$BatchSize;MicroBatchSize=$MicroBatchSize}
+    $profile=[ordered]@{Contract='SqlServerLab.AiComputeBenchmarkProfile/1.0';WorkloadKey=$WorkloadKey;BenchmarkMode=$BenchmarkMode;Repetitions=$Repetitions;GeneratedTokens=$GeneratedTokens;PromptTokens=$PromptTokens;BatchSize=$BatchSize;MicroBatchSize=$MicroBatchSize}
     $profileHash=Get-LabAiPlanKey $profile
-    $arguments=@('-m',$modelItem.FullName,'-o','json','-r',[string]$Repetitions,'-p','0','-n',[string]$GeneratedTokens,'-b',[string]$BatchSize,'-ub',[string]$MicroBatchSize,'-ngl',$(if($backend -eq 'LlamaCppCpu'){'0'}else{'99'}),'-dev',($selectors -join '/'),'-sm',$(if($selectors.Count -gt 1){'layer'}else{'none'}),'--offline')
+    $expectedPrompt=if($BenchmarkMode -eq 'Embedding'){$PromptTokens}else{0};$expectedGeneration=if($BenchmarkMode -eq 'Embedding'){0}else{$GeneratedTokens}
+    $arguments=@('-m',$modelItem.FullName,'-o','json','-r',[string]$Repetitions,'-p',[string]$expectedPrompt,'-n',[string]$expectedGeneration)
+    if($BenchmarkMode -eq 'Embedding'){$arguments+=@('-embd','1')}
+    $arguments+=@('-b',[string]$BatchSize,'-ub',[string]$MicroBatchSize,'-ngl',$(if($backend -eq 'LlamaCppCpu'){'0'}else{'99'}),'-dev',($selectors -join '/'),'-sm',$(if($selectors.Count -gt 1){'layer'}else{'none'}),'--offline')
     $environment=@{}
     if($backend -eq 'LlamaCppOpenVino'){$kinds=@($validation.Devices.Kind|Sort-Object -Unique);if($kinds.Count -ne 1){throw 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_MISMATCH'};$environment.GGML_OPENVINO_DEVICE=$kinds[0]}
     try{
@@ -168,7 +175,7 @@ function Invoke-LabAiComputeBenchmark {
     try{$records=@(([string]$result.StdOut|ConvertFrom-Json -Depth 30 -ErrorAction Stop))}catch{throw 'AI_COMPUTE_BENCHMARK_OUTPUT_INVALID'}
     if($records.Count -ne 1){throw 'AI_COMPUTE_BENCHMARK_OUTPUT_INVALID'};$record=$records[0]
     $samplesNs=@($record.samples_ns);$samplesTs=@($record.samples_ts)
-    if($samplesNs.Count -ne $Repetitions -or $samplesTs.Count -ne $Repetitions -or [int]$record.n_prompt -ne 0 -or [int]$record.n_gen -ne $GeneratedTokens -or [string]$record.devices -cne ($selectors -join '/') -or [string]$record.backends -notmatch ('(?i)'+$expectedToken)){throw 'AI_COMPUTE_BENCHMARK_OUTPUT_MISMATCH'}
+    if($samplesNs.Count -ne $Repetitions -or $samplesTs.Count -ne $Repetitions -or [int]$record.n_prompt -ne $expectedPrompt -or [int]$record.n_gen -ne $expectedGeneration -or [string]$record.devices -cne ($selectors -join '/') -or [string]$record.backends -notmatch ('(?i)'+$expectedToken)){throw 'AI_COMPUTE_BENCHMARK_OUTPUT_MISMATCH'}
     if(@($samplesNs|Where-Object {-not (Test-LabAiComputeFiniteNumber $_) -or [double]$_ -le 0}).Count -or @($samplesTs|Where-Object {-not (Test-LabAiComputeFiniteNumber $_) -or [double]$_ -le 0}).Count -or -not (Test-LabAiComputeFiniteNumber $record.avg_ts) -or [double]$record.avg_ts -le 0){throw 'AI_COMPUTE_BENCHMARK_OUTPUT_INVALID'}
     $throughput=(@($samplesTs|ForEach-Object {[double]$_})|Measure-Object -Average).Average
     if([Math]::Abs($throughput-[double]$record.avg_ts)/$throughput -gt 0.005){throw 'AI_COMPUTE_BENCHMARK_OUTPUT_INVALID'}
