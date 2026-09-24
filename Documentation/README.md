@@ -78,7 +78,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 118 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 120 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -158,6 +158,8 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabLlamaCppRuntime` | Lokale Windows-llama.cpp-Pakete ohne Hashpflicht und Prozessstart erkennen |
 | `Get-SqlServerLabLlamaCppModel` | Kuratierte offizielle Generations-GGUFs mit unveränderlicher Quelle und Hashbindung auflisten |
 | `Save-SqlServerLabLlamaCppModel` | Ein gewähltes GGUF bei Bedarf herunterladen, prüfen und atomisch im MediaRoot veröffentlichen |
+| `Get-SqlServerLabAiComputeInventory` | Lokale CPU-, GPU- und NPU-Geräte read-only inventarisieren und nur bei vollständiger Coverage hashen |
+| `Get-SqlServerLabAiComputeCandidate` | Alle von Runtime-Fähigkeiten erlaubten Einzel-, Mehrgeräte- und Mischkandidaten bilden |
 | `Get-SqlServerLabAiComputeSelection` | Benchmarkgebundene Auto-Auswahl über CPU, NPU und GPU-Kombinationen oder explizite Fixierung planen |
 | `Get-SqlServerLabAiExternalModelPlan` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt für SQL `CREATE EXTERNAL MODEL` planen; keine Probe oder Hostmutation |
 | `Get-SqlServerLabAiExternalModelSqlPlan` | Frisches Endpoint-Receipt an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden; keine SQL-Verbindung oder Mutation |

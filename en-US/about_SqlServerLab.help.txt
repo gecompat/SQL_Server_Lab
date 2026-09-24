@@ -224,6 +224,14 @@ Sync-SqlServerLabRunScopedContainerStore
         Downloads an explicitly selected catalog model on demand and publishes
         it under the media root only after complete verification.
 
+    Get-SqlServerLabAiComputeInventory
+        Inventories local CPU, GPU, and NPU devices read-only. Missing coverage
+        remains INCOMPLETE and receives no usable inventory hash.
+
+    Get-SqlServerLabAiComputeCandidate
+        Builds every allowed single-, multi-device, and mixed candidate from a
+        complete inventory and runtime capabilities without silent truncation.
+
     Get-SqlServerLabAiComputeSelection
         Selects the fastest fully and comparably benchmarked eligible CPU,
         NPU, or GPU combination by default. An explicit candidate pin overrides

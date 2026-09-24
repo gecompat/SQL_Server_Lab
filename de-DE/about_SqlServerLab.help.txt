@@ -230,6 +230,14 @@ Sync-SqlServerLabRunScopedContainerStore
         Lädt ein explizit ausgewähltes Katalogmodell bei Bedarf in die
         Medienwurzel und veröffentlicht es erst nach vollständiger Prüfung.
 
+    Get-SqlServerLabAiComputeInventory
+        Inventarisiert lokale CPU-, GPU- und NPU-Geräte read-only. Fehlende
+        Coverage bleibt INCOMPLETE und erhält keinen verwendbaren Inventarhash.
+
+    Get-SqlServerLabAiComputeCandidate
+        Bildet aus vollständigem Inventar und Runtime-Fähigkeiten alle erlaubten
+        Einzel-, Mehrgeräte- und gemischten Kandidaten ohne stilles Abschneiden.
+
     Get-SqlServerLabAiComputeSelection
         Wählt standardmäßig die schnellste vollständig und vergleichbar
         benchmarkte geeignete CPU-/NPU-/GPU-Kombination. Eine explizite

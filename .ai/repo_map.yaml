@@ -70,6 +70,12 @@ sources_of_truth:
   ai_vector_index_assertions: Tests/Integration/Fixtures/VectorIndex/1.0/assert.sql
   ai_endpoint_contract: Private/AiEndpoint.ps1
   ai_compute_selection_contract: Private/AiComputeSelection.ps1
+  ai_compute_inventory_contract: Private/AiComputeInventory.ps1
+  ai_compute_inventory_api: Public/Get-SqlServerLabAiComputeInventory.ps1
+  ai_compute_candidate_api: Public/Get-SqlServerLabAiComputeCandidate.ps1
+  ai_compute_inventory_schema: Schemas/ai-compute-inventory.schema.json
+  ai_compute_candidate_set_schema: Schemas/ai-compute-candidate-set.schema.json
+  validation_ai_compute_inventory: Tests/Static/Invoke-AiComputeInventoryChecks.ps1
   ai_compute_selection_api: Public/Get-SqlServerLabAiComputeSelection.ps1
   ai_compute_selection_schema: Schemas/ai-compute-selection.schema.json
   validation_ai_compute_selection: Tests/Static/Invoke-AiComputeSelectionChecks.ps1

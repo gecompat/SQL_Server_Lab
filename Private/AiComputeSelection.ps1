@@ -50,7 +50,7 @@ function Get-LabAiComputeSelection {
         Assert-LabAiComputeProperties $item $candidateFields 'AI_COMPUTE_CANDIDATE_INVALID'
         $id=[string]$item.CandidateId;$runtimeHash=[string]$item.RuntimeSha256;$backend=[string]$item.Backend
         if($id -notmatch '^[a-z0-9][a-z0-9._-]{0,127}$' -or -not $candidateIds.Add($id) -or
-            $backend -notin $backendValues -or $runtimeHash -notmatch '^[a-fA-F0-9]{64}$' -or
+            $backend -cnotin $backendValues -or $runtimeHash -notmatch '^[a-fA-F0-9]{64}$' -or
             $item.Eligible -isnot [bool]) { throw 'AI_COMPUTE_CANDIDATE_INVALID' }
         $devices=@($item.Devices)
         if($devices.Count -lt 1 -or $devices.Count -gt 16){throw 'AI_COMPUTE_DEVICE_SET_INVALID'}
@@ -58,7 +58,7 @@ function Get-LabAiComputeSelection {
         foreach($device in $devices) {
             Assert-LabAiComputeProperties $device $deviceFields 'AI_COMPUTE_DEVICE_INVALID'
             $kind=[string]$device.Kind;$deviceId=[string]$device.DeviceId
-            if($kind -notin @('CPU','GPU','NPU') -or $deviceId -notmatch '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$' -or
+            if($kind -cnotin @('CPU','GPU','NPU') -or $deviceId -notmatch '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$' -or
                 -not $deviceIds.Add($deviceId)){throw 'AI_COMPUTE_DEVICE_INVALID'}
             $normalizedDevices.Add([PSCustomObject]@{Kind=$kind;DeviceId=$deviceId})
         }
@@ -68,7 +68,7 @@ function Get-LabAiComputeSelection {
             ([bool]$item.Eligible -and $blockers.Count) -or (-not [bool]$item.Eligible -and -not $blockers.Count)) {
             throw 'AI_COMPUTE_CANDIDATE_ELIGIBILITY_INVALID'
         }
-        $identity=$backend+'|'+(($normalizedDeviceArray|ForEach-Object {$_.Kind+':'+$_.DeviceId}) -join ',')
+        $identity=$backend+'|'+$runtimeHash.ToLowerInvariant()+'|'+(($normalizedDeviceArray|ForEach-Object {$_.Kind+':'+$_.DeviceId}) -join ',')
         if(-not $candidateIdentities.Add($identity)){throw 'AI_COMPUTE_CANDIDATE_DUPLICATE'}
         $normalizedCandidates.Add([PSCustomObject]@{CandidateId=$id;Backend=$backend;RuntimeSha256=$runtimeHash.ToLowerInvariant();Devices=$normalizedDeviceArray;Eligible=[bool]$item.Eligible;Blockers=@($blockers|Sort-Object -Unique)})
     }

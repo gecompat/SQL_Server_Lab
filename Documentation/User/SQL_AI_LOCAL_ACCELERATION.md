@@ -188,6 +188,29 @@ Mehr-GPU-Kandidaten. Die Katalogstufe ersetzt diese Messung nicht.
 
 ### Benchmarkgebundene Gerätewahl
 
+`Get-SqlServerLabAiComputeInventory` liest den lokalen Host ohne Runtime-Start.
+Unter Windows verwendet es CIM für CPU und Displaygeräte sowie die vorhandene
+`ComputeAccelerator`-PnP-Klasse für NPUs. Unter Linux liest es `/proc/cpuinfo`,
+DRM-sysfs und `/sys/class/accel`. Rohe PnP-Instanz- und PCI-Buspfade werden nur
+zum Deduplizieren verwendet und nicht ausgegeben. Wenn CPU-, GPU- oder
+NPU-Coverage nicht verfügbar ist, bleibt das Receipt `INCOMPLETE` und besitzt
+keinen verwendbaren Inventarhash.
+
+```powershell
+$inventory = Get-SqlServerLabAiComputeInventory
+$candidateSet = Get-SqlServerLabAiComputeCandidate `
+  -Inventory $inventory `
+  -RuntimeCapability $verifiedRuntimeCapabilities
+```
+
+Jede Runtime-Fähigkeit begrenzt Gerätearten, Hersteller-IDs, minimale und maximale Gerätezahl,
+gemischte Gerätearten sowie Eligibility und Blocker. `VendorIds = @('*')` erlaubt
+alle Hersteller; der Wildcard darf nicht mit einzelnen Hersteller-IDs gemischt werden. Innerhalb dieser Grenzen
+werden alle Kombinationen gebildet. Mehr als 64 Kandidaten werden sichtbar
+abgewiesen; die Funktion schneidet die Kandidatenmenge nie still ab. Die
+Fähigkeiten sind derzeit Eingabeevidence und noch nicht automatisch an die
+llama.cpp-Paketerkennung gebunden.
+
 `Get-SqlServerLabAiComputeSelection` setzt `Auto` als Standard um. Jeder
 Kandidat benennt Backend, Runtime-SHA-256 und ein Set aus einem oder mehreren
 CPU-, NPU- oder GPU-Geräten. Damit sind einzelne Beschleuniger, mehrere
@@ -208,7 +231,7 @@ $selection = Get-SqlServerLabAiComputeSelection `
   -ModelSha256 $modelHash `
   -BenchmarkProfileSha256 $profileHash `
   -InventorySha256 $inventoryHash `
-  -Candidate $completeInventory `
+  -Candidate $candidateSet.Candidates `
   -Benchmark $comparableReceipts
 ```
 
@@ -221,14 +244,13 @@ $selection = Get-SqlServerLabAiComputeSelection `
   -ModelSha256 $modelHash `
   -BenchmarkProfileSha256 $profileHash `
   -InventorySha256 $inventoryHash `
-  -Candidate $completeInventory `
+  -Candidate $candidateSet.Candidates `
   -PinnedCandidateId rtx5080-pair
 ```
 
-Der Befehl ist ein deterministischer Auswahlkern. Er inventarisiert keine
-Hardware, führt keinen Benchmark aus und startet keine Runtime. Bis diese
-Producer angebunden sind, müssen Kandidaten und Receipts aus einem getrennt
-geprüften Inventar- und Benchmarklauf stammen.
+Die Befehle starten keine Runtime und führen keinen Benchmark aus. Bis der
+Benchmarkproducer angebunden ist, müssen Receipts aus einem getrennt geprüften
+Benchmarklauf stammen.
 
 Voraussetzungen sind ein passender Intel-NPU-Treiber, ein OpenVINO-Build von
 `llama.cpp`, ein geeignetes Embedding-GGUF sowie ein operationseigenes

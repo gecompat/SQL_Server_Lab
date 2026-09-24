@@ -1961,6 +1961,12 @@ Eingabereihenfolge, Throughput-/P95-Tie-Breaks, Pinned-Override und negative
 Binding-, Eligibility-, Duplikat-, Teilfehler- und NaN-Fälle. Die Suite erzeugt
 nur synthetische Receipts und greift auf keine Hosthardware zu.
 
+`Invoke-AiComputeInventoryChecks.ps1` prüft synthetische Windows-/Linux-nahe
+CPU-, GPU- und NPU-Probes, stabile datenschutzbegrenzte Inventarhashes sowie die
+vollständige Potenzmengenbildung innerhalb expliziter Runtimegrenzen. Sie prüft
+Mehr-GPU- und gemischte Sets, Manipulation, fehlende Coverage und die
+fail-closed 64-Kandidaten-Grenze ohne echten Geräte- oder Runtimezugriff.
+
 ### Eigener llama.cpp-Lifecycle
 
 `Invoke-LlamaCppOwnedRuntimeChecks.ps1` prüft Accelerator-Evidence und negative

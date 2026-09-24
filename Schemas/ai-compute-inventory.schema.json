@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/sql-server-lab/ai-compute-inventory.schema.json",
+  "type": "object",
+  "required": ["Contract","Status","Platform","Coverage","Devices","Blockers","InventorySha256"],
+  "properties": {
+    "Contract": {"const":"SqlServerLab.AiComputeInventory/1.0"},
+    "Status": {"enum":["COMPLETE","INCOMPLETE"]},
+    "Platform": {"enum":["Windows","Linux","Unsupported"]},
+    "Coverage": {"type":"array","minItems":3,"maxItems":3,"items":{"type":"object","required":["Kind","Status","Method"],"properties":{"Kind":{"enum":["CPU","GPU","NPU"]},"Status":{"enum":["VERIFIED","UNAVAILABLE"]},"Method":{"type":"string","pattern":"^[A-Z][A-Z0-9_]{2,63}$"}},"additionalProperties":false}},
+    "Devices": {"type":"array","items":{"type":"object","required":["Kind","DeviceId","VendorId","ProductId","DisplayName"],"properties":{"Kind":{"enum":["CPU","GPU","NPU"]},"DeviceId":{"type":"string","pattern":"^(cpu|gpu|npu):[a-z0-9][a-z0-9._-]{0,63}:[a-z0-9][a-z0-9._-]{0,63}:[0-9]+$"},"VendorId":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,63}$"},"ProductId":{"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{0,63}$"},"DisplayName":{"type":"string","minLength":1,"maxLength":128}},"additionalProperties":false}},
+    "Blockers": {"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[A-Z][A-Z0-9_]{2,127}$"}},
+    "InventorySha256": {"anyOf":[{"type":"string","pattern":"^[a-f0-9]{64}$"},{"type":"null"}]}
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {"if":{"properties":{"Status":{"const":"COMPLETE"}}},"then":{"properties":{"Blockers":{"maxItems":0},"InventorySha256":{"type":"string"}}}},
+    {"if":{"properties":{"Status":{"const":"INCOMPLETE"}}},"then":{"properties":{"Blockers":{"minItems":1},"InventorySha256":{"type":"null"}}}}
+  ]
+}
