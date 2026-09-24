@@ -2,6 +2,28 @@
 
 End-to-End-Test des gesamten Lab-Lifecycles.
 
+## Nativer KI-Compute-Benchmark
+
+`Invoke-AiComputeBenchmarkAcceptance.ps1` inventarisiert den aktuellen Host,
+bindet ein oder mehrere lokale llama.cpp-Pakete inhaltsbasiert, bildet alle
+geeigneten CPU-, GPU-, NPU-, Mehr-GPU- und gemischten Kandidaten und misst sie
+nacheinander mit demselben Profil. Der Lauf besteht nur bei vollständiger
+Coverage und wenn die veröffentlichte Auswahl dem höchsten gemessenen Durchsatz
+entspricht. Optional schreibt `-EvidencePath` ein pfadfreies, schema-validiertes
+Receipt atomar in ein bereits vorhandenes lokales Verzeichnis.
+
+```powershell
+.\Tests\Integration\Invoke-AiComputeBenchmarkAcceptance.ps1 `
+  -RuntimeDirectory C:\llama\cpu,C:\llama\cuda `
+  -ModelPath C:\models\embedding.gguf `
+  -WorkloadKey sql-ai-embedding -BenchmarkMode Embedding `
+  -EvidencePath C:\evidence\ai-compute-benchmark.json
+```
+
+Der Runner lädt keine Runtime und kein Modell herunter, startet keinen SQL-
+Provider und verändert keine fremden Prozesse. Der native Nachweis ist deshalb
+opt-in und benötigt ausdrücklich freigegebene lokale Pfade.
+
 ## SQL-2022-/SQL-2025-Upgrade-Referenz
 
 `Invoke-SqlVersionUpgradeAcceptance.ps1 -Provider docker` beziehungsweise
