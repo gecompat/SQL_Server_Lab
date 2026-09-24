@@ -1968,7 +1968,9 @@ Teilgruppen, identische Profilbindung, GGUF-Magic, Backend- und
 Runtimehashbindung, P95-/Durchsatzableitung, Auto-Übergabe sowie negative
 Ausgabe-, Duplikat- und Manipulationsfälle. Sie prüft außerdem den getrennten
 Embeddingmodus mit Prompttokens ohne Generationsausgabe und verhindert eine
-falsche Wiederverwendung des Embedding-Workloadschlüssels. Diese Offline-Suite führt kein echtes
+falsche Wiederverwendung des Embedding-Workloadschlüssels. Die gleiche Suite
+prüft die vollständige Mengensmessung, Runtimehash-Zuordnung, direkte
+Schnellstauswahl und fail-closed fehlende Pakete oder Teilreceipts. Diese Offline-Suite führt kein echtes
 Modell aus; ein nativer Lauf bleibt ein getrennter Nachweis.
 
 `Invoke-AiComputeInventoryChecks.ps1` prüft synthetische Windows-/Linux-nahe

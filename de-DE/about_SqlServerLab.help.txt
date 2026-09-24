@@ -252,6 +252,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Führt llama-bench offline für einen automatisch eindeutig oder explizit
         an Runtime-Geräteselektoren gebundenen Kandidaten aus.
 
+    Measure-SqlServerLabAiComputeCandidateSet
+        Misst alle geeigneten Kandidaten nacheinander mit identischem Profil und
+        liefert nur bei vollständiger Coverage direkt die schnellste Auswahl.
+
     Get-SqlServerLabAiExternalModelPlan
         Plant einen vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt
         hashgebunden und ohne Netzwerk- oder Hostmutation.

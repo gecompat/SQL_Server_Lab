@@ -30,6 +30,7 @@
         'Get-SqlServerLabAiComputeCandidate'
         'Get-SqlServerLabAiComputeSelection'
         'Measure-SqlServerLabAiComputeCandidate'
+        'Measure-SqlServerLabAiComputeCandidateSet'
         'Get-SqlServerLabAiExternalModelPlan'
         'Get-SqlServerLabAiExternalModelSqlPlan'
         'Get-SqlServerLabLlamaCppRuntime'

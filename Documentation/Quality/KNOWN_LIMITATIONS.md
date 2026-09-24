@@ -2473,6 +2473,11 @@ Receipts für CPU-, NPU-, Einzel- und Mehr-GPU-Kandidaten. Ohne explizites
 Binding leitet er CUDA-/ROCm-/Vulkan-/SYCL-/OpenVINO-Selektoren aus der aktuellen
 `--list-devices`-Ausgabe ab. Die Zuordnung verlangt eindeutige normalisierte
 Gerätenamen; Teilmengen gleich benannter Geräte bleiben absichtlich blockiert.
+Die Mengensmessung führt alle geeigneten Optionen mit einem identischen Profil
+nacheinander aus, ordnet mehrere Pakete über deren Runtimehash zu und liefert
+nur nach vollständiger Coverage direkt die schnellste Auswahl. Sie parallelisiert
+die Messungen absichtlich nicht, damit Kandidaten nicht um dieselben Hostressourcen
+konkurrieren.
 Der Windows-/Linux-Start kann die ausgewählte Kombination inzwischen konsumieren. Er
 prüft Inventar-, Runtime- und Modellhash, leitet eindeutige Runtime-Selektoren
 ab und attestiert die ausgewählten Geräte aus den eigenen Prozesslogs. Nur der

@@ -86,6 +86,8 @@ sources_of_truth:
   ai_compute_benchmark_contract: Private/AiComputeBenchmark.ps1
   ai_compute_benchmark_api: Public/Measure-SqlServerLabAiComputeCandidate.ps1
   ai_compute_benchmark_schema: Schemas/ai-compute-benchmark.schema.json
+  ai_compute_benchmark_set_api: Public/Measure-SqlServerLabAiComputeCandidateSet.ps1
+  ai_compute_benchmark_set_schema: Schemas/ai-compute-benchmark-set.schema.json
   validation_ai_compute_benchmark: Tests/Static/Invoke-AiComputeBenchmarkChecks.ps1
   ai_model_catalog: Catalogs/ai-models.json
   ai_model_catalog_schema: Schemas/ai-model-catalog.schema.json
