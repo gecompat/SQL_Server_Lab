@@ -1,6 +1,6 @@
 # Lokale beschleunigte Embeddings für SQL Server 2025
 
-Dieses How-to trennt implementierte Discovery und Windows-Start von noch
+Dieses How-to trennt implementierte Discovery und Windows-/Linux-Start von noch
 offenen Backend-/Modellkombinationen. Es installiert nichts automatisch.
 Für die übrigen Backend-/Modellpaare besteht kein allgemeiner nativer Projektnachweis.
 Der bestehende
@@ -290,7 +290,7 @@ gleich benannten identischen Geräten darf dagegen als Gesamtgruppe gebunden
 werden. Erst genau ein gültiges Receipt je geeignetem Kandidaten erlaubt die
 automatische Auswahl.
 
-Unter Windows kann dieselbe Auswahl direkt den eigenen Embeddingserver starten.
+Unter Windows und Linux kann dieselbe Auswahl direkt den eigenen Embeddingserver starten.
 Der Start prüft Inventar-, Runtime- und Modellhash erneut und verwendet die
 gebundenen Selektoren; `PINNED` folgt demselben Pfad:
 
@@ -563,7 +563,7 @@ dieser Discovery-Vertrag startet keinen Dienst. Optionale Artifact-Evidence
 bindet erst die konkret ausgewählten Dateien. Der bestehende hashgebundene
 Endpointplan ist ein separater Vertrag und keine Voraussetzung der Discovery.
 
-## Eigenen Windows-Server starten und beenden
+## Eigenen Windows- oder Linux-Server starten und beenden
 
 Der explizite Altmodus benötigt keine vorab bekannten Runtime- oder Modellhashes:
 
@@ -585,6 +585,14 @@ finally {
   Stop-SqlServerLabLlamaCppRuntime -OperationId $runtime.OperationId
 }
 ```
+
+Unter Linux ist der benchmarkgebundene Auswahlmodus für CPU, ROCm, Vulkan und
+weitere erkannte llama.cpp-Lanes vorgesehen. Der Worker verlangt das übliche
+util-linux-Werkzeug `setpriv` und setzt `--pdeathsig KILL`, damit der eigene
+Server bei Verlust des Workers vom Kernel beendet wird. Operationsverzeichnis
+und API-Key erhalten `0700` beziehungsweise `0600`. Fehlt `setpriv`, startet
+kein Server. Die Listenerzuordnung wird über `/proc/net/tcp*` und die
+Socketdeskriptoren exakt gegen die eigene Prozess-ID geprüft.
 
 Der API-Key ist ein SecureString aus 24 bis 256 ASCII-Buchstaben, Ziffern,
 Unterstrichen oder Bindestrichen. Das Zertifikat braucht einen IP-SAN für

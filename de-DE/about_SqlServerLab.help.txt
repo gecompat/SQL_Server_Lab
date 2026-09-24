@@ -211,7 +211,7 @@ Sync-SqlServerLabRunScopedContainerStore
 
     Start-SqlServerLabLlamaCppRuntime
     Stop-SqlServerLabLlamaCppRuntime
-        Startet und beendet einen eigenen zeitlich begrenzten Windows-Embeddingserver
+        Startet und beendet einen eigenen zeitlich begrenzten Windows-/Linux-Embeddingserver
         mit Auto-/Pinned-ComputeSelection oder expliziter Gerätewahl.
 
     Start-SqlServerLabOvmsHttpsGateway

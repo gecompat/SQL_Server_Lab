@@ -18,8 +18,7 @@ function Stop-LabLlamaCppOwnedRuntime {
                 Start-Sleep -Milliseconds 100
             } while($exitWatch.Elapsed.TotalSeconds -lt 5)
             if($sameProcess){throw 'LLAMA_RECOVERY_REQUIRED'}
-            $remaining=@(Get-NetTCPConnection -LocalPort $session.Port -State Listen -ErrorAction SilentlyContinue|Where-Object OwningProcess -eq $receipt.ProcessId)
-            if($remaining.Count){throw 'LLAMA_RECOVERY_REQUIRED'}
+            if(Test-LabLlamaCppListenerOwner -Port $session.Port -ProcessId $receipt.ProcessId){throw 'LLAMA_RECOVERY_REQUIRED'}
         }
         $keyPath=Join-Path $session.OperationRoot 'api-key.txt'
         if(Test-Path -LiteralPath $keyPath){Remove-Item -LiteralPath $keyPath -Force}
@@ -27,6 +26,62 @@ function Stop-LabLlamaCppOwnedRuntime {
         [PSCustomObject]@{Contract='SqlServerLab.LlamaCppCleanup/1.0';OperationId=$OperationId;Status='CLEANUP_SUCCEEDED'}
     }
     finally {if($cleanupSucceeded){$worker.Dispose()}}
+}
+
+function Protect-LabLlamaCppOperationPath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path,[switch]$File)
+    if($IsWindows){
+        if($File){
+            $acl=[Security.AccessControl.FileSecurity]::new()
+        }else{$acl=[Security.AccessControl.DirectorySecurity]::new()}
+        $acl.SetAccessRuleProtection($true,$false)
+        $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
+        $rights=if($File){'Read,Write'}else{'FullControl'}
+        $inheritance=if($File){'None'}else{'ContainerInherit,ObjectInherit'}
+        $rule=[Security.AccessControl.FileSystemAccessRule]::new($sid,$rights,$inheritance,'None','Allow')
+        $acl.AddAccessRule($rule);Set-Acl -LiteralPath $Path -AclObject $acl
+        return
+    }
+    if($IsLinux){
+        $mode=[IO.UnixFileMode]::UserRead-bor[IO.UnixFileMode]::UserWrite
+        if(-not $File){$mode=$mode-bor[IO.UnixFileMode]::UserExecute}
+        [IO.File]::SetUnixFileMode($Path,$mode);return
+    }
+    throw 'LLAMA_PLATFORM_UNSUPPORTED'
+}
+
+function Test-LabLlamaCppListenerOwner {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][int]$Port,
+        [Parameter(Mandatory)][int]$ProcessId,
+        [string]$ProcRoot='/proc',
+        [string[]]$TcpRecord,
+        [string[]]$DescriptorTarget
+    )
+    if($IsWindows -and -not $PSBoundParameters.ContainsKey('TcpRecord')){
+        return [bool]@(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue|Where-Object OwningProcess -eq $ProcessId).Count
+    }
+    $wantedPort=$Port.ToString('X4',[Globalization.CultureInfo]::InvariantCulture)
+    $inodes=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+    $records=if($PSBoundParameters.ContainsKey('TcpRecord')){@($TcpRecord)}else{
+        @(@('tcp','tcp6')|ForEach-Object {$table=Join-Path $ProcRoot "net/$_";if(Test-Path -LiteralPath $table -PathType Leaf){Get-Content -LiteralPath $table -ErrorAction Stop|Select-Object -Skip 1}})
+    }
+    foreach($line in $records){
+        $fields=@($line.Trim()-split '\s+')
+        if($fields.Count -ge 10 -and $fields[1] -match (':'+$wantedPort+'$') -and $fields[3] -ceq '0A'){$null=$inodes.Add([string]$fields[9])}
+    }
+    if(-not $inodes.Count){return $false}
+    $targets=if($PSBoundParameters.ContainsKey('DescriptorTarget')){@($DescriptorTarget)}else{
+        $fdRoot=Join-Path $ProcRoot "$ProcessId/fd"
+        if(-not (Test-Path -LiteralPath $fdRoot -PathType Container)){return $false}
+        @(Get-ChildItem -LiteralPath $fdRoot -Force -ErrorAction Stop|ForEach-Object {if($_.Target){[string]$_.Target}elseif($_.PSObject.Properties.Name -contains 'LinkTarget'){[string]$_.LinkTarget}})
+    }
+    foreach($target in $targets){
+        if($target -match '^socket:\[(?<inode>[0-9]+)\]$' -and $inodes.Contains($Matches.inode)){return $true}
+    }
+    return $false
 }
 
 function Resolve-LabLlamaCppComputeSelection {
@@ -108,9 +163,11 @@ function Start-LabLlamaCppOwnedRuntime {
         [ValidateRange(32,8192)][int]$ContextSize=512,
         [switch]$CaptureArtifactEvidence
     )
-    if(-not $IsWindows){throw 'LLAMA_WINDOWS_REQUIRED'}
+    if(-not $IsWindows -and -not $IsLinux){throw 'LLAMA_PLATFORM_UNSUPPORTED'}
     if($LeaseSeconds -le $StartTimeoutSeconds){throw 'LLAMA_LEASE_MUST_EXCEED_START_TIMEOUT'}
-    $runtime=@(Find-LabLlamaCppRuntime -SearchRoot $RuntimeDirectory | Where-Object InstallationPath -eq ([IO.Path]::GetFullPath($RuntimeDirectory).TrimEnd('\')))
+    $runtimeRoot=[IO.Path]::TrimEndingDirectorySeparator([IO.Path]::GetFullPath($RuntimeDirectory))
+    $pathComparer=if($IsWindows){[StringComparer]::OrdinalIgnoreCase}else{[StringComparer]::Ordinal}
+    $runtime=@(Find-LabLlamaCppRuntime -SearchRoot $RuntimeDirectory | Where-Object {$pathComparer.Equals([string]$_.InstallationPath,$runtimeRoot)})
     if($runtime.Count -ne 1){throw 'LLAMA_RUNTIME_SELECTION_MISMATCH'}
     if($PSCmdlet.ParameterSetName -eq 'Explicit' -and $runtime[0].Backend -ne $Backend){throw 'LLAMA_RUNTIME_SELECTION_MISMATCH'}
     if($PSCmdlet.ParameterSetName -eq 'Explicit' -and $Backend -eq 'LlamaCppCuda' -and $Accelerator -eq 'NPU'){throw 'LLAMA_ACCELERATOR_UNSUPPORTED'}
@@ -140,19 +197,14 @@ function Start-LabLlamaCppOwnedRuntime {
     $operationId=[guid]::NewGuid().ToString('D')
     $operationRoot=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-llama-owned-'+$operationId)
     $null=[IO.Directory]::CreateDirectory($operationRoot)
-    $acl=[Security.AccessControl.DirectorySecurity]::new()
-    $acl.SetAccessRuleProtection($true,$false)
-    $sid=[Security.Principal.WindowsIdentity]::GetCurrent().User
-    $rule=[Security.AccessControl.FileSystemAccessRule]::new($sid,'FullControl','ContainerInherit,ObjectInherit','None','Allow')
-    $acl.AddAccessRule($rule)
-    Set-Acl -LiteralPath $operationRoot -AclObject $acl
+    Protect-LabLlamaCppOperationPath -Path $operationRoot
     $keyPath=Join-Path $operationRoot 'api-key.txt'
     $worker=$null;$registered=$false;$modelReadLock=$null;$runtimeReadLock=$null
     try {
         $modelReadLock=[IO.File]::Open($ModelPath,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
         $runtimeReadLock=[IO.File]::Open($runtime.Invocation,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
         $plain=ConvertFrom-LabSecureString $ApiKey
-        try{if($plain -notmatch '^[A-Za-z0-9_-]{24,256}$'){throw 'LLAMA_API_KEY_FORMAT'};[IO.File]::WriteAllText($keyPath,$plain)}finally{$plain=$null}
+        try{if($plain -notmatch '^[A-Za-z0-9_-]{24,256}$'){throw 'LLAMA_API_KEY_FORMAT'};[IO.File]::WriteAllText($keyPath,$plain);Protect-LabLlamaCppOperationPath -Path $keyPath -File}finally{$plain=$null}
         $environment=@{}
         $selectors=if($selectedConfiguration){@($selectedConfiguration.RuntimeSelectors)}else{@($(if($Accelerator -eq 'CPU' -and $Backend -eq 'LlamaCppCuda'){'none'}elseif($Backend -eq 'LlamaCppCuda'){'CUDA0'}else{'OPENVINO0'}))}
         $device=$selectors -join ','
@@ -163,7 +215,15 @@ function Start-LabLlamaCppOwnedRuntime {
             '--parallel','1','--device',$device,'--split-mode',$(if($selectors.Count -gt 1){'layer'}else{'none'}),'--gpu-layers',$layers,'--fit','off','--offline','--log-verbosity','4',
             '--host','127.0.0.1','--port',[string]$Port,'--ssl-cert-file',$CertificatePath,
             '--ssl-key-file',$PrivateKeyPath,'--api-key-file',$keyPath,'--no-webui')
-        $request=[ordered]@{Contract='SqlServerLab.LlamaCppOwnedRequest/1.0';CleanupPolicy='OWN_JOB_TERMINATE_AND_REMOVE_API_KEY';OperationId=$operationId;Invocation=$runtime.Invocation;Arguments=$arguments;Environment=$environment;LeaseSeconds=$LeaseSeconds;StartTimeoutSeconds=$StartTimeoutSeconds}
+        $supervisor=$null
+        if($IsLinux){
+            $supervisor=(Get-Command setpriv -CommandType Application -ErrorAction SilentlyContinue|Select-Object -First 1).Source
+            if(-not $supervisor){throw 'LLAMA_LINUX_SUPERVISOR_REQUIRED'}
+            $supervisorItem=Get-Item -LiteralPath $supervisor -Force -ErrorAction Stop
+            if($supervisorItem -isnot [IO.FileInfo] -or ($supervisorItem.Attributes -band [IO.FileAttributes]::ReparsePoint)){throw 'LLAMA_LINUX_SUPERVISOR_INVALID'}
+            $supervisor=$supervisorItem.FullName
+        }
+        $request=[ordered]@{Contract='SqlServerLab.LlamaCppOwnedRequest/1.0';CleanupPolicy=if($IsWindows){'OWN_JOB_TERMINATE_AND_REMOVE_API_KEY'}else{'PARENT_DEATH_SIGNAL_TERMINATE_AND_REMOVE_API_KEY'};OperationId=$operationId;Invocation=$runtime.Invocation;SupervisorInvocation=$supervisor;Arguments=$arguments;Environment=$environment;LeaseSeconds=$LeaseSeconds;StartTimeoutSeconds=$StartTimeoutSeconds}
         $requestPath=Join-Path $operationRoot 'request.json'
         [IO.File]::WriteAllText($requestPath,($request|ConvertTo-Json -Depth 10))
         $start=[Diagnostics.ProcessStartInfo]::new((Get-Command pwsh -CommandType Application | Select-Object -First 1).Source)
@@ -181,9 +241,8 @@ function Start-LabLlamaCppOwnedRuntime {
             if($worker.HasExited){throw 'LLAMA_WORKER_EXITED'}
             $receipt=if(Test-Path -LiteralPath $session.ReceiptPath){Get-Content -LiteralPath $session.ReceiptPath -Raw|ConvertFrom-Json}else{$null}
             if($receipt.Status -eq 'RUNNING') {
-                $listeners=@(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
-                if($listeners.Count -and @($listeners|Where-Object OwningProcess -ne $receipt.ProcessId).Count){throw 'LLAMA_PORT_OWNERSHIP_MISMATCH'}
-                if($listeners.Count) {
+                $ownedListener=Test-LabLlamaCppListenerOwner -Port $Port -ProcessId $receipt.ProcessId
+                if($ownedListener) {
                     try {
                         $common=@{ExpectedServerCertificateSha256=$pin;ApiKey=$ApiKey;TrustedRootCertificate=$rootCertificate}
                         $models=Invoke-LabAiExternalModelHttpTransport @common -Location "https://127.0.0.1:$Port/v1/models" -Request @{Method='GET';TimeoutSeconds=2}
@@ -218,7 +277,7 @@ function Start-LabLlamaCppOwnedRuntime {
         [IO.File]::WriteAllText((Join-Path $operationRoot 'ready'),'ENDPOINT_VERIFIED')
         $artifacts=$null
         if($CaptureArtifactEvidence){$artifacts=[PSCustomObject]@{RuntimeSha256=(Get-LabAiExternalModelFileSha256 $runtime.Invocation RUNTIME);ModelSha256=(Get-LabAiExternalModelFileSha256 $ModelPath MODEL)}}
-        if($worker.HasExited -or -not @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue|Where-Object OwningProcess -eq $receipt.ProcessId).Count){throw 'LLAMA_ENDPOINT_LEASE_ENDED'}
+        if($worker.HasExited -or -not (Test-LabLlamaCppListenerOwner -Port $Port -ProcessId $receipt.ProcessId)){throw 'LLAMA_ENDPOINT_LEASE_ENDED'}
         [PSCustomObject]@{Contract='SqlServerLab.LlamaCppOwnedRuntime/1.0';OperationId=$operationId;Status='ENDPOINT_VERIFIED';Backend=$Backend;Accelerator=$Accelerator;ModelName=$ModelName;Dimension=$Dimension;Location=$location;ServerCertificateSha256=$pin;LeaseSeconds=$LeaseSeconds;ArtifactEvidence=$artifacts;CandidateId=if($selectedConfiguration){$selectedConfiguration.CandidateId}else{$null};SelectionMode=if($selectedConfiguration){$selectedConfiguration.SelectionMode}else{'EXPLICIT_LEGACY'};RuntimeSelectors=$selectors}
     }
     catch {

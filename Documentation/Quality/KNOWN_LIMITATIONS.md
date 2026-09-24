@@ -2441,7 +2441,7 @@ bleiben mit ihren bisherigen Verträgen kompatibel.
 
 `Get-SqlServerLabLlamaCppRuntime` erkennt Windows-/Linux-Pakete ohne Hashpflicht und
 ohne Ausführung. Backend-DLLs und Verzeichnisnamen beweisen weder Ursprung,
-Geräteverfügbarkeit noch Embeddingeignung. Der getrennte Windows-Start besitzt einen sitzungsgebundenen Lifecycle;
+Geräteverfügbarkeit noch Embeddingeignung. Der getrennte Windows-/Linux-Start besitzt einen sitzungsgebundenen Lifecycle;
 die Discovery selbst attestiert weiterhin keinen laufenden Dienst. Details:
 [lokale Beschleunigung](../User/SQL_AI_LOCAL_ACCELERATION.md).
 
@@ -2473,23 +2473,25 @@ Receipts für CPU-, NPU-, Einzel- und Mehr-GPU-Kandidaten. Ohne explizites
 Binding leitet er CUDA-/ROCm-/Vulkan-/SYCL-/OpenVINO-Selektoren aus der aktuellen
 `--list-devices`-Ausgabe ab. Die Zuordnung verlangt eindeutige normalisierte
 Gerätenamen; Teilmengen gleich benannter Geräte bleiben absichtlich blockiert.
-Der Windows-Start kann die ausgewählte Kombination inzwischen konsumieren. Er
+Der Windows-/Linux-Start kann die ausgewählte Kombination inzwischen konsumieren. Er
 prüft Inventar-, Runtime- und Modellhash, leitet eindeutige Runtime-Selektoren
 ab und attestiert die ausgewählten Geräte aus den eigenen Prozesslogs. Nur der
 mit `BenchmarkMode=Embedding` erzeugte Workload `sql-ai-embedding` ist für diesen
 Embedding-Lifecycle zulässig. Der
-bisherige explizite CUDA-/OpenVINO-Start bleibt verfügbar. Energieerfassung,
-Linux-Consumerintegration und eine native Matrix aller Hardwarekombinationen
-fehlen weiterhin. Ohne vollständige Receipts bleibt Auto geschlossen.
+bisherige explizite CUDA-/OpenVINO-Start bleibt verfügbar. Linux verlangt
+`setpriv --pdeathsig KILL`, restriktive Unix-Rechte und eine exakte
+`/proc`-Listenerzuordnung. Energieerfassung, echte Linux-Lifecycle-/ROCm-Evidence
+und eine native Matrix aller Hardwarekombinationen fehlen weiterhin. Ohne
+vollständige Receipts bleibt Auto geschlossen.
 
 ### Eigener llama.cpp-Start
 
-Der Windows-Start/Stop-Vertrag prüft HTTPS, Modellalias, Dimension und eigene
+Der Windows-/Linux-Start/Stop-Vertrag prüft HTTPS, Modellalias, Dimension und eigene
 Runtime-Logs vor Erfolg. Er bleibt auf Loopback und eine begrenzte Lease
 beschränkt. OpenVINO-NPU mit der geprüften Nomic-Paarung scheiterte an der
 Graphberechnung; zwei kleine BERT-Embeddingmodelle reproduzierten unter b11104
 eine fehlende `inp_pos`-Graphanforderung. Der Start meldet solche belegten
 OpenVINO-Graphfehler getrennt als `LLAMA_ACCELERATOR_COMPUTE_FAILED`. Das
 vorhandene Ollama-Embeddinggemma-GGUF war für b11104 nicht ladbar. Weitere
-Backend-/Modellpaare sowie Podman und Hyper-V bleiben separat.
+Backend-/Modellpaare sowie ein echter Linux-ROCm-Lauf, Podman und Hyper-V bleiben separat.
 [Vertrag und genaue Evidence-Grenzen](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

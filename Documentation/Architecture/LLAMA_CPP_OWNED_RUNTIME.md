@@ -2,7 +2,7 @@
 
 ## Vertrag
 
-`Start-SqlServerLabLlamaCppRuntime` startet unter Windows ein ausgewähltes
+`Start-SqlServerLabLlamaCppRuntime` startet unter Windows oder Linux ein ausgewähltes
 llama.cpp-Paket mit einem ausdrücklich angegebenen Embedding-GGUF. Der bisherige
 explizite CUDA-/OpenVINO-Modus bleibt erhalten. Alternativ übernimmt der Start
 eine `SqlServerLab.AiComputeSelection/1.0` aus Auto oder Pinned und bindet damit
@@ -71,13 +71,16 @@ kein positiver Gerätenachweis.
 
 Vor Start entstehen eine neue lokale Operation und ein restriktives Verzeichnis
 im Benutzer-Temp. Die aktuelle Identität besitzt den Verzeichniszugriff;
-API-Key, Request und Logs bleiben dort. Der Key steht ausschließlich in einer
-Datei, niemals in Prozessargumenten. Caller-Zertifikat und -Key werden nicht
+API-Key, Request und Logs bleiben dort. Windows verwendet eine geschützte DACL,
+Linux Modus `0700` für das Verzeichnis und `0600` für den Key. Der Key steht
+ausschließlich in einer Datei, niemals in Prozessargumenten. Caller-Zertifikat und -Key werden nicht
 kopiert, überschrieben oder gelöscht.
 
-Ein isolierter Worker tritt vor dem Serverstart einem eigenen Windows Job
-Object mit `KILL_ON_JOB_CLOSE` bei. Kinder erben diese Bindung. Der Steuerkanal
-ist eine anonyme stdin-Pipe. Ownerverlust oder Modulfreigabe schließen sie;
+Unter Windows tritt ein isolierter Worker vor dem Serverstart einem eigenen Job
+Object mit `KILL_ON_JOB_CLOSE` bei. Unter Linux startet er den Server ausschließlich
+über das vorhandene util-linux-Programm `setpriv --pdeathsig KILL`; fehlt dieses,
+blockiert der Start vor dem Serverprozess. Der Steuerkanal ist in beiden Fällen
+eine anonyme stdin-Pipe. Ownerverlust oder Modulfreigabe schließen sie;
 Lease-Ende, Startfrist oder überschrittenes Logbudget beenden die eigene
 Prozessgruppe. Beide Logs sind auf jeweils 4 MiB begrenzt. Die maximale Lease beträgt eine Stunde und
 umfasst die Startphase. Es gibt weder unbegrenzte Retries noch Persistenz als
@@ -101,7 +104,8 @@ Nach Rechnerneustart existiert kein eigener Dienst, der wiederaufgenommen wird.
 ## Nachweise und Grenzen
 
 `Invoke-LlamaCppOwnedRuntimeChecks.ps1` prüft Accelerator-Negative, fremde
-Operationen und Hashfreiheit. `Invoke-LlamaCppOwnershipAcceptance.ps1` führt
+Operationen, Linux-Listenerzuordnung, restriktive Rechte und Hashfreiheit.
+`Invoke-LlamaCppOwnershipAcceptance.ps1` führt
 unter Windows echte synthetische Kindprozesse für Ownerverlust, Lease-Ende, Worker-Kill und das harte Loglimit aus; ein
 weiterer Fall bestätigt Cleanup-Wiederholung nach vorübergehender Dateisperre.
 Alle Fälle bestätigen eigenes Testroot-Cleanup.
@@ -118,7 +122,8 @@ Am 2026-09-23 reproduzierten zwei vorhandene kleine BERT-Embeddingmodelle auf
 demselben NPU-Pfad die fehlende `inp_pos`-Graphanforderung; beide eigenen
 Prozesse und API-Key-Dateien wurden bereinigt. Weitere gleichartige BERT-
 Varianten wurden nach der identischen Signatur nicht blind wiederholt.
-Positive NPU-, OpenVINO-GPU-/CPU-, CUDA-CPU-, Mehr-GPU-, ROCm-, Vulkan-, SYCL-,
+Ein entsprechender echter Linux-Ownerverlust-/Lease-/Worker-Kill-Nachweis sowie
+ein nativer ROCm-Endpunktlauf sind noch offen. Positive NPU-, OpenVINO-GPU-/CPU-, CUDA-CPU-, Mehr-GPU-, ROCm-, Vulkan-, SYCL-,
 Podman- und Hyper-V-Nachweise bleiben separat. Die neue Auswahlbindung ist
 statisch belegt und noch keine native Hardware-Evidence. Discovery und Start
 installieren keine Modelle.

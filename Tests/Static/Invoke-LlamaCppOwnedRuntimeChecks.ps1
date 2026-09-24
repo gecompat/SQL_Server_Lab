@@ -38,6 +38,21 @@ try {
         (& $module {Test-LabLlamaCppAcceleratorLog -Log "offloaded 7/7 layers`nROCm0 compute buffer size = 3 MiB" -Backend LlamaCppRocm -Accelerator GPU -RuntimeSelector ROCm0}) -and
         (& $module {Test-LabLlamaCppAcceleratorLog -Log "offloaded 7/7 layers`nVulkan0 model buffer size = 3 MiB" -Backend LlamaCppVulkan -Accelerator GPU -RuntimeSelector Vulkan0})
     )
+    $linuxListen='0: 0100007F:4BEB 00000000:0000 0A 00000000:00000000 00:00000000 00000000 1000 0 77123 1 0000000000000000 100 0 0 10 0'
+    Add-CheckResult 'Linux-Listener wird über Port, LISTEN-State und Socket-Inode dem eigenen Prozess zugeordnet' (
+        (& $module {param($l)Test-LabLlamaCppListenerOwner -Port 19435 -ProcessId 42 -TcpRecord $l -DescriptorTarget 'socket:[77123]'} $linuxListen) -and
+        -not (& $module {param($l)Test-LabLlamaCppListenerOwner -Port 19435 -ProcessId 42 -TcpRecord $l -DescriptorTarget 'socket:[77124]'} $linuxListen)
+    )
+    $workerText=Get-Content -LiteralPath (Join-Path $repoRoot 'Tools/Invoke-LlamaCppOwnedWorker.ps1') -Raw
+    Add-CheckResult 'Linux-Worker verlangt Parent-Death-Signal vor dem Serverstart' ($workerText -match "--pdeathsig','KILL','--" -and $workerText -notmatch 'if\(-not \$IsWindows\)\{throw ''LLAMA_WINDOWS_REQUIRED''\}')
+    $permissionRoot=Join-Path $fixture 'permissions';$null=New-Item -ItemType Directory -Path $permissionRoot -Force
+    $permissionFile=Join-Path $permissionRoot 'api-key.txt';[IO.File]::WriteAllText($permissionFile,'synthetic')
+    & $module {param($d,$f)Protect-LabLlamaCppOperationPath -Path $d;Protect-LabLlamaCppOperationPath -Path $f -File} $permissionRoot $permissionFile
+    $permissionsProtected=if($IsWindows){(Get-Acl -LiteralPath $permissionRoot).AreAccessRulesProtected -and (Get-Acl -LiteralPath $permissionFile).AreAccessRulesProtected}else{
+        [IO.File]::GetUnixFileMode($permissionRoot) -eq ([IO.UnixFileMode]::UserRead-bor[IO.UnixFileMode]::UserWrite-bor[IO.UnixFileMode]::UserExecute) -and
+        [IO.File]::GetUnixFileMode($permissionFile) -eq ([IO.UnixFileMode]::UserRead-bor[IO.UnixFileMode]::UserWrite)
+    }
+    Add-CheckResult 'Operationsverzeichnis und API-Key erhalten plattformgerechte restriktive Rechte' $permissionsProtected
     $probe=[pscustomobject]@{Platform='Windows';Coverage=@((Coverage CPU),(Coverage GPU),(Coverage NPU));Devices=@(
         (Device CPU cpu0 8086 cpu 'Intel CPU'),(Device GPU gpu0 10de nvidia 'NVIDIA GPU 0'),(Device GPU gpu1 10de nvidia 'NVIDIA GPU 1')
     )}

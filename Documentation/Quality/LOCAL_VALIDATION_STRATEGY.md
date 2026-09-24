@@ -1986,11 +1986,13 @@ Suite prüft Pfadfreiheit, Duplikate, Binärdrift, fehlende Backenddateien und d
 ### Eigener llama.cpp-Lifecycle
 
 `Invoke-LlamaCppOwnedRuntimeChecks.ps1` prüft Accelerator-Evidence, negative
-Ownership sowie die hashgebundene Übergabe einer Auto-/Pinned-Auswahl an CPU-,
+Ownership, restriktive Windows-/Linux-Rechte, Linux-Socketzuordnung sowie die
+hashgebundene Übergabe einer Auto-/Pinned-Auswahl an CPU-,
 CUDA-, OpenVINO-, ROCm-, Vulkan-, SYCL- und Mehr-GPU-Startparameter. Die Suite
 verwendet synthetische Pakete, Geräte und Prozessausgaben.
 `Invoke-LlamaCppOwnershipAcceptance.ps1` führt echte Windows-Kinder
-für Ownerverlust, Lease-Ende und Worker-Kill aus. Die getrennte
+für Ownerverlust, Lease-Ende und Worker-Kill aus. Eine entsprechende echte
+Linux-Akzeptanz sowie ROCm-Hardwareevidence bleibt offen. Die getrennte
 `Invoke-LlamaCppSqlAcceptance.ps1 -RuntimeDirectory <Paket> -ModelPath <GGUF>`
 benötigt Windows, CUDA, ein passendes 768-dimensionales Nomic-Embeddingmodell
 und Docker. Sie legt eigene Testzertifikate und einen eigenen SQL-2025-Run an,

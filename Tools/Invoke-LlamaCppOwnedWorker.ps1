@@ -1,4 +1,4 @@
-# Isolated Windows worker: the job owns this worker and every child it creates.
+# Isolated worker: Windows uses a job object; Linux uses setpriv parent-death signalling.
 param([Parameter(Mandatory)][string]$RequestPath)
 $ErrorActionPreference='Stop'
 $operationRoot=Split-Path -Parent $RequestPath
@@ -12,8 +12,8 @@ function Write-Receipt([string]$Status,[string]$Code) {
 }
 $child=$null;$outStream=$null;$errStream=$null;$outTask=$null;$errTask=$null
 try {
-    if(-not $IsWindows){throw 'LLAMA_WINDOWS_REQUIRED'}
-    Add-Type -TypeDefinition @"
+    if(-not $IsWindows -and -not $IsLinux){throw 'LLAMA_PLATFORM_UNSUPPORTED'}
+    if($IsWindows){Add-Type -TypeDefinition @"
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
@@ -54,18 +54,19 @@ public static class SqlLabLlamaJob {
     }
 }
 "@
-    [SqlLabLlamaJob]::Protect()
+    [SqlLabLlamaJob]::Protect()}
     $stopBuffer=[byte[]]::new(1)
     $stopSignal=[Console]::OpenStandardInput().ReadAsync($stopBuffer,0,1)
-    Write-Receipt 'PREPARED' 'OWN_JOB_READY'
+    Write-Receipt 'PREPARED' $(if($IsWindows){'OWN_JOB_READY'}else{'PARENT_DEATH_SIGNAL_READY'})
     $start=[Diagnostics.ProcessStartInfo]::new()
-    $start.FileName=$request.Invocation;$start.WorkingDirectory=Split-Path -Parent $request.Invocation
+    $start.FileName=if($IsLinux){[string]$request.SupervisorInvocation}else{[string]$request.Invocation};$start.WorkingDirectory=Split-Path -Parent $request.Invocation
     $start.UseShellExecute=$false;$start.CreateNoWindow=$true
     $start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
     foreach($key in @($start.Environment.Keys)) {
         if($key -match '^(LLAMA|GGML|CUDA|HIP|OPENVINO|OV_|HF_|HUGGING_FACE|ROCR)'){$null=$start.Environment.Remove($key)}
     }
     foreach($property in $request.Environment.PSObject.Properties){$start.Environment[$property.Name]=[string]$property.Value}
+    if($IsLinux){foreach($arg in @('--pdeathsig','KILL','--',[string]$request.Invocation)){$start.ArgumentList.Add($arg)}}
     foreach($arg in $request.Arguments){$start.ArgumentList.Add([string]$arg)}
     $outStream=[IO.FileStream]::new((Join-Path $operationRoot 'stdout.log'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::ReadWrite,1,[IO.FileOptions]::Asynchronous)
     $errStream=[IO.FileStream]::new((Join-Path $operationRoot 'stderr.log'),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::ReadWrite,1,[IO.FileOptions]::Asynchronous)
