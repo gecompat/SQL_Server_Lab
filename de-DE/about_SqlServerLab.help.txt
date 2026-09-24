@@ -234,6 +234,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Inventarisiert lokale CPU-, GPU- und NPU-Geräte read-only. Fehlende
         Coverage bleibt INCOMPLETE und erhält keinen verwendbaren Inventarhash.
 
+    Get-SqlServerLabAiRuntimeCapability
+        Hasht lokale llama.cpp-Paketbinärdateien und leitet CPU-/GPU-/NPU-Lanes
+        mit Herstellerbindung ab, ohne Ausführungserfolg zu behaupten.
+
     Get-SqlServerLabAiComputeCandidate
         Bildet aus vollständigem Inventar und Runtime-Fähigkeiten alle erlaubten
         Einzel-, Mehrgeräte- und gemischten Kandidaten ohne stilles Abschneiden.

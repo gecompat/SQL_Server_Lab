@@ -1,9 +1,10 @@
 <#
 .SYNOPSIS
-    Ermittelt lokale Windows-llama.cpp-Pakete für SQL-Embedding-Endpunkte.
+    Ermittelt lokale Windows-/Linux-llama.cpp-Pakete für SQL-Embedding-Endpunkte.
 .DESCRIPTION
     Prüft maximal 32 Suchwurzeln und jeweils höchstens 256 unmittelbare
-    Unterverzeichnisse auf llama-server.exe und Backend-DLLs. Ohne SearchRoot
+    Unterverzeichnisse auf llama-server beziehungsweise llama-server.exe und
+    plattformübliche Backendbibliotheken. Ohne SearchRoot
     werden SQL_SERVER_LAB_LLAMA_ROOT und der erste Prozess-PATH-Treffer genutzt.
     Laufwerkswurzeln sind ausgeschlossen. Keine Hashes oder Prozessstarts.
     FILES_ONLY bestätigt weder Paketursprung noch Geräte- oder Modellnutzung.

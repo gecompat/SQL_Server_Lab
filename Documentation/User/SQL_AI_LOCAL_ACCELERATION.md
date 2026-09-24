@@ -198,9 +198,13 @@ keinen verwendbaren Inventarhash.
 
 ```powershell
 $inventory = Get-SqlServerLabAiComputeInventory
+$runtimes = Get-SqlServerLabLlamaCppRuntime -SearchRoot $runtimeRoots
+$runtimeCapabilities = Get-SqlServerLabAiRuntimeCapability `
+  -Inventory $inventory `
+  -Runtime $runtimes
 $candidateSet = Get-SqlServerLabAiComputeCandidate `
   -Inventory $inventory `
-  -RuntimeCapability $verifiedRuntimeCapabilities
+  -RuntimeCapability $runtimeCapabilities.Capabilities
 ```
 
 Jede Runtime-Fähigkeit begrenzt Gerätearten, Hersteller-IDs, minimale und maximale Gerätezahl,
@@ -208,8 +212,13 @@ gemischte Gerätearten sowie Eligibility und Blocker. `VendorIds = @('*')` erlau
 alle Hersteller; der Wildcard darf nicht mit einzelnen Hersteller-IDs gemischt werden. Innerhalb dieser Grenzen
 werden alle Kombinationen gebildet. Mehr als 64 Kandidaten werden sichtbar
 abgewiesen; die Funktion schneidet die Kandidatenmenge nie still ab. Die
-Fähigkeiten sind derzeit Eingabeevidence und noch nicht automatisch an die
-llama.cpp-Paketerkennung gebunden.
+`Get-SqlServerLabAiRuntimeCapability` bindet alle unmittelbaren Binärdateien
+jedes erkannten llama.cpp-Pakets an einen gemeinsamen Runtimehash. Es leitet
+eine CPU-Baseline sowie vorhandene CUDA-, ROCm-, Vulkan-, SYCL- und
+OpenVINO-Lanes ab. CUDA wird auf NVIDIA, ROCm auf AMD sowie SYCL und
+OpenVINO-GPU/-NPU auf Intel begrenzt. Fehlende passende Geräte bleiben mit
+Blocker sichtbar. `FILES_HASHED_NOT_EXECUTED` ist noch kein Ausführungs- oder
+Performancebeleg; erst vollständige Benchmarks machen die Auto-Auswahl möglich.
 
 `Get-SqlServerLabAiComputeSelection` setzt `Auto` als Standard um. Jeder
 Kandidat benennt Backend, Runtime-SHA-256 und ein Set aus einem oder mehreren
@@ -476,7 +485,8 @@ Die priorisierte Umsetzung und weitere Hardwarepfade stehen im
 ## Lokale llama.cpp-Installation erkennen
 
 `Get-SqlServerLabLlamaCppRuntime -SearchRoot 'C:\Pfad\llama' -Accelerator NPU`
-findet Windows-Pakete anhand von `llama-server.exe` und Backend-DLLs, ohne
+findet Windows- und Linux-Pakete anhand von `llama-server.exe` beziehungsweise
+`llama-server` und plattformüblichen Backendbibliotheken, ohne
 Hashes, Prozessstart oder Netzwerkzugriff. Explizite Suchwurzeln ersetzen die
 Umgebungssuche; ohne sie werden `SQL_SERVER_LAB_LLAMA_ROOT` und der erste
 Treffer für `llama-server.exe` im Prozess-PATH verwendet. Es werden höchstens

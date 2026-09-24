@@ -113,10 +113,11 @@ Start-SqlServerLabLlamaCppRuntime           # Eigene begrenzte Windows-Embedding
 Stop-SqlServerLabLlamaCppRuntime            # Eigene Runtime und API-Key bereinigen
 Start-SqlServerLabOvmsHttpsGateway          # Eigenen begrenzten OVMS-Loopback-HTTPS-Gateway starten
 Stop-SqlServerLabOvmsHttpsGateway           # Eigenen Gateway und API-Key bereinigen
-Get-SqlServerLabLlamaCppRuntime             # Windows-Pakete begrenzt ohne Hashpflicht erkennen
+Get-SqlServerLabLlamaCppRuntime             # Windows-/Linux-Pakete begrenzt ohne Hashpflicht erkennen
 Get-SqlServerLabLlamaCppModel               # Kuratierte hashgebundene Generations-GGUFs auflisten
 Save-SqlServerLabLlamaCppModel              # Gewähltes GGUF bei Bedarf geprüft im MediaRoot ablegen
 Get-SqlServerLabAiComputeInventory          # CPU, GPU und NPU read-only mit vollständiger Coverage inventarisieren
+Get-SqlServerLabAiRuntimeCapability         # Paketbinärdateien hashen und herstellergebundene Lanes ableiten
 Get-SqlServerLabAiComputeCandidate          # Alle erlaubten Einzel-, Mehrgeräte- und Mischkandidaten bilden
 Get-SqlServerLabAiComputeSelection          # Vollständig benchmarkte Gerätekombination automatisch wählen oder explizit fixieren
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen

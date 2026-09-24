@@ -1967,6 +1967,12 @@ vollständige Potenzmengenbildung innerhalb expliziter Runtimegrenzen. Sie prüf
 Mehr-GPU- und gemischte Sets, Manipulation, fehlende Coverage und die
 fail-closed 64-Kandidaten-Grenze ohne echten Geräte- oder Runtimezugriff.
 
+`Invoke-AiRuntimeCapabilityChecks.ps1` bindet synthetische llama.cpp-Pakete
+einschließlich Supportbibliotheken an Inhaltsdigests und leitet daraus CPU-,
+CUDA-, ROCm-, Vulkan-, SYCL- und OpenVINO-Lanes mit Herstellerfiltern ab. Die
+Suite prüft Pfadfreiheit, Duplikate, Binärdrift, fehlende Backenddateien und die
+Übergabe an die Kandidatenbildung, startet aber keine Runtime.
+
 ### Eigener llama.cpp-Lifecycle
 
 `Invoke-LlamaCppOwnedRuntimeChecks.ps1` prüft Accelerator-Evidence und negative

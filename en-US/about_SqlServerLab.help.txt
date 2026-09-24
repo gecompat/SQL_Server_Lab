@@ -228,6 +228,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Inventories local CPU, GPU, and NPU devices read-only. Missing coverage
         remains INCOMPLETE and receives no usable inventory hash.
 
+    Get-SqlServerLabAiRuntimeCapability
+        Hashes local llama.cpp package binaries and derives vendor-bound CPU,
+        GPU, and NPU lanes without claiming successful execution.
+
     Get-SqlServerLabAiComputeCandidate
         Builds every allowed single-, multi-device, and mixed candidate from a
         complete inventory and runtime capabilities without silent truncation.

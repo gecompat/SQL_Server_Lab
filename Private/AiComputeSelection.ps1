@@ -42,7 +42,7 @@ function Get-LabAiComputeSelection {
     $modelHash=$ModelSha256.ToLowerInvariant();$profileHash=$BenchmarkProfileSha256.ToLowerInvariant();$inventoryHash=$InventorySha256.ToLowerInvariant()
     $candidateFields=@('CandidateId','Backend','RuntimeSha256','Devices','Eligible','Blockers')
     $deviceFields=@('Kind','DeviceId')
-    $backendValues=@('LlamaCppCuda','LlamaCppOpenVino','LlamaCppRocm','LlamaCppSnapdragonOpenCl','LlamaCppSnapdragonHexagon','OpenVinoModelServer','Ollama')
+    $backendValues=@('LlamaCppCpu','LlamaCppCuda','LlamaCppOpenVino','LlamaCppRocm','LlamaCppVulkan','LlamaCppSycl','LlamaCppSnapdragonOpenCl','LlamaCppSnapdragonHexagon','OpenVinoModelServer','Ollama')
     $normalizedCandidates=[Collections.Generic.List[object]]::new()
     $candidateIds=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     $candidateIdentities=[Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)

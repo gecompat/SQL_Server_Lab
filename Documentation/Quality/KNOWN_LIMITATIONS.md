@@ -2439,7 +2439,7 @@ bleiben mit ihren bisherigen Verträgen kompatibel.
 
 ### llama.cpp-Discovery
 
-`Get-SqlServerLabLlamaCppRuntime` erkennt Windows-Pakete ohne Hashpflicht und
+`Get-SqlServerLabLlamaCppRuntime` erkennt Windows-/Linux-Pakete ohne Hashpflicht und
 ohne Ausführung. Backend-DLLs und Verzeichnisnamen beweisen weder Ursprung,
 Geräteverfügbarkeit noch Embeddingeignung. Der getrennte Windows-Start besitzt einen sitzungsgebundenen Lifecycle;
 die Discovery selbst attestiert weiterhin keinen laufenden Dienst. Details:
@@ -2465,10 +2465,12 @@ nur geeignete, gleich gebundene CPU-, NPU-, Einzel-GPU-, Mehr-GPU- und gemischte
 Kandidaten. Windows inventarisiert CPU und Displaygeräte über CIM sowie NPUs
 über die vorhandene ComputeAccelerator-PnP-Klasse; Linux liest `/proc/cpuinfo`,
 DRM-sysfs und die Kernel-Accel-Klasse. Fehlende Coverage liefert keinen
-Inventarhash. Runtime-Fähigkeiten werden derzeit strikt übergeben; der Kern
-erzeugt selbst keine Benchmarkreceipts und startet keine Runtime. Eine Auswahl
-belegt daher Inventar- und Auswertungsbindung, nicht Benchmark-Erzeugung oder
-tatsächliche Geräteausführung.
+Inventarhash. Lokale llama.cpp-Receipts können inzwischen inhaltsgebunden in
+CPU-, CUDA-, ROCm-, Vulkan-, SYCL- und OpenVINO-Lanes übersetzt werden. Dieser
+Beleg hasht Paketbinärdateien und filtert Gerätearten sowie Hersteller, startet
+aber keine Runtime. Der Kern erzeugt weiterhin keine Benchmarkreceipts. Eine
+Auswahl belegt daher Inventar-, Paket- und Auswertungsbindung, nicht
+Benchmark-Erzeugung oder tatsächliche Geräteausführung.
 
 ### Eigener llama.cpp-Start
 

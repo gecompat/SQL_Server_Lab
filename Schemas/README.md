@@ -18,6 +18,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `ai-external-model-plan.schema.json` | Hashgebundener, nicht ausführbarer SQL-External-Model-Plan für vorhandene OpenAI-kompatible HTTPS-Embedding-Endpunkte und CPU/GPU/NPU-Ziele |
 | `ai-compute-inventory.schema.json` | Datenschutzbegrenztes Windows-/Linux-Hostinventar mit expliziter CPU-/GPU-/NPU-Coverage und vollständigem Inventarhash |
 | `ai-compute-candidate-set.schema.json` | Hashgebundene, maximal 64 Einträge große Menge erlaubter Einzel-, Mehrgeräte- und gemischter Runtimekandidaten |
+| `ai-runtime-capability-set.schema.json` | Pfadfreier Hashbeleg lokaler llama.cpp-Paketbinärdateien und daraus abgeleiteter herstellergebundener Benchmark-Lanes |
 | `ai-compute-selection.schema.json` | Benchmarkgebundene automatische oder explizit fixierte KI-Geräteauswahl |
 | `ai-external-model-artifact-receipt.schema.json` | Sanitierter read-only Nachweis, dass lokale Runtime- und Modelldatei den im External-Model-Plan gebundenen SHA-256-Werten entsprechen |
 | `ai-external-model-endpoint-receipt.schema.json` | Sanitisiertes Live-Receipt für Zertifikatspin, OpenAI-Antwortform, endliche Vektorwerte und Dimension; Runtime-, Modell- und Accelerator-Attestation bleiben offen |
