@@ -69,10 +69,11 @@ Die SQL-seitige Verifikation bleibt offen.
 | `Get-SqlServerLabAiScenario` | `Get-SqlServerLabAiScenario.ps1` | Hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen Run auflösen; Ausgabe bleibt frei von Pfaden, Endpoints und Secrets |
 | `Start-SqlServerLabLlamaCppRuntime` | `Start-SqlServerLabLlamaCppRuntime.ps1` | Eigenen Windows-HTTPS-Embeddingserver mit expliziter Runtime-/Modell-/Gerätewahl und begrenzter Lease starten |
 | `Stop-SqlServerLabLlamaCppRuntime` | `Stop-SqlServerLabLlamaCppRuntime.ps1` | Ausschließlich den eigenen sitzungsgebundenen llama.cpp-Server beenden und API-Key bereinigen |
-| `Get-SqlServerLabLlamaCppRuntime` | `Get-SqlServerLabLlamaCppRuntime.ps1` | Lokale Windows-Pakete ohne Hashpflicht erkennen; FILES_ONLY und lokale Pfade, kein Laufzeitnachweis |
+| `Get-SqlServerLabLlamaCppRuntime` | `Get-SqlServerLabLlamaCppRuntime.ps1` | Lokale Windows-/Linux-Pakete ohne Hashpflicht erkennen; FILES_ONLY und lokale Pfade, kein Laufzeitnachweis |
 | `Get-SqlServerLabLlamaCppModel` | `Get-SqlServerLabLlamaCppModel.ps1` | Kuratierte Generations-GGUFs mit fest gebundener Herstellerquelle, Revision, Größe, SHA-256 und Lizenz auflisten |
 | `Save-SqlServerLabLlamaCppModel` | `Save-SqlServerLabLlamaCppModel.ps1` | Ein explizit gewähltes Katalogmodell bei Bedarf unter `MediaRoot/AI/Models` laden und vor atomarer Veröffentlichung vollständig prüfen |
 | `Get-SqlServerLabAiComputeInventory` | `Get-SqlServerLabAiComputeInventory.ps1` | CPU, alle vom Betriebssystem gemeldeten GPUs und NPUs read-only inventarisieren; unvollständige Geräteklassen erhalten keinen Hash |
+| `Get-SqlServerLabAiRuntimeCapability` | `Get-SqlServerLabAiRuntimeCapability.ps1` | Lokale llama.cpp-Paketbinärdateien unter Lesesperre hashen und herstellergebundene Benchmark-Lanes ohne Ausführungsbehauptung ableiten |
 | `Get-SqlServerLabAiComputeCandidate` | `Get-SqlServerLabAiComputeCandidate.ps1` | Aus vollständigem Inventar und strikten Runtime-Fähigkeiten alle erlaubten Einzel-, Mehrgeräte- und Mischkandidaten erzeugen |
 | `Get-SqlServerLabAiComputeSelection` | `Get-SqlServerLabAiComputeSelection.ps1` | Vollständig benchmarkte geeignete CPU-/NPU-/Einzel-/Mehr-GPU-Kandidaten automatisch rangieren oder eine geeignete Kombination explizit fixieren |
 | `Get-SqlServerLabAiExternalModelPlan` | `Get-SqlServerLabAiExternalModelPlan.ps1` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt hashgebunden für SQL `CREATE EXTERNAL MODEL` planen; keine Probe oder Hostmutation |

@@ -27,9 +27,13 @@ try {
     [IO.File]::WriteAllText((Join-Path $npu[0].InstallationPath 'ggml-cuda.dll'),'synthetic')
     $ambiguous=@(Get-SqlServerLabLlamaCppRuntime -SearchRoot $npu[0].InstallationPath)
     Add-CheckResult 'Mehrere Backends werden nicht still priorisiert' ($ambiguous[0].Backend -eq 'Ambiguous' -and $ambiguous[0].DetectedBackends.Count -eq 2 -and $null -eq $ambiguous[0].SelectionEnvironment)
+    $linux=Join-Path $fixture 'llama-b102-bin-linux';$null=New-Item -ItemType Directory -Path $linux
+    [IO.File]::WriteAllText((Join-Path $linux 'llama-server'),'synthetic');[IO.File]::WriteAllText((Join-Path $linux 'libggml-hip.so.1'),'synthetic')
+    $linuxRuntime=@(Get-SqlServerLabLlamaCppRuntime -SearchRoot $linux)
+    Add-CheckResult 'Linux-Paketnamen erkennen ROCm ohne Ausführung' ($linuxRuntime.Count -eq 1 -and $linuxRuntime[0].Backend -eq 'LlamaCppRocm' -and $linuxRuntime[0].Invocation -like '*llama-server')
     $deep=Join-Path $fixture 'parent/child';$null=New-Item -ItemType Directory -Path $deep -Force
     [IO.File]::WriteAllText((Join-Path $deep 'llama-server.exe'),'synthetic')
-    Add-CheckResult 'Discovery durchsucht keine tieferen Verzeichnisse' (@(Get-SqlServerLabLlamaCppRuntime -SearchRoot $fixture).Count -eq 3)
+    Add-CheckResult 'Discovery durchsucht keine tieferen Verzeichnisse' (@(Get-SqlServerLabLlamaCppRuntime -SearchRoot $fixture).Count -eq 4)
     $warnings=@();$missing=@(Get-SqlServerLabLlamaCppRuntime -SearchRoot (Join-Path $fixture 'absent') -WarningVariable warnings -WarningAction SilentlyContinue)
     Add-CheckResult 'Unlesbare Wurzel bleibt sichtbar und liefert keine Erfindung' ($missing.Count -eq 0 -and $warnings.Count -eq 1)
     $code='';try{Get-SqlServerLabLlamaCppRuntime -SearchRoot ([IO.Path]::GetPathRoot($fixture))|Out-Null}catch{$code=$_.Exception.Message}

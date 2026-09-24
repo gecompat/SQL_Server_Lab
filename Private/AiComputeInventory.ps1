@@ -139,12 +139,9 @@ function Get-LabAiComputeInventory {
     [PSCustomObject]@{Contract='SqlServerLab.AiComputeInventory/1.0';Status=$status;Platform=$platform;Coverage=$coverageArray;Devices=$deviceArray;Blockers=@($blockers|Sort-Object -Unique);InventorySha256=if($status -eq 'COMPLETE'){Get-LabAiPlanKey $identity}else{$null}}
 }
 
-function Get-LabAiComputeCandidateSet {
+function Assert-LabAiComputeInventoryReceipt {
     [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]$Inventory,
-        [Parameter(Mandatory)][ValidateCount(1,16)][object[]]$RuntimeCapability
-    )
+    param([Parameter(Mandatory)]$Inventory)
     Assert-LabAiComputeProperties $Inventory @('Contract','Status','Platform','Coverage','Devices','Blockers','InventorySha256') 'AI_COMPUTE_INVENTORY_RECEIPT_INVALID'
     if([string]$Inventory.Contract -cne 'SqlServerLab.AiComputeInventory/1.0' -or [string]$Inventory.Status -cne 'COMPLETE' -or [string]$Inventory.Platform -cnotin @('Windows','Linux') -or
         [string]$Inventory.InventorySha256 -notmatch '^[a-f0-9]{64}$' -or @($Inventory.Blockers).Count){throw 'AI_COMPUTE_INVENTORY_INCOMPLETE'}
@@ -156,7 +153,7 @@ function Get-LabAiComputeCandidateSet {
         $coverage.Add([PSCustomObject]@{Kind=$kind;Status=$status;Method=$method})
     }
     if($coverageKinds.Count -ne 3){throw 'AI_COMPUTE_INVENTORY_RECEIPT_INVALID'}
-    $probeDevices=[Collections.Generic.List[object]]::new()
+    $hashDevices=[Collections.Generic.List[object]]::new();$devices=[Collections.Generic.List[object]]::new()
     $deviceIds=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
     foreach($device in @($Inventory.Devices)) {
         Assert-LabAiComputeProperties $device @('Kind','DeviceId','VendorId','ProductId','DisplayName') 'AI_COMPUTE_INVENTORY_RECEIPT_INVALID'
@@ -165,19 +162,30 @@ function Get-LabAiComputeCandidateSet {
         if($kind -cnotin @('CPU','GPU','NPU') -or $vendorId -notmatch '^[a-z0-9][a-z0-9._-]{0,63}$' -or $productId -notmatch '^[a-z0-9][a-z0-9._-]{0,63}$' -or
             $deviceId -notmatch '^(cpu|gpu|npu):[a-z0-9][a-z0-9._-]{0,63}:[a-z0-9][a-z0-9._-]{0,63}:[0-9]+$' -or -not $deviceId.StartsWith($expectedPrefix,[StringComparison]::Ordinal) -or
             -not $deviceIds.Add($deviceId) -or -not $name -or $name.Length -gt 128 -or (ConvertTo-LabAiInventoryName $name) -cne $name){throw 'AI_COMPUTE_INVENTORY_RECEIPT_INVALID'}
-        $probeDevices.Add([PSCustomObject]@{Kind=[string]$device.Kind;DeviceId=[string]$device.DeviceId;VendorId=[string]$device.VendorId;ProductId=[string]$device.ProductId})
+        $hashDevices.Add([PSCustomObject]@{Kind=$kind;DeviceId=$deviceId;VendorId=$vendorId;ProductId=$productId})
+        $devices.Add([PSCustomObject]@{Kind=$kind;DeviceId=$deviceId;VendorId=$vendorId;ProductId=$productId;DisplayName=$name})
     }
-    if(-not @($probeDevices|Where-Object Kind -CEQ CPU).Count){throw 'AI_COMPUTE_INVENTORY_RECEIPT_INVALID'}
-    $identity=[ordered]@{Contract='SqlServerLab.AiComputeInventory/1.0';Platform=[string]$Inventory.Platform;Coverage=@($coverage);Devices=$probeDevices}
+    if(-not @($devices|Where-Object Kind -CEQ CPU).Count){throw 'AI_COMPUTE_INVENTORY_RECEIPT_INVALID'}
+    $identity=[ordered]@{Contract='SqlServerLab.AiComputeInventory/1.0';Platform=[string]$Inventory.Platform;Coverage=@($coverage);Devices=$hashDevices}
     if((Get-LabAiPlanKey $identity) -cne [string]$Inventory.InventorySha256){throw 'AI_COMPUTE_INVENTORY_HASH_MISMATCH'}
-    $backendValues=@('LlamaCppCuda','LlamaCppOpenVino','LlamaCppRocm','LlamaCppSnapdragonOpenCl','LlamaCppSnapdragonHexagon','OpenVinoModelServer','Ollama')
+    [PSCustomObject]@{Contract='SqlServerLab.AiComputeInventory/1.0';Status='COMPLETE';Platform=[string]$Inventory.Platform;Coverage=@($coverage);Devices=@($devices);Blockers=@();InventorySha256=[string]$Inventory.InventorySha256}
+}
+
+function Get-LabAiComputeCandidateSet {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Inventory,
+        [Parameter(Mandatory)][ValidateCount(1,16)][object[]]$RuntimeCapability
+    )
+    $Inventory=Assert-LabAiComputeInventoryReceipt -Inventory $Inventory
+    $backendValues=@('LlamaCppCpu','LlamaCppCuda','LlamaCppOpenVino','LlamaCppRocm','LlamaCppVulkan','LlamaCppSycl','LlamaCppSnapdragonOpenCl','LlamaCppSnapdragonHexagon','OpenVinoModelServer','Ollama')
     $fields=@('Backend','RuntimeSha256','DeviceKinds','VendorIds','MinimumDeviceCount','MaximumDeviceCount','AllowMixedKinds','Eligible','Blockers')
     $capabilityIds=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal);$candidates=[Collections.Generic.List[object]]::new()
     foreach($capability in $RuntimeCapability) {
         Assert-LabAiComputeProperties $capability $fields 'AI_COMPUTE_RUNTIME_CAPABILITY_INVALID'
         $backend=[string]$capability.Backend;$runtimeHash=[string]$capability.RuntimeSha256
         if($backend -cnotin $backendValues -or $runtimeHash -notmatch '^[a-fA-F0-9]{64}$' -or $capability.AllowMixedKinds -isnot [bool] -or $capability.Eligible -isnot [bool]){throw 'AI_COMPUTE_RUNTIME_CAPABILITY_INVALID'}
-        $runtimeHash=$runtimeHash.ToLowerInvariant();if(-not $capabilityIds.Add($backend+'|'+$runtimeHash)){throw 'AI_COMPUTE_RUNTIME_CAPABILITY_DUPLICATE'}
+        $runtimeHash=$runtimeHash.ToLowerInvariant()
         $deviceKinds=@($capability.DeviceKinds)
         if(-not $deviceKinds.Count -or @($deviceKinds|Where-Object {$_ -isnot [string] -or $_ -cnotin @('CPU','GPU','NPU')}).Count -or @($deviceKinds|Sort-Object -Unique).Count -ne $deviceKinds.Count){throw 'AI_COMPUTE_RUNTIME_CAPABILITY_INVALID'}
         $vendorIds=@($capability.VendorIds)
@@ -186,6 +194,8 @@ function Get-LabAiComputeCandidateSet {
         if($minimum -gt $maximum){throw $errorCode}
         $blockers=@($capability.Blockers)
         if(@($blockers|Where-Object {$_ -isnot [string] -or $_ -notmatch '^[A-Z][A-Z0-9_]{2,127}$'}).Count -or ([bool]$capability.Eligible -and $blockers.Count) -or (-not [bool]$capability.Eligible -and -not $blockers.Count)){throw 'AI_COMPUTE_RUNTIME_CAPABILITY_INVALID'}
+        $capabilityIdentity=$backend+'|'+$runtimeHash+'|'+(($deviceKinds|Sort-Object) -join ',')+'|'+(($vendorIds|Sort-Object) -join ',')+'|'+$minimum+'|'+$maximum+'|'+[bool]$capability.AllowMixedKinds
+        if(-not $capabilityIds.Add($capabilityIdentity)){throw 'AI_COMPUTE_RUNTIME_CAPABILITY_DUPLICATE'}
         $eligibleDevices=@($Inventory.Devices|Where-Object {$_.Kind -in $deviceKinds -and ('*' -in $vendorIds -or $_.VendorId -in $vendorIds)}|Sort-Object {[Convert]::ToHexString([Text.Encoding]::UTF8.GetBytes($_.DeviceId))})
         if([bool]$capability.Eligible -and $eligibleDevices.Count -lt $minimum){throw "AI_COMPUTE_RUNTIME_CAPABILITY_WITHOUT_DEVICE: $backend"}
         if($eligibleDevices.Count -gt 16){throw 'AI_COMPUTE_CANDIDATE_SET_TOO_LARGE'}

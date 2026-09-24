@@ -1159,15 +1159,19 @@ function Get-LabLlamaCppRuntimeCandidate {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$DirectoryPath)
 
-    $serverPath = Join-Path $DirectoryPath 'llama-server.exe'
-    if (-not (Test-Path -LiteralPath $serverPath -PathType Leaf)) { return }
+    $serverFiles=@('llama-server.exe','llama-server'|ForEach-Object {Join-Path $DirectoryPath $_}|Where-Object {Test-Path -LiteralPath $_ -PathType Leaf})
+    if ($serverFiles.Count -ne 1) { return }
+    $serverPath=$serverFiles[0]
     $backends = [Collections.Generic.List[string]]::new()
     foreach ($entry in @(
-        @('ggml-openvino.dll','LlamaCppOpenVino'), @('ggml-cuda.dll','LlamaCppCuda'),
-        @('ggml-hip.dll','LlamaCppRocm'), @('ggml-vulkan.dll','LlamaCppVulkan'),
-        @('ggml-sycl.dll','LlamaCppSycl')
+        @(@('ggml-openvino.dll','libggml-openvino.so*','libggml-openvino.dylib'),'LlamaCppOpenVino'),
+        @(@('ggml-cuda.dll','libggml-cuda.so*','libggml-cuda.dylib'),'LlamaCppCuda'),
+        @(@('ggml-hip.dll','libggml-hip.so*','libggml-hip.dylib'),'LlamaCppRocm'),
+        @(@('ggml-vulkan.dll','libggml-vulkan.so*','libggml-vulkan.dylib'),'LlamaCppVulkan'),
+        @(@('ggml-sycl.dll','libggml-sycl.so*','libggml-sycl.dylib'),'LlamaCppSycl')
     )) {
-        if (Test-Path -LiteralPath (Join-Path $DirectoryPath $entry[0]) -PathType Leaf) { $backends.Add($entry[1]) }
+        $files=@(Get-ChildItem -LiteralPath $DirectoryPath -File -Force -ErrorAction SilentlyContinue)
+        if (@($files|Where-Object {$name=$_.Name;@($entry[0]|Where-Object {$name -like $_}).Count}).Count) { $backends.Add($entry[1]) }
     }
     $backend = if ($backends.Count -eq 1) { $backends[0] } elseif ($backends.Count -gt 1) { 'Ambiguous' } else { 'Unknown' }
     $accelerators = @('CPU')
@@ -1203,7 +1207,7 @@ function Find-LabLlamaCppRuntime {
     if (-not $PSBoundParameters.ContainsKey('SearchRoot')) {
         $roots = @()
         if ($env:SQL_SERVER_LAB_LLAMA_ROOT) { $roots += $env:SQL_SERVER_LAB_LLAMA_ROOT }
-        $command = Get-Command llama-server.exe -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        $command = Get-Command $(if($IsWindows){'llama-server.exe'}else{'llama-server'}) -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
         if ($command) { $roots += Split-Path -Parent $command.Source }
     }
     $seen = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
