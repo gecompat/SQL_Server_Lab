@@ -48,11 +48,13 @@ function Assert-LabWindowsSlotPoolLocale {
         [Parameter(Mandatory)][string]$Region,
         [Parameter(Mandatory)][string]$SystemLocale,
         [Parameter(Mandatory)][string]$UiLanguage,
-        [Parameter(Mandatory)][string]$InputLocale,
+        [AllowNull()][string]$InputLocale,
         [Parameter(Mandatory)][string]$TimeZone,
         [Parameter(Mandatory)]$Artifact
     )
-    $normalized=Resolve-LabWindowsLocaleIntent -Overrides @{Region=$Region;SystemLocale=$SystemLocale;UiLanguage=$UiLanguage;InputLocale=$InputLocale;TimeZone=$TimeZone}
+    $overrides=@{Region=$Region;SystemLocale=$SystemLocale;UiLanguage=$UiLanguage;TimeZone=$TimeZone}
+    if(-not [string]::IsNullOrWhiteSpace($InputLocale)){$overrides.InputLocale=$InputLocale}
+    $normalized=Resolve-LabWindowsLocaleIntent -Overrides $overrides
     Assert-LabWindowsLocaleImageCapability -Intent $normalized -Artifact $Artifact
     return $normalized
 }
@@ -111,7 +113,9 @@ function New-SqlServerLabWindowsSlotPool {
     .PARAMETER UiLanguage
         Windows-Anzeigesprache. Sie muss der Sprache der Baseline entsprechen.
     .PARAMETER InputLocale
-        Windows-Tastaturlayout im Input-Locale-Format.
+        Windows-Tastaturlayout im Input-Locale-Format. Ohne Angabe wird ein
+        eindeutiges unterstuetztes Layout des aktuellen interaktiven
+        Windows-Benutzers gebunden; andernfalls gilt 0407:00000407 mit Grundcode.
     .PARAMETER TimeZone
         Windows-Zeitzonen-ID.
     .PARAMETER LeaveRunning
@@ -147,7 +151,7 @@ function New-SqlServerLabWindowsSlotPool {
         $WindowsActivation,
         [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$SystemLocale = 'de-AT',
         [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$UiLanguage = 'en-US',
-        [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale = '0407:00000407',
+        [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale,
         [string]$TimeZone = 'W. Europe Standard Time',
         [switch]$LeaveRunning,
         [string]$StateRoot
@@ -293,7 +297,7 @@ function New-SqlServerLabWindowsSlotPool {
         $null = Invoke-HyperVLabUnattendedProvision -RunId ([string]$lab.Run.runId) `
             -AdministratorPassword $password -PasswordSource $passwordSource `
             -Region $Region -SystemLocale $SystemLocale -UiLanguage $UiLanguage `
-            -InputLocale $InputLocale -TimeZone $TimeZone -StateRoot $StateRoot
+            -InputLocale $poolLocale.InputLocale -TimeZone $TimeZone -StateRoot $StateRoot
         if (-not $LeaveRunning) {
             $null = Stop-HyperVLabEnvironment -RunId ([string]$lab.Run.runId) -StateRoot $StateRoot
         }
@@ -312,7 +316,7 @@ function New-SqlServerLabWindowsSlotPool {
         ArtifactId = [string]$artifact.artifactId
         Count = $Count
         Memory = [PSCustomObject]@{ MinimumMB=$MemoryMinimumMB; StartupMB=$MemoryStartupMB; MaximumMB=$MemoryMaximumMB }
-        Locale = [PSCustomObject]@{ Region=$Region; SystemLocale=$SystemLocale; UiLanguage=$UiLanguage; InputLocale=$InputLocale; TimeZone=$TimeZone }
+        Locale = $poolLocale
         Slots = $orderedResults
     }
 }

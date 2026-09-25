@@ -288,7 +288,9 @@ function New-SqlServerLab {
         Windows-UI-Language für die OOBE-Konfiguration (z. B. en-US).
         Muss vor VM-Erstellung durch die registrierte Image-Sprache belegt sein.
     .PARAMETER InputLocale
-        Keyboard Input Locale, z. B. 0407:00000407.
+        Keyboard Input Locale, z. B. 0407:00000407. Ohne Angabe wird ein
+        eindeutiges unterstuetztes Layout des aktuellen interaktiven
+        Windows-Benutzers gebunden; andernfalls gilt 0407:00000407 mit Grundcode.
     .PARAMETER TimeZone
         Windows-Zeitzone für die OOBE-Konfiguration (z. B. W. Europe Standard
         Time).
@@ -388,7 +390,7 @@ function New-SqlServerLab {
         [ValidatePattern('^[A-Za-z]{2}(-[A-Za-z]{2})?$')][string]$Region = 'DE',
         [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$SystemLocale = 'de-DE',
         [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$UiLanguage = 'en-US',
-        [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale = '0407:00000407',
+        [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale,
         [string]$TimeZone = 'W. Europe Standard Time',
         [switch]$NonInteractive,
         [switch]$AllowDeprecated,

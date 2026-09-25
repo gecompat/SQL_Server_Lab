@@ -10,6 +10,8 @@
     "SystemLocale": { "type": "string", "minLength": 4, "maxLength": 35 },
     "UiLanguage": { "type": "string", "minLength": 4, "maxLength": 35, "description": "Muss durch das ausgewaehlte Image belegt sein." },
     "InputLocale": { "type": "string", "pattern": "^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$" },
+    "InputLocaleSource": { "type": "string", "enum": ["explicit-intent", "explicit-override", "host-current-user", "compatibility-default"], "readOnly": true },
+    "InputLocaleReasonCode": { "type": "string", "pattern": "^HOST_INPUT_LOCALE_[A-Z_]+$", "readOnly": true },
     "TimeZone": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Windows-Zeitzonenbezeichner; keine IANA-ID oder Hostableitung." }
   }
 }

@@ -318,7 +318,9 @@ function Test-LabManifestSchemaInputSupport {
         }
 
         if ($resolvedNode.type -eq 'object') {
-            foreach ($property in @($resolvedNode.properties.PSObject.Properties | Where-Object { $null -ne $_ })) {
+            foreach ($property in @($resolvedNode.properties.PSObject.Properties | Where-Object {
+                $null -ne $_ -and -not [bool]$_.Value.readOnly
+            })) {
                 Test-SchemaNode -Node $property.Value -Path "$Path.$($property.Name)"
             }
             if ($resolvedNode.additionalProperties -and $resolvedNode.additionalProperties -isnot [bool]) {
@@ -789,7 +791,7 @@ function Read-LabManifestSchemaValue {
             $result = [ordered]@{}
             $requiredNames = @($Node.required)
             $properties = @($Node.properties.PSObject.Properties | Where-Object {
-                $null -ne $_ -and $_.Name -notin $ExcludedProperties
+                $null -ne $_ -and $_.Name -notin $ExcludedProperties -and -not [bool]$_.Value.readOnly
             })
             $propertyIndex = 0
 

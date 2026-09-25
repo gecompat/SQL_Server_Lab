@@ -11,7 +11,36 @@ try {
         param($Root)
         function Assert-Locale {param([bool]$Condition,[string]$Name);if(-not $Condition){throw "FAIL: $Name"};Write-Host "PASS: $Name"}
         $defaults=Resolve-LabWindowsLocaleIntent
-        Assert-Locale ($defaults.Region -eq 'DE' -and $defaults.SystemLocale -eq 'de-DE' -and $defaults.UiLanguage -eq 'en-US') 'Kompatibilitaetsdefaults sind explizit und hostunabhaengig'
+        Assert-Locale ($defaults.Region -eq 'DE' -and $defaults.SystemLocale -eq 'de-DE' -and $defaults.UiLanguage -eq 'en-US' -and $defaults.InputLocaleSource -in @('host-current-user','compatibility-default')) 'Kompatibilitaetsprofil bindet die erklaerte Tastaturquelle'
+        $single=Resolve-LabWindowsHostInputLocale -LanguageList @([pscustomobject]@{InputMethodTips=@('0409:00000409')}) -IsWindowsHost $true -IsInteractiveUser $true -IsSystemIdentity $false
+        $duplicate=Resolve-LabWindowsHostInputLocale -LanguageList @([pscustomobject]@{InputMethodTips=@('0409:00000409','0409:00000409')}) -IsWindowsHost $true -IsInteractiveUser $true -IsSystemIdentity $false
+        $ambiguous=Resolve-LabWindowsHostInputLocale -LanguageList @([pscustomobject]@{InputMethodTips=@('0409:00000409','0407:00000407')}) -IsWindowsHost $true -IsInteractiveUser $true -IsSystemIdentity $false
+        $missing=Resolve-LabWindowsHostInputLocale -LanguageList @([pscustomobject]@{InputMethodTips=@()}) -IsWindowsHost $true -IsInteractiveUser $true -IsSystemIdentity $false
+        $unsupportedHost=Resolve-LabWindowsHostInputLocale -LanguageList @([pscustomobject]@{InputMethodTips=@('0411:00000411')}) -IsWindowsHost $true -IsInteractiveUser $true -IsSystemIdentity $false
+        $systemContext=Resolve-LabWindowsHostInputLocale -LanguageList @([pscustomobject]@{InputMethodTips=@('0409:00000409')}) -IsWindowsHost $true -IsInteractiveUser $true -IsSystemIdentity $true
+        Assert-Locale ($single.InputLocale -eq '0409:00000409' -and $single.Source -eq 'host-current-user' -and -not $single.ReasonCode) 'Eindeutiges unterstuetztes Hostlayout wird gebunden'
+        Assert-Locale ($duplicate.InputLocale -eq '0409:00000409' -and $duplicate.Source -eq 'host-current-user') 'Doppelte identische Hostmethoden bleiben eindeutig'
+        Assert-Locale ($ambiguous.InputLocale -eq '0407:00000407' -and $ambiguous.ReasonCode -eq 'HOST_INPUT_LOCALE_AMBIGUOUS') 'Mehrere verschiedene Hostmethoden verwenden den erklaerten Fallback'
+        Assert-Locale ($missing.ReasonCode -eq 'HOST_INPUT_LOCALE_MISSING' -and $unsupportedHost.ReasonCode -eq 'HOST_INPUT_LOCALE_UNSUPPORTED') 'Fehlende und nicht unterstuetzte Hostmethoden sind getrennt klassifiziert'
+        Assert-Locale ($systemContext.ReasonCode -eq 'HOST_INPUT_LOCALE_SYSTEM_CONTEXT') 'Systemkontext uebernimmt kein fremdes Benutzerlayout'
+        $hostResolverOriginal=${function:Resolve-LabWindowsHostInputLocale}
+        try {
+            function Resolve-LabWindowsHostInputLocale {[pscustomobject]@{InputLocale='0409:00000409';Source='host-current-user';ReasonCode=$null}}
+            $hostDefault=Resolve-LabWindowsLocaleIntent
+            $explicitInput=Resolve-LabWindowsLocaleIntent -Overrides @{InputLocale='0407:00000407'}
+            $hostPool=Assert-LabWindowsSlotPoolLocale -Region AT -SystemLocale de-AT -UiLanguage en-US -InputLocale $null -TimeZone 'W. Europe Standard Time' -Artifact ([pscustomobject]@{operatingSystem=[pscustomobject]@{language='en-US'}})
+            $hostManifest=Resolve-ManifestDefaults -Manifest ([pscustomobject]@{name='host-locale';instances=@([pscustomobject]@{id='primary';version='2025';provider='hyperv';os='windows'})})
+            $hadReadHost=Test-Path Function:Read-Host
+            $readHostOriginal=if($hadReadHost){${function:Read-Host}}else{$null}
+            try{function Read-Host {''};$menuDefault=Read-LabHyperVLocaleSettings}
+            finally {if($hadReadHost){Set-Item Function:Read-Host -Value $readHostOriginal}else{Remove-Item Function:Read-Host -ErrorAction SilentlyContinue}}
+            Assert-Locale ($hostDefault.InputLocale -eq '0409:00000409' -and $hostDefault.InputLocaleSource -eq 'host-current-user') 'Resolver verwendet ohne explizite Tastatur die gebundene Hostpraeferenz'
+            Assert-Locale ($explicitInput.InputLocale -eq '0407:00000407' -and $explicitInput.InputLocaleSource -eq 'explicit-override') 'Explizite Tastatur hat Vorrang vor der Hostpraeferenz'
+            Assert-Locale ($hostPool.InputLocale -eq '0409:00000409' -and $hostPool.InputLocaleSource -eq 'host-current-user') 'Slot-Pool verwendet ohne explizite Tastatur denselben Resolver'
+            Assert-Locale ($hostManifest.instances[0].windowsLocale.InputLocale -eq '0409:00000409' -and $hostManifest.instances[0].windowsLocaleSource -eq 'host-current-user') 'Manifestdefault friert Hostlayout und Quelle vor der Ausfuehrung ein'
+            Assert-Locale ($menuDefault.InputLocale -eq '0409:00000409' -and $menuDefault.InputLocaleSource -eq 'host-current-user' -and -not $menuDefault.InputLocaleExplicit) 'Menue zeigt Hostdefault ohne ihn als explizite Eingabe umzudeuten'
+        }
+        finally {Set-Item Function:Resolve-LabWindowsHostInputLocale -Value $hostResolverOriginal}
         $us=Resolve-LabWindowsLocaleIntent -Overrides @{Region='us';SystemLocale='en-us';UiLanguage='en-us';InputLocale='0409:00000409';TimeZone='Pacific Standard Time'}
         Assert-Locale ($us.Region -ceq 'US' -and $us.SystemLocale -ceq 'en-US' -and $us.TimeZone -eq 'Pacific Standard Time') 'US-Profil wird kanonisch normalisiert'
         $independent=Resolve-LabWindowsLocaleIntent -Overrides @{Region='AT';SystemLocale='de-AT';UiLanguage='en-US';InputLocale='0409:00000409'}
@@ -57,8 +86,13 @@ try {
         $manifest=[pscustomobject]@{name='locale-synthetic';instances=@([pscustomobject]@{id='primary';version='2025';provider='hyperv';os='windows';windowsLocale=$us})}
         Assert-Locale (Test-LabManifestSchema -Json ($manifest | ConvertTo-Json -Depth 20)).IsValid 'Manifest-Schema bindet den vollstaendigen Locale-Vertrag'
         $resolved=Resolve-ManifestDefaults -Manifest $manifest
+        $forgedLocale=$us | Select-Object *
+        $forgedLocale.InputLocaleSource='host-current-user'
+        $forgedManifest=[pscustomobject]@{name='locale-forged-source';instances=@([pscustomobject]@{id='primary';version='2025';provider='hyperv';os='windows';windowsLocale=$forgedLocale})}
+        $forgedResolved=Resolve-ManifestDefaults -Manifest $forgedManifest
         $snapshot=New-LabDesiredStateSnapshot -ResolvedLab $resolved -ProvisioningMode manifest
         Assert-Locale ($resolved.instances[0].windowsLocale.Region -eq 'US' -and $resolved.instances[0].windowsLocaleSource -eq 'manifest') 'Parser bewahrt normalisierten Intent und seine Herkunft'
+        Assert-Locale ($forgedResolved.instances[0].windowsLocale.InputLocaleSource -eq 'explicit-intent' -and $forgedResolved.instances[0].windowsLocaleSource -eq 'manifest') 'Manifest-Metadaten koennen eine explizite Tastaturquelle nicht umdeuten'
         Assert-Locale (($snapshot | ConvertTo-Json -Depth 30) -match 'WindowsLocale' -and ($snapshot | ConvertTo-Json -Depth 30) -match 'Pacific Standard Time') 'Sollzustand enthaelt den portablen Intent'
         Assert-Locale ((Test-LabManifestSchemaInputSupport -RootSchema (Get-LabManifestSchema)).IsSupported) 'Generischer Manifest-Wizard kann das Locale-Schema lesen'
         $nativePath=Join-Path $script:ModuleRoot 'Tests/Integration/Invoke-HyperVWindowsLocaleAcceptance.ps1'

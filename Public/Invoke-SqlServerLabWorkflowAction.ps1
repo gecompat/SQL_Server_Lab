@@ -163,7 +163,9 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
     Vollstaendiger WindowsActivationIntent/1.0 fuer neue Windows-Slots;
     Strategy und EgressPolicy enthalten keine Secrets oder privaten Endpunkte.
 .PARAMETER InputLocale
-    Keyboard Input Locale (z. B. 0407:00000407).
+    Keyboard Input Locale (z. B. 0407:00000407). Ohne Angabe wird ein
+    eindeutiges unterstuetztes Layout des aktuellen interaktiven
+    Windows-Benutzers gebunden; andernfalls gilt 0407:00000407 mit Grundcode.
 .PARAMETER TimeZone
     Windows-Zeitzone für die OOBE- und SQL-CompleteImage-Umgebung.
 .PARAMETER ProvisionUnattended
@@ -269,7 +271,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$SystemLocale = 'de-DE',
         [ValidatePattern('^[A-Za-z]{2}-[A-Za-z]{2}$')][string]$UiLanguage = 'en-US',
         $WindowsActivation,
-        [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale = '0407:00000407',
+        [ValidatePattern('^[0-9A-Fa-f]{4}:[0-9A-Fa-f]{8}$')][string]$InputLocale,
         [string]$TimeZone = 'W. Europe Standard Time',
         [switch]$ProvisionUnattended,
         [Nullable[datetime]]$EvaluationExpiresAt,
@@ -463,7 +465,9 @@ function Invoke-SqlServerLabWorkflowAction {
         }
         'SetLabResources' { Set-LabEnvironmentResources -RunId $BuildId -MemoryMB $MemoryMB -ProcessorCount $ProcessorCount }
         'NewHyperVLab' {
-            $windowsLocale=if($ProvisionUnattended){Resolve-LabWindowsLocaleIntent -Overrides @{Region=$Region;SystemLocale=$SystemLocale;UiLanguage=$UiLanguage;InputLocale=$InputLocale;TimeZone=$TimeZone}}else{$null}
+            $localeOverrides=@{Region=$Region;SystemLocale=$SystemLocale;UiLanguage=$UiLanguage;TimeZone=$TimeZone}
+            if($PSBoundParameters.ContainsKey('InputLocale')){$localeOverrides.InputLocale=$InputLocale}
+            $windowsLocale=if($ProvisionUnattended){Resolve-LabWindowsLocaleIntent -Overrides $localeOverrides}else{$null}
             $lab = New-HyperVLabEnvironment -ArtifactId $ArtifactId -LabName $LabName -InstanceId $InstanceId -MemoryStartupMB $MemoryStartupMB -ProcessorCount $ProcessorCount -AutoStart $AutoStart -SwitchName $SwitchName -WindowsLocale $windowsLocale -WindowsActivation $WindowsActivation
             if ($PersistentData) { $null = Enable-HyperVLabPersistentData -RunId $lab.RunId -DataRoot $DataRoot -SizeGB $PersistentDataDiskGB }
             if ($ProvisionUnattended) {
@@ -475,7 +479,7 @@ function Invoke-SqlServerLabWorkflowAction {
                     -Region $Region `
                     -SystemLocale $SystemLocale `
                     -UiLanguage $UiLanguage `
-                    -InputLocale $InputLocale `
+                    -InputLocale $windowsLocale.InputLocale `
                     -TimeZone $TimeZone `
                     -MediaRoot $MediaRoot
                 $lab | Add-Member -NotePropertyName provisioning -NotePropertyValue $provisioning -Force

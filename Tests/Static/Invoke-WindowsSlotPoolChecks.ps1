@@ -63,7 +63,9 @@ try {
         }
         function Assert-LabWindowsSlotPoolLocale {
             param($Region,$SystemLocale,$UiLanguage,$InputLocale,$TimeZone,$Artifact)
-            Resolve-LabWindowsLocaleIntent -Overrides @{Region=$Region;SystemLocale=$SystemLocale;UiLanguage=$UiLanguage;InputLocale=$InputLocale;TimeZone=$TimeZone}
+            $overrides=@{Region=$Region;SystemLocale=$SystemLocale;UiLanguage=$UiLanguage;TimeZone=$TimeZone}
+            if(-not [string]::IsNullOrWhiteSpace([string]$InputLocale)){$overrides.InputLocale=$InputLocale}
+            Resolve-LabWindowsLocaleIntent -Overrides $overrides
         }
         function Get-LabActiveRuns { @() }
         function New-HyperVLabEnvironment {

@@ -48,6 +48,11 @@ Add-CheckResult `
     -Success $schemaSupport.IsSupported `
     -Message ($schemaSupport.Errors -join '; ')
 
+$manifestBuilderSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/ManifestBuilder.ps1') -Raw -Encoding utf8
+Add-CheckResult `
+    -Name 'Aufgeloeste readOnly-Metadaten erscheinen nicht als Wizard-Eingaben' `
+    -Success ($manifestBuilderSource -match 'not \[bool\]\$_.Value.readOnly')
+
 $pathUiContract = & $module {
     Test-LabManifestPathUiMetadata -RootSchema (Get-LabManifestSchema)
 }

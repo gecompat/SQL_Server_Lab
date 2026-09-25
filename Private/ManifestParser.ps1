@@ -342,8 +342,16 @@ function Resolve-ManifestDefaults {
             $resolved.provider = Resolve-ProviderAutoSelect -Instance $instance
         }
         if($resolved.provider -eq 'hyperv'){
-            $resolved.windowsLocale=Resolve-LabWindowsLocaleIntent -Intent $instance.windowsLocale
-            $resolved.windowsLocaleSource=if($instance.windowsLocale){'manifest'}else{'compatibility-defaults'}
+            $manifestLocale=$instance.windowsLocale
+            if($manifestLocale){
+                $manifestLocaleInput=[ordered]@{}
+                foreach($property in @('ContractVersion','Region','SystemLocale','UiLanguage','InputLocale','TimeZone')){
+                    $manifestLocaleInput[$property]=$manifestLocale.$property
+                }
+                $manifestLocale=[pscustomobject]$manifestLocaleInput
+            }
+            $resolved.windowsLocale=Resolve-LabWindowsLocaleIntent -Intent $manifestLocale
+            $resolved.windowsLocaleSource=if($instance.windowsLocale){'manifest'}else{[string]$resolved.windowsLocale.InputLocaleSource}
         }
         elseif($instance.windowsLocale){throw 'WINDOWS_LOCALE_WINDOWS_PROVIDER_REQUIRED'}
 
