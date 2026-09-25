@@ -26,6 +26,17 @@ sources_of_truth:
   sql_cu_watch_policy: ops/sql-cu-policy.md
   exported_commands: SqlServerLab.psd1
   module_loading: SqlServerLab.psm1
+  linux_container_host_tool: Tools/Invoke-SqlServerLabLinuxContainerHost.ps1
+  native_linux_container_host_tool: Tools/Invoke-SqlServerLabNativeLinuxContainerHost.ps1
+  native_linux_container_host_contract: Tools/Common/NativeLinuxContainerHost.ps1
+  wsl_container_host_packages: Tools/Common/wsl-container-host-bootstrap.sh
+  native_linux_container_host_validation: Tests/Static/Invoke-NativeLinuxContainerHostChecks.ps1
+  linux_container_host_contract: Tools/Common/LinuxContainerHostContract.ps1
+  linux_container_host_bootstrap: Tools/Common/LinuxContainerHostBootstrap.ps1
+  linux_container_host_guest_setup: Tools/Common/linux-container-host-bootstrap.sh
+  linux_container_host_guide: Documentation/User/LINUX_CONTAINER_HOST.md
+  linux_container_host_validation: Tests/Static/Invoke-LinuxContainerHostChecks.ps1
+  linux_container_host_acceptance: Tests/Integration/Invoke-LinuxContainerHostAcceptance.ps1
   manifest_structure: Schemas/lab-manifest.schema.json
   ai_scenario_schema: Schemas/ai-scenario.schema.json
   internal_scenario_contract_schema: Schemas/scenario-contract.schema.json

@@ -1600,6 +1600,15 @@ fail-closed. Der SQL-Port liegt im Gast; die VM selbst wird nicht neu gestartet.
 
 ### External Languages nachträglich installieren oder aktualisieren
 
+Verwendet der lokale Docker-/Podman-Host cgroup v2, bleibt der aktuelle
+Launchpad-Namespace-Pfad gesperrt. Der optionale
+[Linux-Containerhost](LINUX_CONTAINER_HOST.md) bietet eine getrennte VM mit
+cgroup v1 und beiden rootful Providern. Er ändert die Desktop-Runtime nicht.
+Der dort dokumentierte native Einstieg richtet vorhandene Linux-Provider
+ohne Hyper-V-Verwaltung ein und kann in einer expliziten laufenden
+WSL-Distribution aufgerufen werden. Er verändert keine globalen WSL-Kernel-
+oder cgroup-Einstellungen und weist inkompatible Ziele vor der Einrichtung ab.
+
 Für einen laufenden SQL-Server-2019-, -2022- oder -2025-Docker-/Podman-Run kann ein Zielmanifest
 erstmals oder zusätzlich resolverfreigegebene Sprachen deklarieren. Im CLI ist
 der Einstieg unter `Umgebungen -> Umgebung verwalten -> External Languages
