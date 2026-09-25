@@ -1,3 +1,53 @@
+function Resolve-LabWindowsHostInputLocale {
+    [CmdletBinding()]
+    param(
+        [AllowNull()]$LanguageList,
+        [bool]$IsWindowsHost=$IsWindows,
+        [bool]$IsInteractiveUser=[Environment]::UserInteractive,
+        [Nullable[bool]]$IsSystemIdentity
+    )
+
+    $fallback='0407:00000407'
+    if(-not $IsWindowsHost){return [pscustomobject]@{InputLocale=$fallback;Source='compatibility-default';ReasonCode='HOST_INPUT_LOCALE_NON_WINDOWS'}}
+    if(-not $IsInteractiveUser){return [pscustomobject]@{InputLocale=$fallback;Source='compatibility-default';ReasonCode='HOST_INPUT_LOCALE_NON_INTERACTIVE'}}
+    if($null -eq $IsSystemIdentity){
+        try{$IsSystemIdentity=[Security.Principal.WindowsIdentity]::GetCurrent().IsSystem}
+        catch{return [pscustomobject]@{InputLocale=$fallback;Source='compatibility-default';ReasonCode='HOST_INPUT_LOCALE_IDENTITY_UNAVAILABLE'}}
+    }
+    if($IsSystemIdentity){return [pscustomobject]@{InputLocale=$fallback;Source='compatibility-default';ReasonCode='HOST_INPUT_LOCALE_SYSTEM_CONTEXT'}}
+    if($null -eq $LanguageList){
+        $command=Get-Command Get-WinUserLanguageList -ErrorAction SilentlyContinue
+        if(-not $command){return [pscustomobject]@{InputLocale=$fallback;Source='compatibility-default';ReasonCode='HOST_INPUT_LOCALE_PROBE_UNAVAILABLE'}}
+        try{$LanguageList=@(Get-WinUserLanguageList -ErrorAction Stop)}
+        catch{return [pscustomobject]@{InputLocale=$fallback;Source='compatibility-default';ReasonCode='HOST_INPUT_LOCALE_PROBE_FAILED'}}
+    }
+    $tips=@($LanguageList | ForEach-Object {@($_.InputMethodTips)} | Where-Object {-not [string]::IsNullOrWhiteSpace([string]$_)} | ForEach-Object {[string]$_.Trim().ToUpperInvariant()} | Select-Object -Unique)
+    if($tips.Count -eq 0){return [pscustomobject]@{InputLocale=$fallback;Source='compatibility-default';ReasonCode='HOST_INPUT_LOCALE_MISSING'}}
+    if($tips.Count -ne 1){return [pscustomobject]@{InputLocale=$fallback;Source='compatibility-default';ReasonCode='HOST_INPUT_LOCALE_AMBIGUOUS'}}
+    $tip=[string]$tips[0]
+    if($tip -notmatch '^[0-9A-F]{4}:([0-9A-F]{8})$' -or $Matches[1] -notin @('00000407','00000409','00000809','00000807','0000100C','0000040C')){
+        return [pscustomobject]@{InputLocale=$fallback;Source='compatibility-default';ReasonCode='HOST_INPUT_LOCALE_UNSUPPORTED'}
+    }
+    return [pscustomobject]@{InputLocale=$tip;Source='host-current-user';ReasonCode=$null}
+}
+
+function Get-LabWindowsInputLocaleReasonDescription {
+    [CmdletBinding()]
+    param([AllowEmptyString()][string]$ReasonCode)
+    switch($ReasonCode){
+        'HOST_INPUT_LOCALE_NON_WINDOWS' {'Der aktuelle Host ist kein Windows-System.'}
+        'HOST_INPUT_LOCALE_NON_INTERACTIVE' {'Der aktuelle Prozess besitzt keinen interaktiven Benutzerkontext.'}
+        'HOST_INPUT_LOCALE_IDENTITY_UNAVAILABLE' {'Die Windows-Benutzeridentitaet konnte nicht sicher gelesen werden.'}
+        'HOST_INPUT_LOCALE_SYSTEM_CONTEXT' {'Ein System- oder Dienstkonto wird nicht als Benutzerpraeferenz uebernommen.'}
+        'HOST_INPUT_LOCALE_PROBE_UNAVAILABLE' {'Get-WinUserLanguageList ist in diesem Prozess nicht verfuegbar.'}
+        'HOST_INPUT_LOCALE_PROBE_FAILED' {'Die Windows-Benutzersprachen konnten nicht gelesen werden.'}
+        'HOST_INPUT_LOCALE_MISSING' {'Im aktuellen Benutzerprofil ist keine Eingabemethode eingetragen.'}
+        'HOST_INPUT_LOCALE_AMBIGUOUS' {'Im aktuellen Benutzerprofil sind mehrere verschiedene Eingabemethoden eingetragen.'}
+        'HOST_INPUT_LOCALE_UNSUPPORTED' {'Die eindeutige Eingabemethode gehoert nicht zum freigegebenen Layoutkatalog.'}
+        default {'Die Hostpraeferenz ist nicht eindeutig verwendbar.'}
+    }
+}
+
 function Resolve-LabWindowsLocaleIntent {
     [CmdletBinding()]
     param([AllowNull()]$Intent,[hashtable]$Overrides=@{})
@@ -13,16 +63,27 @@ function Resolve-LabWindowsLocaleIntent {
         return $resolved
     }
     $values=@{Region='DE';SystemLocale='de-DE';UiLanguage='en-US';InputLocale='0407:00000407';TimeZone='W. Europe Standard Time'}
+    $inputLocaleSource='compatibility-default'
+    $inputLocaleReason='HOST_INPUT_LOCALE_NOT_REQUESTED'
     if($Intent){
         $keys=if($Intent -is [Collections.IDictionary]){@($Intent.Keys)}else{@($Intent.PSObject.Properties.Name)}
-        if(@($keys | Where-Object {$_ -notin ($fields+@('ContractVersion'))}).Count){throw 'WINDOWS_LOCALE_INTENT_FIELD_INVALID'}
+        if(@($keys | Where-Object {$_ -notin ($fields+@('ContractVersion','InputLocaleSource','InputLocaleReasonCode'))}).Count){throw 'WINDOWS_LOCALE_INTENT_FIELD_INVALID'}
         if([string]$Intent.ContractVersion -ne 'SqlServerLab.WindowsLocaleIntent/1.0'){throw 'WINDOWS_LOCALE_CONTRACT_UNSUPPORTED'}
         foreach($field in $fields){
             if($field -notin $keys -or [string]::IsNullOrWhiteSpace([string]$Intent.$field)){throw 'WINDOWS_LOCALE_INTENT_INCOMPLETE'}
             $values[$field]=[string]$Intent.$field
         }
+        $inputLocaleSource=if($keys -contains 'InputLocaleSource' -and [string]$Intent.InputLocaleSource -in @('explicit-intent','explicit-override','host-current-user','compatibility-default')){[string]$Intent.InputLocaleSource}else{'explicit-intent'}
+        $inputLocaleReason=if($inputLocaleSource -eq 'compatibility-default' -and $keys -contains 'InputLocaleReasonCode' -and [string]$Intent.InputLocaleReasonCode -match '^HOST_INPUT_LOCALE_[A-Z_]+$'){[string]$Intent.InputLocaleReasonCode}else{$null}
     }
     foreach($field in $Overrides.Keys){$values[$field]=[string]$Overrides[$field]}
+    if($Overrides.ContainsKey('InputLocale')){$inputLocaleSource='explicit-override';$inputLocaleReason=$null}
+    elseif(-not $Intent){
+        $hostPreference=Resolve-LabWindowsHostInputLocale
+        $values.InputLocale=[string]$hostPreference.InputLocale
+        $inputLocaleSource=[string]$hostPreference.Source
+        $inputLocaleReason=[string]$hostPreference.ReasonCode
+    }
     $region=$values.Region.Trim().Replace('_','-').ToUpperInvariant()
     if($region -match '^[A-Z]{2}-([A-Z]{2})$'){$region=$Matches[1]}
     if($region -notmatch '^[A-Z]{2}$'){throw 'WINDOWS_LOCALE_REGION_INVALID'}
@@ -56,11 +117,13 @@ function Resolve-LabWindowsLocaleIntent {
         -not [TimeZoneInfo]::TryConvertIanaIdToWindowsId($iana,[ref]$windowsZone)){
         throw 'WINDOWS_LOCALE_TIME_ZONE_INVALID'
     }
-    [pscustomobject]@{
+    $result=[pscustomobject]@{
         ContractVersion='SqlServerLab.WindowsLocaleIntent/1.0'
         Region=$region;SystemLocale=$values.SystemLocale;UiLanguage=$values.UiLanguage
-        InputLocale=$inputTip;TimeZone=$windowsZone
+        InputLocale=$inputTip;InputLocaleSource=$inputLocaleSource;TimeZone=$windowsZone
     }
+    if($inputLocaleReason){$result|Add-Member -NotePropertyName InputLocaleReasonCode -NotePropertyValue $inputLocaleReason}
+    return $result
 }
 
 function Assert-LabWindowsLocaleImageCapability {

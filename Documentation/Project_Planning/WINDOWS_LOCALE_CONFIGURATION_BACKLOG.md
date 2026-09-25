@@ -92,7 +92,7 @@ Defaultregel gezielt erweitern; sie ist noch nicht implementiert.
   scopegebundenen Cleanup. Erst dieser Lauf darf als Runtime-Validierung
   bezeichnet werden.
 
-## Folgepunkt: Host-Tastaturlayout als Default — OPEN
+## Folgepunkt: Host-Tastaturlayout als Default — IMPLEMENTED, NATIVE EVIDENCE OPEN
 
 Auftrag vom 2026-09-10: Bei neuen Windows-Hyper-V-Umgebungen der
 SQL-Labplattform soll nach Möglichkeit das Tastaturlayout des Hostsystems
@@ -130,8 +130,20 @@ Ziel und Abnahmekriterien:
   der Windows-Locale-Vertrag, Benutzerreferenz und gekoppelte Tests gemeinsam
   aktualisiert. Die heutige Defaultbeschreibung bleibt bis dahin Ist-Wahrheit.
 
+Umsetzung 2026-09-25: Der gemeinsame Resolver liest ausschliesslich die
+persistierte Sprachliste des aktuellen interaktiven Windows-Benutzers. Genau
+eine verschiedene freigegebene Input Method Tip wird gebunden; Mehrdeutigkeit,
+fehlende oder nicht unterstuetzte Werte, Nicht-Windows-, System- und
+nichtinteraktive Kontexte verwenden den deutschen Kompatibilitaetsdefault mit
+getrenntem Grundcode. Quelle und Grund werden mit dem aufgeloesten Intent
+persistiert; read-only Metadaten erscheinen nicht als Wizard-Eingaben.
+Explizite Werte behalten Vorrang. Synthetische Host-Doubles belegen eindeutige,
+doppelte identische, mehrdeutige, fehlende, nicht unterstuetzte und
+Systemkontexte. Der isolierte Hyper-V-Nachweis mit abweichendem Hostlayout ist
+weiterhin offen.
+
 Betroffene Quellen: `Private/WindowsLocale.ps1`, Manifest-Wizard/-Parser,
 `Public/New-SqlServerLabWindowsSlotPool.ps1`, `Public/Invoke-SqlServerLab.ps1`,
 `Private/BatchWorkflow.ps1`, `Tests/Static/Invoke-WindowsLocaleChecks.ps1` und
-`Documentation/HowTo/WINDOWS_LOCALE.md`. Status: geplant; die Hosterkennung
-und ihre Runtime-Validierung sind noch nicht umgesetzt.
+`Documentation/HowTo/WINDOWS_LOCALE.md`. Status: implementiert und statisch
+validiert; native Runtime-Validierung noch nicht ausgefuehrt.

@@ -3160,7 +3160,7 @@ function Invoke-LabHyperVWindowsSlotPoolInteractive {
     Write-LabStatus -Label 'Namenspräfix' -Value $namePrefix
     Write-LabStatus -Label 'RAM Min/Start/Max' -Value ("{0}/{1}/{2} MB" -f $memoryMinimumMB, $memoryStartupMB, $memoryMaximumMB)
     Write-LabStatus -Label 'vCPU' -Value $processorCount
-    Write-LabStatus -Label 'Windows' -Value ("{0} · {1}, Region {2}, Format {3}, Tastatur {4}" -f $installationType, $locale.UiLanguage, $locale.Region, $locale.SystemLocale, $locale.InputLocale)
+    Write-LabStatus -Label 'Windows' -Value ("{0} · {1}, Region {2}, Format {3}, Tastatur {4} ({5})" -f $installationType, $locale.UiLanguage, $locale.Region, $locale.SystemLocale, $locale.InputLocale, $locale.InputLocaleSource)
     Write-LabStatus -Label 'Baseline' -Value ([string]$artifact.artifactId)
     Write-LabInfo 'Alle Slots werden zuerst als unabhängige Child-VHDX erstellt, danach sequenziell unbeaufsichtigt eingerichtet und wieder gestoppt.'
     if (-not (Read-LabConfirm -Prompt '  Diesen Windows-Slot-Pool jetzt erstellen oder fortsetzen?' -Default $false)) { return }
@@ -3170,9 +3170,10 @@ function Invoke-LabHyperVWindowsSlotPoolInteractive {
         ArtifactId=[string]$artifact.artifactId; MinimumEvaluationDaysRemaining=$minimumEvaluationDays; InstallationType=$installationType
         MemoryMinimumMB=$memoryMinimumMB; MemoryStartupMB=$memoryStartupMB; MemoryMaximumMB=$memoryMaximumMB
         ProcessorCount=$processorCount; Region=$locale.Region; SystemLocale=$locale.SystemLocale
-        UiLanguage=$locale.UiLanguage; InputLocale=$locale.InputLocale; TimeZone=$locale.TimeZone
+        UiLanguage=$locale.UiLanguage; TimeZone=$locale.TimeZone
         Confirm=$false
     }
+    if($locale.InputLocaleExplicit){$arguments.InputLocale=$locale.InputLocale}
     if ($passwordMode -eq 'generated') { $arguments.GenerateAdministratorPasswords = $true }
     else { $arguments.AdministratorPassword = $sharedPassword }
     try {
@@ -4828,10 +4829,14 @@ function Read-LabHyperVLocaleSettings {
         [string]$DefaultRegion = 'DE',
         [string]$DefaultSystemLocale = 'de-DE',
         [string]$DefaultUiLanguage = 'en-US',
-        [string]$DefaultInputLocale = '0407:00000407',
+        [string]$DefaultInputLocale,
         [string]$DefaultTimeZone = 'W. Europe Standard Time'
     )
 
+    $defaultOverrides=@{Region=$DefaultRegion;SystemLocale=$DefaultSystemLocale;UiLanguage=$DefaultUiLanguage;TimeZone=$DefaultTimeZone}
+    if($PSBoundParameters.ContainsKey('DefaultInputLocale')){$defaultOverrides.InputLocale=$DefaultInputLocale}
+    $defaultIntent=Resolve-LabWindowsLocaleIntent -Overrides $defaultOverrides
+    $DefaultInputLocale=[string]$defaultIntent.InputLocale
     $region = Read-Host "  Region (z. B. DE, AT oder de-AT) [$DefaultRegion]"
     if (-not $region) { $region = $DefaultRegion }
 
@@ -4841,8 +4846,12 @@ function Read-LabHyperVLocaleSettings {
     $uiLanguage = Read-Host "  Windows-Anzeigesprache [$DefaultUiLanguage]"
     if (-not $uiLanguage) { $uiLanguage = $DefaultUiLanguage }
 
-    $inputLocale = Read-Host "  Tastaturlayout / Input-Locale [$DefaultInputLocale]"
-    if (-not $inputLocale) { $inputLocale = $DefaultInputLocale }
+    $inputLocaleValue = Read-Host "  Tastaturlayout / Input-Locale [$DefaultInputLocale; Quelle: $($defaultIntent.InputLocaleSource)]"
+    $inputLocaleExplicit=-not [string]::IsNullOrWhiteSpace([string]$inputLocaleValue)
+    $inputLocale = if($inputLocaleExplicit){$inputLocaleValue}else{$DefaultInputLocale}
+    if(-not $inputLocaleExplicit -and $defaultIntent.InputLocaleReasonCode){
+        Write-LabInfo ("Tastatur-Fallback {0}: {1}" -f $defaultIntent.InputLocaleReasonCode,(Get-LabWindowsInputLocaleReasonDescription -ReasonCode $defaultIntent.InputLocaleReasonCode))
+    }
 
     $timeZone = Read-Host "  Zeitzone [$DefaultTimeZone]"
     if (-not $timeZone) { $timeZone = $DefaultTimeZone }
@@ -4852,6 +4861,9 @@ function Read-LabHyperVLocaleSettings {
         SystemLocale = $systemLocale
         UiLanguage = $uiLanguage
         InputLocale = $inputLocale
+        InputLocaleSource = if($inputLocaleExplicit){'explicit-override'}else{[string]$defaultIntent.InputLocaleSource}
+        InputLocaleReasonCode = if($inputLocaleExplicit){$null}else{$defaultIntent.InputLocaleReasonCode}
+        InputLocaleExplicit = $inputLocaleExplicit
         TimeZone = $timeZone
     }
 }

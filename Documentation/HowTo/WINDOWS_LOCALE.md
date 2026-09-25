@@ -17,12 +17,26 @@ Der vollständige Vertrag `SqlServerLab.WindowsLocaleIntent/1.0` enthält:
 | InputLocale | 0409:00000409 | Windows-Sprache und Tastaturlayout als Input Method Tip |
 | TimeZone | Pacific Standard Time | Windows-Zeitzonenbezeichner |
 
-Ohne Manifest-Intent gelten ausdrücklich `DE`, `de-DE`, `en-US`,
-`0407:00000407` und `W. Europe Standard Time`. Der bestehende
-`New-SqlServerLabWindowsSlotPool` behält seine Parameterdefaults `AT` und
-`de-AT`; seine übrigen Defaults entsprechen diesen Werten. Hostregion,
-Hosttastatur und Hostzeitzone werden nicht übernommen. Explizite CLI-Parameter
-dürfen einem expliziten Manifest-Intent nicht widersprechen.
+Ohne Manifest-Intent gelten ausdrücklich `DE`, `de-DE`, `en-US` und
+`W. Europe Standard Time`. Fuer `InputLocale` liest der Resolver im aktuellen
+interaktiven Windows-Benutzerkontext `Get-WinUserLanguageList`. Genau eine
+verschiedene, freigegebene Input Method Tip wird als `host-current-user`
+gebunden. Identische Duplikate bleiben eindeutig. Bei mehreren verschiedenen,
+fehlenden oder nicht freigegebenen Methoden, auf Nicht-Windows-Hosts, in einem
+System-/Dienstkonto oder ohne lesbaren interaktiven Benutzerkontext gilt
+`0407:00000407` als `compatibility-default`; ein stabiler
+`HOST_INPUT_LOCALE_*`-Grundcode erklaert den Fallback. Ein zufaellig aktives
+Fensterlayout wird nicht gelesen.
+
+`InputLocaleSource` und der optionale `InputLocaleReasonCode` sind aufgeloeste
+read-only Metadaten. Der Manifest-Wizard fragt sie nicht als Eingabe ab. Ein
+explizites `InputLocale` in Manifest, CLI, Batch oder Menue hat Vorrang und
+bleibt bei unbekannten beziehungsweise nicht freigegebenen Werten ein
+Validierungsfehler. Hostregion und Hostzeitzone werden weiterhin nicht
+uebernommen. Der bestehende `New-SqlServerLabWindowsSlotPool` behaelt seine
+Parameterdefaults `AT` und `de-AT`; seine Tastatur folgt derselben gemeinsamen
+Auswahl. Explizite CLI-Parameter duerfen einem expliziten Manifest-Intent nicht
+widersprechen.
 
 Manifest-Wizard, direkte Workflow-Aktion, Slot-Pool und Batch nutzen denselben
 Resolver. Ein Batch-Item kann das vollständige Objekt unter
