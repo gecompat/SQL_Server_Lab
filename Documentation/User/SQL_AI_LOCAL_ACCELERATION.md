@@ -167,6 +167,14 @@ $selected = Save-SqlServerLabLlamaCppModel `
 $selected.Path
 ```
 
+Dieselbe Auswahl ist ohne manuelle Cmdlet-Eingabe unter **Datenbanken und
+Verbindungen → SQL Server 2025 KI → llama.cpp-Modelle anzeigen oder laden**
+erreichbar. Das Menü zeigt Hardwarestufe, Quantisierung, Größe und Lizenz. Ist
+`Lab_Base` nicht konfiguriert, bleiben alle Modelle sichtbar, sind jedoch mit
+dem konkreten Einrichtungshinweis deaktiviert. Nach der Auswahl folgt eine
+Bestätigung; erst dann wird das Modell geladen oder ein vorhandener Cache
+vollständig revalidiert.
+
 | Stufe | Katalog-ID | Datei | Zweck |
 |---|---|---:|---|
 | compact | `qwen2.5-1.5b-instruct-q4_0` | ca. 1,07 GB | kleinste offizielle Q4_0-Alternative für CPU und experimentelle OpenVINO-Pfade |

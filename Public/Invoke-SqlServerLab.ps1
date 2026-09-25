@@ -333,6 +333,7 @@ function Show-LabAiMenu {
     param()
 
     return Show-LabSubMenu -ScreenId 'ai-menu' -Title 'SQL Server 2025 KI' -Subtitle 'Kostenbewusste, kataloggebundene Ollama- und SQL-Workflows' -Items @(
+        New-LabConsoleItem -Id 'AiLlamaModels' -Label 'llama.cpp-Modelle anzeigen oder laden' -Value 'kuratierte GGUFs · Hashprüfung · Lab_Base' -Shortcut 'm'
         New-LabConsoleItem -Id 'AiPodmanSetup' -Label 'Podman-KI-Testumgebung erstellen' -Value 'SQL 2025 · vorhandenes Embeddingmodell · Daten bleiben erhalten' -Shortcut '9'
         New-LabConsoleItem -Id 'AiPodmanEnvironments' -Label 'Meine KI-Testumgebungen anzeigen' -Value 'Umgebung und gespeicherte Beispieldaten wiederfinden' -Shortcut 'v'
         New-LabConsoleItem -Id 'AiScenarioPlan' -Label 'KI-Szenarioplan anzeigen' -Value 'read-only · hashgebundener Katalogvertrag' -Shortcut '1'
@@ -345,6 +346,52 @@ function Show-LabAiMenu {
         New-LabConsoleItem -Id 'AiGuidedDemo' -Label 'Geführte KI-Demos' -Value 'Vector · Retrieval · Golden-RAG · read-only Agent' -Shortcut '8'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
+}
+
+function Manage-LabLlamaCppModelsInteractive {
+    [CmdletBinding()]
+    param()
+
+    $models = @(Get-SqlServerLabLlamaCppModel)
+    if ($models.Count -eq 0) {
+        Write-LabError 'Der kuratierte llama.cpp-Modellkatalog ist leer.'
+        Wait-LabConsoleAcknowledgement
+        return
+    }
+    $mediaRoot = Get-LabMediaRootDefault
+    $disabledReason = if ($mediaRoot) { '' } else {
+        'Lab_Base ist nicht konfiguriert. Abhilfe: Unter Storage & Medien den Lab_Base / Media-Root festlegen.'
+    }
+    $items = @(
+        for ($index = 0; $index -lt $models.Count; $index++) {
+            $model = $models[$index]
+            $sizeGiB = [Math]::Round(([double]$model.SizeBytes / 1GB), 2)
+            New-LabConsoleItem -Id ([string]$model.Id) -Label ([string]$model.DisplayName) `
+                -Value ("{0} · {1} · {2} GiB · {3}" -f $model.HardwareTier, $model.Quantization, $sizeGiB, $model.License) `
+                -Shortcut ([string]($index + 1)) -Data $model -Disabled:([string]::IsNullOrWhiteSpace([string]$mediaRoot)) `
+                -DisabledReason $disabledReason
+        }
+    )
+    $selection = Invoke-LabConsoleMenu -ScreenId 'ai-llama-models' -Title 'Kuratierte llama.cpp-Modelle' `
+        -Subtitle 'Auswahl lädt bei Bedarf direkt nach Lab_Base/AI/Models und prüft Größe, SHA-256 und GGUF.' -Items $items
+    if ($selection.Status -ne 'Selected') { return }
+    $model = $selection.SelectedItem.Data
+    Write-LabStatus -Label 'Modell' -Value ([string]$model.DisplayName)
+    Write-LabStatus -Label 'Datei' -Value ([string]$model.FileName)
+    Write-LabStatus -Label 'Quelle' -Value ("{0}@{1}" -f $model.Repository, $model.Revision)
+    Write-LabStatus -Label 'Ziel' -Value (Join-Path $mediaRoot ('AI/Models/' + [string]$model.FileName))
+    if (-not (Read-LabConfirm -Prompt '  Modell jetzt laden beziehungsweise vorhandenen Cache prüfen?' -Default $false)) { return }
+    try {
+        $result = Save-SqlServerLabLlamaCppModel -Id ([string]$model.Id) -MediaRoot $mediaRoot -Confirm:$false
+        if ([string]$result.Status -ceq 'ALREADY_PRESENT') {
+            Write-LabSuccess "Modell ist bereits vollständig geprüft vorhanden: $($result.Path)"
+        }
+        else {
+            Write-LabSuccess "Modell wurde geprüft und atomar veröffentlicht: $($result.Path)"
+        }
+    }
+    catch { Write-LabError "llama.cpp-Modell konnte nicht bereitgestellt werden: $($_.Exception.Message)" }
+    Wait-LabConsoleAcknowledgement
 }
 
 function Show-LabToolsMenu {
@@ -1449,6 +1496,7 @@ function Invoke-LabAction {
         }
         'AiPodmanSetup' { Invoke-LabAiPodmanSetupInteractive }
         'AiPodmanEnvironments' { Show-LabAiPodmanEnvironmentsInteractive }
+        'AiLlamaModels' { Manage-LabLlamaCppModelsInteractive }
         'AiScenarioPlan' { Invoke-LabAiScenarioPlanInteractive }
         'AiScenarioRun' { Invoke-LabAiScenarioRunInteractive }
         'AiModel' { Invoke-LabAiModelInteractive }

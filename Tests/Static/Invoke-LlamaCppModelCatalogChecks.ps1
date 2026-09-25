@@ -68,6 +68,42 @@ try {
     Add-CheckResult 'Abweichender HTTPS-Port wird vor Netzwerkaktion blockiert' ($failure -ceq 'LLAMA_MODEL_DOWNLOAD_SOURCE_NOT_ALLOWED' -and -not $called)
     Add-CheckResult 'Neue öffentliche Befehle sind manifestexportiert' (
         (Get-Command Get-SqlServerLabLlamaCppModel).Source -ceq 'SqlServerLab' -and (Get-Command Save-SqlServerLabLlamaCppModel).Source -ceq 'SqlServerLab')
+    $consoleEvidence=& $module {
+        param($Root)
+        $script:modelMenuRoot=$null;$script:modelMenuSelect=$false;$script:modelMenuItems=@();$script:modelMenuSaved=$null;$script:modelMenuAcknowledged=0
+        function Get-LabMediaRootDefault { $script:modelMenuRoot }
+        function Invoke-LabConsoleMenu {
+            param($ScreenId,$Title,$Subtitle,$Items)
+            $null=$ScreenId;$null=$Title;$null=$Subtitle
+            $script:modelMenuItems=@($Items)
+            if($script:modelMenuSelect){return [pscustomobject]@{Status='Selected';SelectedItem=$script:modelMenuItems[0]}}
+            [pscustomobject]@{Status='Cancelled'}
+        }
+        function Read-LabConfirm {
+            param($Prompt,$Default)
+            $null=$Prompt;$null=$Default
+            $true
+        }
+        function Save-SqlServerLabLlamaCppModel {
+            param($Id,$MediaRoot,[switch]$Confirm)
+            $script:modelMenuSaved=[pscustomobject]@{Id=$Id;MediaRoot=$MediaRoot;Confirm=[bool]$Confirm}
+            [pscustomobject]@{Status='ALREADY_PRESENT';Path=(Join-Path $MediaRoot 'AI/Models/synthetic.gguf')}
+        }
+        function Write-LabStatus { param($Label,$Value) $null=$Label;$null=$Value }
+        function Write-LabSuccess { param($Message) $null=$Message }
+        function Write-LabError { param($Message) $null=$Message }
+        function Wait-LabConsoleAcknowledgement { $script:modelMenuAcknowledged++ }
+        Manage-LabLlamaCppModelsInteractive
+        $disabled=@($script:modelMenuItems|ForEach-Object {[pscustomobject]@{Disabled=$_.Disabled;Reason=$_.DisabledReason}})
+        $script:modelMenuRoot=$Root;$script:modelMenuSelect=$true
+        Manage-LabLlamaCppModelsInteractive
+        [pscustomobject]@{Disabled=$disabled;Saved=$script:modelMenuSaved;Acknowledged=$script:modelMenuAcknowledged}
+    } $root
+    Add-CheckResult 'KI-Menü listet Modelle ohne Lab_Base sichtbar, aber mit konkreter Abhilfe deaktiviert' (
+        $consoleEvidence.Disabled.Count -eq 3 -and @($consoleEvidence.Disabled|Where-Object {-not $_.Disabled -or $_.Reason -notmatch 'Lab_Base.*konfiguriert.*Abhilfe'}).Count -eq 0)
+    Add-CheckResult 'KI-Menü lädt die explizite Modellauswahl direkt in den konfigurierten Media Root' (
+        $consoleEvidence.Saved.Id -ceq 'qwen2.5-1.5b-instruct-q4_0' -and $consoleEvidence.Saved.MediaRoot -ceq $root -and
+        -not $consoleEvidence.Saved.Confirm -and $consoleEvidence.Acknowledged -eq 1)
 }
 finally {
     Remove-Module $module -Force -ErrorAction SilentlyContinue
