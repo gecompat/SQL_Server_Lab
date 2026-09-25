@@ -248,6 +248,11 @@ modell- und netzwerkfrei; Golden-RAG und Diagnose verwenden die kleinsten
 katalogisierten lokalen Modelle. Die Menüführung ist statisch belegt, ersetzt
 aber keinen providerbezogenen Runtime-Nachweis. Ein Modell-Judge bleibt
 informativ und ist nicht Bestandteil eines blockierenden Gates.
+Die Podman-KI-Erstellung prüft die Provider-Readiness beim Öffnen dieses
+Untermenüs read-only. Fehlende CLI, fehlende Ausführungsberechtigung,
+Zeitüberschreitung und unerreichbare beziehungsweise ungültig antwortende
+Runtime bleiben als deaktivierter Eintrag sichtbar und nennen ReasonCode sowie
+Abhilfe; eine Podman-Machine wird dabei nicht automatisch gestartet.
 
 ## Provider
 

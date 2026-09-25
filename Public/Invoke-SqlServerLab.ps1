@@ -328,13 +328,49 @@ function Show-LabDatabaseMenu {
     return Show-LabSubMenu -ScreenId 'database-menu' -Title 'Datenbank & Skripte' -Subtitle 'Artefakte, Datenbanken und SQL-Ausfuehrung' -Items $items
 }
 
+function Get-LabAiPodmanSetupMenuAvailability {
+    [CmdletBinding()]
+    param([AllowNull()]$Readiness)
+
+    if ($null -eq $Readiness) {
+        try { $Readiness = Get-LabClientRuntimeReadiness -Provider podman }
+        catch {
+            return [PSCustomObject]@{
+                Available = $false
+                Reason = "[AI_PODMAN_SETUP_READINESS_FAILED] Podman konnte nicht geprüft werden: $($_.Exception.Message) Abhilfe: Die Podman-Installation und den konfigurierten Runtime-Endpunkt mit Test-SqlServerLabPrerequisite prüfen."
+            }
+        }
+    }
+    if ([string]$Readiness.Status -ceq 'PASS') {
+        return [PSCustomObject]@{ Available = $true; Reason = '' }
+    }
+
+    $code = [string]$Readiness.Code
+    if ([string]::IsNullOrWhiteSpace($code)) { $code = 'AI_PODMAN_SETUP_RUNTIME_NOT_READY' }
+    $guidance = switch ($code) {
+        'TOOL_RESOLUTION_FAILED' { 'Die Podman-CLI konnte nicht aufgelöst werden. Abhilfe: Tools/Initialize-SqlServerLabHostTools.ps1 für Podman ausführen und den dort gemeldeten Konfigurationsfehler beheben.' }
+        'TOOL_NOT_INSTALLED' { 'Podman ist nicht installiert. Abhilfe: Podman installieren und anschließend die Readiness erneut prüfen.' }
+        'TOOL_NATIVE_PATH_REQUIRED' { 'Für Podman wurde kein absoluter nativer Programmpfad ermittelt. Abhilfe: den Tool-Override auf die installierte podman-Programmdatei korrigieren.' }
+        'TOOL_EXECUTION_DENIED' { 'Die Podman-CLI darf in dieser Sitzung nicht ausgeführt werden. Abhilfe: die normalen Hostberechtigungen für die installierte CLI korrigieren.' }
+        'PROVIDER_ACCESS_DENIED' { 'Der Podman-Endpunkt verweigert den Zugriff. Abhilfe: ein für die konfigurierte Podman-Runtime berechtigtes Konto verwenden.' }
+        'PROVIDER_PROBE_TIMEOUT' { 'Die begrenzte Readiness-Prüfung des Podman-Endpunkts lief in ein Zeitlimit. Abhilfe: Podman-Runtime beziehungsweise Podman-Machine separat prüfen und starten.' }
+        'PROVIDER_UNREACHABLE' { 'Podman ist installiert, die Runtime ist aber nicht erreichbar. Abhilfe: Podman-Runtime beziehungsweise Podman-Machine starten und die Readiness erneut prüfen.' }
+        'PROVIDER_RESPONSE_INVALID' { 'Podman lieferte keinen gültigen Info-Vertrag. Abhilfe: CLI-Version und konfigurierten Runtime-Endpunkt prüfen.' }
+        default { 'Podman ist für diese Aktion nicht einsatzbereit. Abhilfe: Test-SqlServerLabPrerequisite für Provider podman ausführen und die dort genannte Voraussetzung beheben.' }
+    }
+    [PSCustomObject]@{ Available = $false; Reason = "[$code] $guidance" }
+}
+
 function Show-LabAiMenu {
     [CmdletBinding()]
     param()
 
+    $podmanSetup = Get-LabAiPodmanSetupMenuAvailability
+
     return Show-LabSubMenu -ScreenId 'ai-menu' -Title 'SQL Server 2025 KI' -Subtitle 'Kostenbewusste, kataloggebundene Ollama- und SQL-Workflows' -Items @(
         New-LabConsoleItem -Id 'AiLlamaModels' -Label 'llama.cpp-Modelle anzeigen oder laden' -Value 'kuratierte GGUFs · Hashprüfung · Lab_Base' -Shortcut 'm'
-        New-LabConsoleItem -Id 'AiPodmanSetup' -Label 'Podman-KI-Testumgebung erstellen' -Value 'SQL 2025 · vorhandenes Embeddingmodell · Daten bleiben erhalten' -Shortcut '9'
+        New-LabConsoleItem -Id 'AiPodmanSetup' -Label 'Podman-KI-Testumgebung erstellen' -Value 'SQL 2025 · vorhandenes Embeddingmodell · Daten bleiben erhalten' -Shortcut '9' `
+            -Disabled:(-not $podmanSetup.Available) -DisabledReason ([string]$podmanSetup.Reason)
         New-LabConsoleItem -Id 'AiPodmanEnvironments' -Label 'Meine KI-Testumgebungen anzeigen' -Value 'Umgebung und gespeicherte Beispieldaten wiederfinden' -Shortcut 'v'
         New-LabConsoleItem -Id 'AiScenarioPlan' -Label 'KI-Szenarioplan anzeigen' -Value 'read-only · hashgebundener Katalogvertrag' -Shortcut '1'
         New-LabConsoleItem -Id 'AiScenarioRun' -Label 'KI-Szenario ausführen' -Value 'SQL 2025 · journalisiert · Cleanup immer' -Shortcut '2'
