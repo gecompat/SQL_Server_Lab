@@ -23,6 +23,10 @@ und Driftablehnung sowie Fehlercleanup. Sie startet keinen Dienst oder Provider.
 `Static/Invoke-AiSharedGatewayUpstreamChecks.ps1` revalidiert diesen synthetischen
 Store und prüft injizierte Llama-v1- und OVMS-v3-Antworten einschließlich Modell,
 Dimension, endlicher Werte, Fehlercodes und geheimnisfreiem Receipt ohne Netzwerk.
+`Static/Invoke-AiSharedGatewaySessionChecks.ps1` startet ausschließlich einen
+synthetischen Loopback-Upstream und einen ownergebundenen TLS-Gateway. Geprüft
+werden zwei getrennte Consumer-Schlüssel, TLS-Pinning, Secret-Cleanup, Lease-
+und Prozessbesitz sowie vollständiger Cleanup; SQL und Provider bleiben unberührt.
 `Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` ist die separate Docker-only-
 Referenz für SQL External Model, TLS-Negative, Retrieval, SQLrestart und Cleanup.
 Die native Abnahme bestand am 2026-09-21 mit sieben Embeddings, SQL-TLS-Negativen,

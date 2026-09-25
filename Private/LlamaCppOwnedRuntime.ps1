@@ -349,4 +349,9 @@ $ExecutionContext.SessionState.Module.OnRemove = {
             try {if(-not $session.Worker.HasExited){$session.Worker.StandardInput.Close()}} catch { }
         }
     }
+    if($script:AiSharedGatewaySessions) {
+        foreach($session in @($script:AiSharedGatewaySessions.Values)) {
+            try {if(-not $session.Worker.HasExited){$session.Worker.StandardInput.Close()}} catch { }
+        }
+    }
 }

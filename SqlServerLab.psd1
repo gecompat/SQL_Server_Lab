@@ -35,6 +35,8 @@
         'Test-SqlServerLabAiSharedGatewayPreflight'
         'Register-SqlServerLabAiSharedGatewayStorage'
         'Test-SqlServerLabAiSharedGatewayUpstream'
+        'Start-SqlServerLabAiSharedGatewaySession'
+        'Stop-SqlServerLabAiSharedGatewaySession'
         'Get-SqlServerLabAiExternalModelPlan'
         'Get-SqlServerLabAiExternalModelSqlPlan'
         'Get-SqlServerLabLlamaCppRuntime'

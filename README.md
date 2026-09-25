@@ -804,6 +804,8 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Test-SqlServerLabAiSharedGatewayPreflight` | Lokale Runtime, Modell und TLS-Material eines Shared-Gateway-Plans read-only und pfadfrei bestätigen |
 | `Register-SqlServerLabAiSharedGatewayStorage` | Gebundene Gatewaydateien mutexgeschützt, benutzerexklusiv und atomar im gemeinsamen StateRoot registrieren; kein Dienst- oder SQL-Start |
 | `Test-SqlServerLabAiSharedGatewayUpstream` | Geschützten Store und den gebundenen Llama-v1- oder OVMS-v3-Loopback-Upstream read-only revalidieren |
+| `Start-SqlServerLabAiSharedGatewaySession` | Registrierten Gateway ownergebunden, Loopback-only und zeitlich begrenzt für alle geplanten Consumer starten |
+| `Stop-SqlServerLabAiSharedGatewaySession` | Ausschließlich eine in derselben Modulsitzung gestartete Gateway-Operation samt temporärem Zustand bereinigen |
 | `Get-SqlServerLabAiExternalModelPlan` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt hashgebunden für SQL `CREATE EXTERNAL MODEL` planen |
 | `Get-SqlServerLabAiExternalModelSqlPlan` | Frisches Endpoint-Receipt an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden; führt kein SQL aus |
 | `Test-SqlServerLabAiExternalModelSqlPreflight` | Eigenen SQL-2025-Zielscope read-only auf Datenbankidentität, Master Key, Rechte und freie Objektnamen prüfen |
