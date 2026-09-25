@@ -25,6 +25,7 @@ function New-LabAiSharedGatewayPlan {
         [Parameter(Mandatory)][ValidatePattern('^[a-fA-F0-9]{64}$')][string]$CertificateAuthoritySha256,
         [Parameter(Mandatory)][ValidateCount(1,64)][object[]]$Consumer
     )
+    if($ServerCertificateSha256 -ceq $CertificateAuthoritySha256){throw 'AI_SHARED_GATEWAY_CERTIFICATE_HASHES_MUST_DIFFER'}
     try{$locationUri=[Uri]::new($Location,[UriKind]::Absolute)}catch{throw 'AI_SHARED_GATEWAY_LOCATION_INVALID'}
     if($locationUri.Scheme -cne 'https' -or $locationUri.AbsolutePath -cne '/v1/embeddings' -or
        -not [string]::IsNullOrEmpty($locationUri.UserInfo) -or -not [string]::IsNullOrEmpty($locationUri.Query) -or
@@ -69,4 +70,32 @@ function New-LabAiSharedGatewayPlan {
     }
     $plan.PlanKey=Get-LabAiPlanKey -InputObject $plan
     [pscustomobject]$plan
+}
+
+function Resolve-LabAiSharedGatewayPlan {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Plan)
+
+    $expectedNames=@('ApiFormat','Blockers','CertificateAuthoritySha256','Consumers','Contract','Dimension','EndpointPath','EvidenceStatus','GatewayId','InputProfile','Location','ModelSha256','PlanKey','Port','RequiredActions','RuntimeModel','RuntimeSha256','ServerCertificateSha256','Status','UpstreamBackend','UpstreamLocation','Warnings')
+    $actualNames=@($Plan.PSObject.Properties.Name|Sort-Object)
+    if(($actualNames -join ',') -cne (($expectedNames|Sort-Object)-join ',') -or
+       [string]$Plan.Contract.Name -cne 'SqlServerLab.AiSharedGatewayPlan' -or [string]$Plan.Contract.Version -cne '1.0' -or
+       [string]$Plan.PlanKey -notmatch '^[a-f0-9]{64}$'){
+        throw 'AI_SHARED_GATEWAY_PLAN_INVALID'
+    }
+    try {
+        $canonical=New-LabAiSharedGatewayPlan -GatewayId ([string]$Plan.GatewayId) -Location ([string]$Plan.Location) `
+            -UpstreamBackend ([string]$Plan.UpstreamBackend) -UpstreamLocation ([string]$Plan.UpstreamLocation) `
+            -RuntimeModel ([string]$Plan.RuntimeModel) -Dimension ([int]$Plan.Dimension) -InputProfile ([string]$Plan.InputProfile) `
+            -ModelSha256 ([string]$Plan.ModelSha256) -RuntimeSha256 ([string]$Plan.RuntimeSha256) `
+            -ServerCertificateSha256 ([string]$Plan.ServerCertificateSha256) `
+            -CertificateAuthoritySha256 ([string]$Plan.CertificateAuthoritySha256) -Consumer @($Plan.Consumers)
+    }
+    catch {throw 'AI_SHARED_GATEWAY_PLAN_INVALID'}
+    $identity=[ordered]@{}
+    foreach($name in $actualNames){if($name -cne 'PlanKey'){$identity[$name]=$Plan.$name}}
+    if((Get-LabAiPlanKey -InputObject $identity) -cne [string]$Plan.PlanKey -or $canonical.PlanKey -cne [string]$Plan.PlanKey){
+        throw 'AI_SHARED_GATEWAY_PLAN_INVALID'
+    }
+    return $canonical
 }

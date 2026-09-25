@@ -507,11 +507,20 @@ $sharedPlan = Get-SqlServerLabAiSharedGatewayPlan `
   -ServerCertificateSha256 $serverCertHash `
   -CertificateAuthoritySha256 $caHash `
   -Consumer $consumers
+
+$preflight = $sharedPlan | Test-SqlServerLabAiSharedGatewayPreflight `
+  -RuntimePath C:\AI\llama-server.exe `
+  -ModelPath C:\AI\embedding.gguf `
+  -CertificatePath C:\AI\shared-gateway.pem `
+  -PrivateKeyPath C:\AI\shared-gateway-key.pem `
+  -CertificateAuthorityPath C:\AI\lab-root.pem
 ```
 
-Der Befehl verändert weder Host noch SQL Server. Er liefert derzeit absichtlich
-`BLOCKED`, bis persistenter Dienstbetrieb, Storage, Zertifikatsrotation,
-Backup/Restore sowie Apply und Remove implementiert und separat abgenommen sind.
+Beide Befehle verändern weder Host noch SQL Server. Der Plan liefert weiterhin
+absichtlich `BLOCKED`. Der Preflight bestätigt nur die lokalen Inhalts- und
+TLS-Bindungen; geschützter gemeinsamer Storage, persistenter Dienstbetrieb,
+Live-Endpunkt, SQL-Consumer, Zertifikatsrotation, Backup/Restore sowie Apply und
+Remove bleiben bis zur separaten Implementierung und Abnahme offen.
 
 Ein bereits vom Operator gestarteter OVMS-Upstream kann vorab ohne Mutation
 geprüft werden:

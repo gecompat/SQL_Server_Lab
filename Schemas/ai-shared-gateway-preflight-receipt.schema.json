@@ -1,0 +1,14 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://example.invalid/sql-server-lab/ai-shared-gateway-preflight-receipt.schema.json",
+  "type":"object","required":["Contract","Status","EvidenceStatus","PlanKey","RuntimeSha256","ModelSha256","ServerCertificateSha256","CertificateAuthoritySha256","CertificateNotBeforeUtc","CertificateNotAfterUtc","VerifiedAtUtc","VerifiedEvidence","PendingEvidence","ReceiptKey"],
+  "properties":{
+    "Contract":{"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiSharedGatewayPreflightReceipt"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status":{"const":"PREFLIGHT_VERIFIED"},"EvidenceStatus":{"const":"LOCAL_ARTIFACTS_AND_CERTIFICATES"},
+    "PlanKey":{"$ref":"#/$defs/hash"},"RuntimeSha256":{"$ref":"#/$defs/hash"},"ModelSha256":{"$ref":"#/$defs/hash"},"ServerCertificateSha256":{"$ref":"#/$defs/hash"},"CertificateAuthoritySha256":{"$ref":"#/$defs/hash"},
+    "CertificateNotBeforeUtc":{"type":"string","format":"date-time"},"CertificateNotAfterUtc":{"type":"string","format":"date-time"},"VerifiedAtUtc":{"type":"string","format":"date-time"},
+    "VerifiedEvidence":{"type":"array","minItems":8,"maxItems":8,"uniqueItems":true,"items":{"enum":["RUNTIME_BINARY_MATCH","MODEL_FILE_MATCH","SERVER_CERTIFICATE_MATCH","CERTIFICATE_PRIVATE_KEY_MATCH","CERTIFICATE_AUTHORITY_MATCH","CERTIFICATE_CHAIN_MATCH","CERTIFICATE_HOST_MATCH","CERTIFICATE_TIME_VALID"]}},
+    "PendingEvidence":{"type":"array","minItems":7,"maxItems":7,"uniqueItems":true,"items":{"enum":["PROTECTED_SHARED_STORAGE","PERSISTENT_GATEWAY_SERVICE","LIVE_ENDPOINT","SQL_CONSUMER_BINDINGS","BACKUP_RESTORE","ROTATION","ACCELERATOR_RUNTIME_ATTESTATION"]}},
+    "ReceiptKey":{"$ref":"#/$defs/hash"}
+  },"additionalProperties":false,"$defs":{"hash":{"type":"string","pattern":"^[a-f0-9]{64}$"}}
+}
