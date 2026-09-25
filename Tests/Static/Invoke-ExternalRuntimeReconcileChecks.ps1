@@ -268,6 +268,13 @@ Add-CheckResult -Name 'Docker und Podman binden einen stabilen Linux-Hostname ue
 )
 
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ("sql-lab-runtime-reconcile-" + [guid]::NewGuid().ToString('N'))
+$originalHostCapability = & $module { (Get-Command Test-LabExternalRuntimeContainerHost).ScriptBlock }
+& $module {
+    Set-Item Function:Test-LabExternalRuntimeContainerHost -Value {
+        param($Provider,$ImagePlan)
+        [PSCustomObject]@{Status='READY';Supported=$true;ReasonCode='NONE';Reason=$null;Guidance=$null}
+    }
+}
 try {
     New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
     $currentManifestPath = Join-Path $tempRoot 'current.json'
@@ -421,6 +428,7 @@ try {
     )
 }
 finally {
+    & $module { param($Original) Set-Item Function:Test-LabExternalRuntimeContainerHost -Value $Original } $originalHostCapability
     if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -Recurse -Force }
 }
 

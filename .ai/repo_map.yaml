@@ -931,6 +931,7 @@ internal_components:
       - "Docker- und Podman-Buildreceipts getrennt und ohne Hostpfade persistieren"
       - "Derived-Image-Plaene, Buildreceipts und wiederverwendete Image-Artefakte an die exakten Software-PlanKeys binden"
       - "rootful-cgroup-v1-, Capability-, Security-Option- und Namespace-Sicherheitsvertrag vor Container-Mutation erzwingen"
+      - "dieselbe Live-Hostentscheidung mit stabilem ReasonCode, Ist-/Soll-Grenze und Abhilfe in Planung, Ausführung und Konsolenmenü verwenden"
       - "SQL-Satellite-OpenSSL-Aufloesung und Java-Sandbox-Datenverzeichnisse reproduzierbar im Image binden"
       - "wiederverwendbare Images außerhalb des normalen Run-Cleanups halten"
   - name: ExternalRuntimeWindows

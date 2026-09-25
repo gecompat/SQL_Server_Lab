@@ -564,7 +564,7 @@ function New-SqlServerLab {
                 -SqlVersion ([string]$instance.version) -SoftwarePlans $externalRuntimePlans
             $hostStatus = Test-LabExternalRuntimeContainerHost -Provider ([string]$instance.provider) -ImagePlan $imagePlan
             if ([string]$hostStatus.Status -ne 'READY') {
-                throw "EXTERNAL_RUNTIME_CONTAINER_HOST_REJECTED: $($instance.id) / $($hostStatus.Status) - $($hostStatus.Reason)"
+                throw (Format-LabExternalRuntimeHostCapabilityError -Capability $hostStatus -InstanceId ([string]$instance.id))
             }
             $externalRuntimeImagePlansByInstance[[string]$instance.id] = $imagePlan
         }

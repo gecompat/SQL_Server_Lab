@@ -124,6 +124,13 @@ Restore, Attach, Archiv, SQL-Skript und Backupkette sind unterschiedliche Vertr�
 - lokale Secretdateien nur unter ignoriertem Run-Scope;
 - Cleanup entfernt temporäre Secretdateien.
 
+## 10a. Nicht unterstützte Host- und Providerkombinationen
+
+- Eine nicht unterstützte Funktion wird vor der ersten Mutation mit stabilem Fehlercode, erkannter Ist-Konfiguration, benötigter Capability und konkreter Abhilfe abgelehnt.
+- Öffentliche Funktionen und interaktive Oberflächen verwenden dieselbe Capability-Entscheidung; das Menü darf keine abweichende Verfügbarkeit behaupten.
+- `Invoke-SqlServerLab` zeigt nicht verfügbare Aktionen deaktiviert und nennt den Grund auch im nummerierten Fallback.
+- Unbekannte oder nicht zuverlässig prüfbare Hostfähigkeiten bleiben fail-closed und werden als solche benannt.
+
 ## 11. Sprachstil, Dokumentation und Übersetzungen
 
 - Primärsprache der aktiven Projektdokumentation ist Deutsch.

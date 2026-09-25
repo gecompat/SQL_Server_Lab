@@ -194,6 +194,12 @@ function Get-LabExternalRuntimeReconcileContext {
             -SqlVersion ([string]$connectionInstance.version) -SoftwarePlans $desiredPlans
     }
     else { $null }
+    if ($imagePlan) {
+        $hostCapability=Test-LabExternalRuntimeContainerHost -Provider ([string]$connectionInstance.provider) -ImagePlan $imagePlan
+        if ([string]$hostCapability.Status -ne 'READY') {
+            throw (Format-LabExternalRuntimeHostCapabilityError -Capability $hostCapability -InstanceId $InstanceId)
+        }
+    }
     $preview = Get-LabExternalRuntimePlanPreview -DesiredPlans $desiredPlans -CurrentPlans $currentPlans
     $currentKeys = @($currentPlans.PlanKey | Sort-Object -Unique)
     $desiredKeys = @($desiredPlans.PlanKey | Sort-Object -Unique)

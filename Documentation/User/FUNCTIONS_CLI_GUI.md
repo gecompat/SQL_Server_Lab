@@ -27,6 +27,14 @@ Spalte **Konsolenmenü** nennt zusätzlich die Einbindung in das interaktive
 oder über `Invoke-SqlServerLabWorkflowAction` vermittelte Verwendung in der
 lokalen Browseroberfläche.
 
+Das Konsolenmenü wertet Host- und Providerfähigkeiten vor einer Auswahl aus.
+Nicht unterstützte Aktionen erscheinen dunkelgrau und nennen den konkreten
+Grund samt Abhilfe; der nummerierte Fallback zeigt dieselbe Begründung. Für
+External Languages verwenden Menü, Planung und Ausführung dieselbe Live-
+Entscheidung. Docker und Podman benötigen dafür rootful Linux mit cgroup v1.
+Eine Podman-Runtime mit cgroup v2 bleibt für allgemeine Labs verwendbar, wird
+für External Languages jedoch mit `CGROUP_VERSION_UNSUPPORTED` deaktiviert.
+
 Interne Hilfsfunktionen aus `Private/`, `Providers/` und nicht exportierte
 Hilfsfunktionen aus `Public/` sind kein stabiler Benutzervertrag und werden
 nicht einzeln aufgeführt. Der aktuelle Quellbestand enthält einschließlich

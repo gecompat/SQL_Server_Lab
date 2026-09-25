@@ -321,6 +321,111 @@ function New-LabExternalRuntimeContainerImagePlan {
     }
 }
 
+function New-LabExternalRuntimeHostCapabilityResult {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
+        [Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion,
+        [Parameter(Mandatory)][string]$Status,
+        [Parameter(Mandatory)][string]$ReasonCode,
+        [AllowNull()][string]$Reason,
+        [AllowNull()][string]$Guidance,
+        [AllowNull()][string]$CgroupVersion,
+        [AllowNull()][Nullable[bool]]$Rootless
+    )
+
+    [PSCustomObject]@{
+        Contract=[PSCustomObject]@{ Name='SqlServerLab.ExternalRuntimeHostCapability'; Version='1.0' }
+        Feature='SqlExternalRuntime'; Provider=$Provider; SqlVersion=$SqlVersion
+        Status=$Status; Supported=($Status -eq 'READY'); ReasonCode=$ReasonCode
+        Reason=$Reason; Guidance=$Guidance; CgroupVersion=$CgroupVersion; Rootless=$Rootless
+        DisplayReason=$(if ($Status -eq 'READY') { '' } else { "$Reason Abhilfe: $Guidance" })
+    }
+}
+
+function Get-LabExternalRuntimeHostCapability {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
+        [Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion,
+        [string]$RequiredCgroupVersion='1',
+        [AllowNull()][object]$RuntimeInfo,
+        [AllowNull()][Nullable[bool]]$ToolAvailable,
+        [AllowNull()][Nullable[bool]]$RuntimeReachable
+    )
+
+    $result = @{ Provider=$Provider; SqlVersion=$SqlVersion; CgroupVersion=$null; Rootless=$null }
+    if ($null -eq $ToolAvailable) {
+        $resolution = Resolve-LabHostTool -Name $Provider
+        $ToolAvailable=[bool]$resolution.Available
+    }
+    if (-not [bool]$ToolAvailable) {
+        return New-LabExternalRuntimeHostCapabilityResult @result -Status 'RUNTIME_UNAVAILABLE' -ReasonCode 'PROVIDER_TOOL_MISSING' `
+            -Reason "External Languages für SQL Server $SqlVersion können nicht verwendet werden, weil '$Provider' auf diesem Host nicht gefunden wurde." `
+            -Guidance "Installiere und initialisiere $Provider oder wähle einen anderen unterstützten Provider."
+    }
+    if ($RuntimeReachable -eq $false) {
+        return New-LabExternalRuntimeHostCapabilityResult @result -Status 'RUNTIME_UNAVAILABLE' -ReasonCode 'PROVIDER_RUNTIME_UNREACHABLE' `
+            -Reason "External Languages für SQL Server $SqlVersion können nicht verwendet werden, weil die $Provider-Runtime nicht erreichbar ist." `
+            -Guidance "Starte die $Provider-Runtime und prüfe die Verbindung mit '$Provider info'."
+    }
+    $info=$RuntimeInfo
+    if ($null -eq $info) {
+        try {
+            $providerInvocation = Get-LabHostToolInvocation -Name $Provider
+            $raw = if ($Provider -eq 'docker') { & $providerInvocation info --format '{{json .}}' 2>&1 }
+                else { & $providerInvocation info --format json 2>&1 }
+            if ($LASTEXITCODE -ne 0) { throw (@($raw) -join ' ') }
+            $info = (@($raw) -join "`n") | ConvertFrom-Json -Depth 50
+        }
+        catch {
+            return New-LabExternalRuntimeHostCapabilityResult @result -Status 'RUNTIME_UNAVAILABLE' -ReasonCode 'PROVIDER_RUNTIME_UNREACHABLE' `
+                -Reason "External Languages für SQL Server $SqlVersion können nicht verwendet werden, weil die $Provider-Runtime nicht erreichbar ist." `
+                -Guidance "Starte die $Provider-Runtime und prüfe die Verbindung mit '$Provider info'."
+        }
+    }
+
+    if ($Provider -eq 'docker') {
+        $operatingSystem=[string]$info.OSType; $cgroupVersion=[string]$info.CgroupVersion
+        $rootless=[Nullable[bool]](@($info.SecurityOptions | Where-Object { [string]$_ -match '(?i)rootless' }).Count -gt 0)
+    }
+    else {
+        $operatingSystem=[string]$info.host.os; $cgroupVersion=[string]$info.host.cgroupVersion
+        if (-not $cgroupVersion) { $cgroupVersion=[string]$info.host.cgroupsVersion }
+        $rootless = if ($null -eq $info.host.security.rootless) { $null } else { [Nullable[bool]]([bool]$info.host.security.rootless) }
+    }
+    $normalizedCgroup=$cgroupVersion -replace '[^0-9]',''; $result.CgroupVersion=$normalizedCgroup; $result.Rootless=$rootless
+    if ($operatingSystem -ne 'linux') {
+        return New-LabExternalRuntimeHostCapabilityResult @result -Status 'DECLARED_UNSUPPORTED' -ReasonCode 'LINUX_RUNTIME_REQUIRED' `
+            -Reason "External Languages für SQL Server $SqlVersion benötigen einen Linux-Containerhost; $Provider meldet '$operatingSystem'." `
+            -Guidance 'Verwende einen Linux-basierten Containerhost oder eine unterstützte Hyper-V-/Windows-Variante.'
+    }
+    if ($normalizedCgroup -ne $RequiredCgroupVersion) {
+        $detected=if($normalizedCgroup){"cgroup v$normalizedCgroup"}else{'keine erkennbare cgroup-Version'}
+        return New-LabExternalRuntimeHostCapabilityResult @result -Status 'DECLARED_UNSUPPORTED' -ReasonCode 'CGROUP_VERSION_UNSUPPORTED' `
+            -Reason "External Languages für SQL Server $SqlVersion unter $Provider benötigen rootful Linux mit cgroup v$RequiredCgroupVersion; erkannt wurde $detected." `
+            -Guidance 'Verwende einen rootful Linux-Host mit aktivierter cgroup-v1-Unterstützung oder wähle eine andere unterstützte Host-/Provider-Kombination.'
+    }
+    if ($null -eq $rootless) {
+        return New-LabExternalRuntimeHostCapabilityResult @result -Status 'DECLARED_UNSUPPORTED' -ReasonCode 'ROOTFUL_STATUS_UNKNOWN' `
+            -Reason "$Provider meldet nicht zuverlässig, ob die Runtime rootful läuft; External Languages werden deshalb nicht gestartet." `
+            -Guidance "Prüfe '$Provider info' und verwende eine eindeutig rootful konfigurierte Runtime."
+    }
+    if ($rootless) {
+        return New-LabExternalRuntimeHostCapabilityResult @result -Status 'DECLARED_UNSUPPORTED' -ReasonCode 'ROOTFUL_PROVIDER_REQUIRED' `
+            -Reason "External Languages für SQL Server $SqlVersion unter $Provider benötigen eine rootful Runtime für den schreibbaren cgroup-v1-Bind; erkannt wurde rootless." `
+            -Guidance "Konfiguriere $Provider rootful auf einem Linux-/cgroup-v1-Host oder wähle eine andere unterstützte Kombination."
+    }
+    return New-LabExternalRuntimeHostCapabilityResult @result -Status 'READY' -ReasonCode 'NONE' -Reason $null -Guidance $null
+}
+
+function Format-LabExternalRuntimeHostCapabilityError {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Capability,[string]$InstanceId)
+    $scope=if($InstanceId){"$InstanceId / "}else{''}
+    return "EXTERNAL_RUNTIME_CONTAINER_HOST_REJECTED [$($Capability.ReasonCode)]: $scope$($Capability.Reason) Abhilfe: $($Capability.Guidance)"
+}
+
 function Test-LabExternalRuntimeContainerHost {
     [CmdletBinding()]
     param(
@@ -334,58 +439,11 @@ function Test-LabExternalRuntimeContainerHost {
         $ImagePlan.NamespaceIsolation -ne $true -or $ImagePlan.OutboundAccess -ne $false) {
         throw 'EXTERNAL_RUNTIME_CONTAINER_LAUNCH_CONTRACT_INVALID'
     }
-    $resolution = Resolve-LabHostTool -Name $Provider
-    if (-not $resolution.Available) {
-        return [PSCustomObject]@{ Status='RUNTIME_UNAVAILABLE'; Provider=$Provider; CgroupVersion=$null; Rootless=$null; Reason="Provider '$Provider' konnte nicht aufgeloest werden (HOST_TOOL_NOT_FOUND)." }
-    }
-
-    try {
-        $providerInvocation = Get-LabHostToolInvocation -Name $Provider
-        if ($Provider -eq 'docker') {
-            $raw = & $providerInvocation info --format '{{json .}}' 2>&1
-        }
-        else {
-            $raw = & $providerInvocation info --format json 2>&1
-        }
-        if ($LASTEXITCODE -ne 0) { throw (@($raw) -join ' ') }
-        $info = (@($raw) -join "`n") | ConvertFrom-Json -Depth 50
-    }
-    catch {
-        return [PSCustomObject]@{ Status='RUNTIME_UNAVAILABLE'; Provider=$Provider; CgroupVersion=$null; Rootless=$null; Reason=$_.Exception.Message }
-    }
-
-    if ($Provider -eq 'docker') {
-        $operatingSystem = [string]$info.OSType
-        $cgroupVersion = [string]$info.CgroupVersion
-        $rootless = @($info.SecurityOptions | Where-Object { [string]$_ -match '(?i)rootless' }).Count -gt 0
-    }
-    else {
-        $operatingSystem = [string]$info.host.os
-        $cgroupVersion = [string]$info.host.cgroupVersion
-        if (-not $cgroupVersion) { $cgroupVersion = [string]$info.host.cgroupsVersion }
-        $rootless = [bool]$info.host.security.rootless
-    }
-    $normalizedCgroup = ($cgroupVersion -replace '[^0-9]', '')
-    if ($operatingSystem -ne 'linux') {
-        return [PSCustomObject]@{ Status='DECLARED_UNSUPPORTED'; Provider=$Provider; CgroupVersion=$normalizedCgroup; Rootless=$rootless; Reason='External Runtimes benötigen einen Linux-Containerhost.' }
-    }
-    if ($normalizedCgroup -ne [string]$ImagePlan.RequiredCgroupVersion) {
-        return [PSCustomObject]@{
-            Status='DECLARED_UNSUPPORTED'; Provider=$Provider; CgroupVersion=$normalizedCgroup; Rootless=$rootless
-            Reason="SQL Server $($ImagePlan.SqlVersion) launchpadd benötigt für den isolierten Namespace-Modus cgroup v$($ImagePlan.RequiredCgroupVersion); erkannt wurde cgroup v$normalizedCgroup."
-        }
-    }
-    if ($rootless) {
-        return [PSCustomObject]@{
-            Status='DECLARED_UNSUPPORTED'; Provider=$Provider; CgroupVersion=$normalizedCgroup; Rootless=$true
-            Reason="Der SQL-Server-$($ImagePlan.SqlVersion)-Namespace-Modus benötigt einen rootful Provider für den schreibbaren cgroup-v1-Bind."
-        }
-    }
-    return [PSCustomObject]@{
-        Status='READY'; Provider=$Provider; CgroupVersion=$normalizedCgroup; Rootless=$rootless
-        Reason=$null; RequiredLinuxCapabilities=@($ImagePlan.RequiredLinuxCapabilities)
-        RequiredSecurityOptions=@($ImagePlan.RequiredSecurityOptions)
-    }
+    $capability=Get-LabExternalRuntimeHostCapability -Provider $Provider -SqlVersion ([string]$ImagePlan.SqlVersion) `
+        -RequiredCgroupVersion ([string]$ImagePlan.RequiredCgroupVersion)
+    $capability | Add-Member -NotePropertyName RequiredLinuxCapabilities -NotePropertyValue @($ImagePlan.RequiredLinuxCapabilities) -Force
+    $capability | Add-Member -NotePropertyName RequiredSecurityOptions -NotePropertyValue @($ImagePlan.RequiredSecurityOptions) -Force
+    return $capability
 }
 
 function Get-LabExternalRuntimeContainerImageStorePaths {
@@ -513,7 +571,7 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
 
     $hostStatus = Test-LabExternalRuntimeContainerHost -Provider $provider -ImagePlan $ImagePlan
     if ([string]$hostStatus.Status -ne 'READY') {
-        throw "EXTERNAL_RUNTIME_CONTAINER_HOST_REJECTED: $($hostStatus.Status) - $($hostStatus.Reason)"
+        throw (Format-LabExternalRuntimeHostCapabilityError -Capability $hostStatus)
     }
 
     $temporaryTag = "sql-server-lab/external-runtime-build:$($ImagePlan.ImageKey.Substring(0, 16))-$([guid]::NewGuid().ToString('N').Substring(0, 8))"

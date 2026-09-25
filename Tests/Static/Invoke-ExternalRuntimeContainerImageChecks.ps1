@@ -18,6 +18,48 @@ Write-Host 'SQL_Server_Lab - External Runtime Container Image Checks' -Foregroun
 Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
 Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -ErrorAction Stop
 $module = Get-Module SqlServerLab
+$hostCapabilities = & $module {
+    $dockerV1=[PSCustomObject]@{OSType='linux';CgroupVersion='1';SecurityOptions=@();MemoryLimit=$true;PidsLimit=$true}
+    $podmanV2=[PSCustomObject]@{host=[PSCustomObject]@{os='linux';cgroupVersion='v2';security=[PSCustomObject]@{rootless=$false};cgroupControllers=@('cpu','memory','pids')}}
+    $podmanRootless=[PSCustomObject]@{host=[PSCustomObject]@{os='linux';cgroupVersion='v1';security=[PSCustomObject]@{rootless=$true};cgroupControllers=@('cpu','memory','pids')}}
+    $ready=Get-LabExternalRuntimeHostCapability -Provider docker -SqlVersion 2022 -RuntimeInfo $dockerV1 -ToolAvailable $true -RuntimeReachable $true
+    $cgroup=Get-LabExternalRuntimeHostCapability -Provider podman -SqlVersion 2022 -RuntimeInfo $podmanV2 -ToolAvailable $true -RuntimeReachable $true
+    $rootless=Get-LabExternalRuntimeHostCapability -Provider podman -SqlVersion 2022 -RuntimeInfo $podmanRootless -ToolAvailable $true -RuntimeReachable $true
+    [PSCustomObject]@{Ready=$ready;Cgroup=$cgroup;Rootless=$rootless;Error=(Format-LabExternalRuntimeHostCapabilityError -Capability $cgroup -InstanceId 'sql-a')}
+}
+Add-CheckResult -Name 'Hostfähigkeit liefert stabilen Code, Ursache und Abhilfe für cgroup v2' -Success (
+    $hostCapabilities.Cgroup.Status -eq 'DECLARED_UNSUPPORTED' -and
+    $hostCapabilities.Cgroup.ReasonCode -eq 'CGROUP_VERSION_UNSUPPORTED' -and
+    $hostCapabilities.Cgroup.DisplayReason -match 'cgroup v1' -and $hostCapabilities.Cgroup.DisplayReason -match 'cgroup v2' -and
+    $hostCapabilities.Cgroup.Guidance -match 'Abhilfe|Verwende' -and
+    $hostCapabilities.Error -match '^EXTERNAL_RUNTIME_CONTAINER_HOST_REJECTED \[CGROUP_VERSION_UNSUPPORTED\]:' -and
+    $hostCapabilities.Error -match 'sql-a' -and $hostCapabilities.Error -match 'Abhilfe:'
+)
+Add-CheckResult -Name 'Hostfähigkeit unterscheidet READY und rootless-Blockade' -Success (
+    $hostCapabilities.Ready.Supported -and $hostCapabilities.Ready.ReasonCode -eq 'NONE' -and
+    -not $hostCapabilities.Rootless.Supported -and $hostCapabilities.Rootless.ReasonCode -eq 'ROOTFUL_PROVIDER_REQUIRED' -and
+    $hostCapabilities.Rootless.DisplayReason -match 'rootful' -and $hostCapabilities.Rootless.DisplayReason -match 'rootless'
+)
+$menuCapability = & $module {
+    $originalCapabilityCheck = (Get-Command Get-LabExternalRuntimeHostCapability).ScriptBlock
+    try {
+        Set-Item Function:Get-LabExternalRuntimeHostCapability -Value {
+            [PSCustomObject]@{
+                Status='DECLARED_UNSUPPORTED'; Supported=$false; ReasonCode='CGROUP_VERSION_UNSUPPORTED'
+                DisplayReason='External Languages benötigen cgroup v1; erkannt wurde cgroup v2. Abhilfe: Verwende einen rootful Linux-Host mit cgroup v1.'
+            }
+        }
+        Get-LabExternalRuntimeMenuCapability -Instance ([PSCustomObject]@{provider='podman';version='2022'})
+    }
+    finally {
+        Set-Item Function:Get-LabExternalRuntimeHostCapability -Value $originalCapabilityCheck
+    }
+}
+Add-CheckResult -Name 'Konsolenmenü übernimmt denselben Host-ReasonCode und die konkrete Abhilfe' -Success (
+    -not $menuCapability.Supported -and $menuCapability.ReasonCode -eq 'CGROUP_VERSION_UNSUPPORTED' -and
+    $menuCapability.DisplayReason -match 'cgroup v1' -and $menuCapability.DisplayReason -match 'cgroup v2' -and
+    $menuCapability.DisplayReason -match 'Abhilfe:'
+)
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ("sql-lab-external-runtime-checks-{0}" -f [guid]::NewGuid().ToString('N'))
 New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
 try {

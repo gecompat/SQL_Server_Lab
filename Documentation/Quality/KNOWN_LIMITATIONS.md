@@ -1650,7 +1650,12 @@ Images und die test-eigenen Podman-Netze wurden vollständig bereinigt. Podman
 3.4.4 benötigt dabei die eng begrenzte
 CNI-0.4.0-Kompatibilitätskorrektur und einen Retry für seine sofortige
 Portfreigabe-Race. Rootless Podman bleibt für allgemeine Labs unterstützt,
-nicht jedoch für den External-Runtime-Namespace-Modus.
+nicht jedoch für den External-Runtime-Namespace-Modus. Planung, Erstellung,
+Reconcile und `Invoke-SqlServerLab` verwenden hierfür dieselbe read-only
+Hostfähigkeitsentscheidung. Ablehnungen enthalten einen stabilen ReasonCode,
+die erkannte cgroup-/Rootful-Grenze und eine konkrete Abhilfe. Das Menü
+deaktiviert betroffene External-Languages-Ziele; auch sein nummerierter
+Fallback zeigt die Begründung an.
 
 Der optionale [persistente Linux-Containerhost](../User/LINUX_CONTAINER_HOST.md)
 stellt den cgroup-v1-Gast auch außerhalb einer wegwerfbaren Abnahme bereit.

@@ -194,6 +194,16 @@ Add-ConsoleUiCheck 'Auf schmalen Fenstern weicht der Grund, niemals die Marke' (
 Add-ConsoleUiCheck 'Aktiver Eintrag zeigt unveraendert Fokus, Shortcut und Value' (
     $enabledItemText -eq '> [r] Scheduler jetzt ausfuehren: 2 Worker'
 )
+$fallbackDisabledOutput = @(& {
+    Invoke-LabConsoleMenu -ScreenId 'disabled-reason-fallback' -Title 'Fallback' -ForceFallback `
+        -Items @(New-LabConsoleItem -Id 'blocked' -Label 'External Languages' -Shortcut 'x' -Disabled `
+            -DisabledReason 'Podman benötigt rootful Linux mit cgroup v1; erkannt wurde cgroup v2.') `
+        -ReadInput { param($prompt) '0' }
+} 6>&1) -join "`n"
+Add-ConsoleUiCheck 'Fallback-Menü zeigt bei deaktivierten Einträgen den konkreten Grund' (
+    $fallbackDisabledOutput -match 'External Languages.*nicht verfuegbar' -and
+    $fallbackDisabledOutput -match 'Grund: Podman benötigt rootful Linux mit cgroup v1; erkannt wurde cgroup v2\.'
+)
 Add-ConsoleUiCheck 'Rahmen und Statusband bereinigen die nicht beschreibbare letzte Spalte' (
     $consoleUiSource -match 'function Test-LabConsoleVirtualTerminal' -and
     $consoleUiSource -match 'SupportsVirtualTerminal' -and
