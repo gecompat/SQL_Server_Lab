@@ -1798,6 +1798,36 @@ Add-ConsoleUiCheck 'Podman-KI-Menü unterscheidet Installation, Erreichbarkeit u
     $aiPodmanAvailabilityProbe.Missing.Reason -match '^\[TOOL_NOT_INSTALLED\].*installiert.*Abhilfe:' -and
     $aiPodmanAvailabilityProbe.Denied.Reason -match '^\[PROVIDER_ACCESS_DENIED\].*verweigert.*Abhilfe:'
 )
+$aiSqlTargetAvailabilityProbe = & {
+    $module = Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
+    & $module {
+        $running = @([pscustomobject]@{ runId='run-2025'; state='RUNNING' })
+        $stopped = @([pscustomobject]@{ runId='run-2025'; state='STOPPED' })
+        $sql2025 = @{ 'run-2025' = [pscustomobject]@{ instances=@([pscustomobject]@{ id='primary'; version='2025-latest' }) } }
+        $sql2022 = @{ 'run-2025' = [pscustomobject]@{ instances=@([pscustomobject]@{ id='primary'; version='2022-latest' }) } }
+        [pscustomobject]@{
+            Available = Get-LabAiSql2025TargetMenuAvailability -ActiveRuns $running -ConnectionInfoByRunId $sql2025
+            Stopped = Get-LabAiSql2025TargetMenuAvailability -ActiveRuns $stopped -ConnectionInfoByRunId $sql2025
+            WrongVersion = Get-LabAiSql2025TargetMenuAvailability -ActiveRuns $running -ConnectionInfoByRunId $sql2022
+            Missing = Get-LabAiSql2025TargetMenuAvailability -ActiveRuns @() -ConnectionInfoByRunId @{}
+        }
+    }
+}
+Add-ConsoleUiCheck 'SQL-2025-KI-Zielprüfung bleibt rein zustandsbasiert und erkennt nur laufende SQL-2025-Instanzen' (
+    $aiSqlTargetAvailabilityProbe.Available.Available -and
+    -not $aiSqlTargetAvailabilityProbe.Stopped.Available -and
+    -not $aiSqlTargetAvailabilityProbe.WrongVersion.Available -and
+    -not $aiSqlTargetAvailabilityProbe.Missing.Available
+)
+Add-ConsoleUiCheck 'Fehlendes SQL-2025-KI-Ziel liefert stabilen Code und konkrete Abhilfe' (
+    $aiSqlTargetAvailabilityProbe.Missing.Reason -match '^\[AI_SQL_2025_TARGET_UNAVAILABLE\].*RUNNING.*Abhilfe:'
+)
+$aiSqlTargetItemsWithoutDisabledContract = @(@('AiScenarioRun','AiRag','AiDiagnostic','AiGoldenRagEvaluation') | Where-Object {
+    $aiMenuSource -notmatch ("-Id '{0}'[\s\S]{{0,350}}?-Disabled:\(-not \`$sql2025Target\.Available\)[\s\S]{{0,150}}?-DisabledReason" -f $_)
+})
+Add-ConsoleUiCheck 'SQL-2025-abhängige KI-Menüpunkte werden mit demselben Grund deaktiviert' (
+    $aiSqlTargetItemsWithoutDisabledContract.Count -eq 0
+)
 $offeredAiActions = @([regex]::Matches($aiMenuSource, "New-LabConsoleItem -Id '([^']+)'") |
         ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -ne 'back' })
 $unhandledAiActions = @($offeredAiActions | Where-Object { $mainMenuSource -notmatch "'$_' \{ [A-Za-z0-9-]+ \}" })
@@ -1825,6 +1855,14 @@ Add-ConsoleUiCheck 'Gefuehrte KI-Demos verwenden die bestehenden Szenario-, Metr
     $guidedDemoSource -match 'Measure-SqlServerLabAiRetrieval' -and
     $guidedDemoSource -match "Invoke-LabAiGoldenRagEvaluationInteractive -CaseId 'backup-frequency'" -and
     $guidedDemoSource -match 'Invoke-LabAiDiagnosticInteractive -Guided'
+)
+$guidedSqlItemsWithoutDisabledContract = @(@('vector','rag','agent') | Where-Object {
+    $guidedDemoSource -notmatch ("-Id '{0}'[\s\S]{{0,350}}?-Disabled:\(-not \`$sql2025Target\.Available\)[\s\S]{{0,150}}?-DisabledReason" -f $_)
+})
+Add-ConsoleUiCheck 'Gefuehrte KI-Demos sperren SQL-Pfade ohne Ziel und lassen die Offline-Retrieval-Demo auswählbar' (
+    $guidedSqlItemsWithoutDisabledContract.Count -eq 0 -and
+    $guidedDemoSource -match "-Id 'retrieval'" -and
+    $guidedDemoSource -notmatch "-Id 'retrieval'[\s\S]{0,250}?-Disabled:"
 )
 Add-ConsoleUiCheck 'Gefuehrte KI-Demos fuehren weder Cloudmodell noch teures gpt-oss ein' (
     $guidedDemoSource -notmatch 'ollama-gpt-oss|gpt-oss:120b|AiCloud'

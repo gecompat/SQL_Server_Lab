@@ -361,11 +361,55 @@ function Get-LabAiPodmanSetupMenuAvailability {
     [PSCustomObject]@{ Available = $false; Reason = "[$code] $guidance" }
 }
 
+function Get-LabAiSql2025TargetMenuAvailability {
+    [CmdletBinding()]
+    param(
+        [AllowNull()][object[]]$ActiveRuns,
+        [string]$StateRoot,
+        [AllowNull()][System.Collections.IDictionary]$ConnectionInfoByRunId
+    )
+
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    if (-not $PSBoundParameters.ContainsKey('ActiveRuns')) {
+        $ActiveRuns = @(Get-LabActiveRuns -StateRoot $StateRoot)
+    }
+
+    foreach ($run in @($ActiveRuns | Where-Object { [string]$_.state -ceq 'RUNNING' })) {
+        $runId = [string]$run.runId
+        if ([string]::IsNullOrWhiteSpace($runId)) { continue }
+        try {
+            if ($null -ne $ConnectionInfoByRunId -and $ConnectionInfoByRunId.Contains($runId)) {
+                $connection = $ConnectionInfoByRunId[$runId]
+            }
+            else {
+                $connectionPath = Join-Path (Join-Path (Join-Path $StateRoot 'runs') $runId) 'connection-info.json'
+                if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { continue }
+                $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+            }
+            foreach ($instance in @($connection.instances)) {
+                $version = if ($instance.version) { [string]$instance.version } else { [string]$instance.sqlVersion }
+                if (($version -split '-', 2)[0] -ceq '2025') {
+                    return [PSCustomObject]@{ Available = $true; Reason = '' }
+                }
+            }
+        }
+        catch {
+            continue
+        }
+    }
+
+    return [PSCustomObject]@{
+        Available = $false
+        Reason = '[AI_SQL_2025_TARGET_UNAVAILABLE] Keine als RUNNING registrierte SQL-Server-2025-Instanz ist vorhanden. Abhilfe: Eine eigene SQL-Server-2025-Umgebung erstellen oder starten und den Status anschließend aktualisieren.'
+    }
+}
+
 function Show-LabAiMenu {
     [CmdletBinding()]
     param()
 
     $podmanSetup = Get-LabAiPodmanSetupMenuAvailability
+    $sql2025Target = Get-LabAiSql2025TargetMenuAvailability
 
     return Show-LabSubMenu -ScreenId 'ai-menu' -Title 'SQL Server 2025 KI' -Subtitle 'Kostenbewusste, kataloggebundene Ollama- und SQL-Workflows' -Items @(
         New-LabConsoleItem -Id 'AiLlamaModels' -Label 'llama.cpp-Modelle anzeigen oder laden' -Value 'kuratierte GGUFs · Hashprüfung · Lab_Base' -Shortcut 'm'
@@ -373,12 +417,16 @@ function Show-LabAiMenu {
             -Disabled:(-not $podmanSetup.Available) -DisabledReason ([string]$podmanSetup.Reason)
         New-LabConsoleItem -Id 'AiPodmanEnvironments' -Label 'Meine KI-Testumgebungen anzeigen' -Value 'Umgebung und gespeicherte Beispieldaten wiederfinden' -Shortcut 'v'
         New-LabConsoleItem -Id 'AiScenarioPlan' -Label 'KI-Szenarioplan anzeigen' -Value 'read-only · hashgebundener Katalogvertrag' -Shortcut '1'
-        New-LabConsoleItem -Id 'AiScenarioRun' -Label 'KI-Szenario ausführen' -Value 'SQL 2025 · journalisiert · Cleanup immer' -Shortcut '2'
+        New-LabConsoleItem -Id 'AiScenarioRun' -Label 'KI-Szenario ausführen' -Value 'SQL 2025 · journalisiert · Cleanup immer' -Shortcut '2' `
+            -Disabled:(-not $sql2025Target.Available) -DisabledReason ([string]$sql2025Target.Reason)
         New-LabConsoleItem -Id 'AiModel' -Label 'Ollama-Modell aufrufen' -Value 'lokal oder explizit freigegebene Cloud-Lane' -Shortcut '3'
-        New-LabConsoleItem -Id 'AiRag' -Label 'Lokales SQL-RAG ausführen' -Value 'EmbeddingGemma 300M + Gemma 3 1B · exakte Vektorsuche' -Shortcut '4'
-        New-LabConsoleItem -Id 'AiDiagnostic' -Label 'Read-only SQL-Diagnose' -Value 'katalogisierte SELECT-Werkzeuge · kurzlebiger Login' -Shortcut '5'
+        New-LabConsoleItem -Id 'AiRag' -Label 'Lokales SQL-RAG ausführen' -Value 'EmbeddingGemma 300M + Gemma 3 1B · exakte Vektorsuche' -Shortcut '4' `
+            -Disabled:(-not $sql2025Target.Available) -DisabledReason ([string]$sql2025Target.Reason)
+        New-LabConsoleItem -Id 'AiDiagnostic' -Label 'Read-only SQL-Diagnose' -Value 'katalogisierte SELECT-Werkzeuge · kurzlebiger Login' -Shortcut '5' `
+            -Disabled:(-not $sql2025Target.Available) -DisabledReason ([string]$sql2025Target.Reason)
         New-LabConsoleItem -Id 'AiRetrievalEvaluation' -Label 'Retrieval-Ergebnis bewerten' -Value 'deterministisch · ohne Modell- oder Netzwerkkosten' -Shortcut '6'
-        New-LabConsoleItem -Id 'AiGoldenRagEvaluation' -Label 'Golden-RAG ausführen und bewerten' -Value 'versionierter Datensatz · echter SQL-Lauf · blockierende Metriken' -Shortcut '7'
+        New-LabConsoleItem -Id 'AiGoldenRagEvaluation' -Label 'Golden-RAG ausführen und bewerten' -Value 'versionierter Datensatz · echter SQL-Lauf · blockierende Metriken' -Shortcut '7' `
+            -Disabled:(-not $sql2025Target.Available) -DisabledReason ([string]$sql2025Target.Reason)
         New-LabConsoleItem -Id 'AiGuidedDemo' -Label 'Geführte KI-Demos' -Value 'Vector · Retrieval · Golden-RAG · read-only Agent' -Shortcut '8'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
@@ -1419,12 +1467,16 @@ function Invoke-LabAiGuidedDemoInteractive {
     [CmdletBinding()]
     param()
 
+    $sql2025Target = Get-LabAiSql2025TargetMenuAvailability
     $choice = Show-LabSubMenu -ScreenId 'ai-guided-demo-menu' -Title 'Geführte SQL Server 2025 KI-Demos' `
         -Subtitle 'Dieselben versionierten Verträge und Assertions wie Entwicklung und CI' -Items @(
-            New-LabConsoleItem -Id 'vector' -Label 'Vector-Core' -Value 'offline · SQL 2025 · feste VECTOR(3)-Assertions' -Shortcut '1'
+            New-LabConsoleItem -Id 'vector' -Label 'Vector-Core' -Value 'offline · SQL 2025 · feste VECTOR(3)-Assertions' -Shortcut '1' `
+                -Disabled:(-not $sql2025Target.Available) -DisabledReason ([string]$sql2025Target.Reason)
             New-LabConsoleItem -Id 'retrieval' -Label 'Retrieval-Metriken' -Value 'offline · Golden Dataset · keine Modellkosten' -Shortcut '2'
-            New-LabConsoleItem -Id 'rag' -Label 'Golden-RAG' -Value 'EmbeddingGemma 300M Q4 + Gemma 3 1B · echter SQL-Lauf' -Shortcut '3'
-            New-LabConsoleItem -Id 'agent' -Label 'Read-only Diagnose-Agent' -Value 'Gemma 3 1B · zwei feste SELECT-Werkzeuge' -Shortcut '4'
+            New-LabConsoleItem -Id 'rag' -Label 'Golden-RAG' -Value 'EmbeddingGemma 300M Q4 + Gemma 3 1B · echter SQL-Lauf' -Shortcut '3' `
+                -Disabled:(-not $sql2025Target.Available) -DisabledReason ([string]$sql2025Target.Reason)
+            New-LabConsoleItem -Id 'agent' -Label 'Read-only Diagnose-Agent' -Value 'Gemma 3 1B · zwei feste SELECT-Werkzeuge' -Shortcut '4' `
+                -Disabled:(-not $sql2025Target.Available) -DisabledReason ([string]$sql2025Target.Reason)
             New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
         )
     switch ($choice) {

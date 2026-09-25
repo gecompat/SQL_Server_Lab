@@ -1,5 +1,17 @@
 # SQL_Server_Lab – Getting Started
 
+## Verfügbarkeit der SQL-2025-KI-Aktionen
+
+Das KI-Menü lässt Aktionen sichtbar, die ein SQL-Ziel benötigen, deaktiviert sie
+aber solange keine als `RUNNING` registrierte SQL-Server-2025-Instanz vorhanden
+ist. Der Hinweis `AI_SQL_2025_TARGET_UNAVAILABLE` nennt als Abhilfe das Erstellen
+oder Starten einer eigenen SQL-Server-2025-Umgebung. Das gilt für
+Szenarioausführung, lokales SQL-RAG, SQL-Diagnose und Golden-RAG sowie für die
+entsprechenden geführten Demos. Szenarioplan, Modellaufruf, manuelle
+Retrieval-Auswertung und die geführte Offline-Retrieval-Demo bleiben auswählbar.
+Die Menüprüfung liest ausschließlich Run-State und `connection-info.json`; vor
+einer Ausführung prüft der jeweilige Workflow den echten Runtime-Status erneut.
+
 ## Podman-KI-Testumgebung erstellen
 
 Starte `Invoke-SqlServerLab` und wähle **Datenbanken und Verbindungen → SQL Server 2025 KI →

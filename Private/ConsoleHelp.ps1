@@ -350,6 +350,7 @@ function Get-LabConsoleHelpCatalog {
     }
     $catalog['ai-menu'].Purpose += ' Listet außerdem kuratierte llama.cpp-Modelle, lädt eine explizite Auswahl direkt und erstellt eine bleibende Podman-KI-Testumgebung.'
     $catalog['ai-menu'].Preconditions += 'Für die neue Testumgebung: laufendes Podman und ausgewähltes lokales embeddinggemma:latest (768) oder bge-m3:latest (1024). Ist Podman nicht einsatzbereit, bleibt der Menüpunkt mit stabilem ReasonCode und konkreter Abhilfe sichtbar, aber deaktiviert.'
+    $catalog['ai-menu'].Preconditions += 'Szenarioausführung, SQL-RAG, SQL-Diagnose und Golden-RAG benötigen eine als RUNNING registrierte SQL-Server-2025-Instanz. Ohne passendes Ziel bleiben diese Einträge sichtbar und nennen AI_SQL_2025_TARGET_UNAVAILABLE samt Abhilfe; Plan, Modellaufruf und Offline-Retrieval bleiben verfügbar.'
     $catalog['ai-menu'].Effects += ' Neue Umgebung nur nach Vorschau und Bestätigung; SQL-Daten bleiben erhalten. Fehlerbereinigung betrifft ausschließlich den gerade neu erstellten eigenen Run.'
     $catalog['ai-llama-models'] = @{
         Title = 'Kuratierte llama.cpp-Modelle'; Purpose = 'Listet freigegebene GGUF-Generationsmodelle mit Größe, Quantisierung und Lizenz und lädt die explizite Auswahl bei Bedarf.'
