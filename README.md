@@ -93,6 +93,16 @@ Provider nur mit SQL Server 2025.
 
 Die [bekannten Grenzen](Documentation/Quality/KNOWN_LIMITATIONS.md) sind Teil des öffentlichen Vertrags. Planungsdokumente sind kein Runtime-Nachweis.
 
+Für External Languages bei cgroup-v2-Desktop-Runtimes gibt es einen optionalen
+[separaten Linux-Containerhost](Documentation/User/LINUX_CONTAINER_HOST.md).
+Das Werkzeug richtet eine eigene Hyper-V-VM mit cgroup v1 und rootful
+Docker/Podman ein; SQL-Labs werden im Gast verwaltet. Desktop-Runtimes bleiben
+unverändert. Bootstrap-Readiness und echte SQL-Sprachabnahme sind getrennte Nachweise.
+Für vorhandene Linux-Hosts gibt es außerdem einen nativen Einstieg ohne
+Hyper-V-Verwaltung mit Providerprüfung, Storage-Einrichtung und Sprachtest.
+Eine explizite laufende WSL-Distribution kann denselben Einstieg verwenden;
+Kernel- und cgroup-Kompatibilität bleiben Voraussetzung.
+
 Der normale Menüpfad plant einzelne und mehrere SQL-/Windows-Umgebungen
 providerneutral. `ProviderPreference = Auto` ist der Standard; Docker, Podman
 oder Hyper-V können nur unter den erweiterten Eigenschaften explizit gewählt

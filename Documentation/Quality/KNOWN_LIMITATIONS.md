@@ -1652,6 +1652,45 @@ CNI-0.4.0-Kompatibilitätskorrektur und einen Retry für seine sofortige
 Portfreigabe-Race. Rootless Podman bleibt für allgemeine Labs unterstützt,
 nicht jedoch für den External-Runtime-Namespace-Modus.
 
+Der optionale [persistente Linux-Containerhost](../User/LINUX_CONTAINER_HOST.md)
+stellt den cgroup-v1-Gast auch außerhalb einer wegwerfbaren Abnahme bereit.
+Gast-Runs werden ausschließlich im Gast verwaltet; Windows-Menüinventar,
+automatische SSMS-Tunnel und ein External-Model-Gateway sind nicht integriert.
+Ein grün geprüfter Bootstrap ist kein SQL-Sprach- oder Provider-Smoke-Nachweis.
+Die Untersuchung vom 2026-09-24 erreichte unter Docker/cgroup v1 einen
+erfolgreichen Python-Run. Die ältere umfassende External-Runtime-Acceptance
+scheiterte danach an ihrer Erwartung eines manifestgesteuerten Recreate:
+der aktuelle Reconcile-Pfad priorisiert bereits persistierte Software-Intents.
+Die separate Host-Acceptance prüft daher ausdrücklich direkte Provisionierung
+aller drei Sprachen, SQL-Aufrufe, Restart und Cleanup; sie ersetzt keinen
+Nachweis des nachträglichen Sprachwechsels.
+Nach einem ersten erfolgreichen Docker-Sprachtest scheiterten weitere
+SQL-2025-Läufe im cgroup-v1-Gast an Launchpad-/Java-Fehlern (SQL 39011/39128).
+Dieser Docker-Pfad bleibt hinsichtlich seiner Laufzeitstabilität offen.
+Die separate Podman-Abnahme mit regulärer Ressourcenbewertung bestand
+einschließlich Python/R/Java vor und nach Restart sowie Cleanup.
+Der automatische persistente VM-Aufbau benötigt außerdem Windows/Hyper-V;
+andere VM-Backends oder die Einrichtung vorhandener Remotehosts sind nicht
+implementiert.
+Der separate native Einstieg benötigt keine Hyper-V-Verwaltung: Er verwendet
+vorhandene lokale Linux-Provider und richtet Lab-Storage ein. Der WSL-Dispatcher
+benötigt eine explizite laufende Distribution mit Repository und PowerShell.
+OS-Paketinstallation, globale Kernel-/cgroup-Umstellung und automatische
+Erstellung einer WSL-Distribution sind nicht enthalten. Ein separater interner
+Bootstrap installiert Pakete nur in einem markierten eigenen Ubuntu-WSL-Host.
+Der genehmigte Kerneltest mit Microsoft 6.18.40.1 ermöglichte cgroup v1 und
+eine erfolgreiche Docker-Sprachabnahme einschließlich Restart und Cleanup.
+Der Test benötigte `maxProcesses=128`; mit 32 scheiterte R beim Prozessstart.
+WSL teilt Kernelcontroller und Netzwerkregeln zwischen Distributionen;
+paralleler Betrieb mit bestehenden Desktop-Runtimes bleibt unvalidiert.
+Unter WSL mit gespiegeltem Netzwerk überschreibt `WSLOUTPUT` außerdem die
+Paketmarkierung der Ubuntu-Podman-CNI-Portweiterleitung. Ein gesunder
+SQL-Container kann deshalb über seinen Loopbackport unerreichbar bleiben.
+Eine im eigenen Test begrenzte NAT-Regel ermöglichte TCP-Verbindungen, aber
+keinen erfolgreichen SQL-Prelogin über den Loopbackport. Eine allgemeine
+automatische Reparatur ist nicht implementiert. Native Linux-
+Podman-Nachweise dürfen nicht als uneingeschränkte WSL-Freigabe gelten.
+
 C# Language Extensions sind von Microsoft ab SQL Server 2019 CU3 ausschließlich
 unter Windows beschrieben; die in SQL registrierte Sprache heißt `dotnet`.
 Der einzige veröffentlichte Microsoft-Binärrelease zielt auf die nicht mehr

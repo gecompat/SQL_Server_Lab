@@ -1,5 +1,98 @@
 # Lokale Validierungsstrategie
 
+## Nativer Linux-/WSL-Einstieg
+
+`Invoke-NativeLinuxContainerHostChecks.ps1` prüft Providerentscheidungen ohne
+Runtimezugriff, einschließlich fehlender/unzugänglicher Provider, rootless,
+fehlender cgroup-Evidence und deaktiviertem v1-Speichercontroller. Unter Windows
+werden WSL-Kernelblockade und gestoppte Distribution über synthetische
+Prozessantworten geprüft; unter Linux zusätzlich Pfadüberlappung, abweichende
+Defaults und echte symbolische Links. Es bestanden 18 Windows- und 21
+Linux-Prüfungen. Die echte lokale Desktopprüfung meldet für beide Provider
+cgroup v2; der ursprüngliche WSL-Kernel hatte keinen v1-Speichercontroller.
+
+Der neue Einstieg wurde im vorhandenen cgroup-v1-Linux-Gast aus einem separaten
+Repositorysnapshot ausgeführt: eigene Lab_Data-Registrierung, beide Provider
+mit Create-Readiness, Wiederaufnahme aus einem frischen Prozess und unveränderte
+Journaldateien bei `-WhatIf` bestanden. Dabei wurde kein Hyper-V-Verwaltungsbefehl
+verwendet. Der physische Testhost des Gastes bleibt Hyper-V; dies ist kein
+Nachweis einer frischen Bare-Metal-Installation oder einer erfolgreichen
+WSL-Sprachabnahme. OS-Paketinstallation und Kernelumstellung sind nicht Teil
+dieses Einstiegs. Der vorhandene Mediencache wurde wiederverwendet.
+Die getrennten Aufrufe `-Action Test -Provider docker` und `-Provider podman`
+bestanden am 2026-09-25 (lokale Zeit): SQL 2025 mit Python/R/Java, echte
+Sprachprobes vor und nach Restart sowie `REMOVED` für den eigenen Run.
+Eine anschließende unabhängige Prüfung fand bei beiden Providern keine
+verbliebenen Container oder Volumes. Der native Setupstand bleibt erhalten.
+Der erfolgreiche Docker-Lauf erklärt die zuvor beobachteten sporadischen
+Launchpad-/Java-Fehler nicht und ist kein Langzeitstabilitätsnachweis.
+
+Der genehmigte WSL-Kerneltest mit Microsoft 6.18.40.1 und passenden Modulen
+aktivierte den zuvor fehlenden v1-Speichercontroller. Auf einer eigenen
+Ubuntu-22.04-Distribution bestand Docker alle drei SQL-Sprachprobes vor und
+nach Restart sowie Cleanup. Der Testpool verwendet jetzt `maxProcesses=128`:
+mit 32 scheiterte R beim Starten eines Unterprozesses, während 128 denselben
+Imagepfad erfolgreich ausführte. Dies ist keine Änderung des Produktdefaults.
+Die WSL-Podman-Prüfung mit Ubuntu-Podman/CNI scheiterte zunächst an nftables,
+nach Umstellung auf Legacy-iptables an der Loopback-Portweiterleitung.
+Die Container-IP war erreichbar. Im gespiegelten WSL-Netz überschreibt
+`WSLOUTPUT` die CNI-Paketmarkierung; eine temporäre, exakt auf die eigene
+Container-IP und den SQL-Port begrenzte Masquerade-Regel machte den Port
+auf TCP-Ebene erreichbar. Der SQL-Prelogin über diesen Loopbackport scheiterte
+weiterhin, während die direkte Container-IP bis zur SQL-Anmeldung gelangte.
+Auch der saubere WSL-Neustart lieferte deshalb keinen Podman-Sprach-PASS.
+Das ist eine Diagnose und keine allgemeine Netzwerkreparatur.
+Die Kernelumstellung benötigt ein Wartungsfenster für die gesamte WSL-Runtime.
+
+## Persistenter Linux-Containerhost
+
+`Invoke-LinuxContainerHostChecks.ps1` prüft Ownership, VM-/Diskbindung,
+Pfadgrenzen, SSH-Vertrag, feste RAM-Zuweisung, unveränderliche Repositoryrevision
+und echte begrenzte Kindprozesse; am 2026-09-24 bestanden 29 Checks.
+Eine echte `WhatIf`-Ausführung gegen die isolierte Eigentumslesefunktion
+sichert die Diskbindung auch bei aktiver PowerShell-Vorschau ab.
+`Tools/Invoke-SqlServerLabLinuxContainerHost.ps1` wurde auf einem Windows-
+Hyper-V-Host mit gepinntem Ubuntu-Image tatsächlich aufgebaut. Bootstrap,
+Recovery nach einem Git-Pfadauflösungsfehler sowie Stop/Start wurden ausgeführt.
+Die native Prüfung deckte zusätzlich einen ungeeigneten Dynamic-Memory-Default
+auf; der Erstellpfad setzt deshalb ausdrücklich statischen RAM.
+Die Gast-Storage-Initialisierung wurde einschließlich Wiederaufnahme und
+Discovery aus frischen PowerShell-Prozessen geprüft. Beide Provider melden
+danach keine fehlenden Create-Voraussetzungen; `TARGET_AUTHORIZATION_REQUIRED`
+bleibt der reguläre Hinweis auf die Prüfung des konkreten Operationsziels.
+Die Gast-PowerShell-Einstiege setzen `TEMP=/tmp`, das der beibehaltene
+Docker-Verfügbarkeitscheck des Lab-Cores voraussetzt.
+
+Die getrennten Docker- und Podman-Läufe von
+`Tests/Integration/Invoke-LinuxContainerHostAcceptance.ps1` bestanden am selben
+Tag zunächst mit übersprungener Ressourcenbewertung: SQL 2025 mit Python/R/Java direkt provisioniert, alle drei echten
+SQL-Sprachprobes vor und nach öffentlichem Restart bestanden, eigener Run
+bereinigt. Eine zusätzliche Gastprüfung fand keine verbliebenen Container
+oder Volumes und kein eigenes Testnetz. Der Host bleibt absichtlich erhalten; sein destruktives `Remove`
+wurde an diesem persistenten Host nicht ausgeführt. Providercaches bleiben
+erhalten. Diese Abnahme ersetzt weder den Reconcile-Nachweis für nachträgliche
+Sprachänderungen noch eine Freigabe für cgroup v2 oder andere VM-Backends.
+Nach Einrichtung der regulären Create-Voraussetzungen bestand ein weiterer
+Podman-Lauf mit aktiver Ressourcenbewertung einschließlich aller Sprachprobes,
+Restart und Cleanup. Zwei weitere Docker-Läufe mit aktiver Ressourcenbewertung
+scheiterten dagegen: zuerst bei der Provisionierung mit SQL 39011 und einem
+Launchpad-Netzwerkfehler, danach nach erfolgreicher Provisionierung beim
+zusätzlichen Java-Aufruf mit SQL 39128 und gescheiterter SQL-Kompensation.
+Das Entfernen der jeweiligen Testressourcen gelang. Die Ursache dieser
+Laufzeitinstabilität ist offen; die frühere Docker-Evidence ist keine stabile
+Freigabe. Der Runner sichert bei Fehlern nach der Erstellung zusätzlich einen
+begrenzten Containerlog vor dem Cleanup. Rohdiagnosen bleiben lokal.
+Die ältere Reconcile-Abnahme scheiterte an ihrer Manifest-/Intent-Erwartung;
+siehe [bekannte Grenzen](KNOWN_LIMITATIONS.md).
+Änderungen am gemeinsamen CI-Selektor behalten dessen volle Runtime-Matrix.
+Die allgemeinen Docker-, Podman-, Mixed- und Adapter-Smokes bestanden lokal.
+Der zusätzliche allgemeine Hyper-V-Smoke war zunächst durch die globale
+Runtime-Testsperre blockiert. Nach Freigabe der Sperre bestand er am
+2026-09-25 einschließlich VM-/Disk-Lifecycle, Reconcile und Cleanup. Der
+konkrete Linux-VM-Bootstrap und dieser allgemeine Providernachweis bleiben
+getrennte Prüfungen.
+[Betrieb und Voraussetzungen](../User/LINUX_CONTAINER_HOST.md).
+
 ## Diagnosebundle
 
 `Invoke-DiagnosticBundleChecks.ps1` prüft unter Windows und Linux den
