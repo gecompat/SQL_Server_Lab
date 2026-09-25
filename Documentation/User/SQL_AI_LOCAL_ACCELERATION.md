@@ -521,6 +521,8 @@ $storage = $sharedPlan | Register-SqlServerLabAiSharedGatewayStorage `
   -CertificatePath C:\AI\shared-gateway.pem `
   -PrivateKeyPath C:\AI\shared-gateway-key.pem `
   -CertificateAuthorityPath C:\AI\lab-root.pem
+
+$upstream = $sharedPlan | Test-SqlServerLabAiSharedGatewayUpstream
 ```
 
 Plan und Preflight verändern weder Host noch SQL Server. Die Registrierung
@@ -529,7 +531,11 @@ kopiert Runtime, Modell und Zertifikatsdateien unter einem hostweiten Mutex in
 Verzeichnis und Dateien benutzerexklusiv und veröffentlicht erst nach erneuter
 Hash-/TLS-Prüfung atomar. Sie speichert keine Quellpfade oder Secretwerte;
 `-WhatIf` schreibt nichts. Identische parallele Aufrufe sind idempotent,
-abweichende Pläne und beschädigte Inhalte werden abgewiesen. Der Plan liefert
+abweichende Pläne und beschädigte Inhalte werden abgewiesen. Die anschließende
+Upstream-Prüfung revalidiert den Store und sendet genau ein synthetisches
+Embedding an den gebundenen numerischen Loopback-Endpunkt; für einen lokal
+authentifizierten Llama-Upstream kann `-ApiKey` als `SecureString` übergeben
+werden. Der Plan liefert
 weiterhin absichtlich `BLOCKED`: persistenter Dienstbetrieb, Live-Endpunkt,
 SQL-Consumer, Zertifikatsrotation, Backup/Restore sowie vollständiges Apply und
 Remove bleiben bis zur separaten Implementierung und Abnahme offen.

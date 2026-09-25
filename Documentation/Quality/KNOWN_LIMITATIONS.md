@@ -1483,7 +1483,10 @@ zugehörigen privaten Schlüssel, CA-Kette, Zertifikatsgültigkeit und exakten S
 sanitisiert bestätigen. Die gebundenen Dateien lassen sich inzwischen unter
 einem hostweiten Mutex benutzerexklusiv, atomar und idempotent im gemeinsamen
 StateRoot registrieren; Konflikt, Inhaltsdrift und Teilpublikation fallen
-geschlossen aus. Persistenter Dienstbetrieb, Live-Endpunkt, SQL-Bindung,
+geschlossen aus. Der registrierte Store und ein bereits laufender gebundener
+Llama-v1- oder OVMS-v3-Loopback-Upstream können mit einem synthetischen
+Embedding read-only revalidiert werden. Persistenter Dienstbetrieb,
+öffentlicher HTTPS-Endpunkt, SQL-Bindung,
 Rotation, Backup/Restore sowie vollständiges Apply und Remove fehlen weiterhin.
 Ein eigener Windows-Loopback-Gateway-Lifecycle ist mit synthetischem
 OVMS-Upstream, kurzlebiger CA, TLS-Probe, Owner-Stop, Listenerabbau und

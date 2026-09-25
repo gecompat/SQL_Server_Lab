@@ -78,7 +78,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 126 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 127 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -167,6 +167,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabAiSharedGatewayPlan` | Gemeinsamen lokalen HTTPS-Gateway und mehrere SQL-Verbraucher geheimnisfrei planen; noch keine Ausführung |
 | `Test-SqlServerLabAiSharedGatewayPreflight` | Plan, Runtime, Modell, Zertifikatskette, privaten Schlüssel und SAN read-only prüfen; kein Dienststart |
 | `Register-SqlServerLabAiSharedGatewayStorage` | Gebundene Gatewaydateien mutexgeschützt, benutzerexklusiv und atomar im gemeinsamen StateRoot registrieren; kein Dienst- oder SQL-Start |
+| `Test-SqlServerLabAiSharedGatewayUpstream` | Geschützten Store revalidieren und den gebundenen Llama-v1- oder OVMS-v3-Loopback-Upstream read-only prüfen |
 | `Get-SqlServerLabAiExternalModelPlan` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt für SQL `CREATE EXTERNAL MODEL` planen; keine Probe oder Hostmutation |
 | `Get-SqlServerLabAiExternalModelSqlPlan` | Frisches Endpoint-Receipt an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden; keine SQL-Verbindung oder Mutation |
 | `Test-SqlServerLabAiExternalModelSqlPreflight` | Eigenen SQL-2025-Zielscope read-only auf Datenbankidentität, Master Key, Rechte und freie Objektnamen prüfen |

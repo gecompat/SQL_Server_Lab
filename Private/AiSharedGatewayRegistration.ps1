@@ -17,6 +17,7 @@ function Protect-LabAiSharedGatewayStoragePath {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Path,[switch]$File,[switch]$Executable)
 
+    if((Test-Path -LiteralPath $Path) -and (Test-LabAiSharedGatewayStorageProtection -Path $Path -File:$File -Executable:$Executable)){return}
     if($IsWindows){
         $acl=if($File){[Security.AccessControl.FileSecurity]::new()}else{[Security.AccessControl.DirectorySecurity]::new()}
         $acl.SetAccessRuleProtection($true,$false)

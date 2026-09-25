@@ -262,6 +262,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Registers bound gateway files under a host-wide mutex with user-only
         access and atomic publication, without starting a service or SQL.
 
+    Test-SqlServerLabAiSharedGatewayUpstream
+        Revalidates protected storage and probes the bound local Llama v1 or
+        OVMS v3 upstream with one synthetic embedding.
+
     Get-SqlServerLabAiExternalModelPlan
         Plans an existing OpenAI-compatible HTTPS embedding endpoint with hash
         bindings and without network or host mutation.
