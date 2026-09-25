@@ -131,6 +131,14 @@ Restore, Attach, Archiv, SQL-Skript und Backupkette sind unterschiedliche Vertr�
 - `Invoke-SqlServerLab` zeigt nicht verfügbare Aktionen deaktiviert und nennt den Grund auch im nummerierten Fallback.
 - Unbekannte oder nicht zuverlässig prüfbare Hostfähigkeiten bleiben fail-closed und werden als solche benannt.
 
+## 10b. Vollständigkeit der Konsolen-CLI
+
+- Jede in `SqlServerLab.psd1` über `FunctionsToExport` veröffentlichte Funktion ist über `Invoke-SqlServerLab` erreichbar.
+- Der vollständige Befehlszugang zeigt vor der Ausführung genau einen nativen Parametersatz, Pflicht- und optionale Parameter, deklarierte Defaults, Datentypen sowie maschinenlesbare Werte-, Bereichs-, Muster-, Längen- und Anzahlgrenzen.
+- Neue Exporte werden erst übernommen, wenn der statische Vollständigkeitsvertrag ihre automatische Aufnahme in den Konsolenkatalog belegt.
+- Komplexe Eingaben verwenden strukturiertes JSON. Kennwörter, Secrets und Credentials werden maskiert beziehungsweise als `SecureString` erfasst und weder im Review noch in Logs im Klartext angezeigt.
+- `SupportsShouldProcess`-Befehle bieten im Konsolenformular `WhatIf` mit dem Standard `false` an; eine natürliche `Confirm`-Abfrage des Zielbefehls bleibt wirksam.
+
 ## 11. Sprachstil, Dokumentation und Übersetzungen
 
 - Primärsprache der aktiven Projektdokumentation ist Deutsch.

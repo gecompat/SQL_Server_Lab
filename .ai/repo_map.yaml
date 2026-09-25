@@ -559,6 +559,8 @@ sources_of_truth:
   validation_batch_workflow: Tests/Static/Invoke-BatchWorkflowChecks.ps1
   validation_runtime_matrix: Tests/Integration/Invoke-SmokeMatrix.ps1
   cli_acceptance_matrix: Documentation/Quality/CLI_ACCEPTANCE_MATRIX.md
+  public_command_console: Private/PublicCommandConsole.ps1
+  validation_public_command_console: Tests/Static/Invoke-PublicCommandConsoleChecks.ps1
   latest_validation_result: Documentation/Quality/VALIDATION_RESULT_2026-09-02.md
   test_environment_group_lifecycle_validation: Documentation/Quality/VALIDATION_RESULT_2026-08-29_TEST_ENVIRONMENT_GROUP_LIFECYCLE.md
   repository_continuity_runbook: Documentation/Quality/REPOSITORY_CONTINUITY_RUNBOOK.md
