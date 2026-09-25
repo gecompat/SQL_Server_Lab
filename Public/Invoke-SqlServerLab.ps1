@@ -328,16 +328,19 @@ function Show-LabDatabaseMenu {
     return Show-LabSubMenu -ScreenId 'database-menu' -Title 'Datenbank & Skripte' -Subtitle 'Artefakte, Datenbanken und SQL-Ausfuehrung' -Items $items
 }
 
-function Get-LabAiPodmanSetupMenuAvailability {
+function Get-LabContainerProviderMenuAvailability {
     [CmdletBinding()]
-    param([AllowNull()]$Readiness)
+    param(
+        [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
+        [AllowNull()]$Readiness
+    )
 
     if ($null -eq $Readiness) {
-        try { $Readiness = Get-LabClientRuntimeReadiness -Provider podman }
+        try { $Readiness = Get-LabClientRuntimeReadiness -Provider $Provider }
         catch {
             return [PSCustomObject]@{
                 Available = $false
-                Reason = "[AI_PODMAN_SETUP_READINESS_FAILED] Podman konnte nicht geprüft werden: $($_.Exception.Message) Abhilfe: Die Podman-Installation und den konfigurierten Runtime-Endpunkt mit Test-SqlServerLabPrerequisite prüfen."
+                Reason = "[PROVIDER_READINESS_FAILED] $Provider konnte nicht geprüft werden: $($_.Exception.Message) Abhilfe: Installation und konfigurierten Runtime-Endpunkt mit Test-SqlServerLabPrerequisite prüfen."
             }
         }
     }
@@ -346,19 +349,27 @@ function Get-LabAiPodmanSetupMenuAvailability {
     }
 
     $code = [string]$Readiness.Code
-    if ([string]::IsNullOrWhiteSpace($code)) { $code = 'AI_PODMAN_SETUP_RUNTIME_NOT_READY' }
+    if ([string]::IsNullOrWhiteSpace($code)) { $code = 'PROVIDER_RUNTIME_NOT_READY' }
+    $providerName = if ($Provider -ceq 'docker') { 'Docker' } else { 'Podman' }
     $guidance = switch ($code) {
-        'TOOL_RESOLUTION_FAILED' { 'Die Podman-CLI konnte nicht aufgelöst werden. Abhilfe: Tools/Initialize-SqlServerLabHostTools.ps1 für Podman ausführen und den dort gemeldeten Konfigurationsfehler beheben.' }
-        'TOOL_NOT_INSTALLED' { 'Podman ist nicht installiert. Abhilfe: Podman installieren und anschließend die Readiness erneut prüfen.' }
-        'TOOL_NATIVE_PATH_REQUIRED' { 'Für Podman wurde kein absoluter nativer Programmpfad ermittelt. Abhilfe: den Tool-Override auf die installierte podman-Programmdatei korrigieren.' }
-        'TOOL_EXECUTION_DENIED' { 'Die Podman-CLI darf in dieser Sitzung nicht ausgeführt werden. Abhilfe: die normalen Hostberechtigungen für die installierte CLI korrigieren.' }
-        'PROVIDER_ACCESS_DENIED' { 'Der Podman-Endpunkt verweigert den Zugriff. Abhilfe: ein für die konfigurierte Podman-Runtime berechtigtes Konto verwenden.' }
-        'PROVIDER_PROBE_TIMEOUT' { 'Die begrenzte Readiness-Prüfung des Podman-Endpunkts lief in ein Zeitlimit. Abhilfe: Podman-Runtime beziehungsweise Podman-Machine separat prüfen und starten.' }
-        'PROVIDER_UNREACHABLE' { 'Podman ist installiert, die Runtime ist aber nicht erreichbar. Abhilfe: Podman-Runtime beziehungsweise Podman-Machine starten und die Readiness erneut prüfen.' }
-        'PROVIDER_RESPONSE_INVALID' { 'Podman lieferte keinen gültigen Info-Vertrag. Abhilfe: CLI-Version und konfigurierten Runtime-Endpunkt prüfen.' }
-        default { 'Podman ist für diese Aktion nicht einsatzbereit. Abhilfe: Test-SqlServerLabPrerequisite für Provider podman ausführen und die dort genannte Voraussetzung beheben.' }
+        'TOOL_RESOLUTION_FAILED' { "Die $providerName-CLI konnte nicht aufgelöst werden. Abhilfe: Tools/Initialize-SqlServerLabHostTools.ps1 für $providerName ausführen und den dort gemeldeten Konfigurationsfehler beheben." }
+        'TOOL_NOT_INSTALLED' { "$providerName ist nicht installiert. Abhilfe: $providerName installieren und anschließend die Readiness erneut prüfen." }
+        'TOOL_NATIVE_PATH_REQUIRED' { "Für $providerName wurde kein absoluter nativer Programmpfad ermittelt. Abhilfe: den Tool-Override auf die installierte Programmdatei korrigieren." }
+        'TOOL_EXECUTION_DENIED' { "Die $providerName-CLI darf in dieser Sitzung nicht ausgeführt werden. Abhilfe: die normalen Hostberechtigungen für die installierte CLI korrigieren." }
+        'PROVIDER_ACCESS_DENIED' { "Der $providerName-Endpunkt verweigert den Zugriff. Abhilfe: ein für die konfigurierte Runtime berechtigtes Konto verwenden." }
+        'PROVIDER_PROBE_TIMEOUT' { "Die begrenzte Readiness-Prüfung des $providerName-Endpunkts lief in ein Zeitlimit. Abhilfe: die Runtime separat prüfen und starten." }
+        'PROVIDER_UNREACHABLE' { "$providerName ist installiert, die Runtime ist aber nicht erreichbar. Abhilfe: die Runtime starten und die Readiness erneut prüfen." }
+        'PROVIDER_RESPONSE_INVALID' { "$providerName lieferte keinen gültigen Info-Vertrag. Abhilfe: CLI-Version und konfigurierten Runtime-Endpunkt prüfen." }
+        default { "$providerName ist für diese Aktion nicht einsatzbereit. Abhilfe: Test-SqlServerLabPrerequisite für Provider $Provider ausführen und die dort genannte Voraussetzung beheben." }
     }
     [PSCustomObject]@{ Available = $false; Reason = "[$code] $guidance" }
+}
+
+function Get-LabAiPodmanSetupMenuAvailability {
+    [CmdletBinding()]
+    param([AllowNull()]$Readiness)
+
+    Get-LabContainerProviderMenuAvailability -Provider podman -Readiness $Readiness
 }
 
 function Get-LabAiSql2025TargetMenuAvailability {
@@ -2233,13 +2244,13 @@ function Invoke-LabCuResourceInteractive {
 
     $provider = 'Auto'
     if ($platform -eq 'Linux') {
-        $dockerReady = try { (Resolve-SqlServerContainerImageProvider -Provider docker) -eq 'docker' } catch { $false }
-        $podmanReady = try { (Resolve-SqlServerContainerImageProvider -Provider podman) -eq 'podman' } catch { $false }
+        $dockerAvailability = Get-LabContainerProviderMenuAvailability -Provider docker
+        $podmanAvailability = Get-LabContainerProviderMenuAvailability -Provider podman
         $providerResult = Invoke-LabConsoleMenu -ScreenId 'cu-resource-provider' -Title 'Container-Runtime' -Items @(
-            New-LabConsoleItem -Id 'Docker' -Label 'Docker' -Shortcut '1' -Disabled:(-not $dockerReady) `
-                -DisabledReason 'Docker ist auf diesem Host nicht erreichbar oder nicht einsatzbereit.'
-            New-LabConsoleItem -Id 'Podman' -Label 'Podman' -Shortcut '2' -Disabled:(-not $podmanReady) `
-                -DisabledReason 'Podman ist auf diesem Host nicht erreichbar oder nicht einsatzbereit.'
+            New-LabConsoleItem -Id 'Docker' -Label 'Docker' -Shortcut '1' -Disabled:(-not $dockerAvailability.Available) `
+                -DisabledReason ([string]$dockerAvailability.Reason)
+            New-LabConsoleItem -Id 'Podman' -Label 'Podman' -Shortcut '2' -Disabled:(-not $podmanAvailability.Available) `
+                -DisabledReason ([string]$podmanAvailability.Reason)
         )
         if ($providerResult.Status -ne 'Selected') { return }
         $provider = [string]$providerResult.SelectedItem.Id
