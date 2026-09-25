@@ -125,6 +125,7 @@ Measure-SqlServerLabAiComputeCandidateSet   # Vollständige Kandidatenmenge mess
 Get-SqlServerLabAiSharedGatewayPlan         # Gemeinsamen Gateway und SQL-Verbraucher read-only binden
 Test-SqlServerLabAiSharedGatewayPreflight   # Gebundene lokale Artefakte und TLS-Kette read-only prüfen
 Register-SqlServerLabAiSharedGatewayStorage # Gebundene Dateien geschützt und atomar gemeinsam registrieren
+Test-SqlServerLabAiSharedGatewayUpstream    # Registrierten Store und gebundenen Loopback-Upstream read-only prüfen
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen
 Get-SqlServerLabAiExternalModelSqlPlan       # Frische Endpoint-Evidence an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden
 Test-SqlServerLabAiExternalModelSqlPreflight # Eigenen SQL-2025-Zielscope read-only und hashgebunden vor jeder Mutation prüfen

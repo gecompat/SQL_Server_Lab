@@ -1,0 +1,15 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://example.invalid/sql-server-lab/ai-shared-gateway-upstream-receipt.schema.json",
+  "type":"object","required":["Contract","Status","EvidenceStatus","GatewayId","PlanKey","StorageReceiptKey","UpstreamBindingKey","Backend","RuntimeModel","Dimension","HttpStatus","DurationMilliseconds","VerifiedAtUtc","VerifiedEvidence","PendingEvidence","ReceiptKey"],
+  "properties":{
+    "Contract":{"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiSharedGatewayUpstreamReceipt"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status":{"const":"UPSTREAM_VERIFIED"},"EvidenceStatus":{"const":"LIVE_LOOPBACK_UPSTREAM"},"GatewayId":{"type":"string","pattern":"^[a-z][a-z0-9-]{0,62}$"},
+    "PlanKey":{"$ref":"#/$defs/hash"},"StorageReceiptKey":{"$ref":"#/$defs/hash"},"UpstreamBindingKey":{"$ref":"#/$defs/hash"},
+    "Backend":{"enum":["LlamaCppCpu","LlamaCppCuda","LlamaCppOpenVino","LlamaCppRocm","LlamaCppVulkan","LlamaCppSycl","OpenVinoModelServer"]},"RuntimeModel":{"type":"string","minLength":1,"maxLength":256},"Dimension":{"type":"integer","minimum":1,"maximum":1998},
+    "HttpStatus":{"type":"integer","minimum":200,"maximum":299},"DurationMilliseconds":{"type":"integer","minimum":0},"VerifiedAtUtc":{"type":"string","format":"date-time"},
+    "VerifiedEvidence":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["PROTECTED_SHARED_STORAGE_REVALIDATED","LOOPBACK_UPSTREAM_BOUND","OPENAI_RESPONSE_SHAPE_MATCH","RUNTIME_MODEL_MATCH","EMBEDDING_DIMENSION_MATCH","FINITE_NUMERIC_VECTOR_MATCH"]}},
+    "PendingEvidence":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["PERSISTENT_GATEWAY_SERVICE","LIVE_HTTPS_GATEWAY_ENDPOINT","SQL_CONSUMER_BINDINGS","BACKUP_RESTORE","ROTATION","ACCELERATOR_RUNTIME_ATTESTATION"]}},
+    "ReceiptKey":{"$ref":"#/$defs/hash"}
+  },"additionalProperties":false,"$defs":{"hash":{"type":"string","pattern":"^[a-f0-9]{64}$"}}
+}

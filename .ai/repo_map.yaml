@@ -105,6 +105,10 @@ sources_of_truth:
   ai_shared_gateway_storage_state_schema: Schemas/ai-shared-gateway-storage-state.schema.json
   ai_shared_gateway_storage_receipt_schema: Schemas/ai-shared-gateway-storage-receipt.schema.json
   validation_ai_shared_gateway_storage: Tests/Static/Invoke-AiSharedGatewayStorageChecks.ps1
+  ai_shared_gateway_upstream_contract: Private/AiSharedGatewayUpstream.ps1
+  ai_shared_gateway_upstream_api: Public/Test-SqlServerLabAiSharedGatewayUpstream.ps1
+  ai_shared_gateway_upstream_schema: Schemas/ai-shared-gateway-upstream-receipt.schema.json
+  validation_ai_shared_gateway_upstream: Tests/Static/Invoke-AiSharedGatewayUpstreamChecks.ps1
   ai_model_catalog: Catalogs/ai-models.json
   ai_model_catalog_schema: Schemas/ai-model-catalog.schema.json
   ai_endpoint_plan_schema: Schemas/ai-endpoint-plan.schema.json

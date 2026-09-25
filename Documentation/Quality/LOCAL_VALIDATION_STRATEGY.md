@@ -161,6 +161,10 @@ Dateien in einem temporären StateRoot. Die Suite prüft benutzerexklusive Recht
 atomare Veröffentlichung, schema- und hashgebundenen Zustand, idempotente
 Mehrprozesskonkurrenz, Konflikt/Drift, `WhatIf` und Cleanup nach injiziertem
 Publikationsfehler. Persistenter Dienst, Live-Endpunkt und SQL bleiben unberührt.
+`Invoke-AiSharedGatewayUpstreamChecks.ps1` revalidiert denselben geschützten
+Speicher und prüft über einen injizierten Transport die festen Llama-v1- und
+OVMS-v3-Requests sowie Modell, Dimension, endliche Vektoren und Fehlerklassen.
+Die Suite öffnet kein Netzwerk und bestätigt weder Dienst noch Beschleuniger.
 Hostmodell-Digest/Capability/Dimension/Remoteidentity, Egress/Datenklasse,
 WhatIf, Vektoren und echten synthetischen HTTP307 ohne Weiterleitung.
 `Invoke-AiRagExistingOllamaAcceptance.ps1` ist eine separate opt-in Abnahme mit

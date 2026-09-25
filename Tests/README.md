@@ -20,6 +20,9 @@ Chain-, Gültigkeits- und SAN-Bindung, ohne Listener, Gateway oder SQL zu starte
 `Static/Invoke-AiSharedGatewayStorageChecks.ps1` prüft mit synthetischen Dateien
 die geschützte atomare Registrierung, Idempotenz über zwei Prozesse, Konflikt-
 und Driftablehnung sowie Fehlercleanup. Sie startet keinen Dienst oder Provider.
+`Static/Invoke-AiSharedGatewayUpstreamChecks.ps1` revalidiert diesen synthetischen
+Store und prüft injizierte Llama-v1- und OVMS-v3-Antworten einschließlich Modell,
+Dimension, endlicher Werte, Fehlercodes und geheimnisfreiem Receipt ohne Netzwerk.
 `Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` ist die separate Docker-only-
 Referenz für SQL External Model, TLS-Negative, Retrieval, SQLrestart und Cleanup.
 Die native Abnahme bestand am 2026-09-21 mit sieben Embeddings, SQL-TLS-Negativen,

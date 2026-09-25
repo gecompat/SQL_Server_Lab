@@ -64,7 +64,10 @@ Plan bleibt mit
 `AI_SHARED_GATEWAY_EXECUTION_NOT_IMPLEMENTED` ausdrücklich blockiert. Die
 gebundenen Dateien können bereits mutexgeschützt, benutzerexklusiv und atomar
 im gemeinsamen StateRoot registriert werden; identische parallele Aufrufe sind
-idempotent, abweichende Pläne und Inhaltsdrift werden abgewiesen. Der dauerhafte
+idempotent, abweichende Pläne und Inhaltsdrift werden abgewiesen. Eine read-only
+Probe revalidiert diesen Store und prüft einen bereits laufenden gebundenen
+Llama-v1- oder OVMS-v3-Loopback-Upstream auf Modell, Dimension und Vektorwerte.
+Der dauerhafte
 Gatewaydienst einschließlich Apply/Remove, Backup, Restore und Zertifikatswechsel
 ist noch nicht implementiert oder nativ nachgewiesen.
 Die vorhandenen HTTPS-Referenzen bleiben begrenzte Nachweise der Transportstrecke.

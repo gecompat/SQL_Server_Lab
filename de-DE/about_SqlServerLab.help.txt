@@ -268,6 +268,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Registriert gebundene Gatewaydateien mutexgeschützt, benutzerexklusiv
         und atomar im gemeinsamen StateRoot, ohne Dienst- oder SQL-Start.
 
+    Test-SqlServerLabAiSharedGatewayUpstream
+        Revalidiert den geschützten Store und prüft den gebundenen lokalen
+        Llama-v1- oder OVMS-v3-Upstream mit einem synthetischen Embedding.
+
     Get-SqlServerLabAiExternalModelPlan
         Plant einen vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt
         hashgebunden und ohne Netzwerk- oder Hostmutation.

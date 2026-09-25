@@ -34,6 +34,7 @@
         'Get-SqlServerLabAiSharedGatewayPlan'
         'Test-SqlServerLabAiSharedGatewayPreflight'
         'Register-SqlServerLabAiSharedGatewayStorage'
+        'Test-SqlServerLabAiSharedGatewayUpstream'
         'Get-SqlServerLabAiExternalModelPlan'
         'Get-SqlServerLabAiExternalModelSqlPlan'
         'Get-SqlServerLabLlamaCppRuntime'
