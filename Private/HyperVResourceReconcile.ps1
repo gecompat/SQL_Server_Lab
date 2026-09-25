@@ -264,13 +264,17 @@ function Wait-LabHyperVResourceReconcileVMState {
         [Parameter(Mandatory)][ValidateSet('Off','Running')][string]$ExpectedState,
         [ValidateRange(10, 300)][int]$TimeoutSeconds=120
     )
-    $deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
-    do {
-        $managed=Get-HyperVManagedVM -VMName $VMName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId
-        if($managed -and [string]$managed.VM.State -eq $ExpectedState){return $managed}
-        Start-Sleep -Seconds 2
-    } while([DateTime]::UtcNow -lt $deadline)
-    throw "HYPERV_RESOURCE_RECONCILE_VM_STATE_TIMEOUT: $ExpectedState"
+    $blockingProgress=Start-LabBlockingActionProgress -Phase GuestWait
+    try {
+        $deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+        do {
+            $managed=Get-HyperVManagedVM -VMName $VMName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId
+            if($managed -and [string]$managed.VM.State -eq $ExpectedState){return $managed}
+            Start-Sleep -Seconds 2
+        } while([DateTime]::UtcNow -lt $deadline)
+        throw "HYPERV_RESOURCE_RECONCILE_VM_STATE_TIMEOUT: $ExpectedState"
+    }
+    finally {Stop-LabBlockingActionProgress -Handle $blockingProgress}
 }
 
 function Invoke-LabHyperVResourceReconcileRepair {

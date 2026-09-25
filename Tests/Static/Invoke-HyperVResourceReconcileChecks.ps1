@@ -174,6 +174,7 @@ try {
     } $testRoot
 
     $checks = [ordered]@{
+        'VM-Zustandswechsel halten den gemeinsamen Host-Fortschritt bis Erfolg oder Fehler aktiv'=($resourceSource -match '(?s)function Wait-LabHyperVResourceReconcileVMState.*Start-LabBlockingActionProgress -Phase GuestWait.*finally \{Stop-LabBlockingActionProgress -Handle \$blockingProgress\}')
         'Restart verwendet gastgesteuertes Stop-VM ohne harte Abschaltschalter'=($resourceSource -match 'Stop-VM\s+-VM\s+\$context\.VM\s+-Confirm:\$false' -and $resourceSource -notmatch 'Stop-VM[^\r\n]*-(Force|TurnOff|Save|Shutdown)')
         'Semantisch passende vCPU-/RAM-Werte bleiben No-op'=$result.NoOp
         'Oeffentlicher Ressourcenplan enthaelt keine VM-Namen oder IDs'=$result.Sanitized
