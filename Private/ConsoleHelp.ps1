@@ -348,9 +348,14 @@ function Get-LabConsoleHelpCatalog {
         Effects = 'Offline-Auswertungen mutieren nichts; SQL- und Modellpfade verwenden die jeweils angezeigten Sicherheits- und Egress-Verträge.'
         Command = 'Get-SqlServerLabAiScenario / Invoke-SqlServerLabAiModel'; Preconditions = @($stateRootPrecondition)
     }
-    $catalog['ai-menu'].Purpose += ' Erstellt außerdem eine bleibende Podman-KI-Testumgebung und zeigt ihre gespeicherten IDs.'
+    $catalog['ai-menu'].Purpose += ' Listet außerdem kuratierte llama.cpp-Modelle, lädt eine explizite Auswahl direkt und erstellt eine bleibende Podman-KI-Testumgebung.'
     $catalog['ai-menu'].Preconditions += 'Für die neue Testumgebung: laufendes Podman und ausgewähltes lokales embeddinggemma:latest (768) oder bge-m3:latest (1024).'
     $catalog['ai-menu'].Effects += ' Neue Umgebung nur nach Vorschau und Bestätigung; SQL-Daten bleiben erhalten. Fehlerbereinigung betrifft ausschließlich den gerade neu erstellten eigenen Run.'
+    $catalog['ai-llama-models'] = @{
+        Title = 'Kuratierte llama.cpp-Modelle'; Purpose = 'Listet freigegebene GGUF-Generationsmodelle mit Größe, Quantisierung und Lizenz und lädt die explizite Auswahl bei Bedarf.'
+        Effects = 'Schreibt ausschließlich nach Lab_Base/AI/Models; veröffentlicht erst nach Größen-, SHA-256- und GGUF-Prüfung atomar. Vorhandene Dateien werden erneut vollständig geprüft.'
+        Command = 'Get-SqlServerLabLlamaCppModel / Save-SqlServerLabLlamaCppModel'; Preconditions = @($mediaRootPrecondition)
+    }
     $catalog['connection-center-cms'] = @{
         Title = 'CMS-Verwaltung'; Purpose = 'Erstellt, übernimmt oder synchronisiert den zentralen Verwaltungsserver.'
         Effects = 'Erstellen legt eine persistente SQL-Umgebung an; Übernehmen bindet eine vorhandene Umgebung; Export bleibt kennwortfrei.'
