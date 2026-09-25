@@ -1775,9 +1775,28 @@ Add-ConsoleUiCheck 'Restore-Core entfernt die exakt gebundene temporaere Contain
 )
 $aiMenuSource = [regex]::Match($mainMenuSource, "function Show-LabAiMenu \{[\s\S]+?(?=\r?\nfunction )").Value
 Add-ConsoleUiCheck 'KI-Menü bietet Podman-Erstellung und dauerhafte Wiederauffindbarkeit neben bisherigen Demos' (
-    $aiMenuSource -match "-Id 'AiPodmanSetup' -Label 'Podman-KI-Testumgebung erstellen'" -and
+    $aiMenuSource -match "-Id 'AiPodmanSetup' -Label 'Podman-KI-Testumgebung erstellen'[\s\S]{0,300}?-Disabled:\(-not \`$podmanSetup\.Available\)[\s\S]{0,120}?-DisabledReason" -and
     $aiMenuSource -match "-Id 'AiPodmanEnvironments'" -and $mainMenuSource -match 'Invoke-LabAiPodmanSetupInteractive' -and
     $mainMenuSource -match 'Show-LabAiPodmanEnvironmentsInteractive'
+)
+$aiPodmanAvailabilityProbe = & {
+    $module = Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
+    & $module {
+        $pass = Get-LabAiPodmanSetupMenuAvailability -Readiness ([pscustomobject]@{ Status='PASS'; Code='PROVIDER_REACHABLE' })
+        $unreachable = Get-LabAiPodmanSetupMenuAvailability -Readiness ([pscustomobject]@{ Status='BLOCKED'; Code='PROVIDER_UNREACHABLE' })
+        $missing = Get-LabAiPodmanSetupMenuAvailability -Readiness ([pscustomobject]@{ Status='BLOCKED'; Code='TOOL_NOT_INSTALLED' })
+        $denied = Get-LabAiPodmanSetupMenuAvailability -Readiness ([pscustomobject]@{ Status='BLOCKED'; Code='PROVIDER_ACCESS_DENIED' })
+        [pscustomobject]@{ Pass=$pass; Unreachable=$unreachable; Missing=$missing; Denied=$denied }
+    }
+}
+Add-ConsoleUiCheck 'Podman-KI-Menü bleibt bei erreichbarer Runtime auswählbar' (
+    $aiPodmanAvailabilityProbe.Pass.Available -and -not $aiPodmanAvailabilityProbe.Pass.Reason
+)
+Add-ConsoleUiCheck 'Podman-KI-Menü unterscheidet Installation, Erreichbarkeit und Berechtigung mit Abhilfe' (
+    -not $aiPodmanAvailabilityProbe.Unreachable.Available -and
+    $aiPodmanAvailabilityProbe.Unreachable.Reason -match '^\[PROVIDER_UNREACHABLE\].*Runtime.*Abhilfe:' -and
+    $aiPodmanAvailabilityProbe.Missing.Reason -match '^\[TOOL_NOT_INSTALLED\].*installiert.*Abhilfe:' -and
+    $aiPodmanAvailabilityProbe.Denied.Reason -match '^\[PROVIDER_ACCESS_DENIED\].*verweigert.*Abhilfe:'
 )
 $offeredAiActions = @([regex]::Matches($aiMenuSource, "New-LabConsoleItem -Id '([^']+)'") |
         ForEach-Object { $_.Groups[1].Value } | Where-Object { $_ -ne 'back' })

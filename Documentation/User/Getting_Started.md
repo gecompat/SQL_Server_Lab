@@ -3,8 +3,12 @@
 ## Podman-KI-Testumgebung erstellen
 
 Starte `Invoke-SqlServerLab` und wähle **Datenbanken und Verbindungen → SQL Server 2025 KI →
-Podman-KI-Testumgebung erstellen**. Podman muss bereit sein. Der Dialog lässt
-zwischen dem vorhandenen `embeddinggemma:latest` (768 Dimensionen, Standard),
+Podman-KI-Testumgebung erstellen**. Podman muss bereit sein. Das Menü lässt
+den Eintrag sichtbar, deaktiviert ihn bei fehlender, nicht ausführbarer oder
+nicht erreichbarer Podman-Runtime jedoch vor jeder Formulareingabe und nennt
+ReasonCode sowie konkrete Abhilfe. Die Anzeigeprüfung ist read-only und startet
+keine Podman-Machine. Der Dialog lässt zwischen dem vorhandenen
+`embeddinggemma:latest` (768 Dimensionen, Standard),
 `bge-m3:latest` (1024 Dimensionen, mehrsprachig),
 `nomic-embed-text-v2-moe:latest` (768 Dimensionen, Suchprofil), dem
 kompakten `all-minilm:latest` (384 Dimensionen) und dem mehrsprachigen
