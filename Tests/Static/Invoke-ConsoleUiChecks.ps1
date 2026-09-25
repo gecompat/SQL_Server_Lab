@@ -1162,6 +1162,13 @@ Add-ConsoleUiCheck 'Erstellungsmenue deaktiviert den mengenfaehigen Windows-Slot
 Add-ConsoleUiCheck 'CU-Download deaktiviert das Windows-Paket begruendet ohne Hyper-V' (
     [regex]::Match($entrySource, 'function Invoke-LabCuResourceInteractive \{[\s\S]+?(?=\r?\nfunction )').Value -match "-Id 'Windows'[\s\S]{0,400}?-Disabled:\(-not \`$windowsCuAvailable\)"
 )
+$cuResourceSource = [regex]::Match($entrySource, 'function Invoke-LabCuResourceInteractive \{[\s\S]+?(?=\r?\nfunction )').Value
+Add-ConsoleUiCheck 'CU-Download bindet Docker und Podman an strukturierte Readiness-Gründe' (
+    $cuResourceSource -match 'Get-LabContainerProviderMenuAvailability -Provider docker' -and
+    $cuResourceSource -match 'Get-LabContainerProviderMenuAvailability -Provider podman' -and
+    $cuResourceSource -match "-Id 'Docker'[\s\S]{0,250}?-Disabled:\(-not \`$dockerAvailability\.Available\)[\s\S]{0,150}?-DisabledReason" -and
+    $cuResourceSource -match "-Id 'Podman'[\s\S]{0,250}?-Disabled:\(-not \`$podmanAvailability\.Available\)[\s\S]{0,150}?-DisabledReason"
+)
 Add-ConsoleUiCheck 'Schnellkonfiguration deaktiviert den erzwungenen Netzwerkmodus begruendet statt ihn fokussierbar zu zeigen' (
     $entrySource -match "-Id 'networkMode' -Label 'Netzwerkmodus' -Value 'host-access'[\s\S]{0,200}?-Disabled -DisabledReason" -and
     $consoleSource.Contains('function New-LabConsoleField') -and
@@ -1789,6 +1796,23 @@ $aiPodmanAvailabilityProbe = & {
         [pscustomobject]@{ Pass=$pass; Unreachable=$unreachable; Missing=$missing; Denied=$denied }
     }
 }
+$containerProviderAvailabilityProbe = & {
+    $module = Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
+    & $module {
+        [pscustomobject]@{
+            DockerPass = Get-LabContainerProviderMenuAvailability -Provider docker -Readiness ([pscustomobject]@{ Status='PASS'; Code='PROVIDER_REACHABLE' })
+            DockerMissing = Get-LabContainerProviderMenuAvailability -Provider docker -Readiness ([pscustomobject]@{ Status='BLOCKED'; Code='TOOL_NOT_INSTALLED' })
+            PodmanDenied = Get-LabContainerProviderMenuAvailability -Provider podman -Readiness ([pscustomobject]@{ Status='BLOCKED'; Code='PROVIDER_ACCESS_DENIED' })
+            PodmanTimeout = Get-LabContainerProviderMenuAvailability -Provider podman -Readiness ([pscustomobject]@{ Status='BLOCKED'; Code='PROVIDER_PROBE_TIMEOUT' })
+        }
+    }
+}
+Add-ConsoleUiCheck 'Container-Providermenüs unterscheiden Installation, Zugriff und Zeitüberschreitung mit Abhilfe' (
+    $containerProviderAvailabilityProbe.DockerPass.Available -and
+    $containerProviderAvailabilityProbe.DockerMissing.Reason -match '^\[TOOL_NOT_INSTALLED\].*Docker.*Abhilfe:' -and
+    $containerProviderAvailabilityProbe.PodmanDenied.Reason -match '^\[PROVIDER_ACCESS_DENIED\].*Podman.*Abhilfe:' -and
+    $containerProviderAvailabilityProbe.PodmanTimeout.Reason -match '^\[PROVIDER_PROBE_TIMEOUT\].*Podman.*Zeitlimit.*Abhilfe:'
+)
 Add-ConsoleUiCheck 'Podman-KI-Menü bleibt bei erreichbarer Runtime auswählbar' (
     $aiPodmanAvailabilityProbe.Pass.Available -and -not $aiPodmanAvailabilityProbe.Pass.Reason
 )

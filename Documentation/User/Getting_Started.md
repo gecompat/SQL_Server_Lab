@@ -333,7 +333,11 @@ Ohne Parameterkenntnis führt das Konsolenmenü unter **Medien, Testdaten und
 Speicher → SQL Server CU herunterladen oder prüfen** durch Plattform, Version,
 CU und Container-Provider. Ein fehlender oder nicht katalogisierter CU wird
 fail-closed abgelehnt; SQL Server 2019 CU7 ist wegen des Microsoft-Rückzugs
-nicht auswählbar.
+nicht auswählbar. Docker und Podman bleiben in der Providerauswahl sichtbar,
+werden bei fehlender CLI, verweigertem Zugriff, Zeitüberschreitung, nicht
+erreichbarer Runtime oder ungültiger Runtimeantwort jedoch ausgegraut. Der
+angezeigte stabile ReasonCode unterscheidet diese Ursachen und nennt jeweils
+eine konkrete Abhilfe.
 
 ### 4b. Samples und External-Runtime-Medien vorab bereitstellen
 
