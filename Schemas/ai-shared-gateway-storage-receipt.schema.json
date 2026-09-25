@@ -1,0 +1,14 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://example.invalid/sql-server-lab/ai-shared-gateway-storage-receipt.schema.json",
+  "type":"object","required":["Contract","Status","EvidenceStatus","GatewayId","PlanKey","PreflightReceiptKey","RuntimeSha256","ModelSha256","ServerCertificateSha256","CertificateAuthoritySha256","ConsumerCount","RegisteredAtUtc","VerifiedEvidence","PendingEvidence","ReceiptKey"],
+  "properties":{
+    "Contract":{"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiSharedGatewayStorageReceipt"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status":{"enum":["REGISTERED","ALREADY_REGISTERED"]},"EvidenceStatus":{"const":"PROTECTED_SHARED_STORAGE"},"GatewayId":{"type":"string","pattern":"^[a-z][a-z0-9-]{0,62}$"},
+    "PlanKey":{"$ref":"#/$defs/hash"},"PreflightReceiptKey":{"$ref":"#/$defs/hash"},"RuntimeSha256":{"$ref":"#/$defs/hash"},"ModelSha256":{"$ref":"#/$defs/hash"},"ServerCertificateSha256":{"$ref":"#/$defs/hash"},"CertificateAuthoritySha256":{"$ref":"#/$defs/hash"},
+    "ConsumerCount":{"type":"integer","minimum":1,"maximum":64},"RegisteredAtUtc":{"type":"string","format":"date-time"},
+    "VerifiedEvidence":{"type":"array","minItems":9,"maxItems":9,"uniqueItems":true,"items":{"enum":["RUNTIME_BINARY_MATCH","MODEL_FILE_MATCH","SERVER_CERTIFICATE_MATCH","CERTIFICATE_PRIVATE_KEY_MATCH","CERTIFICATE_AUTHORITY_MATCH","CERTIFICATE_CHAIN_MATCH","CERTIFICATE_HOST_MATCH","CERTIFICATE_TIME_VALID","PROTECTED_SHARED_STORAGE"]}},
+    "PendingEvidence":{"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["PERSISTENT_GATEWAY_SERVICE","LIVE_ENDPOINT","SQL_CONSUMER_BINDINGS","BACKUP_RESTORE","ROTATION","ACCELERATOR_RUNTIME_ATTESTATION"]}},
+    "ReceiptKey":{"$ref":"#/$defs/hash"}
+  },"additionalProperties":false,"$defs":{"hash":{"type":"string","pattern":"^[a-f0-9]{64}$"}}
+}

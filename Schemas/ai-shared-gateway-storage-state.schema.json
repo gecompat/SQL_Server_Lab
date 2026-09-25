@@ -1,0 +1,12 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://example.invalid/sql-server-lab/ai-shared-gateway-storage-state.schema.json",
+  "type":"object","required":["Contract","Status","GatewayId","PlanKey","PreflightReceiptKey","RegisteredAtUtc","Files","StateKey"],
+  "properties":{
+    "Contract":{"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiSharedGatewayStorageState"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status":{"const":"STORAGE_REGISTERED"},"GatewayId":{"type":"string","pattern":"^[a-z][a-z0-9-]{0,62}$"},
+    "PlanKey":{"$ref":"#/$defs/hash"},"PreflightReceiptKey":{"$ref":"#/$defs/hash"},"RegisteredAtUtc":{"type":"string","format":"date-time"},
+    "Files":{"type":"array","minItems":5,"maxItems":5,"items":{"type":"object","required":["Role","Name","Sha256"],"properties":{"Role":{"enum":["Runtime","Model","ServerCertificate","PrivateKey","CertificateAuthority"]},"Name":{"enum":["runtime.bin","model.gguf","server-certificate.pem","server-private-key.pem","certificate-authority.pem"]},"Sha256":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}},"additionalProperties":false}},
+    "StateKey":{"$ref":"#/$defs/hash"}
+  },"additionalProperties":false,"$defs":{"hash":{"type":"string","pattern":"^[a-f0-9]{64}$"}}
+}

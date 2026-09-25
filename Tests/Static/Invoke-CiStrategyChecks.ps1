@@ -58,6 +58,15 @@ foreach($externalPlanPath in @('Private/AiExternalModelAcceleration.ps1','Privat
             -not $selected.Docker -and -not $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
     }
 }
+foreach($sharedGatewayPath in @('Private/AiSharedGatewayRegistration.ps1','Public/Register-SqlServerLabAiSharedGatewayStorage.ps1','Schemas/ai-shared-gateway-storage-state.schema.json','Schemas/ai-shared-gateway-storage-receipt.schema.json','Tests/Static/Invoke-AiSharedGatewayStorageChecks.ps1')) {
+    foreach($path in @($sharedGatewayPath,$sharedGatewayPath.Replace('/','\'))) {
+        $selected=& $selector -ChangedPath @($path)
+        Add-CheckResult -Name "Shared-Gateway-Storage bleibt ohne Provider-Mutation statisch: $path" -Success (
+            'Invoke-AiSharedGatewayStorageChecks.ps1' -in $selected.StaticChecks -and
+            'Invoke-AiSharedGatewayPreflightChecks.ps1' -in $selected.StaticChecks -and
+            -not $selected.Docker -and -not $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+    }
+}
 foreach($benchmarkPath in @('Private/AiComputeBenchmark.ps1','Public/Measure-SqlServerLabAiComputeCandidate.ps1','Schemas/ai-compute-benchmark.schema.json','Tests/Static/Invoke-AiComputeBenchmarkChecks.ps1')) {
     foreach($path in @($benchmarkPath,$benchmarkPath.Replace('/','\'))) {
         $selected=& $selector -ChangedPath @($path)

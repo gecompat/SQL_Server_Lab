@@ -514,12 +514,24 @@ $preflight = $sharedPlan | Test-SqlServerLabAiSharedGatewayPreflight `
   -CertificatePath C:\AI\shared-gateway.pem `
   -PrivateKeyPath C:\AI\shared-gateway-key.pem `
   -CertificateAuthorityPath C:\AI\lab-root.pem
+
+$storage = $sharedPlan | Register-SqlServerLabAiSharedGatewayStorage `
+  -RuntimePath C:\AI\llama-server.exe `
+  -ModelPath C:\AI\embedding.gguf `
+  -CertificatePath C:\AI\shared-gateway.pem `
+  -PrivateKeyPath C:\AI\shared-gateway-key.pem `
+  -CertificateAuthorityPath C:\AI\lab-root.pem
 ```
 
-Beide Befehle verändern weder Host noch SQL Server. Der Plan liefert weiterhin
-absichtlich `BLOCKED`. Der Preflight bestätigt nur die lokalen Inhalts- und
-TLS-Bindungen; geschützter gemeinsamer Storage, persistenter Dienstbetrieb,
-Live-Endpunkt, SQL-Consumer, Zertifikatsrotation, Backup/Restore sowie Apply und
+Plan und Preflight verändern weder Host noch SQL Server. Die Registrierung
+kopiert Runtime, Modell und Zertifikatsdateien unter einem hostweiten Mutex in
+`shared-ai-gateways/<GatewayId>` unter dem zentralen StateRoot, schützt
+Verzeichnis und Dateien benutzerexklusiv und veröffentlicht erst nach erneuter
+Hash-/TLS-Prüfung atomar. Sie speichert keine Quellpfade oder Secretwerte;
+`-WhatIf` schreibt nichts. Identische parallele Aufrufe sind idempotent,
+abweichende Pläne und beschädigte Inhalte werden abgewiesen. Der Plan liefert
+weiterhin absichtlich `BLOCKED`: persistenter Dienstbetrieb, Live-Endpunkt,
+SQL-Consumer, Zertifikatsrotation, Backup/Restore sowie vollständiges Apply und
 Remove bleiben bis zur separaten Implementierung und Abnahme offen.
 
 Ein bereits vom Operator gestarteter OVMS-Upstream kann vorab ohne Mutation

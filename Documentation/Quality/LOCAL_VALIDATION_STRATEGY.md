@@ -156,6 +156,11 @@ Dateien und eine kurzlebige CA-/Leaf-Kette. Die Suite prüft Planrevalidierung,
 Runtime-/Modellhashes, privaten Schlüssel, CA-Pin, Chain, Gültigkeit und exakten
 SAN sowie sanitisierte Evidence. Sie startet keinen Listener, Gateway oder SQL-
 Zugriff und bestätigt weder geschützten Storage noch persistenten Dienstbetrieb.
+`Invoke-AiSharedGatewayStorageChecks.ps1` registriert ausschließlich synthetische
+Dateien in einem temporären StateRoot. Die Suite prüft benutzerexklusive Rechte,
+atomare Veröffentlichung, schema- und hashgebundenen Zustand, idempotente
+Mehrprozesskonkurrenz, Konflikt/Drift, `WhatIf` und Cleanup nach injiziertem
+Publikationsfehler. Persistenter Dienst, Live-Endpunkt und SQL bleiben unberührt.
 Hostmodell-Digest/Capability/Dimension/Remoteidentity, Egress/Datenklasse,
 WhatIf, Vektoren und echten synthetischen HTTP307 ohne Weiterleitung.
 `Invoke-AiRagExistingOllamaAcceptance.ps1` ist eine separate opt-in Abnahme mit

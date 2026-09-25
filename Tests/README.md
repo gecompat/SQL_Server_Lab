@@ -17,6 +17,9 @@ Secret-Referenzen, lokale Endpunkte und den ausdrücklich blockierten Status.
 `Static/Invoke-AiSharedGatewayPreflightChecks.ps1` erzeugt ausschließlich
 synthetische lokale Dateien und Zertifikate. Die Suite prüft Hash-, Key-, CA-,
 Chain-, Gültigkeits- und SAN-Bindung, ohne Listener, Gateway oder SQL zu starten.
+`Static/Invoke-AiSharedGatewayStorageChecks.ps1` prüft mit synthetischen Dateien
+die geschützte atomare Registrierung, Idempotenz über zwei Prozesse, Konflikt-
+und Driftablehnung sowie Fehlercleanup. Sie startet keinen Dienst oder Provider.
 `Integration/Invoke-AiSqlHttpsBridgeAcceptance.ps1` ist die separate Docker-only-
 Referenz für SQL External Model, TLS-Negative, Retrieval, SQLrestart und Cleanup.
 Die native Abnahme bestand am 2026-09-21 mit sieben Embeddings, SQL-TLS-Negativen,
