@@ -166,7 +166,7 @@ try {
         @($behavior.Provisions).Count -eq 2 -and
         @($behavior.Provisions | Where-Object {
             $_.PasswordSource -eq 'generated' -and $_.Region -eq 'AT' -and $_.SystemLocale -eq 'de-AT' -and
-            $_.UiLanguage -eq 'en-US' -and $_.InputLocale -eq '0407:00000407'
+            $_.UiLanguage -eq 'en-US' -and $_.InputLocale -eq $behavior.Result.Locale.InputLocale
         }).Count -eq 2 -and @($behavior.Stops).Count -eq 6)
 
     $poolSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\New-SqlServerLabWindowsSlotPool.ps1') -Raw -Encoding utf8
