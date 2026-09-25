@@ -245,7 +245,7 @@ Fehlersignatur wie im Realbefund. Lokale Runtime- und Diagnosedaten
 wurden nur als beschriebener Ist-Zustand referenziert und nicht
 versioniert.
 
-### 11. Direkte Konsolenaktionen zeigen bei langen Phasen keinen Fortschritt — OPEN
+### 11. Direkte Konsolenaktionen zeigen bei langen Phasen keinen Fortschritt — RESOLVED
 
 Teilstand 2026-09-10: Der gemeinsame direkte Reporter, die vier Downloadpfade,
 SQL-Readiness und die abgeleiteten Container-Image-Builds sind angebunden.
@@ -274,6 +274,14 @@ Reporter-Runspace angebunden; er verwendet dieselbe Formatierung und
 Allowlist und aktualisiert auch bei blockiertem Hauptthread. Verschachtelte
 Schritte teilen einen Worker. Offline- und Terminalnachweis liegen vor;
 vollstaendige neue Legacy-Gast-Evidence bleibt separat.
+Der abschliessende Quellpfad-Audit vom 2026-09-25 hat die verbliebenen
+direkten Warte-, Prozess-, Kopier- und Hashpfade gegen die gemeinsamen
+Reporter abgeglichen. Der noch offene CLI-relevante Mehrsekundenpfad war der
+Stop-/Start-Zustandswechsel der Hyper-V-Ressourcenreparatur. Dessen bis zu
+120 Sekunden lange VM-Pollschleife verwendet nun ebenfalls den hostseitigen
+Blocking-Reporter und beendet ihn ueber `finally` bei Erfolg, Timeout und
+Fehler. Kurze interne Wiederholungen und Hintergrundworker ohne direkte
+interaktive Wartephase bleiben bewusst ohne eigenen zusaetzlichen Reporter.
 Native Gast-/Session-Evidence liegt mit CLI-Lauf 34427219338 auf 302a37d vor:
 SQL-Lifecycle, bidirektionaler synthetischer Sessiontransfer mit Hashvergleich
 und Cleanup bestanden. Der folgende Ausgangsbefund
