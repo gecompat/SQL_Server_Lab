@@ -3,7 +3,7 @@
 | Merkmal | Wert |
 |---|---|
 | Status | `BACKLOG_CANDIDATES` |
-| Stand | 2026-09-12 |
+| Stand | 2026-09-25 |
 | Zweck | bisher nicht eigenständig geplante, SQL-zentrierte Plattformlücken dauerhaft erfassen |
 | Autorität | Planung und Priorisierung; keine Runtime-, Secret-, Export-, Import-, Update- oder Löschautorität |
 
@@ -47,6 +47,78 @@ Jede spätere Umsetzung muss:
   nicht implementiert ausweisen.
 
 ## Priorisierte Kandidaten
+
+Die vollständige CLI-Abdeckung ist seit 2026-09-25 als übergreifende
+Anforderung akzeptiert; ihre Einordnung in die Ausführungsreihenfolge bleibt
+offen. Sie gilt auch für die nachstehenden fachlichen Fähigkeiten.
+
+## Vollständige CLI-Abdeckung aller Lab-Funktionen
+
+Status: `ACCEPTED_NEED`; Zielvertrag im Backlog, keine Aussage über bereits
+vollständige Implementierung oder Abnahme.
+
+Alle benutzerseitigen Funktionen und Operationen des SQL Server Labs müssen
+über die CLI mit dem zentralen Einstieg `Invoke-SqlServerLab` erreichbar sein.
+Das umfasst sowohl die Erstellung als auch die vollständige Verwaltung und
+nachträgliche Änderung bestehender Labs. Ein ausschließlich in einer anderen
+Oberfläche, einem separaten Cmdlet oder einem Hilfsskript erreichbarer
+Produktworkflow erfüllt dieses Ziel noch nicht. Interne Hilfsfunktionen
+müssen dafür nicht einzeln öffentlich werden.
+
+Der Scope umfasst insbesondere:
+
+- Lab-, Run- und Instanzinventar, Status, Verbindungen, Readiness und Diagnose;
+- Erstellen, Starten, Stoppen, Neustarten, Klonen, Aktualisieren und Entfernen;
+- Testdatenbanken nachträglich auswählen, hinzufügen, ändern und entfernen
+  sowie Datenbank-, Backup-, Restore-, Import- und Exportoperationen;
+- SQL-Konfiguration, Ressourcen, Ports, Netzwerk, Storage und Autostart;
+- External Languages, Software und KI-Integration einschließlich External
+  Models und ihrer Konfiguration;
+- Kataloge, Medien, Images, persistente Speicher, Wartung, Reconcile,
+  Wiederaufnahme und Recovery sowie weitere bestehende und künftige
+  benutzerseitige Lab-Funktionen.
+
+### Abnahmekriterien
+
+1. Eine vollständige Funktionsmatrix ordnet jede Produktoperation ihrer
+   CLI-Navigation, dem öffentlichen Ausführungsvertrag, den Voraussetzungen,
+   den Provider-/Versionsgrenzen und dem Abnahmenachweis zu. Fehlende
+   CLI-Zugänge bleiben einzeln als offene Arbeit sichtbar.
+2. Alle unterstützten Operationen sind über `Invoke-SqlServerLab` auffindbar
+   und ausführbar. Für vorhandene Labs sind aktuelle Einstellungen sichtbar
+   und unterstützte Änderungen ohne manuelle State-Dateibearbeitung möglich.
+3. Dieselben fachlichen Operationen besitzen dokumentierte, parametrisierte
+   öffentliche PowerShell-Aufrufe für Skripte und unbeaufsichtigte Abläufe;
+   diese benötigen keine interaktive Menübedienung. Die genaue Zuordnung von
+   Parametern und Cmdlets wird im Implementierungsslice festgelegt.
+4. CLI und andere Oberflächen verwenden denselben geprüften Core. Planung,
+   Vorschau beziehungsweise `WhatIf`, Zielbindung, erforderliche Bestätigungen,
+   Secret-Behandlung, Idempotenz sowie Cleanup-/Recovery-Verträge bleiben
+   erhalten. Ein erforderlicher Neuaufbau wird mit Auswirkungen ausgewiesen,
+   nicht als unterbrechungsfreie Änderung dargestellt.
+5. Nicht unterstützte Kombinationen liefern vor einer Mutation einen
+   verständlichen Grund. CLI-Abdeckung erzeugt keine neue Providerfähigkeit
+   und darf vorhandene Schutzprüfungen nicht umgehen.
+6. Abnahmen decken Erstellen und nachträgliches Ändern bestehender Labs,
+   wiederholten Aufruf, Persistenz nach Neustart sowie Fehler-/Recoverypfade
+   ab. Docker, Podman und Hyper-V erhalten getrennte Nachweise für die jeweils
+   unterstützten Funktionen. Neue Produktfunktionen werden künftig gemeinsam
+   mit CLI-Zugang, Hilfe und passenden Tests abgenommen.
+
+Erster Umsetzungsschritt ist die Bestandsaufnahme mit Abgleich gegen
+[CLI-Abnahmematrix](../Quality/CLI_ACCEPTANCE_MATRIX.md), öffentliche Cmdlets,
+Konsolenmenüs und weitere Produktoberflächen. Vorhandene CLI-/UI-Pläne werden
+wiederverwendet; eine vollständige Lückenanalyse ist mit diesem Eintrag noch
+nicht durchgeführt.
+
+Die weitere Behebung von External Languages (Java/Python/R) unter Podman auf
+Windows/WSL ist auf Benutzerentscheidung vom 2026-09-25 vorerst zurückgestellt;
+diese Kombination bleibt nicht unterstützt. Das schränkt andere unterstützte
+Podman-Funktionen nicht ein und widerruft keine getrennte native Linux-Evidence.
+Ein künftiger Ausbau für native Linux-Hosts ist ein eigener Implementierungspunkt.
+Die [bekannten Grenzen](../Quality/KNOWN_LIMITATIONS.md) bleiben maßgeblich.
+
+## Weitere priorisierte Kandidaten
 
 | Priorität | Fähigkeit | Planungsstatus | Erster sinnvoller Vertical Slice |
 |---|---|---|---|
