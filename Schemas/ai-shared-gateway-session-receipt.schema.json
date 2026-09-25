@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["Contract","Status","EvidenceStatus","OperationId","GatewayId","PlanKey","StorageReceiptKey","UpstreamReceiptKey","Location","RuntimeModel","Dimension","ConsumerCount","ServerCertificateSha256","LeaseSeconds","StartedAtUtc","VerifiedEvidence","PendingEvidence","ReceiptKey"],
+  "properties": {
+    "Contract": {"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiSharedGatewaySession"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status": {"const":"SESSION_ENDPOINT_VERIFIED"},
+    "EvidenceStatus": {"const":"OWNER_BOUND_LIVE_HTTPS_GATEWAY"},
+    "OperationId": {"type":"string","format":"uuid"},
+    "GatewayId": {"type":"string","pattern":"^[a-z][a-z0-9-]{0,62}$"},
+    "PlanKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "StorageReceiptKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "UpstreamReceiptKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "Location": {"type":"string","pattern":"^https://[^/]+:[0-9]+/v1/embeddings$"},
+    "RuntimeModel": {"type":"string","minLength":1,"maxLength":256},
+    "Dimension": {"type":"integer","minimum":1,"maximum":1998},
+    "ConsumerCount": {"type":"integer","minimum":1,"maximum":64},
+    "ServerCertificateSha256": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "LeaseSeconds": {"type":"integer","minimum":30,"maximum":3600},
+    "StartedAtUtc": {"type":"string","format":"date-time"},
+    "VerifiedEvidence": {"type":"array","minItems":6,"uniqueItems":true,"items":{"type":"string"}},
+    "PendingEvidence": {"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string"}},
+    "ReceiptKey": {"type":"string","pattern":"^[a-f0-9]{64}$"}
+  },
+  "additionalProperties": false
+}

@@ -60,16 +60,24 @@ Secretreferenz und mehrere eindeutig identifizierte SQL-Verbraucher in einem
 deterministischen Plan. Der read-only Preflight prüft zusätzlich lokale
 Runtime-/Modellhashes, Serverzertifikat und passenden privaten Schlüssel,
 CA-Kette, Gültigkeit und exakten SAN ohne Pfade oder Schlüssel im Receipt. Der
-Plan bleibt mit
+Plan bleibt für den dauerhaften Dienst mit
 `AI_SHARED_GATEWAY_EXECUTION_NOT_IMPLEMENTED` ausdrücklich blockiert. Die
 gebundenen Dateien können bereits mutexgeschützt, benutzerexklusiv und atomar
 im gemeinsamen StateRoot registriert werden; identische parallele Aufrufe sind
 idempotent, abweichende Pläne und Inhaltsdrift werden abgewiesen. Eine read-only
 Probe revalidiert diesen Store und prüft einen bereits laufenden gebundenen
 Llama-v1- oder OVMS-v3-Loopback-Upstream auf Modell, Dimension und Vektorwerte.
-Der dauerhafte
-Gatewaydienst einschließlich Apply/Remove, Backup, Restore und Zertifikatswechsel
-ist noch nicht implementiert oder nativ nachgewiesen.
+`Start-SqlServerLabAiSharedGatewaySession` stellt darauf aufbauend einen
+ownergebundenen, höchstens einstündigen TLS-Gateway bereit. Er bindet nur
+IPv4-Loopback, verlangt für jede geplante Consumerreferenz genau einen eigenen
+SecureString-Schlüssel, rekonstruiert ausschließlich einen einzelnen
+OpenAI-Embeddingrequest und entfernt temporäre Schlüssel unmittelbar nach dem
+Einlesen. `Stop-SqlServerLabAiSharedGatewaySession` beendet und bereinigt nur
+eine Operation derselben Modulsitzung. Der synthetische Vertrag belegt zwei
+getrennte Consumer, TLS-Pinning, Prozess-/Listenerbesitz und Cleanup ohne SQL-
+oder Providermutation. Dieser begrenzte Session-Lifecycle ist kein Ersatz für
+den dauerhaften Gatewaydienst. Dessen Apply/Remove, Backup, Restore und
+Zertifikatswechsel sind noch nicht implementiert oder nativ nachgewiesen.
 Die vorhandenen HTTPS-Referenzen bleiben begrenzte Nachweise der Transportstrecke.
 
 ### Geltungsbereich und Ist-Stand
@@ -87,7 +95,10 @@ wiederverwendbare caller-eigene Zertifikatsdateien, ist aber sitzungsgebunden
 und auf höchstens eine Stunde begrenzt. Beides erfüllt den gemeinsamen
 dauerhaften Lebenszyklus noch nicht. Der
 [llama.cpp-Start](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md) ist ebenfalls
-ein eigener begrenzter Runtimevertrag und kein gemeinsamer Gatewaydienst.
+ein eigener begrenzter Runtimevertrag und kein gemeinsamer Gatewaydienst. Der
+Shared-Gateway-Session-Lifecycle kann mehrere geplante Consumer an denselben
+geschützten Store und Endpoint binden, endet jedoch weiterhin mit Ownerverlust
+oder Lease und besitzt keinen Host-Autostart.
 
 Das [persistente Retrieval](../Architecture/AI_PERSISTENT_RETRIEVAL.md) ruft
 lokales Ollama derzeit vom Controller über Loopback-HTTP auf und speichert

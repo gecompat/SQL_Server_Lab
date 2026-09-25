@@ -272,6 +272,14 @@ Sync-SqlServerLabRunScopedContainerStore
         Revalidiert den geschützten Store und prüft den gebundenen lokalen
         Llama-v1- oder OVMS-v3-Upstream mit einem synthetischen Embedding.
 
+    Start-SqlServerLabAiSharedGatewaySession
+        Startet nach Storage- und Upstream-Revalidierung einen ownergebundenen,
+        zeitlich begrenzten TLS-Gateway ausschließlich auf IPv4-Loopback.
+
+    Stop-SqlServerLabAiSharedGatewaySession
+        Beendet und bereinigt ausschließlich eine Shared-Gateway-Operation,
+        die in derselben Modulsitzung gestartet wurde.
+
     Get-SqlServerLabAiExternalModelPlan
         Plant einen vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt
         hashgebunden und ohne Netzwerk- oder Hostmutation.
