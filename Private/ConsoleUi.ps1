@@ -981,6 +981,9 @@ function Invoke-LabConsoleMenu {
             $value = if ($null -ne $item.Value -and [string]$item.Value) { " - $($item.Value)" } else { '' }
             $disabled = if ([bool]$item.Disabled) { ' (nicht verfuegbar)' } else { '' }
             Write-Host ("    [{0}] {1}{2}{3}" -f $shortcut, $item.Label, $value, $disabled) -ForegroundColor $(if ([bool]$item.Disabled) { 'DarkGray' } else { 'Gray' })
+            if ([bool]$item.Disabled -and -not [string]::IsNullOrWhiteSpace([string]$item.DisabledReason)) {
+                Write-Host ("        Grund: {0}" -f [string]$item.DisabledReason) -ForegroundColor DarkGray
+            }
         }
         if (@($Items | Where-Object { [string]$_.Shortcut -eq '0' }).Count -eq 0) {
             Write-Host '    [0] Zurueck' -ForegroundColor Gray

@@ -5806,6 +5806,26 @@ function Set-LabResourcesInteractive {
     }
 }
 
+function Get-LabExternalRuntimeMenuCapability {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Instance)
+
+    $provider=[string]$Instance.provider; $version=[string]$Instance.version
+    if ($provider -notin @('docker','podman') -or $version -notin @('2019','2022','2025')) {
+        return [PSCustomObject]@{
+            Status='DECLARED_UNSUPPORTED'; Supported=$false; ReasonCode='PROVIDER_OR_VERSION_UNSUPPORTED'
+            DisplayReason="External Languages sind für $provider / SQL Server $version nicht freigegeben. Abhilfe: Wähle Docker oder Podman mit SQL Server 2019, 2022 oder 2025."
+        }
+    }
+    try { return Get-LabExternalRuntimeHostCapability -Provider $provider -SqlVersion $version }
+    catch {
+        return [PSCustomObject]@{
+            Status='RUNTIME_UNAVAILABLE'; Supported=$false; ReasonCode='CAPABILITY_CHECK_FAILED'
+            DisplayReason="Die Hostfähigkeit für $provider / SQL Server $version konnte nicht bestimmt werden. Abhilfe: Prüfe die Provider-Readiness."
+        }
+    }
+}
+
 function Manage-LabExternalRuntimeInteractive {
     <#
     .SYNOPSIS
@@ -5834,14 +5854,21 @@ function Manage-LabExternalRuntimeInteractive {
         Write-LabWarning 'Für diese Umgebung ist kein nachträglicher External-Languages-Pfad freigegeben.'
         return
     }
+    $instanceCapabilities=@($instances|ForEach-Object {[PSCustomObject]@{Instance=$_;Capability=(Get-LabExternalRuntimeMenuCapability -Instance $_)}})
     $instance = if ($instances.Count -eq 1) {
-        $instances[0]
+        if (-not [bool]$instanceCapabilities[0].Capability.Supported) {
+            Write-LabWarning $instanceCapabilities[0].Capability.DisplayReason
+            return
+        }
+        $instanceCapabilities[0].Instance
     }
     else {
-        $items = @($instances | ForEach-Object {
-            $languages = if ($_.externalRuntime) { @($_.externalRuntime.Languages) -join ', ' } else { 'noch keine' }
-            New-LabConsoleItem -Id ([string]$_.id) -Label ([string]$_.id) `
-                -Value "$($_.provider), SQL $($_.version), External Languages: $languages"
+        $items = @($instanceCapabilities | ForEach-Object {
+            $target=$_.Instance; $capability=$_.Capability
+            $languages = if ($target.externalRuntime) { @($target.externalRuntime.Languages) -join ', ' } else { 'noch keine' }
+            New-LabConsoleItem -Id ([string]$target.id) -Label ([string]$target.id) `
+                -Value "$($target.provider), SQL $($target.version), External Languages: $languages" `
+                -Disabled:(-not [bool]$capability.Supported) -DisabledReason ([string]$capability.DisplayReason)
         })
         $selection = Invoke-LabConsoleMenu -ScreenId 'external-runtime-instance-selection' `
             -Title 'SQL-Instanz für External Languages' -Items $items
@@ -5904,6 +5931,7 @@ function Manage-LabEnvironmentInteractive {
     $stateRoot = Get-LabStateRoot
     $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $runId) 'connection-info.json'
     $externalRuntimeEligible = $false
+    $externalRuntimeDisabledReason = 'External Languages sind hier nur für eine Docker-/Podman-SQL-2019-, SQL-2022- oder SQL-2025-Instanz verfügbar.'
     $externalRuntimeValue = 'SQL Server 2019/2022/2025 unter Docker/Podman'
     if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
         $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50
@@ -5911,11 +5939,16 @@ function Manage-LabEnvironmentInteractive {
             [string]$_.provider -in @('docker', 'podman') -and [string]$_.version -in @('2019','2022','2025')
         })
         if ($eligibleInstances.Count -gt 0) {
-            $externalRuntimeEligible = $true
+            $capabilities=@($eligibleInstances|ForEach-Object {Get-LabExternalRuntimeMenuCapability -Instance $_})
+            $externalRuntimeEligible = @($capabilities|Where-Object Supported).Count -gt 0
+            if (-not $externalRuntimeEligible) {
+                $externalRuntimeDisabledReason=(@($capabilities|ForEach-Object {"[$($_.ReasonCode)] $($_.DisplayReason)"}) -join ' | ')
+                $externalRuntimeValue='Host-/Provider-Kombination nicht unterstützt'
+            }
             $configuredLanguages = @($eligibleInstances | ForEach-Object { @($_.externalRuntime.Languages) } | Where-Object { $_ } | Sort-Object -Unique)
-            $externalRuntimeValue = if ($configuredLanguages.Count -gt 0) {
+            if ($externalRuntimeEligible) { $externalRuntimeValue = if ($configuredLanguages.Count -gt 0) {
                 "aktuell: $($configuredLanguages -join ', ')"
-            } else { 'noch nicht installiert' }
+            } else { 'noch nicht installiert' } }
         }
     }
     $actionItems = @(
@@ -5923,7 +5956,7 @@ function Manage-LabEnvironmentInteractive {
         New-LabConsoleItem -Id 'resources' -Label 'CPU und Speicher aendern' -Value 'Docker-/Podman-Limits' -Shortcut 'r'
         New-LabConsoleItem -Id 'external-runtime' -Label 'External Languages installieren oder aendern' `
             -Value $externalRuntimeValue -Shortcut 'x' -Disabled:(-not $externalRuntimeEligible) `
-            -DisabledReason 'External Languages sind hier nur für eine Docker-/Podman-SQL-2019-, SQL-2022- oder SQL-2025-Instanz verfügbar.'
+            -DisabledReason $externalRuntimeDisabledReason
         New-LabConsoleItem -Id 'rename' -Label 'Anzeigename aendern' -Shortcut 'n'
         New-LabConsoleItem -Id 'remove' -Label 'Umgebung entfernen' -Value 'erfordert Bestaetigung' -Shortcut 'e'
     )
