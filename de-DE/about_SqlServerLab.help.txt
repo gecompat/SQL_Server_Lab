@@ -264,6 +264,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Prüft lokale Runtime, Modell, Serverzertifikat, privaten Schlüssel,
         CA-Kette, Gültigkeit und SAN read-only gegen den Gatewayplan.
 
+    Register-SqlServerLabAiSharedGatewayStorage
+        Registriert gebundene Gatewaydateien mutexgeschützt, benutzerexklusiv
+        und atomar im gemeinsamen StateRoot, ohne Dienst- oder SQL-Start.
+
     Get-SqlServerLabAiExternalModelPlan
         Plant einen vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt
         hashgebunden und ohne Netzwerk- oder Hostmutation.

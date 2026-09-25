@@ -792,6 +792,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Measure-SqlServerLabAiComputeCandidateSet` | Alle geeigneten llama.cpp-Kandidaten mit identischem Profil messen und direkt die schnellste vollständige Auswahl liefern |
 | `Get-SqlServerLabAiSharedGatewayPlan` | Gemeinsamen lokalen HTTPS-Gateway und mehrere SQL-Verbraucher geheimnisfrei planen; Ausführung bleibt blockiert |
 | `Test-SqlServerLabAiSharedGatewayPreflight` | Lokale Runtime, Modell und TLS-Material eines Shared-Gateway-Plans read-only und pfadfrei bestätigen |
+| `Register-SqlServerLabAiSharedGatewayStorage` | Gebundene Gatewaydateien mutexgeschützt, benutzerexklusiv und atomar im gemeinsamen StateRoot registrieren; kein Dienst- oder SQL-Start |
 | `Get-SqlServerLabAiExternalModelPlan` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt hashgebunden für SQL `CREATE EXTERNAL MODEL` planen |
 | `Get-SqlServerLabAiExternalModelSqlPlan` | Frisches Endpoint-Receipt an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden; führt kein SQL aus |
 | `Test-SqlServerLabAiExternalModelSqlPreflight` | Eigenen SQL-2025-Zielscope read-only auf Datenbankidentität, Master Key, Rechte und freie Objektnamen prüfen |

@@ -1475,14 +1475,16 @@ Gateway und eigene SQL-CA. Die native Docker-Abnahme bestand am 2026-09-21:
 sieben SQL-Embeddings, WrongCA-/WrongSAN-Ablehnung, Auth-/Payloadnegative,
 Retrieval vor/nach SQLrestart und vollständiges eigenes Cleanup. Allgemeiner
 Gatewaybetrieb und weitere Provider sind damit nicht belegt.
-Der gemeinsame Gateway besitzt inzwischen einen read-only Planvertrag. Er bindet
+Der gemeinsame Gateway besitzt einen read-only Planvertrag. Er bindet
 einen lokalen HTTPS-Endpunkt, den Loopback-Upstream, Inhaltsdigests, Zertifikate,
 eine externe Secretreferenz und bis zu 64 SQL-Verbraucher. Sein Status bleibt
 blockiert. Ein read-only Preflight kann Runtime, Modell, Serverzertifikat,
 zugehörigen privaten Schlüssel, CA-Kette, Zertifikatsgültigkeit und exakten SAN
-sanitisiert bestätigen. Persistenter Dienstbetrieb, geschützter gemeinsamer
-Speicher, Nebenläufigkeit, Live-Endpunkt, SQL-Bindung, Rotation, Backup/Restore
-sowie Apply und Remove fehlen weiterhin.
+sanitisiert bestätigen. Die gebundenen Dateien lassen sich inzwischen unter
+einem hostweiten Mutex benutzerexklusiv, atomar und idempotent im gemeinsamen
+StateRoot registrieren; Konflikt, Inhaltsdrift und Teilpublikation fallen
+geschlossen aus. Persistenter Dienstbetrieb, Live-Endpunkt, SQL-Bindung,
+Rotation, Backup/Restore sowie vollständiges Apply und Remove fehlen weiterhin.
 Ein eigener Windows-Loopback-Gateway-Lifecycle ist mit synthetischem
 OVMS-Upstream, kurzlebiger CA, TLS-Probe, Owner-Stop, Listenerabbau und
 Secret-Löschung abgenommen. Der External-Model-Plan rechnet dessen Binding-Key

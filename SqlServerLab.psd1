@@ -33,6 +33,7 @@
         'Measure-SqlServerLabAiComputeCandidateSet'
         'Get-SqlServerLabAiSharedGatewayPlan'
         'Test-SqlServerLabAiSharedGatewayPreflight'
+        'Register-SqlServerLabAiSharedGatewayStorage'
         'Get-SqlServerLabAiExternalModelPlan'
         'Get-SqlServerLabAiExternalModelSqlPlan'
         'Get-SqlServerLabLlamaCppRuntime'

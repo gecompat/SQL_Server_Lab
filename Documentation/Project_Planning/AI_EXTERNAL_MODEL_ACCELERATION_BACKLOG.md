@@ -61,10 +61,12 @@ deterministischen Plan. Der read-only Preflight prüft zusätzlich lokale
 Runtime-/Modellhashes, Serverzertifikat und passenden privaten Schlüssel,
 CA-Kette, Gültigkeit und exakten SAN ohne Pfade oder Schlüssel im Receipt. Der
 Plan bleibt mit
-`AI_SHARED_GATEWAY_EXECUTION_NOT_IMPLEMENTED` ausdrücklich blockiert. Der
-dauerhafte gemeinsame Gateway-Lebenszyklus einschließlich Apply/Remove,
-paralleler Einrichtung, Backup, Restore und Zertifikatswechsel ist noch nicht
-implementiert oder nativ nachgewiesen.
+`AI_SHARED_GATEWAY_EXECUTION_NOT_IMPLEMENTED` ausdrücklich blockiert. Die
+gebundenen Dateien können bereits mutexgeschützt, benutzerexklusiv und atomar
+im gemeinsamen StateRoot registriert werden; identische parallele Aufrufe sind
+idempotent, abweichende Pläne und Inhaltsdrift werden abgewiesen. Der dauerhafte
+Gatewaydienst einschließlich Apply/Remove, Backup, Restore und Zertifikatswechsel
+ist noch nicht implementiert oder nativ nachgewiesen.
 Die vorhandenen HTTPS-Referenzen bleiben begrenzte Nachweise der Transportstrecke.
 
 ### Geltungsbereich und Ist-Stand
