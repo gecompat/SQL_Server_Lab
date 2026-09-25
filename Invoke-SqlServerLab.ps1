@@ -29,7 +29,7 @@ param(
     [Alias('h','help','?')][switch]$ShowHelp,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$RemainingArgs,
-    [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+    [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
     [string]$Action,
 
     [string]$Manifest,
@@ -64,7 +64,7 @@ param(
     Write-Host "  .\$ScriptName -ShowHelp" -ForegroundColor Cyan
     Write-Host ''
     Write-Host 'Parameter:' -ForegroundColor Magenta
-    Write-Host '  -Action <string>      Direkt-Aktion; z. B. Setup, New, Status, SyncRuntime, WindowsSlotPool oder Image.' -ForegroundColor Cyan
+    Write-Host '  -Action <string>      Direkt-Aktion; z. B. Commands, Setup, New, Status, SyncRuntime, WindowsSlotPool oder Image.' -ForegroundColor Cyan
     Write-Host '  -Manifest <string>    Optionaler Pfad zu Manifest fuer New-SqlServerLab.' -ForegroundColor Cyan
     Write-Host '  -ConsoleMode <string> Auto oder diagnostischer Fallback fuer interaktive Menues.' -ForegroundColor Cyan
     Write-Host '  -ShowHelp             Zeigt diese Hilfe.' -ForegroundColor Cyan

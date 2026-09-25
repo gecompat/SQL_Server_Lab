@@ -2,9 +2,9 @@
 
 | Merkmal | Wert |
 |---|---|
-| Stand | 2026-09-07 |
+| Stand | 2026-09-25 |
 | Autoritative Funktionsliste | [`SqlServerLab.psd1`](../../SqlServerLab.psd1) |
-| Öffentliche Funktionen | 102 exportierte Cmdlets |
+| Öffentliche Funktionen | dynamisch aus `FunctionsToExport` |
 | Konsolenoberfläche | `Invoke-SqlServerLab` |
 | Browseroberfläche | `Tools/Start-SqlServerLabUi.ps1` und `Ui/` |
 
@@ -35,6 +35,16 @@ Entscheidung. Docker und Podman benötigen dafür rootful Linux mit cgroup v1.
 Eine Podman-Runtime mit cgroup v2 bleibt für allgemeine Labs verwendbar, wird
 für External Languages jedoch mit `CGROUP_VERSION_UNSUPPORTED` deaktiviert.
 
+Der Hauptmenüpunkt **Alle öffentlichen Befehle** wird direkt aus den
+Modulexporten aufgebaut. Damit ist jede veröffentlichte Funktion zusätzlich zu
+den fachlich geführten Menüs über `Invoke-SqlServerLab` erreichbar. Vor der
+Ausführung wählt der Benutzer genau einen nativen Parametersatz. Das Formular
+zeigt Pflichtstatus, Typ, deklarierte Defaults und alle aus `ValidateSet`, Enum,
+`ValidateRange`, `ValidatePattern`, `ValidateLength` und `ValidateCount`
+ableitbaren Eingabegrenzen. Komplexe Werte werden als JSON eingegeben;
+Credentials und andere sensible Werte werden maskiert erfasst. Befehle mit
+`SupportsShouldProcess` bieten `WhatIf` explizit mit dem Standard `false` an.
+
 Interne Hilfsfunktionen aus `Private/`, `Providers/` und nicht exportierte
 Hilfsfunktionen aus `Public/` sind kein stabiler Benutzervertrag und werden
 nicht einzeln aufgeführt. Der aktuelle Quellbestand enthält einschließlich
@@ -49,8 +59,8 @@ Legende:
 - **über Core**: Die Bedienfunktion ist vorhanden, die Oberfläche verwendet
   jedoch einen gemeinsamen internen Core und nicht dieses exportierte Cmdlet
   direkt.
-- **–**: Keine aktuelle Einbindung in diese Oberfläche; der direkte
-  PowerShell-Aufruf bleibt verfügbar.
+- **–**: Kein eigenes fachliches Untermenü. Der Befehl bleibt über **Alle
+  öffentlichen Befehle** und als direkter PowerShell-Aufruf verfügbar.
 
 ## Batch, Queue und Scheduler
 

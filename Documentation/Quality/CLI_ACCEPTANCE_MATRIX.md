@@ -2,7 +2,7 @@
 
 | Merkmal | Festlegung |
 |---|---|
-| Stand | 2026-09-01 |
+| Stand | 2026-09-25 |
 | Zweck | nachvollziehbarer Runtime-Nachweis fuer die oeffentliche CLI |
 | CU-Strategie | keine Vollmatrix aller CUs; je Containerprovider ein repraesentativer CU |
 | Containerreferenz | SQL Server 2022 CU18 (`2022-CU18`) |
@@ -51,7 +51,7 @@ Statische Vertragspruefungen und Runtime-Nachweise sind getrennte Evidence.
 | `Clear-SqlServerLab`, `Get-SqlServerLabCleanupAudit` | Cleanup-, Recovery- und Scope-Suites; interaktiver Audit ruft `-NoWrite` auf und zeigt Findings samt Guidance | Provider-Akzeptanz prueft den engeren rungebundenen Cleanup; globales Clear wird nicht gegen fremde Labs ausgefuehrt |
 | `Invoke-SqlServerLabPersistentStorageRemoval` | `Invoke-PersistentStorageRemovalPlanChecks.ps1`, `Invoke-PersistentStorageRemovalExecutorChecks.ps1`, `Invoke-PersistentStorageRemovalExecutorAcceptance.ps1` | Der Plan unterscheidet `EXECUTABLE`, `PLANNED_NOT_EXECUTABLE` und `BLOCKED`; die Runtime-Abnahme belegt Docker und Podman getrennt mit Backup-on-Remove, MDF/NDF/LDF-Package-on-Remove und `BACKUP_AND_PACKAGE` (Backup vor Offline-Schritt) sowie retained Store. Der gleiche Runner belegt `DELETE_WITH_RUN` nur mit öffentlich registriertem `RUN_SCOPED`/`RUN_CLEANUP`-Store, Missing-Volume-Nachweis und detached Katalogabschluss; automatische SHA-256-Nachweise der Artefaktpfade bleiben verpflichtend. |
 | `Get-SqlServerLabGeneratedSqlAccess` | Secret-/DPAPI-Vertraege | Windows-SQL-Pfad mit runlokalem SA-Secret |
-| `Invoke-SqlServerLab` | Menue-, Routing- und Self-Reload-Vertraege; Fallback zeigt `0` auch bei Textfeldern, Attention nennt Abhilfe | interaktive Tastatureingaben bleiben UI-Contract; die mutierenden Zielaktionen laufen ueber dieselben oeffentlichen Fachfunktionen |
+| `Invoke-SqlServerLab` | Menue-, Routing- und Self-Reload-Vertraege; der automatisch erzeugte Befehlszugang deckt jeden Manifestexport exakt einmal ab und zeigt Parametersaetze, Defaults, Typen, Validierungsgrenzen und `WhatIf`; Fallback zeigt `0` auch bei Textfeldern, Attention nennt Abhilfe | interaktive Tastatureingaben bleiben UI-Contract; die mutierenden Zielaktionen laufen ueber dieselben oeffentlichen Fachfunktionen |
 
 ## Grenzen und bewusste Nichtziele
 

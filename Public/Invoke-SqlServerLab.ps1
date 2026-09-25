@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -41,6 +41,7 @@ function Invoke-SqlServerLab {
         try {
             if ($Action -eq 'BatchPlan') { Invoke-LabBatchComposerInteractive; return }
             if ($Action -eq 'Queue') { Invoke-LabQueueInteractive; return }
+            if ($Action -eq 'Commands') { Manage-LabPublicCommandsInteractive; return }
             $null = Invoke-LabActionWithResult -ActionName $Action
         }
         catch { if (-not (Test-LabConsoleInputCancellation -InputObject $_)) { throw } }
@@ -62,6 +63,7 @@ function Invoke-SqlServerLab {
                 'database' { Invoke-LabAreaMenuInteractive -Area Database }
                 'maintenance' { Invoke-LabAreaMenuInteractive -Area Maintenance }
                 'settings' { Invoke-LabAreaMenuInteractive -Area Settings }
+                'commands' { Manage-LabPublicCommandsInteractive }
                 'messages' { Show-LabMessagesInteractive }
                 '0' { $exit = $true }
                 'q' { $exit = $true }
@@ -719,6 +721,7 @@ function Show-LabMenu {
             New-LabConsoleItem -Id 'infrastructure' -Label 'Infrastruktur und Medien' -Value $infrastructureMenuValue -Shortcut '6'
             New-LabConsoleItem -Id 'maintenance' -Label 'Wartung und Diagnose' -Value 'Providerstatus · Cleanup-Audit · Katalog' -Shortcut '7'
             New-LabConsoleItem -Id 'settings' -Label 'Einstellungen' -Value 'Scheduler · Parallelitaet · Ton · Ruhemodus · Ersteinrichtung' -Shortcut '8'
+            New-LabConsoleItem -Id 'commands' -Label 'Alle oeffentlichen Befehle' -Value 'vollstaendige Funktionsliste · Defaults · zulaessige Eingaben' -Shortcut 'b'
             New-LabConsoleItem -Id 'messages' -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 'm'
             New-LabConsoleItem -Id 'exit' -Label 'Beenden' -Shortcut '0' -Aliases @('q')
         )

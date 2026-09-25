@@ -44,7 +44,33 @@ function Get-LabConsoleHelpCatalog {
                 'infrastructure' = @{ Purpose = 'Hyper-V-Bestand sowie Lab_Base, Lab_Data, CU-Pakete und Testdaten verwalten.'; Command = 'Get-SqlServerLabResourcePlan' }
                 'maintenance'    = @{ Purpose = 'Providerstatus, Cleanup-Audit und Katalog read-only pruefen.'; Command = 'Test-SqlServerLabPrerequisite' }
                 'settings'       = @{ Purpose = 'Scheduler, Parallelitaet, Ton, Ruhemodus und Ersteinrichtung.'; Command = 'Invoke-SqlServerLabScheduler' }
+                'commands'       = @{ Purpose = 'Listet jeden exportierten Modulbefehl und fuehrt ihn mit seinem echten Parametersatz, Defaults und Validierungsgrenzen aus.'; Command = 'Invoke-SqlServerLab -Action Commands' }
             }
+        }
+        'public-command-menu' = @{
+            Title   = 'Alle oeffentlichen Befehle'
+            Purpose = 'Vollstaendiger, automatisch aus den Modulexporten erzeugter Zugriff auf jede oeffentliche Funktion.'
+            Effects = 'Die Auswahl eines Befehls veraendert noch nichts. Vor der Ausfuehrung werden Parametersatz und Eingaben geprueft und gemeinsam zur Bestaetigung angezeigt.'
+            Related = @('Neue Modulexporte erscheinen automatisch.', 'Komplexe Objektwerte werden als JSON eingegeben.', 'Kennwoerter und Secrets werden maskiert erfasst.')
+            Command = 'Invoke-SqlServerLab -Action Commands'
+        }
+        'public-command-parameter-set' = @{
+            Title   = 'Parametersatz auswaehlen'
+            Purpose = 'Waehlt genau eine vom Zielbefehl deklarierte Eingabevariante, damit alternative Pflichtfelder nicht vermischt werden.'
+            Effects = 'Keine Mutation.'
+            Command = 'Get-Command -Syntax'
+        }
+        'public-command-parameters' = @{
+            Title   = 'Befehlsparameter'
+            Purpose = 'Zeigt Pflichtstatus, nativen Default, Typ und alle maschinenlesbaren ValidateSet-, Enum-, Muster-, Bereichs- und Laengengrenzen.'
+            Effects = 'Erst die gesonderte Anwenden-Auswahl fuehrt den Befehl aus.'
+            Command = 'Invoke-SqlServerLab -Action Commands'
+        }
+        'public-command-value-selection' = @{
+            Title   = 'Zulaessigen Wert auswaehlen'
+            Purpose = 'Bietet ausschließlich die vom Zielparameter erlaubten ValidateSet-, Enum- oder booleschen Werte an.'
+            Effects = 'Keine Mutation.'
+            Command = 'Get-Command -Syntax'
         }
         'create-menu' = @{
             Title   = 'Umgebung erstellen'
