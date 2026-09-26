@@ -2567,15 +2567,21 @@ Receipts für CPU-, NPU-, Einzel- und Mehr-GPU-Kandidaten. Ohne explizites
 Binding leitet er CUDA-/ROCm-/Vulkan-/SYCL-/OpenVINO-Selektoren aus der aktuellen
 `--list-devices`-Ausgabe ab. Die Zuordnung verlangt eindeutige normalisierte
 Gerätenamen; Teilmengen gleich benannter Geräte bleiben absichtlich blockiert.
+Ein CPU-Receipt verlangt `devices=none` und den ganzzahligen Ausgabewert
+`n_gpu_layers=0`. Das Feld `backends` kann auch bei CPU-Ausführung `CUDA`
+melden; es beschreibt die Paketfähigkeiten und ersetzt keinen Gerätenachweis.
+Fehlende oder widersprüchliche Offloadangaben bleiben blockiert.
 Die Mengensmessung führt alle geeigneten Optionen mit einem identischen Profil
 nacheinander aus, ordnet mehrere Pakete über deren Runtimehash zu und liefert
 nur nach vollständiger Coverage direkt die schnellste Auswahl. Sie parallelisiert
 die Messungen absichtlich nicht, damit Kandidaten nicht um dieselben Hostressourcen
 konkurrieren.
 Der opt-in Acceptance-Runner kann diesen vollständigen nativen Lauf mit einem
-pfadfreien, schema-validierten Receipt belegen. Auf dem aktuellen Stand wurde
-er mangels ausdrücklich freigegebener Runtime- und Modellpfade noch nicht
-ausgeführt.
+pfadfreien, schema-validierten Receipt belegen. Seine vollständige native
+Matrix ist noch nicht belegt. Ein einzelner CPU-Generationslauf mit einem
+CUDA-Paket und Qwen3 0.6B Q4_0 bestand am 2026-09-26 drei Wiederholungen
+mit je 32 Tokens einschließlich Prozessende. Er belegt keine GPU-/NPU-
+Ausführung oder schnellste Hardwareauswahl.
 Der Windows-/Linux-Start kann die ausgewählte Kombination inzwischen konsumieren. Er
 prüft Inventar-, Runtime- und Modellhash, leitet eindeutige Runtime-Selektoren
 ab und attestiert die ausgewählten Geräte aus den eigenen Prozesslogs. Nur der
