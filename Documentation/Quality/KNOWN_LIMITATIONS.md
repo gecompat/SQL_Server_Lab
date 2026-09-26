@@ -1493,6 +1493,14 @@ Llama-v1- oder OVMS-v3-Loopback-Upstream können mit einem synthetischen
 Embedding read-only revalidiert werden. Persistenter Dienstbetrieb,
 öffentlicher HTTPS-Endpunkt, SQL-Bindung,
 Rotation, Backup/Restore sowie vollständiges Apply und Remove fehlen weiterhin.
+Ein read-only Service-Plan prüft inzwischen den registrierten Zustand und die
+Hostvoraussetzungen für benutzergebundenen Autostart. Unter Windows plant er
+eine S4U-Aufgabe nur mit ScheduledTasks sowie lokalem, nicht EFS-verschlüsseltem
+StateRoot und nennt die S4U-Grenze für Netzwerk- und EFS-Zugriff sowie eine
+möglicherweise erforderliche Erhöhung bei der Aufgabenregistrierung. Unter Linux
+verlangt er einen erreichbaren systemd-Usermanager und aktiviertes Linger.
+Explizit unpassende Modi werden blockiert. Der Plan installiert, aktiviert oder
+startet keinen Dienst; native Apply-/Remove-Evidence fehlt weiterhin.
 Der read-only Statusbefehl unterscheidet fehlende Registrierung, revalidierten
 Stillstand, eine ownergebundene laufende Session, Planabweichung, Inhaltsdrift,
 verlorenen Ownerprozess oder Listener und fremde Portbelegung. Er beobachtet

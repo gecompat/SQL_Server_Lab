@@ -76,6 +76,7 @@ $checks = @(
     'Invoke-AiSharedGatewayStorageChecks.ps1',
     'Invoke-AiSharedGatewayUpstreamChecks.ps1',
     'Invoke-AiSharedGatewaySessionChecks.ps1',
+    'Invoke-AiSharedGatewayServicePlanChecks.ps1',
     'Invoke-ScenarioContractChecks.ps1',
     'Invoke-ScenarioExecutorChecks.ps1',
     'Invoke-ScenarioCapabilityDecisionChecks.ps1',
