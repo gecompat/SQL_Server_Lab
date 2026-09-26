@@ -176,6 +176,7 @@ sources_of_truth:
   ai_external_model_sql_plan_schema: Schemas/ai-external-model-sql-plan.schema.json
   ai_external_model_sql_preflight_receipt_schema: Schemas/ai-external-model-sql-preflight-receipt.schema.json
   validation_ai_external_model: Tests/Static/Invoke-AiExternalModelAccelerationChecks.ps1
+  validation_ai_external_model_hyperv_binding: Tests/Static/Invoke-AiExternalModelHyperVBindingChecks.ps1
   ai_external_model_acceleration_howto: Documentation/User/SQL_AI_LOCAL_ACCELERATION.md
   ai_persistent_retrieval_api: Public/Invoke-SqlServerLabAiPersistentRetrieval.ps1
   ai_podman_setup: Private/AiPodmanSetup.ps1

@@ -1523,13 +1523,14 @@ erneut nach und bindet Operation, Lease, Upstream, HTTPS-Location, Modell,
 Dimension und Pin. Die Acceptance bestätigt auch die planbasierte
 HTTPS-Endpunktprobe und einen frischen, manipulationsgebundenen SQL-2025-
 Mutations-/Cleanupplan ohne Secret. Ein getrennter read-only Preflight bindet
-diesen Plan an einen eigenen Docker-/Podman-Run-/Scope-/Instance-SQLkontext
+diesen Plan an einen eigenen Docker-/Podman-/Hyper-V-Run-/Scope-/Instance-SQLkontext
 und eine Datenbank-GUID. Er bestätigt SQL 2025, `ONLINE`/`READ_WRITE`, Database Master
 Key, benötigte Rechte und freie Zielnamen, erstellt aber weder Credential noch
 External Model. Der SQL-Plan reserviert zusätzlich einen deterministisch aus
 seinem Plan-Key abgeleiteten Tabellennamen für einen späteren SQL-seitigen
 Ownership-Receipt und der Preflight blockiert dessen Kollision. Der begrenzte
-Apply-Executor bindet Plan, Preflight-Receipt, eigenen Container und Datenbank-GUID,
+Apply-Executor bindet Plan, Preflight-Receipt, eigenen Container beziehungsweise
+bei Hyper-V die gespeicherte und live revalidierte VMId sowie die Datenbank-GUID,
 journalisiert vor Mutation und erstellt Ownership-Tabelle, Credential und
 External Model in einer `XACT_ABORT`-Transaktion. Ein unbekannter Ausgang wird
 nur über `-Resume` beobachtet; Teilzustände werden nicht adoptiert oder blind
@@ -1545,8 +1546,10 @@ Recoverybedarf und Apply nach `CLEANED` ist blockiert. Eine receiptgebundene
 Embeddingprobe revalidiert Ownership und Katalog-IDs unter einem Shared-AppLock,
 führt genau einen parametrisierten `AI_GENERATE_EMBEDDINGS`-Aufruf aus und gibt
 nur Dimension, Basistyp und ein sanitisiertes Receipt frei. Auch diese Pfade sind
-nur mit injiziertem SQL-Transport statisch belegt. Native Embeddingprobe,
-SQLrestart, nativer Cleanup, Hyper-V-Preflight und Acceleratorattestation fehlen weiterhin.
+nur mit injiziertem SQL-Transport statisch belegt. Native Hyper-V-Embeddingprobe,
+SQLrestart, nativer Hyper-V-Cleanup und Acceleratorattestation fehlen weiterhin.
+Die Hyper-V-Plan-/Preflight-/Receipt-Kette ist statisch belegt, aber noch kein
+Laufzeitnachweis.
 Der vorhandene
 Docker-/Ollama-Referenzgateway bindet einen festen Ollama-Pfad und darf weiterhin
 nicht als allgemeiner OVMS-Reverse-Proxy interpretiert werden.

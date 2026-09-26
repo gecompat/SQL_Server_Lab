@@ -51,6 +51,7 @@ function Resolve-LabRunInstance {
         Provider      = $provider
         ContainerName = [string]$instance.containerName
         VMName        = [string]$instance.vmName
+        VMId          = [string]$instance.vmId
         Version       = if ($instance.version) { [string]$instance.version } else { [string]$instance.sqlVersion }
     }
 }

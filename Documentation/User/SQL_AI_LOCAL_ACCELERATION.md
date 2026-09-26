@@ -78,14 +78,16 @@ mit diesem Namen blockiert den Preflight. Der Planer verbindet sich nicht mit
 SQL Server und nimmt kein Secret entgegen.
 
 Der anschließende Preflight verbindet sich ausschließlich mit dem eigenen,
-rungebundenen Docker-/Podman-SQL-Ziel. Er prüft SQL 2025, eine Benutzer-
+rungebundenen Docker-/Podman-/Hyper-V-SQL-Ziel. Er prüft SQL 2025, eine Benutzer-
 Datenbank und deren exakte Identität,
 `ONLINE`/`READ_WRITE`, Database Master Key, `CONTROL` und
 `CREATE EXTERNAL MODEL` sowie freie Credential- und Modellnamen. Sein
 hashgebundenes Receipt enthält weder Secret noch SQL-Text und führt kein DDL aus.
+Bei Hyper-V werden gespeicherte Run-/Scope-/Instance-/VMId-Bindung, die aktuell
+verwaltete VM-Identität und der laufende VM-Zustand vor dem SQL-Zugriff geprüft.
 
 Der anschließende Apply-Befehl revalidiert Plan, Preflight-Receipt, den laufenden
-Docker-/Podman-Container und die Datenbank-GUID. Vor der ersten SQL-Mutation
+Docker-/Podman-Container beziehungsweise die Hyper-V-VMId und die Datenbank-GUID. Vor der ersten SQL-Mutation
 schreibt er ein geheimnisfreies, atomisches Journal. Eine einzelne
 `XACT_ABORT`-Transaktion erstellt zuerst eine planabgeleitete Ownership-Tabelle,
 danach das Database Scoped Credential und das External Model und bestätigt alle
@@ -117,7 +119,8 @@ intaktem Eigentum; Teilzustände bleiben `AI_EXTERNAL_MODEL_SQL_CLEANUP_RECOVERY
 Der Apply-Receipt allein bestätigt keinen Embeddingaufruf. Das getrennte
 Embedding-Receipt schließt diese Postcondition, belegt aber weder SQL-Neustart
 noch Acceleratorpfad. Der Cleanup-Receipt belegt die SQL-seitige Abwesenheit.
-Ein nativer SQL-2025-End-to-End-Lauf bleibt für diese neue Probe separat offen.
+Ein nativer SQL-2025-End-to-End-Lauf bleibt für Hyper-V und die neue Probe
+separat offen. Die statische VMId-Bindung ist kein Hyper-V-Laufzeitnachweis.
 
 Plan und Probe installieren nichts und ändern weder Truststore, Firewall,
 Hosts-Datei noch Dienste.

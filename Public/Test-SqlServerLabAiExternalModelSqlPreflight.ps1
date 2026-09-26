@@ -2,13 +2,14 @@
 .SYNOPSIS
     Prüft den SQL-2025-Zielscope für einen External-Model-Plan schreibgeschützt.
 .DESCRIPTION
-    Bindet einen noch gültigen SQL-Plan an einen eigenen Docker-/Podman-Run und prüft SQL-Version,
+    Bindet einen noch gültigen SQL-Plan an einen eigenen Docker-, Podman- oder Hyper-V-Run und prüft SQL-Version,
     Datenbankidentität und -zustand, Database Master Key, benötigte Berechtigungen
     sowie freie Credential- und External-Model-Namen. Es wird kein SQL-Objekt verändert.
 .PARAMETER SqlPlan
     Ergebnis von Get-SqlServerLabAiExternalModelSqlPlan.
 .PARAMETER RunId
-    Vorhandener eigener SQL-2025-Docker-/Podman-Run mit verwaltetem SA-Secret.
+    Vorhandener eigener SQL-2025-Run mit verwaltetem SA-Secret. Hyper-V wird
+    zusätzlich an die gespeicherte und aktuell verwaltete VMId gebunden.
 .PARAMETER InstanceId
     SQL-Instanz, standardmäßig primary.
 .PARAMETER StateRoot
