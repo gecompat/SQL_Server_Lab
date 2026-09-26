@@ -16,6 +16,12 @@ try {
         $autoDescriptors=@(Get-LabPublicCommandParameterDescriptor -Command $selection.Command -ParameterSet $auto.Metadata)
         $pinnedDescriptors=@(Get-LabPublicCommandParameterDescriptor -Command $selection.Command -ParameterSet $pinned.Metadata)
         $whatIfCommand=$catalog|Where-Object SupportsShouldProcess|Select-Object -First 1
+        $webCatalog=@(Get-LabPublicCommandWebCatalog)
+        $confirmationError=''
+        try { Invoke-LabPublicCommandWebRequest -CommandName $whatIfCommand.Name -ParameterSetName $whatIfCommand.ParameterSets[0].Name -Parameters @{} } catch { $confirmationError=$_.Exception.Message }
+        $unknownError=''
+        try { Invoke-LabPublicCommandWebRequest -CommandName 'Invoke-NotExported' -ParameterSetName 'Default' -Parameters @{} -Confirmed } catch { $unknownError=$_.Exception.Message }
+        $credential=ConvertFrom-LabPublicCommandWebValue -Value ([pscustomobject]@{userName='lab-user';password='temporary-value'}) -TargetType ([Management.Automation.PSCredential])
         [pscustomobject]@{
             Names=@($catalog.Name)
             DuplicateNames=@($catalog|Group-Object Name|Where-Object Count -gt 1|ForEach-Object Name)
@@ -30,6 +36,14 @@ try {
             StringArray=@(ConvertFrom-LabPublicCommandInput -Text '["a","b"]' -TargetType ([string[]]))
             Hashtable=(ConvertFrom-LabPublicCommandInput -Text '{"a":1}' -TargetType ([hashtable]))
             Sanitized=(ConvertTo-LabPublicCommandDisplayValue -Value ([pscustomobject]@{Name='lab';Password='sensitive';Nested=[pscustomobject]@{ConnectionString='Server=x;Password=secret';Value=42}}))
+            WebNames=@($webCatalog.Name)
+            WebJson=($webCatalog|ConvertTo-Json -Depth 12)
+            WebCmsCount=@($webCatalog|Where-Object Area -eq 'CMS').Count
+            WebEmptyParameterSets=@($webCatalog|Where-Object {@($_.ParameterSets).Count -eq 0}|ForEach-Object Name)
+            ConfirmationError=$confirmationError
+            UnknownError=$unknownError
+            CredentialUserName=$credential.UserName
+            CredentialPasswordLength=$credential.GetNetworkCredential().Password.Length
         }
     }
     $expectedCatalog=@($exports|Where-Object {$_ -ne 'Invoke-SqlServerLab'})
@@ -61,6 +75,21 @@ try {
     Add-CheckResult 'Generische Befehlsausgabe maskiert sensible Eigenschaften rekursiv' (
         $evidence.Sanitized.Name -ceq 'lab' -and $evidence.Sanitized.Password -ceq '<geschuetzt>' -and
         $evidence.Sanitized.Nested.ConnectionString -ceq '<geschuetzt>' -and $evidence.Sanitized.Nested.Value -eq 42
+    )
+    Add-CheckResult 'GUI und CLI verwenden denselben vollständigen Exportkatalog' (
+        @($expectedCatalog|Where-Object {$_ -notin $evidence.WebNames}).Count -eq 0 -and
+        @($evidence.WebNames|Where-Object {$_ -notin $expectedCatalog}).Count -eq 0 -and
+        $evidence.WebEmptyParameterSets.Count -eq 0
+    )
+    Add-CheckResult 'GUI-Katalog bleibt JSON-sicher und gruppiert CMS-Funktionen' (
+        $evidence.WebCmsCount -gt 0 -and $evidence.WebJson -notmatch 'CommandParameterSetInfo|FunctionInfo|ValidateSetAttribute'
+    )
+    Add-CheckResult 'GUI-Ausführung sperrt unbekannte Befehle und fordert Mutationsbestätigung' (
+        $evidence.UnknownError -match 'PUBLIC_COMMAND_UI_COMMAND_NOT_EXPORTED' -and
+        $evidence.ConfirmationError -match 'PUBLIC_COMMAND_UI_CONFIRMATION_REQUIRED'
+    )
+    Add-CheckResult 'GUI-Credentials werden erst im Prozess in PSCredential umgewandelt' (
+        $evidence.CredentialUserName -ceq 'lab-user' -and $evidence.CredentialPasswordLength -eq 15
     )
     $entrySource=Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw
     Add-CheckResult 'Direktaktion und Hauptmenü führen in den vollständigen Befehlszugang' (

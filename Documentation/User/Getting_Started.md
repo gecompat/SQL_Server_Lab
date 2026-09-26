@@ -246,6 +246,13 @@ Standard für Skript-Hilfeeinträge (`-ShowHelp` und `--help`; `/?` sowie
 .\CheckLargeGitFilesPush.ps1 --help
 ```
 
+Nach dem Start der lokalen Browseroberfläche steht oben **Alle Funktionen**.
+Dieser Bereich entspricht dem vollständigen öffentlichen Befehlskatalog der
+CLI. Er zeigt für den gewählten Parametersatz alle Pflichtfelder, Standards und
+zulässigen Werte und eignet sich auch für Funktionen, die noch keinen eigenen
+geführten Dialog besitzen. Für häufige Lab-Abläufe bleiben die geführten
+Umgebungsansichten die schnellere Auswahl.
+
 Für alle aufgeführten Skripte gilt: Wird ein Support-Switch erkannt, wird direkt
 die Skript-Hilfe angezeigt und anschließend die Ausführung beendet.
 

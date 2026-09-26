@@ -25,7 +25,11 @@ Funktion kann nach dem Modulimport direkt in PowerShell aufgerufen werden. Die
 Spalte **Konsolenmenü** nennt zusätzlich die Einbindung in das interaktive
 `Invoke-SqlServerLab`-Menü. Die Spalte **Browser-GUI** beschreibt die direkte
 oder über `Invoke-SqlServerLabWorkflowAction` vermittelte Verwendung in der
-lokalen Browseroberfläche.
+lokalen Browseroberfläche. Unabhängig von einem eigenen geführten Dialog ist
+jeder Export im Browser-Arbeitsbereich **Alle Funktionen** über denselben
+Parametersatzkatalog erreichbar. Der generische Ergebnisweg maskiert sensible
+Eigenschaften; eine ausdrückliche Kennwortanzeige benötigt weiterhin den dafür
+vorgesehenen umgebungsgebundenen Dialog.
 
 Das Konsolenmenü wertet Host- und Providerfähigkeiten vor einer Auswahl aus.
 Nicht unterstützte Aktionen erscheinen dunkelgrau und nennen den konkreten
@@ -44,6 +48,10 @@ zeigt Pflichtstatus, Typ, deklarierte Defaults und alle aus `ValidateSet`, Enum,
 ableitbaren Eingabegrenzen. Komplexe Werte werden als JSON eingegeben;
 Credentials und andere sensible Werte werden maskiert erfasst. Befehle mit
 `SupportsShouldProcess` bieten `WhatIf` explizit mit dem Standard `false` an.
+Der Browser verwendet denselben Katalog, dieselben Parametersätze und dieselben
+Eingabegrenzen. Ändernde Befehle erfordern dort zusätzlich den einheitlichen
+Bestätigungsdialog; Parameter mit Geheimnissen bleiben in einem flüchtigen Job
+und werden nicht in der Queue persistiert.
 
 Interne Hilfsfunktionen aus `Private/`, `Providers/` und nicht exportierte
 Hilfsfunktionen aus `Public/` sind kein stabiler Benutzervertrag und werden
@@ -59,8 +67,10 @@ Legende:
 - **über Core**: Die Bedienfunktion ist vorhanden, die Oberfläche verwendet
   jedoch einen gemeinsamen internen Core und nicht dieses exportierte Cmdlet
   direkt.
-- **–**: Kein eigenes fachliches Untermenü. Der Befehl bleibt über **Alle
-  öffentlichen Befehle** und als direkter PowerShell-Aufruf verfügbar.
+- **–**: Kein eigener geführter Fachdialog. Der Befehl bleibt über **Alle
+  öffentlichen Befehle** in der CLI, über **Alle Funktionen** im Browser und
+  als direkter PowerShell-Aufruf verfügbar. Sensible Ergebnisse bleiben im
+  generischen Browser-Log maskiert.
 
 ## Batch, Queue und Scheduler
 

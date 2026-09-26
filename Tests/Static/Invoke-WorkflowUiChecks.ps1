@@ -65,6 +65,32 @@ Add-CheckResult -Name 'UI stellt Workflow- und Hintergrundjob-API bereit' -Succe
     $serverText -match "/api/actions" -and
     $serverText -match 'Start-ThreadJob'
 )
+Add-CheckResult -Name 'GUI stellt den vollständigen öffentlichen Befehlsvertrag über eine kataloggebundene API bereit' -Success (
+    $serverText -match "'/api/commands'" -and
+    $serverText -match 'Get-LabPublicCommandWebCatalog' -and
+    $serverText -match 'Invoke-LabPublicCommandWebRequest' -and
+    $serverText -match 'Start-UiPublicCommandJob' -and
+    $serverText -match 'PUBLIC_COMMAND_UI_REQUEST_TOO_LARGE' -and
+    $serverText -match 'Generische Befehlsparameter können Geheimnisse enthalten' -and
+    $htmlText -match 'id="command-center"' -and
+    $htmlText -match 'id="command-search"' -and
+    $htmlText -match 'id="command-parameter-set"' -and
+    $scriptText -match "fetch\('/api/commands'" -and
+    $scriptText -match 'renderPublicCommandCatalog' -and
+    $scriptText -match 'collectPublicCommandParameters' -and
+    $scriptText -match "'__PublicCommand'" -and
+    $scriptText -match 'openConfirmation' -and
+    $scriptText -match 'DefaultExpression' -and
+    $scriptText -match 'AllowedValues'
+)
+Add-CheckResult -Name 'GUI-Katalog schützt Geheimnisse und führt ausschließlich bestätigte Katalogbefehle flüchtig aus' -Success (
+    $scriptText -match 'type="password"' -and
+    $scriptText -match 'autocomplete="new-password"' -and
+    $scriptText -match 'command\.RequiresConfirmation' -and
+    $serverText -match 'Confirmed:\(\[bool\]\$request\.confirmed\)' -and
+    $serverText -match '\$jobs\[\$record\.Id\] = \$record' -and
+    $serverText -notmatch 'New-SqlServerLabBatch[^\r\n]+PUBLIC_COMMAND'
+)
 Add-CheckResult -Name 'Workflow fasst Baselines, SQL-Images und offene Builds zusammen' -Success (
     $workflowText -match 'WindowsBaselines' -and
     $workflowText -match 'SqlPreparedImages' -and

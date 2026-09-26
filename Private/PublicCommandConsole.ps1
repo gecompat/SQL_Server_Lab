@@ -141,6 +141,160 @@ function Get-LabPublicCommandConsoleCatalog {
     })
 }
 
+function Get-LabPublicCommandArea {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Name)
+
+    switch -Regex ($Name) {
+        '(?i)(Cms|ConnectionCenter)' { return 'CMS' }
+        '(?i)(Ai|Llama|Model)' { return 'KI' }
+        '(?i)(Database|Backup|Restore|Script|Collation|SqlConnection)' { return 'Datenbanken und Verbindungen' }
+        '(?i)(HyperV|WindowsSlot|ImageArtifact|OperatingSystem)' { return 'Hyper-V und Slots' }
+        '(?i)(Media|Storage|Package|Catalog|CuStatus|CuResource|7Zip)' { return 'Medien und Speicher' }
+        '(?i)(Batch|Operation|Queue|Workflow|AutomatedTestEnvironment)' { return 'Automatisierung und Testgruppen' }
+        '(?i)(Diagnostic|Prerequisite|Readiness|Capability|Status|Audit|Inventory)' { return 'Status und Diagnose' }
+        default { return 'Lab-Umgebungen' }
+    }
+}
+
+function Get-LabPublicCommandWebCatalog {
+    <# Erstellt aus demselben Exportkatalog wie die CLI eine JSON-sichere UI-Sicht. #>
+    [CmdletBinding()]
+    param()
+
+    @((Get-LabPublicCommandConsoleCatalog) | ForEach-Object {
+        $item = $_
+        $help = Get-Help -Name $item.Name -ErrorAction SilentlyContinue
+        $synopsis = if ($help -and $help.Synopsis -and [string]$help.Synopsis -notmatch '^@\{') {
+            ([string]$help.Synopsis).Trim()
+        }
+        else { '' }
+        $requiresConfirmation = $item.SupportsShouldProcess -or $item.Verb -in @(
+            'Add','Backup','Clear','Complete','Confirm','Disable','Enable','Export','Import','Initialize',
+            'Install','Invoke','Move','New','Publish','Register','Remove','Rename','Repair','Restart','Restore',
+            'Resume','Save','Set','Start','Stop','Suspend','Sync','Unregister','Update'
+        )
+        [PSCustomObject]@{
+            Name = $item.Name
+            Verb = $item.Verb
+            Noun = $item.Noun
+            Area = Get-LabPublicCommandArea -Name $item.Name
+            Synopsis = $synopsis
+            SupportsShouldProcess = [bool]$item.SupportsShouldProcess
+            RequiresConfirmation = [bool]$requiresConfirmation
+            ParameterSets = @($item.ParameterSets | ForEach-Object {
+                $set = $_
+                [PSCustomObject]@{
+                    Name = $set.Name
+                    IsDefault = [bool]$set.IsDefault
+                    MandatoryNames = @($set.MandatoryNames)
+                    Parameters = @(
+                        Get-LabPublicCommandParameterDescriptor -Command $item.Command -ParameterSet $set.Metadata
+                        Get-LabPublicCommandExecutionDescriptors -CatalogItem $item
+                    ) | ForEach-Object {
+                        [PSCustomObject]@{
+                            Name = $_.Name
+                            TypeName = $_.TypeName
+                            Mandatory = [bool]$_.Mandatory
+                            Position = [int]$_.Position
+                            DefaultExpression = $_.DefaultExpression
+                            AllowedValues = $_.AllowedValues
+                            Sensitive = [bool]$_.Sensitive
+                            IsCredential = [bool]$_.IsCredential
+                        }
+                    }
+                }
+            })
+        }
+    })
+}
+
+function ConvertFrom-LabPublicCommandWebValue {
+    [CmdletBinding()]
+    param([AllowNull()]$Value,[Parameter(Mandatory)][type]$TargetType)
+
+    if ($null -eq $Value) { return $null }
+    if ($TargetType -eq [object] -or $TargetType -eq [pscustomobject]) { return $Value }
+    if ($TargetType -eq [string]) { return [string]$Value }
+    if ($TargetType -eq [switch] -or $TargetType -eq [bool]) { return [bool]$Value }
+    if ($TargetType -eq [Security.SecureString]) {
+        $secure = [Security.SecureString]::new()
+        foreach ($character in ([string]$Value).ToCharArray()) { $secure.AppendChar($character) }
+        $secure.MakeReadOnly()
+        return $secure
+    }
+    if ($TargetType -eq [Management.Automation.PSCredential]) {
+        if ($Value.PSObject.Properties.Name -notcontains 'userName' -or $Value.PSObject.Properties.Name -notcontains 'password') {
+            throw 'PUBLIC_COMMAND_UI_CREDENTIAL_USER_AND_PASSWORD_REQUIRED'
+        }
+        $secure = ConvertFrom-LabPublicCommandWebValue -Value ([string]$Value.password) -TargetType ([Security.SecureString])
+        return [Management.Automation.PSCredential]::new([string]$Value.userName, $secure)
+    }
+    if ($TargetType -eq [hashtable]) {
+        return ($Value | ConvertTo-Json -Depth 100 | ConvertFrom-Json -AsHashtable -Depth 100)
+    }
+    if ($TargetType.IsArray) {
+        $values = @($Value)
+        $elementType = $TargetType.GetElementType()
+        $array = [Array]::CreateInstance($elementType, $values.Count)
+        for ($index = 0; $index -lt $values.Count; $index++) {
+            $array.SetValue((ConvertFrom-LabPublicCommandWebValue -Value $values[$index] -TargetType $elementType), $index)
+        }
+        return $array
+    }
+    $nullableType = [Nullable]::GetUnderlyingType($TargetType)
+    if ($nullableType) { return ConvertFrom-LabPublicCommandWebValue -Value $Value -TargetType $nullableType }
+    [Management.Automation.LanguagePrimitives]::ConvertTo($Value, $TargetType, [Globalization.CultureInfo]::InvariantCulture)
+}
+
+function Invoke-LabPublicCommandWebRequest {
+    <# Führt ausschließlich einen exportierten Katalogbefehl mit seinem echten Parametersatz aus. #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$CommandName,
+        [Parameter(Mandatory)][string]$ParameterSetName,
+        [hashtable]$Parameters = @{},
+        [switch]$Confirmed
+    )
+
+    $catalogItem = @(Get-LabPublicCommandConsoleCatalog | Where-Object Name -ceq $CommandName)
+    if ($catalogItem.Count -ne 1) { throw 'PUBLIC_COMMAND_UI_COMMAND_NOT_EXPORTED' }
+    $catalogItem = $catalogItem[0]
+    $parameterSet = @($catalogItem.ParameterSets | Where-Object Name -ceq $ParameterSetName)
+    if ($parameterSet.Count -ne 1) { throw 'PUBLIC_COMMAND_UI_PARAMETER_SET_INVALID' }
+    $webItem = @(Get-LabPublicCommandWebCatalog | Where-Object Name -ceq $CommandName)[0]
+    if ($webItem.RequiresConfirmation -and -not $Confirmed) { throw 'PUBLIC_COMMAND_UI_CONFIRMATION_REQUIRED' }
+
+    $descriptors = @(
+        Get-LabPublicCommandParameterDescriptor -Command $catalogItem.Command -ParameterSet $parameterSet[0].Metadata
+        Get-LabPublicCommandExecutionDescriptors -CatalogItem $catalogItem
+    )
+    $descriptorByName = @{}
+    foreach ($descriptor in $descriptors) { $descriptorByName[[string]$descriptor.Name] = $descriptor }
+    $arguments = @{}
+    foreach ($key in @($Parameters.Keys)) {
+        if (-not $descriptorByName.ContainsKey([string]$key)) { throw "PUBLIC_COMMAND_UI_PARAMETER_NOT_ALLOWED: $key" }
+        $descriptor = $descriptorByName[[string]$key]
+        $converted = ConvertFrom-LabPublicCommandWebValue -Value $Parameters[$key] -TargetType ([type]$descriptor.ParameterType)
+        $validationError = Test-LabPublicCommandParameterValue -Value $converted -Descriptor $descriptor
+        if ($validationError) { throw "PUBLIC_COMMAND_UI_PARAMETER_INVALID: $key; $validationError" }
+        if ($descriptor.ParameterType -eq [switch] -and -not [bool]$converted) { continue }
+        $arguments[[string]$key] = $converted
+    }
+    foreach ($descriptor in $descriptors | Where-Object Mandatory) {
+        if (-not $arguments.ContainsKey([string]$descriptor.Name)) {
+            throw "PUBLIC_COMMAND_UI_PARAMETER_REQUIRED: $($descriptor.Name)"
+        }
+    }
+    $result = @(& $catalogItem.Command @arguments)
+    [PSCustomObject]@{
+        Command = $CommandName
+        ParameterSet = $ParameterSetName
+        CompletedAt = (Get-Date).ToUniversalTime().ToString('o')
+        Result = @(ConvertTo-LabPublicCommandDisplayValue -Value $result)
+    }
+}
+
 function ConvertFrom-LabPublicCommandInput {
     [CmdletBinding()]
     param([AllowEmptyString()][string]$Text,[Parameter(Mandatory)][type]$TargetType)

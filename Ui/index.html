@@ -27,7 +27,36 @@
     </div>
     <section id="summary" class="summary-grid" aria-label="Übersicht"></section>
 
-    <section class="panel queue-panel">
+    <nav class="workspace-navigation" aria-label="Arbeitsbereiche">
+      <a href="#command-center">Alle Funktionen</a>
+      <a href="#environment-workflow">Umgebungen</a>
+      <a href="#operation-queue">Vorgänge</a>
+      <a href="#jobs">Live-Log</a>
+    </nav>
+
+    <section class="panel command-center" id="command-center">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">VOLLSTÄNDIGER FUNKTIONSZUGANG</p>
+          <h2>Alle veröffentlichten Lab-Funktionen</h2>
+        </div>
+        <span id="command-count" class="count">Katalog wird geladen …</span>
+      </div>
+      <p>Hier ist derselbe vollständige Befehlskatalog wie in <code>Invoke-SqlServerLab</code> verfügbar. Parameter, Standards und zulässige Werte stammen direkt aus den Befehlsverträgen.</p>
+      <div class="command-filter-grid">
+        <label>Funktion suchen<input id="command-search" type="search" placeholder="z. B. CMS, Datenbank, KI oder Hyper-V"></label>
+        <label>Arbeitsbereich<select id="command-area"><option value="">Alle Arbeitsbereiche</option></select></label>
+        <label>Funktion<select id="command-name" disabled><option value="">Funktion auswählen</option></select></label>
+        <label>Ausführungsvariante<select id="command-parameter-set" disabled><option value="">Parametersatz auswählen</option></select></label>
+      </div>
+      <div id="command-description" class="selection-details">Wählen Sie eine Funktion. Danach erscheinen nur die Eingaben des gewählten Parametersatzes.</div>
+      <form id="command-form">
+        <div id="command-parameters" class="command-parameter-grid"></div>
+        <div class="build-actions"><button id="command-submit" type="submit" class="button primary" disabled>Funktion ausführen</button></div>
+      </form>
+    </section>
+
+    <section class="panel queue-panel" id="environment-workflow">
       <div class="section-heading">
         <div><p class="eyebrow">PERSISTENTER WORKFLOW</p><h2>Vorgänge, Queue und Benutzeraktionen</h2></div>
         <span id="queue-count" class="count"></span>

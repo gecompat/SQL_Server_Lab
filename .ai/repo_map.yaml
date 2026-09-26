@@ -514,6 +514,10 @@ sources_of_truth:
   hyperv_windows_image_build: Documentation/HowTo/HYPERV_WINDOWS_IMAGE_BUILD.md
   windows_server_template_validation_matrix: Documentation/Quality/WINDOWS_SERVER_TEMPLATE_VALIDATION_MATRIX.md
   workflow_ui: Documentation/HowTo/WORKFLOW_UI.md
+  workflow_ui_server: Tools/Start-SqlServerLabUi.ps1
+  workflow_ui_assets: Ui/index.html, Ui/app.js, Ui/app.css
+  workflow_ui_command_catalog: Private/PublicCommandConsole.ps1
+  workflow_ui_validation: Tests/Static/Invoke-WorkflowUiChecks.ps1, Tests/Static/Invoke-PublicCommandConsoleChecks.ps1
   remote_hyperv_host_backlog: Documentation/Project_Planning/HYPERV_REMOTE_HOST_BACKLOG.md
   windows_locale_configuration_backlog: Documentation/Project_Planning/WINDOWS_LOCALE_CONFIGURATION_BACKLOG.md
   windows_slot_activation_backlog: Documentation/Project_Planning/WINDOWS_SLOT_ACTIVATION_BACKLOG.md
