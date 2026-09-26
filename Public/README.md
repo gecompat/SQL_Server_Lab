@@ -7,6 +7,9 @@ Unterversorgung. Ausgeführtes, explizit übersteuertes und per `-SkipAssessment
 übersprungenes Assessment werden im lokalen Run getrennt gespeichert.
 `Get-SqlServerLabReconcilePlan -TargetState` zeigt den historischen Entscheid
 hostwertfrei unter `Desired.ResourceAssessment`; harte Sperren bleiben aktiv.
+Die RAM-Prüfung verwendet für `provider=hyperv` den VM-Startspeicher
+`hyperv.memoryStartupMB` (Default 4096 MiB), für Container das Ressourcenprofil.
+Dynamisches Wachstum und Hostreserve sind nicht abgedeckt.
 
 `Find-SqlServerLabCollation` liefert die kuratierte Auswahl für die
 Instanzcollation in `New-SqlServerLab -Collation` und `instances[].collation`.

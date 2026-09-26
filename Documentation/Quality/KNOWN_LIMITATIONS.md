@@ -29,8 +29,10 @@ Storage-Bindings und aktuelle SQL-Erreichbarkeit bleiben separate Nachweise.
 CORE-111 speichert den Erstellungs-Preflight für `New-SqlServerLab` lokal und
 unterscheidet `EXECUTED`, `SKIPPED` und explizites `OVERRIDDEN`.
 Der Lifecycle-Plan zeigt nur den historischen Entscheid, keine aktuelle
-Kapazitätsmessung. Die bisherigen RAM-Profil- und Storage-Schätzungen sowie
-die Lab-Portanzahl bleiben unverändert; vollständige Hostreserve-, CPU-,
+Kapazitätsmessung. Hyper-V-RAM berücksichtigt `hyperv.memoryStartupMB`
+(Default 4096 MiB), Container weiterhin das Ressourcenprofil.
+Storage-Schätzungen und Lab-Portanzahl bleiben unverändert;
+dynamisches RAM-Wachstum sowie vollständige Hostreserve-, CPU-,
 Peakbedarfs- und Einzelportmodelle bleiben offen. Eigenständige interne
 Image-/VM-Builder sind nicht auf den neuen gemeinsamen Preflight umgestellt.
 Offline-Persistenztests ersetzen keine native Provider-Abnahme. Vertrag:
