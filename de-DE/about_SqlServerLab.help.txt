@@ -280,6 +280,11 @@ Sync-SqlServerLabRunScopedContainerStore
         Plant Host-Autostart read-only als Windows-S4U-Aufgabe oder Linux-
         systemd-Userdienst und meldet fehlende Voraussetzungen als Blocker.
 
+    Test-SqlServerLabAiSharedGatewayServiceSecret
+        Prüft alle Consumer-Schlüssel für den aktuellen Principal ausschließlich
+        über SecretManagement und gibt weder Secretwerte noch Referenznamen aus;
+        der echte nichtinteraktive Dienst-Logon bleibt offene Evidence.
+
     Start-SqlServerLabAiSharedGatewaySession
         Startet nach Storage- und Upstream-Revalidierung einen ownergebundenen,
         zeitlich begrenzten TLS-Gateway ausschließlich auf IPv4-Loopback.

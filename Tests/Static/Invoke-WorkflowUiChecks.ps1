@@ -643,6 +643,23 @@ Add-CheckResult -Name 'UI-Jobs leiten Labmeldungen ins Live-Log statt ins Termin
     $commonText -match 'Write-Information "\[STATUS\]' -and
     $moduleLoaderText -match 'Write-Verbose "\[LOAD\]'
 )
+Add-CheckResult -Name 'Browser bildet den Shared-Gateway-Dienst-Secret-Preflight read-only und capability-basiert ab' -Success (
+    $serverText -match "'/api/ai-shared-gateway/service-secret'" -and
+    $serverText -match 'Test-SqlServerLabAiSharedGatewayServiceSecret -Plan \$request\.plan -ServicePlan \$request\.servicePlan' -and
+    $serverText -match 'Get-Command -Name Get-Secret' -and
+    $serverText -match 'AI_SHARED_GATEWAY_UI_PLAN_AND_SERVICE_PLAN_REQUIRED' -and
+    $htmlText -match 'id="ai-shared-gateway-plan-json"' -and
+    $htmlText -match 'id="ai-shared-gateway-service-plan-json"' -and
+    $htmlText -match 'id="ai-shared-gateway-service-secret-submit"[^>]*disabled' -and
+    $htmlText -match 'echte nichtinteraktive S4U-/systemd-Dienstkontext bleibt getrennte Evidence' -and
+    $scriptText -match 'aiSharedGatewayServiceSecret' -and
+    $scriptText -match 'submit\.disabled = !available' -and
+    $scriptText -match 'submit\.title = available' -and
+    $scriptText -match "fetch\('/api/ai-shared-gateway/service-secret'" -and
+    $scriptText -match 'JSON\.parse.*ai-shared-gateway-plan-json' -and
+    $scriptText -match 'result\.textContent' -and
+    $scriptText -notmatch 'ReferenceKeys\.join'
+)
 
 Write-Host ''
 Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan

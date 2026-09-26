@@ -39,6 +39,7 @@
         'Stop-SqlServerLabAiSharedGatewaySession'
         'Get-SqlServerLabAiSharedGatewayStatus'
         'Get-SqlServerLabAiSharedGatewayServicePlan'
+        'Test-SqlServerLabAiSharedGatewayServiceSecret'
         'Get-SqlServerLabAiExternalModelPlan'
         'Get-SqlServerLabAiExternalModelSqlPlan'
         'Get-SqlServerLabLlamaCppRuntime'

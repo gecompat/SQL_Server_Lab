@@ -2,7 +2,7 @@ let workflow = null;
 let activeJobCount = 0;
 let optimisticJobs = [];
 const jobLineCache = {};
-let uiConfig = { jobLogBurstLimit: 300 };
+let uiConfig = { jobLogBurstLimit: 300, aiSharedGatewayServiceSecret: { available: false, reason: 'Capability wurde noch nicht geprüft.' } };
 let workflowRefreshTimer = null;
 let pendingPersistentStorageRemoval = null;
 let pendingDatabasePackageAttach = null;
@@ -765,6 +765,17 @@ async function refreshUiConfig() {
   const config = await response.json();
   const requestedLimit = Number(config?.jobLogBurstLimit);
   uiConfig.jobLogBurstLimit = Number.isFinite(requestedLimit) ? Math.max(1, Math.floor(requestedLimit)) : uiConfig.jobLogBurstLimit;
+  const capability = config?.aiSharedGatewayServiceSecret || { available: false, reason: 'Capability-Antwort fehlt.' };
+  uiConfig.aiSharedGatewayServiceSecret = capability;
+  const available = capability.available === true;
+  const submit = $('#ai-shared-gateway-service-secret-submit');
+  const status = $('#ai-shared-gateway-service-secret-status');
+  const reason = $('#ai-shared-gateway-service-secret-reason');
+  submit.disabled = !available;
+  submit.title = available ? '' : String(capability.reason || 'Dienst-Secret-Prüfung ist auf diesem Host nicht verfügbar.');
+  status.textContent = available ? 'SecretManagement bereit' : 'Nicht verfügbar';
+  status.className = available ? 'chip ready' : 'chip blocked';
+  reason.textContent = String(capability.reason || 'Dienst-Secret-Prüfung ist auf diesem Host nicht verfügbar.');
 }
 
 function migrationInventoryResult(lines) {
@@ -1987,6 +1998,50 @@ $('#resource-form').addEventListener('submit', (event) => {
     return;
   }
   queueBackgroundAction('SetLabResources', { BuildId: $('#resource-run').value, MemoryMB: memory, ProcessorCount: processors }, $('#resource-dialog'));
+});
+
+$('#ai-shared-gateway-service-secret-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const submit = $('#ai-shared-gateway-service-secret-submit');
+  const result = $('#ai-shared-gateway-service-secret-result');
+  if (uiConfig.aiSharedGatewayServiceSecret?.available !== true) {
+    showError(new Error(uiConfig.aiSharedGatewayServiceSecret?.reason || 'Dienst-Secret-Prüfung ist auf diesem Host nicht verfügbar.'));
+    return;
+  }
+  let plan;
+  let servicePlan;
+  try {
+    plan = JSON.parse($('#ai-shared-gateway-plan-json').value);
+    servicePlan = JSON.parse($('#ai-shared-gateway-service-plan-json').value);
+  }
+  catch {
+    showError(new Error('Gateway-Plan und Dienstplan müssen gültiges JSON enthalten.'));
+    return;
+  }
+  submit.disabled = true;
+  result.textContent = 'SecretManagement-Referenzen werden für den aktuellen Principal geprüft …';
+  try {
+    const response = await fetch('/api/ai-shared-gateway/service-secret', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ plan, servicePlan })
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const receipt = await response.json();
+    const pending = Array.isArray(receipt.PendingEvidence) ? receipt.PendingEvidence.join(', ') : 'keine';
+    result.textContent = 'Status: ' + String(receipt.Status || 'UNKNOWN') +
+      ' · Evidence: ' + String(receipt.EvidenceStatus || 'UNKNOWN') +
+      ' · Referenzen: ' + String(receipt.ReferenceCount ?? 0) +
+      ' · gültig bis: ' + String(receipt.ExpiresAtUtc || '–') +
+      ' · ausstehend: ' + pending;
+  }
+  catch (error) {
+    result.textContent = 'Prüfung fehlgeschlagen. Details stehen in der Fehlermeldung.';
+    showError(error);
+  }
+  finally {
+    submit.disabled = uiConfig.aiSharedGatewayServiceSecret?.available !== true;
+  }
 });
 
 $('#action-feedback-log').addEventListener('click', () => $('#jobs').closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));

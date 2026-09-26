@@ -82,7 +82,15 @@ berechnete Host-Capability. Windows verwendet eine S4U-Aufgabe mit lokalem,
 nicht EFS-verschlüsseltem StateRoot und weist den fehlenden Netzwerk- und EFS-
 Zugriff aus; Linux verlangt einen erreichbaren systemd-Usermanager und
 aktiviertes Linger. `Auto` wählt den Hostmodus, eine explizite Fixierung bleibt
-möglich und unpassende Modi werden sichtbar blockiert. Der synthetische Vertrag
+möglich und unpassende Modi werden sichtbar blockiert. Der Service-Plan bindet
+Startupscope und Capability-Evidence vollständig in seinen Plan-Key und verlangt
+als ersten Schritt eine Dienst-Secretprüfung. Diese löst alle Consumerreferenzen
+ausschließlich über PowerShell SecretManagement auf, validiert `SecureString`
+und Gatewayformat im Speicher und gibt nur Anzahl und Referenzhashes aus. Das
+Receipt gilt fünf Minuten für den gebundenen aktuellen Principal;
+Prozessvariablen gelten
+nicht als Neustartnachweis und die echte nichtinteraktive Auflösung im Service-
+Logon bleibt ausdrücklich offene Evidence. Der synthetische Vertrag
 belegt zwei
 getrennte Consumer, TLS-Pinning, Prozess-/Listenerbesitz und Cleanup ohne SQL-
 oder Providermutation. Dieser begrenzte Session-Lifecycle ist kein Ersatz für
@@ -108,8 +116,9 @@ dauerhaften Lebenszyklus noch nicht. Der
 ein eigener begrenzter Runtimevertrag und kein gemeinsamer Gatewaydienst. Der
 Shared-Gateway-Session-Lifecycle kann mehrere geplante Consumer an denselben
 geschützten Store und Endpoint binden, endet jedoch weiterhin mit Ownerverlust
-oder Lease. Der Host-Autostart ist jetzt planbar, besitzt aber noch keinen
-Executor und wurde auf keinem nativen Host angewendet.
+oder Lease. Host-Autostart und dessen Secret-Readiness sind jetzt planbar und
+read-only prüfbar, besitzen aber noch keinen Executor und wurden auf keinem
+nativen Host angewendet.
 
 Das [persistente Retrieval](../Architecture/AI_PERSISTENT_RETRIEVAL.md) ruft
 lokales Ollama derzeit vom Controller über Loopback-HTTP auf und speichert

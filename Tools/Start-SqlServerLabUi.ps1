@@ -131,6 +131,23 @@ function Write-UiResponse {
     $Context.Response.Close()
 }
 
+function Get-UiCapabilityConfig {
+    $getSecretCommand = Get-Command -Name Get-Secret -ErrorAction SilentlyContinue
+    $secretAvailable = $null -ne $getSecretCommand
+    [PSCustomObject]@{
+        jobLogBurstLimit = $JobLogBurstLimit
+        aiSharedGatewayServiceSecret = [PSCustomObject]@{
+            available = $secretAvailable
+            reason = if ($secretAvailable) {
+                'PowerShell SecretManagement/Get-Secret ist verfügbar. Die ausgewählten Vault-Einträge werden erst beim read-only Preflight geprüft.'
+            }
+            else {
+                'Nicht verfügbar: PowerShell SecretManagement stellt Get-Secret in diesem Hostprozess nicht bereit.'
+            }
+        }
+    }
+}
+
 function Get-UiJobSnapshot {
     param([Parameter(Mandatory)]$Record)
 
@@ -365,7 +382,18 @@ try {
                 continue
             }
             if ($path -eq '/api/config' -and $context.Request.HttpMethod -eq 'GET') {
-                Write-UiResponse -Context $context -Body (@{ jobLogBurstLimit = $JobLogBurstLimit } | ConvertTo-Json -Depth 4) -ContentType 'application/json; charset=utf-8'
+                Write-UiResponse -Context $context -Body (Get-UiCapabilityConfig | ConvertTo-Json -Depth 6) -ContentType 'application/json; charset=utf-8'
+                continue
+            }
+            if ($path -eq '/api/ai-shared-gateway/service-secret' -and $context.Request.HttpMethod -eq 'POST') {
+                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                if ($body.Length -gt 1048576) { throw 'AI_SHARED_GATEWAY_UI_REQUEST_TOO_LARGE' }
+                $request = $body | ConvertFrom-Json -Depth 30
+                if (-not $request -or $request.PSObject.Properties.Name -notcontains 'plan' -or $request.PSObject.Properties.Name -notcontains 'servicePlan') {
+                    throw 'AI_SHARED_GATEWAY_UI_PLAN_AND_SERVICE_PLAN_REQUIRED'
+                }
+                $receipt = Test-SqlServerLabAiSharedGatewayServiceSecret -Plan $request.plan -ServicePlan $request.servicePlan
+                Write-UiResponse -Context $context -Body ($receipt | ConvertTo-Json -Depth 20) -ContentType 'application/json; charset=utf-8'
                 continue
             }
             if ($path -eq '/api/queue' -and $context.Request.HttpMethod -eq 'GET') {

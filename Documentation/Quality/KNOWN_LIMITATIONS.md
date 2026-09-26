@@ -1500,7 +1500,16 @@ StateRoot und nennt die S4U-Grenze für Netzwerk- und EFS-Zugriff sowie eine
 möglicherweise erforderliche Erhöhung bei der Aufgabenregistrierung. Unter Linux
 verlangt er einen erreichbaren systemd-Usermanager und aktiviertes Linger.
 Explizit unpassende Modi werden blockiert. Der Plan installiert, aktiviert oder
-startet keinen Dienst; native Apply-/Remove-Evidence fehlt weiterhin.
+startet keinen Dienst. Eine getrennte read-only Prüfung löst alle gebundenen
+Consumerreferenzen ausschließlich über PowerShell SecretManagement auf,
+bestätigt `SecureString` und Gatewayformat und veröffentlicht nur Hash-/Zähl-
+Evidence. Das Receipt gilt fünf Minuten für den gebundenen aktuellen Principal.
+Prozessvariablen werden absichtlich nicht als Neustartnachweis akzeptiert; die
+nichtinteraktive Auflösung im echten Service-Logon sowie native Apply-/Remove-
+Evidence fehlen weiterhin. Die Browser-GUI bietet denselben read-only Preflight
+über gebundene Gateway- und Dienstplan-JSONs an. Fehlt `Get-Secret` im lokalen
+UI-Hostprozess, bleibt die Schaltfläche deaktiviert und zeigt diesen Grund; ein
+vorhandener Befehl bestätigt erst beim Aufruf die konkreten Vault-Einträge.
 Der read-only Statusbefehl unterscheidet fehlende Registrierung, revalidierten
 Stillstand, eine ownergebundene laufende Session, Planabweichung, Inhaltsdrift,
 verlorenen Ownerprozess oder Listener und fremde Portbelegung. Er beobachtet

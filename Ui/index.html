@@ -76,6 +76,22 @@
       </article>
     </section>
 
+    <section class="panel compact" id="ai-shared-gateway-service-secret-panel">
+      <div class="section-heading">
+        <div><p class="eyebrow">SQL SERVER 2025 KI · SHARED GATEWAY</p><h2>Dienst-Secrets read-only prüfen</h2></div>
+        <span id="ai-shared-gateway-service-secret-status" class="chip neutral">Capability wird geprüft …</span>
+      </div>
+      <form id="ai-shared-gateway-service-secret-form">
+        <div class="form-grid">
+          <label>Gateway-Plan (JSON)<textarea id="ai-shared-gateway-plan-json" rows="10" spellcheck="false" required placeholder='Ausgabe von Get-SqlServerLabAiSharedGatewayPlan als JSON'></textarea></label>
+          <label>Dienstplan (JSON)<textarea id="ai-shared-gateway-service-plan-json" rows="10" spellcheck="false" required placeholder='Ausgabe von Get-SqlServerLabAiSharedGatewayServicePlan als JSON'></textarea></label>
+        </div>
+        <p id="ai-shared-gateway-service-secret-reason" class="form-note">Die Host-Capability wird lokal geprüft. Plan und Dienstplan enthalten ausschließlich Bindungen und Secret-Referenzen, keine Secretwerte.</p>
+        <div id="ai-shared-gateway-service-secret-result" class="selection-details" aria-live="polite">Noch keine Prüfung ausgeführt. Das Receipt gilt fünf Minuten für den aktuellen Principal; der echte nichtinteraktive S4U-/systemd-Dienstkontext bleibt getrennte Evidence.</div>
+        <div class="build-actions"><button id="ai-shared-gateway-service-secret-submit" type="submit" class="button primary" disabled>Dienst-Secrets prüfen</button></div>
+      </form>
+    </section>
+
     <section class="panel">
       <div class="section-heading">
         <div><p class="eyebrow">IN ARBEIT</p><h2>Windows-OS-Builds</h2></div>

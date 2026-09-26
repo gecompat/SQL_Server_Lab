@@ -14,7 +14,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: radial-gradient(circle at 12% -5%, #193755 0, transparent 33rem), var(--page); color: var(--ink); font: 16px/1.5 Inter, ui-sans-serif, system-ui, sans-serif; }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 .topbar, main { max-width: 1280px; margin: auto; padding-left: 28px; padding-right: 28px; }
 .topbar { display: flex; justify-content: space-between; gap: 24px; align-items: center; padding-top: 38px; padding-bottom: 32px; border-bottom: 1px solid var(--line); }
@@ -40,6 +40,7 @@ dialog form { display: grid; gap: 14px; padding: 22px; overflow: auto; max-heigh
 .icon-button { width: 34px; height: 34px; border: 0; border-radius: 7px; color: var(--ink); background: #29425c; font-size: 1.3rem; line-height: 1; }
 label { display: grid; gap: 6px; min-width: 0; color: var(--muted); font-size: .9rem; } input, select { width: 100%; min-width: 0; padding: 10px 12px; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; background: #081525; } select { text-overflow: ellipsis; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }.dialog-actions { justify-content: end; margin-top: 4px; }
+textarea { width: 100%; box-sizing: border-box; resize: vertical; border: 1px solid var(--line); border-radius: 8px; padding: 10px; color: var(--ink); background: #081321; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .selection-details { display: grid; gap: 3px; padding: 12px; border: 1px solid #315879; border-radius: 9px; color: var(--muted); background: #091828; font-size: .86rem; overflow-wrap: anywhere; }.selection-details strong { color: var(--ink); }.selection-details code { color: #8ab6de; font-size: .78rem; white-space: normal; }
 .connection-string { overflow-wrap: anywhere; word-break: break-word; }.connection-string code { color: #8ab6de; font-size: .78rem; white-space: normal; }
 .action-feedback { position: sticky; z-index: 20; top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0 0 18px; padding: 12px 16px; border: 1px solid #2a928d; border-radius: 10px; color: #d9ffff; background: #0d3037; box-shadow: 0 10px 32px rgba(0, 0, 0, .45); font-weight: 700; }.action-feedback .button { flex: 0 0 auto; }

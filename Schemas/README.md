@@ -27,6 +27,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `ai-shared-gateway-preflight-receipt.schema.json` | Sanitisiertes read-only Receipt für Runtime-/Modellhash, Serverzertifikat, privaten Schlüssel, CA-Kette, Gültigkeit und SAN eines Shared-Gateway-Plans |
 | `ai-shared-gateway-status.schema.json` | Sanitisiertes read-only Statusreceipt für Registrierung, eigene Session, Plan-/Inhaltsdrift und ungeklärte Listenerbelegung |
 | `ai-shared-gateway-service-plan.schema.json` | Sanitisiertes read-only Autostart-Planreceipt mit gebundener Host-Capability sowie exakten Windows-S4U- und Linux-systemd/Linger-Blockern |
+| `ai-shared-gateway-service-secret-receipt.schema.json` | Fünf Minuten gültiges, sanitisiertes read-only Receipt für über SecretManagement aufgelöste Consumer-SecureStrings des aktuellen Principals; enthält nur Referenzhashes und Anzahl |
 | `ai-external-model-artifact-receipt.schema.json` | Sanitierter read-only Nachweis, dass lokale Runtime- und Modelldatei den im External-Model-Plan gebundenen SHA-256-Werten entsprechen |
 | `ai-external-model-endpoint-receipt.schema.json` | Sanitisiertes Live-Receipt für Zertifikatspin, OpenAI-Antwortform, endliche Vektorwerte und Dimension; Runtime-, Modell- und Accelerator-Attestation bleiben offen |
 | `ai-ovms-upstream-receipt.schema.json` | Sanitisiertes Live-Receipt für einen numerischen Loopback-OVMS-v3-Upstream mit exaktem Runtime-Modell, Antwortformat, Dimension und endlichen Vektorwerten; Gateway und Accelerator bleiben offen |

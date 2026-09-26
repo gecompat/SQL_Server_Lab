@@ -130,6 +130,10 @@ sources_of_truth:
   ai_shared_gateway_service_plan_api: Public/Get-SqlServerLabAiSharedGatewayServicePlan.ps1
   ai_shared_gateway_service_plan_schema: Schemas/ai-shared-gateway-service-plan.schema.json
   validation_ai_shared_gateway_service_plan: Tests/Static/Invoke-AiSharedGatewayServicePlanChecks.ps1
+  ai_shared_gateway_service_secret_contract: Private/AiSharedGatewayServiceSecret.ps1
+  ai_shared_gateway_service_secret_api: Public/Test-SqlServerLabAiSharedGatewayServiceSecret.ps1
+  ai_shared_gateway_service_secret_schema: Schemas/ai-shared-gateway-service-secret-receipt.schema.json
+  validation_ai_shared_gateway_service_secret: Tests/Static/Invoke-AiSharedGatewayServiceSecretChecks.ps1
   ai_shared_gateway_upstream_schema: Schemas/ai-shared-gateway-upstream-receipt.schema.json
   validation_ai_shared_gateway_upstream: Tests/Static/Invoke-AiSharedGatewayUpstreamChecks.ps1
   ai_model_catalog: Catalogs/ai-models.json
