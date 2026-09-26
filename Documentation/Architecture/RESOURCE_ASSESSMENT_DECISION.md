@@ -43,10 +43,14 @@ Lesen schreibt keine Records nach. Die strikte persistierte Form
 historischen Erstellungs-Preflight; sie ist keine aktuelle Kapazitätsmessung
 und erteilt keine Reconcile-Ausführungsfreigabe.
 
-Der Slice ändert die vorhandenen Kapazitätsmodelle nicht: RAM verwendet
-weiterhin Ressourcenprofile, Storage eine grobe Schätzung, Ports die
-verfügbare Anzahl im Lab-Bereich. Angeforderte Einzelports, explizite
-Runtime-RAM-Werte, Hostreserve, CPU-Kapazität und rollenbezogener Peakbedarf
+Für Instanzen mit `provider=hyperv` verwendet die RAM-Prüfung den expliziten
+`hyperv.memoryStartupMB`-Wert, ansonsten den VM-Default von 4096 MiB. Ein
+16-GiB-Ziel wird damit mit 16384 MiB bewertet, unabhängig vom SQL-Profil.
+Ungültige explizite Werte werden vor der Providermutation abgewiesen.
+Dynamisches RAM wird mit dem Startbedarf bewertet, nicht mit späterem Wachstum.
+Container verwenden weiterhin Ressourcenprofile, Storage eine grobe Schätzung,
+Ports die verfügbare Anzahl im Lab-Bereich. Angeforderte Einzelports, explizite
+Container-RAM-Werte, Hostreserve, CPU-Kapazität und rollenbezogener Peakbedarf
 sind damit nicht vollständig bewertet. Spezialisierte Reconcile-Pläne erhalten
 in diesem Slice keine zusätzliche Assessment-Projektion.
 

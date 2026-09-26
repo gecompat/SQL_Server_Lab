@@ -9,6 +9,9 @@ function Test-SqlServerLabPrerequisite {
     .PARAMETER Instances
         Array von Instanzdefinitionen, typischerweise aus einem aufgeloesten
         Manifest. Ohne Angabe werden hostweite Basispruefungen ausgefuehrt.
+        Instanzen mit provider=hyperv verwenden hyperv.memoryStartupMB
+        (Default 4096 MiB); Container verwenden das Ressourcenprofil.
+        Dynamisches RAM-Wachstum und Hostreserve werden nicht bewertet.
     .PARAMETER Provider
         Zu pruefende Provider. Bei mehreren Providern prueft das Assessment jede
         verwendete Runtime, waehrend RAM, Storage und Ports runweit nur einmal
@@ -165,12 +168,24 @@ function Test-ProviderAvailability {
     }
 }
 
-function Test-RamAvailability {
+function Get-LabAssessmentRequiredMemoryMB {
     [CmdletBinding()]
     param([array]$Instances = @())
 
-    $requiredMB = 0
+    $requiredMB = [long]0
     foreach ($inst in $Instances) {
+        if ($inst.provider -eq 'hyperv') {
+            $startupMB = [long]4096
+            if ($null -ne $inst.hyperv.memoryStartupMB) {
+                if (-not [long]::TryParse([string]$inst.hyperv.memoryStartupMB,
+                    [Globalization.NumberStyles]::None, [Globalization.CultureInfo]::InvariantCulture,
+                    [ref]$startupMB) -or $startupMB -lt 512 -or $startupMB -gt 1048576) {
+                    throw 'RESOURCE_ASSESSMENT_HYPERV_MEMORY_INVALID'
+                }
+            }
+            $requiredMB += $startupMB
+            continue
+        }
         $resourceProfileName = if ($inst.profile) { $inst.profile } else { 'standard' }
         try {
             $profileDef = Get-LabResourceProfile -Name $resourceProfileName
@@ -180,6 +195,14 @@ function Test-RamAvailability {
         }
     }
     if ($requiredMB -eq 0) { $requiredMB = 4096 }
+    return $requiredMB
+}
+
+function Test-RamAvailability {
+    [CmdletBinding()]
+    param([array]$Instances = @())
+
+    $requiredMB = Get-LabAssessmentRequiredMemoryMB -Instances $Instances
 
     # Freien RAM ermitteln
     $freeMB = 0

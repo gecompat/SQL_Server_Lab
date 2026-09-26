@@ -16,6 +16,31 @@ $module = Get-Module SqlServerLab
 $tempRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-assessment-' + [guid]::NewGuid().ToString('N'))
 
 try {
+    $memory = & $module {
+        $vm = [PSCustomObject]@{provider='hyperv';profile='compact';hyperv=[PSCustomObject]@{memoryStartupMB=16384;dynamicMemoryEnabled=$false}}
+        $dynamic = [PSCustomObject]@{provider='hyperv';hyperv=[PSCustomObject]@{memoryStartupMB=8192;memoryMaximumMB=32768;dynamicMemoryEnabled=$true}}
+        $container = [PSCustomObject]@{provider='docker';profile='standard'}
+        $invalidRejected = 0
+        foreach ($value in @(0,-1,511,1048577,'invalid',16384.5)) {
+            try { Get-LabAssessmentRequiredMemoryMB -Instances @([PSCustomObject]@{provider='hyperv';hyperv=[PSCustomObject]@{memoryStartupMB=$value}}) | Out-Null }
+            catch { if ($_.Exception.Message -eq 'RESOURCE_ASSESSMENT_HYPERV_MEMORY_INVALID') { $invalidRejected++ } }
+        }
+        [PSCustomObject]@{
+            Static=Get-LabAssessmentRequiredMemoryMB -Instances @($vm)
+            Dynamic=Get-LabAssessmentRequiredMemoryMB -Instances @($dynamic)
+            Default=Get-LabAssessmentRequiredMemoryMB -Instances @([PSCustomObject]@{provider='hyperv';profile='compact'})
+            Mixed=Get-LabAssessmentRequiredMemoryMB -Instances @($vm,$container)
+            Container=Get-LabAssessmentRequiredMemoryMB -Instances @($container)
+            Empty=Get-LabAssessmentRequiredMemoryMB
+            Profile=[long](Get-LabResourceProfile -Name standard).maxMemoryMB
+            InvalidRejected=$invalidRejected
+        }
+    }
+    Add-CheckResult '16-GiB-Hyper-V-Startspeicher hat Vorrang vor dem SQL-Profil' ($memory.Static -eq 16384)
+    Add-CheckResult 'Dynamisches Hyper-V-RAM bewertet den Startbedarf, nicht spaeteres Wachstum' ($memory.Dynamic -eq 8192)
+    Add-CheckResult 'Hyper-V-Default und leere Basispruefung bleiben 4096 MiB' ($memory.Default -eq 4096 -and $memory.Empty -eq 4096)
+    Add-CheckResult 'Gemischter Bedarf summiert VM-Startspeicher und unveraendertes Containerprofil' ($memory.Mixed -eq 16384+$memory.Profile -and $memory.Container -eq $memory.Profile)
+    Add-CheckResult 'Ungueltiger expliziter Hyper-V-Speicher wird nicht auf einen Default reduziert' ($memory.InvalidRejected -eq 6)
     $policy = & $module {
         $cases = @()
         foreach ($status in @('RESOURCE_OK','RESOURCE_WARNING','RESOURCE_INSUFFICIENT_OVERRIDABLE','RESOURCE_HARD_BLOCK')) {
