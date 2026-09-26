@@ -16,6 +16,7 @@ Der Pfad `Private/` beschreibt primär die interne Architektur. Die tatsächlich
 | `AiRetrievalEvaluation.ps1` | Inhaltsfreie Retrieval-Metriken sowie hash- und laufgebundene Golden-Dataset-Auswertung mit blockierenden Recall-/MRR-/nDCG-Schwellen |
 | `AiRag.ps1` | Flüchtige Ollama-Embedding-, SQL-Vector-Retrieval- und Generierungsorchestrierung |
 | `AiDiagnosticAgent.ps1` | Allowlist-Diagnosewerkzeuge, kurzlebige SQL-Identität und lokale Zusammenfassung |
+| `AiSharedGatewaySession.ps1` | Ownergebundener, zeitlich begrenzter Shared-Gateway-Lifecycle sowie read-only Klassifikation von Registrierung, Sessionbesitz, Drift und Portkonflikten |
 | `VersionCatalog.ps1` | Versionen, CU-Builds, Images, Ressourcenprofile, sichere Windows-CU-Acquisition und Linux-Image-Prefetch |
 | `SoftwareCatalog.ps1` | Providerneutrale External-Runtime-Anforderungen, kataloggebundene Planauflösung und sanitisiertes Installation Receipt |
 | `StateMachine.ps1` | State-Root, Run-State, ProviderSubRuns, Übergänge, Historie und aktive Runs |

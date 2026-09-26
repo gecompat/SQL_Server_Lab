@@ -272,6 +272,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Revalidiert den geschützten Store und prüft den gebundenen lokalen
         Llama-v1- oder OVMS-v3-Upstream mit einem synthetischen Embedding.
 
+    Get-SqlServerLabAiSharedGatewayStatus
+        Klassifiziert Registrierung, eigenen Sessionbesitz, Plan- oder
+        Inhaltsdrift und fremde Portbelegung read-only mit ReasonCode.
+
     Start-SqlServerLabAiSharedGatewaySession
         Startet nach Storage- und Upstream-Revalidierung einen ownergebundenen,
         zeitlich begrenzten TLS-Gateway ausschließlich auf IPv4-Loopback.

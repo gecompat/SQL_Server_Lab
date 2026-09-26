@@ -266,6 +266,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Revalidates protected storage and probes the bound local Llama v1 or
         OVMS v3 upstream with one synthetic embedding.
 
+    Get-SqlServerLabAiSharedGatewayStatus
+        Classifies registration, owned session state, plan or content drift,
+        and foreign port occupation read-only with a reason code.
+
     Start-SqlServerLabAiSharedGatewaySession
         Revalidates storage and upstream, then starts an owner-bound, leased
         TLS gateway listening exclusively on IPv4 loopback.

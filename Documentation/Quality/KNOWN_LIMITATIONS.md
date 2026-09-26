@@ -1493,6 +1493,12 @@ Llama-v1- oder OVMS-v3-Loopback-Upstream können mit einem synthetischen
 Embedding read-only revalidiert werden. Persistenter Dienstbetrieb,
 öffentlicher HTTPS-Endpunkt, SQL-Bindung,
 Rotation, Backup/Restore sowie vollständiges Apply und Remove fehlen weiterhin.
+Der read-only Statusbefehl unterscheidet fehlende Registrierung, revalidierten
+Stillstand, eine ownergebundene laufende Session, Planabweichung, Inhaltsdrift,
+verlorenen Ownerprozess oder Listener und fremde Portbelegung. Er beobachtet
+keine fremden Prozessidentitäten und repariert keinen Zustand; ungeklärte
+Listenerbelegung und beschädigte Registrierung bleiben daher bewusst
+`RECOVERY_REQUIRED`.
 Ein eigener Windows-Loopback-Gateway-Lifecycle ist mit synthetischem
 OVMS-Upstream, kurzlebiger CA, TLS-Probe, Owner-Stop, Listenerabbau und
 Secret-Löschung abgenommen. Der External-Model-Plan rechnet dessen Binding-Key

@@ -25,6 +25,7 @@ Dieses Verzeichnis enthält die maschinenlesbaren Verträge und ausführbaren Be
 | `ai-compute-benchmark-acceptance.schema.json` | Pfadfreier nativer Abnahmenachweis für vollständige Kandidatenmessung und die daraus gewählte schnellste Option |
 | `ai-shared-gateway-plan.schema.json` | Geheimnisfreier, deterministischer Plan für einen lokalen gemeinsamen HTTPS-Gateway und gebundene SQL-Verbraucher; derzeit nicht ausführbar |
 | `ai-shared-gateway-preflight-receipt.schema.json` | Sanitisiertes read-only Receipt für Runtime-/Modellhash, Serverzertifikat, privaten Schlüssel, CA-Kette, Gültigkeit und SAN eines Shared-Gateway-Plans |
+| `ai-shared-gateway-status.schema.json` | Sanitisiertes read-only Statusreceipt für Registrierung, eigene Session, Plan-/Inhaltsdrift und ungeklärte Listenerbelegung |
 | `ai-external-model-artifact-receipt.schema.json` | Sanitierter read-only Nachweis, dass lokale Runtime- und Modelldatei den im External-Model-Plan gebundenen SHA-256-Werten entsprechen |
 | `ai-external-model-endpoint-receipt.schema.json` | Sanitisiertes Live-Receipt für Zertifikatspin, OpenAI-Antwortform, endliche Vektorwerte und Dimension; Runtime-, Modell- und Accelerator-Attestation bleiben offen |
 | `ai-ovms-upstream-receipt.schema.json` | Sanitisiertes Live-Receipt für einen numerischen Loopback-OVMS-v3-Upstream mit exaktem Runtime-Modell, Antwortformat, Dimension und endlichen Vektorwerten; Gateway und Accelerator bleiben offen |

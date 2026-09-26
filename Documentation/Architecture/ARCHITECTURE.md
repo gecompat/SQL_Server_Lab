@@ -126,6 +126,7 @@ Get-SqlServerLabAiSharedGatewayPlan         # Gemeinsamen Gateway und SQL-Verbra
 Test-SqlServerLabAiSharedGatewayPreflight   # Gebundene lokale Artefakte und TLS-Kette read-only prüfen
 Register-SqlServerLabAiSharedGatewayStorage # Gebundene Dateien geschützt und atomar gemeinsam registrieren
 Test-SqlServerLabAiSharedGatewayUpstream    # Registrierten Store und gebundenen Loopback-Upstream read-only prüfen
+Get-SqlServerLabAiSharedGatewayStatus       # Registrierung, Ownership, Drift und Portkonflikte read-only klassifizieren
 Start-SqlServerLabAiSharedGatewaySession    # Mehrere geplante Consumer ownergebunden und zeitlich begrenzt über Loopback-TLS bedienen
 Stop-SqlServerLabAiSharedGatewaySession     # Nur die eigene Session samt temporärem Zustand bereinigen
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen
