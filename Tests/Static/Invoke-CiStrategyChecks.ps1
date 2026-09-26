@@ -415,7 +415,21 @@ Add-CheckResult -Name 'Self-hosted Runtime-Workflows werden vor ihrem regulären
 
 $dockerWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-docker.yml') -Raw -Encoding utf8
 $podmanWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-podman.yml') -Raw -Encoding utf8
+$mixedWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-mixed-providers.yml') -Raw -Encoding utf8
 $hyperVWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml') -Raw -Encoding utf8
+$prGateWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/static-contracts.yml') -Raw -Encoding utf8
+Add-CheckResult -Name 'Runtime-Gates trennen Infrastrukturunverfuegbarkeit von Implementierungsfehlern' -Success (
+    @(@($dockerWorkflow, $podmanWorkflow, $mixedWorkflow, $hyperVWorkflow) | Where-Object {
+        $_ -notmatch 'validation_classification:' -or
+        $_ -notmatch 'INFRASTRUCTURE_UNAVAILABLE' -or
+        $_ -notmatch 'Es liegt kein Nachweis für einen Implementierungsfehler vor'
+    }).Count -eq 0 -and
+    $prGateWorkflow -match 'needs\.docker-runtime\.outputs\.validation_classification' -and
+    $prGateWorkflow -match 'needs\.podman-runtime\.outputs\.validation_classification' -and
+    $prGateWorkflow -match 'needs\.mixed-runtime\.outputs\.validation_classification' -and
+    $prGateWorkflow -match 'needs\.hyperv-runtime\.outputs\.validation_classification' -and
+    $prGateWorkflow -match 'Diese Jobs konnten keinen belastbaren Implementierungsnachweis erzeugen'
+)
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten den realen Batch-Smoke' -Success (
     $dockerWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`?\s*-Provider docker' -and
     $podmanWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`?\s*-Provider podman'
