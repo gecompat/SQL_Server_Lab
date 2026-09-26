@@ -7,11 +7,138 @@ let workflowRefreshTimer = null;
 let pendingPersistentStorageRemoval = null;
 let pendingDatabasePackageAttach = null;
 let pendingHyperVPersistentData = null;
+let publicCommandCatalog = [];
 
 const $ = (selector) => document.querySelector(selector);
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 const shortId = (value) => value ? String(value).slice(0, 12) + '…' : '–';
 const safeExternalUrl = (value) => /^https:\/\//i.test(String(value || '')) ? String(value) : '';
+
+function publicCommandAllowedValues(descriptor) {
+  const match = String(descriptor?.AllowedValues || '').match(/(?:^|;\s*)Werte:\s*([^;]+)/i);
+  return match ? match[1].split(',').map((value) => value.trim()).filter(Boolean) : [];
+}
+
+function selectedPublicCommand() {
+  return publicCommandCatalog.find((item) => item.Name === $('#command-name').value) || null;
+}
+
+function selectedPublicCommandParameterSet() {
+  const command = selectedPublicCommand();
+  return command?.ParameterSets?.find((item) => item.Name === $('#command-parameter-set').value) || null;
+}
+
+function renderPublicCommandParameter(descriptor) {
+  const id = 'command-parameter-' + descriptor.Name.replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
+  const required = descriptor.Mandatory ? ' required' : '';
+  const sensitive = descriptor.Sensitive ? ' autocomplete="off"' : '';
+  const typeName = String(descriptor.TypeName || 'System.String');
+  const allowedValues = publicCommandAllowedValues(descriptor);
+  let editor;
+  if (descriptor.IsCredential) {
+    editor = '<div class="credential-fields"><input id="' + id + '-username" data-command-credential-username="' + escapeHtml(descriptor.Name) + '" type="text" placeholder="Benutzername"' + required + ' autocomplete="username"><input id="' + id + '-password" data-command-credential-password="' + escapeHtml(descriptor.Name) + '" type="password" placeholder="Kennwort"' + required + ' autocomplete="new-password"></div>';
+  } else if (/System\.(Management\.Automation\.)?(SwitchParameter|Boolean)$/i.test(typeName)) {
+    editor = '<input id="' + id + '" data-command-parameter="' + escapeHtml(descriptor.Name) + '" data-command-kind="boolean" type="checkbox">';
+  } else if (allowedValues.length > 0) {
+    editor = '<select id="' + id + '" data-command-parameter="' + escapeHtml(descriptor.Name) + '" data-command-kind="value"' + required + '><option value="">' + (descriptor.Mandatory ? 'Bitte auswählen' : 'Befehlsstandard verwenden') + '</option>' + allowedValues.map((value) => '<option value="' + escapeHtml(value) + '">' + escapeHtml(value) + '</option>').join('') + '</select>';
+  } else if (/\[\]$/.test(typeName) || /Hashtable|PSCustomObject|System\.Object$/i.test(typeName)) {
+    editor = '<textarea id="' + id + '" data-command-parameter="' + escapeHtml(descriptor.Name) + '" data-command-kind="json" rows="4" spellcheck="false" placeholder="JSON-Wert, z. B. [\u0022a\u0022, \u0022b\u0022] oder {\u0022key\u0022:\u0022value\u0022}"' + required + '></textarea>';
+  } else {
+    const inputType = descriptor.Sensitive ? 'password' : (/Int|Decimal|Double|Single|Byte/i.test(typeName) ? 'number' : 'text');
+    editor = '<input id="' + id + '" data-command-parameter="' + escapeHtml(descriptor.Name) + '" data-command-kind="value" type="' + inputType + '"' + required + sensitive + '>';
+  }
+  return '<label class="command-parameter"><span>' + escapeHtml(descriptor.Name) + (descriptor.Mandatory ? ' *' : '') + '</span>' + editor + '<small>' + escapeHtml(descriptor.AllowedValues || ('Typ: ' + typeName)) + ' · Standard: ' + escapeHtml(descriptor.DefaultExpression || '<Befehlsstandard>') + '</small></label>';
+}
+
+function renderPublicCommandForm() {
+  const command = selectedPublicCommand();
+  const setSelect = $('#command-parameter-set');
+  if (!command) {
+    setSelect.disabled = true;
+    setSelect.innerHTML = '<option value="">Parametersatz auswählen</option>';
+    $('#command-parameters').innerHTML = '';
+    $('#command-submit').disabled = true;
+    $('#command-description').textContent = 'Wählen Sie eine Funktion. Danach erscheinen nur die Eingaben des gewählten Parametersatzes.';
+    return;
+  }
+  if (![...setSelect.options].some((option) => option.dataset.command === command.Name)) {
+    setSelect.innerHTML = command.ParameterSets.map((set) => '<option data-command="' + escapeHtml(command.Name) + '" value="' + escapeHtml(set.Name) + '"' + (set.IsDefault ? ' selected' : '') + '>' + escapeHtml(set.Name) + (set.IsDefault ? ' (Standard)' : '') + '</option>').join('');
+  }
+  setSelect.disabled = false;
+  const parameterSet = selectedPublicCommandParameterSet() || command.ParameterSets[0];
+  if (parameterSet && setSelect.value !== parameterSet.Name) setSelect.value = parameterSet.Name;
+  $('#command-parameters').innerHTML = (parameterSet?.Parameters || []).map(renderPublicCommandParameter).join('') || empty('Diese Ausführungsvariante benötigt keine Eingaben.');
+  $('#command-submit').disabled = false;
+  $('#command-description').innerHTML = '<strong>' + escapeHtml(command.Name) + '</strong><span>' + escapeHtml(command.Synopsis || 'Keine Kurzbeschreibung hinterlegt.') + '</span><span>Arbeitsbereich: ' + escapeHtml(command.Area) + (command.RequiresConfirmation ? ' · Änderungen werden vor dem Start bestätigt.' : ' · Nur lesender Aufruf.') + '</span>';
+}
+
+function renderPublicCommandCatalog() {
+  const search = $('#command-search').value.trim().toLocaleLowerCase('de');
+  const area = $('#command-area').value;
+  const filtered = publicCommandCatalog.filter((item) => (!area || item.Area === area) && (!search || [item.Name, item.Synopsis, item.Area].join(' ').toLocaleLowerCase('de').includes(search)));
+  const previous = $('#command-name').value;
+  $('#command-name').innerHTML = '<option value="">Funktion auswählen</option>' + filtered.map((item) => '<option value="' + escapeHtml(item.Name) + '">' + escapeHtml(item.Name) + '</option>').join('');
+  $('#command-name').disabled = false;
+  if (filtered.some((item) => item.Name === previous)) $('#command-name').value = previous;
+  $('#command-count').textContent = filtered.length + ' von ' + publicCommandCatalog.length + ' Funktionen';
+  renderPublicCommandForm();
+}
+
+async function refreshPublicCommandCatalog() {
+  const response = await fetch('/api/commands');
+  if (!response.ok) throw new Error(await response.text());
+  const payload = await response.json();
+  publicCommandCatalog = Array.isArray(payload) ? payload : (payload ? [payload] : []);
+  const areas = [...new Set(publicCommandCatalog.map((item) => item.Area))].sort((left, right) => left.localeCompare(right, 'de'));
+  $('#command-area').innerHTML = '<option value="">Alle Arbeitsbereiche</option>' + areas.map((area) => '<option value="' + escapeHtml(area) + '">' + escapeHtml(area) + '</option>').join('');
+  renderPublicCommandCatalog();
+}
+
+function collectPublicCommandParameters() {
+  const parameterSet = selectedPublicCommandParameterSet();
+  const parameters = {};
+  for (const descriptor of parameterSet?.Parameters || []) {
+    if (descriptor.IsCredential) {
+      const userName = document.querySelector('[data-command-credential-username="' + CSS.escape(descriptor.Name) + '"]')?.value || '';
+      const password = document.querySelector('[data-command-credential-password="' + CSS.escape(descriptor.Name) + '"]')?.value || '';
+      if (userName || password || descriptor.Mandatory) parameters[descriptor.Name] = { userName, password };
+      continue;
+    }
+    const element = document.querySelector('[data-command-parameter="' + CSS.escape(descriptor.Name) + '"]');
+    if (!element) continue;
+    if (element.dataset.commandKind === 'boolean') {
+      if (element.checked || descriptor.Mandatory) parameters[descriptor.Name] = element.checked;
+      continue;
+    }
+    const text = element.value.trim();
+    if (!text) continue;
+    if (element.dataset.commandKind === 'json') {
+      try { parameters[descriptor.Name] = JSON.parse(text); }
+      catch { throw new Error(descriptor.Name + ' muss gültiges JSON enthalten.'); }
+    } else {
+      parameters[descriptor.Name] = text;
+    }
+  }
+  return parameters;
+}
+
+async function startPublicCommand(command, parameterSet, parameters, confirmed) {
+  const response = await fetch('/api/commands', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ commandName: command.Name, parameterSetName: parameterSet.Name, parameters, confirmed })
+  });
+  if (!response.ok) throw new Error(await response.text());
+  const accepted = await response.json();
+  const optimistic = { Id: accepted.id, Action: accepted.action || ('Command: ' + command.Name), State: 'Running', StartedAt: new Date().toISOString(), Lines: ['[AKZEPTIERT] ' + command.Name + ' wurde gestartet.'] };
+  jobLineCache[String(optimistic.Id)] = optimistic.Lines;
+  optimisticJobs.push(optimistic);
+  renderJobs([]);
+  $('#action-feedback-text').textContent = command.Name + ' läuft. Fortschritt und Ergebnis erscheinen im Live-Log.';
+  $('#action-feedback').hidden = false;
+  $('#jobs').closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  refreshJobs().catch(() => {});
+}
 
 function formatOperatingSystem(value) {
   const operatingSystem = String(value || 'Windows');
@@ -1959,6 +2086,22 @@ $('#confirmation-form').addEventListener('submit', async (event) => {
   const confirmation = pendingConfirmation;
   if (!confirmation) { $('#confirmation-dialog').close(); return; }
   pendingConfirmation = null;
+  if (confirmation.action === '__PublicCommand') {
+    $('#confirmation-dialog').close();
+    const submit = $('#command-submit');
+    submit.disabled = true;
+    try {
+      await startPublicCommand(
+        confirmation.parameters.command,
+        confirmation.parameters.parameterSet,
+        confirmation.parameters.parameters,
+        true
+      );
+    }
+    catch (error) { showError(error); }
+    finally { submit.disabled = false; }
+    return;
+  }
   if (confirmation.action === '__OperationStopCleanup') {
     $('#confirmation-dialog').close();
     try {
@@ -2046,9 +2189,45 @@ $('#ai-shared-gateway-service-secret-form').addEventListener('submit', async (ev
 
 $('#action-feedback-log').addEventListener('click', () => $('#jobs').closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 
+$('#command-search').addEventListener('input', renderPublicCommandCatalog);
+$('#command-area').addEventListener('change', renderPublicCommandCatalog);
+$('#command-name').addEventListener('change', () => {
+  $('#command-parameter-set').innerHTML = '<option value="">Parametersatz auswählen</option>';
+  renderPublicCommandForm();
+});
+$('#command-parameter-set').addEventListener('change', renderPublicCommandForm);
+$('#command-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const command = selectedPublicCommand();
+  const parameterSet = selectedPublicCommandParameterSet();
+  if (!command || !parameterSet) {
+    showError(new Error('Bitte Funktion und Ausführungsvariante auswählen.'));
+    return;
+  }
+  let parameters;
+  try { parameters = collectPublicCommandParameters(); }
+  catch (error) { showError(error); return; }
+  if (command.RequiresConfirmation) {
+    openConfirmation(
+      command.Name + ' ausführen',
+      'Diese Funktion kann den Lab-Zustand verändern. Prüfen Sie die angezeigten Eingaben und bestätigen Sie den Start.',
+      '__PublicCommand',
+      { command, parameterSet, parameters },
+      'Funktion starten'
+    );
+    return;
+  }
+  const submit = $('#command-submit');
+  submit.disabled = true;
+  try { await startPublicCommand(command, parameterSet, parameters, false); }
+  catch (error) { showError(error); }
+  finally { submit.disabled = false; }
+});
+
 $('#refresh').addEventListener('click', () => refresh().catch(showError));
 
 refreshUiConfig().catch(() => {});
+refreshPublicCommandCatalog().catch(showError);
 refresh().catch(showError);
 refreshJobs();
 // Der Sekunden-Takt ist ausschließlich für sichtbares Fortschritts-Feedback.

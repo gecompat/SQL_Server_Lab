@@ -10,6 +10,21 @@ zulässigen Schritt statt nur interner Zustandsnamen.
 Die Oberfläche ist ein zweiter Einstieg über denselben PowerShell-Core. Sie
 enthält keine eigene Provisionierungslogik.
 
+Der Arbeitsbereich **Alle Funktionen** wird aus demselben Export- und
+Parameterkatalog erzeugt wie **Alle öffentlichen Befehle** in
+`Invoke-SqlServerLab`. Damit ist jeder veröffentlichte Modulbefehl auch im
+Browser erreichbar. Suche und Fachbereichsfilter führen zum Befehl; danach
+zeigt die Oberfläche dessen echte Parametersätze, Pflichtfelder, Standards und
+zulässige Werte. Neue Exporte erscheinen ohne zweite manuell gepflegte
+GUI-Befehlsliste.
+
+Ändernde Befehle verlangen den einheitlichen Bestätigungsdialog. Eingaben mit
+Geheimnissen werden nur an einen flüchtigen Hintergrundjob übergeben, niemals
+in die persistente Queue geschrieben. Befehlsname und Parametersatz müssen im
+frisch erzeugten Katalog enthalten sein; freie PowerShell-Befehlszeilen nimmt
+die Browser-API nicht an. Ergebnisse werden vor der Ausgabe rekursiv um
+Kennwörter, Credentials, Tokens, Secrets und Connection Strings bereinigt.
+
 Die Workflow-Inventur (ISO-, Image- und Runtime-Erkennung) läuft getrennt von
 der HTTP-Annahme eines Klicks. Nach einer Aktion schließt der Dialog daher
 sofort; Live-Log, Auftragsbestätigung, Laufzeit und Herzschlag erscheinen

@@ -51,6 +51,12 @@ Die UI wird per Dateipfad gestartet:
 .\Tools\Start-SqlServerLabUi.ps1
 ```
 
+Der Browser bietet neben den geführten Standardabläufen den Arbeitsbereich
+**Alle Funktionen**. Er verwendet denselben vollständigen Exportkatalog wie
+`Invoke-SqlServerLab`, einschließlich Parametersätzen, Pflichtfeldern,
+Standards und zulässigen Werten. Ändernde Aufrufe benötigen eine sichtbare
+Bestätigung; sensible Eingaben bleiben in einem flüchtigen Hintergrundjob.
+
 ## Standard-Hilfe (Skript-Einstiegspunkte)
 
 Alle Skript-Einstiegspunkte im Projekt unterstützen konsistent `-ShowHelp`/`--help`

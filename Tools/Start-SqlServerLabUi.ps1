@@ -290,6 +290,45 @@ function Start-UiWorkflowJob {
     }
 }
 
+function Start-UiPublicCommandJob {
+    param(
+        [Parameter(Mandatory)][string]$CommandName,
+        [Parameter(Mandatory)][string]$ParameterSetName,
+        [Parameter(Mandatory)][hashtable]$Parameters,
+        [switch]$Confirmed
+    )
+
+    $id = [guid]::NewGuid().ToString('n')
+    $job = Start-ThreadJob -Name "sql-lab-ui-command-$id" -ArgumentList $modulePath, $CommandName, $ParameterSetName, $Parameters, $Confirmed.IsPresent -ScriptBlock {
+        param($JobModulePath, $JobCommandName, $JobParameterSetName, $JobParameters, $JobConfirmed)
+        $ErrorActionPreference = 'Stop'
+        $InformationPreference = 'SilentlyContinue'
+        $WarningPreference = 'SilentlyContinue'
+        try {
+            Import-Module $JobModulePath -Force 6>$null
+            $global:SqlServerLabUiCaptureOutput = $true
+            Write-Output "[START] $JobCommandName"
+            $receipt = & (Get-Module SqlServerLab) {
+                param($CommandName, $ParameterSetName, $Parameters, $Confirmed)
+                Invoke-LabPublicCommandWebRequest -CommandName $CommandName -ParameterSetName $ParameterSetName -Parameters $Parameters -Confirmed:$Confirmed
+            } $JobCommandName $JobParameterSetName $JobParameters $JobConfirmed
+            Write-Output ('[ERGEBNIS] ' + ($receipt | ConvertTo-Json -Depth 30 -Compress))
+            Write-Output '[OK] Befehl erfolgreich abgeschlossen.'
+        }
+        catch {
+            Write-Output "[FEHLER] $($_.Exception.Message)"
+            throw
+        }
+        finally {
+            Remove-Variable -Name SqlServerLabUiCaptureOutput -Scope Global -ErrorAction SilentlyContinue
+        }
+    }
+    return [PSCustomObject]@{
+        Id = $id; Action = "Command: $CommandName"; StartedAt = (Get-Date).ToUniversalTime().ToString('o')
+        LastActivityAt = (Get-Date).ToUniversalTime().ToString('o'); LastObservedLineCount = 0; Job = $job
+    }
+}
+
 # Die Medien- und Image-Erkennung kann große ISOs kurz einbinden und ist damit
 # wesentlich teurer als ein Browser-Klick. Sie läuft deshalb separat; der
 # HTTP-Listener bleibt für Jobs, Live-Log und weitere Klicks ansprechbar.
@@ -374,6 +413,11 @@ try {
             if ($path -eq '/api/workflow' -and $context.Request.HttpMethod -eq 'GET') {
                 $mediaRoot = [string]$context.Request.QueryString['mediaRoot']
                 Write-UiResponse -Context $context -Body (Get-UiWorkflowInventoryResponse -MediaRoot $mediaRoot | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
+                continue
+            }
+            if ($path -eq '/api/commands' -and $context.Request.HttpMethod -eq 'GET') {
+                $catalog = & (Get-Module SqlServerLab) { Get-LabPublicCommandWebCatalog }
+                Write-UiResponse -Context $context -Body (ConvertTo-Json -InputObject @($catalog) -Depth 12) -ContentType 'application/json; charset=utf-8'
                 continue
             }
             if ($path -eq '/api/jobs' -and $context.Request.HttpMethod -eq 'GET') {
@@ -500,6 +544,28 @@ try {
                 $record = Start-UiWorkflowJob -Action $action -Parameters $parameters
                 $jobs[$record.Id] = $record
                 Write-UiResponse -Context $context -Body (@{ id = $record.Id; action = $action } | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202
+                continue
+            }
+            if ($path -eq '/api/commands' -and $context.Request.HttpMethod -eq 'POST') {
+                $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
+                if ($body.Length -gt 1048576) { throw 'PUBLIC_COMMAND_UI_REQUEST_TOO_LARGE' }
+                $request = $body | ConvertFrom-Json -Depth 30
+                $commandName = [string]$request.commandName
+                $parameterSetName = [string]$request.parameterSetName
+                if ([string]::IsNullOrWhiteSpace($commandName) -or [string]::IsNullOrWhiteSpace($parameterSetName)) {
+                    throw 'PUBLIC_COMMAND_UI_COMMAND_AND_PARAMETER_SET_REQUIRED'
+                }
+                $parameters = @{}
+                if ($request.parameters) {
+                    foreach ($property in $request.parameters.PSObject.Properties) {
+                        $parameters[[string]$property.Name] = $property.Value
+                    }
+                }
+                # Generische Befehlsparameter können Geheimnisse enthalten und
+                # werden deshalb ausschließlich im flüchtigen Thread-Job gehalten.
+                $record = Start-UiPublicCommandJob -CommandName $commandName -ParameterSetName $parameterSetName -Parameters $parameters -Confirmed:([bool]$request.confirmed)
+                $jobs[$record.Id] = $record
+                Write-UiResponse -Context $context -Body (@{ id = $record.Id; action = $record.Action } | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 202
                 continue
             }
 
