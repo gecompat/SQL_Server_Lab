@@ -7,6 +7,8 @@
     Das Ergebnis ist direkt für Get-SqlServerLabAiComputeSelection verwendbar.
     CPU-Ausführung verlangt devices=none und n_gpu_layers=0 in der Ausgabe;
     das Paketfeld backends darf dabei einen kompilierten GPU-Backend nennen.
+    OpenVINO verlangt zusätzlich den Gerätenachweis und vollständigen Offload
+    im Prozesslog. Fallbacks oder fehlende Evidence verwerfen das Ergebnis.
 .PARAMETER Inventory
     Vollständiges, verifiziertes Hardwareinventar des Zielhosts.
 .PARAMETER Candidate

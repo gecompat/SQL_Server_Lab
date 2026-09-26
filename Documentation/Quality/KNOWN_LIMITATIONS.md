@@ -2571,6 +2571,13 @@ Ein CPU-Receipt verlangt `devices=none` und den ganzzahligen Ausgabewert
 `n_gpu_layers=0`. Das Feld `backends` kann auch bei CPU-Ausführung `CUDA`
 melden; es beschreibt die Paketfähigkeiten und ersetzt keinen Gerätenachweis.
 Fehlende oder widersprüchliche Offloadangaben bleiben blockiert.
+OpenVINO verlangt zusätzlich im eigenen Prozesslog die angeforderte Geräteart,
+den gebundenen Selector und vollständigen Layer-Offload ohne Fallbackmeldung.
+Eine explizite Bindung ersetzt diesen Nachweis nicht; fehlende oder abweichende
+Logs liefern `AI_COMPUTE_BENCHMARK_DEVICE_EVIDENCE_INVALID` ohne Rohdiagnose.
+Generische `OPENVINO0`-Beschreibungen lösen weiterhin keine automatische
+Hardwarezuordnung auf. Nummerierte OpenVINO-Gerätekennungen wie `GPU.0` sind
+noch nicht Bestandteil des Benchmark-Bindungsvertrags.
 Die Mengensmessung führt alle geeigneten Optionen mit einem identischen Profil
 nacheinander aus, ordnet mehrere Pakete über deren Runtimehash zu und liefert
 nur nach vollständiger Coverage direkt die schnellste Auswahl. Sie parallelisiert
