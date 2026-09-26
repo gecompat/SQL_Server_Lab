@@ -136,6 +136,12 @@ jobs:
             adapter = '${{ needs.adapter-runtime.result }}'
             test_environments = '${{ needs.test-environments.result }}'
           }
+          $runtimeClassification = @{
+            docker = '${{ needs.docker-runtime.outputs.validation_classification }}'
+            podman = '${{ needs.podman-runtime.outputs.validation_classification }}'
+            mixed = '${{ needs.mixed-runtime.outputs.validation_classification }}'
+            hyperv = '${{ needs.hyperv-runtime.outputs.validation_classification }}'
+          }
           $failed = @($results.GetEnumerator() | Where-Object Value -ne 'success')
           $title = '[Nightly Regression] SQL_Server_Lab'
           $existing = gh issue list --repo $env:REPOSITORY --state open --search "`"$title`" in:title" --json number,title --limit 20 | ConvertFrom-Json |
@@ -152,7 +158,21 @@ jobs:
 
           gh label create nightly-regression --repo $env:REPOSITORY --color D93F0B --description 'Fehler in der gebuendelten Nightly-Regression' --force | Out-Null
           $lines = @('# Nightly Regression fehlgeschlagen', '', "Lauf: $env:RUN_URL", '', '## Ergebnisse', '')
-          foreach ($entry in $results.GetEnumerator()) { $lines += "- $($entry.Key): **$($entry.Value)**" }
+          foreach ($entry in $results.GetEnumerator()) {
+            $classification = if ($entry.Value -eq 'success') {
+              'VALIDATED'
+            }
+            elseif ($runtimeClassification.ContainsKey($entry.Key) -and $runtimeClassification[$entry.Key]) {
+              $runtimeClassification[$entry.Key]
+            }
+            elseif ($entry.Value -eq 'failure') {
+              'VALIDATION_FAILURE'
+            }
+            else {
+              'UNKNOWN'
+            }
+            $lines += "- $($entry.Key): **$($entry.Value)** ($classification)"
+          }
           $body = $lines -join "`n"
           if ($existing) {
             gh issue edit $existing.number --repo $env:REPOSITORY --body $body --add-label nightly-regression | Out-Null
