@@ -21,8 +21,8 @@ function Invoke-LabAiBenchmarkProcess {
             if($timer.Elapsed.TotalSeconds -ge $TimeoutSeconds){try{$process.Kill($true)}catch{};$null=$process.WaitForExit(10000);throw 'AI_COMPUTE_BENCHMARK_TIMEOUT'}
         }
         try{$process.Refresh();$peak=[Math]::Max($peak,[long]$process.PeakWorkingSet64)}catch{}
-        $stdout=$stdoutTask.GetAwaiter().GetResult();$null=$stderrTask.GetAwaiter().GetResult()
-        [PSCustomObject]@{ExitCode=$process.ExitCode;StdOut=$stdout;PeakWorkingSetBytes=$peak}
+        $stdout=$stdoutTask.GetAwaiter().GetResult();$stderr=$stderrTask.GetAwaiter().GetResult()
+        [PSCustomObject]@{ExitCode=$process.ExitCode;StdOut=$stdout;StdErr=$stderr;PeakWorkingSetBytes=$peak}
     } catch {
         if($_.Exception.Message -like 'AI_COMPUTE_BENCHMARK_*'){throw}
         throw 'AI_COMPUTE_BENCHMARK_START_FAILED'
@@ -167,11 +167,20 @@ function Invoke-LabAiComputeBenchmark {
     if($BenchmarkMode -eq 'Embedding'){$arguments+=@('-embd','1')}
     $arguments+=@('-b',[string]$BatchSize,'-ub',[string]$MicroBatchSize,'-ngl',$(if($backend -eq 'LlamaCppCpu'){'0'}else{'99'}),'-dev',($selectors -join '/'),'-sm',$(if($selectors.Count -gt 1){'layer'}else{'none'}),'--offline')
     $environment=@{}
-    if($backend -eq 'LlamaCppOpenVino'){$kinds=@($validation.Devices.Kind|Sort-Object -Unique);if($kinds.Count -ne 1){throw 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_MISMATCH'};$environment.GGML_OPENVINO_DEVICE=$kinds[0]}
+    if($backend -eq 'LlamaCppOpenVino'){$kinds=@($validation.Devices.Kind|Sort-Object -Unique);if($kinds.Count -ne 1){throw 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_MISMATCH'};$environment.GGML_OPENVINO_DEVICE=$kinds[0];$arguments+='--verbose'}
     try{
         $result=if($ProcessRunner){& $ProcessRunner $bench[0].FullName $arguments $environment $TimeoutSeconds}else{Invoke-LabAiBenchmarkProcess -Invocation $bench[0].FullName -ArgumentList $arguments -Environment $environment -TimeoutSeconds $TimeoutSeconds}
     }catch{if($_.Exception.Message -like 'AI_COMPUTE_BENCHMARK_*'){throw};throw 'AI_COMPUTE_BENCHMARK_EXECUTION_FAILED'}
     if($null -eq $result -or [int]$result.ExitCode -ne 0 -or [long]$result.PeakWorkingSetBytes -lt 0){throw 'AI_COMPUTE_BENCHMARK_EXECUTION_FAILED'}
+    if($backend -eq 'LlamaCppOpenVino'){
+        $log=if($result.PSObject.Properties['StdErr']){[string]$result.StdErr}else{''}
+        $deviceEvidence=[regex]::Matches($log,'(?m)^OpenVINO: using device ([A-Za-z0-9._-]+)\s*$')
+        if($deviceEvidence.Count -ne 1 -or $deviceEvidence[0].Groups[1].Value -cne $environment.GGML_OPENVINO_DEVICE -or
+            (Test-LabLlamaCppComputeFailureLog -Log $log -Backend $backend -Accelerator $environment.GGML_OPENVINO_DEVICE) -or
+            -not (Test-LabLlamaCppAcceleratorLog -Log $log -Backend $backend -Accelerator $environment.GGML_OPENVINO_DEVICE -RuntimeSelector $selectors)){
+            throw 'AI_COMPUTE_BENCHMARK_DEVICE_EVIDENCE_INVALID'
+        }
+    }
     try{$records=@(([string]$result.StdOut|ConvertFrom-Json -Depth 30 -ErrorAction Stop))}catch{throw 'AI_COMPUTE_BENCHMARK_OUTPUT_INVALID'}
     if($records.Count -ne 1){throw 'AI_COMPUTE_BENCHMARK_OUTPUT_INVALID'};$record=$records[0]
     $samplesNs=@($record.samples_ns);$samplesTs=@($record.samples_ts)

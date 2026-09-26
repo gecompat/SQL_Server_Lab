@@ -128,6 +128,35 @@ try {
     Add-CheckResult 'Nicht übereinstimmender Runtime-Gerätename fällt geschlossen aus' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -ProcessRunner $run} $inventory $multi $package $model $missingNameRunner} 'AI_COMPUTE_DEVICE_BINDING_UNRESOLVED')
     $failedDiscoveryRunner={param($i,$a,$e,$t)if('--list-devices' -in $a){[pscustomobject]@{ExitCode=3;StdOut='private runtime error';PeakWorkingSetBytes=1}}else{& $runner $i $a $e $t}}
     Add-CheckResult 'Fehlgeschlagene Gerätediscovery liefert nur stabilen Fehlercode' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -ProcessRunner $run} $inventory $multi $package $model $failedDiscoveryRunner} 'AI_COMPUTE_DEVICE_DISCOVERY_FAILED')
+    $ovProbe=[pscustomobject]@{Platform='Windows';Coverage=@((Coverage CPU),(Coverage GPU),(Coverage NPU));Devices=@((Device CPU cpu0 8086 cpu 'Intel CPU'),(Device NPU npu0 8086 npu 'Intel NPU'))}
+    $ovInventory=& $module {param($p)Get-LabAiComputeInventory -ProbeResult $p} $ovProbe
+    $ovPackage=Join-Path $fixture 'llama-b300-bin-openvino';$null=New-Item -ItemType Directory -Path $ovPackage
+    foreach($name in @('llama-server.exe','llama-bench.exe','ggml-openvino.dll')){[IO.File]::WriteAllText((Join-Path $ovPackage $name),('synthetic-'+$name))}
+    $ovRuntime=@(Get-SqlServerLabLlamaCppRuntime -SearchRoot $ovPackage)[0]
+    $ovCapabilities=Get-SqlServerLabAiRuntimeCapability -Inventory $ovInventory -Runtime $ovRuntime
+    $ovCandidates=Get-SqlServerLabAiComputeCandidate -Inventory $ovInventory -RuntimeCapability $ovCapabilities.Capabilities
+    $ovCandidate=@($ovCandidates.Candidates|Where-Object {$_.Eligible -and $_.Backend -eq 'LlamaCppOpenVino' -and $_.Devices[0].Kind -eq 'NPU'})[0]
+    $ovBinding=@([pscustomobject]@{DeviceId=$ovCandidate.Devices[0].DeviceId;RuntimeSelector='OPENVINO0'})
+    $ovValidLog="OpenVINO: using device NPU`noffloaded 25/25 layers`nOPENVINO0 model buffer size"
+    $ovLog=$ovValidLog
+    $ovRunner={param($i,$a,$e,$t)
+        if('--verbose' -notin $a -or $e.GGML_OPENVINO_DEVICE -cne 'NPU'){throw 'SYNTHETIC_OPENVINO_LOG_CONFIGURATION_INVALID'}
+        $result=& $runner $i $a $e $t
+        $record=$result.StdOut|ConvertFrom-Json;$record.backends='OpenVINO';$result.StdOut=$record|ConvertTo-Json -Compress
+        $result|Add-Member -NotePropertyName StdErr -NotePropertyValue $ovLog
+        $result
+    }
+    $ovMeasure={& $module {param($i,$c,$r,$m,$b,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -DeviceBinding $b -ProcessRunner $run} $ovInventory $ovCandidate $ovPackage $model $ovBinding $ovRunner}
+    $ovReceipt=& $ovMeasure
+    Add-CheckResult 'OpenVINO verlangt gebundenen Lognachweis auch bei explizitem Selector' ($ovReceipt.EvidenceStatus -ceq 'BENCHMARK_VERIFIED' -and ($ovReceipt|ConvertTo-Json) -notmatch 'StdErr|using device|model buffer')
+    foreach($ovLog in @('',"OpenVINO: using device CPU`noffloaded 25/25 layers`nOPENVINO0",($ovValidLog+"`nfallback to CPU"),($ovValidLog+"`nfalling back to CPU"),($ovValidLog -replace '25/25','24/25'),($ovValidLog -replace 'OPENVINO0','OTHER0'),($ovValidLog+"`nOpenVINO: using device CPU"),($ovValidLog+"`ngraph_compute failed"))){
+        Add-CheckResult 'Fehlender, widersprüchlicher oder zurückgefallener OpenVINO-Log verwirft das Receipt' (Reject $ovMeasure 'AI_COMPUTE_BENCHMARK_DEVICE_EVIDENCE_INVALID')
+    }
+    $ovLog=$ovValidLog
+    $ovMissingLogRunner={param($i,$a,$e,$t)$result=& $ovRunner $i $a $e $t;$result.PSObject.Properties.Remove('StdErr');$result}
+    Add-CheckResult 'Legacy-Prozessantwort ohne stderr ist kein OpenVINO-Nachweis' (Reject {& $module {param($i,$c,$r,$m,$b,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -DeviceBinding $b -ProcessRunner $run} $ovInventory $ovCandidate $ovPackage $model $ovBinding $ovMissingLogRunner} 'AI_COMPUTE_BENCHMARK_DEVICE_EVIDENCE_INVALID')
+    $nativeProcess=& $module {param($pwsh)Invoke-LabAiBenchmarkProcess -Invocation $pwsh -ArgumentList @('-NoProfile','-NonInteractive','-Command','[Console]::Out.Write("synthetic-output");[Console]::Error.Write("synthetic-diagnostic")') -Environment @{} -TimeoutSeconds 15} (Get-Process -Id $PID).Path
+    Add-CheckResult 'Eigener Prozessadapter liest stdout und stderr getrennt' ($nativeProcess.ExitCode -eq 0 -and $nativeProcess.StdOut -ceq 'synthetic-output' -and $nativeProcess.StdErr -ceq 'synthetic-diagnostic')
     $badModel=Join-Path $fixture 'bad.gguf';[IO.File]::WriteAllText($badModel,'not-a-gguf')
     Add-CheckResult 'Dateiendung ohne GGUF-Magic wird vor Prozessstart abgewiesen' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -DeviceBinding @([pscustomobject]@{DeviceId=$c.Devices[0].DeviceId;RuntimeSelector='none'}) -ProcessRunner $run} $inventory $cpu $package $badModel $runner} 'AI_COMPUTE_BENCHMARK_MODEL_INVALID')
     $inconsistentRunner={param($i,$a,$e,$t)[pscustomobject]@{ExitCode=0;StdOut=([ordered]@{backends='CPU';devices='none';n_gpu_layers=0;n_prompt=0;n_gen=128;avg_ts=99;samples_ns=@(100000000,101000000,102000000,103000000,104000000);samples_ts=@(10,10,10,10,10)}|ConvertTo-Json -Compress);PeakWorkingSetBytes=1}}
