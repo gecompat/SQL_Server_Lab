@@ -76,6 +76,17 @@ einschließlich SQL-TLS-Negativen, Retrieval nach SQLrestart und Cleanup.
 Keine öffentliche Gateway-API. Voraussetzungen, Aufruf und Besitzgrenzen stehen im
 [Referenzvertrag](../Architecture/AI_SQL_HTTPS_BRIDGE.md).
 
+## Secret-Preflight für den gemeinsamen KI-Gateway
+
+`Test-SqlServerLabAiSharedGatewayServiceSecret` prüft die Consumer-Referenzen
+eines mit `Get-SqlServerLabAiSharedGatewayServicePlan` erzeugten Dienstplans.
+Plan und Prüfung müssen im selben Benutzer-/Hostkontext ausgeführt werden.
+`AI_SHARED_GATEWAY_SERVICE_PRINCIPAL_MISMATCH` blockiert vor dem Vaultzugriff;
+erstelle den Dienstplan in diesem Fall im gewünschten Ausführungskontext neu.
+CLI und Browser-GUI verwenden dieselbe Prüfung. Das fünf Minuten gültige
+Receipt bestätigt weiterhin nur die aktuelle Sitzung; die nichtinteraktive
+Auflösung beim tatsächlichen Dienststart bleibt separat nachzuweisen.
+
 ## Read-only Mehrdatenbankvergleich
 
 `Test-SqlServerLabRelationalCoreComparison` vergleicht explizit benannte, bereits laufende verwaltete Docker-/Podman-Datenbankpaare. Der Befehl nimmt keine Endpunkte, Connection Strings, SQL-Texte oder Kennwörter an. Ein Paar enthält nur die stabile Paar-ID sowie Quell- und Ziel-RunId, InstanceId und Datenbankname. Der Vergleich kann `MATCH`, `DIFFERENT` oder `UNSUPPORTED` feststellen; er ändert keine Datenbank und führt keinen Transfer aus.

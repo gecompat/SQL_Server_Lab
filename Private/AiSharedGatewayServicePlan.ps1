@@ -1,3 +1,10 @@
+function Get-LabAiSharedGatewayServicePrincipalKey {
+    [CmdletBinding()]
+    param()
+    $platform=if($IsWindows){'Windows'}elseif($IsLinux){'Linux'}else{'Unsupported'}
+    Get-LabAiPlanKey ([ordered]@{Platform=$platform;Machine=[Environment]::MachineName;User=[Environment]::UserName})
+}
+
 function Get-LabAiSharedGatewayServiceCapability {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$StateRoot,[Parameter(Mandatory)][string]$GatewayId)
@@ -29,7 +36,7 @@ function Get-LabAiSharedGatewayServiceCapability {
         }
     }
     else {$blockers.Add('AI_SHARED_GATEWAY_SERVICE_PLATFORM_UNSUPPORTED')}
-    $principalKey=Get-LabAiPlanKey ([ordered]@{Platform=$platform;Machine=[Environment]::MachineName;User=[Environment]::UserName})
+    $principalKey=Get-LabAiSharedGatewayServicePrincipalKey
     $identity=[ordered]@{Contract='SqlServerLab.AiSharedGatewayServiceCapability/1.0';Platform=$platform;ServiceMode=$serviceMode;PrincipalKey=$principalKey;VerifiedEvidence=@($verified|Sort-Object -Unique);Blockers=@($blockers|Sort-Object -Unique)}
     [pscustomobject][ordered]@{Contract=[pscustomobject]@{Name='SqlServerLab.AiSharedGatewayServiceCapability';Version='1.0'};Status=if($blockers.Count){'BLOCKED'}else{'READY'};Platform=$platform;ServiceMode=$serviceMode;PrincipalKey=$principalKey;VerifiedEvidence=$identity.VerifiedEvidence;Blockers=$identity.Blockers;CapabilityKey=Get-LabAiPlanKey $identity}
 }
