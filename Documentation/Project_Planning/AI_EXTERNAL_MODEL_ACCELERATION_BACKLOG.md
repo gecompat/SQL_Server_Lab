@@ -73,7 +73,11 @@ IPv4-Loopback, verlangt für jede geplante Consumerreferenz genau einen eigenen
 SecureString-Schlüssel, rekonstruiert ausschließlich einen einzelnen
 OpenAI-Embeddingrequest und entfernt temporäre Schlüssel unmittelbar nach dem
 Einlesen. `Stop-SqlServerLabAiSharedGatewaySession` beendet und bereinigt nur
-eine Operation derselben Modulsitzung. Der synthetische Vertrag belegt zwei
+eine Operation derselben Modulsitzung. `Get-SqlServerLabAiSharedGatewayStatus`
+klassifiziert ohne Mutation fehlende oder revalidierte Registrierung, die eigene
+laufende Session, Planabweichung, Inhaltsdrift, verlorenen Ownerprozess oder
+Listener sowie eine fremde Portbelegung mit stabilen ReasonCodes. Der
+synthetische Vertrag belegt zwei
 getrennte Consumer, TLS-Pinning, Prozess-/Listenerbesitz und Cleanup ohne SQL-
 oder Providermutation. Dieser begrenzte Session-Lifecycle ist kein Ersatz für
 den dauerhaften Gatewaydienst. Dessen Apply/Remove, Backup, Restore und

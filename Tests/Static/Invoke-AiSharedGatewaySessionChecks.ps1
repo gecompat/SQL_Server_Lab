@@ -2,7 +2,7 @@
 [CmdletBinding()]param()
 $ErrorActionPreference='Stop';$repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $PSScriptRoot '../Common/CheckResult.ps1')
-$failures=[Collections.Generic.List[string]]::new();$passed=0;$module=$null;$upstreamJob=$null;$session=$null
+$failures=[Collections.Generic.List[string]]::new();$passed=0;$module=$null;$upstreamJob=$null;$session=$null;$portGuard=$null
 $testRoot=[IO.Path]::GetFullPath((Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-shared-gateway-session-test-'+[guid]::NewGuid().ToString('N'))));$null=[IO.Directory]::CreateDirectory($testRoot);$disposable=[Collections.Generic.List[IDisposable]]::new()
 function New-TestCa {$rsa=[Security.Cryptography.RSA]::Create(2048);$script:disposable.Add($rsa);$r=[Security.Cryptography.X509Certificates.CertificateRequest]::new('CN=Session Test CA',$rsa,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pkcs1);$r.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($true,$false,0,$true));$r.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509KeyUsageExtension]::new([Security.Cryptography.X509Certificates.X509KeyUsageFlags]::KeyCertSign,$true));$c=$r.CreateSelfSigned([datetimeoffset]::UtcNow.AddDays(-1),[datetimeoffset]::UtcNow.AddDays(2));$script:disposable.Add($c);$c}
 function New-TestLeaf($Ca){$rsa=[Security.Cryptography.RSA]::Create(2048);$script:disposable.Add($rsa);$r=[Security.Cryptography.X509Certificates.CertificateRequest]::new('CN=host.docker.internal',$rsa,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pkcs1);$r.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509BasicConstraintsExtension]::new($false,$false,0,$true));$r.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509KeyUsageExtension]::new([Security.Cryptography.X509Certificates.X509KeyUsageFlags]::DigitalSignature,[bool]$true));$eku=[Security.Cryptography.OidCollection]::new();$null=$eku.Add([Security.Cryptography.Oid]::new('1.3.6.1.5.5.7.3.1'));$r.CertificateExtensions.Add([Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]::new($eku,$true));$san=[Security.Cryptography.X509Certificates.SubjectAlternativeNameBuilder]::new();$san.AddDnsName('host.docker.internal');$r.CertificateExtensions.Add($san.Build());$serial=[byte[]]::new(16);[Security.Cryptography.RandomNumberGenerator]::Fill($serial);$public=$r.Create($Ca,[datetimeoffset]::UtcNow.AddHours(-1),[datetimeoffset]::UtcNow.AddDays(1),$serial);$script:disposable.Add($public);$c=[Security.Cryptography.X509Certificates.RSACertificateExtensions]::CopyWithPrivateKey($public,$rsa);$script:disposable.Add($c);[pscustomobject]@{Certificate=$c;PrivateKey=$rsa}}
@@ -19,12 +19,20 @@ try {
     $upstreamJob=Start-Job -ScriptBlock $server -ArgumentList $upstreamPort,$ready,$stop,'bound-model';$deadline=[datetime]::UtcNow.AddSeconds(15);while(-not(Test-Path $ready)){if($upstreamJob.State -ne 'Running' -or [datetime]::UtcNow -gt $deadline){throw 'synthetic upstream failed'};Start-Sleep -Milliseconds 50}
     $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru;$stateRoot=Join-Path $testRoot 'state'
     $consumers=@([pscustomobject]@{RunId='11111111-1111-4111-8111-111111111111';InstanceId='a';DatabaseId='22222222-2222-4222-8222-222222222222';ExternalModelName='SharedA';ApiKeyReference='SQL_SERVER_LAB_SECRET_SHARED_AI_A'},[pscustomobject]@{RunId='33333333-3333-4333-8333-333333333333';InstanceId='b';DatabaseId='44444444-4444-4444-8444-444444444444';ExternalModelName='SharedB';ApiKeyReference='SQL_SERVER_LAB_SECRET_SHARED_AI_B'})
-    $plan=Get-SqlServerLabAiSharedGatewayPlan -GatewayId shared-session -Location "https://host.docker.internal:$gatewayPort/v1/embeddings" -UpstreamBackend LlamaCppCuda -UpstreamLocation "http://127.0.0.1:$upstreamPort/v1/embeddings" -RuntimeModel bound-model -Dimension 3 -InputProfile raw -ModelSha256 (Get-FileHash $model -Algorithm SHA256).Hash.ToLowerInvariant() -RuntimeSha256 (Get-FileHash $runtime -Algorithm SHA256).Hash.ToLowerInvariant() -ServerCertificateSha256 $leaf.Certificate.GetCertHashString([Security.Cryptography.HashAlgorithmName]::SHA256).ToLowerInvariant() -CertificateAuthoritySha256 $ca.GetCertHashString([Security.Cryptography.HashAlgorithmName]::SHA256).ToLowerInvariant() -Consumer $consumers
+    $planParameters=@{GatewayId='shared-session';Location="https://host.docker.internal:$gatewayPort/v1/embeddings";UpstreamBackend='LlamaCppCuda';UpstreamLocation="http://127.0.0.1:$upstreamPort/v1/embeddings";RuntimeModel='bound-model';Dimension=3;InputProfile='raw';ModelSha256=(Get-FileHash $model -Algorithm SHA256).Hash.ToLowerInvariant();RuntimeSha256=(Get-FileHash $runtime -Algorithm SHA256).Hash.ToLowerInvariant();ServerCertificateSha256=$leaf.Certificate.GetCertHashString([Security.Cryptography.HashAlgorithmName]::SHA256).ToLowerInvariant();CertificateAuthoritySha256=$ca.GetCertHashString([Security.Cryptography.HashAlgorithmName]::SHA256).ToLowerInvariant();Consumer=$consumers}
+    $plan=Get-SqlServerLabAiSharedGatewayPlan @planParameters
+    $statusSchema=Join-Path $repoRoot 'Schemas/ai-shared-gateway-status.schema.json'
+    $unregistered=$plan|Get-SqlServerLabAiSharedGatewayStatus -StateRoot $stateRoot
+    Add-CheckResult 'Status unterscheidet fehlende Registrierung ohne Mutation' ($unregistered.Status -ceq 'NOT_REGISTERED' -and $unregistered.ReasonCode -ceq 'AI_SHARED_GATEWAY_STATUS_NOT_REGISTERED' -and -not(Test-Path -LiteralPath $stateRoot) -and ($unregistered|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $statusSchema))
     $null=$plan|Register-SqlServerLabAiSharedGatewayStorage -RuntimePath $runtime -ModelPath $model -CertificatePath $cert -PrivateKeyPath $key -CertificateAuthorityPath $caPath -StateRoot $stateRoot -Confirm:$false
+    $stopped=$plan|Get-SqlServerLabAiSharedGatewayStatus -StateRoot $stateRoot
+    Add-CheckResult 'Status erkennt revalidierte Registrierung ohne Listener' ($stopped.Status -ceq 'REGISTERED_STOPPED' -and $stopped.ReasonCode -ceq 'AI_SHARED_GATEWAY_STATUS_REGISTERED_STOPPED' -and ($stopped|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $statusSchema))
     $keyA=New-TestSecureString 'AAAAAAAAAAAAAAAAAAAAAAAA';$keyB=New-TestSecureString 'BBBBBBBBBBBBBBBBBBBBBBBB';$keys=@{SQL_SERVER_LAB_SECRET_SHARED_AI_A=$keyA;SQL_SERVER_LAB_SECRET_SHARED_AI_B=$keyB}
     Add-CheckResult 'WhatIf startet keine Session' ($null -eq ($plan|Start-SqlServerLabAiSharedGatewaySession -ApiKeyByReference $keys -StateRoot $stateRoot -WhatIf))
     $session=$plan|Start-SqlServerLabAiSharedGatewaySession -ApiKeyByReference $keys -StateRoot $stateRoot -StartTimeoutSeconds 20 -LeaseSeconds 60 -Confirm:$false
     Add-CheckResult 'Start liefert schema-validiertes ownergebundenes Receipt' ($session.Status -ceq 'SESSION_ENDPOINT_VERIFIED' -and ($session|ConvertTo-Json -Depth 20|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-shared-gateway-session-receipt.schema.json')))
+    $running=$plan|Get-SqlServerLabAiSharedGatewayStatus -StateRoot $stateRoot
+    Add-CheckResult 'Status bindet eigene laufende Session an Prozess und Listener' ($running.Status -ceq 'OWNER_SESSION_RUNNING' -and $running.OperationId -ceq $session.OperationId -and $running.ProcessId -gt 0 -and ($running|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $statusSchema))
     $operationRoot=& $module {param($id)$script:AiSharedGatewaySessions[$id].OperationRoot} $session.OperationId
     $processBinding=& $module {param($id)$owned=$script:AiSharedGatewaySessions[$id];$receipt=Get-Content -LiteralPath $owned.ReceiptPath -Raw|ConvertFrom-Json;[bool]($receipt.OperationId -ceq $id -and [int]$receipt.ProcessId -eq $owned.Worker.Id -and $receipt.OwnerNonce -ceq $owned.OwnerNonce -and $receipt.OwnerNonce -cmatch '^[a-f0-9]{64}$')} $session.OperationId
     Add-CheckResult 'Workerreceipt bindet Operation, PID und plattformneutralen Owner-Nonce' $processBinding
@@ -40,15 +48,31 @@ try {
     Add-CheckResult 'Doppelte Consumer-Schlüssel werden abgewiesen' (Reject {& $module {param($p,$m)Resolve-LabAiSharedGatewaySessionKeys $p $m} $plan @{SQL_SERVER_LAB_SECRET_SHARED_AI_A=$keyA;SQL_SERVER_LAB_SECRET_SHARED_AI_B=$keyA}} 'AI_SHARED_GATEWAY_SESSION_API_KEY_DUPLICATE')
     $cleanup=Stop-SqlServerLabAiSharedGatewaySession -OperationId $session.OperationId -Confirm:$false;$session=$null
     Add-CheckResult 'Stop bestätigt Prozess-/Listenercleanup und entfernt Operationszustand' ($cleanup.Status -ceq 'CLEANUP_SUCCEEDED' -and -not(Test-Path $operationRoot))
+    $portGuard=[Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback,$gatewayPort);$portGuard.Start()
+    $unknown=$plan|Get-SqlServerLabAiSharedGatewayStatus -StateRoot $stateRoot
+    Add-CheckResult 'Status meldet fremd belegten Gatewayport als Recoverybedarf' ($unknown.Status -ceq 'RECOVERY_REQUIRED' -and $unknown.ReasonCode -ceq 'AI_SHARED_GATEWAY_STATUS_PORT_OCCUPIED_UNKNOWN' -and ($unknown|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $statusSchema))
+    $portGuard.Stop();$portGuard=$null
+    $conflictParameters=$planParameters.Clone();$conflictParameters.RuntimeModel='conflicting-model'
+    $conflictPlan=Get-SqlServerLabAiSharedGatewayPlan @conflictParameters
+    $conflict=$conflictPlan|Get-SqlServerLabAiSharedGatewayStatus -StateRoot $stateRoot
+    Add-CheckResult 'Status unterscheidet abweichenden Plan von Inhaltsdrift' ($conflict.Status -ceq 'RECOVERY_REQUIRED' -and $conflict.ReasonCode -ceq 'AI_SHARED_GATEWAY_STATUS_PLAN_CONFLICT' -and ($conflict|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $statusSchema))
+    $registrationPath=Join-Path $stateRoot 'shared-ai-gateways/shared-session/registration.json';$registrationJson=[IO.File]::ReadAllText($registrationPath)
+    try {
+        [IO.File]::WriteAllText($registrationPath,'{}')
+        $drift=$plan|Get-SqlServerLabAiSharedGatewayStatus -StateRoot $stateRoot
+        Add-CheckResult 'Status meldet manipulierte Registrierung als Recoverybedarf' ($drift.Status -ceq 'RECOVERY_REQUIRED' -and $drift.ReasonCode -ceq 'AI_SHARED_GATEWAY_STATUS_STORAGE_DRIFT' -and ($drift|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $statusSchema))
+    }
+    finally {[IO.File]::WriteAllText($registrationPath,$registrationJson)}
     Add-CheckResult 'Fremde OperationId wird nicht angefasst' (Reject {Stop-SqlServerLabAiSharedGatewaySession -OperationId ([guid]::NewGuid().ToString('D')) -Confirm:$false} 'AI_SHARED_GATEWAY_SESSION_OWNERSHIP_NOT_FOUND')
     $workerSource=Get-Content (Join-Path $repoRoot 'Tools/Invoke-AiSharedGatewaySessionWorker.ps1') -Raw
     Add-CheckResult 'Worker bindet Loopback und begrenzt den direkten Upstreamtransport' ($workerSource -match 'IPAddress\]::Loopback' -and $workerSource -match '\.UseProxy=\$false' -and $workerSource -match '\.AllowAutoRedirect=\$false' -and $workerSource -match 'ResponseHeadersRead' -and $workerSource -match 'upstreamOutput\.Length\+\$upstreamRead -gt 1MB')
     $ownerSource=Get-Content (Join-Path $repoRoot 'Private/LlamaCppOwnedRuntime.ps1') -Raw
     Add-CheckResult 'Modulentladung schließt auch Shared-Gateway-Ownerkanäle' ($ownerSource -match '\$script:AiSharedGatewaySessions' -and $ownerSource -match 'StandardInput\.Close\(\)')
-    Add-CheckResult 'Öffentliche Befehle sind manifestexportiert' ((Get-Command Start-SqlServerLabAiSharedGatewaySession).ModuleName -ceq 'SqlServerLab' -and (Get-Command Stop-SqlServerLabAiSharedGatewaySession).ModuleName -ceq 'SqlServerLab')
+    Add-CheckResult 'Öffentliche Befehle sind manifestexportiert' ((Get-Command Start-SqlServerLabAiSharedGatewaySession).ModuleName -ceq 'SqlServerLab' -and (Get-Command Stop-SqlServerLabAiSharedGatewaySession).ModuleName -ceq 'SqlServerLab' -and (Get-Command Get-SqlServerLabAiSharedGatewayStatus).ModuleName -ceq 'SqlServerLab')
 }
 finally {
     if($session -and $module){try{Stop-SqlServerLabAiSharedGatewaySession -OperationId $session.OperationId -Confirm:$false|Out-Null}catch{}}
+    if($portGuard){try{$portGuard.Stop()}catch{}}
     [IO.File]::WriteAllText((Join-Path $testRoot 'upstream.stop'),'stop');if($upstreamJob){$null=$upstreamJob|Wait-Job -Timeout 10;$upstreamJob|Remove-Job -Force}
     if($module){Remove-Module $module -Force -ErrorAction SilentlyContinue};foreach($item in @($disposable)){try{$item.Dispose()}catch{}};if(Test-Path $testRoot){Remove-Item $testRoot -Recurse -Force}
 }

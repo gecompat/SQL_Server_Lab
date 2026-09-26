@@ -92,6 +92,87 @@ function Test-LabAiSharedGatewaySessionListenerOwner {
     return $false
 }
 
+function Test-LabAiSharedGatewayPortInUse {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][ValidateRange(1,65535)][int]$Port)
+    try {
+        return [bool]@([Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() |
+            Where-Object Port -eq $Port).Count
+    }
+    catch {throw 'AI_SHARED_GATEWAY_STATUS_LISTENER_QUERY_FAILED'}
+}
+
+function New-LabAiSharedGatewayStatusResult {
+    param(
+        [Parameter(Mandatory)]$Plan,
+        [Parameter(Mandatory)][string]$Status,
+        [Parameter(Mandatory)][string]$EvidenceStatus,
+        [Parameter(Mandatory)][string]$ReasonCode,
+        [string]$StorageReceiptKey,
+        $Session
+    )
+    $checkedAt=[datetime]::UtcNow.ToString('o')
+    $verified=[Collections.Generic.List[string]]::new()
+    if($StorageReceiptKey){$verified.Add('PROTECTED_SHARED_STORAGE_REVALIDATED')}
+    if($Status -ceq 'OWNER_SESSION_RUNNING'){$verified.Add('OWNER_PROCESS_BOUND');$verified.Add('OWNER_LISTENER_BOUND')}
+    $pending=[Collections.Generic.List[string]]::new()
+    if(-not $StorageReceiptKey){$pending.Add('PROTECTED_SHARED_STORAGE')}
+    if($Status -cne 'OWNER_SESSION_RUNNING'){$pending.Add('LIVE_ENDPOINT')}
+    foreach($item in @('PERSISTENT_GATEWAY_SERVICE','SQL_CONSUMER_BINDINGS','BACKUP_RESTORE','ROTATION','ACCELERATOR_RUNTIME_ATTESTATION')){$pending.Add($item)}
+    $identity=[ordered]@{Contract='SqlServerLab.AiSharedGatewayStatus/1.0';GatewayId=$Plan.GatewayId;PlanKey=$Plan.PlanKey;Status=$Status;EvidenceStatus=$EvidenceStatus;ReasonCode=$ReasonCode;CheckedAtUtc=$checkedAt}
+    if($StorageReceiptKey){$identity.StorageReceiptKey=$StorageReceiptKey}
+    if($Session){$identity.OperationId=[string]$Session.OperationId}
+    $result=[pscustomobject][ordered]@{
+        Contract=[pscustomobject]@{Name='SqlServerLab.AiSharedGatewayStatus';Version='1.0'}
+        Status=$Status;EvidenceStatus=$EvidenceStatus;ReasonCode=$ReasonCode
+        GatewayId=$Plan.GatewayId;PlanKey=$Plan.PlanKey;Location=$Plan.Location
+        ConsumerCount=@($Plan.Consumers).Count;CheckedAtUtc=$checkedAt
+        VerifiedEvidence=@($verified);PendingEvidence=@($pending);ReceiptKey=Get-LabAiPlanKey $identity
+    }
+    if($StorageReceiptKey){$result|Add-Member -NotePropertyName StorageReceiptKey -NotePropertyValue $StorageReceiptKey}
+    if($Session){
+        $result|Add-Member -NotePropertyName OperationId -NotePropertyValue ([string]$Session.OperationId)
+        $result|Add-Member -NotePropertyName ProcessId -NotePropertyValue ([int]$Session.Worker.Id)
+        $result|Add-Member -NotePropertyName StartedAtUtc -NotePropertyValue ([datetime]::new([long]$Session.StartedAtUtcTicks,[DateTimeKind]::Utc).ToString('o'))
+    }
+    return $result
+}
+
+function Get-LabAiSharedGatewayStatus {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Plan,[string]$StateRoot)
+
+    $canonical=Resolve-LabAiSharedGatewayPlan $Plan
+    if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
+    $root=Assert-LabAiSharedGatewayStoragePath $StateRoot
+    $gatewayRoot=Join-Path (Join-Path $root 'shared-ai-gateways') $canonical.GatewayId
+    if(-not(Test-Path -LiteralPath $gatewayRoot -PathType Container)){
+        return New-LabAiSharedGatewayStatusResult -Plan $canonical -Status 'NOT_REGISTERED' -EvidenceStatus 'NO_REGISTRATION' -ReasonCode 'AI_SHARED_GATEWAY_STATUS_NOT_REGISTERED'
+    }
+    try{$storage=Read-LabAiSharedGatewayRegistration -Directory $gatewayRoot -ExpectedPlan $canonical}
+    catch {
+        $reason=if($_.Exception.Message -ceq 'AI_SHARED_GATEWAY_STORAGE_CONFLICT'){'AI_SHARED_GATEWAY_STATUS_PLAN_CONFLICT'}else{'AI_SHARED_GATEWAY_STATUS_STORAGE_DRIFT'}
+        return New-LabAiSharedGatewayStatusResult -Plan $canonical -Status 'RECOVERY_REQUIRED' -EvidenceStatus 'REGISTRATION_UNTRUSTED' -ReasonCode $reason
+    }
+    $owned=$null
+    if($script:AiSharedGatewaySessions){
+        $ownedEntry=@($script:AiSharedGatewaySessions.GetEnumerator()|Where-Object {$_.Value.GatewayId -ceq $canonical.GatewayId -or $_.Value.Port -eq [int]$canonical.Port}|Select-Object -First 1)
+        if($ownedEntry){
+            $value=$ownedEntry.Value
+            $owned=[pscustomobject]@{OperationId=[string]$ownedEntry.Key;Worker=$value.Worker;StartedAtUtcTicks=$value.StartedAtUtcTicks}
+        }
+    }
+    if($owned){
+        if($owned.Worker.HasExited){return New-LabAiSharedGatewayStatusResult -Plan $canonical -Status 'RECOVERY_REQUIRED' -EvidenceStatus 'OWNER_SESSION_DEGRADED' -ReasonCode 'AI_SHARED_GATEWAY_STATUS_OWNER_PROCESS_EXITED' -StorageReceiptKey $storage.ReceiptKey -Session $owned}
+        if(-not(Test-LabAiSharedGatewaySessionListenerOwner -Port ([int]$canonical.Port) -ProcessId $owned.Worker.Id)){return New-LabAiSharedGatewayStatusResult -Plan $canonical -Status 'RECOVERY_REQUIRED' -EvidenceStatus 'OWNER_SESSION_DEGRADED' -ReasonCode 'AI_SHARED_GATEWAY_STATUS_OWNER_LISTENER_MISSING' -StorageReceiptKey $storage.ReceiptKey -Session $owned}
+        return New-LabAiSharedGatewayStatusResult -Plan $canonical -Status 'OWNER_SESSION_RUNNING' -EvidenceStatus 'OWNER_BOUND_LIVE_LISTENER' -ReasonCode 'AI_SHARED_GATEWAY_STATUS_OWNER_SESSION_RUNNING' -StorageReceiptKey $storage.ReceiptKey -Session $owned
+    }
+    if(Test-LabAiSharedGatewayPortInUse -Port ([int]$canonical.Port)){
+        return New-LabAiSharedGatewayStatusResult -Plan $canonical -Status 'RECOVERY_REQUIRED' -EvidenceStatus 'LISTENER_OWNERSHIP_UNRESOLVED' -ReasonCode 'AI_SHARED_GATEWAY_STATUS_PORT_OCCUPIED_UNKNOWN' -StorageReceiptKey $storage.ReceiptKey
+    }
+    return New-LabAiSharedGatewayStatusResult -Plan $canonical -Status 'REGISTERED_STOPPED' -EvidenceStatus 'PROTECTED_STORAGE_ONLY' -ReasonCode 'AI_SHARED_GATEWAY_STATUS_REGISTERED_STOPPED' -StorageReceiptKey $storage.ReceiptKey
+}
+
 function Stop-LabAiSharedGatewaySession {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$OperationId)

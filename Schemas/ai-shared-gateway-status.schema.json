@@ -1,0 +1,23 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://example.invalid/sql-server-lab/ai-shared-gateway-status.schema.json",
+  "type":"object",
+  "required":["Contract","Status","EvidenceStatus","ReasonCode","GatewayId","PlanKey","Location","ConsumerCount","CheckedAtUtc","VerifiedEvidence","PendingEvidence","ReceiptKey"],
+  "properties":{
+    "Contract":{"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiSharedGatewayStatus"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status":{"enum":["NOT_REGISTERED","REGISTERED_STOPPED","OWNER_SESSION_RUNNING","RECOVERY_REQUIRED"]},
+    "EvidenceStatus":{"enum":["NO_REGISTRATION","PROTECTED_STORAGE_ONLY","OWNER_BOUND_LIVE_LISTENER","REGISTRATION_UNTRUSTED","OWNER_SESSION_DEGRADED","LISTENER_OWNERSHIP_UNRESOLVED"]},
+    "ReasonCode":{"enum":["AI_SHARED_GATEWAY_STATUS_NOT_REGISTERED","AI_SHARED_GATEWAY_STATUS_REGISTERED_STOPPED","AI_SHARED_GATEWAY_STATUS_OWNER_SESSION_RUNNING","AI_SHARED_GATEWAY_STATUS_STORAGE_DRIFT","AI_SHARED_GATEWAY_STATUS_PLAN_CONFLICT","AI_SHARED_GATEWAY_STATUS_OWNER_PROCESS_EXITED","AI_SHARED_GATEWAY_STATUS_OWNER_LISTENER_MISSING","AI_SHARED_GATEWAY_STATUS_PORT_OCCUPIED_UNKNOWN"]},
+    "GatewayId":{"type":"string","pattern":"^[a-z][a-z0-9-]{0,62}$"},
+    "PlanKey":{"$ref":"#/$defs/hash"},"StorageReceiptKey":{"$ref":"#/$defs/hash"},
+    "Location":{"type":"string","pattern":"^https://[^/]+:[0-9]+/v1/embeddings$"},
+    "ConsumerCount":{"type":"integer","minimum":1,"maximum":64},
+    "OperationId":{"type":"string","format":"uuid"},"ProcessId":{"type":"integer","minimum":1},
+    "StartedAtUtc":{"type":"string","format":"date-time"},"CheckedAtUtc":{"type":"string","format":"date-time"},
+    "VerifiedEvidence":{"type":"array","uniqueItems":true,"items":{"enum":["PROTECTED_SHARED_STORAGE_REVALIDATED","OWNER_PROCESS_BOUND","OWNER_LISTENER_BOUND"]}},
+    "PendingEvidence":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["PROTECTED_SHARED_STORAGE","LIVE_ENDPOINT","PERSISTENT_GATEWAY_SERVICE","SQL_CONSUMER_BINDINGS","BACKUP_RESTORE","ROTATION","ACCELERATOR_RUNTIME_ATTESTATION"]}},
+    "ReceiptKey":{"$ref":"#/$defs/hash"}
+  },
+  "additionalProperties":false,
+  "$defs":{"hash":{"type":"string","pattern":"^[a-f0-9]{64}$"}}
+}
