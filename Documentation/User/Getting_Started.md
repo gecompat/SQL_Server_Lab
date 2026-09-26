@@ -362,6 +362,12 @@ eine konkrete Abhilfe.
 Der eigenständige Prefetch benötigt keine laufende SQL-Instanz und keine
 Provider-Mutation. Zuerst den Plan prüfen, danach dieselben IDs speichern:
 
+`Get-SqlServerLabResourcePlan` ohne `-ResourceId` zeigt alle vom Prefetch
+unterstützten Katalogressourcen. Auch `$null` und ein leeres Array verwenden
+diese Standardauswahl. Der Plan erteilt keine Vertrauensfreigabe und lädt
+keine Dateien herunter; `Save-SqlServerLabResourceSet` verlangt weiterhin
+explizite IDs.
+
 ```powershell
 $resources = @(
     'sample:northwind:script'

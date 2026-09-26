@@ -27,6 +27,26 @@ try {
 
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module = Import-Module $modulePath -Force -PassThru -ErrorAction Stop
+    $defaultIds = @(& $module { Get-LabResourceSetDefaultId })
+    $defaultArguments = @{ MediaRoot=$mediaRoot; TestDataRoot=$testDataRoot; StateRoot=$stateRoot }
+    foreach ($selection in @('omitted', 'null', 'empty')) {
+        $defaultPlans = switch ($selection) {
+            omitted { @(Get-SqlServerLabResourcePlan @defaultArguments) }
+            null { @(Get-SqlServerLabResourcePlan @defaultArguments -ResourceId $null) }
+            empty { @(Get-SqlServerLabResourcePlan @defaultArguments -ResourceId @()) }
+        }
+        $actualIds = @($defaultPlans | Select-Object -ExpandProperty ResourceId)
+        Add-CheckResult -Name "Standardauswahl ($selection) liefert alle unterstuetzten Katalogressourcen" -Success (
+            $defaultIds.Count -gt 0 -and $actualIds.Count -eq $defaultIds.Count -and
+            @($defaultIds | Where-Object { $_ -notin $actualIds }).Count -eq 0
+        )
+    }
+    $invalidIdsRejected = 0
+    foreach ($invalidId in @('', ' ', 'unknown:resource:id')) {
+        try { $null = Get-SqlServerLabResourcePlan @defaultArguments -ResourceId $invalidId }
+        catch { $invalidIdsRejected++ }
+    }
+    Add-CheckResult -Name 'Explizite ungueltige IDs werden abgewiesen statt zur Standardauswahl erweitert' -Success ($invalidIdsRejected -eq 3)
     $plans = @(Get-SqlServerLabResourcePlan -ResourceId @(
         'sample:northwind:script',
         'software:sql-python:sql2022-python-windows-hyperv'
