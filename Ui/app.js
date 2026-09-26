@@ -94,6 +94,14 @@ async function refreshPublicCommandCatalog() {
   renderPublicCommandCatalog();
 }
 
+function openGuidedCommandWorkflow(search) {
+  $('#command-search').value = search;
+  $('#command-area').value = '';
+  renderPublicCommandCatalog();
+  $('#command-center').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#command-name').focus({ preventScroll: true });
+}
+
 function collectPublicCommandParameters() {
   const parameterSet = selectedPublicCommandParameterSet();
   const parameters = {};
@@ -672,10 +680,17 @@ function renderWorkflow(data) {
   const sqlFreshBuildDialogOpen = $('#build-dialog')?.open && $('#build-type')?.value === 'sql-fresh';
   renderWindowsInstallationMedia(data.WindowsInstallationMedia, sqlFreshBuildDialogOpen);
   const hyperVDisabled = !host.HyperV.Supported || !host.HyperV.Available;
+  const hyperVDisabledReason = hyperVDisabled ? (host.HyperV.Message || (host.HyperV.Supported ? 'Hyper-V ist auf diesem Host nicht verfügbar.' : 'Hyper-V benötigt einen lokalen Windows-Host.')) : '';
   // Der Provider-Capability-Probe ist die Autoritaet. Mitglieder der lokalen
   // Hyper-V-Administratoren duerfen VMs auch ohne Administrator-Rollenbit
   // verwalten; speziellere Volume-Rechte prueft erst die jeweilige Aktion.
-  document.querySelectorAll('[data-open-build], [data-action], [data-build-cleanup], [data-artifact-rename], [data-artifact-remove], [data-hyperv-action], #new-hyperv-lab, #new-hyperv-existing-vm-lab').forEach((button) => { button.disabled = hyperVDisabled; });
+  document.querySelectorAll('[data-open-build], [data-action], [data-build-cleanup], [data-artifact-rename], [data-artifact-remove], [data-hyperv-action], [data-provider-capability="hyperv"], #new-hyperv-lab, #new-hyperv-existing-vm-lab').forEach((button) => {
+    button.disabled = hyperVDisabled;
+  });
+  document.querySelectorAll('[data-provider-capability="hyperv"]').forEach((button) => {
+    if (hyperVDisabledReason) button.title = hyperVDisabledReason;
+    else button.removeAttribute('title');
+  });
   document.querySelectorAll('[data-lab-resources][data-provider="hyperv"]').forEach((button) => { button.disabled = hyperVDisabled; });
 }
 
@@ -2190,6 +2205,7 @@ $('#ai-shared-gateway-service-secret-form').addEventListener('submit', async (ev
 $('#action-feedback-log').addEventListener('click', () => $('#jobs').closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
 
 $('#command-search').addEventListener('input', renderPublicCommandCatalog);
+document.querySelectorAll('[data-guided-command]').forEach((button) => button.addEventListener('click', () => openGuidedCommandWorkflow(button.dataset.guidedCommand)));
 $('#command-area').addEventListener('change', renderPublicCommandCatalog);
 $('#command-name').addEventListener('change', () => {
   $('#command-parameter-set').innerHTML = '<option value="">Parametersatz auswählen</option>';

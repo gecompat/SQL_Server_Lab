@@ -83,6 +83,21 @@ Add-CheckResult -Name 'GUI stellt den vollständigen öffentlichen Befehlsvertra
     $scriptText -match 'DefaultExpression' -and
     $scriptText -match 'AllowedValues'
 )
+Add-CheckResult -Name 'GUI fuehrt umgebungszentriert und behaelt den vollstaendigen Katalog als Expertenzugang' -Success (
+    $htmlText -match 'id="guided-workflows"' -and
+    $htmlText -match '>Lab erstellen<' -and
+    $htmlText -match '>Lab verwalten<' -and
+    $htmlText -match '>Testgruppe<' -and
+    $htmlText -match '>CMS<' -and
+    $htmlText -match '>Hyper-V-Slots<' -and
+    $htmlText -match 'data-provider-capability="hyperv"' -and
+    $htmlText -match 'EXPERTENZUGANG · VOLLSTÄNDIGER FUNKTIONSUMFANG' -and
+    $htmlText.IndexOf('id="guided-workflows"') -lt $htmlText.IndexOf('id="command-center"') -and
+    $scriptText -match 'openGuidedCommandWorkflow' -and
+    $scriptText -match '\[data-guided-command\]' -and
+    $scriptText -match 'hyperVDisabledReason' -and
+    $scriptText -match '\[data-provider-capability="hyperv"\]'
+)
 Add-CheckResult -Name 'GUI-Katalog schützt Geheimnisse und führt ausschließlich bestätigte Katalogbefehle flüchtig aus' -Success (
     $scriptText -match 'type="password"' -and
     $scriptText -match 'autocomplete="new-password"' -and
