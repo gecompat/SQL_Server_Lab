@@ -566,6 +566,52 @@ function Resolve-LabAiExternalModelSqlPlan {
     $SqlPlan
 }
 
+function Get-LabAiExternalModelSqlBinding {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)][string]$StateRoot
+    )
+    $run=Get-LabRunState -RunId $RunId -StateRoot $StateRoot
+    if([string]$run.state -ne 'RUNNING'){throw 'AI_EXTERNAL_MODEL_SQL_RUN_NOT_RUNNING'}
+    $target=Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    if([string]$target.Version -cne '2025'){throw 'AI_EXTERNAL_MODEL_SQL_VERSION_UNSUPPORTED'}
+    if([string]$target.Provider -in @('docker','podman')){
+        return Get-LabTransferBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    }
+    if([string]$target.Provider -cne 'hyperv'){throw 'AI_EXTERNAL_MODEL_SQL_PROVIDER_UNSUPPORTED'}
+    if([string]::IsNullOrWhiteSpace([string]$target.VMName) -or
+       [string]$target.VMId -notmatch '^[a-fA-F0-9-]{36}$'){
+        throw 'AI_EXTERNAL_MODEL_SQL_HYPERV_IDENTITY_REQUIRED'
+    }
+    $managed=Get-HyperVManagedVM -VMName ([string]$target.VMName) -ExpectedRunId $RunId -ExpectedScopeId ([string]$run.scopeId)
+    if(-not $managed -or -not $managed.VM){throw 'AI_EXTERNAL_MODEL_SQL_HYPERV_BINDING_UNVERIFIABLE'}
+    if([string]$managed.VM.Id -cne [string]$target.VMId){throw 'AI_EXTERNAL_MODEL_SQL_HYPERV_IDENTITY_MISMATCH'}
+    if([string]$managed.VM.State -cne 'Running'){throw 'AI_EXTERNAL_MODEL_SQL_HYPERV_VM_NOT_RUNNING'}
+    [pscustomobject][ordered]@{
+        RunId=$RunId;ScopeId=[string]$run.scopeId;InstanceId=$InstanceId;Provider='hyperv'
+        VMId=[string]$managed.VM.Id;VMName=[string]$target.VMName
+        HostName=[string]$target.HostName;Port=[int]$target.Port
+    }
+}
+
+function Get-LabAiExternalModelSqlBindingIdentity {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Binding)
+    if([string]$Binding.Provider -in @('docker','podman')){
+        return Get-LabTransferBindingIdentity $Binding
+    }
+    if([string]$Binding.Provider -cne 'hyperv' -or [string]$Binding.VMId -notmatch '^[a-fA-F0-9-]{36}$'){
+        throw 'AI_EXTERNAL_MODEL_SQL_BINDING_INVALID'
+    }
+    [pscustomobject][ordered]@{
+        RunId=[string]$Binding.RunId;ScopeId=[string]$Binding.ScopeId;InstanceId=[string]$Binding.InstanceId
+        Provider='hyperv';VMId=([string]$Binding.VMId).ToLowerInvariant()
+        EndpointHash=Get-LabTransferHash ([ordered]@{HostName=[string]$Binding.HostName;Port=[int]$Binding.Port})
+    }
+}
+
 function Invoke-LabAiExternalModelSqlPreflight {
     [CmdletBinding()]
     param(
@@ -579,8 +625,8 @@ function Invoke-LabAiExternalModelSqlPreflight {
     )
     $canonical=Resolve-LabAiExternalModelSqlPlan -SqlPlan $SqlPlan
     if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
-    if(-not $Binding){$Binding=Get-LabTransferBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
-    if(-not $BindingIdentity){$BindingIdentity=Get-LabTransferBindingIdentity $Binding}
+    if(-not $Binding){$Binding=Get-LabAiExternalModelSqlBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
+    if(-not $BindingIdentity){$BindingIdentity=Get-LabAiExternalModelSqlBindingIdentity $Binding}
     if([string]$BindingIdentity.RunId -cne $RunId -or [string]$BindingIdentity.InstanceId -cne $InstanceId -or
        [string]$BindingIdentity.ScopeId -notmatch '^[a-f0-9-]{36}$' -or -not [string]$BindingIdentity.Provider){
         throw 'AI_EXTERNAL_MODEL_SQL_BINDING_INVALID'
@@ -631,6 +677,7 @@ FROM sys.database_recovery_status WHERE database_id=DB_ID();
         Contract=[PSCustomObject]@{Name='SqlServerLab.AiExternalModelSqlPreflightReceipt';Version='1.0'}
         Status='SQL_PREFLIGHT_VERIFIED';EvidenceStatus='LIVE_SQL_BOUND';SqlPlanKey=[string]$canonical.SqlPlanKey
         RunId=$RunId;ScopeId=[string]$BindingIdentity.ScopeId;InstanceId=$InstanceId;Provider=[string]$BindingIdentity.Provider
+        VMId=if([string]$BindingIdentity.Provider -ceq 'hyperv'){[string]$BindingIdentity.VMId}else{$null}
         BindingKey=$bindingKey;DatabaseName=[string]$canonical.DatabaseName;DatabaseGuid=[string]$row.DatabaseGuid
         SqlMajorVersion=17;VerifiedAtUtc=$verifiedAt;ReceiptKey=Get-LabAiPlanKey -InputObject $receiptIdentity
         VerifiedEvidence=@('SQL_2025_MATCH','DATABASE_ONLINE_READ_WRITE','DATABASE_MASTER_KEY_PRESENT','CONTROL_DATABASE_PERMISSION','CREATE_EXTERNAL_MODEL_PERMISSION','SQL_OBJECT_NAMES_AVAILABLE')
@@ -669,6 +716,7 @@ function Resolve-LabAiExternalModelSqlPreflightReceipt {
        [string]$BindingIdentity.RunId -cne $RunId -or [string]$BindingIdentity.InstanceId -cne $InstanceId -or
        [string]$PreflightReceipt.ScopeId -cne [string]$BindingIdentity.ScopeId -or
        [string]$PreflightReceipt.Provider -cne [string]$BindingIdentity.Provider -or
+       [string]$PreflightReceipt.VMId -cne [string]$BindingIdentity.VMId -or
        [string]$PreflightReceipt.BindingKey -cne $bindingKey -or
        [string]$PreflightReceipt.DatabaseName -cne [string]$SqlPlan.DatabaseName){
         throw 'AI_EXTERNAL_MODEL_SQL_PREFLIGHT_RECEIPT_MISMATCH'
@@ -764,7 +812,8 @@ function New-LabAiExternalModelSqlApplyReceipt {
         Status='SQL_EXTERNAL_MODEL_APPLIED';EvidenceStatus='LIVE_SQL_BOUND';OperationId=[string]$Journal.OperationId
         SqlPlanKey=[string]$Journal.SqlPlanKey;PreflightReceiptKey=[string]$Journal.PreflightReceiptKey
         RunId=[string]$Journal.RunId;ScopeId=[string]$Journal.ScopeId;InstanceId=[string]$Journal.InstanceId
-        Provider=[string]$Journal.Provider;BindingKey=[string]$Journal.BindingKey;DatabaseName=[string]$Journal.DatabaseName
+        Provider=[string]$Journal.Provider;VMId=if([string]$Journal.Provider -ceq 'hyperv'){[string]$Journal.VMId}else{$null}
+        BindingKey=[string]$Journal.BindingKey;DatabaseName=[string]$Journal.DatabaseName
         DatabaseGuid=[string]$Journal.DatabaseGuid;VerifiedAtUtc=$verifiedAt
         VerifiedEvidence=@('SQL_OWNERSHIP_RECEIPT_CREATED','DATABASE_SCOPED_CREDENTIAL_CREATED','SQL_EXTERNAL_MODEL_CREATED')
         PendingEvidence=@('SQL_EMBEDDING_VERIFIED','SQL_RESTART_VERIFIED','ACCELERATOR_RUNTIME_ATTESTATION','SQL_CLEANUP_VERIFIED')
@@ -796,8 +845,8 @@ function Invoke-LabAiExternalModelSqlApply {
     $StateRoot=[IO.Path]::GetFullPath($StateRoot)
     $allowExpired=[bool]$Resume
     $canonical=Resolve-LabAiExternalModelSqlPlan -SqlPlan $SqlPlan -AllowExpired:$allowExpired
-    if(-not $Binding){$Binding=Get-LabTransferBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
-    if(-not $BindingIdentity){$BindingIdentity=Get-LabTransferBindingIdentity $Binding}
+    if(-not $Binding){$Binding=Get-LabAiExternalModelSqlBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
+    if(-not $BindingIdentity){$BindingIdentity=Get-LabAiExternalModelSqlBindingIdentity $Binding}
     $receipt=Resolve-LabAiExternalModelSqlPreflightReceipt -SqlPlan $canonical -PreflightReceipt $PreflightReceipt -RunId $RunId -InstanceId $InstanceId -BindingIdentity $BindingIdentity -AllowExpired:$allowExpired
     $paths=Get-LabAiExternalModelSqlApplyJournalPath -StateRoot $StateRoot -RunId $RunId -InstanceId $InstanceId -SqlPlanKey ([string]$canonical.SqlPlanKey)
     $null=New-Item -ItemType Directory -Path $paths.Directory -Force
@@ -809,7 +858,8 @@ function Invoke-LabAiExternalModelSqlApply {
             $journal=Read-LabAiExternalModelSqlApplyJournal -Path $paths.Path
             if([string]$journal.SqlPlanKey -cne [string]$canonical.SqlPlanKey -or [string]$journal.PreflightReceiptKey -cne [string]$receipt.ReceiptKey -or
                [string]$journal.BindingKey -cne [string]$receipt.BindingKey -or [string]$journal.DatabaseGuid -cne [string]$receipt.DatabaseGuid -or
-               [string]$journal.RunId -cne $RunId -or [string]$journal.InstanceId -cne $InstanceId){
+               [string]$journal.RunId -cne $RunId -or [string]$journal.InstanceId -cne $InstanceId -or
+               [string]$journal.VMId -cne [string]$BindingIdentity.VMId){
                 throw 'AI_EXTERNAL_MODEL_SQL_APPLY_JOURNAL_MISMATCH'
             }
             if(-not $Resume){throw 'AI_EXTERNAL_MODEL_SQL_APPLY_RESUME_REQUIRED'}
@@ -820,6 +870,7 @@ function Invoke-LabAiExternalModelSqlApply {
                 Contract='SqlServerLab.AiExternalModelSqlApplyJournal/1.0';OperationId=[guid]::NewGuid().ToString('D');Status='APPLY_PENDING'
                 SqlPlanKey=[string]$canonical.SqlPlanKey;PreflightReceiptKey=[string]$receipt.ReceiptKey;BindingKey=[string]$receipt.BindingKey
                 RunId=$RunId;ScopeId=[string]$receipt.ScopeId;InstanceId=$InstanceId;Provider=[string]$receipt.Provider
+                VMId=if([string]$receipt.Provider -ceq 'hyperv'){[string]$receipt.VMId}else{$null}
                 DatabaseName=[string]$canonical.DatabaseName;DatabaseGuid=[string]$receipt.DatabaseGuid
                 OwnershipTableName=[string]$canonical.OwnershipTableName;ExternalModelName=[string]$canonical.ExternalModelName
                 CredentialName=[string]$canonical.CredentialName;Recovery='RESUME_AND_VERIFY_SQL_RECEIPT';UpdatedAtUtc=[DateTime]::UtcNow.ToString('o',[Globalization.CultureInfo]::InvariantCulture)
@@ -924,12 +975,14 @@ function Resolve-LabAiExternalModelSqlApplyReceipt {
        [string]$BindingIdentity.RunId -cne $RunId -or [string]$BindingIdentity.InstanceId -cne $InstanceId -or
        [string]$ApplyReceipt.ScopeId -cne [string]$BindingIdentity.ScopeId -or
        [string]$ApplyReceipt.Provider -cne [string]$BindingIdentity.Provider -or
+       [string]$ApplyReceipt.VMId -cne [string]$BindingIdentity.VMId -or
        [string]$ApplyReceipt.BindingKey -cne $bindingKey -or
        [string]$ApplyReceipt.DatabaseName -cne [string]$SqlPlan.DatabaseName -or
        [string]$ApplyReceipt.OperationId -cne [string]$Journal.OperationId -or
        [string]$ApplyReceipt.BindingKey -cne [string]$Journal.BindingKey -or
        [string]$ApplyReceipt.RunId -cne [string]$Journal.RunId -or [string]$ApplyReceipt.ScopeId -cne [string]$Journal.ScopeId -or
        [string]$ApplyReceipt.InstanceId -cne [string]$Journal.InstanceId -or [string]$ApplyReceipt.Provider -cne [string]$Journal.Provider -or
+       [string]$ApplyReceipt.VMId -cne [string]$Journal.VMId -or
        [string]$ApplyReceipt.DatabaseName -cne [string]$Journal.DatabaseName -or
        [string]$ApplyReceipt.PreflightReceiptKey -cne [string]$Journal.PreflightReceiptKey -or
        [string]$ApplyReceipt.DatabaseGuid -cne [string]$Journal.DatabaseGuid){
@@ -947,7 +1000,8 @@ function New-LabAiExternalModelSqlEmbeddingReceipt {
         Status='SQL_EMBEDDING_VERIFIED';EvidenceStatus='LIVE_SQL_BOUND';OperationId=[string]$Journal.OperationId
         SqlPlanKey=[string]$Journal.SqlPlanKey;ApplyReceiptKey=[string]$ApplyReceipt.ReceiptKey
         RunId=[string]$Journal.RunId;ScopeId=[string]$Journal.ScopeId;InstanceId=[string]$Journal.InstanceId
-        Provider=[string]$Journal.Provider;BindingKey=[string]$Journal.BindingKey;DatabaseName=[string]$Journal.DatabaseName
+        Provider=[string]$Journal.Provider;VMId=if([string]$Journal.Provider -ceq 'hyperv'){[string]$Journal.VMId}else{$null}
+        BindingKey=[string]$Journal.BindingKey;DatabaseName=[string]$Journal.DatabaseName
         DatabaseGuid=[string]$Journal.DatabaseGuid;Dimension=$Dimension;BaseType=$BaseType;NonZero=$true;VerifiedAtUtc=$verifiedAt
         VerifiedEvidence=@('SQL_OWNERSHIP_RECEIPT_REVALIDATED','SQL_EMBEDDING_DIMENSION_VERIFIED','SQL_EMBEDDING_FINITE_NONZERO_VERIFIED')
         ReceiptKey=Get-LabAiPlanKey -InputObject $identity
@@ -973,8 +1027,8 @@ function Invoke-LabAiExternalModelSqlEmbeddingProbe {
     if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
     $StateRoot=[IO.Path]::GetFullPath($StateRoot)
     $canonical=Resolve-LabAiExternalModelSqlPlan -SqlPlan $SqlPlan -AllowExpired
-    if(-not $Binding){$Binding=Get-LabTransferBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
-    if(-not $BindingIdentity){$BindingIdentity=Get-LabTransferBindingIdentity $Binding}
+    if(-not $Binding){$Binding=Get-LabAiExternalModelSqlBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
+    if(-not $BindingIdentity){$BindingIdentity=Get-LabAiExternalModelSqlBindingIdentity $Binding}
     $paths=Get-LabAiExternalModelSqlApplyJournalPath -StateRoot $StateRoot -RunId $RunId -InstanceId $InstanceId -SqlPlanKey ([string]$canonical.SqlPlanKey)
     if(-not (Test-Path -LiteralPath $paths.Path -PathType Leaf)){throw 'AI_EXTERNAL_MODEL_SQL_EMBEDDING_JOURNAL_NOT_FOUND'}
     $lock=$null;$connection=$null;$sqlSecret=$null
@@ -1052,7 +1106,8 @@ function New-LabAiExternalModelSqlCleanupReceipt {
         Status='SQL_EXTERNAL_MODEL_CLEANED';EvidenceStatus='LIVE_SQL_ABSENCE_BOUND';OperationId=[string]$Journal.OperationId
         SqlPlanKey=[string]$Journal.SqlPlanKey;ApplyReceiptKey=[string]$ApplyReceipt.ReceiptKey
         RunId=[string]$Journal.RunId;ScopeId=[string]$Journal.ScopeId;InstanceId=[string]$Journal.InstanceId
-        Provider=[string]$Journal.Provider;BindingKey=[string]$Journal.BindingKey;DatabaseName=[string]$Journal.DatabaseName
+        Provider=[string]$Journal.Provider;VMId=if([string]$Journal.Provider -ceq 'hyperv'){[string]$Journal.VMId}else{$null}
+        BindingKey=[string]$Journal.BindingKey;DatabaseName=[string]$Journal.DatabaseName
         DatabaseGuid=[string]$Journal.DatabaseGuid;VerifiedAtUtc=$verifiedAt
         VerifiedEvidence=@('SQL_EXTERNAL_MODEL_ABSENT','DATABASE_SCOPED_CREDENTIAL_ABSENT','SQL_OWNERSHIP_RECEIPT_ABSENT')
         ReceiptKey=Get-LabAiPlanKey -InputObject $identity
@@ -1080,8 +1135,8 @@ function Invoke-LabAiExternalModelSqlCleanup {
     if(-not $StateRoot){$StateRoot=Get-LabStateRoot}
     $StateRoot=[IO.Path]::GetFullPath($StateRoot)
     $canonical=Resolve-LabAiExternalModelSqlPlan -SqlPlan $SqlPlan -AllowExpired
-    if(-not $Binding){$Binding=Get-LabTransferBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
-    if(-not $BindingIdentity){$BindingIdentity=Get-LabTransferBindingIdentity $Binding}
+    if(-not $Binding){$Binding=Get-LabAiExternalModelSqlBinding -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot}
+    if(-not $BindingIdentity){$BindingIdentity=Get-LabAiExternalModelSqlBindingIdentity $Binding}
     $paths=Get-LabAiExternalModelSqlApplyJournalPath -StateRoot $StateRoot -RunId $RunId -InstanceId $InstanceId -SqlPlanKey ([string]$canonical.SqlPlanKey)
     if(-not (Test-Path -LiteralPath $paths.Path -PathType Leaf)){throw 'AI_EXTERNAL_MODEL_SQL_CLEANUP_JOURNAL_NOT_FOUND'}
     $lock=$null;$connection=$null;$sqlSecret=$null

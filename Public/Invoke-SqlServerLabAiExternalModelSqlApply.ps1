@@ -12,7 +12,8 @@
 .PARAMETER PreflightReceipt
     Passendes Ergebnis von Test-SqlServerLabAiExternalModelSqlPreflight.
 .PARAMETER RunId
-    Eigener SQL-2025-Docker-/Podman-Run.
+    Eigener SQL-2025-Docker-, Podman- oder Hyper-V-Run. Hyper-V-Receipts und
+    Journal binden zusätzlich die VMId.
 .PARAMETER InstanceId
     SQL-Instanz, standardmäßig primary.
 .PARAMETER CredentialSecret

@@ -10,7 +10,8 @@
 .PARAMETER ApplyReceipt
     Passendes Ergebnis von Invoke-SqlServerLabAiExternalModelSqlApply.
 .PARAMETER RunId
-    Eigener SQL-2025-Docker-/Podman-Run.
+    Eigener SQL-2025-Docker-, Podman- oder Hyper-V-Run. Hyper-V wird vor dem
+    SQL-Aufruf erneut über die VMId revalidiert.
 .PARAMETER InstanceId
     SQL-Instanz, standardmäßig primary.
 .PARAMETER StateRoot

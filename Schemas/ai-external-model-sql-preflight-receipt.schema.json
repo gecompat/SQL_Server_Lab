@@ -13,6 +13,7 @@
     "ScopeId": {"type":"string","pattern":"^[a-f0-9-]{36}$"},
     "InstanceId": {"type":"string","pattern":"^[a-zA-Z][a-zA-Z0-9_-]{0,63}$"},
     "Provider": {"type":"string","minLength":1,"maxLength":32},
+    "VMId": {"type":["string","null"],"pattern":"^[a-f0-9-]{36}$"},
     "BindingKey": {"type":"string","pattern":"^[a-f0-9]{64}$"},
     "DatabaseName": {"type":"string","pattern":"^[A-Za-z_][A-Za-z0-9_]{0,127}$"},
     "DatabaseGuid": {"type":"string","pattern":"^[a-f0-9-]{36}$"},
@@ -22,5 +23,6 @@
     "VerifiedEvidence": {"type":"array","minItems":6,"maxItems":6,"uniqueItems":true,"items":{"enum":["SQL_2025_MATCH","DATABASE_ONLINE_READ_WRITE","DATABASE_MASTER_KEY_PRESENT","CONTROL_DATABASE_PERMISSION","CREATE_EXTERNAL_MODEL_PERMISSION","SQL_OBJECT_NAMES_AVAILABLE"]}},
     "PendingEvidence": {"type":"array","minItems":5,"maxItems":5,"uniqueItems":true,"items":{"enum":["SQL_EXTERNAL_MODEL_CREATED","SQL_EMBEDDING_VERIFIED","SQL_RESTART_VERIFIED","ACCELERATOR_RUNTIME_ATTESTATION","SQL_CLEANUP_VERIFIED"]}}
   },
+  "allOf": [{"if":{"properties":{"Provider":{"const":"hyperv"}}},"then":{"required":["VMId"],"properties":{"VMId":{"type":"string","pattern":"^[a-f0-9-]{36}$"}}}}],
   "additionalProperties": false
 }

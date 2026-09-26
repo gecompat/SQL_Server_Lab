@@ -811,7 +811,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Stop-SqlServerLabAiSharedGatewaySession` | Ausschließlich eine in derselben Modulsitzung gestartete Gateway-Operation samt temporärem Zustand bereinigen |
 | `Get-SqlServerLabAiExternalModelPlan` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt hashgebunden für SQL `CREATE EXTERNAL MODEL` planen |
 | `Get-SqlServerLabAiExternalModelSqlPlan` | Frisches Endpoint-Receipt an einen geheimnisfreien SQL-2025-Mutations-/Cleanupplan binden; führt kein SQL aus |
-| `Test-SqlServerLabAiExternalModelSqlPreflight` | Eigenen SQL-2025-Zielscope read-only auf Datenbankidentität, Master Key, Rechte und freie Objektnamen prüfen |
+| `Test-SqlServerLabAiExternalModelSqlPreflight` | Eigenen Docker-/Podman-/Hyper-V-SQL-2025-Zielscope read-only auf Run-/Instanz-/VM-Bindung, Datenbankidentität, Master Key, Rechte und freie Objektnamen prüfen |
 | `Invoke-SqlServerLabAiExternalModelSqlApply` | Gebundenes Ownership-Receipt, Credential und External Model journalisiert und transaktional erstellen; unbekannte Teilzustände nicht blind wiederholen |
 | `Test-SqlServerLabAiExternalModelSqlEmbedding` | Applied-Ownership receiptgebunden revalidieren und genau ein festes SQL-Embedding prüfen, ohne Text oder Vektor auszugeben |
 | `Remove-SqlServerLabAiExternalModelSql` | Eigenes External Model, Credential und Ownership-Receipt receiptgebunden, journalisiert und transaktional entfernen |
