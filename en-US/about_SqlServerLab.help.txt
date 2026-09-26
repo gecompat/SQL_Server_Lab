@@ -270,6 +270,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Classifies registration, owned session state, plan or content drift,
         and foreign port occupation read-only with a reason code.
 
+    Get-SqlServerLabAiSharedGatewayServicePlan
+        Plans host autostart read-only as a Windows S4U task or Linux systemd
+        user service and reports missing prerequisites as exact blockers.
+
     Start-SqlServerLabAiSharedGatewaySession
         Revalidates storage and upstream, then starts an owner-bound, leased
         TLS gateway listening exclusively on IPv4 loopback.

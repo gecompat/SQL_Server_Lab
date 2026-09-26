@@ -2,7 +2,7 @@
 
 | Merkmal | Wert |
 |---|---|
-| Stand | 2026-09-25 |
+| Stand | 2026-09-26 |
 | Autoritative Funktionsliste | [`SqlServerLab.psd1`](../../SqlServerLab.psd1) |
 | Öffentliche Funktionen | dynamisch aus `FunctionsToExport` |
 | Konsolenoberfläche | `Invoke-SqlServerLab` |
@@ -89,6 +89,7 @@ Legende:
 | [`Get-SqlServerLabAiScenario`](../../Public/Get-SqlServerLabAiScenario.ps1) | Löst ein hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen Run auf. | Datenbanken und Verbindungen → SQL Server 2025 KI → Szenarioplan | – |
 | [`Get-SqlServerLabLlamaCppModel`](../../Public/Get-SqlServerLabLlamaCppModel.ps1) | Listet kuratierte, revisions-, größen-, hash- und lizenzgebundene GGUF-Generationsmodelle. | Datenbanken und Verbindungen → SQL Server 2025 KI → llama.cpp-Modelle | – |
 | [`Save-SqlServerLabLlamaCppModel`](../../Public/Save-SqlServerLabLlamaCppModel.ps1) | Lädt genau das ausgewählte Katalogmodell und veröffentlicht es erst nach Größen-, SHA-256- und GGUF-Prüfung atomar unter `Lab_Base/AI/Models`. | Datenbanken und Verbindungen → SQL Server 2025 KI → llama.cpp-Modelle | – |
+| [`Get-SqlServerLabAiSharedGatewayServicePlan`](../../Public/Get-SqlServerLabAiSharedGatewayServicePlan.ps1) | Plant einen benutzergebundenen Host-Autostart read-only. `Auto` wählt Windows S4U beziehungsweise Linux systemd user; `WindowsS4U` und `SystemdUser` fixieren die Wahl. Fehlende ScheduledTasks-, lokale Speicher-, EFS-, Usermanager- oder Linger-Voraussetzungen erscheinen als konkrete Blocker. | Alle öffentlichen Befehle; Standard `ServiceMode=Auto`, mögliche Werte werden angezeigt | – |
 | [`Get-SqlServerLabAiExternalModelPlan`](../../Public/Get-SqlServerLabAiExternalModelPlan.ps1) | Bindet einen vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt samt Runtime-, Modell- und Zertifikatshash für SQL `CREATE EXTERNAL MODEL`; der Plan führt keine Probe oder Hostmutation aus. | – | – |
 | [`Get-SqlServerLabAiExternalModelSqlPlan`](../../Public/Get-SqlServerLabAiExternalModelSqlPlan.ps1) | Bindet frische Endpoint-Evidence an einen geheimnisfreien SQL-Mutations- und Cleanupplan. | – | – |
 | [`Test-SqlServerLabAiExternalModelSqlPreflight`](../../Public/Test-SqlServerLabAiExternalModelSqlPreflight.ps1) | Prüft den eigenen SQL-2025-Zielscope, Datenbankidentität, Master Key, Rechte und freie Objektnamen read-only. | – | – |

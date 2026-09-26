@@ -805,6 +805,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Register-SqlServerLabAiSharedGatewayStorage` | Gebundene Gatewaydateien mutexgeschützt, benutzerexklusiv und atomar im gemeinsamen StateRoot registrieren; kein Dienst- oder SQL-Start |
 | `Test-SqlServerLabAiSharedGatewayUpstream` | Geschützten Store und den gebundenen Llama-v1- oder OVMS-v3-Loopback-Upstream read-only revalidieren |
 | `Get-SqlServerLabAiSharedGatewayStatus` | Registrierung, eigenen Prozess-/Listenerbesitz, Planabweichung, Inhaltsdrift und fremde Portbelegung read-only klassifizieren |
+| `Get-SqlServerLabAiSharedGatewayServicePlan` | Host-Autostart für den registrierten Gateway read-only planen; Windows-S4U- und Linux-systemd/Linger-Grenzen mit exakten Blockern ausweisen |
 | `Start-SqlServerLabAiSharedGatewaySession` | Registrierten Gateway ownergebunden, Loopback-only und zeitlich begrenzt für alle geplanten Consumer starten |
 | `Stop-SqlServerLabAiSharedGatewaySession` | Ausschließlich eine in derselben Modulsitzung gestartete Gateway-Operation samt temporärem Zustand bereinigen |
 | `Get-SqlServerLabAiExternalModelPlan` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt hashgebunden für SQL `CREATE EXTERNAL MODEL` planen |

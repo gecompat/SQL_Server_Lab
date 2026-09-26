@@ -76,11 +76,17 @@ Einlesen. `Stop-SqlServerLabAiSharedGatewaySession` beendet und bereinigt nur
 eine Operation derselben Modulsitzung. `Get-SqlServerLabAiSharedGatewayStatus`
 klassifiziert ohne Mutation fehlende oder revalidierte Registrierung, die eigene
 laufende Session, Planabweichung, Inhaltsdrift, verlorenen Ownerprozess oder
-Listener sowie eine fremde Portbelegung mit stabilen ReasonCodes. Der
-synthetische Vertrag belegt zwei
+Listener sowie eine fremde Portbelegung mit stabilen ReasonCodes. Der read-only
+`Get-SqlServerLabAiSharedGatewayServicePlan` bindet diesen Zustand an eine neu
+berechnete Host-Capability. Windows verwendet eine S4U-Aufgabe mit lokalem,
+nicht EFS-verschlüsseltem StateRoot und weist den fehlenden Netzwerk- und EFS-
+Zugriff aus; Linux verlangt einen erreichbaren systemd-Usermanager und
+aktiviertes Linger. `Auto` wählt den Hostmodus, eine explizite Fixierung bleibt
+möglich und unpassende Modi werden sichtbar blockiert. Der synthetische Vertrag
+belegt zwei
 getrennte Consumer, TLS-Pinning, Prozess-/Listenerbesitz und Cleanup ohne SQL-
 oder Providermutation. Dieser begrenzte Session-Lifecycle ist kein Ersatz für
-den dauerhaften Gatewaydienst. Dessen Apply/Remove, Backup, Restore und
+den dauerhaften Gatewaydienst. Dessen Service-Apply/Remove, Backup, Restore und
 Zertifikatswechsel sind noch nicht implementiert oder nativ nachgewiesen.
 Die vorhandenen HTTPS-Referenzen bleiben begrenzte Nachweise der Transportstrecke.
 
@@ -102,7 +108,8 @@ dauerhaften Lebenszyklus noch nicht. Der
 ein eigener begrenzter Runtimevertrag und kein gemeinsamer Gatewaydienst. Der
 Shared-Gateway-Session-Lifecycle kann mehrere geplante Consumer an denselben
 geschützten Store und Endpoint binden, endet jedoch weiterhin mit Ownerverlust
-oder Lease und besitzt keinen Host-Autostart.
+oder Lease. Der Host-Autostart ist jetzt planbar, besitzt aber noch keinen
+Executor und wurde auf keinem nativen Host angewendet.
 
 Das [persistente Retrieval](../Architecture/AI_PERSISTENT_RETRIEVAL.md) ruft
 lokales Ollama derzeit vom Controller über Loopback-HTTP auf und speichert

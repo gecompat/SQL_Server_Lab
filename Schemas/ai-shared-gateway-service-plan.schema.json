@@ -1,0 +1,18 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://example.invalid/sql-server-lab/ai-shared-gateway-service-plan.schema.json",
+  "type":"object",
+  "required":["Contract","Status","EvidenceStatus","GatewayId","GatewayPlanKey","GatewayStatusReceiptKey","HostCapabilityKey","Platform","ServiceMode","StartupScope","PrincipalKey","RequiredActions","VerifiedEvidence","Blockers","Warnings","PlanKey"],
+  "properties":{
+    "Contract":{"type":"object","required":["Name","Version"],"properties":{"Name":{"const":"SqlServerLab.AiSharedGatewayServicePlan"},"Version":{"const":"1.0"}},"additionalProperties":false},
+    "Status":{"enum":["READY","BLOCKED"]},"EvidenceStatus":{"enum":["HOST_AND_REGISTRATION_READY","GATEWAY_STATE_BLOCKED","HOST_CAPABILITY_BLOCKED"]},
+    "GatewayId":{"type":"string","pattern":"^[a-z][a-z0-9-]{0,62}$"},
+    "GatewayPlanKey":{"$ref":"#/$defs/hash"},"GatewayStatusReceiptKey":{"$ref":"#/$defs/hash"},"HostCapabilityKey":{"$ref":"#/$defs/hash"},"PrincipalKey":{"$ref":"#/$defs/hash"},
+    "Platform":{"enum":["Windows","Linux","Unsupported"]},"ServiceMode":{"enum":["WINDOWS_S4U_TASK","LINUX_SYSTEMD_USER","NONE"]},"StartupScope":{"enum":["CURRENT_USER_AT_BOOT","NONE"]},
+    "RequiredActions":{"type":"array","minItems":4,"maxItems":4,"uniqueItems":true,"items":{"enum":["INSTALL_SERVICE_DEFINITION","ENABLE_AUTOSTART","START_SERVICE","VERIFY_ENDPOINT"]}},
+    "VerifiedEvidence":{"type":"array","uniqueItems":true,"items":{"enum":["WINDOWS_SCHEDULED_TASKS_AVAILABLE","LOCAL_STATE_ROOT","STATE_ROOT_NOT_EFS_ENCRYPTED","SYSTEMD_USER_MANAGER_AVAILABLE","SYSTEMD_USER_LINGER_ENABLED"]}},
+    "Blockers":{"type":"array","uniqueItems":true,"items":{"enum":["AI_SHARED_GATEWAY_SERVICE_REGISTRATION_REQUIRED","AI_SHARED_GATEWAY_SERVICE_STORAGE_RECOVERY_REQUIRED","AI_SHARED_GATEWAY_SERVICE_PLATFORM_UNSUPPORTED","AI_SHARED_GATEWAY_SERVICE_MODE_UNSUPPORTED","AI_SHARED_GATEWAY_SERVICE_SCHEDULED_TASKS_UNAVAILABLE","AI_SHARED_GATEWAY_SERVICE_WINDOWS_S4U_LOCAL_STORAGE_REQUIRED","AI_SHARED_GATEWAY_SERVICE_WINDOWS_S4U_EFS_UNSUPPORTED","AI_SHARED_GATEWAY_SERVICE_SYSTEMD_USER_UNAVAILABLE","AI_SHARED_GATEWAY_SERVICE_LINGER_REQUIRED"]}},
+    "Warnings":{"type":"array","uniqueItems":true,"items":{"enum":["WINDOWS_S4U_NO_NETWORK_OR_EFS_ACCESS","WINDOWS_S4U_REGISTRATION_MAY_REQUIRE_ELEVATION"]}},"PlanKey":{"$ref":"#/$defs/hash"}
+  },"additionalProperties":false,
+  "$defs":{"hash":{"type":"string","pattern":"^[a-f0-9]{64}$"}}
+}

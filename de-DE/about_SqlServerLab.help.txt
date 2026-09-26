@@ -276,6 +276,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Klassifiziert Registrierung, eigenen Sessionbesitz, Plan- oder
         Inhaltsdrift und fremde Portbelegung read-only mit ReasonCode.
 
+    Get-SqlServerLabAiSharedGatewayServicePlan
+        Plant Host-Autostart read-only als Windows-S4U-Aufgabe oder Linux-
+        systemd-Userdienst und meldet fehlende Voraussetzungen als Blocker.
+
     Start-SqlServerLabAiSharedGatewaySession
         Startet nach Storage- und Upstream-Revalidierung einen ownergebundenen,
         zeitlich begrenzten TLS-Gateway ausschließlich auf IPv4-Loopback.
