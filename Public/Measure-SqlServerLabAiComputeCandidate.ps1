@@ -5,6 +5,8 @@
     Verifiziert Inventar, Kandidat, vollständiges Runtimepaket und GGUF vor und
     nach dem Lauf. Geräte werden explizit auf llama.cpp-Selektoren abgebildet.
     Das Ergebnis ist direkt für Get-SqlServerLabAiComputeSelection verwendbar.
+    CPU-Ausführung verlangt devices=none und n_gpu_layers=0 in der Ausgabe;
+    das Paketfeld backends darf dabei einen kompilierten GPU-Backend nennen.
 .PARAMETER Inventory
     Vollständiges, verifiziertes Hardwareinventar des Zielhosts.
 .PARAMETER Candidate

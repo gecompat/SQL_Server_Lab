@@ -175,7 +175,12 @@ function Invoke-LabAiComputeBenchmark {
     try{$records=@(([string]$result.StdOut|ConvertFrom-Json -Depth 30 -ErrorAction Stop))}catch{throw 'AI_COMPUTE_BENCHMARK_OUTPUT_INVALID'}
     if($records.Count -ne 1){throw 'AI_COMPUTE_BENCHMARK_OUTPUT_INVALID'};$record=$records[0]
     $samplesNs=@($record.samples_ns);$samplesTs=@($record.samples_ts)
-    if($samplesNs.Count -ne $Repetitions -or $samplesTs.Count -ne $Repetitions -or [int]$record.n_prompt -ne $expectedPrompt -or [int]$record.n_gen -ne $expectedGeneration -or [string]$record.devices -cne ($selectors -join '/') -or [string]$record.backends -notmatch ('(?i)'+$expectedToken)){throw 'AI_COMPUTE_BENCHMARK_OUTPUT_MISMATCH'}
+    # backends beschreibt das Runtimepaket, nicht die gewaehlte CPU-Ausfuehrung.
+    $backendOutputValid=if($backend -eq 'LlamaCppCpu'){
+        ($record.n_gpu_layers -is [int] -or $record.n_gpu_layers -is [long]) -and
+        $record.n_gpu_layers -eq 0 -and -not [string]::IsNullOrWhiteSpace([string]$record.backends)
+    }else{[string]$record.backends -match ('(?i)'+$expectedToken)}
+    if($samplesNs.Count -ne $Repetitions -or $samplesTs.Count -ne $Repetitions -or [int]$record.n_prompt -ne $expectedPrompt -or [int]$record.n_gen -ne $expectedGeneration -or [string]$record.devices -cne ($selectors -join '/') -or -not $backendOutputValid){throw 'AI_COMPUTE_BENCHMARK_OUTPUT_MISMATCH'}
     if(@($samplesNs|Where-Object {-not (Test-LabAiComputeFiniteNumber $_) -or [double]$_ -le 0}).Count -or @($samplesTs|Where-Object {-not (Test-LabAiComputeFiniteNumber $_) -or [double]$_ -le 0}).Count -or -not (Test-LabAiComputeFiniteNumber $record.avg_ts) -or [double]$record.avg_ts -le 0){throw 'AI_COMPUTE_BENCHMARK_OUTPUT_INVALID'}
     $throughput=(@($samplesTs|ForEach-Object {[double]$_})|Measure-Object -Average).Average
     if([Math]::Abs($throughput-[double]$record.avg_ts)/$throughput -gt 0.005){throw 'AI_COMPUTE_BENCHMARK_OUTPUT_INVALID'}

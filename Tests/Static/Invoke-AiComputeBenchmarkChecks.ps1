@@ -34,7 +34,7 @@ try {
             $repetitions=[int]$arguments[$arguments.IndexOf('-r')+1]
             $throughput=if($device -like '*/*'){40}elseif($device -eq 'none'){10}else{20}
             $samples=@(1..$repetitions|ForEach-Object {100000000+($_*1000000)})
-            $record=[ordered]@{backends=if($device -eq 'none'){'CPU'}else{'CUDA'};devices=$device;n_prompt=0;n_gen=$generated;avg_ts=$throughput;samples_ns=$samples;samples_ts=@(1..$repetitions|ForEach-Object {$throughput})}
+            $record=[ordered]@{backends='CUDA';devices=$device;n_gpu_layers=[int]$arguments[$arguments.IndexOf('-ngl')+1];n_prompt=0;n_gen=$generated;avg_ts=$throughput;samples_ns=$samples;samples_ts=@(1..$repetitions|ForEach-Object {$throughput})}
             [pscustomobject]@{ExitCode=0;StdOut=($record|ConvertTo-Json -Compress);PeakWorkingSetBytes=4096}
         }
         $receipt=& $module {param($i,$c,$r,$m,$b,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -DeviceBinding $b -ProcessRunner $run} $inventory $candidate $package $model @($bindings) $runner
@@ -75,10 +75,29 @@ try {
     Add-CheckResult 'Mengensmessung veröffentlicht keine Teilauswahl' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmarkSet -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -BenchmarkAction $run} $inventory $candidateSet.Candidates @($package) $model $incompleteSetAction} 'AI_COMPUTE_BENCHMARK_SET_INCOMPLETE:*')
     $cpuAutoReceipt=& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -ProcessRunner $run} $inventory $cpu $package $model $runner
     Add-CheckResult 'CPU wird ohne Discovery eindeutig auf none gebunden' ($cpuAutoReceipt.CandidateId -ceq $cpu.CandidateId -and $cpuAutoReceipt.ThroughputPerSecond -eq 10)
+    Add-CheckResult 'CPU-Lauf eines CUDA-Pakets liefert ein verifiziertes Receipt' ($cpuAutoReceipt.EvidenceStatus -ceq 'BENCHMARK_VERIFIED')
+    foreach($invalidLayers in @($null,$false,'0',0.5,-1,1)){
+        $invalidOffloadRunner={param($i,$a,$e,$t)
+            $result=& $runner $i $a $e $t
+            $record=$result.StdOut|ConvertFrom-Json
+            $record.n_gpu_layers=$invalidLayers
+            $result.StdOut=$record|ConvertTo-Json -Compress
+            $result
+        }
+        Add-CheckResult "CPU-Ausgabe mit ungueltigem Offloadwert '$invalidLayers' wird abgewiesen" (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -ProcessRunner $run} $inventory $cpu $package $model $invalidOffloadRunner} 'AI_COMPUTE_BENCHMARK_OUTPUT_MISMATCH')
+    }
+    $missingOffloadRunner={param($i,$a,$e,$t)
+        $result=& $runner $i $a $e $t
+        $record=$result.StdOut|ConvertFrom-Json
+        $record.PSObject.Properties.Remove('n_gpu_layers')
+        $result.StdOut=$record|ConvertTo-Json -Compress
+        $result
+    }
+    Add-CheckResult 'CPU-Ausgabe ohne Offloadnachweis wird abgewiesen' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -ProcessRunner $run} $inventory $cpu $package $model $missingOffloadRunner} 'AI_COMPUTE_BENCHMARK_OUTPUT_MISMATCH')
     $embeddingRunner={
         param($invocation,$arguments,$environment,$timeout)
         $prompt=[int]$arguments[$arguments.IndexOf('-p')+1];$generated=[int]$arguments[$arguments.IndexOf('-n')+1];$repetitions=[int]$arguments[$arguments.IndexOf('-r')+1]
-        $record=[ordered]@{backends='CPU';devices='none';n_prompt=$prompt;n_gen=$generated;avg_ts=30;samples_ns=@(1..$repetitions|ForEach-Object {20000000+($_*1000000)});samples_ts=@(1..$repetitions|ForEach-Object {30})}
+        $record=[ordered]@{backends='CPU';devices='none';n_gpu_layers=0;n_prompt=$prompt;n_gen=$generated;avg_ts=30;samples_ns=@(1..$repetitions|ForEach-Object {20000000+($_*1000000)});samples_ts=@(1..$repetitions|ForEach-Object {30})}
         [pscustomobject]@{ExitCode=0;StdOut=($record|ConvertTo-Json -Compress);PeakWorkingSetBytes=2048}
     }
     $embeddingReceipt=& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-embedding -BenchmarkMode Embedding -PromptTokens 64 -ProcessRunner $run} $inventory $cpu $package $model $embeddingRunner
@@ -111,7 +130,7 @@ try {
     Add-CheckResult 'Fehlgeschlagene Gerätediscovery liefert nur stabilen Fehlercode' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -ProcessRunner $run} $inventory $multi $package $model $failedDiscoveryRunner} 'AI_COMPUTE_DEVICE_DISCOVERY_FAILED')
     $badModel=Join-Path $fixture 'bad.gguf';[IO.File]::WriteAllText($badModel,'not-a-gguf')
     Add-CheckResult 'Dateiendung ohne GGUF-Magic wird vor Prozessstart abgewiesen' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -DeviceBinding @([pscustomobject]@{DeviceId=$c.Devices[0].DeviceId;RuntimeSelector='none'}) -ProcessRunner $run} $inventory $cpu $package $badModel $runner} 'AI_COMPUTE_BENCHMARK_MODEL_INVALID')
-    $inconsistentRunner={param($i,$a,$e,$t)[pscustomobject]@{ExitCode=0;StdOut=([ordered]@{backends='CPU';devices='none';n_prompt=0;n_gen=128;avg_ts=99;samples_ns=@(100000000,101000000,102000000,103000000,104000000);samples_ts=@(10,10,10,10,10)}|ConvertTo-Json -Compress);PeakWorkingSetBytes=1}}
+    $inconsistentRunner={param($i,$a,$e,$t)[pscustomobject]@{ExitCode=0;StdOut=([ordered]@{backends='CPU';devices='none';n_gpu_layers=0;n_prompt=0;n_gen=128;avg_ts=99;samples_ns=@(100000000,101000000,102000000,103000000,104000000);samples_ts=@(10,10,10,10,10)}|ConvertTo-Json -Compress);PeakWorkingSetBytes=1}}
     Add-CheckResult 'Widersprüchlicher llama-bench-Durchschnitt wird abgewiesen' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -DeviceBinding @([pscustomobject]@{DeviceId=$c.Devices[0].DeviceId;RuntimeSelector='none'}) -ProcessRunner $run} $inventory $cpu $package $model $inconsistentRunner} 'AI_COMPUTE_BENCHMARK_OUTPUT_INVALID')
     $failedRunner={param($i,$a,$e,$t)[pscustomobject]@{ExitCode=7;StdOut='sensitive diagnostic';PeakWorkingSetBytes=1}}
     Add-CheckResult 'Fehlgeschlagener Benchmarkprozess liefert nur den stabilen Fehlercode' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -DeviceBinding @([pscustomobject]@{DeviceId=$c.Devices[0].DeviceId;RuntimeSelector='none'}) -ProcessRunner $run} $inventory $cpu $package $model $failedRunner} 'AI_COMPUTE_BENCHMARK_EXECUTION_FAILED')
