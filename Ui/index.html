@@ -28,47 +28,35 @@
     <section id="summary" class="summary-grid" aria-label="Übersicht"></section>
 
     <nav class="workspace-navigation" aria-label="Arbeitsbereiche">
-      <a href="#command-center">Alle Funktionen</a>
-      <a href="#environment-workflow">Umgebungen</a>
+      <a href="#guided-workflows">Einstieg</a>
+      <a href="#creation-workflow">Erstellen</a>
+      <a href="#environment-inventory">Umgebungen</a>
       <a href="#operation-queue">Vorgänge</a>
+      <a href="#command-center">Expertenzugang</a>
       <a href="#jobs">Live-Log</a>
     </nav>
 
-    <section class="panel command-center" id="command-center">
+    <section class="panel guided-workflows" id="guided-workflows">
       <div class="section-heading">
         <div>
-          <p class="eyebrow">VOLLSTÄNDIGER FUNKTIONSZUGANG</p>
-          <h2>Alle veröffentlichten Lab-Funktionen</h2>
+          <p class="eyebrow">WAS MÖCHTEN SIE TUN?</p>
+          <h2>Geführte Arbeitsabläufe</h2>
         </div>
-        <span id="command-count" class="count">Katalog wird geladen …</span>
       </div>
-      <p>Hier ist derselbe vollständige Befehlskatalog wie in <code>Invoke-SqlServerLab</code> verfügbar. Parameter, Standards und zulässige Werte stammen direkt aus den Befehlsverträgen.</p>
-      <div class="command-filter-grid">
-        <label>Funktion suchen<input id="command-search" type="search" placeholder="z. B. CMS, Datenbank, KI oder Hyper-V"></label>
-        <label>Arbeitsbereich<select id="command-area"><option value="">Alle Arbeitsbereiche</option></select></label>
-        <label>Funktion<select id="command-name" disabled><option value="">Funktion auswählen</option></select></label>
-        <label>Ausführungsvariante<select id="command-parameter-set" disabled><option value="">Parametersatz auswählen</option></select></label>
+      <p>Beginnen Sie mit dem Ziel. Providerabhängige Schritte werden nur angeboten, wenn der Host sie unterstützt; andernfalls bleibt der Grund sichtbar.</p>
+      <div class="guided-workflow-grid">
+        <a class="guided-workflow-card" href="#creation-workflow"><strong>Lab erstellen</strong><span>Container, Hyper-V, Vorlagen und Medien</span></a>
+        <a class="guided-workflow-card" href="#environment-inventory"><strong>Lab verwalten</strong><span>Status, Start, Stopp, Konfiguration und Entfernen</span></a>
+        <button class="guided-workflow-card" type="button" data-guided-command="AutomatedTestEnvironment"><strong>Testgruppe</strong><span>Zusammengehörige, geschützte Testumgebungen verwalten</span></button>
+        <button class="guided-workflow-card" type="button" data-guided-command="Cms"><strong>CMS</strong><span>Zentrale Verwaltung erstellen, anpassen und synchronisieren</span></button>
+        <button class="guided-workflow-card" type="button" data-guided-command="WindowsSlot" data-provider-capability="hyperv"><strong>Hyper-V-Slots</strong><span>Windows- und SQL-Slots planen und bereitstellen</span></button>
       </div>
-      <div id="command-description" class="selection-details">Wählen Sie eine Funktion. Danach erscheinen nur die Eingaben des gewählten Parametersatzes.</div>
-      <form id="command-form">
-        <div id="command-parameters" class="command-parameter-grid"></div>
-        <div class="build-actions"><button id="command-submit" type="submit" class="button primary" disabled>Funktion ausführen</button></div>
-      </form>
     </section>
 
-    <section class="panel queue-panel" id="environment-workflow">
+    <section class="workflow-intro" id="creation-workflow">
       <div class="section-heading">
-        <div><p class="eyebrow">PERSISTENTER WORKFLOW</p><h2>Vorgänge, Queue und Benutzeraktionen</h2></div>
-        <span id="queue-count" class="count"></span>
-      </div>
-      <p>Wartende Benutzeraktionen geben Worker frei. Read-only-Probes melden nur einen Kandidaten; fortgesetzt wird ausschließlich nach Bestätigung.</p>
-      <div id="operation-queue" class="cards"></div>
-    </section>
-
-    <section class="workflow-intro">
-      <div>
         <p class="eyebrow">GEFÜHRTER WORKFLOW</p>
-        <h2>Vorlagenpool → wegwerfbare Labs</h2>
+        <h2>Lab erstellen</h2>
         <p>Standard: veröffentlichte immutable Vorlagen auswählen und schnell klonen. Image-Build, Vorlagenlöschung und globale Schreibrechte bleiben getrennte Expertenaktionen.</p>
       </div>
       <div class="workflow-actions">
@@ -103,6 +91,37 @@
         <h3>Lab-Umgebung</h3>
         <p>OS-Baselines ergeben reine Windows-VMs; SQL-Prepared-Images richten zusätzlich WMI, SQL-TCP und Hostzugriff ein.</p>
       </article>
+    </section>
+
+    <section class="panel queue-panel" id="operation-workflow">
+      <div class="section-heading">
+        <div><p class="eyebrow">PERSISTENTER WORKFLOW</p><h2>Vorgänge, Queue und Benutzeraktionen</h2></div>
+        <span id="queue-count" class="count"></span>
+      </div>
+      <p>Wartende Benutzeraktionen geben Worker frei. Read-only-Probes melden nur einen Kandidaten; fortgesetzt wird ausschließlich nach Bestätigung.</p>
+      <div id="operation-queue" class="cards"></div>
+    </section>
+
+    <section class="panel command-center" id="command-center">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">EXPERTENZUGANG · VOLLSTÄNDIGER FUNKTIONSUMFANG</p>
+          <h2>Alle veröffentlichten Lab-Funktionen</h2>
+        </div>
+        <span id="command-count" class="count">Katalog wird geladen …</span>
+      </div>
+      <p>Hier ist derselbe vollständige Befehlskatalog wie in <code>Invoke-SqlServerLab</code> verfügbar. Parameter, Standards und zulässige Werte stammen direkt aus den Befehlsverträgen.</p>
+      <div class="command-filter-grid">
+        <label>Funktion suchen<input id="command-search" type="search" placeholder="z. B. CMS, Datenbank, KI oder Hyper-V"></label>
+        <label>Arbeitsbereich<select id="command-area"><option value="">Alle Arbeitsbereiche</option></select></label>
+        <label>Funktion<select id="command-name" disabled><option value="">Funktion auswählen</option></select></label>
+        <label>Ausführungsvariante<select id="command-parameter-set" disabled><option value="">Parametersatz auswählen</option></select></label>
+      </div>
+      <div id="command-description" class="selection-details">Wählen Sie eine Funktion. Danach erscheinen nur die Eingaben des gewählten Parametersatzes.</div>
+      <form id="command-form">
+        <div id="command-parameters" class="command-parameter-grid"></div>
+        <div class="build-actions"><button id="command-submit" type="submit" class="button primary" disabled>Funktion ausführen</button></div>
+      </form>
     </section>
 
     <section class="panel compact" id="ai-shared-gateway-service-secret-panel">
@@ -148,7 +167,7 @@
       </section>
     </section>
 
-    <section class="split-grid">
+    <section class="split-grid" id="environment-inventory">
       <section class="panel compact">
         <div class="section-heading"><div><p class="eyebrow">ABNAHME</p><h2>Windows-/SQL-Kombinationen</h2></div></div>
         <div id="acceptance" class="list"></div>
