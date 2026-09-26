@@ -8,8 +8,8 @@ function Get-SqlServerLabResourcePlan {
         Root. Der Befehl verändert weder Dateien noch Trust Store.
     .PARAMETER ResourceId
         Eine oder mehrere IDs im Format sample:<id>:<variant> oder
-        software:<id>:<variant>. Ohne Angabe werden alle unterstützten
-        Ressourcen geplant.
+        software:<id>:<variant>. Ohne Angabe, bei $null oder einem leeren
+        Array werden alle unterstützten Ressourcen geplant.
     .PARAMETER MediaRoot
         Ziel-Media-Root. Ohne Angabe gilt die lokale Konfiguration.
     .PARAMETER TestDataRoot
@@ -37,7 +37,7 @@ function Get-SqlServerLabResourcePlan {
     )
 
     $roots = Get-LabResourceSetRoots -MediaRoot $MediaRoot -TestDataRoot $TestDataRoot -StateRoot $StateRoot -SourceMediaRoot $SourceMediaRoot
-    $ids = if (@($ResourceId).Count -gt 0) { @($ResourceId | Select-Object -Unique) } else { @(Get-LabResourceSetDefaultId) }
+    $ids = if ($null -ne $ResourceId -and $ResourceId.Count -gt 0) { @($ResourceId | Select-Object -Unique) } else { @(Get-LabResourceSetDefaultId) }
     foreach ($id in $ids) {
         $definition = Get-LabResourceSetDefinition -ResourceId $id
         if ($definition.Kind -eq 'sample') {
