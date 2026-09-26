@@ -22,6 +22,12 @@ function New-TestLeaf($Ca) {
     $certificate=[Security.Cryptography.X509Certificates.RSACertificateExtensions]::CopyWithPrivateKey($public,$rsa);$script:disposable.Add($certificate);[pscustomobject]@{Certificate=$certificate;PrivateKey=$rsa}
 }
 function Reject([scriptblock]$Action,[string]$Code){try{& $Action|Out-Null;$false}catch{$_.Exception.Message -ceq $Code}}
+function Test-ReceiptPayloadAbsent($Receipt) {
+    $json=$Receipt|ConvertTo-Json -Depth 20
+    return ($json -notmatch [regex]::Escape($testRoot.Replace('\','\\')) -and
+        $json -notmatch 'synthetic shared gateway probe' -and
+        $json -notmatch '"(?:embedding|input|data|ApiKey)"\s*:')
+}
 try {
     $runtime=Join-Path $testRoot 'runtime.bin';$model=Join-Path $testRoot 'model.gguf';$cert=Join-Path $testRoot 'cert.pem';$key=Join-Path $testRoot 'key.pem';$caPath=Join-Path $testRoot 'ca.pem'
     [IO.File]::WriteAllText($runtime,'synthetic runtime');[IO.File]::WriteAllText($model,'synthetic model');$ca=New-TestCa;$leaf=New-TestLeaf $ca
@@ -35,8 +41,11 @@ try {
     $receipt=& $module {param($plan,$root,$transport)Test-LabAiSharedGatewayUpstream -Plan $plan -StateRoot $root -Transport $transport} $plan $stateRoot $transport
     Add-CheckResult 'Llama-Upstream bindet Storage und Antwort schema-valide' ($receipt.Status -ceq 'UPSTREAM_VERIFIED' -and $receipt.Backend -ceq 'LlamaCppCuda' -and ($receipt|ConvertTo-Json -Depth 20|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-shared-gateway-upstream-receipt.schema.json')))
     Add-CheckResult 'Probe sendet genau einen festen v1-Embeddingrequest' ($script:captured.Path -ceq '/v1/embeddings' -and $script:captured.Body.model -ceq 'bound-model' -and @($script:captured.Body.input).Count -eq 1 -and $script:captured.Body.encoding_format -ceq 'float')
-    $receiptJson=$receipt|ConvertTo-Json -Depth 20
-    Add-CheckResult 'Upstream-Receipt enthält weder Pfad, Secret noch Vektor' ($receiptJson -notmatch [regex]::Escape($testRoot) -and $receiptJson -notmatch 'synthetic shared gateway probe' -and $receiptJson -notmatch '0\.1')
+    Add-CheckResult 'Upstream-Receipt enthält weder Pfad, Secret noch Vektor' (Test-ReceiptPayloadAbsent $receipt)
+    $timestampReceipt=$receipt.PSObject.Copy();$timestampReceipt.VerifiedAtUtc='2026-01-01T00:00:20.1250000Z'
+    Add-CheckResult 'Gültiger Zeitstempel wird nicht mit einem Vektorwert verwechselt' (Test-ReceiptPayloadAbsent $timestampReceipt)
+    $payloadReceipt=$receipt.PSObject.Copy();$payloadReceipt|Add-Member -NotePropertyName embedding -NotePropertyValue @(0.1,0.2,0.3)
+    Add-CheckResult 'Privacy-Assertion erkennt ein eingefügtes Embeddingfeld' (-not(Test-ReceiptPayloadAbsent $payloadReceipt))
     $badModel={param($request)[pscustomobject]@{StatusCode=200;Body=[pscustomobject]@{model='other';data=@([pscustomobject]@{embedding=@(0.1,0.2,0.3)})}}}
     Add-CheckResult 'Abweichendes Modell wird abgewiesen' (Reject {& $module {param($p,$r,$t)Test-LabAiSharedGatewayUpstream $p $r -Transport $t} $plan $stateRoot $badModel} 'AI_SHARED_GATEWAY_UPSTREAM_MODEL_MISMATCH')
     $badDimension={param($request)[pscustomobject]@{StatusCode=200;Body=[pscustomobject]@{model='bound-model';data=@([pscustomobject]@{embedding=@(0.1,0.2)})}}}

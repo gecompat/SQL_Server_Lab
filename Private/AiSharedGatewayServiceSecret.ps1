@@ -28,6 +28,7 @@ function Test-LabAiSharedGatewayServiceSecret {
     $canonical=Resolve-LabAiSharedGatewayPlan $Plan
     $resolvedService=Resolve-LabAiSharedGatewayServicePlan -ServicePlan $ServicePlan -Plan $canonical
     if([string]$resolvedService.Status -cne 'READY'){throw 'AI_SHARED_GATEWAY_SERVICE_PLAN_BLOCKED'}
+    if([string]$resolvedService.PrincipalKey -cne (Get-LabAiSharedGatewayServicePrincipalKey)){throw 'AI_SHARED_GATEWAY_SERVICE_PRINCIPAL_MISMATCH'}
     if(-not $SecretResolver){
         $secretCommand=Get-Command -Name Get-Secret -ErrorAction SilentlyContinue
         if(-not $secretCommand){throw 'AI_SHARED_GATEWAY_SERVICE_SECRET_MANAGEMENT_UNAVAILABLE'}
@@ -58,6 +59,7 @@ function Resolve-LabAiSharedGatewayServiceSecretReceipt {
     $canonical=Resolve-LabAiSharedGatewayPlan $Plan
     $resolvedService=Resolve-LabAiSharedGatewayServicePlan -ServicePlan $ServicePlan -Plan $canonical
     if([string]$resolvedService.Status -cne 'READY'){throw 'AI_SHARED_GATEWAY_SERVICE_SECRET_RECEIPT_INVALID'}
+    if([string]$resolvedService.PrincipalKey -cne (Get-LabAiSharedGatewayServicePrincipalKey)){throw 'AI_SHARED_GATEWAY_SERVICE_PRINCIPAL_MISMATCH'}
     $expectedNames=@('Contract','EvidenceStatus','ExpiresAtUtc','GatewayId','GatewayPlanKey','PendingEvidence','PrincipalKey','ReceiptKey','ReferenceCount','ReferenceKeys','SecretSource','ServicePlanKey','Status','VerifiedAtUtc','VerifiedEvidence')
     if((@($Receipt.PSObject.Properties.Name|Sort-Object)-join ',') -cne (($expectedNames|Sort-Object)-join ',') -or [string]$Receipt.Contract.Name -cne 'SqlServerLab.AiSharedGatewayServiceSecretReceipt' -or [string]$Receipt.Contract.Version -cne '1.0' -or [string]$Receipt.ReceiptKey -notmatch '^[a-f0-9]{64}$'){throw 'AI_SHARED_GATEWAY_SERVICE_SECRET_RECEIPT_INVALID'}
     try{$verified=[datetimeoffset]::ParseExact([string]$Receipt.VerifiedAtUtc,'o',[Globalization.CultureInfo]::InvariantCulture);$expires=[datetimeoffset]::ParseExact([string]$Receipt.ExpiresAtUtc,'o',[Globalization.CultureInfo]::InvariantCulture)}catch{throw 'AI_SHARED_GATEWAY_SERVICE_SECRET_RECEIPT_INVALID'}

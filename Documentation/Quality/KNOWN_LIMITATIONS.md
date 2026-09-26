@@ -1504,6 +1504,10 @@ startet keinen Dienst. Eine getrennte read-only Prüfung löst alle gebundenen
 Consumerreferenzen ausschließlich über PowerShell SecretManagement auf,
 bestätigt `SecureString` und Gatewayformat und veröffentlicht nur Hash-/Zähl-
 Evidence. Das Receipt gilt fünf Minuten für den gebundenen aktuellen Principal.
+Preflight und Receiptprüfung vergleichen die Bindung mit dem ausführenden
+Benutzer-/Hostkontext. Eine Abweichung blockiert vor dem Vaultzugriff mit
+`AI_SHARED_GATEWAY_SERVICE_PRINCIPAL_MISMATCH`; der Dienstplan muss im
+gewünschten Kontext neu erzeugt werden.
 Prozessvariablen werden absichtlich nicht als Neustartnachweis akzeptiert; die
 nichtinteraktive Auflösung im echten Service-Logon sowie native Apply-/Remove-
 Evidence fehlen weiterhin. Die Browser-GUI bietet denselben read-only Preflight

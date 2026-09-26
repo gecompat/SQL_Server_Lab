@@ -6,6 +6,13 @@ $failures=[Collections.Generic.List[string]]::new();$passed=0;$module=$null
 function New-TestSecureString([string]$Value){$secret=[securestring]::new();foreach($character in $Value.ToCharArray()){$secret.AppendChar($character)};$secret.MakeReadOnly();return $secret}
 try {
     $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
+    $principalMatches=& $module {
+        $platform=if($IsWindows){'Windows'}elseif($IsLinux){'Linux'}else{'Unsupported'}
+        $expected=Get-LabAiPlanKey ([ordered]@{Platform=$platform;Machine=[Environment]::MachineName;User=[Environment]::UserName})
+        (Get-LabAiSharedGatewayServicePrincipalKey) -ceq $expected
+    }
+    Add-CheckResult 'Principalbindung behält den vorhandenen Plattform-, Host- und Benutzerhash bei' $principalMatches
+    & $module { function script:Get-LabAiSharedGatewayServicePrincipalKey { 'f'*64 } }
     $consumers=@(
         [pscustomobject]@{RunId='11111111-1111-4111-8111-111111111111';InstanceId='primary';DatabaseId='22222222-2222-4222-8222-222222222222';ExternalModelName='ModelA';ApiKeyReference='SQL_SERVER_LAB_SECRET_SHARED_A'}
         [pscustomobject]@{RunId='33333333-3333-4333-8333-333333333333';InstanceId='secondary';DatabaseId='44444444-4444-4444-8444-444444444444';ExternalModelName='ModelB';ApiKeyReference='SQL_SERVER_LAB_SECRET_SHARED_B'}
@@ -23,6 +30,18 @@ try {
     $tamperedReceipt=$receipt.PSObject.Copy();$tamperedReceipt.ReferenceCount=1
     $receiptTamperRejected=$false;try{& $module {param($r,$p,$sp)Resolve-LabAiSharedGatewayServiceSecretReceipt -Receipt $r -Plan $p -ServicePlan $sp} $tamperedReceipt $plan $servicePlan|Out-Null}catch{$receiptTamperRejected=$_.Exception.Message -match 'AI_SHARED_GATEWAY_SERVICE_SECRET_RECEIPT_INVALID'}
     Add-CheckResult 'Manipuliertes Secret-Receipt wird abgewiesen' $receiptTamperRejected
+    & $module { function script:Get-LabAiSharedGatewayServicePrincipalKey { '0'*64 } }
+    try {
+        $foreignResolverCalled=$false;$foreignPlanRejected=$false
+        try { & $module {param($p,$sp,[ref]$called,$secret)$resolver={param($name)$called.Value=$true;$secret}.GetNewClosure();Test-LabAiSharedGatewayServiceSecret -Plan $p -ServicePlan $sp -SecretResolver $resolver} $plan $servicePlan ([ref]$foreignResolverCalled) $validSecret | Out-Null }
+        catch { $foreignPlanRejected=$_.Exception.Message -ceq 'AI_SHARED_GATEWAY_SERVICE_PRINCIPAL_MISMATCH' }
+        Add-CheckResult 'Fremder Ausführungskontext blockiert vor dem ersten Vaultzugriff' ($foreignPlanRejected -and -not $foreignResolverCalled)
+        $foreignReceiptRejected=$false
+        try { & $module {param($r,$p,$sp)Resolve-LabAiSharedGatewayServiceSecretReceipt -Receipt $r -Plan $p -ServicePlan $sp} $receipt $plan $servicePlan | Out-Null }
+        catch { $foreignReceiptRejected=$_.Exception.Message -ceq 'AI_SHARED_GATEWAY_SERVICE_PRINCIPAL_MISMATCH' }
+        Add-CheckResult 'Gültiges Receipt wird in einem fremden Ausführungskontext nicht akzeptiert' $foreignReceiptRejected
+    }
+    finally { & $module { function script:Get-LabAiSharedGatewayServicePrincipalKey { 'f'*64 } } }
     $old=[datetime]::UtcNow.AddMinutes(-10);$expired=& $module {param($p,$sp,$time,$secret)$resolver={param($name)$secret}.GetNewClosure();Test-LabAiSharedGatewayServiceSecret -Plan $p -ServicePlan $sp -UtcNow $time -SecretResolver $resolver} $plan $servicePlan $old $validSecret
     $expiryRejected=$false;try{& $module {param($r,$p,$sp)Resolve-LabAiSharedGatewayServiceSecretReceipt -Receipt $r -Plan $p -ServicePlan $sp} $expired $plan $servicePlan|Out-Null}catch{$expiryRejected=$_.Exception.Message -match 'AI_SHARED_GATEWAY_SERVICE_SECRET_RECEIPT_EXPIRED'}
     Add-CheckResult 'Abgelaufenes Secret-Receipt wird getrennt abgewiesen' $expiryRejected

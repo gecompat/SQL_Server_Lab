@@ -6,7 +6,9 @@
     über PowerShell SecretManagement auf. Prozess-Umgebungsvariablen gelten nicht
     als Neustartnachweis. Werte werden nur im Speicher auf Typ und Gatewayformat
     geprüft und weder ausgegeben noch persistiert. Das Receipt gilt für den im
-    Serviceplan gebundenen aktuellen Principal; die spätere nichtinteraktive
+    Serviceplan gebundenen aktuellen Principal. Ein anderer Benutzer-/Hostkontext
+    wird vor dem Vaultzugriff mit AI_SHARED_GATEWAY_SERVICE_PRINCIPAL_MISMATCH
+    abgewiesen; der Dienstplan muss dort neu erzeugt werden. Die spätere nichtinteraktive
     Auflösung im echten Service-Logon bleibt eigene Evidence. Der Befehl
     installiert oder startet keinen Dienst.
 .PARAMETER Plan
