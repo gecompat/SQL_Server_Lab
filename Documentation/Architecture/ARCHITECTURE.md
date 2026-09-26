@@ -128,6 +128,7 @@ Register-SqlServerLabAiSharedGatewayStorage # Gebundene Dateien geschützt und a
 Test-SqlServerLabAiSharedGatewayUpstream    # Registrierten Store und gebundenen Loopback-Upstream read-only prüfen
 Get-SqlServerLabAiSharedGatewayStatus       # Registrierung, Ownership, Drift und Portkonflikte read-only klassifizieren
 Get-SqlServerLabAiSharedGatewayServicePlan  # Windows-S4U- oder Linux-systemd-Autostart read-only mit Hostblockern planen
+Test-SqlServerLabAiSharedGatewayServiceSecret # Consumer-Secrets für aktuellen Principal read-only bestätigen; Service-Logon bleibt offen
 Start-SqlServerLabAiSharedGatewaySession    # Mehrere geplante Consumer ownergebunden und zeitlich begrenzt über Loopback-TLS bedienen
 Stop-SqlServerLabAiSharedGatewaySession     # Nur die eigene Session samt temporärem Zustand bereinigen
 Get-SqlServerLabAiExternalModelPlan          # OpenAI-kompatiblen HTTPS-Embedding-Endpunkt gebunden und mutationsfrei planen

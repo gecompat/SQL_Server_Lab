@@ -20,7 +20,8 @@ try {
     $linux=& $module {param($p,$s,$c)New-LabAiSharedGatewayServicePlan -Plan $p -GatewayStatus $s -HostCapability $c} $plan $status $linuxCapability
     Add-CheckResult 'Linux-Systemd-Plan verlangt Usermanager und Linger-Evidence' ($linux.Status -ceq 'READY' -and $linux.ServiceMode -ceq 'LINUX_SYSTEMD_USER' -and $linux.VerifiedEvidence -contains 'SYSTEMD_USER_LINGER_ENABLED' -and $linux.Warnings.Count -eq 0 -and ($linux|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $schema))
     $wrongMode=& $module {param($p,$s,$c)New-LabAiSharedGatewayServicePlan -Plan $p -GatewayStatus $s -HostCapability $c -ServiceMode SystemdUser} $plan $status $windowsCapability
-    Add-CheckResult 'Explizit unpassende Dienstoption bleibt sichtbar blockiert' ($wrongMode.Status -ceq 'BLOCKED' -and $wrongMode.Blockers -contains 'AI_SHARED_GATEWAY_SERVICE_MODE_UNSUPPORTED')
+    $resolvedWrongMode=& $module {param($sp,$p)Resolve-LabAiSharedGatewayServicePlan -ServicePlan $sp -Plan $p} $wrongMode $plan
+    Add-CheckResult 'Explizit unpassende Dienstoption bleibt sichtbar und kanonisch blockiert' ($resolvedWrongMode.PlanKey -ceq $wrongMode.PlanKey -and $wrongMode.Status -ceq 'BLOCKED' -and $wrongMode.Blockers -contains 'AI_SHARED_GATEWAY_SERVICE_MODE_UNSUPPORTED')
     $missingStatus=[pscustomobject]@{Status='NOT_REGISTERED';GatewayId=$plan.GatewayId;PlanKey=$plan.PlanKey;ReceiptKey=('4'*64)}
     $missing=& $module {param($p,$s,$c)New-LabAiSharedGatewayServicePlan -Plan $p -GatewayStatus $s -HostCapability $c} $plan $missingStatus $windowsCapability
     Add-CheckResult 'Fehlende Registrierung wird mit handlungsfähigem Blocker erklärt' ($missing.Status -ceq 'BLOCKED' -and $missing.EvidenceStatus -ceq 'GATEWAY_STATE_BLOCKED' -and $missing.Blockers -contains 'AI_SHARED_GATEWAY_SERVICE_REGISTRATION_REQUIRED')
@@ -36,6 +37,10 @@ try {
     $wrongPlatformCapability=& $newCapability 'Windows' 'LINUX_SYSTEMD_USER' ('8'*64) @() @()
     $wrongPlatformRejected=$false;try{& $module {param($p,$s,$c)New-LabAiSharedGatewayServicePlan -Plan $p -GatewayStatus $s -HostCapability $c} $plan $status $wrongPlatformCapability|Out-Null}catch{$wrongPlatformRejected=$_.Exception.Message -match 'AI_SHARED_GATEWAY_SERVICE_CAPABILITY_INVALID'}
     Add-CheckResult 'Plattform und Dienstmodus müssen semantisch zusammenpassen' $wrongPlatformRejected
+    $forged=$windows.PSObject.Copy();$forged.Status='BLOCKED'
+    $forged.PlanKey=& $module {param($sp)$identity=[ordered]@{Contract='SqlServerLab.AiSharedGatewayServicePlan/1.0';GatewayId=[string]$sp.GatewayId;GatewayPlanKey=[string]$sp.GatewayPlanKey;GatewayStatusReceiptKey=[string]$sp.GatewayStatusReceiptKey;HostCapabilityKey=[string]$sp.HostCapabilityKey;Platform=[string]$sp.Platform;ServiceMode=[string]$sp.ServiceMode;StartupScope=[string]$sp.StartupScope;PrincipalKey=[string]$sp.PrincipalKey;Status=[string]$sp.Status;EvidenceStatus=[string]$sp.EvidenceStatus;RequiredActions=@($sp.RequiredActions);VerifiedEvidence=@($sp.VerifiedEvidence|Sort-Object -Unique);Blockers=@($sp.Blockers|Sort-Object -Unique);Warnings=@($sp.Warnings)};Get-LabAiPlanKey $identity} $forged
+    $forgeryRejected=$false;try{& $module {param($sp,$p)Resolve-LabAiSharedGatewayServicePlan -ServicePlan $sp -Plan $p} $forged $plan|Out-Null}catch{$forgeryRejected=$_.Exception.Message -match 'AI_SHARED_GATEWAY_SERVICE_PLAN_INVALID'}
+    Add-CheckResult 'Semantisch falscher selbst neu gehashter Serviceplan wird abgewiesen' $forgeryRejected
     $public=$plan|Get-SqlServerLabAiSharedGatewayServicePlan -StateRoot $testRoot
     Add-CheckResult 'Öffentlicher read-only Plan mutiert fehlenden StateRoot nicht' ($public.Status -ceq 'BLOCKED' -and $public.Blockers -contains 'AI_SHARED_GATEWAY_SERVICE_REGISTRATION_REQUIRED' -and -not(Test-Path -LiteralPath $testRoot) -and ($public|ConvertTo-Json -Depth 20|Test-Json -SchemaFile $schema))
     Add-CheckResult 'Öffentlicher Serviceplan ist manifestexportiert und fixierbar' ((Get-Command Get-SqlServerLabAiSharedGatewayServicePlan).ModuleName -ceq 'SqlServerLab' -and (Get-Command Get-SqlServerLabAiSharedGatewayServicePlan).Parameters['ServiceMode'].Attributes.ValidValues -contains 'WindowsS4U')

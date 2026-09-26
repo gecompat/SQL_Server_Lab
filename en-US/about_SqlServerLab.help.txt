@@ -274,6 +274,11 @@ Sync-SqlServerLabRunScopedContainerStore
         Plans host autostart read-only as a Windows S4U task or Linux systemd
         user service and reports missing prerequisites as exact blockers.
 
+    Test-SqlServerLabAiSharedGatewayServiceSecret
+        Verifies every consumer key for the current principal exclusively through
+        SecretManagement without returning secret values or reference names; the
+        actual noninteractive service logon remains pending evidence.
+
     Start-SqlServerLabAiSharedGatewaySession
         Revalidates storage and upstream, then starts an owner-bound, leased
         TLS gateway listening exclusively on IPv4 loopback.

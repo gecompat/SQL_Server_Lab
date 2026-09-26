@@ -78,7 +78,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 131 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 132 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -170,6 +170,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Test-SqlServerLabAiSharedGatewayUpstream` | Geschützten Store revalidieren und den gebundenen Llama-v1- oder OVMS-v3-Loopback-Upstream read-only prüfen |
 | `Get-SqlServerLabAiSharedGatewayStatus` | Registrierung, eigenen Sessionbesitz, Plan-/Inhaltsdrift und fremde Portbelegung read-only klassifizieren |
 | `Get-SqlServerLabAiSharedGatewayServicePlan` | Persistenten Benutzer-Autostart für Windows S4U oder Linux systemd user read-only planen und fehlende Hostvoraussetzungen exakt ausweisen |
+| `Test-SqlServerLabAiSharedGatewayServiceSecret` | Consumer-Schlüssel für den gebundenen Principal nur über SecretManagement auflösen; echter nichtinteraktiver Service-Logon bleibt offen |
 | `Start-SqlServerLabAiSharedGatewaySession` | Ownergebundenen, höchstens einstündigen Shared-Gateway auf IPv4-Loopback mit exakt geplanten Consumer-Schlüsseln starten |
 | `Stop-SqlServerLabAiSharedGatewaySession` | Eigene Session-Operation nach Prozess- und Listenerprüfung bereinigen; Registrierung und fremde Prozesse bleiben unberührt |
 | `Get-SqlServerLabAiExternalModelPlan` | Vorhandenen OpenAI-kompatiblen HTTPS-Embedding-Endpunkt für SQL `CREATE EXTERNAL MODEL` planen; keine Probe oder Hostmutation |
