@@ -68,3 +68,11 @@ und vollständige JSON-Diagnostik werden nicht veröffentlicht. Unklare oder lee
 Prüfung ist keine Aktualitätsbestätigung. Der Workflow lädt nur den bereinigten
 Markdownbericht hoch. Andere Quellen als die bestehende Microsoft-Learn-Lane
 benötigen einen expliziten Ausbau dieses Veröffentlichungsvertrags.
+
+Der interne Prüfadapter trennt `CU_WATCH_CHECK_FAILED`, `CU_WATCH_REPORT_FAILED`
+und `CU_WATCH_INCONCLUSIVE`. Er publiziert keine ursprüngliche Exception und
+unterdrückt Warn-/Informationsausgaben der Prüfaktion. Der Workflow versucht
+bei einem solchen Fehler zunächst den vorhandenen monatlichen Issuehinweis und
+endet anschließend fehlgeschlagen. Ein erfolgreicher Hinweis oder Upload heilt
+keinen fehlgeschlagenen Quellencheck. Fehler vor dem Adapter oder fehlende
+GitHub-Berechtigungen bleiben separate Infrastrukturgrenzen.

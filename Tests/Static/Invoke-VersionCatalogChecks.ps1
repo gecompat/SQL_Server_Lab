@@ -385,9 +385,48 @@ Add-CheckResult -Name 'CU-Watch-Issue fordert bei globalem Prüfausfall ohne Ver
     $statusBlockMatch.Success -and $issueAction -match 'Prüfung unklar' -and $issueAction -notmatch 'Keine neuen Schritte'
 )
 Add-CheckResult -Name 'CU-Watch-Workflow publiziert nur die geprüfte Reportprojektion' -Success (
-    $watchWorkflow.Contains('ConvertTo-LabCuWatchReport -Result $result') -and
+    $watchWorkflow.Contains('Invoke-LabCuWatchEvaluation -Check') -and $watchWorkflow.Contains('$evaluation.Report | Out-File') -and
     -not $watchWorkflow.Contains('$result.SourceUrl') -and -not $watchWorkflow.Contains('$entry.LatestCatalogKb') -and
     -not $watchWorkflow.Contains('sql-cu-watch.json')
+)
+
+$watchSuccess=Invoke-LabCuWatchEvaluation -Check { $fixtureCuStatus }
+Add-CheckResult -Name 'CU-Watch erhält erfolgreiche NEW-Auswertung und Zähler' -Success (
+    $watchSuccess.Status -eq 'NEW' -and -not $watchSuccess.CheckFailed -and $watchSuccess.NewCount -eq 1
+)
+$watchFailure=@(Invoke-LabCuWatchEvaluation -Check {
+    Write-Warning 'SYNTHETIC_PRIVATE_WARNING'
+    Write-Host 'SYNTHETIC_PRIVATE_HOST_OUTPUT'
+    throw 'SYNTHETIC_PRIVATE_EXCEPTION'
+} *>&1)
+Add-CheckResult -Name 'CU-Watch fängt harten Prüffehler ohne Rohdiagnoseveröffentlichung' -Success (
+    $watchFailure.Count -eq 1 -and $watchFailure[0].CheckFailed -and
+    $watchFailure[0].ReasonCode -eq 'CU_WATCH_CHECK_FAILED' -and
+    ($watchFailure | ConvertTo-Json -Depth 4) -notmatch 'SYNTHETIC_PRIVATE'
+)
+$badReport=Invoke-LabCuWatchEvaluation -Check { [pscustomobject]@{Contract='invalid';Status='NO CHANGE'} }
+$nonTerminating=@(Invoke-LabCuWatchEvaluation -Check {
+    Write-Error 'SYNTHETIC_PRIVATE_NONTERMINATING' -ErrorAction Continue
+    $fixtureCuStatus
+} *>&1)
+Add-CheckResult -Name 'CU-Watch behandelt nichtterminierenden Errorstream als privaten Prüffehler' -Success (
+    $nonTerminating.Count -eq 1 -and $nonTerminating[0].CheckFailed -and
+    $nonTerminating[0].ReasonCode -eq 'CU_WATCH_CHECK_FAILED' -and
+    ($nonTerminating | ConvertTo-Json -Depth 4) -notmatch 'SYNTHETIC_PRIVATE'
+)
+Add-CheckResult -Name 'CU-Watch trennt Reportfehler vom Quellencheck und bleibt fehlgeschlagen' -Success (
+    $badReport.Status -eq 'UNCLEAR' -and $badReport.CheckFailed -and $badReport.ReasonCode -eq 'CU_WATCH_REPORT_FAILED'
+)
+$watchUnknown=Invoke-LabCuWatchEvaluation -Check {
+    [pscustomobject]@{Contract='SqlServerLab.CuStatus/1.0';Status='UNCLEAR';CheckedAtUtc='2026-01-01T00:00:00Z';Sources=@($fixtureSource);Versions=@()}
+}
+Add-CheckResult -Name 'CU-Watch lässt auch reguläres UNCLEAR nicht als grünen Prüflauf gelten' -Success (
+    $watchUnknown.CheckFailed -and $watchUnknown.ReasonCode -eq 'CU_WATCH_INCONCLUSIVE'
+)
+Add-CheckResult -Name 'CU-Watch versucht Issuehinweis vor abschließendem roten Gate' -Success (
+    $watchWorkflow.Contains("if: always() && steps.cucheck.outcome == 'success'") -and
+    $watchWorkflow.Contains("if: always() && steps.cucheck.outputs.check_failed == 'true'") -and
+    $watchWorkflow.IndexOf('Preserve failed check outcome') -gt $watchWorkflow.IndexOf('Open or update tracking issue')
 )
 
 if ($failures.Count -gt 0) {

@@ -30,25 +30,17 @@ jobs:
           $ErrorActionPreference = 'Stop'
 
           $scriptPath = Join-Path $PWD 'Tools/Get-SqlServerCuStatus.ps1'
-          $jsonText = & $scriptPath -AsJson
-
-          $outputSummaryPath = Join-Path $env:RUNNER_TEMP 'sql-cu-watch-summary.md'
-          $result = $jsonText | ConvertFrom-Json
-
-          $status = [string]$result.Status
-          $newItems = @($result.Versions | Where-Object { $_.Status -eq 'NEW' })
-          $unclearItems = @($result.Versions | Where-Object { $_.Status -eq 'UNCLEAR' })
-
-          "status=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "new_count=$($newItems.Count)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "unclear_count=$($unclearItems.Count)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-
-          "summary_path=$outputSummaryPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-
           . ./Tools/Common/VersionCatalogCuWatchReport.ps1
-          $report = ConvertTo-LabCuWatchReport -Result $result
-
-          $report | Out-File -FilePath $outputSummaryPath -Encoding utf8
+          $evaluation = Invoke-LabCuWatchEvaluation -Check {
+            & $scriptPath -AsJson | ConvertFrom-Json
+          }
+          $outputSummaryPath = Join-Path $env:RUNNER_TEMP 'sql-cu-watch-summary.md'
+          $evaluation.Report | Out-File -FilePath $outputSummaryPath -Encoding utf8
+          "status=$($evaluation.Status)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "new_count=$($evaluation.NewCount)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "unclear_count=$($evaluation.UnclearCount)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "check_failed=$($evaluation.CheckFailed.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "summary_path=$outputSummaryPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
       - name: Upload CU watch artifact
         if: always()
@@ -61,6 +53,7 @@ jobs:
           retention-days: 60
 
       - name: Open or update tracking issue
+        if: always() && steps.cucheck.outcome == 'success'
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -188,3 +181,9 @@ jobs:
             $labelArg = @($labelBase, $statusLabel) -join ','
             gh issue create --title $title --body-file $issueBodyFile --label $labelArg | Out-Null
           }
+
+      - name: Preserve failed check outcome
+        if: always() && steps.cucheck.outputs.check_failed == 'true'
+        shell: pwsh
+        run: |
+          throw 'CU_WATCH_CHECK_UNSUCCESSFUL: Keine Aktualitaetsbestaetigung; bereinigten Bericht und Tracking-Issue pruefen.'

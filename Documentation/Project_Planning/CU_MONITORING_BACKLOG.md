@@ -23,11 +23,20 @@ Die vorhandene CU-Lane ist Ausgangspunkt des Resource Watch aus dem
 Scheduler oder Backlog. Offen bleiben: Windows-/SQL-Neuversionen, KI-Runtimes,
 Modellrevisionen, Samples und Tools; persistente lokale Quellenoverrides samt
 Herkunft/Reset und Fachdialogen; getrennte Offline-/Timeout-/Rate-Limit-/Parser-
-Diagnose; deduplizierter Hinweis bei hartem Workflowfehler; ressourcen- und
+Diagnose; ressourcen- und
 revisionsgebundene statt ausschließlich monatliche Issue-Deduplizierung.
 Lokale deterministische Prüfung funktioniert ohne KI, recherchierende KI bleibt
 optional. Ein Issue startet keinen Agenten. Neue Releases erteilen keine
 Installations- oder Supportfreigabe.
+
+Der CU-Prüfadapter erzeugt bei einer Exception des Quellen-/Katalogchecks oder
+der Berichtserstellung einen bereinigten `UNCLEAR`-Bericht mit getrenntem
+Fehlercode. Der bestehende monatlich deduplizierte Issuepfad wird anschließend
+versucht; danach bleibt der Workflow rot. Auch ein reguläres `UNCLEAR` ergibt
+keinen erfolgreichen Prüflauf. Checkout-/Runner-/Timeoutausfälle vor oder
+außerhalb dieses Adapters sowie fehlende GitHub-Issueberechtigungen können damit
+keinen Issuehinweis garantieren; GitHub-Fehlerstatus bleibt sichtbar. Eine reale
+End-to-End-Abnahme dieses Fehlerpfads ist noch offen.
 
 ## Implementierung
 
