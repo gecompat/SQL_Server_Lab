@@ -62,6 +62,7 @@ end {
     }
 
     $staticGroups = @(
+        @{ Pattern = '(?i)(CSharpNative|CSharpHyperV|Fixtures[\\/]CSharp[\\/]|csharp-native-acceptance)'; Checks = @('Invoke-ExternalRuntimeWindowsChecks.ps1') },
         @{ Pattern = '(?i)(AiPodmanSamplesReference|ai-podman-samples-reference)'; Checks = @('Invoke-AiPodmanSamplesReferenceChecks.ps1') },
         @{ Pattern = '(?i)(AiPodmanSetup|ai-podman-setup)'; Checks = @('Invoke-AiPodmanSetupChecks.ps1','Invoke-AiPodmanSetupProcessChecks.ps1','Invoke-AiPersistentRetrievalChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
 

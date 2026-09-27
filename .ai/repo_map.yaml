@@ -39,6 +39,13 @@ sources_of_truth:
   csharp_acceptance_probe_source: Tests/Integration/Fixtures/CSharp/Probe.cs
   csharp_acceptance_probe_sql: Tests/Integration/Fixtures/CSharp/probe.sql
   csharp_acceptance_probe_validation: Tests/Static/Fixtures/CSharpProbeBuildChecks.ps1
+  csharp_native_acceptance: Tests/Integration/Invoke-CSharpHyperVAcceptance.ps1
+  csharp_native_acceptance_worker: Tests/Integration/Invoke-CSharpHyperVAcceptanceWorker.ps1
+  csharp_native_acceptance_contracts: Tests/Common/CSharpNativeAcceptance.ps1
+  csharp_native_acceptance_guest: Tests/Integration/Fixtures/CSharp/guest.ps1
+  csharp_native_acceptance_workflow: .github/workflows/csharp-native-acceptance.yml
+  csharp_native_acceptance_guide: Documentation/Architecture/CSHARP_NATIVE_ACCEPTANCE.md
+  csharp_native_acceptance_checks: Tests/Static/Fixtures/CSharpNativeAcceptanceChecks.ps1
   sql_cu_watch_policy: ops/sql-cu-policy.md
   exported_commands: SqlServerLab.psd1
   module_loading: SqlServerLab.psm1

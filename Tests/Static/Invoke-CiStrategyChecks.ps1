@@ -83,6 +83,12 @@ Add-CheckResult -Name 'Hyper-V-Aenderung aktiviert Hyper-V-Vertraege und Runtime
     $hyperV.HyperV -and 'Invoke-HyperVLabEnvironmentChecks.ps1' -in $hyperV.StaticChecks -and -not $hyperV.Docker
 )
 
+foreach($csharpPath in @('Tests/Common/CSharpNativeAcceptance.ps1','Tests/Integration/Invoke-CSharpHyperVAcceptance.ps1','Tests/Integration/Invoke-CSharpHyperVAcceptanceWorker.ps1','Tests/Integration/Fixtures/CSharp/guest.ps1','.github/workflows/csharp-native-acceptance.yml')){
+    foreach($path in @($csharpPath,$csharpPath.Replace('/','\'))){
+        $selected=& $selector -ChangedPath @($path)
+        Add-CheckResult -Name "CSharp Own-Guest waehlt Offlinevertraege: $path" -Success ('Invoke-ExternalRuntimeWindowsChecks.ps1' -in $selected.StaticChecks)
+    }
+}
 $externalRuntimeWindows = & $selector -ChangedPath @('Private/ExternalRuntimeWindows.ps1')
 Add-CheckResult -Name 'Windows-External-Runtime-Aenderung aktiviert Katalog-, Gast- und Hyper-V-Vertraege' -Success (
     $externalRuntimeWindows.HyperV -and

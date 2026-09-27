@@ -118,7 +118,7 @@ dauerhafte Dateisperre oder Installationsfreigabe aus. Ungültige Eingaben
 liefern `CSHARP_ACCEPTANCE_PACKAGE_INVALID` ohne lokale Pfade im Fehlertext.
 Das vorhandene reale Buildpaket mit 142 Manifestdateien bestand diese Prüfung;
 synthetische Negativtests prüfen Hash-, Pfad-, Manifest- und Versionsabwehr.
-Der GitHub-Gast-/SQL-Runner ist weiterhin separat offen.
+Die native Ausführung des getrennten GitHub-Gast-/SQL-Runners bleibt offen.
 Der plattformunabhängige Archivvertrag kann unter Linux offline getestet
 werden; dort ist die Erkennung beliebiger Netzwerk-Mounts nicht enthalten.
 
@@ -138,3 +138,7 @@ Build ersetzt weder diese Prüfungen noch SQL-Server-2025-Registrierung,
 Launchpad-Datenroundtrip, Worker-Identität und Neustart. Reproduzierbarkeit auf
 anderen Hosts, automatische Beschaffung, Gastinstallation und Katalogpromotion
 bleiben separate Nachweise.
+
+Der separate [CSharp-Nativrunner](CSHARP_NATIVE_ACCEPTANCE.md) bindet diese
+Artefakte an eine eigene Windows-/SQL-2025-Umgebung. Seine native Ausführung
+und die Katalogpromotion stehen weiterhin aus.
