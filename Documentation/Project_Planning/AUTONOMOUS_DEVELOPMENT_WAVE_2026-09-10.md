@@ -121,8 +121,11 @@ belegten Scope mit geänderter Isolation; SQL2022/v2 bleibt eigene Forschung.
 Preflight-Abweisung ist kein Sprach-Roundtrip. C#-Runnerimplementierung ist
 keine native C#-SQL-Abnahme.
 
-**Erster konkreter Folgeslice:** Im vorhandenen CU-Watch die Reportprojektion
-an `Sources` und `LatestCatalog` binden und den synthetischen Fehlerfall prüfen.
+**Erster integrierter Slice:** Die CU-Watch-Reportprojektion ist an `Sources`
+und `LatestCatalog` gebunden und synthetisch geprüft. Der folgende Prüfadapter
+behandelt harte Check-/Reportfehler und reguläres `UNCLEAR` mit bereinigtem
+Hinweisversuch vor dem roten Workflowabschluss. Infrastrukturfehler außerhalb
+des Adapters und echte End-to-End-Benachrichtigungsabnahme bleiben separat.
 Der geplante monatliche Workflow besitzt einen erfolgreichen Schedule-Lauf
 `33500598035` vom 2026-09-01; das beweist weder heutige Quellenaktualität noch
 eine allgemeine Resource-Watch-Abnahme. Fehlender allgemeiner Quelleneditor,
