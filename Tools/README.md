@@ -2,6 +2,7 @@
 
 | Werkzeug | Zweck |
 |---|---|
+| [Build-ExternalRuntimeWindowsCSharp.ps1](Build-ExternalRuntimeWindowsCSharp.ps1) | Baut die gesperrte CSharp/.NET-8-Extension offline für lokale Labtests; ohne SQL-Registrierung oder Katalogfreigabe. [Vertrag](../Documentation/Architecture/CSHARP_OFFLINE_BUILD.md) |
 | [Invoke-SqlServerLabNativeLinuxContainerHost.ps1](Invoke-SqlServerLabNativeLinuxContainerHost.ps1) | Prüft vorhandene Docker-/Podman-Hosts, richtet Linux-Storage ein und führt Sprachtests direkt oder in einer expliziten laufenden WSL-Distribution aus; ohne Hyper-V-Verwaltung |
 | [Initialize-SqlServerLabMediaRoot.ps1](Initialize-SqlServerLabMediaRoot.ps1) | Erstellt einen externen Media Root samt lokalen Download-READMEs, sortiert vorhandene ISO/VHDX/Installer optional ein und erzeugt auf Wunsch SHA-256-Sidecars |
 | [Initialize-SqlServerLabDataRoot.ps1](Initialize-SqlServerLabDataRoot.ps1) | Erstellt den getrennten langlebigen Data Root für Evaluation-Refresh, Backups und versionsgebundene Datenbankdateien |

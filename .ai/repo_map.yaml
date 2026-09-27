@@ -23,6 +23,12 @@ sources_of_truth:
   foundation_ruleset: .ai/foundation/FOUNDATION_RULESET.md
   model_routing_policy: .ai/MODEL_ROUTING_POLICY.md
   cost_efficient_development: Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md
+  csharp_offline_build: Tools/Build-ExternalRuntimeWindowsCSharp.ps1
+  csharp_offline_build_contract: Documentation/Architecture/CSHARP_OFFLINE_BUILD.md
+  csharp_offline_build_implementation: Tools/Common/ExternalRuntimeWindowsCSharpBuild.ps1
+  csharp_offline_build_archive_lock: Tools/CSharpBuild/archives.lock.json
+  csharp_offline_build_package_lock: Tools/CSharpBuild/packages.lock.json
+  csharp_offline_build_validation: Tests/Static/Fixtures/CSharpOfflineBuildChecks.ps1
   sql_cu_watch_policy: ops/sql-cu-policy.md
   exported_commands: SqlServerLab.psd1
   module_loading: SqlServerLab.psm1

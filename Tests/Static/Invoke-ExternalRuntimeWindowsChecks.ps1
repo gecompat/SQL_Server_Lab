@@ -11,6 +11,7 @@ $failures = [Collections.Generic.List[string]]::new(); $passed = 0
 Write-Host ''; Write-Host 'SQL_Server_Lab - External Runtime Windows Checks' -ForegroundColor Cyan
 try {
     New-Item -Path $temporaryRoot -ItemType Directory -Force | Out-Null
+    . (Join-Path $PSScriptRoot 'Fixtures/CSharpOfflineBuildChecks.ps1')
     $module = Import-Module $modulePath -Force -PassThru
     $catalog = Get-Content -LiteralPath (Join-Path $repoRoot 'Catalogs/software.json') -Raw | ConvertFrom-Json -Depth 100
     $recipe = & $module { Get-LabExternalRuntimeWindowsRecipe }
