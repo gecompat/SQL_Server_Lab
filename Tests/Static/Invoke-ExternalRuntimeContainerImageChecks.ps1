@@ -357,9 +357,9 @@ Add-CheckResult -Name 'Jeder finale Target übernimmt den versionsgebundenen Lau
         $containerfile -match 'mssql-server-extensibility_16\.0\.4265\.3-1_amd64\.deb' -and
         $containerfile -match '50df89ac3d1176f6227a9db46d1d8128cb3a326718515082f5ca161028610226' -and
         $containerfile -match 'accepteulaml Y' -and
-        $containerfile -match 'required-cgroup-version="1"' -and
-        $containerfile -match 'namespace-isolation="true"' -and
-        $containerfile -match 'outbound-access="false"'
+        $containerfile -match 'ARG EXTERNAL_RUNTIME_CGROUP_VERSION=1' -and
+        $containerfile -match 'ARG EXTERNAL_RUNTIME_NAMESPACE_ISOLATION=true' -and
+        $containerfile -match 'ARG EXTERNAL_RUNTIME_OUTBOUND_ACCESS=false'
     )
     Add-CheckResult -Name 'Containerfile behebt SQL-Satellite-OpenSSL-Aufloesung ohne ungesperrte Pakete' -Success (
         $containerfile -match 'OPENSSL_SONAME=3' -and
@@ -381,12 +381,12 @@ Add-CheckResult -Name 'Jeder finale Target übernimmt den versionsgebundenen Lau
     Add-CheckResult -Name 'Jeder Python-Zielstage bindet die CPython-Shared-Library aus dem digestgebundenen Runtimeimage' -Success (
         @([regex]::Matches($containerfile, 'COPY --from=python-runtime /usr/lib/x86_64-linux-gnu/libpython3\.10\.so\.1\.0')).Count -eq 2
     )
-    Add-CheckResult -Name 'Launcher deaktiviert weder Namespace-Isolation noch Outbound-Schutz' -Success (
-        $launcher -match 'runuser -u mssql_launchpadd -- /opt/mssql/bin/launchpadd &' -and
+    Add-CheckResult -Name 'Launcher bindet die explizite Ausnahme an Profil, SQL-Version und reine cgroup-v2-Mounts' -Success (
+        $launcher -match 'runuser -u mssql_launchpadd -- /opt/mssql/bin/launchpadd' -and
         $launcher -match 'runuser -u mssql -- "\$@" &' -and
         $launcher -match 'if \[\[ -f /opt/mssql/bin/init_custom_setup\.sh \]\]' -and
         $launcher -match 'if \[\[ -x /opt/mssql/bin/run_custom_setup\.sh \]\]' -and
-        $launcher -notmatch '(?i)-usens=false|enableOutboundAccess=true'
+        $launcher -match 'sql2025-shared-user-v2' -and $launcher -match 'EXTERNAL_RUNTIME_CGROUP_V1_MOUNT_REJECTED' -and $launcher -match '17\.0\.5005\.3-1' -and $launcher -match '-usens=false -usesameuser=true'
     )
     Add-CheckResult -Name 'Jedes Image synchronisiert EULA und Extensibility-Konfiguration rollback-sicher beim Start' -Success (
         $containerfile -match 'external-runtime-mssql\.conf' -and
@@ -485,7 +485,7 @@ Add-CheckResult -Name 'Jeder finale Target übernimmt den versionsgebundenen Lau
         $containerfile -match 'required-capabilities="CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE"' -and
         $artifactSource -match 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -and
         $newLabSource -match 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -and
-        $dockerSource -match "ExternalRuntimeLaunchMode -in @\('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1'\)" -and
+        $dockerSource -match "ExternalRuntimeLaunchMode -in @\('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1','sql2025-shared-user-v2'\)" -and
         $dockerSource -match "'--user', '0:0'" -and
         @($requiredLaunchCapabilities | Where-Object { $dockerSource -notmatch "'--cap-add', '$_'" }).Count -eq 0 -and
         $dockerSource -match "'--cap-add', 'SYS_ADMIN'" -and
@@ -495,7 +495,7 @@ Add-CheckResult -Name 'Jeder finale Target übernimmt den versionsgebundenen Lau
         $dockerSource -match "'--security-opt', 'seccomp=unconfined'" -and
         $dockerSource -match "'/sys/fs/cgroup:/sys/fs/cgroup:rw'" -and
         $dockerSource -notmatch "'--privileged'" -and
-        $podmanSource -match "ExternalRuntimeLaunchMode -in @\('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1'\)" -and
+        $podmanSource -match "ExternalRuntimeLaunchMode -in @\('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1','sql2025-shared-user-v2'\)" -and
         $podmanSource -match "'--user', '0:0'" -and
         @($requiredLaunchCapabilities | Where-Object { $podmanSource -notmatch "'--cap-add', '$_'" }).Count -eq 0 -and
         $podmanSource -match "'--cap-add', 'SYS_ADMIN'" -and
@@ -558,6 +558,8 @@ Add-CheckResult -Name 'Jeder finale Target übernimmt den versionsgebundenen Lau
 finally {
     if (Test-Path -LiteralPath $testRoot) { Remove-Item -LiteralPath $testRoot -Recurse -Force }
 }
+
+. (Join-Path $PSScriptRoot 'Fixtures/ExternalRuntimeCgroupV2Checks.ps1')
 
 if ($failures.Count -gt 0) {
     foreach ($failure in $failures) { Write-Host "FAIL: $failure" -ForegroundColor Red }

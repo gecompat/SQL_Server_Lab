@@ -94,7 +94,7 @@ function New-LabProviderContainer {
             [string]$ContainerImageArtifact.Contract.Version -ne '1.0' -or
             [string]$ContainerImageArtifact.Provider -ne [string]$Instance.provider -or
             [string]$ContainerImageArtifact.ImageKey -notmatch '^[a-f0-9]{64}$' -or
-            [string]$ContainerImageArtifact.LaunchMode -notin @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1') -or
+            [string]$ContainerImageArtifact.LaunchMode -notin @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1','sql2025-shared-user-v2') -or
             (@($ContainerImageArtifact.RequiredLinuxCapabilities) -join ',') -ne 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -or
             (@($ContainerImageArtifact.RequiredSecurityOptions) -join ',') -ne 'apparmor=unconfined,seccomp=unconfined') {
             throw "EXTERNAL_RUNTIME_CONTAINER_IMAGE_ARTIFACT_INVALID: $($Instance.id)"
@@ -564,6 +564,9 @@ function New-SqlServerLab {
         if ($externalRuntimePlans.Count -gt 0 -and [string]$instance.provider -in @('docker', 'podman')) {
             $imagePlan = New-LabExternalRuntimeContainerImagePlan -Provider ([string]$instance.provider) `
                 -SqlVersion ([string]$instance.version) -SoftwarePlans $externalRuntimePlans
+            if ($imagePlan.LaunchMode -eq 'sql2025-shared-user-v2') {
+                Write-LabWarning "$($instance.id): expliziter cgroup-v2-Labmodus ohne Launchpad-Sandbox-Isolation; gemeinsames Worker-Konto und keine ausgehende Netzwerkisolation durch Launchpad."
+            }
             $hostStatus = Test-LabExternalRuntimeContainerHost -Provider ([string]$instance.provider) -ImagePlan $imagePlan
             if ([string]$hostStatus.Status -ne 'READY') {
                 throw (Format-LabExternalRuntimeHostCapabilityError -Capability $hostStatus -InstanceId ([string]$instance.id))

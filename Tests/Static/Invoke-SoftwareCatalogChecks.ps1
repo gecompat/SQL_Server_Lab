@@ -199,7 +199,7 @@ $result = & $module {
             $podmanOptions.Count -eq 3 -and
             (@($podmanOptions.SoftwareId | Sort-Object) -join ',') -eq 'sql-java,sql-python,sql-r' -and
             @($podmanOptions | Where-Object { [string]$_.Provider -ne 'podman' -or [string]$_.PlanKey -notmatch '^[a-f0-9]{64}$' }).Count -eq 0 -and
-            $sql2025Options.Count -eq 3 -and
+            $sql2025Options.Count -eq 6 -and
             $sql2019Options.Count -eq 1 -and $sql2019Options[0].SoftwareId -eq 'sql-java'
         PlanIdentity = [string]$supportedPlan.PlanKey -match '^[a-f0-9]{64}$' -and
             @($supportedPlan.PackageLocks).Count -gt 0 -and

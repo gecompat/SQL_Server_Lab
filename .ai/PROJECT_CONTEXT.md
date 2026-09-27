@@ -440,6 +440,10 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   und OCI-Locks,
   providerneutralem Image-Key, getrennten Docker-/Podman-Receipts,
   rootful-cgroup-v1-Preflight und exakt gebundenem Launch-Capability-Vertrag;
+  SQL Server 2025 bietet zusätzlich explizite `shared-user-v2`-Varianten
+  für rootful Docker und Podman auf cgroup v2, gebunden an CU9 und ohne
+  Launchpad-Sandbox-/Worker-Isolation; Auswahl und Nachweisgrenzen stehen in
+  `Documentation/User/EXTERNAL_LANGUAGES_CGROUP_V2.md`;
   Docker und Podman bestanden getrennt die katalogisierten echten
   SQL-Datenroundtrips vor und nach providergebundenem Neustart samt
   vollständigem Cleanup; Java besitzt zusätzlich datenbankgebundene,

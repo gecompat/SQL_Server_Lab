@@ -265,6 +265,10 @@ function Resolve-LabExternalRuntimePlan {
     if ($SoftwareItem.Variant) {
         $candidates = @($candidates | Where-Object { [string]$_.id -eq [string]$SoftwareItem.Variant })
     }
+    else {
+        # Reduced isolation is an explicit variant choice, never a host fallback.
+        $candidates = @($candidates | Where-Object { $_.explicitSelectionOnly -ne $true })
+    }
     if ($SoftwareItem.Version) {
         $candidates = @($candidates | Where-Object { [string]$_.runtimeVersion -eq [string]$SoftwareItem.Version })
     }
@@ -369,6 +373,7 @@ function Resolve-LabExternalRuntimePlan {
         Reason = $null
         VariantId = [string]$variant.id
         VariantStatus = [string]$variant.status
+        LaunchMode = [string]$variant.launchMode
         RuntimeVersion = [string]$variant.runtimeVersion
         InstallationMethod = [string]$variant.installMethod
         RecipeVersion = [string]$variant.recipeVersion

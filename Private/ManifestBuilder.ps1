@@ -489,11 +489,15 @@ function Select-LabManifestExternalRuntimeReferences {
     $selected = [System.Collections.Generic.List[object]]::new()
     :RuntimeSelection while ($true) {
         $remaining = @($options | Where-Object { @($selected.SoftwareId) -notcontains [string]$_.SoftwareId })
+        if ($selected.Count -gt 0) {
+            $remaining = @($remaining | Where-Object { [string]$_.Plan.LaunchMode -eq [string]$selected[0].Plan.LaunchMode })
+        }
         if ($remaining.Count -eq 0) {
             break
         }
         $labels = @($remaining | ForEach-Object {
-            "$($_.Language) $($_.RuntimeVersion) [$($_.VariantId)] - $($_.InstallationMethod), $($_.ArtifactCount) Artifacts, $($_.PackageLockCount) Package Locks"
+            $isolation = if ([string]$_.Plan.LaunchMode -eq 'sql2025-shared-user-v2') { ' - ACHTUNG: ohne Launchpad-Sandbox, gemeinsames Worker-Konto, Netzwerkzugriff' } else { '' }
+            "$($_.Language) $($_.RuntimeVersion) [$($_.VariantId)] - $($_.InstallationMethod), $($_.ArtifactCount) Artifacts, $($_.PackageLockCount) Package Locks$isolation"
         }) + 'Auswahl abschliessen'
         $choice = Read-LabManifestChoice -Options $labels -Prompt "$Path - freigegebene Variante"
         if (Test-LabManifestNavigationResult -InputObject $choice) {

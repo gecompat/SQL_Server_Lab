@@ -61,7 +61,28 @@ if [[ -f /opt/mssql/bin/init_custom_setup.sh ]]; then
     source /opt/mssql/bin/init_custom_setup.sh
 fi
 
-runuser -u mssql_launchpadd -- /opt/mssql/bin/launchpadd &
+launch_mode="$(cat /opt/sql-server-lab/config/launch-mode)"
+launchpad_arguments=()
+case "${launch_mode}" in
+    sql2019-namespace-v1|sql2022-namespace-v1|sql2025-namespace-v1) ;;
+    sql2025-shared-user-v2)
+        # This explicit lab profile removes Launchpad sandbox and worker isolation.
+        test "$(stat -fc %T /sys/fs/cgroup)" = cgroup2fs
+        test -r /sys/fs/cgroup/cgroup.controllers
+        test -n "$(cat /sys/fs/cgroup/cgroup.controllers)"
+        if grep -Eq ' - cgroup ' /proc/self/mountinfo; then
+            echo 'EXTERNAL_RUNTIME_CGROUP_V1_MOUNT_REJECTED' >&2
+            exit 78
+        fi
+        # MCR removes the engine's dpkg version metadata. Its bytes are bound
+        # by the base-image digest; SQL verifies ProductVersion after startup.
+        test "$(dpkg-query -W -f='${Version}' mssql-server-extensibility)" = '17.0.5005.3-1'
+        launchpad_arguments=(-usens=false -usesameuser=true)
+        ;;
+    *) echo 'EXTERNAL_RUNTIME_LAUNCH_MODE_INVALID' >&2; exit 78 ;;
+esac
+
+runuser -u mssql_launchpadd -- /opt/mssql/bin/launchpadd "${launchpad_arguments[@]}" &
 launchpad_pid="$!"
 
 runuser -u mssql -- "$@" &

@@ -2633,3 +2633,10 @@ OpenVINO-Graphfehler getrennt als `LLAMA_ACCELERATOR_COMPUTE_FAILED`. Das
 vorhandene Ollama-Embeddinggemma-GGUF war für b11104 nicht ladbar. Weitere
 Backend-/Modellpaare sowie ein echter Linux-ROCm-Lauf, Podman und Hyper-V bleiben separat.
 [Vertrag und genaue Evidence-Grenzen](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+## Explizite External-Languages-Variante für cgroup v2
+
+SQL Server 2025 CU9 kann unter rootful Docker und Podman ausdrücklich mit
+shared-user-v2-Varianten ausgewählt werden. Dabei entfallen Launchpad-Sandbox-
+und Worker-Isolation; der isolierte cgroup-v1-Modus bleibt Standard.
+[Auswahl, Voraussetzungen und Nachweisgrenzen](../User/EXTERNAL_LANGUAGES_CGROUP_V2.md).

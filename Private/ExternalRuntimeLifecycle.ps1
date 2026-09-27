@@ -95,7 +95,7 @@ WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
     $parts = @($marker.Split('|'))
     $workerValid = $parts.Count -eq 7 -and $(if ([string]$Plan.OperatingSystem -eq 'windows') {
         -not [string]::IsNullOrWhiteSpace([string]$parts[6])
-    } else { $parts[6] -eq 'mssql_satellite' })
+    } else { $parts[6] -eq $(if ([string]$Plan.LaunchMode -eq 'sql2025-shared-user-v2') { 'mssql_launchpadd' } else { 'mssql_satellite' }) })
     if ($parts.Count -ne 7 -or $parts[2] -notlike '3.10.*' -or $parts[3] -ne '1.22.0' -or
         $parts[4] -ne '10.0.1' -or $parts[5] -ne '42' -or -not $workerValid) {
         throw "EXTERNAL_RUNTIME_PYTHON_EVIDENCE_INVALID: $marker"
@@ -143,7 +143,7 @@ WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
     $expectedJsonlite = if ([string]$Plan.OperatingSystem -eq 'windows') { '1.8.8' } else { '1.8.4' }
     $workerValid = $parts.Count -eq 7 -and $(if ([string]$Plan.OperatingSystem -eq 'windows') {
         -not [string]::IsNullOrWhiteSpace([string]$parts[6])
-    } else { $parts[6] -eq 'mssql_satellite' })
+    } else { $parts[6] -eq $(if ([string]$Plan.LaunchMode -eq 'sql2025-shared-user-v2') { 'mssql_launchpadd' } else { 'mssql_satellite' }) })
     if ($parts.Count -ne 7 -or $parts[2] -ne '4.2.3' -or $parts[3] -ne '10.0.1' -or
         $parts[4] -ne $expectedJsonlite -or $parts[5] -ne '42' -or -not $workerValid) {
         throw "EXTERNAL_RUNTIME_R_EVIDENCE_INVALID: $marker"
@@ -404,7 +404,7 @@ WITH RESULT SETS ((evidence nvarchar(4000) NOT NULL));
         $parts = @($marker.Split('|'))
         $workerValid = $parts.Count -eq 6 -and $(if ([string]$Plan.OperatingSystem -eq 'windows') {
             -not [string]::IsNullOrWhiteSpace($parts[5])
-        } else { $parts[5] -eq 'mssql_satellite' })
+        } else { $parts[5] -eq $(if ([string]$Plan.LaunchMode -eq 'sql2025-shared-user-v2') { 'mssql_launchpadd' } else { 'mssql_satellite' }) })
         if ($parts.Count -ne 6 -or $parts[2] -ne '1.0.0' -or $parts[3] -notlike "$expectedMajor.*" -or
             $parts[4] -ne '42' -or -not $workerValid) {
             throw "EXTERNAL_RUNTIME_JAVA_EVIDENCE_INVALID: $Database / $marker"

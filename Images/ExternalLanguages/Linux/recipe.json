@@ -397,5 +397,52 @@
         "workerUser": "mssql_satellite"
       }
     }
+  },
+  "launchModeOverrides": {
+    "sql2025-shared-user-v2": {
+      "baseImage": {
+        "id": "mssql-server-linux-2025-cu9",
+        "reference": "mcr.microsoft.com/mssql/server@sha256:2b5b581621126574f3d1f75e78d3eebe8d05aedb59ad0cfdf9aa42cb0634d726",
+        "version": "17.0.5005.3",
+        "sha256": "2b5b581621126574f3d1f75e78d3eebe8d05aedb59ad0cfdf9aa42cb0634d726",
+        "integrityOrigin": "Microsoft Container Registry manifest digest verified on 2026-09-27",
+        "license": "Microsoft SQL Server container EULA"
+      },
+      "extensibility": {
+        "id": "mssql-server-extensibility",
+        "source": "https://packages.microsoft.com/ubuntu/24.04/mssql-server-2025/pool/main/m/mssql-server-extensibility/mssql-server-extensibility_17.0.5005.3-1_amd64.deb",
+        "version": "17.0.5005.3-1",
+        "sha256": "7443a2df89352adce5b0e35bf4da6b93bc71048f43d21ef382f48658c0b00b68",
+        "integrityOrigin": "Microsoft Ubuntu 24.04 package index SHA-256 verified on 2026-09-27",
+        "license": "Microsoft SQL Server Machine Learning Services EULA"
+      },
+      "launchContract": {
+        "mode": "sql2025-shared-user-v2",
+        "namespaceIsolation": false,
+        "requiredCgroupVersion": "2",
+        "requiredLinuxCapabilities": [
+          "CHOWN",
+          "DAC_OVERRIDE",
+          "KILL",
+          "SETGID",
+          "SETUID",
+          "SYS_ADMIN",
+          "MKNOD",
+          "SETPCAP",
+          "NET_ADMIN",
+          "NET_RAW",
+          "SYS_PTRACE"
+        ],
+        "requiredSecurityOptions": [
+          "apparmor=unconfined",
+          "seccomp=unconfined"
+        ],
+        "outboundAccess": true,
+        "containerUser": "root",
+        "launchpadUser": "mssql_launchpadd",
+        "sqlServerUser": "mssql",
+        "workerUser": "mssql_launchpadd"
+      }
+    }
   }
 }

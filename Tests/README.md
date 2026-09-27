@@ -807,3 +807,15 @@ Für den Windows-llama.cpp-Pfad sind
 `Integration/Invoke-LlamaCppOwnershipAcceptance.ps1` und die optionale
 Docker-/CUDA-Abnahme `Integration/Invoke-LlamaCppSqlAcceptance.ps1` getrennt.
 [Vertrag](../Documentation/Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+## External Languages auf cgroup v2
+
+`Integration/Invoke-ExternalRuntimeCgroupV2Acceptance.ps1 -Provider docker|podman
+-EvidenceRoot <neuer-lokaler-Ordner>` prüft den expliziten SQL-2025-CU9-Modus
+über öffentliche Manifest-Erstellung und Restart. Beide Provider benötigen
+einen eigenen Lauf. Die Prüfung belegt SQL-Sprachroundtrips, Workeridentität,
+reine v2-Mounts, No-op-Reconcile und Own-Cleanup. Sie stellt keinen Host um.
+`-InstallViaReconcile` prueft getrennt die Nachinstallation in ein Basislab,
+einschließlich Datenbankerhalt beim Containerwechsel und nach Restart.
+`-Language Java` prüft den separaten finalen Java-Image-Stage.
+[Auswahl und Isolationsgrenzen](../Documentation/User/EXTERNAL_LANGUAGES_CGROUP_V2.md).

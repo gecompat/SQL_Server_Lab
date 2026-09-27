@@ -24,7 +24,10 @@ function Get-LabLowerFileSha256 {
 
 function Get-LabExternalRuntimeContainerRecipe {
     [CmdletBinding()]
-    param([ValidateSet('2019', '2022', '2025')][string]$SqlVersion = '2022')
+    param(
+        [ValidateSet('2019', '2022', '2025')][string]$SqlVersion = '2022',
+        [ValidateSet('', 'sql2025-shared-user-v2')][string]$LaunchMode = ''
+    )
 
     $recipeRoot = Get-LabExternalRuntimeContainerRecipeRoot
     $recipePath = Join-Path $recipeRoot 'recipe.json'
@@ -46,6 +49,14 @@ function Get-LabExternalRuntimeContainerRecipe {
             if ($null -ne $override.$name) {
                 $recipe | Add-Member -NotePropertyName $name -NotePropertyValue $override.$name -Force
             }
+        }
+    }
+    if ($LaunchMode) {
+        if ($SqlVersion -ne '2025') { throw 'EXTERNAL_RUNTIME_LAUNCH_MODE_SQL_VERSION_UNSUPPORTED' }
+        $override = $recipe.launchModeOverrides.PSObject.Properties[$LaunchMode].Value
+        if (-not $override) { throw 'EXTERNAL_RUNTIME_LAUNCH_MODE_UNKNOWN' }
+        foreach ($name in @('baseImage','extensibility','launchContract')) {
+            $recipe | Add-Member -NotePropertyName $name -NotePropertyValue $override.$name -Force
         }
     }
     if ([string]$recipe.architecture -ne 'x86_64' -or
@@ -198,7 +209,12 @@ function New-LabExternalRuntimeContainerImagePlan {
     if ($SqlVersion -notin @('2019','2022','2025')) { throw "EXTERNAL_RUNTIME_CONTAINER_SQL_VERSION_UNSUPPORTED: $SqlVersion" }
     if (@($SoftwarePlans).Count -eq 0) { throw 'EXTERNAL_RUNTIME_CONTAINER_PLAN_EMPTY' }
 
-    $recipe = Get-LabExternalRuntimeContainerRecipe -SqlVersion $SqlVersion
+    $launchModes = @($SoftwarePlans | ForEach-Object {
+        $variant = Get-LabExternalRuntimeCatalogVariant -VariantId ([string]$_.VariantId)
+        [string]$variant.launchMode
+    } | Sort-Object -Unique)
+    if ($launchModes.Count -ne 1) { throw 'EXTERNAL_RUNTIME_MIXED_ISOLATION_MODES' }
+    $recipe = Get-LabExternalRuntimeContainerRecipe -SqlVersion $SqlVersion -LaunchMode $launchModes[0]
     $variantIds = [Collections.Generic.List[string]]::new()
     $languages = [Collections.Generic.List[string]]::new()
     $softwarePlanKeys = [Collections.Generic.List[string]]::new()
@@ -272,6 +288,7 @@ function New-LabExternalRuntimeContainerImagePlan {
         contract = 'SqlServerLab.ExternalRuntimeContainerImageKey/1.0'
         recipeVersion = [string]$recipe.recipeVersion
         sqlVersion = $SqlVersion
+        launchMode = [string]$recipe.launchContract.mode
         baseImage = [string]$recipe.baseImage.reference
         variants = @($variantIds | Sort-Object)
         languages = $distinctLanguages
@@ -348,13 +365,18 @@ function Get-LabExternalRuntimeHostCapability {
     param(
         [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
         [Parameter(Mandatory)][ValidateSet('2019', '2022', '2025')][string]$SqlVersion,
-        [string]$RequiredCgroupVersion='1',
+        [ValidateSet('1','2')][string]$RequiredCgroupVersion='1',
         [AllowNull()][object]$RuntimeInfo,
         [AllowNull()][Nullable[bool]]$ToolAvailable,
         [AllowNull()][Nullable[bool]]$RuntimeReachable
     )
 
     $result = @{ Provider=$Provider; SqlVersion=$SqlVersion; CgroupVersion=$null; Rootless=$null }
+    if ($RequiredCgroupVersion -eq '2' -and $SqlVersion -ne '2025') {
+        return New-LabExternalRuntimeHostCapabilityResult @result -Status 'DECLARED_UNSUPPORTED' -ReasonCode 'CGROUP_V2_REQUIRES_SQL2025' `
+            -Reason 'Der explizite cgroup-v2-Labmodus ist ausschließlich für SQL Server 2025 implementiert.' `
+            -Guidance 'Wähle die SQL-2025-shared-user-v2-Varianten oder den isolierten cgroup-v1-Modus.'
+    }
     if ($null -eq $ToolAvailable) {
         $resolution = Resolve-LabHostTool -Name $Provider
         $ToolAvailable=[bool]$resolution.Available
@@ -404,7 +426,7 @@ function Get-LabExternalRuntimeHostCapability {
         $detected=if($normalizedCgroup){"cgroup v$normalizedCgroup"}else{'keine erkennbare cgroup-Version'}
         return New-LabExternalRuntimeHostCapabilityResult @result -Status 'DECLARED_UNSUPPORTED' -ReasonCode 'CGROUP_VERSION_UNSUPPORTED' `
             -Reason "External Languages für SQL Server $SqlVersion unter $Provider benötigen rootful Linux mit cgroup v$RequiredCgroupVersion; erkannt wurde $detected." `
-            -Guidance 'Verwende einen rootful Linux-Host mit aktivierter cgroup-v1-Unterstützung oder wähle eine andere unterstützte Host-/Provider-Kombination.'
+            -Guidance "Verwende einen rootful Linux-Host mit cgroup v$RequiredCgroupVersion und der ausdrücklich gewählten passenden Runtimevariante."
     }
     if ($null -eq $rootless) {
         return New-LabExternalRuntimeHostCapabilityResult @result -Status 'DECLARED_UNSUPPORTED' -ReasonCode 'ROOTFUL_STATUS_UNKNOWN' `
@@ -413,8 +435,8 @@ function Get-LabExternalRuntimeHostCapability {
     }
     if ($rootless) {
         return New-LabExternalRuntimeHostCapabilityResult @result -Status 'DECLARED_UNSUPPORTED' -ReasonCode 'ROOTFUL_PROVIDER_REQUIRED' `
-            -Reason "External Languages für SQL Server $SqlVersion unter $Provider benötigen eine rootful Runtime für den schreibbaren cgroup-v1-Bind; erkannt wurde rootless." `
-            -Guidance "Konfiguriere $Provider rootful auf einem Linux-/cgroup-v1-Host oder wähle eine andere unterstützte Kombination."
+            -Reason "External Languages für SQL Server $SqlVersion unter $Provider benötigen eine rootful Runtime für den gewählten Launchpad-Modus; erkannt wurde rootless." `
+            -Guidance "Konfiguriere $Provider rootful auf einem Linux-/cgroup-v$RequiredCgroupVersion-Host oder wähle eine andere unterstützte Kombination."
     }
     return New-LabExternalRuntimeHostCapabilityResult @result -Status 'READY' -ReasonCode 'NONE' -Reason $null -Guidance $null
 }
@@ -433,10 +455,14 @@ function Test-LabExternalRuntimeContainerHost {
         [Parameter(Mandatory)]$ImagePlan
     )
 
-    if ([string]$ImagePlan.LaunchMode -notin @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1') -or
+    $sharedUser = [string]$ImagePlan.LaunchMode -eq 'sql2025-shared-user-v2'
+    if (($sharedUser -and [string]$ImagePlan.SqlVersion -ne '2025') -or
+        (-not $sharedUser -and [string]$ImagePlan.LaunchMode -ne "sql$($ImagePlan.SqlVersion)-namespace-v1") -or
+        [string]$ImagePlan.RequiredCgroupVersion -ne $(if ($sharedUser) { '2' } else { '1' }) -or
+        [string]$ImagePlan.LaunchMode -notin @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1','sql2025-shared-user-v2') -or
         @($ImagePlan.RequiredLinuxCapabilities) -join ',' -ne 'CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE' -or
         @($ImagePlan.RequiredSecurityOptions) -join ',' -ne 'apparmor=unconfined,seccomp=unconfined' -or
-        $ImagePlan.NamespaceIsolation -ne $true -or $ImagePlan.OutboundAccess -ne $false) {
+        $ImagePlan.NamespaceIsolation -ne (-not $sharedUser) -or $ImagePlan.OutboundAccess -ne $sharedUser) {
         throw 'EXTERNAL_RUNTIME_CONTAINER_LAUNCH_CONTRACT_INVALID'
     }
     $capability=Get-LabExternalRuntimeHostCapability -Provider $Provider -SqlVersion ([string]$ImagePlan.SqlVersion) `
@@ -589,6 +615,9 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
         '--build-arg', "LIBGOMP_DEB_SHA256=$($ImagePlan.LibgompDebSha256)",
         '--build-arg', "LIBGOMP_DEB_VERSION=$($ImagePlan.LibgompDebVersion)",
         '--build-arg', "EXTERNAL_RUNTIME_LAUNCH_MODE=$($ImagePlan.LaunchMode)",
+        '--build-arg', "EXTERNAL_RUNTIME_CGROUP_VERSION=$($ImagePlan.RequiredCgroupVersion)",
+        '--build-arg', "EXTERNAL_RUNTIME_NAMESPACE_ISOLATION=$(([string][bool]$ImagePlan.NamespaceIsolation).ToLowerInvariant())",
+        '--build-arg', "EXTERNAL_RUNTIME_OUTBOUND_ACCESS=$(([string][bool]$ImagePlan.OutboundAccess).ToLowerInvariant())",
         '--build-arg', "OPENSSL_SONAME=$($ImagePlan.OpensslSoname)",
         '--build-arg', "EXTERNAL_RUNTIME_STAGE=$($ImagePlan.BuildStage)",
         '--build-arg', "EXTERNAL_RUNTIMES=$(@($ImagePlan.BuildTokens) -join ',')",
@@ -613,7 +642,8 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
             [string]$evidence.LaunchMode -ne [string]$ImagePlan.LaunchMode -or
             [string]$evidence.RequiredCapabilities -ne (@($ImagePlan.RequiredLinuxCapabilities) -join ',') -or
             [string]$evidence.RequiredSecurityOptions -ne (@($ImagePlan.RequiredSecurityOptions) -join ',') -or
-            [string]$evidence.NamespaceIsolation -ne 'true' -or [string]$evidence.OutboundAccess -ne 'false') {
+            [string]$evidence.NamespaceIsolation -ne ([string][bool]$ImagePlan.NamespaceIsolation).ToLowerInvariant() -or
+            [string]$evidence.OutboundAccess -ne ([string][bool]$ImagePlan.OutboundAccess).ToLowerInvariant()) {
             $actual = if ($evidence) {
                 [ordered]@{
                     user=[string]$evidence.User; imageKey=[string]$evidence.ImageKey
@@ -649,8 +679,8 @@ function Invoke-LabExternalRuntimeContainerImageBuildCore {
             requiredCgroupVersion = [string]$ImagePlan.RequiredCgroupVersion
             requiredLinuxCapabilities = @($ImagePlan.RequiredLinuxCapabilities)
             requiredSecurityOptions = @($ImagePlan.RequiredSecurityOptions)
-            namespaceIsolation = $true
-            outboundAccess = $false
+            namespaceIsolation = [bool]$ImagePlan.NamespaceIsolation
+            outboundAccess = [bool]$ImagePlan.OutboundAccess
             contextEvidence = @($ImagePlan.ContextEvidence)
             imagePostconditions = @($imagePostconditions)
             status = 'IMAGE_READY'
