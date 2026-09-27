@@ -35,6 +35,10 @@ sources_of_truth:
   csharp_offline_build_validation: Tests/Static/Fixtures/CSharpOfflineBuildChecks.ps1
   csharp_acceptance_package_preflight: Tools/CSharpBuild/Test-ExternalRuntimeWindowsCSharpPackage.ps1
   csharp_acceptance_package_validation: Tests/Static/Fixtures/CSharpAcceptancePackageChecks.ps1
+  csharp_acceptance_probe_build: Tools/CSharpBuild/Build-ExternalRuntimeWindowsCSharpProbe.ps1
+  csharp_acceptance_probe_source: Tests/Integration/Fixtures/CSharp/Probe.cs
+  csharp_acceptance_probe_sql: Tests/Integration/Fixtures/CSharp/probe.sql
+  csharp_acceptance_probe_validation: Tests/Static/Fixtures/CSharpProbeBuildChecks.ps1
   sql_cu_watch_policy: ops/sql-cu-policy.md
   exported_commands: SqlServerLab.psd1
   module_loading: SqlServerLab.psm1

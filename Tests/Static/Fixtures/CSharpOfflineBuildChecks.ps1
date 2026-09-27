@@ -1,5 +1,6 @@
 # Dot-sourced by the Windows external runtime suite; no compiler or provider needed.
 . (Join-Path $PSScriptRoot 'CSharpAcceptancePackageChecks.ps1')
+. (Join-Path $PSScriptRoot 'CSharpProbeBuildChecks.ps1')
 . (Join-Path $repoRoot 'Tools/Common/ExternalRuntimeWindowsCSharpBuild.ps1')
 $recipeRoot = Join-Path $repoRoot 'Tools/CSharpBuild'
 $archiveLock = @(Get-Content (Join-Path $recipeRoot 'archives.lock.json') -Raw | ConvertFrom-Json)
