@@ -307,6 +307,13 @@ der [autonomen Entwicklungswelle](AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md).
 Implementierung und Tests behalten Vorrang; der Matrixabgleich läuft begleitend.
 Die bestehende Inventurabnahme wird dadurch nicht als fehlgeschlagen umgedeutet.
 
+Der konsolidierte Bedien- und Ressourcenauftrag vom 2026-09-27 ist im Abschnitt
+„Konsolidierter Bedien- und Ressourcenauftrag“ derselben autonomen
+Entwicklungswelle vollständig den bestehenden Tasks/Fachverträgen zugeordnet.
+Geführte CLI-/GUI-Bedienung, Beschaffung, Core-Ausführung und Native Acceptance
+sind getrennte Ergebnisse. Nach der Zuordnung folgt unmittelbar ein kleiner
+ausführbarer Slice; die gesamte empirische Matrix blockiert ihn nicht.
+
 | ID | Arbeitspaket | Ergebnis |
 |---|---|---|
 | `BASE-001` | Code, Exporte, Schemas, Kataloge, Tests, Menüs und Provider-Metadaten inventarisieren | maschinenlesbare Capability-/Statusmatrix |

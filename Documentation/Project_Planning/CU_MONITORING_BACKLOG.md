@@ -6,6 +6,29 @@
 
 Die automatische monatliche Überwachung neuer SQL-Server-Cumulative-Updates ist im Projekt umgesetzt und läuft über einen geplanten GitHub-Workflow.
 
+Konfigurierter Monatsplan und tatsächlich erfolgreicher Lauf sind getrennte
+Nachweise: Schedule-Lauf `33500598035` vom 2026-09-01 endete erfolgreich. Das
+bestätigt keine heutige Quellenaktualität oder allgemeine Ressourcenüberwachung.
+
+Die Reportprojektion verwendet den aktuellen `Sources`-/`LatestCatalog`-Vertrag
+und veröffentlicht keine lokalen Katalogpfade oder rohen Diagnosefelder.
+Synthetische Prüfungen sichern neue Builds, leere/unklare Ergebnisse und
+ungeeignete Quellen vor Veröffentlichung ab. Ein neuer realer Watch-Lauf nach
+dieser Änderung bleibt separat auszuführen.
+
+## Konsolidierter Ressourcenauftrag
+
+Die vorhandene CU-Lane ist Ausgangspunkt des Resource Watch aus dem
+[konsolidierten Auftrag](AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md), kein zweiter
+Scheduler oder Backlog. Offen bleiben: Windows-/SQL-Neuversionen, KI-Runtimes,
+Modellrevisionen, Samples und Tools; persistente lokale Quellenoverrides samt
+Herkunft/Reset und Fachdialogen; getrennte Offline-/Timeout-/Rate-Limit-/Parser-
+Diagnose; deduplizierter Hinweis bei hartem Workflowfehler; ressourcen- und
+revisionsgebundene statt ausschließlich monatliche Issue-Deduplizierung.
+Lokale deterministische Prüfung funktioniert ohne KI, recherchierende KI bleibt
+optional. Ein Issue startet keinen Agenten. Neue Releases erteilen keine
+Installations- oder Supportfreigabe.
+
 ## Implementierung
 
 Aktiv: `.github/workflows/sql-cu-monthly-monitor.yml` führt `.github/prompts/sql-cu-monthly-monitor.prompt.md`/`ops/sql-cu-policy.md` zugrunde liegende Logik automatisiert aus.

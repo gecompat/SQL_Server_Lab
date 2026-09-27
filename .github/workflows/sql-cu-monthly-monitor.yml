@@ -31,10 +31,8 @@ jobs:
 
           $scriptPath = Join-Path $PWD 'Tools/Get-SqlServerCuStatus.ps1'
           $jsonText = & $scriptPath -AsJson
-          $outputJsonPath = Join-Path $env:RUNNER_TEMP 'sql-cu-watch.json'
-          $outputSummaryPath = Join-Path $env:RUNNER_TEMP 'sql-cu-watch-summary.md'
 
-          $jsonText | Out-File -FilePath $outputJsonPath -Encoding utf8
+          $outputSummaryPath = Join-Path $env:RUNNER_TEMP 'sql-cu-watch-summary.md'
           $result = $jsonText | ConvertFrom-Json
 
           $status = [string]$result.Status
@@ -44,62 +42,11 @@ jobs:
           "status=$status" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "new_count=$($newItems.Count)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "unclear_count=$($unclearItems.Count)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "json_path=$outputJsonPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
           "summary_path=$outputSummaryPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
 
-          $report = @"
-          # SQL Server CU Watch – Ergebnis
-
-          - Status: **$($result.Status)**
-          - Geprüft am: $($result.CheckedAtUtc)
-          - Quelle: $($result.SourceUrl)
-          - Katalog: $($result.CatalogPath)
-
-          ## Diff je Version
-          "@
-
-          foreach ($entry in $result.Versions) {
-            $report += @"
-
-          ### SQL $($entry.Version) – $($entry.Status)
-          - Letzter Microsoft-Stand: $($entry.LatestMicrosoft.Build) / $($entry.LatestMicrosoft.Update) / $($entry.LatestMicrosoft.Kb) / $($entry.LatestMicrosoft.Released)
-          - Katalog-Latest-KB: $($entry.LatestCatalogKb)
-          - Fehlende Einträge: $($entry.MissingCount)
-          "@
-
-            if ($entry.MissingCount -gt 0) {
-              $report += "`n- Missing:"
-              foreach ($m in @($entry.Missing)) {
-                $report += "`n  - $($m.Build) $($m.Update) $($m.Kb) ($($m.Released))"
-              }
-              $report += "`n"
-            }
-
-            if ($entry.Note) {
-              $report += @"
-          - Hinweis: $($entry.Note)
-          "@
-            }
-          }
-
-          if (-not $result.Versions -or $result.Versions.Count -eq 0) {
-            $report += "`nEs wurden keine Versionsdaten ausgewertet."
-          }
-
-          if ($status -eq 'UNCLEAR') {
-            $report += "`n- Ergebnis ist unklar, bitte Quelle und Katalog manuell prüfen."
-          }
-          elseif ($newItems.Count -gt 0) {
-            $report += "`n- Handlung: Katalog mit den fehlenden KBs aktualisieren."
-          }
-          else {
-            $report += "`n- Handlung: Keine Änderungen nötig."
-          }
-
-          $report += @"
-
-          Nächster Check: $((Get-Date).AddMonths(1).ToString('yyyy-MM-dd'))
-          "@
+          . ./Tools/Common/VersionCatalogCuWatchReport.ps1
+          $report = ConvertTo-LabCuWatchReport -Result $result
 
           $report | Out-File -FilePath $outputSummaryPath -Encoding utf8
 
@@ -109,7 +56,6 @@ jobs:
         with:
           name: sql-cu-watch
           path: |
-            ${{ runner.temp }}/sql-cu-watch.json
             ${{ runner.temp }}/sql-cu-watch-summary.md
           if-no-files-found: ignore
           retention-days: 60
@@ -145,7 +91,9 @@ jobs:
             default { $statusLabelLines = $statusLabelLines -replace '- \[ \] NO CHANGE', '- [x] NO CHANGE' }
           }
 
-          $statusBlock = if ($newCount -gt 0) {
+          $statusBlock = if ($status -eq 'UNCLEAR') {
+            '- Handlung: Prüfung unklar; Quelle und Katalog manuell prüfen.'
+          } elseif ($newCount -gt 0) {
             '- Handlung: Katalog mit den fehlenden KBs aktualisieren.'
           } elseif ($unclearCount -gt 0) {
             '- Handlung: Quelle und Katalog manuell prüfen.'

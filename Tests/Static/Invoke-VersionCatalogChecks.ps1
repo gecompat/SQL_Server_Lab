@@ -353,6 +353,43 @@ Add-CheckResult -Name 'Provider übergeben MSSQL_COLLATION nur für eine explizi
     @([regex]::Matches($containerProviderText, 'MSSQL_COLLATION=\$Collation')).Count -eq 2
 )
 
+. (Join-Path $repoRoot 'Tools/Common/VersionCatalogCuWatchReport.ps1')
+$reportFixture=$fixtureCuStatus | ConvertTo-Json -Depth 12 | ConvertFrom-Json
+$reportFixture.CatalogPath='SYNTHETIC_PRIVATE_PATH'
+$reportFixture.Reason='SYNTHETIC_PRIVATE_REASON'
+$reportFixture.Versions[0].Note='SYNTHETIC_PRIVATE_NOTE'
+$report=ConvertTo-LabCuWatchReport $reportFixture
+Add-CheckResult -Name 'CU-Watch-Bericht verwendet aktuelle Sources und LatestCatalog-Verträge' -Success (
+    $report.Contains('https://learn.microsoft.com/fixture') -and
+    $report.Contains([string]$reportFixture.Versions[0].LatestCatalog.kb) -and
+    $report.Contains('KB9999999') -and $report.Contains('16.0.4270.1')
+)
+Add-CheckResult -Name 'CU-Watch veröffentlicht keine lokalen Pfade oder rohen Diagnosefelder' -Success ($report -notmatch 'SYNTHETIC_PRIVATE')
+$reportFixture.Status='UNCLEAR';$reportFixture.Versions=@()
+$report=ConvertTo-LabCuWatchReport $reportFixture
+Add-CheckResult -Name 'CU-Watch ohne auswertbare Versionen meldet keine Aktualitätsbestätigung' -Success ($report.Contains('Keine Aktualitätsbestätigung') -and $report.Contains('Keine Versionsdaten'))
+$reportFixture.Status='NO CHANGE';$caught=''
+try{ConvertTo-LabCuWatchReport $reportFixture | Out-Null}catch{$caught=$_.Exception.Message}
+Add-CheckResult -Name 'CU-Watch lehnt leeren grünen Bericht ab' -Success ($caught -eq 'CU_WATCH_REPORT_INCOMPLETE')
+$reportFixture.Status='UNCLEAR';$reportFixture.Sources[0].Url='https://learn.microsoft.com/fixture?synthetic-secret=value';$caught=''
+try{ConvertTo-LabCuWatchReport $reportFixture | Out-Null}catch{$caught=$_.Exception.Message}
+Add-CheckResult -Name 'CU-Watch lehnt Quelle mit Query vor Veröffentlichung ab' -Success ($caught -eq 'CU_WATCH_REPORT_SOURCE_INVALID')
+$watchWorkflow=Get-Content (Join-Path $repoRoot '.github/workflows/sql-cu-monthly-monitor.yml') -Raw
+$statusBlockMatch=[regex]::Match($watchWorkflow,'(?ms)^\s*\$statusBlock = if .*?(?=^\s*\$body = @")')
+$issueAction=& {
+    $status='UNCLEAR';$newCount=0;$unclearCount=0
+    . ([scriptblock]::Create($statusBlockMatch.Value))
+    $statusBlock
+}
+Add-CheckResult -Name 'CU-Watch-Issue fordert bei globalem Prüfausfall ohne Versionszeilen eine Prüfung' -Success (
+    $statusBlockMatch.Success -and $issueAction -match 'Prüfung unklar' -and $issueAction -notmatch 'Keine neuen Schritte'
+)
+Add-CheckResult -Name 'CU-Watch-Workflow publiziert nur die geprüfte Reportprojektion' -Success (
+    $watchWorkflow.Contains('ConvertTo-LabCuWatchReport -Result $result') -and
+    -not $watchWorkflow.Contains('$result.SourceUrl') -and -not $watchWorkflow.Contains('$entry.LatestCatalogKb') -and
+    -not $watchWorkflow.Contains('sql-cu-watch.json')
+)
+
 if ($failures.Count -gt 0) {
     foreach ($failure in $failures) { Write-Host "FAIL: $failure" -ForegroundColor Red }
     exit 1
