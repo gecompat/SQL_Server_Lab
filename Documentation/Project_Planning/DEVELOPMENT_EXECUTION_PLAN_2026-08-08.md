@@ -299,6 +299,14 @@ Die deduplizierten Kriterien, das vollständige Alt-Wellen-Mapping, das
 Statusvokabular und die Readinessmatrix stehen in der
 [M0-Statuswahrheitsmatrix](M0_STATUS_TRUTH_MATRIX.md).
 
+**Ergänzungsauftrag 2026-09-27:** `BASE-001` bis `BASE-005` führen die vollständige
+Provider-/SQL-/OS-/Capability- und Native-Acceptance-Sicht weiter; `CORE-102`
+integriert die Hostübersicht aus Issue #619. Umfang, unabhängige
+Statusdimensionen und Wiederaufnahme blockierter Runner-/UAC-Arbeit stehen in
+der [autonomen Entwicklungswelle](AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md).
+Implementierung und Tests behalten Vorrang; der Matrixabgleich läuft begleitend.
+Die bestehende Inventurabnahme wird dadurch nicht als fehlgeschlagen umgedeutet.
+
 | ID | Arbeitspaket | Ergebnis |
 |---|---|---|
 | `BASE-001` | Code, Exporte, Schemas, Kataloge, Tests, Menüs und Provider-Metadaten inventarisieren | maschinenlesbare Capability-/Statusmatrix |
