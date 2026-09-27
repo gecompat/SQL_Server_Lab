@@ -10,6 +10,10 @@ function Invoke-LabAiBenchmarkProcess {
     $start.FileName=$Invocation;$start.WorkingDirectory=Split-Path $Invocation -Parent
     $start.UseShellExecute=$false;$start.CreateNoWindow=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
     foreach($argument in $ArgumentList){$null=$start.ArgumentList.Add($argument)}
+    # Match the owned runtime: discovery and measurement use only bound backend overrides.
+    foreach($name in @($start.Environment.Keys)){
+        if($name -match '^(LLAMA|GGML|CUDA|HIP|OPENVINO|OV_|HF_|HUGGING_FACE|ROCR)'){$null=$start.Environment.Remove($name)}
+    }
     foreach($name in $Environment.Keys){$start.Environment[$name]=[string]$Environment[$name]}
     $process=[Diagnostics.Process]::new();$process.StartInfo=$start;$peak=0L
     try {
@@ -250,7 +254,7 @@ function Invoke-LabAiComputeBenchmark {
         $selectorPrefixes=switch($backend){LlamaCppCuda{@('CUDA')};LlamaCppRocm{@('ROCm','HIP')};LlamaCppVulkan{@('Vulkan')};LlamaCppSycl{@('SYCL')};LlamaCppOpenVino{@('OpenVINO')};default{@()}}
         if(@($selectors|Where-Object {$selector=$_;@($selectorPrefixes|Where-Object {$selector.StartsWith($_,[StringComparison]::OrdinalIgnoreCase)}).Count -eq 0}).Count){throw 'AI_COMPUTE_BENCHMARK_DEVICE_BINDING_MISMATCH'}
     }
-    $profile=[ordered]@{Contract='SqlServerLab.AiComputeBenchmarkProfile/1.0';WorkloadKey=$WorkloadKey;BenchmarkMode=$BenchmarkMode;Repetitions=$Repetitions;GeneratedTokens=$GeneratedTokens;PromptTokens=$PromptTokens;BatchSize=$BatchSize;MicroBatchSize=$MicroBatchSize}
+    $profile=[ordered]@{Contract='SqlServerLab.AiComputeBenchmarkProfile/1.0';ProcessEnvironmentPolicy='ISOLATED_MODEL_BACKEND_V1';WorkloadKey=$WorkloadKey;BenchmarkMode=$BenchmarkMode;Repetitions=$Repetitions;GeneratedTokens=$GeneratedTokens;PromptTokens=$PromptTokens;BatchSize=$BatchSize;MicroBatchSize=$MicroBatchSize}
     $profileHash=Get-LabAiPlanKey $profile
     $expectedPrompt=if($BenchmarkMode -eq 'Embedding'){$PromptTokens}else{0};$expectedGeneration=if($BenchmarkMode -eq 'Embedding'){0}else{$GeneratedTokens}
     $arguments=@('-m',$modelItem.FullName,'-o','json','-r',[string]$Repetitions,'-p',[string]$expectedPrompt,'-n',[string]$expectedGeneration)

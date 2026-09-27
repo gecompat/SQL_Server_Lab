@@ -2609,6 +2609,13 @@ bisherige explizite CUDA-/OpenVINO-Start bleibt verfügbar. Linux verlangt
 und eine native Matrix aller Hardwarekombinationen fehlen weiterhin. Ohne
 vollständige Receipts bleibt Auto geschlossen.
 
+Benchmark-Discovery und Messung isolieren geerbte Modell-/Backend-Overrides
+nach derselben Präfixregel wie der eigene Server. Explizite Gerätebindung wird
+danach nur im Kindprozess angewandt; die Callerumgebung bleibt unverändert.
+Der Profilhash bindet diese Regel, sodass alte und neue Receipts nicht gemischt
+werden können. Dies ist keine vollständige Betriebssystem-Sandbox und kein
+Nachweis einer schnellsten Auswahl über alle Runtimepakete.
+
 ### Eigener llama.cpp-Start
 
 Der Windows-/Linux-Start/Stop-Vertrag prüft HTTPS, Modellalias, Dimension und eigene
