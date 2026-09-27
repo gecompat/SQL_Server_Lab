@@ -41,6 +41,18 @@
 
 Bereits ausdrücklich freigegebene Projekt- und Attributionseinträge dürfen unverändert erhalten bleiben.
 
+**Geklärte Handhabung für die autonome Entwicklung:** Repository und notwendige
+lokale Zustände dürfen gelesen werden. Bereinigte fachliche Anforderungen,
+Code, Dokumentation und synthetische Tests dürfen innerhalb bestehender
+Git-Freigaben bearbeitet und integriert werden. Erforderliche reale
+Diagnoseinformationen bleiben ausschließlich lokal und außerhalb der
+Versionskontrolle; sie gehören nicht in Commits, PRs, Issues oder hochgeladene
+Testartefakte. Ein lokaler Benutzerpfad oder ein bekannter Repositoryname allein
+erfordert keine erneute Bestätigung. Bei unklarer Bereinigung, erforderlicher
+Übertragung realer Daten oder zusätzlichem Autorisierungsbedarf ist vor der
+betroffenen Aktion gezielt zu klären. Dies erweitert keine Lösch-, Migrations-,
+Lizenz- oder kostenpflichtige Dienstfreigabe.
+
 ## 4. Öffentliche API
 
 - `SqlServerLab.psd1` ist die autoritative Exportliste.

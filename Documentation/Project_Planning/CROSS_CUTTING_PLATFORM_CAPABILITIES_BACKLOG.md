@@ -65,6 +65,13 @@ Oberfläche, einem separaten Cmdlet oder einem Hilfsskript erreichbarer
 Produktworkflow erfüllt dieses Ziel noch nicht. Interne Hilfsfunktionen
 müssen dafür nicht einzeln öffentlich werden.
 
+Seit dem konsolidierten Auftrag vom 2026-09-27 gilt dies ausdrücklich für
+verständliche Fachdialoge in CLI und GUI sowie dokumentierte nichtinteraktive
+Aufrufe. „Alle öffentlichen Befehle“ ist nur Expertenzugang, kein Beleg für
+vollständige Fachbedienung. Die deduplizierte Zuordnung einschließlich
+Grundkonfiguration, Hostdiensten, Quellen, Reserve und Cleanup steht in der
+[autonomen Entwicklungswelle](AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md).
+
 Der Scope umfasst insbesondere:
 
 - Lab-, Run- und Instanzinventar, Status, Verbindungen, Readiness und Diagnose;
@@ -111,11 +118,12 @@ Konsolenmenüs und weitere Produktoberflächen. Vorhandene CLI-/UI-Pläne werden
 wiederverwendet; eine vollständige Lückenanalyse ist mit diesem Eintrag noch
 nicht durchgeführt.
 
-Die weitere Behebung von External Languages (Java/Python/R) unter Podman auf
-Windows/WSL ist auf Benutzerentscheidung vom 2026-09-25 vorerst zurückgestellt;
-diese Kombination bleibt nicht unterstützt. Das schränkt andere unterstützte
-Podman-Funktionen nicht ein und widerruft keine getrennte native Linux-Evidence.
-Ein künftiger Ausbau für native Linux-Hosts ist ein eigener Implementierungspunkt.
+Die frühere Zurückstellung des Podman-/WSL-Sprachpfads ist durch die getrennte
+SQL-2025-Abnahme der expliziten `shared-user-v2`-Varianten vom 2026-09-27 im
+belegten rootful-Scope überholt. Gemeinsames Worker-Konto und geänderte Isolation
+bleiben sichtbar; dies ist keine pauschale Freigabe anderer SQL-Versionen,
+rootless oder isolierter Launchpad-Pfade. Details und Evidence stehen in
+[External Languages auf cgroup v2](../User/EXTERNAL_LANGUAGES_CGROUP_V2.md).
 Die [bekannten Grenzen](../Quality/KNOWN_LIMITATIONS.md) bleiben maßgeblich.
 
 ## Weitere priorisierte Kandidaten

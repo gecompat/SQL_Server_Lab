@@ -35,8 +35,9 @@ Windows-ISO/EXE liegt weiterhin beim Betreiber.
 ## Was als "neu" gilt
 - Neue CU/Builds, die in den Microsoft-Quellen vorhanden sind, aber nicht im
   aktuellen Katalogeintrag stehen.
-- `CU_MONITORING_BACKLOG.md` ist der Implementierungsstatus für das gesamte
-  CU-Monitoring: aktuell auf `DEFERRED`.
+- `CU_MONITORING_BACKLOG.md` führt den implementierten SQL-CU-Watch und dessen
+  getrennte Erweiterungen. Ein konfigurierter Zeitplan ist kein Nachweis eines
+  erfolgreichen aktuellen Quellenabgleichs.
 
 ## Erwartetes Resultat des Agents
 1. `NEU`: es gibt Kataloglücken, welche Versionen betroffen sind.
@@ -57,3 +58,13 @@ Windows-ISO/EXE liegt weiterhin beim Betreiber.
 ## Prüfkriterium bei Unsicherheit
 - Bei fehlender Quelle, nicht lesbarem Katalog oder zweifelhafter Zuordnung:
   `UNCLEAR` + genaue Lücke benennen.
+
+## Veröffentlichbarer Workflowbericht
+
+`Tools/Common/VersionCatalogCuWatchReport.ps1` projiziert ausschließlich den
+aktuellen `SqlServerLab.CuStatus/1.0`-Vertrag: `Sources`, `LatestCatalog` und
+geprüfte Build-/KB-Metadaten. Lokaler `CatalogPath`, rohe `Reason`-/`Note`-Felder
+und vollständige JSON-Diagnostik werden nicht veröffentlicht. Unklare oder leere
+Prüfung ist keine Aktualitätsbestätigung. Der Workflow lädt nur den bereinigten
+Markdownbericht hoch. Andere Quellen als die bestehende Microsoft-Learn-Lane
+benötigen einen expliziten Ausbau dieses Veröffentlichungsvertrags.

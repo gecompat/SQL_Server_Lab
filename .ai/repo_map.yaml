@@ -47,6 +47,7 @@ sources_of_truth:
   csharp_native_acceptance_guide: Documentation/Architecture/CSHARP_NATIVE_ACCEPTANCE.md
   csharp_native_acceptance_checks: Tests/Static/Fixtures/CSharpNativeAcceptanceChecks.ps1
   sql_cu_watch_policy: ops/sql-cu-policy.md
+  sql_cu_watch_report: Tools/Common/VersionCatalogCuWatchReport.ps1
   exported_commands: SqlServerLab.psd1
   module_loading: SqlServerLab.psm1
   linux_container_host_tool: Tools/Invoke-SqlServerLabLinuxContainerHost.ps1
