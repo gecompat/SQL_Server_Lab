@@ -65,6 +65,35 @@ Weitergabefreigabe und veröffentlicht keine Binärdateien.
 
 ### Paketübergabe an eine spätere native Acceptance
 
+Die synthetische C#-Probe unter `Tests/Integration/Fixtures/CSharp` verdoppelt
+Integerwerte und liefert .NET-Major, Prozess-ID sowie das per Windows-Token
+ermittelte AppContainer-Flag zurück. Der SQL-Prüftext verlangt drei exakte
+Wertepaare, .NET 8 und einen AppContainer-Worker. Er ist noch nicht gegen SQL
+ausgeführt; insbesondere ist die geforderte Worker-Isolation noch kein
+beobachteter Nachweis.
+
+`Tools/CSharpBuild/Build-ExternalRuntimeWindowsCSharpProbe.ps1` kompiliert
+diese Probe ohne MSBuild oder Paketdownload mit dem vorhandenen SDK 10.0.401,
+dem geprüften Extension-Paket und dem SHA512-gesperrten
+`microsoft.netcore.app.ref`-Archiv 8.0.31 aus dem bestehenden Build-Lock.
+Referenzen werden nur unter festen eigenen Dateinamen in einen neuen
+Outputroot kopiert. Geerbte DOTNET-, COMPlus-, CORECLR- und COR-Steuervariablen
+werden vor dem Compilerstart entfernt. Ein Build mit synthetisch ungültigen
+Profiler- und Startup-Hook-Einstellungen erzeugte denselben DLL-Hash.
+Der Compiler besitzt ein 120-Sekunden-Limit. Der Root
+bleibt auch bei Fehlern für gezielte Diagnose erhalten; vorhandene Roots
+werden nicht überschrieben. Zwei lokale Builds in verschieden langen Pfaden
+erzeugten bytegleiche Probe-DLLs. Das Receipt trägt ausschließlich
+`PROBE_BUILT_NOT_SQL_VALIDATED`; Gastinstallation, Datenbankregistrierung,
+SQL-Roundtrip und Neustart stehen weiterhin aus.
+
+```powershell
+.\Tools\CSharpBuild\Build-ExternalRuntimeWindowsCSharpProbe.ps1 `
+    -Package <geprüftes-extension-paket> -PackageSha256 <geprüfter-sha256> `
+    -ReferenceArchive <gesperrtes-net8-referenzpaket> `
+    -Dotnet <vorhandene-dotnet-exe> -OutputRoot <neuer-buildroot>
+```
+
 `Tools/CSharpBuild/Test-ExternalRuntimeWindowsCSharpPackage.ps1` prüft ein
 lokales Paket read-only gegen einen ausdrücklich übergebenen SHA-256 aus dem
 zuvor geprüften Build. Es extrahiert nichts und führt weder Paketcode noch
