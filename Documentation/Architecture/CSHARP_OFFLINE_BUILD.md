@@ -1,0 +1,81 @@
+# Offline-Build der CSharp Language Extension
+
+Status: internes Buildwerkzeug; SQL-Registrierung und Launchpad-Abnahme offen.
+
+`Tools/Build-ExternalRuntimeWindowsCSharp.ps1` baut den Microsoft-Quellstand
+`9a897b70e1823573e7e455f3b3c3ecf3a6bf1f0f` für lokale SQL-Labtests unter
+Windows x64. Es installiert nichts und ändert weder Dienste noch Provider oder
+den Softwarekatalog. Die CSharp-Variante bleibt `PREVIEW`.
+
+## Gebundene Eingaben
+
+Der Caller stellt einen lokalen Archivroot bereit. Das Werkzeug lädt keine
+Dateien herunter und akzeptiert ausschließlich die im Code und in
+`Tools/CSharpBuild` gesperrten Inhalte:
+
+- `source.zip`: [Microsoft-Quellarchiv](https://github.com/microsoft/sql-server-language-extensions/archive/9a897b70e1823573e7e455f3b3c3ecf3a6bf1f0f.zip), SHA256 im Werkzeug;
+- `dotnet-runtime-8.0.31-win-x64.zip`: [Microsoft-Runtime](https://builds.dotnet.microsoft.com/dotnet/Runtime/8.0.31/dotnet-runtime-8.0.31-win-x64.zip), SHA512 aus den [Release-Metadaten](https://builds.dotnet.microsoft.com/dotnet/release-metadata/8.0/releases.json);
+- `nuget/<id>/<version>/<id>.<version>.nupkg`: 43 Archive gemäß
+  `archives.lock.json`, einschließlich drei Referenzpacks. Die dort verzeichneten
+  NuGet-Katalogquellen belegen die Archivhashes. `packages.lock.json` bindet
+  zusätzlich die 40 aufgelösten Projektabhängigkeiten.
+
+Der NuGet-`contentHash` ist nicht mit dem SHA512 des vollständigen signierten
+Archivs gleichzusetzen. Beide Bindungen werden getrennt geprüft: Archivhash
+vor Nutzung, Paketauflösung durch `restore --locked-mode` aus dem eigenen
+Offline-Feed. NuGet-Audit läuft dabei nicht online. Vor einer Übernahme neuer
+Locks ist eine gesonderte aktuelle Advisory-Prüfung erforderlich.
+
+Die bereits vorhandene Toolchain wird ausdrücklich übergeben: .NET SDK
+10.0.401, VC Tools 14.51.36231 und Windows SDK 10.0.26100.0. Der Build lädt oder
+installiert diese Werkzeuge nicht. UAC ist nicht erforderlich. Ein anderer
+Compilerstand erhält keinen stillen Fallback.
+
+## Ablauf und Ergebnis
+
+```powershell
+.\Tools\Build-ExternalRuntimeWindowsCSharp.ps1 `
+    -Inputs <lokaler-archivroot> -OutputRoot <neuer-buildroot> `
+    -Dotnet <absoluter-dotnet-exe-pfad> -VcVars <absoluter-vcvars64-bat-pfad> `
+    -ValidateInputsOnly
+```
+
+Ohne `ValidateInputsOnly` läuft der Build. Der reine Preflight prüft Dateien,
+Hashes und Pfade; er führt keinen Compiler aus und bestätigt keine installierte
+Toolversion. Build- und Eingaberoot gehören außerhalb versionierter Dateien.
+Vorhandene Ausgabeverzeichnisse werden abgewiesen. Nach Fehlern bleibt nur der
+neu angelegte Buildroot für Diagnose und eigenes gezieltes Cleanup erhalten.
+Es gibt kein automatisches Resume oder pauschales Löschen.
+
+Der Build verwendet neue Quell-, Feed-, Paket- und Zwischenverzeichnisse,
+normalisierte Pfade, feste Toolversionen, begrenzte Kindprozesse und eine
+feste ZIP-Reihenfolge mit festen Zeitstempeln. Übergeordnete MSBuild-Dateien,
+Git-Metadaten und relevante geerbte Buildvariablen werden ausgeschlossen.
+Die Runtimekonfiguration bindet .NET 8.0.31 mit `LatestPatch`. Die Runtime-ZIP
+bleibt separat; das Extension-Paket enthält den passenden `hostfxr.dll`.
+
+`csharp-net8.zip` enthält die Extension, ihre Abhängigkeiten, unveränderte
+Lizenz-/Notice-Dateien und NuGet-Metadaten sowie ein Hashmanifest. Der lokale
+Buildreceipt trägt `BUILT_NOT_SQL_VALIDATED`. Rohlogs bleiben im Buildroot.
+Microsoft-spezifische Bedingungen einzelner Abhängigkeiten werden durch die
+MIT-Lizenz der Extension nicht ersetzt. Das Werkzeug erteilt keine allgemeine
+Weitergabefreigabe und veröffentlicht keine Binärdateien.
+
+## Nachweise und Grenzen
+
+Das Repository-Werkzeug erzeugte am 2026-09-27 auf derselben Toolchain in zwei
+unterschiedlich langen Quellpfaden bytegleiche Pakete, auch mit absichtlich
+ungültigen geerbten Compiler-/SDK-Variablen und blockierenden übergeordneten
+MSBuild-Dateien. Seine 49 Runtime-Dateien sind bytegleich zum zuvor geprüften
+lokalen Paket. 129 Upstream-ABI-Tests
+bestanden nach frischer Paketextraktion mit separat entpackter .NET-8-Runtime.
+Die unveränderten Produktquellen benötigen für diesen Teststand Anpassungen
+am Upstream-Testharness (C++17-Dateisystem und normalisierter Assemblyverweis).
+Das Buildwerkzeug baut diesen Testharness nicht mit.
+
+Die statische Windows-External-Runtime-Suite prüft Lock-Konsistenz,
+Hashabwehr, Outputschutz und die Offlinegrenzen ohne Compiler. Ein erfolgreicher
+Build ersetzt weder diese Prüfungen noch SQL-Server-2025-Registrierung,
+Launchpad-Datenroundtrip, Worker-Identität und Neustart. Reproduzierbarkeit auf
+anderen Hosts, automatische Beschaffung, Gastinstallation und Katalogpromotion
+bleiben separate Nachweise.

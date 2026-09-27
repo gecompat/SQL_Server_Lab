@@ -1,0 +1,346 @@
+[
+  {
+    "Id": "microsoft.data.analysis",
+    "Version": "0.23.0",
+    "Sha512": "+Ba0BY/ElbV9m4cCyDOFZIlj0e/xT4UAVhckOrInZ5Yf9HNiZyB/Dxdb+UhlU+0CQU/EAHsBNPedFnqqh9fSlQ==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.data.analysis/0.23.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.11.11.08.33.21/microsoft.data.analysis.0.23.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.data.analysis/0.23.0/microsoft.data.analysis.0.23.0.nupkg"
+  },
+  {
+    "Id": "microsoft.data.sqlclient",
+    "Version": "5.2.2",
+    "Sha512": "17IAmucLAzaLZZRg0BJ48jrg/Y0TV66tgagNbU9r9FVk7Cabx/hXZ3GTdyTnzOxelsXVSI+1wzvbsRSQGKlFwQ==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.data.sqlclient/5.2.2.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2024.08.27.21.05.43/microsoft.data.sqlclient.5.2.2.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.data.sqlclient/5.2.2/microsoft.data.sqlclient.5.2.2.nupkg"
+  },
+  {
+    "Id": "apache.arrow",
+    "Version": "14.0.2",
+    "Sha512": "byr+KMz9PKG714zYJlqW1GI2kH9kHd3BCGHxXt2c7MvRZpYAQQydQkbOZe6+fbHIvDlPLSn71TmN7KsyYaC+2w==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/apache.arrow/14.0.2.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2023.12.19.10.51.00/apache.arrow.14.0.2.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/apache.arrow/14.0.2/apache.arrow.14.0.2.nupkg"
+  },
+  {
+    "Id": "azure.core",
+    "Version": "1.38.0",
+    "Sha512": "g6/eal6tMK3kQSl/mBzMRr5v/qOe5GsrTphYRCeaRXPFXss3WhySPox6Pi4EOaXKKiAJpG3b+MIbQcZXZiAXzg==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/azure.core/1.38.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2024.02.26.18.05.51/azure.core.1.38.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/azure.core/1.38.0/azure.core.1.38.0.nupkg"
+  },
+  {
+    "Id": "azure.identity",
+    "Version": "1.11.4",
+    "Sha512": "YpW81gNuxdNb8GQ7IOrVbpBj7uxBD4qQnjlIzpxPx86Venew1IZRHATaemfNfWUOnl6NP1xJreFhV3Bl+oOY6A==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/azure.identity/1.11.4.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.07.11.16.03.40/azure.identity.1.11.4.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/azure.identity/1.11.4/azure.identity.1.11.4.nupkg"
+  },
+  {
+    "Id": "microsoft.bcl.asyncinterfaces",
+    "Version": "1.1.1",
+    "Sha512": "TM5+ytmbqucLH4Fc0EdDHyhKRmNC5EVvkpvvJIkfRdYA2QA38NRcqXsbikU7URRdwhW5gHrBzosrjPRWMDNCBA==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.bcl.asyncinterfaces/1.1.1.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2020.05.12.14.59.54/microsoft.bcl.asyncinterfaces.1.1.1.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.bcl.asyncinterfaces/1.1.1/microsoft.bcl.asyncinterfaces.1.1.1.nupkg"
+  },
+  {
+    "Id": "microsoft.csharp",
+    "Version": "4.5.0",
+    "Sha512": "yWWeTbGCzBOlRPWDCIxiTZW1ecZiMbao0ZT97KKEWdBhrLvUqU8RdzkhzuCRQzvoxzxlR7vytO43OOgFdkxv6g==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.csharp/4.5.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2018.12.18.00.05.37/microsoft.csharp.4.5.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.csharp/4.5.0/microsoft.csharp.4.5.0.nupkg"
+  },
+  {
+    "Id": "microsoft.data.sqlclient.sni.runtime",
+    "Version": "5.2.0",
+    "Sha512": "q/uOxCUAdIOf+GMxmMTuJemGpJ/80ufe8BbIcKvVY/zNdzW2hD2d7imwmsF2/xpUvsqMBHJtzpwfXdW4FVpKRQ==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.data.sqlclient.sni.runtime/5.2.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2024.02.20.22.46.03/microsoft.data.sqlclient.sni.runtime.5.2.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.data.sqlclient.sni.runtime/5.2.0/microsoft.data.sqlclient.sni.runtime.5.2.0.nupkg"
+  },
+  {
+    "Id": "microsoft.identity.client",
+    "Version": "4.61.3",
+    "Sha512": "gLYldEzeZ1s5826tEXHZ7m/ifmNuQpEnsIwy9TrFLv9bK4GVRCS7wJwfk4h3SKpStAUwSF81CUxnQFcgF4X7HQ==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.identity.client/4.61.3.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.07.10.18.54.09/microsoft.identity.client.4.61.3.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.identity.client/4.61.3/microsoft.identity.client.4.61.3.nupkg"
+  },
+  {
+    "Id": "microsoft.identity.client.extensions.msal",
+    "Version": "4.61.3",
+    "Sha512": "3StApQEoHVupRSzHLz1YgaK03+L0QFPMeDj6FJTazfuIshog74sYg+pAUQRWxIOJpFVI2fMCOOhlhxmEcPOb0A==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.identity.client.extensions.msal/4.61.3.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.07.14.20.58.33/microsoft.identity.client.extensions.msal.4.61.3.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.identity.client.extensions.msal/4.61.3/microsoft.identity.client.extensions.msal.4.61.3.nupkg"
+  },
+  {
+    "Id": "microsoft.identitymodel.abstractions",
+    "Version": "6.35.0",
+    "Sha512": "VUnU5sIipHdhwYJDIVFhrnvjHvy7JheaHhpp5lxgvethdVUV8EhfLomjIMNouKkun2aj1+XSHfGISGIyxNnhAg==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.identitymodel.abstractions/6.35.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.05.09.21.51.54/microsoft.identitymodel.abstractions.6.35.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.identitymodel.abstractions/6.35.0/microsoft.identitymodel.abstractions.6.35.0.nupkg"
+  },
+  {
+    "Id": "microsoft.identitymodel.jsonwebtokens",
+    "Version": "6.35.0",
+    "Sha512": "d9Sb7Q/4bKzt9WU4ue3iK994IUQSO45g6+00LjaTaILx5y2e+M0iRCNFOtjS2vE2tm/kpw43Eh59yqrR65HDlw==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.identitymodel.jsonwebtokens/6.35.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.05.09.21.37.26/microsoft.identitymodel.jsonwebtokens.6.35.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.identitymodel.jsonwebtokens/6.35.0/microsoft.identitymodel.jsonwebtokens.6.35.0.nupkg"
+  },
+  {
+    "Id": "microsoft.identitymodel.logging",
+    "Version": "6.35.0",
+    "Sha512": "jIjIusrjyJbyHhdRJsIGsEsT83sDD13vpAlp8Wc5wtBA4B5MRwjADDHmy9VV1OZ5jkHCxqPWvs8MpgXQP2O80A==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.identitymodel.logging/6.35.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.05.09.21.34.55/microsoft.identitymodel.logging.6.35.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.identitymodel.logging/6.35.0/microsoft.identitymodel.logging.6.35.0.nupkg"
+  },
+  {
+    "Id": "microsoft.identitymodel.protocols",
+    "Version": "6.35.0",
+    "Sha512": "AwEF1DqKC8iyNmdu1eIwBLWavWsm3SULUy560JJlpFevSeQ4vUi2AyNbHEufhBtNPbKaeSsd9ExdplgG85T+2A==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.identitymodel.protocols/6.35.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.05.09.21.41.29/microsoft.identitymodel.protocols.6.35.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.identitymodel.protocols/6.35.0/microsoft.identitymodel.protocols.6.35.0.nupkg"
+  },
+  {
+    "Id": "microsoft.identitymodel.protocols.openidconnect",
+    "Version": "6.35.0",
+    "Sha512": "bWbeJM88P1N8irt362KhIEfa5toonqUawihL59F3kS1EL0eU9sEpKat5Og/aILqTJhZtMgyHWZiRBEJ/2lWMtA==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.identitymodel.protocols.openidconnect/6.35.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.05.09.21.43.29/microsoft.identitymodel.protocols.openidconnect.6.35.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.identitymodel.protocols.openidconnect/6.35.0/microsoft.identitymodel.protocols.openidconnect.6.35.0.nupkg"
+  },
+  {
+    "Id": "microsoft.identitymodel.tokens",
+    "Version": "6.35.0",
+    "Sha512": "PmL0xRAibypPeslfdeLoyOvWMdDP5IQ5X1RUnDLSpPXRnTVcZKgqNpiFexMqw5MGFFuAgBLbqvk72yreK+1v4Q==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.identitymodel.tokens/6.35.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.05.09.21.03.41/microsoft.identitymodel.tokens.6.35.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.identitymodel.tokens/6.35.0/microsoft.identitymodel.tokens.6.35.0.nupkg"
+  },
+  {
+    "Id": "microsoft.ml.dataview",
+    "Version": "5.0.0",
+    "Sha512": "+9bR57J3LioU60Y3f288l34yoIW6O2w9U4KpI8Adj2qyUxD294OfOnIfDX9c6Tcz7PNU2+wGU0SIY//0XBJL6Q==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.ml.dataview/5.0.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.11.11.08.33.21/microsoft.ml.dataview.5.0.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.ml.dataview/5.0.0/microsoft.ml.dataview.5.0.0.nupkg"
+  },
+  {
+    "Id": "microsoft.netcore.platforms",
+    "Version": "1.1.0",
+    "Sha512": "a/iSwnRZb+LHFk49hQOyThh/ZNC3vsbZsF65XwQIb863qF6msmhdQtxGXFL28Ob2NsCz/drEj28BJd/YPpLRBg==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.netcore.platforms/1.1.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2018.12.18.00.13.47/microsoft.netcore.platforms.1.1.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.platforms/1.1.0/microsoft.netcore.platforms.1.1.0.nupkg"
+  },
+  {
+    "Id": "microsoft.netcore.targets",
+    "Version": "1.1.0",
+    "Sha512": "HvAzpoaIqrmZfsHAN4rLFji0r7YY5TP8r3SdkziXN7qU9KCpRIG+zfcBx+mIri/jkBNqjq4iWIfuYNtFBjSQ/g==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.netcore.targets/1.1.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2018.12.13.23.00.18/microsoft.netcore.targets.1.1.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.targets/1.1.0/microsoft.netcore.targets.1.1.0.nupkg"
+  },
+  {
+    "Id": "microsoft.sqlserver.server",
+    "Version": "1.0.0",
+    "Sha512": "G9kLCMlPrfO7YRLJX200puElH0cQgj+plcui7NZXFGoeWU3jOO224YrTUeMABS6CTsge0C9I0/8thYUWmppCYA==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.sqlserver.server/1.0.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2026.04.10.00.25.46/microsoft.sqlserver.server.1.0.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.sqlserver.server/1.0.0/microsoft.sqlserver.server.1.0.0.nupkg"
+  },
+  {
+    "Id": "system.buffers",
+    "Version": "4.6.1",
+    "Sha512": "qve/dFwECwehSWlZmpkrrlIeATCvo/Hw2koyMrUVcDBy5gXAQrnwX8pHEoqgj8DgkrWuWW1DrQbFqoMbo+Fvrg==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.buffers/4.6.1.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2026.04.10.00.14.09/system.buffers.4.6.1.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.buffers/4.6.1/system.buffers.4.6.1.nupkg"
+  },
+  {
+    "Id": "system.clientmodel",
+    "Version": "1.0.0",
+    "Sha512": "zmMElL1o+yjdhHJ/67UJPKH45+H9QEFqTZO6IcMYH2yTxd4+spEvmmUXesLiI35FoaDGaZsDPpS6Qj/UoOPPaw==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.clientmodel/1.0.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2024.01.03.20.39.59/system.clientmodel.1.0.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.clientmodel/1.0.0/system.clientmodel.1.0.0.nupkg"
+  },
+  {
+    "Id": "system.collections.immutable",
+    "Version": "9.0.4",
+    "Sha512": "B7ViUmGN4eg38AQa9wwvZCqWJTd9GXZuOUfcVvq9+rlPq18BlmFbgGAt9u1iHDP04fGnMv9KLsquwWA5rijvFw==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.collections.immutable/9.0.4.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.04.08.18.51.35/system.collections.immutable.9.0.4.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.collections.immutable/9.0.4/system.collections.immutable.9.0.4.nupkg"
+  },
+  {
+    "Id": "system.configuration.configurationmanager",
+    "Version": "8.0.0",
+    "Sha512": "WLn7WxNMGs8+pboojHpid8CJiNhcr2j7kA0gmI8fgU5LF0JGKGqHhSSHc8WW0h77svQSS29KO+hr+xKeuS2J9A==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.configuration.configurationmanager/8.0.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2023.11.14.14.14.00/system.configuration.configurationmanager.8.0.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.configuration.configurationmanager/8.0.0/system.configuration.configurationmanager.8.0.0.nupkg"
+  },
+  {
+    "Id": "system.diagnostics.diagnosticsource",
+    "Version": "6.0.1",
+    "Sha512": "gKD5vzp6/bKNnwDh8wH+6ss5w0/krI9Vo5I3fi4Bj7VG/D/Fbi/kM23qIit6s/S6tYoLjYbrGMcZUe8uHHUniQ==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.diagnostics.diagnosticsource/6.0.1.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2023.03.14.12.59.15/system.diagnostics.diagnosticsource.6.0.1.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.diagnostics.diagnosticsource/6.0.1/system.diagnostics.diagnosticsource.6.0.1.nupkg"
+  },
+  {
+    "Id": "system.diagnostics.eventlog",
+    "Version": "8.0.0",
+    "Sha512": "um5/JzI6kqUKdoRX4qtIrMql36C6GQgspx2ntHO3HNO23QNuRC4Qn8Fe+7TCZ4gamEQJeuTt3Dy4hxUsjJURpQ==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.diagnostics.eventlog/8.0.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2023.11.14.14.13.24/system.diagnostics.eventlog.8.0.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.diagnostics.eventlog/8.0.0/system.diagnostics.eventlog.8.0.0.nupkg"
+  },
+  {
+    "Id": "system.identitymodel.tokens.jwt",
+    "Version": "6.35.0",
+    "Sha512": "nqphEuO06mhbA8g48q1+0B1ery2hUAl70MVOrcxDDJ0hSlloQamg8xbIJ4e/atL4KxYO13HBzvnU9hsOTMawWQ==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.identitymodel.tokens.jwt/6.35.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.05.09.21.54.56/system.identitymodel.tokens.jwt.6.35.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.identitymodel.tokens.jwt/6.35.0/system.identitymodel.tokens.jwt.6.35.0.nupkg"
+  },
+  {
+    "Id": "system.memory",
+    "Version": "4.6.3",
+    "Sha512": "NXcNYlWoXe5cz9sb8Huo6x2dCZVYkhwKtgE00n/MoI8V4ZI/7/t+EI5bOhQFlZfFjjqM8+U6prjU/aARt7H/tA==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.memory/4.6.3.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2026.04.10.00.14.09/system.memory.4.6.3.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.memory/4.6.3/system.memory.4.6.3.nupkg"
+  },
+  {
+    "Id": "system.memory.data",
+    "Version": "1.0.2",
+    "Sha512": "CJ69Pz2bxvPCTI8IEIegPsWmVdS5FPRhJjO31F7Q+LqEBJeP1v8YkqpFv3+t4L2Abf/zoMJ/GVAHhSYtMz4yIA==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.memory.data/1.0.2.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2021.04.08.18.02.07/system.memory.data.1.0.2.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.memory.data/1.0.2/system.memory.data.1.0.2.nupkg"
+  },
+  {
+    "Id": "system.numerics.tensors",
+    "Version": "9.0.4",
+    "Sha512": "eTPAGul/a5uP6fmYAYF7e0+awn9jwF0Cs6plb6Xv1ESvAXb+f/kF/a9oTjT5lQDSZkKV2n4Alu+f1c/Ec2T/HQ==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.numerics.tensors/9.0.4.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2025.04.08.19.00.47/system.numerics.tensors.9.0.4.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.numerics.tensors/9.0.4/system.numerics.tensors.9.0.4.nupkg"
+  },
+  {
+    "Id": "system.numerics.vectors",
+    "Version": "4.5.0",
+    "Sha512": "nATsBTD2CKr4AYN6eRszhX4sptImWmBJwB/U6XKCWWfnCcrTBw8XSCm3QA9gjppkHTr8OkXUY21MR91D3QZXsw==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.numerics.vectors/4.5.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2018.12.18.00.07.46/system.numerics.vectors.4.5.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.numerics.vectors/4.5.0/system.numerics.vectors.4.5.0.nupkg"
+  },
+  {
+    "Id": "system.runtime",
+    "Version": "4.3.0",
+    "Sha512": "kqsiSfCAc8+v3Ez719s21lGthxuNi6lhAGmCGH3jdL9KMK+T8V9zsFrzQ/enDL1ISwTWRlcFh2Nq5yFx6wcU+w==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.runtime/4.3.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2018.12.13.22.10.24/system.runtime.4.3.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.runtime/4.3.0/system.runtime.4.3.0.nupkg"
+  },
+  {
+    "Id": "system.runtime.caching",
+    "Version": "8.0.0",
+    "Sha512": "svoizUpZPVEoXx81ACwRcu8TwhiHJUaWhDzlcrRNm3JrXmdIoH78RWRdSheNY4Nz8180SnvzagLN5Yq6Z590qA==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.runtime.caching/8.0.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2024.10.14.20.42.43/system.runtime.caching.8.0.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.runtime.caching/8.0.0/system.runtime.caching.8.0.0.nupkg"
+  },
+  {
+    "Id": "system.runtime.compilerservices.unsafe",
+    "Version": "6.1.2",
+    "Sha512": "t2aXWJZBkAkRrTOnw31OBELKEVSDD5YvC3O5dXaHFsR66/nRTKm1y3Iq6NwFI5u5IlKrWYfdan66V+GKKkY8hQ==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.runtime.compilerservices.unsafe/6.1.2.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2026.04.10.00.14.09/system.runtime.compilerservices.unsafe.6.1.2.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.runtime.compilerservices.unsafe/6.1.2/system.runtime.compilerservices.unsafe.6.1.2.nupkg"
+  },
+  {
+    "Id": "system.security.cryptography.cng",
+    "Version": "4.5.0",
+    "Sha512": "DsHSZoBeVe2bAknPwdrgnCQlgd80XRcS8V3ev952BF8ZE4jUi2i7+tIaFth6md9nure1SJL2hfQt4IgjpNybxQ==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.security.cryptography.cng/4.5.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2018.12.18.00.06.23/system.security.cryptography.cng.4.5.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.security.cryptography.cng/4.5.0/system.security.cryptography.cng.4.5.0.nupkg"
+  },
+  {
+    "Id": "system.security.cryptography.protecteddata",
+    "Version": "8.0.0",
+    "Sha512": "hvcXZ/IR+KXxY9lC9S2izw5/fGYoODJR2r9kQSvs5v/HUAnBRuYYZPJrHzaT0CeDRJzIm8BHJb1ZrwHQ59j3uQ==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.security.cryptography.protecteddata/8.0.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2023.11.14.14.10.48/system.security.cryptography.protecteddata.8.0.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.security.cryptography.protecteddata/8.0.0/system.security.cryptography.protecteddata.8.0.0.nupkg"
+  },
+  {
+    "Id": "system.text.encoding",
+    "Version": "4.3.0",
+    "Sha512": "b/f+7HMTpxIfeV7H03bkuHKMFylCGfr9/U6gePnfFFW0aF8LOWLDgQCY6V1oWUqDksC3mdNuyChM1vy9TP4sZw==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.text.encoding/4.3.0.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2026.04.10.00.14.45/system.text.encoding.4.3.0.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.text.encoding/4.3.0/system.text.encoding.4.3.0.nupkg"
+  },
+  {
+    "Id": "system.text.encodings.web",
+    "Version": "4.7.2",
+    "Sha512": "w6zxb/ztTbasnmZ3spvVzdRC3hmol6nl4IgVa+cDnfTIUPAazhj2G3dzyT7cnZo9nRG7j0DWrCRTe9W04CS0Iw==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.text.encodings.web/4.7.2.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2021.03.09.14.33.23/system.text.encodings.web.4.7.2.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.text.encodings.web/4.7.2/system.text.encodings.web.4.7.2.nupkg"
+  },
+  {
+    "Id": "system.text.json",
+    "Version": "4.7.2",
+    "Sha512": "NF0Vx0qaxt2r7ro0m5ugJ+SLQjlymE/yAup0tUE91QIjaBd0aoJIXIQKDPyBgXm5RUhzHbXzYbB6TRG92iD1Dw==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.text.json/4.7.2.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2026.04.09.20.51.46/system.text.json.4.7.2.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.text.json/4.7.2/system.text.json.4.7.2.nupkg"
+  },
+  {
+    "Id": "system.threading.tasks.extensions",
+    "Version": "4.5.4",
+    "Sha512": "aAUghud9PHGYc3o9oWPWd0C3xE+TJQw5ZZs78htlR6mr9ky/QEgfXHjyQ2GvOq9H1S0YizcVVKCSin92ZcH8FA==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/system.threading.tasks.extensions/4.5.4.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2020.03.24.17.11.58/system.threading.tasks.extensions.4.5.4.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/system.threading.tasks.extensions/4.5.4/system.threading.tasks.extensions.4.5.4.nupkg"
+  },
+  {
+    "Id": "microsoft.netcore.app.ref",
+    "Version": "8.0.31",
+    "Sha512": "/lRLHYI1unTyWFmIbGgvqqiPEKH19Cw63ps5Q+rQd1ZndFpt3h47mpFanCkFh+hO/QkweEZNHEQxlgh0Zme/Jg==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.netcore.app.ref/8.0.31.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2026.09.08.20.05.10/microsoft.netcore.app.ref.8.0.31.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.netcore.app.ref/8.0.31/microsoft.netcore.app.ref.8.0.31.nupkg"
+  },
+  {
+    "Id": "microsoft.aspnetcore.app.ref",
+    "Version": "8.0.31",
+    "Sha512": "2fPzTtGH1eqTOA3T2AJTTKprm8kNgwpdmuIMDaMPwmvZUdB/kdBMOe7IS74YzWVjhPpHNX2gG5klxG+Fyf//YA==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.aspnetcore.app.ref/8.0.31.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2026.09.08.19.02.55/microsoft.aspnetcore.app.ref.8.0.31.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.aspnetcore.app.ref/8.0.31/microsoft.aspnetcore.app.ref.8.0.31.nupkg"
+  },
+  {
+    "Id": "microsoft.windowsdesktop.app.ref",
+    "Version": "8.0.31",
+    "Sha512": "F2ZqlRUS93M7EyJ01OxVlSZ7cZLX3BETvFDd/40JUrpykPrdOHcYZyWp/R38IDkdA1P8tN1Uwe21xlqqBjCyyQ==",
+    "RegistrationUrl": "https://api.nuget.org/v3/registration5-semver1/microsoft.windowsdesktop.app.ref/8.0.31.json",
+    "CatalogUrl": "https://api.nuget.org/v3/catalog0/data/2026.09.08.19.55.23/microsoft.windowsdesktop.app.ref.8.0.31.json",
+    "ArchiveUrl": "https://api.nuget.org/v3-flatcontainer/microsoft.windowsdesktop.app.ref/8.0.31/microsoft.windowsdesktop.app.ref.8.0.31.nupkg"
+  }
+]

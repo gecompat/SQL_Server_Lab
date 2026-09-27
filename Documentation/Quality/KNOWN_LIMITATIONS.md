@@ -1742,6 +1742,12 @@ ist deshalb für SQL 2019/2022/2025 auf Hyper-V/Windows katalogisiert, bleibt
 aber bis zu hashgebundenem Build und nativer SQL-Evidence `PREVIEW` und
 fail-closed.
 
+Der interne [CSharp-Offline-Build](../Architecture/CSHARP_OFFLINE_BUILD.md)
+bindet Quellarchiv, NuGet-Archive, .NET-8-Runtime und eine explizite Windows-
+Toolchain. Er erzeugt ausschließlich lokale Pakete mit `BUILT_NOT_SQL_VALIDATED`.
+Gastinstallation, SQL-Registrierung, Launchpad-Roundtrip und Neustartprüfung
+sind dadurch nicht freigegeben; der Katalogstatus bleibt unverändert.
+
 Für Hyper-V/Windows sind der SHA-256-gebundene Offline-Media-Pfad, der
 deterministische Gastplan, die Python-/R-/Java-Installation,
 SQL-Feature-Bindung, State/Recovery und der native Acceptance-Runner
