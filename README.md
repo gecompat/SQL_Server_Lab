@@ -1048,3 +1048,9 @@ SQL Server 2025 CU9 kann unter rootful Docker und Podman ausdrücklich mit
 shared-user-v2-Varianten ausgewählt werden. Dabei entfallen Launchpad-Sandbox-
 und Worker-Isolation; der isolierte cgroup-v1-Modus bleibt Standard.
 [Auswahl, Voraussetzungen und Nachweisgrenzen](Documentation/User/EXTERNAL_LANGUAGES_CGROUP_V2.md).
+
+Nach Container-Stop wird auf Windows auch die Hostspeicherreserve geprüft.
+Eine begrenzte WSL-Dateicachefreigabe unter Speicherdruck und das getrennte
+Ergebnis `HostMemory` verhindern, dass ein gestopptes Lab automatisch als
+vollständig freigegebener Host-RAM dargestellt wird.
+[Verhalten und Opt-out](Documentation/Architecture/STOP_HOST_MEMORY.md).

@@ -16,6 +16,9 @@
 .PARAMETER StateRoot
     Optionaler State-Root fuer den Lauf. Ohne Angabe wird `Get-LabStateRoot`
     verwendet.
+.PARAMETER SkipHostMemoryRelease
+    Unterdrueckt die begrenzte WSL-Dateicache-Freigabe bei Host-Speicherdruck.
+    Ohne diesen Schalter prueft der erfolgreiche Container-Stop die Hostreserve.
 .INPUTS
     System.Object. Objekte mit einer RunId-Eigenschaft koennen ueber die
     Pipeline gebunden werden.
@@ -32,7 +35,8 @@ function Stop-SqlServerLab {
         [string]$RunId,
         [int]$TimeoutSeconds = 10,
         [switch]$Force,
-        [string]$StateRoot
+        [string]$StateRoot,
+        [switch]$SkipHostMemoryRelease
     )
 
     process {
@@ -194,11 +198,15 @@ function Stop-SqlServerLab {
                 -StateRoot $stateRoot
 
             Write-LabSuccess "Lab gestoppt: ${runPrefix}..."
+            $hostMemory = if (-not [bool]$script:LabAutomatedTestEnvironmentGroupOperation) {
+                Invoke-LabStoppedHostMemoryRelease -Provider @($providerGroups.Name) -Skip:$SkipHostMemoryRelease
+            } else { [pscustomobject]@{Status='GROUP_DEFERRED'} }
             return [PSCustomObject]@{
                 RunId  = $RunId
                 Status = 'STOPPED'
                 Action = 'STOPPED'
                 ProviderSubRuns = $providerResults
+                HostMemory = $hostMemory
             }
         }
 

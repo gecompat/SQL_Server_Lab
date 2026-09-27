@@ -575,6 +575,10 @@ sources_of_truth:
   acceptance_direct_action_progress: Tests/Integration/Invoke-ActionProgressAcceptance.ps1
   automated_test_environment_contract: Public/TestEnvironment.ps1
   automated_test_environment_windows_lifecycle: Public/TestEnvironmentLifecycle.ps1
+  stopped_host_memory_contract: Documentation/Architecture/STOP_HOST_MEMORY.md
+  stopped_host_memory_implementation: Private/StoppedHostMemory.ps1
+  stopped_host_memory_validation: Tests/Static/Invoke-StoppedHostMemoryChecks.ps1
+  stopped_host_memory_acceptance: Tests/Integration/Invoke-StoppedHostMemoryAcceptance.ps1
   automated_test_environment_windows_activation: Private/HyperVLabEnvironment.ps1
   windows_activation_network_ownership: Private/WindowsActivationNetwork.ps1
   windows_activation_network_checks: Tests/Static/Invoke-WindowsActivationNetworkChecks.ps1

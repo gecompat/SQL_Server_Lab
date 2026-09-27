@@ -1,5 +1,16 @@
 # Tests/ – lokale und Remote-Validierung
 
+`Static/Invoke-StoppedHostMemoryChecks.ps1` prüft die Speicherwartung nach
+Container-Stop: Hostdruck, Cachegrenze, explizites Opt-out, Remote-/Override-
+Abwehr, laufende WSL-Bindung, Bindungswechsel und verzögerte Windows-Rückgabe.
+Die Tests verwenden synthetische Messungen; sie belegen keine native Freigabe.
+`Integration/Invoke-StoppedHostMemoryAcceptance.ps1 -Provider docker|podman`
+prüft getrennt den öffentlichen Stop mit eigenem SQL-Lab, Cachefüller im
+run-eigenen Volume, unverändert laufenden Nachbarn und vollständigem Cleanup.
+Nur die Gesamtkapazität wird als Drucksignal simuliert; Cache und freier RAM
+werden nativ gemessen. Der Runner wirkt auf den gemeinsamen WSL-Dateicache.
+[Vertrag](../Documentation/Architecture/STOP_HOST_MEMORY.md).
+
 `Static/Invoke-DiagnosticBundleChecks.ps1` prüft das read-only Diagnosebundle
 mit synthetischen modernen State-Produzenten, Ownership- und Privacy-Negativen,
 Schema und echten begrenzten synthetischen Kindprozessen. Provider-Readiness

@@ -2640,3 +2640,15 @@ SQL Server 2025 CU9 kann unter rootful Docker und Podman ausdrücklich mit
 shared-user-v2-Varianten ausgewählt werden. Dabei entfallen Launchpad-Sandbox-
 und Worker-Isolation; der isolierte cgroup-v1-Modus bleibt Standard.
 [Auswahl, Voraussetzungen und Nachweisgrenzen](../User/EXTERNAL_LANGUAGES_CGROUP_V2.md).
+
+## Hostspeicher nach Stop
+
+Der Container-Stop prüft unter Windows zusätzlich die Hostreserve und kann
+bei weniger als 25 Prozent verfügbarem RAM und mindestens 4096 MiB Dateicache
+einen gebundenen lokalen WSL2-Cache freigeben. `HostMemory` trennt diese
+Beobachtung vom erfolgreichen Lab-Stop. Andere laufende Container bleiben
+aktiv; ihr nächster Dateizugriff kann durch den kalten Cache langsamer sein.
+Eine sofortige oder vollständige Windows-Rückgabe wird nicht garantiert.
+Globale WSL-Neustarts, `.wslconfig`-Änderungen und fremde VM-Stopps sind kein
+Fallback. `-SkipHostMemoryRelease` deaktiviert die Wartung.
+[Vertrag und Nachweisgrenzen](../Architecture/STOP_HOST_MEMORY.md).

@@ -905,3 +905,12 @@ vollständige Evidence, externe Speicher und Hyper-V bleiben ausgeschlossen;
 Backup und aktuelles Offline-Inhaltsinventar werden nicht bestätigt. Synthetische
 Fault-/Prozesstests und ein eigener nativer SQL-2025-Harness sind vorhanden;
 die nativen Docker-/Podman-Abnahmen stehen noch aus.
+
+## Ressourcen nach Lab-Stop
+
+Ein erfolgreicher Stop ist kein Nachweis vollständiger Host-RAM-Rückgabe.
+Der Windows-Containerpfad ergänzt deshalb eine begrenzte WSL-Cachewartung
+unter Speicherdruck mit eigenem Ergebnis `HostMemory`; die Testgruppe prüft
+einmal am Ende. Restart erhält den Cache. Bindung, Opt-out, Warnungen und
+getrennte Host-/Gast-Evidence stehen im
+[Hostspeichervertrag](../Documentation/Architecture/STOP_HOST_MEMORY.md).

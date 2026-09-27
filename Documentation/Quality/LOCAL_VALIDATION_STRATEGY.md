@@ -2144,3 +2144,24 @@ benötigt Windows, CUDA, ein passendes 768-dimensionales Nomic-Embeddingmodell
 und Docker. Sie legt eigene Testzertifikate und einen eigenen SQL-2025-Run an,
 prüft Auth, External Model und SQLrestart und bereinigt ausschließlich eigene
 Ressourcen. Beide Acceptances sind opt-in und laden keine Modelle herunter.
+
+## Hostspeicher nach Stop
+
+Die fokussierte Suite `Tests/Static/Invoke-StoppedHostMemoryChecks.ps1`
+prüft die Entscheidung und Backendbindung mit synthetischen Messungen.
+Native Abnahmen müssen Docker und Podman getrennt betrachten: eigener
+Lab-Stop, unverändert laufender Nachbar, Cache vor/nach Freigabe sowie
+Windows-RAM-Rückgabe als getrennte Beobachtung. Eine injizierte Druckmessung
+ist als solche zu benennen; sie ist kein Nachweis realen Host-Speicherdrucks.
+[Vertrag](../Architecture/STOP_HOST_MEMORY.md).
+
+Die getrennten nativen Windows-Abnahmen am 2026-09-27 bestanden für Docker
+und Podman: öffentlicher Stop eines eigenen SQL-2025-Labs, echte Cacheabnahme,
+beobachtete Windows-RAM-Zunahme, erhaltene laufende Nachbarcontainer, No-op
+beim zweiten Stop und vollständiger Container-/Volume-Cleanup. Die
+Druckentscheidung wurde durch eine synthetisch erhöhte Gesamtkapazität
+aktiviert; der Host wurde nicht künstlich ausgelastet. Die erste Docker-
+Cachefixture auf der kleinen WSL-Systempartition wurde vor dem Stop verworfen
+und bereinigt; der erfolgreiche Runner nutzt ausschließlich sein eigenes
+Lab-Volume. Die fokussierte Suite bestand 20 Assertions einschließlich des
+öffentlichen WhatIf-, Teilfehler- und Gruppen-Koordinatorverhaltens.
