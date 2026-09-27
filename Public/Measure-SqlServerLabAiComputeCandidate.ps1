@@ -9,6 +9,8 @@
     das Paketfeld backends darf dabei einen kompilierten GPU-Backend nennen.
     OpenVINO verlangt zusätzlich den Gerätenachweis und vollständigen Offload
     im Prozesslog. Fallbacks oder fehlende Evidence verwerfen das Ergebnis.
+    Unter Windows ordnet die OpenVINO-C-API des gebundenen Pakets jedes einzelne
+    Gerät eindeutig dem Inventar zu; die Abfrage läuft in einem begrenzten Kindprozess.
 .PARAMETER Inventory
     Vollständiges, verifiziertes Hardwareinventar des Zielhosts.
 .PARAMETER Candidate
@@ -22,6 +24,7 @@
 .PARAMETER DeviceBinding
     Optionale vollständige Zuordnung aller Kandidatengeräte zu llama.cpp-Geräteselektoren.
     Ohne Angabe wird sie aus der aktuellen --list-devices-Ausgabe eindeutig abgeleitet.
+    OpenVINO prüft zusätzlich openvino_c.dll und den vollständigen Gerätenamen.
 .PARAMETER Repetitions
     Anzahl der von llama-bench auszuführenden Messwiederholungen.
 .PARAMETER GeneratedTokens

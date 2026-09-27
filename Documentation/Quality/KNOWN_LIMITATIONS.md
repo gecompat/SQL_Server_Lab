@@ -2575,9 +2575,18 @@ OpenVINO verlangt zusätzlich im eigenen Prozesslog die angeforderte Geräteart,
 den gebundenen Selector und vollständigen Layer-Offload ohne Fallbackmeldung.
 Eine explizite Bindung ersetzt diesen Nachweis nicht; fehlende oder abweichende
 Logs liefern `AI_COMPUTE_BENCHMARK_DEVICE_EVIDENCE_INVALID` ohne Rohdiagnose.
-Generische `OPENVINO0`-Beschreibungen lösen weiterhin keine automatische
-Hardwarezuordnung auf. Nummerierte OpenVINO-Gerätekennungen wie `GPU.0` sind
-noch nicht Bestandteil des Benchmark-Bindungsvertrags.
+Unter Windows ergänzt die C-API aus `openvino_c.dll` des gebundenen Pakets die
+generische `OPENVINO0`-Beschreibung. Ein auf höchstens 30 Sekunden begrenzter
+PowerShell-Kindprozess liefert Gerätekennungen und vollständige Namen; eindeutige
+Inventarnamen binden auch `GPU.0` oder `GPU.1`. Fehlende C-API, andere Plattformen,
+Mehrgeräte-Kandidaten und mehrdeutige Namen bleiben geschlossen. Auch explizite
+Selektoren müssen mit der aktuellen Abfrage übereinstimmen. Rohdaten bleiben
+aus dem Receipt. Diese Erweiterung gilt nur für den Benchmark; der anschließende
+Owned-Runtime-Start übernimmt noch keine nummerierten OpenVINO-Gerätekennungen.
+Die automatische Windows-Zuordnung bestand am 2026-09-27 mit Qwen3 0.6B Q4_0
+für OpenVINO-CPU, Intel-GPU und NPU jeweils drei Wiederholungen mit acht Tokens
+über den öffentlichen Benchmarkbefehl einschließlich Prozessende. Eine
+vollständige Auswahl über alle installierten Runtimepakete ist damit nicht belegt.
 Die Mengensmessung führt alle geeigneten Optionen mit einem identischen Profil
 nacheinander aus, ordnet mehrere Pakete über deren Runtimehash zu und liefert
 nur nach vollständiger Coverage direkt die schnellste Auswahl. Sie parallelisiert

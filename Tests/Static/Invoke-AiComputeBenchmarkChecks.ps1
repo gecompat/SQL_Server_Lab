@@ -140,6 +140,8 @@ try {
     $ovValidLog="OpenVINO: using device NPU`noffloaded 25/25 layers`nOPENVINO0 model buffer size"
     $ovLog=$ovValidLog
     $ovRunner={param($i,$a,$e,$t)
+        if('-EncodedCommand' -in $a){return [pscustomobject]@{ExitCode=0;StdOut='[{"RuntimeDevice":"NPU","FullName":"Intel NPU"}]'}}
+        if('--list-devices' -in $a){return [pscustomobject]@{ExitCode=0;StdOut="Available devices:`r`n  OPENVINO0: OpenVINO Runtime`r`n";StdErr="OpenVINO: using device NPU`r`n"}}
         if('--verbose' -notin $a -or $e.GGML_OPENVINO_DEVICE -cne 'NPU'){throw 'SYNTHETIC_OPENVINO_LOG_CONFIGURATION_INVALID'}
         $result=& $runner $i $a $e $t
         $record=$result.StdOut|ConvertFrom-Json;$record.backends='OpenVINO';$result.StdOut=$record|ConvertTo-Json -Compress
@@ -153,10 +155,26 @@ try {
         Add-CheckResult 'Fehlender, widersprüchlicher oder zurückgefallener OpenVINO-Log verwirft das Receipt' (Reject $ovMeasure 'AI_COMPUTE_BENCHMARK_DEVICE_EVIDENCE_INVALID')
     }
     $ovLog=$ovValidLog
-    $ovMissingLogRunner={param($i,$a,$e,$t)$result=& $ovRunner $i $a $e $t;$result.PSObject.Properties.Remove('StdErr');$result}
+    $ovMissingLogRunner={param($i,$a,$e,$t)$result=& $ovRunner $i $a $e $t;if('-m' -in $a){$result.PSObject.Properties.Remove('StdErr')};$result}
     Add-CheckResult 'Legacy-Prozessantwort ohne stderr ist kein OpenVINO-Nachweis' (Reject {& $module {param($i,$c,$r,$m,$b,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -DeviceBinding $b -ProcessRunner $run} $ovInventory $ovCandidate $ovPackage $model $ovBinding $ovMissingLogRunner} 'AI_COMPUTE_BENCHMARK_DEVICE_EVIDENCE_INVALID')
     $nativeProcess=& $module {param($pwsh)Invoke-LabAiBenchmarkProcess -Invocation $pwsh -ArgumentList @('-NoProfile','-NonInteractive','-Command','[Console]::Out.Write("synthetic-output");[Console]::Error.Write("synthetic-diagnostic")') -Environment @{} -TimeoutSeconds 15} (Get-Process -Id $PID).Path
     Add-CheckResult 'Eigener Prozessadapter liest stdout und stderr getrennt' ($nativeProcess.ExitCode -eq 0 -and $nativeProcess.StdOut -ceq 'synthetic-output' -and $nativeProcess.StdErr -ceq 'synthetic-diagnostic')
+    $mapProbe=[pscustomobject]@{Platform='Windows';Coverage=@((Coverage CPU),(Coverage GPU),(Coverage NPU));Devices=@((Device CPU cpu0 8086 cpu 'Intel CPU'),(Device GPU gpu0 8086 gpu 'Intel GPU'))}
+    $mapInventory=& $module {param($p)Get-LabAiComputeInventory -ProbeResult $p} $mapProbe
+    $mapCandidate=[pscustomobject]@{Devices=@($mapInventory.Devices|Where-Object Kind -eq GPU)}
+    $mapJson='[{"RuntimeDevice":"GPU.1","FullName":"Other GPU (dGPU)"},{"RuntimeDevice":"GPU.0","FullName":"Intel GPU (iGPU)"}]'
+    $mapRunner={param($i,$a,$e,$t)[pscustomobject]@{ExitCode=0;StdOut=$mapJson}}
+    $mapAction={& $module {param($i,$c,$run)Resolve-LabOpenVinoBenchmarkDevice -Inventory $i -Candidate $c -BenchmarkInvocation (Join-Path $script:ModuleRoot 'synthetic-llama-bench.exe') -TimeoutSeconds 5 -ProcessRunner $run} $mapInventory $mapCandidate $mapRunner}
+    Add-CheckResult 'OpenVINO-C-API ordnet nummerierte GPU anhand des eindeutigen Inventarnamens zu' ((& $mapAction) -ceq 'GPU.0')
+    foreach($mapJson in @('[]','not-json','[{"RuntimeDevice":"GPU.0","FullName":"Intel GPU"},{"RuntimeDevice":"GPU.0","FullName":"Intel GPU"}]','[{"RuntimeDevice":"AUTO","FullName":"Intel GPU"}]')){
+        Add-CheckResult 'Leere, doppelte oder ungültige OpenVINO-Discovery wird abgewiesen' (Reject $mapAction 'AI_COMPUTE_DEVICE_DISCOVERY_INVALID')
+    }
+    $mapJson='[{"RuntimeDevice":"GPU.0","FullName":"Other GPU"}]'
+    Add-CheckResult 'Fremder OpenVINO-Gerätename wird nicht anhand seiner Position übernommen' (Reject $mapAction 'AI_COMPUTE_DEVICE_BINDING_UNRESOLVED')
+    $mapJson='[{"RuntimeDevice":"GPU.0","FullName":"Intel GPU"},{"RuntimeDevice":"GPU.1","FullName":"Intel GPU"}]'
+    Add-CheckResult 'Gleichnamige OpenVINO-Geräte bleiben mehrdeutig' (Reject $mapAction 'AI_COMPUTE_DEVICE_BINDING_AMBIGUOUS')
+    $mapJson='[{"RuntimeDevice":"CPU","FullName":"Intel GPU"}]'
+    Add-CheckResult 'OpenVINO-Geräteart darf trotz Namensgleichheit nicht wechseln' (Reject $mapAction 'AI_COMPUTE_DEVICE_BINDING_UNRESOLVED')
     $badModel=Join-Path $fixture 'bad.gguf';[IO.File]::WriteAllText($badModel,'not-a-gguf')
     Add-CheckResult 'Dateiendung ohne GGUF-Magic wird vor Prozessstart abgewiesen' (Reject {& $module {param($i,$c,$r,$m,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -DeviceBinding @([pscustomobject]@{DeviceId=$c.Devices[0].DeviceId;RuntimeSelector='none'}) -ProcessRunner $run} $inventory $cpu $package $badModel $runner} 'AI_COMPUTE_BENCHMARK_MODEL_INVALID')
     $inconsistentRunner={param($i,$a,$e,$t)[pscustomobject]@{ExitCode=0;StdOut=([ordered]@{backends='CPU';devices='none';n_gpu_layers=0;n_prompt=0;n_gen=128;avg_ts=99;samples_ns=@(100000000,101000000,102000000,103000000,104000000);samples_ts=@(10,10,10,10,10)}|ConvertTo-Json -Compress);PeakWorkingSetBytes=1}}
