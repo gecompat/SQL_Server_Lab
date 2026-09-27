@@ -1,7 +1,9 @@
 # Providers/Podman/ – Podman-Provider
 
 Container via Podman. Der allgemeine Provider unterstützt rootless Betrieb;
-SQL Server 2019/2022/2025 External Runtimes benötigen rootful Linux mit cgroup v1.
+Der isolierte Standardmodus für SQL Server 2019/2022/2025 External Runtimes
+benötigt rootful Linux mit cgroup v1. Für SQL 2025 existiert zusätzlich die
+unten beschriebene explizite shared-user-v2-Variante.
 
 ## Dateien
 
@@ -26,3 +28,10 @@ SQL Server 2019/2022/2025 External Runtimes benötigen rootful Linux mit cgroup 
   Podman-3.4.4-/CNI-0.9.1-Vertrag; andere CNI-Versionen werden nicht umgeschrieben
 - kontrolliertes Stop/Start mit begrenztem Retry ausschließlich für die
   bekannte sofortige Portfreigabe-Race von Podman 3.4
+
+## Explizite External-Languages-Variante für cgroup v2
+
+SQL Server 2025 CU9 kann unter rootful Docker und Podman ausdrücklich mit
+shared-user-v2-Varianten ausgewählt werden. Dabei entfallen Launchpad-Sandbox-
+und Worker-Isolation; der isolierte cgroup-v1-Modus bleibt Standard.
+[Auswahl, Voraussetzungen und Nachweisgrenzen](../../Documentation/User/EXTERNAL_LANGUAGES_CGROUP_V2.md).

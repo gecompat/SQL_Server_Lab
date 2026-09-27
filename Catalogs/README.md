@@ -356,3 +356,10 @@ vor Fragen den von Snowflake dokumentierten Retrievalpräfix. Die verlinkte
 Modellkarte belegt 1024 Dimensionen, Mehrsprachigkeit und Apache-2.0; die
 offizielle Ollama-Tagliste belegt den 8K-Kontext und den live geprüften Tag.
 Der Ollama-Floor 0.34.2 ist der lokal nachgewiesene Projektstand.
+
+## Explizite External-Languages-Variante für cgroup v2
+
+SQL Server 2025 CU9 kann unter rootful Docker und Podman ausdrücklich mit
+shared-user-v2-Varianten ausgewählt werden. Dabei entfallen Launchpad-Sandbox-
+und Worker-Isolation; der isolierte cgroup-v1-Modus bleibt Standard.
+[Auswahl, Voraussetzungen und Nachweisgrenzen](../Documentation/User/EXTERNAL_LANGUAGES_CGROUP_V2.md).

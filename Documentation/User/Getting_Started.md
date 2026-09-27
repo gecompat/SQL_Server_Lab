@@ -1644,8 +1644,10 @@ fail-closed. Der SQL-Port liegt im Gast; die VM selbst wird nicht neu gestartet.
 
 ### External Languages nachträglich installieren oder aktualisieren
 
-Verwendet der lokale Docker-/Podman-Host cgroup v2, bleibt der aktuelle
-Launchpad-Namespace-Pfad gesperrt. Der optionale
+Verwendet der lokale Docker-/Podman-Host cgroup v2, bleibt der isolierte
+Launchpad-Namespace-Pfad gesperrt. SQL Server 2025 bietet dafür ausdrücklich
+gewählte [shared-user-v2-Varianten](EXTERNAL_LANGUAGES_CGROUP_V2.md) ohne
+Launchpad-Sandbox-Isolation. Der optionale
 [Linux-Containerhost](LINUX_CONTAINER_HOST.md) bietet eine getrennte VM mit
 cgroup v1 und beiden rootful Providern. Er ändert die Desktop-Runtime nicht.
 Der dort dokumentierte native Einstieg richtet vorhandene Linux-Provider
@@ -2007,3 +2009,10 @@ lässt sich anschließend ein eigener Windows-HTTPS-Embeddingserver ohne
 Hashpflicht zeitlich begrenzt betreiben. Runtime, Embeddingmodell, Accelerator,
 Dimension, Pooling, Port und TLS-Dateien sind explizit anzugeben. Siehe den
 [Start- und Cleanupvertrag](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+## Explizite External-Languages-Variante für cgroup v2
+
+SQL Server 2025 CU9 kann unter rootful Docker und Podman ausdrücklich mit
+shared-user-v2-Varianten ausgewählt werden. Dabei entfallen Launchpad-Sandbox-
+und Worker-Isolation; der isolierte cgroup-v1-Modus bleibt Standard.
+[Auswahl, Voraussetzungen und Nachweisgrenzen](EXTERNAL_LANGUAGES_CGROUP_V2.md).

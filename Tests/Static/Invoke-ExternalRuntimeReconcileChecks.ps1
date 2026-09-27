@@ -25,6 +25,41 @@ Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
 Import-Module $modulePath -Force -ErrorAction Stop
 $module = Get-Module SqlServerLab
 
+$storageIdentity = & $module {
+    $storedId = [guid]::NewGuid().ToString('D')
+    $instance = [pscustomobject]@{ drives=@(
+        [pscustomobject]@{id='runtime-mssql';containerPath='/var/opt/mssql';persistence='run-scoped-runtime-volume';persistentStorageId=[guid]::NewGuid().ToString('D')},
+        [pscustomobject]@{id='runtime-mssql-external-languages';containerPath='/var/opt/mssql-extensibility/externallanguages';persistence='run-scoped-runtime-volume';persistentStorageId=[guid]::NewGuid().ToString('D')},
+        [pscustomobject]@{id='custom';containerPath='/custom';persistence='run-scoped';persistentStorageId='unchanged'}
+    ) }
+    $stored = @([pscustomobject]@{Persistence='run-scoped-runtime-volume';PersistentStorageId=$storedId})
+    Restore-LabExternalRuntimeRunScopedStorageIdentity -Instance $instance -PersistedDrives $stored
+    $replacement = New-LabExternalRuntimeReplacementInstance -ResolvedInstance $instance -AllowNewExternalRuntimeVolumes -ContainerInspect ([pscustomobject]@{Mounts=@(
+        [pscustomobject]@{Type='volume';Name='existing-system';Destination='/var/opt/mssql'},
+        [pscustomobject]@{Type='volume';Name='existing-custom';Destination='/custom'}
+    )})
+    $conflictRejected = $false
+    try {
+        Restore-LabExternalRuntimeRunScopedStorageIdentity -Instance $instance -PersistedDrives ($stored + [pscustomobject]@{Persistence='run-scoped-runtime-volume';PersistentStorageId=[guid]::NewGuid().ToString('D')})
+    } catch { $conflictRejected = $_.Exception.Message -eq 'RUN_SCOPED_CONTAINER_STORE_IDENTITY_CONFLICT' }
+    $emptyTarget = [pscustomobject]@{drives=@()}
+    Restore-LabExternalRuntimeRunScopedStorageIdentity -Instance $emptyTarget -PersistedDrives $stored
+    $emptyReplacement = New-LabExternalRuntimeReplacementInstance -ResolvedInstance $emptyTarget -AllowNewExternalRuntimeVolumes -ContainerInspect ([pscustomobject]@{Mounts=@(
+        [pscustomobject]@{Type='volume';Name='existing-system';Destination='/var/opt/mssql'}
+    )})
+    [pscustomobject]@{Expected=$storedId;Replacement=$replacement;EmptyReplacement=$emptyReplacement;ConflictRejected=$conflictRejected}
+}
+Add-CheckResult -Name 'Reconcile bewahrt persistierte Volume-Identitaet auch fuer neue Sidecars' -Success (
+    @($storageIdentity.Replacement.drives | Where-Object { $_.persistence -eq 'run-scoped-runtime-volume' -and $_.persistentStorageId -ne $storageIdentity.Expected }).Count -eq 0 -and
+    @($storageIdentity.Replacement.drives | Where-Object persistence -eq 'run-scoped-runtime-volume').Count -eq 3 -and
+    ($storageIdentity.Replacement.drives | Where-Object id -eq 'custom').persistentStorageId -eq 'unchanged' -and
+    $storageIdentity.ConflictRejected
+)
+Add-CheckResult -Name 'Manifest ohne automatische Drives erhaelt dieselbe persistierte Store-ID vor Snapshot und Recreate' -Success (
+    @($storageIdentity.EmptyReplacement.drives).Count -eq 3 -and
+    @($storageIdentity.EmptyReplacement.drives | Where-Object persistentStorageId -ne $storageIdentity.Expected).Count -eq 0
+)
+
 $getCommand = Get-Command Get-SqlServerLabReconcilePlan -Module SqlServerLab
 $invokeCommand = Get-Command Invoke-SqlServerLabReconcileAction -Module SqlServerLab
 Add-CheckResult -Name 'Public Reconcile APIs besitzen getrennten ExternalRuntime-Parametersatz' -Success (

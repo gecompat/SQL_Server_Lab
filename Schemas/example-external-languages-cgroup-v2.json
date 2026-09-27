@@ -1,0 +1,18 @@
+{
+  "$schema": "./lab-manifest.schema.json",
+  "name": "external-languages-cgroup-v2",
+  "description": "Explizites SQL-2025-Lab ohne Launchpad-Sandbox-Isolation und mit gemeinsamem Worker-Konto",
+  "instances": [
+    {
+      "id": "languages",
+      "version": "2025",
+      "provider": "docker",
+      "profile": "performance",
+      "software": [
+        { "id": "sql-python", "variant": "sql-python-2025-shared-user-v2", "scope": "sqlExternalRuntime", "optional": false },
+        { "id": "sql-r", "variant": "sql-r-2025-shared-user-v2", "scope": "sqlExternalRuntime", "optional": false },
+        { "id": "sql-java", "variant": "sql-java-2025-shared-user-v2", "scope": "sqlExternalRuntime", "optional": false }
+      ]
+    }
+  ]
+}

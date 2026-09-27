@@ -5979,7 +5979,14 @@ function Get-LabExternalRuntimeMenuCapability {
             DisplayReason="External Languages sind für $provider / SQL Server $version nicht freigegeben. Abhilfe: Wähle Docker oder Podman mit SQL Server 2019, 2022 oder 2025."
         }
     }
-    try { return Get-LabExternalRuntimeHostCapability -Provider $provider -SqlVersion $version }
+    try {
+        $capability = Get-LabExternalRuntimeHostCapability -Provider $provider -SqlVersion $version
+        if ($version -eq '2025' -and $capability.ReasonCode -eq 'CGROUP_VERSION_UNSUPPORTED' -and $capability.CgroupVersion -eq '2') {
+            # Availability only: the target manifest must explicitly select the shared-user variants.
+            $capability = Get-LabExternalRuntimeHostCapability -Provider $provider -SqlVersion $version -RequiredCgroupVersion '2'
+        }
+        return $capability
+    }
     catch {
         return [PSCustomObject]@{
             Status='RUNTIME_UNAVAILABLE'; Supported=$false; ReasonCode='CAPABILITY_CHECK_FAILED'
@@ -6039,6 +6046,7 @@ function Manage-LabExternalRuntimeInteractive {
     }
 
     Write-LabInfo 'Das Zielmanifest muss dieselbe Umgebung beschreiben und unter instances[].software die gewünschten Einträge sql-python, sql-r bzw. sql-java enthalten. sql-csharp ist ausschließlich für Hyper-V/Windows vorgesehen.'
+    Write-LabWarning 'cgroup v2 benötigt die expliziten SQL-2025-shared-user-v2-Varianten: keine Launchpad-Sandbox-Isolation, gemeinsames Worker-Konto und keine ausgehende Netzwerkisolation durch Launchpad.'
     $manifestInput = Read-LabConsoleTextInput -Prompt '  Pfad zum Zielmanifest'
     if ($manifestInput.Status -ne 'Confirmed' -or [string]::IsNullOrWhiteSpace([string]$manifestInput.Value)) { return }
     $manifestPath = try { (Resolve-Path -LiteralPath ([string]$manifestInput.Value) -ErrorAction Stop).Path }

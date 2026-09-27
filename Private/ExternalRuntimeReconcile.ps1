@@ -24,6 +24,29 @@ function Get-LabExternalRuntimeManifestComparableDrives {
     })
 }
 
+function Restore-LabExternalRuntimeRunScopedStorageIdentity {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Instance, $PersistedDrives)
+
+    # Parsing a manifest allocates fresh run-scoped storage IDs. A recreate
+    # must retain the identity already recorded before the original creation,
+    # including for newly added language/library sidecars in the same store.
+    $storageIds = @($PersistedDrives | Where-Object {
+        [string]$_.Persistence -eq 'run-scoped-runtime-volume' -and $_.PersistentStorageId
+    } | ForEach-Object { [string]$_.PersistentStorageId } | Sort-Object -Unique)
+    if ($storageIds.Count -gt 1) { throw 'RUN_SCOPED_CONTAINER_STORE_IDENTITY_CONFLICT' }
+    if ($storageIds.Count -eq 1) {
+        if (@($Instance.drives | Where-Object containerPath -eq '/var/opt/mssql').Count -eq 0) {
+            $null = Add-LabRunScopedContainerSystemDrive -Instance $Instance
+        }
+        foreach ($drive in @($Instance.drives | Where-Object {
+            [string]$_.persistence -eq 'run-scoped-runtime-volume'
+        })) {
+            $drive | Add-Member -NotePropertyName persistentStorageId -NotePropertyValue $storageIds[0] -Force
+        }
+    }
+}
+
 function Resolve-LabExternalRuntimeReconcileTarget {
     [CmdletBinding()]
     param(
@@ -75,6 +98,12 @@ function Get-LabExternalRuntimeReconcileContext {
     }
 
     $resolved = Read-LabManifest -Path $ManifestPath
+    foreach ($instance in @($resolved.instances)) {
+        $storedInstance = @($persisted.Snapshot.Instances | Where-Object { [string]$_.Id -eq [string]$instance.id })
+        if ($storedInstance.Count -eq 1) {
+            Restore-LabExternalRuntimeRunScopedStorageIdentity -Instance $instance -PersistedDrives $storedInstance[0].Intents.Drives
+        }
+    }
     $desiredSnapshot = New-LabDesiredStateSnapshot -ResolvedLab $resolved `
         -ProvisioningMode ([string]$persisted.Snapshot.ProvisioningMode) `
         -PersistentData ([bool]$persisted.Snapshot.PersistentData)

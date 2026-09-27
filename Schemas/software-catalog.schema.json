@@ -68,6 +68,8 @@
           "enum": ["SUPPORTED", "PREVIEW", "DEPRECATED", "RETIRED", "BLOCKED"]
         },
         "reason": { "type": "string", "minLength": 1 },
+        "explicitSelectionOnly": { "type": "boolean" },
+        "launchMode": { "const": "sql2025-shared-user-v2" },
         "language": { "type": "string", "enum": ["Python", "R", "Java", "CSharp", "SqlPackage"] },
         "runtimeVersion": { "type": "string", "minLength": 1 },
         "extensionVersion": { "type": ["string", "null"] },
@@ -140,6 +142,19 @@
         }
       },
       "allOf": [
+        {
+          "if": { "required": ["launchMode"] },
+          "then": {
+            "required": ["explicitSelectionOnly"],
+            "properties": {
+              "explicitSelectionOnly": { "const": true },
+              "sqlMajorVersions": { "const": [17] },
+              "operatingSystem": { "const": "linux" },
+              "providers": { "items": { "enum": ["docker", "podman"] } },
+              "installMethod": { "const": "derived-image" }
+            }
+          }
+        },
         {
           "if": { "properties": { "status": { "const": "SUPPORTED" } } },
           "then": {

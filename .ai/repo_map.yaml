@@ -23,6 +23,10 @@ sources_of_truth:
   foundation_ruleset: .ai/foundation/FOUNDATION_RULESET.md
   model_routing_policy: .ai/MODEL_ROUTING_POLICY.md
   cost_efficient_development: Documentation/Quality/COST_EFFICIENT_DEVELOPMENT.md
+  external_languages_cgroup_v2: Documentation/User/EXTERNAL_LANGUAGES_CGROUP_V2.md
+  external_languages_cgroup_v2_acceptance: Tests/Integration/Invoke-ExternalRuntimeCgroupV2Acceptance.ps1
+  external_languages_cgroup_v2_example: Schemas/example-external-languages-cgroup-v2.json
+  external_languages_cgroup_v2_checks: Tests/Static/Fixtures/ExternalRuntimeCgroupV2Checks.ps1
   csharp_offline_build: Tools/Build-ExternalRuntimeWindowsCSharp.ps1
   csharp_offline_build_contract: Documentation/Architecture/CSHARP_OFFLINE_BUILD.md
   csharp_offline_build_implementation: Tools/Common/ExternalRuntimeWindowsCSharpBuild.ps1
@@ -953,7 +957,7 @@ internal_components:
       - "Java 11, Language Extension 1.1.1, SDK und synthetisches Probe-JAR aus SHA-256-gebundenen Quellen reproduzierbar und compilerfrei bereitstellen"
       - "Docker- und Podman-Buildreceipts getrennt und ohne Hostpfade persistieren"
       - "Derived-Image-Plaene, Buildreceipts und wiederverwendete Image-Artefakte an die exakten Software-PlanKeys binden"
-      - "rootful-cgroup-v1-, Capability-, Security-Option- und Namespace-Sicherheitsvertrag vor Container-Mutation erzwingen"
+      - "rootful-cgroup-v1-Default und explizite SQL-2025-shared-user-v2-Ausnahme samt Capability-, Security-Option- und Namespace-Vertrag vor Container-Mutation erzwingen"
       - "dieselbe Live-Hostentscheidung mit stabilem ReasonCode, Ist-/Soll-Grenze und Abhilfe in Planung, Ausführung und Konsolenmenü verwenden"
       - "SQL-Satellite-OpenSSL-Aufloesung und Java-Sandbox-Datenverzeichnisse reproduzierbar im Image binden"
       - "wiederverwendbare Images außerhalb des normalen Run-Cleanups halten"

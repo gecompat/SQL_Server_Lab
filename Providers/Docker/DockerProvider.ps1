@@ -276,7 +276,7 @@ function New-DockerInstance {
         [ValidateSet('on', 'off')][string]$AutoStart = 'off',
         [ValidatePattern('^[A-Za-z0-9_]{1,128}$')][string]$Collation = 'SQL_Latin1_General_CP1_CI_AS',
         [string]$ResolvedImage,
-        [ValidateSet('none', 'sql2019-namespace-v1', 'sql2022-namespace-v1', 'sql2025-namespace-v1')][string]$ExternalRuntimeLaunchMode = 'none',
+        [ValidateSet('none', 'sql2019-namespace-v1', 'sql2022-namespace-v1', 'sql2025-namespace-v1','sql2025-shared-user-v2')][string]$ExternalRuntimeLaunchMode = 'none',
         [switch]$AllowStandardLaunchResolvedImage
     )
 
@@ -325,7 +325,7 @@ function New-DockerInstance {
                 -ContainerPath ([string]$drive.containerPath) `
                 -PersistentStorageId ([string]$drive.persistentStorageId) -RuntimeBinding $drive.runtimeBinding -Persistence ([string]$drive.persistence) `
                 -PersistentStorageRole ([string]$drive.persistentStorageRole) `
-                -SyncImageContent:($ExternalRuntimeLaunchMode -in @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1') -and
+                -SyncImageContent:($ExternalRuntimeLaunchMode -in @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1','sql2025-shared-user-v2') -and
                     [string]$drive.containerPath -in @('/var/opt/mssql-extensibility/externallanguages','/var/opt/mssql-extensibility/externallibraries'))
         }
 
@@ -342,7 +342,7 @@ function New-DockerInstance {
         $collationArguments = @('-e', "MSSQL_COLLATION=$Collation")
     }
     $restartArguments = if ($AutoStart -eq 'on') { @('--restart', 'unless-stopped') } else { @() }
-    $externalRuntimeArguments = if ($ExternalRuntimeLaunchMode -in @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1')) {
+    $externalRuntimeArguments = if ($ExternalRuntimeLaunchMode -in @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1','sql2025-shared-user-v2')) {
         @(
             '--user', '0:0',
             '--cap-add', 'CHOWN',
@@ -358,7 +358,7 @@ function New-DockerInstance {
             '--cap-add', 'SYS_PTRACE',
             '--security-opt', 'apparmor=unconfined',
             '--security-opt', 'seccomp=unconfined',
-            '--volume', '/sys/fs/cgroup:/sys/fs/cgroup:rw'
+            $(if ($ExternalRuntimeLaunchMode -eq 'sql2025-shared-user-v2') { '--cgroupns=private' } else { '--volume'; '/sys/fs/cgroup:/sys/fs/cgroup:rw' })
         )
     }
     else { @() }

@@ -1,5 +1,25 @@
 # Lokale Validierungsstrategie
 
+## SQL Server 2025 External Languages auf cgroup v2
+
+Die expliziten `shared-user-v2`-Varianten besitzen getrennte native
+Produktnachweise für Docker Engine 29.8.0 und Podman Server 6.0.2 auf
+rootful WSL2-/cgroup-v2-Hosts. Direkte Manifest-Erstellung und Erstinstallation
+über Reconcile bestanden jeweils Python/R/Java-Roundtrips, Workeridentität,
+SQL-CU9-Build, reine v2-Mounts, Restart und eigenes Cleanup. Reconcile prüfte
+zusätzlich den Erhalt einer synthetischen Datenbank. Der separate finale
+Java-Stage wurde ebenfalls je Provider durch Erstellung, SQL-Roundtrip,
+Restart und Cleanup geprüft. Diese Läufe wurden am 2026-09-27 ausgeführt.
+
+`Tests/Integration/Invoke-ExternalRuntimeCgroupV2Acceptance.ps1` ist der
+reproduzierbare Einstieg, mit `-InstallViaReconcile` für die Nachinstallation.
+`-Language Java` wählt die zusätzliche Abnahme des reinen Java-Images.
+Er ersetzt weder allgemeine Provider-Smokes noch einen isolierten
+Launchpad-/cgroup-v1-Nachweis. Gemeinsames Worker-Konto, fehlende Launchpad-
+Sandbox-/Netzwerkisolation und die Grenzen für bereits persistierte
+Software-Intents stehen in
+[External Languages auf cgroup v2](../User/EXTERNAL_LANGUAGES_CGROUP_V2.md).
+
 ## Nativer Linux-/WSL-Einstieg
 
 `Invoke-NativeLinuxContainerHostChecks.ps1` prüft Providerentscheidungen ohne

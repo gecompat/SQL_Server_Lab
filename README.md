@@ -1041,3 +1041,10 @@ _QuellRepo/      unveränderte Quell-Snapshots anderer Repositories
 ## CI/CD-Abgrenzung
 
 Lab-Provisionierung bleibt lokal beziehungsweise auf ausdrücklich dafür vorgesehenen Self-hosted Runnern. Runtime-Workflows verwenden die Labels `SQL_Lab` plus `Docker` oder `Podman`; generische Self-hosted Runner werden nicht verwendet. GitHub-hosted Runner sind nur für nicht mutierende, hostunabhängige Prüfungen vorgesehen.
+
+## Explizite External-Languages-Variante für cgroup v2
+
+SQL Server 2025 CU9 kann unter rootful Docker und Podman ausdrücklich mit
+shared-user-v2-Varianten ausgewählt werden. Dabei entfallen Launchpad-Sandbox-
+und Worker-Isolation; der isolierte cgroup-v1-Modus bleibt Standard.
+[Auswahl, Voraussetzungen und Nachweisgrenzen](Documentation/User/EXTERNAL_LANGUAGES_CGROUP_V2.md).

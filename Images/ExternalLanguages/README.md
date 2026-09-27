@@ -44,10 +44,13 @@ SQL Server 2019, 2022 und 2025 `launchpadd` benötigen im sicheren Namespace-Mod
 cgroup-v1-Hierarchie und beim Containerstart `SYS_ADMIN`. Der Provider fügt
 diese Capability ausschließlich für ein intern verifiziertes Image-Artefakt
 mit einem versionsgebundenen Launchmodus (`sql2019-namespace-v1`,
-`sql2022-namespace-v1` oder `sql2025-namespace-v1`) hinzu. Auf cgroup-v2-Hosts wird der Lauf
+`sql2022-namespace-v1` oder `sql2025-namespace-v1`) hinzu. Auf cgroup-v2-Hosts wird dieser isolierte Modus
 vor State und Mutation mit `DECLARED_UNSUPPORTED` abgelehnt. Der technisch
 mögliche Modus ohne Namespace-Isolation und mit freiem Outbound-Zugriff ist
-kein implementierter Fallback.
+kein automatischer Fallback. Die expliziten SQL-2025-CU9-Varianten
+`sql-*-2025-shared-user-v2` implementieren diesen Modus mit privatem
+cgroup-v2-Namespace und ohne cgroup-Hostmount. Auswahl und Grenzen stehen in
+[External Languages auf cgroup v2](../../Documentation/User/EXTERNAL_LANGUAGES_CGROUP_V2.md).
 
 SQL Server 2019 verwendet die eigene Ubuntu-20.04-/OpenSSL-1.1-
 Extensibility-Schicht und bietet derzeit nur Java. SQL Server 2022 und 2025

@@ -30,7 +30,7 @@ foreach ($entry in $providers.GetEnumerator()) {
         $text -match '(?s)if \(\$volumeExists -and \$PersistentStorageId\).*?SQL_VOLUME_STABLE_ID_MISMATCH'
     ) "$name bindet explizit ausgewaehlte Stores nur bei stabiler ID und gleicher SQL-Major-Version"
     Assert-VolumeContract (
-        $text -match "SyncImageContent:\(\`$ExternalRuntimeLaunchMode -in @\('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1'\) -and" -and
+        $text -match "SyncImageContent:\(\`$ExternalRuntimeLaunchMode -in @\('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1','sql2025-shared-user-v2'\) -and" -and
         $text -match "\[string\]\`$drive\.containerPath -in" -and
         $text -match '/var/opt/mssql-extensibility/externallanguages' -and
         $text -match '/var/opt/mssql-extensibility/externallibraries' -and

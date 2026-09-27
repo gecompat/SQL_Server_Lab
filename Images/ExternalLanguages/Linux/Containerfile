@@ -18,6 +18,9 @@ ARG EXTENSIBILITY_DEB_URL=https://packages.microsoft.com/ubuntu/22.04/mssql-serv
 ARG EXTENSIBILITY_DEB_SHA256=50df89ac3d1176f6227a9db46d1d8128cb3a326718515082f5ca161028610226
 ARG EXTENSIBILITY_DEB_VERSION=16.0.4265.3-1
 ARG EXTERNAL_RUNTIME_LAUNCH_MODE=sql2022-namespace-v1
+ARG EXTERNAL_RUNTIME_CGROUP_VERSION=1
+ARG EXTERNAL_RUNTIME_NAMESPACE_ISOLATION=true
+ARG EXTERNAL_RUNTIME_OUTBOUND_ACCESS=false
 ARG OPENSSL_SONAME=3
 
 USER root
@@ -84,11 +87,15 @@ FROM runtime-java AS selected-runtime-java
 ARG EXTERNAL_RUNTIMES=java
 ARG CONTENT_ID=characterization
 ARG EXTERNAL_RUNTIME_LAUNCH_MODE=sql2022-namespace-v1
+ARG EXTERNAL_RUNTIME_CGROUP_VERSION=1
+ARG EXTERNAL_RUNTIME_NAMESPACE_ISOLATION=true
+ARG EXTERNAL_RUNTIME_OUTBOUND_ACCESS=false
 
 USER root
 RUN test "${EXTERNAL_RUNTIMES}" = 'java'; \
     install -d -m 0755 /opt/sql-server-lab/config; \
-    install -m 0644 /var/opt/mssql/mssql.conf /opt/sql-server-lab/config/external-runtime-mssql.conf
+    install -m 0644 /var/opt/mssql/mssql.conf /opt/sql-server-lab/config/external-runtime-mssql.conf; \
+    printf '%s\n' "${EXTERNAL_RUNTIME_LAUNCH_MODE}" > /opt/sql-server-lab/config/launch-mode
 
 LABEL org.opencontainers.image.title="SQL Server Lab External Runtime" \
       org.opencontainers.image.vendor="SQL_Server_Lab" \
@@ -96,11 +103,11 @@ LABEL org.opencontainers.image.title="SQL Server Lab External Runtime" \
       sql-server-lab.external-runtime.image-key="${CONTENT_ID}" \
       sql-server-lab.external-runtime.languages="${EXTERNAL_RUNTIMES}" \
       sql-server-lab.external-runtime.launch-mode="${EXTERNAL_RUNTIME_LAUNCH_MODE}" \
-      sql-server-lab.external-runtime.required-cgroup-version="1" \
+      sql-server-lab.external-runtime.required-cgroup-version="${EXTERNAL_RUNTIME_CGROUP_VERSION}" \
       sql-server-lab.external-runtime.required-capabilities="CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE" \
       sql-server-lab.external-runtime.required-security-options="apparmor=unconfined,seccomp=unconfined" \
-      sql-server-lab.external-runtime.namespace-isolation="true" \
-      sql-server-lab.external-runtime.outbound-access="false"
+      sql-server-lab.external-runtime.namespace-isolation="${EXTERNAL_RUNTIME_NAMESPACE_ISOLATION}" \
+      sql-server-lab.external-runtime.outbound-access="${EXTERNAL_RUNTIME_OUTBOUND_ACCESS}"
 
 ENTRYPOINT ["/opt/sql-server-lab/bin/launch-external-runtime.sh"]
 CMD ["/opt/mssql/bin/sqlservr"]
@@ -184,6 +191,9 @@ FROM ${EXTERNAL_RUNTIME_STAGE} AS selected-runtime
 ARG EXTERNAL_RUNTIMES=python
 ARG CONTENT_ID=characterization
 ARG EXTERNAL_RUNTIME_LAUNCH_MODE=sql2022-namespace-v1
+ARG EXTERNAL_RUNTIME_CGROUP_VERSION=1
+ARG EXTERNAL_RUNTIME_NAMESPACE_ISOLATION=true
+ARG EXTERNAL_RUNTIME_OUTBOUND_ACCESS=false
 
 USER root
 RUN case "${EXTERNAL_RUNTIMES}" in \
@@ -191,7 +201,8 @@ RUN case "${EXTERNAL_RUNTIMES}" in \
         *) echo "Unsupported external runtime set: ${EXTERNAL_RUNTIMES}" >&2; exit 64 ;; \
     esac; \
     install -d -m 0755 /opt/sql-server-lab/config; \
-    install -m 0644 /var/opt/mssql/mssql.conf /opt/sql-server-lab/config/external-runtime-mssql.conf
+    install -m 0644 /var/opt/mssql/mssql.conf /opt/sql-server-lab/config/external-runtime-mssql.conf; \
+    printf '%s\n' "${EXTERNAL_RUNTIME_LAUNCH_MODE}" > /opt/sql-server-lab/config/launch-mode
 
 USER root
 
@@ -201,11 +212,11 @@ LABEL org.opencontainers.image.title="SQL Server Lab External Runtime" \
       sql-server-lab.external-runtime.image-key="${CONTENT_ID}" \
       sql-server-lab.external-runtime.languages="${EXTERNAL_RUNTIMES}" \
       sql-server-lab.external-runtime.launch-mode="${EXTERNAL_RUNTIME_LAUNCH_MODE}" \
-      sql-server-lab.external-runtime.required-cgroup-version="1" \
+      sql-server-lab.external-runtime.required-cgroup-version="${EXTERNAL_RUNTIME_CGROUP_VERSION}" \
       sql-server-lab.external-runtime.required-capabilities="CHOWN,DAC_OVERRIDE,KILL,SETGID,SETUID,SYS_ADMIN,MKNOD,SETPCAP,NET_ADMIN,NET_RAW,SYS_PTRACE" \
       sql-server-lab.external-runtime.required-security-options="apparmor=unconfined,seccomp=unconfined" \
-      sql-server-lab.external-runtime.namespace-isolation="true" \
-      sql-server-lab.external-runtime.outbound-access="false"
+      sql-server-lab.external-runtime.namespace-isolation="${EXTERNAL_RUNTIME_NAMESPACE_ISOLATION}" \
+      sql-server-lab.external-runtime.outbound-access="${EXTERNAL_RUNTIME_OUTBOUND_ACCESS}"
 
 ENTRYPOINT ["/opt/sql-server-lab/bin/launch-external-runtime.sh"]
 CMD ["/opt/mssql/bin/sqlservr"]

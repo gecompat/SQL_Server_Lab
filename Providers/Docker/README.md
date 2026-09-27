@@ -24,3 +24,10 @@ Container-basierte SQL-Server-Instanzen via Docker Desktop oder Docker Engine.
   Python, R und Java über ein
   digestgebundenes Derived Image; der sichere Namespace-Modus erfordert einen
   rootful Linux-Host mit cgroup v1 und wird vor jeder Mutation geprüft
+
+## Explizite External-Languages-Variante für cgroup v2
+
+SQL Server 2025 CU9 kann unter rootful Docker und Podman ausdrücklich mit
+shared-user-v2-Varianten ausgewählt werden. Dabei entfallen Launchpad-Sandbox-
+und Worker-Isolation; der isolierte cgroup-v1-Modus bleibt Standard.
+[Auswahl, Voraussetzungen und Nachweisgrenzen](../../Documentation/User/EXTERNAL_LANGUAGES_CGROUP_V2.md).
