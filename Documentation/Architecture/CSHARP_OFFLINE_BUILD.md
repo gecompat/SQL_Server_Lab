@@ -63,6 +63,36 @@ Weitergabefreigabe und veröffentlicht keine Binärdateien.
 
 ## Nachweise und Grenzen
 
+### Paketübergabe an eine spätere native Acceptance
+
+`Tools/CSharpBuild/Test-ExternalRuntimeWindowsCSharpPackage.ps1` prüft ein
+lokales Paket read-only gegen einen ausdrücklich übergebenen SHA-256 aus dem
+zuvor geprüften Build. Es extrahiert nichts und führt weder Paketcode noch
+Provider- oder SQL-Aktionen aus. Hash und ZIP-Inhalt werden aus demselben
+geöffneten Dateihandle gelesen. Unter Windows ist ein lokales festes Laufwerk
+erforderlich; gemappte Netzlaufwerke werden vor dem Dateizugriff abgewiesen.
+Reparse Points, UNC-Pfade, doppelte oder
+unsichere ZIP-Namen, übergroße Archive, unvollständige Hashmanifeste und
+abweichende Quell-/Frameworkbindungen werden abgewiesen. Die Prüfung verlangt
+die zentralen Runtime- und Notice-Dateien sowie .NET 8.0.31 mit `LatestPatch`.
+
+```powershell
+.\Tools\CSharpBuild\Test-ExternalRuntimeWindowsCSharpPackage.ps1 `
+    -Package <lokales-buildpaket> -ExpectedSha256 <vorher-geprüfter-buildhash>
+```
+
+Der Status `PACKAGE_VERIFIED_NOT_SQL_VALIDATED` bestätigt Integrität und den
+begrenzten Paketvertrag, keine Herausgeberauthentizität oder SQL-Fähigkeit.
+`NativeAcceptanceStatus` bleibt `NOT_EXECUTED`. Ein Consumer muss seine eigene
+Kopie unmittelbar vor Nutzung erneut prüfen; der Preflight stellt keine
+dauerhafte Dateisperre oder Installationsfreigabe aus. Ungültige Eingaben
+liefern `CSHARP_ACCEPTANCE_PACKAGE_INVALID` ohne lokale Pfade im Fehlertext.
+Das vorhandene reale Buildpaket mit 142 Manifestdateien bestand diese Prüfung;
+synthetische Negativtests prüfen Hash-, Pfad-, Manifest- und Versionsabwehr.
+Der GitHub-Gast-/SQL-Runner ist weiterhin separat offen.
+Der plattformunabhängige Archivvertrag kann unter Linux offline getestet
+werden; dort ist die Erkennung beliebiger Netzwerk-Mounts nicht enthalten.
+
 Das Repository-Werkzeug erzeugte am 2026-09-27 auf derselben Toolchain in zwei
 unterschiedlich langen Quellpfaden bytegleiche Pakete, auch mit absichtlich
 ungültigen geerbten Compiler-/SDK-Variablen und blockierenden übergeordneten

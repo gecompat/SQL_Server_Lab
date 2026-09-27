@@ -33,6 +33,8 @@ sources_of_truth:
   csharp_offline_build_archive_lock: Tools/CSharpBuild/archives.lock.json
   csharp_offline_build_package_lock: Tools/CSharpBuild/packages.lock.json
   csharp_offline_build_validation: Tests/Static/Fixtures/CSharpOfflineBuildChecks.ps1
+  csharp_acceptance_package_preflight: Tools/CSharpBuild/Test-ExternalRuntimeWindowsCSharpPackage.ps1
+  csharp_acceptance_package_validation: Tests/Static/Fixtures/CSharpAcceptancePackageChecks.ps1
   sql_cu_watch_policy: ops/sql-cu-policy.md
   exported_commands: SqlServerLab.psd1
   module_loading: SqlServerLab.psm1
