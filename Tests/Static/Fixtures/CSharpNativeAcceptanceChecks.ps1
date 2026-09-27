@@ -85,10 +85,17 @@ try{
 }
 & {
     $script:guestServiceTouched=$false
+    # The guest contract uses C:; supply only a temporary provider mapping on Linux.
+    $temporaryGuestDrive=$false
+    if(-not (Get-PSDrive -Name C -ErrorAction SilentlyContinue)){
+        $null=New-PSDrive -Name C -PSProvider FileSystem -Root $nativeRoot
+        $temporaryGuestDrive=$true
+    }
     function Get-FileHash {param($LiteralPath,$Algorithm)[pscustomobject]@{Hash=('0'*64)}}
     function Get-Service {param($Name)$script:guestServiceTouched=$true;throw 'Unexpected guest service access'}
     $caught=''
     try{& (Join-Path $repoRoot 'Tests/Integration/Fixtures/CSharp/guest.ps1') -Stage Configure -Root ('C:\SqlServerLab\CSharpAcceptance\'+('a'*32)) -PackageSha256 ('b'*64) -ProbeSha256 ('c'*64) -SqlSha256 ('d'*64)}catch{$caught=$_.Exception.Message}
+    finally{if($temporaryGuestDrive){Remove-PSDrive -Name C}}
     Add-CheckResult -Name 'CSharp native: Gastkopie-Hashdrift stoppt vor Dienst oder SQL' -Success ($caught -ceq 'CSHARP_NATIVE_GUEST_HASH' -and -not $script:guestServiceTouched)
 }
 $nativeWorkflow=Get-Content (Join-Path $repoRoot '.github/workflows/csharp-native-acceptance.yml') -Raw
