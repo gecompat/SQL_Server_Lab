@@ -43,6 +43,10 @@ try {
     Add-CheckResult 'Producer erzeugt vollständige CPU-, Einzel- und Mehr-GPU-Benchmarkreceipts' ($receipts.Count -eq 4 -and @($receipts|Where-Object EvidenceStatus -eq BENCHMARK_VERIFIED).Count -eq 4)
     Add-CheckResult 'Benchmarkreceipts entsprechen dem eigenständigen Schema' (@($receipts|Where-Object {-not ($_|ConvertTo-Json -Depth 10|Test-Json -SchemaFile (Join-Path $repoRoot 'Schemas/ai-compute-benchmark.schema.json'))}).Count -eq 0)
     Add-CheckResult 'Benchmarkprofil bleibt über alle Kandidaten identisch und Modell wird inhaltsgebunden' (@($receipts.BenchmarkProfileSha256|Sort-Object -Unique).Count -eq 1 -and @($receipts.ModelSha256|Sort-Object -Unique).Count -eq 1)
+    $legacyProfileHash=& $module {Get-LabAiPlanKey ([ordered]@{Contract='SqlServerLab.AiComputeBenchmarkProfile/1.0';WorkloadKey='sql-ai-generation';BenchmarkMode='Generation';Repetitions=5;GeneratedTokens=128;PromptTokens=512;BatchSize=512;MicroBatchSize=128})}
+    $legacyReceipt=$receipts[0]|ConvertTo-Json -Depth 10|ConvertFrom-Json
+    $legacyReceipt.BenchmarkProfileSha256=$legacyProfileHash
+    Add-CheckResult 'Receipts vor der Umgebungsisolation dürfen nicht mit aktuellen Profilen verglichen werden' ($legacyProfileHash -cne $receipts[0].BenchmarkProfileSha256 -and (Reject {Get-SqlServerLabAiComputeSelection -WorkloadKey sql-ai-generation -ModelSha256 $receipts[0].ModelSha256 -BenchmarkProfileSha256 $receipts[0].BenchmarkProfileSha256 -InventorySha256 $inventory.InventorySha256 -Candidate $candidateSet.Candidates -Benchmark (@($legacyReceipt)+@($receipts|Select-Object -Skip 1))} 'AI_COMPUTE_BENCHMARK_BINDING_MISMATCH*'))
     Add-CheckResult 'P95-Latenz wird als Nearest-Rank aus den gebundenen Nanosekunden-Samples abgeleitet' (@($receipts|Where-Object {$_.P95LatencyMilliseconds -ne 105}).Count -eq 0)
     $multi=@($candidateSet.Candidates|Where-Object {$_.Backend -eq 'LlamaCppCuda' -and $_.Devices.Count -eq 2})[0]
     $autoRunner={
@@ -159,6 +163,17 @@ try {
     Add-CheckResult 'Legacy-Prozessantwort ohne stderr ist kein OpenVINO-Nachweis' (Reject {& $module {param($i,$c,$r,$m,$b,$run)Invoke-LabAiComputeBenchmark -Inventory $i -Candidate $c -RuntimeDirectory $r -ModelPath $m -WorkloadKey sql-ai-generation -DeviceBinding $b -ProcessRunner $run} $ovInventory $ovCandidate $ovPackage $model $ovBinding $ovMissingLogRunner} 'AI_COMPUTE_BENCHMARK_DEVICE_EVIDENCE_INVALID')
     $nativeProcess=& $module {param($pwsh)Invoke-LabAiBenchmarkProcess -Invocation $pwsh -ArgumentList @('-NoProfile','-NonInteractive','-Command','[Console]::Out.Write("synthetic-output");[Console]::Error.Write("synthetic-diagnostic")') -Environment @{} -TimeoutSeconds 15} (Get-Process -Id $PID).Path
     Add-CheckResult 'Eigener Prozessadapter liest stdout und stderr getrennt' ($nativeProcess.ExitCode -eq 0 -and $nativeProcess.StdOut -ceq 'synthetic-output' -and $nativeProcess.StdErr -ceq 'synthetic-diagnostic')
+    $environmentNames=@('LLAMA_SYNTHETIC_TEST','GGML_OPENVINO_DEVICE','CUDA_SYNTHETIC_TEST','HIP_SYNTHETIC_TEST','OPENVINO_SYNTHETIC_TEST','OV_SYNTHETIC_TEST','HF_SYNTHETIC_TEST','HUGGING_FACE_SYNTHETIC_TEST','ROCR_SYNTHETIC_TEST','SQL_LAB_SYNTHETIC_KEEP')
+    $savedEnvironment=@{}
+    try {
+        foreach($name in $environmentNames){$savedEnvironment[$name]=[Environment]::GetEnvironmentVariable($name,'Process');[Environment]::SetEnvironmentVariable($name,'parent-canary','Process')}
+        $environmentProbe='[pscustomobject]@{Leaked=@(Get-ChildItem Env: | Where-Object {$_.Value -ceq "parent-canary" -and $_.Name -cne "SQL_LAB_SYNTHETIC_KEEP"}).Count;Device=$env:GGML_OPENVINO_DEVICE;Kept=$env:SQL_LAB_SYNTHETIC_KEEP}|ConvertTo-Json -Compress'
+        $environmentProcess=& $module {param($pwsh,$probe)Invoke-LabAiBenchmarkProcess -Invocation $pwsh -ArgumentList @('-NoProfile','-NonInteractive','-Command',$probe) -Environment @{GGML_OPENVINO_DEVICE='CPU'} -TimeoutSeconds 15} (Get-Process -Id $PID).Path $environmentProbe
+        $environmentResult=$environmentProcess.StdOut|ConvertFrom-Json
+        Add-CheckResult 'Benchmarkkind entfernt geerbte Modell- und Backend-Overrides vor expliziter Gerätebindung' ($environmentProcess.ExitCode -eq 0 -and $environmentResult.Leaked -eq 0 -and $environmentResult.Device -ceq 'CPU')
+        Add-CheckResult 'Benchmarkisolation erhält unabhängige Umgebung und verändert den Caller nicht' ($environmentResult.Kept -ceq 'parent-canary' -and @($environmentNames|Where-Object {[Environment]::GetEnvironmentVariable($_,'Process') -cne 'parent-canary'}).Count -eq 0)
+    }
+    finally {foreach($name in $environmentNames){[Environment]::SetEnvironmentVariable($name,$savedEnvironment[$name],'Process')}}
     $mapProbe=[pscustomobject]@{Platform='Windows';Coverage=@((Coverage CPU),(Coverage GPU),(Coverage NPU));Devices=@((Device CPU cpu0 8086 cpu 'Intel CPU'),(Device GPU gpu0 8086 gpu 'Intel GPU'))}
     $mapInventory=& $module {param($p)Get-LabAiComputeInventory -ProbeResult $p} $mapProbe
     $mapCandidate=[pscustomobject]@{Devices=@($mapInventory.Devices|Where-Object Kind -eq GPU)}

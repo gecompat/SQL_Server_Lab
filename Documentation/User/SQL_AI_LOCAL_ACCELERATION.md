@@ -272,6 +272,11 @@ $selection = Get-SqlServerLabAiComputeSelection `
 `llama-bench` mit gesperrtem Netzwerkdownload (`--offline`) aus. Modell und alle
 unmittelbaren Paketbinärdateien werden vor und nach dem Lauf gehasht. Derselbe
 Profilhash bindet Wiederholungen, Generationslänge, Batch- und Microbatchgröße.
+Discovery und Messung entfernen geerbte `LLAMA*`-, `GGML*`-, `CUDA*`-, `HIP*`-,
+`OPENVINO*`-, `OV_*`-, `HF_*`-, `HUGGING_FACE*`- und `ROCR*`-Overrides aus der
+eigenen Kindprozessumgebung, bevor die gebundene Gerätewahl gesetzt wird.
+Die Umgebung des Callers bleibt unverändert. Die Isolationsregel geht in den
+Profilhash ein; ältere Receipts sind dadurch nicht mit neuen Messungen vergleichbar.
 Der Standard `Generation` misst generierte Tokens. Für den Embeddingserver muss
 jedes Kandidatenreceipt mit `-BenchmarkMode Embedding -WorkloadKey
 sql-ai-embedding` und identischer `-PromptTokens`-Einstellung entstehen; dabei
