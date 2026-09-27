@@ -40,6 +40,115 @@ aktualisiert diesen Arbeitsstand. Vor jeder Fortsetzung sind aktueller
 abzugleichen. Neue Erkenntnisse ändern den nächsten Slice, löschen aber keinen
 offenen Planpunkt stillschweigend.
 
+## Ergänzungsauftrag vom 2026-09-27: Capability-Matrix und autonome Fortsetzung
+
+**Priorität:** Autonome Implementierung und zugehörige Tests haben Vorrang.
+Der Abgleich der Provider-/SQL-/OS-/Capability-Matrix wird ab sofort begleitend
+bearbeitet; seine vollständige Erstellung ist keine neue Sperre vor weiterer
+Featureentwicklung. Unabhängige Inventur oder Evidence-Prüfung darf ein
+separater Agent übernehmen. Pro atomarer Implementierung bleibt es bei genau
+einem Verantwortlichen; mutierende Providerprüfungen werden weiterhin über
+den vorhandenen Runtime-Lock serialisiert.
+
+Dieser Ergänzungsauftrag erweitert vorhandene Aufgaben, eröffnet aber keinen
+zweiten Backlog und keine unabhängige Capability-Registry:
+
+| Bestehender Bezug | Ergänzung und offener Umfang |
+|---|---|
+| `BASE-001` bis `BASE-005` im [Ausführungsplan](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md) | Quellinventur und vorhandenen Evidence-Index zu einer maschinenlesbaren, für Menschen lesbaren, mehrdimensionalen Statussicht zusammenführen; vorhandene Abnahmen übernehmen, Widersprüche im betroffenen Scope berichtigen und Drift testseitig absichern. Der bisherige Inventur-Slice bleibt abgeschlossen, die vollständige Kombinationenmatrix ist offen. |
+| `CORE-102` und [Issue #619](https://github.com/gecompat/SQL_Server_Lab/issues/619) | Gemeinsamen Capability-Entscheid um aktuelle, read-only Host-/Backend-Readiness und passende historische Evidence ergänzen. API, Konsole/Fallback und Browser verwenden denselben Vertrag; External Languages sind der erste vertikale Anwendungsfall. Issue #619 bleibt offen. |
+| `SFT-711`, `SFT-712` im [External-Languages-Plan](EXTERNAL_LANGUAGES_IMPLEMENTATION_PLAN.md) | Python, R, Java und C# getrennt nach tatsächlichem Provider-/OS-/SQL-/Buildpfad behandeln. SQL-2022-Hyper-V und SQL-2025-cgroup-v2-Nachweise wiederverwenden. C#-Build ist belegt; SQL-Registrierung, Launchpad-Roundtrip, Workeridentität und Neustart sind noch offen. |
+| `PSR-011` im [Persistenzbacklog](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md) | Vorhandenen Retained-Store-Removal-Vertrag und dessen noch fehlende native Abnahme prüfen, keine parallele Löschimplementierung eröffnen. |
+| Weitere IDs aus den verlinkten Fachbacklogs | Jede gefundene Implementierungs- oder Abnahmelücke dem bestehenden Eigentümer zuordnen; vor einer neuen ID die kanonische Registration Authority und Duplikate prüfen. |
+
+### Statusdimensionen und Quellen
+
+Die Erweiterung baut auf `Tools/Get-SqlServerLabCapabilityInventory.ps1`,
+`Schemas/capability-evidence-index.schema.json`,
+`Documentation/Quality/capability-evidence-index.json`, dem privaten
+[Instanz-Capability-Vertrag](../Architecture/INSTANCE_CAPABILITY_ASSESSMENT.md),
+Katalogen, Code und den referenzierten Qualitätsberichten auf. Der bestehende
+Evidence-Index enthält nur einen Ausschnitt der dokumentierten Historie;
+fehlende Indexeinträge bedeuten nicht, dass keine Abnahme existiert.
+
+Mindestens getrennt zu führen sind `implementationStatus`,
+`installabilityStatus`, `projectSupportStatus`, `manufacturerSupportStatus`,
+`nativeAcceptanceStatus` und `currentReadinessStatus`. Die noch zu
+implementierende Native-Acceptance-Sicht unterscheidet `NATIVE_ACCEPTED`,
+`NATIVE_FAILED`, `NOT_EXECUTED`, `NOT_APPLICABLE`, `EVIDENCE_STALE` und `UNKNOWN`.
+Diese Zielwerte ersetzen nicht stillschweigend vorhandene Schemaverträge.
+Jede Aussage benötigt ihren konkreten Scope, Quelle, Zeitpunkt und relevante
+Versionsbindung. Historischer PASS ist keine aktuelle Readiness; Static/Mock
+ist keine Native Acceptance. Nicht getestet bedeutet nicht unsupported,
+Legacy bedeutet nicht uninstallierbar. Hersteller- und Projektfreigabe bleiben
+unabhängig; unbelegte Aussagen bleiben unbekannt.
+
+### Vollständiger Such- und Abgleichscope
+
+Zu erfassen sind SQL 2000, 2005, 2008, 2008 R2, 2012, 2014, 2016, 2017, 2019,
+2022 und 2025 für Hyper-V, Docker und Podman. Windows-Baselines umfassen Server
+2003 SP2, 2008 R2 SP1, 2012 R2, 2016, 2019, 2022, 2025 und weitere tatsächlich
+katalogisierte Varianten. Containerzellen binden die tatsächlichen Linux-/
+Imagevarianten und, soweit relevant, rootful/rootless sowie cgroup v1/v2.
+Nicht jede Kombination ist installierbar; Ausschluss und fehlender Nachweis
+werden getrennt ermittelt, nicht aus dem kartesischen Produkt behauptet.
+
+Der Funktionsscope umfasst Provisionierung/Installation, Lifecycle,
+SQL-Readiness, Konfiguration/Reconcile, CU-/Buildwahl, Backup/Restore/PITR,
+persistenten und retained Storage, Testdatenbank-Bestellung und sämtliche
+Samples, BAK, SQL-Script/Bundle, BACPAC, MDF/NDF/LDF-Attach, FILESTREAM,
+Multi-Instance/-Version, Mixed Provider, CMS, Python/R/Java/C#, cgroup-Pfade,
+Vector, Embeddings, Ollama, RAG, External Model, ONNX, CPU/GPU/NPU,
+Observability, Evaluation Watch/Refresh, Recovery, Export/Import/Portabilität,
+Remote Hyper-V, PolyBase/S3, SSIS, SSAS, End-to-End BI, AG/FCI/Cluster/HA,
+Scenario Engine/Fault Injection sowie weitere kanonisch geplante Fähigkeiten.
+
+Vor neuen Tests sind insbesondere die [Windows-Template-Evidence](../Quality/WINDOWS_SERVER_TEMPLATE_VALIDATION_MATRIX.md),
+Legacy-SQL-2005/2008/2008-R2/2012/2014-Nachweise in den
+[Known Limitations](../Quality/KNOWN_LIMITATIONS.md), die bestehende
+SQL-2019/2022/2025-Testgruppe, getrennte Docker-/Podman-Abnahmen,
+SQL-2022-Hyper-V-Sprachabnahmen, SQL-2025-cgroup-v2, Vector/RAG/AI und
+Chinook/Northwind-Hyper-V-Samples auszuwerten. OS-Boot, SQL-Engine und einzelne
+Zusatzfähigkeiten sind getrennte Nachweise. Suchhinweise sind keine neuen
+offenen Aufgaben und überschreiben aktuellere Evidence nicht.
+
+Erst danach werden Lücken für implementierte/installierbare Kombinationen
+abgeleitet: insbesondere SQL 2000/2016/2017 Hyper-V, SQL 2017 Container,
+Legacy-Slot-Integration, weitere Windows-Sprachkombinationen, C#, vollständige
+Samples, Multi-Instance/-Version, retained Removal und AI-/External-Model-Pfade.
+SQL-2022-cgroup-v2 bleibt ein experimenteller Spike ohne Supportannahme.
+Vor jeder Ausführung wird erneut geprüft, ob inzwischen passende Evidence
+vorliegt. Jede abgeschlossene Implementierung/Abnahme aktualisiert die
+betroffenen kanonischen Status-, Evidence- und Limitationsquellen; der Auftrag
+endet nicht mit einer Matrixdatei.
+
+### Erhöhte Ausführung und sichtbare Wiederaufnahme
+
+Für notwendige Administratoroperationen wird bevorzugt ein vorhandener
+GitHub-Actions-Workflow auf dem passenden autorisierten Self-hosted Runner
+verwendet. Das ist kein allgemeiner Remote-Shell-Auftrag: vertrauenswürdiger
+Checkout, Capability-Labels, expliziter Modus, Ownership, Ressourcenprüfung,
+Timeout, Runtime-Lock und Cleanup-/Recovery-Vertrag bleiben Voraussetzung.
+Reservierte Umgebungen werden weder gestartet noch als Testfixture verwendet.
+Eine neue Runnerfunktion wird regulär implementiert und geprüft; lokale
+ungeprüfte Skripte werden nicht über einen generischen Dispatch ausgeführt.
+
+Fehlt ein geeigneter Runnerpfad oder wird notwendige UAC nicht angenommen,
+bleibt die betreffende Abnahme `NOT_EXECUTED` mit konkretem Blocker und
+Wiederaufnahmebedingung beim bestehenden Arbeitspaket. Unabhängige
+Implementierung und Tests ohne UAC gehen weiter. Eine unveränderte Ablehnung
+wird nicht wiederholt; eine neue verfügbare Runnerfunktion, geänderte
+Voraussetzungen oder erneuerte Benutzerfreigabe erlaubt die Wiederaufnahme.
+Reale Hostwerte, Pfade, Identitäten und Rohlogs bleiben außerhalb Git.
+
+Aktueller C#-Wiederaufnahmepunkt: Der Offline-Build ist abgeschlossen; der
+vorhandene Hyper-V-Workflow enthält noch keinen C#-Acceptance-Modus. Der alte
+lokale Gastplan ist revisionsgebunden und wird nicht unverändert gestartet.
+Nächster Implementierungsschritt ist ein begrenzter eigener Gast-/SQL-Testpfad
+mit Paketbindung, Preflight, Sprach-Roundtrip, Neustart und Own-Cleanup sowie
+ein passender Runner-Einstieg. Bis dahin bleiben Gast-/SQL-Abnahme offen und
+der Katalog `PREVIEW`; UAC ist dafür aktuell kein neu gemessener Blocker.
+
 ## Bestandsaufnahme und bereits integrierte Arbeit
 
 Die Durchsicht auf `9cfd144` erfasste 86 öffentliche Befehle, 108 statische Suiten
