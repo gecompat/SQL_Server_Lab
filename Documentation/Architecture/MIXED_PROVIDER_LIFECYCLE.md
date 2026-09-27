@@ -98,6 +98,12 @@ bleibt der globale State `RUNNING`, damit ein erneuter Stop oder ein
 scope-gebundener Remove möglich bleibt; die Ergebnisse je ProviderSubRun werden
 zurückgegeben.
 
+Nach vollständigem Container-Stop folgt unter Windows die begrenzte
+[Hostspeicherprüfung](STOP_HOST_MEMORY.md). `HostMemory` meldet ihre Evidence
+getrennt vom Runzustand. Bei Speicherdruck kann sie ausschließlich den
+Dateicache eines gebundenen lokalen WSL2-Backends freigeben. Sie beendet keine
+fremden Ressourcen; `-SkipHostMemoryRelease` deaktiviert diese Wartung.
+
 ### Remove und Recovery
 
 `Remove-SqlServerLab` und der automatische Fehler-Cleanup verwenden die

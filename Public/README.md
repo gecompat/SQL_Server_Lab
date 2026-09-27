@@ -2,6 +2,13 @@
 
 Dieses Verzeichnis enthält die öffentlichen PowerShell-Funktionen des Moduls. Die autoritative Exportliste steht in `SqlServerLab.psd1`.
 
+`Stop-SqlServerLab` und `Stop-SqlServerLabAutomatedTestEnvironment` prüfen
+nach erfolgreichem Container-Stop zusätzlich die Hostspeicherreserve.
+Bei Speicherdruck kann flüchtiger WSL-Dateicache freigegeben werden, ohne
+andere Container zu stoppen. `HostMemory` liefert das getrennte Ergebnis;
+`-SkipHostMemoryRelease` unterdrückt diese Wartung. Ein Restart erhält den
+Cache. Grenzen und Statuswerte: [Hostspeichervertrag](../Documentation/Architecture/STOP_HOST_MEMORY.md).
+
 `New-SqlServerLab -AllowResourceOvercommit` erlaubt gemessene übersteuerbare
 Unterversorgung. Ausgeführtes, explizit übersteuertes und per `-SkipAssessment`
 übersprungenes Assessment werden im lokalen Run getrennt gespeichert.

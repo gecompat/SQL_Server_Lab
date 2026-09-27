@@ -294,6 +294,9 @@ function Stop-SqlServerLabAutomatedTestEnvironment {
         Optionales Exportziel. Standard ist Lab_Data/Exports.
     .PARAMETER StateRoot
         Optionaler SQL_Server_Lab-State-Root.
+    .PARAMETER SkipHostMemoryRelease
+        Unterdrueckt die einmalige WSL-Dateicache-Freigabe nach erfolgreichem
+        Gruppenstopp. Andere Container und virtuelle Maschinen bleiben aktiv.
     .OUTPUTS
         Gruppenstatus mit Released-, Unchanged- und Fehlerzählern,
         secretfreien Einzelresultaten und dem erneuerten Exportstatus.
@@ -301,7 +304,7 @@ function Stop-SqlServerLabAutomatedTestEnvironment {
         Stop-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact='High')]
-    param([switch]$Force, [string]$OutputDirectory, [string]$StateRoot)
+    param([switch]$Force, [string]$OutputDirectory, [string]$StateRoot, [switch]$SkipHostMemoryRelease)
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $directory = Get-LabTestEnvironmentExportDirectory -OutputDirectory $OutputDirectory
@@ -408,8 +411,12 @@ function Stop-SqlServerLabAutomatedTestEnvironment {
     }
     $status = if ($errors -eq 0 -and $stopped -eq $registeredEntries.Count -and
         [string]$export.GroupStatus -in @('INCOMPLETE','STOPPED')) { 'STOPPED' } else { 'PARTIAL' }
+    $hostMemory = if ($status -eq 'STOPPED') {
+        $providers = @($details | Where-Object { $_.Platform -eq 'linux' -and $_.Status -eq 'STOPPED' } | ForEach-Object { $_.Provider } | Sort-Object -Unique)
+        Invoke-LabStoppedHostMemoryRelease -Provider $providers -Skip:$SkipHostMemoryRelease
+    } else { [pscustomobject]@{Status='STOP_INCOMPLETE'} }
     return [PSCustomObject]@{
         Status=$status; Released=$released; Unchanged=$unchanged; Stopped=$stopped; Errors=$errors
-        Details=@($details); Export=$export
+        Details=@($details); Export=$export; HostMemory=$hostMemory
     }
 }

@@ -54,10 +54,10 @@ function Restart-SqlServerLab {
         # Stop (falls laufend)
         if ($run.state -eq 'RUNNING') {
             $stopResult = if ($Force) {
-                Stop-SqlServerLab -RunId $RunId -Force
+                Stop-SqlServerLab -RunId $RunId -Force -SkipHostMemoryRelease
             }
             else {
-                Stop-SqlServerLab -RunId $RunId
+                Stop-SqlServerLab -RunId $RunId -SkipHostMemoryRelease
             }
             if ($stopResult.Action -eq 'CANCELLED') {
                 return [PSCustomObject]@{

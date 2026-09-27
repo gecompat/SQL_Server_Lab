@@ -101,6 +101,7 @@ end {
         @{ Pattern = '(?i)(DockerProvider|PodmanProvider|ContainerVolume)'; Checks = @('Invoke-ContainerVolumeContractChecks.ps1','Invoke-PortAllocationChecks.ps1') },
         @{ Pattern = '(?i)(ContainerInstanceStore|container-instance-store)'; Checks = @('Invoke-ContainerInstanceStoreChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1') },
         @{ Pattern = '(?i)(ContainerRuntimeScope|container-runtime-scope)'; Checks = @('Invoke-ContainerRuntimeScopeChecks.ps1') },
+        @{ Pattern = '(?i)(StoppedHostMemory|STOP_HOST_MEMORY|Stop-SqlServerLab\.ps1|Restart-SqlServerLab\.ps1|TestEnvironmentLifecycle)'; Checks = @('Invoke-StoppedHostMemoryChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1','Invoke-TestEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(PersistentStorageCatalog|PersistentStorageArtifact|PersistentStorageRecovery|persistent-storage-(catalog|artifact|recovery))'; Checks = @('Invoke-PersistentStorageCatalogChecks.ps1','Invoke-PersistentStorageRecoveryChecks.ps1','Invoke-BackupLibraryChecks.ps1','Invoke-DatabasePackageChecks.ps1') },
         @{ Pattern = '(?i)(BackupLibrary|backup-library|Backup-SqlServerLabDatabase|Restore-SqlServerLabDatabase)'; Checks = @('Invoke-BackupLibraryChecks.ps1','Invoke-DatabaseMigrationDependencyChecks.ps1','Invoke-SampleBaselineRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(DatabasePackage|database-package)'; Checks = @('Invoke-DatabasePackageChecks.ps1','Invoke-DatabaseMigrationDependencyChecks.ps1') },
@@ -222,6 +223,7 @@ end {
             if ($runtimePath -match '(?i)(CollationRuntimeEvidence|collation-runtime-evidence|Invoke-ContainerCollationAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerInstanceStore|container-instance-store)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerRuntimeScope|container-runtime-scope)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
+            if ($runtimePath -match '(?i)(StoppedHostMemory|STOP_HOST_MEMORY)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerCpuFault|container-cpu-fault)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(ContainerMemoryFault|container-memory-fault)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(LinuxContainerHost|linux-container-host|wsl-container-host|ExternalRuntimeContainerHyperVHost)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
