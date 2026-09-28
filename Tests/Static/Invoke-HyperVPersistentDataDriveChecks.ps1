@@ -26,6 +26,50 @@ $sourcePath = Join-Path $dataRoot $sourceRelativePath
 New-Item -ItemType Directory -Path (Split-Path -Parent $sourcePath) -Force | Out-Null
 [IO.File]::WriteAllBytes($sourcePath, [byte[]](1..32))
 try {
+    # Execute only the actual production assignment block; never Open or invoke the guest.
+    $builderHarness = @'
+param([string]$SourcePath,[switch]$RequireWindowsPowerShell)
+$ErrorActionPreference='Stop'
+try {
+    if($RequireWindowsPowerShell -and ($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5)){throw 'HOST'}
+    Add-Type -AssemblyName System.Data
+    $ast=[Management.Automation.Language.Parser]::ParseFile($SourcePath,[ref]$null,[ref]$null)
+    $definition=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq 'Get-LabHyperVPersistentDataGuestDetachObservation'},$true)
+    $loop=$definition.Find({param($n)$n -is [Management.Automation.Language.ForEachStatementAst] -and $n.Variable.VariablePath.UserPath -ceq 'instance'},$true)
+    $statements=@($loop.Body.Statements | Select-Object -First 10)
+    if($statements.Count -ne 10 -or @($statements|Where-Object {$_ -isnot [Management.Automation.Language.AssignmentStatementAst]}).Count -ne 0 -or $statements[0].Left.VariablePath.UserPath -cne 'dataSource' -or $statements[9].Left.VariablePath.UserPath -cne 'connection'){throw 'AST'}
+    $block=[scriptblock]::Create(($statements|ForEach-Object {$_.Extent.Text}) -join "`n")
+    foreach($case in @(@('MSSQLSERVER','localhost'),@('SyntheticInstance','localhost\SyntheticInstance'))){
+        $instance=[pscustomobject]@{Name=$case[0]}
+        $plain='synthetic;Password="quoted";User ID=other; equals= and ''apostrophe'' '
+        $connection=$null
+        try {
+            . $block
+            $parsed=[Data.SqlClient.SqlConnectionStringBuilder]::new($connection.ConnectionString)
+            if($parsed['Data Source'] -cne $case[1] -or $parsed['Initial Catalog'] -cne 'master' -or $parsed['User ID'] -cne 'sa' -or $parsed['Password'] -cne $plain -or $parsed['Connect Timeout'] -ne 15 -or -not $parsed['Encrypt'] -or -not $parsed['TrustServerCertificate'] -or $parsed['Integrated Security'] -or -not $parsed['Pooling'] -or $connection.State -ne [Data.ConnectionState]::Closed){throw 'CONTRACT'}
+        } finally {if($connection){$connection.Dispose()}}
+    }
+    'PERSISTENT_SQL_BUILDER_PASS'
+} catch {'PERSISTENT_SQL_BUILDER_FAILED';if($RequireWindowsPowerShell){exit 1}}
+'@
+    $builderOutput=& ([scriptblock]::Create($builderHarness)) -SourcePath (Join-Path $repoRoot 'Private/HyperVPersistentDataDrive.ps1')
+    Add-CheckResult -Name 'Gast-SQL-Builder: echter Produktions-AST fuer Default/Named, Passwort-Escaping und geschlossene Verbindung' -Success ($builderOutput -ceq 'PERSISTENT_SQL_BUILDER_PASS')
+    if($IsWindows){
+        $windowsPowerShell=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+        if(Test-Path -LiteralPath $windowsPowerShell){
+            $harnessPath=Join-Path $temporaryRoot 'persistent-sql-builder.ps1'
+            [IO.File]::WriteAllText($harnessPath,$builderHarness)
+            $start=[Diagnostics.ProcessStartInfo]::new();$start.FileName=$windowsPowerShell;$start.UseShellExecute=$false;$start.CreateNoWindow=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
+            foreach($argument in @('-NoProfile','-NonInteractive','-File',$harnessPath,'-SourcePath',(Join-Path $repoRoot 'Private/HyperVPersistentDataDrive.ps1'),'-RequireWindowsPowerShell')){$start.ArgumentList.Add($argument)}
+            $process=[Diagnostics.Process]::new();$process.StartInfo=$start;$legacySuccess=$false
+            try {
+                $null=$process.Start();$stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
+                if(-not $process.WaitForExit(30000)){$process.Kill($true);$null=$process.WaitForExit(15000)}
+                if($process.HasExited){$out=$stdout.GetAwaiter().GetResult();$err=$stderr.GetAwaiter().GetResult();$legacySuccess=$process.ExitCode -eq 0 -and $out.Trim() -ceq 'PERSISTENT_SQL_BUILDER_PASS' -and -not $err}
+            } finally {$process.Dispose()}
+            Add-CheckResult -Name 'Gast-SQL-Builder: echter Windows PowerShell 5.1 Produktions-AST mit Default/Named und Passwort-Escaping' -Success $legacySuccess
+        } else {Write-Host '  NOT_EXECUTED  Gast-SQL-Builder: Windows PowerShell fehlt'}
+    } else {Write-Host '  NOT_EXECUTED  Gast-SQL-Builder: Windows PowerShell benoetigt Windows'}
     $evidence = & $module {
         param($Root,$SourceRelativePath,$OperationRoot)
         $sourceId=[guid]::NewGuid().ToString('D'); $targetId=[guid]::NewGuid().ToString('D')

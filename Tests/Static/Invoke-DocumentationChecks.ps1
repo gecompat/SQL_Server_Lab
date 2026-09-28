@@ -1210,7 +1210,7 @@ Add-ValidationResult `
 
 Add-ValidationResult `
     -Name 'PSR-003 dokumentiert generischen Katalogkern und sicheren Exchange-Workspace-Slice' `
-    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / 7_TOP_LEVEL_PACKAGES_REMAIN / PSR_001_002_005_007_008_013_014_COMPLETE / PSR_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE`' -and
+    -Success ($persistentStorageBacklog -match '(?m)^`ACTIVE / 8_TOP_LEVEL_PACKAGES_REMAIN / PSR_001_002_005_008_013_014_COMPLETE / PSR_003_004_007_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE`' -and
         $persistentStorageBacklog -match '(?m)^\| `PSR-003` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStorageCatalog/1.0') -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.PersistentStoragePlan/1.0') -and
@@ -1310,10 +1310,13 @@ Add-ValidationResult `
         $repoMap -match 'acceptance_container_runtime_scope: Tests/Integration/Invoke-ContainerRuntimeScopeAcceptance\.ps1')
 
 Add-ValidationResult `
-    -Name 'PSR-007 dokumentiert den vollständigen pfadfreien Hyper-V-VHDX-Lifecycle ohne falsche Datenbankbereitschaft' `
-    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-007` .*\| `COMPLETE`:' -and
+    -Name 'PSR-007 trennt belegten Host-Lifecycle von offener nativer SQL-Gast-Abnahme' `
+    -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-007` .*\| `IMPLEMENTED_PARTIAL`:' -and
         $persistentStorageBacklog -match [regex]::Escape('SqlServerLab.HyperVPersistentDataIntent/1.0') -and
         $persistentStorageBacklog -match 'CLONE -> REATTACH -> RELEASE' -and
+        $persistentStorageBacklog -match 'modellierte SQL-/Gast-Evidence' -and
+        $persistentStorageBacklog -match 'Verbindungen bleiben dabei\s*geschlossen' -and
+        $persistentStorageBacklog -match 'Detach-Receipt bleibt für `PSR-007`\s*`NOT_EXECUTED`' -and
         $persistentStorageBacklog -match 'DatabaseFilesOnline=false' -and
         $knownLimitations -match 'reale\s*Hostnachweis (?:ist|sind) grün' -and
         $knownLimitations -match 'atomar(?:er|en)\s*Katalogcommit' -and
@@ -1327,7 +1330,7 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'PSR-008 ist nur für tatsächlich unterstützte Provider-Capabilities abgeschlossen' `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-008` .*\| `COMPLETE`:' -and
-        $persistentStorageBacklog -match '7_TOP_LEVEL_PACKAGES_REMAIN' -and
+        $persistentStorageBacklog -match '8_TOP_LEVEL_PACKAGES_REMAIN' -and
         $persistentStorageBacklog -match 'Cross-Provider-FILESTREAM.*`NOT_APPLICABLE`' -and
         $persistentStorageBacklog -match 'SQL Server\s*2025 auf Linux' -and
         $knownLimitations -match 'FILESTREAM-Cross-Provider-Lauf\s*ist in der aktuellen Matrix nicht möglich' -and
@@ -1338,7 +1341,7 @@ Add-ValidationResult `
 Add-ValidationResult `
     -Name 'PSR-014 bindet die idempotente Ersteinrichtung an Core, Konsole und Dokumentation' `
     -Success ($persistentStorageBacklog -match '(?m)^\| `PSR-014` .*\| `COMPLETE`:' -and
-        $persistentStorageBacklog -match 'Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-001`, `PSR-002`, `PSR-005`,\s*`PSR-007`, `PSR-008`, `PSR-013` und `PSR-014` abgeschlossen\. Damit verbleiben sieben Top-Level-Pakete' -and
+        $persistentStorageBacklog -match 'Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-001`, `PSR-002`, `PSR-005`,\s*`PSR-008`, `PSR-013` und `PSR-014` abgeschlossen\. Damit verbleiben acht Top-Level-Pakete' -and
         $persistentStorageBacklog -match 'vor jeder Mutation fail-closed abgelehnt' -and
         $projectContext -match 'gemeinsamer idempotenter\s*Ersteinrichtungsassistent' -and
         $knownLimitations -match 'nichtleeren, noch nicht\s*controllergebundenen `Lab_Data`-Ordner' -and

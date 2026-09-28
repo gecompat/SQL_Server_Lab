@@ -2,13 +2,13 @@
 
 ## Status und Priorität
 
-`ACTIVE / 7_TOP_LEVEL_PACKAGES_REMAIN / PSR_001_002_005_007_008_013_014_COMPLETE / PSR_003_004_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE` – die vorhandenen
+`ACTIVE / 8_TOP_LEVEL_PACKAGES_REMAIN / PSR_001_002_005_008_013_014_COMPLETE / PSR_003_004_007_011_PARTIAL / PSR_006_READ_ONLY / PSR_009_010_012_IMPLEMENTED_CORE` – die vorhandenen
 Persistenzmechanismen schützen bereits Teile des SQL-Zustands, bilden aber noch
 keinen vollständigen, providerübergreifenden Wiederverwendungs- und
 Löschvertrag. Planung ist kein Implementierungs- oder Runtime-Nachweis.
 
 Von den 14 kanonischen PSR-Arbeitspaketen sind `PSR-001`, `PSR-002`, `PSR-005`,
-`PSR-007`, `PSR-008`, `PSR-013` und `PSR-014` abgeschlossen. Damit verbleiben sieben Top-Level-Pakete; ein Paket
+`PSR-008`, `PSR-013` und `PSR-014` abgeschlossen. Damit verbleiben acht Top-Level-Pakete; ein Paket
 mit implementiertem Core oder read-only Slice zählt bis zum vollständigen
 eigenen Abnahmekriterium weiterhin als offen.
 
@@ -541,7 +541,7 @@ Volumename ersetzt diese Identität nicht.
 | `PSR-004` | P1 | Retention-, Backup-on-Remove-, Package- und expliziten Löschvertrag entwerfen | `IMPLEMENTED_PARTIAL`: verlustsicherer Plan mit explizitem `Execution.Status` plus journalisierter Docker-/Podman-Executor für Retain, verifiziertes Backup-on-Remove, MDF/NDF/LDF-`PACKAGE_ON_REMOVE` und `BACKUP_AND_PACKAGE` mit Backup-vor-Offline-Reihenfolge sowie `EXTERNAL_UNMANAGED` als revisionsgeschützte, quellunverändernde Katalogfreigabe; `DELETE_WITH_RUN` ist ausschließlich für öffentlich aus persistierter Run-/Scope-/Container-/Runtime-Label-Evidence registrierte Docker-/Podman-`INSTANCE_STORE` zweiphasig über `DELETE_PENDING` und nach Missing-Volume-Nachweis zu `DETACHED` ausführbar; getrennter UUID-basierter Retained-Store-Delete ist für moderne einzelne Docker-/Podman-Datenvolumes implementiert (native Abnahme offen); FILESTREAM, TDE und andere endgültige Storage-Löschungen bleiben fail-closed offen |
 | `PSR-005` | P1 | Docker-/Podman-Instanzstore auswählbar, fortsetzbar und klonbar machen | `IMPLEMENTED`: öffentliche CLI-/Browser-Auswahl per stabiler ID, detached Continue/Clone, operationsgebundene Quell-Lease, Digest/Resume, atomarer Zielcommit plus Quellfreigabe und rollenfester External-Runtime-Mehr-Volume-Vertrag; Docker und Podman getrennt real belegt, unvollständige Legacy-Sidecargruppen fail-closed |
 | `PSR-006` | P1 | Podman-Machine- und Docker-Engine-/Context-Reichweite bewerten und gegebenenfalls dediziert verwalten | `IMPLEMENTED_READ_ONLY`: stabile sanitisierte Runtime-ID, Context-/Connection-/Machine-Bindung und REPORT_ONLY-Hostgrenze real belegt; dedizierter Ownership-/Lifecycle-Vertrag bleibt offen |
-| `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `COMPLETE`: reguläre Erzeugung reserviert Storage-ID und Run-Lease vor der VHDX-Mutation; der öffentliche pfadfreie CLI-/Browser-Flow prüft alle SQL-Dateibindungen im Gast, blockiert aktive Datenbankdateien, fährt sauber herunter und persistiert einen an Storage-ID, DiskIdentifier, Dateigröße und Änderungszeit gebundenen Detach-Receipt; Reattach/Release/Clone revalidieren VM, Checkpoints, Gastpfad und SQL-Version, sind operationsgeleast, journalisiert, atomar katalogisiert, idempotent und nativ belegt; vorhandene Datenbankdateien bleiben bis zur expliziten Restore-/Attach-Aktion offline |
+| `PSR-007` | P1 | Hyper-V-Daten-VHDX sicher auswählen, reattachen, freigeben und klonen | `IMPLEMENTED_PARTIAL`: reguläre Erzeugung reserviert Storage-ID und Run-Lease vor der VHDX-Mutation; der öffentliche pfadfreie CLI-/Browser-Flow prüft alle SQL-Dateibindungen im Gast, blockiert aktive Datenbankdateien, fährt sauber herunter und persistiert einen an Storage-ID, DiskIdentifier, Dateigröße und Änderungszeit gebundenen Detach-Receipt; Reattach/Release/Clone revalidieren VM, Checkpoints, Gastpfad und SQL-Version, sind operationsgeleast, journalisiert, atomar katalogisiert, idempotent und im isolierten Hosttest nativ belegt; der vollständige öffentliche Release mit echter SQL-Gastprüfung bleibt separat offen; vorhandene Datenbankdateien bleiben bis zur expliziten Restore-/Attach-Aktion offline |
 | `PSR-008` | P1 | Providerneutrale Backup-Bibliothek mit automatischem Backup und Restore-Verifikation liefern | `COMPLETE`: inhaltsadressierte `Lab_Data`-Bibliothek, `CHECKSUM`, `RESTORE VERIFYONLY`, Hash, Metadatenreceipt, öffentliche BackupSetId-Auswahl und realer Docker→Podman-Inhaltsnachweis; Cross-Provider-FILESTREAM ist in der aktuellen Matrix mangels zweitem FILESTREAM-fähigem Provider `NOT_APPLICABLE`, bleibt bei künftiger Capability-Erweiterung aber zwingendes Freigabegate |
 | `PSR-009` | P2 | Datenbankpakete inklusive FILESTREAM, Attach und Clone implementieren | `IMPLEMENTED_PARTIAL`: vollständiger Offline-Dateivertrag, rekursive Hashes, unabhängiger Clone und journalisiertes Copy-then-Attach; öffentlicher pfadfreier Hyper-V-Attach per stabiler Paket-/Run-ID und live gebundenem SQL-Default-Data-Ziel ist implementiert und nativ belegt; `Export-SqlServerLabDatabasePackage` publiziert einen Docker-/Podman-Quellrun ausschließlich per stabiler Run-/Instanz-ID nach Offline-, Objekt- und Manifest-SHA-256-Nachweis. Die Browseraktion nutzt denselben Core ausschließlich mit Run, Instanz und validiertem Datenbanknamen; Host, Port, Pfad und Passwort sind kein Browservertrag. FILESTREAM-/TDE-Export und weitere Providerbindungen bleiben fail-closed offen |
 | `PSR-010` | P2 | Serverobjekt- und TDE-Abhängigkeiten inventarisieren und Migrationsgrenzen anzeigen | `IMPLEMENTED_CORE`: öffentliche read-only Live-Inventur per direktem Ziel oder stabiler Run-/Instanzbindung, TDE-Recovery-Gate, externe Review-Grenzen und sanitisierte `DATABASE_FILES_ONLY`-Receipts; persistierte Kategorien und Warnungen sind paketgebunden in CLI/Browser sichtbar. Jeder neue Receipt enthält zusätzlich den versionierten, geheimnisfreien `SqlServerLab.DatabaseMigrationExecutionPlan/1.0`: Er ordnet jede Kategorie einem nicht ausführbaren Review-, Blocker- oder Nicht-erforderlich-Schritt zu, setzt `MutationAllowed=false` und `TransferAuthority=NONE`. Neue Datenbankpakete persistieren denselben Plan im Receipt und binden ihn über die kanonischen Manifestzeilen an den SHA-256 des vollständigen Paketpayloads; neue Backups erhalten eine separate Binding-Evidence mit derselben automatisch berechneten Backup-SHA-256. Katalogansichten projizieren nur Status, Schrittzahl und Blocker. Der portable Container-Transfer-Preflight bindet inzwischen ausschließlich BackupSetId-Referenzen mit CHECKSUM-, VERIFYONLY-, SHA-256- und Größen-Evidence an einen bestehenden Docker-/Podman-Ziel-Run, bleibt vollständig read-only und transportiert keine Secrets. Der neue lokale Einzel-BackupSet-Executorvertrag bindet zusätzlich Quell-/Ziel-Run, Instanz, Runtime-Scope und Live-Container-ID, bleibt jedoch bis zu tatsächlichem HEADERONLY-/CHECKSUM-/VERIFYONLY-Nachweis und einem `RELATIONAL_CORE/1.0`-Inhaltsvergleich ausdrücklich `BLOCKED`; er führt keine Mutation aus. Die Browseraktion bindet eine laufende Containerquelle ausschließlich per Run, Instanz, validiertem Datenbanknamen und flüchtigem SA-Passwort; sie gibt nur sanitisierte Kategorien, Counts, Review-Schritte und Migrationsgrenzen aus. |
@@ -766,3 +766,18 @@ verloren. Sidecars, Gruppen, Legacy ohne vollständige Evidence, externe Speiche
 Hyper-V bleiben separate Folgearbeit. Der synthetische Fault-/Konkurrenzvertrag und
 der begrenzte native SQL-2025-Harness sind vorhanden; native Docker-/Podman-Nachweise
 stehen aus. Der bestehende rungebundene Removal-Vertrag wird nicht erweitert.
+
+### PSR-007: Nachweisgrenze der SQL-Gastprüfung
+
+Die native Daten-VHDX-Abnahme verwendet eine ausgeschaltete eigene VM und
+modellierte SQL-/Gast-Evidence. Sie belegt den Host-Lifecycle, nicht den
+öffentlichen Release einer laufenden SQL-VM. Dessen Verbindungsaufbau wurde
+korrigiert: PowerShell behandelt `SqlConnectionStringBuilder` als Dictionary;
+CLR-Namen wie `DataSource` sind keine gültigen SQL-Schlüssel. Kanonische
+Indexer erhalten Ziel, Authentifizierung, Verschlüsselung und Timeout.
+Die statische Suite führt den tatsächlichen Produktions-AST mit synthetischen
+Default-/Named-Instanzen und Sonderzeichen im Passwort unter PowerShell 7
+sowie, falls verfügbar, Windows PowerShell 5.1 aus. Verbindungen bleiben dabei
+geschlossen. Ein erneuter vollständiger nativer Release mit SQL-Dateiprüfung,
+sauberem Gast-Shutdown und gebundenem Detach-Receipt bleibt für `PSR-007`
+`NOT_EXECUTED`; Offlineprüfungen ersetzen diesen Nachweis nicht.

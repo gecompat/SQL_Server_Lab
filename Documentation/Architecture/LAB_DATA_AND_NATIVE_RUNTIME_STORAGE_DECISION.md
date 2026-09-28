@@ -173,7 +173,8 @@ bleibt getrennt:
   Daten-VHDX per stabiler Storage-ID gegen `Lab_Data`, DiskIdentifier,
   Attachments, Checkpoints, Clean-Detach-, SQL-Versions- und Gastpfad-Evidenz.
   Ein isolierter nativer Lauf bestätigt quellenunveränderten eigenständigen
-  Clone, Reattach und Release gegen operationsgebundene Leases und atomare,
+  Clone, Reattach und Release im Hostpfad mit modellierter SQL-/Gast-Evidence
+  gegen operationsgebundene Leases und atomare,
   idempotente Katalogcommits. CLI und Browser inventarisieren die VHDX inzwischen
   pfadfrei über dieselbe stabile Storage-ID samt frischem Runtime-Status;
   Mutationen bleiben bis zur belastbaren öffentlichen Clean-Detach-/Ziel-
