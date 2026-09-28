@@ -889,10 +889,60 @@ function Select-LabAiTargetInteractive {
     if ($runs.Count -eq 0) { Write-LabInfo 'Keine laufende SQL-Umgebung vorhanden.'; return $null }
     $runId = Select-LabRun -Runs $runs -Prompt $Prompt -DisableSystemServices
     if (-not $runId) { return $null }
-    $instanceId = Read-Host '  Instanz-ID [primary]'
-    if ([string]::IsNullOrWhiteSpace($instanceId)) { $instanceId = 'primary' }
     try {
-        $target = Resolve-LabRunInstance -RunId $runId -InstanceId $instanceId
+        $stateRoot = Get-LabStateRoot
+        $run = Get-LabRunState -RunId $runId -StateRoot $stateRoot
+        $runtime = Get-LabRunRuntimeStatus -Run $run -StateRoot $stateRoot
+        $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $runId) 'connection-info.json'
+        $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+        $instances = @($connection.instances)
+        $items = @(
+            for ($index = 0; $index -lt $instances.Count; $index++) {
+                $instance = $instances[$index]
+                $instanceId = [string]$instance.id
+                $version = if ($instance.version) { [string]$instance.version } else { [string]$instance.sqlVersion }
+                $provider = [string]$instance.provider
+                $reason = ''
+                if ([string]::IsNullOrWhiteSpace($instanceId) -or @($instances | Where-Object { [string]$_.id -eq $instanceId }).Count -ne 1) {
+                    $reason = 'Instanz-ID fehlt oder ist nicht eindeutig. Abhilfe: Verbindungsinformationen prüfen.'
+                }
+                elseif (($version -split '-', 2)[0] -ne '2025') {
+                    $reason = 'SQL Server 2025 ist erforderlich; Version fehlt oder ist nicht geeignet.'
+                }
+                else {
+                    try { $null = Resolve-LabRunInstance -RunId $runId -InstanceId $instanceId -StateRoot $stateRoot }
+                    catch { $reason = 'Verbindungsziel ist unvollständig oder nicht auflösbar. Abhilfe: Verbindungsinformationen prüfen.' }
+                    $live = @($runtime.Instances | Where-Object { [string]$_.Id -eq $instanceId -and [string]$_.Provider -eq $provider })
+                    if (-not $reason -and ($live.Count -ne 1 -or [string]$live[0].State -ne 'RUNNING')) {
+                        $reason = 'Instanz ist nicht nachweislich RUNNING. Abhilfe: Status prüfen und die eigene Instanz bei Bedarf starten.'
+                    }
+                }
+                $label = if ([string]::IsNullOrWhiteSpace($instanceId)) { 'Instanz ohne ID' } else { $instanceId }
+                New-LabConsoleItem -Id ("instance-{0}" -f $index) -Label $label `
+                    -Value ("SQL {0} · {1}" -f $(if ($version) { $version } else { 'unbekannt' }), $(if ($provider) { $provider } else { 'Provider unbekannt' })) `
+                    -Disabled:([bool]$reason) -DisabledReason $reason -Data $instanceId
+            }
+        )
+        if ($items.Count -eq 0) { Write-LabInfo 'Keine registrierte Instanz in dieser Umgebung vorhanden.'; return $null }
+        $instanceId = Select-LabConsoleDataItem -ScreenId 'ai-instance-select' -Title 'SQL-2025-Instanz auswählen' `
+            -Subtitle 'Instanzname · SQL-Version · Provider; Auswahl startet keine Umgebung' -Items $items
+        if (-not $instanceId) { return $null }
+        $selected = @($items | Where-Object { [string]$_.Data -ceq [string]$instanceId -and -not $_.Disabled })
+        if ($selected.Count -ne 1) { Write-LabWarning 'Die Instanz ist nicht eindeutig auswählbar.'; return $null }
+        # Nach der Benutzerauswahl erneut binden; das Menüsnapshot ist keine Ausführungsfreigabe.
+        $run = Get-LabRunState -RunId $runId -StateRoot $stateRoot
+        $runtime = Get-LabRunRuntimeStatus -Run $run -StateRoot $stateRoot
+        $target = Resolve-LabRunInstance -RunId $runId -InstanceId $instanceId -StateRoot $stateRoot
+        $original = @($instances | Where-Object { [string]$_.id -ceq [string]$instanceId })
+        if ($original.Count -ne 1 -or [string]$original[0].provider -cne [string]$target.Provider) {
+            Write-LabWarning 'Die Providerbindung der gewählten Instanz hat sich geändert. Bitte erneut auswählen.'
+            return $null
+        }
+        $live = @($runtime.Instances | Where-Object { [string]$_.Id -eq $instanceId -and [string]$_.Provider -eq [string]$target.Provider })
+        if ($live.Count -ne 1 -or [string]$live[0].State -ne 'RUNNING') {
+            Write-LabWarning 'Die gewählte Instanz ist nicht mehr nachweislich RUNNING.'
+            return $null
+        }
         if (($target.Version -split '-', 2)[0] -ne '2025') {
             Write-LabWarning 'Die aktuellen KI-Workflows unterstützen ausschließlich SQL Server 2025.'
             return $null

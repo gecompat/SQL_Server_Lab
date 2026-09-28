@@ -1892,5 +1892,92 @@ Add-ConsoleUiCheck 'Gefuehrte KI-Demos fuehren weder Cloudmodell noch teures gpt
     $guidedDemoSource -notmatch 'ollama-gpt-oss|gpt-oss:120b|AiCloud'
 )
 
+# UX-206: Der echte Selector und Menüwrapper laufen mit synthetischer Discovery.
+$aiInstanceSelectionProbe = & {
+    $tokens = $null; $parseErrors = $null
+    $ast = [Management.Automation.Language.Parser]::ParseInput($mainMenuSource, [ref]$tokens, [ref]$parseErrors)
+    foreach ($name in @('Select-LabAiTargetInteractive', 'Select-LabConsoleDataItem')) {
+        $functionAst = $ast.Find({ param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq $name }, $true)
+        . ([scriptblock]::Create($functionAst.Extent.Text))
+    }
+    function Get-LabRunsByRuntimeState { if ($case -ne 'no-runs') { @([pscustomobject]@{ runId='synthetic-run' }) } }
+    function Select-LabRun { if ($case -ne 'run-cancel') { 'synthetic-run' } }
+    function Get-LabStateRoot { [IO.Path]::GetTempPath() }
+    function Get-LabRunState { param($RunId) [pscustomobject]@{runId=$RunId} }
+    function Get-Content { if ($case -eq 'connection-fault') { throw 'synthetic read fault' }; '{"instances":[]}' }
+    function ConvertFrom-Json {
+        [pscustomobject]@{instances=$fixture}
+    }
+    function Get-LabRunRuntimeStatus {
+        $tracker.RuntimeCalls++
+        [pscustomobject]@{Instances=@($fixture | ForEach-Object {
+            # Beide frischen Quellen stimmen beim Drift überein; nur das gezeigte Ziel darf schützen.
+            [pscustomobject]@{Id=$_.id;Provider=$(if ($case -eq 'provider-drift' -and $tracker.RuntimeCalls -gt 1) {'docker'} else {$_.provider});State=$(if ($case -eq 'stopped' -or ($case -eq 'stale' -and $tracker.RuntimeCalls -gt 1)) {'STOPPED'} else {'RUNNING'})}
+        })}
+    }
+    function Resolve-LabRunInstance {
+        param($RunId,$InstanceId,$StateRoot)
+        $tracker.Resolved.Add("$RunId/$InstanceId")
+        if ($case -eq 'unresolved' -or ($case -eq 'resolver-fault' -and $tracker.Selected)) { throw 'synthetic resolver fault' }
+        [pscustomobject]@{Provider=$(if ($case -eq 'provider-drift' -and $tracker.Selected) {'docker'} else {'podman'});Version=$(if ($case -eq 'version-drift' -and $tracker.Selected) {'2022-latest'} else {'2025-latest'})}
+    }
+    function Invoke-LabConsoleMenu {
+        param($ScreenId,$Items)
+        $tracker.Items=@($Items); $tracker.Screen=$ScreenId; $tracker.Selected=$true
+        if ($case -eq 'cancel') { return [pscustomobject]@{Status='Cancelled'} }
+        if ($case -eq 'forged') { return [pscustomobject]@{Status='Selected';SelectedItem=[pscustomobject]@{Data='foreign'}} }
+        [pscustomobject]@{Status='Selected';SelectedItem=$Items[1]}
+    }
+    function Write-LabWarning { param($Message) }
+    function Write-LabError { param($Message) }
+    function Write-LabInfo { param($Message) }
+    function Read-Host { throw 'UX206 must not request a manual instance ID' }
+    $results = @{}
+    foreach ($case in @('selected','cancel','run-cancel','forged','stopped','stale','unresolved','resolver-fault','version-drift','provider-drift','duplicate','missing-id','unknown-version','empty','no-runs','connection-fault')) {
+        $tracker = @{RuntimeCalls=0;Resolved=[Collections.Generic.List[string]]::new();Items=@();Screen='';Selected=$false}
+        $fixture = @(
+            [pscustomobject]@{id='legacy';version='2022-latest';provider='docker'}
+            [pscustomobject]@{id='analytics';version='2025-latest';provider='podman'}
+        )
+        if ($case -eq 'duplicate') { $fixture += $fixture[1] }
+        if ($case -eq 'missing-id') { $fixture[1].id='' }
+        if ($case -eq 'unknown-version') { $fixture[1].version='' }
+        if ($case -eq 'empty') { $fixture=@() }
+        $selection = Select-LabAiTargetInteractive
+        $results[$case]=[pscustomobject]@{Selection=$selection;Items=$tracker.Items;Resolved=@($tracker.Resolved);RuntimeCalls=$tracker.RuntimeCalls;Screen=$tracker.Screen}
+    }
+    $results
+}
+Add-ConsoleUiCheck 'KI-Instanzauswahl nutzt gemeinsamen Menüwrapper mit Name, Version und Provider' (
+    $aiInstanceSelectionProbe.selected.Screen -eq 'ai-instance-select' -and
+    $aiInstanceSelectionProbe.selected.Items[1].Label -eq 'analytics' -and
+    $aiInstanceSelectionProbe.selected.Items[1].Value -eq 'SQL 2025-latest · podman'
+)
+Add-ConsoleUiCheck 'KI-Instanzauswahl bindet exakt Run und Instanz und löst nach Auswahl erneut auf' (
+    $aiInstanceSelectionProbe.selected.Selection.RunId -eq 'synthetic-run' -and
+    $aiInstanceSelectionProbe.selected.Selection.InstanceId -eq 'analytics' -and
+    $aiInstanceSelectionProbe.selected.Resolved.Count -eq 2 -and
+    @($aiInstanceSelectionProbe.selected.Resolved | Where-Object {$_ -ne 'synthetic-run/analytics'}).Count -eq 0 -and
+    $aiInstanceSelectionProbe.selected.RuntimeCalls -eq 2
+)
+Add-ConsoleUiCheck 'KI-Instanzauswahl zeigt SQL-2022-Instanz deaktiviert mit Grund' (
+    $aiInstanceSelectionProbe.selected.Items[0].Disabled -and
+    $aiInstanceSelectionProbe.selected.Items[0].DisabledReason -match 'SQL Server 2025'
+)
+foreach ($case in @('cancel','run-cancel','forged','stopped','stale','unresolved','resolver-fault','version-drift','provider-drift','duplicate','missing-id','unknown-version','empty','no-runs','connection-fault')) {
+    Add-ConsoleUiCheck "KI-Instanzauswahl gibt bei $case kein ausführbares Ziel zurück" ($null -eq $aiInstanceSelectionProbe[$case].Selection)
+}
+Add-ConsoleUiCheck 'Abbruch vor Instanzauswahl liest und löst keine Instanz auf' (
+    $aiInstanceSelectionProbe['run-cancel'].Resolved.Count -eq 0 -and $aiInstanceSelectionProbe['run-cancel'].RuntimeCalls -eq 0
+)
+Add-ConsoleUiCheck 'Abbruch im Instanzmenü löst nach dem Menü kein Ziel erneut auf' (
+    $aiInstanceSelectionProbe.cancel.Resolved.Count -eq 1 -and $aiInstanceSelectionProbe.cancel.RuntimeCalls -eq 1
+)
+foreach ($case in @('stopped','unresolved','duplicate','missing-id','unknown-version')) {
+    Add-ConsoleUiCheck "KI-Instanzauswahl macht $case sichtbar und begründet nicht auswählbar" (
+        $aiInstanceSelectionProbe[$case].Items[1].Disabled -and -not [string]::IsNullOrWhiteSpace($aiInstanceSelectionProbe[$case].Items[1].DisabledReason)
+    )
+}
+
 Write-Host "`nErgebnis: $passed PASS, $failed FAIL"
 if ($failed -gt 0) { exit 1 }

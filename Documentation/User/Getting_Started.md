@@ -12,6 +12,15 @@ Retrieval-Auswertung und die geführte Offline-Retrieval-Demo bleiben auswählba
 Die Menüprüfung liest ausschließlich Run-State und `connection-info.json`; vor
 einer Ausführung prüft der jeweilige Workflow den echten Runtime-Status erneut.
 
+Nach der Umgebungsauswahl zeigt die KI-Zielauswahl die registrierten Instanzen
+mit Instanzname (Instanz-ID), SQL-Version und Provider. Die Instanz-ID muss nicht
+mehr eingetippt werden. Ungeeignete Versionen, unvollständige oder mehrdeutige
+Verbindungsziele und nicht bestätigte Laufzustände bleiben mit Sperrgrund sichtbar.
+Cursor-Auswahl und nummerierter Fallback verwenden dieselben Einträge; Escape
+bricht ohne nachfolgende Aktion ab. Vor der Rückgabe werden die ausgewählte
+Run-/Instanzbindung und der Runtime-Status erneut geprüft. Die Auswahl startet
+keine Umgebung und ersetzt nicht die weiteren Prüfungen des jeweiligen Workflows.
+
 ## Podman-KI-Testumgebung erstellen
 
 Starte `Invoke-SqlServerLab` und wähle **Datenbanken und Verbindungen → SQL Server 2025 KI →
