@@ -4,6 +4,16 @@ Status: interner opt-in Testpfad; letzte native Sprachabnahme `FAILED`.
 Die Katalogvariante bleibt `PREVIEW`. Offline-Build, Paketintegrität und
 synthetische Runnerprüfungen sind keine SQL-/Launchpad-Freigabe.
 
+Seit 2026-09-28 ist die weitere C#-Arbeit auf Benutzerwunsch `USER_DEFERRED`.
+Der Runner bleibt implementiert; die letzte native Abnahme `36405567818`
+auf `88c0445f` scheiterte mit SQL 39048/39004 und Hostfxr-Trace `EMPTY`.
+Eigenes Cleanup und Evidenceaufbewahrung waren erfolgreich. API-3-
+Kompatibilität bleibt ein `UNPROVEN`-Verdacht. Reale Diagnosen bleiben
+ausschließlich privat und lokal. Die
+[kanonische Entwicklungswelle](../Project_Planning/AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md#c-zurückgestellt-und-geänderte-priorität-am-2026-09-28)
+bestimmt Priorität und bewusste spätere Wiederaufnahme; es erfolgen aktuell
+keine weiteren C#-Diagnosen, Implementierungen oder Runtimeversuche.
+
 ## Einstieg und Eingaben
 
 Der manuelle Workflow `.github/workflows/csharp-native-acceptance.yml` läuft
