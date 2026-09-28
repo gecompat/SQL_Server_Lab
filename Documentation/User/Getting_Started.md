@@ -323,7 +323,7 @@ Die Prüfung erzeugt keine Container. Sie bewertet unter anderem Runtime-Verfüg
 
 ### 4a. Beliebigen CU vorab bereitstellen
 
-Der Versionskatalog enthält alle 65 bei Microsoft weiterhin verfügbaren CUs
+Der Versionskatalog enthält alle 67 bei Microsoft weiterhin verfügbaren CUs
 für SQL Server 2019, 2022 und 2025. Windows-Pakete werden in den Media Root
 geschrieben und vor der Veröffentlichung gegen den katalogisierten SHA-256
 sowie eine gültige Microsoft-Authenticode-Signatur geprüft:

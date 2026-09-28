@@ -293,7 +293,7 @@ Im Menü lautet der Weg **Medien, Testdaten und Speicher → Aktuelle CUs bei
 Microsoft prüfen**. Neue Funde sind bewusst noch nicht downloadbar: Erst ein
 geprüfter Katalogeintrag mit MCR-Tag, Microsoft-Downloadziel, SHA-256 und
 Authenticode-Vertrag gibt sie für `Lab_Base` frei.
-Der Katalog enthält alle 65 bei Microsoft weiterhin verfügbaren CUs für SQL
+Der Katalog enthält alle 67 bei Microsoft weiterhin verfügbaren CUs für SQL
 Server 2019, 2022 und 2025; SQL Server 2019 CU7 bleibt wegen des Rückzugs durch
 Microsoft bewusst ausgeschlossen.
 
