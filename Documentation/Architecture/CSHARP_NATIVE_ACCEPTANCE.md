@@ -24,6 +24,44 @@ nichts herunter und übernimmt keine vorhandene VM oder Clone-Quelle.
 Die automatische Windows-Evaluationsaktivierung des eigenen Gastes verwendet
 vorübergehend den bestehenden Aktivierungsnetzwerkpfad.
 
+## Runnerlokales Profil
+
+GitHub erhält ausschließlich den festen Profilnamen `csharp-sql2025`.
+Hostpfade, Artifact-ID und die freigegebenen Hashbindungen stehen in der Datei
+`csharp-sql2025.json` unter dem ausschließlich im Runnerprozess konfigurierten
+`SQL_SERVER_LAB_CSHARP_PROFILE_ROOT`. Dieser Root wird weder als Workflowinput
+noch als GitHub-Variable gesetzt. Der Supervisor prüft zuerst Ursprungsrepository,
+Main-Ref und exakten sauberen Checkout, bevor er das lokale Profil liest.
+Anschließend bleibt die vollständige Artifact- und Hashprüfung erhalten.
+
+Die Einrichtung erfolgt separat durch einen berechtigten Administrator; der
+Test legt weder Profile an noch repariert er Zugriffsrechte. Profil und Root
+müssen auf einem lokalen festen Windows-Laufwerk liegen, ohne Reparse Points
+in der gesamten Vorfahrenkette. Owner und Schreibzugriffe auf Datei/Root sind
+auf SYSTEM, integrierte Administratoren und TrustedInstaller begrenzt. Alle
+Vorfahren werden zusätzlich gegen fremde Löschung, DeleteChild, Attribut-,
+ACL- und Owneränderung geprüft. Fremde CreateFile/CreateDirectory-Rechte auf
+höheren Vorfahren allein erlauben keine Ersetzung vorhandener geschützter
+Objekte. InheritOnly-ACEs gelten nicht als Rechte auf dem aktuellen Objekt.
+Null-DACL, unbekannte wirksame Schreiber und nicht auflösbare ACLs sperren den
+Lauf. Der Runner benötigt zusätzlich die bereits bestehenden erhöhten Rechte.
+
+Das UTF-8-JSON ist höchstens 16 KiB groß. Es enthält exakt diese Stringfelder:
+`SchemaVersion` mit Wert `1`, `ArtifactId`, `PayloadRoot`, `PackageSha256`,
+`ProbeSha256`, `SqlMediaPath`, `MediaEdition`, `StateRoot` und `MediaRoot`.
+Alle Werte sind erforderlich; doppelte, zusätzliche und anders geschriebene
+Felder werden abgewiesen. Roots sind absolute lokale Windows-Pfade,
+`SqlMediaPath` ist ein relativer ISO-Pfad ohne Traversal; `MediaEdition` ist
+`Enterprise`, `Standard` oder `Eval`. Es gibt keine Hash-, Medien-, Root- oder
+Latest-Defaults. Paket und Probe behalten unabhängig geprüfte SHA256-Werte;
+der Runtimehash bleibt fest im Supervisor gebunden. Profile sind reine Daten,
+keine Skripte. Reale Profile und Payloads bleiben außerhalb der Versionierung.
+
+Profilfehler gehen wie andere Runnerfehler nur als feste bereinigte Codes nach
+GitHub. Die vorhandene lokale Streamumleitung umfasst auch die Profilauflösung.
+Ein fehlendes oder nicht sicher gebundenes Profil bleibt ein offener lokaler
+Einrichtungsschritt und ist kein nativer SQL-Nachweis.
+
 ## Ablauf und Grenzen
 
 Der Supervisor prüft den Checkout und die lokalen Eingaben, kopiert sie in
@@ -72,5 +110,11 @@ Main-/Repository-/SHA-Guards, Hash- und Größenabwehr, echter Kindprozess mit
 Exitcode/Logprüfung, echter Timeout, partielle Erstellung ohne Connection-Info,
 fremde Ownership, frühes Cleanup ohne VM-Schritt, Cleanupfehler, mutable
 Gastcredentials, fehlender/deaktivierter Dateikopierdienst und Gastkopie-Hashdrift.
-Die CI-Auswahl bindet die neuen Dateien an diese Suite. Ein nativer Durchlauf
+Die Profilprüfungen ergänzen echte JSON-Parserfälle, Hash-/Pfad-/Schemafehler,
+ACL- und Vorfahrenfälle sowie die reine Profilübergabe im Workflow. Eine eigene
+unprivilegierte Windows-Datei belegt die tatsächliche ACL-Abweisung; positive
+ACL-Adapterfälle verwenden synthetische SecurityDescriptor-Objekte. Die echte
+Einrichtung und Annahme eines administrativ geschützten Runnerprofils bleiben
+ein separater Runnernachweis. Die CI-Auswahl bindet die Dateien an diese Suite.
+Ein nativer Durchlauf
 und seine bestätigte Ressourcenbereinigung stehen noch aus.

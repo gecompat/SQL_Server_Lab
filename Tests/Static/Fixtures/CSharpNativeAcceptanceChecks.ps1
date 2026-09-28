@@ -1,4 +1,4 @@
-﻿# Dot-sourced by the Windows external-runtime contract suite. No VM or SQL access.
+# Dot-sourced by the Windows external-runtime contract suite. No VM or SQL access.
 . (Join-Path $repoRoot 'Tests/Common/CSharpNativeAcceptance.ps1')
 $dispatch=[pscustomobject]@{EventName='workflow_dispatch';Ref='refs/heads/main';Repository='gecompat/SQL_Server_Lab';EventRepository='gecompat/SQL_Server_Lab';ExpectedCommit=('a'*40);CheckoutCommit=('a'*40);Dirty=$false;ArtifactId=('hyperv-os-sealed-'+('b'*64))}
 $caught='';try{Assert-CSharpNativeDispatch $dispatch}catch{$caught=$_.Exception.Message}
@@ -113,3 +113,135 @@ Add-CheckResult -Name 'CSharp native: Infrastrukturfehler ohne Sprachprobe bleib
 @{Status='SQL_PROBE_STARTED';OperationId='synthetic';Commit=('a'*40)}|ConvertTo-Json|Set-Content $attemptPath
 Add-CheckResult -Name 'CSharp native: begonnene fehlgeschlagene Probe bleibt FAILED' -Success ((Get-CSharpNativeSqlStatus -AttemptPath $attemptPath -OperationId 'synthetic' -Commit ('a'*40) -Passed $false) -ceq 'FAILED')
 Add-CheckResult -Name 'CSharp native: vollständiger eigener SQL-Nachweis PASSED' -Success ((Get-CSharpNativeSqlStatus -AttemptPath $attemptPath -OperationId 'synthetic' -Commit ('a'*40) -Passed $true) -ceq 'PASSED')
+
+# Runner-local profile parsing uses only synthetic data; no installed profile is read.
+$syntheticProfile=[ordered]@{SchemaVersion='1';ArtifactId=('hyperv-os-sealed-'+('b'*64));PayloadRoot='C:\Synthetic\Payload';PackageSha256=('a'*64);ProbeSha256=('c'*64);SqlMediaPath='Sql\setup.iso';MediaEdition='Eval';StateRoot='C:\Synthetic\State';MediaRoot='C:\Synthetic\Media'}
+$profileJson=$syntheticProfile|ConvertTo-Json -Compress
+$parsed=ConvertFrom-CSharpNativeProfile $profileJson
+Add-CheckResult -Name 'CSharp profile: echter JSON-Parser erhält explizite Bindungen' -Success ($parsed.ArtifactId -ceq $syntheticProfile.ArtifactId -and $parsed.PackageSha256 -ceq ('a'*64) -and $parsed.StateRoot -ceq 'C:\Synthetic\State')
+foreach($case in @(
+    @{Name='Syntax';Json='{synthetic private path'},
+    @{Name='Array';Json='[]'},
+    @{Name='Null';Json='null'},
+    @{Name='Duplikat';Json=$profileJson.Replace('"SchemaVersion":"1"','"SchemaVersion":"1","SchemaVersion":"1"')},
+    @{Name='Case alias';Json=$profileJson.Replace('"SchemaVersion":"1"','"SchemaVersion":"1","schemaversion":"1"')},
+    @{Name='Zusatzfeld';Json=$profileJson.Replace('"SchemaVersion":"1"','"SchemaVersion":"1","Command":"synthetic"')},
+    @{Name='Fehlender Hash';Json=$profileJson.Replace('"PackageSha256":"'+('a'*64)+'",','')},
+    @{Name='Hashdefault';Json=$profileJson.Replace(('a'*64),'latest')},
+    @{Name='Falscher Typ';Json=$profileJson.Replace('"SchemaVersion":"1"','"SchemaVersion":1')},
+    @{Name='Netzpfad';Json=$profileJson.Replace('C:\\Synthetic\\Payload','\\\\synthetic\\payload')},
+    @{Name='Traversal';Json=$profileJson.Replace('Sql\\setup.iso','..\\setup.iso')},
+    @{Name='Absolutes Medium';Json=$profileJson.Replace('Sql\\setup.iso','C:\\setup.iso')},
+    @{Name='Größe';Json=(' '*16385)})){
+    $outputs=@(& {try{ConvertFrom-CSharpNativeProfile $case.Json}catch{$_.Exception.Message}} *>&1)
+    Add-CheckResult -Name ('CSharp profile: sperrt '+$case.Name+' ohne private Parserdetails') -Success ($outputs.Count -eq 1 -and [string]$outputs[0] -cmatch '^CSHARP_NATIVE_PROFILE_[A-Z_]+$')
+}
+$aclDescriptor=[pscustomobject]@{Owner='S-1-5-18';DaclPresent=$true;Rules=@([pscustomobject]@{Sid='S-1-5-32-544';Rights=2032127;Allow=$true;InheritOnly=$false})}
+$caught='';try{Assert-CSharpNativeProfileAcl $aclDescriptor}catch{$caught=$_.Exception.Message}
+Add-CheckResult -Name 'CSharp profile: vertrauenswürdige ACL akzeptiert' -Success (-not $caught)
+foreach($case in @(
+    @{Name='Fremder Owner';Owner='S-1-5-21-1-2-3-1001';Dacl=$true;Rights=0;Inherit=$false;Ancestor=$false;Reject=$true},
+    @{Name='Null-DACL';Owner='S-1-5-18';Dacl=$false;Rights=0;Inherit=$false;Ancestor=$false;Reject=$true},
+    @{Name='Dateischreiber';Owner='S-1-5-18';Dacl=$true;Rights=2;Inherit=$false;Ancestor=$false;Reject=$true},
+    @{Name='Nur vererbbarer Dateischreiber';Owner='S-1-5-18';Dacl=$true;Rights=2;Inherit=$true;Ancestor=$false;Reject=$false},
+    @{Name='Vorfahre DeleteChild';Owner='S-1-5-18';Dacl=$true;Rights=64;Inherit=$false;Ancestor=$true;Reject=$true},
+    @{Name='Vorfahre Delete';Owner='S-1-5-18';Dacl=$true;Rights=65536;Inherit=$false;Ancestor=$true;Reject=$true},
+    @{Name='Vorfahre WriteDacl';Owner='S-1-5-18';Dacl=$true;Rights=262144;Inherit=$false;Ancestor=$true;Reject=$true},
+    @{Name='Vorfahre WriteOwner';Owner='S-1-5-18';Dacl=$true;Rights=524288;Inherit=$false;Ancestor=$true;Reject=$true},
+    @{Name='Vorfahre nur neue Kinder';Owner='S-1-5-18';Dacl=$true;Rights=6;Inherit=$false;Ancestor=$true;Reject=$false},
+    @{Name='Unbekannter Writer';Owner='S-1-5-18';Dacl=$true;Rights=2;Inherit=$false;Ancestor=$false;Reject=$true})){
+    $descriptor=[pscustomobject]@{Owner=$case.Owner;DaclPresent=$case.Dacl;Rules=@([pscustomobject]@{Sid='S-1-5-21-9-9-9-9999';Rights=$case.Rights;Allow=$true;InheritOnly=$case.Inherit})}
+    $caught='';try{Assert-CSharpNativeProfileAcl $descriptor -Ancestor:$case.Ancestor}catch{$caught=$_.Exception.Message}
+    Add-CheckResult -Name ('CSharp profile: ACL '+$case.Name) -Success ($(if($case.Reject){$caught -ceq 'CSHARP_NATIVE_PROFILE_ACL'}else{-not $caught}))
+}
+& {
+    $priorRoot=$env:SQL_SERVER_LAB_CSHARP_PROFILE_ROOT
+    $profileRoot=Join-Path $nativeRoot 'profiles';$null=New-Item -ItemType Directory $profileRoot
+    $env:SQL_SERVER_LAB_CSHARP_PROFILE_ROOT=$profileRoot
+    $syntheticProfilePath=Join-Path $profileRoot 'csharp-sql2025.json'
+    [IO.File]::WriteAllText($syntheticProfilePath,$profileJson)
+    $script:profilePathChecked=$false
+    function Assert-CSharpNativeProfilePath {param($Path) $script:profilePathChecked=$true;if($Path -cne $syntheticProfilePath){throw 'synthetic private path'}}
+    try{
+        $resolved=Get-CSharpNativeProfile -Name 'csharp-sql2025'
+        Add-CheckResult -Name 'CSharp profile: begrenztes Dateilesen ruft Pfadschutz vor Parser auf' -Success ($script:profilePathChecked -and $resolved.ProbeSha256 -ceq ('c'*64))
+        $script:profilePathChecked=$false
+        $outputs=@(& {try{Get-CSharpNativeProfile -Name '../synthetic-private'}catch{$_.Exception.Message}} *>&1)
+        Add-CheckResult -Name 'CSharp profile: unbekannter Name vor Dateizugriff gesperrt' -Success (-not $script:profilePathChecked -and $outputs.Count -eq 1 -and $outputs[0] -ceq 'CSHARP_NATIVE_PROFILE_NAME')
+        [IO.File]::WriteAllText($syntheticProfilePath,('x'*16385))
+        $caught='';try{Get-CSharpNativeProfile -Name 'csharp-sql2025'}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name 'CSharp profile: Dateigröße vor Parser begrenzt' -Success ($caught -ceq 'CSHARP_NATIVE_PROFILE_SIZE')
+        function Assert-CSharpNativeProfilePath {param($Path) throw 'synthetic private ACL failure'}
+        $outputs=@(& {try{Get-CSharpNativeProfile -Name 'csharp-sql2025'}catch{$_.Exception.Message}} *>&1)
+        Add-CheckResult -Name 'CSharp profile: private ACL-Auflösungsfehler bleiben bereinigt' -Success ($outputs.Count -eq 1 -and $outputs[0] -ceq 'CSHARP_NATIVE_PROFILE_READ_FAILED')
+    }finally{$env:SQL_SERVER_LAB_CSHARP_PROFILE_ROOT=$priorRoot}
+}
+$supervisorText=Get-Content (Join-Path $repoRoot 'Tests/Integration/Invoke-CSharpHyperVAcceptance.ps1') -Raw
+Add-CheckResult -Name 'CSharp profile: Checkout vor Profil und Artifactguard danach' -Success (
+    $supervisorText.IndexOf('Assert-CSharpNativeCheckout $dispatch') -lt $supervisorText.IndexOf('Get-CSharpNativeProfile -Name $Profile') -and
+    $supervisorText.IndexOf('Get-CSharpNativeProfile -Name $Profile') -lt $supervisorText.IndexOf('Assert-CSharpNativeDispatch $dispatch'))
+$inputReferences=@([regex]::Matches($nativeWorkflow,'inputs\.([a-z_]+)')|ForEach-Object {$_.Groups[1].Value})
+Add-CheckResult -Name 'CSharp profile: Workflow überträgt ausschließlich festen Profilnamen' -Success (
+    $inputReferences.Count -eq 1 -and $inputReferences[0] -ceq 'profile' -and $nativeWorkflow.Contains('options: [csharp-sql2025]') -and
+    $nativeWorkflow.Contains('-Profile $env:CSHARP_PROFILE *> $localLog') -and $nativeWorkflow -notmatch 'SQL_SERVER_LAB_CSHARP_PROFILE_ROOT|payload_root:|state_root:|media_root:|sql_media_path:')
+
+if($IsWindows){
+    & {
+        # Exercise the real Windows ACL adapter and real ancestor walk using only synthetic ACL objects.
+        $profilePath=Join-Path $nativeRoot 'acl-profile.json'
+        [IO.File]::WriteAllText($profilePath,$profileJson)
+        $script:aclSeen=[Collections.Generic.List[string]]::new()
+        $script:unsafeAncestor=''
+        function Get-Acl {
+            [CmdletBinding()]param($LiteralPath)
+            $script:aclSeen.Add($LiteralPath)
+            $acl=[Security.AccessControl.DirectorySecurity]::new()
+            $sddl='O:SYG:SYD:(A;;FA;;;SY)(A;;FR;;;WD)'
+            if($LiteralPath -eq $script:unsafeAncestor){$sddl='O:SYG:SYD:(A;;FA;;;SY)(A;;0x40;;;WD)'}
+            $acl.SetSecurityDescriptorSddlForm($sddl)
+            return $acl
+        }
+        $caught='';try{Assert-CSharpNativeProfilePath $profilePath}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name 'CSharp profile: Windows-ACL-Adapter prüft tatsächliche Vorfahrenkette' -Success (-not $caught -and $script:aclSeen.Contains([IO.Path]::GetPathRoot($profilePath)) -and $script:aclSeen.Contains($nativeRoot))
+        $script:unsafeAncestor=[IO.Path]::GetDirectoryName($nativeRoot)
+        $caught='';try{Assert-CSharpNativeProfilePath $profilePath}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name 'CSharp profile: Windows-ACL-Adapter sperrt ersetzbaren Vorfahren' -Success ($caught -ceq 'CSHARP_NATIVE_PROFILE_ACL')
+        foreach($path in @('relative.json','\\synthetic\share\profile.json','C:\synthetic\profile.json:stream')){
+            $script:aclSeen.Clear();$caught=''
+            try{Assert-CSharpNativeProfilePath $path}catch{$caught=$_.Exception.Message}
+            Add-CheckResult -Name ('CSharp profile: Windows-Pfadsyntax gesperrt '+$path.Split(':').Count) -Success ($caught -ceq 'CSHARP_NATIVE_PROFILE_PATH' -and $script:aclSeen.Count -eq 0)
+        }
+    }
+}
+
+if($IsWindows){
+    $aclFixture=Join-Path $nativeRoot 'actual-unprivileged-acl.json'
+    [IO.File]::WriteAllText($aclFixture,$profileJson)
+    $fixtureOwner=(Get-Acl -LiteralPath $aclFixture).GetOwner([Security.Principal.SecurityIdentifier]).Value
+    if($fixtureOwner -cnotin @('S-1-5-18','S-1-5-32-544','S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')){
+        $caught='';try{Assert-CSharpNativeProfilePath $aclFixture}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name 'CSharp profile: echte unprivilegierte Fixture-ACL abgewiesen' -Success ($caught -ceq 'CSHARP_NATIVE_PROFILE_ACL')
+    }
+    & {
+        function Get-Item {[CmdletBinding()]param($LiteralPath,[switch]$Force) [pscustomobject]@{Attributes=[IO.FileAttributes]::ReparsePoint}}
+        $caught='';try{Assert-CSharpNativeProfilePath $aclFixture}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name 'CSharp profile: Reparse Point vor ACL und Lesen gesperrt' -Success ($caught -ceq 'CSHARP_NATIVE_REPARSE_POINT')
+    }
+}
+
+if($IsWindows){
+    foreach($genericRight in @('GW','GA')){
+        $acl=[Security.AccessControl.DirectorySecurity]::new()
+        $acl.SetSecurityDescriptorSddlForm(('O:SYG:SYD:(A;;'+$genericRight+';;;WD)'))
+        $descriptor=[pscustomobject]@{
+            Owner=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value;DaclPresent=$true
+            Rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])|ForEach-Object {
+                [pscustomobject]@{Sid=$_.IdentityReference.Value;Rights=[long]$_.FileSystemRights;Allow=($_.AccessControlType -eq 'Allow');InheritOnly=[bool]($_.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly)}
+            })
+        }
+        foreach($ancestor in @($false,$true)){
+            $caught='';try{Assert-CSharpNativeProfileAcl $descriptor -Ancestor:$ancestor}catch{$caught=$_.Exception.Message}
+            Add-CheckResult -Name ('CSharp profile: echter generischer ACL-Writer '+$genericRight+' Ancestor='+$ancestor) -Success ($caught -ceq 'CSHARP_NATIVE_PROFILE_ACL')
+        }
+    }
+}

@@ -2,39 +2,11 @@ name: CSharp SQL2025 Native Acceptance
 on:
   workflow_dispatch:
     inputs:
-      artifact_id:
-        description: Explicit verified Windows Server 2025 OS_SEALED artifact
-        required: true
-        type: string
-      payload_root:
-        description: Local directory containing extension.zip, runtime.zip and SqlServerLab.CSharpProbe.dll
-        required: true
-        type: string
-      package_sha256:
-        description: Independently reviewed extension SHA256
-        required: true
-        type: string
-      probe_sha256:
-        description: Independently reviewed probe SHA256
-        required: true
-        type: string
-      sql_media_path:
-        description: Registered SQL2025 ISO path relative to media root
-        required: true
-        type: string
-      media_edition:
-        description: SQL2025 media edition
+      profile:
+        description: Runner-local approved CSharp acceptance profile
         required: true
         type: choice
-        options: [Enterprise, Standard, Eval]
-      state_root:
-        description: Existing registered state root; empty uses runner configuration
-        required: false
-        type: string
-      media_root:
-        description: Existing hash-registered media root; empty uses runner configuration
-        required: false
-        type: string
+        options: [csharp-sql2025]
 permissions:
   contents: read
 concurrency:
@@ -53,25 +25,12 @@ jobs:
       - name: Isolated CSharp SQL2025 acceptance
         shell: pwsh
         env:
-          CSHARP_ARTIFACT: ${{ inputs.artifact_id }}
-          CSHARP_PAYLOAD: ${{ inputs.payload_root }}
-          CSHARP_PACKAGE_HASH: ${{ inputs.package_sha256 }}
-          CSHARP_PROBE_HASH: ${{ inputs.probe_sha256 }}
-          CSHARP_SQL_MEDIA: ${{ inputs.sql_media_path }}
-          CSHARP_MEDIA_EDITION: ${{ inputs.media_edition }}
-          CSHARP_STATE: ${{ inputs.state_root }}
-          CSHARP_MEDIA_ROOT: ${{ inputs.media_root }}
+          CSHARP_PROFILE: ${{ inputs.profile }}
         run: |
           $ErrorActionPreference='Stop'
           $localLog=Join-Path $env:RUNNER_TEMP ('csharp-native-'+[guid]::NewGuid().ToString('N')+'.log')
           try {
-          & ./Tests/Integration/Invoke-CSharpHyperVAcceptance.ps1 `
-            -ArtifactId $env:CSHARP_ARTIFACT `
-            -Package (Join-Path $env:CSHARP_PAYLOAD 'extension.zip') -PackageSha256 $env:CSHARP_PACKAGE_HASH `
-            -Probe (Join-Path $env:CSHARP_PAYLOAD 'SqlServerLab.CSharpProbe.dll') -ProbeSha256 $env:CSHARP_PROBE_HASH `
-            -RuntimeArchive (Join-Path $env:CSHARP_PAYLOAD 'runtime.zip') `
-            -SqlMediaPath $env:CSHARP_SQL_MEDIA -MediaEdition $env:CSHARP_MEDIA_EDITION `
-            -StateRoot $env:CSHARP_STATE -MediaRoot $env:CSHARP_MEDIA_ROOT *> $localLog
+          & ./Tests/Integration/Invoke-CSharpHyperVAcceptance.ps1 -Profile $env:CSHARP_PROFILE *> $localLog
           Write-Host 'CSharp SQL2025 Native Acceptance: PASS; own cleanup verified.'
           } catch {
             $_ | Out-String | Add-Content -LiteralPath $localLog

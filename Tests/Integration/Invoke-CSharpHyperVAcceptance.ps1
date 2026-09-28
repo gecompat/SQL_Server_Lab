@@ -9,26 +9,26 @@
     Kindprozessbeendigung erfordert Recovery und sperrt paralleles Cleanup.
 #>
 [CmdletBinding()]
-param(
-    [Parameter(Mandatory)][string]$ArtifactId,
-    [Parameter(Mandatory)][string]$Package,
-    [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{64}$')][string]$PackageSha256,
-    [Parameter(Mandatory)][string]$Probe,
-    [Parameter(Mandatory)][ValidatePattern('^[a-f0-9]{64}$')][string]$ProbeSha256,
-    [Parameter(Mandatory)][string]$RuntimeArchive,
-    [Parameter(Mandatory)][string]$SqlMediaPath,
-    [ValidateSet('Enterprise','Standard','Eval')][string]$MediaEdition='Enterprise',
-    [string]$MediaRoot,
-    [string]$StateRoot
-)
+param([Parameter(Mandatory)][string]$Profile)
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repoRoot 'Tests/Common/CSharpNativeAcceptance.ps1')
 $event=Get-Content -LiteralPath $env:GITHUB_EVENT_PATH -Raw|ConvertFrom-Json
-Assert-CSharpNativeDispatch ([pscustomobject]@{EventName=$env:GITHUB_EVENT_NAME;Ref=$env:GITHUB_REF;Repository=$env:GITHUB_REPOSITORY;EventRepository=$event.repository.full_name;ExpectedCommit=$env:GITHUB_SHA;CheckoutCommit=(git -C $repoRoot rev-parse HEAD);Dirty=[bool](git -C $repoRoot status --porcelain --untracked-files=no);ArtifactId=$ArtifactId})
+$dispatch=[pscustomobject]@{EventName=$env:GITHUB_EVENT_NAME;Ref=$env:GITHUB_REF;Repository=$env:GITHUB_REPOSITORY;EventRepository=$event.repository.full_name;ExpectedCommit=$env:GITHUB_SHA;CheckoutCommit=(git -C $repoRoot rev-parse HEAD);Dirty=[bool](git -C $repoRoot status --porcelain --untracked-files=no);ArtifactId=$null}
+Assert-CSharpNativeCheckout $dispatch
 if(-not $IsWindows){throw 'CSHARP_NATIVE_WINDOWS_REQUIRED'}
 $principal=[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
 if(-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'CSHARP_NATIVE_ELEVATED_RUNNER_REQUIRED'}
+$configuration=Get-CSharpNativeProfile -Name $Profile
+$ArtifactId=$configuration.ArtifactId
+$dispatch.ArtifactId=$ArtifactId
+Assert-CSharpNativeDispatch $dispatch
+$Package=Join-Path $configuration.PayloadRoot 'extension.zip'
+$Probe=Join-Path $configuration.PayloadRoot 'SqlServerLab.CSharpProbe.dll'
+$RuntimeArchive=Join-Path $configuration.PayloadRoot 'runtime.zip'
+$PackageSha256=$configuration.PackageSha256;$ProbeSha256=$configuration.ProbeSha256
+$SqlMediaPath=$configuration.SqlMediaPath;$MediaEdition=$configuration.MediaEdition
+$StateRoot=$configuration.StateRoot;$MediaRoot=$configuration.MediaRoot
 $runtimeHash='9c55c58694676ee64b0eed2cd6d8cbf58b9aa8288420acc66841e15ca0099c75d4af0182d23a641c2342e5a151a325df4a12fa0bde2e47c0fb7e9a33e7b09896'
 Assert-CSharpNativeFile -Path $Package -ExpectedHash $PackageSha256
 Assert-CSharpNativeFile -Path $Probe -ExpectedHash $ProbeSha256 -MaximumBytes 1048576
