@@ -870,6 +870,7 @@ function Show-LabMaintenanceMenu {
         New-LabConsoleItem -Id SyncRuntime -Label 'State mit Docker, Podman und Hyper-V abgleichen' -Value 'fehlende Objekte -> Recovery · loescht nichts' -Shortcut 4 `
             -Help 'Vergleicht den gespeicherten State mit der tatsaechlichen Runtime. Fehlende Objekte werden als Recovery ausgewiesen; es wird nichts geloescht.'
         New-LabConsoleItem -Id CuStatus -Label 'Aktuelle SQL-Server-CUs bei Microsoft pruefen' -Value 'read-only · Netzzugriff auf die katalogisierten Quellen' -Shortcut 5
+        New-LabConsoleItem -Id EvaluationWatch -Label 'Windows-/SQL-Evaluationsfristen' -Value 'gespeicherte Evidence · read-only · kein Gastzugriff' -Shortcut e
         New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 6
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
     )
@@ -930,6 +931,7 @@ function Invoke-LabAreaMenuInteractive {
         if ($action -eq 'StorageArea') { Invoke-LabAreaMenuInteractive -Area Storage; continue }
         if ($action -eq 'AiArea') { Invoke-LabAreaMenuInteractive -Area Ai; continue }
         if ($action -eq 'Messages') { Show-LabMessagesInteractive; continue }
+        if ($action -eq 'EvaluationWatch') { Show-LabEvaluationWatchInteractive; continue }
         $marker = Get-LabMessageJournalMarker
         try { Invoke-LabMenuAction -ActionName $action }
         catch { if (-not (Test-LabConsoleInputCancellation -InputObject $_)) { throw } }

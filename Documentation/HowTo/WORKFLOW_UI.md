@@ -78,6 +78,35 @@ Gastpasswörter werden nur für den jeweiligen PowerShell-Direct-Aufruf
 entgegengenommen. Sie werden nicht im Build-State, Browser-Speicher oder
 Live-Log gespeichert.
 
+## Evaluationsfristen lesen
+
+**Evaluationsfristen** öffnet einen read-only Fachdialog. Erst **Fristen lesen /
+aktualisieren** liest `Get-SqlServerLabEvaluationWatch` mit 30 Tagen Warnfrist
+und 7 Tagen kritischer Restlaufzeit. Danach lässt sich eine Vorlage oder Instanz
+auswählen; manuelle Run-, Instanz- oder Artifact-IDs sind nicht erforderlich.
+Die Details trennen Geltungsbereich, Referenz, Bewertung, Quelle, Aktualität,
+Frist, Resttage und nächsten Schritt. Die Konsole bietet denselben Ablauf unter
+**Wartung und Diagnose → Windows-/SQL-Evaluationsfristen**.
+
+Die Sicht gilt für den konfigurierten State-Root: registrierte Hyper-V-Vorlagen,
+Windows-Instanzen im registrierten Zustand `RUNNING` sowie SQL-Instanzen in
+`RUNNING` oder `STOPPED`. Sie ist kein vollständiges Hostinventar. Lesezeit und
+Ablaufdatum belegen keine Aktualität der zugrunde liegenden Evidence. Windows-
+und Vorlagenwerte bleiben historische Metadaten; SQL-Gast-Evidence wird durch
+den bestehenden Core auf Bindung und Aktualität geprüft. `UNKNOWN`, veraltete
+Evidence und eine leere Liste sind kein Nachweis gültiger Lizenzen.
+
+Auswahl, Zurück, Schließen und Wiederholung verändern weder Runs noch Lizenzen
+oder Ereignisdateien. Der Dialog startet keine Runtime oder geschützte
+Testgruppe, liest keinen Gast, registriert keinen Zeittrigger und führt keine
+Ersatz- oder Migrationsaktion aus. Fehler zeigen eine erneute Lesemöglichkeit
+mit Hinweis auf State-Konfiguration und Leserechte; alte Ergebnisse werden
+verworfen. Nichtinteraktiv bleibt der unveränderte öffentliche Aufruf möglich:
+
+```powershell
+Get-SqlServerLabEvaluationWatch -WarningDaysRemaining 30 -CriticalDaysRemaining 7
+```
+
 ## Container und Bereinigung
 
 Container-Labs lassen sich ad hoc, aus einem gespeicherten Manifest oder über

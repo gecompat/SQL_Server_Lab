@@ -131,6 +131,19 @@ try {
                 }
             )
         }
+        $script:evaluationViewStateRoot = $StateRoot
+        function Get-LabStateRoot { $script:evaluationViewStateRoot }
+        function Get-EvaluationFixtureHash {
+            (@(Get-ChildItem -LiteralPath $StateRoot -File -Recurse | Sort-Object FullName | ForEach-Object {
+                [IO.Path]::GetRelativePath($StateRoot, $_.FullName) + ':' + (Get-FileHash -LiteralPath $_.FullName).Hash
+            }) -join '|')
+        }
+        $beforeView = Get-EvaluationFixtureHash
+        $firstView = Get-LabEvaluationWatchView
+        $secondView = Get-LabEvaluationWatchView
+        if ($beforeView -cne (Get-EvaluationFixtureHash) -or $firstView.Rows.Count -ne $secondView.Rows.Count -or $firstView.Rows.Count -eq 0) {
+            throw 'EVALUATION_VIEW_REPEATED_READ_MUTATED_FIXTURE'
+        }
         $readOnly = Get-SqlServerLabEvaluationWatch -StateRoot $StateRoot -WarningDaysRemaining 30 -CriticalDaysRemaining 7
         $eventStateExistsAfterReadOnly = Test-Path -LiteralPath (Join-Path $StateRoot 'evaluation-watch-events.json')
         $firstRecorded = Get-SqlServerLabEvaluationWatch -StateRoot $StateRoot -WarningDaysRemaining 30 -CriticalDaysRemaining 7 -RecordEvents
@@ -220,6 +233,8 @@ try {
     } $temporaryRoot
 
     $items = @($result.ReadOnly.Items)
+    & (Join-Path $PSScriptRoot 'Fixtures/EvaluationWatchViewChecks.ps1') -Module $module -Watch $result.ReadOnly -Repository $repoRoot
+    Add-CheckResult -Name 'Geführte Evaluationssicht: importierte CLI-, Projektions- und GET-Handler' -Success $true
     Add-CheckResult -Name 'Evaluation-Watch projiziert Windows- und SQL-Evaluationen über stabile Artifact-IDs' -Success (
         $result.ReadOnly.ContractVersion -eq 'SqlServerLab.EvaluationWatch/1.2' -and
         $items.Count -eq 3 -and (@($items.Component | Sort-Object -Unique) -join '|') -eq 'SqlServer|Windows'
