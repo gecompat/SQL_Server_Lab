@@ -415,8 +415,15 @@ statisch und synthetisch belegt. Removal, Varianten-/Packagewechsel sowie
 Artifact-Refresh bleiben Folgearbeit. Die direkte Gastinstallation besitzt
 native SQL-2022-Evidence. Ein isolierter Runner deckt den öffentlichen Plan-/
 `WhatIf`-/Apply-/No-op-/Removal-Blockade-Pfad samt VM-Neustartgrenze, echten
-SQL-Postconditions, Cold Start und Cleanup ausführbar ab; seine Ausführung ist
-noch `NOT_EXECUTED`.
+SQL-Postconditions, Cold Start und Cleanup ausführbar ab. Der manuelle
+[main-Lauf 34780626984](https://github.com/gecompat/SQL_Server_Lab/actions/runs/34780626984)
+bestand am 2026-09-13 auf `77db6e73afe9fd9e8ca720124ae08172b5e94731` für
+SQL Server 2022 Evaluation auf Windows Server 2025: Plan, `WhatIf`, Apply,
+No-op, Removal-Blockade, Python/R/Java-Probes nach VM-Kaltstart sowie
+VM-/VHDX-/IPAM-Cleanup (`CLEANUP_SUCCEEDED`, drei Schritte, null Fehler).
+Weitere SQL-/OS-/Providerkombinationen sowie Removal und Variantenwechsel
+bleiben separat offen. Details und Vorläufe stehen in der
+[CLI-Abnahmematrix](../Quality/CLI_ACCEPTANCE_MATRIX.md).
 
 Implementierungsstand Welle 8E, 2026-09-02: Docker und Podman unterstützen
 nun auch die Entfernung der letzten External Runtime. Der Resolverplan besitzt

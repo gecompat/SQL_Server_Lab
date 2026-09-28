@@ -98,3 +98,16 @@ Alle Sprachtests liefen gegen SQL Server 17.0.5005.3 und prüften
 entfernt. Lokale Rohdaten und wiederverwendbare Image-Caches werden nicht
 versioniert. Diese Evidence gilt weder für SQL Server 2022 noch für Rootless,
 Bare Metal, Launchpad-Sandbox-Isolation oder wirksame SQL-Ressourcenisolation.
+
+### Historische Commitzuordnung
+
+Der damalige lokale Abschlussvermerk ordnet die Produktabnahmen dem Featurestand
+`bc251775f134f2361174dafcac02613cd383ddb3` zu. Der
+[PR-Gate-Lauf 36320431347](https://github.com/gecompat/SQL_Server_Lab/actions/runs/36320431347)
+bestand auf diesem Head; er ersetzt keine native Sprachabnahme. Der integrierte
+Stand `b08eca4ca57d02dbf418342901f057298c83d1ee` besitzt denselben Git-Baum.
+Die einzelnen lokalen nativen Ergebnisdateien enthalten jedoch keine eigene
+Commitbindung. Diese historische Zuordnung ist daher kein eigenständiger
+commitgebundener Native-Receipt; der Merge-SHA wird nicht als getesteter
+Native-Head ausgegeben. Die getrennten Provider- und Isolationsgrenzen oben
+bleiben unverändert.
