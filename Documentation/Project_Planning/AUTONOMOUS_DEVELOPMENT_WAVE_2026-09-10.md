@@ -177,7 +177,7 @@ Lizenzabnahme. Das unabhängige Quellreview ist abgeschlossen; die gefundene
 Dialoglayoutlücke ist korrigiert. Eine visuelle Browserabnahme wurde nicht
 ausgeführt. Nächster Schritt ist die folgende Bereichsmigration.
 
-**IMPLEMENTED – `UX-201/203/204/205/206`: Bereichsmigration lokal geprüft; Integration ausstehend.**
+**IMPLEMENTED – `UX-201/203/204/205/206`: Bereichsmigration lokal geprüft.**
 CLI und Browser verwenden die neun Fachbereiche aus Abschnitt 4.1 mit
 bestehenden Handlern und getrennten Experten-/Meldungseinstiegen. Erstellen
 und Verwalten liegen unter Lab-Umgebungen; geschützte Gruppenaktionen im
@@ -190,7 +190,7 @@ Die frühere Achtgruppenassertion ist durch Tests tatsächlicher
 Menüdestinationen, Dispatch, Zurück, Abbruch, Refresh und fehlender
 Verfügbarkeit ersetzt. Direkte `-Action`-Aufrufe bleiben erhalten. Reale
 JavaScript-Handler prüfen Bereichswechsel und unveränderte Eingaben; vorhandene
-Fachdialoge werden wiederverwendet. Alle 14 betroffenen statischen Suites bestanden; nach zwei behobenen Reviewbefunden bestanden erneut die fünf betroffenen Suites einschließlich 26 tatsächlicher JavaScript-Fälle. Der unabhängige Nachreview ist abgeschlossen. Der selektierte Docker-Regressionsnachweis und der finale Integrationsgate stehen für diesen Navigationsstand noch aus.
+Fachdialoge werden wiederverwendet. Alle 14 betroffenen statischen Suites bestanden; nach zwei behobenen Reviewbefunden bestanden erneut die fünf betroffenen Suites einschließlich 26 tatsächlicher JavaScript-Fälle. Der unabhängige Nachreview ist abgeschlossen. Der ausgewählte eigene Docker-SQL-2025-Smoke bestand 34/34 Prüfungen einschließlich Entfernung und bestätigter Containerabwesenheit. Er belegt Core-Regression, keine vollständige native Fachdialogparität. Die Integration setzt den grünen finalen PR-Gate auf dem exakten Head voraus.
 Keine neue Runtimefunktion und keine pauschale Fachdialogparität werden
 behauptet. Historische `CUI-026`-Evidence bleibt erhalten. Nächste Erweiterung:
 Grundkonfiguration und gezielte Änderung einer vorhandenen Umgebung.
