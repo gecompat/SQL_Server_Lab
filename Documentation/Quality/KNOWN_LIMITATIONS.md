@@ -2375,17 +2375,22 @@ Warnungen oder Fehler als auswählbare Einträge; das vollständige Journal blei
 über die Datei zugänglich. Ein Host ohne Zwischenablage verweist auf den
 Journalpfad, statt zu scheitern.
 
-Die Menüstruktur (`CUI-026`) gliedert als implementierter Übergangsstand nach
-Arbeitsabsicht in acht Gruppen. Die aktuelle fachliche Zielstruktur steht in
-[Abschnitt 4.1 des Ausführungsplans](../Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md#41-kanonischer-bedienpfad).
-Ihre Migration und vollständige geführte CLI-/GUI-Abdeckung sind separat offen.
-Die Browser-Verweise für Testgruppe, CMS und Hyper-V-Slots filtern bisher nur
-den Expertenkatalog und gelten nicht als abgeschlossene Fachdialoge. Unter
-„Umgebung erstellen“ bietet die Konsole inzwischen sowohl „SQL-Umgebung jetzt
-erstellen“ ohne Queue als auch den Composer mit Queue-Übergabe an. Das belegt
-noch keine vollständige geführte Browserparität. Die Verbindungszentrale ist bewusst doppelt
-erreichbar: über „Datenbanken und Verbindungen“ und über die eigene
-CMS-Gruppe.
+Die historische Abnahme `CUI-026` belegt weiterhin ihren damaligen
+Achtgruppenstand. Die Navigation wurde unter `UX-201` auf die neun Bereiche
+in [Abschnitt 4.1 des Ausführungsplans](../Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md#41-kanonischer-bedienpfad)
+übertragen. Vorhandene Fachhandler und direkte `-Action`-Aufrufe bleiben
+verfügbar. Erstellung und Verwaltung liegen in Lab-Umgebungen, geschützte
+Gruppenaktionen separat in der Testmatrix. Browserbereiche verbergen inaktive
+Inventare und ersetzen die früheren Katalogfilter-Verweise durch konkrete
+vorhandene Dialoge oder eine ausdrückliche Lückenbeschreibung.
+
+Offen bleiben vollständige geführte Browserdialoge für Testgruppen, CMS und
+operative Slots sowie zentrale Reservepolicy, späteres Provider-Setup,
+Runtimeinstaller und manueller Hostdienst-/Modell-Lifecycle. Vorhandene
+Gruppenschutzverträge gelten unverändert; diese Navigation fügt keine neue
+Gruppensteuerung hinzu. Verbindungseinträge zeigen nur vorhandene
+Host-/Port-Metadaten beziehungsweise bei Hyper-V TcpPort und das führende Serverfeld des Connection Strings. Fehlende oder nicht unterstützte Formate ergeben unbekannte Endpunkte; Credentialfelder werden nicht angezeigt. Navigation ist keine Runtime- oder
+Verbindungsbereitschaftsabnahme.
 
 Das Meldungsjournal (`CUI-023`) hält die letzten 2000 Meldungen im Speicher und
 schreibt zusätzlich `<StateRoot>/session/<SessionId>/messages.jsonl`. Ist kein

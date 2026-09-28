@@ -792,32 +792,70 @@ function Show-LabActionMessagesInteractive {
     }
 }
 
+function Show-LabWorkspaceMenu {
+    return Show-LabSubMenu -ScreenId 'labs-menu' -Title 'Lab-Umgebungen' -Subtitle 'Erstellen, auswählen und am gewählten Ziel arbeiten' -Items @(
+        New-LabConsoleItem -Id CreateArea -Label 'Umgebung erstellen' -Shortcut 1
+        New-LabConsoleItem -Id EnvironmentArea -Label 'Umgebung auswählen und verwalten' -Shortcut 2
+        New-LabConsoleItem -Id DatabaseArea -Label 'Datenbanken, Samples und Skripte' -Shortcut 3
+        New-LabConsoleItem -Id AiArea -Label 'SQL-2025-KI-Szenarien und Demos' -Shortcut 4
+        New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
+    )
+}
+
+function Show-LabTestMatrixMenu {
+    $state = Get-LabAutomatedTestEnvironmentMenuState
+    return Show-LabSubMenu -ScreenId 'testmatrix-menu' -Title 'Geschützte Testsystem-Matrix' -Subtitle 'Gruppenvertrag; keine ungebundenen Einzelaktionen' -Items @(
+        New-LabConsoleItem -Id AutomatedTestEnvironment -Label 'Geschützte Testgruppe erstellen oder konfigurieren' -Shortcut 1
+        New-LabConsoleItem -Id AutomatedTestEnvironmentLifecycle -Label $(if ($state.Available) { $state.Label } else { 'Testgruppe starten oder stoppen' }) -Value $state.Value -Shortcut 2 -Disabled:(-not $state.Available) -DisabledReason 'Keine registrierte Testgruppe vorhanden. Zuerst die Gruppe erstellen.'
+        New-LabConsoleItem -Id ClearAutomatedTestEnvironment -Label 'Geschützte Testgruppe entfernen' -Shortcut 3 -Disabled:(-not $state.Available) -DisabledReason 'Keine registrierte Testgruppe vorhanden.'
+        New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
+    )
+}
+
+function Show-LabResourceMenu {
+    return Show-LabSubMenu -ScreenId 'resources-menu' -Title 'Ressourcen und Downloads' -Subtitle 'Beschaffung getrennt von Installation und laufenden Diensten' -Items @(
+        New-LabConsoleItem -Id OperatingSystemSources -Label 'Betriebssystem-Downloadquellen anzeigen' -Shortcut 1
+        New-LabConsoleItem -Id CuResource -Label 'SQL Server CU herunterladen oder prüfen' -Shortcut 2
+        New-LabConsoleItem -Id CuStatus -Label 'Aktuelle SQL-Server-CUs bei Microsoft prüfen' -Shortcut 3
+        New-LabConsoleItem -Id AiLlamaModels -Label 'llama.cpp-Modelldateien anzeigen oder herunterladen' -Shortcut 4
+        New-LabConsoleItem -Id Install7Zip -Label '7-Zip-Verfügbarkeit prüfen / optional installieren' -Shortcut 5
+        New-LabConsoleItem -Id RuntimeInstaller -Label 'llama.cpp-Runtime vollständig installieren' -Disabled -DisabledReason 'Geführter Runtimeinstaller ist noch nicht implementiert. Modelldownload installiert keine Runtime.'
+        New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
+    )
+}
+
+function Show-LabHostModelsMenu {
+    return Show-LabSubMenu -ScreenId 'hostmodels-menu' -Title 'Host-Dienste und Modelle' -Subtitle 'Modelldatei, Modellaufruf und Dienst-Lifecycle sind getrennt' -Items @(
+        New-LabConsoleItem -Id AiLlamaModels -Label 'llama.cpp-Modellkatalog und Dateien' -Value 'Anzeigen / Download; kein Load oder Warmup' -Shortcut 1
+        New-LabConsoleItem -Id AiModel -Label 'Vorhandenes Ollama-Modell aufrufen' -Value 'lokal oder explizit freigegebene Cloud-Lane' -Shortcut 2
+        New-LabConsoleItem -Id HostServiceLifecycle -Label 'Vorhandenen Hostdienst starten, stoppen oder neu starten' -Disabled -DisabledReason 'Die geführte manuelle Hostdienststeuerung ist noch nicht implementiert. Kein Namens-Kill und keine automatische Übernahme.'
+        New-LabConsoleItem -Id ModelLifecycle -Label 'Modell laden, entladen oder wechseln' -Disabled -DisabledReason 'Ein gemeinsamer geführter Load-/Unload-/Wechselvertrag ist noch offen. Der Datei-Download ist kein geladenes Modell.'
+        New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
+    )
+}
+
+function Show-LabConfigurationMenu {
+    return Show-LabSubMenu -ScreenId 'configuration-menu' -Title 'SQL-Lab-Grundkonfiguration' -Subtitle 'Dauerhafte Roots und Voraussetzungen; keine operative Slotvorbereitung' -Items @(
+        New-LabConsoleItem -Id Setup -Label 'Lab_Base und Lab_Data einrichten' -Shortcut 1
+        New-LabConsoleItem -Id MediaRoot -Label 'Lab_Base / Medienroot konfigurieren' -Shortcut 2
+        New-LabConsoleItem -Id DataRoot -Label 'Lab_Data-Speicherorte verwalten' -Shortcut 3
+        New-LabConsoleItem -Id TestDataRoot -Label 'Testdatenbibliothek konfigurieren' -Shortcut 4
+        New-LabConsoleItem -Id Status -Label 'Providerstatus und Voraussetzungen anzeigen' -Shortcut 5
+        New-LabConsoleItem -Id ProviderSetup -Label 'Späteren Provider geführt einrichten' -Disabled -DisabledReason 'Ein vollständiger Assistent für zusätzliche Provider ist noch offen; vorhandene Provider werden weiterhin erkannt.'
+        New-LabConsoleItem -Id ReservePolicy -Label 'Zentrale Slotreserve konfigurieren' -Disabled -DisabledReason 'Eine zentrale Reservepolicy mit automatischer Auffüllung ist noch nicht implementiert. Vorbereitung bleibt bei Vorlagen und Slots.'
+        New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
+    )
+}
+
 function Show-LabCreateMenu {
     [CmdletBinding()]
     param()
-
-    $availability = try {
-        if ($IsWindows) { Test-HyperVAvailable }
-        else { [pscustomobject]@{ Available = $false; Message = 'Hyper-V ist nur unter Windows verfuegbar.' } }
-    }
-    catch { [pscustomobject]@{ Available = $false; Message = $_.Exception.Message } }
-    $hyperVAvailable = $null -ne $availability -and [bool]$availability.Available
-    $hyperVDisabledReason = ''
-    if (-not $hyperVAvailable) {
-        $reason = [string]$availability.Message
-        if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'Hyper-V ist nicht installiert oder in dieser Sitzung nicht verwendbar.' }
-        $hyperVDisabledReason = "$reason Abhilfe: Windows-Feature Hyper-V aktivieren und den Host neu starten."
-    }
 
     return Show-LabSubMenu -ScreenId 'create-menu' -Title 'Umgebung erstellen' -Subtitle 'Sofort erstellen oder zusammenstellen und uebergeben' -Items @(
         New-LabConsoleItem -Id New -Label 'SQL-Umgebung jetzt erstellen' -Value 'Ein Ziel · Provider automatisch · laeuft sofort durch, ohne Queue' -Shortcut 1 `
             -Help 'Fragt die Zielkonfiguration ab, entscheidet den Provider, zeigt die Begruendung und erstellt nach einer Rueckfrage sofort. Die Schritte erscheinen fortlaufend.'
         New-LabConsoleItem -Id BatchPlan -Label 'SQL- oder Windows-Umgebung zusammenstellen' -Value 'Einzelposition oder mehrere · Provider Auto · Pruefung vor der Uebergabe' -Shortcut 2 `
             -Help 'Sammelt mehrere Positionen in einem Batch und uebergibt sie nach einer Pruefung an die Warteschlange.'
-        New-LabConsoleItem -Id BulkSlots -Label 'Mehrere Windows-Slots gemeinsam bereitstellen' -Value 'Mengenfaehiger Composer · gemeinsame Vorlagenabhaengigkeiten' -Shortcut 3 `
-            -Disabled:(-not $hyperVAvailable) -DisabledReason $hyperVDisabledReason
-        New-LabConsoleItem -Id AutomatedTestEnvironment -Label 'Umgebung fuer automatisierte Tests anlegen' -Value 'Mehrere Ziele · TestUmgebung.env im Lab_Data-Export' -Shortcut 4 `
-            -Help 'Erfasst mehrere Linux- oder Windows-SQL-Testziele und schreibt den Lab_Data-Vertrag. Start und Stopp der Gruppe erfolgen spaeter unter Umgebungen verwalten.'
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
     )
 }
@@ -826,7 +864,7 @@ function Show-LabCmsMenu {
     [CmdletBinding()]
     param()
 
-    return Show-LabSubMenu -ScreenId 'cms-menu' -Title 'Zentrale Verwaltung (CMS)' -Subtitle 'Registrierte Server, Endpunkte und SSMS-Export' -Items @(
+    return Show-LabSubMenu -ScreenId 'cms-menu' -Title 'Verbindungen und CMS' -Subtitle 'Registrierte Server, Endpunkte und SSMS-Export' -Items @(
         New-LabConsoleItem -Id ConnectionCenter -Label 'Verbindungszentrale und CMS' -Value 'Endpunkte · registrierte Server · SSMS-Export' -Shortcut 1
         New-LabConsoleItem -Id Cms -Label 'CMS bereitstellen, uebernehmen und synchronisieren' -Value 'direkter Weg ohne Umweg ueber die Verbindungszentrale' -Shortcut 2 `
             -Help 'Erstellt einen kompakten persistenten CMS, uebernimmt eine bestehende SQL-Umgebung als CMS oder exportiert nur das kennwortfreie Synchronisationsskript.'
@@ -863,7 +901,7 @@ function Show-LabMaintenanceMenu {
     [CmdletBinding()]
     param()
 
-    return Show-LabSubMenu -ScreenId 'maintenance-menu' -Title 'Wartung und Diagnose' -Subtitle 'Read-only Pruefungen, Abgleich und Aufraeumbefunde' -Items @(
+    return Show-LabSubMenu -ScreenId 'maintenance-menu' -Title 'Wartung, Aufräumen und Recovery' -Subtitle 'Befunde prüfen; Mutation erst in der bestätigten Fachaktion' -Items @(
         New-LabConsoleItem -Id Status -Label 'System- und Providerstatus' -Value 'read-only' -Shortcut 1
         New-LabConsoleItem -Id CleanupAudit -Label 'Cleanup-Audit anzeigen' -Value 'read-only · verbliebene Ressourcen und Recovery' -Shortcut 2
         New-LabConsoleItem -Id Catalog -Label 'Katalogstatus pruefen' -Value 'Katalogdatei validieren' -Shortcut 3
@@ -872,6 +910,8 @@ function Show-LabMaintenanceMenu {
         New-LabConsoleItem -Id CuStatus -Label 'Aktuelle SQL-Server-CUs bei Microsoft pruefen' -Value 'read-only · Netzzugriff auf die katalogisierten Quellen' -Shortcut 5
         New-LabConsoleItem -Id EvaluationWatch -Label 'Windows-/SQL-Evaluationsfristen' -Value 'gespeicherte Evidence · read-only · kein Gastzugriff' -Shortcut e
         New-LabConsoleItem -Id Messages -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 6
+        New-LabConsoleItem -Id RetainedStoreRemoval -Label 'Behaltenen SQL-Speicher löschen' -Value 'gesonderter bestätigter Entfernungsplan' -Shortcut l
+        New-LabConsoleItem -Id Clear -Label 'Lab-Ressourcen gezielt aufräumen' -Value 'bestehender Cleanup-/Recovery-Vertrag' -Shortcut a
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
     )
 }
@@ -907,12 +947,17 @@ function Invoke-LabAreaMenuInteractive {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]
-        [ValidateSet('Create', 'Environment', 'HyperV', 'Storage', 'Database', 'Ai', 'Cms', 'Infrastructure', 'Maintenance', 'Settings', 'System')]
+        [ValidateSet('Labs', 'TestMatrix', 'Resources', 'HostModels', 'Configuration', 'Create', 'Environment', 'HyperV', 'Storage', 'Database', 'Ai', 'Cms', 'Infrastructure', 'Maintenance', 'Settings', 'System')]
         [string]$Area
     )
 
     while ($true) {
         $action = switch ($Area) {
+            'Labs' { Show-LabWorkspaceMenu }
+            'TestMatrix' { Show-LabTestMatrixMenu }
+            'Resources' { Show-LabResourceMenu }
+            'HostModels' { Show-LabHostModelsMenu }
+            'Configuration' { Show-LabConfigurationMenu }
             'Create' { Show-LabCreateMenu }
             'Environment' { Show-LabEnvironmentMenu }
             'HyperV' { Show-LabHyperVMenu }
@@ -927,6 +972,9 @@ function Invoke-LabAreaMenuInteractive {
         }
         if ([string]::IsNullOrWhiteSpace([string]$action) -or $action -eq 'back') { return }
         # Gruppen delegieren an den jeweiligen Bereich, statt Aktionen zu duplizieren.
+        if ($action -eq 'CreateArea') { Invoke-LabAreaMenuInteractive -Area Create; continue }
+        if ($action -eq 'EnvironmentArea') { Invoke-LabAreaMenuInteractive -Area Environment; continue }
+        if ($action -eq 'DatabaseArea') { Invoke-LabAreaMenuInteractive -Area Database; continue }
         if ($action -eq 'HyperVArea') { Invoke-LabAreaMenuInteractive -Area HyperV; continue }
         if ($action -eq 'StorageArea') { Invoke-LabAreaMenuInteractive -Area Storage; continue }
         if ($action -eq 'AiArea') { Invoke-LabAreaMenuInteractive -Area Ai; continue }

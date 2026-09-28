@@ -341,7 +341,7 @@ $helpMenuKeys = [System.Collections.Generic.Queue[object]]::new()
     [PSCustomObject]@{ Key='Enter'; KeyChar=[char]13; Modifiers=0 }
 ) | ForEach-Object { $helpMenuKeys.Enqueue($_) }
 $helpMenu = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'Hauptmenue' -Items @(
-    New-LabConsoleItem -Id 'create' -Label 'Umgebung erstellen' -Shortcut '1'
+    New-LabConsoleItem -Id 'labs' -Label 'Lab-Umgebungen' -Shortcut '1'
 ) -Snapshot $null -Capability ([PSCustomObject]@{ Supported=$true; Mode='CURSOR'; Reasons=@() }) `
     -ReadKey { $helpMenuKeys.Dequeue() } `
     -FrameWriter { param($s, $f) $helpFrames.Add($f) } `
@@ -351,9 +351,9 @@ $helpMenu = Invoke-LabConsoleMenu -ScreenId 'main-menu' -Title 'Hauptmenue' -Ite
 $helpOverlay = @($helpFrames | Where-Object { @($_.Lines | Where-Object { $_ -match '^Hilfe: ' }).Count -eq 1 })
 Add-ConsoleUiCheck 'F1 oeffnet die Kontexthilfe zum markierten Eintrag und kehrt danach ins Menue zurueck' (
     $helpOverlay.Count -eq 1 -and
-    @($helpOverlay[0].Lines | Where-Object { $_ -match 'Eintrag Umgebung erstellen' }).Count -eq 1 -and
-    @($helpOverlay[0].Lines | Where-Object { $_ -match 'New-SqlServerLabBatch' }).Count -eq 1 -and
-    $helpMenu.Status -eq 'Selected' -and $helpMenu.SelectedItem.Id -eq 'create'
+    @($helpOverlay[0].Lines | Where-Object { $_ -match 'Eintrag Lab-Umgebungen' }).Count -eq 1 -and
+    @($helpOverlay[0].Lines | Where-Object { $_ -match 'New-SqlServerLab' }).Count -eq 1 -and
+    $helpMenu.Status -eq 'Selected' -and $helpMenu.SelectedItem.Id -eq 'labs'
 )
 Add-ConsoleUiCheck 'Hilfeoverlay behaelt die Rahmenhoehe und verschiebt das Menue nicht' (
     $helpOverlay[0].Lines.Count -eq 24 -and $helpFrames[-1].Lines.Count -eq 24
@@ -366,7 +366,7 @@ $batchConsoleSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Batc
 Add-ConsoleUiCheck 'Haupt- und Umgebungsmenue begruenden jeden deaktivierten Eintrag' (
     $batchConsoleSource -match "Id HyperVArea[\s\S]{0,300}?-DisabledReason \`$disabledReason" -and
     $batchConsoleSource -match 'Windows-Feature Hyper-V aktivieren' -and
-    ([regex]::Matches($mainMenuSource, "New-LabConsoleItem -Id '(?:Manage|Status|SyncRuntime|Stop|Start|Restart|Rename|Resources|Remove|ClearAutomatedTestEnvironment)'[^\n]+-DisabledReason ")).Count -eq 10 -and
+    ([regex]::Matches($mainMenuSource, "New-LabConsoleItem -Id '(?:Manage|Status|SyncRuntime|Stop|Start|Restart|Rename|Resources|Remove)'[^\n]+-DisabledReason ")).Count -eq 9 -and
     $mainMenuSource -match "ScreenId 'main-menu'[^\n]+F1/\?: Hilfe"
 )
 
@@ -449,12 +449,7 @@ Add-ConsoleUiCheck 'Untermenue-Wrapper erbt Statusanbieter ohne abgeschlossene S
     $subMenuSource.Success -and $subMenuSource.Value -match 'Invoke-LabConsoleMenu' -and
     $subMenuSource.Value -notmatch 'ParentSession' -and $subMenuSource.Value -notmatch 'StatusHeight'
 )
-Add-ConsoleUiCheck 'Hauptmenue folgt der acht Gruppen umfassenden Struktur' (
-    ([regex]::Matches($mainMenuSource, "New-LabConsoleItem -Id '(?:create|environment|queue|database|cms|infrastructure|maintenance|settings)' -Label ")).Count -eq 8 -and
-    ([regex]::Matches($mainMenuSource, "'(?:create|cms|infrastructure|maintenance|settings)' \{ Invoke-LabAreaMenuInteractive -Area ")).Count -eq 5 -and
-    $mainMenuSource -notmatch "New-LabConsoleItem -Id 'plan' -Label" -and
-    $mainMenuSource -notmatch "New-LabConsoleItem -Id 'system' -Label"
-)
+. (Join-Path $repoRoot 'Tests/Static/Fixtures/NavigationAreaChecks.ps1')
 
 # CUI-023: Eine Warnung oder ein Fehler darf nicht vom naechsten Menueaufbau verdeckt werden.
 Add-ConsoleUiCheck 'Jede Menueaktion zeigt neue Warnungen und Fehler als sichtbaren Scrollback-Text' (
@@ -1116,16 +1111,16 @@ Add-ConsoleUiCheck 'Befundliste erzeugt Hyper-V-gebundene Befunde nur bei tatsae
     $attentionSource.Contains('if ($hyperVAvailable) {')
 )
 $environmentMenuMatch = [regex]::Match($entrySource, 'function Show-LabEnvironmentMenu \{[\s\S]+?(?=\r?\nfunction Show-LabHyperVMenu)')
-Add-ConsoleUiCheck 'Umgebungsmenue beginnt mit Verwaltung und gruppiert destruktive Sammelaktionen am Ende' ($environmentMenuMatch.Success -and $environmentMenuMatch.Value.IndexOf("-Id 'Manage'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'ClearAutomatedTestEnvironment'") -and $environmentMenuMatch.Value.IndexOf("-Id 'ClearAutomatedTestEnvironment'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'Clear'") -and $environmentMenuMatch.Value.IndexOf("-Id 'Clear'") -lt $environmentMenuMatch.Value.IndexOf("-Id 'back'"))
+Add-ConsoleUiCheck 'Umgebungsmenue trennt geschuetzte Gruppe und Sammelcleanup von Einzelverwaltung' ($environmentMenuMatch.Success -and $environmentMenuMatch.Value -match "-Id 'Manage'" -and $environmentMenuMatch.Value -notmatch "-Id '(ClearAutomatedTestEnvironment|Clear|AutomatedTestEnvironmentLifecycle)'")
 Add-ConsoleUiCheck 'Hyper-V-Umgebungsverwaltung liegt nur im umgebungszentrierten Menue' (
     $environmentMenuMatch.Value -match "-Id 'HyperVManage' -Label 'Hyper-V-Umgebung auswaehlen und verwalten'" -and
     $environmentMenuMatch.Value -match '\$hasHyperVRun' -and
     [regex]::Match($entrySource, 'function Show-LabHyperVMenu \{[\s\S]+?(?=\r?\nfunction )').Value -notmatch "-Id 'HyperVManage'"
 )
-Add-ConsoleUiCheck 'Umgebungsmenue bietet genau einen zustandsabhaengigen Testgruppen-Lifecyclepunkt' (
+Add-ConsoleUiCheck 'Testmatrix bietet einen zustandsabhaengigen geschuetzten Gruppen-Lifecyclepunkt' (
     $entrySource -match 'function Get-LabAutomatedTestEnvironmentMenuState' -and
     $entrySource -match 'Action=if \(\$allStopped\) \{ ''Start'' \} else \{ ''Stop'' \}' -and
-    $entrySource -match '-Id ''AutomatedTestEnvironmentLifecycle''' -and
+    $batchConsoleSource -match '-Id AutomatedTestEnvironmentLifecycle' -and
     $entrySource -match 'Start-SqlServerLabAutomatedTestEnvironment -Force -Confirm:\$false' -and
     $entrySource -match 'Stop-SqlServerLabAutomatedTestEnvironment -Force -Confirm:\$false'
 )
@@ -1156,8 +1151,8 @@ Add-ConsoleUiCheck 'Hyper-V-Menue deaktiviert alle Hyper-V-Handlungen begruendet
     ([regex]::Matches([regex]::Match($entrySource, 'function Show-LabHyperVMenu \{[\s\S]+?(?=\r?\nfunction )').Value, '-Disabled:\(-not \$hyperVAvailable\)')).Count -ge 3 -and
     [regex]::Match($entrySource, 'function Show-LabHyperVMenu \{[\s\S]+?(?=\r?\nfunction )').Value -match 'Test-HyperVAvailable'
 )
-Add-ConsoleUiCheck 'Erstellungsmenue deaktiviert den mengenfaehigen Windows-Slot-Composer begruendet ohne Hyper-V' (
-    [regex]::Match($batchConsoleSource, 'function Show-LabCreateMenu \{[\s\S]+?(?=\r?\nfunction )').Value -match "-Id BulkSlots[\s\S]{0,400}?-Disabled:\(-not \`$hyperVAvailable\)"
+Add-ConsoleUiCheck 'Vorlagenbereich deaktiviert den mengenfaehigen Windows-Slot-Composer begruendet ohne Hyper-V' (
+    [regex]::Match($entrySource, 'function Show-LabHyperVMenu \{[\s\S]+?(?=\r?\nfunction )').Value -match "-Id 'BulkSlots'[\s\S]{0,400}?-Disabled:\(-not \`$hyperVAvailable\)"
 )
 Add-ConsoleUiCheck 'CU-Download deaktiviert das Windows-Paket begruendet ohne Hyper-V' (
     [regex]::Match($entrySource, 'function Invoke-LabCuResourceInteractive \{[\s\S]+?(?=\r?\nfunction )').Value -match "-Id 'Windows'[\s\S]{0,400}?-Disabled:\(-not \`$windowsCuAvailable\)"
@@ -1647,11 +1642,11 @@ Add-ConsoleUiCheck 'Wurzeleinstieg und Modulfunktion bieten dieselbe Aktionslist
 
 Add-ConsoleUiCheck 'Flache Bereichsmenues bieten mehr als eine Handlungsmoeglichkeit' (
     ([regex]::Matches([regex]::Match($batchConsoleSource, "function Show-LabCmsMenu \{[\s\S]+?(?=\r?\nfunction )").Value, 'New-LabConsoleItem')).Count -ge 3 -and
-    ([regex]::Matches([regex]::Match($batchConsoleSource, "function Show-LabCreateMenu \{[\s\S]+?(?=\r?\nfunction )").Value, 'New-LabConsoleItem')).Count -ge 5 -and
+    ([regex]::Matches([regex]::Match($batchConsoleSource, "function Show-LabCreateMenu \{[\s\S]+?(?=\r?\nfunction )").Value, 'New-LabConsoleItem')).Count -ge 3 -and
     ([regex]::Matches([regex]::Match($batchConsoleSource, "function Show-LabMaintenanceMenu \{[\s\S]+?(?=\r?\nfunction )").Value, 'New-LabConsoleItem')).Count -ge 7
 )
 
-Add-ConsoleUiCheck 'SQL-2025-KI bleibt innerhalb der achtteiligen Menuestruktur erreichbar' (
+Add-ConsoleUiCheck 'SQL-2025-KI bleibt im Lab-Bereich der neunteiligen Menuestruktur erreichbar' (
     $mainMenuSource -match "function Show-LabDatabaseMenu[\s\S]{0,1600}?New-LabConsoleItem -Id 'AiArea'" -and
     $batchConsoleSource -match "'Ai' \{ Show-LabAiMenu \}" -and
     $batchConsoleSource -match "\`$action -eq 'AiArea'.+Invoke-LabAreaMenuInteractive -Area Ai" -and

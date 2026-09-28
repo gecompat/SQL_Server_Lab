@@ -28,53 +28,67 @@
     <section id="summary" class="summary-grid" aria-label="Übersicht"></section>
 
     <nav class="workspace-navigation" aria-label="Arbeitsbereiche">
-      <a href="#guided-workflows">Einstieg</a>
-      <a href="#creation-workflow">Erstellen</a>
-      <a href="#environment-inventory">Umgebungen</a>
-      <a href="#operation-queue">Vorgänge</a>
-      <a href="#command-center">Expertenzugang</a>
-      <a href="#jobs">Live-Log</a>
+      <button type="button" data-workspace-target="labs" aria-pressed="true">Lab-Umgebungen</button>
+      <button type="button" data-workspace-target="testmatrix" aria-pressed="false">Geschützte Testsystem-Matrix</button>
+      <button type="button" data-workspace-target="templates" aria-pressed="false">Hyper-V: Vorlagen und Slots</button>
+      <button type="button" data-workspace-target="resources" aria-pressed="false">Ressourcen und Downloads</button>
+      <button type="button" data-workspace-target="hostmodels" aria-pressed="false">Host-Dienste und Modelle</button>
+      <button type="button" data-workspace-target="connections" aria-pressed="false">Verbindungen und CMS</button>
+      <button type="button" data-workspace-target="configuration" aria-pressed="false">SQL-Lab-Grundkonfiguration</button>
+      <button type="button" data-workspace-target="maintenance" aria-pressed="false">Wartung, Aufräumen und Recovery</button>
+      <button type="button" data-workspace-target="queue" aria-pressed="false">Vorgänge, Warteschlange und Wiederaufnahme</button>
+    </nav>
+    <nav class="workspace-utilities" aria-label="Zusätzliche Werkzeuge">
+      <button type="button" id="workspace-back" class="button secondary" disabled>Zurück zum vorigen Bereich</button>
+      <button type="button" data-workspace-target="commands" class="button secondary">Expertenbefehle</button>
+      <button type="button" data-workspace-target="messages" class="button secondary">Meldungen / Live-Log</button>
     </nav>
 
-    <section class="panel guided-workflows" id="guided-workflows">
+    <section class="panel guided-workflows" id="guided-workflows" data-workspace-area="labs">
       <div class="section-heading">
         <div>
           <p class="eyebrow">WAS MÖCHTEN SIE TUN?</p>
-          <h2>Geführte Arbeitsabläufe</h2>
+          <h2>Lab-Umgebungen</h2>
         </div>
       </div>
       <p>Beginnen Sie mit dem Ziel. Providerabhängige Schritte werden nur angeboten, wenn der Host sie unterstützt; andernfalls bleibt der Grund sichtbar.</p>
       <div class="guided-workflow-grid">
-        <a class="guided-workflow-card" href="#creation-workflow"><strong>Lab erstellen</strong><span>Container, Hyper-V, Vorlagen und Medien</span></a>
+        <a class="guided-workflow-card" href="#creation-workflow"><strong>Lab erstellen</strong><span>Container oder vorhandene Hyper-V-Vorlage verwenden</span></a>
         <a class="guided-workflow-card" href="#environment-inventory"><strong>Lab verwalten</strong><span>Status, Start, Stopp, Konfiguration und Entfernen</span></a>
-        <button class="guided-workflow-card" type="button" data-guided-command="AutomatedTestEnvironment"><strong>Testgruppe</strong><span>Zusammengehörige, geschützte Testumgebungen verwalten</span></button>
-        <button class="guided-workflow-card" type="button" data-guided-command="Cms"><strong>CMS</strong><span>Zentrale Verwaltung erstellen, anpassen und synchronisieren</span></button>
-        <button class="guided-workflow-card" type="button" data-guided-command="WindowsSlot" data-provider-capability="hyperv"><strong>Hyper-V-Slots</strong><span>Windows- und SQL-Slots planen und bereitstellen</span></button>
-        <button class="guided-workflow-card" type="button" id="evaluation-watch-open"><strong>Evaluationsfristen</strong><span>Gespeicherte Windows-/SQL-Fristen lesen und einordnen</span></button>
       </div>
     </section>
 
-    <section class="workflow-intro" id="creation-workflow">
+    <section class="workflow-intro" id="creation-workflow" data-workspace-area="labs">
       <div class="section-heading">
         <p class="eyebrow">GEFÜHRTER WORKFLOW</p>
         <h2>Lab erstellen</h2>
-        <p>Standard: veröffentlichte immutable Vorlagen auswählen und schnell klonen. Image-Build, Vorlagenlöschung und globale Schreibrechte bleiben getrennte Expertenaktionen.</p>
+        <p>Container direkt erstellen oder eine vorhandene Hyper-V-Vorlage auswählen. Die Vorbereitung von Vorlagen liegt unter Hyper-V: Vorlagen und Slots.</p>
       </div>
       <div class="workflow-actions">
-        <button id="media-sources" class="button secondary">Medienquellen</button>
-        <button class="button primary" data-open-build="sql-fresh">Neues SQL-Prepared-Image</button>
-        <button class="button secondary" data-open-build="windows">Erweitert: Windows-OS-Baseline</button>
-        <button class="button secondary" data-open-build="sql">Erweitert: SQL-Builder aus OS-Baseline</button>
         <button id="new-container" class="button secondary">Neue Container-Umgebung</button>
         <button id="new-manifest" class="button secondary">Container-Manifest erstellen</button>
         <button id="run-manifest" class="button secondary">Container-Manifest ausführen</button>
         <button id="new-hyperv-lab" class="button secondary">Neue Windows-/SQL-Hyper-V-Umgebung</button>
         <button id="new-hyperv-existing-vm-lab" class="button secondary">Windows-VM als Hyper-V-Basis</button>
-        <button id="clear-all-labs" class="button danger">Alles aufräumen</button>
       </div>
     </section>
 
-    <section class="workflow-track" aria-label="Vorbereitungsworkflow">
+    <section class="panel" data-workspace-area="testmatrix" hidden>
+      <h2>Geschützte Testsystem-Matrix</h2>
+      <p>Zusammengehörige Testumgebungen werden als geschützte Gruppe verwaltet. Einzellab-Aktionen ersetzen diesen Gruppenvertrag nicht.</p>
+      <p>Die geführte Gruppenbedienung im Browser ist noch offen. Bereits verfügbar: <code>Invoke-SqlServerLab</code> → Geschützte Testsystem-Matrix → Erstellen, Start/Stop oder Entfernen der Gruppe. Dieser Bereich startet keine Testgruppe.</p>
+    </section>
+
+    <section class="panel" data-workspace-area="templates" hidden>
+      <h2>Hyper-V: Vorlagen und Slots</h2>
+      <p>Vorlagen vorbereiten und Bestände prüfen. Slot-Reservierung und vollständige Gruppenplanung besitzen noch keinen geführten Browserdialog; die Konsole bietet die vorhandene Einzel-/Batch-Vorbereitung.</p>
+      <div class="workflow-actions">
+        <button class="button primary" data-open-build="sql-fresh" data-provider-capability="hyperv">Neues SQL-Prepared-Image</button>
+        <button class="button secondary" data-open-build="windows" data-provider-capability="hyperv">Erweitert: Windows-OS-Baseline</button>
+        <button class="button secondary" data-open-build="sql" data-provider-capability="hyperv">Erweitert: SQL-Builder aus OS-Baseline</button>
+      </div>
+    </section>
+    <section class="workflow-track" aria-label="Vorbereitungsworkflow" data-workspace-area="templates" hidden>
       <article class="workflow-stage">
         <span class="stage-number">1</span>
         <h3>Frischer Builder</h3>
@@ -94,16 +108,44 @@
       </article>
     </section>
 
-    <section class="panel queue-panel" id="operation-workflow">
+    <section class="panel" data-workspace-area="resources" hidden>
+      <h2>Ressourcen und Downloads</h2>
+      <p>Medienquellen und lokale Ablage sind einsehbar. Die Konsole bietet bereits CU-Beschaffung, 7-Zip und kuratierte llama.cpp-Modelldateien. Vollständige geführte Beschaffung im Browser sowie ein llama.cpp-Runtimeinstaller bleiben offen.</p>
+      <button id="media-sources" class="button secondary">Medienquellen und Ablage anzeigen</button>
+    </section>
+    <section class="panel" data-workspace-area="hostmodels" hidden>
+      <h2>Host-Dienste und Modelle</h2>
+      <p>Runtimeinstallation, laufender Dienst, gespeicherte Modelldatei und geladenes Modell sind getrennte Zustände. In der Konsole sind Modellkatalog/Download und vorhandene Ollama-Modellaufrufe verfügbar.</p>
+      <p>Geführte manuelle Hostdienststeuerung sowie Load, Warmup, Unload und Modellwechsel bleiben offen. Der vorhandene erweiterte Secret-Preflight unten steuert keinen Dienst.</p>
+    </section>
+    <section class="panel" data-workspace-area="connections" hidden>
+      <h2>Verbindungen und CMS</h2>
+      <p>Endpunkte aus derselben registrierten Lab-Ansicht; Anzeige ist kein Verbindungstest. CMS-Einrichtung und Synchronisation sind in der Konsole geführt verfügbar. Ein vollständiger CMS-Fachdialog im Browser bleibt offen.</p>
+      <div id="connection-endpoints" class="list"></div>
+    </section>
+    <section class="panel" data-workspace-area="configuration" hidden>
+      <h2>SQL-Lab-Grundkonfiguration</h2>
+      <p>Vorhandene Lab_Base-, Lab_Data- und Testdatenablage prüfen oder anpassen. Ein vollständiger Browser-Ersteinrichtungsassistent, späteres Provider-Setup und zentrale Reservepolicy bleiben offen. Operative Slotvorbereitung liegt bei Vorlagen und Slots.</p>
+      <button id="configuration-storage" type="button" class="button secondary">Vorhandene Quellen- und Speicherortkonfiguration öffnen</button>
+    </section>
+    <section class="panel" data-workspace-area="maintenance" hidden>
+      <h2>Wartung, Aufräumen und Recovery</h2>
+      <p>Befunde vor einer Änderung prüfen. Die Konsole bietet zusätzlich Providerstatus, Cleanup-Audit und Runtime-Abgleich; vollständige geführte Recovery-Parität bleibt offen.</p>
+      <div class="workflow-actions">
+        <button id="evaluation-watch-open" type="button" class="button secondary">Evaluationsfristen lesen</button>
+        <button id="clear-all-labs" class="button danger">Alles aufräumen</button>
+      </div>
+    </section>
+    <section class="panel queue-panel" id="operation-workflow" data-workspace-area="queue" hidden>
       <div class="section-heading">
-        <div><p class="eyebrow">PERSISTENTER WORKFLOW</p><h2>Vorgänge, Queue und Benutzeraktionen</h2></div>
+        <div><p class="eyebrow">PERSISTENTER WORKFLOW</p><h2>Vorgänge, Warteschlange und Wiederaufnahme</h2></div>
         <span id="queue-count" class="count"></span>
       </div>
       <p>Wartende Benutzeraktionen geben Worker frei. Read-only-Probes melden nur einen Kandidaten; fortgesetzt wird ausschließlich nach Bestätigung.</p>
       <div id="operation-queue" class="cards"></div>
     </section>
 
-    <section class="panel command-center" id="command-center">
+    <section class="panel command-center" id="command-center" data-workspace-area="commands" hidden>
       <div class="section-heading">
         <div>
           <p class="eyebrow">EXPERTENZUGANG · VOLLSTÄNDIGER FUNKTIONSUMFANG</p>
@@ -125,7 +167,8 @@
       </form>
     </section>
 
-    <section class="panel compact" id="ai-shared-gateway-service-secret-panel">
+    <details class="panel compact" id="ai-shared-gateway-service-secret-panel" data-workspace-area="hostmodels" hidden>
+      <summary>Erweiterter Dienst-Secret-Preflight mit vorhandenen JSON-Plänen</summary>
       <div class="section-heading">
         <div><p class="eyebrow">SQL SERVER 2025 KI · SHARED GATEWAY</p><h2>Dienst-Secrets read-only prüfen</h2></div>
         <span id="ai-shared-gateway-service-secret-status" class="chip neutral">Capability wird geprüft …</span>
@@ -139,9 +182,9 @@
         <div id="ai-shared-gateway-service-secret-result" class="selection-details" aria-live="polite">Noch keine Prüfung ausgeführt. Das Receipt gilt fünf Minuten für den aktuellen Principal; der echte nichtinteraktive S4U-/systemd-Dienstkontext bleibt getrennte Evidence.</div>
         <div class="build-actions"><button id="ai-shared-gateway-service-secret-submit" type="submit" class="button primary" disabled>Dienst-Secrets prüfen</button></div>
       </form>
-    </section>
+    </details>
 
-    <section class="panel">
+    <section class="panel" data-workspace-area="templates" hidden>
       <div class="section-heading">
         <div><p class="eyebrow">IN ARBEIT</p><h2>Windows-OS-Builds</h2></div>
         <span id="windows-count" class="count"></span>
@@ -149,7 +192,7 @@
       <div id="windows-builds" class="cards"></div>
     </section>
 
-    <section class="panel">
+    <section class="panel" data-workspace-area="templates" hidden>
       <div class="section-heading">
         <div><p class="eyebrow">IN ARBEIT</p><h2>SQL-Image-Builds</h2></div>
         <span id="sql-count" class="count"></span>
@@ -157,7 +200,7 @@
       <div id="sql-builds" class="cards"></div>
     </section>
 
-    <section class="split-grid">
+    <section class="split-grid" data-workspace-area="templates" hidden>
       <section class="panel compact">
         <div class="section-heading"><div><p class="eyebrow">FERTIG</p><h2>OS-Baselines</h2></div></div>
         <div id="windows-baselines" class="list"></div>
@@ -168,30 +211,32 @@
       </section>
     </section>
 
-    <section class="split-grid" id="environment-inventory">
+    <section class="split-grid" data-workspace-area="templates" hidden>
       <section class="panel compact">
         <div class="section-heading"><div><p class="eyebrow">ABNAHME</p><h2>Windows-/SQL-Kombinationen</h2></div></div>
         <div id="acceptance" class="list"></div>
       </section>
+    </section>
+    <section class="split-grid" id="environment-inventory" data-workspace-area="labs">
       <section class="panel compact">
         <div class="section-heading"><div><p class="eyebrow">CONTAINER</p><h2>Aktive Lab-Umgebungen</h2></div></div>
       <div id="active-labs" class="list"></div>
       </section>
     </section>
 
-    <section class="panel compact">
+    <section class="panel compact" data-workspace-area="maintenance" hidden>
       <div class="section-heading"><div><p class="eyebrow">DOCKER / PODMAN</p><h2>Behaltenen SQL-Speicher löschen</h2></div></div>
       <label>Abgetrennten Speicher auswählen<select id="retained-store-source"><option value="">Kein Speicher verfügbar</option></select></label>
       <p id="retained-store-details" class="form-note">Alle Datenbanken und Serverobjekte gehen endgültig verloren. Ein Backup wird nicht geprüft.</p>
       <div class="build-actions"><button id="retained-store-preview" type="button" class="button secondary" disabled>Löschung prüfen</button><button id="retained-store-delete" type="button" class="button danger" disabled>Endgültig löschen</button></div>
     </section>
 
-    <section class="panel">
+    <section class="panel" data-workspace-area="labs">
       <div class="section-heading"><div><p class="eyebrow">HYPER-V</p><h2>Reguläre Hyper-V-Umgebungen</h2></div></div>
       <div id="hyperv-labs" class="cards"></div>
     </section>
 
-    <section class="panel compact">
+    <section class="panel compact" data-workspace-area="labs">
       <div class="section-heading"><div><p class="eyebrow">HYPER-V · LAB_DATA</p><h2>Persistente Daten-VHDX</h2></div><span id="hyperv-persistent-data-count" class="count"></span></div>
       <label>Katalogisierte VHDX auswählen<select id="hyperv-persistent-data-source"><option value="">Keine Daten-VHDX katalogisiert</option></select></label>
       <label>Kompatible ausgeschaltete Ziel-VM<select id="hyperv-persistent-data-target"><option value="">Ziel für Reattach oder Clone auswählen …</option></select></label>
@@ -204,7 +249,7 @@
       <p class="form-note">Release prüft im laufenden Gast alle SQL-Dateibindungen, blockiert aktive Datenbanken und fährt die VM anschließend sauber herunter. Reattach und Clone benötigen den dateigebundenen Detach-Receipt sowie eine kompatible ausgeschaltete Ziel-VM. Nach Reattach werden Datenbanken weiterhin explizit restored oder attached.</p>
     </section>
 
-    <section class="panel compact">
+    <section class="panel compact" data-workspace-area="labs">
       <div class="section-heading"><div><p class="eyebrow">LAB_DATA</p><h2>Datenbankpakete</h2></div><span id="database-package-count" class="count"></span></div>
       <label>Unveränderliches Paket auswählen<select id="database-package-source"><option value="">Kein Paket katalogisiert</option></select></label>
       <label>Gebundenes Hyper-V-SQL-Ziel<select id="database-package-target"><option value="">Kein laufendes SQL-Ziel verfügbar</option></select></label>
@@ -213,7 +258,7 @@
       <p class="form-note">Die Inventur hasht große Objekte nicht bei jedem Refresh und zeigt nur sanitisierte Migrationskategorien und Warnungen. Beim Attach werden Paket, scopegebundener Ziel-Run, SQL-Version, FILESTREAM/TDE und das live von SQL Server gemeldete Default-Data-Ziel frisch revalidiert; ein freier Pfad kann nicht eingegeben werden.</p>
     </section>
 
-    <section class="panel log-panel">
+    <section class="panel log-panel" data-workspace-area="messages" hidden>
       <div class="section-heading">
         <div><p class="eyebrow">HINTERGRUNDAKTIONEN</p><h2>Live-Log</h2></div>
         <span id="job-count" class="count"></span>

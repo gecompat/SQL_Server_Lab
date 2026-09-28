@@ -36,14 +36,15 @@ function Get-LabConsoleHelpCatalog {
             Command = 'Invoke-SqlServerLab'
             Preconditions = @($dataRootPrecondition, $stateRootPrecondition)
             Items   = @{
-                'create'         = @{ Purpose = 'Neue SQL- oder Windows-Umgebungen zusammenstellen, pruefen und uebergeben.'; Command = 'New-SqlServerLabBatch' }
-                'environment'    = @{ Purpose = 'Vorhandene Docker-, Podman- und Hyper-V-Umgebungen starten, stoppen, aendern und entfernen.'; Command = 'Get-SqlServerLab' }
-                'queue'          = @{ Purpose = 'Laufende, wartende und fehlgeschlagene Vorgaenge einsehen und steuern.'; Command = 'Get-SqlServerLabQueue' }
-                'database'       = @{ Purpose = 'Datenbanken, Pakete, Skripte und Endpunkte erreichen.'; Command = 'Get-SqlServerLabConnectionCenter' }
-                'cms'            = @{ Purpose = 'Registrierte Server der zentralen Verwaltung und den SSMS-Export erreichen.'; Command = 'Sync-SqlServerLabCms' }
-                'infrastructure' = @{ Purpose = 'Hyper-V-Bestand sowie Lab_Base, Lab_Data, CU-Pakete und Testdaten verwalten.'; Command = 'Get-SqlServerLabResourcePlan' }
-                'maintenance'    = @{ Purpose = 'Providerstatus, Cleanup-Audit und Katalog read-only pruefen.'; Command = 'Test-SqlServerLabPrerequisite' }
-                'settings'       = @{ Purpose = 'Scheduler, Parallelitaet, Ton, Ruhemodus und Ersteinrichtung.'; Command = 'Invoke-SqlServerLabScheduler' }
+                'labs' = @{ Purpose = 'Lab-Umgebungen: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'New-SqlServerLab' }
+                'testmatrix' = @{ Purpose = 'Geschützte Testsystem-Matrix: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'New-SqlServerLabAutomatedTestEnvironment' }
+                'templates' = @{ Purpose = 'Hyper-V: Vorlagen und Slots: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Get-SqlServerLabHyperVImageArtifact' }
+                'resources' = @{ Purpose = 'Ressourcen und Downloads: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Get-SqlServerLabResourcePlan' }
+                'hostmodels' = @{ Purpose = 'Host-Dienste und Modelle: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Invoke-SqlServerLab -Action Commands' }
+                'connections' = @{ Purpose = 'Verbindungen und CMS: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Get-SqlServerLabConnectionCenter' }
+                'configuration' = @{ Purpose = 'SQL-Lab-Grundkonfiguration: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Invoke-SqlServerLab -Action Setup' }
+                'maintenance' = @{ Purpose = 'Wartung, Aufräumen und Recovery: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Get-SqlServerLabEvaluationWatch' }
+                'queue' = @{ Purpose = 'Vorgänge, Warteschlange und Wiederaufnahme: vorhandene Fachabläufe auswählen; offene Funktionen bleiben kenntlich.'; Command = 'Get-SqlServerLabQueue' }
                 'commands'       = @{ Purpose = 'Listet jeden exportierten Modulbefehl und fuehrt ihn mit seinem echten Parametersatz, Defaults und Validierungsgrenzen aus.'; Command = 'Invoke-SqlServerLab -Action Commands' }
             }
         }
@@ -72,6 +73,11 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Keine Mutation.'
             Command = 'Get-Command -Syntax'
         }
+        'labs-menu' = @{ Title = 'Lab-Umgebungen'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'New-SqlServerLab' }
+        'testmatrix-menu' = @{ Title = 'Geschützte Testsystem-Matrix'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'New-SqlServerLabAutomatedTestEnvironment' }
+        'resources-menu' = @{ Title = 'Ressourcen und Downloads'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabResourcePlan' }
+        'hostmodels-menu' = @{ Title = 'Host-Dienste und Modelle'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Invoke-SqlServerLab -Action Commands' }
+        'configuration-menu' = @{ Title = 'SQL-Lab-Grundkonfiguration'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Invoke-SqlServerLab -Action Setup' }
         'create-menu' = @{
             Title   = 'Umgebung erstellen'
             Purpose = 'Erstellt eine einzelne Umgebung sofort oder stellt mehrere zusammen und uebergibt sie an die Queue.'

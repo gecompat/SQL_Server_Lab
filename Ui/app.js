@@ -94,12 +94,17 @@ async function refreshPublicCommandCatalog() {
   renderPublicCommandCatalog();
 }
 
-function openGuidedCommandWorkflow(search) {
-  $('#command-search').value = search;
-  $('#command-area').value = '';
-  renderPublicCommandCatalog();
-  $('#command-center').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  $('#command-name').focus({ preventScroll: true });
+let workspaceArea = 'labs';
+const workspaceHistory = [];
+function showWorkspaceArea(area, remember = true) {
+  const targets = [...document.querySelectorAll('[data-workspace-target]')];
+  if (!targets.some((button) => button.dataset.workspaceTarget === area)) return false;
+  if (remember && area !== workspaceArea) workspaceHistory.push(workspaceArea);
+  workspaceArea = area;
+  document.querySelectorAll('[data-workspace-area]').forEach((section) => { section.hidden = section.dataset.workspaceArea !== area; });
+  targets.forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.workspaceTarget === area)));
+  $('#workspace-back').disabled = workspaceHistory.length === 0;
+  return true;
 }
 
 function collectPublicCommandParameters() {
@@ -144,6 +149,7 @@ async function startPublicCommand(command, parameterSet, parameters, confirmed) 
   renderJobs([]);
   $('#action-feedback-text').textContent = command.Name + ' läuft. Fortschritt und Ergebnis erscheinen im Live-Log.';
   $('#action-feedback').hidden = false;
+  showWorkspaceArea('messages');
   $('#jobs').closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   refreshJobs().catch(() => {});
 }
@@ -622,8 +628,35 @@ function updateSqlMediaSelection() {
   $('#sql-media-hash-status').textContent = option?.value ? ('SQL-Hash: ' + (option.dataset?.hashStatus === 'SIDECAR_READY' ? 'gesetzt und verifiziert' : 'fehlt – offiziellen SHA-256 eintragen')) : 'SQL-Hash: Medium auswählen';
 }
 
+function sqlConnectionEndpoint(connectionString, tcpPort) {
+  // The workflow DTO emits Server first. Fail closed for other formats rather
+  // than searching inside a possibly quoted credential for a server-like token.
+  const server = String(connectionString || '').match(/^\s*(?:Server|Data Source|Address|Addr|Network Address)\s*=\s*(?:tcp:)?(\[[a-f0-9:]+\]|[a-z0-9_.-]+)(?:\\[a-z0-9_$-]+)?(?:,(\d+))?\s*(?:;|$)/i);
+  const port = Number(tcpPort || server?.[2]);
+  return server && Number.isInteger(port) && port > 0 && port <= 65535 ? server[1] + ',' + port : 'Host oder Port unbekannt';
+}
+
+function renderConnectionEndpoints(data) {
+  const endpoints = [];
+  for (const lab of data.ActiveLabs || []) {
+    for (const instance of lab.Instances || []) {
+      endpoints.push({ lab: lab.Name || lab.RunId, instance: instance.Id, provider: instance.Provider,
+        endpoint: instance.Host && instance.Port ? instance.Host + ',' + instance.Port : 'Host oder Port unbekannt' });
+    }
+  }
+  for (const lab of data.HyperVLabs || []) {
+    const instances = lab.SqlInstances?.length ? lab.SqlInstances : (lab.Workload === 'sql' ? [{ InstanceId: lab.InstanceId, ConnectionString: lab.ConnectionString }] : []);
+    for (const instance of instances) {
+      endpoints.push({ lab: lab.Name || lab.RunId, instance: instance.Name || instance.InstanceId, provider: 'hyperv',
+        endpoint: sqlConnectionEndpoint(instance.ConnectionString, instance.TcpPort) });
+    }
+  }
+  $('#connection-endpoints').innerHTML = endpoints.length ? endpoints.map((item) => '<article class="list-item"><strong>' + escapeHtml(item.lab) + ' · ' + escapeHtml(item.instance) + '</strong><span>' + escapeHtml(item.provider) + ' · ' + escapeHtml(item.endpoint) + '</span></article>').join('') : empty('Keine registrierten SQL-Endpunkte in der aktuellen Ansicht.');
+}
+
 function renderWorkflow(data) {
   workflow = data;
+  renderConnectionEndpoints(data);
   renderOperationQueue(data.Queue);
   // Der Quellen-Dialog kann vor dem ersten API-Refresh geöffnet werden. In
   // diesem Fall das anfangs leere Feld nachträglich füllen, aber eine bereits
@@ -1009,6 +1042,8 @@ async function startAction(action, parameters) {
   const feedback = $('#action-feedback');
   $('#action-feedback-text').textContent = 'Auftrag wird angenommen: ' + action + ' – Live-Log und Herzschlag sind sofort sichtbar.';
   feedback.hidden = false;
+  showWorkspaceArea('messages');
+  $('#jobs').closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   let response;
   try {
     response = await fetch('/api/actions', {
@@ -1777,13 +1812,15 @@ $('#hyperv-existing-vm-lab-form').addEventListener('submit', async (event) => {
   });
 });
 
-$('#media-sources').addEventListener('click', () => {
+function openMediaSourcesDialog() {
   $('#sources-media-root').value = workflow?.Defaults?.MediaRoot || '';
   $('#sources-data-root').value = workflow?.Defaults?.DataRoot || '';
   $('#sources-test-data-root').value = workflow?.Defaults?.TestDataRoot || '';
   renderMediaSources(workflow?.MediaSources || []);
   $('#media-sources-dialog').showModal();
-});
+}
+$('#media-sources').addEventListener('click', openMediaSourcesDialog);
+$('#configuration-storage').addEventListener('click', openMediaSourcesDialog);
 
 $('#media-sources-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;
@@ -2276,10 +2313,11 @@ $('#ai-shared-gateway-service-secret-form').addEventListener('submit', async (ev
   }
 });
 
-$('#action-feedback-log').addEventListener('click', () => $('#jobs').closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+$('#action-feedback-log').addEventListener('click', () => { showWorkspaceArea('messages'); $('#jobs').closest('.panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
 
 $('#command-search').addEventListener('input', renderPublicCommandCatalog);
-document.querySelectorAll('[data-guided-command]').forEach((button) => button.addEventListener('click', () => openGuidedCommandWorkflow(button.dataset.guidedCommand)));
+document.querySelectorAll('[data-workspace-target]').forEach((button) => button.addEventListener('click', () => showWorkspaceArea(button.dataset.workspaceTarget)));
+$('#workspace-back').addEventListener('click', () => { if (workspaceHistory.length) showWorkspaceArea(workspaceHistory.pop(), false); });
 $('#command-area').addEventListener('change', renderPublicCommandCatalog);
 $('#command-name').addEventListener('change', () => {
   $('#command-parameter-set').innerHTML = '<option value="">Parametersatz auswählen</option>';
