@@ -8,6 +8,9 @@ function Update-SqlServerLabContainer {
     Recovery-Bedarf. AutoStart 'on' setzt die kanonische Restart-Policy
     'unless-stopped' und das verwaltete Autostart-Label.
 
+    .PARAMETER ExpectedResourcePlanKey
+    Bindet den geführten CPU/RAM-Apply an eine frische Ressourcen-Vorschau. Erlaubt nur Cpu/MemoryMB und prüft Identität, Drift, Journale sowie Schutzstatus vor Mutation erneut.
+
     .PARAMETER AutoStart
     Schaltet den verwalteten Container-Autostart ein oder aus. Die Änderung
     erfordert eine kontrollierte Neuerstellung des Containers.
@@ -23,6 +26,7 @@ function Update-SqlServerLabContainer {
         [ValidateSet('on','off')][string]$AutoStart,
         [ValidateRange(10, 600)][int]$ReadinessTimeoutSeconds = 180,
         [switch]$RepairSqlRuntimeContract,
+        [ValidatePattern('^[a-f0-9]{64}$')][string]$ExpectedResourcePlanKey,
         [string]$StateRoot
     )
 
@@ -30,6 +34,20 @@ function Update-SqlServerLabContainer {
     if ((Test-LabAutomatedTestEnvironmentRun -RunId $RunId) -and -not $script:LabAutomatedTestEnvironmentGroupOperation) {
         throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Containeränderung ist für einzelne Testumgebungen gesperrt.'
     }
+    $StateRoot = Get-LabCanonicalResourceRoot -StateRoot $StateRoot
+    $mutex = [Threading.Mutex]::new($false, (Get-LabContainerResourceLockName -StateRoot $StateRoot -RunId $RunId))
+    $acquired = $false
+    try {
+        try { $acquired = $mutex.WaitOne(0) } catch [Threading.AbandonedMutexException] { $acquired = $true }
+        if (-not $acquired) { throw 'RESOURCE_CHANGE_BUSY' }
+        if ($ExpectedResourcePlanKey) {
+            if (-not $InstanceId -or -not $PSBoundParameters.ContainsKey('Cpu') -or -not $PSBoundParameters.ContainsKey('MemoryMB') -or
+                @('Port','SqlMaxMemoryMB','AutoStart','RepairSqlRuntimeContract' | Where-Object { $PSBoundParameters.ContainsKey($_) }).Count) { throw 'RESOURCE_CHANGE_ARGUMENTS_INVALID' }
+            $boundContext = Get-LabContainerReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+            $boundPlan = Get-LabResourceChangePlan -RunId $RunId -InstanceId $InstanceId -Provider $boundContext.Provider -Cpu $Cpu -MemoryMB $MemoryMB -StateRoot $StateRoot
+            if ($boundPlan.PlanKey -ne $ExpectedResourcePlanKey -or -not $boundPlan.CanApply) { throw 'RESOURCE_CHANGE_STALE_OR_UNAVAILABLE: Vorschau erneut lesen.' }
+            if ($boundPlan.NoChange) { return [pscustomobject]@{ Changed=$false; NoChange=$true; Status='NO_OP'; ChangeClass='no-op'; Provider=$boundPlan.Provider; RunId=$RunId; InstanceId=$InstanceId } }
+        }
     $context = Get-LabContainerReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
     $null = Repair-LabContainerReconcileJournal -Context $context
     $context = Get-LabContainerReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
@@ -54,6 +72,10 @@ function Update-SqlServerLabContainer {
         if (-not $binding.Available) { throw "CONTAINER_RECONCILE_PORT_IN_USE: $($plan.Desired.Port)" }
     }
 
+    if ($ExpectedResourcePlanKey) {
+        $fresh = Get-LabResourceChangePlan -RunId $RunId -InstanceId $InstanceId -Provider $context.Provider -Cpu $Cpu -MemoryMB $MemoryMB -StateRoot $StateRoot
+        if ($fresh.PlanKey -ne $ExpectedResourcePlanKey -or -not $fresh.CanApply -or $plan.HighestChangeClass -ne 'live') { throw 'RESOURCE_CHANGE_STALE_OR_UNAVAILABLE: Vorschau erneut lesen.' }
+    }
     $journalInfo = New-LabContainerReconcileJournal -Context $context -Plan $plan
     $journal = $journalInfo.Journal
     $journalPath = $journalInfo.Path
@@ -63,14 +85,15 @@ function Update-SqlServerLabContainer {
     $sqlMemoryLimitMB = [int]$plan.Desired.SqlMemoryLimitMB
     try {
         if ([string]$plan.HighestChangeClass -eq 'live') {
-            $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments @('update','--cpus',$cpuArgument,'--memory',"$([int]$plan.Desired.MemoryMB)m",$name) -ErrorCode 'CONTAINER_RECONCILE_UPDATE_FAILED'
+            $null = Invoke-LabContainerReconcileCommand -Provider $runtime -Arguments @('update','--cpus',$cpuArgument,'--memory',"$([int]$plan.Desired.MemoryMB)m",[string]$context.ContainerId) -ErrorCode 'CONTAINER_RECONCILE_UPDATE_FAILED'
             $journal = Set-LabContainerReconcileJournalStatus -Journal $journal -Path $journalPath -Status LIVE_MUTATED
             if ($null -ne $plan.Desired.SqlMaxMemoryMB) {
                 $null = Set-LabContainerSqlMaxMemoryMB -Context $context -SqlMaxMemoryMB ([int]$plan.Desired.SqlMaxMemoryMB)
             }
-            $post = Assert-LabContainerReconcileRuntimeIdentity -Provider $runtime -Identity $name -RunId $RunId -ScopeId ([string]$context.Run.scopeId)
+            $post = Assert-LabContainerReconcileRuntimeIdentity -Provider $runtime -Identity ([string]$context.ContainerId) -RunId $RunId -ScopeId ([string]$context.Run.scopeId)
+            if ([string]$post.Id -ne [string]$context.ContainerId -or [string]$post.Config.Labels.'sql-server-lab.instance-id' -ne [string]$context.InstanceId) { throw 'CONTAINER_RECONCILE_LIVE_IDENTITY_MISMATCH' }
             if ([long]$post.HostConfig.Memory -ne ([long][int]$plan.Desired.MemoryMB * 1MB) -or
-                [decimal]([long]$post.HostConfig.NanoCpus / 1000000000) -ne [decimal]$plan.Desired.Cpu) {
+                (Get-LabContainerMeasuredCpu -Inspect $post) -ne [decimal]$plan.Desired.Cpu) {
                 throw 'CONTAINER_RECONCILE_LIVE_POSTCONDITION_FAILED'
             }
             $context.Instance | Add-Member -NotePropertyName cpu -NotePropertyValue ([decimal]$plan.Desired.Cpu) -Force
@@ -198,6 +221,7 @@ function Update-SqlServerLabContainer {
         }
         throw $failure
     }
+    } finally { if ($acquired) { $mutex.ReleaseMutex() }; $mutex.Dispose() }
 }
 
 function Update-LabContainerEnvironmentInteractive {

@@ -384,6 +384,10 @@ sources_of_truth:
   cleanup_contract: Private/CleanupEngine.ps1
   validation_cleanup_volume_ownership: Tests/Static/Invoke-CleanupVolumeOwnershipChecks.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1
+  guided_resource_change_contract: Private/EnvironmentResources.ps1
+  validation_guided_resource_change: Tests/Static/Fixtures/ResourceChangeGuidanceChecks.ps1
+  validation_environment_resources: Tests/Static/Invoke-EnvironmentResourceChecks.ps1
+  validation_podman_ci_privacy: Tests/Static/Invoke-PodmanSmokePrivacyChecks.ps1
   container_reconcile_journal_schema: Schemas/container-reconcile-journal.schema.json
   validation_container_reconcile: Tests/Static/Invoke-ContainerReconcileChecks.ps1
   hyperv_network_reconcile_contract: Private/HyperVNetworkReconcile.ps1

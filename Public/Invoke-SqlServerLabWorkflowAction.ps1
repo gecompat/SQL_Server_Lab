@@ -196,6 +196,8 @@ Bestätigt bewusst den Lizenz- und möglichen Ablaufhinweis, bevor aus einer
 vorhandenen Windows-VM eine neue differenzierende Lab-VM erzeugt wird.
 .PARAMETER OsDiskSizeGB
     Größe der Systemdisk einer neu anzulegenden VM in GB.
+.PARAMETER ResourceCpu
+    Gewünschtes Container-CPU-Limit für SetLabResources (1 bis 64, zwei Nachkommastellen); benötigt die instanzgebundene Vorschau und ExpectedPlanKey.
 .PARAMETER MemoryMB
     Gewünschter Speicher in MB für eine bestehende Lab-Umgebung. Bei
     Containern ist dies das harte Runtime-Limit; bei Hyper-V der Startwert.
@@ -241,6 +243,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [object]$InitialSetupPlan,
         [switch]$ConfirmSetup,
         [ValidateSet('docker', 'podman', 'hyperv')][string]$SetupProvider,
+        [ValidateRange(1,64)][decimal]$ResourceCpu,
         [string]$TestDataRoot,
         [switch]$PersistentData,
         [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
@@ -495,7 +498,10 @@ function Invoke-SqlServerLabWorkflowAction {
                 Rename-ContainerLabEnvironment -RunId $BuildId -DisplayName $LabName
             }
         }
-        'SetLabResources' { Set-LabEnvironmentResources -RunId $BuildId -MemoryMB $MemoryMB -ProcessorCount $ProcessorCount }
+        'SetLabResources' {
+            if (-not $ExpectedPlanKey -or -not $InstanceId -or -not $PSBoundParameters.ContainsKey('ResourceCpu')) { throw 'RESOURCE_CHANGE_PREVIEW_REQUIRED' }
+            Update-SqlServerLabContainer -RunId $BuildId -InstanceId $InstanceId -Cpu $ResourceCpu -MemoryMB $MemoryMB -ExpectedResourcePlanKey $ExpectedPlanKey -Confirm:$false
+        }
         'NewHyperVLab' {
             $localeOverrides=@{Region=$Region;SystemLocale=$SystemLocale;UiLanguage=$UiLanguage;TimeZone=$TimeZone}
             if($PSBoundParameters.ContainsKey('InputLocale')){$localeOverrides.InputLocale=$InputLocale}

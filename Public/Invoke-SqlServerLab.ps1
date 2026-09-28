@@ -6030,68 +6030,44 @@ function Select-LabRun {
 
 function Set-LabResourcesInteractive {
     <#
-    .SYNOPSIS
-        Ändert CPU und Speicher einer Docker-, Podman- oder Hyper-V-Umgebung.
-    .DESCRIPTION
-        Die angezeigten Werte stammen aus der Runtime. Container werden direkt
-        aktualisiert; eine Hyper-V-VM muss vor der Änderung ausgeschaltet sein.
+    .SYNOPSIS Zeigt eine instanzgebundene CPU/RAM-Vorschau und übernimmt unterstützte Container-Limits.
+    .DESCRIPTION Hyper-V ist bis zum dauerhaften Sollzustands-/Recovery-Vertrag ausschließlich lesbar.
     #>
     [CmdletBinding()]
     param([string]$RunId)
-
     $runs = @(Get-LabActiveRuns)
     if ($runs.Count -eq 0) { Write-LabInfo 'Keine aktiven Lab-Umgebungen vorhanden.'; return }
     if (-not $RunId) { $RunId = Select-LabRun -Runs $runs -Prompt 'Umgebung für CPU/Speicher' -DisableAutomatedTestEnvironments -DisableSystemServices }
     if (-not $RunId) { return }
-    if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) { Write-LabWarning 'Automatisierte Testumgebungen sind als Gruppe geschützt; Ressourcenänderung ist gesperrt.'; return }
-
     try {
-        $run = Get-LabRunState -RunId $RunId
-        $resources = Get-LabEnvironmentResources -RunId $RunId
-        $instances = @($resources.Instances | Where-Object { $_.Available -ne $false })
-        if ($instances.Count -eq 0) {
-            Write-LabError 'Die Runtime-Objekte dieser Umgebung sind nicht erreichbar.'
-            $null = Wait-LabConsoleAcknowledgement
-            return
-        }
-        $first = $instances[0]
-        $isHyperV = [string]$run.metadata.workflowKind -eq 'hyperv-lab'
-        $memory = if ($isHyperV) { [int]$first.MemoryStartupMB } else { [int]$first.MemoryLimitMB }
-        $cpu = if ($first.ProcessorCount) { [int][math]::Ceiling([decimal]$first.ProcessorCount) } else { 4 }
-
-        Write-Host ''
-        Write-Host "  Ressourcen: $($run.metadata.name)" -ForegroundColor Cyan
-        foreach ($instance in $instances) {
-            $instanceMemory = if ($isHyperV) { $instance.MemoryStartupMB } else { $instance.MemoryLimitMB }
-            Write-Host "    $($instance.Provider): $instanceMemory MB · $($instance.ProcessorCount) CPU · $($instance.RuntimeState)" -ForegroundColor DarkGray
-        }
-        if ($isHyperV -and [string]$first.RuntimeState -ne 'Off') {
-            Write-LabWarning 'Hyper-V-Ressourcen können sicher nur bei ausgeschalteter VM geändert werden. Zuerst im Verwalten-Menü stoppen.'
-            $null = Wait-LabConsoleAcknowledgement
-            return
-        }
-        Write-Host '  Container übernehmen die Limits sofort; Hyper-V erhält einen dynamischen Bereich von mindestens 1 GB/halber Startwert bis zum Doppelten.' -ForegroundColor DarkGray
-        $newMemory = Read-Host "  Neuer Speicher in MB [$memory]"
-        if (-not $newMemory) { $newMemory = $memory }
-        $newCpu = Read-Host "  Neue CPU-Anzahl [$cpu]"
-        if (-not $newCpu) { $newCpu = $cpu }
-        if ($newMemory -notmatch '^\d+$' -or [int]$newMemory -lt 512 -or $newCpu -notmatch '^\d+$' -or [int]$newCpu -lt 1 -or [int]$newCpu -gt 64) {
-            Write-LabError 'Ungültige Ressourcenwerte. Speicher mindestens 512 MB, CPU 1 bis 64.'
-            $null = Wait-LabConsoleAcknowledgement
-            return
-        }
-        if (-not (Read-LabConfirm -Prompt '  Ressourcen jetzt am Runtime-Objekt ändern?' -Default $false)) { return }
-        $result = Set-LabEnvironmentResources -RunId $RunId -MemoryMB ([int]$newMemory) -ProcessorCount ([int]$newCpu)
-        if ($result.NoChange) { Write-LabInfo "Ressourcen unverändert: $($result.Provider), $newMemory MB, $newCpu CPU." }
-        else { Write-LabSuccess "Ressourcen aktualisiert: $($result.Provider), $newMemory MB, $newCpu CPU." }
+        $targets = @(Get-LabResourceChangeTargets -RunId $RunId)
+        if (-not $targets.Count) { Write-LabInfo 'Keine Instanzen vorhanden.'; return }
+        $items = @($targets | ForEach-Object { [pscustomobject]@{ Id=($_.Provider + ':' + $_.InstanceId); Label=($_.InstanceId + ' · ' + $_.Provider); Data=$_ } })
+        $target = Select-LabConsoleDataItem -ScreenId 'resource-change-instance' -Title 'Instanz für CPU/RAM auswählen' -Items $items
+        if (-not $target) { return }
+        $arguments = @{ RunId=$RunId; InstanceId=$target.InstanceId; Provider=$target.Provider }
+        $plan = Get-LabResourceChangePlan @arguments
+        Write-LabInfo ("{0} · {1} · {2}: Ist {3} CPU / {4} MB" -f $RunId,$target.InstanceId,$target.Provider,$plan.Actual.Cpu,$plan.Actual.MemoryMB)
+        if (-not $plan.CanApply) { Write-LabWarning $plan.NextStep; if ($null -eq $plan.Actual.Cpu -or $null -eq $plan.Actual.MemoryMB) { $null = Wait-LabConsoleAcknowledgement; return } }
+        $newCpu = Read-Host "CPU (1–64, bis zwei Nachkommastellen; q = zurück) [$($plan.Actual.Cpu)]"
+        if ($newCpu -eq 'q') { return }
+        if (-not $newCpu) { $newCpu = [string]$plan.Actual.Cpu }
+        $newMemory = Read-Host "RAM in MB (512–1048576; q = zurück) [$($plan.Actual.MemoryMB)]"
+        if ($newMemory -eq 'q') { return }
+        if (-not $newMemory) { $newMemory = [string]$plan.Actual.MemoryMB }
+        if ($newCpu -notmatch '^\d+(?:[.,]\d{1,2})?$' -or $newMemory -notmatch '^\d+$') { throw 'Ungültige CPU/RAM-Werte.' }
+        $arguments.Cpu = [decimal]::Parse($newCpu.Replace(',','.'),[Globalization.CultureInfo]::InvariantCulture)
+        $arguments.MemoryMB = [int]$newMemory
+        $plan = Get-LabResourceChangePlan @arguments
+        Write-LabInfo ("Plan: CPU {0} → {1}; RAM {2} → {3} MB. {4}" -f $plan.Actual.Cpu,$plan.Desired.Cpu,$plan.Actual.MemoryMB,$plan.Desired.MemoryMB,$plan.NextStep)
+        if ($plan.NoChange -or -not $plan.CanApply) { $null = Wait-LabConsoleAcknowledgement; return }
+        if (-not (Read-LabConfirm -Prompt 'Diese Instanz jetzt gemäß Vorschau ändern?' -Default $false)) { return }
+        $result = Update-SqlServerLabContainer -RunId $RunId -InstanceId $target.InstanceId -Cpu $plan.Desired.Cpu -MemoryMB $plan.Desired.MemoryMB -ExpectedResourcePlanKey $plan.PlanKey -Confirm:$false
+        Write-LabSuccess ("{0}: {1} · CPU {2} / RAM {3} MB" -f $target.InstanceId,$result.Status,$plan.Desired.Cpu,$plan.Desired.MemoryMB)
         $null = Wait-LabConsoleAcknowledgement
     }
-    catch {
-        Write-LabError $_.Exception.Message
-        $null = Wait-LabConsoleAcknowledgement
-    }
+    catch { Write-LabError $_.Exception.Message; $null = Wait-LabConsoleAcknowledgement }
 }
-
 function Get-LabExternalRuntimeMenuCapability {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Instance)

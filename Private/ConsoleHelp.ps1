@@ -377,6 +377,11 @@ function Get-LabConsoleHelpCatalog {
     $catalog['ai-menu'].Preconditions += 'Für die neue Testumgebung: laufendes Podman und ausgewähltes lokales embeddinggemma:latest (768) oder bge-m3:latest (1024). Ist Podman nicht einsatzbereit, bleibt der Menüpunkt mit stabilem ReasonCode und konkreter Abhilfe sichtbar, aber deaktiviert.'
     $catalog['ai-menu'].Preconditions += 'Szenarioausführung, SQL-RAG, SQL-Diagnose und Golden-RAG benötigen eine als RUNNING registrierte SQL-Server-2025-Instanz. Ohne passendes Ziel bleiben diese Einträge sichtbar und nennen AI_SQL_2025_TARGET_UNAVAILABLE samt Abhilfe; Plan, Modellaufruf und Offline-Retrieval bleiben verfügbar.'
     $catalog['ai-menu'].Effects += ' Neue Umgebung nur nach Vorschau und Bestätigung; SQL-Daten bleiben erhalten. Fehlerbereinigung betrifft ausschließlich den gerade neu erstellten eigenen Run.'
+    $catalog['resource-change-instance'] = @{
+        Title = 'CPU/RAM-Ziel auswählen'; Purpose = 'Wählt genau eine gewöhnliche Lab-Instanz samt Provider für die gemeinsame Ist-/Zielvorschau.'
+        Preconditions = @('Runtime erreichbar, echte CPU/RAM-Limits bekannt; keine geschützte Gruppe, kein Systemdienst und keine offene Recovery.')
+        Effects = 'Auswahl liest nur. Container-Apply nach Alt/Neu-Vorschau und Bestätigung; Cancel/No-op ändern nichts. Hyper-V-Apply ist nicht verfügbar.'
+    }
     $catalog['ai-instance-select'] = @{
         Title = 'SQL-2025-Instanz auswählen'; Purpose = 'Wählt eine registrierte Instanz der zuvor gewählten Umgebung anhand von Instanzname, SQL-Version und Provider.'
         Effects = 'Die Auswahl startet keine Umgebung und führt kein SQL aus. Escape bricht ab; ungeeignete oder nicht nachweislich laufende Instanzen bleiben mit Sperrgrund sichtbar.'

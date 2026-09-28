@@ -1,13 +1,13 @@
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ("sql-lab-resource-test-" + [guid]::NewGuid().ToString('N'))
-$runId = 'resource-test-run'
+$runId = '11111111-1111-4111-8111-111111111111'
 $runDirectory = Join-Path (Join-Path $testRoot 'runs') $runId
 New-Item -Path $runDirectory -ItemType Directory -Force | Out-Null
 
 $script:run = [pscustomobject]@{
     runId = $runId
-    scopeId = 'resource-test-scope'
+    scopeId = '22222222-2222-4222-8222-222222222222'
     updatedAt = 'initial'
     metadata = [pscustomobject]@{ name = 'Resource Test'; workflowKind = 'hyperv-lab' }
 }
@@ -52,7 +52,7 @@ try {
             Inspect = [pscustomobject]@{
                 HostConfig = [pscustomobject]@{ Memory = [long](2560MB); NanoCpus = [long](1000000000); CpuQuota = 0; CpuPeriod = 0 }
                 State = [pscustomobject]@{ Status = 'running' }
-                Config = [pscustomobject]@{ Labels = [pscustomobject]@{ 'sql-server-lab.run-id'=$runId; 'sql-server-lab.scope-id'='resource-test-scope' } }
+                Config = [pscustomobject]@{ Labels = [pscustomobject]@{ 'sql-server-lab.run-id'=$runId; 'sql-server-lab.scope-id'='22222222-2222-4222-8222-222222222222' } }
             }
             Raw = 'running'
         }
@@ -78,6 +78,7 @@ try {
     if (-not $resourceAction.Success -or $resourceAction.Value -notmatch 'catch \{[\s\S]+?Write-LabError[\s\S]+?Wait-LabConsoleAcknowledgement') {
         throw 'Interaktive Ressourcenfehler warten nicht auf eine Rueckkehrbestaetigung.'
     }
+    . (Join-Path $PSScriptRoot 'Fixtures/ResourceChangeGuidanceChecks.ps1')
     Write-Host 'Environment resource checks: 6 PASS, 0 FAIL' -ForegroundColor Green
 }
 finally {

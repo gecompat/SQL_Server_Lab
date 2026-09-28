@@ -516,13 +516,14 @@
     <form id="resource-form" method="dialog">
       <div class="dialog-heading"><div><p class="eyebrow">UMGEBUNGSRESSOURCEN</p><h2>CPU und Speicher ändern</h2></div><button type="button" class="icon-button" value="cancel" formnovalidate aria-label="Schließen">×</button></div>
       <input id="resource-run" type="hidden">
+      <label>Instanz / Provider<select id="resource-instance" disabled></select></label>
       <p id="resource-current" class="selection-details">Die aktuellen Werte werden aus dem echten Runtime-Objekt gelesen.</p>
       <div class="form-grid">
         <label id="resource-memory-label">Speicher (MB)<input id="resource-memory" type="number" min="512" max="1048576" required></label>
-        <label>vCPU / CPU-Limit<input id="resource-processors" type="number" min="1" max="64" required></label>
+        <label>vCPU / CPU-Limit<input id="resource-processors" type="number" min="1" max="64" step="0.01" required></label>
       </div>
       <p id="resource-note" class="form-note"></p>
-      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Ressourcen im Hintergrund ändern</button></div>
+      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button type="button" id="resource-preview" class="button secondary">Vorschau / erneut lesen</button><button id="resource-apply" class="button primary" value="default" disabled>Diese Instanz ändern</button></div>
     </form>
   </dialog>
 
