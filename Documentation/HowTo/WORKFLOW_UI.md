@@ -127,6 +127,17 @@ Import- oder Transferaktion.
 
 ## Einheitliche Umgebungsaktionen
 
+Containerkarten nennen jede Instanz ausdrücklich. Der gemeinsame SQL-Aktionsdialog
+zeigt vor der Eingabe Umgebung, Instanz, Provider und SQL-Version aus dem aktuellen
+Inventar. Fehlende Metadaten erscheinen als „unbekannt“; bei benannten Hyper-V-
+Instanzen ohne eigene Versionsmetadaten wird keine Version geraten. Diese Anzeige
+ändert weder die technische Zielbindung noch die serverseitige Prüfung.
+Die statische UI-Suite führt hierfür zusätzlich das echte JavaScript mit
+synthetischem Inventar und einem DOM-Testdouble aus. Sie benötigt Node.js 18
+oder neuer, aber keine npm-Pakete, Browserinstallation oder laufenden Provider.
+Fehlender Node wird als nicht ausgeführter Nachweis gemeldet und blockiert den
+UI-Gate; eine Installation erfolgt nicht automatisch.
+
 Docker-, Podman- und Hyper-V-Labs zeigen den tatsächlichen Laufzeitstatus sowie
 ihre Connection Strings. **CPU und Speicher ändern** ist für alle drei
 Provider verfügbar: Container übernehmen ihre Limits direkt; bei Hyper-V muss

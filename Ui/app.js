@@ -771,7 +771,7 @@ function renderActiveLabs(items) {
         '<button class="button secondary" data-container-operation="ExecuteContainerScript" data-container-operation-kind="container" data-run="' + escapeHtml(item.RunId) + '" data-instance="' + escapeHtml(instance.Id) + '" data-container-operation-host="' + escapeHtml(instance.Host || '127.0.0.1') + '" data-port="' + escapeHtml(instance.Port) + '">SQL-Skript ausführen</button>'
       ].join('') : '';
       const resource = resourceForInstance(item.Resources, instance.Id);
-      return '<div class="container-instance"><div class="build-meta">' + escapeHtml(provider) + ' · SQL Server ' + escapeHtml(instance.SqlVersion || '–') + ' · ' + escapeHtml(connection) + ' · Autostart: ' + escapeHtml(instance.AutoStart === 'on' ? 'ein' : 'aus') + '</div><div class="build-meta">' + escapeHtml(resourceSummary(resource, provider)) + '</div>' + connectionString + persistentStorage + backupStorage + '<div class="build-actions">' + operations + '</div></div>';
+      return '<div class="container-instance"><div class="build-meta"><strong>Instanz: ' + escapeHtml(instance.Id || 'unbekannt') + '</strong></div><div class="build-meta">' + escapeHtml(provider) + ' · SQL Server ' + escapeHtml(instance.SqlVersion || '–') + ' · ' + escapeHtml(connection) + ' · Autostart: ' + escapeHtml(instance.AutoStart === 'on' ? 'ein' : 'aus') + '</div><div class="build-meta">' + escapeHtml(resourceSummary(resource, provider)) + '</div>' + connectionString + persistentStorage + backupStorage + '<div class="build-actions">' + operations + '</div></div>';
     }).join('') || '<p class="empty">Keine Instanzen im Run gespeichert.</p>';
     return '<article class="build-card"><div class="build-card-top"><div><div class="build-title">' + escapeHtml(item.Name || shortId(item.RunId)) + '</div><div class="build-meta">' + escapeHtml(item.State) + '</div></div><span class="status ' + statusClass(item.State === 'RUNNING' ? 'TESTS_PASSED' : item.State) + '">' + escapeHtml(item.State) + '</span></div><div class="build-actions">' + lifecycleActions + '</div>' + instances + '<div class="build-meta">Run: ' + escapeHtml(shortId(item.RunId)) + '</div></article>';
   }).join('') : empty('Noch keine Container-Labs vorhanden.');
@@ -1195,6 +1195,23 @@ function updateContainerSampleSelection() {
   $('#container-sample-trust').checked = false;
 }
 
+function sqlOperationTargetSummary(runId, instanceId, operationKind) {
+  const labs = operationKind === 'hyperv' ? workflow?.HyperVLabs : workflow?.ActiveLabs;
+  const matches = (labs || []).filter((item) => item.RunId === runId);
+  const lab = matches.length === 1 ? matches[0] : null;
+  const instances = operationKind === 'hyperv' ? lab?.SqlInstances : lab?.Instances;
+  const instanceMatches = (Array.isArray(instances) ? instances : (instances ? [instances] : []))
+    .filter((item) => (operationKind === 'hyperv' ? item.InstanceId : item.Id) === instanceId);
+  const instance = instanceMatches.length === 1 ? instanceMatches[0] : null;
+  const provider = operationKind === 'hyperv' && lab ? 'hyperv' : instance?.Provider;
+  // Benannte Hyper-V-Instanzen tragen bisher keine eigene Versionsmetadaten.
+  const version = instance?.SqlVersion || (operationKind === 'hyperv' && lab &&
+    (instance?.IsDefault || instanceId === lab.InstanceId) ? lab.SqlVersion : '');
+  return 'Umgebung: ' + (lab?.Name || 'unbekannt') + ' · Instanz: ' +
+    (instance?.Name || instanceId || 'unbekannt') + ' · Provider: ' + (provider || 'unbekannt') +
+    ' · SQL-Version: ' + (version || 'unbekannt');
+}
+
 function openContainerOperation(action, runId, port, instanceId, sqlVersion, kind, host) {
   const operationKind = kind === 'hyperv' ? 'hyperv' : 'container';
   const isCreateAction = action === 'CreateContainerDatabase' || action === 'CreateHyperVLabDatabase';
@@ -1215,6 +1232,7 @@ function openContainerOperation(action, runId, port, instanceId, sqlVersion, kin
     ? 'Das Passwort dient für PowerShell Direct und den SQL-Zugriff auf die laufende Hyper-V-VM.'
     : 'Das Passwort wird nicht gespeichert oder im Log angezeigt.';
   $('#container-operation-instance').value = instanceId || 'primary';
+  $('#container-operation-target').textContent = sqlOperationTargetSummary(runId, instanceId || 'primary', operationKind);
   $('#container-operation-title').textContent = isDependencyInventoryAction ? 'Migrationsabhängigkeiten prüfen' : (isExportAction ? 'Datenbank als Paket veröffentlichen' : (databaseAction ? 'Datenbank anlegen oder wiederherstellen' : 'SQL-Skript ausführen'));
   $('#container-database-field').hidden = !databaseAction;
   const showContainerSamples = isCreateAction && operationKind === 'container';

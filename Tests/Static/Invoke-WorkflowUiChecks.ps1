@@ -703,6 +703,30 @@ Add-CheckResult -Name 'Browser bildet den Shared-Gateway-Dienst-Secret-Preflight
 )
 
 Write-Host ''
+$node = Get-Command node -ErrorAction SilentlyContinue
+if (-not $node) {
+    Add-CheckResult -Name 'JavaScript-Zielanzeige ausgeführt' -Success $false -Message 'NOT_EXECUTED: Node.js 18 oder neuer fehlt; keine automatische Installation.'
+}
+else {
+    $start = [Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = $node.Source
+    $start.UseShellExecute = $false; $start.CreateNoWindow = $true
+    $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
+    $start.ArgumentList.Add((Join-Path $PSScriptRoot 'Fixtures/WorkflowSqlTargetChecks.cjs'))
+    $process = [Diagnostics.Process]::new(); $process.StartInfo = $start
+    try {
+        $null = $process.Start()
+        $output = $process.StandardOutput.ReadToEndAsync(); $errors = $process.StandardError.ReadToEndAsync()
+        $completed = $process.WaitForExit(60000)
+        if (-not $completed) { $process.Kill($true); $process.WaitForExit() }
+        Write-Host $output.GetAwaiter().GetResult()
+        $failureText = $errors.GetAwaiter().GetResult()
+        Add-CheckResult -Name 'Echte JavaScript-Renderer, Zielwechsel, Escaping, Payload und Abbruch' `
+            -Success ($completed -and $process.ExitCode -eq 0) -Message $(if ($completed) { $failureText } else { 'JavaScript-Test überschritt 60 Sekunden.' })
+    }
+    finally { $process.Dispose() }
+}
+
 Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count -gt 0) {
     $failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
