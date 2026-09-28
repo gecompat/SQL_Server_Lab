@@ -41,53 +41,56 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $classification = 'UNKNOWN'
+          $logPath = Join-Path $env:RUNNER_TEMP 'mixed-preflight.private.log'
           function Set-ValidationClassification([string]$Value) {
             $script:classification = $Value
             "validation_classification=$Value" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           }
           Set-ValidationClassification UNKNOWN
           try {
-            $PSVersionTable.PSVersion
-            docker info
+            $PSVersionTable.PSVersion | Out-File -LiteralPath $logPath -Encoding utf8
+            docker info *>> $logPath
             if ($LASTEXITCODE -ne 0) { throw 'Docker-Runtime ist nicht erreichbar.' }
-            .\Tests\Integration\Initialize-PodmanRuntime.ps1
-            sqlcmd -?
+            & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Initialize-PodmanRuntime.ps1 *>> $logPath
+            if ($LASTEXITCODE -ne 0) { throw 'MIXED_PODMAN_PREFLIGHT_FAILED' }
+            sqlcmd -? *>> $logPath
             if ($LASTEXITCODE -ne 0) { throw 'sqlcmd ist nicht verwendbar.' }
             Set-ValidationClassification VALIDATED
           }
           catch {
+            try { $_ | Out-String | Add-Content -LiteralPath $logPath } catch { }
             Set-ValidationClassification INFRASTRUCTURE_UNAVAILABLE
-            $message = "INFRASTRUCTURE_UNAVAILABLE: Docker-, Podman- oder sqlcmd-Voraussetzung ist nicht erreichbar oder nicht verwendbar. $($_.Exception.Message)"
+            $message = 'INFRASTRUCTURE_UNAVAILABLE: Docker-, Podman- oder sqlcmd-Voraussetzung ist nicht erreichbar oder nicht verwendbar.'
             "::error title=INFRASTRUCTURE_UNAVAILABLE::$message" | Write-Host
             Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "## Infrastruktur nicht verfügbar`n`n$message`n`nEs liegt kein Nachweis für einen Implementierungsfehler vor. Nach Wiederherstellung nur diesen Lauf erneut ausführen."
-            throw $message
+            exit 1
           }
 
       - name: Mixed provider smoke test
         run: |
           $ErrorActionPreference = 'Stop'
-          $logPath = Join-Path $env:RUNNER_TEMP 'mixed-provider-smoke.log'
+          $logPath = Join-Path $env:RUNNER_TEMP 'mixed-provider-smoke.private.log'
           $mutexName = if ($IsWindows) { 'Global\SQL_Server_Lab_Runtime_Smoke' } else { 'SQL_Server_Lab_Runtime_Smoke' }
-          $mutex = [System.Threading.Mutex]::new($false, $mutexName)
+          $mutex = $null
           $acquired = $false
           try {
-            $acquired = $mutex.WaitOne([TimeSpan]::FromMinutes(10))
-            if (-not $acquired) { throw 'Runtime-Smoke-Hostlock konnte innerhalb von 10 Minuten nicht erworben werden.' }
+            $mutex = [System.Threading.Mutex]::new($false, $mutexName)
+            try {
+              $acquired = $mutex.WaitOne([TimeSpan]::FromMinutes(10))
+              if (-not $acquired) { throw 'Runtime-Smoke-Hostlock konnte innerhalb von 10 Minuten nicht erworben werden.' }
 
-            & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1 2>&1 | Tee-Object -FilePath $logPath
-            $smokeExitCode = $LASTEXITCODE
-            if ($smokeExitCode -ne 0) { throw "Mixed-Provider-Smoke-Test endete mit Exitcode $smokeExitCode." }
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-MixedProviderSmokeTest.ps1 *>> $logPath
+              $smokeExitCode = $LASTEXITCODE
+              if ($smokeExitCode -ne 0) { throw "Mixed-Provider-Smoke-Test endete mit Exitcode $smokeExitCode." }
+            }
+            finally {
+              if ($acquired) { $mutex.ReleaseMutex() }
+              $mutex.Dispose()
+            }
+            Write-Host 'MIXED_RUNTIME_SUCCEEDED'
           }
-          finally {
-            if ($acquired) { $mutex.ReleaseMutex() }
-            $mutex.Dispose()
+          catch {
+            try { $_ | Out-String | Add-Content -LiteralPath $logPath } catch { }
+            Write-Host '::error title=MIXED_RUNTIME_FAILED::MIXED_RUNTIME_FAILED: Private diagnostics remain local on the runner.'
+            exit 1
           }
-
-      - name: Upload mixed provider smoke log
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: mixed-provider-smoke-log
-          path: ${{ runner.temp }}/mixed-provider-smoke.log
-          if-no-files-found: ignore
-          retention-days: 7

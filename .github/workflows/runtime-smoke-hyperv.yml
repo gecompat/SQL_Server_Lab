@@ -130,30 +130,43 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $classification = 'UNKNOWN'
+          $logPath = Join-Path $env:RUNNER_TEMP 'hyperv-preflight.private.log'
           function Set-ValidationClassification([string]$Value) {
             $script:classification = $Value
             "validation_classification=$Value" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           }
           Set-ValidationClassification UNKNOWN
           try {
-            $PSVersionTable.PSVersion
-            $null = Get-VMHost -ErrorAction Stop
-            Get-Command New-VM, New-VHD, Get-VMFirmware -ErrorAction Stop
+            $PSVersionTable.PSVersion | Out-File -LiteralPath $logPath -Encoding utf8
+            $null = Get-VMHost -ErrorAction Stop *>> $logPath
+            Get-Command New-VM, New-VHD, Get-VMFirmware -ErrorAction Stop *>> $logPath
             Set-ValidationClassification VALIDATED
           }
           catch {
+            try { $_ | Out-String | Add-Content -LiteralPath $logPath } catch { }
             Set-ValidationClassification INFRASTRUCTURE_UNAVAILABLE
-            $message = "INFRASTRUCTURE_UNAVAILABLE: Hyper-V-Host oder Verwaltungswerkzeuge sind nicht erreichbar oder nicht verwendbar. $($_.Exception.Message)"
+            $message = 'INFRASTRUCTURE_UNAVAILABLE: Hyper-V-Host oder Verwaltungswerkzeuge sind nicht erreichbar oder nicht verwendbar.'
             "::error title=INFRASTRUCTURE_UNAVAILABLE::$message" | Write-Host
             Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "## Infrastruktur nicht verfügbar`n`n$message`n`nEs liegt kein Nachweis für einen Implementierungsfehler vor. Nach Wiederherstellung nur diesen Lauf erneut ausführen."
-            throw $message
+            exit 1
           }
 
       - name: Hyper-V lifecycle smoke
         if: inputs.mode == 'lifecycle'
         run: |
           $ErrorActionPreference = 'Stop'
-          .\Tests\Integration\Invoke-HyperVSmokeTest.ps1
+          $logPath = Join-Path $env:RUNNER_TEMP 'hyperv-lifecycle.private.log'
+          $global:LASTEXITCODE = 0
+          try {
+            & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-HyperVSmokeTest.ps1 *>> $logPath
+            if ($LASTEXITCODE -ne 0) { throw 'HYPERV_LIFECYCLE_NONZERO_EXIT' }
+            Write-Host 'HYPERV_LIFECYCLE_SUCCEEDED'
+          }
+          catch {
+            try { $_ | Out-String | Add-Content -LiteralPath $logPath } catch { }
+            Write-Host '::error title=HYPERV_LIFECYCLE_FAILED::HYPERV_LIFECYCLE_FAILED: Private diagnostics remain local on the runner.'
+            exit 1
+          }
 
       - name: Reject AI own-run acceptance outside trusted manual dispatch
         if: inputs.mode == 'ai-rag-own-run-acceptance' && !(github.event_name == 'workflow_dispatch' && github.event.repository.full_name == github.repository)

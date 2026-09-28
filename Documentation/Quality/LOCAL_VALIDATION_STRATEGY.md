@@ -54,6 +54,22 @@ synthetischen PowerShell-Kindprozessen aus und prüft erfolgreiche sowie
 fehlgeschlagene Schritte einschließlich privater stdout-/stderr-Ausgabe.
 Diese Offline-Prüfung ersetzt den erforderlichen Docker-Providernachweis nicht.
 
+Mixed-Preflight und -Smoke, Hyper-V-Preflight und der Standardmodus `lifecycle`
+sowie Adapterinstallation, -Smoke und -Cleanup führen ihre Rohstreams ebenfalls
+nur in lokalen privaten Logs. Der Mixed-Rohlogupload entfällt; veröffentlichte
+Fehler und Ergebnisse sind fest vorgegeben. Die vorhandenen Testskripte und
+Argumente bleiben erhalten; eine PowerShell-Prozessgrenze erfasst auch direkte
+Konsolenausgaben. Der Adapter-Cleanup behält seinen bisherigen Best-Effort-Vertrag.
+`Invoke-RuntimeSmokePrivacyChecks.ps1` führt die echten Workflowblöcke mit
+synthetischen Prozess-/Kommando-Grenzen aus, einschließlich nativer stderr,
+Exceptions und früher sowie später Bash-Fehler. Unter Windows verwendet die
+Fixture ausschließlich Git Bash, nicht WSL. Diese Prüfung startet keine Provider.
+Der PR-Dispatch übergibt keinen Hyper-V-Modus und verwendet damit `lifecycle`;
+die expliziten `shared-environments`-Schritte werden nicht ausgewählt. Weitere
+manuelle Hyper-V-Modi sind nicht durch diese Privacyhärtung abgedeckt.
+CI-Selektion, Zeitgrenzen, Mutex und bestehende Cleanupaufrufe bleiben erhalten;
+fehlende native Nachweise werden durch die Offline-Fixtures nicht ersetzt.
+
 ## SQL Server 2025 External Languages auf cgroup v2
 
 Die expliziten `shared-user-v2`-Varianten besitzen getrennte native
