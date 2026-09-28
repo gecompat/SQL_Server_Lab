@@ -78,6 +78,18 @@ function Get-LabConsoleHelpCatalog {
         'resources-menu' = @{ Title = 'Ressourcen und Downloads'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabResourcePlan' }
         'hostmodels-menu' = @{ Title = 'Host-Dienste und Modelle'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Invoke-SqlServerLab -Action Commands' }
         'configuration-menu' = @{ Title = 'SQL-Lab-Grundkonfiguration'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Invoke-SqlServerLab -Action Setup' }
+        'initial-setup' = @{
+            Title = 'SQL-Lab-Grundkonfiguration'
+            Purpose = 'Vorhandene Roots und Herkunft prüfen, fehlende Roots ergänzen oder den globalen Standard für künftige Vorgänge wählen.'
+            Effects = 'Status und Vorschau ändern nichts. Erst die gesonderte Bestätigung wendet den revalidierten Plan an; bestehende Bindungen bleiben erhalten.'
+            Command = 'Invoke-SqlServerLab -Action Setup'
+        }
+        'initial-setup-provider' = @{
+            Title = 'Provider ausdrücklich prüfen'
+            Purpose = 'Installation und Erreichbarkeit genau eines Providers erneut über den Readinessvertrag prüfen.'
+            Effects = 'Kein Start, keine Installation und keine Änderung bestehender Runtimebindungen. Fehlende Voraussetzungen bleiben ein Befund.'
+            Command = 'Invoke-SqlServerLabWorkflowAction -Action RefreshSetupProvider'
+        }
         'create-menu' = @{
             Title   = 'Umgebung erstellen'
             Purpose = 'Erstellt eine einzelne Umgebung sofort oder stellt mehrere zusammen und uebergibt sie an die Queue.'

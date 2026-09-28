@@ -37,6 +37,16 @@ SQL_Server_Lab-Internal-Switch verwendet.
     Externer Media Root für eine neue Windows- oder SQL-Vorbereitung.
 .PARAMETER DataRoot
     Vorher initialisierter Data Root für optionale langlebige SQL-Daten.
+.PARAMETER LabDataRoot
+    Neue gemeinsame Datenroots für PlanInitialSetup; bestehende Bindungen bleiben erhalten.
+.PARAMETER DefaultDataRoot
+    Ausdrücklich gewählter globaler Standard für PlanInitialSetup.
+.PARAMETER InitialSetupPlan
+    Zuvor angezeigter InitialSetupPlan/1.0; ApplyInitialSetup revalidiert ihn vor jeder Mutation.
+.PARAMETER ConfirmSetup
+    Bestätigt ausdrücklich die Anwendung des angezeigten Grundkonfigurationsplans.
+.PARAMETER SetupProvider
+    Einzelner Provider für die reine Readinessprüfung RefreshSetupProvider; keine Installation oder Startaktion.
 .PARAMETER TestDataRoot
     Sichtbarer Root für wiederverwendbare Testdatenbanken, Archive und
     katalogisierte T-SQL-Skripte. Ohne Angabe wird `<MediaRoot>\Testdaten`
@@ -204,6 +214,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [Parameter(Mandatory)]
         [ValidateSet(
             'Refresh',
+            'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
@@ -225,6 +236,11 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$SwitchName,
         [string]$MediaRoot,
         [string]$DataRoot,
+        [string[]]$LabDataRoot = @(),
+        [string]$DefaultDataRoot,
+        [object]$InitialSetupPlan,
+        [switch]$ConfirmSetup,
+        [ValidateSet('docker', 'podman', 'hyperv')][string]$SetupProvider,
         [string]$TestDataRoot,
         [switch]$PersistentData,
         [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$PersistentStorageId,
@@ -282,6 +298,22 @@ function Invoke-SqlServerLabWorkflowAction {
         [switch]$ConfirmSourceLicense,
         [ValidateRange(32, 1048576)][int]$OsDiskSizeGB = 80
     )
+
+    if ($Action -in @('GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider')) {
+        $result = switch ($Action) {
+            'GetInitialSetupState' { Get-LabInitialSetupState }
+            'PlanInitialSetup' { New-LabInitialSetupPlan -MediaRoot $MediaRoot -LabDataRoot $LabDataRoot -DefaultDataRoot $DefaultDataRoot }
+            'ApplyInitialSetup' {
+                if (-not $ConfirmSetup -or -not $InitialSetupPlan) { throw 'INITIAL_SETUP_CONFIRMATION_REQUIRED' }
+                Invoke-LabInitialSetupPlan -Plan $InitialSetupPlan -Confirm:$false
+            }
+            'RefreshSetupProvider' {
+                if (-not $SetupProvider) { throw 'INITIAL_SETUP_PROVIDER_REQUIRED' }
+                [pscustomobject]@{ Provider=$SetupProvider; Check=(Get-LabClientRuntimeReadiness -Provider $SetupProvider) }
+            }
+        }
+        return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
+    }
 
     if ($Action -eq 'Refresh') {
         return [PSCustomObject]@{

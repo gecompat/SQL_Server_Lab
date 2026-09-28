@@ -287,13 +287,24 @@ Beispiel `SqlServerLab\New-SqlServerLabDatabase`.
 Invoke-SqlServerLab -Action Setup
 ```
 
-Der Assistent fragt nur fehlende oder ungültige Angaben ab. Für den gemeinsamen
+Der Dialog zeigt vorhandene Roots, Herkunft und ungültige Einträge und bleibt
+auch bei vollständiger Konfiguration bedienbar. Für den gemeinsamen
 Media-Root und jede gemeinsame Daten-Location werden vollständige Zielpfade
 eingegeben, zum Beispiel `D:\Lab1_Base` und `D:\Lab1_Data`; die Namen sind frei
 wählbar. Danach wird der globale Datenstandard ausdrücklich ausgewählt. Ein
-erneuter Aufruf ist bei vollständiger Konfiguration ein No-op; vorhandene
-Dateien werden nicht überschrieben. Ein nichtleerer, noch nicht vom Lab
-verwalteter Datenroot wird fail-closed abgelehnt.
+unveränderter Plan ist ein No-op; die Auswahl eines anderen registrierten
+Defaults wird dagegen ausdrücklich angewendet. Vorschau und Abbruch ändern
+nichts. Erst die Bestätigung wendet den erneut geprüften Plan an. Vorhandene
+Dateien und Bindungen bleiben erhalten. Ein nichtleerer, noch nicht vom Lab
+verwalteter Datenroot wird fail-closed abgelehnt. Ein gültiger Media-Root wird
+hier nicht ersetzt; Datenmigration ist ein eigener Vorgang.
+
+Im Browser führt **SQL-Lab-Grundkonfiguration → Grundkonfiguration und Provider
+öffnen** zum gleichen Plan-/Apply-Core. **Gewählten Provider prüfen** liest nur
+Installation und Erreichbarkeit von Docker, Podman oder Hyper-V; die Auswahl
+startet und installiert nichts und ändert keine bestehende Runtimebindung.
+Container-only benötigt für diesen Dialog kein Hyper-V. Schreibbarkeit und
+freie Kapazität werden in diesem ersten Konfigurationsdialog nicht geprüft.
 
 ### 3b. Betriebssystem-ISO beschaffen (nur für Hyper-V)
 

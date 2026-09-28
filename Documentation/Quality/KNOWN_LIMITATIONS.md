@@ -754,9 +754,15 @@ Die Multi-Root-Verwaltung erfasst seit 2026-08-29 stabile `LocationId`,
 Volume- und Backing-Device-Topologie, übernimmt Legacy-Defaults mit Receipt und
 schützt Default- sowie referenzierte Locations. Laufwerksrelative Eingaben wie
 `D:` werden blockiert; das normalisierte Ziel wird vor der Bestätigung gezeigt.
-Der gemeinsame Ersteinrichtungsassistent fragt nur fehlende oder ungültige
-`Lab_Base`-/`Lab_Data`-Angaben ab, unterstützt mehrere unterschiedliche Volumes
-und verlangt eine ausdrückliche Default-Auswahl. Einen nichtleeren, noch nicht
+Die gemeinsame Grundkonfiguration zeigt wirksame Lab_Base-Herkunft und
+registrierte Lab_Data-Einträge einschließlich fehlender oder ungültiger Roots.
+CLI und Browser ergänzen fehlende Roots über denselben Vorschau-/Apply-Core,
+unterstützen mehrere unterschiedliche Volumes und verlangen eine ausdrückliche
+Default-Auswahl. Complete beendet den CLI-Dialog nicht; ein Wechsel auf einen
+bereits registrierten Default ist kein No-op. Schreibbarkeit und freie
+Kapazität bleiben in diesem Dialog ungeprüft. Providerrefresh liest nur den
+explizit gewählten Provider; Installation, Start und Bindingänderungen gehören
+nicht dazu. Gültige Media-Roots werden hier nicht ersetzt. Einen nichtleeren, noch nicht
 controllergebundenen `Lab_Data`-Ordner übernimmt er bewusst nicht automatisch;
 dessen Daten müssen vor einer Registrierung manuell geprüft beziehungsweise
 über einen dafür vorgesehenen Migrationspfad übernommen werden.

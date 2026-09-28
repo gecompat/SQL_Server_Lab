@@ -195,16 +195,19 @@ Keine neue Runtimefunktion und keine pauschale Fachdialogparität werden
 behauptet. Historische `CUI-026`-Evidence bleibt erhalten. Nächste Erweiterung:
 Grundkonfiguration und gezielte Änderung einer vorhandenen Umgebung.
 
-**FOLLOW_UP – `UX-202/204/622`, `CORE-102/108/111`: Grundkonfiguration und
+**IMPLEMENTED (erster Dialogslice) – `UX-202/204/622`, `CORE-102/108/111`: Grundkonfiguration und
 späteren Provider prüfen.** Benutzeraufgabe: wirksame Lab_Base-/Lab_Data-Werte
 und fehlende Voraussetzungen sehen, gezielt konfigurieren und später einen
-Provider ergänzen. `Private/InitialSetup.ps1` besitzt bereits
+Provider prüfen. `Private/InitialSetup.ps1` besitzt
 `Get-LabInitialSetupState`, `New-LabInitialSetupPlan` und
-`Invoke-LabInitialSetupPlan`; die vollständige Herkunfts-/Erreichbarkeits-/
-Schreibbarkeits-/Kapazitäts- und getrennte Providerstatussicht fehlt.
-CLI-Ersteinrichtung und Browser-Fachdialog binden dieselbe Projektion sowie
-denselben Plan/Apply-Pfad. Fehlende Rechte bleiben ein konkreter Befund;
-Erkennung überschreibt keine vorhandene Providerbindung.
+`Invoke-LabInitialSetupPlan`; CLI und Browser binden über die vorhandene
+WorkflowAction-API denselben Status-/Plan-/Apply-Pfad. Lab_Base-Herkunft und
+ungültige registrierte Roots bleiben sichtbar. Complete beendet den Dialog
+nicht; registrierte Defaultwechsel werden angewendet und danach idempotent.
+Providerrefresh prüft ausdrücklich genau einen Provider strukturiert über den
+bestehenden Readinessvertrag. Erkennung überschreibt keine Providerbindung.
+Installation, Service-Start, freie Kapazität und Schreibbarkeitsprobe bleiben
+Folgearbeit innerhalb derselben IDs; Schreibbarkeit wird nicht behauptet.
 
 Abnahme: Container-only ohne Hyper-V-Zwang, Vorschau/Abbruch ohne neue Ordner,
 wiederholtes Apply als No-op, bestehende Roots und Bindungen nach
@@ -212,7 +215,10 @@ Providerergänzung unverändert. Unbekannt, nicht erreichbar und nicht
 schreibbar bleiben unterscheidbar. `Invoke-InitialSetupChecks.ps1`, passende
 Storage-/Readiness-Verträge und WorkflowUI-/ConsoleUI-Verhalten prüfen; eine
 geänderte Provisionierung benötigt zusätzlich den betroffenen Providernachweis.
-Abschluss ist dieser Konfigurationspfad; zentrale Slotreserve folgt separat.
+Der erste Abschluss umfasst Rootstatus, geführte Ergänzung/Defaultwahl und
+explizites read-only Providerrefresh. Die übrige Providerergänzung sowie
+zentrale Slotreserve folgen separat. Reale Providerabnahmen sind keine
+Folgerung aus den isolierten CLI-/Browser-Handlerregressionen.
 
 #### Konkrete Folgearbeit innerhalb der übrigen bestehenden Aufgaben
 

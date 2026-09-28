@@ -232,15 +232,17 @@ try {
         'Start-SqlServerLab.ps1','Stop-SqlServerLab.ps1','Restart-SqlServerLab.ps1','Remove-SqlServerLab.ps1','Update-SqlServerLabContainer.ps1'
     ) | ForEach-Object { Get-Content -LiteralPath (Join-Path $repoRoot "Public/$_") -Raw -Encoding utf8 }
     Add-CheckResult -Name 'Providerneutraler Hauptpfad bietet Batch-Erfassung für Linux und Windows an' -Success (
-        $menuText -match "-Id 'create' -Label 'Umgebung erstellen'" -and
+        $menuText -match "-Id 'labs' -Label 'Lab-Umgebungen'" -and
+        $batchConsoleText -match "-Id CreateArea -Label 'Umgebung erstellen'" -and
+        $batchConsoleText -match "-Id BatchPlan -Label 'SQL- oder Windows-Umgebung zusammenstellen'" -and
         $batchConsoleText -match "-Id 'add-sql' -Label 'SQL-Umgebung hinzufuegen'" -and
         $batchConsoleText -match "-Id 'add-windows'" -and
         $batchConsoleText -match "'Reine Windows-Umgebung hinzufuegen'" -and
         $batchConsoleText -match "-Id 'matrix' -Label 'Testmatrix erzeugen'" -and
         $batchConsoleText -match "ProviderPreference'\] = 'Auto'" -and
         $batchConsoleText -match "-Id 'review' -Label 'Gesamtplan pruefen und zur Queue uebergeben'" -and
-        $menuText -match "-Id 'ClearAutomatedTestEnvironment' -Label 'Alle automatisierten Testumgebungen loeschen'" -and
-        $menuText -match '-Id ''AutomatedTestEnvironmentLifecycle'' -Label \$testEnvironmentLifecycle\.Label' -and
+        $batchConsoleText -match "-Id ClearAutomatedTestEnvironment -Label 'Geschützte Testgruppe entfernen'" -and
+        $batchConsoleText -match '-Id AutomatedTestEnvironmentLifecycle -Label' -and
         $menuText -match "'Automatisierte Testumgebung starten'" -and
         $menuText -match "'Automatisierte Testumgebung stoppen'" -and
         $testEnvironmentText -match 'function Get-LabAutomatedTestEnvironmentStatus' -and

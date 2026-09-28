@@ -17,8 +17,8 @@ Wartung/Recovery und Vorgänge. Inaktive Inventare sind ausgeblendet; technische
 Secret-Parameter unter Host-Dienste sind zusätzlich eingeklappt. Zurück
 wechselt in den vorherigen Bereich ohne Formulare zu löschen. Ein Refresh
 behält Bereich und ungespeicherte Eingaben. Expertenbefehle und Meldungen
-haben eigene Einstiege. Ressourcen und Grundkonfiguration öffnen denselben
-bestehenden Quellen-/Speicherortdialog. Die Verbindungsansicht zeigt nur
+haben eigene Einstiege. Ressourcen öffnen den bestehenden Quellen-/Speicherortdialog;
+Grundkonfiguration bietet einen eigenen gemeinsamen Plan-/Apply-Pfad. Die Verbindungsansicht zeigt nur
 vorhandene Host-/Port-Felder. Bei Hyper-V werden Host und Port eng aus dem führenden Serverfeld des Connection Strings und TcpPort projiziert; Credentials und Connection Strings werden hier nie angezeigt. Fehlende oder nicht unterstützte Werte bleiben unbekannt; ein Verbindungstest wird nicht behauptet.
 
 Die geschützte Testmatrix wird im Browser ausdrücklich auf die vorhandenen
@@ -41,6 +41,18 @@ in die persistente Queue geschrieben. Befehlsname und Parametersatz müssen im
 frisch erzeugten Katalog enthalten sein; freie PowerShell-Befehlszeilen nimmt
 die Browser-API nicht an. Ergebnisse werden vor der Ausgabe rekursiv um
 Kennwörter, Credentials, Tokens, Secrets und Connection Strings bereinigt.
+
+Der Grundkonfigurationsdialog liest Lab_Base-Herkunft und registrierte
+Lab_Data-Roots einschließlich ungültiger Einträge. Er ergänzt fehlende Roots
+und wählt den globalen Standard für künftige Vorgänge. Ein gültiger Media-Root
+bleibt erhalten. Vorschau und Abbruch erzeugen keine Ordner oder Queueeinträge;
+erst **Angezeigten Plan revalidieren und anwenden** führt den gemeinsamen Core
+aus. Änderungen an Eingaben oder Schließen verwerfen die Vorschau.
+Providerrefresh prüft ausschließlich den ausdrücklich gewählten Provider über
+den vorhandenen Readinessvertrag, ohne Installation, Start oder Änderung von
+Bindings. Schreibbarkeit und Kapazität bleiben ungeprüft. Dieser kurze Pfad
+läuft direkt im lokalen Server; seine begrenzte Providerprüfung kann die
+Annahme weiterer Anfragen vorübergehend verzögern.
 
 Die Workflow-Inventur (ISO-, Image- und Runtime-Erkennung) läuft getrennt von
 der HTTP-Annahme eines Klicks. Nach einer Aktion schließt der Dialog daher

@@ -125,8 +125,8 @@
     </section>
     <section class="panel" data-workspace-area="configuration" hidden>
       <h2>SQL-Lab-Grundkonfiguration</h2>
-      <p>Vorhandene Lab_Base-, Lab_Data- und Testdatenablage prüfen oder anpassen. Ein vollständiger Browser-Ersteinrichtungsassistent, späteres Provider-Setup und zentrale Reservepolicy bleiben offen. Operative Slotvorbereitung liegt bei Vorlagen und Slots.</p>
-      <button id="configuration-storage" type="button" class="button secondary">Vorhandene Quellen- und Speicherortkonfiguration öffnen</button>
+      <p>Lab_Base und registrierte Lab_Data-Roots prüfen, fehlende Roots ergänzen und den globalen Standard wählen. Provider lassen sich ausdrücklich erneut prüfen. Installation, Datenmigration und zentrale Reservepolicy bleiben getrennte Schritte.</p>
+      <button id="configuration-storage" type="button" class="button secondary">Grundkonfiguration und Provider öffnen</button>
     </section>
     <section class="panel" data-workspace-area="maintenance" hidden>
       <h2>Wartung, Aufräumen und Recovery</h2>
@@ -538,6 +538,27 @@
     </div>
   </dialog>
 
+  <dialog id="initial-setup-dialog">
+    <div class="read-only-dialog-content">
+      <div class="dialog-heading"><h2>SQL-Lab-Grundkonfiguration</h2><button type="button" class="icon-button" value="cancel" aria-label="Schließen">×</button></div>
+      <p class="form-note">Vorhandene Daten und Bindungen bleiben erhalten. Ein neuer globaler Standard gilt für künftige Vorgänge. Schreibbarkeit wird hier nicht geprüft. Lab_Data umfasst Hostkatalog und Austausch; native Containerdaten können in Runtime-Volumes liegen.</p>
+      <p id="initial-setup-status" role="status" aria-live="polite"></p>
+      <div id="initial-setup-roots" class="selection-details"></div>
+      <form id="initial-setup-form">
+        <label>Neuer Lab_Base-Root (nur falls keiner gültig ist)<input id="initial-setup-media" type="text" disabled></label>
+        <label>Neue Lab_Data-Roots (vollständige Pfade, einer je Zeile; je Volume ein Root)<textarea id="initial-setup-data" rows="3" disabled></textarea></label>
+        <label>Globaler Lab_Data-Standard (vollständiger registrierter oder oben ergänzter Pfad)<input id="initial-setup-default" type="text" disabled></label>
+        <button id="initial-setup-preview" type="submit" class="button secondary" disabled>Vorschau erstellen</button>
+      </form>
+      <div id="initial-setup-plan" class="selection-details" hidden></div>
+      <button id="initial-setup-apply" type="button" class="button primary" disabled>Angezeigten Plan revalidieren und anwenden</button>
+      <hr>
+      <label>Provider<select id="initial-setup-provider"><option value="docker">Docker</option><option value="podman">Podman</option><option value="hyperv">Hyper-V</option></select></label>
+      <p class="form-note">Prüft nur Installation und Erreichbarkeit der aktuellen Providerauswahl. Startet und installiert nichts; bestehende Runtimebindungen bleiben unverändert.</p>
+      <p id="initial-setup-provider-status" role="status">Noch nicht geprüft.</p>
+      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel">Schließen</button><button id="initial-setup-read" type="button" class="button secondary">Roots erneut lesen</button><button id="initial-setup-provider-refresh" type="button" class="button secondary">Gewählten Provider prüfen</button></div>
+    </div>
+  </dialog>
   <script src="app.js"></script>
 </body>
 </html>

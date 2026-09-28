@@ -71,20 +71,35 @@ function Set-LabProjectPreferenceValue {
     Write-LabArtifactJsonAtomic -Path $preferencePath -InputObject ([PSCustomObject]$preferences)
 }
 
-function Get-LabMediaRootDefault {
+function Get-LabMediaRootCandidates {
     [CmdletBinding()]
     param()
 
     $candidates = @(
-        [string]$env:SQL_SERVER_LAB_MEDIA_ROOT,
-        (Get-LabProjectMediaRootDefault),
-        [string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_MEDIA_ROOT', 'User')
-    ) | Where-Object { $_ }
+        @{ Source='ProcessEnvironment'; Path=[string]$env:SQL_SERVER_LAB_MEDIA_ROOT },
+        @{ Source='ProjectPreference'; Path=[string](Get-LabProjectPreferenceValue -Name mediaRoot) },
+        @{ Source='UserEnvironment'; Path=[string][Environment]::GetEnvironmentVariable('SQL_SERVER_LAB_MEDIA_ROOT', 'User') }
+    )
+    $selected = $false
     foreach ($candidate in $candidates) {
-        if (Test-Path -LiteralPath $candidate -PathType Container) {
-            return (Resolve-Path -LiteralPath $candidate -ErrorAction Stop).Path
-        }
+        if (-not $candidate.Path) { continue }
+        $resolved = $null
+        $status = 'ROOT_NOT_FOUND'
+        try { if (Test-Path -LiteralPath $candidate.Path -PathType Container -ErrorAction Stop) { $resolved = (Resolve-Path -LiteralPath $candidate.Path -ErrorAction Stop).Path; $status='READY' } }
+        catch { $status = 'ROOT_UNREADABLE' }
+        $active = [bool]$resolved -and -not $selected
+        if ($active) { $selected = $true }
+        [pscustomobject]@{ Source=$candidate.Source; Path=$candidate.Path; ResolvedPath=$resolved;
+            Status=$status; Selected=$active }
     }
+}
+
+function Get-LabMediaRootDefault {
+    [CmdletBinding()]
+    param()
+
+    $selected = @(Get-LabMediaRootCandidates | Where-Object Selected | Select-Object -First 1)
+    if ($selected.Count) { return [string]$selected[0].ResolvedPath }
     return $null
 }
 

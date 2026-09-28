@@ -1820,7 +1820,104 @@ function openMediaSourcesDialog() {
   $('#media-sources-dialog').showModal();
 }
 $('#media-sources').addEventListener('click', openMediaSourcesDialog);
-$('#configuration-storage').addEventListener('click', openMediaSourcesDialog);
+let initialSetupState = null;
+let initialSetupPlan = null;
+let initialSetupRevision = 0;
+let initialSetupBusy = false;
+function updateInitialSetupControls() {
+  const ready = initialSetupState?.ConfigurationStatus === 'READY' && !initialSetupBusy;
+  $('#initial-setup-media').disabled = !ready || initialSetupState.MediaRootValid;
+  for (const id of ['initial-setup-data', 'initial-setup-default', 'initial-setup-preview']) $('#' + id).disabled = !ready;
+  $('#initial-setup-apply').disabled = !ready || !initialSetupPlan || initialSetupPlan.IsNoOp;
+  for (const id of ['initial-setup-read', 'initial-setup-provider', 'initial-setup-provider-refresh']) $('#' + id).disabled = initialSetupBusy;
+}
+function invalidateInitialSetupPlan() {
+  initialSetupPlan = null;
+  $('#initial-setup-plan').hidden = true;
+  updateInitialSetupControls();
+}
+async function requestInitialSetup(action, parameters) {
+  const response = await fetch('/api/initial-setup', action ? {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, parameters })
+  } : { cache: 'no-store' });
+  if (!response.ok) throw new Error('Grundkonfiguration konnte nicht geprüft oder angewendet werden. Eingaben und aktuellen Zustand erneut prüfen.');
+  return (await response.json()).Result;
+}
+function renderInitialSetupState(state) {
+  initialSetupState = state;
+  if (workflow && state.ConfigurationStatus === 'READY') {
+    workflow.Defaults = { ...(workflow.Defaults || {}), MediaRoot: state.MediaRoot || '', DataRoot: state.DefaultLocation?.LabDataRoot || '' };
+  }
+  const rows = (state.MediaRootCandidates || []).map((item) => '<div>Lab_Base: ' + escapeHtml(item.Path) + ' · ' + escapeHtml(item.Source) + ' · ' + escapeHtml(item.Status) + (item.Selected ? ' · aktiv' : '') + '</div>');
+  for (const item of state.LocationStatus || []) rows.push('<div>Lab_Data: ' + escapeHtml(item.LabDataRoot) + ' · ' + escapeHtml(item.Source) + ' · ' + escapeHtml(item.Status) + (item.IsDefault ? ' · globaler Standard' : '') + '</div>');
+  $('#initial-setup-roots').innerHTML = rows.join('') || 'Noch keine Roots konfiguriert.';
+  $('#initial-setup-status').textContent = state.ConfigurationStatus !== 'READY' ? 'Storage-Konfiguration ungültig. Bestehende Konfiguration separat prüfen.' : state.Complete ? 'Grundkonfiguration vollständig. Ergänzungen und Providerprüfung bleiben verfügbar.' : 'Grundkonfiguration unvollständig. Fehlende Roots ergänzen und Vorschau prüfen.';
+  $('#initial-setup-media').value = state.MediaRoot || '';
+  $('#initial-setup-data').value = '';
+  $('#initial-setup-default').value = state.DefaultLocation?.LabDataRoot || '';
+  invalidateInitialSetupPlan();
+}
+async function runInitialSetupRequest(operation, receive) {
+  if (initialSetupBusy) return;
+  const revision = ++initialSetupRevision;
+  initialSetupBusy = true; updateInitialSetupControls();
+  try {
+    const result = await operation();
+    if (revision === initialSetupRevision && $('#initial-setup-dialog').open) receive(result);
+  } catch (error) {
+    if (revision === initialSetupRevision && $('#initial-setup-dialog').open) {
+      invalidateInitialSetupPlan(); $('#initial-setup-status').textContent = error.message;
+    }
+  } finally {
+    if (revision === initialSetupRevision) { initialSetupBusy = false; updateInitialSetupControls(); }
+  }
+}
+function readInitialSetup() {
+  invalidateInitialSetupPlan();
+  return runInitialSetupRequest(() => requestInitialSetup(), renderInitialSetupState);
+}
+$('#configuration-storage').addEventListener('click', () => {
+  initialSetupRevision++; initialSetupBusy = false; initialSetupState = null;
+  invalidateInitialSetupPlan();
+  $('#initial-setup-roots').innerHTML = '';
+  $('#initial-setup-status').textContent = 'Roots werden gelesen …';
+  $('#initial-setup-provider-status').textContent = 'Noch nicht geprüft.';
+  $('#initial-setup-dialog').showModal();
+  return readInitialSetup();
+});
+$('#initial-setup-dialog').addEventListener('close', () => {
+  initialSetupRevision++; initialSetupBusy = false; invalidateInitialSetupPlan();
+});
+$('#initial-setup-read').addEventListener('click', readInitialSetup);
+for (const id of ['initial-setup-media', 'initial-setup-data', 'initial-setup-default']) $('#' + id).addEventListener('input', invalidateInitialSetupPlan);
+$('#initial-setup-form').addEventListener('submit', (event) => {
+  event.preventDefault(); invalidateInitialSetupPlan();
+  const parameters = { MediaRoot: $('#initial-setup-media').value.trim(), LabDataRoot: $('#initial-setup-data').value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean), DefaultDataRoot: $('#initial-setup-default').value.trim() };
+  return runInitialSetupRequest(() => requestInitialSetup('PlanInitialSetup', parameters), (plan) => {
+    initialSetupPlan = plan;
+    const rows = [];
+    if (plan.MediaAction) rows.push('Neuer Lab_Base-Root: ' + plan.MediaAction.MediaRoot);
+    for (const item of plan.LocationActions || []) rows.push('Neuer Lab_Data-Root: ' + item.LabDataRoot);
+    rows.push('Globaler Standard: ' + plan.DefaultDataRoot);
+    if (plan.IsNoOp) rows.push('Keine Änderung erforderlich.');
+    $('#initial-setup-plan').innerHTML = rows.map((row) => '<div>' + escapeHtml(row) + '</div>').join('');
+    $('#initial-setup-plan').hidden = false;
+    $('#initial-setup-status').textContent = 'Vorschau geprüft. Noch keine Änderungen angewendet.';
+  });
+});
+$('#initial-setup-apply').addEventListener('click', () => {
+  if (!initialSetupPlan || initialSetupBusy) return;
+  const plan = initialSetupPlan; invalidateInitialSetupPlan();
+  return runInitialSetupRequest(() => requestInitialSetup('ApplyInitialSetup', { InitialSetupPlan: plan, ConfirmSetup: true }), renderInitialSetupState);
+});
+$('#initial-setup-provider').addEventListener('change', () => { $('#initial-setup-provider-status').textContent = 'Noch nicht geprüft.'; });
+$('#initial-setup-provider-refresh').addEventListener('click', () => {
+  const provider = $('#initial-setup-provider').value;
+  $('#initial-setup-provider-status').textContent = 'Gewählter Provider wird geprüft …';
+  return runInitialSetupRequest(() => requestInitialSetup('RefreshSetupProvider', { SetupProvider: provider }), (result) => {
+    $('#initial-setup-provider-status').textContent = result.Provider + ': ' + result.Check.Status + ' · ' + result.Check.Code + (result.Check.NextStep ? ' · ' + result.Check.NextStep : '');
+  });
+});
 
 $('#media-sources-form').addEventListener('submit', async (event) => {
   if (event.submitter?.value === 'cancel') return;

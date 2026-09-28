@@ -13,7 +13,9 @@ if ($showHelpRequested) { Get-Help -Full -Name $PSCommandPath | Out-Host; return
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$temporaryRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-lab-initial-setup-$([guid]::NewGuid().ToString('N'))"
+$temporaryParent = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/')
+$temporaryLeaf = "sql-lab-initial-setup-$([guid]::NewGuid().ToString('N'))"
+$temporaryRoot = Join-Path $temporaryParent $temporaryLeaf
 $mediaRoot = Join-Path $temporaryRoot 'Lab1_Base'
 $dataRootOne = Join-Path $temporaryRoot 'Lab1_Data'
 $dataRootTwo = Join-Path $temporaryRoot 'Lab2_Data'
@@ -27,12 +29,17 @@ $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
 Write-Host ''; Write-Host 'SQL_Server_Lab - Initial Setup Checks' -ForegroundColor Cyan
 
 try {
-    $null = New-Item -Path $temporaryRoot -ItemType Directory -Force
+    if (Test-Path -LiteralPath $temporaryRoot) { throw 'INITIAL_SETUP_TEST_ROOT_EXISTS' }
+    $null = New-Item -Path $temporaryRoot -ItemType Directory
     $env:SQL_SERVER_LAB_MEDIA_ROOT = $null
     $env:SQL_SERVER_LAB_DATA_ROOT = $null
     $env:SQL_SERVER_LAB_CONTROLLER_ID = $null
     $module = Import-Module $modulePath -Force -PassThru -ErrorAction Stop
     & $module {
+        $script:SetupOriginalCandidates = ${function:Get-LabMediaRootCandidates}
+        Set-Item -Path Function:script:Get-LabMediaRootCandidates -Value {
+            if ($env:SQL_SERVER_LAB_MEDIA_ROOT) { [pscustomobject]@{ Source='ProcessEnvironment'; Path=$env:SQL_SERVER_LAB_MEDIA_ROOT; ResolvedPath=$env:SQL_SERVER_LAB_MEDIA_ROOT; Status='READY'; Selected=$true } }
+        }
         Set-Item -Path Function:script:Get-LabMediaRootDefault -Value {
             if ($env:SQL_SERVER_LAB_MEDIA_ROOT -and (Test-Path -LiteralPath $env:SQL_SERVER_LAB_MEDIA_ROOT -PathType Container)) {
                 return (Resolve-Path -LiteralPath $env:SQL_SERVER_LAB_MEDIA_ROOT).Path
@@ -122,6 +129,196 @@ try {
         (Get-Content -LiteralPath $dataSentinel -Raw -Encoding utf8).Trim() -eq 'data-preserved'
     )
 
+    $switchPlan = & $module { param($root) New-LabInitialSetupPlan -DefaultDataRoot $root } $dataRootOne
+    Add-CheckResult -Name 'Wechsel auf registrierten Default ist kein No-op' -Success (-not $switchPlan.IsNoOp)
+    $switched = & $module { param($plan) Invoke-LabInitialSetupPlan -Plan $plan -ProcessEnvironmentOnly -Confirm:$false } $switchPlan
+    $repeated = & $module { param($root) New-LabInitialSetupPlan -DefaultDataRoot $root } $dataRootOne
+    Add-CheckResult -Name 'Registrierter Defaultwechsel erhält beide Roots und wird danach idempotent' -Success (
+        $switched.DefaultLocation.LabDataRoot -eq $dataRootOne -and @($switched.Locations).Count -eq 2 -and $repeated.IsNoOp -and
+        (Get-Content -LiteralPath $mediaSentinel -Raw).Trim() -eq 'media-preserved' -and
+        (Get-Content -LiteralPath $dataSentinel -Raw).Trim() -eq 'data-preserved'
+    )
+    $mediaChangeRejected = try {
+        & $module { param($root) New-LabInitialSetupPlan -MediaRoot $root } (Join-Path $temporaryRoot 'replacement-base')
+        $false
+    } catch { $_.Exception.Message -eq 'INITIAL_SETUP_MEDIA_ROOT_CHANGE_UNSUPPORTED' }
+    Add-CheckResult -Name 'Gültiger MediaRoot kann durch Grundkonfiguration nicht still ersetzt werden' -Success $mediaChangeRejected
+    $candidateCheck = & $module {
+        param($validRoot, $missingRoot)
+        $savedPreference = ${function:Get-LabProjectPreferenceValue}
+        $savedMedia = $env:SQL_SERVER_LAB_MEDIA_ROOT
+        try {
+            $script:SetupPreference = $validRoot
+            $env:SQL_SERVER_LAB_MEDIA_ROOT = $missingRoot
+            Set-Item Function:script:Get-LabProjectPreferenceValue { param($Name) $script:SetupPreference }
+            $candidates = @(& $script:SetupOriginalCandidates)
+            @($candidates | Where-Object Selected)[0].Source -eq 'ProjectPreference' -and
+                $candidates[0].Source -eq 'ProcessEnvironment' -and $candidates[0].Status -eq 'ROOT_NOT_FOUND'
+        }
+        finally { $env:SQL_SERVER_LAB_MEDIA_ROOT=$savedMedia; Set-Item Function:script:Get-LabProjectPreferenceValue $savedPreference }
+    } $mediaRoot (Join-Path $temporaryRoot 'missing-media')
+    Add-CheckResult -Name 'Echte Herkunftsauflösung zeigt ungültigen Vorrangwert und gültigen Projektfallback' -Success $candidateCheck
+    $stalePlan = & $module { param($root) New-LabInitialSetupPlan -DefaultDataRoot $root } $dataRootTwo
+    $marker = Join-Path $dataRootTwo '.sql-server-lab-root.json'
+    $markerHold = Join-Path $dataRootTwo '.test-marker-hold'
+    Move-Item -LiteralPath $marker -Destination $markerHold
+    try {
+        $staleRejected = try { & $module { param($plan) Invoke-LabInitialSetupPlan -Plan $plan -ProcessEnvironmentOnly -Confirm:$false } $stalePlan; $false }
+            catch { $_.Exception.Message -match 'INITIAL_SETUP_DEFAULT_DATA_ROOT_UNKNOWN' }
+    }
+    finally { Move-Item -LiteralPath $markerHold -Destination $marker }
+    Add-CheckResult -Name 'Apply revalidiert Ownership und lehnt veralteten Defaultplan vor Mutation ab' -Success ($staleRejected -and $env:SQL_SERVER_LAB_DATA_ROOT -eq $dataRootOne)
+
+    & $module {
+        $script:SetupOriginalApply = ${function:Invoke-LabInitialSetupPlan}
+        Set-Item Function:script:Invoke-LabInitialSetupPlan {
+            param($Plan, [switch]$Confirm)
+            & $script:SetupOriginalApply -Plan $Plan -ProcessEnvironmentOnly -Confirm:$false
+        }
+        Set-Item Function:script:Test-HyperVAvailable { throw 'UNEXPECTED_HYPERV_PROBE' }
+        Set-Item Function:script:Get-LabClientRuntimeReadiness {
+            param($Provider)
+            $script:SetupProviders.Add($Provider)
+            [pscustomobject]@{ Status='BLOCKED'; Code='PROVIDER_UNREACHABLE'; NextStep='Provider separat prüfen.' }
+        }
+        $script:SetupProviders = [Collections.Generic.List[string]]::new()
+    }
+    $projection = & $module {
+        param($missingRoot, $validRoot)
+        $original = ${function:Get-LabStorageConfiguration}
+        try {
+            $script:SetupStatusConfiguration = [pscustomobject]@{ ControllerId='synthetic'; DefaultLocationId='invalid'; LabDataLocations=@(
+                [pscustomobject]@{ LocationId='missing'; LabDataRoot=$missingRoot },
+                [pscustomobject]@{ LocationId='invalid'; LabDataRoot=$validRoot }
+            ) }
+            Set-Item Function:script:Get-LabStorageConfiguration { $script:SetupStatusConfiguration }
+            $state = Get-LabInitialSetupState
+            Set-Item Function:script:Get-LabStorageConfiguration { throw 'synthetic-private-detail' }
+            $invalid = Get-LabInitialSetupState
+            $blocked = try { New-LabInitialSetupPlan; $false } catch { $_.Exception.Message -eq 'INITIAL_SETUP_STORAGE_CONFIGURATION_INVALID' }
+            [pscustomobject]@{ State=$state; Invalid=$invalid; Blocked=$blocked }
+        }
+        finally { Set-Item Function:script:Get-LabStorageConfiguration $original }
+    } (Join-Path $temporaryRoot 'missing') $mediaRoot
+    Add-CheckResult -Name 'Status behält ungültige Locations sichtbar und beschädigte Konfiguration fail-closed' -Success (
+        $projection.State.InvalidLocationCount -eq 2 -and ($projection.State.LocationStatus.Status -join ',') -eq 'ROOT_NOT_FOUND,OWNERSHIP_INVALID' -and
+        $projection.Invalid.ConfigurationStatus -eq 'STORAGE_CONFIGURATION_INVALID' -and $projection.Blocked -and
+        $projection.State.Writeability -eq 'NOT_CHECKED'
+    )
+    $publicState = (Invoke-SqlServerLabWorkflowAction -Action GetInitialSetupState).Result
+    $publicPlan = (Invoke-SqlServerLabWorkflowAction -Action PlanInitialSetup -DefaultDataRoot $dataRootTwo).Result
+    $unconfirmedRejected = try { Invoke-SqlServerLabWorkflowAction -Action ApplyInitialSetup -InitialSetupPlan $publicPlan; $false }
+        catch { $_.Exception.Message -eq 'INITIAL_SETUP_CONFIRMATION_REQUIRED' }
+    $publicApplied = (Invoke-SqlServerLabWorkflowAction -Action ApplyInitialSetup -InitialSetupPlan $publicPlan -ConfirmSetup).Result
+    $provider = (Invoke-SqlServerLabWorkflowAction -Action RefreshSetupProvider -SetupProvider docker).Result
+    Add-CheckResult -Name 'Öffentliche Setupactions umgehen Hyper-V-Gate und verlangen explizites Apply' -Success (
+        $publicState.Complete -and $unconfirmedRejected -and $publicApplied.DefaultLocation.LabDataRoot -eq $dataRootTwo -and
+        $provider.Provider -eq 'docker' -and $provider.Check.Code -eq 'PROVIDER_UNREACHABLE'
+    )
+    $cli = & $module {
+        param($defaultRoot)
+        $script:SetupMenus = [Collections.Generic.Queue[object]]::new()
+        foreach ($item in @(
+            @{Status='Refresh'},
+            @{Status='Selected'; SelectedItem=@{Id='root-0'}},
+            @{Status='Selected'; SelectedItem=@{Id='Configure'}},
+            @{Status='Selected'; SelectedItem=@{Data=$defaultRoot}},
+            @{Status='Selected'; SelectedItem=@{Id='Provider'}},
+            @{Status='Selected'; SelectedItem=@{Data='podman'}},
+            @{Status='Cancelled'}
+        )) { $script:SetupMenus.Enqueue([pscustomobject]$item) }
+        $script:SetupScreens = [Collections.Generic.List[string]]::new()
+        $script:SetupFrames = [Collections.Generic.List[object]]::new()
+        $script:SetupInfo = [Collections.Generic.List[string]]::new()
+        $script:SetupAcknowledged = [Collections.Generic.List[string]]::new()
+        $script:SetupOriginalMenu = ${function:Invoke-LabConsoleMenu}
+        $script:SetupFallbackAction = $null
+        Set-Item Function:script:Update-LabConsoleAttentionSnapshot { return $null }
+        Set-Item Function:script:Write-LabInfo { param($Message) $script:SetupInfo.Add([string]$Message) }
+        Set-Item Function:script:Wait-LabConsoleAcknowledgement { $script:SetupAcknowledged.Add($script:SetupInfo[-1]) }
+        Set-Item Function:script:Invoke-LabConsoleMenu {
+            param($ScreenId, $Title, $Subtitle, $Items)
+            $script:SetupScreens.Add($ScreenId)
+            if ($ScreenId -eq 'initial-setup' -and -not $script:SetupFallbackAction) {
+                $fallback = & $script:SetupOriginalMenu -ScreenId $ScreenId -Title $Title -Items $Items -Snapshot $null -ForceFallback -ReadInput { '1' } 6>$null
+                $script:SetupFallbackAction = $fallback.SelectedItem.Id
+            }
+            if (-not $script:SetupMenus.Count) { throw 'UNEXPECTED_MENU' }
+            $choice = $script:SetupMenus.Dequeue()
+            $selectedId = if ($choice.Status -eq 'Selected') {
+                if ($choice.SelectedItem.Id) { [string]$choice.SelectedItem.Id }
+                else { [string]@($Items | Where-Object Data -eq $choice.SelectedItem.Data)[0].Id }
+            } else { '' }
+            $script:SetupTestKey = [pscustomobject]@{ Key=$(if($choice.Status -eq 'Refresh'){'F5'}elseif($choice.Status -eq 'Cancelled'){'Escape'}else{'Enter'}); KeyChar=[char]0; Modifiers=[ConsoleModifiers]0 }
+            & $script:SetupOriginalMenu -ScreenId $ScreenId -Title $Title -Subtitle $Subtitle -Items $Items -SelectedId $selectedId -Snapshot $null `
+                -Capability ([pscustomobject]@{Supported=$true}) -StatusProvider $null -ReadKey { $script:SetupTestKey } `
+                -FrameWriter { param($session, $frame) $script:SetupFrames.Add($frame) } `
+                -GetViewport { [pscustomobject]@{Width=160; Height=20} } `
+                -SessionFactory { [pscustomobject]@{OriginTop=0; PreviousLineCount=0; ForegroundColor='Gray'} } -SessionCompleter { param($session) }
+        }
+        Set-Item Function:script:Read-LabConfirm { param($Prompt, $Default) $false }
+        $result = Invoke-LabInitialSetupInteractive
+        [pscustomobject]@{ State=$result; Screens=@($script:SetupScreens); Providers=@($script:SetupProviders); Frames=@($script:SetupFrames); Acknowledged=@($script:SetupAcknowledged); FallbackAction=$script:SetupFallbackAction }
+    } $dataRootOne
+    Add-CheckResult -Name 'Echter CLI-Handler bleibt bei Complete bedienbar, Cancel mutiert nicht und Providerrefresh ist explizit' -Success (
+        $cli.State.DefaultLocation.LabDataRoot -eq $dataRootTwo -and
+        @($cli.Screens | Where-Object { $_ -eq 'initial-setup' }).Count -eq 5 -and
+        ($cli.Providers -join ',') -eq 'docker,podman'
+    )
+    Add-CheckResult -Name 'Echter Cursorframe zeigt Rootstatus und F5 liest erneut statt den Dialog zu verlassen' -Success (
+        ($cli.Frames[0].Lines -join "`n") -match 'Lab_Base.*ProcessEnvironment.*READY' -and
+        ($cli.Frames[0].Lines -join "`n") -match 'Lab_Data.*READY' -and
+        $cli.Frames.Count -eq 7 -and $cli.Screens[0] -eq 'initial-setup' -and $cli.Screens[1] -eq 'initial-setup'
+    )
+    Add-CheckResult -Name 'Volle Rootdetails und Providerbefund bleiben bis ausdrücklicher Bestätigung sichtbar' -Success (
+        $cli.Acknowledged.Count -eq 2 -and $cli.Acknowledged[0].Contains($mediaRoot) -and
+        $cli.Acknowledged[0] -match 'ProcessEnvironment' -and $cli.Acknowledged[1] -match 'podman.*PROVIDER_UNREACHABLE'
+    )
+    Add-CheckResult -Name 'Echter nummerierter Fallback erreicht Konfiguration mit Auswahl 1 trotz Statusitems' -Success ($cli.FallbackAction -eq 'Configure')
+
+    $serverAst = [Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tools/Start-SqlServerLabUi.ps1'), [ref]$null, [ref]$null)
+    $requestFunction = $serverAst.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Invoke-UiInitialSetupRequest'}, $true)
+    . ([scriptblock]::Create($requestFunction.Extent.Text))
+    function New-SetupTestRequest {
+        param($Payload, $Origin='http://127.0.0.1:9999', $ContentType='application/json', $Method='POST')
+        [pscustomobject]@{ HttpMethod=$Method; ContentType=$ContentType; Headers=@{ Origin=$Origin };
+            Url=[uri]'http://127.0.0.1:9999/api/initial-setup'; ContentEncoding=[Text.Encoding]::UTF8;
+            InputStream=[IO.MemoryStream]::new([Text.Encoding]::UTF8.GetBytes(($Payload | ConvertTo-Json -Depth 12))) }
+    }
+    $httpPlan = Invoke-UiInitialSetupRequest -Request (New-SetupTestRequest @{action='PlanInitialSetup'; parameters=@{DefaultDataRoot=$dataRootOne}})
+    $httpState = Invoke-UiInitialSetupRequest -Request (New-SetupTestRequest @{} -Method GET)
+    Add-CheckResult -Name 'Echter HTTP-Adapter liest und plant ohne Defaultmutation oder Batchqueue' -Success (
+        -not $httpPlan.Result.IsNoOp -and $httpState.Result.DefaultLocation.LabDataRoot -eq $dataRootTwo
+    )
+    $requestFailures = 0
+    foreach ($request in @(
+        (New-SetupTestRequest @{action='ApplyInitialSetup'; parameters=@{InitialSetupPlan=$httpPlan.Result; ConfirmSetup='false'}}),
+        (New-SetupTestRequest @{action='PlanInitialSetup'; parameters=@{DefaultDataRoot=$dataRootOne}} -Origin 'https://foreign.invalid'),
+        (New-SetupTestRequest @{action='PlanInitialSetup'; parameters=@{DefaultDataRoot=$dataRootOne}} -ContentType 'text/plain'),
+        (New-SetupTestRequest @{action='StartContainerLab'; parameters=@{}}),
+        (New-SetupTestRequest @{action='PlanInitialSetup'; parameters=@{Unexpected='value'}})
+    )) { try { $null=Invoke-UiInitialSetupRequest -Request $request } catch { $requestFailures++ } }
+    Add-CheckResult -Name 'HTTP-Grenze blockiert fremden Origin, Simple-POST, fremde Action/Parameter und falsche Bestätigung' -Success ($requestFailures -eq 5)
+    $httpApplied = Invoke-UiInitialSetupRequest -Request (New-SetupTestRequest @{action='ApplyInitialSetup'; parameters=@{InitialSetupPlan=$httpPlan.Result; ConfirmSetup=$true}})
+    Add-CheckResult -Name 'HTTP-Apply verwendet den gemeinsamen revalidierenden Core' -Success ($httpApplied.Result.DefaultLocation.LabDataRoot -eq $dataRootOne)
+    $cliApplied = & $module {
+        param($defaultRoot)
+        $script:SetupMenus.Clear()
+        foreach ($item in @(
+            @{Status='Selected'; SelectedItem=@{Id='Configure'}},
+            @{Status='Selected'; SelectedItem=@{Data=$defaultRoot}},
+            @{Status='Cancelled'}
+        )) { $script:SetupMenus.Enqueue([pscustomobject]$item) }
+        $script:SetupConfirmCount = 0
+        Set-Item Function:script:Read-LabConfirm {
+            param($Prompt, $Default)
+            $script:SetupConfirmCount++
+            return $script:SetupConfirmCount -eq 2
+        }
+        Invoke-LabInitialSetupInteractive
+    } $dataRootTwo
+    Add-CheckResult -Name 'Echter CLI-Handler wendet erst bestätigten Defaultwechsel an und liest danach neuen Status' -Success ($cliApplied.DefaultLocation.LabDataRoot -eq $dataRootTwo)
+
     $env:SQL_SERVER_LAB_MEDIA_ROOT = $null
     $env:SQL_SERVER_LAB_DATA_ROOT = $null
     $foreignRoot = Join-Path $temporaryRoot 'foreign-data'
@@ -157,7 +354,15 @@ finally {
     $env:SQL_SERVER_LAB_MEDIA_ROOT = $previousMediaRoot
     $env:SQL_SERVER_LAB_DATA_ROOT = $previousDataRoot
     $env:SQL_SERVER_LAB_CONTROLLER_ID = $previousControllerId
-    if (Test-Path -LiteralPath $temporaryRoot) { Remove-Item -LiteralPath $temporaryRoot -Recurse -Force }
+    if (Test-Path -LiteralPath $temporaryRoot) {
+        $cleanup = Get-Item -LiteralPath $temporaryRoot -Force
+        $resolvedCleanup = [IO.Path]::GetFullPath($cleanup.FullName).TrimEnd('\', '/')
+        if ($cleanup.Attributes -band [IO.FileAttributes]::ReparsePoint -or
+            [IO.Path]::GetDirectoryName($resolvedCleanup) -ne $temporaryParent -or
+            [IO.Path]::GetFileName($resolvedCleanup) -ne $temporaryLeaf -or
+            $resolvedCleanup -ne [IO.Path]::GetFullPath($temporaryRoot)) { throw 'INITIAL_SETUP_TEST_CLEANUP_SCOPE_INVALID' }
+        Remove-Item -LiteralPath $resolvedCleanup -Recurse -Force
+    }
 }
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0

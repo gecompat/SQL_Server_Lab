@@ -31,6 +31,9 @@
     }
     $script:navigationChoices.Enqueue('Refresh'); $script:navigationChoices.Enqueue('labs')
     Add-ConsoleUiCheck 'F5 aktualisiert Status und behaelt danach Menueauswahl' ((Show-LabMenu) -eq 'labs' -and $script:navigationRefresh -eq 1)
+    $script:navigationChoices.Enqueue('7'); $script:navigationChoices.Enqueue('exit')
+    $null = Invoke-SqlServerLab 6>$null
+    Add-ConsoleUiCheck 'Echter Hauptmenü-Shortcut 7 dispatcht Grundkonfiguration' ($script:navigationDestinations.Count -eq 12 -and $script:navigationDestinations[-1] -eq 'Configuration')
 }
 & {
     . (Join-Path $repoRoot 'Public/BatchConsole.ps1')
@@ -51,6 +54,22 @@
     $script:navigationSteps.Enqueue('')
     Invoke-LabAreaMenuInteractive -Area Resources
     Add-ConsoleUiCheck 'Bereichsabbruch verlaesst den Bereich ohne Aktion' ($script:navigationSteps.Count -eq 0)
+    $script:setupDispatch = [Collections.Generic.List[string]]::new()
+    $script:setupMenuCount = 0
+    function Show-LabSubMenu {
+        param($ScreenId, $Title, $Subtitle, $Items)
+        if ($ScreenId -ne 'configuration-menu') { throw 'UNEXPECTED_CONFIGURATION_SCREEN' }
+        $script:setupMenuCount++
+        if ($script:setupMenuCount -gt 1) { return 'back' }
+        $item = @($Items | Where-Object Shortcut -eq '1')[0]
+        if (-not $item -or $item.Disabled) { throw 'SETUP_MENU_NOT_AVAILABLE' }
+        return [string]$item.Id
+    }
+    function Get-LabMessageJournalMarker { return $null }
+    function Show-LabActionMessagesInteractive { param($Marker) }
+    function Invoke-LabMenuAction { param($ActionName) $script:setupDispatch.Add($ActionName) }
+    Invoke-LabAreaMenuInteractive -Area Configuration
+    Add-ConsoleUiCheck 'Grundkonfigurations-Shortcut 1 dispatcht Setup und kehrt in denselben Bereich zurück' (($script:setupDispatch -join ',') -eq 'Setup' -and $script:setupMenuCount -eq 2)
     function Get-LabAutomatedTestEnvironmentMenuState { return @{Available=$false; Value=''; Label=''} }
     function Show-LabSubMenu { param($ScreenId,$Title,$Subtitle,$Items) return ,$Items }
     $items = Show-LabTestMatrixMenu
