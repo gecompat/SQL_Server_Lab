@@ -242,3 +242,46 @@ Windows nutzt der positive synthetische Fall den produktiven ephemeren
 Profilwrapper mit einer No-op- beziehungsweise werfenden Action; er ruft
 keinen SQL-/VM-Supervisor auf. Nur sein expliziter PASS bestätigt Profilanlage
 und eigenes Cleanup, nicht die native Sprachabnahme.
+
+## Dauerhafte lokale Abnahmenachweise
+
+Der Request-Wrapper erzeugt nach dem vertrauenswürdigen Main-/Repository- und
+Elevationsguard genau einen atomar neu angelegten GUID-Ordner auf dem geprüften
+lokalen Laufwerksroot. Seine initiale geschützte ACL erlaubt ausschließlich
+Administratoren und SYSTEM Schreibzugriff; ausschließlich die tatsächliche
+WindowsIdentity.User des Runnerprozesses erhält zusätzlich Lesezugriff. Vorhandene Ordner werden weder übernommen
+noch durch ACL-Reparaturen verwendbar gemacht. Der ausschließlich interne
+EvidenceRoot-Parameter ist kein Workflow-Input. Ein begrenzter geschlossener
+Marker bindet Main-SHA, Workflow-Run und Native-Operation; ein exklusiver
+Supervisor-Claim verhindert Wiederverwendung desselben Ordners.
+
+Plan, Payloadkopien, Workflow-/Worker-Rohlogs, SQL-Versuchsmarker und Receipt
+bleiben ausschließlich dort lokal. Checkout-Cleanup und Runner-Tempbereinigung
+berühren diesen Ort nicht. Kindprozessausgaben fließen bereits während der
+Ausführung in vor dem Prozessstart exklusiv erzeugte Dateien. Prozessende und
+Ausgabedrain bleiben zeitlich begrenzt. `EvidenceFailure` wird getrennt von
+Hauptfehler, Run-Cleanup und Profil-Cleanup transportiert; GitHub erhält nur
+feste Fehlercodes, keine lokalen Pfade, Rohlogs oder hochgeladenen Artefakte.
+VM- und Profilcleanup löschen keine Evidenz. Ein eigener späterer, exakt
+gebundener Retentions-/Cleanupauftrag ist erforderlich; dieser Slice fügt
+keine automatische Löschung hinzu. Ein harter Abbruch kann einen Marker oder
+Teilstreams ohne abschließenden Receipt hinterlassen: das ist kein PASS.
+
+Der Lauf `36375779272` verlor seine checkout-/tempgebundenen Rohdiagnosen beim
+folgenden CI-Checkout. Sein konkreter Kindfehler und SQL-Versuchsstatus sind
+`UNKNOWN`, nicht nachträglich als `NOT_EXECUTED` oder Sprachfehler zu deuten.
+Der separat erhaltene Produkt-Run ist nachweislich `REMOVED`; dieser
+Cleanupnachweis rekonstruiert den verlorenen SQL-Marker nicht. Ein erneuter
+nativer Lauf erfolgt erst mit dem integrierten Retentionsfix. Offlineprüfungen
+verwenden ausschließlich synthetische Daten und Kindprozesse. Die reale
+geschützte Ordneranlage wird auf erhöhtem Windows-CI ohne VM/SQL geprüft;
+Linux oder ein nicht erhöhter lokaler Prozess meldet `NOT_EXECUTED`.
+
+Der zusätzliche initiale Lesegrant verwendet keine externe SID und keine
+allgemeine Users-Gruppe. Er gilt nur für Evidence; Profil-ACLs bleiben
+unverändert. Derselbe Benutzer kann damit auch ohne erhöhten Token lesen;
+der lokale nicht erhöhte Testprozess kann die reale erhöhte Anlage jedoch
+nicht beweisen. Windows-CI prüft den tatsächlichen Grant einschließlich
+fehlender Schreib-/Löschrechte. Bei einer abweichenden Operatoridentität ist
+ein gesonderter autorisierter Runner-Leseweg erforderlich; dieser Slice
+implementiert keinen solchen Diagnose-Workflow und behauptet keinen Zugriff.
