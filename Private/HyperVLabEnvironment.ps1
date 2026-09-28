@@ -1340,8 +1340,11 @@ function Set-HyperVLabSqlDeploymentPlan {
         [Parameter(Mandatory)][ValidateSet('sql-pool-slot', 'adhoc-install')][string]$DeploymentMode,
         [ValidateSet('Eval', 'Enterprise', 'Standard')][string]$MediaEdition = 'Enterprise',
         [Parameter(Mandatory)][string]$SqlMediaPath,
-        [ValidateSet('SQLENGINE', 'FULLTEXT', 'REPLICATION', 'ADVANCEDANALYTICS')]
+        [ValidateSet('SQLENGINE', 'FULLTEXT', 'REPLICATION', 'ADVANCEDANALYTICS', 'IS')]
         [string[]]$SqlFeatures = @('SQLENGINE', 'FULLTEXT', 'REPLICATION'),
+        [string]$SsisOperationId,
+        [string]$ExpectedSqlMediaSha256,
+        [guid]$ExpectedVmId = [guid]::Empty,
         [ValidateRange(1, 64)][int]$ProcessorCount = 4,
         [ValidateRange(0, 1000000)][long]$MaximumDataIops = 0,
         [ValidateRange(0, 1048576)][int]$MemoryStartupMB = 0,
@@ -1366,6 +1369,14 @@ function Set-HyperVLabSqlDeploymentPlan {
     if (-not $managed) { throw 'HYPERV_LAB_VM_NOT_FOUND' }
     if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_LAB_SQL_PLAN_VM_MUST_BE_OFF' }
 
+    $ssisBinding=$null
+    if ($SqlFeatures -contains 'IS' -or $SsisOperationId -or $ExpectedSqlMediaSha256 -or $ExpectedVmId -ne [guid]::Empty) {
+        Assert-LabSsisInstallBinding -Lab $lab -Managed $managed -OperationId $SsisOperationId -Sha256 $ExpectedSqlMediaSha256 `
+            -VmId $ExpectedVmId -SqlVersion $SqlVersion -MediaEdition $MediaEdition -Features $SqlFeatures
+        if ($DeploymentMode -cne 'adhoc-install' -or $lab.Instance.sqlDeploymentPlan -or $SqlPatch -or $SqlUpdatePath) { throw 'SSIS_INSTALL_FRESH_PLAN_REQUIRED' }
+        $ssisBinding=[pscustomobject]@{OperationId=$SsisOperationId;Sha256=$ExpectedSqlMediaSha256.ToLowerInvariant();VmId=$ExpectedVmId.ToString()}
+    }
+
     $null = Set-VMProcessor -VM $managed.VM -Count $ProcessorCount -ErrorAction Stop
     if ($MemoryStartupMB -gt 0) {
         $startupBytes = [long]$MemoryStartupMB * 1MB
@@ -1385,6 +1396,7 @@ function Set-HyperVLabSqlDeploymentPlan {
         collation = $Collation; sqlPort = $SqlPort; networkMode = $NetworkMode
         serverConfig = $ServerConfig; storage = $StorageConfiguration
         sqlPatch = $SqlPatch; sqlUpdatePath = $SqlUpdatePath; expectedSqlBuild = $ExpectedSqlBuild
+        ssisBinding = $ssisBinding
         plannedAt = Get-LabTimestamp
     }) -Force
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
@@ -1416,6 +1428,15 @@ function Invoke-HyperVLabSqlSlotInstall {
     if ([string]$plan.state -eq 'PLANNED' -and [string]$managed.VM.State -ne 'Off') {
         throw 'HYPERV_LAB_SQL_INSTALL_VM_MUST_BE_OFF'
     }
+
+    $ssisMedia=$null
+    if (@($plan.features) -contains 'IS' -or $plan.ssisBinding) {
+        if (-not $plan.ssisBinding -or [string]$plan.state -cne 'PLANNED' -or $plan.sqlUpdatePath -or $plan.sqlPatch) { throw 'SSIS_INSTALL_FRESH_PLAN_REQUIRED' }
+        Assert-LabSsisInstallBinding -Lab $lab -Managed $managed -OperationId $plan.ssisBinding.OperationId -Sha256 $plan.ssisBinding.Sha256 `
+            -VmId ([guid]$plan.ssisBinding.VmId) -SqlVersion $plan.sqlVersion -MediaEdition $plan.mediaEdition -Features @($plan.features)
+        $ssisMedia=Open-LabSsisApprovedMedia -MediaRoot $MediaRoot -SqlMediaPath $plan.sqlMediaPath -ExpectedSha256 $plan.ssisBinding.Sha256
+    }
+    try {
 
     $guestPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password'
     if (-not $guestPassword) { throw 'HYPERV_LAB_GUEST_PASSWORD_NOT_STORED' }
@@ -1489,11 +1510,14 @@ function Invoke-HyperVLabSqlSlotInstall {
 
         Write-LabInfo "SQL $($plan.sqlVersion) wird vollständig im eindeutigen Windows-Slot installiert; kein Sysprep."
         try {
+            $ssisTransport=@{}
+            if($plan.ssisBinding){$ssisTransport.ExpectedVmId=[guid]$plan.ssisBinding.VmId;$ssisTransport.TimeoutSeconds=$SetupTimeoutSeconds+360}
             $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
                 -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential `
-                -ArgumentList @([string]$plan.sqlVersion, $setupVersionPattern, (@($plan.features) -join ','), $SqlSaPassword, $dataRoot, $plan.storage, [string]$plan.collation, $SetupTimeoutSeconds) `
+                @ssisTransport `
+                -ArgumentList @([string]$plan.sqlVersion, $setupVersionPattern, (@($plan.features) -join ','), $SqlSaPassword, $dataRoot, $plan.storage, [string]$plan.collation, $SetupTimeoutSeconds, $(if($plan.ssisBinding){@(Get-LabSsisSetupArguments)}else{@()})) `
                 -ScriptBlock {
-                param($ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $SaPassword, $SqlDataRoot, $StorageConfiguration, $Collation, $TimeoutSeconds)
+                param($ExpectedSqlVersion, $ExpectedSetupVersionPattern, $FeaturesCsv, $SaPassword, $SqlDataRoot, $StorageConfiguration, $Collation, $TimeoutSeconds, $SsisArguments)
                 $ErrorActionPreference = 'Stop'
                 $features = @([string]$FeaturesCsv -split ',' | Where-Object { $_ })
                 $setups = @(Get-CimInstance Win32_LogicalDisk -Filter 'DriveType=5' | ForEach-Object {
@@ -1510,6 +1534,7 @@ function Invoke-HyperVLabSqlSlotInstall {
                         '/ENU=True', '/IACCEPTSQLSERVERLICENSETERMS', '/INDICATEPROGRESS'
                     )
                     if ($Collation) { $arguments += "/SQLCOLLATION=$Collation" }
+                    $arguments += @($SsisArguments)
                 $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
                 $plainPassword = $null
                 try {
@@ -1806,6 +1831,7 @@ function Invoke-HyperVLabSqlSlotInstall {
         RunId=$RunId; VMName=$lab.Instance.vmName; State='SQL_SLOT_READY'; SqlVersion=$plan.sqlVersion
         DeploymentMode=$plan.deploymentMode; HostSqlAccess=$hostAccess; GeneratedSqlAccess=$generatedAccess
     }
+    } finally {if($ssisMedia){$ssisMedia.Handle.Dispose()}}
 }
 
 function Invoke-HyperVLabSqlPreparedSlot {

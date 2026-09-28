@@ -129,6 +129,7 @@ end {
         @{ Pattern = '(?i)(EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence)'; Checks = @('Invoke-EvaluationWatchChecks.ps1') },
         @{ Pattern = '(?i)(SqlGuestEvaluationCapture|Update-SqlServerLabSqlGuestEvaluationEvidence)'; Checks = @('Invoke-SqlGuestEvaluationCaptureChecks.ps1','Invoke-EvaluationWatchChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1') },
         @{ Pattern = '(?i)(SsisPrerequisite|SSIS_ETL_DATA_WAREHOUSE_BACKLOG)'; Checks = @('Invoke-SsisPrerequisiteChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1','Invoke-DiagnosticBundleChecks.ps1') },
+        @{ Pattern = '(?i)(SsisOwnedInstall|Private/HyperVLabEnvironment\.ps1|SSIS_ETL_DATA_WAREHOUSE_BACKLOG)'; Checks = @('Invoke-SsisOwnedInstallChecks.ps1') },
         @{ Pattern = '(?i)(SqlObservabilityEvidence|sql-observability-evidence)'; Checks = @('Invoke-SqlObservabilityEvidenceChecks.ps1') },
         @{ Pattern = '(?i)(RecoveryPointPlan|recovery-point-plan)'; Checks = @('Invoke-HyperVRecoveryPointPlanChecks.ps1') },
         @{ Pattern = '(?i)(HyperVPersistentDataDrive|hyperv-persistent-data)'; Checks = @('Invoke-HyperVPersistentDataDriveChecks.ps1','Invoke-HyperVProviderChecks.ps1') },
@@ -221,6 +222,7 @@ end {
             if ($runtimePath -match '(?i)(HyperVExternalRuntimeReconcile|hyperv-external-runtime-reconcile|Public[\\/]Invoke-SqlServerLabReconcileAction)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(SqlGuestEvaluationCapture|Update-SqlServerLabSqlGuestEvaluationEvidence)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)SsisPrerequisite') { $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)SsisOwnedInstall') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(HyperVSampleManifest|hyperv-sample-manifest|HyperV(Resource|Storage|SqlStorage)Reconcile|hyperv-(resource|storage|sql-storage)-reconcile)') { $pathRuntime.HyperV = $true }
             if ($runtimePath -match '(?i)(ContainerReconcile|Update-SqlServerLabContainer|Invoke-ContainerCliAcceptance|ContainerTool|Test-SqlServerLabContainerTool|Bacpac|SampleArtifactHandlers|sample-databases)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(CollationRuntimeEvidence|collation-runtime-evidence|Invoke-ContainerCollationAcceptance)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
