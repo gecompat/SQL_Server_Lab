@@ -1,5 +1,5 @@
 # Internal acceptance contracts; no runtime action when dot-sourced.
-function Assert-CSharpNativeDispatch {
+function Assert-CSharpNativeCheckout {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Context)
     if($Context.EventName -cne 'workflow_dispatch' -or $Context.Ref -cne 'refs/heads/main'){
@@ -11,6 +11,12 @@ function Assert-CSharpNativeDispatch {
     if($Context.ExpectedCommit -cnotmatch '^[a-f0-9]{40}$' -or $Context.CheckoutCommit -cne $Context.ExpectedCommit -or $Context.Dirty){
         throw 'CSHARP_NATIVE_CHECKOUT_MISMATCH'
     }
+}
+
+function Assert-CSharpNativeDispatch {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Context)
+    Assert-CSharpNativeCheckout $Context
     if($Context.ArtifactId -cnotmatch '^hyperv-os-sealed-[a-f0-9]{64}$'){
         throw 'CSHARP_NATIVE_OS_ARTIFACT_REQUIRED'
     }
@@ -226,4 +232,105 @@ function Get-CSharpNativeSqlStatus {
     if($attempt.Status -cne 'SQL_PROBE_STARTED' -or $attempt.OperationId -cne $OperationId -or $attempt.Commit -cne $Commit){throw 'CSHARP_NATIVE_ATTEMPT_INVALID'}
     if($Passed){return 'PASSED'}
     return 'FAILED'
+}
+
+function Assert-CSharpNativeProfileAcl {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Descriptor,[switch]$Ancestor)
+    # Conservative allow-list; unknown writers are rejected even if another ACE denies them.
+    $trusted=@('S-1-5-18','S-1-5-32-544','S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+    if(-not $Descriptor.DaclPresent -or $Descriptor.Owner -cnotin $trusted){throw 'CSHARP_NATIVE_PROFILE_ACL'}
+    $mask=[long]([Security.AccessControl.FileSystemRights]::Delete -bor [Security.AccessControl.FileSystemRights]::DeleteSubdirectoriesAndFiles -bor [Security.AccessControl.FileSystemRights]::ChangePermissions -bor [Security.AccessControl.FileSystemRights]::TakeOwnership -bor [Security.AccessControl.FileSystemRights]::WriteAttributes -bor [Security.AccessControl.FileSystemRights]::WriteExtendedAttributes)
+    # GetAccessRules preserves generic access bits; GenericWrite/All also mutate ancestors.
+    $mask=$mask -bor 0x40000000L -bor 0x10000000L
+    if(-not $Ancestor){$mask=$mask -bor [long][Security.AccessControl.FileSystemRights]::WriteData -bor [long][Security.AccessControl.FileSystemRights]::AppendData}
+    foreach($rule in $Descriptor.Rules){
+        if($rule.Allow -and -not $rule.InheritOnly -and $rule.Sid -cnotin $trusted -and ([long]$rule.Rights -band $mask)){
+            throw 'CSHARP_NATIVE_PROFILE_ACL'
+        }
+    }
+}
+
+function Assert-CSharpNativeProfilePath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path)
+    if(-not $IsWindows){throw 'CSHARP_NATIVE_WINDOWS_REQUIRED'}
+    if($Path -cnotmatch '^[A-Za-z]:\\' -or $Path.Substring(2).Contains(':')){throw 'CSHARP_NATIVE_PROFILE_PATH'}
+    Assert-CSharpNativeLocalPath $Path
+    $full=[IO.Path]::GetFullPath($Path)
+    if($full -ine $Path){throw 'CSHARP_NATIVE_PROFILE_PATH'}
+    $profileRoot=[IO.Path]::GetDirectoryName($full)
+    $cursor=$full
+    while($cursor){
+        $item=Get-Item -LiteralPath $cursor -Force -ErrorAction Stop
+        if($cursor -ine $full -and -not $item.PSIsContainer){throw 'CSHARP_NATIVE_PROFILE_PATH'}
+        $acl=Get-Acl -LiteralPath $cursor -ErrorAction Stop
+        $raw=[Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)
+        $descriptor=[pscustomobject]@{
+            Owner=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value
+            DaclPresent=($null -ne $raw.DiscretionaryAcl)
+            Rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])|ForEach-Object {
+                [pscustomobject]@{Sid=$_.IdentityReference.Value;Rights=[long]$_.FileSystemRights;Allow=($_.AccessControlType -eq 'Allow');InheritOnly=[bool]($_.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly)}
+            })
+        }
+        Assert-CSharpNativeProfileAcl -Descriptor $descriptor -Ancestor:($cursor -ine $full -and $cursor -ine $profileRoot)
+        $cursor=[IO.Path]::GetDirectoryName($cursor)
+    }
+}
+
+function ConvertFrom-CSharpNativeProfile {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Json)
+    $document=$null
+    try{
+        if([Text.Encoding]::UTF8.GetByteCount($Json) -gt 16384){throw 'CSHARP_NATIVE_PROFILE_SIZE'}
+        $options=[Text.Json.JsonDocumentOptions]::new();$options.MaxDepth=3
+        $document=[Text.Json.JsonDocument]::Parse($Json,$options)
+        if($document.RootElement.ValueKind -ne [Text.Json.JsonValueKind]::Object){throw 'CSHARP_NATIVE_PROFILE_SCHEMA'}
+        $expected=@('SchemaVersion','ArtifactId','PayloadRoot','PackageSha256','ProbeSha256','SqlMediaPath','MediaEdition','StateRoot','MediaRoot')
+        $values=[Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
+        foreach($property in $document.RootElement.EnumerateObject()){
+            if($property.Name -cnotin $expected -or $values.ContainsKey($property.Name) -or $property.Value.ValueKind -ne [Text.Json.JsonValueKind]::String){throw 'CSHARP_NATIVE_PROFILE_SCHEMA'}
+            $value=$property.Value.GetString()
+            if([string]::IsNullOrWhiteSpace($value) -or $value.Length -gt 1024 -or $value -match '[\x00-\x1f]') {throw 'CSHARP_NATIVE_PROFILE_SCHEMA'}
+            $values.Add($property.Name,$value)
+        }
+        if($values.Count -ne $expected.Count -or $values['SchemaVersion'] -cne '1' -or
+            $values['ArtifactId'] -cnotmatch '^hyperv-os-sealed-[a-f0-9]{64}$' -or
+            $values['PackageSha256'] -cnotmatch '^[a-f0-9]{64}$' -or $values['ProbeSha256'] -cnotmatch '^[a-f0-9]{64}$' -or
+            $values['MediaEdition'] -cnotin @('Enterprise','Standard','Eval')){throw 'CSHARP_NATIVE_PROFILE_SCHEMA'}
+        foreach($key in @('PayloadRoot','StateRoot','MediaRoot')){
+            $path=$values[$key]
+            if($path -cnotmatch '^[A-Za-z]:\\' -or $path.Substring(2).Contains(':') -or $path -match '(?:^|[\\/])\.{1,2}(?:[\\/]|$)' -or $path.Contains('/')){throw 'CSHARP_NATIVE_PROFILE_PATH'}
+        }
+        if($values['SqlMediaPath'] -match '[:/]' -or $values['SqlMediaPath'].StartsWith('\') -or
+            $values['SqlMediaPath'] -match '(?:^|\\)\.{1,2}(?:\\|$)' -or $values['SqlMediaPath'] -notmatch '(?i)\.iso$'){throw 'CSHARP_NATIVE_PROFILE_PATH'}
+        return [pscustomobject]@{ArtifactId=$values['ArtifactId'];PayloadRoot=$values['PayloadRoot'];PackageSha256=$values['PackageSha256'];ProbeSha256=$values['ProbeSha256'];SqlMediaPath=$values['SqlMediaPath'];MediaEdition=$values['MediaEdition'];StateRoot=$values['StateRoot'];MediaRoot=$values['MediaRoot']}
+    }catch{
+        $code=Get-CSharpNativeFailureCode $_
+        if($code -eq 'CSHARP_NATIVE_UNCLASSIFIED_FAILURE'){$code='CSHARP_NATIVE_PROFILE_SCHEMA'}
+        throw $code
+    }finally{if($document){$document.Dispose()}}
+}
+
+function Get-CSharpNativeProfile {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Name)
+    $stream=$null;$reader=$null
+    try{
+        if($Name -cne 'csharp-sql2025'){throw 'CSHARP_NATIVE_PROFILE_NAME'}
+        $root=$env:SQL_SERVER_LAB_CSHARP_PROFILE_ROOT
+        if([string]::IsNullOrWhiteSpace($root)){throw 'CSHARP_NATIVE_PROFILE_ROOT_REQUIRED'}
+        $path=Join-Path $root ($Name+'.json')
+        Assert-CSharpNativeProfilePath $path
+        # Same-handle bounded read; do not permit a concurrent writer or deletion.
+        $stream=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+        if($stream.Length -le 0 -or $stream.Length -gt 16384){throw 'CSHARP_NATIVE_PROFILE_SIZE'}
+        $reader=[IO.StreamReader]::new($stream,[Text.UTF8Encoding]::new($false,$true),$false)
+        return ConvertFrom-CSharpNativeProfile ($reader.ReadToEnd())
+    }catch{
+        $code=Get-CSharpNativeFailureCode $_
+        if($code -eq 'CSHARP_NATIVE_UNCLASSIFIED_FAILURE'){$code='CSHARP_NATIVE_PROFILE_READ_FAILED'}
+        throw $code
+    }finally{if($reader){$reader.Dispose()};if($stream){$stream.Dispose()}}
 }
