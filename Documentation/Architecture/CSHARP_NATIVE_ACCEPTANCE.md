@@ -293,21 +293,52 @@ Sprachprobe mit SQL-Fehler 39048 während der Bibliotheksinstallation und
 `E_FAIL`. Eigenes Cleanup war erfolgreich. Das belegt weder einen Defekt des
 DLL-Formats noch die konkrete Hostfxr-Ursache; die native Freigabe bleibt offen.
 
-Die eigene Registrierung von `dotnet` setzt jetzt ausschließlich
-`COREHOST_TRACE=1` über `CREATE EXTERNAL LANGUAGE ... ENVIRONMENT_VARIABLES`.
+Die eigene Registrierung von `dotnet` setzt `COREHOST_TRACE=1` und den exakt
+gebundenen `COREHOST_TRACEFILE` über `CREATE EXTERNAL LANGUAGE ... ENVIRONMENT_VARIABLES`.
 Die [SQL-Referenz](https://learn.microsoft.com/en-us/sql/t-sql/statements/create-external-language-transact-sql?view=sql-server-ver17)
 beschreibt die Übergabe vor dem Start des externen Prozesses;
 Microsofts [Windows-Registrierungsbeispiel](https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-java?view=sql-server-ver17)
 zeigt das JSON-Format. Für .NET 8 verwendet
 [Host-Tracing](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-environment-variables)
 den Präfix `COREHOST_` und ohne `COREHOST_TRACEFILE` den stderr-Stream.
-Es entstehen weder ein zusätzlicher Dateipfad noch neue Schreibrechte oder
-persistente Host-Umgebungswerte. Die bestehenden begrenzten SQL-Meldungen und
-lokalen Gastlogs bleiben der Diagnoseweg. Ob SQL/Launchpad diese Hostfxr-
-Ausgaben tatsächlich in die erfassten Meldungen weiterleitet, ist `UNPROVEN`;
-die Aktivierung allein ist kein Erfassungs- oder Sprachbeleg. Ein nativer
-Versuch mit dieser geänderten Diagnose steht noch aus. Paketbindung,
-AppContainer-Isolation, Kaltstart und alle Erfolgskriterien bleiben unverändert.
+Der stderr-Versuch `36393433388` auf `faea6ad1` blieb `FAILED`: SQL 39004,
+Bibliotheksinstallation mit 39048/E_FAIL, keine Hostfxr-Zeilen in den
+begrenzten Diagnosen. Cleanup und Evidenceaufbewahrung waren erfolgreich.
+Eine unveränderte Wiederholung ist daher kein weiterer Diagnoseschritt.
+
+Der neue Dateipfad liegt ausschließlich im eigenen kurzlebigen Gastroot.
+`CreateNew` erzeugt `hostfxr-trace.log` mit initial geschützter ACL und
+Admin-Owner; vorhandene Ziele werden nicht übernommen. Nur Admin/SYSTEM
+haben Vollzugriff. Die zuvor verifizierte Default-Identität
+`NT SERVICE\MSSQLLaunchpad` und `ALL APPLICATION PACKAGES` erhalten
+`FILE_GENERIC_WRITE` ausschließlich auf dieses File, ohne Vererbung,
+Delete-, ACL- oder Ownerrechte. Der zweite Trustee ist ausdrücklich breit,
+kein individueller Worker-SID. Verzeichnisse, Paketdateien und Host-ACLs
+erhalten keine zusätzlichen Schreibrechte. CRT-Append benötigt Schreibzugriff;
+dies ist kein ACL-erzwungenes Append-only. Die
+[.NET-8.0.31-Implementierung](https://github.com/dotnet/runtime/blob/v8.0.31/src/native/corehost/hostmisc/trace.cpp)
+verwendet den Modus `a` ohne Buffering. Ein tatsächlicher CRT-Schreibversuch
+unter synthetisch schreibbeschränktem Windows-Token prüft den Einzelgrant und
+verweigerte Nachbardatei-/Neuanlage; das ist kein AppContainer-Nachweis.
+
+Ein separat mit initialer Admin-/SYSTEM-ACL exklusiv angelegter Marker bindet
+Volume und File-ID über Kaltstarts. Öffnen und Prüfen verwenden dasselbe
+Handle ohne Delete-Sharing: Reparse-Dateien, Verzeichnisse, mehrere Hardlinks,
+abweichende Identität, Owner oder ACEs werden abgewiesen. Vor jeder Probe
+wird erneut geprüft. Bereits mehr als 1 MiB Trace verhindert die nächste
+Probe; dies ist **keine harte Größenbegrenzung während des Schreibens**.
+Das bestehende Ausführungszeitlimit bleibt wirksam. Übermäßiges Wachstum
+innerhalb einer Probe bleibt ein Risiko; der Trace besitzt keinen eigenen
+physischen Byte-Cap.
+
+Die Fehlerdiagnose überträgt höchstens 32 KiB des Dateiende mit Gesamtgröße,
+Offset und Truncation-Marker. `EMPTY` unterscheidet eine leere Datei von
+`UNAVAILABLE`; Rohdaten bleiben ausschließlich lokal. Das bestehende
+operationseigene VM-Cleanup entfernt Datei und Marker, einschließlich
+partieller Anlage. Persistente Host-Umgebungswerte bleiben unverändert.
+Die tatsächliche Hostfxr-Erfassung über diesen neuen Pfad ist `UNPROVEN`;
+ein nativer Versuch steht noch aus. Paketbindung, AppContainer-Isolation,
+Kaltstart und alle Erfolgskriterien bleiben unverändert.
 
 Der Lauf `36378690432` auf `43542f9b` erreichte nachweislich `SQL_PROBE_STARTED`
 und endete mit `NativeAcceptanceStatus=FAILED`, HRESULT `0x80004004` und

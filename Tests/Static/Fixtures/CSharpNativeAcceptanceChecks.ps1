@@ -573,3 +573,4 @@ try{
 . (Join-Path $PSScriptRoot 'CSharpNativeEvidenceChecks.ps1')
 
 . (Join-Path $PSScriptRoot 'CSharpNativeGuestDiagnosticsChecks.ps1')
+. (Join-Path $PSScriptRoot 'CSharpNativeTraceFileChecks.ps1')

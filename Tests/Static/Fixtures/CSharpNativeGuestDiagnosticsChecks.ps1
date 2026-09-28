@@ -5,21 +5,23 @@
         # Execute the real registration branch with only its SQL transport substituted.
         $register=$ast.Find({param($n)$n -is [Management.Automation.Language.IfStatementAst] -and $n.Clauses[0].Item1.Extent.Text -ceq '$Stage -eq ''Register'''},$true)
         $body=($register.Clauses[0].Item2.Statements|ForEach-Object {$_.Extent.Text}) -join "`n"
-        $Root='C:\synthetic-csharp';$queries=[Collections.Generic.List[string]]::new()
+        $Root=Join-Path $nativeRoot 'synthetic-csharp';$queries=[Collections.Generic.List[string]]::new()
+        function Get-CSharpGuestLaunchpadSid {return 'synthetic-launchpad'}
+        function New-CSharpGuestTraceFile {param($GuestRoot,$LaunchpadSid)if($GuestRoot -cne $Root -or $LaunchpadSid -cne 'synthetic-launchpad'){throw 'SYNTHETIC_TRACE_BINDING'}}
         $connection=[pscustomobject]@{Database='master'}
         $connection|Add-Member ScriptMethod ChangeDatabase {param($Name)$this.Database=$Name}
         function Invoke-ProbeSql {param([string]$Sql)$queries.Add($Sql);return 0}
         $result=& ([scriptblock]::Create($body))
         $language=@($queries|Where-Object {$_ -like 'CREATE EXTERNAL LANGUAGE*'})
         $json=[regex]::Match($language[0],"ENVIRONMENT_VARIABLES=N'([^']+)'").Groups[1].Value|ConvertFrom-Json
-        Add-CheckResult -Name 'CSharp host diagnostics: real registration enables only language-scoped COREHOST_TRACE' -Success ($result -ceq 'CSHARP_NATIVE_REGISTERED' -and $connection.Database -ceq 'CSharpAcceptance' -and $language.Count -eq 1 -and @($json.PSObject.Properties).Count -eq 1 -and $json.COREHOST_TRACE -ceq '1')
-        Add-CheckResult -Name 'CSharp host diagnostics: registration preserves package and library identity without trace file' -Success ($language[0].Contains("CONTENT=N'$Root\extension.zip',FILE_NAME='nativecsharpextension.dll'") -and $queries[3] -ceq "CREATE EXTERNAL LIBRARY [SqlServerLab.CSharpProbe] FROM (CONTENT=N'$Root\SqlServerLab.CSharpProbe.dll') WITH (LANGUAGE=N'dotnet');" -and $body -notmatch 'TRACEFILE|SetEnvironmentVariable|icacls')
+        Add-CheckResult -Name 'CSharp host diagnostics: real registration binds language-scoped trace to exact guest file' -Success ($result -ceq 'CSHARP_NATIVE_REGISTERED' -and $connection.Database -ceq 'CSharpAcceptance' -and $language.Count -eq 1 -and @($json.PSObject.Properties).Count -eq 2 -and $json.COREHOST_TRACE -ceq '1' -and $json.COREHOST_TRACEFILE -ceq (Join-Path $Root 'hostfxr-trace.log'))
+        Add-CheckResult -Name 'CSharp host diagnostics: registration preserves package and library identity without directory grant' -Success ($language[0].Contains("CONTENT=N'$Root\extension.zip',FILE_NAME='nativecsharpextension.dll'") -and $queries[3] -ceq "CREATE EXTERNAL LIBRARY [SqlServerLab.CSharpProbe] FROM (CONTENT=N'$Root\SqlServerLab.CSharpProbe.dll') WITH (LANGUAGE=N'dotnet');" -and $body -notmatch 'SetEnvironmentVariable|icacls')
         $queries.Clear()
         function Invoke-ProbeSql {param([string]$Sql)$queries.Add($Sql);return 1}
         $caught='';try{& ([scriptblock]::Create($body))}catch{$caught=$_.Exception.Message}
         Add-CheckResult -Name 'CSharp host diagnostics: actual existing-database guard still blocks all registration writes' -Success ($caught -ceq 'CSHARP_NATIVE_DATABASE_EXISTS' -and $queries.Count -eq 1 -and $queries[0] -like 'SELECT COUNT(*)*')
     }
-    foreach($name in @('New-CSharpGuestSqlInfoCollector','Add-CSharpGuestSqlMessages','Save-CSharpGuestSqlFailure','Read-CSharpGuestLogTail','Get-CSharpGuestDiagnostics','Invoke-ProbeSql')){
+    foreach($name in @('New-CSharpGuestSqlInfoCollector','Add-CSharpGuestSqlMessages','Save-CSharpGuestSqlFailure','Read-CSharpGuestLogTail','Get-CSharpGuestDiagnostics','Invoke-ProbeSql','Read-CSharpGuestTraceTail','Open-CSharpGuestTraceFile','Get-CSharpGuestLaunchpadSid','Initialize-CSharpGuestTraceInterop','Assert-CSharpGuestTraceAcl','Get-CSharpGuestTraceSddl')){
         $node=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name},$true)
         . ([scriptblock]::Create($node.Extent.Text))
     }
