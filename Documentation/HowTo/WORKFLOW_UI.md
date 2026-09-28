@@ -10,6 +10,23 @@ zulässigen Schritt statt nur interner Zustandsnamen.
 Die Oberfläche ist ein zweiter Einstieg über denselben PowerShell-Core. Sie
 enthält keine eigene Provisionierungslogik.
 
+Die Navigation bietet neun fachliche Bereiche: Lab-Umgebungen, geschützte
+Testsystem-Matrix, Hyper-V-Vorlagen und Slots, Ressourcen und Downloads,
+Host-Dienste und Modelle, Verbindungen und CMS, SQL-Lab-Grundkonfiguration,
+Wartung/Recovery und Vorgänge. Inaktive Inventare sind ausgeblendet; technische
+Secret-Parameter unter Host-Dienste sind zusätzlich eingeklappt. Zurück
+wechselt in den vorherigen Bereich ohne Formulare zu löschen. Ein Refresh
+behält Bereich und ungespeicherte Eingaben. Expertenbefehle und Meldungen
+haben eigene Einstiege. Ressourcen und Grundkonfiguration öffnen denselben
+bestehenden Quellen-/Speicherortdialog. Die Verbindungsansicht zeigt nur
+vorhandene Host-/Port-Felder. Bei Hyper-V werden Host und Port eng aus dem führenden Serverfeld des Connection Strings und TcpPort projiziert; Credentials und Connection Strings werden hier nie angezeigt. Fehlende oder nicht unterstützte Werte bleiben unbekannt; ein Verbindungstest wird nicht behauptet.
+
+Die geschützte Testmatrix wird im Browser ausdrücklich auf die vorhandenen
+Gruppenabläufe der Konsole verwiesen. Geführte Browser-Gruppenaktionen, CMS,
+operative Slots, vollständiges Provider-Setup und manueller Hostdienst- sowie
+Modell-Lifecycle bleiben offen. Der Navigationseinstieg ist keine Abnahme
+dieser fehlenden Funktionen.
+
 Der Arbeitsbereich **Alle Funktionen** wird aus demselben Export- und
 Parameterkatalog erzeugt wie **Alle öffentlichen Befehle** in
 `Invoke-SqlServerLab`. Damit ist jeder veröffentlichte Modulbefehl auch im

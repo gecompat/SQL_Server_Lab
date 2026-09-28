@@ -18,12 +18,28 @@ class Element {
   addEventListener(type, callback) { this.events.set(type, [...(this.events.get(type) || []), callback]); }
   showModal() { this.open = true; }
   close() { this.open = false; }
+  setAttribute(name, value) { this[name] = value; }
+  removeAttribute(name) { delete this[name]; }
+  closest(selector) { return this.id === 'jobs' && selector === '.panel' ? workspaceElements.find((item) => item.dataset.workspaceArea === 'messages') : null; }
+  scrollIntoView() { this.scrolled = true; }
   querySelectorAll(selector) {
     return this.id === 'container-operation-dialog' && selector === 'input[type="password"]'
       ? [nodes.get('container-operation-password')] : [];
   }
 }
 for (const match of html.matchAll(/\bid="([^"]+)"/g)) nodes.set(match[1], new Element(match[1]));
+const workspaceElements = [];
+for (const match of html.matchAll(/<\w+\b[^>]*\bdata-workspace-(?:area|target)="[^"]+"[^>]*>/g)) {
+  const id = match[0].match(/\bid="([^"]+)"/)?.[1];
+  const element = id ? nodes.get(id) : new Element('');
+  for (const attribute of match[0].matchAll(/data-workspace-(area|target)="([^"]+)"/g)) element.dataset['workspace' + attribute[1][0].toUpperCase() + attribute[1].slice(1)] = attribute[2];
+  element.hidden = /\bhidden\b/.test(match[0]);
+  workspaceElements.push(element);
+}
+const hyperVButtons = [];
+for (const match of html.matchAll(/<button\b[^>]*\bdata-provider-capability="hyperv"[^>]*>/g)) {
+  const element = new Element(''); element.dataset.providerCapability = 'hyperv'; hyperVButtons.push(element);
+}
 const documentEvents = new Map();
 const document = {
   querySelector(selector) {
@@ -32,18 +48,87 @@ const document = {
     assert.ok(element, 'Real HTML must contain ' + selector);
     return element;
   },
-  querySelectorAll(selector) { return selector === 'dialog[open]' ? [...nodes.values()].filter((item) => item.open) : []; },
+  querySelectorAll(selector) {
+    if (selector === '[data-workspace-target]') return workspaceElements.filter((item) => item.dataset.workspaceTarget);
+    if (selector === '[data-workspace-area]') return workspaceElements.filter((item) => item.dataset.workspaceArea);
+    if (selector.includes('[data-provider-capability="hyperv"]')) return hyperVButtons;
+    return selector === 'dialog[open]' ? [...nodes.values()].filter((item) => item.open) : [];
+  },
   addEventListener(type, callback) { documentEvents.set(type, [...(documentEvents.get(type) || []), callback]); }
 };
 const context = vm.createContext({ document, console, URLSearchParams,
   window: { setInterval() {}, setTimeout() {}, clearTimeout() {}, alert() {} },
-  fetch: () => new Promise(() => {}), setTimeout() {}, clearTimeout() {}, queued: [] });
+  fetch: (...args) => { fetchRequests.push(args); return new Promise(() => {}); }, setTimeout() {}, clearTimeout() {}, queued: [] });
+const fetchRequests = [];
 const run = (code) => vm.runInContext(code, context, { timeout: 5000 });
 run(source);
-run('queueBackgroundAction = (action, parameters) => queued.push({action, parameters});');
+run('const actualQueueBackgroundAction = queueBackgroundAction; queueBackgroundAction = (action, parameters) => queued.push({action, parameters});');
 let passed = 0;
 function check(name, body) { body(); passed++; console.log('PASS ' + name); }
 const node = (id) => nodes.get(id);
+const click = (element) => { for (const handler of element.events.get('click') || []) handler({}); };
+check('Nine real area buttons select only their actual destinations without dispatch', () => {
+  const requestsBefore = fetchRequests.length;
+  const areas = ['labs', 'testmatrix', 'templates', 'resources', 'hostmodels', 'connections', 'configuration', 'maintenance', 'queue'];
+  const targets = document.querySelectorAll('[data-workspace-target]');
+  for (const area of areas) {
+    const button = targets.find((item) => item.dataset.workspaceTarget === area);
+    assert.ok(button, area); click(button);
+    assert.equal(button['aria-pressed'], 'true');
+    const sections = document.querySelectorAll('[data-workspace-area]');
+    assert.ok(sections.some((item) => item.dataset.workspaceArea === area));
+    for (const section of sections) assert.equal(section.hidden, section.dataset.workspaceArea !== area);
+  }
+  assert.equal(context.queued.length, 0);
+  assert.equal(fetchRequests.length, requestsBefore);
+});
+check('Back restores the previous area and leaves unfinished dialog input intact', () => {
+  node('sources-media-root').value = 'draft-input';
+  click(node('workspace-back'));
+  assert.equal(run('workspaceArea'), 'maintenance');
+  assert.equal(node('sources-media-root').value, 'draft-input');
+  assert.equal(run('showWorkspaceArea("unknown")'), false);
+  assert.equal(run('workspaceArea'), 'maintenance');
+});
+check('Expert commands and messages have separate destinations', () => {
+  for (const area of ['commands', 'messages']) {
+    click(document.querySelectorAll('[data-workspace-target]').find((item) => item.dataset.workspaceTarget === area));
+    assert.equal(run('workspaceArea'), area);
+  }
+});
+check('Real workflow refresh preserves selected area and draft input when Hyper-V is unavailable', () => {
+  run('showWorkspaceArea("configuration")');
+  node('sources-media-root').value = 'draft-input';
+  run('renderWorkflow({Host:{HyperV:{Supported:false,Available:false}},Summary:{},WindowsBuilds:[],SqlBuilds:[],WindowsBaselines:[],SqlPreparedImages:[],AcceptanceEnvironments:[],ActiveLabs:[],HyperVLabs:[],SqlInstallationMedia:[],WindowsInstallationMedia:[]})');
+  assert.equal(run('workspaceArea'), 'configuration');
+  assert.equal(node('sources-media-root').value, 'draft-input');
+  assert.ok(!node('notice').hidden);
+  assert.ok(hyperVButtons.length >= 3);
+  assert.ok(hyperVButtons.every((button) => button.disabled && button.title));
+  assert.equal(node('connection-endpoints').innerHTML.includes('Keine registrierten'), true);
+});
+check('Global resources and configuration open the same existing storage dialog; cancel dispatches nothing', () => {
+  for (const id of ['media-sources', 'configuration-storage']) {
+    click(node(id)); assert.ok(node('media-sources-dialog').open);
+    node('media-sources-dialog').close();
+  }
+  assert.equal(context.queued.length, 0);
+});
+check('Hyper-V connection view uses real TcpPort/ConnectionString DTO and never renders credentials', () => {
+  run('renderConnectionEndpoints(' + JSON.stringify({ ActiveLabs: [], HyperVLabs: [
+    { Name: 'SQL VM', Workload: 'sql', InstanceId: 'primary', ConnectionString: 'Server=default-only,1433;Password=synthetic-secret;', SqlInstances: [
+      { Name: 'MSSQLSERVER', InstanceId: 'primary', IsDefault: true, TcpPort: 1433, ConnectionString: 'Server=tcp:sql-primary,1433;User ID=synthetic-user;Password=synthetic-secret;' },
+      { Name: 'REPORTING', InstanceId: 'named', IsDefault: false, TcpPort: 51433, ConnectionString: 'Data Source=sql-reporting\\REPORTING;Password=synthetic-secret;' },
+      { Name: 'UNKNOWN', InstanceId: 'missing', TcpPort: 51434, ConnectionString: '' }
+    ] },
+    { Name: 'Older VM', Workload: 'sql', InstanceId: 'primary', ConnectionString: 'Server=sql-older,15433;Password=synthetic-secret;', SqlInstances: [] }
+  ] }) + ')');
+  const output = node('connection-endpoints').innerHTML;
+  for (const endpoint of ['sql-primary,1433', 'sql-reporting,51433', 'sql-older,15433', 'Host oder Port unbekannt']) assert.ok(output.includes(endpoint));
+  for (const secret of ['synthetic-secret', 'synthetic-user', 'Password=', 'User ID=', 'default-only']) assert.ok(!output.includes(secret));
+  assert.equal(run('sqlConnectionEndpoint(\'Password="x;Server=synthetic-secret,1433;y";\',1433)'), 'Host oder Port unbekannt');
+  assert.equal(run('sqlConnectionEndpoint("Server=sql-primary,70000;",70000)'), 'Host oder Port unbekannt');
+});
 const fixture = {
   ActiveLabs: [{ RunId: 'run-a', Name: 'Analyse', State: 'RUNNING', Instances: [
     { Id: 'primary', Provider: 'docker', SqlVersion: '2019-latest', Port: 14331 },
@@ -222,6 +307,38 @@ async function main() {
     assert.equal(context.queued.length, 2);
   });
   escape();
+  run('queueBackgroundAction = actualQueueBackgroundAction; showWorkspaceArea("labs")');
+  setWorkflow(fixture); open('analytics');
+  node('container-operation-password').value = 'synthetic-value';
+  node('container-script-path').value = 'synthetic.sql';
+  const actionRequests = [];
+  let acceptAction;
+  context.fetch = (url, options) => {
+    actionRequests.push({ url, options });
+    if (url === '/api/actions') return new Promise((resolve) => { acceptAction = resolve; });
+    assert.equal(url, '/api/jobs');
+    return Promise.resolve({ ok: true, json: async () => [{ Id: 'synthetic-job', Action: 'ExecuteContainerScript', State: 'Completed', Lines: ['SYNTHETIC_RESULT'] }] });
+  };
+  await node('container-operation-form').events.get('submit')[0]({ submitter: { value: 'default' }, preventDefault() {} });
+  check('Real form/queue/startAction chain exposes live log before server acceptance', () => {
+    assert.equal(run('workspaceArea'), 'messages');
+    assert.ok(!node('jobs').closest('.panel').hidden);
+    assert.ok(node('jobs').closest('.panel').scrolled);
+    assert.ok(node('jobs').innerHTML.includes('Submitting'));
+    assert.equal(node('container-operation-dialog').open, false);
+    assert.equal(actionRequests[0].url, '/api/actions');
+    assert.equal(JSON.parse(actionRequests[0].options.body).action, 'ExecuteContainerScript');
+  });
+  acceptAction({ ok: true, json: async () => ({ id: 'synthetic-job' }) });
+  await new Promise((resolve) => setImmediate(resolve));
+  check('Completed normal action keeps its actual result visible after feedback disappears', () => {
+    assert.equal(actionRequests[1].url, '/api/jobs');
+    assert.ok(node('jobs').innerHTML.includes('Completed'));
+    assert.ok(node('jobs').innerHTML.includes('SYNTHETIC_RESULT'));
+    assert.equal(node('action-feedback').hidden, true);
+    assert.ok(!node('jobs').closest('.panel').hidden);
+    assert.equal(run('workspaceArea'), 'messages');
+  });
   console.log('WORKFLOW SQL TARGET AND EVALUATION VIEW: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

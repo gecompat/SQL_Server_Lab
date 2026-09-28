@@ -87,14 +87,14 @@ Add-CheckResult -Name 'GUI fuehrt umgebungszentriert und behaelt den vollstaendi
     $htmlText -match 'id="guided-workflows"' -and
     $htmlText -match '>Lab erstellen<' -and
     $htmlText -match '>Lab verwalten<' -and
-    $htmlText -match '>Testgruppe<' -and
-    $htmlText -match '>CMS<' -and
-    $htmlText -match '>Hyper-V-Slots<' -and
+    $htmlText -match 'data-workspace-area="testmatrix"' -and
+    $htmlText -match 'data-workspace-area="connections"' -and
+    $htmlText -match 'data-workspace-area="templates"' -and
     $htmlText -match 'data-provider-capability="hyperv"' -and
     $htmlText -match 'EXPERTENZUGANG · VOLLSTÄNDIGER FUNKTIONSUMFANG' -and
     $htmlText.IndexOf('id="guided-workflows"') -lt $htmlText.IndexOf('id="command-center"') -and
-    $scriptText -match 'openGuidedCommandWorkflow' -and
-    $scriptText -match '\[data-guided-command\]' -and
+    $scriptText -match 'showWorkspaceArea' -and
+    $scriptText -notmatch 'data-guided-command' -and
     $scriptText -match 'hyperVDisabledReason' -and
     $scriptText -match '\[data-provider-capability="hyperv"\]'
 )
@@ -236,7 +236,7 @@ Add-CheckResult -Name 'SQL-Prepared-Images verwenden standardmäßig frische Win
     $actionText -match 'Initialize-HyperVSqlFreshPreparedImageBuild' -and
     $workflowText -match 'WindowsBaselines = @\(' -and
     $workflowText -match 'ProvisioningMode = \[string\]\$_.provisioningMode' -and
-    $htmlText -match 'data-open-build="sql-fresh">Neues SQL-Prepared-Image' -and
+    $htmlText -match 'data-open-build="sql-fresh"[^>]*>Neues SQL-Prepared-Image' -and
     $htmlText -match 'id="sql-parent-artifact"' -and
     $htmlText -match 'Erweitert: SQL-Builder aus OS-Baseline' -and
     $scriptText -match 'renderSqlParentOptions' -and

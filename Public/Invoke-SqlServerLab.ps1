@@ -55,7 +55,13 @@ function Invoke-SqlServerLab {
 
         try {
             switch ($choice) {
-                'create' { Invoke-LabAreaMenuInteractive -Area Create }
+                'labs' { Invoke-LabAreaMenuInteractive -Area Labs }
+                'testmatrix' { Invoke-LabAreaMenuInteractive -Area TestMatrix }
+                'templates' { Invoke-LabAreaMenuInteractive -Area HyperV }
+                'resources' { Invoke-LabAreaMenuInteractive -Area Resources }
+                'hostmodels' { Invoke-LabAreaMenuInteractive -Area HostModels }
+                'connections' { Invoke-LabAreaMenuInteractive -Area Cms }
+                'configuration' { Invoke-LabAreaMenuInteractive -Area Configuration }
                 'queue' { Invoke-LabQueueInteractive }
                 'environment' { Invoke-LabAreaMenuInteractive -Area Environment }
                 'cms' { Invoke-LabAreaMenuInteractive -Area Cms }
@@ -67,6 +73,7 @@ function Invoke-SqlServerLab {
                 'messages' { Show-LabMessagesInteractive }
                 '0' { $exit = $true }
                 'q' { $exit = $true }
+                'exit' { $exit = $true }
                 default { Write-Host "  Ungueltige Auswahl: $choice" -ForegroundColor Red }
             }
         }
@@ -233,14 +240,12 @@ function Show-LabEnvironmentMenu {
     $hasRunning = @($states | Where-Object { $_ -eq 'RUNNING' }).Count -gt 0
     $hasStopped = @($states | Where-Object { $_ -eq 'STOPPED' }).Count -gt 0
     $hasHyperVRun = @($runs | Where-Object { [string]$_.metadata.workflowKind -eq 'hyperv-lab' }).Count -gt 0
-    $testEnvironmentLifecycle = Get-LabAutomatedTestEnvironmentMenuState
-    $hasAutomatedTestEnvironments = [bool]$testEnvironmentLifecycle.Available
     # Nur Container koennen neu erzeugt werden; der Provider steht am Sub-Run.
     $hasContainerRun = @($runs | Where-Object {
             @($_.providerSubRuns | Where-Object { [string]$_.provider -in @('docker', 'podman') }).Count -gt 0
         }).Count -gt 0
     $items = @(
-        New-LabConsoleItem -Id 'Manage' -Label 'Umgebung auswaehlen und verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut '1' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung. Zuerst im Hauptmenue unter "Umgebungen planen und erstellen" eine anlegen.'
+        New-LabConsoleItem -Id 'Manage' -Label 'Umgebung auswaehlen und verwalten' -Value 'Start, Stopp, Name, CPU, Speicher, Entfernen' -Shortcut '1' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung. Zuerst im Hauptmenue unter "Lab-Umgebungen > Umgebung erstellen" eine anlegen.'
         New-LabConsoleItem -Id 'HyperVManage' -Label 'Hyper-V-Umgebung auswaehlen und verwalten' -Value 'Windows/SQL · Lifecycle · Zugriff · WMI · Recovery' -Shortcut 'h' `
             -Disabled:(-not $hasHyperVRun) -DisabledReason 'Es existiert keine verwaltete Hyper-V-Umgebung.'
         New-LabConsoleItem -Id 'Status' -Label 'Status aller Umgebungen anzeigen' -Shortcut '2' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, deren Status angezeigt werden koennte.'
@@ -252,14 +257,8 @@ function Show-LabEnvironmentMenu {
         New-LabConsoleItem -Id 'Resources' -Label 'CPU und Speicher aendern' -Shortcut 'r' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, deren Ressourcen geaendert werden koennten.'
         New-LabConsoleItem -Id 'UpdateContainer' -Label 'Container neu erstellen mit Port, CPU und Speicher' -Value 'Docker/Podman · Container wird ersetzt, Daten bleiben' -Shortcut 'u' `
             -Disabled:(-not $hasContainerRun) -DisabledReason 'Es existiert keine Docker- oder Podman-Umgebung. Hyper-V-Umgebungen werden ueber die Hyper-V-Verwaltung geaendert.'
-        if ($testEnvironmentLifecycle.Available) {
-            New-LabConsoleItem -Id 'AutomatedTestEnvironmentLifecycle' -Label $testEnvironmentLifecycle.Label `
-                -Value $testEnvironmentLifecycle.Value -Shortcut 't'
-        }
         New-LabConsoleItem -Id 'CleanupAudit' -Label 'Cleanup-Audit anzeigen (read-only)' -Shortcut 'a'
         New-LabConsoleItem -Id 'Remove' -Label 'Umgebung entfernen' -Shortcut '6' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, die entfernt werden koennte.'
-        New-LabConsoleItem -Id 'ClearAutomatedTestEnvironment' -Label 'Alle automatisierten Testumgebungen loeschen' -Value 'geschuetzte Gruppe' -Shortcut 'x' -Disabled:(-not $hasAutomatedTestEnvironments) -DisabledReason 'Es ist keine automatisierte Testumgebung vorhanden.'
-        New-LabConsoleItem -Id 'Clear' -Label 'Alle Lab-Ressourcen aufraeumen' -Value 'Recovery und verwaiste Ressourcen' -Shortcut '7'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 
@@ -289,7 +288,7 @@ function Show-LabHyperVMenu {
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 
-    return Show-LabSubMenu -ScreenId 'hyperv-menu' -Title 'Hyper-V' -Subtitle 'Infrastruktur: OS-Vorlage, Slots, Builds und ISO-Quellen' -Items $items
+    return Show-LabSubMenu -ScreenId 'hyperv-menu' -Title 'Hyper-V: Vorlagen und Slots' -Subtitle 'OS-/SQL-Vorlagen und operative Slotvorbereitung' -Items $items
 }
 
 function Show-LabStorageMenu {
@@ -844,31 +843,16 @@ function Show-LabMenu {
     # Laufende Vorgaenge bleiben im Hauptmenue sichtbar, ohne die Eintraege zu verschieben.
     $mainMenuStatusProvider = New-LabQueueStatusProvider -Height 3
     while ($true) {
-        $hyperVAvailability = try {
-            if ($IsWindows) { Test-HyperVAvailable }
-            else { [pscustomobject]@{ Available = $false; Message = 'Hyper-V ist nur unter Windows verfuegbar.' } }
-        }
-        catch { [pscustomobject]@{ Available = $false; Message = $_.Exception.Message } }
-        $hyperVAvailable = $null -ne $hyperVAvailability -and [bool]$hyperVAvailability.Available
-        $hyperVDisabledReason = ''
-        $infrastructureMenuValue = if ($hyperVAvailable) {
-            'Hyper-V-Vorlagen · ISOs · Slots · Lab_Base · Lab_Data · Testdaten'
-        }
-        else {
-            $reason = [string]$hyperVAvailability.Message
-            if ([string]::IsNullOrWhiteSpace($reason)) { $reason = 'Hyper-V ist nicht installiert oder in dieser Sitzung nicht verwendbar.' }
-            $hyperVDisabledReason = "$reason Abhilfe: Windows-Feature Hyper-V aktivieren und den Host neu starten."
-            'Medien und Speicher verfuegbar; Hyper-V-Bestand nicht verwendbar'
-        }
         $items = @(
-            New-LabConsoleItem -Id 'create' -Label 'Umgebung erstellen' -Value 'SQL/Windows · Einzelposition oder mehrere · Provider Auto' -Shortcut '1'
-            New-LabConsoleItem -Id 'environment' -Label 'Umgebungen verwalten' -Value 'Status · Start · Stopp · Name · CPU/RAM · Entfernen' -Shortcut '2'
-            New-LabConsoleItem -Id 'queue' -Label 'Vorgaenge und Queue' -Value 'Fortschritt · Prioritaet · Resume · Benutzeraktionen' -Shortcut '3'
-            New-LabConsoleItem -Id 'database' -Label 'Datenbanken und Verbindungen' -Value 'Samples · Restore · Skripte · Endpunkte · SSMS' -Shortcut '4'
-            New-LabConsoleItem -Id 'cms' -Label 'Zentrale Verwaltung (CMS)' -Value 'Registrierte Server · Endpunkte · SSMS-Export' -Shortcut '5'
-            New-LabConsoleItem -Id 'infrastructure' -Label 'Infrastruktur und Medien' -Value $infrastructureMenuValue -Shortcut '6'
-            New-LabConsoleItem -Id 'maintenance' -Label 'Wartung und Diagnose' -Value 'Providerstatus · Cleanup-Audit · Katalog' -Shortcut '7'
-            New-LabConsoleItem -Id 'settings' -Label 'Einstellungen' -Value 'Scheduler · Parallelitaet · Ton · Ruhemodus · Ersteinrichtung' -Shortcut '8'
+            New-LabConsoleItem -Id 'labs' -Label 'Lab-Umgebungen' -Value 'Erstellen · auswählen · ändern · Datenbanken und Skripte' -Shortcut '1'
+            New-LabConsoleItem -Id 'testmatrix' -Label 'Geschützte Testsystem-Matrix' -Value 'Testumgebungen als Gruppe erstellen und verwalten' -Shortcut '2'
+            New-LabConsoleItem -Id 'templates' -Label 'Hyper-V: Vorlagen und Slots' -Value 'Vorlagenbestand · Vorbereitung · Windows-/SQL-Slots' -Shortcut '3'
+            New-LabConsoleItem -Id 'resources' -Label 'Ressourcen und Downloads' -Value 'Medien · CUs · Tools · Modelldateien' -Shortcut '4'
+            New-LabConsoleItem -Id 'hostmodels' -Label 'Host-Dienste und Modelle' -Value 'Modelle auswählen · unterstützte Modellaufrufe · Grenzen' -Shortcut '5'
+            New-LabConsoleItem -Id 'connections' -Label 'Verbindungen und CMS' -Value 'Endpunkte · SSMS · zentrale Verwaltung' -Shortcut '6'
+            New-LabConsoleItem -Id 'configuration' -Label 'SQL-Lab-Grundkonfiguration' -Value 'Lab_Base · Lab_Data · Testdaten · Providerstatus' -Shortcut '7'
+            New-LabConsoleItem -Id 'maintenance' -Label 'Wartung, Aufräumen und Recovery' -Value 'Diagnose · Evaluation · Cleanup · Wiederherstellung' -Shortcut '8'
+            New-LabConsoleItem -Id 'queue' -Label 'Vorgänge, Warteschlange und Wiederaufnahme' -Value 'Fortschritt · Priorität · Resume · Scheduler' -Shortcut '9'
             New-LabConsoleItem -Id 'commands' -Label 'Alle oeffentlichen Befehle' -Value 'vollstaendige Funktionsliste · Defaults · zulaessige Eingaben' -Shortcut 'b'
             New-LabConsoleItem -Id 'messages' -Label 'Meldungen dieser Sitzung' -Value 'Warnungen und Fehler · kopierbar · Journalpfad' -Shortcut 'm'
             New-LabConsoleItem -Id 'exit' -Label 'Beenden' -Shortcut '0' -Aliases @('q')

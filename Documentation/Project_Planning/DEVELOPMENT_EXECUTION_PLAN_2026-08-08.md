@@ -183,9 +183,7 @@ Globale und kontextuelle Einstiege verwenden dieselben fachlichen Aktionen.
 Expertenbefehle, Hilfe und Meldungen sind zusätzliche Werkzeuge und ersetzen
 keinen Fachdialog. Ein Katalogfilter gilt nicht als geführte Bedienabdeckung.
 
-Die frühere Fünf-Aufgaben-Zielstruktur ist abgelöst. Der implementierte
-Achtgruppenstand aus `CUI-026` und vorhandene direkte `-Action`-Einstiege
-bleiben bis zur geprüften Migration Übergangszugänge. Historische Abnahmen
+Die frühere Fünf-Aufgaben-Zielstruktur ist abgelöst. Die Bereichsmigration auf neun Bereiche ist implementiert, lokal geprüft und im unabhängigen Review bestätigt. Die Integration folgt dem verbindlichen PR-Gate. Direkte `-Action`-Einstiege bleiben kompatibel. Der Achtgruppenstand aus `CUI-026` und historische Abnahmen
 belegen nur ihren damaligen Scope; die Bereichsmigration und neue Fachdialoge
 werden unter `UX-201` bis `UX-206` gesondert nachgeführt. Fehlende Core- oder
 Beschaffungsfunktionen bleiben Implementierungsaufgaben, auch wenn ein Menü

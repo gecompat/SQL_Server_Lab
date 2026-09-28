@@ -177,28 +177,23 @@ Lizenzabnahme. Das unabhängige Quellreview ist abgeschlossen; die gefundene
 Dialoglayoutlücke ist korrigiert. Eine visuelle Browserabnahme wurde nicht
 ausgeführt. Nächster Schritt ist die folgende Bereichsmigration.
 
-**NEXT – `UX-201/203/204/205/206`: Bereiche in beiden Oberflächen migrieren.**
-Benutzeraufgabe: einen Fachbereich finden und von dort eine vorhandene Aktion
-am richtigen Ziel aufrufen. `Show-LabMenu` in `Public/Invoke-SqlServerLab.ps1`
-und die Bereichsmenüs in `Public/BatchConsole.ps1` besitzen bisher acht Gruppen;
-`Ui/index.html` und `Ui/app.js` besitzen Anker und teilweise reine
-Befehlssuchverweise. Vorhandene Erstellungs-/Verwaltungsdialoge, Queue und
-Ressourcenhandler wiederverwenden, technische Inventare kontextuell anzeigen,
-`Private/ConsoleHelp.ps1` mitführen. Beschaffung oder neue Executorlogik ist
-keine Voraussetzung für diese Navigation; fehlende Fähigkeiten werden mit
-ihrem offenen Task und konkretem nächsten Schritt benannt.
+**IMPLEMENTED – `UX-201/203/204/205/206`: Bereichsmigration lokal geprüft.**
+CLI und Browser verwenden die neun Fachbereiche aus Abschnitt 4.1 mit
+bestehenden Handlern und getrennten Experten-/Meldungseinstiegen. Erstellen
+und Verwalten liegen unter Lab-Umgebungen; geschützte Gruppenaktionen im
+eigenen Testmatrixbereich. Vorlagen/Slots, Beschaffung, Grundkonfiguration und
+Host-Dienste/Modelle sind getrennt. Browserinventare werden kontextuell
+angezeigt; fehlende Fachdialoge bleiben ausdrücklich offen.
 
-Abnahme: alle Fachbereiche aus Abschnitt 4.1 erreichbar, Expertenzugang separat,
-globale und kontextuelle Zugänge dispatchen denselben Handler. Auswahl bleibt
-bei Refresh erhalten; Zurück/Abbruch und unverfügbare Provider sind im
-nummerierten Fallback und Browser geprüft. Bestehende `-Action`-Aliase bleiben
-funktionsgleich. Die Achtgruppenassertion wird bei der Implementierung durch
-Verhaltensprüfungen der neuen Navigation ersetzt, nicht ersatzlos entfernt.
-ConsoleUI-, PublicCommandConsole- und WorkflowUI-Suites sowie tatsächliche
-Browser-Handlerprüfungen sind erforderlich; neue Providerabnahme nur bei
-Änderung des Runtimepfads. Abschluss ist Navigation, nicht pauschale
-Fachdialogparität. Nächste Erweiterung: Grundkonfiguration und gezielte
-Änderung einer vorhandenen Umgebung.
+
+Die frühere Achtgruppenassertion ist durch Tests tatsächlicher
+Menüdestinationen, Dispatch, Zurück, Abbruch, Refresh und fehlender
+Verfügbarkeit ersetzt. Direkte `-Action`-Aufrufe bleiben erhalten. Reale
+JavaScript-Handler prüfen Bereichswechsel und unveränderte Eingaben; vorhandene
+Fachdialoge werden wiederverwendet. Alle 14 betroffenen statischen Suites bestanden; nach zwei behobenen Reviewbefunden bestanden erneut die fünf betroffenen Suites einschließlich 26 tatsächlicher JavaScript-Fälle. Der unabhängige Nachreview ist abgeschlossen. Der ausgewählte eigene Docker-SQL-2025-Smoke bestand 34/34 Prüfungen einschließlich Entfernung und bestätigter Containerabwesenheit. Er belegt Core-Regression, keine vollständige native Fachdialogparität. Die Integration setzt den grünen finalen PR-Gate auf dem exakten Head voraus.
+Keine neue Runtimefunktion und keine pauschale Fachdialogparität werden
+behauptet. Historische `CUI-026`-Evidence bleibt erhalten. Nächste Erweiterung:
+Grundkonfiguration und gezielte Änderung einer vorhandenen Umgebung.
 
 **FOLLOW_UP – `UX-202/204/622`, `CORE-102/108/111`: Grundkonfiguration und
 späteren Provider prüfen.** Benutzeraufgabe: wirksame Lab_Base-/Lab_Data-Werte
