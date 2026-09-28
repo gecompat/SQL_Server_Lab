@@ -44,7 +44,15 @@ if(-not $MediaRoot){$MediaRoot=& $module {Get-LabMediaRootDefault}}
 Assert-CSharpNativeLocalPath $StateRoot
 Assert-CSharpNativeLocalPath $MediaRoot
 $readiness=& (Join-Path $repoRoot 'Tools/Test-SqlServerLabClientReadiness.ps1') -Provider hyperv -Operation Create
-if($readiness.Status -ne 'READY'){throw 'CSHARP_NATIVE_CLIENT_NOT_READY'}
+try{Assert-CSharpNativeClientReadiness $readiness}catch{
+    # Bounded failure detail stays local; the workflow still exports only fixed codes.
+    try{
+        $detail=$readiness|ConvertTo-Json -Depth 5 -Compress -WarningAction SilentlyContinue
+        if([Text.Encoding]::UTF8.GetByteCount($detail) -gt 32768){$detail='{"Status":"READINESS_DETAIL_TOO_LARGE"}'}
+        $detail|Set-Content -LiteralPath (Join-Path $root 'client-readiness.json') -ErrorAction Stop
+    }catch{Write-Verbose 'CSHARP_NATIVE_READINESS_DETAIL_UNAVAILABLE'}
+    throw 'CSHARP_NATIVE_CLIENT_NOT_READY'
+}
 $payload=Join-Path $root 'payload';$null=New-Item -ItemType Directory -Path $payload
 Copy-Item -LiteralPath $Package -Destination (Join-Path $payload 'extension.zip')
 Copy-Item -LiteralPath $Probe -Destination (Join-Path $payload 'SqlServerLab.CSharpProbe.dll')

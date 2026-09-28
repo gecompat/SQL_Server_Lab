@@ -448,3 +448,57 @@ namespace SqlServerLab.Tests {
 }
 
 . (Join-Path $PSScriptRoot 'CSharpNativeRequestChecks.ps1')
+
+# Characterize the real read-only producer with deterministic module/storage dependencies.
+& {
+    . (Join-Path $repoRoot 'Private/ClientReadiness.ps1')
+    $readinessModule=New-Module -ScriptBlock {
+        $script:ModuleLoadErrors=@();$script:MissingStorage=$false
+        function SyntheticReadinessExport {}
+        function Get-LabClientRuntimeReadiness {param($Provider) [pscustomobject]@{Category='Reachability';Code='PROVIDER_REACHABLE';Status='PASS';MissingPrerequisite=$null;Warning=$null;NextStep=''}}
+        function Get-LabStorageConfiguration {if($script:MissingStorage){return [pscustomobject]@{DefaultLocationId=$null;ControllerId=$null}};[pscustomobject]@{DefaultLocationId='synthetic';ControllerId='synthetic'}}
+        Export-ModuleMember -Function SyntheticReadinessExport
+    }
+    function Test-ModuleManifest {[CmdletBinding()]param($Path) [pscustomobject]@{Name='synthetic'}}
+    function Import-Module {[CmdletBinding()]param($Name,[switch]$Force,[switch]$PassThru) $readinessModule}
+    function Import-PowerShellDataFile {param($Path) @{FunctionsToExport=@('SyntheticReadinessExport')}}
+    try{
+        $actualReadiness=Test-LabClientReadiness -RepositoryRoot $repoRoot -Provider hyperv -Operation Create
+        Add-CheckResult -Name 'CSharp readiness: actual Create producer retains mandatory authorization warning' -Success ($actualReadiness.Status -ceq 'READY_WITH_WARNINGS' -and @($actualReadiness.MissingPrerequisites).Count -eq 0 -and @($actualReadiness.Warnings).Count -eq 1 -and $actualReadiness.Warnings[0] -ceq 'TARGET_AUTHORIZATION_REQUIRED' -and @($actualReadiness.Checks|Where-Object Status -eq 'PASS').Count -eq 8 -and -not $actualReadiness.MutationAllowed)
+        $before=$actualReadiness|ConvertTo-Json -Depth 6 -Compress
+        $caught='';try{Assert-CSharpNativeClientReadiness $actualReadiness}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name 'CSharp readiness: exact healthy Create result accepted without granting mutation' -Success (-not $caught -and ($actualReadiness|ConvertTo-Json -Depth 6 -Compress) -ceq $before -and -not $actualReadiness.MutationAllowed)
+        & $readinessModule {$script:MissingStorage=$true}
+        $missing=Test-LabClientReadiness -RepositoryRoot $repoRoot -Provider hyperv -Operation Create
+        $caught='';try{Assert-CSharpNativeClientReadiness $missing}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name 'CSharp readiness: actual Create producer still blocks missing storage' -Success ($missing.Status -ceq 'NOT_READY' -and $missing.MissingPrerequisites -contains 'STORAGE_CONFIGURATION_REQUIRED' -and $caught -ceq 'CSHARP_NATIVE_CLIENT_NOT_READY')
+        foreach($case in @('Contract','Provider','Operation','Status','MissingPrerequisite','UnknownWarning','DuplicateWarning','WarningMissing','ChecksEmpty','MissingStorageCheck','DuplicateCategory','Blocked','NotChecked','UnknownStatus','UnknownPassCode','CheckWarning','RightsWarning','MutationAllowed','MissingMutationFlag')){
+            $copy=$before|ConvertFrom-Json -Depth 6
+            switch($case){
+                'Contract' {$copy.ContractVersion='SqlServerLab.ClientReadiness/2.0'}
+                'Provider' {$copy.Provider='docker'}
+                'Operation' {$copy.Operation='Inspect'}
+                'Status' {$copy.Status='READY'}
+                'MissingPrerequisite' {$copy.MissingPrerequisites=@('UNKNOWN')}
+                'UnknownWarning' {$copy.Warnings+=@('UNKNOWN')}
+                'DuplicateWarning' {$copy.Warnings+=@('TARGET_AUTHORIZATION_REQUIRED')}
+                'WarningMissing' {$copy.Warnings=@()}
+                'ChecksEmpty' {$copy.Checks=@()}
+                'MissingStorageCheck' {$copy.Checks=@($copy.Checks|Where-Object Category -ne 'Storage')}
+                'DuplicateCategory' {$copy.Checks[7]=$copy.Checks[0]}
+                'Blocked' {$copy.Checks[7].Status='BLOCKED'}
+                'NotChecked' {$copy.Checks[7].Status='NOT_CHECKED'}
+                'UnknownStatus' {$copy.Checks[7].Status='UNKNOWN'}
+                'UnknownPassCode' {$copy.Checks[7].Code='UNVERIFIED_STORAGE'}
+                'CheckWarning' {$copy.Checks[7].Warning='UNKNOWN'}
+                'RightsWarning' {$copy.Checks[8].Warning='UNKNOWN'}
+                'MutationAllowed' {$copy.MutationAllowed=$true}
+                'MissingMutationFlag' {$copy.PSObject.Properties.Remove('MutationAllowed')}
+            }
+            $caught='';try{Assert-CSharpNativeClientReadiness $copy}catch{$caught=$_.Exception.Message}
+            Add-CheckResult -Name ('CSharp readiness: rejects '+$case) -Success ($caught -ceq 'CSHARP_NATIVE_CLIENT_NOT_READY')
+        }
+        $caught='';try{Assert-CSharpNativeClientReadiness $null}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name 'CSharp readiness: missing result rejected' -Success ($caught -ceq 'CSHARP_NATIVE_CLIENT_NOT_READY')
+    }finally{Remove-Module $readinessModule -Force -ErrorAction SilentlyContinue}
+}
