@@ -164,7 +164,8 @@ try{
         if([int](Invoke-ProbeSql "SELECT COUNT(*) FROM sys.databases WHERE name=N'CSharpAcceptance'") -ne 0){throw 'CSHARP_NATIVE_DATABASE_EXISTS'}
         $null=Invoke-ProbeSql 'CREATE DATABASE [CSharpAcceptance]'
         $connection.ChangeDatabase('CSharpAcceptance')
-        $null=Invoke-ProbeSql "CREATE EXTERNAL LANGUAGE [dotnet] FROM (CONTENT=N'$Root\extension.zip',FILE_NAME='nativecsharpextension.dll');"
+        # Language-scoped .NET 8 host tracing uses stderr; no trace file or new write grant.
+        $null=Invoke-ProbeSql "CREATE EXTERNAL LANGUAGE [dotnet] FROM (CONTENT=N'$Root\extension.zip',FILE_NAME='nativecsharpextension.dll',ENVIRONMENT_VARIABLES=N'{`"COREHOST_TRACE`":`"1`"}');"
         $null=Invoke-ProbeSql "CREATE EXTERNAL LIBRARY [SqlServerLab.CSharpProbe] FROM (CONTENT=N'$Root\SqlServerLab.CSharpProbe.dll') WITH (LANGUAGE=N'dotnet');"
         return 'CSHARP_NATIVE_REGISTERED'
     }

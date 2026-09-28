@@ -1,6 +1,24 @@
 # Actual guest helper AST, synthetic messages/files only; never connects to SQL.
 & {
     $ast=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tests/Integration/Fixtures/CSharp/guest.ps1'),[ref]$null,[ref]$null)
+    & {
+        # Execute the real registration branch with only its SQL transport substituted.
+        $register=$ast.Find({param($n)$n -is [Management.Automation.Language.IfStatementAst] -and $n.Clauses[0].Item1.Extent.Text -ceq '$Stage -eq ''Register'''},$true)
+        $body=($register.Clauses[0].Item2.Statements|ForEach-Object {$_.Extent.Text}) -join "`n"
+        $Root='C:\synthetic-csharp';$queries=[Collections.Generic.List[string]]::new()
+        $connection=[pscustomobject]@{Database='master'}
+        $connection|Add-Member ScriptMethod ChangeDatabase {param($Name)$this.Database=$Name}
+        function Invoke-ProbeSql {param([string]$Sql)$queries.Add($Sql);return 0}
+        $result=& ([scriptblock]::Create($body))
+        $language=@($queries|Where-Object {$_ -like 'CREATE EXTERNAL LANGUAGE*'})
+        $json=[regex]::Match($language[0],"ENVIRONMENT_VARIABLES=N'([^']+)'").Groups[1].Value|ConvertFrom-Json
+        Add-CheckResult -Name 'CSharp host diagnostics: real registration enables only language-scoped COREHOST_TRACE' -Success ($result -ceq 'CSHARP_NATIVE_REGISTERED' -and $connection.Database -ceq 'CSharpAcceptance' -and $language.Count -eq 1 -and @($json.PSObject.Properties).Count -eq 1 -and $json.COREHOST_TRACE -ceq '1')
+        Add-CheckResult -Name 'CSharp host diagnostics: registration preserves package and library identity without trace file' -Success ($language[0].Contains("CONTENT=N'$Root\extension.zip',FILE_NAME='nativecsharpextension.dll'") -and $queries[3] -ceq "CREATE EXTERNAL LIBRARY [SqlServerLab.CSharpProbe] FROM (CONTENT=N'$Root\SqlServerLab.CSharpProbe.dll') WITH (LANGUAGE=N'dotnet');" -and $body -notmatch 'TRACEFILE|SetEnvironmentVariable|icacls')
+        $queries.Clear()
+        function Invoke-ProbeSql {param([string]$Sql)$queries.Add($Sql);return 1}
+        $caught='';try{& ([scriptblock]::Create($body))}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name 'CSharp host diagnostics: actual existing-database guard still blocks all registration writes' -Success ($caught -ceq 'CSHARP_NATIVE_DATABASE_EXISTS' -and $queries.Count -eq 1 -and $queries[0] -like 'SELECT COUNT(*)*')
+    }
     foreach($name in @('New-CSharpGuestSqlInfoCollector','Add-CSharpGuestSqlMessages','Save-CSharpGuestSqlFailure','Read-CSharpGuestLogTail','Get-CSharpGuestDiagnostics','Invoke-ProbeSql')){
         $node=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -ceq $name},$true)
         . ([scriptblock]::Create($node.Extent.Text))
