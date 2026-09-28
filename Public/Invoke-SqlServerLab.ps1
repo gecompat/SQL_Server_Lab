@@ -1160,6 +1160,79 @@ function Invoke-LabDatabasePackageAttachInteractive {
     Write-LabInfo 'Host-/Gastpfade, Hashwerte und Credentials werden in dieser Menüansicht nicht ausgegeben.'
 }
 
+function Resolve-LabBackupSelectionTarget {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Selection)
+
+    $stateRoot = Get-LabStateRoot
+    if ([string]$stateRoot -cne [string]$Selection.StateRoot) { throw 'Der State-Root hat sich geändert. Bitte erneut auswählen.' }
+    $run = Get-LabRunState -RunId $Selection.RunId -StateRoot $stateRoot
+    $runtime = Get-LabRunRuntimeStatus -Run $run -StateRoot $stateRoot
+    $target = Resolve-LabRunInstance -RunId $Selection.RunId -InstanceId $Selection.InstanceId -StateRoot $stateRoot
+    foreach ($property in @('Provider','Version','HostName','Port','ContainerName','VMName','VMId')) {
+        if ([string]$target.$property -cne [string]$Selection.Target.$property) {
+            throw 'Das gewählte Verbindungsziel hat sich geändert. Bitte erneut auswählen.'
+        }
+    }
+    $live = @($runtime.Instances | Where-Object { [string]$_.Id -ceq [string]$Selection.InstanceId -and [string]$_.Provider -ceq [string]$target.Provider })
+    if ($live.Count -ne 1 -or [string]$live[0].State -ne 'RUNNING') {
+        throw 'Die gewählte Instanz ist nicht mehr eindeutig RUNNING. Bitte den Status prüfen.'
+    }
+    return $target
+}
+
+function Select-LabBackupInstanceInteractive {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$RunId)
+
+    try {
+        $stateRoot = Get-LabStateRoot
+        $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
+        $runtime = Get-LabRunRuntimeStatus -Run $run -StateRoot $stateRoot
+        $connectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $RunId) 'connection-info.json'
+        $connection = Get-Content -LiteralPath $connectionPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+        $instances = @($connection.instances)
+        $bindings = @{}
+        $items = @(
+            for ($index = 0; $index -lt $instances.Count; $index++) {
+                $instance = $instances[$index]
+                $id = [string]$instance.id
+                $version = if ($instance.version) { [string]$instance.version } else { [string]$instance.sqlVersion }
+                $provider = [string]$instance.provider
+                $reason = ''
+                if ([string]::IsNullOrWhiteSpace($id) -or @($instances | Where-Object { [string]$_.id -eq $id }).Count -ne 1) {
+                    $reason = 'Instanz-ID fehlt oder ist nicht eindeutig. Abhilfe: Verbindungsinformationen prüfen.'
+                }
+                else {
+                    try {
+                        $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $id -StateRoot $stateRoot
+                        if ([string]$target.Provider -cne $provider -or [string]$target.Version -cne $version) { throw 'Verbindungsinformationen geändert.' }
+                        $bindings[$id] = [PSCustomObject]@{RunId=$RunId;InstanceId=$id;StateRoot=$stateRoot;Target=$target}
+                    }
+                    catch { $reason = 'Verbindungsziel ist unvollständig oder verändert. Abhilfe: Verbindungsinformationen prüfen.' }
+                    $live = @($runtime.Instances | Where-Object { [string]$_.Id -ceq $id -and [string]$_.Provider -ceq $provider })
+                    if (-not $reason -and ($live.Count -ne 1 -or [string]$live[0].State -ne 'RUNNING')) {
+                        $reason = 'Instanz ist nicht eindeutig RUNNING. Abhilfe: Status prüfen und die eigene Instanz bei Bedarf starten.'
+                    }
+                }
+                New-LabConsoleItem -Id ("instance-{0}" -f $index) -Label $(if ($id) { $id } else { 'Instanz ohne ID' }) `
+                    -Value ("SQL {0} · {1}" -f $(if ($version) { $version } else { 'unbekannt' }), $(if ($provider) { $provider } else { 'Provider unbekannt' })) `
+                    -Disabled:([bool]$reason) -DisabledReason $reason -Data $id
+            }
+        )
+        if ($items.Count -eq 0) { Write-LabInfo 'Keine registrierte Instanz in dieser Umgebung vorhanden.'; return $null }
+        $id = Select-LabConsoleDataItem -ScreenId 'database-backup-instance-select' -Title 'Instanz für Datenbankbackup auswählen' `
+            -Subtitle 'Instanzname · SQL-Version · Provider; Auswahl startet keine Umgebung' -Items $items
+        if (-not $id) { return $null }
+        $selected = @($items | Where-Object { [string]$_.Data -ceq [string]$id -and -not $_.Disabled })
+        if ($selected.Count -ne 1) { Write-LabWarning 'Die Instanz ist nicht eindeutig auswählbar.'; return $null }
+        $selection = $bindings[$id]
+        $null = Resolve-LabBackupSelectionTarget -Selection $selection
+        return $selection
+    }
+    catch { Write-LabError "Backupziel konnte nicht gebunden werden: $($_.Exception.Message)"; return $null }
+}
+
 function Invoke-LabDatabaseBackupInteractive {
     [CmdletBinding()]
     param(
@@ -1171,13 +1244,16 @@ function Invoke-LabDatabaseBackupInteractive {
         [string]$DataRoot
     )
 
+    $selection = $null
     if ([string]::IsNullOrWhiteSpace($RunId)) {
         $runs = @(Get-LabRunsByRuntimeState -State 'RUNNING')
         if ($runs.Count -eq 0) { Write-LabInfo 'Keine laufende SQL-Umgebung vorhanden.'; return }
         $RunId = Select-LabRun -Runs $runs -Prompt 'Quelle für Datenbankbackup' -DisableSystemServices
         if (-not $RunId) { return }
-        $InstanceId = Read-Host '  Instanz-ID [primary]'
-        if ([string]::IsNullOrWhiteSpace($InstanceId)) { $InstanceId = 'primary' }
+        if (@($runs | Where-Object { [string]$_.runId -ceq $RunId }).Count -ne 1) { Write-LabError 'Die Umgebung ist nicht eindeutig auswählbar.'; return }
+        $selection = Select-LabBackupInstanceInteractive -RunId $RunId
+        if (-not $selection) { return }
+        $InstanceId = [string]$selection.InstanceId
     }
     try { $target = Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId }
     catch { Write-LabError "Backupziel konnte nicht gebunden werden: $($_.Exception.Message)"; return }
@@ -1186,6 +1262,10 @@ function Invoke-LabDatabaseBackupInteractive {
     if ($DatabaseName -notmatch '^[A-Za-z][A-Za-z0-9_]{0,127}$') {
         Write-LabError 'Der Datenbankname muss mit einem Buchstaben beginnen und darf nur Buchstaben, Ziffern und Unterstriche enthalten.'
         return
+    }
+    if ($selection) {
+        try { $target = Resolve-LabBackupSelectionTarget -Selection $selection }
+        catch { Write-LabError $_.Exception.Message; return }
     }
     if (-not $SaPassword) { $SaPassword = Read-Host '  SA-Passwort' -AsSecureString }
     if ([string]$target.Provider -eq 'hyperv' -and -not $GuestCredential) {
@@ -1205,6 +1285,10 @@ function Invoke-LabDatabaseBackupInteractive {
     Write-LabInfo 'Vor Veröffentlichung werden BACKUP CHECKSUM, RESTORE VERIFYONLY WITH CHECKSUM und SHA-256 geprüft.'
     Write-LabInfo 'Temporäre Exportdateien werden auch bei Fehlern bereinigt; ein fehlgeschlagener Katalogcommit quarantänisiert das Artefakt.'
     if (-not (Read-LabConfirm -Prompt '  Verifiziertes Backup jetzt erstellen und in Lab_Data veröffentlichen?' -Default $false)) { return }
+    if ($selection) {
+        try { $null = Resolve-LabBackupSelectionTarget -Selection $selection }
+        catch { Write-LabError $_.Exception.Message; return }
+    }
 
     $arguments = @{
         RunId=$RunId;InstanceId=$InstanceId;DatabaseName=$DatabaseName;SaPassword=$SaPassword
