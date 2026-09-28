@@ -1495,6 +1495,17 @@ Add-ValidationResult `
         $knownLimitations -match '34780626984' -and
         $knownLimitations -match 'SQL/2022/Eval/ISO/SQLServer2022-x64-ENU\.iso' -and
         $repoMap -match 'external_runtime_reconcile_acceptance:.*34780626984')
+$externalLanguagePlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation/Project_Planning/EXTERNAL_LANGUAGES_IMPLEMENTATION_PLAN.md') -Raw
+$cgroupV2Evidence = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation/User/EXTERNAL_LANGUAGES_CGROUP_V2.md') -Raw
+Add-ValidationResult -Name 'External-Languages-Plan bindet den engen Hyper-V-Reconcile-Nachweis an den getesteten Head' -Success (
+    $externalLanguagePlan -match '(?s)Welle 8D.*34780626984.*77db6e73afe9fd9e8ca720124ae08172b5e94731.*SQL Server 2022 Evaluation auf Windows Server 2025.*Weitere SQL-/OS-/Providerkombinationen' -and
+    $externalLanguagePlan -notmatch 'seine Ausführung ist\s+noch `NOT_EXECUTED`')
+Add-ValidationResult -Name 'cgroup-v2 trennt historische Headzuordnung von fehlender nativer Receipt-Commitbindung' -Success (
+    $cgroupV2Evidence -match 'bc251775f134f2361174dafcac02613cd383ddb3' -and
+    $cgroupV2Evidence -match '36320431347' -and
+    $cgroupV2Evidence -match 'b08eca4ca57d02dbf418342901f057298c83d1ee' -and
+    $cgroupV2Evidence -match 'keine eigene\s+Commitbindung' -and
+    $cgroupV2Evidence -match 'Merge-SHA wird nicht als getesteter\s+Native-Head')
 Add-ValidationResult `
     -Name 'Masterplan trennt lokale Produktfunktion von optionaler CI-Validierung' `
     -Success ($masterImplementationPlan -notmatch 'keine CI/CD-Artefakte vorhanden' -and $masterImplementationPlan -match 'keine Produktabhängigkeit')
