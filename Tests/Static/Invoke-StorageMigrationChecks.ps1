@@ -212,12 +212,14 @@ try {
             Set-Item -Path Function:script:Write-LabHyperVResourceBinding `
                 -Value $script:storageMigrationOriginalBindingWriter
         }
+        $recoveryJournal = Get-Content -LiteralPath (Join-Path (Split-Path -Parent $plan.Path) "$($plan.Plan.PlanId).journal.json") -Raw | ConvertFrom-Json -Depth 30
         $result = Invoke-LabDataMigration -PlanPath $plan.Path -ProcessEnvironmentOnly -Confirm:$false
         return [PSCustomObject]@{
             Plan=$plan.Plan; Result=$result; TamperedBindingMessage=$tamperedBindingMessage
             RecoveryMessage=$recoveryMessage; VM=$script:storageMigrationVM
             MoveCalls=$script:storageMigrationMoveCalls; RunningPlan=$runningPlan.Plan
             StateMessage=$stateMessage
+            PreferencesRecoveryCheckpoint=$recoveryJournal.PreferencesCheckpoint
         }
     } $sourceRoot $targetParent
     $result = $migrationContract.Result
@@ -307,6 +309,12 @@ try {
         }).Count -eq 1
     )
     Add-CheckResult -Name 'Verifizierter leerer Quellroot wird entfernt' -Success (-not (Test-Path -LiteralPath $sourceRoot))
+    Add-CheckResult -Name 'Preferences-Checkpoint wird vor Binding-Commit und Cleanup journalisiert' -Success (
+        $migrationContract.PreferencesRecoveryCheckpoint.Stage -eq 'SWITCHED' -and
+        $journal.PreferencesCheckpoint.Stage -eq 'CLEANUP_READY' -and
+        $journal.PreferencesCheckpoint.SourcePath -eq (Join-Path $sourceRoot 'Catalog/preferences.json') -and
+        $journal.PreferencesCheckpoint.TargetPath -eq (Join-Path $targetRoot 'Catalog/preferences.json')
+    )
 }
 catch { Add-CheckResult -Name 'Storage-Migration-Testausfuehrung' -Success $false -Message $_.Exception.Message }
 finally {

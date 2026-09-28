@@ -40,6 +40,7 @@ dialog.dialog-wide { width: min(920px, calc(100vw - 32px)); }
 dialog::backdrop { background: rgba(1, 7, 13, .76); }
 dialog form { display: grid; gap: 14px; padding: 22px; overflow: auto; max-height: calc(100vh - 32px); }
 dialog .read-only-dialog-content { display: grid; gap: 14px; padding: 22px; overflow: auto; max-height: calc(100vh - 32px); }
+#slot-reserve-form { padding: 0; overflow: visible; max-height: none; }
 .dialog-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }.dialog-heading h2 { font-size: 1.45rem; }
 .icon-button { width: 34px; height: 34px; border: 0; border-radius: 7px; color: var(--ink); background: #29425c; font-size: 1.3rem; line-height: 1; }
 label { display: grid; gap: 6px; min-width: 0; color: var(--muted); font-size: .9rem; } input, select { width: 100%; min-width: 0; padding: 10px 12px; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; background: #081525; } select { text-overflow: ellipsis; }

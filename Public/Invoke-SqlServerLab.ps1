@@ -20,7 +20,7 @@
 function Invoke-SqlServerLab {
     [CmdletBinding()]
     param(
-        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
+        [ValidateSet('New', 'BatchPlan', 'Queue', 'Commands', 'AutomatedTestEnvironment', 'AutomatedTestEnvironmentLifecycle', 'ClearAutomatedTestEnvironment', 'Manifest', 'Status', 'SyncRuntime', 'Stop', 'Start', 'Restart', 'Remove', 'Clear', 'CleanupAudit', 'RetainedStoreRemoval', 'Script', 'Database', 'DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach', 'DatabasePackageInventory', 'DatabaseMigrationDependency', 'Image', 'WindowsSlotPool', 'ReservePolicy', 'Setup', 'MediaRoot', 'OperatingSystemSources', 'CuResource', 'CuStatus', 'DataRoot', 'TestDataRoot', 'Rename', 'UpdateContainer', 'Resources', 'Manage', 'Install7Zip', 'Catalog', 'ConnectionCenter', 'Cms')]
         [string]$Action,
 
         [ValidateSet('Auto', 'Fallback')]
@@ -288,6 +288,7 @@ function Show-LabHyperVMenu {
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
 
+    $items += New-LabConsoleItem -Id 'ReservePolicy' -Label 'Slotreserve: Policy und Kandidaten' -Shortcut 'r'
     return Show-LabSubMenu -ScreenId 'hyperv-menu' -Title 'Hyper-V: Vorlagen und Slots' -Subtitle 'OS-/SQL-Vorlagen und operative Slotvorbereitung' -Items $items
 }
 
@@ -1648,6 +1649,7 @@ function Invoke-LabAction {
     Write-Host ""
 
     switch ($ActionName) {
+        'ReservePolicy' { Show-LabSlotReserveInteractive }
         'Setup' {
             Invoke-LabInitialSetupInteractive
         }

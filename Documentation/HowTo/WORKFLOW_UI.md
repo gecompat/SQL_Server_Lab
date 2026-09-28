@@ -269,3 +269,40 @@ werden nicht verändert. Am 2026-09-28 bestanden Docker und Podman getrennt jewe
 SQL-2025-Prüfungen des neuen Plan-/Workflow-Apply-/No-op-/Driftpfads samt
 SQL-Probe und bestätigtem Own-Runtime-Cleanup. Das belegt Container-CPU/RAM,
 keinen Hyper-V-Apply und keine weiteren Eigenschaften oder Versionspaare.
+
+## Zentrale Slotreservepolicy (`HV-401` bis `HV-508`, `CORE-107/111`)
+
+**Grundkonfiguration** und **Hyper-V: Vorlagen und Slots** öffnen denselben
+Dialog **Slotreserve: Policy und Kandidaten**. Windows- und SQL-Zielreserve
+(je 0–100), Mindestrestlaufzeit und separate Warnfrist (je 0–3650 Tage) sind
+Advisory-Werte. Null ist ein ausdrücklich gespeicherter Zielwert; eine fehlende
+oder ungültige Policy wird davon unterschieden. Versions-, Ressourcen- und
+Localeprofile, Budget, Parallelität und Erneuerung bleiben Folgearbeit.
+
+Vorschau und Abbruch schreiben nichts. Erst das ausdrückliche Speichern prüft
+Speicherautorität und bisherigen Preferences-Inhalt erneut. Die Policy liegt
+als `slotReservePolicy` in derselben durch `Get-LabProjectPreferencesPath`
+aufgelösten lokalen Preferences-Datei wie die bestehenden Einstellungen.
+Alle Writer verwenden einen gemeinsamen dateigebundenen Lock und atomaren
+Merge; andere Felder bleiben erhalten. Ungültiges JSON und ungültige Policies
+werden nicht automatisch repariert. Ein Wechsel des globalen Datenroots
+migriert keine Preferences; die anschließend aufgelöste Authority wird neu gelesen.
+
+Die Bestandsansicht liest registrierte Hyper-V-Kandidaten und gebundene aktive
+Vorgänge, einschließlich gestoppter Runs. Eine Vorgangsbindung ist keine
+Poolreservierung. Windows-Fristen bleiben historische Aktivierungsmetadaten;
+SQL-Fristen verwenden den vorhandenen gebundenen Receipt-/Aktualitätsvertrag.
+Warnfrist und Mindestrestlaufzeit sind getrennte Bewertungen. Unbekannte,
+ablaufende, belegte oder vorgangsgebundene Kandidaten zählen nicht als frei.
+Da dauerhafte Poolmitgliedschaft und Slotclaims fehlen, bleiben bestätigte
+Verfügbarkeit, Defizit und exakte Auffüllzahl ausdrücklich unbekannt. Bei
+Nullreserve lautet die Aussage nur „keine Reserve angefordert“; sie belegt
+keinen gesunden Pool. Auffüllempfehlung ist zunächst die Aufforderung,
+Poolzugehörigkeit und Claims zu prüfen. Es gibt keine automatische Auffüllung,
+Slot-/VM-Erstellung, Installation oder Provideraktion.
+
+CLI: `Invoke-SqlServerLab -Action ReservePolicy`. Nichtinteraktiv bietet
+`Invoke-SqlServerLabWorkflowAction` die Aktionen `GetSlotReserveState`,
+`PlanSlotReserve -SlotReservePolicy` und `ApplySlotReserve -SlotReservePlan
+-ConfirmSlotReserve`. Die Browserroute `/api/slot-reserve` führt denselben
+Core direkt aus; Lesen und Vorschau werden nicht in die Batchqueue eingereiht.

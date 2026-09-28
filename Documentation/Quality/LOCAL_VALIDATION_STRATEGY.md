@@ -2219,3 +2219,33 @@ Cachefixture auf der kleinen WSL-Systempartition wurde vor dem Stop verworfen
 und bereinigt; der erfolgreiche Runner nutzt ausschließlich sein eigenes
 Lab-Volume. Die fokussierte Suite bestand 20 Assertions einschließlich des
 öffentlichen WhatIf-, Teilfehler- und Gruppen-Koordinatorverhaltens.
+
+## Slotreservepolicy und Kandidatensicht
+
+`Invoke-SlotReserveChecks.ps1` prüft synthetisch denselben Preferences-Writer
+mit vier getrennten PowerShell-Prozessen, Mergeerhaltung, ungültigem JSON,
+Authority-/Vorgängerdrift, expliziter Nullreserve und injiziertem Schreibabbruch.
+Die echten CLI-Fallback-, Refresh-, Vorschau-, Abbruch- und Bestätigungswege
+sowie der HTTP-Handler werden ohne Provider ausgeführt. Die JavaScript-Fixture
+prüft beide Einstiege, Vorschauinvalidierung, Apply, Fehler und verspätete Antworten.
+Registrierte gestoppte Kandidaten, aktive Vorgangsbindung und unbekannte/frische
+SQL-Evidence bleiben getrennte Verträge; diese Prüfung erstellt keine Slots
+und belegt keine native Slotreserve oder Reservierungsrace. WindowsSlotPool-
+und Batch-Suites sichern die vorhandenen Erstellungs-/Resumeverträge separat.
+Die fokussierte Prüfung bestand 38 Assertions; der JS-Handlerstand bestand
+51 Assertions. `Invoke-SlotReserveMigrationChecks.ps1` bestand 21 Assertions:
+echte getrennte Writerprozesse warten über synthetisches Copy/Rewrite/Cleanup,
+Quellpreferences werden danach nicht neu angelegt, Zielmerges erhalten fremde
+Felder, Teilakquisitionen geben Locks frei und ungültige Preferences stoppen
+Legacy-Root-/Storage-Setter einschließlich `Set-LabDataRootDefault` vor ihrer
+ersten Mutation. Journalgebundene Resumezustände erlauben den gespeicherten
+Defaultwechsel und bereits bereinigte Quellpreferences; fremde Zieländerungen
+und falsche Pläne werden abgelehnt. Die vorhandene Storage-Migrationssuite
+bestand 26 Prüfungen einschließlich der tatsächlichen Checkpointpersistenz
+vor Bindingcommit und Cleanup. Diese Filesystemfixtures migrieren
+keine reale Umgebung. Der ausgewählte Docker-Core-Smoke mit SQL Server 2025
+bestand am 2026-09-29 isoliert 34/34 Prüfungen. Eigene Runs wurden entfernt;
+Container, Volumes und Netzwerke des eigenen Scopes waren danach abwesend.
+Persistierte Benutzerdefaults blieben unverändert, Rohdiagnosen und die
+synthetische Dateifixture bleiben ausschließlich lokal. Das belegt den
+Docker-Core, keine Slotreserve, Claims, Hyper-V oder reale Storage-Migration.

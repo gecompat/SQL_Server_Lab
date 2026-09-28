@@ -472,6 +472,47 @@ async function main() {
     assert.equal(Number(node('resource-processors').value), 2);
   });
   node('resource-dialog').close();
+  const reserveRequests = [];
+  const reservePolicy = { WindowsReserve: 0, SqlReserve: 0, MinimumDaysRemaining: 45, WarningDaysRemaining: 10 };
+  const reserveView = { Configuration: { Status: 'CONFIGURED', Policy: reservePolicy }, CandidateCount: 2, Rows: [], Recommendation: 'NO_RESERVE_REQUESTED', Notice: 'Keine Claims; Verfügbarkeit unbekannt.' };
+  const reservePlan = { Policy: reservePolicy, PlanKey: 'synthetic', PreviousKey: 'synthetic', IsNoOp: false, Notice: 'Nur Policy speichern.' };
+  context.fetch = async (url, options = {}) => {
+    assert.equal(url, '/api/slot-reserve');
+    const request = options.body ? JSON.parse(options.body) : null;
+    reserveRequests.push(request);
+    return { ok: true, json: async () => ({ Result: request?.action === 'PlanSlotReserve' ? reservePlan : reserveView }) };
+  };
+  await resourceEvent('configuration-reserve');
+  check('Reserve opens same central configuration without mutation and preserves explicit zero', () => {
+    assert.equal(reserveRequests.length, 1); assert.equal(reserveRequests[0], null);
+    assert.equal(Number(node('slot-reserve-windows').value), 0);
+    assert.ok(node('slot-reserve-status').textContent.includes('unbekannt'));
+  });
+  await resourceEvent('slot-reserve-form', 'submit');
+  check('Reserve preview keeps minimum lifetime separate from warning threshold', () => {
+    assert.deepEqual(reserveRequests.at(-1), { action: 'PlanSlotReserve', parameters: { SlotReservePolicy: reservePolicy } });
+    assert.equal(node('slot-reserve-apply').disabled, false);
+  });
+  await resourceEvent('slot-reserve-windows', 'input'); await resourceEvent('slot-reserve-apply');
+  check('Reserve edit invalidates displayed plan', () => assert.equal(reserveRequests.length, 2));
+  await resourceEvent('slot-reserve-form', 'submit'); await resourceEvent('slot-reserve-close'); await resourceEvent('slot-reserve-apply');
+  check('Reserve cancel discards plan without Apply', () => assert.equal(reserveRequests.length, 3));
+  await resourceEvent('templates-reserve'); await resourceEvent('slot-reserve-form', 'submit'); await resourceEvent('slot-reserve-apply');
+  check('Templates uses same real reserve handler and applies only displayed policy with explicit confirmation', () => {
+    assert.deepEqual(reserveRequests.at(-2), { action: 'ApplySlotReserve', parameters: { SlotReservePlan: reservePlan, ConfirmSlotReserve: true } });
+    assert.equal(reserveRequests.at(-1), null);
+  });
+  context.fetch = async () => ({ ok: false, text: async () => 'synthetic-host-private' });
+  await resourceEvent('slot-reserve-read');
+  check('Reserve failure removes stale inventory and disables Apply without raw diagnostics', () => {
+    assert.equal(node('slot-reserve-apply').disabled, true); assert.equal(node('slot-reserve-inventory').textContent, '');
+    assert.ok(!node('slot-reserve-status').textContent.includes('synthetic-host-private'));
+  });
+  let releaseReserve;
+  context.fetch = () => new Promise(resolve => { releaseReserve = resolve; });
+  const pendingReserve = resourceEvent('slot-reserve-read'); await resourceEvent('slot-reserve-close');
+  releaseReserve({ ok: true, json: async () => ({ Result: reserveView }) }); await pendingReserve;
+  check('Reserve closed dialog ignores delayed read', () => assert.equal(node('slot-reserve-inventory').textContent, ''));
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

@@ -449,6 +449,10 @@ sources_of_truth:
   port_allocation_contract: Private/PortAllocation.ps1
   storage_contract: Private/StorageContract.ps1
   initial_setup_contract: Private/InitialSetup.ps1
+  slot_reserve_guidance: Private/SlotReserveGuidance.ps1
+  preferences_authority: Private/LabPreferences.ps1
+  validation_slot_reserve: Tests/Static/Invoke-SlotReserveChecks.ps1
+  validation_slot_reserve_migration: Tests/Static/Invoke-SlotReserveMigrationChecks.ps1
   storage_contract_schema: Schemas/lab-storage-contract.schema.json
   storage_migration_plan_schema: Schemas/lab-storage-migration-plan.schema.json
   storage_migration_journal_schema: Schemas/lab-storage-migration-journal.schema.json

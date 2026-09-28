@@ -2046,3 +2046,12 @@ SQL Server 2025 CU9 kann unter rootful Docker und Podman ausdrücklich mit
 shared-user-v2-Varianten ausgewählt werden. Dabei entfallen Launchpad-Sandbox-
 und Worker-Isolation; der isolierte cgroup-v1-Modus bleibt Standard.
 [Auswahl, Voraussetzungen und Nachweisgrenzen](EXTERNAL_LANGUAGES_CGROUP_V2.md).
+
+Die **Grundkonfiguration** und **Vorlagen und Slots** bieten denselben Dialog
+**Slotreserve: Policy und Kandidaten** (`Invoke-SqlServerLab -Action ReservePolicy`).
+Zielreserve einschließlich null, Mindestrestlaufzeit und Warnfrist werden erst
+nach Vorschau und Bestätigung zentral gespeichert. Lesen und Abbruch ändern
+nichts. Registrierte Kandidaten sind keine bestätigte freie Reserve; ohne
+Poolmitgliedschaft und Claims bleiben Defizit und Auffüllzahl unbekannt. Der
+Dialog erstellt keine Slots und aktiviert keine automatische Auffüllung.
+Einzelheiten im [Bedienvertrag](../HowTo/WORKFLOW_UI.md).

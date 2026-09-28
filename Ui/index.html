@@ -81,6 +81,7 @@
 
     <section class="panel" data-workspace-area="templates" hidden>
       <h2>Hyper-V: Vorlagen und Slots</h2>
+      <button id="templates-reserve" type="button" class="button secondary">Slotreserve: Policy und Kandidaten</button>
       <p>Vorlagen vorbereiten und Bestände prüfen. Slot-Reservierung und vollständige Gruppenplanung besitzen noch keinen geführten Browserdialog; die Konsole bietet die vorhandene Einzel-/Batch-Vorbereitung.</p>
       <div class="workflow-actions">
         <button class="button primary" data-open-build="sql-fresh" data-provider-capability="hyperv">Neues SQL-Prepared-Image</button>
@@ -125,8 +126,9 @@
     </section>
     <section class="panel" data-workspace-area="configuration" hidden>
       <h2>SQL-Lab-Grundkonfiguration</h2>
-      <p>Lab_Base und registrierte Lab_Data-Roots prüfen, fehlende Roots ergänzen und den globalen Standard wählen. Provider lassen sich ausdrücklich erneut prüfen. Installation, Datenmigration und zentrale Reservepolicy bleiben getrennte Schritte.</p>
+      <p>Lab_Base und registrierte Lab_Data-Roots prüfen, fehlende Roots ergänzen und den globalen Standard wählen. Provider lassen sich ausdrücklich erneut prüfen. Installation und Datenmigration bleiben getrennte Schritte. Die Advisory-Reservepolicy hat einen eigenen Vorschau-/Speicherdialog.</p>
       <button id="configuration-storage" type="button" class="button secondary">Grundkonfiguration und Provider öffnen</button>
+      <button id="configuration-reserve" type="button" class="button secondary">Slotreserve: Policy und Kandidaten</button>
     </section>
     <section class="panel" data-workspace-area="maintenance" hidden>
       <h2>Wartung, Aufräumen und Recovery</h2>
@@ -539,6 +541,25 @@
     </div>
   </dialog>
 
+  <dialog id="slot-reserve-dialog">
+    <div class="read-only-dialog-content">
+      <h2>Zentrale Slotreservepolicy</h2>
+      <p>Nur Advisory-Policy. Keine automatische Auffüllung, Reservierung oder Provideraktion. Zielbestand für Windows-/SQL-Kandidaten; keine Versions- oder Eignungsfreigabe.</p>
+      <p id="slot-reserve-status" role="status" aria-live="polite"></p>
+      <div id="slot-reserve-inventory" class="selection-details"></div>
+      <form id="slot-reserve-form">
+        <label>Windows-Zielreserve (0–100)<input id="slot-reserve-windows" type="number" min="0" max="100" required></label>
+        <label>SQL-Zielreserve (0–100)<input id="slot-reserve-sql" type="number" min="0" max="100" required></label>
+        <label>Mindestrestlaufzeit in Tagen (0–3650)<input id="slot-reserve-minimum" type="number" min="0" max="3650" required></label>
+        <label>Separate Warnfrist in Tagen (0–3650)<input id="slot-reserve-warning" type="number" min="0" max="3650" required></label>
+        <button id="slot-reserve-preview" type="submit" class="button secondary">Vorschau erstellen</button>
+      </form>
+      <p id="slot-reserve-plan" hidden></p>
+      <button id="slot-reserve-apply" type="button" class="button primary" disabled>Angezeigte Policy revalidieren und speichern</button>
+      <button id="slot-reserve-read" type="button" class="button secondary">Erneut lesen</button>
+      <button id="slot-reserve-close" type="button" class="button secondary">Abbrechen / Schließen</button>
+    </div>
+  </dialog>
   <dialog id="initial-setup-dialog">
     <div class="read-only-dialog-content">
       <div class="dialog-heading"><h2>SQL-Lab-Grundkonfiguration</h2><button type="button" class="icon-button" value="cancel" aria-label="Schließen">×</button></div>

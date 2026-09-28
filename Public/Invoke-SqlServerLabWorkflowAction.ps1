@@ -47,6 +47,12 @@ SQL_Server_Lab-Internal-Switch verwendet.
     Bestätigt ausdrücklich die Anwendung des angezeigten Grundkonfigurationsplans.
 .PARAMETER SetupProvider
     Einzelner Provider für die reine Readinessprüfung RefreshSetupProvider; keine Installation oder Startaktion.
+.PARAMETER SlotReservePolicy
+    Advisory-Zielbestand für Windows und SQL sowie getrennte Mindestrestlaufzeit und Warnfrist.
+.PARAMETER SlotReservePlan
+    Unveränderter angezeigter SlotReservePlan; Apply prüft Speicherautorität und Vorgänger erneut.
+.PARAMETER ConfirmSlotReserve
+    Bestätigt ausschließlich das Speichern der angezeigten Advisory-Policy.
 .PARAMETER TestDataRoot
     Sichtbarer Root für wiederverwendbare Testdatenbanken, Archive und
     katalogisierte T-SQL-Skripte. Ohne Angabe wird `<MediaRoot>\Testdaten`
@@ -217,6 +223,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateSet(
             'Refresh',
             'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider',
+            'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
@@ -241,6 +248,9 @@ function Invoke-SqlServerLabWorkflowAction {
         [string[]]$LabDataRoot = @(),
         [string]$DefaultDataRoot,
         [object]$InitialSetupPlan,
+        [object]$SlotReservePolicy,
+        [object]$SlotReservePlan,
+        [switch]$ConfirmSlotReserve,
         [switch]$ConfirmSetup,
         [ValidateSet('docker', 'podman', 'hyperv')][string]$SetupProvider,
         [ValidateRange(1,64)][decimal]$ResourceCpu,
@@ -302,6 +312,17 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateRange(32, 1048576)][int]$OsDiskSizeGB = 80
     )
 
+    if ($Action -in @('GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve')) {
+        $result = switch ($Action) {
+            'GetSlotReserveState' { Get-LabSlotReserveInventory }
+            'PlanSlotReserve' { New-LabSlotReservePlan -Policy $SlotReservePolicy }
+            'ApplySlotReserve' {
+                if (-not $ConfirmSlotReserve -or -not $SlotReservePlan) { throw 'SLOT_RESERVE_CONFIRMATION_REQUIRED' }
+                Invoke-LabSlotReservePlan -Plan $SlotReservePlan -Confirm:$false
+            }
+        }
+        return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
+    }
     if ($Action -in @('GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider')) {
         $result = switch ($Action) {
             'GetInitialSetupState' { Get-LabInitialSetupState }
