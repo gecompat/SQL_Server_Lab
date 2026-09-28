@@ -70,26 +70,26 @@ try {
         (Get-Command Get-SqlServerLabLlamaCppModel).Source -ceq 'SqlServerLab' -and (Get-Command Save-SqlServerLabLlamaCppModel).Source -ceq 'SqlServerLab')
     $consoleEvidence=& $module {
         param($Root)
-        $script:modelMenuRoot=$null;$script:modelMenuSelect=$false;$script:modelMenuItems=@();$script:modelMenuSaved=$null;$script:modelMenuAcknowledged=0
+        $script:modelMenuRoot=$null;$script:modelMenuSelect=$false;$script:modelMenuItems=@();$script:modelMenuSaved=$null;$script:modelMenuAcknowledged=0;$script:modelMenuSaveCount=0;$script:modelMenuConfirm=$true;$script:modelMenuStatus=@{}
         function Get-LabMediaRootDefault { $script:modelMenuRoot }
         function Invoke-LabConsoleMenu {
             param($ScreenId,$Title,$Subtitle,$Items)
-            $null=$ScreenId;$null=$Title;$null=$Subtitle
+            $null=$ScreenId;$null=$Title;$script:modelMenuSubtitle=$Subtitle
             $script:modelMenuItems=@($Items)
             if($script:modelMenuSelect){return [pscustomobject]@{Status='Selected';SelectedItem=$script:modelMenuItems[0]}}
             [pscustomobject]@{Status='Cancelled'}
         }
         function Read-LabConfirm {
             param($Prompt,$Default)
-            $null=$Prompt;$null=$Default
-            $true
+            $script:modelMenuPrompt=$Prompt;$null=$Default
+            $script:modelMenuConfirm
         }
         function Save-SqlServerLabLlamaCppModel {
             param($Id,$MediaRoot,[switch]$Confirm)
-            $script:modelMenuSaved=[pscustomobject]@{Id=$Id;MediaRoot=$MediaRoot;Confirm=[bool]$Confirm}
+            $script:modelMenuSaveCount++;$script:modelMenuSaved=[pscustomobject]@{Id=$Id;MediaRoot=$MediaRoot;Confirm=[bool]$Confirm}
             [pscustomobject]@{Status='ALREADY_PRESENT';Path=(Join-Path $MediaRoot 'AI/Models/synthetic.gguf')}
         }
-        function Write-LabStatus { param($Label,$Value) $null=$Label;$null=$Value }
+        function Write-LabStatus { param($Label,$Value) $script:modelMenuStatus[$Label]=$Value }
         function Write-LabSuccess { param($Message) $null=$Message }
         function Write-LabError { param($Message) $null=$Message }
         function Wait-LabConsoleAcknowledgement { $script:modelMenuAcknowledged++ }
@@ -97,10 +97,35 @@ try {
         $disabled=@($script:modelMenuItems|ForEach-Object {[pscustomobject]@{Disabled=$_.Disabled;Reason=$_.DisabledReason}})
         $script:modelMenuRoot=$Root;$script:modelMenuSelect=$true
         Manage-LabLlamaCppModelsInteractive
-        [pscustomobject]@{Disabled=$disabled;Saved=$script:modelMenuSaved;Acknowledged=$script:modelMenuAcknowledged}
+                $good=[pscustomobject]@{Saved=$script:modelMenuSaved;Acknowledged=$script:modelMenuAcknowledged;Count=$script:modelMenuSaveCount;Purpose=$script:modelMenuStatus['Zweck'];Revision=$script:modelMenuStatus['Revision'];Prompt=$script:modelMenuPrompt;Subtitle=$script:modelMenuSubtitle;Value=$script:modelMenuItems[0].Value}
+        $script:modelMenuConfirm=$false
+        Manage-LabLlamaCppModelsInteractive
+        $cancelCount=$script:modelMenuSaveCount
+        $script:modelMenuSelect=$false
+        Manage-LabLlamaCppModelsInteractive
+        $menuCancelCount=$script:modelMenuSaveCount
+        $script:modelMenuSelect=$true;$script:modelMenuConfirm=$true
+        $script:syntheticModels=@(Get-SqlServerLabLlamaCppModel)
+        function Get-SqlServerLabLlamaCppModel { $script:syntheticModels }
+        $invalid=@()
+        foreach($purpose in @('embedding','', $null)){
+            $candidate=$script:syntheticModels[0]|Select-Object *
+            if($null -eq $purpose){$candidate.PSObject.Properties.Remove('Purpose')}else{$candidate.Purpose=$purpose}
+            $script:syntheticModels=@($candidate)
+            Manage-LabLlamaCppModelsInteractive
+            $invalid+=@([pscustomobject]@{Disabled=$script:modelMenuItems[0].Disabled;Reason=$script:modelMenuItems[0].DisabledReason;Count=$script:modelMenuSaveCount})
+        }
+        [pscustomobject]@{Disabled=$disabled;Saved=$good.Saved;Acknowledged=$good.Acknowledged;Good=$good;CancelCount=$cancelCount;MenuCancelCount=$menuCancelCount;Invalid=$invalid}
     } $root
     Add-CheckResult 'KI-Menü listet Modelle ohne Lab_Base sichtbar, aber mit konkreter Abhilfe deaktiviert' (
         $consoleEvidence.Disabled.Count -eq 3 -and @($consoleEvidence.Disabled|Where-Object {-not $_.Disabled -or $_.Reason -notmatch 'Lab_Base.*konfiguriert.*Abhilfe'}).Count -eq 0)
+    Add-CheckResult 'Modellmenü nennt Download, Generationszweck und vollständige Revision ohne Runtimeaktivierung' (
+        $consoleEvidence.Good.Purpose -ceq 'Textgenerierung' -and $consoleEvidence.Good.Revision -cmatch '^[a-f0-9]{40}$' -and
+        $consoleEvidence.Good.Value -match 'Textgenerierung' -and $consoleEvidence.Good.Prompt -match 'Modelldatei herunterladen oder vorhandene Datei prüfen' -and
+        $consoleEvidence.Good.Subtitle -match 'Startet keine Runtime' -and $consoleEvidence.Good.Count -eq 1)
+    Add-CheckResult 'Menü- und Bestätigungsabbruch rufen Save nicht auf' ($consoleEvidence.CancelCount -eq 1 -and $consoleEvidence.MenuCancelCount -eq 1)
+    Add-CheckResult 'Unbekannter, leerer und fehlender Zweck bleiben sichtbar deaktiviert und ohne Save' (
+        $consoleEvidence.Invalid.Count -eq 3 -and @($consoleEvidence.Invalid|Where-Object {-not $_.Disabled -or $_.Reason -notmatch 'Zweck unbekannt.*Download nicht verfügbar' -or $_.Count -ne 1}).Count -eq 0)
     Add-CheckResult 'KI-Menü lädt die explizite Modellauswahl direkt in den konfigurierten Media Root' (
         $consoleEvidence.Saved.Id -ceq 'qwen2.5-1.5b-instruct-q4_0' -and $consoleEvidence.Saved.MediaRoot -ceq $root -and
         -not $consoleEvidence.Saved.Confirm -and $consoleEvidence.Acknowledged -eq 1)

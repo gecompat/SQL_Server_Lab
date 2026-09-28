@@ -423,7 +423,7 @@ function Show-LabAiMenu {
     $sql2025Target = Get-LabAiSql2025TargetMenuAvailability
 
     return Show-LabSubMenu -ScreenId 'ai-menu' -Title 'SQL Server 2025 KI' -Subtitle 'Kostenbewusste, kataloggebundene Ollama- und SQL-Workflows' -Items @(
-        New-LabConsoleItem -Id 'AiLlamaModels' -Label 'llama.cpp-Modelle anzeigen oder laden' -Value 'kuratierte GGUFs · Hashprüfung · Lab_Base' -Shortcut 'm'
+        New-LabConsoleItem -Id 'AiLlamaModels' -Label 'llama.cpp-Modelle anzeigen oder herunterladen' -Value 'kuratierte GGUFs · Hashprüfung · Lab_Base' -Shortcut 'm'
         New-LabConsoleItem -Id 'AiPodmanSetup' -Label 'Podman-KI-Testumgebung erstellen' -Value 'SQL 2025 · vorhandenes Embeddingmodell · Daten bleiben erhalten' -Shortcut '9' `
             -Disabled:(-not $podmanSetup.Available) -DisabledReason ([string]$podmanSetup.Reason)
         New-LabConsoleItem -Id 'AiPodmanEnvironments' -Label 'Meine KI-Testumgebungen anzeigen' -Value 'Umgebung und gespeicherte Beispieldaten wiederfinden' -Shortcut 'v'
@@ -461,21 +461,27 @@ function Manage-LabLlamaCppModelsInteractive {
         for ($index = 0; $index -lt $models.Count; $index++) {
             $model = $models[$index]
             $sizeGiB = [Math]::Round(([double]$model.SizeBytes / 1GB), 2)
+            $knownPurpose = $model.PSObject.Properties['Purpose'] -and [string]$model.Purpose -ceq 'generation'
+            $purposeLabel = if ($knownPurpose) { 'Textgenerierung' } else { 'Zweck unbekannt' }
+            $itemDisabledReason = if (-not $knownPurpose) { 'Zweck unbekannt – Download nicht verfügbar.' } else { $disabledReason }
             New-LabConsoleItem -Id ([string]$model.Id) -Label ([string]$model.DisplayName) `
-                -Value ("{0} · {1} · {2} GiB · {3}" -f $model.HardwareTier, $model.Quantization, $sizeGiB, $model.License) `
-                -Shortcut ([string]($index + 1)) -Data $model -Disabled:([string]::IsNullOrWhiteSpace([string]$mediaRoot)) `
-                -DisabledReason $disabledReason
+                -Value ("{0} · {1} · {2} · {3} GiB · {4}" -f $purposeLabel, $model.HardwareTier, $model.Quantization, $sizeGiB, $model.License) `
+                -Shortcut ([string]($index + 1)) -Data $model -Disabled:([string]::IsNullOrWhiteSpace([string]$mediaRoot) -or -not $knownPurpose) `
+                -DisabledReason $itemDisabledReason
         }
     )
     $selection = Invoke-LabConsoleMenu -ScreenId 'ai-llama-models' -Title 'Kuratierte llama.cpp-Modelle' `
-        -Subtitle 'Auswahl lädt bei Bedarf direkt nach Lab_Base/AI/Models und prüft Größe, SHA-256 und GGUF.' -Items $items
+        -Subtitle 'Download nach Lab_Base/AI/Models oder Dateiprüfung. Startet keine Runtime und lädt kein Modell in den Arbeitsspeicher.' -Items $items
     if ($selection.Status -ne 'Selected') { return }
     $model = $selection.SelectedItem.Data
+    if (-not $model.PSObject.Properties['Purpose'] -or [string]$model.Purpose -cne 'generation') { return }
     Write-LabStatus -Label 'Modell' -Value ([string]$model.DisplayName)
+    Write-LabStatus -Label 'Zweck' -Value 'Textgenerierung'
+    Write-LabStatus -Label 'Revision' -Value ([string]$model.Revision)
     Write-LabStatus -Label 'Datei' -Value ([string]$model.FileName)
     Write-LabStatus -Label 'Quelle' -Value ("{0}@{1}" -f $model.Repository, $model.Revision)
     Write-LabStatus -Label 'Ziel' -Value (Join-Path $mediaRoot ('AI/Models/' + [string]$model.FileName))
-    if (-not (Read-LabConfirm -Prompt '  Modell jetzt laden beziehungsweise vorhandenen Cache prüfen?' -Default $false)) { return }
+    if (-not (Read-LabConfirm -Prompt '  Modelldatei herunterladen oder vorhandene Datei prüfen?' -Default $false)) { return }
     try {
         $result = Save-SqlServerLabLlamaCppModel -Id ([string]$model.Id) -MediaRoot $mediaRoot -Confirm:$false
         if ([string]$result.Status -ceq 'ALREADY_PRESENT') {

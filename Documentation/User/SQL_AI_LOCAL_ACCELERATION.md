@@ -151,7 +151,7 @@ dem später verwendeten DNS-Namen, Port und Zertifikat geprüft werden.
 
 ## Windows: llama.cpp mit OpenVINO-NPU
 
-### Kuratierte Generationsmodelle bei Bedarf laden
+### Kuratierte Generationsmodelle bei Bedarf herunterladen
 
 Der Repositorykatalog enthält drei nicht gesperrte, vom Hersteller Qwen
 veröffentlichte GGUF-Dateien. Quelle und Revision sind unveränderlich gebunden;
@@ -171,12 +171,15 @@ $selected.Path
 ```
 
 Dieselbe Auswahl ist ohne manuelle Cmdlet-Eingabe unter **Datenbanken und
-Verbindungen → SQL Server 2025 KI → llama.cpp-Modelle anzeigen oder laden**
-erreichbar. Das Menü zeigt Hardwarestufe, Quantisierung, Größe und Lizenz. Ist
+Verbindungen → SQL Server 2025 KI → llama.cpp-Modelle anzeigen oder herunterladen**
+erreichbar. Das Menü zeigt Zweck, Hardwarestufe, Quantisierung, Größe und
+Lizenz; die Detailansicht ergänzt die vollständige Revision. Ist
 `Lab_Base` nicht konfiguriert, bleiben alle Modelle sichtbar, sind jedoch mit
 dem konkreten Einrichtungshinweis deaktiviert. Nach der Auswahl folgt eine
-Bestätigung; erst dann wird das Modell geladen oder ein vorhandener Cache
-vollständig revalidiert.
+Bestätigung; erst dann wird die Modelldatei heruntergeladen oder ein vorhandener Cache
+vollständig revalidiert. Dieser Vorgang startet keine Runtime und lädt kein
+Modell in den Arbeitsspeicher. Ein fehlender oder unbekannter Modellzweck
+deaktiviert den Download.
 
 | Stufe | Katalog-ID | Datei | Zweck |
 |---|---|---:|---|
