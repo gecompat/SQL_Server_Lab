@@ -2391,7 +2391,7 @@ Inventare und ersetzen die früheren Katalogfilter-Verweise durch konkrete
 vorhandene Dialoge oder eine ausdrückliche Lückenbeschreibung.
 
 Offen bleiben vollständige geführte Browserdialoge für Testgruppen, CMS und
-operative Slots sowie zentrale Reservepolicy, späteres Provider-Setup,
+operative Slotreservierung und Auffüllung, späteres Provider-Setup,
 Runtimeinstaller und manueller Hostdienst-/Modell-Lifecycle. Vorhandene
 Gruppenschutzverträge gelten unverändert; diese Navigation fügt keine neue
 Gruppensteuerung hinzu. Verbindungseinträge zeigen nur vorhandene
@@ -2716,3 +2716,25 @@ werden nicht verändert. Am 2026-09-28 bestanden Docker und Podman getrennt jewe
 SQL-2025-Prüfungen des neuen Plan-/Workflow-Apply-/No-op-/Driftpfads samt
 SQL-Probe und bestätigtem Own-Runtime-Cleanup. Das belegt Container-CPU/RAM,
 keinen Hyper-V-Apply und keine weiteren Eigenschaften oder Versionspaare.
+
+
+Die zentrale Advisory-Slotreservepolicy ist in CLI und Browser an die vorhandene
+Preferences-Authority gebunden. Sie erzeugt keine Slots. Registrierte Kandidaten
+belegen mangels dauerhafter Poolmitgliedschaft und Claims keine freie Reserve;
+Verfügbarkeit, Defizit und exakte Auffüllzahl bleiben unbekannt. Windowsfristen
+sind historische Metadaten, SQL-Fristen stammen aus dem vorhandenen Receiptvertrag.
+Profilfeinheit, Budget, Parallelität und Erneuerung sind weiterhin offen.
+Preferences-Merges und die Quell-/Zielpreferences einer Storage-Migration
+verwenden gemeinsame geordnete Locks. Überlappende Writer prüfen nach dem
+Warten Authority und Existenz erneut; Policy-Apply bindet zusätzlich den
+konkreten Vorgänger. Eine Migration mit weiteren Preferences-Autoritäten in
+ihren Referenzverzeichnissen wird vor der Mutation abgelehnt. Resume nach
+Defaultwechsel oder gelöschten Quellpreferences benötigt den passenden
+plan-, pfad- und inhaltsgebundenen Checkpoint im bestehenden Migrationsjournal;
+weitere Zieländerungen werden dabei nicht übernommen. Unmanaged Roots
+bleiben unterstützt. Ein völlig neuer Legacyaufruf nach abgeschlossener
+Migration kann bei alter Prozessumgebung und verbliebenem Quellverzeichnis
+weiterhin den alten Pfad wählen; dieser bestehende Authorityrand wird hier
+nicht durch einen neuen Redirect-/Ownershipvertrag gelöst. Ungültiges
+Preferences-JSON wird ohne Reparatur oder Überschreiben abgelehnt.
+Siehe [Bedienvertrag](../HowTo/WORKFLOW_UI.md#zentrale-slotreservepolicy-hv-401-bis-hv-508-core-107111).

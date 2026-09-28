@@ -22,16 +22,12 @@ function Get-LabProjectMediaRootDefault {
     [CmdletBinding()]
     param()
 
-    $path = Get-LabProjectPreferencesPath
-    if (-not $path -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
-    try {
-        $preferences = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 5
-        $mediaRoot = [string]$preferences.mediaRoot
+    $mediaRoot = Get-LabProjectPreferenceValue -Name mediaRoot
+    if ($mediaRoot) {
         if ($mediaRoot -and (Test-Path -LiteralPath $mediaRoot -PathType Container)) {
             return (Resolve-Path -LiteralPath $mediaRoot -ErrorAction Stop).Path
         }
     }
-    catch { }
     return $null
 }
 
@@ -39,38 +35,150 @@ function Get-LabProjectPreferenceValue {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Name)
 
-    $path = Get-LabProjectPreferencesPath
-    if (-not $path -or -not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
-    try {
-        $preferences = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
-        return [string]$preferences.$Name
-    }
-    catch { return $null }
+    $snapshot = Get-LabPreferencesSnapshot
+    return [string]$snapshot.Document[$Name]
 }
 
 function Set-LabProjectPreferenceValue {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][string]$Value)
 
-    $preferencePath = Get-LabProjectPreferencesPath
-    if (-not $preferencePath) { return }
-    $directory = Split-Path -Parent $preferencePath
-    if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
-        New-Item -Path $directory -ItemType Directory -Force | Out-Null
-    }
-    $preferences = [ordered]@{ schemaVersion = 1; updatedAt = Get-LabTimestamp }
-    if (Test-Path -LiteralPath $preferencePath -PathType Leaf) {
-        try {
-            $existing = Get-Content -LiteralPath $preferencePath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 8
-            foreach ($property in @($existing.PSObject.Properties)) { $preferences[$property.Name] = $property.Value }
-        }
-        catch { }
-    }
-    $preferences[$Name] = $Value
-    $preferences.updatedAt = Get-LabTimestamp
-    Write-LabArtifactJsonAtomic -Path $preferencePath -InputObject ([PSCustomObject]$preferences)
+    Set-LabPreferencesEntry -Name $Name -Value $Value
 }
 
+function Get-LabPreferencesAuthority {
+    [CmdletBinding()]
+    param([string]$Path)
+    if (-not $Path) { $Path = Get-LabProjectPreferencesPath }
+    if (-not $path) { throw 'PREFERENCES_AUTHORITY_REQUIRED' }
+    $path = [IO.Path]::GetFullPath($path)
+    # Reject aliases through links: all cooperating writers lock the same physical authority.
+    $cursor = $path
+    while ($cursor) {
+        if (Test-Path -LiteralPath $cursor) {
+            $item = Get-Item -LiteralPath $cursor -Force -ErrorAction Stop
+            if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'PREFERENCES_REPARSE_POINT' }
+        }
+        $parent = [IO.Path]::GetDirectoryName($cursor)
+        if ($parent -eq $cursor) { break }
+        $cursor = $parent
+    }
+    $tail = [Collections.Generic.List[string]]::new()
+    $existing = $path
+    while (-not (Test-Path -LiteralPath $existing)) {
+        $tail.Insert(0, [IO.Path]::GetFileName($existing))
+        $existing = [IO.Path]::GetDirectoryName($existing)
+    }
+    $path = (Get-Item -LiteralPath $existing -Force -ErrorAction Stop).FullName
+    foreach ($part in $tail) { $path = Join-Path $path $part }
+    return $path
+}
+
+function Get-LabPreferencesDigest {
+    param([Parameter(Mandatory)][string]$Text)
+    [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($Text)))
+}
+
+function Get-LabPreferencesSnapshot {
+    [CmdletBinding()]
+    param([string]$Path)
+    $path = Get-LabPreferencesAuthority -Path $Path
+    $identity = if ($IsWindows) { $path.ToUpperInvariant() } else { $path }
+    $text = $null
+    $document = [ordered]@{ schemaVersion = 1 }
+    if (Test-Path -LiteralPath $path) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'PREFERENCES_INVALID' }
+        try {
+            $text = [IO.File]::ReadAllText($path)
+            $document = ConvertFrom-Json -InputObject $text -AsHashtable -Depth 30 -ErrorAction Stop
+            if ($document -isnot [Collections.IDictionary]) { throw 'invalid' }
+        }
+        catch { throw 'PREFERENCES_INVALID' }
+    }
+    $authorityEvidence = $identity
+    $parent = Split-Path -Parent $path
+    if ((Split-Path -Leaf $parent) -eq 'Catalog') {
+        $dataRoot = Split-Path -Parent $parent
+        foreach ($authorityFile in @((Join-Path $dataRoot '.sql-server-lab-root.json'), (Join-Path $parent 'storage-locations.json'))) {
+            $authorityEvidence += "`n" + $(if (Test-Path -LiteralPath $authorityFile -PathType Leaf) { [IO.File]::ReadAllText($authorityFile) } else { 'MISSING' })
+        }
+    }
+    [pscustomobject]@{ Path=$path; Document=$document; Exists=($null -ne $text); AuthorityKey=(Get-LabPreferencesDigest -Text $authorityEvidence)
+        Key=(Get-LabPreferencesDigest -Text ($authorityEvidence + "`n" + $(if ($null -eq $text) { 'MISSING' } else { 'PRESENT:' + $text }))) }
+}
+
+function Invoke-WithLabPreferencesLock {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][Alias('Path')][string[]]$PreferencePath, [Parameter(Mandatory)][scriptblock]$Body)
+    $authorities = @($PreferencePath | ForEach-Object {
+        $canonical = Get-LabPreferencesAuthority -Path $_
+        if ($IsWindows) { $canonical.ToUpperInvariant() } else { $canonical }
+    } | Sort-Object -CaseSensitive -Unique)
+    $locks = [Collections.Generic.List[object]]::new()
+    $deadline = [datetime]::UtcNow.AddSeconds(10)
+    try {
+        foreach ($authority in $authorities) {
+            $preferencesLockName = 'SqlServerLabPreferences_' + (Get-LabPreferencesDigest -Text $authority)
+            if ($IsWindows) { $preferencesLockName = 'Global\' + $preferencesLockName }
+            $mutex = [Threading.Mutex]::new($false, $preferencesLockName)
+            $acquired = $false
+            try {
+                $remaining = $deadline - [datetime]::UtcNow
+                if ($remaining.TotalMilliseconds -le 0) { throw 'PREFERENCES_LOCK_TIMEOUT' }
+                try { $acquired = $mutex.WaitOne($remaining) }
+                catch [Threading.AbandonedMutexException] { $acquired = $true }
+                if (-not $acquired) { throw 'PREFERENCES_LOCK_TIMEOUT' }
+                $locks.Add($mutex)
+            }
+            finally { if (-not $acquired) { $mutex.Dispose() } }
+        }
+        & $Body
+    }
+    finally {
+        for ($index=$locks.Count-1; $index -ge 0; $index--) { $locks[$index].ReleaseMutex(); $locks[$index].Dispose() }
+    }
+}
+
+function Set-LabPreferencesEntry {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Name, [Parameter(Mandatory)][object]$Value, [string]$ExpectedKey)
+    $snapshot = Get-LabPreferencesSnapshot
+    if ($ExpectedKey -and $snapshot.Key -cne $ExpectedKey) { throw 'PREFERENCES_PREVIEW_STALE' }
+    Invoke-WithLabPreferencesLock -Path $snapshot.Path -Body {
+        # Resolve the selected authority again after waiting; never resurrect a migrated source.
+        $current = Get-LabPreferencesSnapshot
+        if ($current.Path -cne $snapshot.Path -or $current.AuthorityKey -cne $snapshot.AuthorityKey -or
+            ($snapshot.Exists -and -not $current.Exists) -or ($ExpectedKey -and $current.Key -cne $ExpectedKey)) { throw 'PREFERENCES_PREVIEW_STALE' }
+        $current.Document[$Name] = $Value
+        $current.Document['updatedAt'] = Get-LabTimestamp
+        Write-LabArtifactJsonAtomic -Path $current.Path -InputObject $current.Document
+    }
+}
+
+function Update-LabPreferencesPathReferences {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)][string]$SourceRoot, [Parameter(Mandatory)][string]$TargetRoot)
+    Invoke-WithLabPreferencesLock -Path $Path -Body {
+        $current = Get-LabPreferencesSnapshot -Path $Path
+        if (-not $current.Exists) { throw 'PREFERENCES_MIGRATION_SOURCE_MISSING' }
+        $text = $current.Document | ConvertTo-Json -Depth 30
+        $updated = $text.Replace($SourceRoot.Replace('\','\\'), $TargetRoot.Replace('\','\\'), [StringComparison]::OrdinalIgnoreCase)
+        $updated = $updated.Replace($SourceRoot, $TargetRoot, [StringComparison]::OrdinalIgnoreCase)
+        if ($updated -cne $text) {
+            $document = ConvertFrom-Json -InputObject $updated -AsHashtable -Depth 30 -ErrorAction Stop
+            Write-LabArtifactJsonAtomic -Path $current.Path -InputObject $document
+            return $true
+        }
+        return $false
+    }
+}
+
+function Assert-LabPreferencesPreflight {
+    [CmdletBinding()]
+    param([string]$DataRoot)
+    if ($DataRoot) { $null = Get-LabPreferencesSnapshot -Path (Join-Path (Join-Path $DataRoot 'Catalog') 'preferences.json') }
+    else { $null = Get-LabPreferencesSnapshot }
+}
 function Get-LabMediaRootCandidates {
     [CmdletBinding()]
     param()
@@ -115,6 +223,7 @@ function Set-LabMediaRootDefault {
     if ($resolved.TrimEnd('\', '/') -eq $volumeRoot.TrimEnd('\', '/')) {
         throw 'MEDIA_ROOT_TOO_BROAD: Bitte den vollstaendigen Media-Root-Ordner angeben, z. B. C:\Lab_Base.'
     }
+    if (-not $ProcessEnvironmentOnly) { Assert-LabPreferencesPreflight }
     $env:SQL_SERVER_LAB_MEDIA_ROOT = $resolved
     if (-not $ProcessEnvironmentOnly) {
         [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_MEDIA_ROOT', $resolved, 'User')
@@ -149,6 +258,7 @@ function Set-LabTestDataRootDefault {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$TestDataRoot)
 
+    Assert-LabPreferencesPreflight
     $resolved = [System.IO.Path]::GetFullPath($TestDataRoot)
     if (-not (Test-Path -LiteralPath $resolved -PathType Container)) {
         New-Item -Path $resolved -ItemType Directory -Force | Out-Null
@@ -208,6 +318,7 @@ function Set-LabDataRootDefault {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$DataRoot)
 
+    Assert-LabPreferencesPreflight -DataRoot $DataRoot
     $root = Register-LabDataRoot -DataRoot $DataRoot
     $configuration = Get-LabStorageConfiguration
     $location = @($configuration.LabDataLocations | Where-Object {
@@ -243,6 +354,7 @@ function Set-LabHyperVSwitchDefault {
     if (-not (Get-Command Get-VMSwitch -ErrorAction SilentlyContinue) -or -not (Get-VMSwitch -Name $SwitchName -ErrorAction SilentlyContinue)) {
         throw "HYPERV_SWITCH_NOT_FOUND: $SwitchName"
     }
+    Assert-LabPreferencesPreflight
     $env:SQL_SERVER_LAB_HYPERV_NETWORK = $SwitchName
     [Environment]::SetEnvironmentVariable('SQL_SERVER_LAB_HYPERV_NETWORK', $SwitchName, 'User')
     Set-LabProjectPreferenceValue -Name hyperVSwitch -Value $SwitchName

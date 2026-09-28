@@ -2524,3 +2524,82 @@ refreshJobs();
 // darf daher keinen Klickpfad oder den lokalen HTTP-Server blockieren.
 window.setInterval(() => { refreshJobs(); }, 1000);
 window.setInterval(() => { refresh().catch(() => {}); }, 15000);
+let slotReserveState = null;
+let slotReservePlan = null;
+let slotReserveRevision = 0;
+let slotReserveBusy = false;
+const slotReserveFields = { WindowsReserve: 'windows', SqlReserve: 'sql', MinimumDaysRemaining: 'minimum', WarningDaysRemaining: 'warning' };
+function updateSlotReserveControls() {
+  const ready = slotReserveState && slotReserveState.Configuration.Status !== 'INVALID' && !slotReserveBusy;
+  for (const suffix of Object.values(slotReserveFields)) $('#slot-reserve-' + suffix).disabled = !ready;
+  $('#slot-reserve-preview').disabled = !ready;
+  $('#slot-reserve-apply').disabled = !ready || !slotReservePlan || slotReservePlan.IsNoOp;
+  $('#slot-reserve-read').disabled = slotReserveBusy;
+}
+function invalidateSlotReservePlan() {
+  slotReservePlan = null; $('#slot-reserve-plan').hidden = true; updateSlotReserveControls();
+}
+async function requestSlotReserve(action, parameters) {
+  const response = await fetch('/api/slot-reserve', action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, parameters }) } : { cache: 'no-store' });
+  if (!response.ok) throw new Error('Slotreserve konnte nicht geprüft oder gespeichert werden. Zustand erneut lesen.');
+  return (await response.json()).Result;
+}
+async function runSlotReserveRequest(operation, receive) {
+  if (slotReserveBusy) return;
+  const revision = ++slotReserveRevision;
+  slotReserveBusy = true; updateSlotReserveControls();
+  try {
+    const result = await operation();
+    if (revision === slotReserveRevision && $('#slot-reserve-dialog').open) receive(result);
+  } catch (error) {
+    if (revision === slotReserveRevision && $('#slot-reserve-dialog').open) {
+      slotReserveState = null; invalidateSlotReservePlan(); $('#slot-reserve-inventory').textContent = '';
+      $('#slot-reserve-status').textContent = error.message;
+    }
+  } finally { if (revision === slotReserveRevision) { slotReserveBusy = false; updateSlotReserveControls(); } }
+}
+function renderSlotReserve(view) {
+  slotReserveState = view; invalidateSlotReservePlan();
+  $('#slot-reserve-status').textContent = view.Configuration.Status + ' · Registrierte Kandidaten: ' + view.CandidateCount + ' · Verfügbare Reserve und Auffüllzahl: unbekannt';
+  const rows = [view.Notice, view.Recommendation === 'NO_RESERVE_REQUESTED' ? 'Keine Reserve angefordert; kein Nachweis eines gesunden Pools.' : 'Poolzugehörigkeit und Reservierungen separat prüfen.'];
+  for (const row of view.Rows || []) rows.push(row.Reference + ' · ' + row.Kind + ' · ' + row.RegisteredState + ' · Zuordnung: ' + row.Allocation + ' · Windows: ' + row.WindowsLifetime + ' · Resttage: ' + (row.WindowsDays ?? 'unbekannt') + ' · Warnung: ' + row.Warning + ' · SQL: ' + row.SqlLifetime + ' · SQL-Evidence: ' + row.SqlEvidence + ' · SQL-Mindestrest: ' + row.SqlMinimum + ' · Windows-Evidence: historisch, nicht live geprüft');
+  $('#slot-reserve-inventory').innerHTML = rows.map(row => '<div>' + escapeHtml(row) + '</div>').join('');
+  for (const [field, suffix] of Object.entries(slotReserveFields)) $('#slot-reserve-' + suffix).value = view.Configuration.Policy?.[field] ?? '';
+}
+function readSlotReserve() {
+  invalidateSlotReservePlan(); return runSlotReserveRequest(() => requestSlotReserve(), renderSlotReserve);
+}
+function openSlotReserveDialog() {
+  slotReserveRevision++; slotReserveBusy = false; slotReserveState = null; invalidateSlotReservePlan();
+  $('#slot-reserve-inventory').textContent = ''; $('#slot-reserve-status').textContent = 'Policy und Kandidaten werden gelesen …';
+  $('#slot-reserve-dialog').showModal(); return readSlotReserve();
+}
+$('#configuration-reserve').addEventListener('click', openSlotReserveDialog);
+$('#templates-reserve').addEventListener('click', openSlotReserveDialog);
+$('#slot-reserve-close').addEventListener('click', () => $('#slot-reserve-dialog').close());
+$('#slot-reserve-dialog').addEventListener('close', () => { slotReserveRevision++; slotReserveBusy = false; invalidateSlotReservePlan(); });
+$('#slot-reserve-read').addEventListener('click', readSlotReserve);
+for (const suffix of Object.values(slotReserveFields)) $('#slot-reserve-' + suffix).addEventListener('input', invalidateSlotReservePlan);
+$('#slot-reserve-form').addEventListener('submit', event => {
+  event.preventDefault(); invalidateSlotReservePlan();
+  const policy = {};
+  for (const [field, suffix] of Object.entries(slotReserveFields)) {
+    const value = $('#slot-reserve-' + suffix).value;
+    if (value === '' || !Number.isInteger(Number(value))) { $('#slot-reserve-status').textContent = 'Alle vier ganzen Zahlen ausdrücklich eingeben; null ist gültig.'; return; }
+    policy[field] = Number(value);
+  }
+  return runSlotReserveRequest(() => requestSlotReserve('PlanSlotReserve', { SlotReservePolicy: policy }), plan => {
+    slotReservePlan = plan;
+    $('#slot-reserve-plan').textContent = 'Windows: ' + plan.Policy.WindowsReserve + ' · SQL: ' + plan.Policy.SqlReserve + ' · Mindestresttage: ' + plan.Policy.MinimumDaysRemaining + ' · Warnfrist: ' + plan.Policy.WarningDaysRemaining + ' · ' + plan.Notice;
+    $('#slot-reserve-plan').hidden = false;
+    $('#slot-reserve-status').textContent = 'Vorschau; noch nicht gespeichert. Keine Slotaktion.';
+  });
+});
+$('#slot-reserve-apply').addEventListener('click', () => {
+  if (!slotReservePlan || slotReserveBusy) return;
+  const plan = slotReservePlan; invalidateSlotReservePlan();
+  return runSlotReserveRequest(async () => {
+    await requestSlotReserve('ApplySlotReserve', { SlotReservePlan: plan, ConfirmSlotReserve: true });
+    return requestSlotReserve();
+  }, renderSlotReserve);
+});

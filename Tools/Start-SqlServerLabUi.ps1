@@ -414,6 +414,38 @@ function Invoke-UiInitialSetupRequest {
     Invoke-SqlServerLabWorkflowAction -Action ([string]$payload.action) @parameters
 }
 
+function Invoke-UiSlotReserveRequest {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Request)
+
+    if ($Request.HttpMethod -eq 'GET') { return Invoke-SqlServerLabWorkflowAction -Action GetSlotReserveState }
+    if ($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)') { throw 'SLOT_RESERVE_REQUEST_INVALID' }
+    $origin = [string]$Request.Headers['Origin']
+    if ($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)) { throw 'SLOT_RESERVE_ORIGIN_INVALID' }
+    $reader = [IO.StreamReader]::new($Request.InputStream, $Request.ContentEncoding)
+    try {
+        $buffer = [char[]]::new(16385)
+        $length = $reader.ReadBlock($buffer, 0, $buffer.Length)
+        if ($length -gt 16384) { throw 'SLOT_RESERVE_REQUEST_TOO_LARGE' }
+        $payload = ([string]::new($buffer, 0, $length)) | ConvertFrom-Json -Depth 12 -ErrorAction Stop
+    }
+    finally { $reader.Dispose() }
+    if (-not $payload -or @($payload.PSObject.Properties.Name | Where-Object { $_ -notin @('action', 'parameters') }).Count) { throw 'SLOT_RESERVE_REQUEST_INVALID' }
+    $allowed = switch ([string]$payload.action) {
+        'PlanSlotReserve' { @('SlotReservePolicy') }
+        'ApplySlotReserve' { @('SlotReservePlan', 'ConfirmSlotReserve') }
+        default { throw 'SLOT_RESERVE_ACTION_INVALID' }
+    }
+    $parameters = @{}
+    foreach ($property in @($payload.parameters.PSObject.Properties)) {
+        if ($property.Name -notin $allowed) { throw 'SLOT_RESERVE_PARAMETER_INVALID' }
+        $parameters[$property.Name] = $property.Value
+    }
+    if ($payload.action -eq 'ApplySlotReserve' -and
+        ($parameters.ConfirmSlotReserve -isnot [bool] -or -not $parameters.ConfirmSlotReserve)) { throw 'SLOT_RESERVE_CONFIRMATION_REQUIRED' }
+    Invoke-SqlServerLabWorkflowAction -Action ([string]$payload.action) @parameters
+}
+
 $listener = [Net.HttpListener]::new()
 $url = "http://127.0.0.1:$Port/"
 $listener.Prefixes.Add($url)
@@ -467,6 +499,16 @@ try {
                 }
                 catch {
                     Write-UiResponse -Context $context -Body 'INITIAL_SETUP_REQUEST_FAILED: Eingaben und aktuellen Zustand erneut prüfen.' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -eq '/api/slot-reserve') {
+                try {
+                    $result = Invoke-UiSlotReserveRequest -Request $context.Request
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body 'SLOT_RESERVE_REQUEST_FAILED: Eingaben und aktuellen Zustand erneut prüfen.' -StatusCode 400
                 }
                 continue
             }
@@ -576,7 +618,7 @@ try {
                 $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
-                if ($action -in @('GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
+                if ($action -in @('GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
                 $parameters = @{}
                 if ($request.parameters) {
                     foreach ($property in $request.parameters.PSObject.Properties) {

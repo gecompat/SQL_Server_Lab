@@ -84,6 +84,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Status und Vorschau ändern nichts. Erst die gesonderte Bestätigung wendet den revalidierten Plan an; bestehende Bindungen bleiben erhalten.'
             Command = 'Invoke-SqlServerLab -Action Setup'
         }
+        'slot-reserve' = @{
+            Title = 'Slotreserve: Policy und Kandidaten'
+            Purpose = 'Zentrale Advisory-Zielreserve und getrennte Evaluationsschwellen planen; registrierte Kandidaten einsehen.'
+            Effects = 'Lesen und Vorschau ändern nichts. Bestätigung speichert nur Policy. Keine Reservierung, Auffüllung oder Provideraktion; freie Reserve und Defizit bleiben unbekannt.'
+            Command = 'Invoke-SqlServerLab -Action ReservePolicy'
+        }
         'initial-setup-provider' = @{
             Title = 'Provider ausdrücklich prüfen'
             Purpose = 'Installation und Erreichbarkeit genau eines Providers erneut über den Readinessvertrag prüfen.'

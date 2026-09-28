@@ -395,6 +395,7 @@ function Register-LabDataRoot {
     $root = (Resolve-Path -LiteralPath $DataRoot -ErrorAction Stop).Path.TrimEnd('\', '/')
     $currentDefault = Get-LabDataRootDefault
     $configuration = Get-LabStorageConfiguration -DataRoot $currentDefault
+    if (-not $ProcessEnvironmentOnly -and ($SetDefault -or -not $currentDefault)) { Assert-LabPreferencesPreflight -DataRoot $root }
     $controllerId = [string]$configuration.ControllerId
     $marker = Get-LabDataRootMarker -DataRoot $root
     if (-not $marker) { throw 'LAB_DATA_ROOT_MARKER_REQUIRED: Root zuerst ueber die Storage-Verwaltung initialisieren.' }
@@ -450,6 +451,7 @@ function Set-LabDataLocation {
     $dataRoot = [string]$resolvedParent.LabDataRoot
     if (-not $PSCmdlet.ShouldProcess($dataRoot, 'Normalisierte Lab_Data-Location initialisieren und registrieren')) { return $null }
     $configuration = Get-LabStorageConfiguration
+    if (-not $ProcessEnvironmentOnly -and ($SetDefault -or -not $configuration.DefaultDataRoot)) { Assert-LabPreferencesPreflight -DataRoot $dataRoot }
     $marker = Initialize-LabManagedDataRoot -DataRoot $dataRoot -ControllerId ([string]$configuration.ControllerId)
     $null = Register-LabDataRoot -DataRoot $dataRoot -SetDefault:$SetDefault -ProcessEnvironmentOnly:$ProcessEnvironmentOnly
     $updated = Get-LabStorageConfiguration -DataRoot $(if ($configuration.DefaultDataRoot) { [string]$configuration.DefaultDataRoot } else { $dataRoot })
@@ -473,6 +475,7 @@ function Set-LabDefaultDataLocation {
     if ($location.Count -ne 1) { throw "LAB_STORAGE_LOCATION_NOT_FOUND: $LocationId" }
     if ([string]$configuration.DefaultLocationId -eq $LocationId) { return [string]$location[0].LabDataRoot }
     if (-not $PSCmdlet.ShouldProcess([string]$location[0].LabDataRoot, 'Globalen Lab_Data-Fallback explizit ändern')) { return $null }
+    if (-not $ProcessEnvironmentOnly) { Assert-LabPreferencesPreflight -DataRoot ([string]$location[0].LabDataRoot) }
     $configuration.DefaultLocationId = $LocationId
     $configuration.DefaultDataRoot = [string]$location[0].LabDataRoot
     $document = Write-LabStorageConfiguration -Configuration $configuration
@@ -1078,12 +1081,17 @@ function Assert-LabStorageMigrationHyperVVMConfigurationPlan {
 
 function Update-LabMigratedJsonReferences {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$SourceRoot, [Parameter(Mandatory)][string]$TargetRoot)
+    param([Parameter(Mandatory)][string]$Root, [Parameter(Mandatory)][string]$SourceRoot, [Parameter(Mandatory)][string]$TargetRoot, [string[]]$PreferenceAuthorities=@())
 
     $changed = [System.Collections.Generic.List[string]]::new()
     $sourceEscaped = $SourceRoot.Replace('\', '\\')
     $targetEscaped = $TargetRoot.Replace('\', '\\')
     foreach ($path in @(Get-ChildItem -LiteralPath $Root -Filter '*.json' -File -Recurse -Force -ErrorAction Stop)) {
+        if ([string]$path.Name -eq 'preferences.json') {
+            if ($PreferenceAuthorities.Count -and (Get-LabPreferencesAuthority -Path $path.FullName) -notin $PreferenceAuthorities) { throw 'PREFERENCES_MIGRATION_ADDITIONAL_AUTHORITY' }
+            if (Update-LabPreferencesPathReferences -Path $path.FullName -SourceRoot $SourceRoot -TargetRoot $TargetRoot) { $changed.Add($path.FullName) }
+            continue
+        }
         $content = Get-Content -LiteralPath $path.FullName -Raw -Encoding utf8
         $updated = $content.Replace($sourceEscaped, $targetEscaped, [StringComparison]::OrdinalIgnoreCase)
         $updated = $updated.Replace($SourceRoot, $TargetRoot, [StringComparison]::OrdinalIgnoreCase)
@@ -1095,9 +1103,79 @@ function Update-LabMigratedJsonReferences {
     return @($changed)
 }
 
+function Get-LabMigrationPreferencesCheckpoint {
+    # Called while the migration owns both preference locks. Content hashes remain
+    # valid across the storage marker/catalog switch; the plan binds path authority.
+    param([string]$SourcePath, [string]$TargetPath, [ValidateSet('SWITCHED','CLEANUP_READY')][string]$Stage)
+    $sourceSnapshot = Get-LabPreferencesSnapshot -Path $SourcePath
+    $targetSnapshot = Get-LabPreferencesSnapshot -Path $TargetPath
+    [pscustomobject]@{
+        Stage=$Stage; SourcePath=$sourceSnapshot.Path; TargetPath=$targetSnapshot.Path
+        SourceExists=$sourceSnapshot.Exists; TargetExists=$targetSnapshot.Exists
+        SourceSha256=$(if($sourceSnapshot.Exists){(Get-FileHash -LiteralPath $sourceSnapshot.Path -Algorithm SHA256).Hash}else{''})
+        TargetSha256=$(if($targetSnapshot.Exists){(Get-FileHash -LiteralPath $targetSnapshot.Path -Algorithm SHA256).Hash}else{''})
+    }
+}
+
 function Invoke-LabDataMigration {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact='High')]
     param([Parameter(Mandatory)][string]$PlanPath, [switch]$ProcessEnvironmentOnly)
+
+    $plan = Get-Content -LiteralPath $PlanPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    if ($plan.ContractVersion -ne 'SqlServerLab.StorageMigrationPlan/1.0' -or -not $plan.ExecutionImplemented -or $plan.Status -ne 'READY') { throw 'LAB_STORAGE_MIGRATION_PLAN_NOT_EXECUTABLE' }
+    $sourceRoot = [IO.Path]::GetFullPath([string]$plan.Source.LabDataRoot).TrimEnd('\','/')
+    $targetRoot = [IO.Path]::GetFullPath([string]$plan.Target.LabDataRoot).TrimEnd('\','/')
+    $sourcePath = Join-Path (Join-Path $sourceRoot 'Catalog') 'preferences.json'
+    $targetPath = Join-Path (Join-Path $targetRoot 'Catalog') 'preferences.json'
+    $sourceBefore = Get-LabPreferencesSnapshot -Path $sourcePath
+    $targetBefore = Get-LabPreferencesSnapshot -Path $targetPath
+    $arguments = @{} + $PSBoundParameters
+    Invoke-WithLabPreferencesLock -Path @($sourcePath,$targetPath) -Body {
+        $source = Get-LabPreferencesSnapshot -Path $sourcePath
+        $target = Get-LabPreferencesSnapshot -Path $targetPath
+        if ($source.Key -cne $sourceBefore.Key -or $target.Key -cne $targetBefore.Key) { throw 'PREFERENCES_MIGRATION_PREDECESSOR_CHANGED' }
+        if ($target.Exists) {
+            $matches = $false
+            $hasCheckpoint = $false
+            $resumeJournalPath = Join-Path (Split-Path -Parent ([IO.Path]::GetFullPath($PlanPath))) "$($plan.PlanId).journal.json"
+            if (Test-Path -LiteralPath $resumeJournalPath -PathType Leaf) {
+                $resumeJournal = Get-Content -LiteralPath $resumeJournalPath -Raw | ConvertFrom-Json -Depth 30
+                $hasCheckpoint = $null -ne $resumeJournal.PSObject.Properties['PreferencesCheckpoint']
+                $checkpoint = if ($hasCheckpoint) { $resumeJournal.PreferencesCheckpoint } else { $null }
+                if ($checkpoint -and $checkpoint.SourceExists -is [bool] -and $resumeJournal.ContractVersion -eq 'SqlServerLab.StorageMigrationJournal/1.0' -and
+                    $resumeJournal.PlanId -eq $plan.PlanId -and
+                    $resumeJournal.PlanSha256 -eq (Get-FileHash -LiteralPath $PlanPath -Algorithm SHA256).Hash -and
+                    $checkpoint.Stage -in @('SWITCHED','CLEANUP_READY') -and
+                    $checkpoint.SourcePath -ceq $source.Path -and $checkpoint.TargetPath -ceq $target.Path -and
+                    $checkpoint.TargetExists -eq $true -and
+                    $checkpoint.TargetSha256 -eq (Get-FileHash -LiteralPath $target.Path -Algorithm SHA256).Hash) {
+                    $matches = if ($source.Exists) {
+                        $checkpoint.SourceExists -eq $true -and $checkpoint.SourceSha256 -eq (Get-FileHash -LiteralPath $source.Path -Algorithm SHA256).Hash
+                    } else { $checkpoint.SourceExists -eq $false -or $checkpoint.Stage -eq 'CLEANUP_READY' }
+                }
+            }
+            if (-not $matches -and -not $hasCheckpoint -and $source.Exists) {
+                # Legacy journals without a checkpoint can prove only source-equal
+                # content or its deterministic root rewrite, never unrelated merges.
+                $expectedText = $source.Document | ConvertTo-Json -Depth 30
+                $rewrittenText = $expectedText.Replace($sourceRoot.Replace('\','\\'), $targetRoot.Replace('\','\\'), [StringComparison]::OrdinalIgnoreCase).Replace($sourceRoot,$targetRoot,[StringComparison]::OrdinalIgnoreCase)
+                $targetComparable = @{} + $target.Document; $targetComparable.Remove('updatedAt')
+                $targetJson = ConvertTo-LabStorageCanonicalValue -InputObject $targetComparable | ConvertTo-Json -Depth 30 -Compress
+                foreach ($candidateText in @($expectedText,$rewrittenText)) {
+                    $candidate = ConvertFrom-Json $candidateText -AsHashtable -Depth 30
+                    $null = $candidate.Remove('updatedAt')
+                    $candidateJson = ConvertTo-LabStorageCanonicalValue -InputObject $candidate | ConvertTo-Json -Depth 30 -Compress
+                    if ($candidateJson -ceq $targetJson) { $matches=$true }
+                }
+            }
+            if (-not $matches) { throw 'PREFERENCES_MIGRATION_TARGET_CONFLICT' }
+        }
+        Invoke-LabDataMigrationCore @arguments -PreferenceAuthorities @($source.Path,$target.Path)
+    }
+}
+function Invoke-LabDataMigrationCore {
+    [CmdletBinding(SupportsShouldProcess, ConfirmImpact='High')]
+    param([Parameter(Mandatory)][string]$PlanPath, [switch]$ProcessEnvironmentOnly, [Parameter(Mandatory)][string[]]$PreferenceAuthorities)
 
     $resolvedPlanPath = (Resolve-Path -LiteralPath $PlanPath -ErrorAction Stop).Path
     $plan = Get-Content -LiteralPath $resolvedPlanPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
@@ -1105,6 +1183,11 @@ function Invoke-LabDataMigration {
     if ([string]$plan.Status -ne 'READY' -or @($plan.Blockers).Count -gt 0) { throw "LAB_STORAGE_MIGRATION_PLAN_BLOCKED: $(@($plan.Blockers) -join ', ')" }
     $sourceRoot = (Resolve-Path -LiteralPath ([string]$plan.Source.LabDataRoot) -ErrorAction Stop).Path.TrimEnd('\', '/')
     $targetRoot = [System.IO.Path]::GetFullPath([string]$plan.Target.LabDataRoot).TrimEnd('\', '/')
+    $resolvedAuthorities = @(
+        (Get-LabPreferencesAuthority -Path (Join-Path (Join-Path $sourceRoot 'Catalog') 'preferences.json')),
+        (Get-LabPreferencesAuthority -Path (Join-Path (Join-Path $targetRoot 'Catalog') 'preferences.json'))
+    )
+    if (($resolvedAuthorities -join '|') -cne ($PreferenceAuthorities -join '|')) { throw 'PREFERENCES_MIGRATION_AUTHORITY_CHANGED' }
     $configuration = Get-LabStorageConfiguration -DataRoot $sourceRoot
     if ([string]$configuration.ControllerId -ne [string]$plan.ControllerId) { throw 'LAB_STORAGE_MIGRATION_CONTROLLER_MISMATCH' }
     $sourceLocation = @($configuration.LabDataLocations | Where-Object {
@@ -1125,6 +1208,19 @@ function Invoke-LabDataMigration {
     }
     $validatedHyperVBindings = @(Assert-LabStorageMigrationHyperVBindingPlan `
         -Plan $plan -SourceRoot $sourceRoot -TargetRoot $targetRoot)
+    # Do not acquire an unplanned third preference lock beneath the sorted pair.
+    $preferenceAuthorities = @(
+        (Get-LabPreferencesAuthority -Path (Join-Path (Join-Path $sourceRoot 'Catalog') 'preferences.json')),
+        (Get-LabPreferencesAuthority -Path (Join-Path (Join-Path $targetRoot 'Catalog') 'preferences.json'))
+    )
+    $referenceRoots = @($sourceRoot, $targetRoot) + @($validatedHyperVBindings | ForEach-Object { Split-Path -Parent ([string]$_.ReceiptPath) })
+    foreach ($referenceRoot in @($referenceRoots | Sort-Object -Unique)) {
+        if (-not (Test-Path -LiteralPath $referenceRoot -PathType Container)) { continue }
+        foreach ($preferenceFile in @(Get-ChildItem -LiteralPath $referenceRoot -Filter 'preferences.json' -File -Recurse -Force)) {
+            $canonical = Get-LabPreferencesAuthority -Path $preferenceFile.FullName
+            if (-not @($preferenceAuthorities | Where-Object { [string]::Equals($_,$canonical,$(if($IsWindows){[StringComparison]::OrdinalIgnoreCase}else{[StringComparison]::Ordinal})) }).Count) { throw 'PREFERENCES_MIGRATION_ADDITIONAL_AUTHORITY' }
+        }
+    }
     if (-not $PSCmdlet.ShouldProcess("$sourceRoot -> $targetRoot", 'Lab_Data journalisiert migrieren')) { return $null }
 
     $planHash = (Get-FileHash -LiteralPath $resolvedPlanPath -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -1284,7 +1380,7 @@ function Invoke-LabDataMigration {
         }
 
         $journal.Status = 'SWITCHING'; $journal.CurrentStep = 'references-and-catalog'
-        $journal.UpdatedReferences = @(Update-LabMigratedJsonReferences -Root $targetRoot -SourceRoot $sourceRoot -TargetRoot $targetRoot)
+        $journal.UpdatedReferences = @(Update-LabMigratedJsonReferences -Root $targetRoot -SourceRoot $sourceRoot -TargetRoot $targetRoot -PreferenceAuthorities $PreferenceAuthorities)
         $null = Initialize-LabManagedDataRoot -DataRoot $targetRoot -ControllerId ([string]$configuration.ControllerId) -Confirm:$false
         $locations = @($configuration.LabDataLocations | ForEach-Object {
             if ([string]::Equals([string]$_.LabDataRoot, $sourceRoot, [StringComparison]::OrdinalIgnoreCase)) {
@@ -1309,6 +1405,8 @@ function Invoke-LabDataMigration {
             $null = Set-LabTestEnvironmentDiscoveryEnvironment -DataRoot $targetRoot -ProcessEnvironmentOnly:$ProcessEnvironmentOnly
         }
 
+        $journal | Add-Member -NotePropertyName PreferencesCheckpoint -NotePropertyValue (Get-LabMigrationPreferencesCheckpoint -SourcePath $PreferenceAuthorities[0] -TargetPath $PreferenceAuthorities[1] -Stage SWITCHED) -Force
+        Write-LabDataMigrationJournal -Path $journalPath -Journal $journal -MirrorPath $targetJournalPath
         foreach ($bindingInventory in $validatedHyperVBindings) {
             $receiptBoundary = Test-LabPathWithinRoot -Root $sourceRoot -Path ([string]$bindingInventory.ReceiptPath)
             $stateDirectory = if ($receiptBoundary.Valid) {
@@ -1320,7 +1418,7 @@ function Invoke-LabDataMigration {
             if (-not $receiptBoundary.Valid) {
                 $journal.UpdatedReferences = @(
                     @($journal.UpdatedReferences) + @(
-                        Update-LabMigratedJsonReferences -Root $stateDirectory -SourceRoot $sourceRoot -TargetRoot $targetRoot
+                        Update-LabMigratedJsonReferences -Root $stateDirectory -SourceRoot $sourceRoot -TargetRoot $targetRoot -PreferenceAuthorities $PreferenceAuthorities
                     ) | Sort-Object -Unique
                 )
             }
@@ -1345,6 +1443,7 @@ function Invoke-LabDataMigration {
         }
 
         $journal.Status = 'CLEANING'; $journal.CurrentStep = 'remove-verified-source'
+        $journal | Add-Member -NotePropertyName PreferencesCheckpoint -NotePropertyValue (Get-LabMigrationPreferencesCheckpoint -SourcePath $PreferenceAuthorities[0] -TargetPath $PreferenceAuthorities[1] -Stage CLEANUP_READY) -Force
         Write-LabDataMigrationJournal -Path $journalPath -Journal $journal -MirrorPath $targetJournalPath
         foreach ($sourceFile in @(Get-ChildItem -LiteralPath $sourceRoot -File -Recurse -Force -ErrorAction Stop)) {
             $relativePath = [System.IO.Path]::GetRelativePath($sourceRoot, $sourceFile.FullName)

@@ -842,7 +842,7 @@ function Show-LabConfigurationMenu {
         New-LabConsoleItem -Id TestDataRoot -Label 'Testdatenbibliothek konfigurieren' -Shortcut 4
         New-LabConsoleItem -Id Status -Label 'Providerstatus und Voraussetzungen anzeigen' -Shortcut 5
         New-LabConsoleItem -Id ProviderSetup -Label 'Späteren Provider geführt einrichten' -Disabled -DisabledReason 'Ein vollständiger Assistent für zusätzliche Provider ist noch offen; vorhandene Provider werden weiterhin erkannt.'
-        New-LabConsoleItem -Id ReservePolicy -Label 'Zentrale Slotreserve konfigurieren' -Disabled -DisabledReason 'Eine zentrale Reservepolicy mit automatischer Auffüllung ist noch nicht implementiert. Vorbereitung bleibt bei Vorlagen und Slots.'
+        New-LabConsoleItem -Id ReservePolicy -Label 'Slotreserve: Policy und Kandidaten' -Shortcut 7
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )
 }
