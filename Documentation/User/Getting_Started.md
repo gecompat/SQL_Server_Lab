@@ -744,6 +744,16 @@ Das Cmdlet unterstützt `GO`-getrennte Batches.
 
 ## 10. Backup sichern und wiederherstellen
 
+Im Konsolenmenü führt **Datenbanken und Verbindungen → Datenbank sichern**
+zunächst zur Umgebung und dann zur Instanzauswahl mit Name, SQL-Version und
+Provider. Eine interne Instanz-ID muss nicht eingegeben werden. Unvollständige,
+mehrdeutige oder nicht nachweislich laufende Instanzen sind mit Grund deaktiviert;
+Escape bricht vor der Kennwortabfrage ab. Die Auswahl beschränkt die vorhandenen
+Backupfähigkeiten nicht auf SQL 2025. Verändert sich das gewählte Verbindungsziel
+während der Eingabe, wird vor Zugangsdaten beziehungsweise Backup abgebrochen.
+Danach folgen Datenbankname, maskierte Zugangsdaten und die bestehende ausdrückliche
+Bestätigung. Das Menü startet keine gestoppte Umgebung.
+
 Ein vollständiges Backup wird in einer bereits registrierten `Lab_Data`-
 Bibliothek erst nach SQL-Checksum, `RESTORE VERIFYONLY` und SHA-256
 veröffentlicht:
