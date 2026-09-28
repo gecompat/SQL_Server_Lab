@@ -352,6 +352,12 @@ function Get-LabConsoleHelpCatalog {
     $catalog['ai-menu'].Preconditions += 'Für die neue Testumgebung: laufendes Podman und ausgewähltes lokales embeddinggemma:latest (768) oder bge-m3:latest (1024). Ist Podman nicht einsatzbereit, bleibt der Menüpunkt mit stabilem ReasonCode und konkreter Abhilfe sichtbar, aber deaktiviert.'
     $catalog['ai-menu'].Preconditions += 'Szenarioausführung, SQL-RAG, SQL-Diagnose und Golden-RAG benötigen eine als RUNNING registrierte SQL-Server-2025-Instanz. Ohne passendes Ziel bleiben diese Einträge sichtbar und nennen AI_SQL_2025_TARGET_UNAVAILABLE samt Abhilfe; Plan, Modellaufruf und Offline-Retrieval bleiben verfügbar.'
     $catalog['ai-menu'].Effects += ' Neue Umgebung nur nach Vorschau und Bestätigung; SQL-Daten bleiben erhalten. Fehlerbereinigung betrifft ausschließlich den gerade neu erstellten eigenen Run.'
+    $catalog['ai-instance-select'] = @{
+        Title = 'SQL-2025-Instanz auswählen'; Purpose = 'Wählt eine registrierte Instanz der zuvor gewählten Umgebung anhand von Instanzname, SQL-Version und Provider.'
+        Effects = 'Die Auswahl startet keine Umgebung und führt kein SQL aus. Escape bricht ab; ungeeignete oder nicht nachweislich laufende Instanzen bleiben mit Sperrgrund sichtbar.'
+        Preconditions = @('Eindeutige Instanz-ID, auflösbares Verbindungsziel und bestätigter RUNNING-Status; nach Auswahl werden Ziel und Status erneut geprüft.')
+        Command = 'Invoke-SqlServerLab'
+    }
     $catalog['ai-llama-models'] = @{
         Title = 'Kuratierte llama.cpp-Modelle'; Purpose = 'Listet freigegebene GGUF-Generationsmodelle mit Zweck, Revision, Größe, Quantisierung und Lizenz; lädt die gewählte Modelldatei herunter oder prüft die vorhandene Datei.'
         Effects = 'Schreibt ausschließlich nach Lab_Base/AI/Models; veröffentlicht erst nach Größen-, SHA-256- und GGUF-Prüfung atomar. Vorhandene Dateien werden erneut vollständig geprüft. Startet keine Runtime und lädt kein Modell in den Arbeitsspeicher.'
