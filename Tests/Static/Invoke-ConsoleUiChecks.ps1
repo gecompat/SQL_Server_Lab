@@ -1184,7 +1184,7 @@ Add-ConsoleUiCheck 'Infrastrukturmenue bietet neben Delegation eine direkte read
 Add-ConsoleUiCheck 'Statusauswahl bietet Alle und einzelne Umgebungen an' ($entrySource -match "-Id '__all' -Label 'Alle Umgebungen'" -and $entrySource -match "-ScreenId 'environment-status-select'" -and $entrySource -match '\$selectedRuns = if')
 Add-ConsoleUiCheck 'Datenbankmenue trennt Verbindungszentrale und reinen Lab-Katalog klar' ($entrySource -match "-Id 'ConnectionCenter' -Label 'Verbindungszentrale und SSMS-Endpunkte'.*-Shortcut 'c'" -and $entrySource -match "-Id 'Catalog' -Label 'Lab-Katalog prüfen'.*-Shortcut 'k'" -and $entrySource -match "Katalogdatei validieren; kein CMS-Zugang")
 Add-ConsoleUiCheck 'KI-Menue bietet kuratierte llama.cpp-Modelle als direkten geprüften Download an' (
-    $entrySource -match "-Id 'AiLlamaModels' -Label 'llama.cpp-Modelle anzeigen oder laden'" -and
+    $entrySource -match "-Id 'AiLlamaModels' -Label 'llama.cpp-Modelle anzeigen oder herunterladen'" -and
     $entrySource -match "'AiLlamaModels' \{ Manage-LabLlamaCppModelsInteractive \}" -and
     $entrySource -match 'function Manage-LabLlamaCppModelsInteractive[\s\S]+?Save-SqlServerLabLlamaCppModel[\s\S]+?-Confirm:\$false' -and
     $entrySource -match 'function Manage-LabLlamaCppModelsInteractive[\s\S]+?-Disabled:\(\[string\]::IsNullOrWhiteSpace[\s\S]+?-ScreenId ''ai-llama-models'''

@@ -353,8 +353,8 @@ function Get-LabConsoleHelpCatalog {
     $catalog['ai-menu'].Preconditions += 'Szenarioausführung, SQL-RAG, SQL-Diagnose und Golden-RAG benötigen eine als RUNNING registrierte SQL-Server-2025-Instanz. Ohne passendes Ziel bleiben diese Einträge sichtbar und nennen AI_SQL_2025_TARGET_UNAVAILABLE samt Abhilfe; Plan, Modellaufruf und Offline-Retrieval bleiben verfügbar.'
     $catalog['ai-menu'].Effects += ' Neue Umgebung nur nach Vorschau und Bestätigung; SQL-Daten bleiben erhalten. Fehlerbereinigung betrifft ausschließlich den gerade neu erstellten eigenen Run.'
     $catalog['ai-llama-models'] = @{
-        Title = 'Kuratierte llama.cpp-Modelle'; Purpose = 'Listet freigegebene GGUF-Generationsmodelle mit Größe, Quantisierung und Lizenz und lädt die explizite Auswahl bei Bedarf.'
-        Effects = 'Schreibt ausschließlich nach Lab_Base/AI/Models; veröffentlicht erst nach Größen-, SHA-256- und GGUF-Prüfung atomar. Vorhandene Dateien werden erneut vollständig geprüft.'
+        Title = 'Kuratierte llama.cpp-Modelle'; Purpose = 'Listet freigegebene GGUF-Generationsmodelle mit Zweck, Revision, Größe, Quantisierung und Lizenz; lädt die gewählte Modelldatei herunter oder prüft die vorhandene Datei.'
+        Effects = 'Schreibt ausschließlich nach Lab_Base/AI/Models; veröffentlicht erst nach Größen-, SHA-256- und GGUF-Prüfung atomar. Vorhandene Dateien werden erneut vollständig geprüft. Startet keine Runtime und lädt kein Modell in den Arbeitsspeicher.'
         Command = 'Get-SqlServerLabLlamaCppModel / Save-SqlServerLabLlamaCppModel'; Preconditions = @($mediaRootPrecondition)
     }
     $catalog['connection-center-cms'] = @{
