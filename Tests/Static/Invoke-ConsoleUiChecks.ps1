@@ -1979,5 +1979,126 @@ foreach ($case in @('stopped','unresolved','duplicate','missing-id','unknown-ver
     )
 }
 
+# UX-206: Echter Backup-Handler im importierten Modul; ausschließlich synthetische Discovery.
+$backupInstanceSelectionProbe = & {
+    $module = Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
+    $fixtureRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-backup-menu-' + [guid]::NewGuid().ToString('N'))
+    try {
+        & $module {
+            param($fixtureRoot)
+            $script:backupMenuRoot = $fixtureRoot
+            $script:backupMenuRun = '11111111-2222-4333-8444-555555555555'
+            $script:backupMenuPath = Join-Path $fixtureRoot "runs/$script:backupMenuRun/connection-info.json"
+            $null = New-Item -ItemType Directory -Path (Split-Path $script:backupMenuPath) -Force
+            function script:Save-BackupMenuFixture {
+                @{instances=@($script:backupMenuInstances)} | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $script:backupMenuPath
+            }
+            function script:Get-LabRunsByRuntimeState {
+                if ($script:backupMenuCase -ne 'no-runs') { [pscustomobject]@{runId=$script:backupMenuRun} }
+            }
+            function script:Select-LabRun {
+                if ($script:backupMenuCase -eq 'foreign-run') { return 'foreign' }
+                if ($script:backupMenuCase -ne 'run-cancel') { $script:backupMenuRun }
+            }
+            function script:Get-LabStateRoot { $script:backupMenuRoot }
+            function script:Get-LabRunState { param($RunId) [pscustomobject]@{runId=$RunId} }
+            function script:Get-LabRunRuntimeStatus {
+                $script:backupMenuTracker.Runtime++
+                $live = @($script:backupMenuInstances | ForEach-Object {
+                    [pscustomobject]@{Id=$_.id;Provider=$_.provider;State=$(if ($script:backupMenuCase -eq 'stopped' -or ($script:backupMenuCase -eq 'stale' -and $script:backupMenuTracker.Selected)) {'STOPPED'} else {'RUNNING'})}
+                })
+                if ($script:backupMenuCase -eq 'ambiguous-runtime') { $live += $live[-1] }
+                [pscustomobject]@{Instances=$live}
+            }
+            function script:Invoke-LabConsoleMenu {
+                param($ScreenId,$Items)
+                $script:backupMenuTracker.Items=@($Items); $script:backupMenuTracker.Screen=$ScreenId; $script:backupMenuTracker.Selected=$true
+                if ($script:backupMenuCase -eq 'cancel') { return [pscustomobject]@{Status='Cancelled'} }
+                if ($script:backupMenuCase -eq 'forged') { return [pscustomobject]@{Status='Selected';SelectedItem=[pscustomobject]@{Data='foreign'}} }
+                if ($script:backupMenuCase -in @('drift-provider','drift-version','drift-host','drift-port','drift-containerName','drift-vmName','drift-vmId')) {
+                    $property = $script:backupMenuCase.Substring(6)
+                    $script:backupMenuInstances[1].$property = if ($property -eq 'port') { 14399 } else { 'changed' }
+                    Save-BackupMenuFixture
+                }
+                [pscustomobject]@{Status='Selected';SelectedItem=$Items[1]}
+            }
+            function script:Read-Host {
+                param($Prompt,[switch]$AsSecureString)
+                $script:backupMenuTracker.Prompts.Add($Prompt)
+                if ($Prompt -match 'Instanz-ID') { throw 'Manual instance ID is forbidden' }
+                if ($AsSecureString) { $script:backupMenuTracker.Credentials++; return [Security.SecureString]::new() }
+                if ($script:backupMenuCase -eq 'drift-before-credentials') {
+                    $script:backupMenuInstances[1].port=14399; Save-BackupMenuFixture
+                }
+                if ($Prompt -match 'Administrator') { return 'SyntheticAdmin' }
+                'Evidence'
+            }
+            function script:Read-LabConfirm {
+                if ($script:backupMenuCase -eq 'drift-before-backup') {
+                    $script:backupMenuInstances[1].port=14399; Save-BackupMenuFixture
+                }
+                return ($script:backupMenuCase -ne 'confirm-cancel')
+            }
+            function script:Resolve-LabDataRootForUse { param($DataRoot) $DataRoot }
+            function script:Backup-SqlServerLabDatabase {
+                param($RunId,$InstanceId,$DatabaseName,$SaPassword,$GuestCredential,$DataRoot,$Confirm)
+                $script:backupMenuTracker.Backups++
+                $script:backupMenuTracker.Arguments=@{RunId=$RunId;InstanceId=$InstanceId;DatabaseName=$DatabaseName;Guest=($null -ne $GuestCredential)}
+                [pscustomobject]@{Status='BACKUP_REUSABLE';DatabaseName=$DatabaseName;Bytes=1024;BackupSetId='synthetic';PersistentStorageId='synthetic'}
+            }
+            foreach ($writer in @('Write-LabInfo','Write-LabStatus','Write-LabWarning','Write-LabError','Write-LabSuccess')) {
+                Set-Item -Path "Function:script:$writer" -Value { param($Message,$Label,$Value) }
+            }
+            $results=@{}
+            $cases=@('selected','sql2017','sql2019','sql2025','hyperv','cancel','run-cancel','foreign-run','forged','stopped','stale','ambiguous-runtime','duplicate','missing-id','unresolved','empty','no-runs','confirm-cancel','drift-provider','drift-version','drift-host','drift-port','drift-containerName','drift-vmName','drift-vmId','drift-before-credentials','drift-before-backup')
+            foreach ($script:backupMenuCase in $cases) {
+                $script:backupMenuTracker=@{Items=@();Screen='';Selected=$false;Runtime=0;Credentials=0;Backups=0;Arguments=@{};Prompts=[Collections.Generic.List[string]]::new()}
+                $script:backupMenuInstances=@(
+                    [pscustomobject]@{id='old';version='2017-latest';provider='docker';containerName='synthetic-old';host='127.0.0.1';port=14331;vmName='';vmId=''}
+                    [pscustomobject]@{id='analytics';version='2022-latest';provider='podman';containerName='synthetic-analytics';host='127.0.0.1';port=14332;vmName='';vmId=''}
+                )
+                if ($script:backupMenuCase -match '^sql(\d+)$') { $script:backupMenuInstances[1].version="$($Matches[1])-latest" }
+                if ($script:backupMenuCase -eq 'hyperv') { $script:backupMenuInstances[1].provider='hyperv';$script:backupMenuInstances[1].vmName='synthetic-guest';$script:backupMenuInstances[1].vmId='synthetic-vmid' }
+                if ($script:backupMenuCase -eq 'duplicate') { $script:backupMenuInstances += $script:backupMenuInstances[1] }
+                if ($script:backupMenuCase -eq 'missing-id') { $script:backupMenuInstances[1].id='' }
+                if ($script:backupMenuCase -eq 'unresolved') { $script:backupMenuInstances[1].containerName='' }
+                if ($script:backupMenuCase -eq 'empty') { $script:backupMenuInstances=@() }
+                Save-BackupMenuFixture
+                Invoke-LabDatabaseBackupInteractive -DataRoot 'synthetic-root'
+                $results[$script:backupMenuCase]=[pscustomobject]$script:backupMenuTracker
+            }
+            $results
+        } $fixtureRoot
+    }
+    finally { if (Test-Path -LiteralPath $fixtureRoot) { Remove-Item -LiteralPath $fixtureRoot -Recurse -Force } }
+}
+Add-ConsoleUiCheck 'Backup-Menü wählt benannte Instanz über gemeinsamen Wrapper statt manueller ID' (
+    $backupInstanceSelectionProbe.selected.Screen -eq 'database-backup-instance-select' -and
+    $backupInstanceSelectionProbe.selected.Items[1].Label -eq 'analytics' -and
+    $backupInstanceSelectionProbe.selected.Items[1].Value -eq 'SQL 2022-latest · podman' -and
+    $backupInstanceSelectionProbe.selected.Arguments.RunId -eq '11111111-2222-4333-8444-555555555555' -and
+    $backupInstanceSelectionProbe.selected.Arguments.InstanceId -eq 'analytics' -and
+    $backupInstanceSelectionProbe.selected.Arguments.DatabaseName -eq 'Evidence'
+)
+foreach ($case in @('selected','sql2017','sql2019','sql2025','hyperv')) {
+    Add-ConsoleUiCheck "Backup-Menü erhält bestehende Versions-/Providerbreite für $case" ($backupInstanceSelectionProbe[$case].Backups -eq 1)
+}
+Add-ConsoleUiCheck 'Backup-Menü erhält Gast-Credentials für Hyper-V' ($backupInstanceSelectionProbe.hyperv.Arguments.Guest)
+Add-ConsoleUiCheck 'Backup-Menü revalidiert nach Datenbankeingabe vor Credentials und nach Bestätigung' (
+    $backupInstanceSelectionProbe['drift-before-credentials'].Runtime -eq 3 -and
+    $backupInstanceSelectionProbe['drift-before-credentials'].Prompts.Count -eq 1 -and
+    $backupInstanceSelectionProbe['drift-before-backup'].Runtime -eq 4 -and
+    $backupInstanceSelectionProbe['drift-before-backup'].Credentials -eq 1
+)
+foreach ($case in @('cancel','run-cancel','foreign-run','forged','stopped','stale','ambiguous-runtime','duplicate','missing-id','unresolved','empty','no-runs','drift-provider','drift-version','drift-host','drift-port','drift-containerName','drift-vmName','drift-vmId','drift-before-credentials')) {
+    Add-ConsoleUiCheck "Backup-Menü beendet $case ohne Credentials und Backup" ($backupInstanceSelectionProbe[$case].Backups -eq 0 -and $backupInstanceSelectionProbe[$case].Credentials -eq 0)
+}
+foreach ($case in @('confirm-cancel','drift-before-backup')) {
+    Add-ConsoleUiCheck "Backup-Menü beendet $case ohne Backup" ($backupInstanceSelectionProbe[$case].Backups -eq 0)
+}
+foreach ($case in @('stopped','ambiguous-runtime','duplicate','missing-id','unresolved')) {
+    Add-ConsoleUiCheck "Backup-Menü zeigt $case deaktiviert mit Grund" ($backupInstanceSelectionProbe[$case].Items[1].Disabled -and [bool]$backupInstanceSelectionProbe[$case].Items[1].DisabledReason)
+}
+
 Write-Host "`nErgebnis: $passed PASS, $failed FAIL"
 if ($failed -gt 0) { exit 1 }
