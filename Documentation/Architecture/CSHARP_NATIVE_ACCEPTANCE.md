@@ -116,10 +116,20 @@ unprivilegierte Windows-Datei belegt die tatsächliche ACL-Abweisung; positive
 ACL-Adapterfälle verwenden synthetische SecurityDescriptor-Objekte. Die echte
 Einrichtung eines realen Runnerprofils bleibt separat. Ein zusätzlicher Test
 prüft auf erhöhtem Windows den tatsächlichen Profilresolver mit ausschließlich
-synthetischem JSON in einem eigenen GUID-Unterordner unter ProgramData. Er
+synthetischem JSON in einem eigenen GUID-Unterordner direkt am Laufwerksroot
+des durch CommonApplicationData bestimmten lokalen Laufwerks. Er
 prüft die vorhandenen Vorfahren nur lesend und erzeugt den neuen Ordner atomar
 mit Admin-Owner und geschützter Admin-/SYSTEM-ACL. Ein vorhandener Name wird
 niemals übernommen. Die Profildatei verwendet CreateNew mit initialer ACL.
+ProgramData selbst ist keine geeignete feste Testbasis: bestehende effektive
+Schreibrechte können dort den unveränderten strengen Vorfahrenguard verletzen.
+Der Test verwendet genau den abgeleiteten Laufwerksroot; er sucht keine
+alternativen Basen und verändert keine bestehenden ACLs. Auch dieser Root muss
+die vollständige lokale Datenträger-, Reparse-, Owner- und Vorfahrenprüfung
+bestehen. Feste Diagnosestufen unterscheiden Vorprüfung, sichere Anlage,
+Rootprüfung, Profilauswertung und Cleanup. ACL-Diagnosen enthalten ausschließlich
+BASE/ANCESTOR und OWNER/DACL/WRITER, niemals Pfade, SIDs oder rohe ACEs. Ein
+ungeeigneter Laufwerksroot bleibt FAIL; es gibt keine Umdeutung zu PASS.
 Nach erneuter Pfad-/Reparse-/ACL-Prüfung werden ausschließlich die eigene Datei
 und der leere eigene Ordner entfernt; Cleanupfehler verhindern PASS.
 
