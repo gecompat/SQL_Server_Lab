@@ -114,7 +114,23 @@ Die Profilprüfungen ergänzen echte JSON-Parserfälle, Hash-/Pfad-/Schemafehler
 ACL- und Vorfahrenfälle sowie die reine Profilübergabe im Workflow. Eine eigene
 unprivilegierte Windows-Datei belegt die tatsächliche ACL-Abweisung; positive
 ACL-Adapterfälle verwenden synthetische SecurityDescriptor-Objekte. Die echte
-Einrichtung und Annahme eines administrativ geschützten Runnerprofils bleiben
-ein separater Runnernachweis. Die CI-Auswahl bindet die Dateien an diese Suite.
+Einrichtung eines realen Runnerprofils bleibt separat. Ein zusätzlicher Test
+prüft auf erhöhtem Windows den tatsächlichen Profilresolver mit ausschließlich
+synthetischem JSON in einem eigenen GUID-Unterordner unter ProgramData. Er
+prüft die vorhandenen Vorfahren nur lesend und erzeugt den neuen Ordner atomar
+mit Admin-Owner und geschützter Admin-/SYSTEM-ACL. Ein vorhandener Name wird
+niemals übernommen. Die Profildatei verwendet CreateNew mit initialer ACL.
+Nach erneuter Pfad-/Reparse-/ACL-Prüfung werden ausschließlich die eigene Datei
+und der leere eigene Ordner entfernt; Cleanupfehler verhindern PASS.
+
+Der eindeutige Check `CSharp profile ACL evidence: real protected profile and
+exact cleanup` meldet nur nach tatsächlicher Resolverprüfung und Cleanup PASS.
+Linux und nicht erhöhte Windows-Prozesse melden dafür ausdrücklich
+`NOT_EXECUTED`, ohne UAC oder Änderung bestehender Zugriffsrechte. Synthetische
+Fehlerfälle prüfen Kollision, Teilanlage, private Fehler, Reparse-Abbruch und
+getrennte Cleanupfehler auch ohne erhöhte Rechte. Die vorhandene Windows-CI
+kann den echten positiven Fall ausführen. Dies startet weder SQL noch VMs und
+bestätigt keine Installation oder Katalogpromotion. Die CI-Auswahl bindet die
+Dateien an diese Suite.
 Ein nativer Durchlauf
 und seine bestätigte Ressourcenbereinigung stehen noch aus.
