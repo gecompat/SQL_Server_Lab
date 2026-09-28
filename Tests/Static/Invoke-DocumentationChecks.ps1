@@ -523,6 +523,21 @@ foreach ($providerDefinitionFile in $providerDefinitions) {
 # =============================================================================
 Write-Host "`n[5] Zentrale Dokumentation" -ForegroundColor Cyan
 
+$navigationPlan = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation/Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md') -Raw
+$navigationSection = [regex]::Match($navigationPlan, '(?s)### 4\.1 Kanonischer Bedienpfad\s+(.*?)### 4\.2').Groups[1].Value
+Add-ValidationResult -Name 'Navigation: aktuelle Bereiche statt konkurrierender Fuenf-Aufgaben-Vorgabe' -Success (
+    $navigationSection -match 'Lab-Umgebungen' -and
+    $navigationSection -match 'Geschützte Testsystem-Matrix' -and
+    $navigationSection -match 'Host-Dienste und Modelle' -and
+    $navigationSection -match 'SQL-Lab-Grundkonfiguration' -and
+    $navigationPlan -notmatch 'Hauptmenü auf die fünf Benutzeraufgaben umstellen'
+)
+$historicalNavigation = Get-Content -LiteralPath (Join-Path $repoRoot 'Documentation/Project_Planning/FUTURE_UI_WORKFLOW_PLAN_2026-08-08.md') -Raw
+Add-ValidationResult -Name 'Navigation: historischer Entwurf verweist auf kanonischen Bedienpfad' -Success (
+    $historicalNavigation -match 'Historischer Menüentwurf \(abgelöst\)' -and
+    $historicalNavigation -match 'DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md#41-kanonischer-bedienpfad'
+)
+
 $coreFiles = @(
     'AGENTS.md'
     'README.md'
