@@ -50,6 +50,7 @@ sources_of_truth:
   csharp_native_acceptance_guest: Tests/Integration/Fixtures/CSharp/guest.ps1
   csharp_native_acceptance_workflow: .github/workflows/csharp-native-acceptance.yml
   csharp_native_acceptance_guide: Documentation/Architecture/CSHARP_NATIVE_ACCEPTANCE.md
+  csharp_native_guest_diagnostics_checks: Tests/Static/Fixtures/CSharpNativeGuestDiagnosticsChecks.ps1
   csharp_native_acceptance_checks: Tests/Static/Fixtures/CSharpNativeAcceptanceChecks.ps1
   sql_cu_watch_policy: ops/sql-cu-policy.md
   sql_cu_watch_report: Tools/Common/VersionCatalogCuWatchReport.ps1

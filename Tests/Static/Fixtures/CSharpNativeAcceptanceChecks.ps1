@@ -571,3 +571,5 @@ try{
 }else{Write-Host '  NOT_EXECUTED  CSharp SQL connection: Windows PowerShell requires Windows'}
 
 . (Join-Path $PSScriptRoot 'CSharpNativeEvidenceChecks.ps1')
+
+. (Join-Path $PSScriptRoot 'CSharpNativeGuestDiagnosticsChecks.ps1')
