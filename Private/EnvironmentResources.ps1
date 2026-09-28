@@ -1,3 +1,91 @@
+function Assert-LabResourceChangeAllowed {
+    param([string]$RunId, [string]$StateRoot)
+    if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) { throw 'RESOURCE_CHANGE_PROTECTED_GROUP' }
+    $cms = Get-LabConnectionCenterCmsConfiguration -StateRoot $StateRoot
+    if ($cms -and [string]$cms.RunId -eq $RunId) { throw 'RESOURCE_CHANGE_SYSTEM_SERVICE' }
+}
+
+function Get-LabResourceChangeTargets {
+    param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
+    $context = Get-LabEnvironmentResourceContext -RunId $RunId -StateRoot $StateRoot
+    Assert-LabResourceChangeAllowed -RunId $RunId -StateRoot $context.StateRoot
+    @($context.Connection.instances | ForEach-Object {
+        [pscustomobject]@{ InstanceId=[string]$_.id; Provider=[string]$_.provider }
+    })
+}
+
+function Get-LabResourceChangePlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$RunId,
+        [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)][ValidateSet('docker','podman','hyperv')][string]$Provider,
+        [Nullable[decimal]]$Cpu, [Nullable[int]]$MemoryMB, [string]$StateRoot
+    )
+    $environment = Get-LabEnvironmentResourceContext -RunId $RunId -StateRoot $StateRoot
+    Assert-LabResourceChangeAllowed -RunId $RunId -StateRoot $environment.StateRoot
+    $targets = @($environment.Connection.instances | Where-Object { [string]$_.id -eq $InstanceId -and [string]$_.provider -eq $Provider })
+    if ($targets.Count -ne 1) { throw 'RESOURCE_CHANGE_TARGET_MISMATCH' }
+    $actualCpu = $null; $actualMemory = $null; $reason = ''; $binding = $null
+    if ($Provider -eq 'hyperv') {
+        $managed = Get-HyperVManagedVM -VMName ([string]$targets[0].vmName) -ExpectedRunId $RunId -ExpectedScopeId ([string]$environment.Run.scopeId)
+        if (-not $managed -or [string]$managed.VM.Id -ne [string]$targets[0].vmId) { throw 'RESOURCE_CHANGE_TARGET_MISMATCH' }
+        $actualCpu = [decimal]$managed.VM.ProcessorCount
+        $actualMemory = [int]([long]$managed.VM.MemoryStartup / 1MB)
+        $reason = 'Hyper-V: Apply nicht verfügbar. Dauerhafte Sollzustandsautorität und journalisierte Recovery für neue Ressourcenwerte sind noch offen; DynamicMemory und Min/Max bleiben unverändert.'
+    }
+    else {
+        $context = Get-LabContainerReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $environment.StateRoot
+        $subRuns = @(Get-LabProviderSubRuns -RunId $RunId -StateRoot $environment.StateRoot | Where-Object { [string]$_.provider -eq $Provider })
+        if ([string]$context.Run.state -notin @('RUNNING','STOPPED') -or $subRuns.Count -ne 1 -or
+            [string]$subRuns[0].state -notin @('RUNNING','STOPPED')) { throw 'RESOURCE_CHANGE_LIFECYCLE_BLOCKED' }
+        if ([string]$context.Provider -ne $Provider -or -not $context.ContainerId -or
+            [string]$context.Inspect.Config.Labels.'sql-server-lab.instance-id' -ne $InstanceId) { throw 'RESOURCE_CHANGE_TARGET_MISMATCH' }
+        # Never substitute stored or reconcile fallback limits for measured values.
+        $bytes = [long]$context.Inspect.HostConfig.Memory
+        if ($bytes -gt 0 -and $bytes % 1MB -eq 0) { $actualMemory = [int]($bytes / 1MB) }
+        $actualCpu = Get-LabContainerMeasuredCpu -Inspect $context.Inspect
+        if ($null -eq $actualMemory -or $null -eq $actualCpu) { $reason = 'Istlimit unbekannt, unbegrenzt oder widersprüchlich. Apply nicht verfügbar; Runtime-Limits prüfen.' }
+        $journalPath = Get-LabContainerReconcileJournalPath -RunDirectory $context.RunDirectory
+        $journalKey = 'absent'
+        if (Test-Path -LiteralPath $journalPath) {
+            $journal = Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json -Depth 50
+            $null = Assert-LabContainerReconcileJournal -Journal $journal
+            if ([string]$journal.RunId -ne $RunId -or [string]$journal.ScopeId -ne [string]$context.Run.scopeId -or
+                [string]$journal.InstanceId -ne $InstanceId -or [string]$journal.Provider -ne $Provider -or
+                [string]$journal.Status -notin @('COMPLETED','ROLLED_BACK')) { throw 'RESOURCE_CHANGE_JOURNAL_BLOCKED' }
+            $journalKey = (Get-FileHash -LiteralPath $journalPath -Algorithm SHA256).Hash
+        }
+        $binding = [ordered]@{
+            Root=(Get-LabCanonicalResourceRoot -StateRoot $context.StateRoot); Run=$RunId; Scope=[string]$context.Run.scopeId
+            RunState=[string]$context.Run.state; ProviderState=[string]$subRuns[0].state
+            Instance=$InstanceId; Provider=$Provider; RuntimeId=[string]$context.ContainerId
+            Cpu=$actualCpu; MemoryMB=$actualMemory; Port=[int]$context.CurrentPort
+            Ports=$context.Inspect.NetworkSettings.Ports; RestartPolicy=$context.Inspect.HostConfig.RestartPolicy
+            AutoStartLabel=[string]$context.CurrentAutoStartLabel; Mounts=[string]$context.MountFingerprint
+            Running=[bool]$context.WasRunning; Journal=$journalKey
+        }
+    }
+    $desiredCpu = if ($null -ne $Cpu) { $Cpu } else { $actualCpu }
+    $desiredMemory = if ($null -ne $MemoryMB) { $MemoryMB } else { $actualMemory }
+    if ($null -ne $desiredCpu -and ($desiredCpu -lt 1 -or $desiredCpu -gt 64 -or [math]::Round($desiredCpu,2) -ne $desiredCpu)) { throw 'RESOURCE_CHANGE_CPU_RANGE: 1 bis 64, höchstens zwei Nachkommastellen.' }
+    if ($null -ne $desiredMemory -and ($desiredMemory -lt 512 -or $desiredMemory -gt 1048576)) { throw 'RESOURCE_CHANGE_MEMORY_RANGE: 512 bis 1048576 MB.' }
+    $noOp = $null -ne $actualCpu -and $null -ne $actualMemory -and $desiredCpu -eq $actualCpu -and $desiredMemory -eq $actualMemory
+    $key = $null
+    if ($binding) {
+        $binding.DesiredCpu = $desiredCpu; $binding.DesiredMemoryMB = $desiredMemory
+        $key = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes(($binding | ConvertTo-Json -Depth 12 -Compress)))).ToLowerInvariant()
+    }
+    [pscustomobject]@{
+        RunId=$RunId; InstanceId=$InstanceId; Provider=$Provider
+        Actual=[pscustomobject]@{ Cpu=$actualCpu; MemoryMB=$actualMemory }
+        Desired=[pscustomobject]@{ Cpu=$desiredCpu; MemoryMB=$desiredMemory }
+        NoChange=$noOp; ChangeClass=$(if ($noOp) {'no-op'} elseif ($reason) {'unsupported'} else {'live'})
+        CanApply=([string]::IsNullOrEmpty($reason)); Reason=$reason; PlanKey=$key
+        NextStep=$(if ($reason) {$reason} elseif ($noOp) {'Keine Änderung erforderlich.'} elseif (-not $context.WasRunning) {'Limits für den nächsten Start ändern; kein Start, keine Port-, Autostart- oder SQL-Speicheränderung.'} else {'CPU/RAM live ändern; kein Neustart, keine Port-, Autostart- oder SQL-Speicheränderung.'})
+    }
+}
+
 function Get-LabEnvironmentResourceContext {
     [CmdletBinding()]
     param(

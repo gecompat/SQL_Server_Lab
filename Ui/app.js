@@ -1296,22 +1296,83 @@ function openContainerOperation(action, runId, port, instanceId, sqlVersion, kin
   $('#container-operation-dialog').showModal();
 }
 
-function openResourceDialog(button) {
-  const provider = button.dataset.provider;
-  const memory = Number(button.dataset.memory || (provider === 'hyperv' ? 4096 : 4096));
-  const cpu = Number(button.dataset.cpu || 4);
-  const instanceCount = Number(button.dataset.instances || 1);
-  $('#resource-run').value = button.dataset.run;
-  $('#resource-memory').value = memory;
-  $('#resource-processors').value = cpu;
-  $('#resource-memory-label').firstChild.textContent = provider === 'hyperv' ? 'Startspeicher (MB)' : 'Speicher-Limit (MB)';
-  $('#resource-current').textContent = 'Aktuell aus der Runtime erkannt: ' + memory + ' MB · ' + cpu + ' CPU' + (instanceCount > 1 ? ' · wird auf ' + instanceCount + ' Container angewendet.' : '.');
-  $('#resource-note').textContent = provider === 'hyperv'
-    ? 'Hyper-V muss zum Ändern ausgeschaltet sein. Der dynamische Speicherbereich wird sinnvoll auf mindestens 1 GB bzw. die Hälfte des Startwerts und maximal das Doppelte gesetzt – nicht auf 512 MB oder 1 TB.'
-    : 'Docker/Podman übernehmen die Werte sofort über ihre Runtime-Limits. Für mehrere Instanzen dieses Labs gelten die Werte einheitlich.';
-  $('#resource-dialog').showModal();
+let resourcePlan = null;
+let resourceTargets = [];
+let resourceRequest = 0;
+function invalidateResourcePlan() {
+  resourcePlan = null;
+  resourceRequest += 1;
+  $('#resource-apply').disabled = true;
 }
-
+async function fetchResourceView(parameters) {
+  const response = await fetch('/api/resource-change?' + new URLSearchParams(parameters), { cache: 'no-store' });
+  if (!response.ok) throw new Error('Ressourcen nicht verfügbar: Ziel, Schutzstatus, Runtime und offene Recovery prüfen; anschließend erneut lesen.');
+  return response.json();
+}
+async function readResourcePlan(prefill = false) {
+  invalidateResourcePlan();
+  const request = resourceRequest;
+  const target = resourceTargets[Number($('#resource-instance').value)];
+  if (!target) { $('#resource-note').textContent = 'Keine Instanz ausgewählt.'; return; }
+  const parameters = { runId: $('#resource-run').value, instanceId: target.InstanceId, provider: target.Provider };
+  if (!prefill) {
+    const cpu = Number($('#resource-processors').value);
+    const memory = Number($('#resource-memory').value);
+    if (!Number.isFinite(cpu) || cpu < 1 || cpu > 64 || Math.abs(cpu * 100 - Math.round(cpu * 100)) > 0.000001 || !Number.isInteger(memory) || memory < 512 || memory > 1048576) {
+      $('#resource-note').textContent = 'CPU 1–64 mit höchstens zwei Nachkommastellen; RAM 512–1048576 ganze MB.';
+      return;
+    }
+    parameters.cpu = cpu; parameters.memoryMB = memory;
+  }
+  if (prefill) {
+    $('#resource-processors').disabled = true; $('#resource-memory').disabled = true;
+    $('#resource-processors').value = ''; $('#resource-memory').value = '';
+    $('#resource-current').textContent = target.InstanceId + ' · ' + target.Provider + ': Istwerte noch unbekannt.';
+  }
+  $('#resource-note').textContent = 'Vorschau wird gelesen …';
+  try {
+    const plan = await fetchResourceView(parameters);
+    if (request !== resourceRequest || !$('#resource-dialog').open) return;
+    if (plan.RunId !== parameters.runId || plan.InstanceId !== target.InstanceId || plan.Provider !== target.Provider) throw new Error('Zielbindung der Vorschau stimmt nicht. Erneut lesen.');
+    if (prefill) {
+      $('#resource-processors').disabled = false; $('#resource-memory').disabled = false;
+      $('#resource-processors').value = plan.Desired.Cpu ?? '';
+      $('#resource-memory').value = plan.Desired.MemoryMB ?? '';
+    }
+    $('#resource-current').textContent = target.InstanceId + ' · ' + target.Provider + ': CPU ' + (plan.Actual.Cpu ?? 'unbekannt/unbegrenzt') + ' → ' + (plan.Desired.Cpu ?? 'unbekannt') + '; RAM ' + (plan.Actual.MemoryMB ?? 'unbekannt/unbegrenzt') + ' → ' + (plan.Desired.MemoryMB ?? 'unbekannt') + ' MB';
+    $('#resource-note').textContent = plan.NextStep;
+    resourcePlan = plan;
+    $('#resource-apply').disabled = !plan.CanApply || plan.NoChange || !plan.PlanKey;
+  } catch (error) {
+    if (request === resourceRequest) $('#resource-note').textContent = error.message;
+  }
+}
+async function openResourceDialog(button) {
+  invalidateResourcePlan();
+  const request = resourceRequest;
+  resourceTargets = [];
+  $('#resource-processors').disabled = true; $('#resource-memory').disabled = true;
+  $('#resource-run').value = button.dataset.run;
+  $('#resource-instance').innerHTML = '';
+  $('#resource-instance').disabled = true;
+  $('#resource-processors').value = '';
+  $('#resource-memory').value = '';
+  $('#resource-current').textContent = 'Istwerte werden ausdrücklich aus der Runtime gelesen.';
+  $('#resource-note').textContent = 'Instanzen werden gelesen …';
+  if (!$('#resource-dialog').open) $('#resource-dialog').showModal();
+  try {
+    const view = await fetchResourceView({ runId: button.dataset.run });
+    if (request !== resourceRequest || !$('#resource-dialog').open) return;
+    resourceTargets = view.Targets || [];
+    $('#resource-instance').innerHTML = resourceTargets.map((target, index) => '<option value="' + index + '">' + escapeHtml(target.InstanceId + ' · ' + target.Provider) + '</option>').join('');
+    $('#resource-instance').disabled = !resourceTargets.length;
+    $('#resource-instance').value = resourceTargets.length ? '0' : '';
+    if (!resourceTargets.length) { $('#resource-note').textContent = 'Keine Instanzen vorhanden.'; return; }
+    await readResourcePlan(true);
+  } catch (error) {
+    if (request === resourceRequest) $('#resource-note').textContent = error.message;
+  }
+}
 function queueBackgroundAction(action, parameters, dialog, onQueued) {
   // Das unmittelbare Signal und der optimistische Live-Log-Eintrag entstehen
   // synchron vor dem ersten await. Der Dialog darf deshalb nicht einen langen
@@ -2354,18 +2415,21 @@ $('#lab-name-form').addEventListener('submit', async (event) => {
   queueBackgroundAction('RenameLab', { BuildId: $('#lab-name-run').value, LabName: labName }, $('#lab-name-dialog'));
 });
 
+$('#resource-instance').addEventListener('change', () => readResourcePlan(true));
+$('#resource-preview').addEventListener('click', () => resourceTargets.length ? readResourcePlan($('#resource-processors').disabled) : openResourceDialog({ dataset: { run: $('#resource-run').value } }));
+for (const id of ['#resource-processors', '#resource-memory']) {
+  $(id).addEventListener('input', () => { if ($(id).disabled) return; invalidateResourcePlan(); $('#resource-note').textContent = 'Werte geändert: neue Vorschau erforderlich.'; });
+}
+$('#resource-dialog').addEventListener('close', invalidateResourcePlan);
+$('#resource-dialog').addEventListener('cancel', invalidateResourcePlan);
 $('#resource-form').addEventListener('submit', (event) => {
   if (event.submitter?.value === 'cancel') return;
   event.preventDefault();
-  const memory = Number($('#resource-memory').value);
-  const processors = Number($('#resource-processors').value);
-  if (!Number.isInteger(memory) || memory < 512 || !Number.isInteger(processors) || processors < 1) {
-    showError(new Error('Bitte mindestens 512 MB Speicher und mindestens eine CPU angeben.'));
-    return;
-  }
-  queueBackgroundAction('SetLabResources', { BuildId: $('#resource-run').value, MemoryMB: memory, ProcessorCount: processors }, $('#resource-dialog'));
+  const plan = resourcePlan;
+  if (!plan || !plan.CanApply || plan.NoChange || !plan.PlanKey || Number($('#resource-memory').value) !== plan.Desired.MemoryMB || Number($('#resource-processors').value) !== plan.Desired.Cpu) return;
+  invalidateResourcePlan();
+  queueBackgroundAction('SetLabResources', { BuildId: plan.RunId, InstanceId: plan.InstanceId, MemoryMB: plan.Desired.MemoryMB, ResourceCpu: plan.Desired.Cpu, ExpectedPlanKey: plan.PlanKey }, $('#resource-dialog'));
 });
-
 $('#ai-shared-gateway-service-secret-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const submit = $('#ai-shared-gateway-service-secret-submit');

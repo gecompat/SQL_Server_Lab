@@ -7,6 +7,38 @@
     und liefert einen idempotenten Rollback-/Resume-Einstieg.
 #>
 
+function Get-LabCanonicalResourceRoot {
+    param([Parameter(Mandatory)][string]$StateRoot)
+    $root = [IO.Path]::TrimEndingDirectorySeparator([IO.Path]::GetFullPath($StateRoot))
+    if ([OperatingSystem]::IsWindows()) { $root = $root.ToLowerInvariant() }
+    return $root
+}
+
+function Get-LabContainerResourceLockName {
+    param([string]$StateRoot, [string]$RunId)
+    $key = (Get-LabCanonicalResourceRoot -StateRoot $StateRoot) + '|' + $RunId.ToLowerInvariant()
+    return 'SQL_Server_Lab_Container_Reconcile_' + [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($key)))
+}
+
+function Get-LabContainerMeasuredCpu {
+    <# Returns only a measured CPU limit; absent, unlimited or contradictory evidence remains unknown. #>
+    param([Parameter(Mandatory)]$Inspect)
+    $values = @{}
+    foreach ($name in @('NanoCpus','CpuQuota','CpuPeriod')) {
+        $value = [decimal]0
+        $property = $Inspect.HostConfig.PSObject.Properties[$name]
+        if ($property -and $null -ne $property.Value -and
+            -not [decimal]::TryParse([string]$property.Value, [Globalization.NumberStyles]::Integer, [Globalization.CultureInfo]::InvariantCulture, [ref]$value)) { return $null }
+        $values[$name] = $value
+    }
+    $nanoCpu = if ($values.NanoCpus -gt 0) { $values.NanoCpus / [decimal]1000000000 } else { $null }
+    $quotaCpu = if ($values.CpuQuota -gt 0 -and $values.CpuPeriod -gt 0) { $values.CpuQuota / $values.CpuPeriod } else { $null }
+    if ($values.NanoCpus -lt 0 -or $values.CpuPeriod -lt 0 -or ($values.CpuQuota -gt 0 -and $values.CpuPeriod -le 0)) { return $null }
+    if ($null -ne $nanoCpu -and $null -ne $quotaCpu -and $nanoCpu -ne $quotaCpu) { return $null }
+    if ($null -ne $nanoCpu) { return [decimal]$nanoCpu }
+    return $quotaCpu
+}
+
 function Get-LabContainerReconcileJournalPath {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunDirectory)
@@ -99,7 +131,8 @@ function Get-LabContainerReconcileContext {
     if ($portBinding.Count -ne 1 -or -not $portBinding[0].HostPort) { throw 'CONTAINER_RECONCILE_SQL_PORT_BINDING_REQUIRED' }
     $currentPort = [int]$portBinding[0].HostPort
     $currentMemoryMB = if ([long]$inspect.HostConfig.Memory -gt 0) { [int]([long]$inspect.HostConfig.Memory / 1MB) } else { 2048 }
-    $currentCpu = if ([long]$inspect.HostConfig.NanoCpus -gt 0) { [decimal]([long]$inspect.HostConfig.NanoCpus / 1000000000) } else { 2 }
+    $measuredCpu = Get-LabContainerMeasuredCpu -Inspect $inspect
+    $currentCpu = if ($null -ne $measuredCpu) { $measuredCpu } else { 2 }
     $configuredSqlMemory = @($inspect.Config.Env | Where-Object { [string]$_ -match '^MSSQL_MEMORY_LIMIT_MB=' } | Select-Object -First 1)
     $healthCommand = [string](@($inspect.Config.Healthcheck.Test) -join ' ')
     $restartPolicy = [string]$inspect.HostConfig.RestartPolicy.Name
@@ -366,9 +399,11 @@ function Repair-LabContainerReconcileJournal {
         }
 
         if ([string]$journal.ChangeClass -eq 'live') {
-            $null = Assert-LabContainerReconcileRuntimeIdentity -Provider $provider -Identity ([string]$journal.Runtime.ContainerName) -RunId ([string]$journal.RunId) -ScopeId ([string]$journal.ScopeId)
+            $originalId = [string]$journal.Runtime.OriginalId
+            $original = Assert-LabContainerReconcileRuntimeIdentity -Provider $provider -Identity $originalId -RunId ([string]$journal.RunId) -ScopeId ([string]$journal.ScopeId)
+            if ([string]$original.Id -ne $originalId -or [string]$original.Config.Labels.'sql-server-lab.instance-id' -ne [string]$journal.InstanceId) { throw 'CONTAINER_RECONCILE_RECOVERY_ORIGINAL_ID_MISMATCH' }
             $cpu = ([decimal]$journal.Before.Cpu).ToString('0.##',[Globalization.CultureInfo]::InvariantCulture)
-            $null = Invoke-LabContainerReconcileCommand -Provider $provider -Arguments @('update','--cpus',$cpu,'--memory',"$([int]$journal.Before.MemoryMB)m",[string]$journal.Runtime.ContainerName) -ErrorCode 'CONTAINER_RECONCILE_LIVE_ROLLBACK_FAILED'
+            $null = Invoke-LabContainerReconcileCommand -Provider $provider -Arguments @('update','--cpus',$cpu,'--memory',"$([int]$journal.Before.MemoryMB)m",$originalId) -ErrorCode 'CONTAINER_RECONCILE_LIVE_ROLLBACK_FAILED'
             if ($null -ne $journal.Before.SqlMaxMemoryMB) {
                 $null = Set-LabContainerSqlMaxMemoryMB -Context $Context -SqlMaxMemoryMB ([int]$journal.Before.SqlMaxMemoryMB)
             }

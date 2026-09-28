@@ -409,6 +409,69 @@ async function main() {
   releaseSetup({ ok: true, json: async () => ({ Result: { ...setupState, MediaRoot: 'stale' } }) });
   await pendingSetup;
   check('Late setup read after Cancel cannot update the closed dialog', () => { assert.notEqual(node('initial-setup-media').value, 'stale'); });
+  let resourceMode = 'ready';
+  const resourceRequests = [];
+  context.fetch = async (url, options = {}) => {
+    resourceRequests.push({ url, options });
+    if (url === '/api/actions') return { ok: true, json: async () => ({ id: 'resource-job' }) };
+    if (url === '/api/jobs') return { ok: true, json: async () => [] };
+    assert.ok(url.startsWith('/api/resource-change?'));
+    if (resourceMode === 'error') return { ok: false };
+    const query = new URLSearchParams(url.split('?')[1]);
+    if (!query.has('instanceId')) return { ok: true, json: async () => ({ Targets: resourceMode === 'empty' ? [] : [{ InstanceId: 'secondary', Provider: 'podman' }] }) };
+    const actual = { Cpu: resourceMode === 'unknown' ? null : 2, MemoryMB: 2048 };
+    const desired = { Cpu: query.has('cpu') ? Number(query.get('cpu')) : actual.Cpu, MemoryMB: query.has('memoryMB') ? Number(query.get('memoryMB')) : 2048 };
+    return { ok: true, json: async () => ({ RunId: 'resource-run', InstanceId: query.get('instanceId'), Provider: query.get('provider'), Actual: actual, Desired: desired, CanApply: resourceMode !== 'unknown', NoChange: desired.Cpu === actual.Cpu && desired.MemoryMB === actual.MemoryMB, PlanKey: 'a'.repeat(64), NextStep: resourceMode === 'unknown' ? 'Istlimit unbekannt; Apply nicht verfügbar.' : 'Live; kein Neustart.' }) };
+  };
+  context.resourceButton = { dataset: { run: 'resource-run' } };
+  const resourceEvent = async (id, type = 'click') => { for (const handler of node(id).events.get(type) || []) await handler({ submitter: { value: 'default' }, preventDefault() {} }); };
+  await run('openResourceDialog(resourceButton)');
+  check('Resource dialog pre-fills measured values for exact instance/provider and blocks no-op', () => {
+    assert.equal(Number(node('resource-processors').value), 2);
+    assert.equal(node('resource-apply').disabled, true);
+    assert.ok(node('resource-current').textContent.includes('secondary · podman'));
+  });
+  await resourceEvent('resource-form','submit');
+  node('resource-processors').value = '2.5';
+  await resourceEvent('resource-processors','input');
+  await resourceEvent('resource-form','submit');
+  check('Unpreviewed edits and no-op never queue mutation', () => assert.equal(resourceRequests.filter((r) => r.url === '/api/actions').length, 0));
+  await resourceEvent('resource-preview');
+  check('Shared preview displays old/new before Apply', () => { assert.equal(node('resource-apply').disabled, false); assert.ok(node('resource-current').textContent.includes('2 → 2.5')); });
+  await resourceEvent('resource-form','submit');
+  await new Promise((resolve) => setImmediate(resolve));
+  check('Real resource handler/startAction sends bound CPU/RAM only and exposes results', () => {
+    const request = JSON.parse(resourceRequests.find((r) => r.url === '/api/actions').options.body);
+    assert.equal(request.action, 'SetLabResources'); assert.equal(request.parameters.InstanceId, 'secondary');
+    assert.equal(request.parameters.ResourceCpu, 2.5); assert.equal(request.parameters.ExpectedPlanKey, 'a'.repeat(64));
+    assert.equal(request.parameters.AutoStart, undefined); assert.equal(run('workspaceArea'), 'messages');
+  });
+  await run('openResourceDialog(resourceButton)');
+  node('resource-processors').value = '3'; await resourceEvent('resource-preview');
+  node('resource-dialog').close(); await resourceEvent('resource-form','submit');
+  check('Resource Cancel discards plan without mutation', () => assert.equal(resourceRequests.filter((r) => r.url === '/api/actions').length, 1));
+  for (const mode of ['unknown', 'empty', 'error']) {
+    resourceMode = mode; await run('openResourceDialog(resourceButton)');
+    check('Resource ' + mode + ' fails closed with visible next step', () => { assert.equal(node('resource-apply').disabled, true); assert.ok(node('resource-note').textContent.length > 0); });
+    node('resource-dialog').close();
+  }
+  resourceMode = 'ready';
+  const immediateResourceFetch = context.fetch;
+  let releaseTargets;
+  context.fetch = (url, options) => url.includes('/api/resource-change?') && !url.includes('instanceId=')
+    ? new Promise((resolve) => { releaseTargets = () => resolve({ ok: true, json: async () => ({ Targets: [{ InstanceId: 'secondary', Provider: 'podman' }] }) }); })
+    : immediateResourceFetch(url, options);
+  const delayedResourceOpen = run('openResourceDialog(resourceButton)');
+  check('Pending resource Targets GET disables editable inputs', () => {
+    assert.equal(node('resource-memory').disabled, true); assert.equal(node('resource-processors').disabled, true);
+  });
+  await resourceEvent('resource-processors','input');
+  releaseTargets(); await delayedResourceOpen;
+  check('Early input cannot discard pending targets; initial plan finishes and enables editing', () => {
+    assert.equal(node('resource-instance').disabled, false); assert.equal(node('resource-processors').disabled, false);
+    assert.equal(Number(node('resource-processors').value), 2);
+  });
+  node('resource-dialog').close();
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

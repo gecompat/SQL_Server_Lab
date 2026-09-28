@@ -443,6 +443,23 @@ try {
             }
 
             $path = $context.Request.Url.AbsolutePath
+            if ($path -eq '/api/resource-change' -and $context.Request.HttpMethod -eq 'GET') {
+                try {
+                    $query = $context.Request.QueryString
+                    $arguments = @{ RunId=[string]$query['runId'] }
+                    if (-not $arguments.RunId) { throw 'RESOURCE_CHANGE_RUN_REQUIRED' }
+                    if ($query['instanceId']) {
+                        $arguments.InstanceId = [string]$query['instanceId']; $arguments.Provider = [string]$query['provider']
+                        if ($null -ne $query['cpu']) { $arguments.Cpu = [decimal]::Parse($query['cpu'],[Globalization.CultureInfo]::InvariantCulture) }
+                        if ($null -ne $query['memoryMB']) { if ($query['memoryMB'] -notmatch '^\d+$') { throw 'RESOURCE_CHANGE_MEMORY_INVALID' }; $arguments.MemoryMB = [int]$query['memoryMB'] }
+                        $view = & (Get-Module SqlServerLab) { param($a) Get-LabResourceChangePlan @a } $arguments
+                    }
+                    else { $view = @{ Targets=@(& (Get-Module SqlServerLab) { param($a) Get-LabResourceChangeTargets @a } $arguments) } }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8) -ContentType 'application/json; charset=utf-8'
+                }
+                catch { Write-UiResponse -Context $context -Body 'RESOURCE_CHANGE_UNAVAILABLE: Ziel, Schutzstatus, Runtime und offene Recovery prüfen; anschließend erneut lesen.' -StatusCode 400 }
+                continue
+            }
             if ($path -eq '/api/initial-setup') {
                 try {
                     $result = Invoke-UiInitialSetupRequest -Request $context.Request

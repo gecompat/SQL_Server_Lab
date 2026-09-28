@@ -1,5 +1,23 @@
 # Lokale Validierungsstrategie
 
+## Geführte Container-CPU/RAM-Änderung
+
+Am 2026-09-28 bestanden Docker und Podman getrennt je neun native Prüfungen
+für den neuen instanzgebundenen Plan-/Workflow-Apply-/No-op-/Driftpfad auf
+SQL Server 2025. Geprüft wurden echte CPU/RAM-Limits, erhaltene Runtime-ID,
+Ports, Restartpolicy und Mounts, No-op ohne Journalwrite, Ablehnung einer
+veralteten Vorschau nach eigener Änderung sowie SQL-Erreichbarkeit.
+Jeder Lauf verwendete einen eigenen privaten State-/Datenroot, frische
+Readiness/HostTools, den globalen Runtime-Mutex und begrenzte Worker-/Cleanup-
+Laufzeit. Beide eigenen Runs wurden entfernt; eigene Container, Volumes und
+Netze waren anschließend abwesend. Zwei vorangehende Docker-Harnessabbrüche
+wurden getrennt gehalten und nach bestätigtem Cleanup nicht als PASS gezählt.
+Die unabhängige Nachprüfung schloss Lifecycle-Bindung, Root-Alias-Mutex,
+ID-gebundenen Apply/Rollback und den GUI-Ladefall. Offline bestanden die
+betroffenen Suites; die Ressourcenfixture prüft 37 zusätzliche Fälle und die
+echte Browserfixture insgesamt 44 Fälle. Hyper-V-Apply, weitere Eigenschaften
+und andere SQL-Versionen sind durch diese Evidence nicht abgenommen.
+
 ## Grundkonfiguration und explizite Providerprüfung
 
 Die isolierten InitialSetup-Prüfungen sichern Herkunft, ungültige Roots,
@@ -23,14 +41,15 @@ diesem Slice auf den tatsächlichen Bereichsweg aktualisiert und ausgeführt.
 Der Selektor selbst bleibt unverändert; gekoppelte Vertragsprüfungen bleiben
 auch außerhalb seiner automatischen Auswahl erforderlich.
 
-## Private Docker-CI-Diagnostik
+## Private Docker-/Podman-CI-Diagnostik
 
-Der selbst gehostete Docker-Gate schreibt Preflight- und Testausgaben nur in
+Die selbst gehosteten Docker-/Podman-Gates schreiben Preflight- und Testausgaben nur in
 lokale `*.private.log`-Dateien unter `RUNNER_TEMP`. Er lädt keine Rohlogs hoch;
 öffentliche Fehler und Ergebnisse enthalten feste Meldungen ohne übernommene
 Host- oder Ausnahmeinformationen. Die temporären Dateien unterliegen dem
 Cleanup des Runners. Testumfang, Modi, Exitcodeprüfung und Runtime-Sperre bleiben
-unverändert. `Invoke-DockerSmokePrivacyChecks.ps1` führt die Workflowblöcke mit
+unverändert. `Invoke-DockerSmokePrivacyChecks.ps1` und
+`Invoke-PodmanSmokePrivacyChecks.ps1` führen die Workflowblöcke mit
 synthetischen PowerShell-Kindprozessen aus und prüft erfolgreiche sowie
 fehlgeschlagene Schritte einschließlich privater stdout-/stderr-Ausgabe.
 Diese Offline-Prüfung ersetzt den erforderlichen Docker-Providernachweis nicht.

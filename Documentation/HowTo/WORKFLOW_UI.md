@@ -241,3 +241,31 @@ auf einem lokalen Windows-Hyper-V-Host verfügbar und werden sonst deaktiviert.
 Die Steuerung eines entfernten Windows-Hyper-V-Hosts ist bewusst noch nicht
 implementiert; die fachlichen Vorbedingungen stehen im
 [Remote-Hyper-V-Host-Backlog](../Project_Planning/HYPERV_REMOTE_HOST_BACKLOG.md).
+
+## Geführte CPU/RAM-Änderung (`UX-202/622`, `CNT-211` bis `CNT-214`, `HV-601` bis `HV-607`)
+
+CLI `Set-LabResourcesInteractive` und GUI `openResourceDialog` wählen eine
+konkrete gewöhnliche Lab-Instanz samt Provider. Der gemeinsame read-only
+`Get-LabResourceChangePlan` zeigt gemessene Istlimits und gewünschte CPU/RAM-
+Werte. Die GUI liest über `/api/resource-change`; vor Apply ist eine aktuelle
+Vorschau erforderlich. Cancel und No-op rufen keinen mutierenden Executor auf.
+Der instanzgebundene Container-Apply verwendet `Update-SqlServerLabContainer`
+mit `ExpectedResourcePlanKey`, nur CPU und MemoryMB. Er serialisiert pro Run,
+normalisiert Root-Aliase, prüft stabile Run-/Providerzustände, Schutzstatus,
+offene/fremde/ungültige Journale sowie die Bindung an
+Runtime-ID, Lifecycle, Istwerte, Ports, Restartpolicy und Mounts erneut. Live-Apply
+und Live-Rollback adressieren die unveränderliche Container-ID; ein wiederbelegter
+alter Name darf keinen Nachbarn treffen. Laufende Container
+übernehmen Limits live; gestoppte bleiben gestoppt. Autostart, Ports und SQL
+max memory werden nicht als zusätzliche Änderungen übergeben.
+
+Fehlende, unbegrenzte, widersprüchliche oder nicht als NanoCPU beziehungsweise
+positive Quota/Period und ganze MB nachgewiesene Limits
+bleiben unbekannt und sperren Apply; gespeicherte Ersatzwerte sind kein
+Istnachweis. Hyper-V bietet nur Ist-/Zielvorschau, keinen Apply: Die dauerhafte
+Sollzustandsautorität für neue Werte und der journalisierte Teilfehler-/Recovery-
+Vertrag bleiben unter den bestehenden HV-IDs offen. DynamicMemory und Min/Max
+werden nicht verändert. Am 2026-09-28 bestanden Docker und Podman getrennt jeweils neun native
+SQL-2025-Prüfungen des neuen Plan-/Workflow-Apply-/No-op-/Driftpfads samt
+SQL-Probe und bestätigtem Own-Runtime-Cleanup. Das belegt Container-CPU/RAM,
+keinen Hyper-V-Apply und keine weiteren Eigenschaften oder Versionspaare.
