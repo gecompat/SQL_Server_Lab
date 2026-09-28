@@ -502,3 +502,69 @@ namespace SqlServerLab.Tests {
         Add-CheckResult -Name 'CSharp readiness: missing result rejected' -Success ($caught -ceq 'CSHARP_NATIVE_CLIENT_NOT_READY')
     }finally{Remove-Module $readinessModule -Force -ErrorAction SilentlyContinue}
 }
+
+# Real SqlClient parsing only: never Open a connection or execute SQL.
+& {
+    Add-Type -AssemblyName System.Data
+    $legacyBuilder=[Data.SqlClient.SqlConnectionStringBuilder]::new()
+    $reproduced=$false
+    try{$legacyBuilder.DataSource='localhost'}catch{$reproduced=$_.Exception.Message -match 'DataSource'}
+    Add-CheckResult -Name 'CSharp SQL connection: real IDictionary property assignment reproduces rejected keyword' -Success $reproduced
+    $connectionAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tests/Integration/Fixtures/CSharp/guest.ps1'),[ref]$null,[ref]$null)
+    $connectionFactory=$connectionAst.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'New-CSharpNativeSqlConnectionString'},$true)
+    . ([scriptblock]::Create($connectionFactory.Extent.Text))
+    $text=New-CSharpNativeSqlConnectionString
+    $parsed=[Data.SqlClient.SqlConnectionStringBuilder]::new($text)
+    Add-CheckResult -Name 'CSharp SQL connection: actual guest builder preserves local endpoint and timeout' -Success ($parsed['Data Source'] -ceq 'localhost' -and $parsed['Initial Catalog'] -ceq 'master' -and $parsed['Connect Timeout'] -eq 15)
+    Add-CheckResult -Name 'CSharp SQL connection: actual guest builder preserves encryption and disabled pooling' -Success ($parsed['Encrypt'] -and $parsed['TrustServerCertificate'] -and -not $parsed['Pooling'])
+    Add-CheckResult -Name 'CSharp SQL connection: authentication stays outside connection string' -Success (-not $parsed['Integrated Security'] -and -not $parsed.ShouldSerialize('User ID') -and -not $parsed.ShouldSerialize('Password'))
+    $password=[Security.SecureString]::new();$password.AppendChar('x')
+    $login=New-CSharpNativeSqlCredential $password
+    $connection=[Data.SqlClient.SqlConnection]::new($text)
+    try{
+        $connection.Credential=$login.Credential
+        Add-CheckResult -Name 'CSharp SQL connection: credential assignment succeeds without opening SQL' -Success ($connection.State -eq [Data.ConnectionState]::Closed -and $connection.Credential.UserId -ceq 'sa' -and $login.Secret.IsReadOnly())
+    }finally{$connection.Dispose();$login.Secret.Dispose();$password.Dispose()}
+}
+if($IsWindows){
+    $windowsPowerShell=Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+    if(Test-Path -LiteralPath $windowsPowerShell -PathType Leaf){
+        $harness=Join-Path $nativeRoot 'legacy-sql-builder.ps1'
+        @'
+param([string]$GuestScript)
+$ErrorActionPreference='Stop'
+try{
+    if($PSVersionTable.PSEdition -ne 'Desktop' -or $PSVersionTable.PSVersion.Major -ne 5){throw 'CSHARP_NATIVE_BUILDER_HOST'}
+    Add-Type -AssemblyName System.Data
+    $ast=[Management.Automation.Language.Parser]::ParseFile($GuestScript,[ref]$null,[ref]$null)
+    foreach($name in @('New-CSharpNativeSqlConnectionString','New-CSharpNativeSqlCredential')){
+        $definition=$ast.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq $name},$true)
+        . ([scriptblock]::Create($definition.Extent.Text))
+    }
+    $text=New-CSharpNativeSqlConnectionString
+    $parsed=New-Object Data.SqlClient.SqlConnectionStringBuilder $text
+    if($parsed['Data Source'] -cne 'localhost' -or $parsed['Initial Catalog'] -cne 'master' -or $parsed['Connect Timeout'] -ne 15 -or -not $parsed['Encrypt'] -or -not $parsed['TrustServerCertificate'] -or $parsed['Pooling'] -or $parsed['Integrated Security'] -or $parsed.ShouldSerialize('User ID') -or $parsed.ShouldSerialize('Password')){throw 'CSHARP_NATIVE_BUILDER_CONTRACT'}
+    $password=New-Object Security.SecureString;$password.AppendChar('x')
+    $login=New-CSharpNativeSqlCredential $password
+    $connection=New-Object Data.SqlClient.SqlConnection $text
+    try{$connection.Credential=$login.Credential;if($connection.State -ne [Data.ConnectionState]::Closed -or -not $login.Secret.IsReadOnly()){throw 'CSHARP_NATIVE_BUILDER_CREDENTIAL'}}
+    finally{$connection.Dispose();$login.Secret.Dispose();$password.Dispose()}
+    Write-Output 'CSHARP_NATIVE_BUILDER_WINDOWS_POWERSHELL_PASS'
+}catch{Write-Output 'CSHARP_NATIVE_BUILDER_WINDOWS_POWERSHELL_FAILED';exit 1}
+'@|Set-Content -LiteralPath $harness
+        $start=[Diagnostics.ProcessStartInfo]::new();$start.FileName=$windowsPowerShell;$start.UseShellExecute=$false;$start.CreateNoWindow=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
+        foreach($argument in @('-NoProfile','-NonInteractive','-File',$harness,'-GuestScript',(Join-Path $repoRoot 'Tests/Integration/Fixtures/CSharp/guest.ps1'))){$start.ArgumentList.Add($argument)}
+        $process=[Diagnostics.Process]::new();$process.StartInfo=$start;$legacySuccess=$false
+        try{
+            $null=$process.Start();$stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
+            if(-not $process.WaitForExit(30000)){$process.Kill($true);$null=$process.WaitForExit(15000)}
+            if($process.HasExited){
+                $out=$stdout.GetAwaiter().GetResult();$err=$stderr.GetAwaiter().GetResult()
+                [IO.File]::WriteAllText((Join-Path $nativeRoot 'legacy-sql-builder.stdout.log'),$out)
+                [IO.File]::WriteAllText((Join-Path $nativeRoot 'legacy-sql-builder.stderr.log'),$err)
+                $legacySuccess=$process.ExitCode -eq 0 -and $out.Trim() -ceq 'CSHARP_NATIVE_BUILDER_WINDOWS_POWERSHELL_PASS' -and -not $err
+            }
+        }finally{$process.Dispose()}
+        Add-CheckResult -Name 'CSharp SQL connection: real Windows PowerShell guest-compatible constructor and credential' -Success $legacySuccess
+    }else{Write-Host '  NOT_EXECUTED  CSharp SQL connection: Windows PowerShell unavailable'}
+}else{Write-Host '  NOT_EXECUTED  CSharp SQL connection: Windows PowerShell requires Windows'}

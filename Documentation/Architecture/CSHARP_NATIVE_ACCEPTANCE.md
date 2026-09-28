@@ -157,6 +157,18 @@ Die lokale Runtime und ihre AppContainer-Leserechte, `DOTNET_ROOT`, externe
 Skripte und das SQL-Speicherlimit von 12 GiB werden nur im eigenen Gast gesetzt.
 Ein Kaltstart übernimmt die Umgebung vor Registrierung der Sprache `dotnet`.
 
+Der Gast baut seine lokale SQL-Verbindung über kanonische Schlüssel des
+`SqlConnectionStringBuilder` auf, insbesondere `Data Source` statt einer
+PowerShell-Zuweisung an `DataSource`. PowerShell behandelt den Builder als
+Dictionary; CLR-Eigenschaftsnamen ohne SQL-Schlüsselabstände können deshalb
+bereits vor einer Verbindung scheitern. Die Offline-Regression führt den
+tatsächlichen Gastbuilder unter PowerShell 7 und verfügbarem Windows PowerShell
+5 aus und prüft Endpoint, Timeout, Verschlüsselung, deaktiviertes Pooling und
+separate read-only `SqlCredential`, ohne eine SQL-Verbindung zu öffnen.
+Der native Lauf `36372699217` erreichte Gast-/SQL-Provisionierung, scheiterte
+aber am ungültigen Schlüssel vor der Sprachprobe; sein eigener Run wurde
+bereinigt. Die korrigierte Verbindung ist noch kein nativer Sprachnachweis.
+
 Die eigene Datenbank `CSharpAcceptance` muss neu sein. Die Probe verlangt die
 exakten Wertepaare `-7/-14`, `0/0`, `21/42`, .NET 8, einen AppContainer-Worker
 und eine positive Worker-Prozess-ID. Sie läuft vor und nach einem weiteren

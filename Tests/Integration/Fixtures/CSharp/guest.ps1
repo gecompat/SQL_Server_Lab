@@ -24,10 +24,14 @@ while($ancestor){
 $launchpad=Get-Service -Name MSSQLLaunchpad -ErrorAction Stop
 if($launchpad.Status -ne 'Running'){throw 'CSHARP_NATIVE_LAUNCHPAD_NOT_RUNNING'}
 Add-Type -AssemblyName System.Data
-$builder=New-Object Data.SqlClient.SqlConnectionStringBuilder
-$builder.DataSource='localhost';$builder.InitialCatalog='master';$builder.ConnectTimeout=15
-$builder.Encrypt=$true;$builder.TrustServerCertificate=$true;$builder.Pooling=$false
-$connection=New-Object Data.SqlClient.SqlConnection $builder.ConnectionString
+function New-CSharpNativeSqlConnectionString {
+    # PowerShell adapts this IDictionary: use canonical SQL keywords, not CLR property names.
+    $builder=New-Object Data.SqlClient.SqlConnectionStringBuilder
+    $builder['Data Source']='localhost';$builder['Initial Catalog']='master';$builder['Connect Timeout']=15
+    $builder['Encrypt']=$true;$builder['TrustServerCertificate']=$true;$builder['Pooling']=$false
+    return $builder.ConnectionString
+}
+$connection=New-Object Data.SqlClient.SqlConnection (New-CSharpNativeSqlConnectionString)
 function New-CSharpNativeSqlCredential {
     param([Security.SecureString]$Password)
     $copy=$Password.Copy();$copy.MakeReadOnly()
