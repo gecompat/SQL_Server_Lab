@@ -1478,6 +1478,7 @@ function Wait-HyperVGuestSqlReady {
         -Credential $Credential `
         -FallbackAddress $FallbackAddress `
         -ArgumentList @($InstanceName, $SaPassword, $ExpectedMajorVersion, $TimeoutSeconds, $PollIntervalMilliseconds) `
+        -TimeoutSeconds $TimeoutSeconds `
         -ScriptBlock {
             param($SqlInstanceName, $SqlSaPassword, $ExpectedMajor, $Timeout, $PollInterval)
             $ErrorActionPreference = 'Stop'

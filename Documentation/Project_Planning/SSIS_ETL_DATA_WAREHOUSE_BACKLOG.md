@@ -153,6 +153,60 @@ und [Sichtrechte für sys.databases](https://learn.microsoft.com/sql/relational-
 
 ### Vollständige noch offene Folge
 
+Der interne IS-only-Einstieg
+`Tests/Integration/Invoke-SsisOwnedInstallAcceptance.ps1` implementiert den
+Installationsanteil von Schritt 1 auf einem frischen eigenen Hyper-V-Slot.
+Er verlangt ein explizites Windows-Server-2025-`OS_SEALED`-Artifact, einen
+expliziten Medienroot, den relativen ISO-Pfad und einen unabhängig
+freigegebenen SHA-256. Der vorhandene Sidecar und der tatsächlich gelesene
+ISO-Inhalt müssen beide dazu passen; der offene Lesehandle verhindert während
+der Installation auf Windows Änderungen oder Austausch der Datei.
+
+Nur SQL 2025 mit Enterprise-Developer-Ziel und `SQLENGINE,IS` ist vorgesehen.
+Der bestehende direkte Slotinstaller bindet diesen Opt-in an Operation und
+VM-ID, verweigert vorhandene SQL-Pläne und erhält alle bisherigen Defaults.
+Setup verwendet den integrierten SSIS-Dienstaccount und deaktiviert automatische
+SQL-/Microsoft-Updates. Windows-Aktivierung ist `VerifyOnly` mit verweigertem
+Egress; fehlende Aktivierung ergibt keinen Online-Fallback. Setup ist auf
+5400 Sekunden und der Setuptransport auf weitere 360 Sekunden begrenzt;
+SQL-Neustartbereitschaft einschließlich des äußeren PowerShell-Direct-Transports
+auf 600 Sekunden, die getrennten Gastproben auf 90.
+
+Die Abnahme verlangt tatsächlichen SQL-Major 17 und Developer-Edition,
+laufenden SSIS-170-Dienst, passende Dienstdateiversion, weiterhin fehlendes
+SSISDB und dieselben Postconditions nach VM-Neustart. Eigener Run-State und
+Cleanupplan entstehen vor Provideränderungen. Auch bei verlorener
+Erstellungsantwort wird ausschließlich der eindeutig operationseigene Run
+bereinigt; VM-ID und dateigenaue VHDX-Reste werden kontrolliert. Primär- und
+Cleanupfehler bleiben getrennt. Bei hartem Abbruch des gesamten aufrufenden
+Prozesses ist die gespeicherte Operation manuell besitzgebunden zu prüfen;
+es gibt keinen automatischen erneuten Installationsversuch. Reale Ausgaben
+bleiben ausschließlich unter dem lokalen StateRoot, außerhalb des Checkouts.
+Sie dürfen nicht als CI-Artefakte hochgeladen werden.
+`local.log` ist derzeit nicht größenbegrenzt; der Einstieg enthält keinen
+begrenzten Logcollector. Freier lokaler Speicher ist daher vor einer nativen
+Abnahme zu prüfen. Ein Diagnose-Schreibfehler verdrängt weder den ursprünglichen
+Installationsfehler noch einen getrennten Cleanupfehler.
+
+Die synthetische Suite `Invoke-SsisOwnedInstallChecks.ps1` prüft Freigabe-,
+Medien-, Argument-, Plan- und Teilfehlerverträge. Echte Installation, Neustart
+und eigenes Runtime-Cleanup sind bis zur separaten nativen Abnahme
+**NOT_EXECUTED**. SSISDB, Packages und ETL bleiben offen; es entsteht keine
+öffentliche Provider- oder Editionsfreigabe.
+
+**Abhängigkeit für die Wiederaufnahme der Kataloganlage:** Ein vollständiger,
+versions- und hashgebundener Offlinebestand von
+`Microsoft.SqlServer.Management.IntegrationServices` samt Abhängigkeiten ist
+noch nicht belegt. Die allgemeine SSIS-Anleitung nennt Client Tools SDK,
+der versionsbezogene Setupvertrag begrenzt `SDK` jedoch auf SQL 2019 und älter.
+Deshalb werden weder `/FEATURES=SDK` noch ein geratenes SMO-Paket oder
+`LoadWithPartialName` verwendet. Nächster Schritt nach IS-Abnahme ist die
+read-only Inventarisierung des exakten freigegebenen Installationsbestands;
+erst danach folgen gebundener Paketprüfer und die offiziell dokumentierte
+Kataloganlage. Quellen: [Setupfeature IS und SDK-Grenze](https://learn.microsoft.com/sql/database-engine/install-windows/install-sql-server-from-the-command-prompt?view=sql-server-ver17),
+[SQL-2025-Editionen](https://learn.microsoft.com/sql/sql-server/editions-and-components-of-sql-server-2025?view=sql-server-ver17),
+[SSIS-Installation](https://learn.microsoft.com/sql/integration-services/install-windows/install-integration-services?view=sql-server-ver17).
+
 1. Einen Windows-/Hyper-V-Slot mit SQL Server, SSIS und SSISDB bereitstellen.
 2. Eine kleine synthetische SQL-Quelle und ein getrenntes Warehouse erzeugen.
 3. Ein katalogisiertes SSIS-Projekt mit Staging-, Dimensions- und Fakt-Package
