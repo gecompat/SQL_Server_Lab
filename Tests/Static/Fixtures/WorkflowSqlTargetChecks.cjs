@@ -17,7 +17,7 @@ class Element {
   }
   addEventListener(type, callback) { this.events.set(type, [...(this.events.get(type) || []), callback]); }
   showModal() { this.open = true; }
-  close() { this.open = false; }
+  close() { this.open = false; for (const handler of this.events.get('close') || []) handler({}); }
   setAttribute(name, value) { this[name] = value; }
   removeAttribute(name) { delete this[name]; }
   closest(selector) { return this.id === 'jobs' && selector === '.panel' ? workspaceElements.find((item) => item.dataset.workspaceArea === 'messages') : null; }
@@ -107,8 +107,8 @@ check('Real workflow refresh preserves selected area and draft input when Hyper-
   assert.ok(hyperVButtons.every((button) => button.disabled && button.title));
   assert.equal(node('connection-endpoints').innerHTML.includes('Keine registrierten'), true);
 });
-check('Global resources and configuration open the same existing storage dialog; cancel dispatches nothing', () => {
-  for (const id of ['media-sources', 'configuration-storage']) {
+check('Global resources retain the existing sources dialog; cancel dispatches nothing', () => {
+  for (const id of ['media-sources']) {
     click(node(id)); assert.ok(node('media-sources-dialog').open);
     node('media-sources-dialog').close();
   }
@@ -339,6 +339,76 @@ async function main() {
     assert.ok(!node('jobs').closest('.panel').hidden);
     assert.equal(run('workspaceArea'), 'messages');
   });
-  console.log('WORKFLOW SQL TARGET AND EVALUATION VIEW: ' + passed + ' PASS');
+  const setupState = { ConfigurationStatus: 'READY', Complete: true, MediaRootValid: true, MediaRoot: '/synthetic/Lab_Base',
+    MediaRootCandidates: [{ Path: '<invalid>', Source: 'ProcessEnvironment', Status: 'ROOT_NOT_FOUND', Selected: false }, { Path: '/synthetic/Lab_Base', Source: 'ProjectPreference', Status: 'READY', Selected: true }],
+    LocationStatus: [{ LabDataRoot: '/synthetic/Lab_Data', Source: 'StorageConfiguration', Status: 'READY', IsDefault: true }, { LabDataRoot: '<missing>', Source: 'StorageConfiguration', Status: 'ROOT_NOT_FOUND' }],
+    DefaultLocation: { LabDataRoot: '/synthetic/Lab_Data' } };
+  const setupPlan = { ContractVersion: 'SqlServerLab.InitialSetupPlan/1.0', MediaAction: null, LocationActions: [{ LabDataRoot: '/synthetic/second_Data' }], DefaultDataRoot: '/synthetic/second_Data', IsNoOp: false };
+  const setupRequests = [];
+  context.fetch = async (url, options) => {
+    assert.equal(url, '/api/initial-setup');
+    const payload = options?.body ? JSON.parse(options.body) : null;
+    setupRequests.push(payload);
+    return { ok: true, json: async () => ({ Result: payload?.action === 'PlanInitialSetup' ? setupPlan : payload?.action === 'RefreshSetupProvider' ? { Provider: 'podman', Check: { Status: 'BLOCKED', Code: 'PROVIDER_UNREACHABLE' } } : setupState }) };
+  };
+  const setupClick = async (id) => { for (const handler of node(id).events.get('click') || []) await handler({}); };
+  const setupPreview = async () => { for (const handler of node('initial-setup-form').events.get('submit') || []) await handler({ preventDefault() {} }); };
+  await setupClick('configuration-storage');
+  check('Real setup open reads roots only, keeps complete configuration editable and escapes invalid paths', () => {
+    assert.deepEqual(setupRequests, [null]);
+    assert.equal(node('initial-setup-media').disabled, true);
+    assert.equal(node('initial-setup-preview').disabled, false);
+    assert.equal(node('initial-setup-apply').disabled, true);
+    assert.equal(run('workflow.Defaults.DataRoot'), '/synthetic/Lab_Data');
+    assert.equal(run('workflow.Defaults.MediaRoot'), '/synthetic/Lab_Base');
+    assert.ok(node('initial-setup-roots').innerHTML.includes('&lt;invalid&gt;'));
+    assert.ok(node('initial-setup-roots').innerHTML.includes('ROOT_NOT_FOUND'));
+  });
+  node('initial-setup-data').value = '/synthetic/second_Data';
+  node('initial-setup-default').value = '/synthetic/second_Data';
+  await setupPreview();
+  check('Real setup preview sends explicit paths without Apply or queue mutation', () => {
+    assert.equal(setupRequests.length, 2);
+    assert.equal(setupRequests[1].action, 'PlanInitialSetup');
+    assert.deepEqual(setupRequests[1].parameters.LabDataRoot, ['/synthetic/second_Data']);
+    assert.equal(node('initial-setup-apply').disabled, false);
+    assert.ok(!node('initial-setup-plan').hidden);
+  });
+  for (const handler of node('initial-setup-default').events.get('input')) handler({});
+  await setupClick('initial-setup-apply');
+  check('Editing a preview invalidates its Apply authority', () => { assert.equal(setupRequests.length, 2); assert.equal(node('initial-setup-apply').disabled, true); });
+  await setupPreview();
+  node('initial-setup-dialog').close();
+  await setupClick('initial-setup-apply');
+  check('Closing the real setup dialog discards its plan without Apply', () => { assert.equal(setupRequests.length, 3); });
+  await setupClick('configuration-storage');
+  await setupPreview();
+  await setupClick('initial-setup-apply');
+  check('Real Apply sends exactly the displayed plan and explicit boolean confirmation', () => {
+    assert.equal(setupRequests.at(-1).action, 'ApplyInitialSetup');
+    assert.deepEqual(setupRequests.at(-1).parameters.InitialSetupPlan, setupPlan);
+    assert.equal(setupRequests.at(-1).parameters.ConfirmSetup, true);
+    assert.equal(node('initial-setup-apply').disabled, true);
+  });
+  node('initial-setup-provider').value = 'podman';
+  await setupClick('initial-setup-provider-refresh');
+  check('Explicit provider refresh selects only one provider and displays structured failure', () => {
+    assert.deepEqual(setupRequests.at(-1), { action: 'RefreshSetupProvider', parameters: { SetupProvider: 'podman' } });
+    assert.ok(node('initial-setup-provider-status').textContent.includes('PROVIDER_UNREACHABLE'));
+  });
+  context.fetch = async () => ({ ok: false, text: async () => 'synthetic-private-host' });
+  await setupPreview();
+  check('Setup request failure invalidates Apply and never displays raw server diagnostics', () => {
+    assert.equal(node('initial-setup-apply').disabled, true);
+    assert.ok(!node('initial-setup-status').textContent.includes('synthetic-private-host'));
+  });
+  let releaseSetup;
+  context.fetch = () => new Promise((resolve) => { releaseSetup = resolve; });
+  const pendingSetup = setupClick('initial-setup-read');
+  node('initial-setup-dialog').close();
+  releaseSetup({ ok: true, json: async () => ({ Result: { ...setupState, MediaRoot: 'stale' } }) });
+  await pendingSetup;
+  check('Late setup read after Cancel cannot update the closed dialog', () => { assert.notEqual(node('initial-setup-media').value, 'stale'); });
+  console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

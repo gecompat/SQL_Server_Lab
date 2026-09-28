@@ -1,5 +1,28 @@
 # Lokale Validierungsstrategie
 
+## Grundkonfiguration und explizite Providerprüfung
+
+Die isolierten InitialSetup-Prüfungen sichern Herkunft, ungültige Roots,
+registrierte Defaultwechsel, revalidiertes Apply und die HTTP-Grenze. Die
+CLI-Prüfung führt den echten Cursorrenderer mit synthetischen Tasten sowie den
+nummerierten Fallback aus: Rootdetails und Providerbefunde bleiben bestätigt
+lesbar, F5 liest erneut. Der Browsertest führt die echten Ereignishandler aus,
+einschließlich Vorschau, Abbruch, ungültig gewordener Eingaben und verspäteter
+Antworten. Schreibbarkeit und freie Kapazität werden nicht bestätigt.
+
+Am 2026-09-28 bestand der getrennte Docker-SQL-2025-Core-Smoke 34 Prüfungen mit
+eigenem temporärem State-/Datenroot, globaler Testsperre und lokalem Rohlog.
+Die eigenen Runs wurden entfernt; eigene Container, Volumes und Netze waren
+anschließend abwesend. Dauerhafte Benutzerdefaults blieben unverändert.
+Das ist ein Core-Providernachweis, keine native Abnahme des Setupdialogs.
+
+Abdeckungsgrenze des Pfadselektors: Reine Änderungen an der Navigation wählen
+die gekoppelten DataRoot- und TestEnvironment-Suites nicht automatisch aus.
+Ihre noch auf frühere Hauptmenüpositionen gerichteten Assertions wurden in
+diesem Slice auf den tatsächlichen Bereichsweg aktualisiert und ausgeführt.
+Der Selektor selbst bleibt unverändert; gekoppelte Vertragsprüfungen bleiben
+auch außerhalb seiner automatischen Auswahl erforderlich.
+
 ## Private Docker-CI-Diagnostik
 
 Der selbst gehostete Docker-Gate schreibt Preflight- und Testausgaben nur in

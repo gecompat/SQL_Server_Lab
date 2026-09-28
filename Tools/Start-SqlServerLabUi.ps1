@@ -381,6 +381,39 @@ if (-not (Test-Path -LiteralPath $uiRoot -PathType Container)) {
     throw "UI_ROOT_NOT_FOUND: $uiRoot"
 }
 
+function Invoke-UiInitialSetupRequest {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Request)
+
+    if ($Request.HttpMethod -eq 'GET') { return Invoke-SqlServerLabWorkflowAction -Action GetInitialSetupState }
+    if ($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)') { throw 'INITIAL_SETUP_REQUEST_INVALID' }
+    $origin = [string]$Request.Headers['Origin']
+    if ($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)) { throw 'INITIAL_SETUP_ORIGIN_INVALID' }
+    $reader = [IO.StreamReader]::new($Request.InputStream, $Request.ContentEncoding)
+    try {
+        $buffer = [char[]]::new(16385)
+        $length = $reader.ReadBlock($buffer, 0, $buffer.Length)
+        if ($length -gt 16384) { throw 'INITIAL_SETUP_REQUEST_TOO_LARGE' }
+        $payload = ([string]::new($buffer, 0, $length)) | ConvertFrom-Json -Depth 12 -ErrorAction Stop
+    }
+    finally { $reader.Dispose() }
+    if (-not $payload -or @($payload.PSObject.Properties.Name | Where-Object { $_ -notin @('action', 'parameters') }).Count) { throw 'INITIAL_SETUP_REQUEST_INVALID' }
+    $allowed = switch ([string]$payload.action) {
+        'PlanInitialSetup' { @('MediaRoot', 'LabDataRoot', 'DefaultDataRoot') }
+        'ApplyInitialSetup' { @('InitialSetupPlan', 'ConfirmSetup') }
+        'RefreshSetupProvider' { @('SetupProvider') }
+        default { throw 'INITIAL_SETUP_ACTION_INVALID' }
+    }
+    $parameters = @{}
+    foreach ($property in @($payload.parameters.PSObject.Properties)) {
+        if ($property.Name -notin $allowed) { throw 'INITIAL_SETUP_PARAMETER_INVALID' }
+        $parameters[$property.Name] = $property.Value
+    }
+    if ($payload.action -eq 'ApplyInitialSetup' -and
+        ($parameters.ConfirmSetup -isnot [bool] -or -not $parameters.ConfirmSetup)) { throw 'INITIAL_SETUP_CONFIRMATION_REQUIRED' }
+    Invoke-SqlServerLabWorkflowAction -Action ([string]$payload.action) @parameters
+}
+
 $listener = [Net.HttpListener]::new()
 $url = "http://127.0.0.1:$Port/"
 $listener.Prefixes.Add($url)
@@ -410,6 +443,16 @@ try {
             }
 
             $path = $context.Request.Url.AbsolutePath
+            if ($path -eq '/api/initial-setup') {
+                try {
+                    $result = Invoke-UiInitialSetupRequest -Request $context.Request
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body 'INITIAL_SETUP_REQUEST_FAILED: Eingaben und aktuellen Zustand erneut prüfen.' -StatusCode 400
+                }
+                continue
+            }
             if ($path -eq '/api/workflow' -and $context.Request.HttpMethod -eq 'GET') {
                 $mediaRoot = [string]$context.Request.QueryString['mediaRoot']
                 Write-UiResponse -Context $context -Body (Get-UiWorkflowInventoryResponse -MediaRoot $mediaRoot | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
@@ -516,6 +559,7 @@ try {
                 $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
+                if ($action -in @('GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
                 $parameters = @{}
                 if ($request.parameters) {
                     foreach ($property in $request.parameters.PSObject.Properties) {

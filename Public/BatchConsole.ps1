@@ -836,7 +836,7 @@ function Show-LabHostModelsMenu {
 
 function Show-LabConfigurationMenu {
     return Show-LabSubMenu -ScreenId 'configuration-menu' -Title 'SQL-Lab-Grundkonfiguration' -Subtitle 'Dauerhafte Roots und Voraussetzungen; keine operative Slotvorbereitung' -Items @(
-        New-LabConsoleItem -Id Setup -Label 'Lab_Base und Lab_Data einrichten' -Shortcut 1
+        New-LabConsoleItem -Id Setup -Label 'Grundkonfiguration und Provider prüfen' -Value 'Roots ergänzen · Default wählen · Provider erneut prüfen' -Shortcut 1
         New-LabConsoleItem -Id MediaRoot -Label 'Lab_Base / Medienroot konfigurieren' -Shortcut 2
         New-LabConsoleItem -Id DataRoot -Label 'Lab_Data-Speicherorte verwalten' -Shortcut 3
         New-LabConsoleItem -Id TestDataRoot -Label 'Testdatenbibliothek konfigurieren' -Shortcut 4
@@ -923,7 +923,7 @@ function Show-LabSettingsMenu {
     $sevenZip = Get-Lab7ZipExecutable
     return Show-LabSubMenu -ScreenId 'settings-menu' -Title 'Einstellungen' -Subtitle 'Scheduler, Benachrichtigung und Ersteinrichtung' -Items @(
         New-LabConsoleItem -Id queue -Label 'Scheduler, Parallelitaet, Ton und Ruhemodus' -Shortcut 1
-        New-LabConsoleItem -Id Setup -Label 'Ersteinrichtung fuer Lab_Base und Lab_Data' -Value 'fragt nur fehlende oder ungueltige Angaben ab' -Shortcut 2
+        New-LabConsoleItem -Id Setup -Label 'Ersteinrichtung fuer Lab_Base und Lab_Data' -Value 'Roots und Default prüfen; Provider ausdrücklich erneut prüfen' -Shortcut 2
         New-LabConsoleItem -Id Install7Zip -Label $(if ($sevenZip) { '7-Zip fuer .7z-Backups verfuegbar' } else { '7-Zip fuer .7z-Backups optional installieren' }) -Shortcut 3
         New-LabConsoleItem -Id back -Label 'Zurueck' -Shortcut 0
     )
