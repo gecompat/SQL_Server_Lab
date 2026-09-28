@@ -160,24 +160,36 @@ Infrastrukturmenü enthält Vorlagen-, Slot-, Build- und Medienaufgaben.
 
 ### 4.1 Kanonischer Bedienpfad
 
-Das künftige Hauptmenü wird nach Benutzeraufgaben gegliedert:
+Die aktuelle fachliche Navigation folgt dem
+[konsolidierten Bedienauftrag vom 2026-09-27](AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md#konsolidierter-bedien--und-ressourcenauftrag-vom-2026-09-27).
+Dieser Abschnitt ist die kanonische Bereichsdefinition für CLI und GUI:
 
-1. **Neue Umgebung erstellen**
-2. **Bestehende Umgebung ändern**
-3. **Umgebungen verwalten**
-4. **Vorlagen und Installationsmedien verwalten**
-5. **Erweitert und Diagnose**
+| Fachbereich | Benutzeraufgaben und Kontext |
+|---|---|
+| Lab-Umgebungen | Umgebung erstellen, auswählen, prüfen und ändern; Start, Stop, Restart, Datenbanken, Skripte und Entfernen am gewählten Ziel |
+| Geschützte Testsystem-Matrix | Zusammengehörige Testumgebungen als geschützte Gruppe anzeigen und verwalten; Einzelaktionen umgehen den Gruppenschutz nicht |
+| Hyper-V: Vorlagen und Slots | Vorlagenbestand, Windows-/SQL-Slots, Vorbereitung, Reservierung und Ablauf prüfen; kein obligatorischer Builder für normale Labs |
+| Ressourcen und Downloads | Medien, Samples, Tools, Runtimes und Modelle beschaffen; Quelle, Integrität, Installation und Funktionsprüfung unterscheiden |
+| Host-Dienste und Modelle | Hardware, Runtimeinstallation, Dienst sowie gespeichertes und geladenes Modell getrennt auswählen und bedienen |
+| Verbindungen und CMS | Endpunkte, SSMS-Zugang und optionalen CMS-Lifecycle gemeinsam zugänglich machen |
+| SQL-Lab-Grundkonfiguration | Lab_Base, Lab_Data, Providerergänzung und zentrale Reservepolicy; operative Slotvorbereitung bleibt beim Slotbestand |
+| Wartung, Aufräumen und Recovery | Befunde untersuchen, Zuordnung reparieren, konkreten Cleanup planen und unterbrochene Arbeit wiederherstellen |
+| Vorgänge, Warteschlange und Wiederaufnahme | Fortschritt, Priorität, Benutzeraktionen und Resume bestehender Operationen |
 
-Status, Start, Stop, Restart, Datenbanken, Skripte und Remove bleiben erreichbar,
-werden jedoch im Bereich der ausgewählten Umgebung gebündelt. Während der
-Migration dürfen die heutigen direkten Aktionen als Kompatibilitätsalias
-bestehen bleiben.
+Erstellen, Ändern und Verwalten sind Benutzerreisen innerhalb dieser Bereiche.
+CLI und GUI dürfen Bereiche unterschiedlich darstellen oder kontextuell
+bündeln; die Zahl sichtbarer Hauptmenüpunkte ist kein Abnahmekriterium.
+Globale und kontextuelle Einstiege verwenden dieselben fachlichen Aktionen.
+Expertenbefehle, Hilfe und Meldungen sind zusätzliche Werkzeuge und ersetzen
+keinen Fachdialog. Ein Katalogfilter gilt nicht als geführte Bedienabdeckung.
 
-Die Entscheidung aus dem UI-Entwurf wird damit aufgelöst: Die Verwaltung einer
-normalen Umgebung gehört langfristig **nicht** in den Image-Builder-Pfad.
-Factory- und Image-Aktionen bleiben getrennt unter Vorlagen/Medien oder
-Erweitert. So bleiben der sichere Übergang und das umgebungszentrierte Zielbild
-gleichzeitig erhalten.
+Die frühere Fünf-Aufgaben-Zielstruktur ist abgelöst. Der implementierte
+Achtgruppenstand aus `CUI-026` und vorhandene direkte `-Action`-Einstiege
+bleiben bis zur geprüften Migration Übergangszugänge. Historische Abnahmen
+belegen nur ihren damaligen Scope; die Bereichsmigration und neue Fachdialoge
+werden unter `UX-201` bis `UX-206` gesondert nachgeführt. Fehlende Core- oder
+Beschaffungsfunktionen bleiben Implementierungsaufgaben, auch wenn ein Menü
+ihre Nichtverfügbarkeit bereits erklärt.
 
 ### 4.2 Gemeinsames Änderungsmodell
 
@@ -401,7 +413,7 @@ produktiven Containerprovidern vertikal bewiesen.
 
 | ID | Arbeitspaket | Ergebnis |
 |---|---|---|
-| `UX-201` | Hauptmenü auf die fünf Benutzeraufgaben umstellen | Umgebung statt Builder als Einstieg |
+| `UX-201` | CLI und GUI auf die fachlichen Bereiche aus Abschnitt 4.1 ausrichten | Lab-Umgebungen als Einstieg; Bereichsmigration getrennt von geführter Funktionsabdeckung abnehmen |
 | `UX-202` | Providerneutrales „Bestehende Umgebung ändern“ und „Umgebungen verwalten“ | einheitliche Auswahl und Metadaten |
 | `UX-203` | Schnell-, Infrastruktur- und Advanced-Pfad umsetzen | Spezialaktionen bleiben sichtbar getrennt |
 | `UX-204` | Browser-UI und PowerShell-Menü auf dieselben Workflow-/Planner-Results binden | keine Businesslogik-Duplikation in JavaScript |

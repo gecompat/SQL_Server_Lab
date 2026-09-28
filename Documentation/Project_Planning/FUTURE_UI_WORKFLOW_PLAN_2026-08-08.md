@@ -63,9 +63,16 @@ Damit ist der Rahmen vorhanden, aber in der Zukunft fehlt:
 - einheitliche **Änderungsklassen-Darstellung** (`live`/`restart`/`recreate`/`reprovision`),
 - ein klarer **Infrastructure-Submenu** mit getrennten Gruppen.
 
-## 4) Zukunftsmenü (entworfen)
+## 4) Historischer Menüentwurf (abgelöst)
 
-### 4.1 Top-Level (Hauptmenü)
+Die folgende Top-Level-Liste dokumentiert den Entwurf vom 2026-08-08 und ist
+keine aktuelle Navigationsvorgabe. Maßgeblich ist
+[Abschnitt 4.1 des Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md#41-kanonischer-bedienpfad).
+Die fachlichen Reconcile-Anforderungen dieses Dokuments bleiben innerhalb
+der dort definierten Bereiche erhalten; vorhandene direkte Aktionen sind
+Übergangszugänge und keine zweite Zielstruktur.
+
+### 4.1 Historisches Top-Level (Hauptmenü)
 
 1. Neue Umgebung erstellen
 2. Umgebung verwalten

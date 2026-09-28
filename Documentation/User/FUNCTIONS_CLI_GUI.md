@@ -10,6 +10,14 @@
 
 ## Abgrenzung
 
+Die aktuelle fachliche Zielstruktur steht in
+[Abschnitt 4.1 des Ausführungsplans](../Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md#41-kanonischer-bedienpfad).
+Die folgenden Menüpfade beschreiben den implementierten Übergangsstand.
+Vollständiger Expertenzugang und ein Suchfilter im Befehlskatalog belegen
+keinen geführten Fachdialog. Insbesondere die Browser-Verweise für Testgruppe,
+CMS und Hyper-V-Slots sind bisher Katalogeinstiege; ihre vollständige geführte
+Bedienung bleibt separat offen.
+
 `New-SqlServerLab`, `New-SqlServerLabBatch`,
 `New-SqlServerLabWindowsSlotPool` und die Hyper-V-Erstellung über
 `Invoke-SqlServerLabWorkflowAction` verwenden den gemeinsamen
