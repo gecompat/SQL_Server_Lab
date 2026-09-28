@@ -131,6 +131,112 @@ Der geplante monatliche Workflow besitzt einen erfolgreichen Schedule-Lauf
 eine allgemeine Resource-Watch-Abnahme. Fehlender allgemeiner Quelleneditor,
 llama.cpp-Runtimeinstaller und manuelle Hostdienststeuerung bleiben separat.
 
+### Nächste abnehmbare Schritte des Bedienauftrags
+
+Stand 2026-09-28: Die Zielnavigation ist in
+[Abschnitt 4.1 des Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md#41-kanonischer-bedienpfad)
+konsolidiert. Dies ist ein Planungsabschluss, keine implementierte
+Bereichsmigration. Die nachfolgenden Schritte konkretisieren die vorhandenen
+Tasks; sie erzeugen weder neue IDs noch einen zweiten Backlog. Die vollständige
+Anforderungszuordnung oben bleibt gültig. `NEXT` bezeichnet einen ausführbaren
+Schritt, `FOLLOW_UP` dessen nächste Erweiterung, nicht den Status der gesamten
+Aufgabe. C# bleibt `USER_DEFERRED`.
+
+**NEXT – `UX-202/204`, `CORE-107`: Evaluationsfristen verständlich prüfen.**
+Benutzeraufgabe: vorhandene Windows-/SQL-Fristen lesen, einen Artefakt- oder
+Instanzeintrag auswählen und die nächste erforderliche Handlung verstehen.
+`Get-SqlServerLabEvaluationWatch` liefert bereits `Items` und `InstanceItems`
+ohne Runtimezugriff; bislang fehlt der Fachdialog in CLI und GUI. Zuständig
+sind der Evaluation-Watchdog im
+[Querschnittsbacklog](CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md#evaluation-watchdog-und-benachrichtigung)
+und die bestehenden SQL-Gast-Evidence-Verträge. Der Konsoleneinstieg unter
+Wartung und ein eigener Browserdialog verwenden denselben öffentlichen Core
+ohne `RecordEvents`, Trigger oder Gastprobes. Keine manuelle ID-Eingabe und
+kein Umweg über den generischen Befehlskatalog.
+
+Abnahme: Windows/SQL sowie Artefakt/Instanz bleiben getrennt; Quelle,
+Evidence-Aktualität, Restlaufzeit und nächster Schritt sind sichtbar. Leere
+Liste, fehlende oder veraltete Evidence ergeben keinen pauschalen Gültigkeits-
+oder Betriebsbereitschaftsnachweis. Lesen erfolgt ausdrücklich, Zurück und
+Abbruch verändern nichts; erneutes Lesen ist möglich. Tatsächlich importierte
+Menühandler und Browseraktionen prüfen Auswahl, Fehler, leeres Ergebnis,
+`UNKNOWN` und unterlassene Mutation. Bestehende EvaluationWatch-, ConsoleUI-
+und WorkflowUI-Suites sowie die betroffene Regression sind erforderlich.
+Native Tests sind für die reine Bindung dieses unveränderten read-only Cores
+nicht erforderlich. Abschluss bedeutet ausschließlich geführte Fristenanzeige;
+Ersatz, Migration, Scheduler und Benachrichtigung bleiben offen.
+
+**NEXT – `UX-201/203/204/205/206`: Bereiche in beiden Oberflächen migrieren.**
+Benutzeraufgabe: einen Fachbereich finden und von dort eine vorhandene Aktion
+am richtigen Ziel aufrufen. `Show-LabMenu` in `Public/Invoke-SqlServerLab.ps1`
+und die Bereichsmenüs in `Public/BatchConsole.ps1` besitzen bisher acht Gruppen;
+`Ui/index.html` und `Ui/app.js` besitzen Anker und teilweise reine
+Befehlssuchverweise. Vorhandene Erstellungs-/Verwaltungsdialoge, Queue und
+Ressourcenhandler wiederverwenden, technische Inventare kontextuell anzeigen,
+`Private/ConsoleHelp.ps1` mitführen. Beschaffung oder neue Executorlogik ist
+keine Voraussetzung für diese Navigation; fehlende Fähigkeiten werden mit
+ihrem offenen Task und konkretem nächsten Schritt benannt.
+
+Abnahme: alle Fachbereiche aus Abschnitt 4.1 erreichbar, Expertenzugang separat,
+globale und kontextuelle Zugänge dispatchen denselben Handler. Auswahl bleibt
+bei Refresh erhalten; Zurück/Abbruch und unverfügbare Provider sind im
+nummerierten Fallback und Browser geprüft. Bestehende `-Action`-Aliase bleiben
+funktionsgleich. Die Achtgruppenassertion wird bei der Implementierung durch
+Verhaltensprüfungen der neuen Navigation ersetzt, nicht ersatzlos entfernt.
+ConsoleUI-, PublicCommandConsole- und WorkflowUI-Suites sowie tatsächliche
+Browser-Handlerprüfungen sind erforderlich; neue Providerabnahme nur bei
+Änderung des Runtimepfads. Abschluss ist Navigation, nicht pauschale
+Fachdialogparität. Nächste Erweiterung: Grundkonfiguration und gezielte
+Änderung einer vorhandenen Umgebung.
+
+**FOLLOW_UP – `UX-202/204/622`, `CORE-102/108/111`: Grundkonfiguration und
+späteren Provider prüfen.** Benutzeraufgabe: wirksame Lab_Base-/Lab_Data-Werte
+und fehlende Voraussetzungen sehen, gezielt konfigurieren und später einen
+Provider ergänzen. `Private/InitialSetup.ps1` besitzt bereits
+`Get-LabInitialSetupState`, `New-LabInitialSetupPlan` und
+`Invoke-LabInitialSetupPlan`; die vollständige Herkunfts-/Erreichbarkeits-/
+Schreibbarkeits-/Kapazitäts- und getrennte Providerstatussicht fehlt.
+CLI-Ersteinrichtung und Browser-Fachdialog binden dieselbe Projektion sowie
+denselben Plan/Apply-Pfad. Fehlende Rechte bleiben ein konkreter Befund;
+Erkennung überschreibt keine vorhandene Providerbindung.
+
+Abnahme: Container-only ohne Hyper-V-Zwang, Vorschau/Abbruch ohne neue Ordner,
+wiederholtes Apply als No-op, bestehende Roots und Bindungen nach
+Providerergänzung unverändert. Unbekannt, nicht erreichbar und nicht
+schreibbar bleiben unterscheidbar. `Invoke-InitialSetupChecks.ps1`, passende
+Storage-/Readiness-Verträge und WorkflowUI-/ConsoleUI-Verhalten prüfen; eine
+geänderte Provisionierung benötigt zusätzlich den betroffenen Providernachweis.
+Abschluss ist dieser Konfigurationspfad; zentrale Slotreserve folgt separat.
+
+#### Konkrete Folgearbeit innerhalb der übrigen bestehenden Aufgaben
+
+Die Reihenfolge bleibt abhängig von den oben genannten Benutzerprioritäten
+und belegten Voraussetzungen. Jeder folgende Schritt übernimmt denselben
+Abnahmevertrag: Auswahl ohne interne Befehlskenntnis, Ist-/Zielwerte und
+Auswirkungen, Vorschau, Abbruch, Ergebnis sowie Wiederholung/Resume/Cleanup
+soweit anwendbar. Die Tabelle ersetzt keine umfangreicheren Fachverträge.
+
+| Restanforderung / bestehende Verantwortung | Ist-Stand, nächster vollständiger Schritt und CLI-/GUI-Zugang | Akzeptanz, Prüfungen und Abschlussgrenze |
+|---|---|---|
+| A: bestehende Umgebung ändern – `UX-202/622`, `CNT-211` bis `CNT-214`, `HV-601` bis `HV-607` | `Set-LabResourcesInteractive` und Browser-`openResourceDialog` existieren. Als nächsten Eigenschaftsscope CPU/RAM mit Ist-/Zielvergleich und tatsächlicher Live-/Restartwirkung am ausgewählten gewöhnlichen Lab konsistent vorbefüllen; gemeinsame Ressourcen-/Reconcile-API verwenden. | Cancel/No-op ändern nichts; geschützte Gruppen bleiben geschützt; exakte Instanz-/Providerbindung und verständliches Ergebnis. ConsoleUI/WorkflowUI, Ressourcen-/Reconcile-Verträge und bei Executoränderung getrennte Provider-Smokes. Abschluss nur CPU/RAM, weitere Eigenschaften mit Reset/Removal separat. |
+| C: Slotreserve – `HV-401` bis `HV-508`, `CORE-107/111` | `New-SqlServerLabWindowsSlotPool` und Batchplanung existieren. Zuerst zentrale Reservepolicy in Grundkonfiguration und Bestands-/Bedarfsanzeige unter Vorlagen/Slots; danach explizite Einzel-/Batchvorbereitung aus vorhandenem Bestand. GUI-Suchverweis ist noch kein Fachdialog. | Nullreserve gültig, Warnfrist getrennt von Mindestrestlaufzeit, unbekannte/ablaufende/reservierte Slots nicht voll zählen; Default nur Auffüllempfehlung. WindowsSlotPool-/Batchchecks, Race-/Resume-Fälle; mutierende Erweiterung braucht eigene Hyper-V-Abnahme. Automatische Auffüllung separat opt-in. |
+| D: Ersatz und Migration – `CORE-107`, bestehende Evaluation-Refresh-Backlogs | Nach der Fristenanzeige freien Slotersatz, rekonstruierbares Lab und zustandsbehaftete Instanzmigration getrennt planen. Bestehenden Watch, SQL-Gast-Evidence und Datenbank-Abhängigkeitsinventur verwenden; CLI/GUI zeigen fehlende Gleichwertigkeit statt ausführbare Migration vorzutäuschen. | Serverobjekte, Schlüssel, externe Verbraucher, Cutover und Rückfall nach Zielschreibzugriffen vollständig erfassen oder konkret blockieren. EvaluationWatch-/GuestEvidence-/Dependencychecks; erst nach geschlossenem Plan eigene Migration/Recovery nativ prüfen. Clone setzt keine Evaluation zurück. |
+| E: providerübergreifendes Lab – Multi-Instance-/Multi-Version-Backlog, Batch-/ProviderSubRun-Verträge | `Private/BatchWorkflow.ps1` und gemischter Container-Lifecycle existieren. Als nächsten Core-Schritt Komponentenabhängigkeit und Shared-Verbraucherbindung an bestehender Labidentität für eine begrenzte Topologie ergänzen; CLI/GUI zeigen Gesamt- und Teilstatus. | Startreihenfolge, Teilfehler, Resume und Erhalt gemeinsamer Dienste prüfen. MixedProviderLifecycle-Checks plus eigenes Mixed-Smoke. Hyper-V-SubRun, providerübergreifendes DNS/TLS/Netz und SSIS auf Podman bleiben ohne eigenen Vertrag blockiert. |
+| F: Quellenoverrides – `BASE-001/004`, `CORE-102/104` | `Private/MediaSourceCatalog.ps1` und `Save-SqlServerLabMediaSource` wiederverwenden; allgemeine persistente Overrides fehlen. Zuerst genau eine Medienfamilie lokal editieren, effektive Herkunft anzeigen und auf Repositorydefault zurücksetzen, aus Ressourcen/Downloads in CLI/GUI. | Reset ohne Download, URL/Resolver/Parser/Allowlist/Redirect und Variante gemeinsam prüfen; Hashdrift nicht durch neuen Sollhash kaschieren. Medien-/Trust-/ResourceSetchecks mit synthetischen Quellen. Abschluss nur gewählte Familie, weitere Quellen separat. |
+| G: Beschaffung – `SFT-711/712`, `AIX-001/008` | `Private/ResourceSet.ps1`, `Get-SqlServerLabResourcePlan` und `Save-SqlServerLabResourceSet` decken Samples und externe Sprachmedien ab. Nächster Schritt: fehlende transitive Pakete eines ausgewählten SSIS-Installationspfads mit Paket, Link, Zielort, Prüfschritt und Resume im Ressourcen-Fachdialog darstellen und beschaffbar machen. | Registriert, herunterladbar, installiert, konfiguriert und funktional getrennt. ResourceSet-/SSIS-Contractchecks und eigene native IS-Abnahme; SSISDB/ETL bleiben bis vollständiger Offlineclosure offen. C#-Beschaffung und Abnahme nicht wieder aufnehmen. |
+| H: llama.cpp-Runtimeinstaller – `AIX-001/008` | `Get-SqlServerLabLlamaCppRuntime` entdeckt Dateien (`FILES_ONLY`); `Private/LlamaCppOwnedRuntime.ps1` bietet eigenen Lifecycle. Installer fehlt. Geführte Release-/OS-/Architektur-/Backendwahl, geprüfte Beschaffung, versioniertes Entpacken und begrenzte Funktionsprobe als eigenen Ressourcenworkflow implementieren. | Upstream, katalogisiert, installiert und empfohlen unterscheiden; keine stillen PATH-/Treiber-/Dienständerungen. Runtime-/OwnedRuntimechecks und genau eine gewählte native Backendabnahme. Modelldownload ist kein Installerabschluss. |
+| I: Hostdienste und Modelle – `AIX-001/003/007/008`, `AI-20/20A/20B/30` | Vorhandenen eigenen llama.cpp-Lifecycle erhalten. Zuerst genau einen vorhandenen Dienst in CLI/GUI eindeutig auswählen, Rechte und bekannte Verbraucherfolgen anzeigen und nach bewusster Aktion stoppen; Fremdstart benötigt noch den sicheren Identitäts-/Rechtevertrag, kein pauschales Ownershipverbot. | Zielwechsel blockiert vor Mutation; keine Namens-Kills; Ergebnis und betroffene Verbraucher prüfen. Ownershipgebundener automatischer Cleanup unverändert. Runtime-/Lifecyclechecks plus native Abnahme dieses Diensttyps. Import/Pull, Load/Warmup, Unload, Wechsel und Dateientfernung bleiben getrennte nächste Modellschritte. |
+| J: Resource Watch – CU-Lane, `BASE-004` | `Private/CuStatus.ps1` und monatlichen CU-Watch wiederverwenden. Genau eine weitere Ressourcenfamilie deterministisch prüfen, Alt/Neu sowie Quellenfehler im CLI-/GUI-Ressourcenbereich anzeigen; keine Netzprüfung bei Menüwechsel. | Offline/Timeout/Rate-Limit/Parserfehler sind nicht unverändert/aktuell; Cache und Deduplikation synthetisch prüfen. Bestehende CU-Watchchecks erweitern, Scheduler/Benachrichtigung separat mit echter Ausführung abnehmen. Issue erzeugt keinen Agentstart. |
+| K: unklare Testreste – `CORE-105/106/109`, `PSR-011` | `Get-SqlServerLabCleanupAudit`, `Private/Maintenance.ps1` und Retained-Store-Plan/Executor existieren. Wartungsdialog verbindet Befund, Herkunft/Nutzung, Detailprüfung und Zuordnungsreparatur; unbekannte Herkunft bietet keinen automatischen Entfernungsentscheid. | Nicht registriert bleibt von fremd/löschbar getrennt. Maintenance-/RetainedStorechecks für unbekannt/geteilt/eigen, Zielrevalidierung und Abwesenheit; ausstehende native Retained-Removal-Abnahme nur an eigenen synthetischen Stores. Kein zweiter Löschpfad, keine Löschung geschützter Reste. |
+| L: Samples, Testmatrix und CMS – `HV-505`, `UX-202/204`, bestehende Fachverträge | `Public/TestEnvironment.ps1`/`TestEnvironmentLifecycle.ps1`, Sample-/ResourceSet- und CMS-Core existieren. Zuerst geschützte Gruppe auswählen, Mitglieder/Gesamtstatus lesen, Start/Stop mit Vorschau und Ergebnis geführten CLI-/GUI-Dialogen zuordnen; GUI-Katalogfilter ersetzen. | Einzelaktionen umgehen Gruppenschutz nicht, Teilfehler bleiben pro Mitglied sichtbar, Wiederholung/Resume dupliziert nichts. TestEnvironmentChecks, Pester-Lifecycle, WorkflowUI und isolierte GroupLifecycle-Abnahme; reservierte Gruppe bleibt unangetastet. Danach Samplevarianten/Handlerkonflikte und optionales CMS-Setup/Prüfung/Sync separat. |
+
+Nach jedem Slice werden Implementierung, geführte CLI-/GUI-Abdeckung und
+Abnahme getrennt hier sowie in Funktionsübersicht und Known Limitations
+aktualisiert. Ein Teilabschluss schließt keine Sammelaufgabe. Fehlt eine
+konkrete Voraussetzung, wird beim bestehenden Task die Wiederaufnahmebedingung
+festgehalten und der nächste unabhängige Bedien-/Implementierungsschritt
+fortgesetzt; eine neue Vollinventur ist dafür nicht erforderlich.
+
 ### Statusdimensionen und Quellen
 
 Die Erweiterung baut auf `Tools/Get-SqlServerLabCapabilityInventory.ps1`,

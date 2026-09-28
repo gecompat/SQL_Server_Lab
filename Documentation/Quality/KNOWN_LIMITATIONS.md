@@ -2375,10 +2375,15 @@ Warnungen oder Fehler als auswählbare Einträge; das vollständige Journal blei
 über die Datei zugänglich. Ein Host ohne Zwischenablage verweist auf den
 Journalpfad, statt zu scheitern.
 
-Die Menüstruktur (`CUI-026`) gliedert nach Arbeitsabsicht in acht Gruppen. Der
-Eintrag „Umgebung erstellen“ führt weiterhin über den Composer und die Queue;
-ein rein synchroner Weg für genau eine Umgebung ohne Queue-Übergabe besteht in
-der Oberfläche noch nicht. Die Verbindungszentrale ist bewusst doppelt
+Die Menüstruktur (`CUI-026`) gliedert als implementierter Übergangsstand nach
+Arbeitsabsicht in acht Gruppen. Die aktuelle fachliche Zielstruktur steht in
+[Abschnitt 4.1 des Ausführungsplans](../Project_Planning/DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md#41-kanonischer-bedienpfad).
+Ihre Migration und vollständige geführte CLI-/GUI-Abdeckung sind separat offen.
+Die Browser-Verweise für Testgruppe, CMS und Hyper-V-Slots filtern bisher nur
+den Expertenkatalog und gelten nicht als abgeschlossene Fachdialoge. Unter
+„Umgebung erstellen“ bietet die Konsole inzwischen sowohl „SQL-Umgebung jetzt
+erstellen“ ohne Queue als auch den Composer mit Queue-Übergabe an. Das belegt
+noch keine vollständige geführte Browserparität. Die Verbindungszentrale ist bewusst doppelt
 erreichbar: über „Datenbanken und Verbindungen“ und über die eigene
 CMS-Gruppe.
 

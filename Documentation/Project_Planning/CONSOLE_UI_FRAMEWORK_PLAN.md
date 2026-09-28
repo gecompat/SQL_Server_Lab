@@ -252,7 +252,16 @@ automatische Medienbeschaffung, Slot-Erzeugung oder sonstige Mutation auslösen.
 Die Migration erfolgt vertikal. Ein migriertes Menü verwendet vollständig die
 gemeinsame Schicht; neue parallele Cursorimplementierungen sind nicht zulässig.
 
-### 12.4 Menüstruktur
+### 12.4 Implementierter Übergangsstand der Menüstruktur
+
+`CUI-026` bleibt als abgeschlossener historischer Implementierungsslice
+erhalten. Die folgende Achtgruppenstruktur beschreibt den bestehenden
+Übergangsstand, nicht das aktuelle Ziel. Die fachliche Bereichsdefinition
+steht ausschließlich in
+[Abschnitt 4.1 des Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md#41-kanonischer-bedienpfad).
+Die Erweiterung unter `UX-201` bis `UX-206` benötigt eigene Verhaltens- und
+Bediennachweise; der bestehende Achtgruppentest wird bei der Migration auf
+Erreichbarkeit, Kontext und Navigation der neuen Bereiche übertragen.
 
 Das Hauptmenü (`CUI-026`) ist nach Arbeitsabsicht gegliedert, nicht nach
 technischer Herkunft:
