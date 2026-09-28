@@ -142,11 +142,11 @@ Anforderungszuordnung oben bleibt gültig. `NEXT` bezeichnet einen ausführbaren
 Schritt, `FOLLOW_UP` dessen nächste Erweiterung, nicht den Status der gesamten
 Aufgabe. C# bleibt `USER_DEFERRED`.
 
-**NEXT – `UX-202/204`, `CORE-107`: Evaluationsfristen verständlich prüfen.**
+**IMPLEMENTED – `UX-202/204`, `CORE-107`: Evaluationsfristen verständlich prüfen.**
 Benutzeraufgabe: vorhandene Windows-/SQL-Fristen lesen, einen Artefakt- oder
 Instanzeintrag auswählen und die nächste erforderliche Handlung verstehen.
-`Get-SqlServerLabEvaluationWatch` liefert bereits `Items` und `InstanceItems`
-ohne Runtimezugriff; bislang fehlt der Fachdialog in CLI und GUI. Zuständig
+`Get-SqlServerLabEvaluationWatch` liefert `Items` und `InstanceItems`
+ohne Runtimezugriff; der Fachdialog ist in CLI und GUI implementiert. Zuständig
 sind der Evaluation-Watchdog im
 [Querschnittsbacklog](CROSS_CUTTING_PLATFORM_CAPABILITIES_BACKLOG.md#evaluation-watchdog-und-benachrichtigung)
 und die bestehenden SQL-Gast-Evidence-Verträge. Der Konsoleneinstieg unter
@@ -166,7 +166,18 @@ Native Tests sind für die reine Bindung dieses unveränderten read-only Cores
 nicht erforderlich. Abschluss bedeutet ausschließlich geführte Fristenanzeige;
 Ersatz, Migration, Scheduler und Benachrichtigung bleiben offen.
 
-**IN REVIEW – `UX-201/203/204/205/206`: Bereichsmigration implementiert.**
+Der gemeinsame Adapter `Private/EvaluationWatchView.ps1` bindet den
+Wartungseinstieg und den eigenen Browserdialog. 17 EvaluationWatch-Prüfungen,
+zwölf importierte Projektions-/CLI-/GET-Prüfungen, 18 tatsächliche
+JavaScript-Fälle und die zehn betroffenen statischen Suites bestanden.
+Der wegen gemeinsamer Konsolenpfade ausgewählte lokale Docker-SQL-2025-Smoke
+bestand 34/34 Prüfungen einschließlich Entfernung und Containerabwesenheit.
+Er ist ein Core-Regressionstest, keine neue native Evaluations- oder
+Lizenzabnahme. Das unabhängige Quellreview ist abgeschlossen; die gefundene
+Dialoglayoutlücke ist korrigiert. Eine visuelle Browserabnahme wurde nicht
+ausgeführt. Nächster Schritt ist die folgende Bereichsmigration.
+
+**IMPLEMENTED – `UX-201/203/204/205/206`: Bereichsmigration lokal geprüft; Integration ausstehend.**
 CLI und Browser verwenden die neun Fachbereiche aus Abschnitt 4.1 mit
 bestehenden Handlern und getrennten Experten-/Meldungseinstiegen. Erstellen
 und Verwalten liegen unter Lab-Umgebungen; geschützte Gruppenaktionen im
@@ -174,12 +185,12 @@ eigenen Testmatrixbereich. Vorlagen/Slots, Beschaffung, Grundkonfiguration und
 Host-Dienste/Modelle sind getrennt. Browserinventare werden kontextuell
 angezeigt; fehlende Fachdialoge bleiben ausdrücklich offen.
 
+
 Die frühere Achtgruppenassertion ist durch Tests tatsächlicher
 Menüdestinationen, Dispatch, Zurück, Abbruch, Refresh und fehlender
 Verfügbarkeit ersetzt. Direkte `-Action`-Aufrufe bleiben erhalten. Reale
 JavaScript-Handler prüfen Bereichswechsel und unveränderte Eingaben; vorhandene
-Fachdialoge werden wiederverwendet. Fokussierte und betroffene statische
-Prüfungen sowie unabhängiger Review sind vor Integration abzuschließen.
+Fachdialoge werden wiederverwendet. Alle 14 betroffenen statischen Suites bestanden; nach zwei behobenen Reviewbefunden bestanden erneut die fünf betroffenen Suites einschließlich 26 tatsächlicher JavaScript-Fälle. Der unabhängige Nachreview ist abgeschlossen. Der selektierte Docker-Regressionsnachweis und der finale Integrationsgate stehen für diesen Navigationsstand noch aus.
 Keine neue Runtimefunktion und keine pauschale Fachdialogparität werden
 behauptet. Historische `CUI-026`-Evidence bleibt erhalten. Nächste Erweiterung:
 Grundkonfiguration und gezielte Änderung einer vorhandenen Umgebung.
