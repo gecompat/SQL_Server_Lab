@@ -180,10 +180,10 @@ $supervisorText=Get-Content (Join-Path $repoRoot 'Tests/Integration/Invoke-CShar
 Add-CheckResult -Name 'CSharp profile: Checkout vor Profil und Artifactguard danach' -Success (
     $supervisorText.IndexOf('Assert-CSharpNativeCheckout $dispatch') -lt $supervisorText.IndexOf('Get-CSharpNativeProfile -Name $Profile') -and
     $supervisorText.IndexOf('Get-CSharpNativeProfile -Name $Profile') -lt $supervisorText.IndexOf('Assert-CSharpNativeDispatch $dispatch'))
-$inputReferences=@([regex]::Matches($nativeWorkflow,'inputs\.([a-z_]+)')|ForEach-Object {$_.Groups[1].Value})
-Add-CheckResult -Name 'CSharp profile: Workflow überträgt ausschließlich festen Profilnamen' -Success (
-    $inputReferences.Count -eq 1 -and $inputReferences[0] -ceq 'profile' -and $nativeWorkflow.Contains('options: [csharp-sql2025]') -and
-    $nativeWorkflow.Contains('-Profile $env:CSHARP_PROFILE *> $localLog') -and $nativeWorkflow -notmatch 'SQL_SERVER_LAB_CSHARP_PROFILE_ROOT|payload_root:|state_root:|media_root:|sql_media_path:')
+$inputReferences=@([regex]::Matches($nativeWorkflow,'inputs\.([a-z0-9_]+)')|ForEach-Object {$_.Groups[1].Value})
+Add-CheckResult -Name 'CSharp profile: Workflow überträgt ausschließlich Profilnamen und Requesthash' -Success (
+    $inputReferences.Count -eq 2 -and ($inputReferences -join ',') -ceq 'profile,request_sha256' -and $nativeWorkflow.Contains('options: [csharp-sql2025]') -and
+    $nativeWorkflow.Contains('-Profile $env:CSHARP_PROFILE -RequestSha256 $env:CSHARP_REQUEST_HASH *> $localLog') -and $nativeWorkflow -notmatch 'SQL_SERVER_LAB_CSHARP_PROFILE_ROOT|payload_root:|state_root:|media_root:|sql_media_path:')
 
 if($IsWindows){
     & {
@@ -446,3 +446,5 @@ namespace SqlServerLab.Tests {
     finally{$env:SQL_SERVER_LAB_CSHARP_PROFILE_ROOT=$savedProfileRoot}
     Add-CheckResult -Name 'CSharp profile ACL evidence: real protected profile and exact cleanup' -Success ($evidenceOutcome.Status -eq 'PASSED') -Message ($evidenceOutcome|ConvertTo-Json -Compress)
 }
+
+. (Join-Path $PSScriptRoot 'CSharpNativeRequestChecks.ps1')

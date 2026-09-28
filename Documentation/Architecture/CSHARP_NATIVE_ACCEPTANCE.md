@@ -26,15 +26,77 @@ vorübergehend den bestehenden Aktivierungsnetzwerkpfad.
 
 ## Runnerlokales Profil
 
-GitHub erhält ausschließlich den festen Profilnamen `csharp-sql2025`.
-Hostpfade, Artifact-ID und die freigegebenen Hashbindungen stehen in der Datei
-`csharp-sql2025.json` unter dem ausschließlich im Runnerprozess konfigurierten
-`SQL_SERVER_LAB_CSHARP_PROFILE_ROOT`. Dieser Root wird weder als Workflowinput
-noch als GitHub-Variable gesetzt. Der Supervisor prüft zuerst Ursprungsrepository,
-Main-Ref und exakten sauberen Checkout, bevor er das lokale Profil liest.
-Anschließend bleibt die vollständige Artifact- und Hashprüfung erhalten.
+Der Workflow benötigt den festen Profilnamen `csharp-sql2025` und den SHA256
+über die unveränderten Bytes eines ausdrücklich lokal gestagten Requests.
+`Invoke-CSharpNativeRequestAcceptance.ps1` prüft zuerst Ursprungsrepository,
+Main-Ref und exakten sauberen Checkout, bevor es lokale Requestdaten liest.
+Es gibt keinen Fallback auf vorhandene Profile, keine Suche und keinen Download.
 
-Die Einrichtung erfolgt separat durch einen berechtigten Administrator; der
+Der Request liegt ausschließlich lokal unter
+`<Laufwerksroot>/SqlServerLab-CSharpRequest-<sha256>/request.json`. Der Root ist
+exakt der durch `CommonApplicationData` bestimmte lokale Laufwerksroot und
+muss den festen Datenträger-, Reparse-, Owner- und Vorfahrenguard bestehen.
+Der Eingangsordner darf unprivilegiert gestagt sein: seine Daten sind nicht
+vertrauenswürdig; die Freigabe bindet der explizit übergebene SHA256. Request
+und Eingang werden niemals repariert, überschrieben oder entfernt. Ihre
+Datenschutzrechte muss der lokale Bereitsteller vor dem Staging sicherstellen.
+Reale Inhalte oder Pfade gehen nicht an GitHub.
+
+Das UTF-8-JSON ohne BOM ist höchstens 32 KiB groß. Es enthält exakt
+`SchemaVersion` (`1`), `Purpose` (`CSharpNativeAcceptance`), `ProfileName`
+(`csharp-sql2025`), eine frisch zufällig erzeugte nichtleere `Nonce`-GUID in
+kanonischer Kleinschreibung, `MainCommit` (exakter ausgelöster Commit),
+`ExpiresUtc` (`yyyy-MM-ddTHH:mm:ssZ`) und das eingebettete Objekt `Profile`.
+Außer `Profile` sind alle Werte Strings. Die UTC-Ablaufzeit muss beim Lesen in
+der Zukunft und höchstens vier Stunden entfernt sein; vor dem Supervisor wird
+sie erneut geprüft. `Profile` verwendet unverändert den unten beschriebenen
+16-KiB-Profilvertrag. Doppelte oder unbekannte Felder werden abgewiesen.
+
+Der Reader bindet begrenzte Daten und SHA256 an dasselbe Dateihandle, ohne
+parallelen Schreib-/Löschzugriff; erst danach wird JSON interpretiert. Der
+Wrapper erzeugt einen neuen eigenen GUID-Profilroot atomar mit Admin-Owner
+und geschützter Admin-/SYSTEM-ACL, schreibt das Profil mit `CreateNew` und
+prüft es mit dem bestehenden tatsächlichen Resolver. Er setzt
+`SQL_SERVER_LAB_CSHARP_PROFILE_ROOT` ausschließlich in seinem Prozess und ruft
+danach den unveränderten Supervisor auf. Dienste, persistente Umgebungswerte
+und bestehende Zugriffsrechte bleiben unberührt.
+
+Im `finally` wird die vorherige Prozessumgebung wiederhergestellt. Nach erneuter
+Pfad-/Reparse-/ACL-Prüfung werden ausschließlich eigene Profildatei und leerer
+Profilroot entfernt. Vorhandene Zielobjekte werden niemals übernommen. Fehler
+vor vollständigem Schreiben bleiben bereinigbar. Hauptfehler, Run-Cleanupfehler
+und `ProfileCleanupFailure` bleiben getrennt sichtbar; ein Cleanupfehler
+verhindert PASS und meldet Recoverybedarf. Vor der ersten Profilmutation wird
+unter `LocalApplicationData/SqlServerLab/CSharpRequestRecovery/<GUID>` ein
+exklusives lokales `profile-recovery.jsonl` angelegt. Es liegt außerhalb von
+Actions-Checkout und RUNNER_TEMP und bleibt auch nach erfolgreichem Cleanup
+als Diagnose erhalten. Der begrenzte append-only Beleg enthält Operation,
+Request-Nonce/-Hash, Commit, eigene Root-/Dateibindung und Status, keine
+Profilinhalte. Jeder Eintrag wird vor dem nächsten Schritt auf den Datenträger
+geflusht. PREPARED bestätigt keine Anlage; CREATED bestätigt die eigene
+Verzeichnisanlage, FILE_CREATED die Profildatei. CLEANED, NOT_CREATED und
+CLEANUP_FAILED unterscheiden den Abschluss. Recordfehler vor Mutation sperren
+die Anlage; spätere Recordfehler bleiben zusätzlich sichtbar und verhindern
+PASS. Weder Record noch seine realen Pfade werden nach GitHub übertragen.
+
+Ein harter Kill zwischen Create und bestätigtem CREATED-Eintrag hinterlässt
+UNKNOWN: PREPARED oder eine unvollständige letzte Journalzeile berechtigen
+niemals zur automatischen Übernahme oder Löschung eines Objekts. Auch ein
+CREATED-Beleg ersetzt keine aktuelle manuelle Ownership-/Pfadprüfung.
+Automatische Recovery ist nicht implementiert. Harter Prozess-/Hostabbruch bleibt
+ein Recoveryfall. Es gibt keinen automatischen Retry. Eine erneut ausdrücklich
+ausgelöste identische Anfrage innerhalb ihrer Commit-/Zeitbindung ist möglich;
+eine dauerhafte Einmalverwendungsdatenbank ist nicht implementiert.
+
+Der direkte interne Einstieg `Invoke-CSharpHyperVAcceptance.ps1 -Profile`
+bleibt für ein bereits administrativ konfiguriertes Profil unverändert
+verfügbar. Nur dort setzt der Bereitsteller den runnerlokalen Profilroot selbst;
+der Workflow ersetzt diesen Einstieg ausdrücklich durch den Requestwrapper.
+Die native Ausführung `36367366887` endete mit `PROFILE_ROOT_REQUIRED` vor
+Gast-/SQL-Arbeit und ohne Run-Recoverybedarf. Das ist kein nativer Sprachbeleg.
+
+Für den direkten internen Profileinstieg erfolgt die Einrichtung separat
+durch einen berechtigten Administrator; der
 Test legt weder Profile an noch repariert er Zugriffsrechte. Profil und Root
 müssen auf einem lokalen festen Windows-Laufwerk liegen, ohne Reparse Points
 in der gesamten Vorfahrenkette. Owner und Schreibzugriffe auf Datei/Root sind
@@ -144,3 +206,11 @@ bestätigt keine Installation oder Katalogpromotion. Die CI-Auswahl bindet die
 Dateien an diese Suite.
 Ein nativer Durchlauf
 und seine bestätigte Ressourcenbereinigung stehen noch aus.
+
+Die Request-Fixture ergänzt tatsächliche bounded-Dateilesung und Hashbindung,
+strikte Envelope-/Profil-Negativfälle, Kollision/Teilwrite, Umgebungserhaltung
+und gleichzeitig fehlgeschlagenes Run- und Profil-Cleanup. Auf erhöhtem
+Windows nutzt der positive synthetische Fall den produktiven ephemeren
+Profilwrapper mit einer No-op- beziehungsweise werfenden Action; er ruft
+keinen SQL-/VM-Supervisor auf. Nur sein expliziter PASS bestätigt Profilanlage
+und eigenes Cleanup, nicht die native Sprachabnahme.

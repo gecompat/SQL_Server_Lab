@@ -3,10 +3,14 @@ on:
   workflow_dispatch:
     inputs:
       profile:
-        description: Runner-local approved CSharp acceptance profile
+        description: Approved CSharp acceptance profile
         required: true
         type: choice
         options: [csharp-sql2025]
+      request_sha256:
+        description: SHA256 of the explicitly staged local request
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -26,16 +30,17 @@ jobs:
         shell: pwsh
         env:
           CSHARP_PROFILE: ${{ inputs.profile }}
+          CSHARP_REQUEST_HASH: ${{ inputs.request_sha256 }}
         run: |
           $ErrorActionPreference='Stop'
           $localLog=Join-Path $env:RUNNER_TEMP ('csharp-native-'+[guid]::NewGuid().ToString('N')+'.log')
           try {
-          & ./Tests/Integration/Invoke-CSharpHyperVAcceptance.ps1 -Profile $env:CSHARP_PROFILE *> $localLog
+          & ./Tests/Integration/Invoke-CSharpNativeRequestAcceptance.ps1 -Profile $env:CSHARP_PROFILE -RequestSha256 $env:CSHARP_REQUEST_HASH *> $localLog
           Write-Host 'CSharp SQL2025 Native Acceptance: PASS; own cleanup verified.'
           } catch {
             $_ | Out-String | Add-Content -LiteralPath $localLog
-            . ./Tests/Common/CSharpNativeAcceptance.ps1
-            $diagnostic=Get-CSharpNativeFailureDiagnostic $_
+            . ./Tests/Common/CSharpNativeProfileRequest.ps1
+            $diagnostic=Get-CSharpNativeRequestFailureDiagnostic $_
             $diagnostic | ConvertTo-Json -Compress | Write-Host
             throw $diagnostic.ReasonCode
           }
