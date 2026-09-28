@@ -245,3 +245,204 @@ if($IsWindows){
         }
     }
 }
+
+# Test-only profile evidence; never invokes the SQL/VM supervisor.
+function Get-CSharpProfileEvidenceDiagnostic {
+    param([Parameter(Mandatory)]$Record,[Parameter(Mandatory)][string]$Stage)
+    $stages=@('SETUP','ANCESTOR_PREFLIGHT','SECURE_DIRECTORY_CREATE','NEW_ROOT_CHECK','SECURE_FILE_CREATE','PROFILE_RESOLVE','CLEANUP_CHECK','DELETE_FILE','DELETE_DIRECTORY')
+    $reported=[string]$Record.Exception.Data['EvidenceStage']
+    if($reported -cnotin $stages){$reported=$(if($Stage -cin $stages){$Stage}else{'SETUP'})}
+    $class=[string]$Record.Exception.Data['EvidenceAclClass']
+    if($class -cnotin @('BASE','ANCESTOR')){$class=$null}
+    $reason=[string]$Record.Exception.Data['EvidenceAclReason']
+    if($reason -cnotin @('OWNER','DACL','WRITER')){$reason=$null}
+    [pscustomobject]@{Code=(Get-CSharpNativeFailureCode $Record);Stage=$reported;AclClass=$class;AclReason=$reason}
+}
+function New-CSharpProfileEvidenceAclFailure {
+    param([Parameter(Mandatory)]$Descriptor,[Parameter(Mandatory)][string]$Stage,[Parameter(Mandatory)][string]$TargetClass)
+    $trusted=@('S-1-5-18','S-1-5-32-544','S-1-5-80-956008885-3418522649-1831038044-1853292631-2271478464')
+    $reason=if(-not $Descriptor.DaclPresent){'DACL'}elseif($Descriptor.Owner -cnotin $trusted){'OWNER'}else{'WRITER'}
+    $failure=[InvalidOperationException]::new('CSHARP_NATIVE_PROFILE_ACL')
+    $failure.Data['EvidenceStage']=$Stage
+    $failure.Data['EvidenceAclClass']=$TargetClass
+    $failure.Data['EvidenceAclReason']=$reason
+    return $failure
+}
+function Invoke-CSharpProfileAclEvidenceCore {
+    param([Parameter(Mandatory)][hashtable]$Operations)
+    $ownership=[pscustomobject]@{DirectoryOwned=$false;FileOwned=$false}
+    $primary=$null;$cleanup=$null;$primaryDetail=$null;$cleanupDetail=$null;$stage='SETUP'
+    try{
+        $stage='SECURE_DIRECTORY_CREATE'
+        & $Operations.CreateDirectory $ownership
+        if(-not $ownership.DirectoryOwned){throw 'CSHARP_NATIVE_ACL_EVIDENCE_OWNERSHIP'}
+        $stage='SECURE_FILE_CREATE'
+        & $Operations.CreateFile $ownership
+        if(-not $ownership.FileOwned){throw 'CSHARP_NATIVE_ACL_EVIDENCE_OWNERSHIP'}
+        $stage='PROFILE_RESOLVE'
+        & $Operations.Check $ownership
+    }catch{$primaryDetail=Get-CSharpProfileEvidenceDiagnostic $_ $stage;$primary=$primaryDetail.Code}
+    finally{
+        if($ownership.DirectoryOwned){
+            try{
+                $stage='CLEANUP_CHECK'
+                & $Operations.ValidateCleanup $ownership
+                if($ownership.FileOwned){$stage='DELETE_FILE';& $Operations.DeleteFile $ownership}
+                $stage='DELETE_DIRECTORY'
+                & $Operations.DeleteDirectory $ownership
+            }catch{$cleanupDetail=Get-CSharpProfileEvidenceDiagnostic $_ $stage;$cleanup=$cleanupDetail.Code}
+        }
+    }
+    [pscustomobject]@{Status=$(if($primary -or $cleanup){'FAILED'}else{'PASSED'});PrimaryFailure=$primary;CleanupFailure=$cleanup;PrimaryDiagnostic=$primaryDetail;CleanupDiagnostic=$cleanupDetail}
+}
+function Assert-CSharpProfileEvidencePath {
+    param([Parameter(Mandatory)][string]$Path,[switch]$AncestorsOnly,[ValidateSet('ANCESTOR_PREFLIGHT','NEW_ROOT_CHECK','CLEANUP_CHECK')][string]$Stage='ANCESTOR_PREFLIGHT')
+    Assert-CSharpNativeLocalPath $Path
+    $cursor=[IO.Path]::GetFullPath($Path)
+    while($cursor){
+        $item=Get-Item -LiteralPath $cursor -Force -ErrorAction Stop
+        if(-not $item.PSIsContainer){throw 'CSHARP_NATIVE_ACL_EVIDENCE_PATH'}
+        $acl=Get-Acl -LiteralPath $cursor -ErrorAction Stop
+        $raw=[Security.AccessControl.RawSecurityDescriptor]::new($acl.GetSecurityDescriptorBinaryForm(),0)
+        $descriptor=[pscustomobject]@{
+            Owner=$acl.GetOwner([Security.Principal.SecurityIdentifier]).Value;DaclPresent=($null -ne $raw.DiscretionaryAcl)
+            Rules=@($acl.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])|ForEach-Object {
+                [pscustomobject]@{Sid=$_.IdentityReference.Value;Rights=[long]$_.FileSystemRights;Allow=($_.AccessControlType -eq 'Allow');InheritOnly=[bool]($_.PropagationFlags -band [Security.AccessControl.PropagationFlags]::InheritOnly)}
+            })
+        }
+        try{Assert-CSharpNativeProfileAcl $descriptor -Ancestor:($AncestorsOnly -or $cursor -ine $Path)}catch{
+            if((Get-CSharpNativeFailureCode $_) -cne 'CSHARP_NATIVE_PROFILE_ACL'){throw}
+            throw (New-CSharpProfileEvidenceAclFailure -Descriptor $descriptor -Stage $Stage -TargetClass $(if($cursor -ieq $Path){'BASE'}else{'ANCESTOR'}))
+        }
+        $cursor=[IO.Path]::GetDirectoryName($cursor)
+    }
+}
+# Fault injection needs neither filesystem mutation nor admin rights.
+foreach($fault in @('None','Collision','PartialFile','Check','Reparse','DeleteFile','DeleteDirectory')){
+    & {
+        $trace=[Collections.Generic.List[string]]::new()
+        $operations=@{
+            CreateDirectory={param($owned) $trace.Add('CreateDirectory');if($fault -eq 'Collision'){throw 'CSHARP_NATIVE_ACL_EVIDENCE_EXISTS'};$owned.DirectoryOwned=$true}
+            CreateFile={param($owned) $trace.Add('CreateFile');$owned.FileOwned=$true;if($fault -eq 'PartialFile'){throw 'CSHARP_NATIVE_ACL_EVIDENCE_WRITE'}}
+            Check={param($owned) $trace.Add('Check');if($fault -eq 'Check'){throw 'synthetic private diagnostic'}}
+            ValidateCleanup={param($owned) $trace.Add('ValidateCleanup');if($fault -eq 'Reparse'){throw 'CSHARP_NATIVE_REPARSE_POINT'}}
+            DeleteFile={param($owned) $trace.Add('DeleteFile');if($fault -eq 'DeleteFile'){throw 'CSHARP_NATIVE_ACL_EVIDENCE_DELETE_FILE'}}
+            DeleteDirectory={param($owned) $trace.Add('DeleteDirectory');if($fault -eq 'DeleteDirectory'){throw 'CSHARP_NATIVE_ACL_EVIDENCE_DELETE_DIRECTORY'}}
+        }
+        $outcome=Invoke-CSharpProfileAclEvidenceCore $operations
+        $good=switch($fault){
+            'None' {$outcome.Status -eq 'PASSED' -and ($trace -join ',') -eq 'CreateDirectory,CreateFile,Check,ValidateCleanup,DeleteFile,DeleteDirectory'}
+            'Collision' {$outcome.Status -eq 'FAILED' -and ($trace -join ',') -eq 'CreateDirectory'}
+            'PartialFile' {$outcome.Status -eq 'FAILED' -and $trace.Contains('DeleteFile') -and $trace.Contains('DeleteDirectory') -and -not $trace.Contains('Check')}
+            'Check' {$outcome.Status -eq 'FAILED' -and $trace.Contains('DeleteDirectory') -and ($outcome|ConvertTo-Json -Compress) -notmatch 'synthetic private'}
+            'Reparse' {$outcome.CleanupFailure -eq 'CSHARP_NATIVE_REPARSE_POINT' -and -not $trace.Contains('DeleteFile') -and -not $trace.Contains('DeleteDirectory')}
+            'DeleteFile' {$outcome.CleanupFailure -eq 'CSHARP_NATIVE_ACL_EVIDENCE_DELETE_FILE' -and -not $trace.Contains('DeleteDirectory')}
+            'DeleteDirectory' {$outcome.CleanupFailure -eq 'CSHARP_NATIVE_ACL_EVIDENCE_DELETE_DIRECTORY' -and $outcome.Status -eq 'FAILED'}
+        }
+        Add-CheckResult -Name ('CSharp profile ACL evidence: synthetic '+$fault) -Success $good
+        $expectedStage=switch($fault){'Collision'{'SECURE_DIRECTORY_CREATE'}'PartialFile'{'SECURE_FILE_CREATE'}'Check'{'PROFILE_RESOLVE'}'Reparse'{'CLEANUP_CHECK'}'DeleteFile'{'DELETE_FILE'}'DeleteDirectory'{'DELETE_DIRECTORY'}default{$null}}
+        if($expectedStage){
+            $diagnostic=if($outcome.CleanupDiagnostic){$outcome.CleanupDiagnostic}else{$outcome.PrimaryDiagnostic}
+            Add-CheckResult -Name ('CSharp profile ACL evidence: stage '+$fault) -Success ($diagnostic.Stage -ceq $expectedStage)
+        }
+    }
+}
+foreach($case in @(@{Owner='synthetic private owner';DaclPresent=$true;Expected='OWNER'},@{Owner='S-1-5-18';DaclPresent=$false;Expected='DACL'},@{Owner='S-1-5-18';DaclPresent=$true;Expected='WRITER'})){
+    try{throw (New-CSharpProfileEvidenceAclFailure -Descriptor $case -Stage 'ANCESTOR_PREFLIGHT' -TargetClass 'ANCESTOR')}catch{$diagnostic=Get-CSharpProfileEvidenceDiagnostic $_ 'SETUP'}
+    Add-CheckResult -Name ('CSharp profile ACL evidence: sanitized ACL reason '+$case.Expected) -Success ($diagnostic.Stage -ceq 'ANCESTOR_PREFLIGHT' -and $diagnostic.AclReason -ceq $case.Expected -and $diagnostic.AclClass -ceq 'ANCESTOR' -and ($diagnostic|ConvertTo-Json -Compress) -notmatch 'synthetic private')
+}
+try{throw (New-CSharpProfileEvidenceAclFailure -Descriptor @{Owner='S-1-5-18';DaclPresent=$true} -Stage 'synthetic private stage' -TargetClass 'synthetic private class')}catch{$diagnostic=Get-CSharpProfileEvidenceDiagnostic $_ 'PROFILE_RESOLVE'}
+Add-CheckResult -Name 'CSharp profile ACL evidence: unknown diagnostic metadata sanitized' -Success ($diagnostic.Stage -ceq 'PROFILE_RESOLVE' -and $null -eq $diagnostic.AclClass -and ($diagnostic|ConvertTo-Json -Compress) -notmatch 'synthetic private')
+$profileEvidenceElevated=$false
+if($IsWindows){
+    $profileEvidenceIdentity=[Security.Principal.WindowsIdentity]::GetCurrent()
+    try{$profileEvidenceElevated=([Security.Principal.WindowsPrincipal]::new($profileEvidenceIdentity)).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)}finally{$profileEvidenceIdentity.Dispose()}
+}
+if(-not $IsWindows -or -not $profileEvidenceElevated){
+    Write-Host '  NOT_EXECUTED  CSharp profile ACL evidence: real protected profile and exact cleanup (elevated Windows required)'
+}else{
+    $savedProfileRoot=$env:SQL_SERVER_LAB_CSHARP_PROFILE_ROOT
+    $evidenceOutcome=$null;$evidenceStage='SETUP'
+    try{
+        $commonData=[Environment]::GetFolderPath([Environment+SpecialFolder]::CommonApplicationData)
+        if([string]::IsNullOrWhiteSpace($commonData)){throw 'CSHARP_NATIVE_ACL_EVIDENCE_BASE'}
+        # One deterministic local volume root, never a search for a less restricted ACL.
+        $evidenceBase=[IO.Path]::GetPathRoot($commonData)
+        if([string]::IsNullOrWhiteSpace($evidenceBase)){throw 'CSHARP_NATIVE_ACL_EVIDENCE_BASE'}
+        $evidenceStage='ANCESTOR_PREFLIGHT'
+        Assert-CSharpProfileEvidencePath $evidenceBase -AncestorsOnly -Stage 'ANCESTOR_PREFLIGHT'
+        $evidenceStage='SETUP'
+        $evidenceRoot=Join-Path $evidenceBase ('SqlServerLab-CSharpProfileEvidence-'+[guid]::NewGuid().ToString('N'))
+        $evidenceFile=Join-Path $evidenceRoot 'csharp-sql2025.json'
+        $directorySecurity=[Security.AccessControl.DirectorySecurity]::new()
+        $directorySecurity.SetSecurityDescriptorSddlForm('O:BAG:BAD:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)')
+        $fileSecurity=[Security.AccessControl.FileSecurity]::new()
+        $fileSecurity.SetSecurityDescriptorSddlForm('O:BAG:BAD:P(A;;FA;;;BA)(A;;FA;;;SY)')
+        if(-not ('SqlServerLab.Tests.CSharpProfileDirectoryNative' -as [type])){
+            Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+namespace SqlServerLab.Tests {
+    public static class CSharpProfileDirectoryNative {
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SecurityAttributes {
+            public int Length;
+            public IntPtr SecurityDescriptor;
+            [MarshalAs(UnmanagedType.Bool)] public bool InheritHandle;
+        }
+        [DllImport("kernel32.dll", CharSet=CharSet.Unicode, SetLastError=true, ExactSpelling=true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CreateDirectoryW(string path, ref SecurityAttributes attributes);
+        public static int Create(string path, byte[] descriptor) {
+            IntPtr memory=Marshal.AllocHGlobal(descriptor.Length);
+            try {
+                Marshal.Copy(descriptor,0,memory,descriptor.Length);
+                var attributes=new SecurityAttributes {Length=Marshal.SizeOf<SecurityAttributes>(), SecurityDescriptor=memory, InheritHandle=false};
+                if(CreateDirectoryW(path,ref attributes)) return 0;
+                int error=Marshal.GetLastWin32Error(); return error == 0 ? -1 : error;
+            } finally { Marshal.FreeHGlobal(memory); }
+        }
+    }
+}
+"@
+        }
+        $evidenceJson=[ordered]@{SchemaVersion='1';ArtifactId=('hyperv-os-sealed-'+('b'*64));PayloadRoot='C:\Synthetic\Payload';PackageSha256=('a'*64);ProbeSha256=('c'*64);SqlMediaPath='Sql\setup.iso';MediaEdition='Eval';StateRoot='C:\Synthetic\State';MediaRoot='C:\Synthetic\Media'}|ConvertTo-Json -Compress
+        $operations=@{
+            CreateDirectory={
+                param($owned)
+                $creation=[SqlServerLab.Tests.CSharpProfileDirectoryNative]::Create($evidenceRoot,$directorySecurity.GetSecurityDescriptorBinaryForm())
+                if($creation -eq 183){throw 'CSHARP_NATIVE_ACL_EVIDENCE_EXISTS'}
+                if($creation -ne 0){throw 'CSHARP_NATIVE_ACL_EVIDENCE_CREATE'}
+                $owned.DirectoryOwned=$true
+            }
+            CreateFile={
+                param($owned)
+                Assert-CSharpProfileEvidencePath $evidenceRoot -Stage 'NEW_ROOT_CHECK'
+                $stream=$null
+                try{
+                    $stream=[IO.FileSystemAclExtensions]::Create([IO.FileInfo]::new($evidenceFile),[IO.FileMode]::CreateNew,[Security.AccessControl.FileSystemRights]::Read -bor [Security.AccessControl.FileSystemRights]::Write,[IO.FileShare]::None,4096,[IO.FileOptions]::None,$fileSecurity)
+                    $owned.FileOwned=$true
+                    $bytes=[Text.UTF8Encoding]::new($false).GetBytes($evidenceJson)
+                    $stream.Write($bytes,0,$bytes.Length)
+                }finally{if($stream){$stream.Dispose()}}
+            }
+            Check={
+                param($owned)
+                $env:SQL_SERVER_LAB_CSHARP_PROFILE_ROOT=$evidenceRoot
+                $actual=Get-CSharpNativeProfile -Name 'csharp-sql2025'
+                if($actual.ArtifactId -cne ('hyperv-os-sealed-'+('b'*64)) -or $actual.PackageSha256 -cne ('a'*64) -or $actual.ProbeSha256 -cne ('c'*64) -or $actual.PayloadRoot -cne 'C:\Synthetic\Payload'){throw 'CSHARP_NATIVE_ACL_EVIDENCE_CONTENT'}
+            }
+            ValidateCleanup={
+                param($owned)
+                if([IO.Path]::GetDirectoryName($evidenceRoot) -ine $evidenceBase -or [IO.Path]::GetFileName($evidenceRoot) -cnotmatch '^SqlServerLab-CSharpProfileEvidence-[a-f0-9]{32}$' -or $evidenceFile -cne (Join-Path $evidenceRoot 'csharp-sql2025.json')){throw 'CSHARP_NATIVE_ACL_EVIDENCE_BINDING'}
+                Assert-CSharpProfileEvidencePath $evidenceRoot -Stage 'CLEANUP_CHECK'
+                if($owned.FileOwned -and [IO.File]::Exists($evidenceFile)){Assert-CSharpNativeProfilePath $evidenceFile}
+            }
+            DeleteFile={param($owned) [IO.File]::Delete($evidenceFile)}
+            DeleteDirectory={param($owned) [IO.Directory]::Delete($evidenceRoot,$false)}
+        }
+        $evidenceOutcome=Invoke-CSharpProfileAclEvidenceCore $operations
+    }catch{$detail=Get-CSharpProfileEvidenceDiagnostic $_ $evidenceStage;$evidenceOutcome=[pscustomobject]@{Status='FAILED';PrimaryFailure=$detail.Code;CleanupFailure=$null;PrimaryDiagnostic=$detail;CleanupDiagnostic=$null}}
+    finally{$env:SQL_SERVER_LAB_CSHARP_PROFILE_ROOT=$savedProfileRoot}
+    Add-CheckResult -Name 'CSharp profile ACL evidence: real protected profile and exact cleanup' -Success ($evidenceOutcome.Status -eq 'PASSED') -Message ($evidenceOutcome|ConvertTo-Json -Compress)
+}
