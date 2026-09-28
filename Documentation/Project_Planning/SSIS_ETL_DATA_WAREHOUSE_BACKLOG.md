@@ -111,6 +111,48 @@ sind ausschließlich Supporting Components.
 
 ## Erster Vertical Slice
 
+### Begrenzter Diagnoseeinstieg zu Schritt 1
+
+`Tools/Test-SqlServerLabSsisPrerequisite.ps1 -RunId $runId -InstanceId primary`
+beobachtet eine bereits laufende eigene Hyper-V-/Windows-/SQL-2025-Instanz.
+Der interne Einstieg ist kein neuer öffentlicher Cmdletvertrag. Er verwendet
+den bestehenden StateRoot, bindet Run, Instanz und tatsächliche VM-ID und
+verweigert WinRM-Fallback. Der Gasttransport ist auf 10 bis 120 Sekunden,
+die SQL-Abfrage auf höchstens 30 Sekunden begrenzt. Secrets bleiben flüchtig;
+Ergebnisse und Diagnosen dürfen ausschließlich lokal verwendet werden.
+
+Getrennte Beobachtungen sind tatsächlicher SQL-Major und Edition, zwei
+SSIS-Komponentendateien mit Dateimajor 17 am dokumentierten Standardpfad sowie
+SSISDB-Zustand und Vorhandensein der Katalogsicht `catalog.catalog_properties`.
+`DefaultPathComponents=NOT_OBSERVED` bedeutet nur fehlende Dateien dort.
+Konfigurierbare andere Installationsorte werden nicht durchsucht; fehlende
+Standarddateien beweisen keine fehlende SSIS-Installation. Zugriffsfehler,
+Reparse-Dateien und unpassende Dateiversionen liefern `UNKNOWN`.
+Der SQL-Check wertet SSISDB-Abwesenheit ausschließlich mit beobachteten
+Sysadmin-Sichtrechten aus, damit unsichtbare oder offline Datenbanken nicht
+als fehlend ausgegeben werden. Eine gewöhnliche Datenbank namens SSISDB ohne
+Katalogsicht bleibt `ONLINE_UNVERIFIED`.
+
+`OBSERVED` beschreibt Beobachtungen, keine erfüllten Voraussetzungen oder
+Ausführungsfreigabe. `InstallationVerified=false` und
+`ExecutionStatus=NOT_EXECUTED` bleiben immer erhalten. Editionserkennung beweist
+keine SSIS-Featureberechtigung. Es gibt keine Installation, SSISDB-Erstellung,
+Packageausführung, VM-Start, Zustandsänderung oder automatische Reparatur.
+Bindungsänderungen während der Probe verwerfen das Ergebnis. SQL- und
+Transportfehler bleiben sanitisiert und von fehlenden Komponenten getrennt.
+
+Die Offline-Suite `Invoke-SsisPrerequisiteChecks.ps1` prüft tatsächliche
+Entscheidungs-, Kontext- und Gastlesefunktionen mit synthetischen Ergebnissen,
+Identitätsabweichungen, Sichtrechten, Fehlern, Timeout und Secretentsorgung.
+Die native Voraussetzungenprüfung und alle folgenden ETL-Abnahmen sind
+weiterhin **NOT_EXECUTED**. Der Gesamtbacklog bleibt offen.
+
+Herstellergrundlagen: [Dateipfade und gemeinsame SSIS-Komponenten](https://learn.microsoft.com/sql/sql-server/install/file-locations-for-default-and-named-instances-of-sql-server?view=sql-server-ver17),
+[SSIS-Katalog](https://learn.microsoft.com/sql/integration-services/catalog/ssis-catalog?view=sql-server-ver17)
+und [Sichtrechte für sys.databases](https://learn.microsoft.com/sql/relational-databases/system-catalog-views/sys-databases-transact-sql?view=sql-server-ver17).
+
+### Vollständige noch offene Folge
+
 1. Einen Windows-/Hyper-V-Slot mit SQL Server, SSIS und SSISDB bereitstellen.
 2. Eine kleine synthetische SQL-Quelle und ein getrenntes Warehouse erzeugen.
 3. Ein katalogisiertes SSIS-Projekt mit Staging-, Dimensions- und Fakt-Package

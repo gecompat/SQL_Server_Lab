@@ -321,6 +321,10 @@ sources_of_truth:
   local_release_preparation: Tools/Prepare-LocalRelease.ps1
   validation_release_artifact: Tests/Static/Invoke-ReleaseArtifactChecks.ps1
   client_readiness: Tools/Test-SqlServerLabClientReadiness.ps1
+  ssis_prerequisite_diagnostic: Tools/Test-SqlServerLabSsisPrerequisite.ps1
+  ssis_prerequisite_core: Private/SsisPrerequisite.ps1
+  ssis_prerequisite_scope: Documentation/Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md
+  validation_ssis_prerequisite: Tests/Static/Invoke-SsisPrerequisiteChecks.ps1
   repository_capability_inventory: Tools/Get-SqlServerLabCapabilityInventory.ps1
   repository_capability_evidence_index: Documentation/Quality/capability-evidence-index.json
   repository_capability_evidence_schema: Schemas/capability-evidence-index.schema.json
