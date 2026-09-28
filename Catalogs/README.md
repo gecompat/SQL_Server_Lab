@@ -96,6 +96,22 @@ Docker- oder Podman-Cache gezogen; sie werden nicht als Windows-Medium in
 
 ### Neue Version ergänzen
 
+Am 2026-09-28 wurden [SQL Server 2022 CU27 (KB5104824)](https://support.microsoft.com/en-us/servicing/sql/sql-server-2022/cumulative-update/kb5104824-cu27)
+und [SQL Server 2025 CU9 (KB5122048)](https://support.microsoft.com/en-us/servicing/sql/sql-server-2025/cumulative-update/kb5122048-cu9)
+anhand der Microsoft-Buildangaben, veröffentlichten SHA-256-Werte, des Update
+Catalog und der MCR-Tagliste ergänzt. Die Windows-Downloadziele waren per
+HTTP-HEAD erreichbar. Dies belegt weder heruntergeladene Paketbytes und deren
+Signatur noch eine Windows-Installation; die Prüfungen beim Download bleiben
+verpflichtend. Ältere CU-Pins und der globale historische Verifikationsstand
+bleiben unverändert.
+
+Beide Artikel nennen bekannte Probleme bei `SESSION_CONTEXT` in parallelen
+Plänen, MSDASQL-Verbindungsprüfungen und Monitoring während der
+Datenbankwiederherstellung. Vor Auswahl sind die aktuellen Herstellerhinweise
+zu prüfen; der Katalog setzt keine Traceflags und installiert keine Updates
+automatisch. Die Aufnahme erweitert keine bestehenden funktions- oder
+providerspezifischen Abnahmen.
+
 1. Eintrag in `versions[]` hinzufügen.
 2. Status aus `statusValues` verwenden.
 3. Provider-Image und Mindestressourcen dokumentieren.

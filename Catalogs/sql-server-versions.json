@@ -465,6 +465,19 @@
         "minMemoryMB": 2048,
         "builds": [
           {
+            "tag": "2022-CU27-ubuntu-22.04",
+            "cu": "CU27",
+            "build": "16.0.4295.3",
+            "kb": "KB5104824",
+            "released": "2026-09-15",
+            "articleUrl": "https://support.microsoft.com/en-us/servicing/sql/sql-server-2022/cumulative-update/kb5104824-cu27",
+            "windows": {
+              "relativePath": "SQL/2022/Updates/CU27/SQLServer2022-KB5104824-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2026/09/sqlserver2022-kb5104824-x64_0eba1dc82bfe270e990304be309760e1fe831552.exe",
+              "sha256": "675E3CEDD6C7A3D0FFBE713E46E54A86A92AF7B96CA4A6BEB987AE99C79B96F5"
+            }
+          },
+          {
             "tag": "2022-CU26-ubuntu-22.04",
             "cu": "CU26",
             "build": "16.0.4265.3",
@@ -819,6 +832,19 @@
         "image": "mcr.microsoft.com/mssql/server:2025-latest",
         "minMemoryMB": 2048,
         "builds": [
+          {
+            "tag": "2025-CU9-ubuntu-24.04",
+            "cu": "CU9",
+            "build": "17.0.5005.3",
+            "kb": "KB5122048",
+            "released": "2026-09-15",
+            "articleUrl": "https://support.microsoft.com/en-us/servicing/sql/sql-server-2025/cumulative-update/kb5122048-cu9",
+            "windows": {
+              "relativePath": "SQL/2025/Updates/CU9/SQLServer2025-KB5122048-x64.exe",
+              "downloadUrl": "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2026/09/sqlserver2025-kb5122048-x64_9b9a3062fc9d995eff427ea742cefe691c537bc6.exe",
+              "sha256": "30F5A2F57DC82C8E5A497FDEBD15263840D160414E3D0049F174F9C4059D0994"
+            }
+          },
           {
             "tag": "2025-CU8-ubuntu-24.04",
             "cu": "CU8",

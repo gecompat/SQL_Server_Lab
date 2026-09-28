@@ -48,7 +48,7 @@ Add-CheckResult -Name 'Nicht katalogisierte exakte Container-Tags werden vor ein
 $sql2022Builds = & $module { @(Get-SqlServerBuilds -VersionId '2022') }
 $catalog = Get-Content -LiteralPath (Join-Path $repoRoot 'Catalogs\sql-server-versions.json') -Raw | ConvertFrom-Json -Depth 30
 Add-CheckResult -Name 'SQL Server 2022 enthält eindeutige katalogisierte CU-Tags' -Success (
-    $sql2022Builds.Count -eq 26 -and
+    $sql2022Builds.Count -eq 27 -and
     @($sql2022Builds.cu | Sort-Object -Unique).Count -eq $sql2022Builds.Count -and
     @($sql2022Builds.tag | Sort-Object -Unique).Count -eq $sql2022Builds.Count
 )
@@ -73,15 +73,15 @@ Add-CheckResult -Name 'Unterstützte SQL-Versionen sind auf den verifizierten CU
     $sql2019Builds.Count -eq 31 -and @($sql2019Builds.cu) -notcontains 'CU7' -and
     $sql2019Builds[0].cu -eq 'CU32' -and $sql2019Builds[0].build -eq '15.0.4430.1' -and
     $sql2019Builds[0].kb -eq 'KB5054833' -and $sql2019Builds[0].released -eq '2025-02-27' -and
-    $sql2022Builds[0].cu -eq 'CU26' -and $sql2022Builds[0].build -eq '16.0.4265.3' -and
-    $sql2022Builds[0].kb -eq 'KB5093420' -and $sql2022Builds[0].released -eq '2026-07-16'
+    $sql2022Builds[0].cu -eq 'CU27' -and $sql2022Builds[0].build -eq '16.0.4295.3' -and
+    $sql2022Builds[0].kb -eq 'KB5104824' -and $sql2022Builds[0].released -eq '2026-09-15'
 )
 
 $sql2025Builds = & $module { @(Get-SqlServerBuilds -VersionId '2025') }
-Add-CheckResult -Name 'SQL Server 2025 enthält CU1 bis CU8 ohne alten CTP-Eintrag' -Success (
-    $sql2025Builds.Count -eq 8 -and @($sql2025Builds.cu) -notcontains 'CTP' -and
-    $sql2025Builds[0].cu -eq 'CU8' -and $sql2025Builds[0].build -eq '17.0.4075.5' -and
-    $sql2025Builds[0].kb -eq 'KB5104822' -and $sql2025Builds[0].released -eq '2026-08-13'
+Add-CheckResult -Name 'SQL Server 2025 enthält CU1 bis CU9 ohne alten CTP-Eintrag' -Success (
+    $sql2025Builds.Count -eq 9 -and @($sql2025Builds.cu) -notcontains 'CTP' -and
+    $sql2025Builds[0].cu -eq 'CU9' -and $sql2025Builds[0].build -eq '17.0.5005.3' -and
+    $sql2025Builds[0].kb -eq 'KB5122048' -and $sql2025Builds[0].released -eq '2026-09-15'
 )
 
 $catalog = Get-Content -LiteralPath (Join-Path $repoRoot 'Catalogs\sql-server-versions.json') -Raw | ConvertFrom-Json -Depth 30
@@ -95,13 +95,13 @@ Add-CheckResult -Name 'Alle katalogisierten Builds unterstützter SQL-Versionen 
 )
 
 $expected2019Cus = @(32..8 | ForEach-Object { "CU$_" }) + @(6..1 | ForEach-Object { "CU$_" })
-$expected2022Cus = @(26..1 | ForEach-Object { "CU$_" })
-$expected2025Cus = @(8..1 | ForEach-Object { "CU$_" })
+$expected2022Cus = @(27..1 | ForEach-Object { "CU$_" })
+$expected2025Cus = @(9..1 | ForEach-Object { "CU$_" })
 Add-CheckResult -Name 'Der Katalog enthält die vollständige offiziell verfügbare CU-Historie' -Success (
     (@($sql2019Builds.cu) -join ',') -eq ($expected2019Cus -join ',') -and
     (@($sql2022Builds.cu) -join ',') -eq ($expected2022Cus -join ',') -and
     (@($sql2025Builds.cu) -join ',') -eq ($expected2025Cus -join ',') -and
-    $supportedCus.Count -eq 65
+    $supportedCus.Count -eq 67
 )
 
 $allSupportedResolutions = @(
@@ -113,7 +113,7 @@ $allSupportedResolutions = @(
     }
 )
 Add-CheckResult -Name 'Jeder verfügbare CU-Kurzbezeichner löst auf einen expliziten MCR-Tag auf' -Success (
-    $allSupportedResolutions.Count -eq 65 -and
+    $allSupportedResolutions.Count -eq 67 -and
     @($allSupportedResolutions | Where-Object { $_.Actual -ne $_.Expected }).Count -eq 0
 )
 
@@ -184,7 +184,7 @@ $withdrawnRows = & $module {
 } $withdrawnFixtureSource $withdrawnFixtureRequest
 Add-CheckResult -Name 'Dynamischer CU-Abgleich meldet einen dokumentiert zurückgezogenen CU nicht als neue Medienquelle' -Success ($withdrawnRows.Count -eq 0)
 Add-CheckResult -Name 'Windows-CU-Metadaten sind vollständig und Downloads nur mit SHA-256 erlaubt' -Success (
-    $supportedCus.Count -eq 65 -and
+    $supportedCus.Count -eq 67 -and
     @($supportedCus | Where-Object {
         -not $_.build -or -not $_.kb -or -not $_.released -or -not $_.articleUrl -or
         -not $_.windows.relativePath -or -not $_.windows.downloadUrl -or
@@ -196,7 +196,7 @@ $patchOptions = @(@('2019', '2022', '2025') | ForEach-Object {
     & $module { param($id) @(Get-SqlServerPatchOptions -VersionId $id) } $_
 })
 Add-CheckResult -Name 'Alle verfügbaren Windows-CUs sind automatisch und hashgebunden beschaffbar' -Success (
-    $patchOptions.Count -eq 65 -and
+    $patchOptions.Count -eq 67 -and
     @($patchOptions | Where-Object { -not $_.CanAutoDownload -or -not $_.Sha256 }).Count -eq 0
 )
 
