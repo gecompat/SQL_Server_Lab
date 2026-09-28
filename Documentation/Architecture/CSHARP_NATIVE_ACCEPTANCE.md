@@ -1,6 +1,6 @@
 # CSharp-Nativabnahme auf Windows und SQL Server 2025
 
-Status: interner opt-in Testpfad; native Ausführung noch `NOT_EXECUTED`.
+Status: interner opt-in Testpfad; letzte native Sprachabnahme `FAILED`.
 Die Katalogvariante bleibt `PREVIEW`. Offline-Build, Paketintegrität und
 synthetische Runnerprüfungen sind keine SQL-/Launchpad-Freigabe.
 
@@ -287,6 +287,27 @@ ein gesonderter autorisierter Runner-Leseweg erforderlich; dieser Slice
 implementiert keinen solchen Diagnose-Workflow und behauptet keinen Zugriff.
 
 ## Begrenzte lokale Gastdiagnose bei Sprachfehlern
+
+Der spätere Lauf `36383157413` auf `cc947151` scheiterte bei der nativen
+Sprachprobe mit SQL-Fehler 39048 während der Bibliotheksinstallation und
+`E_FAIL`. Eigenes Cleanup war erfolgreich. Das belegt weder einen Defekt des
+DLL-Formats noch die konkrete Hostfxr-Ursache; die native Freigabe bleibt offen.
+
+Die eigene Registrierung von `dotnet` setzt jetzt ausschließlich
+`COREHOST_TRACE=1` über `CREATE EXTERNAL LANGUAGE ... ENVIRONMENT_VARIABLES`.
+Die [SQL-Referenz](https://learn.microsoft.com/en-us/sql/t-sql/statements/create-external-language-transact-sql?view=sql-server-ver17)
+beschreibt die Übergabe vor dem Start des externen Prozesses;
+Microsofts [Windows-Registrierungsbeispiel](https://learn.microsoft.com/en-us/sql/language-extensions/install/windows-java?view=sql-server-ver17)
+zeigt das JSON-Format. Für .NET 8 verwendet
+[Host-Tracing](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-environment-variables)
+den Präfix `COREHOST_` und ohne `COREHOST_TRACEFILE` den stderr-Stream.
+Es entstehen weder ein zusätzlicher Dateipfad noch neue Schreibrechte oder
+persistente Host-Umgebungswerte. Die bestehenden begrenzten SQL-Meldungen und
+lokalen Gastlogs bleiben der Diagnoseweg. Ob SQL/Launchpad diese Hostfxr-
+Ausgaben tatsächlich in die erfassten Meldungen weiterleitet, ist `UNPROVEN`;
+die Aktivierung allein ist kein Erfassungs- oder Sprachbeleg. Ein nativer
+Versuch mit dieser geänderten Diagnose steht noch aus. Paketbindung,
+AppContainer-Isolation, Kaltstart und alle Erfolgskriterien bleiben unverändert.
 
 Der Lauf `36378690432` auf `43542f9b` erreichte nachweislich `SQL_PROBE_STARTED`
 und endete mit `NativeAcceptanceStatus=FAILED`, HRESULT `0x80004004` und
