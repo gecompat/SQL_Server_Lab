@@ -211,13 +211,29 @@ wird nicht wiederholt; eine neue verfügbare Runnerfunktion, geänderte
 Voraussetzungen oder erneuerte Benutzerfreigabe erlaubt die Wiederaufnahme.
 Reale Hostwerte, Pfade, Identitäten und Rohlogs bleiben außerhalb Git.
 
-Aktueller C#-Wiederaufnahmepunkt: Der Offline-Build ist abgeschlossen; der
-vorhandene Hyper-V-Workflow enthält noch keinen C#-Acceptance-Modus. Der alte
-lokale Gastplan ist revisionsgebunden und wird nicht unverändert gestartet.
-Nächster Implementierungsschritt ist ein begrenzter eigener Gast-/SQL-Testpfad
-mit Paketbindung, Preflight, Sprach-Roundtrip, Neustart und Own-Cleanup sowie
-ein passender Runner-Einstieg. Bis dahin bleiben Gast-/SQL-Abnahme offen und
-der Katalog `PREVIEW`; UAC ist dafür aktuell kein neu gemessener Blocker.
+### C# zurückgestellt und geänderte Priorität am 2026-09-28
+
+C# bleibt unter den bestehenden Arbeitspaketen `SFT-711`/`SFT-712` erhalten,
+ist aber auf ausdrücklichen Benutzerwunsch `USER_DEFERRED` und kein aktiver
+Arbeitsstrang. Offline-Build, Paketprüfung und eigener begrenzter GitHub-
+Runner für Windows/SQL 2025 sind implementiert. Die letzte native Abnahme
+`36405567818` auf `88c0445f` ist `FAILED`: SQL 39048/39004 und ein leerer
+Hostfxr-Trace (`EMPTY`). Eigenes Cleanup und Evidenceaufbewahrung waren
+erfolgreich; der Katalog bleibt `PREVIEW`. Vertrag und Grenzen stehen in der
+[CSharp-Nativabnahme](../Architecture/CSHARP_NATIVE_ACCEPTANCE.md);
+reale Diagnosen verbleiben ausschließlich privat und lokal.
+
+Die API-3-Kompatibilität ist ein `UNPROVEN`-Verdacht, keine festgestellte
+Fehlerursache. Wiederaufnahme erfolgt erst nach bewusster späterer
+Priorisierung und einer gezielten Vorprüfung von DLL-Ladbarkeit,
+Hostfxr-Voraussetzungen und Schnittstellenvertrag. Keine weitere unveränderte
+VM-Abnahme und keine fortgesetzte Instrumentierung während der Zurückstellung.
+
+Vorrang haben jetzt CLI-/GUI-Menüstruktur und verständliche Bedienführung;
+danach folgen die bestehenden SQL-bezogenen SSIS- und Failover-Arbeitspakete
+entsprechend ihren belegten Voraussetzungen. Maßgeblich bleibt der
+[konsolidierte Ausführungsplan](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md),
+ohne zweiten Backlog oder neue Freigabebehauptungen.
 
 ## Bestandsaufnahme und bereits integrierte Arbeit
 
