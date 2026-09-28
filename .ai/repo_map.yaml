@@ -325,6 +325,9 @@ sources_of_truth:
   ssis_prerequisite_core: Private/SsisPrerequisite.ps1
   ssis_prerequisite_scope: Documentation/Project_Planning/SSIS_ETL_DATA_WAREHOUSE_BACKLOG.md
   validation_ssis_prerequisite: Tests/Static/Invoke-SsisPrerequisiteChecks.ps1
+  ssis_owned_install_core: Private/SsisOwnedInstall.ps1
+  acceptance_ssis_owned_install: Tests/Integration/Invoke-SsisOwnedInstallAcceptance.ps1
+  validation_ssis_owned_install: Tests/Static/Invoke-SsisOwnedInstallChecks.ps1
   repository_capability_inventory: Tools/Get-SqlServerLabCapabilityInventory.ps1
   repository_capability_evidence_index: Documentation/Quality/capability-evidence-index.json
   repository_capability_evidence_schema: Schemas/capability-evidence-index.schema.json

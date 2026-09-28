@@ -578,8 +578,15 @@ try {
         }
         $vm = [PSCustomObject]@{ State = 'Running'; Notes = '' }
         $script:CapturedSqlReadinessNotes = ''
+        $script:CapturedSqlReadinessTimeout = $null
+        $script:CapturedSqlReadinessArguments = $null
+        $script:SqlReadinessTransportFault = $false
         function Get-HyperVManagedVM { [PSCustomObject]@{ VM = $vm; Identity = $identity } }
         function Invoke-HyperVPowerShellDirect {
+            param($TimeoutSeconds,$ArgumentList)
+            $script:CapturedSqlReadinessTimeout=$TimeoutSeconds
+            $script:CapturedSqlReadinessArguments=$ArgumentList
+            if($script:SqlReadinessTransportFault){throw 'SYNTHETIC_SQL_READINESS_TRANSPORT_TIMEOUT'}
             [PSCustomObject]@{
                 status = 'SQL_READY_RUN'; instanceName = 'MSSQLSERVER'; serviceName = 'MSSQLSERVER'
                 majorVersion = 16; productVersion = '16.0.1000.6'; edition = 'Developer Edition'
@@ -594,9 +601,22 @@ try {
             -ExpectedScopeId 'scope-sql' `
             -Credential $Credential `
             -SaPassword $SaPassword `
-            -ExpectedMajorVersion 16
-        [PSCustomObject]@{ Result = $result; Notes = $script:CapturedSqlReadinessNotes }
+            -ExpectedMajorVersion 16 -TimeoutSeconds 600
+        $notes=$script:CapturedSqlReadinessNotes
+        $script:CapturedSqlReadinessNotes=''
+        $script:SqlReadinessTransportFault=$true
+        $transportFailure=$null
+        try {
+            $null=Wait-HyperVGuestSqlReady -VMName 'sql-lab-sql' -ExpectedRunId 'run-sql' -ExpectedScopeId 'scope-sql' `
+                -Credential $Credential -SaPassword $SaPassword -ExpectedMajorVersion 16 -TimeoutSeconds 600
+        }catch{$transportFailure=$_.Exception.Message}
+        [PSCustomObject]@{Result=$result;Notes=$notes;TransportTimeout=$script:CapturedSqlReadinessTimeout;
+            GuestTimeout=$script:CapturedSqlReadinessArguments[3];TransportFailure=$transportFailure;FailureNotes=$script:CapturedSqlReadinessNotes}
     } $specializationCredential $sqlSaPassword
+    Add-CheckResult -Name 'SQL-Readiness begrenzt äußeren Transport und Gastschleife identisch auf 600 Sekunden' `
+        -Success ($sqlReadinessContract.TransportTimeout -eq 600 -and $sqlReadinessContract.GuestTimeout -eq 600)
+    Add-CheckResult -Name 'Äußerer SQL-Readiness-Timeout bleibt Fehler ohne persistierten Erfolgsreceipt' `
+        -Success ($sqlReadinessContract.TransportFailure -ceq 'SYNTHETIC_SQL_READINESS_TRANSPORT_TIMEOUT' -and $sqlReadinessContract.FailureNotes -ceq '')
     Add-CheckResult `
         -Name 'SQL-Readiness persistiert Versionsevidenz, aber weder Gast- noch SA-Credentials' `
         -Success (
