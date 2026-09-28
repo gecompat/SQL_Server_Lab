@@ -224,13 +224,13 @@ function Get-LabHyperVPersistentDataGuestDetachObservation {
                 foreach ($instance in $instances) {
                     $dataSource = if ([string]$instance.Name -eq 'MSSQLSERVER') { 'localhost' } else { "localhost\$([string]$instance.Name)" }
                     $builder = [Data.SqlClient.SqlConnectionStringBuilder]::new()
-                    $builder.DataSource = $dataSource
-                    $builder.InitialCatalog = 'master'
-                    $builder.UserID = 'sa'
-                    $builder.Password = $plain
-                    $builder.Encrypt = $true
-                    $builder.TrustServerCertificate = $true
-                    $builder.ConnectTimeout = 15
+                    $builder['Data Source'] = $dataSource
+                    $builder['Initial Catalog'] = 'master'
+                    $builder['User ID'] = 'sa'
+                    $builder['Password'] = $plain
+                    $builder['Encrypt'] = $true
+                    $builder['TrustServerCertificate'] = $true
+                    $builder['Connect Timeout'] = 15
                     $connection = [Data.SqlClient.SqlConnection]::new($builder.ConnectionString)
                     try {
                         $connection.Open()
