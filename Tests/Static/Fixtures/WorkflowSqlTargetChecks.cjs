@@ -152,6 +152,76 @@ async function main() {
     assert.equal(node('container-operation-dialog').open, false);
     assert.equal(context.queued.length, 2);
   });
-  console.log('WORKFLOW SQL TARGET: ' + passed + ' PASS');
+  const evaluationFetches = [];
+  let evaluationPayload = { GeneratedAt: '2026-01-01T00:00:00Z', Scope: 'Registrierte Instanzen; keine Liveprüfung',
+    Notice: 'Historische Evidence', EmptyMessage: 'Keine Einträge; kein Nachweis gültiger Lizenzen.', Rows: [
+      { Id: '0', Label: 'Vorlage · Windows', Summary: 'Unbekannt; keine gültige Fristaussage', Fields: [
+        { Label: 'Quelle', Value: 'Vorlagenmetadaten' }, { Label: 'Aktualität', Value: 'Historisch; nicht live geprüft' }] },
+      { Id: '1', Label: '<img src=x onerror="throw 1">', Summary: 'Veraltet', Fields: [
+        { Label: 'Nächster Schritt', Value: '<b>Evidence prüfen</b>' }] }
+    ] };
+  context.fetch = async (url, options) => {
+    evaluationFetches.push({ url, options });
+    return { ok: true, json: async () => evaluationPayload };
+  };
+  const openEvaluation = () => node('evaluation-watch-open').events.get('click')[0]();
+  const readEvaluation = () => node('evaluation-watch-read').events.get('click')[0]();
+  const escape = () => { for (const handler of documentEvents.get('keydown')) handler({ key: 'Escape', preventDefault() {} }); };
+  openEvaluation(); escape();
+  check('Evaluation dialog open and cancel neither reads nor starts any action', () => {
+    assert.equal(evaluationFetches.length, 0);
+    assert.equal(context.queued.length, 2);
+    assert.equal(node('evaluation-watch-dialog').open, false);
+  });
+  openEvaluation(); await readEvaluation();
+  check('Evaluation uses dedicated read-only GET and displays scope plus explicit unknown status', () => {
+    assert.equal(evaluationFetches.length, 1);
+    assert.equal(evaluationFetches[0].url, '/api/evaluation-watch');
+    assert.equal(evaluationFetches[0].options.method, undefined);
+    assert.equal(evaluationFetches[0].options.body, undefined);
+    assert.ok(node('evaluation-watch-selection').innerHTML.includes('Unbekannt; keine gültige Fristaussage'));
+    assert.ok(node('evaluation-watch-scope').textContent.includes('keine Liveprüfung'));
+  });
+  node('evaluation-watch-selection').value = '0';
+  node('evaluation-watch-selection').events.get('change')[0]();
+  check('Evaluation selection displays source and freshness without any second request', () => {
+    assert.ok(node('evaluation-watch-details').innerHTML.includes('Aktualität'));
+    assert.equal(evaluationFetches.length, 1);
+    assert.equal(node('evaluation-watch-details').hidden, false);
+  });
+  node('evaluation-watch-selection').value = '1';
+  node('evaluation-watch-selection').events.get('change')[0]();
+  check('Evaluation labels and fields are escaped and previous target details replaced', () => {
+    assert.ok(!node('evaluation-watch-selection').innerHTML.includes('<img'));
+    assert.ok(node('evaluation-watch-details').innerHTML.includes('&lt;b&gt;Evidence prüfen&lt;/b&gt;'));
+    assert.ok(!node('evaluation-watch-details').innerHTML.includes('Vorlagenmetadaten'));
+  });
+  evaluationPayload = { ...evaluationPayload, Rows: [] };
+  await readEvaluation();
+  check('Empty evaluation inventory explicitly denies a validity conclusion', () => {
+    assert.ok(node('evaluation-watch-status').textContent.includes('kein Nachweis'));
+    assert.equal(node('evaluation-watch-selection').disabled, true);
+    assert.equal(node('evaluation-watch-details').hidden, true);
+  });
+  context.fetch = async () => ({ ok: false });
+  await readEvaluation();
+  check('Evaluation read error clears previous data and offers an explicit next step', () => {
+    assert.ok(node('evaluation-watch-status').textContent.includes('Leserechte prüfen'));
+    assert.equal(node('evaluation-watch-selection').disabled, true);
+    assert.equal(node('evaluation-watch-read').disabled, false);
+  });
+  let release;
+  context.fetch = () => new Promise((resolve) => { release = resolve; });
+  const pendingRead = readEvaluation();
+  escape(); openEvaluation();
+  release({ ok: true, json: async () => evaluationPayload });
+  await pendingRead;
+  check('Cancelled evaluation response cannot overwrite a newly opened dialog', () => {
+    assert.ok(node('evaluation-watch-status').textContent.startsWith('Noch nicht gelesen'));
+    assert.equal(node('evaluation-watch-read').disabled, false);
+    assert.equal(context.queued.length, 2);
+  });
+  escape();
+  console.log('WORKFLOW SQL TARGET AND EVALUATION VIEW: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

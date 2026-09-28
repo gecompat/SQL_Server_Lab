@@ -50,6 +50,7 @@
         <button class="guided-workflow-card" type="button" data-guided-command="AutomatedTestEnvironment"><strong>Testgruppe</strong><span>Zusammengehörige, geschützte Testumgebungen verwalten</span></button>
         <button class="guided-workflow-card" type="button" data-guided-command="Cms"><strong>CMS</strong><span>Zentrale Verwaltung erstellen, anpassen und synchronisieren</span></button>
         <button class="guided-workflow-card" type="button" data-guided-command="WindowsSlot" data-provider-capability="hyperv"><strong>Hyper-V-Slots</strong><span>Windows- und SQL-Slots planen und bereitstellen</span></button>
+        <button class="guided-workflow-card" type="button" id="evaluation-watch-open"><strong>Evaluationsfristen</strong><span>Gespeicherte Windows-/SQL-Fristen lesen und einordnen</span></button>
       </div>
     </section>
 
@@ -478,6 +479,18 @@
       <p id="resource-note" class="form-note"></p>
       <div class="dialog-actions"><button type="button" class="button secondary" value="cancel" formnovalidate>Abbrechen</button><button class="button primary" value="default">Ressourcen im Hintergrund ändern</button></div>
     </form>
+  </dialog>
+
+  <dialog id="evaluation-watch-dialog">
+    <div class="read-only-dialog-content">
+    <div class="dialog-heading"><div><p class="eyebrow">WARTUNG · READ-ONLY</p><h2>Windows-/SQL-Evaluationsfristen</h2></div><button type="button" class="icon-button" value="cancel" aria-label="Schließen">×</button></div>
+    <p class="form-note">Liest ausschließlich gespeicherte Metadaten im konfigurierten State-Root. Keine Liveprüfung, kein Gastzugriff und kein Start. Warnung: 30 Tage; kritisch: 7 Tage.</p>
+    <p id="evaluation-watch-status" role="status" aria-live="polite"></p>
+    <p id="evaluation-watch-scope" class="form-note"></p>
+    <label>Vorlage oder Instanz auswählen<select id="evaluation-watch-selection" disabled><option value="">Zuerst ausdrücklich lesen</option></select></label>
+    <div id="evaluation-watch-details" class="selection-details" hidden></div>
+    <div class="dialog-actions"><button type="button" class="button secondary" value="cancel">Schließen</button><button type="button" class="button primary" id="evaluation-watch-read">Fristen lesen / aktualisieren</button></div>
+    </div>
   </dialog>
 
   <script src="app.js"></script>

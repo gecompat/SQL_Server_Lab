@@ -415,6 +415,16 @@ try {
                 Write-UiResponse -Context $context -Body (Get-UiWorkflowInventoryResponse -MediaRoot $mediaRoot | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
                 continue
             }
+            if ($path -eq '/api/evaluation-watch' -and $context.Request.HttpMethod -eq 'GET') {
+                try {
+                    $view = & (Get-Module SqlServerLab) { Get-LabEvaluationWatchView }
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body 'EVALUATION_WATCH_READ_UNAVAILABLE' -StatusCode 503
+                }
+                continue
+            }
             if ($path -eq '/api/commands' -and $context.Request.HttpMethod -eq 'GET') {
                 $catalog = & (Get-Module SqlServerLab) { Get-LabPublicCommandWebCatalog }
                 Write-UiResponse -Context $context -Body (ConvertTo-Json -InputObject @($catalog) -Depth 12) -ContentType 'application/json; charset=utf-8'

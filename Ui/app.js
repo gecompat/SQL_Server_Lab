@@ -2092,9 +2092,65 @@ $('#retained-store-delete').addEventListener('click', () => {
     'RemoveRetainedStore', parameters, 'Endgültig löschen');
 });
 
+let evaluationWatchView = null;
+let evaluationWatchRequest = 0;
+
+function renderEvaluationWatchDetails() {
+  const selected = $('#evaluation-watch-selection').value;
+  const row = evaluationWatchView?.Rows.find((entry) => entry.Id === selected);
+  const details = $('#evaluation-watch-details');
+  details.hidden = !row;
+  details.innerHTML = row ? '<dl>' + row.Fields.map((field) => '<dt>' + escapeHtml(field.Label) + '</dt><dd>' + escapeHtml(field.Value) + '</dd>').join('') + '</dl>' : '';
+}
+
+function clearEvaluationWatchView() {
+  evaluationWatchView = null;
+  $('#evaluation-watch-selection').innerHTML = '<option value="">Zuerst ausdrücklich lesen</option>';
+  $('#evaluation-watch-selection').value = '';
+  $('#evaluation-watch-selection').disabled = true;
+  $('#evaluation-watch-scope').textContent = '';
+  renderEvaluationWatchDetails();
+}
+
+$('#evaluation-watch-open').addEventListener('click', () => {
+  evaluationWatchRequest++;
+  clearEvaluationWatchView();
+  $('#evaluation-watch-status').textContent = 'Noch nicht gelesen. Es werden keine Ereignisse gespeichert.';
+  $('#evaluation-watch-read').disabled = false;
+  $('#evaluation-watch-dialog').showModal();
+});
+$('#evaluation-watch-selection').addEventListener('change', renderEvaluationWatchDetails);
+$('#evaluation-watch-read').addEventListener('click', async () => {
+  const request = ++evaluationWatchRequest;
+  clearEvaluationWatchView();
+  $('#evaluation-watch-read').disabled = true;
+  $('#evaluation-watch-status').textContent = 'Gespeicherte Evaluationsdaten werden gelesen …';
+  try {
+    const response = await fetch('/api/evaluation-watch', { cache: 'no-store' });
+    if (!response.ok) throw new Error('EVALUATION_WATCH_READ_UNAVAILABLE');
+    const view = await response.json();
+    if (!view || !Array.isArray(view.Rows)) throw new Error('EVALUATION_WATCH_RESPONSE_INVALID');
+    if (request !== evaluationWatchRequest || !$('#evaluation-watch-dialog').open) return;
+    evaluationWatchView = view;
+    $('#evaluation-watch-status').textContent = view.Rows.length ? 'Gelesen: ' + view.GeneratedAt + ' · Eintrag für Details auswählen.' : view.EmptyMessage;
+    $('#evaluation-watch-scope').textContent = view.Scope + ' ' + view.Notice;
+    $('#evaluation-watch-selection').innerHTML = '<option value="">Eintrag auswählen</option>' + view.Rows.map((row) => '<option value="' + escapeHtml(row.Id) + '">' + escapeHtml(row.Label + ' · ' + row.Summary) + '</option>').join('');
+    $('#evaluation-watch-selection').disabled = view.Rows.length === 0;
+  }
+  catch {
+    if (request !== evaluationWatchRequest || !$('#evaluation-watch-dialog').open) return;
+    clearEvaluationWatchView();
+    $('#evaluation-watch-status').textContent = 'Evaluationsfristen konnten nicht gelesen werden. State-Konfiguration und Leserechte prüfen; danach erneut lesen. Keine gültige Fristaussage.';
+  }
+  finally {
+    if (request === evaluationWatchRequest) $('#evaluation-watch-read').disabled = false;
+  }
+});
+
 function cancelDialog(dialog) {
   if (!dialog?.open) return;
   if (dialog.id === 'confirmation-dialog') pendingConfirmation = null;
+  if (dialog.id === 'evaluation-watch-dialog') { evaluationWatchRequest++; clearEvaluationWatchView(); }
   dialog.querySelectorAll('input[type="password"]').forEach((input) => { input.value = ''; });
   dialog.close('cancel');
 }

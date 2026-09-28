@@ -114,6 +114,13 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Keine Mutation. Ergebnisse werden bis zur Rueckkehrbestaetigung angezeigt.'
             Command = 'Test-SqlServerLabPrerequisite / Get-SqlServerLabCleanupAudit'
         }
+        'evaluation-watch-menu' = @{
+            Title = 'Windows-/SQL-Evaluationsfristen'
+            Purpose = 'Liest gespeicherte Vorlagen- und Instanzfristen im konfigurierten State-Root. Eintrag auswählen, um Quelle, Aktualität und nächsten Schritt zu sehen.'
+            Effects = 'Read-only: kein Gastzugriff, kein Start und keine Ereignisregistrierung. Unbekannte oder veraltete Evidence ist keine gültige Fristaussage.'
+            Command = 'Get-SqlServerLabEvaluationWatch'
+            Related = @('Warnfrist 30 Tage, kritische Restlaufzeit 7 Tage.', 'Windows-Instanzen werden im registrierten Zustand RUNNING, SQL-Instanzen in RUNNING und STOPPED berücksichtigt. Keine vollständige Hostinventur.')
+        }
         'settings-menu' = @{
             Title   = 'Einstellungen'
             Purpose = 'Scheduler und Parallelitaet, Ton und Ruhemodus sowie die Ersteinrichtung von Lab_Base und Lab_Data.'

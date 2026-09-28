@@ -2446,6 +2446,26 @@ die diesen Secret-Vertrag nicht verwenden. Die Prozessvariable gilt nur im
 aktuellen Fenster; nach einem Neustart der Sitzung muss sie erneut gesetzt
 werden.
 
+## Geführte Evaluationsübersicht
+
+CLI und Browser bieten eine gemeinsame read-only Fachansicht für
+`Get-SqlServerLabEvaluationWatch`: ausdrücklich lesen, registrierte Vorlage
+oder Instanz auswählen, Quelle/Aktualität/Frist und nächsten Schritt anzeigen.
+Sie verwendet den konfigurierten State-Root und die festen Schwellen 30/7 Tage,
+ohne `RecordEvents`. Windows-Instanzen erscheinen nur im registrierten Zustand
+`RUNNING`, SQL-Instanzen in `RUNNING` oder `STOPPED`. Es gibt keine vollständige
+Multi-Root-/Hostinventur und keine neue Runtime- oder Gastabfrage.
+
+Windows-/Vorlagenmetadaten besitzen in diesem Vertrag keinen durchgängigen
+Aktualitätsnachweis. Lesezeit und Ablaufdatum ersetzen ihn nicht. Fehlende oder
+veraltete SQL-Evidence bleibt unbekannt; auch eine leere Liste bestätigt keine
+Lizenzgültigkeit. Die Dialoge registrieren keine Ereignisse oder Scheduler und
+führen weder Capture, Erneuerung, Migration noch Lifecycleaktionen aus.
+Synthetische Tests prüfen importierte CLI-/GET-Handler, wiederholtes Lesen mit
+unveränderten Fixture-Dateien und die echten JavaScript-Handler einschließlich
+Auswahl, Abbruch, leerem Ergebnis, Lesefehler und verspäteter Antwort. Das ist
+kein neuer nativer Evaluations- oder positiver Deadline-Nachweis.
+
 ## Priorisierte nächste technische Schritte
 
 1. Die verbleibenden providerneutralen Software-Intents an die Software-Runtime
