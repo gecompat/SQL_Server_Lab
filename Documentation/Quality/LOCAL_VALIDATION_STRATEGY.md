@@ -1,5 +1,17 @@
 # Lokale Validierungsstrategie
 
+## Private Docker-CI-Diagnostik
+
+Der selbst gehostete Docker-Gate schreibt Preflight- und Testausgaben nur in
+lokale `*.private.log`-Dateien unter `RUNNER_TEMP`. Er lädt keine Rohlogs hoch;
+öffentliche Fehler und Ergebnisse enthalten feste Meldungen ohne übernommene
+Host- oder Ausnahmeinformationen. Die temporären Dateien unterliegen dem
+Cleanup des Runners. Testumfang, Modi, Exitcodeprüfung und Runtime-Sperre bleiben
+unverändert. `Invoke-DockerSmokePrivacyChecks.ps1` führt die Workflowblöcke mit
+synthetischen PowerShell-Kindprozessen aus und prüft erfolgreiche sowie
+fehlgeschlagene Schritte einschließlich privater stdout-/stderr-Ausgabe.
+Diese Offline-Prüfung ersetzt den erforderlichen Docker-Providernachweis nicht.
+
 ## SQL Server 2025 External Languages auf cgroup v2
 
 Die expliziten `shared-user-v2`-Varianten besitzen getrennte native
