@@ -42,6 +42,9 @@ sources_of_truth:
   csharp_native_acceptance: Tests/Integration/Invoke-CSharpHyperVAcceptance.ps1
   csharp_native_acceptance_worker: Tests/Integration/Invoke-CSharpHyperVAcceptanceWorker.ps1
   csharp_native_acceptance_contracts: Tests/Common/CSharpNativeAcceptance.ps1
+  csharp_native_request: Tests/Integration/Invoke-CSharpNativeRequestAcceptance.ps1
+  csharp_native_request_contracts: Tests/Common/CSharpNativeProfileRequest.ps1
+  csharp_native_request_checks: Tests/Static/Fixtures/CSharpNativeRequestChecks.ps1
   csharp_native_acceptance_guest: Tests/Integration/Fixtures/CSharp/guest.ps1
   csharp_native_acceptance_workflow: .github/workflows/csharp-native-acceptance.yml
   csharp_native_acceptance_guide: Documentation/Architecture/CSHARP_NATIVE_ACCEPTANCE.md
