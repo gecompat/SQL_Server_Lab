@@ -39,6 +39,15 @@ einem tatsächlich erfolgreichen, passenden Lauf verwendet.
 
 ### 1.2 Verbindlich berücksichtigte Planungsquellen
 
+Die ausdrückliche Priorisierung vom 2026-09-28 stellt C# unter
+`SFT-711`/`SFT-712` als `USER_DEFERRED` zurück. Vorrang haben CLI-/GUI-
+Menüstruktur und verständliche Bedienführung, danach bestehende SQL-bezogene
+SSIS- und Failover-Arbeitspakete mit belegten Voraussetzungen. Die
+[Entwicklungswelle](AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md#c-zurückgestellt-und-geänderte-priorität-am-2026-09-28)
+hält Status und Wiederaufnahmebedingung fest. Diese Reihenfolge ersetzt die
+ältere aktive C#-Priorisierung; offene Aufgaben und tatsächliche Nachweise
+bleiben erhalten.
+
 Die ausdrückliche Priorisierung vom 2026-09-20 zieht Podman-RAG/Golden,
 isoliertes Hyper-V-RAG/Agent und danach persistentes Retrieval/Re-Embedding vor.
 Die [Entwicklungswelle](AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md) hält die

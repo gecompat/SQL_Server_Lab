@@ -13,6 +13,14 @@ für SQL Server External Languages im providerneutralen Lab-Core. Es bleibt
 selbst kein Runtime-Nachweis; maßgeblich sind Katalog, Code und die tatsächlich
 ausgeführten providergetrennten Acceptances.
 
+Die spätere C#-Erweiterung unter denselben Arbeitspaketen ist seit
+2026-09-28 auf Benutzerwunsch `USER_DEFERRED`. Ihr Runner ist implementiert,
+die letzte native Abnahme ist `FAILED`, der Katalog bleibt `PREVIEW`.
+Priorität und Wiederaufnahmebedingung stehen ausschließlich in der
+[kanonischen Entwicklungswelle](AUTONOMOUS_DEVELOPMENT_WAVE_2026-09-10.md#c-zurückgestellt-und-geänderte-priorität-am-2026-09-28),
+der technische Stand in der [CSharp-Nativabnahme](../Architecture/CSHARP_NATIVE_ACCEPTANCE.md).
+Der folgende historische SQL-2022-Referenzumfang wird dadurch nicht verändert.
+
 ## 1. Ziel und Abgrenzung
 
 Eine Lab-Instanz soll deklarativ eine zu SQL Server passende External Runtime
