@@ -63,7 +63,7 @@ foreach($fault in @('None','RecordOpen','RecordWrite','TerminalRecord','CreatedR
         try{
             $result=Invoke-CSharpNativeWithTemporaryProfile -ProfileJson ($requestProfile|ConvertTo-Json -Compress) -RecoveryRecordPath $recordPath -RequestBinding $requestBinding -Action {
                 $trace.Add('Supervisor')
-                if($fault -in @('Supervisor','BothCleanup')){throw (New-CSharpNativeFailureException -PrimaryFailure 'CSHARP_NATIVE_CHILD_TIMEOUT' -CleanupFailure 'CSHARP_NATIVE_OWNED_RUN_CLEANUP_FAILED')}
+                if($fault -in @('Supervisor','BothCleanup')){throw (New-CSharpNativeFailureException -PrimaryFailure 'CSHARP_NATIVE_CHILD_TIMEOUT' -CleanupFailure 'CSHARP_NATIVE_OWNED_RUN_CLEANUP_FAILED' -EvidenceFailure 'CSHARP_NATIVE_EVIDENCE_OUTPUT_FAILED')}
                 [pscustomobject]@{Status='PASSED'}
             }
         }catch{$diagnostic=Get-CSharpNativeRequestFailureDiagnostic $_}
@@ -77,8 +77,8 @@ foreach($fault in @('None','RecordOpen','RecordWrite','TerminalRecord','CreatedR
             'Collision' {$diagnostic.PrimaryFailure -ceq 'CSHARP_NATIVE_PROFILE_EXISTS' -and ($trace -join ',') -ceq 'Create'}
             'PartialWrite' {$trace.Contains('Cleanup') -and -not $trace.Contains('Supervisor') -and ($diagnostic|ConvertTo-Json -Compress) -notmatch 'synthetic private'}
             'Resolve' {$trace.Contains('Cleanup') -and -not $trace.Contains('Supervisor') -and $diagnostic.PrimaryFailure -ceq 'CSHARP_NATIVE_PROFILE_ACL'}
-            'Supervisor' {$trace.Contains('Cleanup') -and $diagnostic.PrimaryFailure -ceq 'CSHARP_NATIVE_CHILD_TIMEOUT' -and $diagnostic.CleanupFailure -ceq 'CSHARP_NATIVE_OWNED_RUN_CLEANUP_FAILED' -and $diagnostic.RecoveryRequired}
-            'BothCleanup' {$diagnostic.PrimaryFailure -ceq 'CSHARP_NATIVE_CHILD_TIMEOUT' -and $diagnostic.CleanupFailure -ceq 'CSHARP_NATIVE_OWNED_RUN_CLEANUP_FAILED' -and $diagnostic.ProfileCleanupFailure -ceq 'CSHARP_NATIVE_PROFILE_CLEANUP_FAILED' -and $diagnostic.RecoveryRequired}
+            'Supervisor' {$diagnostic.EvidenceFailure -ceq 'CSHARP_NATIVE_EVIDENCE_OUTPUT_FAILED' -and $trace.Contains('Cleanup') -and $diagnostic.PrimaryFailure -ceq 'CSHARP_NATIVE_CHILD_TIMEOUT' -and $diagnostic.CleanupFailure -ceq 'CSHARP_NATIVE_OWNED_RUN_CLEANUP_FAILED' -and $diagnostic.RecoveryRequired}
+            'BothCleanup' {$diagnostic.EvidenceFailure -ceq 'CSHARP_NATIVE_EVIDENCE_OUTPUT_FAILED' -and $diagnostic.PrimaryFailure -ceq 'CSHARP_NATIVE_CHILD_TIMEOUT' -and $diagnostic.CleanupFailure -ceq 'CSHARP_NATIVE_OWNED_RUN_CLEANUP_FAILED' -and $diagnostic.ProfileCleanupFailure -ceq 'CSHARP_NATIVE_PROFILE_CLEANUP_FAILED' -and $diagnostic.RecoveryRequired}
         }
         Add-CheckResult -Name ('CSharp request: owned wrapper '+$fault+' and environment restore') -Success ($good -and $restored)
         if($fault -notin @('RecordOpen','RecordWrite','TerminalRecord','CreatedRecord')){

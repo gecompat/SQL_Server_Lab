@@ -33,12 +33,11 @@ jobs:
           CSHARP_REQUEST_HASH: ${{ inputs.request_sha256 }}
         run: |
           $ErrorActionPreference='Stop'
-          $localLog=Join-Path $env:RUNNER_TEMP ('csharp-native-'+[guid]::NewGuid().ToString('N')+'.log')
           try {
-          & ./Tests/Integration/Invoke-CSharpNativeRequestAcceptance.ps1 -Profile $env:CSHARP_PROFILE -RequestSha256 $env:CSHARP_REQUEST_HASH *> $localLog
+          & ./Tests/Integration/Invoke-CSharpNativeRequestAcceptance.ps1 -Profile $env:CSHARP_PROFILE -RequestSha256 $env:CSHARP_REQUEST_HASH | Out-Null
           Write-Host 'CSharp SQL2025 Native Acceptance: PASS; own cleanup verified.'
           } catch {
-            $_ | Out-String | Add-Content -LiteralPath $localLog
+            # Raw failure detail is retained exclusively by the local wrapper.
             . ./Tests/Common/CSharpNativeProfileRequest.ps1
             $diagnostic=Get-CSharpNativeRequestFailureDiagnostic $_
             $diagnostic | ConvertTo-Json -Compress | Write-Host

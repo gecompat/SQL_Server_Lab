@@ -150,36 +150,40 @@ function Invoke-CSharpNativeChild {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Worker,[Parameter(Mandatory)][string]$PlanPath,
         [Parameter(Mandatory)][string]$OutputRoot,[ValidateRange(1,7200)][int]$TimeoutSeconds=7200)
-    $process=$null;$started=$false;$terminated=$true;$stdout=$null;$stderr=$null
+    $process=$null;$started=$false;$terminated=$true;$streams=@();$tasks=@();$failure=$null;$evidenceFailure=$null;$exitCode=$null
     try{
+        # CreateNew prevents retries from replacing earlier evidence. Streams exist before Start.
+        foreach($name in @('worker.stdout.log','worker.stderr.log')){
+            $streams+=,[IO.FileStream]::new((Join-Path $OutputRoot $name),[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::Read,1,[IO.FileOptions]::WriteThrough)
+        }
         $start=[Diagnostics.ProcessStartInfo]::new();$start.FileName=(Get-Command pwsh -ErrorAction Stop).Source
         $start.UseShellExecute=$false;$start.CreateNoWindow=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
         foreach($argument in @('-NoLogo','-NoProfile','-File',$Worker,'-PlanPath',$PlanPath)){$start.ArgumentList.Add($argument)}
         $process=[Diagnostics.Process]::new();$process.StartInfo=$start
         if(-not $process.Start()){throw 'CSHARP_NATIVE_CHILD_START_FAILED'}
         $started=$true;$terminated=$false
-        $stdout=$process.StandardOutput.ReadToEndAsync();$stderr=$process.StandardError.ReadToEndAsync()
-        if(-not $process.WaitForExit($TimeoutSeconds*1000)){
-            $process.Kill($true);$terminated=$process.WaitForExit(15000)
-            if(-not $terminated){throw 'CSHARP_NATIVE_CHILD_TERMINATION_UNCONFIRMED'}
-            throw 'CSHARP_NATIVE_CHILD_TIMEOUT'
-        }
-        $terminated=$true
-        if(-not $stdout.Wait(10000) -or -not $stderr.Wait(10000)){throw 'CSHARP_NATIVE_CHILD_OUTPUT_TIMEOUT'}
-        [IO.File]::WriteAllText((Join-Path $OutputRoot 'worker.stdout.log'),$stdout.GetAwaiter().GetResult())
-        [IO.File]::WriteAllText((Join-Path $OutputRoot 'worker.stderr.log'),$stderr.GetAwaiter().GetResult())
-        return [pscustomobject]@{ExitCode=$process.ExitCode;Terminated=$true}
+        $tasks=@($process.StandardOutput.BaseStream.CopyToAsync($streams[0]),$process.StandardError.BaseStream.CopyToAsync($streams[1]))
+        if(-not $process.WaitForExit($TimeoutSeconds*1000)){throw 'CSHARP_NATIVE_CHILD_TIMEOUT'}
+        $terminated=$true;$exitCode=$process.ExitCode
     }catch{
-        if($started -and -not $terminated){try{$process.Kill($true);$terminated=$process.WaitForExit(15000)}catch{$terminated=$false}}
-        $_.Exception.Data['CSharpChildTerminated']=$terminated
-        throw
+        $failure=$_
+        if(-not $started -and $streams.Count -lt 2){$evidenceFailure='CSHARP_NATIVE_EVIDENCE_OUTPUT_FAILED'}
     }finally{
-        if($terminated -and $stdout -and $stdout.IsCompletedSuccessfully){[IO.File]::WriteAllText((Join-Path $OutputRoot 'worker.stdout.log'),$stdout.GetAwaiter().GetResult())}
-        if($terminated -and $stderr -and $stderr.IsCompletedSuccessfully){[IO.File]::WriteAllText((Join-Path $OutputRoot 'worker.stderr.log'),$stderr.GetAwaiter().GetResult())}
+        if($started -and -not $terminated){try{$process.Kill($true);$terminated=$process.WaitForExit(15000)}catch{$terminated=$false}}
+        foreach($task in $tasks){try{if(-not $task.Wait(10000)){$evidenceFailure='CSHARP_NATIVE_EVIDENCE_OUTPUT_FAILED'}}catch{$evidenceFailure='CSHARP_NATIVE_EVIDENCE_OUTPUT_FAILED'}}
+        foreach($stream in $streams){
+            try{$stream.Flush($true)}catch{$evidenceFailure='CSHARP_NATIVE_EVIDENCE_OUTPUT_FAILED'}
+            try{$stream.Dispose()}catch{$evidenceFailure='CSHARP_NATIVE_EVIDENCE_OUTPUT_FAILED'}
+        }
         if($process){$process.Dispose()}
     }
+    if($failure){
+        $failure.Exception.Data['CSharpChildTerminated']=$terminated
+        $failure.Exception.Data['EvidenceFailure']=$evidenceFailure
+        throw $failure
+    }
+    return [pscustomobject]@{ExitCode=$exitCode;Terminated=$terminated;EvidenceFailure=$evidenceFailure}
 }
-
 function Enable-CSharpNativeGuestCopy {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$VM)
@@ -201,25 +205,26 @@ function Assert-CSharpNativeLocalPath {
 }
 
 function New-CSharpNativeFailureException {
-    param([string]$PrimaryFailure,[string]$CleanupFailure)
+    param([string]$PrimaryFailure,[string]$CleanupFailure,[string]$EvidenceFailure)
     $exception=[InvalidOperationException]::new($(if($CleanupFailure){'CSHARP_NATIVE_RECOVERY_REQUIRED'}else{'CSHARP_NATIVE_ACCEPTANCE_FAILED'}))
     $exception.Data['PrimaryFailure']=$PrimaryFailure
     $exception.Data['CleanupFailure']=$CleanupFailure
+    $exception.Data['EvidenceFailure']=$EvidenceFailure
     return $exception
 }
 
 function Get-CSharpNativeFailureDiagnostic {
     param([Parameter(Mandatory)]$ErrorRecord)
     $primary=Get-CSharpNativeFailureCode $ErrorRecord
-    $cleanup=$null
-    foreach($key in @('PrimaryFailure','CleanupFailure')){
+    $cleanup=$null;$evidenceFailure=$null
+    foreach($key in @('PrimaryFailure','CleanupFailure','EvidenceFailure')){
         $value=[string]$ErrorRecord.Exception.Data[$key]
         if($value){
             if($value.Length -gt 128 -or $value -cnotmatch '^CSHARP_NATIVE_[A-Z_]+$'){$value='CSHARP_NATIVE_UNCLASSIFIED_FAILURE'}
-            if($key -eq 'PrimaryFailure'){$primary=$value}else{$cleanup=$value}
+            if($key -eq 'PrimaryFailure'){$primary=$value}elseif($key -eq 'CleanupFailure'){$cleanup=$value}else{$evidenceFailure=$value}
         }
     }
-    [pscustomobject]@{PrimaryFailure=$primary;CleanupFailure=$cleanup;RecoveryRequired=[bool]$cleanup;
+    [pscustomobject]@{PrimaryFailure=$primary;CleanupFailure=$cleanup;EvidenceFailure=$evidenceFailure;RecoveryRequired=[bool]$cleanup;
         ReasonCode=$(if($cleanup){'CSHARP_NATIVE_RECOVERY_REQUIRED'}else{$primary})}
 }
 

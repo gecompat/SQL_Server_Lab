@@ -9,16 +9,17 @@
     Kindprozessbeendigung erfordert Recovery und sperrt paralleles Cleanup.
 #>
 [CmdletBinding()]
-param([Parameter(Mandatory)][string]$Profile)
+param([Parameter(Mandatory)][string]$Profile,[Parameter(Mandatory)][string]$EvidenceRoot)
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-. (Join-Path $repoRoot 'Tests/Common/CSharpNativeAcceptance.ps1')
+. (Join-Path $repoRoot 'Tests/Common/CSharpNativeEvidence.ps1')
 $event=Get-Content -LiteralPath $env:GITHUB_EVENT_PATH -Raw|ConvertFrom-Json
 $dispatch=[pscustomobject]@{EventName=$env:GITHUB_EVENT_NAME;Ref=$env:GITHUB_REF;Repository=$env:GITHUB_REPOSITORY;EventRepository=$event.repository.full_name;ExpectedCommit=$env:GITHUB_SHA;CheckoutCommit=(git -C $repoRoot rev-parse HEAD);Dirty=[bool](git -C $repoRoot status --porcelain --untracked-files=no);ArtifactId=$null}
 Assert-CSharpNativeCheckout $dispatch
 if(-not $IsWindows){throw 'CSHARP_NATIVE_WINDOWS_REQUIRED'}
 $principal=[Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
 if(-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){throw 'CSHARP_NATIVE_ELEVATED_RUNNER_REQUIRED'}
+$evidence=Claim-CSharpNativeEvidence -Root $EvidenceRoot -Commit $env:GITHUB_SHA -WorkflowRun $env:GITHUB_RUN_ID
 $configuration=Get-CSharpNativeProfile -Name $Profile
 $ArtifactId=$configuration.ArtifactId
 $dispatch.ArtifactId=$ArtifactId
@@ -34,10 +35,8 @@ Assert-CSharpNativeFile -Path $Package -ExpectedHash $PackageSha256
 Assert-CSharpNativeFile -Path $Probe -ExpectedHash $ProbeSha256 -MaximumBytes 1048576
 Assert-CSharpNativeFile -Path $RuntimeArchive -ExpectedHash $runtimeHash -Algorithm SHA512
 $null=& (Join-Path $repoRoot 'Tools/CSharpBuild/Test-ExternalRuntimeWindowsCSharpPackage.ps1') -Package $Package -ExpectedSha256 $PackageSha256
-$operation='csharp-native-'+[guid]::NewGuid().ToString('N')
-$root=Join-Path $repoRoot ('.artifacts/test-runs/'+$operation)
-Assert-CSharpNativeLocalPath $root
-$null=New-Item -ItemType Directory -Path $root
+$operation=$evidence.OperationId
+$root=$EvidenceRoot
 $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 if(-not $StateRoot){$StateRoot=& $module {Get-LabStateRoot}}
 if(-not $MediaRoot){$MediaRoot=& $module {Get-LabMediaRootDefault}}
@@ -66,16 +65,19 @@ Assert-CSharpNativeFile -Path (Join-Path $payload 'probe.sql') -ExpectedHash $sq
 $planPath=Join-Path $root 'plan.json'
 @{OperationId=$operation;ArtifactId=$ArtifactId;StateRoot=$StateRoot;MediaRoot=$MediaRoot;MediaEdition=$MediaEdition;SqlMediaPath=$SqlMediaPath;
     PayloadRoot=$payload;PackageSha256=$PackageSha256;ProbeSha256=$ProbeSha256;SqlSha256=$sqlHash}|ConvertTo-Json|Set-Content -LiteralPath $planPath
-$terminated=$true;$failure=$null;$cleanupFailure=$null;$mutex=$null;$acquired=$false
+$terminated=$true;$failure=$null;$cleanupFailure=$null;$evidenceFailure=$null;$mutex=$null;$acquired=$false
 try{
     $env:SQL_SERVER_LAB_RESOURCE_LIFECYCLE='test'
     $env:SQL_SERVER_LAB_TEST_OPERATION_ID=$operation
     $child=Invoke-CSharpNativeChild -Worker (Join-Path $PSScriptRoot 'Invoke-CSharpHyperVAcceptanceWorker.ps1') -PlanPath $planPath -OutputRoot $root
+    $evidenceFailure=$child.EvidenceFailure
     if($child.ExitCode -ne 0){throw 'CSHARP_NATIVE_CHILD_FAILED'}
+    if($evidenceFailure){throw 'CSHARP_NATIVE_EVIDENCE_OUTPUT_FAILED'}
     $result=Get-Content -LiteralPath (Join-Path $root 'worker-result.json') -Raw|ConvertFrom-Json
     if($result.Status -cne 'SQL_PROBE_AND_RESTART_PASSED' -or $result.OperationId -cne $operation -or $result.Commit -cne $env:GITHUB_SHA){throw 'CSHARP_NATIVE_CHILD_RESULT_INVALID'}
 }catch{
     $failure=Get-CSharpNativeFailureCode $_
+    if($_.Exception.Data['EvidenceFailure']){$evidenceFailure=[string]$_.Exception.Data['EvidenceFailure']}
     if($_.Exception.Data.Contains('CSharpChildTerminated')){$terminated=[bool]$_.Exception.Data['CSharpChildTerminated']}
 }
 finally{
@@ -91,11 +93,11 @@ finally{
     if($acquired){$mutex.ReleaseMutex()};if($mutex){$mutex.Dispose()}
 }
 $nativeStatus='NOT_EXECUTED'
-try{$nativeStatus=Get-CSharpNativeSqlStatus -AttemptPath (Join-Path $root 'native-attempt.json') -OperationId $operation -Commit $env:GITHUB_SHA -Passed (-not $failure -and -not $cleanupFailure)}catch{$failure=Get-CSharpNativeFailureCode $_}
+try{$nativeStatus=Get-CSharpNativeSqlStatus -AttemptPath (Join-Path $root 'native-attempt.json') -OperationId $operation -Commit $env:GITHUB_SHA -Passed (-not $failure -and -not $cleanupFailure)}catch{if(-not $failure){$failure=Get-CSharpNativeFailureCode $_};$nativeStatus='UNKNOWN';$evidenceFailure='CSHARP_NATIVE_EVIDENCE_STATUS_FAILED'}
 if(-not $failure -and -not $cleanupFailure -and $nativeStatus -ne 'PASSED'){$failure='CSHARP_NATIVE_ATTEMPT_MISSING'}
 $receipt=[pscustomobject]@{Contract='SqlServerLab.CSharpNativeAcceptance/1.0';Status=$(if($failure -or $cleanupFailure){'FAILED'}else{'PASSED'});
-    Commit=$env:GITHUB_SHA;PrimaryFailure=$failure;CleanupFailure=$cleanupFailure;NativeAcceptanceStatus=$nativeStatus}
-$receipt|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $root 'receipt.json')
+    Commit=$env:GITHUB_SHA;PrimaryFailure=$failure;CleanupFailure=$cleanupFailure;EvidenceFailure=$evidenceFailure;NativeAcceptanceStatus=$nativeStatus}
+try{$receipt|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $root 'receipt.json') -ErrorAction Stop}catch{$evidenceFailure='CSHARP_NATIVE_EVIDENCE_RECEIPT_FAILED';if(-not $failure){$failure=$evidenceFailure}}
 if($cleanupFailure){Write-Host "RECOVERY_REQUIRED: $cleanupFailure"}
-if($failure -or $cleanupFailure){throw (New-CSharpNativeFailureException -PrimaryFailure $failure -CleanupFailure $cleanupFailure)}
+if($failure -or $cleanupFailure){throw (New-CSharpNativeFailureException -PrimaryFailure $failure -CleanupFailure $cleanupFailure -EvidenceFailure $evidenceFailure)}
 $receipt

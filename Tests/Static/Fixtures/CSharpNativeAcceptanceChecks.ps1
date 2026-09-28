@@ -25,10 +25,11 @@ $syntheticWorker=Join-Path $nativeRoot 'worker.ps1'
 'param($PlanPath) Write-Output "synthetic stdout"; [Console]::Error.WriteLine("synthetic stderr"); exit 7'|Set-Content $syntheticWorker
 $child=Invoke-CSharpNativeChild -Worker $syntheticWorker -PlanPath $syntheticFile -OutputRoot $nativeRoot -TimeoutSeconds 10
 Add-CheckResult -Name 'CSharp native: echter Kindprozess bewahrt Exitcode und lokale Logs' -Success ($child.Terminated -and $child.ExitCode -eq 7 -and ([IO.File]::ReadAllText((Join-Path $nativeRoot 'worker.stderr.log'))) -match 'synthetic stderr')
-'param($PlanPath) Start-Sleep -Seconds 30'|Set-Content $syntheticWorker
+'param($PlanPath) Write-Output "synthetic before timeout"; Start-Sleep -Seconds 30'|Set-Content $syntheticWorker
+$timeoutRoot=Join-Path $nativeRoot 'timeout-output';$null=[IO.Directory]::CreateDirectory($timeoutRoot)
 $caught='';$terminated=$false
-try{Invoke-CSharpNativeChild -Worker $syntheticWorker -PlanPath $syntheticFile -OutputRoot $nativeRoot -TimeoutSeconds 1}catch{$caught=$_.Exception.Message;$terminated=$_.Exception.Data['CSharpChildTerminated']}
-Add-CheckResult -Name 'CSharp native: echter Timeout bestätigt Kindprozessende vor Cleanup' -Success ($caught -ceq 'CSHARP_NATIVE_CHILD_TIMEOUT' -and $terminated)
+try{Invoke-CSharpNativeChild -Worker $syntheticWorker -PlanPath $syntheticFile -OutputRoot $timeoutRoot -TimeoutSeconds 1}catch{$caught=$_.Exception.Message;$terminated=$_.Exception.Data['CSharpChildTerminated']}
+Add-CheckResult -Name 'CSharp native: echter Timeout bestätigt Kindprozessende vor Cleanup' -Success ($caught -ceq 'CSHARP_NATIVE_CHILD_TIMEOUT' -and $terminated -and ([IO.File]::ReadAllText((Join-Path $timeoutRoot 'worker.stdout.log'))) -match 'synthetic before timeout')
 $nativeModule=New-Module -ScriptBlock {
     $script:Removed=$false;$script:Foreign=$false
     $script:Owned=[pscustomobject]@{runId='11111111-1111-1111-1111-111111111111';scopeId='22222222-2222-2222-2222-222222222222';metadata=@{workflowOperationId='synthetic-operation';workflowKind='hyperv-lab'}}
@@ -102,7 +103,7 @@ $nativeWorkflow=Get-Content (Join-Path $repoRoot '.github/workflows/csharp-nativ
 Add-CheckResult -Name 'CSharp native: Workflow bindet Main-SHA, eigenen Runner und kein hartes Cancel' -Success (
     $nativeWorkflow.Contains("github.ref == 'refs/heads/main'") -and $nativeWorkflow.Contains('ref: ${{ github.sha }}') -and
     $nativeWorkflow.Contains('runs-on: [self-hosted, SQL_Lab, Hyper-V]') -and $nativeWorkflow.Contains('cancel-in-progress: false') -and
-    $nativeWorkflow.Contains('timeout-minutes: 180') -and $nativeWorkflow.Contains('*> $localLog'))
+    $nativeWorkflow.Contains('timeout-minutes: 180') -and $nativeWorkflow.Contains('Get-CSharpNativeRequestFailureDiagnostic'))
 $failureException=New-CSharpNativeFailureException -PrimaryFailure 'CSHARP_NATIVE_CHILD_TIMEOUT' -CleanupFailure 'CSHARP_NATIVE_CHILD_TERMINATION_UNCONFIRMED'
 try{throw $failureException}catch{$diagnostic=Get-CSharpNativeFailureDiagnostic $_}
 Add-CheckResult -Name 'CSharp native: Remote-Diagnose bewahrt Recovery getrennt vom Hauptfehler' -Success ($diagnostic.RecoveryRequired -and $diagnostic.ReasonCode -ceq 'CSHARP_NATIVE_RECOVERY_REQUIRED' -and $diagnostic.PrimaryFailure -ceq 'CSHARP_NATIVE_CHILD_TIMEOUT' -and $diagnostic.CleanupFailure -ceq 'CSHARP_NATIVE_CHILD_TERMINATION_UNCONFIRMED')
@@ -183,7 +184,7 @@ Add-CheckResult -Name 'CSharp profile: Checkout vor Profil und Artifactguard dan
 $inputReferences=@([regex]::Matches($nativeWorkflow,'inputs\.([a-z0-9_]+)')|ForEach-Object {$_.Groups[1].Value})
 Add-CheckResult -Name 'CSharp profile: Workflow überträgt ausschließlich Profilnamen und Requesthash' -Success (
     $inputReferences.Count -eq 2 -and ($inputReferences -join ',') -ceq 'profile,request_sha256' -and $nativeWorkflow.Contains('options: [csharp-sql2025]') -and
-    $nativeWorkflow.Contains('-Profile $env:CSHARP_PROFILE -RequestSha256 $env:CSHARP_REQUEST_HASH *> $localLog') -and $nativeWorkflow -notmatch 'SQL_SERVER_LAB_CSHARP_PROFILE_ROOT|payload_root:|state_root:|media_root:|sql_media_path:')
+    $nativeWorkflow.Contains('-Profile $env:CSHARP_PROFILE -RequestSha256 $env:CSHARP_REQUEST_HASH | Out-Null') -and $nativeWorkflow -notmatch 'SQL_SERVER_LAB_CSHARP_PROFILE_ROOT|payload_root:|state_root:|media_root:|sql_media_path:')
 
 if($IsWindows){
     & {
@@ -568,3 +569,5 @@ try{
         Add-CheckResult -Name 'CSharp SQL connection: real Windows PowerShell guest-compatible constructor and credential' -Success $legacySuccess
     }else{Write-Host '  NOT_EXECUTED  CSharp SQL connection: Windows PowerShell unavailable'}
 }else{Write-Host '  NOT_EXECUTED  CSharp SQL connection: Windows PowerShell requires Windows'}
+
+. (Join-Path $PSScriptRoot 'CSharpNativeEvidenceChecks.ps1')

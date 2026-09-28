@@ -94,7 +94,7 @@ function ConvertFrom-CSharpNativeRequest {
 }
 
 function New-CSharpNativeTemporaryDirectory {
-    param([Parameter(Mandatory)][string]$Path)
+    param([Parameter(Mandatory)][string]$Path,[switch]$CurrentIdentityRead)
     if(-not ('SqlServerLab.CSharpNativeDirectory' -as [type])){
         Add-Type -TypeDefinition @"
 using System;
@@ -121,16 +121,24 @@ namespace SqlServerLab {
     }
     $acl=[Security.AccessControl.DirectorySecurity]::new()
     $acl.SetSecurityDescriptorSddlForm('O:BAG:BAD:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)')
+    if($CurrentIdentityRead){
+        $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
+        try{$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($identity.User,[Security.AccessControl.FileSystemRights]::ReadAndExecute,[Security.AccessControl.InheritanceFlags]'ContainerInherit,ObjectInherit',[Security.AccessControl.PropagationFlags]::None,[Security.AccessControl.AccessControlType]::Allow))}finally{$identity.Dispose()}
+    }
     $code=[SqlServerLab.CSharpNativeDirectory]::Create($Path,$acl.GetSecurityDescriptorBinaryForm())
     if($code -eq 183){throw 'CSHARP_NATIVE_PROFILE_EXISTS'}
     if($code -ne 0){throw 'CSHARP_NATIVE_PROFILE_CREATE'}
 }
 
 function Write-CSharpNativeTemporaryProfile {
-    param([Parameter(Mandatory)]$Owned,[Parameter(Mandatory)][string]$Json)
+    param([Parameter(Mandatory)]$Owned,[Parameter(Mandatory)][string]$Json,[switch]$CurrentIdentityRead)
     Assert-CSharpNativeRequestDirectory $Owned.Root
     $acl=[Security.AccessControl.FileSecurity]::new()
     $acl.SetSecurityDescriptorSddlForm('O:BAG:BAD:P(A;;FA;;;BA)(A;;FA;;;SY)')
+    if($CurrentIdentityRead){
+        $identity=[Security.Principal.WindowsIdentity]::GetCurrent()
+        try{$acl.AddAccessRule([Security.AccessControl.FileSystemAccessRule]::new($identity.User,[Security.AccessControl.FileSystemRights]::Read,[Security.AccessControl.AccessControlType]::Allow))}finally{$identity.Dispose()}
+    }
     $stream=$null
     try{
         $stream=[IO.FileSystemAclExtensions]::Create([IO.FileInfo]::new($Owned.File),[IO.FileMode]::CreateNew,[Security.AccessControl.FileSystemRights]::Read -bor [Security.AccessControl.FileSystemRights]::Write,[IO.FileShare]::None,4096,[IO.FileOptions]::None,$acl)
@@ -185,7 +193,7 @@ function Get-CSharpNativeRequestFailureDiagnostic {
         if($value -and ($value.Length -gt 128 -or $value -cnotmatch '^CSHARP_NATIVE_[A-Z_]+$')){$value='CSHARP_NATIVE_UNCLASSIFIED_FAILURE'}
         $extra[$key]=$value
     }
-    [pscustomobject]@{PrimaryFailure=$main.PrimaryFailure;CleanupFailure=$main.CleanupFailure;ProfileCleanupFailure=$extra.ProfileCleanupFailure;RecoveryRecordFailure=$extra.RecoveryRecordFailure;
+    [pscustomobject]@{PrimaryFailure=$main.PrimaryFailure;CleanupFailure=$main.CleanupFailure;EvidenceFailure=$main.EvidenceFailure;ProfileCleanupFailure=$extra.ProfileCleanupFailure;RecoveryRecordFailure=$extra.RecoveryRecordFailure;
         RecoveryRequired=($main.RecoveryRequired -or [bool]$extra.ProfileCleanupFailure -or [bool]$extra.RecoveryRecordFailure);
         ReasonCode=$(if($extra.ProfileCleanupFailure -or $extra.RecoveryRecordFailure){'CSHARP_NATIVE_PROFILE_RECOVERY_REQUIRED'}else{$main.ReasonCode})}
 }
@@ -227,6 +235,7 @@ function Invoke-CSharpNativeWithTemporaryProfile {
         $failure=[InvalidOperationException]::new('CSHARP_NATIVE_REQUEST_FAILED')
         $failure.Data['PrimaryFailure']=$(if($primary){$primary.PrimaryFailure}elseif($cleanup){'CSHARP_NATIVE_PROFILE_CLEANUP_FAILED'}else{'CSHARP_NATIVE_PROFILE_RECORD_FAILED'})
         $failure.Data['CleanupFailure']=$(if($primary){$primary.CleanupFailure}else{$null})
+        $failure.Data['EvidenceFailure']=$(if($primary){$primary.EvidenceFailure}else{$null})
         $failure.Data['ProfileCleanupFailure']=$cleanup
         $failure.Data['RecoveryRecordFailure']=$recordFailure
         throw $failure
