@@ -1,6 +1,6 @@
 # Runs only inside the newly created acceptance guest over VM-ID-bound PowerShell Direct.
 param(
-    [ValidateSet('Configure','Register','Probe')][string]$Stage,
+    [ValidateSet('Configure','Register','Probe','Diagnostics')][string]$Stage,
     [string]$Root,[string]$PackageSha256,[string]$ProbeSha256,[string]$SqlSha256,
     [Security.SecureString]$SqlPassword
 )
@@ -21,6 +21,97 @@ while($ancestor){
     if((Get-Item -LiteralPath $ancestor -Force).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'CSHARP_NATIVE_GUEST_REPARSE'}
     $ancestor=[IO.Path]::GetDirectoryName($ancestor)
 }
+function New-CSharpGuestSqlInfoCollector {
+    if(-not ('SqlServerLab.CSharpSqlInfoCollector' -as [type])){
+        $source=@'
+using System;
+using System.Collections.Generic;
+using System.Data.SqlClient;
+namespace SqlServerLab {
+    public sealed class CSharpSqlInfoCollector {
+        private readonly object gate = new object();
+        private readonly List<SqlError> entries = new List<SqlError>();
+        public SqlInfoMessageEventHandler Handler { get; private set; }
+        public CSharpSqlInfoCollector() { Handler = Capture; }
+        private void Capture(object sender, SqlInfoMessageEventArgs args) {
+            lock (gate) {
+                foreach (SqlError error in args.Errors) {
+                    if (entries.Count >= 8) break;
+                    entries.Add(error);
+                }
+            }
+        }
+        public SqlError[] Snapshot() { lock (gate) { return entries.ToArray(); } }
+    }
+}
+'@
+        $references=@([Data.SqlClient.SqlError].Assembly.Location)
+        $options=@{}
+        if($PSVersionTable.PSEdition -eq 'Core'){$references+=@('System.Runtime.dll','System.Collections.dll','System.Threading.dll');$options.CompilerOptions='/nowarn:1701,0618'}
+        Add-Type -TypeDefinition $source -ReferencedAssemblies $references @options -ErrorAction Stop
+    }
+    return [SqlServerLab.CSharpSqlInfoCollector]::new()
+}
+function Add-CSharpGuestSqlMessages {
+    param($Buffer,$Errors)
+    foreach($item in $Errors){
+        if($Buffer.Count -ge 8){break}
+        $message=[string]$item.Message;$procedure=[string]$item.Procedure
+        $Buffer.Add([pscustomobject]@{Number=[int]$item.Number;State=[int]$item.State;Class=[int]$item.Class;LineNumber=[int]$item.LineNumber;
+            Procedure=$procedure.Substring(0,[Math]::Min(128,$procedure.Length));Message=$message.Substring(0,[Math]::Min(2048,$message.Length))})
+    }
+}
+function Save-CSharpGuestSqlFailure {
+    param($Failure,$Info,[string]$Path)
+    $errors=[Collections.Generic.List[object]]::new();$exception=$Failure.Exception
+    for($depth=0;$exception -and $depth -lt 8;$depth++){
+        if($exception -is [Data.SqlClient.SqlException]){Add-CSharpGuestSqlMessages $errors $exception.Errors;break}
+        $exception=$exception.InnerException
+    }
+    [pscustomobject]@{Status='SQL_FAILURE';Errors=@($errors.ToArray());InfoMessages=@($Info.ToArray())}|ConvertTo-Json -Depth 5 -Compress|Set-Content -LiteralPath $Path -Encoding UTF8 -ErrorAction Stop
+}
+function Read-CSharpGuestLogTail {
+    param([string]$Path,[string]$Name)
+    try{
+        $cursor=[IO.Path]::GetFullPath($Path)
+        if($cursor -notmatch '^[A-Za-z]:\\'){throw 'PATH'}
+        while($cursor){if((Get-Item -LiteralPath $cursor -Force -ErrorAction Stop).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'REPARSE'};$cursor=[IO.Path]::GetDirectoryName($cursor)}
+        $stream=[IO.File]::Open($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::ReadWrite)
+        try{
+            $count=[int][Math]::Min(32768,$stream.Length);$offset=$stream.Length-$count;$null=$stream.Seek($offset,[IO.SeekOrigin]::Begin)
+            $bytes=New-Object byte[] $count;$read=0
+            while($read -lt $count){$n=$stream.Read($bytes,$read,$count-$read);if($n -eq 0){break};$read+=$n}
+            return [pscustomobject]@{Name=$Name;Status='AVAILABLE';Offset=$offset;Bytes=$read;TailBase64=[Convert]::ToBase64String($bytes,0,$read)}
+        }finally{$stream.Dispose()}
+    }catch{return [pscustomobject]@{Name=$Name;Status='UNAVAILABLE'}}
+}
+function Get-CSharpGuestDiagnostics {
+    param([string]$GuestRoot)
+    $sql=[pscustomobject]@{Status='UNAVAILABLE'};$logs=@()
+    try{
+        $path=Join-Path $GuestRoot 'sql-failure.json'
+        if((Get-Item -LiteralPath $path -ErrorAction Stop).Length -gt 262144){throw 'SIZE'}
+        if((Get-Item -LiteralPath $path).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'REPARSE'}
+        $stream=[IO.File]::Open($path,[IO.FileMode]::Open,[IO.FileAccess]::Read,[IO.FileShare]::Read)
+        try{
+            if($stream.Length -gt 262144){throw 'SIZE'}
+            $bytes=New-Object byte[] ([int]$stream.Length);$read=0
+            while($read -lt $bytes.Length){$n=$stream.Read($bytes,$read,$bytes.Length-$read);if($n -eq 0){break};$read+=$n}
+            $sql=[Text.Encoding]::UTF8.GetString($bytes,0,$read).TrimStart([char]0xFEFF)|ConvertFrom-Json -ErrorAction Stop
+        }finally{$stream.Dispose()}
+    }catch{}
+    try{
+        $instance=[string](Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\Instance Names\SQL' -ErrorAction Stop).MSSQLSERVER
+        if($instance -cnotmatch '^MSSQL17\.[A-Za-z0-9_]+$'){throw 'INSTANCE'}
+        $parameters=Get-ItemProperty -LiteralPath ('HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\'+$instance+'\MSSQLServer\Parameters') -ErrorAction Stop
+        $paths=@($parameters.PSObject.Properties|Where-Object {$_.Name -match '^SQLArg\d+$' -and [string]$_.Value -like '-e*'}|ForEach-Object {([string]$_.Value).Substring(2).Trim('"')})
+        if($paths.Count -ne 1 -or [IO.Path]::GetFileName($paths[0]) -ine 'ERRORLOG'){throw 'PATH'}
+        $logRoot=[IO.Path]::GetDirectoryName($paths[0])
+        $logs=@((Read-CSharpGuestLogTail $paths[0] 'ERRORLOG'),(Read-CSharpGuestLogTail (Join-Path $logRoot 'ExtensibilityLog/ExtLaunchErrorlog') 'ExtLaunchErrorlog'))
+    }catch{$logs=@([pscustomobject]@{Name='INSTANCE_LOGS';Status='UNAVAILABLE'})}
+    return [pscustomobject]@{Status='CSHARP_GUEST_DIAGNOSTICS';Sql=$sql;Logs=$logs}
+}
+if($Stage -eq 'Diagnostics'){return (Get-CSharpGuestDiagnostics $Root)}
 $launchpad=Get-Service -Name MSSQLLaunchpad -ErrorAction Stop
 if($launchpad.Status -ne 'Running'){throw 'CSHARP_NATIVE_LAUNCHPAD_NOT_RUNNING'}
 Add-Type -AssemblyName System.Data
@@ -41,7 +132,16 @@ $login=New-CSharpNativeSqlCredential $SqlPassword
 $connection.Credential=$login.Credential
 function Invoke-ProbeSql([string]$Text){
     $command=$connection.CreateCommand();$command.CommandText=$Text;$command.CommandTimeout=180
-    try{return $command.ExecuteScalar()}finally{$command.Dispose()}
+    $info=[Collections.Generic.List[object]]::new()
+    $collector=New-CSharpGuestSqlInfoCollector
+    $handler=$collector.Handler
+    $connection.add_InfoMessage($handler)
+    try{return $command.ExecuteScalar()}
+    catch{
+        $failure=$_
+        if($Stage -eq 'Probe'){try{Add-CSharpGuestSqlMessages $info ($collector.Snapshot());Save-CSharpGuestSqlFailure -Failure $failure -Info $info -Path (Join-Path $Root 'sql-failure.json')}catch{}}
+        throw $failure
+    }finally{try{$connection.remove_InfoMessage($handler)}catch{};$command.Dispose()}
 }
 try{
     $connection.Open()

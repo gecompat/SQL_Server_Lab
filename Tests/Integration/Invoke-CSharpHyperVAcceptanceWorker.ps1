@@ -70,11 +70,23 @@ try{
     }
     $guestScript=[scriptblock]::Create([IO.File]::ReadAllText((Join-Path $repoRoot 'Tests/Integration/Fixtures/CSharp/guest.ps1')))
     function Invoke-OwnGuest([string]$Stage){
-        & $module {
-            param($Owned,$Credential,$Code,$Arguments)
+        try{ & $module {
+            param($Owned,$Credential,$Code,$Arguments,$Timeout)
             Invoke-HyperVPowerShellDirect -VMName $Owned.VMName -ExpectedRunId $Owned.RunId -ExpectedScopeId $Owned.ScopeId -ExpectedVmId ([guid]$Owned.VMId) `
-                -Credential $Credential -ScriptBlock $Code -ArgumentList $Arguments -TimeoutSeconds 600
-        } $owned $credential $guestScript @($Stage,$guestRoot,$plan.PackageSha256,$plan.ProbeSha256,$plan.SqlSha256,$sa)
+                -Credential $Credential -ScriptBlock $Code -ArgumentList $Arguments -TimeoutSeconds $Timeout
+        } $owned $credential $guestScript @($Stage,$guestRoot,$plan.PackageSha256,$plan.ProbeSha256,$plan.SqlSha256,$sa) $(if($Stage -eq 'Diagnostics'){30}else{600})
+        }catch{
+            $failure=$_
+            if($Stage -eq 'Probe'){
+                try{
+                    $diagnostic=Invoke-OwnGuest Diagnostics
+                    $json=$diagnostic|ConvertTo-Json -Depth 8 -Compress
+                    if([Text.Encoding]::UTF8.GetByteCount($json) -gt 524288){throw 'SIZE'}
+                    [Console]::Error.WriteLine($json)
+                }catch{try{[Console]::Error.WriteLine('CSHARP_NATIVE_GUEST_DIAGNOSTICS_UNAVAILABLE')}catch{}}
+            }
+            throw $failure
+        }
     }
     function Restart-OwnGuest {
         $restart=Restart-SqlServerLab -RunId $owned.RunId -TimeoutSeconds 600 -Force -Confirm:$false

@@ -1,12 +1,17 @@
 -- Execute only in the acceptance runner's own database after registration.
 SET NOCOUNT ON;
 DECLARE @actual TABLE(id int, doubled int, runtimeMajor int, appContainer int, workerPid int);
+BEGIN TRY
 INSERT INTO @actual
 EXEC sys.sp_execute_external_script
     @language=N'dotnet',
     @script=N'SqlServerLab.CSharpProbe;SqlServerLab.Acceptance.Probe',
     @input_data_1=N'SELECT id FROM (VALUES (-7),(0),(21)) AS sample(id)',
     @params=N'';
+END TRY
+BEGIN CATCH
+    THROW;
+END CATCH;
 IF (SELECT COUNT(*) FROM @actual) <> 3
     THROW 51000, 'CSHARP_PROBE_ROW_COUNT', 1;
 IF EXISTS (SELECT id, doubled FROM @actual EXCEPT SELECT id, doubled FROM (VALUES (-7,-14),(0,0),(21,42)) AS expected(id,doubled))

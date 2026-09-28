@@ -285,3 +285,45 @@ nicht beweisen. Windows-CI prüft den tatsächlichen Grant einschließlich
 fehlender Schreib-/Löschrechte. Bei einer abweichenden Operatoridentität ist
 ein gesonderter autorisierter Runner-Leseweg erforderlich; dieser Slice
 implementiert keinen solchen Diagnose-Workflow und behauptet keinen Zugriff.
+
+## Begrenzte lokale Gastdiagnose bei Sprachfehlern
+
+Der Lauf `36378690432` auf `43542f9b` erreichte nachweislich `SQL_PROBE_STARTED`
+und endete mit `NativeAcceptanceStatus=FAILED`, HRESULT `0x80004004` und
+`CSHARP_PROBE_ROW_COUNT`; eigenes Cleanup und Evidenceaufbewahrung waren
+fehlerfrei. Die konkrete Sprachfehlerursache ist damit noch nicht bewiesen.
+Die Zeilenzahlmeldung kann ein Folgefehler sein. Der gepinnte SDK-Outputpfad
+verwendet generische DataFrameColumn-Werte und enthält keinen Cast auf
+`Int32DataFrameColumn`; eine solche Ursache ist nicht belegt.
+
+Der externe SQL-EXEC steht jetzt in TRY/CATCH mit unverändertem `THROW;`.
+Erst nach erfolgreichem EXEC gelten die unveränderten drei Zeilen, Werte,
+.NET 8, AppContainer 1 und positive Worker-PID; der zweite Test nach Neustart
+bleibt verpflichtend. Der Gast erfasst bei einem Probe-Fehler bis zu acht
+SqlException.Errors und acht InfoMessages (Message je 2048, Procedure 128
+Zeichen). Ein kompilierter .NET-Collector verarbeitet InfoMessage-Callbacks
+unter einem Lock ohne PowerShell-Runspacezugriff; erst nach ExecuteScalar
+projiziert PowerShell die begrenzten Meldungen. Der tatsächliche Callback
+auf einem fremden .NET-Thread ist offline unter PowerShell 7 und Windows
+PowerShell 5.1 geprüft. SQL-Text, Credentials und Connection Strings werden
+nicht gesammelt.
+Die Diagnose wird nur im eigenen Gastroot gespeichert. Der Worker holt sie
+vor dem VM-Cleanup erneut über dieselbe Run-/Scope-/VM-ID-Bindung mit 30
+Sekunden Deadline ab und schreibt sie ausschließlich in seinen dauerhaften
+lokalen stderr-Stream. Ein Diagnosefehler ersetzt nie den ursprünglichen
+SQL-Fehler; GitHub erhält weiterhin ausschließlich feste Fehlercodes.
+
+Die feste Log-Allowlist umfasst ausschließlich den aktuellen ERRORLOG der
+neu angelegten Default-Instanz und dessen Geschwisterpfad
+`ExtensibilityLog/ExtLaunchErrorlog`. Ausgangspunkt ist der eindeutige
+`-e`-Startparameter dieser SQL-2025-Instanz; keine Dateisystemsuche oder andere
+Instanz wird einbezogen. Pro Datei werden maximal 32 KiB vom Ende binär als
+Base64 mit Offset und Bytezahl gespeichert. Reparse-/Netzwerkpfade und fehlende
+Dateien liefern `UNAVAILABLE`. Gespeichertes SQL-JSON ist auf 256 KiB, die
+übertragene Diagnose auf 512 KiB begrenzt. Die SQL-/Launchpad-Logkonvention
+folgt [Microsofts Diagnosehinweisen](https://learn.microsoft.com/en-us/sql/machine-learning/troubleshooting/data-collection-ml-troubleshooting-process?view=sql-server-ver17).
+Diese Quellen belegen keinen festen separaten CSharp-stderr-Dateinamen;
+zusätzliche Extensionlogs werden daher nicht geraten oder global eingesammelt.
+Fehlende Logs und ein fehlgeschlagener Transport bleiben erkennbare
+Diagnosegrenzen. Synthetische Offlineprüfungen belegen Helfer und Fehlererhalt,
+keinen erneuten SQL-/Launchpad-Lauf oder erfolgreichen Sprachtest.
