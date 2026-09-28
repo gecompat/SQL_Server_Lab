@@ -334,3 +334,29 @@ function Get-CSharpNativeProfile {
         throw $code
     }finally{if($reader){$reader.Dispose()};if($stream){$stream.Dispose()}}
 }
+
+function Assert-CSharpNativeClientReadiness {
+    [CmdletBinding()]
+    param([AllowNull()]$Readiness)
+    # Create/1.0 deliberately leaves target authorization to the operation entrypoint.
+    # This adapter accepts only that exact warning, never a general warning status.
+    $failure='CSHARP_NATIVE_CLIENT_NOT_READY'
+    if($null -eq $Readiness -or $Readiness.ContractVersion -cne 'SqlServerLab.ClientReadiness/1.0' -or
+        $Readiness.Provider -cne 'hyperv' -or $Readiness.Operation -cne 'Create' -or
+        $Readiness.Status -cne 'READY_WITH_WARNINGS' -or $Readiness.MutationAllowed -isnot [bool] -or $Readiness.MutationAllowed -or
+        -not $Readiness.PSObject.Properties['MissingPrerequisites'] -or @($Readiness.MissingPrerequisites).Count -ne 0 -or
+        @($Readiness.Warnings).Count -ne 1 -or $Readiness.Warnings[0] -cne 'TARGET_AUTHORIZATION_REQUIRED'){
+        throw $failure
+    }
+    $expected=[ordered]@{OperatingSystem='OS_SUPPORTED';PowerShell='POWERSHELL_SUPPORTED';Repository='REPOSITORY_PRESENT';Manifest='MANIFEST_VALID';ModuleImport='MODULE_IMPORTED';Exports='MODULE_EXPORTS_PRESENT';Reachability='PROVIDER_REACHABLE';Storage='STORAGE_CONFIGURED'}
+    $checks=@($Readiness.Checks)
+    if($checks.Count -ne 9){throw $failure}
+    foreach($category in $expected.Keys){
+        $matches=@($checks|Where-Object {$_.Category -ceq $category})
+        if($matches.Count -ne 1 -or $matches[0].Code -cne $expected[$category] -or $matches[0].Status -cne 'PASS' -or
+            $matches[0].MissingPrerequisite -or $matches[0].Warning){throw $failure}
+    }
+    $rights=@($checks|Where-Object {$_.Category -ceq 'OperationRights'})
+    if($rights.Count -ne 1 -or $rights[0].Code -cne 'TARGET_AUTHORIZATION_REQUIRED' -or $rights[0].Status -cne 'WARNING' -or
+        $rights[0].Warning -cne 'TARGET_AUTHORIZATION_REQUIRED' -or $rights[0].MissingPrerequisite){throw $failure}
+}

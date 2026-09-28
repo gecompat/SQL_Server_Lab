@@ -126,6 +126,22 @@ Einrichtungsschritt und ist kein nativer SQL-Nachweis.
 
 ## Ablauf und Grenzen
 
+Die generische Readinessprüfung bleibt `hyperv`/`Create` einschließlich Storage.
+Ihr Vertrag `SqlServerLab.ClientReadiness/1.0` meldet bei gesundem Bootstrap
+absichtlich `READY_WITH_WARNINGS`: die einzige Warnung
+`TARGET_AUTHORIZATION_REQUIRED` überlässt konkrete Autorisierung dem
+Operationseinstieg. Der CSharp-Adapter akzeptiert ausschließlich diese exakt
+gebundene Kombination mit acht bekannten erfolgreichen Voraussetzungchecks,
+der passenden OperationRights-Warnung, leeren MissingPrerequisites und
+`MutationAllowed=false`. Andere Warnungen, fehlende Checks, NOT_CHECKED,
+BLOCKED oder inkonsistente Statusmeldungen bleiben gesperrt. Der Adapter
+verändert weder das Readinessergebnis noch die vorhandenen Elevation-,
+Ressourcen-, Medien-, Ownership- und Cleanupguards. Ein begrenztes Fehlerdetail
+bleibt ausschließlich im lokalen Artefaktscope; GitHub erhält feste Fehlercodes.
+Der native Lauf `36371565625` scheiterte an der bisherigen READY-only-Abfrage;
+sein ephemeres Profil wurde vollständig bereinigt. Eine erfolgreiche native
+Sprachprobe ist damit weiterhin nicht bestätigt.
+
 Der Supervisor prüft den Checkout und die lokalen Eingaben, kopiert sie in
 einen neuen eigenen Stagingroot und prüft die Kopien erneut. Der Kindprozess
 hält den gemeinsamen Runtime-Mutex, prüft Artifact, SQL-Medien und die aktuelle
