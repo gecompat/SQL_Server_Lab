@@ -2287,6 +2287,88 @@ $('#retained-store-delete').addEventListener('click', () => {
     'RemoveRetainedStore', parameters, 'Endgültig löschen');
 });
 
+let llamaInstallerView = null;
+let llamaInstallerPlan = null;
+let llamaInstallerBusy = false;
+let llamaInstallerRequest = 0;
+function invalidateLlamaInstallerPlan() {
+  llamaInstallerPlan = null;
+  $('#llama-installer-confirm').checked = false;
+  $('#llama-installer-confirm').disabled = true;
+  $('#llama-installer-apply').disabled = true;
+  $('#llama-installer-preview').disabled = llamaInstallerBusy || !$('#llama-installer-root').value || !$('#llama-installer-release').value;
+}
+async function requestLlamaInstaller(action) {
+  if (llamaInstallerBusy) return;
+  const candidateId = $('#llama-installer-release').value;
+  const rootId = $('#llama-installer-root').value;
+  if (['preview', 'apply'].includes(action) && (!candidateId || !rootId)) return;
+  if (action === 'apply' && (!llamaInstallerPlan?.CanApply || llamaInstallerPlan.IsNoOp || !$('#llama-installer-confirm').checked)) return;
+  const payload = action === 'read' ? null : { action };
+  if (['preview', 'apply'].includes(action)) Object.assign(payload, { candidateId, rootId });
+  if (action === 'apply') Object.assign(payload, { expectedKey: llamaInstallerPlan.ExpectedKey, confirmed: true });
+  if (action === 'read') {
+    llamaInstallerView = null;
+    for (const id of ['release', 'root']) { $('#llama-installer-' + id).innerHTML = ''; $('#llama-installer-' + id).value = ''; }
+    $('#llama-installer-details').textContent = '';
+  }
+  const generation = ++llamaInstallerRequest;
+  llamaInstallerBusy = true;
+  invalidateLlamaInstallerPlan();
+  for (const id of ['release', 'root', 'refresh', 'upstream-read', 'close']) $('#llama-installer-' + id).disabled = true;
+  $('#llama-installer-status').textContent = action === 'apply' ? 'Bestätigte Installation und begrenzte Probe laufen …' : 'Wird gelesen …';
+  try {
+    const response = await fetch('/api/llama-installer', payload ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : { cache: 'no-store' });
+    if (!response.ok) throw new Error('LLAMA_INSTALL_UNCONFIRMED');
+    const result = await response.json();
+    if (generation !== llamaInstallerRequest || !$('#llama-installer-dialog').open) return;
+    if (action === 'read') {
+      if (!Array.isArray(result.Items) || !Array.isArray(result.Roots)) throw new Error('LLAMA_INSTALL_RESPONSE_INVALID');
+      llamaInstallerView = result;
+      $('#llama-installer-release').innerHTML = '<option value="">Release wählen</option>' + result.Items.map(item => '<option value="' + escapeHtml(item.Id) + '">' + escapeHtml(item.Release + ' · ' + item.Status) + '</option>').join('');
+      $('#llama-installer-root').innerHTML = '<option value="">Lab_Base wählen</option>' + result.Roots.map(root => '<option value="' + escapeHtml(root.Id) + '">' + escapeHtml(root.Label) + '</option>').join('');
+      $('#llama-installer-release').value = ''; $('#llama-installer-root').value = '';
+      $('#llama-installer-details').textContent = result.Notice;
+      $('#llama-installer-status').textContent = result.Roots.length ? 'Katalog gelesen; Release und vorhandenen Lab_Base auswählen.' : 'Kein gültiger Lab_Base: zuerst Grundkonfiguration prüfen.';
+    } else if (action === 'upstream') {
+      $('#llama-installer-upstream').textContent = 'Upstream: ' + result.Status + ' · ' + result.Release + ' · keine unabhängige Signatur';
+      $('#llama-installer-status').textContent = 'Nur offizielle Metadaten geprüft; keine Binärdatei bezogen.';
+    } else if (action === 'preview') {
+      if (result.CandidateId !== candidateId || result.RootId !== rootId || !/^[a-f0-9]{64}$/.test(result.ExpectedKey)) throw new Error('LLAMA_INSTALL_RESPONSE_INVALID');
+      llamaInstallerPlan = result;
+      $('#llama-installer-details').textContent = JSON.stringify(result, null, 2);
+      $('#llama-installer-confirm').disabled = !result.CanApply || result.IsNoOp;
+      $('#llama-installer-status').textContent = result.State + ' · ' + result.Prerequisite;
+    } else {
+      $('#llama-installer-details').textContent = JSON.stringify(result, null, 2);
+      $('#llama-installer-status').textContent = result.Status + ' · Compute/SQL/Modelle NOT_CHECKED. Für jede weitere Aktion frisch vorprüfen.';
+    }
+  } catch {
+    if (generation !== llamaInstallerRequest) return;
+    invalidateLlamaInstallerPlan();
+    $('#llama-installer-status').textContent = 'Ergebnis nicht bestätigt. Frisch vorprüfen; keine automatische Wiederholung, Reparatur oder Prerequisiteinstallation.';
+  } finally {
+    if (generation === llamaInstallerRequest) {
+      llamaInstallerBusy = false;
+      for (const id of ['refresh', 'upstream-read', 'close']) $('#llama-installer-' + id).disabled = false;
+      $('#llama-installer-release').disabled = !llamaInstallerView?.Items.length;
+      $('#llama-installer-root').disabled = !llamaInstallerView?.Roots.length;
+      $('#llama-installer-preview').disabled = !$('#llama-installer-root').value || !$('#llama-installer-release').value;
+    }
+  }
+}
+$('#llama-installer-open').addEventListener('click', () => {
+  if (llamaInstallerBusy) return;
+  llamaInstallerView = null; invalidateLlamaInstallerPlan();
+  $('#llama-installer-dialog').showModal(); return requestLlamaInstaller('read');
+});
+for (const id of ['release', 'root']) $('#llama-installer-' + id).addEventListener('change', invalidateLlamaInstallerPlan);
+$('#llama-installer-confirm').addEventListener('change', () => { $('#llama-installer-apply').disabled = llamaInstallerBusy || !llamaInstallerPlan?.CanApply || llamaInstallerPlan.IsNoOp || !$('#llama-installer-confirm').checked; });
+for (const [id, action] of [['refresh', 'read'], ['upstream-read', 'upstream'], ['preview', 'preview'], ['apply', 'apply']]) $('#llama-installer-' + id).addEventListener('click', () => requestLlamaInstaller(action));
+$('#llama-installer-close').addEventListener('click', () => { if (!llamaInstallerBusy) { llamaInstallerRequest++; invalidateLlamaInstallerPlan(); $('#llama-installer-dialog').close(); } });
+$('#llama-installer-dialog').addEventListener('cancel', event => { if (llamaInstallerBusy) event.preventDefault(); else { llamaInstallerRequest++; invalidateLlamaInstallerPlan(); } });
+$('#llama-installer-dialog').addEventListener('close', () => { if (!llamaInstallerBusy) { llamaInstallerRequest++; invalidateLlamaInstallerPlan(); } });
+
 let maintenanceView = null;
 let maintenancePlan = null;
 let maintenanceRequest = 0;

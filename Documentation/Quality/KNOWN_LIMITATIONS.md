@@ -2409,7 +2409,7 @@ vorhandene Dialoge oder eine ausdrückliche Lückenbeschreibung.
 
 Offen bleiben über Power-Start/Stop hinausgehende Browserdialoge für Testgruppen, CMS und
 operative Slotreservierung und Auffüllung, späteres Provider-Setup,
-Runtimeinstaller und manueller Hostdienst-/Modell-Lifecycle. Vorhandene
+weitere Runtimeinstaller-Lanes und manueller Hostdienst-/Modell-Lifecycle. Vorhandene
 Gruppenschutzverträge gelten unverändert. Der neue Gruppen-Powerdialog nutzt
 exakte Runtime-IDs und eine gemeinsame Sperre mit Registrierung sowie
 bestehenden Gruppen-Lifecycle-/Clear-/Repair-Aufrufen. Es gibt weiterhin nur
@@ -2614,6 +2614,18 @@ Adoption oder Sidecar-Recovery. Bestehende Katalogeinträge ohne RuntimeBinding
 bleiben mit ihren bisherigen Verträgen kompatibel.
 
 ### llama.cpp-Discovery
+
+Der separate [Installer](../Architecture/LLAMA_CPP_INSTALLER.md) bietet zunächst
+nur b11247/Windows/x64/CPU experimentell, mit offiziellem API-Hash plus kuratiertem
+Pin, vollständiger Dateimenge und angekündigter modellfreier `--version`-Probe.
+Keine unabhängige Signatur oder unveränderliches Upstreamrelease. Der eigene
+Windows-x64-CPU-Nachweis bestand neun Prüfungen mit bestätigtem Cleanup;
+`BINARY_PROBE_PASSED` bestätigt nur diesen Paketpfad. Mindest-VC-Version und vollständige OS-/CPU-Kompatibilität bleiben
+`UNKNOWN`, Empfehlung `UNASSESSED`. Fehlende VC/UCRT-Prerequisites werden nicht
+installiert. Weitere Releases/Backends, automatisches Update, Aktivierung und
+journalgebundene automatische Wiederaufnahme bleiben offen. Bestehende offene
+Operationen sperren; kein automatischer Delete oder Replay. Compute/SQL/Modelle
+sind durch eine Paketprobe nicht abgenommen.
 
 `Get-SqlServerLabLlamaCppRuntime` erkennt Windows-/Linux-Pakete ohne Hashpflicht und
 ohne Ausführung. Backend-DLLs und Verzeichnisnamen beweisen weder Ursprung,

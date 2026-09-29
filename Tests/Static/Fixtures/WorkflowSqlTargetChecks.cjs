@@ -620,6 +620,35 @@ async function main() {
   check('Maintenance cancel clears authority',()=>assert.equal(run('maintenancePlan'),null));
   await resourceEvent('maintenance-open');let releaseMaintenance;context.fetch=()=>new Promise(resolve=>{releaseMaintenance=resolve;});const pendingMaintenance=resourceEvent('maintenance-read');node('maintenance-dialog').close();releaseMaintenance({ok:true,json:async()=>({Rows:[maintenanceRow]})});await pendingMaintenance;
   check('Maintenance closed dialog ignores delayed audit',()=>assert.equal(run('maintenanceView'),null));
+  const installerCalls = []; let installerMode = 'ready';
+  const installerId = 'llama-b11247-win-x64-cpu', installerRoot = 'a'.repeat(64);
+  context.fetch = async (url, options) => {
+    const body = options?.body ? JSON.parse(options.body) : null; installerCalls.push({ url, body });
+    if (installerMode === 'error') throw new Error('SYNTHETIC_PRIVATE');
+    return { ok: true, json: async () => body?.action === 'preview' ? { CandidateId: installerId, RootId: installerRoot, ExpectedKey: 'b'.repeat(64), CanApply: installerMode !== 'blocked', IsNoOp: installerMode === 'noop', State: installerMode, Prerequisite: 'UNKNOWN' } : body?.action === 'apply' ? { Status: 'BINARY_PROBE_PASSED' } : body?.action === 'upstream' ? { Status: 'PIN_MATCHES_OFFICIAL_METADATA', Release: 'b11247' } : { Items: [{ Id: installerId, Release: 'b11247', Status: 'EXPERIMENTAL' }], Roots: installerMode === 'empty' ? [] : [{ Id: installerRoot, Label: '<script>synthetic</script>' }], Notice: 'No execution' } };
+  };
+  await resourceEvent('llama-installer-open');
+  check('Installer opening reads only GET and escapes roots', () => { assert.equal(installerCalls.at(-1).body, null); assert.match(node('llama-installer-root').innerHTML, /&lt;script&gt;/); assert.equal(node('llama-installer-apply').disabled, true); });
+  node('llama-installer-release').value = installerId; node('llama-installer-root').value = installerRoot;
+  await resourceEvent('llama-installer-root', 'change'); await resourceEvent('llama-installer-preview'); await resourceEvent('llama-installer-apply');
+  check('Installer preview cannot authorize execution', () => assert.equal(installerCalls.filter(c => c.body?.action === 'apply').length, 0));
+  node('llama-installer-confirm').checked = true; await resourceEvent('llama-installer-confirm', 'change'); await resourceEvent('llama-installer-apply');
+  check('Installer sends opaque binding and explicit typed confirmation only', () => { assert.deepEqual(installerCalls.at(-1).body, { action: 'apply', candidateId: installerId, rootId: installerRoot, expectedKey: 'b'.repeat(64), confirmed: true }); assert.match(node('llama-installer-status').textContent, /BINARY_PROBE_PASSED/); assert.equal(node('llama-installer-apply').disabled, true); });
+  for (const mode of ['noop', 'blocked']) {
+    installerMode = mode; await resourceEvent('llama-installer-preview');
+    check('Installer ' + mode + ' prevents apply', () => { assert.equal(node('llama-installer-confirm').disabled, true); assert.equal(node('llama-installer-apply').disabled, true); });
+  }
+  installerMode = 'ready'; await resourceEvent('llama-installer-preview'); node('llama-installer-dialog').close();
+  check('Installer cancel invalidates preview without apply', () => assert.equal(run('llamaInstallerPlan'), null));
+  for (const mode of ['empty', 'error']) {
+    installerMode = mode; await resourceEvent('llama-installer-open');
+    check('Installer ' + mode + ' cannot start and hides raw errors', () => { assert.equal(node('llama-installer-preview').disabled, true); assert.equal(node('llama-installer-apply').disabled, true); assert.doesNotMatch(node('llama-installer-status').textContent, /SYNTHETIC_PRIVATE/); });
+  }
+  let releaseInstaller; context.fetch = () => new Promise(resolve => { releaseInstaller = resolve; });
+  const pendingInstaller = resourceEvent('llama-installer-refresh');
+  check('Installer disables early selection while initial roots are pending', () => { assert.equal(node('llama-installer-root').disabled, true); assert.equal(node('llama-installer-release').disabled, true); });
+  releaseInstaller({ ok: true, json: async () => ({ Items: [], Roots: [], Notice: 'empty' }) }); await pendingInstaller;
+  check('Installer delayed empty reply remains failclosed', () => assert.equal(node('llama-installer-preview').disabled, true));
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

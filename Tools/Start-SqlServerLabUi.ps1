@@ -463,6 +463,25 @@ function Invoke-UiResourceWatchRequest {
         $payload.action -cne 'RefreshResourceWatch' -or $payload.parameters -isnot [pscustomobject] -or @($payload.parameters.PSObject.Properties).Count) { throw 'RESOURCE_WATCH_REQUEST_INVALID' }
     Invoke-SqlServerLabWorkflowAction -Action RefreshResourceWatch
 }
+function Invoke-UiLlamaInstallerRequest {
+    param([Parameter(Mandatory)]$Request)
+    if($Request.HttpMethod -eq 'GET'){return & (Get-Module SqlServerLab) {Get-LabLlamaInstallerView}}
+    if($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)'){throw 'LLAMA_INSTALL_REQUEST_INVALID'}
+    $origin=[string]$Request.Headers['Origin']
+    if($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)){throw 'LLAMA_INSTALL_ORIGIN_INVALID'}
+    $reader=[IO.StreamReader]::new($Request.InputStream,$Request.ContentEncoding)
+    try{$buffer=[char[]]::new(1025);$length=$reader.ReadBlock($buffer,0,1025);if($length -gt 1024){throw 'LLAMA_INSTALL_REQUEST_LIMIT'};$body=([string]::new($buffer,0,$length))|ConvertFrom-Json -Depth 4}finally{$reader.Dispose()}
+    if($body -isnot [pscustomobject] -or @($body.PSObject.Properties.Name|Where-Object {$_ -notin @('action','candidateId','rootId','expectedKey','confirmed')}).Count){throw 'LLAMA_INSTALL_REQUEST_INVALID'}
+    if($body.action -ceq 'upstream'){
+        if(@($body.PSObject.Properties).Count -ne 1){throw 'LLAMA_INSTALL_REQUEST_INVALID'}
+        return & (Get-Module SqlServerLab) {Get-LabLlamaInstallerUpstream}
+    }
+    if($body.candidateId -isnot [string] -or $body.candidateId -cne 'llama-b11247-win-x64-cpu' -or $body.rootId -isnot [string] -or $body.rootId -cnotmatch '^[a-f0-9]{64}$'){throw 'LLAMA_INSTALL_REQUEST_INVALID'}
+    if($body.action -ceq 'preview'){return & (Get-Module SqlServerLab) {param($id,$root) ConvertTo-LabLlamaInstallerPlanView (Get-LabLlamaInstallerPlan -CandidateId $id -RootId $root)} $body.candidateId $body.rootId}
+    if($body.action -cne 'apply' -or $body.confirmed -isnot [bool] -or -not $body.confirmed -or $body.expectedKey -isnot [string] -or $body.expectedKey -cnotmatch '^[a-f0-9]{64}$'){throw 'LLAMA_INSTALL_CONFIRMATION_REQUIRED'}
+    & (Get-Module SqlServerLab) {param($id,$root,$key) Invoke-LabLlamaInstaller -CandidateId $id -RootId $root -ExpectedKey $key -Confirmed} $body.candidateId $body.rootId $body.expectedKey
+}
+
 function Invoke-UiMaintenanceRequest {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Request)
@@ -624,6 +643,13 @@ try {
                 catch {
                     Write-UiResponse -Context $context -Body 'EVALUATION_WATCH_READ_UNAVAILABLE' -StatusCode 503
                 }
+                continue
+            }
+            if ($path -eq '/api/llama-installer') {
+                try {
+                    $view=Invoke-UiLlamaInstallerRequest -Request $context.Request
+                    Write-UiResponse -Context $context -Body ($view|ConvertTo-Json -Depth 8) -ContentType 'application/json; charset=utf-8'
+                }catch{Write-UiResponse -Context $context -Body 'LLAMA_INSTALL_UNCONFIRMED: Ergebnis nicht bestätigt; frisch vorprüfen. Keine automatische Wiederholung oder Prerequisiteinstallation.' -StatusCode 400}
                 continue
             }
             if ($path -eq '/api/maintenance') {

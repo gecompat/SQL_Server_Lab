@@ -2232,6 +2232,23 @@ Die Abnahme erstellt und bereinigt ausschließlich ihren eigenen Run.
 
 ### llama.cpp-Discovery
 
+`Invoke-LlamaCppInstallerChecks.ps1` führt synthetische echte Plan-/Apply-/No-op-/
+Drift-/Cleanup-, HTTPS-/Redirect-/Bytegrenzen-, ZIP-/Dateimengen-, importierte
+HTTP-Handler und Cursor-/Fallback-/Direktaktionspfade aus. Native Probe bleibt
+eine abgegrenzte synthetische Boundary. Der tatsächliche Worker-Copier wird mit
+MemoryStreams auf kumulativ64KiB geprüft; sein Windows-Environmentzweig wird
+ohne Prozessstart ausgeführt. Die DOM-Fixture in `Invoke-WorkflowUiChecks.ps1`
+prüft Auswahl, Vorschau, explizite Bestätigung, Abbruch, No-op, UNKNOWN/Fehler
+und verzögerte Antworten am echten Browserhandler. Diese Evidenz ist kein
+Download oder nativer Start. Der initiale eigene Windows-x64-CPU-`--version`-
+Nachweis benötigt einen separaten konkreten Own-Vertrag. Am 2026-09-29
+bestand der neue eigene Windows-x64-CPU-Pfad neun Prüfungen einschließlich
+Plan/Cancel/Apply, exakter Buildidentität, vollständiger Dateimenge, No-op,
+Stale-/Drift-Abweisung und bestätigtem Fixture-/Prozess-Cleanup. Zwei ältere
+Fehlversuche bleiben getrennte Historie; der dabei belegte Readerfehler ist
+am echten Post-Exit-Zweig mit realen synthetischen Dateihandles geprüft.
+Der native Erfolg ist nur `BINARY_PROBE_PASSED`; Compute/SQL/Modelle bleiben offen.
+
 `Invoke-LlamaCppRuntimeChecks.ps1` prüft synthetische Windows-Paketbäume:
 Hashfreiheit, Backendmehrdeutigkeit, NPU-Filter, Suchgrenzen, isolierte explizite
 Wurzeln und Schema. Die Prüfung startet weder llama-server noch SQL-Provider.

@@ -112,10 +112,11 @@
 
     <section class="panel" data-workspace-area="resources" hidden>
       <h2>Ressourcen und Downloads</h2>
-      <p>Medienquellen und lokale Ablage sind einsehbar. Die Konsole bietet bereits CU-Beschaffung, 7-Zip und kuratierte llama.cpp-Modelldateien. Vollständige geführte Beschaffung im Browser sowie ein llama.cpp-Runtimeinstaller bleiben offen.</p>
+      <p>Medienquellen und lokale Ablage sind einsehbar. Die Konsole bietet CU-Beschaffung, 7-Zip und kuratierte llama.cpp-Modelldateien. Der gemeinsame llama.cpp-Installer bietet zunächst einen experimentellen Windows-x64-CPU-Pin; weitere Kombinationen und vollständige Beschaffung anderer Ressourcen bleiben offen.</p>
       <button id="media-sources" class="button secondary">Medienquellen und Ablage anzeigen</button>
       <button id="media-override-open" class="button secondary">SQL-2025-Bootstrapperquellen bearbeiten</button>
       <button id="resource-watch-open" class="button secondary">Ressourcenstand: CUs und SqlPackage</button>
+      <button id="llama-installer-open" type="button" class="button secondary">llama.cpp-Runtime installieren / prüfen</button>
     </section>
     <section class="panel" data-workspace-area="hostmodels" hidden>
       <h2>Host-Dienste und Modelle</h2>
@@ -545,6 +546,29 @@
     </div>
   </dialog>
 
+  <dialog id="llama-installer-dialog">
+    <div class="maintenance-dialog-content">
+      <h2>llama.cpp-Runtime für SQL-KI</h2>
+      <p id="llama-installer-status" role="status" aria-live="polite">Noch nicht gelesen.</p>
+      <p>Experimentell. Nur kuratierter Windows-x64-CPU-Pin; weitere OS, Architekturen und Backends offen. Empfehlung UNASSESSED. Keine Modelle, Dienste, Treiber oder PATH-Änderung.</p>
+      <label>Release<select id="llama-installer-release" disabled></select></label>
+      <label>Betriebssystem<select disabled><option>Windows (andere nicht verfügbar)</option></select></label>
+      <label>Architektur<select disabled><option>x64</option></select></label>
+      <label>Backend<select disabled><option>CPU</option></select></label>
+      <label>Vorhandener Lab_Base<select id="llama-installer-root" disabled></select></label>
+      <p id="llama-installer-upstream">Upstream: NOT_REFRESHED</p>
+      <pre id="llama-installer-details" class="selection-details"></pre>
+      <label><input id="llama-installer-confirm" type="checkbox" disabled> Angezeigten Download und Extraktion sowie genau llama-server.exe --version (15 s / 64 KiB) ausführen</label>
+      <p>Abbrechen vor Ausführung schreibt nichts. Nach Start läuft der begrenzte Vorgang bis zum Ergebnis; ein Verbindungsverlust bestätigt weder Abbruch noch Erfolg. Mindest-OS/CPU/VC-Version UNKNOWN; Compute, SQL und Modelle NOT_CHECKED.</p>
+      <div class="build-actions">
+        <button id="llama-installer-refresh" type="button" class="button secondary">Katalog und Roots erneut lesen</button>
+        <button id="llama-installer-upstream-read" type="button" class="button secondary">Offizielle Pin-Metadaten online prüfen</button>
+        <button id="llama-installer-preview" type="button" class="button secondary" disabled>Installation vorprüfen</button>
+        <button id="llama-installer-apply" type="button" class="button primary" disabled>Bestätigten Plan ausführen</button>
+        <button id="llama-installer-close" type="button" class="button secondary">Abbrechen / zurück</button>
+      </div>
+    </div>
+  </dialog>
   <dialog id="maintenance-dialog">
     <div class="maintenance-dialog-content">
       <h2>Wartungsbefunde und Zuordnung</h2>

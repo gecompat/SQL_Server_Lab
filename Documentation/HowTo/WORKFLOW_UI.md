@@ -2,6 +2,20 @@
 
 ## Zweck
 
+### llama.cpp-Runtimeinstallation
+
+Unter „Ressourcen und Downloads“ öffnet „llama.cpp-Runtime installieren / prüfen“
+den gemeinsamen Fachdialog zum kuratierten experimentellen Windows-x64-CPU-Pin
+b11247. Release und vorhandenen Lab_Base wählen, Vorschau lesen und Download,
+Extraktion sowie feste modellfreie `--version`-Probe separat bestätigen.
+OS-/Architektur-/Backendalternativen bleiben ausdrücklich offen. Lokales Neulesen
+startet keinen Download; die Online-Metadatenprüfung ist eine eigene Aktion.
+No-op/Abbruch schreiben nichts. Fehlende VC/UCRT-Voraussetzungen, Drift und offene
+Recovery sperren, ohne Prerequisites zu installieren. Empfehlung `UNASSESSED`;
+`BINARY_PROBE_PASSED` wäre ausschließlich Paketausführbarkeit, Compute/SQL/Modelle
+bleiben `NOT_CHECKED`. Native Probe ist derzeit `NOT_EXECUTED`.
+Details: [Installervertrag](../Architecture/LLAMA_CPP_INSTALLER.md).
+
 ### Wartungsbefunde und Katalogzuordnung
 
 Im Wartungsbereich öffnet „Wartungsbefunde und Zuordnung“ denselben Fachablauf

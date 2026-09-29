@@ -426,6 +426,12 @@ function Get-LabConsoleHelpCatalog {
         Effects = 'Schreibt ausschließlich nach Lab_Base/AI/Models; veröffentlicht erst nach Größen-, SHA-256- und GGUF-Prüfung atomar. Vorhandene Dateien werden erneut vollständig geprüft. Startet keine Runtime und lädt kein Modell in den Arbeitsspeicher.'
         Command = 'Get-SqlServerLabLlamaCppModel / Save-SqlServerLabLlamaCppModel'; Preconditions = @($mediaRootPrecondition)
     }
+    $catalog['llama-installer'] = @{
+        Title = 'llama.cpp-Runtime für SQL-KI'; Purpose = 'Wählt den kuratierten experimentellen Release b11247 für Windows/x64/CPU und einen vorhandenen Lab_Base. Andere Kombinationen bleiben offen; Empfehlung UNASSESSED.'
+        Effects = 'Erst nach Vorschau und Bestätigung: offizieller größen-/hashgebundener Download, vollständige versionierte Extraktion und feste modellfreie --version-Probe (15 Sekunden, 64 KiB). Keine Modelle, Dienste, Treiber oder PATH-Änderung. F5/r liest lokal; Upstreamprüfung ist eine eigene Onlineaktion.'
+        Command = 'Invoke-SqlServerLab -Action RuntimeInstaller'; Preconditions = @($mediaRootPrecondition, 'Windows x64 und vorhandene VC140/UCRT; konkrete Mindestversion/OS-/CPU-Kompatibilität UNKNOWN. Keine Prerequisiteinstallation.')
+    }
+    $catalog['llama-installer-root'] = $catalog['llama-installer']
     $catalog['connection-center-cms'] = @{
         Title = 'CMS-Verwaltung'; Purpose = 'Erstellt, übernimmt oder synchronisiert den zentralen Verwaltungsserver.'
         Effects = 'Erstellen legt eine persistente SQL-Umgebung an; Übernehmen bindet eine vorhandene Umgebung; Export bleibt kennwortfrei.'
