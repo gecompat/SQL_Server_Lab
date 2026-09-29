@@ -90,6 +90,7 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Lesen und Vorschau ändern nichts. Bestätigung speichert nur Policy. Keine Reservierung, Auffüllung oder Provideraktion; freie Reserve und Defizit bleiben unbekannt.'
             Command = 'Invoke-SqlServerLab -Action ReservePolicy'
         }
+        'resource-watch' = @{ Title = 'Ressourcenstand prüfen'; Purpose = 'Katalog, letzte Beobachtung und aktuellen Quellenversuch getrennt lesen.'; Effects = 'Nur Jetzt prüfen greift auf feste Microsoftquellen zu. Sitzungscache ohne dauerhafte Überwachung; keine Downloads oder Installation.'; Command = 'Invoke-SqlServerLabWorkflowAction -Action GetResourceWatchState' }
         'media-overrides' = @{
             Title = 'SQL-2025-Bootstrapperquellen'
             Purpose = 'Eine von drei katalogisierten Varianten auswählen und Repositoryadresse, effektive Adresse und Herkunft prüfen.'

@@ -2082,6 +2082,9 @@ change_coupling:
     - Public/Get-SqlServerLabResourcePlan.ps1
     - Public/Save-SqlServerLabResourceSet.ps1
     - Private/CuStatus.ps1
+    - Private/ResourceWatch.ps1
+    - Tests/Static/Fixtures/ResourceWatchChecks.ps1
+    - Documentation/HowTo/WORKFLOW_UI.md
     - Catalogs/sql-server-cu-status-sources.json
     - Schemas/cu-status-sources.schema.json
     - Private/VersionCatalog.ps1

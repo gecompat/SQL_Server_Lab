@@ -338,7 +338,7 @@ ausführbarer Slice; die gesamte empirische Matrix blockiert ihn nicht.
 | `BASE-001` | Code, Exporte, Schemas, Kataloge, Tests, Menüs und Provider-Metadaten inventarisieren | maschinenlesbare Capability-/Statusmatrix |
 | `BASE-002` | die in Abschnitt 3.3 genannten Widersprüche und Links korrigieren | widerspruchsfreie Statuswahrheit |
 | `BASE-003` | Master-Plan-Wellenstatus auf den aktuellen Stand bringen, ohne alte Zielentscheidungen umzuschreiben | aktuelle Mapping-Tabelle Alt-Welle -> neuer Meilenstein |
-| `BASE-004` | Dokumentationschecks auf Planungsindex, relative Links und zentrale Statusaussagen erweitern | zukünftiger Drift wird testseitig sichtbar |
+| `BASE-004` | Dokumentationschecks auf Planungsindex, relative Links und zentrale Statusaussagen erweitern; interaktiver Resource-Watch-Slice gemäß kanonischer Wave J | zukünftiger Drift wird testseitig sichtbar; CU plus SqlPackage als expliziter Sitzungssnapshot, dauerhafte Automation bleibt separat |
 | `BASE-005` | lokale Testbefehle je Änderungsklasse und Evidence-Format vereinheitlichen | eine Readiness-Matrix ohne `SKIP == PASS` |
 
 **Gate M0:**

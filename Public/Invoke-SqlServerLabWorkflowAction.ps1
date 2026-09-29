@@ -7,6 +7,8 @@
     und werden weder in Build-State noch Log-Ausgabe gespeichert.
 .PARAMETER Action
     Eindeutige, zulässige Workflow-Aktion.
+    GetResourceWatchState liest nur Katalog und Sitzungscache. RefreshResourceWatch
+    prüft ausdrücklich feste Quellenmetadaten, ohne Download oder Installation.
     RepairHyperVWindowsActivation prueft einen laufenden Slot wie bisher erneut
     mit dem run-lokal gespeicherten Gastkennwort. Wird GuestPassword angegeben,
     setzt die Aktion stattdessen einen nach manueller OOBE fortgesetzten Slot
@@ -236,6 +238,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider',
             'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve',
             'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
+            'GetResourceWatchState', 'RefreshResourceWatch',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
@@ -329,6 +332,10 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateRange(32, 1048576)][int]$OsDiskSizeGB = 80
     )
 
+    if ($Action -in @('GetResourceWatchState', 'RefreshResourceWatch')) {
+        $result=if($Action -eq 'RefreshResourceWatch'){Invoke-LabResourceWatchRefresh}else{Get-LabResourceWatchState}
+        return [pscustomobject]@{Action=$Action;CompletedAt=Get-LabTimestamp;Result=$result}
+    }
     if ($Action -in @('GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride')) {
         $result = switch ($Action) {
             'GetMediaOverrideState' { Get-LabMediaOverrideState }

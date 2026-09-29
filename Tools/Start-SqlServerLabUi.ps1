@@ -446,6 +446,23 @@ function Invoke-UiSlotReserveRequest {
     Invoke-SqlServerLabWorkflowAction -Action ([string]$payload.action) @parameters
 }
 
+function Invoke-UiResourceWatchRequest {
+    param([Parameter(Mandatory)]$Request)
+    if ($Request.HttpMethod -eq 'GET') { return Invoke-SqlServerLabWorkflowAction -Action GetResourceWatchState }
+    if ($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)') { throw 'RESOURCE_WATCH_REQUEST_INVALID' }
+    $origin = [string]$Request.Headers['Origin']
+    if ($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)) { throw 'RESOURCE_WATCH_ORIGIN_INVALID' }
+    $reader = [IO.StreamReader]::new($Request.InputStream, $Request.ContentEncoding)
+    try {
+        $buffer = [char[]]::new(1025)
+        $length = $reader.ReadBlock($buffer, 0, $buffer.Length)
+        if ($length -gt 1024) { throw 'RESOURCE_WATCH_REQUEST_TOO_LARGE' }
+        $payload = ([string]::new($buffer, 0, $length)) | ConvertFrom-Json -Depth 4 -ErrorAction Stop
+    } finally { $reader.Dispose() }
+    if ($payload -isnot [pscustomobject] -or @($payload.PSObject.Properties.Name | Where-Object { $_ -notin @('action', 'parameters') }).Count -or
+        $payload.action -cne 'RefreshResourceWatch' -or $payload.parameters -isnot [pscustomobject] -or @($payload.parameters.PSObject.Properties).Count) { throw 'RESOURCE_WATCH_REQUEST_INVALID' }
+    Invoke-SqlServerLabWorkflowAction -Action RefreshResourceWatch
+}
 function Invoke-UiMediaOverrideRequest {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Request)
@@ -552,6 +569,13 @@ try {
                 catch {
                     Write-UiResponse -Context $context -Body 'SLOT_RESERVE_REQUEST_FAILED: Eingaben und aktuellen Zustand erneut prüfen.' -StatusCode 400
                 }
+                continue
+            }
+            if ($path -eq '/api/resource-watch') {
+                try {
+                    $result = Invoke-UiResourceWatchRequest -Request $context.Request
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
+                } catch { Write-UiResponse -Context $context -Body 'RESOURCE_WATCH_UNAVAILABLE' -StatusCode 400 }
                 continue
             }
             if ($path -eq '/api/media-overrides') {
@@ -670,7 +694,7 @@ try {
                 $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
-                if ($action -in @('GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
+                if ($action -in @('GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
                 $parameters = @{}
                 if ($request.parameters) {
                     foreach ($property in $request.parameters.PSObject.Properties) {

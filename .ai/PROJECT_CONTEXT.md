@@ -914,3 +914,15 @@ unter Speicherdruck mit eigenem Ergebnis `HostMemory`; die Testgruppe prüft
 einmal am Ende. Restart erhält den Cache. Bindung, Opt-out, Warnungen und
 getrennte Host-/Gast-Evidence stehen im
 [Hostspeichervertrag](../Documentation/Architecture/STOP_HOST_MEMORY.md).
+
+## Resource Watch: interaktiver Sitzungscache (BASE-004)
+
+`Private/ResourceWatch.ps1` ergänzt den vorhandenen CU-Core um genau SqlPackage
+(`sql2022-sqlpackage170-linux-derived`) über den festen Learn-Downloadartikel.
+Gemeinsame WorkflowActions liefern ausschließlich bereinigte Befunde; CLI und
+GUI benötigen einen ausdrücklichen Refresh. Der flüchtige Cache schreibt weder
+Preferences noch Kataloge. Details und Grenzen:
+[Workflow UI](../Documentation/HowTo/WORKFLOW_UI.md#ressourcenstand-cus-und-sqlpackage).
+Die monatliche CU-Automation wird dadurch weder erweitert noch als dauerhaft
+abgenommen behauptet. Scheduler, weitere Familien und Benachrichtigung bleiben
+separate Folgearbeit unter den bestehenden IDs.

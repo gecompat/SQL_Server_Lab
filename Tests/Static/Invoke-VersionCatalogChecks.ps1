@@ -429,6 +429,8 @@ Add-CheckResult -Name 'CU-Watch versucht Issuehinweis vor abschließendem roten 
     $watchWorkflow.IndexOf('Preserve failed check outcome') -gt $watchWorkflow.IndexOf('Open or update tracking issue')
 )
 
+. (Join-Path $PSScriptRoot 'Fixtures/ResourceWatchChecks.ps1')
+
 if ($failures.Count -gt 0) {
     foreach ($failure in $failures) { Write-Host "FAIL: $failure" -ForegroundColor Red }
     exit 1

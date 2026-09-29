@@ -115,6 +115,7 @@
       <p>Medienquellen und lokale Ablage sind einsehbar. Die Konsole bietet bereits CU-Beschaffung, 7-Zip und kuratierte llama.cpp-Modelldateien. Vollständige geführte Beschaffung im Browser sowie ein llama.cpp-Runtimeinstaller bleiben offen.</p>
       <button id="media-sources" class="button secondary">Medienquellen und Ablage anzeigen</button>
       <button id="media-override-open" class="button secondary">SQL-2025-Bootstrapperquellen bearbeiten</button>
+      <button id="resource-watch-open" class="button secondary">Ressourcenstand: CUs und SqlPackage</button>
     </section>
     <section class="panel" data-workspace-area="hostmodels" hidden>
       <h2>Host-Dienste und Modelle</h2>
@@ -556,6 +557,17 @@
     </div>
   </dialog>
 
+  <dialog id="resource-watch-dialog">
+    <div class="read-only-dialog-content">
+      <h2>Ressourcenstand prüfen</h2>
+      <p>Nur Metadaten. Kein Download, keine Installation oder Supportfreigabe. Flüchtiger Sitzungscache; keine automatische Netzprüfung.</p>
+      <p id="resource-watch-status" role="status"></p>
+      <pre id="resource-watch-details"></pre>
+      <button id="resource-watch-read" class="button secondary">Sitzungsbefund lesen</button>
+      <button id="resource-watch-check" class="button primary">Jetzt bei Microsoft prüfen</button>
+      <button id="resource-watch-close" class="button secondary">Schließen</button>
+    </div>
+  </dialog>
   <dialog id="media-override-dialog">
     <div class="read-only-dialog-content">
       <h2>SQL-2025-Bootstrapperquellen</h2>

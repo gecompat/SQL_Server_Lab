@@ -2747,3 +2747,36 @@ $('#media-override-apply').addEventListener('click', () => {
     return requestMediaOverride();
   }, renderMediaOverride);
 });
+let resourceWatchRevision = 0;
+let resourceWatchBusy = false;
+function updateResourceWatchControls() {
+  $('#resource-watch-read').disabled = resourceWatchBusy;
+  $('#resource-watch-check').disabled = resourceWatchBusy;
+}
+async function readResourceWatch(refresh = false) {
+  if (resourceWatchBusy || !$('#resource-watch-dialog').open) return;
+  const revision = resourceWatchRevision;
+  resourceWatchBusy = true; updateResourceWatchControls();
+  try {
+    const response = await fetch('/api/resource-watch', refresh ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'RefreshResourceWatch', parameters: {} }) } : { cache: 'no-store' });
+    if (!response.ok) throw new Error('RESOURCE_WATCH_UNAVAILABLE');
+    const view = (await response.json()).Result;
+    if (revision !== resourceWatchRevision || !$('#resource-watch-dialog').open) return;
+    $('#resource-watch-status').textContent = view.Status + ' · ' + view.ReasonCode + ' · Quellenversuch: ' + (view.CheckedAtUtc || 'noch keiner');
+    $('#resource-watch-details').textContent = (view.Items || []).map(item => item.Name + '\nKatalogversion: ' + item.CatalogVersion + '\nAktueller Quellenbefund: ' + (item.ObservedVersion || 'unbestätigt') + ' · ' + item.Status + ' · ' + item.ReasonCode + '\nLetzte erfolgreiche Beobachtung: ' + (item.LastSuccessfulVersion || 'keine') + ' · ' + (item.LastSuccessfulAtUtc || '') + '\nQuelle: ' + item.SourceUrl).join('\n\n') + '\n\n' + view.Notice;
+  } catch {
+    if (revision === resourceWatchRevision && $('#resource-watch-dialog').open) {
+      $('#resource-watch-status').textContent = 'UNCLEAR · RESOURCE_WATCH_UNAVAILABLE';
+      $('#resource-watch-details').textContent = '';
+    }
+  } finally { if (revision === resourceWatchRevision) { resourceWatchBusy = false; updateResourceWatchControls(); } }
+}
+$('#resource-watch-open').addEventListener('click', () => {
+  resourceWatchRevision++; resourceWatchBusy = false;
+  $('#resource-watch-status').textContent = 'Sitzungsbefund wird gelesen …'; $('#resource-watch-details').textContent = '';
+  $('#resource-watch-dialog').showModal(); return readResourceWatch();
+});
+$('#resource-watch-read').addEventListener('click', () => readResourceWatch());
+$('#resource-watch-check').addEventListener('click', () => readResourceWatch(true));
+$('#resource-watch-close').addEventListener('click', () => $('#resource-watch-dialog').close());
+for (const event of ['close', 'cancel']) $('#resource-watch-dialog').addEventListener(event, () => { resourceWatchRevision++; resourceWatchBusy = false; updateResourceWatchControls(); });
