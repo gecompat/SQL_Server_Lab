@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/sql-server-lab/llama-cpp-runtime-packages.schema.json",
+  "title": "SQL Server Lab initial curated llama.cpp installer package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "Contract",
+    "Items"
+  ],
+  "properties": {
+    "Contract": {
+      "const": "SqlServerLab.LlamaCppInstallerCatalog/1.0"
+    },
+    "Items": {
+      "maxItems": 1,
+      "minItems": 1,
+      "items": {
+        "additionalProperties": false,
+        "required": [
+          "Id",
+          "ReleaseId",
+          "AssetId",
+          "Tag",
+          "Commit",
+          "Build",
+          "AssetName",
+          "Bytes",
+          "Sha256",
+          "OS",
+          "Architecture",
+          "Backend",
+          "Status",
+          "Recommendation",
+          "MinimumOS",
+          "MinimumCpuIsa",
+          "MinimumVCRuntime",
+          "ExternalPrerequisites",
+          "LicenseReference",
+          "Files"
+        ],
+        "properties": {
+          "Id": {
+            "const": "llama-b11247-win-x64-cpu"
+          },
+          "ReleaseId": {
+            "const": 398909727
+          },
+          "AssetId": {
+            "const": 597579591
+          },
+          "Tag": {
+            "const": "b11247"
+          },
+          "Commit": {
+            "const": "0bc845d356f437d5ce4fe975c36428f7522829cb"
+          },
+          "Build": {
+            "const": 11247
+          },
+          "AssetName": {
+            "const": "llama-b11247-bin-win-cpu-x64.zip"
+          },
+          "Bytes": {
+            "const": 19163423
+          },
+          "Sha256": {
+            "const": "4c66724cbbe89614d53a0e68a88a470d2982bc314525eff45df37e422a7cc685"
+          },
+          "OS": {
+            "const": "Windows"
+          },
+          "Architecture": {
+            "const": "x64"
+          },
+          "Backend": {
+            "const": "CPU"
+          },
+          "Status": {
+            "const": "EXPERIMENTAL"
+          },
+          "Recommendation": {
+            "const": "UNASSESSED"
+          },
+          "MinimumOS": {
+            "const": "UNKNOWN"
+          },
+          "MinimumCpuIsa": {
+            "const": "UNKNOWN"
+          },
+          "MinimumVCRuntime": {
+            "const": "UNKNOWN"
+          },
+          "ExternalPrerequisites": {
+            "const": [
+              "MSVCP140.dll",
+              "VCRUNTIME140.dll",
+              "VCRUNTIME140_1.dll",
+              "Windows Universal CRT"
+            ]
+          },
+          "LicenseReference": {
+            "const": "https://github.com/ggml-org/llama.cpp/blob/0bc845d356f437d5ce4fe975c36428f7522829cb/LICENSE"
+          },
+          "Files": {
+            "maxItems": 51,
+            "minItems": 51,
+            "items": {
+              "additionalProperties": false,
+              "required": [
+                "Name",
+                "Bytes",
+                "Sha256"
+              ],
+              "properties": {
+                "Name": {
+                  "pattern": "^(?:[A-Za-z0-9][A-Za-z0-9.-]*\\.(?:exe|dll)|LICENSE-LLVM-OpenMP)$",
+                  "type": "string"
+                },
+                "Bytes": {
+                  "maximum": 134217728,
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "Sha256": {
+                  "pattern": "^[a-f0-9]{64}$",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "type": "object"
+      },
+      "type": "array"
+    }
+  }
+}

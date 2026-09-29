@@ -2,6 +2,16 @@
 
 ## Status und Priorität
 
+Slice H zu `AIX-001/008`: Der enge Ressourceninstaller ist implementiert
+für genau den kuratierten experimentellen Pin b11247,
+Windows/x64/CPU. Gemeinsame CLI/GUI-Vorschau und Bestätigung binden Releaseasset,
+Lab_Base, vollständige Dateimenge und feste modellfreie `--version`-Probe.
+Offizielle GitHub-Hashmetadaten sind die bewusst begrenzte Trustbasis, keine
+unabhängige Signatur. Empfehlung `UNASSESSED`; der eigene Windows-x64-CPU-
+Nachweis bestand neun Prüfungen mit bestätigtem Cleanup (`BINARY_PROBE_PASSED`).
+Weitere Releases/OS/Backends und vollständige Kompatibilitäts-/Compute-/SQL-
+Nachweise bleiben offen. Siehe [Installervertrag](../Architecture/LLAMA_CPP_INSTALLER.md).
+
 `IMPLEMENTED_PARTIAL / USER_PRIORITY_P0`. Dieser Arbeitsstrom hat Vorrang vor allgemeinen
 Routineerweiterungen. Er erweitert den vorhandenen, nativ belegten
 [Docker-Referenzslice](../Architecture/AI_SQL_HTTPS_BRIDGE.md) von

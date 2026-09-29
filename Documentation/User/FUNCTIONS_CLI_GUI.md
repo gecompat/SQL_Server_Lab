@@ -1,5 +1,14 @@
 # Funktionsübersicht für CLI und Browser-GUI
 
+`AIX-001/008`: Ressourcen und Downloads → llama.cpp-Runtime installieren / prüfen
+ist in CLI und Browser ein gemeinsamer Fachdialog; direkter CLI-Einstieg:
+`Invoke-SqlServerLab -Action RuntimeInstaller`. Initial unterstützt er nur den
+kuratierten experimentellen Windows-x64-CPU-Pin b11247, vorhandene Lab_Base-Roots,
+Vorschau, bestätigten Download/Extraktion und eine feste begrenzte `--version`-
+Probe. Discovery, installierte Byteintegrität, Ausführungsevidence und Empfehlung
+sind getrennt; native Probe noch `NOT_EXECUTED`, Empfehlung `UNASSESSED`.
+[Scope, Prerequisites und Recovery](../Architecture/LLAMA_CPP_INSTALLER.md).
+
 Die Wartungsführung (`CORE-105/106/109`, `PSR-011`) bietet in CLI und GUI eine
 gemeinsame read-only Befundauswahl mit Herkunft, Nutzung und Detailansicht.
 Eine fehlende moderne Docker-/Podman-SQL-Speicherzuordnung lässt sich separat
