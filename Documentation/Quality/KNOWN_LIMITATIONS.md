@@ -338,6 +338,23 @@ ausgeschaltet, unter registrierten Lab-Roots und nach dem separaten Schalter
 einen Aktionsplan aufgenommen. Diese Grenzen ersetzen keine fachliche
 Retention-Entscheidung für Datenbanken, Backups oder katalogisierte Stores.
 
+Der geführte Wartungsdialog (`CORE-105/106/109`, `PSR-011`) verwendet deshalb
+ausschließlich `Get-SqlServerLabCleanupAudit -NoWrite` für seine Befunde,
+keinen allgemeinen Maintenance-Plan/-Apply. Der ältere Modus `Safe` umfasst
+auch nach seinem Vertrag freigegebene abgelaufene Test-Orphans; er ist keine
+reine Zuordnungsreparatur. Seine Hyper-V-Statuskette kann zudem bestehende
+Connection-Metadaten reparieren und ist kein geeigneter NoWrite-Previewpfad.
+Im neuen Dialog bleibt fehlende Herkunft unbekannt. Unlesbare Run-States
+erzeugen einen Teilinventurhinweis ohne Warnjournal und sperren Katalogrepair.
+Nur fehlende moderne Container-Store-Katalogzuordnungen werden nach eigener
+Vorschau und Bestätigung ergänzt; keine allgemeine Adoption, State-/Runtime-
+Reparatur oder Löschung. Die gezielte Katalogreparatur wurde für Docker und
+Podman getrennt an jeweils einer neuen eigenen synthetischen Volume mit
+bytegleichem Sentinel und bestätigtem Cleanup geprüft; SQL Server wurde dabei
+nicht gestartet. Dieser Nachweis gilt nicht für allgemeine Maintenance-Reparatur
+oder SQL-Funktionalität. Retained-Removal-Native für Docker und Podman bleibt
+`NOT_EXECUTED`; synthetische Katalog-/UI-Prüfungen ersetzen diesen Nachweis nicht.
+
 ### Hyper-V
 
 Hyper-V besitzt eine ausführbare Lifecycle-Grundlage für eine Generation-2-VM

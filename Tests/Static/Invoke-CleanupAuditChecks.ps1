@@ -178,6 +178,21 @@ try {
             -DisplayName 'Cleanup audit exchange workspace' -DataRoot $root -RelativePath $exchangeRelativePath
         $auditResult = Get-SqlServerLabCleanupAudit
         $secondAudit = Get-SqlServerLabCleanupAudit -NoWrite
+        $badDirectory=Join-Path (Join-Path $stateRoot 'runs') ([guid]::NewGuid().ToString('D'))
+        $null=New-Item -ItemType Directory -Path $badDirectory
+        $badState=Join-Path $badDirectory 'run-state.json'; Set-Content -LiteralPath $badState -Value '{broken'
+        function Get-AuditByteSnapshot {
+            @(Get-ChildItem -LiteralPath $stateRoot -File -Recurse | Sort-Object FullName | ForEach-Object { $_.FullName + ':' + (Get-FileHash -LiteralPath $_.FullName).Hash }) -join '|'
+        }
+        $beforeNoWrite=Get-AuditByteSnapshot
+        $script:auditWarningWrites=0
+        $originalWarning=${function:Write-LabWarning}
+        function Write-LabWarning {param($Message) $script:auditWarningWrites++}
+        try { $malformedAudit=Get-SqlServerLabCleanupAudit -NoWrite }
+        finally { Set-Item Function:Write-LabWarning -Value $originalWarning }
+        $malformedAuditPreserved=$beforeNoWrite -ceq (Get-AuditByteSnapshot) -and $script:auditWarningWrites -eq 0
+        Remove-Item -LiteralPath $badState
+        Remove-Item -LiteralPath $badDirectory
         $syntheticHyperVInventory = Get-LabStorageResidencyInventory `
             -Configuration (Get-LabStorageConfiguration) -StateRoot $stateRoot -DataRoots $auditResult.Audit.DataRoots `
             -HyperVStatus AVAILABLE -HyperVResources @([PSCustomObject]@{
@@ -314,6 +329,7 @@ try {
 
         [PSCustomObject]@{
             Path=$auditResult.Path; Audit=$auditResult.Audit; SecondAudit=$secondAudit.Audit; RunId=$run.RunId
+            MalformedAudit=$malformedAudit; MalformedAuditPreserved=$malformedAuditPreserved
             StorageRunId=$storageRun.RunId
             SyntheticHyperVInventory=$syntheticHyperVInventory
             ProtectedVhdx=$protectedVhdx; UntrackedFile=$untrackedFile; SharedParent=$sharedParent
@@ -337,6 +353,9 @@ try {
         }
     }
     Add-CheckResult -Name 'Cleanup-Audit meldet bekannte Runtime-Reste' -Success ($result.Audit.Status -eq 'RESIDUALS' -and $result.Audit.Summary.ResidualCount -ge 3)
+    Add-CheckResult -Name 'NoWrite bewahrt Runbytes und schreibt bei ungültigem State kein Warnjournal; Teilinventur bleibt sichtbar' -Success (
+        $result.MalformedAuditPreserved -and -not $result.MalformedAudit.Path -and $result.MalformedAudit.Audit.Status -eq 'UNVERIFIABLE' -and
+        @($result.MalformedAudit.Audit.StateReadIssues | Where-Object ReasonCode -EQ 'RUN_STATE_UNVERIFIABLE').Count -eq 1)
     $cleanupSchemaErrors = @()
     $cleanupSchemaValid = (($result.Audit | ConvertTo-Json -Depth 50) | Test-Json `
         -SchemaFile (Join-Path $repoRoot 'Schemas/lab-cleanup-audit.schema.json') -ErrorAction SilentlyContinue -ErrorVariable cleanupSchemaErrors)

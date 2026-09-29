@@ -147,9 +147,15 @@ function Get-LabConsoleHelpCatalog {
         }
         'maintenance-menu' = @{
             Title   = 'Wartung und Diagnose'
-            Purpose = 'Read-only Pruefungen zu Providerstatus, verbliebenen Ressourcen und Katalog.'
-            Effects = 'Keine Mutation. Ergebnisse werden bis zur Rueckkehrbestaetigung angezeigt.'
+            Purpose = 'Read-only Befunde zu Herkunft, Nutzung und Recovery; gezielte Katalogzuordnung separat vorprüfen.'
+            Effects = 'Audit schreibt nichts. Nur eine fehlende moderne SQL-Speicherzuordnung kann nach eigener Vorschau und Bestätigung ergänzt werden; Löschung bleibt separat.'
             Command = 'Test-SqlServerLabPrerequisite / Get-SqlServerLabCleanupAudit'
+        }
+        'maintenance-guidance' = @{
+            Title='Wartungsbefunde und Zuordnung'
+            Purpose='Befund auswählen, Herkunft, Nutzung und nächsten Schritt getrennt lesen. F5 liest neu.'
+            Effects='Preview und Abbruch schreiben nichts. Eine bestätigte Reparatur ergänzt nur die fehlende Katalogzuordnung. Unbekannte Nutzung, Schutz, Recovery oder Konflikt sperren.'
+            Command='Get-SqlServerLabCleanupAudit -NoWrite / Repair-SqlServerLabPersistentStorageCatalog'
         }
         'evaluation-watch-menu' = @{
             Title = 'Windows-/SQL-Evaluationsfristen'

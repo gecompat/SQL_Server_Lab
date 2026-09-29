@@ -1117,6 +1117,8 @@ internal_components:
     persistent_storage_removal_action: Public/Invoke-SqlServerLabPersistentStorageRemoval.ps1
     container_runtime_scope: Private/ContainerRuntimeScope.ps1
     maintenance_core: Private/Maintenance.ps1
+    maintenance_guidance: Private/MaintenanceGuidance.ps1
+    maintenance_guidance_checks: Tests/Static/Invoke-MaintenanceGuidanceChecks.ps1
     maintenance_commands: Public/Maintenance.ps1
     maintenance_schema: Schemas/lab-maintenance-plan.schema.json
     maintenance_script: Tools/Invoke-SqlServerLabMaintenance.ps1

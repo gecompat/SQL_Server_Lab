@@ -1,5 +1,13 @@
 # Funktionsübersicht für CLI und Browser-GUI
 
+Die Wartungsführung (`CORE-105/106/109`, `PSR-011`) bietet in CLI und GUI eine
+gemeinsame read-only Befundauswahl mit Herkunft, Nutzung und Detailansicht.
+Eine fehlende moderne Docker-/Podman-SQL-Speicherzuordnung lässt sich separat
+vorprüfen und bestätigt über den bestehenden Katalog-Repair ergänzen.
+Unbekannte Identität, unlesbare Referenzevidence und widersprechende Bindungen
+sperren; Preview/Abbruch/No-op schreiben nichts. Retained-Löschung bleibt im
+separaten bestehenden Plan-/Resume-Verfahren und ist damit nicht nativ abgenommen.
+
 | Merkmal | Wert |
 |---|---|
 | Stand | 2026-09-26 |

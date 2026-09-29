@@ -76,11 +76,13 @@ function Get-LabContainerStoreRecoverySource {
 function Repair-LabContainerStoreCatalog {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Source, [string]$StateRoot, [string]$RuntimeScopeId,
-        [Parameter(Mandatory)]$Configuration, [int]$ExpectedRevision=-1, [switch]$Preview)
+        [Parameter(Mandatory)]$Configuration, [int]$ExpectedRevision=-1, [switch]$Preview,
+        $ExpectedObservation, [scriptblock]$BeforeCatalogCommit)
     $readSource=${function:Get-LabContainerStoreRecoverySource}
     $inspect=${function:Get-LabContainerInstanceStoreRuntimeInspection}
     $checkBinding=${function:Test-LabContainerInstanceStoreRuntimeBinding}
     $getObjectId=${function:Get-LabStorageResidencyObjectId}
+    $observe=${function:Get-LabRetainedStoreObservation}
     $timestamp=Get-LabTimestamp
     $mutation={
         param($Document)
@@ -100,6 +102,10 @@ function Repair-LabContainerStoreCatalog {
             $sidecar=& $inspect -Provider $current.Provider -VolumeName ($current.VolumeName+$suffix) -RequireMissingEvidence
             if ($sidecar.Status -cne 'MISSING') { throw 'RECOVER_CONTAINER_STORE_SIDECARS_UNSUPPORTED' }
         }
+        if ($ExpectedObservation) {
+            $checked = & $observe -Store $store -Configuration $Configuration -StateRoot $StateRoot -Expected $ExpectedObservation
+            if ($checked.Status -cne 'AVAILABLE') { throw 'RECOVER_CONTAINER_STORE_RUNTIME_OWNERSHIP_INVALID' }
+        }
         $matches=@($Document.Stores | Where-Object { $_.PersistentStorageId -eq $current.PersistentStorageId -or
             ($_.Provider -eq $current.Provider -and ($_.LocationBinding.ProviderResourceId -eq $current.VolumeName -or $_.LocationBinding.InventoryObjectId -eq $objectId)) })
         if ($matches.Count -gt 1) { throw 'RECOVER_CONTAINER_STORE_BINDING_CONFLICT' }
@@ -111,6 +117,7 @@ function Repair-LabContainerStoreCatalog {
                 ($existing.LocationBinding | ConvertTo-Json -Compress) -cne ($store.LocationBinding | ConvertTo-Json -Compress) -or
                 $existing.RuntimeBinding.RuntimeScopeId -cne $RuntimeScopeId -or
                 ($existing.RuntimeBinding.RecoverySource | ConvertTo-Json -Compress) -cne ($binding.RecoverySource | ConvertTo-Json -Compress)) { throw 'RECOVER_CONTAINER_STORE_BINDING_CONFLICT' }
+            if ($BeforeCatalogCommit) { & $BeforeCatalogCommit }
             return $current.PersistentStorageId
         }
         $finalRuntime=& $inspect -Provider $current.Provider -VolumeName $current.VolumeName
@@ -118,6 +125,13 @@ function Repair-LabContainerStoreCatalog {
             -not (& $checkBinding -Store $store -RuntimeInspection $finalRuntime)) { throw 'RECOVER_CONTAINER_STORE_RUNTIME_OWNERSHIP_INVALID' }
         $last=& $readSource -OriginalRunId $Source.RunId -InstanceId $Source.InstanceId -PersistentStorageId $Source.PersistentStorageId -StateRoot $StateRoot -Configuration $Configuration
         if ($last.EvidenceSha256 -cne $Source.EvidenceSha256) { throw 'RECOVER_CONTAINER_STORE_SOURCE_CHANGED' }
+        if ($ExpectedObservation) {
+            $checked = & $observe -Store $store -Configuration $Configuration -StateRoot $StateRoot -Expected $ExpectedObservation
+            if ($checked.Status -cne 'AVAILABLE') { throw 'RECOVER_CONTAINER_STORE_RUNTIME_OWNERSHIP_INVALID' }
+        }
+        # Guided callers revalidate reference/recovery/authority evidence last,
+        # after every native observation and while catalog/registry locks hold.
+        if ($BeforeCatalogCommit) { & $BeforeCatalogCommit }
         $Document.Stores=@($Document.Stores)+@($store)
         $current.PersistentStorageId
     }.GetNewClosure()

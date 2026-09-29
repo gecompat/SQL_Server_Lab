@@ -156,7 +156,7 @@ function Invoke-LabMenuAction {
         $null = Invoke-LabActionWithResult -ActionName $ActionName
     }
 
-    if ($ActionName -in @('Status', 'CleanupAudit', 'Catalog', 'DatabasePackageInventory', 'DatabaseMigrationDependency')) {
+    if ($ActionName -in @('Status', 'Catalog', 'DatabasePackageInventory', 'DatabaseMigrationDependency')) {
         Wait-LabConsoleAcknowledgement
     }
     if ($ActionName -in @('DatabaseBackup', 'DatabaseRestore', 'DatabasePackageExport', 'DatabasePackageAttach')) { Wait-LabConsoleAcknowledgement }
@@ -257,7 +257,7 @@ function Show-LabEnvironmentMenu {
         New-LabConsoleItem -Id 'Resources' -Label 'CPU und Speicher aendern' -Shortcut 'r' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, deren Ressourcen geaendert werden koennten.'
         New-LabConsoleItem -Id 'UpdateContainer' -Label 'Container neu erstellen mit Port, CPU und Speicher' -Value 'Docker/Podman · Container wird ersetzt, Daten bleiben' -Shortcut 'u' `
             -Disabled:(-not $hasContainerRun) -DisabledReason 'Es existiert keine Docker- oder Podman-Umgebung. Hyper-V-Umgebungen werden ueber die Hyper-V-Verwaltung geaendert.'
-        New-LabConsoleItem -Id 'CleanupAudit' -Label 'Cleanup-Audit anzeigen (read-only)' -Shortcut 'a'
+        New-LabConsoleItem -Id 'CleanupAudit' -Label 'Wartungsbefunde und Zuordnung' -Shortcut 'a'
         New-LabConsoleItem -Id 'Remove' -Label 'Umgebung entfernen' -Shortcut '6' -Disabled:(-not $hasRuns) -DisabledReason 'Es existiert noch keine Umgebung, die entfernt werden koennte.'
         New-LabConsoleItem -Id 'back' -Label 'Zurueck' -Shortcut '0'
     )
@@ -1685,12 +1685,7 @@ function Invoke-LabAction {
         }
         'RetainedStoreRemoval' { Invoke-LabRetainedStoreRemovalInteractive }
         'CleanupAudit' {
-            $result = Get-SqlServerLabCleanupAudit -NoWrite
-            Write-LabStatus -Label 'Audit-Status' -Value $result.Audit.Status -Color $(if ($result.Audit.Status -eq 'CLEAN') { 'Green' } else { 'Yellow' })
-            Write-LabStatus -Label 'Verbleibende Ressourcen' -Value $result.Audit.Summary.ResidualCount
-            Write-LabStatus -Label 'Nicht pruefbare Provider' -Value $result.Audit.Summary.UnverifiableProviders
-            Show-LabCleanupAuditFindings -Findings $result.Audit.Findings
-            Write-LabInfo 'Diese Menüansicht ist read-only und hat kein Audit-Artefakt geschrieben.'
+            Show-LabMaintenanceGuidanceInteractive
         }
         'TestDataRoot' {
             $currentTestDataRoot = Get-LabTestDataRootDefault

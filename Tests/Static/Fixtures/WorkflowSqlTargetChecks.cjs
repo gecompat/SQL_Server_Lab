@@ -591,6 +591,35 @@ async function main() {
   let releaseWatch;context.fetch=()=>new Promise(resolve=>{releaseWatch=resolve;});
   const pendingWatch=resourceEvent('resource-watch-read');await resourceEvent('resource-watch-close');releaseWatch({ok:true,json:async()=>({Result:{Status:'NEW',Items:[watchItem]}})});await pendingWatch;
   check('Resource watch closed dialog ignores late response',()=>assert.match(node('resource-watch-status').textContent,/UNCLEAR/));
+  const maintenanceCalls=[];
+  const maintenanceRow={Id:'fixture',CandidateId:'a'.repeat(64),Label:'docker · SQL-Speicher',Fields:[{Label:'Herkunft',Value:'Unbekannt <script>marker</script>'}]};
+  let maintenanceMode='ready';
+  context.fetch=async(url,options)=>{
+    const body=options?.body ? JSON.parse(options.body) : null; maintenanceCalls.push({url,body});
+    if(maintenanceMode==='error') return {ok:false};
+    return {ok:true,json:async()=>body?.action==='preview' ? {CandidateId:maintenanceRow.CandidateId,ExpectedKey:'b'.repeat(64),Status:maintenanceMode==='noop'?'NO_CHANGE':'READY',Notice:'Katalog-only'} : body?.action==='apply' ? {Status:'RECOVERED'} : {Rows:maintenanceMode==='empty'?[]:[maintenanceRow],Incomplete:maintenanceMode==='unknown',Notice:'Read-only',InventoryStatus:'synthetic',UnavailableProviders:1}};
+  };
+  await resourceEvent('maintenance-open');
+  check('Maintenance opening performs no audit or mutation',()=>assert.equal(maintenanceCalls.length,0));
+  await resourceEvent('maintenance-read');node('maintenance-selection').value='fixture';
+  for(const handler of node('maintenance-selection').events.get('change')||[])handler({});
+  check('Maintenance details escape evidence and keep apply disabled',()=>{assert.match(node('maintenance-details').innerHTML,/&lt;script&gt;/);assert.equal(node('maintenance-apply').disabled,true);});
+  await resourceEvent('maintenance-preview');await resourceEvent('maintenance-apply');
+  check('Maintenance preview alone does not authorize repair',()=>assert.equal(maintenanceCalls.filter(x=>x.body?.action==='apply').length,0));
+  node('maintenance-confirm').checked=true;for(const handler of node('maintenance-confirm').events.get('change')||[])handler({});
+  await resourceEvent('maintenance-apply');
+  check('Maintenance repair sends only opaque binding and typed confirmation',()=>{assert.deepEqual(maintenanceCalls.at(-1).body,{action:'apply',candidateId:'a'.repeat(64),expectedKey:'b'.repeat(64),confirmed:true});assert.match(node('maintenance-status').textContent,/RECOVERED/);assert.equal(node('maintenance-apply').disabled,true);});
+  for(const mode of ['empty','unknown','error']){
+    maintenanceMode=mode;await resourceEvent('maintenance-read');node('maintenance-selection').value='fixture';
+    for(const handler of node('maintenance-selection').events.get('change')||[])handler({});
+    check('Maintenance '+mode+' cannot authorize repair',()=>{assert.equal(node('maintenance-preview').disabled,true);assert.equal(node('maintenance-apply').disabled,true);});
+  }
+  maintenanceMode='noop';await resourceEvent('maintenance-read');node('maintenance-selection').value='fixture';for(const handler of node('maintenance-selection').events.get('change')||[])handler({});await resourceEvent('maintenance-preview');
+  check('Maintenance no-op never enables confirmation',()=>assert.equal(node('maintenance-confirm').disabled,true));
+  node('maintenance-dialog').close();
+  check('Maintenance cancel clears authority',()=>assert.equal(run('maintenancePlan'),null));
+  await resourceEvent('maintenance-open');let releaseMaintenance;context.fetch=()=>new Promise(resolve=>{releaseMaintenance=resolve;});const pendingMaintenance=resourceEvent('maintenance-read');node('maintenance-dialog').close();releaseMaintenance({ok:true,json:async()=>({Rows:[maintenanceRow]})});await pendingMaintenance;
+  check('Maintenance closed dialog ignores delayed audit',()=>assert.equal(run('maintenanceView'),null));
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

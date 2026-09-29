@@ -2287,6 +2287,88 @@ $('#retained-store-delete').addEventListener('click', () => {
     'RemoveRetainedStore', parameters, 'Endgültig löschen');
 });
 
+let maintenanceView = null;
+let maintenancePlan = null;
+let maintenanceRequest = 0;
+let maintenanceBusy = false;
+function renderMaintenanceSelection() {
+  maintenancePlan = null;
+  $('#maintenance-confirm').checked = false;
+  $('#maintenance-confirm').disabled = true;
+  $('#maintenance-apply').disabled = true;
+  const row = maintenanceView?.Rows.find(entry => entry.Id === $('#maintenance-selection').value);
+  $('#maintenance-details').hidden = !row;
+  $('#maintenance-details').innerHTML = row ? '<dl>' + row.Fields.map(field => '<dt>' + escapeHtml(field.Label) + '</dt><dd>' + escapeHtml(field.Value) + '</dd>').join('') + '</dl>' : '';
+  $('#maintenance-preview').disabled = maintenanceBusy || !row?.CandidateId || maintenanceView.Incomplete;
+}
+function resetMaintenanceView() {
+  maintenanceView = null;
+  $('#maintenance-selection').innerHTML = '<option value="">Zuerst lesen</option>';
+  $('#maintenance-selection').value = '';
+  $('#maintenance-selection').disabled = true;
+  renderMaintenanceSelection();
+}
+$('#maintenance-open').addEventListener('click', () => {
+  maintenanceRequest++; maintenanceBusy = false; resetMaintenanceView();
+  $('#maintenance-read').disabled = false;
+  $('#maintenance-status').textContent = 'Noch nicht gelesen. Keine automatische Reparatur oder Löschung.';
+  $('#maintenance-notice').textContent = '';
+  $('#maintenance-dialog').showModal();
+});
+$('#maintenance-selection').addEventListener('change', () => { maintenanceRequest++; renderMaintenanceSelection(); });
+$('#maintenance-confirm').addEventListener('change', () => { $('#maintenance-apply').disabled = maintenanceBusy || maintenancePlan?.Status !== 'READY' || !$('#maintenance-confirm').checked; });
+async function requestMaintenance(action) {
+  if (maintenanceBusy) return;
+  const row = maintenanceView?.Rows.find(entry => entry.Id === $('#maintenance-selection').value);
+  if (action !== 'read' && (!row?.CandidateId || maintenanceView.Incomplete)) return;
+  if (action === 'apply' && (maintenancePlan?.Status !== 'READY' || !$('#maintenance-confirm').checked)) return;
+  const payload = action === 'read' ? null : { action, candidateId: row.CandidateId };
+  if (action === 'apply') { payload.expectedKey = maintenancePlan.ExpectedKey; payload.confirmed = true; }
+  const generation = ++maintenanceRequest;
+  maintenanceBusy = true; maintenancePlan = null;
+  $('#maintenance-read').disabled = true; $('#maintenance-selection').disabled = true;
+  $('#maintenance-preview').disabled = true; $('#maintenance-apply').disabled = true;
+  $('#maintenance-confirm').checked = false; $('#maintenance-confirm').disabled = true;
+  $('#maintenance-status').textContent = action === 'apply' ? 'Katalogergebnis wird abgewartet …' : 'Befund / Zuordnung wird gelesen …';
+  try {
+    const response = await fetch('/api/maintenance', payload ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : { cache: 'no-store' });
+    if (!response.ok) throw new Error('MAINTENANCE_UNCONFIRMED');
+    const result = await response.json();
+    if (generation !== maintenanceRequest || !$('#maintenance-dialog').open) return;
+    if (action === 'read') {
+      if (!Array.isArray(result.Rows)) throw new Error('MAINTENANCE_RESPONSE_INVALID');
+      maintenanceView = result;
+      $('#maintenance-selection').innerHTML = '<option value="">Befund auswählen</option>' + result.Rows.map(entry => '<option value="' + escapeHtml(entry.Id) + '">' + escapeHtml(entry.Label) + '</option>').join('');
+      $('#maintenance-selection').value = '';
+      $('#maintenance-notice').textContent = result.Notice;
+      $('#maintenance-status').textContent = result.Rows.length + ' Befunde · ' + result.InventoryStatus + ' · ' + result.UnavailableProviders + ' Provider nicht vollständig prüfbar';
+      renderMaintenanceSelection();
+    } else if (action === 'preview') {
+      if (!['READY', 'NO_CHANGE'].includes(result.Status) || result.CandidateId !== row.CandidateId) throw new Error('MAINTENANCE_RESPONSE_INVALID');
+      maintenancePlan = result;
+      $('#maintenance-confirm').disabled = result.Status !== 'READY';
+      $('#maintenance-status').textContent = result.Status + ' · ' + result.Notice;
+    } else {
+      resetMaintenanceView();
+      $('#maintenance-status').textContent = 'Katalogergebnis: ' + result.Status + '. Befunde erneut lesen.';
+    }
+  } catch {
+    if (generation !== maintenanceRequest || !$('#maintenance-dialog').open) return;
+    resetMaintenanceView();
+    $('#maintenance-status').textContent = 'Ergebnis nicht bestätigt. Befunde erneut lesen und vorprüfen; keine automatische Wiederholung.';
+  } finally {
+    if (generation === maintenanceRequest) {
+      maintenanceBusy = false; $('#maintenance-read').disabled = false;
+      $('#maintenance-selection').disabled = !maintenanceView?.Rows.length;
+      $('#maintenance-preview').disabled = !maintenanceView?.Rows.find(entry => entry.Id === $('#maintenance-selection').value)?.CandidateId || maintenanceView.Incomplete;
+    }
+  }
+}
+$('#maintenance-read').addEventListener('click', () => requestMaintenance('read'));
+$('#maintenance-preview').addEventListener('click', () => requestMaintenance('preview'));
+$('#maintenance-apply').addEventListener('click', () => requestMaintenance('apply'));
+$('#maintenance-dialog').addEventListener('close', () => { maintenanceRequest++; maintenanceBusy = false; resetMaintenanceView(); });
+
 let evaluationWatchView = null;
 let evaluationWatchRequest = 0;
 

@@ -1123,11 +1123,14 @@ Add-ConsoleUiCheck 'Testmatrix dispatcht den gemeinsamen Powerdialog statt des B
     $batchConsoleSource -match '-Id AutomatedTestEnvironmentLifecycle' -and
     [regex]::Match($entrySource, 'function Get-LabAutomatedTestEnvironmentMenuState \{[\s\S]+?(?=\r?\nfunction )').Value -notmatch 'Get-LabAutomatedTestEnvironmentStatus'
 )
-Add-ConsoleUiCheck 'Read-only Menueaktionen warten zentral auf genau eine Rueckkehrbestaetigung' ($entrySource -match '\$ActionName -in @\(''Status'', ''CleanupAudit'', ''Catalog'', ''DatabasePackageInventory'', ''DatabaseMigrationDependency''\)[\s\S]+?Wait-LabConsoleAcknowledgement')
-Add-ConsoleUiCheck 'Cleanup-Audit-Menue bleibt read-only und zeigt Befunde mit Loesungsweg' (
-    $entrySource -match "'CleanupAudit' \{[\s\S]+?Get-SqlServerLabCleanupAudit -NoWrite" -and
-    $entrySource -match 'Show-LabCleanupAuditFindings -Findings \$result\.Audit\.Findings' -and
-    $entrySource -match 'Loesung: \$\(\$finding\.Guidance\)'
+Add-ConsoleUiCheck 'Read-only Menueaktionen warten zentral auf genau eine Rueckkehrbestaetigung' ($entrySource -match '\$ActionName -in @\(''Status'', ''Catalog'', ''DatabasePackageInventory'', ''DatabaseMigrationDependency''\)[\s\S]+?Wait-LabConsoleAcknowledgement')
+$maintenanceGuidanceSource=Get-Content -LiteralPath (Join-Path $repoRoot 'Private/MaintenanceGuidance.ps1') -Raw
+Add-ConsoleUiCheck 'Wartungsdialog trennt NoWrite-Befunde von bestaetigtem Katalogrepair und eigener Detailbestaetigung' (
+    $entrySource -match "'CleanupAudit' \{\s*Show-LabMaintenanceGuidanceInteractive" -and
+    $maintenanceGuidanceSource -match 'Get-SqlServerLabCleanupAudit -NoWrite' -and
+    $maintenanceGuidanceSource -match 'Wait-LabConsoleAcknowledgement' -and
+    $maintenanceGuidanceSource -match 'Read-LabConfirm[^\r\n]+-Default \$false' -and
+    $maintenanceGuidanceSource -notmatch 'Invoke-SqlServerLabMaintenance|Get-LabMaintenancePlanCore'
 )
 Add-ConsoleUiCheck 'Umgebungsauswahl verwendet Namen als Primaertext und weist die technische Run-ID als Detail aus' ($entrySource -match 'function Get-LabRunSelectorPresentation' -and $entrySource -match 'Label = \$name' -and $entrySource -match "\('Run \{0\}'")
 Add-ConsoleUiCheck 'Connection-Center-CMS ist als nicht mutierbarer Systemdienst klassifiziert' ($entrySource -match "'CMS-Systemdienst'" -and $entrySource -match '-Disabled:\(\$protected -or \(\$DisableSystemServices -and \$systemService\)\)')
@@ -1674,7 +1677,7 @@ Add-ConsoleUiCheck 'Datenbank-Anti-Waisen-Vertrag erkennt einen fehlenden Handle
     $missingDatabaseHandlerCounterexample.Count -eq 1 -and $missingDatabaseHandlerCounterexample[0] -eq 'DatabaseMissingHandler'
 )
 Add-ConsoleUiCheck 'Read-only Datenbankaktionen halten ihre Ausgabe bis zur Rueckkehr sichtbar' (
-    $mainMenuSource -match "@\('Status', 'CleanupAudit', 'Catalog', 'DatabasePackageInventory', 'DatabaseMigrationDependency'\)"
+    $mainMenuSource -match "@\('Status', 'Catalog', 'DatabasePackageInventory', 'DatabaseMigrationDependency'\)"
 )
 $backupCommandSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public/Backup-SqlServerLabDatabase.ps1') -Raw
 $backupUiSource = [regex]::Match($mainMenuSource, "function Invoke-LabDatabaseBackupInteractive \{[\s\S]+?(?=\r?\nfunction )").Value

@@ -97,6 +97,7 @@ end {
         @{ Pattern = '(?i)(WindowsSlotPool|GeneratedWindowsAccess|New-SqlServerLabWindowsSlotPool)'; Checks = @('Invoke-WindowsSlotPoolChecks.ps1','Invoke-HyperVLabEnvironmentChecks.ps1','Invoke-ElevationChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(RuntimeStateSync|Sync-SqlServerLabRuntimeState|Get-SqlServerLab\.ps1|Providers[\\/](Docker|Podman)[\\/])'; Checks = @('Invoke-RuntimeStateSyncChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(Maintenance|UnregisteredTestArtifacts|Invoke-HyperVSmokeTest|Clear-SqlServerLab)'; Checks = @('Invoke-MaintenanceChecks.ps1','Invoke-CleanupAuditChecks.ps1','Invoke-RuntimeStateSyncChecks.ps1') },
+        @{ Pattern = '(?i)(MaintenanceGuidance|StateMachine|CleanupAudit|PersistentStorageRecovery|Start-SqlServerLabUi|Ui/app)'; Checks = @('Invoke-MaintenanceGuidanceChecks.ps1') },
         @{ Pattern = '(?i)(ArtifactResolver|MediaSourceCatalog|SevenZip)'; Checks = @('Invoke-ArtifactResolverChecks.ps1','Invoke-MediaRootLayoutChecks.ps1') },
         @{ Pattern = '(?i)(ResourceSet|ResourcePlan)'; Checks = @('Invoke-ResourceSetChecks.ps1','Invoke-ArtifactResolverChecks.ps1','Invoke-ExternalRuntimeWindowsChecks.ps1') },
         @{ Pattern = '(?i)(ContainerAutoStart|Start-SqlServerLab|Stop-SqlServerLab|Restart-SqlServerLab)'; Checks = @('Invoke-ContainerAutoStartChecks.ps1') },
@@ -216,6 +217,7 @@ end {
             if ($runtimePath -match '(?i)^Private/CleanupEngine\.ps1$') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true; $pathRuntime.Adapter = $true }
             if ($runtimePath -match '(?i)ContainerNetworkCleanup') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)TestGroupGuidance') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
+            if ($runtimePath -match '(?i)(MaintenanceGuidance|PersistentStorageRecovery)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(^Providers/Docker/|runtime-smoke-docker\.yml|Invoke-Smoke(Matrix|Test)|Invoke-RestoreSmokeTest|BatchWorkflow|BatchConsole|lab-batch)') { $pathRuntime.Docker = $true }
             if ($runtimePath -match '(?i)(^Providers/Podman/|runtime-smoke-podman\.yml|PodmanBootstrap|Initialize-PodmanRuntime)') { $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)(PointInTimeRecovery|point-in-time-recovery|PITR)') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
