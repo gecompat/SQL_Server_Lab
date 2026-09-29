@@ -23,7 +23,10 @@ jobs:
 
       - name: Install sqlcmd (mssql-tools18)
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
+          exec 4>&2
+          trap 'printf "%s\n" "ADAPTER_INSTALL_FAILED: Private diagnostics remain local on the runner." >&4' ERR
+          {
           package_url="https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
           curl --fail --show-error --silent --location \
             --retry 5 --retry-delay 2 --retry-all-errors \
@@ -34,14 +37,28 @@ jobs:
           sudo ACCEPT_EULA=Y apt-get install -y mssql-tools18 unixodbc-dev
           echo "/opt/mssql-tools18/bin" >> "$GITHUB_PATH"
           /opt/mssql-tools18/bin/sqlcmd -?
+          } >> "$RUNNER_TEMP/adapter-install.private.log" 2>&1
+          printf '%s\n' 'ADAPTER_INSTALL_SUCCEEDED'
 
       - name: Adapter smoke test
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          ./Tests/Integration/Invoke-AdapterSmokeTest.ps1 -Version 2025 -Provider docker
+          $logPath = Join-Path $env:RUNNER_TEMP 'adapter-smoke.private.log'
+          $global:LASTEXITCODE = 0
+          try {
+            & pwsh -NoLogo -NoProfile -File ./Tests/Integration/Invoke-AdapterSmokeTest.ps1 -Version 2025 -Provider docker *>> $logPath
+            if ($LASTEXITCODE -ne 0) { throw 'ADAPTER_RUNTIME_NONZERO_EXIT' }
+            Write-Host 'ADAPTER_RUNTIME_SUCCEEDED'
+          }
+          catch {
+            try { $_ | Out-String | Add-Content -LiteralPath $logPath } catch { }
+            Write-Host '::error title=ADAPTER_RUNTIME_FAILED::ADAPTER_RUNTIME_FAILED: Private diagnostics remain local on the runner.'
+            exit 1
+          }
 
       - name: Cleanup containers
         if: always()
         run: |
-          docker ps -aq --filter 'name=sql-lab-' | xargs -r docker rm -f || true
+          { docker ps -aq --filter 'name=sql-lab-' | xargs -r docker rm -f || true; } >> "$RUNNER_TEMP/adapter-cleanup.private.log" 2>&1
+          printf '%s\n' 'ADAPTER_CLEANUP_COMPLETED'
