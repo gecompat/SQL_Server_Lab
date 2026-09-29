@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '0 1 * * *'
   workflow_dispatch:
+    inputs:
+      confirm_shared_mutation:
+        description: Explizit vorhandene gemeinsame SQL-Testumgebungen mit SQL-Schreibtests und CMS-Abgleich pruefen
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   actions: read
@@ -21,7 +27,27 @@ jobs:
     outputs:
       should_run: ${{ steps.gate.outputs.should_run }}
       baseline_sha: ${{ steps.gate.outputs.baseline_sha }}
+      shared_authorized: ${{ steps.shared-authorization.outputs.authorized }}
+      shared_classification: ${{ steps.shared-authorization.outputs.classification }}
     steps:
+      - name: Authorize shared environment mutation
+        id: shared-authorization
+        shell: pwsh
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REPOSITORY: ${{ github.event.repository.full_name }}
+          REPOSITORY: ${{ github.repository }}
+          CONFIRM_SHARED_MUTATION: ${{ inputs.confirm_shared_mutation }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $authorized = $env:EVENT_NAME -ceq 'workflow_dispatch' -and
+            -not [string]::IsNullOrWhiteSpace($env:REPOSITORY) -and
+            $env:EVENT_REPOSITORY -ceq $env:REPOSITORY -and
+            $env:CONFIRM_SHARED_MUTATION -ceq 'true'
+          $classification = if ($authorized) { 'AUTHORIZED' } else { 'NOT_AUTHORIZED' }
+          "authorized=$($authorized.ToString().ToLowerInvariant())" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "classification=$classification" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "SHARED_ENVIRONMENTS_$classification"
       - name: Run only after a repository change
         id: gate
         shell: pwsh
@@ -92,7 +118,7 @@ jobs:
   test-environments:
     name: Six shared SQL test environments and CMS
     needs: change-gate
-    if: needs.change-gate.outputs.should_run == 'true'
+    if: needs.change-gate.outputs.should_run == 'true' && needs.change-gate.outputs.shared_authorized == 'true'
     runs-on: [self-hosted, SQL_Lab, Hyper-V]
     timeout-minutes: 30
     defaults:
@@ -101,9 +127,21 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - name: SQL, write access and CMS consistency
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REPOSITORY: ${{ github.event.repository.full_name }}
+          REPOSITORY: ${{ github.repository }}
+          CONFIRM_SHARED_MUTATION: ${{ inputs.confirm_shared_mutation }}
         run: |
           $ErrorActionPreference = 'Stop'
-          .\Tests\Integration\Invoke-TestEnvironmentAcceptance.ps1
+          if ($env:EVENT_NAME -cne 'workflow_dispatch' -or [string]::IsNullOrWhiteSpace($env:REPOSITORY) -or
+              $env:EVENT_REPOSITORY -cne $env:REPOSITORY -or $env:CONFIRM_SHARED_MUTATION -cne 'true') {
+            throw 'SHARED_ENVIRONMENT_MUTATION_NOT_AUTHORIZED'
+          }
+          $logPath = Join-Path $env:RUNNER_TEMP 'shared-nightly-acceptance.private.log'
+          & pwsh -NoProfile -File ./Tests/Integration/Invoke-TestEnvironmentAcceptance.ps1 *> $logPath
+          if ($LASTEXITCODE -ne 0) { throw 'SHARED_ENVIRONMENT_ACCEPTANCE_FAILED' }
+          Write-Host 'SHARED_ENVIRONMENT_ACCEPTANCE_PASS'
 
   nightly-report:
     name: Nightly result
@@ -142,7 +180,23 @@ jobs:
             mixed = '${{ needs.mixed-runtime.outputs.validation_classification }}'
             hyperv = '${{ needs.hyperv-runtime.outputs.validation_classification }}'
           }
-          $failed = @($results.GetEnumerator() | Where-Object Value -ne 'success')
+          $sharedExcluded = $results.test_environments -eq 'skipped' -and
+            '${{ needs.change-gate.result }}' -eq 'success' -and
+            '${{ needs.change-gate.outputs.shared_authorized }}' -ceq 'false' -and
+            '${{ needs.change-gate.outputs.shared_classification }}' -ceq 'NOT_AUTHORIZED'
+          $sharedAuthorized = '${{ needs.change-gate.result }}' -eq 'success' -and
+            '${{ needs.change-gate.outputs.shared_authorized }}' -ceq 'true' -and
+            '${{ needs.change-gate.outputs.shared_classification }}' -ceq 'AUTHORIZED'
+          if ($results.test_environments -eq 'success' -and -not $sharedAuthorized) {
+            $results.test_environments = 'UNEXPECTED_EXECUTION'
+          }
+          if ($sharedExcluded) {
+            $results.test_environments = 'NOT_EXECUTED'
+            Write-Host 'SHARED_ENVIRONMENTS_NOT_EXECUTED: NOT_AUTHORIZED'
+          }
+          $failed = @($results.GetEnumerator() | Where-Object {
+            $_.Value -ne 'success' -and -not ($_.Key -eq 'test_environments' -and $sharedExcluded)
+          })
           $title = '[Nightly Regression] SQL_Server_Lab'
           $existing = gh issue list --repo $env:REPOSITORY --state open --search "`"$title`" in:title" --json number,title --limit 20 | ConvertFrom-Json |
             Where-Object title -eq $title | Select-Object -First 1
@@ -159,7 +213,10 @@ jobs:
           gh label create nightly-regression --repo $env:REPOSITORY --color D93F0B --description 'Fehler in der gebuendelten Nightly-Regression' --force | Out-Null
           $lines = @('# Nightly Regression fehlgeschlagen', '', "Lauf: $env:RUN_URL", '', '## Ergebnisse', '')
           foreach ($entry in $results.GetEnumerator()) {
-            $classification = if ($entry.Value -eq 'success') {
+            $classification = if ($entry.Key -eq 'test_environments' -and $sharedExcluded) {
+              'NOT_AUTHORIZED'
+            }
+            elseif ($entry.Value -eq 'success') {
               'VALIDATED'
             }
             elseif ($runtimeClassification.ContainsKey($entry.Key) -and $runtimeClassification[$entry.Key]) {

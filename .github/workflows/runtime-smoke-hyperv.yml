@@ -28,6 +28,11 @@ on:
         type: string
   workflow_dispatch:
     inputs:
+      confirm_shared_mutation:
+        description: Explizit bestehende gemeinsame Testumgebungen reaktivieren und SQL-Schreibtests sowie CMS-Abgleich ausfuehren
+        required: false
+        type: boolean
+        default: false
       clone_source_run_id:
         description: Optionaler gestoppter Windows-2025-Slot als Clone-Quelle fuer Ressourcen- oder Storage-Acceptance
         required: false
@@ -124,6 +129,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Authorize shared environment mutation
+        if: inputs.mode == 'shared-environments'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_REPOSITORY: ${{ github.event.repository.full_name }}
+          REPOSITORY: ${{ github.repository }}
+          CONFIRM_SHARED_MUTATION: ${{ inputs.confirm_shared_mutation }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:EVENT_NAME -cne 'workflow_dispatch' -or [string]::IsNullOrWhiteSpace($env:REPOSITORY) -or
+              $env:EVENT_REPOSITORY -cne $env:REPOSITORY -or $env:CONFIRM_SHARED_MUTATION -cne 'true') {
+            throw 'SHARED_ENVIRONMENT_MUTATION_NOT_AUTHORIZED'
+          }
+          Write-Host 'SHARED_ENVIRONMENT_MUTATION_AUTHORIZED'
 
       - name: Hyper-V preflight
         id: runtime-preflight
@@ -238,13 +258,19 @@ jobs:
         if: inputs.mode == 'shared-environments'
         run: |
           $ErrorActionPreference = 'Stop'
-          .\Tests\Integration\Invoke-TestEnvironmentRuntimeReadiness.ps1 -Recover
+          $logPath = Join-Path $env:RUNNER_TEMP 'shared-recovery.private.log'
+          & pwsh -NoProfile -File ./Tests/Integration/Invoke-TestEnvironmentRuntimeReadiness.ps1 -Recover *> $logPath
+          if ($LASTEXITCODE -ne 0) { throw 'SHARED_ENVIRONMENT_RECOVERY_FAILED' }
+          Write-Host 'SHARED_ENVIRONMENT_RECOVERY_PASS'
 
       - name: Accept all shared SQL test environments and CMS
         if: inputs.mode == 'shared-environments'
         run: |
           $ErrorActionPreference = 'Stop'
-          .\Tests\Integration\Invoke-TestEnvironmentAcceptance.ps1
+          $logPath = Join-Path $env:RUNNER_TEMP 'shared-acceptance.private.log'
+          & pwsh -NoProfile -File ./Tests/Integration/Invoke-TestEnvironmentAcceptance.ps1 *> $logPath
+          if ($LASTEXITCODE -ne 0) { throw 'SHARED_ENVIRONMENT_ACCEPTANCE_FAILED' }
+          Write-Host 'SHARED_ENVIRONMENT_ACCEPTANCE_PASS'
 
       - name: Fresh Windows slot and complete SQL CLI acceptance
         if: inputs.mode == 'cli-acceptance'

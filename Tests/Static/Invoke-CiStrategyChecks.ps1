@@ -9,6 +9,14 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+. (Join-Path $PSScriptRoot 'Fixtures/CiStrategyNightlyAuthorizationChecks.ps1')
+foreach ($menuPath in @('Public/Invoke-SqlServerLab.ps1','Public/BatchConsole.ps1')) {
+    foreach ($path in @($menuPath,$menuPath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "Jeder Menuequellpfad selektiert echte Image-Navigation: $path" -Success (
+            'Invoke-HyperVImageOperatorChecks.ps1' -in $selected.StaticChecks)
+    }
+}
 foreach ($groupPath in @('Private/TestGroupGuidance.ps1','Tests/Static/Invoke-TestGroupGuidanceChecks.ps1')) {
     foreach ($path in @($groupPath,$groupPath.Replace('/','\'))) {
         $selected = & $selector -ChangedPath @($path)

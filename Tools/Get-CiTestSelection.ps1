@@ -180,7 +180,7 @@ end {
         @{ Pattern = '(?i)(WindowsLocale|windows-locale|lab-manifest|ManifestParser|ManifestBuilder|DesiredState|HyperVImageRegistry|HyperVLabEnvironment|BatchWorkflow|New-SqlServerLab|Invoke-SqlServerLabWorkflowAction)'; Checks = @('Invoke-WindowsLocaleChecks.ps1') },
         @{ Pattern = '(?i)(HyperVImageRegistry)'; Checks = @('Invoke-HyperVImageRegistryChecks.ps1') },
         @{ Pattern = '(?i)(HyperVImageBuilder)'; Checks = @('Invoke-HyperVImageBuilderChecks.ps1') },
-        @{ Pattern = '(?i)(HyperVImageOperator)'; Checks = @('Invoke-HyperVImageOperatorChecks.ps1') },
+        @{ Pattern = '(?i)(HyperVImageOperator|^Public/(Invoke-SqlServerLab|BatchConsole)\.ps1$)'; Checks = @('Invoke-HyperVImageOperatorChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSqlImageBuilder)'; Checks = @('Invoke-HyperVSqlImageBuilderChecks.ps1') },
         @{ Pattern = '(?i)(HyperVSqlAcceptance)'; Checks = @('Invoke-HyperVSqlAcceptanceEnvironmentChecks.ps1','Invoke-BlockingActionProgressChecks.ps1') },
         @{ Pattern = '(?i)(HyperVLegacySqlMigrationBootstrap)'; Checks = @('Invoke-HyperVLegacySqlMigrationBootstrapChecks.ps1','Invoke-HyperVResourceMigrationAcceptanceChecks.ps1') },
@@ -198,7 +198,7 @@ end {
         if ($checkName -notin $orchestratorChecks) { Add-Check $checkName }
     }
 
-    $ciInfrastructure = Test-AnyPath '^(\.github/workflows/(static-contracts|nightly-regression)|Tools/Get-CiTestSelection|Tests/Static/Invoke-CiStrategyChecks)'
+    $ciInfrastructure = Test-AnyPath '^(\.github/workflows/(static-contracts|nightly-regression)|Tools/Get-CiTestSelection|Tests/Static/(Invoke-CiStrategyChecks|Fixtures/CiStrategyNightlyAuthorizationChecks))'
     if ($ciInfrastructure) {
         $runtime.Docker = $true
         $runtime.Podman = $true
