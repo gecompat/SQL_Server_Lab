@@ -1054,3 +1054,8 @@ Eine begrenzte WSL-Dateicachefreigabe unter Speicherdruck und das getrennte
 Ergebnis `HostMemory` verhindern, dass ein gestopptes Lab automatisch als
 vollständig freigegebener Host-RAM dargestellt wird.
 [Verhalten und Opt-out](Documentation/Architecture/STOP_HOST_MEMORY.md).
+
+Lokale alternative Bezugsadressen für genau die drei SQL-2025-Bootstrapper
+werden im Ressourcenbereich von CLI und Browser mit Vorschau, Herkunft und
+Reset verwaltet. Größe, Hash und Microsoft-Signatur bleiben unverändert;
+Speichern lädt keine Medien. [Bedienung und Grenzen](Documentation/User/Getting_Started.md#lokale-sql-2025-bootstrapperquellen).

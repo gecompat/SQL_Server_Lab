@@ -114,6 +114,7 @@
       <h2>Ressourcen und Downloads</h2>
       <p>Medienquellen und lokale Ablage sind einsehbar. Die Konsole bietet bereits CU-Beschaffung, 7-Zip und kuratierte llama.cpp-Modelldateien. Vollständige geführte Beschaffung im Browser sowie ein llama.cpp-Runtimeinstaller bleiben offen.</p>
       <button id="media-sources" class="button secondary">Medienquellen und Ablage anzeigen</button>
+      <button id="media-override-open" class="button secondary">SQL-2025-Bootstrapperquellen bearbeiten</button>
     </section>
     <section class="panel" data-workspace-area="hostmodels" hidden>
       <h2>Host-Dienste und Modelle</h2>
@@ -555,6 +556,22 @@
     </div>
   </dialog>
 
+  <dialog id="media-override-dialog">
+    <div class="read-only-dialog-content">
+      <h2>SQL-2025-Bootstrapperquellen</h2>
+      <p>Alternative Adresse für dieselben Bootstrapper-Bytes; keine ISO oder SQL-Installation. Größe, SHA-256 und Microsoft-Signatur bleiben bindend. Speichern prüft keine Downloadverfügbarkeit; Redirects sind für Overrides gesperrt.</p>
+      <p id="media-override-status" role="status" aria-live="polite"></p>
+      <label>Bootstrapper<select id="media-override-selection"></select></label>
+      <div id="media-override-details" class="selection-details"></div>
+      <label>Alternative HTTPS-Adresse<input id="media-override-url" type="url" maxlength="2048"></label>
+      <button id="media-override-preview" type="button" class="button secondary">Änderung vorschauen</button>
+      <button id="media-override-reset" type="button" class="button secondary">Reset auf Repositorydefault vorschauen</button>
+      <p id="media-override-plan" hidden></p>
+      <button id="media-override-apply" type="button" class="button primary" disabled>Angezeigte Zuordnung revalidieren und speichern</button>
+      <button id="media-override-read" type="button" class="button secondary">Erneut lesen</button>
+      <button id="media-override-close" type="button" class="button secondary">Abbrechen / Schließen</button>
+    </div>
+  </dialog>
   <dialog id="slot-reserve-dialog">
     <div class="read-only-dialog-content">
       <h2>Zentrale Slotreservepolicy</h2>

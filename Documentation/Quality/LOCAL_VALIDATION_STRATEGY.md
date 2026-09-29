@@ -2298,3 +2298,23 @@ Container, Volumes und Netzwerke des eigenen Scopes waren danach abwesend.
 Persistierte Benutzerdefaults blieben unverändert, Rohdiagnosen und die
 synthetische Dateifixture bleiben ausschließlich lokal. Das belegt den
 Docker-Core, keine Slotreserve, Claims, Hyper-V oder reale Storage-Migration.
+
+## Lokale Bootstrapperquellen
+
+`Tests/Static/Invoke-MediaSourceGuidanceChecks.ps1` führt den gemeinsamen
+Quellen-Core, den echten CLI-Fallback und den extrahierten HTTP-Handler mit
+isolierten synthetischen Preferences und Katalogdaten aus. Geprüft werden
+Read/Preview/Cancel/No-op, Bestätigung, gezielter Reset, fremde Felder,
+veralteter Katalog/Vorgänger, Writerlock-Revalidierung, ungültige URLs und
+unveränderte Größen-/Hashbindung. Der echte Save-Pfad wird an eine eigene
+Loopback-Transportfixture gebunden: 301/302/303/307/308 dürfen weder eine
+Folgeanfrage noch eine publizierte Datei erzeugen. Die Tests erlauben keinen
+produktiven Loopback-Override. Microsoft-Endpunkte werden nicht kontaktiert.
+
+Die echten Browserhandler werden in `WorkflowSqlTargetChecks.cjs` mit einem
+minimalen DOM geprüft: ausgewählte ID, Edit-/Resetvorschau, explizites Apply,
+Planinvalidierung, Fehler, No-op, Abbruch und verspätete Antworten. Dazu kommen
+die betroffenen statischen Gates und die vorhandenen Medienbuilder-,
+ArtifactResolver-/Trust- und ResourceSet-Regressionen. Diese Evidence ist
+keine Aussage über aktuelle Herstellerdateien oder Downloadverfügbarkeit.
+Ein vom unveränderten Selektor geforderter Providergate bleibt separat nötig.

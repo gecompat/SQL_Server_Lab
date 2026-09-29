@@ -379,3 +379,10 @@ SQL Server 2025 CU9 kann unter rootful Docker und Podman ausdrücklich mit
 shared-user-v2-Varianten ausgewählt werden. Dabei entfallen Launchpad-Sandbox-
 und Worker-Isolation; der isolierte cgroup-v1-Modus bleibt Standard.
 [Auswahl, Voraussetzungen und Nachweisgrenzen](../Documentation/User/EXTERNAL_LANGUAGES_CGROUP_V2.md).
+
+Für die drei SQL-2025-Bootstrapper ergänzt eine lokale Preferences-Zuordnung
+nur die effektive Downloadadresse. Der Repositorykatalog bleibt alleinige
+Authority für Variante, Dateiname, Größe, Hash und Signaturpflicht. Der
+Ressourcendialog zeigt Herkunft und gebundene Vorschau; Reset lädt nichts.
+Overrides erlauben nur eindeutige `download.microsoft.com`-HTTPS-Pfade ohne
+Redirectfolge. Andere Quellen und Archive erben diese Möglichkeit nicht.

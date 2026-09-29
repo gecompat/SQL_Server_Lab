@@ -446,6 +446,38 @@ function Invoke-UiSlotReserveRequest {
     Invoke-SqlServerLabWorkflowAction -Action ([string]$payload.action) @parameters
 }
 
+function Invoke-UiMediaOverrideRequest {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Request)
+
+    if ($Request.HttpMethod -eq 'GET') { return Invoke-SqlServerLabWorkflowAction -Action GetMediaOverrideState }
+    if ($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)') { throw 'MEDIA_SOURCE_OVERRIDE_REQUEST_INVALID' }
+    $origin = [string]$Request.Headers['Origin']
+    if ($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)) { throw 'MEDIA_SOURCE_OVERRIDE_ORIGIN_INVALID' }
+    $reader = [IO.StreamReader]::new($Request.InputStream, $Request.ContentEncoding)
+    try {
+        $buffer = [char[]]::new(16385)
+        $length = $reader.ReadBlock($buffer, 0, $buffer.Length)
+        if ($length -gt 16384) { throw 'MEDIA_SOURCE_OVERRIDE_REQUEST_TOO_LARGE' }
+        $payload = ([string]::new($buffer, 0, $length)) | ConvertFrom-Json -Depth 12 -ErrorAction Stop
+    }
+    finally { $reader.Dispose() }
+    if (-not $payload -or @($payload.PSObject.Properties.Name | Where-Object { $_ -notin @('action', 'parameters') }).Count) { throw 'MEDIA_SOURCE_OVERRIDE_REQUEST_INVALID' }
+    $allowed = switch ([string]$payload.action) {
+        'PlanMediaOverride' { @('MediaSourceId', 'MediaSourceOperation', 'MediaSourceUrl') }
+        'ApplyMediaOverride' { @('MediaSourcePlan', 'ConfirmMediaSource') }
+        default { throw 'MEDIA_SOURCE_OVERRIDE_ACTION_INVALID' }
+    }
+    $parameters = @{}
+    foreach ($property in @($payload.parameters.PSObject.Properties)) {
+        if ($property.Name -notin $allowed) { throw 'MEDIA_SOURCE_OVERRIDE_PARAMETER_INVALID' }
+        $parameters[$property.Name] = $property.Value
+    }
+    if ($payload.action -eq 'ApplyMediaOverride' -and
+        ($parameters.ConfirmMediaSource -isnot [bool] -or -not $parameters.ConfirmMediaSource)) { throw 'MEDIA_SOURCE_OVERRIDE_CONFIRMATION_REQUIRED' }
+    Invoke-SqlServerLabWorkflowAction -Action ([string]$payload.action) @parameters
+}
+
 $listener = [Net.HttpListener]::new()
 $url = "http://127.0.0.1:$Port/"
 $listener.Prefixes.Add($url)
@@ -519,6 +551,16 @@ try {
                 }
                 catch {
                     Write-UiResponse -Context $context -Body 'SLOT_RESERVE_REQUEST_FAILED: Eingaben und aktuellen Zustand erneut prüfen.' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -eq '/api/media-overrides') {
+                try {
+                    $result = Invoke-UiMediaOverrideRequest -Request $context.Request
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 12) -ContentType 'application/json; charset=utf-8'
+                }
+                catch {
+                    Write-UiResponse -Context $context -Body 'MEDIA_SOURCE_OVERRIDE_REQUEST_FAILED: Eingaben und aktuellen Zustand erneut prüfen.' -StatusCode 400
                 }
                 continue
             }
@@ -628,7 +670,7 @@ try {
                 $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
-                if ($action -in @('GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
+                if ($action -in @('GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
                 $parameters = @{}
                 if ($request.parameters) {
                     foreach ($property in $request.parameters.PSObject.Properties) {

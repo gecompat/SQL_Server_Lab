@@ -548,6 +548,35 @@ async function main() {
   context.fetch = () => new Promise(resolve => { releaseGroup = resolve; });
   const pendingGroup = resourceEvent('test-group-open'); await resourceEvent('test-group-close'); releaseGroup({ ok: true, json: async () => groupPlan }); await pendingGroup;
   check('Closed group dialog rejects delayed preview', () => assert.equal(node('test-group-apply').disabled, true));
+  const mediaRequests = [];
+  const mediaItem = { Id: 'sql-server-2025-enterprise-developer-bootstrapper', DisplayName: '<Bootstrapper>', RepositoryUrl: 'https://download.microsoft.com/download/default/SQL2025-SSEI-EntDev.exe', EffectiveUrl: 'https://download.microsoft.com/download/default/SQL2025-SSEI-EntDev.exe', Provenance: 'REPOSITORY_DEFAULT', ExpectedBytes: 21, ExpectedSha256: 'a'.repeat(64) };
+  let mediaMode = 'ready';
+  context.fetch = async (url, options) => {
+    const body = options?.body ? JSON.parse(options.body) : null;
+    mediaRequests.push({url,body});
+    const result = body?.action === 'PlanMediaOverride' ? { Id: mediaItem.Id, Operation: body.parameters.MediaSourceOperation, EffectiveUrl: body.parameters.MediaSourceUrl || mediaItem.RepositoryUrl, IsNoOp: mediaMode === 'noop', PlanKey: 'synthetic-plan', Notice: 'Kein Download' } : { Status: mediaMode === 'invalid' ? 'INVALID' : 'READY', Items: [mediaItem], Notice: 'Kein Download' };
+    return { ok: mediaMode !== 'error', json: async () => ({Result: result}) };
+  };
+  await resourceEvent('media-override-open');
+  check('Media state shows provenance and escaped source choice', () => { assert.match(node('media-override-details').textContent,/REPOSITORY_DEFAULT/); assert.match(node('media-override-selection').innerHTML,/&lt;Bootstrapper&gt;/); assert.equal(node('media-override-apply').disabled,true); });
+  node('media-override-url').value = 'https://download.microsoft.com/download/alternate/SQL2025-SSEI-EntDev.exe';
+  await resourceEvent('media-override-preview');
+  check('Media preview sends exact ID and URL without apply', () => { assert.equal(mediaRequests.at(-1).body.parameters.MediaSourceId,mediaItem.Id); assert.equal(mediaRequests.at(-1).body.parameters.MediaSourceOperation,'Edit'); assert.equal(mediaRequests.filter(r=>r.body?.action==='ApplyMediaOverride').length,0); assert.equal(node('media-override-apply').disabled,false); });
+  await resourceEvent('media-override-url','input'); await resourceEvent('media-override-apply');
+  check('Media input invalidates previous plan', () => assert.equal(mediaRequests.filter(r=>r.body?.action==='ApplyMediaOverride').length,0));
+  await resourceEvent('media-override-reset'); await resourceEvent('media-override-apply');
+  check('Media reset uses explicit plan confirmation and refresh', () => { const apply=mediaRequests.find(r=>r.body?.action==='ApplyMediaOverride'); assert.equal(apply.body.parameters.ConfirmMediaSource,true); assert.equal(apply.body.parameters.MediaSourcePlan.Operation,'Reset'); assert.ok(mediaRequests.every(r=>r.url==='/api/media-overrides')); });
+  for(const mode of ['noop','invalid','error']) {
+    mediaMode=mode; await resourceEvent('media-override-read');
+    if(mode==='noop') await resourceEvent('media-override-preview');
+    await resourceEvent('media-override-apply');
+    check('Media '+mode+' blocks apply',()=>assert.equal(mediaRequests.filter(r=>r.body?.action==='ApplyMediaOverride').length,1));
+  }
+  mediaMode='ready';await resourceEvent('media-override-read');await resourceEvent('media-override-preview');await resourceEvent('media-override-close');await resourceEvent('media-override-apply');
+  check('Media cancel discards pending mutation',()=>assert.equal(mediaRequests.filter(r=>r.body?.action==='ApplyMediaOverride').length,1));
+  let releaseMedia;context.fetch=()=>new Promise(resolve=>{releaseMedia=resolve;});
+  const pendingMedia=resourceEvent('media-override-open');await resourceEvent('media-override-close');releaseMedia({ok:true,json:async()=>({Result:{Status:'READY',Items:[mediaItem]}})});await pendingMedia;
+  check('Media closed dialog ignores delayed state',()=>assert.equal(node('media-override-apply').disabled,true));
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

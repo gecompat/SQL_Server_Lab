@@ -367,3 +367,11 @@ werden nicht verändert. Am 2026-09-28 bestanden Docker und Podman getrennt jewe
 SQL-2025-Prüfungen des neuen Plan-/Workflow-Apply-/No-op-/Driftpfads samt
 SQL-Probe und bestätigtem Own-Runtime-Cleanup. Das belegt Container-CPU/RAM,
 keinen Hyper-V-Apply und keine weiteren Eigenschaften oder Versionspaare.
+
+### SQL-2025-Bootstrapperquellen
+
+Ressourcen und Downloads bietet in CLI und Browser Edit, Herkunft und Reset
+für alternative Microsoft-Adressen derselben drei SQL-2025-Bootstrapper.
+Die gebundene Vorschau speichert erst nach Bestätigung; kein Download,
+Hashwechsel oder Installationsschritt. Weitere Medienfamilien bleiben offen.
+[Bedienung](Getting_Started.md#lokale-sql-2025-bootstrapperquellen).

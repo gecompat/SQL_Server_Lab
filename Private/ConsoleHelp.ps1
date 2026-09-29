@@ -90,6 +90,18 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Lesen und Vorschau ändern nichts. Bestätigung speichert nur Policy. Keine Reservierung, Auffüllung oder Provideraktion; freie Reserve und Defizit bleiben unbekannt.'
             Command = 'Invoke-SqlServerLab -Action ReservePolicy'
         }
+        'media-overrides' = @{
+            Title = 'SQL-2025-Bootstrapperquellen'
+            Purpose = 'Eine von drei katalogisierten Varianten auswählen und Repositoryadresse, effektive Adresse und Herkunft prüfen.'
+            Effects = 'Auswahl und Lesen ändern nichts. Nur eine alternative Adresse derselben Bytes kann nach Vorschau gespeichert werden; kein Download.'
+            Command = 'Invoke-SqlServerLab -Action MediaSourceOverride'
+        }
+        'media-override-edit' = @{
+            Title = 'Alternative Bootstrapperadresse oder Reset'
+            Purpose = 'Alternative Microsoft-Adresse eingeben oder die gewählte Zuordnung auf Repositorydefault zurücksetzen.'
+            Effects = 'Erst die gesonderte Bestätigung speichert den revalidierten Plan. Hash, Größe, Signaturpflicht und Variante bleiben unverändert; kein Download.'
+            Command = 'Invoke-SqlServerLab -Action MediaSourceOverride'
+        }
         'initial-setup-provider' = @{
             Title = 'Provider ausdrücklich prüfen'
             Purpose = 'Installation und Erreichbarkeit genau eines Providers erneut über den Readinessvertrag prüfen.'

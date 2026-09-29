@@ -215,3 +215,15 @@ Import-Module .\SqlServerLab.psd1 -Force
 Get-Command -Module SqlServerLab | Sort-Object Name
 .\Tests\Static\Invoke-DocumentationChecks.ps1
 ```
+
+### Geführte Bootstrapperquellen
+
+`Invoke-SqlServerLabWorkflowAction` bietet `GetMediaOverrideState`,
+`PlanMediaOverride` (`MediaSourceId`, `MediaSourceOperation`, `MediaSourceUrl`)
+und `ApplyMediaOverride` (`MediaSourcePlan`, `ConfirmMediaSource`). Genau die
+drei SQL-2025-Bootstrapper können eine alternative Microsoft-HTTPS-Adresse
+für unveränderte katalogisierte Bytes erhalten. Die vorhandene
+Preferences-Authority bindet Vorschau/Apply an Katalog und Vorgänger.
+Edit/Reset beschaffen nichts; `Save-SqlServerLabMediaSource` bleibt der explizite
+Downloadweg mit unveränderter Integritätsprüfung und ohne Redirectfolge bei
+Overrides. [Bedienung und Grenzen](../Documentation/User/Getting_Started.md#lokale-sql-2025-bootstrapperquellen).
