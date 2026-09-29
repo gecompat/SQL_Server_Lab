@@ -10,7 +10,7 @@
 
 function Get-LabMediaSourceCatalog {
     [CmdletBinding()]
-    param([string]$MediaRoot, [string]$TestDataRoot)
+    param([string]$MediaRoot, [string]$TestDataRoot, [switch]$RepositoryOnly)
 
     $root = $null
     if ($MediaRoot -and (Test-Path -LiteralPath $MediaRoot -PathType Container)) {
@@ -77,7 +77,9 @@ function Get-LabMediaSourceCatalog {
     }
 
     try {
-        $sqlMediaCatalog = Get-Content -LiteralPath $sqlMediaCatalogPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
+        $catalogText = Get-Content -LiteralPath $sqlMediaCatalogPath -Raw -Encoding utf8
+        $sqlMediaCatalog = $catalogText | ConvertFrom-Json -Depth 30
+        $catalogKey = Get-LabPreferencesDigest -Text $catalogText
     }
     catch {
         throw "MEDIA_SOURCE_CATALOG_INVALID: $($_.Exception.Message)"
@@ -112,6 +114,7 @@ function Get-LabMediaSourceCatalog {
         $category = if ([string]$entry.targetRelativePath -like 'WindowsServer/*') { 'Windows Server' } else { 'SQL Server' }
         $sources += [PSCustomObject]@{
             Id = [string]$entry.id
+            RepositoryCatalogKey = $catalogKey
             Category = $category
             DisplayName = [string]$entry.displayName
             Url = $effectiveUrl
@@ -153,6 +156,16 @@ function Get-LabMediaSourceCatalog {
             TargetPath = $TestDataRoot; Available = [bool]($TestDataRoot -and (Test-Path -LiteralPath $TestDataRoot -PathType Container))
             BootInteraction = [PSCustomObject]@{ InitialMediaKey = 'none' }
             Note = if ($sample.ExpectedSha256) { 'Wird erst beim expliziten Anlegen geladen, gegen die Katalog-Prüfsumme verifiziert und sichtbar in der Testdaten-Bibliothek abgelegt.' } else { 'Wird erst beim expliziten Anlegen geladen. Vor dem ersten Download ist eine einmalige Vertrauensfreigabe erforderlich; danach liegt die verifizierte Datei sichtbar in der Testdaten-Bibliothek.' }
+        }
+    }
+    if (-not $RepositoryOnly) {
+        $overrideState = Get-LabMediaOverrideState
+        foreach ($item in $overrideState.Items) {
+            $source = $sources | Where-Object Id -CEQ $item.Id
+            $source | Add-Member -NotePropertyName SourceProvenance -NotePropertyValue $item.Provenance
+            $source | Add-Member -NotePropertyName RepositoryUrl -NotePropertyValue $item.RepositoryUrl
+            $source.Url = $item.EffectiveUrl
+            $source.DownloadUrl = $item.EffectiveUrl
         }
     }
     return @($sources)

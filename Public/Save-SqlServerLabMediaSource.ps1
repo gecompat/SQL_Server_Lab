@@ -3,7 +3,11 @@ function Save-SqlServerLabMediaSource {
     .SYNOPSIS
         Lädt ein katalogisiertes Server-Basismedium oder einen Bootstrapper.
     .DESCRIPTION
-        Verwendet ausschließlich den versionierten Medienquellenkatalog. Jede
+        Verwendet den versionierten Medienquellenkatalog. Für genau die drei
+        SQL-2025-Bootstrapper kann eine lokale Preferences-Zuordnung eine
+        alternative Microsoft-Adresse derselben Datei bestimmen. Diese wird
+        erneut geprüft und ohne Redirectfolge verwendet; Integritätswerte und
+        Variante bleiben ausschließlich kataloggebunden. Jede
         automatisierbare Quelle besitzt eine erwartete Länge und SHA-256.
         Historische Quellen können zusätzlich an den veröffentlichten SHA-1
         gebunden sein. EXE-
@@ -56,6 +60,9 @@ function Save-SqlServerLabMediaSource {
     $entry = @(Get-LabMediaSourceCatalog -MediaRoot $resolvedRoot | Where-Object { $_.Id -eq $Id })
     if ($entry.Count -ne 1) { throw "SQL_MEDIA_SOURCE_NOT_FOUND: $Id" }
     $source = $entry[0]
+    if ($source.PSObject.Properties['SourceProvenance'] -and $source.SourceProvenance -eq 'INVALID') {
+        throw 'MEDIA_SOURCE_OVERRIDE_INVALID'
+    }
     if ($source.RequiresExplicitTrust -and -not $AllowCommunityScan) {
         throw "SQL_MEDIA_SOURCE_EXPLICIT_TRUST_REQUIRED: $Id / -AllowCommunityScan ist für diesen quarantänisierten Community-Scan erforderlich."
     }
@@ -90,7 +97,8 @@ function Save-SqlServerLabMediaSource {
             }
         }
         $signatureStatus = 'NOT_APPLICABLE'
-        if ([System.IO.Path]::GetExtension($Path) -ieq '.exe') {
+        # The staging path ends in .partial.<guid>; the catalog determines the media kind.
+        if ([System.IO.Path]::GetExtension([string]$Definition.TargetPath) -ieq '.exe') {
             $signature = Get-AuthenticodeSignature -FilePath $Path
             $signatureStatus = [string]$signature.Status
             if ($signature.Status -ne 'Valid' -or -not $signature.SignerCertificate -or
@@ -128,7 +136,11 @@ function Save-SqlServerLabMediaSource {
     [System.IO.Directory]::CreateDirectory($targetDirectory) | Out-Null
     $partialPath = Join-Path $targetDirectory ('.' + [System.IO.Path]::GetFileName($targetPath) + '.partial.' + [guid]::NewGuid().ToString('N'))
     try {
-        Save-LabProgressDownload -Uri ([string]$source.DownloadUrl) -OutFile $partialPath
+        if ($source.PSObject.Properties['SourceProvenance'] -and $source.SourceProvenance -eq 'LOCAL_OVERRIDE') {
+            Assert-LabMediaOverrideUrl -Url $source.DownloadUrl -Source ([pscustomobject]@{DownloadUrl=$source.RepositoryUrl})
+            Save-LabProgressDownload -Uri ([string]$source.DownloadUrl) -OutFile $partialPath -MaximumRedirection 0
+        }
+        else { Save-LabProgressDownload -Uri ([string]$source.DownloadUrl) -OutFile $partialPath }
         $verification = & $verifyFile $partialPath $source
         Move-Item -LiteralPath $partialPath -Destination $targetPath -ErrorAction Stop
 

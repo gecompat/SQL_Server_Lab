@@ -414,8 +414,8 @@ function renderHyperVExistingVmSourceDetails(items) {
 function renderMediaSources(items) {
   $('#media-source-list').innerHTML = (items || []).map((item) => {
     const url = safeExternalUrl(item.Url);
-    const link = url ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Offizielle Quelle öffnen</a>' : '';
-    return '<article class="source-item"><strong>' + escapeHtml(item.Category) + ' · ' + escapeHtml(item.DisplayName) + '</strong><span>' + escapeHtml(item.Acquisition) + ' · Ziel: ' + escapeHtml(item.TargetRelativePath) + '</span><span>' + escapeHtml(item.Note) + '</span>' + link + '</article>';
+    const link = url ? '<a href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Quelle öffnen</a>' : '';
+    return '<article class="source-item"><strong>' + escapeHtml(item.Category) + ' · ' + escapeHtml(item.DisplayName) + '</strong><span>' + escapeHtml(item.Acquisition) + ' · ' + escapeHtml(item.SourceProvenance || 'REPOSITORY_DEFAULT') + ' · Ziel: ' + escapeHtml(item.TargetRelativePath) + '</span><span>' + escapeHtml(item.Note) + '</span>' + link + '</article>';
   }).join('') || empty('Keine Quelleninformationen verfügbar.');
 }
 
@@ -2665,4 +2665,85 @@ $('#test-group-apply').addEventListener('click', async () => {
   invalidateTestGroupPlan(); $('#test-group-dialog').close();
   try { await startAction(plan.PowerAction === 'Start' ? 'StartTestGroupPower' : 'StopTestGroupPower', { ExpectedPlanKey: plan.PlanKey }); }
   catch { showError(new Error('Poweraktion: Annahme oder Ergebnis unbestätigt. Gruppenstatus erneut lesen; nicht automatisch wiederholen.')); }
+});
+
+let mediaOverrideState = null;
+let mediaOverridePlan = null;
+let mediaOverrideRevision = 0;
+let mediaOverrideBusy = false;
+function updateMediaOverrideControls() {
+  const readable = !!mediaOverrideState && !mediaOverrideBusy;
+  for (const suffix of ['selection', 'reset']) $('#media-override-' + suffix).disabled = !readable;
+  for (const suffix of ['url', 'preview']) $('#media-override-' + suffix).disabled = !readable || mediaOverrideState.Status !== 'READY';
+  $('#media-override-apply').disabled = !readable || !mediaOverridePlan || mediaOverridePlan.IsNoOp;
+  $('#media-override-read').disabled = mediaOverrideBusy;
+}
+function invalidateMediaOverridePlan() {
+  mediaOverridePlan = null; $('#media-override-plan').hidden = true; updateMediaOverrideControls();
+}
+async function requestMediaOverride(action, parameters) {
+  const response = await fetch('/api/media-overrides', action ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, parameters }) } : { cache: 'no-store' });
+  if (!response.ok) throw new Error('Quellenanfrage abgelehnt; Eingabe und aktuellen Zustand erneut prüfen.');
+  return (await response.json()).Result;
+}
+async function runMediaOverrideRequest(operation, receive) {
+  if (mediaOverrideBusy || !$('#media-override-dialog').open) return;
+  const revision = mediaOverrideRevision;
+  mediaOverrideBusy = true; updateMediaOverrideControls();
+  try {
+    const result = await operation();
+    if (revision === mediaOverrideRevision && $('#media-override-dialog').open) receive(result);
+  } catch (error) {
+    if (revision === mediaOverrideRevision && $('#media-override-dialog').open) {
+      mediaOverrideState = null; invalidateMediaOverridePlan(); $('#media-override-details').textContent = '';
+      $('#media-override-status').textContent = error.message;
+    }
+  } finally { if (revision === mediaOverrideRevision) { mediaOverrideBusy = false; updateMediaOverrideControls(); } }
+}
+function selectMediaOverride() {
+  invalidateMediaOverridePlan();
+  const item = mediaOverrideState?.Items?.find(item => item.Id === $('#media-override-selection').value);
+  $('#media-override-details').textContent = item ? item.Provenance + '\nRepository: ' + item.RepositoryUrl + '\nEffektiv: ' + (item.EffectiveUrl || 'INVALID') + '\nBytes: ' + item.ExpectedBytes + '\nSHA-256: ' + item.ExpectedSha256 : '';
+  $('#media-override-url').value = item?.EffectiveUrl || '';
+}
+function renderMediaOverride(state) {
+  mediaOverrideState = state;
+  const selected = $('#media-override-selection').value;
+  $('#media-override-selection').innerHTML = state.Items.map(item => '<option value="' + escapeHtml(item.Id) + '">' + escapeHtml(item.DisplayName) + '</option>').join('');
+  $('#media-override-selection').value = state.Items.some(item => item.Id === selected) ? selected : state.Items[0]?.Id || '';
+  $('#media-override-status').textContent = state.Status + ' · ' + state.Notice;
+  selectMediaOverride();
+}
+function readMediaOverride() {
+  invalidateMediaOverridePlan(); return runMediaOverrideRequest(() => requestMediaOverride(), renderMediaOverride);
+}
+function openMediaOverrideDialog() {
+  mediaOverrideRevision++; mediaOverrideBusy = false; mediaOverrideState = null; invalidateMediaOverridePlan();
+  $('#media-override-details').textContent = ''; $('#media-override-status').textContent = 'Quellenkonfiguration wird gelesen …';
+  $('#media-override-dialog').showModal(); return readMediaOverride();
+}
+function previewMediaOverride(operation) {
+  if (mediaOverrideBusy || !mediaOverrideState || !$('#media-override-dialog').open) return;
+  invalidateMediaOverridePlan();
+  const parameters = { MediaSourceId: $('#media-override-selection').value, MediaSourceOperation: operation, MediaSourceUrl: operation === 'Edit' ? $('#media-override-url').value : '' };
+  return runMediaOverrideRequest(() => requestMediaOverride('PlanMediaOverride', parameters), plan => {
+    mediaOverridePlan = plan; $('#media-override-plan').textContent = plan.Operation + ': ' + plan.EffectiveUrl + ' · ' + plan.Notice + (plan.IsNoOp ? ' Keine Änderung.' : '');
+    $('#media-override-plan').hidden = false;
+  });
+}
+$('#media-override-open').addEventListener('click', openMediaOverrideDialog);
+$('#media-override-selection').addEventListener('change', selectMediaOverride);
+$('#media-override-url').addEventListener('input', invalidateMediaOverridePlan);
+$('#media-override-preview').addEventListener('click', () => previewMediaOverride('Edit'));
+$('#media-override-reset').addEventListener('click', () => previewMediaOverride('Reset'));
+$('#media-override-read').addEventListener('click', readMediaOverride);
+$('#media-override-close').addEventListener('click', () => $('#media-override-dialog').close());
+$('#media-override-dialog').addEventListener('close', () => { mediaOverrideRevision++; mediaOverrideBusy = false; invalidateMediaOverridePlan(); });
+$('#media-override-apply').addEventListener('click', () => {
+  if (mediaOverrideBusy || !mediaOverridePlan || mediaOverridePlan.IsNoOp || !$('#media-override-dialog').open) return;
+  const plan = mediaOverridePlan; invalidateMediaOverridePlan();
+  return runMediaOverrideRequest(async () => {
+    await requestMediaOverride('ApplyMediaOverride', { MediaSourcePlan: plan, ConfirmMediaSource: true });
+    return requestMediaOverride();
+  }, renderMediaOverride);
 });

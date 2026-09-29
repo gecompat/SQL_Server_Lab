@@ -53,6 +53,16 @@ SQL_Server_Lab-Internal-Switch verwendet.
     Unveränderter angezeigter SlotReservePlan; Apply prüft Speicherautorität und Vorgänger erneut.
 .PARAMETER ConfirmSlotReserve
     Bestätigt ausschließlich das Speichern der angezeigten Advisory-Policy.
+.PARAMETER MediaSourceId
+    Exakte katalogisierte SQL-2025-Bootstrapper-ID für die lokale Quellenzuordnung.
+.PARAMETER MediaSourceUrl
+    Alternative Microsoft-HTTPS-Adresse derselben unverändert hashgebundenen Datei.
+.PARAMETER MediaSourceOperation
+    Edit plant eine alternative Adresse; Reset plant den Repositorydefault ohne Download.
+.PARAMETER MediaSourcePlan
+    Unveränderter Quellenplan; Apply revalidiert Katalog und Preferences unter Writerlock.
+.PARAMETER ConfirmMediaSource
+    Bestätigt ausschließlich die angezeigte lokale Quellenzuordnung, keinen Download.
 .PARAMETER TestDataRoot
     Sichtbarer Root für wiederverwendbare Testdatenbanken, Archive und
     katalogisierte T-SQL-Skripte. Ohne Angabe wird `<MediaRoot>\Testdaten`
@@ -225,6 +235,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'StartTestGroupPower', 'StopTestGroupPower',
             'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider',
             'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve',
+            'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
@@ -251,6 +262,11 @@ function Invoke-SqlServerLabWorkflowAction {
         [object]$InitialSetupPlan,
         [object]$SlotReservePolicy,
         [object]$SlotReservePlan,
+        [string]$MediaSourceId,
+        [string]$MediaSourceUrl,
+        [ValidateSet('Edit','Reset')][string]$MediaSourceOperation = 'Edit',
+        [object]$MediaSourcePlan,
+        [switch]$ConfirmMediaSource,
         [switch]$ConfirmSlotReserve,
         [switch]$ConfirmSetup,
         [ValidateSet('docker', 'podman', 'hyperv')][string]$SetupProvider,
@@ -313,6 +329,17 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateRange(32, 1048576)][int]$OsDiskSizeGB = 80
     )
 
+    if ($Action -in @('GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride')) {
+        $result = switch ($Action) {
+            'GetMediaOverrideState' { Get-LabMediaOverrideState }
+            'PlanMediaOverride' { New-LabMediaOverridePlan -Id $MediaSourceId -Operation $MediaSourceOperation -Url $MediaSourceUrl }
+            'ApplyMediaOverride' {
+                if (-not $ConfirmMediaSource -or -not $MediaSourcePlan) { throw 'MEDIA_SOURCE_OVERRIDE_CONFIRMATION_REQUIRED' }
+                Invoke-LabMediaOverridePlan -Plan $MediaSourcePlan -Confirm:$false
+            }
+        }
+        return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
+    }
     if ($Action -in @('GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve')) {
         $result = switch ($Action) {
             'GetSlotReserveState' { Get-LabSlotReserveInventory }

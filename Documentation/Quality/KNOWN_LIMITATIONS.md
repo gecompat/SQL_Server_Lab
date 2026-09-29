@@ -2753,3 +2753,24 @@ weiterhin den alten Pfad wählen; dieser bestehende Authorityrand wird hier
 nicht durch einen neuen Redirect-/Ownershipvertrag gelöst. Ungültiges
 Preferences-JSON wird ohne Reparatur oder Überschreiben abgelehnt.
 Siehe [Bedienvertrag](../HowTo/WORKFLOW_UI.md#zentrale-slotreservepolicy-hv-401-bis-hv-508-core-107111).
+
+## Quellenoverride für SQL-2025-Bootstrapper
+
+Der geführte CLI-/GUI-Dialog unter Ressourcen beschränkt lokale alternative
+Quellen auf die drei katalogisierten SQL-2025-Bootstrapper. Er speichert in der
+vorhandenen Preferences-Authority und führt weder Downloads noch Installation
+aus. Nur die URL derselben größen-/hash-/signaturgebundenen Datei ist änderbar;
+Redirects bei Overrides sind gesperrt. Ungültige gespeicherte Zuordnungen bleiben
+sichtbar und verhindern eine stille Defaultnutzung. Reset entfernt nur die
+gewählte Zuordnung. Weitere Quellenfamilien, freie Mirrors und Änderungen an
+Parsern, Resolvern oder Sollhashes sind nicht freigegeben. Details und Grenzen:
+[Getting Started](../User/Getting_Started.md#lokale-sql-2025-bootstrapperquellen).
+Synthetische CLI-/Browser-/Persistenz- und Loopback-HTTP-Tests ersetzen keinen
+Nachweis der aktuellen Erreichbarkeit oder Herstellerdateien.
+Beim Neudownload entscheidet der katalogisierte EXE-Zielname über die
+Microsoft-Signaturpflicht; geprüft wird die tatsächliche temporäre Datei.
+Der zufällige `.partial`-Suffix darf die Signaturprüfung nicht überspringen.
+Synthetische Save-Regressionen verwenden gestubbte GetAuthenticodeSignature-
+Antworten für gültige Signatur, fehlende Signatur und fremden Publisher. Sie
+belegen Aufruf und ausbleibende Publikation bei Ablehnung, keine reale
+Windows-Vertrauenskettenprüfung.

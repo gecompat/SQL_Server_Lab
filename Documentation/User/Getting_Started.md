@@ -2055,3 +2055,36 @@ nichts. Registrierte Kandidaten sind keine bestätigte freie Reserve; ohne
 Poolmitgliedschaft und Claims bleiben Defizit und Auffüllzahl unbekannt. Der
 Dialog erstellt keine Slots und aktiviert keine automatische Auffüllung.
 Einzelheiten im [Bedienvertrag](../HowTo/WORKFLOW_UI.md).
+
+## Lokale SQL-2025-Bootstrapperquellen
+
+Unter **Ressourcen und Downloads → SQL-2025-Bootstrapperquellen bearbeiten**
+stehen genau Enterprise Developer, Standard Developer und Express zur Wahl.
+Die CLI erreicht denselben Dialog über `Invoke-SqlServerLab -Action MediaSourceOverride`.
+Repositoryadresse, effektive Adresse und Herkunft (`REPOSITORY_DEFAULT`,
+`LOCAL_OVERRIDE`, `INVALID`) bleiben getrennt sichtbar. Bearbeiten und Reset
+zeigen zuerst eine Vorschau; erst die eigene Bestätigung speichert. Abbruch
+und No-op schreiben nichts. Reset entfernt ausschließlich die ausgewählte
+lokale Zuordnung und lädt keine Datei.
+
+Die alternative URL muss HTTPS auf dem exakten Host `download.microsoft.com`
+(Port 443), einen eindeutigen `/download/`-Pfad und den unveränderten
+katalogisierten Dateinamen verwenden. Userinfo, Query, Fragment, Escapes,
+Backslashes und mehrdeutige Pfadsegmente werden abgelehnt. Beim späteren
+`Save-SqlServerLabMediaSource` werden Overrides frisch validiert; jede
+HTTP-Weiterleitung wird abgewiesen. Repositorydefault-Downloads behalten ihren
+bisherigen Vertrag.
+
+Der Dialog ändert nur die Bezugsadresse **derselben Datei**. Größe, SHA-256,
+optionaler SHA-1, Microsoft-Signaturpflicht, Variante und Zielpfad stammen
+weiter aus dem Repositorykatalog. Eine Herstellerneuauflage benötigt ein
+kuratiertes Katalogupdate; eine abweichende vorhandene Datei wird weder
+überschrieben noch mit einem neuen Sollhash legitimiert. Gespeicherte ungültige
+Overrides werden nicht still durch Defaults ersetzt. Die bestehende
+Preferences-Authority speichert atomar unter gemeinsamem Writerlock und
+revalidiert Katalog, Speicherautorität und Vorgänger beim Apply. Sonstige
+Einstellungen bleiben erhalten.
+
+Speichern prüft syntaktische Zulässigkeit, keine Downloadverfügbarkeit. Ein
+Bootstrapper ist keine ISO und keine installierte SQL-Instanz. Andere
+Medienfamilien, freie Mirrors, Resolver- und Parseränderungen bleiben offen.
