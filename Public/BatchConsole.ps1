@@ -806,7 +806,7 @@ function Show-LabTestMatrixMenu {
     $state = Get-LabAutomatedTestEnvironmentMenuState
     return Show-LabSubMenu -ScreenId 'testmatrix-menu' -Title 'Geschützte Testsystem-Matrix' -Subtitle 'Gruppenvertrag; keine ungebundenen Einzelaktionen' -Items @(
         New-LabConsoleItem -Id AutomatedTestEnvironment -Label 'Geschützte Testgruppe erstellen oder konfigurieren' -Shortcut 1
-        New-LabConsoleItem -Id AutomatedTestEnvironmentLifecycle -Label $(if ($state.Available) { $state.Label } else { 'Testgruppe starten oder stoppen' }) -Value $state.Value -Shortcut 2 -Disabled:(-not $state.Available) -DisabledReason 'Keine registrierte Testgruppe vorhanden. Zuerst die Gruppe erstellen.'
+        New-LabConsoleItem -Id AutomatedTestEnvironmentLifecycle -Label 'Testgruppe ansehen: Power-Start/Stop' -Value 'SQL-Bereitschaft getrennt, Vorschau vor Aktion' -Shortcut 2
         New-LabConsoleItem -Id ClearAutomatedTestEnvironment -Label 'Geschützte Testgruppe entfernen' -Shortcut 3 -Disabled:(-not $state.Available) -DisabledReason 'Keine registrierte Testgruppe vorhanden.'
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )

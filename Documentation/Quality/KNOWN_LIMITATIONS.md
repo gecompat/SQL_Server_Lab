@@ -2390,11 +2390,26 @@ Gruppenaktionen separat in der Testmatrix. Browserbereiche verbergen inaktive
 Inventare und ersetzen die früheren Katalogfilter-Verweise durch konkrete
 vorhandene Dialoge oder eine ausdrückliche Lückenbeschreibung.
 
-Offen bleiben vollständige geführte Browserdialoge für Testgruppen, CMS und
+Offen bleiben über Power-Start/Stop hinausgehende Browserdialoge für Testgruppen, CMS und
 operative Slotreservierung und Auffüllung, späteres Provider-Setup,
 Runtimeinstaller und manueller Hostdienst-/Modell-Lifecycle. Vorhandene
-Gruppenschutzverträge gelten unverändert; diese Navigation fügt keine neue
-Gruppensteuerung hinzu. Verbindungseinträge zeigen nur vorhandene
+Gruppenschutzverträge gelten unverändert. Der neue Gruppen-Powerdialog nutzt
+exakte Runtime-IDs und eine gemeinsame Sperre mit Registrierung sowie
+bestehenden Gruppen-Lifecycle-/Clear-/Repair-Aufrufen. Es gibt weiterhin nur
+die vorhandene Registrygruppe je Exportroot, keine freie Gruppenverwaltung.
+Registrypfade durch Junctions oder Symlinks werden abgelehnt; unter Windows
+verwenden die kooperierenden Writer eine sitzungsübergreifende globale Sperre.
+Vorhandene Hyper-V-Provider-Subruns müssen eindeutig an Hyper-V gebunden und
+stabil RUNNING/STOPPED sein. Ältere Hyper-V-Runs ohne Subrun bleiben bei gültiger
+Run-/Runtimebindung zulässig.
+SQL-Bereitschaft bleibt nicht geprüft; persistierte Run-/Exportstatus werden
+dabei nicht aktualisiert. Mehrinstanz-Runs, zusätzliche Runtimeobjekte,
+unbekannte Zustände und nicht durch diesen engen Vertrag interpretierte
+Recoveryjournale sperren Apply konservativ, auch bei möglicherweise terminaler
+Historie. Eine konkurrierende externe Providermutation lässt sich durch eine
+lokale Gruppensperre nicht ausschließen; feste IDs verhindern Namenswiederverwendung,
+Postconditions und erneute Vorschau zeigen unbestätigte Ergebnisse.
+Native Power-/Identitätsnachweise bestanden getrennt auf eigenen Docker-/Podman-Containern und disk-/netzlosen Hyper-V-VMs (je zehn Prüfungen, Cleanup bestätigt). SQL-/Gastbereitschaft ist damit nicht abgenommen. Verbindungseinträge zeigen nur vorhandene
 Host-/Port-Metadaten beziehungsweise bei Hyper-V TcpPort und das führende Serverfeld des Connection Strings. Fehlende oder nicht unterstützte Formate ergeben unbekannte Endpunkte; Credentialfelder werden nicht angezeigt. Navigation ist keine Runtime- oder
 Verbindungsbereitschaftsabnahme.
 

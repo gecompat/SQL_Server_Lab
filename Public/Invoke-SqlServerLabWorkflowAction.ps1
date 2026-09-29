@@ -154,7 +154,7 @@ Ist er angegeben, wird der Download strikt dagegen verifiziert.
 .PARAMETER ExpectedCatalogRevision
     Erwartete Katalogrevision aus der getrennten Retained-Store-Löschvorschau.
 .PARAMETER ExpectedPlanKey
-    Fingerprint der bestätigten Retained-Store-Löschvorschau.
+    Fingerprint der bestätigten Retained-Store-, CPU/RAM- oder Gruppen-Powervorschau.
 .PARAMETER GuestUserName
     Lokaler Administratorname im Gast für PowerShell Direct.
 .PARAMETER GuestPassword
@@ -222,6 +222,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [Parameter(Mandatory)]
         [ValidateSet(
             'Refresh',
+            'StartTestGroupPower', 'StopTestGroupPower',
             'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider',
             'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve',
             'RepairHyperVWindowsActivation',
@@ -336,6 +337,14 @@ function Invoke-SqlServerLabWorkflowAction {
                 [pscustomobject]@{ Provider=$SetupProvider; Check=(Get-LabClientRuntimeReadiness -Provider $SetupProvider) }
             }
         }
+        return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
+    }
+
+    if ($Action -in @('StartTestGroupPower','StopTestGroupPower')) {
+        if (-not $ExpectedPlanKey) { throw 'TEST_GROUP_PREVIEW_REQUIRED' }
+        $power = if ($Action -eq 'StartTestGroupPower') { 'Start' } else { 'Stop' }
+        $result = Invoke-LabTestGroupPowerPlan -PowerAction $power -ExpectedPlanKey $ExpectedPlanKey -Confirmed
+        Write-Information ('[TESTGROUP] ' + ($result | ConvertTo-Json -Depth 8 -Compress)) -InformationAction Continue
         return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
     }
 

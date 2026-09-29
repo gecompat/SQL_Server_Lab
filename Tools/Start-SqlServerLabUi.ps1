@@ -475,6 +475,16 @@ try {
             }
 
             $path = $context.Request.Url.AbsolutePath
+            if ($path -eq '/api/test-group' -and $context.Request.HttpMethod -eq 'GET') {
+                try {
+                    $power = [string]$context.Request.QueryString['powerAction']
+                    if (-not $power) { $power = 'Start' }
+                    $view = & (Get-Module SqlServerLab) { param($a) Get-LabTestGroupPowerPlan -PowerAction $a } $power
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8) -ContentType 'application/json; charset=utf-8'
+                }
+                catch { Write-UiResponse -Context $context -Body 'TEST_GROUP_READ_UNAVAILABLE: Gruppe erneut lesen; keine Aktion ausgeführt.' -StatusCode 503 }
+                continue
+            }
             if ($path -eq '/api/resource-change' -and $context.Request.HttpMethod -eq 'GET') {
                 try {
                     $query = $context.Request.QueryString
@@ -634,7 +644,8 @@ try {
                     }
                 }
                 $hasTransientSecret = $parameters.ContainsKey('GuestPassword') -or $parameters.ContainsKey('SaPassword')
-                if (-not $hasTransientSecret -and $action -ne 'Refresh') {
+                # A confirmed power plan is a one-shot request: never replay it through batch recovery.
+                if (-not $hasTransientSecret -and $action -notin @('Refresh','StartTestGroupPower','StopTestGroupPower')) {
                     $resourceClass = if ($action -match 'WindowsBuild|SqlBuild|HyperVLab|HyperVImage') { 'HyperVHeavy' } elseif ($action -match 'MediaRoot|DataRoot|Storage') { 'ExclusiveStorage' } else { 'LifecycleLight' }
                     $targetId = if ($parameters.ContainsKey('BuildId')) { [string]$parameters.BuildId } elseif ($parameters.ContainsKey('ArtifactId')) { [string]$parameters.ArtifactId } elseif ($parameters.ContainsKey('LabName')) { [string]$parameters.LabName } else { $action }
                     $batch = New-SqlServerLabBatch -Name "Browser: $action" -Items @([pscustomobject]@{

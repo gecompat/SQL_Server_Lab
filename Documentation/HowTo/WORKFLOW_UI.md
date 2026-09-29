@@ -2,6 +2,28 @@
 
 ## Zweck
 
+### Geschützte Testgruppe: Power-Start/Stop
+
+Im Bereich Testsystem-Matrix öffnet „Gruppe ansehen · Power-Start/Stop“ die
+tatsächlich registrierte Gruppe des kanonischen Exportroots. Nach der Auswahl
+zeigen Mitglieder und Gesamtstatus den gemessenen Container-/VM-Powerzustand.
+SQL-Bereitschaft bleibt ausdrücklich **nicht geprüft**. Starten oder Stoppen
+betrifft die gesamte Gruppe; die Ist-/Zielvorschau muss gesondert bestätigt
+werden. Eine neue Auswahl oder Aktualisierung verwirft die Bestätigung.
+
+Der gemeinsame CLI-/GUI-Core bindet Registry, Roots, Mitglieder und feste
+Runtime-IDs. Geänderte Vorschauen, unbekannte Zustände, Mehrinstanz-Runs,
+zusätzliche Runtimeobjekte und ungeklärte Recovery sperren Apply. Abbruch und
+No-op verändern nichts. Ein Teilfehler bleibt im Meldungsbereich je Mitglied
+sichtbar; Wiederholung erfordert eine neue Vorschau. Bei verlorener Antwort
+ist das Ergebnis unbestätigt, nicht automatisch wirkungslos.
+
+Dieser Powerpfad verwendet keine SQL-Dienst-, Lizenz-, Export-, CMS-,
+ConnectionCenter- oder Hostspeicheraktion. Vorhandener Autostart innerhalb
+eines gestarteten Containers oder Gasts kann Dienste starten. Persistierte
+Run-/Exportstatus werden hier nicht neu geschrieben. Der bestehende öffentliche
+Gruppenbereitsteller mit SQL-Prüfung behält seine eigene Semantik.
+
 Die lokale Browser-Oberfläche fasst vorhandene Windows-OS-Baselines,
 Windows-Builder, SQL-Prepared-Images, Abnahmeumgebungen und aktive
 Container-Labs in einer Sicht zusammen. Sie zeigt pro Build den nächsten
@@ -21,8 +43,8 @@ haben eigene Einstiege. Ressourcen öffnen den bestehenden Quellen-/Speicherortd
 Grundkonfiguration bietet einen eigenen gemeinsamen Plan-/Apply-Pfad. Die Verbindungsansicht zeigt nur
 vorhandene Host-/Port-Felder. Bei Hyper-V werden Host und Port eng aus dem führenden Serverfeld des Connection Strings und TcpPort projiziert; Credentials und Connection Strings werden hier nie angezeigt. Fehlende oder nicht unterstützte Werte bleiben unbekannt; ein Verbindungstest wird nicht behauptet.
 
-Die geschützte Testmatrix wird im Browser ausdrücklich auf die vorhandenen
-Gruppenabläufe der Konsole verwiesen. Geführte Browser-Gruppenaktionen, CMS,
+Die geschützte Testmatrix besitzt den oben beschriebenen Power-Fachdialog.
+Weitere geführte Browser-Gruppenaktionen, CMS,
 operative Slots, vollständiges Provider-Setup und manueller Hostdienst- sowie
 Modell-Lifecycle bleiben offen. Der Navigationseinstieg ist keine Abnahme
 dieser fehlenden Funktionen.

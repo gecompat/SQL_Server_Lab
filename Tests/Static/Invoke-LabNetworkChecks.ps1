@@ -399,6 +399,7 @@ try {
     $elevationSource = Get-Content (Join-Path $repoRoot 'Private/Elevation.ps1') -Raw
     $preferencesSource = Get-Content (Join-Path $repoRoot 'Private/LabPreferences.ps1') -Raw
     $menuSource = Get-Content (Join-Path $repoRoot 'Public/Invoke-SqlServerLab.ps1') -Raw
+    $batchMenuSource = Get-Content (Join-Path $repoRoot 'Public/BatchConsole.ps1') -Raw
     $newLabSource = Get-Content (Join-Path $repoRoot 'Public/New-SqlServerLab.ps1') -Raw
     Add-CheckResult -Name 'Docker verwendet das feste Labnetz mit reinem Host-Portzugriff' -Success (
         $docker -match 'Ensure-LabDockerNetwork' -and $docker -match '--network.*\$labNetwork\.Name' -and
@@ -477,11 +478,12 @@ try {
     Add-CheckResult -Name 'Zuletzt gewaehlter Media Root wird projektlokal gespeichert und vorbelegt' -Success (
         $preferencesSource -match "\.local'\) 'preferences\.json'" -and
         $preferencesSource -match 'Get-LabProjectMediaRootDefault' -and
-        $preferencesSource -match 'Write-LabArtifactJsonAtomic -Path \$preferencePath' -and
+        $preferencesSource -match 'Set-LabPreferencesEntry -Name \$Name -Value \$Value' -and
+        $preferencesSource -match 'Write-LabArtifactJsonAtomic -Path \$current.Path -InputObject \$current.Document' -and
         $preferencesSource -match 'SetEnvironmentVariable\(''SQL_SERVER_LAB_MEDIA_ROOT''.+''User''' -and
         $menuSource -match 'Get-LabMediaRootDefault' -and $menuSource -match 'Set-LabMediaRootDefault' -and
-        $menuSource -match "New-LabConsoleItem -Id 'infrastructure' -Label 'Infrastruktur und Medien'.+-Shortcut '6'" -and
-        $menuSource -match "New-LabConsoleItem -Id 'MediaRoot' -Label 'Lab_Base / Media-Root konfigurieren'.+-Shortcut 'p'" -and
+        $menuSource -match "New-LabConsoleItem -Id 'configuration' -Label 'SQL-Lab-Grundkonfiguration'" -and
+        $batchMenuSource -match "New-LabConsoleItem -Id MediaRoot -Label 'Lab_Base / Medienroot konfigurieren' -Shortcut 2" -and
         $menuSource -match "'MediaRoot'\s*\{"
     )
 }
