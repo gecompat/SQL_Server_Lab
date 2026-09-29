@@ -489,6 +489,12 @@ Sync-SqlServerLabRunScopedContainerStore
         Optionally installs 7-Zip through winget after explicit confirmation for
         catalogued .7z backups with a .bak payload.
 
+    Resource watch (Invoke-SqlServerLab -Action ResourceWatch)
+        GetResourceWatchState reads catalogs and session cache; RefreshResourceWatch
+        explicitly checks CU and SqlPackage metadata. No download or installation.
+        NOT_CHECKED after restart, EXPIRED after 15 minutes, UNCLEAR on source errors.
+        Existing public CU and monthly workflow contracts remain separate.
+
     Get-SqlServerLabCuStatus
         Read-only comparison of the local CU catalog with the configured
         Microsoft Learn build tables. Newly detected CUs are not downloadable

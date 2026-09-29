@@ -577,6 +577,20 @@ async function main() {
   let releaseMedia;context.fetch=()=>new Promise(resolve=>{releaseMedia=resolve;});
   const pendingMedia=resourceEvent('media-override-open');await resourceEvent('media-override-close');releaseMedia({ok:true,json:async()=>({Result:{Status:'READY',Items:[mediaItem]}})});await pendingMedia;
   check('Media closed dialog ignores delayed state',()=>assert.equal(node('media-override-apply').disabled,true));
+  const watchRequests=[];
+  const watchItem={Name:'SqlPackage <fixture>',CatalogVersion:'170.4.83.3',ObservedVersion:'170.5.96.0',LastSuccessfulVersion:'170.5.96.0',LastSuccessfulAtUtc:'synthetic-time',SourceUrl:'https://learn.microsoft.com/fixture',Status:'NEW',ReasonCode:'RESOURCE_WATCH_COMPLETED'};
+  context.fetch=async (url,options={})=>{watchRequests.push({url,options});return{ok:true,json:async()=>({Result:{Status:'NEW',ReasonCode:'RESOURCE_WATCH_COMPLETED',CheckedAtUtc:'synthetic-time',Items:[watchItem],Notice:'Session only'}})}};
+  await resourceEvent('resource-watch-open');
+  check('Resource watch open reads snapshot without explicit refresh',()=>{assert.equal(watchRequests[0].options.method,undefined);assert.match(node('resource-watch-details').textContent,/Katalogversion: 170.4.83.3/);assert.match(node('resource-watch-details').textContent,/Letzte erfolgreiche Beobachtung/);});
+  await resourceEvent('resource-watch-read');
+  check('Resource watch reread remains GET',()=>assert.ok(watchRequests.every(r=>!r.options.method)));
+  await resourceEvent('resource-watch-check');
+  check('Resource watch explicit refresh reaches direct endpoint',()=>{assert.equal(watchRequests.at(-1).url,'/api/resource-watch');assert.deepEqual(JSON.parse(watchRequests.at(-1).options.body),{action:'RefreshResourceWatch',parameters:{}});});
+  context.fetch=async()=>{throw new Error('SYNTHETIC_PRIVATE');};await resourceEvent('resource-watch-check');
+  check('Resource watch failed attempt clears current success and raw errors',()=>{assert.match(node('resource-watch-status').textContent,/UNCLEAR/);assert.equal(node('resource-watch-details').textContent,'');assert.doesNotMatch(node('resource-watch-status').textContent,/SYNTHETIC_PRIVATE/);});
+  let releaseWatch;context.fetch=()=>new Promise(resolve=>{releaseWatch=resolve;});
+  const pendingWatch=resourceEvent('resource-watch-read');await resourceEvent('resource-watch-close');releaseWatch({ok:true,json:async()=>({Result:{Status:'NEW',Items:[watchItem]}})});await pendingWatch;
+  check('Resource watch closed dialog ignores late response',()=>assert.match(node('resource-watch-status').textContent,/UNCLEAR/));
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

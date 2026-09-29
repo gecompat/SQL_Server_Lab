@@ -50,7 +50,8 @@ function Get-LabCuStatusContent {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Source,
-        [scriptblock]$WebRequestAction
+        [scriptblock]$WebRequestAction,
+        [scriptblock]$ParserBudget
     )
 
     $sourceUrl = [string]$Source.url
@@ -60,9 +61,11 @@ function Get-LabCuStatusContent {
         throw "SQL_CU_STATUS_SOURCE_EMPTY: $($Source.id)"
     }
 
+    $parseTimeout = if ($ParserBudget) { & $ParserBudget } else { [Text.RegularExpressions.Regex]::InfiniteMatchTimeout }
     $gitSourceMatch = [regex]::Match(
         $content,
-        '(?is)<meta\s+name=["'']github_feedback_content_git_url["'']\s+content=["''](?<url>[^"'']+)["'']'
+        '(?is)<meta\s+name=["'']github_feedback_content_git_url["'']\s+content=["''](?<url>[^"'']+)["'']',
+        [Text.RegularExpressions.RegexOptions]::None, $parseTimeout
     )
     if (-not $gitSourceMatch.Success) {
         return [PSCustomObject]@{ Content=$content; EffectiveUrl=$sourceUrl }
@@ -87,18 +90,22 @@ function Get-LabCuStatusRows {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][object[]]$Sources,
-        [scriptblock]$WebRequestAction
+        [scriptblock]$WebRequestAction,
+        [scriptblock]$ParserBudget
     )
 
     $rows = [System.Collections.Generic.List[object]]::new()
     foreach ($source in @($Sources)) {
-        $sourceContent = Get-LabCuStatusContent -Source $source -WebRequestAction $WebRequestAction
+        $sourceContent = Get-LabCuStatusContent -Source $source -WebRequestAction $WebRequestAction -ParserBudget $ParserBudget
         $sectionPattern = '(?ms)^###\s*SQL Server\s+(?<version>\d{4}(?:\s*R2)?)\s*\n(?<body>.*?)(?=^###\s*SQL Server\s+\d{4}(?:\s*R2)?|\z)'
-        $sectionMatches = [regex]::Matches($sourceContent.Content, $sectionPattern, [System.Text.RegularExpressions.RegexOptions]::Multiline -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        $parseTimeout = if ($ParserBudget) { & $ParserBudget } else { [Text.RegularExpressions.Regex]::InfiniteMatchTimeout }
+        $sectionMatches = [regex]::Matches($sourceContent.Content, $sectionPattern, ([System.Text.RegularExpressions.RegexOptions]::Multiline -bor [System.Text.RegularExpressions.RegexOptions]::IgnoreCase), $parseTimeout)
         foreach ($section in $sectionMatches) {
+            if ($ParserBudget) { $null = & $ParserBudget }
             $majorMatch = [regex]::Match([string]$section.Groups['version'].Value, '\d{4}')
             if (-not $majorMatch.Success) { continue }
             foreach ($line in @([string]$section.Groups['body'].Value -split '\r?\n')) {
+                if ($ParserBudget) { $null = & $ParserBudget }
                 $cells = @($line.Trim().Trim('|').Split('|') | ForEach-Object { $_.Trim() })
                 if ($cells.Count -lt 5 -or $cells[0] -notmatch '^\d+\.\d+\.\d+\.\d+$' -or $cells[2] -notmatch '(?i)^CU\d+$') { continue }
                 $kbMatch = [regex]::Match([string]$cells[3], '(?i)KB\d+')
@@ -133,7 +140,8 @@ function Invoke-LabCuStatusCheck {
         [Parameter(Mandatory)][object[]]$Sources,
         [string[]]$Version = @(),
         [ValidateRange(1, 100)][int]$MaxMissingEntries = 5,
-        [scriptblock]$WebRequestAction
+        [scriptblock]$WebRequestAction,
+        [scriptblock]$ParserBudget
     )
 
     if (-not (Test-Path -LiteralPath $CatalogPath -PathType Leaf)) {
@@ -148,7 +156,7 @@ function Invoke-LabCuStatusCheck {
         @($catalog.versions | Where-Object { [string]$_.status -eq 'SUPPORTED' } | ForEach-Object { [string]$_.id } | Sort-Object)
     }
 
-    try { $microsoftRows = @(Get-LabCuStatusRows -Sources $Sources -WebRequestAction $WebRequestAction) }
+    try { $microsoftRows = @(Get-LabCuStatusRows -Sources $Sources -WebRequestAction $WebRequestAction -ParserBudget $ParserBudget) }
     catch {
         return [PSCustomObject]@{
             Contract = 'SqlServerLab.CuStatus/1.0'; Status = 'UNCLEAR'; CheckedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
@@ -167,6 +175,7 @@ function Invoke-LabCuStatusCheck {
     $overallStatus = 'NO CHANGE'
     $results = [System.Collections.Generic.List[object]]::new()
     foreach ($versionId in $targetVersions) {
+        if ($ParserBudget) { $null = & $ParserBudget }
         if (-not $catalogByVersion.ContainsKey($versionId)) {
             $overallStatus = 'UNCLEAR'
             $results.Add([PSCustomObject]@{ Version=$versionId; Status='UNCLEAR'; LatestCatalog=$null; LatestMicrosoft=$null; MissingCount=0; Missing=@(); Note='Version ist im Katalog nicht vorhanden.' })

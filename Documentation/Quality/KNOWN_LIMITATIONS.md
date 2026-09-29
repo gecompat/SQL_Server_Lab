@@ -2782,3 +2782,15 @@ Synthetische Save-Regressionen verwenden gestubbte GetAuthenticodeSignature-
 Antworten für gültige Signatur, fehlende Signatur und fremden Publisher. Sie
 belegen Aufruf und ausbleibende Publikation bei Ablehnung, keine reale
 Windows-Vertrauenskettenprüfung.
+
+## Resource Watch: Grenzen des interaktiven Slices
+
+Der CU-/SqlPackage-Vergleich ist ausschließlich ein expliziter Metadatencheck
+mit Prozesscache. Nach Neustart `NOT_CHECKED`, nach 15 Minuten `EXPIRED`;
+Offline/Timeout/429/Redirect/Parserfehler `UNCLEAR`, auch mit letztem Erfolg.
+Keine automatische Aktualisierung, dauerhafte Dedupe-/Monitoringgarantie,
+Benachrichtigung, Katalogänderung, Download oder Providerfreigabe.
+Die neue begrenzte Transportgrenze gilt nur für Resource Watch einschließlich
+des dort wiederverwendeten CU-Cores, nicht für unveränderte CU-/Monatsaufrufe.
+Synthetische Parser-/Loopback-/Handlerfixtures belegen Vertragsverhalten;
+sie allein sind keine Live-Microsoft-, Provider- oder dauerhafte Schedulerabnahme. Der getrennte explizite Live-Metadatencheck und eigene Docker-Core-Nachweis sind in der lokalen Validierungsstrategie dokumentiert; daraus folgt keine dauerhafte Monitoring- oder Installationsfreigabe.

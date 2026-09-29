@@ -1059,3 +1059,11 @@ Lokale alternative Bezugsadressen für genau die drei SQL-2025-Bootstrapper
 werden im Ressourcenbereich von CLI und Browser mit Vorschau, Herkunft und
 Reset verwaltet. Größe, Hash und Microsoft-Signatur bleiben unverändert;
 Speichern lädt keine Medien. [Bedienung und Grenzen](Documentation/User/Getting_Started.md#lokale-sql-2025-bootstrapperquellen).
+
+## Interaktiver Resource Watch
+
+Ressourcen bietet einen ausdrücklichen Metadatenvergleich für CUs und genau die
+katalogisierte SqlPackage-Variante. Die Bedienung und Statusgrenzen stehen in
+[Workflow UI](Documentation/HowTo/WORKFLOW_UI.md#ressourcenstand-cus-und-sqlpackage).
+Menüwechsel greifen nicht auf die Quellen zu. Sitzungscache und Quellenfehler
+sind sichtbar; neue Metadaten ändern keine Download- oder Supportfreigabe.

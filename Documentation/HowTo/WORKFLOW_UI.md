@@ -328,3 +328,34 @@ CLI: `Invoke-SqlServerLab -Action ReservePolicy`. Nichtinteraktiv bietet
 `PlanSlotReserve -SlotReservePolicy` und `ApplySlotReserve -SlotReservePlan
 -ConfirmSlotReserve`. Die Browserroute `/api/slot-reserve` führt denselben
 Core direkt aus; Lesen und Vorschau werden nicht in die Batchqueue eingereiht.
+
+## Ressourcenstand: CUs und SqlPackage
+
+Unter **Ressourcen → Ressourcenstand prüfen** liest das Öffnen ausschließlich
+Katalog und Sitzungscache. **Jetzt bei Microsoft prüfen** startet ausdrücklich
+einen Metadatenvergleich: vorhandener CU-Core plus genau die katalogisierte
+SqlPackage-Variante `sql2022-sqlpackage170-linux-derived`. CLI und GUI verwenden
+`Invoke-SqlServerLabWorkflowAction -Action GetResourceWatchState` beziehungsweise
+`RefreshResourceWatch`; der Browser nutzt den synchronen `/api/resource-watch`-
+Endpunkt im langlebigen Servermodul, keinen kurzlebigen Aktionsjob.
+
+Katalogversion, aktueller Quellenbefund und letzte erfolgreiche Beobachtung
+werden getrennt angezeigt. `NEW` ist ein Hinweis auf kuratierbare Metadaten,
+keine Freigabe für SQL-2022-Linux, Provider, Download oder Installation.
+`NO_CHANGE` gilt nur für den erfolgreichen Vergleich zum angegebenen Zeitpunkt.
+Offline, Timeout, HTTP 429, Redirect, fehlende/mehrdeutige oder ältere Versionsfelder
+liefern `UNCLEAR`; ein älterer Erfolg bleibt als Historie gekennzeichnet.
+
+Der flüchtige Cache gilt 15 Minuten, danach `EXPIRED`. Ablauf löst keinen
+Netzzugriff aus; nach Prozessneustart gilt `NOT_CHECKED`. Katalogbytes, feste
+Quelle, Variante und Parserrevision binden den Cache. Eine erneute Prüfung bleibt
+sichtbar, auch wenn ihre normalisierte Befundidentität unverändert ist.
+Es gibt keine dauerhafte Monitoring-, Scheduler- oder Benachrichtigungsgarantie.
+
+Nur dieser interaktive Watchpfad nutzt die neue Transportgrenze: feste exakte
+HTTPS-Quellen, keine Redirects, Proxy-/Defaultcredentials oder Cookies, höchstens
+512 KiB unkomprimierter UTF-8-Inhalt je Antwort und gemeinsames 45-Sekunden-Budget
+mit begrenzter Parserauswertung. Komprimierte Antworten werden abgewiesen.
+Der bestehende öffentliche CU-Befehl und monatliche CU-Workflow behalten ihren
+bisherigen Transportvertrag. Kein Download, Katalogupdate, Issue oder Agentstart
+wird durch den Ressourcenstand ausgelöst.

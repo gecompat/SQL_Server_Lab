@@ -495,6 +495,12 @@ Sync-SqlServerLabRunScopedContainerStore
         Installiert 7-Zip nach expliziter Bestätigung optional über winget für
         katalogisierte .7z-Backups mit einer .bak-Payload.
 
+    Ressourcenstand prüfen (Invoke-SqlServerLab -Action ResourceWatch)
+        GetResourceWatchState liest Katalog und Sitzungscache; RefreshResourceWatch
+        prüft ausdrücklich CU- und SqlPackage-Metadaten. Kein Download oder Install.
+        NOT_CHECKED nach Neustart, EXPIRED nach 15 Minuten, UNCLEAR bei Quellenfehler.
+        Der vorhandene CU-Befehl und Monatsworkflow bleiben davon unabhängig.
+
     Get-SqlServerLabCuStatus
         Vergleicht den lokalen CU-Katalog read-only mit den konfigurierten
         Microsoft-Learn-Buildtabellen. Neu erkannte CUs bleiben nicht

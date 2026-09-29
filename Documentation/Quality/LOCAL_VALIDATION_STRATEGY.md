@@ -2337,3 +2337,31 @@ die betroffenen statischen Gates und die vorhandenen Medienbuilder-,
 ArtifactResolver-/Trust- und ResourceSet-Regressionen. Diese Evidence ist
 keine Aussage über aktuelle Herstellerdateien oder Downloadverfügbarkeit.
 Ein vom unveränderten Selektor geforderter Providergate bleibt separat nötig.
+
+## Resource Watch: fokussierte Validierung
+
+`Invoke-VersionCatalogChecks.ps1` führt zusätzlich
+`Fixtures/ResourceWatchChecks.ps1` aus: CU-Core plus SqlPackage, Cache/TTL,
+Alt/Neu, Quellenfehler, Dedupe, echte lokale HTTP-Transportgrenzen,
+CLI-Fallbackauswahl und den extrahierten echten HTTP-Handler. Katalogdrift wird
+nur in einer eigenen GUID-Fixture erzeugt; deren begrenzter Cleanup prüft
+kanonischen Parent, Leaf und Reparsepoints. Keine reale Quelle wird verändert.
+`Invoke-WorkflowUiChecks.ps1` führt die echten JS-Handler über die bestehende
+DOM-Fixture aus, einschließlich explizitem Refresh, Fehler und verspäteter Antwort.
+Loopbacknachweise ersetzen keine Live-Quellen-/Runtime- oder Schedulerabnahme.
+
+Am 2026-09-29 lief zusätzlich ein ausdrücklich ausgelöster Live-Metadatencheck
+über den neuen Watchpfad: CU 2019/2022/2025 `NO_CHANGE`; SqlPackage `NEW`,
+Katalog `170.4.83.3`, beobachtet `170.5.96.0`. Ein zunächst erkannter Parserfehler
+am formatierten Herstellerlabel wurde eng korrigiert und unabhängig nachgeprüft;
+der anschließende Livecheck war erfolgreich. Es wurden keine Pakete bezogen,
+Kataloge geändert oder Installations-/Kompatibilitätsfreigaben abgeleitet.
+Rohantworten und lokale Runtime-Diagnosen bleiben außerhalb des Repository.
+
+Der stabile Offline-Scope bestand 23 ausgewählte statische Suites. Nach dem
+engen Parserdelta bestanden VersionCatalog 106 Prüfungen; echte JS-Handler 75,
+Dokumentation 1543 und Privacy 3 Prüfungen wurden im jeweiligen stabilen Scope
+bestätigt. Separat bestand ein eigener isolierter Docker-SQL-2025-Core-Smoke
+34/34 mit geprüftem Runtime-Cleanup und unveränderten Benutzerdefaults.
+Dieser Docker-Nachweis belegt den gemeinsamen Core, keine Resource-Watch-
+Dauerüberwachung und keinen anderen Provider.
