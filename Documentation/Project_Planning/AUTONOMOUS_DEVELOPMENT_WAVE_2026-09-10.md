@@ -2,12 +2,49 @@
 
 | Merkmal | Wert |
 |---|---|
-| Status | `in_progress` |
-| Stand | 2026-09-10 |
-| Auftrag | Plan per geprüftem Pull Request nach `origin/main` übernehmen und anschließend alle Punkte autonom abarbeiten |
+| Status | `USER_STOPPED` – autonome Entwicklung auf Benutzerwunsch eingestellt |
+| Stand | 2026-09-29 |
+| Auftrag | Bisherige Arbeit geprüft integrieren und dokumentieren; keine autonome Fortsetzung ohne neuen ausdrücklichen Auftrag |
 | Ausgangspunkt | Durchsicht von `9cfd144`, vor Veröffentlichung gegen `ca9f09e` abgeglichen |
 | Ziel | vollständige Abarbeitung der Implementierungs-, Abnahme- und Bewertungsaufgaben bei konsistentem Gesamtsystem |
 | Reihenfolge | Konkretisierung des nachgelagerten Horizonts aus Abschnitt 12 des [Ausführungsplans](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md) |
+
+## Abschlusscheckpoint vom 2026-09-29
+
+Der Benutzer hat die autonome Entwicklung nach einem konsistenten Abschluss
+ausdrücklich gestoppt. Der Orchestrator-Heartbeat ist pausiert. Die nachstehenden
+historischen Aufträge und offenen Aufgaben bleiben dokumentiert, erteilen aber
+keine Freigabe für weitere automatische Bearbeitung.
+
+Der letzte Produktslice H (`AIX-001`/`AIX-008`) wurde mit
+[PR #662](https://github.com/gecompat/SQL_Server_Lab/pull/662) als
+`01124cefe2abd74855a8ff52b7ec966960b4cd89` integriert. Der Merge-Tree entspricht
+dem geprüften Head `7f93b8073af11f1d6fa65fa990c8ad80934048fd`.
+Die [Pflicht-CI](https://github.com/gecompat/SQL_Server_Lab/actions/runs/36553670109)
+bestätigt Windows-/Linux-Static, Docker, Podman, Mixed, Hyper-V-Lifecycle,
+Adapter und PR-Gate am selben Head. Nach einem fehlgeschlagenen Podman-Job
+bestand dessen einzeln autorisierter Wiederholungslauf; die ursprüngliche
+Fehlerursache bleibt `UNKNOWN`. Erfolgreiche Provider wurden dabei nicht erneut
+ausgeführt. Geschützte Shared-Umgebungen waren nicht Teil dieses CI-Pfads.
+
+Lokal bestanden 99 synthetische Installerprüfungen und die acht betroffenen
+Suites des abschließenden Plattform-Testdeltas; die unabhängigen Reviews sind
+ohne offene Findings abgeschlossen. Der eigene native Windows-x64-CPU-Nachweis
+bestand neun Prüfungen einschließlich Cleanup. `BINARY_PROBE_PASSED` belegt
+ausschließlich den gepinnten Paketpfad mit modellfreier Versionsprobe.
+Die beiden vorherigen fehlgeschlagenen Nativeversuche bleiben historische
+Fehlernachweise; der erste Grund bleibt unbekannt, der zweite führte zur
+geprüften Korrektur der Logreader-Reihenfolge.
+
+H bleibt `IMPLEMENTED_PARTIAL`: Compute, SQL und Modelle sind `NOT_CHECKED`,
+weitere Plattformen und Backends offen, Empfehlung `UNASSESSED` und allgemeine
+Mindest-VC-/OS-/CPU-Kompatibilität `UNKNOWN`. Maßgeblich bleiben der
+[Installationsvertrag](../Architecture/LLAMA_CPP_INSTALLER.md), die
+[bekannten Grenzen](../Quality/KNOWN_LIMITATIONS.md), die unten zugeordneten
+Folgearbeiten und deren bestehende Fachbacklogs. C# bleibt `USER_DEFERRED`.
+Dieser Abschluss eröffnet keinen zweiten Backlog und behauptet keine
+vollständige Abarbeitung der Entwicklungswelle. Rohdiagnosen und bewahrte
+Fehlerartefakte bleiben ausschließlich lokal und unversioniert.
 
 ## Auftrag, Abschluss und Fortsetzung
 
