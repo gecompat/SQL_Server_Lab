@@ -81,7 +81,7 @@ function Save-SqlServerLabMediaSource {
 
     $verifyFile = {
         param([string]$Path, [object]$Definition)
-        $file = Get-Item -LiteralPath $Path -ErrorAction Stop
+        $file = Get-Item -LiteralPath $Path -Force -ErrorAction Stop
         if ($file.Length -ne [long]$Definition.ExpectedBytes) {
             throw "SQL_MEDIA_SOURCE_SIZE_MISMATCH: $($Definition.Id) / erwartet $($Definition.ExpectedBytes), erhalten $($file.Length)"
         }

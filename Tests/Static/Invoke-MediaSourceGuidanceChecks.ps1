@@ -30,7 +30,7 @@ $catalog|ConvertTo-Json -Depth 12|Set-Content -LiteralPath $catalogPath
 $id=(Get-LabMediaOverrideIds)[0]
 $url='https://download.microsoft.com/download/synthetic/SQL2025-SSEI-EntDev.exe'
 $script:Downloads=[Collections.Generic.List[object]]::new()
-function Save-LabProgressDownload { param($Uri,$OutFile,$MaximumRedirection=5);$script:Downloads.Add(@{Uri=$Uri;MaximumRedirection=$MaximumRedirection});[IO.File]::WriteAllBytes($OutFile,$payload) }
+function Save-LabProgressDownload { param($Uri,$OutFile,$MaximumRedirection=5);$script:Downloads.Add(@{Uri=$Uri;MaximumRedirection=$MaximumRedirection});[IO.File]::WriteAllBytes($OutFile,$payload);if($IsWindows){[IO.File]::SetAttributes($OutFile,[IO.FileAttributes]::Hidden)} }
 try {
     $view=(Invoke-SqlServerLabWorkflowAction -Action GetMediaOverrideState).Result
     Assert-Media ($view.Status -eq 'READY' -and $view.Items.Count -eq 3 -and -not(Test-Path $script:PreferenceTestPath)) 'read without persistence'
@@ -57,8 +57,10 @@ try {
     Assert-Media (Test-Rejected {New-LabMediaOverridePlan -Id 'sql-server-2022-developer-bootstrapper' -Url $url}) 'other family rejected'
     $media=Join-Path $fixture 'Media';$null=New-Item -ItemType Directory -Path $media
     $result=Save-SqlServerLabMediaSource -Id $id -MediaRoot $media -Confirm:$false
+    Assert-Media ([IO.File]::Exists($result.TargetPath)) 'hidden partial bytes verified and published'
     Assert-Media ($result.SignatureStatus -eq 'Valid') 'new bootstrapper is actually signature checked'
     Assert-Media ($result.Status -eq 'READY' -and $script:Downloads[-1].MaximumRedirection -eq 0 -and $script:Downloads[-1].Uri -ceq $url) 'real Save binds effective URL and zero redirects'
+    if($IsWindows){[IO.File]::SetAttributes($result.TargetPath,[IO.FileAttributes]::Normal)}
     $drift=[byte[]]$payload.Clone();$drift[0]=0
     [IO.File]::WriteAllBytes($result.TargetPath,$drift)
     $downloadCount=$script:Downloads.Count
@@ -81,7 +83,7 @@ try {
         $script:SignatureStatus=if($signatureCase -eq 'NotSigned'){'NotSigned'}else{'Valid'}
         $script:SignatureSubject=if($signatureCase -eq 'WrongPublisher'){'O=Synthetic Untrusted Publisher'}else{'O=Microsoft Corporation'}
         $signatureRejected=try{Save-SqlServerLabMediaSource -Id $id -MediaRoot $signatureRoot -Confirm:$false|Out-Null;$false}catch{$_.Exception.Message -like 'SQL_MEDIA_SOURCE_SIGNATURE_INVALID:*'}
-        Assert-Media ($signatureRejected -and @(Get-ChildItem $signatureRoot -Recurse -File).Count -eq 0) 'invalid staged EXE signature cannot publish file or sidecar'
+        Assert-Media ($signatureRejected -and @(Get-ChildItem $signatureRoot -Recurse -File -Force).Count -eq 0) 'invalid staged EXE signature cannot publish file or sidecar'
     }
     $script:SignatureStatus='Valid';$script:SignatureSubject='O=Microsoft Corporation'
     # Real transport, only the destination boundary is replaced with an owned loopback fixture.
