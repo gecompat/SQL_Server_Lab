@@ -881,13 +881,16 @@ function Start-HyperVInstance {
     param(
         [Parameter(Mandatory)][string]$VMName,
         [Parameter(Mandatory)][string]$ExpectedRunId,
-        [Parameter(Mandatory)][string]$ExpectedScopeId
+        [Parameter(Mandatory)][string]$ExpectedScopeId,
+        [string]$ExpectedVMId,
+        [string]$ExpectedInstanceId
     )
 
     $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
     if (-not $managed) {
         throw "Hyper-V-VM nicht gefunden: $VMName"
     }
+    if (($ExpectedVMId -and [string]$managed.VM.Id -ne $ExpectedVMId) -or ($ExpectedInstanceId -and [string]$managed.Identity.instanceId -ne $ExpectedInstanceId)) { throw 'TEST_GROUP_RUNTIME_BINDING' }
     if ([string]$managed.VM.State -ne 'Running') {
         $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-start' -RunId $ExpectedRunId `
             -Command "Start-VM -Name $VMName" -Action { Start-VM -VM $managed.VM -ErrorAction Stop }
@@ -900,13 +903,16 @@ function Stop-HyperVInstance {
     param(
         [Parameter(Mandatory)][string]$VMName,
         [Parameter(Mandatory)][string]$ExpectedRunId,
-        [Parameter(Mandatory)][string]$ExpectedScopeId
+        [Parameter(Mandatory)][string]$ExpectedScopeId,
+        [string]$ExpectedVMId,
+        [string]$ExpectedInstanceId
     )
 
     $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
     if (-not $managed) {
         throw "Hyper-V-VM nicht gefunden: $VMName"
     }
+    if (($ExpectedVMId -and [string]$managed.VM.Id -ne $ExpectedVMId) -or ($ExpectedInstanceId -and [string]$managed.Identity.instanceId -ne $ExpectedInstanceId)) { throw 'TEST_GROUP_RUNTIME_BINDING' }
     if ([string]$managed.VM.State -ne 'Off') {
         $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-stop' -RunId $ExpectedRunId `
             -Command "Stop-VM -Name $VMName -Force" -Action { Stop-VM -VM $managed.VM -Force -ErrorAction Stop }

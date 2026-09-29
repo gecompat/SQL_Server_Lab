@@ -205,6 +205,8 @@ function Register-LabTestEnvironmentIntent {
         [string]$OutputDirectory,
         [switch]$ReuseExisting
     )
+    $groupLock = Enter-LabTestGroupLock -OutputDirectory $OutputDirectory
+    try {
 
     $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $OutputDirectory
     $requestedKey = ConvertTo-LabTestEnvironmentKey -Platform $Platform -SqlVersion $SqlVersion -Patch $Patch -Name $Name
@@ -235,6 +237,7 @@ function Register-LabTestEnvironmentIntent {
     Write-LabArtifactJsonAtomic -Path $path -InputObject $registry
     Protect-LabTestEnvironmentSecretFile -Path $path
     return @($registry.environments | Where-Object key -eq $key)[0]
+    } finally { Exit-LabTestGroupLock -Mutex $groupLock }
 }
 
 function Register-LabTestEnvironmentRun {
@@ -248,6 +251,8 @@ function Register-LabTestEnvironmentRun {
         [string]$Name,
         [string]$OutputDirectory
     )
+    $groupLock = Enter-LabTestGroupLock -OutputDirectory $OutputDirectory
+    try {
 
     $registry = Get-LabTestEnvironmentRegistry -OutputDirectory $OutputDirectory
     $requestedKey = ConvertTo-LabTestEnvironmentKey -Platform $Platform -SqlVersion $SqlVersion -Patch $Patch -Name $Name
@@ -278,6 +283,7 @@ function Register-LabTestEnvironmentRun {
     $path = Get-LabTestEnvironmentRegistryPath -OutputDirectory $OutputDirectory
     Write-LabArtifactJsonAtomic -Path $path -InputObject $registry
     return @($registry.environments | Where-Object runId -eq $RunId)[0]
+    } finally { Exit-LabTestGroupLock -Mutex $groupLock }
 }
 
 function Get-LabAutomatedTestEnvironmentDisplayName {
@@ -637,6 +643,8 @@ function Clear-SqlServerLabAutomatedTestEnvironment {
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact='High')]
     param([switch]$Force, [string]$OutputDirectory, [string]$StateRoot)
+    $groupLock = Enter-LabTestGroupLock -OutputDirectory $OutputDirectory
+    try {
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $directory = Get-LabTestEnvironmentExportDirectory -OutputDirectory $OutputDirectory
@@ -696,6 +704,7 @@ function Clear-SqlServerLabAutomatedTestEnvironment {
     $null = Export-SqlServerLabTestEnvironment -OutputDirectory $directory -StateRoot $StateRoot
     $null = Sync-LabAutomatedTestEnvironmentConnectionCenter -StateRoot $StateRoot
     return [PSCustomObject]@{ Status='RECOVERY_REQUIRED'; Removed=$removed; Remaining=$remaining.Count; Errors=$errors }
+    } finally { Exit-LabTestGroupLock -Mutex $groupLock }
 }
 
 function Repair-SqlServerLabAutomatedTestEnvironment {
@@ -743,6 +752,8 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
         [string]$OutputDirectory,
         [string]$StateRoot
     )
+    $groupLock = Enter-LabTestGroupLock -OutputDirectory $OutputDirectory
+    try {
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $directory = Get-LabTestEnvironmentExportDirectory -OutputDirectory $OutputDirectory
@@ -839,6 +850,7 @@ function Repair-SqlServerLabAutomatedTestEnvironment {
     $null = Sync-LabAutomatedTestEnvironmentConnectionCenter -StateRoot $StateRoot
     $status = if ($errors.Count -eq 0 -and [string]$export.GroupStatus -eq 'READY') { 'READY' } else { 'INCOMPLETE' }
     return [PSCustomObject]@{ Status=$status; Repaired=$repaired; Renamed=$renamed; Unchanged=$unchanged; Errors=$errors.Count; Details=@($errors); Export=$export }
+    } finally { Exit-LabTestGroupLock -Mutex $groupLock }
 }
 
 function New-SqlServerLabAutomatedTestEnvironment {

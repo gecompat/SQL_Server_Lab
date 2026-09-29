@@ -107,6 +107,8 @@ function Start-SqlServerLabAutomatedTestEnvironment {
         [string]$OutputDirectory,
         [string]$StateRoot
     )
+    $groupLock = Enter-LabTestGroupLock -OutputDirectory $OutputDirectory
+    try {
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $directory = Get-LabTestEnvironmentExportDirectory -OutputDirectory $OutputDirectory
@@ -275,6 +277,7 @@ function Start-SqlServerLabAutomatedTestEnvironment {
         Status=$status; Started=$started; Unchanged=$unchanged; Ready=$ready; Errors=$errors
         Details=@($details); Export=$export
     }
+    } finally { Exit-LabTestGroupLock -Mutex $groupLock }
 }
 
 function Stop-SqlServerLabAutomatedTestEnvironment {
@@ -305,6 +308,8 @@ function Stop-SqlServerLabAutomatedTestEnvironment {
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact='High')]
     param([switch]$Force, [string]$OutputDirectory, [string]$StateRoot, [switch]$SkipHostMemoryRelease)
+    $groupLock = Enter-LabTestGroupLock -OutputDirectory $OutputDirectory
+    try {
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $directory = Get-LabTestEnvironmentExportDirectory -OutputDirectory $OutputDirectory
@@ -419,4 +424,5 @@ function Stop-SqlServerLabAutomatedTestEnvironment {
         Status=$status; Released=$released; Unchanged=$unchanged; Stopped=$stopped; Errors=$errors
         Details=@($details); Export=$export; HostMemory=$hostMemory
     }
+    } finally { Exit-LabTestGroupLock -Mutex $groupLock }
 }

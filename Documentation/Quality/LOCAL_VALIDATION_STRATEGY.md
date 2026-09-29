@@ -1,5 +1,38 @@
 # Lokale Validierungsstrategie
 
+## Geführte Gruppen-Poweraktion
+
+`Tests/Static/Invoke-TestGroupGuidanceChecks.ps1` führt echte Plan-, Apply-,
+CLI-, Workflow- und Providerprimitive mit synthetischen Runtimegrenzen aus.
+Es prüft No-op/Cancel, Live-Drift, Teilfehler, frische Wiederholung ohne erneute
+Aktion auf erfüllte Mitglieder, Registry-/Instanzbindung, unbekannte Recovery,
+Hyper-V-VM-ID-Abwehr und konkurrierende echte Registry-/Lifecycle-Aufrufer
+über kanonische Root-Aliase. Die Browserfixture führt echte DOM-Handler und
+den Hintergrundaktionspfad aus; SQL-Bereitschaft wird nie abgeleitet.
+
+Der bestehende `Tests/Integration/Invoke-TestEnvironmentGroupLifecycle.ps1`
+zielt standardmäßig auf die registrierte gemeinsame Gruppe und stellt sie
+abschließend bereit. Er ist **kein** isolierter Nachweis für diesen Slice und
+darf für dessen Abnahme nicht gegen reservierte Gruppen ausgeführt werden.
+Ein mutierender Guidance-Nachweis benötigt nach Review ausdrücklich neue
+synthetische eigene Gruppen, frische Readiness, Providertrennung, Mutex,
+Timeout und bestätigtes Own-Cleanup.
+
+
+Am 2026-09-29 bestanden Docker, Podman und Hyper-V getrennt jeweils zehn
+Prüfungen über den tatsächlichen Workflowadapter: gebundene Vorschau,
+Abbruch, Start/Stop, No-op, Ablehnung einer veralteten Vorschau nach eigener
+Poweränderung und bytegleiche State-/Registry-/Exportdateien. Je Provider
+wurden genau zwei neue eigene Ressourcen benutzt und ihre native Abwesenheit
+anschließend bestätigt. Container nutzten eine bereits lokale SQL-2025-Image-ID
+mit reinem Shell-Warteprozess, ohne SQLstart, Ports, Volumes oder Netzanschluss;
+Hyper-V nutzte disk-/netzlose Generation-2-VMs mit 512 MB. Dies belegt nur
+Power und Identitätsbindung, keine SQL- oder Gastbereitschaft. Der erste
+Hyper-V-Versuch scheiterte vor VM-Anlage an der privaten Fixture-ACL; nach
+bestätigter Abwesenheit und Korrektur ausschließlich des eigenen VM-Ordners
+bestand der neue Versuch. Teilfehler/Retry und Cursor-/Fallback-/F5-Verhalten
+sind synthetisch geprüft; unabhängiger Nachreview ist geschlossen.
+
 ## Geführte Container-CPU/RAM-Änderung
 
 Am 2026-09-28 bestanden Docker und Podman getrennt je neun native Prüfungen

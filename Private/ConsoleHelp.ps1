@@ -383,6 +383,8 @@ function Get-LabConsoleHelpCatalog {
     $catalog['ai-menu'].Preconditions += 'Für die neue Testumgebung: laufendes Podman und ausgewähltes lokales embeddinggemma:latest (768) oder bge-m3:latest (1024). Ist Podman nicht einsatzbereit, bleibt der Menüpunkt mit stabilem ReasonCode und konkreter Abhilfe sichtbar, aber deaktiviert.'
     $catalog['ai-menu'].Preconditions += 'Szenarioausführung, SQL-RAG, SQL-Diagnose und Golden-RAG benötigen eine als RUNNING registrierte SQL-Server-2025-Instanz. Ohne passendes Ziel bleiben diese Einträge sichtbar und nennen AI_SQL_2025_TARGET_UNAVAILABLE samt Abhilfe; Plan, Modellaufruf und Offline-Retrieval bleiben verfügbar.'
     $catalog['ai-menu'].Effects += ' Neue Umgebung nur nach Vorschau und Bestätigung; SQL-Daten bleiben erhalten. Fehlerbereinigung betrifft ausschließlich den gerade neu erstellten eigenen Run.'
+    $catalog['test-group-select'] = @{ Title='Testgruppe auswählen'; Purpose='Wählt die tatsächlich registrierte Gruppe im kanonischen Exportroot.'; Effects='Nur lesen; keine Runtime- oder SQL-Aktion.' }
+    $catalog['test-group-power'] = @{ Title='Gruppenweite Poweraktion'; Purpose='Zeigt Ist/Ziel je Mitglied; SQL-Bereitschaft bleibt nicht geprüft.'; Effects='Nur Container-/VM-Power nach Vorschau und Bestätigung. Keine Export-, CMS-, Lizenz- oder Hostspeicheraktion. Abbruch/No-op mutieren nicht; Teilfehler benötigen eine neue Vorschau.' }
     $catalog['resource-change-instance'] = @{
         Title = 'CPU/RAM-Ziel auswählen'; Purpose = 'Wählt genau eine gewöhnliche Lab-Instanz samt Provider für die gemeinsame Ist-/Zielvorschau.'
         Preconditions = @('Runtime erreichbar, echte CPU/RAM-Limits bekannt; keine geschützte Gruppe, kein Systemdienst und keine offene Recovery.')

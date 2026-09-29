@@ -9,6 +9,14 @@ $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $failures = [System.Collections.Generic.List[string]]::new()
 $passed = 0
 $selector = Join-Path $repoRoot 'Tools/Get-CiTestSelection.ps1'
+foreach ($groupPath in @('Private/TestGroupGuidance.ps1','Tests/Static/Invoke-TestGroupGuidanceChecks.ps1')) {
+    foreach ($path in @($groupPath,$groupPath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "Gruppen-Power bleibt getrennt Docker/Podman/HyperV-pflichtig: $path" -Success (
+            $selected.Docker -and $selected.Podman -and $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter -and
+            'Invoke-TestGroupGuidanceChecks.ps1' -in $selected.StaticChecks)
+    }
+}
 foreach($setupPath in @('Private/AiPodmanSetup.ps1','Private/AiPodmanSetupProcess.ps1','Tools/Invoke-AiPodmanSetupWorker.ps1','Schemas/ai-podman-setup.schema.json','Tests/Integration/Invoke-AiPodmanSetupAcceptance.ps1')) {
     foreach($path in @($setupPath,$setupPath.Replace('/','\'))) {
         $selected=& $selector -ChangedPath @($path)

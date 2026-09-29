@@ -1756,34 +1756,7 @@ function Invoke-LabAction {
         'Rename' { Rename-LabEnvironmentInteractive }
         'New' { Invoke-LabNewEnvironmentInteractive }
         'AutomatedTestEnvironment' { Invoke-LabAutomatedTestEnvironmentInteractive }
-        'AutomatedTestEnvironmentLifecycle' {
-            $lifecycle = Get-LabAutomatedTestEnvironmentMenuState
-            if (-not $lifecycle.Available) {
-                Write-LabInfo 'Keine lauffähige automatisierte Testumgebung registriert.'
-                return
-            }
-            if ([string]$lifecycle.Action -eq 'Start') {
-                if (-not (Read-LabConfirm -Prompt '  Gesamte automatisierte Testumgebung starten und SQL prüfen?' -Default $true)) { return }
-                $result = Start-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
-                if ([string]$result.Status -eq 'READY') {
-                    Write-LabSuccess "Automatisierte Testumgebung läuft: $($result.Ready) Mitglied(er) SQL-bereit."
-                }
-                else {
-                    Write-LabWarning "Testumgebung wurde nur teilweise gestartet: $($result.Status), $($result.Errors) Fehler."
-                }
-            }
-            else {
-                if (-not (Read-LabConfirm -Prompt '  Gesamte automatisierte Testumgebung stoppen und CPU/RAM freigeben?' -Default $true)) { return }
-                $result = Stop-SqlServerLabAutomatedTestEnvironment -Force -Confirm:$false
-                if ([string]$result.Status -eq 'STOPPED') {
-                    Write-LabSuccess "Automatisierte Testumgebung gestoppt: $($result.Stopped) Mitglied(er); Runs und Daten bleiben erhalten."
-                }
-                else {
-                    Write-LabWarning "Testumgebung wurde nur teilweise gestoppt: $($result.Status), $($result.Errors) Fehler."
-                }
-            }
-            return $result
-        }
+        'AutomatedTestEnvironmentLifecycle' { Invoke-LabTestGroupPowerInteractive }
         'ClearAutomatedTestEnvironment' { Invoke-LabClearAutomatedTestEnvironmentInteractive }
 
         'Status' {
@@ -5872,30 +5845,14 @@ function Manage-LabHyperVEnvironmentInteractive {
 function Get-LabAutomatedTestEnvironmentMenuState {
     [CmdletBinding()]
     param()
-
-    try { $status = Get-LabAutomatedTestEnvironmentStatus }
-    catch {
-        return [PSCustomObject]@{ Available=$false; Action=$null; Label=$null; Value=$null; Status=$null }
+    # Menu availability reads registration only; runtime inspection belongs to the power dialog.
+    try {
+        $registry = Get-LabTestEnvironmentRegistry
+        $count = @($registry.environments | Where-Object { [string]$_.runId }).Count
+        return [pscustomobject]@{ Available=($count -gt 0); Action=$null; Label='Testgruppe ansehen: Power-Start/Stop'; Value="$count registrierte Mitglieder"; Status=$null }
     }
-    $boundEntries = @($status.Entries | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_.RunId) })
-    if ($boundEntries.Count -eq 0) {
-        return [PSCustomObject]@{ Available=$false; Action=$null; Label=$null; Value=$null; Status=$status }
-    }
-    $allStopped = @($boundEntries | Where-Object { [string]$_.RuntimeState -ne 'STOPPED' }).Count -eq 0
-    return [PSCustomObject]@{
-        Available=$true
-        Action=if ($allStopped) { 'Start' } else { 'Stop' }
-        Label=if ($allStopped) { 'Automatisierte Testumgebung starten' } else { 'Automatisierte Testumgebung stoppen' }
-        Value=if ($allStopped) {
-            "$($boundEntries.Count) registrierte Umgebung(en) · SQL-Bereitschaft wird geprüft"
-        }
-        else {
-            "$($status.Ready)/$($status.Total) bereit · CPU und RAM freigeben"
-        }
-        Status=$status
-    }
+    catch { return [pscustomobject]@{ Available=$false; Action=$null; Label=$null; Value=$null; Status=$null } }
 }
-
 function Get-AvailableLabProviders {
     <#
     .SYNOPSIS Ermittelt alle lokal verfuegbaren und implementierten Provider.

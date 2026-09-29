@@ -513,6 +513,41 @@ async function main() {
   const pendingReserve = resourceEvent('slot-reserve-read'); await resourceEvent('slot-reserve-close');
   releaseReserve({ ok: true, json: async () => ({ Result: reserveView }) }); await pendingReserve;
   check('Reserve closed dialog ignores delayed read', () => assert.equal(node('slot-reserve-inventory').textContent, ''));
+  const groupRequests = [];
+  let groupMode = 'ready';
+  const groupPlan = { Group: 'Registrierte Testgruppe', Total: 2, PowerStatus: 'MIXED', PowerAction: 'Start', CanApply: true, NoChange: false, PlanKey: 'a'.repeat(64), Notice: 'Nur Power; SQL nicht geprüft.', Members: [{ Key: 'DOCKER', Provider: 'docker', Power: 'STOPPED', Desired: 'RUNNING', Change: 'START' }, { Key: 'PODMAN', Provider: 'podman', Power: 'RUNNING', Desired: 'RUNNING', Change: 'NO_OP' }] };
+  context.fetch = async (url, options = {}) => {
+    groupRequests.push({ url, options });
+    if (url.startsWith('/api/test-group?')) return { ok: groupMode !== 'error', json: async () => ({ ...groupPlan, PowerAction: new URLSearchParams(url.split('?')[1]).get('powerAction'), CanApply: groupMode !== 'unknown', NoChange: groupMode === 'noop', Total: groupMode === 'empty' ? 0 : 2 }) };
+    if (url === '/api/actions') return { ok: true, json: async () => ({ id: 'group-job' }) };
+    if (url === '/api/jobs') return { ok: true, json: async () => [] };
+    throw new Error('Unexpected group request ' + url);
+  };
+  await resourceEvent('test-group-open');
+  check('Group dialog uses read-only shared preview and explicit group selection', () => { assert.equal(groupRequests.length, 1); assert.equal(node('test-group-apply').disabled, true); assert.match(node('test-group-status').textContent, /nicht geprüft/); });
+  node('test-group-selection').value = 'registered'; await resourceEvent('test-group-selection', 'change');
+  await resourceEvent('test-group-apply');
+  check('Group selection alone does not authorize power action', () => assert.equal(groupRequests.filter(r => r.url === '/api/actions').length, 0));
+  node('test-group-confirm').checked = true; await resourceEvent('test-group-confirm', 'change'); await resourceEvent('test-group-apply');
+  check('Confirmed group applies exact plan via real startAction and exposes job results', () => {
+    assert.deepEqual(JSON.parse(groupRequests.find(r => r.url === '/api/actions').options.body), { action: 'StartTestGroupPower', parameters: { ExpectedPlanKey: groupPlan.PlanKey } });
+    assert.equal(node('test-group-dialog').open, false);
+    assert.equal(workspaceElements.find(e => e.dataset.workspaceArea === 'messages').hidden, false);
+  });
+  run('renderJobs([{ Id: "group-result", Action: "StartTestGroupPower", State: "Completed", Lines: [\'[TESTGROUP] {"Status":"PARTIAL","Details":[{"Key":"DOCKER","Status":"RUNNING","Action":"START"},{"Key":"PODMAN","Status":"UNCONFIRMED","Action":"START"}]}\'] }])');
+  check('Group job renders partial outcome per member with retry boundary', () => { assert.match(node('jobs').innerHTML, /PARTIAL/); assert.match(node('jobs').innerHTML, /UNCONFIRMED/); assert.match(node('jobs').innerHTML, /neuer Vorschau/); });
+  for (const mode of ['noop', 'unknown', 'empty', 'error']) {
+    groupMode = mode; await resourceEvent('test-group-open');
+    node('test-group-selection').value = 'registered'; node('test-group-confirm').checked = true; await resourceEvent('test-group-confirm','change'); await resourceEvent('test-group-apply');
+    check('Group ' + mode + ' cannot invoke executor', () => assert.equal(groupRequests.filter(r => r.url === '/api/actions').length, 1));
+    await resourceEvent('test-group-close');
+  }
+  groupMode = 'ready'; await resourceEvent('test-group-open'); await resourceEvent('test-group-close'); await resourceEvent('test-group-apply');
+  check('Group cancel discards preview without mutation', () => assert.equal(groupRequests.filter(r => r.url === '/api/actions').length, 1));
+  let releaseGroup;
+  context.fetch = () => new Promise(resolve => { releaseGroup = resolve; });
+  const pendingGroup = resourceEvent('test-group-open'); await resourceEvent('test-group-close'); releaseGroup({ ok: true, json: async () => groupPlan }); await pendingGroup;
+  check('Closed group dialog rejects delayed preview', () => assert.equal(node('test-group-apply').disabled, true));
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

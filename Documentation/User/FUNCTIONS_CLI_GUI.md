@@ -19,8 +19,21 @@ Grundkonfiguration, Wartung/Recovery und Vorgänge sind eigene Einstiege.
 Expertenbefehle und Meldungen bleiben separat. Browserbereiche zeigen nur die
 zugehörigen vorhandenen Fachdialoge; Zurück erhält Eingaben und die
 Aktualisierung erhält den gewählten Bereich. Fehlende Browserdialoge für
-Testgruppe, CMS und operative Slots sowie Hostdienst-/Modell-Lifecycle bleiben
+CMS und operative Slots sowie Hostdienst-/Modell-Lifecycle bleiben
 sichtbar offen. Ein Katalogfilter ersetzt keinen Fachdialog.
+
+Die Testmatrix bietet in CLI und Browser einen gemeinsamen geführten
+Power-Start/Stop für die kanonisch registrierte Gruppe. CLI-Einstieg ist
+`Invoke-SqlServerLab -Action AutomatedTestEnvironmentLifecycle`. Auswahl,
+Mitglieder-/Gesamtstatus, Ist-/Zielvorschau, gesonderte Bestätigung und
+Ergebnisse je Mitglied gehören zusammen. SQL-Bereitschaft wird nicht geprüft;
+die öffentlichen `Start/Stop-SqlServerLabAutomatedTestEnvironment` behalten
+ihren bisherigen Bereitstellungs-/Exportvertrag. Der neue Powerpfad benötigt
+genau eine gebundene Instanz pro Run, verweigert zusätzliche Runtimeobjekte
+und unbekannte Recovery und bietet keine Einzelmitglied-Aktion. Cancel/No-op
+mutieren nicht; Teilfehler erfordern eine neue Vorschau ohne automatische
+Wiederholung. Erstellung, Reparatur, Neuaufbau, Removal und CMS sind separate
+Verträge. Native Abnahme dieses neuen Dialogpfads steht noch aus.
 
 `New-SqlServerLab`, `New-SqlServerLabBatch`,
 `New-SqlServerLabWindowsSlotPool` und die Hyper-V-Erstellung über

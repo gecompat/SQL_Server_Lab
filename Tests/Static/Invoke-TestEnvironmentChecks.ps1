@@ -243,8 +243,8 @@ try {
         $batchConsoleText -match "-Id 'review' -Label 'Gesamtplan pruefen und zur Queue uebergeben'" -and
         $batchConsoleText -match "-Id ClearAutomatedTestEnvironment -Label 'Geschützte Testgruppe entfernen'" -and
         $batchConsoleText -match '-Id AutomatedTestEnvironmentLifecycle -Label' -and
-        $menuText -match "'Automatisierte Testumgebung starten'" -and
-        $menuText -match "'Automatisierte Testumgebung stoppen'" -and
+        $menuText -match 'Invoke-LabTestGroupPowerInteractive' -and
+        $batchConsoleText -match 'Testgruppe ansehen: Power-Start/Stop' -and
         $testEnvironmentText -match 'function Get-LabAutomatedTestEnvironmentStatus' -and
         $testEnvironmentText -match '-AutoStart on' -and
         $menuText -match 'DisableAutomatedTestEnvironments'

@@ -1016,7 +1016,7 @@ function renderJobs(serverJobs) {
     const mergedLines = (isOptimisticOnly ? incomingLines : [...previousLines, ...incomingLines]).slice(-burstLimit);
     jobLineCache[jobId] = mergedLines;
     const lines = [...mergedLines, ...(heartbeat ? [heartbeat] : [])].join('\n') || 'Aktion läuft …';
-    const inventory = job.Action === 'InspectContainerDatabaseMigrationDependencies' ? migrationInventoryResult(mergedLines) : '';
+    const inventory = job.Action === 'InspectContainerDatabaseMigrationDependencies' ? migrationInventoryResult(mergedLines) : ['StartTestGroupPower', 'StopTestGroupPower'].includes(job.Action) ? testGroupResult(mergedLines) : '';
     return '<article class="job"><div class="job-header"><strong>' + escapeHtml(job.Action + runtime) + '</strong><span class="status ' + (job.State === 'Failed' ? 'failed' : job.State === 'Completed' ? 'done' : 'pending') + '">' + escapeHtml(job.State) + '</span></div>' + (running ? '<div class="job-progress" aria-label="Aktion läuft"></div>' : '') + inventory + '<pre class="log">' + escapeHtml(lines) + '</pre></article>';
   }).join('') : empty('Noch keine Aktion wurde aus der Oberfläche gestartet.');
   const feedback = $('#action-feedback');
@@ -1073,7 +1073,7 @@ async function startAction(action, parameters) {
     // Die komplette Workflow-Inventur kann ISO-Metadaten prüfen und ist
     // bewusst nicht Teil des unmittelbaren Klickpfads. Der Job bleibt jede
     // Sekunde sichtbar; nach kurzer Zeit wird die fachliche Ansicht erneuert.
-    window.setTimeout(() => refresh().catch(showError), 3500);
+    if (!['StartTestGroupPower', 'StopTestGroupPower'].includes(action)) window.setTimeout(() => refresh().catch(showError), 3500);
   } catch (error) {
     optimisticJobs = optimisticJobs.filter((job) => job !== optimistic);
     renderJobs([]);
@@ -2602,4 +2602,67 @@ $('#slot-reserve-apply').addEventListener('click', () => {
     await requestSlotReserve('ApplySlotReserve', { SlotReservePlan: plan, ConfirmSlotReserve: true });
     return requestSlotReserve();
   }, renderSlotReserve);
+});
+
+let testGroupPlan = null;
+let testGroupRevision = 0;
+function invalidateTestGroupPlan() {
+  testGroupPlan = null; testGroupRevision++;
+  $('#test-group-confirm').checked = false; $('#test-group-apply').disabled = true;
+}
+function renderTestGroupPlan(plan) {
+  $('#test-group-status').textContent = plan.Total + ' Mitglieder · Power: ' + plan.PowerStatus + ' · SQL-Bereitschaft: nicht geprüft';
+  $('#test-group-members').innerHTML = (plan.Members || []).map(member => '<div>' + escapeHtml(member.Key + ' · ' + member.Provider + ' · ' + member.Power + ' → ' + member.Desired + ' · ' + member.Change + (member.Reason ? ' · ' + member.Reason : '')) + '</div>').join('');
+  $('#test-group-notice').textContent = plan.Notice;
+}
+async function readTestGroupPlan() {
+  invalidateTestGroupPlan();
+  const revision = testGroupRevision;
+  $('#test-group-status').textContent = 'Gruppe und gebundene Runtimezustände werden gelesen …';
+  $('#test-group-selection').disabled = true;
+  $('#test-group-members').innerHTML = '';
+  try {
+    const response = await fetch('/api/test-group?' + new URLSearchParams({ powerAction: $('#test-group-action').value }), { cache: 'no-store' });
+    if (!response.ok) throw new Error('Gruppe nicht lesbar. Erneut lesen; keine Poweraktion angefordert.');
+    const plan = await response.json();
+    if (revision !== testGroupRevision || !$('#test-group-dialog').open) return;
+    $('#test-group-selection').innerHTML = plan.Total ? '<option value="">Gruppe auswählen</option><option value="registered">' + escapeHtml(plan.Group) + '</option>' : '<option value="">Keine registrierte Gruppe</option>';
+    $('#test-group-selection').value = '';
+    $('#test-group-selection').disabled = !plan.Total;
+    testGroupPlan = plan; renderTestGroupPlan(plan);
+  } catch (error) {
+    if (revision === testGroupRevision) $('#test-group-status').textContent = error.message;
+  }
+}
+function openTestGroupDialog() {
+  $('#test-group-action').value = 'Start';
+  if (!$('#test-group-dialog').open) $('#test-group-dialog').showModal();
+  return readTestGroupPlan();
+}
+function updateTestGroupApply() {
+  $('#test-group-apply').disabled = !testGroupPlan?.CanApply || !testGroupPlan.Total || testGroupPlan.NoChange || !testGroupPlan.PlanKey || $('#test-group-selection').value !== 'registered' || !$('#test-group-confirm').checked;
+}
+function testGroupResult(lines) {
+  const line = [...(lines || [])].reverse().find(item => String(item).startsWith('[TESTGROUP] '));
+  if (!line) return '<p>Ergebnis noch unbestätigt. Bei Verbindungsverlust Gruppe erneut lesen; nicht automatisch wiederholen.</p>';
+  try {
+    const result = JSON.parse(String(line).slice(12));
+    return '<section class="job-inventory"><strong>Gruppe: ' + escapeHtml(result.Status) + ' · SQL-Bereitschaft nicht geprüft</strong>' + (result.Details || []).map(item => '<div>' + escapeHtml(item.Key + ' · ' + item.Status + ' · ' + (item.Action || item.Change) + (item.Reason ? ' · ' + item.Reason : '')) + '</div>').join('') + '<p>Aktuellen Gruppenstatus lesen. Wiederholung nur nach neuer Vorschau und Bestätigung.</p></section>';
+  } catch { return '<p>Gruppenergebnis nicht lesbar. Zustand erneut prüfen.</p>'; }
+}
+$('#test-group-open').addEventListener('click', openTestGroupDialog);
+$('#test-group-read').addEventListener('click', readTestGroupPlan);
+$('#test-group-action').addEventListener('change', readTestGroupPlan);
+$('#test-group-selection').addEventListener('change', () => { $('#test-group-confirm').checked = false; updateTestGroupApply(); });
+$('#test-group-confirm').addEventListener('change', updateTestGroupApply);
+$('#test-group-close').addEventListener('click', () => $('#test-group-dialog').close());
+$('#test-group-dialog').addEventListener('close', invalidateTestGroupPlan);
+$('#test-group-dialog').addEventListener('cancel', invalidateTestGroupPlan);
+$('#test-group-apply').addEventListener('click', async () => {
+  updateTestGroupApply();
+  if ($('#test-group-apply').disabled || testGroupPlan.PowerAction !== $('#test-group-action').value) return;
+  const plan = testGroupPlan;
+  invalidateTestGroupPlan(); $('#test-group-dialog').close();
+  try { await startAction(plan.PowerAction === 'Start' ? 'StartTestGroupPower' : 'StopTestGroupPower', { ExpectedPlanKey: plan.PlanKey }); }
+  catch { showError(new Error('Poweraktion: Annahme oder Ergebnis unbestätigt. Gruppenstatus erneut lesen; nicht automatisch wiederholen.')); }
 });

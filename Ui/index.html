@@ -76,7 +76,8 @@
     <section class="panel" data-workspace-area="testmatrix" hidden>
       <h2>Geschützte Testsystem-Matrix</h2>
       <p>Zusammengehörige Testumgebungen werden als geschützte Gruppe verwaltet. Einzellab-Aktionen ersetzen diesen Gruppenvertrag nicht.</p>
-      <p>Die geführte Gruppenbedienung im Browser ist noch offen. Bereits verfügbar: <code>Invoke-SqlServerLab</code> → Geschützte Testsystem-Matrix → Erstellen, Start/Stop oder Entfernen der Gruppe. Dieser Bereich startet keine Testgruppe.</p>
+      <button id="test-group-open" type="button" class="button secondary">Gruppe ansehen · Power-Start/Stop</button>
+      <p>Power steuert Container und VMs. SQL-Bereitschaft wird nicht geprüft. Erstellen, Reparatur und Entfernen bleiben separate Konsolenfunktionen.</p>
     </section>
 
     <section class="panel" data-workspace-area="templates" hidden>
@@ -538,6 +539,19 @@
     <label>Vorlage oder Instanz auswählen<select id="evaluation-watch-selection" disabled><option value="">Zuerst ausdrücklich lesen</option></select></label>
     <div id="evaluation-watch-details" class="selection-details" hidden></div>
     <div class="dialog-actions"><button type="button" class="button secondary" value="cancel">Schließen</button><button type="button" class="button primary" id="evaluation-watch-read">Fristen lesen / aktualisieren</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="test-group-dialog">
+    <div class="read-only-dialog-content">
+      <h2>Geschützte Testgruppe · Power-Start/Stop</h2>
+      <label>Gruppe <select id="test-group-selection" disabled></select></label>
+      <p id="test-group-status" role="status" aria-live="polite"></p>
+      <div id="test-group-members" class="selection-details"></div>
+      <label>Ziel für die gesamte Gruppe <select id="test-group-action"><option value="Start">Power starten</option><option value="Stop">Power stoppen</option></select></label>
+      <p id="test-group-notice"></p>
+      <label><input id="test-group-confirm" type="checkbox"> Diese gruppenweite Poweraktion nach Vorschau bewusst bestätigen</label>
+      <div class="dialog-actions"><button id="test-group-read" type="button" class="button secondary">Aktualisieren / neue Vorschau</button><button id="test-group-apply" type="button" class="button primary" disabled>Bestätigte Poweraktion ausführen</button><button id="test-group-close" type="button" class="button secondary">Zurück / Abbrechen</button></div>
     </div>
   </dialog>
 

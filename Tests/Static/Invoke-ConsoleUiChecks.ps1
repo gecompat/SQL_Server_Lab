@@ -1117,12 +1117,11 @@ Add-ConsoleUiCheck 'Hyper-V-Umgebungsverwaltung liegt nur im umgebungszentrierte
     $environmentMenuMatch.Value -match '\$hasHyperVRun' -and
     [regex]::Match($entrySource, 'function Show-LabHyperVMenu \{[\s\S]+?(?=\r?\nfunction )').Value -notmatch "-Id 'HyperVManage'"
 )
-Add-ConsoleUiCheck 'Testmatrix bietet einen zustandsabhaengigen geschuetzten Gruppen-Lifecyclepunkt' (
+Add-ConsoleUiCheck 'Testmatrix dispatcht den gemeinsamen Powerdialog statt des Bereitstellers' (
     $entrySource -match 'function Get-LabAutomatedTestEnvironmentMenuState' -and
-    $entrySource -match 'Action=if \(\$allStopped\) \{ ''Start'' \} else \{ ''Stop'' \}' -and
+    $entrySource -match "'AutomatedTestEnvironmentLifecycle' \{ Invoke-LabTestGroupPowerInteractive \}" -and
     $batchConsoleSource -match '-Id AutomatedTestEnvironmentLifecycle' -and
-    $entrySource -match 'Start-SqlServerLabAutomatedTestEnvironment -Force -Confirm:\$false' -and
-    $entrySource -match 'Stop-SqlServerLabAutomatedTestEnvironment -Force -Confirm:\$false'
+    [regex]::Match($entrySource, 'function Get-LabAutomatedTestEnvironmentMenuState \{[\s\S]+?(?=\r?\nfunction )').Value -notmatch 'Get-LabAutomatedTestEnvironmentStatus'
 )
 Add-ConsoleUiCheck 'Read-only Menueaktionen warten zentral auf genau eine Rueckkehrbestaetigung' ($entrySource -match '\$ActionName -in @\(''Status'', ''CleanupAudit'', ''Catalog'', ''DatabasePackageInventory'', ''DatabaseMigrationDependency''\)[\s\S]+?Wait-LabConsoleAcknowledgement')
 Add-ConsoleUiCheck 'Cleanup-Audit-Menue bleibt read-only und zeigt Befunde mit Loesungsweg' (
