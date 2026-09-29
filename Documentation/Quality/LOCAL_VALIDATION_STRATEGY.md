@@ -1,5 +1,35 @@
 # Lokale Validierungsstrategie
 
+## Geführte Wartung und Zuordnungsreparatur
+
+`Tests/Static/Invoke-MaintenanceGuidanceChecks.ps1` prüft den tatsächlichen
+Plan-/Katalog-Executor, serverseitige DTO-/HTTP-Grenze, CLI-Cursorauswahl,
+F5, Abbruch, No-op, Stale/Volume-Wiederanlage, unbekannte Referenzevidence,
+Recovery/Schutz und den prozessübergreifenden Controller-Mutex synthetisch.
+Änderungen von Schutzregistrierung, aktiver Referenz und Recovery werden
+nach der letzten echten Observation injiziert und müssen den Commit verhindern;
+ein konkurrierender echter Registrywriter muss an allen beteiligten Roots sperren.
+`Invoke-CleanupAuditChecks.ps1` prüft die gesamte NoWrite-Auditkette bei
+ungültigem Run-State ohne Warnjournal und mit bytegleichem State.
+`Invoke-WorkflowUiChecks.ps1` führt die echten JS-Handler einschließlich
+Bestätigung, Abbruch und verspäteter Antwort aus. Provider-Nachweise bleiben
+getrennt; diese Fixtures sind keine native Retained-Removal-Abnahme.
+
+Am 2026-09-29 bestanden Docker und Podman getrennt je 38 native Assertions
+für den echten Guidancepfad: Vorschau, Cancel, geänderte Sourcebytes mit
+Abweisung des alten Plans, Katalogrepair und frischer No-op. Je eine neue
+eigene Volume mit synthetischem Sentinel wurde über kurzlebige Shell-Helfer
+aus einem bereits lokalen SQL-2025-Image geprüft, ohne SQL-Start, Netzwerk,
+Ports oder Hostmounts. Sentinel und Nichtkatalogdateien blieben bytegleich;
+je 14 Cleanupprüfungen bestätigten die Abwesenheit der eigenen Ressourcen.
+Ein vorheriger Harnessabbruch vor Ressourcenanlage und ein failclosed
+Produktfehler vor Katalogcommit bleiben getrennte Fehlerevidence. Der dabei
+erkannte volatile `FreeBytes`-Anteil wurde eng aus der Locationautorität
+entfernt und unabhängig nachreviewt; sämtliche anderen Bindungen bleiben
+erhalten. Die synthetische Suite prüft diesen stabilen Vorschauvertrag mit.
+Diese Abnahme belegt ausschließlich die Zuordnungsreparatur und den
+Datenerhalt der Fixture, keine SQL-Funktionalität oder Retained-Removal.
+
 ## Geführte Gruppen-Poweraktion
 
 `Tests/Static/Invoke-TestGroupGuidanceChecks.ps1` führt echte Plan-, Apply-,

@@ -138,6 +138,7 @@
       <p>Befunde vor einer Änderung prüfen. Die Konsole bietet zusätzlich Providerstatus, Cleanup-Audit und Runtime-Abgleich; vollständige geführte Recovery-Parität bleibt offen.</p>
       <div class="workflow-actions">
         <button id="evaluation-watch-open" type="button" class="button secondary">Evaluationsfristen lesen</button>
+        <button id="maintenance-open" type="button" class="button secondary">Wartungsbefunde und Zuordnung</button>
         <button id="clear-all-labs" class="button danger">Alles aufräumen</button>
       </div>
     </section>
@@ -541,6 +542,24 @@
     <label>Vorlage oder Instanz auswählen<select id="evaluation-watch-selection" disabled><option value="">Zuerst ausdrücklich lesen</option></select></label>
     <div id="evaluation-watch-details" class="selection-details" hidden></div>
     <div class="dialog-actions"><button type="button" class="button secondary" value="cancel">Schließen</button><button type="button" class="button primary" id="evaluation-watch-read">Fristen lesen / aktualisieren</button></div>
+    </div>
+  </dialog>
+
+  <dialog id="maintenance-dialog">
+    <div class="maintenance-dialog-content">
+      <h2>Wartungsbefunde und Zuordnung</h2>
+      <p id="maintenance-status" role="status" aria-live="polite">Noch nicht gelesen.</p>
+      <p id="maintenance-notice" class="form-note"></p>
+      <label>Befund auswählen<select id="maintenance-selection" disabled><option value="">Zuerst lesen</option></select></label>
+      <div id="maintenance-details" class="selection-details" hidden></div>
+      <p class="form-note">Retained-Löschung bleibt eine separate destruktive Aktion im Wartungsbereich. Ein Audit erteilt keine Löschfreigabe.</p>
+      <label><input id="maintenance-confirm" type="checkbox" disabled> Nur die vorgeprüfte fehlende Katalogzuordnung ergänzen</label>
+      <div class="dialog-actions">
+        <button type="button" class="button secondary" value="cancel">Schließen</button>
+        <button id="maintenance-read" type="button" class="button secondary">Befunde lesen / aktualisieren</button>
+        <button id="maintenance-preview" type="button" class="button secondary" disabled>Zuordnung vorprüfen</button>
+        <button id="maintenance-apply" type="button" class="button primary" disabled>Zuordnung ergänzen</button>
+      </div>
     </div>
   </dialog>
 

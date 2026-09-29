@@ -61,7 +61,7 @@ function Get-SqlServerLabCleanupAudit {
 
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $stateRoot = [IO.Path]::GetFullPath($StateRoot)
-    $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot)
+    $activeRuns = @(Get-LabActiveRuns -StateRoot $stateRoot -NoWrite:$NoWrite)
     $knownRunIds = @($activeRuns | ForEach-Object { [string]$_.runId })
     $runtimeResults = @(); $runtimeScopes = @(); $runtimeStorageUsage = @(); $managedImages = @()
     $containers = @(); $managedVolumes = @(); $managedNetworks = @(); $unregisteredTestArtifacts = @()
@@ -150,7 +150,7 @@ function Get-SqlServerLabCleanupAudit {
         $unregisteredTestArtifacts += @($maintenanceHyperV.Resources | Where-Object Classification -eq 'LEGACY_TEST_CANDIDATE')
     }
 
-    $hyperVRunScopes = @(); $hyperVUntrackedFiles = @()
+    $hyperVRunScopes = @(); $hyperVUntrackedFiles = @(); $stateReadIssues = @()
     $runsDirectory = Join-Path $stateRoot 'runs'
     if (Test-Path -LiteralPath $runsDirectory -PathType Container) {
         foreach ($runDirectory in @(Get-ChildItem -LiteralPath $runsDirectory -Directory -Force -ErrorAction SilentlyContinue)) {
@@ -163,6 +163,9 @@ function Get-SqlServerLabCleanupAudit {
                     $runStateStatus = 'VALID'
                 }
                 catch { $runStateStatus = 'INVALID' }
+            }
+            if ($runStateStatus -ne 'VALID') {
+                $stateReadIssues += [pscustomobject]@{ Status=$runStateStatus; ReasonCode='RUN_STATE_UNVERIFIABLE' }
             }
 
             $binding = $null; $bindingStatus = 'NONE'; $bindingError = $null
@@ -345,10 +348,11 @@ function Get-SqlServerLabCleanupAudit {
         @($_.CleanupResources | Where-Object ProtectionStatus -eq 'UNSAFE').Count -gt 0
     }).Count
     $residualCount = @($activeRuns).Count + @($containers).Count + @($managedVolumes).Count + @($managedNetworks).Count + @($hyperVResources).Count + @($unregisteredTestArtifacts).Count + @($externalReferences).Count + @($repositoryResidues).Count + @($legacyStateRoots | Where-Object RunCount -gt 0).Count + @($rootResults | Where-Object { -not $_.Exists -or -not $_.Owned }).Count + @($hyperVUntrackedFiles).Count + $hyperVProtectionIssues
-    $status = if ($residualCount -gt 0) { 'RESIDUALS' } elseif ($unverifiable -gt 0) { 'UNVERIFIABLE' } else { 'CLEAN' }
+    $status = if ($stateReadIssues.Count -gt 0) { 'UNVERIFIABLE' } elseif ($residualCount -gt 0) { 'RESIDUALS' } elseif ($unverifiable -gt 0) { 'UNVERIFIABLE' } else { 'CLEAN' }
     $audit = [PSCustomObject]@{
         ContractVersion='SqlServerLab.CleanupAudit/1.0'; AuditId=[Guid]::NewGuid().ToString('D'); CreatedAt=Get-LabTimestamp; Status=$status
         ControllerId=[string]$configuration.ControllerId; StateRoot=$stateRoot; DataRoots=$rootResults; ActiveRuns=$activeRuns
+        StateReadIssues=$stateReadIssues
         Runtimes=$runtimeResults; RuntimeScopes=$runtimeScopes; RuntimeStorageUsage=$runtimeStorageUsage
         Containers=$containers; UnregisteredTestArtifacts=$unregisteredTestArtifacts
         ManagedImages=$managedImages; ManagedVolumes=$managedVolumes; ManagedNetworks=$managedNetworks

@@ -572,7 +572,8 @@ function Rename-ContainerLabEnvironment {
 function Get-LabActiveRuns {
     [CmdletBinding()]
     param(
-        [string]$StateRoot
+        [string]$StateRoot,
+        [switch]$NoWrite
     )
 
     if (-not $StateRoot) {
@@ -598,7 +599,7 @@ function Get-LabActiveRuns {
             }
         }
         catch {
-            Write-LabWarning "Run-State konnte nicht gelesen werden: $statePath - $($_.Exception.Message)"
+            if (-not $NoWrite) { Write-LabWarning "Run-State konnte nicht gelesen werden: $statePath - $($_.Exception.Message)" }
         }
     }
 

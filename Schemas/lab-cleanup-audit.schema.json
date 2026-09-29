@@ -10,6 +10,14 @@
     "Status": { "enum": ["CLEAN", "RESIDUALS", "UNVERIFIABLE"] },
     "DataRoots": { "type": "array" },
     "ActiveRuns": { "type": "array" },
+    "StateReadIssues": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["Status", "ReasonCode"],
+        "properties": { "Status": { "enum": ["MISSING", "INVALID"] }, "ReasonCode": { "const": "RUN_STATE_UNVERIFIABLE" } }
+      }
+    },
     "Runtimes": { "type": "array" },
     "RuntimeScopes": {
       "type": "array",

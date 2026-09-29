@@ -905,7 +905,7 @@ function Show-LabMaintenanceMenu {
 
     return Show-LabSubMenu -ScreenId 'maintenance-menu' -Title 'Wartung, Aufräumen und Recovery' -Subtitle 'Befunde prüfen; Mutation erst in der bestätigten Fachaktion' -Items @(
         New-LabConsoleItem -Id Status -Label 'System- und Providerstatus' -Value 'read-only' -Shortcut 1
-        New-LabConsoleItem -Id CleanupAudit -Label 'Cleanup-Audit anzeigen' -Value 'read-only · verbliebene Ressourcen und Recovery' -Shortcut 2
+        New-LabConsoleItem -Id CleanupAudit -Label 'Wartungsbefunde und Zuordnung' -Value 'Audit read-only · Katalogreparatur separat bestätigen' -Shortcut 2
         New-LabConsoleItem -Id Catalog -Label 'Katalogstatus pruefen' -Value 'Katalogdatei validieren' -Shortcut 3
         New-LabConsoleItem -Id SyncRuntime -Label 'State mit Docker, Podman und Hyper-V abgleichen' -Value 'fehlende Objekte -> Recovery · loescht nichts' -Shortcut 4 `
             -Help 'Vergleicht den gespeicherten State mit der tatsaechlichen Runtime. Fehlende Objekte werden als Recovery ausgewiesen; es wird nichts geloescht.'
@@ -937,7 +937,7 @@ function Show-LabSystemMenu {
 
     return Show-LabSubMenu -ScreenId 'system-menu' -Title 'Systemstatus und Einstellungen' -Subtitle 'Provider, Scheduler, Audit und Verbindungen' -Items @(
         New-LabConsoleItem -Id Status -Label 'System- und Providerstatus' -Shortcut 1
-        New-LabConsoleItem -Id CleanupAudit -Label 'Cleanup-Audit anzeigen (read-only)' -Shortcut 2
+        New-LabConsoleItem -Id CleanupAudit -Label 'Wartungsbefunde und Zuordnung' -Shortcut 2
         New-LabConsoleItem -Id Catalog -Label 'Katalogstatus' -Shortcut 3
         New-LabConsoleItem -Id ConnectionCenter -Label 'Connection Center' -Shortcut 4
         New-LabConsoleItem -Id queue -Label 'Scheduler, Parallelitaet, Ton und Ruhemodus' -Shortcut 5

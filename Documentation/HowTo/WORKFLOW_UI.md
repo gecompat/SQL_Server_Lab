@@ -2,6 +2,30 @@
 
 ## Zweck
 
+### Wartungsbefunde und Katalogzuordnung
+
+Im Wartungsbereich öffnet „Wartungsbefunde und Zuordnung“ denselben Fachablauf
+wie die CLI-Aktion `CleanupAudit`. Erst „Befunde lesen“ ruft das Audit mit
+`-NoWrite` auf. Einträge zeigen Herkunft, Nutzung, Löschbarkeit und nächsten
+Schritt getrennt. Unregistrierte Objekte bleiben unbekannt; ein Orphan-Befund
+ist keine Löschfreigabe. Fehlende Providerinventur und unlesbare Run-States
+werden angezeigt; unvollständige Run-/Referenzevidence sperrt Katalogrepair.
+
+Nur ein moderner, terminaler ursprünglicher Docker-/Podman-SQL-Store kann
+separat vorgeprüft und nach eigener Bestätigung im Katalog ergänzt werden.
+Vorschau und Bestätigung binden serverseitig Originalstate, Controller, Roots,
+Runtime-Scope, Volume-Wiederanlageidentität und Katalogrevision. Konflikte,
+Attachments, Sidecars, Leases, aktive Referenzen, Schutzgruppen und Recovery
+blockieren. Passende bestehende Zuordnung ist ein frisch geprüfter No-op.
+Die bestehenden Registrylocks werden in kanonischer Reihenfolge vor dem
+Kataloglock bis zum Commit gehalten. Nach der letzten nativen Beobachtung
+prüft der Mutationcallback Referenzen, Recovery und Autorität erneut.
+Es werden keine Daten oder Runtimeobjekte repariert, übernommen oder gelöscht.
+Bei einem unbestätigten Ergebnis zuerst erneut lesen und vorprüfen.
+
+Retained-Löschung verwendet weiterhin ihren separaten Plan/Executor und bei
+Resume dieselbe OperationId. Die native Löschabnahme bleibt gesondert offen.
+
 ### Geschützte Testgruppe: Power-Start/Stop
 
 Im Bereich Testsystem-Matrix öffnet „Gruppe ansehen · Power-Start/Stop“ die

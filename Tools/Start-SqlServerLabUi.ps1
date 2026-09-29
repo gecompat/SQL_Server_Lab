@@ -463,6 +463,29 @@ function Invoke-UiResourceWatchRequest {
         $payload.action -cne 'RefreshResourceWatch' -or $payload.parameters -isnot [pscustomobject] -or @($payload.parameters.PSObject.Properties).Count) { throw 'RESOURCE_WATCH_REQUEST_INVALID' }
     Invoke-SqlServerLabWorkflowAction -Action RefreshResourceWatch
 }
+function Invoke-UiMaintenanceRequest {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Request)
+    if ($Request.HttpMethod -eq 'GET') { return & (Get-Module SqlServerLab) { Get-LabMaintenanceGuidanceView } }
+    if ($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)') { throw 'MAINTENANCE_REQUEST_INVALID' }
+    $origin=[string]$Request.Headers['Origin']
+    if ($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)) { throw 'MAINTENANCE_ORIGIN_INVALID' }
+    $reader=[IO.StreamReader]::new($Request.InputStream,$Request.ContentEncoding)
+    try {
+        $buffer=[char[]]::new(1025); $length=$reader.ReadBlock($buffer,0,$buffer.Length)
+        if ($length -gt 1024) { throw 'MAINTENANCE_REQUEST_TOO_LARGE' }
+        $payload=([string]::new($buffer,0,$length)) | ConvertFrom-Json -Depth 4 -ErrorAction Stop
+    } finally { $reader.Dispose() }
+    if ($payload -isnot [pscustomobject] -or @($payload.PSObject.Properties.Name | Where-Object {$_ -notin @('action','candidateId','expectedKey','confirmed')}).Count -or
+        $payload.candidateId -isnot [string] -or $payload.candidateId -cnotmatch '^[a-f0-9]{64}$') { throw 'MAINTENANCE_REQUEST_INVALID' }
+    if ($payload.action -ceq 'preview') {
+        return & (Get-Module SqlServerLab) { param($id) ConvertTo-LabMaintenanceRepairView (Get-LabMaintenanceRepairPlan -CandidateId $id) } $payload.candidateId
+    }
+    if ($payload.action -cne 'apply' -or $payload.confirmed -isnot [bool] -or -not $payload.confirmed -or
+        $payload.expectedKey -isnot [string] -or $payload.expectedKey -cnotmatch '^[a-f0-9]{64}$') { throw 'MAINTENANCE_CONFIRMATION_REQUIRED' }
+    & (Get-Module SqlServerLab) { param($id,$key) Invoke-LabMaintenanceRepair -CandidateId $id -ExpectedKey $key -Confirmed } $payload.candidateId $payload.expectedKey
+}
+
 function Invoke-UiMediaOverrideRequest {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Request)
@@ -601,6 +624,14 @@ try {
                 catch {
                     Write-UiResponse -Context $context -Body 'EVALUATION_WATCH_READ_UNAVAILABLE' -StatusCode 503
                 }
+                continue
+            }
+            if ($path -eq '/api/maintenance') {
+                try {
+                    $view=Invoke-UiMaintenanceRequest -Request $context.Request
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 8) -ContentType 'application/json; charset=utf-8'
+                }
+                catch { Write-UiResponse -Context $context -Body 'MAINTENANCE_UNCONFIRMED: Ergebnis nicht bestätigt. Erneut lesen und vorprüfen; keine automatische Wiederholung.' -StatusCode 400 }
                 continue
             }
             if ($path -eq '/api/commands' -and $context.Request.HttpMethod -eq 'GET') {

@@ -32,6 +32,7 @@ $ErrorActionPreference = 'Stop'
 $pwshCommand = Get-Command pwsh -ErrorAction Stop
 $checks = @(
     'Invoke-DocumentationChecks.ps1',
+    'Invoke-MaintenanceGuidanceChecks.ps1',
     'Invoke-PSScriptAnalyzerChecks.ps1',
     'Invoke-CiStrategyChecks.ps1',
     'Invoke-ConsoleUiChecks.ps1',
