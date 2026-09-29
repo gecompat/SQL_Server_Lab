@@ -200,12 +200,63 @@ versions- und hashgebundener Offlinebestand von
 noch nicht belegt. Die allgemeine SSIS-Anleitung nennt Client Tools SDK,
 der versionsbezogene Setupvertrag begrenzt `SDK` jedoch auf SQL 2019 und älter.
 Deshalb werden weder `/FEATURES=SDK` noch ein geratenes SMO-Paket oder
-`LoadWithPartialName` verwendet. Nächster Schritt nach IS-Abnahme ist die
-read-only Inventarisierung des exakten freigegebenen Installationsbestands;
-erst danach folgen gebundener Paketprüfer und die offiziell dokumentierte
-Kataloganlage. Quellen: [Setupfeature IS und SDK-Grenze](https://learn.microsoft.com/sql/database-engine/install-windows/install-sql-server-from-the-command-prompt?view=sql-server-ver17),
+`LoadWithPartialName` verwendet. Der Beschaffungscheckpoint unten trennt die
+weiterhin offenen Paket-, Host- und Integritätsverträge; erst nach deren
+Klärung folgen gebundener Paketprüfer und Kataloganlage. Quellen: [Setupfeature IS und SDK-Grenze](https://learn.microsoft.com/sql/database-engine/install-windows/install-sql-server-from-the-command-prompt?view=sql-server-ver17),
 [SQL-2025-Editionen](https://learn.microsoft.com/sql/sql-server/editions-and-components-of-sql-server-2025?view=sql-server-ver17),
 [SSIS-Installation](https://learn.microsoft.com/sql/integration-services/install-windows/install-integration-services?view=sql-server-ver17).
+
+### Beschaffungscheckpoint G: weiterhin offen
+
+Der vollständige Beschaffungsscope unter `SFT-711`/`SFT-712` und
+`AIX-001`/`AIX-008` bleibt offen. Dokumentenrecherche und begrenzte statische
+Inventur ergeben keinen validierten Paket-, Installations- oder Funktionsvertrag.
+Eine Bootstrappervorstufe ersetzt weder Vollmedien noch transitive Abhängigkeiten.
+
+Der dokumentierte Herstellerweg ist eine SSMS-Komponenteninstallation mit
+`Microsoft.SSMS.Component.IS`, auch aus einem selektierten Offline-Layout:
+[Komponenten](https://learn.microsoft.com/en-us/ssms/install/workload-component-ids),
+[Offline-Layout und Installation](https://learn.microsoft.com/en-us/ssms/install/create-offline).
+Dies belegt keine eigenständige Beschaffung durch Kopieren einzelner IS-/SMO-DLLs.
+Die vorgesehene Windows-/Hyper-V-IS-Installation und ihre native Abnahme bleiben
+von der Bereitstellung des Managementclients getrennt.
+
+Für einen eigenen Windows-x64-/WindowsPowerShell-5.1-/.NET-Framework-Host fehlen
+noch ein exakter Bindingvertrag und eine isolierte Offline-Ladeprobe. Der
+[PowerShell-Quickstart](https://learn.microsoft.com/en-us/sql/integration-services/ssis-quickstart-deploy-powershell?view=sql-server-ver17)
+zeigt den API-Nutzungsweg, definiert aber keine vollständige versionsgebundene
+SSMS-Assemblyauflösung für diesen Host. Sein Modulpin ist kein pauschaler Beleg
+für eine zusätzlich erforderliche Abhängigkeit jedes SSMS-Bestands. Diese offene
+Engineering-/Validierungsgrenze ist kein generelles Nutzungsverbot; SSMS-
+Hostredirects dürfen nicht ungeprüft übernommen und .NET-Framework-/coreclr-
+Bestände nicht vermischt werden.
+
+Davon getrennt bleiben die Rechte zur Redistribution eines selbst
+zusammengestellten Standalonepakets, dessen genaue Noticezuordnung und der
+exakte Beschaffungs-/Integritätsvertrag ungeklärt. Die
+[SSMS-22-Lizenz](https://learn.microsoft.com/en-us/legal/sql/ssms/sql-server-management-studio-22-license-terms)
+verweist auf konkrete Distributable-Rechte; die verlinkte
+[Distributable-/Utilities-Liste](https://learn.microsoft.com/en-us/legal/sql/ssms/ssms-redistribution-utilities)
+bezeichnet beim Quellencheck weiterhin SSMS 21. Die
+[Notice-Anleitung](https://learn.microsoft.com/en-us/legal/sql/ssms/ssms-third-party-notices)
+ersetzt keine versionsgenaue Lizenzzuordnung. Lokale Nutzung einer vorhandenen
+Installation und Weitergabe eines Pakets sind unterschiedliche Fragen.
+Widersprüchliche Payloadgrößen sind vor einer exakten Katalogfreigabe zu klären;
+ein Hashmatch rechtfertigt keine Größenanpassung und beweist allein keinen
+Herstellertrust. Eine Größenabweichung allein beweist keine beschädigte DLL.
+
+Begrenzte Wiederaufnahmeoptionen innerhalb derselben Aufgaben sind ein
+herstellergeführter Layout-/Komponentenvertrag oder ein rechtlich geklärter
+eigener Hostvertrag mit ausdrücklich begrenzter Supportaussage und separater
+Offlineprobe. Erst daraus ergibt sich die noch zu schließende Abhängigkeitsmenge.
+Keine weitere serielle Suche, Beschaffung oder Ladeprobe ist aus diesem
+Checkpoint freigegeben. Die autonome Produktumsetzung von G endet hier;
+unabhängige kanonische Slices können weitergehen. Registriert, herunterladbar,
+lokal geprüft, installiert, konfiguriert und funktional bleiben getrennt.
+SSISDB/ETL bleiben bis zur vollständigen Offlineclosure offen; C# bleibt
+`USER_DEFERRED`.
+
+### Reihenfolge der vollständigen Umsetzung
 
 1. Einen Windows-/Hyper-V-Slot mit SQL Server, SSIS und SSISDB bereitstellen.
 2. Eine kleine synthetische SQL-Quelle und ein getrenntes Warehouse erzeugen.
