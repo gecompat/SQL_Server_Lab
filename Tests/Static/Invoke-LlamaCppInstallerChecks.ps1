@@ -203,6 +203,7 @@ try {
   Assert-Installer ((Get-Content $receiptPath -Raw|ConvertFrom-Json).Status -ceq 'RECOVERY_REQUIRED') 'actual worker finally exception preserves unconfirmed termination'
   foreach($case in @(
    @{Message='LLAMA_INSTALL_FILES_MISSING';Expected='LLAMA_INSTALL_PROBE_PACKAGE_FAILED';Started=$false;Attempted=$false},
+   @{Message='LLAMA_INSTALL_PLATFORM_UNSUPPORTED';Expected='LLAMA_INSTALL_PROBE_SETUP_FAILED';Started=$false;Attempted=$false},
    @{Message='synthetic private setup detail';Expected='LLAMA_INSTALL_PROBE_SETUP_FAILED';Started=$false;Attempted=$false},
    @{Message='synthetic private start detail';Expected='LLAMA_INSTALL_PROBE_START_FAILED';Started=$false;Attempted=$true},
    @{Message='LLAMA_INSTALL_PROBE_OUTPUT_LIMIT';Expected='LLAMA_INSTALL_PROBE_OUTPUT_LIMIT';Started=$true;Attempted=$true},
@@ -277,6 +278,7 @@ try {
   $workerRoot=Join-Path $Root ('worker/'+$realCatalog.Item.Tag+'-'+$realCatalog.Item.Sha256.Substring(0,12)+'.operation/probe')
   $null=[IO.Directory]::CreateDirectory($workerRoot)
   $requestPath=Join-Path $workerRoot 'request.json';$operationId=[guid]::NewGuid().ToString('D')
+  $expectedNoLaunchCode=if($IsWindows){'LLAMA_INSTALL_PROBE_PACKAGE_FAILED'}else{'LLAMA_INSTALL_PROBE_SETUP_FAILED'}
   [IO.File]::WriteAllText($requestPath,(@{Contract='SqlServerLab.LlamaCppInstallerProbe/1.0';OperationId=$operationId;Invocation='untrusted.exe';Arguments=@('--help');StartTimeoutSeconds=1;LeaseSeconds=1}|ConvertTo-Json -Compress))
   $start=[Diagnostics.ProcessStartInfo]::new((Get-Command pwsh -CommandType Application|Select-Object -First 1).Source)
   $start.UseShellExecute=$false;$start.CreateNoWindow=$true;$start.RedirectStandardInput=$true;$start.RedirectStandardOutput=$true;$start.RedirectStandardError=$true
@@ -287,10 +289,10 @@ try {
    if(-not $done){$worker.Kill($true);$null=$worker.WaitForExit(5000);throw 'FIXTURE_WORKER_TIMEOUT'}
    $null=$out.GetAwaiter().GetResult();$null=$err.GetAwaiter().GetResult()
    $receipt=Get-Content (Join-Path $workerRoot 'receipt.json') -Raw|ConvertFrom-Json
-   Assert-Installer ($receipt.OperationId -ceq $operationId -and $receipt.Status -ceq 'FAILED' -and $null -eq $receipt.ProcessId -and $receipt.ChildTerminationConfirmed) 'real worker rejects unverified package and confirms no native launch'
+   Assert-Installer ($receipt.OperationId -ceq $operationId -and $receipt.Status -ceq 'FAILED' -and $receipt.Code -ceq $expectedNoLaunchCode -and $null -eq $receipt.ProcessId -and $receipt.ChildTerminationConfirmed) 'real worker rejects unsupported platform or unverified package and confirms no native launch'
   }finally{if(-not $worker.HasExited){$worker.Kill($true);$null=$worker.WaitForExit(5000)};$worker.Dispose()}
   $parentProbePlan=[pscustomobject]@{Operation=(Join-Path $Root ('parent/'+$realCatalog.Item.Tag+'-'+$realCatalog.Item.Sha256.Substring(0,12)+'.operation'))}
-  Assert-Installer (Rejected {& $script:realInstallerProbe -Plan $parentProbePlan -OperationId ([guid]::NewGuid().ToString('D'))} 'LLAMA_INSTALL_PROBE_PACKAGE_FAILED') 'real parent accepts confirmed no-launch end and preserves package failure class'
+  Assert-Installer (Rejected {& $script:realInstallerProbe -Plan $parentProbePlan -OperationId ([guid]::NewGuid().ToString('D'))} $expectedNoLaunchCode) 'real parent accepts confirmed no-launch end and preserves platform-specific failure phase'
   Write-Host "LLAMA INSTALLER: $script:checks PASS; synthetic only, native NOT_EXECUTED"
  } $root $repo
 } finally {
