@@ -2413,6 +2413,14 @@ Native Power-/Identitätsnachweise bestanden getrennt auf eigenen Docker-/Podman
 Host-/Port-Metadaten beziehungsweise bei Hyper-V TcpPort und das führende Serverfeld des Connection Strings. Fehlende oder nicht unterstützte Formate ergeben unbekannte Endpunkte; Credentialfelder werden nicht angezeigt. Navigation ist keine Runtime- oder
 Verbindungsbereitschaftsabnahme.
 
+Die reservierte Shared6-Abnahme wird nicht automatisch durch Nightly-Schedules
+ausgeführt. Manuelle Nightly- beziehungsweise Hyper-V-Shared-Aufrufe benötigen
+zusätzlich zur Auswahl eine separate explizite Mutationsbestätigung desselben
+Repositorys. Standardmäßig bleibt sie falsch. Der erwartete Ausschluss ist
+`NOT_EXECUTED` / `NOT_AUTHORIZED`; daraus folgt keine SQL-/CMS-Abnahme.
+Synthetische Workflowtests belegen Autorisierung und Ergebnisaggregation,
+nicht Bereitschaft oder Mutationssicherheit realer reservierter Umgebungen.
+
 Das Meldungsjournal (`CUI-023`) hält die letzten 2000 Meldungen im Speicher und
 schreibt zusätzlich `<StateRoot>/session/<SessionId>/messages.jsonl`. Ist kein
 absoluter State-Root auflösbar oder die Datei nicht schreibbar, bleibt das

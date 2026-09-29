@@ -49,8 +49,13 @@ function Invoke-WorkflowFixture {
     finally { $process.Dispose() }
 }
 
-function Get-WorkflowBlocks([string]$Name) {
+function Get-WorkflowBlocks([string]$Name,[string]$StepName) {
     $text=Get-Content (Join-Path $repoRoot ".github/workflows/$Name") -Raw
+    if ($StepName) {
+        $step=[regex]::Match($text,'(?ms)^      - name: '+[regex]::Escape($StepName)+'\r?\n(?<step>.*?)(?=^      - name:|\z)')
+        if (-not $step.Success) { throw 'PRIVACY_WORKFLOW_STEP_MISSING' }
+        $text=$step.Groups['step'].Value
+    }
     @([regex]::Matches($text,'(?m)^        run: \|\r?\n(?<body>(?:^          [^\r\n]*\r?\n|^\r?\n)+)')|ForEach-Object {
         [regex]::Replace($_.Groups['body'].Value,'(?m)^          ','')
     })
@@ -80,7 +85,10 @@ try {
     $rootCreated=$true
     $null=New-Item -ItemType Directory -Path (Join-Path $root 'Tests/Integration')
     $mixed=@(Get-WorkflowBlocks 'runtime-smoke-mixed-providers.yml')
-    $hyperv=@(Get-WorkflowBlocks 'runtime-smoke-hyperv.yml')
+    $hyperv=@(
+        Get-WorkflowBlocks 'runtime-smoke-hyperv.yml' 'Hyper-V preflight'
+        Get-WorkflowBlocks 'runtime-smoke-hyperv.yml' 'Hyper-V lifecycle smoke'
+    )
     $adapter=@(Get-WorkflowBlocks 'adapter-smoke-github-hosted.yml')
     $fixture=@'
 param([string]$Version,[string]$Provider)

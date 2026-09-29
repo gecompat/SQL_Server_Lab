@@ -270,11 +270,53 @@ try {
     $menuText = Get-Content -LiteralPath $menuPath -Raw -Encoding utf8
     $entryText = Get-Content -LiteralPath $entryPath -Raw -Encoding utf8
     $sqlBuilderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1') -Raw -Encoding utf8
-    Add-CheckResult -Name 'Hauptmenue fuehrt Image-Verwaltung unter Hyper-V-Infrastruktur' -Success (
-        $menuText -match "New-LabConsoleItem -Id 'infrastructure' -Label 'Infrastruktur und Medien'.+-Shortcut '6'" -and
-        $menuText -match "New-LabConsoleItem -Id 'Image' -Label 'Hyper-V Infrastruktur: OS-Images und ISOs verwalten'.+-Shortcut '1'" -and
-        $menuText -match "'infrastructure' \{ Invoke-LabAreaMenuInteractive -Area Infrastructure \}"
-    )
+    $navigation = & $module {
+        param($Root)
+        . (Join-Path $Root 'Public/Invoke-SqlServerLab.ps1')
+        . (Join-Path $Root 'Public/BatchConsole.ps1')
+        New-Variable -Name IsWindows -Value $true -Scope Local -Force
+        $available = $true
+        $choices = [Collections.Generic.Queue[string]]::new()
+        $actions = [Collections.Generic.List[string]]::new()
+        $screens = [Collections.Generic.List[string]]::new()
+        function Test-HyperVAvailable { return @{Available=$available; Message='SYNTHETIC_UNAVAILABLE'} }
+        function New-LabQueueStatusProvider { param($Height) return {} }
+        function Update-LabConsoleAttentionSnapshot { return $null }
+        function Write-LabInfo { param($Message) }
+        function Get-LabMessageJournalMarker { return $null }
+        function Show-LabActionMessagesInteractive { param($Marker) }
+        function Invoke-LabMenuAction { param($ActionName) $actions.Add($ActionName) }
+        function Invoke-LabConsoleMenu {
+            param($ScreenId,$Title,$Subtitle,$Items,$Snapshot,$StatusHeight,$StatusProvider,$Footer,$FallbackPrompt)
+            $screens.Add($ScreenId)
+            $choice = $choices.Dequeue()
+            if ($choice -eq 'Cancelled') { return @{Status='Cancelled'} }
+            $item = @($Items | Where-Object { $_.Id -eq $choice -or $_.Shortcut -eq $choice })[0]
+            if (-not $item -or $item.Disabled) { throw 'SYNTHETIC_MENU_SELECTION_UNAVAILABLE' }
+            return @{Status='Selected'; SelectedItem=$item}
+        }
+        foreach ($entry in @('templates','3')) {
+            foreach ($choice in @($entry,'1','back','exit')) { $choices.Enqueue($choice) }
+            $null = Invoke-SqlServerLab 6>$null
+        }
+        $dispatch = ($actions -join ',') -eq 'Image,Image' -and $choices.Count -eq 0
+        $destination = @($screens | Where-Object { $_ -eq 'hyperv-menu' }).Count -eq 4
+        foreach ($choice in @('3','Cancelled','exit')) { $choices.Enqueue($choice) }
+        $null = Invoke-SqlServerLab 6>$null
+        $cancel = $actions.Count -eq 2 -and $choices.Count -eq 0
+        $available = $false
+        function Invoke-LabConsoleMenu {
+            param($ScreenId,$Title,$Subtitle,$Items,$Snapshot,$StatusHeight,$StatusProvider,$Footer,$FallbackPrompt)
+            $image = @($Items | Where-Object Id -eq Image)[0]
+            if (-not $image.Disabled -or -not $image.DisabledReason) { throw 'SYNTHETIC_UNAVAILABLE_GUARD_MISSING' }
+            return @{Status='Cancelled'}
+        }
+        $null = Show-LabHyperVMenu
+        return @{Dispatch=$dispatch; Destination=$destination; Cancel=$cancel; Unavailable=$true}
+    } $repoRoot
+    Add-CheckResult -Name 'templates und Shortcut 3 fuehren ueber echtes HyperV-Menue zu Image' -Success ($navigation.Dispatch -and $navigation.Destination)
+    Add-CheckResult -Name 'Image-Bereich kehrt nach Zurueck und Abbruch ohne weitere Aktion zurueck' -Success $navigation.Cancel
+    Add-CheckResult -Name 'Nicht verfuegbares HyperV sperrt den echten Image-Eintrag mit Abhilfe' -Success $navigation.Unavailable
     Add-CheckResult -Name 'Direkt-Aktion Image ist am Einstieg erlaubt' -Success ($entryText -match "ValidateSet\([^\)]*'Image'")
     Add-CheckResult -Name 'Menue dokumentiert den manuellen Installationsschritt' -Success ($menuText -match 'Show-LabHyperVManualInstallInstructions')
     Add-CheckResult -Name 'Fresh-SQL-Anleitung erklaert schwarzen VMConnect-Bildschirm nach Setup-Reboot' -Success (

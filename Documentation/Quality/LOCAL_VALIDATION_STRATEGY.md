@@ -2032,6 +2032,25 @@ Vollmatrix.
 Die vollständige statische und native Regression läuft täglich gebündelt als
 `Nightly Regression`; eine frische Hyper-V-/SQL-Installation läuft wöchentlich
 oder manuell. Nightly-Fehler werden über ein dauerhaftes Tracking-Issue sichtbar.
+Die reservierten gemeinsamen SQL-Testumgebungen sind davon ausgeschlossen:
+Schedule autorisiert weder Reaktivierung noch SQL-Schreibtests. Nur ein
+`workflow_dispatch` desselben Repositorys mit der separaten, standardmäßig
+falschen Bestätigung `confirm_shared_mutation` erlaubt die Shared-Abnahme.
+Das gilt auch für den Hyper-V-Modus `shared-environments`, dessen Modusauswahl
+allein keine Freigabe ist. Vor Recover beziehungsweise SQL gilt dieselbe
+Autorisierungsgrenze; rohe Ausgaben bleiben ohne Upload im lokalen Runnerlog.
+Der Nightlyreport wertet ausschließlich den belegten Autorisierungsausschluss
+als neutral: `NOT_EXECUTED` / `NOT_AUTHORIZED`, niemals als `VALIDATED`.
+Fehler, Abbrüche und unerwartete Skips aller Pflichtprüfungen bleiben Fehler.
+`CiStrategyNightlyAuthorizationChecks.ps1` führt extrahierte Guard-, Prozess-
+und Reportblöcke mit synthetischen Grenzen aus. Eine reale Shared-Abnahme
+wird dadurch weder ausgeführt noch nachgewiesen. CI-Infrastrukturänderungen
+behalten die vollständige bestehende Providermatrix.
+
+Die Image-Menüprüfung durchläuft die realen Menüdaten und Dispatcher von
+`templates` beziehungsweise Shortcut `3` über Hyper-V zu `Image`, einschließlich
+Zurück, Abbruch und Nichtverfügbarkeit. Beide Menüquellen selektieren diese
+Prüfung einzeln und unabhängig von der Pfadschreibweise.
 
 ### Ressourcen-Reconcile aus einem Windows-Slot
 

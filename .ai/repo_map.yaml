@@ -615,6 +615,7 @@ sources_of_truth:
   automated_test_environment_contract: Public/TestEnvironment.ps1
   test_group_power_guidance: Private/TestGroupGuidance.ps1
   validation_test_group_power_guidance: Tests/Static/Invoke-TestGroupGuidanceChecks.ps1
+  validation_nightly_authorization: Tests/Static/Fixtures/CiStrategyNightlyAuthorizationChecks.ps1
   automated_test_environment_windows_lifecycle: Public/TestEnvironmentLifecycle.ps1
   stopped_host_memory_contract: Documentation/Architecture/STOP_HOST_MEMORY.md
   stopped_host_memory_implementation: Private/StoppedHostMemory.ps1
