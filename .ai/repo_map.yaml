@@ -181,6 +181,10 @@ sources_of_truth:
   ai_ovms_https_gateway_stop: Public/Stop-SqlServerLabOvmsHttpsGateway.ps1
   acceptance_ai_ovms_https_gateway: Tests/Integration/Invoke-AiOvmsHttpsGatewayAcceptance.ps1
   llama_cpp_owned_runtime: Private/LlamaCppOwnedRuntime.ps1
+  llama_cpp_session_guidance: Private/LlamaCppSessionGuidance.ps1
+  validation_llama_cpp_session_guidance: Tests/Static/Invoke-LlamaCppSessionGuidanceChecks.ps1
+  validation_llama_cpp_session_lock_child: Tests/Static/Fixtures/LlamaCppSessionLockChild.ps1
+  acceptance_llama_cpp_session_guidance: Tests/Integration/Invoke-LlamaCppOwnershipAcceptance.ps1 # opt-in GuidedStop; 2026-09-30 native Prozessführung/Cleanup bestanden, keine SQL-/Modell-/Compute-/Providerabnahme
   llama_cpp_installer: Private/LlamaCppInstaller.ps1
   llama_cpp_installer_transfer: Private/LlamaCppInstallerTransfer.ps1
   llama_cpp_installer_catalog: Catalogs/llama-cpp-runtime-packages.json

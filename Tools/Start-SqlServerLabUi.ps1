@@ -113,7 +113,15 @@ $JobLogBurstLimit = $parsedJobLogBurstLimit
 $ErrorActionPreference = 'Stop'
 $uiRoot = Join-Path $PSScriptRoot '..\Ui'
 $modulePath = Join-Path $PSScriptRoot '..\SqlServerLab.psd1'
-Import-Module $modulePath -Force 6>$null
+function Import-UiSqlServerLabModule {
+    param([Parameter(Mandatory)][string]$ModulePath)
+    $expected=[IO.Path]::GetFullPath((Join-Path (Split-Path -Parent $ModulePath) 'SqlServerLab.psm1'))
+    $loaded=@(Get-Module SqlServerLab)
+    if ($loaded.Count -gt 1 -or ($loaded.Count -eq 1 -and [IO.Path]::GetFullPath($loaded[0].Path) -ne $expected)) { throw 'UI_MODULE_PATH_MISMATCH' }
+    # Preserve the exact caller module and its held ownership objects.
+    Import-Module $ModulePath 6>$null
+}
+Import-UiSqlServerLabModule -ModulePath $modulePath
 
 function Write-UiResponse {
     param(
@@ -482,6 +490,30 @@ function Invoke-UiLlamaInstallerRequest {
     & (Get-Module SqlServerLab) {param($id,$root,$key) Invoke-LabLlamaInstaller -CandidateId $id -RootId $root -ExpectedKey $key -Confirmed} $body.candidateId $body.rootId $body.expectedKey
 }
 
+function Invoke-UiLlamaSessionRequest {
+    param([Parameter(Mandatory)]$Request)
+    if ($Request.HttpMethod -eq 'GET') { return (Invoke-SqlServerLabWorkflowAction -Action GetLlamaSessions).Result }
+    if ($Request.HttpMethod -ne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)') { throw 'LLAMA_SESSION_REQUEST_INVALID' }
+    $origin=[string]$Request.Headers['Origin']
+    if ($origin -and $origin -ne $Request.Url.GetLeftPart([UriPartial]::Authority)) { throw 'LLAMA_SESSION_ORIGIN_INVALID' }
+    $reader=[IO.StreamReader]::new($Request.InputStream,$Request.ContentEncoding)
+    try {
+        $buffer=[char[]]::new(1025);$length=$reader.ReadBlock($buffer,0,$buffer.Length)
+        if ($length -gt 1024) { throw 'LLAMA_SESSION_REQUEST_TOO_LARGE' }
+        $payload=([string]::new($buffer,0,$length)) | ConvertFrom-Json -Depth 4 -ErrorAction Stop
+    } finally { $reader.Dispose() }
+    if ($payload -isnot [pscustomobject]) { throw 'LLAMA_SESSION_REQUEST_INVALID' }
+    if ($payload.action -ceq 'preview' -and (($payload.PSObject.Properties.Name | Sort-Object) -join ',') -ceq 'action,operationId' -and
+        $payload.operationId -is [string] -and $payload.operationId -cmatch '^[a-f0-9-]{36}$') {
+        return (Invoke-SqlServerLabWorkflowAction -Action PlanLlamaSessionStop -LlamaSessionOperationId $payload.operationId).Result
+    }
+    if ($payload.action -ceq 'stop' -and (($payload.PSObject.Properties.Name | Sort-Object) -join ',') -ceq 'action,confirmed,planId' -and
+        $payload.planId -is [string] -and $payload.planId -cmatch '^[a-f0-9-]{36}$' -and $payload.confirmed -is [bool] -and $payload.confirmed) {
+        return (Invoke-SqlServerLabWorkflowAction -Action StopLlamaSession -LlamaSessionPlanId $payload.planId -ConfirmLlamaSessionStop).Result
+    }
+    throw 'LLAMA_SESSION_CONFIRMATION_REQUIRED'
+}
+
 function Invoke-UiMaintenanceRequest {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Request)
@@ -652,6 +684,13 @@ try {
                 }catch{Write-UiResponse -Context $context -Body 'LLAMA_INSTALL_UNCONFIRMED: Ergebnis nicht bestätigt; frisch vorprüfen. Keine automatische Wiederholung oder Prerequisiteinstallation.' -StatusCode 400}
                 continue
             }
+            if ($path -eq '/api/llama-sessions') {
+                try {
+                    $view=Invoke-UiLlamaSessionRequest -Request $context.Request
+                    Write-UiResponse -Context $context -Body ($view | ConvertTo-Json -Depth 5) -ContentType 'application/json; charset=utf-8'
+                } catch { Write-UiResponse -Context $context -Body 'LLAMA_SESSION_UNCONFIRMED: Stop nicht bestätigt. Neu lesen und vorprüfen; eigene Recovery separat prüfen. Keine automatische Wiederholung.' -StatusCode 400 }
+                continue
+            }
             if ($path -eq '/api/maintenance') {
                 try {
                     $view=Invoke-UiMaintenanceRequest -Request $context.Request
@@ -751,7 +790,7 @@ try {
                 $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
-                if ($action -in @('GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
+                if ($action -in @('GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession','GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
                 $parameters = @{}
                 if ($request.parameters) {
                     foreach ($property in $request.parameters.PSObject.Properties) {

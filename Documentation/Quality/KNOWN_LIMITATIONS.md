@@ -2409,7 +2409,7 @@ vorhandene Dialoge oder eine ausdrückliche Lückenbeschreibung.
 
 Offen bleiben über Power-Start/Stop hinausgehende Browserdialoge für Testgruppen, CMS und
 operative Slotreservierung und Auffüllung, späteres Provider-Setup,
-weitere Runtimeinstaller-Lanes und manueller Hostdienst-/Modell-Lifecycle. Vorhandene
+weitere Runtimeinstaller-Lanes sowie Fremdstart-/weiterer Hostdienst- und Modell-Lifecycle. Vorhandene
 Gruppenschutzverträge gelten unverändert. Der neue Gruppen-Powerdialog nutzt
 exakte Runtime-IDs und eine gemeinsame Sperre mit Registrierung sowie
 bestehenden Gruppen-Lifecycle-/Clear-/Repair-Aufrufen. Es gibt weiterhin nur
@@ -2823,3 +2823,16 @@ Die neue begrenzte Transportgrenze gilt nur für Resource Watch einschließlich
 des dort wiederverwendeten CU-Cores, nicht für unveränderte CU-/Monatsaufrufe.
 Synthetische Parser-/Loopback-/Handlerfixtures belegen Vertragsverhalten;
 sie allein sind keine Live-Microsoft-, Provider- oder dauerhafte Schedulerabnahme. Der getrennte explizite Live-Metadatencheck und eigene Docker-Core-Nachweis sind in der lokalen Validierungsstrategie dokumentiert; daraus folgt keine dauerhafte Monitoring- oder Installationsfreigabe.
+
+## Geführter eigener llama.cpp-Sitzungsstop
+
+Der eigene Modulhost-Slice ist mit Vorschau, Cancel und Stop implementiert;
+Verbrauchercoverage bleibt UNKNOWN. Deklarierte Shared-Gateway-Verbraucher und
+konfigurierte Testgruppen-Schutzauthority werden vor Stop revalidiert.
+Fremdprozesse, persistente Dienste, Start/Restart und Modellaktionen bleiben
+offen. Der separate Windows-`GuidedStop`-Nachweis vom 2026-09-30 bestand mit
+eigenem synthetischem Worker/Kind, unverändertem Nachbarkind während Stop und
+anschließend bestätigtem eigenen Worker-/Kind-/Key-/Nachbar-Cleanup. Das belegt
+native Prozessführung im engen Scope, keine echte Modellinferenz, Compute-,
+SQL- oder Providerabnahme und keine vollständige Live-Verbraucherinventur.
+Siehe [Ownershipvertrag](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

@@ -1651,6 +1651,7 @@ function Invoke-LabAction {
     switch ($ActionName) {
         'ReservePolicy' { Show-LabSlotReserveInteractive }
         'MediaSourceOverride' { Show-LabMediaOverrideInteractive }
+        'HostServiceLifecycle' { Show-LabLlamaCppSessionStopInteractive }
         'RuntimeInstaller' { Show-LabLlamaInstallerInteractive }
         'Setup' {
             Invoke-LabInitialSetupInteractive

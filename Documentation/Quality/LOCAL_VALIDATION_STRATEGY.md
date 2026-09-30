@@ -2412,3 +2412,40 @@ bestätigt. Separat bestand ein eigener isolierter Docker-SQL-2025-Core-Smoke
 34/34 mit geprüftem Runtime-Cleanup und unveränderten Benutzerdefaults.
 Dieser Docker-Nachweis belegt den gemeinsamen Core, keine Resource-Watch-
 Dauerüberwachung und keinen anderen Provider.
+
+## Geführter eigener llama.cpp-Sitzungsstop
+
+`Tests/Static/Invoke-LlamaCppSessionGuidanceChecks.ps1` führt Core, den echten
+UI-Modulimport, HTTP- und CLI-Grenzen mit synthetischen Sitzungen aus.
+`WorkflowSqlTargetChecks.cjs` führt die echten Browserhandler aus. Scope:
+Cancel/WhatIf, Objekt-/Portbindung, ablaufende und verbrauchte Vorschau,
+geänderte deklarierte Verbraucher und Schutzregistrierung. Die separate native
+Windows-Abnahme `Invoke-LlamaCppOwnershipAcceptance.ps1 -Case GuidedStop`
+bestand am 2026-09-30 in einem neuen NoProfile-Prozess mit Exitcode 0:
+Workflow-Preview/Cancel/Stale/Apply/Replay, eigenes Worker-/Kindende und
+Keyabwesenheit, Nachbarkind während Stop aktiv und danach separat own-cleaned,
+vollständiger eigener Testroot-Cleanup. Ausschließlich synthetische native
+Prozesse und isolierte Registry; keine bestehende Shared-Umgebung,
+SQL-/Modell-/Compute-/Providerprobe. Browser-/CLI-Bedienung bleibt durch echte
+synthetische Handlerchecks belegt; der Nativefall ist keine manuelle UI-Abnahme.
+
+Die eigene Guidance und der Shared-Gateway-Registrar teilen eine kanonische
+StateRoot-Lifecyclesperre vor ihren bisherigen Gateway-/Testgruppen-Sperren.
+Der Fokustest führt einen echten konkurrierenden Registrar sowie einen echten
+Guidance-Stop in getrennten synthetischen PowerShell-Prozessen aus und injiziert
+Publikation nach der letzten Observation. Port-/Workerdrift, Directory-,
+Reparse- und unlesbare Registrypfade sowie reguläre null-RunIds sind getrennt
+geprüft. Der Nativeharness bewahrt Fehlerursache und Cleanupfehler getrennt und
+löscht sein Testroot nur nach bestätigter Abwesenheit seiner eigenen Aktivität.
+
+Der stabile breite lokale Lauf führte 34 betroffene Suites aus: 33 bestanden;
+PSScriptAnalyzer scheiterte an gemischten Zeilenenden und blieb danach ohne
+Prozessaktivität hängen. Ausschließlich das exakt gebundene eigene Analyzerkind
+wurde kontrolliert beendet; der breite Lauf bleibt deshalb FAIL. Nach der
+notwendigen Korrektur bestand der abschließende Analyzer auf dem unveränderten
+Produktfreeze ohne neue Error-Fundmeldungen. Der zusätzliche terminierende
+Stagingcleanup-Fehlerpfad wurde separat geprüft: ursprüngliche Fehlersignatur
+bleibt erhalten und ein anderer Prozess kann beide Registrar-Sperren erneut
+erwerben, während der ursprüngliche Writer weiterlebt (Storage-Suite 16 PASS).
+Der unabhängige Nachreview schloss beide Lifecycle-/Cleanup-Korrekturen ohne
+weitere Findings. Rohlogs und Prozess-/Hostdaten bleiben ausschließlich lokal.

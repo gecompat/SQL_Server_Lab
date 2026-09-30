@@ -51,6 +51,12 @@ SQL_Server_Lab-Internal-Switch verwendet.
     Einzelner Provider für die reine Readinessprüfung RefreshSetupProvider; keine Installation oder Startaktion.
 .PARAMETER SlotReservePolicy
     Advisory-Zielbestand für Windows und SQL sowie getrennte Mindestrestlaufzeit und Warnfrist.
+.PARAMETER LlamaSessionOperationId
+    Eigene llama.cpp-Operation aus derselben Modulsitzung für PlanLlamaSessionStop.
+.PARAMETER LlamaSessionPlanId
+    Fünf Minuten gültige serverseitige Auswahl aus PlanLlamaSessionStop.
+.PARAMETER ConfirmLlamaSessionStop
+    Bestätigt den bewussten Stop einschließlich möglicher unbekannter SQL-Verbraucher.
 .PARAMETER SlotReservePlan
     Unveränderter angezeigter SlotReservePlan; Apply prüft Speicherautorität und Vorgänger erneut.
 .PARAMETER ConfirmSlotReserve
@@ -237,6 +243,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'StartTestGroupPower', 'StopTestGroupPower',
             'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider',
             'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve',
+            'GetLlamaSessions', 'PlanLlamaSessionStop', 'StopLlamaSession',
             'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
             'GetResourceWatchState', 'RefreshResourceWatch',
             'RepairHyperVWindowsActivation',
@@ -264,6 +271,9 @@ function Invoke-SqlServerLabWorkflowAction {
         [string]$DefaultDataRoot,
         [object]$InitialSetupPlan,
         [object]$SlotReservePolicy,
+        [ValidatePattern('^[a-f0-9-]{36}$')][string]$LlamaSessionOperationId,
+        [ValidatePattern('^[a-f0-9-]{36}$')][string]$LlamaSessionPlanId,
+        [switch]$ConfirmLlamaSessionStop,
         [object]$SlotReservePlan,
         [string]$MediaSourceId,
         [string]$MediaSourceUrl,
@@ -334,6 +344,17 @@ function Invoke-SqlServerLabWorkflowAction {
 
     if ($Action -in @('GetResourceWatchState', 'RefreshResourceWatch')) {
         $result=if($Action -eq 'RefreshResourceWatch'){Invoke-LabResourceWatchRefresh}else{Get-LabResourceWatchState}
+        return [pscustomobject]@{Action=$Action;CompletedAt=Get-LabTimestamp;Result=$result}
+    }
+    if ($Action -in @('GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession')) {
+        $result = switch ($Action) {
+            'GetLlamaSessions' { Get-LabLlamaCppSessionView }
+            'PlanLlamaSessionStop' { New-LabLlamaCppSessionStopPlan -OperationId $LlamaSessionOperationId }
+            'StopLlamaSession' {
+                if (-not $ConfirmLlamaSessionStop) { throw 'LLAMA_SESSION_CONFIRMATION_REQUIRED' }
+                Invoke-LabLlamaCppSessionStopPlan -PlanId $LlamaSessionPlanId -Confirmed -Confirm:$false
+            }
+        }
         return [pscustomobject]@{Action=$Action;CompletedAt=Get-LabTimestamp;Result=$result}
     }
     if ($Action -in @('GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride')) {

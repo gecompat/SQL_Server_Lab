@@ -1,11 +1,12 @@
 #Requires -Version 7.2
-[CmdletBinding()]param([ValidateSet('OwnerClosed','LeaseExpired','WorkerKilled','OutputLimit','CleanupRetry')][string[]]$Case=@('OwnerClosed','LeaseExpired','WorkerKilled','OutputLimit','CleanupRetry'))
+[CmdletBinding()]param([ValidateSet('OwnerClosed','LeaseExpired','WorkerKilled','OutputLimit','CleanupRetry','GuidedStop')][string[]]$Case=@('OwnerClosed','LeaseExpired','WorkerKilled','OutputLimit','CleanupRetry'))
 $ErrorActionPreference='Stop'
 if(-not $IsWindows){throw 'LLAMA_WINDOWS_REQUIRED'}
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-llama-ownership-'+[guid]::NewGuid().ToString('N'))
 $null=New-Item -ItemType Directory -Path $root
 $workers=[Collections.Generic.List[Diagnostics.Process]]::new()
+$preserveRoot=$false
 try {
     foreach($mode in $Case) {
         $scope=Join-Path $root $mode;$null=New-Item -ItemType Directory -Path $scope
@@ -45,6 +46,70 @@ try {
             Start-Sleep -Milliseconds 50
         }while($true)
         $child=Get-Process -Id $receipt.ProcessId -ErrorAction Stop
+        if($mode -eq 'GuidedStop') {
+            $preserveRoot=$true # Only confirmed worker/child/key/neighbor cleanup permits deletion.
+            $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
+            $neighborStart=[Diagnostics.ProcessStartInfo]::new((Get-Process -Id $PID).Path)
+            $neighborStart.UseShellExecute=$false;$neighborStart.CreateNoWindow=$true
+            foreach($arg in @('-NoProfile','-NonInteractive','-Command','Start-Sleep -Seconds 60')){$neighborStart.ArgumentList.Add($arg)}
+            $neighbor=[Diagnostics.Process]::Start($neighborStart);$workers.Add($neighbor)
+            $workerWatch=Get-Process -Id $worker.Id -ErrorAction Stop
+            if($workerWatch.StartTime.ToUniversalTime().Ticks -ne $worker.StartTime.ToUniversalTime().Ticks){throw 'GUIDED_WORKER_WATCH_IDENTITY_FAILED'}
+            $guidedEvidence=[pscustomobject]@{Stopped=$false}
+            $guidedFailure=$null;$guidedCleanupFailure=$null;$workerGone=$false;$childGone=$false;$neighborGone=$false
+            try {
+                & $module {
+                    param($Id,$Worker,$Scope,$ReceiptPath,$Evidence)
+                    $script:guidedRoot=$Scope
+                    function Get-LabDataRootDefault {$script:guidedRoot}
+                    function Get-LabStateRoot {$script:guidedRoot}
+                    function Get-LabTestEnvironmentExportDirectory {param($OutputDirectory)$script:guidedRoot}
+                    # Real worker and cleanup; isolated synthetic registry, no SQL/model evidence.
+                    $script:LlamaCppOwnedSessions=@{}
+                    $script:LlamaCppOwnedSessions[$Id]=@{Worker=$Worker;OperationRoot=$Scope;ReceiptPath=$ReceiptPath;Port=19435}
+                    $plan=(Invoke-SqlServerLabWorkflowAction -Action PlanLlamaSessionStop -LlamaSessionOperationId $Id).Result
+                    $cancel=Invoke-LabLlamaCppSessionStopPlan -PlanId $plan.PlanId
+                    if($cancel.Status -cne 'CANCELLED' -or $Worker.HasExited){throw 'GUIDED_CANCEL_FAILED'}
+                    $expired=New-LabLlamaCppSessionStopPlan $Id
+                    $script:LlamaCppStopPlans[$expired.PlanId].Expires=[datetime]::UtcNow.AddSeconds(-1)
+                    $blocked=$false;try{Invoke-LabLlamaCppSessionStopPlan -PlanId $expired.PlanId -Confirmed|Out-Null}catch{$blocked=$_.Exception.Message -ceq 'LLAMA_SESSION_PREVIEW_EXPIRED'}
+                    if(-not $blocked -or $Worker.HasExited){throw 'GUIDED_STALE_FAILED'}
+                    $result=(Invoke-SqlServerLabWorkflowAction -Action StopLlamaSession -LlamaSessionPlanId $plan.PlanId -ConfirmLlamaSessionStop).Result
+                    $Evidence.Stopped=$result.Status -ceq 'CLEANUP_SUCCEEDED'
+                    if($result.Status -cne 'CLEANUP_SUCCEEDED' -or (Get-LabLlamaCppSessionView).Items.Count){throw 'GUIDED_STOP_FAILED'}
+                    $blocked=$false;try{Invoke-LabLlamaCppSessionStopPlan -PlanId $plan.PlanId -Confirmed|Out-Null}catch{$blocked=$_.Exception.Message -ceq 'LLAMA_SESSION_PREVIEW_NOT_FOUND'}
+                    if(-not $blocked){throw 'GUIDED_REPLAY_FAILED'}
+                } $request.OperationId $worker $scope $receiptPath $guidedEvidence
+                $workerGone=$workerWatch.WaitForExit(5000);$childGone=$child.WaitForExit(5000)
+                if(-not $workerGone -or -not $childGone -or (Test-Path -LiteralPath (Join-Path $scope 'api-key.txt')) -or $neighbor.HasExited){throw 'GUIDED_NATIVE_POSTCONDITION_FAILED'}
+            } catch {$guidedFailure=$_}
+            finally {
+                try {
+                    # Failed stop retains the exact original worker. OnRemove is not cleanup evidence.
+                    if(-not $guidedEvidence.Stopped -and -not $worker.HasExited){
+                        $worker.StandardInput.Close()
+                        if(-not $worker.WaitForExit(5000)){$worker.Kill();if(-not $worker.WaitForExit(5000)){throw 'GUIDED_WORKER_CLEANUP_UNCONFIRMED'}}
+                    }
+                    $workerGone=$workerWatch.WaitForExit(5000);$childGone=$child.WaitForExit(5000)
+                    if(-not $workerGone -or -not $childGone){throw 'GUIDED_ACTIVITY_CLEANUP_UNCONFIRMED'}
+                    $keyPath=Join-Path $scope 'api-key.txt'
+                    if(Test-Path -LiteralPath $keyPath){Remove-Item -LiteralPath $keyPath -Force -ErrorAction Stop}
+                    $null=$workers.Remove($worker)
+                    & $module {$script:LlamaCppOwnedSessions=@{};$script:LlamaCppStopPlans=@{}}
+                    if(-not $guidedEvidence.Stopped){$worker.Dispose()}
+                    if(-not $neighbor.HasExited){$neighbor.Kill()}
+                    $neighborGone=$neighbor.WaitForExit(5000)
+                    if(-not $neighborGone){throw 'GUIDED_NEIGHBOR_CLEANUP_UNCONFIRMED'}
+                    $null=$workers.Remove($neighbor);$neighbor.Dispose()
+                } catch {$guidedCleanupFailure=$_;$preserveRoot=$true}
+                finally {$workerWatch.Dispose();$child.Dispose();Remove-Module $module -Force}
+            }
+            if($workerGone -and $childGone -and $neighborGone -and -not $guidedCleanupFailure){$preserveRoot=$false}
+            if($guidedCleanupFailure){throw "GUIDED_RECOVERY_REQUIRED; OriginalFailure=$($guidedFailure.Exception.Message); CleanupFailure=$($guidedCleanupFailure.Exception.Message)"}
+            if($guidedFailure){throw $guidedFailure}
+            Write-Host 'PASS: GuidedStop preview/cancel/stale/apply/replay; worker/child/key absent, neighboring child untouched then own-cleaned; no SQL/model probe'
+            continue
+        }
         if($mode -eq 'WorkerKilled'){$worker.Kill()}
         elseif($mode -eq 'OwnerClosed'){$worker.StandardInput.Close()}
         if(-not $worker.WaitForExit(15000)){throw 'WORKER_DID_NOT_EXIT'}
@@ -59,6 +124,6 @@ finally {
     foreach($worker in $workers){if(-not $worker.HasExited){$worker.Kill();$null=$worker.WaitForExit(5000)};$worker.Dispose()}
     $resolved=[IO.Path]::GetFullPath($root);$boundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
     if(-not $resolved.StartsWith($boundary,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolved) -notlike 'sql-lab-llama-ownership-*'){throw 'CLEANUP_SCOPE_INVALID'}
-    Remove-Item -LiteralPath $resolved -Recurse -Force
+    if(-not $preserveRoot){Remove-Item -LiteralPath $resolved -Recurse -Force}
 }
 Write-Host 'LLAMA OWNERSHIP ACCEPTANCE: PASS; CLEANUP_SUCCEEDED'

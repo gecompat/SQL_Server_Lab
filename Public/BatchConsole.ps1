@@ -830,7 +830,7 @@ function Show-LabHostModelsMenu {
     return Show-LabSubMenu -ScreenId 'hostmodels-menu' -Title 'Host-Dienste und Modelle' -Subtitle 'Modelldatei, Modellaufruf und Dienst-Lifecycle sind getrennt' -Items @(
         New-LabConsoleItem -Id AiLlamaModels -Label 'llama.cpp-Modellkatalog und Dateien' -Value 'Anzeigen / Download; kein Load oder Warmup' -Shortcut 1
         New-LabConsoleItem -Id AiModel -Label 'Vorhandenes Ollama-Modell aufrufen' -Value 'lokal oder explizit freigegebene Cloud-Lane' -Shortcut 2
-        New-LabConsoleItem -Id HostServiceLifecycle -Label 'Vorhandenen Hostdienst starten, stoppen oder neu starten' -Disabled -DisabledReason 'Die geführte manuelle Hostdienststeuerung ist noch nicht implementiert. Kein Namens-Kill und keine automatische Übernahme.'
+        New-LabConsoleItem -Id HostServiceLifecycle -Label 'Eigene llama.cpp-Sitzung auswählen und stoppen'
         New-LabConsoleItem -Id ModelLifecycle -Label 'Modell laden, entladen oder wechseln' -Disabled -DisabledReason 'Ein gemeinsamer geführter Load-/Unload-/Wechselvertrag ist noch offen. Der Datei-Download ist kein geladenes Modell.'
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
     )

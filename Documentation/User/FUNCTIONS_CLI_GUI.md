@@ -19,7 +19,7 @@ separaten bestehenden Plan-/Resume-Verfahren und ist damit nicht nativ abgenomme
 
 | Merkmal | Wert |
 |---|---|
-| Stand | 2026-09-26 |
+| Stand | 2026-09-30 |
 | Autoritative Funktionsliste | [`SqlServerLab.psd1`](../../SqlServerLab.psd1) |
 | Öffentliche Funktionen | dynamisch aus `FunctionsToExport` |
 | Konsolenoberfläche | `Invoke-SqlServerLab` |
@@ -36,8 +36,11 @@ Grundkonfiguration, Wartung/Recovery und Vorgänge sind eigene Einstiege.
 Expertenbefehle und Meldungen bleiben separat. Browserbereiche zeigen nur die
 zugehörigen vorhandenen Fachdialoge; Zurück erhält Eingaben und die
 Aktualisierung erhält den gewählten Bereich. Fehlende Browserdialoge für
-CMS und operative Slots sowie Hostdienst-/Modell-Lifecycle bleiben
-sichtbar offen. Ein Katalogfilter ersetzt keinen Fachdialog.
+CMS und operative Slots sowie Fremdstart-/weiterer Hostdienst- und
+Modell-Lifecycle bleiben sichtbar offen. Der geführte Stop einer eigenen
+llama.cpp-Modulsitzung besitzt einen gemeinsamen CLI-/Browserdialog und einen
+engen synthetischen nativen Prozessnachweis. Ein Katalogfilter ersetzt keinen
+Fachdialog.
 
 Die Testmatrix bietet in CLI und Browser einen gemeinsamen geführten
 Power-Start/Stop für die kanonisch registrierte Gruppe. CLI-Einstieg ist
@@ -178,7 +181,7 @@ Legende:
 |---|---|---|---|
 | [`Get-SqlServerLabReconcilePlan`](../../Public/Get-SqlServerLabReconcilePlan.ps1) | Erstellt read-only einen Lifecycle-, Ressourcen-, Storage-, SQL-, Testdatenbank- oder External-Runtime-Reconcile-Plan. | Lab-Umgebungen → Umgebung auswählen und verwalten → External Runtimes und weitere Reconcile-Flows | über Core: Browser zeigt abgeleitete Ist-/Soll-Aktionen, ruft dieses Cmdlet aber nicht direkt auf |
 | [`Invoke-SqlServerLabReconcileAction`](../../Public/Invoke-SqlServerLabReconcileAction.ps1) | Führt validierte Lifecycle-, Container-, Hyper-V-, SQL- oder External-Runtime-Reconcile-Aktionen mit Recovery und `-WhatIf` aus. | Lab-Umgebungen → Umgebung auswählen und verwalten → External Runtimes und Lifecycle | über Adapter: `StartLabReconcile`, `StopLabReconcile` |
-| [`Invoke-SqlServerLabWorkflowAction`](../../Public/Invoke-SqlServerLabWorkflowAction.ps1) | Übersetzt nicht interaktive UI-Aktionen in vorhandene Fachfunktionen. | direkter CLI-Aufruf für Automatisierung möglich | direkt: zentraler Adapter aller Browseraktionen unter `/api/actions` |
+| [`Invoke-SqlServerLabWorkflowAction`](../../Public/Invoke-SqlServerLabWorkflowAction.ps1) | Übersetzt nicht interaktive UI-Aktionen in vorhandene Fachfunktionen, einschließlich eigener llama.cpp-Sitzungssicht und gebundenem Preview/Stop. | direkter CLI-Aufruf für Automatisierung möglich | zentraler Adapter unter `/api/actions`; eigene llama.cpp-Sitzungen verwenden synchron `/api/llama-sessions` im erhaltenen Modulhost |
 
 ## Manifest, Provisionierung und Lifecycle
 
@@ -392,3 +395,11 @@ für alternative Microsoft-Adressen derselben drei SQL-2025-Bootstrapper.
 Die gebundene Vorschau speichert erst nach Bestätigung; kein Download,
 Hashwechsel oder Installationsschritt. Weitere Medienfamilien bleiben offen.
 [Bedienung](Getting_Started.md#lokale-sql-2025-bootstrapperquellen).
+
+Der geführte eigene llama.cpp-Sitzungsstop ist unter „Host-Dienste und Modelle“
+über Auswahl, Vorschau, Abbruch und bewusste Bestätigung erreichbar. Die
+Verbraucher-Coverage bleibt UNKNOWN; deklarierte geschützte Verbraucher sperren
+den Stop. Fremdprozesse, Start/Restart und Modellaktionen bleiben offen.
+Die GUI muss im selben PowerShell-Modulhost wie der bestehende Start geöffnet
+werden; sie lädt den exakten vorhandenen Modulpfad ohne Force-Reload weiter.
+Details und Workflow-Aktionen: [Sitzungsstop](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

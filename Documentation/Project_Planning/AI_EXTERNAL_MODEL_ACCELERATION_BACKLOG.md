@@ -2,6 +2,14 @@
 
 ## Status und Priorität
 
+Slice I ergänzt den geführten Stop genau einer vorhandenen eigenen
+llama.cpp-Modulsitzung mit gemeinsamer CLI/GUI-Auswahl, Vorschau, Cancel und
+Bestätigung. Der separate Windows-GuidedStop-Nachweis vom 2026-09-30 bestand
+mit synthetischen nativen Prozessen und bestätigtem eigenen Cleanup.
+Verbrauchercoverage bleibt UNKNOWN; Fremdstart, weitere Dienst-/Modellaktionen
+und Compute-/SQL-/Providerabnahme bleiben offen.
+Siehe [Ownershipvertrag](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
 Slice H zu `AIX-001/008`: Der enge Ressourceninstaller ist implementiert
 für genau den kuratierten experimentellen Pin b11247,
 Windows/x64/CPU. Gemeinsame CLI/GUI-Vorschau und Bestätigung binden Releaseasset,
@@ -74,7 +82,7 @@ Plan bleibt für den dauerhaften Dienst mit
 `AI_SHARED_GATEWAY_EXECUTION_NOT_IMPLEMENTED` ausdrücklich blockiert. Die
 gebundenen Dateien können bereits mutexgeschützt, benutzerexklusiv und atomar
 im gemeinsamen StateRoot registriert werden; identische parallele Aufrufe sind
-idempotent, abweichende Pläne und Inhaltsdrift werden abgewiesen. Eine read-only
+idempotent, abweichende Pläne und Inhaltsdrift werden abgewiesen. Registrar und geführter eigener llama.cpp-Sitzungsstop teilen eine kanonische StateRoot-Lifecyclesperre vor ihren bestehenden Gateway-/Testgruppen-Sperren; bekannte Consumerpublikation kann den Stop nicht überholen. Das ist keine vollständige Live-Verbrauchercoverage. Eine read-only
 Probe revalidiert diesen Store und prüft einen bereits laufenden gebundenen
 Llama-v1- oder OVMS-v3-Loopback-Upstream auf Modell, Dimension und Vektorwerte.
 `Start-SqlServerLabAiSharedGatewaySession` stellt darauf aufbauend einen

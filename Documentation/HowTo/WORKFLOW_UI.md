@@ -83,8 +83,9 @@ vorhandene Host-/Port-Felder. Bei Hyper-V werden Host und Port eng aus dem führ
 
 Die geschützte Testmatrix besitzt den oben beschriebenen Power-Fachdialog.
 Weitere geführte Browser-Gruppenaktionen, CMS,
-operative Slots, vollständiges Provider-Setup und manueller Hostdienst- sowie
-Modell-Lifecycle bleiben offen. Der Navigationseinstieg ist keine Abnahme
+operative Slots, vollständiges Provider-Setup und Fremdstart-/weiterer
+Hostdienst- sowie Modell-Lifecycle bleiben offen. Der eigene llama.cpp-
+Sitzungsstop besitzt den unten beschriebenen Fachdialog. Der Navigationseinstieg ist keine Abnahme
 dieser fehlenden Funktionen.
 
 Der Arbeitsbereich **Alle Funktionen** wird aus demselben Export- und
@@ -397,3 +398,11 @@ mit begrenzter Parserauswertung. Komprimierte Antworten werden abgewiesen.
 Der bestehende öffentliche CU-Befehl und monatliche CU-Workflow behalten ihren
 bisherigen Transportvertrag. Kein Download, Katalogupdate, Issue oder Agentstart
 wird durch den Ressourcenstand ausgelöst.
+
+Der geführte eigene llama.cpp-Sitzungsstop ist unter „Host-Dienste und Modelle“
+über Auswahl, Vorschau, Abbruch und bewusste Bestätigung erreichbar. Die
+Verbraucher-Coverage bleibt UNKNOWN; deklarierte geschützte Verbraucher sperren
+den Stop. Fremdprozesse, Start/Restart und Modellaktionen bleiben offen.
+Die GUI muss im selben PowerShell-Modulhost wie der bestehende Start geöffnet
+werden; sie lädt den exakten vorhandenen Modulpfad ohne Force-Reload weiter.
+Details und Workflow-Aktionen: [Sitzungsstop](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

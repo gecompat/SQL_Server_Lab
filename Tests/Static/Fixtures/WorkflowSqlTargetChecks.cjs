@@ -649,6 +649,55 @@ async function main() {
   check('Installer disables early selection while initial roots are pending', () => { assert.equal(node('llama-installer-root').disabled, true); assert.equal(node('llama-installer-release').disabled, true); });
   releaseInstaller({ ok: true, json: async () => ({ Items: [], Roots: [], Notice: 'empty' }) }); await pendingInstaller;
   check('Installer delayed empty reply remains failclosed', () => assert.equal(node('llama-installer-preview').disabled, true));
+  const sessionId = '11111111-1111-1111-1111-111111111111';
+  const planId = '22222222-2222-2222-2222-222222222222';
+  const sessionCalls = [];
+  context.fetch = async (url, options = {}) => {
+    assert.equal(url, '/api/llama-sessions');
+    const payload = options.body ? JSON.parse(options.body) : null; sessionCalls.push(payload);
+    return { ok: true, json: async () => !payload ? { Items: [{ OperationId: sessionId, Port: 19435, Status: 'OWNED_SESSION' }], Notice: 'Coverage UNKNOWN' } : payload.action === 'preview' ? { PlanId: planId, OperationId: sessionId, Port: 19435, Rights: 'OWNED_WORKER_CONTROL', KnownConsumerCount: 0, ConsumerCoverage: 'UNKNOWN', Notice: 'Unknown consumers may fail' } : { Status: 'CLEANUP_SUCCEEDED' } };
+  };
+  click(node('llama-session-open')); await new Promise(resolve => setImmediate(resolve));
+  check('Real llama session open reads own sessions and never stops automatically', () => {
+    assert.ok(node('llama-session-dialog').open); assert.equal(sessionCalls.length, 1); assert.equal(node('llama-session-stop').disabled, true);
+  });
+  node('llama-session-selection').value = sessionId;
+  for (const handler of node('llama-session-selection').events.get('change')) handler({});
+  await run('requestLlamaSession("preview")');
+  check('Real session preview shows unknown coverage and requires conscious confirmation', () => {
+    assert.ok(node('llama-session-preview').textContent.includes('Coverage UNKNOWN')); assert.equal(node('llama-session-stop').disabled, true);
+  });
+  await run('requestLlamaSession("stop")');
+  check('Unchecked confirmation cannot dispatch stop', () => assert.equal(sessionCalls.length, 2));
+  click(node('llama-session-close'));
+  check('Cancel closes and invalidates session preview without stop', () => { assert.equal(sessionCalls.length, 2); assert.equal(node('llama-session-stop').disabled, true); });
+  click(node('llama-session-open')); await new Promise(resolve => setImmediate(resolve));
+  node('llama-session-selection').value = sessionId;
+  for (const handler of node('llama-session-selection').events.get('change')) handler({});
+  await run('requestLlamaSession("preview")');
+  node('llama-session-confirm').checked = true;
+  for (const handler of node('llama-session-confirm').events.get('change')) handler({});
+  const originalSessionFetch = context.fetch; let releaseConfirmedStop;
+  context.fetch = (url, options) => { sessionCalls.push(JSON.parse(options.body)); return new Promise(resolve => { releaseConfirmedStop = resolve; }); };
+  const confirmedStop = run('requestLlamaSession("stop")');
+  check('Confirmed in-flight stop waits for outcome and cannot be disguised as Cancel', () => {
+    assert.equal(node('llama-session-close').disabled, true);
+    let prevented = false; for (const handler of node('llama-session-dialog').events.get('cancel')) handler({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, true); click(node('llama-session-close')); assert.equal(node('llama-session-dialog').open, true);
+  });
+  releaseConfirmedStop({ ok: true, json: async () => ({ Status: 'CLEANUP_SUCCEEDED' }) }); await confirmedStop; context.fetch = originalSessionFetch;
+  check('Actual stop sends only opaque preview and explicit confirmation, then clears selection', () => {
+    assert.deepEqual(sessionCalls.at(-1), { action: 'stop', planId, confirmed: true });
+    assert.ok(node('llama-session-status').textContent.includes('CLEANUP_SUCCEEDED')); assert.equal(node('llama-session-stop').disabled, true);
+  });
+  let releaseSession; context.fetch = () => new Promise(resolve => { releaseSession = resolve; });
+  const lateSession = run('requestLlamaSession()');
+  click(node('llama-session-close'));
+  releaseSession({ ok: true, json: async () => ({ Items: [{ OperationId: sessionId }], Notice: 'stale' }) }); await lateSession;
+  check('Late session response after close cannot restore a target or preview', () => assert.equal(node('llama-session-stop').disabled, true));
+  context.fetch = async () => ({ ok: true, json: async () => ({ Items: [], Notice: 'Coverage UNKNOWN' }) });
+  click(node('llama-session-open')); await new Promise(resolve => setImmediate(resolve));
+  check('Empty own-session inventory explains same-modulehost start and disables mutation', () => { assert.ok(node('llama-session-status').textContent.includes('Keine Sitzung')); assert.equal(node('llama-session-plan').disabled, true); });
   console.log('WORKFLOW SQL TARGET, EVALUATION AND SETUP: ' + passed + ' PASS');
 }
 main().catch((error) => { console.error(error); process.exitCode = 1; });

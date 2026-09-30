@@ -1,3 +1,23 @@
+function Enter-LabAiSharedGatewayLifecycleLock {
+    param([Parameter(Mandatory)][string]$StateRoot,[ValidateRange(0,30)][int]$WaitSeconds=0)
+    # No reparse aliases; ordinary relative/case/trailing-separator aliases share a key.
+    $safe=Assert-LabAiSharedGatewayStoragePath $StateRoot
+    $root=Get-LabCanonicalResourceRoot -StateRoot $safe
+    $name='SqlServerLab.AiSharedGatewayLifecycle.'+(Get-LabAiPlanKey $root)
+    if ($IsWindows) { $name='Global\'+$name }
+    $mutex=[Threading.Mutex]::new($false,$name)
+    try {
+        try {$acquired=$mutex.WaitOne([TimeSpan]::FromSeconds($WaitSeconds))} catch [Threading.AbandonedMutexException] {$acquired=$true}
+        if (-not $acquired) { throw 'AI_SHARED_GATEWAY_STORAGE_LOCKED' }
+        return $mutex
+    } catch { $mutex.Dispose();throw }
+}
+
+function Exit-LabAiSharedGatewayLifecycleLock {
+    param($Mutex)
+    if ($Mutex) { $Mutex.ReleaseMutex();$Mutex.Dispose() }
+}
+
 function Assert-LabAiSharedGatewayStoragePath {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$Path)
@@ -160,8 +180,10 @@ function Register-LabAiSharedGatewayStorage {
     foreach($path in @($sharedRoot,$gatewayRoot)){$null=Assert-LabAiSharedGatewayStoragePath $path}
     $mutexHash=Get-LabAiPlanKey ([ordered]@{StateRoot=$root;GatewayId=$canonical.GatewayId})
     $mutex=[Threading.Mutex]::new($false,"SQL_Server_Lab_Ai_Shared_Gateway_$($mutexHash.Substring(0,24))")
-    $acquired=$false;$stage=$null;$published=$false;$sharedCreated=$false
+    $acquired=$false;$stage=$null;$published=$false;$sharedCreated=$false;$publicationLock=$null
     try {
+        # Lock order: StateRoot publication/lifecycle, then per-gateway publication.
+        $publicationLock=Enter-LabAiSharedGatewayLifecycleLock -StateRoot $root -WaitSeconds 30
         try{$acquired=$mutex.WaitOne([TimeSpan]::FromSeconds(30))}catch [Threading.AbandonedMutexException]{$acquired=$true}
         if(-not $acquired){throw 'AI_SHARED_GATEWAY_STORAGE_LOCKED'}
         if(Test-Path -LiteralPath $gatewayRoot){return Read-LabAiSharedGatewayRegistration -Directory $gatewayRoot -ExpectedPlan $canonical}
@@ -215,12 +237,19 @@ function Register-LabAiSharedGatewayStorage {
         throw 'AI_SHARED_GATEWAY_STORAGE_REGISTRATION_FAILED'
     }
     finally {
+        try {
         if(-not $published -and $stage -and (Test-Path -LiteralPath $stage)){
             $resolvedStage=[IO.Path]::GetFullPath($stage);$resolvedShared=[IO.Path]::GetFullPath($sharedRoot).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
             if($resolvedStage.StartsWith($resolvedShared,[StringComparison]::OrdinalIgnoreCase) -and [IO.Path]::GetFileName($resolvedStage) -match '^\.register-[a-z][a-z0-9-]{0,62}-[a-f0-9]{32}$'){Remove-Item -LiteralPath $resolvedStage -Recurse -Force}
         }
         if(-not $published -and $sharedCreated -and (Test-Path -LiteralPath $sharedRoot -PathType Container) -and -not @(Get-ChildItem -LiteralPath $sharedRoot -Force).Count){Remove-Item -LiteralPath $sharedRoot -Force}
-        if($acquired){try{$mutex.ReleaseMutex()}catch{}}
-        $mutex.Dispose()
+        }
+        finally {
+            try {
+                if($acquired){try{$mutex.ReleaseMutex()}catch{}}
+                $mutex.Dispose()
+            }
+            finally {Exit-LabAiSharedGatewayLifecycleLock $publicationLock}
+        }
     }
 }

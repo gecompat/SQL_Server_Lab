@@ -1067,3 +1067,8 @@ katalogisierte SqlPackage-Variante. Die Bedienung und Statusgrenzen stehen in
 [Workflow UI](Documentation/HowTo/WORKFLOW_UI.md#ressourcenstand-cus-und-sqlpackage).
 Menüwechsel greifen nicht auf die Quellen zu. Sitzungscache und Quellenfehler
 sind sichtbar; neue Metadaten ändern keine Download- oder Supportfreigabe.
+
+Der Bereich „Host-Dienste und Modelle“ bietet den geführten Stop einer eigenen
+llama.cpp-Sitzung mit Vorschau und bewusster Bestätigung. Verbraucher-Coverage
+bleibt UNKNOWN; Fremdprozesse und Modell-Lifecycle bleiben offen. Siehe
+[Vertrag](Documentation/Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

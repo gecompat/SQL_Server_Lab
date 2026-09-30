@@ -97,3 +97,8 @@ Für öffentliche Bedienung sind die in `SqlServerLab.psd1` exportierten Funktio
 ```
 
 Bei Runtimeänderungen zusätzlich den betroffenen Provider getrennt testen.
+
+`LlamaCppSessionGuidance.ps1` bindet den geführten eigenen Sitzungsstop an
+gehaltene Workerobjekte, kurzlebige serverseitige Auswahl und revalidierte
+deklarierte Verbraucher-/Schutzreferenzen. Kein Fremdprozess-Lifecycle;
+automatischer Cleanup bleibt unter `LlamaCppOwnedRuntime.ps1`.
