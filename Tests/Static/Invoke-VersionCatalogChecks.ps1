@@ -375,17 +375,8 @@ $reportFixture.Status='UNCLEAR';$reportFixture.Sources[0].Url='https://learn.mic
 try{ConvertTo-LabCuWatchReport $reportFixture | Out-Null}catch{$caught=$_.Exception.Message}
 Add-CheckResult -Name 'CU-Watch lehnt Quelle mit Query vor Veröffentlichung ab' -Success ($caught -eq 'CU_WATCH_REPORT_SOURCE_INVALID')
 $watchWorkflow=Get-Content (Join-Path $repoRoot '.github/workflows/sql-cu-monthly-monitor.yml') -Raw
-$statusBlockMatch=[regex]::Match($watchWorkflow,'(?ms)^\s*\$statusBlock = if .*?(?=^\s*\$body = @")')
-$issueAction=& {
-    $status='UNCLEAR';$newCount=0;$unclearCount=0
-    . ([scriptblock]::Create($statusBlockMatch.Value))
-    $statusBlock
-}
-Add-CheckResult -Name 'CU-Watch-Issue fordert bei globalem Prüfausfall ohne Versionszeilen eine Prüfung' -Success (
-    $statusBlockMatch.Success -and $issueAction -match 'Prüfung unklar' -and $issueAction -notmatch 'Keine neuen Schritte'
-)
 Add-CheckResult -Name 'CU-Watch-Workflow publiziert nur die geprüfte Reportprojektion' -Success (
-    $watchWorkflow.Contains('Invoke-LabCuWatchEvaluation -Check') -and $watchWorkflow.Contains('$evaluation.Report | Out-File') -and
+    $watchWorkflow.Contains('Invoke-VersionCatalogResourceWatch.ps1 @arguments') -and $watchWorkflow.Contains('$evaluation.Report | Out-File') -and
     -not $watchWorkflow.Contains('$result.SourceUrl') -and -not $watchWorkflow.Contains('$entry.LatestCatalogKb') -and
     -not $watchWorkflow.Contains('sql-cu-watch.json')
 )
@@ -424,12 +415,13 @@ Add-CheckResult -Name 'CU-Watch lässt auch reguläres UNCLEAR nicht als grünen
     $watchUnknown.CheckFailed -and $watchUnknown.ReasonCode -eq 'CU_WATCH_INCONCLUSIVE'
 )
 Add-CheckResult -Name 'CU-Watch versucht Issuehinweis vor abschließendem roten Gate' -Success (
-    $watchWorkflow.Contains("if: always() && steps.cucheck.outcome == 'success'") -and
     $watchWorkflow.Contains("if: always() && steps.cucheck.outputs.check_failed == 'true'") -and
-    $watchWorkflow.IndexOf('Preserve failed check outcome') -gt $watchWorkflow.IndexOf('Open or update tracking issue')
+    $watchWorkflow.Contains("if: always() && steps.cucheck.outputs.notification_failed == 'true'") -and
+    $watchWorkflow.IndexOf('Preserve failed check outcome') -gt $watchWorkflow.IndexOf('Invoke-VersionCatalogResourceWatch.ps1 @arguments')
 )
 
 . (Join-Path $PSScriptRoot 'Fixtures/ResourceWatchChecks.ps1')
+. (Join-Path $PSScriptRoot 'Fixtures/VersionCatalogResourceWatchAutomationChecks.ps1')
 
 if ($failures.Count -gt 0) {
     foreach ($failure in $failures) { Write-Host "FAIL: $failure" -ForegroundColor Red }

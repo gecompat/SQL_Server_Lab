@@ -923,9 +923,13 @@ Gemeinsame WorkflowActions liefern ausschließlich bereinigte Befunde; CLI und
 GUI benötigen einen ausdrücklichen Refresh. Der flüchtige Cache schreibt weder
 Preferences noch Kataloge. Details und Grenzen:
 [Workflow UI](../Documentation/HowTo/WORKFLOW_UI.md#ressourcenstand-cus-und-sqlpackage).
-Die monatliche CU-Automation wird dadurch weder erweitert noch als dauerhaft
-abgenommen behauptet. Scheduler, weitere Familien und Benachrichtigung bleiben
-separate Folgearbeit unter den bestehenden IDs.
+Der getrennte Automationsrunner ergänzt in derselben Monatslane genau SqlPackage
+mit bereinigtem Report, Ressourcen-/Revisionsdedupe und nachgelesenem Issue-
+Receipt. Cron und Concurrency bleiben erhalten. Eigene manuelle Abnahmeissues
+verwenden einen getrennten `own-`-Scope mit receiptgebundenem Close-Cleanup.
+Die echte Dispatch-/Issue-/Cronabnahme dieses Ausbaus ist noch nicht ausgeführt;
+weitere Familien und Benachrichtigungskanäle bleiben offen. Vertrag:
+[Resource-Watch-Automation](../Documentation/Architecture/RESOURCE_WATCH_AUTOMATION.md).
 
 Der geführte eigene llama.cpp-Sitzungsstop ergänzt Auswahl, Vorschau, Cancel
 und bewusste Bestätigung in CLI/GUI. Verbrauchercoverage bleibt UNKNOWN;

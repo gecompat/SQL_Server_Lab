@@ -2819,10 +2819,22 @@ mit Prozesscache. Nach Neustart `NOT_CHECKED`, nach 15 Minuten `EXPIRED`;
 Offline/Timeout/429/Redirect/Parserfehler `UNCLEAR`, auch mit letztem Erfolg.
 Keine automatische Aktualisierung, dauerhafte Dedupe-/Monitoringgarantie,
 Benachrichtigung, Katalogänderung, Download oder Providerfreigabe.
-Die neue begrenzte Transportgrenze gilt nur für Resource Watch einschließlich
-des dort wiederverwendeten CU-Cores, nicht für unveränderte CU-/Monatsaufrufe.
+Die neue begrenzte Transportgrenze gilt für Resource Watch einschließlich
+des dort wiederverwendeten CU-Cores und den neuen Automationsrunner, nicht für
+unveränderte Einzel-CU-Aufrufe.
 Synthetische Parser-/Loopback-/Handlerfixtures belegen Vertragsverhalten;
 sie allein sind keine Live-Microsoft-, Provider- oder dauerhafte Schedulerabnahme. Der getrennte explizite Live-Metadatencheck und eigene Docker-Core-Nachweis sind in der lokalen Validierungsstrategie dokumentiert; daraus folgt keine dauerhafte Monitoring- oder Installationsfreigabe.
+
+Die bestehende monatliche CU-Lane besitzt jetzt eine getrennte CU-/SqlPackage-
+Report-/Issueprojektion mit Ressourcen-/Revisionsmarkern und nachgelesenen
+Receipts. Echte Dispatch-/Benachrichtigungs- und Cronabnahme dieses Ausbaus sind
+noch nicht ausgeführt. Ein gelesener Receipt belegt keine Zustellung an Personen.
+Die GET-Revalidierung ist kein serverseitiger CAS gegen externe Issuewriter.
+Alte Monatsissues ohne neuen Marker werden nicht automatisch migriert oder
+geschlossen. Markerdrift, unvollständige Pagination und unbestätigte Writes
+bleiben sichtbar blockiert beziehungsweise `RECOVERY_REQUIRED`. Eigene manuelle
+Issuefixtures werden nur receipt-/scopegebunden geschlossen, niemals gelöscht.
+[Automationsvertrag](../Architecture/RESOURCE_WATCH_AUTOMATION.md).
 
 ## Geführter eigener llama.cpp-Sitzungsstop
 
