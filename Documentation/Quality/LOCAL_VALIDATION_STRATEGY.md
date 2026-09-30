@@ -2016,6 +2016,16 @@ Ubuntu nur betroffene statische Suites aus und schaltet ausschließlich passende
 Runtime-Smokes zu. Änderungen am Foundation-Core, Root-Agentenvertrag,
 Upgrade-Assessment, Copilot-Adapter oder PR-Gate starten zusätzlich den Job
 `Foundation integrity`.
+Der Job `static-contracts` hat für beide bestehenden Matrixplattformen ein
+begrenztes Zeitbudget von 20 Minuten. Der Windowslauf des PR-Gates auf
+`c12defe2` vom 2026-09-30 überschritt das frühere 10-Minuten-Budget bei
+kontinuierlicher Analyzerarbeit nach den vorherigen betroffenen Suites; der
+34-Suite-Nachweis blieb dadurch unvollständig. Dieser CI-Timeout ist vom
+separaten lokalen Analyzerfehler durch gemischte Zeilenenden zu unterscheiden.
+Die Budgetkorrektur entfernt keine Tests und ändert weder Auswahl,
+Fehlerbehandlung, Concurrency noch andere Job-/Providerbudgets. Erst ein
+vollständig bestandener neuer CI-Lauf belegt den Windows-Gate; die Änderung
+des Budgets selbst ist kein erfolgreicher CI-Nachweis.
 Die Auswahl bindet gemeinsame Hyper-V-Job-/Storage-Helfer auch an Netzwerk-,
 Sample-Baseline- und Storage-Prüfungen. Gemeinsame KI-Implementierungen und
 KI-Schemas wählen die KI-Vertragssuite sowie Docker, Podman und Hyper-V aus;

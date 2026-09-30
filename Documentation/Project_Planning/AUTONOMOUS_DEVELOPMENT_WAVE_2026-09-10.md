@@ -32,6 +32,14 @@ aktiv und danach separat own-cleaned, Testroot-Cleanup bestätigt. Das ist
 native Prozessführung im engen Scope, keine SQL-/Modell-/Compute-/Provider-
 oder manuelle UI-Abnahme. Der abschließende Dokudelta-Review bleibt separat.
 
+Der anschließende Windows-PR-Gate auf `c12defe2` wurde bei weiterlaufender
+Analyzerarbeit durch sein 10-Minuten-Jobbudget beendet. Dieser unvollständige
+CI-Nachweis bleibt separat vom lokalen Analyzerfehler dokumentiert. Das
+begrenzte Budget des bestehenden statischen Matrixjobs ist auf 20 Minuten
+erhöht; Testauswahl und andere Jobbudgets bleiben unverändert. Der neue
+Windows-Gate ist bis zum tatsächlichen Abschluss weiter offen; laufende
+Providerprüfungen werden durch diese Korrektur nicht abgebrochen.
+
 ## Abschlusscheckpoint vom 2026-09-29
 
 Der Benutzer hat die autonome Entwicklung nach einem konsistenten Abschluss
