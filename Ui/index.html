@@ -121,7 +121,8 @@
     <section class="panel" data-workspace-area="hostmodels" hidden>
       <h2>Host-Dienste und Modelle</h2>
       <p>Runtimeinstallation, laufender Dienst, gespeicherte Modelldatei und geladenes Modell sind getrennte Zustände. In der Konsole sind Modellkatalog/Download und vorhandene Ollama-Modellaufrufe verfügbar.</p>
-      <p>Geführte manuelle Hostdienststeuerung sowie Load, Warmup, Unload und Modellwechsel bleiben offen. Der vorhandene erweiterte Secret-Preflight unten steuert keinen Dienst.</p>
+      <p>Eigene llama.cpp-Sitzungen dieses UI-Modulhosts können bewusst gestoppt werden. Fremdprozesse, Start, Restart sowie Load, Warmup, Unload und Modellwechsel bleiben offen. Der vorhandene erweiterte Secret-Preflight unten steuert keinen Dienst.</p>
+      <button id="llama-session-open" type="button" class="button secondary">Eigene llama.cpp-Sitzung stoppen</button>
     </section>
     <section class="panel" data-workspace-area="connections" hidden>
       <h2>Verbindungen und CMS</h2>
@@ -566,6 +567,22 @@
         <button id="llama-installer-preview" type="button" class="button secondary" disabled>Installation vorprüfen</button>
         <button id="llama-installer-apply" type="button" class="button primary" disabled>Bestätigten Plan ausführen</button>
         <button id="llama-installer-close" type="button" class="button secondary">Abbrechen / zurück</button>
+      </div>
+    </div>
+  </dialog>
+  <dialog id="llama-session-dialog">
+    <div class="maintenance-dialog-content">
+      <h2>Eigene llama.cpp-Sitzung stoppen</h2>
+      <p id="llama-session-status" role="status" aria-live="polite"></p>
+      <p id="llama-session-notice" class="form-note"></p>
+      <label>Sitzung dieses Modulhosts<select id="llama-session-selection" disabled></select></label>
+      <p id="llama-session-preview" class="selection-details" hidden></p>
+      <label><input id="llama-session-confirm" type="checkbox" disabled> Bewusst stoppen; auch unbekannte SQL-Verbraucher können ausfallen</label>
+      <div class="dialog-actions">
+        <button id="llama-session-read" type="button" class="button secondary">Lesen / F5</button>
+        <button id="llama-session-plan" type="button" class="button secondary" disabled>Stop vorprüfen</button>
+        <button id="llama-session-stop" type="button" class="button danger" disabled>Ausgewählte Sitzung stoppen</button>
+        <button id="llama-session-close" type="button" class="button secondary">Abbrechen / Schließen</button>
       </div>
     </div>
   </dialog>

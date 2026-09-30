@@ -2944,3 +2944,69 @@ $('#resource-watch-read').addEventListener('click', () => readResourceWatch());
 $('#resource-watch-check').addEventListener('click', () => readResourceWatch(true));
 $('#resource-watch-close').addEventListener('click', () => $('#resource-watch-dialog').close());
 for (const event of ['close', 'cancel']) $('#resource-watch-dialog').addEventListener(event, () => { resourceWatchRevision++; resourceWatchBusy = false; updateResourceWatchControls(); });
+
+// Own module-session stop: only an opaque server preview authorizes the target.
+let llamaSessionView = null, llamaSessionPlan = null, llamaSessionBusy = false, llamaSessionStopping = false, llamaSessionRevision = 0;
+function updateLlamaSessionControls() {
+  const selected = llamaSessionView?.Items.find(item => item.OperationId === $('#llama-session-selection').value);
+  $('#llama-session-selection').disabled = llamaSessionBusy || !llamaSessionView?.Items.length;
+  $('#llama-session-read').disabled = llamaSessionBusy;
+  $('#llama-session-plan').disabled = llamaSessionBusy || !selected;
+  $('#llama-session-confirm').disabled = llamaSessionBusy || !llamaSessionPlan;
+  $('#llama-session-stop').disabled = llamaSessionBusy || !llamaSessionPlan || !$('#llama-session-confirm').checked;
+  $('#llama-session-close').disabled = llamaSessionStopping;
+}
+function invalidateLlamaSessionPlan() {
+  llamaSessionPlan = null; $('#llama-session-confirm').checked = false;
+  $('#llama-session-preview').hidden = true; updateLlamaSessionControls();
+}
+async function requestLlamaSession(action = 'read') {
+  if (llamaSessionBusy) return;
+  const operationId = $('#llama-session-selection').value;
+  if (action === 'preview' && !llamaSessionView?.Items.some(item => item.OperationId === operationId)) return;
+  if (action === 'stop' && (!llamaSessionPlan || !$('#llama-session-confirm').checked)) return;
+  const payload = action === 'read' ? null : action === 'preview' ? { action, operationId } : { action, planId: llamaSessionPlan.PlanId, confirmed: true };
+  const revision = ++llamaSessionRevision;
+  llamaSessionBusy = true; llamaSessionStopping = action === 'stop'; invalidateLlamaSessionPlan();
+  $('#llama-session-status').textContent = llamaSessionStopping ? 'Bestätigter Stop wird abgewartet; Schließen erst nach Ergebnis. Eine gestartete Aktion wird nicht zurückgenommen.' : 'Ergebnis wird abgewartet …';
+  try {
+    const response = await fetch('/api/llama-sessions', payload ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) } : { cache: 'no-store' });
+    if (!response.ok) throw new Error('LLAMA_SESSION_UNCONFIRMED');
+    const result = await response.json();
+    if (revision !== llamaSessionRevision || !$('#llama-session-dialog').open) return;
+    if (action === 'read') {
+      if (!Array.isArray(result.Items)) throw new Error('LLAMA_SESSION_RESPONSE_INVALID');
+      llamaSessionView = result;
+      $('#llama-session-selection').innerHTML = '<option value="">Sitzung auswählen</option>' + result.Items.map(item => '<option value="' + escapeHtml(item.OperationId) + '">Port ' + escapeHtml(item.Port) + ' · ' + escapeHtml(item.OperationId) + ' · ' + escapeHtml(item.Status) + '</option>').join('');
+      $('#llama-session-selection').value = '';
+      $('#llama-session-notice').textContent = result.Notice;
+      $('#llama-session-status').textContent = result.Items.length ? result.Items.length + ' eigene Sitzungen' : 'Keine Sitzung dieses Modulhosts. Im selben PowerShell-Modulhost starten und UI ohne erneuten Force-Import öffnen.';
+    } else if (action === 'preview') {
+      if (result.OperationId !== operationId || result.ConsumerCoverage !== 'UNKNOWN' || !result.PlanId) throw new Error('LLAMA_SESSION_RESPONSE_INVALID');
+      llamaSessionPlan = result;
+      $('#llama-session-preview').textContent = 'Stop: ' + result.OperationId + ' · Port ' + result.Port + ' · Rechte: ' + result.Rights + ' · bekannte Verbraucher: ' + result.KnownConsumerCount + ' · Coverage UNKNOWN. ' + result.Notice;
+      $('#llama-session-preview').hidden = false;
+      $('#llama-session-status').textContent = 'Vorschau erstellt. Bewusste Bestätigung erforderlich.';
+    } else {
+      llamaSessionView = null; $('#llama-session-selection').innerHTML = ''; $('#llama-session-selection').value = '';
+      $('#llama-session-status').textContent = 'Stop / Cleanup: ' + result.Status + '. Sitzungen erneut lesen.';
+    }
+  } catch {
+    if (revision !== llamaSessionRevision || !$('#llama-session-dialog').open) return;
+    llamaSessionView = null; invalidateLlamaSessionPlan();
+    $('#llama-session-status').textContent = 'Stop nicht bestätigt. Neu lesen und vorprüfen; eigene Recovery separat prüfen. Keine automatische Wiederholung.';
+  } finally { if (revision === llamaSessionRevision) { llamaSessionBusy = false; llamaSessionStopping = false; updateLlamaSessionControls(); } }
+}
+$('#llama-session-open').addEventListener('click', () => {
+  llamaSessionRevision++; llamaSessionBusy = false; llamaSessionView = null; invalidateLlamaSessionPlan();
+  $('#llama-session-dialog').showModal(); return requestLlamaSession();
+});
+$('#llama-session-selection').addEventListener('change', () => { llamaSessionRevision++; invalidateLlamaSessionPlan(); });
+$('#llama-session-confirm').addEventListener('change', updateLlamaSessionControls);
+$('#llama-session-read').addEventListener('click', () => requestLlamaSession());
+$('#llama-session-plan').addEventListener('click', () => requestLlamaSession('preview'));
+$('#llama-session-stop').addEventListener('click', () => requestLlamaSession('stop'));
+$('#llama-session-close').addEventListener('click', () => { if (!llamaSessionStopping) $('#llama-session-dialog').close(); });
+$('#llama-session-dialog').addEventListener('close', () => { llamaSessionRevision++; llamaSessionBusy = false; llamaSessionView = null; invalidateLlamaSessionPlan(); });
+$('#llama-session-dialog').addEventListener('cancel', event => { if (llamaSessionStopping) event.preventDefault(); });
+$('#llama-session-dialog').addEventListener('keydown', event => { if (event.key === 'F5') { event.preventDefault(); return requestLlamaSession(); } });

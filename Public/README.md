@@ -227,3 +227,15 @@ Preferences-Authority bindet Vorschau/Apply an Katalog und Vorgänger.
 Edit/Reset beschaffen nichts; `Save-SqlServerLabMediaSource` bleibt der explizite
 Downloadweg mit unveränderter Integritätsprüfung und ohne Redirectfolge bei
 Overrides. [Bedienung und Grenzen](../Documentation/User/Getting_Started.md#lokale-sql-2025-bootstrapperquellen).
+
+### Eigene llama.cpp-Sitzung bewusst stoppen
+
+`Invoke-SqlServerLabWorkflowAction` bietet `GetLlamaSessions`,
+`PlanLlamaSessionStop -LlamaSessionOperationId` und
+`StopLlamaSession -LlamaSessionPlanId -ConfirmLlamaSessionStop` innerhalb
+derselben Modulsitzung. CLI und GUI zeigen UNKNOWN-Verbrauchercoverage;
+PlanId ist eine fünf Minuten gültige serverseitige Auswahl. Fremdprozesse und
+Modellaktionen bleiben separat offen.
+Der enge Windows-GuidedStop-Nachweis vom 2026-09-30 belegt ausschließlich
+synthetische native Prozessführung und bestätigten eigenen Cleanup.
+Siehe [Ownership- und Evidencegrenzen](../Documentation/Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

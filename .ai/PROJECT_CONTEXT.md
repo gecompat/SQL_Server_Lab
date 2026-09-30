@@ -926,3 +926,13 @@ Preferences noch Kataloge. Details und Grenzen:
 Die monatliche CU-Automation wird dadurch weder erweitert noch als dauerhaft
 abgenommen behauptet. Scheduler, weitere Familien und Benachrichtigung bleiben
 separate Folgearbeit unter den bestehenden IDs.
+
+Der geführte eigene llama.cpp-Sitzungsstop ergänzt Auswahl, Vorschau, Cancel
+und bewusste Bestätigung in CLI/GUI. Verbrauchercoverage bleibt UNKNOWN;
+Fremdprozesse und Start/Restart bleiben offen. Die GUI erhält die eigene
+bereits importierte Modulsitzung. Scope und Abnahmegrenzen stehen im
+[Ownershipvertrag](../Documentation/Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+Der separate Windows-GuidedStop-Nachweis vom 2026-09-30 bestand mit eigenen
+synthetischen nativen Prozessen und bestätigtem Cleanup; SQL-/Modell-/Compute-
+und Providerabnahme sowie vollständige Live-Verbrauchercoverage folgen daraus
+nicht. Der enge Lifecycle-/Cleanup-Nachreview ist geschlossen.

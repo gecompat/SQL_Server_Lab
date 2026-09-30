@@ -75,5 +75,5 @@
     $items = Show-LabTestMatrixMenu
     Add-ConsoleUiCheck 'Leere Testmatrix lässt lesbaren Fachdialog offen und sperrt Entfernen mit Abhilfe' (@($items | Where-Object { $_.Id -eq 'ClearAutomatedTestEnvironment' -and $_.Disabled -and $_.DisabledReason }).Count -eq 1 -and @($items | Where-Object { $_.Id -eq 'AutomatedTestEnvironmentLifecycle' -and -not $_.Disabled }).Count -eq 1)
     $items = Show-LabHostModelsMenu
-    Add-ConsoleUiCheck 'Fehlende Hostdienst- und Modell-Lifecycle bleiben explizit deaktiviert' (@($items | Where-Object { $_.Id -in @('HostServiceLifecycle','ModelLifecycle') -and $_.Disabled -and $_.DisabledReason }).Count -eq 2)
+    Add-ConsoleUiCheck 'Eigener Sitzungsstop ist erreichbar; Modell-Lifecycle bleibt explizit deaktiviert' (@($items | Where-Object { $_.Id -eq 'HostServiceLifecycle' -and -not $_.Disabled }).Count -eq 1 -and @($items | Where-Object { $_.Id -eq 'ModelLifecycle' -and $_.Disabled -and $_.DisabledReason }).Count -eq 1)
 }

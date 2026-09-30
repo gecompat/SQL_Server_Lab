@@ -2088,3 +2088,11 @@ Einstellungen bleiben erhalten.
 Speichern prüft syntaktische Zulässigkeit, keine Downloadverfügbarkeit. Ein
 Bootstrapper ist keine ISO und keine installierte SQL-Instanz. Andere
 Medienfamilien, freie Mirrors, Resolver- und Parseränderungen bleiben offen.
+
+Der geführte eigene llama.cpp-Sitzungsstop ist unter „Host-Dienste und Modelle“
+über Auswahl, Vorschau, Abbruch und bewusste Bestätigung erreichbar. Die
+Verbraucher-Coverage bleibt UNKNOWN; deklarierte geschützte Verbraucher sperren
+den Stop. Fremdprozesse, Start/Restart und Modellaktionen bleiben offen.
+Die GUI muss im selben PowerShell-Modulhost wie der bestehende Start geöffnet
+werden; sie lädt den exakten vorhandenen Modulpfad ohne Force-Reload weiter.
+Details und Workflow-Aktionen: [Sitzungsstop](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

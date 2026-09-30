@@ -101,6 +101,69 @@ Ein laufender Server ist sitzungsgebunden. Für weitere Arbeit dieselbe
 Modulsitzung behalten; ein erneuter Import mit `-Force` beendet deren Ownership.
 Nach Rechnerneustart existiert kein eigener Dienst, der wiederaufgenommen wird.
 
+## Geführter Stop vorhandener eigener Sitzungen
+
+CLI: **Host-Dienste und Modelle → Eigene llama.cpp-Sitzung auswählen und stoppen**.
+GUI: derselbe Bereich, **Eigene llama.cpp-Sitzung stoppen**. Die Sicht enthält nur
+Workerobjekte der aktuell gehaltenen Modulsitzung, einschließlich
+`CLEANUP_PENDING` nach Workerende. Vorschau und Abbruch stoppen nichts. Eine
+fünf Minuten gültige, serverseitig gehaltene Auswahl bindet Operation, exakt
+gehaltenes Sitzung-/Workerobjekt und Port. Zielersatz, Ablauf oder geänderte
+Schutz-/Verbraucherreferenzen blockieren vor Stop. Die Bestätigung führt genau
+den bestehenden Worker-/Key-Cleanup aus; Logs und Callerdateien bleiben erhalten.
+Ein verbrauchtes Receipt ist nicht wiederverwendbar. Bei Cleanupfehlern die
+weiterhin eigene Operation frisch auswählen oder das bestehende Stop-Cmdlet
+für deren Recovery verwenden. Es gibt keinen automatischen Neustart.
+
+`Invoke-SqlServerLabWorkflowAction` bietet `GetLlamaSessions`,
+`PlanLlamaSessionStop -LlamaSessionOperationId` und
+`StopLlamaSession -LlamaSessionPlanId -ConfirmLlamaSessionStop`. CLI und
+HTTP `/api/llama-sessions` verwenden dieselbe serverseitige Authority. Die
+HTTP-Grenze nimmt keine PID, Pfade oder vollständigen Planobjekte entgegen.
+
+Verbraucher-Coverage bleibt ausdrücklich `UNKNOWN`. Registrierte
+Shared-Gateway-Pläne mit gleichem numerischem Loopback-Upstream-Port liefern
+nur deklarierte Verbraucher, keine Live-SQL-Abnahme. Ihr Ausfall und mögliche
+unbekannte Verbraucherfolgen werden vor Bestätigung angezeigt. Eine deklarierte
+Referenz auf einen in `TestUmgebung.registry.json` geschützten Run blockiert.
+Eine konfigurierte, unlesbare Schutzauthority blockiert ebenfalls. Registrierung
+und geführter Stop teilen deren bestehende Gruppen-Sperre; unmittelbar vor dem
+Stop werden Referenzen erneut gelesen. Eine leere deklarierte Liste bestätigt
+keine Verbraucherfreiheit. Das ändert den bisherigen automatischen,
+ownershipgebundenen Cleanup nicht.
+
+Gatewaypublikation und geführter Stop teilen zusätzlich eine kanonische
+StateRoot-Lifecyclesperre. Feste Reihenfolge: zuerst StateRoot, danach beim
+Registrar dessen Gateway-Sperre beziehungsweise beim Stop die bestehende
+Testgruppen-Sperre. Relative-, Case- und Separatoraliaspfade teilen die
+Sperre; Reparsepfade werden abgewiesen. Der Registrar wartet höchstens 30 Sekunden auf die StateRoot-Sperre, damit identische parallele Registrierungen weiterhin idempotent bleiben; Vorschau und Stop melden eine belegte Sperre unmittelbar. Damit kann eine neue bekannte
+Gatewaypublikation nicht nach der letzten Observation in das Stopintervall
+eintreten. Nicht-Leaf-, Reparse- und unlesbare konfigurierte Registrypfade
+blockieren; tatsächlich fehlende Registry und noch nicht provisionierte
+Einträge ohne RunId bleiben reguläre Zustände.
+
+Für die GUI zuerst den bestehenden Start-Aufruf in **derselben PowerShell**
+ausführen und danach `./Tools/Start-SqlServerLabUi.ps1` starten. Der UI-Host
+verwendet den bereits geladenen exakten Modulpfad ohne Force-Reload weiter;
+ein anderes Modul desselben Namens blockiert. Die bisherigen erforderlichen
+Startparameter gelten vollständig. Ein Start aus anderer PowerShell oder über
+separat importierende Hintergrundjobs erscheint hier nicht. Eine leere GUI-Sicht
+nennt diese Abhilfe. Geführter Start, Fremdprozesse, Windows-Dienste, Restart,
+Konfiguration und Modell-Lifecycle bleiben offen; das ist keine allgemeine
+Ownershipbeschränkung für künftige bewusste manuelle Hostaktionen.
+
+`Invoke-LlamaCppSessionGuidanceChecks.ps1` prüft Core, echten UI-Modulimport,
+HTTP-Grenze und CLI mit synthetischen Runtimegrenzen. Die echte Browserfixture
+prüft Vorschau, Bestätigung, Cancel, leere Sicht und verspätete Antworten.
+Der opt-in Case `GuidedStop` des Ownership-Acceptance-Harness bestand am
+2026-09-30 unter Windows mit Exitcode 0: echte Workflow-Vorschau, Cancel,
+abgelaufene Vorschau, Apply und Replayabwehr. Eigener Worker und wartendes Kind
+endeten; die eigene Keydatei war abwesend. Das Nachbarkind blieb während des
+Stops aktiv und wurde danach separat operationseigen bereinigt; Testroot-Cleanup
+war bestätigt. Der Nachweis nutzt ausschließlich synthetische native Prozesse
+und eine isolierte Schutzregistry, keine SQL-, Modell-, Compute- oder
+Providerprobe. Verbrauchercoverage bleibt UNKNOWN; die UI-/CLI-Handler und der
+exakte UI-Modulsitzungserhalt sind separat synthetisch geprüft.
 ## Nachweise und Grenzen
 
 `Invoke-LlamaCppOwnedRuntimeChecks.ps1` prüft Accelerator-Negative, fremde

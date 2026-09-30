@@ -77,6 +77,29 @@ try {
     Add-CheckResult 'Publikationsfehler wird ohne interne Details gemeldet' (Reject {$plan|Register-SqlServerLabAiSharedGatewayStorage -RuntimePath $runtime -ModelPath $model -CertificatePath $cert -PrivateKeyPath $key -CertificateAuthorityPath $caPath -StateRoot $failureRoot -Confirm:$false} 'AI_SHARED_GATEWAY_STORAGE_REGISTRATION_FAILED')
     $failureShared=Join-Path $failureRoot 'shared-ai-gateways'
     Add-CheckResult 'Fehlercleanup entfernt ausschließlich den unveröffentlichten Stagingzustand' (-not(Test-Path (Join-Path $failureShared 'shared-ai')) -and @((Get-ChildItem $failureShared -Force -ErrorAction SilentlyContinue)|Where-Object Name -Like '.register-*').Count -eq 0)
+    $cleanupFailureRoot=Join-Path $testRoot 'cleanup-failure-state'
+    & $module {
+        function script:Remove-Item {
+            [CmdletBinding()]param([string]$LiteralPath,[switch]$Recurse,[switch]$Force)
+            if([IO.Path]::GetFileName($LiteralPath) -like '.register-*'){throw 'synthetic staged cleanup failure'}
+            Microsoft.PowerShell.Management\Remove-Item @PSBoundParameters
+        }
+    }
+    Add-CheckResult 'Terminierender Stagingcleanup bewahrt seine bestehende Fehlersignatur' (Reject {$plan|Register-SqlServerLabAiSharedGatewayStorage -RuntimePath $runtime -ModelPath $model -CertificatePath $cert -PrivateKeyPath $key -CertificateAuthorityPath $caPath -StateRoot $cleanupFailureRoot -Confirm:$false} 'synthetic staged cleanup failure')
+    # Keep the failing writer module alive: a different process must acquire both locks,
+    # rather than relying on module removal or abandoned-mutex recovery.
+    $cleanupJob=Start-Job -ScriptBlock {
+        param($manifest,$json,$runtime,$model,$cert,$key,$caPath,$root)
+        Import-Module $manifest -Force
+        $json|ConvertFrom-Json -Depth 30|Register-SqlServerLabAiSharedGatewayStorage -RuntimePath $runtime -ModelPath $model -CertificatePath $cert -PrivateKeyPath $key -CertificateAuthorityPath $caPath -StateRoot $root -Confirm:$false
+    } -ArgumentList (Join-Path $repoRoot 'SqlServerLab.psd1'),($plan|ConvertTo-Json -Depth 30 -Compress),$runtime,$model,$cert,$key,$caPath,$cleanupFailureRoot
+    try {
+        $null=Wait-Job $cleanupJob -Timeout 15
+        $cleanupCompleted=$cleanupJob.State -eq 'Completed'
+        $cleanupOutput=@(Receive-Job $cleanupJob -ErrorAction Stop)
+        Add-CheckResult 'Nach terminierendem Cleanup erwirbt ein anderer Prozess beide Sperren erneut' ($cleanupCompleted -and @($cleanupOutput|Where-Object Status -CEQ 'REGISTERED').Count -eq 1)
+    }
+    finally {if($cleanupJob.State -eq 'Running'){Stop-Job $cleanupJob};Remove-Job $cleanupJob -Force}
     Remove-Module $module -Force;$module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
 
     $parallelRoot=Join-Path $testRoot 'parallel-state';$planJson=$plan|ConvertTo-Json -Depth 30 -Compress
