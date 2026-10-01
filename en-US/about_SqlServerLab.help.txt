@@ -587,3 +587,12 @@ SEE ALSO
     SQL 2025 Hyper-V instance and atomically refreshes its local receipt.
     Fresh Developer evidence is NOT_APPLICABLE; Evaluation without a deadline
     remains UNKNOWN. WhatIf performs no guest access or receipt/lock writes.
+
+    Get-SqlServerLabReconcilePlan -ProposedRelations previews requires-sql
+    relationships between up to two managed container SQL instances and one
+    shared SQL reference under registered Lab_Data/State. Each relation contains
+    SourceInstanceId, Type and Target (RunId, ScopeId, InstanceId, ManagementMode).
+    PROVISIONED stays within the owned run; EXTERNAL_READ_ONLY references a
+    managed shared run without adoption. ReconcilePlan 1.2 is plan-only: no
+    persisted relations, SQL/runtime probe, secrets, lease or lifecycle action.
+    SQL readiness remains NOT_CHECKED; ReconcileAction refuses execution.

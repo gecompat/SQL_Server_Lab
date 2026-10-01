@@ -114,6 +114,13 @@ notwendige Recovery anzeigt.
 
 ## 4. Nicht zugesagte Funktionen
 
+Der separate [Komponentenplan](EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md#71-implementierter-enger-komponentenplan-slice-e)
+liest explizite vorgeschlagene SQL-Abhängigkeiten und genau eine verwaltete
+Shared-Referenz, ohne sie zu persistieren oder auszuführen. Er erweitert diesen
+Start-/Stop-/Remove-Vertrag nicht: die bestehende Providerreihenfolge ist kein
+Komponenten-DAG. Shared-Erhalt ist eine feste Vorschaugrenze, keine neue
+Verbraucher-Lease oder Runtime-Abnahme; SQL-Bereitschaft bleibt `NOT_CHECKED`.
+
 - kein gemeinsames Docker-/Podman-Netzwerk und keine direkte Container-zu-
   Container-Kommunikation über Providergrenzen;
 - keine verteilte Transaktion, kein Failover und keine Clustersemantik;

@@ -12,6 +12,18 @@
     Nicht unterstuetzte Planzustaende bleiben mutationsfrei.
 .PARAMETER RunId
     Identifizierer des vorhandenen Runs.
+.PARAMETER ProposedRelations
+    Reine Komponentenplanung wird hier ausdrücklich als nicht ausführbar abgewiesen.
+.PARAMETER Mode
+    Planmodus aus einer Pipeline. Jeder ausdrücklich vorhandene Mode wird vor
+    Beobachtung abgewiesen; vorhandene ausführbare Planfamilien haben keinen Mode.
+.PARAMETER Contract
+    Planvertrag aus einer Pipeline. Die Komponenten-Version 1.2 der allgemeinen
+    ReconcilePlan-Familie ist nicht ausführbar. Bestehende spezialisierte
+    Planfamilien behalten ihre bisherige Route.
+.PARAMETER ExecutionSupported
+    Explizite Ausführungsfähigkeit aus einer Pipeline. false oder ein anderer
+    nicht boolescher Wert erlaubt keine Beobachtung oder Mutation.
 .PARAMETER TargetState
     Gewuenschter Zielzustand fuer den Run nach der Reconcile-Ausfuehrung.
 .PARAMETER ManifestPath
@@ -94,6 +106,19 @@ function Invoke-SqlServerLabReconcileAction {
     param(
         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [string]$RunId,
+
+        [Parameter(Mandatory, ParameterSetName = 'ComponentRelations')]
+        [AllowEmptyCollection()]
+        [object[]]$ProposedRelations,
+
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [string]$Mode,
+
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [object]$Contract,
+
+        [Parameter(ValueFromPipelineByPropertyName)]
+        [object]$ExecutionSupported,
 
         [Parameter(Mandatory, ParameterSetName = 'Lifecycle')]
         [ValidateSet('RUNNING', 'STOPPED')]
@@ -180,6 +205,12 @@ function Invoke-SqlServerLabReconcileAction {
         [string]$StateRoot
     )
 
+    if ($PSCmdlet.ParameterSetName -eq 'ComponentRelations' -or
+        $PSBoundParameters.ContainsKey('Mode') -or
+        ($PSBoundParameters.ContainsKey('ExecutionSupported') -and ($ExecutionSupported -isnot [bool] -or -not $ExecutionSupported)) -or
+        ($null -ne $Contract -and $Contract.Name -ieq 'SqlServerLab.ReconcilePlan' -and $Contract.Version -cnotin @('1.0','1.1'))) {
+        throw 'RECONCILE_PLAN_NOT_EXECUTABLE'
+    }
     if ($PSCmdlet.ParameterSetName -eq 'HyperVTestDatabases') {
         $plan = Get-SqlServerLabReconcilePlan -RunId $RunId -HyperVTestDatabases -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
         $wouldExecute = if ($plan.IsNoOp -or [string]$plan.HighestChangeClass -ne 'live') { $false } else {

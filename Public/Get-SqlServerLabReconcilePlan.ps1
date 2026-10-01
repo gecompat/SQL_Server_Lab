@@ -63,6 +63,11 @@
 .PARAMETER StateRoot
     Optionaler lokaler State-Root fuer einen reproduzierbaren, isolierten
     Lesezugriff. Ohne Angabe gilt der konfigurierte Standard-State-Root.
+.PARAMETER ProposedRelations
+    Explizite requires-sql-Beziehungen zwischen höchstens zwei vorhandenen
+    Container-SQL-Instanzen und einer verwalteten Shared-SQL-Referenz.
+    Der Parametersatz liest ausschließlich gebundenen State unter registriertem
+    Lab_Data/State. Er prüft weder SQL noch Runtime und persistiert nichts.
 .OUTPUTS
     System.Management.Automation.PSCustomObject. Serialisierbarer Vertrag ohne
     Secrets, Host/Port-Werte, Container-/VM-IDs oder lokale Pfade.
@@ -119,6 +124,10 @@ function Get-SqlServerLabReconcilePlan {
     param(
         [Parameter(Mandatory, Position = 0)]
         [string]$RunId,
+
+        [Parameter(Mandatory, ParameterSetName = 'ComponentRelations')]
+        [AllowEmptyCollection()]
+        [object[]]$ProposedRelations,
 
         [Parameter(Mandatory, ParameterSetName = 'Lifecycle')]
         [ValidateSet('RUNNING', 'STOPPED')]
@@ -190,6 +199,9 @@ function Get-SqlServerLabReconcilePlan {
         [string]$StateRoot
     )
 
+    if ($PSCmdlet.ParameterSetName -eq 'ComponentRelations') {
+        return New-LabComponentRelationPlan -RunId $RunId -ProposedRelations $ProposedRelations -StateRoot $StateRoot
+    }
     if ($PSCmdlet.ParameterSetName -eq 'HyperVTestDatabases') {
         return New-LabHyperVTestDatabaseReconcilePlan -RunId $RunId -ManifestPath $ManifestPath `
             -InstanceId $InstanceId -StateRoot $StateRoot

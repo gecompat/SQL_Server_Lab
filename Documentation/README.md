@@ -188,7 +188,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Export-SqlServerLabCmsSyncScript` | Idempotentes CMS-Synchronisationsskript erzeugen |
 | `Initialize-SqlServerLabCms` | Kompakten persistenten Docker-/Podman-CMS nach expliziter Auswahl erstellen |
 | `Sync-SqlServerLabCms` | Verwalteten lokalen CMS mit dem Endpunktkatalog abgleichen |
-| `Get-SqlServerLabReconcilePlan` | Read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-, Containerressourcen-/Autostart- oder External-Runtime-Reconcile-Plan |
+| `Get-SqlServerLabReconcilePlan` | Read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-, Containerressourcen-/Autostart- oder External-Runtime-Reconcile-Plan; nicht ausführbare Komponenten-/Shared-Verbrauchervorschau über ProposedRelations |
 | `Invoke-SqlServerLabReconcileAction` | Start/Stop, eigentumsgebundene Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Aktionen, Containerressourcen-/Autostart-Reconcile oder validierter additiver Container-Runtime-Refresh (mit `-WhatIf`) |
 | `Move-SqlServerLabContainerNetwork` | Konfligierendes verwaltetes Docker- oder Podman-Labnetz nach expliziter Bestätigung auf ein geprüftes Subnetz verschieben |
 | `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive UI-Aktion für einen Hyper-V-Workflow-Schritt |

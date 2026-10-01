@@ -1,5 +1,11 @@
 # Funktionsübersicht für CLI und Browser-GUI
 
+Slice E: `Get-SqlServerLabReconcilePlan -ProposedRelations` liefert eine reine
+Komponenten-/Shared-Verbrauchervorschau an vorhandener Labidentität. Sie ist
+über den generischen CLI-Befehlszugang erreichbar; ein geführter CLI-/GUI-
+Dialog fehlt. Der Plan startet nichts, übernimmt keinen Shared-Dienst und
+prüft SQL nicht. [Vertrag und Eingabe](../Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md#71-implementierter-enger-komponentenplan-slice-e).
+
 `AIX-001/008`: Ressourcen und Downloads → llama.cpp-Runtime installieren / prüfen
 ist in CLI und Browser ein gemeinsamer Fachdialog; direkter CLI-Einstieg:
 `Invoke-SqlServerLab -Action RuntimeInstaller`. Initial unterstützt er nur den
