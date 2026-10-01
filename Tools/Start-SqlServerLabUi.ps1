@@ -389,6 +389,20 @@ if (-not (Test-Path -LiteralPath $uiRoot -PathType Container)) {
     throw "UI_ROOT_NOT_FOUND: $uiRoot"
 }
 
+function Invoke-UiCmsInspectionRequest {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Request)
+    if($Request.HttpMethod -ceq 'GET'){return Invoke-SqlServerLabWorkflowAction -Action GetCmsInspectionState}
+    if($Request.HttpMethod -cne 'POST' -or $Request.ContentType -notmatch '^application/json(?:;|$)'){throw 'CMS_INSPECTION_REQUEST_INVALID'}
+    $origin=[string]$Request.Headers['Origin']
+    if($origin -and $origin -cne $Request.Url.GetLeftPart([UriPartial]::Authority)){throw 'CMS_INSPECTION_ORIGIN_INVALID'}
+    $reader=[IO.StreamReader]::new($Request.InputStream,$Request.ContentEncoding)
+    try {$buffer=[char[]]::new(4097);$length=$reader.ReadBlock($buffer,0,$buffer.Length);if($length -gt 4096){throw 'CMS_INSPECTION_REQUEST_INVALID'};$payload=([string]::new($buffer,0,$length))|ConvertFrom-Json -Depth 5 -ErrorAction Stop}finally{$reader.Dispose()}
+    if($payload -isnot [pscustomobject] -or $payload.action -cne 'InspectCms' -or $payload.parameters -isnot [pscustomobject] -or @($payload.PSObject.Properties.Name|Where-Object {$_ -cnotin @('action','parameters')}).Count -or
+        @($payload.parameters.PSObject.Properties).Count -ne 1 -or $payload.parameters.ExpectedPlanKey -isnot [string] -or $payload.parameters.ExpectedPlanKey -cnotmatch '^[a-f0-9]{64}$'){throw 'CMS_INSPECTION_REQUEST_INVALID'}
+    Invoke-SqlServerLabWorkflowAction -Action InspectCms -ExpectedPlanKey $payload.parameters.ExpectedPlanKey
+}
+
 function Invoke-UiInitialSetupRequest {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Request)
@@ -636,6 +650,11 @@ try {
                 catch { Write-UiResponse -Context $context -Body 'RESOURCE_CHANGE_UNAVAILABLE: Ziel, Schutzstatus, Runtime und offene Recovery prüfen; anschließend erneut lesen.' -StatusCode 400 }
                 continue
             }
+            if ($path -eq '/api/cms-inspection') {
+                try {$result=Invoke-UiCmsInspectionRequest -Request $context.Request;Write-UiResponse -Context $context -Body ($result|ConvertTo-Json -Depth 6) -ContentType 'application/json; charset=utf-8'}
+                catch {Write-UiResponse -Context $context -Body 'CMS_INSPECTION_REQUEST_FAILED: Registrierung und Auswahl erneut lesen.' -StatusCode 400}
+                continue
+            }
             if ($path -eq '/api/initial-setup') {
                 try {
                     $result = Invoke-UiInitialSetupRequest -Request $context.Request
@@ -801,7 +820,7 @@ try {
                 $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
-                if ($action -in @('GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession','GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
+                if ($action -in @('GetCmsInspectionState','InspectCms','GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession','GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
                 $parameters = @{}
                 if ($request.parameters) {
                     foreach ($property in $request.parameters.PSObject.Properties) {

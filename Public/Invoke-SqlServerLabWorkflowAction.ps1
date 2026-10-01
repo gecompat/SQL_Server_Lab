@@ -5,6 +5,8 @@
     Der Befehl ist der schmale, nicht interaktive Adapter fuer die lokale
     Workflow-Oberflaeche. Gastpasswoerter dienen nur dem unmittelbaren Aufruf
     und werden weder in Build-State noch Log-Ausgabe gespeichert.
+.PARAMETER ExpectedPlanKey
+    Servergebundener Auswahlsschlüssel; InspectCms akzeptiert nur die frisch gelesene CMS-Registrierung.
 .PARAMETER Action
     Eindeutige, zulässige Workflow-Aktion.
     GetResourceWatchState liest nur Katalog und Sitzungscache. RefreshResourceWatch
@@ -253,6 +255,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'GetLlamaSessions', 'PlanLlamaSessionStop', 'StopLlamaSession',
             'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
             'GetResourceWatchState', 'RefreshResourceWatch',
+            'GetCmsInspectionState', 'InspectCms',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
@@ -388,6 +391,10 @@ function Invoke-SqlServerLabWorkflowAction {
             }
         }
         return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
+    }
+    if ($Action -in @('GetCmsInspectionState','InspectCms')) {
+        $result=if($Action -ceq 'GetCmsInspectionState'){Get-LabCmsInspectionState}else{Invoke-LabCmsInspection -ExpectedPlanKey $ExpectedPlanKey}
+        return [pscustomobject]@{Action=$Action;CompletedAt=Get-LabTimestamp;Result=$result}
     }
     if ($Action -in @('GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) {
         $result = switch ($Action) {

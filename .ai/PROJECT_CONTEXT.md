@@ -945,3 +945,7 @@ Der separate Windows-GuidedStop-Nachweis vom 2026-09-30 bestand mit eigenen
 synthetischen nativen Prozessen und bestätigtem Cleanup; SQL-/Modell-/Compute-
 und Providerabnahme sowie vollständige Live-Verbrauchercoverage folgen daraus
 nicht. Der enge Lifecycle-/Cleanup-Nachreview ist geschlossen.
+
+## Optionaler registrierter CMS: lesende Prüfung
+
+CLI und GUI verwenden denselben expliziten CMS-Inspektor über die öffentlichen Workflow-Aktionen. Registrierung lesen prüft keine Runtime und liest kein Secret. Nur ein frisch an den eigenen laufenden Docker-/Podman-Container und seine native Loopback-Portfreigabe gebundenes Ziel darf vor dem Secretlesen zur festen SQL-SELECT-Prüfung zugelassen werden. Der feste DTO enthält Zeitpunkt und nullable Zähler, keine Namen, Secrets oder Endpunkte. Hyper-V, SSMS, Mitgliedsverbindungen, Einrichtung und Sync bleiben separate Grenzen. Kanonischer Vertrag: [CMS_READONLY_INSPECTION](../Documentation/Architecture/CMS_READONLY_INSPECTION.md).

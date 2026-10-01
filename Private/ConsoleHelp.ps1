@@ -450,6 +450,7 @@ function Get-LabConsoleHelpCatalog {
         Effects = 'Erstellen legt eine persistente SQL-Umgebung an; Übernehmen bindet eine vorhandene Umgebung; Export bleibt kennwortfrei.'
         Command = 'Sync-SqlServerLabCms'; Preconditions = @($stateRootPrecondition)
     }
+    $catalog['cms-readonly-inspection'] = @{Title='CMS lesend prüfen';Purpose='Liest ausschließlich den bereits registrierten CMS der aktiven Registrierung; abweichende private StateRoots bleiben gesperrt. Keine Einrichtung, Übernahme oder Synchronisation.';Effects='Bewusste Auswahl startet eine begrenzte SQL-Leseprüfung. Abbruch liest keine Secrets und öffnet keine SQL-Verbindung. Ergebnis bestätigt weder SSMS-Zugriff noch Mitgliedsverbindungen.';Command='Invoke-SqlServerLabWorkflowAction -Action GetCmsInspectionState'}
     $catalog['cms-create-menu'] = $catalog['connection-center-cms']
     $catalog['database-package-attach-mode'] = @{
         Title = 'Datenbankpaket-Attach'; Purpose = 'Wählt zwischen neuer Attach-Ausführung und einer exakt journalgebundenen Recovery.'

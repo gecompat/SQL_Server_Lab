@@ -239,3 +239,7 @@ Modellaktionen bleiben separat offen.
 Der enge Windows-GuidedStop-Nachweis vom 2026-09-30 belegt ausschließlich
 synthetische native Prozessführung und bestätigten eigenen Cleanup.
 Siehe [Ownership- und Evidencegrenzen](../Documentation/Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+### Explizite CMS-Leseprüfung
+
+Invoke-SqlServerLabWorkflowAction -Action GetCmsInspectionState liest die bestehende Registrierung. InspectCms -ExpectedPlanKey <serverseitiger Schlüssel> prüft ausschließlich den zuvor ausgewählten eigenen CMS. Es gibt keine Caller-Host-/Secret-/SQL-Parameter oder automatische Synchronisation. Ergebnisse folgen [CmsInspection/1.0](../Documentation/Architecture/CMS_READONLY_INSPECTION.md); Hyper-V und SSMS-/Mitgliedsverbindungen sind nicht abgenommen.
