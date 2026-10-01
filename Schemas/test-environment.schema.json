@@ -103,7 +103,11 @@
           ]
         },
         "sqlVersion": { "type": "string", "pattern": "^[0-9]{4}$" },
-        "patch": { "type": "string", "minLength": 1 },
+        "patch": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Neue Exporte verwenden fuer CU cu plus positive dezimale Nummer ohne fuehrende Nullen. Leser akzeptieren historische CU-Schreibweisen vor der semantischen Normalisierung; CU-Vergleich ignoriert Gross-/Kleinschreibung und verlangt dieselbe Nummer. Andere Patchbezeichnungen behalten ihre Bedeutung."
+        },
         "resolvedVersion": { "$ref": "#/$defs/nullableString" },
         "runId": { "type": "string" },
         "instanceId": { "type": "string", "minLength": 1 },

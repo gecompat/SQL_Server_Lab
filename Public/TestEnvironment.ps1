@@ -1,3 +1,52 @@
+function ConvertTo-LabTestEnvironmentPatch {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Patch)
+
+    if ([string]::IsNullOrWhiteSpace($Patch) -or $Patch.Trim() -cne $Patch) {
+        throw 'TEST_ENVIRONMENT_PATCH_INVALID: Patchbezeichnung darf nicht leer sein oder äußere Leerzeichen enthalten.'
+    }
+    if ($Patch -match '^(?i:cu)') {
+        if ($Patch -cnotmatch '^[cC][uU][0-9]+$') {
+            throw 'TEST_ENVIRONMENT_CU_INVALID: Erwartet wird CU plus positive dezimale Nummer, beispielsweise CU32.'
+        }
+        # Keep the number as text: normalization must not overflow or change it.
+        $number = $Patch.Substring(2).TrimStart([char]'0')
+        if (-not $number) {
+            throw 'TEST_ENVIRONMENT_CU_INVALID: Die CU-Nummer muss größer als null sein.'
+        }
+        return ('cu' + $number)
+    }
+    return $Patch.ToLowerInvariant()
+}
+
+function Resolve-LabTestEnvironmentTarget {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Contract,
+        [Parameter(Mandatory)][ValidateSet('linux','windows')][string]$Platform,
+        [Parameter(Mandatory)][ValidatePattern('^[0-9]{4}$')][string]$SqlVersion,
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Patch,
+        [ValidateSet('docker','podman','hyperv')][string]$Provider
+    )
+
+    $schemaPath = Join-Path (Split-Path -Parent $PSScriptRoot) 'Schemas/test-environment.schema.json'
+    # Validate the original contract first; legacy CU spelling remains schema-valid.
+    $valid = try { $Contract | ConvertTo-Json -Depth 30 | Test-Json -SchemaFile $schemaPath -ErrorAction Stop } catch { $false }
+    if (-not $valid) { throw 'TEST_ENVIRONMENT_SCHEMA_INVALID: Testumgebungsvertrag entspricht nicht dem kanonischen Schema.' }
+    $requestedPatch = ConvertTo-LabTestEnvironmentPatch -Patch $Patch
+    $matches = @()
+    foreach ($environment in @($Contract.environments)) {
+        $actualPatch = ConvertTo-LabTestEnvironmentPatch -Patch ([string]$environment.patch)
+        if ($Contract.groupStatus -ceq 'READY' -and $environment.status -ceq 'READY' -and
+            $environment.runtimeStatus -ceq 'READY' -and $environment.platform -ceq $Platform.ToLowerInvariant() -and
+            $environment.sqlVersion -ceq $SqlVersion -and $actualPatch -ceq $requestedPatch -and
+            (-not $Provider -or $environment.provider -ceq $Provider.ToLowerInvariant())) {
+            $matches += $environment
+        }
+    }
+    return $matches
+}
+
 function Get-LabTestEnvironmentExportDirectory {
     [CmdletBinding()]
     param([string]$OutputDirectory)
@@ -19,6 +68,7 @@ function ConvertTo-LabTestEnvironmentKey {
         [string]$Name
     )
 
+    $Patch = ConvertTo-LabTestEnvironmentPatch -Patch $Patch
     $candidate = if ($Name) { $Name } else { '{0}_{1}_{2}' -f $Platform, $SqlVersion, $Patch }
     $candidate = $candidate.ToUpperInvariant() -replace '[^A-Z0-9]+', '_'
     $candidate = $candidate.Trim('_')
@@ -226,7 +276,7 @@ function Register-LabTestEnvironmentIntent {
         key = $key
         platform = $Platform
         sqlVersion = $SqlVersion
-        patch = $Patch.ToLowerInvariant()
+        patch = ConvertTo-LabTestEnvironmentPatch -Patch $Patch
         runId = $null
         instanceId = $InstanceId
         registrationState = 'PROVISIONING_PENDING'
@@ -272,7 +322,7 @@ function Register-LabTestEnvironmentRun {
         key = $key
         platform = $Platform
         sqlVersion = $SqlVersion
-        patch = $Patch.ToLowerInvariant()
+        patch = ConvertTo-LabTestEnvironmentPatch -Patch $Patch
         runId = $RunId
         instanceId = $InstanceId
         registrationState = 'REGISTERED'
@@ -464,7 +514,7 @@ function Get-LabTestEnvironmentResolvedEntries {
             platform = [string]$registered.platform
             provider = if ($instance) { [string]$instance.provider } else { $null }
             sqlVersion = [string]$registered.sqlVersion
-            patch = [string]$registered.patch
+            patch = ConvertTo-LabTestEnvironmentPatch -Patch ([string]$registered.patch)
             resolvedVersion = $resolvedVersion
             runId = [string]$registered.runId
             instanceId = [string]$registered.instanceId
@@ -591,6 +641,10 @@ function Export-SqlServerLabTestEnvironment {
         '- Portable Discovery: zuerst `SQL_SERVER_LAB_TEST_ENV_FILE`, sonst `SQL_SERVER_LAB_DATA_ROOT` plus `Exports/TestUmgebung.json`.',
         '- Die Gruppe ist nur bei `groupStatus = READY` verwendbar; andernfalls ist die gesamte Gruppe gesperrt.',
         '- Ein Eintrag wird über `platform`, `sqlVersion` und `patch` ausgewählt.',
+        '- CU-Patches werden ohne Beachtung der Groß-/Kleinschreibung verglichen und verlangen dieselbe positive dezimale CU-Nummer; neue Exporte schreiben `cu32` statt `CU32` oder `CU0032`.',
+        '- Zuerst das Original gegen das Schema validieren, danach CU-Bezeichnungen normalisieren. Ungültige CU-Angaben sind Fehler ohne Ersatz-Patchstand.',
+        '- CU-Normalisierung erlaubt keinen Wechsel von SQL-Version, Plattform oder angefordertem Provider und verändert keine READY-/Runtime-Regel.',
+        '- Ob CU-Ziele allgemeine `base`-Tests erfüllen dürfen, ist eine separate Consumer-Regel und wird nicht automatisch festgelegt.',
         '- Ausschließlich Einträge mit `status = READY` dürfen für Tests verwendet werden; `runtimeStatus` zeigt den Einzelzustand.',
         '- `patch = latest` ist bei Linux gleitend; `patch = base` bezeichnet bei Windows die Basisinstallation ohne separates CU.',
         '- `resolvedVersion` dokumentiert die tatsächlich installierte SQL-Version.',
@@ -898,7 +952,7 @@ function New-SqlServerLabAutomatedTestEnvironment {
     foreach ($spec in $Specification) {
         $platform = ([string]$spec.Platform).ToLowerInvariant()
         $version = [string]$spec.SqlVersion
-        $patch = if ($spec.Patch) { ([string]$spec.Patch).ToLowerInvariant() } else { 'latest' }
+        $patch = if ($null -ne $spec.Patch) { ConvertTo-LabTestEnvironmentPatch -Patch ([string]$spec.Patch) } else { 'latest' }
         $instanceId = if ($spec.InstanceId) { [string]$spec.InstanceId } else { 'primary' }
         $intent = Register-LabTestEnvironmentIntent -Platform $platform -SqlVersion $version -Patch $patch `
             -InstanceId $instanceId -Name ([string]$spec.Key) -OutputDirectory $OutputDirectory
