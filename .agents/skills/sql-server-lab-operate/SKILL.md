@@ -29,3 +29,8 @@ status and postconditions. For a partial failure, preserve the operation's
 recovery evidence and use its supported resume path. Missing secrets, UAC or
 an unresolved user decision block only the affected action. Keep passwords,
 secret references and raw diagnostics out of summaries and versioned files.
+
+When the user requests a local diagnostic handoff for the selected owned target,
+follow the [local diagnostic handoff](../../../Documentation/HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md). Its default reads historical metadata with
+SkipReadiness. Keep target locators local and use only the closed public DTO;
+the handoff does not authorize repair, development or a further lifecycle action.

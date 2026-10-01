@@ -22,7 +22,7 @@ Der enge Diagnosebundle-Vertrag `Get-SqlServerLabDiagnosticBundle` liefert
 gebundene, sanitisierte Metadaten für eine moderne Instanz unter einem
 registrierten `Lab_Data/State`. Optionale Provider-Readiness läuft isoliert und
 begrenzt; SQL-Proben, globale Storage-Konfiguration, Runtime-/Hostwerte,
-Spezialjournale, Export und Operator-Integration bleiben ausgeschlossen.
+Spezialjournale und Export bleiben ausgeschlossen; der lokale Handoff ist separat beschrieben.
 Vertrag: [DIAGNOSTIC_BUNDLE.md](../Documentation/Architecture/DIAGNOSTIC_BUNDLE.md).
 
 `SQL_Server_Lab` ist die gemeinsame Plattform für lokale, isolierte und reproduzierbare SQL-Server-Testumgebungen.
@@ -949,3 +949,7 @@ nicht. Der enge Lifecycle-/Cleanup-Nachreview ist geschlossen.
 ## Optionaler registrierter CMS: lesende Prüfung
 
 CLI und GUI verwenden denselben expliziten CMS-Inspektor über die öffentlichen Workflow-Aktionen. Registrierung lesen prüft keine Runtime und liest kein Secret. Nur ein frisch an den eigenen laufenden Docker-/Podman-Container und seine native Loopback-Portfreigabe gebundenes Ziel darf vor dem Secretlesen zur festen SQL-SELECT-Prüfung zugelassen werden. Der feste DTO enthält Zeitpunkt und nullable Zähler, keine Namen, Secrets oder Endpunkte. Hyper-V, SSMS, Mitgliedsverbindungen, Einrichtung und Sync bleiben separate Grenzen. Kanonischer Vertrag: [CMS_READONLY_INSPECTION](../Documentation/Architecture/CMS_READONLY_INSPECTION.md).
+
+## Bewusster lokaler Operator-Handoff
+
+Der [kanonische Handoff](../Documentation/HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.

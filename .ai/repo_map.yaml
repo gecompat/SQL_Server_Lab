@@ -603,6 +603,9 @@ sources_of_truth:
   repository_readiness_skill: .agents/skills/sql-server-lab-readiness/SKILL.md
   repository_validation_skill: .agents/skills/sql-server-lab-validation/SKILL.md
   repository_operate_skill: .agents/skills/sql-server-lab-operate/SKILL.md
+  operator_agent: .github/agents/sql-server-lab-operator.agent.md
+  operator_diagnostic_handoff: Documentation/HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md
+  validation_operator_diagnostic_handoff: Tests/Static/Fixtures/OperatorDiagnosticHandoffChecks.ps1
   validation_repository_skills: Tests/Static/Invoke-SkillChecks.ps1
   polybase_s3_object_storage_backlog: Documentation/Project_Planning/POLYBASE_S3_OBJECT_STORAGE_BACKLOG.md
   sql2025_ai_platform_backlog: Documentation/Project_Planning/SQL2025_AI_PLATFORM_BACKLOG.md
