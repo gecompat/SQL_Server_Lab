@@ -53,3 +53,5 @@ foreach($invalid in @(
     if(-not $rejected){throw 'SKILL_INVALID_HEADER_NOT_REJECTED'}
 }
 Write-Host 'PASS: Doppelte Schluessel, ungueltige Namen und Nicht-String-Frontmatter werden abgewiesen'
+
+& (Join-Path $PSScriptRoot 'Fixtures/OperatorDiagnosticHandoffChecks.ps1')

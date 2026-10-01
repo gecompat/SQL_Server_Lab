@@ -93,3 +93,15 @@ Pull Request:
 - Empfohlener Scope:
 - Nicht mitgelieferte lokale Daten oder Secrets:
 ```
+## Explicit Local Diagnostic Handoff
+
+For an explicitly requested handoff for one stable run and instance, use the
+[canonical local recipe](../../Documentation/HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md)
+through the exported diagnostic API. Do not collect it automatically after a
+readiness or lifecycle failure. The recipe defaults to SkipReadiness; a provider
+probe requires the requested additional check. This diagnostic branch does not
+call the broader client-readiness entry point or grant lifecycle authority.
+Keep the existing handoff sections and no-change rules. Only the schema-checked
+DTO may support the evidence summary; input locators, previous raw outputs and
+unverified pasted JSON are excluded. Missing evidence stays unknown. Do not
+write/export/upload a bundle or dispatch a model from this recipe.

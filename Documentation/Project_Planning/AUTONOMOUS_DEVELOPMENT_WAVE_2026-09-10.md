@@ -702,10 +702,11 @@ sind wiederzuverwenden; die kombinierte Zielhost-Abnahme bleibt offen.
 
 ### Sanitisiertes Diagnosebundle und Operator-Handoff
 
-Status: `planned`. Eine öffentliche Funktion wie
-`Get-SqlServerLabDiagnosticBundle` ist ein Namensvorschlag, keine vorhandene
-API. Das Vorhaben wird vor einer Implementierung gegen bestehende Readiness-,
-Workflow-, Connection-Center-, Reconcile- und Operationsprojektionen abgegrenzt.
+Status: `partially_implemented`. `Get-SqlServerLabDiagnosticBundle` ist als
+gebundene, geschlossene read-only API implementiert. Der ausdrücklich angeforderte
+lokale Operator-Handoff verwendet das [kanonische Rezept](../HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md);
+Export, Upload, freie Diagnosebefehle und selbständige Entwicklung bleiben ausgeschlossen.
+Provider-/SQL- und Skillloader-Nachweise sind getrennt auszuweisen.
 
 | Reihenfolge / Arbeit | Abhängigkeiten und Akzeptanz |
 |---|---|

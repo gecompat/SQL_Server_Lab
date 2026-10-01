@@ -107,7 +107,7 @@ Provider-Inspect-Inventare oder Spezialjournale werden gelesen. Run-/Instanz- un
 Runtime-IDs, Namen, Endpunkte, Ports, Hostpfade, Secret-Aliasse, Exceptions und
 Rohlogs fehlen in allen Ausgabekanälen. Reproduktionshashes beziehen sich
 ausschließlich auf den öffentlichen Katalog. Ein automatischer Supportexport
-und die Operator-Agent-Integration gehören nicht zu diesem API-Slice.
+gehört nicht zu diesem API-Slice; der unten verlinkte Handoff erweitert ihn nicht.
 
 ## Validierung
 
@@ -121,3 +121,7 @@ nur ihre eigenen temporären Dateien und Prozesse; sie startet keine Lab-Runtime
 Die bestehende Client-Readiness-Suite prüft zusätzlich die klassifizierten
 Resolver-/Prozessgrenzen. Native SQL- oder Providerabnahmen werden dadurch
 nicht behauptet.
+
+## Bewusster lokaler Operator-Handoff
+
+Der [kanonische Handoff](../HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.
