@@ -57,6 +57,38 @@
       "Test": "Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1",
       "Result": "PASS", "Cleanup": "PASS", "Date": "2026-09-10",
       "Reference": "https://github.com/gecompat/SQL_Server_Lab/commit/5392fc97e96d208418f5ef501933c1ae920bb012"
+    },
+    {
+      "Capability": "retained-store-removal", "Provider": "docker", "SqlVersion": "2025",
+      "Platform": "windows", "Scope": "NATIVE_SQL",
+      "SourceRevision": "b2a1f4563c659477332c449d8e8a5a05c22b9fe6",
+      "Test": "Tests/Integration/Invoke-RetainedStoreRemovalAcceptance.ps1",
+      "Result": "PASS", "Cleanup": "PASS", "Date": "2026-10-01",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/pull/666"
+    },
+    {
+      "Capability": "retained-store-removal", "Provider": "podman", "SqlVersion": "2025",
+      "Platform": "windows", "Scope": "NATIVE_SQL",
+      "SourceRevision": "b2a1f4563c659477332c449d8e8a5a05c22b9fe6",
+      "Test": "Tests/Integration/Invoke-RetainedStoreRemovalAcceptance.ps1",
+      "Result": "PASS", "Cleanup": "PASS", "Date": "2026-10-01",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/pull/666"
+    },
+    {
+      "Capability": "initial-setup-writeability", "Provider": "none", "SqlVersion": null,
+      "Platform": "windows", "Scope": "STATIC_CONTRACT",
+      "SourceRevision": "cd391ebc7ecb63b20498a374fad62127202357be",
+      "Test": "Tests/Static/Invoke-InitialSetupChecks.ps1",
+      "Result": "PASS", "Cleanup": "PASS", "Date": "2026-10-01",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/pull/667"
+    },
+    {
+      "Capability": "container-core-smoke", "Provider": "docker", "SqlVersion": "2025",
+      "Platform": "windows", "Scope": "NATIVE_SQL",
+      "SourceRevision": "cd391ebc7ecb63b20498a374fad62127202357be",
+      "Test": "Tests/Integration/Invoke-SmokeTest.ps1",
+      "Result": "PASS", "Cleanup": "PASS", "Date": "2026-10-01",
+      "Reference": "https://github.com/gecompat/SQL_Server_Lab/pull/667"
     }
   ]
 }
