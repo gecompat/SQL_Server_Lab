@@ -720,3 +720,7 @@ dieses Vorhabens. Ein späterer Support-Export benötigt einen getrennten
 Privacy-, Retention-, Speicherort- und Freigabevertrag. Die Originaluploads und
 das CMS-Bild werden nicht ins Repository übernommen; insbesondere werden keine
 abgebildeten Kennwörter oder privaten Hostdaten versioniert.
+
+### Welle L: schmaler registrierter CMS-Lesepfad
+
+CLI und Browser besitzen einen gemeinsamen expliziten Lesepfad für genau den bereits registrierten verwalteten CMS. Native eigene Container-/Scope-/Portautorität muss vor dem Secretlesen feststehen; öffentliche Befunde sind nullable, zeitgebunden und ohne Namen/Secrets/Endpunkte. Hyper-V, CMS-Einrichtung/Adoption/Sync im Browser sowie SSMS und Mitgliedsverbindungen bleiben offen. Implementierung ist kein Runtime-Nachweis; tatsächliche ausgewählte Gates und reale CMS-Abnahme sind separat auszuweisen. [Kanonischer Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).

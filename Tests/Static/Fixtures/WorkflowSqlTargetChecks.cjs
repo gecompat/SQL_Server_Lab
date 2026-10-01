@@ -688,6 +688,36 @@ async function main() {
   let releaseWatch;context.fetch=()=>new Promise(resolve=>{releaseWatch=resolve;});
   const pendingWatch=resourceEvent('resource-watch-read');await resourceEvent('resource-watch-close');releaseWatch({ok:true,json:async()=>({Result:{Status:'NEW',Items:[watchItem]}})});await pendingWatch;
   check('Resource watch closed dialog ignores late response',()=>assert.match(node('resource-watch-status').textContent,/UNCLEAR/));
+  const cmsRequests=[];
+  const cmsBase={ContractVersion:'SqlServerLab.CmsInspection/1.0',Status:'NOT_CHECKED',Code:'CMS_INSPECTION_NOT_CHECKED',RunId:'11111111-1111-1111-1111-111111111111',InstanceId:'primary',Provider:'docker',SelectionKey:'a'.repeat(64),SqlMajor:null,ManagedGroupCount:null,ManagedServerCount:null,ObservedAt:null};
+  let cmsMode='ready';
+  context.fetch=async(url,options={})=>{
+    const body=options.body?JSON.parse(options.body):null;cmsRequests.push({url,body});
+    if(cmsMode==='error')throw new Error('SYNTHETIC_PRIVATE_SQL_OR_SECRET');
+    const view={...cmsBase};
+    if(body){Object.assign(view,{Status:'OBSERVED',Code:'CMS_INSPECTION_OBSERVED',SqlMajor:17,ManagedGroupCount:3,ManagedServerCount:0,ObservedAt:'2026-10-01T12:00:00Z'});}
+    if(cmsMode==='empty')Object.assign(view,{Status:'NOT_CONFIGURED',RunId:null,Provider:null,SelectionKey:null});
+    if(cmsMode==='hyperv')view.Provider='hyperv';
+    if(cmsMode==='unknown')Object.assign(view,{Status:'UNKNOWN',ManagedServerCount:null,ManagedGroupCount:null,SqlMajor:null});
+    if(cmsMode==='wrong-binding' && body)view.RunId='22222222-2222-2222-2222-222222222222';
+    if(cmsMode==='unsafe' && body)view.ManagedServerCount=9007199254740992;
+    return {ok:true,json:async()=>({Result:view})};
+  };
+  await resourceEvent('cms-inspection-open');
+  check('CMS open reads registration only with no SQL action',()=>{assert.equal(cmsRequests.length,1);assert.equal(cmsRequests[0].url,'/api/cms-inspection');assert.equal(cmsRequests[0].body,null);assert.match(node('cms-inspection-status').textContent,/noch keine SQL-Verbindung/);});
+  await resourceEvent('cms-inspection-check');
+  check('CMS explicit inspection carries only bound selection key and shows genuine zero',()=>{assert.deepEqual(cmsRequests.at(-1).body,{action:'InspectCms',parameters:{ExpectedPlanKey:'a'.repeat(64)}});assert.match(node('cms-inspection-result').textContent,/markierte Server: 0/);assert.match(node('cms-inspection-result').textContent,/gelesen/);assert.equal(node('cms-inspection-check').disabled,true);});
+  for(const mode of ['empty','hyperv','unknown']){
+    cmsMode=mode;await resourceEvent('cms-inspection-read');const before=cmsRequests.length;await resourceEvent('cms-inspection-check');
+    check('CMS '+mode+' disables probe without invented counts',()=>{assert.equal(cmsRequests.length,before);assert.equal(node('cms-inspection-check').disabled,true);assert.equal(node('cms-inspection-result').textContent,'');});
+  }
+  for(const mode of ['wrong-binding','unsafe','error']){
+    cmsMode='ready';await resourceEvent('cms-inspection-read');cmsMode=mode;await resourceEvent('cms-inspection-check');
+    check('CMS '+mode+' discards acceptance and private error',()=>{assert.equal(node('cms-inspection-result').textContent,'');assert.doesNotMatch(node('cms-inspection-status').textContent,/SYNTHETIC_PRIVATE/);});
+  }
+  cmsMode='ready';await resourceEvent('cms-inspection-read');
+  let releaseCms;context.fetch=()=>new Promise(resolve=>{releaseCms=resolve;});const pendingCms=resourceEvent('cms-inspection-check');await resourceEvent('cms-inspection-close');releaseCms({ok:true,json:async()=>({Result:{...cmsBase,Status:'OBSERVED',SqlMajor:17,ManagedGroupCount:3,ManagedServerCount:5,ObservedAt:'2026-10-01T12:00:00Z'}})});await pendingCms;
+  check('CMS close ignores late inspection without retry or queue mutation',()=>{assert.equal(node('cms-inspection-dialog').open,false);assert.equal(node('cms-inspection-result').textContent,'');assert.equal(node('cms-inspection-check').disabled,true);});
   const maintenanceCalls=[];
   const maintenanceRow={Id:'fixture',CandidateId:'a'.repeat(64),Label:'docker · SQL-Speicher',Fields:[{Label:'Herkunft',Value:'Unbekannt <script>marker</script>'}]};
   let maintenanceMode='ready';

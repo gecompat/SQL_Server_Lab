@@ -230,6 +230,8 @@ try {
     Add-CheckResult -Name 'CMS-In-Memory-Executor schreibt weder Query- noch Skriptdatei' -Success (
         $source -match 'function Invoke-LabCmsSqlInMemory' -and
         [regex]::Match($source, 'function Invoke-LabCmsSqlInMemory[\s\S]+?(?=\r?\nfunction Export-SqlServerLabCmsSyncScript)').Value -notmatch 'WriteAllText|WriteAllLines|GetTempFileName|sqlcmd')
+    & (Join-Path $PSScriptRoot 'Fixtures/CmsInspectionChecks.ps1')
+    Add-CheckResult -Name 'CMS-readonly: echte Core-/HTTP-/CLI-/Workergrenzen' -Success $true
 }
 catch {
     Add-CheckResult -Name 'Connection-Center-CMS-Vertragspruefung' -Success $false -Message $_.Exception.Message

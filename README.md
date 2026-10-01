@@ -1072,3 +1072,7 @@ Der Bereich „Host-Dienste und Modelle“ bietet den geführten Stop einer eige
 llama.cpp-Sitzung mit Vorschau und bewusster Bestätigung. Verbraucher-Coverage
 bleibt UNKNOWN; Fremdprozesse und Modell-Lifecycle bleiben offen. Siehe
 [Vertrag](Documentation/Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+### Registrierten CMS lesend prüfen
+
+Im CLI-Menü CMS-Verwaltung und im Browserbereich Verbindungen gibt es eine ausdrückliche lesende Prüfung des bereits registrierten CMS. Sie zeigt Zeitpunkt, SQL-Major und Anzahlen markierter Gruppen/Server. Registrierung lesen und Abbruch öffnen keine SQL-Verbindung; unbekannte Ergebnisse sind keine erfolgreichen Null-Zähler. Einrichtung, Synchronisation, SSMS und Mitgliedsverbindungen bleiben getrennt. Siehe [CMS-Prüfvertrag](Documentation/Architecture/CMS_READONLY_INSPECTION.md).

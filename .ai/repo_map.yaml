@@ -285,6 +285,11 @@ sources_of_truth:
   manifest_resolution: Private/ManifestParser.ps1
   manifest_builder_validation: Private/ManifestBuilder.ps1
   connection_center_cms: Public/Sync-SqlServerLabConnectionCenter.ps1
+  cms_readonly_inspection: Private/CmsInspection.ps1
+  cms_readonly_worker: Tools/Read-CmsInspection.ps1
+  cms_readonly_contract: Documentation/Architecture/CMS_READONLY_INSPECTION.md
+  cms_readonly_fixture: Tests/Static/Fixtures/CmsInspectionChecks.ps1
+  cms_readonly_worker_fixture: Tests/Static/Fixtures/CmsInspectionWorker/Tools/Read-CmsInspection.ps1
   validation_connection_center_cms: Tests/Static/Invoke-ConnectionCenterCmsChecks.ps1
   sql_versions: Catalogs/sql-server-versions.json
   sample_databases: Catalogs/sample-databases.json
