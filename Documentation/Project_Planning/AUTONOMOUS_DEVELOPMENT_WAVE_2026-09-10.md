@@ -108,6 +108,31 @@ aktualisiert diesen Arbeitsstand. Vor jeder Fortsetzung sind aktueller
 abzugleichen. Neue Erkenntnisse ändern den nächsten Slice, löschen aber keinen
 offenen Planpunkt stillschweigend.
 
+### Fortsetzung bei zusätzlichen Benutzeraufträgen
+
+Der Benutzer hat am 2026-10-01 ausdrücklich klargestellt, dass ein zusätzlicher
+Entwicklungsauftrag keinen Stopp der bereits autorisierten autonomen Gesamtwelle
+bedeutet. Ein solcher Auftrag erhält bei Bedarf Vorrang; unabhängige bestehende
+Arbeiten dürfen innerhalb ihrer Freigaben fortgesetzt werden. Nach seinem
+geprüften Abschluss nimmt der Orchestrator die offenen Arbeiten aus diesem Plan
+und den vorhandenen Branches unmittelbar wieder auf. Ein Sliceabschluss ist
+kein Gesamtabschluss und keine Anweisung, die Entwicklung anzuhalten.
+
+Ein ausdrücklicher Benutzerstopp beendet neue Arbeit und pausiert den Heartbeat.
+Eine unbeantwortete UAC-Anforderung blockiert nur die davon abhängigen Aktionen:
+Der Orchestrator nennt die konkrete offene Anforderung und bearbeitet andere
+autorisierte Aufgaben weiter. Ist keine solche Arbeit mehr möglich, nennt er
+die tatsächlichen Abhängigkeiten und pausiert den Heartbeat bis zur direkten
+Wiederaufnahme durch den Benutzer. Ein abgelaufener oder nicht nachgewiesener
+Dialog darf dabei nicht als weiterhin offene UAC dargestellt werden.
+
+Der Heartbeat unterstützt die Fortsetzung und ersetzt keine Entwicklungsarbeit.
+Unveränderte, nicht handlungsfähige Zustände erzeugen keine Leerlaufpolls.
+Erst nach dem regulären Gesamtabschluss einschließlich Integration,
+`main`-Synchronisierung, eigener Branchbereinigung und Cleanup wird er entfernt.
+Bestehende Scope-, Ressourcen-, Privacy- und Abnahmegrenzen bleiben verbindlich;
+insbesondere bleibt C# `USER_DEFERRED`.
+
 ## Ergänzungsauftrag vom 2026-09-27: Capability-Matrix und autonome Fortsetzung
 
 **Priorität:** Autonome Implementierung und zugehörige Tests haben Vorrang.

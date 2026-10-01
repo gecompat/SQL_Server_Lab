@@ -75,6 +75,13 @@ try {
     Add-CheckResult -Name 'Registry-Schlüssel ergeben deterministische sprechende Runtime-Namen' -Success (
         $canonicalRuntimeDisplayName -eq 'test-windows-2022-base'
     )
+    $originalDockerStatus = & $module { (Get-Command Get-DockerInstanceStatus).ScriptBlock }
+    & $module {
+        Set-Item Function:Get-DockerInstanceStatus -Value {
+            param([string]$ContainerIdOrName)
+            throw 'SYNTHETIC_PROVIDER_UNAVAILABLE'
+        }
+    }
     $statusSnapshot = & $module {
         param($OutputRoot,$StateRoot)
         Get-LabAutomatedTestEnvironmentStatus -OutputDirectory $OutputRoot -StateRoot $StateRoot
@@ -92,7 +99,6 @@ try {
         $unavailableJson.environments[0].status -eq 'GROUP_INCOMPLETE' -and
         $unavailableJson.environments[0].runtimeStatus -eq 'UNAVAILABLE'
     )
-    $originalDockerStatus = & $module { (Get-Command Get-DockerInstanceStatus).ScriptBlock }
     & $module {
         Set-Item Function:Get-DockerInstanceStatus -Value {
             param([string]$ContainerIdOrName)
@@ -154,6 +160,7 @@ try {
         $envText -match 'SQL_SERVER_LAB_LINUX_2022_LATEST_AUTO_START="on"' -and
         $envText -match 'SQL_SERVER_LAB_DEFAULT_KEY="LINUX_2022_LATEST"'
     )
+    . (Join-Path $PSScriptRoot 'Fixtures/TestEnvironmentCuChecks.ps1')
     $secondRunId = [guid]::NewGuid().ToString()
     $missingRunId = [guid]::NewGuid().ToString()
     & $module {

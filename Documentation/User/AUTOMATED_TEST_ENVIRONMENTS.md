@@ -173,13 +173,14 @@ if (-not $contractPath) {
 if (-not $contractPath -or -not (Test-Path -LiteralPath $contractPath)) { throw 'Kein SQL_Server_Lab-Testumgebungsvertrag gefunden.' }
 $contract = Get-Content -LiteralPath $contractPath -Raw |
     ConvertFrom-Json
+if ($contract.groupStatus -cne 'READY') { throw 'Testumgebungsgruppe ist nicht vollständig bereit.' }
 
 $sql = $contract.environments |
     Where-Object {
         $_.platform -eq 'linux' -and
         $_.sqlVersion -eq '2022' -and
         $_.patch -eq 'latest' -and
-        $_.status -eq 'READY'
+        $_.status -ceq 'READY' -and $_.runtimeStatus -ceq 'READY'
     } |
     Select-Object -First 1
 
@@ -216,6 +217,42 @@ Test-Json -LiteralPath $contractPath -SchemaFile $schemaPath
 Der vollständige wiederverwendbare Agenten-Prompt steht in
 [`LOCAL_SQL_TESTING_PROMPT.md`](LOCAL_SQL_TESTING_PROMPT.md) und wird als
 `TestUmgebung.prompt.md` neben dem Laufzeitvertrag exportiert.
+
+## CU-Normalisierung und Consumer-Kompatibilität
+
+Neue Exporte schreiben CU-Patchbezeichnungen als `cu` plus positive dezimale
+CU-Nummer ohne führende Nullen, beispielsweise `cu8`, `cu26` oder `cu32`.
+Eingaben und Consumer-Zielauflösung vergleichen CU-Bezeichnungen ohne Beachtung
+der Groß-/Kleinschreibung: `CU32`, `Cu32` und `cu32` bezeichnen denselben Stand.
+Historische positive CU-Nummern mit führenden Nullen werden ebenfalls normalisiert
+(`CU0032` → `cu32`). Die Nummer wird als Ziffernfolge verarbeitet, ohne numerischen
+Überlauf. Leere Angaben, äußere Leerzeichen, `CU0`, fehlende Nummern, Vorzeichen,
+Brüche und nichtdezimaler Inhalt sind Fehler; es gibt keinen Ersatz-Patchstand.
+
+Consumer validieren zuerst den unveränderten Vertrag gegen das Schema und
+normalisieren danach CU-Anforderung und CU-Bezeichnung des Eintrags. Eine
+explizite CU-Anforderung verlangt dieselbe CU-Nummer. Die interne Referenzauflösung
+`Resolve-LabTestEnvironmentTarget` im bestehenden Vertragspfad setzt diese Reihenfolge
+um; sie ist kein zusätzliches öffentliches Cmdlet. Kein Treffer bedeutet kein
+passendes Ziel. Ein Consumer muss dies verständlich melden.
+
+Die Normalisierung erlaubt keinen Wechsel der SQL-Version, Plattform oder eines
+angeforderten Providers. `groupStatus`, `status` und `runtimeStatus` müssen weiterhin
+`READY` sein; Erreichbarkeit und echte SQL-Anmeldung bleiben gesondert zu prüfen.
+`base` und `latest` behalten ihre bisherige Bedeutung. Ob eine CU-Umgebung allgemeine
+`base`-Tests erfüllen darf, ist eine separate Consumer-Auswahlregel und wird hierdurch
+nicht automatisch festgelegt. Die Referenzauflösung behandelt sie als unterschiedliche
+Patchanforderungen.
+
+Der Vertrag bleibt `SqlServerLab.TestEnvironment/1.0`: Feldstruktur und bestehende
+Patchidentitäten ändern sich nicht. Das Schema behält für `patch` bewusst eine
+nichtleere Zeichenfolge bei, damit bisher gültige CU-Schreibweisen bereits **vor**
+der Normalisierung schema-valide bleiben. Eine nur auf kanonische Kleinschreibung
+beschränkte Schema-Regel wäre inkompatibel und würde eine Vertragsmigration erfordern.
+Schema-Gültigkeit allein bestätigt keine semantisch gültige CU-Angabe. Alte Exporte
+und Registry-Schlüssel werden nicht umgeschrieben. Consumer mit bisher case-sensitivem
+Vergleich müssen ihre Auswahl an diese Regel anpassen; ein neuer Export repariert
+deren Vergleichscode nicht automatisch.
 
 ## `latest`, `base` und Reproduzierbarkeit
 
