@@ -573,6 +573,10 @@ sources_of_truth:
   runtime_limitations: Documentation/Quality/KNOWN_LIMITATIONS.md
   sample_artifact_and_manifest_wizard_target: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
   mixed_provider_lifecycle: Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md
+  component_relation_plan: Private/ComponentRelationPlan.ps1
+  component_relation_plan_api: Public/Get-SqlServerLabReconcilePlan.ps1
+  component_relation_plan_contract: Documentation/Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md
+  validation_component_relation_plan: Tests/Static/Invoke-ComponentRelationPlanChecks.ps1
   hyperv_image_provisioning_network_target: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
   user_entrypoint: README.md
   user_installation_windows: Documentation/User/INSTALLATION_WINDOWS.md

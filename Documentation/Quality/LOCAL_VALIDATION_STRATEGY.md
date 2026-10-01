@@ -1,5 +1,17 @@
 # Lokale Validierungsstrategie
 
+## Reine Komponenten-/Shared-Verbrauchervorschau
+
+`Invoke-ComponentRelationPlanChecks.ps1` führt den tatsächlichen öffentlichen
+Plan-/Action-Parametersatz und den privaten Core mit modernen synthetischen
+Run-/Desired-State-Produzenten und registrierten Root-/Scope-Records aus.
+Notwendig sind NoWrite/Legacy-Noop, DAG/Self/Cycle/Duplicate, genaue eigene und
+Shared-Identität, Input-/Provider-/Scope-/Contentdrift bei zweiter Observation,
+unbekannte SQL-Bereitschaft und feste sichere DTOs. Der tatsächliche Action-/
+Pipelinepfad muss Mode/Version vor jeder Observation verweigern. Runtime-,
+Hosttool-, SQL- und Secret-Spies werfen bei jedem Aufruf. Diese Evidence ist
+eine Planprüfung, kein Start-/Shared-Removal-/Providerbeleg.
+
 ## Geführte Wartung und Zuordnungsreparatur
 
 `Tests/Static/Invoke-MaintenanceGuidanceChecks.ps1` prüft den tatsächlichen
