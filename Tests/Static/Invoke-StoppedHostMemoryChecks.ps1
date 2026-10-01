@@ -148,5 +148,6 @@ try {
         Remove-Item -LiteralPath $testRoot
     }
 }
+. "$PSScriptRoot/Fixtures/StoppedHostMemoryProviderChecks.ps1"
 if ($failures.Count) { throw ($failures -join '; ') }
 Write-Host "Stopped host memory: $passed PASS"

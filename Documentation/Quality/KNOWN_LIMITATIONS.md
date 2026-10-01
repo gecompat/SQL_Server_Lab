@@ -2770,7 +2770,10 @@ Beobachtung vom erfolgreichen Lab-Stop. Andere laufende Container bleiben
 aktiv; ihr nächster Dateizugriff kann durch den kalten Cache langsamer sein.
 Eine sofortige oder vollständige Windows-Rückgabe wird nicht garantiert.
 Globale WSL-Neustarts, `.wslconfig`-Änderungen und fremde VM-Stopps sind kein
-Fallback. `-SkipHostMemoryRelease` deaktiviert die Wartung.
+Fallback. `-SkipHostMemoryRelease` deaktiviert die Wartung für alle
+Providerbindungen. Nicht-Container- oder unbekannte Provider in der
+Nachprüfliste ergeben `NOT_APPLICABLE` ohne Host-/Backendzugriff; auch eine
+gemischte Container-/Nicht-Containerliste löst keine gemeinsame Cachefreigabe aus.
 [Vertrag und Nachweisgrenzen](../Architecture/STOP_HOST_MEMORY.md).
 
 ## Geführte CPU/RAM-Änderung (`UX-202/622`, `CNT-211` bis `CNT-214`, `HV-601` bis `HV-607`)

@@ -2365,6 +2365,12 @@ Ressourcen. Beide Acceptances sind opt-in und laden keine Modelle herunter.
 
 Die fokussierte Suite `Tests/Static/Invoke-StoppedHostMemoryChecks.ps1`
 prüft die Entscheidung und Backendbindung mit synthetischen Messungen.
+Der zusätzliche Providervertrag führt den tatsächlichen Helper, öffentlichen
+Stop und Lifecycle-Reconcile mit isolierten Provider-/Host-Spies aus:
+Hyper-V, unbekannte und gemischte Nicht-Containerbindungen sind ohne Skip
+`NOT_APPLICABLE`; Skip ist `DISABLED`. Beide Wege dürfen keine Hostmessung
+oder gemeinsame Cachefreigabe auslösen. Reine Containerbindungen behalten
+ihre vorhandene Wartungsentscheidung.
 Native Abnahmen müssen Docker und Podman getrennt betrachten: eigener
 Lab-Stop, unverändert laufender Nachbar, Cache vor/nach Freigabe sowie
 Windows-RAM-Rückgabe als getrennte Beobachtung. Eine injizierte Druckmessung
