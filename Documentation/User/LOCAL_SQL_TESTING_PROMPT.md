@@ -34,11 +34,19 @@ VERTRAG UND AUSWAHL
 
 7. Validiere TestUmgebung.json vor der Verwendung gegen das JSON Schema.
 8. Verwende die Gruppe nur, wenn groupStatus exakt READY ist.
-9. Verwende ausschließlich Einträge mit status exakt READY.
+9. Verwende ausschließlich Einträge mit status und runtimeStatus exakt READY.
 10. Wähle Ziele explizit nach platform, sqlVersion und patch. Verwende bei
     mehreren vom Projekt unterstützten SQL-Versionen alle passenden Ziele als
     Testmatrix. Kein stillschweigender Wechsel auf eine andere Version,
-    Plattform oder Patchstufe.
+    Plattform, angeforderten Provider oder Patchstufe.
+    CU-Bezeichnungen werden ohne Beachtung der Groß-/Kleinschreibung verglichen:
+    CU32, Cu32 und cu32 verlangen dieselbe positive dezimale CU-Nummer. Neue
+    Exporte schreiben cu plus Nummer ohne führende Nullen; historische führende
+    Nullen dürfen nach der Schema-Validierung entfernt werden. Ungültige CU-Angaben
+    (etwa CU0, CU ohne Nummer oder CU-1) verständlich ablehnen, keinen Ersatz wählen.
+    base und latest behalten ihre Bedeutung. Ob CU-Ziele allgemeine base-Tests
+    erfüllen dürfen, ist eine separate Consumer-Regel, keine Folge der Normalisierung.
+    READY-, Runtime-, SQL-Versions-, Plattform- und Providerregeln bleiben bestehen.
 11. Übernimm die Verbindung ausschließlich aus connectionString oder aus host,
     port, database, username, password, encrypt und trustServerCertificate des
     ausgewählten Eintrags. Werte nicht raten und keine Defaultkennwörter nutzen.
