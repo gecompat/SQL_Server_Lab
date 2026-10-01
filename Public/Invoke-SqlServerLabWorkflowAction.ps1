@@ -45,6 +45,12 @@ SQL_Server_Lab-Internal-Switch verwendet.
     Ausdrücklich gewählter globaler Standard für PlanInitialSetup.
 .PARAMETER InitialSetupPlan
     Zuvor angezeigter InitialSetupPlan/1.0; ApplyInitialSetup revalidiert ihn vor jeder Mutation.
+.PARAMETER SetupLocationId
+    Genau eine registrierte Lab_Data-Location für die reine Schreibprobe-Vorschau.
+.PARAMETER SetupWriteabilityPlanId
+    Einmalige, fünf Minuten gültige serverseitige Schreibprobe-Vorschau derselben Modulsitzung.
+.PARAMETER ConfirmWriteability
+    Bestätigt das Schreiben und Flushen eines Bytes mit eigener begrenzter Bereinigung.
 .PARAMETER ConfirmSetup
     Bestätigt ausdrücklich die Anwendung des angezeigten Grundkonfigurationsplans.
 .PARAMETER SetupProvider
@@ -241,7 +247,7 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateSet(
             'Refresh',
             'StartTestGroupPower', 'StopTestGroupPower',
-            'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider',
+            'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability',
             'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve',
             'GetLlamaSessions', 'PlanLlamaSessionStop', 'StopLlamaSession',
             'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
@@ -270,6 +276,9 @@ function Invoke-SqlServerLabWorkflowAction {
         [string[]]$LabDataRoot = @(),
         [string]$DefaultDataRoot,
         [object]$InitialSetupPlan,
+        [ValidatePattern('^[a-f0-9-]{36}$')][string]$SetupLocationId,
+        [ValidatePattern('^[a-f0-9-]{36}$')][string]$SetupWriteabilityPlanId,
+        [switch]$ConfirmWriteability,
         [object]$SlotReservePolicy,
         [ValidatePattern('^[a-f0-9-]{36}$')][string]$LlamaSessionOperationId,
         [ValidatePattern('^[a-f0-9-]{36}$')][string]$LlamaSessionPlanId,
@@ -379,8 +388,10 @@ function Invoke-SqlServerLabWorkflowAction {
         }
         return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
     }
-    if ($Action -in @('GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider')) {
+    if ($Action -in @('GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability')) {
         $result = switch ($Action) {
+            'PlanSetupWriteability' { New-LabInitialSetupWriteabilityPlan -LocationId $SetupLocationId }
+            'ProbeSetupWriteability' { Invoke-LabInitialSetupWriteabilityPlan -PlanId $SetupWriteabilityPlanId -Confirmed:$ConfirmWriteability -Confirm:$false }
             'GetInitialSetupState' { Get-LabInitialSetupState }
             'PlanInitialSetup' { New-LabInitialSetupPlan -MediaRoot $MediaRoot -LabDataRoot $LabDataRoot -DefaultDataRoot $DefaultDataRoot }
             'ApplyInitialSetup' {

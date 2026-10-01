@@ -110,6 +110,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Kein Start, keine Installation und keine Änderung bestehender Runtimebindungen. Fehlende Voraussetzungen bleiben ein Befund.'
             Command = 'Invoke-SqlServerLabWorkflowAction -Action RefreshSetupProvider'
         }
+        'initial-setup-writeability' = @{
+            Title = 'Eine registrierte Location auf Schreibbarkeit prüfen'
+            Purpose = 'Genau eine vorhandene Lab_Data-Location auf lokalem festem Windows-NTFS/ReFS auswählen. Lesen prüft keine Schreibbarkeit; dies ist keine SQL-, Kapazitäts- oder Providerabnahme.'
+            Effects = 'Auswahl, Vorschau und Abbruch schreiben nichts. Erst bewusste Bestätigung revalidiert die einmalige Vorschau, schreibt und flusht ein eigenes Byte und prüft die eigene Bereinigung getrennt mit begrenzten Workern. Keine Root-, Default-, Runtime- oder fremde Dateimutation.'
+            Command = 'Invoke-SqlServerLabWorkflowAction -Action PlanSetupWriteability -SetupLocationId <LocationId>'
+        }
         'create-menu' = @{
             Title   = 'Umgebung erstellen'
             Purpose = 'Erstellt eine einzelne Umgebung sofort oder stellt mehrere zusammen und uebergibt sie an die Queue.'

@@ -303,8 +303,21 @@ Im Browser führt **SQL-Lab-Grundkonfiguration → Grundkonfiguration und Provid
 öffnen** zum gleichen Plan-/Apply-Core. **Gewählten Provider prüfen** liest nur
 Installation und Erreichbarkeit von Docker, Podman oder Hyper-V; die Auswahl
 startet und installiert nichts und ändert keine bestehende Runtimebindung.
-Container-only benötigt für diesen Dialog kein Hyper-V. Schreibbarkeit und
-freie Kapazität werden in diesem ersten Konfigurationsdialog nicht geprüft.
+Container-only benötigt für diesen Dialog kein Hyper-V. Roots lesen führt keine
+Schreibprobe aus. **Schreibprobe vorschauen** wählt genau eine vorhandene
+registrierte Lab_Data-Location (Windows, lokales festes NTFS/ReFS). Prüfen Sie
+die Vorschau, bestätigen Sie sie ausdrücklich und wählen Sie **Bestätigte
+Schreibprobe ausführen**. Die fünf Minuten gültige Vorschau wird frisch geprüft
+und einmal verwendet. Die eigene Datei erhält ein Byte mit Flush und wird
+bereinigt; eine separate Prüfung bestätigt ihre Abwesenheit. Währenddessen
+bleibt der Ergebnisdialog geöffnet. Die getrennten Worker sind auf 20 und 15
+Sekunden begrenzt, jeweils mit zwei Sekunden zur Eingabeübergabe und zwei
+Sekunden zum Beenden eines eigenen Workers.
+`RECOVERY_REQUIRED` bedeutet, dass die eigene Bereinigung nicht bestätigt ist;
+es gibt keine automatische pfadbasierte Löschung oder Wiederholung. CLI bietet
+denselben Ablauf unter **Eine registrierte Lab_Data-Location auf Schreibbarkeit
+prüfen**; Abbruch nach der Vorschau schreibt nichts. Freie Kapazität und die
+SQL-/Providerabnahme bleiben eigene Nachweise.
 
 ### 3b. Betriebssystem-ISO beschaffen (nur für Hyper-V)
 

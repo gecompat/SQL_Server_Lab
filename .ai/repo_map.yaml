@@ -462,6 +462,9 @@ sources_of_truth:
   port_allocation_contract: Private/PortAllocation.ps1
   storage_contract: Private/StorageContract.ps1
   initial_setup_contract: Private/InitialSetup.ps1
+  initial_setup_writeability_contract: Private/InitialSetupWriteability.ps1
+  initial_setup_writeability_worker: Tools/Invoke-InitialSetupWriteProbe.ps1
+  validation_initial_setup_writeability: Tests/Static/Fixtures/InitialSetupWriteabilityChecks.ps1
   slot_reserve_guidance: Private/SlotReserveGuidance.ps1
   preferences_authority: Private/LabPreferences.ps1
   validation_slot_reserve: Tests/Static/Invoke-SlotReserveChecks.ps1
