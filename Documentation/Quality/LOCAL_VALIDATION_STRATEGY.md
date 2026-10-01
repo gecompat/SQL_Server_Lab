@@ -89,7 +89,17 @@ CLI-Prüfung führt den echten Cursorrenderer mit synthetischen Tasten sowie den
 nummerierten Fallback aus: Rootdetails und Providerbefunde bleiben bestätigt
 lesbar, F5 liest erneut. Der Browsertest führt die echten Ereignishandler aus,
 einschließlich Vorschau, Abbruch, ungültig gewordener Eingaben und verspäteter
-Antworten. Schreibbarkeit und freie Kapazität werden nicht bestätigt.
+Antworten. `Fixtures/InitialSetupWriteabilityChecks.ps1` führt zusätzlich den
+echten Public-/Worker-Core auf einem eigenen temporären registrierten Windows-
+Root aus: Vorschau ohne Datei, Bestätigung, WhatIf, Byte/Flush, separate
+Abwesenheit, Replay, Kollision, Ablauf und Markerdrift. Der tatsächliche Worker
+blockiert Directoryrename und Junctionaustausch nach Open vor dem Bytewrite.
+Echte HTTP-Grenze und CLI-Cursor/Fallback prüfen Bestätigung und Abbruch; echte
+JS-Handler prüfen Vorschau, Eingabeänderung, Cancel und resultatsichtbares Apply.
+Nicht-Windows prüft die Plattformablehnung; die Windows-Dateisystemprobe bleibt
+dort `NOT_EXECUTED`. Freie Kapazität und SQL-/Providereignung werden dadurch
+nicht bestätigt. Kanonisch ausgewählte Runtime-Gates bleiben erforderlich;
+frühere SQL-Smokes sind kein Nachweis für einen neuen Source-Digest.
 
 Am 2026-09-28 bestand der getrennte Docker-SQL-2025-Core-Smoke 34 Prüfungen mit
 eigenem temporärem State-/Datenroot, globaler Testsperre und lokalem Rohlog.
@@ -700,7 +710,16 @@ trennt den behaltenen Store ab, prüft WhatIf, öffentliche Löschung, Tombstone
 idempotentes Resume und eigene Restfreiheit. Der Parent hält
 `SQL_Server_Lab_Runtime_Smoke` (unter Windows `Global\`), begrenzt den Arbeitschild
 auf 1200 und Cleanup auf 300 Sekunden und erhält private Evidence auch nach
-Fehlern. Diese beiden nativen Abnahmen sind für diesen Stand **NOT_EXECUTED**.
+Fehlern. Am 2026-10-01 bestanden Docker und Podman auf `b2a1f456` getrennt
+jeweils sechs Assertions sowie der separate Cleanup. Ein lokal geprüfter
+Schutzwrapper wählte pro Lauf ein frisches eigenes konfliktfreies Testnetz
+über Prozessvariablen; die unverpackte Abnahme verwendet das konfigurierte
+Standardnetz. Eigene Container, Volumes und Testnetze waren danach abwesend;
+die sechs laufenden Shared-Umgebungen, fremde VM-Zustände, geschützte Dateien
+und gespeicherten Defaults blieben unverändert. Rohdaten und Testwrapper
+bleiben ausschließlich lokal. Der unabhängige Ergebnisnachreview wurde für
+beide Provider getrennt geschlossen; weitere SQL-Versionen und Storageklassen
+bleiben offen.
 Die Capability selbst betrifft Docker/Podman; die gekoppelte Änderung am
 gemeinsamen Testselektor verlangt nach bestehenden Regeln den breiteren CI-Gate
 einschließlich Hyper-V und wird nicht dafür abgeschwächt.

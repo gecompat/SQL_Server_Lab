@@ -286,6 +286,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   Ersteinrichtungsassistent leitet `Lab_Base` und mehrere `Lab_Data`-Roots aus
   ihren Parents ab, fragt nur fehlende Werte ab, verlangt eine ausdrückliche
   globale Default-Auswahl und übernimmt keine fremden nichtleeren Datenroots;
+  CLI und Browser bieten zusätzlich eine explizite, einmalige Schreibprobe für
+  genau eine vorhandene registrierte Location auf lokalem festem Windows-
+  NTFS/ReFS: serverseitige Vorschau, bewusste Bestätigung, frische Bindungsprüfung,
+  eigenes Byte mit Flush und begrenzte separate Abwesenheitsprüfung. Lesen
+  probt nicht; freie Kapazität und SQL-/Providerabnahme bleiben getrennt;
   dessen versioniertes read-only
   Storage-Residency-Inventar trennt `Lab_Data`, native Docker-/Podman-Ablage,
   externe Hostpfade, rungebundene sowie retained Objekte und unbekanntes

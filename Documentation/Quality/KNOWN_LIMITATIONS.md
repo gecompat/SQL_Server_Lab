@@ -352,8 +352,13 @@ Reparatur oder Löschung. Die gezielte Katalogreparatur wurde für Docker und
 Podman getrennt an jeweils einer neuen eigenen synthetischen Volume mit
 bytegleichem Sentinel und bestätigtem Cleanup geprüft; SQL Server wurde dabei
 nicht gestartet. Dieser Nachweis gilt nicht für allgemeine Maintenance-Reparatur
-oder SQL-Funktionalität. Retained-Removal-Native für Docker und Podman bleibt
-`NOT_EXECUTED`; synthetische Katalog-/UI-Prüfungen ersetzen diesen Nachweis nicht.
+oder SQL-Funktionalität. Die getrennte Retained-Removal-Abnahme bestand am
+2026-10-01 auf `b2a1f456` für Docker und Podman jeweils mit sechs Assertions
+an einem frischen eigenen SQL-2025-Store und separatem Cleanup. Eigene
+Container, Volumes und Testnetze waren anschließend abwesend; parallel genutzte
+Umgebungen und gespeicherte Defaults blieben unverändert. Dieser enge Nachweis
+erweitert den Löschvertrag nicht auf Sidecars, Gruppen, historische Stores,
+andere SQL-Versionen, externe Speicher oder Hyper-V.
 
 ### Hyper-V
 
@@ -776,8 +781,16 @@ registrierte Lab_Data-Einträge einschließlich fehlender oder ungültiger Roots
 CLI und Browser ergänzen fehlende Roots über denselben Vorschau-/Apply-Core,
 unterstützen mehrere unterschiedliche Volumes und verlangen eine ausdrückliche
 Default-Auswahl. Complete beendet den CLI-Dialog nicht; ein Wechsel auf einen
-bereits registrierten Default ist kein No-op. Schreibbarkeit und freie
-Kapazität bleiben in diesem Dialog ungeprüft. Providerrefresh liest nur den
+bereits registrierten Default ist kein No-op. Lesen behauptet keine Schreibbarkeit.
+Eine ausdrückliche Schreibprobe unterstützt genau eine registrierte Location auf
+einem lokalen festen Windows-NTFS/ReFS-Volume; UNC, Reparsepfade und andere
+Dateisysteme bleiben gesperrt. Sie bestätigt nur eine Momentaufnahme mit einem
+Byte, keine Kapazitäts-, SQL- oder Providerabnahme. Vorschau gilt fünf Minuten
+in derselben Modulsitzung, ist einmalig und verlangt bewusste Bestätigung.
+Verzeichnis-/Markerhandles schützen Namen während CreateNew, Flush und eigener
+DeleteOnClose-Bereinigung; dies behauptet keine portable atomare Directory-ID-
+Bindung. Separate begrenzte Abwesenheitsprüfung schlägt bei Drift geschlossen
+fehl und entfernt niemals eine Datei per Pfad. Providerrefresh liest nur den
 explizit gewählten Provider; Installation, Start und Bindingänderungen gehören
 nicht dazu. Gültige Media-Roots werden hier nicht ersetzt. Einen nichtleeren, noch nicht
 controllergebundenen `Lab_Data`-Ordner übernimmt er bewusst nicht automatisch;

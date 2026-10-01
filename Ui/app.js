@@ -1885,12 +1885,26 @@ let initialSetupState = null;
 let initialSetupPlan = null;
 let initialSetupRevision = 0;
 let initialSetupBusy = false;
+let initialSetupWritePlan = null;
+let initialSetupWriteRunning = false;
+function invalidateInitialSetupWritePlan() {
+  initialSetupWritePlan = null;
+  $('#initial-setup-write-confirm').checked = false;
+  $('#initial-setup-write-plan').textContent = 'Keine Schreibprobe geplant.';
+  updateInitialSetupControls();
+}
 function updateInitialSetupControls() {
   const ready = initialSetupState?.ConfigurationStatus === 'READY' && !initialSetupBusy;
   $('#initial-setup-media').disabled = !ready || initialSetupState.MediaRootValid;
   for (const id of ['initial-setup-data', 'initial-setup-default', 'initial-setup-preview']) $('#' + id).disabled = !ready;
   $('#initial-setup-apply').disabled = !ready || !initialSetupPlan || initialSetupPlan.IsNoOp;
   for (const id of ['initial-setup-read', 'initial-setup-provider', 'initial-setup-provider-refresh']) $('#' + id).disabled = initialSetupBusy;
+  const location = $('#initial-setup-write-location').value;
+  $('#initial-setup-write-location').disabled = !ready;
+  $('#initial-setup-write-preview').disabled = !ready || !location;
+  $('#initial-setup-write-confirm').disabled = !ready || !initialSetupWritePlan;
+  $('#initial-setup-write-apply').disabled = !ready || !initialSetupWritePlan || !$('#initial-setup-write-confirm').checked;
+  for (const button of $('#initial-setup-dialog').querySelectorAll('[value="cancel"]')) button.disabled = initialSetupWriteRunning;
 }
 function invalidateInitialSetupPlan() {
   initialSetupPlan = null;
@@ -1916,6 +1930,9 @@ function renderInitialSetupState(state) {
   $('#initial-setup-media').value = state.MediaRoot || '';
   $('#initial-setup-data').value = '';
   $('#initial-setup-default').value = state.DefaultLocation?.LabDataRoot || '';
+  $('#initial-setup-write-location').innerHTML = '<option value="">Location wählen</option>' + (state.LocationStatus || []).filter(item => item.Status === 'READY' && item.LocationId).map(item => '<option value="' + escapeHtml(item.LocationId) + '">' + escapeHtml(item.LabDataRoot) + '</option>').join('');
+  $('#initial-setup-write-location').value = '';
+  invalidateInitialSetupWritePlan();
   invalidateInitialSetupPlan();
 }
 async function runInitialSetupRequest(operation, receive) {
@@ -1928,16 +1945,20 @@ async function runInitialSetupRequest(operation, receive) {
   } catch (error) {
     if (revision === initialSetupRevision && $('#initial-setup-dialog').open) {
       invalidateInitialSetupPlan(); $('#initial-setup-status').textContent = error.message;
+      invalidateInitialSetupWritePlan();
+      if (initialSetupWriteRunning) $('#initial-setup-write-result').textContent = 'Ergebnis und eigene Bereinigung nicht bestätigt. Keine automatische Wiederholung; Zustand separat prüfen.';
     }
   } finally {
     if (revision === initialSetupRevision) { initialSetupBusy = false; updateInitialSetupControls(); }
   }
 }
 function readInitialSetup() {
+  invalidateInitialSetupWritePlan();
   invalidateInitialSetupPlan();
   return runInitialSetupRequest(() => requestInitialSetup(), renderInitialSetupState);
 }
 $('#configuration-storage').addEventListener('click', () => {
+  if (initialSetupWriteRunning) return;
   initialSetupRevision++; initialSetupBusy = false; initialSetupState = null;
   invalidateInitialSetupPlan();
   $('#initial-setup-roots').innerHTML = '';
@@ -1947,10 +1968,37 @@ $('#configuration-storage').addEventListener('click', () => {
   return readInitialSetup();
 });
 $('#initial-setup-dialog').addEventListener('close', () => {
+  invalidateInitialSetupWritePlan();
   initialSetupRevision++; initialSetupBusy = false; invalidateInitialSetupPlan();
 });
+$('#initial-setup-dialog').addEventListener('cancel', event => { if (initialSetupWriteRunning) event.preventDefault(); });
+$('#initial-setup-write-location').addEventListener('change', invalidateInitialSetupWritePlan);
+$('#initial-setup-write-confirm').addEventListener('change', updateInitialSetupControls);
+$('#initial-setup-write-preview').addEventListener('click', () => {
+  if (initialSetupBusy) return;
+  invalidateInitialSetupWritePlan(); $('#initial-setup-write-result').textContent = '';
+  const locationId = $('#initial-setup-write-location').value;
+  if (!locationId) return;
+  return runInitialSetupRequest(() => requestInitialSetup('PlanSetupWriteability', { SetupLocationId: locationId }), plan => {
+    if (plan.LocationId !== $('#initial-setup-write-location').value) return;
+    initialSetupWritePlan = plan;
+    $('#initial-setup-write-plan').textContent = plan.Notice + ' Gültig bis ' + plan.ExpiresAt + '; höchstens ' + plan.MaximumSeconds + ' Sekunden.';
+  });
+});
+$('#initial-setup-write-apply').addEventListener('click', async () => {
+  if (initialSetupBusy || !initialSetupWritePlan || !$('#initial-setup-write-confirm').checked) return;
+  const plan = initialSetupWritePlan;
+  if (plan.LocationId !== $('#initial-setup-write-location').value || !Number.isFinite(Date.parse(plan.ExpiresAt)) || Date.parse(plan.ExpiresAt) <= Date.now()) { invalidateInitialSetupWritePlan(); return; }
+  invalidateInitialSetupWritePlan(); initialSetupWriteRunning = true;
+  $('#initial-setup-write-result').textContent = 'Schreibprobe und eigene Bereinigung laufen …';
+  try {
+    await runInitialSetupRequest(() => requestInitialSetup('ProbeSetupWriteability', { SetupWriteabilityPlanId: plan.PlanId, ConfirmWriteability: true }), result => {
+      $('#initial-setup-write-result').textContent = result.Status + ' · Eigene Datei abwesend: ' + result.OwnLeafAbsent + (result.PrimaryCode ? ' · ' + result.PrimaryCode : '') + (result.CleanupCode ? ' · ' + result.CleanupCode : '') + ' · ' + result.Notice;
+    });
+  } finally { initialSetupWriteRunning = false; updateInitialSetupControls(); }
+});
 $('#initial-setup-read').addEventListener('click', readInitialSetup);
-for (const id of ['initial-setup-media', 'initial-setup-data', 'initial-setup-default']) $('#' + id).addEventListener('input', invalidateInitialSetupPlan);
+for (const id of ['initial-setup-media', 'initial-setup-data', 'initial-setup-default']) $('#' + id).addEventListener('input', () => { invalidateInitialSetupPlan(); invalidateInitialSetupWritePlan(); });
 $('#initial-setup-form').addEventListener('submit', (event) => {
   event.preventDefault(); invalidateInitialSetupPlan();
   const parameters = { MediaRoot: $('#initial-setup-media').value.trim(), LabDataRoot: $('#initial-setup-data').value.split(/\r?\n/).map((item) => item.trim()).filter(Boolean), DefaultDataRoot: $('#initial-setup-default').value.trim() };
