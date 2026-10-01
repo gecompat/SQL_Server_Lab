@@ -474,6 +474,12 @@ sources_of_truth:
   initial_setup_writeability_worker: Tools/Invoke-InitialSetupWriteProbe.ps1
   validation_initial_setup_writeability: Tests/Static/Fixtures/InitialSetupWriteabilityChecks.ps1
   slot_reserve_guidance: Private/SlotReserveGuidance.ps1
+  windows_pool_claims: Private/WindowsPoolClaims.ps1
+  windows_pool_member_schema: Schemas/windows-pool-member.schema.json
+  windows_pool_claim_contract: Documentation/Architecture/WINDOWS_POOL_MEMBERSHIP_AND_CLAIMS.md
+  validation_windows_pool_claims: Tests/Static/Invoke-WindowsPoolClaimChecks.ps1
+  acceptance_windows_pool_claims: Tests/Integration/Invoke-WindowsPoolClaimAcceptance.ps1
+  acceptance_windows_pool_native_helpers: Tests/Common/WindowsPoolNativeAcceptance.ps1
   preferences_authority: Private/LabPreferences.ps1
   validation_slot_reserve: Tests/Static/Invoke-SlotReserveChecks.ps1
   validation_slot_reserve_migration: Tests/Static/Invoke-SlotReserveMigrationChecks.ps1
@@ -1250,6 +1256,7 @@ providers:
     evaluation_watch_guided_view: "Private/EvaluationWatchView.ps1; read-only Fachansicht im Wartungsmenü und über den GET-Endpunkt /api/evaluation-watch. Beide Oberflächen zeigen dieselbe Projektion ohne Ereignisregistrierung, Runtimeprobe oder Gastzugriff; Tests/Static/Fixtures/EvaluationWatchViewChecks.ps1 und WorkflowSqlTargetChecks.cjs prüfen importierte Handler, Abbruch und Ergebniszustände."
     image_builder: "Private/HyperVImageBuilder.ps1 plus Private/HyperVWindowsEvaluationTemplate.ps1, Private/HyperVLegacyWindowsEvaluationTemplate.ps1 und Private/HyperVSqlImageBuilder.ps1; katalog- und hashgebundener Windows-/SQL-Evaluation-Build, versionsgerechte Hyper-V-Plattform, einmaliger buildlokaler Medienprüfbeleg für unveränderte Resumes, temporäre Aktivierungs-NIC, Sysprep, fail-closed CHILD_BOOT_VERIFIED-Gate und PowerShell-Direct- beziehungsweise Legacy-WMI-/Lab-WinRM-Gaststeuerung"
     windows_slot_pool: "Public/New-SqlServerLabWindowsSlotPool.ps1; geeignete OS_SEALED-Baseline, N resumierbare Child-VMs, RAM-/Locale-Vertrag, generierte oder gemeinsame Passwoerter und unbeaufsichtigte OOBE"
+    windows_pool_claim_authority: "Private/WindowsPoolClaims.ps1; einzig kanonischer Member-Run-State, vorlaufendes Operationsintent, private exakt gebundene Mutation, kurze globale Root-CAS-Mutex, exklusive Operationsslots, 24h Windows-Gastevidence, opaques CLI/GUI-Preview und separater Recovery-Cleanup. StateMachine, ArtifactResolver, HyperVProvider/-Lab/-Reconcile/-Migration/-PersistentData, Cleanup/Lifecycle/Maintenance und SlotReserveGuidance gemeinsam prüfen; keine Legacy-Namensadoption, SQL-Reserve unbekannt. Vertrag: Documentation/Architecture/WINDOWS_POOL_MEMBERSHIP_AND_CLAIMS.md; Schema: Schemas/windows-pool-member.schema.json; lokale fokussierte und echte Prozessrennen: Tests/Static/Invoke-WindowsPoolClaimChecks.ps1. Native Windows2025-Poolabnahme bleibt separat erforderlich."
     metadata: Providers/HyperV/provider.json
     documentation: Providers/HyperV/README.md
     command: Get-VMHost

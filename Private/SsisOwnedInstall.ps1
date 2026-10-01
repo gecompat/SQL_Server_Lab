@@ -199,7 +199,7 @@ function Invoke-LabSsisOwnedInstall {
             if([string]$managed.VM.Id -cne $context.VmId){throw 'SSIS_INSTALL_RESTART_BINDING'}
             $null=Restart-VM -VM $managed.VM -Force -ErrorAction Stop
             $ready=Wait-HyperVGuestSqlReady -VMName $lab.Instance.vmName -ExpectedRunId $context.RunId -ExpectedScopeId $lab.Run.scopeId `
-                -Credential $credential -SaPassword $sa -ExpectedMajorVersion 17 -TimeoutSeconds 600
+                -Credential $credential -SaPassword $sa -ExpectedMajorVersion 17 -TimeoutSeconds 600 -StateRoot $StateRoot
             if(-not $ready.Ready){throw 'SSIS_INSTALL_RESTART_NOT_READY'}
             $after=Invoke-HyperVPowerShellDirect @arguments
             if($before.Status -cne 'IS_COMPONENTS_AND_SQL_VERIFIED' -or $after.Status -cne 'IS_COMPONENTS_AND_SQL_VERIFIED' -or

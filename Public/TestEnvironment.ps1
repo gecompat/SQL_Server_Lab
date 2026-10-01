@@ -336,7 +336,7 @@ function Rename-LabAutomatedTestEnvironmentRuntime {
     $restartRequired = $runtimeRenameRequired -and [string]$status.State -eq 'Running'
     if ($restartRequired) {
         $null = Stop-HyperVInstance -VMName ([string]$lab.Instance.vmName) `
-            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -StateRoot $StateRoot
     }
 
     $renameResult = $null
@@ -351,7 +351,7 @@ function Rename-LabAutomatedTestEnvironmentRuntime {
         try {
             $current = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
             $null = Start-HyperVInstance -VMName ([string]$current.Instance.vmName) `
-                -ExpectedRunId $current.Run.runId -ExpectedScopeId $current.Run.scopeId
+                -ExpectedRunId $current.Run.runId -ExpectedScopeId $current.Run.scopeId -StateRoot $StateRoot
         }
         catch { $restartError = $_ }
     }

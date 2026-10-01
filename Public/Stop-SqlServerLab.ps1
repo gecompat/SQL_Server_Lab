@@ -46,6 +46,8 @@ function Stop-SqlServerLab {
             throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Einzelnes Stoppen ist für die automatisch gestartete Testgruppe gesperrt.'
         }
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
+        # A reserved member is rejected before runtime probing or a no-op return.
+        Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $stateRoot
         $run = (Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot).Run
 
         if ($run.state -ne 'RUNNING') {

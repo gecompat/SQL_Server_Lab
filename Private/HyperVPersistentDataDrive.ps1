@@ -654,10 +654,12 @@ function Invoke-LabHyperVPersistentDataPlan {
     param(
         [Parameter(Mandatory)]$Plan,
         [Parameter(Mandatory)][string]$OperationDirectory,
-        [Parameter(Mandatory)]$Configuration
+        [Parameter(Mandatory)]$Configuration,
+        [string]$StateRoot
     )
 
     if ([string]$Plan.Status -ne 'READY') { throw 'HYPERV_PERSISTENT_DATA_READY_PLAN_REQUIRED' }
+    Assert-LabWindowsPoolMutationAllowed -RunId ([string]$Plan.Target.RunId) -StateRoot $StateRoot -InvalidateEvidence
     if (-not (Test-Path -LiteralPath $OperationDirectory -PathType Container)) { $null = New-Item -ItemType Directory -Path $OperationDirectory -Force }
     $journalPath = Get-LabHyperVPersistentDataJournalPath -OperationDirectory $OperationDirectory
     $journal = if (Test-Path -LiteralPath $journalPath -PathType Leaf) {
@@ -876,6 +878,7 @@ function Invoke-LabHyperVPersistentDataLifecycle {
         [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$OperationId
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $TargetRunId -StateRoot $StateRoot -InvalidateEvidence
     if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
     if (-not $DataRoot) { throw 'LAB_DATA_ROOT_REQUIRED' }
     $DataRoot = Resolve-LabDataRootForUse -DataRoot $DataRoot
@@ -984,7 +987,7 @@ function Invoke-LabHyperVPersistentDataLifecycle {
         throw "HYPERV_PERSISTENT_DATA_PLAN_BLOCKED: $(@($plan.Blockers) -join ',')"
     }
     $operationDirectory = Join-Path (Join-Path (Join-Path $DataRoot 'HyperV\Recovery') 'PersistentData') $OperationId
-    $journal = Invoke-LabHyperVPersistentDataPlan -Plan $plan -OperationDirectory $operationDirectory -Configuration $configuration
+    $journal = Invoke-LabHyperVPersistentDataPlan -Plan $plan -OperationDirectory $operationDirectory -Configuration $configuration -StateRoot $StateRoot
 
     $connectionStateStatus = 'NOT_APPLICABLE'
     if ($Action -in @('REATTACH','RELEASE')) {

@@ -2372,6 +2372,54 @@ Lab-Volume. Die fokussierte Suite bestand 20 Assertions einschließlich des
 
 ## Slotreservepolicy und Kandidatensicht
 
+Neue Windows-Poolmitglieder verwenden zusätzlich den gekoppelten Vertrag
+`Documentation/Architecture/WINDOWS_POOL_MEMBERSHIP_AND_CLAIMS.md`.
+`Invoke-WindowsPoolClaimChecks.ps1` führt kanonische Member-CAS und Whole-Run-
+Writer, Notes-/Root-/Reparsegrenzen, Preview/Cancel/Revalidierung, 24-Stunden-
+Evidence, gehaltenen Recovery-Stop und Consume unter injizierten CPU/RAM-,
+Connectionpersistenz-, Journal- und Postconditionfehlern aus. Getrennte echte
+PowerShell-Prozesse prüfen konkurrierende Claims einschließlich Rootalias,
+identischen Operationsresume und Claim-Erhaltung nach Workercrash. Die
+Fixtures liegen ausschließlich lokal unter `.artifacts/windows-pool-checks`.
+Die Suite prüft außerdem die echten Workflowparameter `RunId`/`StateRoot`
+und feste feldbezogene Capturecodes samt Allowlist und Deduplizierung. Der
+fehlgeschlagene Native-Captureversuch bleibt als fehlender Gesamtbeleg erhalten;
+eine OOBE-Localequittung ersetzt keine frische Poolcapture.
+Der echte Guest-Scriptblock wird mit einem synthetischen Datum vor 1970
+geprüft: positive frische Grace liefert ein Ende, fehlende Grace und ungültige
+Lizenz bleiben gesperrt. Ein echtes abgelaufenes oder unlesbares Enddatum darf
+durch positive Grace nicht ersetzt werden. Diese Änderung betrifft nur
+Hyper-V-Gastcapture. Der vom Selektor ausgewählte Docker-Fallback bleibt
+ein Pflichtnachweis für den stabilen Stand; frühere Docker-Evidence deckt
+dessen neuen Quelldigest nicht ab.
+Echte öffentliche Start-/Stopaufrufe werden am synthetischen geclaimten
+Mitglied geprüft: Die Sperre greift vor Runtime-Abgleich und No-op-Rückgabe,
+Statebytes bleiben unverändert. Der Native-Versuch mit frischer Guestcapture
+erreichte den Direktaufrufcheck, lieferte dort aber noch keinen Gesamt-PASS.
+Der fokussierte Migrationsvertrag blockiert StateRoot-verschiebende
+DataRoot-Migrationen mit Poolmitgliedern auch nach Consume, lässt eine
+Migration ohne Rootwechsel und entfernte Tombstones ohne live VM zu und
+verweigert unbekannte oder widersprüchliche Bindungen vor Copy/Mutation.
+
+`Tests/Integration/Invoke-WindowsPoolClaimAcceptance.ps1` ist der separate
+native Windows-2025-Desktop-Harness. Er verlangt einen explizit ausgewählten
+integritäts- und Childboot-verifizierten Parent, eine erhöhte freigegebene
+Lane, ein ausgewähltes lokales SQL-Medium sowie ausdrückliche Ausführungs-
+und Cleanupbestätigung. Er erstellt genau ein eigenes Poolmitglied,
+prüft Gastcapture/Off-Verfügbarkeit, gebundenen Resume, Cancel, Guard,
+Release und vollständigen Consume. Nur beim Erfolg wird dieses eigene
+Mitglied über den bestehenden Cleanupvertrag entfernt; Fehler versuchen
+einen eigenen Stop und bewahren State/Child mit getrennten Fehlerkategorien.
+`Tests/Common/WindowsPoolNativeAcceptance.ps1` enthält die testinternen
+Bindings- und Nachbedingungsprüfungen. Die fokussierte Suite reproduziert
+fehlenden Marker bei anderem DefaultRoot, exakte Nicht-Pool-VM-Bindung,
+unbekannte Reserveabdeckung, Rename/Missing-Discovery und Parentdrift.
+Native Erfolg verlangt erhaltene Originalidentitäten und unabhängigen
+Parentvergleich sowie VM-/Child-/Adapter-/IPAM-/Secret-Absence; fehlende
+State-/Discoverydaten verhindern PASS und automatischen Cleanup.
+Ein vorbereiteter Harness ist kein ausgeführter Providerbeleg. Er benötigt
+eine eigene Evidence und bestätigt weder SQL-Reserve noch automatische Auffüllung.
+
 `Invoke-SlotReserveChecks.ps1` prüft synthetisch denselben Preferences-Writer
 mit vier getrennten PowerShell-Prozessen, Mergeerhaltung, ungültigem JSON,
 Authority-/Vorgängerdrift, expliziter Nullreserve und injiziertem Schreibabbruch.

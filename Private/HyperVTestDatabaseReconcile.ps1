@@ -452,6 +452,7 @@ function Sync-LabHyperVTestDatabaseState {
 function Invoke-LabHyperVTestDatabaseReconcileRepair {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId,[Parameter(Mandatory)][string]$ManifestPath,[Parameter(Mandatory)][string]$InstanceId,[SecureString]$SqlSaPassword,[string]$StateRoot)
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $mutex=[Threading.Mutex]::new($false,"Global\SQL_Server_Lab_HyperV_Test_Database_Reconcile_$($RunId.Replace('-',''))");$acquired=$false;$journal=$null;$journalPath=$null
     try{
         $acquired=$mutex.WaitOne([TimeSpan]::FromMinutes(5));if(-not$acquired){throw 'HYPERV_TEST_DATABASE_RECONCILE_LOCK_TIMEOUT'}

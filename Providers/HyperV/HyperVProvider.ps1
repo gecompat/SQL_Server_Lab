@@ -134,6 +134,15 @@ function ConvertTo-HyperVLabNotes {
             }
         )
     }
+    $context=$script:LabWindowsPoolContext
+    if ($context -and $context.Kind -ceq 'Prepare') {
+        $root=Resolve-LabWindowsPoolRoot -StateRoot $context.StateRoot
+        $run=Read-LabWorkflowJson -Path (Get-LabWindowsPoolMemberPath -RunId $RunId -StateRoot $root)
+        $member=Assert-LabWindowsPoolMember -Run $run
+        if (-not $member -or -not (Test-LabWindowsPoolOperationContext -Member $member -StateRoot $root) -or
+            $member.scopeId -cne $ScopeId -or $member.instanceId -cne $InstanceId) { throw 'WINDOWS_POOL_NOTES_CREATION_BINDING_INVALID' }
+        $identity.windowsPoolMember=[ordered]@{poolId=$member.poolId;stateRoot=$root}
+    }
     return $script:HyperVLabNotesPrefix + ($identity | ConvertTo-Json -Compress -Depth 10)
 }
 
@@ -779,7 +788,13 @@ function New-HyperVInstance {
         $boundSwitch=Get-VMSwitch -Name $SwitchName -ErrorAction Stop
         $networkBinding=New-LabWindowsPermanentAdapterBinding -VM $vm -Adapters @(Get-VMNetworkAdapter -VM $vm -ErrorAction Stop) -SwitchId ([string]$boundSwitch.Id)
         $managedNetwork=[pscustomobject]@{VM=$vm;Identity=(ConvertFrom-HyperVLabNotes -Notes $notes)}
-        $null=Set-HyperVManagedVMIdentityProperty -ManagedVM $managedNetwork -PropertyName networkBinding -Value $networkBinding -ContractVersion '0.7'
+        # Creation owns the exact returned VM under its prospective run/resource
+        # binding. Persist its initial Notes before connection-info can exist;
+        # subsequent mutations use the canonical VM-ID-bound provider guard.
+        $managedNetwork.Identity | Add-Member -NotePropertyName contractVersion -NotePropertyValue '0.7' -Force
+        $managedNetwork.Identity | Add-Member -NotePropertyName networkBinding -NotePropertyValue $networkBinding -Force
+        $notes=$script:HyperVLabNotesPrefix+($managedNetwork.Identity|ConvertTo-Json -Compress -Depth 10)
+        $null=Set-VM -VM $vm -Notes $notes -ErrorAction Stop
     }
     foreach ($drive in $additionalDrivePlan) {
         $attachedDrive = Add-VMHardDiskDrive `
@@ -883,7 +898,8 @@ function Start-HyperVInstance {
         [Parameter(Mandatory)][string]$ExpectedRunId,
         [Parameter(Mandatory)][string]$ExpectedScopeId,
         [string]$ExpectedVMId,
-        [string]$ExpectedInstanceId
+        [string]$ExpectedInstanceId,
+        [string]$StateRoot
     )
 
     $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
@@ -891,6 +907,7 @@ function Start-HyperVInstance {
         throw "Hyper-V-VM nicht gefunden: $VMName"
     }
     if (($ExpectedVMId -and [string]$managed.VM.Id -ne $ExpectedVMId) -or ($ExpectedInstanceId -and [string]$managed.Identity.instanceId -ne $ExpectedInstanceId)) { throw 'TEST_GROUP_RUNTIME_BINDING' }
+    Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $StateRoot
     if ([string]$managed.VM.State -ne 'Running') {
         $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-start' -RunId $ExpectedRunId `
             -Command "Start-VM -Name $VMName" -Action { Start-VM -VM $managed.VM -ErrorAction Stop }
@@ -905,7 +922,8 @@ function Stop-HyperVInstance {
         [Parameter(Mandatory)][string]$ExpectedRunId,
         [Parameter(Mandatory)][string]$ExpectedScopeId,
         [string]$ExpectedVMId,
-        [string]$ExpectedInstanceId
+        [string]$ExpectedInstanceId,
+        [string]$StateRoot
     )
 
     $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
@@ -913,6 +931,7 @@ function Stop-HyperVInstance {
         throw "Hyper-V-VM nicht gefunden: $VMName"
     }
     if (($ExpectedVMId -and [string]$managed.VM.Id -ne $ExpectedVMId) -or ($ExpectedInstanceId -and [string]$managed.Identity.instanceId -ne $ExpectedInstanceId)) { throw 'TEST_GROUP_RUNTIME_BINDING' }
+    Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $StateRoot
     if ([string]$managed.VM.State -ne 'Off') {
         $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-stop' -RunId $ExpectedRunId `
             -Command "Stop-VM -Name $VMName -Force" -Action { Stop-VM -VM $managed.VM -Force -ErrorAction Stop }
@@ -1083,9 +1102,12 @@ function Set-HyperVManagedVMIdentityProperty {
         [Parameter(Mandatory)]$ManagedVM,
         [Parameter(Mandatory)][string]$PropertyName,
         [Parameter(Mandatory)]$Value,
-        [Parameter(Mandatory)][string]$ContractVersion
+        [Parameter(Mandatory)][string]$ContractVersion,
+        [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolProviderMutation -Managed $ManagedVM -StateRoot $StateRoot
+    if ($PropertyName -ceq 'windowsPoolMember') { throw 'WINDOWS_POOL_NOTES_HINT_IMMUTABLE' }
     $ManagedVM.Identity | Add-Member `
         -NotePropertyName contractVersion `
         -NotePropertyValue $ContractVersion `
@@ -1196,7 +1218,8 @@ function Set-HyperVWindowsGuestSpecialization {
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][ValidatePattern('^(?![0-9]+$)[A-Za-z0-9](?:[A-Za-z0-9-]{0,13}[A-Za-z0-9])?$')][string]$ComputerName,
         [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress,
-        [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300
+        [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,
+        [string]$StateRoot
     )
 
     $targetComputerName = $ComputerName.ToUpperInvariant()
@@ -1205,6 +1228,7 @@ function Set-HyperVWindowsGuestSpecialization {
         -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId
     if (-not $managed) { throw "Hyper-V-VM nicht gefunden: $VMName" }
+    Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $StateRoot
     if ([string]$managed.VM.State -ne 'Running') {
         throw "Windows-Specialization erfordert eine laufende VM: $VMName"
     }
@@ -1251,7 +1275,7 @@ function Set-HyperVWindowsGuestSpecialization {
             -ManagedVM $managed `
             -PropertyName windowsSpecialization `
             -Value $intent `
-            -ContractVersion '0.5'
+            -ContractVersion '0.5' -StateRoot $StateRoot
 
         $null = Invoke-HyperVPowerShellDirect `
             -VMName $VMName `
@@ -1274,7 +1298,7 @@ function Set-HyperVWindowsGuestSpecialization {
             -ManagedVM $managed `
             -PropertyName windowsSpecialization `
             -Value $intent `
-            -ContractVersion '0.5'
+            -ContractVersion '0.5' -StateRoot $StateRoot
 
         $null = Invoke-HyperVPowerShellDirect `
             -VMName $VMName `
@@ -1339,7 +1363,7 @@ function Set-HyperVWindowsGuestSpecialization {
         -ManagedVM $managed `
         -PropertyName windowsSpecialization `
         -Value $receipt `
-        -ContractVersion '0.5'
+        -ContractVersion '0.5' -StateRoot $StateRoot
 
     return [PSCustomObject]@{
         Provider = 'hyperv'
@@ -1369,7 +1393,8 @@ function Confirm-HyperVWindowsManualOobeSpecialization {
         [Parameter(Mandatory)][string]$ExpectedRunId,
         [Parameter(Mandatory)][string]$ExpectedScopeId,
         [Parameter(Mandatory)][PSCredential]$Credential,
-        [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress
+        [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress,
+        [string]$StateRoot
     )
 
     $managed = Get-HyperVManagedVM `
@@ -1377,6 +1402,7 @@ function Confirm-HyperVWindowsManualOobeSpecialization {
         -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId
     if (-not $managed) { throw "Hyper-V-VM nicht gefunden: $VMName" }
+    Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $StateRoot
     if ([string]$managed.VM.State -ne 'Running') {
         throw "Manuelle Windows-OOBE-Bestaetigung erfordert eine laufende VM: $VMName"
     }
@@ -1436,7 +1462,7 @@ function Confirm-HyperVWindowsManualOobeSpecialization {
         -ManagedVM $managed `
         -PropertyName windowsSpecialization `
         -Value $receipt `
-        -ContractVersion '0.7'
+        -ContractVersion '0.7' -StateRoot $StateRoot
 
     return [PSCustomObject]@{
         Provider = 'hyperv'
@@ -1462,7 +1488,8 @@ function Wait-HyperVGuestSqlReady {
         [ValidatePattern('^[A-Za-z][A-Za-z0-9_$-]{0,127}$')][string]$InstanceName = 'MSSQLSERVER',
         [ValidateRange(0, 99)][int]$ExpectedMajorVersion = 0,
         [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,
-        [ValidateRange(100, 60000)][int]$PollIntervalMilliseconds = 2000
+        [ValidateRange(100, 60000)][int]$PollIntervalMilliseconds = 2000,
+        [string]$StateRoot
     )
 
     $managed = Get-HyperVManagedVM `
@@ -1470,6 +1497,7 @@ function Wait-HyperVGuestSqlReady {
         -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId
     if (-not $managed) { throw "Hyper-V-VM nicht gefunden: $VMName" }
+    Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $StateRoot
     if ([string]$managed.VM.State -ne 'Running') {
         throw "SQL-Readiness erfordert eine laufende VM: $VMName"
     }
@@ -1595,7 +1623,7 @@ SELECT
         -ManagedVM $managed `
         -PropertyName sqlReadiness `
         -Value $receipt `
-        -ContractVersion '0.6'
+        -ContractVersion '0.6' -StateRoot $StateRoot
 
     return [PSCustomObject]@{
         Provider = 'hyperv'
@@ -1619,7 +1647,8 @@ function Initialize-HyperVWindowsGuestDrives {
         [Parameter(Mandatory)][string]$VMName,
         [Parameter(Mandatory)][string]$ExpectedRunId,
         [Parameter(Mandatory)][string]$ExpectedScopeId,
-        [Parameter(Mandatory)][PSCredential]$Credential
+        [Parameter(Mandatory)][PSCredential]$Credential,
+        [string]$StateRoot
     )
 
     $managed = Get-HyperVManagedVM `
@@ -1627,6 +1656,7 @@ function Initialize-HyperVWindowsGuestDrives {
         -ExpectedRunId $ExpectedRunId `
         -ExpectedScopeId $ExpectedScopeId
     if (-not $managed) { throw "Hyper-V-VM nicht gefunden: $VMName" }
+    Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $StateRoot
 
     $drivePlan = @($managed.Identity.additionalDrives | Where-Object guestPath)
     if ($drivePlan.Count -eq 0) { throw 'HYPERV_GUEST_DRIVE_PLAN_MISSING' }
@@ -1928,7 +1958,7 @@ namespace SqlServerLab {
         -ManagedVM $managed `
         -PropertyName guestDriveInitialization `
         -Value @($receipt) `
-        -ContractVersion '0.4'
+        -ContractVersion '0.4' -StateRoot $StateRoot
 
     return [PSCustomObject]@{
         Provider = 'hyperv'
@@ -1947,7 +1977,8 @@ function Remove-HyperVInstance {
         [Parameter(Mandatory)][string]$ExpectedScopeId,
         [Parameter(Mandatory)][string]$ExpectedRunDirectory,
         [switch]$PreserveVhdx,
-        [switch]$RequireOff
+        [switch]$RequireOff,
+        [string]$StateRoot
     )
     $blockingProgress=Start-LabBlockingActionProgress -Phase Cleanup
     try {
@@ -1956,6 +1987,9 @@ function Remove-HyperVInstance {
     if (-not $managed) {
         return [PSCustomObject]@{ Removed = $false; AlreadyAbsent = $true; VMName = $VMName }
     }
+
+    $selectedRoot=if($StateRoot){$StateRoot}else{Split-Path -Parent (Split-Path -Parent ([IO.Path]::GetFullPath($ExpectedRunDirectory)))}
+    Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $selectedRoot
 
     $childVhdxPath = [string]$managed.Identity.childVhdxPath
     if (-not (Test-HyperVPathWithinRunDirectory -Path $childVhdxPath -RunDirectory $ExpectedRunDirectory)) {
@@ -2023,6 +2057,9 @@ function Remove-HyperVVhdxForCleanup {
         [string]$SafetyRoot
     )
 
+    $selectedRunDirectory=[IO.Path]::GetFullPath($ExpectedRunDirectory)
+    $selectedRoot=Split-Path -Parent (Split-Path -Parent $selectedRunDirectory)
+    Assert-LabWindowsPoolMutationAllowed -RunId (Split-Path -Leaf $selectedRunDirectory) -StateRoot $selectedRoot -InvalidateEvidence
     $scope = Test-HyperVVhdxCleanupScope -Path $Path -ExpectedRunDirectory $ExpectedRunDirectory -SafetyRoot $SafetyRoot
     if (-not $scope.Valid) { throw "$($scope.Code): $($scope.Reason)" }
     $resolvedPath = [string]$scope.Path

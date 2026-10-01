@@ -6,6 +6,8 @@ $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 . (Join-Path $repoRoot 'Private/LabPreferences.ps1')
 . (Join-Path $repoRoot 'Private/ArtifactResolver.ps1')
 . (Join-Path $repoRoot 'Private/SlotReserveGuidance.ps1')
+. (Join-Path $repoRoot 'Private/WindowsPoolClaims.ps1')
+. (Join-Path $repoRoot 'Private/BatchWorkflow.ps1')
 . (Join-Path $repoRoot 'Private/SqlGuestEvaluationEvidence.ps1')
 . (Join-Path $repoRoot 'Public/Invoke-SqlServerLabWorkflowAction.ps1')
 function Get-LabTimestamp { [datetime]::UtcNow.ToString('o') }
@@ -68,7 +70,26 @@ try {
         Set-LabProjectPreferenceValue -Name ('writer'+$index) -Value ('synthetic'+$index)
     } })
     $null=$jobs | Wait-Job -Timeout 30
-    try { foreach($job in $jobs) { Assert-Policy ($job.State -eq 'Completed') 'parallel writer completed'; Receive-Job $job -ErrorAction Stop | Out-Null } }
+    try {
+        $incomplete=@($jobs | Where-Object { $_.State -ne 'Completed' })
+        if ($incomplete.Count -gt 0) {
+            # Capture privacy-safe child failure evidence before Stop/Remove-Job destroys it.
+            # Keep the deadline and completion requirement: a timeout is never a passed writer.
+            $diagnostics=@(foreach($job in $incomplete) {
+                $children=@($job.ChildJobs)
+                $errors=@($children | ForEach-Object { $_.Error } | Where-Object { $_ })
+                $reasons=@(@($job.JobStateInfo.Reason) + @($children | ForEach-Object { $_.JobStateInfo.Reason }) | Where-Object { $_ })
+                [ordered]@{
+                    State=[string]$job.State
+                    ChildStates=@($children | ForEach-Object { [string]$_.State })
+                    ExceptionTypes=@(@($errors | ForEach-Object { $_.Exception.GetType().Name }) + @($reasons | ForEach-Object { $_.GetType().Name }) | Sort-Object -Unique)
+                    PreferenceCodes=@($errors | ForEach-Object { if ($_.Exception.Message -cmatch '^PREFERENCES_[A-Z_]+$') { $_.Exception.Message } } | Sort-Object -Unique)
+                }
+            })
+            throw ('PARALLEL_WRITER_NOT_COMPLETED: '+($diagnostics | ConvertTo-Json -Depth 6 -Compress))
+        }
+        foreach($job in $jobs) { Assert-Policy ($job.State -eq 'Completed') 'parallel writer completed'; Receive-Job $job -ErrorAction Stop | Out-Null }
+    }
     finally { $jobs | Stop-Job; $jobs | Remove-Job }
     $document=(Get-LabPreferencesSnapshot).Document
     Assert-Policy (@(1..4 | Where-Object { $document['writer'+$_] -eq ('synthetic'+$_) }).Count -eq 4 -and $document.unrelated -eq 'keep' -and $document.slotReservePolicy.WindowsReserve -eq 0) 'parallel merges preserve every key'

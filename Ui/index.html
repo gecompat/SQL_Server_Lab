@@ -660,9 +660,24 @@
   <dialog id="slot-reserve-dialog">
     <div class="read-only-dialog-content">
       <h2>Zentrale Slotreservepolicy</h2>
-      <p>Nur Advisory-Policy. Keine automatische Auffüllung, Reservierung oder Provideraktion. Zielbestand für Windows-/SQL-Kandidaten; keine Versions- oder Eignungsfreigabe.</p>
+      <p>Windows-Mitglieder ausdrücklich auswählen und jede Aktion vorab prüfen. Keine automatische Auffüllung. SQL-Reserve bleibt unbekannt.</p>
       <p id="slot-reserve-status" role="status" aria-live="polite"></p>
       <div id="slot-reserve-inventory" class="selection-details"></div>
+      <form id="slot-member-form">
+        <label>Windows-Poolmitglied<select id="slot-member-run"><option value="">Mitglied auswählen</option></select></label>
+        <label>Aktion<select id="slot-member-action"><option value="Claim">Reservieren</option><option value="Release">Unbenutzten Claim freigeben</option><option value="Stop">Gehaltenes eigenes Mitglied stoppen (Claim bleibt)</option><option value="Refresh">Evidence unter gehaltenem Claim erneuern (Start / Capture / Stop)</option><option value="Consume">Für SQL-Ausbau übernehmen</option><option value="Cleanup">Eigenes Mitglied separat bereinigen</option></select></label>
+        <fieldset id="slot-member-sql" hidden>
+          <legend>Verbindlicher SQL-Ausbauplan</legend>
+          <label>SQL-Version<select id="slot-member-version"><option>2025</option><option>2022</option><option>2019</option><option>2017</option><option>2016</option></select></label>
+          <label>Ausdrücklich ausgewähltes lokales SQL-Medium / Media-ID<input id="slot-member-media" type="text"></label>
+          <label>vCPU<input id="slot-member-cpu" type="number" min="1" max="64" value="4"></label>
+          <label>Startspeicher MB (0: beibehalten)<input id="slot-member-memory" type="number" min="0" max="1048576" value="0"></label>
+        </fieldset>
+        <button id="slot-member-preview" class="button secondary" type="submit">Mitgliedaktion vorschauen</button>
+      </form>
+      <p id="slot-member-plan" hidden></p>
+      <button id="slot-member-apply" type="button" class="button primary" disabled>Angezeigte Mitgliedaktion bestätigen und revalidieren</button>
+      <button id="slot-member-cancel" type="button" class="button secondary" disabled>Mitgliedvorschau abbrechen</button>
       <form id="slot-reserve-form">
         <label>Windows-Zielreserve (0–100)<input id="slot-reserve-windows" type="number" min="0" max="100" required></label>
         <label>SQL-Zielreserve (0–100)<input id="slot-reserve-sql" type="number" min="0" max="100" required></label>

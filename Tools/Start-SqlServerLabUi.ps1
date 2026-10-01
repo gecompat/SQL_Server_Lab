@@ -467,6 +467,9 @@ function Invoke-UiSlotReserveRequest {
     $allowed = switch ([string]$payload.action) {
         'PlanSlotReserve' { @('SlotReservePolicy') }
         'ApplySlotReserve' { @('SlotReservePlan', 'ConfirmSlotReserve') }
+        'PlanWindowsPoolMember' { @('RunId','SlotReserveOperation','SlotReserveSqlPlan') }
+        'ApplyWindowsPoolMember' { @('SlotReservePreviewId','ConfirmSlotReserveMember') }
+        'CancelWindowsPoolMember' { @('SlotReservePreviewId') }
         default { throw 'SLOT_RESERVE_ACTION_INVALID' }
     }
     $parameters = @{}
@@ -476,6 +479,8 @@ function Invoke-UiSlotReserveRequest {
     }
     if ($payload.action -eq 'ApplySlotReserve' -and
         ($parameters.ConfirmSlotReserve -isnot [bool] -or -not $parameters.ConfirmSlotReserve)) { throw 'SLOT_RESERVE_CONFIRMATION_REQUIRED' }
+    if($payload.action -eq 'ApplyWindowsPoolMember' -and
+        ($parameters.ConfirmSlotReserveMember -isnot [bool] -or -not $parameters.ConfirmSlotReserveMember)){throw 'WINDOWS_POOL_CONFIRMATION_REQUIRED'}
     Invoke-SqlServerLabWorkflowAction -Action ([string]$payload.action) @parameters
 }
 
@@ -820,7 +825,7 @@ try {
                 $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
-                if ($action -in @('GetCmsInspectionState','InspectCms','GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession','GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
+                if ($action -in @('GetCmsInspectionState','InspectCms','GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession','GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'PlanWindowsPoolMember', 'ApplyWindowsPoolMember', 'CancelWindowsPoolMember', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
                 $parameters = @{}
                 if ($request.parameters) {
                     foreach ($property in $request.parameters.PSObject.Properties) {

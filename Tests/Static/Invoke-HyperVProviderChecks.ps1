@@ -292,6 +292,17 @@ try {
             $driveContract.DuplicateRejected
         )
 
+    & $module {
+        function script:New-HyperVProviderSyntheticBinding {
+            param($Identity)
+            $root=Join-Path $script:ModuleRoot ('.artifacts/hyperv-provider-binding/'+[guid]::NewGuid().ToString('N'))
+            $run=New-LabRunState -StateRoot $root -Metadata @{name='synthetic-provider-binding';workflowKind='synthetic'}
+            $Identity.runId=$run.RunId;$Identity.scopeId=$run.ScopeId
+            $vm=[pscustomobject]@{Id=[guid]::NewGuid().ToString();State='Running';Notes=''}
+            Write-LabArtifactJsonAtomic -Path (Join-Path $run.RunDir connection-info.json) -InputObject ([pscustomobject]@{instances=@([pscustomobject]@{id=$Identity.instanceId;provider='hyperv';vmId=$vm.Id})})
+            [pscustomobject]@{StateRoot=$root;VM=$vm}
+        }
+    }
     $testUser = 'sql-lab-guest-drive-test'
     $testPassword = 'NotPersisted_2!'
     $testCredential = [PSCredential]::new(
@@ -311,7 +322,11 @@ try {
                 allocationUnitKB = 64; volumeLabel = 'SQLLAB_DATA'
             })
         }
-        $vm = [PSCustomObject]@{ State = 'Running'; Notes = '' }
+        $fixtureRoot=Join-Path $script:ModuleRoot ('.artifacts/hyperv-provider-binding/'+[guid]::NewGuid().ToString('N'))
+        $fixtureRun=New-LabRunState -StateRoot $fixtureRoot -Metadata @{name='synthetic-drive-binding';workflowKind='synthetic'}
+        $identity.runId=$fixtureRun.RunId;$identity.scopeId=$fixtureRun.ScopeId
+        $vm = [PSCustomObject]@{ Id=[guid]::NewGuid().ToString();State = 'Running'; Notes = '' }
+        Write-LabArtifactJsonAtomic -Path (Join-Path $fixtureRun.RunDir connection-info.json) -InputObject ([pscustomobject]@{instances=@([pscustomobject]@{id='static';provider='hyperv';vmId=$vm.Id})})
         $script:CapturedGuestDriveNotes = ''
         function Get-HyperVManagedVM { [PSCustomObject]@{ VM = $vm; Identity = $identity } }
         function Invoke-HyperVPowerShellDirect {
@@ -325,7 +340,7 @@ try {
         }
         function Set-VM { param($VM,$Notes,$AutomaticCheckpointsEnabled,$ErrorAction); $script:CapturedGuestDriveNotes = $Notes }
         $result = Initialize-HyperVWindowsGuestDrives -VMName 'sql-lab-static' `
-            -ExpectedRunId 'run-static' -ExpectedScopeId 'scope-static' -Credential $Credential
+            -ExpectedRunId $fixtureRun.RunId -ExpectedScopeId $fixtureRun.ScopeId -Credential $Credential -StateRoot $fixtureRoot
         [PSCustomObject]@{ Result = $result; Notes = $script:CapturedGuestDriveNotes }
     } $testCredential
     Add-CheckResult `
@@ -458,7 +473,7 @@ try {
             instanceId = 'specialize'; childVhdxPath = 'C:\synthetic\os.vhdx'
             additionalVhdxPaths = @(); additionalDrives = @()
         }
-        $vm = [PSCustomObject]@{ State = 'Running'; Notes = '' }
+        $binding=New-HyperVProviderSyntheticBinding -Identity $identity;$fixtureRoot=$binding.StateRoot;$vm=$binding.VM
         $script:CapturedSpecializationNotes = ''
         $script:SpecializationDirectCall = 0
         function Get-HyperVManagedVM { [PSCustomObject]@{ VM = $vm; Identity = $identity } }
@@ -477,8 +492,8 @@ try {
         function Set-VM { param($VM,$Notes,$AutomaticCheckpointsEnabled,$ErrorAction); $script:CapturedSpecializationNotes = $Notes }
         $result = Set-HyperVWindowsGuestSpecialization `
             -VMName 'sql-lab-specialize' `
-            -ExpectedRunId 'run-specialize' `
-            -ExpectedScopeId 'scope-specialize' `
+            -ExpectedRunId $identity.runId `
+            -ExpectedScopeId $identity.scopeId -StateRoot $fixtureRoot `
             -Credential $Credential `
             -ComputerName 'sqllab01'
         [PSCustomObject]@{ Result = $result; Notes = $script:CapturedSpecializationNotes }
@@ -502,7 +517,7 @@ try {
             additionalVhdxPaths = @(); additionalDrives = @()
             windowsSpecialization = [PSCustomObject]@{ status = 'WINDOWS_SPECIALIZED'; computerName = 'SQLLAB01' }
         }
-        $vm = [PSCustomObject]@{ State = 'Running'; Notes = '' }
+        $binding=New-HyperVProviderSyntheticBinding -Identity $identity;$fixtureRoot=$binding.StateRoot;$vm=$binding.VM
         $script:IdempotentDirectCall = 0
         function Get-HyperVManagedVM { [PSCustomObject]@{ VM = $vm; Identity = $identity } }
         function Invoke-HyperVPowerShellDirect {
@@ -518,8 +533,8 @@ try {
         function Set-VM { param($VM,$Notes,$AutomaticCheckpointsEnabled,$ErrorAction) }
         Set-HyperVWindowsGuestSpecialization `
             -VMName 'sql-lab-specialize' `
-            -ExpectedRunId 'run-specialize' `
-            -ExpectedScopeId 'scope-specialize' `
+            -ExpectedRunId $identity.runId `
+            -ExpectedScopeId $identity.scopeId -StateRoot $fixtureRoot `
             -Credential $Credential `
             -ComputerName 'SQLLAB01'
     } $specializationCredential
@@ -537,7 +552,7 @@ try {
             instanceId = 'manual-oobe'; childVhdxPath = 'C:\synthetic\os.vhdx'
             additionalVhdxPaths = @(); additionalDrives = @()
         }
-        $vm = [PSCustomObject]@{ State = 'Running'; Notes = '' }
+        $binding=New-HyperVProviderSyntheticBinding -Identity $identity;$fixtureRoot=$binding.StateRoot;$vm=$binding.VM
         $script:CapturedManualOobeNotes = ''
         function Get-HyperVManagedVM { [PSCustomObject]@{ VM = $vm; Identity = $identity } }
         function Invoke-HyperVPowerShellDirect {
@@ -549,8 +564,8 @@ try {
         function Set-VM { param($VM,$Notes,$AutomaticCheckpointsEnabled,$ErrorAction); $script:CapturedManualOobeNotes = $Notes }
         $result = Confirm-HyperVWindowsManualOobeSpecialization `
             -VMName 'sql-lab-manual-oobe' `
-            -ExpectedRunId 'run-manual-oobe' `
-            -ExpectedScopeId 'scope-manual-oobe' `
+            -ExpectedRunId $identity.runId `
+            -ExpectedScopeId $identity.scopeId -StateRoot $fixtureRoot `
             -Credential $Credential
         [PSCustomObject]@{ Result = $result; Notes = $script:CapturedManualOobeNotes }
     } $specializationCredential
@@ -576,7 +591,7 @@ try {
             additionalVhdxPaths = @(); additionalDrives = @()
             windowsSpecialization = [PSCustomObject]@{ status = 'WINDOWS_SPECIALIZED'; computerName = 'SQLLAB01' }
         }
-        $vm = [PSCustomObject]@{ State = 'Running'; Notes = '' }
+        $binding=New-HyperVProviderSyntheticBinding -Identity $identity;$fixtureRoot=$binding.StateRoot;$vm=$binding.VM
         $script:CapturedSqlReadinessNotes = ''
         $script:CapturedSqlReadinessTimeout = $null
         $script:CapturedSqlReadinessArguments = $null
@@ -597,8 +612,8 @@ try {
         function Set-VM { param($VM,$Notes,$AutomaticCheckpointsEnabled,$ErrorAction); $script:CapturedSqlReadinessNotes = $Notes }
         $result = Wait-HyperVGuestSqlReady `
             -VMName 'sql-lab-sql' `
-            -ExpectedRunId 'run-sql' `
-            -ExpectedScopeId 'scope-sql' `
+            -ExpectedRunId $identity.runId `
+            -ExpectedScopeId $identity.scopeId -StateRoot $fixtureRoot `
             -Credential $Credential `
             -SaPassword $SaPassword `
             -ExpectedMajorVersion 16 -TimeoutSeconds 600
@@ -607,7 +622,7 @@ try {
         $script:SqlReadinessTransportFault=$true
         $transportFailure=$null
         try {
-            $null=Wait-HyperVGuestSqlReady -VMName 'sql-lab-sql' -ExpectedRunId 'run-sql' -ExpectedScopeId 'scope-sql' `
+            $null=Wait-HyperVGuestSqlReady -VMName 'sql-lab-sql' -ExpectedRunId $identity.runId -ExpectedScopeId $identity.scopeId -StateRoot $fixtureRoot `
                 -Credential $Credential -SaPassword $SaPassword -ExpectedMajorVersion 16 -TimeoutSeconds 600
         }catch{$transportFailure=$_.Exception.Message}
         [PSCustomObject]@{Result=$result;Notes=$notes;TransportTimeout=$script:CapturedSqlReadinessTimeout;

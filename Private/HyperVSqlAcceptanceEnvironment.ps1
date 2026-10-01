@@ -1146,7 +1146,7 @@ finally{
     else {
         Write-LabInfo "SQL Setup: spezialisiere Windows-Gast als $computerName"
         $null = Set-HyperVWindowsGuestSpecialization -VMName $vmName -ExpectedRunId $build.buildId `
-            -ExpectedScopeId $build.scopeId -Credential $Credential -ComputerName $computerName `
+            -ExpectedScopeId $build.scopeId -Credential $Credential -ComputerName $computerName -StateRoot $StateRoot `
             -FallbackAddress $fallbackAddress `
             -TimeoutSeconds $ReadinessTimeoutSeconds
     }
@@ -1179,7 +1179,7 @@ finally{
     }
     else {
         Wait-HyperVGuestSqlReady -VMName $vmName -ExpectedRunId $build.buildId `
-            -ExpectedScopeId $build.scopeId -Credential $Credential -SaPassword $SaPassword `
+            -ExpectedScopeId $build.scopeId -Credential $Credential -SaPassword $SaPassword -StateRoot $StateRoot `
             -FallbackAddress $fallbackAddress `
             -ExpectedMajorVersion (Get-HyperVSqlMajorVersion -SqlVersion $build.sql.version) `
             -TimeoutSeconds $ReadinessTimeoutSeconds

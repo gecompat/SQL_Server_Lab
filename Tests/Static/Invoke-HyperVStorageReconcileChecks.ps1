@@ -20,13 +20,14 @@ try{
         [IO.File]::WriteAllBytes($dataPath,[byte[]](0))
         $dataDiskId=[Guid]::NewGuid().ToString('D').ToUpperInvariant()
         $script:storageRun=[PSCustomObject]@{runId=$RunId;scopeId=$ScopeId;state='RUNNING';metadata=[PSCustomObject]@{workflowKind='hyperv-lab';name='Storage reconcile'}}
+        [IO.File]::WriteAllText((Join-Path (Join-Path (Join-Path $Root runs) $RunId) run-state.json),($script:storageRun|ConvertTo-Json -Depth 20))
         $script:storageDesiredDrives=@(
             [PSCustomObject]@{Id='data';Role='sqlData';GuestPath='D:\SQLData';SizeGB=16;CapabilityStatus='DECLARED_SUPPORTED'},
             [PSCustomObject]@{Id='log';Role='sqlLog';GuestPath='L:\SQLLog';SizeGB=8;CapabilityStatus='DECLARED_SUPPORTED'}
         )
         $script:storageVm=[PSCustomObject]@{Id='private-storage-vm-id';Name='private-storage-vm';State='Running'}
         $script:storageManaged=[PSCustomObject]@{VM=$script:storageVm;Identity=[PSCustomObject]@{
-            runId=$RunId;scopeId=$ScopeId;instanceId='primary';childVhdxPath=(Join-Path $ResourceRoot 'private-storage-vm.vhdx')
+            provider='hyperv';runId=$RunId;scopeId=$ScopeId;instanceId='primary';childVhdxPath=(Join-Path $ResourceRoot 'private-storage-vm.vhdx')
             additionalVhdxPaths=@($dataPath);additionalDrives=@([PSCustomObject]@{
                 id='data';role='sqlData';sizeBytes=[long](8GB);vhdType='dynamic';path=$dataPath;diskIdentifier=$dataDiskId
                 controllerNumber=0;controllerLocation=1;guestPath='D:\SQLData';driveLetter='D';fileSystem='NTFS';allocationUnitKB=64

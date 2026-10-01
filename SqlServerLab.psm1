@@ -109,6 +109,9 @@ if ($script:ModuleLoadErrors.Count -gt 0) {
 $script:HostToolResolution = @(Initialize-LabHostToolPath -Name docker,podman,python)
 
 $requiredInternalFunctions = @(
+    'Write-LabWindowsPoolRunState'
+    'Assert-LabWindowsPoolMutationAllowed'
+    'Assert-LabWindowsPoolProviderMutation'
     'Get-LabEnvironmentResources'
     'Set-LabEnvironmentResources'
 )

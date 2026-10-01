@@ -69,7 +69,7 @@ function New-SqlServerLabWindowsSlotPool {
         OOBE, regionale Einstellungen und die notwendige Initialanmeldung
         unbeaufsichtigt aus. Danach werden die VMs standardmäßig wieder gestoppt.
 
-        Der Aufruf ist wiederaufnehmbar: exakt passende vorhandene Slots werden
+        Der Aufruf ist mit derselben Pool-ID wiederaufnehmbar: exakt gebundene Slots werden
         übernommen und bereits vollständig eingerichtete Slots übersprungen.
         Namens-, Ressourcen-, Artifact- oder Runtime-Konflikte brechen vor einer
         weiteren Slot-Mutation ab. Eine fehlende oder bald ablaufende Baseline
@@ -82,6 +82,9 @@ function New-SqlServerLabWindowsSlotPool {
     .PARAMETER NamePrefix
         Gemeinsames Namenspräfix. Die Slotnummer wird mindestens zweistellig
         angehängt, zum Beispiel windows-sql-slot-01.
+    .PARAMETER PoolId
+        Explizite Membership-ID. Für Resume dieselbe ID und Konfiguration
+        wiederverwenden. Namen übernehmen keine bestehenden Windows-Labs.
     .PARAMETER ArtifactId
         Optionale explizite OS_SEALED-Artifact-ID. Ohne Angabe wird die neueste
         geeignete Windows-Server-Baseline deterministisch ausgewählt.
@@ -136,6 +139,7 @@ function New-SqlServerLabWindowsSlotPool {
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'Medium', DefaultParameterSetName = 'GeneratedPassword')]
     param(
         [Parameter(Mandatory)][ValidateRange(1, 100)][int]$Count,
+        [guid]$PoolId = [guid]::NewGuid(),
         [ValidateRange(1, 9999)][int]$StartIndex = 1,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_-]{0,52}$')][string]$NamePrefix = 'windows-sql-slot',
         [ValidatePattern('^(?:hyperv-os-sealed-[a-f0-9]{64})?$')][string]$ArtifactId,
@@ -187,136 +191,22 @@ function New-SqlServerLabWindowsSlotPool {
     $poolLocale=Assert-LabWindowsSlotPoolLocale -Region $Region -SystemLocale $SystemLocale `
         -UiLanguage $UiLanguage -InputLocale $InputLocale -TimeZone $TimeZone -Artifact $artifact
 
-    $lastIndex = $StartIndex + $Count - 1
-    $indexWidth = [Math]::Max(2, ([string]$lastIndex).Length)
-    $specifications = @(
-        for ($index = $StartIndex; $index -le $lastIndex; $index++) {
-            $name = '{0}-{1}' -f $NamePrefix, $index.ToString("D$indexWidth")
-            if ($name.Length -gt 64) { throw "HYPERV_WINDOWS_SLOT_POOL_NAME_TOO_LONG: $name" }
-            [PSCustomObject]@{ Index=$index; Name=$name; Existing=$null; Lab=$null }
-        }
-    )
-
-    $activeRuns = @(Get-LabActiveRuns -StateRoot $StateRoot)
-    foreach ($specification in $specifications) {
-        $matches = @($activeRuns | Where-Object {
-            [string]$_.metadata.name -eq [string]$specification.Name
-        })
-        if ($matches.Count -gt 1) { throw "HYPERV_WINDOWS_SLOT_POOL_NAME_AMBIGUOUS: $($specification.Name)" }
-        if ($matches.Count -eq 0) { continue }
-        $lab = Get-HyperVLabWorkflowRun -RunId ([string]$matches[0].runId) -StateRoot $StateRoot
-        $resource = $lab.Instance.resourceSettings
-        $issues = [Collections.Generic.List[string]]::new()
-        if ([string]$lab.Instance.provider -ne 'hyperv') { $issues.Add('provider') }
-        if ([string]$lab.Instance.workload -ne 'windows') { $issues.Add('workload') }
-        if ([string]$lab.Instance.imageArtifactId -ne [string]$artifact.artifactId) { $issues.Add('artifact') }
-        if (-not [bool]$resource.dynamicMemoryEnabled -or
-            [int]$resource.memoryMinimumMB -ne $MemoryMinimumMB -or
-            [int]$resource.memoryStartupMB -ne $MemoryStartupMB -or
-            [int]$resource.memoryMaximumMB -ne $MemoryMaximumMB -or
-            [int]$resource.processorCount -ne $ProcessorCount) { $issues.Add('resources') }
-        if ([string]$lab.Run.metadata.networkIntent -ne 'hostOnly') { $issues.Add('network') }
-        $existingActivation=Resolve-LabWindowsActivationIntent -Intent $lab.Instance.windowsActivationIntent
-        # Frühere Pool-Slots trugen den globalen ExistingOnly-Default, obwohl
-        # ihr festes hostOnly-Netz keinen Egress bereitstellt. Ohne expliziten
-        # Benutzer-Intent darf ein erneuter Pool-Aufruf sie auf den nun
-        # passenden Pool-Default heben; ein explizit abweichender Intent bleibt
-        # weiterhin ein Konflikt.
-        if (($existingActivation.Strategy -ne $poolActivation.Strategy -or $existingActivation.EgressPolicy -ne $poolActivation.EgressPolicy) -and
-            $PSBoundParameters.ContainsKey('WindowsActivation')) { $issues.Add('windowsActivation') }
-        $runtime = Get-HyperVInstanceStatus -VMName ([string]$lab.Instance.vmName) `
-            -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId)
-        if (-not $runtime.Exists) { $issues.Add('runtime-missing') }
-        if ($issues.Count -gt 0) {
-            throw "HYPERV_WINDOWS_SLOT_POOL_EXISTING_SLOT_CONFLICT: $($specification.Name): $($issues -join ',')"
-        }
-        $specification.Existing = $true
-        $specification.Lab = $lab
+    $StateRoot=Resolve-LabWindowsPoolRoot -StateRoot $StateRoot
+    $configuration=[ordered]@{Count=$Count;StartIndex=$StartIndex;NamePrefix=$NamePrefix;ArtifactId=[string]$artifact.artifactId
+        ProcessorCount=$ProcessorCount;MemoryMinimumMB=$MemoryMinimumMB;MemoryStartupMB=$MemoryStartupMB;MemoryMaximumMB=$MemoryMaximumMB
+        Locale=$poolLocale;Activation=$poolActivation;LeaveRunning=[bool]$LeaveRunning}
+    $key=Get-LabWorkflowHash -Text ($configuration | ConvertTo-Json -Depth 10 -Compress) -Length 64
+    $preview=Get-LabWindowsPoolCreationPreview -PoolId $PoolId.ToString() -Configuration $configuration -StateRoot $StateRoot
+    if(-not $PSCmdlet.ShouldProcess(($NamePrefix+' / '+$PoolId), 'Angezeigten Windows-Pool erstellen oder exakt gebunden fortsetzen')){
+        return [pscustomobject]@{ContractVersion='SqlServerLab.WindowsSlotPoolResult/1.1';PoolId=$PoolId.ToString();Status='PLANNED';Slots=$preview}
     }
-
-    $results = [Collections.Generic.List[object]]::new()
-    foreach ($specification in $specifications) {
-        if ($specification.Existing) { continue }
-        if (-not $PSCmdlet.ShouldProcess($specification.Name, 'Windows-OS-Slot erstellen')) { continue }
-        $created = New-HyperVLabEnvironment -ArtifactId ([string]$artifact.artifactId) `
-            -LabName ([string]$specification.Name) -InstanceId primary `
-            -DynamicMemoryEnabled $true -MemoryMinimumMB $MemoryMinimumMB `
-            -MemoryStartupMB $MemoryStartupMB -MemoryMaximumMB $MemoryMaximumMB `
-            -ProcessorCount $ProcessorCount -AutoStart off -NetworkIntent hostOnly -WindowsLocale $poolLocale -WindowsActivation $poolActivation -StateRoot $StateRoot
-        $specification.Lab = Get-HyperVLabWorkflowRun -RunId ([string]$created.RunId) -StateRoot $StateRoot
-        $results.Add([PSCustomObject]@{
-            Index=$specification.Index; Name=$specification.Name; RunId=[string]$created.RunId
-            VMName=[string]$created.VMName; Action='CREATED'; State='OOBE_PENDING'
-        })
+    $operation=Get-LabWindowsPoolPrepareIntent -PoolId $PoolId.ToString() -ConfigurationKey $key -StateRoot $StateRoot
+    $context=[pscustomobject]@{StateRoot=$StateRoot;PoolId=$PoolId.ToString();OperationId=$operation.operationId;RunId=$null;Kind='Prepare';Index=0}
+    $slots=Invoke-WithLabWindowsPoolOperation -Context $context -Body {
+        Invoke-LabWindowsPoolPreparation -Context $context -Configuration $configuration -AdministratorPassword $AdministratorPassword `
+            -GenerateAdministratorPasswords:$GenerateAdministratorPasswords -LeaveRunning:$LeaveRunning
     }
-
-    foreach ($specification in $specifications) {
-        if (-not $specification.Lab) { continue }
-        $lab = Get-HyperVLabWorkflowRun -RunId ([string]$specification.Lab.Run.runId) -StateRoot $StateRoot
-        $complete = [string]$lab.Instance.windowsProvisioning.state -eq 'COMPLETE' -or
-            [string]$lab.Instance.oobeAutomation.status -eq 'COMPLETED'
-        if ($complete) {
-            $runtime = Get-HyperVInstanceStatus -VMName ([string]$lab.Instance.vmName) `
-                -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId)
-            if ($PSCmdlet.ShouldProcess($specification.Name, 'Windows-Aktivierung des vorhandenen Slots live pruefen')) {
-                try {
-                    # Die Aktivierung wird direkt mit dem Pool-Intent ausgeführt.
-                    # Dadurch können auch vor dieser Korrektur angelegte,
-                    # unvollständige ExistingOnly-Slots resumiert werden.
-                    $null = Start-HyperVLabEnvironment -RunId ([string]$lab.Run.runId) -SkipWindowsActivationReconcile -StateRoot $StateRoot
-                    $null = Invoke-HyperVWindowsSlotActivation -RunId ([string]$lab.Run.runId) -WindowsActivation $poolActivation -StateRoot $StateRoot
-                }
-                finally {
-                    if(-not $LeaveRunning){$null = Stop-HyperVLabEnvironment -RunId ([string]$lab.Run.runId) -StateRoot $StateRoot}
-                }
-            }
-            $results.Add([PSCustomObject]@{
-                Index=$specification.Index; Name=$specification.Name; RunId=[string]$lab.Run.runId
-                VMName=[string]$lab.Instance.vmName; Action='REUSED'
-                State=$(if ($WhatIfPreference) { 'PLANNED' } elseif ($LeaveRunning) { 'RUNNING' } else { 'STOPPED' })
-            })
-            continue
-        }
-        if (-not $PSCmdlet.ShouldProcess($specification.Name, 'Windows-OOBE unbeaufsichtigt abschließen')) { continue }
-
-        $password = $AdministratorPassword
-        $passwordSource = 'user'
-        if ($GenerateAdministratorPasswords) {
-            $passwordSource = 'generated'
-            $password = Get-LabSecret -Path $lab.RunDirectory -Name 'generated-windows-administrator-password'
-            if (-not $password -and [string]$lab.Instance.oobeAutomation.passwordSource -eq 'generated') {
-                $password = Get-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password'
-            }
-            if (-not $password) { $password = New-HyperVSqlUnattendedPassword }
-        }
-        $runtime = Get-HyperVInstanceStatus -VMName ([string]$lab.Instance.vmName) `
-            -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId)
-        if ([string]$runtime.State -ne 'Off') {
-            $null = Stop-HyperVLabEnvironment -RunId ([string]$lab.Run.runId) -StateRoot $StateRoot
-        }
-        $null = Invoke-HyperVLabUnattendedProvision -RunId ([string]$lab.Run.runId) `
-            -AdministratorPassword $password -PasswordSource $passwordSource `
-            -Region $Region -SystemLocale $SystemLocale -UiLanguage $UiLanguage `
-            -InputLocale $poolLocale.InputLocale -TimeZone $TimeZone -StateRoot $StateRoot
-        if (-not $LeaveRunning) {
-            $null = Stop-HyperVLabEnvironment -RunId ([string]$lab.Run.runId) -StateRoot $StateRoot
-        }
-        $results.Add([PSCustomObject]@{
-            Index=$specification.Index; Name=$specification.Name; RunId=[string]$lab.Run.runId
-            VMName=[string]$lab.Instance.vmName; Action=$(if ($specification.Existing) { 'COMPLETED' } else { 'CREATED_AND_COMPLETED' })
-            State=$(if ($LeaveRunning) { 'RUNNING' } else { 'STOPPED' })
-        })
-        $password = $null
-    }
-
-    $orderedResults = @($results | Group-Object RunId | ForEach-Object { $_.Group | Select-Object -Last 1 } | Sort-Object Index)
-    return [PSCustomObject]@{
-        ContractVersion = 'SqlServerLab.WindowsSlotPoolResult/1.0'
-        Status = if ($WhatIfPreference) { 'PLANNED' } elseif ($orderedResults.Count -eq $Count) { 'COMPLETE' } else { 'PARTIAL' }
-        ArtifactId = [string]$artifact.artifactId
-        Count = $Count
-        Memory = [PSCustomObject]@{ MinimumMB=$MemoryMinimumMB; StartupMB=$MemoryStartupMB; MaximumMB=$MemoryMaximumMB }
-        Locale = $poolLocale
-        Slots = $orderedResults
-    }
+    return [pscustomobject]@{ContractVersion='SqlServerLab.WindowsSlotPoolResult/1.1';PoolId=$PoolId.ToString();OperationId=$operation.operationId
+        Status=$(if(@($slots | Where-Object State -eq 'RECOVERY_REQUIRED').Count){'RECOVERY_REQUIRED'}elseif($LeaveRunning){'PREPARED_RUNNING'}else{'COMPLETE'})
+        ArtifactId=$configuration.ArtifactId;Count=$Count;Locale=$poolLocale;Memory=[pscustomobject]@{MinimumMB=$MemoryMinimumMB;StartupMB=$MemoryStartupMB;MaximumMB=$MemoryMaximumMB};Slots=@($slots)}
 }

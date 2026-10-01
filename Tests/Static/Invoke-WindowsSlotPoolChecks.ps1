@@ -41,7 +41,9 @@ try {
         $explicitCoreArtifact.artifactId -eq ('hyperv-os-sealed-' + ('c' * 64)) -and
         $explicitCoreArtifact.operatingSystem.installationType -eq 'core')
 
+    $fixture=Join-Path (Join-Path $repoRoot '.artifacts/windows-slot-pool-checks') ([guid]::NewGuid().ToString('N'))
     $behavior = & $module {
+        param($StateRoot)
         $originalIsWindows = Get-Variable -Name IsWindows -Scope Script -ErrorAction SilentlyContinue
         Set-Variable -Name IsWindows -Scope Script -Value $true -Force
         try {
@@ -68,17 +70,19 @@ try {
             Resolve-LabWindowsLocaleIntent -Overrides $overrides
         }
         function Get-LabActiveRuns { @() }
+        function Get-VM {param($Name) @()}
         function New-HyperVLabEnvironment {
             param($ArtifactId,$LabName,$InstanceId,$DynamicMemoryEnabled,$MemoryMinimumMB,$MemoryStartupMB,$MemoryMaximumMB,$ProcessorCount,$AutoStart,$NetworkIntent,$StateRoot,$WindowsLocale,$WindowsActivation)
             $script:slotNumber++
-            $runId = "run-$($script:slotNumber)"
-            $scopeId = "scope-$($script:slotNumber)"
+            $created=New-LabRunState -StateRoot $StateRoot -Metadata @{name=$LabName;workflowKind='hyperv-lab';workload='windows';imageArtifactId=$ArtifactId;networkIntent='hostOnly';windowsLocale=$WindowsLocale}
+            $runId = $created.RunId
+            $scopeId = $created.ScopeId
             $vmName = "vm-$($script:slotNumber)"
             $lab = [PSCustomObject]@{
-                RunDirectory = "X:\state\$runId"
-                Run = [PSCustomObject]@{ runId=$runId; scopeId=$scopeId; metadata=[PSCustomObject]@{ name=$LabName; networkIntent='hostOnly' } }
+                RunDirectory = $created.RunDir
+                Run = Get-LabRunState -RunId $runId -StateRoot $StateRoot
                 Instance = [PSCustomObject]@{
-                    provider='hyperv'; workload='windows'; imageArtifactId=$ArtifactId; vmName=$vmName
+                    id='primary';provider='hyperv'; workload='windows'; imageArtifactId=$ArtifactId; vmName=$vmName;vmId=[guid]::NewGuid().ToString()
                     windowsActivationIntent=$WindowsActivation
                     resourceSettings=[PSCustomObject]@{
                         dynamicMemoryEnabled=$true; memoryMinimumMB=$MemoryMinimumMB
@@ -90,6 +94,8 @@ try {
                 }
             }
             $script:poolLabs[$runId] = $lab
+            if(-not $lab.Run.metadata.windowsPoolMember -or -not (Test-Path -LiteralPath (Join-Path (Join-Path $StateRoot operations) ($lab.Run.metadata.windowsPoolMember.creationOperationId+'.json')))){throw 'PROSPECTIVE_POOL_AUTHORITY_MISSING'}
+            foreach($next in @('PROVISIONING','SQL_READY','DATABASES_CREATED','RUNNING','STOPPED')){Set-LabRunState -RunId $runId -StateRoot $StateRoot -NewState $next}
             $script:createCalls.Add([PSCustomObject]@{
                 Name=$LabName; Minimum=$MemoryMinimumMB; Startup=$MemoryStartupMB
                 Maximum=$MemoryMaximumMB; ProcessorCount=$ProcessorCount
@@ -99,6 +105,18 @@ try {
             [PSCustomObject]@{ RunId=$runId; VMName=$vmName }
         }
         function Get-HyperVLabWorkflowRun { param($RunId,$StateRoot) $script:poolLabs[$RunId] }
+        function Get-LabWindowsPoolBoundMember {
+            param($RunId,$StateRoot,[switch]$RequireOff)
+            $lab=$script:poolLabs[$RunId];$run=Get-LabRunState -RunId $RunId -StateRoot $StateRoot
+            [pscustomobject]@{Run=$run;Member=$run.metadata.windowsPoolMember;Instance=$lab.Instance
+                Managed=[pscustomobject]@{VM=[pscustomobject]@{Id=$lab.Instance.vmId;Name=$lab.Instance.vmName;State=$(if($run.state -eq 'RUNNING'){'Running'}else{'Off'})}}
+                ParentFingerprint=('c'*64);StateRoot=$StateRoot;RunDirectory=$lab.RunDirectory}
+        }
+        function Get-LabWindowsPoolGuestReceipt {
+            param($Bound)
+            if(-not (Test-LabWindowsPoolOperationContext -Member $Bound.Member -StateRoot $Bound.StateRoot)){throw 'POOL_CAPTURE_WITHOUT_CLAIM'}
+            [pscustomobject]@{observedAt=[datetime]::UtcNow.ToString('o');evaluationExpiresAt=[datetime]::UtcNow.AddDays(90).ToString('o');licenseStatus=1;provisioningComplete=$true}
+        }
         function Get-HyperVInstanceStatus { [PSCustomObject]@{ Exists=$true; State='Off' } }
         function Get-LabSecret { $null }
         function New-HyperVSqlUnattendedPassword {
@@ -117,29 +135,30 @@ try {
             $script:poolLabs[$RunId].Instance.oobeAutomation.status = 'COMPLETED'
             $script:poolLabs[$RunId].Instance.oobeAutomation.passwordSource = $PasswordSource
         }
-        function Stop-HyperVLabEnvironment { param($RunId,$StateRoot) $script:stopCalls.Add($RunId) }
-        function Start-HyperVLabEnvironment {param($RunId,$StateRoot,[switch]$SkipWindowsActivationReconcile) $script:activationChecks.Add($RunId)}
+        function Stop-HyperVLabEnvironment { param($RunId,$StateRoot) $script:stopCalls.Add($RunId);Set-LabRunState -RunId $RunId -StateRoot $StateRoot -NewState STOPPED }
+        function Start-HyperVLabEnvironment {param($RunId,$StateRoot,[switch]$SkipWindowsActivationReconcile) $script:activationChecks.Add($RunId);Set-LabRunState -RunId $RunId -StateRoot $StateRoot -NewState RUNNING}
         function Invoke-HyperVWindowsSlotActivation {
             param($RunId,$WindowsActivation,$StateRoot)
             $script:activationChecks.Add("activation:${RunId}:$($WindowsActivation.EgressPolicy)")
         }
 
         $result = New-SqlServerLabWindowsSlotPool -Count 2 -GenerateAdministratorPasswords -ArtifactId '' `
-            -StateRoot 'X:\state' -Confirm:$false
+            -StateRoot $StateRoot -Confirm:$false
         function Get-LabActiveRuns {@($script:poolLabs.Values | ForEach-Object {$_.Run})}
-        $reuse = New-SqlServerLabWindowsSlotPool -Count 2 -GenerateAdministratorPasswords -StateRoot 'X:\state' -Confirm:$false
+        $reuse = New-SqlServerLabWindowsSlotPool -Count 2 -PoolId $result.PoolId -GenerateAdministratorPasswords -StateRoot $StateRoot -Confirm:$false
         $legacyIntent = Resolve-LabWindowsActivationIntent -Intent @{
             ContractVersion = 'SqlServerLab.WindowsActivationIntent/1.0'
             Strategy = 'EvaluationOnline'
             EgressPolicy = 'ExistingOnly'
         }
         foreach ($lab in @($script:poolLabs.Values)) { $lab.Instance.windowsActivationIntent = $legacyIntent }
-        $legacyReuse = New-SqlServerLabWindowsSlotPool -Count 2 -GenerateAdministratorPasswords -StateRoot 'X:\state' -Confirm:$false
+        $legacyRejected=$false
+        try {New-SqlServerLabWindowsSlotPool -Count 2 -GenerateAdministratorPasswords -StateRoot $StateRoot -Confirm:$false}catch{$legacyRejected=$_.Exception.Message -eq 'WINDOWS_POOL_EXISTING_NAME_CONFLICT'}
         $invalidExplicitArtifactRejected = $false
         try { New-SqlServerLabWindowsSlotPool -Count 1 -GenerateAdministratorPasswords -ArtifactId 'invalid-artifact' | Out-Null }
         catch { $invalidExplicitArtifactRejected = $true }
         [PSCustomObject]@{
-            Result=$result; Reuse=$reuse; LegacyReuse=$legacyReuse; ActivationChecks=@($script:activationChecks); Creates=@($script:createCalls); Provisions=@($script:provisionCalls); Stops=@($script:stopCalls)
+            Result=$result; Reuse=$reuse; LegacyRejected=$legacyRejected; ActivationChecks=@($script:activationChecks); Creates=@($script:createCalls); Provisions=@($script:provisionCalls); Stops=@($script:stopCalls)
             InvalidExplicitArtifactRejected=$invalidExplicitArtifactRejected
         }
         }
@@ -151,11 +170,11 @@ try {
                 Remove-Variable -Name IsWindows -Scope Script -Force -ErrorAction SilentlyContinue
             }
         }
-    }
+    } $fixture
 
     Add-CheckResult -Name 'Leere optionale ArtifactId loest die automatische Baseline-Auswahl aus; eine explizit ungueltige ID bleibt abgewiesen' -Success (
         $behavior.Result.ArtifactId -eq ("hyperv-os-sealed-" + ('a' * 64)) -and $behavior.InvalidExplicitArtifactRejected)
-    Add-CheckResult -Name 'Wiederverwendung hebt auch fruehere ExistingOnly-Slots mit dem Pool-Intent ohne erneute OOBE oder neue VM an' -Success ($behavior.ActivationChecks.Count -eq 8 -and @($behavior.ActivationChecks | Where-Object { $_ -match ':AllowTemporary$' }).Count -eq 4 -and @($behavior.LegacyReuse.Slots).Count -eq 2 -and $behavior.Creates.Count -eq 2 -and $behavior.Provisions.Count -eq 2)
+    Add-CheckResult -Name 'Resume bindet dieselbe Pool-ID, überspringt frische gestoppte Mitglieder und adoptiert keine Namen' -Success ($behavior.ActivationChecks.Count -eq 4 -and @($behavior.ActivationChecks | Where-Object { $_ -match ':AllowTemporary$' }).Count -eq 2 -and @($behavior.Reuse.Slots).Count -eq 2 -and $behavior.LegacyRejected -and $behavior.Creates.Count -eq 2 -and $behavior.Provisions.Count -eq 2)
     Add-CheckResult -Name 'Pool bindet vor der ersten VM einen kontrollierten temporaeren Aktivierungsintent' -Success (@($behavior.Creates | Where-Object {$_.WindowsActivation.ContractVersion -eq 'SqlServerLab.WindowsActivationIntent/1.0' -and $_.WindowsActivation.EgressPolicy -eq 'AllowTemporary'}).Count -eq 2)
     Add-CheckResult -Name 'Pool erstellt zwei Slots mit den gebundenen Standardressourcen' -Success (
         $behavior.Result.Status -eq 'COMPLETE' -and @($behavior.Result.Slots).Count -eq 2 -and
@@ -167,13 +186,13 @@ try {
         @($behavior.Provisions | Where-Object {
             $_.PasswordSource -eq 'generated' -and $_.Region -eq 'AT' -and $_.SystemLocale -eq 'de-AT' -and
             $_.UiLanguage -eq 'en-US' -and $_.InputLocale -eq $behavior.Result.Locale.InputLocale
-        }).Count -eq 2 -and @($behavior.Stops).Count -eq 6)
+        }).Count -eq 2 -and @($behavior.Stops).Count -eq 4)
 
     $poolSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\New-SqlServerLabWindowsSlotPool.ps1') -Raw -Encoding utf8
     $uiSource = Get-Content -LiteralPath (Join-Path $repoRoot 'Public\Invoke-SqlServerLab.ps1') -Raw -Encoding utf8
     Add-CheckResult -Name 'Pool ist resumierbar und lehnt eine ungeeignete Baseline ab' -Success (
         $poolSource -match 'HYPERV_WINDOWS_SLOT_POOL_BASELINE_REQUIRED' -and
-        $poolSource -match "Action='REUSED'" -and
+        $poolSource -match 'PoolId' -and
         $poolSource -match 'MinimumEvaluationDaysRemaining' -and
         $poolSource -match "InstallationType = 'desktop-experience'" -and
         $poolSource -match 'operatingSystem.installationType -eq \$InstallationType')

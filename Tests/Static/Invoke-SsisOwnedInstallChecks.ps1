@@ -76,6 +76,7 @@ Check 'Geänderter produktiver Installer ist parsebar' ($errors.Count -eq 0)
 $planAst=$ast.Find({param($n)$n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Set-HyperVLabSqlDeploymentPlan'},$true)
 . ([scriptblock]::Create($planAst.Extent.Text))
 $planCases=& {
+    function Assert-LabWindowsPoolMutationAllowed {param($RunId,$StateRoot,[switch]$InvalidateEvidence) if($RunId -cne 'synthetic'){throw 'SYNTHETIC_POOL_GUARD_SCOPE_MISMATCH'}}
     function Get-HyperVLabWorkflowRun { $lab }
     function Get-HyperVManagedVM { $managed }
     function Set-VMProcessor { $events.Add('processor') }

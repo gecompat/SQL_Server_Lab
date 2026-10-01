@@ -33,6 +33,7 @@ function Get-HyperVLabWorkflowRun {
         Get-HyperVLabVMs -RunId ([string]$run.runId) -ScopeId ([string]$run.scopeId)
     )
     if ($matchingVm.Count -eq 1 -and [string]$matchingVm[0].VMName -ne [string]$instance.vmName) {
+        Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot
         $instance | Add-Member -NotePropertyName vmName -NotePropertyValue ([string]$matchingVm[0].VMName) -Force
         $instance | Add-Member -NotePropertyName vmId -NotePropertyValue ([string]$matchingVm[0].VMId) -Force
         Write-LabArtifactJsonAtomic -Path $connectionPath -InputObject $connection
@@ -61,6 +62,7 @@ function Set-HyperVLabAutoStart {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'SET_AUTOSTART' -StateRoot $StateRoot
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
@@ -91,6 +93,7 @@ function Set-HyperVWindowsSlotActivationEvidence {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $evidence = [ordered]@{
         contractVersion = 'SqlServerLab.WindowsActivation/1.2'
@@ -243,6 +246,7 @@ function Invoke-HyperVWindowsSlotActivation {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     if (-not $Credential) {
         $guestPassword = Get-LabSecret -Path $lab.RunDirectory -Name 'guest-administrator-password'
@@ -1048,6 +1052,7 @@ function Invoke-HyperVLabUnattendedProvision {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     Write-LabInfo 'Schritt 1/6: Klon-Vorlage und isolierte Child-VHDX werden geprüft.'
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     if (-not $lab.Instance.imageArtifactId) { throw 'HYPERV_LAB_UNATTENDED_REQUIRES_IMAGE_ARTIFACT' }
@@ -1175,7 +1180,7 @@ function Invoke-HyperVLabUnattendedProvision {
             rebooted = $false
             source = 'unattended-oobe'
             observedAt = [string]$receipt.observedAt
-        })
+        }) -StateRoot $StateRoot
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     if ($lab.Instance.labNetwork -and ([string]$lab.Instance.labNetwork.addressMode -eq 'dhcp' -or [string]$lab.Instance.labNetwork.intent -eq 'lan')) {
         $networkReceipt = Initialize-HyperVGuestLabNetwork -VMName ([string]$lab.Instance.vmName) `
@@ -1206,7 +1211,7 @@ function Invoke-HyperVLabUnattendedProvision {
         $managedAfterOobe = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
         if (@($managedAfterOobe.Identity.additionalDrives | Where-Object guestPath).Count -gt 0) {
             Write-LabInfo 'Schritt 6/6a: Manifestgebundene Zusatz-VHDX werden im Gast initialisiert.'
-            $driveReceipt = Initialize-HyperVWindowsGuestDrives -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential
+            $driveReceipt = Initialize-HyperVWindowsGuestDrives -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -StateRoot $lab.StateRoot
         }
     }
     if ($driveReceipt) {
@@ -1279,6 +1284,7 @@ function Complete-HyperVLabManualWindowsSlot {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     if ([string]$lab.Instance.workload -ne 'windows' -or [string]$lab.Instance.baseKind -ne 'windows-baseline') {
         throw 'HYPERV_MANUAL_WINDOWS_SLOT_REQUIRED'
@@ -1359,6 +1365,7 @@ function Set-HyperVLabSqlDeploymentPlan {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     if ([string]$lab.Instance.workload -ne 'windows') { throw 'HYPERV_LAB_SQL_PLAN_REQUIRES_WINDOWS_SLOT' }
     if (-not $lab.Instance.windowsProvisioning -or [string]$lab.Instance.windowsProvisioning.state -ne 'COMPLETE') {
@@ -1377,6 +1384,8 @@ function Set-HyperVLabSqlDeploymentPlan {
         $ssisBinding=[pscustomobject]@{OperationId=$SsisOperationId;Sha256=$ExpectedSqlMediaSha256.ToLowerInvariant();VmId=$ExpectedVmId.ToString()}
     }
 
+    $normalizedFeatures = @($SqlFeatures | ForEach-Object { ([string]$_).ToUpperInvariant() } | Sort-Object -Unique)
+    if ($normalizedFeatures.Count -eq 0 -or $normalizedFeatures -notcontains 'SQLENGINE') { throw 'HYPERV_LAB_SQL_FEATURES_REQUIRE_SQLENGINE' }
     $null = Set-VMProcessor -VM $managed.VM -Count $ProcessorCount -ErrorAction Stop
     if ($MemoryStartupMB -gt 0) {
         $startupBytes = [long]$MemoryStartupMB * 1MB
@@ -1384,10 +1393,6 @@ function Set-HyperVLabSqlDeploymentPlan {
         $maximumBytes = [long][Math]::Min([double]1TB, [double]$startupBytes * 2)
         $null = Set-VMMemory -VM $managed.VM -DynamicMemoryEnabled $true -MinimumBytes $minimumBytes `
             -StartupBytes $startupBytes -MaximumBytes $maximumBytes -ErrorAction Stop
-    }
-    $normalizedFeatures = @($SqlFeatures | ForEach-Object { ([string]$_).ToUpperInvariant() } | Sort-Object -Unique)
-    if ($normalizedFeatures.Count -eq 0 -or $normalizedFeatures -notcontains 'SQLENGINE') {
-        throw 'HYPERV_LAB_SQL_FEATURES_REQUIRE_SQLENGINE'
     }
     $lab.Instance | Add-Member -NotePropertyName sqlDeploymentPlan -NotePropertyValue ([PSCustomObject]@{
         state = 'PLANNED'; sqlVersion = $SqlVersion; mediaEdition = $MediaEdition; sqlMediaPath = $SqlMediaPath
@@ -1416,6 +1421,7 @@ function Invoke-HyperVLabSqlSlotInstall {
         [switch]$RequireExistingNetwork
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $plan = $lab.Instance.sqlDeploymentPlan
     if (-not $plan -or [string]$plan.deploymentMode -notin @('sql-pool-slot', 'adhoc-install') -or
@@ -1471,7 +1477,7 @@ function Invoke-HyperVLabSqlSlotInstall {
         $existingDvd = @(Get-VMDvdDrive -VM $managed.VM -ErrorAction Stop | Where-Object { [string]$_.Path -eq [string]$media.IsoPath }) | Select-Object -First 1
         if (-not $existingDvd) { $null = Add-VMDvdDrive -VM $managed.VM -Path $media.IsoPath -ErrorAction Stop }
         $null = Start-HyperVInstance -VMName ([string]$lab.Instance.vmName) `
-            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -StateRoot $StateRoot
         $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds $ReadinessTimeoutSeconds
         if (-not $ready.Ready) { throw "HYPERV_LAB_SQL_INSTALL_GUEST_TIMEOUT: $($ready.Message)" }
@@ -1487,7 +1493,7 @@ function Invoke-HyperVLabSqlSlotInstall {
         if ($pendingAdditionalDrives.Count -gt 0) {
             Write-LabInfo "$($pendingAdditionalDrives.Count) zusätzliche SQL-VHDX werden im Gast initialisiert."
             $driveReceipt = Initialize-HyperVWindowsGuestDrives -VMName ([string]$lab.Instance.vmName) `
-                -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential
+                -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -StateRoot $lab.StateRoot
             foreach ($drive in $pendingAdditionalDrives) {
                 $initialized = @($driveReceipt.Drives | Where-Object { [string]$_.id -eq [string]$drive.id }) | Select-Object -First 1
                 if (-not $initialized -or -not $initialized.guestPath) { throw "HYPERV_LAB_ADDITIONAL_DRIVE_INITIALIZATION_MISSING: $($drive.id)" }
@@ -1808,7 +1814,7 @@ function Invoke-HyperVLabSqlSlotInstall {
 
     if ([string]$plan.deploymentMode -eq 'sql-pool-slot') {
         $null = Stop-HyperVInstance -VMName ([string]$lab.Instance.vmName) `
-            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+            -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -StateRoot $StateRoot
     }
     else {
         if ([string]$lab.Run.state -eq 'STOPPED') {
@@ -1845,6 +1851,7 @@ function Invoke-HyperVLabSqlPreparedSlot {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $plan = $lab.Instance.sqlDeploymentPlan
     if (-not $plan -or [string]$plan.state -notin @('PLANNED', 'PREPARE_RUNNING') -or [string]$plan.deploymentMode -ne 'prepared-template') {
@@ -1858,7 +1865,7 @@ function Invoke-HyperVLabSqlPreparedSlot {
         Write-LabInfo 'SQL PrepareImage und Sysprep sind bereits abgeschlossen; VM wird hostseitig ausgeschaltet und die Child-VHDX offline geprüft.'
         if ([string]$managed.VM.State -ne 'Off') {
             $null = Stop-HyperVInstance -VMName ([string]$lab.Instance.vmName) `
-                -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+                -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -StateRoot $StateRoot
         }
         $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) `
             -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
@@ -1916,7 +1923,7 @@ function Invoke-HyperVLabSqlPreparedSlot {
     Write-LabArtifactJsonAtomic -Path (Join-Path $lab.RunDirectory 'connection-info.json') -InputObject $lab.Connection
 
     $null = Start-HyperVInstance -VMName ([string]$lab.Instance.vmName) `
-        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+        -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -StateRoot $StateRoot
     $ready = Wait-HyperVPowerShellDirect -VMName ([string]$lab.Instance.vmName) `
         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $credential -TimeoutSeconds 900
     if (-not $ready.Ready) { throw "HYPERV_LAB_SQL_PREPARE_GUEST_TIMEOUT: $($ready.Message)" }
@@ -2012,6 +2019,7 @@ function Rename-HyperVLabEnvironment {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $DisplayName = $DisplayName.Trim()
@@ -2059,11 +2067,12 @@ function Start-HyperVLabEnvironment {
         [switch]$SkipWindowsActivationReconcile,
         [string]$StateRoot
     )
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     Write-LabInfo 'Schritt 1/2: Besitz und aktueller Status der Hyper-V-VM werden geprüft.'
     $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'START' -StateRoot $StateRoot
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     Write-LabInfo "Schritt 2/2: VM $($lab.Instance.vmName) wird gestartet."
-    $status = Start-HyperVInstance -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    $status = Start-HyperVInstance -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -StateRoot $StateRoot
     if ([string]$lab.Run.state -eq 'STOPPED') { $null = Set-LabRunState -RunId $RunId -NewState RUNNING -Reason 'Hyper-V-VM gestartet.' -StateRoot $lab.StateRoot }
     Set-LabProviderSubRunState -RunId $RunId -Provider hyperv -NewState RUNNING -Reason 'Hyper-V-VM gestartet.' -StateRoot $lab.StateRoot
     if(-not $SkipWindowsActivationReconcile -and ([string]$lab.Instance.oobeAutomation.status -eq 'COMPLETED' -or [string]$lab.Instance.windowsProvisioning.state -eq 'COMPLETE')){
@@ -2083,6 +2092,7 @@ function Enable-HyperVLabPersistentData {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Off') { throw 'HYPERV_LAB_PERSISTENT_DATA_VM_MUST_BE_OFF' }
@@ -2190,9 +2200,10 @@ function Initialize-HyperVLabPersistentData {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [Parameter(Mandatory)][PSCredential]$Credential, [string]$StateRoot)
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     if (-not $lab.Instance.persistentStorage -or [string]$lab.Instance.persistentStorage.state -ne 'ATTACHED_PENDING_INITIALIZATION') { throw 'HYPERV_LAB_PERSISTENT_DATA_INITIALIZATION_NOT_PENDING' }
-    $receipt = Initialize-HyperVWindowsGuestDrives -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential
+    $receipt = Initialize-HyperVWindowsGuestDrives -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -Credential $Credential -StateRoot $lab.StateRoot
     $dataDrive = @($receipt.Drives | Where-Object id -EQ 'persistent-sql-data') | Select-Object -First 1
     if (-not $dataDrive -or -not $dataDrive.guestPath) { throw 'HYPERV_LAB_PERSISTENT_DATA_RECEIPT_MISSING' }
     $lab.Instance.persistentStorage.guestPath = [string]$dataDrive.guestPath
@@ -2315,6 +2326,7 @@ function Enable-HyperVLabHostSqlAccess {
         [switch]$RequireExistingNetwork
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_LAB_HOST_SQL_VM_MUST_BE_RUNNING' }
@@ -2489,6 +2501,7 @@ function Repair-HyperVLabSqlWmiProvider {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'REPAIR_SQL_WMI' -StateRoot $StateRoot
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     $managed = Get-HyperVManagedVM -VMName ([string]$lab.Instance.vmName) -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
@@ -2605,6 +2618,7 @@ function Complete-HyperVLabSqlImage {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     if (-not $lab.Instance.imageArtifactId -or $lab.Instance.sqlCompletion) { throw 'HYPERV_LAB_SQL_COMPLETE_NOT_REQUIRED' }
     $artifact = Get-HyperVImageArtifact -ArtifactId ([string]$lab.Instance.imageArtifactId) -StateRoot $lab.StateRoot
@@ -2736,7 +2750,7 @@ function Complete-HyperVLabSqlImage {
     Write-LabInfo 'Schritt 5/5: SQL-Dienst, Hauptversion und alle vier Systemdatenbanken werden im echten Gast geprüft.'
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $lab.StateRoot
     $readiness = Wait-HyperVGuestSqlReady -VMName ([string]$lab.Instance.vmName) `
-        -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId) `
+        -ExpectedRunId ([string]$lab.Run.runId) -ExpectedScopeId ([string]$lab.Run.scopeId) -StateRoot $lab.StateRoot `
         -Credential $Credential -SaPassword $SqlSaPassword -FallbackAddress $fallbackAddress `
         -ExpectedMajorVersion (Get-HyperVSqlMajorVersionFromVersion -SqlVersion ([string]$artifact.sql.version))
     if (-not $readiness.Ready -or [string]$readiness.Status -ne 'SQL_READY_RUN' -or
@@ -2763,11 +2777,12 @@ function Complete-HyperVLabSqlImage {
 function Stop-HyperVLabEnvironment {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId, [string]$StateRoot)
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     Write-LabInfo 'Schritt 1/2: Besitz und aktueller Status der Hyper-V-VM werden geprüft.'
     $null = Assert-LabHyperVResourceMigrationLifecycleAllowed -RunId $RunId -Operation 'STOP' -StateRoot $StateRoot
     $lab = Get-HyperVLabWorkflowRun -RunId $RunId -StateRoot $StateRoot
     Write-LabInfo "Schritt 2/2: VM $($lab.Instance.vmName) wird sauber gestoppt."
-    $status = Stop-HyperVInstance -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
+    $status = Stop-HyperVInstance -VMName $lab.Instance.vmName -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId -StateRoot $StateRoot
     if ([string]$lab.Run.state -eq 'RUNNING') { $null = Set-LabRunState -RunId $RunId -NewState STOPPED -Reason 'Hyper-V-VM gestoppt.' -StateRoot $lab.StateRoot }
     Set-LabProviderSubRunState -RunId $RunId -Provider hyperv -NewState STOPPED -Reason 'Hyper-V-VM gestoppt.' -StateRoot $lab.StateRoot
     return $status

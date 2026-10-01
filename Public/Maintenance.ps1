@@ -121,7 +121,7 @@ function Invoke-SqlServerLabMaintenance {
                     if(-not $current){[PSCustomObject]@{Status='ALREADY_ABSENT';Name=$action.Name};break}
                     $known=@(Get-LabActiveRuns -StateRoot $StateRoot|ForEach-Object {[string]$_.runId})
                     if($current.Classification -ne 'LAB_BOUND' -or $current.RunId -in $known -or $current.ScopeId -ne [string]$action.ScopeId -or $current.Fingerprint -ne [string]$action.Fingerprint){throw 'ORPHAN_HYPERV_REVALIDATION_FAILED'}
-                    Remove-HyperVInstance -VMName $current.Name -ExpectedScopeId $current.ScopeId -ExpectedRunDirectory $current.ResourceRoot
+                    Remove-HyperVInstance -VMName $current.Name -ExpectedScopeId $current.ScopeId -ExpectedRunDirectory $current.ResourceRoot -StateRoot $StateRoot
                 }
                 'REMOVE_LEGACY_TEST_CONTAINER' { Remove-LabLegacyTestContainer -Provider ([string]$action.Provider) -Action $action }
                 'REMOVE_LEGACY_TEST_HYPERV' { Remove-LabLegacyTestHyperV -Action $action }

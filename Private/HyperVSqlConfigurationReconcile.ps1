@@ -711,6 +711,7 @@ function Invoke-LabHyperVSqlConfigurationReconcileRepair {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId,[Parameter(Mandatory)][string]$InstanceId,[string]$ManifestPath,[string]$StateRoot)
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $mutex=[Threading.Mutex]::new($false,"Global\SQL_Server_Lab_HyperV_SQL_Configuration_Reconcile_$($RunId.Replace('-',''))")
     $acquired=$false;$journal=$null;$journalPath=$null
     try{

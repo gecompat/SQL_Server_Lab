@@ -64,6 +64,7 @@ function Remove-SqlServerLab {
         }
     }
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     if ((Test-LabAutomatedTestEnvironmentRun -RunId $RunId) -and -not $script:LabAutomatedTestEnvironmentGroupOperation) {
         throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Einzelnes Löschen ist gesperrt. Clear-SqlServerLabAutomatedTestEnvironment verwenden.'
     }

@@ -100,6 +100,7 @@ try {
     Add-CheckResult 'Environment endpoint override blocks default-context inference' ($null -eq (Get-LabStopMemoryTarget docker))
 } finally { foreach($name in $savedEnvironment.Keys){[Environment]::SetEnvironmentVariable($name,$savedEnvironment[$name])} }
 & {
+    . "$root/Private/WindowsPoolClaims.ps1"
     . "$root/Public/Stop-SqlServerLab.ps1"
     $testRoot=Join-Path ([IO.Path]::GetTempPath()) ('stop-memory-contract-'+[guid]::NewGuid().ToString('N'))
     $runId='00000000-0000-0000-0000-000000000123'
