@@ -411,6 +411,7 @@ function Invoke-UiInitialSetupRequest {
         'ApplyInitialSetup' { @('InitialSetupPlan', 'ConfirmSetup') }
         'RefreshSetupProvider' { @('SetupProvider') }
         'PlanSetupWriteability' { @('SetupLocationId') }
+        'RefreshSetupCapacity' { @('SetupLocationId') }
         'ProbeSetupWriteability' { @('SetupWriteabilityPlanId', 'ConfirmWriteability') }
         default { throw 'INITIAL_SETUP_ACTION_INVALID' }
     }
@@ -421,9 +422,12 @@ function Invoke-UiInitialSetupRequest {
     }
     if ($payload.action -eq 'ApplyInitialSetup' -and
         ($parameters.ConfirmSetup -isnot [bool] -or -not $parameters.ConfirmSetup)) { throw 'INITIAL_SETUP_CONFIRMATION_REQUIRED' }
-    if ($payload.action -in @('PlanSetupWriteability','ProbeSetupWriteability')) {
-        $key = if ($payload.action -eq 'PlanSetupWriteability') { 'SetupLocationId' } else { 'SetupWriteabilityPlanId' }
-        if ($parameters[$key] -isnot [string] -or $parameters[$key] -cnotmatch '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$') { throw 'INITIAL_SETUP_PROBE_REQUEST_INVALID' }
+    if ($payload.action -in @('PlanSetupWriteability','ProbeSetupWriteability','RefreshSetupCapacity')) {
+        $key = if ($payload.action -in @('PlanSetupWriteability','RefreshSetupCapacity')) { 'SetupLocationId' } else { 'SetupWriteabilityPlanId' }
+        if ($parameters[$key] -isnot [string] -or $parameters[$key] -cnotmatch '^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$') {
+            if($payload.action -eq 'RefreshSetupCapacity'){throw 'INITIAL_SETUP_CAPACITY_REQUEST_INVALID'}
+            throw 'INITIAL_SETUP_PROBE_REQUEST_INVALID'
+        }
         if ($payload.action -eq 'ProbeSetupWriteability' -and ($parameters.ConfirmWriteability -isnot [bool] -or -not $parameters.ConfirmWriteability)) { throw 'INITIAL_SETUP_PROBE_CONFIRMATION_REQUIRED' }
     }
     Invoke-SqlServerLabWorkflowAction -Action ([string]$payload.action) @parameters
@@ -797,7 +801,7 @@ try {
                 $body = [IO.StreamReader]::new($context.Request.InputStream, $context.Request.ContentEncoding).ReadToEnd()
                 $request = $body | ConvertFrom-Json -Depth 8
                 $action = [string]$request.action
-                if ($action -in @('GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession','GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
+                if ($action -in @('GetLlamaSessions','PlanLlamaSessionStop','StopLlamaSession','GetResourceWatchState', 'RefreshResourceWatch', 'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride', 'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve', 'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) { throw 'INITIAL_SETUP_DIRECT_ENDPOINT_REQUIRED' }
                 $parameters = @{}
                 if ($request.parameters) {
                     foreach ($property in $request.parameters.PSObject.Properties) {

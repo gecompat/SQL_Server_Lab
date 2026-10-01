@@ -116,6 +116,12 @@ function Get-LabConsoleHelpCatalog {
             Effects = 'Auswahl, Vorschau und Abbruch schreiben nichts. Erst bewusste Bestätigung revalidiert die einmalige Vorschau, schreibt und flusht ein eigenes Byte und prüft die eigene Bereinigung getrennt mit begrenzten Workern. Keine Root-, Default-, Runtime- oder fremde Dateimutation.'
             Command = 'Invoke-SqlServerLabWorkflowAction -Action PlanSetupWriteability -SetupLocationId <LocationId>'
         }
+        'initial-setup-capacity' = @{
+            Title = 'Freien Speicher einer Location lesen'
+            Purpose = 'Genau eine verifizierte registrierte Lab_Data-Location wählen. Datenträgerfrei ist eine zeitgebundene Momentaufnahme des Hostvolumes für diesen Zugriff.'
+            Effects = 'Auswahl und Abbruch ändern nichts. Lesen reserviert keinen Speicher und bestätigt weder Schreibbarkeit noch Kapazität nativer Container-Volumes oder SQL-Eignung. Unbekannte, unlesbare und nicht unterstützte Werte bleiben ausdrücklich offen.'
+            Command = 'Invoke-SqlServerLabWorkflowAction -Action RefreshSetupCapacity -SetupLocationId <LocationId>'
+        }
         'create-menu' = @{
             Title   = 'Umgebung erstellen'
             Purpose = 'Erstellt eine einzelne Umgebung sofort oder stellt mehrere zusammen und uebergibt sie an die Queue.'

@@ -60,6 +60,7 @@ function Get-LabInitialSetupState {
             [pscustomobject]@{
                 LocationId=[string]$location.LocationId; LabDataRoot=$root; Status=$code
                 Source='StorageConfiguration'; IsDefault=([string]$location.LocationId -eq [string]$configuration.DefaultLocationId)
+                Capacity=(Get-LabInitialSetupCapacityObservation -LocationId ([string]$location.LocationId))
             }
         }
     )
@@ -248,6 +249,7 @@ function Invoke-LabInitialSetupInteractive {
             New-LabConsoleItem -Id 'Configure' -Label 'Fehlende Roots ergänzen / globalen Standard wählen' -Shortcut '1'
             New-LabConsoleItem -Id 'Provider' -Label 'Einen Provider ausdrücklich erneut prüfen' -Shortcut '2'
             New-LabConsoleItem -Id 'Writeability' -Label 'Eine registrierte Lab_Data-Location auf Schreibbarkeit prüfen' -Shortcut '3'
+            New-LabConsoleItem -Id 'Capacity' -Label 'Freien Speicher einer registrierten Lab_Data-Location lesen' -Shortcut '4'
             New-LabConsoleItem -Id 'root-status' -Label "Grundkonfiguration: $($state.ConfigurationStatus)" `
                 -Value "Vollständig=$($state.Complete); Schreibbarkeit ungeprüft" `
                 -Data "Grundkonfiguration: $($state.ConfigurationStatus); Vollständig=$($state.Complete); Schreibbarkeit ungeprüft."
@@ -258,7 +260,7 @@ function Invoke-LabInitialSetupInteractive {
                 $index++
             }
             foreach ($location in @($state.LocationStatus)) {
-                $detail = "Lab_Data: $($location.LabDataRoot) | $($location.Source) | $($location.Status) | Standard=$($location.IsDefault)"
+                $detail = "Lab_Data: $($location.LabDataRoot) | $($location.Source) | $($location.Status) | Standard=$($location.IsDefault) | $(Format-LabInitialSetupCapacity $location.Capacity)"
                 New-LabConsoleItem -Id "root-$index" -Label "Lab_Data · $($location.Status) · Standard=$($location.IsDefault)" -Value ([string]$location.LabDataRoot) -Data $detail
                 $index++
             }
@@ -280,6 +282,19 @@ function Invoke-LabInitialSetupInteractive {
                 Write-LabInfo "$($result.Provider): $($result.Check.Status) | $($result.Check.Code) | $($result.Check.NextStep)"
                 Wait-LabConsoleAcknowledgement
             }
+            continue
+        }
+        if ($choice.SelectedItem.Id -eq 'Capacity') {
+            $locations=@($state.LocationStatus | Where-Object Status -EQ 'READY' | ForEach-Object {
+                New-LabConsoleItem -Id $_.LocationId -Label ([string]$_.LabDataRoot) -Value 'registrierte Location' -Data $_.LocationId
+            })
+            if(-not $locations.Count){Write-LabWarning 'Keine gültige registrierte Location vorhanden.';Wait-LabConsoleAcknowledgement;continue}
+            $selection=Invoke-LabConsoleMenu -ScreenId 'initial-setup-capacity' -Title 'Freien Speicher für genau eine Location lesen' -Items $locations
+            if($selection.Status -ne 'Selected'){continue}
+            $capacity=(Invoke-SqlServerLabWorkflowAction -Action RefreshSetupCapacity -SetupLocationId ([string]$selection.SelectedItem.Data)).Result
+            Write-LabInfo (Format-LabInitialSetupCapacity $capacity)
+            Write-LabInfo $capacity.Notice
+            Wait-LabConsoleAcknowledgement
             continue
         }
         if ($choice.SelectedItem.Id -eq 'Writeability') {

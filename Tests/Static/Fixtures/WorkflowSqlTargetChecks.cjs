@@ -346,12 +346,13 @@ async function main() {
     DefaultLocation: { LabDataRoot: '/synthetic/Lab_Data' } };
   const setupPlan = { ContractVersion: 'SqlServerLab.InitialSetupPlan/1.0', MediaAction: null, LocationActions: [{ LabDataRoot: '/synthetic/second_Data' }], DefaultDataRoot: '/synthetic/second_Data', IsNoOp: false };
   const setupRequests = [];
+  const capacitySnapshot = { ContractVersion: 'SqlServerLab.InitialSetupCapacity/1.0', LocationId: '11111111-1111-1111-1111-111111111111', Status: 'AVAILABLE', Code: 'INITIAL_SETUP_CAPACITY_OBSERVED', AvailableBytes: 0, TotalBytes: 1099511627776, ObservedAt: '2026-10-01T12:00:00Z' };
   const writePlan = { PlanId: '22222222-2222-2222-2222-222222222222', LocationId: '11111111-1111-1111-1111-111111111111', ExpiresAt: '2099-01-01T00:00:00Z', MaximumSeconds: 39, Notice: 'SYNTHETIC_PREVIEW' };
   context.fetch = async (url, options) => {
     assert.equal(url, '/api/initial-setup');
     const payload = options?.body ? JSON.parse(options.body) : null;
     setupRequests.push(payload);
-    return { ok: true, json: async () => ({ Result: payload?.action === 'PlanInitialSetup' ? setupPlan : payload?.action === 'PlanSetupWriteability' ? writePlan : payload?.action === 'ProbeSetupWriteability' ? { Status: 'WRITABLE', OwnLeafAbsent: true, Notice: 'SYNTHETIC_MOMENTARY' } : payload?.action === 'RefreshSetupProvider' ? { Provider: 'podman', Check: { Status: 'BLOCKED', Code: 'PROVIDER_UNREACHABLE' } } : setupState }) };
+    return { ok: true, json: async () => ({ Result: payload?.action === 'PlanInitialSetup' ? setupPlan : payload?.action === 'PlanSetupWriteability' ? writePlan : payload?.action === 'ProbeSetupWriteability' ? { Status: 'WRITABLE', OwnLeafAbsent: true, Notice: 'SYNTHETIC_MOMENTARY' } : payload?.action === 'RefreshSetupCapacity' ? capacitySnapshot : payload?.action === 'RefreshSetupProvider' ? { Provider: 'podman', Check: { Status: 'BLOCKED', Code: 'PROVIDER_UNREACHABLE' } } : setupState }) };
   };
   const setupClick = async (id) => { for (const handler of node(id).events.get('click') || []) await handler({}); };
   const setupPreview = async () => { for (const handler of node('initial-setup-form').events.get('submit') || []) await handler({ preventDefault() {} }); };
@@ -398,6 +399,46 @@ async function main() {
     assert.deepEqual(setupRequests.at(-1), { action: 'RefreshSetupProvider', parameters: { SetupProvider: 'podman' } });
     assert.ok(node('initial-setup-provider-status').textContent.includes('PROVIDER_UNREACHABLE'));
   });
+  const capacityQueueCount = context.queued.length;
+  const capacityBeforeSelect = setupRequests.length;
+  await setupClick('initial-setup-capacity-read');
+  check('Reading ordinary setup and unselected capacity dispatches no implicit volume query', () => { assert.equal(setupRequests.length, capacityBeforeSelect); assert.ok(node('initial-setup-capacity-result').textContent.includes('noch nicht gelesen')); });
+  node('initial-setup-write-location').value = capacitySnapshot.LocationId;
+  await setupClick('initial-setup-capacity-read');
+  check('Real capacity button sends exactly one location ID and displays measured zero with time and host scope', () => {
+    assert.deepEqual(setupRequests.at(-1), { action: 'RefreshSetupCapacity', parameters: { SetupLocationId: capacitySnapshot.LocationId } });
+    assert.ok(node('initial-setup-capacity-result').textContent.includes('Momentaufnahme'));
+    assert.match(node('initial-setup-capacity-result').textContent, /0[.,]0 GiB/);
+    assert.ok(node('initial-setup-capacity-result').textContent.includes('gelesen'));
+    assert.equal(context.queued.length, capacityQueueCount);
+  });
+  const originalCapacityFetch = context.fetch;
+  for (const status of ['UNKNOWN', 'UNREADABLE', 'UNSUPPORTED']) {
+    context.fetch = async () => ({ ok: true, json: async () => ({ Result: { ...capacitySnapshot, Status: status, AvailableBytes: null, TotalBytes: null } }) });
+    await setupClick('initial-setup-capacity-read');
+    check('Capacity ' + status + ' never renders a fabricated zero or capacity guarantee', () => assert.ok(!node('initial-setup-capacity-result').textContent.includes('GiB')));
+  }
+  let releaseCapacity;
+  context.fetch = () => new Promise(resolve => { releaseCapacity = resolve; });
+  const lateCapacity = setupClick('initial-setup-capacity-read');
+  node('initial-setup-write-location').value = '22222222-2222-2222-2222-222222222222';
+  for (const handler of node('initial-setup-write-location').events.get('change')) handler({});
+  releaseCapacity({ ok: true, json: async () => ({ Result: capacitySnapshot }) });
+  await lateCapacity;
+  check('Late capacity for an old selection never attaches bytes to the new location', () => assert.ok(node('initial-setup-capacity-result').textContent.includes('noch nicht gelesen')));
+  node('initial-setup-write-location').value = capacitySnapshot.LocationId;
+  const closedCapacity = setupClick('initial-setup-capacity-read');
+  node('initial-setup-dialog').close();
+  releaseCapacity({ ok: true, json: async () => ({ Result: capacitySnapshot }) });
+  await closedCapacity;
+  check('Closing a readonly capacity request discards the late snapshot', () => assert.ok(node('initial-setup-capacity-result').textContent.includes('noch nicht gelesen')));
+  context.fetch = originalCapacityFetch;
+  await setupClick('configuration-storage');
+  node('initial-setup-write-location').value = capacitySnapshot.LocationId;
+  context.fetch = async () => ({ ok: false, text: async () => 'SYNTHETIC_PRIVATE_CAPACITY_DETAIL' });
+  await setupClick('initial-setup-capacity-read');
+  check('Capacity request failure stays unknown and never publishes raw diagnostics', () => { assert.ok(node('initial-setup-capacity-result').textContent.includes('nicht bestätigt')); assert.ok(!node('initial-setup-capacity-result').textContent.includes('PRIVATE')); });
+  context.fetch = originalCapacityFetch;
   const writeQueueCount = context.queued.length;
   node('initial-setup-write-location').value = writePlan.LocationId;
   await setupClick('initial-setup-write-preview');

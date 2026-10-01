@@ -290,7 +290,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   genau eine vorhandene registrierte Location auf lokalem festem Windows-
   NTFS/ReFS: serverseitige Vorschau, bewusste Bestätigung, frische Bindungsprüfung,
   eigenes Byte mit Flush und begrenzte separate Abwesenheitsprüfung. Lesen
-  probt nicht; freie Kapazität und SQL-/Providerabnahme bleiben getrennt;
+  probt nicht. Eine ausdrückliche read-only Kapazitätsabfrage liest genau eine
+  registrierte, frisch gebundene Location auf lokalem Windows Fixed NTFS/ReFS.
+  Datenträgerfrei ist eine zeitgebundene Momentaufnahme für diesen Zugriff;
+  unbekannte Werte bleiben null. Native Container-Volumes, Reservierung,
+  Schreibbarkeit und SQL-/Providerabnahme sind damit nicht bestätigt;
   dessen versioniertes read-only
   Storage-Residency-Inventar trennt `Lab_Data`, native Docker-/Podman-Ablage,
   externe Hostpfade, rungebundene sowie retained Objekte und unbekanntes

@@ -281,8 +281,13 @@ Location, serverseitige Vorschau, Abbruch ohne Probe, bewusste Bestätigung,
 frische Ownership-/Volume-/Ancestorbindung und eigenes Byte/Flush mit
 begrenzter unabhängiger Abwesenheitsprüfung. Windows Fixed NTFS/ReFS ist die
 ausdrückliche Grenze; Lesen behauptet weiterhin keine Schreibbarkeit. CLI und
-Browser binden denselben Workflow-Core. Installation, Service-Start und freie
-Kapazität bleiben Folgearbeit innerhalb derselben IDs. Isolierte Prüfungen
+Browser binden denselben Workflow-Core. Eine getrennte ausdrückliche
+Kapazitätsabfrage liest genau eine vorhandene registrierte Location über
+frische Controller-/Volume-/Marker-/Ancestorbindung und gehaltene Readhandles.
+CLI und Browser zeigen Zeitpunkt, Datenträgerfrei und nullable unbekannte,
+unlesbare oder nicht unterstützte Ergebnisse. Dies reserviert keinen Speicher
+und prüft weder Schreibbarkeit noch native Container-Volumes. Installation
+und Service-Start bleiben Folgearbeit innerhalb derselben IDs. Isolierte Prüfungen
 sind keine SQL- oder Providerabnahme; ausgewählte Runtime-Gates bleiben offen
 bis zu ihrer tatsächlichen Ausführung.
 

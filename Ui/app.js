@@ -1902,6 +1902,7 @@ function updateInitialSetupControls() {
   const location = $('#initial-setup-write-location').value;
   $('#initial-setup-write-location').disabled = !ready;
   $('#initial-setup-write-preview').disabled = !ready || !location;
+  $('#initial-setup-capacity-read').disabled = !ready || !location;
   $('#initial-setup-write-confirm').disabled = !ready || !initialSetupWritePlan;
   $('#initial-setup-write-apply').disabled = !ready || !initialSetupWritePlan || !$('#initial-setup-write-confirm').checked;
   for (const button of $('#initial-setup-dialog').querySelectorAll('[value="cancel"]')) button.disabled = initialSetupWriteRunning;
@@ -1932,6 +1933,7 @@ function renderInitialSetupState(state) {
   $('#initial-setup-default').value = state.DefaultLocation?.LabDataRoot || '';
   $('#initial-setup-write-location').innerHTML = '<option value="">Location wählen</option>' + (state.LocationStatus || []).filter(item => item.Status === 'READY' && item.LocationId).map(item => '<option value="' + escapeHtml(item.LocationId) + '">' + escapeHtml(item.LabDataRoot) + '</option>').join('');
   $('#initial-setup-write-location').value = '';
+  $('#initial-setup-capacity-result').textContent = 'Datenträgerfrei: noch nicht gelesen.';
   invalidateInitialSetupWritePlan();
   invalidateInitialSetupPlan();
 }
@@ -1953,6 +1955,7 @@ async function runInitialSetupRequest(operation, receive) {
   }
 }
 function readInitialSetup() {
+  $('#initial-setup-capacity-result').textContent = 'Datenträgerfrei: noch nicht gelesen.';
   invalidateInitialSetupWritePlan();
   invalidateInitialSetupPlan();
   return runInitialSetupRequest(() => requestInitialSetup(), renderInitialSetupState);
@@ -1968,11 +1971,36 @@ $('#configuration-storage').addEventListener('click', () => {
   return readInitialSetup();
 });
 $('#initial-setup-dialog').addEventListener('close', () => {
+  $('#initial-setup-capacity-result').textContent = 'Datenträgerfrei: noch nicht gelesen.';
   invalidateInitialSetupWritePlan();
   initialSetupRevision++; initialSetupBusy = false; invalidateInitialSetupPlan();
 });
 $('#initial-setup-dialog').addEventListener('cancel', event => { if (initialSetupWriteRunning) event.preventDefault(); });
 $('#initial-setup-write-location').addEventListener('change', invalidateInitialSetupWritePlan);
+$('#initial-setup-write-location').addEventListener('change', () => { $('#initial-setup-capacity-result').textContent = 'Datenträgerfrei: noch nicht gelesen.'; });
+function renderInitialSetupCapacity(snapshot) {
+  const bytes = snapshot.AvailableBytes;
+  const total = snapshot.TotalBytes;
+  const timestamp = Date.parse(snapshot.ObservedAt);
+  if (snapshot.Status === 'AVAILABLE' && Number.isSafeInteger(bytes) && Number.isSafeInteger(total) && bytes >= 0 && total > 0 && bytes <= total && Number.isFinite(timestamp)) {
+    const gib = value => (value / (1024 ** 3)).toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    $('#initial-setup-capacity-result').textContent = 'Datenträgerfrei (Momentaufnahme): ' + gib(bytes) + ' GiB verfügbar von ' + gib(total) + ' GiB · gelesen ' + new Date(timestamp).toLocaleString('de-AT');
+  } else {
+    const messages = { NOT_CHECKED: 'Datenträgerfrei: noch nicht gelesen.', UNKNOWN: 'Freier Speicher unbekannt. Location und Zuordnung prüfen; später erneut lesen.', UNREADABLE: 'Der freie Speicher konnte nicht gelesen werden. Zugriff und Ablageort prüfen.', UNSUPPORTED: 'Freien Speicher lesen wird für diesen Host oder Ablageort nicht unterstützt.' };
+    $('#initial-setup-capacity-result').textContent = messages[snapshot.Status] || messages.UNKNOWN;
+  }
+}
+$('#initial-setup-capacity-read').addEventListener('click', async () => {
+  if (initialSetupBusy) return;
+  const locationId = $('#initial-setup-write-location').value;
+  if (!locationId) return;
+  $('#initial-setup-capacity-result').textContent = 'Freier Speicher wird gelesen …';
+  const revision = initialSetupRevision + 1;
+  await runInitialSetupRequest(() => requestInitialSetup('RefreshSetupCapacity', { SetupLocationId: locationId }), snapshot => {
+    if (snapshot.LocationId === locationId && $('#initial-setup-write-location').value === locationId) renderInitialSetupCapacity(snapshot);
+  });
+  if (revision === initialSetupRevision && $('#initial-setup-dialog').open && $('#initial-setup-write-location').value === locationId && $('#initial-setup-capacity-result').textContent === 'Freier Speicher wird gelesen …') $('#initial-setup-capacity-result').textContent = 'Freier Speicher nicht bestätigt. Location auswählen und erneut lesen.';
+});
 $('#initial-setup-write-confirm').addEventListener('change', updateInitialSetupControls);
 $('#initial-setup-write-preview').addEventListener('click', () => {
   if (initialSetupBusy) return;

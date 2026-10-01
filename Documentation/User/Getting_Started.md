@@ -316,8 +316,17 @@ Sekunden zum Beenden eines eigenen Workers.
 `RECOVERY_REQUIRED` bedeutet, dass die eigene Bereinigung nicht bestätigt ist;
 es gibt keine automatische pfadbasierte Löschung oder Wiederholung. CLI bietet
 denselben Ablauf unter **Eine registrierte Lab_Data-Location auf Schreibbarkeit
-prüfen**; Abbruch nach der Vorschau schreibt nichts. Freie Kapazität und die
-SQL-/Providerabnahme bleiben eigene Nachweise.
+prüfen**; Abbruch nach der Vorschau schreibt nichts. SQL-/Providerabnahme
+bleibt ein eigener Nachweis.
+
+Wählen Sie eine registrierte Lab_Data-Location und **Freien Speicher lesen**.
+CLI bietet denselben Ablauf als eigene Auswahl. **Datenträgerfrei
+(Momentaufnahme)** zeigt verfügbaren und gesamten Hostdatenträgerspeicher
+mit dem Lesezeitpunkt. Ein unbekannter, unlesbarer oder nicht unterstützter
+Ablageort erhält keinen erfundenen Bytewert. Lesen schreibt nichts und
+reserviert keinen Speicher; die Anzeige beweist keine Schreibbarkeit und
+keinen freien Platz in nativen Docker-/Podman-Volumes. Unterstützt sind lokale
+feste Windows-NTFS/ReFS-Datenträger mit verifizierter Registrierung.
 
 ### 3b. Betriebssystem-ISO beschaffen (nur für Hyper-V)
 
