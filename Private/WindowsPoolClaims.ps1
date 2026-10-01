@@ -321,7 +321,14 @@ function Assert-LabWindowsPoolProviderMutation {
     if (-not $hint) {
         $candidate=Join-Path (Join-Path (Join-Path $root 'runs') ([string]$Managed.Identity.runId)) 'run-state.json'
         if (-not (Test-LabPathWithinRoot -Root $root -Path $candidate).Valid) { throw 'WINDOWS_POOL_STATE_PATH_INVALID' }
-        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) { throw 'WINDOWS_POOL_PROVIDER_AUTHORITY_REQUIRED' }
+        if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
+            $buildCandidates=@('hyperv','hyperv-sql' | ForEach-Object {
+                Join-Path $root "image-builds/$_/$($Managed.Identity.runId)/build-state.json"
+            } | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
+            if($buildCandidates.Count -eq 0){throw 'WINDOWS_POOL_PROVIDER_AUTHORITY_REQUIRED'}
+            Assert-HyperVBuildProviderMutation -Managed $Managed -StateRoot $root
+            return
+        }
         $selectedRun=Read-LabWorkflowJson -Path $candidate
         if ($Managed.Identity.provider -cne 'hyperv' -or $selectedRun.runId -cne $Managed.Identity.runId -or $selectedRun.scopeId -cne $Managed.Identity.scopeId -or
             -not $selectedRun.runId -or -not $selectedRun.scopeId) { throw 'WINDOWS_POOL_PROVIDER_AUTHORITY_REQUIRED' }

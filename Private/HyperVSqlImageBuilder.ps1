@@ -849,18 +849,21 @@ function Initialize-HyperVSqlPreparedImageBuild {
             -RunDirectory $plan.BuildDirectory -RunId $plan.buildId -ScopeId $plan.scopeId `
             -InstanceId "sql-image-$SqlVersion" -MemoryStartupBytes $MemoryStartupBytes -ProcessorCount $ProcessorCount `
             -SwitchName $labNetwork.Name -ResourceClass Build
-        $managed = Get-HyperVManagedVM -VMName $instance.VMName -ExpectedRunId $plan.buildId -ExpectedScopeId $plan.scopeId
+        $boundPlan = Get-HyperVSqlImageBuildPlan -BuildId $plan.buildId -StateRoot $StateRoot
+        $managed = (Get-HyperVBuildCallerAuthority -Build $boundPlan -StateRoot $StateRoot).Managed
         if ([string]$plan.parentArtifact.platform.guestControl -eq 'legacy-wmi') {
             if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_SQL_LEGACY_NETWORK_REQUIRES_STOPPED_VM' }
             @($managed.VM | Get-VMNetworkAdapter -ErrorAction Stop) | Remove-VMNetworkAdapter -ErrorAction Stop
             $null = Add-VMNetworkAdapter -VM $managed.VM -SwitchName $labNetwork.Name `
                 -Name 'SQL_LAB_HYPERV_LEGACY' -IsLegacy $true -ErrorAction Stop
             $null = Set-HyperVManagedVMIdentityProperty -ManagedVM $managed -PropertyName guestTransport `
-                -Value 'lab-winrm' -ContractVersion '0.8'
+                -Value 'lab-winrm' -ContractVersion '0.8' -StateRoot $StateRoot
         }
         $null = Add-VMDvdDrive -VM $managed.VM -Path $media.IsoPath -ErrorAction Stop
         $plan.builder = [PSCustomObject]@{
             vmName = [string]$instance.VMName
+            vmId = [string]$instance.VMId; instanceId = "sql-image-$SqlVersion"
+            nativeBindingContract = 'SqlServerLab.HyperVBuildNative/1.0'
             osDiskRelativePath = "resources/hyperv/$([IO.Path]::GetFileName($instance.ChildVhdxPath))"
             resourceRelativePath = [IO.Path]::GetFileName($instance.ChildVhdxPath)
             generation = [int]$instance.VMGeneration
@@ -943,6 +946,8 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
         if (-not (Test-Path -LiteralPath $diskPath -PathType Leaf)) { throw 'HYPERV_SQL_IMAGE_BUILD_DISK_POSTCONDITION_FAILED' }
         $vm = New-VM -Name $vmName -Generation 2 -MemoryStartupBytes $MemoryStartupBytes -VHDPath $diskPath `
             -Path $resourceRoot -SwitchName $labNetwork.Name -ErrorAction Stop
+        $nativeBinding = Set-HyperVBuildNativeBinding -BuildDirectory $plan.BuildDirectory -StateRoot $StateRoot `
+            -VM $vm -InstanceId "sql-image-$SqlVersion" -ChildVhdxPath $diskPath
         $null = Set-VM -VM $vm -SmartPagingFilePath $resourceRoot -SnapshotFileLocation $resourceRoot -ErrorAction Stop
         $null = Assert-HyperVVMResourceBinding -VMName $vmName -ResourceBinding $resourceBinding
         # Do not inherit Hyper-V's unbounded dynamic-memory default (commonly 1 TB).
@@ -959,6 +964,7 @@ function Initialize-HyperVSqlFreshPreparedImageBuild {
         $null = Set-VMFirmware -VM $vm -FirstBootDevice $windowsDvd -ErrorAction Stop
         $plan.builder = [PSCustomObject]@{
             vmName = $vmName; osDiskRelativePath = "resources/hyperv/$vmName.vhdx"
+            vmId = $nativeBinding.vmId; instanceId = $nativeBinding.instanceId; nativeBindingContract = $nativeBinding.nativeBindingContract
             resourceRelativePath = "$vmName.vhdx"
             generation = 2; secureBoot = $true; networkAttached = $true; diskKind = 'fresh-dynamic'
         }
@@ -987,7 +993,7 @@ function Start-HyperVSqlImageBuildVM {
         throw 'HYPERV_SQL_IMAGE_BUILD_VM_NOT_STARTABLE'
     }
     $instance = Start-HyperVInstance -VMName ([string]$build.builder.vmName) `
-        -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
+        -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId -StateRoot $StateRoot
     if ([string]$build.provisioningMode -eq 'fresh-windows-media') {
         $receipt = Invoke-HyperVInitialMediaBootInteraction `
             -BuildId $BuildId -VMName ([string]$build.builder.vmName) -StateRoot $StateRoot
@@ -1001,7 +1007,7 @@ function Confirm-HyperVSqlFreshWindowsInstallation {
     param([Parameter(Mandatory)]$Build, [Parameter(Mandatory)][PSCredential]$Credential, [string]$StateRoot)
 
     if ([string]$Build.provisioningMode -ne 'fresh-windows-media' -or $Build.installationEvidence) { return $Build }
-    $receipt = Invoke-HyperVPowerShellDirect -VMName ([string]$Build.builder.vmName) `
+    $receipt = Invoke-HyperVBuildPowerShellDirect -Build $build -StateRoot $StateRoot -VMName ([string]$Build.builder.vmName) `
         -ExpectedRunId ([string]$Build.buildId) -ExpectedScopeId ([string]$Build.scopeId) -Credential $Credential `
         -ArgumentList @([string]$Build.buildId, [string]$Build.scopeId) -ScriptBlock {
             param($ExpectedBuildId, $ExpectedScopeId)
@@ -1083,8 +1089,9 @@ function Wait-HyperVSqlImageBuildGuestRestart {
             $lastProgressSeconds = $stopwatch.Elapsed.TotalSeconds
             Write-LabInfo "SQL Setup: warte auf Gast-Neustart ($([int]$stopwatch.Elapsed.TotalSeconds)s/$TimeoutSeconds, $lastStatus)"
         }
+        $null = Get-HyperVBuildCallerAuthority -Build $Build
         try {
-            $probe = Invoke-HyperVPowerShellDirect -VMName ([string]$Build.builder.vmName) `
+            $probe = Invoke-HyperVBuildPowerShellDirect -Build $build -VMName ([string]$Build.builder.vmName) `
                 -ExpectedRunId ([string]$Build.buildId) -ExpectedScopeId ([string]$Build.scopeId) `
                 -Credential $Credential -FallbackAddress $fallbackAddress -ScriptBlock {
                     [PSCustomObject]@{
@@ -1123,7 +1130,7 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
         throw 'HYPERV_SQL_IMAGE_BUILD_NOT_READY'
     }
     $vmName = [string]$build.builder.vmName
-    $managed = Get-HyperVManagedVM -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
+    $managed = (Get-HyperVBuildCallerAuthority -Build $build -StateRoot $StateRoot).Managed
     if (-not $managed -or [string]$managed.VM.State -ne 'Running') { throw 'HYPERV_SQL_IMAGE_BUILD_VM_MUST_BE_RUNNING' }
     $fallbackAddress = if ($build.labNetwork) {
         Get-LabNetworkGuestAddress -Network $build.labNetwork -Identity ([string]$build.buildId)
@@ -1141,7 +1148,7 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
                 -Version ([string]$build.sql.version) -Edition ([string]$build.sql.edition) -StateRoot $StateRoot
             $productKey = Get-LabLicenseProfileSecret -Id ([string]$build.sql.license.profileId) -StateRoot $StateRoot
         }
-        $receipt = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
+        $receipt = Invoke-HyperVBuildPowerShellDirect -Build $build -StateRoot $StateRoot -VMName $vmName -ExpectedRunId $build.buildId `
             -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
             -ArgumentList @($build.buildId, $build.scopeId, $build.manualAction.challenge, $build.sql.version, $setupVersionPattern, ($build.sql.features -join ','), $SetupTimeoutSeconds, $productKey, $build.sql.license.type, $build.sql.edition) `
             -ScriptBlock {
@@ -1259,7 +1266,7 @@ function Invoke-HyperVSqlPrepareAndGeneralize {
     if (-not $build.setupEvidence -or [string]$build.setupEvidence.action -ne 'PrepareImage') {
         throw 'HYPERV_SQL_PREPARE_EVIDENCE_MISSING'
     }
-    $sysprep = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
+    $sysprep = Invoke-HyperVBuildPowerShellDirect -Build $build -StateRoot $StateRoot -VMName $vmName -ExpectedRunId $build.buildId `
         -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
         -ArgumentList @($build.buildId, $build.scopeId, $build.manualAction.challenge) `
         -ScriptBlock {
@@ -1382,16 +1389,15 @@ function Resume-HyperVSqlPreparedImageGeneralization {
         -not $build.setupEvidence -or [string]$build.setupEvidence.action -ne 'PrepareImage') {
         throw 'HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_NOT_READY'
     }
-    $managed = Get-HyperVManagedVM -VMName ([string]$build.builder.vmName) `
-        -ExpectedRunId ([string]$build.buildId) -ExpectedScopeId ([string]$build.scopeId)
-    if (-not $managed) { throw 'HYPERV_SQL_IMAGE_GENERALIZATION_RECOVERY_VM_MISSING' }
-    if ([string]$managed.VM.State -ne 'Off') {
+    $managed = (Get-HyperVBuildCallerAuthority -Build $build -StateRoot $StateRoot -AllowAbsent).Managed
+    if ($managed -and [string]$managed.VM.State -ne 'Off') {
         $null = Stop-HyperVInstance -VMName ([string]$build.builder.vmName) `
-            -ExpectedRunId ([string]$build.buildId) -ExpectedScopeId ([string]$build.scopeId)
+            -ExpectedRunId ([string]$build.buildId) -ExpectedScopeId ([string]$build.scopeId) -StateRoot $StateRoot
     }
     $vhdxPath = Resolve-LabHyperVBuilderDiskPath -Build $build
     $offlineInspectionPath = Resolve-LabHyperVStateResourcePath -StateDirectory $build.BuildDirectory `
         -BoundRelativePath 'offline-generalization-inspection' -LegacyRelativePath 'offline-generalization-inspection'
+    Assert-HyperVBuildOfflineDiskAuthority -Build $build -StateRoot $StateRoot -VhdxPath $vhdxPath
     $inspection = Get-HyperVSqlOfflineImageState -VhdxPath $vhdxPath `
         -MountRoot $offlineInspectionPath
     $imageState = [string]$inspection.ImageState
@@ -1439,7 +1445,8 @@ function Publish-HyperVSqlPreparedImageBuild {
         $platform.secureBoot -isnot [bool] -or [string]$platform.guestControl -notin @('powershell-direct','legacy-wmi')) {
         throw 'HYPERV_SQL_IMAGE_PLATFORM_METADATA_INVALID'
     }
-    $managed = Get-HyperVManagedVM -VMName $build.builder.vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
+    $buildAuthority = Get-HyperVBuildMutationContext -BuildDirectory $build.BuildDirectory -StateRoot $StateRoot -ExpectedScopeId $build.scopeId
+    $managed = Get-HyperVBuildBoundManagedVM -Context $buildAuthority
     if (-not $managed) { throw 'HYPERV_SQL_IMAGE_BUILD_VM_MISSING' }
     if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_SQL_IMAGE_BUILD_VM_MUST_BE_OFF' }
     if (@(Get-VMSnapshot -VM $managed.VM -ErrorAction Stop).Count -gt 0) { throw 'HYPERV_SQL_IMAGE_BUILD_CHECKPOINTS_PRESENT' }
@@ -1458,9 +1465,11 @@ function Publish-HyperVSqlPreparedImageBuild {
     if (-not (Test-Path -LiteralPath $flatPath)) {
         $null = Add-CleanupStep -RunDir $build.BuildDirectory -ResourceType vhdx -ResourceId $flatPath -Action remove `
             -Provider hyperv -ProviderSubRunId provider-hyperv -Compensation 'Remove flattened SQL prepared VHDX'
+        Assert-HyperVBuildOfflineDiskAuthority -Build $build -StateRoot $StateRoot -VhdxPath $childPath
         Convert-VHD -Path $childPath -DestinationPath $flatPath -VHDType Dynamic -ErrorAction Stop
     }
     if (-not (Test-HyperVVhdxSignature -Path $flatPath)) { throw 'HYPERV_SQL_IMAGE_FLAT_DISK_INVALID' }
+    Assert-HyperVBuildOfflineDiskAuthority -Build $build -StateRoot $StateRoot -VhdxPath $flatPath -PlannedOutput
     (Get-Item -LiteralPath $flatPath -Force).IsReadOnly = $true
     $sha256 = (Get-FileHash -LiteralPath $flatPath -Algorithm SHA256).Hash
     $parent = $build.parentArtifact
@@ -1470,6 +1479,7 @@ function Publish-HyperVSqlPreparedImageBuild {
     if (-not [string]::IsNullOrWhiteSpace([string]$build.displayName)) {
         $displayNameArgument.DisplayName = ([string]$build.displayName).Trim()
     }
+    Assert-HyperVBuildOfflineDiskAuthority -Build $build -StateRoot $StateRoot -VhdxPath $flatPath -PlannedOutput
     $artifact = Import-HyperVImageArtifact -VhdxPath $flatPath -ExpectedSha256 $sha256 `
         -ArtifactState SQL_PREPARED_SEALED -OperatingSystemId $parent.operatingSystem.id `
         -OperatingSystemVersion $parent.operatingSystem.version -Edition $parent.operatingSystem.edition `
@@ -1486,7 +1496,7 @@ function Publish-HyperVSqlPreparedImageBuild {
     # Registry-Import und Hash-Verifikation sind abgeschlossen, bevor VM und
     # buildlokale Differencing-/Flattened-VHDX entfernt werden.
     $null = Remove-HyperVInstance -VMName $build.builder.vmName -ExpectedScopeId $build.scopeId `
-        -ExpectedRunDirectory $build.BuildDirectory -RequireOff
+        -ExpectedRunDirectory $build.BuildDirectory -RequireOff -StateRoot $StateRoot
     $build = Get-HyperVSqlImageBuildPlan -BuildId $BuildId -StateRoot $StateRoot
     $build.sealPostconditions = [PSCustomObject]@{
         identityValidated = $true; vmOff = $true; checkpointsAbsent = $true

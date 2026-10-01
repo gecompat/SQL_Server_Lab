@@ -753,7 +753,15 @@ function New-HyperVInstance {
         $newVmParameters.SwitchName = $SwitchName
     }
     $vmCreate = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-create' -RunId $RunId -StateRoot $StateRoot `
-        -Command "New-VM -Name $vmName" -Action { New-VM @newVmParameters }
+        -Command "New-VM -Name $vmName" -Action {
+            $createdVM = New-VM @newVmParameters
+            if (-not $createdVM) { throw 'HYPERV_VM_CREATE_NO_RESULT' }
+            if ($ResourceClass -eq 'Build') {
+                $null = Set-HyperVBuildNativeBinding -BuildDirectory $RunDirectory -StateRoot $StateRoot `
+                    -VM $createdVM -InstanceId $InstanceId -ChildVhdxPath $childVhdxPath
+            }
+            $createdVM
+        }
     $vm = @($vmCreate.Output)[0]
     if (-not $vm) { throw 'HYPERV_VM_CREATE_NO_RESULT' }
     $null = Set-VM -VM $vm -SmartPagingFilePath $resourceRoot -SnapshotFileLocation $resourceRoot -ErrorAction Stop
@@ -910,7 +918,12 @@ function Start-HyperVInstance {
     Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $StateRoot
     if ([string]$managed.VM.State -ne 'Running') {
         $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-start' -RunId $ExpectedRunId `
-            -Command "Start-VM -Name $VMName" -Action { Start-VM -VM $managed.VM -ErrorAction Stop }
+            -Command "Start-VM -Name $VMName" -Action {
+                if (Test-HyperVSelectedBuildMutation -Managed $managed -StateRoot $StateRoot) {
+                    Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $StateRoot
+                }
+                Start-VM -VM $managed.VM -ErrorAction Stop
+            }
     }
     return Get-HyperVInstanceStatus -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
 }
@@ -934,7 +947,12 @@ function Stop-HyperVInstance {
     Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $StateRoot
     if ([string]$managed.VM.State -ne 'Off') {
         $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-stop' -RunId $ExpectedRunId `
-            -Command "Stop-VM -Name $VMName -Force" -Action { Stop-VM -VM $managed.VM -Force -ErrorAction Stop }
+            -Command "Stop-VM -Name $VMName -Force" -Action {
+                if (Test-HyperVSelectedBuildMutation -Managed $managed -StateRoot $StateRoot) {
+                    Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $StateRoot
+                }
+                Stop-VM -VM $managed.VM -Force -ErrorAction Stop
+            }
     }
     return Get-HyperVInstanceStatus -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
 }
@@ -1027,13 +1045,16 @@ function Invoke-HyperVPowerShellDirect {
         [object[]]$ArgumentList = @(),
         [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress,
         [object]$Progress,
-        [ValidateRange(1,86400)][int]$TimeoutSeconds=86400
+        [ValidateRange(1,86400)][int]$TimeoutSeconds=86400,
+        $Build, [string]$BuildStateRoot
     )
 
     $strictVmBinding = $PSBoundParameters.ContainsKey('ExpectedVmId')
-    if ($strictVmBinding -and ($ExpectedVmId -eq [guid]::Empty -or $FallbackAddress)) {
+    if (($Build -and -not $strictVmBinding) -or ($strictVmBinding -and ($ExpectedVmId -eq [guid]::Empty -or ($FallbackAddress -and -not $Build)))) {
         throw 'HYPERV_GUEST_VM_ID_BINDING_INVALID'
     }
+    $buildArguments=@{Build=$Build;StateRoot=$BuildStateRoot;ExpectedVmId=$ExpectedVmId;VMName=$VMName;ExpectedRunId=$ExpectedRunId;ExpectedScopeId=$ExpectedScopeId}
+    if ($Build) { Assert-HyperVBuildGuestTransportAuthority @buildArguments }
     $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
     if (-not $managed) {
         throw "Hyper-V-VM nicht gefunden: $VMName"
@@ -1052,6 +1073,7 @@ function Invoke-HyperVPowerShellDirect {
     if ($FallbackAddress -and [string]$managed.Identity.guestTransport -eq 'lab-winrm') {
         Write-LabInfo "Die VM $VMName ist explizit fuer Lab-WinRM markiert; nutze $FallbackAddress statt PowerShell Direct."
         try {
+            if ($Build) { Assert-HyperVBuildGuestTransportAuthority @buildArguments -FallbackAddress $FallbackAddress }
             return Invoke-HyperVWinRmFallback -Address $FallbackAddress -Credential $Credential `
                 -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList -Progress $Progress -TimeoutSeconds $TimeoutSeconds
         }
@@ -1065,6 +1087,7 @@ function Invoke-HyperVPowerShellDirect {
         try {
             if([datetime]::UtcNow -ge $deadline){throw 'GUEST_JOB_OPERATION_TIMEOUT'}
             Update-LabActionProgress -Progress $Progress -Phase GuestWait -ProbeCount $attempt
+            if ($Build) { Assert-HyperVBuildGuestTransportAuthority @buildArguments }
             # Der strikte Pfad darf bei einer Umbenennung keine andere VM öffnen.
             $vmSelector = if ($strictVmBinding) { @{ VMId = $ExpectedVmId } } else { @{ VMName = $VMName } }
             $job=Invoke-Command @vmSelector `
@@ -1085,6 +1108,7 @@ function Invoke-HyperVPowerShellDirect {
     if([datetime]::UtcNow -ge $deadline){throw 'GUEST_JOB_OPERATION_TIMEOUT'}
     Write-LabInfo "PowerShell Direct fuer $VMName nach 10 Versuchen nicht verfuegbar; nutze WinRM im Labnetz ($FallbackAddress)."
     try {
+        if ($Build) { Assert-HyperVBuildGuestTransportAuthority @buildArguments -FallbackAddress $FallbackAddress }
         return Invoke-HyperVWinRmFallback -Address $FallbackAddress -Credential $Credential `
             -ScriptBlock $ScriptBlock -ArgumentList $ArgumentList -Progress $Progress `
             -TimeoutSeconds ([math]::Max(1,[int][math]::Ceiling(($deadline-[datetime]::UtcNow).TotalSeconds)))
@@ -1134,9 +1158,15 @@ function Wait-HyperVPowerShellDirect {
         [ValidatePattern('^(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])(?:\.(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])){3})?$')][string]$FallbackAddress,
         [string]$GuestInitializationScript,
         [ValidateRange(1, 3600)][int]$TimeoutSeconds = 300,
-        [ValidateRange(100, 60000)][int]$PollIntervalMilliseconds = 2000
+        [ValidateRange(100, 60000)][int]$PollIntervalMilliseconds = 2000,
+        $Build, [string]$BuildStateRoot
     )
 
+    $buildArguments=@{}
+    if ($Build) {
+        $buildArguments=@{Build=$Build;BuildStateRoot=$BuildStateRoot;ExpectedVmId=[guid]$Build.builder.vmId}
+        Assert-HyperVBuildGuestTransportAuthority -Build $Build -StateRoot $BuildStateRoot -ExpectedVmId ([guid]$Build.builder.vmId) -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId
+    }
     $managed = Get-HyperVManagedVM `
         -VMName $VMName `
         -ExpectedRunId $ExpectedRunId `
@@ -1153,7 +1183,7 @@ function Wait-HyperVPowerShellDirect {
         $probeCount++
         Update-LabActionProgress -Progress $progress -Phase GuestWait -ProbeCount $probeCount
         try {
-            $probe = Invoke-HyperVPowerShellDirect `
+            $probe = Invoke-HyperVPowerShellDirect @buildArguments `
                 -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId `
                 -Credential $Credential -FallbackAddress $FallbackAddress -Progress $progress `
                 -TimeoutSeconds ([math]::Max(1,[int][math]::Ceiling($TimeoutSeconds-$stopwatch.Elapsed.TotalSeconds))) -ScriptBlock {
@@ -1168,7 +1198,7 @@ function Wait-HyperVPowerShellDirect {
                 -ErrorAction Stop
             $probe = @($probe)[0]
             if (-not $guestInitializationComplete) {
-                $null = Invoke-HyperVPowerShellDirect `
+                $null = Invoke-HyperVPowerShellDirect @buildArguments `
                     -VMName $VMName -ExpectedRunId $ExpectedRunId -ExpectedScopeId $ExpectedScopeId `
                     -Credential $Credential -FallbackAddress $FallbackAddress -Progress $progress `
                     -TimeoutSeconds ([math]::Max(1,[int][math]::Ceiling($TimeoutSeconds-$stopwatch.Elapsed.TotalSeconds))) `
@@ -1192,6 +1222,7 @@ function Wait-HyperVPowerShellDirect {
             $lastError = "ComputerName=$($probe.computerName), ImageState=$($probe.imageState)"
         }
         catch {
+            if ($Build -and $_.Exception.Message -match '^HYPERV_BUILD_|^WINDOWS_POOL_|^HYPERV_GUEST_VM_ID_MISMATCH') { throw }
             $lastError = $_.Exception.Message
         }
         Wait-LabProgressDelay -Progress $progress -Milliseconds ([math]::Min($PollIntervalMilliseconds,[math]::Max(0,[int](1000*($TimeoutSeconds-$stopwatch.Elapsed.TotalSeconds)))))
@@ -1983,12 +2014,26 @@ function Remove-HyperVInstance {
     $blockingProgress=Start-LabBlockingActionProgress -Phase Cleanup
     try {
 
-    $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedScopeId $ExpectedScopeId
+    $buildContext = $null
+    if ((Split-Path -Leaf (Split-Path -Parent $ExpectedRunDirectory)) -in @('hyperv', 'hyperv-sql')) {
+        $selectedRoot = Resolve-HyperVMutationStateRoot -StateDirectory $ExpectedRunDirectory -StateRoot $StateRoot
+        $buildContext = Get-HyperVBuildMutationContext -BuildDirectory $ExpectedRunDirectory -StateRoot $selectedRoot -ExpectedScopeId $ExpectedScopeId
+        if ($buildContext.Build.builder.vmName -cne $VMName) { throw 'HYPERV_BUILD_NATIVE_IDENTITY_CHANGED' }
+        $managed = Get-HyperVBuildBoundManagedVM -Context $buildContext
+    }
+    else {
+        $selectedRoot=if($StateRoot){$StateRoot}else{Split-Path -Parent (Split-Path -Parent ([IO.Path]::GetFullPath($ExpectedRunDirectory)))}
+        $managed = Get-HyperVManagedVM -VMName $VMName -ExpectedScopeId $ExpectedScopeId
+    }
     if (-not $managed) {
+        if ($buildContext -and -not $PreserveVhdx) {
+            $disk = Join-Path $buildContext.Binding.HyperVResourceRoot $buildContext.Build.builder.resourceRelativePath
+            $null = Remove-HyperVVhdxForCleanup -Path $disk -ExpectedRunDirectory $ExpectedRunDirectory `
+                -StateRoot $selectedRoot -ExpectedScopeId $ExpectedScopeId
+        }
         return [PSCustomObject]@{ Removed = $false; AlreadyAbsent = $true; VMName = $VMName }
     }
 
-    $selectedRoot=if($StateRoot){$StateRoot}else{Split-Path -Parent (Split-Path -Parent ([IO.Path]::GetFullPath($ExpectedRunDirectory)))}
     Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $selectedRoot
 
     $childVhdxPath = [string]$managed.Identity.childVhdxPath
@@ -2014,7 +2059,10 @@ function Remove-HyperVInstance {
         if ($RequireOff) { throw 'HYPERV_VM_MUST_BE_OFF' }
         $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-stop' -RunId ([string]$managed.Identity.runId) `
             -Command "Stop-VM -Name $VMName -TurnOff -Force" `
-            -Action { Stop-VM -VM $managed.VM -TurnOff -Force -ErrorAction Stop }
+            -Action {
+                if ($buildContext) { Assert-HyperVBuildProviderMutation -Managed $managed -StateRoot $selectedRoot }
+                Stop-VM -VM $managed.VM -TurnOff -Force -ErrorAction Stop
+            }
     }
     $checkpoints = @(Get-VMSnapshot -VM $managed.VM -ErrorAction Stop)
     foreach ($checkpoint in $checkpoints) {
@@ -2023,7 +2071,10 @@ function Remove-HyperVInstance {
         # keine AVHDX-Kette die anschließende VHDX-Löschung blockiert.
         $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'checkpoint-remove' -RunId ([string]$managed.Identity.runId) `
             -Command "Remove-VMSnapshot -Id $([string]$checkpoint.Id)" `
-            -Action { Remove-VMSnapshot -VMSnapshot $checkpoint -ErrorAction Stop }
+            -Action {
+                if ($buildContext) { Assert-HyperVBuildProviderMutation -Managed $managed -StateRoot $selectedRoot }
+                Remove-VMSnapshot -VMSnapshot $checkpoint -ErrorAction Stop
+            }
     }
     if ($checkpoints.Count -gt 0) {
         $deadline = [datetime]::UtcNow.AddMinutes(10)
@@ -2034,13 +2085,16 @@ function Remove-HyperVInstance {
         if ($remainingCheckpoints.Count -gt 0) { throw 'HYPERV_CHECKPOINT_MERGE_TIMEOUT' }
     }
     $null = Invoke-LabProviderOperation -Provider hyperv -Phase 'vm-remove' -RunId ([string]$managed.Identity.runId) `
-        -Command "Remove-VM -Name $VMName -Force" -Action { Remove-VM -VM $managed.VM -Force -ErrorAction Stop }
+        -Command "Remove-VM -Name $VMName -Force" -Action {
+            if ($buildContext) { Assert-HyperVBuildProviderMutation -Managed $managed -StateRoot $selectedRoot }
+            Remove-VM -VM $managed.VM -Force -ErrorAction Stop
+        }
 
     if (-not $PreserveVhdx) {
         foreach ($vhdxPath in @($childVhdxPath) + @($additionalVhdxPaths | Where-Object {
                     Test-HyperVPathWithinRunDirectory -Path $_ -RunDirectory $ExpectedRunDirectory
                 })) {
-            $null = Remove-HyperVVhdxForCleanup -Path $vhdxPath -ExpectedRunDirectory $ExpectedRunDirectory
+            $null = Remove-HyperVVhdxForCleanup -Path $vhdxPath -ExpectedRunDirectory $ExpectedRunDirectory -StateRoot $selectedRoot -ExpectedScopeId $ExpectedScopeId
         }
     }
 
@@ -2054,12 +2108,26 @@ function Remove-HyperVVhdxForCleanup {
     param(
         [Parameter(Mandatory)][string]$Path,
         [Parameter(Mandatory)][string]$ExpectedRunDirectory,
-        [string]$SafetyRoot
+        [string]$SafetyRoot,
+        [string]$StateRoot,
+        [string]$ExpectedScopeId
     )
 
     $selectedRunDirectory=[IO.Path]::GetFullPath($ExpectedRunDirectory)
-    $selectedRoot=Split-Path -Parent (Split-Path -Parent $selectedRunDirectory)
-    Assert-LabWindowsPoolMutationAllowed -RunId (Split-Path -Leaf $selectedRunDirectory) -StateRoot $selectedRoot -InvalidateEvidence
+    $isBuild = (Split-Path -Leaf (Split-Path -Parent $selectedRunDirectory)) -in @('hyperv', 'hyperv-sql')
+    if ($isBuild) {
+        $selectedRoot=Resolve-HyperVMutationStateRoot -StateDirectory $selectedRunDirectory -StateRoot $StateRoot
+        $context = Get-HyperVBuildMutationContext -BuildDirectory $selectedRunDirectory -StateRoot $selectedRoot -ExpectedScopeId $ExpectedScopeId
+        if (Get-HyperVBuildBoundManagedVM -Context $context) { throw 'HYPERV_BUILD_VM_MUST_BE_ABSENT' }
+        $null = Assert-LabHyperVBoundPath -Binding $context.Binding -Path $Path -DataRoot $context.Binding.LabDataRoot
+        $diskSteps = @($context.Plan.steps | Where-Object { $_.provider -ceq 'hyperv' -and $_.action -ceq 'remove' -and $_.resourceType -ceq 'vhdx' -and
+            [string]::Equals([IO.Path]::GetFullPath([string]$_.resourceId), [IO.Path]::GetFullPath($Path), [StringComparison]::OrdinalIgnoreCase) })
+        if ($diskSteps.Count -ne 1) { throw 'HYPERV_BUILD_DISK_BINDING_INVALID' }
+    }
+    else {
+        $selectedRoot=if($StateRoot){$StateRoot}else{Split-Path -Parent (Split-Path -Parent $selectedRunDirectory)}
+        Assert-LabWindowsPoolMutationAllowed -RunId (Split-Path -Leaf $selectedRunDirectory) -StateRoot $selectedRoot -InvalidateEvidence
+    }
     $scope = Test-HyperVVhdxCleanupScope -Path $Path -ExpectedRunDirectory $ExpectedRunDirectory -SafetyRoot $SafetyRoot
     if (-not $scope.Valid) { throw "$($scope.Code): $($scope.Reason)" }
     $resolvedPath = [string]$scope.Path
@@ -2068,8 +2136,8 @@ function Remove-HyperVVhdxForCleanup {
     }
 
     $attached = @(
-        Get-VM -ErrorAction SilentlyContinue |
-            Get-VMHardDiskDrive -ErrorAction SilentlyContinue |
+        Get-VM -ErrorAction $(if ($isBuild) { 'Stop' } else { 'SilentlyContinue' }) |
+            Get-VMHardDiskDrive -ErrorAction $(if ($isBuild) { 'Stop' } else { 'SilentlyContinue' }) |
             Where-Object {
                 $_.Path -and [System.IO.Path]::GetFullPath([string]$_.Path).Equals(
                     $resolvedPath,
@@ -2085,6 +2153,18 @@ function Remove-HyperVVhdxForCleanup {
     # Basis-VHDX frei ist: Checkpoints haengen als AVHDX weiter an ihr.
     $dependencyChain = Test-HyperVVhdxCleanupDependencyChain -Path $resolvedPath
     if (-not $dependencyChain.Valid) { throw "$($dependencyChain.Code): $($dependencyChain.Reason)" }
+
+    if ($isBuild) {
+        $freshContext = Get-HyperVBuildMutationContext -BuildDirectory $selectedRunDirectory -StateRoot $selectedRoot -ExpectedScopeId $ExpectedScopeId
+        if ($freshContext.Build.builder.vmId -cne $context.Build.builder.vmId -or $freshContext.Binding.ResourceKey -cne $context.Binding.ResourceKey) { throw 'HYPERV_BUILD_AUTHORITY_CHANGED' }
+        $null = Assert-LabHyperVBoundPath -Binding $freshContext.Binding -Path $resolvedPath -DataRoot $freshContext.Binding.LabDataRoot
+        if (@($freshContext.Plan.steps | Where-Object { $_.provider -ceq 'hyperv' -and $_.action -ceq 'remove' -and $_.resourceType -ceq 'vhdx' -and
+            [string]::Equals([IO.Path]::GetFullPath([string]$_.resourceId), $resolvedPath, [StringComparison]::OrdinalIgnoreCase) }).Count -ne 1) { throw 'HYPERV_BUILD_DISK_BINDING_INVALID' }
+        if (Get-HyperVBuildBoundManagedVM -Context $freshContext) { throw 'HYPERV_BUILD_VM_MUST_BE_ABSENT' }
+        if (@(Get-VM -ErrorAction Stop | Get-VMHardDiskDrive -ErrorAction Stop | Where-Object {
+            $_.Path -and [string]::Equals([IO.Path]::GetFullPath([string]$_.Path), $resolvedPath, [StringComparison]::OrdinalIgnoreCase)
+        }).Count -gt 0) { throw 'HYPERV_BUILD_DISK_ATTACHED' }
+    }
 
     Remove-Item -LiteralPath $resolvedPath -Force
     return [PSCustomObject]@{ Removed = $true; AlreadyAbsent = $false; Path = $resolvedPath }

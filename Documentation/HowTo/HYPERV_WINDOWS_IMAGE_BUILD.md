@@ -256,6 +256,36 @@ SHA-256 müssen vollständig verifiziert sein, bevor die Builder-VM und ihre
 buildlokale VHDX werden anschließend über den Cleanup-Plan entfernt; das
 Registry-Artefakt bleibt erhalten.
 
+Neue Builds speichern die tatsächlich zurückgegebene VM-ID unmittelbar nach
+der VM-Erstellung in `build-state.json`, vor weiteren VM-Einstellungen. Start,
+Stop, Publikation und Cleanup verwenden den unabhängig ausgewählten StateRoot:
+Build-ID, Scope, Instanz `image-builder`, native VM-ID und Notes, physische
+Child-VHDX, typisierte Build-Ressourcenbindung und Cleanup-Plan müssen frisch
+zusammenpassen. Eine gleichnamige VM mit anderer ID wird nicht übernommen.
+Ein fehlgeschlagener nativer Read gilt nicht als Abwesenheit. Nach bestätigter
+VM-Abwesenheit können nur konkret geplante, buildgebundene Disks ohne fremde
+Attachments oder AVHDX-Abhängigkeiten entfernt werden.
+
+Historische Build-Dateien ohne konkrete VM-ID bleiben lesbar; ihre Mutation
+ist gesperrt. Auch ein Fehler beim Speichern der neu erzeugten VM-ID verlangt
+Recovery und erlaubt keine Adoption über einen Namen. Ein Build ersetzt niemals
+Run- oder Pool-Autorität. Bei einer veränderten nativen Disk-Bindung wird
+geschlossen abgebrochen; Checkpoint-Zusammenführung bleibt ein separater,
+expliziter Hyper-V-Schritt.
+Auch die unabhängig gespeicherte native ID anderer Runs und Poolmitglieder
+hat Vorrang vor geänderten Notes. Unlesbare oder verlinkte Membership-Evidenz
+im ausgewählten StateRoot lässt Build-Mutation gesperrt.
+Dieselbe frische Build-Autorität gilt vor Gastaktionen und Tastaturinteraktion;
+die CIM-VM muss zusätzlich genau die gespeicherte native VM-ID tragen.
+Die Publikation prüft die eigene Disk unmittelbar vor ReadOnly-Seal und Import
+erneut auf Attachments und AVHDX-Abhängigkeiten, auch bei bestätigter VM-Abwesenheit.
+Eine Fallback-Adresse hebt die native ID-Bindung bei Gastaufrufen nicht auf:
+jeder Versuch prüft die Build-Autorität frisch; WinRM verlangt zusätzlich die
+gespeicherte Labnetzadresse am nativen Adapter genau dieser VM.
+Die frühe Erstellung einer eigenen typisierten Build-Disk bleibt möglich,
+bevor `New-VM` erstmals eine native ID zurückgibt. Ein alter Zustand ohne ID
+wird dadurch nicht als neue Erstellungsphase oder vorhandene VM übernommen.
+
 Automatische Hyper-V-Checkpoints sind für neue Builder deaktiviert. Bei einem
 älteren oder manuell veränderten Builder bricht die Publikation ab, solange ein
 Checkpoint vorhanden ist. Die AVHDX darf nicht manuell gelöscht werden; der

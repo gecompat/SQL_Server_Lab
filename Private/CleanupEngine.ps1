@@ -223,6 +223,7 @@ function Remove-LabHyperVResourceForCleanup {
             $null = Remove-HyperVVhdxForCleanup `
                 -Path $ResourceId `
                 -ExpectedRunDirectory $RunDir `
+                -ExpectedScopeId $ExpectedScopeId `
                 -SafetyRoot $SafetyRoot
         }
     }

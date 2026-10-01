@@ -530,7 +530,7 @@ function Confirm-HyperVWindowsImageInstallation {
         throw 'HYPERV_IMAGE_BUILD_VM_MISSING'
     }
 
-    $receipt = Invoke-HyperVPowerShellDirect `
+    $receipt = Invoke-HyperVBuildPowerShellDirect -Build $build -StateRoot $StateRoot `
         -VMName ([string]$build.builder.vmName) `
         -ExpectedRunId $BuildId `
         -ExpectedScopeId ([string]$build.scopeId) `
@@ -657,12 +657,15 @@ function Invoke-HyperVInitialMediaBootInteraction {
         $lastError = $null
         Start-Sleep -Milliseconds 750
         for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+            $authority = Get-HyperVBuildCallerAuthority -Build $build -StateRoot $StateRoot
+            if ($VMName -cne [string]$authority.Managed.VM.Name) { throw 'HYPERV_BUILD_CALLER_BINDING_CHANGED' }
             try {
                 $escapedVmName = $VMName.Replace("'", "''")
-                $computerSystem = @(Get-CimInstance -Namespace 'root/virtualization/v2' `
+                $systems = @(Get-CimInstance -Namespace 'root/virtualization/v2' `
                     -ClassName Msvm_ComputerSystem `
-                    -Filter "ElementName='$escapedVmName'" -ErrorAction Stop)[0]
-                if (-not $computerSystem) { throw 'HYPERV_BUILDER_VM_CIM_NOT_FOUND' }
+                    -Filter "ElementName='$escapedVmName'" -ErrorAction Stop)
+                if ($systems.Count -ne 1 -or [string]$systems[0].Name -cne [string]$authority.Managed.VM.Id) { throw 'HYPERV_BUILDER_VM_CIM_IDENTITY_CHANGED' }
+                $computerSystem = $systems[0]
                 $keyboard = @(Get-CimAssociatedInstance -InputObject $computerSystem `
                     -Association Msvm_SystemDevice -ResultClassName Msvm_Keyboard -ErrorAction Stop)[0]
                 if (-not $keyboard) { throw 'HYPERV_BUILDER_KEYBOARD_NOT_FOUND' }
@@ -716,7 +719,7 @@ function Start-HyperVWindowsImageBuildVM {
     $instance = Start-HyperVInstance `
         -VMName ([string]$build.builder.vmName) `
         -ExpectedRunId $BuildId `
-        -ExpectedScopeId ([string]$build.scopeId)
+        -ExpectedScopeId ([string]$build.scopeId) -StateRoot $StateRoot
     $receipt = Invoke-HyperVInitialMediaBootInteraction `
         -BuildId $BuildId -VMName ([string]$build.builder.vmName) -StateRoot $StateRoot
     $instance | Add-Member -NotePropertyName InitialMediaBoot -NotePropertyValue $receipt -Force

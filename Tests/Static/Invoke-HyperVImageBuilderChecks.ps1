@@ -565,7 +565,14 @@ try {
     $autoResult = & $module {
         param($BuildId,$Root,$Credential)
         function Test-HyperVAvailable { [PSCustomObject]@{ Available = $true; Message = '' } }
-        function Invoke-HyperVPowerShellDirect {
+        # Workflow unit boundary only; actual authority/transport composition is
+        # exercised independently by HyperVBuildAuthorityChecks.ps1.
+        function Get-HyperVBuildCallerAuthority {
+            param($Build,$StateRoot,[switch]$AllowAbsent,[switch]$RequireOff)
+            [pscustomobject]@{Managed=[pscustomobject]@{VM=[pscustomobject]@{State='Running';Id='11111111-1111-1111-1111-111111111111';Name=$Build.builder.vmName}}}
+        }
+        function Assert-HyperVBuildOfflineDiskAuthority { param($Build,$StateRoot,$VhdxPath) }
+        function Invoke-HyperVBuildPowerShellDirect {
             param($VMName,$ExpectedRunId,$ExpectedScopeId,$Credential,$ScriptBlock,$ArgumentList)
             [PSCustomObject]@{
                 contractVersion = '1'; buildId = $ArgumentList[0]; scopeId = $ArgumentList[1]
@@ -610,6 +617,8 @@ try {
         Write-HyperVImageBuildState -BuildDirectory $plan.BuildDirectory -State $plan
         $script:typedKeys = 0
         function Start-HyperVInstance { [PSCustomObject]@{ VMName = 'mock-boot-vm'; State = 'Running' } }
+        # Keyboard workflow boundary; real native-ID authority is checked in the separate composition fixture.
+        function Get-HyperVBuildCallerAuthority { param($Build,$StateRoot) [pscustomobject]@{Managed=[pscustomobject]@{VM=[pscustomobject]@{Name='mock-boot-vm';Id='mock-vm-cim'}}} }
         function Get-CimInstance { param($Namespace,$ClassName,$Filter,$ErrorAction) [PSCustomObject]@{ Name = 'mock-vm-cim' } }
         function Get-CimAssociatedInstance { param($InputObject,$Association,$ResultClassName,$ErrorAction) [PSCustomObject]@{ Name = 'mock-keyboard' } }
         function Invoke-CimMethod { param($InputObject,$MethodName,$Arguments,$ErrorAction) $script:typedKeys++; [PSCustomObject]@{ ReturnValue = 0 } }
@@ -643,6 +652,9 @@ try {
         $noInputBoot.InitialMediaBoot.status -eq 'SKIPPED' -and
         $noInputBoot.InitialMediaBoot.successfulSends -eq 0
     )
+    foreach ($case in @(& (Join-Path $PSScriptRoot 'Fixtures/HyperVBuildAuthorityChecks.ps1') -AsResults)) {
+        Add-CheckResult -Name $case.Name -Success $case.Success -Message $case.Code
+    }
 } catch { Add-CheckResult -Name 'Image-Builder-Testausfuehrung' -Success $false -Message $_.Exception.Message }
 finally { Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue; if(Test-Path $temporaryRoot){Remove-Item $temporaryRoot -Recurse -Force} }
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan

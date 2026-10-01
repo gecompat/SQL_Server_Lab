@@ -329,6 +329,7 @@ function Invoke-HyperVSqlUnattendedOobe {
         throw 'HYPERV_SQL_OOBE_NOT_READY'
     }
     if ($build.state -eq 'OOBE_COMPLETED') { return $build }
+    $null = Get-HyperVBuildCallerAuthority -Build $build -StateRoot $StateRoot
     $build = Ensure-HyperVSqlBuildLabNetwork -Build $build -StateRoot $StateRoot
     if (-not $AdministratorPassword) {
         $AdministratorPassword = Get-LabSecret -Path $build.BuildDirectory -Name 'guest-administrator-password'
@@ -343,7 +344,7 @@ function Invoke-HyperVSqlUnattendedOobe {
         if (-not $managed) { throw 'HYPERV_SQL_OOBE_VM_NOT_FOUND' }
         if ([string]$managed.Identity.guestTransport -ne 'lab-winrm') {
             $null = Set-HyperVManagedVMIdentityProperty -ManagedVM $managed -PropertyName guestTransport `
-                -Value 'lab-winrm' -ContractVersion '0.8'
+                -Value 'lab-winrm' -ContractVersion '0.8' -StateRoot $StateRoot
         }
     }
 
@@ -361,7 +362,7 @@ function Invoke-HyperVSqlUnattendedOobe {
         [string]$build.oobeAutomation.bootstrapVersion -ne $bootstrapVersion
     if ($requiresBootstrapInjection) {
         Write-LabInfo "OOBE: stoppe $vmName und injiziere Unattend.xml mit Labnetz-Bootstrap"
-        $null = Stop-HyperVInstance -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
+        $null = Stop-HyperVInstance -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId -StateRoot $StateRoot
         $vhdxPath = Resolve-LabHyperVBuilderDiskPath -Build $build
         $unattend = if ($legacyGuest) {
             New-HyperVLegacyWindowsOobeUnattendXml -AdministratorPassword $AdministratorPassword
@@ -370,6 +371,7 @@ function Invoke-HyperVSqlUnattendedOobe {
                 -Network $build.labNetwork -Identity $build.buildId
         }
         try {
+            Assert-HyperVBuildOfflineDiskAuthority -Build $build -StateRoot $StateRoot -VhdxPath $vhdxPath
             Set-HyperVSqlOfflineUnattend -VhdxPath $vhdxPath `
                 -MountRoot (Join-Path $build.BuildDirectory 'offline-mount') -UnattendXml $unattend -BootstrapScript $bootstrap
         }
@@ -384,7 +386,7 @@ function Invoke-HyperVSqlUnattendedOobe {
         $build = Set-HyperVSqlImageBuildState -BuildId $BuildId -State OOBE_AUTOMATION_RUNNING `
             -Reason 'Unattend.xml offline injiziert; Windows-OOBE wird unbeaufsichtigt abgeschlossen' -StateRoot $StateRoot
         Write-LabInfo "OOBE: starte $vmName und warte maximal $TimeoutSeconds Sekunden auf PowerShell Direct oder Lab-WinRM ($fallbackAddress)"
-        $null = Start-HyperVInstance -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId
+        $null = Start-HyperVInstance -VMName $vmName -ExpectedRunId $build.buildId -ExpectedScopeId $build.scopeId -StateRoot $StateRoot
     }
 
     if ($legacyGuest) {
@@ -398,7 +400,8 @@ function Invoke-HyperVSqlUnattendedOobe {
             -Credential $credential -TimeoutSeconds ([Math]::Min(180, $TimeoutSeconds))
         if (-not $wmiReady.Ready -and $fallbackAddress -in @(Get-HyperVLegacyWindowsGuestIPv4 -VMName $vmName -AdapterName $adapterName)) {
             Write-LabInfo 'OOBE: Legacy-Netzwerktreiber verlangt einen einmaligen Neustart; starte Gast neu.'
-            $null = Restart-VM -Name $vmName -Force -ErrorAction Stop
+            $fresh = (Get-HyperVBuildCallerAuthority -Build $build -StateRoot $StateRoot).Managed
+            $null = Restart-VM -VM $fresh.VM -Force -ErrorAction Stop
             $wmiReady = Wait-HyperVLegacyWindowsWmi -VMName $vmName -AdapterName $adapterName `
                 -Credential $credential -TimeoutSeconds ([Math]::Max(60, $TimeoutSeconds - 180))
         }
@@ -410,6 +413,7 @@ function Invoke-HyperVSqlUnattendedOobe {
             -SubKey '.DEFAULT\Keyboard Layout\Preload' -Name '1' -Hive HKU
         if ($inputLocale -ne '00000407') {
             Write-LabInfo 'OOBE: setze deutsche Tastatur fuer den Anmeldebildschirm per Legacy-WMI nach.'
+            $null = Get-HyperVBuildCallerAuthority -Build $build -StateRoot $StateRoot
             $null = Invoke-HyperVLegacyWindowsProcess -Scope $wmiReady.Scope `
                 -CommandLine 'reg.exe add "HKU\.DEFAULT\Keyboard Layout\Preload" /v 1 /t REG_SZ /d 00000407 /f'
             $keyboardDeadline = [datetime]::UtcNow.AddSeconds(30)
@@ -443,7 +447,7 @@ function Invoke-HyperVSqlUnattendedOobe {
 
     Write-LabInfo "OOBE: pruefe Windows-Readiness per PowerShell Direct oder Lab-WinRM"
     try {
-        $ready = Wait-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
+        $ready = Wait-HyperVPowerShellDirect -Build $build -BuildStateRoot $StateRoot -VMName $vmName -ExpectedRunId $build.buildId `
             -ExpectedScopeId $build.scopeId -Credential $credential -FallbackAddress $fallbackAddress `
             -GuestInitializationScript $bootstrap -TimeoutSeconds $TimeoutSeconds
     }
@@ -489,7 +493,7 @@ function Invoke-HyperVSqlUnattendedOobe {
                 observedAt = [datetime]::UtcNow.ToString('o')
             }
         }}
-    $receipt = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
+    $receipt = Invoke-HyperVBuildPowerShellDirect -Build $build -StateRoot $StateRoot -VMName $vmName -ExpectedRunId $build.buildId `
         -ExpectedScopeId $build.scopeId -Credential $credential -FallbackAddress $fallbackAddress -ScriptBlock $receiptScript
     $receipt = @($receipt)[-1]
     if (-not $receipt -or [string]$receipt.contractVersion -ne '1' -or
@@ -515,6 +519,7 @@ function Ensure-HyperVSqlBuildLabNetwork {
         [string]$StateRoot
     )
 
+    $null = Get-HyperVBuildCallerAuthority -Build $Build -StateRoot $StateRoot
     $network = if ($Build.labNetwork) { $Build.labNetwork } else { Ensure-LabHyperVNetwork }
     $vmName = [string]$Build.builder.vmName
     $managed = Get-HyperVManagedVM -VMName $vmName -ExpectedRunId $Build.buildId -ExpectedScopeId $Build.scopeId
@@ -525,7 +530,8 @@ function Ensure-HyperVSqlBuildLabNetwork {
             Where-Object { [string]$_.SwitchName -eq [string]$network.Name }
     )
     if ($attached.Count -eq 0) {
-        Add-VMNetworkAdapter -VMName $vmName -SwitchName $network.Name -Name 'SQL_LAB_HYPERV' -ErrorAction Stop | Out-Null
+        $fresh = (Get-HyperVBuildCallerAuthority -Build $Build -StateRoot $StateRoot).Managed
+        Add-VMNetworkAdapter -VM $fresh.VM -SwitchName $network.Name -Name 'SQL_LAB_HYPERV' -ErrorAction Stop | Out-Null
     }
 
     $Build | Add-Member -NotePropertyName labNetwork -NotePropertyValue $network -Force
@@ -555,9 +561,14 @@ function Invoke-HyperVLegacyGuestSystemScript {
         [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$BuildId,
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z][A-Za-z0-9]{2,24}$')][string]$Action,
         [Parameter(Mandatory)][string]$ScriptContent,
-        [ValidateRange(30, 10800)][int]$TimeoutSeconds = 600
+        [ValidateRange(30, 10800)][int]$TimeoutSeconds = 600,
+        $Build, [string]$StateRoot
     )
 
+    if ($Build) {
+        $null = Get-HyperVBuildCallerAuthority -Build $Build -StateRoot $StateRoot
+        if ($BuildId -cne [string]$Build.buildId) { throw 'HYPERV_BUILD_GUEST_CALLER_BINDING_INVALID' }
+    }
     $blockingProgress = Start-LabBlockingActionProgress -Phase GuestWait
     try {
     $scope = Connect-HyperVLegacyWindowsWmiScope -Address $Address -Namespace 'root\cimv2' -Credential $Credential
@@ -570,6 +581,7 @@ function Invoke-HyperVLegacyGuestSystemScript {
     $shareRoot = ('\' * 2) + "$Address\c$"
     $drive = $null
     try {
+        if ($Build) { $null = Get-HyperVBuildCallerAuthority -Build $Build -StateRoot $StateRoot }
         $drive = New-PSDrive -Name $driveName -PSProvider FileSystem -Root $shareRoot -Credential $Credential -ErrorAction Stop
         $hostRoot = "${driveName}:\ProgramData\SQL_Server_Lab\$BuildId\$Action"
         New-Item -Path $hostRoot -ItemType Directory -Force | Out-Null
@@ -580,8 +592,10 @@ function Invoke-HyperVLegacyGuestSystemScript {
         Remove-Item -LiteralPath (Join-Path $hostRoot 'result.csv') -Force -ErrorAction SilentlyContinue
 
         $createCommand = "cmd.exe /c schtasks.exe /Create /TN $taskName /TR $guestCommand /SC ONSTART /RU SYSTEM /F"
+        if ($Build) { $null = Get-HyperVBuildCallerAuthority -Build $Build -StateRoot $StateRoot }
         $null = Invoke-HyperVLegacyWindowsProcess -Scope $scope -CommandLine $createCommand
         Start-Sleep -Seconds 2
+        if ($Build) { $null = Get-HyperVBuildCallerAuthority -Build $Build -StateRoot $StateRoot }
         $null = Invoke-HyperVLegacyWindowsProcess -Scope $scope -CommandLine "cmd.exe /c schtasks.exe /Run /TN $taskName"
         $deadline = [datetime]::UtcNow.AddSeconds($TimeoutSeconds)
         do {
@@ -599,7 +613,10 @@ function Invoke-HyperVLegacyGuestSystemScript {
         return $receipt
     }
     finally {
-        try { $null = Invoke-HyperVLegacyWindowsProcess -Scope $scope -CommandLine "cmd.exe /c schtasks.exe /Delete /TN $taskName /F" } catch { }
+        try {
+            if ($Build) { $null = Get-HyperVBuildCallerAuthority -Build $Build -StateRoot $StateRoot }
+            $null = Invoke-HyperVLegacyWindowsProcess -Scope $scope -CommandLine "cmd.exe /c schtasks.exe /Delete /TN $taskName /F"
+        } catch { }
         if ($drive) { Remove-PSDrive -Name $driveName -Force -ErrorAction SilentlyContinue }
     }
     }
@@ -620,7 +637,8 @@ function Invoke-HyperVLegacySqlSetup {
         [Parameter(Mandatory)][string]$ExpectedSetupVersionPattern,
         [Parameter(Mandatory)][string]$FeaturesCsv,
         [Parameter(Mandatory)][string]$MediaEdition,
-        [Parameter(Mandatory)][int]$TimeoutSeconds
+        [Parameter(Mandatory)][int]$TimeoutSeconds,
+        $Build, [string]$StateRoot
     )
 
     $resultPath = "C:\ProgramData\SQL_Server_Lab\$ExpectedRunId\SqlSetup\result.csv"
@@ -726,7 +744,7 @@ finally {
         Replace('__MEDIA_EDITION__', $MediaEdition).Replace('__TIMEOUT_SECONDS__', [string]$TimeoutSeconds).
         Replace('__BUILD_ID__', $ExpectedRunId).Replace('__SCOPE_ID__', $ExpectedScopeId).Replace('__CHALLENGE__', $Challenge)
     return Invoke-HyperVLegacyGuestSystemScript -Address $FallbackAddress -Credential $Credential `
-        -BuildId $ExpectedRunId -Action SqlSetup -ScriptContent $script -TimeoutSeconds ([Math]::Min(10800, $TimeoutSeconds + 60))
+        -BuildId $ExpectedRunId -Action SqlSetup -ScriptContent $script -TimeoutSeconds ([Math]::Min(10800, $TimeoutSeconds + 60)) -Build $Build -StateRoot $StateRoot
 }
 
 function Wait-HyperVLegacySqlReady {
@@ -737,7 +755,8 @@ function Wait-HyperVLegacySqlReady {
         [Parameter(Mandatory)][PSCredential]$Credential,
         [Parameter(Mandatory)][ValidatePattern('^[a-f0-9-]{36}$')][string]$BuildId,
         [Parameter(Mandatory)][ValidateRange(1, 99)][int]$ExpectedMajorVersion,
-        [ValidateRange(30, 1800)][int]$TimeoutSeconds = 600
+        [ValidateRange(30, 1800)][int]$TimeoutSeconds = 600,
+        $Build, [string]$StateRoot
     )
 
     $resultPath = "C:\ProgramData\SQL_Server_Lab\$BuildId\SqlReady\result.csv"
@@ -797,7 +816,7 @@ finally {
     $script = $script.Replace('__RESULT_PATH__', $resultPath).Replace('__TIMEOUT_SECONDS__', [string]$TimeoutSeconds).
         Replace('__EXPECTED_MAJOR__', [string]$ExpectedMajorVersion).Replace('__BUILD_ID__', $BuildId)
     return Invoke-HyperVLegacyGuestSystemScript -Address $Address -Credential $Credential -BuildId $BuildId `
-        -Action SqlReady -ScriptContent $script -TimeoutSeconds ([Math]::Min(1800, $TimeoutSeconds + 30))
+        -Action SqlReady -ScriptContent $script -TimeoutSeconds ([Math]::Min(1800, $TimeoutSeconds + 30)) -Build $Build -StateRoot $StateRoot
 }
 
 function Invoke-HyperVLegacySqlAcceptanceTest {
@@ -810,7 +829,8 @@ function Invoke-HyperVLegacySqlAcceptanceTest {
         [Parameter(Mandatory)][string]$ScopeId,
         [Parameter(Mandatory)][string]$SqlVersion,
         [Parameter(Mandatory)][ValidateRange(1, 99)][int]$ExpectedMajorVersion,
-        [ValidateRange(30, 1800)][int]$TimeoutSeconds = 300
+        [ValidateRange(30, 1800)][int]$TimeoutSeconds = 300,
+        $Build, [string]$StateRoot
     )
 
     $resultPath = "C:\ProgramData\SQL_Server_Lab\$BuildId\SqlAcceptance\result.csv"
@@ -875,7 +895,7 @@ finally {
         Replace('__EXPECTED_MAJOR__', [string]$ExpectedMajorVersion).Replace('__BUILD_ID__', $BuildId).
         Replace('__SCOPE_ID__', $ScopeId).Replace('__SQL_VERSION__', $SqlVersion)
     return Invoke-HyperVLegacyGuestSystemScript -Address $Address -Credential $Credential -BuildId $BuildId `
-        -Action SqlAcceptance -ScriptContent $script -TimeoutSeconds ([Math]::Min(1800, $TimeoutSeconds + 30))
+        -Action SqlAcceptance -ScriptContent $script -TimeoutSeconds ([Math]::Min(1800, $TimeoutSeconds + 30)) -Build $Build -StateRoot $StateRoot
 }
 
 function Invoke-HyperVSqlTestEnvironmentInstall {
@@ -894,6 +914,7 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
         'MANUAL_ACTION_REQUIRED', 'OOBE_COMPLETED', 'SQL_INSTALL_RUNNING', 'SQL_INSTALL_REBOOT_REQUIRED', 'SQL_READY_RUN', 'TESTS_PASSED'
     )) { throw 'HYPERV_SQL_TEST_ENVIRONMENT_NOT_READY' }
     if ($build.state -in @('SQL_READY_RUN', 'TESTS_PASSED')) { return $build }
+    $null = Get-HyperVBuildCallerAuthority -Build $build -StateRoot $StateRoot
     $vmName = [string]$build.builder.vmName
     $fallbackAddress = if ($build.labNetwork) {
         Get-LabNetworkGuestAddress -Network $build.labNetwork -Identity $build.buildId
@@ -918,14 +939,15 @@ function Invoke-HyperVSqlTestEnvironmentInstall {
             -Reason 'Vollstaendige SQL-Installation fuer run-lokale Windows-Abnahme gestartet' -StateRoot $StateRoot
         try {
             if ($legacyGuest) {
-                $receipt = Invoke-HyperVLegacySqlSetup -VMName $vmName -ExpectedRunId $build.buildId `
+                $null = Get-HyperVBuildCallerAuthority -Build $build -StateRoot $StateRoot
+                $receipt = Invoke-HyperVLegacySqlSetup -Build $build -StateRoot $StateRoot -VMName $vmName -ExpectedRunId $build.buildId `
                     -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
                     -Challenge $build.manualAction.challenge -ExpectedSqlVersion $build.sql.version `
                     -ExpectedSetupVersionPattern $setupVersionPattern -FeaturesCsv ($build.sql.features -join ',') `
                     -MediaEdition $build.sql.mediaEdition -TimeoutSeconds $SetupTimeoutSeconds
             }
             else {
-                $receipt = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
+                $receipt = Invoke-HyperVBuildPowerShellDirect -Build $build -StateRoot $StateRoot -VMName $vmName -ExpectedRunId $build.buildId `
                 -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
                 -ArgumentList @(
                     $build.buildId, $build.scopeId, $build.manualAction.challenge, $build.sql.version,
@@ -1113,7 +1135,7 @@ finally{
             if (-not $wmiReady.Ready) { throw "HYPERV_SQL_INSTALL_RECONNECT_TIMEOUT: $($wmiReady.LastError)" }
         }
         else {
-            $ready = Wait-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $build.buildId `
+            $ready = Wait-HyperVPowerShellDirect -Build $build -BuildStateRoot $StateRoot -VMName $vmName -ExpectedRunId $build.buildId `
                 -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
                 -TimeoutSeconds $ReadinessTimeoutSeconds
             if (-not $ready.Ready) { throw "HYPERV_SQL_INSTALL_RECONNECT_TIMEOUT: $($ready.Message)" }
@@ -1122,7 +1144,7 @@ finally{
     elseif ($build.state -eq 'SQL_INSTALL_RUNNING' -and -not $build.installationEvidence) {
         if (-not $legacyGuest) { throw 'HYPERV_SQL_INSTALL_RECOVERY_REQUIRES_LOG_REVIEW' }
         Write-LabInfo 'SQL Setup: verifiziere bereits beendeten Legacy-Setup-Lauf vor der Wiederaufnahme.'
-        $recovered = Wait-HyperVLegacySqlReady -Address $fallbackAddress -Credential $Credential `
+        $recovered = Wait-HyperVLegacySqlReady -Build $build -StateRoot $StateRoot -Address $fallbackAddress -Credential $Credential `
             -BuildId $build.buildId -ExpectedMajorVersion (Get-HyperVSqlMajorVersion -SqlVersion $build.sql.version) `
             -TimeoutSeconds $ReadinessTimeoutSeconds
         if (-not $recovered.ready -or [int]$recovered.databaseCount -ne 4) {
@@ -1173,7 +1195,7 @@ finally{
         }
     }
     $readiness = if ($legacyGuest) {
-        Wait-HyperVLegacySqlReady -Address $fallbackAddress -Credential $Credential -BuildId $build.buildId `
+        Wait-HyperVLegacySqlReady -Build $build -StateRoot $StateRoot -Address $fallbackAddress -Credential $Credential -BuildId $build.buildId `
             -ExpectedMajorVersion (Get-HyperVSqlMajorVersion -SqlVersion $build.sql.version) `
             -TimeoutSeconds $ReadinessTimeoutSeconds
     }
@@ -1217,6 +1239,7 @@ function Test-HyperVSqlAcceptanceEnvironment {
         throw 'HYPERV_SQL_ACCEPTANCE_ENVIRONMENT_NOT_READY'
     }
     $legacyGuest = [string]$build.parentArtifact.platform.guestControl -eq 'legacy-wmi'
+    $null = Get-HyperVBuildCallerAuthority -Build $build -StateRoot $StateRoot
     if (-not $legacyGuest) {
         if (-not $SaPassword) { $SaPassword = Get-LabSecret -Path $build.BuildDirectory -Name 'sa-password' }
         if (-not $SaPassword) { throw 'HYPERV_SQL_ACCEPTANCE_SA_PASSWORD_REQUIRED' }
@@ -1226,11 +1249,11 @@ function Test-HyperVSqlAcceptanceEnvironment {
         Get-LabNetworkGuestAddress -Network $build.labNetwork -Identity $build.buildId
     }
     $receipt = if ($legacyGuest) {
-        Invoke-HyperVLegacySqlAcceptanceTest -Address $fallbackAddress -Credential $Credential `
+        Invoke-HyperVLegacySqlAcceptanceTest -Build $build -StateRoot $StateRoot -Address $fallbackAddress -Credential $Credential `
             -BuildId $build.buildId -ScopeId $build.scopeId -SqlVersion $build.sql.version `
             -ExpectedMajorVersion $expectedMajor -TimeoutSeconds $TimeoutSeconds
     }
-    else { Invoke-HyperVPowerShellDirect -VMName $build.builder.vmName -ExpectedRunId $build.buildId `
+    else { Invoke-HyperVBuildPowerShellDirect -Build $build -StateRoot $StateRoot -VMName $build.builder.vmName -ExpectedRunId $build.buildId `
         -ExpectedScopeId $build.scopeId -Credential $Credential -FallbackAddress $fallbackAddress `
         -ArgumentList @($build.buildId, $build.scopeId, $build.sql.version, $expectedMajor, $SaPassword, $TimeoutSeconds) `
         -ScriptBlock {

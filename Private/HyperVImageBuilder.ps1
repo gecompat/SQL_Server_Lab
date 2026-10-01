@@ -18,6 +18,251 @@ function Write-HyperVImageBuildState {
     Write-LabArtifactJsonAtomic -Path (Join-Path $BuildDirectory 'build-state.json') -InputObject $serializable
 }
 
+function Resolve-HyperVMutationStateRoot {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$StateDirectory, [string]$StateRoot)
+    $directory = [IO.Path]::GetFullPath($StateDirectory)
+    $parent = Split-Path -Parent $directory
+    if ((Split-Path -Leaf $parent) -in @('hyperv', 'hyperv-sql') -and
+        (Split-Path -Leaf (Split-Path -Parent $parent)) -eq 'image-builds') {
+        $derived = Split-Path -Parent (Split-Path -Parent $parent)
+    }
+    elseif ((Split-Path -Leaf $parent) -eq 'runs') { $derived = Split-Path -Parent $parent }
+    else { throw 'HYPERV_MUTATION_STATE_LAYOUT_INVALID' }
+    $root = Resolve-LabWindowsPoolRoot -StateRoot $derived
+    if ($StateRoot -and $root -cne (Resolve-LabWindowsPoolRoot -StateRoot $StateRoot)) {
+        throw 'HYPERV_BUILD_STATE_ROOT_MISMATCH'
+    }
+    if (-not (Test-LabPathWithinRoot -Root $root -Path $directory).Valid) { throw 'HYPERV_BUILD_STATE_PATH_INVALID' }
+    return $root
+}
+
+function Get-HyperVBuildMutationContext {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$BuildDirectory, [string]$StateRoot, [string]$ExpectedScopeId,
+        [switch]$BeforeCreation)
+    $root = Resolve-HyperVMutationStateRoot -StateDirectory $BuildDirectory -StateRoot $StateRoot
+    $directory = [IO.Path]::GetFullPath($BuildDirectory)
+    $kind = Split-Path -Leaf (Split-Path -Parent $directory)
+    if ($kind -notin @('hyperv', 'hyperv-sql')) { throw 'HYPERV_BUILD_STATE_LAYOUT_INVALID' }
+    $id = Split-Path -Leaf $directory
+    if ($id -notmatch '^[a-f0-9-]{36}$') { throw 'HYPERV_IMAGE_BUILD_ID_INVALID' }
+    # A build record can never replace run/pool membership in the selected root.
+    if (Test-Path -LiteralPath (Join-Path $root "runs/$id/run-state.json")) { throw 'HYPERV_BUILD_RUN_AUTHORITY_CONFLICT' }
+    foreach ($leaf in @('build-state.json', 'cleanup-plan.json', 'hyperv-resource-binding.local.json')) {
+        $path = Join-Path $directory $leaf
+        if (-not (Test-LabPathWithinRoot -Root $root -Path $path).Valid -or
+            -not (Test-Path -LiteralPath $path -PathType Leaf)) { throw 'HYPERV_BUILD_AUTHORITY_FILE_INVALID' }
+    }
+    $build = Read-LabWorkflowJson -Path (Join-Path $directory 'build-state.json')
+    $plan = Read-LabWorkflowJson -Path (Join-Path $directory 'cleanup-plan.json')
+    $rawBinding = Read-LabWorkflowJson -Path (Join-Path $directory 'hyperv-resource-binding.local.json')
+    $binding = Read-LabHyperVResourceBinding -StateDirectory $directory -DataRoot ([string]$rawBinding.LabDataRoot)
+    if ($build.buildId -cne $id -or -not $build.scopeId -or
+        ($ExpectedScopeId -and $build.scopeId -cne $ExpectedScopeId) -or
+        $binding.ResourceClass -cne 'Build' -or $binding.ResourceId -cne $id -or
+        $plan.runId -cne $id -or $plan.scopeId -cne $build.scopeId) { throw 'HYPERV_BUILD_AUTHORITY_BINDING_INVALID' }
+    if (-not $BeforeCreation -and ($build.builder.nativeBindingContract -cne 'SqlServerLab.HyperVBuildNative/1.0' -or
+        -not $build.builder.vmId -or -not $build.builder.vmName -or -not $build.builder.instanceId)) {
+        throw 'HYPERV_BUILD_NATIVE_BINDING_REQUIRED'
+    }
+    if (-not $BeforeCreation) {
+        $nativeId = [guid]::Empty
+        if (-not [guid]::TryParse([string]$build.builder.vmId, [ref]$nativeId) -or $nativeId -eq [guid]::Empty) { throw 'HYPERV_BUILD_NATIVE_BINDING_REQUIRED' }
+        # Notes may have lost both the pool hint and the original run ID.
+        # Independently recorded membership by native ID still takes precedence.
+        $runsRoot=Join-Path $root 'runs'
+        if (Test-Path -LiteralPath $runsRoot -PathType Container) {
+            foreach ($entry in @(Get-ChildItem -LiteralPath $runsRoot -Directory -ErrorAction Stop)) {
+                $memberPath=Join-Path $entry.FullName 'run-state.json'
+                if (-not (Test-LabPathWithinRoot -Root $root -Path $memberPath).Valid) { throw 'HYPERV_BUILD_POOL_MEMBERSHIP_UNKNOWN' }
+                if (-not (Test-Path -LiteralPath $memberPath -PathType Leaf)) { continue }
+                try { $memberRun=Read-LabWorkflowJson -Path $memberPath }
+                catch { throw 'HYPERV_BUILD_POOL_MEMBERSHIP_UNKNOWN' }
+                if ($memberRun.metadata.windowsPoolMember) {
+                    try { $null=Assert-LabWindowsPoolMember -Run $memberRun }
+                    catch { throw 'HYPERV_BUILD_POOL_MEMBERSHIP_UNKNOWN' }
+                }
+                $memberId=[guid]::Empty
+                if ($memberRun.metadata.windowsPoolMember.vmId -and
+                    [guid]::TryParse([string]$memberRun.metadata.windowsPoolMember.vmId,[ref]$memberId) -and $memberId -eq $nativeId) {
+                    throw 'HYPERV_BUILD_POOL_AUTHORITY_CONFLICT'
+                }
+                $connectionPath=Join-Path $entry.FullName 'connection-info.json'
+                if (-not (Test-LabPathWithinRoot -Root $root -Path $connectionPath).Valid) { throw 'HYPERV_BUILD_RUN_MEMBERSHIP_UNKNOWN' }
+                if (Test-Path -LiteralPath $connectionPath -PathType Leaf) {
+                    try { $connection=Read-LabWorkflowJson -Path $connectionPath }
+                    catch { throw 'HYPERV_BUILD_RUN_MEMBERSHIP_UNKNOWN' }
+                    foreach ($instance in @($connection.instances | Where-Object { $_.provider -ceq 'hyperv' })) {
+                        $runVMId=[guid]::Empty
+                        if ($instance.vmId -and [guid]::TryParse([string]$instance.vmId,[ref]$runVMId) -and $runVMId -eq $nativeId) {
+                            throw 'HYPERV_BUILD_RUN_AUTHORITY_CONFLICT'
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return [pscustomobject]@{ StateRoot=$root; Directory=$directory; Build=$build; Plan=$plan; Binding=$binding; Kind=$kind }
+}
+
+function Set-HyperVBuildNativeBinding {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$BuildDirectory, [string]$StateRoot,
+        [Parameter(Mandatory)]$VM, [Parameter(Mandatory)][string]$InstanceId,
+        [Parameter(Mandatory)][string]$ChildVhdxPath)
+    try {
+        $context = Get-HyperVBuildMutationContext -BuildDirectory $BuildDirectory -StateRoot $StateRoot -BeforeCreation
+        $nativeId = [guid]::Parse([string]$VM.Id).ToString()
+        if ($nativeId -eq [guid]::Empty.ToString() -or -not $VM.Name) { throw 'HYPERV_BUILD_NATIVE_ID_INVALID' }
+        $null = Assert-LabHyperVBoundPath -Binding $context.Binding -Path $ChildVhdxPath -DataRoot $context.Binding.LabDataRoot
+        $vmSteps = @($context.Plan.steps | Where-Object { $_.provider -ceq 'hyperv' -and $_.action -ceq 'remove' -and $_.resourceType -ceq 'vm' -and $_.resourceId -ceq [string]$VM.Name })
+        $diskSteps = @($context.Plan.steps | Where-Object { $_.provider -ceq 'hyperv' -and $_.action -ceq 'remove' -and $_.resourceType -ceq 'vhdx' -and $_.resourceId -ceq $ChildVhdxPath })
+        if ($vmSteps.Count -ne 1 -or $diskSteps.Count -ne 1 -or
+            ($context.Build.builder.vmId -and [string]$context.Build.builder.vmId -cne $nativeId)) { throw 'HYPERV_BUILD_CREATION_INTENT_INVALID' }
+        $context.Build.builder = [pscustomobject]@{ vmId=$nativeId; vmName=[string]$VM.Name; instanceId=$InstanceId;
+            nativeBindingContract='SqlServerLab.HyperVBuildNative/1.0'; resourceRelativePath=[IO.Path]::GetRelativePath($context.Binding.HyperVResourceRoot, $ChildVhdxPath) }
+        Write-HyperVImageBuildState -BuildDirectory $context.Directory -State $context.Build
+        return $context.Build.builder
+    }
+    catch { throw 'HYPERV_BUILD_NATIVE_BINDING_PERSIST_FAILED_RECOVERY_REQUIRED' }
+}
+
+function Get-HyperVBuildBoundManagedVM {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Context)
+    $builder = $Context.Build.builder
+    $expectedInstance = if ($Context.Kind -eq 'hyperv') { 'image-builder' } else { "sql-image-$($Context.Build.sql.version)" }
+    if ($builder.instanceId -cne $expectedInstance) { throw 'HYPERV_BUILD_INSTANCE_BINDING_INVALID' }
+    $disk = Join-Path $Context.Binding.HyperVResourceRoot ([string]$builder.resourceRelativePath)
+    $null = Assert-LabHyperVBoundPath -Binding $Context.Binding -Path $disk -DataRoot $Context.Binding.LabDataRoot
+    $vmSteps = @($Context.Plan.steps | Where-Object { $_.provider -ceq 'hyperv' -and $_.action -ceq 'remove' -and $_.resourceType -ceq 'vm' -and $_.resourceId -ceq $builder.vmName })
+    $diskSteps = @($Context.Plan.steps | Where-Object { $_.provider -ceq 'hyperv' -and $_.action -ceq 'remove' -and $_.resourceType -ceq 'vhdx' -and $_.resourceId -ceq $disk })
+    if ($vmSteps.Count -ne 1 -or $diskSteps.Count -ne 1) { throw 'HYPERV_BUILD_CLEANUP_INTENT_INVALID' }
+    # A failed native read is never absence. Names only detect collisions; ID is authority.
+    $all = @(Get-VM -ErrorAction Stop)
+    $matches = @($all | Where-Object { [string]$_.Id -ceq [string]$builder.vmId })
+    $names = @($all | Where-Object { [string]$_.Name -ceq [string]$builder.vmName })
+    if ($matches.Count -eq 0 -and $names.Count -eq 0) { return $null }
+    if ($matches.Count -ne 1 -or $names.Count -ne 1 -or [string]$names[0].Id -cne [string]$builder.vmId) { throw 'HYPERV_BUILD_NATIVE_IDENTITY_CHANGED' }
+    $identity = ConvertFrom-HyperVLabNotes -Notes ([string]$matches[0].Notes)
+    $managed = [pscustomobject]@{ VM=$matches[0]; Identity=$identity }
+    if ($identity.windowsPoolMember) { Assert-LabWindowsPoolProviderMutation -Managed $managed -StateRoot $Context.StateRoot; throw 'HYPERV_BUILD_POOL_AUTHORITY_CONFLICT' }
+    if ($identity.provider -cne 'hyperv' -or $identity.runId -cne $Context.Build.buildId -or
+        $identity.scopeId -cne $Context.Build.scopeId -or $identity.instanceId -cne $builder.instanceId -or
+        -not [string]::Equals([IO.Path]::GetFullPath([string]$identity.childVhdxPath), [IO.Path]::GetFullPath($disk), [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'HYPERV_BUILD_NOTES_BINDING_INVALID'
+    }
+    $drives = @(Get-VMHardDiskDrive -VM $matches[0] -ErrorAction Stop)
+    if ($drives.Count -ne 1 -or -not $drives[0].Path -or
+        -not [string]::Equals([IO.Path]::GetFullPath([string]$drives[0].Path), [IO.Path]::GetFullPath($disk), [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'HYPERV_BUILD_NATIVE_DISK_BINDING_INVALID'
+    }
+    return $managed
+}
+
+function Get-HyperVBuildCallerAuthority {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Build, [string]$StateRoot, [switch]$AllowAbsent, [switch]$RequireOff)
+    $context = Get-HyperVBuildMutationContext -BuildDirectory $Build.BuildDirectory -StateRoot $StateRoot -ExpectedScopeId $Build.scopeId
+    if ($context.Build.buildId -cne $Build.buildId -or
+        [string]$context.Build.builder.vmId -cne [string]$Build.builder.vmId -or
+        [string]$context.Build.builder.vmName -cne [string]$Build.builder.vmName -or
+        [string]$context.Build.builder.instanceId -cne [string]$Build.builder.instanceId -or
+        [string]$context.Build.builder.resourceRelativePath -cne [string]$Build.builder.resourceRelativePath) { throw 'HYPERV_BUILD_CALLER_BINDING_CHANGED' }
+    if ($context.Kind -ceq 'hyperv-sql' -and [string]$context.Build.sql.version -cne [string]$Build.sql.version) { throw 'HYPERV_BUILD_CALLER_BINDING_CHANGED' }
+    $managed = Get-HyperVBuildBoundManagedVM -Context $context
+    if (-not $managed -and -not $AllowAbsent) { throw 'HYPERV_BUILD_NATIVE_VM_REQUIRED' }
+    if ($RequireOff -and $managed -and [string]$managed.VM.State -cne 'Off') { throw 'HYPERV_BUILD_VM_MUST_BE_OFF' }
+    return [pscustomobject]@{ Context=$context; Managed=$managed }
+}
+
+function Assert-HyperVBuildGuestTransportAuthority {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Build, [string]$StateRoot, [Parameter(Mandatory)][guid]$ExpectedVmId,
+        [Parameter(Mandatory)][string]$VMName, [Parameter(Mandatory)][string]$ExpectedRunId,
+        [Parameter(Mandatory)][string]$ExpectedScopeId, [string]$FallbackAddress)
+    $authority=Get-HyperVBuildCallerAuthority -Build $Build -StateRoot $StateRoot
+    if ($ExpectedVmId -eq [guid]::Empty -or [string]$authority.Managed.VM.Id -cne $ExpectedVmId.ToString() -or
+        $VMName -cne [string]$authority.Managed.VM.Name -or $ExpectedRunId -cne [string]$authority.Context.Build.buildId -or
+        $ExpectedScopeId -cne [string]$authority.Context.Build.scopeId -or [string]$authority.Managed.VM.State -cne 'Running') {
+        throw 'HYPERV_BUILD_GUEST_TRANSPORT_BINDING_CHANGED'
+    }
+    if ($FallbackAddress) {
+        $network=$authority.Context.Build.labNetwork
+        if (-not $network -or -not $network.Name -or -not $network.Subnet -or
+            (Get-LabNetworkGuestAddress -Network $network -Identity $ExpectedRunId) -cne $FallbackAddress) { throw 'HYPERV_BUILD_FALLBACK_ADDRESS_NOT_BOUND' }
+        $switches=@(Get-VMSwitch -Name ([string]$network.Name) -ErrorAction Stop)
+        if ($switches.Count -ne 1 -or -not $switches[0].Id) { throw 'HYPERV_BUILD_FALLBACK_NETWORK_NOT_BOUND' }
+        $adapters=@(Get-VMNetworkAdapter -VM $authority.Managed.VM -ErrorAction Stop | Where-Object {
+            [string]$_.SwitchId -ceq [string]$switches[0].Id -and [string]$_.SwitchName -ceq [string]$network.Name -and
+            $FallbackAddress -cin @($_.IPAddresses)
+        })
+        if ($adapters.Count -ne 1) { throw 'HYPERV_BUILD_FALLBACK_NIC_NOT_BOUND' }
+    }
+}
+
+function Assert-HyperVBuildOfflineDiskAuthority {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Build, [string]$StateRoot, [Parameter(Mandatory)][string]$VhdxPath, [switch]$PlannedOutput)
+    $authority = Get-HyperVBuildCallerAuthority -Build $Build -StateRoot $StateRoot -AllowAbsent -RequireOff
+    $context = $authority.Context
+    $expected = Join-Path $context.Binding.HyperVResourceRoot ([string]$context.Build.builder.resourceRelativePath)
+    $null = Assert-LabHyperVBoundPath -Binding $context.Binding -Path $VhdxPath -DataRoot $context.Binding.LabDataRoot
+    if ($PlannedOutput) {
+        if (@($context.Plan.steps|Where-Object {$_.provider -ceq 'hyperv' -and $_.action -ceq 'remove' -and $_.resourceType -ceq 'vhdx' -and
+            [string]::Equals([IO.Path]::GetFullPath([string]$_.resourceId),[IO.Path]::GetFullPath($VhdxPath),[StringComparison]::OrdinalIgnoreCase)}).Count -ne 1) { throw 'HYPERV_BUILD_OUTPUT_DISK_NOT_PLANNED' }
+    }
+    elseif (-not [string]::Equals([IO.Path]::GetFullPath($expected), [IO.Path]::GetFullPath($VhdxPath), [StringComparison]::OrdinalIgnoreCase)) { throw 'HYPERV_BUILD_OFFLINE_DISK_BINDING_INVALID' }
+    $vhd = Get-VHD -Path $VhdxPath -ErrorAction Stop
+    if (-not $vhd -or $vhd.Attached) { throw 'HYPERV_BUILD_OFFLINE_DISK_ATTACHED' }
+    foreach ($vm in @(Get-VM -ErrorAction Stop)) {
+        foreach ($drive in @(Get-VMHardDiskDrive -VM $vm -ErrorAction Stop)) {
+            if ($drive.Path -and [string]::Equals([IO.Path]::GetFullPath($drive.Path), [IO.Path]::GetFullPath($VhdxPath), [StringComparison]::OrdinalIgnoreCase) -and
+                ($PlannedOutput -or -not $authority.Managed -or [string]$vm.Id -cne [string]$authority.Managed.VM.Id -or [string]$vm.State -cne 'Off')) { throw 'HYPERV_BUILD_OFFLINE_DISK_FOREIGN_ATTACHMENT' }
+        }
+    }
+    $dependency = Test-HyperVVhdxCleanupDependencyChain -Path $VhdxPath
+    if (-not $dependency.Valid) { throw $dependency.Code }
+}
+
+function Invoke-HyperVBuildPowerShellDirect {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Build, [string]$StateRoot,
+        [Parameter(Mandatory)][string]$VMName, [Parameter(Mandatory)][string]$ExpectedRunId,
+        [Parameter(Mandatory)][string]$ExpectedScopeId, [Parameter(Mandatory)][PSCredential]$Credential,
+        [Parameter(Mandatory)][scriptblock]$ScriptBlock, [object[]]$ArgumentList=@(),
+        [string]$FallbackAddress, [object]$Progress, [int]$TimeoutSeconds=86400)
+    $authority = Get-HyperVBuildCallerAuthority -Build $Build -StateRoot $StateRoot
+    if ($VMName -cne $authority.Context.Build.builder.vmName -or $ExpectedRunId -cne $authority.Context.Build.buildId -or
+        $ExpectedScopeId -cne $authority.Context.Build.scopeId) { throw 'HYPERV_BUILD_GUEST_CALLER_BINDING_INVALID' }
+    $arguments = @{} + $PSBoundParameters
+    $null = $arguments.Remove('Build'); $null = $arguments.Remove('StateRoot')
+    $arguments.ExpectedVmId = [guid]$authority.Managed.VM.Id
+    $arguments.Build=$Build; $arguments.BuildStateRoot=$StateRoot
+    Invoke-HyperVPowerShellDirect @arguments
+}
+
+function Assert-HyperVBuildProviderMutation {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Managed, [Parameter(Mandatory)][string]$StateRoot)
+    $directories = @('hyperv', 'hyperv-sql') | ForEach-Object { Join-Path $StateRoot "image-builds/$_/$($Managed.Identity.runId)" }
+    $found = @($directories | Where-Object { Test-Path -LiteralPath (Join-Path $_ 'build-state.json') -PathType Leaf })
+    if ($found.Count -ne 1) { throw 'WINDOWS_POOL_PROVIDER_AUTHORITY_REQUIRED' }
+    $context = Get-HyperVBuildMutationContext -BuildDirectory $found[0] -StateRoot $StateRoot -ExpectedScopeId $Managed.Identity.scopeId
+    $fresh = Get-HyperVBuildBoundManagedVM -Context $context
+    if (-not $fresh -or [string]$fresh.VM.Id -cne [string]$Managed.VM.Id) { throw 'HYPERV_BUILD_NATIVE_IDENTITY_CHANGED' }
+}
+
+function Test-HyperVSelectedBuildMutation {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$Managed, [string]$StateRoot)
+    $root=Resolve-LabWindowsPoolRoot -StateRoot $StateRoot
+    return @('hyperv','hyperv-sql' | ForEach-Object {
+        Join-Path $root "image-builds/$_/$($Managed.Identity.runId)/build-state.json"
+    } | Where-Object {Test-Path -LiteralPath $_ -PathType Leaf}).Count -gt 0
+}
+
 function ConvertTo-HyperVImageDateTimeOffset {
     [CmdletBinding()]
     param(
@@ -190,6 +435,8 @@ function New-HyperVWindowsImageBuilder {
     } else { $vmGeneration -eq 2 }
     $vm = New-VM -Name $vmName -Generation $vmGeneration -MemoryStartupBytes $MemoryStartupBytes `
         -VHDPath $diskPath -Path $resourceRoot -ErrorAction Stop
+    $nativeBinding = Set-HyperVBuildNativeBinding -BuildDirectory $build.BuildDirectory -StateRoot $StateRoot `
+        -VM $vm -InstanceId image-builder -ChildVhdxPath $diskPath
     $null = Set-VM -VM $vm -SmartPagingFilePath $resourceRoot -SnapshotFileLocation $resourceRoot -ErrorAction Stop
     $null = Assert-HyperVVMResourceBinding -VMName $vmName -ResourceBinding $resourceBinding
     # Do not inherit Hyper-V's unbounded dynamic-memory default (commonly 1 TB).
@@ -220,7 +467,9 @@ function New-HyperVWindowsImageBuilder {
             [Microsoft.HyperV.PowerShell.BootDevice]::Floppy) -ErrorAction Stop
     }
 
-    $build.builder = [PSCustomObject]@{ vmName = $vmName; osDiskRelativePath = "resources/hyperv/$vmName.vhdx"; resourceRelativePath = "$vmName.vhdx"; generation = $vmGeneration; secureBoot = $secureBoot }
+    $build.builder = [PSCustomObject]@{ vmName = $vmName; vmId = $nativeBinding.vmId; instanceId = $nativeBinding.instanceId;
+        nativeBindingContract = $nativeBinding.nativeBindingContract; osDiskRelativePath = "resources/hyperv/$vmName.vhdx";
+        resourceRelativePath = "$vmName.vhdx"; generation = $vmGeneration; secureBoot = $secureBoot }
     Write-HyperVImageBuildState -BuildDirectory $build.BuildDirectory -State $build
     return Set-HyperVImageBuildState -BuildId $BuildId -State BUILDER_READY -Reason "Generation-$vmGeneration-Builder mit verifiziertem Installationsmedium erstellt" -StateRoot $StateRoot
 }
@@ -401,7 +650,7 @@ function Invoke-HyperVWindowsImageGeneralization {
     if ($build.state -eq 'MANUAL_ACTION_REQUIRED') {
         if (-not $Credential) { throw 'HYPERV_GUEST_CREDENTIAL_REQUIRED' }
         $vmName = [string]$build.builder.vmName
-        $receipt = Invoke-HyperVPowerShellDirect -VMName $vmName -ExpectedRunId $BuildId `
+        $receipt = Invoke-HyperVBuildPowerShellDirect -Build $build -StateRoot $StateRoot -VMName $vmName -ExpectedRunId $BuildId `
             -ExpectedScopeId ([string]$build.scopeId) -Credential $Credential -ArgumentList @(
                 [string]$build.buildId,
                 [string]$build.scopeId,
@@ -526,6 +775,8 @@ function Publish-HyperVWindowsImageBuild {
     if ($build.state -ne 'RESUME_PENDING' -or -not $build.generalizationEvidence) {
         throw 'HYPERV_IMAGE_BUILD_NOT_READY_TO_SEAL'
     }
+    $buildAuthority = Get-HyperVBuildMutationContext -BuildDirectory $build.BuildDirectory -StateRoot $StateRoot -ExpectedScopeId $build.scopeId
+    $null = Get-HyperVBuildBoundManagedVM -Context $buildAuthority
 
     if ([string]$build.generalizationEvidence.relativePath -ne 'evidence/generalization.json') {
         throw 'HYPERV_GENERALIZATION_EVIDENCE_PATH_INVALID'
@@ -546,8 +797,8 @@ function Publish-HyperVWindowsImageBuild {
         throw 'HYPERV_EVALUATION_EXPIRY_REQUIRED'
     }
 
-    $managed = Get-HyperVManagedVM -VMName ([string]$build.builder.vmName) `
-        -ExpectedRunId $BuildId -ExpectedScopeId ([string]$build.scopeId)
+    $managed = Get-HyperVBuildBoundManagedVM -Context (Get-HyperVBuildMutationContext `
+        -BuildDirectory $build.BuildDirectory -StateRoot $StateRoot -ExpectedScopeId $build.scopeId)
     if ($managed) {
         if ([string]$managed.VM.State -ne 'Off') { throw 'HYPERV_IMAGE_BUILD_VM_MUST_BE_OFF' }
         if (@(Get-VMSnapshot -VM $managed.VM -ErrorAction Stop).Count -gt 0) {
@@ -570,6 +821,7 @@ function Publish-HyperVWindowsImageBuild {
         throw 'HYPERV_IMAGE_BUILD_VM_IDENTITY_NOT_VERIFIED'
     }
 
+    Assert-HyperVBuildOfflineDiskAuthority -Build $build -StateRoot $StateRoot -VhdxPath $diskPath
     (Get-Item -LiteralPath $diskPath -Force).IsReadOnly = $true
     $sha256 = (Get-FileHash -LiteralPath $diskPath -Algorithm SHA256).Hash
     $osVersion = if ($synthetic) { '1' } else { ([string]$build.operatingSystem.id -replace '^windows-(server-)?', '') }
@@ -588,6 +840,7 @@ function Publish-HyperVWindowsImageBuild {
     }
     if ($RequireChildBootValidation) { $importParameters.RequireChildBootValidation = $true }
     if (-not $synthetic) { $importParameters.Generalized = $true }
+    Assert-HyperVBuildOfflineDiskAuthority -Build $build -StateRoot $StateRoot -VhdxPath $diskPath
     $artifact = Import-HyperVImageArtifact @importParameters
     if (-not $artifact -or
         [string]::IsNullOrWhiteSpace([string]$artifact.artifactId) -or
@@ -597,12 +850,12 @@ function Publish-HyperVWindowsImageBuild {
     }
     # The immutable registry copy is complete and hash-verified before the
     # builder VM or its source VHDX can be removed.
-    $managed = Get-HyperVManagedVM -VMName ([string]$build.builder.vmName) `
-        -ExpectedRunId $BuildId -ExpectedScopeId ([string]$build.scopeId)
+    $managed = Get-HyperVBuildBoundManagedVM -Context (Get-HyperVBuildMutationContext `
+        -BuildDirectory $build.BuildDirectory -StateRoot $StateRoot -ExpectedScopeId $build.scopeId)
     if ($managed) {
         $null = Remove-HyperVInstance -VMName ([string]$build.builder.vmName) `
             -ExpectedScopeId ([string]$build.scopeId) -ExpectedRunDirectory $build.BuildDirectory `
-            -PreserveVhdx -RequireOff
+            -PreserveVhdx -RequireOff -StateRoot $StateRoot
     }
     $artifactSummary = [PSCustomObject]@{
         artifactId = [string]$artifact.artifactId; artifactState = [string]$artifact.artifactState

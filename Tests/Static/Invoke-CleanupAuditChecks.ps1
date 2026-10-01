@@ -302,10 +302,15 @@ try {
 
         $buildId = New-LabGuid
         $buildScopeId = New-LabGuid
-        $buildDirectory = Join-Path (Join-Path $stateRoot 'image-builds/hyperv') $buildId
+        # Other audit cases deliberately leave malformed Run evidence. A positive
+        # Build mutation requires its independently selected membership root to be readable.
+        $buildStateRoot = Join-Path $stateRoot 'healthy-build-authority'
+        $buildDirectory = Join-Path (Join-Path $buildStateRoot 'image-builds/hyperv') $buildId
         $null = New-Item -Path $buildDirectory -ItemType Directory -Force
         Write-LabArtifactJsonAtomic -Path (Join-Path $buildDirectory 'build-state.json') -InputObject ([PSCustomObject]@{
             buildId=$buildId; scopeId=$buildScopeId; state='TEST_ARTIFACT_PUBLISHED'
+            builder=[PSCustomObject]@{vmId=(New-LabGuid);vmName='synthetic-published-builder';instanceId='image-builder';
+                nativeBindingContract='SqlServerLab.HyperVBuildNative/1.0';resourceRelativePath='builder.vhdx'}
         })
         $buildBinding = Initialize-LabHyperVResourceBinding -ResourceId $buildId -ResourceClass Build `
             -StateDirectory $buildDirectory
@@ -315,6 +320,8 @@ try {
         $null = New-CleanupPlan -RunDir $buildDirectory -RunId $buildId -ScopeId $buildScopeId `
             -ProviderSubRuns @([PSCustomObject]@{ id='provider-hyperv-builder'; provider='hyperv' })
         $null = Add-CleanupStep -RunDir $buildDirectory -ResourceType vhdx -ResourceId $buildVhdx `
+            -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv-builder
+        $null = Add-CleanupStep -RunDir $buildDirectory -ResourceType vm -ResourceId synthetic-published-builder `
             -Action remove -Provider hyperv -ProviderSubRunId provider-hyperv-builder
         $buildCleanup = Invoke-CleanupPlan -RunDir $buildDirectory -ScopeId $buildScopeId
         $recoveryStorageId = New-LabGuid
