@@ -111,7 +111,12 @@ erst **Angezeigten Plan revalidieren und anwenden** führt den gemeinsamen Core
 aus. Änderungen an Eingaben oder Schließen verwerfen die Vorschau.
 Providerrefresh prüft ausschließlich den ausdrücklich gewählten Provider über
 den vorhandenen Readinessvertrag, ohne Installation, Start oder Änderung von
-Bindings. Schreibbarkeit und Kapazität bleiben ungeprüft. Dieser kurze Pfad
+Bindings. Statuslesen prüft weder Schreibbarkeit noch Kapazität. Die separate
+Schreibprobe verlangt Vorschau und Bestätigung. **Freien Speicher lesen** liest
+ausdrücklich genau die ausgewählte registrierte Lab_Data-Location und zeigt
+Datenträgerfrei mit Zeitpunkt. Unbekannt, unlesbar oder nicht unterstützt bleibt
+ohne Bytewert. Diese Hostdatenträger-Momentaufnahme reserviert nichts und
+bestätigt weder Schreibbarkeit noch native Container-Volumes. Dieser kurze Pfad
 läuft direkt im lokalen Server; seine begrenzte Providerprüfung kann die
 Annahme weiterer Anfragen vorübergehend verzögern.
 

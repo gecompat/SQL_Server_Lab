@@ -97,8 +97,14 @@ blockiert Directoryrename und Junctionaustausch nach Open vor dem Bytewrite.
 Echte HTTP-Grenze und CLI-Cursor/Fallback prüfen Bestätigung und Abbruch; echte
 JS-Handler prüfen Vorschau, Eingabeänderung, Cancel und resultatsichtbares Apply.
 Nicht-Windows prüft die Plattformablehnung; die Windows-Dateisystemprobe bleibt
-dort `NOT_EXECUTED`. Freie Kapazität und SQL-/Providereignung werden dadurch
-nicht bestätigt. Kanonisch ausgewählte Runtime-Gates bleiben erforderlich;
+dort `NOT_EXECUTED`. Diese Schreibprobe bestätigt keine freie Kapazität oder
+SQL-/Providereignung. `Fixtures/InitialSetupCapacityChecks.ps1` prüft den
+separaten read-only Capacity-Core: echte native Werteform ohne Rohwerte,
+synthetische Bindungsdrift vor/nach Lesen, nullable Fehler, echte isolierte
+Worker mit Resultat-/Zeitgrenzen sowie tatsächliche HTTP- und CLI-Grenzen.
+Die JS-Handler prüfen explizite Einzelauswahl und verwerfen verspätete Antworten.
+Neue Kapazitätsfixtures schreiben keine Dateien; die bestehende isolierte
+Schreibprobenregression bleibt ein eigener Nachweis. Kanonisch ausgewählte Runtime-Gates bleiben erforderlich;
 frühere SQL-Smokes sind kein Nachweis für einen neuen Source-Digest.
 
 Am 2026-09-28 bestand der getrennte Docker-SQL-2025-Core-Smoke 34 Prüfungen mit

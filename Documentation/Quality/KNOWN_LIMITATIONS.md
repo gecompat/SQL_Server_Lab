@@ -782,6 +782,17 @@ CLI und Browser ergänzen fehlende Roots über denselben Vorschau-/Apply-Core,
 unterstützen mehrere unterschiedliche Volumes und verlangen eine ausdrückliche
 Default-Auswahl. Complete beendet den CLI-Dialog nicht; ein Wechsel auf einen
 bereits registrierten Default ist kein No-op. Lesen behauptet keine Schreibbarkeit.
+Eine ausdrückliche read-only Kapazitätsabfrage unterstützt genau eine frisch
+verifizierte registrierte Location auf lokalem Windows Fixed NTFS/ReFS.
+UNC, Reparse-/Foldermount-/subst-Pfade und nicht verifizierte Volume-IDs sind
+keine Kapazitätsautorität. Statuslesen misst nicht automatisch. AvailableFreeSpace
+bezeichnet den für diesen Zugriff verfügbaren Hostdatenträgerspeicher zu einem
+Zeitpunkt; unbekannt, unlesbar oder nicht unterstützt bleibt null statt null Byte.
+Der eigene Worker wartet höchstens 20 Sekunden, plus zwei Sekunden für sein
+Beenden. Readhandles und frische Revalidierung behaupten keine portable atomare
+physische Directory-ID. Native Container-Volumes, Reservierung, Schreibbarkeit
+und SQL-Eignung sind keine Folgerung aus dieser Momentaufnahme.
+
 Eine ausdrückliche Schreibprobe unterstützt genau eine registrierte Location auf
 einem lokalen festen Windows-NTFS/ReFS-Volume; UNC, Reparsepfade und andere
 Dateisysteme bleiben gesperrt. Sie bestätigt nur eine Momentaufnahme mit einem

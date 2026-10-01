@@ -679,6 +679,9 @@
       <button id="initial-setup-apply" type="button" class="button primary" disabled>Angezeigten Plan revalidieren und anwenden</button>
       <hr>
       <label>Registrierte Lab_Data-Location<select id="initial-setup-write-location" disabled></select></label>
+      <button id="initial-setup-capacity-read" type="button" class="button secondary" disabled>Freien Speicher lesen</button>
+      <p id="initial-setup-capacity-result" role="status" aria-live="polite">Datenträgerfrei: noch nicht gelesen.</p>
+      <p class="form-note">Eine Momentaufnahme für den aktuellen Zugriff auf den Hostdatenträger. Der Wert reserviert keinen Speicher und beschreibt keine nativen Container-Volumes.</p>
       <p class="form-note">Explizite Momentaufnahme: Windows, lokales festes NTFS/ReFS-Volume. Eine eigene temporäre Datei mit einem Byte schreiben, flushen und bereinigen; keine Kapazitäts-, SQL- oder Providerabnahme.</p>
       <button id="initial-setup-write-preview" type="button" class="button secondary" disabled>Schreibprobe vorschauen</button>
       <p id="initial-setup-write-plan" role="status">Keine Schreibprobe geplant.</p>
