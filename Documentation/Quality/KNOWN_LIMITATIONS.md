@@ -2858,6 +2858,15 @@ Alte Monatsissues ohne neuen Marker werden nicht automatisch migriert oder
 geschlossen. Markerdrift, unvollständige Pagination und unbestätigte Writes
 bleiben sichtbar blockiert beziehungsweise `RECOVERY_REQUIRED`. Eigene manuelle
 Issuefixtures werden nur receipt-/scopegebunden geschlossen, niemals gelöscht.
+Ihre explizite Ressourcenauswahl verkürzt den vollständigen Bericht nicht. Die
+Grenze von einem unterschiedlichen Issue und einem Publishwrite pro Aufruf umfasst
+auch vorhandene Own-Identitäten und globale Fehler/Recovery. UNKNOWN verbietet
+Workflow-Retry; nur eine head-/scope-/befundgebundene Runner-Continuation darf einen
+frischen Marker wieder binden. Ohne Marker bleibt Recovery offen. Eine absichtlich
+ohne vorheriges Receipt neu gestartete Invocation kann der zustandslose Runner
+nicht als früheren UNKNOWN-Aufruf erkennen; dafür entsteht keine zweite Registry.
+Null Kandidaten belegen keine Veröffentlichung. Die reguläre Monatslane bleibt
+unverändert. Echte Dispatch-/Issueabnahme dieses engeren Pfads ist noch offen.
 [Automationsvertrag](../Architecture/RESOURCE_WATCH_AUTOMATION.md).
 
 ## Geführter eigener llama.cpp-Sitzungsstop

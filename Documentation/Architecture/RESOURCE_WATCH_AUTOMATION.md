@@ -89,19 +89,48 @@ nicht verwenden. Andere Scopeformen scheitern vor dem Runner. Diese Option
 erteilt keine Ausführungsfreigabe; der Orchestrator prüft zunächst den stabilen
 Diff und die konkrete Remotegrenze.
 
+Zusätzlich verlangt die Own-Veröffentlichung `acceptance_resource`: genau eine
+Ressourcen-ID aus den tatsächlich konfigurierten erwarteten IDs (`sql-cu-2019`,
+`sql-cu-2022`, `sql-cu-2025`, `sqlpackage` im aktuellen Katalog). Der Runnerparameter
+heißt `AcceptanceResourceId`. Der Quellencheck und sein vollständiger Bericht
+werden nicht verkürzt. Regulärer Scope `catalog` und Monatscron verwenden keine
+Auswahl und behalten ihr bisheriges Verhalten.
+
+Vor jedem Write zählt die Own-Projektion alle vorhandenen eigenen Issueidentitäten
+sowie die ausgewählte neue Nachricht und globale `watch-check`-Fehler/Recovery.
+Höchstens eine unterschiedliche Identität und ein POST oder PATCH pro Aufruf sind
+zulässig. Eine zusätzliche vorhandene oder geplante Identität blockiert den ganzen
+Writeblock; unselektierte eigene Issues verschwinden nicht aus dieser Prüfung.
+Gleiche Befunde dürfen ohne Write erneut gelesen werden. Null Kandidaten ergeben
+`NO_NOTICE_NEEDED`; es wird kein künstlicher Befund für einen Nachrichtennachweis
+erzeugt. Der getrennte receiptgebundene Close ist keine zweite Publishmutation.
+
+Ein unbekannter Write beendet den Own-Aufruf sofort. Danach sind Workflow-Retry
+und neuer Dispatch desselben Scopes verboten. Nur der vorhandene Runner darf mit
+`-ContinuationReceiptPath <lokales-receipt.json>` fortsetzen. Das Receipt bindet
+Repository, Scope, Auswahl, Git-Head, Vertragsversion und den erwarteten Befund;
+verifizierte Einträge binden zusätzlich Issue-ID und Bodyhash. Fremde, veränderte
+oder zum aktuellen Befund veraltete Receipts erlauben keinen Write. Bei UNKNOWN
+wird nur ein frisch gefundenes exakt passendes Issue wieder gebunden. Ohne Marker
+bleibt `RECOVERY_REQUIRED` ohne neuen POST, auch bei erneuter Continuation. Der
+Caller muss das Originalreceipt erhalten und diesen Wiederaufnahmevertrag beachten;
+der Runner besitzt keine zusätzliche persistente Registry und kann einen ohne
+Receipt neu gestarteten Aufruf nicht als früheren UNKNOWN-Versuch identifizieren.
+
 Nach dieser Freigabe:
 
 1. Geprüften Commit und Branch festhalten; eine neue GUID als `own-`-Scope
    erzeugen. Ausschließlich diesen Workflow über `workflow_dispatch` am
    geprüften Branch starten, zum Beispiel:
-   `gh workflow run sql-cu-monthly-monitor.yml --ref <geprüfter-branch> -f acceptance_scope=<own-scope>`.
+   `gh workflow run sql-cu-monthly-monitor.yml --ref <geprüfter-branch> -f acceptance_scope=<own-scope> -f acceptance_resource=sqlpackage`.
 2. Run-ID, Event `workflow_dispatch` und exakten `headSha` prüfen. Ein anderer
    Head oder ein rot gebliebener Quellencheck ist kein PASS.
 3. Ausschließlich `sql-cu-watch`-Report und -Receipt lokal lesen. Receipt muss
    `Repository=gecompat/SQL_Server_Lab`, den eigenen Scope, `ApiBoundary=GITHUB_API`
    sowie einen verifizierten `PUBLISHED`-Eintrag mit Issue-ID und FindingKey
    zeigen. `NO_NOTICE_NEEDED` allein belegt keine neue Nachricht.
-4. Den gleichen geprüften Head und Scope erneut dispatchen. Bei identischem
+4. Nur nach bestätigtem Receipt den gleichen geprüften Head, Scope und die gleiche
+   Ressourcenauswahl erneut dispatchen. Bei identischem
    Quellenbefund muss das Issue `DEDUPLICATED` bleiben; keine neue Issue-ID,
    Bodyänderung oder zusätzliche Nachricht. Quellenänderung ist eine neue
    Beobachtung und kein Dedupefehler.
@@ -115,7 +144,7 @@ Nach dieser Freigabe:
    `Verified=true` sowie vollständige Issue-/URL-/Befund-/Bodyhashbindung;
    fehlende Bindungen ergeben keine leere erfolgreiche Cleanupbestätigung.
 6. Geschlossene Issues und unveränderte reguläre Watchissues bestätigen.
-   Unbestätigte Writes zunächst durch denselben Own-Check wiederaufnehmen;
+   Unbestätigte Writes ausschließlich durch den receiptgebundenen Runner fortsetzen;
    ein unbekanntes Issue wird niemals als Cleanupziel geraten. Fehler des
    Checks, der Benachrichtigung und des Cleanups getrennt festhalten.
 

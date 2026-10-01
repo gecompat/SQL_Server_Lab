@@ -2464,6 +2464,12 @@ und Timeout. Sie belegt weder GitHub-TLS noch Berechtigungen oder Zustellung.
 Die eigene Namespacefixture prüft getrennte Marker/Receipts, fehlerhafte
 Dispatchinputs, Schutz regulärer Issues und den receipt-/scopegebundenen
 Close-Cleanup einschließlich Vorschau, Drift, ungültiger Bindung und No-op.
+Die begrenzte Own-Projektion wird am tatsächlichen Helper mit vollständigem
+Vier-Ressourcenbefund und synthetischem API-Adapter geprüft: explizite Auswahl,
+ein unterschiedliches Issue, ein Write, vollständige vorhandene Own-Inventur,
+globale Fehler/Recovery, null Kandidaten sowie UNKNOWN-Continuation mit fehlendem
+und später gefundenem Marker. Fremde Scope-/Head-/Befund-/Bodyhashbindungen
+blockieren vor Write; ein veralteter UNKNOWN-Befund gewährt keine neue Authority.
 Es werden keine echten Issues erstellt, keine reguläre Task aktiviert und keine
 Provider gestartet. Die echte Abnahme bleibt gemäß
 [Automationsvertrag](../Architecture/RESOURCE_WATCH_AUTOMATION.md) separat:

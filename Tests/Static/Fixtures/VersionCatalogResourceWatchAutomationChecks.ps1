@@ -172,8 +172,8 @@ Add-CheckResult -Name 'Globaler Checkfehler wird dedupliziert gemeldet und nach 
 )
 $ownScope='own-'+('0'*32);$before=$fixtureStore.Writes
 $regularBodies=@($fixtureStore.Issues.body)
-$own=Invoke-LabResourceWatchIssueProjection -Evaluation $automation -ApiAction $fixtureApi -IssueScope $ownScope
-$ownAgain=Invoke-LabResourceWatchIssueProjection -Evaluation $laterEvaluation -ApiAction $fixtureApi -IssueScope $ownScope
+$own=Invoke-LabResourceWatchIssueProjection -Evaluation $automation -ApiAction $fixtureApi -IssueScope $ownScope -AcceptanceResourceId sqlpackage -ExpectedId @('sql-cu-2022','sqlpackage') -PublicationHead ('a'*40)
+$ownAgain=Invoke-LabResourceWatchIssueProjection -Evaluation $laterEvaluation -ApiAction $fixtureApi -IssueScope $ownScope -AcceptanceResourceId sqlpackage -ExpectedId @('sql-cu-2022','sqlpackage') -PublicationHead ('a'*40)
 Add-CheckResult -Name 'Eigene Abnahmefixture verwendet getrennten Namespace und lässt reguläre Issuebytes unverändert' -Success (
     $own.IssueScope -ceq $ownScope -and -not $own.NotificationFailed -and -not $ownAgain.NotificationFailed -and $fixtureStore.Writes -eq $before+1 -and
     @($fixtureStore.Issues | Where-Object { $_.body -cin $regularBodies }).Count -eq $regularBodies.Count
@@ -184,7 +184,7 @@ Add-CheckResult -Name 'Own-Issue-Cleanupvorschau verändert kein Issue und bewah
     $fixtureStore.Writes -eq $before -and @($cleanupPreview.Cleanup | Where-Object Status -eq 'NOT_EXECUTED').Count -eq 1 -and -not $cleanupPreview.CheckFailed
 )
 $fixtureStore.Mismatch=$true
-$mismatch=Invoke-LabResourceWatchIssueProjection -Evaluation $revision -ApiAction $fixtureApi -IssueScope $ownScope
+$mismatch=Invoke-LabResourceWatchIssueProjection -Evaluation $revision -ApiAction $fixtureApi -IssueScope $ownScope -AcceptanceResourceId sqlpackage -ExpectedId @('sql-cu-2022','sqlpackage') -PublicationHead ('a'*40)
 Add-CheckResult -Name 'Falsche Issue-Postcondition bleibt unbestätigter Write mit Recoverybedarf' -Success (
     $mismatch.NotificationFailed -and @($mismatch.Receipts | Where-Object Status -eq 'RECOVERY_REQUIRED').Count -eq 1
 )
@@ -193,7 +193,7 @@ $before=$fixtureStore.Writes
 # The mismatch test changed this issue's finding. Old receipt must fail before PATCH.
 $staleCleanup=Close-LabResourceWatchIssueFixture -Receipt $own -ExpectedIssueScope $ownScope -ApiAction $fixtureApi
 Add-CheckResult -Name 'Veralteter Own-Issue-Receipt blockiert Cleanup vor PATCH' -Success ($staleCleanup.RecoveryRequired -and $fixtureStore.Writes -eq $before)
-$latestOwn=Invoke-LabResourceWatchIssueProjection -Evaluation $automation -ApiAction $fixtureApi -IssueScope $ownScope
+$latestOwn=Invoke-LabResourceWatchIssueProjection -Evaluation $automation -ApiAction $fixtureApi -IssueScope $ownScope -AcceptanceResourceId sqlpackage -ExpectedId @('sql-cu-2022','sqlpackage') -PublicationHead ('a'*40)
 $before=$fixtureStore.Writes;$callsBefore=$fixtureStore.Calls.Count
 foreach($invalidStatus in @('PUBLISHED','DEDUPLICATED')){
     foreach($case in @('false','missing-number','truthy-string','numeric-verified','fractional-number','string-number','missing-verified','missing-bodyhash')){
@@ -222,8 +222,8 @@ foreach($case in @('check-bool','notification-bool','empty-rows','scalar-rows','
         'check-bool' {$badReceipt.CheckFailed='false'}
         'notification-bool' {$badReceipt.NotificationFailed='false'}
         'empty-rows' {$badReceipt.Receipts=@()}
-        'scalar-rows' {$badReceipt.Receipts=$badReceipt.Receipts[1]}
-        'unverified-notice' {$badReceipt.Receipts[0].Verified=$true}
+        'scalar-rows' {$badReceipt.Receipts=$badReceipt.Receipts[0]}
+        'unverified-notice' {$badReceipt.Receipts[0].Status='NO_NOTICE_NEEDED';$badReceipt.Receipts[0].Verified=$true}
     }
     $caught='';try{Close-LabResourceWatchIssueFixture -Receipt $badReceipt -ExpectedIssueScope $ownScope -ApiAction $fixtureApi | Out-Null}catch{$caught=$_.Exception.Message}
     Add-CheckResult -Name ('Cleanup lehnt unvollständige oder falsch typisierte Statusclaims vor API ab: '+$case) -Success ($caught -eq 'RESOURCE_WATCH_FIXTURE_RECEIPT_INVALID' -and $fixtureStore.Calls.Count -eq $callsBefore)
@@ -241,14 +241,14 @@ foreach($case in @('scope','repo','number','resource','boundary')){
     switch($case){
         'scope' {$badReceipt.IssueScope='catalog'}
         'repo' {$badReceipt.Repository='other/fixture'}
-        'number' {$badReceipt.Receipts[1].IssueNumber=999}
-        'resource' {$badReceipt.Receipts[1].ResourceId='SYNTHETIC_PRIVATE'}
+        'number' {$badReceipt.Receipts[0].IssueNumber=999}
+        'resource' {$badReceipt.Receipts[0].ResourceId='SYNTHETIC_PRIVATE'}
         'boundary' {$badReceipt.ApiBoundary='UNKNOWN'}
     }
     $caught='';try{Close-LabResourceWatchIssueFixture -Receipt $badReceipt -ExpectedIssueScope $ownScope -ApiAction $fixtureApi | Out-Null}catch{$caught=$_.Exception.Message}
     Add-CheckResult -Name ('Own-Issue-Cleanup lehnt ungültige Receiptbindung vor API ab: '+$case) -Success ($caught -eq 'RESOURCE_WATCH_FIXTURE_RECEIPT_INVALID')
 }
-$ownUnclear=Invoke-LabResourceWatchIssueProjection -Evaluation $unclear -ApiAction $fixtureApi -IssueScope $ownScope
+$ownUnclear=Invoke-LabResourceWatchIssueProjection -Evaluation $unclear -ApiAction $fixtureApi -IssueScope $ownScope -AcceptanceResourceId sqlpackage -ExpectedId @('sql-cu-2022','sqlpackage') -PublicationHead ('a'*40)
 $fixtureStore.LoseClose=$true;$before=$fixtureStore.Writes
 $lostClose=Close-LabResourceWatchIssueFixture -Receipt $ownUnclear -ExpectedIssueScope $ownScope -ApiAction $fixtureApi
 $resumedClose=Close-LabResourceWatchIssueFixture -Receipt $ownUnclear -ExpectedIssueScope $ownScope -ApiAction $fixtureApi
@@ -257,12 +257,126 @@ Add-CheckResult -Name 'Verlorene Closeantwort bleibt Recoverybedarf; bestätigte
     $fixtureStore.Writes -eq $before+1 -and @($resumedClose.Cleanup | Where-Object Status -eq 'NO_OP').Count -eq 1
 )
 $bodyDrift=$ownUnclear | ConvertTo-Json -Depth 10 | ConvertFrom-Json -Depth 10
-$bodyDrift.Receipts[1].BodySha256='F'*64;$before=$fixtureStore.Writes
+$bodyDrift.Receipts[0].BodySha256='F'*64;$before=$fixtureStore.Writes
 $boundDrift=Close-LabResourceWatchIssueFixture -Receipt $bodyDrift -ExpectedIssueScope $ownScope -ApiAction $fixtureApi
 Add-CheckResult -Name 'Cleanup bindet die exakten Bodybytes zusätzlich zum gültigen Marker' -Success ($boundDrift.RecoveryRequired -and $fixtureStore.Writes -eq $before)
 foreach($invalidScope in @(('OWN-'+('a'*32)),('own-'+('A'*32)),'catalog',('own-'+('a'*31)))){
     $caught='';try{Close-LabResourceWatchIssueFixture -Receipt $ownUnclear -ExpectedIssueScope $invalidScope -ApiAction $fixtureApi | Out-Null}catch{$caught='REJECTED'}
     Add-CheckResult -Name 'Cleanupscope erzwingt exakt kleine own-Hexsyntax vor API' -Success ($caught -eq 'REJECTED' -and $fixtureStore.Writes -eq $before)
+}
+# Execute the actual projection with a complete four-resource evaluation and isolated API spies.
+$boundedFixture=Copy-AutomationFixture
+$boundedFixture.Items+=@('2019','2025') | ForEach-Object {
+    [pscustomobject]@{Id=('sql-cu-'+$_);Status='NEW';CatalogVersion='16.0.1000.1';ObservedVersion='16.0.1001.1';SourceUrl=$automationFixture.Items[0].SourceUrl;ReasonCode='RESOURCE_WATCH_COMPLETED'}
+}
+$boundedIds=@('sql-cu-2019','sql-cu-2022','sql-cu-2025','sqlpackage')
+$boundedEvaluation=Invoke-LabResourceWatchAutomationEvaluation -Check {[pscustomobject]@{Result=$boundedFixture;ExpectedId=$boundedIds}}
+$boundedScope='own-'+('b'*32)
+$boundedArguments=@{IssueScope=$boundedScope;AcceptanceResourceId='sqlpackage';ExpectedId=$boundedIds;PublicationHead=('b'*40);ApiAction=$fixtureApi}
+$savedIssues=@($fixtureStore.Issues);$fixtureStore.Issues.Clear();$writesBefore=$fixtureStore.Writes
+try{
+    $one=Invoke-LabResourceWatchIssueProjection -Evaluation $boundedEvaluation @boundedArguments
+    $jsonReceipt=$one | ConvertTo-Json -Depth 12 | ConvertFrom-Json -Depth 12
+    $oneAgain=Invoke-LabResourceWatchIssueProjection -Evaluation $boundedEvaluation @boundedArguments -ContinuationReceipt $jsonReceipt
+    Add-CheckResult -Name 'Own-Auswahl bewahrt vollständigen Vier-Ressourcenbericht und publiziert höchstens eine Identität' -Success (
+        $boundedEvaluation.Findings.Count -eq 4 -and $one.Receipts.Count -eq 1 -and $one.Receipts[0].Status -ceq 'PUBLISHED' -and
+        $one.PublishWriteAttempts -eq 1 -and $fixtureStore.Writes -eq $writesBefore+1 -and $oneAgain.Receipts[0].Status -ceq 'DEDUPLICATED'
+    )
+    foreach($invalidCounter in @('1',1.5,2,-1,$true,[long]::MaxValue,[double]1)){
+        $copy=$one | ConvertTo-Json -Depth 12 | ConvertFrom-Json -Depth 12;$copy.PublishWriteAttempts=$invalidCounter
+        $before=$fixtureStore.Writes;$callsBefore=$fixtureStore.Calls.Count;$caught=''
+        try{Invoke-LabResourceWatchIssueProjection -Evaluation $boundedEvaluation @boundedArguments -ContinuationReceipt $copy | Out-Null}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name 'Continuation lässt nur echte JSON-Integer im Writebudget 0 oder 1 zu' -Success (
+            $caught -ceq 'RESOURCE_WATCH_ISSUE_CONTINUATION_INVALID' -and $fixtureStore.Writes -eq $before -and $fixtureStore.Calls.Count -eq $callsBefore)
+    }
+    foreach($case in @('missing-selector','unknown-selector','catalog-selector','foreign-scope','head','finding','bodyhash')){
+        $argsCopy=@{};foreach($key in $boundedArguments.Keys){$argsCopy[$key]=$boundedArguments[$key]}
+        $copy=$one | ConvertTo-Json -Depth 12 | ConvertFrom-Json -Depth 12
+        switch($case){
+            'missing-selector' {$argsCopy.AcceptanceResourceId=''}
+            'unknown-selector' {$argsCopy.AcceptanceResourceId='sql-cu-2099'}
+            'catalog-selector' {$argsCopy.IssueScope='catalog'}
+            'foreign-scope' {$copy.IssueScope='own-'+('c'*32)}
+            'head' {$copy.PublicationHead='c'*40}
+            'finding' {$copy.Receipts[0].FindingKey='C'*64}
+            'bodyhash' {$copy.Receipts[0].BodySha256='C'*64}
+        }
+        $before=$fixtureStore.Writes;$caught=''
+        try{$answer=Invoke-LabResourceWatchIssueProjection -Evaluation $boundedEvaluation @argsCopy -ContinuationReceipt $copy
+            if($answer.NotificationFailed){$caught='REJECTED'}
+        }catch{$caught='REJECTED'}
+        Add-CheckResult -Name ('Own-Veröffentlichung blockiert ungültige Auswahl oder Continuation vor Write: '+$case) -Success ($caught -ceq 'REJECTED' -and $fixtureStore.Writes -eq $before)
+    }
+    $before=$fixtureStore.Writes
+    $globalBlocked=Invoke-LabResourceWatchIssueProjection -Evaluation $hardFailure[0] @boundedArguments
+    Add-CheckResult -Name 'Globaler Checkfehler wird bei bereits eigener Ressourcenidentität nicht durch Selector ausgeblendet' -Success (
+        $globalBlocked.CheckFailed -and $globalBlocked.NotificationFailed -and $globalBlocked.Receipts[0].ReasonCode -ceq 'RESOURCE_WATCH_ISSUE_ACCEPTANCE_LIMIT' -and $fixtureStore.Writes -eq $before)
+    $fixtureStore.Issues.Clear()
+    $fixtureStore.LoseWrite=$true
+    $unknown=Invoke-LabResourceWatchIssueProjection -Evaluation $boundedEvaluation @boundedArguments | ConvertTo-Json -Depth 12 | ConvertFrom-Json -Depth 12
+    $afterUnknown=$fixtureStore.Writes;$committed=@($fixtureStore.Issues);$fixtureStore.Issues.Clear()
+    $absent=Invoke-LabResourceWatchIssueProjection -Evaluation $boundedEvaluation @boundedArguments -ContinuationReceipt $unknown
+    $stillAbsent=Invoke-LabResourceWatchIssueProjection -Evaluation $boundedEvaluation @boundedArguments -ContinuationReceipt $absent
+    Add-CheckResult -Name 'UNKNOWN verbraucht genau einen Write und fehlender Marker verhindert POST über mehrere Continuations' -Success (
+        $unknown.PublishWriteAttempts -eq 1 -and $unknown.UnconfirmedWrite -and $absent.PublishWriteAttempts -eq 0 -and $stillAbsent.UnconfirmedWrite -and
+        $absent.Receipts[0].Status -ceq 'RECOVERY_REQUIRED' -and $fixtureStore.Writes -eq $afterUnknown)
+    foreach($item in $committed){$fixtureStore.Issues.Add($item)}
+    $reconciled=Invoke-LabResourceWatchIssueProjection -Evaluation $boundedEvaluation @boundedArguments -ContinuationReceipt $unknown
+    Add-CheckResult -Name 'UNKNOWN wird nur mit frisch gefundenem exaktem Marker ohne weiteren Write wieder gebunden' -Success (
+        -not $reconciled.NotificationFailed -and -not $reconciled.UnconfirmedWrite -and $reconciled.Receipts[0].Status -ceq 'DEDUPLICATED' -and $fixtureStore.Writes -eq $afterUnknown)
+    $advancedFixture=$boundedFixture | ConvertTo-Json -Depth 12 | ConvertFrom-Json -Depth 12;$advancedFixture.CheckedAtUtc='2026-02-01T00:00:00Z'
+    $advancedEvaluation=Invoke-LabResourceWatchAutomationEvaluation -Check {[pscustomobject]@{Result=$advancedFixture;ExpectedId=$boundedIds}}
+    foreach($continuation in @($unknown,$reconciled)){
+        $continued=Invoke-LabResourceWatchIssueProjection -Evaluation $advancedEvaluation @boundedArguments -ContinuationReceipt ($continuation | ConvertTo-Json -Depth 12 | ConvertFrom-Json -Depth 12)
+        Add-CheckResult -Name 'Tatsächliche JSON-Continuation akzeptiert neue Checkzeit bei gleichem Befund und ursprünglicher Bodyintegrität' -Success (
+            -not $continued.NotificationFailed -and $continued.Receipts[0].Status -ceq 'DEDUPLICATED' -and $continued.PublishWriteAttempts -eq 0 -and $fixtureStore.Writes -eq $afterUnknown)
+    }
+    $originalIssue=$fixtureStore.Issues[0];$originalBody=$originalIssue.body
+    $payload=$originalBody.Substring($originalBody.IndexOf("`n")+1).Replace('Nur Metadatenvergleich','SYNTHETIC_PRIVATE')
+    $bodyHash=Get-LabResourceWatchDigest $payload
+    $originalIssue.body=([regex]::Replace($originalBody.Substring(0,$originalBody.IndexOf("`n")),'payload=[A-F0-9]{64}',('payload='+$bodyHash)))+"`n"+$payload
+    $noncanonical=Invoke-LabResourceWatchIssueProjection -Evaluation $advancedEvaluation @boundedArguments -ContinuationReceipt $unknown
+    Add-CheckResult -Name 'UNKNOWN-Reconciliation lehnt selbstkonsistente fremde Payload trotz gleichem FindingKey ab' -Success (
+        $noncanonical.NotificationFailed -and $noncanonical.Receipts[0].ReasonCode -ceq 'RESOURCE_WATCH_ISSUE_CONTINUATION_INVALID' -and $fixtureStore.Writes -eq $afterUnknown)
+    $originalIssue.body=$originalBody
+    foreach($invalidTime in @('SYNTHETIC_INVALID_TIME','2026-01-01T00:00:00+05:00')){
+        $payload=[regex]::Replace($originalBody.Substring($originalBody.IndexOf("`n")+1),'(?m)^- Geprüft am: [^\r\n]+$',('- Geprüft am: '+$invalidTime))
+        $originalIssue.body=([regex]::Replace($originalBody.Substring(0,$originalBody.IndexOf("`n")),'payload=[A-F0-9]{64}',('payload='+(Get-LabResourceWatchDigest $payload))))+"`n"+$payload
+        $badTime=Invoke-LabResourceWatchIssueProjection -Evaluation $advancedEvaluation @boundedArguments -ContinuationReceipt $unknown
+        Add-CheckResult -Name 'Continuation lehnt ungültige oder nicht kanonische UTC-Zeit trotz repariertem Markerhash vor Write ab' -Success (
+            $badTime.NotificationFailed -and $badTime.Receipts[0].ReasonCode -ceq 'RESOURCE_WATCH_ISSUE_CONTINUATION_INVALID' -and $fixtureStore.Writes -eq $afterUnknown)
+    }
+    $originalIssue.body=$originalBody
+    $changed=Copy-AutomationFixture;$changed.Items[1].ObservedVersion='170.6.1.1';$changedEvaluation=Get-AutomationFixtureEvaluation $changed
+    $staleArguments=@{};foreach($key in $boundedArguments.Keys){$staleArguments[$key]=$boundedArguments[$key]};$staleArguments.ExpectedId=@('sql-cu-2022','sqlpackage')
+    $staleUnknown=Invoke-LabResourceWatchIssueProjection -Evaluation $changedEvaluation @staleArguments -ContinuationReceipt $unknown
+    Add-CheckResult -Name 'Geänderter Befund darf UNKNOWN-Receipt nicht als freie neue Writeauthority übernehmen' -Success (
+        $staleUnknown.NotificationFailed -and $staleUnknown.Receipts[0].ReasonCode -ceq 'RESOURCE_WATCH_ISSUE_CONTINUATION_INVALID' -and $fixtureStore.Writes -eq $afterUnknown)
+    $differentArguments=@{};foreach($key in $boundedArguments.Keys){$differentArguments[$key]=$boundedArguments[$key]};$differentArguments.AcceptanceResourceId='sql-cu-2019'
+    $unselected=Invoke-LabResourceWatchIssueProjection -Evaluation $boundedEvaluation @differentArguments
+    Add-CheckResult -Name 'Vorhandene unselektierte eigene Identität bleibt im vollständigen Budget statt verschwunden zu sein' -Success (
+        $unselected.NotificationFailed -and $unselected.Receipts[0].ReasonCode -ceq 'RESOURCE_WATCH_ISSUE_ACCEPTANCE_LIMIT' -and $fixtureStore.Writes -eq $afterUnknown)
+    $fixtureStore.Issues.Clear()
+    $globalOwn=Invoke-LabResourceWatchIssueProjection -Evaluation $hardFailure[0] @boundedArguments
+    $before=$fixtureStore.Writes
+    $recoveryBlocked=Invoke-LabResourceWatchIssueProjection -Evaluation $boundedEvaluation @boundedArguments
+    Add-CheckResult -Name 'Globale Watchcheck-Recovery plus neue Ressourcenveröffentlichung überschreitet Identitätsbudget vor jedem Write' -Success (
+        $globalOwn.CheckFailed -and $globalOwn.Receipts[0].Status -ceq 'PUBLISHED' -and $recoveryBlocked.NotificationFailed -and
+        $recoveryBlocked.Receipts[0].ReasonCode -ceq 'RESOURCE_WATCH_ISSUE_ACCEPTANCE_LIMIT' -and $fixtureStore.Writes -eq $before)
+    $fixtureStore.Issues.Clear()
+    $none=Copy-AutomationFixture;$none.Status='NO_CHANGE';$none.Items[1].Status='NO_CHANGE';$none.Items[1].ObservedVersion=$none.Items[1].CatalogVersion
+    $noneEvaluation=Get-AutomationFixtureEvaluation $none
+    $smallArguments=@{};foreach($key in $boundedArguments.Keys){$smallArguments[$key]=$boundedArguments[$key]};$smallArguments.ExpectedId=@('sql-cu-2022','sqlpackage')
+    $noNotice=Invoke-LabResourceWatchIssueProjection -Evaluation $noneEvaluation @smallArguments
+    Add-CheckResult -Name 'Null Kandidaten ergeben truthful NO_NOTICE_NEEDED ohne erzwungenes Issue' -Success (
+        -not $noNotice.NotificationFailed -and $noNotice.Receipts[0].Status -ceq 'NO_NOTICE_NEEDED' -and $noNotice.PublishWriteAttempts -eq 0 -and $fixtureStore.Writes -eq $before)
+    $globalOnly=Invoke-LabResourceWatchIssueProjection -Evaluation $hardFailure[0] @smallArguments
+    $globalResolved=Invoke-LabResourceWatchIssueProjection -Evaluation $noneEvaluation @smallArguments
+    Add-CheckResult -Name 'Globale Recovery bleibt ausführbar als einziger Write wenn ausgewählte Ressource keine Nachricht benötigt' -Success (
+        $globalOnly.CheckFailed -and $globalResolved.PublishWriteAttempts -eq 1 -and -not $globalResolved.NotificationFailed -and
+        $globalResolved.Receipts.Count -eq 1 -and $globalResolved.Receipts[0].ResourceId -ceq 'watch-check' -and $fixtureStore.Issues[0].state -ceq 'closed')
+}finally{
+    $fixtureStore.Issues.Clear();foreach($item in $savedIssues){$fixtureStore.Issues.Add($item)}
 }
 $runnerResult=& {
     $fakeModule=New-Module -ArgumentList $automationFixture -ScriptBlock {
@@ -278,6 +392,58 @@ Add-CheckResult -Name 'Echter Automationsrunner erzeugt bereinigtes JSON ohne im
     $runnerResult.Evaluation.Status -eq 'NEW' -and $runnerResult.IssueReceipt.Receipts[0].Status -eq 'NOT_EXECUTED' -and
     $runnerResult.IssueReceipt.IssueScope -eq ('own-'+('1'*32)) -and ($runnerResult | ConvertTo-Json -Depth 12) -notmatch 'SYNTHETIC_PRIVATE'
 )
+$runnerPublishResult=& {
+    $fakeModule=New-Module -ArgumentList $automationFixture -ScriptBlock {
+        param($Fixture)
+        $script:Fixture=$Fixture
+        function Get-LabResourceWatchConfiguration {[pscustomobject]@{CuVersions=@([pscustomobject]@{Version='2022'})}}
+        function Invoke-LabResourceWatchRefresh {$script:Fixture}
+    }
+    function Import-Module {param($Name,[switch]$Force,[switch]$PassThru,$ErrorAction);$fakeModule}
+    # Execute the complete real runner; replace only its source-reader module and API transport.
+    $runnerTools=Join-Path $repoRoot 'Tools'
+    $runnerCode=(Get-Content (Join-Path $runnerTools 'Invoke-VersionCatalogResourceWatch.ps1') -Raw).Replace('$PSScriptRoot','$runnerTools')
+    $loader=". (Join-Path `$runnerTools 'Common/VersionCatalogResourceWatchAutomation.ps1')"
+    $runnerCode=$runnerCode.Replace($loader,($loader+"`nfunction Invoke-LabResourceWatchGitHubApi {param(`$Method,`$Path,`$Body,`$Clock); & `$fixtureApi `$Method `$Path `$Body}"))
+    & ([scriptblock]::Create($runnerCode)) -PublishIssues -WhatIf -AsJson -IssueScope ('own-'+('e'*32)) -AcceptanceResourceId sqlpackage | ConvertFrom-Json -Depth 12
+}
+Add-CheckResult -Name 'Tatsächlicher Runner bindet Own-Auswahl an Konfiguration und Git-Head bevor synthetische Issuevorschau' -Success (
+    $runnerPublishResult.Evaluation.Findings.Count -eq 2 -and $runnerPublishResult.IssueReceipt.AcceptanceResourceId -ceq 'sqlpackage' -and
+    $runnerPublishResult.IssueReceipt.PublicationHead -cmatch '^[a-f0-9]{40}$' -and $runnerPublishResult.IssueReceipt.PublishWriteAttempts -eq 0 -and
+    $runnerPublishResult.IssueReceipt.Receipts[0].Status -ceq 'NOT_EXECUTED')
+$runnerContinuationResult=& {
+    $fakeModule=New-Module -ArgumentList (Copy-AutomationFixture) -ScriptBlock {
+        param($Fixture)
+        $script:Fixture=$Fixture
+        function Get-LabResourceWatchConfiguration {[pscustomobject]@{CuVersions=@([pscustomobject]@{Version='2022'})}}
+        function Invoke-LabResourceWatchRefresh {$script:Fixture}
+    }
+    function Import-Module {param($Name,[switch]$Force,[switch]$PassThru,$ErrorAction);$fakeModule}
+    $runnerTools=Join-Path $repoRoot 'Tools'
+    $runnerCode=(Get-Content (Join-Path $runnerTools 'Invoke-VersionCatalogResourceWatch.ps1') -Raw).Replace('$PSScriptRoot','$runnerTools')
+    $loader=". (Join-Path `$runnerTools 'Common/VersionCatalogResourceWatchAutomation.ps1')"
+    $runnerCode=$runnerCode.Replace($loader,($loader+"`nfunction Invoke-LabResourceWatchGitHubApi {param(`$Method,`$Path,`$Body,`$Clock); & `$fixtureApi `$Method `$Path `$Body}"))
+    $runnerScript=[scriptblock]::Create($runnerCode)
+    $scope='own-'+('f'*32);$before=$fixtureStore.Writes
+    $directory=Join-Path (Join-Path $repoRoot '.artifacts/test-runs') ('resourceWatchContinuation-'+[guid]::NewGuid().ToString('N'))
+    $receiptPath=Join-Path $directory 'receipt.json'
+    try{
+        New-Item -ItemType Directory -Path $directory -ErrorAction Stop | Out-Null
+        $initial=& $runnerScript -PublishIssues -AsJson -IssueScope $scope -AcceptanceResourceId sqlpackage | ConvertFrom-Json -Depth 12
+        $initial.IssueReceipt | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $receiptPath -Encoding utf8
+        & $fakeModule {$script:Fixture.CheckedAtUtc='2026-02-01T00:00:00Z'}
+        $next=& $runnerScript -PublishIssues -AsJson -IssueScope $scope -AcceptanceResourceId sqlpackage -ContinuationReceiptPath $receiptPath | ConvertFrom-Json -Depth 12
+        [pscustomobject]@{Initial=$initial;Continued=$next;Writes=($fixtureStore.Writes-$before)}
+    }finally{
+        if(Test-Path -LiteralPath $receiptPath){Remove-Item -LiteralPath $receiptPath -ErrorAction Stop}
+        if(Test-Path -LiteralPath $directory){Remove-Item -LiteralPath $directory -ErrorAction Stop}
+    }
+}
+Add-CheckResult -Name 'Tatsächlicher ganzer Runner nimmt JSON-Receiptdatei bei frischer Checkzeit ohne zweiten Write wieder auf' -Success (
+    $runnerContinuationResult.Initial.IssueReceipt.Receipts[0].Status -ceq 'PUBLISHED' -and
+    $runnerContinuationResult.Continued.IssueReceipt.Receipts[0].Status -ceq 'DEDUPLICATED' -and
+    -not $runnerContinuationResult.Continued.IssueReceipt.NotificationFailed -and $runnerContinuationResult.Writes -eq 1 -and
+    $runnerContinuationResult.Initial.Evaluation.CheckedAtUtc -cne $runnerContinuationResult.Continued.Evaluation.CheckedAtUtc)
 $workflow=Get-Content (Join-Path $repoRoot '.github/workflows/sql-cu-monthly-monitor.yml') -Raw
 Add-CheckResult -Name 'Automationsausbau erhält einzigen Monatscron, Serialisierung und Repo-Issuekanal' -Success (
     $workflow.Contains("cron: '0 6 1 * *'") -and $workflow.Contains('group: sql-server-lab-cu-monthly-watch') -and
@@ -289,24 +455,31 @@ $stepCode=$stepMatch.Groups['code'].Value -replace '(?m)^          ',''
 $stepCode=$stepCode.Replace('& ./Tools/Invoke-VersionCatalogResourceWatch.ps1 @arguments','$fixtureResult')
 $workflowRoot=Join-Path (Join-Path $repoRoot '.artifacts/test-runs') ('resourceWatchWorkflow-'+[guid]::NewGuid().ToString('N'))
 $previousEnvironment=@{}
-foreach($name in @('RUNNER_TEMP','GITHUB_OUTPUT','GITHUB_STEP_SUMMARY','GITHUB_EVENT_NAME','RESOURCE_WATCH_FIXTURE_SCOPE')){$previousEnvironment[$name]=[Environment]::GetEnvironmentVariable($name)}
+foreach($name in @('RUNNER_TEMP','GITHUB_OUTPUT','GITHUB_STEP_SUMMARY','GITHUB_EVENT_NAME','RESOURCE_WATCH_FIXTURE_SCOPE','RESOURCE_WATCH_FIXTURE_RESOURCE')){$previousEnvironment[$name]=[Environment]::GetEnvironmentVariable($name)}
 try{
     New-Item -ItemType Directory -Path $workflowRoot -ErrorAction Stop | Out-Null
     $env:RUNNER_TEMP=$workflowRoot;$env:GITHUB_OUTPUT=Join-Path $workflowRoot 'output.txt';$env:GITHUB_STEP_SUMMARY=Join-Path $workflowRoot 'summary.md'
-    $env:GITHUB_EVENT_NAME='workflow_dispatch';$env:RESOURCE_WATCH_FIXTURE_SCOPE=$ownScope
+    $env:GITHUB_EVENT_NAME='workflow_dispatch';$env:RESOURCE_WATCH_FIXTURE_SCOPE=$ownScope;$env:RESOURCE_WATCH_FIXTURE_RESOURCE='sqlpackage'
     $fixtureResult=[pscustomobject]@{Evaluation=$unclear;IssueReceipt=$unclearReceipt}
     . ([scriptblock]::Create($stepCode))
     $outputs=Get-Content -LiteralPath $env:GITHUB_OUTPUT -Raw
     $savedReceipt=Get-Content -LiteralPath (Join-Path $workflowRoot 'sql-cu-watch-receipt.json') -Raw | ConvertFrom-Json -Depth 12
     Add-CheckResult -Name 'Echte Workflow-PowerShell publiziert nur Report/Receipt und getrennte rote Check-/Noticeoutputs' -Success (
         $stepMatch.Success -and $outputs.Contains('check_failed=true') -and $outputs.Contains('notification_failed=false') -and $savedReceipt.CheckFailed -and
-        (Get-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Raw) -notmatch 'SYNTHETIC_PRIVATE' -and $arguments.IssueScope -ceq $ownScope
+        (Get-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Raw) -notmatch 'SYNTHETIC_PRIVATE' -and $arguments.IssueScope -ceq $ownScope -and $arguments.AcceptanceResourceId -ceq 'sqlpackage'
     )
     foreach($case in @('schedule','invalid')){
         $env:GITHUB_EVENT_NAME=if($case -eq 'schedule'){'schedule'}else{'workflow_dispatch'}
         $env:RESOURCE_WATCH_FIXTURE_SCOPE=if($case -eq 'schedule'){$ownScope}else{'SYNTHETIC_PRIVATE'}
         $caught='';try{. ([scriptblock]::Create($stepCode))}catch{$caught=$_.Exception.Message}
         Add-CheckResult -Name 'Scheduler verwendet keine Fixture ohne gültigen expliziten Dispatchscope' -Success ($caught -eq 'RESOURCE_WATCH_FIXTURE_SCOPE_INVALID')
+    }
+    foreach($case in @('missing','unknown-format','regular-with-selector')){
+        $env:GITHUB_EVENT_NAME='workflow_dispatch';$env:RESOURCE_WATCH_FIXTURE_SCOPE=$ownScope
+        $env:RESOURCE_WATCH_FIXTURE_RESOURCE=if($case -ceq 'missing'){''}else{'SYNTHETIC_PRIVATE'}
+        if($case -ceq 'regular-with-selector'){$env:RESOURCE_WATCH_FIXTURE_SCOPE='';$env:RESOURCE_WATCH_FIXTURE_RESOURCE='sqlpackage'}
+        $caught='';try{. ([scriptblock]::Create($stepCode))}catch{$caught=$_.Exception.Message}
+        Add-CheckResult -Name ('Tatsächlicher Dispatchblock lehnt fehlende/fremde Auswahl ab: '+$case) -Success ($caught -ceq 'RESOURCE_WATCH_FIXTURE_RESOURCE_INVALID')
     }
 }finally{
     foreach($name in $previousEnvironment.Keys){[Environment]::SetEnvironmentVariable($name,$previousEnvironment[$name])}

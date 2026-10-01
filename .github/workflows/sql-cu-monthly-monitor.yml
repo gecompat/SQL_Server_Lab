@@ -10,6 +10,11 @@ on:
         required: false
         default: ''
         type: string
+      acceptance_resource:
+        description: 'Own fixture only: exactly one current sql-cu-YYYY or sqlpackage resource; unknown writes require receipt-bound runner recovery, never a workflow retry'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -36,6 +41,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RESOURCE_WATCH_FIXTURE_SCOPE: ${{ inputs.acceptance_scope }}
+          RESOURCE_WATCH_FIXTURE_RESOURCE: ${{ inputs.acceptance_resource }}
         run: |
           $ErrorActionPreference = 'Stop'
           $arguments = @{ PublishIssues = $true }
@@ -44,6 +50,10 @@ jobs:
               throw 'RESOURCE_WATCH_FIXTURE_SCOPE_INVALID'
             }
             $arguments.IssueScope = $env:RESOURCE_WATCH_FIXTURE_SCOPE
+            if ($env:RESOURCE_WATCH_FIXTURE_RESOURCE -cnotmatch '^(sql-cu-\d{4}|sqlpackage)$') { throw 'RESOURCE_WATCH_FIXTURE_RESOURCE_INVALID' }
+            $arguments.AcceptanceResourceId = $env:RESOURCE_WATCH_FIXTURE_RESOURCE
+          } elseif (-not [string]::IsNullOrEmpty($env:RESOURCE_WATCH_FIXTURE_RESOURCE)) {
+            throw 'RESOURCE_WATCH_FIXTURE_RESOURCE_INVALID'
           }
           $result = & ./Tools/Invoke-VersionCatalogResourceWatch.ps1 @arguments
           $evaluation = $result.Evaluation

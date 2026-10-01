@@ -936,6 +936,11 @@ Der getrennte Automationsrunner ergänzt in derselben Monatslane genau SqlPackag
 mit bereinigtem Report, Ressourcen-/Revisionsdedupe und nachgelesenem Issue-
 Receipt. Cron und Concurrency bleiben erhalten. Eigene manuelle Abnahmeissues
 verwenden einen getrennten `own-`-Scope mit receiptgebundenem Close-Cleanup.
+Own-Veröffentlichung benötigt eine explizite tatsächliche Ressourcen-ID, zählt
+globale Fehler/Recovery und vorhandene Own-Identitäten mit und erlaubt höchstens
+ein unterschiedliches Issue und einen Publishwrite pro Aufruf. UNKNOWN wird nur
+receiptgebunden wiederaufgenommen; ohne frischen Marker kein neuer POST. Der
+vollständige Bericht und reguläre `catalog`-/Cronvertrag bleiben unverändert.
 Die echte Dispatch-/Issue-/Cronabnahme dieses Ausbaus ist noch nicht ausgeführt;
 weitere Familien und Benachrichtigungskanäle bleiben offen. Vertrag:
 [Resource-Watch-Automation](../Documentation/Architecture/RESOURCE_WATCH_AUTOMATION.md).

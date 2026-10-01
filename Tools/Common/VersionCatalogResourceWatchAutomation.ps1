@@ -88,6 +88,17 @@ function Get-LabResourceWatchIssueIdentity {
     [pscustomobject]@{IssueScope=$match.Groups['scope'].Value;ResourceId=$match.Groups['id'].Value;FindingKey=$match.Groups['key'].Value;Number=[long]$number;Body=$body;State=[string]$Issue.state;Url=[string]$Issue.html_url}
 }
 
+function Test-LabResourceWatchContinuationBody {
+    param([Parameter(Mandatory)]$Finding,[Parameter(Mandatory)][string]$Body,[Parameter(Mandatory)][string]$IssueScope)
+    # Checked time is not part of FindingKey. Rebuild canonical bytes at the original report time.
+    $times=[regex]::Matches($Body,'(?m)^- Geprüft am: (?<time>[^\r\n]+)$')
+    if($times.Count -ne 1 -or [regex]::Matches([string]$Finding.Report,'(?m)^- Geprüft am: [^\r\n]+$').Count -ne 1){return $false}
+    try{$time=ConvertTo-LabResourceWatchUtcTime $times[0].Groups['time'].Value}catch{return $false}
+    $copy=$Finding.PSObject.Copy()
+    $copy.Report=[regex]::Replace([string]$Finding.Report,'(?m)^- Geprüft am: [^\r\n]+$',('- Geprüft am: '+$time))
+    $Body -ceq (New-LabResourceWatchIssueBody $copy -IssueScope $IssueScope)
+}
+
 function Get-LabResourceWatchGitHubUri {
     param([Parameter(Mandatory)][string]$Path)
     if ($Path -cnotmatch '^repos/gecompat/SQL_Server_Lab/issues(?:\?state=all&per_page=100&page=[1-9]\d?|/[1-9]\d{0,9})?$') {throw 'RESOURCE_WATCH_ISSUE_TARGET_INVALID'}
@@ -131,9 +142,19 @@ function Invoke-LabResourceWatchGitHubApi {
 
 function Invoke-LabResourceWatchIssueProjection {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Evaluation,[scriptblock]$ApiAction,[switch]$WhatIf,[ValidatePattern('^(catalog|own-[a-f0-9]{32})$')][string]$IssueScope='catalog')
+    param([Parameter(Mandatory)]$Evaluation,[scriptblock]$ApiAction,[switch]$WhatIf,[ValidatePattern('^(catalog|own-[a-f0-9]{32})$')][string]$IssueScope='catalog',
+        [string]$AcceptanceResourceId,[string[]]$ExpectedId,[string]$PublicationHead,$ContinuationReceipt)
     $ErrorActionPreference='Stop'
     if($IssueScope -cnotmatch '^(catalog|own-[a-f0-9]{32})$'){throw 'RESOURCE_WATCH_ISSUE_SCOPE_INVALID'}
+    $own=$IssueScope -cne 'catalog'
+    if($own){
+        $ids=@($ExpectedId | Sort-Object -Unique)
+        if($AcceptanceResourceId -cnotmatch '^(sql-cu-\d{4}|sqlpackage)$' -or $AcceptanceResourceId -cnotin $ids -or
+            $ids.Count -lt 2 -or $ids.Count -ne $ExpectedId.Count -or 'sqlpackage' -cnotin $ids -or
+            @($ids | Where-Object {$_ -cmatch '^sql-cu-\d{4}$'}).Count -ne $ids.Count-1 -or $PublicationHead -cnotmatch '^[a-f0-9]{40}$'){
+            throw 'RESOURCE_WATCH_ISSUE_ACCEPTANCE_INVALID'
+        }
+    }elseif($AcceptanceResourceId -or $ExpectedId -or $PublicationHead -or $null -ne $ContinuationReceipt){throw 'RESOURCE_WATCH_ISSUE_ACCEPTANCE_INVALID'}
     if ($Evaluation.Contract -cne 'SqlServerLab.ResourceWatchAutomation/1.0' -or @($Evaluation.Findings).Count -eq 0) {throw 'RESOURCE_WATCH_ISSUE_EVALUATION_INVALID'}
     # Reconstruct the publication from validated fields; never trust caller-supplied Report text.
     if($Evaluation.ReasonCode -in @('RESOURCE_WATCH_COMPLETED','RESOURCE_WATCH_INCONCLUSIVE')){
@@ -141,12 +162,38 @@ function Invoke-LabResourceWatchIssueProjection {
             [pscustomobject]@{Id=$finding.ResourceId;CatalogVersion=$finding.CatalogVersion;ObservedVersion=$finding.ObservedVersion;SourceUrl=$finding.SourceUrl;Status=$finding.Status;ReasonCode=$finding.ReasonCode}
         })}
         $Evaluation=ConvertTo-LabResourceWatchAutomationReport -Result $result -ExpectedId @($Evaluation.Findings.ResourceId)
+        if($own -and (@($Evaluation.Findings.ResourceId | Sort-Object) -join '|') -cne ($ids -join '|')){throw 'RESOURCE_WATCH_ISSUE_ACCEPTANCE_INVALID'}
     }elseif($Evaluation.ReasonCode -in @('RESOURCE_WATCH_CHECK_FAILED','RESOURCE_WATCH_REPORT_FAILED') -and $Evaluation.CheckFailed -and $Evaluation.Status -eq 'UNCLEAR'){
         $code=[string]$Evaluation.ReasonCode
         try{$time=ConvertTo-LabResourceWatchUtcTime $Evaluation.CheckedAtUtc}catch{throw 'RESOURCE_WATCH_ISSUE_EVALUATION_INVALID'}
         $report="# Resource Watch – Prüfung fehlgeschlagen`n`n- Status: **UNCLEAR**`n- Geprüft am: $time`n- Fehlercode: $code`n- Keine Aktualitätsbestätigung.`n- Nächste Aktion: Prüflauf, Quelle und Katalog kontrollieren. Keine Rohdiagnosen veröffentlicht."
         $Evaluation=[pscustomobject]@{ReasonCode=$code;CheckedAtUtc=$time;CheckFailed=$true;Findings=@([pscustomobject]@{ResourceId='watch-check';FindingKey=(Get-LabResourceWatchDigest ('watch-check|'+$code));Status='UNCLEAR';Report=$report})}
     }else{throw 'RESOURCE_WATCH_ISSUE_EVALUATION_INVALID'}
+    $priorRows=@()
+    if($null -ne $ContinuationReceipt){
+        $prior=$ContinuationReceipt
+        if($prior.Contract -cne 'SqlServerLab.ResourceWatchIssueReceipt/1.0' -or $prior.Repository -cne 'gecompat/SQL_Server_Lab' -or
+            $prior.IssueScope -cne $IssueScope -or $prior.AcceptanceResourceId -cne $AcceptanceResourceId -or $prior.PublicationHead -cne $PublicationHead -or
+            $prior.ApiBoundary -cne $(if($ApiAction){'SYNTHETIC_ADAPTER'}else{'GITHUB_API'}) -or $prior.CheckFailed -isnot [bool] -or
+            $prior.NotificationFailed -isnot [bool] -or $prior.UnconfirmedWrite -isnot [bool] -or
+            ($prior.PublishWriteAttempts -isnot [int] -and $prior.PublishWriteAttempts -isnot [long]) -or $prior.PublishWriteAttempts -notin @(0,1) -or
+            $prior.Receipts -isnot [array] -or $prior.Receipts.Count -ne 1){throw 'RESOURCE_WATCH_ISSUE_CONTINUATION_INVALID'}
+        $priorRows=@($prior.Receipts)
+        $row=$priorRows[0]
+        if($row.ResourceId -cnotin @($AcceptanceResourceId,'watch-check') -or $row.Verified -isnot [bool] -or
+            $row.FindingKey -isnot [string] -or $row.FindingKey -cnotmatch '^[A-F0-9]{64}$' -or
+            $row.Status -cnotin @('PUBLISHED','DEDUPLICATED','RECOVERY_REQUIRED')){throw 'RESOURCE_WATCH_ISSUE_CONTINUATION_INVALID'}
+        if($row.Status -ceq 'RECOVERY_REQUIRED'){
+            if($row.Verified -or $null -ne $row.IssueNumber -or $null -ne $row.IssueUrl -or $null -ne $row.BodySha256 -or
+                -not $prior.UnconfirmedWrite -or $row.ReasonCode -cne 'RESOURCE_WATCH_ISSUE_WRITE_UNCONFIRMED'){throw 'RESOURCE_WATCH_ISSUE_CONTINUATION_INVALID'}
+        }elseif(-not $row.Verified -or ($row.IssueNumber -isnot [int] -and $row.IssueNumber -isnot [long]) -or
+            [string]$row.IssueNumber -cnotmatch '^[1-9]\d{0,9}$' -or $row.IssueUrl -cne ('https://github.com/gecompat/SQL_Server_Lab/issues/'+$row.IssueNumber) -or
+            $row.BodySha256 -cnotmatch '^[A-F0-9]{64}$' -or $row.ReasonCode -cne $(if($row.Status -ceq 'PUBLISHED'){'RESOURCE_WATCH_ISSUE_VERIFIED'}else{'RESOURCE_WATCH_ISSUE_ALREADY_RECORDED'})){
+            throw 'RESOURCE_WATCH_ISSUE_CONTINUATION_INVALID'
+        }
+        if($row.Status -cne 'RECOVERY_REQUIRED' -and $prior.UnconfirmedWrite){throw 'RESOURCE_WATCH_ISSUE_CONTINUATION_INVALID'}
+    }
+    $writeAttempts=0
     $clock=[Diagnostics.Stopwatch]::StartNew()
     $request={param($Method,$Path,$Body)
         if($ApiAction){$output=@(& $ApiAction $Method $Path $Body 2>&1 3>$null 4>$null 5>$null 6>$null)}else{$output=@(Invoke-LabResourceWatchGitHubApi -Method $Method -Path $Path -Body $Body -Clock $clock)}
@@ -180,6 +227,29 @@ function Invoke-LabResourceWatchIssueProjection {
             $recoveryReport="# Resource Watch – Prüfung wieder auswertbar`n`n- Status: **NO_CHANGE**`n- Geprüft am: $($Evaluation.CheckedAtUtc)`n- Nächste Aktion: Einzelbefunde prüfen; ein gegebenenfalls unklarer Einzelbefund bleibt offen."
             $findings+=[pscustomobject]@{ResourceId='watch-check';FindingKey=(Get-LabResourceWatchDigest 'watch-check|RECOVERED');Status='NO_CHANGE';Report=$recoveryReport}
         }
+        if($own){
+            $findings=@($findings | Where-Object {$_.ResourceId -ceq $AcceptanceResourceId -or $_.ResourceId -ceq 'watch-check'})
+            # Count every existing own identity, even when it is outside the selected resource.
+            $affected=@(@($existing.ResourceId)+@($priorRows.ResourceId)+@($findings | Where-Object {$_.Status -cne 'NO_CHANGE'} | ForEach-Object ResourceId) | Sort-Object -Unique)
+            if($affected.Count -gt 1){throw 'RESOURCE_WATCH_ISSUE_ACCEPTANCE_LIMIT'}
+            if($existing.Count -and $existing[0].ResourceId -cnotin @($findings.ResourceId)){throw 'RESOURCE_WATCH_ISSUE_ACCEPTANCE_LIMIT'}
+            # A no-notice row is not a second identity and must not hide global recovery.
+            if($affected.Count){$findings=@($findings | Where-Object ResourceId -ceq $affected[0])}
+            foreach($previous in $priorRows){
+                $matched=@($existing | Where-Object ResourceId -ceq $previous.ResourceId)
+                $expected=@($findings | Where-Object ResourceId -ceq $previous.ResourceId)
+                if($expected.Count -ne 1 -or $expected[0].FindingKey -cne $previous.FindingKey){throw 'RESOURCE_WATCH_ISSUE_CONTINUATION_INVALID'}
+                if($previous.Status -ceq 'RECOVERY_REQUIRED' -and $matched.Count -eq 0){
+                    $notificationFailed=$true;$receipts.Add($previous)
+                    $findings=@();break
+                }
+                if($matched.Count -ne 1 -or $matched[0].FindingKey -cne $previous.FindingKey -or
+                    -not (Test-LabResourceWatchContinuationBody $expected[0] $matched[0].Body $IssueScope) -or
+                    ($previous.Verified -and ($matched[0].Number -ne $previous.IssueNumber -or (Get-LabResourceWatchDigest $matched[0].Body) -cne $previous.BodySha256))){
+                    throw 'RESOURCE_WATCH_ISSUE_CONTINUATION_INVALID'
+                }
+            }
+        }
         foreach($finding in $findings){
             $resource=[string]$finding.ResourceId;$key=[string]$finding.FindingKey;$mutationAttempted=$false
             try {
@@ -206,6 +276,8 @@ function Invoke-LabResourceWatchIssueProjection {
                 }
                 $prefix=if($IssueScope -eq 'catalog'){'[Resource Watch] '}else{'[Resource Watch '+$IssueScope+'] '}
                 $payload=@{title=($prefix+$resource+' ['+$finding.Status+']');body=$body}
+                if($own -and $writeAttempts -ge 1){throw 'RESOURCE_WATCH_ISSUE_ACCEPTANCE_LIMIT'}
+                $writeAttempts++
                 $mutationAttempted=$true
                 if($current){$payload.state=$desired;$written=(& $request 'PATCH' ('repos/gecompat/SQL_Server_Lab/issues/'+$current.Number) $payload).Data}else{$payload.labels=@('cu-watch');$written=(& $request 'POST' 'repos/gecompat/SQL_Server_Lab/issues' $payload).Data}
                 if($null -eq $written -or $written -is [array]){throw 'RESOURCE_WATCH_ISSUE_WRITE_UNCONFIRMED'}
@@ -220,14 +292,22 @@ function Invoke-LabResourceWatchIssueProjection {
                 $notificationFailed=$true
                 $code=if($mutationAttempted){'RESOURCE_WATCH_ISSUE_WRITE_UNCONFIRMED'}elseif($_.Exception.Message -cmatch '^RESOURCE_WATCH_ISSUE_(BODY_CHANGED|IDENTITY_INVALID|LABEL_CHANGED|AMBIGUOUS|CHANGED|FINDING_INVALID|REQUEST_FAILED|HTTP_ERROR|TIMEOUT|AUTH_UNAVAILABLE|REDIRECT_REJECTED|RESPONSE_INVALID)$'){$_.Exception.Message}else{'RESOURCE_WATCH_ISSUE_REQUEST_FAILED'}
                 $receipts.Add([pscustomobject]@{ResourceId=$resource;FindingKey=$key;Status=$(if($mutationAttempted){'RECOVERY_REQUIRED'}else{'FAILED'});IssueNumber=$null;IssueUrl=$null;Verified=$false;ReasonCode=$code})
+                if($own -and $mutationAttempted){break}
             }
         }
     }catch{
         $notificationFailed=$true
-        $code=if($_.Exception.Message -cmatch '^RESOURCE_WATCH_ISSUE_(BODY_CHANGED|IDENTITY_INVALID|LABEL_CHANGED|AMBIGUOUS|LIST_INVALID|LIST_INCOMPLETE|REQUEST_FAILED|HTTP_ERROR|TIMEOUT|AUTH_UNAVAILABLE|REDIRECT_REJECTED|RESPONSE_INVALID)$'){$_.Exception.Message}else{'RESOURCE_WATCH_ISSUE_REQUEST_FAILED'}
+        $code=if($_.Exception.Message -cmatch '^RESOURCE_WATCH_ISSUE_(ACCEPTANCE_LIMIT|CONTINUATION_INVALID|BODY_CHANGED|IDENTITY_INVALID|LABEL_CHANGED|AMBIGUOUS|LIST_INVALID|LIST_INCOMPLETE|REQUEST_FAILED|HTTP_ERROR|TIMEOUT|AUTH_UNAVAILABLE|REDIRECT_REJECTED|RESPONSE_INVALID)$'){$_.Exception.Message}else{'RESOURCE_WATCH_ISSUE_REQUEST_FAILED'}
         $receipts.Add([pscustomobject]@{ResourceId='watch-check';FindingKey=$null;Status='FAILED';IssueNumber=$null;IssueUrl=$null;Verified=$false;ReasonCode=$code})
     }
-    [pscustomobject]@{Contract='SqlServerLab.ResourceWatchIssueReceipt/1.0';Repository='gecompat/SQL_Server_Lab';IssueScope=$IssueScope;ApiBoundary=$(if($ApiAction){'SYNTHETIC_ADAPTER'}else{'GITHUB_API'});NotificationFailed=$notificationFailed;CheckFailed=[bool]$Evaluation.CheckFailed;Receipts=@($receipts)}
+    $result=[pscustomobject]@{Contract='SqlServerLab.ResourceWatchIssueReceipt/1.0';Repository='gecompat/SQL_Server_Lab';IssueScope=$IssueScope;ApiBoundary=$(if($ApiAction){'SYNTHETIC_ADAPTER'}else{'GITHUB_API'});NotificationFailed=$notificationFailed;CheckFailed=[bool]$Evaluation.CheckFailed;Receipts=@($receipts)}
+    if($own){
+        $result | Add-Member AcceptanceResourceId $AcceptanceResourceId
+        $result | Add-Member PublicationHead $PublicationHead
+        $result | Add-Member PublishWriteAttempts $writeAttempts
+        $result | Add-Member UnconfirmedWrite (@($receipts | Where-Object Status -ceq 'RECOVERY_REQUIRED').Count -gt 0)
+    }
+    $result
 }
 
 function Close-LabResourceWatchIssueFixture {
@@ -257,7 +337,7 @@ function Close-LabResourceWatchIssueFixture {
                 'NO_NOTICE_NEEDED' {$row.ReasonCode -ceq 'RESOURCE_WATCH_ISSUE_NO_CHANGE'}
                 'NOT_EXECUTED' {$row.ReasonCode -ceq 'RESOURCE_WATCH_ISSUE_WHATIF'}
                 'RECOVERY_REQUIRED' {$row.ReasonCode -ceq 'RESOURCE_WATCH_ISSUE_WRITE_UNCONFIRMED'}
-                'FAILED' {$row.ReasonCode -cmatch '^RESOURCE_WATCH_ISSUE_(BODY_CHANGED|IDENTITY_INVALID|LABEL_CHANGED|AMBIGUOUS|CHANGED|FINDING_INVALID|LIST_INVALID|LIST_INCOMPLETE|REQUEST_FAILED|HTTP_ERROR|TIMEOUT|AUTH_UNAVAILABLE|REDIRECT_REJECTED|RESPONSE_INVALID)$'}
+                'FAILED' {$row.ReasonCode -cmatch '^RESOURCE_WATCH_ISSUE_(ACCEPTANCE_LIMIT|CONTINUATION_INVALID|BODY_CHANGED|IDENTITY_INVALID|LABEL_CHANGED|AMBIGUOUS|CHANGED|FINDING_INVALID|LIST_INVALID|LIST_INCOMPLETE|REQUEST_FAILED|HTTP_ERROR|TIMEOUT|AUTH_UNAVAILABLE|REDIRECT_REJECTED|RESPONSE_INVALID)$'}
             }
             if(-not $reasonValid){throw 'RESOURCE_WATCH_FIXTURE_RECEIPT_INVALID'}
         }

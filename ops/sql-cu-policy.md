@@ -108,6 +108,15 @@ rot; eine erfolgreiche Issueveröffentlichung heilt keinen Quellenfehler.
 
 Defaultscope ist `catalog`. Die optionale manuelle `workflow_dispatch`-Fixture
 nutzt ausschließlich `own-<32 kleine Hexzeichen>`, getrennte Marker und Receipts.
+Sie verlangt zusätzlich `acceptance_resource` mit genau einer tatsächlichen
+erwarteten Ressourcen-ID. Der vollständige Quellenbericht bleibt erhalten.
+Alle vorhandenen Own-Identitäten und globale `watch-check`-Fehler/Recovery zählen
+gegen die Grenze von einer unterschiedlichen Identität; höchstens ein POST/PATCH
+pro Publishaufruf ist erlaubt. Null Kandidaten ergeben `NO_NOTICE_NEEDED`.
+UNKNOWN beendet den Aufruf und verbietet Workflow-Retry; Fortsetzung erfolgt nur
+im vorhandenen Runner mit `ContinuationReceiptPath`, exakter Head-/Scope-/Befundbindung
+und frisch gefundenem Marker. Fehlt dieser, bleibt Recovery ohne neuen Create offen.
+Der reguläre `catalog`-Scope und Cron haben keine Ressourcenauswahl oder neue Grenze.
 Ihre tatsächliche Ausführung benötigt die konkrete Orchestratorfreigabe. Cleanup
 erfordert das exakte Receipt und erwarteten Own-Scope sowie frische Repo-/ID-/
 Marker-/FindingKey-Revalidierung. Es schließt eigene Issues und löscht nichts.
