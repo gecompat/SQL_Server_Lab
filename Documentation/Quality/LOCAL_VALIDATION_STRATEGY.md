@@ -89,7 +89,17 @@ CLI-Prüfung führt den echten Cursorrenderer mit synthetischen Tasten sowie den
 nummerierten Fallback aus: Rootdetails und Providerbefunde bleiben bestätigt
 lesbar, F5 liest erneut. Der Browsertest führt die echten Ereignishandler aus,
 einschließlich Vorschau, Abbruch, ungültig gewordener Eingaben und verspäteter
-Antworten. Schreibbarkeit und freie Kapazität werden nicht bestätigt.
+Antworten. `Fixtures/InitialSetupWriteabilityChecks.ps1` führt zusätzlich den
+echten Public-/Worker-Core auf einem eigenen temporären registrierten Windows-
+Root aus: Vorschau ohne Datei, Bestätigung, WhatIf, Byte/Flush, separate
+Abwesenheit, Replay, Kollision, Ablauf und Markerdrift. Der tatsächliche Worker
+blockiert Directoryrename und Junctionaustausch nach Open vor dem Bytewrite.
+Echte HTTP-Grenze und CLI-Cursor/Fallback prüfen Bestätigung und Abbruch; echte
+JS-Handler prüfen Vorschau, Eingabeänderung, Cancel und resultatsichtbares Apply.
+Nicht-Windows prüft die Plattformablehnung; die Windows-Dateisystemprobe bleibt
+dort `NOT_EXECUTED`. Freie Kapazität und SQL-/Providereignung werden dadurch
+nicht bestätigt. Kanonisch ausgewählte Runtime-Gates bleiben erforderlich;
+frühere SQL-Smokes sind kein Nachweis für einen neuen Source-Digest.
 
 Am 2026-09-28 bestand der getrennte Docker-SQL-2025-Core-Smoke 34 Prüfungen mit
 eigenem temporärem State-/Datenroot, globaler Testsperre und lokalem Rohlog.

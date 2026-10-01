@@ -274,8 +274,17 @@ ungültige registrierte Roots bleiben sichtbar. Complete beendet den Dialog
 nicht; registrierte Defaultwechsel werden angewendet und danach idempotent.
 Providerrefresh prüft ausdrücklich genau einen Provider strukturiert über den
 bestehenden Readinessvertrag. Erkennung überschreibt keine Providerbindung.
-Installation, Service-Start, freie Kapazität und Schreibbarkeitsprobe bleiben
-Folgearbeit innerhalb derselben IDs; Schreibbarkeit wird nicht behauptet.
+Ein enger zusätzlicher Slice bietet eine explizite Schreibprobe über
+`Private/InitialSetupWriteability.ps1` und den isolierten
+`Tools/Invoke-InitialSetupWriteProbe.ps1`: genau eine vorhandene registrierte
+Location, serverseitige Vorschau, Abbruch ohne Probe, bewusste Bestätigung,
+frische Ownership-/Volume-/Ancestorbindung und eigenes Byte/Flush mit
+begrenzter unabhängiger Abwesenheitsprüfung. Windows Fixed NTFS/ReFS ist die
+ausdrückliche Grenze; Lesen behauptet weiterhin keine Schreibbarkeit. CLI und
+Browser binden denselben Workflow-Core. Installation, Service-Start und freie
+Kapazität bleiben Folgearbeit innerhalb derselben IDs. Isolierte Prüfungen
+sind keine SQL- oder Providerabnahme; ausgewählte Runtime-Gates bleiben offen
+bis zu ihrer tatsächlichen Ausführung.
 
 Abnahme: Container-only ohne Hyper-V-Zwang, Vorschau/Abbruch ohne neue Ordner,
 wiederholtes Apply als No-op, bestehende Roots und Bindungen nach

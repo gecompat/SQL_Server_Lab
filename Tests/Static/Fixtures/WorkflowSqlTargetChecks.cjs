@@ -23,6 +23,7 @@ class Element {
   closest(selector) { return this.id === 'jobs' && selector === '.panel' ? workspaceElements.find((item) => item.dataset.workspaceArea === 'messages') : null; }
   scrollIntoView() { this.scrolled = true; }
   querySelectorAll(selector) {
+    if (this.id === 'initial-setup-dialog' && selector === '[value="cancel"]') return [nodes.get('initial-setup-close'), nodes.get('initial-setup-close-bottom')];
     return this.id === 'container-operation-dialog' && selector === 'input[type="password"]'
       ? [nodes.get('container-operation-password')] : [];
   }
@@ -341,15 +342,16 @@ async function main() {
   });
   const setupState = { ConfigurationStatus: 'READY', Complete: true, MediaRootValid: true, MediaRoot: '/synthetic/Lab_Base',
     MediaRootCandidates: [{ Path: '<invalid>', Source: 'ProcessEnvironment', Status: 'ROOT_NOT_FOUND', Selected: false }, { Path: '/synthetic/Lab_Base', Source: 'ProjectPreference', Status: 'READY', Selected: true }],
-    LocationStatus: [{ LabDataRoot: '/synthetic/Lab_Data', Source: 'StorageConfiguration', Status: 'READY', IsDefault: true }, { LabDataRoot: '<missing>', Source: 'StorageConfiguration', Status: 'ROOT_NOT_FOUND' }],
+    LocationStatus: [{ LocationId: '11111111-1111-1111-1111-111111111111', LabDataRoot: '/synthetic/Lab_Data', Source: 'StorageConfiguration', Status: 'READY', IsDefault: true }, { LabDataRoot: '<missing>', Source: 'StorageConfiguration', Status: 'ROOT_NOT_FOUND' }],
     DefaultLocation: { LabDataRoot: '/synthetic/Lab_Data' } };
   const setupPlan = { ContractVersion: 'SqlServerLab.InitialSetupPlan/1.0', MediaAction: null, LocationActions: [{ LabDataRoot: '/synthetic/second_Data' }], DefaultDataRoot: '/synthetic/second_Data', IsNoOp: false };
   const setupRequests = [];
+  const writePlan = { PlanId: '22222222-2222-2222-2222-222222222222', LocationId: '11111111-1111-1111-1111-111111111111', ExpiresAt: '2099-01-01T00:00:00Z', MaximumSeconds: 39, Notice: 'SYNTHETIC_PREVIEW' };
   context.fetch = async (url, options) => {
     assert.equal(url, '/api/initial-setup');
     const payload = options?.body ? JSON.parse(options.body) : null;
     setupRequests.push(payload);
-    return { ok: true, json: async () => ({ Result: payload?.action === 'PlanInitialSetup' ? setupPlan : payload?.action === 'RefreshSetupProvider' ? { Provider: 'podman', Check: { Status: 'BLOCKED', Code: 'PROVIDER_UNREACHABLE' } } : setupState }) };
+    return { ok: true, json: async () => ({ Result: payload?.action === 'PlanInitialSetup' ? setupPlan : payload?.action === 'PlanSetupWriteability' ? writePlan : payload?.action === 'ProbeSetupWriteability' ? { Status: 'WRITABLE', OwnLeafAbsent: true, Notice: 'SYNTHETIC_MOMENTARY' } : payload?.action === 'RefreshSetupProvider' ? { Provider: 'podman', Check: { Status: 'BLOCKED', Code: 'PROVIDER_UNREACHABLE' } } : setupState }) };
   };
   const setupClick = async (id) => { for (const handler of node(id).events.get('click') || []) await handler({}); };
   const setupPreview = async () => { for (const handler of node('initial-setup-form').events.get('submit') || []) await handler({ preventDefault() {} }); };
@@ -396,6 +398,60 @@ async function main() {
     assert.deepEqual(setupRequests.at(-1), { action: 'RefreshSetupProvider', parameters: { SetupProvider: 'podman' } });
     assert.ok(node('initial-setup-provider-status').textContent.includes('PROVIDER_UNREACHABLE'));
   });
+  const writeQueueCount = context.queued.length;
+  node('initial-setup-write-location').value = writePlan.LocationId;
+  await setupClick('initial-setup-write-preview');
+  const writePreviewCount = setupRequests.length;
+  await setupClick('initial-setup-write-apply');
+  check('Real write preview binds stable location and unchecked confirmation never dispatches', () => {
+    assert.deepEqual(setupRequests.at(-1), { action: 'PlanSetupWriteability', parameters: { SetupLocationId: writePlan.LocationId } });
+    assert.equal(setupRequests.length, writePreviewCount);
+    assert.equal(node('initial-setup-write-apply').disabled, true);
+  });
+  node('initial-setup-dialog').close();
+  node('initial-setup-write-confirm').checked = true;
+  await setupClick('initial-setup-write-apply');
+  check('Closing a write preview discards authority and makes no write request', () => assert.equal(setupRequests.length, writePreviewCount));
+  await setupClick('configuration-storage');
+  node('initial-setup-write-location').value = writePlan.LocationId;
+  await setupClick('initial-setup-write-preview');
+  node('initial-setup-write-confirm').checked = true;
+  for (const handler of node('initial-setup-default').events.get('input')) handler({});
+  const editedCount = setupRequests.length;
+  await setupClick('initial-setup-write-apply');
+  check('Editing setup invalidates write preview and its explicit confirmation', () => { assert.equal(setupRequests.length, editedCount); assert.equal(node('initial-setup-write-confirm').checked, false); });
+  await setupClick('initial-setup-write-preview');
+  node('initial-setup-write-confirm').checked = true;
+  await setupClick('initial-setup-write-apply');
+  check('Real write Apply sends only server plan ID and boolean confirmation and keeps result visible', () => {
+    assert.deepEqual(setupRequests.at(-1), { action: 'ProbeSetupWriteability', parameters: { SetupWriteabilityPlanId: writePlan.PlanId, ConfirmWriteability: true } });
+    assert.ok(node('initial-setup-write-result').textContent.includes('WRITABLE'));
+    assert.ok(node('initial-setup-write-result').textContent.includes('true'));
+    assert.equal(node('initial-setup-write-confirm').checked, false);
+    assert.equal(context.queued.length, writeQueueCount);
+  });
+  await setupClick('initial-setup-write-preview');
+  node('initial-setup-write-confirm').checked = true;
+  let releaseWrite;
+  const priorFetch = context.fetch;
+  context.fetch = () => new Promise(resolve => { releaseWrite = resolve; });
+  const runningWrite = setupClick('initial-setup-write-apply');
+  check('In-flight explicit write locks close buttons and Escape until own cleanup result', () => {
+    assert.equal(node('initial-setup-close').disabled, true);
+    assert.equal(node('initial-setup-close-bottom').disabled, true);
+    let prevented = false;
+    for (const handler of node('initial-setup-dialog').events.get('cancel')) handler({ preventDefault() { prevented = true; } });
+    assert.equal(prevented, true);
+    assert.equal(node('initial-setup-write-location').disabled, true);
+  });
+  releaseWrite({ ok: false });
+  await runningWrite;
+  check('Lost write response displays unconfirmed own cleanup without automatic retry', () => {
+    assert.ok(node('initial-setup-write-result').textContent.includes('nicht bestätigt'));
+    assert.equal(node('initial-setup-close').disabled, false);
+    assert.equal(node('initial-setup-write-apply').disabled, true);
+  });
+  context.fetch = priorFetch;
   context.fetch = async () => ({ ok: false, text: async () => 'synthetic-private-host' });
   await setupPreview();
   check('Setup request failure invalidates Apply and never displays raw server diagnostics', () => {

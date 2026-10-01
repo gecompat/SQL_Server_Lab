@@ -348,6 +348,8 @@ try {
     Add-CheckResult -Name 'Wizard nutzt den gemeinsamen abbrechbaren Eingabeadapter' -Success (
         $setupText -match 'Read-LabConsoleTextInput' -and $setupText -notmatch 'Read-Host'
     )
+    & (Join-Path $PSScriptRoot 'Fixtures/InitialSetupWriteabilityChecks.ps1')
+    Add-CheckResult -Name 'Explizite Schreibprobe: gemeinsamer Core, HTTP, CLI und eigene Dateisystemguards' -Success $true
 }
 catch { Add-CheckResult -Name 'Initial-Setup-Testausfuehrung' -Success $false -Message $_.Exception.Message }
 finally {

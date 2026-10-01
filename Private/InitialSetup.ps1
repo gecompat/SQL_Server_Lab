@@ -247,6 +247,7 @@ function Invoke-LabInitialSetupInteractive {
         $items = @(
             New-LabConsoleItem -Id 'Configure' -Label 'Fehlende Roots ergänzen / globalen Standard wählen' -Shortcut '1'
             New-LabConsoleItem -Id 'Provider' -Label 'Einen Provider ausdrücklich erneut prüfen' -Shortcut '2'
+            New-LabConsoleItem -Id 'Writeability' -Label 'Eine registrierte Lab_Data-Location auf Schreibbarkeit prüfen' -Shortcut '3'
             New-LabConsoleItem -Id 'root-status' -Label "Grundkonfiguration: $($state.ConfigurationStatus)" `
                 -Value "Vollständig=$($state.Complete); Schreibbarkeit ungeprüft" `
                 -Data "Grundkonfiguration: $($state.ConfigurationStatus); Vollständig=$($state.Complete); Schreibbarkeit ungeprüft."
@@ -279,6 +280,21 @@ function Invoke-LabInitialSetupInteractive {
                 Write-LabInfo "$($result.Provider): $($result.Check.Status) | $($result.Check.Code) | $($result.Check.NextStep)"
                 Wait-LabConsoleAcknowledgement
             }
+            continue
+        }
+        if ($choice.SelectedItem.Id -eq 'Writeability') {
+            $locations = @($state.LocationStatus | Where-Object Status -EQ 'READY' | ForEach-Object {
+                New-LabConsoleItem -Id $_.LocationId -Label ([string]$_.LabDataRoot) -Value 'registrierte Location' -Data $_.LocationId
+            })
+            if (-not $locations.Count) { Write-LabWarning 'Keine gültige registrierte Location vorhanden.'; Wait-LabConsoleAcknowledgement; continue }
+            $selection = Invoke-LabConsoleMenu -ScreenId 'initial-setup-writeability' -Title 'Genau eine Location wählen (Windows, lokales NTFS/ReFS)' -Items $locations
+            if ($selection.Status -ne 'Selected') { continue }
+            $plan = (Invoke-SqlServerLabWorkflowAction -Action PlanSetupWriteability -SetupLocationId ([string]$selection.SelectedItem.Data)).Result
+            Write-LabInfo "$($plan.Notice) | LocationId=$($plan.LocationId) | Gültig bis=$($plan.ExpiresAt) | Höchstens $($plan.MaximumSeconds) Sekunden"
+            if (-not (Read-LabConfirm -Prompt '  Diese Vorschau jetzt revalidieren und genau ein Byte schreiben?' -Default $false)) { continue }
+            $result = (Invoke-SqlServerLabWorkflowAction -Action ProbeSetupWriteability -SetupWriteabilityPlanId $plan.PlanId -ConfirmWriteability).Result
+            Write-LabInfo "$($result.Status) | $($result.PrimaryCode) | $($result.CleanupCode) | Eigene Datei abwesend=$($result.OwnLeafAbsent) | $($result.Notice)"
+            Wait-LabConsoleAcknowledgement
             continue
         }
         if ($choice.SelectedItem.Id -ne 'Configure') { continue }

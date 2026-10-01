@@ -781,8 +781,16 @@ registrierte Lab_Data-Einträge einschließlich fehlender oder ungültiger Roots
 CLI und Browser ergänzen fehlende Roots über denselben Vorschau-/Apply-Core,
 unterstützen mehrere unterschiedliche Volumes und verlangen eine ausdrückliche
 Default-Auswahl. Complete beendet den CLI-Dialog nicht; ein Wechsel auf einen
-bereits registrierten Default ist kein No-op. Schreibbarkeit und freie
-Kapazität bleiben in diesem Dialog ungeprüft. Providerrefresh liest nur den
+bereits registrierten Default ist kein No-op. Lesen behauptet keine Schreibbarkeit.
+Eine ausdrückliche Schreibprobe unterstützt genau eine registrierte Location auf
+einem lokalen festen Windows-NTFS/ReFS-Volume; UNC, Reparsepfade und andere
+Dateisysteme bleiben gesperrt. Sie bestätigt nur eine Momentaufnahme mit einem
+Byte, keine Kapazitäts-, SQL- oder Providerabnahme. Vorschau gilt fünf Minuten
+in derselben Modulsitzung, ist einmalig und verlangt bewusste Bestätigung.
+Verzeichnis-/Markerhandles schützen Namen während CreateNew, Flush und eigener
+DeleteOnClose-Bereinigung; dies behauptet keine portable atomare Directory-ID-
+Bindung. Separate begrenzte Abwesenheitsprüfung schlägt bei Drift geschlossen
+fehl und entfernt niemals eine Datei per Pfad. Providerrefresh liest nur den
 explizit gewählten Provider; Installation, Start und Bindingänderungen gehören
 nicht dazu. Gültige Media-Roots werden hier nicht ersetzt. Einen nichtleeren, noch nicht
 controllergebundenen `Lab_Data`-Ordner übernimmt er bewusst nicht automatisch;

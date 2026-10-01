@@ -665,8 +665,8 @@
   </dialog>
   <dialog id="initial-setup-dialog">
     <div class="read-only-dialog-content">
-      <div class="dialog-heading"><h2>SQL-Lab-Grundkonfiguration</h2><button type="button" class="icon-button" value="cancel" aria-label="Schließen">×</button></div>
-      <p class="form-note">Vorhandene Daten und Bindungen bleiben erhalten. Ein neuer globaler Standard gilt für künftige Vorgänge. Schreibbarkeit wird hier nicht geprüft. Lab_Data umfasst Hostkatalog und Austausch; native Containerdaten können in Runtime-Volumes liegen.</p>
+      <div class="dialog-heading"><h2>SQL-Lab-Grundkonfiguration</h2><button id="initial-setup-close" type="button" class="icon-button" value="cancel" aria-label="Schließen">×</button></div>
+      <p class="form-note">Vorhandene Daten und Bindungen bleiben erhalten. Ein neuer globaler Standard gilt für künftige Vorgänge. Roots lesen führt keine Schreibprobe aus. Lab_Data umfasst Hostkatalog und Austausch; native Containerdaten können in Runtime-Volumes liegen.</p>
       <p id="initial-setup-status" role="status" aria-live="polite"></p>
       <div id="initial-setup-roots" class="selection-details"></div>
       <form id="initial-setup-form">
@@ -678,10 +678,18 @@
       <div id="initial-setup-plan" class="selection-details" hidden></div>
       <button id="initial-setup-apply" type="button" class="button primary" disabled>Angezeigten Plan revalidieren und anwenden</button>
       <hr>
+      <label>Registrierte Lab_Data-Location<select id="initial-setup-write-location" disabled></select></label>
+      <p class="form-note">Explizite Momentaufnahme: Windows, lokales festes NTFS/ReFS-Volume. Eine eigene temporäre Datei mit einem Byte schreiben, flushen und bereinigen; keine Kapazitäts-, SQL- oder Providerabnahme.</p>
+      <button id="initial-setup-write-preview" type="button" class="button secondary" disabled>Schreibprobe vorschauen</button>
+      <p id="initial-setup-write-plan" role="status">Keine Schreibprobe geplant.</p>
+      <label><input id="initial-setup-write-confirm" type="checkbox" disabled>Diese angezeigte Schreibprobe ausdrücklich bestätigen</label>
+      <button id="initial-setup-write-apply" type="button" class="button primary" disabled>Bestätigte Schreibprobe ausführen</button>
+      <p id="initial-setup-write-result" role="status" aria-live="polite"></p>
+      <hr>
       <label>Provider<select id="initial-setup-provider"><option value="docker">Docker</option><option value="podman">Podman</option><option value="hyperv">Hyper-V</option></select></label>
       <p class="form-note">Prüft nur Installation und Erreichbarkeit der aktuellen Providerauswahl. Startet und installiert nichts; bestehende Runtimebindungen bleiben unverändert.</p>
       <p id="initial-setup-provider-status" role="status">Noch nicht geprüft.</p>
-      <div class="dialog-actions"><button type="button" class="button secondary" value="cancel">Schließen</button><button id="initial-setup-read" type="button" class="button secondary">Roots erneut lesen</button><button id="initial-setup-provider-refresh" type="button" class="button secondary">Gewählten Provider prüfen</button></div>
+      <div class="dialog-actions"><button id="initial-setup-close-bottom" type="button" class="button secondary" value="cancel">Schließen</button><button id="initial-setup-read" type="button" class="button secondary">Roots erneut lesen</button><button id="initial-setup-provider-refresh" type="button" class="button secondary">Gewählten Provider prüfen</button></div>
     </div>
   </dialog>
   <script src="app.js"></script>
