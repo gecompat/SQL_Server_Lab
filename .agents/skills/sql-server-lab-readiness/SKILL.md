@@ -26,3 +26,8 @@ Readiness itself performs no setup, runtime start, elevation or configuration
 write. Such follow-up work must be within the user's current request and the
 existing project contracts. Successful bootstrap does not replace the target's
 ownership, resources, cleanup and recovery checks.
+
+For an explicitly requested diagnostic handoff for one selected run and instance,
+use the [local diagnostic handoff](../../../Documentation/HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) through the existing public diagnostic API.
+Keep normal readiness use unchanged. Do not collect a bundle implicitly after
+a bootstrap failure or turn readiness into mutation authority.

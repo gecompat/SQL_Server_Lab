@@ -97,8 +97,14 @@ blockiert Directoryrename und Junctionaustausch nach Open vor dem Bytewrite.
 Echte HTTP-Grenze und CLI-Cursor/Fallback prüfen Bestätigung und Abbruch; echte
 JS-Handler prüfen Vorschau, Eingabeänderung, Cancel und resultatsichtbares Apply.
 Nicht-Windows prüft die Plattformablehnung; die Windows-Dateisystemprobe bleibt
-dort `NOT_EXECUTED`. Freie Kapazität und SQL-/Providereignung werden dadurch
-nicht bestätigt. Kanonisch ausgewählte Runtime-Gates bleiben erforderlich;
+dort `NOT_EXECUTED`. Diese Schreibprobe bestätigt keine freie Kapazität oder
+SQL-/Providereignung. `Fixtures/InitialSetupCapacityChecks.ps1` prüft den
+separaten read-only Capacity-Core: echte native Werteform ohne Rohwerte,
+synthetische Bindungsdrift vor/nach Lesen, nullable Fehler, echte isolierte
+Worker mit Resultat-/Zeitgrenzen sowie tatsächliche HTTP- und CLI-Grenzen.
+Die JS-Handler prüfen explizite Einzelauswahl und verwerfen verspätete Antworten.
+Neue Kapazitätsfixtures schreiben keine Dateien; die bestehende isolierte
+Schreibprobenregression bleibt ein eigener Nachweis. Kanonisch ausgewählte Runtime-Gates bleiben erforderlich;
 frühere SQL-Smokes sind kein Nachweis für einen neuen Source-Digest.
 
 Am 2026-09-28 bestand der getrennte Docker-SQL-2025-Core-Smoke 34 Prüfungen mit
@@ -2501,3 +2507,11 @@ bleibt erhalten und ein anderer Prozess kann beide Registrar-Sperren erneut
 erwerben, während der ursprüngliche Writer weiterlebt (Storage-Suite 16 PASS).
 Der unabhängige Nachreview schloss beide Lifecycle-/Cleanup-Korrekturen ohne
 weitere Findings. Rohlogs und Prozess-/Hostdaten bleiben ausschließlich lokal.
+
+## Optionaler CMS-Readonly-Inspektor
+
+Die Fixture CmsInspectionChecks wird durch Invoke-ConnectionCenterCmsChecks entdeckt. Notwendig sind tatsächliche PRE_SECRET_BARRIER-Fälle mit unverändertem Run/Runtime/Labels und verändertem Host/Port (SecretReads=0, SqlOpens=0), nullable/zero/feste DTO-Felder, aktuelle Bindung, eigener endlicher Worker, HTTP-Parametergrenzen, echter CLI-Einstieg/Cancel und JavaScript-Late-Response-/Cancel-Grenzen. Synthetische Grenzen führen keine Providerabfrage aus. Ausgewählte statische Suites und die tatsächlich gewählten Provider-Core-Gates bleiben erforderlich; vergangene B-/Capacity-Smokes decken diesen Source-Digest nicht ab. Eine allgemeine Docker-Core-Abnahme ist kein echter CMS-SQL-/SSMS-/Mitgliedsnachweis. Weitere Details im [CMS-Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).
+
+## Bewusster lokaler Operator-Handoff
+
+Der [kanonische Handoff](../HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.

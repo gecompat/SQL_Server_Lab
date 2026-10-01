@@ -117,7 +117,7 @@ Die SQL-seitige Verifikation bleibt offen.
 | `Get-SqlServerLabReconcilePlan` | `Get-SqlServerLabReconcilePlan.ps1` | Read-only Lifecycle-, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-Konfigurations-/Port-/Testdatenbank-, Containerressourcen-/Autostart- oder resolvergebundener External-Runtime-Reconcile-Plan einschließlich additiver Hyper-V-Gastinstallation |
 | `Invoke-SqlServerLabReconcileAction` | `Invoke-SqlServerLabReconcileAction.ps1` | `START`/`STOP`, eigentumsgebundene Hyper-V-Netzwerk-, Ressourcen-, Storage-, SQL- oder Testdatenbank-Aktionen, Container-Replacement sowie additive Hyper-V-External-Runtime-Aktionen mit Validierung, Recovery und `-WhatIf` ausführen |
 | `Move-SqlServerLabContainerNetwork` | `Move-SqlServerLabContainerNetwork.ps1` | Konfligierendes verwaltetes Docker- oder Podman-Labnetz nach expliziter Bestätigung auf ein automatisch geprüftes Subnetz verschieben; fremde Container bleiben unverändert |
-| `Invoke-SqlServerLabWorkflowAction` | `Invoke-SqlServerLabWorkflowAction.ps1` | Nicht interaktive, UI-taugliche Workflow-Aktion einschließlich Grundkonfiguration (Status, Plan, bestätigtes Apply, Providerrefresh und explizite Location-Schreibprobe) und Advisory-Slotreservepolicy (GetSlotReserveState, PlanSlotReserve, ApplySlotReserve mit ConfirmSlotReserve), getrenntem journalgebundenem Hyper-V-Datenbankpaket-Attach-Recovery und pfad-/secretfreier Container-Paket-Exportbindung |
+| `Invoke-SqlServerLabWorkflowAction` | `Invoke-SqlServerLabWorkflowAction.ps1` | Nicht interaktive, UI-taugliche Workflow-Aktion einschließlich Grundkonfiguration (Status, Plan, bestätigtes Apply, Providerrefresh, explizite Location-Schreibprobe und read-only Kapazitätsmomentaufnahme) und Advisory-Slotreservepolicy (GetSlotReserveState, PlanSlotReserve, ApplySlotReserve mit ConfirmSlotReserve), getrenntem journalgebundenem Hyper-V-Datenbankpaket-Attach-Recovery und pfad-/secretfreier Container-Paket-Exportbindung |
 | `New-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema-gesteuertes Manifest interaktiv oder aus einem Objekt erstellen |
 | `Test-SqlServerLabManifest` | `New-SqlServerLabManifest.ps1` | Schema, Kataloge und Runtime-Grenzen prüfen und eine mutationsfreie SQL-Lifecycle-, External-Runtime- und Sample-Planvorschau liefern |
 | `New-SqlServerLab` | `New-SqlServerLab.ps1` | Neue Umgebung ad hoc oder per Manifest erstellen; detached Docker-/Podman-Instanzstore optional per stabiler ID fortsetzen oder unabhängig klonen |
@@ -239,3 +239,7 @@ Modellaktionen bleiben separat offen.
 Der enge Windows-GuidedStop-Nachweis vom 2026-09-30 belegt ausschließlich
 synthetische native Prozessführung und bestätigten eigenen Cleanup.
 Siehe [Ownership- und Evidencegrenzen](../Documentation/Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+### Explizite CMS-Leseprüfung
+
+Invoke-SqlServerLabWorkflowAction -Action GetCmsInspectionState liest die bestehende Registrierung. InspectCms -ExpectedPlanKey <serverseitiger Schlüssel> prüft ausschließlich den zuvor ausgewählten eigenen CMS. Es gibt keine Caller-Host-/Secret-/SQL-Parameter oder automatische Synchronisation. Ergebnisse folgen [CmsInspection/1.0](../Documentation/Architecture/CMS_READONLY_INSPECTION.md); Hyper-V und SSMS-/Mitgliedsverbindungen sind nicht abgenommen.

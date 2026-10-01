@@ -6,7 +6,7 @@ Historischer State und Cleanupstatus sind keine SQL-Readiness oder aktuelle
 Restprüfung. Die isolierte Providerprobe verwendet den aktuellen Clientkontext;
 sie bestätigt keine historische Runtimebindung. Vollständige Client-Readiness
 mit globaler Storage-Konfiguration, Legacy-/freie StateRoots, genaue Fehlertexte,
-Spezialjournale, automatische Exporte und Operator-Integration bleiben außerhalb
+Spezialjournale und automatische Exporte bleiben außerhalb
 dieses Slices. [Vertrag und Grenzen](../Architecture/DIAGNOSTIC_BUNDLE.md).
 
 Die [SQL-2022-/SQL-2025-Upgrade-Referenz](SQL_VERSION_UPGRADE_REFERENCE.md)
@@ -782,6 +782,17 @@ CLI und Browser ergänzen fehlende Roots über denselben Vorschau-/Apply-Core,
 unterstützen mehrere unterschiedliche Volumes und verlangen eine ausdrückliche
 Default-Auswahl. Complete beendet den CLI-Dialog nicht; ein Wechsel auf einen
 bereits registrierten Default ist kein No-op. Lesen behauptet keine Schreibbarkeit.
+Eine ausdrückliche read-only Kapazitätsabfrage unterstützt genau eine frisch
+verifizierte registrierte Location auf lokalem Windows Fixed NTFS/ReFS.
+UNC, Reparse-/Foldermount-/subst-Pfade und nicht verifizierte Volume-IDs sind
+keine Kapazitätsautorität. Statuslesen misst nicht automatisch. AvailableFreeSpace
+bezeichnet den für diesen Zugriff verfügbaren Hostdatenträgerspeicher zu einem
+Zeitpunkt; unbekannt, unlesbar oder nicht unterstützt bleibt null statt null Byte.
+Der eigene Worker wartet höchstens 20 Sekunden, plus zwei Sekunden für sein
+Beenden. Readhandles und frische Revalidierung behaupten keine portable atomare
+physische Directory-ID. Native Container-Volumes, Reservierung, Schreibbarkeit
+und SQL-Eignung sind keine Folgerung aus dieser Momentaufnahme.
+
 Eine ausdrückliche Schreibprobe unterstützt genau eine registrierte Location auf
 einem lokalen festen Windows-NTFS/ReFS-Volume; UNC, Reparsepfade und andere
 Dateisysteme bleiben gesperrt. Sie bestätigt nur eine Momentaufnahme mit einem
@@ -2861,3 +2872,12 @@ anschließend bestätigtem eigenen Worker-/Kind-/Key-/Nachbar-Cleanup. Das beleg
 native Prozessführung im engen Scope, keine echte Modellinferenz, Compute-,
 SQL- oder Providerabnahme und keine vollständige Live-Verbraucherinventur.
 Siehe [Ownershipvertrag](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+## Registrierter CMS: begrenzte Leseprüfung
+
+Der optionale gemeinsame CLI-/GUI-Inspektor liest nur den explizit ausgewählten bestehenden CMS und markierte msdb-Zähler. Hyper-V ist ohne nicht reparierende native Probe nicht unterstützt. Counts beweisen weder Hierarchiekonsistenz noch Synchronisationsfrische, Mitgliedszugriffe oder SSMS. Frische Datei-/Runtime-/Portchecks sind keine atomare physische Endpointbindung. Reale CMS-SQL-/Authnachweise sind getrennt von Offline- und allgemeinen Core-Smokes; siehe [Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).
+Ein privater abweichender StateRoot im bisherigen CMS-Menü erhält keine Freigabe für die neue aktive-Registrierungsprüfung; es gibt keine implizite Umleitung auf einen anderen CMS.
+
+## Bewusster lokaler Operator-Handoff
+
+Der [kanonische Handoff](../HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.

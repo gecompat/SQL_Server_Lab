@@ -290,6 +290,11 @@ sources_of_truth:
   manifest_resolution: Private/ManifestParser.ps1
   manifest_builder_validation: Private/ManifestBuilder.ps1
   connection_center_cms: Public/Sync-SqlServerLabConnectionCenter.ps1
+  cms_readonly_inspection: Private/CmsInspection.ps1
+  cms_readonly_worker: Tools/Read-CmsInspection.ps1
+  cms_readonly_contract: Documentation/Architecture/CMS_READONLY_INSPECTION.md
+  cms_readonly_fixture: Tests/Static/Fixtures/CmsInspectionChecks.ps1
+  cms_readonly_worker_fixture: Tests/Static/Fixtures/CmsInspectionWorker/Tools/Read-CmsInspection.ps1
   validation_connection_center_cms: Tests/Static/Invoke-ConnectionCenterCmsChecks.ps1
   sql_versions: Catalogs/sql-server-versions.json
   sample_databases: Catalogs/sample-databases.json
@@ -467,6 +472,9 @@ sources_of_truth:
   port_allocation_contract: Private/PortAllocation.ps1
   storage_contract: Private/StorageContract.ps1
   initial_setup_contract: Private/InitialSetup.ps1
+  initial_setup_capacity_contract: Private/InitialSetupCapacity.ps1
+  initial_setup_capacity_worker: Tools/Read-InitialSetupCapacity.ps1
+  validation_initial_setup_capacity: Tests/Static/Fixtures/InitialSetupCapacityChecks.ps1
   initial_setup_writeability_contract: Private/InitialSetupWriteability.ps1
   initial_setup_writeability_worker: Tools/Invoke-InitialSetupWriteProbe.ps1
   validation_initial_setup_writeability: Tests/Static/Fixtures/InitialSetupWriteabilityChecks.ps1
@@ -600,6 +608,9 @@ sources_of_truth:
   repository_readiness_skill: .agents/skills/sql-server-lab-readiness/SKILL.md
   repository_validation_skill: .agents/skills/sql-server-lab-validation/SKILL.md
   repository_operate_skill: .agents/skills/sql-server-lab-operate/SKILL.md
+  operator_agent: .github/agents/sql-server-lab-operator.agent.md
+  operator_diagnostic_handoff: Documentation/HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md
+  validation_operator_diagnostic_handoff: Tests/Static/Fixtures/OperatorDiagnosticHandoffChecks.ps1
   validation_repository_skills: Tests/Static/Invoke-SkillChecks.ps1
   polybase_s3_object_storage_backlog: Documentation/Project_Planning/POLYBASE_S3_OBJECT_STORAGE_BACKLOG.md
   sql2025_ai_platform_backlog: Documentation/Project_Planning/SQL2025_AI_PLATFORM_BACKLOG.md

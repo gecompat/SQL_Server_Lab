@@ -127,6 +127,7 @@
     <section class="panel" data-workspace-area="connections" hidden>
       <h2>Verbindungen und CMS</h2>
       <p>Endpunkte aus derselben registrierten Lab-Ansicht; Anzeige ist kein Verbindungstest. CMS-Einrichtung und Synchronisation sind in der Konsole geführt verfügbar. Ein vollständiger CMS-Fachdialog im Browser bleibt offen.</p>
+      <button id="cms-inspection-open" class="button secondary">Registrierten CMS lesend prüfen</button>
       <div id="connection-endpoints" class="list"></div>
     </section>
     <section class="panel" data-workspace-area="configuration" hidden>
@@ -617,6 +618,18 @@
     </div>
   </dialog>
 
+  <dialog id="cms-inspection-dialog">
+    <form method="dialog">
+      <h2>Registrierten CMS lesend prüfen</h2>
+      <p>Diese Prüfung liest nur den bereits verwalteten CMS. Sie richtet nichts ein und synchronisiert keine Server. Mitgliedsverbindungen und SSMS-Zugriff bleiben ungeprüft.</p>
+      <p id="cms-inspection-status" role="status"></p>
+      <p id="cms-inspection-target"></p>
+      <p id="cms-inspection-result"></p>
+      <button id="cms-inspection-read" type="button" class="button secondary">Registrierung erneut lesen</button>
+      <button id="cms-inspection-check" type="button" class="button primary">Diesen CMS jetzt prüfen</button>
+      <button id="cms-inspection-close" type="button" class="button secondary">Schließen</button>
+    </form>
+  </dialog>
   <dialog id="resource-watch-dialog">
     <div class="read-only-dialog-content">
       <h2>Ressourcenstand prüfen</h2>
@@ -679,6 +692,9 @@
       <button id="initial-setup-apply" type="button" class="button primary" disabled>Angezeigten Plan revalidieren und anwenden</button>
       <hr>
       <label>Registrierte Lab_Data-Location<select id="initial-setup-write-location" disabled></select></label>
+      <button id="initial-setup-capacity-read" type="button" class="button secondary" disabled>Freien Speicher lesen</button>
+      <p id="initial-setup-capacity-result" role="status" aria-live="polite">Datenträgerfrei: noch nicht gelesen.</p>
+      <p class="form-note">Eine Momentaufnahme für den aktuellen Zugriff auf den Hostdatenträger. Der Wert reserviert keinen Speicher und beschreibt keine nativen Container-Volumes.</p>
       <p class="form-note">Explizite Momentaufnahme: Windows, lokales festes NTFS/ReFS-Volume. Eine eigene temporäre Datei mit einem Byte schreiben, flushen und bereinigen; keine Kapazitäts-, SQL- oder Providerabnahme.</p>
       <button id="initial-setup-write-preview" type="button" class="button secondary" disabled>Schreibprobe vorschauen</button>
       <p id="initial-setup-write-plan" role="status">Keine Schreibprobe geplant.</p>

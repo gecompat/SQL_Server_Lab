@@ -281,8 +281,13 @@ Location, serverseitige Vorschau, Abbruch ohne Probe, bewusste Bestätigung,
 frische Ownership-/Volume-/Ancestorbindung und eigenes Byte/Flush mit
 begrenzter unabhängiger Abwesenheitsprüfung. Windows Fixed NTFS/ReFS ist die
 ausdrückliche Grenze; Lesen behauptet weiterhin keine Schreibbarkeit. CLI und
-Browser binden denselben Workflow-Core. Installation, Service-Start und freie
-Kapazität bleiben Folgearbeit innerhalb derselben IDs. Isolierte Prüfungen
+Browser binden denselben Workflow-Core. Eine getrennte ausdrückliche
+Kapazitätsabfrage liest genau eine vorhandene registrierte Location über
+frische Controller-/Volume-/Marker-/Ancestorbindung und gehaltene Readhandles.
+CLI und Browser zeigen Zeitpunkt, Datenträgerfrei und nullable unbekannte,
+unlesbare oder nicht unterstützte Ergebnisse. Dies reserviert keinen Speicher
+und prüft weder Schreibbarkeit noch native Container-Volumes. Installation
+und Service-Start bleiben Folgearbeit innerhalb derselben IDs. Isolierte Prüfungen
 sind keine SQL- oder Providerabnahme; ausgewählte Runtime-Gates bleiben offen
 bis zu ihrer tatsächlichen Ausführung.
 
@@ -517,7 +522,7 @@ Runtimeblocker weitergehen, ohne den blockierten Punkt abzuschließen.
 | Recovery-Härtung | `validated` | Netzwerk-Cleanup prüft Run-/Scope-Labels. Die native Docker-/Podman-Abnahme erstellt je ein eigenes und ein fremdes Netzwerk, blockiert die fremde Löschung, entfernt ausschließlich das eigene über den Produkt-Cleanup und bereinigt das fremde Testnetz danach explizit (je 3 PASS). Isolierte native Docker- und Podman-Batchabbrüche nach sichtbarer Providerressource bestanden: persistierte Worker-Recovery, eindeutige Run-Übernahme, idempotentes Resume und scopegebundener Cleanup (je 13 PASS). Auch der zweite öffentliche Cleanup-Aufruf beider isolierten SQL-2025-Runs ist ohne Fehler konvergent (`REMOVED`/`ALREADY_REMOVED`); Container und Volumes wurden vollständig entfernt. Der native Volume-Nachweis blockiert für Docker und Podman ein fremdes Run-Label vor dem Remove-Aufruf, entfernt ausschließlich das eigene Volume und bereinigt das geschützte Testvolume anschließend explizit (je 3 PASS). Ein dynamischer Offline-Contract erzeugt eine Junction beziehungsweise einen Symlink aus dem Run-Ressourcenpfad nach außen, verweigert ihn vor dem Hyper-V-Cleanup und bewahrt ein externes Sentinel (1 Contract). Ein gemischter synthetischer Docker-/Podman-Teilfehler bewahrt den erfolgreich bereinigten Docker-Subrun, markiert nur Podman für Recovery und führt beim Retry ausschließlich dessen Schritt erneut aus (4 Contracts). Der Status gilt für diese nachgewiesenen Cleanup-Grenzen, nicht für beliebige Providerfehler. |
 | Evaluation-Watch | `implemented_partial` | Der read-only Watch projiziert Windows-/SQL-Fristen registrierter Imageartefakte über stabile IDs sowie die eigene persistierte Windows-Frist jeder als `RUNNING` registrierten Hyper-V-Instanz. Für registrierte `RUNNING`-/`STOPPED`-Hyper-V-SQL-Runs projektiert er zusätzlich ausschließlich einen schema- und bindungsvalidierten, frischen SQL-Gast-Evidence-Receipt; fehlende, unzulässige oder veraltete Evidence bleibt fail-closed `UNKNOWN`. Er klassifiziert Ablaufzustände, erzeugt nur mit explizitem `RecordEvents` deduplizierte lokale Ereignisse und führt keinen Refresh oder Live-/Gastabfrage aus. `Invoke-SqlServerLabEvaluationWatchTrigger` ergänzt einen explizit begrenzten foreground-Zeittrigger ohne Windows-Aufgabe, Runtime- oder Netzwerkmutation. Der separate SQL-2025-Hyper-V-Capture implementiert jetzt atomare NO_DEADLINE-Evidence aus der live gebundenen Edition. Native Developer-Capture bestand am 2026-09-21 in Lauf 35563036235 mit elf Assertions, Receiptkette, bytegleichem State und vollständigem Cleanup; positive Evaluation-/Deadline-Evidence bleibt offen. |
 | State-Upgrades | `implemented_partial` | Der read-only Plan bindet jetzt den Quellhash. `Invoke-SqlServerLabRunStateUpgrade` migriert ausschließlich ausdrücklich mit `metadata.syntheticStateFixture=true` markierte unversionierte synthetische Legacy-States, sichert die Ausgangsrevision, schreibt atomar und journalisiert Commit oder Rollback. `-Resume` finalisiert nur ein exakt gebundenes `PENDING`-Journal nach bereits vollständig atomarem Zielcommit; geänderte Source-Revisionen und unvollständige Zielstates blockieren (10 Contracts). Unbekannte, nicht markierte und produktive historische States, ein Resume vor beobachteter Mutation, breite Kompatibilitätsmatrix und jede Framework-/Repositoryaktualisierung bleiben offen. |
-| Persistenzlücken | `implemented_partial` | Die enge Katalog-Recovery eigener bereits UUID-gelabelter detached retained Docker-/Podman-Stores ist implementiert: unveränderte Original-Run-Evidence, frische Runtime-Bindung, CAS und Spiegelrollback; Continue-/Clone-/Lease-Consumer revalidieren diese Bindung. Die getrennten nativen SQL-2025-Abnahmen vom 2026-09-21 bestanden je acht Assertions einschließlich SQL-Marker und Serverobjekt nach Continue, unveränderter Labels und vollständigem Cleanup. Weitere Bestandsklassen, kompatible Paketprovider und explizite Löschung retained Stores bleiben offen. TDE/FILESTREAM besitzen eigene Freigabegates. |
+| Persistenzlücken | `implemented_partial` | Die enge Katalog-Recovery eigener bereits UUID-gelabelter detached retained Docker-/Podman-Stores ist implementiert: unveränderte Original-Run-Evidence, frische Runtime-Bindung, CAS und Spiegelrollback; Continue-/Clone-/Lease-Consumer revalidieren diese Bindung. Die getrennten nativen SQL-2025-Abnahmen vom 2026-09-21 bestanden je acht Assertions einschließlich SQL-Marker und Serverobjekt nach Continue, unveränderter Labels und vollständigem Cleanup. Der öffentliche ID-/Preview-/Resume-Delete einzelner moderner eigener detached Docker-/Podman-Stores ist implementiert und am 2026-10-01 auf `b2a1f456` für SQL Server 2025 getrennt je sechs Assertions mit separatem Cleanup nativ abgenommen. Weitere Bestandsklassen, kompatible Paketprovider und breitere endgültige Löschungen bleiben offen. TDE/FILESTREAM besitzen eigene Freigabegates. |
 | Portabler Lab-Transfer | `validated` (enger Ein-Datenbank-Slice); Gesamt-Lab weiter `planned` | `Invoke-SqlServerLabPortableContainerTransfer` restauriert ein registriertes read-only SQL-2025-Linux-Backup in einen neuen operationseigenen Run desselben Providers, bestätigt READ_ONLY/MATCH und behält das erfolgreiche Ziel. 32 Offline-Assertions; Docker- und Podman-Referenzabnahmen am 2026-09-20 getrennt mit jeweils zwölf Assertions einschließlich unveränderter Quelle, Replay, Inhaltsabweichung und vollständigem Cleanup bestanden. Bestehende Ziele, Mehrdatenbank- und Gesamt-Lab-Roundtrip bleiben offen. [Vertrag und Grenzen](../Architecture/PORTABLE_CONTAINER_TRANSFER.md). |
 | SQL-Observability | `validated_reference` | Die getrennten nativen Docker- und Podman-Referenzläufe vom 2026-09-20 bestanden jeweils auf einem eigenen SQL-2025-Linux-Run mit 35 Assertions: öffentliche rungebundene Capture, exakte Query-Store-/Online-Datenbankdelta, Restart und Datenmarker, Privacy sowie vollständiger scopegebundener Cleanup. Extended Events, SQL-Agent-/Backupzustände, Retention, Evidenzpakete, externe Provider und Hyper-V bleiben offen. |
 | Breitere Hyper-V-Provisionierung | `planned` | OS-Baseline→SQL-Pfad, Post-Provisioning und Softwarebindung unter dem vorhandenen Cold-Path-/Prepared-Vertrag vervollständigen. SQL 2025 bleibt Core-Referenz; breite Versionsmatrizen gehören weiterhin zu den Partnerprojekten. |
@@ -697,10 +702,11 @@ sind wiederzuverwenden; die kombinierte Zielhost-Abnahme bleibt offen.
 
 ### Sanitisiertes Diagnosebundle und Operator-Handoff
 
-Status: `planned`. Eine öffentliche Funktion wie
-`Get-SqlServerLabDiagnosticBundle` ist ein Namensvorschlag, keine vorhandene
-API. Das Vorhaben wird vor einer Implementierung gegen bestehende Readiness-,
-Workflow-, Connection-Center-, Reconcile- und Operationsprojektionen abgegrenzt.
+Status: `partially_implemented`. `Get-SqlServerLabDiagnosticBundle` ist als
+gebundene, geschlossene read-only API implementiert. Der ausdrücklich angeforderte
+lokale Operator-Handoff verwendet das [kanonische Rezept](../HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md);
+Export, Upload, freie Diagnosebefehle und selbständige Entwicklung bleiben ausgeschlossen.
+Provider-/SQL- und Skillloader-Nachweise sind getrennt auszuweisen.
 
 | Reihenfolge / Arbeit | Abhängigkeiten und Akzeptanz |
 |---|---|
@@ -715,3 +721,7 @@ dieses Vorhabens. Ein späterer Support-Export benötigt einen getrennten
 Privacy-, Retention-, Speicherort- und Freigabevertrag. Die Originaluploads und
 das CMS-Bild werden nicht ins Repository übernommen; insbesondere werden keine
 abgebildeten Kennwörter oder privaten Hostdaten versioniert.
+
+### Welle L: schmaler registrierter CMS-Lesepfad
+
+CLI und Browser besitzen einen gemeinsamen expliziten Lesepfad für genau den bereits registrierten verwalteten CMS. Native eigene Container-/Scope-/Portautorität muss vor dem Secretlesen feststehen; öffentliche Befunde sind nullable, zeitgebunden und ohne Namen/Secrets/Endpunkte. Hyper-V, CMS-Einrichtung/Adoption/Sync im Browser sowie SSMS und Mitgliedsverbindungen bleiben offen. Implementierung ist kein Runtime-Nachweis; tatsächliche ausgewählte Gates und reale CMS-Abnahme sind separat auszuweisen. [Kanonischer Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).

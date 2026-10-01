@@ -346,12 +346,13 @@ async function main() {
     DefaultLocation: { LabDataRoot: '/synthetic/Lab_Data' } };
   const setupPlan = { ContractVersion: 'SqlServerLab.InitialSetupPlan/1.0', MediaAction: null, LocationActions: [{ LabDataRoot: '/synthetic/second_Data' }], DefaultDataRoot: '/synthetic/second_Data', IsNoOp: false };
   const setupRequests = [];
+  const capacitySnapshot = { ContractVersion: 'SqlServerLab.InitialSetupCapacity/1.0', LocationId: '11111111-1111-1111-1111-111111111111', Status: 'AVAILABLE', Code: 'INITIAL_SETUP_CAPACITY_OBSERVED', AvailableBytes: 0, TotalBytes: 1099511627776, ObservedAt: '2026-10-01T12:00:00Z' };
   const writePlan = { PlanId: '22222222-2222-2222-2222-222222222222', LocationId: '11111111-1111-1111-1111-111111111111', ExpiresAt: '2099-01-01T00:00:00Z', MaximumSeconds: 39, Notice: 'SYNTHETIC_PREVIEW' };
   context.fetch = async (url, options) => {
     assert.equal(url, '/api/initial-setup');
     const payload = options?.body ? JSON.parse(options.body) : null;
     setupRequests.push(payload);
-    return { ok: true, json: async () => ({ Result: payload?.action === 'PlanInitialSetup' ? setupPlan : payload?.action === 'PlanSetupWriteability' ? writePlan : payload?.action === 'ProbeSetupWriteability' ? { Status: 'WRITABLE', OwnLeafAbsent: true, Notice: 'SYNTHETIC_MOMENTARY' } : payload?.action === 'RefreshSetupProvider' ? { Provider: 'podman', Check: { Status: 'BLOCKED', Code: 'PROVIDER_UNREACHABLE' } } : setupState }) };
+    return { ok: true, json: async () => ({ Result: payload?.action === 'PlanInitialSetup' ? setupPlan : payload?.action === 'PlanSetupWriteability' ? writePlan : payload?.action === 'ProbeSetupWriteability' ? { Status: 'WRITABLE', OwnLeafAbsent: true, Notice: 'SYNTHETIC_MOMENTARY' } : payload?.action === 'RefreshSetupCapacity' ? capacitySnapshot : payload?.action === 'RefreshSetupProvider' ? { Provider: 'podman', Check: { Status: 'BLOCKED', Code: 'PROVIDER_UNREACHABLE' } } : setupState }) };
   };
   const setupClick = async (id) => { for (const handler of node(id).events.get('click') || []) await handler({}); };
   const setupPreview = async () => { for (const handler of node('initial-setup-form').events.get('submit') || []) await handler({ preventDefault() {} }); };
@@ -398,6 +399,46 @@ async function main() {
     assert.deepEqual(setupRequests.at(-1), { action: 'RefreshSetupProvider', parameters: { SetupProvider: 'podman' } });
     assert.ok(node('initial-setup-provider-status').textContent.includes('PROVIDER_UNREACHABLE'));
   });
+  const capacityQueueCount = context.queued.length;
+  const capacityBeforeSelect = setupRequests.length;
+  await setupClick('initial-setup-capacity-read');
+  check('Reading ordinary setup and unselected capacity dispatches no implicit volume query', () => { assert.equal(setupRequests.length, capacityBeforeSelect); assert.ok(node('initial-setup-capacity-result').textContent.includes('noch nicht gelesen')); });
+  node('initial-setup-write-location').value = capacitySnapshot.LocationId;
+  await setupClick('initial-setup-capacity-read');
+  check('Real capacity button sends exactly one location ID and displays measured zero with time and host scope', () => {
+    assert.deepEqual(setupRequests.at(-1), { action: 'RefreshSetupCapacity', parameters: { SetupLocationId: capacitySnapshot.LocationId } });
+    assert.ok(node('initial-setup-capacity-result').textContent.includes('Momentaufnahme'));
+    assert.match(node('initial-setup-capacity-result').textContent, /0[.,]0 GiB/);
+    assert.ok(node('initial-setup-capacity-result').textContent.includes('gelesen'));
+    assert.equal(context.queued.length, capacityQueueCount);
+  });
+  const originalCapacityFetch = context.fetch;
+  for (const status of ['UNKNOWN', 'UNREADABLE', 'UNSUPPORTED']) {
+    context.fetch = async () => ({ ok: true, json: async () => ({ Result: { ...capacitySnapshot, Status: status, AvailableBytes: null, TotalBytes: null } }) });
+    await setupClick('initial-setup-capacity-read');
+    check('Capacity ' + status + ' never renders a fabricated zero or capacity guarantee', () => assert.ok(!node('initial-setup-capacity-result').textContent.includes('GiB')));
+  }
+  let releaseCapacity;
+  context.fetch = () => new Promise(resolve => { releaseCapacity = resolve; });
+  const lateCapacity = setupClick('initial-setup-capacity-read');
+  node('initial-setup-write-location').value = '22222222-2222-2222-2222-222222222222';
+  for (const handler of node('initial-setup-write-location').events.get('change')) handler({});
+  releaseCapacity({ ok: true, json: async () => ({ Result: capacitySnapshot }) });
+  await lateCapacity;
+  check('Late capacity for an old selection never attaches bytes to the new location', () => assert.ok(node('initial-setup-capacity-result').textContent.includes('noch nicht gelesen')));
+  node('initial-setup-write-location').value = capacitySnapshot.LocationId;
+  const closedCapacity = setupClick('initial-setup-capacity-read');
+  node('initial-setup-dialog').close();
+  releaseCapacity({ ok: true, json: async () => ({ Result: capacitySnapshot }) });
+  await closedCapacity;
+  check('Closing a readonly capacity request discards the late snapshot', () => assert.ok(node('initial-setup-capacity-result').textContent.includes('noch nicht gelesen')));
+  context.fetch = originalCapacityFetch;
+  await setupClick('configuration-storage');
+  node('initial-setup-write-location').value = capacitySnapshot.LocationId;
+  context.fetch = async () => ({ ok: false, text: async () => 'SYNTHETIC_PRIVATE_CAPACITY_DETAIL' });
+  await setupClick('initial-setup-capacity-read');
+  check('Capacity request failure stays unknown and never publishes raw diagnostics', () => { assert.ok(node('initial-setup-capacity-result').textContent.includes('nicht bestätigt')); assert.ok(!node('initial-setup-capacity-result').textContent.includes('PRIVATE')); });
+  context.fetch = originalCapacityFetch;
   const writeQueueCount = context.queued.length;
   node('initial-setup-write-location').value = writePlan.LocationId;
   await setupClick('initial-setup-write-preview');
@@ -647,6 +688,36 @@ async function main() {
   let releaseWatch;context.fetch=()=>new Promise(resolve=>{releaseWatch=resolve;});
   const pendingWatch=resourceEvent('resource-watch-read');await resourceEvent('resource-watch-close');releaseWatch({ok:true,json:async()=>({Result:{Status:'NEW',Items:[watchItem]}})});await pendingWatch;
   check('Resource watch closed dialog ignores late response',()=>assert.match(node('resource-watch-status').textContent,/UNCLEAR/));
+  const cmsRequests=[];
+  const cmsBase={ContractVersion:'SqlServerLab.CmsInspection/1.0',Status:'NOT_CHECKED',Code:'CMS_INSPECTION_NOT_CHECKED',RunId:'11111111-1111-1111-1111-111111111111',InstanceId:'primary',Provider:'docker',SelectionKey:'a'.repeat(64),SqlMajor:null,ManagedGroupCount:null,ManagedServerCount:null,ObservedAt:null};
+  let cmsMode='ready';
+  context.fetch=async(url,options={})=>{
+    const body=options.body?JSON.parse(options.body):null;cmsRequests.push({url,body});
+    if(cmsMode==='error')throw new Error('SYNTHETIC_PRIVATE_SQL_OR_SECRET');
+    const view={...cmsBase};
+    if(body){Object.assign(view,{Status:'OBSERVED',Code:'CMS_INSPECTION_OBSERVED',SqlMajor:17,ManagedGroupCount:3,ManagedServerCount:0,ObservedAt:'2026-10-01T12:00:00Z'});}
+    if(cmsMode==='empty')Object.assign(view,{Status:'NOT_CONFIGURED',RunId:null,Provider:null,SelectionKey:null});
+    if(cmsMode==='hyperv')view.Provider='hyperv';
+    if(cmsMode==='unknown')Object.assign(view,{Status:'UNKNOWN',ManagedServerCount:null,ManagedGroupCount:null,SqlMajor:null});
+    if(cmsMode==='wrong-binding' && body)view.RunId='22222222-2222-2222-2222-222222222222';
+    if(cmsMode==='unsafe' && body)view.ManagedServerCount=9007199254740992;
+    return {ok:true,json:async()=>({Result:view})};
+  };
+  await resourceEvent('cms-inspection-open');
+  check('CMS open reads registration only with no SQL action',()=>{assert.equal(cmsRequests.length,1);assert.equal(cmsRequests[0].url,'/api/cms-inspection');assert.equal(cmsRequests[0].body,null);assert.match(node('cms-inspection-status').textContent,/noch keine SQL-Verbindung/);});
+  await resourceEvent('cms-inspection-check');
+  check('CMS explicit inspection carries only bound selection key and shows genuine zero',()=>{assert.deepEqual(cmsRequests.at(-1).body,{action:'InspectCms',parameters:{ExpectedPlanKey:'a'.repeat(64)}});assert.match(node('cms-inspection-result').textContent,/markierte Server: 0/);assert.match(node('cms-inspection-result').textContent,/gelesen/);assert.equal(node('cms-inspection-check').disabled,true);});
+  for(const mode of ['empty','hyperv','unknown']){
+    cmsMode=mode;await resourceEvent('cms-inspection-read');const before=cmsRequests.length;await resourceEvent('cms-inspection-check');
+    check('CMS '+mode+' disables probe without invented counts',()=>{assert.equal(cmsRequests.length,before);assert.equal(node('cms-inspection-check').disabled,true);assert.equal(node('cms-inspection-result').textContent,'');});
+  }
+  for(const mode of ['wrong-binding','unsafe','error']){
+    cmsMode='ready';await resourceEvent('cms-inspection-read');cmsMode=mode;await resourceEvent('cms-inspection-check');
+    check('CMS '+mode+' discards acceptance and private error',()=>{assert.equal(node('cms-inspection-result').textContent,'');assert.doesNotMatch(node('cms-inspection-status').textContent,/SYNTHETIC_PRIVATE/);});
+  }
+  cmsMode='ready';await resourceEvent('cms-inspection-read');
+  let releaseCms;context.fetch=()=>new Promise(resolve=>{releaseCms=resolve;});const pendingCms=resourceEvent('cms-inspection-check');await resourceEvent('cms-inspection-close');releaseCms({ok:true,json:async()=>({Result:{...cmsBase,Status:'OBSERVED',SqlMajor:17,ManagedGroupCount:3,ManagedServerCount:5,ObservedAt:'2026-10-01T12:00:00Z'}})});await pendingCms;
+  check('CMS close ignores late inspection without retry or queue mutation',()=>{assert.equal(node('cms-inspection-dialog').open,false);assert.equal(node('cms-inspection-result').textContent,'');assert.equal(node('cms-inspection-check').disabled,true);});
   const maintenanceCalls=[];
   const maintenanceRow={Id:'fixture',CandidateId:'a'.repeat(64),Label:'docker · SQL-Speicher',Fields:[{Label:'Herkunft',Value:'Unbekannt <script>marker</script>'}]};
   let maintenanceMode='ready';

@@ -5,6 +5,8 @@
     Der Befehl ist der schmale, nicht interaktive Adapter fuer die lokale
     Workflow-Oberflaeche. Gastpasswoerter dienen nur dem unmittelbaren Aufruf
     und werden weder in Build-State noch Log-Ausgabe gespeichert.
+.PARAMETER ExpectedPlanKey
+    Servergebundener Auswahlsschlüssel; InspectCms akzeptiert nur die frisch gelesene CMS-Registrierung.
 .PARAMETER Action
     Eindeutige, zulässige Workflow-Aktion.
     GetResourceWatchState liest nur Katalog und Sitzungscache. RefreshResourceWatch
@@ -47,6 +49,7 @@ SQL_Server_Lab-Internal-Switch verwendet.
     Zuvor angezeigter InitialSetupPlan/1.0; ApplyInitialSetup revalidiert ihn vor jeder Mutation.
 .PARAMETER SetupLocationId
     Genau eine registrierte Lab_Data-Location für die reine Schreibprobe-Vorschau.
+    RefreshSetupCapacity liest für diese einzelne Location eine begrenzte Hostdatenträger-Momentaufnahme.
 .PARAMETER SetupWriteabilityPlanId
     Einmalige, fünf Minuten gültige serverseitige Schreibprobe-Vorschau derselben Modulsitzung.
 .PARAMETER ConfirmWriteability
@@ -247,11 +250,12 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidateSet(
             'Refresh',
             'StartTestGroupPower', 'StopTestGroupPower',
-            'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability',
+            'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity',
             'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve',
             'GetLlamaSessions', 'PlanLlamaSessionStop', 'StopLlamaSession',
             'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
             'GetResourceWatchState', 'RefreshResourceWatch',
+            'GetCmsInspectionState', 'InspectCms',
             'RepairHyperVWindowsActivation',
             'SetMediaRoot', 'SetDataRoot', 'SetTestDataRoot',
             'NewContainerLab', 'CreateContainerManifest', 'NewContainerLabFromManifest', 'RenameLab', 'SetLabResources', 'StartContainerLab', 'StopContainerLab', 'StartLabReconcile', 'StopLabReconcile', 'RestartContainerLab', 'RemoveContainerLab', 'ClearAllLabs',
@@ -388,8 +392,13 @@ function Invoke-SqlServerLabWorkflowAction {
         }
         return [pscustomobject]@{ Action=$Action; CompletedAt=Get-LabTimestamp; Result=$result }
     }
-    if ($Action -in @('GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability')) {
+    if ($Action -in @('GetCmsInspectionState','InspectCms')) {
+        $result=if($Action -ceq 'GetCmsInspectionState'){Get-LabCmsInspectionState}else{Invoke-LabCmsInspection -ExpectedPlanKey $ExpectedPlanKey}
+        return [pscustomobject]@{Action=$Action;CompletedAt=Get-LabTimestamp;Result=$result}
+    }
+    if ($Action -in @('GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) {
         $result = switch ($Action) {
+            'RefreshSetupCapacity' { Get-LabInitialSetupCapacity -LocationId $SetupLocationId }
             'PlanSetupWriteability' { New-LabInitialSetupWriteabilityPlan -LocationId $SetupLocationId }
             'ProbeSetupWriteability' { Invoke-LabInitialSetupWriteabilityPlan -PlanId $SetupWriteabilityPlanId -Confirmed:$ConfirmWriteability -Confirm:$false }
             'GetInitialSetupState' { Get-LabInitialSetupState }

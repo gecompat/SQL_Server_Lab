@@ -1143,17 +1143,20 @@ function Invoke-LabCmsInteractive {
     if ($cmsTarget) { Write-Host "  SSMS-CMS-Server: $cmsTarget" -ForegroundColor White }
     Write-Host '  Anzeige in SSMS: Ansicht -> Registrierte Server -> Datenbankmodul -> Zentrale Verwaltungsserver' -ForegroundColor DarkGray
     Write-Host "  Dort den CMS-Server registrieren/aktualisieren und 'SQL Server Lab -> Running' aufklappen." -ForegroundColor DarkGray
+    $inspectionStateRootMatches = [string]::Equals([IO.Path]::GetFullPath($StateRoot).TrimEnd('\','/'), [IO.Path]::GetFullPath((Get-LabStateRoot)).TrimEnd('\','/'), $(if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }))
     $menu = Invoke-LabConsoleMenu -ScreenId 'connection-center-cms' -Title 'CMS verwalten und synchronisieren' `
         -Subtitle $(if ($cmsTarget) { "CMS: $cmsTarget" } else { 'CMS-Ziel wird aus der Konfiguration ermittelt' }) -Items @(
             New-LabConsoleItem -Id '1' -Label 'CMS jetzt synchronisieren' -Shortcut '1'
             New-LabConsoleItem -Id '2' -Label 'Kennwortfreies CMS-Synchronisationsskript exportieren' -Shortcut '2'
             New-LabConsoleItem -Id '3' -Label 'CMS-Ordnerstruktur konfigurieren' -Shortcut '3'
             New-LabConsoleItem -Id '4' -Label 'Generiertes Passwort im CMS-Namen anzeigen' -Value $(if ((Get-LabConnectionCenterConfiguration -StateRoot $StateRoot).CmsShowGeneratedPasswordInName) { 'Ein · Klartext im CMS' } else { 'Aus · sicherer Standard' }) -Shortcut '4'
+            New-LabConsoleItem -Id 'inspect' -Label 'Registrierten CMS lesend prüfen' -Shortcut '6' -Disabled:(-not $inspectionStateRootMatches) -DisabledReason 'Die lesende Prüfung verwendet ausschließlich die aktive Registrierung.'
             New-LabConsoleItem -Id '5' -Label 'CMS-Zugang anzeigen' -Value 'Connection String und automatisch erzeugtes SA-Passwort' -Shortcut '5'
             New-LabConsoleItem -Id '0' -Label 'Zurück' -Shortcut '0'
         )
     if ($menu.Status -ne 'Selected') { return }
     $choice = [string]$menu.SelectedItem.Id
+    if ($choice -eq 'inspect') { if ($inspectionStateRootMatches) { Invoke-LabCmsInspectionInteractive }; return }
     if ($choice -eq '1') { $null = Sync-SqlServerLabCms -StateRoot $StateRoot }
     elseif ($choice -eq '2') { $result = Export-SqlServerLabCmsSyncScript -StateRoot $StateRoot -CmsProvider ([string]$configuration.Provider); Write-LabSuccess "Kennwortfreies CMS-Synchronisationsskript erstellt: $($result.Path)" }
     elseif ($choice -eq '3') {

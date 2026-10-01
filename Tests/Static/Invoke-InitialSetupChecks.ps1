@@ -350,6 +350,8 @@ try {
     )
     & (Join-Path $PSScriptRoot 'Fixtures/InitialSetupWriteabilityChecks.ps1')
     Add-CheckResult -Name 'Explizite Schreibprobe: gemeinsamer Core, HTTP, CLI und eigene Dateisystemguards' -Success $true
+    & (Join-Path $PSScriptRoot 'Fixtures/InitialSetupCapacityChecks.ps1')
+    Add-CheckResult -Name 'Explizite Kapazitätsmomentaufnahme: read-only Core, HTTP, CLI und bounded Worker' -Success $true
 }
 catch { Add-CheckResult -Name 'Initial-Setup-Testausfuehrung' -Success $false -Message $_.Exception.Message }
 finally {

@@ -82,7 +82,12 @@ Grundkonfiguration bietet einen eigenen gemeinsamen Plan-/Apply-Pfad. Die Verbin
 vorhandene Host-/Port-Felder. Bei Hyper-V werden Host und Port eng aus dem führenden Serverfeld des Connection Strings und TcpPort projiziert; Credentials und Connection Strings werden hier nie angezeigt. Fehlende oder nicht unterstützte Werte bleiben unbekannt; ein Verbindungstest wird nicht behauptet.
 
 Die geschützte Testmatrix besitzt den oben beschriebenen Power-Fachdialog.
-Weitere geführte Browser-Gruppenaktionen, CMS,
+Für den bereits registrierten CMS bietet der Verbindungsbereich eine ausdrückliche
+lesende Prüfung mit Zeitpunkt und markierten Metadatenzählern. Registrierung
+lesen und Dialog schließen führen keine SQL-Prüfung aus. Der gemeinsame
+[CMS-Vertrag](../Architecture/CMS_READONLY_INSPECTION.md) begrenzt Provider,
+Bindung und unbekannte Ergebnisse. CMS-Setup und Synchronisation im Browser
+sowie weitere geführte Browser-Gruppenaktionen,
 operative Slots, vollständiges Provider-Setup und Fremdstart-/weiterer
 Hostdienst- sowie Modell-Lifecycle bleiben offen. Der eigene llama.cpp-
 Sitzungsstop besitzt den unten beschriebenen Fachdialog. Der Navigationseinstieg ist keine Abnahme
@@ -111,7 +116,12 @@ erst **Angezeigten Plan revalidieren und anwenden** führt den gemeinsamen Core
 aus. Änderungen an Eingaben oder Schließen verwerfen die Vorschau.
 Providerrefresh prüft ausschließlich den ausdrücklich gewählten Provider über
 den vorhandenen Readinessvertrag, ohne Installation, Start oder Änderung von
-Bindings. Schreibbarkeit und Kapazität bleiben ungeprüft. Dieser kurze Pfad
+Bindings. Statuslesen prüft weder Schreibbarkeit noch Kapazität. Die separate
+Schreibprobe verlangt Vorschau und Bestätigung. **Freien Speicher lesen** liest
+ausdrücklich genau die ausgewählte registrierte Lab_Data-Location und zeigt
+Datenträgerfrei mit Zeitpunkt. Unbekannt, unlesbar oder nicht unterstützt bleibt
+ohne Bytewert. Diese Hostdatenträger-Momentaufnahme reserviert nichts und
+bestätigt weder Schreibbarkeit noch native Container-Volumes. Dieser kurze Pfad
 läuft direkt im lokalen Server; seine begrenzte Providerprüfung kann die
 Annahme weiterer Anfragen vorübergehend verzögern.
 

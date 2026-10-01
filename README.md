@@ -774,7 +774,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Get-SqlServerLabReconcilePlan` | Read-only Plan für Lifecycle, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Reconcile, Containerressourcen/Autostart oder resolvergebundenen External-Runtime-Reconcile einschließlich additiver Hyper-V-Gastinstallation |
 | `Invoke-SqlServerLabReconcileAction` | `START`/`STOP`, eigentumsgebundene Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Aktionen, Container-Replacement oder additive Hyper-V-External-Runtime-Installation ausführen |
 | `Move-SqlServerLabContainerNetwork` | Konfligierendes verwaltetes Docker- oder Podman-Labnetz nach expliziter Bestätigung auf ein geprüftes Subnetz verschieben |
-| `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Workflow-Aktionen, einschließlich Grundkonfiguration mit Vorschau/Apply, expliziter Location-Schreibprobe und Providerprüfung und zentraler Advisory-Slotreservepolicy |
+| `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Workflow-Aktionen, einschließlich Grundkonfiguration mit Vorschau/Apply, expliziter Location-Schreibprobe, read-only Kapazitätsmomentaufnahme und Providerprüfung und zentraler Advisory-Slotreservepolicy |
 | `New-SqlServerLabManifest` | Schema-gesteuertes Manifest in der Konsole erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung strukturell und fachlich prüfen |
 | `New-SqlServerLab` | Umgebung ad hoc oder per Manifest erstellen |
@@ -1072,3 +1072,7 @@ Der Bereich „Host-Dienste und Modelle“ bietet den geführten Stop einer eige
 llama.cpp-Sitzung mit Vorschau und bewusster Bestätigung. Verbraucher-Coverage
 bleibt UNKNOWN; Fremdprozesse und Modell-Lifecycle bleiben offen. Siehe
 [Vertrag](Documentation/Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+### Registrierten CMS lesend prüfen
+
+Im CLI-Menü CMS-Verwaltung und im Browserbereich Verbindungen gibt es eine ausdrückliche lesende Prüfung des bereits registrierten CMS. Sie zeigt Zeitpunkt, SQL-Major und Anzahlen markierter Gruppen/Server. Registrierung lesen und Abbruch öffnen keine SQL-Verbindung; unbekannte Ergebnisse sind keine erfolgreichen Null-Zähler. Einrichtung, Synchronisation, SSMS und Mitgliedsverbindungen bleiben getrennt. Siehe [CMS-Prüfvertrag](Documentation/Architecture/CMS_READONLY_INSPECTION.md).

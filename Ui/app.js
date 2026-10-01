@@ -1902,6 +1902,7 @@ function updateInitialSetupControls() {
   const location = $('#initial-setup-write-location').value;
   $('#initial-setup-write-location').disabled = !ready;
   $('#initial-setup-write-preview').disabled = !ready || !location;
+  $('#initial-setup-capacity-read').disabled = !ready || !location;
   $('#initial-setup-write-confirm').disabled = !ready || !initialSetupWritePlan;
   $('#initial-setup-write-apply').disabled = !ready || !initialSetupWritePlan || !$('#initial-setup-write-confirm').checked;
   for (const button of $('#initial-setup-dialog').querySelectorAll('[value="cancel"]')) button.disabled = initialSetupWriteRunning;
@@ -1932,6 +1933,7 @@ function renderInitialSetupState(state) {
   $('#initial-setup-default').value = state.DefaultLocation?.LabDataRoot || '';
   $('#initial-setup-write-location').innerHTML = '<option value="">Location wählen</option>' + (state.LocationStatus || []).filter(item => item.Status === 'READY' && item.LocationId).map(item => '<option value="' + escapeHtml(item.LocationId) + '">' + escapeHtml(item.LabDataRoot) + '</option>').join('');
   $('#initial-setup-write-location').value = '';
+  $('#initial-setup-capacity-result').textContent = 'Datenträgerfrei: noch nicht gelesen.';
   invalidateInitialSetupWritePlan();
   invalidateInitialSetupPlan();
 }
@@ -1953,6 +1955,7 @@ async function runInitialSetupRequest(operation, receive) {
   }
 }
 function readInitialSetup() {
+  $('#initial-setup-capacity-result').textContent = 'Datenträgerfrei: noch nicht gelesen.';
   invalidateInitialSetupWritePlan();
   invalidateInitialSetupPlan();
   return runInitialSetupRequest(() => requestInitialSetup(), renderInitialSetupState);
@@ -1968,11 +1971,36 @@ $('#configuration-storage').addEventListener('click', () => {
   return readInitialSetup();
 });
 $('#initial-setup-dialog').addEventListener('close', () => {
+  $('#initial-setup-capacity-result').textContent = 'Datenträgerfrei: noch nicht gelesen.';
   invalidateInitialSetupWritePlan();
   initialSetupRevision++; initialSetupBusy = false; invalidateInitialSetupPlan();
 });
 $('#initial-setup-dialog').addEventListener('cancel', event => { if (initialSetupWriteRunning) event.preventDefault(); });
 $('#initial-setup-write-location').addEventListener('change', invalidateInitialSetupWritePlan);
+$('#initial-setup-write-location').addEventListener('change', () => { $('#initial-setup-capacity-result').textContent = 'Datenträgerfrei: noch nicht gelesen.'; });
+function renderInitialSetupCapacity(snapshot) {
+  const bytes = snapshot.AvailableBytes;
+  const total = snapshot.TotalBytes;
+  const timestamp = Date.parse(snapshot.ObservedAt);
+  if (snapshot.Status === 'AVAILABLE' && Number.isSafeInteger(bytes) && Number.isSafeInteger(total) && bytes >= 0 && total > 0 && bytes <= total && Number.isFinite(timestamp)) {
+    const gib = value => (value / (1024 ** 3)).toLocaleString('de-AT', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    $('#initial-setup-capacity-result').textContent = 'Datenträgerfrei (Momentaufnahme): ' + gib(bytes) + ' GiB verfügbar von ' + gib(total) + ' GiB · gelesen ' + new Date(timestamp).toLocaleString('de-AT');
+  } else {
+    const messages = { NOT_CHECKED: 'Datenträgerfrei: noch nicht gelesen.', UNKNOWN: 'Freier Speicher unbekannt. Location und Zuordnung prüfen; später erneut lesen.', UNREADABLE: 'Der freie Speicher konnte nicht gelesen werden. Zugriff und Ablageort prüfen.', UNSUPPORTED: 'Freien Speicher lesen wird für diesen Host oder Ablageort nicht unterstützt.' };
+    $('#initial-setup-capacity-result').textContent = messages[snapshot.Status] || messages.UNKNOWN;
+  }
+}
+$('#initial-setup-capacity-read').addEventListener('click', async () => {
+  if (initialSetupBusy) return;
+  const locationId = $('#initial-setup-write-location').value;
+  if (!locationId) return;
+  $('#initial-setup-capacity-result').textContent = 'Freier Speicher wird gelesen …';
+  const revision = initialSetupRevision + 1;
+  await runInitialSetupRequest(() => requestInitialSetup('RefreshSetupCapacity', { SetupLocationId: locationId }), snapshot => {
+    if (snapshot.LocationId === locationId && $('#initial-setup-write-location').value === locationId) renderInitialSetupCapacity(snapshot);
+  });
+  if (revision === initialSetupRevision && $('#initial-setup-dialog').open && $('#initial-setup-write-location').value === locationId && $('#initial-setup-capacity-result').textContent === 'Freier Speicher wird gelesen …') $('#initial-setup-capacity-result').textContent = 'Freier Speicher nicht bestätigt. Location auswählen und erneut lesen.';
+});
 $('#initial-setup-write-confirm').addEventListener('change', updateInitialSetupControls);
 $('#initial-setup-write-preview').addEventListener('click', () => {
   if (initialSetupBusy) return;
@@ -3058,3 +3086,47 @@ $('#llama-session-close').addEventListener('click', () => { if (!llamaSessionSto
 $('#llama-session-dialog').addEventListener('close', () => { llamaSessionRevision++; llamaSessionBusy = false; llamaSessionView = null; invalidateLlamaSessionPlan(); });
 $('#llama-session-dialog').addEventListener('cancel', event => { if (llamaSessionStopping) event.preventDefault(); });
 $('#llama-session-dialog').addEventListener('keydown', event => { if (event.key === 'F5') { event.preventDefault(); return requestLlamaSession(); } });
+
+let cmsInspectionRevision = 0;
+let cmsInspectionBusy = false;
+let cmsInspectionView = null;
+function updateCmsInspectionControls() {
+  $('#cms-inspection-read').disabled = cmsInspectionBusy;
+  $('#cms-inspection-check').disabled = cmsInspectionBusy || !cmsInspectionView || cmsInspectionView.Status !== 'NOT_CHECKED' || !/^[a-f0-9]{64}$/.test(cmsInspectionView.SelectionKey || '') || !['docker', 'podman'].includes(cmsInspectionView.Provider);
+}
+function renderCmsInspection(view) {
+  $('#cms-inspection-target').textContent = view.RunId && /^[a-f0-9-]{36}$/.test(view.RunId) ? view.Provider + ' · registrierter Run ' + view.RunId : '';
+  const messages = { NOT_CONFIGURED: 'Kein verwalteter CMS registriert. Diese Prüfung richtet keinen CMS ein.', NOT_CHECKED: 'Registrierung gelesen. Es wurde noch keine SQL-Verbindung geöffnet.', UNKNOWN: 'CMS-Befund unbekannt. Registrierung, laufenden CMS und Zugriff prüfen; anschließend erneut auswählen.' };
+  const valid = view.Status === 'OBSERVED' && [15, 16, 17].includes(view.SqlMajor) && Number.isSafeInteger(view.ManagedGroupCount) && view.ManagedGroupCount >= 0 && Number.isSafeInteger(view.ManagedServerCount) && view.ManagedServerCount >= 0 && Number.isFinite(Date.parse(view.ObservedAt));
+  $('#cms-inspection-status').textContent = valid ? 'CMS lesend geprüft; nichts synchronisiert.' : (messages[view.Status] || messages.UNKNOWN);
+  $('#cms-inspection-result').textContent = valid ? 'SQL-Major ' + view.SqlMajor + ' · markierte Gruppen: ' + view.ManagedGroupCount + ' · markierte Server: ' + view.ManagedServerCount + ' · gelesen ' + new Date(view.ObservedAt).toLocaleString('de-AT') : '';
+  if (view.Code === 'CMS_INSPECTION_PROVIDER_UNSUPPORTED' || (view.Status === 'NOT_CHECKED' && view.Provider === 'hyperv')) $('#cms-inspection-status').textContent = 'Diese lesende Prüfung unterstützt derzeit nur lokal gebundene Docker-/Podman-CMS. Hyper-V bleibt ungeprüft.';
+}
+async function readCmsInspection(inspect = false) {
+  if (cmsInspectionBusy || !$('#cms-inspection-dialog').open) return;
+  if (inspect && (!cmsInspectionView || cmsInspectionView.Status !== 'NOT_CHECKED' || !/^[a-f0-9]{64}$/.test(cmsInspectionView.SelectionKey || '') || !['docker', 'podman'].includes(cmsInspectionView.Provider))) return;
+  const selection = cmsInspectionView;
+  const revision = cmsInspectionRevision;
+  cmsInspectionBusy = true; updateCmsInspectionControls();
+  $('#cms-inspection-status').textContent = inspect ? 'Dieser CMS wird lesend geprüft …' : 'Registrierung wird gelesen …';
+  $('#cms-inspection-result').textContent = '';
+  try {
+    const response = await fetch('/api/cms-inspection', inspect ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'InspectCms', parameters: { ExpectedPlanKey: selection.SelectionKey } }) } : { cache: 'no-store' });
+    if (!response.ok) throw new Error('CMS_INSPECTION_REQUEST_FAILED');
+    const payload = await response.json(); const view = payload.Result;
+    if (revision !== cmsInspectionRevision || !$('#cms-inspection-dialog').open) return;
+    if (!view || view.ContractVersion !== 'SqlServerLab.CmsInspection/1.0' || (inspect && (view.SelectionKey !== selection.SelectionKey || view.RunId !== selection.RunId || view.InstanceId !== selection.InstanceId || view.Provider !== selection.Provider))) throw new Error('CMS_INSPECTION_RESULT_INVALID');
+    cmsInspectionView = view; renderCmsInspection(view);
+  } catch {
+    if (revision === cmsInspectionRevision && $('#cms-inspection-dialog').open) { cmsInspectionView = null; $('#cms-inspection-status').textContent = 'CMS-Befund nicht bestätigt. Registrierung erneut lesen und bewusst prüfen.'; $('#cms-inspection-result').textContent = ''; $('#cms-inspection-target').textContent = ''; }
+  } finally { if (revision === cmsInspectionRevision) { cmsInspectionBusy = false; updateCmsInspectionControls(); } }
+}
+$('#cms-inspection-open').addEventListener('click', () => {
+  cmsInspectionRevision++; cmsInspectionBusy = false; cmsInspectionView = null;
+  $('#cms-inspection-target').textContent = ''; $('#cms-inspection-result').textContent = '';
+  $('#cms-inspection-dialog').showModal(); updateCmsInspectionControls(); return readCmsInspection();
+});
+$('#cms-inspection-read').addEventListener('click', () => readCmsInspection());
+$('#cms-inspection-check').addEventListener('click', () => readCmsInspection(true));
+$('#cms-inspection-close').addEventListener('click', () => $('#cms-inspection-dialog').close());
+for (const event of ['close', 'cancel']) $('#cms-inspection-dialog').addEventListener(event, () => { cmsInspectionRevision++; cmsInspectionBusy = false; cmsInspectionView = null; updateCmsInspectionControls(); });

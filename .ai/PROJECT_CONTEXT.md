@@ -22,7 +22,7 @@ Der enge Diagnosebundle-Vertrag `Get-SqlServerLabDiagnosticBundle` liefert
 gebundene, sanitisierte Metadaten für eine moderne Instanz unter einem
 registrierten `Lab_Data/State`. Optionale Provider-Readiness läuft isoliert und
 begrenzt; SQL-Proben, globale Storage-Konfiguration, Runtime-/Hostwerte,
-Spezialjournale, Export und Operator-Integration bleiben ausgeschlossen.
+Spezialjournale und Export bleiben ausgeschlossen; der lokale Handoff ist separat beschrieben.
 Vertrag: [DIAGNOSTIC_BUNDLE.md](../Documentation/Architecture/DIAGNOSTIC_BUNDLE.md).
 
 `SQL_Server_Lab` ist die gemeinsame Plattform für lokale, isolierte und reproduzierbare SQL-Server-Testumgebungen.
@@ -290,7 +290,11 @@ SQL Server steht immer im Zentrum. Supporting Components wie Domain Controller, 
   genau eine vorhandene registrierte Location auf lokalem festem Windows-
   NTFS/ReFS: serverseitige Vorschau, bewusste Bestätigung, frische Bindungsprüfung,
   eigenes Byte mit Flush und begrenzte separate Abwesenheitsprüfung. Lesen
-  probt nicht; freie Kapazität und SQL-/Providerabnahme bleiben getrennt;
+  probt nicht. Eine ausdrückliche read-only Kapazitätsabfrage liest genau eine
+  registrierte, frisch gebundene Location auf lokalem Windows Fixed NTFS/ReFS.
+  Datenträgerfrei ist eine zeitgebundene Momentaufnahme für diesen Zugriff;
+  unbekannte Werte bleiben null. Native Container-Volumes, Reservierung,
+  Schreibbarkeit und SQL-/Providerabnahme sind damit nicht bestätigt;
   dessen versioniertes read-only
   Storage-Residency-Inventar trennt `Lab_Data`, native Docker-/Podman-Ablage,
   externe Hostpfade, rungebundene sowie retained Objekte und unbekanntes
@@ -945,3 +949,11 @@ Der separate Windows-GuidedStop-Nachweis vom 2026-09-30 bestand mit eigenen
 synthetischen nativen Prozessen und bestätigtem Cleanup; SQL-/Modell-/Compute-
 und Providerabnahme sowie vollständige Live-Verbrauchercoverage folgen daraus
 nicht. Der enge Lifecycle-/Cleanup-Nachreview ist geschlossen.
+
+## Optionaler registrierter CMS: lesende Prüfung
+
+CLI und GUI verwenden denselben expliziten CMS-Inspektor über die öffentlichen Workflow-Aktionen. Registrierung lesen prüft keine Runtime und liest kein Secret. Nur ein frisch an den eigenen laufenden Docker-/Podman-Container und seine native Loopback-Portfreigabe gebundenes Ziel darf vor dem Secretlesen zur festen SQL-SELECT-Prüfung zugelassen werden. Der feste DTO enthält Zeitpunkt und nullable Zähler, keine Namen, Secrets oder Endpunkte. Hyper-V, SSMS, Mitgliedsverbindungen, Einrichtung und Sync bleiben separate Grenzen. Kanonischer Vertrag: [CMS_READONLY_INSPECTION](../Documentation/Architecture/CMS_READONLY_INSPECTION.md).
+
+## Bewusster lokaler Operator-Handoff
+
+Der [kanonische Handoff](../Documentation/HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.
