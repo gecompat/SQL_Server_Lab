@@ -352,8 +352,13 @@ Reparatur oder Löschung. Die gezielte Katalogreparatur wurde für Docker und
 Podman getrennt an jeweils einer neuen eigenen synthetischen Volume mit
 bytegleichem Sentinel und bestätigtem Cleanup geprüft; SQL Server wurde dabei
 nicht gestartet. Dieser Nachweis gilt nicht für allgemeine Maintenance-Reparatur
-oder SQL-Funktionalität. Retained-Removal-Native für Docker und Podman bleibt
-`NOT_EXECUTED`; synthetische Katalog-/UI-Prüfungen ersetzen diesen Nachweis nicht.
+oder SQL-Funktionalität. Die getrennte Retained-Removal-Abnahme bestand am
+2026-10-01 auf `b2a1f456` für Docker und Podman jeweils mit sechs Assertions
+an einem frischen eigenen SQL-2025-Store und separatem Cleanup. Eigene
+Container, Volumes und Testnetze waren anschließend abwesend; parallel genutzte
+Umgebungen und gespeicherte Defaults blieben unverändert. Dieser enge Nachweis
+erweitert den Löschvertrag nicht auf Sidecars, Gruppen, historische Stores,
+andere SQL-Versionen, externe Speicher oder Hyper-V.
 
 ### Hyper-V
 
