@@ -700,7 +700,16 @@ trennt den behaltenen Store ab, prüft WhatIf, öffentliche Löschung, Tombstone
 idempotentes Resume und eigene Restfreiheit. Der Parent hält
 `SQL_Server_Lab_Runtime_Smoke` (unter Windows `Global\`), begrenzt den Arbeitschild
 auf 1200 und Cleanup auf 300 Sekunden und erhält private Evidence auch nach
-Fehlern. Diese beiden nativen Abnahmen sind für diesen Stand **NOT_EXECUTED**.
+Fehlern. Am 2026-10-01 bestanden Docker und Podman auf `b2a1f456` getrennt
+jeweils sechs Assertions sowie der separate Cleanup. Ein lokal geprüfter
+Schutzwrapper wählte pro Lauf ein frisches eigenes konfliktfreies Testnetz
+über Prozessvariablen; die unverpackte Abnahme verwendet das konfigurierte
+Standardnetz. Eigene Container, Volumes und Testnetze waren danach abwesend;
+die sechs laufenden Shared-Umgebungen, fremde VM-Zustände, geschützte Dateien
+und gespeicherten Defaults blieben unverändert. Rohdaten und Testwrapper
+bleiben ausschließlich lokal. Der unabhängige Ergebnisnachreview wurde für
+beide Provider getrennt geschlossen; weitere SQL-Versionen und Storageklassen
+bleiben offen.
 Die Capability selbst betrifft Docker/Podman; die gekoppelte Änderung am
 gemeinsamen Testselektor verlangt nach bestehenden Regeln den breiteren CI-Gate
 einschließlich Hyper-V und wird nicht dafür abgeschwächt.

@@ -95,4 +95,11 @@ Rücksetzung auf `DETACHED` erfolgt.
 Die Offline-Prüfungen verwenden synthetische Producer, echte Katalogspiegel,
 injizierte Schreibfehler und getrennte Prozesse. Der native SQL-2025-Harness
 `Tests/Integration/Invoke-RetainedStoreRemovalAcceptance.ps1` ist für Docker
-und Podman vorbereitet; seine Ausführung steht für diesen Stand noch aus.
+und Podman vorhanden. Am 2026-10-01 bestanden beide Provider getrennt auf
+`b2a1f456` jeweils sechs native Assertions mit einem frischen eigenen
+SQL-2025-Store: SQL-Marker, Detach, unveränderndes WhatIf, öffentliche Löschung,
+dauerhafter Tombstone mit bytegleicher Wiederholung und native Volume-Abwesenheit.
+Der separate Cleanup bestand ebenfalls; eigene Container, Volumes und Testnetze
+waren anschließend abwesend. Die sechs parallel genutzten Umgebungen und
+gespeicherten Hostdefaults blieben unverändert. Weitere Storageklassen,
+SQL-Versionen und Hyper-V sind durch diesen Nachweis nicht abgenommen.
