@@ -1,5 +1,13 @@
 # Bekannte Grenzen
 
+Der PLAN_ONLY-[Komponentenplan](../Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md#71-implementierter-enger-komponentenplan-slice-e)
+ist nur für zwei vorhandene Docker-/Podman-SQL-Ziele und eine verwaltete
+Shared-SQL-Referenz unter registriertem `Lab_Data/State` implementiert.
+Relations bleiben ausschließlich in der Vorschau; persistierter RUNNING-Status
+beweist keine SQL-Bereitschaft. Keine Adoption, Lease, persistierte Topologie,
+abhängigkeitsgesteuerte Runtime oder neuer Shared-Removal-Pfad. CLI bietet den
+generischen Befehlszugang; ein geführter CLI-/Browserdialog bleibt offen.
+
 `Get-SqlServerLabDiagnosticBundle` unterstützt ausschließlich eine moderne,
 vollständig gebundene Instanz unter einem registrierten `Lab_Data/State`.
 Historischer State und Cleanupstatus sind keine SQL-Readiness oder aktuelle
