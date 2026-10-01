@@ -309,6 +309,63 @@ Eine Relation beschreibt:
 - optional Latenz-, Bandbreiten- oder Isolationserfordernisse;
 - SQL-Zweck der Beziehung.
 
+### 7.1 Implementierter enger Komponentenplan (Slice E)
+
+`Get-SqlServerLabReconcilePlan -ProposedRelations` implementiert ausschließlich
+eine nicht persistierte Vorschau in der bestehenden `SqlServerLab.ReconcilePlan`-
+Familie, Version `1.2`, Mode `COMPONENT_RELATIONS_PLAN_ONLY`. Die vorhandenen
+Lifecycle-/External-Runtime-Versionen `1.0` und `1.1` bleiben unverändert. Die übrige
+Gesamtarchitektur dieses Dokuments bleibt `ARCHITECTURE_DECISION_DRAFT`.
+
+Die explizite Eingabe ist eine Liste mit `SourceInstanceId`, `Type=requires-sql`
+und `Target` mit `RunId`, `ScopeId`, `InstanceId` und `ManagementMode`.
+`SqlPurposeClass=INTEGRATION_SCENARIO` ist fest vorgegeben; freie Purpose-Texte
+werden nicht entgegengenommen oder ausgegeben. IDs, Typ und Management Mode
+sind streng begrenzt. Höchstens vier Beziehungen sind zulässig.
+`PROVISIONED` bezeichnet nur ein vorhandenes eigenes Ziel desselben Runs;
+`EXTERNAL_READ_ONLY` nur eine vorhandene verwaltete Shared-SQL-Instanz unter
+demselben registrierten `Lab_Data/State`. Höchstens zwei eigene Docker-/Podman-
+SQL-Ziele und eine Shared-Referenz sind umfasst. Identität, Scope-Marker,
+Controller/Location/Volume, validierter Desired-State und ProviderSubRun-
+Mitgliedschaft werden aus bestehenden Records gelesen; keine Identität,
+Ownership, Verbraucher-Lease oder Relation wird registriert oder übernommen.
+
+`Desired.ProposedRelations` hält nur die validierte Kopie der Callereingabe.
+`RunDesiredState/1.0`, Manifeste und ursprüngliche Locks bleiben unverändert.
+Ohne Relations liefert dieser Parametersatz `NO_RELATION_CHANGE`; der bisherige
+Lifecycle-Parametersatz bleibt unverändert. Fehlende oder ungültige moderne
+Bindings, doppelte Beziehungen, Zyklen, Self-Dependency, Scope-/Providerdrift
+und unzulässige Management Modes sperren die Vorschau.
+
+Die Vorschau zeigt deterministische Voraussetzungreihenfolge und gespeicherten
+Run- und ProviderSubRun-Teilstatus. `RUNNING` ist keine SQL-Bereitschaft: `SqlReadiness=NOT_CHECKED`,
+Relations mit ungeprüftem SQL bleiben blockiert. Recoveryzustände werden als
+Gesamtblockade angezeigt. Es gibt keine Runtime-, SQL-, Secret- oder Hosttoolprobe.
+
+`ObservedContentSha256` bindet die vorgeschlagenen Relations sowie die zweimal
+gelesenen Source-/Shared-Bindings. Es ist eine neue beobachtete Inhaltsbindung
+mit dem bestehenden SHA256-Helper, kein vorhandener Revisionszähler oder CAS.
+Die private Hashprojektion umfasst Run/Scope, Desired-Instanzen, ProviderSubRun-
+Mitgliedschaft, Connection-Identität und Root-/Location-Records; Endpunkte,
+native IDs und lokale Pfade werden nicht ausgegeben. Änderungen zwischen den
+beiden Beobachtungen sperren den Plan. Der Digest erteilt keine Mutationsrechte.
+Bereits innerhalb einer Beobachtung müssen initialer Run, jede Diagnostic-Bindung
+und der abschließend verwendete Desired-State dieselbe Identität und Instanzliste
+haben; die finale Instanzzahl wird erneut begrenzt. Ein wechselnder Snapshot darf
+die Zwei-Ziele-Grenze nicht umgehen. Dies ist keine atomare CAS-Observation.
+
+`Actions=[]`, `ExecutionSupported=false` und `MutationAllowed=false` gelten
+immer; Shared Removal ist `PRESERVE`. `Invoke-SqlServerLabReconcileAction`
+verweigert diesen Parametersatz sowie die neue Planversion/den Mode auch bei
+Pipelineübergabe vor jeder Observation oder Mutation.
+Vorhandene Mode-Werte und explizit fehlende Ausführungsfähigkeit werden ebenfalls
+vor Observation abgewiesen; bisherige spezialisierte Planfamilien ohne Mode
+behalten ihren unveränderten Aktionspfad. Spätere Persistenz braucht
+einen eigenen versionierten RunDesiredState-Vertrag und failclosed Guards in
+allen Lifecycle-Executoren; ein Versionswechsel allein genügt nicht.
+Hyper-V, beliebige Hostdienste, Netz/DNS/TLS, Mitgliedschaftsänderung und
+abhängigkeitsgesteuerter Start/Stop/Removal sind nicht implementiert.
+
 ## 8. Composite SQL-Topologien
 
 Komplexe SQL-Konstellationen dürfen als Composite Component beschrieben und anschließend expandiert werden.
