@@ -790,6 +790,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Get-SqlServerLabAiScenario` | Katalogisierten KI-Szenarioplan und optionale sanitisierte Run-Evidence anzeigen |
+| `Get-SqlServerLabLlamaCppStartPlan` | Reine Vorschau einer expliziten CUDA-/OpenVINO-Installation und GGUF-Datei; kein Start oder Bereitschaftsnachweis |
 | `Start-SqlServerLabLlamaCppRuntime` | Eigenen Windows-HTTPS-Embeddingserver mit expliziter Runtime-/Modell-/Gerätewahl und begrenzter Lease starten |
 | `Stop-SqlServerLabLlamaCppRuntime` | Ausschließlich den eigenen sitzungsgebundenen llama.cpp-Server beenden und API-Key bereinigen |
 | `Get-SqlServerLabLlamaCppRuntime` | Lokale Windows-/Linux-llama.cpp-Pakete begrenzt und ohne Hashpflicht erkennen; kein Geräte- oder Modellnachweis |

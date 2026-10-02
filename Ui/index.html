@@ -123,6 +123,7 @@
       <p>Runtimeinstallation, laufender Dienst, gespeicherte Modelldatei und geladenes Modell sind getrennte Zustände. In der Konsole sind Modellkatalog/Download und vorhandene Ollama-Modellaufrufe verfügbar.</p>
       <p>Eigene llama.cpp-Sitzungen dieses UI-Modulhosts können bewusst gestoppt werden. Fremdprozesse, Start, Restart sowie Load, Warmup, Unload und Modellwechsel bleiben offen. Der vorhandene erweiterte Secret-Preflight unten steuert keinen Dienst.</p>
       <button id="llama-session-open" type="button" class="button secondary">Eigene llama.cpp-Sitzung stoppen</button>
+      <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
     </section>
     <section class="panel" data-workspace-area="connections" hidden>
       <h2>Verbindungen und CMS</h2>
@@ -730,6 +731,28 @@
       </div>
     </div>
   </dialog>
+  <dialog id="llama-start-plan-dialog">
+    <div class="read-only-dialog-content">
+      <h2>llama.cpp für SQL-Embeddings: reine Dateivorschau</h2>
+      <p>Die Vorschau startet nichts. Geräte, Port, TLS, Modellkompatibilität und SQL bleiben ungeprüft. Geben Sie explizite lokale Dateien an; es gibt keine automatische Suche.</p>
+      <label>Runtime-Verzeichnis <input id="llama-start-plan-runtime" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>GGUF-Modelldatei <input id="llama-start-plan-model" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>Backend <select id="llama-start-plan-backend"><option value="LlamaCppCuda">CUDA</option><option value="LlamaCppOpenVino">OpenVINO</option></select></label>
+      <label>Gewünschter Beschleuniger <select id="llama-start-plan-accelerator"><option>CPU</option><option>GPU</option><option>NPU</option></select></label>
+      <label>Gewünschte Dimension (1–1998) <input id="llama-start-plan-dimension" type="number" min="1" max="1998" value="768"></label>
+      <label>Pooling <select id="llama-start-plan-pooling"><option value="mean">mean</option><option value="cls">cls</option><option value="last">last</option></select></label>
+      <label>Gewünschter Port (1024–65535) <input id="llama-start-plan-port" type="number" min="1024" max="65535" value="19435"></label>
+      <label>Vorgesehenes Startbudget in Sekunden (1–600) <input id="llama-start-plan-timeout" type="number" min="1" max="600" value="120"></label>
+      <label>Vorgesehene Lease in Sekunden (30–3600, größer als Startbudget) <input id="llama-start-plan-lease" type="number" min="30" max="3600" value="900"></label>
+      <label>Gewünschtes Kontextbudget (32–8192) <input id="llama-start-plan-context" type="number" min="32" max="8192" value="512"></label>
+      <p id="llama-start-plan-status" role="status">Noch keine Dateien gelesen.</p>
+      <pre id="llama-start-plan-result"></pre>
+      <div class="dialog-actions">
+        <button id="llama-start-plan-preview" type="button" class="button">Dateivorschau lesen</button>
+        <button id="llama-start-plan-close" type="button" class="button secondary">Zurück / Abbrechen</button>
+      </div>
+    </div>
+  </dialog>
   <script src="app.js"></script>
   <dialog id="evaluation-refresh-dialog">
     <div class="maintenance-dialog-content">
@@ -753,5 +776,6 @@
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
   <script src="component-relations.js"></script>
+  <script src="llama-start-plan.js"></script>
 </body>
 </html>

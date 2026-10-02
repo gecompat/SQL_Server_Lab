@@ -198,3 +198,64 @@ Prozess, API-Key, eigene Testzertifikate, SQL-Container und Volume wurden
 bereinigt. Zusätzlich bestanden falscher Pin, Dimensionsabweichung mit
 Cleanup sowie synthetischer Ownerverlust, Lease-Ende und Worker-Kill.
 Dies ist keine positive OpenVINO-NPU-Evidence und kein Backendbenchmark.
+
+## Reine Vorschau für einen eigenen llama.cpp-Start
+
+`Get-SqlServerLabLlamaCppStartPlan` liefert `SqlServerLab.LlamaCppStartPlan/1.0`
+für SQL-Server-2025-Embeddings. Der Core nimmt ausschließlich explizite
+`RuntimeDirectory`, `Backend`, `Accelerator`, `ModelPath`, `Dimension`, `Pooling`
+und `Port` sowie die bestehenden numerischen Start-/Lease-/Kontextgrenzen an.
+Keine Auswahl über ComputeSelection, Inventar oder Gerätebindung und keine
+Modellalias-, Zertifikats-, API-Key- oder Private-Key-Eingaben. Der vorhandene
+Start, sein WhatIf und der sitzungsgebundene Stop bleiben unverändert.
+
+Eine explizite lokale Runtimewurzel besitzt höchstens 16 direkte Unterordner
+und 256 Dateien je betrachtetem Verzeichnis. Root, Vorfahren, direkte
+Kandidaten und Dateien dürfen keine Reparse-Pfade sein. Der bestehende
+Files-only-Reader erkennt die exakt gewählte Installation; benachbarte
+Kandidaten werden nicht übernommen. Unbekannte oder mehrdeutige Backends,
+Backenddrift und CUDA-NPU blockieren. Der CPU-Installer ist kein impliziter
+CUDA-/OpenVINO-Kompatibilitätsnachweis. Es werden keine Binaries gestartet.
+
+Die reguläre Modelldatei wird nur über Metadaten und genau vier GGUF-Magic-Bytes
+beobachtet. Zwei Metadatenbeobachtungen erkennen sichtbaren Drift, sind aber
+kein CAS-, Byteintegritäts-, ABA- oder späterer Ausführungsnachweis; ein Austausch
+mit gleichen Metadaten ist nicht ausgeschlossen. Dateimengen begrenzen die
+Ausgabe, nicht die Laufzeit blockierender Dateisystemaufrufe. Kein vollständiges
+Modellhashing, kein rekursiver Suchlauf und keine Umgebungs-/PATH-Discovery.
+
+Die sanitisierte Ausgabe bleibt stets `PLAN_ONLY/BLOCKED`, mit `Actions=[]`,
+`ExecutionSupported=false` und `MutationAllowed=false`. Pfade, Dateinamen,
+freie Callertexte, Inhaltsdigests und ausführbare PlanKeys fehlen. GGUF-Magic
+belegt weder Embeddingeignung, Dimension noch Pooling. Geräte, Port, TLS,
+Keymatching, SAN/Trust und SQL bleiben getrennt `NOT_CHECKED`. Kein Listener,
+Prozess, HTTP-, SQL-, Secret-, Defaults- oder Registryzugriff und keine Persistenz.
+Ein bewusster späterer Start benötigt alle ursprünglichen Eingaben und seine
+eigene frische Runtime-/TLS-/SQL-Abnahme.
+
+Die CLI bietet unter „Alle öffentlichen Befehle“ → „llama.cpp: geführte
+Startvorschau“ eine reine Eingabeführung. Genau zehn bestehende explizite
+Parameter bleiben im RAM. Erst „Vorschau anzeigen“ liest die lokalen Dateien
+über denselben Public-Core. Back/Esc an Auswahl und Vorschau ruft ihn nicht auf.
+Maskierte Pfadeingaben verwenden Esc, im Fallback Ctrl+C statt 0. Der Dialog
+zeigt keine Pfade, freien Fehlertexte oder zusätzlichen DTO-Felder. Er verwirft
+ungültige/mutierende Ergebnisse und bleibt PLAN_ONLY/BLOCKED. Kein Startknopf,
+ComputeSelection, Secretzugriff, globale Discovery oder Speicherung. Der tatsächlich geführte Start bleibt offen.
+
+### Reine llama.cpp-Dateivorschau im Browser
+
+Unter „Host-Dienste und Modelle“ → „llama.cpp: reine Startvorschau“ werden
+Runtime-Verzeichnis, GGUF-Datei, Backend, Beschleuniger und die sechs
+Modell-/Budgetwerte ausdrücklich im Arbeitsspeicher erfasst. Erst
+„Dateivorschau lesen“ ruft den unveränderten öffentlichen Dateiplan auf.
+Öffnen, Bearbeiten, Zurück und Escape lesen keine Dateien und erzeugen keinen
+Job. Abbruch verwirft die Eingaben und ignoriert verspätete Antworten.
+
+Die Vorschau bleibt PLAN_ONLY/BLOCKED mit leeren Actions. Geräte, Port, TLS,
+Modellkompatibilität und SQL bleiben NOT_CHECKED. Pfade werden maskiert erfasst
+und weder im Ergebnis noch in Fehlern gespiegelt; es gibt keine Persistenz oder
+Ausführungsfreigabe. Clearing ist keine sichere Speicherlöschung. Die zwei
+Dateimetadatenbeobachtungen bieten keinen CAS-, Integritäts- oder späteren
+Startnachweis. Kein Startknopf, ComputeSelection, Secret-, Zertifikats-,
+Sitzungs- oder Inventarzugriff. Der bestehende Start und eigene Sitzungsstop
+bleiben getrennte Verträge; ein tatsächlich geführter Start bleibt offen.

@@ -431,6 +431,7 @@ function Manage-LabPublicCommandsInteractive {
         $catalog=@(Get-LabPublicCommandConsoleCatalog)
         $items=@(
             New-LabConsoleItem -Id 'evaluation-refresh-preview' -Label 'SQL-Evaluation: Ersatzentscheid' -Value 'Nur Planung; keine Lizenzfreigabe oder Übernahme'
+            New-LabConsoleItem -Id 'llama-start-plan-preview' -Label 'llama.cpp: geführte Startvorschau' -Value 'Nur Dateien lesen; keine Ausführung'
             New-LabConsoleItem -Id 'component-relations-preview' -Label 'SQL-Komponenten: geführte Vorschau' -Value 'Nur Planung; Shared-SQL bleibt erhalten'
             for($index=0;$index -lt $catalog.Count;$index++){
             $entry=$catalog[$index]
@@ -442,6 +443,8 @@ function Manage-LabPublicCommandsInteractive {
         if($selection.Status -ne 'Selected'){return}
         if ($selection.SelectedItem.Id -ceq 'evaluation-refresh-preview') {
             Invoke-LabEvaluationRefreshPlanInteractive
+        } elseif ($selection.SelectedItem.Id -ceq 'llama-start-plan-preview') {
+            Invoke-LabLlamaCppStartPlanInteractive
         } elseif ($selection.SelectedItem.Id -ceq 'component-relations-preview') {
             Invoke-LabComponentRelationPlanInteractive
         } else {

@@ -152,6 +152,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Get-SqlServerLabDatabaseMigrationDependency` | SQL-seitig beobachtbare Migrationsabhängigkeiten direkt oder per Run-/Instanzbindung read-only als sanitisierte Kategorien und Counts inventarisieren |
 | `Get-SqlServerLabSqlObservabilityEvidence` | Aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken direkt oder per Run-/Instanzbindung read-only ohne Endpunkt-, SQL-Text-, Namens- oder Secretprojektion erfassen |
 | `Get-SqlServerLabAiScenario` | Katalogisierten SQL-KI-Szenarioplan und optionale sanitisierte Run-Evidence anzeigen |
+| `Get-SqlServerLabLlamaCppStartPlan` | Explizite reine Startvorschau ohne Secrets, stets PLAN_ONLY/BLOCKED und nicht ausführbar |
 | `Start-SqlServerLabLlamaCppRuntime` | Eigenen Windows-HTTPS-Embeddingserver mit expliziter Runtime-/Modell-/Gerätewahl und begrenzter Lease starten |
 | `Stop-SqlServerLabLlamaCppRuntime` | Ausschließlich den eigenen sitzungsgebundenen llama.cpp-Server beenden und API-Key bereinigen |
 | `Start-SqlServerLabOvmsHttpsGateway` | Eigenen zeitlich begrenzten Windows-Loopback-HTTPS-Gateway vor einem verifizierten OVMS-v3-Upstream starten |

@@ -2557,3 +2557,42 @@ Die Fixture CmsInspectionChecks wird durch Invoke-ConnectionCenterCmsChecks entd
 ## Bewusster lokaler Operator-Handoff
 
 Der [kanonische Handoff](../HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.
+
+## Reine eigene llama.cpp-Startvorschau
+
+`Tests/Static/Invoke-LlamaCppStartPlanChecks.ps1` führt den echten öffentlichen
+Core und die bestehenden Files-only-Reader in einem isolierten Modul mit
+synthetischen lokalen Dateien aus. Grenzen: exakte Installation, Backends,
+CUDA-NPU, Dateimengen/Reparsepfade, GGUF-Magic, Metadatendrift, skalare Grenzen,
+Pfadfreiheit, NOT_CHECKED und unverändertes Start-WhatIf. Gesperrte Start-,
+Compute-, HTTP-, Secret- und Defaultgrenzen dürfen nicht erreicht werden.
+Der Nachweis ist keine Geräte-, TLS-, Modell-, SQL- oder Providerabnahme.
+Die tatsächliche Diffauswahl bleibt maßgeblich; ausgewählte, nicht ausgeführte
+Provider-Smokes bleiben ausdrücklich NOT_EXECUTED.
+
+### Geführte reine llama.cpp-Startvorschau
+
+`Invoke-LlamaCppStartPlanConsoleChecks.ps1` führt den tatsächlichen Menü-/
+Dialogpfad bis in Public-Core und bestehende Files-only-Reader auf synthetischen
+Dateien aus. Console-Menüleaves werden gespeist; die echte Texteingabeleaf wird
+mit isolierter Fallbackeingabe geprüft. Cancel an allen Schritten, MaskInput-
+Semantik, exakte zehn Argumente/Defaults, skalare Grenzen, fremde Menü-IDs,
+strikte sichere DTOs/Fehler sowie sichtbarer Drift und Reparse/GGUF-Vetos sind
+erforderlich. Start/Stop, Compute, HTTP, Secrets und Defaults sind gesperrt.
+Eigene Fixturedateien werden bereinigt. Keine empirische Tastatur-, Runtime-
+oder Providerabnahme; die selektierten Pflichtgates bleiben separat.
+
+### Geführte reine llama.cpp-Dateivorschau im Browser
+
+`Invoke-LlamaCppStartPlanBrowserChecks.ps1` führt den tatsächlichen engen
+HTTP-Handler bis Public-Core und bestehende Files-only-Reader sowie die
+extrahierte echte UI-Route auf synthetischen Dateien aus. Erforderlich sind
+strikte zehn Eingaben, UTF-8-Byte-/Zeichen-/JSON-Grenzen, Duplicate-/Case- und
+Origin-Vetos, fehlende/unbekannte/coerced Parameter, sichere DTOs und feste
+Fehlercodes, echte sichtbare Drift-, Reparse- und GGUF-Abweisung. Jobs,
+Start/Stop, Runtime, Compute, Secrets und Defaults sind gesperrte Grenzen.
+Die echte neue JavaScript-Datei prüft RAM-Eingaben, bewusste Vorschau, Cancel,
+Busy-/Revision- und verspätete Erfolgs-/Fehlerantworten über DOM-/Fetch-Fixtures.
+Das ist keine physische Browser-, Tastatur-, Modell- oder Nativeabnahme.
+Eigene Fixturedateien werden bereinigt; alle tatsächlichen Diffselektor-Gates
+und fehlenden Provider-Nachweise bleiben separat und unverändert verpflichtend.

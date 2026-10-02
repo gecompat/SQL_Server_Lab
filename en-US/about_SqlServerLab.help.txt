@@ -207,6 +207,10 @@ Sync-SqlServerLabRunScopedContainerStore
         Resolves a hash-bound SQL AI scenario from the catalog or against a run
         and returns sanitized plan and evidence metadata only.
 
+    Get-SqlServerLabLlamaCppStartPlan
+        Shows an explicit files-only preview as PLAN_ONLY/BLOCKED.
+        Does not start a runtime or use a compute selection.
+
     Start-SqlServerLabLlamaCppRuntime
     Stop-SqlServerLabLlamaCppRuntime
         Starts and stops an owned Windows/Linux embedding server with an Auto/Pinned

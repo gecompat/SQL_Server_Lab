@@ -2903,3 +2903,38 @@ Ein privater abweichender StateRoot im bisherigen CMS-Menü erhält keine Freiga
 ## Bewusster lokaler Operator-Handoff
 
 Der [kanonische Handoff](../HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.
+
+### Reine eigene llama.cpp-Startvorschau
+
+`Get-SqlServerLabLlamaCppStartPlan` liest ausschließlich eine explizite lokale
+CUDA-/OpenVINO-Installation und vier GGUF-Headerbytes mit begrenzten
+Dateimetadaten. Die Ausgabe bleibt `PLAN_ONLY/BLOCKED`, ohne Actions oder
+Ausführungsrecht. Geräte, Port, Embeddingkompatibilität, TLS, Keymatching und SQL
+sind `NOT_CHECKED`. Keine Secrets, Zertifikatsparameter, Pfade oder freie
+Callertexte in der Ausgabe, keine Persistenz, keine Runtime- oder Netzprobe.
+Zwei Metadatenbeobachtungen sind kein Byteintegritäts- oder CAS-Nachweis.
+Der bestehende Start braucht weiterhin seine vollständigen Originalparameter
+und frische Validierung. Die CLI bietet unter „Alle öffentlichen Befehle“ →
+„llama.cpp: geführte Startvorschau“ explizite RAM-Eingaben und bewusste
+Dateivorschau; Abbruch ruft keinen Plan auf. Pfade werden maskiert (Esc, im
+Fallback Ctrl+C), Ergebnis und Fehler bleiben pfadfrei. Kein Startknopf,
+ComputeSelection oder Secretzugriff. Der tatsächlich geführte Start bleibt offen. Vertrag:
+[Eigener llama.cpp-Start](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+### Reine llama.cpp-Dateivorschau im Browser
+
+Unter „Host-Dienste und Modelle“ → „llama.cpp: reine Startvorschau“ werden
+Runtime-Verzeichnis, GGUF-Datei, Backend, Beschleuniger und die sechs
+Modell-/Budgetwerte ausdrücklich im Arbeitsspeicher erfasst. Erst
+„Dateivorschau lesen“ ruft den unveränderten öffentlichen Dateiplan auf.
+Öffnen, Bearbeiten, Zurück und Escape lesen keine Dateien und erzeugen keinen
+Job. Abbruch verwirft die Eingaben und ignoriert verspätete Antworten.
+
+Die Vorschau bleibt PLAN_ONLY/BLOCKED mit leeren Actions. Geräte, Port, TLS,
+Modellkompatibilität und SQL bleiben NOT_CHECKED. Pfade werden maskiert erfasst
+und weder im Ergebnis noch in Fehlern gespiegelt; es gibt keine Persistenz oder
+Ausführungsfreigabe. Clearing ist keine sichere Speicherlöschung. Die zwei
+Dateimetadatenbeobachtungen bieten keinen CAS-, Integritäts- oder späteren
+Startnachweis. Kein Startknopf, ComputeSelection, Secret-, Zertifikats-,
+Sitzungs- oder Inventarzugriff. Der bestehende Start und eigene Sitzungsstop
+bleiben getrennte Verträge; ein tatsächlich geführter Start bleibt offen.

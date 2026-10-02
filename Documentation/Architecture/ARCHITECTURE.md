@@ -110,6 +110,7 @@ Export-SqlServerLabDatabasePackage           # Rungebundene Container-Datenbank 
 Invoke-SqlServerLabDatabasePackageAttach     # Paket pfadfrei an einen stabil gebundenen Hyper-V-SQL-Run attachen
 Get-SqlServerLabDatabaseMigrationDependency  # SQL-Migrationsabhaengigkeiten read-only inventarisieren
 Get-SqlServerLabAiScenario                   # SQL-KI-Szenario und sanitisierte Evidence read-only aufloesen
+Get-SqlServerLabLlamaCppStartPlan          # Reine explizite Dateivorschau, PLAN_ONLY/BLOCKED, kein Start
 Start-SqlServerLabLlamaCppRuntime           # Eigene begrenzte Windows-Embeddingruntime starten
 Stop-SqlServerLabLlamaCppRuntime            # Eigene Runtime und API-Key bereinigen
 Start-SqlServerLabOvmsHttpsGateway          # Eigenen begrenzten OVMS-Loopback-HTTPS-Gateway starten
