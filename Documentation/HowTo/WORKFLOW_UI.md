@@ -91,6 +91,10 @@ Secret-Parameter unter Host-Dienste sind zusätzlich eingeklappt. Zurück
 wechselt in den vorherigen Bereich ohne Formulare zu löschen. Ein Refresh
 behält Bereich und ungespeicherte Eingaben. Expertenbefehle und Meldungen
 haben eigene Einstiege. Ressourcen öffnen den bestehenden Quellen-/Speicherortdialog;
+**SQL-2022/2025-Bootstrapperquellen bearbeiten** bietet die sechs festen
+katalogisierten Bootstrapper zur Auswahl. Vorschau, Bestätigung und gezielter
+Reset verwenden dieselbe lokale Preferences-Authority; sie laden oder starten
+kein Medium. [Bedienung und Grenzen](../User/Getting_Started.md#lokale-sql-20222025-bootstrapperquellen).
 Grundkonfiguration bietet einen eigenen gemeinsamen Plan-/Apply-Pfad. Die Verbindungsansicht zeigt nur
 vorhandene Host-/Port-Felder. Bei Hyper-V werden Host und Port eng aus dem führenden Serverfeld des Connection Strings und TcpPort projiziert; Credentials und Connection Strings werden hier nie angezeigt. Fehlende oder nicht unterstützte Werte bleiben unbekannt; ein Verbindungstest wird nicht behauptet.
 

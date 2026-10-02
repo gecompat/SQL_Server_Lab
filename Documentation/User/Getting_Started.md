@@ -2094,10 +2094,12 @@ Poolmitgliedschaft und Claims bleiben Defizit und Auffüllzahl unbekannt. Der
 Dialog erstellt keine Slots und aktiviert keine automatische Auffüllung.
 Einzelheiten im [Bedienvertrag](../HowTo/WORKFLOW_UI.md).
 
-## Lokale SQL-2025-Bootstrapperquellen
+## Lokale SQL-2022/2025-Bootstrapperquellen
 
-Unter **Ressourcen und Downloads → SQL-2025-Bootstrapperquellen bearbeiten**
-stehen genau Enterprise Developer, Standard Developer und Express zur Wahl.
+Unter **Ressourcen und Downloads → SQL-2022/2025-Bootstrapperquellen bearbeiten**
+stehen genau SQL 2025 Enterprise Developer, Standard Developer und Express
+sowie SQL 2022 Developer, Evaluation und Express zur Wahl. Jede Auswahl bindet
+Version, Edition und Bootstrapper-Dateiname an ihren vorhandenen Katalogeintrag.
 Die CLI erreicht denselben Dialog über `Invoke-SqlServerLab -Action MediaSourceOverride`.
 Repositoryadresse, effektive Adresse und Herkunft (`REPOSITORY_DEFAULT`,
 `LOCAL_OVERRIDE`, `INVALID`) bleiben getrennt sichtbar. Bearbeiten und Reset
@@ -2111,7 +2113,9 @@ katalogisierten Dateinamen verwenden. Userinfo, Query, Fragment, Escapes,
 Backslashes und mehrdeutige Pfadsegmente werden abgelehnt. Beim späteren
 `Save-SqlServerLabMediaSource` werden Overrides frisch validiert; jede
 HTTP-Weiterleitung wird abgewiesen. Repositorydefault-Downloads behalten ihren
-bisherigen Vertrag.
+bisherigen Vertrag. Insbesondere bleibt die katalogisierte SQL-2022-Evaluation-
+Adresse mit `country`/`culture`-Query als Default lesbar und nach Reset erhalten;
+eine alternative Adresse darf diese Query nicht übernehmen.
 
 Der Dialog ändert nur die Bezugsadresse **derselben Datei**. Größe, SHA-256,
 optionaler SHA-1, Microsoft-Signaturpflicht, Variante und Zielpfad stammen

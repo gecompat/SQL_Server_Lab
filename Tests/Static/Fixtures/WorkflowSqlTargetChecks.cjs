@@ -647,11 +647,16 @@ async function main() {
   check('Closed group dialog rejects delayed preview', () => assert.equal(node('test-group-apply').disabled, true));
   const mediaRequests = [];
   const mediaItem = { Id: 'sql-server-2025-enterprise-developer-bootstrapper', DisplayName: '<Bootstrapper>', RepositoryUrl: 'https://download.microsoft.com/download/default/SQL2025-SSEI-EntDev.exe', EffectiveUrl: 'https://download.microsoft.com/download/default/SQL2025-SSEI-EntDev.exe', Provenance: 'REPOSITORY_DEFAULT', ExpectedBytes: 21, ExpectedSha256: 'a'.repeat(64) };
+  const mediaItems = [mediaItem, ...[
+    ['2025', 'standard-developer', 'Standard Developer', 'StdDev'], ['2025', 'express', 'Express', 'Expr'],
+    ['2022', 'developer', 'Developer', 'Dev'], ['2022', 'evaluation', 'Evaluation', 'Eval'], ['2022', 'express', 'Express', 'Expr']
+  ].map(([version, id, edition, file]) => ({ ...mediaItem, Id: 'sql-server-'+version+'-'+id+'-bootstrapper', DisplayName: 'SQL Server '+version+' '+edition+' bootstrapper', Version: version, RepositoryUrl: 'https://download.microsoft.com/download/default/SQL'+version+'-SSEI-'+file+'.exe', EffectiveUrl: 'https://download.microsoft.com/download/default/SQL'+version+'-SSEI-'+file+'.exe' }))];
   let mediaMode = 'ready';
   context.fetch = async (url, options) => {
     const body = options?.body ? JSON.parse(options.body) : null;
     mediaRequests.push({url,body});
-    const result = body?.action === 'PlanMediaOverride' ? { Id: mediaItem.Id, Operation: body.parameters.MediaSourceOperation, EffectiveUrl: body.parameters.MediaSourceUrl || mediaItem.RepositoryUrl, IsNoOp: mediaMode === 'noop', PlanKey: 'synthetic-plan', Notice: 'Kein Download' } : { Status: mediaMode === 'invalid' ? 'INVALID' : 'READY', Items: [mediaItem], Notice: 'Kein Download' };
+    const selected = mediaItems.find(item => item.Id === body?.parameters?.MediaSourceId) || mediaItem;
+    const result = body?.action === 'PlanMediaOverride' ? { Id: selected.Id, Operation: body.parameters.MediaSourceOperation, EffectiveUrl: body.parameters.MediaSourceUrl || selected.RepositoryUrl, IsNoOp: mediaMode === 'noop', PlanKey: 'synthetic-plan', Notice: 'Kein Download' } : { Status: mediaMode === 'invalid' ? 'INVALID' : 'READY', Items: mediaItems, Notice: 'Kein Download' };
     return { ok: mediaMode !== 'error', json: async () => ({Result: result}) };
   };
   await resourceEvent('media-override-open');
@@ -674,6 +679,23 @@ async function main() {
   let releaseMedia;context.fetch=()=>new Promise(resolve=>{releaseMedia=resolve;});
   const pendingMedia=resourceEvent('media-override-open');await resourceEvent('media-override-close');releaseMedia({ok:true,json:async()=>({Result:{Status:'READY',Items:[mediaItem]}})});await pendingMedia;
   check('Media closed dialog ignores delayed state',()=>assert.equal(node('media-override-apply').disabled,true));
+  context.fetch = async (url, options) => {
+    const body = options?.body ? JSON.parse(options.body) : null; mediaRequests.push({url,body});
+    const selected = mediaItems.find(item => item.Id === body?.parameters?.MediaSourceId);
+    return {ok:true,json:async()=>({Result:selected ? {Id:selected.Id,Operation:body.parameters.MediaSourceOperation,EffectiveUrl:body.parameters.MediaSourceUrl||selected.RepositoryUrl,IsNoOp:false,Notice:'Kein Download'} : {Status:'READY',Items:mediaItems,Notice:'Kein Download'}})};
+  };
+  await resourceEvent('media-override-open');
+  check('Media chooser exposes six version-labelled fixed sources',()=>{assert.equal((node('media-override-selection').innerHTML.match(/<option/g)||[]).length,6);assert.match(node('media-override-selection').innerHTML,/SQL Server 2022 Evaluation bootstrapper/);assert.match(node('media-override-selection').innerHTML,/SQL Server 2025 Standard Developer bootstrapper/);});
+  for (const selected of mediaItems.filter(item=>item.Version==='2022')) {
+    node('media-override-selection').value=selected.Id;await resourceEvent('media-override-selection','change');
+    const beforeApply=mediaRequests.filter(r=>r.body?.action==='ApplyMediaOverride').length;
+    node('media-override-url').value=selected.EffectiveUrl;await resourceEvent('media-override-preview');
+    check('Media 2022 exact selection '+selected.Id,()=>{assert.equal(mediaRequests.at(-1).body.parameters.MediaSourceId,selected.Id);assert.equal(mediaRequests.filter(r=>r.body?.action==='ApplyMediaOverride').length,beforeApply);});
+    await resourceEvent('media-override-close');await resourceEvent('media-override-apply');
+    check('Media 2022 cancelled preview cannot apply '+selected.Id,()=>assert.equal(mediaRequests.filter(r=>r.body?.action==='ApplyMediaOverride').length,beforeApply));
+    await resourceEvent('media-override-open');
+  }
+  await resourceEvent('media-override-close');
   const watchRequests=[];
   const watchItem={Name:'SqlPackage <fixture>',CatalogVersion:'170.4.83.3',ObservedVersion:'170.5.96.0',LastSuccessfulVersion:'170.5.96.0',LastSuccessfulAtUtc:'synthetic-time',SourceUrl:'https://learn.microsoft.com/fixture',Status:'NEW',ReasonCode:'RESOURCE_WATCH_COMPLETED'};
   context.fetch=async (url,options={})=>{watchRequests.push({url,options});return{ok:true,json:async()=>({Result:{Status:'NEW',ReasonCode:'RESOURCE_WATCH_COMPLETED',CheckedAtUtc:'synthetic-time',Items:[watchItem],Notice:'Session only'}})}};

@@ -105,8 +105,8 @@ function Get-LabConsoleHelpCatalog {
         }
         'resource-watch' = @{ Title = 'Ressourcenstand prüfen'; Purpose = 'Katalog, letzte Beobachtung und aktuellen Quellenversuch getrennt lesen.'; Effects = 'Nur Jetzt prüfen greift auf feste Microsoftquellen zu. Sitzungscache ohne dauerhafte Überwachung; keine Downloads oder Installation.'; Command = 'Invoke-SqlServerLabWorkflowAction -Action GetResourceWatchState' }
         'media-overrides' = @{
-            Title = 'SQL-2025-Bootstrapperquellen'
-            Purpose = 'Eine von drei katalogisierten Varianten auswählen und Repositoryadresse, effektive Adresse und Herkunft prüfen.'
+            Title = 'SQL-2022/2025-Bootstrapperquellen'
+            Purpose = 'Eine von sechs katalogisierten SQL-2022/2025-Varianten auswählen und Repositoryadresse, effektive Adresse und Herkunft prüfen.'
             Effects = 'Auswahl und Lesen ändern nichts. Nur eine alternative Adresse derselben Bytes kann nach Vorschau gespeichert werden; kein Download.'
             Command = 'Invoke-SqlServerLab -Action MediaSourceOverride'
         }
