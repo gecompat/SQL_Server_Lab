@@ -430,6 +430,7 @@ function Manage-LabPublicCommandsInteractive {
     while($true){
         $catalog=@(Get-LabPublicCommandConsoleCatalog)
         $items=@(
+            New-LabConsoleItem -Id 'evaluation-refresh-preview' -Label 'SQL-Evaluation: Ersatzentscheid' -Value 'Nur Planung; keine Lizenzfreigabe oder Übernahme'
             New-LabConsoleItem -Id 'component-relations-preview' -Label 'SQL-Komponenten: geführte Vorschau' -Value 'Nur Planung; Shared-SQL bleibt erhalten'
             for($index=0;$index -lt $catalog.Count;$index++){
             $entry=$catalog[$index]
@@ -439,7 +440,9 @@ function Manage-LabPublicCommandsInteractive {
         )
         $selection=Invoke-LabConsoleMenu -ScreenId 'public-command-menu' -Title 'Alle oeffentlichen Befehle' -Subtitle 'Vollstaendiger exportierter Funktionsumfang mit Defaults und Eingabevertraegen' -Items $items
         if($selection.Status -ne 'Selected'){return}
-        if ($selection.SelectedItem.Id -ceq 'component-relations-preview') {
+        if ($selection.SelectedItem.Id -ceq 'evaluation-refresh-preview') {
+            Invoke-LabEvaluationRefreshPlanInteractive
+        } elseif ($selection.SelectedItem.Id -ceq 'component-relations-preview') {
             Invoke-LabComponentRelationPlanInteractive
         } else {
             Invoke-LabPublicCommandInteractive -CatalogItem $selection.SelectedItem.Data

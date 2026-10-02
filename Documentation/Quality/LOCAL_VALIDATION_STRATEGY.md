@@ -2,6 +2,14 @@
 
 ## Reiner Evaluation-Ersatzentscheid
 
+`Invoke-EvaluationRefreshPlanConsoleChecks.ps1` führt den tatsächlichen geführten
+CLI-Handler durch den öffentlichen Plan und seine Diagnostic-/Gast-Reader aus.
+Nur Text-, Menü- und Anzeigegrenzen sind isoliert. Alle drei Modi, Cancel vor
+jedem Planaufruf, fremde/abweichende Bindung, Auswahl-/Inhaltsdrift, fehlende und
+veraltete Evidence, Datenschutz und die 64-Verzeichnisgrenze sind Pflichtfälle.
+Der gemeinsame Menüdispatch erhält den generischen Editor und Komponentenplan.
+Diese synthetische Komposition ist keine Runtime-, Lizenz- oder SQL-Abnahme.
+
 `Invoke-EvaluationRefreshPlanChecks.ps1` führt die tatsächlichen öffentlichen
 Plan-/Watchfunktionen, DiagnosticReader, SQL-Gast-Reader und gemeinsame
 Fristklassifikation mit registrierten synthetischen Root-/Run-/Scope-Records aus.

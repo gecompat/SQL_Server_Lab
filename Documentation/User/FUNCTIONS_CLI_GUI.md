@@ -1,5 +1,12 @@
 # Funktionsübersicht für CLI und Browser-GUI
 
+Der reine Evaluation-Ersatzentscheid ist unter **Alle öffentlichen Befehle →
+SQL-Evaluation: Ersatzentscheid** geführt erreichbar: explizites registriertes
+`Lab_Data`, eine moderne Hyper-V-SQL-Instanz und Slotersatz, Rekonstruktion oder
+Instanzmigration auswählen. Windows-/SQL-Quelle und Evidencealter bleiben
+getrennt. Alle Modi sind `BLOCKED`, SQL ist `NOT_CHECKED`; Zurück und Escape
+führen keinen Plan aus. Der Browser-Fachdialog dafür bleibt offen.
+
 Slice E: `Get-SqlServerLabReconcilePlan -ProposedRelations` liefert eine reine
 Komponenten-/Shared-Verbrauchervorschau an vorhandener Labidentität. Sie ist
 über den generischen CLI-Befehlszugang und **Alle öffentlichen Befehle →

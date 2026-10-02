@@ -132,6 +132,7 @@ end {
         @{ Pattern = '(?i)(RelationalCoreComparison|relational-core-comparison)'; Checks = @('Invoke-RelationalCoreComparisonChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence)'; Checks = @('Invoke-EvaluationWatchChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationRefreshPlan|evaluation-refresh-plan)'; Checks = @('Invoke-EvaluationRefreshPlanChecks.ps1','Invoke-EvaluationWatchChecks.ps1') },
+        @{ Pattern = '(?i)(EvaluationRefreshPlanConsole|evaluation-refresh-cli)'; Checks = @('Invoke-EvaluationRefreshPlanConsoleChecks.ps1','Invoke-PublicCommandConsoleChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
         @{ Pattern = '(?i)(SqlGuestEvaluationCapture|Update-SqlServerLabSqlGuestEvaluationEvidence)'; Checks = @('Invoke-SqlGuestEvaluationCaptureChecks.ps1','Invoke-EvaluationWatchChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1') },
         @{ Pattern = '(?i)(SsisPrerequisite|SSIS_ETL_DATA_WAREHOUSE_BACKLOG)'; Checks = @('Invoke-SsisPrerequisiteChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1','Invoke-DiagnosticBundleChecks.ps1') },
         @{ Pattern = '(?i)(SsisOwnedInstall|Private/HyperVLabEnvironment\.ps1|SSIS_ETL_DATA_WAREHOUSE_BACKLOG)'; Checks = @('Invoke-SsisOwnedInstallChecks.ps1') },

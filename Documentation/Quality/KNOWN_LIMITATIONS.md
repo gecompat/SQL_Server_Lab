@@ -7,7 +7,10 @@ Entscheid für eine moderne registrierte Hyper-V-SQL-Instanz unter explizitem
 SQL-Gast-Evidence ersetzt keine neue SQL-Readiness. Inventar, Ziel-/Slotbindung,
 Gleichwertigkeit, Cutover, Schlüsseltransfer und Rückfall fehlen. Keine neue
 Inventur, Persistenz, Adoption oder Lifecycleaktion. Generischer Konsolen-
-Befehlszugang ist verfügbar; geführte CLI-/Browserdialoge bleiben offen.
+Befehlszugang und geführter CLI-Dialog **SQL-Evaluation: Ersatzentscheid** sind
+verfügbar. Der Dialog liest höchstens 64 Run-Verzeichnisse unter explizitem
+registrierten Root, revalidiert die Auswahl und ruft nur die Plan-API auf.
+Abbruch verwirft die Eingabe. Der Browser-Fachdialog bleibt offen.
 Andere Provider, mehrere Instanzen und ungebundene Caller-Inventories sind
 außerhalb dieses Slices.
 

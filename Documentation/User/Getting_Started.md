@@ -5,7 +5,12 @@
 `Get-SqlServerLabEvaluationRefreshPlan -RunId $runId -InstanceId primary -DataRoot $dataRoot -Mode STATEFUL_MIGRATION`
 liest genau eine vorhandene moderne Hyper-V-SQL-Instanz. Die weiteren Modi
 `FREE_SLOT_REPLACEMENT` und `RECONSTRUCT_LAB` trennen Slotersatz und Rekonstruktion
-von Datenübernahme. `Invoke-SqlServerLab` bietet den generischen Befehlszugang.
+von Datenübernahme. `Invoke-SqlServerLab` bietet den generischen Befehlszugang
+und **Alle öffentlichen Befehle → SQL-Evaluation: Ersatzentscheid**. Im geführten
+Dialog vorhandenes registriertes `Lab_Data` eingeben, eine gebundene einzelne
+Hyper-V-SQL-Instanz und die Entscheidungsart auswählen, dann **Vorschau lesen**.
+Zurück oder Escape verwirft die Eingabe ohne Planaufruf. Der Dialog liest
+höchstens 64 vorhandene Run-Verzeichnisse und beginnt keine neue Inventur.
 Der Plan bleibt `BLOCKED` ohne Aktionen oder Transferautorität. Gespeicherte
 Windows-Metadaten sind keine frische Lizenzprüfung; fehlende SQL-Gast-Evidence,
 Inventar und Gleichwertigkeit bleiben konkrete Blocker.

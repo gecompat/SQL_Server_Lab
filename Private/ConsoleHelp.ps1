@@ -48,6 +48,24 @@ function Get-LabConsoleHelpCatalog {
                 'commands'       = @{ Purpose = 'Listet jeden exportierten Modulbefehl und fuehrt ihn mit seinem echten Parametersatz, Defaults und Validierungsgrenzen aus.'; Command = 'Invoke-SqlServerLab -Action Commands' }
             }
         }
+        'evaluation-refresh-run' = @{
+            Title = 'SQL-Evaluation: Instanz auswählen'
+            Purpose = 'Eine moderne registrierte Hyper-V-SQL-Instanz für einen reinen Ersatzentscheid auswählen.'
+            Effects = 'Nur Metadaten lesen; keine Runtime-, Lizenz- oder SQL-Abfrage. Escape verwirft die Auswahl.'
+            Command = 'Get-SqlServerLabEvaluationRefreshPlan'
+        }
+        'evaluation-refresh-mode' = @{
+            Title = 'SQL-Evaluation: Entscheidungsart'
+            Purpose = 'Slotersatz, Labrekonstruktion und Instanzmigration getrennt betrachten.'
+            Effects = 'Alle Modi bleiben blockierte Vorschauen ohne Speicherung, Zielübernahme oder Executor.'
+            Command = 'Get-SqlServerLabEvaluationRefreshPlan'
+        }
+        'evaluation-refresh-preview' = @{
+            Title = 'SQL-Evaluation: Ersatzentscheid'
+            Purpose = 'Gespeicherte Windows- und SQL-Evidence sowie offene nächste Schritte anzeigen.'
+            Effects = 'Die ausgewählte Bindung wird erneut geprüft. Abbruch ruft keinen Plan auf; unbekannt bedeutet nicht bereit.'
+            Command = 'Get-SqlServerLabEvaluationRefreshPlan'
+        }
         'component-relation-choice' = @{
             Title = 'SQL-Komponente auswählen'
             Purpose = 'Wählt einen vorhandenen registrierten Container-Run, Verbraucher oder eine SQL-Voraussetzung aus geprüften Metadaten.'

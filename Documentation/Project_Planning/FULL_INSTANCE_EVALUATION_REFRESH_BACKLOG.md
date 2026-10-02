@@ -40,6 +40,14 @@ Gast-Receipt. Ein ungebundenes DependencyInventory wird nicht angenommen.
 Vollständiger Refresh, Zielauswahl, Export, Keytransfer, Cutover, Rückfall und
 Gleichwertigkeit bleiben Backlog; der Datenbankplan bleibt `DATABASE_FILES_ONLY`.
 
+Die CLI bietet **Alle öffentlichen Befehle → SQL-Evaluation: Ersatzentscheid**
+als geführte reine Vorschau. Unter einem ausdrücklich eingegebenen registrierten
+Root sind höchstens 64 Run-Verzeichnisse und nur eine vollständig gebundene
+moderne Hyper-V-SQL-Instanz auswählbar. Die Auswahl wird vor dem öffentlichen
+Plan erneut geprüft; Abbruch speichert nichts und ruft keinen Plan auf.
+Windows-/SQL-Quelle und Aktualität werden getrennt angezeigt. Ein geführter
+Browserdialog, Inventur und sämtliche Transferaktionen bleiben offen.
+
 Die gemeinsame Watch-Fristklassifikation bleibt unverändert. Bei durch JSON
 typisierten Zeitwerten bewahren beide Watch-Pfade jetzt UTC und Bruchteile der
 Sekunde statt kulturabhängiger Stringkonvertierung. Für zuvor falsch
