@@ -1686,6 +1686,14 @@ Sämtliche Beschaffungs-Runtime-Nachweise sind `NOT_EXECUTED`.
 
 ## External Languages
 
+Der enge [CORE-102-Entscheid](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md)
+verwendet für API und Manifestdialog explizite Docker-/Podman-Linux-Katalogtuple
+für Python, R und Java. Der Standard prüft keinen Host. Eine bewusst
+angeforderte begrenzte `info`-Abfrage bewertet nur die Hostvoraussetzungen des
+Launchmodus. `READY` bestätigt weder SQL-/Sprachausführung, Rechte noch Besitz.
+Historisches Matching bleibt `NOT_RECORDED`/`NOT_DEFINED`; Browserconsumer,
+Hyper-V-Erweiterung und die vollständige CORE-102-Matrix bleiben offen.
+
 Die Installation von R, Python, Java oder C# ist von SQL-Version, Betriebssystem,
 Distribution, Provider, Paketquellen und der jeweiligen Supportmatrix abhängig.
 Python ist ausdrücklich auch unter Linux und in Containern vorgesehen; es ist

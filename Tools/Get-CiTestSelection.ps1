@@ -138,6 +138,7 @@ end {
         @{ Pattern = '(?i)(RecoveryPointPlan|recovery-point-plan)'; Checks = @('Invoke-HyperVRecoveryPointPlanChecks.ps1') },
         @{ Pattern = '(?i)(HyperVPersistentDataDrive|hyperv-persistent-data)'; Checks = @('Invoke-HyperVPersistentDataDriveChecks.ps1','Invoke-HyperVProviderChecks.ps1') },
         @{ Pattern = '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools|Initialize-PodmanRuntime|PodmanBootstrap)'; Checks = @('Invoke-HostToolResolutionChecks.ps1','Invoke-PodmanBootstrapChecks.ps1') },
+        @{ Pattern = '(?i)(ExternalRuntimeCapability|external-runtime-capability|Private/ManifestBuilder\.ps1)'; Checks = @('Invoke-ExternalRuntimeCapabilityChecks.ps1','Invoke-SoftwareCatalogChecks.ps1','Invoke-ClientReadinessChecks.ps1','Invoke-ManifestBuilderChecks.ps1') },
         @{ Pattern = '(?i)(ClientReadiness|client-readiness|HostToolResolution|StorageContract|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-ClientReadinessChecks.ps1') },
         @{ Pattern = '(?i)(DiagnosticBundle|DiagnosticReadiness|diagnostic-bundle|DIAGNOSTIC_BUNDLE|ClientReadiness|StateMachine|DesiredState|StorageContract|CleanupEngine|Private/BatchWorkflow\.ps1|sql-server-versions)'; Checks = @('Invoke-DiagnosticBundleChecks.ps1') },
         @{ Pattern = '(?i)(^\.agents/skills/|Invoke-SkillChecks|REPOSITORY_AGENT_SKILLS_BACKLOG|SqlServerLab\.psd1)'; Checks = @('Invoke-SkillChecks.ps1','Invoke-DocumentationChecks.ps1','Invoke-PrivacyScannerChecks.ps1') },

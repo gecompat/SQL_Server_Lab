@@ -54,3 +54,8 @@ Anforderungen, deterministische Mengen, Sanitierung und den tatsächlichen
 Desired-State-Reader mit synthetischem Run-Transport. Runtime-Probes,
 öffentliche API, Manifestvalidierung, Reconcile-Plan und SCN-803 bleiben
 außerhalb dieses Vertrags.
+
+Der separate [prospektive External-Languages-Entscheid](EXTERNAL_RUNTIME_CAPABILITY.md)
+ergänzt inzwischen eine gemeinsame API-/Manifestdialogsicht mit ausdrücklich
+optionaler Hostbeobachtung. Er schreibt dieses persistierte Assessment nicht
+um und übernimmt daraus keine aktuelle Readiness- oder Mutationsautorität.

@@ -54,6 +54,12 @@ Provider nur mit SQL Server 2025.
 
 ## Aktueller Status
 
+Die [External-Languages-Entscheidung](Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md)
+bewertet explizite Python-/R-/Java-Katalogvarianten für Docker-/Podman-Linux.
+API und bestehender Manifestdialog trennen Katalogunterstützung von optionaler
+Hostprüfung; ohne bewusste Prüfung bleibt der Host `NOT_CHECKED`.
+Dieser CORE-102-Slice bestätigt weder SQL-/Sprachausführung noch Zielbesitz.
+
 **Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED`
 
 | Bereich | Status | Nachweis |
@@ -795,6 +801,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Get-SqlServerLabLlamaCppModel` | Kuratierte offizielle Generations-GGUFs mit Revision, Größe, SHA-256 und Lizenz auflisten |
 | `Save-SqlServerLabLlamaCppModel` | Ein explizit ausgewähltes Katalogmodell bei Bedarf hashgeprüft unter der Medienwurzel ablegen |
 | `Get-SqlServerLabAiComputeInventory` | Lokale CPU-, GPU- und NPU-Geräte ohne Runtime-Start read-only inventarisieren |
+| `Get-SqlServerLabExternalRuntimeCapability` | Explizite External-Languages-Katalogentscheidung und optional begrenzte Hostprüfung; keine SQL-Abnahme oder Mutation |
 | `Get-SqlServerLabAiRuntimeCapability` | Lokale llama.cpp-Paketbinärdateien hashen und hardwaregebundene CPU-/GPU-/NPU-Lanes ableiten |
 | `Get-SqlServerLabAiComputeCandidate` | Vollständige erlaubte Einzel-, Mehr-GPU- und gemischte Gerätekandidaten erzeugen |
 | `Get-SqlServerLabAiComputeSelection` | Schnellste vollständig benchmarkte geeignete Gerätekombination wählen oder einen Kandidaten explizit fixieren |

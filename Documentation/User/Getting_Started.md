@@ -1066,7 +1066,14 @@ Die Vorschau gewährt keine Ausnahme für veraltete Versionen.
 
 Der Wizard bietet unter `instances[].software` nur External-Runtime-Varianten
 an, die der Resolver fuer die bereits gewählte SQL-Version, den Provider und
-das Betriebssystem als `RESOLVED` freigibt. `Plan.Instances[].ExternalRuntimes`
+das Betriebssystem als `RESOLVED` freigibt. Der Softwaredialog zeigt zusätzlich
+abgelehnte Varianten mit festen Gründen und übernimmt diese nicht. API
+`Get-SqlServerLabExternalRuntimeCapability` und Dialog verwenden dieselbe
+Katalogentscheidung. Ohne bewusste Hostprüfung bleibt `CurrentReadiness`
+`NOT_CHECKED`; **Hostvoraussetzungen bewusst lesend prüfen** liest den Provider
+einmal begrenzt. `READY` ist keine SQL-/Sprachabnahme oder Ausführungsfreigabe.
+[Vertrag und Grenzen](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+`Plan.Instances[].ExternalRuntimes`
 nennt fuer dieselbe Auflösung Downloads, Derived-Image-Build oder Gastmutation,
 Restarts, Downtime, Package Locks und Verification. Der Aenderungsweg trennt
 Artifact-`rebuild`, Service-`restart`, Container-`recreate` und sichere

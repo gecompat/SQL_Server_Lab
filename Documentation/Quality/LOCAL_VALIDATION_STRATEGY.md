@@ -1,5 +1,18 @@
 # Lokale Validierungsstrategie
 
+## Prospektiver External-Languages-Capability-Entscheid
+
+`Invoke-ExternalRuntimeCapabilityChecks.ps1` durchläuft den tatsächlichen
+Public-Aufruf, Katalogresolver, Reducer und bestehenden Manifestdialog.
+Provider-Metadaten stammen aus dem Repository; native Prozessgrenzen werden
+durch isolierte Spies ersetzt. Standard-Probes=0, bewusster Info-Aufruf,
+StartInfo-/Argument-/Zeit-/Streamvertrag, typisierte Hostfakten, ungeeignete
+cgroup-/Rootful-Kombinationen, feste Fehler, Rawdatenfreiheit, negative
+Varianten, Zurück/Abbruch und bestehende Manifestfelder werden geprüft.
+Es werden keine Provider, SQL-Instanzen oder Sprachruntimes gestartet oder
+abgefragt. Native Nachweise bleiben getrennt und werden nach tatsächlichem
+finalen Diff ausgewählt. [Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+
 ## Reine Komponenten-/Shared-Verbrauchervorschau
 
 Der zugehörige Browser-Slice wird durch `ComponentRelationPlanHttpChecks.ps1`
