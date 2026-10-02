@@ -273,6 +273,16 @@ zulässigen Werte und eignet sich auch für Funktionen, die noch keinen eigenen
 geführten Dialog besitzen. Für häufige Lab-Abläufe bleiben die geführten
 Umgebungsansichten die schnellere Auswahl.
 
+Die CLI bietet unter **Alle öffentlichen Befehle → SQL-Komponenten: geführte
+Vorschau** einen eigenen Plan-only-Dialog. Ein vorhandenes registriertes
+`Lab_Data` angeben, den Run und seine verbrauchende SQL-Instanz auswählen und
+eine bestehende eigene oder verwaltete Shared-SQL-Voraussetzung ergänzen.
+**Vorschau anzeigen** prüft die gebundenen Metadaten erneut und zeigt ihre
+Voraussetzungreihenfolge. SQL bleibt `NOT_CHECKED`; Shared-SQL bleibt erhalten.
+Zurück oder Esc verwirft die Eingabe. Es wird nichts gespeichert oder gestartet.
+Der Browser bietet für diesen engen Slice weiterhin nur den generischen
+Befehlszugang. [Vertrag und Grenzen](../Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md#71-implementierter-enger-komponentenplan-slice-e).
+
 Für alle aufgeführten Skripte gilt: Wird ein Support-Switch erkannt, wird direkt
 die Skript-Hilfe angezeigt und anschließend die Ausführung beendet.
 

@@ -6,7 +6,11 @@ Shared-SQL-Referenz unter registriertem `Lab_Data/State` implementiert.
 Relations bleiben ausschließlich in der Vorschau; persistierter RUNNING-Status
 beweist keine SQL-Bereitschaft. Keine Adoption, Lease, persistierte Topologie,
 abhängigkeitsgesteuerte Runtime oder neuer Shared-Removal-Pfad. CLI bietet den
-generischen Befehlszugang; ein geführter CLI-/Browserdialog bleibt offen.
+generischen Befehlszugang und eine geführte reine Vorschau unter **Alle
+öffentlichen Befehle → SQL-Komponenten: geführte Vorschau**. Der Dialog liest
+höchstens 64 vorhandene Run-Verzeichnisse unter einem expliziten registrierten
+Root; ungültige oder nicht unterstützte Runs sind nicht auswählbar. Zurück
+verwirft die Relations ohne Planaufruf. Ein geführter Browserdialog bleibt offen.
 
 `Get-SqlServerLabDiagnosticBundle` unterstützt ausschließlich eine moderne,
 vollständig gebundene Instanz unter einem registrierten `Lab_Data/State`.

@@ -187,3 +187,6 @@ try {
     $resolved=[IO.Path]::GetFullPath($root);$temporary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath())
     if ($resolved.StartsWith($temporary,[StringComparison]::OrdinalIgnoreCase) -and [IO.Path]::GetFileName($resolved).StartsWith('sql-lab-component-check-')) {Remove-Item -LiteralPath $resolved -Recurse -Force -ErrorAction Stop}
 }
+
+# The existing impact mapping also covers the guided, provider-free CLI composition.
+& (Join-Path $PSScriptRoot 'Fixtures/ComponentRelationPlanConsoleChecks.ps1')
