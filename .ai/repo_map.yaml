@@ -1374,6 +1374,7 @@ planning_contracts:
       - typed_artifact_contract
       - contextual_manifest_path_guidance
       - multiple_sample_selection
+      - manifest_expected_output_union_preflight
       - artifact_handlers
       - persistent_trust_store
       - manifest_lock

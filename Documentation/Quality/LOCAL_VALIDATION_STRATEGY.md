@@ -1759,6 +1759,15 @@ Nicht in versionierte Evidence übernehmen:
 
 ## 9. Sample-Katalog-Validierung
 
+`Invoke-ManifestBuilderChecks.ps1` führt zusätzlich die tatsächliche
+Validator-/Resolver-Komposition mit isoliertem synthetischem Katalog aus:
+Bundle-Zweitoutput gegen explizite Datenbank, Bundle gegen Bundle,
+Groß-/Kleinschreibung, disjunkte Outputs, getrennte Instanzen, freigegebene
+Zielnamen-Overrides und ungültige Outputlisten. Eine erneute Katalogauflösung
+im tatsächlichen `New-SqlServerLab -Manifest` wird vor `New-LabRunState`
+bei einer neuen Kollision abgewiesen. Diese Fixtures provisionieren keine
+Ressourcen und führen weder Acquisition noch SQL aus.
+
 Die statische Prüfung verifiziert JSON und Schema-Referenzen. Der Manifestparser prüft zur Laufzeit:
 
 - Sample-ID vorhanden;

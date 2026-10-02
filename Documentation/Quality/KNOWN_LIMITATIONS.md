@@ -1370,6 +1370,11 @@ Mehrere Samples pro Instanz sind ad-hoc über `New-SqlServerLab -Sample` und den
 Menüschritt `Testdatenbanken` wählbar; kollidierende erwartete Ausgaben werden
 als `SAMPLE_OUTPUT_CONFLICT` abgewiesen. Der Manifest-Wizard bietet für
 `sample`-Felder eine Katalogauswahl mit erwarteter Datenbank, Größe und Lizenz.
+Auch die Manifestvalidierung und die erneute Parserauflösung prüfen nun die
+gesamte Outputmenge je Instanz einschließlich expliziter Datenbanken und
+aufgelöster Zielnamen-Overrides. Synthetische Mehrfach-Output-Prüfungen ersetzen
+keine neue native Bundle-Abnahme; die 21 aktuellen Katalogvarianten bleiben
+unverändert mit jeweils einem Output.
 
 `Northwind` und `Chinook` sind als fest gepinnte, SHA-256-verifizierte
 Einzelskripte katalogisiert: Northwind erhält zuerst eine leere Zieldatenbank,
