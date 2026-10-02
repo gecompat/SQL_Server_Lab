@@ -570,10 +570,12 @@ sources_of_truth:
   mixed_provider_lifecycle: Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md
   component_relation_plan: Private/ComponentRelationPlan.ps1
   component_relation_plan_cli: Private/ComponentRelationPlanConsole.ps1
+  component_relation_plan_browser: Private/ComponentRelationPlanHttp.ps1, Ui/component-relations.js
   component_relation_plan_api: Public/Get-SqlServerLabReconcilePlan.ps1
   component_relation_plan_contract: Documentation/Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md
   validation_component_relation_plan: Tests/Static/Invoke-ComponentRelationPlanChecks.ps1
   validation_component_relation_plan_cli: Tests/Static/Fixtures/ComponentRelationPlanConsoleChecks.ps1
+  validation_component_relation_plan_browser: Tests/Static/Fixtures/ComponentRelationPlanHttpChecks.ps1, Tests/Static/Fixtures/ComponentRelationPlanUiChecks.cjs
   hyperv_image_provisioning_network_target: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
   user_entrypoint: README.md
   user_installation_windows: Documentation/User/INSTALLATION_WINDOWS.md

@@ -273,6 +273,12 @@ zulässigen Werte und eignet sich auch für Funktionen, die noch keinen eigenen
 geführten Dialog besitzen. Für häufige Lab-Abläufe bleiben die geführten
 Umgebungsansichten die schnellere Auswahl.
 
+Der Browser bietet unter **Verbindungen und CMS → SQL-Komponenten:
+geführte Vorschau** denselben reinen Plan: vorhandenes registriertes `Lab_Data`
+lesen, Run und verbrauchende Instanz auswählen, eine SQL-Voraussetzung ergänzen
+und **Vorschau lesen**. Relations bleiben im RAM; kein Job oder Apply entsteht.
+`NOT_CHECKED` und Shared `PRESERVE` gelten immer. Zurück/Abbruch verwirft die
+Auswahl; nach Metadatendrift zuerst erneut lesen.
 Die CLI bietet unter **Alle öffentlichen Befehle → SQL-Komponenten: geführte
 Vorschau** einen eigenen Plan-only-Dialog. Ein vorhandenes registriertes
 `Lab_Data` angeben, den Run und seine verbrauchende SQL-Instanz auswählen und

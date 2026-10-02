@@ -2,6 +2,19 @@
 
 ## Zweck
 
+### Komponentenrelationsvorschau
+
+Unter **Verbindungen und CMS → SQL-Komponenten: geführte Vorschau**
+ein vorhandenes registriertes `Lab_Data` eingeben und **Registrierte Runs lesen**
+wählen. Eigener Run und verbrauchende SQL-Instanz werden aus gebundenen lokalen
+Metadaten ausgewählt; als Voraussetzung ist eine eigene Instanz oder genau eine
+bereits verwaltete Shared-SQL-Referenz möglich. **Vorschau lesen** ruft ausschließlich
+den öffentlichen PLAN_ONLY-Core auf. `RUNNING` beweist keine SQL-Bereitschaft:
+`NOT_CHECKED`, `PRESERVE` und die gesperrte Ausführung werden ausdrücklich gezeigt.
+Eingaben bleiben im RAM; Zurück/Abbruch verwirft sie. Kein Apply, Job, Export,
+SQL-Zugriff oder Providerinventar. Nach geänderten Metadaten erneut lesen;
+späte Antworten können eine verworfene Auswahl nicht wiederherstellen.
+
 ### llama.cpp-Runtimeinstallation
 
 Unter „Ressourcen und Downloads“ öffnet „llama.cpp-Runtime installieren / prüfen“
