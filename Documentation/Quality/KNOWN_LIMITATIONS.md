@@ -10,7 +10,11 @@ generischen Befehlszugang und eine geführte reine Vorschau unter **Alle
 öffentlichen Befehle → SQL-Komponenten: geführte Vorschau**. Der Dialog liest
 höchstens 64 vorhandene Run-Verzeichnisse unter einem expliziten registrierten
 Root; ungültige oder nicht unterstützte Runs sind nicht auswählbar. Zurück
-verwirft die Relations ohne Planaufruf. Ein geführter Browserdialog bleibt offen.
+verwirft die Relations ohne Planaufruf. Der Browserdialog **SQL-Komponenten:
+geführte Vorschau** bietet dieselbe reine Auswahl und Vorschau über einen
+eigenen read-only HTTP-Pfad. Er startet keine Inventur der Hosttopologie und
+erstellt keine Jobs; Auswahl und Relations bleiben im RAM. SQL, Runtime-DAG,
+Persistenz und Shared-Verbraucher-Leases bleiben ungeprüft beziehungsweise offen.
 
 `Get-SqlServerLabDiagnosticBundle` unterstützt ausschließlich eine moderne,
 vollständig gebundene Instanz unter einem registrierten `Lab_Data/State`.
