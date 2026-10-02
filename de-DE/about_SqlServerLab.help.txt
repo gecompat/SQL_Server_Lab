@@ -98,6 +98,10 @@ COMMANDS
         Bewertet registrierte Windows- und SQL-Evaluationsfristen read-only und
         dedupliziert fällige Ereignisse mit -RecordEvents lokal.
 
+    Get-SqlServerLabEvaluationRefreshPlan
+        Plant Slotersatz, Rekonstruktion oder Migration genau einer registrierten
+        Hyper-V-SQL-Instanz unter explizitem DataRoot; immer BLOCKED ohne Aktionen.
+
     Invoke-SqlServerLabEvaluationWatchTrigger
         Führt den Evaluation-Watch in einem explizit begrenzten lokalen Intervall
         aus, ohne eine Windows-Aufgabe, Runtime oder Netzwerk zu verändern.

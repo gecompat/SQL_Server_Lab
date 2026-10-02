@@ -78,7 +78,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | Komponente | Status | Autoritative Dateien |
 |---|---|---|
 | PowerShell-Modul | implementiert | `SqlServerLab.psd1`, `SqlServerLab.psm1` |
-| Öffentliche API | 132 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
+| Öffentliche API | 133 exportierte Funktionen | `SqlServerLab.psd1`, `Public/` |
 | Docker | implementiert | `Providers/Docker/DockerProvider.ps1` |
 | Podman | implementiert | `Providers/Podman/PodmanProvider.ps1` |
 | SQL Server External Languages | Container: Java für SQL 2019, Python/R/Java für SQL 2022/2025, jeweils Docker und Podman; Hyper-V/Windows: SQL-2022 Python/R/Java nativ akzeptiert, C# für SQL 2019–2025 sichtbar `PREVIEW` | `../Catalogs/software.json`, `../Tests/Integration/Invoke-ExternalRuntimeContainerAcceptance.ps1`, `../Tests/Integration/Invoke-ExternalRuntimeHyperVAcceptance.ps1` |
@@ -122,6 +122,7 @@ Planungsdokumente beschreiben Zielzustände. Sie sind kein Beleg dafür, dass ei
 | `Find-SqlServerLabCollation` | Katalogisierte SQL-Server-Collations tokenbasiert und versionsgebunden durchsuchen |
 | `Get-SqlServerLabHyperVImageArtifact` | Pfadfreie Read-only-Sicht auf Hyper-V-Images, Evaluation, Integrität und Referenzen |
 | `Get-SqlServerLabEvaluationWatch` | Windows- und SQL-Artefaktfristen read-only bewerten; SQL-Gastfristen nur aus frischer, gebundener Evidence für registrierte Hyper-V-SQL-Runs projizieren und fällige Ereignisse optional lokal deduplizieren |
+| `Get-SqlServerLabEvaluationRefreshPlan` | Genau eine registrierte Hyper-V-SQL-Instanz unter explizitem Lab_Data für Slotersatz, Rekonstruktion oder Migration rein informativ bewerten; ohne Aktionen oder Gleichwertigkeitsfreigabe |
 | `Invoke-SqlServerLabEvaluationWatchTrigger` | Evaluation-Watch in einem explizit begrenzten lokalen Zeitintervall ausführen; registriert keine Windows-Aufgabe und verändert weder Runtime noch Netzwerk |
 | `Update-SqlServerLabSqlGuestEvaluationEvidence` | SQL-2025-Hyper-V-Edition lesen und atomare NO_DEADLINE-Evidence erneuern; keine Fristheuristik |
 | `Get-SqlServerLabRunStateUpgradePlan` | Einen lokalen Run-State gegen den Zielvertrag read-only klassifizieren |

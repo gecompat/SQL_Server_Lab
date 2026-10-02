@@ -30,6 +30,23 @@ beobachtbare Bestandteile verhindern diesen Status.
 
 ## Aktueller Stand
 
+`Get-SqlServerLabEvaluationRefreshPlan` implementiert einen engen Entscheid für
+genau eine moderne registrierte Hyper-V-SQL-Instanz unter explizitem `DataRoot`.
+`FREE_SLOT_REPLACEMENT`, `RECONSTRUCT_LAB` und `STATEFUL_MIGRATION` bleiben
+getrennte `BLOCKED`-Modi mit festen Blockern und nächsten Schritten, ohne
+Aktionen, Persistenz oder Transferautorität. Windows-Aktivierung bleibt
+historische Metadaten; SQL-Fristen stammen aus dem bestehenden gebundenen
+Gast-Receipt. Ein ungebundenes DependencyInventory wird nicht angenommen.
+Vollständiger Refresh, Zielauswahl, Export, Keytransfer, Cutover, Rückfall und
+Gleichwertigkeit bleiben Backlog; der Datenbankplan bleibt `DATABASE_FILES_ONLY`.
+
+Die gemeinsame Watch-Fristklassifikation bleibt unverändert. Bei durch JSON
+typisierten Zeitwerten bewahren beide Watch-Pfade jetzt UTC und Bruchteile der
+Sekunde statt kulturabhängiger Stringkonvertierung. Für zuvor falsch
+interpretierten Datumsinhalt kann dadurch ein anderer Ereignisfingerprint
+entstehen; wiederholtes Lesen unveränderter kanonischer Werte bleibt stabil.
+Das registriert ohne ausdrückliches `RecordEvents` keine Ereignisse.
+
 Bereits vorhanden sind:
 
 - getrennte Windows- und SQL-Evaluationsmetadaten sowie Ausschluss abgelaufener

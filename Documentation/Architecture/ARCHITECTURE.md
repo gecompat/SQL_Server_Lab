@@ -83,6 +83,7 @@ Get-SqlServerLabAutomationPlan         # Lokalen, nicht ausführbaren Plan-/Resu
 Find-SqlServerLabCollation             # Versionsgebundenen Collation-Katalog tokenbasiert durchsuchen
 Get-SqlServerLabHyperVImageArtifact    # Hyper-V-Image-Registry, Evaluation und Referenzen read-only
 Get-SqlServerLabEvaluationWatch         # Windows-/SQL-Artefakte und nur receiptgebundene SQL-Gastfristen read-only bewerten und Ereignisse optional deduplizieren
+Get-SqlServerLabEvaluationRefreshPlan   # Eine registrierte Hyper-V-SQL-Instanz für Ersatz/Rekonstruktion/Migration informativ bewerten; immer BLOCKED ohne Aktionen
 Invoke-SqlServerLabEvaluationWatchTrigger # Evaluation-Watch lokal und begrenzt zeitgesteuert ausführen
 Update-SqlServerLabSqlGuestEvaluationEvidence # SQL-2025-Hyper-V-Edition erfassen und NO_DEADLINE-Receipt atomar erneuern
 Get-SqlServerLabRunStateUpgradePlan     # Lokalen Run-State read-only gegen Zielvertrag klassifizieren

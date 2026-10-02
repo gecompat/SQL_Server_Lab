@@ -96,6 +96,10 @@ COMMANDS
         Evaluates registered Windows and SQL Server evaluation expirations
         read-only and deduplicates due events locally with -RecordEvents.
 
+    Get-SqlServerLabEvaluationRefreshPlan
+        Plans replacement, reconstruction or migration for one registered
+        Hyper-V SQL instance under explicit DataRoot; always BLOCKED with no actions.
+
     Invoke-SqlServerLabEvaluationWatchTrigger
         Runs the evaluation watch in an explicitly bounded local interval without
         registering a scheduled task or changing a runtime or network.

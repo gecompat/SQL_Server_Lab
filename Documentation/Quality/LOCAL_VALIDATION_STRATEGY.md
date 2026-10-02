@@ -1,5 +1,17 @@
 # Lokale Validierungsstrategie
 
+## Reiner Evaluation-Ersatzentscheid
+
+`Invoke-EvaluationRefreshPlanChecks.ps1` führt die tatsächlichen öffentlichen
+Plan-/Watchfunktionen, DiagnosticReader, SQL-Gast-Reader und gemeinsame
+Fristklassifikation mit registrierten synthetischen Root-/Run-/Scope-Records aus.
+Runtime-, Hosttool-, SQL-, Secret-, Default- und Mutationsgrenzen werfen. Drei
+blockierte Modi, fehlende/veraltete/abweichende Evidence, Controller-/Instanz-
+und Contentdrift, NoWrite und feste DTOs sind notwendig. Watch-Inventargrenzen
+liefern nur die synthetische Quelle. Die Prüfung beweist keine Lizenzprüfung,
+SQL-Readiness, Providerfunktion oder Migration; Diff-Auswahl und CI bleiben
+separate Verpflichtungen.
+
 ## Reine Komponenten-/Shared-Verbrauchervorschau
 
 `Invoke-ComponentRelationPlanChecks.ps1` führt den tatsächlichen öffentlichen

@@ -1,5 +1,16 @@
 # Bekannte Grenzen
 
+`Get-SqlServerLabEvaluationRefreshPlan` bietet nur einen nicht ausführbaren
+Entscheid für eine moderne registrierte Hyper-V-SQL-Instanz unter explizitem
+`Lab_Data`. Slotersatz, Rekonstruktion und Migration bleiben getrennte
+`BLOCKED`-Modi. Gespeicherte Windows-Aktivierung beweist keine frische Lizenz;
+SQL-Gast-Evidence ersetzt keine neue SQL-Readiness. Inventar, Ziel-/Slotbindung,
+Gleichwertigkeit, Cutover, Schlüsseltransfer und Rückfall fehlen. Keine neue
+Inventur, Persistenz, Adoption oder Lifecycleaktion. Generischer Konsolen-
+Befehlszugang ist verfügbar; geführte CLI-/Browserdialoge bleiben offen.
+Andere Provider, mehrere Instanzen und ungebundene Caller-Inventories sind
+außerhalb dieses Slices.
+
 Der PLAN_ONLY-[Komponentenplan](../Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md#71-implementierter-enger-komponentenplan-slice-e)
 ist nur für zwei vorhandene Docker-/Podman-SQL-Ziele und eine verwaltete
 Shared-SQL-Referenz unter registriertem `Lab_Data/State` implementiert.

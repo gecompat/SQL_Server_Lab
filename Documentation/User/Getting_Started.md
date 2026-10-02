@@ -1,5 +1,16 @@
 # SQL_Server_Lab – Getting Started
 
+## Ersatz oder Migration vor Evaluation-Ablauf planen
+
+`Get-SqlServerLabEvaluationRefreshPlan -RunId $runId -InstanceId primary -DataRoot $dataRoot -Mode STATEFUL_MIGRATION`
+liest genau eine vorhandene moderne Hyper-V-SQL-Instanz. Die weiteren Modi
+`FREE_SLOT_REPLACEMENT` und `RECONSTRUCT_LAB` trennen Slotersatz und Rekonstruktion
+von Datenübernahme. `Invoke-SqlServerLab` bietet den generischen Befehlszugang.
+Der Plan bleibt `BLOCKED` ohne Aktionen oder Transferautorität. Gespeicherte
+Windows-Metadaten sind keine frische Lizenzprüfung; fehlende SQL-Gast-Evidence,
+Inventar und Gleichwertigkeit bleiben konkrete Blocker.
+[Vertrag und Grenzen](../Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md).
+
 ## Verfügbarkeit der SQL-2025-KI-Aktionen
 
 Das KI-Menü lässt Aktionen sichtbar, die ein SQL-Ziel benötigen, deaktiviert sie
