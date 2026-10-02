@@ -2535,3 +2535,15 @@ Compute-, HTTP-, Secret- und Defaultgrenzen dürfen nicht erreicht werden.
 Der Nachweis ist keine Geräte-, TLS-, Modell-, SQL- oder Providerabnahme.
 Die tatsächliche Diffauswahl bleibt maßgeblich; ausgewählte, nicht ausgeführte
 Provider-Smokes bleiben ausdrücklich NOT_EXECUTED.
+
+### Geführte reine llama.cpp-Startvorschau
+
+`Invoke-LlamaCppStartPlanConsoleChecks.ps1` führt den tatsächlichen Menü-/
+Dialogpfad bis in Public-Core und bestehende Files-only-Reader auf synthetischen
+Dateien aus. Console-Menüleaves werden gespeist; die echte Texteingabeleaf wird
+mit isolierter Fallbackeingabe geprüft. Cancel an allen Schritten, MaskInput-
+Semantik, exakte zehn Argumente/Defaults, skalare Grenzen, fremde Menü-IDs,
+strikte sichere DTOs/Fehler sowie sichtbarer Drift und Reparse/GGUF-Vetos sind
+erforderlich. Start/Stop, Compute, HTTP, Secrets und Defaults sind gesperrt.
+Eigene Fixturedateien werden bereinigt. Keine empirische Tastatur-, Runtime-
+oder Providerabnahme; die selektierten Pflichtgates bleiben separat.

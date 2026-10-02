@@ -231,5 +231,14 @@ belegt weder Embeddingeignung, Dimension noch Pooling. Geräte, Port, TLS,
 Keymatching, SAN/Trust und SQL bleiben getrennt `NOT_CHECKED`. Kein Listener,
 Prozess, HTTP-, SQL-, Secret-, Defaults- oder Registryzugriff und keine Persistenz.
 Ein bewusster späterer Start benötigt alle ursprünglichen Eingaben und seine
-eigene frische Runtime-/TLS-/SQL-Abnahme. Der neue Core besitzt noch keinen
-geführten Startdialog; der generische Befehlszugang kann die Vorschau aufrufen.
+eigene frische Runtime-/TLS-/SQL-Abnahme.
+
+Die CLI bietet unter „Alle öffentlichen Befehle“ → „llama.cpp: geführte
+Startvorschau“ eine reine Eingabeführung. Genau zehn bestehende explizite
+Parameter bleiben im RAM. Erst „Vorschau anzeigen“ liest die lokalen Dateien
+über denselben Public-Core. Back/Esc an Auswahl und Vorschau ruft ihn nicht auf.
+Maskierte Pfadeingaben verwenden Esc, im Fallback Ctrl+C statt 0. Der Dialog
+zeigt keine Pfade, freien Fehlertexte oder zusätzlichen DTO-Felder. Er verwirft
+ungültige/mutierende Ergebnisse und bleibt PLAN_ONLY/BLOCKED. Kein Startknopf,
+ComputeSelection, Secretzugriff, globale Discovery oder Speicherung. Geführter
+tatsächlicher Start und Browser-Startvorschau bleiben offen.
