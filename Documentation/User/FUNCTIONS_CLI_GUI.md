@@ -441,7 +441,7 @@ und frische Validierung. Die CLI bietet unter „Alle öffentlichen Befehle“ �
 „llama.cpp: geführte Startvorschau“ explizite RAM-Eingaben und bewusste
 Dateivorschau; Abbruch ruft keinen Plan auf. Pfade werden maskiert (Esc, im
 Fallback Ctrl+C), Ergebnis und Fehler bleiben pfadfrei. Kein Startknopf,
-ComputeSelection oder Secretzugriff. Der tatsächlich geführte Start bleibt offen. Vertrag:
+ComputeSelection oder Secretzugriff. Die geführte CLI-Startfunktion ist statisch geprüft; ihr Native-Nachweis und der geführte Browser-Start bleiben offen. Vertrag:
 [Eigener llama.cpp-Start](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
 
 ### Reine llama.cpp-Dateivorschau im Browser
@@ -460,4 +460,30 @@ Ausführungsfreigabe. Clearing ist keine sichere Speicherlöschung. Die zwei
 Dateimetadatenbeobachtungen bieten keinen CAS-, Integritäts- oder späteren
 Startnachweis. Kein Startknopf, ComputeSelection, Secret-, Zertifikats-,
 Sitzungs- oder Inventarzugriff. Der bestehende Start und eigene Sitzungsstop
-bleiben getrennte Verträge; ein tatsächlich geführter Start bleibt offen.
+bleiben getrennte Verträge; der geführte Browser-Start und der Native-Nachweis der CLI-Startfunktion bleiben offen.
+
+## Geführter eigener llama.cpp-Start in der CLI
+
+Unter „Alle öffentlichen Befehle“ → „llama.cpp: eigene Sitzung starten“ erfasst
+die CLI fünfzehn explizite Eingaben einschließlich optionalem öffentlichen
+CA-PEM. Pfade und API-Key werden maskiert, der API-Key als SecureString erfasst.
+Vor der Bestätigung bleiben Eingaben im RAM; Dateien, TLS, Port und Runtime
+werden nicht gelesen oder geprüft. Scalargrenzen sind Eingabeprüfung, keine
+Modell-/Gerätebereitschaft. WhatIf des vorhandenen öffentlichen Starts liest
+keine Dateien und startet nichts. Die separate Dateivorschau bleibt PLAN_ONLY.
+
+Erst die bewusste Bestätigung ruft den unveränderten öffentlichen Start in
+derselben Modulsitzung auf; dessen natürliche Confirm-Abfrage bleibt aktiv.
+Der bestehende Core prüft Runtime, GGUF, TLS und Loopback-Embeddings und erzeugt
+ausschließlich seine eigene Worker-/Key-/Lease-Operation. Die Anzeige enthält
+keine Pfade, Modellaliase, Zertifikatspins oder Secrets. Der dialogeigene
+SecureString wird anschließend verworfen; die laufende eigene Sitzung bleibt
+in diesem Modulhost. Ein unerwartetes Ergebnis nach Start ist unbestätigt und
+kann eine aktive Sitzung bedeuten. Kein AutoStop, Retry oder behaupteter Cleanup;
+RECOVERY_REQUIRED bleibt sichtbar. Den Modulhost erhalten und bestehende eigene
+Sitzungsführung bewusst separat verwenden. SQL-Funktionsabnahme bleibt
+NOT_CHECKED. Der geführte Browser-Start bleibt offen.
+
+Die neue Führung ist synthetisch geprüft; reale Start-/Modell-/TLS-/Compute-
+und Cleanup-Abnahme dieses Dialogs ist nicht ausgeführt. Bestehende native
+Referenznachweise ersetzen diese Abnahme nicht.

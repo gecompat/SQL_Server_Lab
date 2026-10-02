@@ -2596,3 +2596,7 @@ Busy-/Revision- und verspätete Erfolgs-/Fehlerantworten über DOM-/Fetch-Fixtur
 Das ist keine physische Browser-, Tastatur-, Modell- oder Nativeabnahme.
 Eigene Fixturedateien werden bereinigt; alle tatsächlichen Diffselektor-Gates
 und fehlenden Provider-Nachweise bleiben separat und unverändert verpflichtend.
+
+### Geführter eigener llama.cpp-Start (CLI)
+
+Invoke-LlamaCppStartConsoleChecks.ps1 prüft actual Menü, Handler, Public-ShouldProcess, isolierten Runtime-Leaf, SecureString-Consoleleaf und SessionView. Cancel vor jedem Schritt/Bestätigung startet nichts; WhatIf ist keine Bereitschaft. Strikte DTO-/Sessionbindung, unbestätigtes Ergebnis und compound Recovery zeigen keine Rohwerte und lösen keinen AutoStop/Retry aus. Nur synthetisch, keine physische Tastatur-, Prozess-, Modell-, TLS-, SQL- oder Providerabnahme. Tatsächliche Diff-Auswahl und ausgewählte Native-Gates bleiben maßgeblich; nicht ausgeführt ist kein PASS.

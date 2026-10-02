@@ -148,7 +148,7 @@ verwendet den bereits geladenen exakten Modulpfad ohne Force-Reload weiter;
 ein anderes Modul desselben Namens blockiert. Die bisherigen erforderlichen
 Startparameter gelten vollständig. Ein Start aus anderer PowerShell oder über
 separat importierende Hintergrundjobs erscheint hier nicht. Eine leere GUI-Sicht
-nennt diese Abhilfe. Geführter Start, Fremdprozesse, Windows-Dienste, Restart,
+nennt diese Abhilfe. Geführter Browser-Start, Fremdprozesse, Windows-Dienste, Restart,
 Konfiguration und Modell-Lifecycle bleiben offen; das ist keine allgemeine
 Ownershipbeschränkung für künftige bewusste manuelle Hostaktionen.
 
@@ -240,7 +240,7 @@ Parameter bleiben im RAM. Erst „Vorschau anzeigen“ liest die lokalen Dateien
 Maskierte Pfadeingaben verwenden Esc, im Fallback Ctrl+C statt 0. Der Dialog
 zeigt keine Pfade, freien Fehlertexte oder zusätzlichen DTO-Felder. Er verwirft
 ungültige/mutierende Ergebnisse und bleibt PLAN_ONLY/BLOCKED. Kein Startknopf,
-ComputeSelection, Secretzugriff, globale Discovery oder Speicherung. Der tatsächlich geführte Start bleibt offen.
+ComputeSelection, Secretzugriff, globale Discovery oder Speicherung. Der tatsächlich geführte Browser-Start bleibt offen.
 
 ### Reine llama.cpp-Dateivorschau im Browser
 
@@ -258,4 +258,30 @@ Ausführungsfreigabe. Clearing ist keine sichere Speicherlöschung. Die zwei
 Dateimetadatenbeobachtungen bieten keinen CAS-, Integritäts- oder späteren
 Startnachweis. Kein Startknopf, ComputeSelection, Secret-, Zertifikats-,
 Sitzungs- oder Inventarzugriff. Der bestehende Start und eigene Sitzungsstop
-bleiben getrennte Verträge; ein tatsächlich geführter Start bleibt offen.
+bleiben getrennte Verträge; ein tatsächlich geführter Browser-Start bleibt offen.
+
+## Geführter eigener llama.cpp-Start in der CLI
+
+Unter „Alle öffentlichen Befehle“ → „llama.cpp: eigene Sitzung starten“ erfasst
+die CLI fünfzehn explizite Eingaben einschließlich optionalem öffentlichen
+CA-PEM. Pfade und API-Key werden maskiert, der API-Key als SecureString erfasst.
+Vor der Bestätigung bleiben Eingaben im RAM; Dateien, TLS, Port und Runtime
+werden nicht gelesen oder geprüft. Scalargrenzen sind Eingabeprüfung, keine
+Modell-/Gerätebereitschaft. WhatIf des vorhandenen öffentlichen Starts liest
+keine Dateien und startet nichts. Die separate Dateivorschau bleibt PLAN_ONLY.
+
+Erst die bewusste Bestätigung ruft den unveränderten öffentlichen Start in
+derselben Modulsitzung auf; dessen natürliche Confirm-Abfrage bleibt aktiv.
+Der bestehende Core prüft Runtime, GGUF, TLS und Loopback-Embeddings und erzeugt
+ausschließlich seine eigene Worker-/Key-/Lease-Operation. Die Anzeige enthält
+keine Pfade, Modellaliase, Zertifikatspins oder Secrets. Der dialogeigene
+SecureString wird anschließend verworfen; die laufende eigene Sitzung bleibt
+in diesem Modulhost. Ein unerwartetes Ergebnis nach Start ist unbestätigt und
+kann eine aktive Sitzung bedeuten. Kein AutoStop, Retry oder behaupteter Cleanup;
+RECOVERY_REQUIRED bleibt sichtbar. Den Modulhost erhalten und bestehende eigene
+Sitzungsführung bewusst separat verwenden. SQL-Funktionsabnahme bleibt
+NOT_CHECKED. Der geführte Browser-Start bleibt offen.
+
+Die neue Führung ist synthetisch geprüft; reale Start-/Modell-/TLS-/Compute-
+und Cleanup-Abnahme dieses Dialogs ist nicht ausgeführt. Bestehende native
+Referenznachweise ersetzen diese Abnahme nicht.
