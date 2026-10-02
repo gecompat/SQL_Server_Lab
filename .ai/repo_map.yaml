@@ -181,6 +181,8 @@ sources_of_truth:
   ai_ovms_https_gateway_stop: Public/Stop-SqlServerLabOvmsHttpsGateway.ps1
   acceptance_ai_ovms_https_gateway: Tests/Integration/Invoke-AiOvmsHttpsGatewayAcceptance.ps1
   llama_cpp_guided_start_cli: Private/LlamaCppStartConsole.ps1
+  llama_cpp_guided_start_browser: Private/LlamaCppStartHttp.ps1, Ui/llama-start.js
+  validation_llama_cpp_guided_start_browser: Tests/Static/Invoke-LlamaCppStartBrowserChecks.ps1, Tests/Static/Fixtures/LlamaCppStartHttpChecks.ps1, Tests/Static/Fixtures/LlamaCppStartUiChecks.cjs
   validation_llama_cpp_guided_start_cli: Tests/Static/Invoke-LlamaCppStartConsoleChecks.ps1, Tests/Static/Fixtures/LlamaCppStartConsoleChecks.ps1
   llama_cpp_owned_runtime: Private/LlamaCppOwnedRuntime.ps1
   llama_cpp_session_guidance: Private/LlamaCppSessionGuidance.ps1

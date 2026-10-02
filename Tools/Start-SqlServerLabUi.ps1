@@ -660,6 +660,16 @@ try {
                 }
                 continue
             }
+            if ($path -eq '/api/llama-start') {
+                try {
+                    $result=& (Get-Module SqlServerLab) { param($request,$listenerPort) Invoke-LabLlamaCppStartHttpRequest -Request $request -ListenerPort $listenerPort } $context.Request $Port
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 3 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $code=if($_.Exception.Message -cin @('LLAMA_START_HTTP_INVALID','LLAMA_START_HTTP_CONFIRMATION_REQUIRED','LLAMA_START_HTTP_CONFIRM_POLICY_BLOCKED')){$_.Exception.Message}else{'LLAMA_START_HTTP_INVALID'}
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -eq '/api/llama-start-plan') {
                 try {
                     $result=& (Get-Module SqlServerLab) { param($request) Invoke-LabLlamaCppStartPlanHttpRequest -Request $request } $context.Request

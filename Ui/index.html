@@ -121,9 +121,10 @@
     <section class="panel" data-workspace-area="hostmodels" hidden>
       <h2>Host-Dienste und Modelle</h2>
       <p>Runtimeinstallation, laufender Dienst, gespeicherte Modelldatei und geladenes Modell sind getrennte Zustände. In der Konsole sind Modellkatalog/Download und vorhandene Ollama-Modellaufrufe verfügbar.</p>
-      <p>Eigene llama.cpp-Sitzungen dieses UI-Modulhosts können bewusst gestoppt werden. Fremdprozesse, Start, Restart sowie Load, Warmup, Unload und Modellwechsel bleiben offen. Der vorhandene erweiterte Secret-Preflight unten steuert keinen Dienst.</p>
+      <p>Eigene llama.cpp-Sitzungen dieses UI-Modulhosts können geführt gestartet und bewusst gestoppt werden. Der geführte Start ist synthetisch geprüft; der native Nachweis steht noch aus. Fremdstarts, Restart sowie Load, Warmup, Unload und Modellwechsel bleiben offen. Der vorhandene erweiterte Secret-Preflight unten steuert keinen Dienst.</p>
       <button id="llama-session-open" type="button" class="button secondary">Eigene llama.cpp-Sitzung stoppen</button>
       <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
+      <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
     </section>
     <section class="panel" data-workspace-area="connections" hidden>
       <h2>Verbindungen und CMS</h2>
@@ -776,6 +777,34 @@
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
   <script src="component-relations.js"></script>
+  <dialog id="llama-start-dialog">
+    <div class="maintenance-dialog-content">
+      <h2>Eigene llama.cpp-Sitzung für SQL-Embeddings</h2>
+      <p>Explizite lokale Dateien und Schlüssel nur im RAM eingeben. Erst bewusster Start liest Dateien, prüft TLS/Loopback/Modell/Gerät und erstellt einen eigenen zeitlich begrenzten Worker mit temporären Key-/Request-/Logdateien. Keine Downloads oder globale Dienst-/Truständerung. Gleichen Modulhost behalten.</p>
+      <label>Runtime-Verzeichnis<input id="llama-start-runtime" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>GGUF-Datei<input id="llama-start-model" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>Backend<select id="llama-start-backend"><option>LlamaCppCuda</option><option>LlamaCppOpenVino</option></select></label>
+      <label>Beschleuniger<select id="llama-start-accelerator"><option>CPU</option><option>GPU</option><option>NPU</option></select></label>
+      <label>Modellalias<input id="llama-start-alias" maxlength="128" autocomplete="off"></label>
+      <label>Dimension<input id="llama-start-dimension" type="number" min="1" max="1998"></label>
+      <label>Pooling<select id="llama-start-pooling"><option>mean</option><option>cls</option><option>last</option></select></label>
+      <label>IPv4-Loopback-Port<input id="llama-start-port" type="number" min="1024" max="65535"></label>
+      <label>Öffentliches Zertifikat (PEM-Pfad)<input id="llama-start-certificate" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>Privater Key (PEM-Pfad)<input id="llama-start-private-key" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>API-Key (24–256 ASCII-Buchstaben/Ziffern, _ oder -)<input id="llama-start-api-key" type="password" maxlength="256" autocomplete="new-password"></label>
+      <label>Optionales öffentliches CA-PEM (Pfad, leer: Systemvertrauen)<input id="llama-start-trusted-root" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>Bereitschaftspollbudget (1–600 Sekunden)<input id="llama-start-timeout" type="number" min="1" max="600"></label>
+      <label>Lease einschließlich Start (30–3600 Sekunden; größer als Pollbudget)<input id="llama-start-lease" type="number" min="30" max="3600"></label>
+      <label>Kontext (32–8192)<input id="llama-start-context" type="number" min="32" max="8192"></label>
+      <p>Der Start läuft synchron und kann den UI-Listener blockieren. Das Pollbudget begrenzt weder den gesamten HTTP-Aufruf noch Datei-/TLS-I/O oder Cleanup. WhatIf prüft keine Bereitschaft. SQL bleibt NOT_CHECKED. Gemeinsame JSON-Größenlimits können Kombinationen maximaler Eingaben abweisen. Clearing garantiert keine sichere Speicherlöschung.</p>
+      <label><input id="llama-start-confirm" type="checkbox"> Genau diese eigene Sitzung mit temporären Schlüsseldateien und Worker bewusst starten</label>
+      <p id="llama-start-status" role="status" aria-live="polite">Noch nichts gestartet oder geprüft.</p>
+      <pre id="llama-start-result"></pre>
+      <p>Abbruch vor Versand startet nichts; nach Versand beendet er nur die Anzeige. Bei verlorener Antwort könnte eine eigene Sitzung aktiv sein. Modulhost behalten, nicht blind wiederholen und bestehende eigene Sitzungsführung separat verwenden. Kein automatischer Stop oder Cleanup-Erfolg.</p>
+      <div class="dialog-actions"><button id="llama-start-whatif" type="button" class="button secondary">WhatIf ohne Wirkung</button><button id="llama-start-start" type="button" class="button primary">Bewusst eigene Sitzung starten</button><button id="llama-start-close" type="button" class="button secondary">Zurück / Anzeige abbrechen</button></div>
+    </div>
+  </dialog>
   <script src="llama-start-plan.js"></script>
+  <script src="llama-start.js"></script>
 </body>
 </html>

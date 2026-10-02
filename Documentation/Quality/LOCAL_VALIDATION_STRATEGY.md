@@ -2600,3 +2600,17 @@ und fehlenden Provider-Nachweise bleiben separat und unverändert verpflichtend.
 ### Geführter eigener llama.cpp-Start (CLI)
 
 Invoke-LlamaCppStartConsoleChecks.ps1 prüft actual Menü, Handler, Public-ShouldProcess, isolierten Runtime-Leaf, SecureString-Consoleleaf und SessionView. Cancel vor jedem Schritt/Bestätigung startet nichts; WhatIf ist keine Bereitschaft. Strikte DTO-/Sessionbindung, unbestätigtes Ergebnis und compound Recovery zeigen keine Rohwerte und lösen keinen AutoStop/Retry aus. Nur synthetisch, keine physische Tastatur-, Prozess-, Modell-, TLS-, SQL- oder Providerabnahme. Tatsächliche Diff-Auswahl und ausgewählte Native-Gates bleiben maßgeblich; nicht ausgeführt ist kein PASS.
+
+### Geführter eigener llama.cpp-Start (Browser)
+
+Invoke-LlamaCppStartBrowserChecks.ps1 prüft tatsächlichen dedizierten HTTP-Handler,
+unveränderten Public-ShouldProcess und isolierten privaten Runtime-Leaf sowie
+extrahierte echte UI-Route im selben Modul. Pflichtfälle: Loopback-/Originbindung,
+strict UTF-8/JSON/aggregierte Grenzen, fünfzehn explizite Scalars, bewusster START
+versus WhatIf, effektive ConfirmPreference, Schlüsselentsorgung, strikte eigene
+Session-/Port-/DTO-Bindung und feste unbestätigte/Recovery-Ergebnisse. Dateien,
+Prozesse, Runtime und Netzwerk sind gesperrte Leaves. Die echte JS-Fixture prüft
+RAM-Eingaben, Cancel vor/nach Versand, Busy und verspätete Erfolge/Fehler, noRetry,
+Schlüsselclearing und feste textContent-Anzeigen. Keine echte Browser-/Tastatur-
+oder Nativeabnahme; tatsächliche Diffselektion und fehlende Providerpflichten
+bleiben separat. Bestehende Public-/Core-/CLI-/Preview-/Stopbytes bleiben erhalten.

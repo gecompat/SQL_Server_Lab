@@ -2887,8 +2887,8 @@ sie allein sind keine Live-Microsoft-, Provider- oder dauerhafte Schedulerabnahm
 Der eigene Modulhost-Slice ist mit Vorschau, Cancel und Stop implementiert;
 Verbrauchercoverage bleibt UNKNOWN. Deklarierte Shared-Gateway-Verbraucher und
 konfigurierte Testgruppen-Schutzauthority werden vor Stop revalidiert.
-Fremdprozesse, persistente Dienste, Start/Restart und Modellaktionen bleiben
-offen. Der separate Windows-`GuidedStop`-Nachweis vom 2026-09-30 bestand mit
+Fremdprozesse, persistente Dienste, Restart und Modellaktionen bleiben
+offen; eigene geführte Starts sind separat ohne Native-Abnahme implementiert. Der separate Windows-`GuidedStop`-Nachweis vom 2026-09-30 bestand mit
 eigenem synthetischem Worker/Kind, unverändertem Nachbarkind während Stop und
 anschließend bestätigtem eigenen Worker-/Kind-/Key-/Nachbar-Cleanup. Das belegt
 native Prozessführung im engen Scope, keine echte Modellinferenz, Compute-,
@@ -2918,7 +2918,7 @@ und frische Validierung. Die CLI bietet unter „Alle öffentlichen Befehle“ �
 „llama.cpp: geführte Startvorschau“ explizite RAM-Eingaben und bewusste
 Dateivorschau; Abbruch ruft keinen Plan auf. Pfade werden maskiert (Esc, im
 Fallback Ctrl+C), Ergebnis und Fehler bleiben pfadfrei. Kein Startknopf,
-ComputeSelection oder Secretzugriff. Die geführte CLI-Startfunktion ist statisch geprüft; ihr Native-Nachweis und der geführte Browser-Start bleiben offen. Vertrag:
+ComputeSelection oder Secretzugriff. Die geführte CLI-Startfunktion ist statisch geprüft; ihr Native-Nachweis und die Native-Nachweise der geführten Startdialoge bleiben offen. Vertrag:
 [Eigener llama.cpp-Start](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
 
 ### Reine llama.cpp-Dateivorschau im Browser
@@ -2937,7 +2937,7 @@ Ausführungsfreigabe. Clearing ist keine sichere Speicherlöschung. Die zwei
 Dateimetadatenbeobachtungen bieten keinen CAS-, Integritäts- oder späteren
 Startnachweis. Kein Startknopf, ComputeSelection, Secret-, Zertifikats-,
 Sitzungs- oder Inventarzugriff. Der bestehende Start und eigene Sitzungsstop
-bleiben getrennte Verträge; der geführte Browser-Start und der Native-Nachweis der CLI-Startfunktion bleiben offen.
+bleiben getrennte Verträge; die Native-Nachweise der geführten CLI-/Browser-Startfunktionen bleiben offen.
 
 ## Geführter eigener llama.cpp-Start in der CLI
 
@@ -2959,8 +2959,40 @@ in diesem Modulhost. Ein unerwartetes Ergebnis nach Start ist unbestätigt und
 kann eine aktive Sitzung bedeuten. Kein AutoStop, Retry oder behaupteter Cleanup;
 RECOVERY_REQUIRED bleibt sichtbar. Den Modulhost erhalten und bestehende eigene
 Sitzungsführung bewusst separat verwenden. SQL-Funktionsabnahme bleibt
-NOT_CHECKED. Der geführte Browser-Start bleibt offen.
+NOT_CHECKED. Der geführte Browser-Start ist separat implementiert; seine Native-Abnahme bleibt offen.
 
 Die neue Führung ist synthetisch geprüft; reale Start-/Modell-/TLS-/Compute-
 und Cleanup-Abnahme dieses Dialogs ist nicht ausgeführt. Bestehende native
 Referenznachweise ersetzen diese Abnahme nicht.
+
+## Geführter eigener llama.cpp-Start im Browser
+
+Unter „Host-Dienste und Modelle“ → „llama.cpp: eigene Sitzung starten“ erfasst
+der Dialog fünfzehn explizite Eingaben einschließlich optionalem CA-PEM und
+transientem API-Key. Öffnen, Bearbeiten und Abbruch vor Versand lesen keine
+Dateien und rufen keinen Start auf. Erst die bewusste Wirkungsbestätigung
+sendet START; eine ausdrücklich gewählte WhatIf-Aktion braucht diese Bestätigung
+nicht und ruft denselben öffentlichen Start mit WhatIf ohne Bereitschaftsprüfung auf.
+Beide Aufrufe erzeugen wegen dessen Pflichtparameter einen frischen dialogeigenen
+SecureString und entsorgen ihn anschließend. Der HTTP-String und Browser-RAM
+sind nicht garantiert sicher löschbar; keine Jobs, Logs, URL- oder Storageablage
+für die Eingaben. Gemeinsame 65536-Byte-/32768-Zeichenlimits können Kombinationen
+maximaler Einzelwerte abweisen; Pfade sind zusätzlich auf 4096 Zeichen begrenzt.
+
+Der dedizierte synchrone POST /api/llama-start verlangt exakte IPv4-Loopback-
+Listener-/Request-/Originbindung und nutzt das unveränderte vorhandene Modul.
+Kein Force-Reload oder Hintergrundjob. Natürliche ShouldProcess-Semantik bleibt:
+Low/Medium/unbekannte effektive ConfirmPreference blockieren vor Public, High/None
+werden nicht überschrieben. WhatIf/No-op ist kein Erfolg oder Readinessnachweis.
+Das Startbudget von 1–600 Sekunden begrenzt nur Core-Bereitschaftspolls nach
+Workerstart, nicht gesamten HTTP-Aufruf, Datei-/TLS-I/O oder Cleanup. Der
+UI-Listener kann synchron blockieren; Modulhost für die eigene Sitzung behalten.
+
+Abbruch nach Versand betrifft ausschließlich die Anzeige. Eine verlorene oder
+unerwartete Antwort kann eine aktive eigene Sitzung bedeuten. Feste Ergebnis-
+und Recoveryanzeigen enthalten keine Pfade, Modellaliase, Zertifikatspins oder
+Secrets; nur bestätigte eigene UUID/Port-/Sitzungsbindung wird projiziert.
+Kein automatischer Stop, Retry, Ownershipadoption oder Cleanup-Erfolgsversprechen.
+Bestehende eigene Sitzungsführung bleibt separat; SQL bleibt NOT_CHECKED.
+Die Browserführung ist synthetisch geprüft; neue reale Start-/Modell-/TLS-/
+Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.

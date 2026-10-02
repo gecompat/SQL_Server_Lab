@@ -443,7 +443,7 @@ wird durch den Ressourcenstand ausgelöst.
 Der geführte eigene llama.cpp-Sitzungsstop ist unter „Host-Dienste und Modelle“
 über Auswahl, Vorschau, Abbruch und bewusste Bestätigung erreichbar. Die
 Verbraucher-Coverage bleibt UNKNOWN; deklarierte geschützte Verbraucher sperren
-den Stop. Fremdprozesse, Start/Restart und Modellaktionen bleiben offen.
+den Stop. Fremdprozesse, Restart und Modellaktionen bleiben offen; eigener Start ist separat geführt und nicht nativ abgenommen.
 Die GUI muss im selben PowerShell-Modulhost wie der bestehende Start geöffnet
 werden; sie lädt den exakten vorhandenen Modulpfad ohne Force-Reload weiter.
 Details und Workflow-Aktionen: [Sitzungsstop](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
@@ -464,4 +464,36 @@ Ausführungsfreigabe. Clearing ist keine sichere Speicherlöschung. Die zwei
 Dateimetadatenbeobachtungen bieten keinen CAS-, Integritäts- oder späteren
 Startnachweis. Kein Startknopf, ComputeSelection, Secret-, Zertifikats-,
 Sitzungs- oder Inventarzugriff. Der bestehende Start und eigene Sitzungsstop
-bleiben getrennte Verträge; ein tatsächlich geführter Start bleibt offen.
+bleiben getrennte Verträge; die neue geführte Startfunktion bleibt ohne Native-Abnahme.
+
+## Geführter eigener llama.cpp-Start im Browser
+
+Unter „Host-Dienste und Modelle“ → „llama.cpp: eigene Sitzung starten“ erfasst
+der Dialog fünfzehn explizite Eingaben einschließlich optionalem CA-PEM und
+transientem API-Key. Öffnen, Bearbeiten und Abbruch vor Versand lesen keine
+Dateien und rufen keinen Start auf. Erst die bewusste Wirkungsbestätigung
+sendet START; eine ausdrücklich gewählte WhatIf-Aktion braucht diese Bestätigung
+nicht und ruft denselben öffentlichen Start mit WhatIf ohne Bereitschaftsprüfung auf.
+Beide Aufrufe erzeugen wegen dessen Pflichtparameter einen frischen dialogeigenen
+SecureString und entsorgen ihn anschließend. Der HTTP-String und Browser-RAM
+sind nicht garantiert sicher löschbar; keine Jobs, Logs, URL- oder Storageablage
+für die Eingaben. Gemeinsame 65536-Byte-/32768-Zeichenlimits können Kombinationen
+maximaler Einzelwerte abweisen; Pfade sind zusätzlich auf 4096 Zeichen begrenzt.
+
+Der dedizierte synchrone POST /api/llama-start verlangt exakte IPv4-Loopback-
+Listener-/Request-/Originbindung und nutzt das unveränderte vorhandene Modul.
+Kein Force-Reload oder Hintergrundjob. Natürliche ShouldProcess-Semantik bleibt:
+Low/Medium/unbekannte effektive ConfirmPreference blockieren vor Public, High/None
+werden nicht überschrieben. WhatIf/No-op ist kein Erfolg oder Readinessnachweis.
+Das Startbudget von 1–600 Sekunden begrenzt nur Core-Bereitschaftspolls nach
+Workerstart, nicht gesamten HTTP-Aufruf, Datei-/TLS-I/O oder Cleanup. Der
+UI-Listener kann synchron blockieren; Modulhost für die eigene Sitzung behalten.
+
+Abbruch nach Versand betrifft ausschließlich die Anzeige. Eine verlorene oder
+unerwartete Antwort kann eine aktive eigene Sitzung bedeuten. Feste Ergebnis-
+und Recoveryanzeigen enthalten keine Pfade, Modellaliase, Zertifikatspins oder
+Secrets; nur bestätigte eigene UUID/Port-/Sitzungsbindung wird projiziert.
+Kein automatischer Stop, Retry, Ownershipadoption oder Cleanup-Erfolgsversprechen.
+Bestehende eigene Sitzungsführung bleibt separat; SQL bleibt NOT_CHECKED.
+Die Browserführung ist synthetisch geprüft; neue reale Start-/Modell-/TLS-/
+Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.
