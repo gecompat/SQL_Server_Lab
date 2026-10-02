@@ -2547,3 +2547,18 @@ strikte sichere DTOs/Fehler sowie sichtbarer Drift und Reparse/GGUF-Vetos sind
 erforderlich. Start/Stop, Compute, HTTP, Secrets und Defaults sind gesperrt.
 Eigene Fixturedateien werden bereinigt. Keine empirische Tastatur-, Runtime-
 oder Providerabnahme; die selektierten Pflichtgates bleiben separat.
+
+### Geführte reine llama.cpp-Dateivorschau im Browser
+
+`Invoke-LlamaCppStartPlanBrowserChecks.ps1` führt den tatsächlichen engen
+HTTP-Handler bis Public-Core und bestehende Files-only-Reader sowie die
+extrahierte echte UI-Route auf synthetischen Dateien aus. Erforderlich sind
+strikte zehn Eingaben, UTF-8-Byte-/Zeichen-/JSON-Grenzen, Duplicate-/Case- und
+Origin-Vetos, fehlende/unbekannte/coerced Parameter, sichere DTOs und feste
+Fehlercodes, echte sichtbare Drift-, Reparse- und GGUF-Abweisung. Jobs,
+Start/Stop, Runtime, Compute, Secrets und Defaults sind gesperrte Grenzen.
+Die echte neue JavaScript-Datei prüft RAM-Eingaben, bewusste Vorschau, Cancel,
+Busy-/Revision- und verspätete Erfolgs-/Fehlerantworten über DOM-/Fetch-Fixtures.
+Das ist keine physische Browser-, Tastatur-, Modell- oder Nativeabnahme.
+Eigene Fixturedateien werden bereinigt; alle tatsächlichen Diffselektor-Gates
+und fehlenden Provider-Nachweise bleiben separat und unverändert verpflichtend.

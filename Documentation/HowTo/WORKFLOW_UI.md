@@ -429,3 +429,21 @@ den Stop. Fremdprozesse, Start/Restart und Modellaktionen bleiben offen.
 Die GUI muss im selben PowerShell-Modulhost wie der bestehende Start geöffnet
 werden; sie lädt den exakten vorhandenen Modulpfad ohne Force-Reload weiter.
 Details und Workflow-Aktionen: [Sitzungsstop](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+### Reine llama.cpp-Dateivorschau im Browser
+
+Unter „Host-Dienste und Modelle“ → „llama.cpp: reine Startvorschau“ werden
+Runtime-Verzeichnis, GGUF-Datei, Backend, Beschleuniger und die sechs
+Modell-/Budgetwerte ausdrücklich im Arbeitsspeicher erfasst. Erst
+„Dateivorschau lesen“ ruft den unveränderten öffentlichen Dateiplan auf.
+Öffnen, Bearbeiten, Zurück und Escape lesen keine Dateien und erzeugen keinen
+Job. Abbruch verwirft die Eingaben und ignoriert verspätete Antworten.
+
+Die Vorschau bleibt PLAN_ONLY/BLOCKED mit leeren Actions. Geräte, Port, TLS,
+Modellkompatibilität und SQL bleiben NOT_CHECKED. Pfade werden maskiert erfasst
+und weder im Ergebnis noch in Fehlern gespiegelt; es gibt keine Persistenz oder
+Ausführungsfreigabe. Clearing ist keine sichere Speicherlöschung. Die zwei
+Dateimetadatenbeobachtungen bieten keinen CAS-, Integritäts- oder späteren
+Startnachweis. Kein Startknopf, ComputeSelection, Secret-, Zertifikats-,
+Sitzungs- oder Inventarzugriff. Der bestehende Start und eigene Sitzungsstop
+bleiben getrennte Verträge; ein tatsächlich geführter Start bleibt offen.

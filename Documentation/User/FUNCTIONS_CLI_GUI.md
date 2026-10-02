@@ -430,6 +430,23 @@ und frische Validierung. Die CLI bietet unter „Alle öffentlichen Befehle“ �
 „llama.cpp: geführte Startvorschau“ explizite RAM-Eingaben und bewusste
 Dateivorschau; Abbruch ruft keinen Plan auf. Pfade werden maskiert (Esc, im
 Fallback Ctrl+C), Ergebnis und Fehler bleiben pfadfrei. Kein Startknopf,
-ComputeSelection oder Secretzugriff. Geführter tatsächlicher Start und
-Browser-Startvorschau bleiben offen. Vertrag:
+ComputeSelection oder Secretzugriff. Der tatsächlich geführte Start bleibt offen. Vertrag:
 [Eigener llama.cpp-Start](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+### Reine llama.cpp-Dateivorschau im Browser
+
+Unter „Host-Dienste und Modelle“ → „llama.cpp: reine Startvorschau“ werden
+Runtime-Verzeichnis, GGUF-Datei, Backend, Beschleuniger und die sechs
+Modell-/Budgetwerte ausdrücklich im Arbeitsspeicher erfasst. Erst
+„Dateivorschau lesen“ ruft den unveränderten öffentlichen Dateiplan auf.
+Öffnen, Bearbeiten, Zurück und Escape lesen keine Dateien und erzeugen keinen
+Job. Abbruch verwirft die Eingaben und ignoriert verspätete Antworten.
+
+Die Vorschau bleibt PLAN_ONLY/BLOCKED mit leeren Actions. Geräte, Port, TLS,
+Modellkompatibilität und SQL bleiben NOT_CHECKED. Pfade werden maskiert erfasst
+und weder im Ergebnis noch in Fehlern gespiegelt; es gibt keine Persistenz oder
+Ausführungsfreigabe. Clearing ist keine sichere Speicherlöschung. Die zwei
+Dateimetadatenbeobachtungen bieten keinen CAS-, Integritäts- oder späteren
+Startnachweis. Kein Startknopf, ComputeSelection, Secret-, Zertifikats-,
+Sitzungs- oder Inventarzugriff. Der bestehende Start und eigene Sitzungsstop
+bleiben getrennte Verträge; ein tatsächlich geführter Start bleibt offen.

@@ -240,5 +240,22 @@ Parameter bleiben im RAM. Erst „Vorschau anzeigen“ liest die lokalen Dateien
 Maskierte Pfadeingaben verwenden Esc, im Fallback Ctrl+C statt 0. Der Dialog
 zeigt keine Pfade, freien Fehlertexte oder zusätzlichen DTO-Felder. Er verwirft
 ungültige/mutierende Ergebnisse und bleibt PLAN_ONLY/BLOCKED. Kein Startknopf,
-ComputeSelection, Secretzugriff, globale Discovery oder Speicherung. Geführter
-tatsächlicher Start und Browser-Startvorschau bleiben offen.
+ComputeSelection, Secretzugriff, globale Discovery oder Speicherung. Der tatsächlich geführte Start bleibt offen.
+
+### Reine llama.cpp-Dateivorschau im Browser
+
+Unter „Host-Dienste und Modelle“ → „llama.cpp: reine Startvorschau“ werden
+Runtime-Verzeichnis, GGUF-Datei, Backend, Beschleuniger und die sechs
+Modell-/Budgetwerte ausdrücklich im Arbeitsspeicher erfasst. Erst
+„Dateivorschau lesen“ ruft den unveränderten öffentlichen Dateiplan auf.
+Öffnen, Bearbeiten, Zurück und Escape lesen keine Dateien und erzeugen keinen
+Job. Abbruch verwirft die Eingaben und ignoriert verspätete Antworten.
+
+Die Vorschau bleibt PLAN_ONLY/BLOCKED mit leeren Actions. Geräte, Port, TLS,
+Modellkompatibilität und SQL bleiben NOT_CHECKED. Pfade werden maskiert erfasst
+und weder im Ergebnis noch in Fehlern gespiegelt; es gibt keine Persistenz oder
+Ausführungsfreigabe. Clearing ist keine sichere Speicherlöschung. Die zwei
+Dateimetadatenbeobachtungen bieten keinen CAS-, Integritäts- oder späteren
+Startnachweis. Kein Startknopf, ComputeSelection, Secret-, Zertifikats-,
+Sitzungs- oder Inventarzugriff. Der bestehende Start und eigene Sitzungsstop
+bleiben getrennte Verträge; ein tatsächlich geführter Start bleibt offen.

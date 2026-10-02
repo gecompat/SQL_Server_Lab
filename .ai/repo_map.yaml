@@ -200,6 +200,8 @@ sources_of_truth:
   llama_cpp_owned_worker: Tools/Invoke-LlamaCppOwnedWorker.ps1
   llama_cpp_start_plan: Private/LlamaCppStartPlan.ps1
   llama_cpp_start_plan_cli: Private/LlamaCppStartPlanConsole.ps1
+  llama_cpp_start_plan_browser: Private/LlamaCppStartPlanHttp.ps1, Ui/llama-start-plan.js
+  validation_llama_cpp_start_plan_browser: Tests/Static/Invoke-LlamaCppStartPlanBrowserChecks.ps1, Tests/Static/Fixtures/LlamaCppStartPlanHttpChecks.ps1, Tests/Static/Fixtures/LlamaCppStartPlanUiChecks.cjs
   validation_llama_cpp_start_plan_cli: Tests/Static/Invoke-LlamaCppStartPlanConsoleChecks.ps1, Tests/Static/Fixtures/LlamaCppStartPlanConsoleChecks.ps1
   llama_cpp_start_plan_api: Public/Get-SqlServerLabLlamaCppStartPlan.ps1
   validation_llama_cpp_start_plan: Tests/Static/Invoke-LlamaCppStartPlanChecks.ps1

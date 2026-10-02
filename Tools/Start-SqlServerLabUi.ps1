@@ -650,6 +650,16 @@ try {
                 catch { Write-UiResponse -Context $context -Body 'RESOURCE_CHANGE_UNAVAILABLE: Ziel, Schutzstatus, Runtime und offene Recovery prüfen; anschließend erneut lesen.' -StatusCode 400 }
                 continue
             }
+            if ($path -eq '/api/llama-start-plan') {
+                try {
+                    $result=& (Get-Module SqlServerLab) { param($request) Invoke-LabLlamaCppStartPlanHttpRequest -Request $request } $context.Request
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $code=if($_.Exception.Message -cin @('LLAMA_START_PLAN_HTTP_INVALID','LLAMA_START_PLAN_HTTP_RESULT_INVALID','LLAMA_START_PLAN_PATH_INVALID','LLAMA_START_PLAN_FILE_INVALID','LLAMA_START_PLAN_REPARSE_REJECTED','LLAMA_START_PLAN_DIRECTORY_LIMIT','LLAMA_START_PLAN_FILE_LIMIT','LLAMA_START_PLAN_GGUF_REQUIRED','LLAMA_START_PLAN_LEASE_INVALID','LLAMA_START_PLAN_ACCELERATOR_UNSUPPORTED','LLAMA_START_PLAN_RUNTIME_MISMATCH','LLAMA_START_PLAN_INPUT_DRIFT','LLAMA_START_PLAN_INPUT_UNREADABLE')){$_.Exception.Message}else{'LLAMA_START_PLAN_HTTP_INVALID'}
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -eq '/api/component-relations') {
                 try {
                     $result=& (Get-Module SqlServerLab) { param($request) Invoke-LabComponentRelationHttpRequest -Request $request } $context.Request
