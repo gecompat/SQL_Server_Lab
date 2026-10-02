@@ -429,13 +429,20 @@ function Manage-LabPublicCommandsInteractive {
 
     while($true){
         $catalog=@(Get-LabPublicCommandConsoleCatalog)
-        $items=@(for($index=0;$index -lt $catalog.Count;$index++){
+        $items=@(
+            New-LabConsoleItem -Id 'component-relations-preview' -Label 'SQL-Komponenten: geführte Vorschau' -Value 'Nur Planung; Shared-SQL bleibt erhalten'
+            for($index=0;$index -lt $catalog.Count;$index++){
             $entry=$catalog[$index]
             $setNames=@($entry.ParameterSets.Name)-join ', '
             New-LabConsoleItem -Id $entry.Name -Label $entry.Name -Value "Parametersaetze: $setNames" -Shortcut ([string]($index+1)) -Data $entry
-        })
+            }
+        )
         $selection=Invoke-LabConsoleMenu -ScreenId 'public-command-menu' -Title 'Alle oeffentlichen Befehle' -Subtitle 'Vollstaendiger exportierter Funktionsumfang mit Defaults und Eingabevertraegen' -Items $items
         if($selection.Status -ne 'Selected'){return}
-        Invoke-LabPublicCommandInteractive -CatalogItem $selection.SelectedItem.Data
+        if ($selection.SelectedItem.Id -ceq 'component-relations-preview') {
+            Invoke-LabComponentRelationPlanInteractive
+        } else {
+            Invoke-LabPublicCommandInteractive -CatalogItem $selection.SelectedItem.Data
+        }
     }
 }

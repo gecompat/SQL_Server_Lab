@@ -48,6 +48,18 @@ function Get-LabConsoleHelpCatalog {
                 'commands'       = @{ Purpose = 'Listet jeden exportierten Modulbefehl und fuehrt ihn mit seinem echten Parametersatz, Defaults und Validierungsgrenzen aus.'; Command = 'Invoke-SqlServerLab -Action Commands' }
             }
         }
+        'component-relation-choice' = @{
+            Title = 'SQL-Komponente auswählen'
+            Purpose = 'Wählt einen vorhandenen registrierten Container-Run, Verbraucher oder eine SQL-Voraussetzung aus geprüften Metadaten.'
+            Effects = 'Nur lokale Metadaten lesen. Keine SQL-/Runtimeprobe, Speicherung, Adoption oder Ausführung. Esc verwirft die Eingabe.'
+            Command = 'Get-SqlServerLabReconcilePlan -ProposedRelations'
+        }
+        'component-relation-preview' = @{
+            Title = 'Komponentenrelationsvorschau'
+            Purpose = 'Ergänzt höchstens vier SQL-Voraussetzungen für bis zu zwei eigene Instanzen und eine verwaltete Shared-SQL-Referenz.'
+            Effects = 'PLAN_ONLY; SQL-Bereitschaft bleibt NOT_CHECKED. Shared Removal ist PRESERVE. Zurück verwirft alle Relations ohne Speicherung.'
+            Command = 'Get-SqlServerLabReconcilePlan -ProposedRelations'
+        }
         'public-command-menu' = @{
             Title   = 'Alle oeffentlichen Befehle'
             Purpose = 'Vollstaendiger, automatisch aus den Modulexporten erzeugter Zugriff auf jede oeffentliche Funktion.'

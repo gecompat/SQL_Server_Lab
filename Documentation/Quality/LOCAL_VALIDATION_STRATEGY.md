@@ -12,6 +12,15 @@ Pipelinepfad muss Mode/Version vor jeder Observation verweigern. Runtime-,
 Hosttool-, SQL- und Secret-Spies werfen bei jedem Aufruf. Diese Evidence ist
 eine Planprüfung, kein Start-/Shared-Removal-/Providerbeleg.
 
+Die gekoppelte `Fixtures/ComponentRelationPlanConsoleChecks.ps1` lädt tatsächliche
+Funktionsdeklarationen ohne Modul-/Providerimport und führt den CLI-Menüpfad
+über den öffentlichen Plan in den unveränderten Core aus. Registrierte Root-,
+Run-, Scope-, Desired-State- und ProviderSubRun-Fixtures sind synthetisch.
+Abbruch an jedem Dialogschritt, leere Relations, Shared-DAG, Cycle, Inhalts-/
+Statewechsel, unregistrierter Root und Zielanzahl prüfen reine Vorschau und
+ZeroDispatch. Menü-, Text- und Anzeigegrenzen sind isoliert; reale Secrets,
+Hosttools, Runtime und Executor dürfen nicht aufgerufen werden. Diese Fixture
+wird vom bestehenden ComponentRelationPlan-Impactpfad mit ausgeführt.
 ## Geführte Wartung und Zuordnungsreparatur
 
 `Tests/Static/Invoke-MaintenanceGuidanceChecks.ps1` prüft den tatsächlichen
