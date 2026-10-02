@@ -2468,7 +2468,11 @@ Quellen-Core, den echten CLI-Fallback und den extrahierten HTTP-Handler mit
 isolierten synthetischen Preferences und Katalogdaten aus. Geprüft werden
 Read/Preview/Cancel/No-op, Bestätigung, gezielter Reset, fremde Felder,
 veralteter Katalog/Vorgänger, Writerlock-Revalidierung, ungültige URLs und
-unveränderte Größen-/Hashbindung. Der echte Save-Pfad wird an eine eigene
+unveränderte Größen-/Hashbindung für alle sechs SQL-2022/2025-Bootstrapper.
+Falsche Version, Edition, Art, Architektur, Sprache, Dateiname und Integritätswerte
+werden vor der Quellenzuordnung abgelehnt. Der SQL-2022-Evaluation-Default
+behält seine vorhandene Vendorquery, während alternative Adressen queryfrei
+bleiben. Der echte Save-Pfad wird an eine eigene
 Loopback-Transportfixture gebunden: 301/302/303/307/308 dürfen weder eine
 Folgeanfrage noch eine publizierte Datei erzeugen. Die Tests erlauben keinen
 produktiven Loopback-Override. Microsoft-Endpunkte werden nicht kontaktiert.

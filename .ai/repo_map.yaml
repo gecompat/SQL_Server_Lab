@@ -404,7 +404,7 @@ sources_of_truth:
   validation_environment_resources: Tests/Static/Invoke-EnvironmentResourceChecks.ps1
   validation_podman_ci_privacy: Tests/Static/Invoke-PodmanSmokePrivacyChecks.ps1
   validation_runtime_ci_privacy: Tests/Static/Invoke-RuntimeSmokePrivacyChecks.ps1
-  media_source_guidance: Private/MediaSourceGuidance.ps1
+  media_source_guidance: Private/MediaSourceGuidance.ps1 # fixed six SQL2022/2025 bootstrapper identities; existing Preferences/catalog byte authority
   validation_media_source_guidance: Tests/Static/Invoke-MediaSourceGuidanceChecks.ps1
   container_reconcile_journal_schema: Schemas/container-reconcile-journal.schema.json
   validation_container_reconcile: Tests/Static/Invoke-ContainerReconcileChecks.ps1

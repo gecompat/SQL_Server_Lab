@@ -819,7 +819,7 @@ function Show-LabResourceMenu {
         New-LabConsoleItem -Id CuStatus -Label 'Aktuelle SQL-Server-CUs bei Microsoft prüfen' -Shortcut 3
         New-LabConsoleItem -Id AiLlamaModels -Label 'llama.cpp-Modelldateien anzeigen oder herunterladen' -Shortcut 4
         New-LabConsoleItem -Id Install7Zip -Label '7-Zip-Verfügbarkeit prüfen / optional installieren' -Shortcut 5
-        New-LabConsoleItem -Id MediaSourceOverride -Label 'SQL-2025-Bootstrapperquellen bearbeiten / zurücksetzen' -Shortcut 6
+        New-LabConsoleItem -Id MediaSourceOverride -Label 'SQL-2022/2025-Bootstrapperquellen bearbeiten / zurücksetzen' -Shortcut 6
         New-LabConsoleItem -Id ResourceWatch -Label 'Ressourcenstand: CUs und SqlPackage' -Value 'Sitzungsbefund · Quellenprüfung erst nach Auswahl' -Shortcut 7
         New-LabConsoleItem -Id RuntimeInstaller -Label 'llama.cpp-Runtime installieren / prüfen' -Value 'Experimentell · Windows x64 CPU · keine Modelle oder Dienste' -Shortcut 8
         New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
