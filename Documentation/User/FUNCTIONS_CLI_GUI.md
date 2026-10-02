@@ -5,7 +5,11 @@ SQL-Evaluation: Ersatzentscheid** geführt erreichbar: explizites registriertes
 `Lab_Data`, eine moderne Hyper-V-SQL-Instanz und Slotersatz, Rekonstruktion oder
 Instanzmigration auswählen. Windows-/SQL-Quelle und Evidencealter bleiben
 getrennt. Alle Modi sind `BLOCKED`, SQL ist `NOT_CHECKED`; Zurück und Escape
-führen keinen Plan aus. Der Browser-Fachdialog dafür bleibt offen.
+führen keinen Plan aus. Der Browser bietet dieselbe reine Entscheidung unter
+**Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatzentscheid**:
+Root ausdrücklich lesen, gebundene Instanz und Entscheidungsart auswählen,
+dann Vorschau lesen. Eingaben bleiben im RAM; Abbruch und verworfene späte
+Antworten erzeugen keine Jobs, Events oder Transferaktionen.
 
 Slice E: `Get-SqlServerLabReconcilePlan -ProposedRelations` liefert eine reine
 Komponenten-/Shared-Verbrauchervorschau an vorhandener Labidentität. Sie ist

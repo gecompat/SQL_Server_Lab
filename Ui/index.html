@@ -142,6 +142,7 @@
       <p>Befunde vor einer Änderung prüfen. Die Konsole bietet zusätzlich Providerstatus, Cleanup-Audit und Runtime-Abgleich; vollständige geführte Recovery-Parität bleibt offen.</p>
       <div class="workflow-actions">
         <button id="evaluation-watch-open" type="button" class="button secondary">Evaluationsfristen lesen</button>
+        <button id="evaluation-refresh-open" type="button" class="button secondary">SQL-Evaluation: Ersatzentscheid</button>
         <button id="maintenance-open" type="button" class="button secondary">Wartungsbefunde und Zuordnung</button>
         <button id="clear-all-labs" class="button danger">Alles aufräumen</button>
       </div>
@@ -730,6 +731,27 @@
     </div>
   </dialog>
   <script src="app.js"></script>
+  <dialog id="evaluation-refresh-dialog">
+    <div class="maintenance-dialog-content">
+      <h2>SQL-Evaluation: Ersatzentscheid</h2>
+      <p>Eine bestehende registrierte Hyper-V-SQL-Instanz. Alle Entscheidungsarten bleiben blockierte Vorschauen: keine Lizenzprüfung, SQL-Abfrage, Speicherung oder Migration.</p>
+      <label>Vorhandenes Lab_Data-Verzeichnis <input id="evaluation-refresh-root" type="text" maxlength="2048" autocomplete="off"></label>
+      <button id="evaluation-refresh-read" type="button" class="button secondary">Registrierte Instanzen lesen</button>
+      <label>SQL-Instanz <select id="evaluation-refresh-run"></select></label>
+      <label>Entscheidungsart <select id="evaluation-refresh-mode">
+        <option value="FREE_SLOT_REPLACEMENT">Freien Slot ersetzen</option>
+        <option value="RECONSTRUCT_LAB">Lab rekonstruieren</option>
+        <option value="STATEFUL_MIGRATION">Instanzzustand migrieren</option>
+      </select></label>
+      <p id="evaluation-refresh-status" role="status" aria-live="polite">Noch nicht gelesen.</p>
+      <pre id="evaluation-refresh-result"></pre>
+      <div class="dialog-actions">
+        <button id="evaluation-refresh-preview" type="button" class="button" disabled>Vorschau lesen (keine Änderung)</button>
+        <button id="evaluation-refresh-close" type="button" class="button secondary">Zurück / Abbrechen</button>
+      </div>
+    </div>
+  </dialog>
+  <script src="evaluation-refresh-plan.js"></script>
   <script src="component-relations.js"></script>
 </body>
 </html>

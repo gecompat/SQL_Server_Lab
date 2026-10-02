@@ -2,6 +2,20 @@
 
 ## Zweck
 
+### Evaluation-Ersatzentscheid
+
+Unter **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatzentscheid**
+ein vorhandenes registriertes `Lab_Data` eingeben und **Registrierte Instanzen
+lesen** wählen. Eine gebundene einzelne Hyper-V-SQL-Instanz und Slotersatz,
+Rekonstruktion oder Instanzmigration auswählen, dann **Vorschau lesen (keine
+Änderung)**. Die Auswahl wird vor dem öffentlichen Plan erneut geprüft.
+Windows- und SQL-Quelle, Evidencealter, Frist und Resttage erscheinen getrennt.
+Alle Modi bleiben `BLOCKED`, SQL ist `NOT_CHECKED`; historische Windows-
+Aktivierung ist keine frische Lizenzprüfung. Die festen Blocker und nächsten
+Schritte geben keine Transfer- oder Ausführungsfreigabe. Der begrenzte Reader
+liest höchstens 64 Run-Verzeichnisse, kein globales Watch-Inventar. Eingaben
+bleiben im RAM; Zurück/Escape und späte Antworten erstellen keine Jobs.
+
 ### Komponentenrelationsvorschau
 
 Unter **Verbindungen und CMS → SQL-Komponenten: geführte Vorschau**

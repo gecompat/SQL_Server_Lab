@@ -14,6 +14,12 @@ höchstens 64 vorhandene Run-Verzeichnisse und beginnt keine neue Inventur.
 Der Plan bleibt `BLOCKED` ohne Aktionen oder Transferautorität. Gespeicherte
 Windows-Metadaten sind keine frische Lizenzprüfung; fehlende SQL-Gast-Evidence,
 Inventar und Gleichwertigkeit bleiben konkrete Blocker.
+Im Browser unter **Wartung, Aufräumen und Recovery → SQL-Evaluation:
+Ersatzentscheid** denselben registrierten Root eingeben, **Registrierte Instanzen
+lesen**, Instanz und Entscheidungsart auswählen und die reine Vorschau lesen.
+Windows-/SQL-Evidence bleiben getrennt; Zurück oder Escape verwirft die
+RAM-Auswahl, späte Antworten können sie nicht wiederherstellen. Keine Jobs,
+neue SQL-/Lizenzprüfung oder Migration.
 [Vertrag und Grenzen](../Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md).
 
 ## Verfügbarkeit der SQL-2025-KI-Aktionen

@@ -10,7 +10,11 @@ Inventur, Persistenz, Adoption oder Lifecycleaktion. Generischer Konsolen-
 Befehlszugang und geführter CLI-Dialog **SQL-Evaluation: Ersatzentscheid** sind
 verfügbar. Der Dialog liest höchstens 64 Run-Verzeichnisse unter explizitem
 registrierten Root, revalidiert die Auswahl und ruft nur die Plan-API auf.
-Abbruch verwirft die Eingabe. Der Browser-Fachdialog bleibt offen.
+Abbruch verwirft die Eingabe. Der Browser bietet **Wartung, Aufräumen und Recovery →
+SQL-Evaluation: Ersatzentscheid** über einen eigenen begrenzten Read-/Previewpfad
+zu derselben Metadatenautorität. Root, Auswahl und Entscheidungsart bleiben im
+RAM; Abbruch und späte Antworten erstellen keine Jobs. Windows-Lizenz und
+SQL-Bereitschaft werden auch dort nicht frisch geprüft.
 Andere Provider, mehrere Instanzen und ungebundene Caller-Inventories sind
 außerhalb dieses Slices.
 

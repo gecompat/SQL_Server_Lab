@@ -2,6 +2,16 @@
 
 ## Reiner Evaluation-Ersatzentscheid
 
+`Invoke-EvaluationRefreshPlanHttpChecks.ps1` führt den tatsächlichen HTTP-Reader,
+öffentlichen D-Core und registrierten Diagnostic-/Gast-Reader sowie den echten
+dedizierten Serverbranch auf synthetischen Metadaten aus. Request-/Origin-/Body-
+und Auswahlgrenzen, Drift bei zweiter Coreobservation, Recovery, Datenschutz und
+getrennte fehlende/veraltete/aktuelle Evidence sind Pflichtfälle.
+`EvaluationRefreshPlanUiChecks.cjs` führt das echte RAM-Dialogskript mit DOM-/Fetch-
+Leaves aus: drei Modi, Cancel/Escape, Busy, geänderte Auswahl, verworfene späte
+Erfolge/Fehler und strikt nicht ausführbare feste Responses. Kein Job, SQL-/
+Providerzugriff oder neuer Lizenznachweis; ausgewählte Providergates bleiben separat.
+
 `Invoke-EvaluationRefreshPlanConsoleChecks.ps1` führt den tatsächlichen geführten
 CLI-Handler durch den öffentlichen Plan und seine Diagnostic-/Gast-Reader aus.
 Nur Text-, Menü- und Anzeigegrenzen sind isoliert. Alle drei Modi, Cancel vor

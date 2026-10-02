@@ -46,7 +46,11 @@ Root sind höchstens 64 Run-Verzeichnisse und nur eine vollständig gebundene
 moderne Hyper-V-SQL-Instanz auswählbar. Die Auswahl wird vor dem öffentlichen
 Plan erneut geprüft; Abbruch speichert nichts und ruft keinen Plan auf.
 Windows-/SQL-Quelle und Aktualität werden getrennt angezeigt. Ein geführter
-Browserdialog, Inventur und sämtliche Transferaktionen bleiben offen.
+Browserdialog ist ebenfalls als reine RAM-Vorschau im Bereich **Wartung,
+Aufräumen und Recovery** implementiert: eigener begrenzter HTTP-Metadaten-/
+Previewpfad, dieselbe registrierte D-Readerautorität und öffentlicher Core,
+Auswahlrevalidierung, getrennte Windows-/SQL-Evidence und Abbruch ohne Jobs.
+Inventur und sämtliche Transferaktionen bleiben offen.
 
 Die gemeinsame Watch-Fristklassifikation bleibt unverändert. Bei durch JSON
 typisierten Zeitwerten bewahren beide Watch-Pfade jetzt UTC und Bruchteile der
