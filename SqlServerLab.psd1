@@ -45,6 +45,7 @@
         'Get-SqlServerLabLlamaCppRuntime'
         'Get-SqlServerLabLlamaCppModel'
         'Save-SqlServerLabLlamaCppModel'
+        'Get-SqlServerLabLlamaCppStartPlan'
         'Start-SqlServerLabLlamaCppRuntime'
         'Stop-SqlServerLabLlamaCppRuntime'
         'Test-SqlServerLabAiExternalModelArtifact'

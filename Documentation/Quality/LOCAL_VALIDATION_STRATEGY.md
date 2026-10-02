@@ -2523,3 +2523,15 @@ Die Fixture CmsInspectionChecks wird durch Invoke-ConnectionCenterCmsChecks entd
 ## Bewusster lokaler Operator-Handoff
 
 Der [kanonische Handoff](../HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.
+
+## Reine eigene llama.cpp-Startvorschau
+
+`Tests/Static/Invoke-LlamaCppStartPlanChecks.ps1` führt den echten öffentlichen
+Core und die bestehenden Files-only-Reader in einem isolierten Modul mit
+synthetischen lokalen Dateien aus. Grenzen: exakte Installation, Backends,
+CUDA-NPU, Dateimengen/Reparsepfade, GGUF-Magic, Metadatendrift, skalare Grenzen,
+Pfadfreiheit, NOT_CHECKED und unverändertes Start-WhatIf. Gesperrte Start-,
+Compute-, HTTP-, Secret- und Defaultgrenzen dürfen nicht erreicht werden.
+Der Nachweis ist keine Geräte-, TLS-, Modell-, SQL- oder Providerabnahme.
+Die tatsächliche Diffauswahl bleibt maßgeblich; ausgewählte, nicht ausgeführte
+Provider-Smokes bleiben ausdrücklich NOT_EXECUTED.

@@ -2885,3 +2885,16 @@ Ein privater abweichender StateRoot im bisherigen CMS-Menü erhält keine Freiga
 ## Bewusster lokaler Operator-Handoff
 
 Der [kanonische Handoff](../HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.
+
+### Reine eigene llama.cpp-Startvorschau
+
+`Get-SqlServerLabLlamaCppStartPlan` liest ausschließlich eine explizite lokale
+CUDA-/OpenVINO-Installation und vier GGUF-Headerbytes mit begrenzten
+Dateimetadaten. Die Ausgabe bleibt `PLAN_ONLY/BLOCKED`, ohne Actions oder
+Ausführungsrecht. Geräte, Port, Embeddingkompatibilität, TLS, Keymatching und SQL
+sind `NOT_CHECKED`. Keine Secrets, Zertifikatsparameter, Pfade oder freie
+Callertexte in der Ausgabe, keine Persistenz, keine Runtime- oder Netzprobe.
+Zwei Metadatenbeobachtungen sind kein Byteintegritäts- oder CAS-Nachweis.
+Der bestehende Start braucht weiterhin seine vollständigen Originalparameter
+und frische Validierung; ein geführter Startdialog ist noch offen. Vertrag:
+[Eigener llama.cpp-Start](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).

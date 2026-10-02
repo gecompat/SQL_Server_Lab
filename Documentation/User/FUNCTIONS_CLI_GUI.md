@@ -415,3 +415,16 @@ den Stop. Fremdprozesse, Start/Restart und Modellaktionen bleiben offen.
 Die GUI muss im selben PowerShell-Modulhost wie der bestehende Start geöffnet
 werden; sie lädt den exakten vorhandenen Modulpfad ohne Force-Reload weiter.
 Details und Workflow-Aktionen: [Sitzungsstop](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+### Reine eigene llama.cpp-Startvorschau
+
+`Get-SqlServerLabLlamaCppStartPlan` liest ausschließlich eine explizite lokale
+CUDA-/OpenVINO-Installation und vier GGUF-Headerbytes mit begrenzten
+Dateimetadaten. Die Ausgabe bleibt `PLAN_ONLY/BLOCKED`, ohne Actions oder
+Ausführungsrecht. Geräte, Port, Embeddingkompatibilität, TLS, Keymatching und SQL
+sind `NOT_CHECKED`. Keine Secrets, Zertifikatsparameter, Pfade oder freie
+Callertexte in der Ausgabe, keine Persistenz, keine Runtime- oder Netzprobe.
+Zwei Metadatenbeobachtungen sind kein Byteintegritäts- oder CAS-Nachweis.
+Der bestehende Start braucht weiterhin seine vollständigen Originalparameter
+und frische Validierung; ein geführter Startdialog ist noch offen. Vertrag:
+[Eigener llama.cpp-Start](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
