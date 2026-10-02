@@ -33,7 +33,10 @@ try {
     function Get-SqlServerLabReconcilePlan {param($RunId,$StateRoot,[AllowEmptyCollection()][object[]]$ProposedRelations);$script:planCalls++;$script:lastPlan=& $script:realPlan @PSBoundParameters;$script:lastPlan}
     $script:VersionCatalog=Get-Content (Join-Path $repo Catalogs/sql-server-versions.json) -Raw|ConvertFrom-Json
     $script:RegisteredProviders=@{}
-    foreach($provider in @('docker','podman')){$script:RegisteredProviders[$provider]=@{Definition=Get-Content (Join-Path $repo ('Providers/'+$provider+'/provider.json')) -Raw|ConvertFrom-Json}}
+    foreach($provider in @('docker','podman')){
+        $providerDirectory=switch -CaseSensitive ($provider){'docker'{'Docker'};'podman'{'Podman'};default{throw 'FIXTURE_PROVIDER_UNKNOWN'}}
+        $script:RegisteredProviders[$provider]=@{Definition=Get-Content (Join-Path $repo ('Providers/'+$providerDirectory+'/provider.json')) -Raw|ConvertFrom-Json}
+    }
     function Get-LabStateRoot {throw 'FORBIDDEN_DEFAULT_ROOT'}
     function Get-LabStorageConfiguration {throw 'FORBIDDEN_TOPOLOGY_READ'}
     function Get-ContainerRuntime {throw 'FORBIDDEN_PROVIDER_CALL'}
