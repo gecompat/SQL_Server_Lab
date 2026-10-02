@@ -128,6 +128,7 @@
       <h2>Verbindungen und CMS</h2>
       <p>Endpunkte aus derselben registrierten Lab-Ansicht; Anzeige ist kein Verbindungstest. CMS-Einrichtung und Synchronisation sind in der Konsole geführt verfügbar. Ein vollständiger CMS-Fachdialog im Browser bleibt offen.</p>
       <button id="cms-inspection-open" class="button secondary">Registrierten CMS lesend prüfen</button>
+      <button id="component-relations-open" class="button secondary">SQL-Komponenten: geführte Vorschau</button>
       <div id="connection-endpoints" class="list"></div>
     </section>
     <section class="panel" data-workspace-area="configuration" hidden>
@@ -708,6 +709,27 @@
       <div class="dialog-actions"><button id="initial-setup-close-bottom" type="button" class="button secondary" value="cancel">Schließen</button><button id="initial-setup-read" type="button" class="button secondary">Roots erneut lesen</button><button id="initial-setup-provider-refresh" type="button" class="button secondary">Gewählten Provider prüfen</button></div>
     </div>
   </dialog>
+  <dialog id="component-relations-dialog">
+    <div class="read-only-dialog-content">
+      <h2>SQL-Komponenten: geführte Vorschau</h2>
+      <p>Nur vorhandene registrierte SQL-Instanzen. PLAN_ONLY: nichts speichern oder ausführen. SQL-Bereitschaft: NOT_CHECKED. Shared Removal: PRESERVE.</p>
+      <label>Vorhandenes Lab_Data-Verzeichnis <input id="component-relations-root" type="text" maxlength="2048" autocomplete="off"></label>
+      <button id="component-relations-read" type="button" class="button secondary">Registrierte Runs lesen</button>
+      <label>Eigener Run <select id="component-relations-run"></select></label>
+      <label>Verbrauchende SQL-Instanz <select id="component-relations-source"></select></label>
+      <label>Benötigte SQL-Instanz <select id="component-relations-target"></select></label>
+      <button id="component-relations-add" type="button" class="button secondary">Voraussetzung hinzufügen</button>
+      <p id="component-relations-draft">Keine Beziehungen vorgeschlagen.</p>
+      <p id="component-relations-status" role="status">Noch keine Metadaten gelesen.</p>
+      <pre id="component-relations-result"></pre>
+      <div class="dialog-actions">
+        <button id="component-relations-clear" type="button" class="button secondary">Eingabe verwerfen</button>
+        <button id="component-relations-preview" type="button" class="button">Vorschau lesen</button>
+        <button id="component-relations-close" type="button" class="button secondary">Zurück / Abbrechen</button>
+      </div>
+    </div>
+  </dialog>
   <script src="app.js"></script>
+  <script src="component-relations.js"></script>
 </body>
 </html>

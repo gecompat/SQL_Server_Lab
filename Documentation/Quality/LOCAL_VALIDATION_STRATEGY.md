@@ -14,6 +14,16 @@ separate Verpflichtungen.
 
 ## Reine Komponenten-/Shared-Verbrauchervorschau
 
+Der zugehörige Browser-Slice wird durch `ComponentRelationPlanHttpChecks.ps1`
+mit dem tatsächlichen HTTP-Reader, DiagnosticReader und öffentlichen Core auf
+registrierten synthetischen Metadaten geprüft. Body-/Origin-/Shapegrenzen,
+Auswahl-/State-/Scope-Drift und blockierte Recovery sind getrennte Fälle.
+`ComponentRelationPlanUiChecks.cjs` führt das echte Dialogskript mit DOM-/Fetch-
+Leaves aus: bewusste Auswahl, ein Shared-Verbraucherziel, Abbruch, Busy,
+verworfene späte Antworten und feste Fehlerdarstellung. Die bestehende
+Komponenten-Suite führt beide Fixtures aus. Diese Offlinekomposition enthält
+keine SQL-/Providerabnahme; die tatsächliche Providerselektion bleibt verbindlich.
+
 `Invoke-ComponentRelationPlanChecks.ps1` führt den tatsächlichen öffentlichen
 Plan-/Action-Parametersatz und den privaten Core mit modernen synthetischen
 Run-/Desired-State-Produzenten und registrierten Root-/Scope-Records aus.

@@ -378,8 +378,16 @@ ausgewählten Inhaltsbindungen und Run-States nochmals geprüft; anschließend
 revalidiert der unveränderte Core seine eigenen Bindungen. Zurück oder Abbruch
 verwirft die Eingabe ohne Planaufruf, Speicherung oder Mutation. Die Anzeige
 benennt `PLAN_ONLY`, `NOT_CHECKED` und `PRESERVE`; es gibt keine Apply-Aktion.
-Der generische CLI-Editor bleibt verfügbar. Ein geführter Browserdialog,
-Persistenz, Verbraucher-Leases und Runtime-DAG bleiben offen.
+Der generische CLI-Editor bleibt verfügbar. Der Browserdialog **SQL-Komponenten:
+geführte Vorschau** verwendet einen eigenen begrenzten HTTP-Pfad für dieselben
+registrierten Metadaten und den öffentlichen Plan. Root, Run und SQL-Instanzen
+werden bewusst ausgewählt; Relations und Auswahlbindungen bleiben im RAM.
+Der Server prüft ausgewählte Scope-, Inhalts- und Statebindungen frisch vor
+dem unveränderten Core. Der Dialog öffnet keine SQL-Verbindung und erstellt
+keinen Job, Batch, Lease oder Apply. Abbruch verwirft Eingaben; späte Antworten
+dürfen eine verworfene Auswahl nicht wiederherstellen. Ungültige Requests und
+Fehler werden mit festen Codes ohne Root-, Endpunkt-, Secret- oder Nativewerte
+beantwortet. Persistenz, Verbraucher-Leases und Runtime-DAG bleiben offen.
 
 ## 8. Composite SQL-Topologien
 
