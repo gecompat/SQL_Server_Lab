@@ -578,6 +578,71 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         Assert-OwnThrows { Assert-LabOwnedHostContainerCreateInputs -StateRoot $root -Provider docker -Arguments @('create','--volume',($fixtureRoot+':/shared:rw'),('sha256:'+('c'*64))) } 'OWNED_HOST_BIND_WRITE_OUTSIDE_ROOT' 'Container creation denies shared host write mount before dispatch'
         Assert-OwnThrows { Assert-LabOwnedHostContainerCreateInputs -StateRoot $root -Provider docker -Arguments @('create','--privileged',('sha256:'+('c'*64))) } 'OWNED_HOST_CREATE_OPTION_UNSUPPORTED' 'Privileged container cannot inherit own CID authority'
         Assert-OwnThrows { Assert-LabOwnedHostContainerCreateInputs -StateRoot $root -Provider docker -Arguments @('create','shared:latest') } 'OWNED_HOST_IMMUTABLE_CONTAINER_IMAGE_REQUIRED' 'Mutable image cannot cause an implicit pull at container arrange'
+        $backupFixture=New-Module -ArgumentList $repoRoot,$root,$allocated.RunId,$fixtureRoot -ScriptBlock {
+            param($Repository,$Root,$RunId,$OutsideRoot)
+            foreach($source in @('Common','StateMachine','ContainerOwnedHostIntegration','BackupLibrary')) { . (Join-Path $Repository ('Private/'+$source+'.ps1')) }
+            $script:effects=0;$script:exportPath=$null;$script:failExport=$false;$script:failCleanup=$false;$script:compoundFailure=$false
+            $actualPolicyReader=(Get-Command Get-LabOwnedHostPolicy).ScriptBlock
+            function Get-LabOwnedHostPolicy {
+                param($StateRoot,[switch]$Required)
+                if($Required -and $script:failCleanup){throw 'SYNTHETIC_BACKUP_CLEANUP_FAILED'}
+                & $actualPolicyReader -StateRoot $StateRoot -Required:$Required
+            }
+            function Get-LabDatabaseBackupMetadata { $script:effects++; [pscustomobject]@{IsEncrypted=$false} }
+            function Get-LabDatabaseMigrationDependencySqlObservation { [pscustomobject]@{} }
+            function New-LabDatabaseMigrationDependencyInventory { [pscustomobject]@{} }
+            function Initialize-LabSampleBaselineBackupTarget { [pscustomobject]@{Provider='docker'} }
+            function Invoke-SqlQuery { $script:effects++ }
+            function Export-LabSampleBaselineBackup {
+                param($DestinationPath)
+                $script:effects++;$script:exportPath=$DestinationPath
+                [IO.File]::WriteAllText($DestinationPath,'synthetic backup')
+                if($script:failExport){$script:failCleanup=$script:compoundFailure;throw 'SYNTHETIC_BACKUP_EXPORT_FAILED'}
+                [pscustomobject]@{Provider='docker'}
+            }
+            function Register-LabDatabaseBackupArtifact {
+                param($BackupPath)
+                $script:effects++
+                [pscustomobject]@{Path=$BackupPath;Record=[pscustomobject]@{BackupSetId=[guid]::NewGuid().ToString('D');Artifact=[pscustomobject]@{Sha256=('a'*64);Bytes=16};DatabaseMetadata=[pscustomobject]@{HasFileStream=$false;MigrationBoundary='synthetic'}}}
+            }
+            $secret=ConvertTo-SecureString 'Synthetic_Backup!Aa8' -AsPlainText -Force
+            $arguments=@{Port=14333;SaPassword=$secret;Provider='docker';RunId=$RunId;DatabaseName='SyntheticBackup';DataRoot=(Join-Path $Root 'Lab_Data');StateRoot=$Root}
+            $result=New-LabDatabaseLibraryBackup @arguments
+            $workingDirectory=Split-Path -Parent $script:exportPath
+            $relative=[IO.Path]::GetRelativePath($Root,$workingDirectory)
+            $script:checks=@($result.Status -ceq 'BACKUP_REUSABLE' -and -not [IO.Path]::IsPathRooted($relative) -and -not $relative.StartsWith('..') -and -not (Test-Path $workingDirectory))
+            $before=$script:effects;$arguments.DataRoot=$OutsideRoot
+            $denied=$false
+            try{$null=New-LabDatabaseLibraryBackup @arguments}catch{$denied=$_.Exception.Message -ceq 'OWNED_HOST_BACKUP_DATA_ROOT_OUTSIDE_ROOT'}
+            $script:checks+=@($denied -and $script:effects -eq $before)
+            $arguments.DataRoot=Join-Path $Root 'Lab_Data';$arguments.RunId=''
+            $denied=$false
+            try{$null=New-LabDatabaseLibraryBackup @arguments}catch{$denied=$_.Exception.Message -ceq 'OWNED_HOST_BACKUP_RUN_REQUIRED'}
+            $script:checks+=@($denied -and $script:effects -eq $before)
+            $arguments.RunId=$RunId;$script:failExport=$true
+            $failed=$false
+            try{$null=New-LabDatabaseLibraryBackup @arguments}catch{$failed=$_.Exception.Message -ceq 'SYNTHETIC_BACKUP_EXPORT_FAILED'}
+            $script:checks+=@($failed -and -not(Test-Path (Split-Path -Parent $script:exportPath)))
+            $script:compoundFailure=$true
+            $compound=$null
+            try{$null=New-LabDatabaseLibraryBackup @arguments}catch{$compound=$_}
+            $script:checks+=@($compound.Exception.Message -ceq 'SYNTHETIC_BACKUP_EXPORT_FAILED' -and
+                $compound.Exception.Data['SqlServerLab.BackupCleanupStatus'] -ceq 'RECOVERY_REQUIRED' -and
+                $compound.Exception.Data['SqlServerLab.BackupCleanupReason'] -ceq 'SYNTHETIC_BACKUP_CLEANUP_FAILED' -and
+                (Test-Path -LiteralPath $script:exportPath))
+            $script:failCleanup=$false
+            $preservedDirectory=Split-Path -Parent $script:exportPath
+            $null=Assert-LabOwnedHostPath $preservedDirectory
+            if([IO.Path]::GetRelativePath($Root,$preservedDirectory).StartsWith('..')){throw 'SYNTHETIC_BACKUP_CLEANUP_SCOPE'}
+            if(Test-Path -LiteralPath $preservedDirectory){Remove-Item -LiteralPath $preservedDirectory -Recurse -Force}
+            Export-ModuleMember -Function @()
+        }
+        $backupEvidence=& $backupFixture { $script:checks }
+        Assert-Own $backupEvidence[0] 'Actual backup core exports below own root and removes its temporary directory'
+        Assert-Own $backupEvidence[1] 'Actual backup core denies shared DataRoot before SQL or export effects'
+        Assert-Own $backupEvidence[2] 'Actual backup core requires bound own RunId before SQL or export effects'
+        Assert-Own $backupEvidence[3] 'Actual backup core cleans temporary files after export failure without replacing the cause'
+        Assert-Own $backupEvidence[4] 'Compound export and cleanup failures preserve original cause plus separate recovery metadata and retain files'
         $script:foreignVolume=$false
         $script:syntheticTask=$null;$script:taskRegisters=0;$script:taskDeletes=0
         function Get-ScheduledTask {param($TaskPath,$TaskName,$ErrorAction) if($script:syntheticTask){$script:syntheticTask}}

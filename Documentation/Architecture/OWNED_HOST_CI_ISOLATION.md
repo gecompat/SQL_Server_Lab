@@ -54,6 +54,15 @@ Entfernung prüft zusätzlich die bestehenden Store-/Attachmentverträge.
 Vorhandene Netzwerke werden nur gelesen. Hostschreibpfade bleiben im eigenen
 Root; gemeinsame Netzwerk-, CNI- und Cacheänderungen werden gesperrt.
 
+Bibliotheksbackups binden zusätzlich den eigenen Run und den `DataRoot` im
+Policyroot vor SQL- oder Dateieffekten. Ihre temporäre Exportdatei liegt in
+einem frischen Verzeichnis unter diesem Root statt im globalen Tempverzeichnis.
+Auch das temporäre Cleanup prüft die Root- und Pfadbindung. Ohne eigenes Profil
+bleibt der bisherige temporäre Backupvertrag wirksam.
+Ein gleichzeitiger primärer Fehler und Cleanupveto behält die ursprüngliche
+Exception; deren lokale `SqlServerLab.BackupCleanupStatus`-/
+`SqlServerLab.BackupCleanupReason`-Metadaten zeigen den getrennten Recoverybedarf.
+
 SqlPackage-ToolImages behalten ihre logischen Katalogschlüssel. Validierte
 vorhandene Images dürfen über ihre unveränderliche Image-ID gelesen werden.
 Ein notwendiger Build verwendet einen intern generierten Policy-/ImageKey-Tag,
