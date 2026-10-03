@@ -16,7 +16,7 @@ $ErrorActionPreference='Stop'
 if ($StateRoot) { Assert-OwnedHostTestRoot -StateRoot $StateRoot }
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
 $root=if ($StateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $StateRoot -Name 'sql-lab-transfer-acceptance' } else { Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-transfer-acceptance-'+[guid]::NewGuid().ToString('N')) }
-$state=if ($StateRoot) { $StateRoot } else { Join-Path $root 'state' };$data=Join-Path $root 'Lab_Data'
+$state=if ($StateRoot) { $StateRoot } else { Join-Path $root 'state' };$data=if (-not $StateRoot) { Join-Path $root 'Lab_Data' } else { $null }
 $oldState=$env:SQL_SERVER_LAB_STATE;$oldData=$env:SQL_SERVER_LAB_DATA_ROOT
 $source=$null;$targetId=$null;$module=$null;$mutex=$null;$acquired=$false;$cleanupFailed=$false;$complete=$false
 $ownedBindings=[Collections.Generic.List[object]]::new()
@@ -39,6 +39,7 @@ try {
     } else { & ([string]$resolution.Invocation) info 1>$null 2>$null }
     Assert-TransferAcceptance ($LASTEXITCODE -eq 0) 'Provider erreichbar'
     if (-not $StateRoot) { $null=New-Item -ItemType Directory -Path $root }
+    if($StateRoot){$data=New-OwnedHostTestDataRoot -StateRoot $StateRoot -Purpose transfer}
     $env:SQL_SERVER_LAB_STATE=$state;$env:SQL_SERVER_LAB_DATA_ROOT=$data
     $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
     & $module {param($Data)$null=Initialize-LabManagedDataRoot -DataRoot $Data -ControllerId ([guid]::NewGuid().ToString('D')) -Confirm:$false} $data
@@ -124,6 +125,10 @@ try {
             try{& $module {param($Binding,$State)Assert-LabTransferNoResidue -Binding $Binding -StateRoot $State} $binding $state}
             catch{$cleanupFailed=$true;Write-Warning 'Run-/Volume-Restprüfung fehlgeschlagen; State bleibt erhalten.'}
         }
+    }
+    if($StateRoot -and $data -and -not $cleanupFailed){
+        try {Remove-OwnedHostTestDataRoot -StateRoot $StateRoot -DataRoot $data}
+        catch {$cleanupFailed=$true;Write-Warning 'Eigener Test-Datenpfad benötigt Recovery; State bleibt erhalten.'}
     }
     $env:SQL_SERVER_LAB_STATE=$oldState;$env:SQL_SERVER_LAB_DATA_ROOT=$oldData
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue

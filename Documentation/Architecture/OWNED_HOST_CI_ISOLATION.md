@@ -59,6 +59,15 @@ Policyroot vor SQL- oder Dateieffekten. Ihre temporäre Exportdatei liegt in
 einem frischen Verzeichnis unter diesem Root statt im globalen Tempverzeichnis.
 Auch das temporäre Cleanup prüft die Root- und Pfadbindung. Ohne eigenes Profil
 bleibt der bisherige temporäre Backupvertrag wirksam.
+Die CI-Rootnamen behalten die vollständige GUID bei kurzem Präfix. Transfer-
+Acceptance und Medien-Preflight allokieren ihre Daten direkt unter diesem Root
+in frischen kurzen Verzeichnissen, damit die Evidence-Verzeichnisstruktur den
+nativen Backup-Bind-Mount nicht unnötig verlängert. Das Daten-Cleanup verlangt
+die unveränderte Policy und den prozesslokalen Allocationrecord mit Dateimarker;
+vorhandene Verzeichnisse werden nicht adoptiert, Reparsepfade bleiben gesperrt.
+Der Preflight entfernt seinen eigenen persistenten Ziel-Store nach Run-Cleanup
+über den öffentlichen Retained-Store-Plan und dessen gebundenen Apply-Vertrag.
+Bei fehlgeschlagener Bereinigung bleiben Daten und Custody für Recovery erhalten.
 Ein gleichzeitiger primärer Fehler und Cleanupveto behält die ursprüngliche
 Exception; deren lokale `SqlServerLab.BackupCleanupStatus`-/
 `SqlServerLab.BackupCleanupReason`-Metadaten zeigen den getrennten Recoverybedarf.

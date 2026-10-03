@@ -388,6 +388,34 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         )
         $root = Join-Path $fixtureRoot 'owned'
         $policy = Initialize-LabOwnedHostPolicy -StateRoot $root -RuntimePins $pins -ParentOperationId 'synthetic-parent'
+        $dataCoordinator=New-Module -ArgumentList $repoRoot -ScriptBlock {
+            param($Repository)
+            . (Join-Path $Repository 'Tests/Common/OwnedHostTestScope.ps1')
+            Export-ModuleMember -Function @()
+        }
+        $dataPath=& $dataCoordinator {param($Root)New-OwnedHostTestDataRoot -StateRoot $Root -Purpose preflight} $root
+        Assert-Own ($dataPath -ceq (Join-Path $root 'dpf')) 'Transfer test data is directly beneath the owned root'
+        Assert-OwnThrows {& $dataCoordinator {param($Root)New-OwnedHostTestDataRoot -StateRoot $Root -Purpose preflight} $root} 'OWNED_HOST_TEST_DATA_ALREADY_EXISTS' 'Existing data directory is never adopted'
+        $foreignData=Join-Path $root 'foreign-data';$null=New-Item -Path $foreignData -ItemType Directory
+        Assert-OwnThrows {& $dataCoordinator {param($Root,$Data)Remove-OwnedHostTestDataRoot -StateRoot $Root -DataRoot $Data} $root $foreignData} 'OWNED_HOST_TEST_DATA_UNCLAIMED' 'Cleanup rejects unallocated directories'
+        Assert-Own (Test-Path -LiteralPath $foreignData) 'Rejected cleanup preserves the foreign directory'
+        $claimPath=Join-Path $dataPath 'test-data-claim.private';$claimText=[IO.File]::ReadAllText($claimPath)
+        [IO.File]::WriteAllText($claimPath,'changed synthetic claim')
+        Assert-OwnThrows {& $dataCoordinator {param($Root,$Data)Remove-OwnedHostTestDataRoot -StateRoot $Root -DataRoot $Data} $root $dataPath} 'OWNED_HOST_TEST_DATA_CLAIM_DRIFT' 'Changed allocation marker denies cleanup'
+        [IO.File]::WriteAllText($claimPath,$claimText)
+        $policyFile=Join-Path $root 'owned-host-policy.json';$policyText=[IO.File]::ReadAllText($policyFile)
+        [IO.File]::WriteAllText($policyFile,$policyText.Replace('synthetic-parent','changed-parent'))
+        Assert-OwnThrows {& $dataCoordinator {param($Root,$Data)Remove-OwnedHostTestDataRoot -StateRoot $Root -DataRoot $Data} $root $dataPath} 'OWNED_HOST_TEST_DATA_CLAIM_DRIFT' 'Changed valid policy denies data cleanup'
+        [IO.File]::WriteAllText($policyFile,$policyText)
+        $link=Join-Path $dataPath 'synthetic-link';$null=New-Item -Path $link -ItemType Junction -Target $foreignData
+        Assert-OwnThrows {& $dataCoordinator {param($Root,$Data)Remove-OwnedHostTestDataRoot -StateRoot $Root -DataRoot $Data} $root $dataPath} 'OWNED_HOST_REPARSE_PATH' 'Descendant junction denies recursive data cleanup'
+        [IO.Directory]::Delete($link)
+        & $dataCoordinator {param($Root,$Data)Remove-OwnedHostTestDataRoot -StateRoot $Root -DataRoot $Data} $root $dataPath
+        Assert-Own (-not(Test-Path -LiteralPath $dataPath) -and (Test-Path -LiteralPath $foreignData)) 'Exact allocated data cleanup preserves other root contents'
+        Assert-OwnThrows {& $dataCoordinator {param($Root,$Data)Remove-OwnedHostTestDataRoot -StateRoot $Root -DataRoot $Data} $root $dataPath} 'OWNED_HOST_TEST_DATA_UNCLAIMED' 'Consumed allocation cannot authorize another deletion'
+        $transferData=& $dataCoordinator {param($Root)New-OwnedHostTestDataRoot -StateRoot $Root -Purpose transfer} $root
+        Assert-Own ($transferData -ceq (Join-Path $root 'dtr')) 'Transfer and preflight use separate short data allocations'
+        & $dataCoordinator {param($Root,$Data)Remove-OwnedHostTestDataRoot -StateRoot $Root -DataRoot $Data} $root $transferData
         $imageFixture=New-Module -ArgumentList $repoRoot,$fixtureRoot,$pins -ScriptBlock {
             param($Repository,$Fixture,$Pins)
             . (Join-Path $Repository 'Private/Common.ps1')

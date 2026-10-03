@@ -102,3 +102,53 @@ function Get-OwnedHostTestArtifactRoot {
     $null=New-Item -Path $directory -ItemType Directory -ErrorAction Stop
     return $directory
 }
+
+# Short data paths avoid adding the evidence directory and its GUID to native
+# backup bind mounts. Only a fresh allocation in this process may be removed.
+function New-OwnedHostTestDataRoot {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$StateRoot,
+        [Parameter(Mandatory)][ValidateSet('preflight','transfer')][string]$Purpose)
+    $transport=Get-OwnedHostTestTransport
+    & $transport {
+        param($Root,$Purpose)
+        $policy=Get-LabOwnedHostPolicy -StateRoot $Root -Required
+        $leaf=if($Purpose -ceq 'preflight'){'dpf'}else{'dtr'}
+        $path=Assert-LabOwnedHostPath (Join-Path $policy.StateRoot $leaf)
+        if(Test-Path -LiteralPath $path){throw 'OWNED_HOST_TEST_DATA_ALREADY_EXISTS'}
+        $null=New-Item -Path $path -ItemType Directory -ErrorAction Stop
+        $marker=Join-Path $path 'test-data-claim.private'
+        [IO.File]::WriteAllText($marker,[guid]::NewGuid().ToString('D'))
+        if(-not $script:OwnedHostTestDataClaims){$script:OwnedHostTestDataClaims=@{}}
+        $script:OwnedHostTestDataClaims[$path]=[pscustomobject]@{
+            PolicyId=$policy.PolicyId;RootScopeId=$policy.RootScopeId
+            PolicyHash=(Get-FileHash -LiteralPath (Join-Path $policy.StateRoot 'owned-host-policy.json')).Hash
+            MarkerHash=(Get-FileHash -LiteralPath $marker).Hash
+        }
+        return $path
+    } $StateRoot $Purpose
+}
+
+function Remove-OwnedHostTestDataRoot {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$StateRoot,[Parameter(Mandatory)][string]$DataRoot)
+    $transport=Get-OwnedHostTestTransport
+    & $transport {
+        param($Root,$Data)
+        $policy=Get-LabOwnedHostPolicy -StateRoot $Root -Required
+        $path=Assert-LabOwnedHostPath $Data
+        $allowed=@('dpf','dtr'|ForEach-Object{Join-Path $policy.StateRoot $_})
+        if($path -cnotin $allowed -or -not $script:OwnedHostTestDataClaims -or
+            -not $script:OwnedHostTestDataClaims.ContainsKey($path)){throw 'OWNED_HOST_TEST_DATA_UNCLAIMED'}
+        $claim=$script:OwnedHostTestDataClaims[$path]
+        $marker=Assert-LabOwnedHostPath (Join-Path $path 'test-data-claim.private')
+        if($claim.PolicyId -cne $policy.PolicyId -or $claim.RootScopeId -cne $policy.RootScopeId -or
+            $claim.PolicyHash -cne (Get-FileHash -LiteralPath (Join-Path $policy.StateRoot 'owned-host-policy.json')).Hash -or
+            $claim.MarkerHash -cne (Get-FileHash -LiteralPath $marker -ErrorAction Stop).Hash){throw 'OWNED_HOST_TEST_DATA_CLAIM_DRIFT'}
+        if(@(Get-ChildItem -LiteralPath $path -Recurse -Force -ErrorAction Stop|
+            Where-Object{$_.Attributes -band [IO.FileAttributes]::ReparsePoint}).Count){throw 'OWNED_HOST_REPARSE_PATH'}
+        Remove-Item -LiteralPath $path -Recurse -Force -ErrorAction Stop
+        if(Test-Path -LiteralPath $path){throw 'OWNED_HOST_TEST_DATA_CLEANUP_INCOMPLETE'}
+        $script:OwnedHostTestDataClaims.Remove($path)
+    } $StateRoot $DataRoot
+}

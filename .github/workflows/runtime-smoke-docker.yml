@@ -67,7 +67,7 @@ jobs:
             $tools=@(& .\Tools\Initialize-SqlServerLabHostTools.ps1 -Name docker)
             if (@($tools | Where-Object { -not $_.Available }).Count) { throw 'OWNED_HOST_TEST_TOOL_UNAVAILABLE' }
             $module=Import-Module .\SqlServerLab.psd1 -Force -PassThru
-            $stateRoot=Join-Path $env:RUNNER_TEMP ('sql-server-lab-owned-ci-'+[guid]::NewGuid().ToString('N'))
+            $stateRoot=Join-Path $env:RUNNER_TEMP ('ci-'+[guid]::NewGuid().ToString('N'))
             $null=Initialize-OwnedHostTestRoot -Module $module -StateRoot $stateRoot -Providers docker -ParentOperationId ([guid]::NewGuid().ToString('D'))
             "SQL_SERVER_LAB_CI_OWN_STATE_ROOT=$stateRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             sqlcmd -? *>> $logPath

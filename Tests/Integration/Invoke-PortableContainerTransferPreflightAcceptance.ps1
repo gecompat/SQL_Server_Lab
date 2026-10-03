@@ -27,7 +27,7 @@ $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath=Join-Path $repoRoot 'SqlServerLab.psd1'
 $testRoot=if ($requestedStateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $requestedStateRoot -Name 'sql-lab-transfer-preflight' } else { Join-Path ([IO.Path]::GetTempPath()) "sql-lab-transfer-preflight-$Provider-$([Guid]::NewGuid().ToString('N'))" }
-$stateRoot=if ($requestedStateRoot) { $requestedStateRoot } else { Join-Path $testRoot 'state' };$dataRoot=Join-Path $testRoot 'Lab_Data'
+$stateRoot=if ($requestedStateRoot) { $requestedStateRoot } else { Join-Path $testRoot 'state' };$dataRoot=if (-not $requestedStateRoot) { Join-Path $testRoot 'Lab_Data' } else { $null }
 $previousStateRoot=$env:SQL_SERVER_LAB_STATE;$previousDataRoot=$env:SQL_SERVER_LAB_DATA_ROOT
 $sourceLab=$null;$targetLab=$null;$module=$null;$completed=$false;$cleanupFailed=$false;$mutex=$null;$mutexAcquired=$false
 
@@ -50,6 +50,7 @@ try {
     Assert-TransferPreflightAcceptance ($LASTEXITCODE -eq 0) "Runtime '$Provider' ist erreichbar"
 
     New-Item -ItemType Directory -Path $testRoot -Force|Out-Null
+    if($requestedStateRoot){$dataRoot=New-OwnedHostTestDataRoot -StateRoot $requestedStateRoot -Purpose preflight}
     $env:SQL_SERVER_LAB_STATE=$stateRoot;$env:SQL_SERVER_LAB_DATA_ROOT=$dataRoot
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module=Import-Module $modulePath -Force -PassThru
@@ -97,6 +98,28 @@ try {
 finally {
     foreach($lab in @($targetLab,$sourceLab)|Where-Object {$_}){
         try {$cleanup=Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false;if($cleanup.Status -ne 'REMOVED'){throw 'PORTABLE_CONTAINER_TRANSFER_PREFLIGHT_ACCEPTANCE_RUN_CLEANUP_FAILED'}}catch{$cleanupFailed=$true;Write-Warning 'Run-Cleanup fehlgeschlagen; der eigene Test-State bleibt für Recovery erhalten.'}
+    }
+    # Run removal deliberately retains persistent data. Remove only this test's
+    # cataloged target store with the fresh public plan before deleting its data.
+    if($requestedStateRoot -and $targetLab -and -not $cleanupFailed){
+        try {
+            $storeId=& $module {
+                param($RunId,$State)
+                $run=Get-LabRunState -RunId $RunId -StateRoot $State
+                $drives=@($run.metadata.desiredState.Instances|ForEach-Object{$_.Intents.Drives}|
+                    Where-Object{$_.Id -ceq 'persistent-mssql' -and $_.Persistence -ceq 'data-root-runtime-volume'})
+                if($drives.Count -ne 1 -or -not $drives[0].PersistentStorageId){throw 'PREFLIGHT_ACCEPTANCE_STORE_BINDING_INVALID'}
+                [guid]$drives[0].PersistentStorageId
+            } $targetLab.RunId $stateRoot
+            $plan=Get-SqlServerLabRetainedStoreRemovalPlan -PersistentStorageId $storeId -DataRoot $dataRoot -StateRoot $stateRoot
+            if($plan.Status -cne 'READY'){throw 'PREFLIGHT_ACCEPTANCE_STORE_PLAN_FAILED'}
+            $removed=Invoke-SqlServerLabRetainedStoreRemoval -PersistentStorageId $storeId -DataRoot $dataRoot -StateRoot $stateRoot -ExpectedCatalogRevision $plan.CatalogRevision -ExpectedPlanKey $plan.PlanKey -Confirm:$false
+            if($removed.Status -cne 'REMOVED'){throw 'PREFLIGHT_ACCEPTANCE_STORE_CLEANUP_FAILED'}
+        } catch {$cleanupFailed=$true;Write-Warning 'Eigener persistenter Test-Store benötigt Recovery; Daten und Custody bleiben erhalten.'}
+    }
+    if($requestedStateRoot -and $dataRoot -and -not $cleanupFailed -and -not ($KeepOnFailure -and -not $completed)){
+        try {Remove-OwnedHostTestDataRoot -StateRoot $requestedStateRoot -DataRoot $dataRoot}
+        catch {$cleanupFailed=$true;Write-Warning 'Eigener Test-Datenpfad benötigt Recovery; State bleibt erhalten.'}
     }
     $env:SQL_SERVER_LAB_STATE=$previousStateRoot;$env:SQL_SERVER_LAB_DATA_ROOT=$previousDataRoot
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
