@@ -2677,3 +2677,17 @@ RAM-Eingaben, Cancel vor/nach Versand, Busy und verspätete Erfolge/Fehler, noRe
 Schlüsselclearing und feste textContent-Anzeigen. Keine echte Browser-/Tastatur-
 oder Nativeabnahme; tatsächliche Diffselektion und fehlende Providerpflichten
 bleiben separat. Bestehende Public-/Core-/CLI-/Preview-/Stopbytes bleiben erhalten.
+
+Das optionale CORE-102-Identitätsmapping verwendet den bestehenden Indexvertrag
+1.1; Legacyrecords bleiben unbekannt und unverändert. Public
+`Get-SqlServerLabExternalRuntimeCapability -IncludeRecordedEvidence` liefert
+Version 1.1 ohne aktuelle Evidence-Aufwertung. Das Tool verlangt beide Schalter
+`-IncludeRecordedAcceptanceMatrix -IncludeRecordedIdentityMatrix` und liefert
+Version 1.2 ausschließlich als begrenzte historische Identitätsmatrix, ohne
+Quellinventar/Modulimport. Maximal 128 Records und 256 KiB UTF-8 für die komplette
+neue Antwort; Überlauf bleibt leer/UNAVAILABLE. Referenzen sind NOT_VERIFIED,
+aktuelle Ausführung NOT_EXECUTED und Readiness NOT_CHECKED. Alte Public-/Browser-
+und Manifestdefaults bleiben unverändert. Reale neue Producerrecords, Native-/SQL-
+Abnahme und vollständige Kombinationenmatrix bleiben offen.
+
+Invoke-CapabilityEvidenceIdentityChecks.ps1 prüft den tatsächlichen Reader, Schema, Public/Resolver und die neue reine Toolmatrix: typisierte Identität, Capabilitybindung, Konflikthistorie, doppelte/falsch geschriebene JSON-Felder, Reparsegrenzen sowie vollständige UTF-8-Ausgabegrenze. Die synthetischen Dateien bleiben ignored lokal; keine neue Runtime-Abnahme.

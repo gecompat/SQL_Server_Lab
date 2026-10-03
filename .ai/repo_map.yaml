@@ -359,6 +359,8 @@ sources_of_truth:
   repository_recorded_acceptance_matrix: Tools/Get-SqlServerLabCapabilityInventory.ps1 # optional 1.1 view; indexed historical tuples only
   repository_capability_evidence_index: Documentation/Quality/capability-evidence-index.json
   repository_capability_evidence_schema: Schemas/capability-evidence-index.schema.json
+  repository_capability_evidence_identity: Private/CapabilityEvidence.ps1 # exact recorded identities; no current readiness
+  validation_capability_evidence_identity: Tests/Static/Invoke-CapabilityEvidenceIdentityChecks.ps1
   validation_repository_capability_inventory: Tests/Static/Invoke-CapabilityInventoryChecks.ps1
   client_readiness_core: Private/ClientReadiness.ps1
   external_runtime_capability_public: Public/Get-SqlServerLabExternalRuntimeCapability.ps1

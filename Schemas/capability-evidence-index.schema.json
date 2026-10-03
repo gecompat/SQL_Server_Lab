@@ -1,46 +1,832 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "SqlServerLab.CapabilityEvidenceIndex/1.0",
-  "type": "object",
-  "additionalProperties": false,
-  "required": ["ContractVersion", "EvidenceBoundary", "Records"],
-  "properties": {
-    "ContractVersion": { "const": "SqlServerLab.CapabilityEvidenceIndex/1.0" },
-    "EvidenceBoundary": { "const": "RECORDED_HISTORY_ONLY" },
-    "Records": {
-      "type": "array", "maxItems": 128, "uniqueItems": true,
-      "items": {
-        "type": "object", "additionalProperties": false,
-        "required": ["Capability", "Provider", "SqlVersion", "Platform", "Scope", "SourceRevision", "Test", "Result", "Cleanup", "Date", "Reference"],
-        "properties": {
-          "Capability": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,79}$" },
-          "Provider": { "enum": ["none", "docker", "podman", "hyperv", "mixed"] },
-          "SqlVersion": { "type": ["string", "null"], "pattern": "^(20[0-9]{2}|2008R2)$" },
-          "Platform": { "enum": ["windows", "linux"] },
-          "Scope": { "enum": ["STATIC_CONTRACT", "PACKAGE", "NATIVE_LIFECYCLE", "NATIVE_SQL"] },
-          "SourceRevision": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
-          "Test": { "type": "string", "pattern": "^Tests/(Static|Integration)/Invoke-[A-Za-z0-9-]+\\.ps1$" },
-          "Result": { "enum": ["PASS", "FAIL", "NOT_EXECUTED", "INFRASTRUCTURE_UNAVAILABLE", "RECOVERY_REQUIRED"] },
-          "Cleanup": { "enum": ["PASS", "NOT_REQUIRED", "NOT_EXECUTED", "NOT_RECORDED", "RECOVERY_REQUIRED"] },
-          "Date": { "type": "string", "format": "date", "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$" },
-          "Reference": { "type": "string", "pattern": "^https://github\\.com/gecompat/SQL_Server_Lab/(pull/[0-9]+|actions/runs/[0-9]+|commit/[a-f0-9]{40})$" }
+  "title": "SqlServerLab.CapabilityEvidenceIndex/1.0 and 1.1",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/LegacyIndex"
+    },
+    {
+      "$ref": "#/$defs/ExtendedIndex"
+    }
+  ],
+  "$defs": {
+    "LegacyIndex": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "SqlServerLab.CapabilityEvidenceIndex/1.0",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ContractVersion",
+        "EvidenceBoundary",
+        "Records"
+      ],
+      "properties": {
+        "ContractVersion": {
+          "const": "SqlServerLab.CapabilityEvidenceIndex/1.0"
         },
-        "allOf": [
-          {
-            "if": { "properties": { "Result": { "const": "PASS" } } },
-            "then": { "properties": { "Cleanup": { "enum": ["PASS", "NOT_REQUIRED"] } } }
-          },
-          {
-            "if": { "properties": { "Scope": { "enum": ["NATIVE_LIFECYCLE", "NATIVE_SQL"] } } },
-            "then": { "properties": { "Test": { "pattern": "^Tests/Integration/" }, "Provider": { "not": { "const": "none" } } } },
-            "else": { "properties": { "Test": { "pattern": "^Tests/Static/" } } }
-          },
-          {
-            "if": { "properties": { "Scope": { "const": "NATIVE_SQL" } } },
-            "then": { "properties": { "SqlVersion": { "type": "string" } } }
+        "EvidenceBoundary": {
+          "const": "RECORDED_HISTORY_ONLY"
+        },
+        "Records": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "Capability",
+              "Provider",
+              "SqlVersion",
+              "Platform",
+              "Scope",
+              "SourceRevision",
+              "Test",
+              "Result",
+              "Cleanup",
+              "Date",
+              "Reference"
+            ],
+            "properties": {
+              "Capability": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{1,79}$"
+              },
+              "Provider": {
+                "enum": [
+                  "none",
+                  "docker",
+                  "podman",
+                  "hyperv",
+                  "mixed"
+                ]
+              },
+              "SqlVersion": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^(20[0-9]{2}|2008R2)$"
+              },
+              "Platform": {
+                "enum": [
+                  "windows",
+                  "linux"
+                ]
+              },
+              "Scope": {
+                "enum": [
+                  "STATIC_CONTRACT",
+                  "PACKAGE",
+                  "NATIVE_LIFECYCLE",
+                  "NATIVE_SQL"
+                ]
+              },
+              "SourceRevision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}$"
+              },
+              "Test": {
+                "type": "string",
+                "pattern": "^Tests/(Static|Integration)/Invoke-[A-Za-z0-9-]+\\.ps1$"
+              },
+              "Result": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_EXECUTED",
+                  "INFRASTRUCTURE_UNAVAILABLE",
+                  "RECOVERY_REQUIRED"
+                ]
+              },
+              "Cleanup": {
+                "enum": [
+                  "PASS",
+                  "NOT_REQUIRED",
+                  "NOT_EXECUTED",
+                  "NOT_RECORDED",
+                  "RECOVERY_REQUIRED"
+                ]
+              },
+              "Date": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$"
+              },
+              "Reference": {
+                "type": "string",
+                "pattern": "^https://github\\.com/gecompat/SQL_Server_Lab/(pull/[0-9]+|actions/runs/[0-9]+|commit/[a-f0-9]{40})$"
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "Result": {
+                      "const": "PASS"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "Cleanup": {
+                      "enum": [
+                        "PASS",
+                        "NOT_REQUIRED"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "Scope": {
+                      "enum": [
+                        "NATIVE_LIFECYCLE",
+                        "NATIVE_SQL"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "Test": {
+                      "pattern": "^Tests/Integration/"
+                    },
+                    "Provider": {
+                      "not": {
+                        "const": "none"
+                      }
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "Test": {
+                      "pattern": "^Tests/Static/"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "Scope": {
+                      "const": "NATIVE_SQL"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "SqlVersion": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            ]
           }
-        ]
+        }
       }
+    },
+    "ExtendedIndex": {
+      "required": [
+        "ContractVersion",
+        "EvidenceBoundary",
+        "Records"
+      ],
+      "properties": {
+        "Records": {
+          "uniqueItems": true,
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "Capability",
+              "Provider",
+              "SqlVersion",
+              "Platform",
+              "Scope",
+              "SourceRevision",
+              "Test",
+              "Result",
+              "Cleanup",
+              "Date",
+              "Reference",
+              "Identity",
+              "ObservedHostProfile"
+            ],
+            "properties": {
+              "Capability": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9-]{1,79}$"
+              },
+              "Provider": {
+                "enum": [
+                  "none",
+                  "docker",
+                  "podman",
+                  "hyperv",
+                  "mixed"
+                ]
+              },
+              "SqlVersion": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "pattern": "^(20[0-9]{2}|2008R2)$"
+              },
+              "Platform": {
+                "enum": [
+                  "windows",
+                  "linux"
+                ]
+              },
+              "Scope": {
+                "enum": [
+                  "STATIC_CONTRACT",
+                  "PACKAGE",
+                  "NATIVE_LIFECYCLE",
+                  "NATIVE_SQL"
+                ]
+              },
+              "SourceRevision": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{40}$"
+              },
+              "Test": {
+                "type": "string",
+                "pattern": "^Tests/(Static|Integration)/Invoke-[A-Za-z0-9-]+\\.ps1$"
+              },
+              "Result": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "NOT_EXECUTED",
+                  "INFRASTRUCTURE_UNAVAILABLE",
+                  "RECOVERY_REQUIRED"
+                ]
+              },
+              "Cleanup": {
+                "enum": [
+                  "PASS",
+                  "NOT_REQUIRED",
+                  "NOT_EXECUTED",
+                  "NOT_RECORDED",
+                  "RECOVERY_REQUIRED"
+                ]
+              },
+              "Date": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^20[0-9]{2}-[0-9]{2}-[0-9]{2}$"
+              },
+              "Reference": {
+                "type": "string",
+                "pattern": "^https://github\\.com/gecompat/SQL_Server_Lab/(pull/[0-9]+|actions/runs/[0-9]+|commit/[a-f0-9]{40})$"
+              },
+              "Identity": {
+                "oneOf": [
+                  {
+                    "required": [
+                      "Kind"
+                    ],
+                    "properties": {
+                      "Kind": {
+                        "const": "LEGACY_UNSPECIFIED"
+                      }
+                    },
+                    "type": "object",
+                    "additionalProperties": false
+                  },
+                  {
+                    "$ref": "#/$defs/ExternalIdentity"
+                  }
+                ]
+              },
+              "ObservedHostProfile": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/$defs/ObservedHostProfile"
+                  }
+                ]
+              }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "Result": {
+                      "const": "PASS"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "Cleanup": {
+                      "enum": [
+                        "PASS",
+                        "NOT_REQUIRED"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "Scope": {
+                      "enum": [
+                        "NATIVE_LIFECYCLE",
+                        "NATIVE_SQL"
+                      ]
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "Test": {
+                      "pattern": "^Tests/Integration/"
+                    },
+                    "Provider": {
+                      "not": {
+                        "const": "none"
+                      }
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "Test": {
+                      "pattern": "^Tests/Static/"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "Scope": {
+                      "const": "NATIVE_SQL"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "SqlVersion": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              {
+                "else": {
+                  "properties": {
+                    "ObservedHostProfile": {
+                      "type": "null"
+                    },
+                    "Capability": {
+                      "not": {
+                        "const": "external-runtime-capability"
+                      }
+                    }
+                  }
+                },
+                "if": {
+                  "properties": {
+                    "Identity": {
+                      "properties": {
+                        "Kind": {
+                          "const": "EXTERNAL_RUNTIME_CONTAINER/1.0"
+                        }
+                      }
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "Capability": {
+                      "const": "external-runtime-capability"
+                    },
+                    "Provider": {
+                      "enum": [
+                        "docker",
+                        "podman"
+                      ]
+                    },
+                    "ObservedHostProfile": {
+                      "$ref": "#/$defs/ObservedHostProfile"
+                    },
+                    "SqlVersion": {
+                      "enum": [
+                        "2019",
+                        "2022",
+                        "2025"
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "Capability": {
+                      "const": "external-runtime-capability"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "Identity": {
+                      "$ref": "#/$defs/ExternalIdentity"
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "Identity": {
+                          "properties": {
+                            "Kind": {
+                              "const": "EXTERNAL_RUNTIME_CONTAINER/1.0"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "SqlVersion": {
+                          "const": "2019"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "Identity": {
+                      "properties": {
+                        "TargetDistribution": {
+                          "const": "ubuntu-20.04"
+                        },
+                        "LaunchMode": {
+                          "enum": [
+                            "sql2019-namespace-v1"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "Identity": {
+                          "properties": {
+                            "Kind": {
+                              "const": "EXTERNAL_RUNTIME_CONTAINER/1.0"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "SqlVersion": {
+                          "const": "2022"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "Identity": {
+                      "properties": {
+                        "TargetDistribution": {
+                          "const": "ubuntu-22.04"
+                        },
+                        "LaunchMode": {
+                          "enum": [
+                            "sql2022-namespace-v1"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "Identity": {
+                          "properties": {
+                            "Kind": {
+                              "const": "EXTERNAL_RUNTIME_CONTAINER/1.0"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "SqlVersion": {
+                          "const": "2025"
+                        }
+                      }
+                    }
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "Identity": {
+                      "properties": {
+                        "TargetDistribution": {
+                          "const": "ubuntu-24.04"
+                        },
+                        "LaunchMode": {
+                          "enum": [
+                            "sql2025-namespace-v1",
+                            "sql2025-shared-user-v2"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "properties": {
+                    "Identity": {
+                      "properties": {
+                        "Kind": {
+                          "const": "EXTERNAL_RUNTIME_CONTAINER/1.0"
+                        }
+                      }
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "Identity": {
+                      "allOf": [
+                        {
+                          "else": {
+                            "properties": {
+                              "RequiredCgroupVersion": {
+                                "const": "1"
+                              }
+                            }
+                          },
+                          "if": {
+                            "properties": {
+                              "LaunchMode": {
+                                "const": "sql2025-shared-user-v2"
+                              }
+                            }
+                          },
+                          "then": {
+                            "properties": {
+                              "RequiredCgroupVersion": {
+                                "const": "2"
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              {
+                "if": {
+                  "allOf": [
+                    {
+                      "properties": {
+                        "Identity": {
+                          "properties": {
+                            "Kind": {
+                              "const": "EXTERNAL_RUNTIME_CONTAINER/1.0"
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "properties": {
+                        "Result": {
+                          "const": "PASS"
+                        },
+                        "Scope": {
+                          "enum": [
+                            "NATIVE_LIFECYCLE",
+                            "NATIVE_SQL"
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "Cleanup": {
+                      "const": "PASS"
+                    },
+                    "ObservedHostProfile": {
+                      "properties": {
+                        "Rootless": {
+                          "const": false
+                        },
+                        "OperatingSystem": {
+                          "const": "linux"
+                        }
+                      }
+                    }
+                  },
+                  "allOf": [
+                    {
+                      "if": {
+                        "properties": {
+                          "Identity": {
+                            "properties": {
+                              "RequiredCgroupVersion": {
+                                "const": "1"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "ObservedHostProfile": {
+                            "properties": {
+                              "CgroupVersion": {
+                                "const": "1"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "if": {
+                        "properties": {
+                          "Identity": {
+                            "properties": {
+                              "RequiredCgroupVersion": {
+                                "const": "2"
+                              }
+                            }
+                          }
+                        }
+                      },
+                      "then": {
+                        "properties": {
+                          "ObservedHostProfile": {
+                            "properties": {
+                              "CgroupVersion": {
+                                "const": "2"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        },
+        "EvidenceBoundary": {
+          "const": "RECORDED_HISTORY_ONLY"
+        },
+        "ContractVersion": {
+          "const": "SqlServerLab.CapabilityEvidenceIndex/1.1"
+        }
+      },
+      "type": "object",
+      "additionalProperties": false
+    },
+    "ExternalIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "Kind",
+        "TargetOperatingSystem",
+        "TargetDistribution",
+        "Architecture",
+        "SoftwareId",
+        "RuntimeVersion",
+        "VariantId",
+        "SoftwarePlanKey",
+        "BaseImageSha256",
+        "LaunchMode",
+        "RequiredCgroupVersion"
+      ],
+      "properties": {
+        "Kind": {
+          "const": "EXTERNAL_RUNTIME_CONTAINER/1.0"
+        },
+        "TargetOperatingSystem": {
+          "const": "linux"
+        },
+        "TargetDistribution": {
+          "enum": [
+            "ubuntu-20.04",
+            "ubuntu-22.04",
+            "ubuntu-24.04"
+          ]
+        },
+        "Architecture": {
+          "const": "x86_64"
+        },
+        "SoftwareId": {
+          "enum": [
+            "sql-python",
+            "sql-r",
+            "sql-java"
+          ]
+        },
+        "RuntimeVersion": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$",
+          "type": "string"
+        },
+        "VariantId": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
+          "type": "string"
+        },
+        "SoftwarePlanKey": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "BaseImageSha256": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "LaunchMode": {
+          "enum": [
+            "sql2019-namespace-v1",
+            "sql2022-namespace-v1",
+            "sql2025-namespace-v1",
+            "sql2025-shared-user-v2"
+          ]
+        },
+        "RequiredCgroupVersion": {
+          "enum": [
+            "1",
+            "2"
+          ]
+        }
+      }
+    },
+    "ObservedHostProfile": {
+      "required": [
+        "OperatingSystem",
+        "CgroupVersion",
+        "Rootless"
+      ],
+      "properties": {
+        "CgroupVersion": {
+          "enum": [
+            "1",
+            "2",
+            null
+          ]
+        },
+        "OperatingSystem": {
+          "enum": [
+            "linux",
+            "windows",
+            null
+          ]
+        },
+        "Rootless": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "type": "object",
+      "additionalProperties": false
     }
   }
 }

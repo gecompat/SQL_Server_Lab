@@ -14,6 +14,9 @@
 .PARAMETER IncludeRecordedAcceptanceMatrix
     Ergaenzt Version 1.1 um exakte, sparse Historienzellen des validierten Index.
     Keine aktuelle Abnahme, Readiness oder vollstaendige Kombinationenmatrix.
+.PARAMETER IncludeRecordedIdentityMatrix
+    Benötigt IncludeRecordedAcceptanceMatrix. Version 1.2 liefert ausschließlich die
+    begrenzte Identitätsmatrix, ohne Quellinventar oder Modulimport (maximal 256 KiB UTF-8).
 .EXAMPLE
     ./Tools/Get-SqlServerLabCapabilityInventory.ps1 | ConvertTo-Json -Depth 12
 .OUTPUTS
@@ -22,8 +25,28 @@
     Mit IncludeRecordedAcceptanceMatrix: Version 1.1 plus historische Zellen.
 #>
 [CmdletBinding()]
-param([string]$RepositoryRoot=(Split-Path $PSScriptRoot -Parent),[switch]$IncludeRecordedAcceptanceMatrix)
+param([string]$RepositoryRoot=(Split-Path $PSScriptRoot -Parent),[switch]$IncludeRecordedAcceptanceMatrix,[switch]$IncludeRecordedIdentityMatrix)
 $ErrorActionPreference='Stop'
+if($IncludeRecordedIdentityMatrix) {
+    if(-not $IncludeRecordedAcceptanceMatrix){throw 'RECORDED_IDENTITY_MATRIX_REQUIRES_ACCEPTANCE_MATRIX'}
+    # The supplied data root never supplies executable code or a module import.
+    $sourceRoot=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
+    $helper=Join-Path $sourceRoot 'Private/CapabilityEvidence.ps1'
+    try {
+        if(-not (Test-Path -LiteralPath $helper -PathType Leaf)){throw 'EVIDENCE_HELPER_SOURCE_INVALID'}
+        $ancestor=$helper
+        while($ancestor) {
+            if((Get-Item -LiteralPath $ancestor -Force -ErrorAction Stop).Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'EVIDENCE_HELPER_REPARSE_POINT_NOT_READ'}
+            if($ancestor -ceq $sourceRoot){break}
+            $ancestor=[IO.Path]::GetDirectoryName($ancestor)
+        }
+    } catch {
+        if($_.Exception.Message -ceq 'EVIDENCE_HELPER_REPARSE_POINT_NOT_READ'){throw 'EVIDENCE_HELPER_REPARSE_POINT_NOT_READ'}
+        throw 'EVIDENCE_HELPER_SOURCE_INVALID'
+    }
+    . $helper
+    return New-LabRecordedIdentityMatrix -RepositoryRoot $RepositoryRoot
+}
 $root=[IO.Path]::GetFullPath($RepositoryRoot)
 $sources=[Collections.Generic.List[object]]::new()
 $issues=[Collections.Generic.List[object]]::new()
@@ -92,6 +115,8 @@ try {
         $evidenceText=Get-Content -LiteralPath $evidencePath -Raw -Encoding utf8
         if(-not (Test-Json -Json $evidenceText -SchemaFile $evidenceSchema -ErrorAction Stop)){throw 'EVIDENCE_INDEX_INVALID'}
         $evidenceDocument=$evidenceText | ConvertFrom-Json -Depth 20 -ErrorAction Stop
+        # Existing views cannot silently flatten new discriminated identities.
+        if($evidenceDocument.ContractVersion -cne 'SqlServerLab.CapabilityEvidenceIndex/1.0'){throw 'EVIDENCE_INDEX_INVALID'}
         foreach($record in $evidenceDocument.Records){
             $null=[DateTime]::ParseExact([string]$record.Date,'yyyy-MM-dd',[Globalization.CultureInfo]::InvariantCulture)
         }

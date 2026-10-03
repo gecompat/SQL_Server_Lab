@@ -1735,7 +1735,7 @@ verwendet für API und Manifestdialog explizite Docker-/Podman-Linux-Katalogtupl
 für Python, R und Java. Der Standard prüft keinen Host. Eine bewusst
 angeforderte begrenzte `info`-Abfrage bewertet nur die Hostvoraussetzungen des
 Launchmodus. `READY` bestätigt weder SQL-/Sprachausführung, Rechte noch Besitz.
-Historisches Matching bleibt `NOT_RECORDED`/`NOT_DEFINED`. Der geführte Browser
+Im Standardvertrag 1.0 bleibt historisches Matching `NOT_RECORDED`/`NOT_DEFINED`. Der geführte Browser
 verwendet denselben engen Public-Entscheid mit bewusstem optionalem Hostcheck;
 Hyper-V-Erweiterung und die vollständige CORE-102-Matrix bleiben offen.
 Der synchrone HTTP-/Listener-Aufruf besitzt kein Gesamtwallclock-Limit.
@@ -3033,3 +3033,15 @@ Kein automatischer Stop, Retry, Ownershipadoption oder Cleanup-Erfolgsverspreche
 Bestehende eigene Sitzungsführung bleibt separat; SQL bleibt NOT_CHECKED.
 Die Browserführung ist synthetisch geprüft; neue reale Start-/Modell-/TLS-/
 Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.
+
+Das optionale CORE-102-Identitätsmapping verwendet den bestehenden Indexvertrag
+1.1; Legacyrecords bleiben unbekannt und unverändert. Public
+`Get-SqlServerLabExternalRuntimeCapability -IncludeRecordedEvidence` liefert
+Version 1.1 ohne aktuelle Evidence-Aufwertung. Das Tool verlangt beide Schalter
+`-IncludeRecordedAcceptanceMatrix -IncludeRecordedIdentityMatrix` und liefert
+Version 1.2 ausschließlich als begrenzte historische Identitätsmatrix, ohne
+Quellinventar/Modulimport. Maximal 128 Records und 256 KiB UTF-8 für die komplette
+neue Antwort; Überlauf bleibt leer/UNAVAILABLE. Referenzen sind NOT_VERIFIED,
+aktuelle Ausführung NOT_EXECUTED und Readiness NOT_CHECKED. Alte Public-/Browser-
+und Manifestdefaults bleiben unverändert. Reale neue Producerrecords, Native-/SQL-
+Abnahme und vollständige Kombinationenmatrix bleiben offen.

@@ -258,3 +258,15 @@ Siehe [Ownership- und Evidencegrenzen](../Documentation/Architecture/LLAMA_CPP_O
 ### Explizite CMS-Leseprüfung
 
 Invoke-SqlServerLabWorkflowAction -Action GetCmsInspectionState liest die bestehende Registrierung. InspectCms -ExpectedPlanKey <serverseitiger Schlüssel> prüft ausschließlich den zuvor ausgewählten eigenen CMS. Es gibt keine Caller-Host-/Secret-/SQL-Parameter oder automatische Synchronisation. Ergebnisse folgen [CmsInspection/1.0](../Documentation/Architecture/CMS_READONLY_INSPECTION.md); Hyper-V und SSMS-/Mitgliedsverbindungen sind nicht abgenommen.
+
+Das optionale CORE-102-Identitätsmapping verwendet den bestehenden Indexvertrag
+1.1; Legacyrecords bleiben unbekannt und unverändert. Public
+`Get-SqlServerLabExternalRuntimeCapability -IncludeRecordedEvidence` liefert
+Version 1.1 ohne aktuelle Evidence-Aufwertung. Das Tool verlangt beide Schalter
+`-IncludeRecordedAcceptanceMatrix -IncludeRecordedIdentityMatrix` und liefert
+Version 1.2 ausschließlich als begrenzte historische Identitätsmatrix, ohne
+Quellinventar/Modulimport. Maximal 128 Records und 256 KiB UTF-8 für die komplette
+neue Antwort; Überlauf bleibt leer/UNAVAILABLE. Referenzen sind NOT_VERIFIED,
+aktuelle Ausführung NOT_EXECUTED und Readiness NOT_CHECKED. Alte Public-/Browser-
+und Manifestdefaults bleiben unverändert. Reale neue Producerrecords, Native-/SQL-
+Abnahme und vollständige Kombinationenmatrix bleiben offen.

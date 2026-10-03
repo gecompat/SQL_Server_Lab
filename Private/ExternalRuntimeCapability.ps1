@@ -78,14 +78,14 @@ function Read-LabExternalRuntimeHostFacts {
 
 function New-LabExternalRuntimeCapabilityDecision {
     param([string]$SqlVersion,[string]$Provider,[string]$OperatingSystem,
-        [string]$SoftwareId,[string]$RuntimeVersion,[string]$VariantId,$HostObservation)
+        [string]$SoftwareId,[string]$RuntimeVersion,[string]$VariantId,$HostObservation,[switch]$IncludeRecordedEvidence)
     if($Provider -cnotin @('docker','podman') -or $OperatingSystem -cne 'linux' -or
         $SoftwareId -cnotin @('sql-python','sql-r','sql-java') -or
         [string]::IsNullOrWhiteSpace($SqlVersion) -or [string]::IsNullOrWhiteSpace($RuntimeVersion) -or [string]::IsNullOrWhiteSpace($VariantId) -or
         $SqlVersion.Length -gt 32 -or $RuntimeVersion.Length -gt 64 -or $VariantId.Length -gt 128) {
         throw 'EXTERNAL_RUNTIME_CAPABILITY_INPUT_INVALID'
     }
-    $catalog='BLOCKED';$reason='CATALOG_DECISION_UNAVAILABLE';$plan=$null
+    $catalog='BLOCKED';$reason='CATALOG_DECISION_UNAVAILABLE';$plan=$null;$recipe=$null
     try {
         $request=[pscustomobject]@{Id=$SoftwareId;Version=$RuntimeVersion;Variant=$VariantId;InstallMethod='catalog';Packages=@();RequestSource='capability-decision'}
         $plan=Resolve-LabExternalRuntimePlan -SoftwareItem $request -SqlVersion $SqlVersion -Provider $Provider -OperatingSystem $OperatingSystem
@@ -137,7 +137,7 @@ function New-LabExternalRuntimeCapabilityDecision {
     $identity=if($catalog -ceq 'DECLARED_SUPPORTED') {
         [pscustomobject]@{SoftwareId=$plan.SoftwareId;VariantId=$plan.VariantId;RuntimeVersion=$plan.RuntimeVersion;Language=$plan.Language;SqlVersion=$plan.SqlVersion}
     }else{$null}
-    [pscustomobject]@{
+    $decision=[pscustomobject]@{
         Contract=[pscustomobject]@{Name='SqlServerLab.ExternalRuntimeCapability';Version='1.0';EvidenceBoundary='PROSPECTIVE_DECLARATION_AND_OPTIONAL_HOST_OBSERVATION'}
         Provider=$Provider;OperatingSystem=$OperatingSystem;Identity=$identity
         CatalogDecision=[pscustomobject]@{Status=$catalog;ReasonCode=$reason}
@@ -145,6 +145,15 @@ function New-LabExternalRuntimeCapabilityDecision {
         HistoricalEvidence=[pscustomobject]@{Status='NOT_RECORDED';MappingStatus='NOT_DEFINED'}
         SqlLanguageExecution='NOT_CHECKED';TargetAuthorization='NOT_CHECKED';ExecutionSupported=$false;MutationAllowed=$false;Actions=@()
     }
+    if($IncludeRecordedEvidence) {
+        $decision.Contract.Version='1.1'
+        $evidencePlan=if($catalog -ceq 'DECLARED_SUPPORTED'){$plan}else{$null}
+        $decision.HistoricalEvidence=Get-LabExternalRuntimeRecordedEvidence -Plan $evidencePlan -Recipe $recipe -RepositoryRoot $script:ModuleRoot
+        if([Text.Encoding]::UTF8.GetByteCount(($decision|ConvertTo-Json -Depth 30 -Compress)) -gt 262144) {
+            $decision.HistoricalEvidence=New-LabExternalRuntimeHistoricalEvidenceResult 'UNAVAILABLE' 'UNAVAILABLE' 'EVIDENCE_OUTPUT_LIMIT'
+        }
+    }
+    return $decision
 }
 
 function Get-LabExternalRuntimeCapabilityOptions {

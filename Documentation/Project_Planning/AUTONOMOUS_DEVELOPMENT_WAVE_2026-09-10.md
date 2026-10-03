@@ -149,7 +149,7 @@ zweiten Backlog und keine unabhängige Capability-Registry:
 | Bestehender Bezug | Ergänzung und offener Umfang |
 |---|---|
 | `BASE-001` bis `BASE-005` im [Ausführungsplan](DEVELOPMENT_EXECUTION_PLAN_2026-08-08.md) | Quellinventur und vorhandenen Evidence-Index zu einer maschinenlesbaren, für Menschen lesbaren, mehrdimensionalen Statussicht zusammenführen; vorhandene Abnahmen übernehmen, Widersprüche im betroffenen Scope berichtigen und Drift testseitig absichern. Der bisherige Inventur-Slice bleibt abgeschlossen, die vollständige Kombinationenmatrix ist offen. |
-| `CORE-102` und [Issue #619](https://github.com/gecompat/SQL_Server_Lab/issues/619) | Gemeinsamen Capability-Entscheid um aktuelle, read-only Host-/Backend-Readiness und passende historische Evidence ergänzen. API, Konsole/Fallback und Browser verwenden denselben Vertrag; External Languages sind der erste vertikale Anwendungsfall. Der enge Docker-/Podman-Linux-Slice Get-SqlServerLabExternalRuntimeCapability verbindet die explizite Python-/R-/Java-Katalogentscheidung mit bewusst angeforderter begrenzter Hostprüfung und dem bestehenden Manifestdialog; default NOT_CHECKED, historische Zuordnung NOT_DEFINED, keine Ausführungsfreigabe. Der geführte Browserdialog neben Lab erstellen nutzt denselben Public-Entscheid mit expliziter Katalogwahl und bewusstem optionalem Hostcheck; kein Speichern, Apply oder Start. Hyper-V, historische Zuordnung und vollständige Matrix bleiben offen. Native Provider-/SQL-Sprachabnahme ist NOT_EXECUTED; Issue #619 bleibt offen. |
+| `CORE-102` und [Issue #619](https://github.com/gecompat/SQL_Server_Lab/issues/619) | Gemeinsamen Capability-Entscheid um aktuelle, read-only Host-/Backend-Readiness und passende historische Evidence ergänzen. API, Konsole/Fallback und Browser verwenden denselben Vertrag; External Languages sind der erste vertikale Anwendungsfall. Der enge Docker-/Podman-Linux-Slice Get-SqlServerLabExternalRuntimeCapability verbindet die explizite Python-/R-/Java-Katalogentscheidung mit bewusst angeforderter begrenzter Hostprüfung und dem bestehenden Manifestdialog; default NOT_CHECKED, historische Zuordnung im Standard NOT_DEFINED; explizites IncludeRecordedEvidence definiert exakte versionierte Identitäten ohne Adoption bestehender Records, keine Ausführungsfreigabe. Der geführte Browserdialog neben Lab erstellen nutzt denselben Public-Entscheid mit expliziter Katalogwahl und bewusstem optionalem Hostcheck; kein Speichern, Apply oder Start. Hyper-V, historische Zuordnung und vollständige Matrix bleiben offen. Native Provider-/SQL-Sprachabnahme ist NOT_EXECUTED; Issue #619 bleibt offen. |
 | `SFT-711`, `SFT-712` im [External-Languages-Plan](EXTERNAL_LANGUAGES_IMPLEMENTATION_PLAN.md) | Python, R, Java und C# getrennt nach tatsächlichem Provider-/OS-/SQL-/Buildpfad behandeln. SQL-2022-Hyper-V und SQL-2025-cgroup-v2-Nachweise wiederverwenden. C#-Build ist belegt; SQL-Registrierung, Launchpad-Roundtrip, Workeridentität und Neustart sind noch offen. |
 | `PSR-011` im [Persistenzbacklog](PERSISTENT_STORAGE_REUSE_AND_LAB_DATA_BACKLOG.md) | Vorhandenen Retained-Store-Removal-Vertrag und dessen noch fehlende native Abnahme prüfen, keine parallele Löschimplementierung eröffnen. |
 | Weitere IDs aus den verlinkten Fachbacklogs | Jede gefundene Implementierungs- oder Abnahmelücke dem bestehenden Eigentümer zuordnen; vor einer neuen ID die kanonische Registration Authority und Duplikate prüfen. |
@@ -377,7 +377,7 @@ keine vollständige Matrix und keine aktuelle Native-Abnahme oder Readiness.
 Installierbarkeit, Support und Gast-/Imagevarianten bewertet diese Sicht nicht.
 Der enge Docker-/Podman-Linux-Entscheid unter `CORE-102` ist als öffentliche
 API, Manifestdialog und Browserconsumer implementiert. Die vollständige
-Matrix, historische Zuordnung, Hyper-V und weitere Provider sowie neue
+Matrix, reale neue historische Producerbelege, Hyper-V und weitere Provider sowie neue
 Native-Nachweise bleiben offen. Zusätzliche Imports oder Proben entstehen
 durch diesen Schalter nicht.
 
@@ -765,3 +765,15 @@ abgebildeten Kennwörter oder privaten Hostdaten versioniert.
 ### Welle L: schmaler registrierter CMS-Lesepfad
 
 CLI und Browser besitzen einen gemeinsamen expliziten Lesepfad für genau den bereits registrierten verwalteten CMS. Native eigene Container-/Scope-/Portautorität muss vor dem Secretlesen feststehen; öffentliche Befunde sind nullable, zeitgebunden und ohne Namen/Secrets/Endpunkte. Hyper-V, CMS-Einrichtung/Adoption/Sync im Browser sowie SSMS und Mitgliedsverbindungen bleiben offen. Implementierung ist kein Runtime-Nachweis; tatsächliche ausgewählte Gates und reale CMS-Abnahme sind separat auszuweisen. [Kanonischer Vertrag](../Architecture/CMS_READONLY_INSPECTION.md).
+
+Das optionale CORE-102-Identitätsmapping verwendet den bestehenden Indexvertrag
+1.1; Legacyrecords bleiben unbekannt und unverändert. Public
+`Get-SqlServerLabExternalRuntimeCapability -IncludeRecordedEvidence` liefert
+Version 1.1 ohne aktuelle Evidence-Aufwertung. Das Tool verlangt beide Schalter
+`-IncludeRecordedAcceptanceMatrix -IncludeRecordedIdentityMatrix` und liefert
+Version 1.2 ausschließlich als begrenzte historische Identitätsmatrix, ohne
+Quellinventar/Modulimport. Maximal 128 Records und 256 KiB UTF-8 für die komplette
+neue Antwort; Überlauf bleibt leer/UNAVAILABLE. Referenzen sind NOT_VERIFIED,
+aktuelle Ausführung NOT_EXECUTED und Readiness NOT_CHECKED. Alte Public-/Browser-
+und Manifestdefaults bleiben unverändert. Reale neue Producerrecords, Native-/SQL-
+Abnahme und vollständige Kombinationenmatrix bleiben offen.
