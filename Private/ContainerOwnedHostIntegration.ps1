@@ -311,7 +311,7 @@ function Invoke-LabOwnedHostPinnedCommand {
     # Callerargumente duerfen die gespeicherte Route nicht uebersteuern.
     if (@($Arguments | Where-Object { $_ -cmatch '^(--host|--context|--connection|--url|--identity|--remote)(=|$)' }).Count -or
         ($Provider -ceq 'docker' -and $Arguments[0] -cne 'exec' -and @($Arguments | Where-Object { $_ -cmatch '^-H' }).Count) -or
-        ($Provider -ceq 'podman' -and $Arguments[0] -cne 'exec' -and @($Arguments | Where-Object { $_ -cmatch '^-c($|=)' }).Count) -or
+        ($Provider -ceq 'podman' -and $Arguments[0] -cnotin @('exec','create') -and @($Arguments | Where-Object { $_ -cmatch '^-c($|=)' }).Count) -or
         @($Arguments).Count -eq 0 -or $Arguments[0].StartsWith('-')) {
         throw 'OWNED_HOST_ROUTE_OVERRIDE_FORBIDDEN'
     }

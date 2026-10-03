@@ -31,6 +31,11 @@ Kindprozess entfernt. Alle Beobachtungen, Effekte und Kompensationen verwenden
 denselben Pin. Der Transport begrenzt beide Ausgabepipes gemeinsam auf 1 MiB
 und besitzt einen endlichen Timeout. Remotehosts und unbekannte Routen bleiben
 vor Arrange gesperrt; das Profil startet keine Podmanmaschine.
+Podman-Create prüft Clientoptionen bis zur validierten unveränderlichen
+Image-Referenz über den bestehenden Create-Parser. Ein vorheriges `-c` bleibt
+gesperrt; danach darf es als Shellargument des eigenen Containers passieren.
+Lange Routingoverrides bleiben gesperrt. Intent-, Mount- und Imagebindungen
+werden vor dem tatsächlichen Create weiterhin vollständig geprüft.
 
 Die RuntimeScope-Projektion verwendet `EXPLICIT_POLICY_PIN`. Ihr DisplayName
 ist eine Policyanzeige; die bestehende Formel `DisplayName|Endpoint|BackendKind`

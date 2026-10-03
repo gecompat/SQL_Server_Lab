@@ -673,6 +673,30 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         $labels.'sql-server-lab.owned-host-intent-id'=[guid]::NewGuid().ToString('D')
         $script:containerJson=@([pscustomobject]@{Id=$cid;Name='/synthetic-container';Config=[pscustomobject]@{Labels=$labels}})|ConvertTo-Json -Depth 12 -AsArray
         Assert-OwnThrows { Resolve-LabOwnedHostContainerEffect -StateRoot $root -RunId $allocated.RunId -Provider docker -ContainerIdOrName $cid } 'OWNED_HOST_CONTAINER_BINDING_DRIFT' 'Fremde Intentlabel trotz gleicher CID verweigert Start Stop Remove'
+        $script:podmanCreateCalls=0;$script:podmanCreateArguments=@()
+        $script:syntheticReply={param($StartInfo)
+            $all=@($StartInfo.ArgumentList)
+            if($all[0] -cne '--remote' -or $all[1] -cne '--url' -or $all[3] -cne '--identity'){throw 'UNEXPECTED_PODMAN_PIN_PREFIX'}
+            $args=$all[5..($all.Count-1)];$body=''
+            if($args[0] -ceq 'ps'){$body=''}
+            elseif($args[0] -ceq 'image' -and $args[1] -ceq 'inspect'){$body='[{"Id":"'+('c'*64)+'"}]'}
+            elseif($args[0] -ceq 'create'){$script:podmanCreateCalls++;$script:podmanCreateArguments=$args;$body='b'*64}
+            else{throw 'UNEXPECTED_PODMAN_CREATE_FIXTURE_COMMAND'}
+            [pscustomobject]@{ExitCode=0;Stdout=$body;Stderr=''}
+        }
+        $shellIntent=New-LabOwnedHostContainerIntent -StateRoot $root -RunId $allocated.RunId -ScopeId $allocatedState.scopeId -InstanceId 'synthetic-shell' -Provider podman -ContainerName 'synthetic-podman-shell'
+        $shellPrefix=@('create','--name',$shellIntent.ContainerName,
+            '--label',('sql-server-lab.run-id='+$shellIntent.RunId),'--label',('sql-server-lab.scope-id='+$shellIntent.ScopeId),
+            '--label',('sql-server-lab.instance-id='+$shellIntent.InstanceId))+@(Get-LabOwnedHostContainerLabels -Intent $shellIntent)+@('--entrypoint','/bin/sh')
+        $shellImage='sha256:'+('c'*64)
+        $shellResult=Invoke-LabOwnedHostPinnedCommand -StateRoot $root -Provider podman -Arguments ($shellPrefix+@($shellImage,'-c','synthetic-guest-command'))
+        Assert-Own ($shellResult.ExitCode -eq 0 -and $script:podmanCreateCalls -eq 1 -and
+            ($script:podmanCreateArguments[-3..-1] -join '|') -ceq ($shellImage+'|-c|synthetic-guest-command')) 'Actual pinned Podman create carries guest shell arguments after validated immutable image'
+        foreach($override in @('-c','-c=foreign')){
+            Assert-OwnThrows { Invoke-LabOwnedHostPinnedCommand -StateRoot $root -Provider podman -Arguments ($shellPrefix+@($override,'foreign',$shellImage)) } 'OWNED_HOST_CREATE_OPTION_UNSUPPORTED' 'Actual create parser rejects short connection option before image'
+        }
+        Assert-OwnThrows { Invoke-LabOwnedHostPinnedCommand -StateRoot $root -Provider podman -Arguments ($shellPrefix+@('--connection=foreign',$shellImage)) } 'OWNED_HOST_ROUTE_OVERRIDE_FORBIDDEN' 'Actual Podman create keeps long connection override veto'
+        Assert-Own ($script:podmanCreateCalls -eq 1) 'Rejected create route options never dispatch a second synthetic creation'
         $script:syntheticVolumes=@{}; $script:syntheticContainers=@{}; $script:syntheticEffects=@()
         $script:syntheticReply={param($StartInfo)
             $args=@($StartInfo.ArgumentList); $args=$args[2..($args.Count-1)]
