@@ -95,8 +95,11 @@ bereinigte Zusammenfassungen enthalten.
 
 `Invoke-OwnedHostIntegrationChecks.ps1` verwendet synthetische Records,
 Transport-Spies und eigene PowerShell-Kinder für Transportgrenzen. Es führt
-keine Provider-, SQL-, Task-, WSL- oder Desktopoperation aus. Ein stabiler Diff
-benötigt gekoppelte statische Suites, unabhängige Reviews und getrennte native
+keine Provider-, SQL-, Task-, WSL- oder Desktopoperation aus. Die Suite
+prüft zusätzlich den tatsächlichen Initializer für Docker, Podman und Mixed
+mit synthetischen Discoveryantworten: Die ausgewählten Providernamen bleiben
+bis zur Readinessprüfung erhalten. Diese Prüfung erzeugt keine native Policy.
+Ein stabiler Diff benötigt gekoppelte statische Suites, unabhängige Reviews und getrennte native
 Docker-, Podman-, Mixed-, Hyper-V- und Adapterpflichtgates am exakten Head.
 Vor und nach nativem Arrange müssen sämtliche vorbestehenden Ressourcen frisch
 erfasst und als geschützt revalidiert werden. Synthetische Checks, Readiness,

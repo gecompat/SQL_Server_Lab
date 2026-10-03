@@ -54,6 +54,49 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         $hyperV.Contains("metadata.networkIntent -ceq 'isolated'") -and
         $hyperV.Contains('Get-VMNetworkAdapter -VM $reconcileVm')) 'HyperV harness uses existing isolated reconcile and observes actual adapter absence'
 
+    $initializerEvidence=New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
+        param($Repository,$Fixture)
+        . (Join-Path $Repository 'Tests/Common/OwnedHostTestScope.ps1')
+        $script:identity=Join-Path $Fixture 'initializer-synthetic-identity'
+        [IO.File]::WriteAllText($script:identity,'synthetic identity')
+        $script:runtimeProviders=[Collections.Generic.List[string]]::new()
+        function Get-LabHostToolInvocation { param($Name) (Get-Process -Id $PID).Path }
+        function Assert-LabOwnedHostPath { param($Path) $Path }
+        function Initialize-LabOwnedHostPolicy {
+            param($StateRoot,$RuntimePins,$ParentOperationId)
+            $script:initializedPins=@($RuntimePins)
+            [pscustomobject]@{StateRoot=$StateRoot;PolicyId='synthetic-policy'}
+        }
+        function Get-LabOwnedHostRuntimeScope {
+            param($StateRoot,[ValidateSet('docker','podman')][string]$Provider)
+            $script:runtimeProviders.Add($Provider)
+        }
+        function Invoke-LabOwnedHostNativeProcess {
+            param($StartInfo,$TimeoutSeconds,$MaximumBytes)
+            $argv=@($StartInfo.ArgumentList)
+            $text=switch($argv -join '|') {
+                'context|show' {'synthetic-context'}
+                'context|inspect|synthetic-context' {'[{"Endpoints":{"docker":{"Host":"npipe:////./pipe/synthetic"}}}]'}
+                'system|connection|list|--format|json' {ConvertTo-Json -InputObject @([pscustomobject]@{Default=$true;URI='ssh://synthetic@127.0.0.1:12345/run/synthetic.sock';Identity=$script:identity}) -Compress}
+                default {throw 'FORBIDDEN_INITIALIZER_NATIVE_CALL'}
+            }
+            [pscustomobject]@{ExitCode=0;Stdout=$text;Stderr=''}
+        }
+        function Get-InitializerEvidence {
+            foreach($mode in @('docker','podman','mixed')) {
+                $providers=if($mode -ceq 'mixed'){@('docker','podman')}else{@($mode)}
+                $script:runtimeProviders.Clear()
+                $result=Initialize-OwnedHostTestRoot -Module $ExecutionContext.SessionState.Module -StateRoot (Join-Path $Fixture ('initializer-'+$mode)) -Providers $providers -ParentOperationId 'synthetic'
+                [pscustomobject]@{Mode=$mode;Ready=($result.Status -ceq 'READY' -and -not $result.NativeArrangeStarted);ExactProviders=(($script:runtimeProviders -join '|') -ceq ($providers -join '|') -and (@($script:initializedPins.Provider) -join '|') -ceq ($providers -join '|'))}
+            }
+        }
+        Export-ModuleMember -Function @()
+    }
+    foreach($record in @(& $initializerEvidence { Get-InitializerEvidence })) {
+        Assert-Own $record.Ready "Actual $($record.Mode) initializer completes before native Arrange"
+        Assert-Own $record.ExactProviders "Actual $($record.Mode) initializer preserves selected provider names through connection discovery"
+    }
+
     $carrierEvidence=New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         param($Repository,$Fixture)
         . (Join-Path $Repository 'Private/Common.ps1')

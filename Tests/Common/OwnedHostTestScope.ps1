@@ -78,10 +78,10 @@ function Initialize-OwnedHostTestRoot {
                 [pscustomobject]@{Provider=$provider;Invocation=$invocation;Endpoint=[string]$contexts[0].Endpoints.docker.Host;IdentityPath='';IdentitySha256=''}
             } else {
                 $connections=@((Read-OwnTestClientMetadata -Invocation $invocation -Arguments @('system','connection','list','--format','json'))|ConvertFrom-Json -Depth 16)
-                $selected=@($connections|Where-Object {$_.Default -eq $true})
-                if ($selected.Count -ne 1) { throw 'OWNED_HOST_TEST_PODMAN_CONNECTION_UNRESOLVED' }
-                $identity=Assert-LabOwnedHostPath ([string]$selected[0].Identity)
-                [pscustomobject]@{Provider=$provider;Invocation=$invocation;Endpoint=[string]$selected[0].URI;IdentityPath=$identity;IdentitySha256=(Get-FileHash -LiteralPath $identity).Hash.ToLowerInvariant()}
+                $selectedConnection=@($connections|Where-Object {$_.Default -eq $true})
+                if ($selectedConnection.Count -ne 1) { throw 'OWNED_HOST_TEST_PODMAN_CONNECTION_UNRESOLVED' }
+                $identity=Assert-LabOwnedHostPath ([string]$selectedConnection[0].Identity)
+                [pscustomobject]@{Provider=$provider;Invocation=$invocation;Endpoint=[string]$selectedConnection[0].URI;IdentityPath=$identity;IdentitySha256=(Get-FileHash -LiteralPath $identity).Hash.ToLowerInvariant()}
             }
         }
         $policy=Initialize-LabOwnedHostPolicy -StateRoot $Root -RuntimePins @($pins) -ParentOperationId $Operation
