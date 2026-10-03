@@ -43,6 +43,82 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
     function Start-Process { throw 'FORBIDDEN_PROCESS' }
     function Invoke-LabStoppedHostMemoryRelease { throw 'FORBIDDEN_SHARED_MEMORY' }
 
+    $imageFixture=New-Module -ArgumentList $repoRoot -ScriptBlock {
+        param($Repository)
+        . (Join-Path $Repository 'Private/ContainerOwnedHostIntegration.ps1')
+        function Invoke-LabOwnedHostPinnedCommand {
+            param($StateRoot,$Provider,$Arguments)
+            if ($StateRoot -cne 'synthetic-root' -or ($Arguments -join '|') -cne 'image|inspect|synthetic-image') { throw 'UNEXPECTED_IMAGE_ROUTE' }
+            [pscustomobject]@{ExitCode=$script:exitCode;Stdout=$script:body;Stderr=''}
+        }
+        function Invoke-ImageCase {
+            param($Provider,$Body,[int]$ExitCode=0)
+            $script:body=$Body;$script:exitCode=$ExitCode
+            try {
+                $observed=Get-LabOwnedHostImageObservation -StateRoot 'synthetic-root' -Provider $Provider -Image 'synthetic-image'
+                [pscustomobject]@{Id=[string]$observed.Id;Missing=($null -eq $observed);ErrorCode=''}
+            } catch { [pscustomobject]@{Id='';Missing=$false;ErrorCode=$_.Exception.Message} }
+        }
+        Export-ModuleMember -Function @()
+    }
+    $fullId='a'*64
+    foreach($provider in @('docker','podman')) {
+        $canonical=& $imageFixture {param($p,$id) Invoke-ImageCase $p ('[{"Id":"sha256:'+ $id+'","Config":{"Labels":{"synthetic":"preserved"}}}]')} $provider $fullId
+        Assert-Own ($canonical.Id -ceq ('sha256:'+$fullId)) "Actual $provider observation retains full canonical image identity"
+        foreach($body in @('[]','[{"Id":"sha256:abc"}]',('[{"Id":"'+('A'*64)+'"}]'),('[{"Id":"sha256:'+ $fullId+'"},{"Id":"sha256:'+ $fullId+'"}]'))) {
+            $invalid=& $imageFixture {param($p,$b) Invoke-ImageCase $p $b} $provider $body
+            Assert-Own ($invalid.ErrorCode -ceq 'OWNED_HOST_IMAGE_INSPECT_INVALID') "Actual $provider rejects incomplete or ambiguous image identity"
+        }
+        $missing=& $imageFixture {param($p) Invoke-ImageCase $p 'invalid-json' 1} $provider
+        Assert-Own $missing.Missing "Actual $provider nonzero inspection remains absent observation"
+    }
+    $bareBody='[{"Id":"'+$fullId+'"}]'
+    $barePodman=& $imageFixture {param($b) Invoke-ImageCase podman $b} $bareBody
+    $bareDocker=& $imageFixture {param($b) Invoke-ImageCase docker $b} $bareBody
+    Assert-Own ($barePodman.Id -ceq ('sha256:'+$fullId)) 'Actual Podman full bare identity becomes immutable canonical reference'
+    Assert-Own ($bareDocker.ErrorCode -ceq 'OWNED_HOST_IMAGE_INSPECT_INVALID') 'Bare Docker identity cannot inherit Podman normalization'
+
+    $volumeCleanupFixture=New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
+        param($Repository,$FixtureRoot)
+        . (Join-Path $Repository 'Private/CleanupEngine.ps1')
+        $script:root=Join-Path $FixtureRoot 'cleanup-presence'
+        $null=New-Item -ItemType Directory -Path $script:root
+        [IO.File]::WriteAllText((Join-Path $script:root 'owned-host-required'),'synthetic')
+        function Get-LabOwnedHostRunPolicy { param($RunId,$StateRoot) if($script:mode -ceq 'policy-drift'){throw 'OWNED_HOST_RUN_REFERENCE_DRIFT'}; [pscustomobject]@{StateRoot=$StateRoot} }
+        function Get-LabRunState { param($RunId,$StateRoot) [pscustomobject]@{scopeId=if($script:mode -ceq 'scope-drift'){'foreign-scope'}else{'synthetic-scope'}} }
+        function Get-LabOwnedHostVolumeReceipt {
+            param($StateRoot,$Provider,$VolumeName)
+            $script:receiptReads++
+            if($script:mode -ceq 'foreign-present'){throw 'OWNED_HOST_RECORD_MISSING'}
+            [pscustomobject]@{Intent=[pscustomobject]@{RunId='synthetic-run';ScopeId='synthetic-scope'}}
+        }
+        function Invoke-LabOwnedHostPinnedCommand {
+            param($StateRoot,$Provider,$Arguments)
+            $script:calls+=,(@($Arguments) -join '|')
+            if($StateRoot -cne $script:root){throw 'UNEXPECTED_VOLUME_ROOT'}
+            if(($Arguments -join '|') -ceq 'volume|rm|synthetic-volume'){$script:deletes++;return [pscustomobject]@{ExitCode=0;Stdout=''}}
+            if(($Arguments -join '|') -cne 'volume|ls|--filter|name=^synthetic-volume$|--format|{{.Name}}'){throw 'UNEXPECTED_VOLUME_ROUTE'}
+            [pscustomobject]@{ExitCode=if($script:mode -ceq 'inventory-failure'){1}else{0};Stdout=if($script:mode -cin @('foreign-present','owned-present') -and -not $script:deletes){'synthetic-volume'}else{''}}
+        }
+        function Invoke-VolumeCase {
+            param($Provider,$Mode)
+            $script:mode=$Mode;$script:receiptReads=0;$script:deletes=0;$script:calls=@();$errorCode=''
+            try { Remove-LabRuntimeResourceForCleanup -Provider $Provider -ResourceType volume -ResourceId 'synthetic-volume' -ExpectedRunId 'synthetic-run' -ExpectedScopeId 'synthetic-scope' -StateRoot $script:root }
+            catch {$errorCode=$_.Exception.Message}
+            [pscustomobject]@{ErrorCode=$errorCode;Deletes=$script:deletes;ReceiptReads=$script:receiptReads;Calls=$script:calls}
+        }
+        Export-ModuleMember -Function @()
+    }
+    foreach($provider in @('docker','podman')) {
+        foreach($mode in @('absent','inventory-failure','foreign-present','scope-drift','policy-drift','owned-present')) {
+            $result=& $volumeCleanupFixture {param($p,$m) Invoke-VolumeCase $p $m} $provider $mode
+            $expected=switch($mode){'inventory-failure'{'OWNED_HOST_VOLUME_ABSENCE_UNVERIFIABLE'};'foreign-present'{'OWNED_HOST_RECORD_MISSING'};'scope-drift'{'OWNED_HOST_VOLUME_CLEANUP_SCOPE_DRIFT'};'policy-drift'{'OWNED_HOST_RUN_REFERENCE_DRIFT'};default{''}}
+            Assert-Own ($result.ErrorCode -ceq $expected -and $result.Deletes -eq [int]($mode -ceq 'owned-present')) "Actual $provider cleanup $mode preserves error and deletion boundary"
+            if($mode -ceq 'absent'){Assert-Own ($result.ReceiptReads -eq 0 -and $result.Calls.Count -eq 1) "Actual $provider confirmed absence requires no receipt or deletion"}
+            if($mode -cin @('scope-drift','policy-drift')){Assert-Own ($result.Calls.Count -eq 0) "Actual $provider invalid run binding vetoes even absence observation"}
+        }
+    }
+
     foreach ($workflowName in @('runtime-smoke-docker','runtime-smoke-podman','runtime-smoke-mixed-providers')) {
         $workflow = [IO.File]::ReadAllText((Join-Path $repoRoot ('.github/workflows/'+$workflowName+'.yml')))
         $calls = @([regex]::Matches($workflow, '(?m)^.*-File\s+\.\\Tests\\Integration\\Invoke-[^\r\n]+'))

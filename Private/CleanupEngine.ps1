@@ -175,6 +175,12 @@ function Remove-LabRuntimeResourceForCleanup {
     if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
         $null=Get-LabOwnedHostRunPolicy -RunId $ExpectedRunId -StateRoot $StateRoot
         if ($ResourceType -cne 'volume') { throw 'OWNED_HOST_SHARED_NETWORK_REMOVAL_FORBIDDEN' }
+        $run=Get-LabRunState -RunId $ExpectedRunId -StateRoot $StateRoot
+        if (-not $run -or $run.scopeId -cne $ExpectedScopeId) { throw 'OWNED_HOST_VOLUME_CLEANUP_SCOPE_DRIFT' }
+        if ($ResourceId -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$') { throw 'OWNED_HOST_VOLUME_NAME_INVALID' }
+        $inventory=Invoke-LabOwnedHostPinnedCommand -StateRoot $StateRoot -Provider $Provider -Arguments @('volume','ls','--filter',('name=^'+[regex]::Escape($ResourceId)+'$'),'--format','{{.Name}}')
+        if ($inventory.ExitCode -ne 0) { throw 'OWNED_HOST_VOLUME_ABSENCE_UNVERIFIABLE' }
+        if (-not $inventory.Stdout.Trim()) { return }
         $owned=Get-LabOwnedHostVolumeReceipt -StateRoot $StateRoot -Provider $Provider -VolumeName $ResourceId
         if ($owned.Intent.RunId -cne $ExpectedRunId -or $owned.Intent.ScopeId -cne $ExpectedScopeId) { throw 'OWNED_HOST_VOLUME_CLEANUP_SCOPE_DRIFT' }
         $removed=Invoke-LabOwnedHostPinnedCommand -StateRoot $StateRoot -Provider $Provider -Arguments @('volume','rm',$ResourceId)

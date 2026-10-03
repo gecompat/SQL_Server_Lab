@@ -51,6 +51,10 @@ Eigene Volumes besitzen separate Creation-Receipts, Namensabwesenheit vor
 Create und frische Inspect-/Labelbindung. Diese Records bleiben nach
 Containerentfernung für Retained-Store-Beobachtung und Transfer erreichbar.
 Entfernung prüft zusätzlich die bestehenden Store-/Attachmentverträge.
+Ein gültig gebundener Run darf ein am selben Pin nachweislich abwesendes
+Volume ohne Delete als bereits bereinigt behandeln, auch wenn Arrange vor
+der Creation-Receipt abbrach. Fehler bei der Inventarbeobachtung bleiben
+gesperrt; ein vorhandenes Volume benötigt weiterhin sämtliche Besitznachweise.
 Vorhandene Netzwerke werden nur gelesen. Hostschreibpfade bleiben im eigenen
 Root; gemeinsame Netzwerk-, CNI- und Cacheänderungen werden gesperrt.
 
@@ -81,6 +85,9 @@ des Test-Runs treffen diese Fault-Injection; andere Aufrufe laufen unverändert 
 
 SqlPackage-ToolImages behalten ihre logischen Katalogschlüssel. Validierte
 vorhandene Images dürfen über ihre unveränderliche Image-ID gelesen werden.
+Podmans vollständige 64-stellige Hex-ID wird dabei zur gemeinsamen
+`sha256:`-Referenz normalisiert. Verkürzte IDs bleiben für beide Provider gesperrt;
+Docker benötigt weiterhin die vollständige präfixierte ID.
 Ein notwendiger Build verwendet einen intern generierten Policy-/ImageKey-Tag,
 exklusiven Intent, bestätigte Tagabwesenheit und `--pull=false`. Base und
 Extractor müssen bereits unter dem katalogisierten Digest erreichbar sein;

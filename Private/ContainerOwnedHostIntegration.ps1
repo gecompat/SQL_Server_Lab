@@ -801,6 +801,9 @@ function Get-LabOwnedHostImageObservation {
     $result=Invoke-LabOwnedHostPinnedCommand -StateRoot $StateRoot -Provider $Provider -Arguments @('image','inspect',$Image)
     if ($result.ExitCode -ne 0) { return $null }
     $items=@($result.Stdout|ConvertFrom-Json -Depth 32 -ErrorAction Stop)
+    if ($items.Count -eq 1 -and $Provider -ceq 'podman' -and [string]$items[0].Id -cmatch '^[a-f0-9]{64}$') {
+        $items[0].Id='sha256:'+ [string]$items[0].Id
+    }
     if ($items.Count -ne 1 -or [string]$items[0].Id -cnotmatch '^sha256:[a-f0-9]{64}$') { throw 'OWNED_HOST_IMAGE_INSPECT_INVALID' }
     return $items[0]
 }
