@@ -680,6 +680,15 @@ try {
                 }
                 continue
             }
+            if ($path -eq '/api/external-runtime-capability') {
+                try {
+                    $result=& (Get-Module SqlServerLab) { param($request,$listenerPort) Invoke-LabExternalRuntimeCapabilityHttpRequest -Request $request -ListenerPort $listenerPort } $context.Request $Port
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"EXTERNAL_RUNTIME_HTTP_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -eq '/api/component-relations') {
                 try {
                     $result=& (Get-Module SqlServerLab) { param($request) Invoke-LabComponentRelationHttpRequest -Request $request } $context.Request

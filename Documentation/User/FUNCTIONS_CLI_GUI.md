@@ -11,6 +11,15 @@ Root ausdrücklich lesen, gebundene Instanz und Entscheidungsart auswählen,
 dann Vorschau lesen. Eingaben bleiben im RAM; Abbruch und verworfene späte
 Antworten erzeugen keine Jobs, Events oder Transferaktionen.
 
+`CORE-102`: **Lab erstellen → Python / R / Java: Katalog und Hostvoraussetzungen**
+ist der geführte Browserconsumer des bestehenden prospektiven Public-Entscheids.
+Explizite Docker-/Podman-Linux-Anforderung, Katalogvarianten mit Sperrgründen,
+Hostprüfung nur nach bewusstem eigenem Klick. Kein Speichern oder Start;
+`READY` bestätigt nur Hostvoraussetzungen. SQL-Sprachausführung und
+Zielautorisierung bleiben `NOT_CHECKED`, Historie `NOT_RECORDED`/`NOT_DEFINED`.
+Manifestdialog und generischer Befehlszugang bleiben erhalten. Hyper-V und die
+vollständige Matrix sind offen. [Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+
 Slice E: `Get-SqlServerLabReconcilePlan -ProposedRelations` liefert eine reine
 Komponenten-/Shared-Verbrauchervorschau an vorhandener Labidentität. Sie ist
 über den generischen CLI-Befehlszugang und **Alle öffentlichen Befehle →

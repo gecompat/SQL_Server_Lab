@@ -22,6 +22,17 @@ RAM-Auswahl, späte Antworten können sie nicht wiederherstellen. Keine Jobs,
 neue SQL-/Lizenzprüfung oder Migration.
 [Vertrag und Grenzen](../Project_Planning/FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG.md).
 
+## Python, R oder Java für eine zukünftige Containerinstanz prüfen
+
+Im Browser unter **Lab erstellen → Python / R / Java: Katalog und
+Hostvoraussetzungen** Provider und SQL-Version wählen und Katalogvarianten
+lesen. Blockierte Varianten bleiben mit Grund sichtbar. Die Katalogentscheidung
+prüft keinen Host; der eigene Hostcheck-Knopf fordert genau eine lesende Prüfung
+an. `READY` ist weder SQL-Sprachabnahme noch Ausführungsrecht. SQL 2025
+shared-user-v2 verzichtet auf die Launchpad-Sandbox. Kein Manifest wird
+übernommen oder gespeichert; Abbruch verwirft Eingaben und späte Anzeigen.
+[Grenzen und Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+
 ## Verfügbarkeit der SQL-2025-KI-Aktionen
 
 Das KI-Menü lässt Aktionen sichtbar, die ein SQL-Ziel benötigen, deaktiviert sie
@@ -1088,7 +1099,14 @@ Die Vorschau gewährt keine Ausnahme für veraltete Versionen.
 
 Der Wizard bietet unter `instances[].software` nur External-Runtime-Varianten
 an, die der Resolver fuer die bereits gewählte SQL-Version, den Provider und
-das Betriebssystem als `RESOLVED` freigibt. `Plan.Instances[].ExternalRuntimes`
+das Betriebssystem als `RESOLVED` freigibt. Der Softwaredialog zeigt zusätzlich
+abgelehnte Varianten mit festen Gründen und übernimmt diese nicht. API
+`Get-SqlServerLabExternalRuntimeCapability` und Dialog verwenden dieselbe
+Katalogentscheidung. Ohne bewusste Hostprüfung bleibt `CurrentReadiness`
+`NOT_CHECKED`; **Hostvoraussetzungen bewusst lesend prüfen** liest den Provider
+einmal begrenzt. `READY` ist keine SQL-/Sprachabnahme oder Ausführungsfreigabe.
+[Vertrag und Grenzen](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+`Plan.Instances[].ExternalRuntimes`
 nennt fuer dieselbe Auflösung Downloads, Derived-Image-Build oder Gastmutation,
 Restarts, Downtime, Package Locks und Verification. Der Aenderungsweg trennt
 Artifact-`rebuild`, Service-`restart`, Container-`recreate` und sichere

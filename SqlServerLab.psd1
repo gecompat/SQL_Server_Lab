@@ -9,6 +9,7 @@
     PowerShellVersion = '7.2'
 
     FunctionsToExport = @(
+        'Get-SqlServerLabExternalRuntimeCapability'
         'New-SqlServerLabBatch'
         'Get-SqlServerLabBatch'
         'Get-SqlServerLabQueue'

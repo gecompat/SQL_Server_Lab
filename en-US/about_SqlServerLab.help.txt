@@ -112,6 +112,10 @@ COMMANDS
         Historical state and optional provider readiness remain separate;
         no SQL probe, raw logs, host values, secrets, or mutation.
 
+    Get-SqlServerLabExternalRuntimeCapability
+        Separates an explicit External Languages catalog request from an optional
+        bounded host check; it grants no SQL acceptance or mutation authority.
+
     Get-SqlServerLabAutomationPlan
         Projects a versioned local, sanitized, and non-executable plan/result
         contract for selected existing public plan/action boundaries.

@@ -183,6 +183,7 @@ sources_of_truth:
   llama_cpp_guided_start_cli: Private/LlamaCppStartConsole.ps1
   llama_cpp_guided_start_browser: Private/LlamaCppStartHttp.ps1, Ui/llama-start.js
   validation_llama_cpp_guided_start_browser: Tests/Static/Invoke-LlamaCppStartBrowserChecks.ps1, Tests/Static/Fixtures/LlamaCppStartHttpChecks.ps1, Tests/Static/Fixtures/LlamaCppStartUiChecks.cjs
+  validation_reviewed_browser_composition: Tests/Static/Invoke-ReviewedBrowserCompositionChecks.ps1 # combined dedicated routes, HTML IDs, 135 exports and retained CLI dispatch; synthetic only
   validation_llama_cpp_guided_start_cli: Tests/Static/Invoke-LlamaCppStartConsoleChecks.ps1, Tests/Static/Fixtures/LlamaCppStartConsoleChecks.ps1
   llama_cpp_owned_runtime: Private/LlamaCppOwnedRuntime.ps1
   llama_cpp_session_guidance: Private/LlamaCppSessionGuidance.ps1
@@ -359,6 +360,13 @@ sources_of_truth:
   repository_capability_evidence_schema: Schemas/capability-evidence-index.schema.json
   validation_repository_capability_inventory: Tests/Static/Invoke-CapabilityInventoryChecks.ps1
   client_readiness_core: Private/ClientReadiness.ps1
+  external_runtime_capability_public: Public/Get-SqlServerLabExternalRuntimeCapability.ps1
+  external_runtime_capability_core: Private/ExternalRuntimeCapability.ps1
+  external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1
+  external_runtime_capability_ui: Ui/external-runtime-capability.js
+  validation_external_runtime_capability_browser: Tests/Static/Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1
+  external_runtime_capability_contract: Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md
+  validation_external_runtime_capability: Tests/Static/Invoke-ExternalRuntimeCapabilityChecks.ps1
   validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1
   diagnostic_bundle_public: Public/Get-SqlServerLabDiagnosticBundle.ps1
   diagnostic_bundle_reader: Private/DiagnosticBundleReader.ps1
@@ -988,7 +996,7 @@ internal_components:
       - "alle Manifestfelder dynamisch aus dem JSON-Schema erfassen"
       - "x-ui-Pfadsemantik, Scope und aufgeloeste Hostvorschau im Wizard anzeigen"
       - "Hilfe, schrittweise Zuruecknavigation, Zwischenzusammenfassung und Abbruch ohne partielle Manifestdatei anbieten"
-      - "nur resolverfreigegebene External-Runtime-Varianten im Instanzkontext anbieten"
+      - "Katalog- und optionale Hostentscheidungen gemeinsam anzeigen; blockierte External-Runtime-Varianten nicht übernehmen"
       - "mutationsfreie Software-Planvorschau mit Downloads, Build/Gastmutation, Downtime, Locks, Verification und Aenderungsklassen liefern"
       - "mutationsfreie Sample-/Artifact-Planvorschau mit Quelle, Lizenz, Outputs, Groessen, Integritaet, Trust, Handler und Idempotenz liefern"
       - "ManifestPlanPreview 1.3 projiziert SQL-Bezeichner, Katalogversion und bestehenden Lifecycle-Entscheid auch bei fachlichen Fehlern; UNKNOWN besitzt keine erfundene Katalog-ID"

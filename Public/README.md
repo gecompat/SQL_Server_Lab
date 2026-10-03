@@ -28,6 +28,15 @@ Die SQL-seitige Verifikation bleibt offen.
 
 ## Cmdlet-Übersicht
 
+`Get-SqlServerLabExternalRuntimeCapability` trennt für einen expliziten
+Docker-/Podman-Linux-Manifestentwurf Katalogunterstützung von optionaler
+aktueller Hostbereitschaft. Standard ist `NOT_CHECKED` ohne Hostaufruf;
+`-CheckProviderReadiness` liest einmal begrenzt `info`. `READY` ist keine
+SQL-/Sprachabnahme oder Ausführungsfreigabe. Der vorhandene Manifestdialog
+verwendet dieselbe Entscheidung; der geführte Browser nutzt denselben engen
+Vertrag. Vollständiger CORE-102 und Native-Abnahmen bleiben offen.
+[Vertrag und Grenzen](../Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+
 | Cmdlet | Datei oder Definition | Zweck |
 |---|---|---|
 | `Invoke-SqlServerLab` | `Invoke-SqlServerLab.ps1` | Interaktives Menü |
@@ -128,6 +137,7 @@ Die SQL-seitige Verifikation bleibt offen.
 | `Stop-SqlServerLab` | `Stop-SqlServerLab.ps1` | Laufende Umgebung je gespeicherten Provider stoppen |
 | `Restart-SqlServerLab` | `Restart-SqlServerLab.ps1` | Stop und Start kombinieren |
 | `Remove-SqlServerLab` | `Remove-SqlServerLab.ps1` | Einzelnen Run scope-validiert entfernen |
+| `Get-SqlServerLabExternalRuntimeCapability` | `Get-SqlServerLabExternalRuntimeCapability.ps1` | Katalogentscheidung und bewusst angeforderte Hostvoraussetzungen getrennt prüfen |
 | `Clear-SqlServerLab` | `Clear-SqlServerLab.ps1` | Lab-Container und/oder State bereinigen |
 | `New-SqlServerLabDatabase` | `New-SqlServerLabDatabase.ps1` | Datenbank mit konfigurierbaren Dateien und Pfaden erstellen |
 | `Backup-SqlServerLabDatabase` | `Backup-SqlServerLabDatabase.ps1` | Providerneutrales, gehashtes SQL-Backup erst nach `CHECKSUM` und `RESTORE VERIFYONLY` in der registrierten `Lab_Data`-Bibliothek veröffentlichen |

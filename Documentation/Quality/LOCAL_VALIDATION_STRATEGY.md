@@ -1,5 +1,18 @@
 # Lokale Validierungsstrategie
 
+## Gemeinsame Browserkomposition
+
+`Invoke-ReviewedBrowserCompositionChecks.ps1` führt die vier dedizierten Routen
+für Evaluation-Ersatzentscheid, llama.cpp-Dateivorschau, bewussten llama.cpp-Start
+und External-Languages-Entscheid zusammen im selben isolierten Modul aus.
+Die tatsächlichen HTTP-/Public-/Readerpfade bleiben erhalten; nur Runtime- und
+Transportleaves sind synthetisch. Eindeutige HTML-IDs und Scripts, 135 Exporte,
+getrennte Fehlerantworten, Zero-Fallthrough und die gemeinsame CLI-Auswahl samt
+Abbruch sind Pflichtfälle. WhatIf startet keinen Worker; synthetisches READY
+belegt keine aktuelle Host-, SQL-, Provider- oder Besitzautorität.
+Die bestehenden Einzelsuites prüfen weiterhin ihre vollständigen Verträge.
+Ausgewählte Native-Gates bleiben separat und dürfen daraus kein PASS erhalten.
+
 ## Reiner Evaluation-Ersatzentscheid
 
 `Invoke-EvaluationRefreshPlanHttpChecks.ps1` führt den tatsächlichen HTTP-Reader,
@@ -29,6 +42,30 @@ und Contentdrift, NoWrite und feste DTOs sind notwendig. Watch-Inventargrenzen
 liefern nur die synthetische Quelle. Die Prüfung beweist keine Lizenzprüfung,
 SQL-Readiness, Providerfunktion oder Migration; Diff-Auswahl und CI bleiben
 separate Verpflichtungen.
+
+## Prospektiver External-Languages-Capability-Entscheid
+
+`Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1` prüft die extrahierte echte
+HTTP-Route im bestehenden Modulkontext, den neuen strikten Helper und den
+unveränderten Public-/Resolver-/Classifier-Pfad mit isolierten Transport-Spies.
+ReadOptions und Evaluate ohne Hostcheck verlangen null native Transporte;
+bewusster Hostcheck verlangt genau einen begrenzten Adapteraufruf.
+UTF-8-/Körper-/Origin-/Listener-/Typgrenzen und geschlossene Antworten werden
+negativ geprüft. Das tatsächliche JS-Modul läuft mit Fake-DOM und Fetch-Spies:
+Abbruch, Escape, Busy, verworfene späte Antworten, blockierte Varianten und
+Privacyfehler werden geprüft. Das sind synthetische Prüfungen, keine manuelle
+Browser- oder native Provider-/SQL-Sprachabnahme.
+
+`Invoke-ExternalRuntimeCapabilityChecks.ps1` durchläuft den tatsächlichen
+Public-Aufruf, Katalogresolver, Reducer und bestehenden Manifestdialog.
+Provider-Metadaten stammen aus dem Repository; native Prozessgrenzen werden
+durch isolierte Spies ersetzt. Standard-Probes=0, bewusster Info-Aufruf,
+StartInfo-/Argument-/Zeit-/Streamvertrag, typisierte Hostfakten, ungeeignete
+cgroup-/Rootful-Kombinationen, feste Fehler, Rawdatenfreiheit, negative
+Varianten, Zurück/Abbruch und bestehende Manifestfelder werden geprüft.
+Es werden keine Provider, SQL-Instanzen oder Sprachruntimes gestartet oder
+abgefragt. Native Nachweise bleiben getrennt und werden nach tatsächlichem
+finalen Diff ausgewählt. [Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
 
 ## Reine Komponenten-/Shared-Verbrauchervorschau
 

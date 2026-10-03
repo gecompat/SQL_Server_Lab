@@ -67,6 +67,7 @@
       <div class="workflow-actions">
         <button id="new-container" class="button secondary">Neue Container-Umgebung</button>
         <button id="new-manifest" class="button secondary">Container-Manifest erstellen</button>
+        <button id="external-runtime-open" type="button" class="button secondary">Python / R / Java: Katalog und Hostvoraussetzungen</button>
         <button id="run-manifest" class="button secondary">Container-Manifest ausführen</button>
         <button id="new-hyperv-lab" class="button secondary">Neue Windows-/SQL-Hyper-V-Umgebung</button>
         <button id="new-hyperv-existing-vm-lab" class="button secondary">Windows-VM als Hyper-V-Basis</button>
@@ -776,6 +777,28 @@
     </div>
   </dialog>
   <script src="evaluation-refresh-plan.js"></script>
+
+  <dialog id="external-runtime-dialog">
+    <div class="read-only-dialog-content">
+      <h2>External Languages für eine zukünftige SQL-Instanz</h2>
+      <p>Nur Entscheidung: kein Manifest speichern, keine Instanz starten. Katalogunterstützung ist keine SQL-Sprachabnahme oder Ausführungsfreigabe.</p>
+      <label>Provider<select id="external-runtime-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+      <label>SQL-Version<select id="external-runtime-sql"><option value="2019">2019</option><option value="2022">2022</option><option value="2025">2025</option></select></label>
+      <p>Zielbetriebssystem: Linux. Host wird beim Öffnen oder Ändern nicht geprüft.</p>
+      <button id="external-runtime-read" type="button" class="button secondary">Katalogvarianten lesen</button>
+      <label>Sprache und Variante<select id="external-runtime-choice"></select></label>
+      <p>Blockierte Varianten bleiben mit Grund sichtbar und können nicht gewählt werden. SQL 2025 shared-user-v2 verwendet keine Launchpad-Sandbox; die Worker teilen ein gemeinsames Konto und besitzen Netzwerkzugriff.</p>
+      <p id="external-runtime-status" role="status">Host: NOT_CHECKED</p>
+      <pre id="external-runtime-result"></pre>
+      <div class="dialog-actions">
+        <button id="external-runtime-evaluate" type="button" class="button secondary">Katalogentscheidung anzeigen</button>
+        <button id="external-runtime-host" type="button" class="button secondary">Hostvoraussetzungen bewusst lesend prüfen</button>
+        <button id="external-runtime-close" type="button" class="button secondary">Zurück / Abbrechen</button>
+      </div>
+      <p>Die Prüfung kann einen Moment dauern. Abbruch verwirft nur die Anzeige; eine angeforderte lesende Prüfung läuft weiter. READY bestätigt nur Hostvoraussetzungen.</p>
+    </div>
+  </dialog>
+  <script src="external-runtime-capability.js"></script>
   <script src="component-relations.js"></script>
   <dialog id="llama-start-dialog">
     <div class="maintenance-dialog-content">
