@@ -2,6 +2,18 @@
 
 ## Zweck
 
+### Collations im Katalog suchen
+
+Unter **Lab erstellen → Collations suchen** SQL 2019, 2022 oder 2025 und
+Suchwörter eingeben, dann bewusst **Suchen** wählen. Alle ASCII-Suchwörter
+müssen in Name oder Locale passen; ohne solche Wörter erscheinen alle
+Katalogeinträge. Die Ansicht zeigt höchstens 100 Treffer mit Metadaten und
+weist auf weitere Treffer hin. `DEPRECATED` bleibt zulässig und wird gewarnt.
+Die Suche prüft keinen SQL-Server (`NOT_CHECKED`) und übernimmt keine Auswahl
+ins Manifest. Öffnen und Bearbeiten suchen nicht automatisch. Eingaben bleiben
+im RAM; Zurück/Escape verwirft auch späte Antworten. Eine angeforderte lesende
+Suche kann dabei weiterlaufen; Abbruch ist kein Nachweis ihrer Beendigung.
+
 ### Evaluation-Ersatzentscheid
 
 Unter **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatzentscheid**

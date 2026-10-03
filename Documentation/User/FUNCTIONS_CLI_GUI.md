@@ -1,5 +1,11 @@
 # Funktionsübersicht für CLI und Browser-GUI
 
+`COL-001`: **Lab erstellen → Collations suchen** ist die reine Browseransicht
+der bestehenden tokenbasierten, versionsgebundenen Katalogsuche
+`Find-SqlServerLabCollation`. Metadaten und `DEPRECATED`-Warnung bleiben sichtbar;
+SQL ist `NOT_CHECKED`. Kein automatischer Suchaufruf, Auswahltransfer, Speichern
+oder Start. Zurück/Escape verwirft die RAM-Eingabe und späte Antworten.
+
 Der reine Evaluation-Ersatzentscheid ist unter **Alle öffentlichen Befehle →
 SQL-Evaluation: Ersatzentscheid** geführt erreichbar: explizites registriertes
 `Lab_Data`, eine moderne Hyper-V-SQL-Instanz und Slotersatz, Rekonstruktion oder

@@ -680,6 +680,17 @@ try {
                 }
                 continue
             }
+            if ($path -eq '/api/collations/search') {
+                try {
+                    $result=& (Get-Module SqlServerLab) { param($request,$listenerPort) Invoke-LabCollationCatalogHttpRequest -Request $request -ListenerPort $listenerPort } $context.Request $Port
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $invalidResult=$_.Exception.Message -ceq 'COLLATION_HTTP_RESULT_INVALID'
+                    $code=if($invalidResult){'COLLATION_HTTP_RESULT_INVALID'}else{'COLLATION_HTTP_INVALID'}
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode $(if($invalidResult){500}else{400})
+                }
+                continue
+            }
             if ($path -eq '/api/external-runtime-capability') {
                 try {
                     $result=& (Get-Module SqlServerLab) { param($request,$listenerPort) Invoke-LabExternalRuntimeCapabilityHttpRequest -Request $request -ListenerPort $listenerPort } $context.Request $Port

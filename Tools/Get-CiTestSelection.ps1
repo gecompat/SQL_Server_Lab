@@ -127,6 +127,7 @@ end {
         @{ Pattern = '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(StateUpgrade|state-upgrade|StateMachine)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
         @{ Pattern = '(?i)(AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'; Checks = @('Invoke-AutomationApiPlanChecks.ps1') },
+        @{ Pattern = '(?i)(CollationCatalog(Http|Browser|Ui)|Ui[\\/]collation-catalog\.js)'; Checks = @('Invoke-CollationCatalogBrowserChecks.ps1','Invoke-CollationCatalogChecks.ps1','Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-ReviewedBrowserCompositionChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(CollationRuntimeEvidence|collation-runtime-evidence|ContainerCollationAcceptance)'; Checks = @('Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-CollationCatalogChecks.ps1','Invoke-VersionCatalogChecks.ps1') },
         @{ Pattern = '(?i)(CollationCatalog|sql-server-collation|Find-SqlServerLabCollation|ManifestParser|ManifestBuilder|lab-manifest|Public[\\/]New-SqlServerLab\.ps1|Public[\\/]Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-VersionCatalogChecks.ps1') },
         @{ Pattern = '(?i)(PortableLabImport|portable-lab-import)'; Checks = @('Invoke-PortableLabImportChecks.ps1') },

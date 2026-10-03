@@ -1,5 +1,14 @@
 # SQL_Server_Lab – Getting Started
 
+## Collations vor einer Lab-Erstellung ansehen
+
+Im Browser **Lab erstellen → Collations suchen** öffnen, SQL-Version und
+Suchwörter angeben und **Suchen** wählen. `Latin1 UTF8` verlangt beide Wörter;
+ohne ASCII-Suchwörter erscheinen alle kuratierten Katalogeinträge. Metadaten
+und Warnungen dienen zur Orientierung, prüfen keinen SQL-Server und übernehmen
+keine Auswahl. `DEPRECATED` ist weiterhin zulässig. Zurück/Escape verwirft die
+Eingabe und späte Antworten; eine bereits angeforderte Suche kann weiterlaufen.
+
 ## Ersatz oder Migration vor Evaluation-Ablauf planen
 
 `Get-SqlServerLabEvaluationRefreshPlan -RunId $runId -InstanceId primary -DataRoot $dataRoot -Mode STATEFUL_MIGRATION`

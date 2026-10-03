@@ -12,7 +12,7 @@ function Check([bool]$Condition,[string]$Name){if(-not $Condition){throw "COMPOS
 function Parse-Source([string]$Path){$tokens=$null;$errors=$null;$ast=[Management.Automation.Language.Parser]::ParseFile($Path,[ref]$tokens,[ref]$errors);if($errors.Count){throw 'COMPOSITION_PARSE_FAILED'};$ast}
 try {
     $server=Parse-Source (Join-Path $repo 'Tools/Start-SqlServerLabUi.ps1')
-    $paths=@('/api/evaluation-refresh-plan','/api/llama-start','/api/llama-start-plan','/api/external-runtime-capability')
+    $paths=@('/api/evaluation-refresh-plan','/api/llama-start','/api/llama-start-plan','/api/external-runtime-capability','/api/collations/search')
     $routes=@(foreach($routePath in $paths){
         $matches=@($server.FindAll({param($node)$node -is [Management.Automation.Language.IfStatementAst] -and $node.Clauses[0].Item1.Extent.Text -ceq ("`$path -eq '$routePath'")},$true))
         Check ($matches.Count -eq 1) "Dedicated route unique $routePath"
@@ -27,10 +27,10 @@ try {
     $html=[IO.File]::ReadAllText((Join-Path $repo 'Ui/index.html'))
     $ids=@([regex]::Matches($html,'\bid="([^"]+)"')|ForEach-Object {$_.Groups[1].Value})
     Check (@($ids|Group-Object|Where-Object Count -gt 1).Count -eq 0) 'All combined HTML IDs unique'
-    foreach($family in @('evaluation-refresh','llama-start','llama-start-plan','external-runtime')){
+    foreach($family in @('evaluation-refresh','llama-start','llama-start-plan','external-runtime','collation')){
         Check (@($ids|Where-Object {$_ -ceq "$family-dialog"}).Count -eq 1 -and @($ids|Where-Object {$_ -ceq "$family-open"}).Count -eq 1) "Dialog and opener retained $family"
     }
-    foreach($scriptName in @('app.js','evaluation-refresh-plan.js','llama-start.js','llama-start-plan.js','external-runtime-capability.js','component-relations.js')){
+    foreach($scriptName in @('app.js','evaluation-refresh-plan.js','llama-start.js','llama-start-plan.js','external-runtime-capability.js','collation-catalog.js','component-relations.js')){
         Check ([regex]::Matches($html,'src="'+[regex]::Escape($scriptName)+'"').Count -eq 1) "Script included once $scriptName"
     }
     Check ($html.Contains('Worker teilen ein gemeinsames Konto und besitzen Netzwerkzugriff') -and $html.Contains('Abbruch verwirft nur die Anzeige')) 'Complete shared-worker warning and truthful cancellation retained'
@@ -52,15 +52,16 @@ try {
         if($try.Count -ne 1 -or $arrange.Count -ne 19){throw 'COMPOSITION_ARRANGE_SHAPE_CHANGED'}
         . ([scriptblock]::Create($arrange -join "`n"))
         foreach($source in @('Private/EvaluationRefreshPlanConsole.ps1','Private/EvaluationRefreshPlanHttp.ps1','Private/SoftwareCatalog.ps1','Private/ContainerImageArtifact.ps1','Private/ExternalRuntimeCapability.ps1','Public/Get-SqlServerLabExternalRuntimeCapability.ps1','Private/ExternalRuntimeCapabilityHttp.ps1','Private/LlamaCppStartPlan.ps1','Public/Get-SqlServerLabLlamaCppStartPlan.ps1','Private/LlamaCppStartPlanConsole.ps1','Private/LlamaCppStartPlanHttp.ps1','Private/LlamaCppStartConsole.ps1','Private/LlamaCppStartHttp.ps1','Public/Start-SqlServerLabLlamaCppRuntime.ps1')){Import-RefreshFunctions $source}
-        $script:CatalogsPath=Join-Path $repo Catalogs;$script:RegisteredProviders=@{}
+        foreach($source in @('Private/CollationCatalog.ps1','Public/Find-SqlServerLabCollation.ps1','Private/CollationCatalogHttp.ps1')){Import-RefreshFunctions $source}
+        $script:CatalogsPath=Join-Path $repo Catalogs;$script:SchemasPath=Join-Path $repo Schemas;$script:RegisteredProviders=@{}
         foreach($provider in @('Docker','Podman')){$definition=Get-Content (Join-Path $repo "Providers/$provider/provider.json") -Raw|ConvertFrom-Json;$script:RegisteredProviders[$definition.name]=@{Definition=$definition}}
         $candidateAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repo 'Private/AiExternalModelAcceleration.ps1'),[ref]$tokens,[ref]$errors)
         foreach($name in @('Get-LabLlamaCppRuntimeCandidate','Find-LabLlamaCppRuntime')){$function=$candidateAst.Find({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq $name},$true);. ([scriptblock]::Create($function.Extent.Text))}
         $script:ConfirmPreference=[Management.Automation.ConfirmImpact]::High
         $script:Forbidden=0;$script:Transports=0;$script:HttpCalls=@{};$script:HttpBodies=@{}
-        foreach($name in @('Invoke-LabEvaluationRefreshHttpRequest','Invoke-LabLlamaCppStartHttpRequest','Invoke-LabLlamaCppStartPlanHttpRequest','Invoke-LabExternalRuntimeCapabilityHttpRequest')){
+        foreach($name in @('Invoke-LabEvaluationRefreshHttpRequest','Invoke-LabLlamaCppStartHttpRequest','Invoke-LabLlamaCppStartPlanHttpRequest','Invoke-LabExternalRuntimeCapabilityHttpRequest','Invoke-LabCollationCatalogHttpRequest')){
             $script:HttpBodies[$name]=(Get-Command $name).ScriptBlock;$script:HttpCalls[$name]=0
-            $parameters=if($name -cin @('Invoke-LabLlamaCppStartHttpRequest','Invoke-LabExternalRuntimeCapabilityHttpRequest')){'param($Request,$ListenerPort)'}else{'param($Request)'}
+            $parameters=if($name -cin @('Invoke-LabLlamaCppStartHttpRequest','Invoke-LabExternalRuntimeCapabilityHttpRequest','Invoke-LabCollationCatalogHttpRequest')){'param($Request,$ListenerPort)'}else{'param($Request)'}
             Set-Item ("Function:script:$name") ([scriptblock]::Create($parameters+"`n`$script:HttpCalls['$name']++; & `$script:HttpBodies['$name'] @PSBoundParameters"))
         }
         function Initialize-LabHostToolPath {param($Name)[pscustomobject]@{Available=$true;Invocation=Join-Path $root "synthetic-$Name.exe"}}
@@ -94,6 +95,7 @@ try {
                 '/api/llama-start' {'Invoke-LabLlamaCppStartHttpRequest'}
                 '/api/llama-start-plan' {'Invoke-LabLlamaCppStartPlanHttpRequest'}
                 '/api/external-runtime-capability' {'Invoke-LabExternalRuntimeCapabilityHttpRequest'}
+                '/api/collations/search' {'Invoke-LabCollationCatalogHttpRequest'}
             }
             $current=& $module { @{}+$script:HttpCalls }
             Check (@($current.Keys|Where-Object {$current[$_] -ne ($counts[$_]+[int]($_ -ceq $expected))}).Count -eq 0) 'Exactly the matching actual helper, no cross-route dispatch'
@@ -101,6 +103,8 @@ try {
         }finally{$stream.Dispose()}
     }
     foreach($path in $paths){$response=Send $path @{};Check ($response.Status -eq 400 -and $response.Body -notmatch 'CANARY|Exception|Path') "Combined route safe failure $path"}
+    $response=Send '/api/collations/search' @{SqlVersion='2025';Query='Latin1 UTF8'};$collations=$response.Body|ConvertFrom-Json
+    Check ($response.Status -eq 200 -and $collations.ReturnedCount -eq 1 -and $collations.SqlValidation -ceq 'NOT_CHECKED' -and $collations.Actions.Count -eq 0) 'Fifth route reaches actual Public/catalogue/schema without SQL'
     $dataRoot=& $module {$script:root}
     $response=Send '/api/evaluation-refresh-plan' @{Action='Read';DataRoot=$dataRoot};$metadata=$response.Body|ConvertFrom-Json
     Check ($response.Status -eq 200 -and $metadata.Status -ceq 'METADATA_ONLY' -and $metadata.Runs.Count -eq 1) 'Combined D route reaches actual registered reader'

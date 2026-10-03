@@ -2,9 +2,9 @@
 
 ## Gemeinsame Browserkomposition
 
-`Invoke-ReviewedBrowserCompositionChecks.ps1` führt die vier dedizierten Routen
+`Invoke-ReviewedBrowserCompositionChecks.ps1` führt die fünf dedizierten Routen
 für Evaluation-Ersatzentscheid, llama.cpp-Dateivorschau, bewussten llama.cpp-Start
-und External-Languages-Entscheid zusammen im selben isolierten Modul aus.
+und External-Languages-Entscheid sowie Collation-Katalogsuche zusammen im selben isolierten Modul aus.
 Die tatsächlichen HTTP-/Public-/Readerpfade bleiben erhalten; nur Runtime- und
 Transportleaves sind synthetisch. Eindeutige HTML-IDs und Scripts, 135 Exporte,
 getrennte Fehlerantworten, Zero-Fallthrough und die gemeinsame CLI-Auswahl samt
@@ -12,6 +12,17 @@ Abbruch sind Pflichtfälle. WhatIf startet keinen Worker; synthetisches READY
 belegt keine aktuelle Host-, SQL-, Provider- oder Besitzautorität.
 Die bestehenden Einzelsuites prüfen weiterhin ihre vollständigen Verträge.
 Ausgewählte Native-Gates bleiben separat und dürfen daraus kein PASS erhalten.
+
+`Invoke-CollationCatalogBrowserChecks.ps1` führt die extrahierte dedizierte Route
+über den echten HTTP-Helper, Public-Suchbefehl und Schema-/Katalogreader aus.
+UTF-8-/JSON-/Origin-/Listenergrenzen, drei Versionen, ASCII-AND-Suche,
+Zero-Token-/Nulltreffer, ungültige Kataloge, geschlossene Metadaten und ehrliche
+Truncation werden synthetisch geprüft. Verbotene SQL-/Provider-/Stateleaves
+sind instrumentiert. Die echte JS-Datei läuft mit Fake-DOM/Fetch: bewusste Suche,
+Busy, Zurück/Escape, Edit-Revision, beide späten Antwortarten und `textContent`.
+Eigene synthetische HTTP-Katalogfixtures bleiben lokal ignoriert erhalten;
+dieser neue Test behauptet kein Cleanup. Kein manueller Browser- oder nativer
+SQL-Nachweis; die bestehende separate Container-Evidence bleibt historisch.
 
 ## Reiner Evaluation-Ersatzentscheid
 

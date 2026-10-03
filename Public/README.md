@@ -24,7 +24,10 @@ Manifest-Wizard und Konsolenformular prüfen denselben versionsgebundenen
 Vertrag für SQL 2019/2022/2025. Ein vollständiger Name wird ohne Beachtung der
 Groß-/Kleinschreibung gebunden und kanonisch übernommen. Unbekannte Namen
 werden vor Provisionierung beziehungsweise Manifest-Speicherung abgewiesen.
-Die SQL-seitige Verifikation bleibt offen.
+Die Suche selbst prüft keinen SQL-Server. Der getrennte Containerpfad
+verifiziert nach SQL-Readiness; dessen historische Evidence ist kein Nachweis
+für die Browseransicht **Lab erstellen → Collations suchen**. Diese zeigt
+dieselben Metadaten ohne Auswahltransfer und bleibt bei SQL `NOT_CHECKED`.
 
 ## Cmdlet-Übersicht
 

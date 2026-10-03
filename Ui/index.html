@@ -65,6 +65,7 @@
         <p>Container direkt erstellen oder eine vorhandene Hyper-V-Vorlage auswählen. Die Vorbereitung von Vorlagen liegt unter Hyper-V: Vorlagen und Slots.</p>
       </div>
       <div class="workflow-actions">
+        <button id="collation-open" type="button" class="button secondary">Collations suchen</button>
         <button id="new-container" class="button secondary">Neue Container-Umgebung</button>
         <button id="new-manifest" class="button secondary">Container-Manifest erstellen</button>
         <button id="external-runtime-open" type="button" class="button secondary">Python / R / Java: Katalog und Hostvoraussetzungen</button>
@@ -713,6 +714,18 @@
       <div class="dialog-actions"><button id="initial-setup-close-bottom" type="button" class="button secondary" value="cancel">Schließen</button><button id="initial-setup-read" type="button" class="button secondary">Roots erneut lesen</button><button id="initial-setup-provider-refresh" type="button" class="button secondary">Gewählten Provider prüfen</button></div>
     </div>
   </dialog>
+  <dialog id="collation-dialog">
+    <h2>Collations suchen</h2>
+    <p>Kuratierter Katalog, kein vollständiges SQL-Inventar. Die Suche prüft keinen SQL-Server und übernimmt keine Auswahl.</p>
+    <label>SQL-Version <select id="collation-sql"><option>2019</option><option>2022</option><option selected>2025</option></select></label>
+    <label>Suchwörter <input id="collation-query" type="text" maxlength="256" autocomplete="off"></label>
+    <p>Alle Suchwörter müssen passen. Ohne ASCII-Suchwörter erscheinen alle Katalogeinträge. DEPRECATED bleibt zulässig.</p>
+    <p id="collation-status" role="status" aria-live="polite">SQL-Prüfung: NOT_CHECKED</p>
+    <ul id="collation-results"></ul>
+    <button id="collation-search" type="button" class="button">Suchen</button>
+    <button id="collation-close" type="button" class="button secondary">Zurück / Abbrechen</button>
+  </dialog>
+  <script src="collation-catalog.js"></script>
   <dialog id="component-relations-dialog">
     <div class="read-only-dialog-content">
       <h2>SQL-Komponenten: geführte Vorschau</h2>
