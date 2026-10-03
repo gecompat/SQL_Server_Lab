@@ -2691,3 +2691,14 @@ und Manifestdefaults bleiben unverändert. Reale neue Producerrecords, Native-/S
 Abnahme und vollständige Kombinationenmatrix bleiben offen.
 
 Invoke-CapabilityEvidenceIdentityChecks.ps1 prüft den tatsächlichen Reader, Schema, Public/Resolver und die neue reine Toolmatrix: typisierte Identität, Capabilitybindung, Konflikthistorie, doppelte/falsch geschriebene JSON-Felder, Reparsegrenzen sowie vollständige UTF-8-Ausgabegrenze. Die synthetischen Dateien bleiben ignored lokal; keine neue Runtime-Abnahme.
+## Eigener CI-Scope auf einem gemeinsam genutzten Windows-Host
+
+`Invoke-OwnedHostIntegrationChecks.ps1` prüft typisierte Policy-/Runreferenzen,
+geschützte eigene Dateirechte, Carrier, FullCID-/Volume-/Image-Originbindung,
+Routingoverrides und Timeout-/Ausgabegrenzen mit synthetischen Ressourcen und
+eigenen PowerShell-Kindern. Provider- und Taskeffekte sind gesperrt.
+Die gekoppelte Schema-, RuntimeScope-, Doku- und CI-Auswahlprüfung bleibt
+erforderlich. Native Docker-, Podman-, Mixed-, Hyper-V- und Adaptergates müssen
+den stabilen Head getrennt belegen; Readiness und historische Evidence gelten
+nicht als aktuelle Abnahme. Vor-/Nachschutz erfasst alle vorbestehenden
+Ressourcen; Rohdiagnosen bleiben lokal. [Vertrag](../Architecture/OWNED_HOST_CI_ISOLATION.md).

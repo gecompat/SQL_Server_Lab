@@ -459,7 +459,11 @@ function Enable-LabWindowsContainerAutoStartCoordinator {
 
 function Enable-LabContainerHostAutoStart {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider)
+    param([Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,[string]$StateRoot,[string]$RunId)
+
+    if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+        return Enable-LabOwnedHostAutoStart -StateRoot $StateRoot -RunId $RunId -Provider $Provider
+    }
 
     if ($IsWindows) {
         $result = Enable-LabWindowsContainerAutoStartCoordinator -Provider $Provider

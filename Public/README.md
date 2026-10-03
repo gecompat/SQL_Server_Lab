@@ -270,3 +270,14 @@ neue Antwort; Überlauf bleibt leer/UNAVAILABLE. Referenzen sind NOT_VERIFIED,
 aktuelle Ausführung NOT_EXECUTED und Readiness NOT_CHECKED. Alte Public-/Browser-
 und Manifestdefaults bleiben unverändert. Reale neue Producerrecords, Native-/SQL-
 Abnahme und vollständige Kombinationenmatrix bleiben offen.
+# Expliziter StateRoot in der Container-CI
+
+`Get-SqlServerLab`, `Restart-SqlServerLab` und `Test-SqlServerLabPrerequisite`
+akzeptieren einen optionalen expliziten `StateRoot`. Restart reicht ihn an
+Beobachtung, Stop und Start weiter; Prerequisite verwendet ihn für die
+gebundene Providerprüfung. Ohne Angabe bleiben die bisherigen Defaults gültig.
+Der interne CI-Koordinator initialisiert einen frischen eigenen Root; ein
+beliebiger Pfad aktiviert keine zusätzlichen Rechte. Im eigenen Profil werden
+vorbestehende Ressourcen erhalten, Podmanmaschinen nicht gestartet und die
+gemeinsame Hostspeicherwartung bei Stop übersprungen.
+[Vertrag und Grenzen](../Documentation/Architecture/OWNED_HOST_CI_ISOLATION.md).

@@ -15,14 +15,19 @@
 param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
     [switch]$RuntimeMutexAlreadyHeld,
-    [switch]$KeepOnFailure
+    [switch]$KeepOnFailure,
+    [string]$StateRoot
 )
+$requestedStateRoot=$StateRoot
+. (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+if ($requestedStateRoot) { Assert-OwnedHostTestRoot -StateRoot $requestedStateRoot }
+
 
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath=Join-Path $repoRoot 'SqlServerLab.psd1'
-$testRoot=Join-Path ([IO.Path]::GetTempPath()) "sql-lab-transfer-preflight-$Provider-$([Guid]::NewGuid().ToString('N'))"
-$stateRoot=Join-Path $testRoot 'state';$dataRoot=Join-Path $testRoot 'Lab_Data'
+$testRoot=if ($requestedStateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $requestedStateRoot -Name 'sql-lab-transfer-preflight' } else { Join-Path ([IO.Path]::GetTempPath()) "sql-lab-transfer-preflight-$Provider-$([Guid]::NewGuid().ToString('N'))" }
+$stateRoot=if ($requestedStateRoot) { $requestedStateRoot } else { Join-Path $testRoot 'state' };$dataRoot=Join-Path $testRoot 'Lab_Data'
 $previousStateRoot=$env:SQL_SERVER_LAB_STATE;$previousDataRoot=$env:SQL_SERVER_LAB_DATA_ROOT
 $sourceLab=$null;$targetLab=$null;$module=$null;$completed=$false;$cleanupFailed=$false;$mutex=$null;$mutexAcquired=$false
 
@@ -39,9 +44,9 @@ try {
         if(-not $mutexAcquired){throw 'PORTABLE_CONTAINER_TRANSFER_PREFLIGHT_ACCEPTANCE_LOCK_TIMEOUT'}
     }
     $runtimeResolution=@(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
-    if($Provider -eq 'podman'){& (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1')|Out-Host}
+    if($Provider -eq 'podman'){$(if ($requestedStateRoot) { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') -StateRoot $requestedStateRoot -RequireReachable } else { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') }) |Out-Host}
     Assert-TransferPreflightAcceptance ([bool]$runtimeResolution.Available) "Runtime '$Provider' ist zentral auflösbar"
-    & ([string]$runtimeResolution.Invocation) info 1>$null 2>$null
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation ([string]$runtimeResolution.Invocation) -Arguments @('info') } else { & ([string]$runtimeResolution.Invocation) info }) 1>$null 2>$null
     Assert-TransferPreflightAcceptance ($LASTEXITCODE -eq 0) "Runtime '$Provider' ist erreichbar"
 
     New-Item -ItemType Directory -Path $testRoot -Force|Out-Null
@@ -49,7 +54,7 @@ try {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module=Import-Module $modulePath -Force -PassThru
     & $module {param($Root)$null=Initialize-LabManagedDataRoot -DataRoot $Root -ControllerId ([Guid]::NewGuid().ToString('D')) -Confirm:$false} $dataRoot
-    $assessment=Test-SqlServerLabPrerequisite -Provider $Provider
+    $assessment=Test-SqlServerLabPrerequisite -Provider $Provider -StateRoot $stateRoot
     Assert-TransferPreflightAcceptance ($assessment.Status -eq 'RESOURCE_OK') 'Ressourcenpruefung erlaubt die zwei isolierten SQL-2025-Runs'
 
     $token=[Guid]::NewGuid().ToString('N').Substring(0,16)
@@ -98,7 +103,7 @@ finally {
     if($mutex){if($mutexAcquired){try{$mutex.ReleaseMutex()}catch{}};$mutex.Dispose()}
     if($cleanupFailed -or ($KeepOnFailure -and -not $completed)){Write-Warning 'Acceptance-Arbeitsbereich bleibt für Recovery erhalten.'}
     elseif(Test-Path -LiteralPath $testRoot){
-        $resolved=[IO.Path]::GetFullPath($testRoot);$boundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+        $resolved=[IO.Path]::GetFullPath($testRoot);$boundary=[IO.Path]::GetFullPath($(if ($requestedStateRoot) { Join-Path $requestedStateRoot 'test-artifacts' } else { [IO.Path]::GetTempPath() })).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
         if(-not $resolved.StartsWith($boundary,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolved) -notlike 'sql-lab-transfer-preflight-*'){throw 'PORTABLE_CONTAINER_TRANSFER_PREFLIGHT_ACCEPTANCE_CLEANUP_SCOPE_INVALID'}
         Remove-Item -LiteralPath $resolved -Recurse -Force
     }

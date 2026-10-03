@@ -19,6 +19,11 @@ project:
   runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED
 
 sources_of_truth:
+  owned_host_ci_isolation: Documentation/Architecture/OWNED_HOST_CI_ISOLATION.md
+  owned_host_ci_implementation: Private/ContainerOwnedHostIntegration.ps1
+  owned_host_ci_schema: Schemas/container-owned-host-integration.schema.json
+  owned_host_ci_coordinator: Tests/Common/OwnedHostTestScope.ps1
+  owned_host_ci_checks: Tests/Static/Invoke-OwnedHostIntegrationChecks.ps1
   agent_working_contract: AGENTS.md
   foundation_ruleset: .ai/foundation/FOUNDATION_RULESET.md
   model_routing_policy: .ai/MODEL_ROUTING_POLICY.md

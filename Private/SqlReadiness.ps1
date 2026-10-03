@@ -10,7 +10,14 @@ function Get-PodmanWindowsLocalhostDiagnostic {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][int]$Port
-    )
+    , [string]$StateRoot)
+    if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) {
+        $null=Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required
+        # This profile excludes shared runtime/WSL maintenance. Absence of this
+        # diagnostic is not reachability evidence; the SQL probe owns readiness.
+        return $null
+    }
+
 
     if (-not $IsWindows) {
         return $null
@@ -74,7 +81,12 @@ Hinweis: --user-mode-networking allein stellt die Localhost-Portweiterleitung ni
 
 function Resolve-PodmanWindowsHostName {
     [CmdletBinding()]
-    param([string]$FallbackHostName = '127.0.0.1')
+    param([string]$FallbackHostName = '127.0.0.1',[string]$StateRoot)
+
+    if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+        $null=Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required
+        return '127.0.0.1'
+    }
 
     if (-not $IsWindows -or -not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) {
         return $FallbackHostName
@@ -130,13 +142,13 @@ function Get-LabContainerReadinessDiagnostic {
         [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
         [Parameter(Mandatory)][string]$ContainerIdOrName,
         [switch]$IncludeLogs
-    )
+    , [string]$StateRoot)
 
     $runtimeResolution = Resolve-LabHostTool -Name $Provider
     if (-not $runtimeResolution.Available) { return $null }
     $runtimeInvocation = [string]$runtimeResolution.Invocation
     try {
-        $stateOutput = & $runtimeInvocation inspect --format '{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.State.Error}}' $ContainerIdOrName 2>&1
+        $stateOutput = $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $Provider -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('inspect', '--format', '{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.State.Error}}', $ContainerIdOrName) } else { & $runtimeInvocation inspect --format '{{.State.Status}}|{{.State.ExitCode}}|{{.State.OOMKilled}}|{{.State.Error}}' $ContainerIdOrName }) 2>&1
         if ($LASTEXITCODE -ne 0) { return $null }
         $stateText = (($stateOutput | ForEach-Object { [string]$_ }) -join ' ').Trim()
         $parts = @($stateText -split '\|', 4)
@@ -148,7 +160,7 @@ function Get-LabContainerReadinessDiagnostic {
         if (-not [string]::IsNullOrWhiteSpace($runtimeError)) { $message += "; RuntimeError: $runtimeError" }
 
         if ($IncludeLogs) {
-            $logOutput = & $runtimeInvocation logs --tail 80 $ContainerIdOrName 2>&1
+            $logOutput = $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $Provider -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('logs', '--tail', 80, $ContainerIdOrName) } else { & $runtimeInvocation logs --tail 80 $ContainerIdOrName }) 2>&1
             $logText = (($logOutput | ForEach-Object { [string]$_ }) -join "`n").Trim()
             if ($logText) {
                 $logText = [regex]::Replace($logText, '(?i)((?:sa_)?password\s*[=:]\s*)\S+', '$1***')
@@ -174,7 +186,7 @@ function Wait-SqlReady {
         [ValidateRange(1, 60)][int]$StabilitySeconds = 5,
         [ValidateSet('docker', 'podman')][string]$Provider,
         [string]$ContainerIdOrName
-    )
+    , [string]$StateRoot)
 
     if (-not (Get-Command sqlcmd -ErrorAction SilentlyContinue)) {
         throw 'sqlcmd wurde nicht gefunden. Installieren Sie die SQL Server Command Line Tools.'
@@ -248,11 +260,11 @@ function Wait-SqlReady {
             }
 
             if ($Provider -and $ContainerIdOrName -and $stopwatch.Elapsed.TotalSeconds -ge $nextRuntimeCheckSeconds) {
-                $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName
+                $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -StateRoot $StateRoot
                 $nextRuntimeCheckSeconds = $stopwatch.Elapsed.TotalSeconds + 2
                 if ($runtimeDiagnostic -and -not $runtimeDiagnostic.Running) {
                     $stopwatch.Stop()
-                    $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs
+                    $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs -StateRoot $StateRoot
                     return [PSCustomObject]@{
                         Ready        = $false
                         MajorVersion = $null
@@ -269,7 +281,7 @@ function Wait-SqlReady {
                 $transientDiagnostic = Get-LabContainerReadinessDiagnostic `
                     -Provider $Provider `
                     -ContainerIdOrName $ContainerIdOrName `
-                    -IncludeLogs
+                    -IncludeLogs -StateRoot $StateRoot
                 if ($transientDiagnostic -and $transientDiagnostic.Message -match '(?i)Error:\s*18456[\s\S]{0,120}State:\s*115') {
                     $stopwatch.Stop()
                     return [PSCustomObject]@{
@@ -282,7 +294,7 @@ function Wait-SqlReady {
             }
 
             if (-not $podmanDiagnosticChecked -and $HostName -in @('127.0.0.1', 'localhost') -and $stopwatch.Elapsed.TotalSeconds -ge 5) {
-                $podmanDiagnostic = Get-PodmanWindowsLocalhostDiagnostic -Port $Port
+                $podmanDiagnostic = Get-PodmanWindowsLocalhostDiagnostic -Port $Port -StateRoot $StateRoot
                 if ($podmanDiagnostic) {
                     $stopwatch.Stop()
                     Write-LabWarning $podmanDiagnostic
@@ -301,7 +313,7 @@ function Wait-SqlReady {
 
         $stopwatch.Stop()
         if ($Provider -and $ContainerIdOrName) {
-            $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs
+            $runtimeDiagnostic = Get-LabContainerReadinessDiagnostic -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs -StateRoot $StateRoot
             if ($runtimeDiagnostic) { $lastError += "`n$($runtimeDiagnostic.Message)" }
         }
         return [PSCustomObject]@{

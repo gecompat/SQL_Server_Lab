@@ -1,3 +1,4 @@
+. (Join-Path $PSScriptRoot 'OwnedHostTestScope.ps1')
 # Private test infrastructure: no runtime access until the supplied native child starts.
 function Assert-SqlUpgradeChildBinding {
     param($Record,[string]$Provider,[string]$OperationId,[string]$StateRoot,[string]$EvidenceRoot)
@@ -6,15 +7,15 @@ function Assert-SqlUpgradeChildBinding {
         $Record.SourceOperationId -cne ($OperationId+'-source') -or
         $Record.TargetOperationId -cne ($OperationId+'-target') -or
         $Record.StateRoot -cne $StateRoot -or
-        [IO.Path]::GetFullPath($StateRoot) -cne [IO.Path]::GetFullPath((Join-Path $EvidenceRoot 'state'))) {
+        -not (Test-OwnedHostTestEvidenceBinding -StateRoot $StateRoot -EvidenceRoot $EvidenceRoot)) {
         throw 'SQL_UPGRADE_CHILD_BINDING_INVALID'
     }
 }
 
 function New-SqlUpgradeSupervisorRoot {
-    param([switch]$Synthetic)
-    $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-server-lab-upgrade-'+[guid]::NewGuid().ToString('N'))
-    $item=New-Item -ItemType Directory -Path $root -ErrorAction Stop
+    param([switch]$Synthetic,[string]$StateRoot)
+    $root=if ($StateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $StateRoot -Name 'sql-server-lab-upgrade' } else { Join-Path ([IO.Path]::GetTempPath()) ('sql-server-lab-upgrade-'+[guid]::NewGuid().ToString('N')) }
+    $item=if ($StateRoot) { Get-Item -LiteralPath $root } else { New-Item -ItemType Directory -Path $root -ErrorAction Stop }
     if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'SQL_UPGRADE_SUPERVISOR_ROOT_INVALID' }
     if (-not $Synthetic -and $IsWindows) {
         $identity=[Security.Principal.WindowsIdentity]::GetCurrent().User

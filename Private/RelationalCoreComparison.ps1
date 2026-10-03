@@ -34,10 +34,13 @@ function Get-LabRelationalCoreLiveBinding {
     if([string]$run.state -ne 'RUNNING') { throw 'RELATIONAL_CORE_RUN_NOT_RUNNING' }
     $target=Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
     if([string]$target.Provider -notin @('docker','podman')) { throw 'RELATIONAL_CORE_CONTAINER_PROVIDER_REQUIRED' }
-    $scope=Get-LabContainerRuntimeScope -Provider ([string]$target.Provider)
+    $scope=Get-LabContainerRuntimeScope -Provider ([string]$target.Provider) -StateRoot $StateRoot
     if([string]$scope.Status -ne 'AVAILABLE' -or [string]::IsNullOrWhiteSpace([string]$scope.RuntimeId)) { throw 'RELATIONAL_CORE_RUNTIME_SCOPE_UNAVAILABLE' }
     $invocation=Get-LabHostToolInvocation -Name ([string]$target.Provider)
-    $inspection=@(& $invocation inspect --format '{{.Id}}|{{.State.Running}}' ([string]$target.ContainerName) 2>$null)
+    $inspection=@($(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) {
+        $identity=Resolve-LabOwnedHostContainerEffect -StateRoot $StateRoot -RunId $RunId -Provider $target.Provider -ContainerIdOrName $target.ContainerName
+        Invoke-LabContainerRuntimeCommand -Provider $target.Provider -StateRoot $StateRoot -RunId $RunId -Invocation $invocation -ArgumentList @('inspect','--format','{{.Id}}|{{.State.Running}}',$identity)
+    } else { & $invocation inspect --format '{{.Id}}|{{.State.Running}}' ([string]$target.ContainerName) }) 2>$null)
     if($LASTEXITCODE -ne 0 -or $inspection.Count -ne 1 -or $inspection[0] -notmatch '^([a-f0-9]{12,64})\|true$') { throw 'RELATIONAL_CORE_LIVE_CONTAINER_BINDING_UNVERIFIABLE' }
     [PSCustomObject]@{ Provider=[string]$target.Provider; RuntimeScopeId=[string]$scope.RuntimeId; ContainerId=$Matches[1].ToLowerInvariant(); HostName=[string]$target.HostName; Port=[int]$target.Port }
 }

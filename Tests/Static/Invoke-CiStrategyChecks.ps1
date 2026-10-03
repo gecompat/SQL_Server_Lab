@@ -441,6 +441,76 @@ $podmanWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflo
 $mixedWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-mixed-providers.yml') -Raw -Encoding utf8
 $hyperVWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/runtime-smoke-hyperv.yml') -Raw -Encoding utf8
 $prGateWorkflow = Get-Content -LiteralPath (Join-Path $repoRoot '.github/workflows/static-contracts.yml') -Raw -Encoding utf8
+function Get-WorkflowRunAst {
+    param([string]$Workflow)
+    $lines=$Workflow -split '\r?\n'
+    for($line=0;$line -lt $lines.Count;$line++) {
+        if($lines[$line] -notmatch '^(\s*)run:\s*\|\s*$'){continue}
+        $indent=$Matches[1].Length;$body=[Collections.Generic.List[string]]::new()
+        for($next=$line+1;$next -lt $lines.Count;$next++) {
+            if($lines[$next].Trim().Length -and ($lines[$next] -match '^(\s*)' -and $Matches[1].Length -le $indent)){break}
+            $body.Add($lines[$next])
+        }
+        $tokens=$null;$errors=$null
+        $ast=[Management.Automation.Language.Parser]::ParseInput(($body -join "`n"),[ref]$tokens,[ref]$errors)
+        if($errors.Count){throw 'CI_RUN_STEP_PARSE_FAILED'}
+        $ast
+    }
+}
+function Get-WorkflowCommandArgument {
+    param($Command,[string]$Name)
+    $elements=$Command.CommandElements
+    for($index=1;$index -lt $elements.Count;$index++) {
+        if($elements[$index] -is [Management.Automation.Language.CommandParameterAst] -and $elements[$index].ParameterName -ceq $Name) {
+            if($elements[$index].Argument){return $elements[$index].Argument}
+            if($index+1 -lt $elements.Count -and $elements[$index+1] -isnot [Management.Automation.Language.CommandParameterAst]){return $elements[$index+1]}
+        }
+    }
+}
+function Test-WorkflowOwnedHarness {
+    param([string]$Workflow,[string]$Harness,[string]$Provider,[string]$ExitVariable='LASTEXITCODE',[switch]$Supervisor)
+    $steps=@(Get-WorkflowRunAst $Workflow);$fresh=$false;$bound=$false;$harnessCount=0;$initializerCount=0
+    foreach($step in $steps) {
+        $commands=@($step.FindAll({param($n) $n -is [Management.Automation.Language.CommandAst]},$true))
+        $initializer=@($commands|Where-Object {$_.GetCommandName() -ceq 'Initialize-OwnedHostTestRoot'})
+        $initializerCount+=$initializer.Count
+        if($initializer.Count -eq 1 -and (Get-WorkflowCommandArgument $initializer[0] StateRoot).Extent.Text -ceq '$stateRoot') {
+            $allocation=@($step.FindAll({param($n) $n -is [Management.Automation.Language.AssignmentStatementAst] -and $n.Left.Extent.Text -ceq '$stateRoot'},$true))
+            $export=@($commands|Where-Object {$_.GetCommandName() -ceq 'Out-File' -and
+                (Get-WorkflowCommandArgument $_ FilePath).Extent.Text -ceq '$env:GITHUB_ENV' -and $_.Parent.Extent.Text.Contains('SQL_SERVER_LAB_CI_OWN_STATE_ROOT=$stateRoot')})
+            $fresh=$allocation.Count -eq 1 -and $allocation[0].Right.Extent.Text.Contains('$env:RUNNER_TEMP') -and
+                $allocation[0].Right.Extent.Text.Contains('[guid]::NewGuid()') -and $export.Count -eq 1 -and
+                $allocation[0].Extent.StartOffset -lt $initializer[0].Extent.StartOffset
+        }
+        foreach($command in @($commands|Where-Object {$_.GetCommandName() -ceq 'pwsh'})) {
+            $file=Get-WorkflowCommandArgument $command File
+            if(-not $file -or $file.Extent.Text -cne ('.\Tests\Integration\'+$Harness)){continue}
+            $harnessCount++
+            $providerArgument=Get-WorkflowCommandArgument $command Provider
+            $rootArgument=Get-WorkflowCommandArgument $command StateRoot
+            $parameters=@($command.CommandElements|Where-Object {$_ -is [Management.Automation.Language.CommandParameterAst]}|ForEach-Object ParameterName)
+            $mutex=@($step.FindAll({param($n) $n -is [Management.Automation.Language.InvokeMemberExpressionAst] -and $n.Member.Extent.Text -ceq 'WaitOne'},$true))
+            $exitChecks=@($step.FindAll({param($n) $n -is [Management.Automation.Language.IfStatementAst] -and
+                $n.Clauses[0].Item1.Extent.Text -ceq ('$'+$ExitVariable+' -ne 0') -and
+                @($n.Clauses[0].Item2.FindAll({param($x) $x -is [Management.Automation.Language.ThrowStatementAst]},$true)).Count -gt 0},$true))
+            $providerMatches=if($Harness -ceq 'Invoke-AiPodmanSamplesReferenceAcceptance.ps1') {
+                $Provider -ceq 'podman' -and -not $providerArgument
+            } else { $providerArgument.Extent.Text -ceq $Provider }
+            $bound=$providerMatches -and $rootArgument -is [Management.Automation.Language.VariableExpressionAst] -and
+                $rootArgument.VariablePath.UserPath -ceq 'env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT' -and $mutex.Count -eq 1 -and
+                $mutex[0].Extent.StartOffset -lt $command.Extent.StartOffset -and
+                @($exitChecks|Where-Object {$_.Extent.StartOffset -gt $command.Extent.EndOffset}).Count -gt 0 -and
+                (-not $Supervisor -or 'RuntimeMutexAlreadyHeld' -cin $parameters)
+        }
+    }
+    return $fresh -and $bound -and $harnessCount -eq 1 -and $initializerCount -eq 1
+}
+Add-CheckResult -Name 'CI-StateRoot-Carrier lehnt andere Argumentvariable ab' -Success (
+    -not (Test-WorkflowOwnedHarness ($dockerWorkflow.Replace('$env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT','$env:OTHER_STATE_ROOT')) 'Invoke-BatchWorkflowSmokeTest.ps1' docker -ExitVariable batchExitCode))
+Add-CheckResult -Name 'CI-Policyroot benoetigt tatsaechlich frische GUID-Allokation' -Success (
+    -not (Test-WorkflowOwnedHarness ($dockerWorkflow.Replace('[guid]::NewGuid()','[guid]::Empty')) 'Invoke-BatchWorkflowSmokeTest.ps1' docker -ExitVariable batchExitCode))
+Add-CheckResult -Name 'CI-Providerbindung ist Argument desselben ausgewaehlten Commands' -Success (
+    -not (Test-WorkflowOwnedHarness ($dockerWorkflow.Replace('-Provider docker','-Provider podman')) 'Invoke-BatchWorkflowSmokeTest.ps1' docker -ExitVariable batchExitCode))
 Add-CheckResult -Name 'Runtime-Gates trennen Infrastrukturunverfuegbarkeit von Implementierungsfehlern' -Success (
     @(@($dockerWorkflow, $podmanWorkflow, $mixedWorkflow, $hyperVWorkflow) | Where-Object {
         $_ -notmatch 'validation_classification:' -or
@@ -454,24 +524,23 @@ Add-CheckResult -Name 'Runtime-Gates trennen Infrastrukturunverfuegbarkeit von I
     $prGateWorkflow -match 'Diese Jobs konnten keinen belastbaren Implementierungsnachweis erzeugen'
 )
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten den realen Batch-Smoke' -Success (
-    $dockerWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`?\s*-Provider docker' -and
-    $podmanWorkflow -match 'Invoke-BatchWorkflowSmokeTest\.ps1\s+`?\s*-Provider podman'
+    (Test-WorkflowOwnedHarness $dockerWorkflow 'Invoke-BatchWorkflowSmokeTest.ps1' docker -ExitVariable batchExitCode) -and
+    (Test-WorkflowOwnedHarness $podmanWorkflow 'Invoke-BatchWorkflowSmokeTest.ps1' podman -ExitVariable batchExitCode)
 )
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die PITR-Referenz' -Success (
-    $dockerWorkflow -match 'Invoke-PointInTimeRecoveryAcceptance\.ps1\s+`?\s*-Provider docker' -and
-    $podmanWorkflow -match 'Invoke-PointInTimeRecoveryAcceptance\.ps1\s+`?\s*-Provider podman'
+    (Test-WorkflowOwnedHarness $dockerWorkflow 'Invoke-PointInTimeRecoveryAcceptance.ps1' docker -ExitVariable pitrExitCode -Supervisor) -and
+    (Test-WorkflowOwnedHarness $podmanWorkflow 'Invoke-PointInTimeRecoveryAcceptance.ps1' podman -ExitVariable pitrExitCode -Supervisor)
 )
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die getrennte AI-Vector-Core-Abnahme' -Success (
-    $dockerWorkflow -match 'Invoke-AiVectorCoreAcceptance\.ps1\s+`?\s*-Provider docker' -and
-    $podmanWorkflow -match 'Invoke-AiVectorCoreAcceptance\.ps1\s+`?\s*-Provider podman'
+    (Test-WorkflowOwnedHarness $dockerWorkflow 'Invoke-AiVectorCoreAcceptance.ps1' docker -ExitVariable aiVectorExitCode) -and
+    (Test-WorkflowOwnedHarness $podmanWorkflow 'Invoke-AiVectorCoreAcceptance.ps1' podman -ExitVariable aiVectorExitCode)
 )
 Add-CheckResult -Name 'Podman-Gate führt die Sample-Referenz unter dem bestehenden Runtime-Mutex aus' -Success (
-    $podmanWorkflow -match 'Invoke-AiPodmanSamplesReferenceAcceptance\.ps1\s+`\s+-RuntimeMutexAlreadyHeld' -and
-    $podmanWorkflow -match 'if \(\$aiSamplesExitCode -ne 0\)'
+    (Test-WorkflowOwnedHarness $podmanWorkflow 'Invoke-AiPodmanSamplesReferenceAcceptance.ps1' podman -ExitVariable aiSamplesExitCode -Supervisor)
 )
 Add-CheckResult -Name 'Docker- und Podman-Gates enthalten die getrennte Collation-Akzeptanz' -Success (
-    $dockerWorkflow -match 'Invoke-ContainerCollationAcceptance\.ps1\s+`?\s*-Provider docker' -and
-    $podmanWorkflow -match 'Invoke-ContainerCollationAcceptance\.ps1\s+`?\s*-Provider podman'
+    (Test-WorkflowOwnedHarness $dockerWorkflow 'Invoke-ContainerCollationAcceptance.ps1' docker -ExitVariable collationExitCode) -and
+    (Test-WorkflowOwnedHarness $podmanWorkflow 'Invoke-ContainerCollationAcceptance.ps1' podman -ExitVariable collationExitCode)
 )
 Add-CheckResult -Name 'Hyper-V-Workflow bietet gezielten OS-Slot-Batch mit scopegebundenem Cleanup' -Success (
     $hyperVWorkflow -match '(?m)^\s*- slot-batch\s*$' -and
@@ -613,8 +682,7 @@ foreach ($path in @('Tests/Common/SqlVersionUpgradeScenario.ps1','Tests/Common/S
 foreach ($provider in @('docker','podman')) {
     $workflow=Get-Content (Join-Path $repoRoot ('.github/workflows/runtime-smoke-'+$provider+'.yml')) -Raw
     Add-CheckResult -Name "$provider workflow invokes supervised upgrade within existing runtime mutex" -Success (
-        $workflow -match ('Invoke-SqlVersionUpgradeAcceptance\.ps1\s+`\s+-Provider '+$provider+'\s+`\s+-RuntimeMutexAlreadyHeld') -and
-         $workflow -match 'if \(\$upgradeExitCode -ne 0\)')
+        (Test-WorkflowOwnedHarness $workflow 'Invoke-SqlVersionUpgradeAcceptance.ps1' $provider -ExitVariable upgradeExitCode -Supervisor))
  }
 if ($failures.Count -gt 0) {
     Write-Host "`nErgebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Red

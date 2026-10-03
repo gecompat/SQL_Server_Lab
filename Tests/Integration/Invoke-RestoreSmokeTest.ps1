@@ -28,8 +28,13 @@ param(
 
     [string]$Version = '2025',
 
-    [switch]$KeepOnFailure
+    [switch]$KeepOnFailure,
+    [string]$StateRoot
 )
+$requestedStateRoot=$StateRoot
+. (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+if ($requestedStateRoot) { Assert-OwnedHostTestRoot -StateRoot $requestedStateRoot }
+
 
 $showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
 if ($showHelpRequested) {
@@ -41,8 +46,8 @@ if ($showHelpRequested) {
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$testRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-server-lab-restore-$([guid]::NewGuid().ToString('N'))"
-$stateRoot = Join-Path $testRoot 'state'
+$testRoot=if ($requestedStateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $requestedStateRoot -Name 'sql-server-lab-restore' } else { Join-Path ([System.IO.Path]::GetTempPath()) "sql-server-lab-restore-$([guid]::NewGuid().ToString('N'))" }
+$stateRoot=if ($requestedStateRoot) { $requestedStateRoot } else { Join-Path $testRoot 'state' }
 $hostBackupPath = Join-Path $testRoot 'synthetic-restore-source.bak'
 $containerBackupPath = '/var/opt/mssql/backup/synthetic-restore-source.bak'
 $previousStateRoot = $env:SQL_SERVER_LAB_STATE
@@ -91,7 +96,7 @@ try {
     Assert-True -Condition ([bool]$runtimeResolution.Available) -Description "Runtime-CLI '$Provider' ist zentral aufloesbar"
     $runtimeInvocation = [string]$runtimeResolution.Invocation
     if ($Provider -eq 'podman') {
-        $null = & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1')
+        $null = $(if ($requestedStateRoot) { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') -StateRoot $requestedStateRoot -RequireReachable } else { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') })
     }
 
     foreach ($command in @('sqlcmd')) {
@@ -99,7 +104,7 @@ try {
             -Condition ([bool](Get-Command $command -ErrorAction SilentlyContinue)) `
             -Description "Befehl '$command' ist verfuegbar"
     }
-    & $runtimeInvocation info 1>$null 2>$null
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('info') } else { & $runtimeInvocation info }) 1>$null 2>$null
     Assert-True -Condition ($LASTEXITCODE -eq 0) -Description "Runtime '$Provider' ist erreichbar"
 
     New-Item -Path $testRoot -ItemType Directory -Force | Out-Null
@@ -121,10 +126,10 @@ try {
         -Version $Version `
         -Provider $Provider `
         -SaPassword $saPassword `
-        -SkipAssessment
+        -SkipAssessment -StateRoot $stateRoot
     $instance = $lab.Instances[0]
 
-    & $runtimeInvocation exec $instance.ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec',$instance.ContainerName,'mkdir','-p','/var/opt/mssql/backup') } else { & $runtimeInvocation exec $instance.ContainerName mkdir -p /var/opt/mssql/backup }) 1>$null 2>$null
     if ($LASTEXITCODE -ne 0) {
         throw 'Temporaeres Backup-Verzeichnis konnte nicht angelegt werden.'
     }
@@ -148,7 +153,7 @@ BACKUP DATABASE [RestoreSmokeSource]
     WITH INIT, CHECKSUM;
 "@
 
-    $copyOutput = @(& $runtimeInvocation cp "$($instance.ContainerName):$containerBackupPath" $hostBackupPath 2>&1)
+    $copyOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('cp',"$($instance.ContainerName):$containerBackupPath",$hostBackupPath) } else { & $runtimeInvocation cp "$($instance.ContainerName):$containerBackupPath" $hostBackupPath }) 2>&1)
     $copyExitCode = $LASTEXITCODE
     if ($copyExitCode -ne 0 -or -not (Test-Path -LiteralPath $hostBackupPath -PathType Leaf)) {
         throw "Synthetisches Backup konnte nicht auf den Host kopiert werden: $($copyOutput -join "`n")"
@@ -224,7 +229,7 @@ finally {
 
     if (-not $KeepOnFailure -and -not $cleanupFailed -and (Test-Path -LiteralPath $testRoot)) {
         $resolvedTestRoot = [IO.Path]::GetFullPath($testRoot)
-        $tempBoundary = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+        $tempBoundary = [IO.Path]::GetFullPath($(if ($requestedStateRoot) { Join-Path $requestedStateRoot 'test-artifacts' } else { [IO.Path]::GetTempPath() })).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
         if (-not $resolvedTestRoot.StartsWith($tempBoundary,[StringComparison]::OrdinalIgnoreCase) -or
             [IO.Path]::GetFileName($resolvedTestRoot) -notlike 'sql-server-lab-restore-*') { throw 'RESTORE_SMOKE_CLEANUP_SCOPE_INVALID' }
         Remove-Item -LiteralPath $resolvedTestRoot -Recurse -Force

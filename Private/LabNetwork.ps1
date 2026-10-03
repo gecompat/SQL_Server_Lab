@@ -416,7 +416,11 @@ function Resolve-LabAvailableContainerNetwork {
 
 function Ensure-LabDockerNetwork {
     [CmdletBinding()]
-    param([string]$Name, [string]$Subnet)
+    param([string]$Name, [string]$Subnet, [string]$StateRoot)
+
+    if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+        return Get-LabOwnedHostExistingNetwork -StateRoot $StateRoot -Provider docker -Name $Name -Subnet $Subnet
+    }
 
     $dockerInvocation = Get-LabHostToolInvocation -Name docker
     $network = Get-LabRuntimeNetwork -Provider docker
@@ -517,7 +521,11 @@ function Get-LabPodmanNetworkContractFromInspect {
 
 function Ensure-LabPodmanNetwork {
     [CmdletBinding()]
-    param([string]$Name, [string]$Subnet)
+    param([string]$Name, [string]$Subnet, [string]$StateRoot)
+
+    if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+        return Get-LabOwnedHostExistingNetwork -StateRoot $StateRoot -Provider podman -Name $Name -Subnet $Subnet
+    }
 
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
     $network = Get-LabRuntimeNetwork -Provider podman

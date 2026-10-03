@@ -11,7 +11,8 @@
 param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
     [ValidateRange(60,1800)][int]$TimeoutSeconds=900,
-    [switch]$RuntimeMutexAlreadyHeld
+    [switch]$RuntimeMutexAlreadyHeld,
+    [string]$StateRoot
 )
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -25,10 +26,10 @@ try {
         catch [Threading.AbandonedMutexException] { $acquired=$true }
         if (-not $acquired) { throw 'SQL_UPGRADE_LOCK_TIMEOUT' }
     }
-    $root=New-SqlUpgradeSupervisorRoot
+    $root=New-SqlUpgradeSupervisorRoot -StateRoot $StateRoot
     $operation=[guid]::NewGuid().ToString('N')
     $result=Invoke-SqlUpgradeSupervisor -AcceptanceRunner (Join-Path $PSScriptRoot 'Invoke-SqlVersionUpgradeChild.ps1') `
-        -Provider $Provider -StateRoot (Join-Path $root 'state') -OperationId $operation -EvidenceRoot $root -TimeoutSeconds $TimeoutSeconds
+        -Provider $Provider -StateRoot $(if ($StateRoot) { $StateRoot } else { Join-Path $root 'state' }) -OperationId $operation -EvidenceRoot $root -TimeoutSeconds $TimeoutSeconds
     Write-Host ('SQL_UPGRADE: '+$result.Status+'; PRIMARY='+$result.PrimaryReason+
         '; CLEANUP='+$result.CleanupStatus+'; CLEANUP_REASON='+$result.CleanupReason)
     $failed=$result.Status -cne 'COMPLETED'

@@ -16,14 +16,19 @@ param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
     [string]$Version='2022-CU18',
     [switch]$RuntimeMutexAlreadyHeld,
-    [switch]$KeepOnFailure
+    [switch]$KeepOnFailure,
+    [string]$StateRoot
 )
+$requestedStateRoot=$StateRoot
+. (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+if ($requestedStateRoot) { Assert-OwnedHostTestRoot -StateRoot $requestedStateRoot }
+
 
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath=Join-Path $repoRoot 'SqlServerLab.psd1'
-$testRoot=Join-Path ([IO.Path]::GetTempPath()) "sql-lab-package-export-$Provider-$([Guid]::NewGuid().ToString('N'))"
-$stateRoot=Join-Path $testRoot 'state';$dataRoot=Join-Path $testRoot 'Lab_Data';$testDataRoot=Join-Path $testRoot 'test-data'
+$testRoot=if ($requestedStateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $requestedStateRoot -Name 'sql-lab-package-export' } else { Join-Path ([IO.Path]::GetTempPath()) "sql-lab-package-export-$Provider-$([Guid]::NewGuid().ToString('N'))" }
+$stateRoot=if ($requestedStateRoot) { $requestedStateRoot } else { Join-Path $testRoot 'state' };$dataRoot=Join-Path $testRoot 'Lab_Data';$testDataRoot=Join-Path $testRoot 'test-data'
 $previousStateRoot=$env:SQL_SERVER_LAB_STATE;$previousDataRoot=$env:SQL_SERVER_LAB_DATA_ROOT;$previousTestDataRoot=$env:SQL_SERVER_LAB_TEST_DATA_ROOT
 $module=$null;$lab=$null;$completed=$false;$mutex=$null;$mutexAcquired=$false;$cleanupFailed=$false
 $databaseName='Psr009ExportEvidence'
@@ -45,11 +50,11 @@ try {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module=Import-Module $modulePath -Force -PassThru
     $runtimeResolution=@(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
-    if($Provider -eq 'podman'){& (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1')|Out-Host}
+    if($Provider -eq 'podman'){$(if ($requestedStateRoot) { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') -StateRoot $requestedStateRoot -RequireReachable } else { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') }) |Out-Host}
     Assert-ContainerPackageExport ([bool]$runtimeResolution.Available) "Runtime '$Provider' ist zentral auflösbar"
-    & ([string]$runtimeResolution.Invocation) info 1>$null 2>$null
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation ([string]$runtimeResolution.Invocation) -Arguments @('info') } else { & ([string]$runtimeResolution.Invocation) info }) 1>$null 2>$null
     Assert-ContainerPackageExport ($LASTEXITCODE -eq 0) "Runtime '$Provider' ist erreichbar"
-    $assessment=Test-SqlServerLabPrerequisite -Provider $Provider
+    $assessment=Test-SqlServerLabPrerequisite -Provider $Provider -StateRoot $stateRoot
     Assert-ContainerPackageExport ($assessment.Status -eq 'RESOURCE_OK') 'Ressourcenpruefung erlaubt den isolierten Test-Run'
     & $module {param($Root)$null=Initialize-LabManagedDataRoot -DataRoot $Root -ControllerId ([Guid]::NewGuid().ToString('D')) -Confirm:$false} $dataRoot
 
@@ -121,7 +126,7 @@ finally {
     if($cleanupFailed -or ($KeepOnFailure -and -not $completed)){Write-Warning 'Acceptance-Arbeitsbereich bleibt fuer Recovery erhalten.'}
     elseif(Test-Path -LiteralPath $testRoot){
         $resolved=[IO.Path]::GetFullPath($testRoot)
-        $boundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+        $boundary=[IO.Path]::GetFullPath($(if ($requestedStateRoot) { Join-Path $requestedStateRoot 'test-artifacts' } else { [IO.Path]::GetTempPath() })).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
         if(-not $resolved.StartsWith($boundary,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolved) -notlike 'sql-lab-package-export-*'){throw 'CONTAINER_PACKAGE_TEST_CLEANUP_SCOPE_INVALID'}
         Remove-Item -LiteralPath $resolved -Recurse -Force
     }

@@ -20,7 +20,8 @@ param(
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$RemainingArgs,
     [string]$Version = '2025',
-    [switch]$KeepOnFailure
+    [switch]$KeepOnFailure,
+    [string]$StateRoot
 )
 
 $showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
@@ -31,11 +32,15 @@ if ($showHelpRequested) {
 
 
 $ErrorActionPreference = 'Stop'
+$requestedStateRoot=$StateRoot
+. (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+if ($requestedStateRoot) { Assert-OwnedHostTestRoot -StateRoot $requestedStateRoot }
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $hostToolInitializer = Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1'
 $sourceManifestPath = Join-Path $repoRoot 'Schemas\example-mixed-provider-lab.json'
-$stateRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-server-lab-mixed-$([guid]::NewGuid().ToString('N'))"
+$stateRoot=if ($requestedStateRoot) { $requestedStateRoot } else { Join-Path ([System.IO.Path]::GetTempPath()) "sql-server-lab-mixed-$([guid]::NewGuid().ToString('N'))" }
+$testArtifactRoot=if ($requestedStateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $stateRoot -Name 'sql-server-lab-mixed' } else { $stateRoot }
 $previousStateRoot = $env:SQL_SERVER_LAB_STATE
 $lab = $null
 $testFailed = $false
@@ -62,13 +67,15 @@ function Test-RuntimeCommand {
         return $false
     }
 
-    & ([string]$resolution.Invocation) info 1>$null 2>$null
+    if ($requestedStateRoot) {
+        Invoke-OwnedHostTestCommand -StateRoot $stateRoot -Provider $Name -Invocation ([string]$resolution.Invocation) -Arguments @('info') 1>$null 2>$null
+    } else { & ([string]$resolution.Invocation) info 1>$null 2>$null }
     return $LASTEXITCODE -eq 0
 }
 
 try {
     Write-Host 'Mixed-Provider-Smoke-Test: Docker + Podman' -ForegroundColor Cyan
-    $null = & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1')
+    $null=if ($requestedStateRoot) { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') -StateRoot $stateRoot -RequireReachable } else { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') }
     foreach ($provider in @('docker', 'podman')) {
         Assert-True `
             -Condition (Test-RuntimeCommand -Name $provider) `
@@ -83,11 +90,11 @@ try {
     foreach ($instance in @($manifest.instances)) {
         $instance.version = $Version
     }
-    $effectiveManifestPath = Join-Path $stateRoot 'mixed-provider-smoke.json'
+    $effectiveManifestPath = Join-Path $testArtifactRoot 'mixed-provider-smoke.json'
     New-Item -Path $stateRoot -ItemType Directory -Force | Out-Null
     $manifest | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $effectiveManifestPath -Encoding utf8
 
-    $assessment = Test-SqlServerLabPrerequisite -Provider @('docker', 'podman') -Instances @($manifest.instances)
+    $assessment = Test-SqlServerLabPrerequisite -Provider @('docker', 'podman') -Instances @($manifest.instances) -StateRoot $stateRoot
     Assert-True `
         -Condition ($assessment.Status -ne 'RESOURCE_HARD_BLOCK') `
         -Description 'Gemischtes Resource Assessment ist nicht HARD_BLOCK'
@@ -141,7 +148,7 @@ finally {
         }
     }
 
-    if (-not $KeepOnFailure -and (Test-Path -LiteralPath $stateRoot -PathType Container)) {
+    if (-not $requestedStateRoot -and -not $KeepOnFailure -and (Test-Path -LiteralPath $stateRoot -PathType Container)) {
         Remove-Item -LiteralPath $stateRoot -Recurse -Force
     }
 

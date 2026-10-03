@@ -16,6 +16,8 @@
     Optional: Nur diese RunId anzeigen.
 .PARAMETER Detailed
     Erweiterte Informationen wie State-History und Fehler anzeigen.
+.PARAMETER StateRoot
+    Optionaler expliziter StateRoot fuer die gespeicherten Runs und ihre gebundene Beobachtung.
 .OUTPUTS
     System.Management.Automation.PSCustomObject. Liefert pro Run Status,
     Metadaten und Instanzinformationen; ohne gefundene Runs wird nichts
@@ -29,10 +31,10 @@ function Get-SqlServerLab {
     [CmdletBinding()]
     param(
         [string]$RunId,
-        [switch]$Detailed
+        [switch]$Detailed, [string]$StateRoot
     )
 
-    $stateRoot = Get-LabStateRoot
+    $stateRoot = if ($StateRoot) { $StateRoot } else { Get-LabStateRoot }
 
     $runs = if ($RunId) {
         @(Get-LabRunState -RunId $RunId -StateRoot $stateRoot)
@@ -49,6 +51,7 @@ function Get-SqlServerLab {
     $results = @()
 
     foreach ($run in $runs) {
+        $ownedHostPolicy = if ($run.metadata.ownedHostIntegration -or (((Test-Path (Join-Path $stateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $stateRoot 'owned-host-policy.json'))))) { Get-LabOwnedHostRunPolicy -RunId $run.runId -StateRoot $stateRoot } else { $null }
         $runDirectory = Join-Path (Join-Path $stateRoot 'runs') $run.runId
         $liveRuntime = Get-LabRunRuntimeStatus -Run $run -StateRoot $stateRoot
         $connectionInfoPath = Join-Path $runDirectory 'connection-info.json'
@@ -71,7 +74,7 @@ function Get-SqlServerLab {
         foreach ($providerGroup in $providerGroups) {
             $provider = ([string]$providerGroup.Name).ToLowerInvariant()
             if ($provider -notin @('docker', 'podman')) { continue }
-            $runtime = Get-ContainerRuntime -PreferredRuntime $provider
+            $runtime = if ($ownedHostPolicy) { $provider } else { Get-ContainerRuntime -PreferredRuntime $provider }
             if (-not $runtime) {
                 $runtimeNotes += "Container-Runtime '$provider' ist lokal nicht verfuegbar."
                 continue
@@ -79,7 +82,7 @@ function Get-SqlServerLab {
             $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
 
             $containerIds = @(
-                & $runtimeInvocation ps -a -q --filter "label=sql-server-lab.run-id=$($run.runId)" 2>$null |
+                $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $stateRoot -RunId $run.runId -Invocation $runtimeInvocation -ArgumentList @('ps', '-a', '-q', '--filter', "label=sql-server-lab.run-id=$($run.runId)", '--no-trunc') } else { & $runtimeInvocation ps -a -q --filter "label=sql-server-lab.run-id=$($run.runId)" }) 2>$null |
                     Where-Object { $_ }
             )
 
@@ -90,7 +93,7 @@ function Get-SqlServerLab {
                 }
 
                 try {
-                    $inspectJson = & $runtimeInvocation inspect $containerId 2>$null | ConvertFrom-Json -Depth 30
+                    $inspectJson = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $stateRoot -RunId $run.runId -Invocation $runtimeInvocation -ArgumentList @('inspect', $containerId) } else { & $runtimeInvocation inspect $containerId }) 2>$null | ConvertFrom-Json -Depth 30
                     if (-not $inspectJson) {
                         continue
                     }

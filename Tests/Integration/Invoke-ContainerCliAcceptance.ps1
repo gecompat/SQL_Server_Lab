@@ -13,10 +13,18 @@ param(
     [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
     [ValidateSet('2022-CU18')][string]$Version = '2022-CU18',
     [string]$Sample = 'chinook:sql-server',
-    [switch]$KeepOnFailure
+    [switch]$KeepOnFailure,
+    [string]$StateRoot
 )
 
 $ErrorActionPreference = 'Stop'
+if ($StateRoot) {
+    . (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+    Assert-OwnedHostTestRoot -StateRoot $StateRoot
+    # This optional mode requires update/rename reconciliation, which has no
+    # own-origin mutation contract in the bounded shared-host profile.
+    throw 'OWNED_HOST_CLI_RECONCILE_ACCEPTANCE_UNSUPPORTED'
+}
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-server-lab-cli-$Provider-$([guid]::NewGuid().ToString('N'))"

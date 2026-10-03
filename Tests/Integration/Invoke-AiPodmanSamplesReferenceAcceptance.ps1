@@ -11,7 +11,8 @@ param(
     [ValidateRange(1024,65535)][int]$LocalPort=11434,
     [ValidateRange(1,3600)][int]$TimeoutSeconds=900,
     [ValidateRange(1,900)][int]$CleanupTimeoutSeconds=240,
-    [switch]$RuntimeMutexAlreadyHeld
+    [switch]$RuntimeMutexAlreadyHeld,
+    [string]$StateRoot
 )
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -24,19 +25,22 @@ try {
         try{$held=$mutex.WaitOne([TimeSpan]::FromMinutes(10))}catch [Threading.AbandonedMutexException]{$held=$true}
         if(-not $held){throw 'AI_PODMAN_SAMPLES_RUNTIME_LOCKED'}
     }
-    $root=New-AiPodmanSamplesReferenceRoot
+    $root=New-AiPodmanSamplesReferenceRoot -StateRoot $StateRoot
     $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
     # Every native process in this read-only probe has a bounded timeout.
-    $scope=& $module { Get-LabAiPodmanSetupRuntimeScope }
+    $scope=if ($StateRoot) {
+        & $module {param($Root) Get-LabContainerRuntimeScope -Provider podman -StateRoot $Root} $StateRoot
+    } else { & $module { Get-LabAiPodmanSetupRuntimeScope } }
     if($scope.Status -cne 'AVAILABLE' -or $scope.RuntimeId -cnotmatch '^runtime-scope-[a-f0-9]{24}$'){
         throw 'AI_PODMAN_SAMPLES_RUNTIME_UNAVAILABLE'
     }
     $operation=[ordered]@{
         OperationId=[guid]::NewGuid().ToString('D');RuntimeScopeId=$scope.RuntimeId
-        StateRoot=(Join-Path $root 'state');DataRoot=(Join-Path $root 'Lab_Data')
+        StateRoot=$(if ($StateRoot) { $StateRoot } else { Join-Path $root 'state' });DataRoot=(Join-Path $root 'Lab_Data')
         CollectionId=[guid]::NewGuid().ToString('D');LocalPort=$LocalPort;NewStarted=$false
     }
-    $null=New-Item -ItemType Directory -Path $operation.StateRoot,$operation.DataRoot
+    if (-not $StateRoot) { $null=New-Item -ItemType Directory -Path $operation.StateRoot }
+    $null=New-Item -ItemType Directory -Path $operation.DataRoot
     [IO.File]::WriteAllText((Join-Path $root 'operation.json'),($operation|ConvertTo-Json -Compress))
     $result=Invoke-AiPodmanSamplesReferenceSequence -EvidenceRoot $root -OperationId $operation.OperationId `
         -WorkerPath (Join-Path $repoRoot 'Tests/Integration/Support/Invoke-AiPodmanSamplesReferenceWorker.ps1') `

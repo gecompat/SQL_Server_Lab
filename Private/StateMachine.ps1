@@ -83,11 +83,21 @@ function New-LabRunState {
         $StateRoot = Get-LabStateRoot
     }
 
+    $ownedHostPolicy = $null
+    if (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')))))) {
+        $ownedHostPolicy = Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required
+    }
+    if ($Metadata.ContainsKey('ownedHostIntegration')) { throw 'OWNED_HOST_RUN_REFERENCE_CALLER_FORBIDDEN' }
+
     $null = Initialize-LabStateRoot -StateRoot $StateRoot
 
     $runId = New-LabGuid
     if (-not $ScopeId) {
         $ScopeId = New-LabGuid
+    }
+    if ($ownedHostPolicy) {
+        $Metadata.ownedHostIntegration = New-LabOwnedHostRunReference -Policy $ownedHostPolicy `
+            -RunId $runId -ScopeId $ScopeId -Metadata $Metadata
     }
 
     $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $runId
@@ -637,8 +647,8 @@ function Get-LabRunRuntimeStatus {
                     $hyperVLab = Get-HyperVLabWorkflowRun -RunId ([string]$Run.runId) -StateRoot $StateRoot
                     Get-HyperVInstanceStatus -VMName ([string]$hyperVLab.Instance.vmName) -ExpectedRunId ([string]$Run.runId) -ExpectedScopeId ([string]$Run.scopeId)
                 }
-                'docker' { Get-DockerInstanceStatus -ContainerIdOrName ([string]$instance.containerId) }
-                'podman' { Get-PodmanInstanceStatus -ContainerIdOrName ([string]$instance.containerId) }
+                'docker' { Get-DockerInstanceStatus -ContainerIdOrName ([string]$instance.containerId) -StateRoot $StateRoot }
+                'podman' { Get-PodmanInstanceStatus -ContainerIdOrName ([string]$instance.containerId) -StateRoot $StateRoot }
                 default { $null }
             }
             if (-not $status) { throw "Unbekannter Provider: $provider" }

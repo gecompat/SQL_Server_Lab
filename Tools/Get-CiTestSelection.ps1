@@ -62,6 +62,7 @@ end {
     }
 
     $staticGroups = @(
+        @{ Pattern = '(?i)(OwnedHost|owned-host|ContainerAutoStart|ContainerToolImage|ResourceAssessment|Restart-SqlServerLab|runtime-smoke-(docker|podman|mixed-providers))'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1') },
         @{ Pattern = '(?i)(TestGroupGuidance|TestEnvironment)'; Checks = @('Invoke-TestGroupGuidanceChecks.ps1','Invoke-TestEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(CSharpNative|CSharpHyperV|Fixtures[\\/]CSharp[\\/]|csharp-native-acceptance)'; Checks = @('Invoke-ExternalRuntimeWindowsChecks.ps1') },
         @{ Pattern = '(?i)(AiPodmanSamplesReference|ai-podman-samples-reference)'; Checks = @('Invoke-AiPodmanSamplesReferenceChecks.ps1') },

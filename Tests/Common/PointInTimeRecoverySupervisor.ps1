@@ -1,18 +1,19 @@
+. (Join-Path $PSScriptRoot 'OwnedHostTestScope.ps1')
 # Private test infrastructure: no runtime access until the supplied native child starts.
 function Assert-PitrChildBinding {
     param($Record,[string]$Provider,[string]$OperationId,[string]$StateRoot,[string]$EvidenceRoot)
     if ($OperationId -cnotmatch '^[a-f0-9]{32}$' -or $OperationId -ceq ('0'*32) -or
         $Record.OperationId -cne $OperationId -or $Record.Provider -cne $Provider -or
         $Record.StateRoot -cne $StateRoot -or
-        [IO.Path]::GetFullPath($StateRoot) -cne [IO.Path]::GetFullPath((Join-Path $EvidenceRoot 'state'))) {
+        -not (Test-OwnedHostTestEvidenceBinding -StateRoot $StateRoot -EvidenceRoot $EvidenceRoot)) {
         throw 'PITR_CHILD_BINDING_INVALID'
     }
 }
 
 function New-PitrSupervisorRoot {
-    param([switch]$Synthetic)
-    $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-server-lab-pitr-'+[guid]::NewGuid().ToString('N'))
-    $item=New-Item -ItemType Directory -Path $root -ErrorAction Stop
+    param([switch]$Synthetic,[string]$StateRoot)
+    $root=if ($StateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $StateRoot -Name 'sql-server-lab-pitr' } else { Join-Path ([IO.Path]::GetTempPath()) ('sql-server-lab-pitr-'+[guid]::NewGuid().ToString('N')) }
+    $item=if ($StateRoot) { Get-Item -LiteralPath $root } else { New-Item -ItemType Directory -Path $root -ErrorAction Stop }
     if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'PITR_SUPERVISOR_ROOT_INVALID' }
     if (-not $Synthetic -and $IsWindows) {
         $identity=[Security.Principal.WindowsIdentity]::GetCurrent().User

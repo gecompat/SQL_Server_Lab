@@ -3045,3 +3045,13 @@ neue Antwort; Überlauf bleibt leer/UNAVAILABLE. Referenzen sind NOT_VERIFIED,
 aktuelle Ausführung NOT_EXECUTED und Readiness NOT_CHECKED. Alte Public-/Browser-
 und Manifestdefaults bleiben unverändert. Reale neue Producerrecords, Native-/SQL-
 Abnahme und vollständige Kombinationenmatrix bleiben offen.
+## Eigener CI-Scope auf einem geteilten Host
+
+Der [eigene CI-Scope](../Architecture/OWNED_HOST_CI_ISOLATION.md) setzt Windows,
+frischen ACL-gebundenen StateRoot und bereits erreichbare explizite lokale
+Docker-/Podmanrouten voraus. Fehlende katalogisierte Builddigests erlauben
+keinen impliziten Pull. CLI-Reconcile, InstanceStore-CLONE, parallele
+Matrix-Runspaces und externe Runtime-ToolImage-Builds sind im Profil vor
+Arrange gesperrt. Taskregistrierung belegt keinen Logondispatch; synthetische
+Prüfungen ersetzen keine getrennten nativen Pflichtgates am stabilen Head.
+Standardpfade behalten ihre bisherigen Verträge und Nachweise.

@@ -8,7 +8,9 @@
 
 function Test-PodmanAvailable {
     [CmdletBinding()]
-    param()
+    param( [string]$StateRoot)
+    $ownedHostPolicy = if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) { Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required } else { $null }
+
 
     try {
         $podmanInvocation = Get-LabHostToolInvocation -Name podman
@@ -22,7 +24,7 @@ function Test-PodmanAvailable {
     }
 
     try {
-        $versionOutput = & $podmanInvocation version --format '{{.Client.Version}}' 2>&1
+        $versionOutput = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('version', '--format', '{{.Client.Version}}') } else { & $podmanInvocation version --format '{{.Client.Version}}' }) 2>&1
         if ($LASTEXITCODE -ne 0) {
             return [PSCustomObject]@{
                 Available = $false
@@ -31,7 +33,7 @@ function Test-PodmanAvailable {
             }
         }
 
-        & $podmanInvocation info 1>$null 2>$null
+        $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('info') } else { & $podmanInvocation info }) 1>$null 2>$null
         if ($LASTEXITCODE -ne 0) {
             return [PSCustomObject]@{
                 Available = $false
@@ -80,7 +82,16 @@ function Initialize-PodmanSqlNamedVolume {
         [ValidatePattern('^$|^(EXTERNAL_LANGUAGES|EXTERNAL_LIBRARIES)$')][string]$PersistentStorageRole,
         [string]$Persistence,
         [switch]$SyncImageContent
-    )
+    , [string]$StateRoot)
+    $ownedHostPolicy = if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) { Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required } else { $null }
+
+    if ($ownedHostPolicy) {
+        return Initialize-LabOwnedHostSqlVolume -StateRoot $StateRoot -RunId $RunId -ScopeId $ScopeId -Provider podman `
+            -VolumeName $VolumeName -Image $Image -InstanceId $InstanceId -VersionId $VersionId -ContainerPath $ContainerPath `
+            -PersistentStorageId $PersistentStorageId -PersistentStorageRole $PersistentStorageRole -Persistence $Persistence `
+            -SyncImageContent:$SyncImageContent -RuntimeBinding $RuntimeBinding
+    }
+
 
     if ($RuntimeBinding) {
         $observed=Get-LabContainerInstanceStoreRuntimeInspection -Provider podman -VolumeName $VolumeName
@@ -93,7 +104,7 @@ function Initialize-PodmanSqlNamedVolume {
         return $false
     }
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
-    $inspectionOutput = @(& $podmanInvocation volume inspect $VolumeName 2>$null)
+    $inspectionOutput = @($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('volume', 'inspect', $VolumeName) } else { & $podmanInvocation volume inspect $VolumeName }) 2>$null)
     $volumeExists = $LASTEXITCODE -eq 0
 
     if ($volumeExists -and $PersistentStorageId) {
@@ -121,7 +132,7 @@ function Initialize-PodmanSqlNamedVolume {
         if ($PersistentStorageRole) { $labelArguments += @('--label', "sql-server-lab.storage-role=$PersistentStorageRole") }
         $volumeCreate = Invoke-LabProviderOperation -Provider podman -Phase 'volume-create' -RunId $RunId -Native `
             -Command "podman volume create $(@($labelArguments) -join ' ') $VolumeName" `
-            -Action { & $podmanInvocation volume create @labelArguments $VolumeName 2>&1 }
+            -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('volume', 'create', $labelArguments, $VolumeName) } else { & $podmanInvocation volume create @labelArguments $VolumeName }) 2>&1 }
         if (-not $volumeCreate.Succeeded) {
             throw "PODMAN_SQL_VOLUME_CREATE_FAILED: $VolumeName - $(@($volumeCreate.Output) -join ' ')"
         }
@@ -136,7 +147,7 @@ function Initialize-PodmanSqlNamedVolume {
     }
     $volumeInitialize = Invoke-LabProviderOperation -Provider podman -Phase 'volume-initialize' -RunId $RunId -Native `
         -Command "podman run --rm --user 0:0 --entrypoint /bin/sh -v ${VolumeName}:/sql-lab-volume-init $Image -c <volume-initialization>" `
-        -Action { & $podmanInvocation run --rm --user 0:0 --entrypoint /bin/sh -v "${VolumeName}:/sql-lab-volume-init" $Image -c $initializationCommand 2>&1 }
+        -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('run', '--rm', '--user', '0:0', '--entrypoint', '/bin/sh', '-v', "${VolumeName}:/sql-lab-volume-init", $Image, '-c', $initializationCommand) } else { & $podmanInvocation run --rm --user 0:0 --entrypoint /bin/sh -v "${VolumeName}:/sql-lab-volume-init" $Image -c $initializationCommand }) 2>&1 }
     if (-not $volumeInitialize.Succeeded) {
         throw "PODMAN_SQL_VOLUME_INITIALIZATION_FAILED: $VolumeName - $(@($volumeInitialize.Output) -join ' ')"
     }
@@ -166,7 +177,9 @@ function New-PodmanInstance {
         [string]$ResolvedImage,
         [ValidateSet('none', 'sql2019-namespace-v1', 'sql2022-namespace-v1', 'sql2025-namespace-v1','sql2025-shared-user-v2')][string]$ExternalRuntimeLaunchMode = 'none',
         [switch]$AllowStandardLaunchResolvedImage
-    )
+    , [string]$StateRoot)
+    $ownedHostPolicy = if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) { Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required } else { $null }
+
 
     if ($ResolvedImage -and $ResolvedImage -notmatch '^[a-z0-9][a-z0-9./_-]+:[a-z0-9][a-z0-9._-]+$') {
         throw 'PODMAN_RESOLVED_IMAGE_INVALID'
@@ -190,7 +203,12 @@ function New-PodmanInstance {
     $cpuLimit = $effectiveCpu.ToString('0.##', [Globalization.CultureInfo]::InvariantCulture)
     $containerName = if ($ContainerName) { $ContainerName } elseif ($LabName) { Get-LabContainerRuntimeName -LabName $LabName -InstanceId $InstanceId -RunId $RunId } else { "sql-lab-$InstanceId-$($RunId.Substring(0, 8))" }
     $containerHostname = Get-LabContainerRuntimeHostname -RuntimeName $containerName
-    $labNetwork = Ensure-LabPodmanNetwork -Name $NetworkName
+    if ($ownedHostPolicy) {
+        $imageObservation=Get-LabOwnedHostImageObservation -StateRoot $StateRoot -Provider podman -Image $image
+        if (-not $imageObservation) {throw 'OWNED_HOST_RUN_IMAGE_PREREQUISITE_REQUIRED'}
+        $image=[string]$imageObservation.Id
+    }
+    $labNetwork = Ensure-LabPodmanNetwork -Name $NetworkName -StateRoot $StateRoot
 
     $volumeArguments = @()
     foreach ($drive in @($Drives)) {
@@ -210,7 +228,7 @@ function New-PodmanInstance {
 
         if (-not $drive.hostPath) {
             $null = Initialize-PodmanSqlNamedVolume -VolumeName $volumeSource -Image $image -RunId $RunId -ScopeId $ScopeId -VersionId $VersionId -InstanceId $InstanceId `
-                -ContainerPath ([string]$drive.containerPath) `
+                -ContainerPath ([string]$drive.containerPath) -StateRoot $StateRoot `
                 -PersistentStorageId ([string]$drive.persistentStorageId) -RuntimeBinding $drive.runtimeBinding -Persistence ([string]$drive.persistence) `
                 -PersistentStorageRole ([string]$drive.persistentStorageRole) `
                 -SyncImageContent:($ExternalRuntimeLaunchMode -in @('sql2019-namespace-v1','sql2022-namespace-v1','sql2025-namespace-v1','sql2025-shared-user-v2') -and
@@ -292,6 +310,10 @@ function New-PodmanInstance {
                     $lifecycleArguments = @('--label','sql-server-lab.lifecycle=test','--label',"sql-server-lab.expires-at=$expiresAt")
                     if ($env:SQL_SERVER_LAB_TEST_OPERATION_ID) { $lifecycleArguments += @('--label',"sql-server-lab.test-operation-id=$($env:SQL_SERVER_LAB_TEST_OPERATION_ID)") }
                 }
+                $ownedContainerIntent = if ($ownedHostPolicy) {
+                    New-LabOwnedHostContainerIntent -StateRoot $StateRoot -RunId $RunId -ScopeId $ScopeId -InstanceId $InstanceId -Provider podman -ContainerName $containerName
+                } else { $null }
+                $ownedContainerLabels = if ($ownedContainerIntent) { @(Get-LabOwnedHostContainerLabels $ownedContainerIntent) } else { @() }
                 $podmanArguments = @(
                     'run', '-d',
                     '--name', $containerName,
@@ -303,7 +325,7 @@ function New-PodmanInstance {
                     '-e', 'MSSQL_PID=Developer',
                     '-e', "MSSQL_MEMORY_LIMIT_MB=$sqlMemoryLimitMB",
                     '-e', 'MSSQL_AGENT_ENABLED=true'
-                ) + $collationArguments + $restartArguments + $externalRuntimeArguments + $lifecycleArguments + @(
+                ) + $collationArguments + $restartArguments + $externalRuntimeArguments + $lifecycleArguments + $ownedContainerLabels + @(
                     '--memory', $memoryLimit,
                     '--cpus', $cpuLimit,
                     '--label', "sql-server-lab.run-id=$RunId",
@@ -316,16 +338,14 @@ function New-PodmanInstance {
                     '--health-cmd', '/opt/mssql-tools*/bin/sqlcmd -S localhost -U sa -P"$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" -b',
                     '--health-interval', '5s',
                     '--health-timeout', '3s',
-                    '--health-retries', '30',
-                    $volumeArguments,
-                    $image
-                )
+                    '--health-retries', '30'
+                ) + @($volumeArguments) + @($image)
 
                 Write-LabInfo "Container erstellen: $containerName (Port $selectedPort, Image $image) [Podman]"
-                foreach ($boundDrive in @($Drives | Where-Object { $_.runtimeBinding })) { Assert-LabContainerStoreRuntimeScope -Provider podman -RuntimeBinding $boundDrive.runtimeBinding }
+                foreach ($boundDrive in @($Drives | Where-Object { $_.runtimeBinding })) { Assert-LabContainerStoreRuntimeScope -Provider podman -RuntimeBinding $boundDrive.runtimeBinding -StateRoot $StateRoot }
                 $providerOperation = Invoke-LabProviderOperation -Provider podman -Phase 'container-create' -RunId $RunId -Native `
                     -Command "podman $(@($podmanArguments | ForEach-Object { $_ }) -join ' ')" `
-                    -Action { & $podmanInvocation @podmanArguments 2>&1 }
+                    -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @($podmanArguments) } else { & $podmanInvocation @podmanArguments }) 2>&1 }
                 $output = @($providerOperation.Output)
                 $exitCode = $providerOperation.ExitCode
                 $providerLogPath = $providerOperation.LogPath
@@ -334,13 +354,14 @@ function New-PodmanInstance {
                 }
 
                 $outputText = ($output | Out-String).Trim()
+                if ($ownedHostPolicy) { Remove-LabOwnedHostFailedContainer -StateRoot $StateRoot -Intent $ownedContainerIntent }
                 $bindConflict = $outputText -match '(?i)(address already in use|port is already allocated|cannot bind tcp port)'
                 if (-not $automaticPort -or -not $bindConflict -or $selectedPort -ge 14399) {
                     $logHint = if ($providerLogPath) { " Diagnoselog: $providerLogPath" } else { '' }
                     throw "Podman-Container konnte nicht erstellt werden: $outputText$logHint"
                 }
 
-                & $podmanInvocation rm -f $containerName 1>$null 2>$null
+                if (-not $ownedHostPolicy) { & $podmanInvocation rm -f $containerName 1>$null 2>$null }
                 $nextPort = $selectedPort + 1
                 Write-LabWarning "Port $selectedPort wurde beim Runtime-Bindungsschritt belegt. Podman versucht Port $nextPort."
             }
@@ -350,7 +371,12 @@ function New-PodmanInstance {
                 Where-Object { $_ -match '^[0-9a-f]{12,64}$' } |
                 Select-Object -Last 1
             if (-not $containerId) {
+                if ($ownedHostPolicy) { Remove-LabOwnedHostFailedContainer -StateRoot $StateRoot -Intent $ownedContainerIntent }
                 throw "Podman lieferte keine gueltige Container-ID: $(($output | Out-String).Trim())"
+            }
+            if ($ownedHostPolicy) {
+                $createdReceipt = Register-LabOwnedHostContainer -StateRoot $StateRoot -Intent $ownedContainerIntent -ContainerIdOrName $containerId
+                $containerId = $createdReceipt.ContainerId
             }
 
             [PSCustomObject]@{
@@ -376,13 +402,15 @@ function Get-PodmanInstanceStatus {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$ContainerIdOrName
-    )
+    , [string]$StateRoot)
+    $ownedHostPolicy = if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) { Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required } else { $null }
+
 
     try {
         $podmanInvocation = Get-LabHostToolInvocation -Name podman
-        $inspect = & $podmanInvocation inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
+        $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('inspect', $ContainerIdOrName) } else { & $podmanInvocation inspect $ContainerIdOrName }) 2>$null | ConvertFrom-Json -Depth 30
         if ($LASTEXITCODE -ne 0 -or -not $inspect) {
-            & $podmanInvocation info 1>$null 2>$null
+            $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('info') } else { & $podmanInvocation info }) 1>$null 2>$null
             $runtimeAvailable = $LASTEXITCODE -eq 0
             return [PSCustomObject]@{
                 Available = $runtimeAvailable
@@ -426,14 +454,19 @@ function Start-PodmanInstance {
         [Parameter(Mandatory)][string]$ContainerIdOrName,
         [ValidateRange(1, 300)][int]$TimeoutSeconds = 30,
         [string]$RunId
-    )
+    , [string]$StateRoot)
+    $ownedHostPolicy = if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) { Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required } else { $null }
+
 
     $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
     $lastOutput = @()
+    if ($ownedHostPolicy) {
+        $ContainerIdOrName = Resolve-LabOwnedHostContainerEffect -StateRoot $StateRoot -Provider podman -ContainerIdOrName $ContainerIdOrName -RunId $RunId
+    }
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
     do {
         $operation = Invoke-LabProviderOperation -Provider podman -Phase 'container-start' -RunId $RunId -Native `
-            -Command "podman start $ContainerIdOrName" -Action { & $podmanInvocation start $ContainerIdOrName 2>&1 }
+            -Command "podman start $ContainerIdOrName" -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('start', $ContainerIdOrName) } else { & $podmanInvocation start $ContainerIdOrName }) 2>&1 }
         $lastOutput = @($operation.Output)
         $exitCode = $operation.ExitCode
         if ($exitCode -eq 0) {
@@ -470,12 +503,17 @@ function Stop-PodmanInstance {
         [Parameter(Mandatory)][string]$ContainerIdOrName,
         [int]$TimeoutSeconds = 30,
         [string]$RunId
-    )
+    , [string]$StateRoot)
+    $ownedHostPolicy = if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) { Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required } else { $null }
 
+
+    if ($ownedHostPolicy) {
+        $ContainerIdOrName = Resolve-LabOwnedHostContainerEffect -StateRoot $StateRoot -Provider podman -ContainerIdOrName $ContainerIdOrName -RunId $RunId
+    }
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
     $operation = Invoke-LabProviderOperation -Provider podman -Phase 'container-stop' -RunId $RunId -Native `
         -Command "podman stop -t $TimeoutSeconds $ContainerIdOrName" `
-        -Action { & $podmanInvocation stop -t $TimeoutSeconds $ContainerIdOrName 2>&1 }
+        -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('stop', '-t', $TimeoutSeconds, $ContainerIdOrName) } else { & $podmanInvocation stop -t $TimeoutSeconds $ContainerIdOrName }) 2>&1 }
     if (-not $operation.Succeeded) {
         throw "PODMAN_CONTAINER_STOP_FAILED: $ContainerIdOrName - $(@($operation.Output) -join ' ')"
     }
@@ -486,10 +524,12 @@ function Remove-PodmanInstance {
     param(
         [Parameter(Mandatory)][string]$ContainerIdOrName,
         [Parameter(Mandatory)][string]$ExpectedScopeId
-    )
+    , [string]$StateRoot)
+    $ownedHostPolicy = if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) { Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required } else { $null }
+
 
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
-    $inspect = & $podmanInvocation inspect $ContainerIdOrName 2>$null | ConvertFrom-Json -Depth 30
+    $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('inspect', $ContainerIdOrName) } else { & $podmanInvocation inspect $ContainerIdOrName }) 2>$null | ConvertFrom-Json -Depth 30
     if ($LASTEXITCODE -ne 0 -or -not $inspect) {
         Write-LabWarning "Container nicht gefunden: $ContainerIdOrName (bereits entfernt?)"
         return
@@ -502,14 +542,22 @@ function Remove-PodmanInstance {
     }
 
     $runId = [string]$item.Config.Labels.'sql-server-lab.run-id'
+    if ($item.Config.Labels.'sql-server-lab.owned-host-policy-id' -and -not $ownedHostPolicy) {
+        throw 'OWNED_HOST_CONTEXT_REQUIRED'
+    }
+    if ($ownedHostPolicy) {
+        Assert-LabOwnedHostContainerEffect -StateRoot $StateRoot -RunId $runId -Provider podman -ContainerId ([string]$item.Id)
+        $ContainerIdOrName = [string]$item.Id
+    }
     $operation = Invoke-LabProviderOperation -Provider podman -Phase 'container-remove' -RunId $runId -Native `
-        -Command "podman rm -f $ContainerIdOrName" -Action { & $podmanInvocation rm -f $ContainerIdOrName 2>&1 }
+        -Command "podman rm -f $ContainerIdOrName" -Action { $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('rm', '-f', $ContainerIdOrName) } else { & $podmanInvocation rm -f $ContainerIdOrName }) 2>&1 }
     if (-not $operation.Succeeded) {
         throw "Podman-Container konnte nicht entfernt werden: $ContainerIdOrName"
     }
 
     Write-LabSuccess "Container entfernt: $ContainerIdOrName"
-    if (Get-Command Remove-LabContainerAutoStartCoordinatorIfUnused -ErrorAction SilentlyContinue) {
+    if ($ownedHostPolicy) { Remove-LabOwnedHostAutoStartIfUnused -StateRoot $StateRoot -RunId $runId -Provider podman }
+    if (-not $ownedHostPolicy -and (Get-Command Remove-LabContainerAutoStartCoordinatorIfUnused -ErrorAction SilentlyContinue)) {
         Remove-LabContainerAutoStartCoordinatorIfUnused -Provider podman
     }
 }
@@ -519,7 +567,9 @@ function Get-PodmanLabContainers {
     param(
         [string]$RunId,
         [string]$ScopeId
-    )
+    , [string]$StateRoot)
+    $ownedHostPolicy = if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) { Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required } else { $null }
+
 
     $filters = @('--filter', 'label=sql-server-lab.run-id')
     if ($RunId) {
@@ -530,7 +580,8 @@ function Get-PodmanLabContainers {
     }
 
     $podmanInvocation = Get-LabHostToolInvocation -Name podman
-    $containerIds = & $podmanInvocation ps -a -q @filters 2>$null
+    $containerIds = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList (@('ps', '-a', '--no-trunc', '-q') + $filters) } else { & $podmanInvocation ps -a -q @filters }) 2>$null
+    if ($ownedHostPolicy -and $LASTEXITCODE -ne 0) { throw 'OWNED_HOST_CONTAINER_INVENTORY_FAILED' }
     if ($LASTEXITCODE -ne 0 -or -not $containerIds) {
         return @()
     }
@@ -542,7 +593,9 @@ function Get-PodmanLabContainers {
             continue
         }
 
-        $inspect = & $podmanInvocation inspect $containerId 2>$null | ConvertFrom-Json -Depth 30
+        if ($ownedHostPolicy -and $containerId -cnotmatch '^[a-f0-9]{64}$') { throw 'OWNED_HOST_CONTAINER_INVENTORY_ID_INVALID' }
+        $inspect = $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider podman -StateRoot $StateRoot -Invocation $podmanInvocation -ArgumentList @('inspect', $containerId) } else { & $podmanInvocation inspect $containerId }) 2>$null | ConvertFrom-Json -Depth 30
+        if ($ownedHostPolicy -and ($LASTEXITCODE -ne 0 -or -not $inspect)) { throw 'OWNED_HOST_CONTAINER_INVENTORY_INSPECT_FAILED' }
         if ($LASTEXITCODE -ne 0 -or -not $inspect) {
             continue
         }

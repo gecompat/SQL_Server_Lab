@@ -140,19 +140,20 @@ function Remove-LabContainerForCleanup {
     param(
         [Parameter(Mandatory)][string]$Provider,
         [Parameter(Mandatory)][string]$ContainerIdOrName,
-        [Parameter(Mandatory)][string]$ExpectedScopeId
+        [Parameter(Mandatory)][string]$ExpectedScopeId,
+        [string]$StateRoot
     )
 
     switch ($Provider) {
         'docker' {
             $null = Remove-DockerInstance `
                 -ContainerIdOrName $ContainerIdOrName `
-                -ExpectedScopeId $ExpectedScopeId
+                -ExpectedScopeId $ExpectedScopeId -StateRoot $StateRoot
         }
         'podman' {
             $null = Remove-PodmanInstance `
                 -ContainerIdOrName $ContainerIdOrName `
-                -ExpectedScopeId $ExpectedScopeId
+                -ExpectedScopeId $ExpectedScopeId -StateRoot $StateRoot
         }
         default {
             throw "Cleanup-Provider '$Provider' wird fuer Container nicht unterstuetzt."
@@ -167,8 +168,21 @@ function Remove-LabRuntimeResourceForCleanup {
         [Parameter(Mandatory)][ValidateSet('volume', 'network')][string]$ResourceType,
         [Parameter(Mandatory)][string]$ResourceId,
         [string]$ExpectedRunId,
-        [string]$ExpectedScopeId
+        [string]$ExpectedScopeId,
+        [string]$StateRoot
     )
+
+    if ($StateRoot -and (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+        $null=Get-LabOwnedHostRunPolicy -RunId $ExpectedRunId -StateRoot $StateRoot
+        if ($ResourceType -cne 'volume') { throw 'OWNED_HOST_SHARED_NETWORK_REMOVAL_FORBIDDEN' }
+        $owned=Get-LabOwnedHostVolumeReceipt -StateRoot $StateRoot -Provider $Provider -VolumeName $ResourceId
+        if ($owned.Intent.RunId -cne $ExpectedRunId -or $owned.Intent.ScopeId -cne $ExpectedScopeId) { throw 'OWNED_HOST_VOLUME_CLEANUP_SCOPE_DRIFT' }
+        $removed=Invoke-LabOwnedHostPinnedCommand -StateRoot $StateRoot -Provider $Provider -Arguments @('volume','rm',$ResourceId)
+        if ($removed.ExitCode -ne 0) { throw 'OWNED_HOST_VOLUME_DELETE_FAILED' }
+        $remaining=Invoke-LabOwnedHostPinnedCommand -StateRoot $StateRoot -Provider $Provider -Arguments @('volume','ls','--filter',('name=^'+[regex]::Escape($ResourceId)+'$'),'--format','{{.Name}}')
+        if ($remaining.ExitCode -ne 0 -or $remaining.Stdout.Trim()) { throw 'OWNED_HOST_VOLUME_DELETE_UNCONFIRMED' }
+        return
+    }
 
     $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
     $inspectionOutput = @(& $runtimeInvocation $ResourceType inspect $ResourceId 2>$null)
@@ -352,6 +366,7 @@ function Invoke-CleanupPlan {
         [Parameter(Mandatory)][string]$ScopeId
     )
 
+    $containerStateRoot=Split-Path (Split-Path $RunDir -Parent) -Parent
     $planPath = Join-Path $RunDir 'cleanup-plan.json'
     if (-not (Test-Path -LiteralPath $planPath -PathType Leaf)) {
         Write-LabWarning 'Kein Cleanup-Plan gefunden.'
@@ -364,6 +379,13 @@ function Invoke-CleanupPlan {
     }
 
     $plan = Get-Content -LiteralPath $planPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
+    $runStatePath=Join-Path $RunDir 'run-state.json'
+    if (Test-Path -LiteralPath $runStatePath) {
+        $cleanupRun=Get-Content -LiteralPath $runStatePath -Raw -Encoding utf8|ConvertFrom-Json -Depth 20
+        if ($cleanupRun.metadata.ownedHostIntegration -or (((Test-Path (Join-Path $containerStateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $containerStateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $containerStateRoot 'owned-host-policy.json'))))))) {
+            $null=Get-LabOwnedHostRunPolicy -RunId ([string]$plan.runId) -StateRoot $containerStateRoot
+        }
+    }
     # Aeltere Cleanup-Plaene hatten noch keine providerbezogenen Statusfelder.
     # Vor dem Wiederholungsversuch werden sie verlustfrei auf den aktuellen
     # Vertrag angehoben, damit ein vorhandener Container trotzdem bereinigt wird.
@@ -481,7 +503,7 @@ function Invoke-CleanupPlan {
                     Remove-LabContainerForCleanup `
                         -Provider $provider `
                         -ContainerIdOrName $step.resourceId `
-                        -ExpectedScopeId $ScopeId
+                        -ExpectedScopeId $ScopeId -StateRoot $containerStateRoot
                 }
                 'volume' {
                     if (-not $provider) {
@@ -492,7 +514,7 @@ function Invoke-CleanupPlan {
                         -ResourceType 'volume' `
                         -ResourceId $step.resourceId `
                         -ExpectedRunId ([string]$plan.runId) `
-                        -ExpectedScopeId $ScopeId
+                        -ExpectedScopeId $ScopeId -StateRoot $containerStateRoot
                 }
                 'network' {
                     if (-not $provider) {
@@ -503,7 +525,7 @@ function Invoke-CleanupPlan {
                         -ResourceType 'network' `
                         -ResourceId $step.resourceId `
                         -ExpectedRunId ([string]$plan.runId) `
-                        -ExpectedScopeId $ScopeId
+                        -ExpectedScopeId $ScopeId -StateRoot $containerStateRoot
                 }
                 'persistent-storage-lease' {
                     if ($provider -notin @('docker','podman')) {

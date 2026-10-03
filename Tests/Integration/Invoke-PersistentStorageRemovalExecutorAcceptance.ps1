@@ -15,14 +15,19 @@ param(
     [string]$Version='2022-CU18',
     [ValidateSet('BACKUP_ON_REMOVE','PACKAGE_ON_REMOVE','BACKUP_AND_PACKAGE','DELETE_WITH_RUN')][string]$Policy='BACKUP_ON_REMOVE',
     [switch]$RuntimeMutexAlreadyHeld,
-    [switch]$KeepOnFailure
+    [switch]$KeepOnFailure,
+    [string]$StateRoot
 )
+$requestedStateRoot=$StateRoot
+. (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+if ($requestedStateRoot) { Assert-OwnedHostTestRoot -StateRoot $requestedStateRoot }
+
 
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath=Join-Path $repoRoot 'SqlServerLab.psd1'
-$testRoot=Join-Path ([IO.Path]::GetTempPath()) "sql-lab-psr004-$Provider-$([Guid]::NewGuid().ToString('N'))"
-$stateRoot=Join-Path $testRoot 'state'
+$testRoot=if ($requestedStateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $requestedStateRoot -Name 'sql-lab-psr004' } else { Join-Path ([IO.Path]::GetTempPath()) "sql-lab-psr004-$Provider-$([Guid]::NewGuid().ToString('N'))" }
+$stateRoot=if ($requestedStateRoot) { $requestedStateRoot } else { Join-Path $testRoot 'state' }
 $dataRoot=Join-Path $testRoot 'Lab_Data'
 $testDataRoot=Join-Path $testRoot 'test-data'
 $previousStateRoot=$env:SQL_SERVER_LAB_STATE
@@ -54,10 +59,10 @@ try {
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module=Import-Module $modulePath -Force -PassThru
     $runtimeResolution=@(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
-    if($Provider -eq 'podman'){& (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1')|Out-Host}
+    if($Provider -eq 'podman'){$(if ($requestedStateRoot) { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') -StateRoot $requestedStateRoot -RequireReachable } else { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') }) |Out-Host}
     Assert-RemovalAcceptance ([bool]$runtimeResolution.Available) "Runtime '$Provider' ist zentral auflösbar"
     $runtimeInvocation=[string]$runtimeResolution.Invocation
-    & $runtimeInvocation info 1>$null 2>$null
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('info') } else { & $runtimeInvocation info }) 1>$null 2>$null
     Assert-RemovalAcceptance ($LASTEXITCODE -eq 0) "Runtime '$Provider' ist erreichbar"
     & $module {param($Root)$null=Initialize-LabManagedDataRoot -DataRoot $Root -ControllerId ([Guid]::NewGuid().ToString('D')) -Confirm:$false} $dataRoot
 
@@ -123,7 +128,7 @@ try {
         $configuration=Get-LabStorageConfiguration -DataRoot $Root
         @(Get-LabPersistentStorageCatalog -Configuration $configuration).Document.Stores|Where-Object PersistentStorageId -eq $StorageId|Select-Object -First 1
     } $dataRoot ([string]$store.PersistentStorageId)
-    $null=& $runtimeInvocation volume inspect $persistentVolume 2>$null
+    $null=$(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('volume','inspect',$persistentVolume) } else { & $runtimeInvocation volume inspect $persistentVolume }) 2>$null
     $volumeExists=$LASTEXITCODE -eq 0
     $volumeDescription=if($isDeleteWithRun){'Rungebundener Instanzstore wurde gelöscht'}else{'Persistenter Instanzstore wurde nicht gelöscht'}
     Assert-RemovalAcceptance ($volumeExists -eq (-not $isDeleteWithRun)) $volumeDescription
@@ -138,7 +143,15 @@ try {
 }
 finally {
     if($lab -and -not $KeepOnFailure){try{Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false|Out-Null}catch{Write-Warning $_.Exception.Message}}
-    if($persistentVolume -and ($completed -or -not $KeepOnFailure)){$null=& $runtimeInvocation volume rm -f $persistentVolume 2>$null}
+    if($persistentVolume -and ($completed -or -not $KeepOnFailure)){
+        if ($requestedStateRoot) {
+            $null=Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('volume','inspect',$persistentVolume)
+            if ($LASTEXITCODE -eq 0) {
+                $null=Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('volume','rm',$persistentVolume)
+                if ($LASTEXITCODE -ne 0) { throw 'OWNED_HOST_VOLUME_CLEANUP_UNCONFIRMED' }
+            }
+        } else { $null=& $runtimeInvocation volume rm -f $persistentVolume 2>$null }
+    }
     if(($completed -or -not $KeepOnFailure) -and (Test-Path -LiteralPath $testRoot)){Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue}
     $env:SQL_SERVER_LAB_STATE=$previousStateRoot
     $env:SQL_SERVER_LAB_DATA_ROOT=$previousDataRoot
