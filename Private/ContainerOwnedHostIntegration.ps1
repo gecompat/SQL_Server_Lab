@@ -640,6 +640,18 @@ function Initialize-LabOwnedHostSqlVolume {
     return $true
 }
 
+function Resolve-LabOwnedHostTaskUserSid {
+    param([string]$UserId)
+    try {
+        if ([string]::IsNullOrWhiteSpace($UserId) -or $UserId -cne $UserId.Trim()) { throw 'INVALID_TASK_USER' }
+        if ($UserId -cmatch '^S-1-') {
+            return [Security.Principal.SecurityIdentifier]::new($UserId).Value
+        }
+        return [Security.Principal.NTAccount]::new($UserId).Translate([Security.Principal.SecurityIdentifier]).Value
+    }
+    catch { throw 'OWNED_HOST_TASK_BINDING_DRIFT' }
+}
+
 function Assert-LabOwnedHostTaskBinding {
     param([Parameter(Mandatory)][string]$StateRoot,[Parameter(Mandatory)]$Intent,[Parameter(Mandatory)]$Task)
     $policy=Get-LabOwnedHostRunPolicy -RunId $Intent.RunId -StateRoot $StateRoot
@@ -654,12 +666,12 @@ function Assert-LabOwnedHostTaskBinding {
         $Intent.Arguments -cne ('-NoProfile -NonInteractive -File "'+$expectedPath+'"') -or
         $Task.TaskName -cne $Intent.TaskName -or $Task.TaskPath -cne '\' -or
         @($Task.Actions).Count -ne 1 -or @($Task.Triggers).Count -ne 1 -or
-        [string]$Task.Principal.UserId -cne $Intent.OwnerSid -or
+        (Resolve-LabOwnedHostTaskUserSid -UserId ([string]$Task.Principal.UserId)) -cne $Intent.OwnerSid -or
         [string]$Task.Principal.LogonType -cne 'Interactive' -or [string]$Task.Principal.RunLevel -cne 'Limited' -or
         [string]$Task.Actions[0].Execute -cne $Intent.Invocation -or
         [string]$Task.Actions[0].Arguments -cne $Intent.Arguments -or
         [string]$Task.Actions[0].WorkingDirectory -cne '' -or
-        [string]$Task.Triggers[0].UserId -cne $Intent.OwnerSid -or
+        (Resolve-LabOwnedHostTaskUserSid -UserId ([string]$Task.Triggers[0].UserId)) -cne $Intent.OwnerSid -or
         [string]$Task.Triggers[0].CimClass.CimClassName -cne 'MSFT_TaskLogonTrigger' -or
         $Intent.ScriptSha256 -cne (Get-FileHash -LiteralPath $Intent.ScriptPath).Hash.ToLowerInvariant()) {
         throw 'OWNED_HOST_TASK_BINDING_DRIFT'

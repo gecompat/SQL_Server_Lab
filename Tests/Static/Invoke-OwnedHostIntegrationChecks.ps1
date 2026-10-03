@@ -600,6 +600,22 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         Assert-Own ($script:taskDeletes -eq 0) 'Task-Drift hat zero Unregister-Aufrufe'
         $taskIntent=Read-LabOwnedHostRecord (Join-Path $allocated.RunDir 'owned-host-tasks/docker.intent.json')
         $script:syntheticTask.Actions[0].Arguments=$taskIntent.Arguments
+        $ownerAccount=[Security.Principal.WindowsIdentity]::GetCurrent().Name
+        $script:syntheticTask.Principal.UserId=$ownerAccount
+        $script:syntheticTask.Triggers[0].UserId=$ownerAccount
+        $revalidatedTask=Enable-LabOwnedHostAutoStart -StateRoot $root -RunId $allocated.RunId -Provider docker
+        Assert-Own ($revalidatedTask.Enabled -and $script:taskRegisters -eq 1) 'Task account-name observations resolve to the exact owner SID without duplicate registration'
+        $script:syntheticTask.Principal.UserId='S-1-5-21-101-202-303-404'
+        Assert-OwnThrows { Remove-LabOwnedHostAutoStartIfUnused -StateRoot $root -RunId $allocated.RunId -Provider docker } 'OWNED_HOST_TASK_BINDING_DRIFT' 'Different principal SID cannot inherit own-task authority'
+        $script:syntheticTask.Principal.UserId=$ownerAccount
+        $script:syntheticTask.Triggers[0].UserId='S-1-5-21-101-202-303-404'
+        Assert-OwnThrows { Remove-LabOwnedHostAutoStartIfUnused -StateRoot $root -RunId $allocated.RunId -Provider docker } 'OWNED_HOST_TASK_BINDING_DRIFT' 'Different trigger SID cannot inherit own-task authority'
+        $script:syntheticTask.Triggers[0].UserId=($env:COMPUTERNAME+'\SQL_Server_Lab_Unmapped_'+[guid]::NewGuid().ToString('N'))
+        Assert-OwnThrows { Remove-LabOwnedHostAutoStartIfUnused -StateRoot $root -RunId $allocated.RunId -Provider docker } 'OWNED_HOST_TASK_BINDING_DRIFT' 'Unmapped trigger account fails closed before unregister'
+        $script:syntheticTask.Triggers[0].UserId=''
+        Assert-OwnThrows { Remove-LabOwnedHostAutoStartIfUnused -StateRoot $root -RunId $allocated.RunId -Provider docker } 'OWNED_HOST_TASK_BINDING_DRIFT' 'Empty trigger account fails closed before unregister'
+        Assert-Own ($script:taskDeletes -eq 0) 'Account and SID drift checks perform no unregister'
+        $script:syntheticTask.Triggers[0].UserId=$ownerAccount
         $script:syntheticTask.Principal.RunLevel='Highest'
         Assert-OwnThrows { Remove-LabOwnedHostAutoStartIfUnused -StateRoot $root -RunId $allocated.RunId -Provider docker } 'OWNED_HOST_TASK_BINDING_DRIFT' 'Task principal elevation drift cannot inherit intention authority'
         $script:syntheticTask.Principal.RunLevel='Limited'

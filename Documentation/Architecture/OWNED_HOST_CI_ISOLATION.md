@@ -66,7 +66,12 @@ Containerreferenzen. Geteilte Tags oder Images werden nicht entfernt.
 
 Autostart verwendet ausschließlich einen eindeutig eigenen Task und ein
 hashgebundenes Koordinatorskript, Write-ahead-Receipt und exakte
-Task-Revalidierung. Kein Force, keine Desktop-/HKCU-Änderung. Eine registrierte
+Task-Revalidierung. Kein Force, keine Desktop-/HKCU-Änderung. Eine native
+Task kann Principal und Logontrigger als Kontonamen statt SID zurückliefern.
+Beide werden vor Create-Bestätigung oder Cleanup aufgelöst und mit dem exakten
+Owner-SID verglichen; fremde, leere oder nicht auflösbare Identitäten bleiben
+gesperrt. Die übrigen Action-, Trigger-, Principal- und Hashbindungen gelten weiter.
+Eine registrierte
 Task ist kein Nachweis tatsächlichen Logondispatchs. Öffentlicher Stop im
 Profil überspringt gemeinsame Hostspeicherwartung auch aus verschachtelten
 Lifecycle-/Gruppenpfaden. Der Standardvertrag für Hostspeicher bleibt bestehen.
