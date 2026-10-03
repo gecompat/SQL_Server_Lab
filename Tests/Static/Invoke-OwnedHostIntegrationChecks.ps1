@@ -605,7 +605,9 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
                 $script:effects++
                 [pscustomobject]@{Path=$BackupPath;Record=[pscustomobject]@{BackupSetId=[guid]::NewGuid().ToString('D');Artifact=[pscustomobject]@{Sha256=('a'*64);Bytes=16};DatabaseMetadata=[pscustomobject]@{HasFileStream=$false;MigrationBoundary='synthetic'}}}
             }
-            $secret=ConvertTo-SecureString 'Synthetic_Backup!Aa8' -AsPlainText -Force
+            $secret=[Security.SecureString]::new()
+            foreach($character in 'Synthetic_Backup!Aa8'.ToCharArray()){$secret.AppendChar($character)}
+            $secret.MakeReadOnly()
             $arguments=@{Port=14333;SaPassword=$secret;Provider='docker';RunId=$RunId;DatabaseName='SyntheticBackup';DataRoot=(Join-Path $Root 'Lab_Data');StateRoot=$Root}
             $result=New-LabDatabaseLibraryBackup @arguments
             $workingDirectory=Split-Path -Parent $script:exportPath
