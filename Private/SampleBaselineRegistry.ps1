@@ -11,14 +11,22 @@ function Get-LabSampleBaselinePaths {
     [CmdletBinding()]
     param([string]$StateRoot, [string]$TestDataRoot)
 
-    $artifactPaths = Initialize-LabArtifactStore -StateRoot $StateRoot -TestDataRoot $TestDataRoot
+    $artifactPaths = Get-LabArtifactStorePaths -StateRoot $StateRoot -TestDataRoot $TestDataRoot
     $baselineRoot = Join-Path $artifactPaths.TestDataRoot '_baselines'
-    return [PSCustomObject]@{
+    $paths = [PSCustomObject]@{
         BaselineRoot   = $baselineRoot
         RegistryPath  = Join-Path $baselineRoot 'registry.json'
         ObjectsRoot   = Join-Path $baselineRoot 'objects'
         QuarantineRoot = Join-Path $baselineRoot 'quarantine'
     }
+    if ((Test-Path -LiteralPath (Join-Path $artifactPaths.StateRoot 'owned-host-required')) -or
+        (Test-Path -LiteralPath (Join-Path $artifactPaths.StateRoot 'owned-host-policy.json'))) {
+        foreach ($path in $paths.PSObject.Properties.Value) {
+            $null = Assert-LabOwnedHostPath -Path $path
+        }
+    }
+    $null = Initialize-LabArtifactStore -StateRoot $artifactPaths.StateRoot -TestDataRoot $artifactPaths.TestDataRoot
+    return $paths
 }
 
 function Initialize-LabSampleBaselineRegistry {
@@ -130,6 +138,7 @@ function Register-LabSampleBaseline {
         [string]$TestDataRoot
     )
 
+    Assert-LabArtifactOwnedPath -Path $BackupPath -StateRoot $StateRoot
     if (-not (Test-Path -LiteralPath $BackupPath -PathType Leaf)) {
         throw "SAMPLE_BASELINE_BACKUP_NOT_FOUND: $BackupPath"
     }
@@ -138,6 +147,7 @@ function Register-LabSampleBaseline {
     $objectDirectory = Join-Path $paths.ObjectsRoot $backupSha256
     $objectFileName = if ($ArtifactFormat -eq 'multi-database-zip') { 'baseline.zip' } else { 'baseline.bak' }
     $objectPath = Join-Path $objectDirectory $objectFileName
+    Assert-LabArtifactOwnedPath -Path $objectPath -StateRoot $StateRoot
     New-Item -Path $objectDirectory -ItemType Directory -Force | Out-Null
     if (-not (Test-Path -LiteralPath $objectPath -PathType Leaf)) {
         Copy-Item -LiteralPath $BackupPath -Destination $objectPath
@@ -185,8 +195,10 @@ function Set-LabSampleBaselineQuarantined {
 
     $backupSha256 = [string]$target[0].backupSha256
     $objectDirectory = Join-Path $paths.ObjectsRoot $backupSha256
+    Assert-LabArtifactOwnedPath -Path $objectDirectory -StateRoot $StateRoot
     if (Test-Path -LiteralPath $objectDirectory -PathType Container) {
         $quarantineDirectory = Join-Path $paths.QuarantineRoot "$([DateTime]::UtcNow.ToString('yyyyMMddHHmmssfff'))-$backupSha256"
+        Assert-LabArtifactOwnedPath -Path (Join-Path $quarantineDirectory 'quarantine.json') -StateRoot $StateRoot
         Move-Item -LiteralPath $objectDirectory -Destination $quarantineDirectory
         Write-LabArtifactJsonAtomic -Path (Join-Path $quarantineDirectory 'quarantine.json') -InputObject ([PSCustomObject]@{
             reason = $Reason
@@ -245,6 +257,7 @@ function Get-LabSampleBaseline {
     foreach ($candidate in @($exact + $compatible)) {
         $relativePath = ([string]$candidate.objectPath -replace '/', [System.IO.Path]::DirectorySeparatorChar)
         $objectPath = [System.IO.Path]::GetFullPath((Join-Path $paths.BaselineRoot $relativePath))
+        Assert-LabArtifactOwnedPath -Path $objectPath -StateRoot $StateRoot
         $rootPrefix = [System.IO.Path]::GetFullPath($paths.BaselineRoot + [System.IO.Path]::DirectorySeparatorChar)
         if (-not $objectPath.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
             -not (Test-Path -LiteralPath $objectPath -PathType Leaf)) {

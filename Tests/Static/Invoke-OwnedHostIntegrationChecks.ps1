@@ -17,6 +17,13 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
     . (Join-Path $repoRoot 'Private/ContainerRuntimeScope.ps1')
     . (Join-Path $repoRoot 'Private/RetainedStoreRuntime.ps1')
     . (Join-Path $repoRoot 'Private/ContainerInstanceStore.ps1')
+    . (Join-Path $repoRoot 'Private/ArtifactResolver.ps1')
+    . (Join-Path $repoRoot 'Private/SampleBaselineRegistry.ps1')
+    $script:libraryDefaultCalls = 0
+    function Get-LabTestDataRootDefault {
+        $script:libraryDefaultCalls++
+        return (Join-Path $fixtureRoot 'shared-library')
+    }
     function Get-LabContainerRuntimeScopeEvidence { throw 'FORBIDDEN_DEFAULT_RUNTIME_DISCOVERY' }
     function Get-LabContainerRuntimeHostBackingEvidence { throw 'FORBIDDEN_HOST_BACKING_DISCOVERY' }
     $actualNativeProcess = (Get-Command Invoke-LabOwnedHostNativeProcess).ScriptBlock
@@ -501,6 +508,64 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         )
         $root = Join-Path $fixtureRoot 'owned'
         $policy = Initialize-LabOwnedHostPolicy -StateRoot $root -RuntimePins $pins -ParentOperationId 'synthetic-parent'
+        $libraryPaths = Get-LabArtifactStorePaths -StateRoot $root
+        Assert-Own ($libraryPaths.TestDataRoot -ceq (Join-Path $root 'testdata-library') -and $script:libraryDefaultCalls -eq 0) 'Owned artifact default never resolves the shared library'
+        $outsideLibrary = Join-Path $fixtureRoot 'shared-library'
+        $beforeRejected = @(Get-ChildItem -LiteralPath $root -Recurse -Force).Count
+        Assert-OwnThrows { Initialize-LabArtifactStore -StateRoot $root -TestDataRoot $outsideLibrary } 'OWNED_HOST_ARTIFACT_ROOT_OUTSIDE_ROOT' 'Explicit foreign artifact root is denied before initialization'
+        Assert-Own (@(Get-ChildItem -LiteralPath $root -Recurse -Force).Count -eq $beforeRejected -and -not (Test-Path -LiteralPath $outsideLibrary)) 'Rejected artifact root creates neither state nor shared directories'
+        Assert-OwnThrows { Get-LabArtifactStorePaths -StateRoot $root -TestDataRoot ($root + '-other') } 'OWNED_HOST_ARTIFACT_ROOT_OUTSIDE_ROOT' 'Sibling prefix cannot masquerade as own artifact root'
+        Assert-OwnThrows { Get-LabArtifactStorePaths -StateRoot $root -TestDataRoot 'relative-library' } 'OWNED_HOST_PATH_INVALID' 'Owned explicit library requires an absolute path'
+        $explicitLibrary = Join-Path $root 'explicit-library'
+        $explicitPaths = Get-LabArtifactStorePaths -StateRoot $root -TestDataRoot $explicitLibrary
+        Assert-Own ($explicitPaths.TestDataRoot -ceq $explicitLibrary) 'Explicit contained library is retained'
+        $initializedLibrary = Initialize-LabArtifactStore -StateRoot $root
+        $baselinePaths = Get-LabSampleBaselinePaths -StateRoot $root
+        Assert-Own ($baselinePaths.BaselineRoot -ceq (Join-Path $initializedLibrary.TestDataRoot '_baselines')) 'Actual baseline registry shares the owned artifact library'
+        Assert-Own ($script:libraryDefaultCalls -eq 0 -and -not (Test-Path -LiteralPath $outsideLibrary)) 'Artifact and baseline initialization leave shared defaults untouched'
+        $null = New-Item -ItemType Junction -Path $baselinePaths.ObjectsRoot -Target $fixtureRoot
+        Assert-OwnThrows { Get-LabSampleBaselinePaths -StateRoot $root } 'OWNED_HOST_REPARSE_PATH' 'Derived baseline objects junction is denied before initialization'
+        [IO.Directory]::Delete($baselinePaths.ObjectsRoot)
+        $digest = 'd' * 64
+        $digestPath = Join-Path $initializedLibrary.CacheRoot $digest
+        $null = New-Item -ItemType Junction -Path $digestPath -Target $fixtureRoot
+        Assert-OwnThrows { Get-LabArtifactCacheEntry -StateRoot $root -Sha256 $digest } 'OWNED_HOST_REPARSE_PATH' 'Actual cache reader denies deeper digest junction'
+        [IO.Directory]::Delete($digestPath)
+        $legacyDigestPath = Join-Path $root "cache/artifacts/sha256/$digest"
+        $null = New-Item -ItemType Junction -Path $legacyDigestPath -Target $fixtureRoot
+        Assert-OwnThrows { Get-LabArtifactCacheEntry -StateRoot $root -Sha256 $digest } 'OWNED_HOST_REPARSE_PATH' 'Legacy cache reader cannot escape through a deeper junction'
+        [IO.Directory]::Delete($legacyDigestPath)
+        $categoryPath = Join-Path $initializedLibrary.LibraryRoot 'synthetic-category'
+        $null = New-Item -ItemType Junction -Path $categoryPath -Target $fixtureRoot
+        $payload = Join-Path $root 'synthetic-baseline.bak'
+        [IO.File]::WriteAllText($payload, 'synthetic-baseline-bytes')
+        $payloadHash = (Get-FileHash -LiteralPath $payload).Hash.ToLowerInvariant()
+        $outsideCount = @(Get-ChildItem -LiteralPath $fixtureRoot -Force).Count
+        Assert-OwnThrows { Publish-LabArtifactLibraryEntry -Paths $initializedLibrary -CachePath $payload -Sha256 $payloadHash -Source 'https://example.invalid/synthetic.sql' -Category 'synthetic-category' -SampleId unit -SampleVariant script } 'OWNED_HOST_REPARSE_PATH' 'Actual library publisher denies deeper category junction before writes'
+        [IO.Directory]::Delete($categoryPath)
+        $baselinePaths = Initialize-LabSampleBaselineRegistry -StateRoot $root
+        $objectDigestPath = Join-Path $baselinePaths.ObjectsRoot $payloadHash
+        $null = New-Item -ItemType Junction -Path $objectDigestPath -Target $fixtureRoot
+        $baselineKey = [pscustomobject]@{KeyId=$digest;Data=[pscustomobject]@{}}
+        Assert-OwnThrows { Register-LabSampleBaseline -StateRoot $root -BackupPath $payload -Key $baselineKey } 'OWNED_HOST_REPARSE_PATH' 'Actual baseline registration denies deeper object junction'
+        Write-LabArtifactJsonAtomic -Path $baselinePaths.RegistryPath -InputObject ([pscustomobject]@{formatVersion='1';records=@([pscustomobject]@{keyId=$digest;verified=$true;quarantined=$false;backupSha256=$payloadHash;objectPath="objects/$payloadHash/baseline.bak"})})
+        Assert-OwnThrows { Get-LabSampleBaseline -StateRoot $root -Key $baselineKey } 'OWNED_HOST_REPARSE_PATH' 'Actual baseline reader denies deeper object junction'
+        Assert-OwnThrows { Set-LabSampleBaselineQuarantined -StateRoot $root -KeyId $digest -Reason synthetic } 'OWNED_HOST_REPARSE_PATH' 'Actual baseline quarantine denies deeper object junction before moving'
+        [IO.Directory]::Delete($objectDigestPath)
+        Assert-Own (@(Get-ChildItem -LiteralPath $fixtureRoot -Force).Count -eq $outsideCount) 'Rejected deeper junction consumers leave the external target unchanged'
+        $cachePath = $initializedLibrary.CacheRoot
+        [IO.Directory]::Delete($cachePath)
+        $null = New-Item -ItemType Junction -Path $cachePath -Target $fixtureRoot
+        Assert-OwnThrows { Initialize-LabArtifactStore -StateRoot $root } 'OWNED_HOST_REPARSE_PATH' 'Derived artifact cache junction is denied before writes'
+        [IO.Directory]::Delete($cachePath)
+        $null = New-Item -ItemType Directory -Path $cachePath
+        $policyPath = Join-Path $root 'owned-host-policy.json'
+        $savedPolicyPath = Join-Path $root 'saved-policy.private'
+        Move-Item -LiteralPath $policyPath -Destination $savedPolicyPath
+        Assert-OwnThrows { Initialize-LabArtifactStore -StateRoot $root } 'OWNED_HOST_POLICY_MISSING' 'Required marker cannot fall back to shared library after policy loss'
+        Move-Item -LiteralPath $savedPolicyPath -Destination $policyPath
+        $ordinaryPaths = Get-LabArtifactStorePaths -StateRoot $ordinary.StateRoot
+        Assert-Own ($ordinaryPaths.TestDataRoot -ceq $outsideLibrary -and $script:libraryDefaultCalls -eq 1) 'Standard profile retains its configured library default'
         $dataCoordinator=New-Module -ArgumentList $repoRoot -ScriptBlock {
             param($Repository)
             . (Join-Path $Repository 'Tests/Common/OwnedHostTestScope.ps1')

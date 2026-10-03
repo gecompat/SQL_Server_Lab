@@ -121,6 +121,17 @@ pauschal rekursiv entfernt und seine lokalen Custodyrecords bleiben erhalten.
 
 ## Tatsächliche Pflichtketten und Grenzen
 
+Sample-Artefakte verwenden im eigenen Profil standardmäßig die Bibliothek
+`testdata-library` unter dem gebundenen StateRoot. Cache, sichtbare Bibliothek
+und `LAB_GENERATED`-Baselines bleiben dadurch im eigenen Scope. Ein expliziter
+Testdaten-Root muss absolut und innerhalb dieses Roots liegen. Policyverlust,
+fremde Pfade und Reparse Points in den abgeleiteten Artifact- und Baselinepfaden
+werden vor deren Initialisierung abgelehnt.
+Auch später abgeleitete Digest-, Kategorie-, Objekt- und Quarantänepfade
+werden vor Lesen, Schreiben oder Verschieben auf diese Grenze geprüft.
+Die globale Bibliotheksauswahl des Standardprofils bleibt erhalten;
+die Container-Kopiergrenze gilt weiter.
+
 Docker-, Podman- und Mixed-Workflows geben denselben expliziten Root an ihre
 bestehenden Harnesses weiter: Lifecycle/Matrix, Restore, Collation, Batch,
 ToolAcceptance, PackageExport, PortableTransfer/Preflight, PITR, SQL-Upgrade,
