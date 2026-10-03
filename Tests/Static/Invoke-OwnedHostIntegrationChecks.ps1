@@ -699,7 +699,7 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         Assert-Own ($script:podmanCreateCalls -eq 1) 'Rejected create route options never dispatch a second synthetic creation'
         $script:syntheticVolumes=@{}; $script:syntheticContainers=@{}; $script:syntheticEffects=@()
         $script:syntheticReply={param($StartInfo)
-            $args=@($StartInfo.ArgumentList); $args=$args[2..($args.Count-1)]
+            $args=@($StartInfo.ArgumentList); $pinWidth=if($args[0] -ceq '--remote'){5}else{2}; $args=$args[$pinWidth..($args.Count-1)]
             [IO.File]::AppendAllText((Join-Path $fixtureRoot 'synthetic-commands.private.jsonl'),(($args|ConvertTo-Json -Compress)+[Environment]::NewLine))
             $text=''
             if ($args[0] -ceq 'volume') {
@@ -736,6 +736,32 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         $volume=Get-LabOwnedHostVolumeReceipt -StateRoot $root -Provider docker -VolumeName 'synthetic-volume'
         Assert-Own ($createdVolume -and $volume.Intent.RunId -ceq $allocated.RunId -and
             ($script:syntheticEffects -join '|') -ceq 'volume-create|container-create|container-start|container-remove') 'Eigener Volume-Creation-Nachweis bleibt nach voller CID-Probe-Kompensation erhalten'
+        $null=Initialize-LabOwnedHostSqlVolume -StateRoot $root -RunId $allocated.RunId -ScopeId $allocatedState.scopeId -Provider podman -VolumeName 'synthetic-podman-volume' -Image ('sha256:'+('c'*64)) -InstanceId 'synthetic-instance' -VersionId '2025' -ContainerPath '/var/opt/mssql'
+        $mountIntent=New-LabOwnedHostContainerIntent -StateRoot $root -RunId $allocated.RunId -ScopeId $allocatedState.scopeId -InstanceId 'synthetic-mount' -Provider podman -ContainerName 'synthetic-podman-mount'
+        $mountPrefix=@('create','--name',$mountIntent.ContainerName,
+            '--label',('sql-server-lab.run-id='+$mountIntent.RunId),'--label',('sql-server-lab.scope-id='+$mountIntent.ScopeId),
+            '--label',('sql-server-lab.instance-id='+$mountIntent.InstanceId))+@(Get-LabOwnedHostContainerLabels -Intent $mountIntent)
+        foreach($mode in @('U','U,ro','U,rw')) {
+            $effectCount=$script:syntheticEffects.Count
+            $null=Invoke-LabOwnedHostPinnedCommand -StateRoot $root -Provider podman -Arguments ($mountPrefix+@('-v',('synthetic-podman-volume:/var/opt/mssql:'+$mode),('sha256:'+('c'*64))))
+            Assert-Own ($script:syntheticEffects.Count -eq $effectCount+1 -and $script:syntheticEffects[-1] -ceq 'container-create') ('Actual Podman create accepts receipt-bound named volume option '+$mode)
+        }
+        $effectCount=$script:syntheticEffects.Count
+        foreach($mode in @('u','Z','U,Z','U,U','ro,U','U,ro,rw','U,ro,bind')) {
+            Assert-OwnThrows { Invoke-LabOwnedHostPinnedCommand -StateRoot $root -Provider podman -Arguments ($mountPrefix+@('-v',('synthetic-podman-volume:/var/opt/mssql:'+$mode),('sha256:'+('c'*64)))) } 'OWNED_HOST_MOUNT_SCOPE_UNSUPPORTED' ('Unknown or duplicate named-volume option is denied: '+$mode)
+        }
+        Assert-OwnThrows { Assert-LabOwnedHostContainerCreateInputs -StateRoot $root -Provider docker -Arguments @('create','-v','synthetic-volume:/var/opt/mssql:U',('sha256:'+('c'*64))) } 'OWNED_HOST_MOUNT_SCOPE_UNSUPPORTED' 'Docker does not gain Podman ownership-adjustment option'
+        Assert-OwnThrows { Assert-LabOwnedHostContainerCreateInputs -StateRoot $root -Provider podman -Arguments @('create','-v',($root+':/host:U'),('sha256:'+('c'*64))) } 'OWNED_HOST_MOUNT_SCOPE_UNSUPPORTED' 'Host bind mount cannot gain recursive ownership-adjustment option'
+        $unreceiptedDenied=$false
+        try { $null=Invoke-LabOwnedHostPinnedCommand -StateRoot $root -Provider podman -Arguments ($mountPrefix+@('-v','synthetic-unreceipted:/var/opt/mssql:U',('sha256:'+('c'*64)))) }
+        catch { $unreceiptedDenied=$_.FullyQualifiedErrorId -ceq 'PathNotFound,Microsoft.PowerShell.Commands.GetItemCommand' }
+        Assert-Own $unreceiptedDenied 'Ownership adjustment cannot create an unreceipted named volume'
+        $oldVolumeScope=$script:syntheticVolumes['synthetic-podman-volume'].Labels.'sql-server-lab.scope-id'
+        $script:syntheticVolumes['synthetic-podman-volume'].Labels.'sql-server-lab.scope-id'=[guid]::NewGuid().ToString('D')
+        Assert-OwnThrows { Invoke-LabOwnedHostPinnedCommand -StateRoot $root -Provider podman -Arguments ($mountPrefix+@('-v','synthetic-podman-volume:/var/opt/mssql:U',('sha256:'+('c'*64)))) } 'OWNED_HOST_VOLUME_BINDING_DRIFT' 'Named-volume ownership adjustment retains fresh scope-label veto'
+        $script:syntheticVolumes['synthetic-podman-volume'].Labels.'sql-server-lab.scope-id'=$oldVolumeScope
+        Assert-Own ($script:syntheticEffects.Count -eq $effectCount) 'Rejected mount forms and custody drift produce zero provider effects'
+        $script:syntheticContainers.Clear()
         $beforeEffects=$script:syntheticEffects.Count
         $script:foreignVolume=$true
         Assert-OwnThrows { Initialize-LabOwnedHostSqlVolume -StateRoot $root -RunId $allocated.RunId -ScopeId $allocatedState.scopeId -Provider docker -VolumeName 'foreign-volume' -Image ('sha256:'+('c'*64)) -InstanceId 'synthetic-instance' -VersionId '2025' -ContainerPath '/var/opt/mssql' } 'OWNED_HOST_VOLUME_ABSENCE_UNVERIFIABLE' 'Vorhandenes Volume wird trotz aehnlichem Namen nicht adoptiert'

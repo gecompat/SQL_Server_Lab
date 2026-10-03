@@ -978,7 +978,9 @@ function Assert-LabOwnedHostContainerCreateInputs {
         if ($option -cin @('--volume','-v')) {
             # Named volumes need their own original create receipt, including
             # retained-store use. Host writes remain inside this fresh root.
-            if ($value -cmatch '^(?<source>[A-Za-z0-9][A-Za-z0-9_.-]{0,254}):/(?<target>[^:]+)(?::(?<mode>ro|rw))?$') {
+            if ($value -cmatch '^(?<source>[A-Za-z0-9][A-Za-z0-9_.-]{0,254}):/(?<target>[^:]+)(?::(?<mode>ro|rw|U(?:,(?:ro|rw))?))?$') {
+                # Podman's ownership adjustment is restricted to receipt-bound named volumes.
+                if ($Matches['mode'] -cin @('U','U,ro','U,rw') -and $Provider -cne 'podman') { throw 'OWNED_HOST_MOUNT_SCOPE_UNSUPPORTED' }
                 $null=Get-LabOwnedHostVolumeReceipt -StateRoot $StateRoot -Provider $Provider -VolumeName $Matches['source']
             } elseif ($value -cmatch '^(?<source>[A-Za-z]:[\\/][^:]+):/(?<target>[^:]+)(?::(?<mode>ro|rw))?$') {
                 $path=Assert-LabOwnedHostPath $Matches['source'];$mode=$Matches['mode']

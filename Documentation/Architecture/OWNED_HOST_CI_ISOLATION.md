@@ -60,6 +60,10 @@ Ein gültig gebundener Run darf ein am selben Pin nachweislich abwesendes
 Volume ohne Delete als bereits bereinigt behandeln, auch wenn Arrange vor
 der Creation-Receipt abbrach. Fehler bei der Inventarbeobachtung bleiben
 gesperrt; ein vorhandenes Volume benötigt weiterhin sämtliche Besitznachweise.
+Podmans Besitzanpassung mit `U`, `U,ro` oder `U,rw` ist ausschließlich
+für Named Volumes mit vollständiger Creation-Receipt und frischer Labelbindung
+zulässig. Host-Bind-Mounts erhalten diese rekursive Besitzänderung nicht;
+unbekannte oder doppelte Optionen und Docker-`U` bleiben gesperrt.
 Vorhandene Netzwerke werden nur gelesen. Hostschreibpfade bleiben im eigenen
 Root; gemeinsame Netzwerk-, CNI- und Cacheänderungen werden gesperrt.
 
