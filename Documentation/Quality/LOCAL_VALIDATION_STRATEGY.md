@@ -887,6 +887,21 @@ noch die Existenz historischer Commits und bestätigt keine aktuelle
 Quellgleichheit. Neue Einträge benötigen daher eine geprüfte tatsächliche
 Ausführung mit sanitisiertem Quellenbeleg. Es werden keine Rohlogs importiert.
 
+Der optionale Schalter `-IncludeRecordedAcceptanceMatrix` ergänzt die Inventur
+als `SqlServerLab.RepositoryCapabilityInventory/1.1`; ohne Schalter bleiben
+Version `1.0` und deren Felder unverändert. Die sparse Sicht gruppiert nur
+validierte Indexeinträge nach exakter Fähigkeit, Provider, SQL-Version
+(einschließlich typisiertem `null`), aufgezeichneter Plattform und Scope.
+`RecordedPlatform` ist keine abgeleitete Gastplattform. Alle Records bleiben
+ordinal deterministisch erhalten. Unterschiedliche Ergebnisse oder Cleanupwerte
+für dasselbe Tupel mit gleicher Revision, Testdatei und Datum setzen
+`HistoryConflict`; es gibt keinen Latest-Winner. Andere Daten oder Revisionen
+bleiben separate Historie. Die Suite prüft die tatsächliche Tool-Komposition,
+Defaultparität, Tupeltrennung, Reihenfolge, Konflikte, 128-Record-Grenze sowie
+geschlossene leere Zellen bei fehlendem, ungültigem oder umgeleitetem Index.
+Die vorhandene Modulinventur bleibt unverändert; der Schalter ergänzt keine
+Imports, Readiness- oder Providerproben.
+
 Die Persistent-Storage-Katalogsuite prueft auch den umgestellten
 Container-Datenbankreferenz-Writer: Preview ohne Katalogschreiben, genau eine
 Revision beim Apply, stabile Referenz-IDs bei No-op sowie Abweisung einer

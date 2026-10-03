@@ -366,6 +366,21 @@ Katalogen, Code und den referenzierten Qualitätsberichten auf. Der bestehende
 Evidence-Index enthält nur einen Ausschnitt der dokumentierten Historie;
 fehlende Indexeinträge bedeuten nicht, dass keine Abnahme existiert.
 
+Der enge `BASE-001`-bis-`BASE-005`-Teilslice ergänzt optional
+`-IncludeRecordedAcceptanceMatrix` im bestehenden Inventartool (Version `1.1`,
+Standard weiterhin `1.0`). Die sparse `RECORDED_HISTORY_ONLY`-Sicht erhält alle
+validierten Records und gruppiert exakt Fähigkeit, Provider, SQL-Version,
+aufgezeichnete Plattform und Scope. Gleiche Revision/Test/Datum mit
+widersprüchlichem Ergebnis oder Cleanup wird als `HistoryConflict` sichtbar;
+keine Auswahl des neuesten Ergebnisses überschreibt Historie. Diese Sicht ist
+keine vollständige Matrix und keine aktuelle Native-Abnahme oder Readiness.
+Installierbarkeit, Support und Gast-/Imagevarianten bewertet diese Sicht nicht.
+Der enge Docker-/Podman-Linux-Entscheid unter `CORE-102` ist als öffentliche
+API, Manifestdialog und Browserconsumer implementiert. Die vollständige
+Matrix, historische Zuordnung, Hyper-V und weitere Provider sowie neue
+Native-Nachweise bleiben offen. Zusätzliche Imports oder Proben entstehen
+durch diesen Schalter nicht.
+
 Mindestens getrennt zu führen sind `implementationStatus`,
 `installabilityStatus`, `projectSupportStatus`, `manufacturerSupportStatus`,
 `nativeAcceptanceStatus` und `currentReadinessStatus`. Die noch zu

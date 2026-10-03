@@ -18,6 +18,22 @@ SQL-Bereitschaft werden auch dort nicht frisch geprüft.
 Andere Provider, mehrere Instanzen und ungebundene Caller-Inventories sind
 außerhalb dieses Slices.
 
+Die optionale historische Matrix von
+`Tools/Get-SqlServerLabCapabilityInventory.ps1 -IncludeRecordedAcceptanceMatrix`
+ist ausschließlich `RECORDED_HISTORY_ONLY` mit `INDEXED_TUPLES_ONLY`.
+Fehlende Zellen bedeuten keine fehlende Abnahme; der Index ist ein Ausschnitt.
+Historische Ergebnisse und Widersprüche bleiben erhalten, Referenzen sind
+`NOT_VERIFIED`, aktuelle Ausführung ist `NOT_EXECUTED` und Readiness
+`NOT_CHECKED`. Native Zellen bleiben `UNKNOWN`; nur einzelne statische oder
+Package-Zellen tragen native `NOT_APPLICABLE`. Typisiertes SQL-`null` ist kein
+Wildcard; `RecordedPlatform` bestätigt weder Gastbetriebssystem noch
+Containerimage, rootless/rootful oder cgroup. Installierbarkeit, Hersteller-/
+Projektsupport, aktuelle Quellgleichheit und vollständige Kombinationenmatrix
+werden nicht bewertet. Der enge Docker-/Podman-Linux-Entscheid unter `CORE-102`
+ist als öffentliche API, Manifestdialog und Browserconsumer implementiert.
+Die vollständige Matrix, historische Zuordnung, Hyper-V und weitere Provider
+sowie neue Native-Nachweise bleiben offen.
+
 Der PLAN_ONLY-[Komponentenplan](../Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md#71-implementierter-enger-komponentenplan-slice-e)
 ist nur für zwei vorhandene Docker-/Podman-SQL-Ziele und eine verwaltete
 Shared-SQL-Referenz unter registriertem `Lab_Data/State` implementiert.

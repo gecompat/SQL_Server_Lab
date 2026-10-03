@@ -356,6 +356,7 @@ sources_of_truth:
   acceptance_ssis_owned_install: Tests/Integration/Invoke-SsisOwnedInstallAcceptance.ps1
   validation_ssis_owned_install: Tests/Static/Invoke-SsisOwnedInstallChecks.ps1
   repository_capability_inventory: Tools/Get-SqlServerLabCapabilityInventory.ps1
+  repository_recorded_acceptance_matrix: Tools/Get-SqlServerLabCapabilityInventory.ps1 # optional 1.1 view; indexed historical tuples only
   repository_capability_evidence_index: Documentation/Quality/capability-evidence-index.json
   repository_capability_evidence_schema: Schemas/capability-evidence-index.schema.json
   validation_repository_capability_inventory: Tests/Static/Invoke-CapabilityInventoryChecks.ps1
