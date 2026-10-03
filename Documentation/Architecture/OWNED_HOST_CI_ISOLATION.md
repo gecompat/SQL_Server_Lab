@@ -63,6 +63,11 @@ Ein gleichzeitiger primärer Fehler und Cleanupveto behält die ursprüngliche
 Exception; deren lokale `SqlServerLab.BackupCleanupStatus`-/
 `SqlServerLab.BackupCleanupReason`-Metadaten zeigen den getrennten Recoverybedarf.
 
+Der Package-Export-Recoverytest injiziert seinen kontrollierten Kopierfehler im
+eigenen Profil erst am vorbereiteten nativen Prozessstart hinter den tatsächlichen
+Route-, Custody- und Pfadprüfungen. Nur die exakte Runtime-Route und Container-ID
+des Test-Runs treffen diese Fault-Injection; andere Aufrufe laufen unverändert weiter.
+
 SqlPackage-ToolImages behalten ihre logischen Katalogschlüssel. Validierte
 vorhandene Images dürfen über ihre unveränderliche Image-ID gelesen werden.
 Ein notwendiger Build verwendet einen intern generierten Policy-/ImageKey-Tag,

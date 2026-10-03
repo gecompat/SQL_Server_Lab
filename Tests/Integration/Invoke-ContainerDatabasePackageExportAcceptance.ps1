@@ -70,12 +70,41 @@ try {
     $recovery=& $module {
         param($Run,$State,$Root,$Name)
         $originalNative=(Get-Command Invoke-LabProgressNativeCommand -CommandType Function).ScriptBlock
+        $originalOwnedNative=(Get-Command Invoke-LabOwnedHostNativeProcess -CommandType Function).ScriptBlock
+        $ownedPolicy=Get-LabOwnedHostPolicy -StateRoot $State
+        $script:packageCopyInvocation=$null;$script:packageCopyPrefix=@();$script:packageCopyContainerId=$null
+        if($ownedPolicy){
+            $ownedContext=Get-LabContainerReconcileContext -RunId $Run -InstanceId primary -StateRoot $State
+            $pin=@($ownedPolicy.RuntimePins|Where-Object {$_.Provider -ceq $ownedContext.Provider})[0]
+            if(-not $pin){throw 'PACKAGE_COPY_FAULT_PIN_UNAVAILABLE'}
+            $script:packageCopyInvocation=[string]$pin.Invocation
+            $script:packageCopyContainerId=[string]$ownedContext.ContainerId
+            $script:packageCopyPrefix=if($pin.Provider -ceq 'docker'){@('--host',[string]$pin.Endpoint)}else{@('--remote','--url',[string]$pin.Endpoint,'--identity',[string]$pin.IdentityPath)}
+        }
         $script:packageNativeCopyFault=$false
         function Invoke-LabProgressNativeCommand {
             [CmdletBinding()]
             param([string]$FilePath,[string[]]$ArgumentList,[string]$Phase='ImageBuild',[int]$TimeoutSeconds=3600,$Progress)
             if($ArgumentList[0] -eq 'cp'){$script:packageNativeCopyFault=$true;return [pscustomobject]@{ExitCode=1;Output=@()}}
             & $originalNative @PSBoundParameters
+        }
+        function Invoke-LabOwnedHostNativeProcess {
+            [CmdletBinding()]
+            param([Diagnostics.ProcessStartInfo]$StartInfo,[int]$TimeoutSeconds=60,[int]$MaximumBytes=1048576)
+            $prepared=@($StartInfo.ArgumentList)
+            $prefixCount=$script:packageCopyPrefix.Count
+            $matchesPin=$script:packageCopyInvocation -and $StartInfo.FileName -ceq $script:packageCopyInvocation -and
+                $prepared.Count -eq ($prefixCount+3)
+            for($index=0;$matchesPin -and $index -lt $prefixCount;$index++){
+                $matchesPin=$prepared[$index] -ceq $script:packageCopyPrefix[$index]
+            }
+            if($matchesPin -and $prepared[$prefixCount] -ceq 'cp' -and
+                $prepared[$prefixCount+1].StartsWith($script:packageCopyContainerId+':/',[StringComparison]::Ordinal)){
+                # The actual dispatcher already validated route, custody and copy paths.
+                $script:packageNativeCopyFault=$true
+                return [pscustomobject]@{ExitCode=1;Stdout='';Stderr='SYNTHETIC_PACKAGE_COPY_FAILURE';TimedOut=$false}
+            }
+            & $originalOwnedNative @PSBoundParameters
         }
         $failed=$false
         try{$null=Export-SqlServerLabDatabasePackage -RunId $Run -InstanceId primary -DatabaseName $Name -DataRoot $Root -StateRoot $State -Confirm:$false}

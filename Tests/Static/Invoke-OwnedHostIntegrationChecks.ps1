@@ -645,6 +645,34 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         Assert-Own $backupEvidence[2] 'Actual backup core requires bound own RunId before SQL or export effects'
         Assert-Own $backupEvidence[3] 'Actual backup core cleans temporary files after export failure without replacing the cause'
         Assert-Own $backupEvidence[4] 'Compound export and cleanup failures preserve original cause plus separate recovery metadata and retain files'
+        $packageAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tests/Integration/Invoke-ContainerDatabasePackageExportAcceptance.ps1'),[ref]$null,[ref]$null)
+        $copyFaultNodes=@($packageAst.FindAll({param($node)$node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -ceq 'Invoke-LabOwnedHostNativeProcess'},$true))
+        if($copyFaultNodes.Count -ne 1){throw 'PACKAGE_COPY_FAULT_FIXTURE_SHAPE'}
+        $copyFaultFixture=New-Module -ArgumentList ([scriptblock]::Create($copyFaultNodes[0].Extent.Text)) -ScriptBlock {
+            param($Definition)
+            $originalOwnedNative={param($StartInfo,$TimeoutSeconds,$MaximumBytes)$script:forwarded++;[pscustomobject]@{ExitCode=0;Stdout='synthetic delegated';Stderr=''}}
+            . $Definition
+            $script:packageCopyInvocation='synthetic-runtime';$script:packageCopyContainerId='a'*64
+            $script:checks=@()
+            foreach($case in @('docker','podman','foreign-route','foreign-container','other-command','foreign-invocation')){
+                $script:forwarded=0;$script:packageNativeCopyFault=$false
+                $script:packageCopyPrefix=if($case -ceq 'podman'){@('--remote','--url','ssh://synthetic@127.0.0.1:22222','--identity','synthetic-key')}else{@('--host','npipe://synthetic')}
+                $start=[Diagnostics.ProcessStartInfo]::new($script:packageCopyInvocation)
+                foreach($argument in $script:packageCopyPrefix){$start.ArgumentList.Add($argument)}
+                $start.ArgumentList.Add('cp');$start.ArgumentList.Add($script:packageCopyContainerId+':/synthetic.mdf');$start.ArgumentList.Add('synthetic-target')
+                switch($case){
+                    'foreign-route'{$start.ArgumentList[1]='npipe://foreign'}
+                    'foreign-container'{$start.ArgumentList[$script:packageCopyPrefix.Count+1]=('b'*64)+':/synthetic.mdf'}
+                    'other-command'{$start.ArgumentList[$script:packageCopyPrefix.Count]='inspect'}
+                    'foreign-invocation'{$start.FileName='foreign-runtime'}
+                }
+                $result=Invoke-LabOwnedHostNativeProcess -StartInfo $start -TimeoutSeconds 10
+                $expectedFault=$case -cin @('docker','podman')
+                $script:checks+=@([pscustomobject]@{Case=$case;Passed=($script:packageNativeCopyFault -eq $expectedFault -and $script:forwarded -eq [int](-not $expectedFault) -and $result.ExitCode -eq [int]$expectedFault)})
+            }
+            Export-ModuleMember -Function @()
+        }
+        foreach($check in (& $copyFaultFixture {$script:checks})){Assert-Own $check.Passed ('Actual package copy fault intercepts only exact prepared own copy: '+$check.Case)}
         $script:foreignVolume=$false
         $script:syntheticTask=$null;$script:taskRegisters=0;$script:taskDeletes=0
         function Get-ScheduledTask {param($TaskPath,$TaskName,$ErrorAction) if($script:syntheticTask){$script:syntheticTask}}
