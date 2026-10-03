@@ -306,6 +306,9 @@ Add-CheckResult -Name 'CI-Infrastruktur prueft einmalig alle Runtime-Gates' -Suc
 
 # Einzelpfade verhindern, dass ein zweiter Dateiname eine fehlende Abhaengigkeit verdeckt.
 $dependencyCases = @(
+    @{ Path = 'Private/ContainerOwnedHostIntegration.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
+    @{ Path = 'Tests/Common/OwnedHostTestScope.ps1'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
+    @{ Path = 'Schemas/container-owned-host-integration.schema.json'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
     @{ Path = 'Private/CleanupEngine.ps1'; Checks = @('Invoke-CleanupRecoveryChecks.ps1','Invoke-MixedCleanupRecoveryChecks.ps1','Invoke-CleanupAuditChecks.ps1','Invoke-CleanupVolumeOwnershipChecks.ps1'); Runtime = @('Docker','Podman','Mixed','HyperV','Adapter') },
     @{ Path = 'Tools/Remove-HyperVOrphanWithOwnedStorage.ps1'; Checks = @('Invoke-HyperVOrphanCleanupToolChecks.ps1'); Runtime = @() },
     @{ Path = 'Tests/Integration/Invoke-AiVectorIndexAcceptance.ps1'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ContainerVolumeContractChecks.ps1'); Runtime = @('Docker','Podman') },
@@ -388,6 +391,12 @@ foreach ($case in $dependencyCases) {
             -Success ($missingChecks.Count -eq 0 -and $missingRuntime.Count -eq 0) `
             -Message "Fehlende Suites: $($missingChecks -join ', '); fehlende Provider: $($missingRuntime -join ', ')"
     }
+}
+
+foreach($path in @('Tests/Static/Invoke-OwnedHostIntegrationChecks.ps1','Documentation/Architecture/OWNED_HOST_CI_ISOLATION.md')) {
+    $selected=& $selector -ChangedPath @($path)
+    Add-CheckResult -Name "Reine OwnedHost-Fixture oder Dokumentation startet keine Runtime: $path" -Success (
+        -not $selected.Docker -and -not $selected.Podman -and -not $selected.Mixed -and -not $selected.HyperV -and -not $selected.Adapter)
 }
 
 foreach ($companion in @('Private/ResourceSet.ps1', 'Providers/HyperV/HyperVProvider.ps1')) {

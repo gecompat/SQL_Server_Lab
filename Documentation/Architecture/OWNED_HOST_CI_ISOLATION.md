@@ -143,6 +143,9 @@ mit synthetischen Discoveryantworten: Die ausgewählten Providernamen bleiben
 bis zur Readinessprüfung erhalten. Diese Prüfung erzeugt keine native Policy.
 Ein stabiler Diff benötigt gekoppelte statische Suites, unabhängige Reviews und getrennte native
 Docker-, Podman-, Mixed-, Hyper-V- und Adapterpflichtgates am exakten Head.
+Der CI-Selektor wählt diese fünf Gates auch bei einer isolierten Änderung am
+OwnedHost-Core, seinem Root-Koordinator oder seinem Schema. Reine Änderungen
+an der statischen Fixture oder dieser Dokumentation starten keine Runtime.
 Vor und nach nativem Arrange müssen sämtliche vorbestehenden Ressourcen frisch
 erfasst und als geschützt revalidiert werden. Synthetische Checks, Readiness,
 Taskregistrierung und historische Abnahmen ersetzen diese Nachweise nicht.

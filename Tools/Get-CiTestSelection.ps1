@@ -228,6 +228,9 @@ end {
         foreach ($runtimePath in $allPaths) {
             $pathRuntime = [ordered]@{ Docker = $false; Podman = $false; Mixed = $false; HyperV = $false; Adapter = $false }
             $pathHasProductCode = $runtimePath -match '^(Private|Public|Providers|Adapters|Catalogs|Schemas)/|^SqlServerLab\.(psd1|psm1)$'
+            if ($runtimePath -match '(?i)^(Private/ContainerOwnedHostIntegration\.ps1|Tests/Common/OwnedHostTestScope\.ps1|Schemas/container-owned-host-integration\.schema\.json)$') {
+                $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true; $pathRuntime.Adapter = $true
+            }
             if ($runtimePath -match '(?i)^Private/CleanupEngine\.ps1$') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true; $pathRuntime.Adapter = $true }
             if ($runtimePath -match '(?i)ContainerNetworkCleanup') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)TestGroupGuidance') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }
