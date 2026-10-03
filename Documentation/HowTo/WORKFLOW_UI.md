@@ -2,6 +2,21 @@
 
 ## Zweck
 
+### External Languages vor einer Lab-Erstellung
+
+Unter **Lab erstellen → Python / R / Java: Katalog und Hostvoraussetzungen**
+Docker oder Podman und SQL-Version wählen, dann **Katalogvarianten lesen**.
+Python-, R- und Java-Varianten mit Sperrgrund bleiben sichtbar; nur unterstützte
+Varianten sind auswählbar. **Katalogentscheidung anzeigen** prüft keinen Host.
+**Hostvoraussetzungen bewusst lesend prüfen** beobachtet den gewählten Provider
+einmal; `READY` ist keine SQL-Sprachabnahme oder Zielautorisierung.
+SQL 2025 shared-user-v2 besitzt keine Launchpad-Sandbox. Öffnen oder Ändern
+fragt keinen Host ab. Zurück/Abbruch und Escape verwerfen den RAM-Entwurf und
+ignorieren späte Antworten; eine laufende lesende Prüfung wird nicht gestoppt.
+Kein Speichern, Apply, Job, Manifestübernahme oder Start. Der Prozess hat
+20 Sekunden Ausführungsbudget plus bis zu fünf Sekunden Terminierungsversuch,
+kein Gesamt-HTTP-/Listener-Zeitlimit. [Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+
 ### Komponentenrelationsvorschau
 
 Unter **Verbindungen und CMS → SQL-Komponenten: geführte Vorschau**

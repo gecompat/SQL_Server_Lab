@@ -1,5 +1,16 @@
 # SQL_Server_Lab – Getting Started
 
+## Python, R oder Java für eine zukünftige Containerinstanz prüfen
+
+Im Browser unter **Lab erstellen → Python / R / Java: Katalog und
+Hostvoraussetzungen** Provider und SQL-Version wählen und Katalogvarianten
+lesen. Blockierte Varianten bleiben mit Grund sichtbar. Die Katalogentscheidung
+prüft keinen Host; der eigene Hostcheck-Knopf fordert genau eine lesende Prüfung
+an. `READY` ist weder SQL-Sprachabnahme noch Ausführungsrecht. SQL 2025
+shared-user-v2 verzichtet auf die Launchpad-Sandbox. Kein Manifest wird
+übernommen oder gespeichert; Abbruch verwirft Eingaben und späte Anzeigen.
+[Grenzen und Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+
 ## Verfügbarkeit der SQL-2025-KI-Aktionen
 
 Das KI-Menü lässt Aktionen sichtbar, die ein SQL-Ziel benötigen, deaktiviert sie

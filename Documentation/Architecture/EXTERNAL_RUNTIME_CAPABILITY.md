@@ -63,6 +63,36 @@ SQL-2025-Modus ohne Launchpad-Sandbox bleiben erhalten.
 Die bestehende private `Get-LabExternalRuntimeSelectionOptions`-Rückgabe,
 Desired-State-Assessment, Manifestfelder und Runtime-Executor bleiben
 unverändert. Die API ist über den allgemeinen Konsolenbefehlszugang erreichbar.
-Ein geführter Browserconsumer und die vollständige CORE-102-Kombinationenmatrix
-bleiben offen. Synthetische Transportprüfungen sind keine aktuelle
+Die vollständige CORE-102-Kombinationenmatrix bleibt offen.
+Synthetische Transportprüfungen sind keine aktuelle
 Docker-/Podman-/SQL-Sprachabnahme.
+
+## Geführter Browserconsumer
+
+Unter **Lab erstellen → Python / R / Java: Katalog und Hostvoraussetzungen**
+werden Provider und SQL-Version ausdrücklich gewählt. Öffnen und Ändern lesen
+keinen Host. **Katalogvarianten lesen** verwendet den bestehenden Reducer ohne
+Hostbeobachtung; maximal 128 Varianten zeigen auch feste Ablehnungsgründe.
+Blockierte Varianten können nicht gewählt werden. **Katalogentscheidung anzeigen**
+ruft dieselbe Public-API ohne Probe auf. Erst **Hostvoraussetzungen bewusst lesend
+prüfen** setzt `CheckProviderReadiness=true`. Linux ist das explizite Ziel;
+C# und Hyper-V bleiben außerhalb dieses Dialogs.
+
+`POST /api/external-runtime-capability` besitzt getrennte `ReadOptions`- und
+`Evaluate`-Körper. Die Grenze verlangt den tatsächlichen IPv4-Loopback-Listener,
+seinen Port und eine nichtleere identische Origin. Das ist keine neue
+Authentifizierungs- oder Besitzautorität. JSON wird als striktes UTF-8 auf
+8192 Bytes, 4096 Zeichen, Tiefe 2 und 16 Knoten begrenzt; doppelte oder anders
+geschriebene Feldnamen, unbekannte Felder, Nullwerte und Typumdeutungen sperren.
+Öffentliche Eingaben enthalten niemals Providerfakten. Antworten besitzen den
+geschlossenen Browservertrag `SqlServerLab.ExternalRuntimeCapabilityBrowser/1.0`
+mit validierten Katalogidentitäten und dem unveränderten Public-Entscheid.
+
+Der bestehende UI-Modulhost führt den Aufruf synchron aus, ohne Job oder
+erneuten Import. 20 Sekunden Prozessausführung plus bis zu fünf Sekunden
+Terminierungsversuch begrenzen weder den gesamten HTTP-Aufruf noch den Listener.
+Eingaben bleiben im Browser-RAM. Abbruch, Escape und neue Auswahl verwerfen die
+Anzeige; späte Erfolge und Fehler werden ignoriert. Eine bereits angeforderte
+lesende Hostprüfung wird dadurch nicht als gestoppt behauptet. Es gibt keinen
+Apply-, Speicher-, Start- oder Manifestübernahmepfad. Historisches Mapping und
+SQL-Sprachabnahme bleiben unverändert offen; CORE-102 ist damit nicht vollständig.

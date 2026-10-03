@@ -2,6 +2,17 @@
 
 ## Prospektiver External-Languages-Capability-Entscheid
 
+`Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1` prüft die extrahierte echte
+HTTP-Route im bestehenden Modulkontext, den neuen strikten Helper und den
+unveränderten Public-/Resolver-/Classifier-Pfad mit isolierten Transport-Spies.
+ReadOptions und Evaluate ohne Hostcheck verlangen null native Transporte;
+bewusster Hostcheck verlangt genau einen begrenzten Adapteraufruf.
+UTF-8-/Körper-/Origin-/Listener-/Typgrenzen und geschlossene Antworten werden
+negativ geprüft. Das tatsächliche JS-Modul läuft mit Fake-DOM und Fetch-Spies:
+Abbruch, Escape, Busy, verworfene späte Antworten, blockierte Varianten und
+Privacyfehler werden geprüft. Das sind synthetische Prüfungen, keine manuelle
+Browser- oder native Provider-/SQL-Sprachabnahme.
+
 `Invoke-ExternalRuntimeCapabilityChecks.ps1` durchläuft den tatsächlichen
 Public-Aufruf, Katalogresolver, Reducer und bestehenden Manifestdialog.
 Provider-Metadaten stammen aus dem Repository; native Prozessgrenzen werden

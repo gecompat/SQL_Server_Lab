@@ -1691,8 +1691,11 @@ verwendet für API und Manifestdialog explizite Docker-/Podman-Linux-Katalogtupl
 für Python, R und Java. Der Standard prüft keinen Host. Eine bewusst
 angeforderte begrenzte `info`-Abfrage bewertet nur die Hostvoraussetzungen des
 Launchmodus. `READY` bestätigt weder SQL-/Sprachausführung, Rechte noch Besitz.
-Historisches Matching bleibt `NOT_RECORDED`/`NOT_DEFINED`; Browserconsumer,
+Historisches Matching bleibt `NOT_RECORDED`/`NOT_DEFINED`. Der geführte Browser
+verwendet denselben engen Public-Entscheid mit bewusstem optionalem Hostcheck;
 Hyper-V-Erweiterung und die vollständige CORE-102-Matrix bleiben offen.
+Der synchrone HTTP-/Listener-Aufruf besitzt kein Gesamtwallclock-Limit.
+Browserabbruch verwirft die Anzeige, stoppt keine bereits angeforderte Prüfung.
 
 Die Installation von R, Python, Java oder C# ist von SQL-Version, Betriebssystem,
 Distribution, Provider, Paketquellen und der jeweiligen Supportmatrix abhängig.
