@@ -1,5 +1,19 @@
 # Bekannte Grenzen
 
+Die optionale historische Matrix von
+`Tools/Get-SqlServerLabCapabilityInventory.ps1 -IncludeRecordedAcceptanceMatrix`
+ist ausschließlich `RECORDED_HISTORY_ONLY` mit `INDEXED_TUPLES_ONLY`.
+Fehlende Zellen bedeuten keine fehlende Abnahme; der Index ist ein Ausschnitt.
+Historische Ergebnisse und Widersprüche bleiben erhalten, Referenzen sind
+`NOT_VERIFIED`, aktuelle Ausführung ist `NOT_EXECUTED` und Readiness
+`NOT_CHECKED`. Native Zellen bleiben `UNKNOWN`; nur einzelne statische oder
+Package-Zellen tragen native `NOT_APPLICABLE`. Typisiertes SQL-`null` ist kein
+Wildcard; `RecordedPlatform` bestätigt weder Gastbetriebssystem noch
+Containerimage, rootless/rootful oder cgroup. Installierbarkeit, Hersteller-/
+Projektsupport, aktuelle Quellgleichheit und vollständige Kombinationenmatrix
+werden nicht bewertet. Der gemeinsame aktuelle Capability-/Readiness-Entscheid
+bleibt separate Arbeit unter `CORE-102`.
+
 Der PLAN_ONLY-[Komponentenplan](../Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md#71-implementierter-enger-komponentenplan-slice-e)
 ist nur für zwei vorhandene Docker-/Podman-SQL-Ziele und eine verwaltete
 Shared-SQL-Referenz unter registriertem `Lab_Data/State` implementiert.
