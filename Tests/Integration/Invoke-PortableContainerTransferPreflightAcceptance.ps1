@@ -30,6 +30,18 @@ $testRoot=if ($requestedStateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $r
 $stateRoot=if ($requestedStateRoot) { $requestedStateRoot } else { Join-Path $testRoot 'state' };$dataRoot=if (-not $requestedStateRoot) { Join-Path $testRoot 'Lab_Data' } else { $null }
 $previousStateRoot=$env:SQL_SERVER_LAB_STATE;$previousDataRoot=$env:SQL_SERVER_LAB_DATA_ROOT
 $sourceLab=$null;$targetLab=$null;$module=$null;$completed=$false;$cleanupFailed=$false;$mutex=$null;$mutexAcquired=$false
+$script:unreturnedCreation=$false
+
+function New-TransferPreflightAcceptanceRun {
+    param([Parameter(Mandatory)][hashtable]$Parameters)
+    # A throwing New may already have persisted recovery resources. Never clear
+    # this flag until its own RunId was actually returned to the coordinator.
+    $script:unreturnedCreation=$true
+    $lab=New-SqlServerLab @Parameters
+    if(-not $lab.RunId){throw 'PREFLIGHT_ACCEPTANCE_NEW_RUN_ID_MISSING'}
+    $script:unreturnedCreation=$false
+    return $lab
+}
 
 function Assert-TransferPreflightAcceptance {
     param([Parameter(Mandatory)][bool]$Condition,[Parameter(Mandatory)][string]$Description)
@@ -60,9 +72,9 @@ try {
 
     $token=[Guid]::NewGuid().ToString('N').Substring(0,16)
     $password=ConvertTo-SecureString "TransferPreflight_${token}!Aa7" -AsPlainText -Force
-    $sourceLab=New-SqlServerLab -Version 2025 -Provider $Provider -Profile compact -Cpu 1 -MemoryMB 2560 -LabName "transfer-source-$($token.Substring(0,8))" -StateRoot $stateRoot -SaPassword $password -SkipAssessment
+    $sourceLab=New-TransferPreflightAcceptanceRun -Parameters @{Version=2025;Provider=$Provider;Profile='compact';Cpu=1;MemoryMB=2560;LabName="transfer-source-$($token.Substring(0,8))";StateRoot=$stateRoot;SaPassword=$password;SkipAssessment=$true}
     Assert-TransferPreflightAcceptance ($sourceLab.State -eq 'Running') 'Isolierter SQL-2025-Quellrun wurde provisioniert'
-    $targetLab=New-SqlServerLab -Version 2025 -Provider $Provider -Profile compact -Cpu 1 -MemoryMB 2560 -LabName "transfer-target-$($token.Substring(0,8))" -DataRoot $dataRoot -PersistentData -StateRoot $stateRoot -SaPassword $password -SkipAssessment
+    $targetLab=New-TransferPreflightAcceptanceRun -Parameters @{Version=2025;Provider=$Provider;Profile='compact';Cpu=1;MemoryMB=2560;LabName="transfer-target-$($token.Substring(0,8))";DataRoot=$dataRoot;PersistentData=$true;StateRoot=$stateRoot;SaPassword=$password;SkipAssessment=$true}
     Assert-TransferPreflightAcceptance ($targetLab.State -eq 'Running') 'Isolierter SQL-2025-Zielrun mit persistentem Backup-Bind-Mount wurde provisioniert'
 
     $sourceInstance=@($sourceLab.Instances)[0];$targetInstance=@($targetLab.Instances)[0]
@@ -96,6 +108,10 @@ try {
     $completed=$true
 }
 finally {
+    if($requestedStateRoot -and $script:unreturnedCreation){
+        $cleanupFailed=$true
+        Write-Warning 'Partielle eigene Erstellung ohne zurückgegebene Run-ID benötigt Recovery; Daten und Custody bleiben erhalten.'
+    }
     foreach($lab in @($targetLab,$sourceLab)|Where-Object {$_}){
         try {$cleanup=Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false;if($cleanup.Status -ne 'REMOVED'){throw 'PORTABLE_CONTAINER_TRANSFER_PREFLIGHT_ACCEPTANCE_RUN_CLEANUP_FAILED'}}catch{$cleanupFailed=$true;Write-Warning 'Run-Cleanup fehlgeschlagen; der eigene Test-State bleibt für Recovery erhalten.'}
     }

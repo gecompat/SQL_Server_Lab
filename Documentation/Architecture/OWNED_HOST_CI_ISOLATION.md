@@ -68,6 +68,8 @@ vorhandene Verzeichnisse werden nicht adoptiert, Reparsepfade bleiben gesperrt.
 Der Preflight entfernt seinen eigenen persistenten Ziel-Store nach Run-Cleanup
 über den öffentlichen Retained-Store-Plan und dessen gebundenen Apply-Vertrag.
 Bei fehlgeschlagener Bereinigung bleiben Daten und Custody für Recovery erhalten.
+Wirft die Preflight-Erstellung vor Rückgabe einer Run-ID, bleibt auch ihr
+möglicher partieller State erhalten; der Harness adoptiert keinen unbekannten Run.
 Ein gleichzeitiger primärer Fehler und Cleanupveto behält die ursprüngliche
 Exception; deren lokale `SqlServerLab.BackupCleanupStatus`-/
 `SqlServerLab.BackupCleanupReason`-Metadaten zeigen den getrennten Recoverybedarf.

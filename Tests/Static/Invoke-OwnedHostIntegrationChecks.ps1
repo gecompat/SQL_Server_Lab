@@ -54,6 +54,43 @@ $module = New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         $hyperV.Contains("metadata.networkIntent -ceq 'isolated'") -and
         $hyperV.Contains('Get-VMNetworkAdapter -VM $reconcileVm')) 'HyperV harness uses existing isolated reconcile and observes actual adapter absence'
 
+    $preflightTokens=$null;$preflightErrors=$null
+    $preflightAst=[Management.Automation.Language.Parser]::ParseFile((Join-Path $repoRoot 'Tests/Integration/Invoke-PortableContainerTransferPreflightAcceptance.ps1'),[ref]$preflightTokens,[ref]$preflightErrors)
+    $newCarrier=@($preflightAst.FindAll({param($Node)$Node -is [Management.Automation.Language.FunctionDefinitionAst] -and $Node.Name -ceq 'New-TransferPreflightAcceptanceRun'},$true))
+    $incompleteGuard=@($preflightAst.FindAll({param($Node)$Node -is [Management.Automation.Language.IfStatementAst] -and $Node.Clauses[0].Item1.Extent.Text -ceq '$requestedStateRoot -and $script:unreturnedCreation'},$true))
+    $dataCleanupGuard=@($preflightAst.FindAll({param($Node)$Node -is [Management.Automation.Language.IfStatementAst] -and $Node.Clauses[0].Item1.Extent.Text.StartsWith('$requestedStateRoot -and $dataRoot -and -not $cleanupFailed')},$true))
+    Assert-Own (-not $preflightErrors -and $newCarrier.Count -eq 1 -and $incompleteGuard.Count -eq 1 -and $dataCleanupGuard.Count -eq 1) 'Partial-New fixture uses actual carrier and cleanup guards'
+    $partialNewEvidence=New-Module -ArgumentList $newCarrier[0].Extent.Text,$incompleteGuard[0].Extent.Text,$dataCleanupGuard[0].Extent.Text -ScriptBlock {
+        param($Carrier,$RecoveryGuard,$DataGuard)
+        . ([scriptblock]::Create($Carrier))
+        $script:recoveryGuard=[scriptblock]::Create($RecoveryGuard);$script:dataGuard=[scriptblock]::Create($DataGuard)
+        function New-SqlServerLab {
+            param($StateRoot,$DataRoot,[switch]$PersistentData)
+            $script:received=@{StateRoot=$StateRoot;DataRoot=$DataRoot;PersistentData=[bool]$PersistentData}
+            if($script:reply -ceq 'throw'){throw 'SYNTHETIC_NEW_RECOVERY_REQUIRED'}
+            if($script:reply -ceq 'no-id'){return [pscustomobject]@{State='Running'}}
+            [pscustomobject]@{RunId='00000000-0000-0000-0000-000000000123';State='Running'}
+        }
+        function Remove-OwnedHostTestDataRoot {param($StateRoot,$DataRoot)$script:dataDeletes++}
+        function Test-PartialNew {
+            param($Reply)
+            $script:reply=$Reply;$script:unreturnedCreation=$false;$script:dataDeletes=0
+            $errorCode='NONE';$cleanupFailed=$false;$requestedStateRoot='synthetic-owned-root';$dataRoot='synthetic-owned-data';$completed=$false;$KeepOnFailure=$false
+            try {$null=New-TransferPreflightAcceptanceRun -Parameters @{StateRoot=$requestedStateRoot;DataRoot=$dataRoot;PersistentData=$true}}
+            catch {$errorCode=$_.Exception.Message}
+            . $script:recoveryGuard 3>$null
+            . $script:dataGuard
+            [pscustomobject]@{ErrorCode=$errorCode;CleanupFailed=$cleanupFailed;DataDeletes=$script:dataDeletes;Received=$script:received}
+        }
+        Export-ModuleMember -Function @()
+    }
+    foreach($reply in @('throw','no-id','success')){
+        $result=& $partialNewEvidence {param($Reply)Test-PartialNew $Reply} $reply
+        $expectedError=switch($reply){throw{'SYNTHETIC_NEW_RECOVERY_REQUIRED'}'no-id'{'PREFLIGHT_ACCEPTANCE_NEW_RUN_ID_MISSING'}default{'NONE'}}
+        Assert-Own ($result.ErrorCode -ceq $expectedError -and $result.CleanupFailed -eq ($reply -cne 'success') -and $result.DataDeletes -eq $(if($reply -ceq 'success'){1}else{0})) "Actual preflight $reply preserves partial creation data and primary error"
+        Assert-Own ($result.Received.StateRoot -ceq 'synthetic-owned-root' -and $result.Received.DataRoot -ceq 'synthetic-owned-data' -and $result.Received.PersistentData) "Actual preflight $reply preserves New arguments"
+    }
+
     $initializerEvidence=New-Module -ArgumentList $repoRoot,$fixtureRoot -ScriptBlock {
         param($Repository,$Fixture)
         . (Join-Path $Repository 'Tests/Common/OwnedHostTestScope.ps1')
