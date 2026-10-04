@@ -2092,8 +2092,10 @@ SQL-Speicher löschen** zum gleichen Core wie die Browser-Workflow-UI. Alle Inha
 gehen verloren; ein Backup wird nicht geprüft. Revision und PlanKey binden die
 Vorschau, Fehler bleiben operationsgebunden fortsetzbar, die Speicher-ID bleibt
 als `REMOVED`-Tombstone erhalten. Details und sichere Preview-/Resume-Beispiele:
-[Behaltenen SQL-Speicher löschen](RETAINED_STORE_REMOVAL.md). Native Nachweise
-dieser Löschaktion stehen getrennt für Docker und Podman noch aus.
+[Behaltenen SQL-Speicher löschen](RETAINED_STORE_REMOVAL.md). Die getrennten nativen
+SQL-2025-Abnahmen bestanden am 2026-10-01 auf `b2a1f456` für Docker und Podman
+jeweils mit sechs Assertions und separatem eigenem Cleanup. Weitere SQL-Versionen
+und Storageklassen bleiben offen.
 
 `Repair-SqlServerLabPersistentStorageCatalog` stellt ausschließlich eine verlorene
 Katalogbindung eines bereits UUID-gelabelten, abgetrennten Docker-/Podman-Stores
