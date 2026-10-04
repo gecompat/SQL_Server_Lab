@@ -20,7 +20,7 @@
         "EngineVersion": { "type": ["string", "null"], "minLength": 1 },
         "StorageDriver": { "type": ["string", "null"], "minLength": 1 },
         "Rootless": { "type": ["boolean", "null"] },
-        "SelectedBy": { "enum": ["ACTIVE_CONTEXT", "DEFAULT_CONNECTION", "ONLY_CONNECTION", "UNKNOWN"] },
+        "SelectedBy": { "enum": ["ACTIVE_CONTEXT", "DEFAULT_CONNECTION", "ONLY_CONNECTION", "EXPLICIT_POLICY_PIN", "UNKNOWN"] },
         "MachineName": { "type": ["string", "null"], "minLength": 1 },
         "MachineState": { "enum": ["RUNNING", "STOPPED", "NOT_APPLICABLE", "UNKNOWN"] },
         "MachineCount": { "type": "integer", "minimum": 0 },

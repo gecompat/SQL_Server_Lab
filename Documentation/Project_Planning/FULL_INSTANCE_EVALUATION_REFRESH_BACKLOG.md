@@ -30,6 +30,35 @@ beobachtbare Bestandteile verhindern diesen Status.
 
 ## Aktueller Stand
 
+`Get-SqlServerLabEvaluationRefreshPlan` implementiert einen engen Entscheid für
+genau eine moderne registrierte Hyper-V-SQL-Instanz unter explizitem `DataRoot`.
+`FREE_SLOT_REPLACEMENT`, `RECONSTRUCT_LAB` und `STATEFUL_MIGRATION` bleiben
+getrennte `BLOCKED`-Modi mit festen Blockern und nächsten Schritten, ohne
+Aktionen, Persistenz oder Transferautorität. Windows-Aktivierung bleibt
+historische Metadaten; SQL-Fristen stammen aus dem bestehenden gebundenen
+Gast-Receipt. Ein ungebundenes DependencyInventory wird nicht angenommen.
+Vollständiger Refresh, Zielauswahl, Export, Keytransfer, Cutover, Rückfall und
+Gleichwertigkeit bleiben Backlog; der Datenbankplan bleibt `DATABASE_FILES_ONLY`.
+
+Die CLI bietet **Alle öffentlichen Befehle → SQL-Evaluation: Ersatzentscheid**
+als geführte reine Vorschau. Unter einem ausdrücklich eingegebenen registrierten
+Root sind höchstens 64 Run-Verzeichnisse und nur eine vollständig gebundene
+moderne Hyper-V-SQL-Instanz auswählbar. Die Auswahl wird vor dem öffentlichen
+Plan erneut geprüft; Abbruch speichert nichts und ruft keinen Plan auf.
+Windows-/SQL-Quelle und Aktualität werden getrennt angezeigt. Ein geführter
+Browserdialog ist ebenfalls als reine RAM-Vorschau im Bereich **Wartung,
+Aufräumen und Recovery** implementiert: eigener begrenzter HTTP-Metadaten-/
+Previewpfad, dieselbe registrierte D-Readerautorität und öffentlicher Core,
+Auswahlrevalidierung, getrennte Windows-/SQL-Evidence und Abbruch ohne Jobs.
+Inventur und sämtliche Transferaktionen bleiben offen.
+
+Die gemeinsame Watch-Fristklassifikation bleibt unverändert. Bei durch JSON
+typisierten Zeitwerten bewahren beide Watch-Pfade jetzt UTC und Bruchteile der
+Sekunde statt kulturabhängiger Stringkonvertierung. Für zuvor falsch
+interpretierten Datumsinhalt kann dadurch ein anderer Ereignisfingerprint
+entstehen; wiederholtes Lesen unveränderter kanonischer Werte bleibt stabil.
+Das registriert ohne ausdrückliches `RecordEvents` keine Ereignisse.
+
 Bereits vorhanden sind:
 
 - getrennte Windows- und SQL-Evaluationsmetadaten sowie Ausschluss abgelaufener

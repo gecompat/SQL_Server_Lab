@@ -41,6 +41,14 @@ $temporaryManifestPath = Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-ai
 if (-not $StateRoot) {
     $StateRoot = Join-Path $repoRoot ".artifacts\test-state\ai-vector-$Provider-$runToken"
 }
+$ownTestRoot=(Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or
+    (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))
+if ($ownTestRoot) {
+    . (Join-Path $repoRoot 'Tests/Common/OwnedHostTestScope.ps1')
+    Assert-OwnedHostTestRoot -StateRoot $StateRoot
+    $ownArtifacts=Get-OwnedHostTestArtifactRoot -StateRoot $StateRoot -Name 'sql-server-lab-ai-vector'
+    $temporaryManifestPath=Join-Path $ownArtifacts "sql-server-lab-ai-$Provider-$runToken.json"
+}
 
 $lab = $null
 $succeeded = $false
@@ -49,7 +57,9 @@ try {
     if (-not $tool.Available -or [string]::IsNullOrWhiteSpace([string]$tool.Invocation)) {
         throw "AI_VECTOR_PROVIDER_UNAVAILABLE: $Provider"
     }
-    & $tool.Invocation info *> $null
+    if ($ownTestRoot) {
+        Invoke-OwnedHostTestCommand -StateRoot $StateRoot -Provider $Provider -Invocation ([string]$tool.Invocation) -Arguments @('info') *> $null
+    } else { & $tool.Invocation info *> $null }
     if ($LASTEXITCODE -ne 0) {
         throw "AI_VECTOR_PROVIDER_UNREACHABLE: $Provider"
     }

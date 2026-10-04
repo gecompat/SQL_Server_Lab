@@ -478,7 +478,7 @@ function Select-LabManifestExternalRuntimeReferences {
         return
     }
 
-    $options = @(Get-LabExternalRuntimeSelectionOptions -SqlVersion $sqlVersion `
+    $options = @(Get-LabExternalRuntimeCapabilityOptions -SqlVersion $sqlVersion `
         -Provider $provider -OperatingSystem $operatingSystem)
     if ($options.Count -eq 0) {
         Write-LabWarning "${Path}: Fuer SQL $sqlVersion und $provider/$operatingSystem ist keine freigegebene External-Runtime-Variante vorhanden."
@@ -490,15 +490,18 @@ function Select-LabManifestExternalRuntimeReferences {
     :RuntimeSelection while ($true) {
         $remaining = @($options | Where-Object { @($selected.SoftwareId) -notcontains [string]$_.SoftwareId })
         if ($selected.Count -gt 0) {
-            $remaining = @($remaining | Where-Object { [string]$_.Plan.LaunchMode -eq [string]$selected[0].Plan.LaunchMode })
+            $remaining = @($remaining | Where-Object {
+                $_.Decision.CatalogDecision.Status -cne 'DECLARED_SUPPORTED' -or
+                $_.Decision.CurrentReadiness.LaunchMode -ceq $selected[0].Decision.CurrentReadiness.LaunchMode
+            })
         }
         if ($remaining.Count -eq 0) {
             break
         }
         $labels = @($remaining | ForEach-Object {
-            $isolation = if ([string]$_.Plan.LaunchMode -eq 'sql2025-shared-user-v2') { ' - ACHTUNG: ohne Launchpad-Sandbox, gemeinsames Worker-Konto, Netzwerkzugriff' } else { '' }
-            "$($_.Language) $($_.RuntimeVersion) [$($_.VariantId)] - $($_.InstallationMethod), $($_.ArtifactCount) Artifacts, $($_.PackageLockCount) Package Locks$isolation"
-        }) + 'Auswahl abschliessen'
+            $isolation = if ($_.Decision.CurrentReadiness.LaunchMode -ceq 'sql2025-shared-user-v2') { ' - ACHTUNG: ohne Launchpad-Sandbox, gemeinsames Worker-Konto, Netzwerkzugriff' } else { '' }
+            "$($_.Language) $($_.RuntimeVersion) [$($_.VariantId)] - Katalog: $($_.Decision.CatalogDecision.Status) ($($_.Decision.CatalogDecision.ReasonCode)); Host: $($_.Decision.CurrentReadiness.Status) ($($_.Decision.CurrentReadiness.ReasonCode))$isolation"
+        }) + 'Hostvoraussetzungen bewusst lesend pruefen' + 'Auswahl abschliessen'
         $choice = Read-LabManifestChoice -Options $labels -Prompt "$Path - freigegebene Variante"
         if (Test-LabManifestNavigationResult -InputObject $choice) {
             if ($choice.Action -eq 'Back' -and $selected.Count -gt 0) {
@@ -511,8 +514,28 @@ function Select-LabManifestExternalRuntimeReferences {
             }
             return $choice
         }
-        if ($choice -ge $remaining.Count) {
+        if ($choice -isnot [int] -or $choice -lt 0 -or $choice -gt $remaining.Count + 1) {
+            throw 'EXTERNAL_RUNTIME_CAPABILITY_CHOICE_INVALID'
+        }
+        if ($choice -eq $remaining.Count) {
+            $observation=Read-LabExternalRuntimeHostFacts -Provider $provider
+            $options=@(Get-LabExternalRuntimeCapabilityOptions -SqlVersion $sqlVersion -Provider $provider -OperatingSystem $operatingSystem -HostObservation $observation)
+            # A newly observed block also invalidates previous selections, never silently saves them.
+            $selectedIds=@($selected | ForEach-Object VariantId)
+            $selected.Clear()
+            foreach($option in $options) {
+                if($option.VariantId -cin $selectedIds -and $option.Decision.CatalogDecision.Status -ceq 'DECLARED_SUPPORTED' -and
+                    $option.Decision.CurrentReadiness.Status -ceq 'READY') { $selected.Add($option) }
+            }
+            continue RuntimeSelection
+        }
+        if ($choice -ge $remaining.Count + 1) {
             break
+        }
+        if ($remaining[$choice].Decision.CatalogDecision.Status -cne 'DECLARED_SUPPORTED' -or
+            $remaining[$choice].Decision.CurrentReadiness.Status -ceq 'BLOCKED') {
+            Write-LabWarning 'EXTERNAL_RUNTIME_VARIANT_NOT_SELECTABLE: Katalog- oder Hostvoraussetzung fehlt; keine Variante uebernommen.'
+            continue RuntimeSelection
         }
         $selected.Add($remaining[$choice])
     }

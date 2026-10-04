@@ -48,6 +48,24 @@ function Get-LabConsoleHelpCatalog {
                 'commands'       = @{ Purpose = 'Listet jeden exportierten Modulbefehl und fuehrt ihn mit seinem echten Parametersatz, Defaults und Validierungsgrenzen aus.'; Command = 'Invoke-SqlServerLab -Action Commands' }
             }
         }
+        'evaluation-refresh-run' = @{
+            Title = 'SQL-Evaluation: Instanz auswählen'
+            Purpose = 'Eine moderne registrierte Hyper-V-SQL-Instanz für einen reinen Ersatzentscheid auswählen.'
+            Effects = 'Nur Metadaten lesen; keine Runtime-, Lizenz- oder SQL-Abfrage. Escape verwirft die Auswahl.'
+            Command = 'Get-SqlServerLabEvaluationRefreshPlan'
+        }
+        'evaluation-refresh-mode' = @{
+            Title = 'SQL-Evaluation: Entscheidungsart'
+            Purpose = 'Slotersatz, Labrekonstruktion und Instanzmigration getrennt betrachten.'
+            Effects = 'Alle Modi bleiben blockierte Vorschauen ohne Speicherung, Zielübernahme oder Executor.'
+            Command = 'Get-SqlServerLabEvaluationRefreshPlan'
+        }
+        'evaluation-refresh-preview' = @{
+            Title = 'SQL-Evaluation: Ersatzentscheid'
+            Purpose = 'Gespeicherte Windows- und SQL-Evidence sowie offene nächste Schritte anzeigen.'
+            Effects = 'Die ausgewählte Bindung wird erneut geprüft. Abbruch ruft keinen Plan auf; unbekannt bedeutet nicht bereit.'
+            Command = 'Get-SqlServerLabEvaluationRefreshPlan'
+        }
         'component-relation-choice' = @{
             Title = 'SQL-Komponente auswählen'
             Purpose = 'Wählt einen vorhandenen registrierten Container-Run, Verbraucher oder eine SQL-Voraussetzung aus geprüften Metadaten.'
@@ -89,6 +107,10 @@ function Get-LabConsoleHelpCatalog {
         'testmatrix-menu' = @{ Title = 'Geschützte Testsystem-Matrix'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'New-SqlServerLabAutomatedTestEnvironment' }
         'resources-menu' = @{ Title = 'Ressourcen und Downloads'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Get-SqlServerLabResourcePlan' }
         'hostmodels-menu' = @{ Title = 'Host-Dienste und Modelle'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Invoke-SqlServerLab -Action Commands' }
+        'llama-guided-start-choice' = @{ Title = 'llama.cpp: eigener Start'; Purpose = 'Explizite Backend-, Geräteart- und Poolingwerte wählen; noch keine Bereitschaft geprüft.'; Effects = 'Nur RAM. Maskierte Pfade/Key: Esc, im Fallback Ctrl+C. Abbruch startet nichts.'; Command = 'Start-SqlServerLabLlamaCppRuntime' }
+        'llama-guided-start-confirm' = @{ Title = 'Eigene llama.cpp-Sitzung starten'; Purpose = 'Explizite Eingaben und eigene Worker-/Key-/Lease-Auswirkungen bewusst bestätigen.'; Effects = 'Erst Bestätigung ruft vorhandenen Public-Start auf. Natürliche Confirm bleibt aktiv. WhatIf prüft keine Bereitschaft. Unbestätigtes Ergebnis kann eine aktive eigene Sitzung bedeuten; kein AutoStop/Retry. SQL bleibt NOT_CHECKED.'; Command = 'Start-SqlServerLabLlamaCppRuntime' }
+        'llama-start-plan-choice' = @{ Title = 'llama.cpp-Startvorschau'; Purpose = 'Backend, Accelerator und Pooling ausdrücklich wählen; keine Geräteprüfung.'; Effects = 'Nur RAM-Eingaben. Esc/Zurück ruft keinen Plan und keine Runtime auf.'; Command = 'Get-SqlServerLabLlamaCppStartPlan' }
+        'llama-start-plan-preview' = @{ Title = 'llama.cpp: reine Startvorschau'; Purpose = 'Explizite lokale Dateien und numerische Grenzen für SQL-Embeddings vorprüfen.'; Effects = 'Erst Vorschau anzeigen liest Dateien. PLAN_ONLY/BLOCKED; Geräte, Port, TLS, Embedding und SQL NOT_CHECKED. Keine Secrets, Speicherung oder Ausführung. Maskierte Texteingabe: Esc, im Fallback Ctrl+C.'; Command = 'Get-SqlServerLabLlamaCppStartPlan' }
         'llama-session-stop' = @{ Title = 'Eigene llama.cpp-Sitzung stoppen'; Purpose = 'Genau eine bereits gehaltene eigene Sitzung wählen. Verbrauchercoverage bleibt UNKNOWN; deklarierte geschützte Verbraucher sperren den Stop.'; Effects = 'Vorschau, F5 und Abbruch stoppen nichts. Erst bewusste Bestätigung beendet den gebundenen Worker und entfernt seinen temporären API-Key. Unbekannte SQL-Verbraucher können ausfallen; kein automatischer Neustart.'; Command = 'Invoke-SqlServerLabWorkflowAction -Action GetLlamaSessions' }
         'configuration-menu' = @{ Title = 'SQL-Lab-Grundkonfiguration'; Purpose = 'Vorhandene Fachabläufe auswählen. Nicht implementierte Abläufe sind deaktiviert und begründet.'; Effects = 'Die Bereichsauswahl ändert nichts. Zurück und Esc verlassen den Bereich.'; Command = 'Invoke-SqlServerLab -Action Setup' }
         'initial-setup' = @{
@@ -105,8 +127,8 @@ function Get-LabConsoleHelpCatalog {
         }
         'resource-watch' = @{ Title = 'Ressourcenstand prüfen'; Purpose = 'Katalog, letzte Beobachtung und aktuellen Quellenversuch getrennt lesen.'; Effects = 'Nur Jetzt prüfen greift auf feste Microsoftquellen zu. Sitzungscache ohne dauerhafte Überwachung; keine Downloads oder Installation.'; Command = 'Invoke-SqlServerLabWorkflowAction -Action GetResourceWatchState' }
         'media-overrides' = @{
-            Title = 'SQL-2025-Bootstrapperquellen'
-            Purpose = 'Eine von drei katalogisierten Varianten auswählen und Repositoryadresse, effektive Adresse und Herkunft prüfen.'
+            Title = 'SQL-2022/2025-Bootstrapperquellen'
+            Purpose = 'Eine von sechs katalogisierten SQL-2022/2025-Varianten auswählen und Repositoryadresse, effektive Adresse und Herkunft prüfen.'
             Effects = 'Auswahl und Lesen ändern nichts. Nur eine alternative Adresse derselben Bytes kann nach Vorschau gespeichert werden; kein Download.'
             Command = 'Invoke-SqlServerLab -Action MediaSourceOverride'
         }

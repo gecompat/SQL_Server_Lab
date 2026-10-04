@@ -54,6 +54,12 @@ Provider nur mit SQL Server 2025.
 
 ## Aktueller Status
 
+Die [External-Languages-Entscheidung](Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md)
+bewertet explizite Python-/R-/Java-Katalogvarianten für Docker-/Podman-Linux.
+API und bestehender Manifestdialog trennen Katalogunterstützung von optionaler
+Hostprüfung; ohne bewusste Prüfung bleibt der Host `NOT_CHECKED`.
+Dieser CORE-102-Slice bestätigt weder SQL-/Sprachausführung noch Zielbesitz.
+
 **Status:** `CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED`
 
 | Bereich | Status | Nachweis |
@@ -738,6 +744,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Find-SqlServerLabCollation` | Katalogisierte SQL-Server-Collations tokenbasiert und versionsgebunden durchsuchen |
 | `Get-SqlServerLabHyperVImageArtifact` | Pfadfreie, read-only Hyper-V-Image-Registry mit Evaluierungs-, Refresh- und Referenzstatus; `-VerifyIntegrity` prüft ausgewählte Parent-VHDX erneut |
 | `Get-SqlServerLabEvaluationWatch` | Registrierte Windows-/SQL-Artefaktfristen und persistierte Windows-Fristen registrierter RUNNING-Hyper-V-Instanzen read-only bewerten; für RUNNING-/STOPPED-Hyper-V-SQL-Runs ausschließlich frische, gebundene SQL-Gast-Evidence projizieren und fällige Ereignisse optional lokal deduplizieren |
+| `Get-SqlServerLabEvaluationRefreshPlan` | Slotersatz, Rekonstruktion oder Migration für eine registrierte Hyper-V-SQL-Instanz unter explizitem Lab_Data planen; immer BLOCKED ohne Aktionen, Lizenzfreigabe oder vollständigen Instanztransfer; geführte CLI unter Alle öffentlichen Befehle → SQL-Evaluation: Ersatzentscheid |
 | `Invoke-SqlServerLabEvaluationWatchTrigger` | Evaluation-Watch in einem explizit begrenzten lokalen Zeitintervall ausführen; registriert keine Windows-Aufgabe und verändert weder Runtime noch Netzwerk |
 | `Update-SqlServerLabSqlGuestEvaluationEvidence` | Edition einer laufenden SQL-2025-Hyper-V-Instanz lesen und gebundene NO_DEADLINE-Evidence atomar erneuern; Developer ergibt frisch NOT_APPLICABLE, Evaluation ohne Frist bleibt UNKNOWN |
 | `Get-SqlServerLabRunStateUpgradePlan` | Einen lokalen Run-State gegen den aktuellen Zielvertrag read-only klassifizieren |
@@ -789,12 +796,14 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Restore-SqlServerLabDatabase` | `.bak` aus Datei oder URL wiederherstellen |
 | `Invoke-SqlServerLabScript` | T-SQL-Skript ausführen |
 | `Get-SqlServerLabAiScenario` | Katalogisierten KI-Szenarioplan und optionale sanitisierte Run-Evidence anzeigen |
+| `Get-SqlServerLabLlamaCppStartPlan` | Reine Vorschau einer expliziten CUDA-/OpenVINO-Installation und GGUF-Datei; kein Start oder Bereitschaftsnachweis |
 | `Start-SqlServerLabLlamaCppRuntime` | Eigenen Windows-HTTPS-Embeddingserver mit expliziter Runtime-/Modell-/Gerätewahl und begrenzter Lease starten |
 | `Stop-SqlServerLabLlamaCppRuntime` | Ausschließlich den eigenen sitzungsgebundenen llama.cpp-Server beenden und API-Key bereinigen |
 | `Get-SqlServerLabLlamaCppRuntime` | Lokale Windows-/Linux-llama.cpp-Pakete begrenzt und ohne Hashpflicht erkennen; kein Geräte- oder Modellnachweis |
 | `Get-SqlServerLabLlamaCppModel` | Kuratierte offizielle Generations-GGUFs mit Revision, Größe, SHA-256 und Lizenz auflisten |
 | `Save-SqlServerLabLlamaCppModel` | Ein explizit ausgewähltes Katalogmodell bei Bedarf hashgeprüft unter der Medienwurzel ablegen |
 | `Get-SqlServerLabAiComputeInventory` | Lokale CPU-, GPU- und NPU-Geräte ohne Runtime-Start read-only inventarisieren |
+| `Get-SqlServerLabExternalRuntimeCapability` | Explizite Katalogentscheidung, optional begrenzte Hostprüfung oder exakte historische Identität; keine aktuelle SQL-Abnahme oder Mutation |
 | `Get-SqlServerLabAiRuntimeCapability` | Lokale llama.cpp-Paketbinärdateien hashen und hardwaregebundene CPU-/GPU-/NPU-Lanes ableiten |
 | `Get-SqlServerLabAiComputeCandidate` | Vollständige erlaubte Einzel-, Mehr-GPU- und gemischte Gerätekandidaten erzeugen |
 | `Get-SqlServerLabAiComputeSelection` | Schnellste vollständig benchmarkte geeignete Gerätekombination wählen oder einen Kandidaten explizit fixieren |

@@ -60,22 +60,17 @@ function Get-SqlServerLabEvaluationWatch {
             if ([string]$evaluation.LicenseType -ne 'evaluation') { continue }
 
             $expiresAt = [datetime]::MinValue
-            $expiryText = [string]$evaluation.ExpiresAt
+            $expiryText = if ($evaluation.ExpiresAt -is [datetime]) { $evaluation.ExpiresAt.ToUniversalTime().ToString('o') } else { [string]$evaluation.ExpiresAt }
             $hasValidExpiry = -not [string]::IsNullOrWhiteSpace($expiryText) -and
                 [datetime]::TryParse($expiryText, [Globalization.CultureInfo]::InvariantCulture,
                     [Globalization.DateTimeStyles]::RoundtripKind, [ref]$expiresAt)
             $daysRemaining = $null
-            $status = if (-not $hasValidExpiry) {
-                'UNKNOWN'
-            }
-            else {
+            if ($hasValidExpiry) {
                 $expiresAt = $expiresAt.ToUniversalTime()
                 $daysRemaining = [Math]::Max(0, [int][Math]::Ceiling(($expiresAt - $now).TotalDays))
-                if ($expiresAt -le $now) { 'EXPIRED' }
-                elseif ($daysRemaining -le $CriticalDaysRemaining) { 'CRITICAL' }
-                elseif ($daysRemaining -le $WarningDaysRemaining) { 'WARNING' }
-                else { 'OK' }
             }
+            $status = Get-LabEvaluationDeadlineStatus -ExpiresAt $(if ($hasValidExpiry) { $expiresAt } else { $null }) `
+                -Now $now -WarningDaysRemaining $WarningDaysRemaining -CriticalDaysRemaining $CriticalDaysRemaining
             $refreshAction = switch ($status) {
                 'EXPIRED' { 'MANUAL_REBUILD_REQUIRED'; break }
                 'CRITICAL' { 'MANUAL_REBUILD_RECOMMENDED'; break }
@@ -131,22 +126,17 @@ function Get-SqlServerLabEvaluationWatch {
             if (-not $isEvaluation) { continue }
 
             $expiresAt = [datetime]::MinValue
-            $expiryText = [string]$activation.evaluationExpiresAt
+            $expiryText = if ($activation.evaluationExpiresAt -is [datetime]) { $activation.evaluationExpiresAt.ToUniversalTime().ToString('o') } else { [string]$activation.evaluationExpiresAt }
             $hasValidExpiry = -not [string]::IsNullOrWhiteSpace($expiryText) -and
                 [datetime]::TryParse($expiryText, [Globalization.CultureInfo]::InvariantCulture,
                     [Globalization.DateTimeStyles]::RoundtripKind, [ref]$expiresAt)
             $daysRemaining = $null
-            $status = if (-not $hasValidExpiry) {
-                'UNKNOWN'
-            }
-            else {
+            if ($hasValidExpiry) {
                 $expiresAt = $expiresAt.ToUniversalTime()
                 $daysRemaining = [Math]::Max(0, [int][Math]::Ceiling(($expiresAt - $now).TotalDays))
-                if ($expiresAt -le $now) { 'EXPIRED' }
-                elseif ($daysRemaining -le $CriticalDaysRemaining) { 'CRITICAL' }
-                elseif ($daysRemaining -le $WarningDaysRemaining) { 'WARNING' }
-                else { 'OK' }
             }
+            $status = Get-LabEvaluationDeadlineStatus -ExpiresAt $(if ($hasValidExpiry) { $expiresAt } else { $null }) `
+                -Now $now -WarningDaysRemaining $WarningDaysRemaining -CriticalDaysRemaining $CriticalDaysRemaining
             $refreshAction = switch ($status) {
                 'EXPIRED' { 'MANUAL_REBUILD_REQUIRED'; break }
                 'CRITICAL' { 'MANUAL_REBUILD_RECOMMENDED'; break }

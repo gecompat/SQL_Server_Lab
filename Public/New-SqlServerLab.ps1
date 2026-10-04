@@ -120,6 +120,7 @@ function New-LabProviderContainer {
     switch ($Instance.provider) {
         'docker' {
             return New-DockerInstance `
+                -StateRoot $RunState.StateRoot `
                 -VersionId $Instance.version `
                 -RunId $RunState.RunId `
                 -ScopeId $RunState.ScopeId `
@@ -142,6 +143,7 @@ function New-LabProviderContainer {
         }
         'podman' {
             return New-PodmanInstance `
+                -StateRoot $RunState.StateRoot `
                 -VersionId $Instance.version `
                 -RunId $RunState.RunId `
                 -ScopeId $RunState.ScopeId `
@@ -172,12 +174,13 @@ function Remove-LabProviderContainerForReadinessRetry {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)]$Container,
-        [Parameter(Mandatory)][string]$ScopeId
+        [Parameter(Mandatory)][string]$ScopeId,
+        [string]$StateRoot
     )
 
     switch ([string]$Container.Provider) {
-        'docker' { Remove-DockerInstance -ContainerIdOrName $Container.ContainerId -ExpectedScopeId $ScopeId }
-        'podman' { Remove-PodmanInstance -ContainerIdOrName $Container.ContainerId -ExpectedScopeId $ScopeId }
+        'docker' { Remove-DockerInstance -ContainerIdOrName $Container.ContainerId -ExpectedScopeId $ScopeId -StateRoot $StateRoot }
+        'podman' { Remove-PodmanInstance -ContainerIdOrName $Container.ContainerId -ExpectedScopeId $ScopeId -StateRoot $StateRoot }
         default { throw "Readiness-Retry ist für Provider '$($Container.Provider)' nicht unterstützt." }
     }
 }
@@ -529,6 +532,15 @@ function New-SqlServerLab {
         if (-not $DataRoot -and $resolved.persistentData.dataRoot) { $DataRoot = $resolved.persistentData.dataRoot }
     }
 
+    if ($StateRoot -and ((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or
+        (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')))) {
+        $ownPolicy=Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required
+        if (-not $DataRoot) { $DataRoot=Join-Path $ownPolicy.StateRoot 'Lab_Data' }
+        $ownDataPath=Assert-LabOwnedHostPath $DataRoot
+        $ownDataRelative=[IO.Path]::GetRelativePath($ownPolicy.StateRoot,$ownDataPath)
+        if ([IO.Path]::IsPathRooted($ownDataRelative) -or $ownDataRelative -ceq '..' -or
+            $ownDataRelative.StartsWith('..'+[IO.Path]::DirectorySeparatorChar)) { throw 'OWNED_HOST_DATA_ROOT_OUTSIDE_ROOT' }
+    }
     if ($PersistentData) {
         if (-not $DataRoot) { $DataRoot = Get-LabDataRootDefault }
         if (-not $DataRoot) { throw 'LAB_DATA_ROOT_REQUIRED: PersistentData benötigt einen konfigurierten Data Root.' }
@@ -592,8 +604,12 @@ function New-SqlServerLab {
         ($resolved.resourceOverrides -and $resolved.resourceOverrides.skipAssessment -eq $true)
     $allowResourceOvercommitEffective = $AllowResourceOvercommit.IsPresent -or
         ($resolved.resourceOverrides -and $resolved.resourceOverrides.allowResourceOvercommit -eq $true)
-    $resourceAssessmentRecord = Invoke-LabResourceAssessmentPreflight -Instances $resolved.instances -Provider $providers `
-        -SkipAssessment:$skipAssessmentEffective -AllowResourceOvercommit:$allowResourceOvercommitEffective
+    $assessmentArguments = @{
+        Instances = $resolved.instances; Provider = $providers
+        SkipAssessment = $skipAssessmentEffective; AllowResourceOvercommit = $allowResourceOvercommitEffective
+    }
+    if ($StateRoot) { $assessmentArguments.StateRoot = $StateRoot }
+    $resourceAssessmentRecord = Invoke-LabResourceAssessmentPreflight @assessmentArguments
 
     # Ein Manifest kann eine reguläre Hyper-V-Lab-VM vollständig aus einem
     # bereits veröffentlichten OS_SEALED- oder SQL_PREPARED_SEALED-Image
@@ -932,14 +948,14 @@ function New-SqlServerLab {
                         -TargetScopeId $runState.ScopeId `
                         -TargetSqlVersion ([string]$instance.version) `
                         -Configuration $storageConfiguration `
-                        -IncludeExternalRuntimeSidecars:$hasExternalRuntime
+                        -IncludeExternalRuntimeSidecars:$hasExternalRuntime -StateRoot $effectiveStateRoot
                     if ([string]$instanceStorePlan.Status -ne 'READY') {
                         throw "CONTAINER_INSTANCE_STORE_PLAN_BLOCKED: $(@($instanceStorePlan.Blockers) -join ',')"
                     }
                     if ($PersistentStorageAction -eq 'CLONE') {
                         $operationDirectory = Join-Path $DataRoot (Join-Path 'Operations' (Join-Path 'ContainerInstanceStores' ([string]$instanceStorePlan.OperationId)))
                         $null = Invoke-LabContainerInstanceStoreClone -Plan $instanceStorePlan `
-                            -OperationDirectory $operationDirectory -Configuration $storageConfiguration
+                            -OperationDirectory $operationDirectory -Configuration $storageConfiguration -StateRoot $effectiveStateRoot
                     }
                     $null = Add-LabSelectedPersistentContainerDrive -Instance $instance -Plan $instanceStorePlan -Storage $storage `
                         -IncludeExternalRuntimeState:$hasExternalRuntime
@@ -1057,7 +1073,7 @@ function New-SqlServerLab {
                 Write-LabInfo "Derived Container-Tool-Image für '$($instance.id)' aufbauen oder wiederverwenden..."
                 $containerImageArtifactsByInstance[[string]$instance.id] = Invoke-LabContainerToolImageBuild `
                     -ImagePlan $containerToolImagePlansByInstance[[string]$instance.id] `
-                    -StateRoot $effectiveStateRoot
+                    -StateRoot $effectiveStateRoot -RunId $runState.RunId
             }
         }
 
@@ -1079,14 +1095,14 @@ function New-SqlServerLab {
                     -ContainerImageArtifact $containerImageArtifactsByInstance[[string]$instance.id]
 
                 $containerHost = if ([string]$container.Provider -eq 'podman') {
-                    Resolve-PodmanWindowsHostName
+                    Resolve-PodmanWindowsHostName -StateRoot $effectiveStateRoot
                 }
                 else {
                     '127.0.0.1'
                 }
 
                 if ([string]$instance.autostart -eq 'on') {
-                    $null = Enable-LabContainerHostAutoStart -Provider ([string]$instance.provider)
+                    $null = Enable-LabContainerHostAutoStart -Provider ([string]$instance.provider) -StateRoot $effectiveStateRoot -RunId $runState.RunId
                 }
 
                 $readiness = Wait-SqlReady `
@@ -1096,7 +1112,7 @@ function New-SqlServerLab {
                     -TimeoutSeconds 300 `
                     -ExpectedMajorVersion $versionDefinition.major `
                     -Provider $container.Provider `
-                    -ContainerIdOrName $container.ContainerId
+                    -ContainerIdOrName $container.ContainerId -StateRoot $effectiveStateRoot
 
                 if ($readiness.Ready) { break }
 
@@ -1109,7 +1125,7 @@ function New-SqlServerLab {
                 }
 
                 Write-LabWarning 'SQL Server 2025 meldet den transienten Loginzustand 115. Der scopegebundene Container wird einmal neu erstellt.'
-                Remove-LabProviderContainerForReadinessRetry -Container $container -ScopeId $runState.ScopeId
+                Remove-LabProviderContainerForReadinessRetry -Container $container -ScopeId $runState.ScopeId -StateRoot $effectiveStateRoot
                 $container = $null
                 Start-Sleep -Seconds 2
             }

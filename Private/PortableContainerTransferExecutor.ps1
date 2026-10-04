@@ -40,9 +40,10 @@ function Get-LabPortableContainerTransferExecutorPlan {
         try {$run=Get-LabRunState -RunId $runId -StateRoot $StateRoot;$target=Resolve-LabRunInstance -RunId $runId -InstanceId $instanceId -StateRoot $StateRoot
             $view.Provider=[string]$target.Provider;$view.RunState=[string]$run.state
             if($view.Provider -notin @('docker','podman') -or $view.RunState -ne 'RUNNING' -or [string]$target.Version -notmatch '^17(\.|$)'){$blockers.Add("${side}_RUN_OR_SQL_VERSION_NOT_ELIGIBLE");return [PSCustomObject]$view}
-            $scope=Get-LabContainerRuntimeScope -Provider $view.Provider
+            $scope=Get-LabContainerRuntimeScope -Provider $view.Provider -StateRoot $StateRoot
             if([string]$scope.Status -ne 'AVAILABLE' -or -not $scope.RuntimeId){$blockers.Add("${side}_RUNTIME_SCOPE_UNVERIFIABLE");return [PSCustomObject]$view};$view.RuntimeScopeId=[string]$scope.RuntimeId
-            $invocation=Get-LabHostToolInvocation -Name $view.Provider;$out=@(& $invocation inspect --format '{{.Id}}|{{.State.Running}}' $target.ContainerName 2>$null)
+            $invocation=Get-LabHostToolInvocation -Name $view.Provider
+            $out=@(Invoke-LabContainerRuntimeCommand -Provider $view.Provider -StateRoot $StateRoot -Invocation $invocation -ArgumentList @('inspect','--format','{{.Id}}|{{.State.Running}}',$target.ContainerName) 2>$null)
             if($LASTEXITCODE -ne 0 -or $out.Count -ne 1 -or $out[0] -notmatch '^([a-f0-9]{12,64})\|true$'){$blockers.Add("${side}_LIVE_CONTAINER_BINDING_UNVERIFIABLE");return [PSCustomObject]$view}
             $view.ContainerId=$Matches[1].ToLowerInvariant();$view.ContainerState='RUNNING'
         }catch{$blockers.Add("${side}_LIVE_BINDING_UNVERIFIABLE")}

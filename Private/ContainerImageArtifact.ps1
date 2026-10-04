@@ -711,6 +711,11 @@ function Invoke-LabExternalRuntimeContainerImageBuild {
         [string]$StateRoot
     )
 
+    if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) {
+        $null=Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required
+        throw 'OWNED_HOST_EXTERNAL_RUNTIME_IMAGE_UNSUPPORTED'
+    }
+
     if (-not $ImagePlan.Contract -or [string]$ImagePlan.Contract.Name -ne 'SqlServerLab.ExternalRuntimeContainerImagePlan' -or
         [string]$ImagePlan.Contract.Version -ne '1.0' -or [string]$ImagePlan.ImageKey -notmatch '^[a-f0-9]{64}$') {
         throw 'EXTERNAL_RUNTIME_CONTAINER_IMAGE_PLAN_INVALID'

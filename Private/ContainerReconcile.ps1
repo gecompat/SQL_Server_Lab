@@ -102,6 +102,9 @@ function Get-LabContainerReconcileContext {
     )
     if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
     $run = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
+    $ownedHostPolicy = if ($run.metadata.ownedHostIntegration -or (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) {
+        Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $StateRoot
+    } else { $null }
     $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
     $connectionPath = Join-Path $runDirectory 'connection-info.json'
     if (-not (Test-Path -LiteralPath $connectionPath -PathType Leaf)) { throw 'CONTAINER_RECONCILE_CONNECTION_INFO_MISSING' }
@@ -119,7 +122,12 @@ function Get-LabContainerReconcileContext {
         [string]$instance.containerName, [string]$instance.name, [string]$instance.id
     ) | Where-Object { $_ } | Select-Object -First 1
     if (-not $identity) { throw 'CONTAINER_RECONCILE_IDENTITY_MISSING' }
-    $inspect = @(& $runtimeInvocation inspect $identity 2>$null | ConvertFrom-Json -Depth 50)[0]
+    if ($ownedHostPolicy) {
+        $identity=Resolve-LabOwnedHostContainerEffect -StateRoot $StateRoot -RunId $RunId -Provider $runtime -ContainerIdOrName $identity
+        $inspect=@(Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $StateRoot -RunId $RunId -Invocation $runtimeInvocation -ArgumentList @('inspect',$identity) | ConvertFrom-Json -Depth 50)[0]
+    } else {
+        $inspect = @(& $runtimeInvocation inspect $identity 2>$null | ConvertFrom-Json -Depth 50)[0]
+    }
     if (-not $inspect) { throw "CONTAINER_RECONCILE_CONTAINER_NOT_FOUND: $identity" }
     if ([string]$inspect.Config.Labels.'sql-server-lab.run-id' -ne $RunId -or
         [string]$inspect.Config.Labels.'sql-server-lab.scope-id' -ne [string]$run.scopeId -or
@@ -336,6 +344,10 @@ function Restore-LabContainerReconcileRunState {
 function Repair-LabContainerReconcileJournal {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Context)
+    if (((Test-Path (Join-Path $Context.StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $Context.StateRoot 'owned-host-policy.json')))) {
+        $null=Get-LabOwnedHostRunPolicy -RunId $Context.RunId -StateRoot $Context.StateRoot
+        throw 'OWNED_HOST_CONTAINER_RECONCILE_MUTATION_UNSUPPORTED'
+    }
     $path = Get-LabContainerReconcileJournalPath -RunDirectory $Context.RunDirectory
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
     $journal = Get-Content -LiteralPath $path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 50

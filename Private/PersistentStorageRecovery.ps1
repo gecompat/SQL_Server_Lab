@@ -1,8 +1,8 @@
 function Assert-LabContainerStoreRuntimeScope {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][string]$Provider, [AllowNull()]$RuntimeBinding)
+    param([Parameter(Mandatory)][string]$Provider, [AllowNull()]$RuntimeBinding,[string]$StateRoot)
     if (-not $RuntimeBinding) { return }
-    $scope=Get-LabContainerRuntimeScope -Provider $Provider
+    $scope=Get-LabContainerRuntimeScope -Provider $Provider -StateRoot $StateRoot
     if ([string]$scope.Status -cne 'AVAILABLE' -or
         [string]$RuntimeBinding.RuntimeScopeId -cnotmatch '^runtime-scope-[a-f0-9]{24}$' -or
         [string]$scope.RuntimeId -cne [string]$RuntimeBinding.RuntimeScopeId) {
@@ -12,9 +12,9 @@ function Assert-LabContainerStoreRuntimeScope {
 
 function Test-LabContainerInstanceStoreRuntimeBinding {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$Store, [Parameter(Mandatory)]$RuntimeInspection)
+    param([Parameter(Mandatory)]$Store, [Parameter(Mandatory)]$RuntimeInspection,[string]$StateRoot)
     if (-not $Store.RuntimeBinding) { return $true }
-    try { Assert-LabContainerStoreRuntimeScope -Provider $Store.Provider -RuntimeBinding $Store.RuntimeBinding }
+    try { Assert-LabContainerStoreRuntimeScope -Provider $Store.Provider -RuntimeBinding $Store.RuntimeBinding -StateRoot $StateRoot }
     catch { return $false }
     $source=$Store.RuntimeBinding.RecoverySource
     if (-not $source) { return $true }
@@ -96,10 +96,10 @@ function Repair-LabContainerStoreCatalog {
             LocationBinding=[pscustomobject]@{Residency='NATIVE_RUNTIME';LocationId=$null;ProviderResourceId=$current.VolumeName;InventoryObjectId=$objectId;RelativePath=$null};
             RuntimeBinding=$binding;References=@([pscustomobject]@{ReferenceId=$current.RunId;Kind='RUN';State='RELEASED';TargetId=$current.RunId});
             Lease=$null;Retention='RETAINED';CleanupDisposition='PRESERVE';CreatedAt=$timestamp;UpdatedAt=$timestamp}
-        $runtime=& $inspect -Provider $current.Provider -VolumeName $current.VolumeName
-        if ($runtime.Status -cne 'AVAILABLE' -or @($runtime.AttachedContainers).Count -ne 0 -or -not (& $checkBinding -Store $store -RuntimeInspection $runtime)) { throw 'RECOVER_CONTAINER_STORE_RUNTIME_OWNERSHIP_INVALID' }
+        $runtime=& $inspect -Provider $current.Provider -VolumeName $current.VolumeName -StateRoot $StateRoot
+        if ($runtime.Status -cne 'AVAILABLE' -or @($runtime.AttachedContainers).Count -ne 0 -or -not (& $checkBinding -Store $store -RuntimeInspection $runtime -StateRoot $StateRoot)) { throw 'RECOVER_CONTAINER_STORE_RUNTIME_OWNERSHIP_INVALID' }
         foreach ($suffix in @('-external-languages','-external-libraries')) {
-            $sidecar=& $inspect -Provider $current.Provider -VolumeName ($current.VolumeName+$suffix) -RequireMissingEvidence
+            $sidecar=& $inspect -Provider $current.Provider -VolumeName ($current.VolumeName+$suffix) -RequireMissingEvidence -StateRoot $StateRoot
             if ($sidecar.Status -cne 'MISSING') { throw 'RECOVER_CONTAINER_STORE_SIDECARS_UNSUPPORTED' }
         }
         if ($ExpectedObservation) {
@@ -120,9 +120,9 @@ function Repair-LabContainerStoreCatalog {
             if ($BeforeCatalogCommit) { & $BeforeCatalogCommit }
             return $current.PersistentStorageId
         }
-        $finalRuntime=& $inspect -Provider $current.Provider -VolumeName $current.VolumeName
+        $finalRuntime=& $inspect -Provider $current.Provider -VolumeName $current.VolumeName -StateRoot $StateRoot
         if ($finalRuntime.Status -cne 'AVAILABLE' -or @($finalRuntime.AttachedContainers).Count -ne 0 -or
-            -not (& $checkBinding -Store $store -RuntimeInspection $finalRuntime)) { throw 'RECOVER_CONTAINER_STORE_RUNTIME_OWNERSHIP_INVALID' }
+            -not (& $checkBinding -Store $store -RuntimeInspection $finalRuntime -StateRoot $StateRoot)) { throw 'RECOVER_CONTAINER_STORE_RUNTIME_OWNERSHIP_INVALID' }
         $last=& $readSource -OriginalRunId $Source.RunId -InstanceId $Source.InstanceId -PersistentStorageId $Source.PersistentStorageId -StateRoot $StateRoot -Configuration $Configuration
         if ($last.EvidenceSha256 -cne $Source.EvidenceSha256) { throw 'RECOVER_CONTAINER_STORE_SOURCE_CHANGED' }
         if ($ExpectedObservation) {

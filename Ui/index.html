@@ -65,8 +65,10 @@
         <p>Container direkt erstellen oder eine vorhandene Hyper-V-Vorlage auswählen. Die Vorbereitung von Vorlagen liegt unter Hyper-V: Vorlagen und Slots.</p>
       </div>
       <div class="workflow-actions">
+        <button id="collation-open" type="button" class="button secondary">Collations suchen</button>
         <button id="new-container" class="button secondary">Neue Container-Umgebung</button>
         <button id="new-manifest" class="button secondary">Container-Manifest erstellen</button>
+        <button id="external-runtime-open" type="button" class="button secondary">Python / R / Java: Katalog und Hostvoraussetzungen</button>
         <button id="run-manifest" class="button secondary">Container-Manifest ausführen</button>
         <button id="new-hyperv-lab" class="button secondary">Neue Windows-/SQL-Hyper-V-Umgebung</button>
         <button id="new-hyperv-existing-vm-lab" class="button secondary">Windows-VM als Hyper-V-Basis</button>
@@ -114,15 +116,17 @@
       <h2>Ressourcen und Downloads</h2>
       <p>Medienquellen und lokale Ablage sind einsehbar. Die Konsole bietet CU-Beschaffung, 7-Zip und kuratierte llama.cpp-Modelldateien. Der gemeinsame llama.cpp-Installer bietet zunächst einen experimentellen Windows-x64-CPU-Pin; weitere Kombinationen und vollständige Beschaffung anderer Ressourcen bleiben offen.</p>
       <button id="media-sources" class="button secondary">Medienquellen und Ablage anzeigen</button>
-      <button id="media-override-open" class="button secondary">SQL-2025-Bootstrapperquellen bearbeiten</button>
+      <button id="media-override-open" class="button secondary">SQL-2022/2025-Bootstrapperquellen bearbeiten</button>
       <button id="resource-watch-open" class="button secondary">Ressourcenstand: CUs und SqlPackage</button>
       <button id="llama-installer-open" type="button" class="button secondary">llama.cpp-Runtime installieren / prüfen</button>
     </section>
     <section class="panel" data-workspace-area="hostmodels" hidden>
       <h2>Host-Dienste und Modelle</h2>
       <p>Runtimeinstallation, laufender Dienst, gespeicherte Modelldatei und geladenes Modell sind getrennte Zustände. In der Konsole sind Modellkatalog/Download und vorhandene Ollama-Modellaufrufe verfügbar.</p>
-      <p>Eigene llama.cpp-Sitzungen dieses UI-Modulhosts können bewusst gestoppt werden. Fremdprozesse, Start, Restart sowie Load, Warmup, Unload und Modellwechsel bleiben offen. Der vorhandene erweiterte Secret-Preflight unten steuert keinen Dienst.</p>
+      <p>Eigene llama.cpp-Sitzungen dieses UI-Modulhosts können geführt gestartet und bewusst gestoppt werden. Der geführte Start ist synthetisch geprüft; der native Nachweis steht noch aus. Fremdstarts, Restart sowie Load, Warmup, Unload und Modellwechsel bleiben offen. Der vorhandene erweiterte Secret-Preflight unten steuert keinen Dienst.</p>
       <button id="llama-session-open" type="button" class="button secondary">Eigene llama.cpp-Sitzung stoppen</button>
+      <button id="llama-start-plan-open" type="button" class="button secondary">llama.cpp: reine Startvorschau</button>
+      <button id="llama-start-open" type="button" class="button secondary">llama.cpp: eigene Sitzung starten</button>
     </section>
     <section class="panel" data-workspace-area="connections" hidden>
       <h2>Verbindungen und CMS</h2>
@@ -142,6 +146,7 @@
       <p>Befunde vor einer Änderung prüfen. Die Konsole bietet zusätzlich Providerstatus, Cleanup-Audit und Runtime-Abgleich; vollständige geführte Recovery-Parität bleibt offen.</p>
       <div class="workflow-actions">
         <button id="evaluation-watch-open" type="button" class="button secondary">Evaluationsfristen lesen</button>
+        <button id="evaluation-refresh-open" type="button" class="button secondary">SQL-Evaluation: Ersatzentscheid</button>
         <button id="maintenance-open" type="button" class="button secondary">Wartungsbefunde und Zuordnung</button>
         <button id="clear-all-labs" class="button danger">Alles aufräumen</button>
       </div>
@@ -644,7 +649,7 @@
   </dialog>
   <dialog id="media-override-dialog">
     <div class="read-only-dialog-content">
-      <h2>SQL-2025-Bootstrapperquellen</h2>
+      <h2>SQL-2022/2025-Bootstrapperquellen</h2>
       <p>Alternative Adresse für dieselben Bootstrapper-Bytes; keine ISO oder SQL-Installation. Größe, SHA-256 und Microsoft-Signatur bleiben bindend. Speichern prüft keine Downloadverfügbarkeit; Redirects sind für Overrides gesperrt.</p>
       <p id="media-override-status" role="status" aria-live="polite"></p>
       <label>Bootstrapper<select id="media-override-selection"></select></label>
@@ -709,6 +714,18 @@
       <div class="dialog-actions"><button id="initial-setup-close-bottom" type="button" class="button secondary" value="cancel">Schließen</button><button id="initial-setup-read" type="button" class="button secondary">Roots erneut lesen</button><button id="initial-setup-provider-refresh" type="button" class="button secondary">Gewählten Provider prüfen</button></div>
     </div>
   </dialog>
+  <dialog id="collation-dialog">
+    <h2>Collations suchen</h2>
+    <p>Kuratierter Katalog, kein vollständiges SQL-Inventar. Die Suche prüft keinen SQL-Server und übernimmt keine Auswahl.</p>
+    <label>SQL-Version <select id="collation-sql"><option>2019</option><option>2022</option><option selected>2025</option></select></label>
+    <label>Suchwörter <input id="collation-query" type="text" maxlength="256" autocomplete="off"></label>
+    <p>Alle Suchwörter müssen passen. Ohne ASCII-Suchwörter erscheinen alle Katalogeinträge. DEPRECATED bleibt zulässig.</p>
+    <p id="collation-status" role="status" aria-live="polite">SQL-Prüfung: NOT_CHECKED</p>
+    <ul id="collation-results"></ul>
+    <button id="collation-search" type="button" class="button">Suchen</button>
+    <button id="collation-close" type="button" class="button secondary">Zurück / Abbrechen</button>
+  </dialog>
+  <script src="collation-catalog.js"></script>
   <dialog id="component-relations-dialog">
     <div class="read-only-dialog-content">
       <h2>SQL-Komponenten: geführte Vorschau</h2>
@@ -729,7 +746,101 @@
       </div>
     </div>
   </dialog>
+  <dialog id="llama-start-plan-dialog">
+    <div class="read-only-dialog-content">
+      <h2>llama.cpp für SQL-Embeddings: reine Dateivorschau</h2>
+      <p>Die Vorschau startet nichts. Geräte, Port, TLS, Modellkompatibilität und SQL bleiben ungeprüft. Geben Sie explizite lokale Dateien an; es gibt keine automatische Suche.</p>
+      <label>Runtime-Verzeichnis <input id="llama-start-plan-runtime" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>GGUF-Modelldatei <input id="llama-start-plan-model" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>Backend <select id="llama-start-plan-backend"><option value="LlamaCppCuda">CUDA</option><option value="LlamaCppOpenVino">OpenVINO</option></select></label>
+      <label>Gewünschter Beschleuniger <select id="llama-start-plan-accelerator"><option>CPU</option><option>GPU</option><option>NPU</option></select></label>
+      <label>Gewünschte Dimension (1–1998) <input id="llama-start-plan-dimension" type="number" min="1" max="1998" value="768"></label>
+      <label>Pooling <select id="llama-start-plan-pooling"><option value="mean">mean</option><option value="cls">cls</option><option value="last">last</option></select></label>
+      <label>Gewünschter Port (1024–65535) <input id="llama-start-plan-port" type="number" min="1024" max="65535" value="19435"></label>
+      <label>Vorgesehenes Startbudget in Sekunden (1–600) <input id="llama-start-plan-timeout" type="number" min="1" max="600" value="120"></label>
+      <label>Vorgesehene Lease in Sekunden (30–3600, größer als Startbudget) <input id="llama-start-plan-lease" type="number" min="30" max="3600" value="900"></label>
+      <label>Gewünschtes Kontextbudget (32–8192) <input id="llama-start-plan-context" type="number" min="32" max="8192" value="512"></label>
+      <p id="llama-start-plan-status" role="status">Noch keine Dateien gelesen.</p>
+      <pre id="llama-start-plan-result"></pre>
+      <div class="dialog-actions">
+        <button id="llama-start-plan-preview" type="button" class="button">Dateivorschau lesen</button>
+        <button id="llama-start-plan-close" type="button" class="button secondary">Zurück / Abbrechen</button>
+      </div>
+    </div>
+  </dialog>
   <script src="app.js"></script>
+  <dialog id="evaluation-refresh-dialog">
+    <div class="maintenance-dialog-content">
+      <h2>SQL-Evaluation: Ersatzentscheid</h2>
+      <p>Eine bestehende registrierte Hyper-V-SQL-Instanz. Alle Entscheidungsarten bleiben blockierte Vorschauen: keine Lizenzprüfung, SQL-Abfrage, Speicherung oder Migration.</p>
+      <label>Vorhandenes Lab_Data-Verzeichnis <input id="evaluation-refresh-root" type="text" maxlength="2048" autocomplete="off"></label>
+      <button id="evaluation-refresh-read" type="button" class="button secondary">Registrierte Instanzen lesen</button>
+      <label>SQL-Instanz <select id="evaluation-refresh-run"></select></label>
+      <label>Entscheidungsart <select id="evaluation-refresh-mode">
+        <option value="FREE_SLOT_REPLACEMENT">Freien Slot ersetzen</option>
+        <option value="RECONSTRUCT_LAB">Lab rekonstruieren</option>
+        <option value="STATEFUL_MIGRATION">Instanzzustand migrieren</option>
+      </select></label>
+      <p id="evaluation-refresh-status" role="status" aria-live="polite">Noch nicht gelesen.</p>
+      <pre id="evaluation-refresh-result"></pre>
+      <div class="dialog-actions">
+        <button id="evaluation-refresh-preview" type="button" class="button" disabled>Vorschau lesen (keine Änderung)</button>
+        <button id="evaluation-refresh-close" type="button" class="button secondary">Zurück / Abbrechen</button>
+      </div>
+    </div>
+  </dialog>
+  <script src="evaluation-refresh-plan.js"></script>
+
+  <dialog id="external-runtime-dialog">
+    <div class="read-only-dialog-content">
+      <h2>External Languages für eine zukünftige SQL-Instanz</h2>
+      <p>Nur Entscheidung: kein Manifest speichern, keine Instanz starten. Katalogunterstützung ist keine SQL-Sprachabnahme oder Ausführungsfreigabe.</p>
+      <label>Provider<select id="external-runtime-provider"><option value="docker">Docker</option><option value="podman">Podman</option></select></label>
+      <label>SQL-Version<select id="external-runtime-sql"><option value="2019">2019</option><option value="2022">2022</option><option value="2025">2025</option></select></label>
+      <p>Zielbetriebssystem: Linux. Host wird beim Öffnen oder Ändern nicht geprüft.</p>
+      <button id="external-runtime-read" type="button" class="button secondary">Katalogvarianten lesen</button>
+      <label>Sprache und Variante<select id="external-runtime-choice"></select></label>
+      <p>Blockierte Varianten bleiben mit Grund sichtbar und können nicht gewählt werden. SQL 2025 shared-user-v2 verwendet keine Launchpad-Sandbox; die Worker teilen ein gemeinsames Konto und besitzen Netzwerkzugriff.</p>
+      <p id="external-runtime-status" role="status">Host: NOT_CHECKED</p>
+      <pre id="external-runtime-result"></pre>
+      <div class="dialog-actions">
+        <button id="external-runtime-evaluate" type="button" class="button secondary">Katalogentscheidung anzeigen</button>
+        <button id="external-runtime-host" type="button" class="button secondary">Hostvoraussetzungen bewusst lesend prüfen</button>
+        <button id="external-runtime-close" type="button" class="button secondary">Zurück / Abbrechen</button>
+      </div>
+      <p>Die Prüfung kann einen Moment dauern. Abbruch verwirft nur die Anzeige; eine angeforderte lesende Prüfung läuft weiter. READY bestätigt nur Hostvoraussetzungen.</p>
+    </div>
+  </dialog>
+  <script src="external-runtime-capability.js"></script>
   <script src="component-relations.js"></script>
+  <dialog id="llama-start-dialog">
+    <div class="maintenance-dialog-content">
+      <h2>Eigene llama.cpp-Sitzung für SQL-Embeddings</h2>
+      <p>Explizite lokale Dateien und Schlüssel nur im RAM eingeben. Erst bewusster Start liest Dateien, prüft TLS/Loopback/Modell/Gerät und erstellt einen eigenen zeitlich begrenzten Worker mit temporären Key-/Request-/Logdateien. Keine Downloads oder globale Dienst-/Truständerung. Gleichen Modulhost behalten.</p>
+      <label>Runtime-Verzeichnis<input id="llama-start-runtime" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>GGUF-Datei<input id="llama-start-model" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>Backend<select id="llama-start-backend"><option>LlamaCppCuda</option><option>LlamaCppOpenVino</option></select></label>
+      <label>Beschleuniger<select id="llama-start-accelerator"><option>CPU</option><option>GPU</option><option>NPU</option></select></label>
+      <label>Modellalias<input id="llama-start-alias" maxlength="128" autocomplete="off"></label>
+      <label>Dimension<input id="llama-start-dimension" type="number" min="1" max="1998"></label>
+      <label>Pooling<select id="llama-start-pooling"><option>mean</option><option>cls</option><option>last</option></select></label>
+      <label>IPv4-Loopback-Port<input id="llama-start-port" type="number" min="1024" max="65535"></label>
+      <label>Öffentliches Zertifikat (PEM-Pfad)<input id="llama-start-certificate" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>Privater Key (PEM-Pfad)<input id="llama-start-private-key" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>API-Key (24–256 ASCII-Buchstaben/Ziffern, _ oder -)<input id="llama-start-api-key" type="password" maxlength="256" autocomplete="new-password"></label>
+      <label>Optionales öffentliches CA-PEM (Pfad, leer: Systemvertrauen)<input id="llama-start-trusted-root" type="password" maxlength="4096" autocomplete="off"></label>
+      <label>Bereitschaftspollbudget (1–600 Sekunden)<input id="llama-start-timeout" type="number" min="1" max="600"></label>
+      <label>Lease einschließlich Start (30–3600 Sekunden; größer als Pollbudget)<input id="llama-start-lease" type="number" min="30" max="3600"></label>
+      <label>Kontext (32–8192)<input id="llama-start-context" type="number" min="32" max="8192"></label>
+      <p>Der Start läuft synchron und kann den UI-Listener blockieren. Das Pollbudget begrenzt weder den gesamten HTTP-Aufruf noch Datei-/TLS-I/O oder Cleanup. WhatIf prüft keine Bereitschaft. SQL bleibt NOT_CHECKED. Gemeinsame JSON-Größenlimits können Kombinationen maximaler Eingaben abweisen. Clearing garantiert keine sichere Speicherlöschung.</p>
+      <label><input id="llama-start-confirm" type="checkbox"> Genau diese eigene Sitzung mit temporären Schlüsseldateien und Worker bewusst starten</label>
+      <p id="llama-start-status" role="status" aria-live="polite">Noch nichts gestartet oder geprüft.</p>
+      <pre id="llama-start-result"></pre>
+      <p>Abbruch vor Versand startet nichts; nach Versand beendet er nur die Anzeige. Bei verlorener Antwort könnte eine eigene Sitzung aktiv sein. Modulhost behalten, nicht blind wiederholen und bestehende eigene Sitzungsführung separat verwenden. Kein automatischer Stop oder Cleanup-Erfolg.</p>
+      <div class="dialog-actions"><button id="llama-start-whatif" type="button" class="button secondary">WhatIf ohne Wirkung</button><button id="llama-start-start" type="button" class="button primary">Bewusst eigene Sitzung starten</button><button id="llama-start-close" type="button" class="button secondary">Zurück / Anzeige abbrechen</button></div>
+    </div>
+  </dialog>
+  <script src="llama-start-plan.js"></script>
+  <script src="llama-start.js"></script>
 </body>
 </html>

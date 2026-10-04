@@ -4,6 +4,17 @@ on:
   schedule:
     - cron: '0 6 1 * *'
   workflow_dispatch:
+    inputs:
+      acceptance_scope:
+        description: 'Optional own-<32 lowercase hex>: isolated, explicitly authorised issue fixture; empty uses regular watch'
+        required: false
+        default: ''
+        type: string
+      acceptance_resource:
+        description: 'Own fixture only: exactly one current sql-cu-YYYY or sqlpackage resource; unknown writes require receipt-bound runner recovery, never a workflow retry'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -15,7 +26,8 @@ concurrency:
 
 jobs:
   cu-monthly-watch:
-    name: Check SQL Server CU catalog
+    name: Check SQL Server CU and catalogued SqlPackage
+    if: github.repository == 'gecompat/SQL_Server_Lab'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -23,167 +35,56 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Run CU check
+      - name: Run resource metadata check and issue projection
         id: cucheck
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RESOURCE_WATCH_FIXTURE_SCOPE: ${{ inputs.acceptance_scope }}
+          RESOURCE_WATCH_FIXTURE_RESOURCE: ${{ inputs.acceptance_resource }}
         run: |
           $ErrorActionPreference = 'Stop'
-
-          $scriptPath = Join-Path $PWD 'Tools/Get-SqlServerCuStatus.ps1'
-          . ./Tools/Common/VersionCatalogCuWatchReport.ps1
-          $evaluation = Invoke-LabCuWatchEvaluation -Check {
-            & $scriptPath -AsJson | ConvertFrom-Json
+          $arguments = @{ PublishIssues = $true }
+          if (-not [string]::IsNullOrWhiteSpace($env:RESOURCE_WATCH_FIXTURE_SCOPE)) {
+            if ($env:GITHUB_EVENT_NAME -ne 'workflow_dispatch' -or $env:RESOURCE_WATCH_FIXTURE_SCOPE -cnotmatch '^own-[a-f0-9]{32}$') {
+              throw 'RESOURCE_WATCH_FIXTURE_SCOPE_INVALID'
+            }
+            $arguments.IssueScope = $env:RESOURCE_WATCH_FIXTURE_SCOPE
+            if ($env:RESOURCE_WATCH_FIXTURE_RESOURCE -cnotmatch '^(sql-cu-\d{4}|sqlpackage)$') { throw 'RESOURCE_WATCH_FIXTURE_RESOURCE_INVALID' }
+            $arguments.AcceptanceResourceId = $env:RESOURCE_WATCH_FIXTURE_RESOURCE
+          } elseif (-not [string]::IsNullOrEmpty($env:RESOURCE_WATCH_FIXTURE_RESOURCE)) {
+            throw 'RESOURCE_WATCH_FIXTURE_RESOURCE_INVALID'
           }
+          $result = & ./Tools/Invoke-VersionCatalogResourceWatch.ps1 @arguments
+          $evaluation = $result.Evaluation
+          $receipt = $result.IssueReceipt
           $outputSummaryPath = Join-Path $env:RUNNER_TEMP 'sql-cu-watch-summary.md'
-          $evaluation.Report | Out-File -FilePath $outputSummaryPath -Encoding utf8
-          "status=$($evaluation.Status)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "new_count=$($evaluation.NewCount)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "unclear_count=$($evaluation.UnclearCount)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "check_failed=$($evaluation.CheckFailed.ToString().ToLowerInvariant())" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          "summary_path=$outputSummaryPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          $outputReceiptPath = Join-Path $env:RUNNER_TEMP 'sql-cu-watch-receipt.json'
+          $evaluation.Report | Out-File -LiteralPath $outputSummaryPath -Encoding utf8
+          $receipt | ConvertTo-Json -Depth 8 | Out-File -LiteralPath $outputReceiptPath -Encoding utf8
+          "check_failed=$($evaluation.CheckFailed.ToString().ToLowerInvariant())" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Append
+          "notification_failed=$($receipt.NotificationFailed.ToString().ToLowerInvariant())" | Out-File -LiteralPath $env:GITHUB_OUTPUT -Append
+          Get-Content -LiteralPath $outputSummaryPath | Out-File -LiteralPath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
 
-      - name: Upload CU watch artifact
+      - name: Upload sanitised watch report and issue receipt
         if: always()
         uses: actions/upload-artifact@v6
         with:
           name: sql-cu-watch
           path: |
             ${{ runner.temp }}/sql-cu-watch-summary.md
+            ${{ runner.temp }}/sql-cu-watch-receipt.json
           if-no-files-found: ignore
           retention-days: 60
-
-      - name: Open or update tracking issue
-        if: always() && steps.cucheck.outcome == 'success'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          $status = '${{ steps.cucheck.outputs.status }}'
-          $newCount = [int]'${{ steps.cucheck.outputs.new_count }}'
-          $unclearCount = [int]'${{ steps.cucheck.outputs.unclear_count }}'
-          $summaryPath = '${{ steps.cucheck.outputs.summary_path }}'
-
-          $body = Get-Content -LiteralPath $summaryPath -Raw
-          $monthTag = Get-Date -Format 'yyyy-MM'
-          $titlePrefix = "[SQL CU Watch] $monthTag"
-          $title = "$titlePrefix [$status]"
-          $issueBodyFile = Join-Path $env:RUNNER_TEMP 'sql-cu-watch-issue.md'
-
-          $statusLabelLines = @"
-          ## Status-Labels
-          - [ ] NO CHANGE
-          - [ ] NEW
-          - [ ] UNCLEAR
-          "@
-
-          switch ($status) {
-            'NEW' { $statusLabelLines = $statusLabelLines -replace '- \[ \] NEW', '- [x] NEW' }
-            'UNCLEAR' { $statusLabelLines = $statusLabelLines -replace '- \[ \] UNCLEAR', '- [x] UNCLEAR' }
-            default { $statusLabelLines = $statusLabelLines -replace '- \[ \] NO CHANGE', '- [x] NO CHANGE' }
-          }
-
-          $statusBlock = if ($status -eq 'UNCLEAR') {
-            '- Handlung: Prüfung unklar; Quelle und Katalog manuell prüfen.'
-          } elseif ($newCount -gt 0) {
-            '- Handlung: Katalog mit den fehlenden KBs aktualisieren.'
-          } elseif ($unclearCount -gt 0) {
-            '- Handlung: Quelle und Katalog manuell prüfen.'
-          } else {
-            '- Handlung: Keine neuen Schritte notwendig.'
-          }
-
-          $body = @"
-          ## SQL CU Watch
-
-          **Status:** $status
-
-          $statusLabelLines
-
-          $statusBlock
-
-          $body
-          "@
-          Set-Content -LiteralPath $issueBodyFile -Encoding utf8 -Value $body
-
-          $issues = gh issue list --state open --json number,title,createdAt --limit 100 | ConvertFrom-Json
-          $existing = @($issues | Where-Object { ([string]$_.title).StartsWith($titlePrefix, [StringComparison]::Ordinal) }) |
-            Sort-Object { [int]$_.number } -Descending |
-            Select-Object -First 1
-          $labelBase = 'cu-watch'
-          $statusLabel = switch ($status) {
-            'NEW' { 'cu-watch/new' }
-            'UNCLEAR' { 'cu-watch/unclear' }
-            default { 'cu-watch/no-change' }
-          }
-          $allStatusLabels = @('cu-watch/no-change', 'cu-watch/new', 'cu-watch/unclear')
-
-          function Ensure-Label {
-            param(
-              [string]$Name,
-              [string]$Color = '0E8A16',
-              [string]$Description = ''
-            )
-            gh label create $Name --color $Color --description $Description --force | Out-Null
-          }
-
-          Ensure-Label -Name $labelBase -Color '0E8A16' -Description 'Automatisierter SQL CU Watch-Ticker'
-          Ensure-Label -Name 'cu-watch/no-change' -Color '0E8A16' -Description 'SQL CU Watch meldet keinen neuen CU-Stand'
-          Ensure-Label -Name 'cu-watch/new' -Color 'D93F0B' -Description 'SQL CU Watch meldet neue CU-/KB-Einträge'
-          Ensure-Label -Name 'cu-watch/unclear' -Color 'FBCA04' -Description 'SQL CU Watch ist unklar und braucht manuelle Prüfung'
-          $removeStatusLabels = @($allStatusLabels | Where-Object { $_ -ne $statusLabel })
-          $labelsForCreate = @($labelBase, $statusLabel)
-
-          function Add-Labels {
-            param(
-              [int]$IssueNumber,
-              [string[]]$Labels
-            )
-            foreach ($label in $Labels) {
-              gh issue edit $IssueNumber --add-label $label | Out-Null
-            }
-          }
-
-          function Remove-Labels {
-            param(
-              [int]$IssueNumber,
-              [string[]]$Labels
-            )
-            foreach ($label in $Labels) {
-              try {
-                gh issue edit $IssueNumber --remove-label $label | Out-Null
-              }
-              catch { }
-            }
-          }
-
-          if ($status -eq 'NO CHANGE') {
-            if ($existing) {
-              Remove-Labels -IssueNumber $existing.number -Labels $allStatusLabels
-              Add-Labels -IssueNumber $existing.number -Labels $labelsForCreate
-              $closeComment = @"
-          Der Check ist wieder in Ordnung.
-          Der zuletzt offene monatliche Hinweis wurde automatisch auf "NO CHANGE" gesetzt und hiermit geschlossen.
-          "@
-              gh issue comment $existing.number --body $closeComment
-              gh issue close $existing.number
-            }
-            exit 0
-          }
-
-          if ($existing) {
-            Remove-Labels -IssueNumber $existing.number -Labels $allStatusLabels
-            Add-Labels -IssueNumber $existing.number -Labels $labelsForCreate
-            gh issue edit $existing.number --title $title --body-file $issueBodyFile | Out-Null
-          }
-          else {
-            $labelArg = @($labelBase, $statusLabel) -join ','
-            gh issue create --title $title --body-file $issueBodyFile --label $labelArg | Out-Null
-          }
 
       - name: Preserve failed check outcome
         if: always() && steps.cucheck.outputs.check_failed == 'true'
         shell: pwsh
         run: |
           throw 'CU_WATCH_CHECK_UNSUCCESSFUL: Keine Aktualitaetsbestaetigung; bereinigten Bericht und Tracking-Issue pruefen.'
+
+      - name: Preserve failed notification outcome
+        if: always() && steps.cucheck.outputs.notification_failed == 'true'
+        shell: pwsh
+        run: |
+          throw 'RESOURCE_WATCH_NOTIFICATION_UNSUCCESSFUL: Issue nicht bestaetigt; Receipt pruefen und gebunden wiederaufnehmen.'

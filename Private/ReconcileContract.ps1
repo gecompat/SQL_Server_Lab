@@ -95,12 +95,18 @@ function New-LabDesiredState {
                 $networkIntent = if ($_.labNetwork -and $_.labNetwork.intent) { [string]$_.labNetwork.intent }
                     elseif ($Run.metadata -and $Run.metadata.networkIntent) { [string]$Run.metadata.networkIntent }
                     else { $null }
+                $noAdapterIntent = [string]$_.provider -eq 'hyperv' -and
+                    [string]$Run.metadata.workflowKind -eq 'hyperv-lab' -and
+                    $networkIntent -eq 'isolated' -and -not $Run.metadata.network -and -not $_.labNetwork -and
+                    -not (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $connectionPath) 'network-bound-plan.json'))
                 [PSCustomObject]@{
                     Id = [string]$_.id
                     Provider = [string]$_.provider
                     Profile = $null
                     TargetState = $TargetState
-                    Network = ConvertTo-LabReconcileNetworkIntent -Network $(if ($networkIntent) { [PSCustomObject]@{ Intent=$networkIntent } } else { $null })
+                    Network = ConvertTo-LabReconcileNetworkIntent -Network $(if ($noAdapterIntent) {
+                        [PSCustomObject]@{ Intent='isolated'; Binding='disconnected' }
+                    } elseif ($networkIntent) { [PSCustomObject]@{ Intent=$networkIntent } } else { $null })
                     Resources = $null
                     SqlConfiguration = $null
                     Drives = @()
@@ -175,10 +181,24 @@ function Get-LabHyperVNetworkReconcileActual {
         if ([string]::IsNullOrWhiteSpace($vmName)) { return & $unavailable @('HYPERV_NETWORK_VM_IDENTITY_MISSING') }
 
         $reasonCodes = [Collections.Generic.List[string]]::new()
-        $connectedAdapters = @(Get-VMNetworkAdapter -VMName $vmName -ErrorAction Stop | Where-Object { $_.SwitchName })
+        $adapters = @(Get-VMNetworkAdapter -VMName $vmName -ErrorAction Stop)
+        $connectedAdapters = @($adapters | Where-Object { $_.SwitchName })
         $attachmentStatus = 'MATCHED'
         $observedBinding = 'unknown'
-        if ($connectedAdapters.Count -eq 0) {
+        $noAdapterIntent = [string]$DesiredInstance.Network.Intent -eq 'isolated' -and
+            [string]$DesiredInstance.Network.Binding -eq 'disconnected' -and
+            [string]$Run.metadata.workflowKind -eq 'hyperv-lab' -and
+            [string]$Run.metadata.networkIntent -eq 'isolated' -and
+            -not $Run.metadata.desiredState -and -not $Run.metadata.network -and -not $connectionInstance.labNetwork -and
+            -not (Test-Path -LiteralPath (Join-Path (Split-Path -Parent $connectionPath) 'network-bound-plan.json'))
+        if ($noAdapterIntent) {
+            $observedBinding = 'disconnected'
+            if ($adapters.Count -ne 0) {
+                $attachmentStatus = 'DRIFT'
+                $reasonCodes.Add('HYPERV_NETWORK_ADAPTER_COUNT_DRIFT')
+            }
+        }
+        elseif ($connectedAdapters.Count -eq 0) {
             $attachmentStatus = 'DRIFT'
             $observedBinding = 'disconnected'
             $reasonCodes.Add('HYPERV_NETWORK_ADAPTER_MISSING')

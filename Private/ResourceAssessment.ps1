@@ -21,6 +21,9 @@ function Test-SqlServerLabPrerequisite {
     .PARAMETER RepositoryRoot
         Optionales Repository-Stammverzeichnis. Wird zur Bewertung verwendet,
         ob TargetPath gefaehrlich innerhalb des Quellrepositorys liegt.
+    .PARAMETER StateRoot
+        Optionaler expliziter StateRoot. Ein dort gespeichertes eigenes
+        Hostprofil bindet die Container-Verfuegbarkeitspruefung an dessen Pin.
     .OUTPUTS
         System.Management.Automation.PSCustomObject. Liefert Status, Timestamp
         und Details pro Pruefkategorie.
@@ -34,7 +37,8 @@ function Test-SqlServerLabPrerequisite {
         [array]$Instances = @(),
         [string[]]$Provider = @('docker'),
         [string]$TargetPath,
-        [string]$RepositoryRoot
+        [string]$RepositoryRoot,
+        [string]$StateRoot
     )
 
     $results = @()
@@ -46,7 +50,9 @@ function Test-SqlServerLabPrerequisite {
     }
 
     foreach ($providerName in $providers) {
-        $providerCheck = Test-ProviderAvailability -Provider $providerName
+        $providerCheck = if ($StateRoot) {
+            Test-ProviderAvailability -Provider $providerName -StateRoot $StateRoot
+        } else { Test-ProviderAvailability -Provider $providerName }
         if ($providers.Count -gt 1) {
             $providerCheck = [PSCustomObject]@{
                 Category = "Provider/$providerName"
@@ -103,11 +109,11 @@ function Test-SqlServerLabPrerequisite {
 
 function Test-ProviderAvailability {
     [CmdletBinding()]
-    param([string]$Provider = 'docker')
+    param([string]$Provider = 'docker', [string]$StateRoot)
 
     switch ($Provider) {
         'docker' {
-            $check = Test-DockerAvailable
+            $check = if ($StateRoot) { Test-DockerAvailable -StateRoot $StateRoot } else { Test-DockerAvailable }
             if ($check.Available) {
                 return [PSCustomObject]@{
                     Category = 'Provider'
@@ -124,7 +130,7 @@ function Test-ProviderAvailability {
             }
         }
         'podman' {
-            $check = Test-PodmanAvailable
+            $check = if ($StateRoot) { Test-PodmanAvailable -StateRoot $StateRoot } else { Test-PodmanAvailable }
             if ($check.Available) {
                 return [PSCustomObject]@{
                     Category = 'Provider'

@@ -41,14 +41,22 @@ param(
 
     [switch]$ManifestRerun,
 
-    [switch]$KeepOnFailure
+    [switch]$KeepOnFailure,
+    [string]$StateRoot
 )
 
 $ErrorActionPreference = 'Stop'
+$requestedStateRoot=$StateRoot
+. (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+if ($requestedStateRoot) {
+    Assert-OwnedHostTestRoot -StateRoot $requestedStateRoot
+    if ($Provider -ceq 'hyperv') { throw 'OWNED_HOST_CONTAINER_PROFILE_REQUIRED' }
+}
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $hostToolInitializer = Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1'
-$stateRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-server-lab-batch-smoke-' + [Guid]::NewGuid().ToString('N'))
+$stateRoot=if ($requestedStateRoot) { $requestedStateRoot } else { Join-Path ([IO.Path]::GetTempPath()) ('sql-server-lab-batch-smoke-' + [Guid]::NewGuid().ToString('N')) }
+$testArtifactRoot=if ($requestedStateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $stateRoot -Name 'sql-server-lab-batch-smoke' } else { $stateRoot }
 $secretVariable = 'SQL_SERVER_LAB_SECRET_BATCH_SMOKE_SA_PASSWORD'
 $previousSecret = [Environment]::GetEnvironmentVariable($secretVariable)
 $previousStateRoot = $env:SQL_SERVER_LAB_STATE
@@ -81,7 +89,9 @@ function Test-BatchRuntime {
         [string]::IsNullOrWhiteSpace([string]$resolution.Invocation)) {
         return $false
     }
-    & ([string]$resolution.Invocation) info 1>$null 2>$null
+    if ($requestedStateRoot) {
+        Invoke-OwnedHostTestCommand -StateRoot $stateRoot -Provider $Name -Invocation ([string]$resolution.Invocation) -Arguments @('info') 1>$null 2>$null
+    } else { & ([string]$resolution.Invocation) info 1>$null 2>$null }
     return $LASTEXITCODE -eq 0
 }
 
@@ -135,7 +145,7 @@ function Get-BatchProviderResourceId {
 try {
     Write-Host "Batch-/Queue-Smoke-Test: $Provider" -ForegroundColor Cyan
     if ($Provider -eq 'podman') {
-        $null = & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1')
+        $null=if ($requestedStateRoot) { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') -StateRoot $stateRoot -RequireReachable } else { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') }
     }
     New-Item -Path $stateRoot -ItemType Directory -Force | Out-Null
     $env:SQL_SERVER_LAB_STATE = $stateRoot
@@ -209,7 +219,7 @@ try {
         }
     )
     if ($ManifestRerun) {
-        $manifestPath = Join-Path $stateRoot 'batch-smoke.manifest.json'
+        $manifestPath = Join-Path $testArtifactRoot 'batch-smoke.manifest.json'
         [pscustomobject][ordered]@{
             contract = 'SqlServerLab.BatchManifest/1.0'
             name = "Batch manifest smoke $Provider"
@@ -409,7 +419,7 @@ finally {
             Remove-Item -LiteralPath $testArtifactDirectory -Force
         }
     }
-    if (-not $KeepOnFailure -and $canRemoveStateRoot -and (Test-Path -LiteralPath $stateRoot -PathType Container)) {
+    if (-not $requestedStateRoot -and -not $KeepOnFailure -and $canRemoveStateRoot -and (Test-Path -LiteralPath $stateRoot -PathType Container)) {
         Remove-Item -LiteralPath $stateRoot -Recurse -Force
     }
     [Environment]::SetEnvironmentVariable($secretVariable, $previousSecret)

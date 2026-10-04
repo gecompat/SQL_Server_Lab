@@ -218,11 +218,16 @@ try {
             -ArtifactId $ArtifactId `
             -LabName 'Hyper-V Reconcile Smoke' `
             -InstanceId 'reconcile-smoke' `
+            -Isolated `
             -MemoryStartupMB 512 `
             -ProcessorCount 1 `
             -StateRoot $StateRoot
     } $reconcileImageArtifact.artifactId $stateRoot
     Assert-HyperVSmoke -Condition ($reconcileRun.State -eq 'STOPPED') -Description 'Reconcile-Smoke Run wurde bewusst ausgeschaltet erstellt'
+    $reconcileIsolationState = & $module { param($RunId,$StateRoot) Get-LabRunState -RunId $RunId -StateRoot $StateRoot } $reconcileRun.RunId $stateRoot
+    Assert-HyperVSmoke -Condition ($reconcileIsolationState.metadata.networkIntent -ceq 'isolated' -and -not $reconcileIsolationState.metadata.network) -Description 'Reconcile-Run persistiert isolierten Intent ohne gemeinsames Netzwerkbinding'
+    $reconcileVm = Get-VM -Name $reconcileRun.VMName -ErrorAction Stop
+    Assert-HyperVSmoke -Condition (@(Get-VMNetworkAdapter -VM $reconcileVm -ErrorAction Stop).Count -eq 0) -Description 'Reconcile-VM besitzt tatsaechlich keinen Netzwerkadapter'
 
     $reconcileStartPlan = & $module {
         param($RunId, $StateRoot)

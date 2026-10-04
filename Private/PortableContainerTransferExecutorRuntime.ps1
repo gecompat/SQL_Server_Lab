@@ -13,8 +13,8 @@ function Get-LabTransferHash {
 }
 
 function Invoke-LabTransferNative {
-    param([Parameter(Mandatory)][string]$Provider,[Parameter(Mandatory)][string[]]$Arguments,[int]$TimeoutSeconds=60)
-    $result=Invoke-LabProgressNativeCommand -FilePath (Get-LabHostToolInvocation -Name $Provider) -ArgumentList $Arguments -Phase Transfer -TimeoutSeconds $TimeoutSeconds
+    param([Parameter(Mandatory)][string]$Provider,[Parameter(Mandatory)][string[]]$Arguments,[int]$TimeoutSeconds=60,[string]$StateRoot)
+    $result=Invoke-LabContainerRuntimeCommand -Provider $Provider -ArgumentList $Arguments -StateRoot $StateRoot -Phase Transfer -TimeoutSeconds $TimeoutSeconds -NativeResult
     if($result.ExitCode -ne 0){throw 'TRANSFER_RUNTIME_COMMAND_FAILED'}
     return @($result.Output)
 }
@@ -25,9 +25,9 @@ function Get-LabTransferBinding {
     $instance=Resolve-LabRunInstance -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
     $version=Get-SqlServerVersion -VersionId ([string]$instance.Version)
     if($run.state -ne 'RUNNING' -or $instance.Provider -notin @('docker','podman') -or -not $version -or [string]$version.id -cne '2025'){throw 'TRANSFER_RUN_NOT_ELIGIBLE'}
-    $scope=Get-LabContainerRuntimeScope -Provider $instance.Provider
+    $scope=Get-LabContainerRuntimeScope -Provider $instance.Provider -StateRoot $StateRoot
     if($scope.Status -ne 'AVAILABLE' -or -not $scope.RuntimeId){throw 'TRANSFER_RUNTIME_SCOPE_UNAVAILABLE'}
-    $inspection=@((Invoke-LabTransferNative -Provider $instance.Provider -Arguments @('inspect',$instance.ContainerName)) -join "`n"|ConvertFrom-Json -Depth 30)
+    $inspection=@((Invoke-LabTransferNative -Provider $instance.Provider -Arguments @('inspect',$instance.ContainerName) -StateRoot $StateRoot) -join "`n"|ConvertFrom-Json -Depth 30)
     if($inspection.Count -ne 1){throw 'TRANSFER_CONTAINER_AMBIGUOUS'}
     $container=$inspection[0];$labels=$container.Config.Labels
     if($container.State.Running -ne $true -or [string]$container.Id -notmatch '^[a-f0-9]{64}$' -or $container.Os -and $container.Os -ne 'linux' -or
@@ -41,12 +41,12 @@ function Get-LabTransferBinding {
         if([string]$run.metadata.workflowOperationId -cne $OperationId -or [bool]$run.metadata.persistentData){throw 'TRANSFER_OPERATION_OWNERSHIP_INVALID'}
         $mounts=@($container.Mounts)
         if($mounts.Count -ne 1 -or $mounts[0].Type -ne 'volume' -or $mounts[0].Destination -cne '/var/opt/mssql' -or $mounts[0].RW -ne $true){throw 'TRANSFER_VOLUME_BINDING_INVALID'}
-        $volume=@((Invoke-LabTransferNative -Provider $instance.Provider -Arguments @('volume','inspect',[string]$mounts[0].Name)) -join "`n"|ConvertFrom-Json -Depth 30)
+        $volume=@((Invoke-LabTransferNative -Provider $instance.Provider -Arguments @('volume','inspect',[string]$mounts[0].Name) -StateRoot $StateRoot) -join "`n"|ConvertFrom-Json -Depth 30)
         if($volume.Count -ne 1){throw 'TRANSFER_VOLUME_BINDING_INVALID'}
         $vl=$volume[0].Labels
         if([string]$vl.'sql-server-lab.run-id' -cne $RunId -or [string]$vl.'sql-server-lab.scope-id' -cne [string]$run.scopeId -or
             [string]$vl.'sql-server-lab.instance-id' -cne $InstanceId -or $vl.'sql-server-lab.persistent-storage-id' -or $vl.'sql-server-lab.persistence'){throw 'TRANSFER_VOLUME_OWNERSHIP_INVALID'}
-        $attachments=@(Invoke-LabTransferNative -Provider $instance.Provider -Arguments @('ps','-a','--no-trunc','--filter',"volume=$($mounts[0].Name)",'--format','{{.ID}}'))
+        $attachments=@(Invoke-LabTransferNative -Provider $instance.Provider -Arguments @('ps','-a','--no-trunc','--filter',"volume=$($mounts[0].Name)",'--format','{{.ID}}') -StateRoot $StateRoot)
         if($attachments.Count -ne 1 -or [string]$attachments[0] -cne [string]$container.Id){throw 'TRANSFER_VOLUME_SHARED'}
         $volumes=@([string]$mounts[0].Name)
     }
@@ -153,13 +153,13 @@ function New-LabTransferConnection {
 }
 
 function Assert-LabTransferNoResidue {
-    param([Parameter(Mandatory)]$Binding)
-    $scope=Get-LabContainerRuntimeScope -Provider $Binding.Provider
+    param([Parameter(Mandatory)]$Binding,[string]$StateRoot)
+    $scope=Get-LabContainerRuntimeScope -Provider $Binding.Provider -StateRoot $StateRoot
     if($scope.Status -ne 'AVAILABLE' -or $scope.RuntimeId -cne $Binding.RuntimeScopeId){throw 'TRANSFER_CLEANUP_RUNTIME_UNVERIFIABLE'}
-    $containers=@(Invoke-LabTransferNative -Provider $Binding.Provider -Arguments @('ps','-a','--no-trunc','--filter',"label=sql-server-lab.run-id=$($Binding.RunId)",'--format','{{.ID}}'))
-    $volumes=@(Invoke-LabTransferNative -Provider $Binding.Provider -Arguments @('volume','ls','--filter',"label=sql-server-lab.run-id=$($Binding.RunId)",'--format','{{.Name}}'))
-    $exact=@(Invoke-LabTransferNative -Provider $Binding.Provider -Arguments @('ps','-a','--no-trunc','--filter',"id=$($Binding.ContainerId)",'--format','{{.ID}}'))
-    $allVolumes=@(Invoke-LabTransferNative -Provider $Binding.Provider -Arguments @('volume','ls','--format','{{.Name}}'))
+    $containers=@(Invoke-LabTransferNative -Provider $Binding.Provider -Arguments @('ps','-a','--no-trunc','--filter',"label=sql-server-lab.run-id=$($Binding.RunId)",'--format','{{.ID}}') -StateRoot $StateRoot)
+    $volumes=@(Invoke-LabTransferNative -Provider $Binding.Provider -Arguments @('volume','ls','--filter',"label=sql-server-lab.run-id=$($Binding.RunId)",'--format','{{.Name}}') -StateRoot $StateRoot)
+    $exact=@(Invoke-LabTransferNative -Provider $Binding.Provider -Arguments @('ps','-a','--no-trunc','--filter',"id=$($Binding.ContainerId)",'--format','{{.ID}}') -StateRoot $StateRoot)
+    $allVolumes=@(Invoke-LabTransferNative -Provider $Binding.Provider -Arguments @('volume','ls','--format','{{.Name}}') -StateRoot $StateRoot)
     if($containers.Count -or $volumes.Count -or $exact.Count -or @($Binding.Volumes|Where-Object {$_ -cin $allVolumes}).Count){throw 'TRANSFER_CLEANUP_RESIDUE'}
 }
 
@@ -167,7 +167,7 @@ function Remove-LabTransferOwnedRun {
     param([Parameter(Mandatory)]$Journal,[string]$StateRoot)
     $owned=Get-LabOperationOwnedRun -OperationId $Journal.OperationId -StateRoot $StateRoot
     if(-not $owned){
-        if($Journal.Target){$run=Get-LabRunState -RunId $Journal.Target.RunId -StateRoot $StateRoot;if($run.state -ne 'REMOVED'){throw 'TRANSFER_CLEANUP_RUN_MISSING'};Assert-LabTransferNoResidue -Binding $Journal.Target}
+        if($Journal.Target){$run=Get-LabRunState -RunId $Journal.Target.RunId -StateRoot $StateRoot;if($run.state -ne 'REMOVED'){throw 'TRANSFER_CLEANUP_RUN_MISSING'};Assert-LabTransferNoResidue -Binding $Journal.Target -StateRoot $StateRoot}
         elseif($Journal.Status -ne 'INTENT'){throw 'TRANSFER_CREATE_OUTCOME_UNVERIFIABLE'}
         return
     }
@@ -182,7 +182,7 @@ function Remove-LabTransferOwnedRun {
     $binding=Assert-LabTransferBinding -Expected $Journal.Target -StateRoot $StateRoot -OperationId $Journal.OperationId
     $cleanup=Remove-SqlServerLab -RunId $binding.RunId -StateRoot $StateRoot -Force -Confirm:$false
     if($cleanup.Status -ne 'REMOVED'){throw 'TRANSFER_RUN_CLEANUP_FAILED'}
-    Assert-LabTransferNoResidue -Binding $Journal.Target
+    Assert-LabTransferNoResidue -Binding $Journal.Target -StateRoot $StateRoot
 }
 
 function New-LabTransferResult {
@@ -232,14 +232,14 @@ function Invoke-LabPortableContainerTransfer {
             $backup=Get-LabTransferBackup -Request $Request -DataRoot $DataRoot
             if($backup.Public.Sha256 -cne $journal.BackupSha256 -or $backup.Public.Bytes -ne $journal.BackupBytes){throw 'TRANSFER_BACKUP_DRIFT'}
             $stage="/var/opt/mssql/transfer-$operationId.bak"
-            $free=@(Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'df','--output=avail','-B1','/var/opt/mssql'))
+            $free=@(Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'df','--output=avail','-B1','/var/opt/mssql') -StateRoot $StateRoot)
             if($free.Count -ne 2 -or ([string]$free[1]).Trim() -notmatch '^\d+$' -or [decimal]([string]$free[1]).Trim() -lt ($journal.BackupBytes+512MB)){throw 'TRANSFER_STAGE_CAPACITY_INSUFFICIENT'}
-            $null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'test','!','-e',$stage)
-            $null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'test','!','-L',$stage)
-            $null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('cp',$backup.SourcePath,"$($target.ContainerId):$stage") -TimeoutSeconds 600
-            $null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec','--user','root',$target.ContainerId,'chown','mssql:root','--',$stage)
-            $stageHash=@(Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'sha256sum','--',$stage))
-            $stageSize=@(Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'stat','-c','%s','--',$stage))
+            $null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'test','!','-e',$stage) -StateRoot $StateRoot
+            $null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'test','!','-L',$stage) -StateRoot $StateRoot
+            $null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('cp',$backup.SourcePath,"$($target.ContainerId):$stage") -TimeoutSeconds 600 -StateRoot $StateRoot
+            $null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec','--user','root',$target.ContainerId,'chown','mssql:root','--',$stage) -StateRoot $StateRoot
+            $stageHash=@(Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'sha256sum','--',$stage) -StateRoot $StateRoot)
+            $stageSize=@(Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'stat','-c','%s','--',$stage) -StateRoot $StateRoot)
             if($stageHash.Count -ne 1 -or [string]$stageHash[0] -cne "$($journal.BackupSha256)  $stage" -or $stageSize.Count -ne 1 -or [string]$stageSize[0] -cne [string]$journal.BackupBytes){throw 'TRANSFER_STAGE_INTEGRITY_FAILED'}
             $journal.Status='STAGED';Write-LabTransferJournal -Journal $journal -Path $path
             $secret=Get-LabRelationalCoreSecret -RunId $target.RunId -StateRoot $StateRoot
@@ -249,10 +249,10 @@ function Invoke-LabPortableContainerTransfer {
             if($header.Count -ne 1 -or $header[0].IsReadOnly -isnot [bool] -or -not $header[0].IsReadOnly -or [string]$header[0].BindingID -ine [string]$sourceObservation.DatabaseGuid){throw 'TRANSFER_BACKUP_SNAPSHOT_BINDING_INVALID'}
             $rows=@(Invoke-LabTransferSqlRows -Connection $connection -Query 'RESTORE FILELISTONLY FROM DISK=@path WITH FILE=1;' -Parameters @{'@path'=$stage})
             $journal.Files=@(ConvertTo-LabTransferFilePlan -Rows $rows -OperationId $operationId)
-            $free=@(Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'df','--output=avail','-B1','/var/opt/mssql'))
+            $free=@(Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'df','--output=avail','-B1','/var/opt/mssql') -StateRoot $StateRoot)
             $requiredBytes=[long](($journal.Files|Measure-Object Bytes -Sum).Sum)+512MB
             if($free.Count -ne 2 -or ([string]$free[1]).Trim() -notmatch '^\d+$' -or [decimal]([string]$free[1]).Trim() -lt $requiredBytes){throw 'TRANSFER_RESTORE_CAPACITY_INSUFFICIENT'}
-            foreach($file in $journal.Files){$null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'test','!','-e',$file.Path);$null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'test','!','-L',$file.Path)}
+            foreach($file in $journal.Files){$null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'test','!','-e',$file.Path) -StateRoot $StateRoot;$null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'test','!','-L',$file.Path) -StateRoot $StateRoot}
             $empty=@(Invoke-LabTransferSqlRows -Connection $connection -Query 'SELECT COUNT(*) AS UserDatabases FROM sys.databases WHERE database_id>4;')
             if($empty.Count -ne 1 -or [int]$empty[0].UserDatabases -ne 0){throw 'TRANSFER_TARGET_DATABASE_COLLISION'}
             $null=Assert-LabTransferBinding -Expected $journal.Target -StateRoot $StateRoot -OperationId $operationId
@@ -279,8 +279,8 @@ function Invoke-LabPortableContainerTransfer {
             if((Get-LabTransferHash (Get-LabTransferSourceObservation -Binding $source -DatabaseName $Request.SourceDatabaseName -StateRoot $StateRoot)) -cne $journal.SourceObservationHash){throw 'TRANSFER_SOURCE_DRIFT'}
             $target=Assert-LabTransferBinding -Expected $journal.Target -StateRoot $StateRoot -OperationId $operationId
             $journal.Status='VERIFIED';Write-LabTransferJournal -Journal $journal -Path $path
-            $null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'rm','--',$stage)
-            $null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'test','!','-e',$stage)
+            $null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'rm','--',$stage) -StateRoot $StateRoot
+            $null=Invoke-LabTransferNative -Provider $target.Provider -Arguments @('exec',$target.ContainerId,'test','!','-e',$stage) -StateRoot $StateRoot
             $journal.Status='SUCCEEDED';$journal.CleanupStatus='STAGE_CLEANED_TARGET_RETAINED';Write-LabTransferJournal -Journal $journal -Path $path
         } catch {
             if($connection){$connection.Dispose();$connection=$null}

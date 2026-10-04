@@ -4,9 +4,14 @@ function Resolve-LabRestoreContainer {
         [ValidateSet('docker', 'podman')][string]$Provider,
         [string]$ContainerName,
         [Parameter(Mandatory)][int]$Port
-    )
+    , [string]$StateRoot)
 
     $candidateProviders = if ($Provider) { @($Provider) } else { @('docker', 'podman') }
+    if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) {
+        $policy=Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required
+        $candidateProviders=@($candidateProviders | Where-Object { $_ -cin @($policy.RuntimePins.Provider) })
+        if (-not $candidateProviders.Count) { throw 'OWNED_HOST_PROVIDER_NOT_SELECTED' }
+    }
     $containerCandidates = @()
 
     foreach ($candidateProvider in $candidateProviders) {
@@ -17,13 +22,13 @@ function Resolve-LabRestoreContainer {
         }
         $runtimeInvocation = [string]$runtimeResolution.Invocation
 
-        & $runtimeInvocation info 1>$null 2>$null
+        $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $candidateProvider -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('info') } else { & $runtimeInvocation info }) 1>$null 2>$null
         if ($LASTEXITCODE -ne 0) {
             continue
         }
 
         if ($ContainerName) {
-            $inspect = & $runtimeInvocation inspect $ContainerName 2>$null |
+            $inspect = $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $candidateProvider -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('inspect', $ContainerName) } else { & $runtimeInvocation inspect $ContainerName }) 2>$null |
                 ConvertFrom-Json -Depth 30
             if ($LASTEXITCODE -eq 0 -and $inspect) {
                 $item = @($inspect)[0]
@@ -41,9 +46,9 @@ function Resolve-LabRestoreContainer {
             continue
         }
 
-        $output = & $runtimeInvocation ps -a `
+        $output = $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $candidateProvider -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('ps', '-a', '--filter', 'label=sql-server-lab.run-id', '--format', '{{.Names}}|{{.Ports}}') } else { & $runtimeInvocation ps -a `
             --filter 'label=sql-server-lab.run-id' `
-            --format '{{.Names}}|{{.Ports}}' 2>$null
+            --format '{{.Names}}|{{.Ports}}' }) 2>$null
         if ($LASTEXITCODE -ne 0) {
             continue
         }
@@ -55,7 +60,7 @@ function Resolve-LabRestoreContainer {
             }
 
             $name = $parts[0].Trim()
-            $inspect = & $runtimeInvocation inspect $name 2>$null |
+            $inspect = $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $candidateProvider -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('inspect', $name) } else { & $runtimeInvocation inspect $name }) 2>$null |
                 ConvertFrom-Json -Depth 30
             if ($LASTEXITCODE -ne 0 -or -not $inspect) {
                 continue
@@ -395,7 +400,7 @@ function Restore-SqlServerLabDatabase {
         else {
             # Ein nicht gesetzter Provider bedeutet bewusste Auto-Erkennung. Er darf
             # nicht als leerer String an ValidateSet weitergereicht werden.
-            $restoreTargetArguments = @{ ContainerName=$ContainerName; Port=$Port }
+            $restoreTargetArguments = @{ ContainerName=$ContainerName; Port=$Port; StateRoot=$StateRoot }
             if ($Provider) { $restoreTargetArguments.Provider = $Provider }
             $restoreTarget = Resolve-LabRestoreContainer @restoreTargetArguments
             $runtime = $restoreTarget.Provider
@@ -403,10 +408,10 @@ function Restore-SqlServerLabDatabase {
             $ContainerName = $restoreTarget.ContainerName
             $runtimeBackupPath = "/var/opt/mssql/backup/${DatabaseName}-$([guid]::NewGuid().ToString('N')).bak"
             Write-LabInfo "Kopiere Backup nach $runtime/${ContainerName}:${runtimeBackupPath}"
-            & $runtimeInvocation exec $ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
+            $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('exec', $ContainerName, 'mkdir', '-p', '/var/opt/mssql/backup') } else { & $runtimeInvocation exec $ContainerName mkdir -p /var/opt/mssql/backup }) 1>$null 2>$null
             if ($LASTEXITCODE -ne 0) { throw "Backup-Verzeichnis konnte im $runtime-Container nicht erstellt werden." }
             $runtimeBackupCopied = $true
-            $copyResult = Invoke-LabProgressNativeCommand -FilePath $runtimeInvocation -ArgumentList @('cp',$backupPath,"${ContainerName}:${runtimeBackupPath}") -Phase Transfer
+            $copyResult = $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Invocation $runtimeInvocation -ArgumentList @('cp',$backupPath,"${ContainerName}:${runtimeBackupPath}") -Phase Transfer -NativeResult -Provider $runtime -StateRoot $StateRoot } else { Invoke-LabProgressNativeCommand -FilePath $runtimeInvocation -ArgumentList @('cp',$backupPath,"${ContainerName}:${runtimeBackupPath}") -Phase Transfer })
             if ($copyResult.ExitCode -ne 0) { throw "Backup-Kopie in den $runtime-Container ist fehlgeschlagen." }
         }
 
@@ -544,7 +549,7 @@ RESTORE DATABASE [$escapedDatabaseName]
             catch { Write-LabWarning 'Temporäre Hyper-V-Backupkopie konnte nicht automatisch entfernt werden; Cleanup/Recovery bleibt erforderlich.' }
         }
         elseif ($runtimeBackupCopied -and $runtimeInvocation -and $ContainerName -and $runtimeBackupPath) {
-            & $runtimeInvocation exec $ContainerName rm -f -- $runtimeBackupPath 1>$null 2>$null
+            $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('exec', $ContainerName, 'rm', '-f', '--', $runtimeBackupPath) } else { & $runtimeInvocation exec $ContainerName rm -f -- $runtimeBackupPath }) 1>$null 2>$null
             if ($LASTEXITCODE -ne 0) {
                 Write-LabWarning 'Temporäre Container-Backupkopie konnte nicht automatisch entfernt werden; Cleanup bleibt erforderlich.'
             }

@@ -32,7 +32,8 @@ param(
     [string]$Version = '2025',
     [ValidateSet('docker', 'podman', 'auto', 'hyperv')]
     [string]$Provider = 'auto',
-    [switch]$KeepOnFailure
+    [switch]$KeepOnFailure,
+    [string]$StateRoot
 )
 
 $showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
@@ -42,6 +43,7 @@ if ($showHelpRequested) {
 }
 
 if ($Provider -eq 'hyperv') {
+    if ($StateRoot) { throw 'OWNED_HOST_CONTAINER_PROFILE_REQUIRED' }
     $hypervSmokeScript = Join-Path $PSScriptRoot 'Invoke-HyperVSmokeTest.ps1'
     if (-not (Test-Path -LiteralPath $hypervSmokeScript -PathType Leaf)) {
         throw "Hyper-V-Smoke-Testskript wurde nicht gefunden: $hypervSmokeScript"
@@ -58,6 +60,11 @@ if ($Provider -eq 'hyperv') {
 
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+if ($StateRoot) {
+    Assert-OwnedHostTestRoot -StateRoot $StateRoot
+    $script:OwnArtifacts=Get-OwnedHostTestArtifactRoot -StateRoot $StateRoot -Name 'sql-server-lab-smoke'
+}
 $script:TestResults = [System.Collections.Generic.List[object]]::new()
 $script:Lab = $null
 $script:StartTime = Get-Date
@@ -135,7 +142,7 @@ function Test-ProviderRuntimeStatus {
 
     if ($Name -eq 'hyperv') {
         try {
-            $assessment = Test-SqlServerLabPrerequisite -Provider hyperv
+            $assessment = Test-SqlServerLabPrerequisite -Provider hyperv -StateRoot $StateRoot
             $providerMessage = $assessment.Details | Where-Object { $_.Category -eq 'Provider' } | Select-Object -First 1
             return [PSCustomObject]@{
                 Available = $assessment.Status -ne 'RESOURCE_HARD_BLOCK'
@@ -161,7 +168,7 @@ function Test-ProviderRuntimeStatus {
     }
 
     try {
-        $assessment = Test-SqlServerLabPrerequisite -Provider $Name
+        $assessment = Test-SqlServerLabPrerequisite -Provider $Name -StateRoot $StateRoot
         $providerMessage = $assessment.Details | Where-Object { $_.Category -eq 'Provider' } | Select-Object -First 1
         return [PSCustomObject]@{
             Available = $assessment.Status -ne 'RESOURCE_HARD_BLOCK'
@@ -264,6 +271,11 @@ try {
         }
 
     $script:ContainerRuntime = $Provider
+    if ($StateRoot) {
+        $ownTool=@(& (Join-Path (Split-Path $modulePath -Parent) 'Tools/Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
+        if (-not $ownTool.Available) { throw 'OWNED_HOST_REQUIRED_PROVIDER_UNAVAILABLE' }
+        $script:ContainerRuntime=[string]$ownTool.Invocation
+    }
     Write-Host "    Gewaehlter Provider: $Provider" -ForegroundColor DarkGray
 
     if (-not $SaPassword) {
@@ -293,7 +305,7 @@ try {
         }
 
         $assessment = Invoke-TestStep -Name "Test-SqlServerLabPrerequisite ($implementedProvider)" -Action {
-            Test-SqlServerLabPrerequisite -Provider $implementedProvider
+            Test-SqlServerLabPrerequisite -Provider $implementedProvider -StateRoot $StateRoot
         }
 
         if ($assessment) {
@@ -304,7 +316,7 @@ try {
         }
     }
 
-    $selectedAssessment = Test-SqlServerLabPrerequisite -Provider $Provider
+    $selectedAssessment = Test-SqlServerLabPrerequisite -Provider $Provider -StateRoot $StateRoot
     if ($selectedAssessment.Status -eq 'RESOURCE_HARD_BLOCK') {
         throw "Gewaehlter Provider '$Provider' ist im Resource Assessment blockiert."
     }
@@ -319,7 +331,7 @@ try {
             -Version $Version `
             -Provider $Provider `
             -SaPassword $SaPassword `
-            -SkipAssessment
+            -SkipAssessment -StateRoot $StateRoot
     }
 
     if (-not $script:Lab) {
@@ -346,13 +358,13 @@ try {
         -Condition ($script:Lab.Instances[0].Port -ge 14330 -and $script:Lab.Instances[0].Port -le 14399) `
         -Message "Port: $($script:Lab.Instances[0].Port)"
 
-    $visibleContainer = & $script:ContainerRuntime ps -q --filter "name=$($script:Lab.Instances[0].ContainerName)" 2>$null
+    $visibleContainer = $(if ($StateRoot) { Invoke-OwnedHostTestCommand -StateRoot $StateRoot -Provider $Provider -Invocation $script:ContainerRuntime -Arguments @('ps','-q','--filter',"name=$($script:Lab.Instances[0].ContainerName)") } else { & $script:ContainerRuntime ps -q --filter "name=$($script:Lab.Instances[0].ContainerName)" }) 2>$null
     Assert-True `
         -Name "Container in $Provider sichtbar" `
         -Condition (-not [string]::IsNullOrWhiteSpace(($visibleContainer | Out-String))) `
         -Message "Container nicht in '$Provider ps' gefunden"
 
-    $containerInspect = @(& $script:ContainerRuntime inspect $script:Lab.Instances[0].ContainerName | ConvertFrom-Json -Depth 50)[0]
+    $containerInspect = @($(if ($StateRoot) { Invoke-OwnedHostTestCommand -StateRoot $StateRoot -Provider $Provider -Invocation $script:ContainerRuntime -Arguments @('inspect',$script:Lab.Instances[0].ContainerName) } else { & $script:ContainerRuntime inspect $script:Lab.Instances[0].ContainerName })  | ConvertFrom-Json -Depth 50)[0]
     $sqlPortBinding = @($containerInspect.NetworkSettings.Ports.'1433/tcp')[0]
     Assert-True `
         -Name 'SQL-Port ist ausschließlich an Host-Loopback gebunden' `
@@ -410,6 +422,7 @@ try {
     Write-TestHeader 'T5: Invoke-SqlServerLabScript'
 
     $script:TemporarySqlPath = Join-Path $PSScriptRoot 'smoke-test-query.generated.sql'
+    if ($StateRoot) { $script:TemporarySqlPath=Join-Path $script:OwnArtifacts 'smoke-test-query.generated.sql' }
     @"
 CREATE TABLE dbo.SmokeTest (
     Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -426,7 +439,7 @@ GO
             -ScriptPath $script:TemporarySqlPath `
             -Port $script:Lab.Instances[0].Port `
             -SaPassword $SaPassword `
-            -Database 'SmokeTestDB'
+            -Database 'SmokeTestDB' -StateRoot $StateRoot
     }
 
     if ($scriptResult) {
@@ -467,7 +480,7 @@ GO
     Write-TestHeader 'T6: Get-SqlServerLab'
 
     $statusResult = Invoke-TestStep -Name 'Lab-Status abfragen' -Action {
-        Get-SqlServerLab -RunId $script:Lab.RunId
+        Get-SqlServerLab -RunId $script:Lab.RunId -StateRoot $StateRoot
     }
 
     if ($statusResult) {
@@ -488,7 +501,7 @@ GO
     Write-TestHeader 'T7: Stop-SqlServerLab'
 
     $stopResult = Invoke-TestStep -Name 'Lab stoppen' -Action {
-        Stop-SqlServerLab -RunId $script:Lab.RunId -Force
+        Stop-SqlServerLab -RunId $script:Lab.RunId -Force -StateRoot $StateRoot
     }
 
     if ($stopResult) {
@@ -498,9 +511,7 @@ GO
             -Message "Status: $($stopResult.Status)"
 
         Start-Sleep -Seconds 1
-        $containerState = & $script:ContainerRuntime inspect `
-            $script:Lab.Instances[0].ContainerName `
-            --format '{{.State.Status}}' 2>$null
+        $containerState = $(if ($StateRoot) { Invoke-OwnedHostTestCommand -StateRoot $StateRoot -Provider $Provider -Invocation $script:ContainerRuntime -Arguments @('inspect',$script:Lab.Instances[0].ContainerName,'--format','{{.State.Status}}') } else { & $script:ContainerRuntime inspect $script:Lab.Instances[0].ContainerName --format '{{.State.Status}}' }) 2>$null
 
         Assert-True `
             -Name "Container in $Provider gestoppt" `
@@ -514,7 +525,7 @@ GO
     Write-TestHeader 'T8: Start-SqlServerLab'
 
     $startResult = Invoke-TestStep -Name 'Lab starten' -Action {
-        Start-SqlServerLab -RunId $script:Lab.RunId -TimeoutSeconds 60
+        Start-SqlServerLab -RunId $script:Lab.RunId -TimeoutSeconds 60 -StateRoot $StateRoot
     }
 
     if ($startResult) {
@@ -524,9 +535,7 @@ GO
             -Message "Status: $($startResult.Status)"
 
         Start-Sleep -Seconds 1
-        $containerState = & $script:ContainerRuntime inspect `
-            $script:Lab.Instances[0].ContainerName `
-            --format '{{.State.Status}}' 2>$null
+        $containerState = $(if ($StateRoot) { Invoke-OwnedHostTestCommand -StateRoot $StateRoot -Provider $Provider -Invocation $script:ContainerRuntime -Arguments @('inspect',$script:Lab.Instances[0].ContainerName,'--format','{{.State.Status}}') } else { & $script:ContainerRuntime inspect $script:Lab.Instances[0].ContainerName --format '{{.State.Status}}' }) 2>$null
 
         Assert-True `
             -Name "Container in $Provider wieder running" `
@@ -540,7 +549,7 @@ GO
     Write-TestHeader 'T9: Remove-SqlServerLab'
 
     $removeResult = Invoke-TestStep -Name 'Lab entfernen' -Action {
-        Remove-SqlServerLab -RunId $script:Lab.RunId -Force
+        Remove-SqlServerLab -RunId $script:Lab.RunId -Force -StateRoot $StateRoot
     }
 
     if ($removeResult) {
@@ -551,8 +560,7 @@ GO
     }
 
     Start-Sleep -Seconds 1
-    $containerCheck = & $script:ContainerRuntime ps -a -q `
-        --filter "name=$($script:Lab.Instances[0].ContainerName)" 2>$null
+    $containerCheck = $(if ($StateRoot) { Invoke-OwnedHostTestCommand -StateRoot $StateRoot -Provider $Provider -Invocation $script:ContainerRuntime -Arguments @('ps','-a','-q','--filter',"name=$($script:Lab.Instances[0].ContainerName)") } else { & $script:ContainerRuntime ps -a -q --filter "name=$($script:Lab.Instances[0].ContainerName)" }) 2>$null
 
     Assert-True `
         -Name 'Container nicht mehr vorhanden' `
@@ -572,7 +580,7 @@ finally {
     if ($script:Lab -and -not $KeepOnFailure) {
         Write-Host "`n  Cleanup: Entferne uebrig gebliebenes Lab..." -ForegroundColor Yellow
         try {
-            Remove-SqlServerLab -RunId $script:Lab.RunId -Force | Out-Null
+            Remove-SqlServerLab -RunId $script:Lab.RunId -Force -StateRoot $StateRoot | Out-Null
         }
         catch {
             Add-TestResult -Name 'Cleanup nach Fehler' -Passed $false -Message $_.Exception.Message

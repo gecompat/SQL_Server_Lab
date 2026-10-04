@@ -8,9 +8,9 @@ function Get-SqlUpgradeBinding {
         $run.metadata.persistentData -or $catalog.id -cne $Version -or $instance.Provider -cnotin @('docker','podman')) {
         throw 'SQL_UPGRADE_RUN_BINDING_INVALID'
     }
-    $scope=Get-LabContainerRuntimeScope -Provider $instance.Provider
+    $scope=Get-LabContainerRuntimeScope -Provider $instance.Provider -StateRoot $StateRoot
     if ($scope.Status -cne 'AVAILABLE' -or $scope.RuntimeId -cnotmatch '^runtime-scope-[a-f0-9]{24}$') { throw 'SQL_UPGRADE_RUNTIME_UNAVAILABLE' }
-    $inspection=@((Invoke-LabTransferNative -Provider $instance.Provider -Arguments @('inspect',$instance.ContainerName)) -join "`n" | ConvertFrom-Json -Depth 30)
+    $inspection=@((Invoke-LabTransferNative -Provider $instance.Provider -Arguments @('inspect',$instance.ContainerName) -StateRoot $StateRoot) -join "`n" | ConvertFrom-Json -Depth 30)
     if ($inspection.Count -ne 1) { throw 'SQL_UPGRADE_CONTAINER_AMBIGUOUS' }
     $container=$inspection[0]; $labels=$container.Config.Labels
     if ($container.State.Running -ne $true -or $container.Id -cnotmatch '^[a-f0-9]{64}$' -or
@@ -25,14 +25,14 @@ function Get-SqlUpgradeBinding {
     if ($mounts.Count -ne 1 -or $mounts[0].Type -cne 'volume' -or $mounts[0].Destination -cne '/var/opt/mssql' -or $mounts[0].RW -ne $true) {
         throw 'SQL_UPGRADE_VOLUME_INVALID'
     }
-    $volumes=@((Invoke-LabTransferNative -Provider $instance.Provider -Arguments @('volume','inspect',$mounts[0].Name)) -join "`n" | ConvertFrom-Json -Depth 30)
+    $volumes=@((Invoke-LabTransferNative -Provider $instance.Provider -Arguments @('volume','inspect',$mounts[0].Name) -StateRoot $StateRoot) -join "`n" | ConvertFrom-Json -Depth 30)
     if ($volumes.Count -ne 1) { throw 'SQL_UPGRADE_VOLUME_INVALID' }
     $vl=$volumes[0].Labels
     if ($vl.'sql-server-lab.run-id' -cne $RunId -or $vl.'sql-server-lab.scope-id' -cne $run.scopeId -or
         $vl.'sql-server-lab.instance-id' -cne 'primary' -or $vl.'sql-server-lab.persistent-storage-id' -or $vl.'sql-server-lab.persistence') {
         throw 'SQL_UPGRADE_VOLUME_OWNERSHIP_INVALID'
     }
-    $attachments=@(Invoke-LabTransferNative -Provider $instance.Provider -Arguments @('ps','-a','--no-trunc','--filter',"volume=$($mounts[0].Name)",'--format','{{.ID}}'))
+    $attachments=@(Invoke-LabTransferNative -Provider $instance.Provider -Arguments @('ps','-a','--no-trunc','--filter',"volume=$($mounts[0].Name)",'--format','{{.ID}}') -StateRoot $StateRoot)
     if ($attachments.Count -ne 1 -or $attachments[0] -cne $container.Id) { throw 'SQL_UPGRADE_VOLUME_SHARED' }
     [pscustomobject][ordered]@{
         RunId=$RunId; ScopeId=$run.scopeId; OperationId=$OperationId; Version=$Version; InstanceId='primary'
@@ -119,7 +119,7 @@ SELECT N'TRANSACTION_AND_CONSTRAINTS_VERIFIED';
 function New-SqlUpgradeOwnRun {
     param([string]$Provider,[string]$OperationId,[ValidateSet('source','target')][string]$Role,[string]$StateRoot,[string]$EvidenceRoot,$Intent)
     $version=if ($Role -ceq 'source') { '2022' } else { '2025' }
-    $scope=Get-LabContainerRuntimeScope -Provider $Provider
+    $scope=Get-LabContainerRuntimeScope -Provider $Provider -StateRoot $StateRoot
     if ($scope.Status -cne 'AVAILABLE' -or $scope.RuntimeId -cne $Intent.RuntimeScopeId) { throw 'SQL_UPGRADE_RUNTIME_CHANGED' }
     $roleOperation=$OperationId+'-'+$Role
     $lab=Invoke-WithLabWorkflowOperationContext -OperationId $roleOperation -ScriptBlock {
@@ -146,7 +146,7 @@ function New-SqlUpgradeOwnRun {
 
 function Invoke-SqlUpgradeArrange {
     param([string]$Provider,[string]$OperationId,[string]$StateRoot,[string]$EvidenceRoot)
-    $scope=Get-LabContainerRuntimeScope -Provider $Provider
+    $scope=Get-LabContainerRuntimeScope -Provider $Provider -StateRoot $StateRoot
     if ($scope.Status -cne 'AVAILABLE' -or $scope.RuntimeId -cnotmatch '^runtime-scope-[a-f0-9]{24}$') { throw 'SQL_UPGRADE_RUNTIME_UNAVAILABLE' }
     $intent=@{OperationId=$OperationId;Provider=$Provider;RuntimeScopeId=$scope.RuntimeId;SourceOperationId=($OperationId+'-source');TargetOperationId=($OperationId+'-target')}
     Write-LabArtifactJsonAtomic -Path (Join-Path $EvidenceRoot 'intent.json') -InputObject $intent
@@ -220,7 +220,7 @@ function Remove-SqlUpgradeOwnRuns {
                 continue
             }
             $intent=Get-Content -LiteralPath $intentPath -Raw | ConvertFrom-Json
-            $scope=Get-LabContainerRuntimeScope -Provider $Provider
+            $scope=Get-LabContainerRuntimeScope -Provider $Provider -StateRoot $StateRoot
             if ($intent.OperationId -cne $OperationId -or $intent.Provider -cne $Provider -or
                 $intent.SourceOperationId -cne ($OperationId+'-source') -or
                 $intent.TargetOperationId -cne ($OperationId+'-target') -or
@@ -246,10 +246,10 @@ function Remove-SqlUpgradeOwnRuns {
                     $arguments=if ($kind -ceq 'containers') {
                         @('ps','-a','--filter',"label=sql-server-lab.run-id=$($owned.runId)",'--format','{{.ID}}')
                     } else { @('volume','ls','--filter',"label=sql-server-lab.run-id=$($owned.runId)",'--format','{{.Name}}') }
-                    if (@(Invoke-LabTransferNative -Provider $Provider -Arguments $arguments).Count) { throw 'SQL_UPGRADE_CLEANUP_RESIDUE' }
+                    if (@(Invoke-LabTransferNative -Provider $Provider -Arguments $arguments -StateRoot $StateRoot).Count) { throw 'SQL_UPGRADE_CLEANUP_RESIDUE' }
                 }
             }
-            if ($binding) { Assert-LabTransferNoResidue -Binding $binding }
+            if ($binding) { Assert-LabTransferNoResidue -Binding $binding -StateRoot $StateRoot }
         }
         catch { $failures.Add($role) }
     }

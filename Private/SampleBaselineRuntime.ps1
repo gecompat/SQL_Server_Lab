@@ -108,12 +108,12 @@ function Initialize-LabSampleBaselineContainerBackup {
     param(
         [Parameter(Mandatory)][int]$Port,
         [Parameter(Mandatory)][string]$ContainerName
-    )
+    , [string]$StateRoot)
 
-    $target = Resolve-LabRestoreContainer -ContainerName $ContainerName -Port $Port
+    $target = Resolve-LabRestoreContainer -ContainerName $ContainerName -Port $Port -StateRoot $StateRoot
     $runtime = [string]$target.Provider
     $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
-    & $runtimeInvocation exec $target.ContainerName mkdir -p /var/opt/mssql/backup 1>$null 2>$null
+    $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('exec', $target.ContainerName, 'mkdir', '-p', '/var/opt/mssql/backup') } else { & $runtimeInvocation exec $target.ContainerName mkdir -p /var/opt/mssql/backup }) 1>$null 2>$null
     if ($LASTEXITCODE -ne 0) {
         throw "SAMPLE_BASELINE_BACKUP_DIRECTORY_FAILED: Backupverzeichnis konnte in $runtime/$($target.ContainerName) nicht erstellt werden."
     }
@@ -131,13 +131,13 @@ function Export-LabSampleBaselineContainerBackup {
         [Parameter(Mandatory)][string]$ContainerName,
         [Parameter(Mandatory)][string]$ContainerBackupPath,
         [Parameter(Mandatory)][string]$DestinationPath
-    )
+    , [string]$StateRoot)
 
-    $target = Resolve-LabRestoreContainer -ContainerName $ContainerName -Port $Port
+    $target = Resolve-LabRestoreContainer -ContainerName $ContainerName -Port $Port -StateRoot $StateRoot
     $runtime = [string]$target.Provider
     $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
     try {
-        & $runtimeInvocation cp "$($target.ContainerName):$ContainerBackupPath" $DestinationPath 1>$null 2>$null
+        $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('cp', "$($target.ContainerName):$ContainerBackupPath", $DestinationPath) } else { & $runtimeInvocation cp "$($target.ContainerName):$ContainerBackupPath" $DestinationPath }) 1>$null 2>$null
         if ($LASTEXITCODE -ne 0 -or
             -not (Test-Path -LiteralPath $DestinationPath -PathType Leaf) -or
             (Get-Item -LiteralPath $DestinationPath).Length -le 0) {
@@ -150,7 +150,7 @@ function Export-LabSampleBaselineContainerBackup {
         }
     }
     finally {
-        & $runtimeInvocation exec $target.ContainerName rm -f $ContainerBackupPath 1>$null 2>$null
+        $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $StateRoot -Invocation $runtimeInvocation -ArgumentList @('exec', $target.ContainerName, 'rm', '-f', $ContainerBackupPath) } else { & $runtimeInvocation exec $target.ContainerName rm -f $ContainerBackupPath }) 1>$null 2>$null
     }
 }
 
@@ -198,7 +198,7 @@ function Initialize-LabSampleBaselineBackupTarget {
     if ([string]::IsNullOrWhiteSpace($ContainerName)) {
         throw 'SAMPLE_BASELINE_CONTAINER_NAME_REQUIRED'
     }
-    $container = Initialize-LabSampleBaselineContainerBackup -Port $Port -ContainerName $ContainerName
+    $container = Initialize-LabSampleBaselineContainerBackup -Port $Port -ContainerName $ContainerName -StateRoot $StateRoot
     if ($Provider -and [string]$container.Provider -ne $Provider) {
         throw 'SAMPLE_BASELINE_CONTAINER_PROVIDER_MISMATCH'
     }
@@ -247,7 +247,7 @@ function Export-LabSampleBaselineBackup {
     return Export-LabSampleBaselineContainerBackup `
         -Port $Port `
         -ContainerName ([string]$Target.ContainerName) `
-        -ContainerBackupPath $RuntimeBackupPath `
+        -ContainerBackupPath $RuntimeBackupPath -StateRoot ([string]$Target.StateRoot) `
         -DestinationPath $DestinationPath
 }
 

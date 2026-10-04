@@ -14,14 +14,19 @@ param(
     [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
     [string]$EvidencePath,
     [switch]$RuntimeMutexAlreadyHeld,
-    [switch]$KeepOnFailure
+    [switch]$KeepOnFailure,
+    [string]$StateRoot
 )
+$requestedStateRoot=$StateRoot
+. (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+if ($requestedStateRoot) { Assert-OwnedHostTestRoot -StateRoot $requestedStateRoot }
+
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$testRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-container-tool-$Provider-$([guid]::NewGuid().ToString('N'))"
-$stateRoot = Join-Path $testRoot 'state'
+$testRoot=if ($requestedStateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $requestedStateRoot -Name 'sql-server-lab-container-tool' } else { Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-container-tool-$Provider-$([guid]::NewGuid().ToString('N'))" }
+$stateRoot=if ($requestedStateRoot) { $requestedStateRoot } else { Join-Path $testRoot 'state' }
 $manifestPath = Join-Path $testRoot 'manifest.json'
 $previousStateRoot = $env:SQL_SERVER_LAB_STATE
 $lab = $null
@@ -56,8 +61,8 @@ try {
     $runtimeResolution = @(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
     Assert-ContainerToolAcceptance ([bool]$runtimeResolution.Available) "Runtime-CLI '$Provider' ist zentral aufloesbar"
     $runtimeInvocation = [string]$runtimeResolution.Invocation
-    if ($Provider -eq 'podman') { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') | Out-Host }
-    & $runtimeInvocation info 1>$null 2>$null
+    if ($Provider -eq 'podman') { $(if ($requestedStateRoot) { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') -StateRoot $requestedStateRoot -RequireReachable } else { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') })  | Out-Host }
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('info') } else { & $runtimeInvocation info }) 1>$null 2>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) "Runtime '$Provider' ist erreichbar"
 
 
@@ -90,14 +95,14 @@ try {
     # verwendet. Die Ownership-Entscheidung darf diesen Darstellungsunterschied
     # nicht als neues test-eigenes Image interpretieren.
     $plannedToolImageCanonical = ([string]$plannedToolImage -replace '^(?i)localhost/', '')
-    $existingToolImages=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*')
+    $existingToolImages=@($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('images','--no-trunc','--format','{{.Repository}}:{{.Tag}}={{.ID}}','--filter','reference=sql-server-lab/container-tool:*') } else { & $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*' }) )
     $existingPlannedToolImage=@($existingToolImages | Where-Object {
         $candidate = (([string]$_ -split '=', 2)[0] -replace '^(?i)localhost/', '')
         $candidate -ieq $plannedToolImageCanonical
     })
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and $existingPlannedToolImage.Count -le 1) 'Isolierter Image-Test erkennt hoechstens ein bestehendes Zielimage'
     $removeImageAfterTest = $existingPlannedToolImage.Count -eq 0
-    $assessment=Test-SqlServerLabPrerequisite -Provider $Provider
+    $assessment=Test-SqlServerLabPrerequisite -Provider $Provider -StateRoot $stateRoot
     Assert-ContainerToolAcceptance ($assessment.Status -eq 'RESOURCE_OK') 'Ressourcenpruefung erlaubt den isolierten Test-Run'
     $lab = New-SqlServerLab -Manifest $manifestPath -SaPassword $saPassword -StateRoot $stateRoot -SkipAssessment -NonInteractive
     Assert-ContainerToolAcceptance ([string]$lab.State -eq 'Running') 'Lab wurde ueber den normalen Manifestpfad provisioniert'
@@ -114,14 +119,22 @@ try {
     } ([string]$instance.ContainerTools.ImageKey) $Provider $stateRoot
     $receipt = Get-Content -LiteralPath $receiptPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 30
     $imageName = [string]$receipt.image
-    $currentToolImages=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*')
+    if ($requestedStateRoot) {
+        $ownToolImage=& $module {
+            param($Root,$Selected,$Key)
+            Get-LabOwnedHostToolImageReceipt -StateRoot $Root -Provider $Selected -ImageKey $Key
+        } $stateRoot $Provider ([string]$receipt.imageKey)
+        $removeImageAfterTest=[bool]$ownToolImage.OwnsTag
+        Assert-ContainerToolAcceptance ($imageName -ceq $ownToolImage.Image -and $receipt.localImageId -ceq $ownToolImage.ImageId) 'OwnRoot-Receipt bindet exakt eigene Tag-Custody oder unveraenderliche vorhandene Image-ID'
+    }
+    $currentToolImages=@($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('images','--no-trunc','--format','{{.Repository}}:{{.Tag}}={{.ID}}','--filter','reference=sql-server-lab/container-tool:*') } else { & $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*' }) )
     $currentPlannedToolImage=@($currentToolImages | Where-Object {
         $candidate = (([string]$_ -split '=', 2)[0] -replace '^(?i)localhost/', '')
         $candidate -ieq $plannedToolImageCanonical
     })
     Assert-ContainerToolAcceptance (
         [string]$receipt.status -eq 'IMAGE_READY' -and
-        [string]$receipt.retention -eq 'reusable-explicit-removal' -and
+        [string]$receipt.retention -eq $(if ($requestedStateRoot) { 'owned-root-explicit-terminal-removal' } else { 'reusable-explicit-removal' }) -and
         [string]$receipt.runtimeVersion -eq [string]$instance.ContainerTools.RuntimeVersion -and
         (@($receipt.toolIds) -join ',') -eq 'sqlpackage' -and
         ($existingPlannedToolImage.Count -eq 0 -or ($currentPlannedToolImage -join ',') -eq ($existingPlannedToolImage -join ','))
@@ -133,14 +146,14 @@ try {
         [string]$probe.Provider -eq $Provider -and [string]$probe.RuntimeVersion -eq [string]$instance.ContainerTools.RuntimeVersion
     ) 'Oeffentliche Run-/Scope-gebundene SqlPackage-Versionsprobe besteht'
 
-    $status = Get-SqlServerLab -RunId $lab.RunId
+    $status = Get-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot
     $statusJson = $status | ConvertTo-Json -Depth 30
     Assert-ContainerToolAcceptance (
         [string]$status.Instances[0].ContainerTools.RuntimeVersion -eq [string]$probe.RuntimeVersion -and
         $statusJson -notmatch '(?i)(localImageId|containerTools\.receipt|containerTools\.source)'
     ) 'Oeffentliche Statussicht bleibt auf sanitisierte Tool-Metadaten begrenzt'
 
-    $restart = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 300 -Force
+    $restart = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 300 -Force -StateRoot $stateRoot
     Assert-ContainerToolAcceptance ([string]$restart.Status -eq 'RUNNING' -and [int]$restart.Errors -eq 0) 'Run-Restart erreicht erneut SQL-Readiness'
     $postRestartProbe = Test-SqlServerLabContainerTool -RunId $lab.RunId -InstanceId 'container-tool' -StateRoot $stateRoot
     Assert-ContainerToolAcceptance (
@@ -169,7 +182,7 @@ try {
     $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($saPassword)
     try {
         $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
-        $exportOutput = @(& $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $exportCommand -- $sourceDatabase $bacpacContainerPath 2>&1)
+        $exportOutput = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--env',"SQLSERVERLAB_SA_PASSWORD=$saPlain",'--user','mssql',$instance.ContainerName,'sh','-ceu',$exportCommand,'--',$sourceDatabase,$bacpacContainerPath) } else { & $runtimeInvocation exec --env "SQLSERVERLAB_SA_PASSWORD=$saPlain" --user mssql $instance.ContainerName sh -ceu $exportCommand -- $sourceDatabase $bacpacContainerPath }) 2>&1)
         Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Kataloggebundenes SqlPackage exportiert ein synthetisches BACPAC ohne Host-Tool'
     }
     finally {
@@ -177,9 +190,9 @@ try {
         [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
     }
     $bacpacSourcePath = Join-Path $testRoot 'synthetic-source.bacpac'
-    & $runtimeInvocation cp "$($instance.ContainerName):$bacpacContainerPath" $bacpacSourcePath 1>$null
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('cp',"$($instance.ContainerName):$bacpacContainerPath",$bacpacSourcePath) } else { & $runtimeInvocation cp "$($instance.ContainerName):$bacpacContainerPath" $bacpacSourcePath }) 1>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $bacpacSourcePath -PathType Leaf)) 'Exportiertes BACPAC wird als kontrolliertes Testartefakt aus dem Run gelesen'
-    & $runtimeInvocation exec --user root $instance.ContainerName rm -f -- $bacpacContainerPath 1>$null
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--user','root',$instance.ContainerName,'rm','-f','--',$bacpacContainerPath) } else { & $runtimeInvocation exec --user root $instance.ContainerName rm -f -- $bacpacContainerPath }) 1>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Temporäres Export-BACPAC wird vor dem Import aus dem Container entfernt'
     $bacpacContainerPath = $null
 
@@ -203,7 +216,7 @@ try {
         }
     } $instance.Host ([int]$instance.Port) $saPassword $targetDatabase
     Assert-ContainerToolAcceptance ((@($bacpacMarker | ForEach-Object { ([string]$_).Trim() }) -contains 'container-tool-bacpac')) 'Importierte BACPAC-Daten bestehen den SQL-Roundtrip'
-    $residualBacpac = @(& $runtimeInvocation exec --user root $instance.ContainerName sh -ceu 'test -z "$(find /tmp -maxdepth 1 -name ''sql-server-lab-bacpac-*.bacpac'' -print -quit)"' 2>&1)
+    $residualBacpac = @($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--user','root',$instance.ContainerName,'sh','-ceu','test -z "$(find /tmp -maxdepth 1 -name ''sql-server-lab-bacpac-*.bacpac'' -print -quit)"') } else { & $runtimeInvocation exec --user root $instance.ContainerName sh -ceu 'test -z "$(find /tmp -maxdepth 1 -name ''sql-server-lab-bacpac-*.bacpac'' -print -quit)"' }) 2>&1)
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'BACPAC-Import hinterlässt kein temporäres Containerartefakt'
 
     $attachSourceDatabase = 'AttachNativeSource'
@@ -228,9 +241,9 @@ try {
     New-Item -Path $attachPayloadRoot -ItemType Directory -Force | Out-Null
     $attachPrimaryPath = Join-Path $attachPayloadRoot "$attachSourceDatabase.mdf"
     $attachLogPath = Join-Path $attachPayloadRoot "${attachSourceDatabase}_log.ldf"
-    & $runtimeInvocation cp "$($instance.ContainerName):/var/opt/mssql/data/$attachSourceDatabase.mdf" $attachPrimaryPath 1>$null
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('cp',"$($instance.ContainerName):/var/opt/mssql/data/$attachSourceDatabase.mdf",$attachPrimaryPath) } else { & $runtimeInvocation cp "$($instance.ContainerName):/var/opt/mssql/data/$attachSourceDatabase.mdf" $attachPrimaryPath }) 1>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $attachPrimaryPath -PathType Leaf)) 'Detach-MDF wird als kontrollierte Testpayload aus dem Container gelesen'
-    & $runtimeInvocation cp "$($instance.ContainerName):/var/opt/mssql/data/${attachSourceDatabase}_log.ldf" $attachLogPath 1>$null
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('cp',"$($instance.ContainerName):/var/opt/mssql/data/${attachSourceDatabase}_log.ldf",$attachLogPath) } else { & $runtimeInvocation cp "$($instance.ContainerName):/var/opt/mssql/data/${attachSourceDatabase}_log.ldf" $attachLogPath }) 1>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and (Test-Path -LiteralPath $attachLogPath -PathType Leaf)) 'Detach-LDF wird als kontrollierte Testpayload aus dem Container gelesen'
 
     $attachResult = & $module {
@@ -286,17 +299,22 @@ try {
     $cleanup = Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false
     Assert-ContainerToolAcceptance ([string]$cleanup.Status -eq 'REMOVED') 'Registrierter Run-Cleanup entfernt ausschliesslich Run-Ressourcen'
     $lab = $null
-    & $runtimeInvocation image inspect $imageName 1>$null 2>$null
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('image','inspect',$imageName) } else { & $runtimeInvocation image inspect $imageName }) 1>$null 2>$null
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Wiederverwendbares Derived Image bleibt vom Run-Cleanup getrennt'
     if ($removeImageAfterTest) {
-        & $runtimeInvocation image rm $imageName 1>$null
-        Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Test-eigenes Derived Image wurde explizit entfernt'
+        if ($requestedStateRoot) {
+            $ownRemoval=& $module {param($Root,$Selected,$Key) Remove-LabOwnedHostToolImage -StateRoot $Root -Provider $Selected -ImageKey $Key} $stateRoot $Provider ([string]$receipt.imageKey)
+            Assert-ContainerToolAcceptance ($ownRemoval.Status -ceq 'REMOVED_OWN_TAG' -and $ownRemoval.Removed) 'Eigener Derived-Image-Tag wurde nach terminalem Run exakt entfernt'
+        } else {
+            & $runtimeInvocation image rm $imageName 1>$null
+            Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0) 'Test-eigenes Derived Image wurde explizit entfernt'
+        }
     }
     else {
         Assert-ContainerToolAcceptance (($currentPlannedToolImage -join ',') -eq ($existingPlannedToolImage -join ',')) 'Bereits vorhandenes Derived Image blieb unveraendert'
     }
     $imageName = $null
-    $preservedToolImages=@(& $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*')
+    $preservedToolImages=@($(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('images','--no-trunc','--format','{{.Repository}}:{{.Tag}}={{.ID}}','--filter','reference=sql-server-lab/container-tool:*') } else { & $runtimeInvocation images --no-trunc --format '{{.Repository}}:{{.Tag}}={{.ID}}' --filter 'reference=sql-server-lab/container-tool:*' }) )
     Assert-ContainerToolAcceptance ($LASTEXITCODE -eq 0 -and @($existingToolImages | Where-Object {$_ -notin $preservedToolImages}).Count -eq 0) 'Vorhandene Tool-Images bleiben mit derselben Tag- und Image-ID-Bindung erhalten'
 
     if ($EvidencePath) {
@@ -323,14 +341,21 @@ finally {
         catch {$cleanupFailed=$true;Write-Warning 'Run-Cleanup fehlgeschlagen; Test-State bleibt fuer Recovery erhalten.'}
     }
     if ($imageName -and -not $KeepOnFailure -and $runtimeInvocation) {
-        try { & $runtimeInvocation image rm $imageName 1>$null 2>$null;if($LASTEXITCODE -ne 0){throw 'CONTAINER_TOOL_TEST_IMAGE_CLEANUP_FAILED'} } catch {$cleanupFailed=$true}
+        try {
+            if ($requestedStateRoot) {
+                $null=& $module {param($Root,$Selected,$Key) Remove-LabOwnedHostToolImage -StateRoot $Root -Provider $Selected -ImageKey $Key} $stateRoot $Provider ([string]$receipt.imageKey)
+            } else {
+                & $runtimeInvocation image rm $imageName 1>$null 2>$null
+                if($LASTEXITCODE -ne 0){throw 'CONTAINER_TOOL_TEST_IMAGE_CLEANUP_FAILED'}
+            }
+        } catch {$cleanupFailed=$true}
     }
     if ($bacpacContainerPath -and -not $KeepOnFailure -and $runtimeInvocation -and $lab) {
-        try { & $runtimeInvocation exec --user root $lab.Instances[0].ContainerName rm -f -- $bacpacContainerPath 1>$null 2>$null } catch { }
+        try { $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation $runtimeInvocation -Arguments @('exec','--user','root',$lab.Instances[0].ContainerName,'rm','-f','--',$bacpacContainerPath) } else { & $runtimeInvocation exec --user root $lab.Instances[0].ContainerName rm -f -- $bacpacContainerPath }) 1>$null 2>$null } catch { }
     }
     if (-not $cleanupFailed -and ($completed -or -not $KeepOnFailure) -and (Test-Path -LiteralPath $testRoot)) {
         $resolved=[IO.Path]::GetFullPath($testRoot)
-        $boundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+        $boundary=[IO.Path]::GetFullPath($(if ($requestedStateRoot) { Join-Path $requestedStateRoot 'test-artifacts' } else { [IO.Path]::GetTempPath() })).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
         if(-not $resolved.StartsWith($boundary,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolved) -notlike 'sql-server-lab-container-tool-*'){throw 'CONTAINER_TOOL_TEST_CLEANUP_SCOPE_INVALID'}
         Remove-Item -LiteralPath $resolved -Recurse -Force
     }

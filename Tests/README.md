@@ -1,5 +1,12 @@
 # Tests/ – lokale und Remote-Validierung
 
+Die Container-CI verwendet einen frischen expliziten eigenen StateRoot über
+`Common/OwnedHostTestScope.ps1`. `Static/Invoke-OwnedHostIntegrationChecks.ps1`
+prüft Policy-/Runbindung, tatsächliche Carrier und native Transportgrenzen
+mit synthetischen Ressourcen; kein Provider- oder Tasknachweis.
+Die vollständigen fünf Pflichtgates bleiben separat erforderlich.
+[CI-Scope und Grenzen](../Documentation/Architecture/OWNED_HOST_CI_ISOLATION.md).
+
 `Static/Invoke-StoppedHostMemoryChecks.ps1` prüft die Speicherwartung nach
 Container-Stop: Hostdruck, Cachegrenze, explizites Opt-out, Remote-/Override-
 Abwehr, laufende WSL-Bindung, Bindungswechsel und verzögerte Windows-Rückgabe.
