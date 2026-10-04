@@ -171,5 +171,9 @@ $portFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerPortPreviewChecks.ps1'
 & (Get-Process -Id $PID).Path -NoProfile -File $portFixture
 Add-CheckResult -Name 'Actual public port preview remains measured, privacy-safe and never executable' -Success ($LASTEXITCODE -eq 0)
 
+$portConsoleFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerPortPreviewConsoleChecks.ps1'
+& (Get-Process -Id $PID).Path -NoProfile -File $portConsoleFixture
+Add-CheckResult -Name 'Actual dedicated port console route remains private, read-only and failclosed' -Success ($LASTEXITCODE -eq 0)
+
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0

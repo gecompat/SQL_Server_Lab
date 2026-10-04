@@ -148,6 +148,7 @@ function Invoke-LabMenuAction {
     if ($ActionName -eq 'BatchPlan') { Invoke-LabBatchComposerInteractive; return }
     if ($ActionName -eq 'BulkSlots') { Invoke-LabBatchComposerInteractive -SlotMode; return }
     if ($ActionName -eq 'queue') { Invoke-LabQueueInteractive; return }
+    if ($ActionName -eq 'ContainerPortPreview') { Invoke-LabContainerPortPreviewInteractive; return }
 
     if ($ActionName -eq 'HyperVManage') {
         Manage-LabHyperVEnvironmentInteractive
@@ -1752,6 +1753,7 @@ function Invoke-LabAction {
         'Cms' { Invoke-LabCmsInteractive }
         'Manage' { Manage-LabEnvironmentInteractive }
         'Resources' { Set-LabResourcesInteractive }
+        'ContainerPortPreview' { Invoke-LabContainerPortPreviewInteractive }
         'Rename' { Rename-LabEnvironmentInteractive }
         'New' { Invoke-LabNewEnvironmentInteractive }
         'AutomatedTestEnvironment' { Invoke-LabAutomatedTestEnvironmentInteractive }
@@ -6017,6 +6019,107 @@ function Select-LabRun {
         if ($result.Status -eq 'Invalid') { Write-LabWarning 'Ungueltige Auswahl.' }
         return $null
     }
+}
+
+function Get-LabContainerPortConsoleTargets {
+    param([Parameter(Mandatory)][string]$DataRoot)
+    $root=Assert-LabDiagnosticPath -Path $DataRoot
+    $stateRoot=Join-Path $root 'State'
+    $directory=Assert-LabDiagnosticPath -Path (Join-Path $stateRoot 'runs')
+    if (-not [IO.Directory]::Exists($directory)) { throw 'PORT_CONSOLE_BINDING_UNAVAILABLE' }
+    $directories=@(Get-ChildItem -LiteralPath $directory -Directory -Force -ErrorAction Stop)
+    if ($directories.Count -gt 64) { throw 'PORT_CONSOLE_SCOPE_UNSUPPORTED' }
+    foreach ($item in $directories | Sort-Object Name) {
+        if (-not (Test-LabDiagnosticGuid $item.Name)) { continue }
+        try {
+            $run=Read-LabDiagnosticJson -Path (Join-Path $item.FullName 'run-state.json')
+            if ($run.metadata.desiredState.Instances -isnot [array] -or $run.metadata.desiredState.Instances.Count -gt 64) { continue }
+            foreach ($instance in $run.metadata.desiredState.Instances) {
+                $binding=Get-LabDiagnosticBinding -RunId $item.Name -InstanceId $instance.Id -DataRoot $root
+                if ($binding.Provider -cnotin @('docker','podman') -or $binding.Run.state -cne 'RUNNING') { continue }
+                Assert-LabResourceChangeAllowed -RunId $item.Name -StateRoot $binding.StateRoot
+                [pscustomobject]@{RunId=$binding.Run.runId;ScopeId=$binding.Run.scopeId;InstanceId=$binding.Instance.Id;Provider=$binding.Provider;StateRoot=$binding.StateRoot}
+            }
+        }
+        catch { continue } # Invalid/legacy/protected runs are never adopted or repaired.
+    }
+}
+
+function Assert-LabContainerPortConsolePlan {
+    param($Plan,[string]$Provider)
+    if (-not $Plan -or $Plan.Contract.Name -cne 'SqlServerLab.ContainerPortPreview' -or $Plan.Contract.Version -cne '1.0' -or
+        $Plan.Mode -cne 'CONTAINER_PORT_PREVIEW_PLAN_ONLY' -or $Plan.Status -cnotin @('PLAN_ONLY','BLOCKED','UNSUPPORTED') -or
+        $Plan.CanApply -isnot [bool] -or $Plan.CanApply -or $Plan.MutationAllowed -isnot [bool] -or $Plan.MutationAllowed -or
+        $Plan.Actions -isnot [array] -or $Plan.Actions.Count -ne 0 -or
+        $Plan.Reason -cnotin @('PORT_PREVIEW_BINDING_UNAVAILABLE','PORT_PREVIEW_PROVIDER_UNSUPPORTED','PORT_PREVIEW_PROTECTED_TARGET','PORT_PREVIEW_RUNNING_REQUIRED','PORT_PREVIEW_JOURNAL_BLOCKED','PORT_PREVIEW_TOPOLOGY_UNSUPPORTED','PORT_PREVIEW_LIMITS_UNKNOWN','PORT_PREVIEW_MOUNTS_UNSUPPORTED','PORT_PREVIEW_APPLY_NOT_IMPLEMENTED') -or
+        $Plan.Preview.Endpoint -cne 'NOT_CHECKED' -or $Plan.Preview.Sql -cne 'NOT_CHECKED' -or $Plan.Preview.Backup -cne 'NOT_CHECKED' -or $Plan.Preview.DataImpact -cne 'NOT_VERIFIED') { throw 'PORT_CONSOLE_DTO_INVALID' }
+    if ($Plan.Status -cne 'PLAN_ONLY') {
+        if ($Plan.ObservationKey -or $null -ne $Plan.NoChange -or $Plan.ChangeClass -cne 'unsupported' -or
+            $Plan.Actual.Evidence -cne 'UNKNOWN' -or $Plan.Actual.SqlBinding -cne 'UNKNOWN' -or $Plan.Actual.Lifecycle -cne 'UNKNOWN' -or
+            $Plan.Desired.PortChange -cne 'UNKNOWN' -or $Plan.Preview.Downtime -cne 'UNKNOWN' -or $null -ne $Plan.Preview.Mounts) { throw 'PORT_CONSOLE_DTO_INVALID' }
+        return
+    }
+    if ($Plan.Provider -cne $Provider -or $Plan.Reason -cne 'PORT_PREVIEW_APPLY_NOT_IMPLEMENTED' -or
+        $Plan.ObservationKey -isnot [string] -or $Plan.ObservationKey -cnotmatch '^[a-f0-9]{64}$' -or
+        $Plan.Actual.Evidence -cne 'MEASURED' -or $Plan.Actual.SqlBinding -cne 'SINGLE_LOOPBACK_1433_TCP' -or $Plan.Actual.Lifecycle -cne 'RUNNING' -or
+        $Plan.NoChange -isnot [bool] -or $Plan.Desired.PortChange -cne $(if($Plan.NoChange){'SAME_PORT'}else{'DIFFERENT_PORT'}) -or
+        $Plan.ChangeClass -cne $(if($Plan.NoChange){'no-op'}else{'recreate'}) -or
+        $Plan.Preview.Downtime -cne $(if($Plan.NoChange){'NONE'}else{'REQUIRED'})) { throw 'PORT_CONSOLE_DTO_INVALID' }
+    $mounts=$Plan.Preview.Mounts
+    if (-not $mounts -or $mounts.Status -cne 'MEASURED' -or $mounts.VolumeOwnership -cne 'NOT_CHECKED') { throw 'PORT_CONSOLE_DTO_INVALID' }
+    foreach ($name in @('TotalMountCount','VolumeMountCount','HostBindCount','WritableHostBindCount','OtherMountCount')) {
+        if ($mounts.$name -isnot [int] -or $mounts.$name -lt 0 -or $mounts.$name -gt 1024) { throw 'PORT_CONSOLE_DTO_INVALID' }
+    }
+    if ($mounts.TotalMountCount -ne ($mounts.VolumeMountCount+$mounts.HostBindCount+$mounts.OtherMountCount) -or
+        $mounts.WritableHostBindCount -gt $mounts.HostBindCount) { throw 'PORT_CONSOLE_DTO_INVALID' }
+}
+
+function Invoke-LabContainerPortPreviewInteractive {
+    <#
+    .SYNOPSIS Zeigt einen gewünschten SQL-Hostport als reine Container-Vorschau.
+    .DESCRIPTION Liest registrierte Metadaten und ruft den öffentlichen Portplan einmal auf. Keine Ausführung oder Reservierung.
+    #>
+    [CmdletBinding()]
+    param()
+    try {
+        $rootInput=Read-LabConsoleTextInput -Prompt 'Vorhandenes registriertes Lab_Data-Verzeichnis (nur lesen)'
+        if ($rootInput.Status -cne 'Confirmed') { return }
+        $targets=@(Get-LabContainerPortConsoleTargets -DataRoot ([string]$rootInput.Value))
+        if (-not $targets.Count) { Write-LabInfo 'Keine gebundene, laufende Docker-/Podman-SQL-Instanz für diese Vorschau verfügbar.'; $null=Wait-LabConsoleAcknowledgement; return }
+        $runIds=@($targets.RunId | Sort-Object -Unique)
+        $runItems=@(foreach($id in $runIds){New-LabConsoleItem -Id $id -Label ('Lab '+$id) -Data $id})
+        $runChoice=Invoke-LabConsoleMenu -ScreenId 'container-port-run' -Title 'Lab für SQL-Hostportvorschau auswählen' -Items $runItems
+        if ($runChoice.Status -cne 'Selected') { return }
+        $runMatch=@($runItems | Where-Object Id -CEQ $runChoice.SelectedItem.Id)
+        if ($runMatch.Count -ne 1) { throw 'PORT_CONSOLE_TARGET_INVALID' }
+        $instanceItems=@(foreach($target in $targets | Where-Object RunId -CEQ $runMatch[0].Id){
+            New-LabConsoleItem -Id $target.InstanceId -Label $target.InstanceId -Value $target.Provider -Data $target
+        })
+        $choice=Invoke-LabConsoleMenu -ScreenId 'container-port-instance' -Title 'SQL-Instanz für Portvorschau auswählen' -Items $instanceItems
+        if ($choice.Status -cne 'Selected') { return }
+        $matched=@($instanceItems | Where-Object Id -CEQ $choice.SelectedItem.Id)
+        if ($matched.Count -ne 1) { throw 'PORT_CONSOLE_TARGET_INVALID' }
+        $selected=$matched[0].Data # Never trust returned menu Data as target authority.
+        $portInput=Read-LabConsoleTextInput -Prompt 'Gewünschter SQL-Hostport (1024–65535; q = zurück)'
+        if ($portInput.Status -cne 'Confirmed' -or $portInput.Value -ceq 'q') { return }
+        $value=[string]$portInput.Value; $port=0
+        if ($value -cnotmatch '^[0-9]{4,5}$' -or -not [int]::TryParse($value,[ref]$port) -or $port -lt 1024 -or $port -gt 65535) { throw 'PORT_CONSOLE_INPUT_INVALID' }
+        $plan=Get-SqlServerLabReconcilePlan -RunId $selected.RunId -InstanceId $selected.InstanceId -StateRoot $selected.StateRoot -ContainerPortPreview -Port $port
+        Assert-LabContainerPortConsolePlan -Plan $plan -Provider $selected.Provider
+        Write-LabInfo 'PLAN_ONLY · CanApply=false · Actions: 0 · keine Änderung oder Portreservierung.'
+        Write-LabInfo 'Endpoint, SQL, Backup und Volumeeigentum: NOT_CHECKED. Datenerhalt: NOT_VERIFIED.'
+        if ($plan.Status -cne 'PLAN_ONLY') {
+            Write-LabWarning 'Die gebundene Portvorschau ist blockiert oder für diese Topologie nicht unterstützt. Istwerte bleiben unbekannt.'
+        }
+        else {
+            Write-LabInfo ('Gewünschter Port: {0}. {1}; Änderungsweg: {2}; Ausfallzeit: {3}.' -f $port,$plan.Desired.PortChange,$plan.ChangeClass,$plan.Preview.Downtime)
+            $m=$plan.Preview.Mounts
+            Write-LabInfo ('Container-Mounts: {0} gesamt; {1} Volumes; {2} Host-Bindings (davon {3} schreibbar); {4} andere.' -f $m.TotalMountCount,$m.VolumeMountCount,$m.HostBindCount,$m.WritableHostBindCount,$m.OtherMountCount)
+            Write-LabInfo 'Inhaltsbindung vorhanden; keine Ausführungsautorität. Der aktuelle Hostport wird nicht angezeigt.'
+        }
+        $null=Wait-LabConsoleAcknowledgement
+    }
+    catch { Write-LabError 'PORT_CONSOLE_UNAVAILABLE: Auswahl, Eingabe oder gebundene Vorschau konnte nicht sicher geprüft werden.'; $null=Wait-LabConsoleAcknowledgement }
 }
 
 function Set-LabResourcesInteractive {

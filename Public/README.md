@@ -192,8 +192,16 @@ passender Istport ist `no-op`; unbekannte Bindungen, zusätzliche Port-/
 Netztopologie, ungeeignete Mounts und nicht laufende Runs blockieren die
 unterstützte Vorschau. Endpoint, SQL, Sicherung und Volumeeigentum bleiben
 `NOT_CHECKED`. Es gibt keine Portreservierung, Journalreparatur oder Mutation.
-Eigene geführte CLI-/Browserdialoge und gebundenes Port-Apply sind separate
-Folgeschritte. Der bestehende `-Container`-Parametersatz bleibt unverändert.
+Die CLI bietet unter **Lab-Umgebungen → SQL-Hostport vorprüfen** einen
+getrennten PLAN_ONLY-Fachdialog. Er liest registrierte Metadaten eines
+vorhandenen `Lab_Data`, wählt Run und Instanz und erfasst den Wunschport
+1024–65535. Er ruft genau einmal denselben öffentlichen Core auf. Vor der
+Anzeige validiert er DTO-Vertrag, Kategorien und fehlende Ausführungsautorität;
+Fehler erscheinen als feste Meldung ohne rohe Exceptions. Nur die lokale
+Wunschport-Eingabe wird angezeigt, kein erfundener Istport. `q` oder Zurück
+vor dem Planaufruf ändern nichts. Browserdialog und gebundenes Port-Apply
+bleiben separate Folgeschritte. Der bestehende `-Container`-Parametersatz
+und CPU/RAM-Dialog bleiben unverändert.
 
 ## Hilfe, Discovery und Modulzuordnung
 

@@ -28,6 +28,18 @@ function Get-LabConsoleHelpCatalog {
     }
 
     $catalog = @{
+        'container-port-run' = @{
+            Title = 'Lab für reine SQL-Hostportvorschau'
+            Purpose = 'Wählt einen modernen registrierten, laufenden Container-Run im expliziten Lab_Data. Geschützte Gruppen und CMS werden nicht angeboten.'
+            Effects = 'Nur Metadaten lesen; keine Runtimeabfrage, Speicherung oder Ausführung. Zurück beendet den Dialog ohne Planaufruf.'
+            Command = 'Get-SqlServerLabReconcilePlan'
+        }
+        'container-port-instance' = @{
+            Title = 'SQL-Instanz für reine Portvorschau'
+            Purpose = 'Wählt die gebundene Docker-/Podman-SQL-Instanz. Danach wird ein Wunschport 1024–65535 eingegeben; es wird kein Istport erraten.'
+            Effects = 'Nach vollständiger Auswahl einmal PLAN_ONLY anzeigen. CanApply=false; keine Reservierung oder Mutation. Endpoint, SQL und Backup bleiben NOT_CHECKED. Zurück oder q vor dem Planaufruf ändern nichts.'
+            Command = 'Get-SqlServerLabReconcilePlan'
+        }
         'main-menu' = @{
             Title   = 'Hauptmenue'
             Purpose = 'Einstieg in alle Bereiche des Labs. Die Auswahl oeffnet nur einen Unterbereich und veraendert nichts.'

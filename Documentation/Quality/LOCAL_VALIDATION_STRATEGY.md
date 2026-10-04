@@ -1,5 +1,22 @@
 # Lokale Validierungsstrategie
 
+## Getrennte CLI-Portvorschau
+
+`Fixtures/ContainerPortPreviewConsoleChecks.ps1` läuft in der bestehenden
+`Invoke-ContainerReconcileChecks.ps1` in einem eigenen No-Profile-Prozess.
+Sie führt den tatsächlichen Fachmenüeintrag, Menürouter, Dialog, öffentlichen
+Portcore und registrierungsgebundenen Metadatenreader mit einem synthetischen
+Inspect-Werkzeug aus. Docker und Podman werden getrennt simuliert; Cancel,
+Portgrenzen, gefälschte Auswahl, geschützte/CMS-/gestoppte/unregistrierte
+Ziele, No-op, unbekannte Topologie und malformed DTOs prüfen Effektgrenzen,
+Byteerhalt sowie feste privacy-safe Ausgabe. Eine gültige Vorschau ruft den
+öffentlichen Plan einmal auf und liest ein Inspect; keine Apply-, SQL-,
+Secret-, Listener-, Reparatur- oder Bestätigungsgrenze darf erreicht werden.
+Diese Offlineprüfungen sind keine native Preview-/Dialogabnahme. Deren
+Provider-Nachweise und eine spätere Browser-/Applyform bleiben getrennt
+offen; tatsächliche Impactselektion und stabiler Abschluss werden lokal
+gebunden. Unveränderte grüne Prüfungen werden nicht zusätzlich wiederholt.
+
 ## Reine Container-Portvorschau
 
 `Fixtures/ContainerPortPreviewChecks.ps1` wird von der bestehenden
