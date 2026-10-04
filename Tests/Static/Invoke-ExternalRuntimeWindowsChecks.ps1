@@ -188,9 +188,19 @@ try {
         $newText -match 'HYPERV_EXTERNAL_RUNTIME_ADVANCED_ANALYTICS_REQUIRED' -and
         $newText.IndexOf('HYPERV_EXTERNAL_RUNTIME_ADVANCED_ANALYTICS_REQUIRED') -lt $newText.IndexOf('New-HyperVLabEnvironment')
     )
-    Add-CheckResult -Name 'Prepared-Image- und SQL-Slot-Pläne erlauben AdvancedAnalytics explizit' -Success (
+    $featureTokens=$null;$featureErrors=$null
+    $featureAst=[Management.Automation.Language.Parser]::ParseInput($labEnvironmentText,[ref]$featureTokens,[ref]$featureErrors)
+    $deploymentFunctions=@($featureAst.FindAll({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and
+        $node.Name -ceq 'Set-HyperVLabSqlDeploymentPlan'},$true))
+    $featureParameters=if($deploymentFunctions.Count -eq 1){@($deploymentFunctions[0].Body.ParamBlock.Parameters|Where-Object {$_.Name.VariablePath.UserPath -ceq 'SqlFeatures'})}else{@()}
+    $featureSets=if($featureParameters.Count -eq 1){@($featureParameters[0].Attributes|Where-Object {$_.TypeName.FullName -ceq 'ValidateSet'})}else{@()}
+    $features=if($featureSets.Count -eq 1){@($featureSets[0].PositionalArguments|ForEach-Object {$_.SafeGetValue()})}else{@()}
+    $expectedFeatures=@('SQLENGINE','FULLTEXT','REPLICATION','ADVANCEDANALYTICS','IS')
+    Add-CheckResult -Name 'Prepared-Image- und SQL-Slot-Pläne erlauben AdvancedAnalytics im geschlossenen Featurevertrag' -Success (
         $imageBuilderText -match "'ADVANCEDANALYTICS'" -and
-        $labEnvironmentText -match "ValidateSet\('SQLENGINE', 'FULLTEXT', 'REPLICATION', 'ADVANCEDANALYTICS'\)"
+        $featureErrors.Count -eq 0 -and $features.Count -eq $expectedFeatures.Count -and
+        @($features|Where-Object {$_ -cnotin $expectedFeatures}).Count -eq 0 -and
+        @($expectedFeatures|Where-Object {$_ -cnotin $features}).Count -eq 0
     )
     Add-CheckResult -Name 'Native Acceptance kann einen bereits spezialisierten Windows-Slot ohne pauschale UAC-Erhöhung fortsetzen' -Success (
         $acceptanceText -notmatch '#Requires\s+-RunAsAdministrator' -and

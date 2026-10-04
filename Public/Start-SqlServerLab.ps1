@@ -41,8 +41,9 @@ function Start-SqlServerLab {
             throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Einzelnes Starten ist gesperrt; Testumgebungen verwenden AutoStart=on.'
         }
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
-        # A reserved member is rejected before runtime probing or a no-op return.
+        # Reject reserved members before host policy, runtime probes or no-op.
         Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $stateRoot
+        $ownedHostPolicy = if ($run.metadata.ownedHostIntegration -or (((Test-Path (Join-Path $stateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $stateRoot 'owned-host-policy.json'))))) { Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $stateRoot } else { $null }
         $run = (Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot).Run
 
         # Reguläre Hyper-V-Labs besitzen ebenfalls einen ProviderSubRun. Dieser
@@ -96,7 +97,7 @@ function Start-SqlServerLab {
             $provider = ([string]$providerGroup.Name).ToLowerInvariant()
             $providerErrors = 0
             $providerStarted = 0
-            $runtime = Get-ContainerRuntime -PreferredRuntime $provider
+            $runtime = if ($ownedHostPolicy) { $provider } else { Get-ContainerRuntime -PreferredRuntime $provider }
             if (-not $runtime) {
                 Write-LabError "  Runtime '$provider' ist fuer den ProviderSubRun nicht verfuegbar."
                 $providerResults += [PSCustomObject]@{
@@ -112,7 +113,7 @@ function Start-SqlServerLab {
 
             Write-LabInfo "  ProviderSubRun '$provider' mit $runtime starten..."
             $containerIds = @(
-                & $runtimeInvocation ps -a -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
+                $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $stateRoot -RunId $RunId -Invocation $runtimeInvocation -ArgumentList @('ps', '-a', '-q', '--filter', "label=sql-server-lab.run-id=$RunId", '--no-trunc') } else { & $runtimeInvocation ps -a -q --filter "label=sql-server-lab.run-id=$RunId" }) 2>$null |
                     Where-Object { $_ }
             )
             if ($containerIds.Count -lt $providerGroup.Count) {
@@ -126,16 +127,16 @@ function Start-SqlServerLab {
                     continue
                 }
 
-                $containerName = ([string](& $runtimeInvocation inspect $containerId --format '{{.Name}}' 2>$null)).Trim().TrimStart('/')
+                $containerName = ([string]($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $stateRoot -RunId $RunId -Invocation $runtimeInvocation -ArgumentList @('inspect', $containerId, '--format', '{{.Name}}') } else { & $runtimeInvocation inspect $containerId --format '{{.Name}}' }) 2>$null)).Trim().TrimStart('/')
                 try {
-                    $runningText = [string](& $runtimeInvocation inspect $containerId --format '{{.State.Running}}' 2>$null)
+                    $runningText = [string]($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $stateRoot -RunId $RunId -Invocation $runtimeInvocation -ArgumentList @('inspect', $containerId, '--format', '{{.State.Running}}') } else { & $runtimeInvocation inspect $containerId --format '{{.State.Running}}' }) 2>$null)
                     if ($LASTEXITCODE -ne 0) {
                         throw "Container-Status konnte nicht gelesen werden: $containerId"
                     }
 
                     $isRunning = $runningText.Trim().ToLowerInvariant() -eq 'true'
                     if (-not $isRunning) {
-                        & $runtimeInvocation start $containerId | Out-Null
+                        $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $stateRoot -RunId $RunId -Invocation $runtimeInvocation -ArgumentList @('start', $containerId) } else { & $runtimeInvocation start $containerId }) | Out-Null
                         if ($LASTEXITCODE -ne 0) {
                             throw "Container start fehlgeschlagen: $containerId"
                         }
@@ -188,7 +189,7 @@ function Start-SqlServerLab {
             $rollbackErrors = 0
             foreach ($providerResult in @($providerResults | Where-Object { $_.Status -eq 'STARTED' })) {
                 $providerRollbackErrors = 0
-                $runtime = Get-ContainerRuntime -PreferredRuntime $providerResult.Provider
+                $runtime = if ($ownedHostPolicy) { $providerResult.Provider } else { Get-ContainerRuntime -PreferredRuntime $providerResult.Provider }
                 if (-not $runtime) {
                     $rollbackErrors++
                     continue
@@ -196,7 +197,7 @@ function Start-SqlServerLab {
                 $runtimeInvocation = Get-LabHostToolInvocation -Name $runtime
 
                 $containerIds = @(
-                    & $runtimeInvocation ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
+                    $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $stateRoot -RunId $RunId -Invocation $runtimeInvocation -ArgumentList @('ps', '-q', '--filter', "label=sql-server-lab.run-id=$RunId", '--no-trunc') } else { & $runtimeInvocation ps -q --filter "label=sql-server-lab.run-id=$RunId" }) 2>$null |
                         Where-Object { $_ }
                 )
                 foreach ($containerIdValue in $containerIds) {
@@ -204,7 +205,7 @@ function Start-SqlServerLab {
                     if (-not $containerId) {
                         continue
                     }
-                    & $runtimeInvocation stop $containerId 1>$null 2>$null
+                    $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $stateRoot -RunId $RunId -Invocation $runtimeInvocation -ArgumentList @('stop', $containerId) } else { & $runtimeInvocation stop $containerId }) 1>$null 2>$null
                     if ($LASTEXITCODE -ne 0) {
                         $providerRollbackErrors++
                         $rollbackErrors++
@@ -273,7 +274,7 @@ function Start-SqlServerLab {
                         -SaPassword $saPassword `
                         -TimeoutSeconds $TimeoutSeconds `
                         -Provider $readinessProvider `
-                        -ContainerIdOrName $readinessContainer
+                        -ContainerIdOrName $readinessContainer -StateRoot $stateRoot
 
                     if (-not $sqlReadiness.Ready) {
                         throw $sqlReadiness.Message

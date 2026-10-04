@@ -98,6 +98,10 @@ COMMANDS
         Bewertet registrierte Windows- und SQL-Evaluationsfristen read-only und
         dedupliziert fällige Ereignisse mit -RecordEvents lokal.
 
+    Get-SqlServerLabEvaluationRefreshPlan
+        Plant Slotersatz, Rekonstruktion oder Migration genau einer registrierten
+        Hyper-V-SQL-Instanz unter explizitem DataRoot; immer BLOCKED ohne Aktionen.
+
     Invoke-SqlServerLabEvaluationWatchTrigger
         Führt den Evaluation-Watch in einem explizit begrenzten lokalen Intervall
         aus, ohne eine Windows-Aufgabe, Runtime oder Netzwerk zu verändern.
@@ -109,6 +113,10 @@ COMMANDS
         Liefert begrenzte, besitzgebundene Diagnose-Evidence für eine Instanz.
         Historischer State und optionale Provider-Readiness sind getrennt;
         keine SQL-Probe, Rohlogs, Hostwerte, Secrets oder Mutation.
+
+    Get-SqlServerLabExternalRuntimeCapability
+        Trennt eine explizite External-Languages-Kataloganforderung von einer
+        optionalen begrenzten Hostprüfung; keine SQL-Abnahme oder Mutation.
 
     Get-SqlServerLabAutomationPlan
         Projiziert einen versionierten lokalen, sanitisierten und nicht
@@ -208,6 +216,10 @@ Sync-SqlServerLabRunScopedContainerStore
     Get-SqlServerLabAiScenario
         Loest ein hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen
         Run auf und zeigt nur sanitisierte Plan- und Evidence-Metadaten.
+
+    Get-SqlServerLabLlamaCppStartPlan
+        Zeigt eine explizite Files-only-Vorschau als PLAN_ONLY/BLOCKED.
+        Startet keine Runtime und verwendet keine ComputeSelection.
 
     Start-SqlServerLabLlamaCppRuntime
     Stop-SqlServerLabLlamaCppRuntime

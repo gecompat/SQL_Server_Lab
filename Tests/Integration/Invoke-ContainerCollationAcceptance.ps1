@@ -12,14 +12,19 @@
 param(
     [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
     [switch]$RuntimeMutexAlreadyHeld,
-    [switch]$KeepOnFailure
+    [switch]$KeepOnFailure,
+    [string]$StateRoot
 )
+$requestedStateRoot=$StateRoot
+. (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+if ($requestedStateRoot) { Assert-OwnedHostTestRoot -StateRoot $requestedStateRoot }
+
 
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
-$testRoot = Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-collation-$Provider-$([guid]::NewGuid().ToString('N'))"
-$stateRoot = Join-Path $testRoot 'state'
+$testRoot=if ($requestedStateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $requestedStateRoot -Name 'sql-server-lab-collation' } else { Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-collation-$Provider-$([guid]::NewGuid().ToString('N'))" }
+$stateRoot=if ($requestedStateRoot) { $requestedStateRoot } else { Join-Path $testRoot 'state' }
 $previousStateRoot = $env:SQL_SERVER_LAB_STATE
 $lab = $null
 $completed = $false
@@ -50,8 +55,8 @@ try {
 
     $runtime = @(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
     Assert-CollationAcceptance $runtime.Available "Runtime '$Provider' ist zentral aufloesbar"
-    if ($Provider -eq 'podman') { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') | Out-Null }
-    & ([string]$runtime.Invocation) info 1>$null 2>$null
+    if ($Provider -eq 'podman') { $(if ($requestedStateRoot) { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') -StateRoot $requestedStateRoot -RequireReachable } else { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') })  | Out-Null }
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation ([string]$runtime.Invocation) -Arguments @('info') } else { & ([string]$runtime.Invocation) info }) 1>$null 2>$null
     Assert-CollationAcceptance ($LASTEXITCODE -eq 0) "Runtime '$Provider' ist erreichbar"
 
     New-Item -ItemType Directory -Path $testRoot -Force | Out-Null

@@ -655,6 +655,66 @@ try {
                 catch { Write-UiResponse -Context $context -Body 'RESOURCE_CHANGE_UNAVAILABLE: Ziel, Schutzstatus, Runtime und offene Recovery prüfen; anschließend erneut lesen.' -StatusCode 400 }
                 continue
             }
+            if ($path -eq '/api/evaluation-refresh-plan') {
+                try {
+                    $result=& (Get-Module SqlServerLab) { param($request) Invoke-LabEvaluationRefreshHttpRequest -Request $request } $context.Request
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $code=if($_.Exception.Message -cin @('EVALUATION_REFRESH_HTTP_INVALID','EVALUATION_REFRESH_BINDING_CHANGED','EVALUATION_REFRESH_SCOPE_UNSUPPORTED','EVALUATION_REFRESH_BINDING_INVALID','EVALUATION_REFRESH_INPUT_INVALID','EVALUATION_REFRESH_MODE_INVALID','EVALUATION_REFRESH_BINDING_UNAVAILABLE')){$_.Exception.Message}else{'EVALUATION_REFRESH_BINDING_UNAVAILABLE'}
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -eq '/api/llama-start') {
+                try {
+                    $result=& (Get-Module SqlServerLab) { param($request,$listenerPort) Invoke-LabLlamaCppStartHttpRequest -Request $request -ListenerPort $listenerPort } $context.Request $Port
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 3 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $code=if($_.Exception.Message -cin @('LLAMA_START_HTTP_INVALID','LLAMA_START_HTTP_CONFIRMATION_REQUIRED','LLAMA_START_HTTP_CONFIRM_POLICY_BLOCKED')){$_.Exception.Message}else{'LLAMA_START_HTTP_INVALID'}
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -eq '/api/llama-start-plan') {
+                try {
+                    $result=& (Get-Module SqlServerLab) { param($request) Invoke-LabLlamaCppStartPlanHttpRequest -Request $request } $context.Request
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $code=if($_.Exception.Message -cin @('LLAMA_START_PLAN_HTTP_INVALID','LLAMA_START_PLAN_HTTP_RESULT_INVALID','LLAMA_START_PLAN_PATH_INVALID','LLAMA_START_PLAN_FILE_INVALID','LLAMA_START_PLAN_REPARSE_REJECTED','LLAMA_START_PLAN_DIRECTORY_LIMIT','LLAMA_START_PLAN_FILE_LIMIT','LLAMA_START_PLAN_GGUF_REQUIRED','LLAMA_START_PLAN_LEASE_INVALID','LLAMA_START_PLAN_ACCELERATOR_UNSUPPORTED','LLAMA_START_PLAN_RUNTIME_MISMATCH','LLAMA_START_PLAN_INPUT_DRIFT','LLAMA_START_PLAN_INPUT_UNREADABLE')){$_.Exception.Message}else{'LLAMA_START_PLAN_HTTP_INVALID'}
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -eq '/api/collations/search') {
+                try {
+                    $result=& (Get-Module SqlServerLab) { param($request,$listenerPort) Invoke-LabCollationCatalogHttpRequest -Request $request -ListenerPort $listenerPort } $context.Request $Port
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 5 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $invalidResult=$_.Exception.Message -ceq 'COLLATION_HTTP_RESULT_INVALID'
+                    $code=if($invalidResult){'COLLATION_HTTP_RESULT_INVALID'}else{'COLLATION_HTTP_INVALID'}
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode $(if($invalidResult){500}else{400})
+                }
+                continue
+            }
+            if ($path -eq '/api/external-runtime-capability') {
+                try {
+                    $result=& (Get-Module SqlServerLab) { param($request,$listenerPort) Invoke-LabExternalRuntimeCapabilityHttpRequest -Request $request -ListenerPort $listenerPort } $context.Request $Port
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 8 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    Write-UiResponse -Context $context -Body '{"Code":"EXTERNAL_RUNTIME_HTTP_INVALID"}' -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
+            if ($path -eq '/api/component-relations') {
+                try {
+                    $result=& (Get-Module SqlServerLab) { param($request) Invoke-LabComponentRelationHttpRequest -Request $request } $context.Request
+                    Write-UiResponse -Context $context -Body ($result | ConvertTo-Json -Depth 12 -Compress) -ContentType 'application/json; charset=utf-8'
+                } catch {
+                    $code=if($_.Exception.Message -cin @('COMPONENT_RELATION_HTTP_INVALID','COMPONENT_RELATION_BINDING_CHANGED','COMPONENT_RELATION_SCOPE_UNSUPPORTED','COMPONENT_RELATION_INPUT_INVALID','COMPONENT_RELATION_TARGET_INVALID','COMPONENT_RELATION_CYCLE','COMPONENT_RELATION_BINDING_UNAVAILABLE')){$_.Exception.Message}else{'COMPONENT_RELATION_BINDING_UNAVAILABLE'}
+                    Write-UiResponse -Context $context -Body (@{Code=$code} | ConvertTo-Json -Compress) -ContentType 'application/json; charset=utf-8' -StatusCode 400
+                }
+                continue
+            }
             if ($path -eq '/api/cms-inspection') {
                 try {$result=Invoke-UiCmsInspectionRequest -Request $context.Request;Write-UiResponse -Context $context -Body ($result|ConvertTo-Json -Depth 6) -ContentType 'application/json; charset=utf-8'}
                 catch {Write-UiResponse -Context $context -Body 'CMS_INSPECTION_REQUEST_FAILED: Registrierung und Auswahl erneut lesen.' -StatusCode 400}

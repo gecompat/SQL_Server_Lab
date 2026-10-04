@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SQL Server Lab owned host policy and run reference",
+  "oneOf": [
+    { "$ref": "#/$defs/policy" },
+    { "$ref": "#/$defs/runReference" }
+  ],
+  "$defs": {
+    "guid": { "type": "string", "pattern": "^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$" },
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "pin": {
+      "type": "object", "additionalProperties": false,
+      "required": ["Provider", "Invocation", "Endpoint", "IdentityPath", "IdentitySha256"],
+      "properties": {
+        "Provider": { "enum": ["docker", "podman"] },
+        "Invocation": { "type": "string", "minLength": 1 },
+        "Endpoint": { "type": "string", "minLength": 1 },
+        "IdentityPath": { "type": "string" },
+        "IdentitySha256": { "type": "string" }
+      }
+    },
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ContractVersion", "Mode", "PolicyId", "RootScopeId", "StateRoot", "OwnerSid", "ParentOperationId", "RuntimePins"],
+      "properties": {
+        "ContractVersion": { "const": "SqlServerLab.OwnedHostPolicy/1.0" },
+        "Mode": { "const": "OwnedRunWindows" },
+        "PolicyId": { "$ref": "#/$defs/guid" },
+        "RootScopeId": { "$ref": "#/$defs/guid" },
+        "StateRoot": { "type": "string", "minLength": 1 },
+        "OwnerSid": { "type": "string", "pattern": "^S-1-" },
+        "ParentOperationId": { "type": "string", "maxLength": 128 },
+        "RuntimePins": { "type": "array", "minItems": 1, "maxItems": 2, "items": { "$ref": "#/$defs/pin" } }
+      }
+    },
+    "runReference": {
+      "type": "object", "additionalProperties": false,
+      "required": ["ContractVersion", "PolicyId", "RootScopeId", "PolicySha256", "RunId", "ScopeId", "WorkflowOperationId", "OperationOrigin"],
+      "properties": {
+        "ContractVersion": { "const": "SqlServerLab.OwnedHostRunReference/1.0" },
+        "PolicyId": { "$ref": "#/$defs/guid" },
+        "RootScopeId": { "$ref": "#/$defs/guid" },
+        "PolicySha256": { "$ref": "#/$defs/hash" },
+        "RunId": { "$ref": "#/$defs/guid" },
+        "ScopeId": { "$ref": "#/$defs/guid" },
+        "WorkflowOperationId": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$" },
+        "OperationOrigin": { "enum": ["WORKFLOW_CONTEXT", "OWN_RUN_ALLOCATED"] }
+      }
+    }
+  }
+}

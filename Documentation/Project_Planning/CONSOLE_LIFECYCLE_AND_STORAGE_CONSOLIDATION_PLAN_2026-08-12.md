@@ -485,6 +485,12 @@ gewählte Reveal-Aktion angezeigt, nicht beim normalen Status- oder Menürendern
 
 ### 10.4 Collation-Suche
 
+Der enge Browserconsumer ist implementiert: **Lab erstellen → Collations suchen**
+ruft bewusst dieselbe reine Public-Katalogsuche auf, zeigt validierte Metadaten
+und `DEPRECATED`-Warnungen und übernimmt keine Auswahl. SQL bleibt `NOT_CHECKED`;
+die synthetischen HTTP-/DOM-/Routenprüfungen ersetzen keine native Abnahme.
+Freie Advanced-Namen und Auswahltransfer bleiben außerhalb dieses Slices.
+
 Ein versionierter Katalog enthält je unterstützter SQL-Major-Version mindestens
 Name, Codepage, LCID, Case-/Accent-Sensitivity, UTF-8-Eigenschaft und Status.
 Die Console-UI filtert tokenbasiert; `Latin1` zeigt nur passende Einträge.

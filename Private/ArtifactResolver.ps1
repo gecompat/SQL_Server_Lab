@@ -9,6 +9,21 @@
     bestaetigten Trust-Pfad erzeugt werden.
 #>
 
+function Assert-LabArtifactOwnedPath {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path, [string]$StateRoot)
+    if (-not $StateRoot) { $StateRoot = Get-LabStateRoot }
+    if (-not ((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or
+        (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')))) { return }
+    $policy = Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required
+    $safe = Assert-LabOwnedHostPath -Path $Path
+    $relative = [IO.Path]::GetRelativePath($policy.StateRoot, $safe)
+    if ([IO.Path]::IsPathRooted($relative) -or $relative -ceq '..' -or
+        $relative.StartsWith('..' + [IO.Path]::DirectorySeparatorChar, [StringComparison]::Ordinal)) {
+        throw 'OWNED_HOST_ARTIFACT_ROOT_OUTSIDE_ROOT'
+    }
+}
+
 function Get-LabArtifactStorePaths {
     [CmdletBinding()]
     param(
@@ -20,10 +35,23 @@ function Get-LabArtifactStorePaths {
         $StateRoot = Get-LabStateRoot
     }
 
-    if (-not $TestDataRoot) { $TestDataRoot = Get-LabTestDataRootDefault }
+    $ownedPolicy = $null
+    if ((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or
+        (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))) {
+        $ownedPolicy = Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required
+        $StateRoot = $ownedPolicy.StateRoot
+        if (-not $TestDataRoot) { $TestDataRoot = Join-Path $StateRoot 'testdata-library' }
+        $TestDataRoot = Assert-LabOwnedHostPath -Path $TestDataRoot
+        $relative = [IO.Path]::GetRelativePath($StateRoot, $TestDataRoot)
+        if ([IO.Path]::IsPathRooted($relative) -or $relative -ceq '..' -or
+            $relative.StartsWith('..' + [IO.Path]::DirectorySeparatorChar, [StringComparison]::Ordinal)) {
+            throw 'OWNED_HOST_ARTIFACT_ROOT_OUTSIDE_ROOT'
+        }
+    }
+    elseif (-not $TestDataRoot) { $TestDataRoot = Get-LabTestDataRootDefault }
     if (-not $TestDataRoot) { $TestDataRoot = Join-Path $StateRoot 'testdata-library' }
     $libraryRoot = [System.IO.Path]::GetFullPath($TestDataRoot)
-    return [PSCustomObject]@{
+    $paths = [PSCustomObject]@{
         StateRoot       = $StateRoot
         TestDataRoot    = $libraryRoot
         TrustDirectory  = Join-Path $StateRoot 'trust'
@@ -33,6 +61,12 @@ function Get-LabArtifactStorePaths {
         StagingRoot     = Join-Path $StateRoot 'cache/staging'
         QuarantineRoot  = Join-Path $StateRoot 'cache/quarantine'
     }
+    if ($ownedPolicy) {
+        foreach ($path in $paths.PSObject.Properties.Value) {
+            $null = Assert-LabOwnedHostPath -Path $path
+        }
+    }
+    return $paths
 }
 
 function Initialize-LabArtifactStore {
@@ -42,8 +76,8 @@ function Initialize-LabArtifactStore {
         [string]$TestDataRoot
     )
 
-    $null = Initialize-LabStateRoot -StateRoot $StateRoot
     $paths = Get-LabArtifactStorePaths -StateRoot $StateRoot -TestDataRoot $TestDataRoot
+    $null = Initialize-LabStateRoot -StateRoot $paths.StateRoot
     foreach ($directory in @($paths.TestDataRoot, $paths.LibraryRoot, $paths.TrustDirectory, $paths.CacheRoot, $paths.StagingRoot, $paths.QuarantineRoot)) {
         if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
             New-Item -Path $directory -ItemType Directory -Force | Out-Null
@@ -89,8 +123,11 @@ function Publish-LabArtifactLibraryEntry {
     $extension = [System.IO.Path]::GetExtension($sourceName)
     $fileName = "$(ConvertTo-LabArtifactLibrarySegment -Value $stem)-$($Sha256.Substring(0, 12))$extension"
     $directory = Join-Path (Join-Path (Join-Path $Paths.LibraryRoot (ConvertTo-LabArtifactLibrarySegment -Value $Category -Fallback 'Unkategorisiert')) (ConvertTo-LabArtifactLibrarySegment -Value $SampleId -Fallback 'Direkte-Downloads')) (ConvertTo-LabArtifactLibrarySegment -Value $SampleVariant -Fallback 'Standard')
-    New-Item -Path $directory -ItemType Directory -Force | Out-Null
     $libraryPath = Join-Path $directory $fileName
+    foreach ($path in @($CachePath, $libraryPath, (Join-Path $directory 'artifact.json'))) {
+        Assert-LabArtifactOwnedPath -Path $path -StateRoot $Paths.StateRoot
+    }
+    New-Item -Path $directory -ItemType Directory -Force | Out-Null
     if (-not (Test-Path -LiteralPath $libraryPath -PathType Leaf)) {
         try { New-Item -ItemType HardLink -Path $libraryPath -Target $CachePath -ErrorAction Stop | Out-Null }
         catch { Copy-Item -LiteralPath $CachePath -Destination $libraryPath -Force }
@@ -293,6 +330,7 @@ function Get-LabArtifactCacheEntry {
     $directory = Join-Path $paths.CacheRoot $digest
     $artifactPath = Join-Path $directory 'artifact.bak'
     $metadataPath = Join-Path $directory 'metadata.json'
+    foreach ($path in @($artifactPath, $metadataPath)) { Assert-LabArtifactOwnedPath -Path $path -StateRoot $paths.StateRoot }
     if (-not (Test-Path -LiteralPath $artifactPath -PathType Leaf) -or
         -not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
         # Bestandsdaten aus früheren Versionen lagen unter StateRoot. Sie
@@ -301,6 +339,7 @@ function Get-LabArtifactCacheEntry {
         $legacyDirectory = Join-Path (Join-Path $StateRoot 'cache/artifacts/sha256') $digest
         $legacyArtifactPath = Join-Path $legacyDirectory 'artifact.bak'
         $legacyMetadataPath = Join-Path $legacyDirectory 'metadata.json'
+        foreach ($path in @($legacyArtifactPath, $legacyMetadataPath)) { Assert-LabArtifactOwnedPath -Path $path -StateRoot $paths.StateRoot }
         if (-not (Test-Path -LiteralPath $legacyArtifactPath -PathType Leaf) -or
             -not (Test-Path -LiteralPath $legacyMetadataPath -PathType Leaf)) {
             return $null
@@ -334,12 +373,14 @@ function Move-LabArtifactToQuarantine {
     )
 
     $paths = Initialize-LabArtifactStore -StateRoot $StateRoot
+    Assert-LabArtifactOwnedPath -Path $Path -StateRoot $paths.StateRoot
     if (-not (Test-Path -LiteralPath $Path)) {
         return $null
     }
 
     $quarantineId = "$(Get-LabTimestamp -replace '[:T-]', '')-$([guid]::NewGuid().ToString('N'))"
     $target = Join-Path $paths.QuarantineRoot $quarantineId
+    Assert-LabArtifactOwnedPath -Path (Join-Path $target 'quarantine.json') -StateRoot $paths.StateRoot
     Move-Item -LiteralPath $Path -Destination $target -Force
     Write-LabArtifactJsonAtomic -Path (Join-Path $target 'quarantine.json') -InputObject ([PSCustomObject]@{
         reason        = $Reason
@@ -515,6 +556,7 @@ function Resolve-LabArtifact {
 
     $stagingDirectory = Join-Path $paths.StagingRoot (New-LabGuid)
     $stagingPath = Join-Path $stagingDirectory 'artifact.download'
+    Assert-LabArtifactOwnedPath -Path $stagingPath -StateRoot $paths.StateRoot
     New-Item -Path $stagingDirectory -ItemType Directory -Force | Out-Null
     try {
         Save-LabProgressDownload -Uri $canonicalSource -OutFile $stagingPath
@@ -571,6 +613,7 @@ function Resolve-LabArtifact {
     $cacheDirectory = Join-Path $paths.CacheRoot $expected
     $cachePath = Join-Path $cacheDirectory 'artifact.bak'
     Invoke-LabArtifactStoreLock -StateRoot $StateRoot -ScriptBlock {
+        foreach ($path in @($cachePath, (Join-Path $cacheDirectory 'metadata.json'))) { Assert-LabArtifactOwnedPath -Path $path -StateRoot $paths.StateRoot }
         if (-not (Test-Path -LiteralPath $cacheDirectory -PathType Container)) {
             New-Item -Path $cacheDirectory -ItemType Directory -Force | Out-Null
         }

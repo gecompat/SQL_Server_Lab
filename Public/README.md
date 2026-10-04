@@ -24,9 +24,21 @@ Manifest-Wizard und Konsolenformular prüfen denselben versionsgebundenen
 Vertrag für SQL 2019/2022/2025. Ein vollständiger Name wird ohne Beachtung der
 Groß-/Kleinschreibung gebunden und kanonisch übernommen. Unbekannte Namen
 werden vor Provisionierung beziehungsweise Manifest-Speicherung abgewiesen.
-Die SQL-seitige Verifikation bleibt offen.
+Die Suche selbst prüft keinen SQL-Server. Der getrennte Containerpfad
+verifiziert nach SQL-Readiness; dessen historische Evidence ist kein Nachweis
+für die Browseransicht **Lab erstellen → Collations suchen**. Diese zeigt
+dieselben Metadaten ohne Auswahltransfer und bleibt bei SQL `NOT_CHECKED`.
 
 ## Cmdlet-Übersicht
+
+`Get-SqlServerLabExternalRuntimeCapability` trennt für einen expliziten
+Docker-/Podman-Linux-Manifestentwurf Katalogunterstützung von optionaler
+aktueller Hostbereitschaft. Standard ist `NOT_CHECKED` ohne Hostaufruf;
+`-CheckProviderReadiness` liest einmal begrenzt `info`. `READY` ist keine
+SQL-/Sprachabnahme oder Ausführungsfreigabe. Der vorhandene Manifestdialog
+verwendet dieselbe Entscheidung; der geführte Browser nutzt denselben engen
+Vertrag. Vollständiger CORE-102 und Native-Abnahmen bleiben offen.
+[Vertrag und Grenzen](../Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
 
 | Cmdlet | Datei oder Definition | Zweck |
 |---|---|---|
@@ -48,6 +60,7 @@ Die SQL-seitige Verifikation bleibt offen.
 | `Find-SqlServerLabCollation` | `Find-SqlServerLabCollation.ps1` | Katalogisierte SQL-Server-Collations tokenbasiert und versionsgebunden durchsuchen; die Suche verändert keine Runtime |
 | `Get-SqlServerLabHyperVImageArtifact` | `Get-SqlServerLabHyperVImageArtifact.ps1` | Pfadfreie read-only Hyper-V-Image-Registry mit Evaluation, manueller Refresh-Empfehlung, Referenzen und optionaler Integritätsprüfung |
 | `Get-SqlServerLabEvaluationWatch` | `Get-SqlServerLabEvaluationWatch.ps1` | Windows- und SQL-Artefaktfristen read-only bewerten; SQL-Gastfristen nur aus frischer, gebundener Evidence für registrierte Hyper-V-SQL-Runs projizieren und fällige Ereignisse optional lokal deduplizieren |
+| `Get-SqlServerLabEvaluationRefreshPlan` | `Get-SqlServerLabEvaluationRefreshPlan.ps1` | Genau eine registrierte Hyper-V-SQL-Instanz unter explizitem Lab_Data für Slotersatz, Rekonstruktion oder Migration rein informativ bewerten; keine Aktionen, Lizenzfreigabe oder Gleichwertigkeit |
 | `Invoke-SqlServerLabEvaluationWatchTrigger` | `Invoke-SqlServerLabEvaluationWatchTrigger.ps1` | Evaluation-Watch in einem explizit begrenzten lokalen Zeitintervall ausführen; keine Windows-Aufgabe, Runtime- oder Netzwerkmutation |
 | `Update-SqlServerLabSqlGuestEvaluationEvidence` | `Update-SqlServerLabSqlGuestEvaluationEvidence.ps1` | SQL-2025-Hyper-V-Edition live lesen und rungebundene NO_DEADLINE-Evidence atomar erneuern; keine erfundene Ablaufzeit |
 | `Get-SqlServerLabRunStateUpgradePlan` | `Get-SqlServerLabRunStateUpgradePlan.ps1` | Einen einzelnen Run-State pfad- und secretfrei gegen den Zielvertrag klassifizieren |
@@ -77,6 +90,7 @@ Die SQL-seitige Verifikation bleibt offen.
 | `Get-SqlServerLabDatabaseMigrationDependency` | `Get-SqlServerLabDatabaseMigrationDependency.ps1` | SQL-seitig beobachtbare Login-, Job-, Proxy-, Linked-Server- und TDE-Abhängigkeiten direkt oder per Run-/Instanzbindung read-only als sanitisierte Kategorien und Counts inventarisieren |
 | `Get-SqlServerLabSqlObservabilityEvidence` | `Get-SqlServerLabSqlObservabilityEvidence.ps1` | Aggregierte Server-, Datenbank-, Query-Store- und Wait-Metriken direkt oder per Run-/Instanzbindung read-only erfassen, ohne Endpunkt-, SQL-Text-, Namens- oder Secretprojektion |
 | `Get-SqlServerLabAiScenario` | `Get-SqlServerLabAiScenario.ps1` | Hashgebundenes SQL-KI-Szenario katalogisiert oder gegen einen Run auflösen; Ausgabe bleibt frei von Pfaden, Endpoints und Secrets |
+| `Get-SqlServerLabLlamaCppStartPlan` | `Get-SqlServerLabLlamaCppStartPlan.ps1` | Reine explizite Dateivorschau für SQL-Embeddings; immer PLAN_ONLY/BLOCKED, keine Secrets oder Runtimeprüfung |
 | `Start-SqlServerLabLlamaCppRuntime` | `Start-SqlServerLabLlamaCppRuntime.ps1` | Eigenen Windows-HTTPS-Embeddingserver mit benchmarkgebundener Auto-/Pinned-Auswahl oder expliziter Gerätewahl und begrenzter Lease starten |
 | `Stop-SqlServerLabLlamaCppRuntime` | `Stop-SqlServerLabLlamaCppRuntime.ps1` | Ausschließlich den eigenen sitzungsgebundenen llama.cpp-Server beenden und API-Key bereinigen |
 | `Get-SqlServerLabLlamaCppRuntime` | `Get-SqlServerLabLlamaCppRuntime.ps1` | Lokale Windows-/Linux-Pakete ohne Hashpflicht erkennen; FILES_ONLY und lokale Pfade, kein Laufzeitnachweis |
@@ -126,6 +140,7 @@ Die SQL-seitige Verifikation bleibt offen.
 | `Stop-SqlServerLab` | `Stop-SqlServerLab.ps1` | Laufende Umgebung je gespeicherten Provider stoppen |
 | `Restart-SqlServerLab` | `Restart-SqlServerLab.ps1` | Stop und Start kombinieren |
 | `Remove-SqlServerLab` | `Remove-SqlServerLab.ps1` | Einzelnen Run scope-validiert entfernen |
+| `Get-SqlServerLabExternalRuntimeCapability` | `Get-SqlServerLabExternalRuntimeCapability.ps1` | Katalogentscheidung und bewusst angeforderte Hostvoraussetzungen getrennt prüfen |
 | `Clear-SqlServerLab` | `Clear-SqlServerLab.ps1` | Lab-Container und/oder State bereinigen |
 | `New-SqlServerLabDatabase` | `New-SqlServerLabDatabase.ps1` | Datenbank mit konfigurierbaren Dateien und Pfaden erstellen |
 | `Backup-SqlServerLabDatabase` | `Backup-SqlServerLabDatabase.ps1` | Providerneutrales, gehashtes SQL-Backup erst nach `CHECKSUM` und `RESTORE VERIFYONLY` in der registrierten `Lab_Data`-Bibliothek veröffentlichen |
@@ -221,12 +236,12 @@ Get-Command -Module SqlServerLab | Sort-Object Name
 `Invoke-SqlServerLabWorkflowAction` bietet `GetMediaOverrideState`,
 `PlanMediaOverride` (`MediaSourceId`, `MediaSourceOperation`, `MediaSourceUrl`)
 und `ApplyMediaOverride` (`MediaSourcePlan`, `ConfirmMediaSource`). Genau die
-drei SQL-2025-Bootstrapper können eine alternative Microsoft-HTTPS-Adresse
+sechs SQL-2022/2025-Bootstrapper können eine alternative Microsoft-HTTPS-Adresse
 für unveränderte katalogisierte Bytes erhalten. Die vorhandene
 Preferences-Authority bindet Vorschau/Apply an Katalog und Vorgänger.
 Edit/Reset beschaffen nichts; `Save-SqlServerLabMediaSource` bleibt der explizite
 Downloadweg mit unveränderter Integritätsprüfung und ohne Redirectfolge bei
-Overrides. [Bedienung und Grenzen](../Documentation/User/Getting_Started.md#lokale-sql-2025-bootstrapperquellen).
+Overrides. [Bedienung und Grenzen](../Documentation/User/Getting_Started.md#lokale-sql-20222025-bootstrapperquellen).
 
 ### Eigene llama.cpp-Sitzung bewusst stoppen
 
@@ -243,3 +258,26 @@ Siehe [Ownership- und Evidencegrenzen](../Documentation/Architecture/LLAMA_CPP_O
 ### Explizite CMS-Leseprüfung
 
 Invoke-SqlServerLabWorkflowAction -Action GetCmsInspectionState liest die bestehende Registrierung. InspectCms -ExpectedPlanKey <serverseitiger Schlüssel> prüft ausschließlich den zuvor ausgewählten eigenen CMS. Es gibt keine Caller-Host-/Secret-/SQL-Parameter oder automatische Synchronisation. Ergebnisse folgen [CmsInspection/1.0](../Documentation/Architecture/CMS_READONLY_INSPECTION.md); Hyper-V und SSMS-/Mitgliedsverbindungen sind nicht abgenommen.
+
+Das optionale CORE-102-Identitätsmapping verwendet den bestehenden Indexvertrag
+1.1; Legacyrecords bleiben unbekannt und unverändert. Public
+`Get-SqlServerLabExternalRuntimeCapability -IncludeRecordedEvidence` liefert
+Version 1.1 ohne aktuelle Evidence-Aufwertung. Das Tool verlangt beide Schalter
+`-IncludeRecordedAcceptanceMatrix -IncludeRecordedIdentityMatrix` und liefert
+Version 1.2 ausschließlich als begrenzte historische Identitätsmatrix, ohne
+Quellinventar/Modulimport. Maximal 128 Records und 256 KiB UTF-8 für die komplette
+neue Antwort; Überlauf bleibt leer/UNAVAILABLE. Referenzen sind NOT_VERIFIED,
+aktuelle Ausführung NOT_EXECUTED und Readiness NOT_CHECKED. Alte Public-/Browser-
+und Manifestdefaults bleiben unverändert. Reale neue Producerrecords, Native-/SQL-
+Abnahme und vollständige Kombinationenmatrix bleiben offen.
+# Expliziter StateRoot in der Container-CI
+
+`Get-SqlServerLab`, `Restart-SqlServerLab` und `Test-SqlServerLabPrerequisite`
+akzeptieren einen optionalen expliziten `StateRoot`. Restart reicht ihn an
+Beobachtung, Stop und Start weiter; Prerequisite verwendet ihn für die
+gebundene Providerprüfung. Ohne Angabe bleiben die bisherigen Defaults gültig.
+Der interne CI-Koordinator initialisiert einen frischen eigenen Root; ein
+beliebiger Pfad aktiviert keine zusätzlichen Rechte. Im eigenen Profil werden
+vorbestehende Ressourcen erhalten, Podmanmaschinen nicht gestartet und die
+gemeinsame Hostspeicherwartung bei Stop übersprungen.
+[Vertrag und Grenzen](../Documentation/Architecture/OWNED_HOST_CI_ISOLATION.md).

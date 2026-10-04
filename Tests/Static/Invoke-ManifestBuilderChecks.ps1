@@ -976,6 +976,8 @@ finally {
     Remove-Item -LiteralPath $temporaryDirectory -Recurse -Force -ErrorAction SilentlyContinue
 }
 
+. (Join-Path $PSScriptRoot 'Fixtures/ManifestSampleOutputChecks.ps1')
+
 if ($failures.Count -gt 0) {
     Write-Host "`nMANIFEST BUILDER CHECKS: FAIL ($passed bestanden, $($failures.Count) fehlgeschlagen)" -ForegroundColor Red
     $failures | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }

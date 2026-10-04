@@ -63,9 +63,13 @@ jobs:
           }
           Set-ValidationClassification UNKNOWN
           try {
-            $PSVersionTable.PSVersion | Out-File -LiteralPath $logPath -Encoding utf8
-            docker info *>> $logPath
-            if ($LASTEXITCODE -ne 0) { throw 'Docker-Runtime ist nicht erreichbar.' }
+            . .\Tests\Common\OwnedHostTestScope.ps1
+            $tools=@(& .\Tools\Initialize-SqlServerLabHostTools.ps1 -Name docker)
+            if (@($tools | Where-Object { -not $_.Available }).Count) { throw 'OWNED_HOST_TEST_TOOL_UNAVAILABLE' }
+            $module=Import-Module .\SqlServerLab.psd1 -Force -PassThru
+            $stateRoot=Join-Path $env:RUNNER_TEMP ('ci-'+[guid]::NewGuid().ToString('N'))
+            $null=Initialize-OwnedHostTestRoot -Module $module -StateRoot $stateRoot -Providers docker -ParentOperationId ([guid]::NewGuid().ToString('D'))
+            "SQL_SERVER_LAB_CI_OWN_STATE_ROOT=$stateRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
             sqlcmd -? *>> $logPath
             if ($LASTEXITCODE -ne 0) { throw 'sqlcmd ist nicht verwendbar.' }
             Set-ValidationClassification VALIDATED
@@ -92,81 +96,81 @@ jobs:
             if (-not $acquired) { throw 'Runtime-Smoke-Hostlock konnte innerhalb von 10 Minuten nicht erworben werden.' }
 
             if ('${{ inputs.mode }}' -eq 'cli-acceptance') {
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerCliAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker `
                 -Version 2022-CU18 *> $logPath
               if ($LASTEXITCODE -ne 0) { throw "Docker CLI Acceptance endete mit Exitcode $LASTEXITCODE." }
             }
             else {
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SmokeMatrix.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SmokeMatrix.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker `
                 -ReferenceVersion 2025 `
                 -TestAutoStart *> $logPath
               $matrixExitCode = $LASTEXITCODE
               if ($matrixExitCode -ne 0) { throw "Docker Smoke Matrix endete mit Exitcode $matrixExitCode." }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerCollationAcceptance.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerCollationAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker `
                 -RuntimeMutexAlreadyHeld *>> $logPath
               $collationExitCode = $LASTEXITCODE
               if ($collationExitCode -ne 0) { throw "Docker Collation-Akzeptanz endete mit Exitcode $collationExitCode." }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-RestoreSmokeTest.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker `
                 -Version 2025 *>> $logPath
               $restoreExitCode = $LASTEXITCODE
               if ($restoreExitCode -ne 0) { throw "Docker Restore Smoke Test endete mit Exitcode $restoreExitCode." }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PointInTimeRecoveryAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker `
                 -Version 2025 -RuntimeMutexAlreadyHeld *>> $logPath
               $pitrExitCode = $LASTEXITCODE
               if ($pitrExitCode -ne 0) { throw "Docker Point-in-Time-Recovery-Akzeptanz endete mit Exitcode $pitrExitCode." }
 
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-SqlVersionUpgradeAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker `
                 -RuntimeMutexAlreadyHeld *>> $logPath
               $upgradeExitCode = $LASTEXITCODE
               if ($upgradeExitCode -ne 0) { throw "SQL version upgrade reference failed (exit $upgradeExitCode)." }
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-BatchWorkflowSmokeTest.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker `
                 -Version 2025 *>> $logPath
               $batchExitCode = $LASTEXITCODE
               if ($batchExitCode -ne 0) { throw "Docker Batch Workflow Smoke Test endete mit Exitcode $batchExitCode." }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerToolAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker `
                 -RuntimeMutexAlreadyHeld -EvidencePath (Join-Path $env:RUNNER_TEMP 'docker-container-tool-acceptance.json') *>> $logPath
               $toolExitCode = $LASTEXITCODE
               if ($toolExitCode -ne 0) { throw "Docker Container-Tool-Akzeptanz endete mit Exitcode $toolExitCode." }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PersistentStorageRemovalExecutorAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker `
                 -Policy DELETE_WITH_RUN `
                 -RuntimeMutexAlreadyHeld *>> $logPath
               $removalExitCode = $LASTEXITCODE
               if ($removalExitCode -ne 0) { throw "Docker Persistent-Storage-Removal-Akzeptanz endete mit Exitcode $removalExitCode." }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerDatabasePackageExportAcceptance.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-ContainerDatabasePackageExportAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker `
                 -RuntimeMutexAlreadyHeld *>> $logPath
               $packageExportExitCode = $LASTEXITCODE
               if ($packageExportExitCode -ne 0) { throw "Docker Database-Package-Export-Akzeptanz endete mit Exitcode $packageExportExitCode." }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PortableContainerTransferPreflightAcceptance.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PortableContainerTransferPreflightAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker `
                 -RuntimeMutexAlreadyHeld *>> $logPath
               $preflightExitCode = $LASTEXITCODE
               if ($preflightExitCode -ne 0) { throw "Docker Portable-Container-Transfer-Preflight-Akzeptanz endete mit Exitcode $preflightExitCode." }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PortableContainerTransferAcceptance.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-PortableContainerTransferAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker `
                 -RuntimeMutexAlreadyHeld *>> $logPath
               $transferExitCode = $LASTEXITCODE
               if ($transferExitCode -ne 0) { throw "Docker Portable-Container-Transfer-Akzeptanz endete mit Exitcode $transferExitCode." }
 
-              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-AiVectorCoreAcceptance.ps1 `
+              & pwsh -NoLogo -NoProfile -File .\Tests\Integration\Invoke-AiVectorCoreAcceptance.ps1 -StateRoot $env:SQL_SERVER_LAB_CI_OWN_STATE_ROOT `
                 -Provider docker *>> $logPath
               $aiVectorExitCode = $LASTEXITCODE
               if ($aiVectorExitCode -ne 0) { throw "Docker AI-Vector-Core-Akzeptanz endete mit Exitcode $aiVectorExitCode." }

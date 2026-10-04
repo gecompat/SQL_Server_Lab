@@ -9,6 +9,7 @@
     PowerShellVersion = '7.2'
 
     FunctionsToExport = @(
+        'Get-SqlServerLabExternalRuntimeCapability'
         'New-SqlServerLabBatch'
         'Get-SqlServerLabBatch'
         'Get-SqlServerLabQueue'
@@ -45,6 +46,7 @@
         'Get-SqlServerLabLlamaCppRuntime'
         'Get-SqlServerLabLlamaCppModel'
         'Save-SqlServerLabLlamaCppModel'
+        'Get-SqlServerLabLlamaCppStartPlan'
         'Start-SqlServerLabLlamaCppRuntime'
         'Stop-SqlServerLabLlamaCppRuntime'
         'Test-SqlServerLabAiExternalModelArtifact'
@@ -59,6 +61,7 @@
         'Find-SqlServerLabCollation'
         'Get-SqlServerLabHyperVImageArtifact'
         'Get-SqlServerLabEvaluationWatch'
+        'Get-SqlServerLabEvaluationRefreshPlan'
         'Update-SqlServerLabSqlGuestEvaluationEvidence'
         'Invoke-SqlServerLabEvaluationWatchTrigger'
         'Get-SqlServerLabRunStateUpgradePlan'

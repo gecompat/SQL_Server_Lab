@@ -62,6 +62,7 @@ end {
     }
 
     $staticGroups = @(
+        @{ Pattern = '(?i)(OwnedHost|owned-host|ContainerAutoStart|ContainerToolImage|ResourceAssessment|Restart-SqlServerLab|runtime-smoke-(docker|podman|mixed-providers))'; Checks = @('Invoke-OwnedHostIntegrationChecks.ps1') },
         @{ Pattern = '(?i)(TestGroupGuidance|TestEnvironment)'; Checks = @('Invoke-TestGroupGuidanceChecks.ps1','Invoke-TestEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(CSharpNative|CSharpHyperV|Fixtures[\\/]CSharp[\\/]|csharp-native-acceptance)'; Checks = @('Invoke-ExternalRuntimeWindowsChecks.ps1') },
         @{ Pattern = '(?i)(AiPodmanSamplesReference|ai-podman-samples-reference)'; Checks = @('Invoke-AiPodmanSamplesReferenceChecks.ps1') },
@@ -80,6 +81,10 @@ end {
         @{ Pattern = '(?i)(AiComputeSelection|ai-compute-selection)'; Checks = @('Invoke-AiComputeSelectionChecks.ps1') },
         @{ Pattern = '(?i)(AiComputeBenchmark|Measure-SqlServerLabAiComputeCandidate|ai-compute-benchmark)'; Checks = @('Invoke-AiComputeBenchmarkChecks.ps1','Invoke-AiComputeBenchmarkAcceptanceChecks.ps1','Invoke-AiComputeSelectionChecks.ps1','Invoke-AiRuntimeCapabilityChecks.ps1','Invoke-LlamaCppRuntimeChecks.ps1') },
         @{ Pattern = '(?i)(AiSharedGateway(Plan|Preflight|Registration|Storage|Upstream|Session|ServicePlan|ServiceSecret)|Get-SqlServerLabAiSharedGateway(Plan|ServicePlan)|Test-SqlServerLabAiSharedGateway(Preflight|Upstream|ServiceSecret)|Register-SqlServerLabAiSharedGatewayStorage|(Start|Stop)-SqlServerLabAiSharedGatewaySession|ai-shared-gateway-(plan|preflight|storage|upstream|session|service-plan|service-secret))'; Checks = @('Invoke-AiSharedGatewayPlanChecks.ps1','Invoke-AiSharedGatewayPreflightChecks.ps1','Invoke-AiSharedGatewayStorageChecks.ps1','Invoke-AiSharedGatewayUpstreamChecks.ps1','Invoke-AiSharedGatewaySessionChecks.ps1','Invoke-AiSharedGatewayServicePlanChecks.ps1','Invoke-AiSharedGatewayServiceSecretChecks.ps1','Invoke-AiExternalModelAccelerationChecks.ps1') },
+        @{ Pattern = '(?i)(ReviewedBrowserComposition|^Tools/Start-SqlServerLabUi\.ps1$|^Ui/index\.html$)'; Checks = @('Invoke-ReviewedBrowserCompositionChecks.ps1') },
+        @{ Pattern = '(?i)(LlamaCppStart(Http|Ui|Browser)|Ui[\\/]llama-start\.js)'; Checks = @('Invoke-LlamaCppStartBrowserChecks.ps1','Invoke-LlamaCppStartConsoleChecks.ps1','Invoke-LlamaCppOwnedRuntimeChecks.ps1','Invoke-LlamaCppSessionGuidanceChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
+        @{ Pattern = '(?i)(LlamaCppStartConsole|llama-guided-start)'; Checks = @('Invoke-LlamaCppStartConsoleChecks.ps1','Invoke-LlamaCppOwnedRuntimeChecks.ps1','Invoke-LlamaCppSessionGuidanceChecks.ps1','Invoke-PublicCommandConsoleChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
+        @{ Pattern = '(?i)(LlamaCppStartPlan|Get-SqlServerLabLlamaCppStartPlan|llama-start-plan)'; Checks = @('Invoke-LlamaCppStartPlanChecks.ps1','Invoke-LlamaCppStartPlanConsoleChecks.ps1','Invoke-LlamaCppStartPlanBrowserChecks.ps1','Invoke-LlamaCppRuntimeChecks.ps1','Invoke-LlamaCppOwnedRuntimeChecks.ps1','Invoke-PublicCommandConsoleChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
         @{ Pattern = '(?i)(LlamaCppModelCatalog|llama-cpp-model|Catalogs[\\/]llama-cpp-models)'; Checks = @('Invoke-LlamaCppModelCatalogChecks.ps1') },
         @{ Pattern = '(?i)(LlamaCppInstaller|llama-cpp-runtime-packages|LlamaCppOwnedWorker|Start-SqlServerLabUi|Ui/app|Invoke-SqlServerLab\.ps1|BatchConsole)'; Checks = @('Invoke-LlamaCppInstallerChecks.ps1','Invoke-LlamaCppOwnedRuntimeChecks.ps1','Invoke-LlamaCppRuntimeChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(LlamaCppSessionGuidance|LlamaCppSessionLockChild|LlamaCppOwnedRuntime|LlamaCppOwnershipAcceptance|Invoke-SqlServerLabWorkflowAction|BatchConsole|Start-SqlServerLabUi|Ui/app|Ui/index|WorkflowSqlTargetChecks)'; Checks = @('Invoke-LlamaCppSessionGuidanceChecks.ps1','Invoke-LlamaCppOwnedRuntimeChecks.ps1','Invoke-ConsoleUiChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
@@ -124,6 +129,7 @@ end {
         @{ Pattern = '(?i)(^Private/Ai[^/]*\.ps1$|^Public/[^/]*SqlServerLabAi[^/]*\.ps1$|^Schemas/ai-[^/]*\.schema\.json$)'; Checks = @('Invoke-AiScenarioChecks.ps1','Invoke-ManifestBuilderChecks.ps1','Invoke-ProviderCapabilityChecks.ps1') },
         @{ Pattern = '(?i)(StateUpgrade|state-upgrade|StateMachine)'; Checks = @('Invoke-RunStateUpgradeChecks.ps1') },
         @{ Pattern = '(?i)(AutomationApiPlan|automation-api-plan|Get-SqlServerLabAutomationPlan)'; Checks = @('Invoke-AutomationApiPlanChecks.ps1') },
+        @{ Pattern = '(?i)(CollationCatalog(Http|Browser|Ui)|Ui[\\/]collation-catalog\.js)'; Checks = @('Invoke-CollationCatalogBrowserChecks.ps1','Invoke-CollationCatalogChecks.ps1','Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-ReviewedBrowserCompositionChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(CollationRuntimeEvidence|collation-runtime-evidence|ContainerCollationAcceptance)'; Checks = @('Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-CollationCatalogChecks.ps1','Invoke-VersionCatalogChecks.ps1') },
         @{ Pattern = '(?i)(CollationCatalog|sql-server-collation|Find-SqlServerLabCollation|ManifestParser|ManifestBuilder|lab-manifest|Public[\\/]New-SqlServerLab\.ps1|Public[\\/]Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-CollationCatalogChecks.ps1','Invoke-CollationRuntimeEvidenceChecks.ps1','Invoke-VersionCatalogChecks.ps1') },
         @{ Pattern = '(?i)(PortableLabImport|portable-lab-import)'; Checks = @('Invoke-PortableLabImportChecks.ps1') },
@@ -132,6 +138,9 @@ end {
         @{ Pattern = '(?i)(PortableContainerTransferPreflight|portable-container-transfer-preflight)'; Checks = @('Invoke-PortableContainerTransferPreflightChecks.ps1','Invoke-PortableContainerTransferExecutorChecks.ps1') },
         @{ Pattern = '(?i)(RelationalCoreComparison|relational-core-comparison)'; Checks = @('Invoke-RelationalCoreComparisonChecks.ps1') },
         @{ Pattern = '(?i)(EvaluationWatch|evaluation-watch|SqlGuestEvaluationEvidence|sql-guest-evaluation-evidence)'; Checks = @('Invoke-EvaluationWatchChecks.ps1') },
+        @{ Pattern = '(?i)(EvaluationRefreshPlan|evaluation-refresh-plan)'; Checks = @('Invoke-EvaluationRefreshPlanChecks.ps1','Invoke-EvaluationWatchChecks.ps1') },
+        @{ Pattern = '(?i)(EvaluationRefreshPlanConsole|evaluation-refresh-cli)'; Checks = @('Invoke-EvaluationRefreshPlanConsoleChecks.ps1','Invoke-PublicCommandConsoleChecks.ps1','Invoke-ConsoleUiChecks.ps1') },
+        @{ Pattern = '(?i)(EvaluationRefreshPlanHttp|EvaluationRefreshPlanUi|evaluation-refresh-plan\.js|evaluation-refresh-browser)'; Checks = @('Invoke-EvaluationRefreshPlanHttpChecks.ps1') },
         @{ Pattern = '(?i)(SqlGuestEvaluationCapture|Update-SqlServerLabSqlGuestEvaluationEvidence)'; Checks = @('Invoke-SqlGuestEvaluationCaptureChecks.ps1','Invoke-EvaluationWatchChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1') },
         @{ Pattern = '(?i)(SsisPrerequisite|SSIS_ETL_DATA_WAREHOUSE_BACKLOG)'; Checks = @('Invoke-SsisPrerequisiteChecks.ps1','Invoke-HyperVGuestProgressChecks.ps1','Invoke-DiagnosticBundleChecks.ps1') },
         @{ Pattern = '(?i)(SsisOwnedInstall|Private/HyperVLabEnvironment\.ps1|SSIS_ETL_DATA_WAREHOUSE_BACKLOG)'; Checks = @('Invoke-SsisOwnedInstallChecks.ps1') },
@@ -139,10 +148,12 @@ end {
         @{ Pattern = '(?i)(RecoveryPointPlan|recovery-point-plan)'; Checks = @('Invoke-HyperVRecoveryPointPlanChecks.ps1') },
         @{ Pattern = '(?i)(HyperVPersistentDataDrive|hyperv-persistent-data)'; Checks = @('Invoke-HyperVPersistentDataDriveChecks.ps1','Invoke-HyperVProviderChecks.ps1') },
         @{ Pattern = '(?i)(HostToolResolution|Initialize-SqlServerLabHostTools|Initialize-PodmanRuntime|PodmanBootstrap)'; Checks = @('Invoke-HostToolResolutionChecks.ps1','Invoke-PodmanBootstrapChecks.ps1') },
+        @{ Pattern = '(?i)(ExternalRuntimeCapability|external-runtime-capability|Private/ManifestBuilder\.ps1)'; Checks = @('Invoke-ExternalRuntimeCapabilityChecks.ps1','Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1','Invoke-SoftwareCatalogChecks.ps1','Invoke-ClientReadinessChecks.ps1','Invoke-ManifestBuilderChecks.ps1') },
         @{ Pattern = '(?i)(ClientReadiness|client-readiness|HostToolResolution|StorageContract|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-ClientReadinessChecks.ps1') },
         @{ Pattern = '(?i)(DiagnosticBundle|DiagnosticReadiness|diagnostic-bundle|DIAGNOSTIC_BUNDLE|ClientReadiness|StateMachine|DesiredState|StorageContract|CleanupEngine|Private/BatchWorkflow\.ps1|sql-server-versions)'; Checks = @('Invoke-DiagnosticBundleChecks.ps1') },
         @{ Pattern = '(?i)(^\.agents/skills/|Invoke-SkillChecks|REPOSITORY_AGENT_SKILLS_BACKLOG|SqlServerLab\.psd1)'; Checks = @('Invoke-SkillChecks.ps1','Invoke-DocumentationChecks.ps1','Invoke-PrivacyScannerChecks.ps1') },
         @{ Pattern = '(?i)(CapabilityInventory|capability-evidence-index|ProviderCapability|provider\.json|SqlServerLab\.ps[dm]1)'; Checks = @('Invoke-CapabilityInventoryChecks.ps1') },
+        @{ Pattern = '(?i)(CapabilityEvidence|capability-evidence-index|CapabilityInventory|ExternalRuntimeCapability)'; Checks = @('Invoke-CapabilityEvidenceIdentityChecks.ps1') },
         @{ Pattern = '(?i)(LabNetwork|PortAllocation)'; Checks = @('Invoke-LabNetworkChecks.ps1','Invoke-PortAllocationChecks.ps1') },
         @{ Pattern = '(?i)(LabPreferences|PersistentLabData|StorageContract|StorageFilePlacement|HyperVResourceBinding|HyperVResourceMigration|HyperVImageMigration|hyperv-(resource-(binding|migration)|image-migration)|lab-storage-(intent|bound-plan|runtime-receipt)|SecretProvider|TestEnvironment)'; Checks = @('Invoke-DataRootChecks.ps1','Invoke-HyperVResourceBindingChecks.ps1','Invoke-HyperVImageMigrationChecks.ps1','Invoke-HyperVResourceMigrationChecks.ps1','Invoke-StorageMigrationChecks.ps1','Invoke-StorageFilePlacementChecks.ps1','Invoke-TestEnvironmentChecks.ps1') },
         @{ Pattern = '(?i)(LicenseProfile|license-profile)'; Checks = @('Invoke-LicenseProfileChecks.ps1','Invoke-PrivacyScannerChecks.ps1','Invoke-HyperVSqlImageBuilderChecks.ps1') },
@@ -218,6 +229,9 @@ end {
         foreach ($runtimePath in $allPaths) {
             $pathRuntime = [ordered]@{ Docker = $false; Podman = $false; Mixed = $false; HyperV = $false; Adapter = $false }
             $pathHasProductCode = $runtimePath -match '^(Private|Public|Providers|Adapters|Catalogs|Schemas)/|^SqlServerLab\.(psd1|psm1)$'
+            if ($runtimePath -match '(?i)^(Private/ContainerOwnedHostIntegration\.ps1|Tests/Common/OwnedHostTestScope\.ps1|Schemas/container-owned-host-integration\.schema\.json)$') {
+                $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true; $pathRuntime.Adapter = $true
+            }
             if ($runtimePath -match '(?i)^Private/CleanupEngine\.ps1$') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.Mixed = $true; $pathRuntime.HyperV = $true; $pathRuntime.Adapter = $true }
             if ($runtimePath -match '(?i)ContainerNetworkCleanup') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true }
             if ($runtimePath -match '(?i)TestGroupGuidance') { $pathRuntime.Docker = $true; $pathRuntime.Podman = $true; $pathRuntime.HyperV = $true }

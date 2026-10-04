@@ -42,23 +42,31 @@ function Get-LabContainerInstanceStoreRuntimeInspection {
     param(
         [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
         [Parameter(Mandatory)][ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName,
-        [switch]$RequireMissingEvidence
+        [switch]$RequireMissingEvidence, [string]$StateRoot
     )
 
     $invocation = Get-LabHostToolInvocation -Name $Provider
-    $raw = @(& $invocation volume inspect $VolumeName 2>$null)
+    $owned = $StateRoot -and ((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')))
+    $raw = if ($owned) { @(Invoke-LabContainerRuntimeCommand -Provider $Provider -ArgumentList @('volume','inspect',$VolumeName) -Invocation $invocation -StateRoot $StateRoot) }
+        else { @(& $invocation volume inspect $VolumeName 2>$null) }
     if ($LASTEXITCODE -ne 0) {
         if ($RequireMissingEvidence) {
-            $names=@(& $invocation volume ls --format '{{.Name}}' 2>$null)
+            $names = if ($owned) { @(Invoke-LabContainerRuntimeCommand -Provider $Provider -ArgumentList @('volume','ls','--format','{{.Name}}') -Invocation $invocation -StateRoot $StateRoot) }
+                else { @(& $invocation volume ls --format '{{.Name}}' 2>$null) }
             if ($LASTEXITCODE -ne 0 -or $VolumeName -cin $names) { throw 'CONTAINER_INSTANCE_STORE_ABSENCE_UNVERIFIABLE' }
         }
         return [PSCustomObject]@{ Status='MISSING'; Provider=$Provider; VolumeName=$VolumeName; VolumeId=$null; Labels=[PSCustomObject]@{}; AttachedContainers=@() }
     }
     try { $inspection = @($raw | ConvertFrom-Json -Depth 40 -ErrorAction Stop)[0] }
     catch { throw 'CONTAINER_INSTANCE_STORE_VOLUME_INSPECT_INVALID' }
-    $attached = @(& $invocation ps -a -q --filter "volume=$VolumeName" 2>$null | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
+    $attachedRaw = if ($owned) { @(Invoke-LabContainerRuntimeCommand -Provider $Provider -ArgumentList @('ps','-a','-q','--no-trunc','--filter',"volume=$VolumeName") -Invocation $invocation -StateRoot $StateRoot) }
+        else { @(& $invocation ps -a -q --filter "volume=$VolumeName" 2>$null) }
+    $attached = @($attachedRaw | ForEach-Object { ([string]$_).Trim() } | Where-Object { $_ })
     if ($LASTEXITCODE -ne 0) { throw 'CONTAINER_INSTANCE_STORE_ATTACHMENT_QUERY_FAILED' }
     $labels = if ($inspection.Labels) { $inspection.Labels } else { [PSCustomObject]@{} }
+    if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+        $null=Get-LabOwnedHostVolumeReceipt -StateRoot $StateRoot -Provider $Provider -VolumeName $VolumeName
+    }
     [PSCustomObject]@{
         Status='AVAILABLE'; Provider=$Provider; VolumeName=[string]$inspection.Name
         VolumeId=if ($inspection.PSObject.Properties['Name']) { [string]$inspection.Name } else { $VolumeName }
@@ -72,7 +80,7 @@ function Get-LabContainerInstanceStorePlan {
         [Parameter(Mandatory)]$Intent,
         [Parameter(Mandatory)]$Catalog,
         [Parameter(Mandatory)]$RuntimeInspection,
-        [array]$SidecarRuntimeInspection = @()
+        [array]$SidecarRuntimeInspection = @(), [string]$StateRoot
     )
 
     $null = Test-LabContainerInstanceStoreIntent -Intent $Intent
@@ -114,7 +122,7 @@ function Get-LabContainerInstanceStorePlan {
             [string]::IsNullOrWhiteSpace([string]$store.LocationBinding.ProviderResourceId)) {
             $issues.Add('SOURCE_RUNTIME_BINDING_INVALID')
         }
-        if (-not (Test-LabContainerInstanceStoreRuntimeBinding -Store $store -RuntimeInspection $RuntimeInspection)) {
+        if (-not (Test-LabContainerInstanceStoreRuntimeBinding -Store $store -RuntimeInspection $RuntimeInspection -StateRoot $StateRoot)) {
             $issues.Add('SOURCE_RECOVERED_RUNTIME_BINDING_INVALID')
         }
     }
@@ -241,7 +249,7 @@ function New-LabContainerInstanceStoreSelectionPlan {
         [Parameter(Mandatory)]$Configuration,
         [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$OperationId,
         [ValidatePattern('^[0-9a-fA-F-]{36}$')][string]$TargetPersistentStorageId,
-        [switch]$IncludeExternalRuntimeSidecars
+        [switch]$IncludeExternalRuntimeSidecars, [string]$StateRoot
     )
 
     if ($TargetSqlVersion.Length -lt 4 -or $TargetSqlVersion.Substring(0,4) -notmatch '^\d{4}$') {
@@ -258,7 +266,7 @@ function New-LabContainerInstanceStoreSelectionPlan {
     }
     else { '__unresolved_instance_store__' }
     $runtimeInspection = if ($sourceStores.Count -eq 1 -and $sourceVolumeName) {
-        Get-LabContainerInstanceStoreRuntimeInspection -Provider $Provider -VolumeName $sourceVolumeName
+        Get-LabContainerInstanceStoreRuntimeInspection -Provider $Provider -VolumeName $sourceVolumeName -StateRoot $StateRoot
     }
     else {
         [PSCustomObject]@{
@@ -268,7 +276,7 @@ function New-LabContainerInstanceStoreSelectionPlan {
     }
     $sidecarRuntimeInspection = if ($IncludeExternalRuntimeSidecars -and $sourceStores.Count -eq 1 -and $sourceVolumeName) {
         @(Get-LabContainerInstanceStoreSidecarDefinitions -BaseVolumeName $sourceVolumeName | ForEach-Object {
-            Get-LabContainerInstanceStoreRuntimeInspection -Provider $Provider -VolumeName ([string]$_.VolumeName)
+            Get-LabContainerInstanceStoreRuntimeInspection -Provider $Provider -VolumeName ([string]$_.VolumeName) -StateRoot $StateRoot
         })
     }
     else { @() }
@@ -291,7 +299,7 @@ function New-LabContainerInstanceStoreSelectionPlan {
         IncludeExternalRuntimeSidecars=[bool]$IncludeExternalRuntimeSidecars
     }
     return Get-LabContainerInstanceStorePlan -Intent $intent -Catalog $catalog -RuntimeInspection $runtimeInspection `
-        -SidecarRuntimeInspection $sidecarRuntimeInspection
+        -SidecarRuntimeInspection $sidecarRuntimeInspection -StateRoot $StateRoot
 }
 
 function Get-LabContainerInstanceStoreDriveBinding {
@@ -364,8 +372,12 @@ function Invoke-LabContainerInstanceStoreClone {
     param(
         [Parameter(Mandatory)]$Plan,
         [Parameter(Mandatory)][string]$OperationDirectory,
-        [Parameter(Mandatory)]$Configuration
+        [Parameter(Mandatory)]$Configuration, [string]$StateRoot
     )
+    if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+        $null=Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required
+        throw 'OWNED_HOST_INSTANCE_STORE_CLONE_UNSUPPORTED'
+    }
     if ([string]$Plan.Status -ne 'READY' -or [string]$Plan.Action -ne 'CLONE') {
         throw 'CONTAINER_INSTANCE_STORE_CLONE_PLAN_REQUIRED'
     }

@@ -4,8 +4,9 @@
 .DESCRIPTION
     Filtert alle Suchwörter gegen Collation-Namen und Locale ohne Runtime- oder
     State-Mutation. Die Ausgabe ist eine kuratierte Auswahl für die
-    Instanzcollation im Manifest- und Ad-hoc-Pfad. Die zusätzliche SQL-seitige
-    Verifikation ist noch nicht implementiert.
+    Instanzcollation im Manifest- und Ad-hoc-Pfad. Die Suche prüft keinen SQL-Server.
+    Der getrennte Container-Provisionierungspfad verifiziert die Collation
+    nach SQL-Readiness; dieser Nachweis ist kein Browser-Suchnachweis.
 .PARAMETER Query
     Leer oder ein oder mehrere Suchwörter, etwa `Latin1 UTF8`.
 .PARAMETER SqlVersion

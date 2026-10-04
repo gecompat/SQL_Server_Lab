@@ -4,8 +4,11 @@
 function Invoke-LabRetainedStoreNative {
     [CmdletBinding()]
     param([ValidateSet('docker','podman')][string]$Provider, [string[]]$Arguments,
-        [ValidateRange(1,120)][int]$TimeoutSeconds=20)
+        [ValidateRange(1,120)][int]$TimeoutSeconds=20,[string]$StateRoot)
     try {
+        if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+            return Invoke-LabContainerRuntimeCommand -Provider $Provider -ArgumentList $Arguments -StateRoot $StateRoot -Phase Cleanup -TimeoutSeconds $TimeoutSeconds -NativeResult
+        }
         $cli=Get-LabHostToolInvocation -Name $Provider
         Invoke-LabProgressNativeCommand -FilePath $cli -ArgumentList $Arguments `
             -Phase Cleanup -TimeoutSeconds $TimeoutSeconds
@@ -15,7 +18,11 @@ function Invoke-LabRetainedStoreNative {
 
 function Get-LabRetainedStoreRuntimeContext {
     [CmdletBinding()]
-    param([ValidateSet('docker','podman')][string]$Provider)
+    param([ValidateSet('docker','podman')][string]$Provider,[string]$StateRoot)
+    if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+        $scope=Get-LabContainerRuntimeScope -Provider $Provider -StateRoot $StateRoot
+        return [pscustomobject]@{Provider=$Provider;RuntimeScopeId=$scope.RuntimeId;Arguments=@();StateRoot=$StateRoot}
+    }
     function Read-ContextJson {
         param([string[]]$Arguments)
         $result=Invoke-LabRetainedStoreNative -Provider $Provider -Arguments $Arguments
@@ -47,11 +54,12 @@ function Get-LabRetainedStoreVolume {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Context,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName)
+    $ownContext=if($Context.PSObject.Properties['StateRoot']){@{StateRoot=[string]$Context.StateRoot}}else{@{}}
     $result=Invoke-LabRetainedStoreNative -Provider $Context.Provider `
-        -Arguments (@($Context.Arguments)+@('volume','inspect',$VolumeName))
+        -Arguments (@($Context.Arguments)+@('volume','inspect',$VolumeName)) @ownContext
     if ($result.ExitCode -ne 0) {
         $listing=Invoke-LabRetainedStoreNative -Provider $Context.Provider `
-            -Arguments (@($Context.Arguments)+@('volume','ls','--format','{{.Name}}'))
+            -Arguments (@($Context.Arguments)+@('volume','ls','--format','{{.Name}}')) @ownContext
         $names=@($listing.Output | ForEach-Object {$_.Trim()} | Where-Object {$_})
         if ($listing.ExitCode -ne 0 -or $VolumeName -cin $names -or
             @($names | Where-Object {$_ -cnotmatch '^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$'}).Count -gt 0) {
@@ -64,7 +72,7 @@ function Get-LabRetainedStoreVolume {
     if ($items.Count -ne 1 -or [string]$items[0].Name -cne $VolumeName) { throw 'RETAINED_STORE_VOLUME_UNVERIFIABLE' }
     $volume=$items[0]
     $attached=Invoke-LabRetainedStoreNative -Provider $Context.Provider `
-        -Arguments (@($Context.Arguments)+@('ps','-a','-q','--filter',"volume=$VolumeName"))
+        -Arguments (@($Context.Arguments)+@('ps','-a','-q','--filter',"volume=$VolumeName")) @ownContext
     if ($attached.ExitCode -ne 0) { throw 'RETAINED_STORE_ATTACHMENTS_UNVERIFIABLE' }
     [pscustomobject]@{
         Status='AVAILABLE'; VolumeName=$VolumeName; Labels=$volume.Labels
@@ -78,8 +86,9 @@ function Remove-LabRetainedStoreVolume {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Context,
         [ValidatePattern('^[A-Za-z0-9][A-Za-z0-9_.-]{0,254}$')][string]$VolumeName)
+    $ownContext=if($Context.PSObject.Properties['StateRoot']){@{StateRoot=[string]$Context.StateRoot}}else{@{}}
     # No force: a last-moment attachment must also be rejected by the engine.
     $result=Invoke-LabRetainedStoreNative -Provider $Context.Provider `
-        -Arguments (@($Context.Arguments)+@('volume','rm',$VolumeName)) -TimeoutSeconds 60
+        -Arguments (@($Context.Arguments)+@('volume','rm',$VolumeName)) -TimeoutSeconds 60 @ownContext
     if ($result.ExitCode -ne 0) { throw 'RETAINED_STORE_DELETE_NOT_CONFIRMED' }
 }

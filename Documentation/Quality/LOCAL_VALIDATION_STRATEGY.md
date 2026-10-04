@@ -1,6 +1,94 @@
 # Lokale Validierungsstrategie
 
+## Gemeinsame Browserkomposition
+
+`Invoke-ReviewedBrowserCompositionChecks.ps1` führt die fünf dedizierten Routen
+für Evaluation-Ersatzentscheid, llama.cpp-Dateivorschau, bewussten llama.cpp-Start
+und External-Languages-Entscheid sowie Collation-Katalogsuche zusammen im selben isolierten Modul aus.
+Die tatsächlichen HTTP-/Public-/Readerpfade bleiben erhalten; nur Runtime- und
+Transportleaves sind synthetisch. Eindeutige HTML-IDs und Scripts, 135 Exporte,
+getrennte Fehlerantworten, Zero-Fallthrough und die gemeinsame CLI-Auswahl samt
+Abbruch sind Pflichtfälle. WhatIf startet keinen Worker; synthetisches READY
+belegt keine aktuelle Host-, SQL-, Provider- oder Besitzautorität.
+Die bestehenden Einzelsuites prüfen weiterhin ihre vollständigen Verträge.
+Ausgewählte Native-Gates bleiben separat und dürfen daraus kein PASS erhalten.
+
+`Invoke-CollationCatalogBrowserChecks.ps1` führt die extrahierte dedizierte Route
+über den echten HTTP-Helper, Public-Suchbefehl und Schema-/Katalogreader aus.
+UTF-8-/JSON-/Origin-/Listenergrenzen, drei Versionen, ASCII-AND-Suche,
+Zero-Token-/Nulltreffer, ungültige Kataloge, geschlossene Metadaten und ehrliche
+Truncation werden synthetisch geprüft. Verbotene SQL-/Provider-/Stateleaves
+sind instrumentiert. Die echte JS-Datei läuft mit Fake-DOM/Fetch: bewusste Suche,
+Busy, Zurück/Escape, Edit-Revision, beide späten Antwortarten und `textContent`.
+Eigene synthetische HTTP-Katalogfixtures bleiben lokal ignoriert erhalten;
+dieser neue Test behauptet kein Cleanup. Kein manueller Browser- oder nativer
+SQL-Nachweis; die bestehende separate Container-Evidence bleibt historisch.
+
+## Reiner Evaluation-Ersatzentscheid
+
+`Invoke-EvaluationRefreshPlanHttpChecks.ps1` führt den tatsächlichen HTTP-Reader,
+öffentlichen D-Core und registrierten Diagnostic-/Gast-Reader sowie den echten
+dedizierten Serverbranch auf synthetischen Metadaten aus. Request-/Origin-/Body-
+und Auswahlgrenzen, Drift bei zweiter Coreobservation, Recovery, Datenschutz und
+getrennte fehlende/veraltete/aktuelle Evidence sind Pflichtfälle.
+`EvaluationRefreshPlanUiChecks.cjs` führt das echte RAM-Dialogskript mit DOM-/Fetch-
+Leaves aus: drei Modi, Cancel/Escape, Busy, geänderte Auswahl, verworfene späte
+Erfolge/Fehler und strikt nicht ausführbare feste Responses. Kein Job, SQL-/
+Providerzugriff oder neuer Lizenznachweis; ausgewählte Providergates bleiben separat.
+
+`Invoke-EvaluationRefreshPlanConsoleChecks.ps1` führt den tatsächlichen geführten
+CLI-Handler durch den öffentlichen Plan und seine Diagnostic-/Gast-Reader aus.
+Nur Text-, Menü- und Anzeigegrenzen sind isoliert. Alle drei Modi, Cancel vor
+jedem Planaufruf, fremde/abweichende Bindung, Auswahl-/Inhaltsdrift, fehlende und
+veraltete Evidence, Datenschutz und die 64-Verzeichnisgrenze sind Pflichtfälle.
+Der gemeinsame Menüdispatch erhält den generischen Editor und Komponentenplan.
+Diese synthetische Komposition ist keine Runtime-, Lizenz- oder SQL-Abnahme.
+
+`Invoke-EvaluationRefreshPlanChecks.ps1` führt die tatsächlichen öffentlichen
+Plan-/Watchfunktionen, DiagnosticReader, SQL-Gast-Reader und gemeinsame
+Fristklassifikation mit registrierten synthetischen Root-/Run-/Scope-Records aus.
+Runtime-, Hosttool-, SQL-, Secret-, Default- und Mutationsgrenzen werfen. Drei
+blockierte Modi, fehlende/veraltete/abweichende Evidence, Controller-/Instanz-
+und Contentdrift, NoWrite und feste DTOs sind notwendig. Watch-Inventargrenzen
+liefern nur die synthetische Quelle. Die Prüfung beweist keine Lizenzprüfung,
+SQL-Readiness, Providerfunktion oder Migration; Diff-Auswahl und CI bleiben
+separate Verpflichtungen.
+
+## Prospektiver External-Languages-Capability-Entscheid
+
+`Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1` prüft die extrahierte echte
+HTTP-Route im bestehenden Modulkontext, den neuen strikten Helper und den
+unveränderten Public-/Resolver-/Classifier-Pfad mit isolierten Transport-Spies.
+ReadOptions und Evaluate ohne Hostcheck verlangen null native Transporte;
+bewusster Hostcheck verlangt genau einen begrenzten Adapteraufruf.
+UTF-8-/Körper-/Origin-/Listener-/Typgrenzen und geschlossene Antworten werden
+negativ geprüft. Das tatsächliche JS-Modul läuft mit Fake-DOM und Fetch-Spies:
+Abbruch, Escape, Busy, verworfene späte Antworten, blockierte Varianten und
+Privacyfehler werden geprüft. Das sind synthetische Prüfungen, keine manuelle
+Browser- oder native Provider-/SQL-Sprachabnahme.
+
+`Invoke-ExternalRuntimeCapabilityChecks.ps1` durchläuft den tatsächlichen
+Public-Aufruf, Katalogresolver, Reducer und bestehenden Manifestdialog.
+Provider-Metadaten stammen aus dem Repository; native Prozessgrenzen werden
+durch isolierte Spies ersetzt. Standard-Probes=0, bewusster Info-Aufruf,
+StartInfo-/Argument-/Zeit-/Streamvertrag, typisierte Hostfakten, ungeeignete
+cgroup-/Rootful-Kombinationen, feste Fehler, Rawdatenfreiheit, negative
+Varianten, Zurück/Abbruch und bestehende Manifestfelder werden geprüft.
+Es werden keine Provider, SQL-Instanzen oder Sprachruntimes gestartet oder
+abgefragt. Native Nachweise bleiben getrennt und werden nach tatsächlichem
+finalen Diff ausgewählt. [Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+
 ## Reine Komponenten-/Shared-Verbrauchervorschau
+
+Der zugehörige Browser-Slice wird durch `ComponentRelationPlanHttpChecks.ps1`
+mit dem tatsächlichen HTTP-Reader, DiagnosticReader und öffentlichen Core auf
+registrierten synthetischen Metadaten geprüft. Body-/Origin-/Shapegrenzen,
+Auswahl-/State-/Scope-Drift und blockierte Recovery sind getrennte Fälle.
+`ComponentRelationPlanUiChecks.cjs` führt das echte Dialogskript mit DOM-/Fetch-
+Leaves aus: bewusste Auswahl, ein Shared-Verbraucherziel, Abbruch, Busy,
+verworfene späte Antworten und feste Fehlerdarstellung. Die bestehende
+Komponenten-Suite führt beide Fixtures aus. Diese Offlinekomposition enthält
+keine SQL-/Providerabnahme; die tatsächliche Providerselektion bleibt verbindlich.
 
 `Invoke-ComponentRelationPlanChecks.ps1` führt den tatsächlichen öffentlichen
 Plan-/Action-Parametersatz und den privaten Core mit modernen synthetischen
@@ -12,6 +100,15 @@ Pipelinepfad muss Mode/Version vor jeder Observation verweigern. Runtime-,
 Hosttool-, SQL- und Secret-Spies werfen bei jedem Aufruf. Diese Evidence ist
 eine Planprüfung, kein Start-/Shared-Removal-/Providerbeleg.
 
+Die gekoppelte `Fixtures/ComponentRelationPlanConsoleChecks.ps1` lädt tatsächliche
+Funktionsdeklarationen ohne Modul-/Providerimport und führt den CLI-Menüpfad
+über den öffentlichen Plan in den unveränderten Core aus. Registrierte Root-,
+Run-, Scope-, Desired-State- und ProviderSubRun-Fixtures sind synthetisch.
+Abbruch an jedem Dialogschritt, leere Relations, Shared-DAG, Cycle, Inhalts-/
+Statewechsel, unregistrierter Root und Zielanzahl prüfen reine Vorschau und
+ZeroDispatch. Menü-, Text- und Anzeigegrenzen sind isoliert; reale Secrets,
+Hosttools, Runtime und Executor dürfen nicht aufgerufen werden. Diese Fixture
+wird vom bestehenden ComponentRelationPlan-Impactpfad mit ausgeführt.
 ## Geführte Wartung und Zuordnungsreparatur
 
 `Tests/Static/Invoke-MaintenanceGuidanceChecks.ps1` prüft den tatsächlichen
@@ -789,6 +886,21 @@ bleiben `NOT_EXECUTED`. Die Inventur prüft weder den Inhalt externer Referenzen
 noch die Existenz historischer Commits und bestätigt keine aktuelle
 Quellgleichheit. Neue Einträge benötigen daher eine geprüfte tatsächliche
 Ausführung mit sanitisiertem Quellenbeleg. Es werden keine Rohlogs importiert.
+
+Der optionale Schalter `-IncludeRecordedAcceptanceMatrix` ergänzt die Inventur
+als `SqlServerLab.RepositoryCapabilityInventory/1.1`; ohne Schalter bleiben
+Version `1.0` und deren Felder unverändert. Die sparse Sicht gruppiert nur
+validierte Indexeinträge nach exakter Fähigkeit, Provider, SQL-Version
+(einschließlich typisiertem `null`), aufgezeichneter Plattform und Scope.
+`RecordedPlatform` ist keine abgeleitete Gastplattform. Alle Records bleiben
+ordinal deterministisch erhalten. Unterschiedliche Ergebnisse oder Cleanupwerte
+für dasselbe Tupel mit gleicher Revision, Testdatei und Datum setzen
+`HistoryConflict`; es gibt keinen Latest-Winner. Andere Daten oder Revisionen
+bleiben separate Historie. Die Suite prüft die tatsächliche Tool-Komposition,
+Defaultparität, Tupeltrennung, Reihenfolge, Konflikte, 128-Record-Grenze sowie
+geschlossene leere Zellen bei fehlendem, ungültigem oder umgeleitetem Index.
+Die vorhandene Modulinventur bleibt unverändert; der Schalter ergänzt keine
+Imports, Readiness- oder Providerproben.
 
 Die Persistent-Storage-Katalogsuite prueft auch den umgestellten
 Container-Datenbankreferenz-Writer: Preview ohne Katalogschreiben, genau eine
@@ -1740,6 +1852,15 @@ Nicht in versionierte Evidence übernehmen:
 
 ## 9. Sample-Katalog-Validierung
 
+`Invoke-ManifestBuilderChecks.ps1` führt zusätzlich die tatsächliche
+Validator-/Resolver-Komposition mit isoliertem synthetischem Katalog aus:
+Bundle-Zweitoutput gegen explizite Datenbank, Bundle gegen Bundle,
+Groß-/Kleinschreibung, disjunkte Outputs, getrennte Instanzen, freigegebene
+Zielnamen-Overrides und ungültige Outputlisten. Eine erneute Katalogauflösung
+im tatsächlichen `New-SqlServerLab -Manifest` wird vor `New-LabRunState`
+bei einer neuen Kollision abgewiesen. Diese Fixtures provisionieren keine
+Ressourcen und führen weder Acquisition noch SQL aus.
+
 Die statische Prüfung verifiziert JSON und Schema-Referenzen. Der Manifestparser prüft zur Laufzeit:
 
 - Sample-ID vorhanden;
@@ -2477,7 +2598,11 @@ Quellen-Core, den echten CLI-Fallback und den extrahierten HTTP-Handler mit
 isolierten synthetischen Preferences und Katalogdaten aus. Geprüft werden
 Read/Preview/Cancel/No-op, Bestätigung, gezielter Reset, fremde Felder,
 veralteter Katalog/Vorgänger, Writerlock-Revalidierung, ungültige URLs und
-unveränderte Größen-/Hashbindung. Der echte Save-Pfad wird an eine eigene
+unveränderte Größen-/Hashbindung für alle sechs SQL-2022/2025-Bootstrapper.
+Falsche Version, Edition, Art, Architektur, Sprache, Dateiname und Integritätswerte
+werden vor der Quellenzuordnung abgelehnt. Der SQL-2022-Evaluation-Default
+behält seine vorhandene Vendorquery, während alternative Adressen queryfrei
+bleiben. Der echte Save-Pfad wird an eine eigene
 Loopback-Transportfixture gebunden: 301/302/303/307/308 dürfen weder eine
 Folgeanfrage noch eine publizierte Datei erzeugen. Die Tests erlauben keinen
 produktiven Loopback-Override. Microsoft-Endpunkte werden nicht kontaktiert.
@@ -2517,6 +2642,35 @@ bestätigt. Separat bestand ein eigener isolierter Docker-SQL-2025-Core-Smoke
 34/34 mit geprüftem Runtime-Cleanup und unveränderten Benutzerdefaults.
 Dieser Docker-Nachweis belegt den gemeinsamen Core, keine Resource-Watch-
 Dauerüberwachung und keinen anderen Provider.
+
+### Resource-Watch-Automationslane
+
+`Fixtures/VersionCatalogResourceWatchAutomationChecks.ps1` wird über die
+bestehende VersionCatalog-Suite ausgeführt. Reale pure Projektion, kompletter
+Issue-APIvertrag, Runner und extrahierte Workflow-PowerShell laufen mit
+synthetischen Daten. Geprüft werden Scope-/Quellen-/Versions-/Fehlergrenzen,
+Monatsunabhängigkeit, WhatIf, frische Revalidierung, POST/PATCH plus Nachlesen,
+Lost-response-Recovery, globale/individuelle Erholung und fremde Bodybytes.
+Die Issue-HTTP-Fixture ersetzt ausschließlich den URIresolver mit eigenem
+Loopback, verwendet einen synthetischen Token und führt den echten begrenzten
+Streamreader aus: 3xx ohne Folgeanfrage, HTTPfehler, Encoding-/Byte-/JSONgrenzen
+und Timeout. Sie belegt weder GitHub-TLS noch Berechtigungen oder Zustellung.
+
+Die eigene Namespacefixture prüft getrennte Marker/Receipts, fehlerhafte
+Dispatchinputs, Schutz regulärer Issues und den receipt-/scopegebundenen
+Close-Cleanup einschließlich Vorschau, Drift, ungültiger Bindung und No-op.
+Die begrenzte Own-Projektion wird am tatsächlichen Helper mit vollständigem
+Vier-Ressourcenbefund und synthetischem API-Adapter geprüft: explizite Auswahl,
+ein unterschiedliches Issue, ein Write, vollständige vorhandene Own-Inventur,
+globale Fehler/Recovery, null Kandidaten sowie UNKNOWN-Continuation mit fehlendem
+und später gefundenem Marker. Fremde Scope-/Head-/Befund-/Bodyhashbindungen
+blockieren vor Write; ein veralteter UNKNOWN-Befund gewährt keine neue Authority.
+Es werden keine echten Issues erstellt, keine reguläre Task aktiviert und keine
+Provider gestartet. Die echte Abnahme bleibt gemäß
+[Automationsvertrag](../Architecture/RESOURCE_WATCH_AUTOMATION.md) separat:
+exakter Workflowhead, echter Dispatch, nachgelesener Issue-Receipt, Dedupe und
+eigener Cleanup. Ein konfigurierter Cron oder erfolgreicher Dispatch ersetzt
+keinen tatsächlich durch den Cron ausgelösten Lauf.
 
 ## Geführter eigener llama.cpp-Sitzungsstop
 
@@ -2562,3 +2716,85 @@ Die Fixture CmsInspectionChecks wird durch Invoke-ConnectionCenterCmsChecks entd
 ## Bewusster lokaler Operator-Handoff
 
 Der [kanonische Handoff](../HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.
+
+## Reine eigene llama.cpp-Startvorschau
+
+`Tests/Static/Invoke-LlamaCppStartPlanChecks.ps1` führt den echten öffentlichen
+Core und die bestehenden Files-only-Reader in einem isolierten Modul mit
+synthetischen lokalen Dateien aus. Grenzen: exakte Installation, Backends,
+CUDA-NPU, Dateimengen/Reparsepfade, GGUF-Magic, Metadatendrift, skalare Grenzen,
+Pfadfreiheit, NOT_CHECKED und unverändertes Start-WhatIf. Gesperrte Start-,
+Compute-, HTTP-, Secret- und Defaultgrenzen dürfen nicht erreicht werden.
+Der Nachweis ist keine Geräte-, TLS-, Modell-, SQL- oder Providerabnahme.
+Die tatsächliche Diffauswahl bleibt maßgeblich; ausgewählte, nicht ausgeführte
+Provider-Smokes bleiben ausdrücklich NOT_EXECUTED.
+
+### Geführte reine llama.cpp-Startvorschau
+
+`Invoke-LlamaCppStartPlanConsoleChecks.ps1` führt den tatsächlichen Menü-/
+Dialogpfad bis in Public-Core und bestehende Files-only-Reader auf synthetischen
+Dateien aus. Console-Menüleaves werden gespeist; die echte Texteingabeleaf wird
+mit isolierter Fallbackeingabe geprüft. Cancel an allen Schritten, MaskInput-
+Semantik, exakte zehn Argumente/Defaults, skalare Grenzen, fremde Menü-IDs,
+strikte sichere DTOs/Fehler sowie sichtbarer Drift und Reparse/GGUF-Vetos sind
+erforderlich. Start/Stop, Compute, HTTP, Secrets und Defaults sind gesperrt.
+Eigene Fixturedateien werden bereinigt. Keine empirische Tastatur-, Runtime-
+oder Providerabnahme; die selektierten Pflichtgates bleiben separat.
+
+### Geführte reine llama.cpp-Dateivorschau im Browser
+
+`Invoke-LlamaCppStartPlanBrowserChecks.ps1` führt den tatsächlichen engen
+HTTP-Handler bis Public-Core und bestehende Files-only-Reader sowie die
+extrahierte echte UI-Route auf synthetischen Dateien aus. Erforderlich sind
+strikte zehn Eingaben, UTF-8-Byte-/Zeichen-/JSON-Grenzen, Duplicate-/Case- und
+Origin-Vetos, fehlende/unbekannte/coerced Parameter, sichere DTOs und feste
+Fehlercodes, echte sichtbare Drift-, Reparse- und GGUF-Abweisung. Jobs,
+Start/Stop, Runtime, Compute, Secrets und Defaults sind gesperrte Grenzen.
+Die echte neue JavaScript-Datei prüft RAM-Eingaben, bewusste Vorschau, Cancel,
+Busy-/Revision- und verspätete Erfolgs-/Fehlerantworten über DOM-/Fetch-Fixtures.
+Das ist keine physische Browser-, Tastatur-, Modell- oder Nativeabnahme.
+Eigene Fixturedateien werden bereinigt; alle tatsächlichen Diffselektor-Gates
+und fehlenden Provider-Nachweise bleiben separat und unverändert verpflichtend.
+
+### Geführter eigener llama.cpp-Start (CLI)
+
+Invoke-LlamaCppStartConsoleChecks.ps1 prüft actual Menü, Handler, Public-ShouldProcess, isolierten Runtime-Leaf, SecureString-Consoleleaf und SessionView. Cancel vor jedem Schritt/Bestätigung startet nichts; WhatIf ist keine Bereitschaft. Strikte DTO-/Sessionbindung, unbestätigtes Ergebnis und compound Recovery zeigen keine Rohwerte und lösen keinen AutoStop/Retry aus. Nur synthetisch, keine physische Tastatur-, Prozess-, Modell-, TLS-, SQL- oder Providerabnahme. Tatsächliche Diff-Auswahl und ausgewählte Native-Gates bleiben maßgeblich; nicht ausgeführt ist kein PASS.
+
+### Geführter eigener llama.cpp-Start (Browser)
+
+Invoke-LlamaCppStartBrowserChecks.ps1 prüft tatsächlichen dedizierten HTTP-Handler,
+unveränderten Public-ShouldProcess und isolierten privaten Runtime-Leaf sowie
+extrahierte echte UI-Route im selben Modul. Pflichtfälle: Loopback-/Originbindung,
+strict UTF-8/JSON/aggregierte Grenzen, fünfzehn explizite Scalars, bewusster START
+versus WhatIf, effektive ConfirmPreference, Schlüsselentsorgung, strikte eigene
+Session-/Port-/DTO-Bindung und feste unbestätigte/Recovery-Ergebnisse. Dateien,
+Prozesse, Runtime und Netzwerk sind gesperrte Leaves. Die echte JS-Fixture prüft
+RAM-Eingaben, Cancel vor/nach Versand, Busy und verspätete Erfolge/Fehler, noRetry,
+Schlüsselclearing und feste textContent-Anzeigen. Keine echte Browser-/Tastatur-
+oder Nativeabnahme; tatsächliche Diffselektion und fehlende Providerpflichten
+bleiben separat. Bestehende Public-/Core-/CLI-/Preview-/Stopbytes bleiben erhalten.
+
+Das optionale CORE-102-Identitätsmapping verwendet den bestehenden Indexvertrag
+1.1; Legacyrecords bleiben unbekannt und unverändert. Public
+`Get-SqlServerLabExternalRuntimeCapability -IncludeRecordedEvidence` liefert
+Version 1.1 ohne aktuelle Evidence-Aufwertung. Das Tool verlangt beide Schalter
+`-IncludeRecordedAcceptanceMatrix -IncludeRecordedIdentityMatrix` und liefert
+Version 1.2 ausschließlich als begrenzte historische Identitätsmatrix, ohne
+Quellinventar/Modulimport. Maximal 128 Records und 256 KiB UTF-8 für die komplette
+neue Antwort; Überlauf bleibt leer/UNAVAILABLE. Referenzen sind NOT_VERIFIED,
+aktuelle Ausführung NOT_EXECUTED und Readiness NOT_CHECKED. Alte Public-/Browser-
+und Manifestdefaults bleiben unverändert. Reale neue Producerrecords, Native-/SQL-
+Abnahme und vollständige Kombinationenmatrix bleiben offen.
+
+Invoke-CapabilityEvidenceIdentityChecks.ps1 prüft den tatsächlichen Reader, Schema, Public/Resolver und die neue reine Toolmatrix: typisierte Identität, Capabilitybindung, Konflikthistorie, doppelte/falsch geschriebene JSON-Felder, Reparsegrenzen sowie vollständige UTF-8-Ausgabegrenze. Die synthetischen Dateien bleiben ignored lokal; keine neue Runtime-Abnahme.
+## Eigener CI-Scope auf einem gemeinsam genutzten Windows-Host
+
+`Invoke-OwnedHostIntegrationChecks.ps1` prüft typisierte Policy-/Runreferenzen,
+geschützte eigene Dateirechte, Carrier, FullCID-/Volume-/Image-Originbindung,
+Routingoverrides und Timeout-/Ausgabegrenzen mit synthetischen Ressourcen und
+eigenen PowerShell-Kindern. Provider- und Taskeffekte sind gesperrt.
+Die gekoppelte Schema-, RuntimeScope-, Doku- und CI-Auswahlprüfung bleibt
+erforderlich. Native Docker-, Podman-, Mixed-, Hyper-V- und Adaptergates müssen
+den stabilen Head getrennt belegen; Readiness und historische Evidence gelten
+nicht als aktuelle Abnahme. Vor-/Nachschutz erfasst alle vorbestehenden
+Ressourcen; Rohdiagnosen bleiben lokal. [Vertrag](../Architecture/OWNED_HOST_CI_ISOLATION.md).

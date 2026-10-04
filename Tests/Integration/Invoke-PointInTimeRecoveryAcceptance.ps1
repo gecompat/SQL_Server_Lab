@@ -12,7 +12,8 @@ param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
     [ValidateSet('2025')][string]$Version='2025',
     [ValidateRange(60,1800)][int]$TimeoutSeconds=900,
-    [switch]$RuntimeMutexAlreadyHeld
+    [switch]$RuntimeMutexAlreadyHeld,
+    [string]$StateRoot
 )
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
@@ -26,10 +27,10 @@ try {
         catch [Threading.AbandonedMutexException] { $acquired=$true }
         if (-not $acquired) { throw 'PITR_LOCK_TIMEOUT' }
     }
-    $root=New-PitrSupervisorRoot
+    $root=New-PitrSupervisorRoot -StateRoot $StateRoot
     $operation=[guid]::NewGuid().ToString('N')
     $result=Invoke-PitrSupervisor -AcceptanceRunner (Join-Path $PSScriptRoot 'Invoke-PointInTimeRecoveryChild.ps1') `
-        -Provider $Provider -StateRoot (Join-Path $root 'state') -OperationId $operation -EvidenceRoot $root -TimeoutSeconds $TimeoutSeconds
+        -Provider $Provider -StateRoot $(if ($StateRoot) { $StateRoot } else { Join-Path $root 'state' }) -OperationId $operation -EvidenceRoot $root -TimeoutSeconds $TimeoutSeconds
     Write-Host ('PITR: '+$result.Status+'; PRIMARY='+$result.PrimaryReason+
         '; CLEANUP='+$result.CleanupStatus+'; CLEANUP_REASON='+$result.CleanupReason)
     $failed=$result.Status -cne 'COMPLETED'

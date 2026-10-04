@@ -10,11 +10,13 @@
     weder Quelle noch Ziel. Docker und Podman sind getrennte Nachweise.
 #>
 [CmdletBinding()]
-param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,[switch]$RuntimeMutexAlreadyHeld)
+param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,[switch]$RuntimeMutexAlreadyHeld,[string]$StateRoot)
 $ErrorActionPreference='Stop'
+. (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+if ($StateRoot) { Assert-OwnedHostTestRoot -StateRoot $StateRoot }
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-$root=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-transfer-acceptance-'+[guid]::NewGuid().ToString('N'))
-$state=Join-Path $root 'state';$data=Join-Path $root 'Lab_Data'
+$root=if ($StateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $StateRoot -Name 'sql-lab-transfer-acceptance' } else { Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-transfer-acceptance-'+[guid]::NewGuid().ToString('N')) }
+$state=if ($StateRoot) { $StateRoot } else { Join-Path $root 'state' };$data=if (-not $StateRoot) { Join-Path $root 'Lab_Data' } else { $null }
 $oldState=$env:SQL_SERVER_LAB_STATE;$oldData=$env:SQL_SERVER_LAB_DATA_ROOT
 $source=$null;$targetId=$null;$module=$null;$mutex=$null;$acquired=$false;$cleanupFailed=$false;$complete=$false
 $ownedBindings=[Collections.Generic.List[object]]::new()
@@ -32,9 +34,12 @@ try {
     if(-not $RuntimeMutexAlreadyHeld){$mutex=[Threading.Mutex]::new($false,$(if($IsWindows){'Global\SQL_Server_Lab_Runtime_Smoke'}else{'SQL_Server_Lab_Runtime_Smoke'}));$acquired=$mutex.WaitOne([TimeSpan]::FromMinutes(10));if(-not $acquired){throw 'TRANSFER_ACCEPTANCE_LOCK_TIMEOUT'}}
     $resolution=@(& (Join-Path $repoRoot 'Tools/Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
     Assert-TransferAcceptance ([bool]$resolution.Available) 'Providerwerkzeug zentral aufgelöst'
-    & ([string]$resolution.Invocation) info 1>$null 2>$null
+    if ($StateRoot) {
+        Invoke-OwnedHostTestCommand -StateRoot $state -Provider $Provider -Invocation ([string]$resolution.Invocation) -Arguments @('info') 1>$null 2>$null
+    } else { & ([string]$resolution.Invocation) info 1>$null 2>$null }
     Assert-TransferAcceptance ($LASTEXITCODE -eq 0) 'Provider erreichbar'
-    $null=New-Item -ItemType Directory -Path $root
+    if (-not $StateRoot) { $null=New-Item -ItemType Directory -Path $root }
+    if($StateRoot){$data=New-OwnedHostTestDataRoot -StateRoot $StateRoot -Purpose transfer}
     $env:SQL_SERVER_LAB_STATE=$state;$env:SQL_SERVER_LAB_DATA_ROOT=$data
     $module=Import-Module (Join-Path $repoRoot 'SqlServerLab.psd1') -Force -PassThru
     & $module {param($Data)$null=Initialize-LabManagedDataRoot -DataRoot $Data -ControllerId ([guid]::NewGuid().ToString('D')) -Confirm:$false} $data
@@ -85,7 +90,7 @@ try {
     Assert-TransferAcceptance (($before|ConvertTo-Json -Compress) -ceq ($after|ConvertTo-Json -Compress)) 'Read-only-Status und Marker der Quelle bleiben durch Transfer und Replay unverändert'
     $removed=Remove-SqlServerLab -RunId $targetId -StateRoot $state -Force -Confirm:$false
     Assert-TransferAcceptance ($removed.Status -eq 'REMOVED') 'Erfolgreiches Ziel wurde vollständig entfernt'
-    & $module {param($Binding)Assert-LabTransferNoResidue -Binding $Binding} $targetBinding
+    & $module {param($Binding,$State)Assert-LabTransferNoResidue -Binding $Binding -StateRoot $State} $targetBinding $state
     $targetId=$null
     # Die Acceptance verändert ihre eigene Quelle zwischen zwei getrennten
     # Aufträgen. Der Executor selbst schaltet niemals eine Quelle schreibbar.
@@ -117,15 +122,19 @@ try {
             }catch{$cleanupFailed=$true;Write-Warning 'Eigenes Acceptance-Cleanup benötigt Recovery; State bleibt erhalten.'}
         }
         foreach($binding in @($ownedBindings|Group-Object RunId|ForEach-Object {$_.Group[0]})){
-            try{& $module {param($Binding)Assert-LabTransferNoResidue -Binding $Binding} $binding}
+            try{& $module {param($Binding,$State)Assert-LabTransferNoResidue -Binding $Binding -StateRoot $State} $binding $state}
             catch{$cleanupFailed=$true;Write-Warning 'Run-/Volume-Restprüfung fehlgeschlagen; State bleibt erhalten.'}
         }
+    }
+    if($StateRoot -and $data -and -not $cleanupFailed){
+        try {Remove-OwnedHostTestDataRoot -StateRoot $StateRoot -DataRoot $data}
+        catch {$cleanupFailed=$true;Write-Warning 'Eigener Test-Datenpfad benötigt Recovery; State bleibt erhalten.'}
     }
     $env:SQL_SERVER_LAB_STATE=$oldState;$env:SQL_SERVER_LAB_DATA_ROOT=$oldData
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     if($mutex){if($acquired){$mutex.ReleaseMutex()};$mutex.Dispose()}
     if(-not $cleanupFailed -and (Test-Path -LiteralPath $root)){
-        $resolved=[IO.Path]::GetFullPath($root);$boundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
+        $resolved=[IO.Path]::GetFullPath($root);$boundary=[IO.Path]::GetFullPath($(if ($StateRoot) { Join-Path $StateRoot 'test-artifacts' } else { [IO.Path]::GetTempPath() })).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
         if(-not $resolved.StartsWith($boundary,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolved) -notlike 'sql-lab-transfer-acceptance-*'){throw 'TRANSFER_ACCEPTANCE_CLEANUP_SCOPE_INVALID'}
         Remove-Item -LiteralPath $resolved -Recurse -Force
     }

@@ -398,6 +398,13 @@ Der öffentliche Plan enthält dabei nur semantische Status- und Reason-Codes,
 keine Switch-Namen, IP-Adressen oder VM-Identitäten. Drift oder ein nicht
 lesbarer Istzustand blockiert Lifecycle-Teilaktionen fail-closed.
 
+Der Hyper-V-Parameterworkflow mit `-Isolated` erstellt dagegen bewusst keine
+Netzadapter. Ohne persistierten Manifest-Intent, Netzwerkbinding oder Bound-Plan
+projiziert der Lifecycle-Reconcile diesen rungebundenen Intent als
+`isolated`/`disconnected`. Genau null Adapter gelten als erfüllter Istzustand;
+ein hinzugefügter Adapter, auch ohne Switchverbindung, blockiert den Start.
+Manifest-`isolated` verlangt weiterhin einen Adapter am privaten Switch.
+
 Der getrennte Parametersatz `-HyperVNetwork` plant eine bewusst engere
 Reparatur. Der Executor `-RepairHyperVNetwork` darf additive, bereits lokal
 gebundene Switch-/Hostadress-/WinNAT-Infrastruktur herstellen und genau einen

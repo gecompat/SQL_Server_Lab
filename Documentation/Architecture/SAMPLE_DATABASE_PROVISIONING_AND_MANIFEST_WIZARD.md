@@ -374,6 +374,16 @@ repräsentiert. Es entsteht kein zweiter Ad-hoc-Sonderpfad.
 
 ### 8.2 Manifest-Wizard
 
+Der Manifest-Preflight prüft pro Instanz die vollständige aufgelöste
+Datenbank-Outputmenge einschließlich expliziter Datenbanken und freigegebener
+Zielnamen-Overrides ohne Beachtung der Groß-/Kleinschreibung. Kollisionen
+enden mit `SAMPLE_OUTPUT_CONFLICT`, ungültige Outputlisten mit
+`SAMPLE_OUTPUTS_INVALID`. Dieselbe Prüfung läuft nach der erneuten
+Parserauflösung vor Run-Anlage, Acquisition oder SQL. Gleiche Namen in
+verschiedenen Instanzen bleiben zulässig. Der synthetische Nachweis verwendet
+Mehrfach-Outputs; die aktuellen 21 Katalogvarianten haben jeweils einen Output.
+Dies ist kein neuer nativer Handlernachweis und keine atomare Katalogsperre.
+
 Der Wizard bietet pro Instanz:
 
 1. leere Datenbank anlegen;

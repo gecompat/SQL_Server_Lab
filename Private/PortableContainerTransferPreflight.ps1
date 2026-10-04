@@ -93,11 +93,11 @@ function Get-LabPortableContainerTransferPreflightTargetBinding {
         $target=Resolve-LabRunInstance -RunId ([string]$Request.TargetRunId) -InstanceId ([string]$Request.TargetInstanceId) -StateRoot $StateRoot
         if([string]$run.state -ne 'RUNNING' -or [string]$target.Provider -notin @('docker','podman')){throw 'binding'}
         $public.Provider=[string]$target.Provider
-        $scope=Get-LabContainerRuntimeScope -Provider ([string]$target.Provider)
+        $scope=Get-LabContainerRuntimeScope -Provider ([string]$target.Provider) -StateRoot $StateRoot
         if([string]$scope.Status -ne 'AVAILABLE' -or [string]::IsNullOrWhiteSpace([string]$scope.RuntimeId)){throw 'binding'}
         $public.RuntimeScopeId=[string]$scope.RuntimeId
         $runtime=Get-LabHostToolInvocation -Name ([string]$target.Provider)
-        $inspection=@(& $runtime inspect ([string]$target.ContainerName) 2>$null)
+        $inspection=@($(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Provider $target.Provider -StateRoot $StateRoot -Invocation $runtime -ArgumentList @('inspect', ([string]$target.ContainerName)) } else { & $runtime inspect ([string]$target.ContainerName) }) 2>$null)
         if($LASTEXITCODE -ne 0 -or $inspection.Count -eq 0){throw 'binding'}
         $container=($inspection -join "`n")|ConvertFrom-Json -Depth 30
         if($container -is [array]){if($container.Count -ne 1){throw 'binding'};$container=$container[0]}

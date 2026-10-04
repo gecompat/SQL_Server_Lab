@@ -15,16 +15,33 @@
 param(
     [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,
     [switch]$RuntimeMutexAlreadyHeld,
-    [switch]$KeepOnFailure
+    [switch]$KeepOnFailure,
+    [string]$StateRoot
 )
+$requestedStateRoot=$StateRoot
+. (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+if ($requestedStateRoot) { Assert-OwnedHostTestRoot -StateRoot $requestedStateRoot }
+
 
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath=Join-Path $repoRoot 'SqlServerLab.psd1'
-$testRoot=Join-Path ([IO.Path]::GetTempPath()) "sql-lab-transfer-preflight-$Provider-$([Guid]::NewGuid().ToString('N'))"
-$stateRoot=Join-Path $testRoot 'state';$dataRoot=Join-Path $testRoot 'Lab_Data'
+$testRoot=if ($requestedStateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $requestedStateRoot -Name 'sql-lab-transfer-preflight' } else { Join-Path ([IO.Path]::GetTempPath()) "sql-lab-transfer-preflight-$Provider-$([Guid]::NewGuid().ToString('N'))" }
+$stateRoot=if ($requestedStateRoot) { $requestedStateRoot } else { Join-Path $testRoot 'state' };$dataRoot=if (-not $requestedStateRoot) { Join-Path $testRoot 'Lab_Data' } else { $null }
 $previousStateRoot=$env:SQL_SERVER_LAB_STATE;$previousDataRoot=$env:SQL_SERVER_LAB_DATA_ROOT
 $sourceLab=$null;$targetLab=$null;$module=$null;$completed=$false;$cleanupFailed=$false;$mutex=$null;$mutexAcquired=$false
+$script:unreturnedCreation=$false
+
+function New-TransferPreflightAcceptanceRun {
+    param([Parameter(Mandatory)][hashtable]$Parameters)
+    # A throwing New may already have persisted recovery resources. Never clear
+    # this flag until its own RunId was actually returned to the coordinator.
+    $script:unreturnedCreation=$true
+    $lab=New-SqlServerLab @Parameters
+    if(-not $lab.RunId){throw 'PREFLIGHT_ACCEPTANCE_NEW_RUN_ID_MISSING'}
+    $script:unreturnedCreation=$false
+    return $lab
+}
 
 function Assert-TransferPreflightAcceptance {
     param([Parameter(Mandatory)][bool]$Condition,[Parameter(Mandatory)][string]$Description)
@@ -39,24 +56,25 @@ try {
         if(-not $mutexAcquired){throw 'PORTABLE_CONTAINER_TRANSFER_PREFLIGHT_ACCEPTANCE_LOCK_TIMEOUT'}
     }
     $runtimeResolution=@(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name $Provider)[0]
-    if($Provider -eq 'podman'){& (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1')|Out-Host}
+    if($Provider -eq 'podman'){$(if ($requestedStateRoot) { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') -StateRoot $requestedStateRoot -RequireReachable } else { & (Join-Path $PSScriptRoot 'Initialize-PodmanRuntime.ps1') }) |Out-Host}
     Assert-TransferPreflightAcceptance ([bool]$runtimeResolution.Available) "Runtime '$Provider' ist zentral auflösbar"
-    & ([string]$runtimeResolution.Invocation) info 1>$null 2>$null
+    $(if ($requestedStateRoot) { Invoke-OwnedHostTestCommand -StateRoot $requestedStateRoot -Provider $Provider -Invocation ([string]$runtimeResolution.Invocation) -Arguments @('info') } else { & ([string]$runtimeResolution.Invocation) info }) 1>$null 2>$null
     Assert-TransferPreflightAcceptance ($LASTEXITCODE -eq 0) "Runtime '$Provider' ist erreichbar"
 
     New-Item -ItemType Directory -Path $testRoot -Force|Out-Null
+    if($requestedStateRoot){$dataRoot=New-OwnedHostTestDataRoot -StateRoot $requestedStateRoot -Purpose preflight}
     $env:SQL_SERVER_LAB_STATE=$stateRoot;$env:SQL_SERVER_LAB_DATA_ROOT=$dataRoot
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     $module=Import-Module $modulePath -Force -PassThru
     & $module {param($Root)$null=Initialize-LabManagedDataRoot -DataRoot $Root -ControllerId ([Guid]::NewGuid().ToString('D')) -Confirm:$false} $dataRoot
-    $assessment=Test-SqlServerLabPrerequisite -Provider $Provider
+    $assessment=Test-SqlServerLabPrerequisite -Provider $Provider -StateRoot $stateRoot
     Assert-TransferPreflightAcceptance ($assessment.Status -eq 'RESOURCE_OK') 'Ressourcenpruefung erlaubt die zwei isolierten SQL-2025-Runs'
 
     $token=[Guid]::NewGuid().ToString('N').Substring(0,16)
     $password=ConvertTo-SecureString "TransferPreflight_${token}!Aa7" -AsPlainText -Force
-    $sourceLab=New-SqlServerLab -Version 2025 -Provider $Provider -Profile compact -Cpu 1 -MemoryMB 2560 -LabName "transfer-source-$($token.Substring(0,8))" -StateRoot $stateRoot -SaPassword $password -SkipAssessment
+    $sourceLab=New-TransferPreflightAcceptanceRun -Parameters @{Version=2025;Provider=$Provider;Profile='compact';Cpu=1;MemoryMB=2560;LabName="transfer-source-$($token.Substring(0,8))";StateRoot=$stateRoot;SaPassword=$password;SkipAssessment=$true}
     Assert-TransferPreflightAcceptance ($sourceLab.State -eq 'Running') 'Isolierter SQL-2025-Quellrun wurde provisioniert'
-    $targetLab=New-SqlServerLab -Version 2025 -Provider $Provider -Profile compact -Cpu 1 -MemoryMB 2560 -LabName "transfer-target-$($token.Substring(0,8))" -DataRoot $dataRoot -PersistentData -StateRoot $stateRoot -SaPassword $password -SkipAssessment
+    $targetLab=New-TransferPreflightAcceptanceRun -Parameters @{Version=2025;Provider=$Provider;Profile='compact';Cpu=1;MemoryMB=2560;LabName="transfer-target-$($token.Substring(0,8))";DataRoot=$dataRoot;PersistentData=$true;StateRoot=$stateRoot;SaPassword=$password;SkipAssessment=$true}
     Assert-TransferPreflightAcceptance ($targetLab.State -eq 'Running') 'Isolierter SQL-2025-Zielrun mit persistentem Backup-Bind-Mount wurde provisioniert'
 
     $sourceInstance=@($sourceLab.Instances)[0];$targetInstance=@($targetLab.Instances)[0]
@@ -90,15 +108,41 @@ try {
     $completed=$true
 }
 finally {
+    if($requestedStateRoot -and $script:unreturnedCreation){
+        $cleanupFailed=$true
+        Write-Warning 'Partielle eigene Erstellung ohne zurückgegebene Run-ID benötigt Recovery; Daten und Custody bleiben erhalten.'
+    }
     foreach($lab in @($targetLab,$sourceLab)|Where-Object {$_}){
         try {$cleanup=Remove-SqlServerLab -RunId $lab.RunId -StateRoot $stateRoot -Force -Confirm:$false;if($cleanup.Status -ne 'REMOVED'){throw 'PORTABLE_CONTAINER_TRANSFER_PREFLIGHT_ACCEPTANCE_RUN_CLEANUP_FAILED'}}catch{$cleanupFailed=$true;Write-Warning 'Run-Cleanup fehlgeschlagen; der eigene Test-State bleibt für Recovery erhalten.'}
+    }
+    # Run removal deliberately retains persistent data. Remove only this test's
+    # cataloged target store with the fresh public plan before deleting its data.
+    if($requestedStateRoot -and $targetLab -and -not $cleanupFailed){
+        try {
+            $storeId=& $module {
+                param($RunId,$State)
+                $run=Get-LabRunState -RunId $RunId -StateRoot $State
+                $drives=@($run.metadata.desiredState.Instances|ForEach-Object{$_.Intents.Drives}|
+                    Where-Object{$_.Id -ceq 'persistent-mssql' -and $_.Persistence -ceq 'data-root-runtime-volume'})
+                if($drives.Count -ne 1 -or -not $drives[0].PersistentStorageId){throw 'PREFLIGHT_ACCEPTANCE_STORE_BINDING_INVALID'}
+                [guid]$drives[0].PersistentStorageId
+            } $targetLab.RunId $stateRoot
+            $plan=Get-SqlServerLabRetainedStoreRemovalPlan -PersistentStorageId $storeId -DataRoot $dataRoot -StateRoot $stateRoot
+            if($plan.Status -cne 'READY'){throw 'PREFLIGHT_ACCEPTANCE_STORE_PLAN_FAILED'}
+            $removed=Invoke-SqlServerLabRetainedStoreRemoval -PersistentStorageId $storeId -DataRoot $dataRoot -StateRoot $stateRoot -ExpectedCatalogRevision $plan.CatalogRevision -ExpectedPlanKey $plan.PlanKey -Confirm:$false
+            if($removed.Status -cne 'REMOVED'){throw 'PREFLIGHT_ACCEPTANCE_STORE_CLEANUP_FAILED'}
+        } catch {$cleanupFailed=$true;Write-Warning 'Eigener persistenter Test-Store benötigt Recovery; Daten und Custody bleiben erhalten.'}
+    }
+    if($requestedStateRoot -and $dataRoot -and -not $cleanupFailed -and -not ($KeepOnFailure -and -not $completed)){
+        try {Remove-OwnedHostTestDataRoot -StateRoot $requestedStateRoot -DataRoot $dataRoot}
+        catch {$cleanupFailed=$true;Write-Warning 'Eigener Test-Datenpfad benötigt Recovery; State bleibt erhalten.'}
     }
     $env:SQL_SERVER_LAB_STATE=$previousStateRoot;$env:SQL_SERVER_LAB_DATA_ROOT=$previousDataRoot
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
     if($mutex){if($mutexAcquired){try{$mutex.ReleaseMutex()}catch{}};$mutex.Dispose()}
     if($cleanupFailed -or ($KeepOnFailure -and -not $completed)){Write-Warning 'Acceptance-Arbeitsbereich bleibt für Recovery erhalten.'}
     elseif(Test-Path -LiteralPath $testRoot){
-        $resolved=[IO.Path]::GetFullPath($testRoot);$boundary=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
+        $resolved=[IO.Path]::GetFullPath($testRoot);$boundary=[IO.Path]::GetFullPath($(if ($requestedStateRoot) { Join-Path $requestedStateRoot 'test-artifacts' } else { [IO.Path]::GetTempPath() })).TrimEnd([IO.Path]::DirectorySeparatorChar)+[IO.Path]::DirectorySeparatorChar
         if(-not $resolved.StartsWith($boundary,[StringComparison]::OrdinalIgnoreCase) -or [IO.Path]::GetFileName($resolved) -notlike 'sql-lab-transfer-preflight-*'){throw 'PORTABLE_CONTAINER_TRANSFER_PREFLIGHT_ACCEPTANCE_CLEANUP_SCOPE_INVALID'}
         Remove-Item -LiteralPath $resolved -Recurse -Force
     }

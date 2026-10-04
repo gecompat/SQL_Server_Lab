@@ -366,6 +366,29 @@ allen Lifecycle-Executoren; ein Versionswechsel allein genügt nicht.
 Hyper-V, beliebige Hostdienste, Netz/DNS/TLS, Mitgliedschaftsänderung und
 abhängigkeitsgesteuerter Start/Stop/Removal sind nicht implementiert.
 
+Der geführte CLI-Eintrag **SQL-Komponenten: geführte Vorschau** unter
+**Alle öffentlichen Befehle** verwendet denselben öffentlichen Parametersatz.
+Ein explizites vorhandenes `Lab_Data` wird durch den DiagnosticReader geprüft;
+bis zu 64 Run-Verzeichnisse werden ausschließlich als lokale Metadaten gelesen.
+Ungültige, entfernte oder außerhalb des engen Scopes liegende Runs sind nicht
+auswählbar. Run und Verbraucher werden anhand ihrer bestehenden Identitäten
+ausgewählt; eine Shared-SQL-Instanz bleibt ausschließlich eine Referenz.
+Relations entstehen nur im Arbeitsspeicher. Vor der Vorschau werden die
+ausgewählten Inhaltsbindungen und Run-States nochmals geprüft; anschließend
+revalidiert der unveränderte Core seine eigenen Bindungen. Zurück oder Abbruch
+verwirft die Eingabe ohne Planaufruf, Speicherung oder Mutation. Die Anzeige
+benennt `PLAN_ONLY`, `NOT_CHECKED` und `PRESERVE`; es gibt keine Apply-Aktion.
+Der generische CLI-Editor bleibt verfügbar. Der Browserdialog **SQL-Komponenten:
+geführte Vorschau** verwendet einen eigenen begrenzten HTTP-Pfad für dieselben
+registrierten Metadaten und den öffentlichen Plan. Root, Run und SQL-Instanzen
+werden bewusst ausgewählt; Relations und Auswahlbindungen bleiben im RAM.
+Der Server prüft ausgewählte Scope-, Inhalts- und Statebindungen frisch vor
+dem unveränderten Core. Der Dialog öffnet keine SQL-Verbindung und erstellt
+keinen Job, Batch, Lease oder Apply. Abbruch verwirft Eingaben; späte Antworten
+dürfen eine verworfene Auswahl nicht wiederherstellen. Ungültige Requests und
+Fehler werden mit festen Codes ohne Root-, Endpunkt-, Secret- oder Nativewerte
+beantwortet. Persistenz, Verbraucher-Leases und Runtime-DAG bleiben offen.
+
 ## 8. Composite SQL-Topologien
 
 Komplexe SQL-Konstellationen dürfen als Composite Component beschrieben und anschließend expandiert werden.

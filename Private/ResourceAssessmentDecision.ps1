@@ -102,13 +102,16 @@ function Invoke-LabResourceAssessmentPreflight {
         [Parameter(Mandatory)][array]$Instances,
         [Parameter(Mandatory)][string[]]$Provider,
         [switch]$SkipAssessment,
-        [switch]$AllowResourceOvercommit
+        [switch]$AllowResourceOvercommit,
+        [string]$StateRoot
     )
 
     $assessment = $null
     if (-not $SkipAssessment) {
         Write-LabInfo 'Resource Assessment...'
-        $assessment = Test-SqlServerLabPrerequisite -Instances $Instances -Provider $Provider
+        $assessment = if ($StateRoot) {
+            Test-SqlServerLabPrerequisite -Instances $Instances -Provider $Provider -StateRoot $StateRoot
+        } else { Test-SqlServerLabPrerequisite -Instances $Instances -Provider $Provider }
         foreach ($detail in $assessment.Details) {
             $color = switch ($detail.Status) {
                 'RESOURCE_OK' { 'Green' }

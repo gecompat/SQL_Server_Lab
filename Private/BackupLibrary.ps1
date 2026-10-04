@@ -381,14 +381,30 @@ function New-LabDatabaseLibraryBackup {
         [string]$StateRoot
     )
 
-    $workingDirectory = Join-Path ([IO.Path]::GetTempPath()) "sql-server-lab-backup-$([Guid]::NewGuid().ToString('N'))"
+    $ownedPolicy = if ($StateRoot) { Get-LabOwnedHostPolicy -StateRoot $StateRoot }
+    $workingParent = [IO.Path]::GetTempPath()
+    if ($ownedPolicy) {
+        if ([string]::IsNullOrWhiteSpace($RunId)) { throw 'OWNED_HOST_BACKUP_RUN_REQUIRED' }
+        $null = Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $StateRoot
+        $ownedDataRoot = Assert-LabOwnedHostPath $DataRoot
+        $relative = [IO.Path]::GetRelativePath($ownedPolicy.StateRoot, $ownedDataRoot)
+        if ([IO.Path]::IsPathRooted($relative) -or $relative -ceq '..' -or
+            $relative.StartsWith('..'+[IO.Path]::DirectorySeparatorChar)) { throw 'OWNED_HOST_BACKUP_DATA_ROOT_OUTSIDE_ROOT' }
+        $workingParent = $ownedPolicy.StateRoot
+    }
+    $workingDirectory = Join-Path $workingParent "sql-server-lab-backup-$([Guid]::NewGuid().ToString('N'))"
     $backupFileName = "backup-$([Guid]::NewGuid().ToString('N')).bak"
     $hostBackupPath = Join-Path $workingDirectory $backupFileName
-    New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null
-    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
-    try { $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
-    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+    if ($ownedPolicy) {
+        $null = Assert-LabOwnedHostPath $workingDirectory
+        New-Item -ItemType Directory -Path $workingDirectory -ErrorAction Stop | Out-Null
+    }
+    else { New-Item -ItemType Directory -Path $workingDirectory -Force | Out-Null }
+    $primaryError = $null
     try {
+        $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($SaPassword)
+        try { $saPlain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+        finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
         $metadata = Get-LabDatabaseBackupMetadata -HostName $HostName -Port $Port -SaPlain $saPlain -DatabaseName $DatabaseName
         $dependencyInventory = New-LabDatabaseMigrationDependencyInventory -DatabaseName $DatabaseName -Provider $(if($Provider){$Provider}else{'external'}) -RunId $RunId -InstanceId $InstanceId -Observation (Get-LabDatabaseMigrationDependencySqlObservation -HostName $HostName -Port $Port -SaPlain $saPlain -DatabaseName $DatabaseName)
         if ([bool]$metadata.IsEncrypted) {
@@ -418,9 +434,27 @@ RESTORE VERIFYONLY FROM DISK = N'$escapedPath' WITH CHECKSUM;
             RegistryPath=[string]$registered.RegistryPath; PersistentStorageId=[string]$registered.PersistentStorageId
         }
     }
+    catch { $primaryError = $_; throw }
     finally {
         $saPlain=$null
-        if (Test-Path -LiteralPath $hostBackupPath) { Remove-Item -LiteralPath $hostBackupPath -Force -ErrorAction SilentlyContinue }
-        if (Test-Path -LiteralPath $workingDirectory) { Remove-Item -LiteralPath $workingDirectory -Recurse -Force -ErrorAction SilentlyContinue }
+        try {
+            $cleanupParent = [IO.Path]::GetFullPath($workingParent).TrimEnd('\','/')
+            $cleanupDirectory = [IO.Path]::GetFullPath($workingDirectory)
+            $comparison = if ($IsWindows) { [StringComparison]::OrdinalIgnoreCase } else { [StringComparison]::Ordinal }
+            if (-not $cleanupDirectory.StartsWith($cleanupParent+[IO.Path]::DirectorySeparatorChar, $comparison)) { throw 'BACKUP_LIBRARY_TEMP_CLEANUP_SCOPE_INVALID' }
+            if ($ownedPolicy) {
+                $null = Get-LabOwnedHostPolicy -StateRoot $StateRoot -Required
+                $null = Assert-LabOwnedHostPath $workingDirectory
+            }
+            $cleanupAction = if ($ownedPolicy) { 'Stop' } else { 'SilentlyContinue' }
+            if (Test-Path -LiteralPath $hostBackupPath) { Remove-Item -LiteralPath $hostBackupPath -Force -ErrorAction $cleanupAction }
+            if (Test-Path -LiteralPath $workingDirectory) { Remove-Item -LiteralPath $workingDirectory -Recurse -Force -ErrorAction $cleanupAction }
+            if ($ownedPolicy -and (Test-Path -LiteralPath $workingDirectory)) { throw 'OWNED_HOST_BACKUP_TEMP_CLEANUP_INCOMPLETE' }
+        }
+        catch {
+            if (-not $primaryError) { throw }
+            $primaryError.Exception.Data['SqlServerLab.BackupCleanupStatus'] = 'RECOVERY_REQUIRED'
+            $primaryError.Exception.Data['SqlServerLab.BackupCleanupReason'] = $_.Exception.Message
+        }
     }
 }

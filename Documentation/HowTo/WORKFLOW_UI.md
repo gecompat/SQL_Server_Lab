@@ -2,6 +2,60 @@
 
 ## Zweck
 
+### Collations im Katalog suchen
+
+Unter **Lab erstellen → Collations suchen** SQL 2019, 2022 oder 2025 und
+Suchwörter eingeben, dann bewusst **Suchen** wählen. Alle ASCII-Suchwörter
+müssen in Name oder Locale passen; ohne solche Wörter erscheinen alle
+Katalogeinträge. Die Ansicht zeigt höchstens 100 Treffer mit Metadaten und
+weist auf weitere Treffer hin. `DEPRECATED` bleibt zulässig und wird gewarnt.
+Die Suche prüft keinen SQL-Server (`NOT_CHECKED`) und übernimmt keine Auswahl
+ins Manifest. Öffnen und Bearbeiten suchen nicht automatisch. Eingaben bleiben
+im RAM; Zurück/Escape verwirft auch späte Antworten. Eine angeforderte lesende
+Suche kann dabei weiterlaufen; Abbruch ist kein Nachweis ihrer Beendigung.
+
+### Evaluation-Ersatzentscheid
+
+Unter **Wartung, Aufräumen und Recovery → SQL-Evaluation: Ersatzentscheid**
+ein vorhandenes registriertes `Lab_Data` eingeben und **Registrierte Instanzen
+lesen** wählen. Eine gebundene einzelne Hyper-V-SQL-Instanz und Slotersatz,
+Rekonstruktion oder Instanzmigration auswählen, dann **Vorschau lesen (keine
+Änderung)**. Die Auswahl wird vor dem öffentlichen Plan erneut geprüft.
+Windows- und SQL-Quelle, Evidencealter, Frist und Resttage erscheinen getrennt.
+Alle Modi bleiben `BLOCKED`, SQL ist `NOT_CHECKED`; historische Windows-
+Aktivierung ist keine frische Lizenzprüfung. Die festen Blocker und nächsten
+Schritte geben keine Transfer- oder Ausführungsfreigabe. Der begrenzte Reader
+liest höchstens 64 Run-Verzeichnisse, kein globales Watch-Inventar. Eingaben
+bleiben im RAM; Zurück/Escape und späte Antworten erstellen keine Jobs.
+
+### External Languages vor einer Lab-Erstellung
+
+Unter **Lab erstellen → Python / R / Java: Katalog und Hostvoraussetzungen**
+Docker oder Podman und SQL-Version wählen, dann **Katalogvarianten lesen**.
+Python-, R- und Java-Varianten mit Sperrgrund bleiben sichtbar; nur unterstützte
+Varianten sind auswählbar. **Katalogentscheidung anzeigen** prüft keinen Host.
+**Hostvoraussetzungen bewusst lesend prüfen** beobachtet den gewählten Provider
+einmal; `READY` ist keine SQL-Sprachabnahme oder Zielautorisierung.
+SQL 2025 shared-user-v2 besitzt keine Launchpad-Sandbox. Öffnen oder Ändern
+fragt keinen Host ab. Zurück/Abbruch und Escape verwerfen den RAM-Entwurf und
+ignorieren späte Antworten; eine laufende lesende Prüfung wird nicht gestoppt.
+Kein Speichern, Apply, Job, Manifestübernahme oder Start. Der Prozess hat
+20 Sekunden Ausführungsbudget plus bis zu fünf Sekunden Terminierungsversuch,
+kein Gesamt-HTTP-/Listener-Zeitlimit. [Vertrag](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md).
+
+### Komponentenrelationsvorschau
+
+Unter **Verbindungen und CMS → SQL-Komponenten: geführte Vorschau**
+ein vorhandenes registriertes `Lab_Data` eingeben und **Registrierte Runs lesen**
+wählen. Eigener Run und verbrauchende SQL-Instanz werden aus gebundenen lokalen
+Metadaten ausgewählt; als Voraussetzung ist eine eigene Instanz oder genau eine
+bereits verwaltete Shared-SQL-Referenz möglich. **Vorschau lesen** ruft ausschließlich
+den öffentlichen PLAN_ONLY-Core auf. `RUNNING` beweist keine SQL-Bereitschaft:
+`NOT_CHECKED`, `PRESERVE` und die gesperrte Ausführung werden ausdrücklich gezeigt.
+Eingaben bleiben im RAM; Zurück/Abbruch verwirft sie. Kein Apply, Job, Export,
+SQL-Zugriff oder Providerinventar. Nach geänderten Metadaten erneut lesen;
+späte Antworten können eine verworfene Auswahl nicht wiederherstellen.
+
 ### llama.cpp-Runtimeinstallation
 
 Unter „Ressourcen und Downloads“ öffnet „llama.cpp-Runtime installieren / prüfen“
@@ -78,6 +132,10 @@ Secret-Parameter unter Host-Dienste sind zusätzlich eingeklappt. Zurück
 wechselt in den vorherigen Bereich ohne Formulare zu löschen. Ein Refresh
 behält Bereich und ungespeicherte Eingaben. Expertenbefehle und Meldungen
 haben eigene Einstiege. Ressourcen öffnen den bestehenden Quellen-/Speicherortdialog;
+**SQL-2022/2025-Bootstrapperquellen bearbeiten** bietet die sechs festen
+katalogisierten Bootstrapper zur Auswahl. Vorschau, Bestätigung und gezielter
+Reset verwenden dieselbe lokale Preferences-Authority; sie laden oder starten
+kein Medium. [Bedienung und Grenzen](../User/Getting_Started.md#lokale-sql-20222025-bootstrapperquellen).
 Grundkonfiguration bietet einen eigenen gemeinsamen Plan-/Apply-Pfad. Die Verbindungsansicht zeigt nur
 vorhandene Host-/Port-Felder. Bei Hyper-V werden Host und Port eng aus dem führenden Serverfeld des Connection Strings und TcpPort projiziert; Credentials und Connection Strings werden hier nie angezeigt. Fehlende oder nicht unterstützte Werte bleiben unbekannt; ein Verbindungstest wird nicht behauptet.
 
@@ -412,7 +470,57 @@ wird durch den Ressourcenstand ausgelöst.
 Der geführte eigene llama.cpp-Sitzungsstop ist unter „Host-Dienste und Modelle“
 über Auswahl, Vorschau, Abbruch und bewusste Bestätigung erreichbar. Die
 Verbraucher-Coverage bleibt UNKNOWN; deklarierte geschützte Verbraucher sperren
-den Stop. Fremdprozesse, Start/Restart und Modellaktionen bleiben offen.
+den Stop. Fremdprozesse, Restart und Modellaktionen bleiben offen; eigener Start ist separat geführt und nicht nativ abgenommen.
 Die GUI muss im selben PowerShell-Modulhost wie der bestehende Start geöffnet
 werden; sie lädt den exakten vorhandenen Modulpfad ohne Force-Reload weiter.
 Details und Workflow-Aktionen: [Sitzungsstop](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+### Reine llama.cpp-Dateivorschau im Browser
+
+Unter „Host-Dienste und Modelle“ → „llama.cpp: reine Startvorschau“ werden
+Runtime-Verzeichnis, GGUF-Datei, Backend, Beschleuniger und die sechs
+Modell-/Budgetwerte ausdrücklich im Arbeitsspeicher erfasst. Erst
+„Dateivorschau lesen“ ruft den unveränderten öffentlichen Dateiplan auf.
+Öffnen, Bearbeiten, Zurück und Escape lesen keine Dateien und erzeugen keinen
+Job. Abbruch verwirft die Eingaben und ignoriert verspätete Antworten.
+
+Die Vorschau bleibt PLAN_ONLY/BLOCKED mit leeren Actions. Geräte, Port, TLS,
+Modellkompatibilität und SQL bleiben NOT_CHECKED. Pfade werden maskiert erfasst
+und weder im Ergebnis noch in Fehlern gespiegelt; es gibt keine Persistenz oder
+Ausführungsfreigabe. Clearing ist keine sichere Speicherlöschung. Die zwei
+Dateimetadatenbeobachtungen bieten keinen CAS-, Integritäts- oder späteren
+Startnachweis. Kein Startknopf, ComputeSelection, Secret-, Zertifikats-,
+Sitzungs- oder Inventarzugriff. Der bestehende Start und eigene Sitzungsstop
+bleiben getrennte Verträge; die neue geführte Startfunktion bleibt ohne Native-Abnahme.
+
+## Geführter eigener llama.cpp-Start im Browser
+
+Unter „Host-Dienste und Modelle“ → „llama.cpp: eigene Sitzung starten“ erfasst
+der Dialog fünfzehn explizite Eingaben einschließlich optionalem CA-PEM und
+transientem API-Key. Öffnen, Bearbeiten und Abbruch vor Versand lesen keine
+Dateien und rufen keinen Start auf. Erst die bewusste Wirkungsbestätigung
+sendet START; eine ausdrücklich gewählte WhatIf-Aktion braucht diese Bestätigung
+nicht und ruft denselben öffentlichen Start mit WhatIf ohne Bereitschaftsprüfung auf.
+Beide Aufrufe erzeugen wegen dessen Pflichtparameter einen frischen dialogeigenen
+SecureString und entsorgen ihn anschließend. Der HTTP-String und Browser-RAM
+sind nicht garantiert sicher löschbar; keine Jobs, Logs, URL- oder Storageablage
+für die Eingaben. Gemeinsame 65536-Byte-/32768-Zeichenlimits können Kombinationen
+maximaler Einzelwerte abweisen; Pfade sind zusätzlich auf 4096 Zeichen begrenzt.
+
+Der dedizierte synchrone POST /api/llama-start verlangt exakte IPv4-Loopback-
+Listener-/Request-/Originbindung und nutzt das unveränderte vorhandene Modul.
+Kein Force-Reload oder Hintergrundjob. Natürliche ShouldProcess-Semantik bleibt:
+Low/Medium/unbekannte effektive ConfirmPreference blockieren vor Public, High/None
+werden nicht überschrieben. WhatIf/No-op ist kein Erfolg oder Readinessnachweis.
+Das Startbudget von 1–600 Sekunden begrenzt nur Core-Bereitschaftspolls nach
+Workerstart, nicht gesamten HTTP-Aufruf, Datei-/TLS-I/O oder Cleanup. Der
+UI-Listener kann synchron blockieren; Modulhost für die eigene Sitzung behalten.
+
+Abbruch nach Versand betrifft ausschließlich die Anzeige. Eine verlorene oder
+unerwartete Antwort kann eine aktive eigene Sitzung bedeuten. Feste Ergebnis-
+und Recoveryanzeigen enthalten keine Pfade, Modellaliase, Zertifikatspins oder
+Secrets; nur bestätigte eigene UUID/Port-/Sitzungsbindung wird projiziert.
+Kein automatischer Stop, Retry, Ownershipadoption oder Cleanup-Erfolgsversprechen.
+Bestehende eigene Sitzungsführung bleibt separat; SQL bleibt NOT_CHECKED.
+Die Browserführung ist synthetisch geprüft; neue reale Start-/Modell-/TLS-/
+Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.

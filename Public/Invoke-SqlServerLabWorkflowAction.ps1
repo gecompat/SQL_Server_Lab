@@ -84,7 +84,7 @@ SQL_Server_Lab-Internal-Switch verwendet.
 .PARAMETER ConfirmSlotReserve
     Bestätigt ausschließlich das Speichern der angezeigten Advisory-Policy.
 .PARAMETER MediaSourceId
-    Exakte katalogisierte SQL-2025-Bootstrapper-ID für die lokale Quellenzuordnung.
+    Exakte katalogisierte SQL-2022/2025-Bootstrapper-ID für die lokale Quellenzuordnung.
 .PARAMETER MediaSourceUrl
     Alternative Microsoft-HTTPS-Adresse derselben unverändert hashgebundenen Datei.
 .PARAMETER MediaSourceOperation
