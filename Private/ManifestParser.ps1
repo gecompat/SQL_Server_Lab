@@ -185,6 +185,11 @@ function Resolve-LabSampleArtifact {
         throw "Sample '$($sample.id)' Variante '$variant' besitzt keine Download-URL."
     }
 
+    Assert-LabManifestDatabaseOutputs -Databases @([PSCustomObject]@{
+        sample = $true
+        restore = [PSCustomObject]@{ expectedOutputs = @($variantDefinition.expectedOutputs) }
+    })
+
     return [PSCustomObject]@{
         sampleId                = [string]$sample.id
         sampleVariant           = $variant
@@ -291,6 +296,26 @@ function Resolve-LabSampleRestore {
         installation            = $artifact.installation
         downloadSizeMB          = $artifact.downloadSizeMB
         estimatedInstallSizeMB  = $artifact.estimatedInstallSizeMB
+    }
+}
+
+function Assert-LabManifestDatabaseOutputs {
+    <# Checks the resolved output union of one instance before resource acquisition. #>
+    [CmdletBinding()]
+    param([AllowEmptyCollection()][object[]]$Databases = @())
+
+    $names = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+    foreach ($database in $Databases) {
+        $outputs = if ($database.sample) { @($database.restore.expectedOutputs) }
+            else { @([PSCustomObject]@{ kind = 'database'; name = $database.name }) }
+        if ($outputs.Count -eq 0) { throw 'SAMPLE_OUTPUTS_INVALID' }
+        foreach ($output in $outputs) {
+            if ($null -eq $output -or $output.kind -ne 'database' -or
+                $output.name -isnot [string] -or $output.name -cnotmatch '^[a-zA-Z][a-zA-Z0-9_]*$') {
+                throw 'SAMPLE_OUTPUTS_INVALID'
+            }
+            if (-not $names.Add($output.name)) { throw 'SAMPLE_OUTPUT_CONFLICT' }
+        }
     }
 }
 
@@ -410,6 +435,8 @@ function Resolve-ManifestDefaults {
                 $resolved.databases += $resolvedDatabase
             }
         }
+
+        Assert-LabManifestDatabaseOutputs -Databases @($resolved.databases)
 
         if ($instance.drives) {
             foreach ($drive in $instance.drives) {

@@ -1284,12 +1284,16 @@ function Get-LabManifestValidationResult {
             Samples = $samplePlans
         })
         $databases = @($instance.databases | Where-Object { $null -ne $_ })
+        $databaseOutputDefinitions = [System.Collections.Generic.List[object]]::new()
         $databaseNames = @($databases | ForEach-Object { [string]$_.name })
         foreach ($duplicateDatabase in @($databaseNames | Group-Object | Where-Object Count -gt 1)) {
             $errors.Add("${instancePath}: Datenbankname '$($duplicateDatabase.Name)' ist nicht eindeutig.")
         }
 
         foreach ($database in $databases) {
+            if (-not $database.sample) {
+                $databaseOutputDefinitions.Add([PSCustomObject]@{ name = $database.name; sample = $null; restore = $null })
+            }
             $databasePath = "$instancePath.databases[$($database.name)]"
             if ($database.restore -and $database.sample) {
                 $errors.Add("${databasePath}: 'restore' und 'sample' duerfen nicht gemeinsam verwendet werden.")
@@ -1366,6 +1370,7 @@ function Get-LabManifestValidationResult {
                         -SampleDefinition $database.sample `
                         -SqlVersion $instance.version `
                         -TargetDatabaseName $database.name
+                    $databaseOutputDefinitions.Add([PSCustomObject]@{ name = $database.name; sample = $database.sample; restore = $samplePlan })
                     $samplePlans.Add([PSCustomObject]@{
                         DatabaseName = [string]$database.name
                         SampleId = [string]$samplePlan.sampleId
@@ -1412,6 +1417,9 @@ function Get-LabManifestValidationResult {
                 }
             }
         }
+
+        try { Assert-LabManifestDatabaseOutputs -Databases @($databaseOutputDefinitions.ToArray()) }
+        catch { $errors.Add("${instancePath}.databases: $($_.Exception.Message)") }
 
         $bacpacSamplePlans = @($samplePlans | Where-Object { $_.Status -eq 'RESOLVED' -and $_.ArtifactType -eq 'bacpac' })
         if ($bacpacSamplePlans.Count -gt 0) {
