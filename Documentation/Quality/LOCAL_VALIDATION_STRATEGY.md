@@ -266,17 +266,28 @@ ohne bestätigte Rückgabe, ein unbekanntes natives Inventar oder ein fehlender
 Cleanupnachweis bewahrt das eigene Custody-Verzeichnis einschließlich Parent.
 Artefakt- und Rootcleanup verlangen bestätigte Runtime-Abwesenheit; Pfade werden
 vor der Entfernung erneut auf eigene Tempgrenzen und Reparsepunkte geprüft.
+Nach der Publikation reicht die physische Builder-Abwesenheit nicht aus:
+der eigene Build muss über `Remove-HyperVWindowsImageBuild` mit
+`CLEANUP_SUCCEEDED` und `CLEANED_UP` abschließen, bevor die Registryreferenz
+entfernt werden darf. Ein unbestätigter Abschluss bewahrt die Custody.
 Diese Prüfungen sind keine atomare Dateisystem-/Runtime-Transaktion.
 
 `Invoke-HyperVResourceBindingChecks.ps1` führt den tatsächlichen Finally-Block
 mit injizierten Fehlern aus: unbestätigte Erstellung in allen drei Scopes,
 Cleanup- und Inventarfehler, umbenannte VM, wiederverwendeter Name, ungültige
 Native-ID, Artefaktfehler und echte eigene Junction-/Symlink-Fixtures. Die
-ursprüngliche Ausnahme und Mutexfreigabe werden geprüft. Diese statischen
+ursprüngliche Ausnahme und Mutexfreigabe werden geprüft. Die Fixtures prüfen
+auch die Reihenfolge Buildabschluss vor Artefaktentfernung
+und verweigern das Cleanup bei fehlgeschlagenem oder nicht terminalem Build.
+Diese statischen
 Fixtures ersetzen keinen nativen Hyper-V-Smoke. Die Slotpool-Fixture stellt
 ihre temporären Plattform- und Rootprüfungsbindungen vollständig wieder her;
 unter Unix bleibt die echte portable Rootprüfung aktiv. SQL-Medienpfade werden
 mit dem Separator der tatsächlichen Plattform begrenzt.
+Die Poolclaim-Prozessfixture setzt `WindowStyle Hidden` nur unter Windows;
+unter Unix bleibt derselbe Prozess-/Argument-/Ausgabevertrag ohne diesen
+Windowsparameter erhalten. Synthetische Plattformfälle ersetzen keine native
+Unix-Prozessprüfung.
 ## SQL Server 2025 External Languages auf cgroup v2
 
 Die expliziten `shared-user-v2`-Varianten besitzen getrennte native

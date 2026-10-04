@@ -274,6 +274,8 @@ try {
         throw 'HYPERV_SMOKE_CUSTODY_FIXTURE_SOURCE_INVALID'
     }
     $finallyText = $mainTry[0].Finally.Extent.Text
+    Add-CheckResult -Name 'Publication does not prematurely close the builder reference' -Success (
+        $mainTry[0].Body.Extent.Text -notmatch '\$builderCleanupComplete\s*=\s*\$true')
     $custodyModule = New-Module -ScriptBlock {
         param($Helpers, $FinallyBody)
         Invoke-Expression $Helpers
@@ -310,11 +312,22 @@ try {
         }
         function Remove-HyperVWindowsImageBuild {
             param($BuildId,$StateRoot)
+            $script:BuilderCalls++
+            if ($script:CustodyMode -eq 'PUBLISHED_BUILDER_SUCCESS') {
+                $script:BuilderTerminal=$true
+                return [pscustomobject]@{Status='CLEANUP_SUCCEEDED';Build=[pscustomobject]@{state='CLEANED_UP'}}
+            }
+            if ($script:CustodyMode -eq 'PUBLISHED_BUILDER_STATE_ERROR') {
+                return [pscustomobject]@{Status='CLEANUP_SUCCEEDED';Build=[pscustomobject]@{state='TEST_ARTIFACT_PUBLISHED'}}
+            }
             [pscustomobject]@{Status='CLEANUP_FAILED';Build=[pscustomobject]@{state='FAILED'}}
         }
         function Remove-HyperVImageArtifact {
             param($ArtifactId,$StateRoot)
             $script:ArtifactCalls++
+            if ($script:CustodyMode -like 'PUBLISHED_BUILDER_*' -and -not $script:BuilderTerminal) {
+                throw 'SYNTHETIC_PUBLISHED_BUILD_REFERENCE_IN_USE'
+            }
             [pscustomobject]@{Status=$(if($script:CustodyMode -eq 'ARTIFACT_ERROR'){'IN_USE'}else{'REMOVED'})}
         }
         function Remove-Module { [CmdletBinding()]param($Name,[switch]$Force) }
@@ -323,7 +336,8 @@ try {
 
     foreach ($mode in @('UNRETURNED_LIFECYCLE','UNRETURNED_RECONCILE','UNRETURNED_BUILDER',
         'CLEANUP_ERROR','LIFECYCLE_PLAN_READ_ERROR','BUILDER_PLAN_READ_ERROR','RECONCILE_ERROR','BUILDER_ERROR','READ_ERROR','VM_RENAMED','NAME_REUSED',
-        'NATIVE_ID_NONCANONICAL','ARTIFACT_ERROR','ROOT_LINK','PARENT_ANCESTOR_LINK','SUCCESS')) {
+        'NATIVE_ID_NONCANONICAL','ARTIFACT_ERROR','ROOT_LINK','PARENT_ANCESTOR_LINK',
+        'PUBLISHED_BUILDER_SUCCESS','PUBLISHED_BUILDER_STATUS_ERROR','PUBLISHED_BUILDER_STATE_ERROR','SUCCESS')) {
         $custodyRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hyperv-smoke-'+[guid]::NewGuid().ToString('N'))
         $custodyRoots.Add($custodyRoot)
         $custodyParent = Join-Path $custodyRoot 'synthetic-parent.vhdx'
@@ -348,6 +362,7 @@ try {
         $case = & $custodyModule {
             param($Root,$Parent,$Mode,$Self)
             $script:CustodyMode=$Mode; $script:InventoryCalls=0; $script:ArtifactCalls=0
+            $script:BuilderCalls=0; $script:BuilderTerminal=$false
             $script:CreatedId=[guid]::NewGuid().ToString('D')
             $testRoot=$Root; $parentPath=$Parent; $stateRoot=Join-Path $Root 'state'
             $runId=[guid]::NewGuid().ToString('D'); $scopeId=[guid]::NewGuid().ToString('D')
@@ -381,9 +396,12 @@ try {
                     $lifecycleCreationStarted=$false; $reconcileCreationStarted=$true
                     $reconcileRun=[pscustomobject]@{RunId=$runId;ScopeId=$scopeId}
                 }
-                if ($Mode -in @('BUILDER_ERROR','BUILDER_PLAN_READ_ERROR')) {
+                if ($Mode -in @('BUILDER_ERROR','BUILDER_PLAN_READ_ERROR') -or $Mode -like 'PUBLISHED_BUILDER_*') {
                     $lifecycleCreationStarted=$false; $builderCreationStarted=$true
                     $builder=[pscustomobject]@{BuildDirectory=$runDirectory;buildId=$runId}
+                    if ($Mode -like 'PUBLISHED_BUILDER_*') {
+                        $published=[pscustomobject]@{Artifact=$imageArtifact}
+                    }
                 }
             }
             $artifactCleanupFailures=[Collections.Generic.List[string]]::new()
@@ -400,13 +418,18 @@ try {
                 ParentPreserved=((Test-Path -LiteralPath $Parent -PathType Leaf) -and
                     (Get-Item -LiteralPath $Parent).IsReadOnly -and [IO.File]::ReadAllText($Parent) -ceq 'synthetic immutable parent')
                 ArtifactCalls=$script:ArtifactCalls;InventoryCalls=$script:InventoryCalls;MutexDisposed=$mutex.Disposed;MutexReleased=$mutex.Released
+                BuilderCalls=$script:BuilderCalls;BuilderTerminal=$script:BuilderTerminal
             }
         } $custodyRoot $custodyParent $mode $custodyModule
-        $success = if ($mode -eq 'SUCCESS') {
+        $success = if ($mode -in @('SUCCESS','PUBLISHED_BUILDER_SUCCESS')) {
             -not $case.RootPresent -and $case.ArtifactCalls -eq 1 -and $case.InventoryCalls -ge 2
         } else {
             $case.RootPresent -and $case.ParentPreserved -and
                 (($mode -eq 'ARTIFACT_ERROR' -and $case.ArtifactCalls -eq 1) -or $case.ArtifactCalls -eq 0)
+        }
+        if ($mode -like 'PUBLISHED_BUILDER_*') {
+            $success = $success -and $case.BuilderCalls -eq 1 -and
+                $case.BuilderTerminal -eq ($mode -eq 'PUBLISHED_BUILDER_SUCCESS')
         }
         Add-CheckResult -Name "Echter Smoke-Finalizer bewahrt Primaryfehler und Custody: $mode" -Success (
             $success -and $case.Primary -ceq 'SYNTHETIC_PRIMARY_FAILURE' -and $case.MutexDisposed -and $case.MutexReleased)

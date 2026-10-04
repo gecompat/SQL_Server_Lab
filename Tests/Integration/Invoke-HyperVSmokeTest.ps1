@@ -462,7 +462,9 @@ try {
         [string]$_.Id -ieq [string]$builder.builder.vmId -or $_.Name -ieq $builder.builder.vmName
     }).Count -eq 0) -Description 'Image-Builder-VM wurde entfernt'
     Assert-HyperVSmoke -Condition (-not (Test-Path -LiteralPath $builderDiskPath)) -Description 'Builder-VHDX wurde nach Registry-Publikation entfernt'
-    $builderCleanupComplete = $true
+    # Publication confirms physical cleanup, but the published build still owns
+    # its registry reference. The finalizer must close that build through the
+    # bound Remove-HyperVWindowsImageBuild operation before deleting artifacts.
 }
 finally {
     try {

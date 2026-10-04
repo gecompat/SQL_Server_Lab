@@ -636,8 +636,13 @@ $processes=[Collections.Generic.List[object]]::new()
 function Start-PoolCheckWorker($id,$mode,$operationId,$root){
     $arguments=@('-NoLogo','-NoProfile','-File',$worker,'-RepositoryRoot',$repoRoot,'-StateRoot',$root,'-RunId',$race.RunId,'-PoolId',$race.PoolId,'-Directory',$fixture,'-WorkerId',$id,'-Mode',$mode)
     if($operationId){$arguments+=@('-OperationId',$operationId)}
-    $process=Start-Process -FilePath $pwsh -ArgumentList $arguments -PassThru -WindowStyle Hidden `
-        -RedirectStandardOutput (Join-Path $fixture ($id+'.stdout.log')) -RedirectStandardError (Join-Path $fixture ($id+'.stderr.log'))
+    $processOptions=@{
+        FilePath=$pwsh; ArgumentList=$arguments; PassThru=$true
+        RedirectStandardOutput=(Join-Path $fixture ($id+'.stdout.log'))
+        RedirectStandardError=(Join-Path $fixture ($id+'.stderr.log'))
+    }
+    if($IsWindows){$processOptions.WindowStyle='Hidden'}
+    $process=Start-Process @processOptions
     $processes.Add($process);return $process
 }
 function Wait-PoolCheckFile($leaf){$deadline=[datetime]::UtcNow.AddSeconds(35);while(-not(Test-Path -LiteralPath (Join-Path $fixture $leaf))){if([datetime]::UtcNow -ge $deadline){throw ('WINDOWS_POOL_PROCESS_TIMEOUT: '+$leaf)};Start-Sleep -Milliseconds 50}}
