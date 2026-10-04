@@ -2494,6 +2494,35 @@ bestätigt. Separat bestand ein eigener isolierter Docker-SQL-2025-Core-Smoke
 Dieser Docker-Nachweis belegt den gemeinsamen Core, keine Resource-Watch-
 Dauerüberwachung und keinen anderen Provider.
 
+### Resource-Watch-Automationslane
+
+`Fixtures/VersionCatalogResourceWatchAutomationChecks.ps1` wird über die
+bestehende VersionCatalog-Suite ausgeführt. Reale pure Projektion, kompletter
+Issue-APIvertrag, Runner und extrahierte Workflow-PowerShell laufen mit
+synthetischen Daten. Geprüft werden Scope-/Quellen-/Versions-/Fehlergrenzen,
+Monatsunabhängigkeit, WhatIf, frische Revalidierung, POST/PATCH plus Nachlesen,
+Lost-response-Recovery, globale/individuelle Erholung und fremde Bodybytes.
+Die Issue-HTTP-Fixture ersetzt ausschließlich den URIresolver mit eigenem
+Loopback, verwendet einen synthetischen Token und führt den echten begrenzten
+Streamreader aus: 3xx ohne Folgeanfrage, HTTPfehler, Encoding-/Byte-/JSONgrenzen
+und Timeout. Sie belegt weder GitHub-TLS noch Berechtigungen oder Zustellung.
+
+Die eigene Namespacefixture prüft getrennte Marker/Receipts, fehlerhafte
+Dispatchinputs, Schutz regulärer Issues und den receipt-/scopegebundenen
+Close-Cleanup einschließlich Vorschau, Drift, ungültiger Bindung und No-op.
+Die begrenzte Own-Projektion wird am tatsächlichen Helper mit vollständigem
+Vier-Ressourcenbefund und synthetischem API-Adapter geprüft: explizite Auswahl,
+ein unterschiedliches Issue, ein Write, vollständige vorhandene Own-Inventur,
+globale Fehler/Recovery, null Kandidaten sowie UNKNOWN-Continuation mit fehlendem
+und später gefundenem Marker. Fremde Scope-/Head-/Befund-/Bodyhashbindungen
+blockieren vor Write; ein veralteter UNKNOWN-Befund gewährt keine neue Authority.
+Es werden keine echten Issues erstellt, keine reguläre Task aktiviert und keine
+Provider gestartet. Die echte Abnahme bleibt gemäß
+[Automationsvertrag](../Architecture/RESOURCE_WATCH_AUTOMATION.md) separat:
+exakter Workflowhead, echter Dispatch, nachgelesener Issue-Receipt, Dedupe und
+eigener Cleanup. Ein konfigurierter Cron oder erfolgreicher Dispatch ersetzt
+keinen tatsächlich durch den Cron ausgelösten Lauf.
+
 ## Geführter eigener llama.cpp-Sitzungsstop
 
 `Tests/Static/Invoke-LlamaCppSessionGuidanceChecks.ps1` führt Core, den echten

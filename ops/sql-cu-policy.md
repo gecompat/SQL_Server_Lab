@@ -1,15 +1,18 @@
-# SQL Server CU Watch (SQL_Server_Lab)
+# SQL Server CU und SqlPackage Watch (SQL_Server_Lab)
 
 ## Ziel
 Der Agent soll dem Projekt Bescheid geben, sobald die aktuelle
 Versionskatalogdatei `Catalogs/sql-server-versions.json` gegenüber den
-Microsoft-CU-Quellen hinterherhinkt.
+Microsoft-CU-Quellen oder genau der katalogisierte SqlPackage-Eintrag
+`sql2022-sqlpackage170-linux-derived` gegenüber seinem festen Learnartikel
+hinterherhinkt.
 
 Er ist kein autonomer Installations-Agent; die Bereitstellung von
 Windows-ISO/EXE liegt weiterhin beim Betreiber.
 
 ## Scope
-- Geltung nur für dieses Repo (`SQL_Server_Lab`) und dessen Katalogdatei.
+- Geltung nur für dieses Repo (`SQL_Server_Lab`), dessen CU-Katalog und genau
+  diesen SqlPackage-Eintrag in `Catalogs/software.json`.
 - Der Standardlauf prüft ausschließlich Katalogeinträge mit Status `SUPPORTED`.
   Veraltete oder anderweitig nicht aktive Versionen werden nur bei expliziter
   Angabe über `-Version` ausgewertet.
@@ -20,7 +23,9 @@ Windows-ISO/EXE liegt weiterhin beim Betreiber.
 1. `Catalogs/sql-server-versions.json`
 2. [Microsoft: Download and install the latest SQL Server updates](https://learn.microsoft.com/en-us/troubleshoot/sql/releases/download-and-install-latest-updates)
 3. `Tools/Get-SqlServerCuStatus.ps1`
-4. `Public/Get-SqlServerLabWorkflow.ps1` (für Slot-Zustand)
+4. `Catalogs/software.json`, genau `sql2022-sqlpackage170-linux-derived`;
+5. `https://learn.microsoft.com/en-us/sql/tools/sqlpackage/sqlpackage-download?view=sql-server-ver17`;
+6. `Tools/Invoke-VersionCatalogResourceWatch.ps1` für die bestehende Monatslane.
 
 ## Ausführung
 - Standard:
@@ -45,14 +50,13 @@ Windows-ISO/EXE liegt weiterhin beim Betreiber.
 3. `UNCLEAR`: Quellverfügbarkeit oder Prüfung war nicht eindeutig.
 
 ## Zusätzliche Framework-Hinweise
-- Wenn `TemplatePool.AvailableTemplates` im Workflow-Status auf `0`
-  oder sehr niedrig ist, soll der Agent auf fehlende Slot-Kapazität hinweisen.
-- Die konkrete Slot-Generierung bleibt operativ und manuell/CLI-basiert.
+- Die automatische Watch-Lane liest keine Slot-, Host-, Runtime- oder
+  Providerzustände. Slot-Generierung bleibt ein eigener operativer Vertrag.
 
 ## Ausgabeformat (Pflicht)
 - **A Status** (`NEW` / `NO CHANGE` / `UNCLEAR`)
 - **B** fehlende CU-Einträge je SQL-Version (Version, erwarteter CU, KB, Datum/Quelle)
-- **C** Framework-Hinweis (`TemplatePool`/Slots)
+- **C** betroffene katalogisierte Fähigkeit, Prüfzeitpunkt in UTC und Alt/Neu
 - **D** Nächster manueller Schritt
 
 ## Prüfkriterium bei Unsicherheit
@@ -61,7 +65,7 @@ Windows-ISO/EXE liegt weiterhin beim Betreiber.
 
 ## Veröffentlichbarer Workflowbericht
 
-`Tools/Common/VersionCatalogCuWatchReport.ps1` projiziert ausschließlich den
+Der unveränderte Einzel-CU-Adapter `Tools/Common/VersionCatalogCuWatchReport.ps1` projiziert ausschließlich den
 aktuellen `SqlServerLab.CuStatus/1.0`-Vertrag: `Sources`, `LatestCatalog` und
 geprüfte Build-/KB-Metadaten. Lokaler `CatalogPath`, rohe `Reason`-/`Note`-Felder
 und vollständige JSON-Diagnostik werden nicht veröffentlicht. Unklare oder leere
@@ -76,3 +80,49 @@ bei einem solchen Fehler zunächst den vorhandenen monatlichen Issuehinweis und
 endet anschließend fehlgeschlagen. Ein erfolgreicher Hinweis oder Upload heilt
 keinen fehlgeschlagenen Quellencheck. Fehler vor dem Adapter oder fehlende
 GitHub-Berechtigungen bleiben separate Infrastrukturgrenzen.
+
+## Enger Ausbau derselben Monatslane
+
+`Tools/Common/VersionCatalogResourceWatchAutomation.ps1` erweitert den
+Veröffentlichungsvertrag ausdrücklich um genau den oben benannten SqlPackage-
+Eintrag und seine exakt gebundene Learnadresse einschließlich der festen Query.
+Andere Quellen, Varianten oder Familien bleiben ausgeschlossen. Der bestehende
+Monatscron, Concurrency und Repo-Issuekanal werden erhalten; ein zweiter
+Scheduler ist nicht vorgesehen.
+
+Veröffentlicht werden ausschließlich validierte Ressourcen-ID, Quelle,
+UTC-Zeit, katalogisierte/beobachtete Version, Status, stabile Fehlercodes,
+betroffene Fähigkeit und nächste manuelle Aktion. Namen und Markdown werden
+selbst erzeugt. Lokale Pfade, Host-/Slotwerte, Herstellerantworten, Exceptions,
+Secretwerte und beliebige übergebene Reports bleiben ausgeschlossen.
+
+Ressourcen-/Revisionsmarker deduplizieren den Befund über Monatsgrenzen hinweg.
+Unveränderte Hinweise erzeugen keinen Write oder Kommentar. `NO_CHANGE` schließt
+nur das eigene eindeutig markierte Issue; alte Monatsissues ohne diesen Marker
+werden nicht automatisch migriert. Discovery liest die begrenzte vollständige
+Repo-Issueliste ohne veränderbaren Labelfilter. Label-/Marker-/Bodydrift und
+Scope-Mehrdeutigkeit blockieren vor Änderung.
+Unbestätigte Writes bleiben Recoverybedarf und werden vor einem weiteren Create
+erneut gebunden gelesen. Checkfehler und Benachrichtigungsfehler bleiben getrennt
+rot; eine erfolgreiche Issueveröffentlichung heilt keinen Quellenfehler.
+
+Defaultscope ist `catalog`. Die optionale manuelle `workflow_dispatch`-Fixture
+nutzt ausschließlich `own-<32 kleine Hexzeichen>`, getrennte Marker und Receipts.
+Sie verlangt zusätzlich `acceptance_resource` mit genau einer tatsächlichen
+erwarteten Ressourcen-ID. Der vollständige Quellenbericht bleibt erhalten.
+Alle vorhandenen Own-Identitäten und globale `watch-check`-Fehler/Recovery zählen
+gegen die Grenze von einer unterschiedlichen Identität; höchstens ein POST/PATCH
+pro Publishaufruf ist erlaubt. Null Kandidaten ergeben `NO_NOTICE_NEEDED`.
+UNKNOWN beendet den Aufruf und verbietet Workflow-Retry; Fortsetzung erfolgt nur
+im vorhandenen Runner mit `ContinuationReceiptPath`, exakter Head-/Scope-/Befundbindung
+und frisch gefundenem Marker. Fehlt dieser, bleibt Recovery ohne neuen Create offen.
+Der reguläre `catalog`-Scope und Cron haben keine Ressourcenauswahl oder neue Grenze.
+Ihre tatsächliche Ausführung benötigt die konkrete Orchestratorfreigabe. Cleanup
+erfordert das exakte Receipt und erwarteten Own-Scope sowie frische Repo-/ID-/
+Marker-/FindingKey-Revalidierung. Es schließt eigene Issues und löscht nichts.
+Jeder Receiptstatus wird vor der Zielauswahl strikt validiert; publizierte oder
+deduplizierte Hinweise brauchen echtes boolesches `Verified=true` und eine
+vollständige Issue-/URL-/Bodyhashbindung. Fehlende Bindung ist kein Cleanup-PASS.
+Slack, Email, fremde Chats und Agentstarts werden nicht ausgelöst.
+Ausführungs-, Dedupe- und Cleanupnachweise sowie die getrennte Cronabnahme stehen
+im [Automationsvertrag](../Documentation/Architecture/RESOURCE_WATCH_AUTOMATION.md).
