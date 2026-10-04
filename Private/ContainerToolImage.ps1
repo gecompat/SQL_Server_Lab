@@ -132,11 +132,14 @@ function Get-LabContainerToolLocalImageEvidence {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][ValidateSet('docker', 'podman')][string]$Provider,
-        [Parameter(Mandatory)][string]$Image
+        [Parameter(Mandatory)][string]$Image,
+        [string]$StateRoot
     )
 
     $runtimeInvocation = Get-LabHostToolInvocation -Name $Provider
-    $raw = & $runtimeInvocation image inspect $Image 2>$null
+    $raw = $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+        Invoke-LabContainerRuntimeCommand -StateRoot $StateRoot -Provider $Provider -Invocation $runtimeInvocation -ArgumentList @('image','inspect',$Image)
+    } else { & $runtimeInvocation image inspect $Image }) 2>$null
     if ($LASTEXITCODE -ne 0 -or -not $raw) { return $null }
     $inspect = @((@($raw) -join "`n") | ConvertFrom-Json -Depth 30)[0]
     return [PSCustomObject]@{
@@ -148,11 +151,14 @@ function Get-LabContainerToolLocalImageEvidence {
 
 function Invoke-LabContainerToolImageBuild {
     [CmdletBinding()]
-    param([Parameter(Mandatory)]$ImagePlan, [string]$StateRoot)
+    param([Parameter(Mandatory)]$ImagePlan, [string]$StateRoot, [string]$RunId)
 
     if (-not $ImagePlan.Contract -or [string]$ImagePlan.Contract.Name -ne 'SqlServerLab.ContainerToolImagePlan' -or
         [string]$ImagePlan.Contract.Version -ne '1.0' -or [string]$ImagePlan.ImageKey -notmatch '^[a-f0-9]{64}$') {
         throw 'CONTAINER_TOOL_IMAGE_PLAN_INVALID'
+    }
+    if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+        return Invoke-LabOwnedHostToolImageBuild -ImagePlan $ImagePlan -StateRoot $StateRoot -RunId $RunId
     }
     $provider = [string]$ImagePlan.Provider
     $runtimeInvocation = Get-LabHostToolInvocation -Name $provider
@@ -281,6 +287,8 @@ function Get-LabContainerToolExternalRuntimeImageReceiptPath {
 function Invoke-LabContainerToolExternalRuntimeImageBuild {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$ImagePlan, [Parameter(Mandatory)]$ExternalRuntimeImageArtifact, [string]$StateRoot)
+
+    if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) { throw 'OWNED_HOST_EXTERNAL_RUNTIME_IMAGE_UNSUPPORTED' }
 
     if (-not $ImagePlan.Contract -or [string]$ImagePlan.Contract.Name -ne 'SqlServerLab.ContainerToolExternalRuntimeImagePlan' -or
         [string]$ImagePlan.Contract.Version -ne '1.0' -or [string]$ImagePlan.ImageKey -notmatch '^[a-f0-9]{64}$') {

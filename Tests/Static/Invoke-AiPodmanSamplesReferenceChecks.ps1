@@ -27,7 +27,24 @@ try {
     $workerAst=[Management.Automation.Language.Parser]::ParseFile($workerPath,[ref]$tokens,[ref]$errors)
     $restartCommands=@($workerAst.FindAll({param($node) $node -is [Management.Automation.Language.CommandAst] -and $node.GetCommandName() -ceq 'Restart-SqlServerLab'},$true))
     $restartParameters=@($restartCommands[0].CommandElements|Where-Object {$_ -is [Management.Automation.Language.CommandParameterAst]}|ForEach-Object ParameterName)
-    Add-CheckResult -Name 'Restart verwendet nur den öffentlichen StateRoot-losen Vertrag' -Success ($restartCommands.Count -eq 1 -and $restartParameters -cnotcontains 'StateRoot' -and $restartParameters -ccontains 'RunId')
+    $restartRootArgument=$null
+    $restartRunArgument=$null
+    if ($restartCommands.Count -eq 1) {
+        $elements=$restartCommands[0].CommandElements
+        for ($index=1;$index -lt $elements.Count;$index++) {
+            if ($elements[$index] -is [Management.Automation.Language.CommandParameterAst]) {
+                $argument=if($elements[$index].Argument){$elements[$index].Argument}else{$elements[$index+1]}
+                if($elements[$index].ParameterName -ceq 'StateRoot'){$restartRootArgument=$argument}
+                if($elements[$index].ParameterName -ceq 'RunId'){$restartRunArgument=$argument}
+            }
+        }
+    }
+    Add-CheckResult -Name 'Ein oeffentlicher Restart bindet tatsaechlichen Run und Record-StateRoot' -Success (
+        $restartCommands.Count -eq 1 -and $restartParameters -ccontains 'RunId' -and
+        $restartRootArgument -is [Management.Automation.Language.MemberExpressionAst] -and
+        $restartRootArgument.Extent.Text -ceq '$record.StateRoot' -and
+        $restartRunArgument -is [Management.Automation.Language.MemberExpressionAst] -and
+        $restartRunArgument.Extent.Text -ceq '$lab.RunId')
     $module=New-Module -ArgumentList $helper -ScriptBlock {
         param($Helper)
         . $Helper

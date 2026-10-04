@@ -53,7 +53,7 @@ function Save-PitrFailedReadinessLogs {
         $ExpectedRuntimeScopeId -cnotmatch '^runtime-scope-[a-f0-9]{24}$' -or
         -not (Test-Path -LiteralPath $EvidenceRoot -PathType Container)) { return $false }
     try {
-        $scope=Get-LabContainerRuntimeScope -Provider $Provider
+        $scope=Get-LabContainerRuntimeScope -Provider $Provider -StateRoot $StateRoot
         if ($scope.Status -cne 'AVAILABLE' -or $scope.RuntimeId -cne $ExpectedRuntimeScopeId) { return $false }
         $owned=Get-LabOperationOwnedRun -OperationId $OperationId -StateRoot $StateRoot
         if (-not $owned -or $owned.metadata.workflowOperationId -cne $OperationId -or [bool]$owned.metadata.persistentData) { return $false }
@@ -65,7 +65,7 @@ function Save-PitrFailedReadinessLogs {
         if (-not $cleanupPlan -or [string]$cleanupPlan.runId -cne [string]$owned.runId -or
             [string]$cleanupPlan.scopeId -cne [string]$owned.scopeId -or
             @($cleanupPlan.providerSubRuns | Where-Object { [string]$_.provider -ceq $Provider }).Count -ne 1) { return $false }
-        $inspection=@((Invoke-LabTransferNative -Provider $Provider -Arguments @('inspect',$ContainerIdOrName) -TimeoutSeconds 15) -join "`n" | ConvertFrom-Json -Depth 30)
+        $inspection=@((Invoke-LabTransferNative -Provider $Provider -Arguments @('inspect',$ContainerIdOrName) -TimeoutSeconds 15 -StateRoot $StateRoot) -join "`n" | ConvertFrom-Json -Depth 30)
         if ($inspection.Count -ne 1) { return $false }
         $container=$inspection[0]; $labels=$container.Config.Labels
         if ($container.State.Running -eq $true -or [string]$container.Id -cne $ContainerIdOrName -or
@@ -73,7 +73,7 @@ function Save-PitrFailedReadinessLogs {
             [string]$labels.'sql-server-lab.run-id' -cne [string]$owned.runId -or
             [string]$labels.'sql-server-lab.scope-id' -cne [string]$owned.scopeId -or
             [string]$labels.'sql-server-lab.instance-id' -cne 'primary') { return $false }
-        $raw=@(Invoke-LabTransferNative -Provider $Provider -Arguments @('logs','--tail','1200',[string]$container.Id) -TimeoutSeconds 15) -join "`n"
+        $raw=@(Invoke-LabTransferNative -Provider $Provider -Arguments @('logs','--tail','1200',[string]$container.Id) -TimeoutSeconds 15 -StateRoot $StateRoot) -join "`n"
         $sanitized=[regex]::Replace($raw,'(?i)((?:sa_)?password\s*[=:]\s*)\S+','$1***')
         if ($sanitized.Length -gt 24000) {
             $sanitized=$sanitized.Substring(0,12000)+"`n[...truncated...]`n"+$sanitized.Substring($sanitized.Length-12000)
@@ -99,7 +99,10 @@ function Invoke-PitrReadinessDiagnosticWithCapture {
         try { $null=Save-PitrFailedReadinessLogs -Provider $Provider -ContainerIdOrName $ContainerIdOrName -OperationId $OperationId -StateRoot $StateRoot -EvidenceRoot $EvidenceRoot -ExpectedRuntimeScopeId $RuntimeScopeId }
         catch { }
     }
-    return (& $Original -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs:$IncludeLogs)
+    $diagnosticArguments=@{}
+    if ((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or
+        (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))) { $diagnosticArguments.StateRoot=$StateRoot }
+    return (& $Original -Provider $Provider -ContainerIdOrName $ContainerIdOrName -IncludeLogs:$IncludeLogs @diagnosticArguments)
 }
 
 function Invoke-PitrNewWithReadinessCapture {
@@ -116,11 +119,13 @@ function Invoke-PitrNewWithReadinessCapture {
     $captureDiagnostic=(Get-Command Invoke-PitrReadinessDiagnosticWithCapture -CommandType Function -ErrorAction Stop).ScriptBlock
     $moduleScope=$ExecutionContext.SessionState.Module
     if (-not $moduleScope) { throw 'PITR_READINESS_MODULE_SCOPE_UNAVAILABLE' }
+    $captureStateRoot=$StateRoot
     $wrapper={
         [CmdletBinding()]
-        param([string]$Provider,[string]$ContainerIdOrName,[switch]$IncludeLogs)
+        param([string]$Provider,[string]$ContainerIdOrName,[switch]$IncludeLogs,[string]$StateRoot)
+        if ($StateRoot -and $StateRoot -cne $captureStateRoot) { throw 'PITR_READINESS_ROOT_CHANGED' }
         & $captureDiagnostic -Original $original -Provider $Provider -ContainerIdOrName $ContainerIdOrName `
-            -IncludeLogs:$IncludeLogs -OperationId $OperationId -StateRoot $StateRoot -EvidenceRoot $EvidenceRoot -RuntimeScopeId $RuntimeScopeId
+            -IncludeLogs:$IncludeLogs -OperationId $OperationId -StateRoot $captureStateRoot -EvidenceRoot $EvidenceRoot -RuntimeScopeId $RuntimeScopeId
     }.GetNewClosure()
     try {
         & $moduleScope { param($Replacement) Set-Item -Path Function:Get-LabContainerReadinessDiagnostic -Value $Replacement -Force } $wrapper
@@ -138,7 +143,7 @@ function Invoke-PitrRecovery {
     $directory='/var/opt/mssql/backup/pitr-'+$OperationId
     $parameters=@{Binding=$Binding;OperationId=$OperationId;StateRoot=$StateRoot}
     $actual=Assert-LabTransferBinding -Expected $Binding -StateRoot $StateRoot -OperationId $OperationId
-    $null=Invoke-LabTransferNative -Provider $actual.Provider -Arguments @('exec',$actual.ContainerId,'mkdir','-p',$directory) -TimeoutSeconds 30
+    $null=Invoke-LabTransferNative -Provider $actual.Provider -Arguments @('exec',$actual.ContainerId,'mkdir','-p',$directory) -TimeoutSeconds 30 -StateRoot $StateRoot
     $major=@(Invoke-PitrSql @parameters -Query "SELECT CONVERT(int,SERVERPROPERTY('ProductMajorVersion'));")
     if ($major.Count -ne 1 -or $major[0] -cne '17') { throw 'PITR_SQL_VERSION_INVALID' }
     $null=Invoke-PitrSql @parameters -Query "CREATE DATABASE [$source];"
@@ -177,7 +182,7 @@ function Invoke-PitrRecovery {
 
 function Invoke-PitrArrange {
     param([string]$Provider,[string]$OperationId,[string]$StateRoot,[string]$EvidenceRoot)
-    $scope=Get-LabContainerRuntimeScope -Provider $Provider
+    $scope=Get-LabContainerRuntimeScope -Provider $Provider -StateRoot $StateRoot
     if ($scope.Status -cne 'AVAILABLE' -or $scope.RuntimeId -cnotmatch '^runtime-scope-[a-f0-9]{24}$') { throw 'PITR_RUNTIME_UNAVAILABLE' }
     $intent=@{OperationId=$OperationId;Provider=$Provider;RuntimeScopeId=$scope.RuntimeId}
     $intent | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $EvidenceRoot 'intent.json')
@@ -207,7 +212,7 @@ function Remove-PitrOwnRun {
         return
     }
     $intent=Get-Content -LiteralPath $intentPath -Raw | ConvertFrom-Json
-    $scope=Get-LabContainerRuntimeScope -Provider $Provider
+    $scope=Get-LabContainerRuntimeScope -Provider $Provider -StateRoot $StateRoot
     if ($intent.OperationId -cne $OperationId -or $intent.Provider -cne $Provider -or
         $scope.Status -cne 'AVAILABLE' -or $scope.RuntimeId -cne $intent.RuntimeScopeId) { throw 'PITR_CLEANUP_BINDING_CHANGED' }
     $bindingPath=Join-Path $EvidenceRoot 'binding.json'
@@ -224,8 +229,8 @@ function Remove-PitrOwnRun {
         foreach ($kind in @('containers','volumes')) {
             $arguments=if ($kind -ceq 'containers') { @('ps','-a','--filter',"label=sql-server-lab.run-id=$($owned.runId)",'--format','{{.ID}}') }
                 else { @('volume','ls','--filter',"label=sql-server-lab.run-id=$($owned.runId)",'--format','{{.Name}}') }
-            if (@(Invoke-LabTransferNative -Provider $Provider -Arguments $arguments).Count) { throw 'PITR_CLEANUP_RESIDUE' }
+            if (@(Invoke-LabTransferNative -Provider $Provider -Arguments $arguments -StateRoot $StateRoot).Count) { throw 'PITR_CLEANUP_RESIDUE' }
         }
     }
-    if ($binding) { Assert-LabTransferNoResidue -Binding $binding }
+    if ($binding) { Assert-LabTransferNoResidue -Binding $binding -StateRoot $StateRoot }
 }

@@ -132,7 +132,7 @@ FROM sys.master_files mf WHERE mf.database_id=DB_ID(N'$literal') ORDER BY mf.fil
         $ordinal = 0
         foreach ($file in $parsed) {
             $target = Join-Path $stage ("file-$ordinal")
-            $copyResult = Invoke-LabProgressNativeCommand -FilePath $runtime -ArgumentList @('cp',"$($context.ContainerId):$($file.ContainerPath)",$target) -Phase Transfer -Progress $progress
+            $copyResult = $(if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))) { Invoke-LabContainerRuntimeCommand -Invocation $runtime -ArgumentList @('cp',"$($context.ContainerId):$($file.ContainerPath)",$target) -Phase Transfer -Progress $progress -NativeResult -Provider $context.Provider -StateRoot $StateRoot } else { Invoke-LabProgressNativeCommand -FilePath $runtime -ArgumentList @('cp',"$($context.ContainerId):$($file.ContainerPath)",$target) -Phase Transfer -Progress $progress })
             if ($copyResult.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $target -PathType Leaf)) { throw 'CONTAINER_DATABASE_PACKAGE_COPY_FAILED' }
             $localInventory.Add([PSCustomObject]@{ LogicalName=$file.LogicalName; Type=$file.Type; FullPath=$target })
             $ordinal++

@@ -96,6 +96,10 @@ COMMANDS
         Evaluates registered Windows and SQL Server evaluation expirations
         read-only and deduplicates due events locally with -RecordEvents.
 
+    Get-SqlServerLabEvaluationRefreshPlan
+        Plans replacement, reconstruction or migration for one registered
+        Hyper-V SQL instance under explicit DataRoot; always BLOCKED with no actions.
+
     Invoke-SqlServerLabEvaluationWatchTrigger
         Runs the evaluation watch in an explicitly bounded local interval without
         registering a scheduled task or changing a runtime or network.
@@ -107,6 +111,10 @@ COMMANDS
         Returns bounded, ownership-bound evidence for one instance.
         Historical state and optional provider readiness remain separate;
         no SQL probe, raw logs, host values, secrets, or mutation.
+
+    Get-SqlServerLabExternalRuntimeCapability
+        Separates an explicit External Languages catalog request from an optional
+        bounded host check; it grants no SQL acceptance or mutation authority.
 
     Get-SqlServerLabAutomationPlan
         Projects a versioned local, sanitized, and non-executable plan/result
@@ -202,6 +210,10 @@ Sync-SqlServerLabRunScopedContainerStore
     Get-SqlServerLabAiScenario
         Resolves a hash-bound SQL AI scenario from the catalog or against a run
         and returns sanitized plan and evidence metadata only.
+
+    Get-SqlServerLabLlamaCppStartPlan
+        Shows an explicit files-only preview as PLAN_ONLY/BLOCKED.
+        Does not start a runtime or use a compute selection.
 
     Start-SqlServerLabLlamaCppRuntime
     Stop-SqlServerLabLlamaCppRuntime

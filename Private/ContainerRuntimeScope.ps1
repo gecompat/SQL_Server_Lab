@@ -362,7 +362,11 @@ function ConvertTo-LabContainerRuntimeScope {
 
 function Get-LabContainerRuntimeScope {
     [CmdletBinding()]
-    param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider)
+    param([Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider,[string]$StateRoot)
+
+    if ($StateRoot -and (((Test-Path (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+        return Get-LabOwnedHostRuntimeScope -StateRoot $StateRoot -Provider $Provider
+    }
 
     $evidence = Get-LabContainerRuntimeScopeEvidence -Provider $Provider
     $scope = ConvertTo-LabContainerRuntimeScope -Evidence $evidence

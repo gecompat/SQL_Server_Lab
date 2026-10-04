@@ -19,6 +19,11 @@ project:
   runtime_status: CONTAINER_CORE_IMPLEMENTED_HYPERV_SQL_CLI_ACCEPTED
 
 sources_of_truth:
+  owned_host_ci_isolation: Documentation/Architecture/OWNED_HOST_CI_ISOLATION.md
+  owned_host_ci_implementation: Private/ContainerOwnedHostIntegration.ps1
+  owned_host_ci_schema: Schemas/container-owned-host-integration.schema.json
+  owned_host_ci_coordinator: Tests/Common/OwnedHostTestScope.ps1
+  owned_host_ci_checks: Tests/Static/Invoke-OwnedHostIntegrationChecks.ps1
   agent_working_contract: AGENTS.md
   foundation_ruleset: .ai/foundation/FOUNDATION_RULESET.md
   model_routing_policy: .ai/MODEL_ROUTING_POLICY.md
@@ -185,6 +190,11 @@ sources_of_truth:
   ai_ovms_https_gateway_start: Public/Start-SqlServerLabOvmsHttpsGateway.ps1
   ai_ovms_https_gateway_stop: Public/Stop-SqlServerLabOvmsHttpsGateway.ps1
   acceptance_ai_ovms_https_gateway: Tests/Integration/Invoke-AiOvmsHttpsGatewayAcceptance.ps1
+  llama_cpp_guided_start_cli: Private/LlamaCppStartConsole.ps1
+  llama_cpp_guided_start_browser: Private/LlamaCppStartHttp.ps1, Ui/llama-start.js
+  validation_llama_cpp_guided_start_browser: Tests/Static/Invoke-LlamaCppStartBrowserChecks.ps1, Tests/Static/Fixtures/LlamaCppStartHttpChecks.ps1, Tests/Static/Fixtures/LlamaCppStartUiChecks.cjs
+  validation_reviewed_browser_composition: Tests/Static/Invoke-ReviewedBrowserCompositionChecks.ps1 # combined dedicated routes, HTML IDs, 135 exports and retained CLI dispatch; synthetic only
+  validation_llama_cpp_guided_start_cli: Tests/Static/Invoke-LlamaCppStartConsoleChecks.ps1, Tests/Static/Fixtures/LlamaCppStartConsoleChecks.ps1
   llama_cpp_owned_runtime: Private/LlamaCppOwnedRuntime.ps1
   llama_cpp_session_guidance: Private/LlamaCppSessionGuidance.ps1
   validation_llama_cpp_session_guidance: Tests/Static/Invoke-LlamaCppSessionGuidanceChecks.ps1
@@ -203,6 +213,13 @@ sources_of_truth:
   llama_cpp_model_download: Public/Save-SqlServerLabLlamaCppModel.ps1
   validation_llama_cpp_model_catalog: Tests/Static/Invoke-LlamaCppModelCatalogChecks.ps1
   llama_cpp_owned_worker: Tools/Invoke-LlamaCppOwnedWorker.ps1
+  llama_cpp_start_plan: Private/LlamaCppStartPlan.ps1
+  llama_cpp_start_plan_cli: Private/LlamaCppStartPlanConsole.ps1
+  llama_cpp_start_plan_browser: Private/LlamaCppStartPlanHttp.ps1, Ui/llama-start-plan.js
+  validation_llama_cpp_start_plan_browser: Tests/Static/Invoke-LlamaCppStartPlanBrowserChecks.ps1, Tests/Static/Fixtures/LlamaCppStartPlanHttpChecks.ps1, Tests/Static/Fixtures/LlamaCppStartPlanUiChecks.cjs
+  validation_llama_cpp_start_plan_cli: Tests/Static/Invoke-LlamaCppStartPlanConsoleChecks.ps1, Tests/Static/Fixtures/LlamaCppStartPlanConsoleChecks.ps1
+  llama_cpp_start_plan_api: Public/Get-SqlServerLabLlamaCppStartPlan.ps1
+  validation_llama_cpp_start_plan: Tests/Static/Invoke-LlamaCppStartPlanChecks.ps1
   llama_cpp_owned_start: Public/Start-SqlServerLabLlamaCppRuntime.ps1
   llama_cpp_owned_stop: Public/Stop-SqlServerLabLlamaCppRuntime.ps1
   llama_cpp_owned_schema: Schemas/llama-cpp-owned-runtime.schema.json
@@ -352,8 +369,17 @@ sources_of_truth:
   repository_recorded_acceptance_matrix: Tools/Get-SqlServerLabCapabilityInventory.ps1 # optional 1.1 view; indexed historical tuples only
   repository_capability_evidence_index: Documentation/Quality/capability-evidence-index.json
   repository_capability_evidence_schema: Schemas/capability-evidence-index.schema.json
+  repository_capability_evidence_identity: Private/CapabilityEvidence.ps1 # exact recorded identities; no current readiness
+  validation_capability_evidence_identity: Tests/Static/Invoke-CapabilityEvidenceIdentityChecks.ps1
   validation_repository_capability_inventory: Tests/Static/Invoke-CapabilityInventoryChecks.ps1
   client_readiness_core: Private/ClientReadiness.ps1
+  external_runtime_capability_public: Public/Get-SqlServerLabExternalRuntimeCapability.ps1
+  external_runtime_capability_core: Private/ExternalRuntimeCapability.ps1
+  external_runtime_capability_http: Private/ExternalRuntimeCapabilityHttp.ps1
+  external_runtime_capability_ui: Ui/external-runtime-capability.js
+  validation_external_runtime_capability_browser: Tests/Static/Invoke-ExternalRuntimeCapabilityBrowserChecks.ps1
+  external_runtime_capability_contract: Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md
+  validation_external_runtime_capability: Tests/Static/Invoke-ExternalRuntimeCapabilityChecks.ps1
   validation_client_readiness: Tests/Static/Invoke-ClientReadinessChecks.ps1
   diagnostic_bundle_public: Public/Get-SqlServerLabDiagnosticBundle.ps1
   diagnostic_bundle_reader: Private/DiagnosticBundleReader.ps1
@@ -410,7 +436,7 @@ sources_of_truth:
   validation_environment_resources: Tests/Static/Invoke-EnvironmentResourceChecks.ps1
   validation_podman_ci_privacy: Tests/Static/Invoke-PodmanSmokePrivacyChecks.ps1
   validation_runtime_ci_privacy: Tests/Static/Invoke-RuntimeSmokePrivacyChecks.ps1
-  media_source_guidance: Private/MediaSourceGuidance.ps1
+  media_source_guidance: Private/MediaSourceGuidance.ps1 # fixed six SQL2022/2025 bootstrapper identities; existing Preferences/catalog byte authority
   validation_media_source_guidance: Tests/Static/Invoke-MediaSourceGuidanceChecks.ps1
   container_reconcile_journal_schema: Schemas/container-reconcile-journal.schema.json
   validation_container_reconcile: Tests/Static/Invoke-ContainerReconcileChecks.ps1
@@ -983,7 +1009,7 @@ internal_components:
       - "alle Manifestfelder dynamisch aus dem JSON-Schema erfassen"
       - "x-ui-Pfadsemantik, Scope und aufgeloeste Hostvorschau im Wizard anzeigen"
       - "Hilfe, schrittweise Zuruecknavigation, Zwischenzusammenfassung und Abbruch ohne partielle Manifestdatei anbieten"
-      - "nur resolverfreigegebene External-Runtime-Varianten im Instanzkontext anbieten"
+      - "Katalog- und optionale Hostentscheidungen gemeinsam anzeigen; blockierte External-Runtime-Varianten nicht übernehmen"
       - "mutationsfreie Software-Planvorschau mit Downloads, Build/Gastmutation, Downtime, Locks, Verification und Aenderungsklassen liefern"
       - "mutationsfreie Sample-/Artifact-Planvorschau mit Quelle, Lizenz, Outputs, Groessen, Integritaet, Trust, Handler und Idempotenz liefern"
       - "ManifestPlanPreview 1.3 projiziert SQL-Bezeichner, Katalogversion und bestehenden Lifecycle-Entscheid auch bei fachlichen Fehlern; UNKNOWN besitzt keine erfundene Katalog-ID"
@@ -1260,6 +1286,9 @@ providers:
     image_artifact_inventory: "Public/Get-SqlServerLabHyperVImageArtifact.ps1 und Get-SqlServerLabWorkflow.ps1; pfadfreie read-only Registry-, Workflow-, Evaluierungs-, manueller Refresh- und Referenzsicht, optionale Parent-Hash-Pruefung ohne Refresh- oder Loeschautoritaet"
     evaluation_watch: "Public/Get-SqlServerLabEvaluationWatch.ps1, Private/SqlGuestEvaluationEvidence.ps1 und Public/Invoke-SqlServerLabEvaluationWatchTrigger.ps1; read-only Windows-/SQL-Imagebewertung und persistierte Windows-Instanzfrist mit optionaler lokaler Ereignis-Deduplizierung sowie explizit begrenztem foreground-Zeittrigger ohne Windows-Aufgabe, Lizenz-, Image-, Run-, Runtime- oder Netzwerkmutation; SQL-Gastfristen werden ausschließlich aus einem schema- und bindungsvalidierten, frischen runlokalen Receipt projektiert. Separater SQL-2025-Hyper-V-Capture schreibt ausschließlich NO_DEADLINE-Evidence; Der native Developer-Lauf 35563036235 bestand mit Receiptkette, unverändertem State/Parent und vollständigem Cleanup; positive Deadline-Abnahme bleibt offen."
     validation_evaluation_watch: Tests/Static/Invoke-EvaluationWatchChecks.ps1
+    evaluation_refresh_plan: "Public/Get-SqlServerLabEvaluationRefreshPlan.ps1 und Private/EvaluationRefreshPlan.ps1; reine drei-Modi-Entscheidung für eine moderne registrierte Hyper-V-SQL-Instanz unter explicit DataRoot. DiagnosticBundleReader und SqlGuestEvaluationEvidence binden gespeicherte Evidence; gemeinsame Watch-Fristklassifikation ist keine Live-Lizenzprüfung. Immer BLOCKED/Actions0/Mutationfalse, keine Inventory-/Target-/Transferauthority. FULL_INSTANCE_EVALUATION_REFRESH_BACKLOG bleibt kanonisch. Tests/Static/Invoke-EvaluationRefreshPlanChecks.ps1 prüft die tatsächliche Komposition synthetisch."
+    evaluation_refresh_plan_cli: "Private/EvaluationRefreshPlanConsole.ps1; geführte RAM-Vorschau unter Alle öffentlichen Befehle, expliziter registrierter Root/64 Run-Verzeichnisse, D-Snapshotautorität und öffentlicher Plan; Cancel zeroDispatch. Tests/Static/Invoke-EvaluationRefreshPlanConsoleChecks.ps1 prüft actualCLI/Core/Reader ohne Runtime."
+    evaluation_refresh_plan_browser: "Private/EvaluationRefreshPlanHttp.ps1, Ui/evaluation-refresh-plan.js und dedicated POST /api/evaluation-refresh-plan; geführte RAM-Vorschau im Wartungsbereich. CLI-Metadatenreader/64 Run-Verzeichnisse und D-Snapshot/PublicPlan bleiben Autorität; feste Read/Preview-Shapes, Auswahlrevalidierung, getrennte Windows-/SQL-Evidence, BLOCKED/Actions0. Tests/Static/Invoke-EvaluationRefreshPlanHttpChecks.ps1 prüft tatsächlichen HTTP/Core/Route- und JS-Dialogpfad ohne Runtime."
     navigation_areas: "Public/Invoke-SqlServerLab.ps1; Public/BatchConsole.ps1; Private/ConsoleHelp.ps1; Ui/index.html; Ui/app.js; Ui/app.css. Neun fachliche Bereiche mit vorhandenen Handlern, getrennten Experten-/Meldungseinstiegen und expliziten offenen Fachdialogen. Tests/Static/Fixtures/NavigationAreaChecks.ps1 und WorkflowSqlTargetChecks.cjs prüfen echte Navigation, Dispatch, Zurück, Abbruch und Refresh."
     evaluation_watch_guided_view: "Private/EvaluationWatchView.ps1; read-only Fachansicht im Wartungsmenü und über den GET-Endpunkt /api/evaluation-watch. Beide Oberflächen zeigen dieselbe Projektion ohne Ereignisregistrierung, Runtimeprobe oder Gastzugriff; Tests/Static/Fixtures/EvaluationWatchViewChecks.ps1 und WorkflowSqlTargetChecks.cjs prüfen importierte Handler, Abbruch und Ergebniszustände."
     image_builder: "Private/HyperVImageBuilder.ps1 plus Private/HyperVWindowsEvaluationTemplate.ps1, Private/HyperVLegacyWindowsEvaluationTemplate.ps1 und Private/HyperVSqlImageBuilder.ps1; katalog- und hashgebundener Windows-/SQL-Evaluation-Build, versionsgerechte Hyper-V-Plattform, einmaliger buildlokaler Medienprüfbeleg für unveränderte Resumes, temporäre Aktivierungs-NIC, Sysprep, fail-closed CHILD_BOOT_VERIFIED-Gate und PowerShell-Direct- beziehungsweise Legacy-WMI-/Lab-WinRM-Gaststeuerung"
@@ -1319,6 +1348,10 @@ catalogs:
     schema: Schemas/sql-server-collation-catalog.schema.json
     resolver: Private/CollationCatalog.ps1
     search: Public/Find-SqlServerLabCollation.ps1
+    browser_http: Private/CollationCatalogHttp.ps1; Tools/Start-SqlServerLabUi.ps1 POST /api/collations/search
+    browser_view: Ui/collation-catalog.js; Ui/index.html Collations suchen
+    browser_validation: Tests/Static/Invoke-CollationCatalogBrowserChecks.ps1; Tests/Static/Fixtures/CollationCatalogHttpChecks.ps1; Tests/Static/Fixtures/CollationCatalogUiChecks.cjs; Tests/Static/Invoke-ReviewedBrowserCompositionChecks.ps1
+    browser_contract: "Bewusste RAM-only ASCII-AND-Katalogsuche; SQL 2019/2022/2025; <=256 Queryzeichen, geschlossene Metadaten <=100 Zeilen/64KiB, SQL NOT_CHECKED, Actions leer/Mutation und Execution false; kein Auswahltransfer, keine SQL-/Provider-/Stateaktion; bestehende native Evidence separat"
     validation: Tests/Static/Invoke-CollationCatalogChecks.ps1 und Tests/Static/Invoke-CollationRuntimeEvidenceChecks.ps1
     runtime_evidence: Tests/Integration/Invoke-ContainerCollationAcceptance.ps1; Docker und Podman bestanden am 2026-09-13 fuer SQL 2025 mit Latin1_General_100_CS_AS, kataloggebundener Verfuegbarkeit, SERVERPROPERTY-Postcondition, run-gebundener sanitisierter Evidence und Cleanup (PR-Gate 34783317945). Hyper-V/Windows bleibt getrennt offen
     binding_contract: "Instanzcollation fuer SQL 2019/2022/2025 exakt und versionsgebunden vor Provisionierung; ManifestParser, ManifestBuilder, New-SqlServerLab und Konsolenformular gemeinsam pruefen. Docker/Podman pruefen nach SQL-Readiness kataloggebunden sys.fn_helpcollations() und SERVERPROPERTY('Collation') mit einer parametrisierten SqlClient-Abfrage vor Konfiguration, Datenbanken und Samples. Datenbank-Overrides, Advanced-Eingabe und der getrennte Hyper-V-/Windows-Nachweis bleiben separat"

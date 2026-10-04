@@ -1,6 +1,18 @@
-# Alternative addresses for the same catalogued SQL 2025 bootstrapper bytes only.
+# Alternative addresses for the same catalogued SQL 2022/2025 bootstrapper bytes only.
+function Get-LabMediaOverrideDefinitions {
+    # Identity allowlist only; the existing repository catalog owns byte revisions.
+    @(
+        @{ Id='sql-server-2025-enterprise-developer-bootstrapper'; Version='2025'; Edition='Enterprise Developer'; FileName='SQL2025-SSEI-EntDev.exe' }
+        @{ Id='sql-server-2025-standard-developer-bootstrapper'; Version='2025'; Edition='Standard Developer'; FileName='SQL2025-SSEI-StdDev.exe' }
+        @{ Id='sql-server-2025-express-bootstrapper'; Version='2025'; Edition='Express'; FileName='SQL2025-SSEI-Expr.exe' }
+        @{ Id='sql-server-2022-developer-bootstrapper'; Version='2022'; Edition='Developer'; FileName='SQL2022-SSEI-Dev.exe' }
+        @{ Id='sql-server-2022-evaluation-bootstrapper'; Version='2022'; Edition='Evaluation'; FileName='SQL2022-SSEI-Eval.exe' }
+        @{ Id='sql-server-2022-express-bootstrapper'; Version='2022'; Edition='Express'; FileName='SQL2022-SSEI-Expr.exe' }
+    )
+}
+
 function Get-LabMediaOverrideIds {
-    @('sql-server-2025-enterprise-developer-bootstrapper', 'sql-server-2025-standard-developer-bootstrapper', 'sql-server-2025-express-bootstrapper')
+    @(Get-LabMediaOverrideDefinitions | ForEach-Object { $_.Id })
 }
 
 function Assert-LabMediaOverrideUrl {
@@ -20,8 +32,27 @@ function Assert-LabMediaOverrideUrl {
 function Get-LabMediaOverrideContext {
     $snapshot = Get-LabPreferencesSnapshot
     $sources = @(Get-LabMediaSourceCatalog -RepositoryOnly | Where-Object { $_.Id -in (Get-LabMediaOverrideIds) })
-    if ($sources.Count -ne 3 -or @($sources | Where-Object { $_.Version -cne '2025' -or $_.MediaKind -cne 'BOOTSTRAPPER' -or
-        $_.Acquisition -cne 'DIRECT_MICROSOFT_DOWNLOAD' -or -not $_.ExpectedBytes -or -not $_.ExpectedSha256 }).Count) { throw 'MEDIA_SOURCE_OVERRIDE_CATALOG_INVALID' }
+    $definitions = @(Get-LabMediaOverrideDefinitions)
+    if ($sources.Count -ne $definitions.Count) { throw 'MEDIA_SOURCE_OVERRIDE_CATALOG_INVALID' }
+    foreach ($definition in $definitions) {
+        $matches = @($sources | Where-Object Id -CEQ $definition.Id)
+        if ($matches.Count -ne 1) { throw 'MEDIA_SOURCE_OVERRIDE_CATALOG_INVALID' }
+        $source = $matches[0]
+        $repositoryUri = $null
+        if ($source.Version -cne $definition.Version -or $source.Edition -cne $definition.Edition -or
+            $source.MediaKind -cne 'BOOTSTRAPPER' -or $source.Acquisition -cne 'DIRECT_MICROSOFT_DOWNLOAD' -or
+            $source.Category -cne 'SQL Server' -or $source.Architecture -cne 'x64' -or $source.Language -cne 'multi' -or
+            $source.ProductVersion -or $source.TargetRelativePath -cne "SQL/Installers/$($definition.Version)/$($definition.FileName)" -or
+            $source.ExpectedBytes -isnot [long] -or $source.ExpectedBytes -le 0 -or
+            $source.ExpectedSha256 -isnot [string] -or $source.ExpectedSha256 -cnotmatch '^[a-f0-9]{64}$' -or
+            -not [uri]::TryCreate($source.DownloadUrl, [UriKind]::Absolute, [ref]$repositoryUri) -or
+            $repositoryUri.Scheme -cne 'https' -or $repositoryUri.Host -cne 'download.microsoft.com' -or
+            $repositoryUri.Port -ne 443 -or $repositoryUri.UserInfo -or $repositoryUri.Fragment -or
+            $repositoryUri.Query -cne $(if ($definition.Id -ceq 'sql-server-2022-evaluation-bootstrapper') { '?country=us&culture=en-us' } else { '' }) -or
+            -not $repositoryUri.AbsolutePath.StartsWith('/download/', [StringComparison]::Ordinal) -or
+            [IO.Path]::GetFileName($repositoryUri.AbsolutePath) -cne $definition.FileName) { throw 'MEDIA_SOURCE_OVERRIDE_CATALOG_INVALID' }
+        # A repository default may carry its existing vendor query; caller overrides cannot.
+    }
     $map = [ordered]@{}
     $valid = $true
     if ($snapshot.Document.Contains('mediaSourceOverrides')) {
@@ -47,7 +78,7 @@ function Get-LabMediaOverrideState {
     }
     $items = foreach ($source in $context.Sources) {
         $hasOverride = $context.Map -is [Collections.IDictionary] -and $context.Map.Contains($source.Id)
-        [pscustomobject]@{ Id=$source.Id; DisplayName=$source.DisplayName; Edition=$source.Edition; MediaKind=$source.MediaKind
+        [pscustomobject]@{ Id=$source.Id; DisplayName=$source.DisplayName; Version=$source.Version; Edition=$source.Edition; MediaKind=$source.MediaKind
             RepositoryUrl=$source.DownloadUrl; EffectiveUrl=$(if (-not $context.Valid) { $null } elseif ($hasOverride) { $context.Map[$source.Id] } else { $source.DownloadUrl })
             Provenance=$(if (-not $context.Valid) { 'INVALID' } elseif ($hasOverride) { 'LOCAL_OVERRIDE' } else { 'REPOSITORY_DEFAULT' })
             HasOverride=$hasOverride; ExpectedBytes=$source.ExpectedBytes; ExpectedSha256=$source.ExpectedSha256 }
@@ -84,7 +115,7 @@ function Invoke-LabMediaOverridePlan {
         if ((Get-LabPreferencesSnapshot).Path -cne $snapshot.Path) { throw 'PREFERENCES_PREVIEW_STALE' }
         $fresh = New-LabMediaOverridePlan -Id $Plan.Id -Operation $Plan.Operation -Url $Plan.Url
         if ($fresh.PlanKey -cne $Plan.PlanKey -or $fresh.PreviousKey -cne $Plan.PreviousKey -or $fresh.CatalogKey -cne $Plan.CatalogKey) { throw 'PREFERENCES_PREVIEW_STALE' }
-        if (-not $fresh.IsNoOp -and $applyCmdlet.ShouldProcess('Lokale SQL-2025-Bootstrapperquelle', $fresh.Operation)) {
+        if (-not $fresh.IsNoOp -and $applyCmdlet.ShouldProcess('Lokale SQL-2022/2025-Bootstrapperquelle', $fresh.Operation)) {
             $context = Get-LabMediaOverrideContext
             if ($context.Snapshot.Key -cne $fresh.PreviousKey -or $context.CatalogKey -cne $fresh.CatalogKey) { throw 'PREFERENCES_PREVIEW_STALE' }
             if ($fresh.Operation -eq 'Reset') { $context.Map.Remove($fresh.Id) } else { $context.Map[$fresh.Id]=$fresh.Url }
@@ -102,7 +133,7 @@ function Show-LabMediaOverrideInteractive {
         catch { Write-LabWarning 'Quellenkonfiguration konnte nicht gelesen werden; Preferences separat prüfen.'; Wait-LabConsoleAcknowledgement; return }
         $items = @($view.Items | ForEach-Object { New-LabConsoleItem -Id $_.Id -Label $_.DisplayName -Value $_.Provenance })
         $items += New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
-        $choice = Invoke-LabConsoleMenu -ScreenId 'media-overrides' -Title 'SQL-2025-Bootstrapperquellen' -Subtitle $view.Notice -Items $items
+        $choice = Invoke-LabConsoleMenu -ScreenId 'media-overrides' -Title 'SQL-2022/2025-Bootstrapperquellen' -Subtitle $view.Notice -Items $items
         if ($choice.Status -eq 'Refresh') { continue }
         if ($choice.Status -ne 'Selected' -or $choice.SelectedItem.Id -eq 'back') { return }
         $source = $view.Items | Where-Object Id -CEQ $choice.SelectedItem.Id

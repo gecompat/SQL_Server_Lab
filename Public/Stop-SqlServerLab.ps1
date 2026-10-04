@@ -46,6 +46,11 @@ function Stop-SqlServerLab {
             throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Einzelnes Stoppen ist für die automatisch gestartete Testgruppe gesperrt.'
         }
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
+        $ownedHostPolicy = $null
+        if ($run.metadata.ownedHostIntegration -or (((Test-Path -LiteralPath (Join-Path $stateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $stateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $stateRoot 'owned-host-policy.json'))))))) {
+            $ownedHostPolicy = Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $stateRoot
+        }
+        $skipHostMemoryReleaseEffective = $SkipHostMemoryRelease.IsPresent -or [bool]$ownedHostPolicy
         $run = (Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot).Run
 
         if ($run.state -ne 'RUNNING') {
@@ -144,7 +149,7 @@ function Stop-SqlServerLab {
 
             Write-LabInfo "  ProviderSubRun '$provider' mit $runtime stoppen..."
             $containerIds = @(
-                & $runtimeInvocation ps -q --filter "label=sql-server-lab.run-id=$RunId" 2>$null |
+                $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $stateRoot -RunId $RunId -ArgumentList @('ps','-q','--no-trunc','--filter',"label=sql-server-lab.run-id=$RunId") } else { & $runtimeInvocation ps -q --filter "label=sql-server-lab.run-id=$RunId" }) 2>$null |
                     Where-Object { $_ }
             )
             if ($containerIds.Count -eq 0) {
@@ -157,9 +162,10 @@ function Stop-SqlServerLab {
                     continue
                 }
 
-                $containerName = ([string](& $runtimeInvocation inspect $containerId --format '{{.Name}}' 2>$null)).Trim().TrimStart('/')
+                $containerName = ([string]($(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $stateRoot -RunId $RunId -ArgumentList @('inspect',$containerId,'--format','{{.Name}}') } else { & $runtimeInvocation inspect $containerId --format '{{.Name}}' }) 2>$null)).Trim().TrimStart('/')
                 try {
-                    & $runtimeInvocation stop -t $TimeoutSeconds $containerId | Out-Null
+                    if ($ownedHostPolicy) { Assert-LabOwnedHostContainerEffect -StateRoot $stateRoot -RunId $RunId -Provider $runtime -ContainerId $containerId }
+                    $(if ($ownedHostPolicy) { Invoke-LabContainerRuntimeCommand -Provider $runtime -StateRoot $stateRoot -RunId $RunId -ArgumentList @('stop','-t',[string]$TimeoutSeconds,$containerId) } else { & $runtimeInvocation stop -t $TimeoutSeconds $containerId }) | Out-Null
                     if ($LASTEXITCODE -ne 0) {
                         throw "Container stop fehlgeschlagen: $containerId"
                     }
@@ -199,7 +205,7 @@ function Stop-SqlServerLab {
 
             Write-LabSuccess "Lab gestoppt: ${runPrefix}..."
             $hostMemory = if (-not [bool]$script:LabAutomatedTestEnvironmentGroupOperation) {
-                Invoke-LabStoppedHostMemoryRelease -Provider @($providerGroups.Name) -Skip:$SkipHostMemoryRelease
+                Invoke-LabStoppedHostMemoryRelease -Provider @($providerGroups.Name) -Skip:$skipHostMemoryReleaseEffective
             } else { [pscustomobject]@{Status='GROUP_DEFERRED'} }
             return [PSCustomObject]@{
                 RunId  = $RunId

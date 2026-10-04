@@ -43,7 +43,7 @@ function Get-LabRetainedStoreRecord {
 function Get-LabRetainedStoreObservation {
     [CmdletBinding()]
     param($Store, $Configuration, [string]$StateRoot, $Expected)
-    $context=Get-LabRetainedStoreRuntimeContext -Provider $Store.Provider
+    $context=Get-LabRetainedStoreRuntimeContext -Provider $Store.Provider -StateRoot $StateRoot
     if (($Store.RuntimeBinding -and $Store.RuntimeBinding.RuntimeScopeId -cne $context.RuntimeScopeId) -or
         ($Expected -and $Expected.RuntimeScopeId -cne $context.RuntimeScopeId)) { throw 'RETAINED_STORE_RUNTIME_SCOPE_CHANGED' }
     $volume=Get-LabRetainedStoreVolume -Context $context -VolumeName $Store.LocationBinding.ProviderResourceId
@@ -101,7 +101,7 @@ function Get-LabRetainedStoreObservation {
             }
         }
     }
-    $scopeAgain=Get-LabRetainedStoreRuntimeContext -Provider $Store.Provider
+    $scopeAgain=Get-LabRetainedStoreRuntimeContext -Provider $Store.Provider -StateRoot $StateRoot
     if ($scopeAgain.RuntimeScopeId -cne $context.RuntimeScopeId) { throw 'RETAINED_STORE_RUNTIME_SCOPE_CHANGED' }
     # Bound source/sidecar checks can take time. Recheck the selected volume last.
     $last=Get-LabRetainedStoreVolume -Context $context -VolumeName $Store.LocationBinding.ProviderResourceId

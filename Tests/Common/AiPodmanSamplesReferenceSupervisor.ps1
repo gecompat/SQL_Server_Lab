@@ -1,6 +1,8 @@
+. (Join-Path $PSScriptRoot 'OwnedHostTestScope.ps1')
 function New-AiPodmanSamplesReferenceRoot {
-    $root=Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-ai-podman-samples-reference-'+[guid]::NewGuid().ToString('N'))
-    $item=New-Item -ItemType Directory -Path $root -ErrorAction Stop
+    param([string]$StateRoot)
+    $root=if ($StateRoot) { Get-OwnedHostTestArtifactRoot -StateRoot $StateRoot -Name 'sql-lab-ai-podman-samples-reference' } else { Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-ai-podman-samples-reference-'+[guid]::NewGuid().ToString('N')) }
+    $item=if ($StateRoot) { Get-Item -LiteralPath $root } else { New-Item -ItemType Directory -Path $root -ErrorAction Stop }
     if($item.Attributes -band [IO.FileAttributes]::ReparsePoint){throw 'ACCEPTANCE_ROOT_INVALID'}
     if($IsWindows){
         $identity=[Security.Principal.WindowsIdentity]::GetCurrent().User

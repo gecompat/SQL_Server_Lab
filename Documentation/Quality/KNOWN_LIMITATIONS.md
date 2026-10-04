@@ -1,5 +1,23 @@
 # Bekannte Grenzen
 
+`Get-SqlServerLabEvaluationRefreshPlan` bietet nur einen nicht ausführbaren
+Entscheid für eine moderne registrierte Hyper-V-SQL-Instanz unter explizitem
+`Lab_Data`. Slotersatz, Rekonstruktion und Migration bleiben getrennte
+`BLOCKED`-Modi. Gespeicherte Windows-Aktivierung beweist keine frische Lizenz;
+SQL-Gast-Evidence ersetzt keine neue SQL-Readiness. Inventar, Ziel-/Slotbindung,
+Gleichwertigkeit, Cutover, Schlüsseltransfer und Rückfall fehlen. Keine neue
+Inventur, Persistenz, Adoption oder Lifecycleaktion. Generischer Konsolen-
+Befehlszugang und geführter CLI-Dialog **SQL-Evaluation: Ersatzentscheid** sind
+verfügbar. Der Dialog liest höchstens 64 Run-Verzeichnisse unter explizitem
+registrierten Root, revalidiert die Auswahl und ruft nur die Plan-API auf.
+Abbruch verwirft die Eingabe. Der Browser bietet **Wartung, Aufräumen und Recovery →
+SQL-Evaluation: Ersatzentscheid** über einen eigenen begrenzten Read-/Previewpfad
+zu derselben Metadatenautorität. Root, Auswahl und Entscheidungsart bleiben im
+RAM; Abbruch und späte Antworten erstellen keine Jobs. Windows-Lizenz und
+SQL-Bereitschaft werden auch dort nicht frisch geprüft.
+Andere Provider, mehrere Instanzen und ungebundene Caller-Inventories sind
+außerhalb dieses Slices.
+
 Die optionale historische Matrix von
 `Tools/Get-SqlServerLabCapabilityInventory.ps1 -IncludeRecordedAcceptanceMatrix`
 ist ausschließlich `RECORDED_HISTORY_ONLY` mit `INDEXED_TUPLES_ONLY`.
@@ -11,8 +29,10 @@ Package-Zellen tragen native `NOT_APPLICABLE`. Typisiertes SQL-`null` ist kein
 Wildcard; `RecordedPlatform` bestätigt weder Gastbetriebssystem noch
 Containerimage, rootless/rootful oder cgroup. Installierbarkeit, Hersteller-/
 Projektsupport, aktuelle Quellgleichheit und vollständige Kombinationenmatrix
-werden nicht bewertet. Der gemeinsame aktuelle Capability-/Readiness-Entscheid
-bleibt separate Arbeit unter `CORE-102`.
+werden nicht bewertet. Der enge Docker-/Podman-Linux-Entscheid unter `CORE-102`
+ist als öffentliche API, Manifestdialog und Browserconsumer implementiert.
+Die vollständige Matrix, historische Zuordnung, Hyper-V und weitere Provider
+sowie neue Native-Nachweise bleiben offen.
 
 Der PLAN_ONLY-[Komponentenplan](../Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md#71-implementierter-enger-komponentenplan-slice-e)
 ist nur für zwei vorhandene Docker-/Podman-SQL-Ziele und eine verwaltete
@@ -768,6 +788,16 @@ einem dieser Felder oder Werte ist fachlich ungültig und kann weder vom Wizard
 gespeichert noch über den Manifestpfad provisioniert werden.
 
 ## Collation
+
+Der Browserdialog **Lab erstellen → Collations suchen** durchsucht denselben
+kuratierten Katalog für SQL 2019/2022/2025 ohne SQL-Prüfung oder Auswahltransfer.
+Query ist auf 256 Zeichen begrenzt; höchstens 100 validierte Metadatenzeilen
+werden angezeigt, weitere Treffer ehrlich markiert. Ohne ASCII-Suchwörter
+liefert die bestehende Suche alle Einträge. `DEPRECATED` bleibt gültig mit
+Warnung. Öffnen/Bearbeiten startet keine Suche; RAM-Eingaben und späte Antworten
+werden bei Abbruch verworfen. Dies beendet keine serverseitige Anfrage und
+belegt keinen garantierten HTTP-Zeitbound. Kein vollständiges SQL-Inventar,
+Advanced-Freiname, Manifesttransfer oder neue native Collation-Abnahme.
 
 Die Instanzdefinition enthält eine Collation, die bei neuen Umgebungen sowohl als SQL-Server-Instanzcollation als auch als Default für neu angelegte Datenbanken verwendet wird. Ohne explizite Angabe gilt der native SQL-Containerstandard `SQL_Latin1_General_CP1_CI_AS`. Eine abweichende Collation wie `Latin1_General_100_CS_AS` löst beim ersten Containerstart einen Systemdatenbankumbau aus und kann deshalb deutlich länger benötigen.
 
@@ -1699,6 +1729,17 @@ Ressourcen-Prefetch und Sample-Trust erteilen keine Freigabe.
 Sämtliche Beschaffungs-Runtime-Nachweise sind `NOT_EXECUTED`.
 
 ## External Languages
+
+Der enge [CORE-102-Entscheid](../Architecture/EXTERNAL_RUNTIME_CAPABILITY.md)
+verwendet für API und Manifestdialog explizite Docker-/Podman-Linux-Katalogtuple
+für Python, R und Java. Der Standard prüft keinen Host. Eine bewusst
+angeforderte begrenzte `info`-Abfrage bewertet nur die Hostvoraussetzungen des
+Launchmodus. `READY` bestätigt weder SQL-/Sprachausführung, Rechte noch Besitz.
+Im Standardvertrag 1.0 bleibt historisches Matching `NOT_RECORDED`/`NOT_DEFINED`. Der geführte Browser
+verwendet denselben engen Public-Entscheid mit bewusstem optionalem Hostcheck;
+Hyper-V-Erweiterung und die vollständige CORE-102-Matrix bleiben offen.
+Der synchrone HTTP-/Listener-Aufruf besitzt kein Gesamtwallclock-Limit.
+Browserabbruch verwirft die Anzeige, stoppt keine bereits angeforderte Prüfung.
 
 Die Installation von R, Python, Java oder C# ist von SQL-Version, Betriebssystem,
 Distribution, Provider, Paketquellen und der jeweiligen Supportmatrix abhängig.
@@ -2845,17 +2886,17 @@ nicht durch einen neuen Redirect-/Ownershipvertrag gelöst. Ungültiges
 Preferences-JSON wird ohne Reparatur oder Überschreiben abgelehnt.
 Siehe [Bedienvertrag](../HowTo/WORKFLOW_UI.md#zentrale-slotreservepolicy-hv-401-bis-hv-508-core-107111).
 
-## Quellenoverride für SQL-2025-Bootstrapper
+## Quellenoverride für SQL-2022/2025-Bootstrapper
 
 Der geführte CLI-/GUI-Dialog unter Ressourcen beschränkt lokale alternative
-Quellen auf die drei katalogisierten SQL-2025-Bootstrapper. Er speichert in der
+Quellen auf die sechs katalogisierten SQL-2022/2025-Bootstrapper. Er speichert in der
 vorhandenen Preferences-Authority und führt weder Downloads noch Installation
 aus. Nur die URL derselben größen-/hash-/signaturgebundenen Datei ist änderbar;
 Redirects bei Overrides sind gesperrt. Ungültige gespeicherte Zuordnungen bleiben
 sichtbar und verhindern eine stille Defaultnutzung. Reset entfernt nur die
 gewählte Zuordnung. Weitere Quellenfamilien, freie Mirrors und Änderungen an
 Parsern, Resolvern oder Sollhashes sind nicht freigegeben. Details und Grenzen:
-[Getting Started](../User/Getting_Started.md#lokale-sql-2025-bootstrapperquellen).
+[Getting Started](../User/Getting_Started.md#lokale-sql-20222025-bootstrapperquellen).
 Synthetische CLI-/Browser-/Persistenz- und Loopback-HTTP-Tests ersetzen keinen
 Nachweis der aktuellen Erreichbarkeit oder Herstellerdateien.
 Beim Neudownload entscheidet der katalogisierte EXE-Zielname über die
@@ -2904,8 +2945,8 @@ unverändert. Echte Dispatch-/Issueabnahme dieses engeren Pfads ist noch offen.
 Der eigene Modulhost-Slice ist mit Vorschau, Cancel und Stop implementiert;
 Verbrauchercoverage bleibt UNKNOWN. Deklarierte Shared-Gateway-Verbraucher und
 konfigurierte Testgruppen-Schutzauthority werden vor Stop revalidiert.
-Fremdprozesse, persistente Dienste, Start/Restart und Modellaktionen bleiben
-offen. Der separate Windows-`GuidedStop`-Nachweis vom 2026-09-30 bestand mit
+Fremdprozesse, persistente Dienste, Restart und Modellaktionen bleiben
+offen; eigene geführte Starts sind separat ohne Native-Abnahme implementiert. Der separate Windows-`GuidedStop`-Nachweis vom 2026-09-30 bestand mit
 eigenem synthetischem Worker/Kind, unverändertem Nachbarkind während Stop und
 anschließend bestätigtem eigenen Worker-/Kind-/Key-/Nachbar-Cleanup. Das belegt
 native Prozessführung im engen Scope, keine echte Modellinferenz, Compute-,
@@ -2920,3 +2961,118 @@ Ein privater abweichender StateRoot im bisherigen CMS-Menü erhält keine Freiga
 ## Bewusster lokaler Operator-Handoff
 
 Der [kanonische Handoff](../HowTo/OPERATOR_DIAGNOSTIC_HANDOFF.md) bindet die bestehenden Skills und den Operator an diese unveränderte API. Standard ist SkipReadiness für genau ein ausdrücklich ausgewähltes Ziel; zusätzliche Providerreadiness bleibt eine bewusste Entscheidung. Keine automatische Sammlung, Datei, Upload, zusätzliche Reader, Shellfreigabe oder Mutationsautorität. Historische Evidence, unbekannte Befunde und fehlende SQL-/Skillloader-Nachweise bleiben getrennt. Die ausführbare Rezeptfixture wird durch Invoke-SkillChecks entdeckt; ein Rezepttest ist kein Modelldispatch- oder Skillloadernachweis.
+
+### Reine eigene llama.cpp-Startvorschau
+
+`Get-SqlServerLabLlamaCppStartPlan` liest ausschließlich eine explizite lokale
+CUDA-/OpenVINO-Installation und vier GGUF-Headerbytes mit begrenzten
+Dateimetadaten. Die Ausgabe bleibt `PLAN_ONLY/BLOCKED`, ohne Actions oder
+Ausführungsrecht. Geräte, Port, Embeddingkompatibilität, TLS, Keymatching und SQL
+sind `NOT_CHECKED`. Keine Secrets, Zertifikatsparameter, Pfade oder freie
+Callertexte in der Ausgabe, keine Persistenz, keine Runtime- oder Netzprobe.
+Zwei Metadatenbeobachtungen sind kein Byteintegritäts- oder CAS-Nachweis.
+Der bestehende Start braucht weiterhin seine vollständigen Originalparameter
+und frische Validierung. Die CLI bietet unter „Alle öffentlichen Befehle“ →
+„llama.cpp: geführte Startvorschau“ explizite RAM-Eingaben und bewusste
+Dateivorschau; Abbruch ruft keinen Plan auf. Pfade werden maskiert (Esc, im
+Fallback Ctrl+C), Ergebnis und Fehler bleiben pfadfrei. Kein Startknopf,
+ComputeSelection oder Secretzugriff. Die geführte CLI-Startfunktion ist statisch geprüft; ihr Native-Nachweis und die Native-Nachweise der geführten Startdialoge bleiben offen. Vertrag:
+[Eigener llama.cpp-Start](../Architecture/LLAMA_CPP_OWNED_RUNTIME.md).
+
+### Reine llama.cpp-Dateivorschau im Browser
+
+Unter „Host-Dienste und Modelle“ → „llama.cpp: reine Startvorschau“ werden
+Runtime-Verzeichnis, GGUF-Datei, Backend, Beschleuniger und die sechs
+Modell-/Budgetwerte ausdrücklich im Arbeitsspeicher erfasst. Erst
+„Dateivorschau lesen“ ruft den unveränderten öffentlichen Dateiplan auf.
+Öffnen, Bearbeiten, Zurück und Escape lesen keine Dateien und erzeugen keinen
+Job. Abbruch verwirft die Eingaben und ignoriert verspätete Antworten.
+
+Die Vorschau bleibt PLAN_ONLY/BLOCKED mit leeren Actions. Geräte, Port, TLS,
+Modellkompatibilität und SQL bleiben NOT_CHECKED. Pfade werden maskiert erfasst
+und weder im Ergebnis noch in Fehlern gespiegelt; es gibt keine Persistenz oder
+Ausführungsfreigabe. Clearing ist keine sichere Speicherlöschung. Die zwei
+Dateimetadatenbeobachtungen bieten keinen CAS-, Integritäts- oder späteren
+Startnachweis. Kein Startknopf, ComputeSelection, Secret-, Zertifikats-,
+Sitzungs- oder Inventarzugriff. Der bestehende Start und eigene Sitzungsstop
+bleiben getrennte Verträge; die Native-Nachweise der geführten CLI-/Browser-Startfunktionen bleiben offen.
+
+## Geführter eigener llama.cpp-Start in der CLI
+
+Unter „Alle öffentlichen Befehle“ → „llama.cpp: eigene Sitzung starten“ erfasst
+die CLI fünfzehn explizite Eingaben einschließlich optionalem öffentlichen
+CA-PEM. Pfade und API-Key werden maskiert, der API-Key als SecureString erfasst.
+Vor der Bestätigung bleiben Eingaben im RAM; Dateien, TLS, Port und Runtime
+werden nicht gelesen oder geprüft. Scalargrenzen sind Eingabeprüfung, keine
+Modell-/Gerätebereitschaft. WhatIf des vorhandenen öffentlichen Starts liest
+keine Dateien und startet nichts. Die separate Dateivorschau bleibt PLAN_ONLY.
+
+Erst die bewusste Bestätigung ruft den unveränderten öffentlichen Start in
+derselben Modulsitzung auf; dessen natürliche Confirm-Abfrage bleibt aktiv.
+Der bestehende Core prüft Runtime, GGUF, TLS und Loopback-Embeddings und erzeugt
+ausschließlich seine eigene Worker-/Key-/Lease-Operation. Die Anzeige enthält
+keine Pfade, Modellaliase, Zertifikatspins oder Secrets. Der dialogeigene
+SecureString wird anschließend verworfen; die laufende eigene Sitzung bleibt
+in diesem Modulhost. Ein unerwartetes Ergebnis nach Start ist unbestätigt und
+kann eine aktive Sitzung bedeuten. Kein AutoStop, Retry oder behaupteter Cleanup;
+RECOVERY_REQUIRED bleibt sichtbar. Den Modulhost erhalten und bestehende eigene
+Sitzungsführung bewusst separat verwenden. SQL-Funktionsabnahme bleibt
+NOT_CHECKED. Der geführte Browser-Start ist separat implementiert; seine Native-Abnahme bleibt offen.
+
+Die neue Führung ist synthetisch geprüft; reale Start-/Modell-/TLS-/Compute-
+und Cleanup-Abnahme dieses Dialogs ist nicht ausgeführt. Bestehende native
+Referenznachweise ersetzen diese Abnahme nicht.
+
+## Geführter eigener llama.cpp-Start im Browser
+
+Unter „Host-Dienste und Modelle“ → „llama.cpp: eigene Sitzung starten“ erfasst
+der Dialog fünfzehn explizite Eingaben einschließlich optionalem CA-PEM und
+transientem API-Key. Öffnen, Bearbeiten und Abbruch vor Versand lesen keine
+Dateien und rufen keinen Start auf. Erst die bewusste Wirkungsbestätigung
+sendet START; eine ausdrücklich gewählte WhatIf-Aktion braucht diese Bestätigung
+nicht und ruft denselben öffentlichen Start mit WhatIf ohne Bereitschaftsprüfung auf.
+Beide Aufrufe erzeugen wegen dessen Pflichtparameter einen frischen dialogeigenen
+SecureString und entsorgen ihn anschließend. Der HTTP-String und Browser-RAM
+sind nicht garantiert sicher löschbar; keine Jobs, Logs, URL- oder Storageablage
+für die Eingaben. Gemeinsame 65536-Byte-/32768-Zeichenlimits können Kombinationen
+maximaler Einzelwerte abweisen; Pfade sind zusätzlich auf 4096 Zeichen begrenzt.
+
+Der dedizierte synchrone POST /api/llama-start verlangt exakte IPv4-Loopback-
+Listener-/Request-/Originbindung und nutzt das unveränderte vorhandene Modul.
+Kein Force-Reload oder Hintergrundjob. Natürliche ShouldProcess-Semantik bleibt:
+Low/Medium/unbekannte effektive ConfirmPreference blockieren vor Public, High/None
+werden nicht überschrieben. WhatIf/No-op ist kein Erfolg oder Readinessnachweis.
+Das Startbudget von 1–600 Sekunden begrenzt nur Core-Bereitschaftspolls nach
+Workerstart, nicht gesamten HTTP-Aufruf, Datei-/TLS-I/O oder Cleanup. Der
+UI-Listener kann synchron blockieren; Modulhost für die eigene Sitzung behalten.
+
+Abbruch nach Versand betrifft ausschließlich die Anzeige. Eine verlorene oder
+unerwartete Antwort kann eine aktive eigene Sitzung bedeuten. Feste Ergebnis-
+und Recoveryanzeigen enthalten keine Pfade, Modellaliase, Zertifikatspins oder
+Secrets; nur bestätigte eigene UUID/Port-/Sitzungsbindung wird projiziert.
+Kein automatischer Stop, Retry, Ownershipadoption oder Cleanup-Erfolgsversprechen.
+Bestehende eigene Sitzungsführung bleibt separat; SQL bleibt NOT_CHECKED.
+Die Browserführung ist synthetisch geprüft; neue reale Start-/Modell-/TLS-/
+Compute-/Cleanup-Abnahme und ausgewählte Provider-Gates sind NOT_EXECUTED.
+
+Das optionale CORE-102-Identitätsmapping verwendet den bestehenden Indexvertrag
+1.1; Legacyrecords bleiben unbekannt und unverändert. Public
+`Get-SqlServerLabExternalRuntimeCapability -IncludeRecordedEvidence` liefert
+Version 1.1 ohne aktuelle Evidence-Aufwertung. Das Tool verlangt beide Schalter
+`-IncludeRecordedAcceptanceMatrix -IncludeRecordedIdentityMatrix` und liefert
+Version 1.2 ausschließlich als begrenzte historische Identitätsmatrix, ohne
+Quellinventar/Modulimport. Maximal 128 Records und 256 KiB UTF-8 für die komplette
+neue Antwort; Überlauf bleibt leer/UNAVAILABLE. Referenzen sind NOT_VERIFIED,
+aktuelle Ausführung NOT_EXECUTED und Readiness NOT_CHECKED. Alte Public-/Browser-
+und Manifestdefaults bleiben unverändert. Reale neue Producerrecords, Native-/SQL-
+Abnahme und vollständige Kombinationenmatrix bleiben offen.
+## Eigener CI-Scope auf einem geteilten Host
+
+Der [eigene CI-Scope](../Architecture/OWNED_HOST_CI_ISOLATION.md) setzt Windows,
+frischen ACL-gebundenen StateRoot und bereits erreichbare explizite lokale
+Docker-/Podmanrouten voraus. Fehlende katalogisierte Builddigests erlauben
+keinen impliziten Pull. CLI-Reconcile, InstanceStore-CLONE, parallele
+Matrix-Runspaces und externe Runtime-ToolImage-Builds sind im Profil vor
+Arrange gesperrt. Taskregistrierung belegt keinen Logondispatch; synthetische
+Prüfungen ersetzen keine getrennten nativen Pflichtgates am stabilen Head.
+Standardpfade behalten ihre bisherigen Verträge und Nachweise.

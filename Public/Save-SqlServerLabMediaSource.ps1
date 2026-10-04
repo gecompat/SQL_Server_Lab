@@ -3,8 +3,8 @@ function Save-SqlServerLabMediaSource {
     .SYNOPSIS
         Lädt ein katalogisiertes Server-Basismedium oder einen Bootstrapper.
     .DESCRIPTION
-        Verwendet den versionierten Medienquellenkatalog. Für genau die drei
-        SQL-2025-Bootstrapper kann eine lokale Preferences-Zuordnung eine
+        Verwendet den versionierten Medienquellenkatalog. Für genau die sechs
+        SQL-2022/2025-Bootstrapper kann eine lokale Preferences-Zuordnung eine
         alternative Microsoft-Adresse derselben Datei bestimmen. Diese wird
         erneut geprüft und ohne Redirectfolge verwendet; Integritätswerte und
         Variante bleiben ausschließlich kataloggebunden. Jede

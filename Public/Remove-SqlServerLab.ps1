@@ -69,6 +69,9 @@ function Remove-SqlServerLab {
     }
 
     $state = Get-LabRunState -RunId $RunId -StateRoot $StateRoot
+    if ($state.metadata.ownedHostIntegration -or (((Test-Path (Join-Path $StateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $StateRoot 'owned-host-policy.json'))))))) {
+        $null=Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $StateRoot
+    }
     $runDirectory = Join-Path (Join-Path $StateRoot 'runs') $RunId
 
     Write-LabHeader "Lab entfernen: $($state.metadata.name)"
@@ -261,8 +264,8 @@ function Remove-SqlServerLab {
         }
 
         $orphans = switch ($provider) {
-            'docker' { @(Get-DockerLabContainers -RunId $RunId) }
-            'podman' { @(Get-PodmanLabContainers -RunId $RunId) }
+            'docker' { @(Get-DockerLabContainers -RunId $RunId -StateRoot $StateRoot) }
+            'podman' { @(Get-PodmanLabContainers -RunId $RunId -StateRoot $StateRoot) }
         }
 
         foreach ($orphan in $orphans) {
@@ -272,12 +275,12 @@ function Remove-SqlServerLab {
                     'docker' {
                         $null = Remove-DockerInstance `
                             -ContainerIdOrName $orphan.ContainerId `
-                            -ExpectedScopeId $state.scopeId
+                            -ExpectedScopeId $state.scopeId -StateRoot $StateRoot
                     }
                     'podman' {
                         $null = Remove-PodmanInstance `
                             -ContainerIdOrName $orphan.ContainerId `
-                            -ExpectedScopeId $state.scopeId
+                            -ExpectedScopeId $state.scopeId -StateRoot $StateRoot
                     }
                 }
             }

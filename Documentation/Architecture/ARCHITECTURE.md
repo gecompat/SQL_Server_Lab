@@ -83,6 +83,7 @@ Get-SqlServerLabAutomationPlan         # Lokalen, nicht ausführbaren Plan-/Resu
 Find-SqlServerLabCollation             # Versionsgebundenen Collation-Katalog tokenbasiert durchsuchen
 Get-SqlServerLabHyperVImageArtifact    # Hyper-V-Image-Registry, Evaluation und Referenzen read-only
 Get-SqlServerLabEvaluationWatch         # Windows-/SQL-Artefakte und nur receiptgebundene SQL-Gastfristen read-only bewerten und Ereignisse optional deduplizieren
+Get-SqlServerLabEvaluationRefreshPlan   # Eine registrierte Hyper-V-SQL-Instanz für Ersatz/Rekonstruktion/Migration informativ bewerten; immer BLOCKED ohne Aktionen
 Invoke-SqlServerLabEvaluationWatchTrigger # Evaluation-Watch lokal und begrenzt zeitgesteuert ausführen
 Update-SqlServerLabSqlGuestEvaluationEvidence # SQL-2025-Hyper-V-Edition erfassen und NO_DEADLINE-Receipt atomar erneuern
 Get-SqlServerLabRunStateUpgradePlan     # Lokalen Run-State read-only gegen Zielvertrag klassifizieren
@@ -109,6 +110,7 @@ Export-SqlServerLabDatabasePackage           # Rungebundene Container-Datenbank 
 Invoke-SqlServerLabDatabasePackageAttach     # Paket pfadfrei an einen stabil gebundenen Hyper-V-SQL-Run attachen
 Get-SqlServerLabDatabaseMigrationDependency  # SQL-Migrationsabhaengigkeiten read-only inventarisieren
 Get-SqlServerLabAiScenario                   # SQL-KI-Szenario und sanitisierte Evidence read-only aufloesen
+Get-SqlServerLabLlamaCppStartPlan          # Reine explizite Dateivorschau, PLAN_ONLY/BLOCKED, kein Start
 Start-SqlServerLabLlamaCppRuntime           # Eigene begrenzte Windows-Embeddingruntime starten
 Stop-SqlServerLabLlamaCppRuntime            # Eigene Runtime und API-Key bereinigen
 Start-SqlServerLabOvmsHttpsGateway          # Eigenen begrenzten OVMS-Loopback-HTTPS-Gateway starten
@@ -117,6 +119,7 @@ Get-SqlServerLabLlamaCppRuntime             # Windows-/Linux-Pakete begrenzt ohn
 Get-SqlServerLabLlamaCppModel               # Kuratierte hashgebundene Generations-GGUFs auflisten
 Save-SqlServerLabLlamaCppModel              # Gewähltes GGUF bei Bedarf geprüft im MediaRoot ablegen
 Get-SqlServerLabAiComputeInventory          # CPU, GPU und NPU read-only mit vollständiger Coverage inventarisieren
+Get-SqlServerLabExternalRuntimeCapability   # External-Languages-Katalog und optionale Hostvoraussetzung getrennt bewerten
 Get-SqlServerLabAiRuntimeCapability         # Paketbinärdateien hashen und herstellergebundene Lanes ableiten
 Get-SqlServerLabAiComputeCandidate          # Alle erlaubten Einzel-, Mehrgeräte- und Mischkandidaten bilden
 Get-SqlServerLabAiComputeSelection          # Vollständig benchmarkte Gerätekombination automatisch wählen oder explizit fixieren

@@ -1,4 +1,5 @@
 # Test-only helpers. Functions run in the imported module's private scope.
+. (Join-Path $PSScriptRoot 'OwnedHostTestScope.ps1')
 function Read-AiPodmanSamplesOperation {
     param([string]$EvidenceRoot,[string]$OperationId)
     Assert-LabAiPersistentPath $EvidenceRoot
@@ -8,7 +9,7 @@ function Read-AiPodmanSamplesOperation {
     $record=Get-Content -LiteralPath $path -Raw|ConvertFrom-Json -Depth 5
     if($OperationId -cnotmatch '^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$' -or
         $record.OperationId -cne $OperationId -or $record.RuntimeScopeId -cnotmatch '^runtime-scope-[a-f0-9]{24}$' -or
-        $record.StateRoot -cne (Join-Path $EvidenceRoot 'state') -or $record.DataRoot -cne (Join-Path $EvidenceRoot 'Lab_Data') -or
+        -not (Test-OwnedHostTestEvidenceBinding -StateRoot $record.StateRoot -EvidenceRoot $EvidenceRoot) -or $record.DataRoot -cne (Join-Path $EvidenceRoot 'Lab_Data') -or
         $record.CollectionId -cnotmatch '^[a-f0-9]{8}(-[a-f0-9]{4}){3}-[a-f0-9]{12}$' -or
         $record.LocalPort -lt 1024 -or $record.LocalPort -gt 65535 -or $record.NewStarted -isnot [bool]){throw 'SAMPLES_OPERATION_INVALID'}
     return $record
@@ -16,7 +17,10 @@ function Read-AiPodmanSamplesOperation {
 
 function Assert-AiPodmanSamplesRuntime {
     param($Record)
-    $scope=Get-LabAiPodmanSetupRuntimeScope
+    $scope=if ((Test-Path -LiteralPath (Join-Path $Record.StateRoot 'owned-host-required')) -or
+        (Test-Path -LiteralPath (Join-Path $Record.StateRoot 'owned-host-policy.json'))) {
+        Get-LabContainerRuntimeScope -Provider podman -StateRoot $Record.StateRoot
+    } else { Get-LabAiPodmanSetupRuntimeScope }
     if($scope.Status -cne 'AVAILABLE' -or $scope.RuntimeId -cne $Record.RuntimeScopeId){throw 'SAMPLES_RUNTIME_CHANGED'}
 }
 
@@ -40,10 +44,10 @@ function Get-AiPodmanSamplesOperationRun {
 function Get-AiPodmanSamplesInventory {
     param($Record,$Run,$Plan)
     Assert-AiPodmanSamplesRuntime $Record
-    $containers=@(Invoke-LabTransferNative -Provider podman -Arguments @('ps','-a','--no-trunc','--format','{{.ID}}|{{.Names}}') -TimeoutSeconds 20)
-    $volumes=@(Invoke-LabTransferNative -Provider podman -Arguments @('volume','ls','--format','{{.Name}}') -TimeoutSeconds 20)
-    $runContainers=@(Invoke-LabTransferNative -Provider podman -Arguments @('ps','-a','--no-trunc','--filter',"label=sql-server-lab.run-id=$($Run.runId)",'--format','{{.ID}}') -TimeoutSeconds 20)
-    $runVolumes=@(Invoke-LabTransferNative -Provider podman -Arguments @('volume','ls','--filter',"label=sql-server-lab.run-id=$($Run.runId)",'--format','{{.Name}}') -TimeoutSeconds 20)
+    $containers=@(Invoke-LabTransferNative -Provider podman -StateRoot $Record.StateRoot -Arguments @('ps','-a','--no-trunc','--format','{{.ID}}|{{.Names}}') -TimeoutSeconds 20)
+    $volumes=@(Invoke-LabTransferNative -Provider podman -StateRoot $Record.StateRoot -Arguments @('volume','ls','--format','{{.Name}}') -TimeoutSeconds 20)
+    $runContainers=@(Invoke-LabTransferNative -Provider podman -StateRoot $Record.StateRoot -Arguments @('ps','-a','--no-trunc','--filter',"label=sql-server-lab.run-id=$($Run.runId)",'--format','{{.ID}}') -TimeoutSeconds 20)
+    $runVolumes=@(Invoke-LabTransferNative -Provider podman -StateRoot $Record.StateRoot -Arguments @('volume','ls','--filter',"label=sql-server-lab.run-id=$($Run.runId)",'--format','{{.Name}}') -TimeoutSeconds 20)
     $targets=[Collections.Generic.List[object]]::new()
     foreach($step in @($Plan.steps)){
         if($step.resourceType -ceq 'container'){
@@ -83,7 +87,7 @@ function Remove-AiPodmanSamplesOwnedRun {
     # not require RUNNING, a SQL endpoint or a complete transfer binding.
     foreach($target in $targets){
         $nativeArguments=if($target.Kind -ceq 'container'){@('inspect',$target.Id)}else{@('volume','inspect',$target.Id)}
-        $observed=@((Invoke-LabTransferNative -Provider podman -Arguments $nativeArguments -TimeoutSeconds 20)-join "`n"|ConvertFrom-Json -Depth 30)
+        $observed=@((Invoke-LabTransferNative -Provider podman -StateRoot $Record.StateRoot -Arguments $nativeArguments -TimeoutSeconds 20)-join "`n"|ConvertFrom-Json -Depth 30)
         if($observed.Count -ne 1){throw 'SAMPLES_RESOURCE_AMBIGUOUS'}
         $labels=if($target.Kind -ceq 'container'){$observed[0].Config.Labels}else{$observed[0].Labels}
         if($labels.'sql-server-lab.run-id' -cne $run.runId -or $labels.'sql-server-lab.scope-id' -cne $run.scopeId -or
@@ -92,7 +96,7 @@ function Remove-AiPodmanSamplesOwnedRun {
         if($target.Kind -ceq 'container' -and $observed[0].Id -cne $target.Id){throw 'SAMPLES_RESOURCE_OWNERSHIP_INVALID'}
         if($target.Kind -ceq 'volume'){
             if($observed[0].Name -cne $target.Id){throw 'SAMPLES_RESOURCE_OWNERSHIP_INVALID'}
-            $attachments=@(Invoke-LabTransferNative -Provider podman -Arguments @('ps','-a','--no-trunc','--filter',"volume=$($target.Id)",'--format','{{.ID}}') -TimeoutSeconds 20)
+            $attachments=@(Invoke-LabTransferNative -Provider podman -StateRoot $Record.StateRoot -Arguments @('ps','-a','--no-trunc','--filter',"volume=$($target.Id)",'--format','{{.ID}}') -TimeoutSeconds 20)
             if(@($attachments|Where-Object {$_ -cnotin @($targets|Where-Object Kind -eq container|ForEach-Object Id)}).Count){throw 'SAMPLES_VOLUME_SHARED'}
         }
     }

@@ -36,7 +36,8 @@ param(
     [switch]$IncludeParallel,
     [switch]$KeepOnFailure,
     [switch]$TestAutoStart,
-    [SecureString]$SaPassword
+    [SecureString]$SaPassword,
+    [string]$StateRoot
 )
 
 $showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
@@ -47,6 +48,12 @@ if ($showHelpRequested) {
 
 
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+if ($StateRoot) {
+    Assert-OwnedHostTestRoot -StateRoot $StateRoot
+    if ($IncludeParallel) { throw 'OWNED_HOST_PARALLEL_PROBE_UNSUPPORTED' }
+    $script:OwnArtifacts=Get-OwnedHostTestArtifactRoot -StateRoot $StateRoot -Name 'sql-server-lab-smoke-matrix'
+}
 $modulePath = (Resolve-Path (Join-Path $PSScriptRoot '..\..\SqlServerLab.psd1')).Path
 $providersRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\Providers')).Path
 $script:Results = [System.Collections.Generic.List[object]]::new()
@@ -77,7 +84,7 @@ function Test-RuntimeAvailable {
 
     if ($Name -eq 'hyperv') {
         try {
-            $assessment = Test-SqlServerLabPrerequisite -Provider $Name
+            $assessment = Test-SqlServerLabPrerequisite -Provider $Name -StateRoot $StateRoot
             $providerMessage = $assessment.Details | Where-Object { $_.Category -eq 'Provider' } | Select-Object -First 1
             return [PSCustomObject]@{
                 Available = $assessment.Status -ne 'RESOURCE_HARD_BLOCK'
@@ -93,7 +100,7 @@ function Test-RuntimeAvailable {
     }
 
     try {
-        $assessment = Test-SqlServerLabPrerequisite -Provider $Name
+        $assessment = Test-SqlServerLabPrerequisite -Provider $Name -StateRoot $StateRoot
         if ($assessment.Details) {
             $providerMessage = $assessment.Details | Where-Object { $_.Category -eq 'Provider' } | Select-Object -First 1
             return [PSCustomObject]@{
@@ -157,7 +164,7 @@ function Wait-TestDatabaseReady {
 function Remove-TestLabSafely {
     param($Lab)
     if (-not $Lab -or -not $Lab.RunId) { return }
-    try { Remove-SqlServerLab -RunId $Lab.RunId -Force -ErrorAction Stop | Out-Null }
+    try { Remove-SqlServerLab -RunId $Lab.RunId -Force -ErrorAction Stop -StateRoot $StateRoot | Out-Null }
     catch { Write-Warning "Cleanup fuer Run $($Lab.RunId) fehlgeschlagen: $($_.Exception.Message)" }
 }
 
@@ -165,15 +172,20 @@ function Invoke-FullLifecycle {
     param([string]$ProviderName, [string]$VersionName)
     $lab = $null
     $sqlPath = Join-Path $env:TEMP "SqlServerLab-Smoke-$ProviderName-$VersionName-$PID.sql"
+    if ($StateRoot) { $sqlPath=Join-Path $script:OwnArtifacts "SqlServerLab-Smoke-$ProviderName-$VersionName-$PID.sql" }
     try {
         $module = Get-Module SqlServerLab -ErrorAction Stop
         $runtimeInvocation = & $module { param($Name) Get-LabHostToolInvocation -Name $Name } $ProviderName
         $autoStart = if ($TestAutoStart) { 'on' } else { 'off' }
-        $lab = New-SqlServerLab -Version $VersionName -Provider $ProviderName -Profile compact -AutoStart $autoStart -SaPassword $SaPassword -SkipAssessment
+        $creationArguments=@{}
+        if ($StateRoot) { $creationArguments=@{StateRoot=$StateRoot;DataRoot=(Join-Path $script:OwnArtifacts 'Lab_Data')} }
+        $lab = New-SqlServerLab -Version $VersionName -Provider $ProviderName -Profile compact -AutoStart $autoStart -SaPassword $SaPassword -SkipAssessment @creationArguments
         $instance = $lab.Instances | Select-Object -First 1
         if ([string]$instance.AutoStart -ne $autoStart) { throw "Autostart-Vertrag meldet '$($instance.AutoStart)' statt '$autoStart'." }
         if ($TestAutoStart) {
-            $inspect = & $runtimeInvocation inspect $instance.ContainerId 2>$null | ConvertFrom-Json -Depth 30
+            $inspect = $(if ($StateRoot) {
+                Invoke-OwnedHostTestCommand -StateRoot $StateRoot -Provider $ProviderName -Invocation $runtimeInvocation -Arguments @('inspect',$instance.ContainerId)
+            } else { & $runtimeInvocation inspect $instance.ContainerId 2>$null }) | ConvertFrom-Json -Depth 30
             if ($LASTEXITCODE -ne 0 -or -not $inspect) { throw 'Autostart-Inspect fehlgeschlagen.' }
             $runtimeInstance = @($inspect)[0]
             if ([string]$runtimeInstance.HostConfig.RestartPolicy.Name -notin @('always', 'unless-stopped')) { throw 'Autostart-Restart-Policy fehlt.' }
@@ -190,10 +202,10 @@ INSERT dbo.SmokeEvidence(Id, Marker) VALUES (1, N'$ProviderName-$VersionName');
 GO
 "@ | Set-Content -LiteralPath $sqlPath -Encoding utf8
 
-        $scriptResult = Invoke-SqlServerLabScript -RunId $lab.RunId -ScriptPath $sqlPath -Database $dbName -SaPassword $SaPassword
+        $scriptResult = Invoke-SqlServerLabScript -RunId $lab.RunId -ScriptPath $sqlPath -Database $dbName -SaPassword $SaPassword -StateRoot $StateRoot
         if (-not $scriptResult.Success) { throw $scriptResult.Message }
 
-        $restart = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 60 -Force
+        $restart = Restart-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 60 -Force -StateRoot $StateRoot
         if ($restart.Status -ne 'RUNNING' -or $restart.Errors -ne 0) { throw 'Restart fehlgeschlagen.' }
 
         Wait-TestDatabaseReady `
@@ -210,12 +222,12 @@ GO
         }
         finally { $plain = $null }
 
-        $stop = Stop-SqlServerLab -RunId $lab.RunId -Force
+        $stop = Stop-SqlServerLab -RunId $lab.RunId -Force -StateRoot $StateRoot
         if ($stop.Status -ne 'STOPPED') { throw 'Stop fehlgeschlagen.' }
-        $start = Start-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 60
+        $start = Start-SqlServerLab -RunId $lab.RunId -TimeoutSeconds 60 -StateRoot $StateRoot
         if ($start.Status -ne 'RUNNING' -or $start.Errors -ne 0) { throw 'Start fehlgeschlagen.' }
 
-        $remove = Remove-SqlServerLab -RunId $lab.RunId -Force
+        $remove = Remove-SqlServerLab -RunId $lab.RunId -Force -StateRoot $StateRoot
         if ($remove.Cleanup -ne 'CLEANUP_SUCCEEDED' -or $remove.Errors -ne 0) { throw 'Cleanup fehlgeschlagen.' }
         $lab = $null
         Add-Result -Category 'Lifecycle' -Provider $ProviderName -Version $VersionName -Status PASS -Message 'Create/DB/Script/Restart/Persistenz/Stop/Start/Autostart/Cleanup'
@@ -267,14 +279,14 @@ function Invoke-ParallelProbe {
         if ($ports.Count -ne $labs.Count) { throw 'Ports sind nicht eindeutig.' }
 
         $victim = $labs[0]
-        Remove-SqlServerLab -RunId $victim.RunId -Force | Out-Null
+        Remove-SqlServerLab -RunId $victim.RunId -Force -StateRoot $StateRoot | Out-Null
         for ($i = 1; $i -lt $labs.Count; $i++) {
-            $status = Get-SqlServerLab -RunId $labs[$i].RunId
+            $status = Get-SqlServerLab -RunId $labs[$i].RunId -StateRoot $StateRoot
             if ($status.State -ne 'RUNNING' -or -not $status.Instances[0].ContainerUp) {
                 throw "Isolierter Cleanup beeintraechtigte Run $($labs[$i].RunId)."
             }
         }
-        for ($i = 1; $i -lt $labs.Count; $i++) { Remove-SqlServerLab -RunId $labs[$i].RunId -Force | Out-Null }
+        for ($i = 1; $i -lt $labs.Count; $i++) { Remove-SqlServerLab -RunId $labs[$i].RunId -Force -StateRoot $StateRoot | Out-Null }
         $labs.Clear()
         Add-Result -Category 'Parallel' -Provider ($ProviderNames -join ',') -Version $VersionName -Status PASS -Message "$($scenarios.Count) Runs, eindeutige Ports/States, isolierter Cleanup"
     }
@@ -294,11 +306,11 @@ $repoRoot = Split-Path -Parent $modulePath
 $hostToolResolutions = @(& (Join-Path $repoRoot 'Tools\Initialize-SqlServerLabHostTools.ps1') -Name docker,podman)
 $podmanResolution = @($hostToolResolutions | Where-Object Name -eq 'podman' | Select-Object -First 1)
 if ($Provider -eq 'podman') {
-    $null = & $podmanBootstrapPath
+    $null = if ($StateRoot) { & $podmanBootstrapPath -StateRoot $StateRoot -RequireReachable } else { & $podmanBootstrapPath }
 }
 elseif ($Provider -eq 'all' -and $podmanResolution.Available) {
     try {
-        $null = & $podmanBootstrapPath
+        $null = if ($StateRoot) { & $podmanBootstrapPath -StateRoot $StateRoot -RequireReachable } else { & $podmanBootstrapPath }
     }
     catch {
         Write-Warning "Installierte Podman-Runtime konnte nicht automatisch gestartet werden: $($_.Exception.Message)"
@@ -323,7 +335,7 @@ foreach ($name in $requested) {
     if ($name -notin $implemented) { Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status FAIL -Message 'Provider nicht implementiert'; continue }
     if ($name -eq 'hyperv') {
         try {
-            $assessment = Test-SqlServerLabPrerequisite -Provider $name
+            $assessment = Test-SqlServerLabPrerequisite -Provider $name -StateRoot $StateRoot
             if ($assessment.Status -ne 'RESOURCE_HARD_BLOCK') {
                 Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status PASS -Message 'Verfuegbar; Lifecycle in dieser Matrix nicht ausgefuehrt (verwende .\Tests\Integration\Invoke-HyperVSmokeTest.ps1).'
             }
@@ -344,7 +356,10 @@ foreach ($name in $requested) {
         $available += $name
         Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status PASS -Message $runtime.Message
     }
-    else { Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status SKIP -Message $runtime.Message }
+    else {
+        if ($StateRoot) { throw 'OWNED_HOST_REQUIRED_PROVIDER_UNAVAILABLE' }
+        Add-Result -Category 'Discovery' -Provider $name -Version '-' -Status SKIP -Message $runtime.Message
+    }
 }
 if ($available.Count -eq 0 -and $requestedMode -eq 'all') {
     $elapsed = (Get-Date) - $script:StartedAt

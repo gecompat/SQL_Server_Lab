@@ -30,7 +30,9 @@ param(
     [int]$TimeoutSeconds = 90,
 
     [ValidateRange(1, 30)]
-    [int]$PollIntervalSeconds = 2
+    [int]$PollIntervalSeconds = 2,
+    [switch]$RequireReachable,
+    [string]$StateRoot
 )
 
 $showHelpRequested = $ShowHelp.IsPresent -or @($RemainingArgs) -contains '/?' -or @($RemainingArgs) -contains '-?' -or @($RemainingArgs) -contains '-h' -or @($RemainingArgs) -contains '--help'
@@ -47,6 +49,15 @@ if (-not $podmanResolution.Available) {
     throw 'HOST_TOOL_NOT_FOUND: Podman konnte weder ueber Override, Prozess-/persistierten PATH noch an bekannten Installationsorten aufgeloest werden.'
 }
 $podmanInvocation = [string]$podmanResolution.Invocation
+
+if ($RequireReachable -or $StateRoot) {
+    if ($StateRoot) {
+        . (Join-Path $PSScriptRoot '../Common/OwnedHostTestScope.ps1')
+        $null=Invoke-OwnedHostTestCommand -StateRoot $StateRoot -Provider podman -Invocation $podmanInvocation -Arguments @('info')
+    } else { & $podmanInvocation info 1>$null 2>$null }
+    if ($LASTEXITCODE -ne 0) { throw 'PODMAN_RUNTIME_REQUIRED_REACHABLE: Machine start is excluded.' }
+    return [pscustomobject]@{Status='READY';MachineName=$null;StartedByScript=$false}
+}
 
 function Test-PodmanRuntimeReady {
     & $podmanInvocation info 1>$null 2>$null

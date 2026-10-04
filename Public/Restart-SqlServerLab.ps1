@@ -12,6 +12,8 @@
 .PARAMETER Force
     Ueberspringt Bestaetigungen, einschliesslich der besonderen
     Sicherheitsabfrage fuer einen optional konfigurierten CMS.
+.PARAMETER StateRoot
+    Optionaler expliziter StateRoot fuer Run, Beobachtung und delegierten Lifecycle.
 .INPUTS
     System.Object. Objekte mit einer RunId-Eigenschaft koennen ueber die
     Pipeline gebunden werden.
@@ -27,11 +29,14 @@ function Restart-SqlServerLab {
         [Parameter(Mandatory, ValueFromPipelineByPropertyName)]
         [string]$RunId,
         [int]$TimeoutSeconds = 60,
-        [switch]$Force
+        [switch]$Force,
+        [string]$StateRoot
     )
 
     process {
-        $stateRoot = Get-LabStateRoot
+        $lifecycleArguments = @{}
+        if ($StateRoot) { $lifecycleArguments.StateRoot = $StateRoot }
+        else { $StateRoot = Get-LabStateRoot }
         if (Test-LabAutomatedTestEnvironmentRun -RunId $RunId) {
             throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Einzelner Neustart ist für die automatisch gestartete Testgruppe gesperrt.'
         }
@@ -54,10 +59,10 @@ function Restart-SqlServerLab {
         # Stop (falls laufend)
         if ($run.state -eq 'RUNNING') {
             $stopResult = if ($Force) {
-                Stop-SqlServerLab -RunId $RunId -Force -SkipHostMemoryRelease
+                Stop-SqlServerLab -RunId $RunId -Force -SkipHostMemoryRelease @lifecycleArguments
             }
             else {
-                Stop-SqlServerLab -RunId $RunId -SkipHostMemoryRelease
+                Stop-SqlServerLab -RunId $RunId -SkipHostMemoryRelease @lifecycleArguments
             }
             if ($stopResult.Action -eq 'CANCELLED') {
                 return [PSCustomObject]@{
@@ -70,7 +75,7 @@ function Restart-SqlServerLab {
         }
 
         # Start + Wait-SqlReady
-        $result = Start-SqlServerLab -RunId $RunId -TimeoutSeconds $TimeoutSeconds
+        $result = Start-SqlServerLab -RunId $RunId -TimeoutSeconds $TimeoutSeconds @lifecycleArguments
 
         Write-LabSuccess "Lab neugestartet: ${runPrefix}..."
         return $result
