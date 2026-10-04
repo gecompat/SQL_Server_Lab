@@ -1469,6 +1469,8 @@ try {
         }
         function Get-VMNetworkAdapter {
             if ($script:networkReconcileMode -eq 'unavailable') { throw 'simulated provider read failure' }
+            if ($script:networkReconcileMode -eq 'isolated-empty') { return @() }
+            if ($script:networkReconcileMode -eq 'isolated-detached') { return [PSCustomObject]@{ SwitchName=''; IPAddresses=@() } }
             if ($script:networkReconcileMode -eq 'detached') { return @() }
             if ($script:networkReconcileMode -eq 'lan') { return [PSCustomObject]@{ SwitchName='SQL_LAB_LAN'; IPAddresses=@('192.0.2.99') } }
             [PSCustomObject]@{ SwitchName='SQL_LAB_HYPERV'; IPAddresses=@('172.28.0.42') }
@@ -1482,8 +1484,8 @@ try {
         }
         function Get-LabRunRuntimeStatus {
             [PSCustomObject]@{
-                State='RUNNING'; Source='mock'
-                Instances=@([PSCustomObject]@{ Id='primary'; Provider='hyperv'; State='RUNNING' })
+                State=$(if ($script:networkReconcileMode -like 'isolated-*') { 'STOPPED' } else { 'RUNNING' }); Source='mock'
+                Instances=@([PSCustomObject]@{ Id='primary'; Provider='hyperv'; State=$(if ($script:networkReconcileMode -like 'isolated-*') { 'STOPPED' } else { 'RUNNING' }) })
             }
         }
 
@@ -1534,11 +1536,52 @@ try {
             Id='primary'; Provider='hyperv'; TargetState='RUNNING'; Network=[PSCustomObject]@{ Intent='lan'; Exposure='lan'; Binding='external-switch' }
         }) -StateRoot $Root
 
+        $isolatedCases = @(foreach ($case in @('no-adapter','detached-adapter','connected-adapter','bound-network','missing-workflow','bound-plan')) {
+            $metadata = @{ name='isolated lifecycle'; workflowKind='hyperv-lab'; networkIntent='isolated'; network=$null }
+            if ($case -eq 'missing-workflow') { $metadata.workflowKind='unknown' }
+            if ($case -eq 'bound-network') { $metadata.network='synthetic-switch' }
+            $isolatedRun = New-LabRunState -StateRoot $Root -Metadata $metadata `
+                -ProviderSubRuns @([PSCustomObject]@{ provider='hyperv'; instanceIds=@('primary') })
+            Write-LabArtifactJsonAtomic -Path (Join-Path $isolatedRun.RunDir 'connection-info.json') -InputObject ([PSCustomObject]@{
+                instances=@([PSCustomObject]@{ id='primary'; provider='hyperv'; vmName='host-value-must-not-leak' })
+            })
+            if ($case -eq 'bound-plan') {
+                Write-LabArtifactJsonAtomic -Path (Join-Path $isolatedRun.RunDir 'network-bound-plan.json') -InputObject ([PSCustomObject]@{ Name='synthetic-switch' })
+            }
+            $script:networkReconcileMode = switch ($case) {
+                'detached-adapter' { 'isolated-detached' }
+                'connected-adapter' { 'isolated-connected' }
+                default { 'isolated-empty' }
+            }
+            $plan = New-LabReconcilePlan -RunId $isolatedRun.RunId -TargetState RUNNING -StateRoot $Root
+            [PSCustomObject]@{ Name=$case; Plan=$plan }
+        })
+        # Manifest-isolated means private switch, not the parameter workflow's no-NIC intent.
+        $script:networkReconcileMode = 'isolated-empty'
+        $manifestIsolatedActual = Get-LabHyperVNetworkReconcileActual -Run $run -DesiredInstance ([PSCustomObject]@{
+            Id='primary'; Provider='hyperv'; Network=[PSCustomObject]@{ Intent='isolated'; Binding='private-switch' }
+        }) -StateRoot $Root
+
         [PSCustomObject]@{
             Matched=$matched; MatchedPlan=$matchedPlan; Drift=$drift; Unavailable=$unavailable
             MatchedComparison=$matchedComparison; DriftComparison=$driftComparison; UnsupportedComparison=$unsupportedComparison; Lan=$lanActual
+            IsolatedCases=$isolatedCases; ManifestIsolatedActual=$manifestIsolatedActual
         }
     } $tempRoot
+
+    foreach ($isolatedCase in $networkContract.IsolatedCases) {
+        $plan = $isolatedCase.Plan
+        Add-CheckResult -Name "Hyper-V-Parameter-Isolation ($($isolatedCase.Name)) bindet den Lifecycle-Plan" `
+            -Success $(if ($isolatedCase.Name -eq 'no-adapter') {
+                $plan.Desired.Instances[0].Network.Binding -eq 'disconnected' -and
+                $plan.Actual.Instances[0].Network.Status -eq 'MATCHED' -and
+                $plan.Actual.Instances[0].Network.ObservedBinding -eq 'disconnected' -and
+                $plan.HighestChangeClass -eq 'restart' -and $plan.Actions.Count -eq 1 -and $plan.Actions[0].Operation -eq 'Start'
+            } else { $plan.HighestChangeClass -eq 'unsupported' -and $plan.Actions.Count -eq 0 })
+    }
+    Add-CheckResult -Name 'Manifest-Isolation verlangt weiterhin den privaten Switch und Adapter' `
+        -Success ($networkContract.ManifestIsolatedActual.Status -eq 'DRIFT' -and
+            $networkContract.ManifestIsolatedActual.ReasonCodes -contains 'HYPERV_NETWORK_ADAPTER_MISSING')
 
     Add-CheckResult `
         -Name 'Hyper-V-Netzwerk-Actual-State erkennt semantischen No-op ohne Hostwerte' `
