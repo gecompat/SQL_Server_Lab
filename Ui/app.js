@@ -1303,6 +1303,21 @@ function invalidateResourcePlan() {
   resourcePlan = null;
   resourceRequest += 1;
   $('#resource-apply').disabled = true;
+  $('#resource-mounts').textContent = 'Mount-Vorschau noch nicht gelesen.';
+}
+function resourceMountSummary(plan) {
+  if (plan.Provider === 'hyperv') return 'Mount-Vorschau für Hyper-V nicht verfügbar.';
+  const mounts = plan.Preview?.Mounts;
+  const fields = ['TotalMountCount', 'VolumeMountCount', 'HostBindCount', 'WritableHostBindCount', 'OtherMountCount'];
+  if (mounts?.Status !== 'MEASURED' || mounts.VolumeOwnership !== 'NOT_CHECKED' ||
+      !fields.every((field) => Number.isInteger(mounts[field]) && mounts[field] >= 0 && mounts[field] <= 1024) ||
+      mounts.TotalMountCount !== mounts.VolumeMountCount + mounts.HostBindCount + mounts.OtherMountCount ||
+      mounts.WritableHostBindCount > mounts.HostBindCount) {
+    return 'Mounts unbekannt; Volumeeigentum nicht geprüft.';
+  }
+  return 'Mounts: ' + mounts.TotalMountCount + ' gesamt; Volumes: ' + mounts.VolumeMountCount +
+    '; Host-Bindings: ' + mounts.HostBindCount + ' (davon ' + mounts.WritableHostBindCount +
+    ' schreibbar); andere Mounttypen: ' + mounts.OtherMountCount + '. Volumeeigentum nicht geprüft.';
 }
 async function fetchResourceView(parameters) {
   const response = await fetch('/api/resource-change?' + new URLSearchParams(parameters), { cache: 'no-store' });
@@ -1341,6 +1356,7 @@ async function readResourcePlan(prefill = false) {
     }
     $('#resource-current').textContent = target.InstanceId + ' · ' + target.Provider + ': CPU ' + (plan.Actual.Cpu ?? 'unbekannt/unbegrenzt') + ' → ' + (plan.Desired.Cpu ?? 'unbekannt') + '; RAM ' + (plan.Actual.MemoryMB ?? 'unbekannt/unbegrenzt') + ' → ' + (plan.Desired.MemoryMB ?? 'unbekannt') + ' MB';
     $('#resource-note').textContent = plan.NextStep;
+    $('#resource-mounts').textContent = resourceMountSummary(plan);
     resourcePlan = plan;
     $('#resource-apply').disabled = !plan.CanApply || plan.NoChange || !plan.PlanKey;
   } catch (error) {

@@ -1596,6 +1596,11 @@ Die Vorschau legt keine Mounts an und ändert keine Volumes. Beim Recreate
 besitzt der bestehende Executor nur Pfade für Bind-Mounts und benannte Volumes;
 die Erhaltung anderer Mounttypen wird nicht zugesichert.
 
+Auch die CPU/RAM-Vorschau der Browseroberfläche zeigt diese Anzahlen für
+Docker und Podman. Sie unterscheidet unbekannte Daten von gemessenen 0 Mounts
+und weist darauf hin, dass Volumeeigentum nicht geprüft wurde. Für Hyper-V
+ist diese Container-Mountanzeige nicht verfügbar.
+
 ### Reconcile-Executor ausführen
 
 Für `START`/`STOP`-Vorschläge kann der Plan jetzt im nächsten Schritt ausgeführt

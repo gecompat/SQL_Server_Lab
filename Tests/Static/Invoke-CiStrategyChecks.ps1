@@ -191,6 +191,21 @@ Add-CheckResult -Name 'PITR-Referenz aktiviert nur ihren Vertrag sowie Docker un
 )
 
 $containerReconcile = & $selector -ChangedPath @('Private/ContainerReconcile.ps1')
+foreach ($resourcePath in @('Private/EnvironmentResources.ps1','Tests/Static/Invoke-EnvironmentResourceChecks.ps1','Tests/Static/Fixtures/ResourceChangeGuidanceChecks.ps1')) {
+    foreach ($path in @($resourcePath,$resourcePath.Replace('/','\'))) {
+        $selected = & $selector -ChangedPath @($path)
+        Add-CheckResult -Name "Gemeinsamer Ressourcenplan waehlt eigene Vertraege und beide Containerprovider: $path" -Success (
+            'Invoke-EnvironmentResourceChecks.ps1' -in $selected.StaticChecks -and
+            'Invoke-ContainerReconcileChecks.ps1' -in $selected.StaticChecks -and
+            'Invoke-WorkflowUiChecks.ps1' -in $selected.StaticChecks -and
+            $selected.Docker -and $selected.Podman -and -not $selected.HyperV -and -not $selected.Mixed -and -not $selected.Adapter)
+    }
+}
+foreach ($resourcePath in @('Private/EnvironmentResourcesOther.ps1','Tests/Static/Fixtures/ResourceChangeGuidanceChecksOther.ps1','Documentation/HowTo/EnvironmentResources.md')) {
+    $selected = & $selector -ChangedPath @($resourcePath)
+    Add-CheckResult -Name "Aehnlicher Pfad erbt keine Ressourcen-Domain: $resourcePath" -Success (
+        'Invoke-EnvironmentResourceChecks.ps1' -notin $selected.StaticChecks -and -not $selected.Podman)
+}
 Add-CheckResult -Name 'Container-Reconcile aktiviert Vertrag sowie Docker- und Podman-Akzeptanz' -Success (
     $containerReconcile.Docker -and $containerReconcile.Podman -and
     'Invoke-ContainerReconcileChecks.ps1' -in $containerReconcile.StaticChecks -and

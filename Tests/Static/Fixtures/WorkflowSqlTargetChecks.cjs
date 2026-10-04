@@ -507,6 +507,7 @@ async function main() {
   await pendingSetup;
   check('Late setup read after Cancel cannot update the closed dialog', () => { assert.notEqual(node('initial-setup-media').value, 'stale'); });
   let resourceMode = 'ready';
+  let resourceMounts = { Status: 'MEASURED', TotalMountCount: 3, VolumeMountCount: 1, HostBindCount: 1, WritableHostBindCount: 1, OtherMountCount: 1, VolumeOwnership: 'NOT_CHECKED', Source: '/synthetic/private/host' };
   const resourceRequests = [];
   context.fetch = async (url, options = {}) => {
     resourceRequests.push({ url, options });
@@ -518,7 +519,7 @@ async function main() {
     if (!query.has('instanceId')) return { ok: true, json: async () => ({ Targets: resourceMode === 'empty' ? [] : [{ InstanceId: 'secondary', Provider: 'podman' }] }) };
     const actual = { Cpu: resourceMode === 'unknown' ? null : 2, MemoryMB: 2048 };
     const desired = { Cpu: query.has('cpu') ? Number(query.get('cpu')) : actual.Cpu, MemoryMB: query.has('memoryMB') ? Number(query.get('memoryMB')) : 2048 };
-    return { ok: true, json: async () => ({ RunId: 'resource-run', InstanceId: query.get('instanceId'), Provider: query.get('provider'), Actual: actual, Desired: desired, CanApply: resourceMode !== 'unknown', NoChange: desired.Cpu === actual.Cpu && desired.MemoryMB === actual.MemoryMB, PlanKey: 'a'.repeat(64), NextStep: resourceMode === 'unknown' ? 'Istlimit unbekannt; Apply nicht verfügbar.' : 'Live; kein Neustart.' }) };
+    return { ok: true, json: async () => ({ RunId: 'resource-run', InstanceId: query.get('instanceId'), Provider: query.get('provider'), Actual: actual, Desired: desired, Preview: { Mounts: resourceMounts }, CanApply: resourceMode !== 'unknown', NoChange: desired.Cpu === actual.Cpu && desired.MemoryMB === actual.MemoryMB, PlanKey: 'a'.repeat(64), NextStep: resourceMode === 'unknown' ? 'Istlimit unbekannt; Apply nicht verfügbar.' : 'Live; kein Neustart.' }) };
   };
   context.resourceButton = { dataset: { run: 'resource-run' } };
   const resourceEvent = async (id, type = 'click') => { for (const handler of node(id).events.get(type) || []) await handler({ submitter: { value: 'default' }, preventDefault() {} }); };
@@ -528,9 +529,24 @@ async function main() {
     assert.equal(node('resource-apply').disabled, true);
     assert.ok(node('resource-current').textContent.includes('secondary · podman'));
   });
+  check('Resource mount display projects counts without private paths or ownership claims', () => {
+    assert.ok(node('resource-mounts').textContent.includes('3 gesamt'));
+    assert.ok(node('resource-mounts').textContent.includes('1 schreibbar'));
+    assert.ok(node('resource-mounts').textContent.includes('Volumeeigentum nicht geprüft'));
+    assert.ok(!node('resource-mounts').textContent.includes('/synthetic/private'));
+  });
+  for (const mounts of [null, { Status: 'UNKNOWN', TotalMountCount: null }, { ...resourceMounts, TotalMountCount: '3' }, { ...resourceMounts, WritableHostBindCount: 2 }, { ...resourceMounts, TotalMountCount: 4 }]) {
+    resourceMounts = mounts; await resourceEvent('resource-preview');
+    check('Invalid or unknown mount response never displays measured zero or stale counts', () => assert.ok(node('resource-mounts').textContent.startsWith('Mounts unbekannt')));
+  }
+  resourceMounts = { Status: 'MEASURED', TotalMountCount: 0, VolumeMountCount: 0, HostBindCount: 0, WritableHostBindCount: 0, OtherMountCount: 0, VolumeOwnership: 'NOT_CHECKED' };
+  await resourceEvent('resource-preview');
+  check('Explicit empty mount response displays measured zero', () => assert.ok(node('resource-mounts').textContent.includes('0 gesamt')));
+  check('Hyper-V mount display does not claim container evidence', () => assert.ok(run("resourceMountSummary({Provider:'hyperv'})").includes('nicht verfügbar')));
   await resourceEvent('resource-form','submit');
   node('resource-processors').value = '2.5';
   await resourceEvent('resource-processors','input');
+  check('Editing invalidates previous mount display before another response', () => assert.equal(node('resource-mounts').textContent, 'Mount-Vorschau noch nicht gelesen.'));
   await resourceEvent('resource-form','submit');
   check('Unpreviewed edits and no-op never queue mutation', () => assert.equal(resourceRequests.filter((r) => r.url === '/api/actions').length, 0));
   await resourceEvent('resource-preview');

@@ -189,6 +189,23 @@ und Podman benötigen jeweils eine eigene Ausführung auf dem finalen Stand.
 
 ## Geführte Container-CPU/RAM-Änderung
 
+Die additive Mountanzeige wurde am 2026-10-04 lokal mit dem echten gemeinsamen
+Planner und der echten Browserfixture geprüft: fehlende Daten, gemessene 0,
+ungültige Metadaten, pfadfreie Anzahlen, ungeprüftes Volumeeigentum,
+Hyper-V ohne Mountvorschau und Verwerfen bei Eingabeänderung. Die Plannerfixture
+besteht mit 43 Fällen, die Ressourcen-Suite mit sechs zusätzlichen Prüfungen;
+die UI-Suite besteht mit 53 Prüfungen einschließlich 147 Browserprüfungen.
+Der synthetische Providerkontext wird pro Plan nur einmal gelesen; die additive
+Projektion verändert bei unveränderter privater Bindung den PlanKey nicht.
+Die CI-Selektion ordnet die Plannerdatei, Ressourcen-Suite und Guidancefixture
+explizit der Ressourcen-, Container-Reconcile- und UI-Prüfung sowie beiden
+Containerprovidern zu. Exakte Pfade mit beiden Trennzeichen und ähnliche
+Nicht-Domainpfade bestehen die Selektorfixture (457 Prüfungen). Die Änderung
+am gemeinsamen Selektor selbst behält dessen volle Runtime-Pflichtmatrix.
+Diese lokalen Nachweise ersetzen keine native Docker-/Podman-Abnahme des
+veröffentlichten Heads und belegen keine neue Mountmutation oder Volumeverwaltung.
+
+
 Am 2026-09-28 bestanden Docker und Podman getrennt je neun native Prüfungen
 für den neuen instanzgebundenen Plan-/Workflow-Apply-/No-op-/Driftpfad auf
 SQL Server 2025. Geprüft wurden echte CPU/RAM-Limits, erhaltene Runtime-ID,
