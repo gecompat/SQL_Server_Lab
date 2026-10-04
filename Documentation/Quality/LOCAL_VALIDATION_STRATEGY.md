@@ -172,6 +172,21 @@ bestätigter Abwesenheit und Korrektur ausschließlich des eigenen VM-Ordners
 bestand der neue Versuch. Teilfehler/Retry und Cursor-/Fallback-/F5-Verhalten
 sind synthetisch geprüft; unabhängiger Nachreview ist geschlossen.
 
+## Read-only Container-Mount-Vorschau
+
+`Invoke-ContainerReconcileChecks.ps1` führt den öffentlichen Containerplan mit
+synthetischen Inspect-Metadaten aus. Explizit leere und fehlende Mountlisten,
+schreibbare und lesende Host-Bindings, Volumes und andere Typen, falsche RW-
+Typen, fehlende Felder, skalare Einträge und die 1024-Grenze sind getrennte
+Fälle. Feste Zähler geben keine Namen oder Host-/Gastpfade aus und bestätigen
+kein Volumeeigentum. Recreate darf keine allgemeine Mount-Erhaltung behaupten;
+Live-Pläne ändern Mounts nicht. Bestehende NoWrite-, Action- und Journalfälle
+bleiben erhalten. Diese synthetische Evidence ersetzt weder native Inspect-
+Kompatibilität noch Docker-/Podman- oder Volume-/Mount-Cleanupnachweise.
+Der vorhandene eigene `Invoke-ContainerCliAcceptance.ps1` vergleicht zusätzlich
+die öffentlichen Zähler mit seinem bereits gelesenen nativen Inspect; Docker
+und Podman benötigen jeweils eine eigene Ausführung auf dem finalen Stand.
+
 ## Geführte Container-CPU/RAM-Änderung
 
 Am 2026-09-28 bestanden Docker und Podman getrennt je neun native Prüfungen

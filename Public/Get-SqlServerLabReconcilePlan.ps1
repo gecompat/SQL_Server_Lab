@@ -118,6 +118,10 @@
 
     Plant eine additive, resolvergebundene External-Runtime-Installation im
     vorhandenen Hyper-V-Gast oder einen Container-Replacement-Pfad.
+    .NOTES
+        Container-Preview.Mounts zeigt nur Mount-Anzahlen und schreibbare
+        Host-Bindings. Fehlende Inspect-Evidence bleibt UNKNOWN. Volumeeigentum,
+        Sicherung und freie Mountänderungen werden damit nicht bestätigt.
 #>
 function Get-SqlServerLabReconcilePlan {
     [CmdletBinding(DefaultParameterSetName = 'Lifecycle')]
