@@ -1594,7 +1594,11 @@ eine ausdrücklich leere Mountliste ergibt `MEASURED` und 0 Mounts.
 `VolumeOwnership=NOT_CHECKED` bestätigt weder Eigentum noch Sicherung.
 Die Vorschau legt keine Mounts an und ändert keine Volumes. Beim Recreate
 besitzt der bestehende Executor nur Pfade für Bind-Mounts und benannte Volumes;
-die Erhaltung anderer Mounttypen wird nicht zugesichert.
+andere Typen oder unvollständige Mountdaten werden vor dem neuen Journal und
+vor Stop, Umbenennen oder Erstellen abgewiesen. Das gilt auch für `-WhatIf`.
+Bereits offene Recovery wird vorher behandelt; No-op und Live-Updates werden
+durch diese Recreate-Prüfung nicht gesperrt. Die Prüfung bestätigt weder
+Volumeeigentum noch Sicherung oder unabhängige Datenerhaltung.
 
 Auch die CPU/RAM-Vorschau der Browseroberfläche und des PowerShell-Menüs zeigt diese Anzahlen für
 Docker und Podman. Sie unterscheidet unbekannte Daten von gemessenen 0 Mounts

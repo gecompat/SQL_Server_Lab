@@ -441,6 +441,7 @@ sources_of_truth:
   validation_media_source_guidance: Tests/Static/Invoke-MediaSourceGuidanceChecks.ps1
   container_reconcile_journal_schema: Schemas/container-reconcile-journal.schema.json
   validation_container_reconcile: Tests/Static/Invoke-ContainerReconcileChecks.ps1
+  validation_container_recreate_mount_boundary: Tests/Static/Fixtures/ContainerRecreateMountChecks.ps1
   hyperv_network_reconcile_contract: Private/HyperVNetworkReconcile.ps1
   hyperv_network_reconcile_journal_schema: Schemas/hyperv-network-reconcile-journal.schema.json
   validation_hyperv_network_reconcile: Tests/Static/Invoke-HyperVNetworkReconcileChecks.ps1

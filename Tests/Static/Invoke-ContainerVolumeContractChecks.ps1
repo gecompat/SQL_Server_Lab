@@ -46,7 +46,14 @@ Assert-VolumeContract (
     $providers.podman -match '-ContainerPath \(\[string\]\$drive\.containerPath\)' -and
     $providers.podman -match "chown --reference='\`$ContainerPath' /sql-lab-volume-init"
 ) 'Podman-Named-Volumes uebernehmen den Inhalt ihres exakten Containerzielpfads'
-$reconcile = Get-Content (Join-Path $repoRoot 'Public/Update-SqlServerLabContainer.ps1') -Raw -Encoding utf8
-Assert-VolumeContract ($reconcile -match "(?s)if \(\`$runtime -eq 'podman'\) \{ \`$volumeOptions \+= 'U' \}") 'Podman-Reconcile erhaelt die user-namespace-sichere Volume-Eigentuemerschaft'
+. (Join-Path $repoRoot 'Private/ContainerReconcile.ps1')
+$inspect=[pscustomobject]@{Mounts=@(
+    [pscustomobject]@{Type='volume';Name='synthetic-volume';Destination='/data';RW=$false},
+    [pscustomobject]@{Type='bind';Source='/synthetic/source';Destination='/backup';RW=$true}
+)}
+$podmanArguments=@(Get-LabContainerRecreateMountArguments -Inspect $inspect -Provider podman)
+$dockerArguments=@(Get-LabContainerRecreateMountArguments -Inspect $inspect -Provider docker)
+Assert-VolumeContract (($podmanArguments -join '|') -ceq '-v|synthetic-volume:/data:U,ro|-v|/synthetic/source:/backup') 'Podman-Reconcile erhaelt U und Schreibrechte nur fuer Named Volumes'
+Assert-VolumeContract (($dockerArguments -join '|') -ceq '-v|synthetic-volume:/data:ro|-v|/synthetic/source:/backup') 'Docker-Reconcile verwendet keine Podman-U-Option'
 
 Write-Host "CONTAINER VOLUME CONTRACT CHECKS: $passed PASS" -ForegroundColor Green

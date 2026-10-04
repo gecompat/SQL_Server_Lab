@@ -7,6 +7,9 @@ function Update-SqlServerLabContainer {
     verwendet ein versioniertes Journal für Resume, Rollback und sichtbaren
     Recovery-Bedarf. AutoStart 'on' setzt die kanonische Restart-Policy
     'unless-stopped' und das verwaltete Autostart-Label.
+    Nicht unterstützte oder unvollständige Mountdaten werden vor einem neuen
+    Journal und vor der Neuerstellung abgewiesen. Bereits offene Recovery
+    bleibt davon unabhängig erreichbar.
 
     .PARAMETER ExpectedResourcePlanKey
     Bindet den geführten CPU/RAM-Apply an eine frische Ressourcen-Vorschau. Erlaubt nur Cpu/MemoryMB und prüft Identität, Drift, Journale sowie Schutzstatus vor Mutation erneut.
@@ -65,6 +68,10 @@ function Update-SqlServerLabContainer {
             Port=[int]$context.CurrentPort; Cpu=[decimal]$context.CurrentCpu; MemoryMB=[int]$context.CurrentMemoryMB
             AutoStart=[string]$plan.Desired.AutoStart; OperationId=$null; Status='NO_OP'
         }
+    }
+    $recreateMountArguments = @()
+    if ([string]$plan.HighestChangeClass -eq 'recreate') {
+        $recreateMountArguments = @(Get-LabContainerRecreateMountArguments -Inspect $context.Inspect -Provider $context.Provider)
     }
     if (-not $PSCmdlet.ShouldProcess($context.ContainerName, "Container-Reconcile '$($plan.HighestChangeClass)' ausführen")) { return }
     if ([string]$plan.HighestChangeClass -eq 'recreate' -and [int]$plan.Desired.Port -ne [int]$context.CurrentPort) {
@@ -128,19 +135,7 @@ function Update-SqlServerLabContainer {
             $arguments += @('--label',"$($property.Name)=$($property.Value)")
         }
         $arguments += @('--label',"sql-server-lab.autostart=$([string]$plan.Desired.AutoStart)")
-        foreach ($mount in @($inspect.Mounts)) {
-            if ([string]$mount.Type -eq 'bind') {
-                $suffix = if (-not [bool]$mount.RW) { ':ro' } else { '' }
-                $arguments += @('-v',"$($mount.Source):$($mount.Destination)$suffix")
-            }
-            elseif ([string]$mount.Type -eq 'volume' -and $mount.Name) {
-                $volumeOptions = @()
-                if ($runtime -eq 'podman') { $volumeOptions += 'U' }
-                if (-not [bool]$mount.RW) { $volumeOptions += 'ro' }
-                $suffix = if ($volumeOptions.Count -gt 0) { ":$($volumeOptions -join ',')" } else { '' }
-                $arguments += @('-v',"$($mount.Name):$($mount.Destination)$suffix")
-            }
-        }
+        $arguments += $recreateMountArguments
         if ([string]$plan.Desired.AutoStart -eq 'on') {
             $arguments += @('--restart','unless-stopped')
         }
