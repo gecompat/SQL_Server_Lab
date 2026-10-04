@@ -10,6 +10,8 @@
 | [Prepare-LocalRelease.ps1](Prepare-LocalRelease.ps1) | Erzeugt ein reproduzierbares lokales Release-Artefakt inkl. Manifest, optionalem SHA-256-Digest und optionalem ZIP-Archiv |
 | [Get-CiTestSelection.ps1](Get-CiTestSelection.ps1) | Klassifiziert geänderte Pfade für schnelle, betroffene PR-Checks und gezielte Runtime-Smokes |
 | [Get-SqlServerCuStatus.ps1](Get-SqlServerCuStatus.ps1) | Zeigt den read-only CU-Abgleich mit den wartbar katalogisierten Microsoft-Learn-Buildtabellen an |
+| [Invoke-VersionCatalogResourceWatch.ps1](Invoke-VersionCatalogResourceWatch.ps1) | Prüft CU plus genau katalogisiertes SqlPackage; Repo-Issueprojektion nur mit `-PublishIssues`, eigener manueller Fixture-Scope separat. [Vertrag](../Documentation/Architecture/RESOURCE_WATCH_AUTOMATION.md) |
+| [Close-VersionCatalogResourceWatchFixture.ps1](Close-VersionCatalogResourceWatchFixture.ps1) | Revalidiert ein exaktes Own-Receipt und schließt ausschließlich seine eigenen Abnahmeissues; `-WhatIf`, kein Löschen |
 | [Initialize-SqlServerLabHostTools.ps1](Initialize-SqlServerLabHostTools.ps1) | Löst Docker, Podman und Python zentral auf und ergänzt fehlende Installationsverzeichnisse ausschließlich im aktuellen Prozess-PATH |
 | [New-WindowsServer2003SysprepMedia.ps1](New-WindowsServer2003SysprepMedia.ps1) | Erzeugt aus dem hashgebundenen offiziellen SP2-x86-ISO ein schlüsselfreies AutoRun-Hilfsmedium für den Legacy-Sysprep-Reseal |
 | [New-WindowsServer2003LegacyChild.ps1](New-WindowsServer2003LegacyChild.ps1) | Erzeugt einen Generation-1-Child mit deutschem Login-Layout, automatisiert Mini-Setup und verifiziert den Aktivierungsversuch über eine temporäre NIC fail-closed |
