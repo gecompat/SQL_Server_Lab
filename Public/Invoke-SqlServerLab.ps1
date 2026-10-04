@@ -6026,6 +6026,30 @@ function Set-LabResourcesInteractive {
     #>
     [CmdletBinding()]
     param([string]$RunId)
+    $writeMountPreview = {
+        param($ResourcePlan)
+        if ($ResourcePlan.Provider -eq 'hyperv') {
+            Write-LabInfo 'Container-Mounts: für Hyper-V nicht verfügbar.'
+            return
+        }
+        $mounts = $null
+        if ($ResourcePlan.PSObject.Properties['Preview'] -and $ResourcePlan.Preview -and $ResourcePlan.Preview.PSObject.Properties['Mounts']) {
+            $mounts = $ResourcePlan.Preview.Mounts
+        }
+        $measured = $mounts -and $mounts.Status -eq 'MEASURED' -and $mounts.VolumeOwnership -eq 'NOT_CHECKED'
+        foreach ($name in @('TotalMountCount','VolumeMountCount','HostBindCount','WritableHostBindCount','OtherMountCount')) {
+            $value = if ($mounts -and $mounts.PSObject.Properties[$name]) { $mounts.$name } else { $null }
+            if ($value -isnot [int] -or $value -lt 0 -or $value -gt 1024) { $measured = $false }
+        }
+        if ($measured) {
+            $measured = $mounts.TotalMountCount -eq ($mounts.VolumeMountCount + $mounts.HostBindCount + $mounts.OtherMountCount) -and $mounts.WritableHostBindCount -le $mounts.HostBindCount
+        }
+        if (-not $measured) {
+            Write-LabInfo 'Container-Mounts: unbekannt. Volumeeigentum und Sicherung nicht geprüft.'
+            return
+        }
+        Write-LabInfo ('Container-Mounts: {0} gesamt; {1} Volumes; {2} Host-Bindings (davon {3} schreibbar); {4} andere. Volumeeigentum und Sicherung nicht geprüft.' -f $mounts.TotalMountCount,$mounts.VolumeMountCount,$mounts.HostBindCount,$mounts.WritableHostBindCount,$mounts.OtherMountCount)
+    }
     $runs = @(Get-LabActiveRuns)
     if ($runs.Count -eq 0) { Write-LabInfo 'Keine aktiven Lab-Umgebungen vorhanden.'; return }
     if (-not $RunId) { $RunId = Select-LabRun -Runs $runs -Prompt 'Umgebung für CPU/Speicher' -DisableAutomatedTestEnvironments -DisableSystemServices }
@@ -6039,6 +6063,7 @@ function Set-LabResourcesInteractive {
         $arguments = @{ RunId=$RunId; InstanceId=$target.InstanceId; Provider=$target.Provider }
         $plan = Get-LabResourceChangePlan @arguments
         Write-LabInfo ("{0} · {1} · {2}: Ist {3} CPU / {4} MB" -f $RunId,$target.InstanceId,$target.Provider,$plan.Actual.Cpu,$plan.Actual.MemoryMB)
+        & $writeMountPreview $plan
         if (-not $plan.CanApply) { Write-LabWarning $plan.NextStep; if ($null -eq $plan.Actual.Cpu -or $null -eq $plan.Actual.MemoryMB) { $null = Wait-LabConsoleAcknowledgement; return } }
         $newCpu = Read-Host "CPU (1–64, bis zwei Nachkommastellen; q = zurück) [$($plan.Actual.Cpu)]"
         if ($newCpu -eq 'q') { return }
@@ -6051,6 +6076,7 @@ function Set-LabResourcesInteractive {
         $arguments.MemoryMB = [int]$newMemory
         $plan = Get-LabResourceChangePlan @arguments
         Write-LabInfo ("Plan: CPU {0} → {1}; RAM {2} → {3} MB. {4}" -f $plan.Actual.Cpu,$plan.Desired.Cpu,$plan.Actual.MemoryMB,$plan.Desired.MemoryMB,$plan.NextStep)
+        & $writeMountPreview $plan
         if ($plan.NoChange -or -not $plan.CanApply) { $null = Wait-LabConsoleAcknowledgement; return }
         if (-not (Read-LabConfirm -Prompt 'Diese Instanz jetzt gemäß Vorschau ändern?' -Default $false)) { return }
         $result = Update-SqlServerLabContainer -RunId $RunId -InstanceId $target.InstanceId -Cpu $plan.Desired.Cpu -MemoryMB $plan.Desired.MemoryMB -ExpectedResourcePlanKey $plan.PlanKey -Confirm:$false

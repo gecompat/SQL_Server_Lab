@@ -379,13 +379,16 @@ konkrete gewöhnliche Lab-Instanz samt Provider. Der gemeinsame read-only
 Werte. Die GUI liest über `/api/resource-change`; vor Apply ist eine aktuelle
 Vorschau erforderlich. Cancel und No-op rufen keinen mutierenden Executor auf.
 
-Die CPU/RAM-Vorschau zeigt für Docker und Podman außerdem die gemessene Anzahl
+Die CPU/RAM-Vorschau zeigt im Browser und PowerShell-Menü für Docker und Podman außerdem die gemessene Anzahl
 von Volumes, Host-Bindings, schreibbaren Host-Bindings und anderen Mounttypen.
 Sie verwendet dasselbe bereits gelesene Inspect; eine weitere Runtime-Abfrage
 ist dafür nicht nötig. Fehlende oder ungültige Mountdaten bleiben unbekannt;
 eine ausdrücklich leere Liste zeigt 0. Volumeeigentum und Sicherung sind nicht
 geprüft. Für Hyper-V ist diese Mountanzeige nicht verfügbar. Eingabeänderung,
 Zielwechsel und Abbruch verwerfen auch die Mountanzeige der alten Vorschau.
+Das PowerShell-Menü zeigt die Anzahlen mit dem Istplan und erneut mit der
+angeforderten Vorschau vor der Bestätigung. Beide verwenden jeweils nur den
+bereits gelesenen gemeinsamen Plan; die Anzeige führt keine weitere Abfrage aus.
 
 Der instanzgebundene Container-Apply verwendet `Update-SqlServerLabContainer`
 mit `ExpectedResourcePlanKey`, nur CPU und MemoryMB. Er serialisiert pro Run,

@@ -113,7 +113,8 @@ $handler=$ast.Find({param($n) $n -is [Management.Automation.Language.FunctionDef
 . ([scriptblock]::Create($handler.Extent.Text))
 function Get-LabActiveRuns { $script:run }
 function Select-LabConsoleDataItem { param($ScreenId,$Title,$Items) $null }
-function Write-LabInfo { param($Message) }
+$script:cliInfo=[Collections.Generic.List[string]]::new()
+function Write-LabInfo { param($Message) $script:cliInfo.Add([string]$Message) }
 function Write-LabWarning { param($Message) }
 function Write-LabError { param($Message) throw $Message }
 function Wait-LabConsoleAcknowledgement {}
@@ -176,10 +177,35 @@ function Write-LabSuccess { param($Message) }
 $script:answers.Enqueue('');$script:answers.Enqueue('')
 Set-LabResourcesInteractive -RunId $runId
 if($script:cliCalls){throw 'CLI no-op dispatched'}
+if(@($script:cliInfo | Where-Object {$_ -like 'Container-Mounts: unbekannt.*'}).Count -ne 2){throw 'CLI initial/requested unknown mounts omitted or guessed'}
+$script:cliInfo.Clear()
+$script:resourceContext.Inspect | Add-Member -NotePropertyName Mounts -NotePropertyValue @() -Force
+$readsBefore=$script:resourceReads
+$script:answers.Enqueue('');$script:answers.Enqueue('')
+Set-LabResourcesInteractive -RunId $runId
+if(@($script:cliInfo | Where-Object {$_ -like 'Container-Mounts: 0 gesamt; 0 Volumes; 0 Host-Bindings*'}).Count -ne 2 -or $script:cliCalls -or $script:resourceReads -ne $readsBefore+2){throw 'CLI measured zero or single read per plan lost'}
+$script:cliInfo.Clear()
+$script:resourceContext.Inspect.Mounts=@(
+    [pscustomobject]@{Type='volume';RW=$true;Name='synthetic-private-volume';Destination='/synthetic/private/data'},
+    [pscustomobject]@{Type='bind';RW=$true;Source='/synthetic/private/host';Destination='/synthetic/private/bind'},
+    [pscustomobject]@{Type='tmpfs';RW=$false}
+)
 $script:confirmResource=$false
 $script:answers.Enqueue('3');$script:answers.Enqueue('3072')
 Set-LabResourcesInteractive -RunId $runId
 if($script:cliCalls){throw 'CLI declined confirmation dispatched'}
+if(@($script:cliInfo | Where-Object {$_ -like 'Container-Mounts: 3 gesamt; 1 Volumes; 1 Host-Bindings (davon 1 schreibbar); 1 andere.*nicht geprüft.'}).Count -ne 2 -or ($script:cliInfo -join "`n") -match 'synthetic-private|/synthetic/private'){throw 'CLI count display omitted ownership limit or leaked inspect'}
+$script:cliInfo.Clear()
+$readsBefore=$script:resourceReads
+$script:answers.Enqueue('q')
+Set-LabResourcesInteractive -RunId $runId
+if($script:cliCalls -or $script:resourceReads -ne $readsBefore+1 -or @($script:cliInfo | Where-Object {$_ -like 'Container-Mounts: 3 gesamt*'}).Count -ne 1){throw 'CLI input cancel dispatched or reread mounts'}
+$script:resourceContext.Inspect.Mounts=[pscustomobject]@{Type='bind';RW=$true}
+$script:cliInfo.Clear()
+$script:answers.Enqueue('');$script:answers.Enqueue('')
+Set-LabResourcesInteractive -RunId $runId
+if($script:cliCalls -or @($script:cliInfo | Where-Object {$_ -like 'Container-Mounts: unbekannt.*'}).Count -ne 2){throw 'CLI malformed inspect guessed mount counts'}
+$script:resourceContext.Inspect.PSObject.Properties.Remove('Mounts')
 $script:confirmResource=$true
 $script:answers.Enqueue('3');$script:answers.Enqueue('3072')
 Set-LabResourcesInteractive -RunId $runId
@@ -193,4 +219,8 @@ Write-LabArtifactJsonAtomic -Path (Join-Path $runDirectory 'connection-info.json
 $hypervPlan=Get-LabResourceChangePlan -RunId $runId -InstanceId vm -Provider hyperv -Cpu 8 -MemoryMB 8192 -StateRoot $testRoot
 if($hypervPlan.CanApply -or $hypervPlan.ChangeClass -ne 'unsupported' -or $hypervPlan.Actual.Cpu -ne 6 -or $hypervPlan.Desired.Cpu -ne 8 -or $script:vm.MemoryStartup -ne 6GB){throw 'Hyper-V preview mutated or claimed Apply'}
 if($null -ne $hypervPlan.Preview.Mounts){throw 'Hyper-V guessed container mount evidence'}
-Write-Host 'Resource guidance checks: 43 PASS, 0 FAIL'
+$script:cliInfo.Clear()
+$script:answers.Enqueue('');$script:answers.Enqueue('')
+Set-LabResourcesInteractive -RunId $runId
+if($script:cliCalls -ne 1 -or @($script:cliInfo | Where-Object {$_ -eq 'Container-Mounts: für Hyper-V nicht verfügbar.'}).Count -ne 2){throw 'CLI Hyper-V mount display or no-Apply contract lost'}
+Write-Host 'Resource guidance checks: 49 PASS, 0 FAIL'

@@ -2854,11 +2854,13 @@ Mountlisten bleiben `UNKNOWN`; eine explizit leere Liste misst 0 Mounts.
 Volumeeigentum bleibt `NOT_CHECKED`. Der bestehende Recreatepfad unterstützt
 Bind-Mounts und benannte Volumes, keine allgemeine Erhaltung anderer Typen.
 Sicherung, freie Mount-/Volumeänderungen und geführte Volumeverwaltung bleiben
-offen; dieser Teilvertrag schließt `CNT-214` nicht ab. Die CPU/RAM-GUI zeigt
+offen; dieser Teilvertrag schließt `CNT-214` nicht ab. Die CPU/RAM-GUI und das PowerShell-Menü zeigen
 dieselben pfadfreien Anzahlen aus dem gemeinsamen Ressourcenplan. Unbekannte
 Mountdaten bleiben unbekannt; Hyper-V erhält keine Container-Mountanzeige.
 Der PlanKey und die Apply-Prüfungen bleiben an den privaten Mount-Fingerprint
 gebunden. Diese Anzeige bestätigt weder Eigentum noch Sicherung.
+Die Menüanzeige verwendet jeweils die bestehende Ist-/Zielvorschau und fügt
+keine Inspect-Abfrage hinzu. Sie verändert weder Apply noch den Schutzvertrag.
 
 ## Geführte CPU/RAM-Änderung (`UX-202/622`, `CNT-211` bis `CNT-214`, `HV-601` bis `HV-607`)
 
