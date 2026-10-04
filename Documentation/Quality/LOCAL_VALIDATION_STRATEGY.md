@@ -2418,6 +2418,10 @@ Der fokussierte Migrationsvertrag blockiert StateRoot-verschiebende
 DataRoot-Migrationen mit Poolmitgliedern auch nach Consume, lässt eine
 Migration ohne Rootwechsel und entfernte Tombstones ohne live VM zu und
 verweigert unbekannte oder widersprüchliche Bindungen vor Copy/Mutation.
+Die Pool-Fixture injiziert außerdem einen nichtterminierenden Fehler am echten
+nativen Inventarlesepfad und prüft gespeicherte IDs mit fehlenden bzw. fremden
+Notes, fremde gleiche Namen sowie ein erfolgreich leeres Inventar. Migration,
+Cleanup und Erstellung bleiben bei unbekanntem Inventar gesperrt.
 
 `Tests/Integration/Invoke-WindowsPoolClaimAcceptance.ps1` ist der separate
 native Windows-2025-Desktop-Harness. Er verlangt einen explizit ausgewählten

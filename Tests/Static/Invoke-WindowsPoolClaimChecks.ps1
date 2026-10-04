@@ -10,7 +10,7 @@ $result=& $module {
     param($fixture,$repoRoot)
     $script:PoolCheckCount=0
     function Assert-Pool($condition,$name){if(-not $condition){throw "WINDOWS_POOL_CHECK_FAILED: $name"};$script:PoolCheckCount++}
-    function Assert-PoolThrows([scriptblock]$body,[string]$code){$failed=$false;try{& $body}catch{$failed=$_.Exception.Message -like ($code+'*')};Assert-Pool $failed $code}
+    function Assert-PoolThrows([scriptblock]$body,[string]$code){$failed=$false;$observed=$null;try{& $body}catch{$observed=$_.Exception.Message;$failed=$observed -like ($code+'*')};Assert-Pool $failed ($code+'; actual='+$observed)}
     $root=Join-Path $fixture state
     Assert-PoolThrows {Assert-LabWindowsPoolRootSupport -StateRoot ([IO.Path]::GetPathRoot($fixture))} WINDOWS_POOL_ROOT_TOO_BROAD
     if($IsWindows){Assert-PoolThrows {Assert-LabWindowsPoolRootSupport -StateRoot '\\synthetic-unreachable\share\state'} WINDOWS_POOL_NETWORK_ROOT_UNSUPPORTED}
@@ -52,7 +52,12 @@ $result=& $module {
     function Get-VMSnapshot {param($VM) @()}
     function Get-VHD {param($Path) [pscustomobject]@{ParentPath=$script:PoolCheckFixture.Parent}}
     function Get-HyperVLabVMs {param($RunId,$ScopeId) @()}
-    function Get-VM {param($Name) @()}
+    function Get-VM {
+        [CmdletBinding()]param($Name)
+        if($script:PoolCheckInventoryFault){Write-Error 'synthetic inventory permission failure' -Category PermissionDenied;return}
+        @($script:PoolCheckInventory)
+    }
+    $script:PoolCheckInventory=@();$script:PoolCheckInventoryFault=$false
     $script:PoolCheckCpu=4;$script:PoolCheckMemory=4GB;$script:PoolCheckProviderFault=$null
     function Set-VMProcessor {param($VM,$Count) if($script:PoolCheckProviderFault -ceq 'CPU'){throw 'SYNTHETIC_CPU_FAULT'};$script:PoolCheckCpu=$Count}
     function Set-VMMemory {param($VM,$DynamicMemoryEnabled,$MinimumBytes,$StartupBytes,$MaximumBytes) if($script:PoolCheckProviderFault -ceq 'RAM'){throw 'SYNTHETIC_RAM_FAULT'};$script:PoolCheckMemory=$StartupBytes}
@@ -366,10 +371,29 @@ $result=& $module {
     Write-LabArtifactJsonAtomicRaw -Path $statePath -InputObject $removedSnapshot
     Assert-LabWindowsPoolStateRootMigrationAllowed -Plan $movingPlan
     Assert-Pool $true 'removed tombstone without live binding allows root move'
-    $originalVMs=${function:Get-HyperVLabVMs}
-    function Get-HyperVLabVMs {param($RunId,$ScopeId) @([pscustomobject]@{VMName='synthetic-pool-01'})}
+    # Exercise the real native inventory boundary, including nonterminating
+    # errors and recorded IDs whose Notes can no longer be rediscovered.
+    $script:PoolCheckInventoryFault=$true
     Assert-PoolThrows {Assert-LabWindowsPoolStateRootMigrationAllowed -Plan $movingPlan} WINDOWS_POOL_STATE_ROOT_MIGRATION_BLOCKED
-    Set-Item Function:Get-HyperVLabVMs -Value $originalVMs
+    Assert-PoolThrows {Get-LabWindowsPoolCleanupBinding -RunId $runId -StateRoot $root} WINDOWS_POOL_VM_INVENTORY_UNKNOWN
+    $creationConfig=[pscustomobject]@{StartIndex=1;Count=1;NamePrefix='synthetic-new-pool'}
+    $creationPoolId=[guid]::NewGuid().ToString()
+    $creationContext=[pscustomobject]@{StateRoot=$root;PoolId=$creationPoolId}
+    Assert-PoolThrows {Get-LabWindowsPoolCreationPreview -PoolId $creationPoolId -Configuration $creationConfig -StateRoot $root} WINDOWS_POOL_VM_INVENTORY_UNKNOWN
+    Assert-PoolThrows {Invoke-LabWindowsPoolPreparation -Context $creationContext -Configuration $creationConfig} WINDOWS_POOL_VM_INVENTORY_UNKNOWN
+    $script:PoolCheckInventoryFault=$false
+    $script:PoolCheckInventory=@([pscustomobject]@{Id=$vmId;Name='renamed-synthetic-vm';Notes='';State='Off'})
+    Assert-PoolThrows {Assert-LabWindowsPoolStateRootMigrationAllowed -Plan $movingPlan} WINDOWS_POOL_STATE_ROOT_MIGRATION_BLOCKED
+    Assert-PoolThrows {Get-LabWindowsPoolCleanupBinding -RunId $runId -StateRoot $root} WINDOWS_POOL_VM_BINDING_INVALID
+    $script:PoolCheckInventory=@([pscustomobject]@{Id=$vmId;Name='renamed-synthetic-vm';Notes=(ConvertTo-HyperVLabNotes -RunId ([guid]::NewGuid().ToString()) -ScopeId ([guid]::NewGuid().ToString()) -InstanceId primary -ChildVhdxPath (Join-Path $fixture foreign-child.vhdx));State='Off'})
+    Assert-PoolThrows {Assert-LabWindowsPoolStateRootMigrationAllowed -Plan $movingPlan} WINDOWS_POOL_STATE_ROOT_MIGRATION_BLOCKED
+    Assert-PoolThrows {Get-LabWindowsPoolCleanupBinding -RunId $runId -StateRoot $root} WINDOWS_POOL_VM_BINDING_INVALID
+    $script:PoolCheckInventory=@([pscustomobject]@{Id=[guid]::NewGuid().ToString();Name='synthetic-pool-01';Notes='';State='Off'})
+    Assert-PoolThrows {Assert-LabWindowsPoolStateRootMigrationAllowed -Plan $movingPlan} WINDOWS_POOL_STATE_ROOT_MIGRATION_BLOCKED
+    Assert-PoolThrows {Get-LabWindowsPoolCleanupBinding -RunId $runId -StateRoot $root} WINDOWS_POOL_VM_BINDING_INVALID
+    $script:PoolCheckInventory=@()
+    Assert-Pool (-not (Get-LabWindowsPoolCleanupBinding -RunId $runId -StateRoot $root).LiveVMExists) 'successful empty native inventory proves cleanup absence'
+    Assert-Pool (@(Get-LabWindowsPoolCreationPreview -PoolId $creationPoolId -Configuration $creationConfig -StateRoot $root)[0].Action -ceq 'CREATE') 'successful empty native inventory permits creation preview'
     Write-LabArtifactJsonAtomicRaw -Path $statePath -InputObject $consumedSnapshot
     # Own fixture remains for the separate-process race phase; no runtime or secret.
     . (Join-Path $repoRoot 'Tests/Common/WindowsPoolNativeAcceptance.ps1')

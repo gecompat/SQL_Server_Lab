@@ -30,6 +30,12 @@ keinen neuen Notesroot übernehmen oder implizit autorisieren. Eine Migration
 ohne StateRootwechsel sowie der normale Lifecycle am ausdrücklich
 ausgewählten CustomRoot bleiben möglich.
 
+Pool-Abwesenheit erfordert ein erfolgreich vollständig gelesenes natives
+VM-Inventar. Inventar- und Berechtigungsfehler bleiben unbekannt und sperren
+Migration, Cleanup und neue Namensbelegung. Gespeicherte VM-ID und Name werden
+unabhängig von Notes geprüft; fehlende oder fremde Notes einer solchen VM
+gelten als Bindungsfehler, niemals als Abwesenheit oder Adoptionserlaubnis.
+
 `PREPARING`, `FREE`, `CLAIMED` und `RECOVERY_REQUIRED` sperren allgemeine
 Mutatoren. Nur die private, exakt gebundene Operation darf diese Mitglieder
 ändern. `CONSUMED` und `REMOVED` erlauben den normalen Lifecycle. Zentrale

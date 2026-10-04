@@ -797,6 +797,28 @@ function Invoke-LabWindowsPoolMemberPreview {
     }
 }
 
+function Get-LabWindowsPoolNativeVMs {
+    [CmdletBinding()]
+    param($Run,[string]$Name)
+    # A filtered Notes lookup cannot prove absence. Read the complete native
+    # inventory successfully before considering a recorded ID or name absent.
+    try {$inventory=@(Get-VM -ErrorAction Stop)}
+    catch {throw 'WINDOWS_POOL_VM_INVENTORY_UNKNOWN'}
+    foreach($vm in $inventory){
+        if(-not $vm.Id -or -not $vm.Name){throw 'WINDOWS_POOL_VM_INVENTORY_UNKNOWN'}
+        if($Run){
+            $identity=ConvertFrom-HyperVLabNotes -Notes ([string]$vm.Notes)
+            $scoped=$identity -and $identity.provider -ceq 'hyperv' -and
+                $identity.runId -ceq $Run.runId -and $identity.scopeId -ceq $Run.scopeId
+            $recorded=($Run.metadata.windowsPoolMember.vmId -and
+                [string]$vm.Id -eq [string]$Run.metadata.windowsPoolMember.vmId) -or
+                [string]$vm.Name -eq [string]$Run.metadata.name
+            if($recorded -and -not $scoped){throw 'WINDOWS_POOL_VM_BINDING_INVALID'}
+            if($scoped){$vm}
+        }elseif(-not $Name -or [string]$vm.Name -eq $Name){$vm}
+    }
+}
+
 function Assert-LabWindowsPoolStateRootMigrationAllowed {
     [CmdletBinding()]
     param([Parameter(Mandatory)]$Plan)
@@ -810,7 +832,7 @@ function Assert-LabWindowsPoolStateRootMigrationAllowed {
     # tombstone is safe only when fresh provider identity proves no live VM.
     try{
         foreach($run in @(Get-LabWindowsPoolRuns -StateRoot $root)){
-            $vms=@(Get-HyperVLabVMs -RunId $run.runId -ScopeId $run.scopeId)
+            $vms=@(Get-LabWindowsPoolNativeVMs -Run $run)
             if($run.metadata.windowsPoolMember.state -ceq 'REMOVED' -and $run.state -ceq 'REMOVED' -and $vms.Count -eq 0){continue}
             throw 'WINDOWS_POOL_STATE_ROOT_MIGRATION_BLOCKED'
         }
@@ -841,7 +863,7 @@ function Get-LabWindowsPoolCreationPreview {
             if(-not $resource.dynamicMemoryEnabled -or $resource.memoryMinimumMB -ne $Configuration.MemoryMinimumMB -or
                 $resource.memoryStartupMB -ne $Configuration.MemoryStartupMB -or $resource.memoryMaximumMB -ne $Configuration.MemoryMaximumMB -or
                 $resource.processorCount -ne $Configuration.ProcessorCount -or $bound.Run.metadata.networkIntent -cne 'hostOnly'){throw 'WINDOWS_POOL_RESUME_CONFIGURATION_CHANGED'}
-        }elseif(@(Get-VM -Name $name -ErrorAction SilentlyContinue).Count){throw 'WINDOWS_POOL_EXISTING_VM_NAME_CONFLICT'}
+        }elseif(@(Get-LabWindowsPoolNativeVMs -Name $name).Count){throw 'WINDOWS_POOL_EXISTING_VM_NAME_CONFLICT'}
         [pscustomobject]@{Index=$index;Name=$name;RunId=$(if($bound){$bound.Run.runId}else{$null});Action=$(if($bound){'RESUME_BOUND_MEMBER'}else{'CREATE'})}
     }
 }
@@ -892,11 +914,11 @@ function Get-LabWindowsPoolCleanupBinding {
     if($cleanup.runId -cne $run.runId -or $cleanup.scopeId -cne $run.scopeId -or
         @($cleanup.providerSubRuns | Where-Object provider -ne hyperv).Count -or
         @($cleanup.steps | Where-Object {$_.provider -and $_.provider -cne 'hyperv'}).Count){throw 'WINDOWS_POOL_CLEANUP_PLAN_BINDING_INVALID'}
-    $vms=@(Get-HyperVLabVMs -RunId $run.runId -ScopeId $run.scopeId)
+    $vms=@(Get-LabWindowsPoolNativeVMs -Run $run)
     if($vms.Count -gt 1){throw 'WINDOWS_POOL_VM_BINDING_INVALID'}
     $managed=$null
     if($vms.Count){
-        $managed=Get-HyperVManagedVM -VMName $vms[0].VMName -ExpectedRunId $run.runId -ExpectedScopeId $run.scopeId
+        $managed=Get-HyperVManagedVM -VMName $vms[0].Name -ExpectedRunId $run.runId -ExpectedScopeId $run.scopeId
         Assert-LabWindowsPoolNotes -Identity $managed.Identity -StateRoot $root -Run $run
         if([string]$managed.VM.State -cne 'Off' -or ($member.vmId -and [string]$managed.VM.Id -cne $member.vmId)){throw 'WINDOWS_POOL_VM_BINDING_INVALID'}
     }else{
@@ -908,7 +930,7 @@ function Get-LabWindowsPoolCleanupBinding {
             $connection=Read-LabWorkflowJson -Path $connectionPath
             foreach($instance in @($connection.instances)){
                 if($instance.provider -cne 'hyperv' -or $instance.id -cne $member.instanceId){throw 'WINDOWS_POOL_INSTANCE_BINDING_INVALID'}
-                if(@(Get-VM -Name $instance.vmName -ErrorAction SilentlyContinue).Count){throw 'WINDOWS_POOL_FOREIGN_NAME_CONFLICT'}
+                if(@(Get-LabWindowsPoolNativeVMs -Name $instance.vmName).Count){throw 'WINDOWS_POOL_FOREIGN_NAME_CONFLICT'}
             }
         }
         $managed=[pscustomobject]@{VM=[pscustomobject]@{Id=[string]$member.vmId;Name=[string]$run.metadata.name};Identity=$null}
@@ -943,7 +965,7 @@ function Invoke-LabWindowsPoolPreparation {
             }else{
                 # All names were checked before mutation, and each name is freshly
                 # checked again immediately before the prospective run registration.
-                if(@(Get-VM -Name $specification.Name -ErrorAction SilentlyContinue).Count){throw 'WINDOWS_POOL_EXISTING_VM_NAME_CONFLICT'}
+                if(@(Get-LabWindowsPoolNativeVMs -Name $specification.Name).Count){throw 'WINDOWS_POOL_EXISTING_VM_NAME_CONFLICT'}
                 $created=New-HyperVLabEnvironment -ArtifactId $Configuration.ArtifactId -LabName $specification.Name -InstanceId primary `
                     -DynamicMemoryEnabled $true -MemoryMinimumMB $Configuration.MemoryMinimumMB -MemoryStartupMB $Configuration.MemoryStartupMB `
                     -MemoryMaximumMB $Configuration.MemoryMaximumMB -ProcessorCount $Configuration.ProcessorCount -AutoStart off `
