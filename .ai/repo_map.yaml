@@ -60,6 +60,11 @@ sources_of_truth:
   csharp_native_acceptance_checks: Tests/Static/Fixtures/CSharpNativeAcceptanceChecks.ps1
   sql_cu_watch_policy: ops/sql-cu-policy.md
   sql_cu_watch_report: Tools/Common/VersionCatalogCuWatchReport.ps1
+  resource_watch_automation: Tools/Invoke-VersionCatalogResourceWatch.ps1
+  resource_watch_automation_projection: Tools/Common/VersionCatalogResourceWatchAutomation.ps1
+  resource_watch_fixture_cleanup: Tools/Close-VersionCatalogResourceWatchFixture.ps1
+  resource_watch_automation_contract: Documentation/Architecture/RESOURCE_WATCH_AUTOMATION.md
+  resource_watch_automation_checks: Tests/Static/Fixtures/VersionCatalogResourceWatchAutomationChecks.ps1
   exported_commands: SqlServerLab.psd1
   module_loading: SqlServerLab.psm1
   linux_container_host_tool: Tools/Invoke-SqlServerLabLinuxContainerHost.ps1
