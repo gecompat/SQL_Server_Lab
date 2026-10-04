@@ -11,14 +11,18 @@
     aufgezeichnete Historie ausgegeben. Er bestaetigt keine aktuelle Ausfuehrung.
 .PARAMETER RepositoryRoot
     Zu inventarisierender Checkout, standardmaessig der Parent dieses Tools.
+.PARAMETER IncludeRecordedAcceptanceMatrix
+    Ergaenzt Version 1.1 um exakte, sparse Historienzellen des validierten Index.
+    Keine aktuelle Abnahme, Readiness oder vollstaendige Kombinationenmatrix.
 .EXAMPLE
     ./Tools/Get-SqlServerLabCapabilityInventory.ps1 | ConvertTo-Json -Depth 12
 .OUTPUTS
     SqlServerLab.RepositoryCapabilityInventory/1.0 mit relativen Quellen und
     aktuellem SHA-256, Exporten, Providerdeklarationen und Test-/Planungsindex.
+    Mit IncludeRecordedAcceptanceMatrix: Version 1.1 plus historische Zellen.
 #>
 [CmdletBinding()]
-param([string]$RepositoryRoot=(Split-Path $PSScriptRoot -Parent))
+param([string]$RepositoryRoot=(Split-Path $PSScriptRoot -Parent),[switch]$IncludeRecordedAcceptanceMatrix)
 $ErrorActionPreference='Stop'
 $root=[IO.Path]::GetFullPath($RepositoryRoot)
 $sources=[Collections.Generic.List[object]]::new()
@@ -132,7 +136,7 @@ try {
 }
 catch {$issues.Add([pscustomobject]@{Source='SqlServerLab.psd1';Code='MODULE_INVENTORY_FAILED'})}
 }
-[pscustomobject]@{
+$inventory=[pscustomobject]@{
     ContractVersion='SqlServerLab.RepositoryCapabilityInventory/1.0'
     Status=$(if($issues.Count){'PARTIAL'}else{'INVENTORIED'})
     SourceScope='WORKING_TREE';MutationAllowed=$false
@@ -142,3 +146,55 @@ catch {$issues.Add([pscustomobject]@{Source='SqlServerLab.psd1';Code='MODULE_INV
     Tests=@($sources | Where-Object Kind -in @('STATIC_TEST','RUNTIME_TEST') | ForEach-Object {[pscustomobject]@{Source=$_.Source;Kind=$_.Kind;ExecutionStatus='NOT_EXECUTED'}})
     PlanningReferences=@($tasks);Issues=@($issues)
 }
+if($IncludeRecordedAcceptanceMatrix){
+    # Laengenpraefixe und typisiertes null verhindern Tupel-/Delimiterkollisionen.
+    # Ordinal bedeutet weder Aliasauflösung noch kulturabhaengige Sortierung.
+    function Get-RecordedTupleKey {
+        param([AllowEmptyCollection()][object[]]$Values)
+        $key=[Text.StringBuilder]::new()
+        foreach($value in $Values){
+            if($null -eq $value){$null=$key.Append('N;')}
+            else {$text=[string]$value;$null=$key.Append('S').Append($text.Length).Append(':').Append($text).Append(';')}
+        }
+        $key.ToString()
+    }
+    $groups=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
+    foreach($record in $evidenceRecords){
+        $key=Get-RecordedTupleKey @($record.Capability,$record.Provider,$record.SqlVersion,$record.Platform,$record.Scope)
+        if(-not $groups.ContainsKey($key)){$groups.Add($key,[Collections.Generic.List[object]]::new())}
+        $groups[$key].Add($record)
+    }
+    $keys=[Collections.Generic.List[string]]::new([string[]]@($groups.Keys));$keys.Sort([StringComparer]::Ordinal)
+    $cells=@(foreach($key in $keys){
+        $recordsByKey=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
+        $observations=[Collections.Generic.Dictionary[string,object]]::new([StringComparer]::Ordinal)
+        $results=[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+        foreach($record in $groups[$key]){
+            $recordKey=Get-RecordedTupleKey @($record.Date,$record.SourceRevision,$record.Test,$record.Reference,$record.Result,$record.Cleanup)
+            $recordsByKey.Add($recordKey,$record)
+            $observationKey=Get-RecordedTupleKey @($record.SourceRevision,$record.Test,$record.Date)
+            if(-not $observations.ContainsKey($observationKey)){$observations.Add($observationKey,[Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal))}
+            $null=$observations[$observationKey].Add((Get-RecordedTupleKey @($record.Result,$record.Cleanup)))
+            $null=$results.Add($record.Result)
+        }
+        $recordKeys=[Collections.Generic.List[string]]::new([string[]]@($recordsByKey.Keys));$recordKeys.Sort([StringComparer]::Ordinal)
+        $orderedRecords=@(foreach($recordKey in $recordKeys){$recordsByKey[$recordKey]})
+        $historyResults=[Collections.Generic.List[string]]::new([string[]]@($results));$historyResults.Sort([StringComparer]::Ordinal)
+        $first=$orderedRecords[0]
+        [pscustomobject]@{
+            Capability=$first.Capability;Provider=$first.Provider;SqlVersion=$first.SqlVersion
+            RecordedPlatform=$first.Platform;Scope=$first.Scope;RecordCount=$orderedRecords.Count
+            HistoryResults=@($historyResults);HistoryConflict=@($observations.Values | Where-Object Count -gt 1).Count -gt 0
+            Records=$orderedRecords
+            NativeAcceptanceStatus=$(if($first.Scope -cin @('STATIC_CONTRACT','PACKAGE')){'NOT_APPLICABLE'}else{'UNKNOWN'})
+            CurrentExecutionStatus='NOT_EXECUTED';CurrentReadinessStatus='NOT_CHECKED'
+            ReferenceVerificationStatus='NOT_VERIFIED';EvidenceBoundary='RECORDED_HISTORY_ONLY'
+        }
+    })
+    $inventory.ContractVersion='SqlServerLab.RepositoryCapabilityInventory/1.1'
+    $inventory | Add-Member -NotePropertyName RecordedAcceptanceMatrix -NotePropertyValue ([pscustomobject]@{
+        Status=$evidenceStatus;EvidenceBoundary='RECORDED_HISTORY_ONLY';Coverage='INDEXED_TUPLES_ONLY'
+        ReferenceVerificationStatus='NOT_VERIFIED';Cells=$cells
+    })
+}
+$inventory

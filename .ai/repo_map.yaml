@@ -349,6 +349,7 @@ sources_of_truth:
   acceptance_ssis_owned_install: Tests/Integration/Invoke-SsisOwnedInstallAcceptance.ps1
   validation_ssis_owned_install: Tests/Static/Invoke-SsisOwnedInstallChecks.ps1
   repository_capability_inventory: Tools/Get-SqlServerLabCapabilityInventory.ps1
+  repository_recorded_acceptance_matrix: Tools/Get-SqlServerLabCapabilityInventory.ps1 # optional 1.1 view; indexed historical tuples only
   repository_capability_evidence_index: Documentation/Quality/capability-evidence-index.json
   repository_capability_evidence_schema: Schemas/capability-evidence-index.schema.json
   validation_repository_capability_inventory: Tests/Static/Invoke-CapabilityInventoryChecks.ps1
@@ -574,9 +575,13 @@ sources_of_truth:
   sample_artifact_and_manifest_wizard_target: Documentation/Architecture/SAMPLE_DATABASE_PROVISIONING_AND_MANIFEST_WIZARD.md
   mixed_provider_lifecycle: Documentation/Architecture/MIXED_PROVIDER_LIFECYCLE.md
   component_relation_plan: Private/ComponentRelationPlan.ps1
+  component_relation_plan_cli: Private/ComponentRelationPlanConsole.ps1
+  component_relation_plan_browser: Private/ComponentRelationPlanHttp.ps1, Ui/component-relations.js
   component_relation_plan_api: Public/Get-SqlServerLabReconcilePlan.ps1
   component_relation_plan_contract: Documentation/Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md
   validation_component_relation_plan: Tests/Static/Invoke-ComponentRelationPlanChecks.ps1
+  validation_component_relation_plan_cli: Tests/Static/Fixtures/ComponentRelationPlanConsoleChecks.ps1
+  validation_component_relation_plan_browser: Tests/Static/Fixtures/ComponentRelationPlanHttpChecks.ps1, Tests/Static/Fixtures/ComponentRelationPlanUiChecks.cjs
   hyperv_image_provisioning_network_target: Documentation/Architecture/HYPERV_IMAGE_PROVISIONING_AND_NETWORK_CONTRACT.md
   user_entrypoint: README.md
   user_installation_windows: Documentation/User/INSTALLATION_WINDOWS.md

@@ -1,12 +1,34 @@
 # Bekannte Grenzen
 
+Die optionale historische Matrix von
+`Tools/Get-SqlServerLabCapabilityInventory.ps1 -IncludeRecordedAcceptanceMatrix`
+ist ausschließlich `RECORDED_HISTORY_ONLY` mit `INDEXED_TUPLES_ONLY`.
+Fehlende Zellen bedeuten keine fehlende Abnahme; der Index ist ein Ausschnitt.
+Historische Ergebnisse und Widersprüche bleiben erhalten, Referenzen sind
+`NOT_VERIFIED`, aktuelle Ausführung ist `NOT_EXECUTED` und Readiness
+`NOT_CHECKED`. Native Zellen bleiben `UNKNOWN`; nur einzelne statische oder
+Package-Zellen tragen native `NOT_APPLICABLE`. Typisiertes SQL-`null` ist kein
+Wildcard; `RecordedPlatform` bestätigt weder Gastbetriebssystem noch
+Containerimage, rootless/rootful oder cgroup. Installierbarkeit, Hersteller-/
+Projektsupport, aktuelle Quellgleichheit und vollständige Kombinationenmatrix
+werden nicht bewertet. Der gemeinsame aktuelle Capability-/Readiness-Entscheid
+bleibt separate Arbeit unter `CORE-102`.
+
 Der PLAN_ONLY-[Komponentenplan](../Architecture/EXTENSIBLE_ENVIRONMENT_AND_EXECUTION_CONTRACT.md#71-implementierter-enger-komponentenplan-slice-e)
 ist nur für zwei vorhandene Docker-/Podman-SQL-Ziele und eine verwaltete
 Shared-SQL-Referenz unter registriertem `Lab_Data/State` implementiert.
 Relations bleiben ausschließlich in der Vorschau; persistierter RUNNING-Status
 beweist keine SQL-Bereitschaft. Keine Adoption, Lease, persistierte Topologie,
 abhängigkeitsgesteuerte Runtime oder neuer Shared-Removal-Pfad. CLI bietet den
-generischen Befehlszugang; ein geführter CLI-/Browserdialog bleibt offen.
+generischen Befehlszugang und eine geführte reine Vorschau unter **Alle
+öffentlichen Befehle → SQL-Komponenten: geführte Vorschau**. Der Dialog liest
+höchstens 64 vorhandene Run-Verzeichnisse unter einem expliziten registrierten
+Root; ungültige oder nicht unterstützte Runs sind nicht auswählbar. Zurück
+verwirft die Relations ohne Planaufruf. Der Browserdialog **SQL-Komponenten:
+geführte Vorschau** bietet dieselbe reine Auswahl und Vorschau über einen
+eigenen read-only HTTP-Pfad. Er startet keine Inventur der Hosttopologie und
+erstellt keine Jobs; Auswahl und Relations bleiben im RAM. SQL, Runtime-DAG,
+Persistenz und Shared-Verbraucher-Leases bleiben ungeprüft beziehungsweise offen.
 
 `Get-SqlServerLabDiagnosticBundle` unterstützt ausschließlich eine moderne,
 vollständig gebundene Instanz unter einem registrierten `Lab_Data/State`.

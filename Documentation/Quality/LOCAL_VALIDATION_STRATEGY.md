@@ -2,6 +2,16 @@
 
 ## Reine Komponenten-/Shared-Verbrauchervorschau
 
+Der zugehörige Browser-Slice wird durch `ComponentRelationPlanHttpChecks.ps1`
+mit dem tatsächlichen HTTP-Reader, DiagnosticReader und öffentlichen Core auf
+registrierten synthetischen Metadaten geprüft. Body-/Origin-/Shapegrenzen,
+Auswahl-/State-/Scope-Drift und blockierte Recovery sind getrennte Fälle.
+`ComponentRelationPlanUiChecks.cjs` führt das echte Dialogskript mit DOM-/Fetch-
+Leaves aus: bewusste Auswahl, ein Shared-Verbraucherziel, Abbruch, Busy,
+verworfene späte Antworten und feste Fehlerdarstellung. Die bestehende
+Komponenten-Suite führt beide Fixtures aus. Diese Offlinekomposition enthält
+keine SQL-/Providerabnahme; die tatsächliche Providerselektion bleibt verbindlich.
+
 `Invoke-ComponentRelationPlanChecks.ps1` führt den tatsächlichen öffentlichen
 Plan-/Action-Parametersatz und den privaten Core mit modernen synthetischen
 Run-/Desired-State-Produzenten und registrierten Root-/Scope-Records aus.
@@ -12,6 +22,15 @@ Pipelinepfad muss Mode/Version vor jeder Observation verweigern. Runtime-,
 Hosttool-, SQL- und Secret-Spies werfen bei jedem Aufruf. Diese Evidence ist
 eine Planprüfung, kein Start-/Shared-Removal-/Providerbeleg.
 
+Die gekoppelte `Fixtures/ComponentRelationPlanConsoleChecks.ps1` lädt tatsächliche
+Funktionsdeklarationen ohne Modul-/Providerimport und führt den CLI-Menüpfad
+über den öffentlichen Plan in den unveränderten Core aus. Registrierte Root-,
+Run-, Scope-, Desired-State- und ProviderSubRun-Fixtures sind synthetisch.
+Abbruch an jedem Dialogschritt, leere Relations, Shared-DAG, Cycle, Inhalts-/
+Statewechsel, unregistrierter Root und Zielanzahl prüfen reine Vorschau und
+ZeroDispatch. Menü-, Text- und Anzeigegrenzen sind isoliert; reale Secrets,
+Hosttools, Runtime und Executor dürfen nicht aufgerufen werden. Diese Fixture
+wird vom bestehenden ComponentRelationPlan-Impactpfad mit ausgeführt.
 ## Geführte Wartung und Zuordnungsreparatur
 
 `Tests/Static/Invoke-MaintenanceGuidanceChecks.ps1` prüft den tatsächlichen
@@ -789,6 +808,21 @@ bleiben `NOT_EXECUTED`. Die Inventur prüft weder den Inhalt externer Referenzen
 noch die Existenz historischer Commits und bestätigt keine aktuelle
 Quellgleichheit. Neue Einträge benötigen daher eine geprüfte tatsächliche
 Ausführung mit sanitisiertem Quellenbeleg. Es werden keine Rohlogs importiert.
+
+Der optionale Schalter `-IncludeRecordedAcceptanceMatrix` ergänzt die Inventur
+als `SqlServerLab.RepositoryCapabilityInventory/1.1`; ohne Schalter bleiben
+Version `1.0` und deren Felder unverändert. Die sparse Sicht gruppiert nur
+validierte Indexeinträge nach exakter Fähigkeit, Provider, SQL-Version
+(einschließlich typisiertem `null`), aufgezeichneter Plattform und Scope.
+`RecordedPlatform` ist keine abgeleitete Gastplattform. Alle Records bleiben
+ordinal deterministisch erhalten. Unterschiedliche Ergebnisse oder Cleanupwerte
+für dasselbe Tupel mit gleicher Revision, Testdatei und Datum setzen
+`HistoryConflict`; es gibt keinen Latest-Winner. Andere Daten oder Revisionen
+bleiben separate Historie. Die Suite prüft die tatsächliche Tool-Komposition,
+Defaultparität, Tupeltrennung, Reihenfolge, Konflikte, 128-Record-Grenze sowie
+geschlossene leere Zellen bei fehlendem, ungültigem oder umgeleitetem Index.
+Die vorhandene Modulinventur bleibt unverändert; der Schalter ergänzt keine
+Imports, Readiness- oder Providerproben.
 
 Die Persistent-Storage-Katalogsuite prueft auch den umgestellten
 Container-Datenbankreferenz-Writer: Preview ohne Katalogschreiben, genau eine
