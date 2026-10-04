@@ -431,7 +431,8 @@ sources_of_truth:
   cleanup_contract: Private/CleanupEngine.ps1
   validation_cleanup_volume_ownership: Tests/Static/Invoke-CleanupVolumeOwnershipChecks.ps1
   container_reconcile_contract: Private/ContainerReconcile.ps1 # Preview.Mounts: path-free counts, unknown evidence, ownership NOT_CHECKED
-  guided_resource_change_contract: Private/EnvironmentResources.ps1 # Preview.Mounts: existing Inspect, path-free GUI counts, Hyper-V null
+  guided_resource_change_contract: Private/EnvironmentResources.ps1 # Preview.Mounts: existing Inspect, path-free GUI/CLI counts, Hyper-V null
+  guided_resource_change_cli: Public/Invoke-SqlServerLab.ps1 # Set-LabResourcesInteractive: render existing initial/requested Preview.Mounts; no additional runtime read
   validation_guided_resource_change: Tests/Static/Fixtures/ResourceChangeGuidanceChecks.ps1
   validation_environment_resources: Tests/Static/Invoke-EnvironmentResourceChecks.ps1
   validation_podman_ci_privacy: Tests/Static/Invoke-PodmanSmokePrivacyChecks.ps1

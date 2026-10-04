@@ -205,6 +205,14 @@ am gemeinsamen Selektor selbst behält dessen volle Runtime-Pflichtmatrix.
 Diese lokalen Nachweise ersetzen keine native Docker-/Podman-Abnahme des
 veröffentlichten Heads und belegen keine neue Mountmutation oder Volumeverwaltung.
 
+Die anschließende PowerShell-Menüanzeige bestand lokal 49 Guidancefälle und
+sechs Ressourcenprüfungen am 2026-10-04. Die echte CLI-Funktion zeigt unbekannte,
+gemessene leere und pfadfreie gemischte Mountdaten beim Ist- und Zielplan.
+Pro Plan bleibt es bei einem synthetischen Kontextread; Eingabeabbruch,
+abgelehnte Bestätigung und No-op rufen keinen Executor auf. Hyper-V zeigt
+die fehlende Container-Mountverfügbarkeit und führt keinen Apply aus.
+Diese fokussierten Offlineprüfungen sind keine native Providerabnahme.
+
 
 Am 2026-09-28 bestanden Docker und Podman getrennt je neun native Prüfungen
 für den neuen instanzgebundenen Plan-/Workflow-Apply-/No-op-/Driftpfad auf
