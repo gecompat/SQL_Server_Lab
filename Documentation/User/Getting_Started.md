@@ -1580,6 +1580,22 @@ Zustände werden bewusst als `unsupported` statt mit Teilaktionen ausgewiesen.
 Get-SqlServerLabReconcilePlan -RunId $lab.RunId -TargetState STOPPED
 ```
 
+Für eine Containerinstanz zeigt die reine Vorschau außerdem die Anzahl der
+Volumes und Host-Bind-Mounts sowie der schreibbaren Host-Bindings:
+
+```powershell
+$containerPlan = Get-SqlServerLabReconcilePlan -RunId $lab.RunId -Container
+$containerPlan.Preview.Mounts
+```
+
+Die Ausgabe enthält keine Volume-Namen oder Host-/Gastpfade. Fehlende oder
+ungültige Inspect-Metadaten ergeben `UNKNOWN` mit unbekannten Zählern;
+eine ausdrücklich leere Mountliste ergibt `MEASURED` und 0 Mounts.
+`VolumeOwnership=NOT_CHECKED` bestätigt weder Eigentum noch Sicherung.
+Die Vorschau legt keine Mounts an und ändert keine Volumes. Beim Recreate
+besitzt der bestehende Executor nur Pfade für Bind-Mounts und benannte Volumes;
+die Erhaltung anderer Mounttypen wird nicht zugesichert.
+
 ### Reconcile-Executor ausführen
 
 Für `START`/`STOP`-Vorschläge kann der Plan jetzt im nächsten Schritt ausgeführt

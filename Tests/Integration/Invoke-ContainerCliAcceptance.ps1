@@ -174,6 +174,14 @@ GO
     $noOpPlan = Get-SqlServerLabReconcilePlan -RunId $lab.RunId -Container -Cpu 2 -MemoryMB 3072 `
         -Port $currentPort -SqlMaxMemoryMB 1536 -StateRoot $stateRoot
     Assert-Acceptance ($noOpPlan.IsNoOp -and -not $noOpPlan.MutationAllowed -and @($noOpPlan.Actions).Count -eq 0) 'Identischer Container-Zielzustand ergibt einen read-only No-op-Plan'
+    $mountPreview = $noOpPlan.Preview.Mounts
+    $nativeMounts = @($currentInspect.Mounts)
+    Assert-Acceptance ($mountPreview.Status -eq 'MEASURED' -and
+        $mountPreview.TotalMountCount -eq $nativeMounts.Count -and
+        $mountPreview.VolumeMountCount -eq @($nativeMounts | Where-Object Type -CEQ 'volume').Count -and
+        $mountPreview.HostBindCount -eq @($nativeMounts | Where-Object Type -CEQ 'bind').Count -and
+        $mountPreview.WritableHostBindCount -eq @($nativeMounts | Where-Object { $_.Type -ceq 'bind' -and $_.RW }).Count -and
+        $mountPreview.VolumeOwnership -eq 'NOT_CHECKED') 'Mount-Vorschau stimmt mit dem eigenen nativen Inspect ueberein, ohne Volumeeigentum zu behaupten'
     $noOpAction = Invoke-SqlServerLabReconcileAction -RunId $lab.RunId -Container -Cpu 2 -MemoryMB 3072 `
         -Port $currentPort -SqlMaxMemoryMB 1536 -StateRoot $stateRoot -Confirm:$false
     $afterNoOpId = [string](@(& $runtimeInvocation inspect $containerName | ConvertFrom-Json -Depth 50)[0].Id)

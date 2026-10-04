@@ -2844,6 +2844,19 @@ Nachprüfliste ergeben `NOT_APPLICABLE` ohne Host-/Backendzugriff; auch eine
 gemischte Container-/Nicht-Containerliste löst keine gemeinsame Cachefreigabe aus.
 [Vertrag und Nachweisgrenzen](../Architecture/STOP_HOST_MEMORY.md).
 
+## Container-Mount-Vorschau (`CNT-214`, Teilvertrag)
+
+`Get-SqlServerLabReconcilePlan -Container` ergänzt `Preview.Mounts` um feste,
+pfadfreie Zähler für Volumes, Host-Bindings, schreibbare Host-Bindings und
+andere Mounttypen. Die Daten stammen aus demselben privaten Inspect wie der
+Ressourcenplan. Fehlende, skalare, ungültige oder über 1024 Einträge große
+Mountlisten bleiben `UNKNOWN`; eine explizit leere Liste misst 0 Mounts.
+Volumeeigentum bleibt `NOT_CHECKED`. Der bestehende Recreatepfad unterstützt
+Bind-Mounts und benannte Volumes, keine allgemeine Erhaltung anderer Typen.
+Sicherung, freie Mount-/Volumeänderungen und geführte Volumeverwaltung bleiben
+offen; dieser Teilvertrag schließt `CNT-214` nicht ab. Die CPU/RAM-GUI erhält
+dadurch noch keine neue Mountanzeige.
+
 ## Geführte CPU/RAM-Änderung (`UX-202/622`, `CNT-211` bis `CNT-214`, `HV-601` bis `HV-607`)
 
 CLI `Set-LabResourcesInteractive` und GUI `openResourceDialog` wählen eine

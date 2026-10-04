@@ -47,6 +47,29 @@ try {
             $live=Get-SqlServerLabReconcilePlan -RunId $runId -Container -Cpu 3 -MemoryMB 2560 -Port 14333 -SqlMaxMemoryMB 1408 -StateRoot $Root
             $recreate=Get-SqlServerLabReconcilePlan -RunId $runId -Container -Cpu 2 -MemoryMB 2048 -Port 15433 -StateRoot $Root
             $autoStart=Get-SqlServerLabReconcilePlan -RunId $runId -Container -AutoStart on -RepairSqlRuntimeContract -StateRoot $Root
+            $mountCases=@(
+                [pscustomobject]@{Mounts=@()},
+                [pscustomobject]@{Mounts=@(
+                    [pscustomobject]@{Type='volume';RW=$true;Name='synthetic-private-volume';Source='/synthetic/private/source';Destination='/synthetic/private/destination'},
+                    [pscustomobject]@{Type='bind';RW=$true;Source='/synthetic/private/write';Destination='/synthetic/private/target'},
+                    [pscustomobject]@{Type='bind';RW=$false;Source='/synthetic/private/read';Destination='/synthetic/private/readonly'},
+                    [pscustomobject]@{Type='tmpfs';RW=$true;Destination='/synthetic/private/tmp'}
+                )},
+                [pscustomobject]@{Mounts=$null},
+                [pscustomobject]@{Mounts=[pscustomobject]@{Type='bind';RW=$true}},
+                [pscustomobject]@{Mounts=@([pscustomobject]@{Type='bind';RW='false'})},
+                [pscustomobject]@{Mounts=@($null)},
+                [pscustomobject]@{Mounts=@([pscustomobject]@{Type='';RW=$true})},
+                [pscustomobject]@{},
+                [pscustomobject]@{Mounts=@([pscustomobject]@{Type='bind'})},
+                [pscustomobject]@{Mounts=@('synthetic malformed mount')},
+                [pscustomobject]@{Mounts=@(1..1025|ForEach-Object {[pscustomobject]@{Type='bind';RW=$false}})}
+            )
+            $mountPlans=@(foreach($inspect in $mountCases){
+                $context|Add-Member -NotePropertyName Inspect -NotePropertyValue $inspect -Force
+                Get-SqlServerLabReconcilePlan -RunId $runId -Container -Port 15433 -StateRoot $Root
+            })
+            $context.PSObject.Properties.Remove('Inspect')
             $beforeFiles=@(Get-ChildItem -LiteralPath $runDirectory -File | ForEach-Object Name)
             $null=Get-SqlServerLabReconcilePlan -RunId $runId -Container -Cpu 2 -MemoryMB 2048 -Port 14333 -StateRoot $Root
             $afterFiles=@(Get-ChildItem -LiteralPath $runDirectory -File | ForEach-Object Name)
@@ -66,6 +89,7 @@ try {
             $journal=Get-Content -LiteralPath $journalInfo.Path -Raw -Encoding utf8 | ConvertFrom-Json -Depth 40
             [PSCustomObject]@{
                 NoOp=$noOp; Live=$live; Recreate=$recreate; AutoStart=$autoStart; BeforeFiles=$beforeFiles; AfterFiles=$afterFiles
+                MountPlans=$mountPlans
                 ActionNoOp=$actionNoOp; ActionLive=$actionLive; ActionAutoStart=$actionAutoStart; WhatIf=$whatIf; UpdateCalls=$script:updateCalls
                 Journal=$journal; JournalSchema=(Assert-LabContainerReconcileJournal -Journal $journal)
                 EmptyMountFingerprint=(Get-LabContainerMountFingerprint -Mounts @())
@@ -90,8 +114,27 @@ try {
     )
     Add-CheckResult -Name 'Hostport und Runtime-Vertragsreparatur verwenden recreate mit Daten- und Recovery-Vorschau' -Success (
         $evidence.Recreate.HighestChangeClass -eq 'recreate' -and $evidence.Recreate.Preview.Downtime -eq 'brief' -and
-        $evidence.Recreate.Preview.DataImpact -match 'preserved' -and $evidence.Recreate.Preview.Recovery -match 'rollback'
+        $evidence.Recreate.Preview.DataImpact -eq 'mount preservation unconfirmed' -and $evidence.Recreate.Preview.Recovery -match 'rollback'
     )
+    Add-CheckResult -Name 'Missing mount evidence is unknown; an explicit empty array measures zero' -Success (
+        $evidence.Recreate.Preview.Mounts.Status -eq 'UNKNOWN' -and
+        $null -eq $evidence.Recreate.Preview.Mounts.TotalMountCount -and
+        $evidence.MountPlans[0].Preview.Mounts.Status -eq 'MEASURED' -and
+        $evidence.MountPlans[0].Preview.Mounts.TotalMountCount -eq 0)
+    $measured=$evidence.MountPlans[1].Preview.Mounts
+    Add-CheckResult -Name 'Mount preview counts writable host bindings independently of volumes and other types' -Success (
+        $measured.Status -eq 'MEASURED' -and $measured.TotalMountCount -eq 4 -and
+        $measured.VolumeMountCount -eq 1 -and $measured.HostBindCount -eq 2 -and
+        $measured.WritableHostBindCount -eq 1 -and $measured.OtherMountCount -eq 1 -and
+        $measured.VolumeOwnership -eq 'NOT_CHECKED')
+    Add-CheckResult -Name 'Malformed mount evidence never becomes a known empty or read-only configuration' -Success (
+        @($evidence.MountPlans[2..10]|Where-Object {
+            $_.Preview.Mounts.Status -ne 'UNKNOWN' -or $null -ne $_.Preview.Mounts.TotalMountCount
+        }).Count -eq 0)
+    Add-CheckResult -Name 'Mount preview is path/name free and does not promise preservation of unsupported types' -Success (
+        ($evidence.MountPlans|ConvertTo-Json -Depth 20) -notmatch 'synthetic-private|/synthetic/private' -and
+        $evidence.MountPlans[1].Preview.DataImpact -match 'only bind mounts and named volumes' -and
+        $evidence.Live.Preview.DataImpact -eq 'mount configuration unchanged')
     Add-CheckResult -Name 'Autostart-Drift wird explizit als recreate geplant und bis zum Executor weitergereicht' -Success (
         $evidence.AutoStart.HighestChangeClass -eq 'recreate' -and $evidence.AutoStart.Desired.AutoStart -eq 'on' -and
         @($evidence.AutoStart.Diff | Where-Object { $_.Field -eq 'AutoStart' -and $_.Changed }).Count -eq 1 -and

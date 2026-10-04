@@ -197,6 +197,36 @@ function Set-LabContainerSqlMaxMemoryMB {
     return $actual
 }
 
+function Get-LabContainerMountPreview {
+    [CmdletBinding()]
+    param([AllowNull()]$Inspect)
+
+    # Inspect is private. Project only counts; names, source/destination paths
+    # and native identities never become part of the public preview.
+    $preview = [pscustomobject]@{
+        Status='UNKNOWN'; TotalMountCount=$null; VolumeMountCount=$null
+        HostBindCount=$null; WritableHostBindCount=$null; OtherMountCount=$null
+        VolumeOwnership='NOT_CHECKED'
+    }
+    if ($null -eq $Inspect -or $null -eq $Inspect.PSObject.Properties['Mounts'] -or
+        $Inspect.Mounts -isnot [array] -or $Inspect.Mounts.Count -gt 1024) { return $preview }
+    $volumes=0; $binds=0; $writable=0; $other=0
+    foreach ($mount in $Inspect.Mounts) {
+        if ($null -eq $mount -or $mount.Type -isnot [string] -or
+            [string]::IsNullOrWhiteSpace($mount.Type) -or $mount.RW -isnot [bool]) { return $preview }
+        switch -CaseSensitive ($mount.Type) {
+            'volume' { $volumes++ }
+            'bind' { $binds++; if ($mount.RW) { $writable++ } }
+            default { $other++ }
+        }
+    }
+    $preview.Status='MEASURED'
+    $preview.TotalMountCount=$Inspect.Mounts.Count
+    $preview.VolumeMountCount=$volumes; $preview.HostBindCount=$binds
+    $preview.WritableHostBindCount=$writable; $preview.OtherMountCount=$other
+    return $preview
+}
+
 function New-LabContainerReconcilePlan {
     [CmdletBinding()]
     param(
@@ -211,6 +241,7 @@ function New-LabContainerReconcilePlan {
         [string]$StateRoot
     )
     $context = Get-LabContainerReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $StateRoot
+    $mountPreview = Get-LabContainerMountPreview -Inspect $context.Inspect
     $targetCpu = if ($null -ne $Cpu) { [decimal]$Cpu } else { [decimal]$context.CurrentCpu }
     $targetMemory = if ($null -ne $MemoryMB) { [int]$MemoryMB } else { [int]$context.CurrentMemoryMB }
     $targetPort = if ($null -ne $Port) { [int]$Port } else { [int]$context.CurrentPort }
@@ -260,7 +291,8 @@ function New-LabContainerReconcilePlan {
         Diff=$diff; Actions=$actions; HighestChangeClass=$changeClass; IsNoOp=$changeClass -eq 'no-op'; MutationAllowed=$false
         Preview=[PSCustomObject]@{
             Downtime=if($changeClass -eq 'recreate'){'brief'}else{'none'}
-            DataImpact='managed mounts and volumes preserved'
+            DataImpact=if($changeClass -ne 'recreate'){'mount configuration unchanged'}elseif($mountPreview.Status -ne 'MEASURED'){'mount preservation unconfirmed'}else{'mount preservation is not independently verified; only bind mounts and named volumes have a recreate path'}
+            Mounts=$mountPreview
             Recovery=if($changeClass -eq 'recreate'){'rename rollback with original container'}elseif($changeClass -eq 'live'){'resource rollback to captured limits'}else{'not required'}
         }
         Warnings=if($changeClass -eq 'recreate'){@('SQL ist während des kontrollierten Container-Recreate kurz nicht erreichbar.')}else{@()}
