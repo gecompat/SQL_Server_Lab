@@ -183,6 +183,16 @@ kein Volumeeigentum. Recreate darf keine allgemeine Mount-Erhaltung behaupten;
 Live-Pläne ändern Mounts nicht. Bestehende NoWrite-, Action- und Journalfälle
 bleiben erhalten. Diese synthetische Evidence ersetzt weder native Inspect-
 Kompatibilität noch Docker-/Podman- oder Volume-/Mount-Cleanupnachweise.
+Die isolierte `Fixtures/ContainerRecreateMountChecks.ps1` führt zusätzlich den
+tatsächlichen Executor und Planner mit synthetischem Kontext bis zur ersten
+neuen Journalgrenze aus. Ein Journal-Sentinel verhindert Provider-Mutationen.
+Die fokussierte Ausführung am 2026-10-04 bestand 239 Checks: Docker-/Podman-argv
+für Bind-Mounts und benannte Volumes einschließlich Schreibrechten und Podman-U,
+eindeutige Unix-, Windows-Laufwerk- und UNC-Quellpfade, frühe Ablehnung
+ungültiger oder nicht unterstützter Mountdaten, explizit leere
+Listen, No-op, Live-Update, `-WhatIf` und frische Metadaten nach vorheriger
+Recovery. Das ist ein lokaler Grenznachweis, kein nativer Recreate-, Recovery-
+oder Datenerhaltungsnachweis.
 Der vorhandene eigene `Invoke-ContainerCliAcceptance.ps1` vergleicht zusätzlich
 die öffentlichen Zähler mit seinem bereits gelesenen nativen Inspect; Docker
 und Podman benötigen jeweils eine eigene Ausführung auf dem finalen Stand.

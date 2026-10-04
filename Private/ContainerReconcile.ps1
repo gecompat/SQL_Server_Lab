@@ -227,6 +227,48 @@ function Get-LabContainerMountPreview {
     return $preview
 }
 
+function Get-LabContainerRecreateMountArguments {
+    [CmdletBinding()]
+    param([AllowNull()]$Inspect, [Parameter(Mandatory)][ValidateSet('docker','podman')][string]$Provider)
+
+    if ((Get-LabContainerMountPreview -Inspect $Inspect).Status -ne 'MEASURED') {
+        throw 'CONTAINER_RECONCILE_MOUNT_EVIDENCE_INVALID: Recreate benötigt eine vollständige Mountliste mit typisierten Schreibrechten.'
+    }
+    $arguments = @()
+    foreach ($mount in $Inspect.Mounts) {
+        if ($mount.Type -cnotin @('bind','volume')) {
+            throw 'CONTAINER_RECONCILE_MOUNT_TYPE_UNSUPPORTED: Recreate unterstützt nur Bind-Mounts und benannte Volumes; vorhandenen Container beibehalten.'
+        }
+        if ($mount.Destination -isnot [string] -or [string]::IsNullOrWhiteSpace($mount.Destination) -or
+            -not $mount.Destination.StartsWith('/') -or $mount.Destination -match '[:\x00\r\n]') {
+            throw 'CONTAINER_RECONCILE_MOUNT_EVIDENCE_INVALID: Recreate benötigt einen eindeutigen absoluten Container-Zielpfad.'
+        }
+        if ($mount.Type -ceq 'bind') {
+            if ($mount.Source -isnot [string] -or [string]::IsNullOrWhiteSpace($mount.Source) -or $mount.Source -match '[\x00\r\n]') {
+                throw 'CONTAINER_RECONCILE_MOUNT_EVIDENCE_INVALID: Recreate benötigt die vollständige Bind-Mount-Quelle.'
+            }
+            $windowsDrivePath = $mount.Source -match '^[A-Za-z]:[\\/][^:]*$'
+            $absolutePath = $mount.Source.StartsWith('/') -or $mount.Source.StartsWith('\\') -or $windowsDrivePath
+            if (-not $absolutePath -or ($mount.Source.Contains(':') -and -not $windowsDrivePath)) {
+                throw 'CONTAINER_RECONCILE_MOUNT_EVIDENCE_INVALID: Recreate benötigt einen eindeutigen absoluten Bind-Mount-Quellpfad.'
+            }
+            $suffix = if (-not $mount.RW) { ':ro' } else { '' }
+            $arguments += @('-v',"$($mount.Source):$($mount.Destination)$suffix")
+        }
+        else {
+            if ($mount.Name -isnot [string] -or [string]::IsNullOrWhiteSpace($mount.Name) -or $mount.Name -match '[:/\\\x00\r\n]') {
+                throw 'CONTAINER_RECONCILE_MOUNT_EVIDENCE_INVALID: Recreate benötigt den eindeutigen Namen des vorhandenen Volumes.'
+            }
+            $options = @()
+            if ($Provider -eq 'podman') { $options += 'U' }
+            if (-not $mount.RW) { $options += 'ro' }
+            $suffix = if ($options.Count -gt 0) { ":$($options -join ',')" } else { '' }
+            $arguments += @('-v',"$($mount.Name):$($mount.Destination)$suffix")
+        }
+    }
+    return $arguments
+}
+
 function New-LabContainerReconcilePlan {
     [CmdletBinding()]
     param(

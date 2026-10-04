@@ -2853,6 +2853,12 @@ Ressourcenplan. Fehlende, skalare, ungültige oder über 1024 Einträge große
 Mountlisten bleiben `UNKNOWN`; eine explizit leere Liste misst 0 Mounts.
 Volumeeigentum bleibt `NOT_CHECKED`. Der bestehende Recreatepfad unterstützt
 Bind-Mounts und benannte Volumes, keine allgemeine Erhaltung anderer Typen.
+Vor einem neuen Recreate-Journal weist der Executor nicht unterstützte Typen,
+unvollständige Mountlisten, untypisierte Schreibrechte sowie fehlende oder
+ungeeignete Quellen, Volumenamen und Zielpfade ab. Bereits offene Recovery
+bleibt vorher erreichbar; No-op und Live-Updates benötigen diese Prüfung nicht.
+Die Ablehnung gilt auch für `-WhatIf` und ersetzt keinen nativen Nachweis für
+Datenerhaltung, Volumeeigentum oder Sicherung.
 Sicherung, freie Mount-/Volumeänderungen und geführte Volumeverwaltung bleiben
 offen; dieser Teilvertrag schließt `CNT-214` nicht ab. Die CPU/RAM-GUI und das PowerShell-Menü zeigen
 dieselben pfadfreien Anzahlen aus dem gemeinsamen Ressourcenplan. Unbekannte

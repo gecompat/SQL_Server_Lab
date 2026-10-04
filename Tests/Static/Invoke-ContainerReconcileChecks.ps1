@@ -163,5 +163,9 @@ finally {
     Remove-Item -LiteralPath $temporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
+$mountFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerRecreateMountChecks.ps1'
+& (Get-Process -Id $PID).Path -NoProfile -File $mountFixture
+Add-CheckResult -Name 'Actual recreate executor rejects unsupported or incomplete mounts before a new journal' -Success ($LASTEXITCODE -eq 0)
+
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0
