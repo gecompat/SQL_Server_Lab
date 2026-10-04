@@ -913,7 +913,10 @@ CLI und Browser verwenden denselben öffentlichen Core. Sidecars, Legacy ohne
 vollständige Evidence, externe Speicher und Hyper-V bleiben ausgeschlossen;
 Backup und aktuelles Offline-Inhaltsinventar werden nicht bestätigt. Synthetische
 Fault-/Prozesstests und ein eigener nativer SQL-2025-Harness sind vorhanden;
-die nativen Docker-/Podman-Abnahmen stehen noch aus.
+die getrennten nativen SQL-2025-Abnahmen bestanden am 2026-10-01 auf `b2a1f456`
+für Docker und Podman jeweils mit sechs Assertions und separatem eigenem Cleanup.
+Weitere SQL-Versionen und Storageklassen bleiben offen. Nachweisgrenzen:
+[Behaltenen SQL-Speicher löschen](../Documentation/User/RETAINED_STORE_REMOVAL.md).
 
 ## Ressourcen nach Lab-Stop
 

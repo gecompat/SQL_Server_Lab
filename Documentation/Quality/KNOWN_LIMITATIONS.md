@@ -2690,8 +2690,10 @@ uneindeutige Katalogspiegel blockieren Resume. Das Journal darf nicht entfernt
 werden, solange Recovery offen ist. Sidecars, Gruppen, UUID-lose oder unvollständig
 belegte Legacy-Stores, externe Speicher und Hyper-V bleiben ausgeschlossen.
 Die Aktion prüft weder Backupverfügbarkeit noch ein vollständiges aktuelles
-SQL-Inhaltsinventar; alle Store-Inhalte gehen verloren. Native SQL-2025-Abnahmen
-für Docker und Podman sind vorbereitet, aber noch nicht ausgeführt. Einzelheiten:
+SQL-Inhaltsinventar; alle Store-Inhalte gehen verloren. Die getrennten nativen
+SQL-2025-Abnahmen bestanden am 2026-10-01 auf `b2a1f456` für Docker und Podman
+jeweils mit sechs Assertions und separatem eigenem Cleanup. Weitere SQL-Versionen
+und Storageklassen bleiben offen. Einzelheiten:
 [Behaltenen SQL-Speicher löschen](../User/RETAINED_STORE_REMOVAL.md).
 
 Der öffentliche Befehl `Repair-SqlServerLabPersistentStorageCatalog` bindet einen
