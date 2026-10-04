@@ -54,6 +54,16 @@ Provider nur mit SQL Server 2025.
 
 ## Aktueller Status
 
+Eine getrennte Portvorschau über
+`Get-SqlServerLabReconcilePlan -ContainerPortPreview` ist `PLAN_ONLY`:
+für eine moderne registrierte, laufende Docker-/Podman-SQL-Instanz zeigt sie
+pfad- und portwertfreie Kategorien aus genau einem Inspect. Der opaque
+`ObservationKey` erlaubt kein Apply und reserviert keinen Port. Endpoint,
+SQL und Sicherung bleiben `NOT_CHECKED`; zusätzliche oder unbekannte
+Topologie wird nicht als kompatibel angenommen. Eigene geführte Dialoge und
+gebundenes Port-Apply sind noch nicht Teil dieses Slices. Einzelheiten stehen
+in der [öffentlichen Referenz](Public/README.md#container-portvorschau-ohne-apply).
+
 Die [External-Languages-Entscheidung](Documentation/Architecture/EXTERNAL_RUNTIME_CAPABILITY.md)
 bewertet explizite Python-/R-/Java-Katalogvarianten für Docker-/Podman-Linux.
 API und bestehender Manifestdialog trennen Katalogunterstützung von optionaler

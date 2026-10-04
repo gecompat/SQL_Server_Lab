@@ -1,5 +1,18 @@
 # Bekannte Grenzen
 
+`Get-SqlServerLabReconcilePlan -ContainerPortPreview` ist eine getrennte reine
+`PLAN_ONLY`-Portvorschau für moderne registrierte, laufende Docker-/Podman-Runs.
+Nur eine vollständige SQL-1433/tcp-Loopbackbindung, ein Netz und durch den
+bestehenden Recreate-Mountguard darstellbare Mounts ergeben eine beobachtete
+Vorschau. Zusätzliche Bindungen, Netze, Aliase oder feste IP-Vorgaben,
+unbekannte Limits und offene Journale werden nicht stillschweigend übernommen.
+Der öffentliche DTO bleibt host- und portwertfrei; sein `ObservationKey` ist
+keine CAS-, Lease-, Reservierungs- oder Executorautorität. `CanApply=false`
+und leere `Actions` gelten auch für No-op. Endpoint, SQL, Backup und
+Volumeeigentum bleiben ungeprüft. Ein neuer geführter Portwechsel mit
+Apply/Recovery sowie eigene CLI-/Browserdialoge fehlen; frühere native
+Container-Reconcile-Abnahmen ersetzen diese neue Abnahme nicht.
+
 `Get-SqlServerLabEvaluationRefreshPlan` bietet nur einen nicht ausführbaren
 Entscheid für eine moderne registrierte Hyper-V-SQL-Instanz unter explizitem
 `Lab_Data`. Slotersatz, Rekonstruktion und Migration bleiben getrennte

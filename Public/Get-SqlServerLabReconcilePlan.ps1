@@ -48,6 +48,13 @@
 .PARAMETER Container
     Wählt den Container-Ressourcen-Reconcile. Der Plan klassifiziert die
     Änderung als no-op, live oder recreate und mutiert die Runtime nicht.
+.PARAMETER ContainerPortPreview
+    Wählt eine getrennte PLAN_ONLY-Vorschau für einen SQL-Hostportwechsel einer
+    registrierten Docker-/Podman-Instanz. Sie liefert nur Portkategorien, keine
+    Portnummern. Actions bleiben leer und CanApply bleibt false. Endpoint,
+    SQL, Sicherung und Volumeeigentum werden nicht geprüft; der ObservationKey
+    ist keine Reservierung oder Executorautorität. Eigene CLI-/Browserdialoge
+    und Apply gehören nicht zu diesem Parametersatz.
 .PARAMETER Cpu
     Gewünschte vCPU-Grenze. Ohne Angabe bleibt der Istwert erhalten.
 .PARAMETER MemoryMB
@@ -79,6 +86,10 @@
     Get-SqlServerLabReconcilePlan -RunId $runId -Container -Cpu 2 -MemoryMB 4096
 
     Zeigt eine Live-Ressourcenänderung ohne Mutation an.
+.EXAMPLE
+    Get-SqlServerLabReconcilePlan -RunId $runId -InstanceId primary -ContainerPortPreview -Port 15433 -StateRoot $stateRoot
+
+    Zeigt einen beobachteten Portwechsel als nicht ausführbare Vorschau.
 .EXAMPLE
     Get-SqlServerLabReconcilePlan -RunId $runId -HyperVNetwork -InstanceId primary
 
@@ -144,6 +155,7 @@ function Get-SqlServerLabReconcilePlan {
 
         [Parameter(ParameterSetName = 'ExternalRuntime')]
         [Parameter(ParameterSetName = 'Container')]
+        [Parameter(Mandatory, ParameterSetName = 'ContainerPortPreview')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVNetwork')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVResources')]
         [Parameter(Mandatory, ParameterSetName = 'HyperVStorage')]
@@ -177,6 +189,9 @@ function Get-SqlServerLabReconcilePlan {
         [Parameter(Mandatory, ParameterSetName = 'Container')]
         [switch]$Container,
 
+        [Parameter(Mandatory, ParameterSetName = 'ContainerPortPreview')]
+        [switch]$ContainerPortPreview,
+
         [Parameter(ParameterSetName = 'Container')]
         [ValidateRange(1, 64)]
         [decimal]$Cpu,
@@ -186,6 +201,7 @@ function Get-SqlServerLabReconcilePlan {
         [int]$MemoryMB,
 
         [Parameter(ParameterSetName = 'Container')]
+        [Parameter(Mandatory, ParameterSetName = 'ContainerPortPreview')]
         [ValidateRange(1024, 65535)]
         [int]$Port,
 
@@ -203,6 +219,9 @@ function Get-SqlServerLabReconcilePlan {
         [string]$StateRoot
     )
 
+    if ($PSCmdlet.ParameterSetName -eq 'ContainerPortPreview') {
+        return New-LabContainerPortPreview -RunId $RunId -InstanceId $InstanceId -Port $Port -StateRoot $StateRoot
+    }
     if ($PSCmdlet.ParameterSetName -eq 'ComponentRelations') {
         return New-LabComponentRelationPlan -RunId $RunId -ProposedRelations $ProposedRelations -StateRoot $StateRoot
     }
