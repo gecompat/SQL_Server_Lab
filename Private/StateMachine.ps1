@@ -155,8 +155,9 @@ function New-LabRunState {
         errors       = @()
     }
 
+    New-LabWindowsPoolMemberMetadata -RunId $runId -ScopeId $ScopeId -Metadata $Metadata -StateRoot $StateRoot
     $statePath = Join-Path $runDirectory 'run-state.json'
-    $state | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $statePath -Encoding utf8
+    Write-LabArtifactJsonAtomic -Path $statePath -InputObject $state
 
     $owner = if ($env:USERNAME) {
         $env:USERNAME
@@ -246,7 +247,7 @@ function Get-LabStateTransitionMap {
     }
 }
 
-function Set-LabProviderSubRunState {
+function Set-LabProviderSubRunStateCore {
     <#
     .SYNOPSIS
         Setzt den State eines providergebundenen Teil-Lifecycles.
@@ -320,7 +321,7 @@ function Set-LabProviderSubRunState {
     }
 
     $current.updatedAt = $timestamp
-    $current | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $statePath -Encoding utf8
+    Write-LabArtifactJsonAtomic -Path $statePath -InputObject $current
 }
 
 function Set-LabProviderSubRunsState {
@@ -343,7 +344,7 @@ function Set-LabProviderSubRunsState {
     }
 }
 
-function Set-LabRunState {
+function Set-LabRunStateCore {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$RunId,
@@ -396,10 +397,10 @@ function Set-LabRunState {
         reason    = $Reason
     }
 
-    $current | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $statePath -Encoding utf8
+    Write-LabArtifactJsonAtomic -Path $statePath -InputObject $current
 }
 
-function Add-LabRunError {
+function Add-LabRunErrorCore {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$RunId,
@@ -423,10 +424,10 @@ function Add-LabRunError {
     }
     $current.updatedAt = $timestamp
 
-    $current | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $statePath -Encoding utf8
+    Write-LabArtifactJsonAtomic -Path $statePath -InputObject $current
 }
 
-function Rename-LabRunDisplayName {
+function Rename-LabRunDisplayNameCore {
     <#
     .SYNOPSIS
         Ändert ausschließlich den Anzeigenamen eines vorhandenen Lab-Runs.
@@ -468,7 +469,7 @@ function Rename-LabRunDisplayName {
     $history.Add([PSCustomObject]@{ previousName = $previousName; name = $DisplayName; changedAt = Get-LabTimestamp })
     $current.metadata | Add-Member -NotePropertyName nameHistory -NotePropertyValue @($history.ToArray()) -Force
     $current.updatedAt = Get-LabTimestamp
-    $current | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $statePath -Encoding utf8
+    Write-LabArtifactJsonAtomic -Path $statePath -InputObject $current
     return [PSCustomObject]@{ RunId = $RunId; PreviousName = $previousName; Name = $DisplayName; Changed = $true }
 }
 
@@ -725,6 +726,7 @@ function Remove-LabRunState {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     if (-not $StateRoot) {
         $StateRoot = Get-LabStateRoot
     }

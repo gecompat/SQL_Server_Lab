@@ -2142,6 +2142,10 @@ nichts. Registrierte Kandidaten sind keine bestätigte freie Reserve; ohne
 Poolmitgliedschaft und Claims bleiben Defizit und Auffüllzahl unbekannt. Der
 Dialog erstellt keine Slots und aktiviert keine automatische Auffüllung.
 Einzelheiten im [Bedienvertrag](../HowTo/WORKFLOW_UI.md).
+Der nicht interaktive Adapter `Invoke-SqlServerLabWorkflowAction` bindet
+`PlanWindowsPoolMember` über die expliziten Parameter `RunId` und `StateRoot`.
+Die Vorschau autorisiert erst nach separater Bestätigung die eigene Mitgliedaktion;
+die native Poolabnahme bleibt ohne erfolgreichen Gesamtbeleg.
 
 ## Lokale SQL-2022/2025-Bootstrapperquellen
 

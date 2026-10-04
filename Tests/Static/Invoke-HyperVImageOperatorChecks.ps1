@@ -198,7 +198,14 @@ try {
     )
     $typeMismatchRejected = & $module {
         param($BuildId, $Root, $Credential)
-        function Invoke-HyperVPowerShellDirect {
+        # Workflow unit boundary only; actual authority/transport composition is
+        # exercised independently by HyperVBuildAuthorityChecks.ps1.
+        function Get-HyperVBuildCallerAuthority {
+            param($Build,$StateRoot,[switch]$AllowAbsent,[switch]$RequireOff)
+            [pscustomobject]@{Managed=[pscustomobject]@{VM=[pscustomobject]@{State='Running';Id='11111111-1111-1111-1111-111111111111';Name=$Build.builder.vmName}}}
+        }
+        function Assert-HyperVBuildOfflineDiskAuthority { param($Build,$StateRoot,$VhdxPath) }
+        function Invoke-HyperVBuildPowerShellDirect {
             param($VMName,$ExpectedRunId,$ExpectedScopeId,$Credential,$ScriptBlock,$ArgumentList)
             [PSCustomObject]@{
                 contractVersion = '1'; buildId = $ArgumentList[0]; scopeId = $ArgumentList[1]
@@ -218,7 +225,14 @@ try {
 
     $accepted = & $module {
         param($BuildId, $Root, $Credential)
-        function Invoke-HyperVPowerShellDirect {
+        # Workflow unit boundary only; actual authority/transport composition is
+        # exercised independently by HyperVBuildAuthorityChecks.ps1.
+        function Get-HyperVBuildCallerAuthority {
+            param($Build,$StateRoot,[switch]$AllowAbsent,[switch]$RequireOff)
+            [pscustomobject]@{Managed=[pscustomobject]@{VM=[pscustomobject]@{State='Running';Id='11111111-1111-1111-1111-111111111111';Name=$Build.builder.vmName}}}
+        }
+        function Assert-HyperVBuildOfflineDiskAuthority { param($Build,$StateRoot,$VhdxPath) }
+        function Invoke-HyperVBuildPowerShellDirect {
             param($VMName,$ExpectedRunId,$ExpectedScopeId,$Credential,$ScriptBlock,$ArgumentList)
             [PSCustomObject]@{
                 contractVersion = '1'; buildId = $ArgumentList[0]; scopeId = $ArgumentList[1]

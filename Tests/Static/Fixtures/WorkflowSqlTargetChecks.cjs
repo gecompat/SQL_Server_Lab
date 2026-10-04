@@ -610,6 +610,42 @@ async function main() {
   const pendingReserve = resourceEvent('slot-reserve-read'); await resourceEvent('slot-reserve-close');
   releaseReserve({ ok: true, json: async () => ({ Result: reserveView }) }); await pendingReserve;
   check('Reserve closed dialog ignores delayed read', () => assert.equal(node('slot-reserve-inventory').textContent, ''));
+  const memberRequests = [];
+  const memberPreview = { PreviewId: 'opaque-held-member-token', Action: 'Claim', RunId: 'own-member', VMName: 'own-vm', MemberState: 'FREE', Evidence: 'CURRENT', Notice: 'Revalidate before claim.' };
+  context.fetch = async (url, options = {}) => {
+    assert.equal(url, '/api/slot-reserve');
+    const request = options.body ? JSON.parse(options.body) : null; memberRequests.push(request);
+    return { ok: true, json: async () => ({ Result: request?.action === 'PlanWindowsPoolMember' ? memberPreview : request?.action === 'ApplyWindowsPoolMember' ? { Status: 'RECOVERY_REQUIRED', RunId: 'own-member', OriginalError: 'WINDOWS_POOL_OPERATION_FAILED' } : reserveView }) };
+  };
+  await resourceEvent('configuration-reserve');
+  node('slot-member-run').value = 'own-member'; node('slot-member-action').value = 'Claim';
+  await resourceEvent('slot-member-form', 'submit');
+  check('Member preview shows actual bound identity before confirmation', () => {
+    assert.equal(node('slot-member-apply').disabled, false); assert.ok(node('slot-member-plan').textContent.includes('own-vm'));
+    assert.equal(memberRequests.at(-1).action, 'PlanWindowsPoolMember');
+    assert.equal(memberRequests.filter(r => r?.action === 'ApplyWindowsPoolMember').length, 0);
+  });
+  await resourceEvent('slot-member-run', 'input'); await resourceEvent('slot-member-apply');
+  check('Member edited preview cancels held token and cannot apply', () => {
+    assert.deepEqual(memberRequests.at(-1), { action: 'CancelWindowsPoolMember', parameters: { SlotReservePreviewId: memberPreview.PreviewId } });
+    assert.equal(memberRequests.filter(r => r?.action === 'ApplyWindowsPoolMember').length, 0);
+  });
+  await resourceEvent('slot-member-form', 'submit'); await resourceEvent('slot-member-apply');
+  check('Member apply transmits only opaque token and explicit confirmation; recovery stays visible', () => {
+    assert.deepEqual(memberRequests.at(-2), { action: 'ApplyWindowsPoolMember', parameters: { SlotReservePreviewId: memberPreview.PreviewId, ConfirmSlotReserveMember: true } });
+    assert.ok(node('slot-reserve-status').textContent.includes('RECOVERY_REQUIRED'));
+  });
+  await resourceEvent('slot-member-form', 'submit'); await resourceEvent('slot-reserve-close');
+  check('Member dialog close cancels preview separately', () => assert.equal(memberRequests.at(-1).action, 'CancelWindowsPoolMember'));
+  await resourceEvent('configuration-reserve');
+  const immediateMemberFetch = context.fetch; let releaseMemberPreview;
+  context.fetch = (url, options = {}) => options.body && JSON.parse(options.body).action === 'PlanWindowsPoolMember'
+    ? new Promise(resolve => { releaseMemberPreview = resolve; }) : immediateMemberFetch(url, options);
+  const pendingMember = resourceEvent('slot-member-form', 'submit'); await resourceEvent('slot-reserve-close');
+  releaseMemberPreview({ ok: true, json: async () => ({ Result: memberPreview }) }); await pendingMember;
+  check('Delayed member preview after close cancels server token without displaying or applying', () => {
+    assert.equal(memberRequests.at(-1).action, 'CancelWindowsPoolMember'); assert.equal(node('slot-member-plan').hidden, true);
+  });
   const groupRequests = [];
   let groupMode = 'ready';
   const groupPlan = { Group: 'Registrierte Testgruppe', Total: 2, PowerStatus: 'MIXED', PowerAction: 'Start', CanApply: true, NoChange: false, PlanKey: 'a'.repeat(64), Notice: 'Nur Power; SQL nicht geprüft.', Members: [{ Key: 'DOCKER', Provider: 'docker', Power: 'STOPPED', Desired: 'RUNNING', Change: 'START' }, { Key: 'PODMAN', Provider: 'podman', Power: 'RUNNING', Desired: 'RUNNING', Change: 'NO_OP' }] };

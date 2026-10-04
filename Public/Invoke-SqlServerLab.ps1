@@ -3181,6 +3181,11 @@ function Invoke-LabHyperVWindowsSlotPoolInteractive {
     [CmdletBinding()]
     param()
 
+    $poolInput=Read-LabConsoleTextInput -Prompt 'Pool-ID für exaktes Resume (leer: neuer Pool)'
+    if($poolInput.Status -ne 'Confirmed'){return}
+    $poolId=[guid]::NewGuid()
+    if($poolInput.Value -and -not [guid]::TryParseExact([string]$poolInput.Value,'D',[ref]$poolId)){Write-LabError 'Pool-ID ist keine gültige UUID.';return}
+
     $minimumEvaluationDays = Read-LabIntegerIntentValue -Prompt 'Mindestens verbleibende Evaluation-Tage' -Default 30 -Minimum 0 -Maximum 3650
     $installationType = Show-LabSubMenu -ScreenId 'windows-slot-pool-installation-type' -Title 'Windows-Installationstyp für den Slot-Pool' -Items @(
         New-LabConsoleItem -Id 'desktop-experience' -Label 'Desktop Experience' -Value 'Windows Server mit grafischer Oberfläche' -Shortcut '1'
@@ -3256,6 +3261,7 @@ function Invoke-LabHyperVWindowsSlotPoolInteractive {
     Write-Host '  Poolvorschau' -ForegroundColor Cyan
     Write-LabStatus -Label 'Slots' -Value ("{0}-{1} ({2} Stück)" -f $startIndex, $lastIndex, $count)
     Write-LabStatus -Label 'Namenspräfix' -Value $namePrefix
+    Write-LabStatus -Label 'Pool-ID' -Value $poolId
     Write-LabStatus -Label 'RAM Min/Start/Max' -Value ("{0}/{1}/{2} MB" -f $memoryMinimumMB, $memoryStartupMB, $memoryMaximumMB)
     Write-LabStatus -Label 'vCPU' -Value $processorCount
     Write-LabStatus -Label 'Windows' -Value ("{0} · {1}, Region {2}, Format {3}, Tastatur {4} ({5})" -f $installationType, $locale.UiLanguage, $locale.Region, $locale.SystemLocale, $locale.InputLocale, $locale.InputLocaleSource)
@@ -3264,7 +3270,7 @@ function Invoke-LabHyperVWindowsSlotPoolInteractive {
     if (-not (Read-LabConfirm -Prompt '  Diesen Windows-Slot-Pool jetzt erstellen oder fortsetzen?' -Default $false)) { return }
 
     $arguments = @{
-        Count=$count; StartIndex=$startIndex; NamePrefix=$namePrefix
+        Count=$count; StartIndex=$startIndex; NamePrefix=$namePrefix;PoolId=$poolId
         ArtifactId=[string]$artifact.artifactId; MinimumEvaluationDaysRemaining=$minimumEvaluationDays; InstallationType=$installationType
         MemoryMinimumMB=$memoryMinimumMB; MemoryStartupMB=$memoryStartupMB; MemoryMaximumMB=$memoryMaximumMB
         ProcessorCount=$processorCount; Region=$locale.Region; SystemLocale=$locale.SystemLocale
@@ -3276,6 +3282,7 @@ function Invoke-LabHyperVWindowsSlotPoolInteractive {
     else { $arguments.AdministratorPassword = $sharedPassword }
     try {
         $result = New-SqlServerLabWindowsSlotPool @arguments
+        Write-LabStatus -Label 'Pool-ID für Resume' -Value ([string]$result.PoolId)
         Write-LabSuccess "Windows-Slot-Pool abgeschlossen: $(@($result.Slots).Count)/$($result.Count) Slots, Status $($result.Status)."
         foreach ($slot in @($result.Slots)) {
             Write-LabStatus -Label ([string]$slot.Name) -Value ("{0} · Run {1}" -f $slot.State, $slot.RunId)
@@ -5008,6 +5015,9 @@ function New-LabHyperVSqlDeploymentPlanInteractive {
         -ExpectedRunId $lab.Run.runId -ExpectedScopeId $lab.Run.scopeId
     if (-not $vmStatus -or -not $vmStatus.Exists) { throw 'HYPERV_LAB_VM_NOT_FOUND' }
     if ([string]$vmStatus.State -ne 'Off') {
+        if($lab.Run.metadata.windowsPoolMember -and $lab.Run.metadata.windowsPoolMember.state -notin @('CONSUMED','REMOVED')){
+            throw 'WINDOWS_POOL_USE_CONFIRMED_MEMBER_STOP'
+        }
         Write-LabInfo 'Für die SQL-Ressourcenplanung muss die VM ausgeschaltet sein; sie wird jetzt automatisch sauber heruntergefahren.'
         $stopped = Stop-HyperVLabEnvironment -RunId $RunId
         Write-LabSuccess "VM für SQL-Planung ausgeschaltet: $($stopped.VMName)"
@@ -5041,7 +5051,30 @@ function New-LabHyperVSqlDeploymentPlanInteractive {
             backupPath=if ([string]$Intent.StorageMode -eq 'separated') { 'R:\SQLBackup' } else { 'C:\SQLData\Backup' }
         }
     }
-    $plan = Set-HyperVLabSqlDeploymentPlan @planArguments
+    if($lab.Run.metadata.windowsPoolMember -and $lab.Run.metadata.windowsPoolMember.state -notin @('CONSUMED','REMOVED')){
+        if($lab.Run.metadata.windowsPoolMember.state -ceq 'FREE'){
+            $claimPreview=New-LabWindowsPoolMemberPreview -RunId $RunId -Action Claim
+            Write-Host ($claimPreview | ConvertTo-Json -Depth 6)
+            if(-not (Read-LabConfirm -Prompt 'Dieses verifizierte Windows-Mitglied für den SQL-Ausbau reservieren?' -Default $false)){
+                $null=Invoke-LabWindowsPoolMemberPreview -PreviewId $claimPreview.PreviewId -Cancel
+                return $null
+            }
+            $claimResult=Invoke-LabWindowsPoolMemberPreview -PreviewId $claimPreview.PreviewId -Confirm
+            if($claimResult.Status -cne 'CLAIMED'){throw 'WINDOWS_POOL_CLAIM_REQUIRES_RECOVERY'}
+        }
+        $sqlPlan=@{};foreach($key in $planArguments.Keys){if($key -cne 'RunId'){$sqlPlan[$key]=$planArguments[$key]}}
+        if(-not $sqlPlan.ContainsKey('SqlFeatures')){$sqlPlan.SqlFeatures=@('SQLENGINE','FULLTEXT','REPLICATION')}
+        $consumePreview=New-LabWindowsPoolMemberPreview -RunId $RunId -Action Consume -SqlDeploymentPlan $sqlPlan
+        Write-Host ($consumePreview | ConvertTo-Json -Depth 8)
+        if(-not (Read-LabConfirm -Prompt 'Genau diesen SQL-Plan und die angezeigten Ressourcen auf das gehaltene Mitglied anwenden?' -Default $false)){
+            $null=Invoke-LabWindowsPoolMemberPreview -PreviewId $consumePreview.PreviewId -Cancel
+            Write-LabInfo 'Der Claim bleibt gehalten. Eine sichere Freigabe ist als separate Mitgliedaktion verfügbar.'
+            return $null
+        }
+        $consumeResult=Invoke-LabWindowsPoolMemberPreview -PreviewId $consumePreview.PreviewId -Confirm
+        if($consumeResult.Status -cne 'CONSUMED'){throw 'WINDOWS_POOL_CONSUME_REQUIRES_RECOVERY'}
+        $plan=(Get-HyperVLabWorkflowRun -RunId $RunId).Instance.sqlDeploymentPlan
+    }else{$plan = Set-HyperVLabSqlDeploymentPlan @planArguments}
     Write-LabSuccess "SQL-Ausbau gespeichert: SQL $($plan.sqlVersion) · $($plan.deploymentMode) · $($plan.processorCount) vCPU"
     if ([long]$plan.maximumDataIops -gt 0) {
         $dataRoot = Get-LabDataRootDefault

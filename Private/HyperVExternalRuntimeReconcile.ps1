@@ -318,6 +318,7 @@ function Invoke-LabHyperVExternalRuntimeReconcileRepair {
         [string]$MediaRoot,
         [string]$StateRoot
     )
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $context = Get-LabHyperVExternalRuntimeReconcileContext -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
     $plan = New-LabHyperVExternalRuntimeReconcilePlan -RunId $RunId -ManifestPath $ManifestPath -InstanceId $InstanceId -StateRoot $StateRoot
     if ($plan.HighestChangeClass -eq 'unsupported') { throw "HYPERV_EXTERNAL_RUNTIME_RECONCILE_UNSUPPORTED: $($plan.Warnings -join ', ')" }

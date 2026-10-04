@@ -1,0 +1,265 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SqlServerLab.WindowsPoolMember/1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contractVersion",
+    "poolId",
+    "creationOperationId",
+    "index",
+    "runId",
+    "scopeId",
+    "instanceId",
+    "provider",
+    "vmId",
+    "imageArtifactId",
+    "revision",
+    "state",
+    "evidenceEpoch",
+    "evidence",
+    "claim"
+  ],
+  "properties": {
+    "contractVersion": {
+      "const": "SqlServerLab.WindowsPoolMember/1.0"
+    },
+    "poolId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "creationOperationId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "runId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "scopeId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "evidenceEpoch": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "index": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "instanceId": {
+      "const": "primary"
+    },
+    "provider": {
+      "const": "hyperv"
+    },
+    "vmId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "imageArtifactId": {
+      "type": "string",
+      "pattern": "^hyperv-os-sealed-[a-f0-9]{64}$"
+    },
+    "state": {
+      "enum": [
+        "PREPARING",
+        "FREE",
+        "CLAIMED",
+        "RECOVERY_REQUIRED",
+        "CONSUMED",
+        "REMOVED"
+      ]
+    },
+    "evidence": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "instanceId": {
+          "const": "primary"
+        },
+        "contractVersion": {
+          "const": "SqlServerLab.WindowsPoolEvidence/1.0"
+        },
+        "preparationRevision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "parentFingerprint": {
+          "pattern": "^[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "poolId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "licenseStatus": {
+          "const": 1
+        },
+        "observedAt": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "runId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "scopeId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "evaluationExpiresAt": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "evidenceEpoch": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "provisioningComplete": {
+          "const": true
+        },
+        "freshUntil": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "imageArtifactId": {
+          "pattern": "^hyperv-os-sealed-[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "vmId": {
+          "format": "uuid",
+          "type": "string"
+        },
+        "localeVerified": {
+          "const": true
+        }
+      },
+      "required": [
+        "contractVersion",
+        "poolId",
+        "runId",
+        "scopeId",
+        "instanceId",
+        "vmId",
+        "imageArtifactId",
+        "evidenceEpoch",
+        "parentFingerprint",
+        "preparationRevision",
+        "observedAt",
+        "freshUntil",
+        "evaluationExpiresAt",
+        "licenseStatus",
+        "provisioningComplete",
+        "localeVerified"
+      ]
+    },
+    "claim": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "claimId",
+            "operationId",
+            "purpose",
+            "providerMutationStarted"
+          ],
+          "properties": {
+            "claimId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "operationId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "purpose": {
+              "enum": [
+                "Prepare",
+                "Claim",
+                "Cleanup"
+              ]
+            },
+            "providerMutationStarted": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "const": "FREE"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "claim": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "PREPARING",
+              "CLAIMED",
+              "RECOVERY_REQUIRED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "claim": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "state": {
+            "enum": [
+              "FREE",
+              "CLAIMED",
+              "CONSUMED"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "vmId": {
+            "format": "uuid",
+            "type": "string"
+          }
+        }
+      }
+    }
+  ]
+}

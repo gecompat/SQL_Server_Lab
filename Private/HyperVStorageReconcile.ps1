@@ -371,8 +371,8 @@ function Set-LabHyperVStorageReconcileHostState {
             hostRoot=if($desired.HostRoot){[string]$desired.HostRoot}else{$null};locationId=if($desired.LocationId){[string]$desired.LocationId}else{$null};selector=if($desired.Selector){[string]$desired.Selector}else{$null}
         })
     }
-    $null=Set-HyperVManagedVMIdentityProperty -ManagedVM $Context.Managed -PropertyName additionalDrives -Value @($identityDrives) -ContractVersion '0.5'
-    $null=Set-HyperVManagedVMIdentityProperty -ManagedVM $Context.Managed -PropertyName additionalVhdxPaths -Value @($identityDrives.path) -ContractVersion '0.5'
+    $null=Set-HyperVManagedVMIdentityProperty -ManagedVM $Context.Managed -PropertyName additionalDrives -Value @($identityDrives) -ContractVersion '0.5' -StateRoot $StateRoot
+    $null=Set-HyperVManagedVMIdentityProperty -ManagedVM $Context.Managed -PropertyName additionalVhdxPaths -Value @($identityDrives.path) -ContractVersion '0.5' -StateRoot $StateRoot
 }
 
 function Set-LabHyperVStorageReconcileConnectionReceipt {
@@ -389,6 +389,7 @@ function Set-LabHyperVStorageReconcileConnectionReceipt {
 function Invoke-LabHyperVStorageReconcileRepair {
     [CmdletBinding()]
     param([Parameter(Mandatory)][string]$RunId,[Parameter(Mandatory)][string]$InstanceId,[string]$StateRoot)
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $mutex=[Threading.Mutex]::new($false,"Global\SQL_Server_Lab_HyperV_Storage_Reconcile_$($RunId.Replace('-',''))")
     $acquired=$false;$journal=$null;$journalPath=$null
     try{
@@ -413,7 +414,7 @@ function Invoke-LabHyperVStorageReconcileRepair {
         $null=Set-LabHyperVStorageReconcileJournalStatus -Journal $journal -Path $journalPath -Status HOST_APPLIED
         $context=Get-LabHyperVStorageReconcileContext -RunId $RunId -InstanceId $InstanceId -StateRoot $context.StateRoot
         if([string]$context.VM.State -eq 'Off'){$null=Start-VM -VM $context.VM -ErrorAction Stop;$null=Wait-LabHyperVResourceReconcileVMState -VMName ([string]$context.ConnectionInstance.vmName) -RunId $RunId -ScopeId ([string]$context.ScopeId) -ExpectedState Running}
-        $receipt=Initialize-HyperVWindowsGuestDrives -VMName ([string]$context.ConnectionInstance.vmName) -ExpectedRunId $RunId -ExpectedScopeId ([string]$context.ScopeId) -Credential $credential
+        $receipt=Initialize-HyperVWindowsGuestDrives -VMName ([string]$context.ConnectionInstance.vmName) -ExpectedRunId $RunId -ExpectedScopeId ([string]$context.ScopeId) -Credential $credential -StateRoot $context.StateRoot
         if([string]$receipt.Status -ne 'GUEST_DRIVES_READY'){throw 'HYPERV_STORAGE_RECONCILE_GUEST_POSTCONDITION_FAILED'}
         $null=Set-LabHyperVStorageReconcileJournalStatus -Journal $journal -Path $journalPath -Status GUEST_VERIFIED
         $managed=Get-HyperVManagedVM -VMName ([string]$context.ConnectionInstance.vmName) -ExpectedRunId $RunId -ExpectedScopeId ([string]$context.ScopeId)

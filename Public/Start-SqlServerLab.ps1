@@ -41,6 +41,8 @@ function Start-SqlServerLab {
             throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Einzelnes Starten ist gesperrt; Testumgebungen verwenden AutoStart=on.'
         }
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
+        # Reject reserved members before host policy, runtime probes or no-op.
+        Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $stateRoot
         $ownedHostPolicy = if ($run.metadata.ownedHostIntegration -or (((Test-Path (Join-Path $stateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $stateRoot 'owned-host-policy.json'))))) { Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $stateRoot } else { $null }
         $run = (Sync-LabRunRuntimeState -Run $run -StateRoot $stateRoot).Run
 

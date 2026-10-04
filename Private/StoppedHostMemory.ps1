@@ -61,13 +61,16 @@ function Get-LabStopLinuxCacheMB {
 
 function Invoke-LabStoppedHostMemoryRelease {
     [CmdletBinding()]
-    param([ValidateSet('docker','podman')][string[]]$Provider, [switch]$Skip)
+    param([string[]]$Provider, [switch]$Skip)
     $ErrorActionPreference='Stop'
     $receipt = [pscustomobject][ordered]@{
         Status='NOT_APPLICABLE'; AvailableBeforeMB=$null; AvailableAfterMB=$null
         CacheBeforeMB=$null; CacheAfterMB=$null; CacheReleaseRequested=$false
     }
     if ($Skip) { $receipt.Status='DISABLED'; return $receipt }
+    # Shared WSL maintenance is applicable only to an exclusively container-bound set.
+    # Reject non-container/unknown providers before host reads or backend selection.
+    if (@($Provider).Count -eq 0 -or @($Provider | Where-Object { $_ -notin @('docker','podman') }).Count) { return $receipt }
     $mutex=$null; $held=$false
     try {
         $before = Get-LabStopHostMemory

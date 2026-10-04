@@ -258,6 +258,36 @@ manuelle Hyper-V-Modi sind nicht durch diese Privacyhärtung abgedeckt.
 CI-Selektion, Zeitgrenzen, Mutex und bestehende Cleanupaufrufe bleiben erhalten;
 fehlende native Nachweise werden durch die Offline-Fixtures nicht ersetzt.
 
+Der Hyper-V-Lifecycle-Smoke verwendet den kanonischen Pfad
+`StateRoot/runs/RunId` und persistiert die vom Provider zurückgegebene VM-ID
+in der Connectioninfo vor Start oder Stop. Lifecycle, Reconcile und Imagebuild
+führen getrennte Erstellungs- und Cleanupnachweise. Eine begonnene Erstellung
+ohne bestätigte Rückgabe, ein unbekanntes natives Inventar oder ein fehlender
+Cleanupnachweis bewahrt das eigene Custody-Verzeichnis einschließlich Parent.
+Artefakt- und Rootcleanup verlangen bestätigte Runtime-Abwesenheit; Pfade werden
+vor der Entfernung erneut auf eigene Tempgrenzen und Reparsepunkte geprüft.
+Nach der Publikation reicht die physische Builder-Abwesenheit nicht aus:
+der eigene Build muss über `Remove-HyperVWindowsImageBuild` mit
+`CLEANUP_SUCCEEDED` und `CLEANED_UP` abschließen, bevor die Registryreferenz
+entfernt werden darf. Ein unbestätigter Abschluss bewahrt die Custody.
+Diese Prüfungen sind keine atomare Dateisystem-/Runtime-Transaktion.
+
+`Invoke-HyperVResourceBindingChecks.ps1` führt den tatsächlichen Finally-Block
+mit injizierten Fehlern aus: unbestätigte Erstellung in allen drei Scopes,
+Cleanup- und Inventarfehler, umbenannte VM, wiederverwendeter Name, ungültige
+Native-ID, Artefaktfehler und echte eigene Junction-/Symlink-Fixtures. Die
+ursprüngliche Ausnahme und Mutexfreigabe werden geprüft. Die Fixtures prüfen
+auch die Reihenfolge Buildabschluss vor Artefaktentfernung
+und verweigern das Cleanup bei fehlgeschlagenem oder nicht terminalem Build.
+Diese statischen
+Fixtures ersetzen keinen nativen Hyper-V-Smoke. Die Slotpool-Fixture stellt
+ihre temporären Plattform- und Rootprüfungsbindungen vollständig wieder her;
+unter Unix bleibt die echte portable Rootprüfung aktiv. SQL-Medienpfade werden
+mit dem Separator der tatsächlichen Plattform begrenzt.
+Die Poolclaim-Prozessfixture setzt `WindowStyle Hidden` nur unter Windows;
+unter Unix bleibt derselbe Prozess-/Argument-/Ausgabevertrag ohne diesen
+Windowsparameter erhalten. Synthetische Plattformfälle ersetzen keine native
+Unix-Prozessprüfung.
 ## SQL Server 2025 External Languages auf cgroup v2
 
 Die expliziten `shared-user-v2`-Varianten besitzen getrennte native
@@ -2486,6 +2516,12 @@ Ressourcen. Beide Acceptances sind opt-in und laden keine Modelle herunter.
 
 Die fokussierte Suite `Tests/Static/Invoke-StoppedHostMemoryChecks.ps1`
 prüft die Entscheidung und Backendbindung mit synthetischen Messungen.
+Der zusätzliche Providervertrag führt den tatsächlichen Helper, öffentlichen
+Stop und Lifecycle-Reconcile mit isolierten Provider-/Host-Spies aus:
+Hyper-V, unbekannte und gemischte Nicht-Containerbindungen sind ohne Skip
+`NOT_APPLICABLE`; Skip ist `DISABLED`. Beide Wege dürfen keine Hostmessung
+oder gemeinsame Cachefreigabe auslösen. Reine Containerbindungen behalten
+ihre vorhandene Wartungsentscheidung.
 Native Abnahmen müssen Docker und Podman getrennt betrachten: eigener
 Lab-Stop, unverändert laufender Nachbar, Cache vor/nach Freigabe sowie
 Windows-RAM-Rückgabe als getrennte Beobachtung. Eine injizierte Druckmessung
@@ -2504,6 +2540,58 @@ Lab-Volume. Die fokussierte Suite bestand 20 Assertions einschließlich des
 öffentlichen WhatIf-, Teilfehler- und Gruppen-Koordinatorverhaltens.
 
 ## Slotreservepolicy und Kandidatensicht
+
+Neue Windows-Poolmitglieder verwenden zusätzlich den gekoppelten Vertrag
+`Documentation/Architecture/WINDOWS_POOL_MEMBERSHIP_AND_CLAIMS.md`.
+`Invoke-WindowsPoolClaimChecks.ps1` führt kanonische Member-CAS und Whole-Run-
+Writer, Notes-/Root-/Reparsegrenzen, Preview/Cancel/Revalidierung, 24-Stunden-
+Evidence, gehaltenen Recovery-Stop und Consume unter injizierten CPU/RAM-,
+Connectionpersistenz-, Journal- und Postconditionfehlern aus. Getrennte echte
+PowerShell-Prozesse prüfen konkurrierende Claims einschließlich Rootalias,
+identischen Operationsresume und Claim-Erhaltung nach Workercrash. Die
+Fixtures liegen ausschließlich lokal unter `.artifacts/windows-pool-checks`.
+Die Suite prüft außerdem die echten Workflowparameter `RunId`/`StateRoot`
+und feste feldbezogene Capturecodes samt Allowlist und Deduplizierung. Der
+fehlgeschlagene Native-Captureversuch bleibt als fehlender Gesamtbeleg erhalten;
+eine OOBE-Localequittung ersetzt keine frische Poolcapture.
+Der echte Guest-Scriptblock wird mit einem synthetischen Datum vor 1970
+geprüft: positive frische Grace liefert ein Ende, fehlende Grace und ungültige
+Lizenz bleiben gesperrt. Ein echtes abgelaufenes oder unlesbares Enddatum darf
+durch positive Grace nicht ersetzt werden. Diese Änderung betrifft nur
+Hyper-V-Gastcapture. Der vom Selektor ausgewählte Docker-Fallback bleibt
+ein Pflichtnachweis für den stabilen Stand; frühere Docker-Evidence deckt
+dessen neuen Quelldigest nicht ab.
+Echte öffentliche Start-/Stopaufrufe werden am synthetischen geclaimten
+Mitglied geprüft: Die Sperre greift vor Runtime-Abgleich und No-op-Rückgabe,
+Statebytes bleiben unverändert. Der Native-Versuch mit frischer Guestcapture
+erreichte den Direktaufrufcheck, lieferte dort aber noch keinen Gesamt-PASS.
+Der fokussierte Migrationsvertrag blockiert StateRoot-verschiebende
+DataRoot-Migrationen mit Poolmitgliedern auch nach Consume, lässt eine
+Migration ohne Rootwechsel und entfernte Tombstones ohne live VM zu und
+verweigert unbekannte oder widersprüchliche Bindungen vor Copy/Mutation.
+Die Pool-Fixture injiziert außerdem einen nichtterminierenden Fehler am echten
+nativen Inventarlesepfad und prüft gespeicherte IDs mit fehlenden bzw. fremden
+Notes, fremde gleiche Namen sowie ein erfolgreich leeres Inventar. Migration,
+Cleanup und Erstellung bleiben bei unbekanntem Inventar gesperrt.
+
+`Tests/Integration/Invoke-WindowsPoolClaimAcceptance.ps1` ist der separate
+native Windows-2025-Desktop-Harness. Er verlangt einen explizit ausgewählten
+integritäts- und Childboot-verifizierten Parent, eine erhöhte freigegebene
+Lane, ein ausgewähltes lokales SQL-Medium sowie ausdrückliche Ausführungs-
+und Cleanupbestätigung. Er erstellt genau ein eigenes Poolmitglied,
+prüft Gastcapture/Off-Verfügbarkeit, gebundenen Resume, Cancel, Guard,
+Release und vollständigen Consume. Nur beim Erfolg wird dieses eigene
+Mitglied über den bestehenden Cleanupvertrag entfernt; Fehler versuchen
+einen eigenen Stop und bewahren State/Child mit getrennten Fehlerkategorien.
+`Tests/Common/WindowsPoolNativeAcceptance.ps1` enthält die testinternen
+Bindings- und Nachbedingungsprüfungen. Die fokussierte Suite reproduziert
+fehlenden Marker bei anderem DefaultRoot, exakte Nicht-Pool-VM-Bindung,
+unbekannte Reserveabdeckung, Rename/Missing-Discovery und Parentdrift.
+Native Erfolg verlangt erhaltene Originalidentitäten und unabhängigen
+Parentvergleich sowie VM-/Child-/Adapter-/IPAM-/Secret-Absence; fehlende
+State-/Discoverydaten verhindern PASS und automatischen Cleanup.
+Ein vorbereiteter Harness ist kein ausgeführter Providerbeleg. Er benötigt
+eine eigene Evidence und bestätigt weder SQL-Reserve noch automatische Auffüllung.
 
 `Invoke-SlotReserveChecks.ps1` prüft synthetisch denselben Preferences-Writer
 mit vier getrennten PowerShell-Prozessen, Mergeerhaltung, ungültigem JSON,

@@ -781,7 +781,7 @@ abgewiesen. SQL-seitige Verifikation und freie Advanced-Eingaben bleiben
 | `Get-SqlServerLabReconcilePlan` | Read-only Plan für Lifecycle, Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Reconcile, Containerressourcen/Autostart oder resolvergebundenen External-Runtime-Reconcile einschließlich additiver Hyper-V-Gastinstallation; nicht ausführbare Komponenten-/Shared-Verbrauchervorschau über ProposedRelations und geführte CLI-/Browservorschau an registrierten Metadaten (SQL NOT_CHECKED, Shared PRESERVE) |
 | `Invoke-SqlServerLabReconcileAction` | `START`/`STOP`, eigentumsgebundene Hyper-V-Netzwerk-/Ressourcen-/Storage-/SQL-/Testdatenbank-Aktionen, Container-Replacement oder additive Hyper-V-External-Runtime-Installation ausführen |
 | `Move-SqlServerLabContainerNetwork` | Konfligierendes verwaltetes Docker- oder Podman-Labnetz nach expliziter Bestätigung auf ein geprüftes Subnetz verschieben |
-| `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Workflow-Aktionen, einschließlich Grundkonfiguration mit Vorschau/Apply, expliziter Location-Schreibprobe, read-only Kapazitätsmomentaufnahme und Providerprüfung und zentraler Advisory-Slotreservepolicy |
+| `Invoke-SqlServerLabWorkflowAction` | Nicht interaktive Workflow-Aktionen, einschließlich Grundkonfiguration mit Vorschau/Apply, expliziter Location-Schreibprobe, read-only Kapazitätsmomentaufnahme und Providerprüfung und zentraler Advisory-Slotreservepolicy; Windows-Poolmitgliedvorschau über explizite RunId und StateRoot |
 | `New-SqlServerLabManifest` | Schema-gesteuertes Manifest in der Konsole erstellen |
 | `Test-SqlServerLabManifest` | Manifest ohne Provisionierung strukturell und fachlich prüfen |
 | `New-SqlServerLab` | Umgebung ad hoc oder per Manifest erstellen |

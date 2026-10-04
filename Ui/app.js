@@ -2768,6 +2768,7 @@ let slotReserveState = null;
 let slotReservePlan = null;
 let slotReserveRevision = 0;
 let slotReserveBusy = false;
+let slotMemberPreview = null;
 const slotReserveFields = { WindowsReserve: 'windows', SqlReserve: 'sql', MinimumDaysRemaining: 'minimum', WarningDaysRemaining: 'warning' };
 function updateSlotReserveControls() {
   const ready = slotReserveState && slotReserveState.Configuration.Status !== 'INVALID' && !slotReserveBusy;
@@ -2775,6 +2776,9 @@ function updateSlotReserveControls() {
   $('#slot-reserve-preview').disabled = !ready;
   $('#slot-reserve-apply').disabled = !ready || !slotReservePlan || slotReservePlan.IsNoOp;
   $('#slot-reserve-read').disabled = slotReserveBusy;
+  for (const id of ['slot-member-run','slot-member-action','slot-member-version','slot-member-media','slot-member-cpu','slot-member-memory','slot-member-preview']) $('#' + id).disabled = !ready;
+  $('#slot-member-apply').disabled = !ready || !slotMemberPreview;
+  $('#slot-member-cancel').disabled = slotReserveBusy || !slotMemberPreview;
 }
 function invalidateSlotReservePlan() {
   slotReservePlan = null; $('#slot-reserve-plan').hidden = true; updateSlotReserveControls();
@@ -2791,6 +2795,7 @@ async function runSlotReserveRequest(operation, receive) {
   try {
     const result = await operation();
     if (revision === slotReserveRevision && $('#slot-reserve-dialog').open) receive(result);
+    else if (result?.PreviewId) requestSlotReserve('CancelWindowsPoolMember', { SlotReservePreviewId: result.PreviewId }).catch(() => {});
   } catch (error) {
     if (revision === slotReserveRevision && $('#slot-reserve-dialog').open) {
       slotReserveState = null; invalidateSlotReservePlan(); $('#slot-reserve-inventory').textContent = '';
@@ -2799,14 +2804,17 @@ async function runSlotReserveRequest(operation, receive) {
   } finally { if (revision === slotReserveRevision) { slotReserveBusy = false; updateSlotReserveControls(); } }
 }
 function renderSlotReserve(view) {
+  invalidateSlotMemberPreview();
   slotReserveState = view; invalidateSlotReservePlan();
-  $('#slot-reserve-status').textContent = view.Configuration.Status + ' · Registrierte Kandidaten: ' + view.CandidateCount + ' · Verfügbare Reserve und Auffüllzahl: unbekannt';
+  $('#slot-reserve-status').textContent = view.Configuration.Status + ' · Freie verifizierte Windows-Mitglieder: ' + (view.WindowsVerifiedAvailable ?? 'unbekannt') + ' · Windows-Defizit: ' + (view.WindowsDeficit ?? 'unbekannt') + ' · SQL-Reserve: unbekannt';
   const rows = [view.Notice, view.Recommendation === 'NO_RESERVE_REQUESTED' ? 'Keine Reserve angefordert; kein Nachweis eines gesunden Pools.' : 'Poolzugehörigkeit und Reservierungen separat prüfen.'];
-  for (const row of view.Rows || []) rows.push(row.Reference + ' · ' + row.Kind + ' · ' + row.RegisteredState + ' · Zuordnung: ' + row.Allocation + ' · Windows: ' + row.WindowsLifetime + ' · Resttage: ' + (row.WindowsDays ?? 'unbekannt') + ' · Warnung: ' + row.Warning + ' · SQL: ' + row.SqlLifetime + ' · SQL-Evidence: ' + row.SqlEvidence + ' · SQL-Mindestrest: ' + row.SqlMinimum + ' · Windows-Evidence: historisch, nicht live geprüft');
+  for (const row of view.Rows || []) rows.push(row.Reference + ' · ' + row.Kind + ' · ' + row.RegisteredState + ' · Mitglied: ' + (row.MemberState || 'UNBOUND') + ' · Claim: ' + (row.ClaimOperationId || 'keiner') + ' · Windows: ' + row.WindowsLifetime + ' · Resttage: ' + (row.WindowsDays ?? 'unbekannt') + ' · Warnung: ' + row.Warning + ' · SQL: ' + row.SqlLifetime + ' · Windows-Evidence: ' + row.Evidence);
+  $('#slot-member-run').innerHTML = '<option value="">Mitglied auswählen</option>' + (view.Rows || []).filter(row => row.PoolId).map(row => '<option value="' + escapeHtml(row.Reference) + '">' + escapeHtml(row.Reference + ' · ' + row.MemberState + ' · ' + row.Evidence) + '</option>').join('');
   $('#slot-reserve-inventory').innerHTML = rows.map(row => '<div>' + escapeHtml(row) + '</div>').join('');
   for (const [field, suffix] of Object.entries(slotReserveFields)) $('#slot-reserve-' + suffix).value = view.Configuration.Policy?.[field] ?? '';
 }
 function readSlotReserve() {
+  invalidateSlotMemberPreview();
   invalidateSlotReservePlan(); return runSlotReserveRequest(() => requestSlotReserve(), renderSlotReserve);
 }
 function openSlotReserveDialog() {
@@ -2817,7 +2825,7 @@ function openSlotReserveDialog() {
 $('#configuration-reserve').addEventListener('click', openSlotReserveDialog);
 $('#templates-reserve').addEventListener('click', openSlotReserveDialog);
 $('#slot-reserve-close').addEventListener('click', () => $('#slot-reserve-dialog').close());
-$('#slot-reserve-dialog').addEventListener('close', () => { slotReserveRevision++; slotReserveBusy = false; invalidateSlotReservePlan(); });
+$('#slot-reserve-dialog').addEventListener('close', () => { slotReserveRevision++; slotReserveBusy = false; invalidateSlotMemberPreview(); invalidateSlotReservePlan(); });
 $('#slot-reserve-read').addEventListener('click', readSlotReserve);
 for (const suffix of Object.values(slotReserveFields)) $('#slot-reserve-' + suffix).addEventListener('input', invalidateSlotReservePlan);
 $('#slot-reserve-form').addEventListener('submit', event => {
@@ -2842,6 +2850,39 @@ $('#slot-reserve-apply').addEventListener('click', () => {
     await requestSlotReserve('ApplySlotReserve', { SlotReservePlan: plan, ConfirmSlotReserve: true });
     return requestSlotReserve();
   }, renderSlotReserve);
+});
+
+function invalidateSlotMemberPreview() {
+  const previous = slotMemberPreview; slotMemberPreview = null;
+  $('#slot-member-plan').hidden = true; updateSlotReserveControls();
+  if (previous) requestSlotReserve('CancelWindowsPoolMember', { SlotReservePreviewId: previous.PreviewId }).catch(() => {});
+}
+for (const id of ['slot-member-run','slot-member-action','slot-member-version','slot-member-media','slot-member-cpu','slot-member-memory']) $('#' + id).addEventListener('input', () => {
+  invalidateSlotMemberPreview(); $('#slot-member-sql').hidden = $('#slot-member-action').value !== 'Consume';
+});
+$('#slot-member-cancel').addEventListener('click', invalidateSlotMemberPreview);
+$('#slot-member-form').addEventListener('submit', event => {
+  event.preventDefault(); invalidateSlotMemberPreview();
+  const parameters = { RunId: $('#slot-member-run').value, SlotReserveOperation: $('#slot-member-action').value };
+  if (!parameters.RunId) { $('#slot-reserve-status').textContent = 'Ein konkretes Poolmitglied auswählen.'; return; }
+  if (parameters.SlotReserveOperation === 'Consume') {
+    if (!$('#slot-member-media').value.trim()) { $('#slot-reserve-status').textContent = 'Ein lokales SQL-Medium ausdrücklich angeben.'; return; }
+    parameters.SlotReserveSqlPlan = { SqlVersion: $('#slot-member-version').value, DeploymentMode: 'adhoc-install', MediaEdition: 'Enterprise', SqlMediaPath: $('#slot-member-media').value.trim(), SqlFeatures: ['SQLENGINE','FULLTEXT','REPLICATION'], ProcessorCount: Number($('#slot-member-cpu').value), MemoryStartupMB: Number($('#slot-member-memory').value) };
+  }
+  return runSlotReserveRequest(() => requestSlotReserve('PlanWindowsPoolMember', parameters), preview => {
+    slotMemberPreview = preview;
+    $('#slot-member-plan').textContent = preview.Action + ' · Run: ' + preview.RunId + ' · VM: ' + preview.VMName + ' · VM-Zustand: ' + (preview.VMState || 'unbekannt') + ' · Mitglied: ' + preview.MemberState + ' · Evidence: ' + preview.Evidence + ' · ' + preview.Notice + (preview.SqlPlan ? ' · SQL-Plan: ' + JSON.stringify(preview.SqlPlan) : '');
+    $('#slot-member-plan').hidden = false;
+    $('#slot-reserve-status').textContent = 'Vorschau; noch keine Mitgliedaktion ausgeführt.';
+  });
+});
+$('#slot-member-apply').addEventListener('click', () => {
+  if (!slotMemberPreview || slotReserveBusy) return;
+  const preview = slotMemberPreview; slotMemberPreview = null; $('#slot-member-plan').hidden = true;
+  return runSlotReserveRequest(async () => {
+    const result = await requestSlotReserve('ApplyWindowsPoolMember', { SlotReservePreviewId: preview.PreviewId, ConfirmSlotReserveMember: true });
+    return { result, view: await requestSlotReserve() };
+  }, response => { renderSlotReserve(response.view); $('#slot-reserve-status').textContent = response.result.Status + ' · ' + response.result.RunId + (response.result.CleanupError ? ' · Recovery-Persistenz separat prüfen.' : ''); });
 });
 
 let testGroupPlan = null;

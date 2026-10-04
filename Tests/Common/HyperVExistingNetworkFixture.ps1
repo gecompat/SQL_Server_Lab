@@ -12,7 +12,12 @@ foreach($case in @('ready','actions','blocked','hostDrift','subnetDrift','multip
     $probe=& {
         param($Case,$Definition)
         . ([scriptblock]::Create($Definition))
-        $state=@{GuestCalls=0;Mutations=0}
+        $state=@{GuestCalls=0;Mutations=0;PoolGuardCalls=0}
+        function Assert-LabWindowsPoolMutationAllowed {
+            param($RunId,$StateRoot,[switch]$InvalidateEvidence)
+            if($RunId -cne 'synthetic-run'){throw 'SYNTHETIC_POOL_GUARD_SCOPE_MISMATCH'}
+            $state.PoolGuardCalls++
+        }
         $network=[pscustomobject]@{Status='READY';Actions=@();Name='synthetic-switch';Intent='hostOnly';Subnet='192.0.2.0/24';HostAddress='192.0.2.1';PrefixLength=24}
         $binding=[pscustomobject]@{name='synthetic-switch';intent='hostOnly';subnet='192.0.2.0/24';hostAddress='192.0.2.1';prefixLength=24}
         $adapter=[pscustomobject]@{SwitchName='synthetic-switch'}
@@ -38,7 +43,7 @@ foreach($case in @('ready','actions','blocked','hostDrift','subnetDrift','multip
         $failure=$null
         try{Enable-HyperVLabHostSqlAccess -RunId synthetic-run -Credential $credential -RequireExistingNetwork}catch{$failure=$_.Exception.Message}
         finally{$secret.Dispose()}
-        [pscustomobject]@{Failure=$failure;GuestCalls=$state.GuestCalls;Mutations=$state.Mutations}
+        [pscustomobject]@{Failure=$failure;GuestCalls=$state.GuestCalls;Mutations=$state.Mutations;PoolGuardCalls=$state.PoolGuardCalls}
     } $case $definition[0].Extent.Text
     $expected=switch($case){
         'ready' {'SYNTHETIC_GUEST_BOUNDARY'}
@@ -46,7 +51,7 @@ foreach($case in @('ready','actions','blocked','hostDrift','subnetDrift','multip
         {$_ -in @('multiple','disconnected')} {'HYPERV_LAB_HOST_SQL_EXISTING_ADAPTER_REQUIRED'}
         default {'HYPERV_LAB_HOST_SQL_EXISTING_NETWORK_CHANGED'}
     }
-    if($probe.Failure -ne $expected -or $probe.Mutations -ne 0 -or $probe.GuestCalls -ne [int]($case -eq 'ready')){
+    if($probe.Failure -ne $expected -or $probe.Mutations -ne 0 -or $probe.PoolGuardCalls -ne 1 -or $probe.GuestCalls -ne [int]($case -eq 'ready')){
         throw "EXISTING_NETWORK_FIXTURE_FAILED: $case ($($probe.Failure))"
     }
 }

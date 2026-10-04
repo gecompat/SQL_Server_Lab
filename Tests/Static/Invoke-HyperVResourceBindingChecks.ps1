@@ -10,6 +10,7 @@ $stateRoot = Join-Path $temporaryParent 'state'
 $stateDirectory = Join-Path $stateRoot 'runs/test-run'
 $previousDataRoot = $env:SQL_SERVER_LAB_DATA_ROOT
 $failures = [System.Collections.Generic.List[string]]::new(); $passed = 0
+$custodyRoots = [Collections.Generic.List[string]]::new()
 . (Join-Path $PSScriptRoot '..' 'Common' 'CheckResult.ps1')
 
 Write-Host ''; Write-Host 'SQL_Server_Lab - Hyper-V Resource Binding Checks' -ForegroundColor Cyan
@@ -258,6 +259,191 @@ try {
     catch { $_.Exception.Message -match 'HYPERV_RESOURCE_PATH_TOO_LONG' }
     Add-CheckResult -Name 'Zu lange physische Ressourcenpfade werden vor der Mutation abgewiesen' -Success $longPathRejected
 
+    # Execute the native harness's real finalizer and helpers with synthetic
+    # provider commands, including failures before a creation result is returned.
+    $smokeTokens = $null; $smokeErrors = $null
+    $smokeAst = [Management.Automation.Language.Parser]::ParseFile(
+        (Join-Path $repoRoot 'Tests/Integration/Invoke-HyperVSmokeTest.ps1'), [ref]$smokeTokens, [ref]$smokeErrors)
+    $helperNames = @('Add-HyperVSmokeCreatedVM', 'Assert-HyperVSmokeCreatedVMAbsence',
+        'Assert-HyperVSmokeOwnedPaths', 'Remove-HyperVSmokeOwnedRoot')
+    $helperDefinitions = @($smokeAst.FindAll({param($node)
+        $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -in $helperNames
+    }, $true))
+    $mainTry = @($smokeAst.EndBlock.Statements | Where-Object { $_ -is [Management.Automation.Language.TryStatementAst] })
+    if ($smokeErrors.Count -or $helperDefinitions.Count -ne 4 -or $mainTry.Count -ne 1) {
+        throw 'HYPERV_SMOKE_CUSTODY_FIXTURE_SOURCE_INVALID'
+    }
+    $finallyText = $mainTry[0].Finally.Extent.Text
+    Add-CheckResult -Name 'Publication does not prematurely close the builder reference' -Success (
+        $mainTry[0].Body.Extent.Text -notmatch '\$builderCleanupComplete\s*=\s*\$true')
+    $custodyModule = New-Module -ScriptBlock {
+        param($Helpers, $FinallyBody)
+        Invoke-Expression $Helpers
+        $script:ActualFinalizer = [scriptblock]::Create($FinallyBody)
+        function Get-VM {
+            [CmdletBinding()]param([string]$Name)
+            $script:InventoryCalls++
+            switch ($script:CustodyMode) {
+                'READ_ERROR' { Write-Error 'SYNTHETIC_INVENTORY_UNKNOWN'; return }
+                'VM_RENAMED' { [pscustomobject]@{Id=$script:CreatedId;Name='synthetic-renamed'} }
+                'NAME_REUSED' { [pscustomobject]@{Id=[guid]::NewGuid().ToString('D');Name='synthetic-smoke'} }
+                'NATIVE_ID_NONCANONICAL' { [pscustomobject]@{Id=('{'+$script:CreatedId+'}');Name='synthetic-renamed'} }
+                default { @() }
+            }
+        }
+        function Test-Path {
+            [CmdletBinding()]param([string]$LiteralPath,[string]$PathType)
+            if ($LiteralPath -like '*cleanup-plan.json' -and
+                $script:CustodyMode -in @('LIFECYCLE_PLAN_READ_ERROR','BUILDER_PLAN_READ_ERROR')) {
+                Write-Error 'SYNTHETIC_PLAN_READ_UNKNOWN'; return
+            }
+            $arguments=@{LiteralPath=$LiteralPath;ErrorAction='Stop'}
+            if ($PathType) { $arguments.PathType=$PathType }
+            Microsoft.PowerShell.Management\Test-Path @arguments
+        }
+        function Invoke-CleanupPlan {
+            param($RunDir,$ScopeId)
+            if ($script:CustodyMode -eq 'CLEANUP_ERROR') { throw 'SYNTHETIC_CLEANUP_FAILED' }
+            [pscustomobject]@{Status='CLEANUP_SUCCEEDED'}
+        }
+        function Remove-SqlServerLab {
+            param($RunId,$StateRoot,[switch]$Force)
+            [pscustomobject]@{Status='REMOVED';Cleanup='CLEANUP_FAILED'}
+        }
+        function Remove-HyperVWindowsImageBuild {
+            param($BuildId,$StateRoot)
+            $script:BuilderCalls++
+            if ($script:CustodyMode -eq 'PUBLISHED_BUILDER_SUCCESS') {
+                $script:BuilderTerminal=$true
+                return [pscustomobject]@{Status='CLEANUP_SUCCEEDED';Build=[pscustomobject]@{state='CLEANED_UP'}}
+            }
+            if ($script:CustodyMode -eq 'PUBLISHED_BUILDER_STATE_ERROR') {
+                return [pscustomobject]@{Status='CLEANUP_SUCCEEDED';Build=[pscustomobject]@{state='TEST_ARTIFACT_PUBLISHED'}}
+            }
+            [pscustomobject]@{Status='CLEANUP_FAILED';Build=[pscustomobject]@{state='FAILED'}}
+        }
+        function Remove-HyperVImageArtifact {
+            param($ArtifactId,$StateRoot)
+            $script:ArtifactCalls++
+            if ($script:CustodyMode -like 'PUBLISHED_BUILDER_*' -and -not $script:BuilderTerminal) {
+                throw 'SYNTHETIC_PUBLISHED_BUILD_REFERENCE_IN_USE'
+            }
+            [pscustomobject]@{Status=$(if($script:CustodyMode -eq 'ARTIFACT_ERROR'){'IN_USE'}else{'REMOVED'})}
+        }
+        function Remove-Module { [CmdletBinding()]param($Name,[switch]$Force) }
+        Export-ModuleMember -Function @()
+    } -ArgumentList (($helperDefinitions.Extent.Text) -join "`n"), $finallyText.Substring(1,$finallyText.Length-2)
+
+    foreach ($mode in @('UNRETURNED_LIFECYCLE','UNRETURNED_RECONCILE','UNRETURNED_BUILDER',
+        'CLEANUP_ERROR','LIFECYCLE_PLAN_READ_ERROR','BUILDER_PLAN_READ_ERROR','RECONCILE_ERROR','BUILDER_ERROR','READ_ERROR','VM_RENAMED','NAME_REUSED',
+        'NATIVE_ID_NONCANONICAL','ARTIFACT_ERROR','ROOT_LINK','PARENT_ANCESTOR_LINK',
+        'PUBLISHED_BUILDER_SUCCESS','PUBLISHED_BUILDER_STATUS_ERROR','PUBLISHED_BUILDER_STATE_ERROR','SUCCESS')) {
+        $custodyRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hyperv-smoke-'+[guid]::NewGuid().ToString('N'))
+        $custodyRoots.Add($custodyRoot)
+        $custodyParent = Join-Path $custodyRoot 'synthetic-parent.vhdx'
+        if ($mode -in @('ROOT_LINK','PARENT_ANCESTOR_LINK')) {
+            $targetRoot = Join-Path ([IO.Path]::GetTempPath()) ('sql-lab-hyperv-smoke-'+[guid]::NewGuid().ToString('N'))
+            $custodyRoots.Add($targetRoot)
+            $null = New-Item -ItemType Directory -Path $targetRoot
+            $linkType = if ($IsWindows) { 'Junction' } else { 'SymbolicLink' }
+            if ($mode -eq 'ROOT_LINK') {
+                $null = New-Item -ItemType $linkType -Path $custodyRoot -Target $targetRoot
+            }
+            else {
+                $null = New-Item -ItemType Directory -Path $custodyRoot
+                $link = Join-Path $custodyRoot 'linked'
+                $null = New-Item -ItemType $linkType -Path $link -Target $targetRoot
+                $custodyParent = Join-Path $link 'synthetic-parent.vhdx'
+            }
+        }
+        else { $null = New-Item -ItemType Directory -Path $custodyRoot }
+        [IO.File]::WriteAllText($custodyParent, 'synthetic immutable parent')
+        (Get-Item -LiteralPath $custodyParent).IsReadOnly = $true
+        $case = & $custodyModule {
+            param($Root,$Parent,$Mode,$Self)
+            $script:CustodyMode=$Mode; $script:InventoryCalls=0; $script:ArtifactCalls=0
+            $script:BuilderCalls=0; $script:BuilderTerminal=$false
+            $script:CreatedId=[guid]::NewGuid().ToString('D')
+            $testRoot=$Root; $parentPath=$Parent; $stateRoot=Join-Path $Root 'state'
+            $runId=[guid]::NewGuid().ToString('D'); $scopeId=[guid]::NewGuid().ToString('D')
+            $runDirectory=Join-Path (Join-Path $stateRoot 'runs') $runId
+            if ($Mode -ne 'ROOT_LINK') {
+                $null=New-Item -ItemType Directory -Path $runDirectory -Force
+                [IO.File]::WriteAllText((Join-Path $runDirectory 'cleanup-plan.json'),'{}')
+            }
+            $module=$Self; $KeepOnFailure=$false
+            $imageArtifact=[pscustomobject]@{artifactId='synthetic-owned-image'}
+            $reconcileImageArtifact=$null; $published=$null; $builder=$null; $reconcileRun=$null
+            $cleanupComplete=$Mode -in @('ROOT_LINK','PARENT_ANCESTOR_LINK','NATIVE_ID_NONCANONICAL')
+            $builderCleanupComplete=$false; $reconcileCleanupComplete=$false
+            $lifecycleCreationStarted=$true; $lifecycleCreationUnreturned=$Mode -eq 'UNRETURNED_LIFECYCLE'
+            $reconcileCreationStarted=$false; $reconcileCreationUnreturned=$false
+            $builderCreationStarted=$false; $builderCreationUnreturned=$false
+            $instance=[pscustomobject]@{VMId=$script:CreatedId;VMName='synthetic-smoke'}
+            $createdVMs=[Collections.Generic.List[object]]::new()
+            if ($Mode -like 'UNRETURNED_*') {
+                $instance=$null
+                if ($Mode -eq 'UNRETURNED_RECONCILE') {
+                    $lifecycleCreationStarted=$false; $reconcileCreationStarted=$true; $reconcileCreationUnreturned=$true
+                }
+                if ($Mode -eq 'UNRETURNED_BUILDER') {
+                    $lifecycleCreationStarted=$false; $builderCreationStarted=$true; $builderCreationUnreturned=$true
+                }
+            }
+            else {
+                Add-HyperVSmokeCreatedVM -Ledger $createdVMs -VMId $instance.VMId -VMName $instance.VMName
+                if ($Mode -eq 'RECONCILE_ERROR') {
+                    $lifecycleCreationStarted=$false; $reconcileCreationStarted=$true
+                    $reconcileRun=[pscustomobject]@{RunId=$runId;ScopeId=$scopeId}
+                }
+                if ($Mode -in @('BUILDER_ERROR','BUILDER_PLAN_READ_ERROR') -or $Mode -like 'PUBLISHED_BUILDER_*') {
+                    $lifecycleCreationStarted=$false; $builderCreationStarted=$true
+                    $builder=[pscustomobject]@{BuildDirectory=$runDirectory;buildId=$runId}
+                    if ($Mode -like 'PUBLISHED_BUILDER_*') {
+                        $published=[pscustomobject]@{Artifact=$imageArtifact}
+                    }
+                }
+            }
+            $artifactCleanupFailures=[Collections.Generic.List[string]]::new()
+            $runtimeCleanupFailures=[Collections.Generic.List[string]]::new()
+            $mutexAcquired=$true
+            $mutex=[pscustomobject]@{Disposed=$false;Released=$false}
+            $mutex | Add-Member -MemberType ScriptMethod -Name Dispose -Value {$this.Disposed=$true}
+            $mutex | Add-Member -MemberType ScriptMethod -Name ReleaseMutex -Value {$this.Released=$true}
+            $primary=$null
+            try { try { throw 'SYNTHETIC_PRIMARY_FAILURE' } finally { & $script:ActualFinalizer } }
+            catch { $primary=$_.Exception.Message }
+            [pscustomobject]@{
+                Primary=$primary;RootPresent=(Test-Path -LiteralPath $Root)
+                ParentPreserved=((Test-Path -LiteralPath $Parent -PathType Leaf) -and
+                    (Get-Item -LiteralPath $Parent).IsReadOnly -and [IO.File]::ReadAllText($Parent) -ceq 'synthetic immutable parent')
+                ArtifactCalls=$script:ArtifactCalls;InventoryCalls=$script:InventoryCalls;MutexDisposed=$mutex.Disposed;MutexReleased=$mutex.Released
+                BuilderCalls=$script:BuilderCalls;BuilderTerminal=$script:BuilderTerminal
+            }
+        } $custodyRoot $custodyParent $mode $custodyModule
+        $success = if ($mode -in @('SUCCESS','PUBLISHED_BUILDER_SUCCESS')) {
+            -not $case.RootPresent -and $case.ArtifactCalls -eq 1 -and $case.InventoryCalls -ge 2
+        } else {
+            $case.RootPresent -and $case.ParentPreserved -and
+                (($mode -eq 'ARTIFACT_ERROR' -and $case.ArtifactCalls -eq 1) -or $case.ArtifactCalls -eq 0)
+        }
+        if ($mode -like 'PUBLISHED_BUILDER_*') {
+            $success = $success -and $case.BuilderCalls -eq 1 -and
+                $case.BuilderTerminal -eq ($mode -eq 'PUBLISHED_BUILDER_SUCCESS')
+        }
+        Add-CheckResult -Name "Echter Smoke-Finalizer bewahrt Primaryfehler und Custody: $mode" -Success (
+            $success -and $case.Primary -ceq 'SYNTHETIC_PRIMARY_FAILURE' -and $case.MutexDisposed -and $case.MutexReleased)
+    }
+    $invalidLedger = & $custodyModule {
+        $ledger=[Collections.Generic.List[object]]::new(); $blocked=0
+        foreach ($id in @('',[guid]::Empty.ToString('D'),('{'+[guid]::NewGuid().ToString('D')+'}'))) {
+            try { Add-HyperVSmokeCreatedVM -Ledger $ledger -VMId $id -VMName 'synthetic-smoke' }
+            catch { if($_.Exception.Message -ceq 'HYPERV_SMOKE_CREATION_BINDING_UNKNOWN'){$blocked++} }
+        }
+        $blocked -eq 3 -and $ledger.Count -eq 0
+    }
+    Add-CheckResult -Name 'Leere, Null-GUID und nichtkanonische Creation-ID erzeugen keine scheinbare Quittung' -Success $invalidLedger
+
     $providerText = Get-Content -LiteralPath (Join-Path $repoRoot 'Providers/HyperV/HyperVProvider.ps1') -Raw -Encoding utf8
     $imageBuilderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVImageBuilder.ps1') -Raw -Encoding utf8
     $sqlBuilderText = Get-Content -LiteralPath (Join-Path $repoRoot 'Private/HyperVSqlImageBuilder.ps1') -Raw -Encoding utf8
@@ -316,6 +502,22 @@ catch {
 finally {
     $env:SQL_SERVER_LAB_DATA_ROOT = $previousDataRoot
     Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
+    foreach ($root in $custodyRoots) {
+        $full=[IO.Path]::GetFullPath($root)
+        $prefix=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')+[IO.Path]::DirectorySeparatorChar
+        if (-not $full.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase) -or
+            (Split-Path -Leaf $full) -cnotmatch '^sql-lab-hyperv-smoke-[a-f0-9]{32}$') { throw 'CUSTODY_FIXTURE_CLEANUP_SCOPE_INVALID' }
+        if (Test-Path -LiteralPath $full) {
+            $item=Get-Item -LiteralPath $full -Force
+            if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                Remove-Item -LiteralPath $full -Force
+            }
+            else {
+                Get-ChildItem -LiteralPath $full -File -Recurse | ForEach-Object { $_.IsReadOnly=$false }
+                Remove-Item -LiteralPath $full -Recurse -Force
+            }
+        }
+    }
     if (Test-Path -LiteralPath $temporaryParent) {
         Remove-Item -LiteralPath $temporaryParent -Recurse -Force -ErrorAction SilentlyContinue
     }

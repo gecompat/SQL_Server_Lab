@@ -432,6 +432,7 @@ function Invoke-LabHyperVResourceMigration {
         throw 'HYPERV_RESOURCE_MIGRATION_TARGET_CHANGED: ResourceRoot'
     }
     $stateRoot = Split-Path -Parent (Split-Path -Parent $runDirectory)
+    Assert-LabWindowsPoolMutationAllowed -RunId ([string]$plan.RunId) -StateRoot $stateRoot -InvalidateEvidence
     foreach ($vmPlan in @($plan.Inventory.VMs)) {
         foreach ($disk in @($vmPlan.LegacyDisks)) {
             $source = [IO.Path]::GetFullPath([string]$disk.SourcePath)
@@ -706,7 +707,7 @@ function Invoke-LabHyperVResourceMigration {
                 $sqlReceipt = $null
                 if ($sqlRequired) {
                     $sqlReceipt = Wait-HyperVGuestSqlReady -VMName ([string]$vmState.VMName) -ExpectedRunId ([string]$plan.RunId) `
-                        -ExpectedScopeId ([string]$plan.ScopeId) -Credential $Credential -SaPassword $SaPassword `
+                        -ExpectedScopeId ([string]$plan.ScopeId) -Credential $Credential -SaPassword $SaPassword -StateRoot $stateRoot `
                         -ExpectedMajorVersion ([int]$managed.Identity.sqlReadiness.majorVersion) -TimeoutSeconds $ReadinessTimeoutSeconds
                 }
                 $journal.ReadinessReceipts += [PSCustomObject]@{

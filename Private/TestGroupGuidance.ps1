@@ -154,7 +154,7 @@ function Invoke-LabTestGroupPowerPlan {
                 if ($member.Change -ne 'NO_OP') {
                     $attempted = $true
                     if ($member.Provider -eq 'hyperv') {
-                        $arguments = @{ VMName=$member.VMName; ExpectedRunId=$member.RunId; ExpectedScopeId=$member.ScopeId; ExpectedVMId=$member.RuntimeId; ExpectedInstanceId=$member.InstanceId }
+                        $arguments = @{ VMName=$member.VMName; ExpectedRunId=$member.RunId; ExpectedScopeId=$member.ScopeId; ExpectedVMId=$member.RuntimeId; ExpectedInstanceId=$member.InstanceId; StateRoot=$StateRoot }
                         if ($PowerAction -eq 'Start') { $null = Start-HyperVInstance @arguments } else { $null = Stop-HyperVInstance @arguments }
                     }
                     elseif ($member.Provider -eq 'docker') {

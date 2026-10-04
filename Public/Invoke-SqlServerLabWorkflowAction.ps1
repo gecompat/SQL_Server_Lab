@@ -20,6 +20,10 @@
     ausser LeaveRunning ist angefordert.
 .PARAMETER BuildId
 Build-ID des vorhandenen Windows- oder SQL-Image-Builds.
+.PARAMETER RunId
+    Exakte Run-ID für PlanWindowsPoolMember; keine Namenssuche oder Adoption.
+.PARAMETER StateRoot
+    Unabhängig ausgewählter StateRoot für Slotreserveinventar und Mitgliedvorschau.
 .PARAMETER ArtifactId
 Kennung eines veröffentlichten Hyper-V-Image-Registry-Eintrags, der nach
 vorheriger Prüfung auf aktive Build-Referenzen entfernt werden soll.
@@ -60,6 +64,15 @@ SQL_Server_Lab-Internal-Switch verwendet.
     Einzelner Provider für die reine Readinessprüfung RefreshSetupProvider; keine Installation oder Startaktion.
 .PARAMETER SlotReservePolicy
     Advisory-Zielbestand für Windows und SQL sowie getrennte Mindestrestlaufzeit und Warnfrist.
+.PARAMETER SlotReserveOperation
+    Explizite Mitgliedaktion Claim, Release, Stop, Refresh, Consume oder Cleanup.
+    PlanWindowsPoolMember hält nur eine Vorschau in derselben Modulsitzung.
+.PARAMETER SlotReserveSqlPlan
+    Vollständiger angezeigter SQL-Ausbauplan für Consume; keine Credentials.
+.PARAMETER SlotReservePreviewId
+    Kurzlebige opaque ID der gehaltenen Mitgliedvorschau für Apply oder Cancel.
+.PARAMETER ConfirmSlotReserveMember
+    Bestätigt genau die gehaltene Mitgliedaktion mit frischer Revalidierung.
 .PARAMETER LlamaSessionOperationId
     Eigene llama.cpp-Operation aus derselben Modulsitzung für PlanLlamaSessionStop.
 .PARAMETER LlamaSessionPlanId
@@ -252,6 +265,7 @@ function Invoke-SqlServerLabWorkflowAction {
             'StartTestGroupPower', 'StopTestGroupPower',
             'GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity',
             'GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve',
+            'PlanWindowsPoolMember', 'ApplyWindowsPoolMember', 'CancelWindowsPoolMember',
             'GetLlamaSessions', 'PlanLlamaSessionStop', 'StopLlamaSession',
             'GetMediaOverrideState', 'PlanMediaOverride', 'ApplyMediaOverride',
             'GetResourceWatchState', 'RefreshResourceWatch',
@@ -269,6 +283,8 @@ function Invoke-SqlServerLabWorkflowAction {
         )]
         [string]$Action,
         [string]$BuildId,
+        [string]$RunId,
+        [string]$StateRoot,
         [string]$ArtifactId,
         [string]$LabName,
         [string]$ManifestPath,
@@ -284,6 +300,10 @@ function Invoke-SqlServerLabWorkflowAction {
         [ValidatePattern('^[a-f0-9-]{36}$')][string]$SetupWriteabilityPlanId,
         [switch]$ConfirmWriteability,
         [object]$SlotReservePolicy,
+        [ValidateSet('Claim','Release','Stop','Refresh','Consume','Cleanup')][string]$SlotReserveOperation='Claim',
+        [object]$SlotReserveSqlPlan,
+        [guid]$SlotReservePreviewId,
+        [switch]$ConfirmSlotReserveMember,
         [ValidatePattern('^[a-f0-9-]{36}$')][string]$LlamaSessionOperationId,
         [ValidatePattern('^[a-f0-9-]{36}$')][string]$LlamaSessionPlanId,
         [switch]$ConfirmLlamaSessionStop,
@@ -383,7 +403,7 @@ function Invoke-SqlServerLabWorkflowAction {
     }
     if ($Action -in @('GetSlotReserveState', 'PlanSlotReserve', 'ApplySlotReserve')) {
         $result = switch ($Action) {
-            'GetSlotReserveState' { Get-LabSlotReserveInventory }
+            'GetSlotReserveState' { Get-LabSlotReserveInventory -StateRoot $StateRoot }
             'PlanSlotReserve' { New-LabSlotReservePlan -Policy $SlotReservePolicy }
             'ApplySlotReserve' {
                 if (-not $ConfirmSlotReserve -or -not $SlotReservePlan) { throw 'SLOT_RESERVE_CONFIRMATION_REQUIRED' }
@@ -394,6 +414,14 @@ function Invoke-SqlServerLabWorkflowAction {
     }
     if ($Action -in @('GetCmsInspectionState','InspectCms')) {
         $result=if($Action -ceq 'GetCmsInspectionState'){Get-LabCmsInspectionState}else{Invoke-LabCmsInspection -ExpectedPlanKey $ExpectedPlanKey}
+        return [pscustomobject]@{Action=$Action;CompletedAt=Get-LabTimestamp;Result=$result}
+    }
+    if($Action -in @('PlanWindowsPoolMember','ApplyWindowsPoolMember','CancelWindowsPoolMember')){
+        $result=switch($Action){
+            PlanWindowsPoolMember {New-LabWindowsPoolMemberPreview -RunId $RunId -Action $SlotReserveOperation -StateRoot $StateRoot -SqlDeploymentPlan $SlotReserveSqlPlan}
+            ApplyWindowsPoolMember {Invoke-LabWindowsPoolMemberPreview -PreviewId $SlotReservePreviewId.ToString() -Confirm:$ConfirmSlotReserveMember}
+            CancelWindowsPoolMember {Invoke-LabWindowsPoolMemberPreview -PreviewId $SlotReservePreviewId.ToString() -Cancel}
+        }
         return [pscustomobject]@{Action=$Action;CompletedAt=Get-LabTimestamp;Result=$result}
     }
     if ($Action -in @('GetInitialSetupState', 'PlanInitialSetup', 'ApplyInitialSetup', 'RefreshSetupProvider', 'PlanSetupWriteability', 'ProbeSetupWriteability', 'RefreshSetupCapacity')) {

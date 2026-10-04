@@ -37,6 +37,12 @@ einmal nach vollständigem Gruppenstopp aus. Bei Teilerfolg, `WhatIf`,
 abgelehnter Bestätigung oder bereits gestopptem Einzelrun erfolgt keine
 Wartung. `Restart-SqlServerLab` erhält den warmen Cache.
 `-SkipHostMemoryRelease` an Einzel- oder Gruppenstop deaktiviert die Prüfung.
+Der gemeinsame Nachprüfhelper akzeptiert die tatsächliche Providerliste.
+Ohne ausdrücklichen Skip liefern leere Listen sowie Listen mit Hyper-V oder
+einem unbekannten Provider `NOT_APPLICABLE` vor jeder Hostmessung oder
+Backendauswahl. Auch gemischte Container-/Nicht-Containerlisten erhalten keine
+WSL-Wartung; reine Docker-/Podmanlisten behalten die Containerprüfung.
+Ein ausdrücklicher Skip liefert unabhängig vom Provider `DISABLED`.
 Hyper-V-VMs werden über ihren bestehenden gebundenen Lifecycle gestoppt;
 die neue Wartung schaltet keine zusätzlichen VMs ab.
 

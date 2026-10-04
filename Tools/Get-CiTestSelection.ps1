@@ -102,6 +102,7 @@ end {
         @{ Pattern = '(?i)(ActionResult|Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-ActionResultChecks.ps1') },
         @{ Pattern = '(?i)(Elevation|Invoke-SqlServerLab\.ps1)'; Checks = @('Invoke-ElevationChecks.ps1') },
         @{ Pattern = '(?i)(WindowsSlotPool|GeneratedWindowsAccess|New-SqlServerLabWindowsSlotPool)'; Checks = @('Invoke-WindowsSlotPoolChecks.ps1','Invoke-HyperVLabEnvironmentChecks.ps1','Invoke-ElevationChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
+        @{ Pattern = '(?i)(WindowsPoolClaim|WindowsPoolNative|windows-pool-member|WINDOWS_POOL_MEMBERSHIP|SlotReserveGuidance|StateMachine|ArtifactResolver|HyperVProvider)'; Checks = @('Invoke-WindowsPoolClaimChecks.ps1','Invoke-WindowsSlotPoolChecks.ps1','Invoke-SlotReserveChecks.ps1','Invoke-SlotReserveMigrationChecks.ps1','Invoke-WorkflowUiChecks.ps1') },
         @{ Pattern = '(?i)(RuntimeStateSync|Sync-SqlServerLabRuntimeState|Get-SqlServerLab\.ps1|Providers[\\/](Docker|Podman)[\\/])'; Checks = @('Invoke-RuntimeStateSyncChecks.ps1','Invoke-MixedProviderLifecycleChecks.ps1') },
         @{ Pattern = '(?i)(Maintenance|UnregisteredTestArtifacts|Invoke-HyperVSmokeTest|Clear-SqlServerLab)'; Checks = @('Invoke-MaintenanceChecks.ps1','Invoke-CleanupAuditChecks.ps1','Invoke-RuntimeStateSyncChecks.ps1') },
         @{ Pattern = '(?i)(MaintenanceGuidance|StateMachine|CleanupAudit|PersistentStorageRecovery|Start-SqlServerLabUi|Ui/app)'; Checks = @('Invoke-MaintenanceGuidanceChecks.ps1') },

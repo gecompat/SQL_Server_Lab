@@ -180,6 +180,10 @@ try {
         $vmArguments.ExpectedInstanceId = 'wrong-instance'
         Reject-Group { Start-HyperVInstance @vmArguments }
         $vmArguments.ExpectedInstanceId = 'primary'
+        $directState=Get-Content $statePath -Raw|ConvertFrom-Json
+        $directState.metadata=@{workflowKind='hyperv-lab'};$directState.providerSubRuns=@(@{provider='hyperv';state='STOPPED'})
+        $directState|ConvertTo-Json -Depth 10|Set-Content $statePath
+        @{instances=@(@{id='primary';provider='hyperv';vmId=$script:groupVm.Id;vmName=$script:groupVm.Name})}|ConvertTo-Json -Depth 10|Set-Content $connectionPath
         $null = Start-HyperVInstance @vmArguments
         Check-Group ($script:groupVm.State -eq 'Running') 'Bound Hyper-V primitive failed'
         $null = Stop-HyperVInstance @vmArguments

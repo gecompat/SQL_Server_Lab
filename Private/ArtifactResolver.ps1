@@ -142,6 +142,16 @@ function Publish-LabArtifactLibraryEntry {
 
 function Write-LabArtifactJsonAtomic {
     [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$Path, [Parameter(Mandatory)]$InputObject)
+    if ([IO.Path]::GetFileName($Path) -ceq 'run-state.json') {
+        Write-LabWindowsPoolRunState -Path $Path -InputObject $InputObject
+        return
+    }
+    Write-LabArtifactJsonAtomicRaw -Path $Path -InputObject $InputObject
+}
+
+function Write-LabArtifactJsonAtomicRaw {
+    [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string]$Path,
         [Parameter(Mandatory)]$InputObject

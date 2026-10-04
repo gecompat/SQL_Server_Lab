@@ -1,4 +1,4 @@
-<# Advisory policy only. No pool claims, provider discovery or provisioning authority. #>
+<# Policy remains advisory. Only bound Windows members expose operational claims. #>
 function ConvertTo-LabSlotReservePolicy {
     [CmdletBinding()]
     param([Parameter(Mandatory)][object]$Policy)
@@ -62,9 +62,9 @@ function Invoke-LabSlotReservePlan {
 
 function Get-LabSlotReserveInventory {
     [CmdletBinding()]
-    param()
+    param([string]$StateRoot)
     $state = Get-LabSlotReserveState
-    $root = Get-LabStateRoot
+    $root = Resolve-LabWindowsPoolRoot -StateRoot $StateRoot
     $now = [datetime]::UtcNow
     $rows = [Collections.Generic.List[object]]::new()
     $runsRoot = Join-Path $root 'runs'
@@ -82,7 +82,9 @@ function Get-LabSlotReserveInventory {
             }
         }
     )
-    foreach ($run in @(Get-LabActiveRuns -StateRoot $root 3>$null | Where-Object { $_.metadata.workflowKind -eq 'hyperv-lab' })) {
+    $runs=@(Get-LabActiveRuns -StateRoot $root 3>$null | Where-Object { $_.metadata.workflowKind -eq 'hyperv-lab' })
+    $runs=@(($runs+@(Get-LabWindowsPoolRuns -StateRoot $root)) | Group-Object runId | ForEach-Object {$_.Group[0]})
+    foreach ($run in $runs) {
         # Read persisted metadata directly: workflow/status helpers may repair state or probe VMs.
         $runId = [string]$run.runId
         $guid = [guid]::Empty
@@ -122,9 +124,36 @@ function Get-LabSlotReserveInventory {
             Allocation=$allocation; WindowsLifetime=$lifetime; WindowsDays=$days; Warning=$warning
             Evidence='PERSISTED_WINDOWS_ACTIVATION_NOT_LIVE'; SqlLifetime=$sqlLifetime; SqlEvidence=$sqlSource; SqlMinimum=$sqlMinimum; VerifiedAvailable=$false })
     }
+    $windowsAvailable=0;$windowsCoverage='COMPLETE'
+    foreach($row in $rows){
+        $run=@($runs | Where-Object runId -eq $row.Reference)[0]
+        $member=$run.metadata.windowsPoolMember
+        $row | Add-Member -NotePropertyName PoolId -NotePropertyValue $(if($member){$member.poolId}else{$null})
+        $row | Add-Member -NotePropertyName MemberState -NotePropertyValue $(if($member){$member.state}else{'UNBOUND'})
+        $row | Add-Member -NotePropertyName ClaimOperationId -NotePropertyValue $(if($member.claim){$member.claim.operationId}else{$null})
+        $row | Add-Member -NotePropertyName CanCleanup -NotePropertyValue $false
+        $row | Add-Member -NotePropertyName CanRelease -NotePropertyValue $false
+        if(-not $member){continue}
+        $row.Allocation=$member.state;$row.Evidence='UNKNOWN'
+        try {
+            $bound=Get-LabWindowsPoolBoundMember -RunId $run.runId -StateRoot $root -RequireOff
+            $fresh=Get-LabWindowsPoolEvidenceStatus -Bound $bound -MinimumDaysRemaining $(if($state.Policy){$state.Policy.MinimumDaysRemaining}else{0}) `
+                -WarningDaysRemaining $(if($state.Policy){$state.Policy.WarningDaysRemaining}else{0})
+            $row.Evidence=$fresh.Status;$row.WindowsLifetime=$fresh.Status;$row.WindowsDays=$fresh.Days;$row.Warning=$fresh.Warning
+            $row.VerifiedAvailable=$fresh.VerifiedAvailable
+            $row.CanRelease=($member.state -in @('CLAIMED','RECOVERY_REQUIRED') -and $member.claim.purpose -ceq 'Claim' -and -not $member.claim.providerMutationStarted)
+            if($fresh.VerifiedAvailable){$windowsAvailable++}
+        } catch {$row.VerifiedAvailable=$false;$windowsCoverage='UNKNOWN'}
+        if($row.Evidence -ceq 'UNKNOWN'){$windowsCoverage='UNKNOWN'}
+        try{$null=Get-LabWindowsPoolCleanupBinding -RunId $run.runId -StateRoot $root;$row.CanCleanup=($member.state -in @('PREPARING','FREE','CLAIMED','RECOVERY_REQUIRED'))}catch{}
+    }
+    $windowsLowerBound=$windowsAvailable
+    if($windowsCoverage -ceq 'UNKNOWN'){$windowsAvailable=$null}
+    $windowsDeficit=if($state.Policy -and $windowsCoverage -ceq 'COMPLETE'){[Math]::Max(0,$state.Policy.WindowsReserve-$windowsAvailable)}else{$null}
     [pscustomobject]@{ Configuration=$state; CandidateCount=$rows.Count; Rows=@($rows); VerifiedAvailable=$null; Deficit=$null
+        WindowsVerifiedAvailable=$windowsAvailable;WindowsDeficit=$windowsDeficit;WindowsCoverage=$windowsCoverage;WindowsVerifiedLowerBound=$windowsLowerBound;SqlVerifiedAvailable=$null;SqlDeficit=$null
         Recommendation=$(if ($state.Policy -and $state.Policy.WindowsReserve -eq 0 -and $state.Policy.SqlReserve -eq 0) { 'NO_RESERVE_REQUESTED' } else { 'VERIFY_MEMBERSHIP_AND_CLAIMS' })
-        Notice='Registrierte Kandidaten, kein vollständiger Hostbestand. Poolzugehörigkeit und freie Reservierbarkeit unbelegt; verfügbare Reserve und Auffüllzahl unbekannt. Keine automatische Auffüllung.' }
+        Notice='Nur gestoppte, freie Windows-Poolmitglieder mit frischer gebundener Gastevidence zählen. SQL-Reserve bleibt unbekannt; keine automatische Auffüllung.' }
 }
 
 function Show-LabSlotReserveInteractive {
@@ -133,9 +162,11 @@ function Show-LabSlotReserveInteractive {
     while ($true) {
         try { $view = (Invoke-SqlServerLabWorkflowAction -Action GetSlotReserveState).Result }
         catch { Write-LabWarning 'Slotreserve konnte nicht gelesen werden. Preferences und State separat prüfen.'; Wait-LabConsoleAcknowledgement; return }
-        $choice = Invoke-LabConsoleMenu -ScreenId 'slot-reserve' -Title 'Slotreserve: Policy und registrierte Kandidaten' -Subtitle "$($view.Configuration.Status) · Kandidaten=$($view.CandidateCount) · Verfügbarkeit/Bedarf unbekannt" -Items @(
+        $availableLabel=if($null -eq $view.WindowsVerifiedAvailable){'unbekannt'}else{[string]$view.WindowsVerifiedAvailable}
+        $choice = Invoke-LabConsoleMenu -ScreenId 'slot-reserve' -Title 'Slotreserve: Policy und Windows-Mitglieder' -Subtitle "$($view.Configuration.Status) · freie Windows-Mitglieder=$availableLabel · SQL-Reserve unbekannt" -Items @(
             New-LabConsoleItem -Id configure -Label 'Advisory-Policy bearbeiten und Vorschau prüfen' -Shortcut 1 -Disabled:($view.Configuration.Status -eq 'INVALID') -DisabledReason 'Ungültige Policy separat prüfen; keine automatische Reparatur.'
             New-LabConsoleItem -Id inventory -Label 'Bestand und Grenzen anzeigen' -Shortcut 2
+            New-LabConsoleItem -Id member -Label 'Windows-Mitglied auswählen: Claim / SQL-Übernahme / Recovery-Cleanup' -Shortcut 3
             New-LabConsoleItem -Id back -Label 'Zurück' -Shortcut 0
         )
         if ($choice.Status -eq 'Refresh') { continue }
@@ -144,6 +175,10 @@ function Show-LabSlotReserveInteractive {
             Write-Host $view.Notice
             Write-Host ($view | ConvertTo-Json -Depth 8)
             Wait-LabConsoleAcknowledgement
+            continue
+        }
+        if($choice.SelectedItem.Id -eq 'member'){
+            Show-LabWindowsPoolMemberInteractive -View $view
             continue
         }
         $policy = @{}; $cancelled=$false
@@ -164,4 +199,44 @@ function Show-LabSlotReserveInteractive {
         } catch { Write-LabWarning 'Policy nicht gespeichert. Eingaben und aktuellen Zustand erneut prüfen.' }
         Wait-LabConsoleAcknowledgement
     }
+}
+
+function Show-LabWindowsPoolMemberInteractive {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)]$View)
+    $members=@($View.Rows | Where-Object PoolId)
+    if(-not $members.Count){Write-LabInfo 'Kein kanonisch gebundenes Windows-Poolmitglied vorhanden.';Wait-LabConsoleAcknowledgement;return}
+    $selection=Invoke-LabConsoleMenu -ScreenId windows-pool-member -Title 'Konkretes Windows-Poolmitglied' -Items @(
+        foreach($member in $members){New-LabConsoleItem -Id $member.Reference -Label ($member.Reference+' · '+$member.MemberState+' · '+$member.Evidence)}
+        New-LabConsoleItem -Id back -Label 'Abbrechen' -Shortcut 0
+    )
+    if($selection.Status -ne 'Selected' -or $selection.SelectedItem.Id -eq 'back'){return}
+    $runId=$selection.SelectedItem.Id
+    $operation=Invoke-LabConsoleMenu -ScreenId windows-pool-operation -Title 'Explizite Mitgliedaktion' -Items @(
+        New-LabConsoleItem -Id Claim -Label 'Freies verifiziertes Mitglied reservieren' -Shortcut 1
+        New-LabConsoleItem -Id Release -Label 'Claim ohne Providermutation freigeben' -Shortcut 2
+        New-LabConsoleItem -Id Consume -Label 'Für SQL-Ausbau übernehmen und Plan speichern' -Shortcut 3
+        New-LabConsoleItem -Id Cleanup -Label 'Dieses eigene Mitglied separat bereinigen' -Shortcut 4
+        New-LabConsoleItem -Id Stop -Label 'Gehaltenes eigenes Mitglied stoppen; Claim bleibt erhalten' -Shortcut 6
+        New-LabConsoleItem -Id Refresh -Label 'Evidence unter eigenem Claim erneuern: Start / Capture / Stop' -Shortcut 5
+        New-LabConsoleItem -Id back -Label 'Abbrechen' -Shortcut 0
+    )
+    if($operation.Status -ne 'Selected' -or $operation.SelectedItem.Id -eq 'back'){return}
+    $arguments=@{Action='PlanWindowsPoolMember';RunId=$runId;SlotReserveOperation=$operation.SelectedItem.Id}
+    if($operation.SelectedItem.Id -ceq 'Consume'){
+        $version=Read-LabConsoleTextInput -Prompt 'SQL-Version (2016/2017/2019/2022/2025)'
+        $media=Read-LabConsoleTextInput -Prompt 'Ausdrücklich ausgewähltes lokales SQL-Medium / Media-ID'
+        if($version.Status -ne 'Confirmed' -or $media.Status -ne 'Confirmed'){return}
+        $arguments.SlotReserveSqlPlan=@{SqlVersion=$version.Value;DeploymentMode='adhoc-install';MediaEdition='Enterprise';SqlMediaPath=$media.Value
+            SqlFeatures=@('SQLENGINE','FULLTEXT','REPLICATION');ProcessorCount=4;MemoryStartupMB=0}
+    }
+    try{
+        $preview=(Invoke-SqlServerLabWorkflowAction @arguments).Result
+        Write-Host ($preview | ConvertTo-Json -Depth 8)
+        if(Read-LabConfirm -Prompt 'Genau diese angezeigte Mitgliedaktion bestätigen und frisch revalidieren?' -Default $false){
+            $result=(Invoke-SqlServerLabWorkflowAction -Action ApplyWindowsPoolMember -SlotReservePreviewId $preview.PreviewId -ConfirmSlotReserveMember).Result
+            Write-Host ($result | ConvertTo-Json -Depth 5)
+        }else{$null=Invoke-SqlServerLabWorkflowAction -Action CancelWindowsPoolMember -SlotReservePreviewId $preview.PreviewId}
+    }catch{Write-LabWarning 'Mitgliedaktion nicht abgeschlossen. Bestand und Recovery-Status erneut lesen.'}
+    Wait-LabConsoleAcknowledgement
 }

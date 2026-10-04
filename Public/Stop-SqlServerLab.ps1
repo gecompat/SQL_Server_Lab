@@ -46,6 +46,8 @@ function Stop-SqlServerLab {
             throw 'TEST_ENVIRONMENT_GROUP_PROTECTED: Einzelnes Stoppen ist für die automatisch gestartete Testgruppe gesperrt.'
         }
         $run = Get-LabRunState -RunId $RunId -StateRoot $stateRoot
+        # Reject reserved members before host policy, runtime probes or no-op.
+        Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $stateRoot
         $ownedHostPolicy = $null
         if ($run.metadata.ownedHostIntegration -or (((Test-Path -LiteralPath (Join-Path $stateRoot 'owned-host-policy.json')) -or (((Test-Path -LiteralPath (Join-Path $stateRoot 'owned-host-required')) -or (Test-Path -LiteralPath (Join-Path $stateRoot 'owned-host-policy.json'))))))) {
             $ownedHostPolicy = Get-LabOwnedHostRunPolicy -RunId $RunId -StateRoot $stateRoot

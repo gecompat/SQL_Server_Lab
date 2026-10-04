@@ -300,6 +300,7 @@ function Invoke-LabHyperVNetworkReconcileRepair {
         [string]$StateRoot
     )
 
+    Assert-LabWindowsPoolMutationAllowed -RunId $RunId -StateRoot $StateRoot -InvalidateEvidence
     $mutex = [Threading.Mutex]::new($false, "Global\SQL_Server_Lab_HyperV_Network_Reconcile_$($RunId.Replace('-', ''))")
     $acquired = $false
     $journal = $null

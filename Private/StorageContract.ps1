@@ -1123,6 +1123,10 @@ function Invoke-LabDataMigration {
 
     $plan = Get-Content -LiteralPath $PlanPath -Raw -Encoding utf8 | ConvertFrom-Json -Depth 20
     if ($plan.ContractVersion -ne 'SqlServerLab.StorageMigrationPlan/1.0' -or -not $plan.ExecutionImplemented -or $plan.Status -ne 'READY') { throw 'LAB_STORAGE_MIGRATION_PLAN_NOT_EXECUTABLE' }
+    Assert-LabWindowsPoolStateRootMigrationAllowed -Plan $plan
+    foreach ($affectedRun in @($plan.AffectedRuns | Where-Object {$null -ne $_})) {
+        Assert-LabWindowsPoolMutationAllowed -RunId ([string]$affectedRun.RunId) -StateRoot ([string]$plan.StateRoot) -InvalidateEvidence
+    }
     $sourceRoot = [IO.Path]::GetFullPath([string]$plan.Source.LabDataRoot).TrimEnd('\','/')
     $targetRoot = [IO.Path]::GetFullPath([string]$plan.Target.LabDataRoot).TrimEnd('\','/')
     $sourcePath = Join-Path (Join-Path $sourceRoot 'Catalog') 'preferences.json'

@@ -3,7 +3,7 @@
 param()
 $ErrorActionPreference='Stop'
 $repoRoot=(Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-foreach($file in @('LabPreferences','ArtifactResolver','StorageFilePlacement','StorageContract')) { . (Join-Path $repoRoot "Private/$file.ps1") }
+foreach($file in @('LabPreferences','ArtifactResolver','StorageFilePlacement','StorageContract','WindowsPoolClaims')) { . (Join-Path $repoRoot "Private/$file.ps1") }
 $originalMigrationCore=${function:Invoke-LabDataMigrationCore}
 function Get-LabTimestamp { [datetime]::UtcNow.ToString('o') }
 $tempParent=[IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\','/')
@@ -16,6 +16,7 @@ $sourcePath=Join-Path $sourceRoot 'Catalog/preferences.json'; $targetPath=Join-P
 $planPath=Join-Path $fixture 'migration-plan.json'
 $script:PreferenceTestPath=$sourcePath
 function Get-LabProjectPreferencesPath { $script:PreferenceTestPath }
+function Get-LabStateRoot {Join-Path $fixture external-state}
 $jobs=@();$count=0
 function Assert-MigrationPreference($condition,$name) { if(-not $condition){throw "ASSERT: $name"};$script:count++ }
 $jobBody={

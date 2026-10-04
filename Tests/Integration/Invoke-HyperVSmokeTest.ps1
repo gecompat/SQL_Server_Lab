@@ -29,13 +29,13 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $modulePath = Join-Path $repoRoot 'SqlServerLab.psd1'
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) "sql-lab-hyperv-smoke-$([guid]::NewGuid().ToString('N'))"
-$runDirectory = Join-Path $testRoot 'run'
 $stateRoot = Join-Path $testRoot 'state'
 $parentPath = Join-Path $testRoot 'synthetic-parent.vhdx'
 $isoPath = Join-Path $testRoot 'synthetic-windows.iso'
 $evidencePath = Join-Path $testRoot 'synthetic-generalization-evidence.json'
 $runId = [guid]::NewGuid().ToString()
 $scopeId = [guid]::NewGuid().ToString()
+$runDirectory = Join-Path (Join-Path $stateRoot 'runs') $runId
 $imageArtifact = $null
 $instance = $null
 $builder = $null
@@ -51,11 +51,134 @@ $module = $null
 $cleanupComplete = $false
 $builderCleanupComplete = $false
 $reconcileCleanupComplete = $false
+$lifecycleCreationStarted = $false
+$lifecycleCreationUnreturned = $false
+$reconcileCreationStarted = $false
+$reconcileCreationUnreturned = $false
+$builderCreationStarted = $false
+$builderCreationUnreturned = $false
+$createdVMs = [Collections.Generic.List[object]]::new()
 $artifactCleanupFailures = [System.Collections.Generic.List[string]]::new()
 $runtimeCleanupFailures = [System.Collections.Generic.List[string]]::new()
 $mutexName = 'Global\SQL_Server_Lab_Runtime_Smoke'
 $mutex = [System.Threading.Mutex]::new($false, $mutexName)
 $mutexAcquired = $false
+
+function Add-HyperVSmokeCreatedVM {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][Collections.Generic.List[object]]$Ledger,
+        [string]$VMId,
+        [string]$VMName
+    )
+    $parsed = [guid]::Empty
+    if (-not [guid]::TryParseExact($VMId, 'D', [ref]$parsed) -or $parsed -eq [guid]::Empty -or
+        [string]::IsNullOrWhiteSpace($VMName)) { throw 'HYPERV_SMOKE_CREATION_BINDING_UNKNOWN' }
+    $Ledger.Add([PSCustomObject]@{ Id = $parsed.ToString('D'); Name = $VMName })
+}
+
+function Assert-HyperVSmokeCreatedVMAbsence {
+    [CmdletBinding()]
+    param([object[]]$CreatedVMs = @())
+        if (@($CreatedVMs).Count) {
+            $inventory = @(Get-VM -ErrorAction Stop)
+            foreach ($entry in $inventory) {
+                $nativeId = [guid]::Empty
+                if (-not [guid]::TryParseExact([string]$entry.Id, 'D', [ref]$nativeId) -or
+                    $nativeId -eq [guid]::Empty -or -not $entry.Name) {
+                    throw 'HYPERV_SMOKE_INVENTORY_UNKNOWN'
+                }
+            }
+            foreach ($created in $CreatedVMs) {
+                $parsed = [guid]::Empty
+                if (-not [guid]::TryParseExact([string]$created.Id, 'D', [ref]$parsed) -or
+                    $parsed -eq [guid]::Empty -or -not $created.Name) {
+                    throw 'HYPERV_SMOKE_CREATION_BINDING_UNKNOWN'
+                }
+                if (@($inventory | Where-Object {
+                    [string]$_.Id -ieq $parsed.ToString('D') -or
+                    [string]$_.Name -ieq [string]$created.Name
+                }).Count) { throw 'HYPERV_SMOKE_VM_ABSENCE_UNCONFIRMED' }
+            }
+        }
+}
+
+function Assert-HyperVSmokeOwnedPaths {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$TestRoot, [Parameter(Mandatory)][string]$ParentPath)
+        $full = [IO.Path]::GetFullPath($TestRoot)
+        $tempPrefix = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+        if (-not $full.StartsWith($tempPrefix, [StringComparison]::OrdinalIgnoreCase) -or
+            (Split-Path -Leaf $full) -cnotmatch '^sql-lab-hyperv-smoke-[a-f0-9]{32}$') {
+            throw 'HYPERV_SMOKE_ROOT_BINDING_INVALID'
+        }
+        $parent = [IO.Path]::GetFullPath($ParentPath)
+        if (-not $parent.StartsWith($full.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar,
+            [StringComparison]::OrdinalIgnoreCase)) { throw 'HYPERV_SMOKE_PARENT_BINDING_INVALID' }
+        # Reject existing links from the volume outward before touching attributes.
+        # These fresh reads do not provide an atomic filesystem lock.
+        foreach ($path in @($full, $parent)) {
+            $driveRoot = [IO.Path]::GetPathRoot($path)
+            $cursor = $driveRoot
+            $segments = [IO.Path]::GetRelativePath($driveRoot, $path).Split(
+                [char[]]@('\', '/'), [StringSplitOptions]::RemoveEmptyEntries)
+            $candidates = @($driveRoot)
+            foreach ($segment in $segments) {
+                $cursor = Join-Path $cursor $segment
+                $candidates += $cursor
+            }
+            foreach ($candidate in $candidates) {
+                if (-not (Test-Path -LiteralPath $candidate -ErrorAction Stop)) { break }
+                $item = Get-Item -LiteralPath $candidate -Force -ErrorAction Stop
+                if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
+                    throw 'HYPERV_SMOKE_REPARSE_PATH_UNSUPPORTED'
+                }
+                if ($candidate -ne $parent -and -not $item.PSIsContainer) {
+                    throw 'HYPERV_SMOKE_ROOT_BINDING_INVALID'
+                }
+                if ($candidate -eq $parent -and $item.PSIsContainer) {
+                    throw 'HYPERV_SMOKE_PARENT_BINDING_INVALID'
+                }
+            }
+        }
+    [pscustomobject]@{TestRoot=$full;ParentPath=$parent}
+}
+
+function Remove-HyperVSmokeOwnedRoot {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$TestRoot,
+        [Parameter(Mandatory)][string]$ParentPath,
+        [bool]$CreationUnreturned,
+        [bool]$RuntimeCleanupConfirmed,
+        [int]$RuntimeCleanupFailureCount,
+        [int]$ArtifactCleanupFailureCount,
+        [object[]]$CreatedVMs = @()
+    )
+    # Keep all custody documents before changing even the own parent's attributes.
+    if ($CreationUnreturned -or -not $RuntimeCleanupConfirmed -or
+        $RuntimeCleanupFailureCount -gt 0 -or $ArtifactCleanupFailureCount -gt 0) {
+        return [pscustomobject]@{ Status = 'RETAINED'; Code = 'HYPERV_SMOKE_CLEANUP_UNCONFIRMED' }
+    }
+    try {
+        Assert-HyperVSmokeCreatedVMAbsence -CreatedVMs $CreatedVMs
+        $paths = Assert-HyperVSmokeOwnedPaths -TestRoot $TestRoot -ParentPath $ParentPath
+        $full = $paths.TestRoot
+        $parent = $paths.ParentPath
+        if (Test-Path -LiteralPath $parent -PathType Leaf -ErrorAction Stop) {
+            (Get-Item -LiteralPath $parent -ErrorAction Stop).IsReadOnly = $false
+        }
+        if (Test-Path -LiteralPath $full -PathType Container -ErrorAction Stop) {
+            Remove-Item -LiteralPath $full -Recurse -Force -ErrorAction Stop
+        }
+        if (Test-Path -LiteralPath $full -ErrorAction Stop) { throw 'HYPERV_SMOKE_ROOT_REMOVAL_UNCONFIRMED' }
+        return [pscustomobject]@{ Status = 'REMOVED'; Code = $null }
+    }
+    catch {
+        # The caller records this alongside the primary failure, without replacing it.
+        return [pscustomobject]@{ Status = 'RETAINED'; Code = 'HYPERV_SMOKE_ROOT_CLEANUP_UNCONFIRMED' }
+    }
+}
 
 function Assert-HyperVSmoke {
     param(
@@ -103,6 +226,8 @@ try {
     Assert-HyperVSmoke -Condition ($imageArtifact.artifactState -eq 'LIFECYCLE_TEST_ONLY') -Description 'Synthetische VHDX wurde als Test-Artifact registriert'
     Assert-HyperVSmoke -Condition ((Get-Item -LiteralPath $imageArtifact.Path).IsReadOnly) -Description 'Registrierte Parent-VHDX ist immutable'
 
+    $lifecycleCreationStarted = $true
+    $lifecycleCreationUnreturned = $true
     $instance = & $module {
         param($RunDirectory, $RunId, $ScopeId, $ArtifactId, $StateRoot)
         $providerSubRuns = @([PSCustomObject]@{ id = 'provider-hyperv'; provider = 'hyperv' })
@@ -110,13 +235,14 @@ try {
             runId = $RunId
             scopeId = $ScopeId
             state = 'RUNNING'
+            metadata = @{ workflowKind = 'hyperv-lifecycle-smoke'; workload = 'windows' }
         })
         $null = New-CleanupPlan `
             -RunDir $RunDirectory `
             -RunId $RunId `
             -ScopeId $ScopeId `
             -ProviderSubRuns $providerSubRuns
-        New-HyperVInstance `
+        $created = New-HyperVInstance `
             -ImageArtifactId $ArtifactId `
             -StateRoot $StateRoot `
             -AllowLifecycleTestArtifact `
@@ -133,7 +259,21 @@ try {
                 [PSCustomObject]@{ id = 'data'; role = 'sqlData'; sizeBytes = 32MB; vhdType = 'dynamic'; guestPath = 'D:\SqlData' },
                 [PSCustomObject]@{ id = 'log'; role = 'sqlLog'; sizeBytes = 32MB; vhdType = 'dynamic'; guestPath = 'L:\SqlLog' }
             )
+        Write-LabArtifactJsonAtomic -Path (Join-Path $RunDirectory 'connection-info.json') -InputObject ([PSCustomObject]@{
+            schemaVersion = 1
+            instances = @([PSCustomObject]@{
+                id = 'lifecycle-smoke'; provider = 'hyperv'; vmName = $created.VMName; vmId = $created.VMId
+                imageArtifactId = $ArtifactId; autostart = 'on'; host = $null; port = $null
+                sqlVersion = $null; sqlEdition = $null
+            })
+        })
+        $created
     } $runDirectory $runId $scopeId $imageArtifact.artifactId $stateRoot
+    if ($instance.Provider -cne 'hyperv' -or $instance.RunId -cne $runId -or $instance.ScopeId -cne $scopeId) {
+        throw 'HYPERV_SMOKE_CREATION_BINDING_UNKNOWN'
+    }
+    Add-HyperVSmokeCreatedVM -Ledger $createdVMs -VMId $instance.VMId -VMName $instance.VMName
+    $lifecycleCreationUnreturned = $false
 
     Assert-HyperVSmoke -Condition ($instance.Provider -eq 'hyperv') -Description 'Providerbindung ist hyperv'
     Assert-HyperVSmoke -Condition (-not $instance.SqlReady) -Description 'Lifecycle-Slice behauptet keine SQL-Bereitschaft'
@@ -169,15 +309,15 @@ try {
     Assert-HyperVSmoke -Condition (@(Get-VMNetworkAdapter -VM $vm).Count -eq 0) -Description 'Smoke-VM besitzt keine Netzwerkverbindung'
 
     $started = & $module {
-        param($VMName, $RunId, $ScopeId)
-        Start-HyperVInstance -VMName $VMName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId
-    } $instance.VMName $runId $scopeId
+        param($VMName, $RunId, $ScopeId, $StateRoot)
+        Start-HyperVInstance -VMName $VMName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId -StateRoot $StateRoot
+    } $instance.VMName $runId $scopeId $stateRoot
     Assert-HyperVSmoke -Condition ($started.State -eq 'Running') -Description 'VM wurde gestartet'
 
     $stopped = & $module {
-        param($VMName, $RunId, $ScopeId)
-        Stop-HyperVInstance -VMName $VMName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId
-    } $instance.VMName $runId $scopeId
+        param($VMName, $RunId, $ScopeId, $StateRoot)
+        Stop-HyperVInstance -VMName $VMName -ExpectedRunId $RunId -ExpectedScopeId $ScopeId -StateRoot $StateRoot
+    } $instance.VMName $runId $scopeId $stateRoot
     Assert-HyperVSmoke -Condition ($stopped.State -eq 'Off') -Description 'VM wurde gestoppt'
 
     $cleanup = & $module {
@@ -185,11 +325,14 @@ try {
         Invoke-CleanupPlan -RunDir $RunDirectory -ScopeId $ScopeId
     } $runDirectory $scopeId
     Assert-HyperVSmoke -Condition ($cleanup.Status -eq 'CLEANUP_SUCCEEDED') -Description 'Scopegebundener Cleanup war erfolgreich'
-    Assert-HyperVSmoke -Condition (-not (Get-VM -Name $instance.VMName -ErrorAction SilentlyContinue)) -Description 'VM wurde entfernt'
+    Assert-HyperVSmoke -Condition (@(Get-VM -ErrorAction Stop | Where-Object {
+        [string]$_.Id -ieq [string]$instance.VMId -or $_.Name -ieq $instance.VMName
+    }).Count -eq 0) -Description 'VM wurde entfernt'
     Assert-HyperVSmoke -Condition (-not (Test-Path -LiteralPath $instance.ChildVhdxPath)) -Description 'Child-VHDX wurde entfernt'
     foreach ($drive in @($instance.AdditionalDrives)) {
         Assert-HyperVSmoke -Condition (-not (Test-Path -LiteralPath $drive.Path)) -Description "Zusatz-VHDX $($drive.Id) wurde entfernt"
     }
+    $cleanupComplete = $true
     Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $parentPath -PathType Leaf) -Description 'Parent-VHDX blieb erhalten'
     Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $imageArtifact.Path -PathType Leaf) -Description 'Registriertes Image-Artifact blieb erhalten'
     $manifestLock = Get-Content -LiteralPath (Join-Path $runDirectory 'manifest.lock.json') -Raw | ConvertFrom-Json -Depth 20
@@ -212,6 +355,8 @@ try {
     } $parentPath $parentHash $stateRoot
     Assert-HyperVSmoke -Condition ($reconcileImageArtifact.artifactState -eq 'OS_SEALED') -Description 'Synthese-OS-Image wurde als OS_SEALED registriert'
 
+    $reconcileCreationStarted = $true
+    $reconcileCreationUnreturned = $true
     $reconcileRun = & $module {
         param($ArtifactId, $StateRoot)
         New-HyperVLabEnvironment `
@@ -223,10 +368,19 @@ try {
             -ProcessorCount 1 `
             -StateRoot $StateRoot
     } $reconcileImageArtifact.artifactId $stateRoot
+    $reconcileConnectionPath = Join-Path (Join-Path (Join-Path $stateRoot 'runs') $reconcileRun.RunId) 'connection-info.json'
+    $reconcileConnection = Get-Content -LiteralPath $reconcileConnectionPath -Raw -ErrorAction Stop | ConvertFrom-Json -Depth 20
+    $reconcileBinding = @($reconcileConnection.instances | Where-Object { $_.provider -ceq 'hyperv' -and $_.id -ceq 'reconcile-smoke' })
+    $reconcileVm = Get-VM -Name $reconcileRun.VMName -ErrorAction Stop
+    if ($reconcileBinding.Count -ne 1 -or $reconcileBinding[0].vmName -cne $reconcileRun.VMName -or
+        [string]$reconcileVm.Id -ine [string]$reconcileBinding[0].vmId) {
+        throw 'HYPERV_SMOKE_CREATION_BINDING_UNKNOWN'
+    }
+    Add-HyperVSmokeCreatedVM -Ledger $createdVMs -VMId ([string]$reconcileVm.Id) -VMName $reconcileRun.VMName
+    $reconcileCreationUnreturned = $false
     Assert-HyperVSmoke -Condition ($reconcileRun.State -eq 'STOPPED') -Description 'Reconcile-Smoke Run wurde bewusst ausgeschaltet erstellt'
     $reconcileIsolationState = & $module { param($RunId,$StateRoot) Get-LabRunState -RunId $RunId -StateRoot $StateRoot } $reconcileRun.RunId $stateRoot
     Assert-HyperVSmoke -Condition ($reconcileIsolationState.metadata.networkIntent -ceq 'isolated' -and -not $reconcileIsolationState.metadata.network) -Description 'Reconcile-Run persistiert isolierten Intent ohne gemeinsames Netzwerkbinding'
-    $reconcileVm = Get-VM -Name $reconcileRun.VMName -ErrorAction Stop
     Assert-HyperVSmoke -Condition (@(Get-VMNetworkAdapter -VM $reconcileVm -ErrorAction Stop).Count -eq 0) -Description 'Reconcile-VM besitzt tatsaechlich keinen Netzwerkadapter'
 
     $reconcileStartPlan = & $module {
@@ -260,6 +414,8 @@ try {
     [System.Text.Encoding]::ASCII.GetBytes('CD001').CopyTo($isoBytes, 32769)
     [System.IO.File]::WriteAllBytes($isoPath, $isoBytes)
     $isoHash = (Get-FileHash -LiteralPath $isoPath -Algorithm SHA256).Hash
+    $builderCreationStarted = $true
+    $builderCreationUnreturned = $true
     $builder = & $module {
         param($IsoPath, $IsoHash, $StateRoot)
         $plan = New-HyperVWindowsImageBuildPlan -IsoPath $IsoPath -ExpectedSha256 $IsoHash `
@@ -267,6 +423,8 @@ try {
             -LicenseType test-only -OsDiskSizeBytes 64MB -StateRoot $StateRoot
         New-HyperVWindowsImageBuilder -BuildId $plan.buildId -MemoryStartupBytes 512MB -ProcessorCount 1 -StateRoot $StateRoot
     } $isoPath $isoHash $stateRoot
+    Add-HyperVSmokeCreatedVM -Ledger $createdVMs -VMId $builder.builder.vmId -VMName $builder.builder.vmName
+    $builderCreationUnreturned = $false
     Assert-HyperVSmoke -Condition ($builder.state -eq 'BUILDER_READY') -Description 'Windows-Image-Builder ist resumierbar bereit'
     $builderDiskPath = & $module {
         param($Build)
@@ -300,12 +458,16 @@ try {
     Assert-HyperVSmoke -Condition ($published.Artifact.artifactState -eq 'LIFECYCLE_TEST_ONLY') -Description 'CI-Build kann nicht zu OS_SEALED eskalieren'
     Assert-HyperVSmoke -Condition (Test-Path -LiteralPath $published.Artifact.Path -PathType Leaf) -Description 'Versiegeltes Test-Artifact liegt immutable in der Registry'
     Assert-HyperVSmoke -Condition ($published.Cleanup.Status -eq 'CLEANUP_SUCCEEDED') -Description 'Image-Builder-Cleanup war erfolgreich'
-    Assert-HyperVSmoke -Condition (-not (Get-VM -Name $builder.builder.vmName -ErrorAction SilentlyContinue)) -Description 'Image-Builder-VM wurde entfernt'
+    Assert-HyperVSmoke -Condition (@(Get-VM -ErrorAction Stop | Where-Object {
+        [string]$_.Id -ieq [string]$builder.builder.vmId -or $_.Name -ieq $builder.builder.vmName
+    }).Count -eq 0) -Description 'Image-Builder-VM wurde entfernt'
     Assert-HyperVSmoke -Condition (-not (Test-Path -LiteralPath $builderDiskPath)) -Description 'Builder-VHDX wurde nach Registry-Publikation entfernt'
-    $builderCleanupComplete = $true
-    $cleanupComplete = $true
+    # Publication confirms physical cleanup, but the published build still owns
+    # its registry reference. The finalizer must close that build through the
+    # bound Remove-HyperVWindowsImageBuild operation before deleting artifacts.
 }
 finally {
+    try {
     if (-not $KeepOnFailure) {
         if ($module -and $reconcileRun -and -not $reconcileCleanupComplete) {
             try {
@@ -313,21 +475,20 @@ finally {
                     param($RunId, $StateRoot)
                     Remove-SqlServerLab -RunId $RunId -StateRoot $StateRoot -Force
                 } $reconcileRun.RunId $stateRoot
-                if ($reconcileRemoval.Status -ne 'REMOVED' -and $reconcileRemoval.Cleanup -ne 'CLEANUP_SUCCEEDED') {
+                if ($reconcileRemoval.Status -ne 'REMOVED' -or $reconcileRemoval.Cleanup -ne 'CLEANUP_SUCCEEDED') {
                     $runtimeCleanupFailures.Add("Reconcile-Run: $($reconcileRemoval.Status)/$($reconcileRemoval.Cleanup)")
                     Write-Warning "Reconcile-Run-Cleanup unvollstaendig: $($reconcileRemoval.Status)/$($reconcileRemoval.Cleanup)"
                 }
+                else { $reconcileCleanupComplete = $true }
             }
             catch {
                 $runtimeCleanupFailures.Add("Reconcile-Run: $($_.Exception.Message)")
                 Write-Warning "Reconcile-Run-Cleanup fehlgeschlagen: $($_.Exception.Message)"
             }
-            finally {
-                $reconcileCleanupComplete = $true
-            }
         }
-        if ($module -and $builder -and (Test-Path -LiteralPath (Join-Path $builder.BuildDirectory 'cleanup-plan.json'))) {
+        if ($module -and $builder -and -not $builderCleanupComplete) {
             try {
+                if (-not (Test-Path -LiteralPath (Join-Path $builder.BuildDirectory 'cleanup-plan.json') -ErrorAction Stop)) { throw 'HYPERV_SMOKE_BUILDER_PLAN_UNCONFIRMED' }
                 $builderRemoval = & $module {
                     param($BuildId, $StateRoot)
                     Remove-HyperVWindowsImageBuild -BuildId $BuildId -StateRoot $StateRoot
@@ -340,16 +501,20 @@ finally {
             }
             catch { $runtimeCleanupFailures.Add("Builder: $($_.Exception.Message)"); Write-Warning "Hyper-V-Builder-Smoke-Cleanup fehlgeschlagen: $($_.Exception.Message)" }
         }
-        if ($module -and -not $cleanupComplete -and (Test-Path -LiteralPath (Join-Path $runDirectory 'cleanup-plan.json'))) {
+        if ($module -and -not $cleanupComplete) {
             try {
+                if (-not (Test-Path -LiteralPath (Join-Path $runDirectory 'cleanup-plan.json') -ErrorAction Stop)) { throw 'HYPERV_SMOKE_LIFECYCLE_PLAN_UNCONFIRMED' }
                 $fallbackCleanup = & $module {
                     param($RunDirectory, $ScopeId)
                     Invoke-CleanupPlan -RunDir $RunDirectory -ScopeId $ScopeId
                 } $runDirectory $scopeId
                 if ([string]$fallbackCleanup.Status -ne 'CLEANUP_SUCCEEDED' -or
-                    ($instance -and (Get-VM -Name ([string]$instance.VMName) -ErrorAction SilentlyContinue))) {
+                    ($instance -and @(Get-VM -ErrorAction Stop | Where-Object {
+                        [string]$_.Id -ieq [string]$instance.VMId -or $_.Name -ieq $instance.VMName
+                    }).Count -gt 0)) {
                     $runtimeCleanupFailures.Add("Lifecycle: $($fallbackCleanup.Status)")
                 }
+                else { $cleanupComplete = $true }
             }
             catch {
                 $runtimeCleanupFailures.Add("Lifecycle: $($_.Exception.Message)")
@@ -357,7 +522,22 @@ finally {
             }
         }
 
-        if ($module) {
+        $creationUnreturned = $lifecycleCreationUnreturned -or $reconcileCreationUnreturned -or $builderCreationUnreturned
+        $runtimeCleanupConfirmed = (-not $lifecycleCreationStarted -or $cleanupComplete) -and
+            (-not $reconcileCreationStarted -or $reconcileCleanupComplete) -and
+            (-not $builderCreationStarted -or $builderCleanupComplete)
+        if (-not $creationUnreturned -and $runtimeCleanupConfirmed -and $runtimeCleanupFailures.Count -eq 0) {
+            try {
+                $null = Assert-HyperVSmokeOwnedPaths -TestRoot $testRoot -ParentPath $parentPath
+                Assert-HyperVSmokeCreatedVMAbsence -CreatedVMs $createdVMs.ToArray()
+            }
+            catch {
+                $runtimeCleanupConfirmed = $false
+                $runtimeCleanupFailures.Add('HYPERV_SMOKE_CLEANUP_PREFLIGHT_UNCONFIRMED')
+                Write-Warning 'HYPERV_SMOKE_CLEANUP_PREFLIGHT_UNCONFIRMED'
+            }
+        }
+        if ($module -and -not $creationUnreturned -and $runtimeCleanupConfirmed -and $runtimeCleanupFailures.Count -eq 0) {
             $artifactIds = @(
                 if ($published -and $published.Artifact) { [string]$published.Artifact.artifactId }
                 if ($reconcileImageArtifact) { [string]$reconcileImageArtifact.artifactId }
@@ -380,25 +560,33 @@ finally {
             }
         }
 
-        if (Test-Path -LiteralPath $parentPath -PathType Leaf) {
-            (Get-Item -LiteralPath $parentPath).IsReadOnly = $false
-        }
-        $safeTempRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
-        $resolvedTestRoot = [System.IO.Path]::GetFullPath($testRoot)
-        if (
-            $resolvedTestRoot.StartsWith($safeTempRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
-            (Split-Path -Leaf $resolvedTestRoot) -like 'sql-lab-hyperv-smoke-*' -and
-            (Test-Path -LiteralPath $resolvedTestRoot -PathType Container)
-        ) {
-            Remove-Item -LiteralPath $resolvedTestRoot -Recurse -Force
+        $rootCleanup = Remove-HyperVSmokeOwnedRoot -TestRoot $testRoot -ParentPath $parentPath `
+            -CreationUnreturned $creationUnreturned -RuntimeCleanupConfirmed $runtimeCleanupConfirmed `
+            -RuntimeCleanupFailureCount $runtimeCleanupFailures.Count -ArtifactCleanupFailureCount $artifactCleanupFailures.Count `
+            -CreatedVMs $createdVMs.ToArray()
+        if ($rootCleanup.Status -ne 'REMOVED') {
+            $runtimeCleanupFailures.Add([string]$rootCleanup.Code)
+            Write-Warning 'HYPERV_SMOKE_CUSTODY_RETAINED: eigene Beweise und Ressourcen brauchen bestaetigten Cleanup.'
         }
     }
 
-    Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue
-    if ($mutexAcquired) {
-        $mutex.ReleaseMutex()
     }
-    $mutex.Dispose()
+    catch {
+        $runtimeCleanupFailures.Add('HYPERV_SMOKE_FINALIZER_UNCONFIRMED')
+        Write-Warning 'HYPERV_SMOKE_FINALIZER_UNCONFIRMED' -WarningAction Continue
+    }
+    finally {
+        try { Remove-Module SqlServerLab -Force -ErrorAction SilentlyContinue }
+        catch { $runtimeCleanupFailures.Add('HYPERV_SMOKE_MODULE_RELEASE_UNCONFIRMED') }
+        try {
+            if ($mutexAcquired) { $mutex.ReleaseMutex() }
+        }
+        catch { $runtimeCleanupFailures.Add('HYPERV_SMOKE_MUTEX_RELEASE_UNCONFIRMED') }
+        finally {
+            try { $mutex.Dispose() }
+            catch { $runtimeCleanupFailures.Add('HYPERV_SMOKE_MUTEX_DISPOSE_UNCONFIRMED') }
+        }
+    }
 }
 
 if (-not $KeepOnFailure -and $artifactCleanupFailures.Count -gt 0) {

@@ -441,6 +441,30 @@ der vollständige Datenbank-/Backup-Test führt zu `TESTS_PASSED`.
 
 ## 10. Aktueller Nachweisstand
 
+Neue Fresh- und Clone-Builder persistieren die native VM-ID unmittelbar nach
+`New-VM`, vor weiteren Einstellungen. Die Instanz `sql-image-<Version>` ist
+zusammen mit Build-ID, Scope, unabhängig ausgewähltem StateRoot, nativen Notes
+und VM-/Disk-ID, typisierter Build-Ressourcenbindung und konkretem Cleanup-Plan
+die Mutationsgrenze. Historische Builds ohne gespeicherte VM-ID bleiben lesbar,
+werden aber nicht durch Namenadoption für Start, Stop, Publikation oder Cleanup
+freigegeben. Ein Persistenzfehler verlangt Recovery. Bestätigte VM-Abwesenheit
+ist von Query-/Berechtigungsfehlern getrennt; Disk-Cleanup prüft zusätzlich
+fremde Attachments und AVHDX-Abhängigkeiten. Run- und Pool-Schutz bleiben vorrangig.
+OOBE, SQL-Setup, Generalisierung und Abnahme prüfen diese Autorität auch vor
+Gastmutationen und Secret-Zugriffen. Offline-Mount und Konvertierung verlangen
+zusätzlich die konkrete eigene Disk, eine bestätigte eigene VM im Zustand
+`Off` oder bestätigte VM-Abwesenheit sowie freie native Mount-/Attachment- und
+AVHDX-Grenzen. Eine fehlgeschlagene VM-Abfrage erlaubt keinen Offline-Fallback.
+Auch eine bereits vorhandene Flattened-VHDX benötigt vor ReadOnly-Seal und
+Import ihren exakten typisierten Storage- und CleanupPlan-Eintrag sowie frische
+Attachment- und AVHDX-Prüfungen. Gastaufrufe und Readiness-Initialisierung behalten
+die native VM-ID bei gesetzter Fallback-Adresse; vor jedem Versuch wird die
+Build-Autorität erneut geprüft. WinRM benötigt zusätzlich die gespeicherte
+Labnetzadresse am nativen Adapter genau dieser VM.
+Die neue Autoritätskomposition ist synthetisch gegen Produktionspfade geprüft;
+der folgende frühere reale Referenzlauf ist kein neuer nativer Nachweis dieser
+Guardänderung.
+
 Der Host-Lifecycle, Medienresolver, resumierbare Receipts, Secret-Freiheit,
 Publikation nach VHDX-Konvertierung und Menüpfad sind automatisiert getestet.
 Der reale Referenzlauf für Windows Server 2025 Standard Evaluation (Desktop
