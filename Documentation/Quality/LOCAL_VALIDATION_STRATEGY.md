@@ -1,5 +1,25 @@
 # Lokale Validierungsstrategie
 
+## Reine Container-Portvorschau
+
+`Fixtures/ContainerPortPreviewChecks.ps1` wird von der bestehenden
+`Invoke-ContainerReconcileChecks.ps1` in einem eigenen No-Profile-Prozess
+ausgeführt. Sie verwendet die tatsächliche öffentliche Funktion, den neuen
+Core, den registrierungsgebundenen Diagnostic-Reader und den bestehenden
+Containercontext mit einem synthetischen Inspect-Werkzeug. Gültige Docker-/
+Podman-Fälle lesen genau ein Inspect; Topologie-, Identitäts-, Scope-,
+Mount-, unbekannte Limit- und Journalfälle bleiben failclosed. Bytevergleiche
+des eigenen synthetischen States und verbotene Effektspies prüfen NoWrite,
+kein SQL-/Secret-/Listenerzugriff und keine Recovery. Privacycanaries prüfen
+den host- und portwertfreien DTO; Wiederholung und Zieländerung prüfen die
+Inhaltsbindung des nicht ausführbaren `ObservationKey`. Die generische
+CLI-Katalogsuite prüft den neuen nativen Parametersatz und Portbereich.
+Diese synthetischen Prüfungen bestätigen weder native Inspectformen noch
+Portverfügbarkeit, Reservierung, Apply, Datenerhalt oder native Recovery.
+Die tatsächliche betroffene Selektion und ihr einmaliger stabiler Abschluss
+werden separat lokal gebunden; ausgewählte Docker-/Podman-Gates bleiben bis
+zu ihrer eigenen Ausführung `NOT_EXECUTED`.
+
 ## Gemeinsame Browserkomposition
 
 `Invoke-ReviewedBrowserCompositionChecks.ps1` führt die fünf dedizierten Routen

@@ -1,5 +1,27 @@
 # SQL_Server_Lab – Getting Started
 
+## SQL-Hostport nur vorprüfen
+
+Im generischen CLI-Befehlszugang den Parametersatz `ContainerPortPreview` von
+`Get-SqlServerLabReconcilePlan` wählen und den registrierten StateRoot, Run,
+die Instanz sowie den gewünschten Port angeben:
+
+```powershell
+Get-SqlServerLabReconcilePlan -RunId $runId -InstanceId primary -ContainerPortPreview -Port 15433 -StateRoot $stateRoot
+```
+
+Die Vorschau liest genau ein Inspect der gebundenen Docker-/Podman-Instanz.
+Das Ergebnis zeigt „gleicher Port“ oder „anderer Port“ ohne Portnummern,
+native IDs oder Pfade. `PLAN_ONLY`, leere `Actions` und `CanApply=false`
+erlauben keine Ausführung. `ObservationKey` bindet nur beobachtete Inhalte.
+Es werden weder Ports reserviert noch gesonderte SQL-, Secret- oder
+Sicherungszugriffe ausgeführt. Die private Inspect-Antwort bleibt intern;
+auch ihr Konfigurationsinhalt fließt nur in den undurchsichtigen Inhaltskey.
+Endpoint bleibt `NOT_CHECKED`. Unbekannte oder zusätzliche Port-/Netztopologie,
+ungeeignete Mounts, ein offenes Journal und nicht laufende Runs blockieren die
+unterstützte Vorschau. Eigene geführte CLI-/Browserdialoge und Apply folgen
+separat; der bestehende Container-Reconcile wird dadurch nicht erweitert.
+
 ## Collations vor einer Lab-Erstellung ansehen
 
 Im Browser **Lab erstellen → Collations suchen** öffnen, SQL-Version und

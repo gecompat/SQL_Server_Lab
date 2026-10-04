@@ -10,6 +10,9 @@ try {
     $exports=@($manifest.FunctionsToExport|Sort-Object -Unique)
     $evidence=& $module {
         $catalog=@(Get-LabPublicCommandConsoleCatalog)
+        $portCommand=$catalog|Where-Object Name -eq 'Get-SqlServerLabReconcilePlan'
+        $portSet=$portCommand.ParameterSets|Where-Object Name -eq 'ContainerPortPreview'
+        $portDescriptors=@(Get-LabPublicCommandParameterDescriptor -Command $portCommand.Command -ParameterSet $portSet.Metadata)
         $selection=$catalog|Where-Object Name -eq 'Get-SqlServerLabAiComputeSelection'
         $auto=$selection.ParameterSets|Where-Object Name -eq 'Auto'
         $pinned=$selection.ParameterSets|Where-Object Name -eq 'Pinned'
@@ -23,6 +26,9 @@ try {
         try { Invoke-LabPublicCommandWebRequest -CommandName 'Invoke-NotExported' -ParameterSetName 'Default' -Parameters @{} -Confirmed } catch { $unknownError=$_.Exception.Message }
         $credential=ConvertFrom-LabPublicCommandWebValue -Value ([pscustomobject]@{userName='lab-user';password='temporary-value'}) -TargetType ([Management.Automation.PSCredential])
         [pscustomobject]@{
+            PortMandatory=@($portSet.MandatoryNames)
+            PortDescriptorNames=@($portDescriptors.Name)
+            PortRange=($portDescriptors|Where-Object Name -eq 'Port').AllowedValues
             Names=@($catalog.Name)
             DuplicateNames=@($catalog|Group-Object Name|Where-Object Count -gt 1|ForEach-Object Name)
             EmptyParameterSets=@($catalog|Where-Object {$_.ParameterSets.Count -eq 0}|ForEach-Object Name)
@@ -47,6 +53,11 @@ try {
         }
     }
     $expectedCatalog=@($exports|Where-Object {$_ -ne 'Invoke-SqlServerLab'})
+    Add-CheckResult 'Port-PLAN_ONLY erscheint als getrennter nativer Parametersatz im generischen Konsolenkatalog' (
+        (@($evidence.PortMandatory|Sort-Object) -join '|') -ceq 'ContainerPortPreview|InstanceId|Port|RunId' -and
+        'StateRoot' -in $evidence.PortDescriptorNames -and 'Cpu' -notin $evidence.PortDescriptorNames -and
+        'TargetState' -notin $evidence.PortDescriptorNames -and $evidence.PortRange -match '1024' -and $evidence.PortRange -match '65535'
+    )
     Add-CheckResult 'Jeder Modulexport erscheint exakt einmal im vollständigen Konsolenkatalog' (
         @($expectedCatalog|Where-Object {$_ -notin $evidence.Names}).Count -eq 0 -and
         @($evidence.Names|Where-Object {$_ -notin $expectedCatalog}).Count -eq 0 -and

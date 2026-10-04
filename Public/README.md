@@ -180,6 +180,21 @@ Vertrag. Vollständiger CORE-102 und Native-Abnahmen bleiben offen.
 
 `Test-SqlServerLabPrerequisite` ist öffentlich exportiert, obwohl seine Definition im internen Resource-Assessment-Baustein liegt. Der Ablageort allein bestimmt nicht die Sichtbarkeit; maßgeblich ist `FunctionsToExport` im Modulmanifest.
 
+## Container-Portvorschau ohne Apply
+
+`Get-SqlServerLabReconcilePlan -ContainerPortPreview -RunId $runId -InstanceId primary -Port 15433 -StateRoot $stateRoot`
+liest eine moderne registrierte Docker-/Podman-Instanz mit einem aktuellen
+Inspect. Der getrennte Parametersatz ist über den generischen Befehlszugang
+erreichbar. Er zeigt nur Portkategorien und eine Inhaltsbindung als
+`ObservationKey`; tatsächliche Portnummern, native IDs und Pfade erscheinen
+nicht im Ergebnis. `CanApply` bleibt `false`, `Actions` bleiben leer. Ein
+passender Istport ist `no-op`; unbekannte Bindungen, zusätzliche Port-/
+Netztopologie, ungeeignete Mounts und nicht laufende Runs blockieren die
+unterstützte Vorschau. Endpoint, SQL, Sicherung und Volumeeigentum bleiben
+`NOT_CHECKED`. Es gibt keine Portreservierung, Journalreparatur oder Mutation.
+Eigene geführte CLI-/Browserdialoge und gebundenes Port-Apply sind separate
+Folgeschritte. Der bestehende `-Container`-Parametersatz bleibt unverändert.
+
 ## Hilfe, Discovery und Modulzuordnung
 
 PowerShell stellt die öffentliche API über die Standardmechanismen bereit:

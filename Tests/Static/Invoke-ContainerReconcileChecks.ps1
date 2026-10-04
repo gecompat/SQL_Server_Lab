@@ -167,5 +167,9 @@ $mountFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerRecreateMountChecks.p
 & (Get-Process -Id $PID).Path -NoProfile -File $mountFixture
 Add-CheckResult -Name 'Actual recreate executor rejects unsupported or incomplete mounts before a new journal' -Success ($LASTEXITCODE -eq 0)
 
+$portFixture = Join-Path $PSScriptRoot 'Fixtures/ContainerPortPreviewChecks.ps1'
+& (Get-Process -Id $PID).Path -NoProfile -File $portFixture
+Add-CheckResult -Name 'Actual public port preview remains measured, privacy-safe and never executable' -Success ($LASTEXITCODE -eq 0)
+
 Write-Host ''; Write-Host "Ergebnis: $passed PASS, $($failures.Count) FAIL" -ForegroundColor Cyan
 if ($failures.Count) { exit 1 }; exit 0
