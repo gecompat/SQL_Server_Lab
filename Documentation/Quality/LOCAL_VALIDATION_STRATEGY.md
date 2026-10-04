@@ -258,6 +258,25 @@ manuelle Hyper-V-Modi sind nicht durch diese Privacyhärtung abgedeckt.
 CI-Selektion, Zeitgrenzen, Mutex und bestehende Cleanupaufrufe bleiben erhalten;
 fehlende native Nachweise werden durch die Offline-Fixtures nicht ersetzt.
 
+Der Hyper-V-Lifecycle-Smoke verwendet den kanonischen Pfad
+`StateRoot/runs/RunId` und persistiert die vom Provider zurückgegebene VM-ID
+in der Connectioninfo vor Start oder Stop. Lifecycle, Reconcile und Imagebuild
+führen getrennte Erstellungs- und Cleanupnachweise. Eine begonnene Erstellung
+ohne bestätigte Rückgabe, ein unbekanntes natives Inventar oder ein fehlender
+Cleanupnachweis bewahrt das eigene Custody-Verzeichnis einschließlich Parent.
+Artefakt- und Rootcleanup verlangen bestätigte Runtime-Abwesenheit; Pfade werden
+vor der Entfernung erneut auf eigene Tempgrenzen und Reparsepunkte geprüft.
+Diese Prüfungen sind keine atomare Dateisystem-/Runtime-Transaktion.
+
+`Invoke-HyperVResourceBindingChecks.ps1` führt den tatsächlichen Finally-Block
+mit injizierten Fehlern aus: unbestätigte Erstellung in allen drei Scopes,
+Cleanup- und Inventarfehler, umbenannte VM, wiederverwendeter Name, ungültige
+Native-ID, Artefaktfehler und echte eigene Junction-/Symlink-Fixtures. Die
+ursprüngliche Ausnahme und Mutexfreigabe werden geprüft. Diese statischen
+Fixtures ersetzen keinen nativen Hyper-V-Smoke. Die Slotpool-Fixture stellt
+ihre temporären Plattform- und Rootprüfungsbindungen vollständig wieder her;
+unter Unix bleibt die echte portable Rootprüfung aktiv. SQL-Medienpfade werden
+mit dem Separator der tatsächlichen Plattform begrenzt.
 ## SQL Server 2025 External Languages auf cgroup v2
 
 Die expliziten `shared-user-v2`-Varianten besitzen getrennte native

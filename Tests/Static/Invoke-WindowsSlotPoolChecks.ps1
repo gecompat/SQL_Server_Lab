@@ -41,12 +41,36 @@ try {
         $explicitCoreArtifact.artifactId -eq ('hyperv-os-sealed-' + ('c' * 64)) -and
         $explicitCoreArtifact.operatingSystem.installationType -eq 'core')
 
+    $fixtureControlBefore = & $module {
+        $flag = Get-Variable -Name IsWindows -Scope Script -ErrorAction SilentlyContinue
+        [pscustomobject]@{HasFlag=($null -ne $flag);FlagValue=$(if($flag){$flag.Value}else{$null})
+            RootSupport=${function:Assert-LabWindowsPoolRootSupport}.ToString()}
+    }
     $fixture=Join-Path (Join-Path $repoRoot '.artifacts/windows-slot-pool-checks') ([guid]::NewGuid().ToString('N'))
     $behavior = & $module {
         param($StateRoot)
         $originalIsWindows = Get-Variable -Name IsWindows -Scope Script -ErrorAction SilentlyContinue
+        $originalIsWindowsValue = if ($originalIsWindows) { [bool]$originalIsWindows.Value } else { $null }
+        $actualIsWindows = [OperatingSystem]::IsWindows()
+        $originalPoolRootSupport = ${function:Assert-LabWindowsPoolRootSupport}
         Set-Variable -Name IsWindows -Scope Script -Value $true -Force
         try {
+        if (-not $actualIsWindows) {
+            # Windows product behavior is synthetic here; retain the actual host's
+            # real lexical root checks without invoking Win32 APIs on Unix.
+            function Assert-LabWindowsPoolRootSupport {
+                [CmdletBinding()]
+                param([string]$StateRoot)
+                $syntheticIsWindowsValue = [bool]$script:IsWindows
+                try {
+                    Set-Variable -Name IsWindows -Scope Script -Value $actualIsWindows -Force
+                    & $originalPoolRootSupport -StateRoot $StateRoot
+                }
+                finally {
+                    Set-Variable -Name IsWindows -Scope Script -Value $syntheticIsWindowsValue -Force
+                }
+            }
+        }
         $script:poolLabs = @{}
         $script:createCalls = [Collections.Generic.List[object]]::new()
         $script:provisionCalls = [Collections.Generic.List[object]]::new()
@@ -163,8 +187,9 @@ try {
         }
         }
         finally {
+            Set-Item -Path Function:Assert-LabWindowsPoolRootSupport -Value $originalPoolRootSupport
             if ($originalIsWindows) {
-                Set-Variable -Name IsWindows -Scope Script -Value ([bool]$originalIsWindows.Value) -Force
+                Set-Variable -Name IsWindows -Scope Script -Value $originalIsWindowsValue -Force
             }
             else {
                 Remove-Variable -Name IsWindows -Scope Script -Force -ErrorAction SilentlyContinue
@@ -172,6 +197,13 @@ try {
         }
     } $fixture
 
+    $fixtureControlAfter = & $module {
+        $flag = Get-Variable -Name IsWindows -Scope Script -ErrorAction SilentlyContinue
+        [pscustomobject]@{HasFlag=($null -ne $flag);FlagValue=$(if($flag){$flag.Value}else{$null})
+            RootSupport=${function:Assert-LabWindowsPoolRootSupport}.ToString()}
+    }
+    Add-CheckResult -Name 'Synthetische Windows-Fixture stellt Hostflag und echte Rootpruefung vollstaendig wieder her' -Success (
+        ($fixtureControlBefore | ConvertTo-Json -Compress) -ceq ($fixtureControlAfter | ConvertTo-Json -Compress))
     Add-CheckResult -Name 'Leere optionale ArtifactId loest die automatische Baseline-Auswahl aus; eine explizit ungueltige ID bleibt abgewiesen' -Success (
         $behavior.Result.ArtifactId -eq ("hyperv-os-sealed-" + ('a' * 64)) -and $behavior.InvalidExplicitArtifactRejected)
     Add-CheckResult -Name 'Resume bindet dieselbe Pool-ID, überspringt frische gestoppte Mitglieder und adoptiert keine Namen' -Success ($behavior.ActivationChecks.Count -eq 4 -and @($behavior.ActivationChecks | Where-Object { $_ -match ':AllowTemporary$' }).Count -eq 2 -and @($behavior.Reuse.Slots).Count -eq 2 -and $behavior.LegacyRejected -and $behavior.Creates.Count -eq 2 -and $behavior.Provisions.Count -eq 2)

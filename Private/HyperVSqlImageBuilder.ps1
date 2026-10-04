@@ -382,7 +382,7 @@ function Resolve-HyperVSqlInstallationMedia {
         $candidatePath = Join-Path $resolvedRoot ($SqlMediaPath.Replace('/', '\'))
         $iso = Get-Item -LiteralPath $candidatePath -ErrorAction Stop
         $sqlRoot = (Resolve-Path -LiteralPath (Join-Path $resolvedRoot 'SQL') -ErrorAction Stop).Path
-        $sqlRootPrefix = $sqlRoot.TrimEnd('\') + '\'
+        $sqlRootPrefix = $sqlRoot.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
         if ($iso.Extension -ine '.iso' -or -not $iso.FullName.StartsWith($sqlRootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) { throw 'HYPERV_SQL_MEDIA_PATH_INVALID' }
         $detected = Get-HyperVSqlInstallationMediaInfo -IsoPath $iso.FullName
         if ($detected.SqlVersion -ne $SqlVersion) { throw "HYPERV_SQL_MEDIA_VERSION_MISMATCH: erwartet SQL $SqlVersion; erkannt $($detected.SqlVersion)" }
