@@ -34,13 +34,35 @@ $script:resourceContext = [pscustomobject]@{
         NetworkSettings=[pscustomobject]@{Ports=@{'1433/tcp'=@(@{HostIp='127.0.0.1';HostPort='14333'})}}
     }
 }
-function Get-LabContainerReconcileContext { param($RunId,$InstanceId,$StateRoot) $script:resourceContext }
+$script:resourceReads=0
+function Get-LabContainerReconcileContext { param($RunId,$InstanceId,$StateRoot) $script:resourceReads++; $script:resourceContext }
 $script:repairCalls=0
 function Repair-LabContainerReconcileJournal { param($Context) $script:repairCalls++; throw 'Unexpected repair' }
 function Assert-ResourceFailure { param([scriptblock]$Action,[string]$Pattern) try { & $Action; throw 'Expected failure missing' } catch { if ($_.Exception.Message -notmatch $Pattern) { throw } } }
 $argsPlan=@{RunId=$runId; InstanceId='primary'; Provider='docker'; StateRoot=$testRoot}
 $plan=Get-LabResourceChangePlan @argsPlan
 if (-not $plan.NoChange -or $plan.Actual.Cpu -ne 2 -or $plan.Actual.MemoryMB -ne 2048) { throw 'Measured no-op plan invalid' }
+if($plan.Preview.Mounts.Status -ne 'UNKNOWN' -or $null -ne $plan.Preview.Mounts.TotalMountCount){throw 'Missing guided mounts guessed as empty'}
+$script:resourceContext.Inspect | Add-Member -NotePropertyName Mounts -NotePropertyValue @(
+    [pscustomobject]@{Type='volume';RW=$true;Name='synthetic-private-volume';Destination='/synthetic/private/data'},
+    [pscustomobject]@{Type='bind';RW=$true;Source='/synthetic/private/host';Destination='/synthetic/private/bind'},
+    [pscustomobject]@{Type='tmpfs';RW=$false}
+) -Force
+$readsBefore=$script:resourceReads
+$mountPlan=Get-LabResourceChangePlan @argsPlan
+if($script:resourceReads -ne $readsBefore+1 -or $mountPlan.PlanKey -ne $plan.PlanKey -or
+    $mountPlan.Preview.Mounts.Status -ne 'MEASURED' -or $mountPlan.Preview.Mounts.TotalMountCount -ne 3 -or
+    $mountPlan.Preview.Mounts.VolumeMountCount -ne 1 -or $mountPlan.Preview.Mounts.HostBindCount -ne 1 -or
+    $mountPlan.Preview.Mounts.WritableHostBindCount -ne 1 -or $mountPlan.Preview.Mounts.OtherMountCount -ne 1 -or
+    $mountPlan.Preview.Mounts.VolumeOwnership -ne 'NOT_CHECKED'){throw 'Guided mount projection changed binding or repeated context read'}
+if(($mountPlan.Preview | ConvertTo-Json -Depth 8) -match 'synthetic-private|/synthetic/private'){throw 'Guided mount preview leaked private inspect'}
+$script:resourceContext.Inspect.Mounts=@()
+$emptyMountPlan=Get-LabResourceChangePlan @argsPlan
+if($emptyMountPlan.Preview.Mounts.Status -ne 'MEASURED' -or $emptyMountPlan.Preview.Mounts.TotalMountCount -ne 0){throw 'Explicit empty guided mounts not measured'}
+$script:resourceContext.Inspect.Mounts=[pscustomobject]@{Type='bind';RW=$true}
+$invalidMountPlan=Get-LabResourceChangePlan @argsPlan
+if($invalidMountPlan.Preview.Mounts.Status -ne 'UNKNOWN' -or $null -ne $invalidMountPlan.Preview.Mounts.TotalMountCount){throw 'Scalar guided mounts counted'}
+$script:resourceContext.Inspect.PSObject.Properties.Remove('Mounts')
 $result=Update-SqlServerLabContainer -RunId $runId -InstanceId primary -StateRoot $testRoot -Cpu 2 -MemoryMB 2048 -ExpectedResourcePlanKey $plan.PlanKey -Confirm:$false
 if ($result.Changed -or $script:repairCalls) { throw 'No-op reached executor/recovery' }
 Assert-ResourceFailure { Update-SqlServerLabContainer -RunId $runId -InstanceId primary -StateRoot $testRoot -Cpu 2 -MemoryMB 2048 -Port 14334 -ExpectedResourcePlanKey $plan.PlanKey -Confirm:$false } 'ARGUMENTS_INVALID'
@@ -170,4 +192,5 @@ $hypervConnection=[pscustomobject]@{instances=@([pscustomobject]@{id='vm';provid
 Write-LabArtifactJsonAtomic -Path (Join-Path $runDirectory 'connection-info.json') -InputObject $hypervConnection
 $hypervPlan=Get-LabResourceChangePlan -RunId $runId -InstanceId vm -Provider hyperv -Cpu 8 -MemoryMB 8192 -StateRoot $testRoot
 if($hypervPlan.CanApply -or $hypervPlan.ChangeClass -ne 'unsupported' -or $hypervPlan.Actual.Cpu -ne 6 -or $hypervPlan.Desired.Cpu -ne 8 -or $script:vm.MemoryStartup -ne 6GB){throw 'Hyper-V preview mutated or claimed Apply'}
-Write-Host 'Resource guidance checks: 37 PASS, 0 FAIL'
+if($null -ne $hypervPlan.Preview.Mounts){throw 'Hyper-V guessed container mount evidence'}
+Write-Host 'Resource guidance checks: 43 PASS, 0 FAIL'

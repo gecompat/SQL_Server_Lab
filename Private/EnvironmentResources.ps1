@@ -26,7 +26,7 @@ function Get-LabResourceChangePlan {
     Assert-LabResourceChangeAllowed -RunId $RunId -StateRoot $environment.StateRoot
     $targets = @($environment.Connection.instances | Where-Object { [string]$_.id -eq $InstanceId -and [string]$_.provider -eq $Provider })
     if ($targets.Count -ne 1) { throw 'RESOURCE_CHANGE_TARGET_MISMATCH' }
-    $actualCpu = $null; $actualMemory = $null; $reason = ''; $binding = $null
+    $actualCpu = $null; $actualMemory = $null; $reason = ''; $binding = $null; $mountPreview = $null
     if ($Provider -eq 'hyperv') {
         $managed = Get-HyperVManagedVM -VMName ([string]$targets[0].vmName) -ExpectedRunId $RunId -ExpectedScopeId ([string]$environment.Run.scopeId)
         if (-not $managed -or [string]$managed.VM.Id -ne [string]$targets[0].vmId) { throw 'RESOURCE_CHANGE_TARGET_MISMATCH' }
@@ -41,6 +41,7 @@ function Get-LabResourceChangePlan {
             [string]$subRuns[0].state -notin @('RUNNING','STOPPED')) { throw 'RESOURCE_CHANGE_LIFECYCLE_BLOCKED' }
         if ([string]$context.Provider -ne $Provider -or -not $context.ContainerId -or
             [string]$context.Inspect.Config.Labels.'sql-server-lab.instance-id' -ne $InstanceId) { throw 'RESOURCE_CHANGE_TARGET_MISMATCH' }
+        $mountPreview = Get-LabContainerMountPreview -Inspect $context.Inspect
         # Never substitute stored or reconcile fallback limits for measured values.
         $bytes = [long]$context.Inspect.HostConfig.Memory
         if ($bytes -gt 0 -and $bytes % 1MB -eq 0) { $actualMemory = [int]($bytes / 1MB) }
@@ -80,6 +81,7 @@ function Get-LabResourceChangePlan {
         RunId=$RunId; InstanceId=$InstanceId; Provider=$Provider
         Actual=[pscustomobject]@{ Cpu=$actualCpu; MemoryMB=$actualMemory }
         Desired=[pscustomobject]@{ Cpu=$desiredCpu; MemoryMB=$desiredMemory }
+        Preview=[pscustomobject]@{ Mounts=$mountPreview }
         NoChange=$noOp; ChangeClass=$(if ($noOp) {'no-op'} elseif ($reason) {'unsupported'} else {'live'})
         CanApply=([string]::IsNullOrEmpty($reason)); Reason=$reason; PlanKey=$key
         NextStep=$(if ($reason) {$reason} elseif ($noOp) {'Keine Änderung erforderlich.'} elseif (-not $context.WasRunning) {'Limits für den nächsten Start ändern; kein Start, keine Port-, Autostart- oder SQL-Speicheränderung.'} else {'CPU/RAM live ändern; kein Neustart, keine Port-, Autostart- oder SQL-Speicheränderung.'})
